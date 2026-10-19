@@ -41,13 +41,13 @@ import {
   MARKUP_COLORS,
   MARKUP_SHAPES,
   MARKUP_TEXT_SIZE,
+  markFrames,
   MARKUP_WIDTHS,
   add,
   finishDrag,
   forget,
   fromGesture,
   handles,
-  markupPlacement,
   move,
   normalizedRect,
   pickElement,
@@ -75,10 +75,12 @@ import {
 import { stagePose } from '../../model/stage-framing.ts';
 import { isPlaced, type Rect } from '../../model/stage-pose.ts';
 import {
+  VIDEO_ANNOTATION_NEAR_MS,
   videoAnnotationElementLabel,
   videoAnnotationErrorText,
   type DraftVideoAnnotation,
   type Point,
+  type Size,
 } from '../../model/video-annotations.ts';
 import { readCaptions } from '../../render/captions.ts';
 import { stageLayers } from '../../render/frame-plan.ts';
@@ -97,8 +99,10 @@ import { openVideoDraftKey } from './video-chat-draft.ts';
 /*
  * 标记层与标记工具条（docs/design/lite-editor §4.1–§4.3；轻量与时间线两种视图同一套）：标注模式（舞台条的「标记」）下盖在画面上，
  * 画笔、形状、文字、选择元素与评论画在这一层；画面底上浮一条图标工具条。标记是这个窗口里的一组（state/lite-markup-store.ts），
- * 按「添加到对话」整组换成视频标注草稿，轻量视图里带上播放头所在的段与句；评论勾着「发给智能体」时单独立刻发出，并把这一帧连同印章
- * 截一张图放进输入框。已经进草稿的标注照旧由 StageNotesLayer 画（这一层只画还没发的）。
+ * 每条标记属于画它时的那一帧（播放头）：播放头离开那一帧（±`VIDEO_ANNOTATION_NEAR_MS`）就不画它，回来再画；画下去的那一刻从预览画布
+ * 拷一份那一帧留在 store 里。按「添加到对话」整组换成视频标注草稿，每条带自己的时刻、那一刻的段与句，每一帧截一张图（那一帧的画面
+ * 加上这一帧的标记）放进输入框；评论勾着「发给智能体」时单独立刻发出，图上画的是印章。已经进草稿的标注照旧由 StageNotesLayer 画
+ * （这一层只画还没发的）。
  */
 
 /** 拖动短于这么多像素算「点了一下」。 */
@@ -434,6 +438,7 @@ export function LiteMarkupLayer({
   const hoverAt = useRef<{ seq: number; at: Point; pick: MarkupPick | null } | null>(null);
   const alive = useRef(true);
   const C = LITE_MARKUP_COPY;
+  const nowMs = useEditor((s) => Math.round(s.playhead * 1000));
 
   useEffect(() => bind(videoId), [bind, videoId]);
   useEffect(() => {
@@ -469,8 +474,11 @@ export function LiteMarkupLayer({
         return;
       }
       if ((event.key === 'Delete' || event.key === 'Backspace') && !mod && store.markup.sel) {
-        stop();
         const sel = store.markup.sel;
+        const mark = store.markup.marks.find((m) => m.id === sel);
+        // 选中的那条不在当前帧上（播放头挪走了）：看不见的不删。
+        if (!mark || !onFrame(mark, frameMs())) return;
+        stop();
         store.apply((s) => remove(s, sel));
         return;
       }
@@ -551,7 +559,7 @@ export function LiteMarkupLayer({
       const addPick = (pick: MarkupPick | null) => {
         if (!pick) return;
         const box = normalizedRect(pick.rect, canvas);
-        apply((s) => add(s, { kind: 'element', ...box, element: pick.element, elementBox: box }));
+        place({ kind: 'element', ...box, element: pick.element, elementBox: box });
         setHover(null);
       };
       // 悬停已经在这一点上拾过（且没有更新的一次在路上）：直接用；否则再拾一次，等完核对层还挂着、工具没换、指针没再动。
@@ -601,10 +609,10 @@ export function LiteMarkupLayer({
       if (ev.type === 'pointercancel') return;
       const to = at(ev);
       const moved = Math.hypot(to.x - from.x, to.y - from.y) >= MOVE_MIN;
-      if (kind === 'pin') apply((s) => add(s, { kind, ...fromGesture(kind, from, null, size) }));
+      if (kind === 'pin') place({ kind, ...fromGesture(kind, from, null, size) });
       else if (moved) {
         const points = kind === 'pen' ? [...gesture.points, to] : undefined;
-        apply((s) => add(s, { kind, ...fromGesture(kind, from, to, size, points) }));
+        place({ kind, ...fromGesture(kind, from, to, size, points) });
       }
     };
     window.addEventListener('pointermove', onMove);
@@ -671,24 +679,23 @@ export function LiteMarkupLayer({
     if (d.id) {
       const id = d.id;
       apply((s) => (text ? update(s, id, { text }) : remove(s, id)));
-    } else if (text) apply((s) => add(s, { kind: 'text', x: d.x, y: d.y, w: 0, h: 0, text }));
+    } else if (text) place({ kind: 'text', x: d.x, y: d.y, w: 0, h: 0, text });
   }
 
   // ---- 发出去 ----
 
-  /** 一组标记换成视频标注：这一帧（播放头）、这个版本、播放头所在的段与句。视频不是这一部（还没打开好）时 null。 */
+  /** 画一条：记下此刻的播放头（这条标记属于这一帧），第一次在这一帧上画时把画布拷一份留着当截图。 */
+  const place = (input: Omit<MarkInput, 'timeMs'>) => {
+    const timeMs = frameMs();
+    apply((s) => add(s, { ...input, timeMs }));
+    void keepFrame(timeMs, canvasRef.current);
+  };
+  /** 一组标记换成视频标注：每条按自己的时刻带落点（播放头所在的段与句）、这个版本。视频不是这一部（还没打开好）时 null。 */
   const buildNotes = (marks: readonly Mark[]): DraftVideoAnnotation[] | null => {
     const open = useVideo.getState().video;
     const revision = open?.state?.video.revision;
     if (!open || open.videoId !== videoId || revision === undefined) return null;
-    const seconds = useEditor.getState().playhead;
-    return toNotes(marks, {
-      videoId,
-      video: open.target,
-      revision,
-      timeMs: Math.round(seconds * 1000),
-      ...markupPlacement(segments, seconds),
-    });
+    return toNotes(marks, { videoId, video: open.target, revision, segments });
   };
   /** 逐条进草稿，碰到第一条加不进去的就停：已经加进去的从画面与历史里拿掉，报原因。返回加进去的条数，失败时 null。 */
   const addNotes = (notes: readonly DraftVideoAnnotation[]): number | null => {
@@ -702,22 +709,30 @@ export function LiteMarkupLayer({
         return null;
       }
       added.push(note.id);
-      if (note.kind === 'comment') void attachShot(note, canvasRef.current, C.me);
     }
     return added.length;
   };
   const addToChat = () => {
-    const notes = buildNotes(useLiteMarkup.getState().markup.marks);
+    const marks = useLiteMarkup.getState().markup.marks;
+    const notes = buildNotes(marks);
     if (!notes?.length) return;
     const n = addNotes(notes);
     if (n === null) return;
+    const sent = new Set(notes.map((note) => note.id));
+    // 截图先拷走再清空：`discard` 把留着的帧一起清了。
+    void attachFrames(
+      marks.filter((m) => sent.has(m.id)),
+      canvasRef.current,
+      size,
+      C.me,
+    );
     ToastQueue.neutral(C.added(n), { timeout: 3000 });
     useLiteMarkup.getState().discard();
   };
   const sendComment = (text: string, toAgent: boolean) => {
     const pending = comment;
     if (!pending || !text.trim()) return;
-    const input: MarkInput = {
+    const input: Omit<MarkInput, 'timeMs'> = {
       kind: 'comment',
       x: pending.x,
       y: pending.y,
@@ -727,15 +742,16 @@ export function LiteMarkupLayer({
       ...(pending.element ? { element: pending.element } : {}),
     };
     if (!toAgent) {
-      apply((s) => add(s, input));
+      place(input);
       setComment(null);
       ToastQueue.neutral(C.kept, { timeout: 3000 });
       return;
     }
-    const mark: Mark = { ...input, id: newId('mk'), color: markup.color, width: markup.width };
+    const mark: Mark = { ...input, id: newId('mk'), timeMs: frameMs(), color: markup.color, width: markup.width };
     const notes = buildNotes([mark]);
     if (!notes?.length) return;
     if (addNotes(notes) === null) return;
+    void attachFrames([mark], canvasRef.current, size, C.me);
     setComment(null);
     ToastQueue.neutral(C.added(1), { timeout: 3000 });
   };
@@ -751,9 +767,11 @@ export function LiteMarkupLayer({
         return { id: 'ghost', kind, color: markup.color, width: markup.width, ...geo } as Mark;
       })()
     : null;
-  const selected = markup.marks.find((m) => m.id === markup.sel) ?? null;
-  const svgMarks = markup.marks.filter((m) => SVG_KINDS.has(m.kind));
-  const htmlMarks = markup.marks.filter((m) => !SVG_KINDS.has(m.kind));
+  // 只画这一帧的（±near 毫秒，同草稿里的标注）；选中的那条不在这一帧上就不画把手。
+  const shown = markup.marks.filter((m) => onFrame(m, nowMs));
+  const selected = shown.find((m) => m.id === markup.sel) ?? null;
+  const svgMarks = shown.filter((m) => SVG_KINDS.has(m.kind));
+  const htmlMarks = shown.filter((m) => !SVG_KINDS.has(m.kind));
 
   return (
     <>
@@ -1228,48 +1246,202 @@ function WidthLine({ width, long = false }: { width: VideoAnnotationWidth; long?
   );
 }
 
-// ---- 评论截图 ----
+// ---- 帧截图 ----
 
-/**
- * 评论的截图（lite-editor §4.1）：拷一份预览画布，在评论的点上画一枚印章（尖角落在点上），存成 PNG 放进开着的视频旁边那个输入框的草稿图片。
- * 画布读不出（没有 2D 上下文）时退回原画布不带印章；连 `toBlob` 都没有、或出不了图时提示，评论照样已经加了。
- * 预览里 HTML 动画的实时合成层（iframe）不在画布上，截不进来。
- */
-async function attachShot(note: DraftVideoAnnotation, source: HTMLCanvasElement | null, initials: string): Promise<void> {
-  const file = source ? await captureFrame(source, note, initials).catch(() => null) : null;
-  if (!file) {
-    ToastQueue.neutral(LITE_MARKUP_COPY.shotFailed, { timeout: 4000 });
-    return;
-  }
-  useDraftImages.getState().add(openVideoDraftKey(useShell.getState().route), [imageEntry(file)]);
+/** 此刻的播放头，毫秒整数（标记属于这一帧）。 */
+function frameMs(): number {
+  return Math.round(useEditor.getState().playhead * 1000);
+}
+/** 这条标记在这一帧上吗：时刻相差不超过 `VIDEO_ANNOTATION_NEAR_MS`（同草稿里的标注）。 */
+function onFrame(mark: Mark, nowMs: number): boolean {
+  return Math.abs(mark.timeMs - nowMs) <= VIDEO_ANNOTATION_NEAR_MS;
 }
 
-export async function captureFrame(source: HTMLCanvasElement, note: DraftVideoAnnotation, initials: string): Promise<File | null> {
+/**
+ * 画下第一条标记的那一刻把预览画布拷成 PNG 留在 store 里（同一帧只留第一次；出不了图就不留，「添加到对话」时再提示）。
+ * 画布拷贝是同步的，PNG 编码在后面慢慢做；此刻的定位若还在路上，截到的是画布上实际那一帧。
+ */
+async function keepFrame(timeMs: number, source: HTMLCanvasElement | null): Promise<void> {
+  const store = useLiteMarkup.getState();
+  if (!source || store.frames[timeMs]) return;
+  const png = await snapshot(source).catch(() => null);
+  if (png) useLiteMarkup.getState().keepFrame(timeMs, png);
+}
+/** 画布此刻的像素拷成 PNG（先同步拷到另一张画布，再异步编码）。 */
+function snapshot(source: HTMLCanvasElement): Promise<Blob | null> {
   const w = source.width;
   const h = source.height;
-  if (!w || !h) return null;
-  let out: HTMLCanvasElement = source;
+  if (!w || !h) return Promise.resolve(null);
   const copy = document.createElement('canvas');
   copy.width = w;
   copy.height = h;
   const ctx = copy.getContext('2d');
+  let out: HTMLCanvasElement = source;
   if (ctx) {
     ctx.drawImage(source, 0, 0);
-    const stamp = note.shot?.stamp ?? { x: note.region.x, y: note.region.y };
-    drawStamp(
-      ctx,
-      stamp.x * w,
-      stamp.y * h,
-      Math.max(14, Math.round(Math.min(w, h) / 40)),
-      SHOT_COLORS[note.style?.color ?? 'red'],
-      initials,
+    out = copy;
+  }
+  if (typeof out.toBlob !== 'function') return Promise.resolve(null);
+  return new Promise((resolve) => out.toBlob(resolve, 'image/png'));
+}
+
+/**
+ * 截图（lite-editor §4.1）：这组标记涉及的每一帧出一张图，底是画那条标记时留下的那一帧（没留下就用此刻的画布，播放头若还在那一帧上
+ * 就是对的），上面画这一帧的标记（线条按画布与画面的比例放大，评论画印章，尖角落在点上），存成 PNG 放进开着的视频旁边那个
+ * 输入框的草稿图片。哪一帧出不了图就提示一次，标注照样已经加了。预览里 HTML 动画的实时合成层（iframe）不在画布上，截不进来。
+ */
+async function attachFrames(marks: readonly Mark[], source: HTMLCanvasElement | null, layer: Size, initials: string): Promise<void> {
+  const frames = useLiteMarkup.getState().frames;
+  const files: File[] = [];
+  let failed = false;
+  for (const timeMs of markFrames(marks)) {
+    const onThis = marks.filter((m) => m.timeMs === timeMs);
+    const file = await paintFrame(frames[timeMs] ?? source, onThis, marks, timeMs, layer, initials).catch(() => null);
+    if (file) files.push(file);
+    else failed = true;
+  }
+  if (failed) ToastQueue.neutral(LITE_MARKUP_COPY.shotFailed, { timeout: 4000 });
+  if (files.length)
+    useDraftImages.getState().add(
+      openVideoDraftKey(useShell.getState().route),
+      files.map((file) => imageEntry(file)),
     );
+}
+
+/** 一帧的图：底图（留下的 PNG 或画布）画到新画布上，再把这一帧的标记画上去（序号按整组 `group` 数），存成 `frame-<毫秒>.png`。 */
+export async function paintFrame(
+  base: Blob | HTMLCanvasElement | null | undefined,
+  marks: readonly Mark[],
+  group: readonly Mark[],
+  timeMs: number,
+  layer: Size,
+  initials: string,
+): Promise<File | null> {
+  if (!base) return null;
+  const image = base instanceof Blob ? await loadImage(base) : base;
+  const w = image.width;
+  const h = image.height;
+  if (!w || !h) return null;
+  const copy = document.createElement('canvas');
+  copy.width = w;
+  copy.height = h;
+  const ctx = copy.getContext('2d');
+  let out: HTMLCanvasElement = base instanceof Blob ? copy : base;
+  if (ctx) {
+    ctx.drawImage(image, 0, 0);
+    paintMarks(ctx, marks, { w, h }, layer, initials, group);
     out = copy;
   }
   if (typeof out.toBlob !== 'function') return null;
   const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, 'image/png'));
   if (!blob) return null;
-  return new File([blob], `comment-${note.timeMs}.png`, { type: 'image/png' });
+  return new File([blob], `frame-${timeMs}.png`, { type: 'image/png' });
+}
+function loadImage(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('frame image failed to decode'));
+    };
+    image.src = url;
+  });
+}
+
+/**
+ * 把一帧的标记画到画布上（同 SvgMark 与 HTML 标记的样子）：坐标按归一化值落到画布像素，线宽、字号与印章按画布比画面的比例放大，
+ * 文字描一圈反色边代替网页里的阴影；序号按 `group`（整组标记，默认就是这些）数。
+ */
+export function paintMarks(
+  ctx: CanvasRenderingContext2D,
+  marks: readonly Mark[],
+  size: Size,
+  layer: Size,
+  initials: string,
+  group: readonly Mark[] = marks,
+): void {
+  const X = (v: number) => v * size.w;
+  const Y = (v: number) => v * size.h;
+  const scale = layer.w > 0 ? size.w / layer.w : 1;
+  for (const m of marks) {
+    const fill = SHOT_COLORS[m.color];
+    const sw = m.width * scale;
+    ctx.save();
+    ctx.strokeStyle = fill;
+    ctx.fillStyle = fill;
+    ctx.lineWidth = sw;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (m.kind === 'pen' && m.points?.length) {
+      ctx.beginPath();
+      m.points.forEach((p, i) => (i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y))));
+      ctx.stroke();
+    } else if ((m.kind === 'line' || m.kind === 'arrow') && m.to) {
+      const x1 = X(m.x);
+      const y1 = Y(m.y);
+      const x2 = X(m.to.x);
+      const y2 = Y(m.to.y);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      if (m.kind === 'arrow') {
+        const headSize = sw * 3 + 6 * scale;
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - headSize * Math.cos(angle - 0.45), y2 - headSize * Math.sin(angle - 0.45));
+        ctx.lineTo(x2 - headSize * Math.cos(angle + 0.45), y2 - headSize * Math.sin(angle + 0.45));
+        ctx.closePath();
+        ctx.lineWidth = scale;
+        ctx.fill();
+        ctx.stroke();
+      }
+    } else if (m.kind === 'ellipse') {
+      ctx.beginPath();
+      ctx.ellipse(X(m.x + m.w / 2), Y(m.y + m.h / 2), X(m.w) / 2, Y(m.h) / 2, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (m.kind === 'box' || m.kind === 'element') {
+      ctx.beginPath();
+      ctx.roundRect(X(m.x), Y(m.y), X(m.w), Y(m.h), (m.kind === 'element' ? 4 : 2) * scale);
+      ctx.stroke();
+    } else if (m.kind === 'pin') {
+      const r = 12 * scale;
+      const cx = X(m.x);
+      const cy = Y(m.y);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = fill === SHOT_COLORS.white ? '#000000' : '#ffffff';
+      ctx.lineWidth = 2 * scale;
+      ctx.stroke();
+      ctx.fillStyle = fill === SHOT_COLORS.white ? '#000000' : '#ffffff';
+      ctx.font = `bold ${Math.round(12 * scale)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(stepNumber(group, m.id) ?? ''), cx, cy);
+    } else if (m.kind === 'comment') {
+      drawStamp(ctx, X(m.x), Y(m.y), Math.max(14, Math.round(Math.min(size.w, size.h) / 40)), fill, initials);
+    } else if (m.kind === 'text' && m.text) {
+      const px = MARKUP_TEXT_SIZE[m.width] * scale;
+      ctx.font = `bold ${Math.round(px)}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.strokeStyle = fill === SHOT_COLORS.white ? 'rgb(0 0 0 / 0.9)' : 'rgb(255 255 255 / 0.9)';
+      ctx.lineWidth = Math.max(2, px / 6);
+      m.text.split('\n').forEach((line, i) => {
+        const y = Y(m.y) + i * px * 1.2;
+        ctx.strokeText(line, X(m.x), y);
+        ctx.fillText(line, X(m.x), y);
+      });
+    }
+    ctx.restore();
+  }
 }
 
 /** 印章：半径 r 的圆，左下角收成尖角落在 (x, y)；白边，写缩写。 */

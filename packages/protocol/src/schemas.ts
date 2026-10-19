@@ -447,7 +447,8 @@ const designSystemAnnotations = z.array(designSystemAnnotation).max(DESIGN_SYSTE
  * 视频标注（产品设计 §3.2.3「视频标注」；协议规范 `conversations`；轻量视图的标记工具见 docs/design/lite-editor §4）。按 `kind`
  * 分九种，各自只收自己的形状：`box`、`ellipse` 的 `w`、`h` 大于 0；`element`、`pen` 是外接框，`w`、`h` 不小于 0；`arrow`、`line`、
  * `text`、`pin`、`comment` 的 `w`、`h` 为 0；`to` 只有 `arrow`、`line` 有、也必须有；`points` 只有 `pen` 有、也必须有；
- * `element` 是 `element` 必有、`comment` 可有；`shot` 只有 `comment` 有、也必须有。坐标相对画布归一化（0–1）。
+ * `element` 是 `element` 必有、`comment` 可有；`shot`（随消息附上的那一帧截图）哪种都可以带，`comment` 必须带、也必须有印章位置 `stamp`。
+ * 坐标相对画布归一化（0–1）。
  * 批注只有 `text`、`comment` 必须写，别的种类可以是空串；`style`、`segment`、`line` 哪种都可以带。
  */
 const unit = z.number().min(0).max(1);
@@ -489,6 +490,10 @@ const videoAnnotationBase = {
   timeMs: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   label: z.string().max(1000),
   text: z.string().trim().max(VIDEO_ANNOTATION_LIMITS.text),
+  shot: z
+    .object({ timeMs: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), stamp: normPoint.optional() })
+    .strict()
+    .optional(),
   style: z
     .object({ color: z.enum(VIDEO_ANNOTATION_COLORS), width: z.literal(VIDEO_ANNOTATION_WIDTHS) })
     .strict()

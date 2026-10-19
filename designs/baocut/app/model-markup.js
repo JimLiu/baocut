@@ -4,7 +4,8 @@
 
    与视频标注（model-stage-notes.js）的分工：这里是**画的过程**——一次标注会话里的标记、颜色与粗细、撤销重做、选中与改形；
    按「添加到对话」时整组换成视频标注（`toNotes`），进 `videoNotes[videoId]` 草稿，之后的事归 model-stage-notes。
-   标记本身不带批注，要说的话写在对话里；文字标记的内容与评论的话才进批注。评论另带一张「有位置印章的截图」（`shot`：那一帧 + 印章位置，正式版由实现截图合成）。
+   标记本身不带批注，要说的话写在对话里；文字标记的内容与评论的话才进批注。每条标记属于画它时的那一帧（`timeMs`），只在那一帧上显示；
+   发出时每一帧带一张截图（`shot`：那一帧 + 画上去的标记，评论另记印章位置，正式版由实现截图合成）。
    几何一律相对画面归一化（0–1，左上为原点）：{x, y, w, h} 是外接框；直线 / 箭头另带 `to`（终点，起点是 x, y）；画笔带 `points[]`；
    文字与编号只有一个点（w、h 为 0）；元素标记的框是元素在画面上的位置。 */
 (function () {
@@ -55,9 +56,18 @@
     return s.sel ? commit(next, s.marks.map(m => (m.id === s.sel ? {...m, width} : m))) : next;
   }
 
+  /** 加一条：`timeMs` 是画它时的播放头（这条标记属于那一帧），没给的在画面上算 0、发出时用 `toNotes` 的 base。 */
   function add(s, mark) {
     const m = {id: mark.id || newId(), color: s.color, width: s.width, ...mark};
     return commit(s, [...s.marks, m], m.id);
+  }
+  /** 这一帧上的标记：时刻离播放头 `nowMs` 不超过 `near` 毫秒的（同草稿标注在画面上的时间窗）。 */
+  function onFrame(marks, nowMs, near = 500) {
+    return marks.filter(m => Math.abs((m.timeMs || 0) - nowMs) <= near);
+  }
+  /** 这组标记涉及的帧（毫秒，升序去重）：每一帧出一张截图。 */
+  function frames(marks) {
+    return [...new Set(marks.map(m => m.timeMs || 0))].sort((a, b) => a - b);
   }
   /** 改一条：默认进历史；拖动中的连续改动传 `{history: false}`，松手再 commit 一次。 */
   function update(s, id, patch, opts) {
@@ -195,22 +205,25 @@
 
   /* ---------- 换成视频标注 ---------- */
   const NOTE_KIND = {rect: 'box', step: 'pin'};
-  /** 整组标记换成视频标注（model-stage-notes 的一条一条）：`base` 是这一帧共有的字段（video、revision、timeMs、segment、line），
-      `labelOf(note)` 给每条起给人看的标签。文字标记与评论的内容进 `text`，别的 `text` 为空（说明写在对话里）；颜色与粗细进 `style`；
-      评论另带 `shot`（截图：哪一帧、印章落在哪），正式版实现按它截那一帧并把印章画上去，作为消息的图片附件。 */
-  function toNotes(marks, base, labelOf) {
+  /** 整组标记换成视频标注（model-stage-notes 的一条一条）：`base` 是共有的字段（video、revision），每条的时刻是它自己的 `timeMs`
+      （画它时的播放头），落点（segment、line）由 `whereAt(timeMs)` 按各自的时刻给；`labelOf(note)` 给每条起给人看的标签。
+      文字标记与评论的内容进 `text`，别的 `text` 为空（说明写在对话里）；颜色与粗细进 `style`；每条都带 `shot`（哪一帧的截图：
+      同一帧的标记共一张，画面加上这一帧的标记），评论的另记印章落在哪；正式版实现按它截那一帧并把标记画上去，作为消息的图片附件。 */
+  function toNotes(marks, base, labelOf, whereAt) {
     return sendable(marks).map(m => {
-      const note = {id: m.id, ...base, kind: NOTE_KIND[m.kind] || m.kind, region: {x: m.x, y: m.y, w: m.w || 0, h: m.h || 0},
+      const timeMs = m.timeMs != null ? m.timeMs : (base && base.timeMs != null ? base.timeMs : 0);
+      const where = whereAt ? whereAt(timeMs) : {};
+      const note = {id: m.id, ...base, timeMs, ...where, kind: NOTE_KIND[m.kind] || m.kind, region: {x: m.x, y: m.y, w: m.w || 0, h: m.h || 0},
         style: {color: m.color, width: m.width}, text: NEEDS_TEXT[m.kind] ? String(m.text || '').trim() : ''};
       if (m.to) note.to = m.to;
       if (m.points) note.points = m.points;
       if (m.element) note.element = m.element;
-      if (m.kind === 'comment') note.shot = {timeMs: base && base.timeMs != null ? base.timeMs : 0, stamp: {x: m.x, y: m.y}};
+      note.shot = m.kind === 'comment' ? {timeMs, stamp: {x: m.x, y: m.y}} : {timeMs};
       if (labelOf) note.label = labelOf(note);
       return note;
     });
   }
 
   root.BC_MARKUP = {COLORS, WIDTHS, TOOLS, SHAPES, KIND_LABELS, BOX_HANDLES, init, setTool, setShape, setColor, setWidth, add, update, finishDrag, remove, clear, select,
-    canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes};
+    canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes, onFrame, frames};
 })();

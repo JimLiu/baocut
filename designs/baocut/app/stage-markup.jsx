@@ -53,13 +53,16 @@
     return null;
   }
 
-  /** 这一组标记换成视频标注进 composer 草稿（store 的 `videoNotes[videoId]`）：一条标记一条标注，落点（段、句）与时刻来自播放头。返回加进去的条数。 */
+  /** 这一组标记换成视频标注进 composer 草稿（store 的 `videoNotes[videoId]`）：一条标记一条标注，时刻是画它时的播放头，落点（段、句）按各自的时刻。返回加进去的条数。 */
   function sendMarks(app, ctx, marks) {
     const videoId = ctx.proj.id;
-    const where = ctx.noteContext ? ctx.noteContext(ctx.playT) : {};
-    const ctxLabel = L ? L.contextLabel(where) : '';
-    const base = {video: videoId, revision: ctx.history?.revision ?? 0, timeMs: Math.round(ctx.playT * 1000), ...where};
-    const notes = MK.toNotes(marks, base, n => (n.element ? `${T.timecode(ctx.playT)} · ${n.element.label}` : N.label(n)) + (ctxLabel ? ` · ${ctxLabel}` : ''));
+    const whereAt = t => (ctx.noteContext ? ctx.noteContext(t / 1000) : {});
+    const base = {video: videoId, revision: ctx.history?.revision ?? 0};
+    const labelOf = n => {
+      const ctxLabel = L ? L.contextLabel(whereAt(n.timeMs)) : '';
+      return (n.element ? `${T.timecode(n.timeMs / 1000)} · ${n.element.label}` : N.label(n)) + (ctxLabel ? ` · ${ctxLabel}` : '');
+    };
+    const notes = MK.toNotes(marks, base, labelOf, whereAt);
     let list = app.videoNotes[videoId] || [];
     let added = 0;
     for (const n of notes) {
@@ -189,10 +192,14 @@
     const at = e => { const b = frameRef.current.getBoundingClientRect(); return {x: e.clientX - b.left, y: e.clientY - b.top}; };
     const px = m => ({x: m.x * frame.w, y: m.y * frame.h, w: (m.w || 0) * frame.w, h: (m.h || 0) * frame.h});
     const initials = (app.user?.name || app.prefs?.userName || '我').split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
+    /* 此刻的播放头（毫秒）：新画的标记属于这一帧；画面上只画这一帧的（±0.5 s，同草稿标注） */
+    const nowMs = Math.round(ctx.playT * 1000);
+    const add = mark => set(s => MK.add(s, {timeMs: nowMs, ...mark}));
     const whereText = m => {
-      const where = ctx.noteContext ? ctx.noteContext(ctx.playT) : {};
+      const t = (m.timeMs || 0) / 1000;
+      const where = ctx.noteContext ? ctx.noteContext(t) : {};
       const ctxLabel = L ? L.contextLabel(where) : '';
-      return `${T.timecode(ctx.playT)} · ${m.element ? m.element.label : `画面${N.place({x: m.x, y: m.y, w: 0, h: 0})}`}${ctxLabel ? ` · ${ctxLabel}` : ''}`;
+      return `${T.timecode(t)} · ${m.element ? m.element.label : `画面${N.place({x: m.x, y: m.y, w: 0, h: 0})}`}${ctxLabel ? ` · ${ctxLabel}` : ''}`;
     };
 
     const track = (e, onMove, onUp) => {
@@ -240,30 +247,30 @@
         if (tool === 'element') {
           if (!hit) { set(s => MK.select(s, null)); return; }
           const box = MK.fromGesture('rect', hit.rect, {x: hit.rect.x + hit.rect.w, y: hit.rect.y + hit.rect.h}, frame);
-          set(s => MK.add(s, {kind: 'element', ...box, element: hit.info}));
+          add({kind: 'element', ...box, element: hit.info});
           return;
         }
         const id = `c${Date.now().toString(36)}`;
         const box = hit ? MK.fromGesture('rect', hit.rect, {x: hit.rect.x + hit.rect.w, y: hit.rect.y + hit.rect.h}, frame) : null;
-        set(s => MK.add(s, {id, kind: 'comment', ...MK.fromGesture('comment', at(e), null, frame), text: '', element: hit ? {...hit.info, box} : null}));
+        add({id, kind: 'comment', ...MK.fromGesture('comment', at(e), null, frame), text: '', element: hit ? {...hit.info, box} : null});
         setOpen(id);
         return;
       }
       if (tool === 'text') {
         const id = `t${Date.now().toString(36)}`;
-        set(s => MK.add(s, {id, kind: 'text', ...MK.fromGesture('text', at(e), null, frame), text: ''}));
+        add({id, kind: 'text', ...MK.fromGesture('text', at(e), null, frame), text: ''});
         setEditing(id);
         return;
       }
       const kind = tool === 'pen' ? 'pen' : st.shape;
-      if (kind === 'step') { set(s => MK.add(s, {kind, ...MK.fromGesture(kind, at(e), null, frame)})); return; }
+      if (kind === 'step') { add({kind, ...MK.fromGesture(kind, at(e), null, frame)}); return; }
       const p0 = at(e), pts = [p0];
       set(s => MK.select(s, null));
       setDrag({kind, color: st.color, width: st.width, from: p0, to: p0, points: pts});
       track(e, p => { if (kind === 'pen') pts.push(p); setDrag(d => (d ? {...d, to: p, points: pts.slice()} : d)); }, p => {
         setDrag(null);
         const moved = kind === 'pen' ? pts.length >= 2 : Math.hypot(p.x - p0.x, p.y - p0.y) >= 4;
-        if (moved) set(s => MK.add(s, {kind, ...MK.fromGesture(kind, p0, p, frame, pts)}));
+        if (moved) add({kind, ...MK.fromGesture(kind, p0, p, frame, pts)});
       });
     };
     const move = e => {
@@ -283,7 +290,8 @@
     const keepComment = id => { setOpen(null); app.toast('评论留在画面上 · 按「添加到对话」一起发'); };
     const closeComment = id => { setOpen(null); set(s => { const m = s.marks.find(x => x.id === id); return m && !String(m.text || '').trim() ? MK.remove(s, id) : s; }); };
 
-    const sel = st.marks.find(m => m.id === st.sel) || null;
+    const shown = MK.onFrame(st.marks, nowMs);
+    const sel = shown.find(m => m.id === st.sel) || null;
     const selBounds = sel && !['rect', 'ellipse', 'line', 'arrow'].includes(sel.kind) ? px(MK.bounds(sel)) : null;
     const ghost = drag ? {id: 'ghost', color: drag.color, width: drag.width, kind: drag.kind,
       ...MK.fromGesture(drag.kind, drag.from, drag.to, frame, drag.points)} : null;
@@ -291,11 +299,11 @@
     return <div className={cx('mk', drag && 'is-drawing')} data-tool={tool} style={{cursor: cursorFor[tool]}} onPointerDown={down} onPointerMove={picking ? move : undefined}
       onPointerLeave={() => setHover(null)} onClick={e => e.stopPropagation()} onDoubleClick={e => e.stopPropagation()}>
       <svg className="mk__svg" width={size.w} height={size.h} aria-hidden="true">
-        {st.marks.map(m => <SvgMark key={m.id} m={m} px={px} n={m.kind === 'step' ? MK.stepNumber(st.marks, m.id) : null} selected={m.id === st.sel} />)}
+        {shown.map(m => <SvgMark key={m.id} m={m} px={px} n={m.kind === 'step' ? MK.stepNumber(st.marks, m.id) : null} selected={m.id === st.sel} />)}
         {ghost ? <SvgMark m={ghost} px={px} ghost /> : null}
       </svg>
       <div className="mk__html">
-        {st.marks.map(m => {
+        {shown.map(m => {
           if (m.kind === 'text') return <TextMark key={m.id} m={m} px={px} editing={editing === m.id} onInput={t => setText(m.id, t)} onCommit={() => commitText(m.id)} />;
           if (m.kind === 'element') { const p = px(m); return <div key={m.id} className={cx('mk__el mk-c', m.id === st.sel && 'is-sel')} data-mark={m.id} data-color={m.color} style={{left: p.x, top: p.y, width: p.w, height: p.h}}>
             <span className="mk__el-label">{m.element?.label}</span></div>; }
@@ -320,6 +328,8 @@
     const set = ctx.setMarkup;
     const [menu, setMenu] = useState(null);   // 'shape' | 'color' | 'width'
     const on = !!(ctx.annotating && st);
+    const playRef = useRef(ctx.playT);
+    playRef.current = ctx.playT;
     useEffect(() => { if (!on) setMenu(null); }, [on]);
     /* 标注时的键（捕获阶段，先于 editor-keys.jsx 的全局键）：Esc 关闭、⌘Z / ⇧⌘Z 撤销重做、⌫ 删选中的、⇧⌘S 选择元素、⇧⌘C 评论。输入框与弹层开着时不接。 */
     useEffect(() => {
@@ -334,7 +344,7 @@
         if (k === 'Escape') { stop(); ctx.closeMarkup(); }
         else if (meta && k === 'z') { stop(); set(s => (e.shiftKey ? MK.redo(s) : MK.undo(s))); }
         else if (meta && e.shiftKey && (k === 's' || k === 'c')) { const tool = k === 's' ? 'element' : 'comment'; stop(); set(s => MK.setTool(s, s.tool === tool ? 'pen' : tool)); }
-        else if (k === 'Delete' || k === 'Backspace') { stop(); set(s => (s.sel ? MK.remove(s, s.sel) : s)); }
+        else if (k === 'Delete' || k === 'Backspace') { stop(); set(s => (s.sel && MK.onFrame(s.marks, Math.round(playRef.current * 1000)).some(m => m.id === s.sel) ? MK.remove(s, s.sel) : s)); }
       };
       window.addEventListener('keydown', key, true);
       return () => window.removeEventListener('keydown', key, true);

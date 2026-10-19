@@ -13,7 +13,7 @@ describe('状态与历史', () => {
   it('初始：画笔、矩形、红、4px；加标记带当前颜色粗细并选中它', () => {
     const s = M.init();
     expect([s.tool, s.shape, s.color, s.width, s.marks, s.sel]).toEqual(['pen', 'box', 'red', 4, [], null]);
-    const t = M.add(M.setColor(M.setWidth(s, 12), 'blue'), { kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
+    const t = M.add(M.setColor(M.setWidth(s, 12), 'blue'), { timeMs: 0, kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
     expect(t.marks.length).toBe(1);
     expect([t.marks[0]!.color, t.marks[0]!.width, t.sel]).toEqual(['blue', 12, t.marks[0]!.id]);
     expect(M.setShape(s, 'arrow').tool).toBe('shape');
@@ -21,8 +21,8 @@ describe('状态与历史', () => {
   });
 
   it('撤销 / 重做：每次改动进历史，撤销回上一组，重做再回来；新改动清掉未来', () => {
-    let s = M.add(M.init(), { id: 'a', kind: 'box', x: 0, y: 0, w: 0.5, h: 0.5 });
-    s = M.add(s, { id: 'b', kind: 'pin', x: 0.2, y: 0.2, w: 0, h: 0 });
+    let s = M.add(M.init(), { timeMs: 0, id: 'a', kind: 'box', x: 0, y: 0, w: 0.5, h: 0.5 });
+    s = M.add(s, { timeMs: 0, id: 'b', kind: 'pin', x: 0.2, y: 0.2, w: 0, h: 0 });
     expect(M.canUndo(s) && !M.canRedo(s)).toBe(true);
     s = M.undo(s);
     expect(s.marks.map((m) => m.id)).toEqual(['a']);
@@ -31,14 +31,14 @@ describe('状态与历史', () => {
     expect(s.marks.map((m) => m.id)).toEqual(['a', 'b']);
     s = M.undo(M.undo(s));
     expect([s.marks, M.canUndo(s)]).toEqual([[], false]);
-    s = M.add(s, { id: 'c', kind: 'text', x: 0.5, y: 0.5, w: 0, h: 0, text: '字' });
+    s = M.add(s, { timeMs: 0, id: 'c', kind: 'text', x: 0.5, y: 0.5, w: 0, h: 0, text: '字' });
     expect(M.canRedo(s)).toBe(false);
     expect(M.clear(s).marks).toEqual([]);
     expect(M.undo(M.clear(s)).marks.map((m) => m.id)).toEqual(['c']);
   });
 
   it('选中后改颜色 / 粗细连那条一起改；删除、拖动中的改动不进历史', () => {
-    let s = M.add(M.init(), { id: 'a', kind: 'line', x: 0.1, y: 0.1, w: 0, h: 0, to: { x: 0.5, y: 0.5 } });
+    let s = M.add(M.init(), { timeMs: 0, id: 'a', kind: 'line', x: 0.1, y: 0.1, w: 0, h: 0, to: { x: 0.5, y: 0.5 } });
     s = M.setColor(s, 'green');
     expect(s.marks[0]!.color).toBe('green');
     s = M.select(s, null);
@@ -57,8 +57,8 @@ describe('状态与历史', () => {
   });
 
   it('发出去的几条从画面与整段历史里一起拿掉，撤销不再带回来', () => {
-    let s = M.add(M.init(), { id: 'a', kind: 'box', x: 0, y: 0, w: 0.5, h: 0.5 });
-    s = M.add(s, { id: 'c', kind: 'comment', x: 0.4, y: 0.3, w: 0, h: 0, text: '慢一点' });
+    let s = M.add(M.init(), { timeMs: 0, id: 'a', kind: 'box', x: 0, y: 0, w: 0.5, h: 0.5 });
+    s = M.add(s, { timeMs: 0, id: 'c', kind: 'comment', x: 0.4, y: 0.3, w: 0, h: 0, text: '慢一点' });
     s = M.forget(s, ['c']);
     expect([s.marks.map((m) => m.id), s.sel]).toEqual([['a'], null]);
     expect(M.undo(s).marks.map((m) => m.id)).toEqual(['a']);
@@ -116,9 +116,9 @@ describe('几何', () => {
   });
 
   it('编号按加入顺序从 1 起；没写字的文字标记不发', () => {
-    let s = M.add(M.init(), { id: 's1', kind: 'pin', x: 0.1, y: 0.1, w: 0, h: 0 });
-    s = M.add(s, { id: 't', kind: 'text', x: 0.3, y: 0.3, w: 0, h: 0, text: '' });
-    s = M.add(s, { id: 's2', kind: 'pin', x: 0.2, y: 0.2, w: 0, h: 0 });
+    let s = M.add(M.init(), { timeMs: 0, id: 's1', kind: 'pin', x: 0.1, y: 0.1, w: 0, h: 0 });
+    s = M.add(s, { timeMs: 0, id: 't', kind: 'text', x: 0.3, y: 0.3, w: 0, h: 0, text: '' });
+    s = M.add(s, { timeMs: 0, id: 's2', kind: 'pin', x: 0.2, y: 0.2, w: 0, h: 0 });
     expect([M.stepNumber(s.marks, 's1'), M.stepNumber(s.marks, 's2'), M.stepNumber(s.marks, 't')]).toEqual([1, 2, null]);
     expect(M.sendable(s.marks).map((m) => m.id)).toEqual(['s1', 's2']);
     expect(M.stepNumber(M.remove(s, 's1').marks, 's2')).toBe(1);
@@ -242,6 +242,7 @@ describe('换成视频标注', () => {
   it('HTML 节点的元素标记只带协议字段，detail 照 DevTools 的说法', () => {
     const element = { kind: 'html' as const, selector: 'button#play', w: 32, h: 32, name: 'Play', role: 'button', focusable: true };
     const s = M.add(M.init(), {
+      timeMs: 0,
       id: 'e',
       kind: 'element',
       x: 0.1,
@@ -251,18 +252,28 @@ describe('换成视频标注', () => {
       element,
       elementBox: { x: 0.1, y: 0.1, w: 0.1, h: 0.1 },
     });
-    const [note] = M.toNotes(s.marks, { videoId: 'v', video: { conversationId: 'c', path: 'p' }, revision: '1', timeMs: 0 });
+    const [note] = M.toNotes(s.marks, { videoId: 'v', video: { conversationId: 'c', path: 'p' }, revision: '1' });
     expect(note!.element).toEqual({ ...element, detail: 'html button#play 32×32 name="Play" role=button' });
     expect(note!.label).toContain('button#play · 32 × 32');
   });
 
-  it('矩形是 box、编号是 pin，带颜色粗细与落点；文字与评论的内容进批注；元素只带协议字段与 detail；评论带印章截图', () => {
-    let s = M.add(M.init(), { id: 'a', kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
-    s = M.add(s, { id: 'b', kind: 'pin', x: 0.5, y: 0.5, w: 0, h: 0 });
-    s = M.add(s, { id: 'c', kind: 'text', x: 0.6, y: 0.6, w: 0, h: 0, text: ' 字太小 ' });
-    s = M.add(s, { id: 'd', kind: 'text', x: 0.7, y: 0.7, w: 0, h: 0, text: '' });
-    s = M.add(s, { id: 'e', kind: 'element', x: 0.2, y: 0.8, w: 0.6, h: 0.1, element: { kind: 'caption', id: 'cap:c3', text: '你好' } });
+  it('矩形是 box、编号是 pin，带颜色粗细与落点；文字与评论的内容进批注；元素只带协议字段与 detail；每条带那一帧的截图，评论另带印章位置', () => {
+    let s = M.add(M.init(), { timeMs: 3000, id: 'a', kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
+    s = M.add(s, { timeMs: 3000, id: 'b', kind: 'pin', x: 0.5, y: 0.5, w: 0, h: 0 });
+    s = M.add(s, { timeMs: 3000, id: 'c', kind: 'text', x: 0.6, y: 0.6, w: 0, h: 0, text: ' 字太小 ' });
+    s = M.add(s, { timeMs: 3000, id: 'd', kind: 'text', x: 0.7, y: 0.7, w: 0, h: 0, text: '' });
     s = M.add(s, {
+      timeMs: 3000,
+      id: 'e',
+      kind: 'element',
+      x: 0.2,
+      y: 0.8,
+      w: 0.6,
+      h: 0.1,
+      element: { kind: 'caption', id: 'cap:c3', text: '你好' },
+    });
+    s = M.add(s, {
+      timeMs: 3000,
       id: 'f',
       kind: 'comment',
       x: 0.4,
@@ -273,14 +284,13 @@ describe('换成视频标注', () => {
       element: { kind: 'element', id: 'logo' },
       elementBox: { x: 0.3, y: 0.2, w: 0.2, h: 0.2 },
     });
-    s = M.add(s, { id: 'g', kind: 'comment', x: 0.5, y: 0.3, w: 0, h: 0, text: '' });
-    s = M.add(s, { id: 'h', kind: 'line', x: 0.1, y: 0.1, w: 0, h: 0, to: { x: 0.3, y: 0.4 }, color: 'white', width: 8 });
+    s = M.add(s, { timeMs: 3000, id: 'g', kind: 'comment', x: 0.5, y: 0.3, w: 0, h: 0, text: '' });
+    s = M.add(s, { timeMs: 3000, id: 'h', kind: 'line', x: 0.1, y: 0.1, w: 0, h: 0, to: { x: 0.3, y: 0.4 }, color: 'white', width: 8 });
     const base = {
       videoId: 'v1',
       video: { conversationId: 'c1', path: 'talk' },
       revision: '12',
-      timeMs: 3000,
-      ...M.markupPlacement(segments, 3),
+      segments,
     };
     const notes = M.toNotes(s.marks, base);
     expect(notes.map((n) => n.kind)).toEqual(['box', 'pin', 'text', 'element', 'comment', 'line']);
@@ -294,6 +304,7 @@ describe('换成视频标注', () => {
       kind: 'box',
       region: { x: 0.1, y: 0.1, w: 0.2, h: 0.2 },
       style: { color: 'red', width: 4 },
+      shot: { timeMs: 3000 },
       segment: { id: 's1', kind: 'chapter', index: 0, title: '钩子' },
       line: { id: 's1:l2', index: 2, text: '那一个有点危险的做法' },
       label: '00:03.0 · 框 · 画面左上 · s1 · 第 2 句',
@@ -305,12 +316,24 @@ describe('换成视频标注', () => {
     expect(notes[4]!.shot).toEqual({ timeMs: 3000, stamp: { x: 0.4, y: 0.3 } });
     expect(notes[4]!.element).toEqual({ kind: 'element', id: 'logo', detail: 'element logo' });
     expect(notes[4]).not.toHaveProperty('elementBox');
-    expect(notes[0]!.shot).toBeUndefined();
     expect([notes[5]!.to, notes[5]!.style]).toEqual([
       { x: 0.3, y: 0.4 },
       { color: 'white', width: 8 },
     ]);
-    const bare = M.toNotes([s.marks[0]!], { ...base, segment: undefined, line: undefined });
+    const bare = M.toNotes([s.marks[0]!], { ...base, segments: undefined });
     expect(bare[0]).not.toHaveProperty('segment');
+  });
+
+  it('每条标记记自己的帧：时刻与落点按各自的播放头算，同一帧的共一张截图', () => {
+    let s = M.add(M.init(), { id: 'a', timeMs: 3000, kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
+    s = M.add(s, { id: 'b', timeMs: 70000, kind: 'pin', x: 0.5, y: 0.5, w: 0, h: 0 });
+    s = M.add(s, { id: 'c', timeMs: 3000, kind: 'comment', x: 0.4, y: 0.3, w: 0, h: 0, text: '慢一点' });
+    const notes = M.toNotes(s.marks, { videoId: 'v1', video: { conversationId: 'c1', path: 'talk' }, revision: '12', segments });
+    expect(notes.map((n) => [n.timeMs, n.segment?.id ?? null, n.shot])).toEqual([
+      [3000, 's1', { timeMs: 3000 }],
+      [70000, null, { timeMs: 70000 }],
+      [3000, 's1', { timeMs: 3000, stamp: { x: 0.4, y: 0.3 } }],
+    ]);
+    expect(M.markFrames(s.marks)).toEqual([3000, 70000]);
   });
 });

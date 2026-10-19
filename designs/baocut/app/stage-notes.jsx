@@ -95,9 +95,9 @@
             <BCAction className="home-slides-notes__jump" aria-label={`第 ${i + 1} 条，${n.label}：${n.text}`} onClick={() => jump(n)}>
               <b className="home-slides-notes__n">{i + 1}</b>
               <span className="home-slides-notes__body"><small>{n.label}</small>{n.text ? <span>{n.text}</span> : null}
-                {/* 评论的附件：那一帧带位置印章的截图（原型里画一块示意帧与印章，正式版是真截图） */}
-                {n.shot ? <span className="stnotes__shot" role="img" aria-label={`截图 · ${T.timecode(n.shot.timeMs / 1000)} · 印章在画面${N.place({...n.shot.stamp, w: 0, h: 0})}`}>
-                  <span className="stnotes__shot-stamp" style={{left: px(n.shot.stamp.x), top: px(n.shot.stamp.y)}} /></span> : null}</span>
+                {/* 附件：那一帧的截图（原型里画一块示意帧，评论另画印章；正式版是真截图，同一帧的标记共一张） */}
+                {n.shot ? <span className="stnotes__shot" role="img" aria-label={n.shot.stamp ? `截图 · ${T.timecode(n.shot.timeMs / 1000)} · 印章在画面${N.place({...n.shot.stamp, w: 0, h: 0})}` : `截图 · ${T.timecode(n.shot.timeMs / 1000)} · 画着这一帧的标记`}>
+                  {n.shot.stamp ? <span className="stnotes__shot-stamp" style={{left: px(n.shot.stamp.x), top: px(n.shot.stamp.y)}} /> : null}</span> : null}</span>
             </BCAction>
             {draft ? <IconBtn icon="close" size="xs" tip={`移除第 ${i + 1} 条标注`} onClick={() => { if (notes.length === 1) setOpen(false); onRemove(n.id); }} /> : null}
           </li>)}

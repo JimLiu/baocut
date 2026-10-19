@@ -3027,7 +3027,11 @@ export function withVideoAnnotations(text: string, annotations: readonly Resolve
         a.style ? `   style: ${a.style.color} ${a.style.width}px` : null,
         a.element ? `   element: ${videoAnnotationElementDetail(a.element)}`.trimEnd() : null,
         segment,
-        a.shot ? `   screenshot: attached, frame at ${a.shot.timeMs} ms with the stamp at (${a.shot.stamp.x}, ${a.shot.stamp.y})` : null,
+        a.shot
+          ? a.shot.stamp
+            ? `   screenshot: attached, frame at ${a.shot.timeMs} ms with the stamp at (${a.shot.stamp.x}, ${a.shot.stamp.y})`
+            : `   screenshot: attached, frame at ${a.shot.timeMs} ms with this frame's marks drawn on it`
+          : null,
         a.text ? `   批注：${a.text.split('\n').join('\n        ')}` : null,
       ]
         .filter((line): line is string => !!line)

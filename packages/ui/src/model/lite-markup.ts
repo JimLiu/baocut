@@ -53,9 +53,13 @@ const HISTORY_MAX = 50;
 const MIN_SIZE = 0.01;
 const BOXED: readonly VideoAnnotationKind[] = ['box', 'ellipse', 'element'];
 
-/** 画面上的一条标记。`elementBox` 是评论点中的那个元素的框（只给画面上画高亮，不进标注）。 */
+/**
+ * 画面上的一条标记。`timeMs` 是画它时的播放头（毫秒）：标记属于那一帧，播放头离开那一帧就不画它（±`VIDEO_ANNOTATION_NEAR_MS`，
+ * 同草稿里的标注），发出去时各带自己的时刻。`elementBox` 是评论点中的那个元素的框（只给画面上画高亮，不进标注）。
+ */
 export interface Mark {
   id: string;
+  timeMs: number;
   kind: VideoAnnotationKind;
   color: VideoAnnotationColor;
   width: VideoAnnotationWidth;
@@ -69,7 +73,7 @@ export interface Mark {
   element?: VideoAnnotationElement;
   elementBox?: Rect;
 }
-/** 加一条时给的：颜色、粗细与 id 可以不给（取当前值、新起一个）。 */
+/** 加一条时给的：颜色、粗细与 id 可以不给（取当前值、新起一个）；`timeMs` 必须给（画它时的播放头）。 */
 export type MarkInput = Omit<Mark, 'id' | 'color' | 'width'> & Partial<Pick<Mark, 'id' | 'color' | 'width'>>;
 
 export interface MarkupState {
@@ -122,7 +126,7 @@ export function setWidth(s: MarkupState, width: VideoAnnotationWidth): MarkupSta
     : next;
 }
 
-/** 加一条：带当前颜色与粗细（给了就用给的），加完选中它。 */
+/** 加一条：带当前颜色与粗细（给了就用给的）、画它时的播放头，加完选中它。 */
 export function add(s: MarkupState, mark: MarkInput): MarkupState {
   const m: Mark = { ...mark, id: mark.id || newId('mk'), color: mark.color ?? s.color, width: mark.width ?? s.width };
   return commit(s, [...s.marks, m], m.id);
@@ -365,27 +369,34 @@ export function markupPlacement(segments: readonly LiteSegment[], seconds: numbe
   return where;
 }
 
-/** 这一帧共有的字段：哪部视频、哪个版本、播放头（毫秒），与落点。 */
-export interface MarkupNoteBase extends MarkupPlacement {
+/** 整组共有的字段：哪部视频、哪个版本，与按时刻算落点用的段表（没有段表就不带落点）。 */
+export interface MarkupNoteBase {
   videoId: Id;
   video: FileTarget;
   revision: Revision;
-  timeMs: number;
+  segments?: readonly LiteSegment[];
+}
+
+/** 这些标记落在哪几帧上（毫秒，按先后）：同一帧的几条共一张截图。 */
+export function markFrames(marks: readonly Mark[]): number[] {
+  return [...new Set(marks.map((m) => m.timeMs))].sort((a, b) => a - b);
 }
 
 /**
- * 整组标记换成视频标注草稿（一条标记一条，跳过不能发的）：文字与评论的内容进 `text`，别的 `text` 为空（说明写在对话里）；
- * 颜色与粗细进 `style`；点中的元素进 `element`（带给模型看的 `detail`，不带画面上用的框）；评论另带 `shot`（哪一帧、印章落在哪）。
- * 标签按界面语言生成（`videoAnnotationLabel`：点中元素时说元素，带落点时接段与句）。只输出协议的字段与 id、视频 id。
+ * 整组标记换成视频标注草稿（一条标记一条，跳过不能发的）：每条带自己的时刻与那一刻的落点；文字与评论的内容进 `text`，别的 `text`
+ * 为空（说明写在对话里）；颜色与粗细进 `style`；点中的元素进 `element`（带给模型看的 `detail`，不带画面上用的框）；每条带 `shot`
+ * （哪一帧：那一帧的截图随消息附上），评论另记印章落在哪。标签按界面语言生成（`videoAnnotationLabel`：点中元素时说元素，带落点时
+ * 接段与句）。只输出协议的字段与 id、视频 id。
  */
 export function toNotes(marks: readonly Mark[], base: MarkupNoteBase): DraftVideoAnnotation[] {
   return sendable(marks).map((m) => {
+    const where = base.segments ? markupPlacement(base.segments, m.timeMs / 1000) : {};
     const note: DraftVideoAnnotation = {
       id: m.id,
       videoId: base.videoId,
       video: base.video,
       revision: base.revision,
-      timeMs: base.timeMs,
+      timeMs: m.timeMs,
       kind: m.kind,
       region: { x: m.x, y: m.y, w: m.w || 0, h: m.h || 0 },
       style: { color: m.color, width: m.width },
@@ -395,9 +406,9 @@ export function toNotes(marks: readonly Mark[], base: MarkupNoteBase): DraftVide
     if (m.to) note.to = { x: m.to.x, y: m.to.y };
     if (m.points) note.points = m.points.map((p) => ({ x: p.x, y: p.y }));
     if (m.element) note.element = elementForNote(m.element);
-    if (m.kind === 'comment') note.shot = { timeMs: base.timeMs, stamp: { x: m.x, y: m.y } };
-    if (base.segment) note.segment = { ...base.segment };
-    if (base.line) note.line = { ...base.line };
+    note.shot = m.kind === 'comment' ? { timeMs: m.timeMs, stamp: { x: m.x, y: m.y } } : { timeMs: m.timeMs };
+    if (where.segment) note.segment = { ...where.segment };
+    if (where.line) note.line = { ...where.line };
     note.label = videoAnnotationLabel(note);
     return note;
   });

@@ -210,7 +210,7 @@ export function sentVideoAnnotations(list: readonly DraftVideoAnnotation[]): Vid
     ...(points ? { points: points.map((p) => ({ x: p.x, y: p.y })) } : {}),
     ...(style ? { style: { ...style } } : {}),
     ...(element ? { element: { ...element } } : {}),
-    ...(shot ? { shot: { timeMs: shot.timeMs, stamp: { ...shot.stamp } } } : {}),
+    ...(shot ? { shot: { timeMs: shot.timeMs, ...(shot.stamp ? { stamp: { ...shot.stamp } } : {}) } } : {}),
     ...(segment ? { segment: { ...segment } } : {}),
     ...(line ? { line: { ...line } } : {}),
     label,

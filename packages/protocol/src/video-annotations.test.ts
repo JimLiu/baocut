@@ -112,6 +112,16 @@ describe('轻量视图标记工具送来的视频标注（docs/design/lite-edito
     expect(send.safeParse({ ...base, videoAnnotations: [{ ...comment, element: undefined }] }).success).toBe(true);
     expect(send.safeParse({ ...base, videoAnnotations: [{ ...element, region: { x: 0.1, y: 0.1, w: 0, h: 0 } }] }).success).toBe(true);
     expect(send.safeParse({ ...base, videoAnnotations: [{ ...box, style: undefined, text: '  ' }] }).success).toBe(true);
+    // 画的标记也带那一帧的截图（没有印章位置）；评论的截图必须带印章位置
+    expect(
+      send.safeParse({
+        ...base,
+        videoAnnotations: [
+          { ...box, shot: { timeMs: 70000 } },
+          { ...pen, shot: { timeMs: 0 } },
+        ],
+      }).success,
+    ).toBe(true);
     for (const color of ['red', 'blue', 'green', 'black', 'white'])
       for (const width of [2, 4, 8, 12])
         expect(send.safeParse({ ...base, videoAnnotations: [{ ...box, style: { color, width } }] }).success).toBe(true);
@@ -137,7 +147,8 @@ describe('轻量视图标记工具送来的视频标注（docs/design/lite-edito
       { ...comment, region: { x: 0.4, y: 0.3, w: 0.1, h: 0.1 } },
       { ...comment, shot: { timeMs: 12400, stamp: { x: 1.4, y: 0.3 } } },
       { ...box, points },
-      { ...box, shot },
+      { ...box, shot: { timeMs: -1 } },
+      { ...comment, shot: { timeMs: 12400 } },
       { ...box, element: caption },
       { ...pin, to: { x: 0.5, y: 0.5 } },
       { ...box, style: { color: 'purple', width: 4 } },

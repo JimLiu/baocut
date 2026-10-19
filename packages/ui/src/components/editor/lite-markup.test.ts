@@ -278,6 +278,7 @@ describe('LiteMarkupLayer', () => {
       style: { color: 'red', width: 4 },
       segment: { id: 's1', kind: 'chapter', index: 0, title: '钩子' },
       line: { id: 's1:l2', index: 2, text: '第二句' },
+      shot: { timeMs: 3000 },
       text: '',
     });
     expect(notes[1]?.label).toContain('第 2 句');
