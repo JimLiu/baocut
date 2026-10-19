@@ -146,20 +146,30 @@
 
   /* 悬浮会话（product-design §5.1）：从 Space 打开的视频没有左侧会话栏，会话浮在编辑器右下角。
      默认展开成输入框——收成图标是用户自己点的，记在偏好里；发送后进入 Home 新会话。
-     不抢焦点：编辑器的快捷键（空格播放）不能因为输入框默认在场就失效。 */
+     不抢焦点：编辑器的快捷键（空格播放）不能因为输入框默认在场就失效。
+     进入标注模式（舞台条的「标记」）时收着的图标自动展开一次（autoOpen，不改偏好、不抢焦点）；这期间再最小化就留着收起，
+     图标右上角改标草稿里待发的视频标注条数；标记关了、草稿也空了才回到偏好。 */
   function MovieQuickChat({editor}) {
     const app = useApp();
-    const min = !!app.prefs.movieChatMin;
+    const annotating = !!editor.ctx?.annotating;
+    const pending = (app.videoNotes[editor.projectId] || []).length;
+    const [autoOpen, setAutoOpen] = useState(false);
+    useEffect(() => { if (annotating) setAutoOpen(true); }, [annotating]);
+    useEffect(() => { if (!annotating && !pending) setAutoOpen(false); }, [annotating, pending]);
+    const min = !!app.prefs.movieChatMin && !autoOpen;
     const sid = app.movieChats[editor.projectId] || null;
     const sess = sid ? app.sessionById(sid) : null;
     const trigger = useRef(null);
     const restored = useRef(false);
-    const setMin = v => { restored.current = !v; app.setPref('movieChatMin', v); if (v) requestAnimationFrame(() => trigger.current?.focus()); };
+    const setMin = v => { restored.current = !v; setAutoOpen(false); app.setPref('movieChatMin', v); if (v) requestAnimationFrame(() => trigger.current?.focus()); };
     const live = sess && (sess.status === 'running' || sess.status === 'waiting');
+    const N = window.BC_STAGE_NOTES;
+    const expand = pending && N ? `展开会话 · ${N.tokenLabel(app.videoNotes[editor.projectId])}` : live ? '展开会话 · Agent 正在处理' : '展开会话';
     if (min) return <aside className="movie-quickchat" aria-label="视频会话">
-      <BCAction ref={trigger} className="movie-quickchat__trigger" aria-label={live ? '展开会话 · Agent 正在处理' : '展开会话'} onClick={() => setMin(false)}>
+      <BCAction ref={trigger} className="movie-quickchat__trigger" aria-label={expand} onClick={() => setMin(false)}>
         <window.RSP.Icons.Comment />
-        {live ? <i className={cx('movie-quickchat__dot', sess.status === 'waiting' && 'is-waiting')} /> : null}
+        {pending ? <i className="movie-quickchat__count">{pending}</i>
+          : live ? <i className={cx('movie-quickchat__dot', sess.status === 'waiting' && 'is-waiting')} /> : null}
       </BCAction>
     </aside>;
     return <aside className="movie-quickchat is-open" aria-label="视频会话">
