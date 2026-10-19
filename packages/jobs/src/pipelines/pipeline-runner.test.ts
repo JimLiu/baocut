@@ -260,6 +260,8 @@ describe('PipelineRunner', () => {
     await runner.idle();
     await jobs.shutdown();
     await open({ maxRetainedJobs: 2, maxRetainedRetryablePipelines: 1 });
+    const removed: string[] = [];
+    jobs.onPruned((ids) => removed.push(...ids));
     control.failAt.add('b');
     const failedOld = (await start('f1')).jobId;
     await finished(failedOld);
@@ -282,6 +284,12 @@ describe('PipelineRunner', () => {
     expect(children(failedOld)).toHaveLength(0);
     expect(children(done[0]!)).toHaveLength(0);
     expect(jobs.list()).toHaveLength(3 + 2 + 3 + 3);
+    // 淘汰通知列出删掉的全部任务：两个父任务与它们的步骤（`jobs` 主题据此发 `job.removed`）。
+    const evicted = new Set([failedOld, done[0]!]);
+    const steps = new Set(events.filter((r) => r.parentJobId != null && evicted.has(r.parentJobId)).map((r) => r.jobId));
+    expect(steps.size).toBe(2 + 3);
+    expect(new Set(removed)).toEqual(new Set([...evicted, ...steps]));
+    expect(removed).toHaveLength(evicted.size + steps.size);
     // 保留下来的失败流程还能重试；淘汰的不能。
     await expect(runner.retry(failedOld)).rejects.toMatchObject({ code: 'not-found' });
     expect(await runner.retry(failedNew)).toEqual({ jobId: failedNew });

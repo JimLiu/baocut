@@ -387,6 +387,11 @@ export interface JobManagerOptions {
    * 更旧的按普通任务淘汰。
    */
   maxRetainedRetryablePipelines?: number;
+  /**
+   * 失败或取消、结果还能 `jobs.reconcile apply` 的任务另外保留多少条（默认 50，不占 `maxRetainedJobs` 的名额）：最新的这些
+   * 不淘汰，更旧的按普通任务淘汰。应用成功之后不再算。
+   */
+  maxRetainedApplicableJobs?: number;
   /** 生成输出的解码校验（ffprobe）。不给时生成任务的输出一律校验不过。 */
   probe?: MediaProbe;
   /** 用户库（架构设计 §5.9）：术语表进识别提示、`library:<id>` 音色。没有时这两种请求被拒绝。 */
@@ -487,9 +492,10 @@ export class JobManager {
   readonly #running = new Set<Promise<void>>();
   readonly #listeners = new Set<(job: JobRecord) => void>();
   readonly #segmentListeners = new Set<(update: LiveSegmentsUpdate) => void>();
-  readonly #pruneListeners = new Set<(evicted: ReadonlySet<Id>) => void>();
+  readonly #pruneListeners = new Set<(removed: ReadonlySet<Id>) => void>();
   readonly #maxRetained: number;
   readonly #maxRetainedRetryable: number;
+  readonly #maxRetainedApplicable: number;
   readonly #probe: MediaProbe;
   readonly #applications: ApplicationLedger;
   readonly #runner: ApplicationRunner;
@@ -512,6 +518,7 @@ export class JobManager {
     this.#router = options.router;
     this.#maxRetained = options.maxRetainedJobs ?? 200;
     this.#maxRetainedRetryable = options.maxRetainedRetryablePipelines ?? 50;
+    this.#maxRetainedApplicable = options.maxRetainedApplicableJobs ?? 50;
     this.#probe = options.probe ?? unavailableProbe;
     this.#resources = options.resources ?? new ResourceScheduler({ log: this.#log });
     this.#applications = new ApplicationLedger(path.join(path.dirname(options.paths.jobsFile), 'applications.jsonl'), { log: this.#log });
@@ -679,8 +686,11 @@ export class JobManager {
     return () => this.#segmentListeners.delete(listener);
   }
 
-  /** 账本的上限淘汰了任务之后（`evicted` 是被淘汰的顶层任务；子任务一并删了）。产物库的清扫据此再跑一轮。 */
-  onPruned(listener: (evicted: ReadonlySet<Id>) => void): () => void {
+  /**
+   * 账本的上限淘汰了任务之后（`removed` 是删掉的全部任务：被淘汰的顶层任务与随它们删掉的子任务）。`jobs` 主题据此发
+   * `job.removed`，产物库的清扫据此再跑一轮。与删除在同一个同步段里：通知时快照里已经没有这些任务。
+   */
+  onPruned(listener: (removed: ReadonlySet<Id>) => void): () => void {
     this.#pruneListeners.add(listener);
     return () => this.#pruneListeners.delete(listener);
   }
@@ -2785,30 +2795,43 @@ export class JobManager {
   }
 
   /**
-   * 账本的上限（§7.5）：只数终结的顶层任务，按结束时间从旧到新淘汰；子任务跟着父任务一起删，没结束的父任务的
-   * 子任务不动。还能重试的流程（失败、取消、中断）最新的 `maxRetainedRetryablePipelines` 条不淘汰、不占名额。
-   * 等对账的（`needs-reconciliation`）不淘汰：用户决定之前一直留着。被淘汰的任务的应用一并删掉。
+   * 账本的上限（架构设计 §7.9）：只数终结的顶层任务，按结束时间从旧到新淘汰；子任务跟着父任务一起删，没结束的父任务的
+   * 子任务不动。两类还能挽回的任务另外保留、不占名额：还能重试的流程（失败、取消、中断）最新的
+   * `maxRetainedRetryablePipelines` 条，结果还能 `jobs.reconcile apply` 的任务最新的 `maxRetainedApplicableJobs` 条。
+   * 等对账的（`needs-reconciliation`）不淘汰：用户决定之前一直留着；正在 `jobs.reconcile` 的也不淘汰（应用还在进行，
+   * 最近一次应用是 `pending`，不再算「还能应用」）。被淘汰的任务（含子任务）的应用一并删掉。
    */
   #prune(): void {
     const top = (e: Entry) => e.record.parentJobId == null || !this.#entries.has(e.record.parentJobId);
     const endedAt = (e: Entry) => e.record.endedAt ?? e.record.createdAt;
     const terminal = [...this.#entries.values()]
-      .filter((e) => top(e) && isTerminal(e.record.state) && e.record.state !== 'needs-reconciliation')
+      .filter(
+        (e) => top(e) && isTerminal(e.record.state) && e.record.state !== 'needs-reconciliation' && !this.#reconciling.has(e.record.jobId),
+      )
       .sort((a, b) => (endedAt(a) < endedAt(b) ? -1 : endedAt(a) > endedAt(b) ? 1 : 0));
+    const newest = (list: Entry[], count: number) => list.slice(Math.max(0, list.length - count));
     const retryable = terminal.filter((e) => e.record.kind === 'pipeline' && e.record.state !== 'completed');
-    const kept = new Set(retryable.slice(Math.max(0, retryable.length - this.#maxRetainedRetryable)));
+    // 每个任务最近一次的应用（与 `latest()` 相同：账本按写入顺序），扫一遍应用账本，不逐个任务查。
+    const latest = new Map<Id, ApplicationRecord>();
+    for (const item of this.#applications.all()) latest.set(item.record.jobId, item.record);
+    const applicable = terminal.filter((e) => reconcileChoices(e, latest.get(e.record.jobId)).includes('apply'));
+    const kept = new Set([...newest(retryable, this.#maxRetainedRetryable), ...newest(applicable, this.#maxRetainedApplicable)]);
     const pool = terminal.filter((e) => !kept.has(e));
     const evicted = new Set(pool.slice(0, Math.max(0, pool.length - this.#maxRetained)).map((e) => e.record.jobId));
     if (evicted.size === 0) return;
+    const removed = new Set<Id>();
     for (const [jobId, entry] of this.#entries) {
-      if (evicted.has(jobId) || (entry.record.parentJobId != null && evicted.has(entry.record.parentJobId))) this.#entries.delete(jobId);
+      if (evicted.has(jobId) || (entry.record.parentJobId != null && evicted.has(entry.record.parentJobId))) {
+        this.#entries.delete(jobId);
+        removed.add(jobId);
+      }
     }
     if (!this.#crashed) {
-      void this.#applications.remove(evicted).catch((error: unknown) => this.#log.error('Writing the application ledger failed', { error: String(error) }));
+      void this.#applications.remove(removed).catch((error: unknown) => this.#log.error('Writing the application ledger failed', { error: String(error) }));
     }
     for (const listener of this.#pruneListeners) {
       try {
-        listener(evicted);
+        listener(removed);
       } catch (error) {
         this.#log.warn('A prune listener failed', { error: String(error) });
       }

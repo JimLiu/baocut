@@ -785,7 +785,10 @@ export interface JobsSnapshot {
  * `job.segments`：转录任务新识别出的段落（不随 `job.updated` 重发，免得长视频每次进度都带上全部文字）。`from` 是第一段在
  * 这个任务全部段落里的序号（从 0 起；崩溃后自动重试的新一次尝试从头识别，也从 0 重来），客户端据此去重：已有的序号用新内容
  * 替换；`from` 越过已有的段数（中间缺了）时整条忽略，不补猜，等下一次快照补齐。
+ * `job.removed`：任务账本按上限淘汰了这些任务（架构设计 §7.9「记录保留」），`jobIds` 含随父任务一起删掉的子任务。客户端从
+ * 副本里删掉这些记录；之后对它们的 `jobs.inspect`、`jobs.reconcile`、`pipelines.retry` 都是 `not-found`。
  */
 export type JobsEvent =
   | { type: 'job.updated'; job: JobRecord }
-  | { type: 'job.segments'; jobId: Id; from: number; segments: JobLiveSegment[] };
+  | { type: 'job.segments'; jobId: Id; from: number; segments: JobLiveSegment[] }
+  | { type: 'job.removed'; jobIds: Id[] };

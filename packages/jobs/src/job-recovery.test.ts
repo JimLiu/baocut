@@ -22,7 +22,7 @@ import {
   type GenerationSelection,
   type GenerationSink,
 } from '@baocut/models';
-import { JobManager, type JobVideos, type TranscribeRouter } from './job-manager.ts';
+import { JobManager, type JobManagerOptions, type JobVideos, type TranscribeRouter } from './job-manager.ts';
 import type { JobAdmission } from './job-admission.ts';
 import type { AppliedReceipt, ApplicationRun, JobFaultPoint } from './job-application.ts';
 import { ApplicationLedger } from './application-ledger.ts';
@@ -244,7 +244,7 @@ describe('重启恢复与对账（JobManager）', () => {
   let crashAt: { point: JobFaultPoint; action?: (jobId: string) => void } | null;
   let remoteTasks: RemoteTaskQuery | undefined;
 
-  function create(): JobManager {
+  function create(limits: Pick<JobManagerOptions, 'maxRetainedJobs' | 'maxRetainedApplicableJobs'> = {}): JobManager {
     const router: TranscribeRouter = {
       selectTranscribe: async () => {
         throw new Error('不用');
@@ -272,6 +272,7 @@ describe('重启恢复与对账（JobManager）', () => {
       videos,
       admission,
       ...(remoteTasks ? { remoteTasks } : {}),
+      ...limits,
       probe: async () => ({ ok: true, media: { kind: 'audio', durationSec: 1, sampleRate: 24_000, channels: 1 } }),
       faults: (point, context) => {
         if (crashAt?.point !== point) return;
@@ -502,6 +503,33 @@ describe('重启恢复与对账（JobManager）', () => {
     expect(applied.state).toBe('completed');
     expect(videos.runs.at(-1)).toBeUndefined();
     expect(videos.committed).toHaveLength(1);
+  });
+
+  it('账本的上限：结果还能 apply 的任务另外保留，有上界；应用成功之后按普通任务淘汰，淘汰时应用一并删掉', async () => {
+    await manager.shutdown();
+    manager = create({ maxRetainedJobs: 1, maxRetainedApplicableJobs: 1 });
+    await manager.open();
+    const removed: string[] = [];
+    manager.onPruned((ids) => removed.push(...ids));
+    // 账本写下命令之后被取消：结果留作候选（应用 cancelled），能 apply。
+    crashAt = { point: 'application-recorded', action: (jobId) => void manager.cancel(jobId) };
+    const candidateOld = await speak();
+    const candidate = await speak();
+    expect(candidate).toMatchObject({ state: 'cancelled', applications: [{ state: 'cancelled' }] });
+    crashAt = null;
+    const doneOld = await speak();
+    const done = await speak();
+    // 最新的候选另外保留；其余的（旧候选与两条完成记录）按结束时间留最新的一条。
+    expect(new Set(manager.list().map((r) => r.jobId))).toEqual(new Set([candidate.jobId, done.jobId]));
+    expect(new Set(removed)).toEqual(new Set([candidateOld.jobId, doneOld.jobId]));
+    // 淘汰的候选不能再 apply，应用账本里它的记录也删了。
+    expect(await manager.reconcile(candidateOld.jobId, 'apply').catch((e: unknown) => e)).toMatchObject({ code: 'not-found' });
+    await until(async () => (await ledgerApps(candidateOld.jobId)).length === 0);
+    // 保留的候选应用之后不再豁免：下一次淘汰时它与更旧的完成记录都让位给最新的。
+    expect((await manager.reconcile(candidate.jobId, 'apply')).state).toBe('completed');
+    const latest = await speak();
+    expect(manager.list().map((r) => r.jobId)).toEqual([latest.jobId]);
+    expect(removed.slice(2).sort()).toEqual([candidate.jobId, done.jobId].sort());
   });
 
   it('产物写进产物库、结果还没记下时崩溃：重启后按发布意图认领产物补做应用，不重新生成、预算只结算一次', async () => {

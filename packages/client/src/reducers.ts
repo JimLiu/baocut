@@ -74,6 +74,7 @@ function withApprovals(next: TasksSnapshot, state: TasksSnapshot): TasksSnapshot
  * 后台任务（转写等）：一条记录的新状态替换旧的，新任务放在最前面，与快照的排序一致。
  * 转录的实时段落（`liveSegments`）：`job.segments` 从 `from` 起逐段写入，已有的序号替换、其后的保留；`from` 越过已有的段数
  * 时整条忽略（不补猜，下一次快照补齐）。记录不再是 `running` 时丢掉这个任务的段落，没有段落时不带 `liveSegments`。
+ * `job.removed`（账本淘汰）删掉这些记录与它们的段落；一条都不在时返回原状态。
  */
 export function applyJobsEvent(state: JobsSnapshot, event: JobsEvent): JobsSnapshot {
   switch (event.type) {
@@ -99,6 +100,17 @@ export function applyJobsEvent(state: JobsSnapshot, event: JobsEvent): JobsSnaps
       const segments = existing.slice();
       event.segments.forEach((segment, i) => (segments[event.from + i] = segment));
       return { ...state, liveSegments: { ...state.liveSegments, [event.jobId]: segments } };
+    }
+    case 'job.removed': {
+      const removed = new Set(event.jobIds);
+      const jobs = state.jobs.filter((j) => !removed.has(j.jobId));
+      let live = state.liveSegments;
+      if (live && event.jobIds.some((id) => id in live!)) {
+        live = Object.fromEntries(Object.entries(live).filter(([id]) => !removed.has(id)));
+        if (Object.keys(live).length === 0) live = undefined;
+      }
+      if (jobs.length === state.jobs.length && live === state.liveSegments) return state;
+      return live ? { jobs, liveSegments: live } : { jobs };
     }
   }
 }

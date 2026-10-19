@@ -126,6 +126,20 @@ describe('applyJobsEvent', () => {
     expect(added.jobs.map((j) => j.jobId)).toEqual(['job_2', 'job_1', 'job_0']);
   });
 
+  it('job.removed：账本淘汰的记录（含子任务）与它们的段落一起删掉；一条都不在时原样返回', () => {
+    const kept = job('job_1', 'running');
+    const state = {
+      jobs: [kept, job('job_0', 'failed'), { ...job('job_0s', 'completed'), parentJobId: 'job_0' } as JobRecord],
+      liveSegments: { job_1: [{ start: 0, end: 1, text: '段' }], job_0: [{ start: 0, end: 1, text: '旧' }] },
+    };
+    const removed = applyJobsEvent(state, { type: 'job.removed', jobIds: ['job_0', 'job_0s'] });
+    expect(removed.jobs).toEqual([kept]);
+    expect(removed.jobs[0]).toBe(kept);
+    expect(removed.liveSegments).toEqual({ job_1: state.liveSegments.job_1 });
+    expect(applyJobsEvent(removed, { type: 'job.removed', jobIds: ['job_1'] })).toEqual({ jobs: [] });
+    expect(applyJobsEvent(removed, { type: 'job.removed', jobIds: ['job_9'] })).toBe(removed);
+  });
+
   describe('实时段落', () => {
     const seg = (n: number, text = `段 ${n}`) => ({ start: n, end: n + 0.5, text });
     const segments = (jobId: string, from: number, list: Array<ReturnType<typeof seg>>) =>

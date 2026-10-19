@@ -462,6 +462,7 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
   const topic = new TopicLog<JobsSnapshot, JobsEvent>(() => jobs.snapshot(), '0');
   jobs.onChange((job) => topic.publish({ type: 'job.updated', job }));
   jobs.onSegments(({ jobId, from, segments }) => topic.publish({ type: 'job.segments', jobId, from, segments }));
+  jobs.onPruned((removed) => topic.publish({ type: 'job.removed', jobIds: [...removed] }));
   await services.refresh();
   // 启用着的 Provider 的默认授权（§6.8 的迁移规则）；之后配置变化时再对账。
   grants.reconcile();

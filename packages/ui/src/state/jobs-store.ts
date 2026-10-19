@@ -41,6 +41,13 @@ function trackSpeeds(speeds: Speeds, jobs: readonly JobRecord[]): Speeds {
   return next ?? speeds;
 }
 
+/** 账本淘汰了的任务（`job.removed`）的样本丢掉；一个都没有时引用不变。 */
+function dropSpeeds(speeds: Speeds, jobIds: readonly Id[]): Speeds {
+  if (!jobIds.some((id) => id in speeds)) return speeds;
+  const removed = new Set(jobIds);
+  return Object.fromEntries(Object.entries(speeds).filter(([id]) => !removed.has(id)));
+}
+
 export const useJobs = create<JobsStore>()((set) => ({
   ready: false,
   jobs: [],
@@ -66,7 +73,12 @@ export const useJobs = create<JobsStore>()((set) => ({
     set((s) => {
       const next = applyJobsEvent({ jobs: s.jobs, liveSegments: s.liveSegments as Record<Id, JobLiveSegment[]> }, event);
       const liveSegments = next.liveSegments ?? NONE;
-      const speeds = event.type === 'job.updated' ? trackSpeeds(s.speeds, [event.job]) : s.speeds;
+      const speeds =
+        event.type === 'job.updated'
+          ? trackSpeeds(s.speeds, [event.job])
+          : event.type === 'job.removed'
+            ? dropSpeeds(s.speeds, event.jobIds)
+            : s.speeds;
       return { jobs: next.jobs, liveSegments, heldSegments: holdSegments(s.liveSegments, liveSegments, s.heldSegments, next.jobs), speeds };
     }),
 }));
