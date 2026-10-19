@@ -30,7 +30,7 @@ import { EditorVideoInfo } from './video-info.tsx';
 import { VersionsButton } from './video-versions.tsx';
 import { VIDEO_BAR_COPY as VB } from './video-bar-copy.ts';
 
-/** 视频栏（产品设计 §5.1）：视频名、保存状态；「历史」按钮（video-versions.tsx）打开版本记录与撤销历史，当前修订号写在它的提示里。 */
+/** 视频栏（产品设计 §5.1）：视频名、保存状态；版本记录按钮（video-versions.tsx）是唯一的历史入口，当前修订号写在它的提示里。 */
 const bar = style({
   display: 'flex',
   alignItems: 'center',

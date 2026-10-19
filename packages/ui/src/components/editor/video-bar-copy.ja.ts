@@ -21,13 +21,4 @@ export const ja: VideoBarMessages = {
   agentChanged: (label: string) => `Agent が動画を変更しました：${label}`,
   savedByAgent: (label: string) => `保存済み · Agent：${label}`,
   saved: '保存済み',
-  historyFailed: (message: string) => `履歴を読み込めませんでした：${message}`,
-  historyLoading: '履歴を読み込み中',
-  noChanges: 'まだ変更はありません。',
-  undoneMark: '（取り消し済み）',
-  historyMeta: (revision: string, actor: string, ago: string) => `リビジョン ${revision} · ${actor} · ${ago}`,
-  undo: '取り消す',
-  actorAgent: 'Agent',
-  actorSystem: 'システム',
-  actorYou: '自分',
 };

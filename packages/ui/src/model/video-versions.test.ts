@@ -106,14 +106,14 @@ describe('video versions', () => {
   });
 
   it('describes the entry button', () => {
-    expect(buttonTip(true, { state: 'synced', latestVersion: 14 })).toBe('历史 · 最新是版本 14');
-    expect(buttonTip(true, { state: 'conflict', conflict: 'both-changed', latestVersion: 14 })).toBe('历史 · 最新是版本 14 · 快照和 BaoCut 都改过');
-    expect(buttonTip(true, { state: 'conflict', conflict: 'invalid', latestVersion: 14 })).toBe('历史 · 最新是版本 14 · 快照读不出');
-    expect(buttonTip(true, { state: 'external', latestVersion: 14 })).toBe('历史 · 最新是版本 14 · 正在导入外部改动');
-    expect(buttonTip(true, { state: 'missing' })).toBe('历史 · 还没有版本 · 还没有快照');
-    expect(buttonTip(false, null)).toBe('历史 · 这部视频不在项目里');
-    expect(buttonTip(true, { state: 'synced', latestVersion: 14 }, '327')).toBe('历史 · 修订 327 · 最新是版本 14');
-    expect(buttonTip(false, null, '12')).toBe('历史 · 修订 12 · 这部视频不在项目里');
+    expect(buttonTip(true, { state: 'synced', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14');
+    expect(buttonTip(true, { state: 'conflict', conflict: 'both-changed', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14 · 快照和 BaoCut 都改过');
+    expect(buttonTip(true, { state: 'conflict', conflict: 'invalid', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14 · 快照读不出');
+    expect(buttonTip(true, { state: 'external', latestVersion: 14 })).toBe('版本记录 · 最新是版本 14 · 正在导入外部改动');
+    expect(buttonTip(true, { state: 'missing' })).toBe('版本记录 · 还没有版本 · 还没有快照');
+    expect(buttonTip(false, null)).toBe('版本记录 · 这部视频不在项目里');
+    expect(buttonTip(true, { state: 'synced', latestVersion: 14 }, '327')).toBe('版本记录 · 修订 327 · 最新是版本 14');
+    expect(buttonTip(false, null, '12')).toBe('版本记录 · 修订 12 · 这部视频不在项目里');
   });
 
   it('names the snapshot states, telling the two conflict reasons apart', () => {

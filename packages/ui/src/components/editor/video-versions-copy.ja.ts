@@ -1,10 +1,9 @@
 import type { VideoVersionsMessages } from './video-versions-copy.ts';
 
 export const ja: VideoVersionsMessages = {
-  title: '履歴',
-  close: '履歴を閉じる',
+  title: 'バージョン履歴',
+  close: 'バージョン履歴を閉じる',
   tipRevision: (revision: string) => `リビジョン ${revision}`,
-  viewChanges: '変更',
   tipLatest: (version: number) => `最新はバージョン ${version}`,
   tipNone: 'バージョンはまだありません',
   tipOutside: 'この動画はプロジェクトに入っていません',

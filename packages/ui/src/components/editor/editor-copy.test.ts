@@ -51,7 +51,7 @@ describe('editor copy in English', () => {
 
   it('reads whole sentences instead of gluing fragments', () => {
     expect(VIDEO_BAR_COPY.revealVideoFolder).toBe('Show Video Folder');
-    expect(VIDEO_BAR_COPY.historyMeta('12', VIDEO_BAR_COPY.actorAgent, '2 min ago')).toBe('Revision 12 · Agent · 2 min ago');
+    expect(VIDEO_BAR_COPY.savedByAgent('Cut silence')).toBe('Saved · Agent: Cut silence');
     expect(MEDIA_COPY.replaceKind('audio')).toBe('Replace audio');
     expect(MEDIA_COPY.existing('image')).toBe('Existing images');
     expect(MEDIA_COPY.usesCount(1)).toBe('Used in 1 place on the timeline');

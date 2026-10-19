@@ -1,10 +1,9 @@
 import type { VideoVersionsMessages } from './video-versions-copy.ts';
 
 export const ko: VideoVersionsMessages = {
-  title: '기록',
-  close: '기록 닫기',
+  title: '버전 기록',
+  close: '버전 기록 닫기',
   tipRevision: (revision: string) => `리비전 ${revision}`,
-  viewChanges: '변경 사항',
   tipLatest: (version: number) => `최신은 버전 ${version}`,
   tipNone: '아직 버전이 없습니다',
   tipOutside: '이 영상은 프로젝트에 속해 있지 않습니다',

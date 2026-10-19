@@ -15,8 +15,6 @@ import {
   NotificationBadge,
   Popover,
   ProgressCircle,
-  SegmentedControl,
-  SegmentedControlItem,
   StatusLight,
   Text,
   TextArea,
@@ -57,16 +55,13 @@ import { ProjectGitStrip } from '../project-settings/project-git-strip.tsx';
 import { useAlive } from '../use-alive.ts';
 import { useNow } from '../use-now.ts';
 import { useEditorActions } from './editor-context.tsx';
-import { VideoChanges } from './video-changes.tsx';
 import { ConflictAlert, ExternalAlert, useImportNotice, useResolve, useVersionsDialog, type VersionNote } from './video-versions-conflict.tsx';
 import { VersionDetail } from './video-versions-detail.tsx';
 import { VIDEO_VERSIONS_COPY as C } from './video-versions-copy.ts';
 
 /**
- * 视频的历史（视频格式规范 §9、版本记录设计 §6、产品设计 §5.1；原型 video-versions.jsx / video-versions.css）：视频栏右侧唯一的
- * 「历史」按钮（当前修订号写在提示里），和它打开的对话框。头上切换两个视图：「版本」左边是这部视频的版本（新的在前），右边是
- * 选中版本的详情、动作与 diff（video-versions-detail.tsx）；「修改」是撤销历史，可以单独撤销某一笔（video-changes.tsx）。
- * 不在项目里的视频没有版本，默认打开「修改」。
+ * 视频的版本记录（视频格式规范 §9、版本记录设计 §6、产品设计 §5.1；原型 video-versions.jsx / video-versions.css）：视频栏右侧
+ * 唯一的历史入口按钮（当前修订号写在提示里），和它打开的对话框——左边是这部视频的版本（新的在前），右边是选中版本的详情、动作与 diff（video-versions-detail.tsx）。
  * 规则与显示名在 model/video-versions.ts，快照冲突的选择与外部改动的导入在 video-versions-conflict.tsx。
  * 版本变化没有推送：入口在修订号变了之后、快照该写下的时候再问一次状态，回到窗口时（外面可能 git pull 过）也问一次；
  * 对话框打开时读一次，每次操作后再读，快照正在写入或正在导入时每隔几秒读一次。状态记在视频的 `versionStatus`，
@@ -198,8 +193,6 @@ function SaveVersion({ disabled, onSave }: { disabled: boolean; onSave(name: str
 /** 最近一次成功操作的结果。对话框是模态的，toast 落在遮罩下面点不到，所以结果（和「撤销」）写在对话框里。 */
 type Done = VersionNote;
 
-type View = 'versions' | 'changes';
-
 type Ask = { kind: 'restore'; version: number; before: boolean; when: string } | { kind: 'delete'; version: number; name: string; next: number | null };
 
 function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): void }) {
@@ -216,8 +209,6 @@ function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): 
   const name = video.state?.video.name ?? video.ref?.name ?? '';
 
   const status = video.versionStatus ?? null;
-  const [view, setView] = useState<View>(inProject ? 'versions' : 'changes');
-  const versions = view === 'versions';
   const [list, setList] = useState<VideoVersionList | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -475,22 +466,15 @@ function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): 
             </h2>
             <span className={headVideo}>{name}</span>
           </div>
-          {/* 视图切换紧跟标题，两个视图里位置不动；快照状态与保存版本只属于「版本」。窄屏时这一组整体换到第二行。 */}
-          <div className={headSub}>
-            <SegmentedControl aria-label={C.title} selectedKey={view} onSelectionChange={(key) => setView(key as View)} styles={noShrink}>
-              <SegmentedControlItem id="versions">{C.listLabel}</SegmentedControlItem>
-              <SegmentedControlItem id="changes">{C.viewChanges}</SegmentedControlItem>
-            </SegmentedControl>
-            {versions && inProject && state ? (
-              <span className={headState}>
-                <StatusLight variant={state.tone} size="S">
-                  {state.label}
-                </StatusLight>
-              </span>
-            ) : null}
-          </div>
+          {inProject && state ? (
+            <span className={headState}>
+              <StatusLight variant={state.tone} size="S">
+                {state.label}
+              </StatusLight>
+            </span>
+          ) : null}
           <span className={grow} />
-          {versions && inProject ? <SaveVersion disabled={!writable || list === null} onSave={save} /> : null}
+          {inProject ? <SaveVersion disabled={!writable || list === null} onSave={save} /> : null}
           <TooltipTrigger>
             <ActionButton isQuiet aria-label={C.close} onPress={onClose}>
               <Close />
@@ -498,8 +482,8 @@ function VideoVersionsDialog({ video, onClose }: { video: OpenVideo; onClose(): 
             <Tooltip>{C.close}</Tooltip>
           </TooltipTrigger>
         </header>
-        {versions ? body : <VideoChanges revision={revision} />}
-        {versions && inProject ? (
+        {body}
+        {inProject ? (
           <footer className={foot}>
             {projectId ? <ProjectGitStrip projectId={projectId} onOpenSettings={() => openSettings(projectId)} /> : null}
             {state ? <span className={footDesc}>{state.desc}</span> : null}
@@ -589,7 +573,7 @@ const head = style({
   flexWrap: { default: 'nowrap', [NARROW]: 'wrap' },
   alignItems: 'center',
   columnGap: 12,
-  rowGap: { default: 4, [NARROW]: 8 },
+  rowGap: 4,
   flexShrink: 0,
   paddingY: 16,
   paddingStart: { default: 24, [NARROW]: 16 },
@@ -612,16 +596,8 @@ const mark = style({
 const headText = style({ display: 'flex', flexDirection: 'column', minWidth: 0, flexGrow: { default: 0, [NARROW]: 1 } });
 const headTitle = style({ margin: 0, fontFamily: 'sans', fontSize: 'ui-lg', fontWeight: 'extra-bold', color: 'gray-900' });
 const headVideo = style({ font: 'ui-xs', color: 'gray-600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-/** 窄屏：视图切换与快照状态换到第二行，标题、保存、关闭留在第一行。 */
-const headSub = style({
-  display: 'flex',
-  alignItems: 'center',
-  columnGap: 12,
-  flexShrink: 0,
-  order: { default: 0, [NARROW]: 1 },
-  flexBasis: { default: 'auto', [NARROW]: 'full' },
-});
-const headState = style({ flexShrink: 0, whiteSpace: 'nowrap' });
+/** 窄屏：快照状态换到第二行，标题、保存、关闭留在第一行。 */
+const headState = style({ flexShrink: 0, whiteSpace: 'nowrap', order: { default: 0, [NARROW]: 1 }, flexBasis: { default: 'auto', [NARROW]: 'full' } });
 const grow = style({ flexGrow: 1, display: { default: 'block', [NARROW]: 'none' } });
 const noShrink = style({ flexShrink: 0 });
 

@@ -21,13 +21,4 @@ export const pl: VideoBarMessages = {
   agentChanged: (label: string) => `Agent zmienił wideo: ${label}`,
   savedByAgent: (label: string) => `Zapisano · agent: ${label}`,
   saved: "Zapisano",
-  historyFailed: (message: string) => `Nie udało się wczytać historii: ${message}`,
-  historyLoading: "Wczytywanie historii",
-  noChanges: "Nie ma jeszcze zmian.",
-  undoneMark: " (cofnięto)",
-  historyMeta: (revision: string, actor: string, ago: string) => `Rewizja ${revision} · ${actor} · ${ago}`,
-  undo: "Cofnij",
-  actorAgent: "Agent",
-  actorSystem: "Systemu",
-  actorYou: "Ty",
 };

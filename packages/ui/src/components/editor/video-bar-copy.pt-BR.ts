@@ -21,13 +21,4 @@ export const ptBR: VideoBarMessages = {
   agentChanged: (label: string) => `O agente alterou o vídeo: ${label}`,
   savedByAgent: (label: string) => `Salvo · Agente: ${label}`,
   saved: "Salvo",
-  historyFailed: (message: string) => `Não foi possível carregar o histórico: ${message}`,
-  historyLoading: "Carregando histórico",
-  noChanges: "Ainda não há alterações.",
-  undoneMark: " (desfeito)",
-  historyMeta: (revision: string, actor: string, ago: string) => `Revisão ${revision} · ${actor} · ${ago}`,
-  undo: "Desfazer",
-  actorAgent: "Agente",
-  actorSystem: "Sistema",
-  actorYou: "Você",
 };

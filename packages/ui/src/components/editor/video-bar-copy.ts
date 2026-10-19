@@ -14,7 +14,7 @@ import { pl } from './video-bar-copy.pl.ts';
 import { tr } from './video-bar-copy.tr.ts';
 import { vi } from './video-bar-copy.vi.ts';
 
-/** 视频栏（名称、保存状态、版本与历史）的文案。译文在 `video-bar-copy.zh-Hans.ts`。 */
+/** 视频栏（名称、保存状态与视频操作）的文案。译文在 `video-bar-copy.zh-Hans.ts`。 */
 const en = {
   closeToSpace: 'Close video · back to Space',
   closeToHome: 'Close video · back to Home',
@@ -36,15 +36,6 @@ const en = {
   agentChanged: (label: string) => `The agent changed the video: ${label}`,
   savedByAgent: (label: string) => `Saved · Agent: ${label}`,
   saved: 'Saved',
-  historyFailed: (message: string) => `Couldn’t load history: ${message}`,
-  historyLoading: 'Loading history',
-  noChanges: 'No changes yet.',
-  undoneMark: ' (undone)',
-  historyMeta: (revision: string, actor: string, ago: string) => `Revision ${revision} · ${actor} · ${ago}`,
-  undo: 'Undo',
-  actorAgent: 'Agent',
-  actorSystem: 'System',
-  actorYou: 'You',
 };
 
 export type VideoBarMessages = typeof en;

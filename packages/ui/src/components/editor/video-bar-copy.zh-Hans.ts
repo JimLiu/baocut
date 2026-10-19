@@ -21,13 +21,4 @@ export const zhHans: VideoBarMessages = {
   agentChanged: (label: string) => `智能体修改了视频：${label}`,
   savedByAgent: (label: string) => `已保存 · 智能体：${label}`,
   saved: '已保存',
-  historyFailed: (message: string) => `没能读取历史：${message}`,
-  historyLoading: '正在读取历史',
-  noChanges: '还没有修改。',
-  undoneMark: '（已撤销）',
-  historyMeta: (revision: string, actor: string, ago: string) => `修订 ${revision} · ${actor} · ${ago}`,
-  undo: '撤销',
-  actorAgent: '智能体',
-  actorSystem: '系统',
-  actorYou: '你',
 };

@@ -16,10 +16,9 @@ import { vi } from './video-versions-copy.vi.ts';
 
 /** 视频的版本记录（视频格式规范 §9、版本记录设计 §6）：视频栏的入口与对话框。译文在 `video-versions-copy.zh-Hans.ts`。 */
 const en = {
-  title: 'History',
-  close: 'Close history',
+  title: 'Version history',
+  close: 'Close version history',
   tipRevision: (revision: string) => `Revision ${revision}`,
-  viewChanges: 'Changes',
   tipLatest: (version: number) => `Latest is version ${version}`,
   tipNone: 'No versions yet',
   tipOutside: 'This video isn’t in a project',

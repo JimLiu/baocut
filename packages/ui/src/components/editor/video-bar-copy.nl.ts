@@ -1,5 +1,5 @@
 import type { VideoBarMessages } from './video-bar-copy.ts';
 export const nl: VideoBarMessages = {
   closeToSpace: 'Video sluiten · Terug naar Space', closeToHome: 'Video sluiten · Terug naar Home', untitled: 'Video', rename: 'Video hernoemen', details: 'Videodetails', actions: 'Videoacties', showInSpace: 'In Space tonen', revealVideoFolder: 'Videomap weergeven in map', close: 'Video sluiten', nameLabel: 'Naam', save: 'Opslaan', openFailed: 'Kan niet openen', stale: 'Nog niet bijgewerkt · Bewerken is tijdelijk niet mogelijk', openingAria: 'Bezig met openen', opening: 'Openen…', savingAria: 'Bezig met opslaan', saving: 'Opslaan…',
-  agentChanged: (label) => `Agent heeft de video gewijzigd: ${label}`, savedByAgent: (label) => `Opgeslagen · Agent: ${label}`, saved: 'Opgeslagen', historyFailed: (message) => `Kan de geschiedenis niet lezen: ${message}`, historyLoading: 'Geschiedenis laden', noChanges: 'Er zijn nog geen wijzigingen.', undoneMark: '(ongedaan gemaakt)', historyMeta: (revision, actor, ago) => `Revisie ${revision} · ${actor} · ${ago}`, undo: 'Ongedaan maken', actorAgent: 'Agent', actorSystem: 'Systeem', actorYou: 'Jij',
+  agentChanged: (label) => `Agent heeft de video gewijzigd: ${label}`, savedByAgent: (label) => `Opgeslagen · Agent: ${label}`, saved: 'Opgeslagen',
 };

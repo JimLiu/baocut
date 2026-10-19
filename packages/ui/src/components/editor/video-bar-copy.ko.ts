@@ -21,13 +21,4 @@ export const ko: VideoBarMessages = {
   agentChanged: (label: string) => `Agent가 영상을 변경했습니다: ${label}`,
   savedByAgent: (label: string) => `저장됨 · Agent: ${label}`,
   saved: '저장됨',
-  historyFailed: (message: string) => `기록을 불러오지 못했습니다: ${message}`,
-  historyLoading: '기록을 불러오는 중',
-  noChanges: '아직 변경 사항이 없습니다.',
-  undoneMark: '(실행 취소됨)',
-  historyMeta: (revision: string, actor: string, ago: string) => `리비전 ${revision} · ${actor} · ${ago}`,
-  undo: '실행 취소',
-  actorAgent: 'Agent',
-  actorSystem: '시스템',
-  actorYou: '나',
 };

@@ -195,7 +195,7 @@ export function snapshotState(status: StatusLike): { label: string; tone: Snapsh
   return { label: C.stateSynced, tone: 'positive', desc: C.stateSyncedDesc };
 }
 
-/** 视频栏「历史」按钮的提示：当前修订，最新是第几版，快照不是已同步时带上状态（版本与撤销历史合在一个按钮里，产品设计 §5.1）。 */
+/** 视频栏版本记录按钮的提示：当前修订，最新是第几版，快照不是已同步时带上状态（视频栏只有这一个历史入口，产品设计 §5.1）。 */
 export function buttonTip(inProject: boolean, status: (StatusLike & { latestVersion?: number }) | null, revision: string | null = null): string {
   const head = revision === null ? [C.title] : [C.title, C.tipRevision(revision)];
   if (!inProject) return [...head, C.tipOutside].join(' · ');

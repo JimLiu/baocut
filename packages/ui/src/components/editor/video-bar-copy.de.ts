@@ -21,13 +21,4 @@ export const de: VideoBarMessages = {
   agentChanged: (label: string) => `Der Agent hat das Video geändert: ${label}`,
   savedByAgent: (label: string) => `Gespeichert · Agent: ${label}`,
   saved: "Gespeichert",
-  historyFailed: (message: string) => `Verlauf konnte nicht geladen werden: ${message}`,
-  historyLoading: "Verlauf wird geladen",
-  noChanges: "Noch keine Änderungen.",
-  undoneMark: " (rückgängig gemacht)",
-  historyMeta: (revision: string, actor: string, ago: string) => `Revision ${revision} · ${actor} · ${ago}`,
-  undo: "Rückgängig machen",
-  actorAgent: "Agent",
-  actorSystem: "System",
-  actorYou: "Sie",
 };

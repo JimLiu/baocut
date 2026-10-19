@@ -1,10 +1,9 @@
 import type { VideoVersionsMessages } from './video-versions-copy.ts';
 
 export const tr: VideoVersionsMessages = {
-  title: 'Geçmiş',
-  close: 'Geçmişi kapat',
+  title: 'Sürüm geçmişi',
+  close: 'Sürüm geçmişini kapat',
   tipRevision: (revision: string) => `Revizyon ${revision}`,
-  viewChanges: 'Değişiklikler',
   tipLatest: (version: number) => `En son sürüm: ${version}`,
   tipNone: 'Henüz sürüm yok',
   tipOutside: 'Bu video bir projede değil',

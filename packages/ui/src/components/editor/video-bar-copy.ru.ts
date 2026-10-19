@@ -21,13 +21,4 @@ export const ru: VideoBarMessages = {
   agentChanged: (label: string) => `Агент изменил видео: ${label}`,
   savedByAgent: (label: string) => `Сохранено · агент: ${label}`,
   saved: "Сохранено",
-  historyFailed: (message: string) => `Не удалось загрузить историю: ${message}`,
-  historyLoading: "Загрузка истории",
-  noChanges: "Изменений пока нет.",
-  undoneMark: " (отменено)",
-  historyMeta: (revision: string, actor: string, ago: string) => `Ревизия ${revision} · ${actor} · ${ago}`,
-  undo: "Отменить",
-  actorAgent: "Агент",
-  actorSystem: "Система",
-  actorYou: "Вы",
 };

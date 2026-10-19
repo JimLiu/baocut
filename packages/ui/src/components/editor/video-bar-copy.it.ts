@@ -21,13 +21,4 @@ export const it: VideoBarMessages = {
   agentChanged: (label: string) => `L’agente ha modificato il video: ${label}`,
   savedByAgent: (label: string) => `Salvato · Agente: ${label}`,
   saved: "Salvato",
-  historyFailed: (message: string) => `Impossibile caricare la cronologia: ${message}`,
-  historyLoading: "Caricamento della cronologia",
-  noChanges: "Nessuna modifica ancora.",
-  undoneMark: " (annullato)",
-  historyMeta: (revision: string, actor: string, ago: string) => `Revisione ${revision} · ${actor} · ${ago}`,
-  undo: "Annulla",
-  actorAgent: "Agente",
-  actorSystem: "Sistema",
-  actorYou: "Tu",
 };

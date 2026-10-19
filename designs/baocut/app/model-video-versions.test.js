@@ -165,7 +165,7 @@ test('快照冲突、不在项目里：写操作都拒绝', () => {
   assert.equal(V.stateOf(o), null);
   assert.equal(V.save(o, {name: 'x'}).error.code, 'VERSIONS_NEED_PROJECT');
   assert.match(V.buttonTip(o), /不在项目里/);
-  assert.match(V.buttonTip(p1()), /^历史 · 修订 327 · 最新是版本 14$/);
+  assert.match(V.buttonTip(p1()), /^版本记录 · 修订 327 · 最新是版本 14$/);
 });
 
 test('重建：拷来的视频末尾是一个重建版本，回到重建前的最后一版不改变内容', () => {

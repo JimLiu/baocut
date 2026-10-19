@@ -21,13 +21,4 @@ export const zhHant: VideoBarMessages = {
   agentChanged: (label: string) => `Agent 修改了影片：${label}`,
   savedByAgent: (label: string) => `已儲存 · Agent：${label}`,
   saved: '已儲存',
-  historyFailed: (message: string) => `無法載入歷史記錄：${message}`,
-  historyLoading: '正在載入歷史記錄',
-  noChanges: '還沒有任何修改。',
-  undoneMark: '（已還原）',
-  historyMeta: (revision: string, actor: string, ago: string) => `修訂 ${revision} · ${actor} · ${ago}`,
-  undo: '還原',
-  actorAgent: 'Agent',
-  actorSystem: '系統',
-  actorYou: '你',
 };
