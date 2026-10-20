@@ -17,7 +17,8 @@ test('bundle signing defers the main executable until its sibling CLI is signed'
       <key>CFBundlePackageType</key><string>APPL</string><key>CFBundleVersion</key><string>1</string>
       <key>CFBundleShortVersionString</key><string>1.0.0</string></dict></plist>`);
     for (const name of ['BaoCut', 'baocut-cli']) {
-      execFileSync('clang', [path.join(root, 'main.c'), '-o', path.join(app, 'Contents/MacOS', name)]);
+      // Apple Silicon's linker signs by default; this regression needs unsigned siblings.
+      execFileSync('clang', [path.join(root, 'main.c'), '-Wl,-no_adhoc_codesign', '-o', path.join(app, 'Contents/MacOS', name)]);
     }
     const { signAsync } = await import('@electron/osx-sign');
     const entitlements = path.resolve(import.meta.dirname, '../build/entitlements.mac.plist');
