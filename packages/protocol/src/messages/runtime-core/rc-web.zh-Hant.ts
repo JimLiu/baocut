@@ -79,4 +79,10 @@ export const zhHant: RcWebMessages = {
   attachmentNotFound: '附件不存在',
   fileNameLength: (p: { max: number }) => `檔案名稱必須是 1 到 ${p.max} 字`,
   fileNameInvalid: '檔案名稱不能包含路徑分隔符號或控制字元',
+  reviewTitle: '正在開啟審片頁',
+  reviewOpening: '正在開啟這部影片…',
+  reviewKeyMissing: '這條審片連結不完整：請複製整條連結，包括 # 後面的部分。',
+  reviewKeyRejected: '這條審片連結對這台 BaoCut 無效：請讓給你連結的 Agent 重新給一條。',
+  reviewVideoMissing: '這部影片已經不在了：可能被移走或刪除了。',
+  reviewNotAllowed: (p) => `審片頁只能開啟它自己的影片，這裡用不了 ${p.method}`,
 };

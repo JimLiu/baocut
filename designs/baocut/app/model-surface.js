@@ -5,6 +5,9 @@
      · `app` —— BaoCut.html，对应桌面客户端 apps/baocut：全功能。
      · `web` —— BaoCutWeb.html，对应 apps/web：在 Agent 里预览视频效果、做简单编辑的网页。
        没有任何 AI 功能入口（AI 操作从 Agent 或 App 发起），外壳只有「视频列表 ＋ 编辑器 ＋ 导出」。
+     · `review` —— BaoCutWeb.html?review=<项目 id>，对应 apps/web 的审片页 `/review/<videoId>`（架构设计 §12.8、
+       产品设计 §5.12）：外部 Agent 给的固定链接，整页只有这一部视频的编辑器——没有视频列表、导出、任务与品牌库，
+       默认落在轻量视图，能切时间线、改动照常写进视频。
 
    入口 HTML 在加载本文件**之前**写 `window.BC_SURFACE_ID = 'web'`；不写就是 `app`。
    共享组件只读这里的能力位（`BC_SURFACE.ai` 等），不自己判断 id——
@@ -38,29 +41,45 @@
          Web 能看 git 状态、能「提交到 git」，这三项停用并写明去桌面应用：改 Runtime 设置、在本机文件夹里建仓库、
          允许执行仓库配置里的程序，都只在桌面界面与 CLI。 */
       localAdmin: true,
+      /* 视频列表（Web 的侧栏，web-shell.jsx）与换视频：App 用 rail 与 Space，不读这一位；审片页只有一部视频。 */
+      videoList: false,
+      /* 导出与视频栏上的任务胶囊：审片会话碰不到作业与任务（架构设计 §12.8），两样都不画。 */
+      exportVideo: true,
+      tasks: true,
     },
     web: {
       id: 'web', name: 'BaoCut Web',
       ai: false, agent: false, pages: false, help: false, windowChrome: false,
       importMedia: true, flashFix: false, remote: false,
       sidebarDefaultOpen: false, appRail: false, fontDownloads: false, reveal: false, exportNextToSource: false, localAdmin: false,
+      videoList: true, exportVideo: true, tasks: true,
+    },
+    review: {
+      id: 'review', name: 'BaoCut 审片',
+      ai: false, agent: false, pages: false, help: false, windowChrome: false,
+      importMedia: true, flashFix: false, remote: false,
+      sidebarDefaultOpen: false, appRail: false, fontDownloads: false, reveal: false, exportNextToSource: false, localAdmin: false,
+      videoList: false, exportVideo: false, tasks: false,
     },
   };
 
-  /* Web 不落的 Tab。`aitools` 是 rail 第三格（product-design §5.10），Web 没有 AI 入口，不列它，落到它时退回文稿。 */
+  /* Web 不落的 Tab。`aitools` 是 rail 第三格（product-design §5.10），Web 没有 AI 入口，不列它，落到它时退回文稿。
+     审片页另外不列品牌：品牌库是跨视频的用户数据，审片会话碰不到。 */
   const WEB_RAIL_DROP = ['aitools'];
+  const REVIEW_RAIL_DROP = ['aitools', 'brand'];
 
-  const resolveId = (raw) => (raw === 'web' ? 'web' : 'app');
+  const resolveId = (raw) => (raw === 'web' || raw === 'review' ? raw : 'app');
 
   function make(raw) {
     const caps = CAPS[resolveId(raw)];
-    const isWeb = caps.id === 'web';
+    const isWeb = caps.id !== 'app';
+    const drop = caps.id === 'review' ? REVIEW_RAIL_DROP : WEB_RAIL_DROP;
 
     /** rail 表按表面过滤（顺序不动） */
-    const rail = (items) => (isWeb ? items.filter((r) => WEB_RAIL_DROP.indexOf(r.k) < 0) : items);
+    const rail = (items) => (isWeb ? items.filter((r) => drop.indexOf(r.k) < 0) : items);
 
     /** 落点 Tab：项目原本要落在这个表面没有的 Tab（智能裁剪会话开着 → aitools）时退回文稿 */
-    const landingTab = (tab) => (isWeb && WEB_RAIL_DROP.indexOf(tab) >= 0 ? 'transcript' : tab);
+    const landingTab = (tab) => (isWeb && drop.indexOf(tab) >= 0 ? 'transcript' : tab);
 
     /** localStorage 键按表面分开：两份原型同源，路由栈与布局偏好不许互相串 */
     const storageKey = (key) => (isWeb ? key.replace(/^bc-/, 'bc-web-') : key);
@@ -79,5 +98,5 @@
   }
 
   const root = typeof window !== 'undefined' ? window : globalThis;
-  root.BC_SURFACE = Object.assign(make(root.BC_SURFACE_ID), {make, CAPS, WEB_RAIL_DROP});
+  root.BC_SURFACE = Object.assign(make(root.BC_SURFACE_ID), {make, CAPS, WEB_RAIL_DROP, REVIEW_RAIL_DROP});
 })();

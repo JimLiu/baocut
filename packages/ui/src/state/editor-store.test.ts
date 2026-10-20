@@ -96,6 +96,9 @@ describe('网页宿主上的面板页', () => {
     expect(hostPanelTab('aitools', true)).toBe('transcript');
     expect(hostPanelTab('aitools', false)).toBe('aitools');
     expect(hostPanelTab('subtitle', true)).toBe('subtitle');
+    expect(hostPanelTab('brand', true)).toBe('brand');
+    expect(hostPanelTab('brand', true, true)).toBe('transcript');
+    expect(hostPanelTab('props', true, true)).toBe('props');
   });
 });
 

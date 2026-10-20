@@ -98,7 +98,7 @@ import { probePower, type PowerState } from './space/semantic/power.ts';
 import type { EmbeddingProvider } from '@baocut/models';
 import { VideoDeleteTools } from './agent-tools/video-delete-tools.ts';
 import { VideoTrash } from './videos/video-trash.ts';
-import { locateFileTarget } from './handlers.ts';
+import { locateFileTarget, videoTargetOf } from './handlers.ts';
 import { resolveModelWorkerCommand, type ModelWorkerCommand } from './models/model-worker.ts';
 import { resolveEngineHostCommand } from './videos/engine-host.ts';
 import { VideoService } from './videos/video-service.ts';
@@ -1178,6 +1178,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       }),
       slides: slides.server,
       docs: docs.server,
+      videoTarget: (videoId) => videoTargetOf(videos, space, videoId),
     });
     // 在场的用户（工具页的当场授权，§7.9）：这个网关上的桌面界面连接。CLI、智能体、浏览器与对外服务都不算。
     const present = new Set<string>();

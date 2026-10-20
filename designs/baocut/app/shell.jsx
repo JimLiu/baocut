@@ -119,17 +119,18 @@
     const tasks = window.BC_TASKPILL.pillList(app.tasks, {projectId, mineOnly: true});
     return <>
       {editor.liteAvailable && editor.setView ? <MovieViewSwitch editor={editor} /> : null}
-      <window.TaskPill list={tasks} projectId={projectId} />
+      {SURF.tasks ? <window.TaskPill list={tasks} projectId={projectId} /> : null}
       {/* 版本记录（视频格式规范 §9、版本记录设计 §6）：按钮在导出左边，对话框在 video-versions.jsx */}
       <window.VideoVersionsButton editor={editor} />
-      <div className="moviebar__export">
+      {/* 审片页（SURF.exportVideo 为 false）不导出：成片交给出链接的那个 Agent */}
+      {SURF.exportVideo ? <div className="moviebar__export">
         {exporting
           ? <Btn variant="accent" className="btn--busy" onClick={editor.onExport} title="正在导出 · 点开看进度或取消">
               <span className="btn__sp" />{window.BC_EXPORT.preparationView(exporting).active ? '正在准备导出' : <>导出中 · <span className="t-mono">{exporting.pct || 0}%</span></>}
             </Btn>
           : <Btn variant="accent" icon="export" onClick={editor.onExport}>导出</Btn>}
         {editor.exportOpen ? <window.ExportPopover ctx={editor.ctx} onClose={editor.closeExport} /> : null}
-      </div>
+      </div> : null}
     </>;
   }
 
@@ -188,7 +189,8 @@
   function Titlebar({editor, onHelp}) {
     const app = useApp();
     const {sidebar, toggleSidebar, canBack, canFwd, back, fwd} = app;
-    const pageSide = SURF.appRail ? window.BC_APP_IA.sideOf(app.route) : 'legacy';
+    // Web 的视频列表开关；审片页（SURF.videoList 为 false）只有一部视频，没有这颗钮。
+    const pageSide = SURF.appRail ? window.BC_APP_IA.sideOf(app.route) : SURF.videoList ? 'legacy' : null;
     const bar = useRef(null);
     const [dividers, setDividers] = useState([]);
     const [homeBounds, setHomeBounds] = useState(null);
@@ -324,7 +326,7 @@
     /* App rail（2026-10-01）：rail 常驻最左；页面侧栏按路由显示 Home 会话、Space 分类、工具、服务或后台任务目录，
        打开视频仍保留入口侧栏；视频栏与可选会话只属于内容区（本轮调整 §2.2 / §5.1）。 */
     const pageSide = SURF.appRail ? window.BC_APP_IA.sideOf(app.route) : null;
-    const side = SURF.appRail ? (!!pageSide && (!sidebar.ghost || !!sideForce)) : (!sidebar.ghost || !!sideForce);
+    const side = SURF.appRail ? (!!pageSide && (!sidebar.ghost || !!sideForce)) : SURF.videoList && (!sidebar.ghost || !!sideForce);
     const PageSide = !SURF.appRail ? null : pageSide === 'space' ? window.SpaceSidebar : pageSide === 'home' ? window.HomeSidebar : window.UtilitySidebar;
     /* 帮助中心的开合只活在外壳里；经 app 上下文给下面的页面一个 openHelp（设置左栏的「帮助」行用它，
        2026-10-01），不逐层传 prop。没有帮助中心的表面（Web）是 null。 */

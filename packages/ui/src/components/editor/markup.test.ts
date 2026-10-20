@@ -2,6 +2,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ToastQueue } from '@react-spectrum/s2';
 import type { CompositionItem, DocumentRecord, Sequence } from '@baocut/protocol';
 import type { MarkupPick } from '../../model/markup.ts';
 import type { LiteSegment } from '../../model/lite-segments.ts';
@@ -529,6 +530,128 @@ describe('MarkupLayer', () => {
     expect(Object.keys(shots[3000]?.marks ?? {})).toEqual([notes[0]!.id]);
     // 发出去的不留在标记里
     expect(marks()).toHaveLength(0);
+  });
+});
+
+describe('截图模式（Web，lite-editor §4.1、§8）', () => {
+  const host = (runtime as unknown as { host: { platform: string } }).host;
+  const flush = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
+  const disabled = (el: HTMLElement) => el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true';
+  const paintCtx = () => ({
+    drawImage: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
+  });
+  let clipboard: PropertyDescriptor | undefined;
+  beforeEach(() => {
+    host.platform = 'web';
+    clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(paintCtx() as unknown as CanvasRenderingContext2D);
+    HTMLCanvasElement.prototype.toBlob ??= function () {};
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['png'], { type: 'image/png' })));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    stubImage();
+  });
+  afterEach(() => {
+    host.platform = 'desktop';
+    if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard);
+    else delete (navigator as { clipboard?: unknown }).clipboard;
+  });
+
+  it('工具条没有选择元素与评论、没有添加到对话；⇧⌘S / ⇧⌘C 不接，留给浏览器', async () => {
+    await mount();
+    expect(useMarkup.getState().markup.mode).toBe('screenshot');
+    for (const name of ['选择元素', '评论', '添加到对话']) expect(button(name)).toBeUndefined();
+    expect(button('画笔')).toBeDefined();
+    expect(disabled(button('复制图片')) && disabled(button('下载图片'))).toBe(true);
+    const shortcut = new KeyboardEvent('keydown', {
+      key: 's',
+      metaKey: true,
+      ctrlKey: true,
+      shiftKey: true,
+      code: 'KeyS',
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(() => document.body.dispatchEvent(shortcut));
+    expect(shortcut.defaultPrevented).toBe(false);
+    expect(useMarkup.getState().markup.tool).toBe('pen');
+  });
+
+  it('复制 / 下载的是播放头那一帧：当前帧没有标记时置灰；复制、下载后标记留着，关闭时照样问', async () => {
+    const write = vi.fn(async (_items: unknown[]) => {});
+    const items: Record<string, unknown>[] = [];
+    vi.stubGlobal(
+      'ClipboardItem',
+      class {
+        constructor(data: Record<string, unknown>) {
+          items.push(data);
+        }
+      },
+    );
+    Object.defineProperty(navigator, 'clipboard', { value: { write }, configurable: true });
+    const saved: string[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push(this.download);
+    });
+    const neutral = vi.spyOn(ToastQueue, 'neutral');
+    useVideo.setState({
+      video: { videoId: 'v1', target, status: 'ready', state: { video: { revision: '3', name: '倒着开的跑车' } } } as unknown as OpenVideo,
+    });
+    await mount();
+    await drag([64, 36], [128, 72]);
+    expect(disabled(button('复制图片'))).toBe(false);
+    await act(() => useEditor.setState({ playhead: 20 }));
+    expect(disabled(button('复制图片')) && disabled(button('下载图片'))).toBe(true);
+    await act(() => useEditor.setState({ playhead: 3.2 }));
+
+    await press(button('复制图片'));
+    await flush();
+    expect(write).toHaveBeenCalledTimes(1);
+    await expect(items[0]?.['image/png']).resolves.toBeInstanceOf(Blob);
+    expect(neutral).toHaveBeenCalledWith('已复制图片', expect.anything());
+
+    await press(button('下载图片'));
+    await flush();
+    expect(saved).toEqual(['倒着开的跑车-00m03s200.png']);
+    expect(neutral).toHaveBeenCalledWith('已下载 倒着开的跑车-00m03s200.png', expect.anything());
+
+    expect(marks()).toHaveLength(1);
+    expect(useEditor.getState().annotating).toBe(true);
+    await key('Escape');
+    expect(useMarkup.getState().markup.ask).toBe(true);
+    expect(document.body.textContent).toContain('关闭会去掉画面上的标记');
+  });
+
+  it('这一帧截不出图（实时合成层在画布之外）时按截不出提示，剪贴板不可用时提示改用下载', async () => {
+    const neutral = vi.spyOn(ToastQueue, 'neutral');
+    const negative = vi.spyOn(ToastQueue, 'negative');
+    engine.plan = livePlan();
+    vi.stubGlobal('ClipboardItem', class {});
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { write: vi.fn(async () => Promise.reject(new Error('denied'))) },
+      configurable: true,
+    });
+    await mount();
+    await drag([64, 36], [128, 72]);
+    await press(button('下载图片'));
+    await flush();
+    expect(neutral).toHaveBeenCalledWith('这一帧没能截下来', expect.anything());
+    neutral.mockClear();
+    await press(button('复制图片'));
+    await flush();
+    expect(neutral).toHaveBeenCalledWith('这一帧没能截下来', expect.anything());
+
+    engine.plan = null;
+    await press(button('复制图片'));
+    await flush();
+    expect(negative).toHaveBeenCalledWith('没能复制图片，可以改用下载', expect.anything());
+    expect(marks()).toHaveLength(1);
   });
 });
 

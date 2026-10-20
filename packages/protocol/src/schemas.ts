@@ -1152,6 +1152,7 @@ export const methodParamSchemas = {
   'designSystem.open': fileTarget,
   'docs.open': fileTarget,
   'videos.open': fileTarget,
+  'videos.target': z.object({ videoId: id }).strict(),
   'videos.importPackage': z
     .object({
       projectId: id.optional(),
@@ -1592,6 +1593,7 @@ export const methodParamSchemas = {
     .strict(),
   'services.modelApi.removeAlias': z.object({ alias: modelApiAlias }).strict(),
   'services.web.createAccessLink': z.object({ video: id.optional() }).strict(),
+  'services.web.reviewLink': z.object({ video: id }).strict(),
   'services.web.listSessions': empty,
   'services.web.revokeSession': z.object({ sessionId: id }).strict(),
   'settings.get': z.object({ keys: z.array(z.enum(SETTING_KEYS)).max(SETTING_KEYS.length).optional() }).strict(),

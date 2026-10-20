@@ -90,7 +90,7 @@ description: 任务的查看、等待、取消与重跑；跨视频检索、视�
 - 用之前先告诉用户要做什么、为什么，得到明确同意；涉及密钥的步骤（例如 `--key-stdin`）只让用户自己输入。
 - 补救命令（`remedy` / `next`）指向这些命令时同样先问。
 - 不要用 `text` 代替自己做文字工作；不要用 `chat` 把任务转给 BaoCut 的智能体。
-- 例外：`baocut web open` 只开本机的网页版编辑器、给你一条一次性链接，不改视频与设置，开网页版编辑器时直接用，见 [web](web.md)；同组的 `services configure web` 等仍要先问。
+- 例外：`baocut web open` 只开本机的网页版编辑器、给你一条一次性链接，`baocut web review` 给用户一部视频的审片链接（服务没开时先开并设为随 BaoCut 启动），都不改视频，直接用，见 [web](web.md)；同组的 `services configure web` 等仍要先问。
 <!-- /surface -->
 <!-- surface: agent -->
 ### 设置与管理

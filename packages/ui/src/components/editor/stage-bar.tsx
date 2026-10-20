@@ -57,7 +57,6 @@ import {
   stageRatioCanvas,
   stageRatioOf,
 } from '../../model/stage-bar.ts';
-import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useMarkup } from '../../state/markup-store.ts';
 import { PLAYBACK_RATES } from '../../state/player-store.ts';
@@ -384,15 +383,13 @@ function CustomRatioDialog({
 
 /**
  * 标记（产品设计 §3.2.3「视频标注」、§5.3；lite-editor §4.1）：打开标记层与标记工具条，在画面上画、选元素或写评论，加进输入框的
- * 「视频标注」。两种视图同一枚钮、同一套工具。是交给智能体的入口，Web 没有会话，不出这枚钮。进标注模式先停播——标注绑的是此刻的播放头。
- * 关掉时还有没发出去的标记先问（markup-store `close`）。
+ * 「视频标注」。两种视图同一枚钮、同一套工具。Web 没有会话，同一枚钮进截图模式（lite-editor §8；markup.tsx）：画完复制或下载这一帧的图。
+ * 进标注模式先停播——标注绑的是此刻的播放头。关掉时还有没发出去的标记先问（markup-store `close`）。
  */
 function AnnotateToggle() {
-  const web = useRuntime().host.platform === 'web';
   const { pause } = useEditorActions();
   const on = useEditor((s) => s.annotating);
   const setAnnotating = useEditor((s) => s.setAnnotating);
-  if (web) return null;
   return (
     <Tip label={on ? LM.exitMarkup : LM.markup}>
       <ToggleButton

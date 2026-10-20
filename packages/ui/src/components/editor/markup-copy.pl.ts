@@ -33,5 +33,12 @@ export const pl: MarkupMessages = {
   cancel: 'Anuluj',
   kept: 'Komentarz zostaje na obrazie. „Dodaj do czatu” wyśle go razem z innymi oznaczeniami.',
   shotFailed: 'Nie udało się przechwycić klatki. Oznaczenia dodano bez tego zrzutu ekranu.',
+  copyImage: 'Kopiuj obraz',
+  downloadImage: 'Pobierz obraz',
+  copied: 'Skopiowano obraz',
+  downloaded: (name) => `Pobrano: ${name}`,
+  copyFailed: 'Nie udało się skopiować obrazu. Zamiast tego pobierz go.',
+  captureFailed: 'Nie udało się przechwycić tej klatki.',
+  discardBodyScreenshot: 'Zamknięcie usunie oznaczenia z obrazu. Jeśli go potrzebujesz, najpierw skopiuj lub pobierz obraz.',
   pickInfo: { heading: 'Ułatwienia dostępu', name: 'Nazwa', role: 'Rola', focusable: 'Fokus z klawiatury' },
 };

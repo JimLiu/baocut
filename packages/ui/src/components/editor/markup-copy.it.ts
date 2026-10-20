@@ -33,5 +33,12 @@ export const it: MarkupMessages = {
   cancel: 'Annulla',
   kept: 'Il commento resta sull’immagine. «Aggiungi alla chat» lo invia insieme agli altri segni.',
   shotFailed: 'Impossibile catturare un fotogramma. I segni sono stati aggiunti senza quello screenshot.',
+  copyImage: 'Copia immagine',
+  downloadImage: 'Scarica immagine',
+  copied: 'Immagine copiata',
+  downloaded: (name) => `${name} scaricato`,
+  copyFailed: 'Impossibile copiare l’immagine. Scaricala invece.',
+  captureFailed: 'Impossibile catturare questo fotogramma.',
+  discardBodyScreenshot: 'Chiudendo, i segni sull’immagine vengono rimossi. Se ti serve, copia o scarica prima l’immagine.',
   pickInfo: { heading: 'Accessibilità', name: 'Nome', role: 'Ruolo', focusable: 'Attivabile da tastiera' },
 };

@@ -166,8 +166,8 @@
 | 样式 | 颜色 ▾ | — | 红 / 蓝 / 绿 / 黑 / 白；选中了标记就改那一条，否则改之后画的 | `style.color` |
 | | 粗细 ▾ | — | 2 / 4 / 8 / 12 px，同上；文字按粗细定字号 | `style.width` |
 | 历史 | 撤销 / 重做 / 删选中的 | ⌘Z / ⇧⌘Z / Delete | 撤销与重做各一枚钮（无可撤时置灰），删选中的只有键；每次加、删、挪、改样式进一步 | — |
-| 发送 | 添加到对话 | — | 没有能发的标记时禁用；发完退出标记模式 | 整组转成视频标注（§4.3） |
-| | 关闭 | Esc | 画面上还有没发的标记时先问「放弃这些标记？」（继续标记 / 放弃） | — |
+| 发送 | 添加到对话 | — | 没有能发的标记时禁用；发完退出标记模式。Web 是截图模式（§8）：换成「复制图片」与「下载图片」两枚图标钮（与撤销同样式，名字只在提示与 aria-label 里，2026-10-20 用户定），出一张播放头所在那一帧的画面加这一帧标记的 PNG（画法同截图，下载名 `<视频名>-00m12s400.png`），当前帧上没有标记时禁用；复制、下载后标记留着、不退出；Web 也没有选择元素与评论（及其快捷键） | 整组转成视频标注（§4.3）；Web 是剪贴板里或下载下来的图片 |
+| | 关闭 | Esc | 画面上还有没发的标记时先问「放弃这些标记？」（继续标记 / 放弃）；Web 截图模式没有「发出去」，画面上有标记就问 | — |
 
 选中与编辑：任何工具下点已有标记都选中它（不另设「选择」工具）；矩形、圆与元素框有八枚把手，直线与箭头两端各一枚，拖标记本身是平移；Delete 删选中的。空白的文字与评论不算能发的标记，关闭时也不问。
 
@@ -282,12 +282,12 @@ candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）
 | 能力 | Electron | Web |
 | --- | --- | --- |
 | 审片 / 时间线切换、片条（含拖时长与缩放）、舞台工具条、侧栏 | 有 | 有 |
-| 标记（标注模式） | 有 | 没有这枚钮（产品设计 §5.3：标注只在交给智能体的入口） |
+| 标记（标注模式） | 有；画完「添加到对话」变成视频标注 | 截图模式：同一枚钮、同一条工具条，去掉选择元素与评论；「添加到对话」换成复制图片 / 下载图片（当前帧加这一帧的标记）。门控只看宿主是不是 Web（`host.platform === 'web'`，含 BaoCut 自己的网页版与外部智能体给的审片页），用法差异集中在 `model/markup.ts` 的 `markupMode` / `markupTools`。实时合成层（HTML 动画）的帧拷不进画布，那一帧截不出图，按截不出提示 |
 | 脚本渲染 | 会话的 Markdown 组件 | 退回纯文本段落 |
 | 素材「跳到」 | 有 | 有；「在文件夹中显示」一类系统集成不在侧栏里 |
 | 偏好 | 用户库 | 同一份（Web 服务连的就是这台机器的 Runtime） |
 
-原型里 Web 入口不装 `stage-notes`、`stage-markup` / `model-markup` 与 `agent-*` 模块，视图按 `window.MarkupBar` 是否存在决定显不显示标记钮；章节进度条两端都有。
+原型里 Web 入口不装 `stage-notes` 与 `agent-*` 模块，但装 `stage-markup` / `model-markup`：标记钮两端都有，工具条按 `BC_SURFACE.agent` 分档——Web 走截图档（`BC_MARKUP.toolsFor('screenshot')` 没有选择元素与评论，「添加到对话」换成复制图片 / 下载图片，原型只出提示示意、不真的出图）；章节进度条两端都有。
 
 ## 9. 与现有规格的差异
 
@@ -309,7 +309,9 @@ candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）
    **已实现（2026-10-19，只有图层开关）**：`model/stage-layers.ts`（按画面上实有的字幕种类与 `role: music` 的音频实例生成开关、开关到字幕档位的换算、监听时去掉配乐）、`state/editor-store.ts`（`captionLayersHidden`、`musicHidden`：观看态，不持久化，换视频复位；画面上有的字幕全关 ⇔ `captionsHidden`）、`preview-engine.ts` 的 `setMusicView`（送去画的序列上停用配乐实例，与字幕档位同一种做法）、`stage-bar.tsx` lite 档左端的「图层」钮与弹层。与本文的出入：`role: music` 在音频实例上，不在轨道上；字幕按原文 / 译文两种分，不按每条字幕轨；配乐开关只在轻量视图生效（时间线视图没有对应的钮，切过去照常出声，切回来接着静音）；轻量视图里只关一种字幕时，时间线视图照整体显隐看（全关才藏）；全屏播放器从图层开关对应的那一档起步。实拍画面、来源标注、贴片 / 字卡、水印预览还没有开关，暂不列。侧栏的脚本与素材列表没做：章节表还没落到数据里（§11 第 16 条）。
 3. **标记**：标注种类加五种与 `style` / `element` / `shot` 字段，落点字段，消息块的新行；画面上的标记层与工具条（元素拾取、评论印章、撤销）；截帧合成印章的图片附件；章节进度条；skill 与协议的说明。
    **已实现（2026-10-19）**：数据面在协议 `video.ts`（`VideoAnnotation` 九种、`style` / `points` / `element` / `shot` / `segment` / `line`，zod 按种类分支）、harness 的 `withVideoAnnotations`（块里的 `style:` / `element:` / `segment:` / `screenshot:` 行）、`ui/model/video-annotations.ts`（元素标签、落点）、`stage-notes.tsx`（舞台按 `style` 画新五种）。界面在 `model/markup.ts`（标记状态、几何、把手、编号、拾取、换成协议标注）、`state/markup-store.ts`（按视频留着，切视图不丢）、`components/editor/markup.tsx`（标记层、工具条、评论框、拾取卡、截图），入口是 `stage-bar.tsx` 的「标记」钮（两种视图同一枚，只在 Electron）；HTML 动画的节点经实时合成层的桥拾（协议 `code-bundle.ts` 的 `pick` 请求与 `CompositionBridgePick`、`code-runtime/composition-bridge.ts` 的 `COMPOSITION_PICK_SCRIPT`、`live-layer.ts` 的 `LiveLayerHost.pick`）。与本文的出入：章节进度条在第一阶段已做（§3.2）；元素拾取到字幕行、画面上的合成层实例与 HTML 动画 iframe 里最内层的节点（§11 第 12 条）；截图直接拷预览画布（§11 第 14 条）。规范同步：协议规范、产品设计 §3.2.3 / §5.3、架构 §4、skill「收到视频标注时的解读」、验收 T46。同日第二批：时间线视图也换成这条图标工具条，旧的文字标注条（`StageNotesToolbar`、`noteKind`、`TIMELINE_VIDEO_ANNOTATION_KINDS`）与它的手势删掉，`stage-notes.tsx` 只画草稿；原型 `stage.jsx` / `stage-notes.jsx` 同步（§11 第 5 条）。第三批：工具条按截图标注器重排成一行（撤销 / 重做 / 清空钮去掉，只走键），形状钮合成一枚带下拉的钮，颜色 / 粗细改成下拉菜单（粗细是横线样本），当前工具浅蓝底，「添加到对话」黑色胶囊；原型同步。第四批：钮的尺度照设计系统的工具条（24 方、图标 16、间距 4、小箭头 12 灰、下拉打开显示悬停底色、60ms 过渡），粗细档改成 2 / 4 / 8 / 12（协议 `VIDEO_ANNOTATION_WIDTHS`、字号表、原型一起）。第五批：Space 里右下角的悬浮会话（`video-quick-chat.tsx`）随「标记」自动展开，最小化后图标标出草稿里待发的标注条数（产品设计 §5.1「标注时主动展开」）；原型 `shell.jsx` 同步。第六批：每条标记属于画它时的那一帧（`Mark.timeMs`，只在那一帧 ±0.5 s 内显示），`shot` 对九种都可带（评论必须带、且带印章位置），「添加到对话」每帧一张截图、画上这一帧的标记（`markup.tsx` 的 `paintMarks`，底帧在画第一条时拷下，`markup-store.ts` 的 `frames`）；harness 的 `screenshot:` 行分两种写法；原型 `model-markup.js` / `stage-markup.jsx` / `model-stage-notes.js` 同步。第七批：截图归标注所有——不再走输入框的草稿图片，`draft-video-annotations-store.ts` 按帧留底图与每条标注的标记（`shots`），移除标注重画、最后一条没了连图丢，`annotations-token.tsx` 的列表里每条带缩略图；发送时 `uploadDraftVideoShots` 每帧上传一次作为附件、`sentVideoAnnotations` 写 `shot.attachment`（协议 `shot { timeMs, stamp?, attachment? }`），harness 的 `screenshot:` 行写 `attached (<文件名>)` 或 `not attached`；画法移到 `render/markup-paint.ts`；实时合成层的帧由 Electron 主进程 `capturePage` 截预览区域（`host.captureFrame`、`apps/desktop/src/main/capture-frame.ts`），Web 端仍拷画布；原型 `model-markup.js` / `model-stage-notes.js` 同步。第八批：两种视图的标记工具归成一套——`lite-markup*` 模块改名 `markup*`（`model/markup.ts`、`state/markup-store.ts`、`render/markup-paint.ts`、`components/editor/markup.tsx` 与文案），标记的画法抽成 `markup-marks.tsx`，`stage-notes.tsx` 画草稿标注改用同一套（`markOfAnnotation` 是 `toNotes` 的反向；箭头是三角头、文字画成那行字，不再另画一套圆头与标签）；原型 `stage.jsx` 的 `StageBar` 加 `lite` 档替掉 `editor-lite.jsx` 的 `LiteStageBar`，工具条只在 `stage.jsx` 挂一处，`stage-notes.jsx` 改用 `stage-markup.jsx` 的 `SvgMark`。
-4. 验收：轻量视图在场景型与章节型视频上各走一遍（打开、点段、点句、开关、切换、标注发出）；Web 端没有标记钮；偏好跨重启；按验收规范加 UX 条目。
+4. 验收：轻量视图在场景型与章节型视频上各走一遍（打开、点段、点句、开关、切换、标注发出）；Web 端的标记是截图模式（§8）；偏好跨重启；按验收规范加 UX 条目。
+5. **审片页与截图模式（2026-10-20）**：外部 Agent 用 skill 做视频时给用户一条审片链接（`baocut web review --video <videoId>`，产品设计 §5.12、架构设计 §4.8「审片链接」），在宿主的内置浏览器或系统浏览器里打开这部视频的编辑器；Web 端（含 BaoCut 自己的网页版）的标记改为截图模式（§8）。
+   **已实现**：协议 `videos.target`、`services.web.reviewLink`、`WEB_REVIEW_METHODS` / `WEB_REVIEW_TOPICS`；Runtime 的 `web-service.ts`（`/review/<videoId>`、`POST /_auth/review`、审片会话的范围检查与越界日志）、`web-sessions.ts`（`openReview`）、`service-config-store.ts`（`reviewSecret`）；界面 `components/review-shell.tsx`（只有编辑器、落在轻量视图）、`runtime/session.ts` 的审片模式（只订阅设置）、`video-bar.tsx` 去掉任务、导出、菜单与关闭，`hostPanelTab` 在审片页去掉「品牌」；`model/markup.ts` 与 `components/editor/markup.tsx` 的截图模式（复制 / 下载 PNG）；CLI `baocut web review`；原型表面 `review`（`BaoCutWeb.html?review=<项目 id>`）。
 
 ## 11. 待评审事项
 
@@ -329,3 +331,4 @@ candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）
 14. **截图的生成**：`shot` 由谁截——实时预览直接截画布（快，但 HTML 动画要走 iframe 的截图），还是让 Runtime 烘焙那一帧（准，但慢）；图片大小与是否存进会话记录。**第一阶段：实时预览直接拷预览画布、在落点画上印章存成 PNG，走输入框的草稿图片（与手动贴图同一条路，随消息进会话记录，不另存）；大小就是预览画布的像素；画的标记在画第一条时拷下那一帧，发出时再把标记画上去，若那一刻定位还没到位，拷到的是画布上实际那一帧；HTML 动画的 iframe 层不在画布上，截不进去，截不出图时提示并照样加标注。Runtime 烘焙留作备选。第二次改法（2026-10-19）：截图不再走输入框的草稿图片，而是归标注所有（随标注显示、随标注移除、发送时作为附件一起交出，`shot.attachment` 指它）；实时合成层的帧在 Electron 里由主进程截预览区域（`webContents.capturePage`，截时隐去标记层），Web 端仍拷画布。Runtime 烘焙仍是备选。**
 15. **编号的起点**：编号按这一组从 1 起，发出后再画从 1 重来；要不要接着上一组的编号，让一次会话里的编号唯一。**第一阶段照此：按这一组从 1 起、撤销或删掉中间一枚后面的重排、添加到对话后下一组从 1 重来；要不要接着编等用过再定。**
 16. **脚本的数据来源**：章节表（动画片设计 §2.2 的 `chapter-sheet` 文档）还没有落到视频数据里，侧栏的脚本（§3「侧栏」、§7）没有东西可渲染；第一阶段只有逐句。章节表落地时侧栏按段取 `scenes[].script` 只读渲染，Web 退回纯文本。
+16. **审片页的范围（2026-10-20 定）**：审片页的方法白名单只放这部视频的播放、编辑、撤销、版本与元素面板的随包贴纸 / Pets；不放 `library.*`（品牌与用户库属于整个工作区，审片页去掉「品牌」标签）、任务、模型与导出——转写、翻译、生成交给给链接的 Agent。字幕面板里依赖这些的设置（转写设置等）会以 `WEB_REVIEW_SCOPE` 失败，Runtime 日志记方法名，用到再逐个放开。发链接时把 Web 服务设为随 Runtime 启动，换来「App 开着链接就能开」；代价是服务常驻回环端口。截图按预览画布的显示尺寸（不按视频原尺寸），宿主内置浏览器拒绝写剪贴板时提示改用下载；HTML 合成的实时层被内置浏览器的沙箱策略拦下时退回预渲染画面。审片页每次打开都落在轻量视图（路由固定），不记上次的选择。

@@ -124,27 +124,32 @@ export function VideoBar({ video, sequence }: { video: OpenVideo; sequence: Sequ
       </div>
       <div className={acts}>
         {sequence ? <ViewToggle /> : null}
-        <TaskPill videoId={video.videoId} />
+        {runtime.review ? null : <TaskPill videoId={video.videoId} />}
         <SaveState video={video} />
         {video.state ? <VersionsButton video={video} /> : null}
-        <ExportButton video={video} sequence={sequence} />
-        <ActionMenu aria-label={VB.actions} isQuiet align="end" onAction={(key) => onMenu(String(key), video.ref)}>
-          <MenuSection aria-label={VB.actions}>
-            <MenuItem id="space" textValue={VB.showInSpace}>
-              <Asset />
-              <Text slot="label">{VB.showInSpace}</Text>
-            </MenuItem>
-            <MenuItem id="reveal" textValue={VB.revealVideoFolder}>
-              <OpenIn />
-              <Text slot="label">{VB.revealVideoFolder}</Text>
-            </MenuItem>
-          </MenuSection>
-        </ActionMenu>
-        <Tip label={closeLabel}>
-          <ActionButton isQuiet aria-label={VB.close} onPress={closeVideo}>
-            <Close />
-          </ActionButton>
-        </Tip>
+        {/* 审片页（架构设计 §12.8）只有这一部视频：不导出、不去 Space、不关闭。 */}
+        {runtime.review ? null : <ExportButton video={video} sequence={sequence} />}
+        {runtime.review ? null : (
+          <ActionMenu aria-label={VB.actions} isQuiet align="end" onAction={(key) => onMenu(String(key), video.ref)}>
+            <MenuSection aria-label={VB.actions}>
+              <MenuItem id="space" textValue={VB.showInSpace}>
+                <Asset />
+                <Text slot="label">{VB.showInSpace}</Text>
+              </MenuItem>
+              <MenuItem id="reveal" textValue={VB.revealVideoFolder}>
+                <OpenIn />
+                <Text slot="label">{VB.revealVideoFolder}</Text>
+              </MenuItem>
+            </MenuSection>
+          </ActionMenu>
+        )}
+        {runtime.review ? null : (
+          <Tip label={closeLabel}>
+            <ActionButton isQuiet aria-label={VB.close} onPress={closeVideo}>
+              <Close />
+            </ActionButton>
+          </Tip>
+        )}
       </div>
       {renaming ? (
         <NameDialog

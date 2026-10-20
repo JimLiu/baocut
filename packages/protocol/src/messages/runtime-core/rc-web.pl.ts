@@ -78,4 +78,10 @@ export const pl: RcWebMessages = {
   attachmentNotFound: "Załącznik nie istnieje",
   fileNameLength: (p: { max: number }) => `Nazwa pliku musi mieć od 1 do ${p.max} znaków`,
   fileNameInvalid: "Nazwa pliku nie może zawierać separatorów ścieżki ani znaków sterujących",
+  reviewTitle: 'Otwieranie strony przeglądu',
+  reviewOpening: 'Otwieranie tego filmu…',
+  reviewKeyMissing: 'Ten link do przeglądu jest niepełny: skopiuj cały link, łącznie z częścią po #.',
+  reviewKeyRejected: 'Ten link do przeglądu nie działa w tym BaoCut: poproś agenta, który go podał, o nowy.',
+  reviewVideoMissing: 'Tego filmu już nie ma: mógł zostać przeniesiony lub usunięty.',
+  reviewNotAllowed: (p) => `Strona przeglądu może otworzyć tylko swój film; ${p.method} nie jest tu dostępne`,
 };

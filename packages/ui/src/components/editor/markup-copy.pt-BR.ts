@@ -33,5 +33,12 @@ export const ptBR: MarkupMessages = {
   cancel: 'Cancelar',
   kept: 'O comentário fica na imagem. “Adicionar ao chat” o envia junto com as outras marcas.',
   shotFailed: 'Não foi possível capturar um quadro. As marcas foram adicionadas sem essa captura de tela.',
+  copyImage: 'Copiar imagem',
+  downloadImage: 'Baixar imagem',
+  copied: 'Imagem copiada',
+  downloaded: (name) => `${name} baixado`,
+  copyFailed: 'Não foi possível copiar a imagem. Baixe-a em vez disso.',
+  captureFailed: 'Não foi possível capturar este quadro.',
+  discardBodyScreenshot: 'Fechar remove as marcas da imagem. Se precisar dela, copie ou baixe a imagem antes.',
   pickInfo: { heading: 'Acessibilidade', name: 'Nome', role: 'Função', focusable: 'Focável pelo teclado' },
 };

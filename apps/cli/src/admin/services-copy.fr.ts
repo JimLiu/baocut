@@ -62,7 +62,11 @@ export const fr: ServicesMessages = {
                                    une seule fois pendant deux minutes. --video ouvre directement la vidéo dans l’éditeur (videoId fourni par
                                    baocut videos list). --launch ouvre la page de connexion sans code dans le navigateur par défaut ;
                                    le code d’accès n’est affiché que dans le terminal, pour le coller dans la page de connexion
-                                   (il n’est pas transmis comme argument de la commande ouvrant le navigateur)`,
+                                   (il n’est pas transmis comme argument de la commande ouvrant le navigateur)
+  baocut web review --video <videoId>
+                                   Affiche le lien de relecture de cette vidéo : une page avec cette seule vidéo (lecture, annotation, montage
+                                   de la timeline) pour le navigateur intégré d'un agent ou tout navigateur de cet ordinateur. Le lien ne change pas
+                                   tant que la vidéo existe et que BaoCut est ouvert ; active aussi le démarrage automatique du service web`,
   usage:
     "Utilisation : baocut services [status | start <service> | stop <service>\n" +
     "       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n" +
@@ -150,4 +154,6 @@ export const fr: ServicesMessages = {
   clientRevoked: (clientId: string) => `Révoqué : ${clientId} ; son jeton cesse immédiatement de fonctionner`,
   webSessionRevoked: (sessionId: string) => `Révoqué : ${sessionId} ; sa connexion a été fermée`,
   browserFailed: (message: string) => `Impossible d’ouvrir le navigateur : ${message}. Ouvrez vous-même la page de connexion ci-dessus`,
+  reviewLinkNote: 'Lien de relecture de cette vidéo. Il ne change pas tant que la vidéo existe et que BaoCut est ouvert ; toute personne de cet ordinateur qui l\'a peut voir et modifier cette vidéo, ne le partagez pas',
+  reviewAutostartOn: 'Démarrage automatique du service web activé : le lien fonctionne encore après un redémarrage de BaoCut',
 };

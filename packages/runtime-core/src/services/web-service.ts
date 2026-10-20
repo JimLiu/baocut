@@ -7,13 +7,20 @@ import type { Duplex } from 'node:stream';
 import {
   RpcError,
   WEB_DEFAULT_METHODS,
+  WEB_REVIEW_METHODS,
+  WEB_REVIEW_TOPICS,
   methodMatches,
   nowIso,
+  parseVideoTopic,
+  parseWebReviewPath,
+  webReviewPath,
+  type FileTarget,
   type RpcMethod,
   type RuntimeInfo,
   type ServiceConfigureParams,
   type ServiceRequestRecord,
   type WebAccessLink,
+  type WebReviewLink,
   type WebServiceAccess,
   type WebSession,
 } from '@baocut/protocol';
@@ -30,7 +37,7 @@ import { listenError } from './service-clients.ts';
 import type { ManagedService, ServiceReport } from './service-manager.ts';
 import { webAuthorize, webHandlers } from './web-handlers.ts';
 import { WebSessions, type WebSessionsOptions } from './web-sessions.ts';
-import { resolveWebDist, sendLoginPage, sendLoginScript, sendStatic, setSecurityHeaders } from './web-static.ts';
+import { resolveWebDist, sendLoginPage, sendLoginScript, sendReviewPage, sendReviewScript, sendStatic, setSecurityHeaders } from './web-static.ts';
 
 /**
  * Web 服务（架构设计 §4.8、§12.8）：本机浏览器里的客户端。一个回环端口上提供三样东西：
@@ -53,6 +60,11 @@ import { resolveWebDist, sendLoginPage, sendLoginScript, sendStatic, setSecurity
  * 只有 cookie 能让媒体请求与 WebSocket 用同一个会话认证、吊销时一起失效，令牌也不进 URL；HttpOnly 让页面脚本读不到它。
  * 回环地址上的 cookie 不按端口隔离（本机其他端口的服务也会收到），所以名字带端口，WebSocket 与登录另外要求 Origin 是自己。
  *
+ * 审片链接（§4.8「审片链接」）：`/review/<videoId>#key=<密钥>`，密钥是 HMAC(服务存着的随机数, videoId)，不过期、可以反复打开，
+ * 换端口或视频不在了才失效。审片页的脚本用它 `POST /_auth/review` 换一个**审片会话**的 cookie（名字与完整会话不同，不顶掉已有的登录），
+ * 会话只能看换它的那几部视频：页面只给这些视频的 `/review/…`，网关上只放 `WEB_REVIEW_METHODS` 与这些视频的主题，
+ * 带视频参数的方法只认这些视频（`#reviewAllows`）；会话、Space、项目、幻灯片与文档这些入口都不给。
+ *
  * 来源检查：`Host` 必须是 `127.0.0.1:<端口>` 或 `localhost:<端口>`（DNS 重绑定）；带 `Origin` 的请求只接受这两个来源，
  * WebSocket 与登录必须带；浏览器给了 `Sec-Fetch-Site` 时，需要会话的请求只接受 `same-origin` 与 `none`。
  */
@@ -60,6 +72,8 @@ import { resolveWebDist, sendLoginPage, sendLoginScript, sendStatic, setSecurity
 const HOST = '127.0.0.1';
 const RECENT_LIMIT = 20;
 const MAX_AUTH_BODY = 1024;
+/** 审片链接的密钥：HMAC-SHA256 的 base64url。 */
+const REVIEW_KEY = /^[A-Za-z0-9_-]{43}$/;
 
 export interface WebServiceDeps {
   store: ServiceConfigStore;
@@ -85,7 +99,7 @@ export class WebService implements ManagedService {
   readonly #log: Logger;
   readonly #sessions: WebSessions;
   readonly #uploads = new Map<string, { sessionId: string; url: string; expires: number }>();
-  #binding: { handlers: RpcHandlers; runtime: RuntimeInfo } | null = null;
+  #binding: { handlers: RpcHandlers; runtime: RuntimeInfo; videoTarget: (videoId: string) => FileTarget } | null = null;
   #slides: SlidesServer | null = null;
   #docs: DocsServer | null = null;
   #server: Server | null = null;
@@ -102,11 +116,19 @@ export class WebService implements ManagedService {
   }
 
   /** Runtime 装配好网关之后交给它处理函数（用这个服务的媒体句柄表构造的那一组）。在这之前不能开启。 */
-  bind(binding: { handlers: RpcHandlers; runtime: RuntimeInfo; slides?: SlidesServer; docs?: DocsServer }): void {
+  bind(binding: {
+    handlers: RpcHandlers;
+    runtime: RuntimeInfo;
+    /** videoId → 界面打开它用的位置（`videoTargetOf`）；找不到时抛 `VIDEO_NOT_FOUND`。审片链接与审片会话的权限用它。 */
+    videoTarget: (videoId: string) => FileTarget;
+    slides?: SlidesServer;
+    docs?: DocsServer;
+  }): void {
     this.#slides = binding.slides ?? null;
     this.#docs = binding.docs ?? null;
     this.#binding = {
       runtime: binding.runtime,
+      videoTarget: binding.videoTarget,
       handlers: webHandlers(binding.handlers, {
         harness: this.#deps.harness,
         videos: this.#deps.videos,
@@ -236,6 +258,24 @@ export class WebService implements ManagedService {
     return { url: `http://${HOST}:${this.#port}${href}#code=${code}`, expiresAt };
   }
 
+  /**
+   * 一部视频的审片链接：路径是 `webReviewPath`，密钥在 fragment 里。密钥只由存着的随机数与 videoId 决定，所以同一部视频
+   * 每次给出同一条链接。视频要找得到（`VIDEO_NOT_FOUND`）；服务要开着。
+   */
+  async reviewLink(videoId: string): Promise<Omit<WebReviewLink, 'autostartEnabled'>> {
+    if (!this.#server || this.#port === null || !this.#binding) {
+      throw new RpcError('conflict', RcWeb.notRunning(), { code: 'SERVICE_NOT_RUNNING', serviceId: 'web' });
+    }
+    this.#binding.videoTarget(videoId);
+    const key = await this.#reviewKey(videoId);
+    return { url: `http://${HOST}:${this.#port}${webReviewPath(videoId)}#key=${key}`, video: videoId };
+  }
+
+  async #reviewKey(videoId: string): Promise<string> {
+    const secret = await this.#deps.store.reviewSecret('web');
+    return crypto.createHmac('sha256', Buffer.from(secret, 'base64url')).update(`review:${videoId}`).digest('base64url');
+  }
+
   listSessions(): WebSession[] {
     return this.#sessions.list();
   }
@@ -262,10 +302,47 @@ export class WebService implements ManagedService {
     return this.#port !== null && (host === `127.0.0.1:${this.#port}` || host === `localhost:${this.#port}`);
   }
 
-  /** 请求带的会话（cookie）；没有或无效时为 null。 */
+  /** 请求带的完整会话（登录 cookie）；没有或无效时为 null。审片会话不算。 */
   #session(request: IncomingMessage): string | null {
     const token = readCookie(request.headers.cookie, cookieName(this.#port));
+    const sessionId = token ? this.#sessions.verify(token) : null;
+    return sessionId && this.#sessions.scope(sessionId) === null ? sessionId : null;
+  }
+
+  /** 请求带的任一会话：完整会话优先，其次审片会话（审片 cookie）。网关、媒体与构建产物用它。 */
+  #anySession(request: IncomingMessage): string | null {
+    const full = this.#session(request);
+    if (full) return full;
+    const token = readCookie(request.headers.cookie, reviewCookieName(this.#port));
     return token ? this.#sessions.verify(token) : null;
+  }
+
+  /**
+   * 审片会话里的一个调用：方法在 `WEB_REVIEW_METHODS` 里；带视频参数的只能是会话里的视频——`videoId` / `video` 直接比，
+   * 文件位置（`videos.open`、`media.resolve`、`media.subtitles`）要与会话里某部视频的位置一致；主题只有这些视频与 `WEB_REVIEW_TOPICS`。
+   */
+  #reviewAllows(method: RpcMethod, params: unknown, videos: ReadonlySet<string>): boolean {
+    if (method === 'subscribe' || method === 'unsubscribe') {
+      const topic = (params as { topic?: unknown } | null)?.topic;
+      if (typeof topic !== 'string') return method === 'unsubscribe';
+      const videoId = parseVideoTopic(topic);
+      return videoId ? videos.has(videoId) : WEB_REVIEW_TOPICS.includes(topic);
+    }
+    if (!(WEB_REVIEW_METHODS as readonly string[]).includes(method)) return false;
+    const p = (params ?? {}) as Record<string, unknown>;
+    const videoId = typeof p.videoId === 'string' ? p.videoId : typeof p.video === 'string' ? p.video : null;
+    if (videoId !== null) return videos.has(videoId);
+    if (method === 'videos.open' || method === 'media.resolve' || method === 'media.subtitles') {
+      const key = targetKey(p);
+      return [...videos].some((id) => {
+        try {
+          return targetKey(this.#binding!.videoTarget(id)) === key;
+        } catch {
+          return false;
+        }
+      });
+    }
+    return true;
   }
 
   #authorize(method: RpcMethod, params: unknown, principal: TrustedPrincipal): RpcError | null {
@@ -273,6 +350,11 @@ export class WebService implements ManagedService {
       // 先回答这个请求（说明会话失效），再断开连接。
       setImmediate(() => this.#gateway?.disconnectWhere((p) => p.connectionId === principal.connectionId, 'session expired'));
       return new RpcError('unauthenticated', RcWeb.sessionExpired());
+    }
+    const videos = this.#sessions.scope(principal.sessionId);
+    if (videos && !this.#reviewAllows(method, params, videos)) {
+      this.#log.info('Review session call out of scope', { sessionId: principal.sessionId, method });
+      return new RpcError('forbidden', RcWeb.reviewNotAllowed({ method }), { code: 'WEB_REVIEW_SCOPE', method });
     }
     return webAuthorize(method, params, this.#access());
   }
@@ -293,7 +375,7 @@ export class WebService implements ManagedService {
       this.#log.warn('Refused WebSocket origin', { origin });
       return refuse(403, 'Forbidden');
     }
-    const sessionId = this.#session(request);
+    const sessionId = docs ? this.#session(request) : this.#anySession(request);
     if (!sessionId) return refuse(401, 'Unauthorized');
     if (docs) {
       // 文档编辑器的实时连接（`/docs/<grant>/api/mux`）：与 `#docsRequest` 同一套条件。
@@ -324,6 +406,7 @@ export class WebService implements ManagedService {
     if (origin !== undefined && !this.#origins().includes(origin)) return void deny(403, RcWeb.originRejected().text);
 
     if (pathname === '/_auth/session') return void this.#login(request, response).catch(() => deny(500, RcWeb.loginFailed().text));
+    if (pathname === '/_auth/review') return void this.#reviewLogin(request, response).catch(() => deny(500, RcWeb.loginFailed().text));
     if (pathname.startsWith('/attachments/')) {
       const session = this.#session(request),
         item = this.#uploads.get(pathname.slice('/attachments/'.length));
@@ -372,15 +455,24 @@ export class WebService implements ManagedService {
       return void response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     }
     if (pathname === '/_auth/login.js') return sendLoginScript(request, response);
+    if (pathname === '/_auth/review.js') return sendReviewScript(request, response);
 
     // 需要会话的内容：别的站点（含本机其他端口）发起的请求不给。
     const site = request.headers['sec-fetch-site'];
     const sameOrigin = site === undefined || site === 'same-origin' || site === 'none';
-    const session = sameOrigin ? this.#session(request) : null;
+    const session = sameOrigin ? this.#anySession(request) : null;
+    const videos = session ? this.#sessions.scope(session) : null;
+    // 审片页（`/review/<videoId>`）：完整会话或能看这部视频的审片会话给客户端页面，否则给审片页的登录脚本（用 fragment 里的密钥换会话）。
+    const review = parseWebReviewPath(pathname);
+    if (review !== null) {
+      if (!session || (videos && !videos.has(review))) return sendReviewPage(request, response);
+      return this.#sendApp('/', request, response);
+    }
     // 界面内链接（`/home?video=…` 这类，没有扩展名）与根路径一样：没登录给登录页，登录了给客户端页面，由客户端按路径与查询去对应的界面。
+    // 审片会话只能进审片页，别的页面当没登录。
     const page = pathname === '/' || pathname === '/index.html' || isAppRoute(pathname);
     if (page) {
-      if (!session) return sendLoginPage(request, response);
+      if (!session || videos) return sendLoginPage(request, response);
     } else if (!session) {
       return void deny(sameOrigin ? 401 : 403, RcWeb.loginRequired().text);
     }
@@ -388,8 +480,12 @@ export class WebService implements ManagedService {
       if (!this.media.handle(request, response)) deny(404, RcWeb.fileNotFound().text);
       return;
     }
-    void sendStatic(this.#dist!, page ? '/' : pathname, this.#port!, request, response).catch(() => {
-      if (!response.headersSent) deny(500, RcWeb.readFailed().text);
+    this.#sendApp(page ? '/' : pathname, request, response);
+  }
+
+  #sendApp(pathname: string, request: IncomingMessage, response: ServerResponse): void {
+    void sendStatic(this.#dist!, pathname, this.#port!, request, response).catch(() => {
+      if (!response.headersSent) response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }).end(RcWeb.readFailed().text);
       else response.destroy();
     });
   }
@@ -493,6 +589,50 @@ export class WebService implements ManagedService {
       .end();
   }
 
+  /**
+   * `POST /_auth/review { video, key }`：审片链接的密钥换审片会话 cookie。来源必须带、必须是自己。密钥不对 401
+   * （`REVIEW_KEY_INVALID`），视频找不到 404（`VIDEO_NOT_FOUND`）。浏览器已有审片会话时把视频加进去，不另开。
+   */
+  async #reviewLogin(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    response.setHeader('Cache-Control', 'no-store');
+    if (request.method !== 'POST') return void response.writeHead(405, { Allow: 'POST' }).end();
+    const origin = request.headers.origin;
+    if (origin === undefined || !this.#origins().includes(origin)) return void response.writeHead(403).end();
+    if (!(request.headers['content-type'] ?? '').startsWith('application/json')) return void response.writeHead(415).end();
+    const body = await readBody(request, MAX_AUTH_BODY);
+    let parsed: { video?: unknown; key?: unknown } = {};
+    try {
+      parsed = body === null ? {} : (JSON.parse(body) as typeof parsed);
+    } catch {
+      parsed = {};
+    }
+    const fail = (status: number, error: string) =>
+      void response.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error }));
+    const { video, key } = parsed;
+    if (typeof video !== 'string' || typeof key !== 'string' || !REVIEW_KEY.test(key)) return fail(401, 'REVIEW_KEY_INVALID');
+    const expected = Buffer.from(await this.#reviewKey(video));
+    const given = Buffer.from(key);
+    if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) {
+      this.#log.info('Review key rejected');
+      return fail(401, 'REVIEW_KEY_INVALID');
+    }
+    try {
+      this.#binding!.videoTarget(video);
+    } catch {
+      return fail(404, 'VIDEO_NOT_FOUND');
+    }
+    const issued = this.#sessions.openReview(video, readCookie(request.headers.cookie, reviewCookieName(this.#port)), request.headers['user-agent']);
+    this.#log.info('Review session opened', { sessionId: issued.sessionId, videoId: video });
+    this.#deps.onChange();
+    response
+      .writeHead(204, {
+        ...(issued.token
+          ? { 'Set-Cookie': `${reviewCookieName(this.#port)}=${issued.token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${issued.maxAgeSec}` }
+          : {}),
+      })
+      .end();
+  }
+
   #audit(method: RpcMethod, principal: TrustedPrincipal, videoId: string | null, outcome: string): void {
     const record: ServiceRequestRecord = {
       at: nowIso(),
@@ -521,6 +661,16 @@ function isAppRoute(pathname: string): boolean {
 /** cookie 的名字带端口：回环地址上的 cookie 不按端口隔离，不同端口（不同 Runtime Home）的会话不互相覆盖。 */
 function cookieName(port: number | null): string {
   return `baocut_web_${port ?? 0}`;
+}
+
+/** 审片会话的 cookie：与登录 cookie 分开，打开审片链接不会顶掉同一个浏览器里已有的完整登录。 */
+function reviewCookieName(port: number | null): string {
+  return `baocut_review_${port ?? 0}`;
+}
+
+/** 文件位置的比较键（键排好序）：审片会话比 `videos.open` 等方法的参数与会话里视频的位置。 */
+function targetKey(target: object): string {
+  return JSON.stringify(Object.fromEntries(Object.entries(target).sort(([a], [b]) => a.localeCompare(b))));
 }
 
 function readCookie(header: string | undefined, name: string): string | null {

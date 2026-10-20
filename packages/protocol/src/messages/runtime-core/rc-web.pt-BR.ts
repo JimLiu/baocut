@@ -88,4 +88,10 @@ export const ptBR: RcWebMessages = {
   attachmentNotFound: "O anexo não existe",
   fileNameLength: (p: { max: number }) => `O nome do arquivo deve ter de 1 a ${p.max} caracteres`,
   fileNameInvalid: "O nome não pode conter separadores de caminho ou caracteres de controle",
+  reviewTitle: 'Abrindo a página de revisão',
+  reviewOpening: 'Abrindo este vídeo…',
+  reviewKeyMissing: 'Este link de revisão está incompleto: copie o link inteiro, incluindo a parte depois de #.',
+  reviewKeyRejected: 'Este link de revisão não é válido para este BaoCut: peça um novo ao agente que o enviou.',
+  reviewVideoMissing: 'Este vídeo não existe mais: pode ter sido movido ou excluído.',
+  reviewNotAllowed: (p) => `A página de revisão só pode abrir o próprio vídeo; ${p.method} não está disponível aqui`,
 };

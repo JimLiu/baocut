@@ -490,9 +490,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=8ca2797786ae",
+    "js": "generated/app.js?v=5347da2feffe",
     "css": "generated/app.css?v=13048b49bda2",
-    "bytes": 4636095
+    "bytes": 4638009
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -524,6 +524,7 @@
       "app/model-layout.js",
       "app/model-player.js",
       "app/model-lite.js",
+      "app/model-markup.js",
       "app/model-proxy.js",
       "app/model-nav.js",
       "app/browser-nav.js",
@@ -716,6 +717,7 @@
       "app/editor-cuts.jsx",
       "app/editor-lite.jsx",
       "app/editor.jsx",
+      "app/stage-markup.jsx",
       "app/web-shell.jsx",
       "app/web-main.jsx"
     ],
@@ -733,6 +735,7 @@
       "app/video-replace.css",
       "app/daoyazi.css",
       "app/stage-load.css",
+      "app/stage-markup.css",
       "app/web-shell.css",
       "app/player.css",
       "vendor/react-spectrum-s2/react-spectrum-s2.css",
@@ -744,9 +747,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=4e4b95eb83ad",
-    "css": "generated/web.css?v=7c89f23390bd",
-    "bytes": 2707077
+    "js": "generated/web.js?v=2f74ba568caa",
+    "css": "generated/web.css?v=99f08f34a079",
+    "bytes": 2737487
   },
   "components": {
     "file": "Components.html",

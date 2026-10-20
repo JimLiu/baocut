@@ -74,6 +74,13 @@ const en = {
   codeRejected: 'This access code is wrong, already used, or expired: run baocut web open in a terminal to get a new one.',
   cannotReach: "Can't reach BaoCut: make sure BaoCut is still running and the web service hasn't stopped.",
   codeMalformed: "This access code isn't in the right format: paste the string printed by baocut web open in the terminal.",
+  // 审片链接（web-service、web-static）。
+  reviewTitle: 'Opening the review page',
+  reviewOpening: 'Opening this video…',
+  reviewKeyMissing: 'This review link is incomplete: copy the whole link, including the part after #.',
+  reviewKeyRejected: 'This review link isn\'t valid for this BaoCut: ask the agent that gave it to you for a new one.',
+  reviewVideoMissing: 'This video no longer exists: it may have been moved or deleted.',
+  reviewNotAllowed: (p: { method: string }) => `The review page can only open its own video; ${p.method} isn't available here`,
   // multipart 请求体（multipart-upload）。
   fieldTooLong: (p: { field: string }) => `Field ${p.field} is too long`,
   noNewlineAfterBoundary: 'No line break after the boundary',

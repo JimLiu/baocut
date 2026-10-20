@@ -194,6 +194,89 @@ function loginJs(): string {
 `;
 }
 
+/**
+ * 审片页还没有会话时给的页面（§4.8「审片链接」）：脚本拿地址栏 fragment 里的密钥换审片会话，然后原地重载成审片页。
+ * 地址栏不动：审片链接要能刷新、能反复打开，会话过期或服务重启后再换一次就是。
+ */
+function reviewHtml(): string {
+  const t = (message: { text: string }) => escapeHtml(message.text);
+  return `<!doctype html>
+<html lang="${escapeHtml(intlLocale())}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>BaoCut</title>
+    <style>
+      body { margin: 0; font: 15px/1.6 -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', sans-serif; background: #f5f5f4; color: #1c1917; }
+      main { max-width: 520px; margin: 18vh auto 0; padding: 0 24px; }
+      h1 { font-size: 22px; margin: 0 0 12px; }
+      code { background: #e7e5e4; padding: 2px 6px; border-radius: 4px; }
+      #status { color: #57534e; min-height: 1.6em; }
+      @media (prefers-color-scheme: dark) { body { background: #1c1917; color: #f5f5f4; } code { background: #292524; } #status { color: #a8a29e; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>${t(RcWeb.reviewTitle())}</h1>
+      <p id="status" role="status">${t(RcWeb.reviewOpening())}</p>
+    </main>
+    <script src="/_auth/review.js"></script>
+  </body>
+</html>
+`;
+}
+
+/** 审片页的脚本：`#key=` 换审片会话（`POST /_auth/review`），成功后重载；失败按原因说明。 */
+function reviewJs(): string {
+  const text = {
+    missing: RcWeb.reviewKeyMissing().text,
+    rejected: RcWeb.reviewKeyRejected().text,
+    gone: RcWeb.reviewVideoMissing().text,
+    unreachable: RcWeb.cannotReach().text,
+  };
+  return `(() => {
+  const TEXT = ${JSON.stringify(text)};
+  const status = document.getElementById('status');
+  const key = /(?:^|&)key=([A-Za-z0-9_-]{43})(?:&|$)/.exec(location.hash.slice(1));
+  const video = /^\\/review\\/([^/]+)\\/?$/.exec(location.pathname);
+  if (!key || !video) {
+    status.textContent = TEXT.missing;
+    return;
+  }
+  fetch('/_auth/review', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ video: decodeURIComponent(video[1]), key: key[1] }),
+    credentials: 'same-origin',
+    cache: 'no-store',
+  }).then(
+    (response) => {
+      if (response.ok) return location.reload();
+      status.textContent = response.status === 404 ? TEXT.gone : TEXT.rejected;
+    },
+    () => {
+      status.textContent = TEXT.unreachable;
+    },
+  );
+})();
+`;
+}
+
+export function sendReviewPage(request: IncomingMessage, response: ServerResponse): void {
+  response.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Security-Policy': LOGIN_CSP,
+    'Cache-Control': 'no-store',
+  });
+  response.end(request.method === 'HEAD' ? undefined : reviewHtml());
+}
+
+export function sendReviewScript(request: IncomingMessage, response: ServerResponse): void {
+  response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+  response.end(request.method === 'HEAD' ? undefined : reviewJs());
+}
+
 export function sendLoginPage(request: IncomingMessage, response: ServerResponse): void {
   response.writeHead(200, {
     'Content-Type': 'text/html; charset=utf-8',

@@ -515,9 +515,9 @@
         {/* 纯图标的小号钮框只比图标宽 4px，挨着排会挤成一团：组内拉开 12px。 */}
         <div className="stagebar__icons">
           {/* 标记（product-design §3.2.3「视频标注」、§5.3；docs/design/lite-editor §4.1）：打开标记层与标记工具条（stage-markup.jsx），
-              在画面上画、选元素或写评论，加进输入框的「视频标注」；与轻量视图同一枚钮。是交给智能体的入口，Web 没有会话，不出这枚钮。
-              进标注模式先停播——标注绑的是此刻的播放头；关走 ctx.closeMarkup，画面上还有没发的标记会先问一句。 */}
-          {SURF.agent && ctx.setAnnotating && window.MarkupBar ? <IconBtn size="s" onLayer on={!!ctx.annotating} tip={ctx.annotating ? '关闭标记 · Esc' : '标记画面 · 发给会话'}
+              在画面上画、选元素或写评论，加进输入框的「视频标注」；与轻量视图同一枚钮。Web 没有会话，同一枚钮进截图模式（lite-editor §8）：
+              画完复制或下载这一帧的图。进标注模式先停播——标注绑的是此刻的播放头；关走 ctx.closeMarkup，画面上还有标记会先问一句。 */}
+          {ctx.setAnnotating && window.MarkupBar ? <IconBtn size="s" onLayer on={!!ctx.annotating} tip={ctx.annotating ? '关闭标记 · Esc' : SURF.agent ? '标记画面 · 发给会话' : '标记画面 · 复制或下载截图'}
             onClick={() => { if (ctx.annotating) ctx.closeMarkup(); else { ctx.setPlaying(false); ctx.setAnnotating(true); } }}><R.Icons.Comment /></IconBtn> : null}
           {lite ? null : <IconBtn icon="captions" size="s" onLayer on={subsOn}
             tip={subsOn ? '隐藏字幕' : '显示字幕'} onClick={() => setSubsOn(!subsOn)} />}

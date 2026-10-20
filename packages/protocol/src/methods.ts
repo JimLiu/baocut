@@ -188,7 +188,7 @@ import type {
   ServiceId,
   ServiceStatus,
 } from './services.ts';
-import type { WebAccessLink, WebSession } from './web.ts';
+import type { WebAccessLink, WebReviewLink, WebSession } from './web.ts';
 import type { SlideAnnotation, SlidesOpenResult } from './slides.ts';
 import type { DesignAnnotation, DesignOpenResult } from './design.ts';
 import type { DesignSystemAnnotation, DesignSystemOpenResult } from './design-system.ts';
@@ -804,6 +804,11 @@ export interface RpcMethods {
   'docs.open': { params: FileTarget; result: DocsOpenResult };
   /** 打开一个视频：Space 里的视频条目，或来源目录里的视频目录。已经打开的返回同一个 `videoId`。 */
   'videos.open': { params: FileTarget; result: VideoOpenResult };
+  /**
+   * 一部视频在界面里打开用的位置（与从 Space 条目打开时相同：所在项目或会话的工作目录 + 相对路径）。先看已打开的视频，
+   * 再看 Space 登记的；都没有时 `not-found`（`details.code: 'VIDEO_NOT_FOUND'`）。审片页只知道 videoId，用它换出 `videos.open` 的参数。
+   */
+  'videos.target': { params: { videoId: Id }; result: { target: FileTarget } };
   /** 这条连接不再需要这个视频；没有其他连接打开它时 Runtime 关闭它。 */
   'videos.close': { params: { videoId: Id }; result: { closed: boolean } };
   /**
@@ -1405,6 +1410,13 @@ export interface RpcMethods {
    * 浏览器会话自己不能调用这个方法。
    */
   'services.web.createAccessLink': { params: { video?: Id }; result: WebAccessLink };
+  /**
+   * 一部视频的审片链接（架构设计 §4.8「审片链接」）：`http://127.0.0.1:<port>/review/<videoId>#key=<审片密钥>`，只能进这部视频的
+   * 审片页。密钥由 Web 服务存着的一份随机数与 videoId 算出：同一部视频、同一个端口，链接始终是同一条，可以反复打开，
+   * Runtime 重启后照样有效。Web 服务没开时先开起来，并把它设成随 Runtime 启动（`autostartEnabled` 说这次是不是由它打开的）。
+   * 找不到这个视频时 `not-found`（`details.code: 'VIDEO_NOT_FOUND'`）。浏览器会话自己不能调用这个方法。
+   */
+  'services.web.reviewLink': { params: { video: Id }; result: WebReviewLink };
   /** 当前的浏览器会话（不含会话令牌）。 */
   'services.web.listSessions': { params: Record<string, never>; result: { sessions: WebSession[] } };
   /** 吊销一个浏览器会话：它的连接立即断开，cookie 随即失效。没有这个会话时 `not-found`。 */

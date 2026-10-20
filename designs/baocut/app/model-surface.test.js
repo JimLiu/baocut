@@ -86,8 +86,7 @@ const WEB_DENY = [
   /^app\/model-agent-projects/, /^app\/model-llm-tools/,
   /* Skills 页（2026-10-16，rail 上 Space 下面）：包、素材与版本只在 App */
   /^app\/model-skill-package/, /^app\/model-project-brand/, /^app\/page-project-brand/,
-  /* 轻量编辑器的标记工具（2026-10-19）：发给会话的标注，只在 App */
-  /^app\/stage-markup/, /^app\/model-markup/,
+  /* 轻量编辑器的标记工具（stage-markup / model-markup）两端都有：Web 是截图模式（lite-editor §8），不在这张表里 */
   /* 视频工具的目标与运行（2026-10-03）：只在 App 的工具页；/^app\/model-tool-/ 不含 Web 也加载的 model-tools.js */
   /^app\/model-tool-/,
   /* 视频标注（product-design §3.2.3）：交给智能体的入口，只在 App */
@@ -144,8 +143,27 @@ test('Web 入口不打包 Agent 专属的 npm 模块（markdown-it 只进 App）
 
 test('Web 入口在加载模块之前声明表面', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'build/entries/web.html'), 'utf8');
-  const decl = html.indexOf("window.BC_SURFACE_ID = 'web'");
+  const decl = html.indexOf('window.BC_SURFACE_ID =');
   assert.ok(decl > 0 && decl < html.indexOf('src="app/model-surface.js'));
+  assert.match(html, /window\.BC_SURFACE_ID = \/\[\?&\]review=\/\.test\(location\.search\) \? 'review' : 'web';/);
+});
+
+test('review：Web 能力再去掉视频列表、导出与任务，标记仍是截图模式', () => {
+  const R = S.make('review');
+  assert.equal(R.id, 'review');
+  assert.equal(R.isWeb, true);
+  ['videoList', 'exportVideo', 'tasks', 'ai', 'agent', 'appRail', 'reveal'].forEach((k) => assert.equal(R[k], false, k));
+  const W = S.make('web');
+  ['videoList', 'exportVideo', 'tasks'].forEach((k) => assert.equal(W[k], true, k));
+});
+
+test('review 的 rail 少「AI 工具」与「品牌」，落点 Tab 都退回文稿', () => {
+  const R = S.make('review');
+  assert.deepEqual(R.rail(RAIL).map((r) => r.k),
+    ['transcript', 'subtitle', 'elements', 'text', 'image', 'video', 'audio', 'settings']);
+  assert.equal(R.landingTab('brand'), 'transcript');
+  assert.equal(R.landingTab('aitools'), 'transcript');
+  assert.equal(S.make('web').landingTab('brand'), 'brand');
 });
 
 /* Both surfaces share S2; only product capabilities differ. */

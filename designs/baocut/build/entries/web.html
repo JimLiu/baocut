@@ -20,6 +20,8 @@
 <link rel="stylesheet" href="app/video-replace.css?v=20260916-1100">
 <link rel="stylesheet" href="app/daoyazi.css?v=20260917-2133">
 <link rel="stylesheet" href="app/stage-load.css">
+<!-- 标记工具（lite-editor §4.1、§8）：Web 是截图模式，复制 / 下载这一帧的图 -->
+<link rel="stylesheet" href="app/stage-markup.css">
 <!-- 全屏播放器（§11.1）：贴在视频上的 chrome，唯一不吃主题的表面 -->
 <!-- Web 外壳独有的几条：无红绿灯的标题栏边距、只有视频列表的侧栏、空页 -->
 <link rel="stylesheet" href="app/web-shell.css?v=20260920-1444">
@@ -47,7 +49,7 @@
 <div id="root"></div>
 
 <!-- Web 表面（§22）：在加载任何模块之前声明；共享组件据此收掉 AI / Agent / App 页面入口（app/model-surface.js） -->
-<script>window.BC_SURFACE_ID = 'web';</script>
+<script>window.BC_SURFACE_ID = /[?&]review=/.test(location.search) ? 'review' : 'web';</script>
 
 <!-- 第 238 轮：动态贴纸换成 Google Noto 的 Lottie JSON，播放器用 lottie-web 5.13.0（SVG renderer） -->
 <!-- 第 242 轮：Codex Pet 的 zip 在浏览器里解包，用 JSZip 3.10.1 -->
@@ -81,6 +83,7 @@
 <script src="app/model-layout.js?v=20261002-0043"></script>
 <script src="app/model-player.js?v=20260908-r223"></script>
 <script src="app/model-lite.js"></script>
+<script src="app/model-markup.js"></script>
 <script src="app/model-proxy.js?v=20260925-2254"></script>
 <script src="app/model-nav.js?v=20261001-2325"></script>
 <script src="app/browser-nav.js"></script>
@@ -279,6 +282,7 @@
 <script type="text/jsx" src="app/editor-cuts.jsx?v=20261001-0322"></script>
 <script type="text/jsx" src="app/editor-lite.jsx"></script>
 <script type="text/jsx" src="app/editor.jsx?v=20261012-emb"></script>
+<script type="text/jsx" src="app/stage-markup.jsx"></script>
 <!-- Web 独有：视频列表侧栏 ＋ 空页 ＋ 入口。其余模块与 BaoCut.html 同一份、同一缓存串（model-surface.test.js 对拍） -->
 <script type="text/jsx" src="app/web-shell.jsx?v=20261002-0317"></script>
 <script type="text/jsx" src="app/web-main.jsx?v=20261002-0317"></script>

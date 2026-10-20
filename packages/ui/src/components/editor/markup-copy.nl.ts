@@ -33,5 +33,12 @@ export const nl: MarkupMessages = {
   cancel: 'Annuleren',
   kept: 'De opmerking blijft op het beeld. ‘Toevoegen aan chat’ stuurt hem mee met de andere markeringen.',
   shotFailed: 'Een frame kon niet worden vastgelegd. De markeringen zijn zonder die screenshot toegevoegd.',
+  copyImage: 'Afbeelding kopiëren',
+  downloadImage: 'Afbeelding downloaden',
+  copied: 'Afbeelding gekopieerd',
+  downloaded: (name) => `${name} gedownload`,
+  copyFailed: 'Kan de afbeelding niet kopiëren. Download hem in plaats daarvan.',
+  captureFailed: 'Kan dit frame niet vastleggen.',
+  discardBodyScreenshot: 'Sluiten verwijdert de markeringen op het beeld. Kopieer of download de afbeelding eerst als je hem nodig hebt.',
   pickInfo: { heading: 'Toegankelijkheid', name: 'Naam', role: 'Rol', focusable: 'Focusbaar met toetsenbord' },
 };

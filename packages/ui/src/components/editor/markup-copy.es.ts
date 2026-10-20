@@ -33,5 +33,12 @@ export const es: MarkupMessages = {
   cancel: 'Cancelar',
   kept: 'El comentario se queda en la imagen. «Añadir al chat» lo envía con las demás marcas.',
   shotFailed: 'No se pudo capturar un fotograma. Las marcas se añadieron sin esa captura.',
+  copyImage: 'Copiar imagen',
+  downloadImage: 'Descargar imagen',
+  copied: 'Imagen copiada',
+  downloaded: (name) => `Se descargó ${name}`,
+  copyFailed: 'No se pudo copiar la imagen. Descárgala en su lugar.',
+  captureFailed: 'No se pudo capturar este fotograma.',
+  discardBodyScreenshot: 'Al cerrar se eliminan las marcas de la imagen. Si la necesitas, cópiala o descárgala antes.',
   pickInfo: { heading: 'Accesibilidad', name: 'Nombre', role: 'Rol', focusable: 'Enfocable con el teclado' },
 };

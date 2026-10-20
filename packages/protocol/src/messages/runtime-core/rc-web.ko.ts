@@ -88,4 +88,10 @@ export const ko: RcWebMessages = {
   attachmentNotFound: '첨부 파일이 없습니다',
   fileNameLength: (p: { max: number }) => `파일 이름은 1~${p.max}자여야 합니다`,
   fileNameInvalid: '파일 이름에는 경로 구분자나 제어 문자를 넣을 수 없습니다',
+  reviewTitle: '검토 페이지를 여는 중',
+  reviewOpening: '이 동영상을 여는 중…',
+  reviewKeyMissing: '이 검토 링크가 불완전합니다. # 뒤 부분까지 링크 전체를 복사하세요.',
+  reviewKeyRejected: '이 검토 링크는 이 BaoCut에서 유효하지 않습니다. 링크를 준 Agent에게 새 링크를 요청하세요.',
+  reviewVideoMissing: '이 동영상은 더 이상 없습니다. 이동되었거나 삭제되었을 수 있습니다.',
+  reviewNotAllowed: (p) => `검토 페이지는 자기 동영상만 열 수 있으며 여기서는 ${p.method}을(를) 쓸 수 없습니다`,
 };

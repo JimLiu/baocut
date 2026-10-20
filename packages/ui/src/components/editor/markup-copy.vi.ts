@@ -33,5 +33,12 @@ export const vi: MarkupMessages = {
   cancel: 'Hủy',
   kept: 'Bình luận vẫn nằm trên khung hình. “Thêm vào cuộc trò chuyện” sẽ gửi nó cùng các dấu khác.',
   shotFailed: 'Không chụp được một khung hình. Các dấu đã được thêm mà không có ảnh chụp đó.',
+  copyImage: 'Sao chép ảnh',
+  downloadImage: 'Tải ảnh xuống',
+  copied: 'Đã sao chép ảnh',
+  downloaded: (name) => `Đã tải xuống ${name}`,
+  copyFailed: 'Không sao chép được ảnh. Hãy tải xuống thay thế.',
+  captureFailed: 'Không chụp được khung hình này.',
+  discardBodyScreenshot: 'Đóng sẽ xóa các dấu trên khung hình. Hãy sao chép hoặc tải ảnh xuống trước nếu cần.',
   pickInfo: { heading: 'Hỗ trợ tiếp cận', name: 'Tên', role: 'Vai trò', focusable: 'Có thể lấy tiêu điểm bằng bàn phím' },
 };

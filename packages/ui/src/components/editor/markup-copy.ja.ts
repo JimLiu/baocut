@@ -33,5 +33,12 @@ export const ja: MarkupMessages = {
   cancel: 'キャンセル',
   kept: 'コメントは画面上に残ります。「チャットに追加」でほかのマークと一緒に送られます',
   shotFailed: 'フレームをキャプチャできませんでした。マークはそのスクリーンショットなしで追加されました',
+  copyImage: '画像をコピー',
+  downloadImage: '画像をダウンロード',
+  copied: '画像をコピーしました',
+  downloaded: (name) => `${name} をダウンロードしました`,
+  copyFailed: '画像をコピーできませんでした。ダウンロードをお使いください',
+  captureFailed: 'このフレームをキャプチャできませんでした',
+  discardBodyScreenshot: '閉じると画面上のマークは消えます。必要なら先に画像をコピーまたはダウンロードしてください。',
   pickInfo: { heading: 'アクセシビリティ', name: '名前', role: 'ロール', focusable: 'キーボードでフォーカス可能' },
 };

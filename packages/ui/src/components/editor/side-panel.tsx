@@ -172,10 +172,11 @@ export function SidePanel({
   assets: Record<Id, AssetRecord>;
   documents: Record<Id, DocumentRecord>;
 }) {
-  const web = useRuntime().host.platform === 'web';
-  // 网页宿主没有工具页：记着的若是它，落回文稿（不改记着的值）。
+  const runtime = useRuntime();
+  const web = runtime.host.platform === 'web';
+  // 网页宿主没有工具页、审片页没有品牌：记着的若是它，落回文稿（不改记着的值）。
   const stored = useEditor((s) => s.panelTab);
-  const tab = hostPanelTab(stored, web);
+  const tab = hostPanelTab(stored, web, runtime.review);
   const width = useEditor((s) => s.panelWidth);
   const hidden = useEditor((s) => s.panelHidden);
   const showPanel = useEditor((s) => s.showPanel);
@@ -233,7 +234,7 @@ export function SidePanel({
               if (key) clearCutOrigin();
               showPanel(key);
             }}>
-            {TABS.filter(({ key }) => hostPanelTab(key, web) === key).map(({ key, label, Icon }) => (
+            {TABS.filter(({ key }) => hostPanelTab(key, web, runtime.review) === key).map(({ key, label, Icon }) => (
               <TooltipTrigger key={key} placement="start" delay={300}>
                 <ToggleButton id={key} aria-label={label}>
                   <Icon />

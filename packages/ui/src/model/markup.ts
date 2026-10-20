@@ -21,7 +21,15 @@ import type { CaptionHit } from '../render/render-planner.ts';
 import { liteLineAt, liteSegmentAt, type LiteSegment } from './lite-segments.ts';
 import { captionHitAt, hitAt, isMainVideo } from './stage-hit.ts';
 import { aabbOf, boundsOf, type Pose, type Rect } from './stage-pose.ts';
-import { normalizeShape, videoAnnotationLabel, type DraftVideoAnnotation, type Point, type Size } from './video-annotations.ts';
+import { safeFileStem } from './export-settings.ts';
+import {
+  normalizeShape,
+  VIDEO_ANNOTATION_NEAR_MS,
+  videoAnnotationLabel,
+  type DraftVideoAnnotation,
+  type Point,
+  type Size,
+} from './video-annotations.ts';
 
 /*
  * 轻量编辑器的标记（docs/design/lite-editor §4；移植自原型 designs/baocut/app/model-markup.js）：标注模式里画在画面上的一组标记——
@@ -38,6 +46,15 @@ import { normalizeShape, videoAnnotationLabel, type DraftVideoAnnotation, type P
 /** 工具条上的工具（lite-editor §4.1）：选择元素 / 评论 / 画笔 / 形状（下拉：直线、箭头、矩形、圆、编号）/ 文字。 */
 export const MARKUP_TOOLS = ['element', 'comment', 'pen', 'shape', 'text'] as const;
 export type MarkupTool = (typeof MARKUP_TOOLS)[number];
+/**
+ * 标记的两种用法（lite-editor §4.1、§8）：`agent` 把标记「添加到对话」变成视频标注（Electron）；`screenshot` 是 Web 的截图模式——
+ * 没有 BaoCut 会话可发，标记画在当前帧上复制或下载成图片，没有选择元素与评论。宿主只在这里分档：`markupMode(platform)`。
+ */
+export type MarkupMode = 'agent' | 'screenshot';
+export const markupMode = (platform: string): MarkupMode => (platform === 'web' ? 'screenshot' : 'agent');
+const SCREENSHOT_TOOLS: readonly MarkupTool[] = ['pen', 'shape', 'text'];
+/** 这种用法下工具条上有哪些工具（按工具条的顺序）。 */
+export const markupTools = (mode: MarkupMode): readonly MarkupTool[] => (mode === 'screenshot' ? SCREENSHOT_TOOLS : MARKUP_TOOLS);
 export const MARKUP_SHAPES = ['line', 'arrow', 'box', 'ellipse', 'pin'] as const satisfies readonly VideoAnnotationKind[];
 export type MarkupShape = (typeof MARKUP_SHAPES)[number];
 /** 颜色与粗细与协议的 `style` 同一组：红 / 蓝 / 绿 / 黑 / 白，2 / 4 / 8 / 12 px；默认红、4px。 */
@@ -77,6 +94,8 @@ export interface Mark {
 export type MarkInput = Omit<Mark, 'id' | 'color' | 'width'> & Partial<Pick<Mark, 'id' | 'color' | 'width'>>;
 
 export interface MarkupState {
+  /** 这一组标记的用法：决定有哪些工具、最后是添加到对话还是复制 / 下载图片。 */
+  mode: MarkupMode;
   tool: MarkupTool;
   shape: MarkupShape;
   color: VideoAnnotationColor;
@@ -93,11 +112,24 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, Number.isFinite(v) ? v : 
 const round = (v: number) => Math.round(v * 1000) / 1000;
 
 export function init(over: Partial<MarkupState> = {}): MarkupState {
-  return { tool: 'pen', shape: 'box', color: 'red', width: 4, marks: [], past: [], future: [], sel: null, ask: false, ...over };
+  return {
+    mode: 'agent',
+    tool: 'pen',
+    shape: 'box',
+    color: 'red',
+    width: 4,
+    marks: [],
+    past: [],
+    future: [],
+    sel: null,
+    ask: false,
+    ...over,
+  };
 }
 
-/** 换工具：换了就取消选中。 */
-export const setTool = (s: MarkupState, tool: MarkupTool): MarkupState => ({ ...s, tool, sel: tool === s.tool ? s.sel : null });
+/** 换工具：换了就取消选中；这种用法下没有的工具（截图模式的选择元素与评论）不换。 */
+export const setTool = (s: MarkupState, tool: MarkupTool): MarkupState =>
+  markupTools(s.mode).includes(tool) ? { ...s, tool, sel: tool === s.tool ? s.sel : null } : s;
 export const setShape = (s: MarkupState, shape: MarkupShape): MarkupState => ({ ...s, shape, tool: 'shape', sel: null });
 
 /** 一次改动进历史：过去栈封顶 50，未来栈清空。 */
@@ -375,6 +407,24 @@ export interface MarkupNoteBase {
   video: FileTarget;
   revision: Revision;
   segments?: readonly LiteSegment[];
+}
+
+/** 这条标记在 `nowMs` 这一帧上吗：时刻相差不超过 `VIDEO_ANNOTATION_NEAR_MS`（同草稿里的标注）。 */
+export const isOnFrame = (mark: Pick<Mark, 'timeMs'>, nowMs: number): boolean => Math.abs(mark.timeMs - nowMs) <= VIDEO_ANNOTATION_NEAR_MS;
+/** 画面上此刻显示的标记（`nowMs` 这一帧上的）。 */
+export const marksOnFrame = (marks: readonly Mark[], nowMs: number): Mark[] => marks.filter((m) => isOnFrame(m, nowMs));
+
+/**
+ * 截图模式下载的文件名（lite-editor §4.1）：`<视频名>-00m12s400.png`，满一小时前面加 `1h`。视频名按导出的规则去掉文件名里不能用的字符
+ * （`safeFileStem`）；时刻是播放头所在的那一帧，毫秒整数。
+ */
+export function screenshotFileName(videoName: string, timeMs: number): string {
+  const ms = Math.max(0, Math.round(timeMs));
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor(ms / 60_000) % 60;
+  const s = Math.floor(ms / 1000) % 60;
+  const pad = (n: number, w = 2) => String(n).padStart(w, '0');
+  return `${safeFileStem(videoName)}-${h ? `${h}h` : ''}${pad(m)}m${pad(s)}s${pad(ms % 1000, 3)}.png`;
 }
 
 /** 这些标记落在哪几帧上（毫秒，按先后）：同一帧的几条共一张截图。 */

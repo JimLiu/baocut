@@ -33,5 +33,12 @@ export const zhHans: MarkupMessages = {
   cancel: '取消',
   kept: '评论留在画面上 · 按「添加到对话」与别的标记一起发',
   shotFailed: '有一帧没能截下来，标记已添加，不带那张截图',
+  copyImage: '复制图片',
+  downloadImage: '下载图片',
+  copied: '已复制图片',
+  downloaded: (name) => `已下载 ${name}`,
+  copyFailed: '没能复制图片，可以改用下载',
+  captureFailed: '这一帧没能截下来',
+  discardBodyScreenshot: '关闭会去掉画面上的标记。需要的话先复制或下载图片。',
   pickInfo: { heading: '可访问性', name: '名称', role: '角色', focusable: '键盘可聚焦' },
 };

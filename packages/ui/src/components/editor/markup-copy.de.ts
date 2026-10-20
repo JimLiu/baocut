@@ -33,5 +33,13 @@ export const de: MarkupMessages = {
   cancel: 'Abbrechen',
   kept: 'Der Kommentar bleibt auf dem Bild. „Zum Chat hinzufügen“ sendet ihn mit den anderen Markierungen.',
   shotFailed: 'Ein Bild konnte nicht aufgenommen werden. Die Markierungen wurden ohne diesen Screenshot hinzugefügt.',
+  copyImage: 'Bild kopieren',
+  downloadImage: 'Bild herunterladen',
+  copied: 'Bild kopiert',
+  downloaded: (name) => `${name} heruntergeladen`,
+  copyFailed: 'Das Bild konnte nicht kopiert werden. Stattdessen herunterladen.',
+  captureFailed: 'Dieses Bild konnte nicht aufgenommen werden.',
+  discardBodyScreenshot:
+    'Beim Schließen werden die Markierungen auf dem Bild entfernt. Wird das Bild gebraucht, vorher kopieren oder herunterladen.',
   pickInfo: { heading: 'Barrierefreiheit', name: 'Name', role: 'Rolle', focusable: 'Per Tastatur fokussierbar' },
 };

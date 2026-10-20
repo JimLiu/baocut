@@ -28,9 +28,12 @@ export const PANEL_COLLAPSE_BELOW = 340;
  */
 export type PanelTab = 'transcript' | 'subtitle' | 'aitools' | 'elements' | 'text' | 'image' | 'video' | 'audio' | 'brand' | 'props';
 
-/** 网页宿主没有 AI 工具 Tab（原型 model-surface.js `WEB_RAIL_DROP`）：工具栏不显示它，记着的是它时落回文稿。 */
-export function hostPanelTab(tab: PanelTab, web: boolean): PanelTab {
-  return web && tab === 'aitools' ? 'transcript' : tab;
+/**
+ * 网页宿主没有 AI 工具 Tab（原型 model-surface.js `WEB_RAIL_DROP`）：工具栏不显示它，记着的是它时落回文稿。
+ * 审片页（`review`，架构设计 §12.8）也没有品牌：品牌库是跨视频的用户数据，审片会话碰不到。
+ */
+export function hostPanelTab(tab: PanelTab, web: boolean, review = false): PanelTab {
+  return (web && tab === 'aitools') || (review && tab === 'brand') ? 'transcript' : tab;
 }
 
 /** 拖动中还没提交的字幕样式：预览读这份正文代替文档的 `baseRevision` 版本（见 video-editor 的 DraftDocuments）。 */

@@ -138,3 +138,11 @@ test('进了草稿的标注画回画面：toNotes 的反向，box 回 rect、pin
   const {style, ...bare} = rect;
   assert.deepEqual([M.fromNote(bare).color, M.fromNote(bare).width], ['blue', 2]);
 });
+
+test('截图模式（Web）：没有选择元素与评论；下载的文件名是视频名接播放头的分、秒、毫秒', () => {
+  assert.deepEqual(M.toolsFor('agent').map(t => t.k), ['element', 'comment', 'pen', 'shape', 'text']);
+  assert.deepEqual(M.toolsFor('screenshot').map(t => t.k), ['pen', 'shape', 'text']);
+  assert.equal(M.shotName('倒着开的跑车', 12400), '倒着开的跑车-00m12s400.png');
+  assert.equal(M.shotName('a/b: c?', 0), 'a_b_ c_-00m00s000.png');
+  assert.equal(M.shotName('', 3723005), 'video-1h02m03s005.png');
+});

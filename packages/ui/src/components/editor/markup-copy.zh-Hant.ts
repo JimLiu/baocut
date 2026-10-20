@@ -33,5 +33,12 @@ export const zhHant: MarkupMessages = {
   cancel: '取消',
   kept: '評論留在畫面上 · 按「加入對話」與其他標記一起傳送',
   shotFailed: '有一幀沒能擷取，標記已加入，不含那張截圖',
+  copyImage: '複製圖片',
+  downloadImage: '下載圖片',
+  copied: '已複製圖片',
+  downloaded: (name) => `已下載 ${name}`,
+  copyFailed: '沒能複製圖片，可以改用下載',
+  captureFailed: '這一幀沒能擷取',
+  discardBodyScreenshot: '關閉會移除畫面上的標記。需要的話先複製或下載圖片。',
   pickInfo: { heading: '無障礙功能', name: '名稱', role: '角色', focusable: '可用鍵盤聚焦' },
 };

@@ -371,3 +371,33 @@ describe('换成视频标注', () => {
     ).toEqual({ x: 0.4, y: 0.5 });
   });
 });
+
+describe('截图模式（Web，lite-editor §4.1、§8）', () => {
+  it('只看宿主平台：Web 是截图模式，别的添加到对话；截图模式没有选择元素与评论，换不过去', () => {
+    expect(M.markupMode('web')).toBe('screenshot');
+    expect(M.markupMode('darwin')).toBe('agent');
+    expect(M.markupTools('agent')).toEqual(M.MARKUP_TOOLS);
+    expect(M.markupTools('screenshot')).toEqual(['pen', 'shape', 'text']);
+    const shot = M.init({ mode: 'screenshot' });
+    expect(M.setTool(shot, 'element')).toBe(shot);
+    expect(M.setTool(shot, 'comment')).toBe(shot);
+    expect(M.setTool(shot, 'text').tool).toBe('text');
+    expect(M.setTool(M.init(), 'comment').tool).toBe('comment');
+  });
+
+  it('当前帧上的标记：±500 ms 之内算这一帧', () => {
+    let s = M.add(M.init(), { timeMs: 3000, id: 'a', kind: 'box', x: 0, y: 0, w: 0.5, h: 0.5 });
+    s = M.add(s, { timeMs: 3400, id: 'b', kind: 'pin', x: 0.2, y: 0.2, w: 0, h: 0 });
+    s = M.add(s, { timeMs: 9000, id: 'c', kind: 'pin', x: 0.2, y: 0.2, w: 0, h: 0 });
+    expect(M.marksOnFrame(s.marks, 3200).map((m) => m.id)).toEqual(['a', 'b']);
+    expect(M.marksOnFrame(s.marks, 3600).map((m) => m.id)).toEqual(['b']);
+    expect(M.isOnFrame(s.marks[2]!, 8500)).toBe(true);
+    expect(M.isOnFrame(s.marks[2]!, 8499)).toBe(false);
+  });
+
+  it('下载的文件名：视频名去掉不能用的字符，接播放头的分、秒、毫秒；满一小时带小时', () => {
+    expect(M.screenshotFileName('倒着开的跑车', 12_400)).toBe('倒着开的跑车-00m12s400.png');
+    expect(M.screenshotFileName('a/b: c?', 0)).toBe('a_b_ c_-00m00s000.png');
+    expect(M.screenshotFileName('', 3_723_005)).toBe('video-1h02m03s005.png');
+  });
+});

@@ -79,4 +79,10 @@ export const zhHans: RcWebMessages = {
   attachmentNotFound: '附件不存在',
   fileNameLength: (p: { max: number }) => `文件名要有 1 到 ${p.max} 个字符`,
   fileNameInvalid: '文件名不能带路径分隔符或控制字符',
+  reviewTitle: '正在打开审片页',
+  reviewOpening: '正在打开这部视频…',
+  reviewKeyMissing: '这条审片链接不完整：请复制整条链接，包括 # 后面的部分。',
+  reviewKeyRejected: '这条审片链接对这台 BaoCut 无效：请让给你链接的 Agent 重新给一条。',
+  reviewVideoMissing: '这部视频已经不在了：可能被移走或删除了。',
+  reviewNotAllowed: (p) => `审片页只能打开它自己的视频，这里用不了 ${p.method}`,
 };

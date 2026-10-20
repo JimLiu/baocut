@@ -1,6 +1,9 @@
 /* 轻量编辑器的标记（docs/design/lite-editor §4）：标注模式里画在画面上的一组标记——画笔、直线、箭头、矩形、圆、编号、文字，
    用「选择元素」点中的舞台元素（字幕、元素、HTML 动画里的节点），以及「评论」——点画面上任意位置落一枚印章、写一句话，点中了元素就连元素一起。
-   window.BC_MARKUP。纯函数，无 React、无 DOM；只在 App 入口加载。
+   window.BC_MARKUP。纯函数，无 React、无 DOM；App 与 Web 两个入口都加载。
+
+   两种用法（docs/design/lite-editor §4.1、§8）：`agent`（App）最后「添加到对话」换成视频标注；`screenshot`（Web，没有会话可发）
+   没有选择元素与评论，最后把当前帧连同这一帧的标记复制或下载成图片（`toolsFor`、`shotName`）。
 
    与视频标注（model-stage-notes.js）的分工：这里是**画的过程**——一次标注会话里的标记、颜色与粗细、撤销重做、选中与改形；
    按「添加到对话」时整组换成视频标注（`toNotes`），进 `videoNotes[videoId]` 草稿，之后的事归 model-stage-notes。
@@ -20,6 +23,18 @@
   const TOOLS = [
     {k: 'element', label: '选择元素', sk: '⇧⌘S'}, {k: 'comment', label: '评论', sk: '⇧⌘C'}, {k: 'pen', label: '画笔'}, {k: 'shape', label: '形状'}, {k: 'text', label: '文字'},
   ];
+  /* 截图模式（Web）只有画的工具：画笔 / 形状 / 文字 */
+  const SCREENSHOT_TOOLS = ['pen', 'shape', 'text'];
+  /** 这种用法下工具条上有哪些工具（按工具条的顺序）。 */
+  const toolsFor = mode => (mode === 'screenshot' ? TOOLS.filter(t => SCREENSHOT_TOOLS.indexOf(t.k) >= 0) : TOOLS);
+  /** 截图模式下载的文件名：`<视频名>-00m12s400.png`（播放头那一帧），满一小时前面加 `1h`；视频名去掉文件名里不能用的字符。 */
+  function shotName(videoName, timeMs) {
+    const ms = Math.max(0, Math.round(timeMs || 0));
+    const pad = (n, w = 2) => String(n).padStart(w, '0');
+    const h = Math.floor(ms / 3600000);
+    const stem = String(videoName || '').replace(/[/\\:*?"<>|\u0000-\u001f\u007f]/g, '_').replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 120) || 'video';
+    return `${stem}-${h ? `${h}h` : ''}${pad(Math.floor(ms / 60000) % 60)}m${pad(Math.floor(ms / 1000) % 60)}s${pad(ms % 1000, 3)}.png`;
+  }
   const SHAPES = [
     {k: 'line', label: '直线'}, {k: 'arrow', label: '箭头'}, {k: 'rect', label: '矩形'}, {k: 'ellipse', label: '圆'}, {k: 'step', label: '编号'},
   ];
@@ -237,6 +252,6 @@
     return m;
   }
 
-  root.BC_MARKUP = {COLORS, WIDTHS, TOOLS, SHAPES, KIND_LABELS, BOX_HANDLES, init, setTool, setShape, setColor, setWidth, add, update, finishDrag, remove, clear, select,
+  root.BC_MARKUP = {COLORS, WIDTHS, TOOLS, toolsFor, shotName, SHAPES, KIND_LABELS, BOX_HANDLES, init, setTool, setShape, setColor, setWidth, add, update, finishDrag, remove, clear, select,
     canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes, fromNote, onFrame, frames};
 })();

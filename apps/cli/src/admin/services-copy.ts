@@ -76,7 +76,11 @@ const en = {
                                    only once, for two minutes. --video opens that video directly in the editor (videoId comes from
                                    baocut videos list). --launch opens a sign-in page without the code in the default
                                    browser; the access code is printed only in the terminal, for you to paste into the sign-in
-                                   page (the code isn't passed in the arguments of the command that opens the browser)`,
+                                   page (the code isn't passed in the arguments of the command that opens the browser)
+  baocut web review --video <videoId>
+                                   Print this video's review link: a page with only this video (play, mark up, edit the timeline) for an
+                                   agent's built-in browser or any browser on this computer. The link stays the same while the video exists and
+                                   BaoCut is running; it also turns on web service autostart`,
   usage:
     'Usage: baocut services [status | start <service> | stop <service>\n' +
     '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
@@ -164,6 +168,9 @@ const en = {
   clientRevoked: (clientId: string) => `Revoked ${clientId}; its token stops working immediately`,
   webSessionRevoked: (sessionId: string) => `Revoked ${sessionId}; its connection was closed`,
   browserFailed: (message: string) => `Couldn't open the browser: ${message}. Open the sign-in page above yourself`,
+  reviewLinkNote:
+    "Review link for this video. It stays the same while the video exists and BaoCut is running; anyone on this computer who has it can view and edit this video, so don't share it",
+  reviewAutostartOn: 'Turned on web service autostart, so the link keeps working after BaoCut restarts',
 };
 
 export type ServicesMessages = typeof en;

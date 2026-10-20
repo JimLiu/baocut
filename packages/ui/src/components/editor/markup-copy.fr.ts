@@ -33,5 +33,12 @@ export const fr: MarkupMessages = {
   cancel: 'Annuler',
   kept: 'Le commentaire reste sur l’image. « Ajouter au chat » l’envoie avec les autres marques.',
   shotFailed: 'Impossible de capturer une image. Les marques ont été ajoutées sans cette capture.',
+  copyImage: 'Copier l’image',
+  downloadImage: 'Télécharger l’image',
+  copied: 'Image copiée',
+  downloaded: (name) => `${name} téléchargé`,
+  copyFailed: 'Impossible de copier l’image. Téléchargez-la plutôt.',
+  captureFailed: 'Impossible de capturer cette image.',
+  discardBodyScreenshot: 'Fermer supprime les marques sur l’image. Copiez ou téléchargez l’image avant si vous en avez besoin.',
   pickInfo: { heading: 'Accessibilité', name: 'Nom', role: 'Rôle', focusable: 'Focalisable au clavier' },
 };

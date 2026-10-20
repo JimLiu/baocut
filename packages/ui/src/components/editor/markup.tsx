@@ -42,6 +42,8 @@ import Brush from '@react-spectrum/s2/icons/Brush';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import Close from '@react-spectrum/s2/icons/Close';
 import Comment from '@react-spectrum/s2/icons/Comment';
+import Copy from '@react-spectrum/s2/icons/Copy';
+import Download from '@react-spectrum/s2/icons/Download';
 import RedoIcon from '@react-spectrum/s2/icons/Redo';
 import Select from '@react-spectrum/s2/icons/Select';
 import TextIcon from '@react-spectrum/s2/icons/Text';
@@ -63,6 +65,10 @@ import {
   forget,
   fromGesture,
   handles,
+  isOnFrame,
+  marksOnFrame,
+  markupMode,
+  markupTools,
   move,
   normalizedRect,
   pickElement,
@@ -70,6 +76,7 @@ import {
   redo,
   remove,
   resize,
+  screenshotFileName,
   select,
   sendable,
   setColor,
@@ -83,6 +90,7 @@ import {
   type Mark,
   type MarkInput,
   type MarkupHandle,
+  type MarkupMode,
   type MarkupPick,
   type MarkupShape,
   type MarkupState,
@@ -99,6 +107,7 @@ import {
   type Size,
 } from '../../model/video-annotations.ts';
 import { readCaptions } from '../../render/captions.ts';
+import { paintFrame } from '../../render/markup-paint.ts';
 import { stageLayers } from '../../render/frame-plan.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
 import type { HostBridge } from '../../host.ts';
@@ -107,6 +116,7 @@ import { useDraftVideoAnnotations } from '../../state/draft-video-annotations-st
 import { useEditor } from '../../state/editor-store.ts';
 import { useMarkup } from '../../state/markup-store.ts';
 import { useVideo } from '../../state/video-store.ts';
+import { downloadBlob } from '../media/gif.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { MARKUP_COPY } from './markup-copy.ts';
 import { drawing, pct, pinMark, stampMark, SvgMark, SVG_KINDS, textMark } from './markup-marks.tsx';
@@ -118,6 +128,8 @@ import { drawing, pct, pinMark, stampMark, SvgMark, SVG_KINDS, textMark } from '
  * 拷一份那一帧留在 store 里。按「添加到对话」整组换成视频标注草稿，每条带自己的时刻、那一刻的段与句，每一帧截一张图（那一帧的画面
  * 加上这一帧的标记）放进输入框；评论勾着「发给智能体」时单独立刻发出，图上画的是印章。已经进草稿的标注照旧由 StageNotesLayer 画
  * （这一层只画还没发的）。
+ * Web 没有 BaoCut 会话可发，是截图模式（model/markup.ts 的 `markupMode`，只看宿主平台）：没有选择元素与评论，「添加到对话」换成
+ * 「复制图片」与「下载图片」——当前帧的画面加上这一帧的标记画成一张 PNG；复制、下载后标记留着，关闭时有标记就问一句。
  */
 
 /** 拖动短于这么多像素算「点了一下」。 */
@@ -386,8 +398,10 @@ export function MarkupLayer({
    * 要提醒烘焙时才有，有可用替身的合成照样走实时层、画布照样透明。
    */
   const liveNow = () => !!engine.plan?.live;
+  /** 这一组标记的用法：Web 是截图模式（lite-editor §8），别的宿主添加到对话。 */
+  const mode = markupMode(runtime.host.platform);
   const bind = useMarkup((s) => s.bind);
-  const bound = useMarkup((s) => s.videoId === videoId);
+  const bound = useMarkup((s) => s.videoId === videoId && s.markup.mode === mode);
   const markup = useMarkup((s) => s.markup);
   const apply = useMarkup((s) => s.apply);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -405,7 +419,7 @@ export function MarkupLayer({
   const C = MARKUP_COPY;
   const nowMs = useEditor((s) => Math.round(s.playhead * 1000));
 
-  useEffect(() => bind(videoId), [bind, videoId]);
+  useEffect(() => bind(videoId, mode), [bind, videoId, mode]);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -428,9 +442,11 @@ export function MarkupLayer({
         event.stopPropagation();
       };
       const store = useMarkup.getState();
-      if (mod && event.shiftKey && !event.altKey && (letter === 's' || letter === 'c')) {
+      const picker = letter === 's' ? 'element' : letter === 'c' ? 'comment' : null;
+      // 这种用法下没有的工具（截图模式的选择元素与评论）不接这两个键，留给浏览器（⇧⌘C 是检查元素）。
+      if (mod && event.shiftKey && !event.altKey && picker && markupTools(store.markup.mode).includes(picker)) {
         stop();
-        store.apply((s) => setTool(s, letter === 's' ? 'element' : 'comment'));
+        store.apply((s) => setTool(s, picker));
         return;
       }
       if (mod && !event.altKey && (letter === 'z' || (!MAC && letter === 'y'))) {
@@ -442,7 +458,7 @@ export function MarkupLayer({
         const sel = store.markup.sel;
         const mark = store.markup.marks.find((m) => m.id === sel);
         // 选中的那条不在当前帧上（播放头挪走了）：看不见的不删。
-        if (!mark || !onFrame(mark, frameMs())) return;
+        if (!mark || !isOnFrame(mark, frameMs())) return;
         stop();
         store.apply((s) => remove(s, sel));
         return;
@@ -697,6 +713,62 @@ export function MarkupLayer({
     ToastQueue.neutral(C.added(new Set(notes.map(videoAnnotationFrameMs)).size), { timeout: 3000 });
     useMarkup.getState().discard();
   };
+
+  // ---- 截图模式：复制 / 下载这一帧 ----
+
+  /**
+   * 这一帧的图（lite-editor §4.1 截图模式）：播放头所在那一帧的画面加上这一帧上的标记（编号按整组数），画法同「添加到对话」的截图。
+   * 底图取此刻的画面（就是用户看着的那一帧）；截不出时退回画这一帧标记时留下的那张。都没有（例如实时合成层的 iframe 拷不进画布）时 null。
+   */
+  const frameShot = async (): Promise<Blob | null> => {
+    const nowMs = frameMs();
+    const { markup: state, frames } = useMarkup.getState();
+    const onThis = sendable(marksOnFrame(state.marks, nowMs));
+    if (!onThis.length) return null;
+    const source = canvasRef.current;
+    const now = source ? await grabFrame(source, liveNow(), capture).catch(() => null) : null;
+    const kept = [...onThis].sort((a, b) => Math.abs(a.timeMs - nowMs) - Math.abs(b.timeMs - nowMs)).find((m) => frames[m.timeMs]);
+    const base = now ?? (kept ? frames[kept.timeMs] : null);
+    return paintFrame(base, onThis, state.marks, nowMs, size, C.me).catch(() => null);
+  };
+  const shotName = () => {
+    const open = useVideo.getState().video;
+    return screenshotFileName(open?.state?.video.name ?? open?.ref?.name ?? sequence.name, frameMs());
+  };
+  /**
+   * 复制图片：ClipboardItem 在按下的这一刻同步建好、图片以 Promise 交给它（Safari 要求写剪贴板发生在手势里，画图是异步的）。
+   * 剪贴板不可用或被拒时提示改用下载；是图没截出来时按截不出图提示。标记不清、不退出。
+   */
+  const copyImage = () => {
+    const clipboard = typeof ClipboardItem === 'undefined' ? undefined : navigator.clipboard;
+    if (!clipboard?.write) {
+      ToastQueue.negative(C.copyFailed, { timeout: 5000 });
+      return;
+    }
+    const shot = frameShot();
+    const png = shot.then((blob) => blob ?? Promise.reject(new Error('frame unavailable')));
+    png.catch(() => {});
+    void clipboard.write([new ClipboardItem({ 'image/png': png })]).then(
+      () => ToastQueue.neutral(C.copied, { timeout: 3000 }),
+      async () => {
+        if (await shot) ToastQueue.negative(C.copyFailed, { timeout: 5000 });
+        else ToastQueue.neutral(C.captureFailed, { timeout: 4000 });
+      },
+    );
+  };
+  /** 下载图片：存成 `<视频名>-00m12s400.png`（播放头所在那一帧）。标记不清、不退出。 */
+  const downloadImage = () => {
+    const name = shotName();
+    void frameShot().then((blob) => {
+      if (!blob) {
+        ToastQueue.neutral(C.captureFailed, { timeout: 4000 });
+        return;
+      }
+      downloadBlob(blob, name);
+      ToastQueue.neutral(C.downloaded(name), { timeout: 3000 });
+    });
+  };
+
   const sendComment = (text: string, toAgent: boolean) => {
     const pending = comment;
     if (!pending || !text.trim()) return;
@@ -736,7 +808,7 @@ export function MarkupLayer({
       })()
     : null;
   // 只画这一帧的（±near 毫秒，同草稿里的标注）；选中的那条不在这一帧上就不画把手。
-  const shown = markup.marks.filter((m) => onFrame(m, nowMs));
+  const shown = marksOnFrame(markup.marks, nowMs);
   const selected = shown.find((m) => m.id === markup.sel) ?? null;
   const svgMarks = shown.filter((m) => SVG_KINDS.has(m.kind));
   const htmlMarks = shown.filter((m) => !SVG_KINDS.has(m.kind));
@@ -825,7 +897,7 @@ export function MarkupLayer({
         {hover && picking ? <PickHint pick={hover} canvas={canvas} brief={tool === 'comment'} /> : null}
         <CommentBox pending={comment} color={markup.color} onSend={sendComment} onCancel={() => setComment(null)} />
       </div>
-      <MarkupBar anchor={layerRef} onAddToChat={addToChat} />
+      <MarkupBar anchor={layerRef} mode={mode} onAddToChat={addToChat} onCopyImage={copyImage} onDownloadImage={downloadImage} />
       <DialogContainer onDismiss={() => apply((s) => ({ ...s, ask: false }))}>
         {markup.ask ? (
           <AlertDialog
@@ -836,7 +908,7 @@ export function MarkupLayer({
             onPrimaryAction={() => useMarkup.getState().discard()}
             onCancel={() => apply((s) => ({ ...s, ask: false }))}
           >
-            {C.discardBody}
+            {mode === 'screenshot' ? C.discardBodyScreenshot : C.discardBody}
           </AlertDialog>
         ) : null}
       </DialogContainer>
@@ -1023,8 +1095,21 @@ function CommentBox({
 /**
  * 标记工具条（lite-editor §4.1；照截图标注器，一行）：选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 撤销 / 重做 ｜ 添加到对话 / 关闭。
  * 撤销 / 重做同 ⌘Z / ⇧⌘Z；删选中的不占钮，走 Delete（标记层的键）。挂在 body 下，按 `anchor` 所在舞台的位置浮在舞台底边上方。
+ * 截图模式（Web）没有选择元素与评论（`markupTools`），「添加到对话」换成复制图片 / 下载图片，当前帧上没有能出图的标记时两枚都置灰。
  */
-export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLElement | null>; onAddToChat: () => void }) {
+export function MarkupBar({
+  anchor,
+  mode,
+  onAddToChat,
+  onCopyImage,
+  onDownloadImage,
+}: {
+  anchor: RefObject<HTMLElement | null>;
+  mode: MarkupMode;
+  onAddToChat: () => void;
+  onCopyImage: () => void;
+  onDownloadImage: () => void;
+}) {
   const barRef = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<CSSProperties | null>(null);
   useLayoutEffect(() => {
@@ -1046,6 +1131,8 @@ export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLEleme
   }, [anchor]);
   const markup = useMarkup((s) => s.markup);
   const apply = useMarkup((s) => s.apply);
+  const nowMs = useEditor((s) => Math.round(s.playhead * 1000));
+  const tools = markupTools(mode);
   const C = MARKUP_COPY;
   const keys = (label: string, k?: string) => (k ? C.withKeys(label, keyLabel(k, MAC)) : label);
   const toolButton = (tool: MarkupTool, icon: ReactElement) => (
@@ -1091,6 +1178,21 @@ export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLEleme
   );
   const Shape = SHAPE_GLYPHS[markup.shape];
   const count = sendable(markup.marks).length;
+  /** 截图模式：当前帧上能出图的标记（别的帧上的不进这一张）。 */
+  const onFrameCount = sendable(marksOnFrame(markup.marks, nowMs)).length;
+  /** 截图模式的复制 / 下载：与撤销同样的图标钮，名字只在提示与 aria-label 里。 */
+  const imageButton = (label: string, onPress: () => void, icon: ReactElement) => (
+    <Tip label={label}>
+      <RACButton
+        className={({ isHovered, isPressed, isFocusVisible, isDisabled }) => toolBtn({ isHovered, isPressed, isFocusVisible, isDisabled })}
+        aria-label={label}
+        isDisabled={!onFrameCount}
+        onPress={onPress}
+      >
+        {icon}
+      </RACButton>
+    </Tip>
+  );
   return createPortal(
     <div
       ref={barRef}
@@ -1101,8 +1203,8 @@ export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLEleme
       data-markup-bar
       onPointerDown={(event) => event.stopPropagation()}
     >
-      {toolButton('element', <Select styles={toolIcon} />)}
-      {toolButton('comment', <Comment styles={toolIcon} />)}
+      {tools.includes('element') ? toolButton('element', <Select styles={toolIcon} />) : null}
+      {tools.includes('comment') ? toolButton('comment', <Comment styles={toolIcon} />) : null}
       {toolButton('pen', <Brush styles={toolIcon} />)}
       <MenuTrigger
         onOpenChange={(open) => {
@@ -1174,9 +1276,16 @@ export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLEleme
       {historyButton(C.undo, '⌘Z', canUndo(markup), undo, <UndoIcon styles={toolIcon} />)}
       {historyButton(C.redo, '⇧⌘Z', canRedo(markup), redo, <RedoIcon styles={toolIcon} />)}
       <span className={divider} />
-      <Button size="S" variant="primary" isDisabled={!count} onPress={onAddToChat}>
-        {C.addToChat}
-      </Button>
+      {mode === 'screenshot' ? (
+        <>
+          {imageButton(C.copyImage, onCopyImage, <Copy styles={toolIcon} />)}
+          {imageButton(C.downloadImage, onDownloadImage, <Download styles={toolIcon} />)}
+        </>
+      ) : (
+        <Button size="S" variant="primary" isDisabled={!count} onPress={onAddToChat}>
+          {C.addToChat}
+        </Button>
+      )}
       <Tip label={C.close}>
         <ActionButton size="S" isQuiet aria-label={C.close} onPress={() => useMarkup.getState().close()}>
           <Close />
@@ -1209,10 +1318,6 @@ function WidthLine({ width, long = false }: { width: VideoAnnotationWidth; long?
 /** 此刻的播放头，毫秒整数（标记属于这一帧）。 */
 function frameMs(): number {
   return Math.round(useEditor.getState().playhead * 1000);
-}
-/** 这条标记在这一帧上吗：时刻相差不超过 `VIDEO_ANNOTATION_NEAR_MS`（同草稿里的标注）。 */
-function onFrame(mark: Mark, nowMs: number): boolean {
-  return Math.abs(mark.timeMs - nowMs) <= VIDEO_ANNOTATION_NEAR_MS;
 }
 
 /**

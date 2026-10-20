@@ -33,5 +33,12 @@ export const tr: MarkupMessages = {
   cancel: 'İptal',
   kept: 'Yorum görüntüde kalır. “Sohbete ekle” onu diğer işaretlerle birlikte gönderir.',
   shotFailed: 'Bir kare yakalanamadı. İşaretler o ekran görüntüsü olmadan eklendi.',
+  copyImage: 'Görüntüyü kopyala',
+  downloadImage: 'Görüntüyü indir',
+  copied: 'Görüntü kopyalandı',
+  downloaded: (name) => `${name} indirildi`,
+  copyFailed: 'Görüntü kopyalanamadı. Bunun yerine indirin.',
+  captureFailed: 'Bu kare yakalanamadı.',
+  discardBodyScreenshot: 'Kapatınca görüntüdeki işaretler silinir. Gerekirse önce görüntüyü kopyalayın veya indirin.',
   pickInfo: { heading: 'Erişilebilirlik', name: 'Ad', role: 'Rol', focusable: 'Klavyeyle odaklanılabilir' },
 };

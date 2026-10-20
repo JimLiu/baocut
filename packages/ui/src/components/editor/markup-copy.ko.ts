@@ -33,5 +33,12 @@ export const ko: MarkupMessages = {
   cancel: '취소',
   kept: '댓글이 화면에 남아 있습니다. ‘대화에 추가’를 누르면 다른 마크와 함께 보냅니다',
   shotFailed: '프레임을 캡처하지 못했습니다. 마크는 그 스크린샷 없이 추가되었습니다',
+  copyImage: '이미지 복사',
+  downloadImage: '이미지 다운로드',
+  copied: '이미지를 복사했습니다',
+  downloaded: (name) => `${name} 다운로드됨`,
+  copyFailed: '이미지를 복사하지 못했습니다. 대신 다운로드하세요',
+  captureFailed: '이 프레임을 캡처하지 못했습니다',
+  discardBodyScreenshot: '닫으면 화면의 마크가 지워집니다. 필요하면 먼저 이미지를 복사하거나 다운로드하세요.',
   pickInfo: { heading: '접근성', name: '이름', role: '역할', focusable: '키보드 포커스 가능' },
 };

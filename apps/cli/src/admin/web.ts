@@ -3,7 +3,10 @@ import { defineNoun } from './context.ts';
 import { M } from './services-copy.ts';
 import { browserCommand, webOpen } from './services-output.ts';
 
-/** `baocut web open [--video <videoId>] [--launch]`：开启 Web 服务并给出一次性的访问链接（架构设计 §4.8）。 */
+/**
+ * `baocut web open [--video <videoId>] [--launch]`：开启 Web 服务并给出一次性的访问链接（架构设计 §4.8）。
+ * `baocut web review --video <videoId>`：这个视频的审片链接，稳定、可反复打开（架构设计 §4.8「审片链接」）。
+ */
 export const web = defineNoun({
   name: 'web',
   get usage() {
@@ -11,9 +14,16 @@ export const web = defineNoun({
   },
   options: { launch: { type: 'boolean' }, video: { type: 'string' } },
   async run(ctx) {
-    if (ctx.args[0] !== 'open' || ctx.args.length !== 1) throw ctx.usageError();
+    if (ctx.args.length !== 1) throw ctx.usageError();
     const video = ctx.values.video;
     if (video !== undefined && video.trim() === '') throw ctx.usageError();
+    if (ctx.args[0] === 'review') {
+      // 审片链接里的密钥长期有效，不经打开浏览器的命令的参数：只打印，由 agent 或用户自己打开。
+      if (video === undefined || ctx.values.launch === true) throw ctx.usageError();
+      const link = await ctx.client.request('services.web.reviewLink', { video });
+      return ctx.done({ link }, [link.url, M.reviewLinkNote, ...(link.autostartEnabled ? [M.reviewAutostartOn] : [])]);
+    }
+    if (ctx.args[0] !== 'open') throw ctx.usageError();
     const lines: string[] = [];
     let link: unknown = null;
     await webOpen(

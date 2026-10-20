@@ -1,4 +1,6 @@
-/* 标记层与工具条（docs/design/lite-editor §4；模型在 model-markup.js）：轻量与时间线两种视图同一套，stage.jsx 挂。只在 App 入口加载。
+/* 标记层与工具条（docs/design/lite-editor §4；模型在 model-markup.js）：轻量与时间线两种视图同一套，stage.jsx 挂。App 与 Web 两个入口都加载：
+   App（`BC_SURFACE.agent`）最后「添加到对话」；Web 没有会话可发，是截图模式（§4.1、§8）——没有选择元素与评论，「添加到对话」换成
+   复制图片 / 下载图片（原型只出提示示意，不真的出图），复制、下载后标记留着。
    标注模式下铺在画面（`.frame`）上：画笔、直线、箭头、矩形、圆、编号、文字画在一张按像素定位的 SVG 里，文字、元素框与评论印章是 HTML；
    任何工具下按在已有标记上都是选中并拖动（矩形 / 圆有八枚把手，直线 / 箭头两端各一枚），按在空处才按当前工具画。
    「选择元素」与「评论」把指针下的舞台节点（字幕 `[data-subs]`、元素 `[data-el]`，HTML 动画里就是那个节点）照 DevTools 的样子高亮并出一张小卡；
@@ -10,6 +12,8 @@
   const N = window.BC_STAGE_NOTES;
   const T = window.BC_TIME;
   const L = window.BC_LITE;
+  /* 这一组标记的用法：只看表面能不能交给 Agent（Web 不能，是截图模式） */
+  const MODE = window.BC_SURFACE && !window.BC_SURFACE.agent ? 'screenshot' : 'agent';
 
   /* 形状与粗细的小图标：S2 没有直线 / 矩形 / 圆 / 箭头 / 编号的图标，用 currentColor 画几笔 */
   const Glyph = ({children}) => <svg className="mk-glyph" viewBox="0 0 16 16" aria-hidden="true">{children}</svg>;
@@ -376,7 +380,7 @@
         const stop = () => { e.preventDefault(); e.stopPropagation(); };
         if (k === 'Escape') { stop(); ctx.closeMarkup(); }
         else if (meta && k === 'z') { stop(); set(s => (e.shiftKey ? MK.redo(s) : MK.undo(s))); }
-        else if (meta && e.shiftKey && (k === 's' || k === 'c')) { const tool = k === 's' ? 'element' : 'comment'; stop(); set(s => MK.setTool(s, s.tool === tool ? 'pen' : tool)); }
+        else if (meta && e.shiftKey && (k === 's' || k === 'c') && MODE === 'agent') { const tool = k === 's' ? 'element' : 'comment'; stop(); set(s => MK.setTool(s, s.tool === tool ? 'pen' : tool)); }
         else if (k === 'Delete' || k === 'Backspace') { stop(); set(s => (s.sel && MK.onFrame(s.marks, Math.round(playRef.current * 1000)).some(m => m.id === s.sel) ? MK.remove(s, s.sel) : s)); }
       };
       window.addEventListener('keydown', key, true);
@@ -386,6 +390,11 @@
     const sendable = MK.sendable(st.marks);
     const reset = () => set(s => MK.init({tool: s.tool, shape: s.shape, color: s.color, width: s.width}));
     const send = () => { if (sendMarks(app, ctx, st.marks)) { reset(); ctx.setAnnotating(false); } };
+    /* 截图模式：只出当前帧（播放头那一帧）上的标记；复制 / 下载后标记留着、不退出（原型只出提示） */
+    const nowMs = Math.round(ctx.playT * 1000);
+    const onFrame = MK.sendable(MK.onFrame(st.marks, nowMs));
+    const copyShot = () => app.toast('已复制图片');
+    const downloadShot = () => app.toast(`已下载 ${MK.shotName(ctx.proj && ctx.proj.name, nowMs)}`);
     const toggle = k => setMenu(menu === k ? null : k);
     /* 带下拉的钮的面：当前值的样本 + 小箭头，并排一行（S2 的钮内部是网格，两个子节点会上下叠，所以先包成一个） */
     const Face = ({children}) => <span className="mk-bar__face">{children}<span className="mk-bar__chev" aria-hidden="true"><R.Icons.ChevronDown /></span></span>;
@@ -396,7 +405,7 @@
       <span ref={anchorRef} hidden />
       {ReactDOM.createPortal(<div ref={barRef} className="mk-bar" role="toolbar" aria-label="标记工具" style={place || {visibility: 'hidden'}}>
         <div className="mk-bar__group">
-          {MK.TOOLS.filter(t => t.k !== 'text').map(t => {
+          {MK.toolsFor(MODE).filter(t => t.k !== 'text').map(t => {
             if (t.k === 'shape') return <div key={t.k} className="mk-bar__dd">
               <IconBtn size="s" on={st.tool === 'shape'} tip={`形状 · ${MK.SHAPES.find(s => s.k === st.shape)?.label || ''}`} aria-haspopup="menu" aria-expanded={menu === 'shape'}
                 onClick={() => { set(s => MK.setTool(s, 'shape')); toggle('shape'); }}><Face>{SHAPE_GLYPH[st.shape]}</Face></IconBtn>
@@ -435,10 +444,13 @@
           <IconBtn size="s" tip="重做 · ⇧⌘Z" disabled={!MK.canRedo(st)} onClick={() => set(MK.redo)}><R.Icons.Redo /></IconBtn>
         </div>
         <span className="vrule" />
-        <R.Button variant="primary" size="S" isDisabled={!sendable.length} onPress={send} UNSAFE_className="mk-bar__send"><R.Text>添加到对话</R.Text></R.Button>
+        {MODE === 'screenshot' ? <div className="mk-bar__group">
+          <IconBtn size="s" tip="复制图片" disabled={!onFrame.length} onClick={copyShot}><R.Icons.Copy /></IconBtn>
+          <IconBtn size="s" tip="下载图片" disabled={!onFrame.length} onClick={downloadShot}><R.Icons.Download /></IconBtn>
+        </div> : <R.Button variant="primary" size="S" isDisabled={!sendable.length} onPress={send} UNSAFE_className="mk-bar__send"><R.Text>添加到对话</R.Text></R.Button>}
         <IconBtn size="s" tip="关闭标记 · Esc" onClick={() => ctx.closeMarkup()}><R.Icons.Close /></IconBtn>
       </div>, document.body)}
-      <ConfirmDialog ask={st.ask ? {title: '放弃这些标记？', body: '画面上有还没添加到对话的标记，放弃会把它们去掉。', cancelLabel: '继续标记', confirmLabel: '放弃', tone: 'negative'} : null}
+      <ConfirmDialog ask={st.ask ? {title: '放弃这些标记？', body: MODE === 'screenshot' ? '关闭会去掉画面上的标记。需要的话先复制或下载图片。' : '画面上有还没添加到对话的标记，放弃会把它们去掉。', cancelLabel: '继续标记', confirmLabel: '放弃', tone: 'negative'} : null}
         onCancel={() => set(s => ({...s, ask: false}))} onConfirm={() => { reset(); ctx.setAnnotating(false); }} />
     </>;
   }

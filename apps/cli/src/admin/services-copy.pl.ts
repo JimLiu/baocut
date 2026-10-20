@@ -51,7 +51,11 @@ export const pl: ServicesMessages = {
                                    --video otwiera wideo w edytorze (videoId z baocut videos list).
                                    --launch otwiera stronę logowania bez kodu w domyślnej przeglądarce;
                                    kod tylko w terminalu, do wklejenia na stronie logowania
-                                   (kod nie jest przekazany w argumentach polecenia otwierania przeglądarki)`,
+                                   (kod nie jest przekazany w argumentach polecenia otwierania przeglądarki)
+  baocut web review --video <videoId>
+                                   Wypisuje link do przeglądu tego wideo: strona tylko z tym wideo (odtwarzanie, oznaczanie, edycja osi czasu)
+                                   dla wbudowanej przeglądarki agenta lub dowolnej przeglądarki na tym komputerze. Link się nie zmienia, dopóki
+                                   wideo istnieje i BaoCut działa; włącza też autostart usługi web`,
   usage:
     'Usage: baocut services [status | start <service> | stop <service>\n' +
     '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
@@ -127,4 +131,6 @@ export const pl: ServicesMessages = {
   clientRevoked: (clientId) => `Cofnięto ${clientId}; token od razu nieważny`,
   webSessionRevoked: (sessionId) => `Cofnięto ${sessionId}; połączenie zamknięte`,
   browserFailed: (message) => `Nie udało się otworzyć przeglądarki: ${message}. Otwórz stronę logowania powyżej samodzielnie`,
+  reviewLinkNote: 'Link do przeglądu tego wideo. Nie zmienia się, dopóki wideo istnieje i BaoCut działa; każdy na tym komputerze, kto go ma, może oglądać i edytować to wideo, więc go nie udostępniaj',
+  reviewAutostartOn: 'Włączono autostart usługi web, więc link działa także po ponownym uruchomieniu BaoCut',
 };

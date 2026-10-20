@@ -43,7 +43,10 @@ export const zhHans: ServicesMessages = {
   baocut web open [--video <videoId>] [--launch]       开启 Web 服务（默认端口 ${WEB_DEFAULT_PORT}），打印一个一次性的访问链接；
                                    链接只能用一次、两分钟内有效。--video 让链接直达这个视频的编辑器（videoId 取自
                                    baocut videos list）。--launch 用默认浏览器打开不带代码的登录页，
-                                   访问代码只打在终端里，粘进登录页（代码不经过打开浏览器的命令的参数）`,
+                                   访问代码只打在终端里，粘进登录页（代码不经过打开浏览器的命令的参数）
+  baocut web review --video <videoId>
+                                   打印这个视频的审片链接：只有这一部视频的页面（播放、标记、改时间线），给 agent 的内置浏览器或本机任何
+                                   浏览器打开。只要视频还在、BaoCut 开着，链接就不变；同时打开 Web 服务的随 Runtime 启动`,
   usage:
     '用法：baocut services [status | start <服务> | stop <服务>\n' +
     '       | configure <服务> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
@@ -124,4 +127,6 @@ export const zhHans: ServicesMessages = {
   clientRevoked: (clientId) => `已吊销 ${clientId}，它的令牌立即失效`,
   webSessionRevoked: (sessionId) => `已吊销 ${sessionId}，它的连接已断开`,
   browserFailed: (message) => `打不开浏览器：${message}；请手动打开上面的登录页`,
+  reviewLinkNote: '这个视频的审片链接。只要视频还在、BaoCut 开着，链接就不变；本机拿到它的人都能看和编辑这个视频，不要外传',
+  reviewAutostartOn: '已打开 Web 服务的随 Runtime 启动，BaoCut 重启后链接照样能用',
 };

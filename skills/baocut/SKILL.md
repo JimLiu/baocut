@@ -47,7 +47,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 截几帧、看看画面 | 按时刻取帧成图片再看 | [media](references/catalog/media.md) | — |
 | 生成图片、配图、画插图 | 先看图片生成能用哪个服务，再按图要去的地方生成：进视频的导入为候选素材，给文章、幻灯片的存进工作目录 | [media](references/catalog/media.md) | 所在任务的 craft（封面、B-roll、旁白成片、成片分镜、文章与幻灯片配图） |
 <!-- surface: cli -->
-| 看成片画面、字幕位置，在编辑器里拖一下，让我在编辑器里看 | 开网页版编辑器直达这个视频；文字与时间线的修改仍走命令 | [web](references/catalog/web.md) | — |
+| 看成片画面、字幕位置，在编辑器里拖一下，让我在编辑器里看 | 开网页版编辑器直达这个视频；给用户审片链接；文字与时间线的修改仍走命令 | [web](references/catalog/web.md) | — |
 <!-- /surface -->
 | 导出、出成片、出 srt | 从视频导出字幕、文稿、音频或成片 | [export](references/catalog/export.md) | — |
 | 新建空视频、把素材放进去 | 新建视频，导入素材并放上时间线 | [media](references/catalog/media.md) | — |
@@ -104,7 +104,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | [models](references/catalog/models.md) | 模型能力 | 能力查询、本地模型包安装与检查、能力没配置与要授权时怎么办 |
 | [system](references/catalog/system.md) | 任务、索引与本机 | 任务的查看、取消与重跑；Space 检索、项目、用户库、skill 索引；运行环境与管理命令 |
 <!-- surface: cli -->
-| [web](references/catalog/web.md) | 网页版编辑器 | 在浏览器里打开某个视频的编辑器：看合成后的画面、播放、拖拽调整、请用户审；访问链接与会话、交付时的新链接 |
+| [web](references/catalog/web.md) | 网页版编辑器 | 在浏览器里打开某个视频的编辑器：看合成后的画面、播放、拖拽调整；给用户长期有效的审片链接；访问链接与会话 |
 <!-- /surface -->
 
 另有：端到端的做法在 [workflows](references/workflows.md)；
@@ -204,7 +204,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 <!-- /surface -->
 10. **要用户做的事转告用户。** `CAPABILITY_NOT_CONFIGURED`（转写、语音合成、图片生成、音乐生成这些你自己做不了的）、`GRANT_REQUIRED`、外部工具要同意或安装、链接要登录：照错误里的 `remedy` 与 `next` 告诉用户，不用 shell、脚本、别的网站或别的服务商绕过，不碰 API key 与凭据。
 <!-- surface: cli -->
-11. **管理命令先征得同意。** `baocut --help` 后半屏「本机管理」里的命令（模型服务与凭据、设置、对外服务、授权、skill 开关等）是给人用的：先征得用户同意再用；密钥只由用户自己输入。打开网页版编辑器的 `baocut web open` 除外（见 [web](references/catalog/web.md)）。
+11. **管理命令先征得同意。** `baocut --help` 后半屏「本机管理」里的命令（模型服务与凭据、设置、对外服务、授权、skill 开关等）是给人用的：先征得用户同意再用；密钥只由用户自己输入。打开网页版编辑器的 `baocut web open` 与发审片链接的 `baocut web review` 除外（见 [web](references/catalog/web.md)）。
 <!-- /surface -->
 <!-- surface: agent -->
 11. **设置不代做。** 启用服务、配置凭据、改默认值、改设置由用户在 BaoCut 的设置里完成，你只说明要改哪一项。
@@ -228,5 +228,5 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 工具失败属于「没验证」，不等于内容有问题；只按实际看到的帧下视觉判断。
 
 <!-- surface: cli -->
-**给用户一条新链接。** 要请用户在编辑器里审时，交付前再运行一次 `baocut web open --video <videoId>`，把新链接给用户：你自己打开过的那条已经作废，新的也只能用一次、两分钟内有效。用户来不及马上点，就请用户自己运行 `baocut web open --video <videoId> --launch`。见 [web](references/catalog/web.md)。
+**给用户审片链接。** 视频能预览了（不必等成片），运行 `baocut web review --video <videoId>`，把打印的链接整条原样给用户：同一部视频始终是同一条，用户在你的内置浏览器或自己的浏览器里看、标记截图、改；之后再请用户看，让用户刷新原页面即可。见 [web](references/catalog/web.md)。
 <!-- /surface -->

@@ -60,6 +60,17 @@ const en = {
   cancel: 'Cancel',
   kept: 'The comment stays on the picture. “Add to chat” sends it with the other marks.',
   shotFailed: 'Couldn’t capture a frame. The marks were added without that screenshot.',
+  /**
+   * Web 的截图模式（轻量编辑器设计 §4.1、§8）：「添加到对话」换成复制 / 下载这一帧的图；复制失败（剪贴板不可用或被拒）、
+   * 这一帧截不出图（实时合成层拷不进画布）时的提示；关闭时有标记的确认（没有「添加到对话」这一说）。
+   */
+  copyImage: 'Copy image',
+  downloadImage: 'Download image',
+  copied: 'Image copied',
+  downloaded: (name: string) => `Downloaded ${name}`,
+  copyFailed: 'Couldn’t copy the image. Download it instead.',
+  captureFailed: 'Couldn’t capture this frame.',
+  discardBodyScreenshot: 'Closing removes the marks on the picture. Copy or download the image first if you need it.',
   /** 「选择元素」悬停 HTML 动画里的节点时，说明卡上可访问性的标题与三行（照 DevTools 的检查提示）；空的值显示「—」。 */
   pickInfo: { heading: 'Accessibility', name: 'Name', role: 'Role', focusable: 'Keyboard-focusable' },
 };
