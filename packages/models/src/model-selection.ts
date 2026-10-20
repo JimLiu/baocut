@@ -245,6 +245,12 @@ function check<C extends ModelServiceCapability>(
       throw capabilityNotConfigured(capability, 'unsupported', view, 'set-default', M.defaultModelGone({ modelId, provider: view.label }));
   }
   if (model.available === false) {
+    if (model.unavailableReason === 'unsupported' && model.detailRef) {
+      const text = localizeText(model.detail, model.detailRef) ?? '';
+      throw capabilityNotConfigured(capability, 'unsupported', view, 'set-default', {
+        ...model.detailRef, text, toString: () => text,
+      });
+    }
     throw fromUnavailable(capability, view, model.unavailableReason, modelId, localizeText(model.detail, model.detailRef));
   }
   return { capability, providerId: view.providerId, modelId, kind: view.kind, label: view.label, source, model };
@@ -316,9 +322,10 @@ function fromUnavailable(
         ? capabilityNotConfigured(capability, 'disabled', view, 'enable-provider', M.providerDisabled({ name }))
         : capabilityNotConfigured(capability, 'disabled', view, 'configure-provider', M.providerNotConfigured({ name }));
     }
+    case 'unsupported':
+      return capabilityNotConfigured(capability, 'unsupported', view, 'set-default', detail ?? undefined);
     case 'signed-out':
     case 'outdated':
-    case 'unsupported':
     case undefined:
       return capabilityNotConfigured(capability, 'unsupported', view, 'set-default');
   }

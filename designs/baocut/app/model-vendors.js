@@ -60,7 +60,7 @@
      auth: 'Bearer', site: 'https://bailian.console.aliyun.com', icon: {mono: false}, balance: false,
      models: {
        text: [m('qwen3.8-max', '旗舰'), m('qwen3.8-flash', '最快'), m('qwen3.7-plus', '均衡')],
-       transcribe: [m('qwen-audio-3.0-asr-flash', '多语种'), m('qwen-audio-3.1-asr-flash', '多语种'), m('qwen3-asr-flash', '多语种')],
+       transcribe: [],
        tts: [m('qwen3-tts-flash', '多语种 · 多方言')],
      }},
     {id: 'zhipu', name: '智谱 GLM（Z.ai）', kind: 'vendor', caps: ['text'], p1: [], beyond: ['image'],
@@ -135,8 +135,19 @@
     if (!list.length && v.models && v.models[cap]) list = v.models[cap].slice();
     const s = settings && settings[id];
     const extra = (s && s.models && s.models[cap]) || [];
+    list = list.map((model) => extra.includes(model.id) ? {...model, added: true} : model);
     extra.forEach((x) => { if (!list.some((y) => y.id === x)) list.push(m(x, '', {added: true})); });
-    return list;
+    return list.map((model) => {
+      if ((id === 'qwen' || /\.aliyuncs\.com/.test(v.base || '')) && model.id.includes('-filetrans')) return {...model, unsupported: true, desc: '尚不支持 filetrans 异步转写协议，请选择同步 ASR 模型。'};
+      return s && Array.isArray(s.listedModels) && !s.listedModels.includes(model.id)
+        ? {...model, notice: '刷新列表未收录，实际可用性尚未验证。'} : model;
+    });
+  }
+  function removeAddedModel(id, cap, modelId, settings) {
+    if (!modelsOf(id, cap, settings).some((m) => m.id === modelId && m.added)) return null;
+    const models = Object.assign({}, ((settings || {})[id] || {}).models || {});
+    models[cap] = (models[cap] || []).filter((mid) => mid !== modelId);
+    return {models};
   }
   const modelCount = (id, settings) => capsOf(resolve(id, settings)).reduce((n, c) => n + modelsOf(id, c, settings).length, 0);
 
@@ -365,7 +376,7 @@
   const BC_VENDORS = {
     AGENT_ICONS, agentIcon,
     CAPS, CAP_SHORT, CAP_LABEL, KIND, CAP_OF_KIND, NAV, CAP_OF_NAV, VENDORS, BALANCE_DEMO,
-    byId, resolve, capsOf, modelsOf, modelCount,
+    byId, resolve, capsOf, modelsOf, removeAddedModel, modelCount,
     mask, usable, primaryAccount, arrange, makePrimary, move, accountName, makeAccount, statusOf, accountSummary,
     stateOf, connected, connectedIds, hostOf, baseOf, accountBase, subline, list, catalog, customHit,
     normUrl, validBase, slug, customId, findByBase, isP1, choices, capCatalog, legacyCatalog, seed,

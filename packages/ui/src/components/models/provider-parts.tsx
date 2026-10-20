@@ -158,7 +158,7 @@ export function modelLeadText(capability: OnlineCapability, model: ModelInfoBase
     parts.push(CLOUD_COPY.modelSizes(image.sizes ?? [], image.maxCount ?? 1));
   }
   if (capability === 'generateText') parts.push(textModelLine(model as TextModelInfo));
-  if (model.available === false && model.detail) parts.push(localizeText(model.detail, model.detailRef));
+  if (model.detail) parts.push(localizeText(model.detail, model.detailRef));
   return parts.filter(Boolean).join(' · ');
 }
 

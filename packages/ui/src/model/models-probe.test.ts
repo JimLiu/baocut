@@ -62,8 +62,9 @@ function job(patch: Partial<JobRecord>): JobRecord {
 }
 
 describe('测试请求', () => {
-  it('语音识别没有独立测试的接口', () => {
-    expect(probeSupported('transcribe')).toBe(false);
+  it('ASR probes require local-file support', () => {
+    expect(probeSupported('transcribe')).toBe(true);
+    expect(probeSupported('transcribe', false)).toBe(false);
     expect(probeSupported('synthesizeSpeech')).toBe(true);
     expect(probeSupported('generateImage')).toBe(true);
     expect(probeSupported('generateText')).toBe(true);
@@ -167,4 +168,13 @@ describe('结果与判词', () => {
     expect(probeVerdict({ status: 'done', jobId: 'j', output: audio, text: null, seconds: 1.8 })).toEqual({ text: '测试通过 · 1.8 秒', tone: 'positive' });
     expect(probeVerdict({ status: 'failed', message: '超时' })).toEqual({ text: '超时', tone: 'negative' });
   });
+});
+
+
+it('does not report a successful ASR probe when no transcript was produced', () => {
+  const output: GeneratedOutput = {
+    artifactId: 'sha256:transcript', path: '/tmp/sample.txt', mediaType: 'text/plain', byteLength: 0, assetId: null,
+    media: { kind: 'text', entries: 0, durationSec: 0 },
+  };
+  expect(probeFromJob('job_1', job({ kind: 'pipeline', state: 'completed', result: { documentId: null, artifactId: output.artifactId, outputs: [output] } })).status).toBe('failed');
 });

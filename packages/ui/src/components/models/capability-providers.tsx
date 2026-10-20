@@ -1,3 +1,4 @@
+import { M as MANAGEMENT } from './model-management-copy.ts';
 import { useState } from 'react';
 import type { ModelCapabilitiesView, ModelInfoBase, OnlineCapability } from '@baocut/protocol';
 import { ActionButton, Badge, Button, SearchField, Text } from '@react-spectrum/s2';
@@ -147,7 +148,7 @@ export function CapabilityProviders({ view, capability }: { view: ModelCapabilit
   const groups = capabilityGroups(view, capability, Date.now(), query);
   const defaultRef = view[capability].default;
   const isOpen = (g: CapabilityGroup) => toggled[g.provider.providerId] ?? (query.trim() ? true : g.ready);
-  const probeOk = probeSupported(capability);
+  const probeOk = probeSupported(capability, !web);
   const clonable = (providerId: string) =>
     capability === 'synthesizeSpeech' && view.synthesizeSpeech.providers.some((p) => p.providerId === providerId && providerCanClone(p));
 
@@ -181,7 +182,7 @@ export function CapabilityProviders({ view, capability }: { view: ModelCapabilit
           <span className={modelId}>{model.modelId}</span>
           {lead ? <span className={modelLead}>{lead}</span> : null}
         </span>
-        <span className={verdict({ tone: probeOk ? result.tone : 'neutral' })}>{probeOk ? result.text : CLOUD_COPY.probeUnsupported}</span>
+        <span className={verdict({ tone: probeOk ? result.tone : 'neutral' })}>{probeOk ? result.text : capability === 'transcribe' && web ? MANAGEMENT.desktopOnly : CLOUD_COPY.probeUnsupported}</span>
         {isDefault ? (
           <Badge variant="accent" size="S" fillStyle="subtle">
             {CLOUD_COPY.defaultChip}

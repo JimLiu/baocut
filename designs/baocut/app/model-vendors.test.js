@@ -35,9 +35,10 @@ test('目录 id 固定：共享简报 §3 的 15 家 + 豆包语音 + Codex，�
 
 test('Qwen synchronous ASR is available in the shared provider catalog', () => {
   assert.ok(!V.byId('qwen').p1.includes('transcribe'));
-  assert.deepEqual(V.modelsOf('qwen', 'transcribe').map((m) => m.id), [
-    'qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash',
-  ]);
+  assert.deepEqual(V.modelsOf('qwen', 'transcribe'), []);
+  const settings = {qwen: {models: {transcribe: ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash']}}};
+  assert.equal(V.modelsOf('qwen', 'transcribe', settings).length, 3);
+  assert.ok(V.modelsOf('qwen', 'transcribe', settings).every((m) => m.added));
 });
 
 test('能力标签与旧 kind / 左栏项互译', () => {
@@ -59,7 +60,13 @@ test('合成与生图的模型按 id 从各自的表读，两边不漂', () => {
     assert.ok(V.capsOf(V.byId(p.id)).indexOf('image') >= 0, p.id);
     assert.deepEqual(V.modelsOf(p.id, 'image').map((x) => x.id), p.models.map((x) => x.id));
   });
-  V.VENDORS.filter((v) => v.kind !== 'agent').forEach((v) => V.capsOf(v).forEach((c) => assert.ok(V.modelsOf(v.id, c).length >= 1, `${v.id} ${c}`)));
+  V.VENDORS.filter((v) => v.kind !== 'agent').forEach((v) => V.capsOf(v).forEach((c) => {
+    if (v.id === 'qwen' && c === 'transcribe') {
+      assert.deepEqual(V.modelsOf(v.id, c), [], 'Qwen ASR lists saved declarations only');
+    } else {
+      assert.ok(V.modelsOf(v.id, c).length >= 1, `${v.id} ${c}`);
+    }
+  }));
 });
 
 test('掩码：前 3 + … + 后 4；8 位及以下全 •；空串为空', () => {
@@ -246,4 +253,31 @@ test('编码 Agent 图标：十家内置的都指向 assets/vendors 里存在的
   assert.equal(V.agentIcon({id: 'goose', added: 'catalog'}), null);
   assert.equal(V.agentIcon({id: 'claude', added: 'custom'}), null);
   assert.equal(V.agentIcon(null), null);
+});
+
+
+test('Qwen additional models can be removed without replacing presets or accounts', () => {
+  const settings = {qwen: {enabled: true, models: {text: ['extra-text'], transcribe: ['qwen-audio-3.0-asr-flash-filetrans']}, listedModels: []}};
+  const text = V.modelsOf('qwen', 'text', settings);
+  assert.ok(text.some((m) => m.id === 'extra-text' && m.added && m.notice));
+  assert.equal(V.removeAddedModel('qwen', 'text', 'qwen3.8-max', settings), null);
+  const patch = V.removeAddedModel('qwen', 'text', 'extra-text', settings);
+  assert.deepEqual(patch.models.text, []);
+  assert.ok(V.modelsOf('qwen', 'text', {...settings, qwen: {...settings.qwen, ...patch}}).some((m) => m.id === 'qwen3.8-max'));
+  assert.equal(V.modelsOf('qwen', 'transcribe', settings).find((m) => m.id.includes('filetrans')).unsupported, true);
+  assert.deepEqual(settings.qwen.models.text, ['extra-text']);
+});
+
+test('Qwen ASR has no presets and removed declarations do not reappear', () => {
+  const settings = {qwen: {models: {transcribe: ['qwen-audio-3.0-asr-flash', 'qwen3-asr-flash', 'extra-asr']}}};
+  const list = V.modelsOf('qwen', 'transcribe', settings);
+  assert.equal(list.filter((m) => m.id === 'qwen-audio-3.0-asr-flash').length, 1);
+  assert.equal(list.find((m) => m.id === 'qwen-audio-3.0-asr-flash').added, true);
+  const patch = V.removeAddedModel('qwen', 'transcribe', 'qwen-audio-3.0-asr-flash', settings);
+  assert.deepEqual(patch.models.transcribe, ['qwen3-asr-flash', 'extra-asr']);
+  const after = V.modelsOf('qwen', 'transcribe', {qwen: {...settings.qwen, ...patch}});
+  assert.equal(after.some((m) => m.id === 'qwen-audio-3.0-asr-flash'), false);
+  assert.deepEqual(V.modelsOf('qwen', 'transcribe', {}), []);
+  assert.equal(after.find((m) => m.id === 'qwen3-asr-flash').added, true);
+  assert.deepEqual(settings.qwen.models.transcribe, ['qwen-audio-3.0-asr-flash', 'qwen3-asr-flash', 'extra-asr']);
 });

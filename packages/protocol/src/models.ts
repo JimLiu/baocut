@@ -437,7 +437,7 @@ export interface ModelInfoBase {
   label: string;
   /** 这个 Provider 在这种能力下的默认模型。 */
   default?: boolean;
-  /** 用户声明的模型（自定义端点）：限制与特性由用户给出，按 `declared` 层对待（§3.6）。 */
+  /** A saved user declaration exists. Qwen text preset ID collisions retain this flag for removal, but use preset limits and features. */
   declared?: boolean;
   /** 本地与节点逐个模型包报告可用性；不给时与所在 Provider 相同。 */
   available?: boolean;
@@ -1074,7 +1074,7 @@ export interface ConfigureProviderRequest {
   credential?: string | null;
   /** 自定义端点首次配置时必填；内置的在线 Provider 可以改写基址（代理、自建网关），null 恢复默认。 */
   endpoint?: string | null;
-  /** 自定义端点声明的模型（整体替换）。 */
+  /** 自定义端点声明的模型，或百炼额外的文本 / ASR 模型（整体替换用户声明，不能替换预置模型）。 */
   models?: DeclaredModel[];
   /** 自定义端点的显示名。 */
   label?: string;

@@ -6,6 +6,8 @@ import type { TextReply } from '@baocut/models';
 import type { TextModelInfo } from '@baocut/protocol';
 import type { AdapterConfig, AdapterHttp, ModelLister, ProviderListing, TextAdapter, TextRequest } from '../adapter.ts';
 import { chatCompletions } from '../openai/chat-completions.ts';
+import { declaredTextInfo } from './compatible-text.ts';
+import { declaredOf } from './compatible-adapter.ts';
 import { openAiListModels } from '../openai/openai-text.ts';
 
 export interface VendorTextOptions {
@@ -24,8 +26,13 @@ export class VendorTextAdapter implements TextAdapter, ModelLister {
     this.#options = options;
   }
 
-  models(_config: AdapterConfig): TextModelInfo[] {
-    return structuredClone([...this.#options.models]);
+  models(config: AdapterConfig): TextModelInfo[] {
+    const builtins = structuredClone([...this.#options.models]);
+    const extra = config.providerId === 'qwen' ? declaredOf(config, 'generateText') : [];
+    for (const model of builtins) {
+      if (extra.some((m) => m.modelId === model.modelId)) model.declared = true;
+    }
+    return [...builtins, ...extra.filter((m) => !builtins.some((b) => b.modelId === m.modelId)).map((m) => declaredTextInfo(m, false))];
   }
 
   generate(request: TextRequest): Promise<TextReply> {

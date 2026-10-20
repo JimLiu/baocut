@@ -148,6 +148,20 @@
       if (vendor.kind === 'custom' && adding.cap === 'image') window.BC_CLOUD_IMAGE.customProvider({id, name: vendor.name, url: vendor.base, models: V().modelsOf(id, 'image', settings).map((m) => m.id).concat(mid)});
       setAdding(null);
     };
+    const removeModel = (cap, model) => app.confirm({
+      title: '删除模型', body: `删除 ${model.id} 的手动配置？提供方与账号保留；对应默认值会清除。如有同名预置模型，删除后它仍会显示，但不再带有手动添加标记。`, confirmLabel: '删除模型', tone: 'negative',
+      run: () => {
+        const patch = V().removeAddedModel(id, cap, model.id, settings);
+        if (!patch) return;
+        app.patchProvider(id, patch);
+        if (isDefault(app, cap, id, model.id)) {
+          if (cap === 'text') app.setCloudLlmDefault('');
+          if (cap === 'transcribe') app.setCloudAsrDefault('');
+          if (cap === 'tts') app.setCloudTtsDefault('');
+          if (cap === 'image') app.setCloudImageDefault('');
+        }
+      },
+    });
     const caps = V().capsOf(vendor);
     return <section className="setpage__group" aria-label="能力与模型">
       <h2>能力与模型</h2>
@@ -162,19 +176,20 @@
               <span className="t-detail-xs grow">{p1 ? 'BaoCut 还没接入这家的这项能力：先列出来，不能测试，也不能设为默认。'
                 : refreshing === cap ? '正在刷新列表…' : checked[cap] ? `${list.length} 个模型 · 刚刚刷新` : `${list.length} 个模型`}</span>
               {!p1 && cap === 'text' ? <IconBtn icon="refresh" size="s" tip={connected ? '刷新列表' : '先添加账号'} disabled={!connected || !!refreshing} onClick={() => refresh(cap)} /> : null}
-              {!p1 ? <IconBtn icon="plus" size="s" tip="添加模型 id" onClick={() => setAdding({cap, id: ''})} /> : null}
+              {!p1 && (vendor.kind === 'custom' || id === 'qwen') ? <IconBtn icon="plus" size="s" tip="添加模型 id" onClick={() => setAdding({cap, id: ''})} /> : null}
             </div>
             {list.map((m) => {
               const key = cap + '/' + m.id;
               const r = results[key];
               return <div className={cx('pdet-model', p1 && 'is-p1')} key={m.id}>
-                <span className="pdet-model__nm"><b>{m.id}</b>{m.desc ? <span>{m.desc}</span> : null}</span>
+                <span className="pdet-model__nm"><b>{m.id}</b>{m.desc ? <span>{m.desc}</span> : null}{m.notice ? <span>{m.notice}</span> : null}</span>
                 {r ? <span className={cx('pdet-model__verdict', r.state === 'error' && 't-negative')}>{window.probeVerdict(r)}</span> : null}
                 {m.prev ? <Chip tone="neutral">上一代</Chip> : null}
                 {m.added ? <Chip tone="neutral">手动添加</Chip> : null}
                 {!p1 && isDefault(app, cap, id, m.id) ? <Chip tone="accent">默认</Chip> : null}
-                {!p1 ? <Btn size="s" variant="quiet" disabled={!connected}
+                {!p1 ? <Btn size="s" variant="quiet" disabled={!connected || m.unsupported}
                   onClick={() => setProbe({providerId: id, providerName: vendor.name, modelId: m.id, cap})}>测试…</Btn> : null}
+                {m.added && (vendor.kind === 'custom' || id === 'qwen') ? <IconBtn icon="trash" size="s" tip="删除模型" onClick={() => removeModel(cap, m)} /> : null}
               </div>;
             })}
             {adding && adding.cap === cap ? <div className="pdet-model pdet-model--add">
