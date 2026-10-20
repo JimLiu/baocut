@@ -21,6 +21,8 @@ function linkImportCookies(p: { cookies: string | null }): string {
 }
 
 export const fr: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `Envoyer cette demande de recherche web à Parallel : ${p.request}`,
+
   instructionsNotSet: 'Les instructions de session n’ont pas été définies : l’ordre d’assemblage du Runtime est incorrect', listSeparator: ', ', clauseSeparator: ' ; ',
   createVideoSummary: (p) => `Créer la vidéo « ${p.name} »`,
   slidesImportAssetSummary: (p) => `Importer « ${p.file} » dans les diapositives « ${p.deck} »`, designImportAssetSummary: (p) => `Importer « ${p.file} » dans le design « ${p.canvas} »`, designSystemImportAssetSummary: (p) => `Importer « ${p.file} » dans le système de design « ${p.system} »`, docsEditSummary: (p: { doc: string }) => `Modifier le document « ${p.doc} »`, docsCreateSummary: (p: { doc: string }) => `Créer le document « ${p.doc} »`, docsCommentSummary: (p: { doc: string }) => `Commenter dans le document « ${p.doc} »`, docsDeleteSummary: (p: { doc: string }) => `Supprimer dans le document « ${p.doc} »`, docsUploadSummary: (p: { file: string; doc: string }) => `Importer « ${p.file} » dans le document « ${p.doc} »`, docsExportSummary: (p: { file: string; doc: string }) => `Exporter le document « ${p.doc} » en Markdown vers « ${p.file} »`, editsSummary: (p) => `${p.label} (${p.count} ${pluralForm('fr', p.count, { one: 'opération', other: 'opérations' })} : ${p.types})`,

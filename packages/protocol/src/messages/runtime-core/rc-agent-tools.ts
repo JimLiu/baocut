@@ -64,6 +64,8 @@ function plural(count: number, one: string, many: string): string {
 }
 
 const en = {
+  webResearchSummary: (p: { request: string }) => `Send this web research request to Parallel: ${p.request}`,
+
   instructionsNotSet: 'Session instructions have not been set: Runtime assembly order is incorrect',
 
   /** 列表里各项之间的分隔。 */

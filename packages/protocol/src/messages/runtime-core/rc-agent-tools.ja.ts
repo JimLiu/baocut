@@ -38,6 +38,8 @@ function linkImportCookies(p: { cookies: string | null }): string {
 }
 
 export const ja: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `次のウェブ調査リクエストを Parallel に送信：${p.request}`,
+
 
   instructionsNotSet: 'セッションの指示が設定されていません：Runtime の組み立て順序が正しくありません',
   listSeparator: '、',

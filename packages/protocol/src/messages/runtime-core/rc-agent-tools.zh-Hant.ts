@@ -38,6 +38,8 @@ function linkImportCookies(p: { cookies: string | null }): string {
 }
 
 export const zhHant: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `將此網頁研究請求傳送給 Parallel：${p.request}`,
+
 
   instructionsNotSet: '尚未設定對話指示：Runtime 組裝順序錯誤',
   listSeparator: '、',

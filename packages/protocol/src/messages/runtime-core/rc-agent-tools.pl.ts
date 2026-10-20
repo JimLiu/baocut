@@ -22,6 +22,8 @@ function linkImportCookies(p: { cookies: string | null }): string {
 }
 
 export const pl: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `Wyślij to zapytanie badawcze do Parallel: ${p.request}`,
+
   instructionsNotSet: "Instrukcje sesji nieustawione: błędna kolejność składania Runtime",
 
   listSeparator: ", ",

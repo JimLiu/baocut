@@ -20,6 +20,8 @@ function linkImportCookies(p: { cookies: string | null }): string {
 }
 
 export const ptBR: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `Enviar esta solicitação de pesquisa na web ao Parallel: ${p.request}`,
+
   instructionsNotSet: "As instruções da sessão não foram definidas: ordem de montagem do Runtime incorreta",
 
 

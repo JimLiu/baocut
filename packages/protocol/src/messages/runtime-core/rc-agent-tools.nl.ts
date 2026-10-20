@@ -21,6 +21,8 @@ import { pluralForm } from '../../i18n.ts';
 import type { RcAgentToolsMessages } from './rc-agent-tools.ts';
 
 export const nl: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `Dit webonderzoeksverzoek naar Parallel sturen: ${p.request}`,
+
   instructionsNotSet: "Sessie-instructies zijn niet ingesteld: de samenstellingsvolgorde van de Runtime is onjuist",
 
 

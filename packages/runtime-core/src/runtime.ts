@@ -124,6 +124,8 @@ import { entryPlace } from './videos/pipeline-targets.ts';
 import { FlowTools } from './agent-tools/flow-tools.ts';
 import { LinkImportTools } from './agent-tools/link-import-tools.ts';
 import { OpenMediaTools } from './agent-tools/open-media-tools.ts';
+import { WebResearchTools } from './agent-tools/web-research-tools.ts';
+import { ParallelSearch } from './web-research/parallel-search.ts';
 import { AudioTools } from './agent-tools/audio-tools.ts';
 import { DownloadTools } from './agent-tools/download-tools.ts';
 import { SpeechSentenceTools } from './agent-tools/speech-sentence-tools.ts';
@@ -257,6 +259,8 @@ export interface StartRuntimeOptions {
   docsEditorDist?: string | null;
   /** 从 GitHub 导入 skill（§12.9）。测试注入假的 fetch，不访问真实网络。 */
   skillsGithub?: GithubFetchOptions;
+  /** Web research transport options for deterministic tests; the destination remains fixed. */
+  webResearch?: ConstructorParameters<typeof ParallelSearch>[0];
   /** 按需下载的字体（§9.1）。测试注入只含几个族的字体目录，并把下载指向本机的假服务；不访问真实网络。 */
   fonts?: { catalogue?: FontCatalogue; download?: FontDownloadOptions };
   /** 谁拉起了这个 Runtime（§2.2）：写进 `RuntimeInfo` 与发现文件，`baocut runtime stop` 据此只停 CLI 拉起的。 */
@@ -830,6 +834,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     // 智能体写作的句子编号（创作辅助集成设计 §3.4「智能体路径」）：`speech_sentences` 发、`downloads_save` 校验，按会话分开。
     const citationRegistry = new MemoryCitationRegistry();
+    const webResearch = new ParallelSearch(options.webResearch);
     const toolSets = (toolScope: ToolScope): ToolSet[] => {
       // 从链接下载：`download` 与 `transcribe` 给 `url` 时共用。
       const linkImport = {
@@ -842,6 +847,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         scope: toolScope,
       };
       return [
+        new WebResearchTools({
+          search: webResearch,
+          scope: toolScope,
+          harness,
+          offlineStrict: () => settings.store.get('offline.strict'),
+          enabled: () => process.env.BAOCUT_WEB_RESEARCH !== 'off',
+        }),
         new VideoTools({
           videos,
           scope: toolScope,

@@ -21,6 +21,8 @@ import { pluralForm } from '../../i18n.ts';
 import type { RcAgentToolsMessages } from './rc-agent-tools.ts';
 
 export const de: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `Diese Webrecherche-Anfrage an Parallel senden: ${p.request}`,
+
   instructionsNotSet: "Sitzungsanweisungen wurden nicht festgelegt: falsche Runtime-Zusammenstellungsreihenfolge",
 
 

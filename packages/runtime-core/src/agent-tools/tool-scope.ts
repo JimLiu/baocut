@@ -114,6 +114,9 @@ export interface ToolApprovalNote {
  * 这里没有、调用时也没给的按 `command` 处理。
  */
 export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
+  // Public web research still sends model-authored text to an external service.
+  web_search: 'high',
+  web_fetch: 'high',
   videos_create: 'edit',
   edits_apply: 'edit',
   edits_undo: 'edit',

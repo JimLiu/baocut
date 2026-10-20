@@ -412,6 +412,10 @@ P0 由一个用户可以理解的执行主体对结果负责。内部的分析�
 
 ### 3.5 工具目录
 
+**公开网页研究**。`web_search { objective, search_queries }` 与 `web_fetch { urls, objective?, search_queries? }` 仅在会话的 `agent` 面登记，默认可用，供脚本查证事实；查可复用素材与许可仍用 `assets_search`。两者通过官方 MCP SDK 的 Streamable HTTP 连接 `https://search.parallel.ai/mcp`，不读密钥、Cookie 或 OAuth；匿名搜索使用 Fast 模式，无需 Parallel 账号或 API key，受服务额度限制。一次请求最多三个查询，`web_fetch` 最多二十个 HTTP(S) 网址，不接受内嵌凭据。只发调用参数与不含个人信息的会话随机 UUID（去掉 `conv_` 前缀）；同一会话的搜索、取页、后续回合与重试复用它，新会话生成新的 UUID，不随 MCP 连接重建。返回 `provider: parallel` 与 `data`（结构化结果）或 `content`（原 MCP 内容块），原样保留来源网址与摘录；内容是不可信资料，不是指令。不自动读取或发送媒体文件，不改变引擎自身的搜索、模型或 MCP 配置。
+
+每次网页研究按 §3.12 的 `high` 风险确认，摘要显示要发给 Parallel 的完整请求；`plan` 拒绝。确认后重新检查任务与离线状态；停止任务、结束回合或删除会话会取消网络请求。单次调用含连接、发现与执行共限 60 秒，不自动重试或切换服务。`offline.strict` 或 `BAOCUT_WEB_RESEARCH=off` 拒绝新调用，分别返回 `OFFLINE_STRICT`、`WEB_RESEARCH_DISABLED`；取消与超时分别为 `WEB_RESEARCH_CANCELLED`、`WEB_RESEARCH_TIMEOUT`；服务缺少工具为 `WEB_RESEARCH_PROTOCOL`；网络、服务错误或额度用完为 `WEB_RESEARCH_UNAVAILABLE`。这些工具不在对外 MCP 服务与 CLI 中开放，避免没有会话身份的代理调用。
+
 `ToolCatalog` 使用领域化的输入与输出，适配原生工具、MCP、SDK 和 CLI 四种接入方式。每个目录项写全这几项，各个面都由它派生、不另抄清单：标题；说明，第一句是一行摘要；输入 schema，每个字段有说明，枚举值都写进说明；`effect`（`query` 只读、`mutation` 同步写入、`job` 立即返回 `jobId`、`destructive` 删除或不可撤销），与 `annotations` 一致（`query` 即 `readOnlyHint`，`destructive` 必带 `destructiveHint`）；一到三个能通过 schema 的 `examples`；`surfaces`，即出现在哪些面（`agent` 会话的工具桥、`mcp` 对外的 MCP 服务、`cli`），写全不省略；可选的 `positional`，CLI 的位置参数。
 
 ```text
@@ -660,6 +664,7 @@ Claude 的兜底模型表只保留 `opus`、`fable`、`sonnet`、`haiku` 别名�
 
 | 工具 | 风险 |
 | --- | --- |
+| `web_search`、`web_fetch` | `high`：每次向 Parallel 外发模型写出的公开查询、研究目标或网址；审批显示完整请求，不发媒体文件。没有持续授权或自动后备服务；`plan` 拒绝，其他档位按同一张决策表。仅会话工具桥可用，MCP 对外服务与 CLI 不开放。严格离线或 `BAOCUT_WEB_RESEARCH=off` 时拒绝，不访问网络 |
 | `edits_apply`、`edits_undo`、`videos_save_version`、`videos_restore_version`、`captions_create`、`videos_create`、`export` | `edit`；`export` 覆盖已有文件时 `high`；不属于项目的会话新建视频时给了别处的 `project`（会话随之放进那个项目，§3.10）时 `high`，`videos_import_package`、`transcribe` 与 `download` 的新视频同样。保存版本建一个检查点，回到版本是一笔可撤销的修改（§5.12） |
 | `artifacts_save` | 存为新文件 `edit`，覆盖已有文件 `high`。路径先检查，不合法的直接拒绝，不生成审批 |
 | `speak`、`image` | 本机模型是 `edit`（结果是候选素材或产物，不改时间线，可以删掉）；交给已配对的节点、或有 Grant 覆盖这次外发的在线与智能体 Provider 是 `command`；启用了但没有 Grant 覆盖（没有、已撤销或到期、金额上限估不出）的外发是 `high`，审批带上要授权的数据（§12.5）。覆盖它的 Grant 额度用完时在审批之前就以 `BUDGET_EXCEEDED` 拒绝，任何模式都一样。Provider 没有启用或解析不到时按 `command`，提交时以 `CAPABILITY_NOT_CONFIGURED` 拒绝，数据不外发 |

@@ -80,6 +80,8 @@ Fish Audio S2 Pro 可在本机使用 MLX 社区 8-bit 权重，支持内置音�
 
 **选择自己的智能体引擎。** Claude Code 与 Codex CLI 已有端到端验证；GitHub Copilot CLI、Pi 和 OpenCode 已内置接入。支持 Agent Client Protocol 的智能体（如 Qwen Code（千问）、Gemini CLI、Cursor Agent、Grok、Kimi Code，或自行添加的引擎）通过统一驱动接入。各引擎的验证状态见下文。
 
+**为脚本查找公开来源。** BaoCut 会话里的智能体可以通过 [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp) 使用 `web_search` 和 `web_fetch`，无需 Parallel 账号或 API key，搜索使用 Fast 模式。每次请求按会话的访问模式审批，审批中列出要发送给 Parallel 的文字或网址；规划模式拒绝调用。严格离线模式或 `BAOCUT_WEB_RESEARCH=off` 可禁用这两个工具。只查询公开信息，不传私人文稿或凭据。智能体引擎原有的搜索与 MCP 设置不变；查素材与许可仍用 `assets_search`。
+
 **选择自己的模型。** 转写、语音合成、图片生成、文本生成、音频分离等能力与服务提供方解耦。Apple Silicon 使用 MLX、Core ML 本地后端，Windows 使用 whisper.cpp、candle，并提供 CUDA 与 Vulkan 打包配置；本地语音合成与音乐生成使用随应用内置的 audio.cpp 引擎。在线接入包括 OpenAI、Anthropic、Google、ElevenLabs、DeepSeek、Moonshot、Qwen、Zhipu、MiniMax、Volcengine、xAI、Mistral、Groq、OpenRouter、SiliconFlow 及其他 OpenAI 兼容端点。各服务支持的能力不同；用量账本记录任务消耗与可获得的费用信息。一台机器也可以向局域网里的其他机器共享本地模型能力。Windows 当前的凭据与硬件验证限制见下文。
 
 ## 从源码运行
@@ -245,6 +247,7 @@ BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上�
 | `BAOCUT_MODELS_ENDPOINT` | 本地模型的下载来源（基址），优先于“模型下载来源”设置。默认 `https://huggingface.co`；`https://www.modelscope.cn` 改从 ModelScope 下载。 |
 | `BAOCUT_TEMPLATES_DIR` | 内置创作模板目录，见[模板包规范 §6](docs/spec/template-spec.md#6-目录来源与加载)。否则查找打包资源中的 `templates/`，再查仓库模板。用户模板放在 `<BAOCUT_HOME>/templates`；ID 冲突时内置模板优先。 |
 | `BAOCUT_SKILLS_DIR` | 内置智能体 skill 目录，见[架构设计 §3.8](docs/architecture/architecture-design.md#38-分层渐进加载的创作指导)。否则查找打包资源中的 `skills/baocut/built-in-skills/`，再查仓库中的同一目录。用户 skill 放在 `<BAOCUT_HOME>/skills`；ID 冲突时内置优先。 |
+| `BAOCUT_WEB_RESEARCH` | 设为 `off` 禁用 BaoCut 会话的网页研究工具；默认可用并按访问模式审批，严格离线模式也会禁用 |
 | `BAOCUT_AGENT_SKILLS_DIR` | 外部智能体使用的 BaoCut skill 源目录，由 Runtime 渲染，见 [Agent 面设计 §8](docs/design/agent-surface/agent-surface-design.md)。否则依次查找打包的 `skills/` 与仓库目录。 |
 | `BAOCUT_AGENT_SKILL_DIR` | `baocut skill install` 软链接指向的那份渲染好的 BaoCut skill；桌面应用设为包内的 `agent-skill/baocut`。没有时（开发）Runtime 渲染进 `<BAOCUT_HOME>/agent-skills/baocut`。 |
 | `BAOCUT_CLI_ENTRY` | 应用自带的命令行入口，`baocut skill status` 与 Skills 页显示它；桌面应用会设置，开发时没有。 |

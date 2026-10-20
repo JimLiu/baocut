@@ -38,6 +38,8 @@ function linkImportCookies(p: { cookies: string | null }): string {
 }
 
 export const ko: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `이 웹 조사 요청을 Parallel에 전송: ${p.request}`,
+
 
   instructionsNotSet: '세션 지침이 설정되지 않았습니다: Runtime 조립 순서가 잘못되었습니다',
   listSeparator: ', ',

@@ -84,6 +84,8 @@ Every surface talks to the same local Runtime over the same protocol and edits t
 
 **Bring your own agent engine.** Claude Code and Codex CLI are validated end to end. GitHub Copilot CLI, Pi and OpenCode are built in, and any Agent Client Protocol agent (Qwen Code, Gemini CLI, Cursor Agent, Grok, Kimi Code, or one you add) plugs in through the same driver.
 
+**Research public sources for a script.** In a BaoCut conversation, the agent can use `web_search` and `web_fetch` through [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp), with no Parallel account or API key. Search uses Fast mode. Each request shows the text or URLs being sent to Parallel and follows the conversation's approval mode; plan mode refuses it. Strict offline mode or `BAOCUT_WEB_RESEARCH=off` disables these tools. Use public research queries, never private transcripts or credentials. The agent engine's own search and MCP settings keep working as configured; footage and media licensing still use `assets_search`.
+
 **Bring your own models.** Capabilities (transcribe, speak, generate image, generate text, separate audio) are decoupled from providers. Run local models on Apple Silicon (MLX, Core ML) or on Windows (whisper.cpp + candle, with CUDA and Vulkan builds), with local speech (Qwen3-TTS, IndexTTS, VoxCPM2, OmniVoice, Fish Audio S2 Pro; Built with Fish Audio, research/non-commercial license) and music on the bundled audio.cpp engine, or point a capability at OpenAI, Anthropic, Google, ElevenLabs, DeepSeek, Moonshot, Qwen, Zhipu, MiniMax, Volcengine, xAI, Mistral, Groq, OpenRouter, SiliconFlow or any OpenAI-compatible endpoint. A usage ledger tracks cost per job. One machine can share its local models with others on the LAN.
 
 ## Run from source
@@ -253,6 +255,7 @@ BaoCut is under active development, with macOS Apple Silicon and Windows x64 pac
 | `BAOCUT_MODELS_ENDPOINT` | Download source (base URL) for local models; overrides the Model download source setting. Default `https://huggingface.co`; `https://www.modelscope.cn` downloads from ModelScope |
 | `BAOCUT_TEMPLATES_DIR` | Built-in creation templates ([template spec §6](docs/spec/template-spec.md#6-目录来源与加载)). Otherwise the packaged `templates/`, then the repo's. User templates live in `<BAOCUT_HOME>/templates`; built-in wins on id clash |
 | `BAOCUT_SKILLS_DIR` | Built-in agent skills ([architecture §3.8](docs/architecture/architecture-design.md)). Otherwise the packaged `skills/baocut/built-in-skills/`, then the repo's. User skills live in `<BAOCUT_HOME>/skills`; built-in wins on id clash |
+| `BAOCUT_WEB_RESEARCH` | Set to `off` to disable BaoCut's conversation web research tools. Otherwise available with approval; strict offline mode also disables them |
 | `BAOCUT_AGENT_SKILLS_DIR` | Source of the BaoCut skill for external agents ([Agent surface §8](docs/design/agent-surface/agent-surface-design.md)), rendered by the Runtime. Otherwise the packaged `skills/`, then the repo's |
 | `BAOCUT_AGENT_SKILL_DIR` | The rendered BaoCut skill that `baocut skill install` links to; the desktop app sets it to its `agent-skill/baocut`. Without it (development) the Runtime renders into `<BAOCUT_HOME>/agent-skills/baocut` |
 | `BAOCUT_CLI_ENTRY` | The app's own CLI launcher, shown by `baocut skill status` and the Skills page; the desktop app sets it. Unset in development |

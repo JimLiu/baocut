@@ -23,6 +23,7 @@
     "@baocut/providers": "*",
     "@baocut/runtime-storage": "*",
     "@baocut/slides": "*",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "file-type": "^22.1.1",
     "jszip": "3.10.1",
     "smol-toml": "^1.9.0",

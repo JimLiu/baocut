@@ -44,6 +44,8 @@ function plural(count: number, one: string, many: string): string {
 }
 
 export const it: RcAgentToolsMessages = {
+  webResearchSummary: (p: { request: string }) => `Invia questa richiesta di ricerca web a Parallel: ${p.request}`,
+
   instructionsNotSet: 'Le istruzioni della sessione non sono state impostate: l’ordine di assemblaggio del Runtime è errato',
 
   /** 列表里各项之间的分隔。 */
