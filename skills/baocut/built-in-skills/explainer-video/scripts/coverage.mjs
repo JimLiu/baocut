@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文，给人看的名字从配置来
 // 量一遍时间线上「观众在看什么」：每一帧最上面铺满画面的是实拍、代码画面还是空的；镜头多长、实拍用了几段、哪段素材反复用。
-// 只报数，不判对错：像幻灯片的片子（一张卡片停很久、实拍只是点缀）和纪录片式的片子（实拍打底、卡片压在上面）数出来差别很大，
+// 只报数，不判对错：像幻灯片的片子（一张卡片停很久、实拍只是点缀）和实拍打底、卡片压在上面的片子数出来差别很大，
 // 哪一种对要看这期定的形态（SKILL.md 第 3 节）。
 //   node tools/coverage.mjs                  连 Runtime 读 explainer.json 里的视频
 //   node tools/coverage.mjs --from <file>    读 `baocut videos inspect <video> --limit 1000 --json` 存下的文件，不连 Runtime
@@ -108,5 +108,5 @@ console.log(`longest stretch without full-frame footage ${secs(noFootage.frames)
 console.log(`footage items ${footage.length} (${secs(footage.reduce((a, it) => a + it.durationFrames, 0)).toFixed(0)}s), with original audio ${withAudio.length} (${report.footage.withAudioSeconds}s), distinct assets ${uses.size}${repeated.length ? `, used 3+ times: ${repeated.map(r => `${r.name}×${r.uses}`).join(', ')}` : ''}`);
 const bar = x => '█'.repeat(Math.round(x * 10)).padEnd(10, '·');
 for (const b of bins) console.log(`${mmss(b.at).padStart(6)} ${bar(b.footage)} footage ${(b.footage * 100).toFixed(0).padStart(3)}%  code ${(b.code * 100).toFixed(0).padStart(3)}%`);
-console.log('\nfor reference: a documentary-style cut usually measures footage 80–95% with cards on top, median shot 3–6s, no stretch over ~20s without footage;');
+console.log('\nfor reference: a footage-based clip montage usually measures footage 80–95% with cards on top, median shot 3–6s, no stretch over ~20s without footage;');
 console.log('a code-visual explainer measures code 80%+ by design — which is right depends on the form chosen for this episode (SKILL.md §3).');

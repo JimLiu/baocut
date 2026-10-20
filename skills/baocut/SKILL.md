@@ -53,7 +53,8 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 新建空视频、把素材放进去 | 新建视频，导入素材并放上时间线 | [media](references/catalog/media.md) | — |
 | 打包、便携包、打开 .baocut 文件 | 导出便携包，或把便携包打开成新视频 | [export](references/catalog/export.md)、[media](references/catalog/media.md) | — |
 | 按模板做一条成片、从零做一条视频 | 简报定下后写风格与分镜规划，逐镜用素材、生成图片或代码画面做出来，配旁白、混音、导出 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:video-production}} |
-| 做科普、知识讲解、教学视频，把概念、新闻、论文讲明白；把一件事、一家公司或一个人的故事做成有真实画面的纪录片 | 先定这期画面的底是什么（能动的模型，或实拍打底、卡片叠上），核实资料，从观众的疑问找讲法，再按成片做；要另一种语言或画幅的版本时主版本确认后再做 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:explainer-video}}、{{skill:video-production}} |
+| 做科普、知识讲解、教学视频，把概念、新闻、论文讲明白 | 先定这期画面的底是什么，核实资料，从观众的疑问找讲法，再按成片做；要另一种语言或画幅的版本时主版本确认后再做 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:explainer-video}}、{{skill:video-production}} |
+| 拿一条新闻、一件事、一段八卦或一个人物、产品的故事去搜素材、切原声、配旁白剪成片子；别的成片里要插一段这样的切片 | 从视频库与网上找真实画面与当事人原声，旁白配好后按字时间切画面，推文、引语、日期做成压在画面上的卡片，画面一直在动 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:clip-montage}} |
 | 做一条某类视频，但没说清 | 先问清主题、目标、受众、手上的材料，再动手 | [workflows](references/workflows.md) | {{skill:video-production}} |
 | 加下横栏、关键词、大数字、标注、品牌贴片这类动效图形 | 按规则写一个自包含的 HTML 画面，打包成代码包导入，放上时间线对齐旁白 | [media](references/catalog/media.md) | {{skill:motion-graphics}} |
 | 给一首歌做 MV、歌词视频；手上有歌词、讲稿或台词，要按声音对上时间 | 转写只取时间，文字以用户的原文为准、写回转写；按需译成双语字幕层，画面按成片做 | [workflows](references/workflows.md)、[subtitles](references/catalog/subtitles.md) | {{skill:polish-transcript}}、{{skill:video-production}} |
@@ -147,7 +148,8 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 | {{skill:talking-head-cut}} | 剪口播 | 去口癖、长停顿与录废的部分，收紧节奏，按需加强调、B-roll、竖屏取景与配乐闪避 |
 | {{skill:shorts-segments}} | 切短视频 | 从长视频里找出能单独发布的话题，每个话题从钩子剪到讲完，建成可编辑的子视频 |
 | {{skill:narration}} | 旁白成片 | 按实测语速写稿，一个音色一次合成，量时长、只重配不合格的句子，再把画面剪到旁白上 |
-| {{skill:explainer-video}} | 知识讲解视频 | 把概念、新闻或资料讲成没有背景的人也看得懂、看完能复述的讲解成片，或把一件事的故事做成实拍打底的纪录片：先定画面的底是什么，从观众的疑问找讲法，画面一直在动，按需另出语言或画幅版本 |
+| {{skill:explainer-video}} | 知识讲解视频 | 把概念、新闻或资料讲成没有背景的人也看得懂、看完能复述的讲解成片：先定画面的底是什么，从观众的疑问找讲法，画面一直在动，按需另出语言或画幅版本 |
+| {{skill:clip-montage}} | 解说混剪 | 拿一条新闻、一件事或一个故事，从网上与视频库里搜素材、切原声，配旁白剪成画面一直在动的片子，推文与引语做成压在画面上的卡片；题材不限 |
 | {{skill:video-production}} | 从简报到成片 | 从零做一条完整成片：风格与分镜规划，逐镜出画面，配旁白、混音、导出验收 |
 | {{skill:motion-graphics}} | 动效图形 | 写一个自包含的 HTML 画面做下横栏、关键词、大数字、标注或品牌贴片，打包导入后放上时间线 |
 

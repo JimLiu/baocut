@@ -11,6 +11,7 @@ import { SkillCatalog, resolveBuiltinSkillsDir, type LoadedSkill } from './skill
  * `SKILL.md` 的「内置 skill」表。
  */
 const EXPECTED_IDS = [
+  'clip-montage',
   'cover-and-title',
   'cross-video-qa',
   'design',
