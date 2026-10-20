@@ -14,13 +14,14 @@ import {
   ToastQueue,
 } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { modelIdTaken, newDeclaredModel } from '../../model/models-cloud.ts';
+import { isCustomProvider, modelIdTaken, newDeclaredModel } from '../../model/models-cloud.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { addProviderModel } from './model-actions.ts';
 import { ADD_MODEL_COPY, CUSTOM_COPY, KEY_COPY, KIND_ITEMS } from './models-copy.ts';
 
 /*
- * 自建端点的「添加模型」对话框与用途四选一（设计稿 settings-provider-detail.jsx、settings-providers.jsx）。
+ * 「添加模型」对话框与用途四选一（设计稿 settings-provider-detail.jsx、settings-providers.jsx）：自建端点选用途；百炼这类目录服务商
+ * 从某个能力的「+」进来，用途就是那个能力，不再选。
  * 状态放在对话框外层（S2 的 Dialog 会把 children 在几个 slot 里各渲染一遍，见 name-dialog.tsx）；
  * 失败留在对话框里，把原因写在按钮上面，不吞掉输入。
  */
@@ -36,10 +37,10 @@ function message(err: unknown): string {
  * 用途四选一（设计稿 KIND_ITEMS；添加表单里是一行可换行的选项，见 settings-providers.css `.prov-custom__caps`）。横排放不下时
  * 自动换行，英文等长标签也不会把对话框撑出横向滚动。
  */
-export function KindControl({ value, onChange, label, qwen = false }: { value: OnlineCapability; onChange: (value: OnlineCapability) => void; label?: string; qwen?: boolean }) {
+export function KindControl({ value, onChange, label }: { value: OnlineCapability; onChange: (value: OnlineCapability) => void; label?: string }) {
   return (
     <RadioGroup label={label ?? CUSTOM_COPY.kind} orientation="horizontal" size="S" value={value} onChange={(key) => onChange(key as OnlineCapability)}>
-      {KIND_ITEMS.filter((item) => !qwen || item.key === 'generateText' || item.key === 'transcribe').map((item) => (
+      {KIND_ITEMS.map((item) => (
         <Radio key={item.key} value={item.key}>
           {item.label}
         </Radio>
@@ -48,7 +49,7 @@ export function KindControl({ value, onChange, label, qwen = false }: { value: O
   );
 }
 
-/** 在一家自建服务商下添加一只模型：模型 ID 与用途（语音合成可带音色 ID）。 */
+/** 添加一只模型：模型 ID 与用途（只有自建的能选用途；语音合成可带音色 ID）。 */
 export function AddModelDialog({
   view,
   providerId,
@@ -111,7 +112,7 @@ export function AddModelDialog({
                     isInvalid={duplicate}
                     errorMessage={ADD_MODEL_COPY.taken}
                   />
-                  <KindControl value={capability} onChange={setCapability} qwen={providerId === 'qwen'} />
+                  {isCustomProvider(providerId) ? <KindControl value={capability} onChange={setCapability} /> : null}
                   {capability === 'synthesizeSpeech' ? (
                     <TextField label={CUSTOM_COPY.voices} placeholder={CUSTOM_COPY.voicesPlaceholder} value={voiceIds} onChange={setVoiceIds} />
                   ) : null}

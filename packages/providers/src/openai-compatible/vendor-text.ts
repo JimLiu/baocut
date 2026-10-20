@@ -3,11 +3,11 @@
 // 结构化输出按服务商的写法：支持 JSON Schema 的发 `json_schema`，只支持 JSON 模式的发 `json_object` 并把 schema 写进系统
 // 消息；输出都在本地按 schema 校验。推理强度、`seed` 只在模型表声明支持时发出，推理档位按目录的映射换算。
 import type { TextReply } from '@baocut/models';
-import type { TextModelInfo } from '@baocut/protocol';
+import type { ProviderVendorInfo, TextModelInfo } from '@baocut/protocol';
 import type { AdapterConfig, AdapterHttp, ModelLister, ProviderListing, TextAdapter, TextRequest } from '../adapter.ts';
 import { chatCompletions } from '../openai/chat-completions.ts';
-import { declaredTextInfo } from './compatible-text.ts';
 import { declaredOf } from './compatible-adapter.ts';
+import { declaredTextInfo } from './compatible-text.ts';
 import { openAiListModels } from '../openai/openai-text.ts';
 
 export interface VendorTextOptions {
@@ -16,6 +16,8 @@ export interface VendorTextOptions {
   jsonMode: 'json_schema' | 'json_object';
   effortMap?: Partial<Record<TextModelInfo['efforts'][number], string>>;
   bodyWithoutEffort?: Record<string, unknown>;
+  /** 目录条目：`declarable` 含 `generateText` 时，用户手动添加的文本模型跟在内置模型后面。 */
+  vendor?: Pick<ProviderVendorInfo, 'declarable'>;
 }
 
 export class VendorTextAdapter implements TextAdapter, ModelLister {
@@ -27,12 +29,9 @@ export class VendorTextAdapter implements TextAdapter, ModelLister {
   }
 
   models(config: AdapterConfig): TextModelInfo[] {
-    const builtins = structuredClone([...this.#options.models]);
-    const extra = config.providerId === 'qwen' ? declaredOf(config, 'generateText') : [];
-    for (const model of builtins) {
-      if (extra.some((m) => m.modelId === model.modelId)) model.declared = true;
-    }
-    return [...builtins, ...extra.filter((m) => !builtins.some((b) => b.modelId === m.modelId)).map((m) => declaredTextInfo(m, false))];
+    const builtin = structuredClone([...this.#options.models]);
+    if (!this.#options.vendor?.declarable?.includes('generateText')) return builtin;
+    return [...builtin, ...declaredOf(config, 'generateText').map((m) => declaredTextInfo(m, false))];
   }
 
   generate(request: TextRequest): Promise<TextReply> {

@@ -240,7 +240,7 @@ describe('Qwen ASR protocol selection', () => {
     );
     server = await startFakeProviderServer(contractReply);
     const source = new OnlineProviderSource({ store, baseUrls: { qwen: `${server.origin}/compatible-mode/v1` }, ffmpeg: async () => ({ command: 'ffmpeg', env: process.env }) });
-    await source.configure({ providerId: 'qwen', enabled: true, models: [{ modelId: id, capability: 'transcribe' }] });
+    await source.configure({ providerId: 'qwen', enabled: true });
     await source.addAccount({ providerId: 'qwen', credential: key, region: 'cn' });
     const view = (await source.describe('qwen', 'view'))!;
     expect(view.capabilities.transcribe).toMatchObject({ available: true });
@@ -280,5 +280,86 @@ describe('Qwen ASR protocol selection', () => {
       expect(result.segments.at(-1)!.end).toBe(durationSec * timescale);
     }
     expect(await fs.readdir(staging)).toEqual(['result.json']);
+  });
+});
+
+describe('Qwen manually added models', () => {
+  const builtin = ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'];
+
+  async function qwenSource(listed: string[] = []) {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-qwen-declared-'));
+    const store = await ModelServiceStore.open(
+      { modelServicesFile: path.join(dir, 'model-services.json') }, new FileCredentialStore(path.join(dir, 'credentials.json')),
+    );
+    server = await startFakeProviderServer((r) => r.path.endsWith('/models')
+      ? { status: 200, json: { data: listed.map((id) => ({ id })) } } : contractReply(r));
+    const source = new OnlineProviderSource({ store, baseUrls: { qwen: `${server.origin}/compatible-mode/v1` }, ffmpeg: async () => ({ command: 'ffmpeg', env: process.env }) });
+    await source.configure({ providerId: 'qwen', enabled: true });
+    await source.addAccount({ providerId: 'qwen', credential: key, region: 'cn' });
+    return source;
+  }
+
+  it('lists added text and ASR models after the built-in ones, under the same ASR limits', async () => {
+    const source = await qwenSource();
+    await source.configure({ providerId: 'qwen', models: [
+      { modelId: 'qwen-plus-2026-01-23', capability: 'generateText' },
+      { modelId: 'qwen3-asr-flash-2026-02-10', capability: 'transcribe', acceptsHint: false },
+      { modelId: 'qwen3-asr-flash-filetrans', capability: 'transcribe' },
+    ] });
+    const view = (await source.describe('qwen', 'view'))!;
+    expect(view.vendor?.declarable).toEqual(['generateText', 'transcribe']);
+    const asr = view.capabilities.transcribe!.models;
+    expect(asr.map((m) => m.modelId)).toEqual([...builtin, 'qwen3-asr-flash-2026-02-10', 'qwen3-asr-flash-filetrans']);
+    expect(asr.filter((m) => m.declared).map((m) => m.modelId)).toEqual(['qwen3-asr-flash-2026-02-10', 'qwen3-asr-flash-filetrans']);
+    expect(asr.find((m) => m.default)?.modelId).toBe(builtin[0]);
+    expect(asr[3]).toMatchObject({ declared: true, acceptsHint: false, maxInputBytes: 7_000_000, maxDurationSec: 300, wordTimestamps: 'none' });
+    expect(asr[4]).toMatchObject({ available: false, unavailableReason: 'unsupported' });
+    expect(asr[4]!.detail).toMatch(/filetrans/);
+    const text = view.capabilities.generateText!.models;
+    expect(text.at(-1)).toMatchObject({ modelId: 'qwen-plus-2026-01-23', declared: true });
+    expect(text.filter((m) => m.declared)).toHaveLength(1);
+
+    // The added ASR model goes through the same synchronous protocol as the built-in Qwen3 ASR.
+    const durationSec = 2;
+    const file = path.join(dir!, 'short.wav');
+    await fs.writeFile(file, wavFixture(durationSec, 16_000));
+    const staging = path.join(dir!, 'staging');
+    await fs.mkdir(staging);
+    const attempt = await source.transcriber('qwen')!.transcribe({
+      jobId: 'qwen-declared', runGeneration: 1, providerId: 'qwen', modelId: 'qwen3-asr-flash-2026-02-10', bundleId: null,
+      input: { file, contentHash: 'sha256:test', track: 0 },
+      options: { language: { mode: 'prefer', tag: null }, diarize: false, timescale: 48_000 }, staging,
+    }, { loading() {}, phase() {}, progress() {}, segment() {}, warning() {}, language() {} }, new AbortController().signal);
+    expect(attempt.outcome).toBe('completed');
+    expect(server!.requests.at(-1)).toMatchObject({ path: '/compatible-mode/v1/chat/completions' });
+    expect(server!.requests.at(-1)!.json).toMatchObject({ model: 'qwen3-asr-flash-2026-02-10' });
+  });
+
+  it('rejects added models that reuse a built-in ID, use a capability Qwen does not accept, or name the provider', async () => {
+    const source = await qwenSource();
+    for (const models of [
+      [{ modelId: 'qwen3-asr-flash', capability: 'transcribe' as const }],
+      [{ modelId: 'qwen3.8-max', capability: 'generateText' as const }],
+      [{ modelId: 'qwen-image-test', capability: 'generateImage' as const }],
+      [{ modelId: 'qwen-tts-test', capability: 'synthesizeSpeech' as const }],
+    ]) {
+      await expect(source.configure({ providerId: 'qwen', models })).rejects.toMatchObject({ code: 'invalid-request' });
+    }
+    await expect(source.configure({ providerId: 'qwen', label: 'Mine' })).rejects.toMatchObject({ code: 'invalid-request' });
+    await expect(source.configure({ providerId: 'moonshot', models: [{ modelId: 'kimi-x', capability: 'generateText' }] }))
+      .rejects.toMatchObject({ code: 'invalid-request' });
+    expect((await source.describe('qwen', 'view'))!.capabilities.transcribe!.models.some((m) => m.declared)).toBe(false);
+  });
+
+  it('keeps added models usable when a refreshed vendor list omits them, unlike built-in ones', async () => {
+    const source = await qwenSource(['qwen3-asr-flash']);
+    await source.configure({ providerId: 'qwen', models: [{ modelId: 'qwen3-asr-flash-2026-02-10', capability: 'transcribe' }] });
+    expect(await source.refresh('qwen')).toMatchObject({ ok: true, models: 1 });
+    const asr = (await source.describe('qwen', 'view'))!.capabilities.transcribe!.models;
+    expect(asr.find((m) => m.modelId === 'qwen3-asr-flash')!.available).not.toBe(false);
+    expect(asr.find((m) => m.modelId === 'qwen-audio-3.0-asr-flash')).toMatchObject({ available: false, unavailableReason: 'unsupported' });
+    const added = asr.find((m) => m.modelId === 'qwen3-asr-flash-2026-02-10')!;
+    expect(added.available).not.toBe(false);
+    expect(added.detail).toBeTruthy();
   });
 });

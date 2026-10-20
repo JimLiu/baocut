@@ -60,6 +60,7 @@ const en = {
     --speech-model <id> ...        Speech synthesis models the custom endpoint provides (/audio/speech; repeatable)
     --image-model <id> ...         Image generation models the custom endpoint provides (/images/generations; repeatable)
     --text-model <id> ...          Text models the custom endpoint provides (/chat/completions; repeatable)
+                                   Catalog providers that allow it (qwen) also take --model and --text-model, listed after the built-ins
                                    Giving models of any kind replaces all declared models
     --verify                       Verify the new key and endpoint with the provider once before saving
   baocut models accounts <providerId>

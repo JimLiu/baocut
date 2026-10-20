@@ -1,6 +1,6 @@
 // Qwen synchronous ASR: https://www.alibabacloud.com/help/en/model-studio/qwen-asr-api-reference
 // Verified 2026-10-19: Chat Completions with input_audio Data URLs, optional system context and asr_options.
-// Qwen-Audio 3.x uses DashScope instead; see qwen-audio-transcription.ts. Filetrans remains unsupported.
+// Qwen-Audio 3.x uses DashScope instead; see qwen-audio-transcription.ts. Filetrans (asynchronous) remains unsupported.
 import fs from 'node:fs/promises';
 import { modelDetail, ProviderFailure } from '@baocut/models';
 import type { TranscribeModelInfo } from '@baocut/protocol';
@@ -23,6 +23,21 @@ import { qwenAudioTranscribeChunk } from './qwen-audio-transcription.ts';
 const MAX_INLINE_BYTES = 7_000_000;
 const MAX_DURATION_SEC = 300;
 const MODEL = /^qwen(?:3|-audio-3\.[01])-asr-flash(?:-filetrans)?(?:-(?:latest|\d{4}-\d{2}-\d{2}))?$/;
+const BUILTIN_MODELS = ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'];
+
+type AsrEntry = Pick<TranscribeModelInfo, 'modelId' | 'label'> & Partial<Pick<TranscribeModelInfo, 'default' | 'declared' | 'acceptsHint'>>;
+
+function asrInfo(model: AsrEntry): TranscribeModelInfo {
+  return qwenAsrModelInfo({
+    acceptsHint: true,
+    ...model,
+    maxInputBytes: MAX_INLINE_BYTES,
+    maxDurationSec: MAX_DURATION_SEC,
+    wordTimestamps: 'none',
+    languages: 'any',
+    cost: 'unknown',
+  });
+}
 
 /** Only official Alibaba endpoints opt into this protocol; arbitrary compatible servers retain multipart ASR. */
 export function usesQwenAsr(config: AdapterConfig, modelId: string): boolean {
@@ -55,13 +70,13 @@ export function qwenAsrModelInfo(model: TranscribeModelInfo): TranscribeModelInf
 export class QwenAdapter implements TranscribeAdapter {
   readonly version = 'baocut-providers/qwen-asr@2';
 
+  /** 内置的三只在前（第一只是默认），用户手动添加的（`vendor.declarable`）跟在后面，限制按同一协议取。 */
   models(config: AdapterConfig): TranscribeModelInfo[] {
-    return config.declared.filter((m) => (m.capability ?? 'transcribe') === 'transcribe')
-      .map((m): TranscribeModelInfo => qwenAsrModelInfo({
-        modelId: m.modelId, label: m.label ?? m.modelId, declared: true,
-        maxInputBytes: m.maxInputBytes ?? MAX_INLINE_BYTES, maxDurationSec: m.maxDurationSec ?? MAX_DURATION_SEC,
-        wordTimestamps: 'none', languages: 'any', acceptsHint: m.acceptsHint ?? true, cost: 'unknown',
-      }));
+    const builtin = BUILTIN_MODELS.map((modelId, i) => asrInfo({ modelId, label: modelId, ...(i === 0 ? { default: true } : {}) }));
+    const declared = config.declared
+      .filter((m) => (m.capability ?? 'transcribe') === 'transcribe')
+      .map((m) => asrInfo({ modelId: m.modelId, label: m.label ?? m.modelId, declared: true, acceptsHint: m.acceptsHint ?? true }));
+    return [...builtin, ...declared];
   }
 
   chunkFormat(_model: TranscribeModelInfo): ChunkFormat {

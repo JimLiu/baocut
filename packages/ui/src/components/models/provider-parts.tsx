@@ -148,7 +148,7 @@ export function ProviderIcon({ provider, size = 20 }: { provider: Pick<ApiProvid
   );
 }
 
-/** 一只模型名字后面那句：显示名、预置音色数、尺寸与张数、上下文与推理强度，不能用时的原因。 */
+/** 一只模型名字后面那句：显示名、预置音色数、尺寸与张数、上下文与推理强度，不能用时的原因；用户声明的模型能用时也带上提示（如不在服务商的列表里）。 */
 export function modelLeadText(capability: OnlineCapability, model: ModelInfoBase): string {
   const parts: string[] = [];
   if (model.label && model.label !== model.modelId) parts.push(model.label);
@@ -158,7 +158,7 @@ export function modelLeadText(capability: OnlineCapability, model: ModelInfoBase
     parts.push(CLOUD_COPY.modelSizes(image.sizes ?? [], image.maxCount ?? 1));
   }
   if (capability === 'generateText') parts.push(textModelLine(model as TextModelInfo));
-  if (model.detail) parts.push(localizeText(model.detail, model.detailRef));
+  if ((model.available === false || model.declared) && model.detail) parts.push(localizeText(model.detail, model.detailRef));
   return parts.filter(Boolean).join(' · ');
 }
 

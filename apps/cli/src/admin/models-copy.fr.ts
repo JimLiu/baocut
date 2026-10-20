@@ -45,6 +45,7 @@ export const fr: ModelsMessages = {
     --speech-model <id> ...        Modèles de synthèse vocale (/audio/speech ; répétable)
     --image-model <id> ...         Modèles de génération d’images (/images/generations ; répétable)
     --text-model <id> ...          Modèles de texte (/chat/completions ; répétable)
+                                   Les fournisseurs du catalogue qui le permettent (qwen) acceptent aussi --model et --text-model, listés après les modèles intégrés
                                    Indiquer un type quelconque remplace tous les modèles déclarés
     --verify                       Vérifier une fois la nouvelle clé et le point d’accès auprès du fournisseur avant enregistrement
   baocut models accounts <providerId>

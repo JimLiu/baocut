@@ -32,6 +32,7 @@ help: `Cách dùng:
     --speech-model <id> ...        Mô hình tổng hợp giọng nói của điểm cuối tùy chỉnh (/audio/speech; có thể lặp)
     --image-model <id> ...         Mô hình hình ảnh của điểm cuối tùy chỉnh (/images/generations; có thể lặp)
     --text-model <id> ...          Mô hình văn bản của điểm cuối tùy chỉnh (/chat/completions; có thể lặp)
+                                   Nhà cung cấp trong danh mục cho phép việc này (qwen) cũng nhận --model và --text-model, xếp sau các mô hình có sẵn
                                    Cung cấp bất kỳ loại mô hình nào sẽ thay mọi mô hình đã khai báo
     --verify                       Xác minh khóa mới và điểm cuối với nhà cung cấp một lần trước khi lưu
   baocut models accounts <providerId>

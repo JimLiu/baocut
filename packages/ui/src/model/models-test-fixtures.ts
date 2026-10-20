@@ -214,3 +214,42 @@ export function withLocalSpeech(view: ModelCapabilitiesView = fixtureView()): Mo
     },
   };
 }
+
+/**
+ * 在 fixture 上加百炼（qwen）：连上了，语音识别与文本各有内置模型，另有用户手动添加的（`declared`）——
+ * 一只同步 ASR、一只异步 filetrans（Runtime 报告为不可用）、一只文本。目录允许手动添加文本与语音识别。
+ */
+export function withQwen(view: ModelCapabilitiesView = textView()): ModelCapabilitiesView {
+  const vendor = { kind: 'vendor' as const, declarable: ['generateText' as const, 'transcribe' as const] };
+  const qwen = <M extends ProviderCapabilityView['models'][number]>(models: M[]) => ({
+    ...online('qwen', '阿里云百炼', keyed, models, true),
+    vendor,
+  });
+  const limits = { maxInputBytes: 7_000_000, maxDurationSec: 300, wordTimestamps: 'none' as const };
+  return {
+    ...view,
+    transcribe: {
+      ...view.transcribe,
+      providers: [
+        ...view.transcribe.providers,
+        qwen([
+          transcribeModel('qwen3-asr-flash', { default: true, ...limits }),
+          transcribeModel('qwen3-asr-flash-2026-02-10', { declared: true, ...limits }),
+          transcribeModel('qwen3-asr-flash-filetrans', {
+            declared: true,
+            available: false,
+            unavailableReason: 'unsupported',
+            detail: '还不支持异步文件转写（filetrans）',
+          }),
+        ]),
+      ],
+    },
+    generateText: {
+      ...view.generateText,
+      providers: [
+        ...view.generateText.providers,
+        qwen([textModel('qwen3.8-max', { default: true }), textModel('qwen-plus-2026-01-23', { declared: true })]),
+      ],
+    },
+  };
+}

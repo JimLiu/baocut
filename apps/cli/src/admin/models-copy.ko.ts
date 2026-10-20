@@ -31,6 +31,7 @@ export const ko: ModelsMessages = {
     --speech-model <id> ...        사용자 지정 엔드포인트가 제공하는 음성 합성 모델(/audio/speech, 반복 가능)
     --image-model <id> ...         사용자 지정 엔드포인트가 제공하는 이미지 생성 모델(/images/generations, 반복 가능)
     --text-model <id> ...          사용자 지정 엔드포인트가 제공하는 텍스트 모델(/chat/completions, 반복 가능)
+                                   모델 추가를 허용하는 카탈로그 공급자(qwen)도 --model과 --text-model을 받습니다(기본 제공 모델 뒤에 표시)
                                    어떤 종류든 모델을 지정하면 선언된 모델 전체가 바뀝니다
     --verify                       저장하기 전에 새 키와 엔드포인트를 공급자에게 한 번 검증합니다
   baocut models accounts <providerId>

@@ -35,6 +35,7 @@ export const pl: ModelsMessages = {
     --speech-model <id> ...        Modele syntezy mowy własnego endpointu (/audio/speech; powtarzalne)
     --image-model <id> ...         Modele obrazów własnego endpointu (/images/generations; powtarzalne)
     --text-model <id> ...          Modele tekstowe własnego endpointu (/chat/completions; powtarzalne)
+                                   Dostawcy z katalogu, którzy na to pozwalają (qwen), też przyjmują --model i --text-model; trafiają za wbudowane
                                    Podanie modeli dowolnego typu zastępuje wszystkie zadeklarowane modele
     --verify                       Przed zapisaniem raz sprawdź nowy klucz i endpoint u dostawcy
   baocut models accounts <providerId>

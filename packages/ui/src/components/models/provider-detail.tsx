@@ -48,9 +48,8 @@ import { useShell } from '../../state/shell-store.ts';
 import { ModelVoicesLine } from './model-voices-line.tsx';
 import { CLOUD_COPY } from './models-copy.ts';
 import { ProbeDialog } from './probe-dialog.tsx';
-import { AddModelDialog } from './provider-dialogs.tsx';
 import { removeProviderModel } from './model-actions.ts';
-import { M as MANAGEMENT } from './model-management-copy.ts';
+import { AddModelDialog } from './provider-dialogs.tsx';
 import {
   accountDetail,
   accountName,
@@ -626,26 +625,25 @@ const verdict = style({
 function CapModels({ view, provider }: { view: ModelCapabilitiesView; provider: ApiProvider }) {
   const runtime = useRuntime();
   const web = runtime.host.platform === 'web';
-  const connected = useConnection((s) => s.state.status === 'connected');
   const copy = PROVIDER_DETAIL_COPY;
   const probes = useProbeRuns();
   const [probe, setProbe] = useState<ProbeTarget | null>(null);
   const [adding, setAdding] = useState<OnlineCapability | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [removingModel, setRemovingModel] = useState(false);
-  const canDeclare = provider.kind === 'custom' || provider.providerId === 'qwen';
-  const removeModel = async () => {
-    if (!deleting || removingModel) return;
-    setRemovingModel(true);
-    try {
-      await removeProviderModel(runtime, view, provider.providerId, deleting);
-      setDeleting(null);
-    } catch (err) {
-      ToastQueue.negative(message(err), { timeout: 5000 });
-    } finally { setRemovingModel(false); }
-  };
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const ready = stateReady(providerState(provider, Date.now()));
+  // 自建的模型都是用户声明的；目录服务商只有 `vendor.declarable` 列出的能力可以在内置模型之外手动添加（百炼的文本与语音识别）。
+  const canAdd = (capability: OnlineCapability) => provider.kind === 'custom' || (provider.vendor.declarable ?? []).includes(capability);
+
+  const removeModel = async (modelId: string) => {
+    setPendingRemove(null);
+    try {
+      await removeProviderModel(runtime, view, provider.providerId, modelId);
+      ToastQueue.positive(copy.modelRemoved(modelId), { timeout: 3000 });
+    } catch (err) {
+      ToastQueue.negative(copy.removeFailed(message(err)), { timeout: 5000 });
+    }
+  };
 
   const refresh = async () => {
     if (refreshing) return;
@@ -672,7 +670,7 @@ function CapModels({ view, provider }: { view: ModelCapabilitiesView; provider: 
           const defaultRef = view[capability].default;
           const kind = entry ? refreshKind(entry, capability) : null;
           const line = entry ? refreshLine(entry, capability, refreshing) : null;
-          const probeOk = probeSupported(capability, !web);
+          const probeOk = probeSupported(capability);
           const desc = planned ? copy.plannedNote : line ? refreshText(line) : models.length ? PROVIDERS_COPY.models(models.length) : copy.noModels;
           const clonable =
             capability === 'synthesizeSpeech' && view.synthesizeSpeech.providers.some((p) => p.providerId === provider.providerId && providerCanClone(p));
@@ -699,9 +697,9 @@ function CapModels({ view, provider }: { view: ModelCapabilitiesView; provider: 
                     <Tooltip>{ready ? CLOUD_COPY.refresh[kind] : CLOUD_COPY.refreshNeedsKey(CLOUD_COPY.refresh[kind])}</Tooltip>
                   </TooltipTrigger>
                 ) : null}
-                {!planned && canDeclare ? (
+                {!planned && canAdd(capability) ? (
                   <TooltipTrigger placement="top" delay={300}>
-                    <ActionButton isQuiet size="S" aria-label={copy.addModelTo(CAPABILITY_SHORT[capability])} isDisabled={web || !connected} onPress={() => setAdding(capability)}>
+                    <ActionButton isQuiet size="S" aria-label={copy.addModelTo(CAPABILITY_SHORT[capability])} isDisabled={web} onPress={() => setAdding(capability)}>
                       <AddIcon />
                     </ActionButton>
                     <Tooltip>{copy.addModelTo(CAPABILITY_SHORT[capability])}</Tooltip>
@@ -718,10 +716,7 @@ function CapModels({ view, provider }: { view: ModelCapabilitiesView; provider: 
                       <span className={modelId}>{model.modelId}</span>
                       {lead ? <span className={modelLead}>{lead}</span> : null}
                     </span>
-                    <span className={verdict({ tone: probeOk ? result.tone : 'neutral' })}>{probeOk ? result.text : capability === 'transcribe' && web ? MANAGEMENT.desktopOnly : CLOUD_COPY.probeUnsupported}</span>
-                    {model.declared && canDeclare ? (
-                      <ActionButton isQuiet size="S" aria-label={`${MANAGEMENT.removeModel} · ${model.modelId}`} isDisabled={web || !connected || removingModel} onPress={() => setDeleting(model.modelId)}><DeleteIcon /></ActionButton>
-                    ) : null}
+                    <span className={verdict({ tone: probeOk ? result.tone : 'neutral' })}>{probeOk ? result.text : CLOUD_COPY.probeUnsupported}</span>
                     {isDefault ? (
                       <Badge variant="accent" size="S" fillStyle="subtle">
                         {CLOUD_COPY.defaultChip}
@@ -730,10 +725,23 @@ function CapModels({ view, provider }: { view: ModelCapabilitiesView; provider: 
                     <ActionButton
                       isQuiet
                       size="S"
-                      isDisabled={!probeOk || !ready || entry?.available === false || model.available === false}
+                      isDisabled={!probeOk || !ready || entry?.available === false}
                       onPress={() => setProbe({ capability, providerId: provider.providerId, providerLabel: provider.label, model })}>
                       {copy.probe}
                     </ActionButton>
+                    {model.declared ? (
+                      <TooltipTrigger placement="top" delay={300}>
+                        <ActionButton
+                          isQuiet
+                          size="S"
+                          aria-label={copy.removeModelOf(model.modelId)}
+                          isDisabled={web}
+                          onPress={() => setPendingRemove(model.modelId)}>
+                          <DeleteIcon />
+                        </ActionButton>
+                        <Tooltip>{copy.removeModel}</Tooltip>
+                      </TooltipTrigger>
+                    ) : null}
                   </div>
                 );
               })}
@@ -743,9 +751,6 @@ function CapModels({ view, provider }: { view: ModelCapabilitiesView; provider: 
         })}
         {!ready ? <p className={`${smallText} ${cardPad}`}>{copy.needsAccount}</p> : null}
       </div>
-      <DialogContainer onDismiss={() => !removingModel && setDeleting(null)}>
-        {deleting ? <AlertDialog variant="destructive" title={MANAGEMENT.removeModel} primaryActionLabel={MANAGEMENT.removeModel} cancelLabel={copy.cancel} onPrimaryAction={() => void removeModel()}>{deleting} · {MANAGEMENT.removeModelBody}</AlertDialog> : null}
-      </DialogContainer>
       {adding ? (
         <AddModelDialog
           view={view}
@@ -756,6 +761,18 @@ function CapModels({ view, provider }: { view: ModelCapabilitiesView; provider: 
           onAdded={() => setAdding(null)}
         />
       ) : null}
+      <DialogContainer onDismiss={() => setPendingRemove(null)}>
+        {pendingRemove ? (
+          <AlertDialog
+            variant="destructive"
+            title={copy.removeModelTitle(pendingRemove)}
+            primaryActionLabel={copy.removeModel}
+            cancelLabel={copy.cancel}
+            onPrimaryAction={() => void removeModel(pendingRemove)}>
+            {copy.removeModelBody}
+          </AlertDialog>
+        ) : null}
+      </DialogContainer>
       {probe ? (
         <ProbeDialog
           capability={probe.capability}

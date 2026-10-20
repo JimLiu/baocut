@@ -26,6 +26,7 @@ export const zhHant: ModelsMessages = {
     --speech-model <id> ...        自訂端點提供的語音合成模型（/audio/speech；可重複）
     --image-model <id> ...         自訂端點提供的影像生成模型（/images/generations；可重複）
     --text-model <id> ...          自訂端點提供的文字模型（/chat/completions；可重複）
+                                   目錄中允許新增模型的服務商（qwen）也可用 --model 與 --text-model，排在內建模型之後
                                    指定任何一種模型時，會整體取代已宣告的模型
     --verify                       儲存前先向供應商驗證一次新的金鑰與端點
   baocut models accounts <providerId>

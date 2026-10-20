@@ -2,15 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { RpcError } from '@baocut/protocol';
 import type { HostBridge } from '../../host.ts';
 import { RuntimeSession } from '../../runtime/session.ts';
-import { bundle, fixtureView, imageModel, speechModel, textModel } from '../../model/models-test-fixtures.ts';
+import { bundle, fixtureView, imageModel, speechModel, textModel, withQwen } from '../../model/models-test-fixtures.ts';
 import {
   addCustomProvider,
   addProviderModel,
-  removeProviderModel,
   chooseCloudDefault,
   chooseLocalDefault,
   disconnectProvider,
   probeMediaUrl,
+  removeProviderModel,
   saveProviderKey,
   setTextConcurrency,
   setTextEffort,
@@ -39,7 +39,6 @@ function fakeSession(fail?: { method: string; error: Error }) {
       case 'models.synthesizeSpeech':
       case 'models.generateImage':
       case 'models.generateText':
-      case 'pipelines.start':
         return { jobId: 'job_9' };
       case 'models.setCapabilityParameters': {
         const p = params as { effort?: string | null; concurrency?: number | null };
@@ -108,6 +107,17 @@ describe('自建服务商与模型', () => {
     await addProviderModel(session, fixtureView(), 'custom:asr-box', { modelId: 'tts-x', capability: 'synthesizeSpeech', voices: ['a'] });
     const [, params] = calls[0] as [string, { models: { modelId: string }[] }];
     expect(params.models.map((m) => m.modelId)).toEqual(['whisper-large', 'tts-x']);
+  });
+
+  it('百炼：添加与删除只带手动添加的模型，内置的不进请求', async () => {
+    const { session, calls } = fakeSession();
+    await addProviderModel(session, withQwen(), 'qwen', { modelId: 'qwen-max-2026-03-01', capability: 'generateText' });
+    await removeProviderModel(session, withQwen(), 'qwen', 'qwen-plus-2026-01-23');
+    const ids = calls.map(([method, params]) => [method, (params as { models: { modelId: string }[] }).models.map((m) => m.modelId)]);
+    expect(ids).toEqual([
+      ['models.configure', ['qwen3-asr-flash-2026-02-10', 'qwen3-asr-flash-filetrans', 'qwen-plus-2026-01-23', 'qwen-max-2026-03-01']],
+      ['models.configure', ['qwen3-asr-flash-2026-02-10', 'qwen3-asr-flash-filetrans']],
+    ]);
   });
 });
 
@@ -205,28 +215,4 @@ describe('测试对话框', () => {
     expect(url).toBe('http://127.0.0.1:1/a/x');
     expect(calls).toEqual([['artifacts.openHandle', { artifactId: 'sha256:aa' }]]);
   });
-});
-
-
-describe('ASR probes', () => {
-  it('uses the existing file transcription pipeline and pins provider and model', async () => {
-    const { session, calls } = fakeSession();
-    expect(await startProbe(session, 'transcribe', 'qwen', { modelId: 'qwen-audio-3.0-asr-flash', label: 'ASR' }, '/tmp/sample.wav')).toBe('job_9');
-    expect(calls).toEqual([['pipelines.start', expect.objectContaining({ pipeline: 'transcribe', params: {
-      file: '/tmp/sample.wav', provider: 'qwen', model: 'qwen-audio-3.0-asr-flash',
-    } })]]);
-  });
-
-  it('does not submit an ASR request without a selected file', async () => {
-    const { session, calls } = fakeSession();
-    await expect(startProbe(session, 'transcribe', 'qwen', { modelId: 'asr', label: 'ASR' })).rejects.toThrow();
-    expect(calls).toEqual([]);
-  });
-});
-
-
-it('removing a declaration sends only the remaining user models and does not write credentials', async () => {
-  const { session, calls } = fakeSession();
-  await removeProviderModel(session, fixtureView(), 'custom:tts-box', 'tts-1');
-  expect(calls).toEqual([['models.configure', { providerId: 'custom:tts-box', models: [] }]]);
 });

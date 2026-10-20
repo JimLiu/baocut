@@ -240,7 +240,7 @@ export function refreshAfterKey(card: Pick<CloudProviderCard, 'custom' | 'capabi
   return card.custom || card.capabilities.includes('generateText');
 }
 
-// ---- 自建服务商声明的模型 ----
+// ---- 用户声明的模型（自建服务商的全部模型，百炼这类目录服务商在内置模型之外手动添加的） ----
 
 function withLabel(info: ModelInfoBase): Pick<DeclaredModel, 'modelId' | 'label'> {
   return info.label && info.label !== info.modelId ? { modelId: info.modelId, label: info.label } : { modelId: info.modelId };
@@ -288,14 +288,13 @@ export function declaredFromInfo(capability: OnlineCapability, info: ModelInfoBa
   }
 }
 
-/** 一家提供方眼下的全部用户声明，不包括预置模型。 */
+/** 一家服务商眼下声明的全部模型（几种能力合起来）：自建的是它列出的每一只，目录服务商只取标了 `declared` 的，内置的不算。 */
 export function declaredModels(view: ModelCapabilitiesView, providerId: string): DeclaredModel[] {
+  const custom = isCustomProvider(providerId);
   const out: DeclaredModel[] = [];
   for (const capability of ONLINE_CAPABILITIES) {
     const entry = view[capability].providers.find((p) => p.providerId === providerId);
-    for (const info of entry?.models ?? []) {
-      if (isCustomProvider(providerId) || info.declared) out.push(declaredFromInfo(capability, info));
-    }
+    for (const info of entry?.models ?? []) if (custom || info.declared) out.push(declaredFromInfo(capability, info));
   }
   return out;
 }
@@ -311,19 +310,26 @@ export function newDeclaredModel(modelId: string, capability: OnlineCapability, 
   return { modelId: modelId.trim(), capability, ...(voices.length ? { voices } : {}) };
 }
 
-/** 模型 ID 在这家已经声明过（Runtime 拒绝重复的 modelId，不分用途）。 */
+/** 模型 ID 在这家已经有了：声明过的，或目录内置的（Runtime 拒绝重复的 modelId，不分用途，也不许与内置模型同名）。 */
 export function modelIdTaken(view: ModelCapabilitiesView, providerId: string, modelId: string): boolean {
   const id = modelId.trim();
-  return ONLINE_CAPABILITIES.some((capability) => view[capability].providers.find((p) => p.providerId === providerId)?.models.some((m) => m.modelId === id));
+  return ONLINE_CAPABILITIES.some((capability) =>
+    view[capability].providers.find((p) => p.providerId === providerId)?.models.some((m) => m.modelId === id),
+  );
 }
 
-/** 添加一只用户模型：原有声明原样带上，不复制预置模型。 */
+/** 添加一只模型：原有声明原样带上，再加这一只。 */
 export function addModelRequest(
   view: ModelCapabilitiesView,
   providerId: string,
   model: DeclaredModel,
 ): ConfigureProviderRequest {
   return { providerId, models: [...declaredModels(view, providerId), model] };
+}
+
+/** 删掉一只声明的模型：其余声明原样带上。指向它的默认值留着、报告为不可用，与删掉服务商一样不自动改指。 */
+export function removeModelRequest(view: ModelCapabilitiesView, providerId: string, modelId: string): ConfigureProviderRequest {
+  return { providerId, models: declaredModels(view, providerId).filter((m) => m.modelId !== modelId) };
 }
 
 // ---- 添加自建服务商 ----
@@ -539,9 +545,4 @@ export function cloudDefaultPicker(
     sections.push({ key: 'current', items: [{ key: selectedKey, label: M.unavailableItem(refLabel(view, capability, current), copy.unavailable) }] });
   }
   return { selectedKey, sections, empty: empty && !(capability === 'generateImage' && codex?.ready) };
-}
-
-/** A model edit replaces declarations only; presets are never included. */
-export function removeModelRequest(view: ModelCapabilitiesView, providerId: string, modelId: string): ConfigureProviderRequest {
-  return { providerId, models: declaredModels(view, providerId).filter((m) => m.modelId !== modelId) };
 }

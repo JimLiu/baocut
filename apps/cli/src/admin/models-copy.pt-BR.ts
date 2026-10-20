@@ -33,6 +33,7 @@ export const ptBR: ModelsMessages = {
     --speech-model <id> ...        Modelos de síntese de fala do endpoint personalizado (/audio/speech; repetível)
     --image-model <id> ...         Modelos de geração de imagens do endpoint personalizado (/images/generations; repetível)
     --text-model <id> ...          Modelos de texto do endpoint personalizado (/chat/completions; repetível)
+                                   Provedores do catálogo que permitem isso (qwen) também aceitam --model e --text-model, listados após os integrados
                                    Informar modelos de qualquer tipo substitui todos os modelos declarados
     --verify                       Verificar a nova chave e endpoint com o provedor antes de salvar
   baocut models accounts <providerId>

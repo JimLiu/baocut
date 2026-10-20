@@ -32,6 +32,7 @@ help: `Kullanım:
     --speech-model <id> ...        Özel uç noktanın konuşma sentezi modelleri (/audio/speech; tekrarlanabilir)
     --image-model <id> ...         Özel uç noktanın görsel modelleri (/images/generations; tekrarlanabilir)
     --text-model <id> ...          Özel uç noktanın metin modelleri (/chat/completions; tekrarlanabilir)
+                                   Buna izin veren katalog sağlayıcıları (qwen) da --model ve --text-model alır; yerleşik modellerden sonra listelenir
                                    Herhangi model türünün verilmesi tüm bildirilen modelleri değiştirir
     --verify                       Kaydetmeden önce yeni anahtar ve uç noktayı sağlayıcıyla bir kez doğrula
   baocut models accounts <providerId>

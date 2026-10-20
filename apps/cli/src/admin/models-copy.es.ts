@@ -32,6 +32,7 @@ export const es: ModelsMessages = {
     --speech-model <id> ...        Modelos de síntesis de voz del endpoint (/audio/speech; repetible)
     --image-model <id> ...         Modelos de generación de imágenes del endpoint (/images/generations; repetible)
     --text-model <id> ...          Modelos de texto del endpoint (/chat/completions; repetible)
+                                   Los proveedores del catálogo que lo permiten (qwen) también aceptan --model y --text-model, listados después de los integrados
                                    Proporcionar modelos de cualquier tipo reemplaza todos los declarados
     --verify                       Verificar una vez la clave nueva y el endpoint con el proveedor antes de guardar
   baocut models accounts <providerId>

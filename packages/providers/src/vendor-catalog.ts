@@ -86,7 +86,15 @@ export const COMPAT_VENDORS: Record<CompatVendorId, CompatVendor> = {
     get label() {
       return PC.vendorQwen().text;
     },
-    vendor: { kind: 'vendor', regions: GLOBAL_CN, website: 'https://bailian.console.aliyun.com', icon: 'qwen', planned: ['synthesizeSpeech'] },
+    vendor: {
+      kind: 'vendor',
+      regions: GLOBAL_CN,
+      website: 'https://bailian.console.aliyun.com',
+      icon: 'qwen',
+      planned: ['synthesizeSpeech'],
+      // 百炼的模型多、更新快：内置的之外，用户可以手动添加文本与同步 ASR 模型。
+      declarable: ['generateText', 'transcribe'],
+    },
     regions: {
       global: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
       cn: 'https://dashscope.aliyuncs.com/compatible-mode/v1',

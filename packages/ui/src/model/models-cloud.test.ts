@@ -2,7 +2,6 @@ import type { SpeechModelInfo } from '@baocut/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   addModelRequest,
-  removeModelRequest,
   capabilityCategory,
   categoryCapability,
   cloudDefaultPicker,
@@ -24,10 +23,11 @@ import {
   refreshAfterKey,
   refreshKind,
   refreshLine,
+  removeModelRequest,
   voiceCount,
   type CloudProviderCard,
 } from './models-cloud.ts';
-import { fixtureView, speechModel, textModel, textView, transcribeModel } from './models-test-fixtures.ts';
+import { fixtureView, speechModel, withQwen } from './models-test-fixtures.ts';
 
 const COPY = { none: '每次选择', noneDesc: '不设默认', codex: 'Codex CLI · 画图', codexDesc: '用你的 Codex 订阅', unavailable: '不可用' };
 
@@ -117,6 +117,37 @@ describe('自建服务商的模型声明', () => {
     expect(newDeclaredModel('tts-2', 'synthesizeSpeech', 'a, b')).toEqual({ modelId: 'tts-2', capability: 'synthesizeSpeech', voices: ['a', 'b'] });
     expect(newDeclaredModel('tts-2', 'synthesizeSpeech', '')).toEqual({ modelId: 'tts-2', capability: 'synthesizeSpeech' });
     expect(newDeclaredModel('w', 'transcribe', 'a')).toEqual({ modelId: 'w', capability: 'transcribe' });
+  });
+});
+
+describe('百炼手动添加的模型', () => {
+  it('只还原标了 declared 的，跨语音识别与文本，不可用的 filetrans 也带上（models 是整体替换）', () => {
+    expect(declaredModels(withQwen(), 'qwen').map((m) => [m.modelId, m.capability])).toEqual([
+      ['qwen3-asr-flash-2026-02-10', 'transcribe'],
+      ['qwen3-asr-flash-filetrans', 'transcribe'],
+      ['qwen-plus-2026-01-23', 'generateText'],
+    ]);
+    const request = addModelRequest(withQwen(), 'qwen', newDeclaredModel('qwen-max-2026-03-01', 'generateText'));
+    expect(request.models!.map((m) => m.modelId)).toEqual([
+      'qwen3-asr-flash-2026-02-10',
+      'qwen3-asr-flash-filetrans',
+      'qwen-plus-2026-01-23',
+      'qwen-max-2026-03-01',
+    ]);
+  });
+
+  it('删掉一只：其余声明原样带上，内置的不进请求', () => {
+    const request = removeModelRequest(withQwen(), 'qwen', 'qwen3-asr-flash-2026-02-10');
+    expect(request).toEqual({ providerId: 'qwen', models: declaredModels(withQwen(), 'qwen').filter((m) => m.modelId !== 'qwen3-asr-flash-2026-02-10') });
+    expect(request.models!.map((m) => m.modelId)).toEqual(['qwen3-asr-flash-filetrans', 'qwen-plus-2026-01-23']);
+    expect(removeModelRequest(withQwen(), 'custom:tts-box', 'tts-1')).toEqual({ providerId: 'custom:tts-box', models: [] });
+  });
+
+  it('模型 ID 与内置的或已添加的同名都算占用', () => {
+    expect(modelIdTaken(withQwen(), 'qwen', 'qwen3-asr-flash')).toBe(true);
+    expect(modelIdTaken(withQwen(), 'qwen', 'qwen3.8-max')).toBe(true);
+    expect(modelIdTaken(withQwen(), 'qwen', ' qwen-plus-2026-01-23 ')).toBe(true);
+    expect(modelIdTaken(withQwen(), 'qwen', 'qwen-turbo')).toBe(false);
   });
 });
 
@@ -335,33 +366,5 @@ describe('刷新模型与音色目录', () => {
     expect(refreshAfterKey({ custom: true, capabilities: [] })).toBe(true);
     expect(refreshAfterKey({ custom: false, capabilities: ['transcribe', 'generateText'] })).toBe(true);
     expect(refreshAfterKey({ custom: false, capabilities: ['synthesizeSpeech'] })).toBe(false);
-  });
-});
-
-
-describe('Qwen model declarations', () => {
-  it('keeps a declaration matching a preset in add and remove requests', () => {
-    const view = textView();
-    view.generateText.providers.push({ ...view.generateText.providers[0]!, providerId: 'qwen', models: [
-      textModel('qwen3.8-max', { declared: true }), textModel('qwen3.8-flash'),
-    ] });
-    view.transcribe.providers.push({ ...view.transcribe.providers[1]!, providerId: 'qwen', models: [
-      transcribeModel('qwen3-asr-flash', { declared: true }), transcribeModel('qwen-audio-3.0-asr-flash', { declared: true }),
-    ] });
-    expect(addModelRequest(view, 'qwen', newDeclaredModel('extra-text', 'generateText')).models!.map((m) => m.modelId))
-      .toEqual(declaredModels(view, 'qwen').map((m) => m.modelId).concat('extra-text'));
-    expect(declaredModels(view, 'qwen').map((m) => m.modelId).sort()).toEqual(['qwen-audio-3.0-asr-flash', 'qwen3-asr-flash', 'qwen3.8-max']);
-    expect(removeModelRequest(view, 'qwen', 'qwen3-asr-flash').models!.map((m) => m.modelId).sort()).toEqual(['qwen-audio-3.0-asr-flash', 'qwen3.8-max']);
-  });
-
-  it('does not copy presets into declarations and cannot offer to remove them', () => {
-    const view = textView();
-    view.generateText.providers.push({ ...view.generateText.providers[0]!, providerId: 'qwen', models: [
-      textModel('qwen3.8-max'), textModel('extra-text', { declared: true }),
-    ] });
-    const added = addModelRequest(view, 'qwen', newDeclaredModel('second-extra', 'generateText'));
-    expect(added.models!.map((m) => m.modelId)).toEqual(['extra-text', 'second-extra']);
-    expect(modelIdTaken(view, 'qwen', 'qwen3.8-max')).toBe(true);
-    expect(removeModelRequest(view, 'qwen', 'extra-text')).toEqual({ providerId: 'qwen', models: [] });
   });
 });

@@ -60,7 +60,7 @@
      auth: 'Bearer', site: 'https://bailian.console.aliyun.com', icon: {mono: false}, balance: false,
      models: {
        text: [m('qwen3.8-max', '旗舰'), m('qwen3.8-flash', '最快'), m('qwen3.7-plus', '均衡')],
-       transcribe: [],
+       transcribe: [m('qwen-audio-3.0-asr-flash', '多语种'), m('qwen-audio-3.1-asr-flash', '多语种'), m('qwen3-asr-flash', '多语种')],
        tts: [m('qwen3-tts-flash', '多语种 · 多方言')],
      }},
     {id: 'zhipu', name: '智谱 GLM（Z.ai）', kind: 'vendor', caps: ['text'], p1: [], beyond: ['image'],
@@ -135,19 +135,14 @@
     if (!list.length && v.models && v.models[cap]) list = v.models[cap].slice();
     const s = settings && settings[id];
     const extra = (s && s.models && s.models[cap]) || [];
-    list = list.map((model) => extra.includes(model.id) ? {...model, added: true} : model);
     extra.forEach((x) => { if (!list.some((y) => y.id === x)) list.push(m(x, '', {added: true})); });
-    return list.map((model) => {
-      if ((id === 'qwen' || /\.aliyuncs\.com/.test(v.base || '')) && model.id.includes('-filetrans')) return {...model, unsupported: true, desc: '尚不支持 filetrans 异步转写协议，请选择同步 ASR 模型。'};
-      return s && Array.isArray(s.listedModels) && !s.listedModels.includes(model.id)
-        ? {...model, notice: '刷新列表未收录，实际可用性尚未验证。'} : model;
-    });
+    return list;
   }
+  /** 删掉一只手动添加的模型：返回给 patchProvider 的 {models}；不是手动添加的（目录内置的）返回 null。默认值不动，指向它的之后报告为不可用。 */
   function removeAddedModel(id, cap, modelId, settings) {
-    if (!modelsOf(id, cap, settings).some((m) => m.id === modelId && m.added)) return null;
-    const models = Object.assign({}, ((settings || {})[id] || {}).models || {});
-    models[cap] = (models[cap] || []).filter((mid) => mid !== modelId);
-    return {models};
+    const s = (settings || {})[id] || {};
+    if (!((s.models || {})[cap] || []).includes(modelId) || !modelsOf(id, cap, settings).some((x) => x.id === modelId && x.added)) return null;
+    return {models: Object.assign({}, s.models, {[cap]: s.models[cap].filter((x) => x !== modelId)})};
   }
   const modelCount = (id, settings) => capsOf(resolve(id, settings)).reduce((n, c) => n + modelsOf(id, c, settings).length, 0);
 

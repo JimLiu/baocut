@@ -19,6 +19,7 @@ import {
   type AddProviderAccountRequest,
   type ArrangeProviderAccountsRequest,
   type ConfigureProviderRequest,
+  type DeclaredModel,
   type Localized,
   type ModelInfoBase,
   type ModelServiceCapability,
@@ -75,11 +76,13 @@ import { ProvidersConfig as PC, ProvidersHttp as PH } from '@baocut/protocol/mes
  * - 能力：`openai` 与 `google` 有 transcribe、synthesizeSpeech、generateImage、generateText；`elevenlabs` 与
  *   `volcengine-speech`（豆包语音，密钥与方舟的 `volcengine` 是两套）只有 synthesizeSpeech；`anthropic`（Messages 原生
  *   适配器）与目录里的兼容文本服务商（`vendor-catalog.ts`）提供 generateText，qwen 另有 transcribe（目录标 P1 的能力不报告）。自定义端点按声明的模型的 `capability` 提供
- *   （一个模型也没声明时只列 transcribe）。
+ *   （一个模型也没声明时只列 transcribe）。目录条目的 `vendor.declarable` 列出的能力可以在内置模型之外手动添加模型
+ *   （`models.configure` 的 `models`，现在只有 qwen 的文本与 ASR），modelId 不能与内置模型重名。
  * - 账号（§6.8）：一次调用用第一个启用且有密钥的账号，失败不换账号；调用结束时写一条用量（§6.10）并按结果记下那个
  *   账号的状态。基址：账号的改写优先，其次是服务商的端点，最后是目录的预设（有国际与中国两个基址的按账号的 `region`）。
- * - `refresh()`（`models.refreshProvider`）向供应商取模型（与音色）列表，记在配置里：取到的列表只用来标注已有模型——
- *   百炼与用户声明模型缺失时仅提示未验证，其他内置模型报告为不可用（`unsupported`），账号里的音色补进没有预置音色的语音模型；取不到时照旧用内置列表并标明。
+ * - `refresh()`（`models.refreshProvider`）向供应商取模型（与音色）列表，记在配置里：取到的列表只用来标注已有的模型——
+ *   不在列表里的内置模型报告为不可用（`unsupported`），用户声明的只写明不在列表里、照旧可用；账号里的音色补进没有预置音色的
+ *   语音模型；取不到时照旧用内置列表并标明。
  * - 可用 = 用户启用了它（启用即是持续的授权，§6.2）且有密钥；自定义端点密钥可选，但那种能力要声明了模型。
  * - 配置与密钥在 `ModelServiceStore` 里；这里的视图只报告密钥有没有，从不回显。密钥在执行时才从凭据存储取；
  *   凭据存储不可用时 Provider 报告为不可用（`missing-credential`，`detail` 写明原因），不回退到别的存放。
@@ -409,31 +412,11 @@ export class OnlineProviderSource implements ProviderSource {
       throw new RpcError('invalid-request', PC.customIdFormat());
     }
     if (!custom && !isBuiltin(id)) throw new RpcError('not-found', PC.providerNotFound({ id }));
-    if (!custom && (request.label !== undefined || (request.models !== undefined && id !== 'qwen'))) {
-      throw new RpcError('invalid-request', PC.onlyCustomDeclares());
-    }
+    if (!custom && request.label !== undefined) throw new RpcError('invalid-request', PC.onlyCustomDeclares());
+    if (!custom && request.models !== undefined) this.#checkDeclarable(id as BuiltinId, request.models);
     const stored = this.#store.provider(id);
     if (custom && !stored && !request.endpoint) throw new RpcError('invalid-request', PC.customNeedsEndpoint());
     if (custom && request.endpoint === null) throw new RpcError('invalid-request', PC.customEndpointRequired());
-    if (request.models && id === 'qwen') {
-      const adapters = this.#adapterSet(id);
-      const config = { ...this.#settings(id), declared: [] };
-      const presets = new Map<string, ModelServiceCapability>([
-        ...(adapters.text?.models(config) ?? []).map((m) => [m.modelId, 'generateText'] as const),
-        ...(adapters.transcribe?.models(config) ?? []).map((m) => [m.modelId, 'transcribe'] as const),
-      ]);
-      if (request.models.some((m) => {
-        const capability = m.capability ?? 'transcribe';
-        if (!['generateText', 'transcribe'].includes(capability)) return true;
-        if (!presets.has(m.modelId)) return false;
-        // Preserve an existing declaration when the catalog later adopts its ID.
-        // It remains removable; new declarations cannot replace a preset.
-        return presets.get(m.modelId) !== capability || !(stored?.models ?? []).some((saved) =>
-          saved.modelId === m.modelId && (saved.capability ?? 'transcribe') === capability);
-      })) {
-        throw new RpcError('invalid-request', PC.presetModelsProtected());
-      }
-    }
     if (request.models) {
       const ids = request.models.map((m) => m.modelId);
       if (new Set(ids).size !== ids.length) throw new RpcError('invalid-request', PC.duplicateModelIds());
@@ -593,6 +576,24 @@ export class OnlineProviderSource implements ProviderSource {
     return removed || isBuiltin(providerId);
   }
 
+  /** 目录服务商手动添加的模型：只限 `vendor.declarable` 里的能力，modelId 不能与内置模型重名（内置的不能被替换或删掉）。 */
+  #checkDeclarable(id: BuiltinId, models: DeclaredModel[]): void {
+    const declarable = BUILTINS[id].vendor.declarable ?? [];
+    if (!declarable.length) throw new RpcError('invalid-request', PC.onlyCustomDeclares());
+    const adapters = this.#adapterSet(id);
+    const config = { ...this.#settings(id), declared: [] };
+    const lists = [
+      adapters.transcribe?.models(config),
+      adapters.speech?.models(config),
+      adapters.image?.models(config),
+      adapters.text?.models(config),
+    ];
+    const builtin = new Set<string>();
+    for (const list of lists) for (const m of list ?? []) builtin.add(m.modelId);
+    const rejected = models.find((m) => !declarable.includes(m.capability ?? 'transcribe') || builtin.has(m.modelId));
+    if (rejected) throw new RpcError('invalid-request', PC.notDeclarable({ label: this.#label(id), model: rejected.modelId }));
+  }
+
   #describe(providerId: string): ProviderView {
     const config = this.#settings(providerId);
     const adapters = this.#adapterSet(providerId);
@@ -616,7 +617,7 @@ export class OnlineProviderSource implements ProviderSource {
     if (adapters.image && declares('generateImage')) capabilities.generateImage = offer('generateImage', adapters.image.models(config));
     if (adapters.text && declares('generateText')) capabilities.generateText = offer('generateText', adapters.text.models(config));
     const discovered = this.#store.provider(providerId)?.discovered;
-    if (discovered?.ok) for (const cap of Object.values(capabilities)) annotate(cap.models, discovered, providerId === 'qwen');
+    if (discovered?.ok) for (const cap of Object.values(capabilities)) annotate(cap.models, discovered);
     return {
       providerId,
       kind: 'online',
@@ -830,17 +831,15 @@ export class OnlineProviderSource implements ProviderSource {
 }
 
 /**
- * 用取到的列表标注模型（就地修改）：百炼与用户声明模型缺失时仅提示，其他内置模型报告不可用；账号里的音色补进没有预置音色、接受自定义音色的语音模型。
- * 列表里多出来的模型不加进来：没有它们的限制与特性。
+ * 用取到的列表标注模型（就地修改）：不在列表里的内置模型报告为不可用；用户声明的以用户为准，只写明不在列表里（有的服务商
+ * 列表不全）。账号里的音色补进没有预置音色、接受自定义音色的语音模型。列表里多出来的模型不加进来：没有它们的限制与特性。
  */
-function annotate(models: ModelInfoBase[], discovered: DiscoveredList, advisory = false): void {
+function annotate(models: ModelInfoBase[], discovered: DiscoveredList): void {
   const listed = new Set(discovered.models ?? []);
   for (const model of models) {
     if (discovered.models && !listed.has(model.modelId) && model.available !== false) {
-      Object.assign(model, {
-        ...(!advisory && !model.declared ? { available: false, unavailableReason: 'unsupported' as const } : {}),
-        ...modelDetail(advisory || model.declared ? PC.modelListUnverified() : PC.notInVendorList({ at: discovered.at })),
-      });
+      const detail = modelDetail(PC.notInVendorList({ at: discovered.at }));
+      Object.assign(model, model.declared ? detail : { available: false, unavailableReason: 'unsupported', ...detail });
     }
     const speech = model as Partial<SpeechModelInfo>;
     if (discovered.voices && speech.voices?.length === 0 && speech.voiceModes?.includes('custom')) {

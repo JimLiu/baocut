@@ -410,16 +410,7 @@ export class ModelServiceStore {
     if (patch.endpoint === null) delete next.endpoint;
     else if (patch.endpoint !== undefined) next.endpoint = patch.endpoint;
     if (patch.label !== undefined) next.label = patch.label;
-    if (patch.models !== undefined) {
-      next.models = structuredClone(patch.models);
-      const key = (m: DeclaredModel) => `${m.capability ?? 'transcribe'}/${m.modelId}`;
-      const remaining = new Set(patch.models.map(key));
-      const removed = new Set((current.models ?? []).filter((m) => !remaining.has(key(m))).map(key));
-      for (const capability of Object.keys(this.#services.defaults) as ModelServiceCapability[]) {
-        const ref = this.#services.defaults[capability];
-        if (ref?.providerId === providerId && removed.has(`${capability}/${ref.modelId}`)) this.#services.defaults[capability] = null;
-      }
-    }
+    if (patch.models !== undefined) next.models = structuredClone(patch.models);
     this.#services.providers[providerId] = next;
     await this.#save();
   }

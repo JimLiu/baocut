@@ -32,6 +32,7 @@ export const nl: ModelsMessages = {
     --speech-model <id> ...        Spraaksynthesemodellen (/audio/speech); herhaalbaar.
     --image-model <id> ...         Afbeeldingsmodellen (/images/generations); herhaalbaar.
     --text-model <id> ...          Tekstmodellen (/chat/completions); herhaalbaar.
+                                   Catalogusproviders die dit toestaan (qwen) accepteren ook --model en --text-model, na de ingebouwde modellen
                                    Zodra een modelcategorie wordt opgegeven, wordt de volledige modelverklaring vervangen.
     --verify                       Controleer de nieuwe sleutel en het eindpunt bij de aanbieder vóór opslaan.
   baocut models accounts <providerId>

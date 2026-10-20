@@ -33,6 +33,7 @@ export const ja: ModelsMessages = {
     --speech-model <id> ...        カスタムエンドポイントが提供する音声合成モデル（/audio/speech。複数指定可）
     --image-model <id> ...         カスタムエンドポイントが提供する画像生成モデル（/images/generations。複数指定可）
     --text-model <id> ...          カスタムエンドポイントが提供するテキストモデル（/chat/completions。複数指定可）
+                                   モデルの追加を許可するカタログのプロバイダー（qwen）も --model と --text-model を使えます（内蔵モデルの後に並びます）
                                    いずれかの種類のモデルを指定すると、宣言済みのモデルはすべて置き換わります
     --verify                       保存前に新しいキーとエンドポイントをプロバイダで一度検証
   baocut models accounts <providerId>

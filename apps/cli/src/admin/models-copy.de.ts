@@ -38,6 +38,7 @@ export const de: ModelsMessages = {
     --speech-model <id> ...        Sprachsynthesemodelle des eigenen Endpunkts (/audio/speech; wiederholbar)
     --image-model <id> ...         Bilderzeugungsmodelle des eigenen Endpunkts (/images/generations; wiederholbar)
     --text-model <id> ...          Textmodelle des eigenen Endpunkts (/chat/completions; wiederholbar)
+                                   Katalog-Anbieter, die das erlauben (qwen), akzeptieren auch --model und --text-model, gelistet nach den integrierten Modellen
                                    Modellangaben beliebiger Art ersetzen alle deklarierten Modelle
     --verify                       Neuen Schlüssel und Endpunkt vor dem Speichern einmal beim Anbieter prüfen
   baocut models accounts <providerId>
