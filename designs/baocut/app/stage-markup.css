@@ -60,24 +60,26 @@
 .mk__card-row > span:first-child { flex: none; min-width: 64px; color: var(--gray-600); }
 .mk__card-row > span:last-child { min-width: 0; }
 
-/* 工具条：浮在画面底上，一行，一张浅底的卡（radius 10、细边、sh-pop），两种视图同一条。
-   钮是安静的图标钮（24 方、图标 16、间距 4），当前工具浅蓝底（S2 的切换钮选中是灰底，这里按 .ibtn.is-on 的样子盖掉），
+/* 工具条：浮在舞台之上（挂在 body 下、fixed，不受舞台 overflow 裁切；left / bottom 由 stage-markup.jsx 按舞台位置算，底边离舞台底 12、
+   对舞台居中、比舞台宽时收进窗口），一行、按内容定宽、不折行（舞台窄时也不把「添加到对话」挤成几行）；
+   一张浅底的卡（radius 10、细边、sh-pop，照 S2 ActionBar 的容器），两种视图同一条。
+   钮是安静的图标钮（24 方、图标 16、间距 4、圆角 4），当前工具浅蓝底（S2 的切换钮选中是灰底，这里按 .ibtn.is-on 的样子盖掉），
    下拉打开时钮显示悬停底色 */
-.mk-bar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 4px;
-  padding: 4px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); white-space: nowrap; }
+.mk-bar { position: fixed; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 4px;
+  width: max-content; padding: 4px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); white-space: nowrap; }
 .mk-bar__group { display: flex; align-items: center; gap: 4px; }
-.mk-bar .bc-icon-button { transition: background-color 60ms ease-out; }
+.mk-bar .bc-icon-button { border-radius: 4px; transition: background-color 60ms ease-out; }
 .mk-bar .bc-icon-button[data-selected] { background: var(--blue-200); color: var(--blue-1000); }
 .mk-bar .bc-icon-button[data-selected]:hover { background: var(--blue-300); }
 .mk-bar .bc-icon-button[aria-expanded="true"] { background: var(--gray-100); }
 .mk-bar__send, .mk-bar__send * { flex: none; white-space: nowrap; }
 .mk-bar .vrule { height: 20px; align-self: center; margin: 0 2px; }
 .mk-bar__dd { position: relative; }
-/* 带下拉的钮：样本与小箭头并排一行，钮随内容加宽；小箭头 12px、一直是灰的（选中也不变蓝） */
-.mk-bar__dd .bc-icon-button { width: auto; padding-inline: 4px; }
+/* 带下拉的钮：样本与小箭头并排一行，钮随内容加宽、左右不留白；小箭头 12px、一直是灰的（选中也不变蓝） */
+.mk-bar__dd .bc-icon-button { width: auto; padding-inline: 0; }
 .mk-bar__face { display: inline-flex; align-items: center; gap: 2px; }
 .mk-bar__chev { display: inline-flex; width: 12px; height: 12px; color: var(--gray-600); }
-.mk-bar__chev svg { width: 12px; height: 12px; --iconPrimary: currentColor; }
+.mk-bar__chev svg { width: 12px; height: 12px; --iconPrimary: var(--gray-600); }
 .mk-glyph { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .mk-glyph__n { fill: currentColor; stroke: none; font-size: 10px; font-weight: 700; text-anchor: middle; }
 .mk-glyph--wide { width: 20px; }

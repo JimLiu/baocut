@@ -338,6 +338,28 @@
     const playRef = useRef(ctx.playT);
     playRef.current = ctx.playT;
     useEffect(() => { if (!on) setMenu(null); }, [on]);
+    /* 工具条挂在 body 下（fixed，不受舞台 overflow 裁切）：舞台里只留一枚空锚点，按舞台的位置放——底边离舞台底 12、对舞台居中，
+       比舞台宽时左右收进窗口 8 以内 */
+    const anchorRef = useRef(null);
+    const barRef = useRef(null);
+    const [place, setPlace] = useState(null);
+    useLayoutEffect(() => {
+      const stage = anchorRef.current && anchorRef.current.parentElement;
+      const bar = barRef.current;
+      if (!on || !stage || !bar) return undefined;
+      const update = () => {
+        const r = stage.getBoundingClientRect();
+        const half = bar.offsetWidth / 2;
+        const left = Math.max(8 + half, Math.min(window.innerWidth - 8 - half, r.left + r.width / 2));
+        setPlace({left, bottom: window.innerHeight - r.bottom + 12});
+      };
+      update();
+      const ro = new ResizeObserver(update);
+      ro.observe(stage); ro.observe(bar);
+      window.addEventListener('resize', update);
+      document.addEventListener('scroll', update, {capture: true, passive: true});
+      return () => { ro.disconnect(); window.removeEventListener('resize', update); document.removeEventListener('scroll', update, {capture: true}); };
+    }, [on]);
     /* 标注时的键（捕获阶段，先于 editor-keys.jsx 的全局键）：Esc 关闭、⌘Z / ⇧⌘Z 撤销重做、⌫ 删选中的、⇧⌘S 选择元素、⇧⌘C 评论。输入框与弹层开着时不接。 */
     useEffect(() => {
       if (!on) return undefined;
@@ -367,7 +389,8 @@
     const Row = ({on: isOn, onClick, children, label, ariaLabel}) => <BCAction type="button" className={cx('mk-menu__row', isOn && 'is-on')} role="menuitemradio" aria-checked={isOn} aria-label={ariaLabel} onClick={onClick}>
       {children}<span className="mk-menu__label">{label}</span>{isOn ? <R.Icons.Checkmark /> : null}</BCAction>;
     return <>
-      <div className="mk-bar" role="toolbar" aria-label="标记工具">
+      <span ref={anchorRef} hidden />
+      {ReactDOM.createPortal(<div ref={barRef} className="mk-bar" role="toolbar" aria-label="标记工具" style={place || {visibility: 'hidden'}}>
         <div className="mk-bar__group">
           {MK.TOOLS.filter(t => t.k !== 'text').map(t => {
             if (t.k === 'shape') return <div key={t.k} className="mk-bar__dd">
@@ -405,7 +428,7 @@
         <span className="vrule" />
         <R.Button variant="primary" size="S" isDisabled={!sendable.length} onPress={send} UNSAFE_className="mk-bar__send"><R.Text>添加到对话</R.Text></R.Button>
         <IconBtn size="s" tip="关闭标记 · Esc" onClick={() => ctx.closeMarkup()}><R.Icons.Close /></IconBtn>
-      </div>
+      </div>, document.body)}
       <ConfirmDialog ask={st.ask ? {title: '放弃这些标记？', body: '画面上有还没添加到对话的标记，放弃会把它们去掉。', cancelLabel: '继续标记', confirmLabel: '放弃', tone: 'negative'} : null}
         onCancel={() => set(s => ({...s, ask: false}))} onConfirm={() => { reset(); ctx.setAnnotating(false); }} />
     </>;

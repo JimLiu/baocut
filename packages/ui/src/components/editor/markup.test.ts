@@ -15,7 +15,7 @@ import { useShell } from '../../state/shell-store.ts';
 import { useVideo, type OpenVideo } from '../../state/video-store.ts';
 import { sequence } from '../../testing/sequence-records.ts';
 import { EditorContext, type EditorActions } from './editor-context.tsx';
-import { MarkupLayer } from './markup.tsx';
+import { barPlace, MarkupLayer } from './markup.tsx';
 
 /** 轻量视图的标记层（docs/design/lite-editor §4.1–§4.3）：手势画成标记、选中拖动、撤销、整组添加到对话、评论立刻发出并带截图。 */
 
@@ -383,7 +383,7 @@ describe('MarkupLayer', () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     stubImage();
-    // 同 preview.tsx：画布、标记层与工具条都在 `[data-preview-stage]` 里；评论框在 body 下的 portal 里
+    // 同 preview.tsx：画布与标记层在 `[data-preview-stage]` 里；工具条与评论框在 body 下的 portal 里
     container.setAttribute('data-preview-stage', '');
     canvas.getBoundingClientRect = () => ({
       left: 10,
@@ -423,7 +423,9 @@ describe('MarkupLayer', () => {
       await act(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
       expect(captureFrame).toHaveBeenCalledWith({ x: 10, y: 20, width: 640, height: 360 });
       expect(hiddenAt).toEqual(expect.arrayContaining(['layer', 'bar', 'form']));
+      expect(container.querySelector('[data-markup-bar]')).toBeNull();
       expect(layer().style.visibility).toBe('');
+      expect(document.querySelector<HTMLElement>('[data-markup-bar]')!.style.visibility).toBe('');
       expect(portal.style.visibility).toBe('');
       const shot = useDraftVideoAnnotations.getState().shots.v1?.[3000];
       expect(shot?.base.type).toBe('image/png');
@@ -520,5 +522,15 @@ describe('MarkupLayer', () => {
     expect(Object.keys(shots[3000]?.marks ?? {})).toEqual([notes[0]!.id]);
     // 发出去的不留在标记里
     expect(marks()).toHaveLength(0);
+  });
+});
+
+describe('标记工具条的落点', () => {
+  it('对舞台水平居中、底边离舞台底 12', () => {
+    expect(barPlace({ left: 100, width: 600, bottom: 500 }, 300, 1200, 800)).toEqual({ left: 400, bottom: 312 });
+  });
+  it('比舞台宽时收进窗口左右 8 以内', () => {
+    expect(barPlace({ left: 0, width: 200, bottom: 500 }, 374, 1000, 800)).toEqual({ left: 195, bottom: 312 });
+    expect(barPlace({ left: 900, width: 100, bottom: 500 }, 374, 1000, 800)).toEqual({ left: 805, bottom: 312 });
   });
 });

@@ -1,4 +1,14 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type RefObject,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { createPortal } from 'react-dom';
 import {
   newId,
   type AssetRecord,
@@ -185,11 +195,18 @@ const pickRow = style({ display: 'flex', justifyContent: 'space-between', gap: 1
 const anchorDot = style({ position: 'absolute', width: 1, height: 1, pointerEvents: 'none' });
 const commentForm = style({ display: 'flex', flexDirection: 'column', gap: 12, width: 280, maxWidth: 'full' });
 const commentActions = style({ display: 'flex', justifyContent: 'end', gap: 8 });
-/** 工具条：浮在画面底边上方，居中；一行，浅底、圆角、细边、轻阴影（照截图标注器）。 */
+/**
+ * 工具条：浮在舞台之上（挂在 body 下的 portal、fixed 定位，不受舞台 overflow 裁切），底边离舞台底 12、对舞台水平居中，
+ * 比舞台宽时左右收进窗口 8 以内（原型 `.mk-bar`）；一行，按内容定宽、不折行（舞台窄时也不把「添加到对话」挤成几行）。
+ * 外观照 S2 ActionBar 的容器：elevated 底、lg 圆角、细边、elevated 阴影。不直接用 ActionBar：它固定带「已选 N 项」与清除钮、
+ * 零项时整个隐藏，子节点只收安静的 ActionButton，放不下切换态、分隔线与主按钮。
+ */
 const bar = style({
-  position: 'absolute',
+  position: 'fixed',
   zIndex: 12,
-  transform: 'translate(-50%, -100%)',
+  transform: 'translateX(-50%)',
+  width: 'max',
+  whiteSpace: 'nowrap',
   display: 'flex',
   alignItems: 'center',
   gap: 4,
@@ -199,13 +216,13 @@ const bar = style({
   borderStyle: 'solid',
   borderWidth: 1,
   borderColor: 'gray-200',
-  backgroundColor: 'layer-2',
+  backgroundColor: 'elevated',
   boxShadow: 'elevated',
 });
 const divider = style({ width: 1, height: 20, marginX: 4, backgroundColor: 'gray-300', flexShrink: 0 });
 /**
- * 工具钮：安静的图标钮，24 方、图标 16，底色过渡 60ms 一档；当前工具浅蓝底、蓝图标（照原型的 `.ibtn.is-on`；
- * S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。带下拉的（形状 / 颜色 / 粗细）随内容加宽，图标右边多一枚小箭头；
+ * 工具钮：安静的图标钮，24 方、图标 16、小圆角，底色过渡 60ms 一档；当前工具浅蓝底、蓝图标（照原型的 `.ibtn.is-on`；
+ * S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。带下拉的（形状 / 颜色 / 粗细）随内容加宽、左右不留白，图标右边紧跟一枚小箭头；
  * 下拉打开时 RAC 把触发钮当按着，显示按下底色。
  */
 const toolBtn = style({
@@ -216,8 +233,8 @@ const toolBtn = style({
   height: 24,
   minWidth: 24,
   boxSizing: 'border-box',
-  paddingX: { default: 0, hasMenu: 4 },
-  borderRadius: 'default',
+  paddingX: 0,
+  borderRadius: 'sm',
   borderWidth: 0,
   backgroundColor: {
     default: 'transparent',
@@ -251,9 +268,12 @@ const swatchDot = style({
 });
 /** 下拉里一行的内容：样本（圆点 / 横线）与名字。 */
 const menuRow = style({ display: 'inline-flex', alignItems: 'center', gap: 8 });
-/** 带下拉的钮右边的小箭头：XS 号（12），一直是灰的，选中也不变蓝（外面套一层定色）。 */
-const chevron = iconStyle({ size: 'XS' });
-const chevronWrap = style({ display: 'inline-flex', color: 'gray-600', '--iconPrimary': { type: 'fill', value: 'currentColor' } });
+/**
+ * 带下拉的钮右边的小箭头：12 方（iconStyle 最小的 XS 是 14，图标铺满外面这一层），一直是灰的，选中也不变蓝——外层直接把
+ * `--iconPrimary` 定成灰色，不用 currentColor 从钮上继承（钮选中时是蓝的）。
+ */
+const chevronWrap = style({ display: 'inline-flex', size: 12, flexShrink: 0, '--iconPrimary': { type: 'fill', value: 'gray-600' } });
+const chevronFill = { width: '100%', height: '100%' } satisfies CSSProperties;
 
 // ---- 形状的图标（S2 没有对应的几个按原型的描边几何画在 20×20 网格上） ----
 
@@ -799,7 +819,7 @@ export function MarkupLayer({
         {hover && picking ? <PickHint pick={hover} canvas={canvas} brief={tool === 'comment'} /> : null}
         <CommentBox pending={comment} color={markup.color} onSend={sendComment} onCancel={() => setComment(null)} />
       </div>
-      <MarkupBar frame={frame} onAddToChat={addToChat} />
+      <MarkupBar anchor={layerRef} onAddToChat={addToChat} />
       <DialogContainer onDismiss={() => apply((s) => ({ ...s, ask: false }))}>
         {markup.ask ? (
           <AlertDialog
@@ -996,9 +1016,28 @@ function CommentBox({
 
 /**
  * 标记工具条（lite-editor §4.1；照截图标注器，一行）：选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 添加到对话 / 关闭。
- * 撤销 / 重做 / 删选中的不占钮，走 ⌘Z / ⇧⌘Z / Delete（标记层的键）。浮在画面底边上方；`frame` 是画面在舞台里的位置。
+ * 撤销 / 重做 / 删选中的不占钮，走 ⌘Z / ⇧⌘Z / Delete（标记层的键）。挂在 body 下，按 `anchor` 所在舞台的位置浮在舞台底边上方。
  */
-export function MarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddToChat: () => void }) {
+export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLElement | null>; onAddToChat: () => void }) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    const stage = anchor.current?.closest<HTMLElement>('[data-preview-stage]') ?? anchor.current;
+    const el = barRef.current;
+    if (!stage || !el) return;
+    const update = () => setPlace(barPlace(stage.getBoundingClientRect(), el.offsetWidth, window.innerWidth, window.innerHeight));
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(stage);
+    observer?.observe(el);
+    window.addEventListener('resize', update);
+    document.addEventListener('scroll', update, { capture: true, passive: true });
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', update);
+      document.removeEventListener('scroll', update, { capture: true });
+    };
+  }, [anchor]);
   const markup = useMarkup((s) => s.markup);
   const apply = useMarkup((s) => s.apply);
   const C = MARKUP_COPY;
@@ -1026,17 +1065,18 @@ export function MarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddToCha
       >
         {content}
         <span className={chevronWrap} aria-hidden>
-          <ChevronDown styles={chevron} />
+          <ChevronDown UNSAFE_style={chevronFill} />
         </span>
       </RACButton>
     </Tip>
   );
   const Shape = SHAPE_GLYPHS[markup.shape];
   const count = sendable(markup.marks).length;
-  return (
+  return createPortal(
     <div
+      ref={barRef}
       className={bar}
-      style={{ left: frame.left + frame.width / 2, top: frame.top + frame.height - 12 }}
+      style={place ?? { visibility: 'hidden' }}
       role="toolbar"
       aria-label={C.toolbar}
       data-markup-bar
@@ -1120,8 +1160,16 @@ export function MarkupBar({ frame, onAddToChat }: { frame: FrameRect; onAddToCha
           <Close />
         </ActionButton>
       </Tip>
-    </div>
+    </div>,
+    document.body,
   );
+}
+
+/** 工具条的落点（视口坐标，配 `translateX(-50%)`）：对舞台水平居中、底边离舞台底 12；比舞台宽时左右收进窗口 8 以内。 */
+export function barPlace(stage: Pick<DOMRect, 'left' | 'width' | 'bottom'>, width: number, viewW: number, viewH: number): CSSProperties {
+  const half = width / 2;
+  const center = stage.left + stage.width / 2;
+  return { left: Math.max(8 + half, Math.min(viewW - 8 - half, center)), bottom: viewH - stage.bottom + 12 };
 }
 
 /** 粗细的示意：一段这么粗的横线，圆头缩在框里（最粗的是一枚短胶囊）；下拉里的 `long` 更长一些。 */
@@ -1157,14 +1205,15 @@ async function keepFrame(timeMs: number, source: HTMLCanvasElement | null, live:
   if (png) useMarkup.getState().keepFrame(timeMs, png);
 }
 type CaptureFrame = HostBridge['captureFrame'];
-const OVERLAYS = '[data-markup], [data-markup-bar], [data-video-annotations]';
+const OVERLAYS = '[data-markup], [data-video-annotations]';
 const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 /**
- * 截窗口前要藏起来的东西：舞台里的标记层、工具条与草稿标注层，还有评论框——它开在 Popover 里（挂在 body 下的 portal，不在舞台里，
- * 关掉时还有一段退场动画），从它往上取到不包着舞台的最外层一起藏。
+ * 截窗口前要藏起来的东西：舞台里的标记层与草稿标注层，挂在 body 下的工具条，还有评论框——它开在 Popover 里（挂在 body 下的 portal，
+ * 不在舞台里，关掉时还有一段退场动画），从它往上取到不包着舞台的最外层一起藏。
  */
 function overlaysToHide(stage: HTMLElement | null): HTMLElement[] {
   const found = stage ? [...stage.querySelectorAll<HTMLElement>(OVERLAYS)] : [];
+  found.push(...document.querySelectorAll<HTMLElement>('[data-markup-bar]'));
   for (const form of document.querySelectorAll<HTMLElement>('[data-comment-form]')) {
     let top = form;
     while (top.parentElement && top.parentElement !== document.body && !(stage && top.parentElement.contains(stage)))
