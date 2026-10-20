@@ -60,7 +60,13 @@ test('合成与生图的模型按 id 从各自的表读，两边不漂', () => {
     assert.ok(V.capsOf(V.byId(p.id)).indexOf('image') >= 0, p.id);
     assert.deepEqual(V.modelsOf(p.id, 'image').map((x) => x.id), p.models.map((x) => x.id));
   });
-  V.VENDORS.filter((v) => v.kind !== 'agent').forEach((v) => V.capsOf(v).forEach((c) => assert.ok(V.modelsOf(v.id, c).length >= 1, `${v.id} ${c}`)));
+  V.VENDORS.filter((v) => v.kind !== 'agent').forEach((v) => V.capsOf(v).forEach((c) => {
+    if (v.id === 'qwen' && c === 'transcribe') {
+      assert.deepEqual(V.modelsOf(v.id, c), [], 'Qwen ASR lists saved declarations only');
+    } else {
+      assert.ok(V.modelsOf(v.id, c).length >= 1, `${v.id} ${c}`);
+    }
+  }));
 });
 
 test('掩码：前 3 + … + 后 4；8 位及以下全 •；空串为空', () => {
