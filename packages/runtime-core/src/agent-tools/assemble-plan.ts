@@ -54,6 +54,7 @@ export const planSchema = z.strictObject({
       narration: z.string().min(1).max(200).optional().describe('Audio track for narration (id or name); default "Narration"'),
       footage: z.string().min(1).max(200).optional().describe('Visual track for footage clips (id or name); default "Footage"'),
       cards: z.string().min(1).max(200).optional().describe('Visual track for cards (id or name); default "Cards"'),
+      watermarks: z.string().min(1).max(200).optional().describe('Visual track for watermarks (id or name); default "Watermark"'),
     })
     .optional()
     .describe(
@@ -144,12 +145,38 @@ export const planSchema = z.strictObject({
     .max(2000)
     .optional()
     .describe('Optional. Cards (transparent code bundles) on the card track at the word time'),
+  watermarks: z
+    .array(
+      z.strictObject({
+        id: id.describe('Watermark id'),
+        path: filePath.describe('Image file (png, jpg, webp, bmp, tif, gif)'),
+        seg: id.optional().describe('Optional. Segment to anchor to (then line + cue or at are relative to it); without seg, at is seconds on the timeline'),
+        line: z.number().int().min(0).optional().describe(LINE),
+        cue: z.string().min(1).optional().describe(CUE),
+        at: seconds.optional().describe('Seconds from the start of seg, or from the start of the timeline when seg is not given'),
+        dur: z.number().positive().max(3600).describe('Seconds on screen; cut at the end of the last segment'),
+        pip: z
+          .strictObject({
+            x: z.number().describe('Box centre x, percent of the canvas width'),
+            y: z.number().describe('Box centre y, percent of the canvas height'),
+            w: z.number().positive().describe('Box width, percent of the canvas width'),
+          })
+          .optional()
+          .describe('Optional. Where the image sits; default full screen'),
+        fit: z.enum(['cover', 'contain']).optional().describe('contain (default) or cover'),
+        name: z.string().min(1).max(200).optional().describe('Clip name on the timeline; default the id'),
+      }),
+    )
+    .max(2000)
+    .optional()
+    .describe('Optional. Images over everything for a fixed time (watermark, logo) on the top track; they must not overlap'),
 });
 
 export type Plan = z.infer<typeof planSchema>;
 export type PlanSegment = Plan['segments'][number];
 export type PlanClip = NonNullable<Plan['clips']>[number];
 export type PlanCard = NonNullable<Plan['cards']>[number];
+export type PlanWatermark = NonNullable<Plan['watermarks']>[number];
 export type PlanTransition = z.infer<typeof transition>;
 
 /** 排好的一段：起点与帧数（序列的帧）。 */
@@ -173,6 +200,12 @@ export interface ClipSlot {
 export interface CardSlot {
   id: string;
   seg: string;
+  from: number;
+  frames: number;
+}
+
+export interface WatermarkSlot {
+  id: string;
   from: number;
   frames: number;
 }
@@ -222,6 +255,10 @@ export function checkPlan(plan: Plan): void {
     (plan.cards ?? []).map((c) => c.id),
     'cards',
   );
+  dup(
+    (plan.watermarks ?? []).map((w) => w.id),
+    'watermarks',
+  );
   const segments = new Set(plan.segments.map((s) => s.id));
   for (const s of plan.segments) {
     if (s.narration && (s.narration.path === undefined) === (s.narration.artifactId === undefined)) {
@@ -245,6 +282,20 @@ export function checkPlan(plan: Plan): void {
       throw new ToolError('INVALID_ARGUMENTS', `card ${c.id}: give exactly one anchor of line (with optional cue) and at`);
     }
     if (c.cue !== undefined && c.line === undefined) throw new ToolError('INVALID_ARGUMENTS', `card ${c.id}: cue needs line`);
+  }
+  for (const w of plan.watermarks ?? []) {
+    if (!isImagePath(w.path)) throw new ToolError('INVALID_ARGUMENTS', `watermark ${w.id}: ${w.path} is not an image (png, jpg, webp, bmp, tif, gif)`);
+    if (w.seg === undefined) {
+      if (w.at === undefined || w.line !== undefined || w.cue !== undefined) {
+        throw new ToolError('INVALID_ARGUMENTS', `watermark ${w.id}: without seg give at (seconds on the timeline) and no line or cue`);
+      }
+      continue;
+    }
+    if (!segments.has(w.seg)) throw new ToolError('INVALID_ARGUMENTS', `watermark ${w.id}: segment ${w.seg} is not in plan.segments`);
+    if ((w.line !== undefined) === (w.at !== undefined)) {
+      throw new ToolError('INVALID_ARGUMENTS', `watermark ${w.id}: give exactly one anchor of line (with optional cue) and at`);
+    }
+    if (w.cue !== undefined && w.line === undefined) throw new ToolError('INVALID_ARGUMENTS', `watermark ${w.id}: cue needs line`);
   }
 }
 
@@ -373,6 +424,45 @@ export function placeCards(
     }
   });
   return placed;
+}
+
+/**
+ * 水印的落点：给了段落时是段首 + 字时间或秒数，没给时是时间线上的秒数；长度是 `dur`，截在最后一段的末尾（截掉的放进
+ * `warnings`，整个落在末尾之后的拒绝）。同一条水印轨上不能重叠。
+ */
+export function placeWatermarks(
+  watermarks: PlanWatermark[],
+  slots: SegmentSlot[],
+  timings: Map<string, Timing | undefined>,
+  fps: Rate,
+): { watermarks: WatermarkSlot[]; warnings: string[] } {
+  const warnings: string[] = [];
+  const bySeg = new Map(slots.map((s) => [s.id, s]));
+  const last = slots[slots.length - 1];
+  const end = last ? last.from + last.frames : 0;
+  const placed = watermarks
+    .map((w) => {
+      const from =
+        w.seg === undefined
+          ? frameOf(w.at!, fps)
+          : bySeg.get(w.seg)!.from + frameOf(w.at !== undefined ? w.at : cueSeconds(timings.get(w.seg), `watermark ${w.id}`, w.seg, w.line!, w.cue), fps);
+      if (from >= end) {
+        throw new ToolError('INVALID_ARGUMENTS', `watermark ${w.id} starts at frame ${from}, at or after the end of the last segment (${end})`);
+      }
+      const want = Math.max(1, frameOf(w.dur, fps));
+      if (from + want > end) warnings.push(`watermark ${w.id} runs ${from + want - end} frames past the end of the last segment; cut there`);
+      return { id: w.id, from, frames: Math.min(want, end - from) };
+    })
+    .sort((a, b) => a.from - b.from);
+  placed.forEach((w, i) => {
+    const next = placed[i + 1];
+    if (next && w.from + w.frames > next.from) {
+      throw new ToolError('INVALID_ARGUMENTS', `watermarks ${w.id} and ${next.id} overlap on the watermark track (frames ${next.from}–${w.from + w.frames})`, {
+        next: 'Move one of them or shorten dur',
+      });
+    }
+  });
+  return { watermarks: placed, warnings };
 }
 
 /**

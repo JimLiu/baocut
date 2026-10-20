@@ -120,7 +120,7 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('代码画面工具�
     await runtime?.close();
     await fs.rm(dir, { recursive: true, force: true });
     await fs.rm(fixtures, { recursive: true, force: true });
-  });
+  }, 120_000); // 关 Runtime 要等烘焙任务收尾
 
   async function call(name: string, args: unknown): Promise<CatalogCallResult> {
     return client.request('catalog.call', { name, args, cwd: project.path });

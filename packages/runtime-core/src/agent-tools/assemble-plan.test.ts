@@ -7,6 +7,7 @@ import {
   layoutSegments,
   placeCards,
   placeClips,
+  placeWatermarks,
   planSchema,
   rippleSteps,
   type Plan,
@@ -55,6 +56,17 @@ describe('assemble-plan：计划的一致性', () => {
       checkPlan({ segments: [{ id: 'a', bundle: 'b', narration: { path: 'a.wav', artifactId: 'sha256:x' } }] }),
     ).toThrow(/exactly one of path and artifactId/);
     expect(() => checkPlan({ ...base, clips: [clip({ id: 'x', line: 0, cue: 'one' })] })).not.toThrow();
+  });
+
+  it('水印：只收图片；不给段落时只认时间线上的 at', () => {
+    const mark = { id: 'w', path: 'logo.png', dur: 5 };
+    expect(() => checkPlan({ ...base, watermarks: [{ ...mark, path: 'logo.mp4', at: 1 }] })).toThrow(/not an image/);
+    expect(() => checkPlan({ ...base, watermarks: [{ ...mark }] })).toThrow(/without seg give at/);
+    expect(() => checkPlan({ ...base, watermarks: [{ ...mark, at: 1, line: 0 }] })).toThrow(/without seg give at/);
+    expect(() => checkPlan({ ...base, watermarks: [{ ...mark, seg: 'zz', at: 1 }] })).toThrow(/not in plan.segments/);
+    expect(() => checkPlan({ ...base, watermarks: [{ ...mark, seg: 'a' }] })).toThrow(/exactly one anchor/);
+    expect(() => checkPlan({ ...base, watermarks: [{ ...mark, at: 1 }, { ...mark, at: 9 }] })).toThrow(/twice/);
+    expect(() => checkPlan({ ...base, watermarks: [{ ...mark, at: 1 }, { ...mark, id: 'w2', seg: 'a', line: 0, cue: 'x' }] })).not.toThrow();
   });
 
   it('schema 接受 timing 为对象或路径，拒绝不认识的字段', () => {
@@ -162,6 +174,34 @@ describe('assemble-plan：卡片', () => {
     expect(() =>
       placeCards([{ id: 'k1', seg: 'a', at: 0, bundle: 'k1' }, { id: 'k2', seg: 'a', at: 1, bundle: 'k2' }], slots, timings, new Map([['k1', 60], ['k2', 30]]), FPS),
     ).toThrow(ToolError);
+  });
+});
+
+describe('assemble-plan：水印', () => {
+  const slots = layoutSegments([{ id: 'a', frames: 300 }, { id: 'b', frames: 150 }]);
+  const timings = new Map<string, Timing | undefined>([['a', timing], ['b', timing]]);
+
+  it('段内按字或秒数、不给段落按时间线秒数放；截在最后一段末尾，落在末尾之后与重叠都拒绝', () => {
+    const { watermarks, warnings } = placeWatermarks(
+      [
+        { id: 'end', path: 'w.png', at: 14, dur: 2 },
+        { id: 'cue', path: 'w.png', seg: 'b', line: 1, cue: 'one', dur: 1 },
+        { id: 'abs', path: 'w.png', at: 1, dur: 5 },
+      ],
+      slots,
+      timings,
+      FPS,
+    );
+    expect(watermarks).toEqual([
+      { id: 'abs', from: 30, frames: 150 },
+      { id: 'cue', from: 384, frames: 30 }, // 300 + 2.8 s
+      { id: 'end', from: 420, frames: 30 }, // 2 s wanted, 1 s left
+    ]);
+    expect(warnings).toEqual([expect.stringContaining('watermark end runs 30 frames past')]);
+    expect(() => placeWatermarks([{ id: 'late', path: 'w.png', at: 15, dur: 1 }], slots, timings, FPS)).toThrow(/at or after the end/);
+    expect(() =>
+      placeWatermarks([{ id: 'x', path: 'w.png', at: 0, dur: 2 }, { id: 'y', path: 'w.png', seg: 'a', at: 1, dur: 1 }], slots, timings, FPS),
+    ).toThrow(/overlap on the watermark track/);
   });
 });
 

@@ -1444,7 +1444,7 @@ interface Provenance {
 | `editorial-proposal` | 口播剪辑提案 | 已实现 | §6.2 |
 | `cut-set` | 一个源素材上被口播剪辑删掉的区间 | `baocut.cut-set/1` | §6.7 |
 | `derivation` | 派生子视频的来源：父视频、版本、区间与区间之外的剪口 | `baocut.derivation/1` | 见下 |
-| `production-plan` | 制作计划放上时间线的记录：每个段落、实拍片段与卡片对应哪个片段，用的是哪一版内容 | `baocut.production-plan/1` | 见下 |
+| `production-plan` | 制作计划放上时间线的记录：每个段落、实拍片段、卡片与水印对应哪个片段，用的是哪一版内容 | `baocut.production-plan/1` | 见下 |
 | `dubbing-plan` | 配音计划 | 计划 | §7.2 |
 | `sound-cue-sheet`、`narration-cue-sheet` | 声音事件表、旁白事件表 | 计划 | §7.9、§7.10 |
 | `chapter-sheet` | 章节表：一个序列的每一章的脚本、配音、代码包与它编译成的实例与标记 | `baocut.chapter-sheet/1`（今天只有界面读脚本，编译未实现） | §7.12 |
@@ -1488,7 +1488,7 @@ interface Provenance {
   ```ts
   interface ProductionPlanBody {
     schema: 'baocut.production-plan/1';
-    tracks: { scenes: Id; narration: Id; footage: Id | null; cards: Id | null };  // 放到了哪几条轨；没有片段或卡片时 null
+    tracks: { scenes: Id; narration: Id; footage: Id | null; cards: Id | null; watermarks: Id | null };  // 放到了哪几条轨；没有这一类时 null
     segments: Array<{
       id: string;                 // 计划里段落的 id
       contentHash: string;        // 时间线上那个代码画面用的代码包的内容摘要
@@ -1496,12 +1496,13 @@ interface Provenance {
       narration: string | null;   // 旁白：'artifact:<产物 ID>' 或 'sha256:<文件内容摘要>'；没有旁白时 null
       narrationItem: Id | null;   // 旁白的片段
     }>;
-    clips: Array<{ id: string; key: string; item: Id }>;          // 实拍片段：key 是源、入点、长度、画面、声音与转场的 sha256
+    clips: Array<{ id: string; key: string; item: Id }>;          // 实拍片段：key 是源（路径、文件大小与修改时间）、入点、长度、画面、声音与转场的 sha256
     cards: Array<{ id: string; contentHash: string; item: Id }>;  // 卡片：代码包的内容摘要
+    watermarks: Array<{ id: string; key: string; item: Id }>;     // 水印：key 是图片（路径、文件大小与修改时间）、长度、位置与放法的 sha256
   }
   ```
 
-  记录里只有摘要与 ID，没有本机路径，便携包照常带出去。重跑时按记录里的片段 ID 找，不按名字。实拍片段、卡片或旁白被手动删掉时重新放；代码画面被连同时间一起删掉（`removeRange`）时当作中间插进的段落放回，只删了片段、留下空隙时后面的段落对不上记录，以 `LAYOUT_MISMATCH` 拒绝。
+  记录里只有摘要与 ID，没有本机路径，便携包照常带出去。重跑时按记录里的片段 ID 找，不按名字。`tracks.watermarks` 与 `watermarks` 是后加的，没有它们的记录按没有水印读。实拍片段、卡片、水印或旁白被手动删掉时重新放；代码画面被连同时间一起删掉（`removeRange`）时当作中间插进的段落放回，只删了片段、留下空隙时后面的段落对不上记录，以 `LAYOUT_MISMATCH` 拒绝。
 
 - `library-selection` 记视频启用了用户库里的哪些条目（架构设计 §5.9）：每个视频至多一份，有几份时只认 ID 最小的一份，名字「启用的库条目」。它记条目 ID，不记内容；条目的内容在用到时冻结，记在用到它的文档或任务上（例如译文的 `glossaryRef`，§5.3）。正文：
 

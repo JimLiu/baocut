@@ -3,7 +3,17 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import type { EditResult, Id, Sequence, SequenceItem, Track, TrackKind, VideoOpenResult, VideoSnapshot } from '@baocut/protocol';
+import type {
+  CompositionBakeInfo,
+  EditResult,
+  Id,
+  Sequence,
+  SequenceItem,
+  Track,
+  TrackKind,
+  VideoOpenResult,
+  VideoSnapshot,
+} from '@baocut/protocol';
 import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { VideoService } from '../videos/video-service.ts';
 import { videoChangeOf, type CompositionEdit, type CompositionService } from '../compositions/composition-service.ts';
@@ -14,6 +24,7 @@ import {
   layoutSegments,
   placeCards,
   placeClips,
+  placeWatermarks,
   planSchema,
   rippleSteps,
   timingSchema,
@@ -21,9 +32,11 @@ import {
   type ClipSlot,
   type Plan,
   type PlanClip,
+  type PlanWatermark,
   type RippleStep,
   type SegmentSlot,
   type Timing,
+  type WatermarkSlot,
 } from './assemble-plan.ts';
 import { ToolError, errorBody, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import { approvalField, confirmSummary, type ToolAccess, type ToolApprovalNote, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
@@ -31,9 +44,11 @@ import { resolveUserPath } from './video-digest.ts';
 import { videoArg, type VideoTools } from './video-tools.ts';
 
 /**
- * 一次放好制作计划（`edits_assemble`，Agent 面设计 §4.3）：各段代码画面与旁白首尾相接，实拍片段按句子与字放，卡片放在卡片轨上。
+ * 一次放好制作计划（`edits_assemble`，Agent 面设计 §4.3）：各段代码画面与旁白首尾相接，实拍片段按句子与字放，卡片放在卡片轨上，
+ * 水印图片放在最上面一条轨。
  * 排布在 `assemble-plan.ts`（纯计算）；这里读计划与时间文件、量代码包、对照上一次的记录（视频里 `production-plan` 文档），
- * 再按顺序提交：准备轨道 → 删掉过时的条目 → 波纹腾位置或换包 → 放新段落、旁白、实拍、转场、卡片 → 写记录。代码画面走
+ * 先查要动的轨道与实例有没有锁着（锁着的引擎会拒绝，前台烘焙就白做了），再按顺序提交：准备轨道 → 删掉过时的条目 →
+ * 波纹腾位置或换包 → 放新段落、旁白、实拍、转场、卡片、水印 → 写记录。代码画面走
  * `CompositionService`（与 `compositions_import` 同一条路径），其余每笔走 `VideoTools.submitEdit`（与 `edits_apply` 同一条路径）。
  */
 
@@ -46,7 +61,7 @@ export interface AssembleToolsDeps {
 
 export const PLAN_RECORD_KIND = 'production-plan';
 const RECORD_SCHEMA = 'baocut.production-plan/1';
-const DEFAULT_TRACKS = { scenes: 'Scenes', narration: 'Narration', footage: 'Footage', cards: 'Cards' } as const;
+const DEFAULT_TRACKS = { scenes: 'Scenes', narration: 'Narration', footage: 'Footage', cards: 'Cards', watermarks: 'Watermark' } as const;
 /** 引擎给新视频起的轨道名（V1、A1）：空着时可以拿来用。 */
 const DEFAULT_TRACK_NAME = /^[VA]\d+$/;
 /** 别人同时写入（后台烘焙在写替身）造成的版本冲突，按最新版本重试的次数。 */
@@ -54,7 +69,13 @@ const WRITE_ATTEMPTS = 4;
 
 const recordSchema = z.object({
   schema: z.literal(RECORD_SCHEMA),
-  tracks: z.object({ scenes: z.string(), narration: z.string(), footage: z.string().nullable(), cards: z.string().nullable() }),
+  tracks: z.object({
+    scenes: z.string(),
+    narration: z.string(),
+    footage: z.string().nullable(),
+    cards: z.string().nullable(),
+    watermarks: z.string().nullable().default(null),
+  }),
   segments: z.array(
     z.object({
       id: z.string(),
@@ -66,6 +87,7 @@ const recordSchema = z.object({
   ),
   clips: z.array(z.object({ id: z.string(), key: z.string(), item: z.string() })),
   cards: z.array(z.object({ id: z.string(), contentHash: z.string(), item: z.string() })),
+  watermarks: z.array(z.object({ id: z.string(), key: z.string(), item: z.string() })).default([]),
 });
 type PlanRecord = z.infer<typeof recordSchema>;
 
@@ -101,11 +123,11 @@ const DEFINITIONS: Record<keyof typeof schemas, ToolInfo> = {
   edits_assemble: {
     title: 'Assemble production plan',
     description: [
-      'Place a production plan on the timeline in one call: code bundle segments end to end with narration, plus footage clips and cards.',
-      'Plan: segments in play order, each { id, bundle (code bundle folder; its length is the segment length), narration? { path | artifactId }, timing? }. timing is the aligned narration { lines: [{ text, start, chars? }], gaps? } (seconds from the segment start) or a path to that JSON. Clips { id, seg, anchor, path, from?, to, audio?, fit?, crop?, pip?, in?, out? } start at a sentence (line, optionally cue = words inside it), at the pause left for them (gap), right after the previous clip (follow) or at seconds into the segment (at); a clip stops at the next clip of its segment or at the segment end. Cards { id, seg, line + cue | at, bundle } are transparent code bundles. Tracks default to Scenes, Narration, Footage and Cards; footageLayer under moves Footage below Scenes. Cutting, voicing and aligning happen before this tool; burned labels, bilingual subtitles and Ken Burns moves are not covered.',
-      'Reruns are incremental. The video keeps a record of what was placed (a production-plan document). A segment whose bundle got longer or shorter is swapped with ripple, so later content moves by the difference; a segment inserted between placed ones gets room first (insertRange). New narration (a different file or artifact) replaces the old one; clips and cards are placed again only when they changed or moved. Removing a placed segment from the plan is refused (PLAN_SEGMENT_REMOVED): remove its span first. LAYOUT_MISMATCH means the placed segments are no longer end to end (moved by hand).',
-      'dryRun: true returns the layout and the actions (place, resize, replace, keep, move, remove) without asking or editing. Otherwise one approval covers the run; each step is its own undoable edit. Bundles bake in background bake jobs by default (bakeJobId per segment and card; check with jobs_inspect before export).',
-      'Returns fps, totalFrames, tracks, segments [{ id, from, frames, action, sceneItem, narrationItem, bakeJobId }], clips [{ id, from, frames, action, item }], cards, steps, warnings (clips cut short or skipped), revision { before, after }, recordDocumentId and check { ok, problems } (segments end to end on the scene track).',
+      'Place a production plan on the timeline in one call: code bundle segments end to end with narration, plus footage clips, cards and watermarks.',
+      'Plan: segments in play order, each { id, bundle (code bundle folder; its length is the segment length), narration? { path | artifactId }, timing? }. timing is the aligned narration { lines: [{ text, start, chars? }], gaps? } (seconds from the segment start) or a path to that JSON. Clips { id, seg, anchor, path, from?, to, audio?, fit?, crop?, pip?, in?, out? } start at a sentence (line, optionally cue = words inside it), at the pause left for them (gap), right after the previous clip (follow) or at seconds into the segment (at); a clip stops at the next clip of its segment or at the segment end. Cards { id, seg, line + cue | at, bundle } are transparent code bundles. Watermarks { id, path (image), seg + (line + cue | at) or at (seconds on the timeline), dur, pip?, fit? } sit on the top track. Tracks default to Scenes, Narration, Footage, Cards and Watermark; footageLayer under moves Footage below Scenes. Cutting, voicing and aligning happen before this tool; burned labels, bilingual subtitles and Ken Burns moves are not covered.',
+      'Reruns are incremental. The video keeps a record of what was placed (a production-plan document). A segment whose bundle got longer or shorter is swapped with ripple, so later content moves by the difference; a segment inserted between placed ones gets room first (insertRange). New narration (a different file or artifact) replaces the old one; clips, cards and watermarks are placed again only when they changed (a re-cut file counts) or moved. Removing a placed segment from the plan is refused (PLAN_SEGMENT_REMOVED): remove its span first. LAYOUT_MISMATCH means the placed segments are no longer end to end (moved by hand). TARGET_LOCKED (before anything changes) names locked tracks or items the run would touch.',
+      'dryRun: true returns the layout and the actions (place, resize, replace, keep, move, remove) without asking or editing. Otherwise one approval covers the run; each step is its own undoable edit. Bundles bake in background bake jobs by default (bakeJobId per segment and card; check with jobs_inspect before export); with background: false each result has bake { renderer, fps, seconds, fallback? } and a fallback to browser-pixels is listed in warnings.',
+      'Returns fps, totalFrames, tracks, segments [{ id, from, frames, action, sceneItem, narrationItem, bakeJobId, bake }], clips [{ id, from, frames, action, item }], cards, watermarks, steps, warnings (clips or watermarks cut short or skipped, pixel bakes), revision { before, after }, recordDocumentId and check { ok, problems } (segments end to end on the scene track).',
     ].join('\n'),
     effect: 'mutation',
     examples: [
@@ -148,7 +170,11 @@ interface SegmentPlan {
   narrationAction: 'place' | 'keep' | 'none';
   narrationItem: Id | null;
   bakeJobId: Id | null;
+  bake: BakeNote | null;
 }
+
+/** 前台烘焙实际用的渲染器（`compositions.import` 回执的 `bake`，去掉诊断用的各阶段用时）。 */
+type BakeNote = Pick<CompositionBakeInfo, 'renderer' | 'fps' | 'seconds' | 'fallback'>;
 
 interface ClipPlan {
   slot: ClipSlot;
@@ -166,6 +192,15 @@ interface CardPlan {
   action: ItemAction;
   item: Id | null;
   bakeJobId: Id | null;
+  bake: BakeNote | null;
+}
+
+interface WatermarkPlan {
+  slot: WatermarkSlot;
+  source: PlanWatermark;
+  key: string;
+  action: ItemAction;
+  item: Id | null;
 }
 
 export class AssembleTools implements ToolSet {
@@ -224,6 +259,8 @@ export class AssembleTools implements ToolSet {
       new Map((plan.cards ?? []).map((c) => [c.id, measured.get(c.bundle)!.frames])),
       fps,
     );
+    const { watermarks: watermarkSlots, warnings: watermarkWarnings } = placeWatermarks(plan.watermarks ?? [], slots, timings, fps);
+    warnings.push(...watermarkWarnings);
 
     // 对照上一次的记录：时间线上代码画面的位置是准的。
     const record = await this.#record(videoId, before);
@@ -272,19 +309,27 @@ export class AssembleTools implements ToolSet {
         narrationAction: !narration ? 'none' : keepNarration ? 'keep' : 'place',
         narrationItem: keepNarration ? oldNarration : null,
         bakeJobId: null,
+        bake: null,
       });
     }
 
+    // 文件的大小与修改时间算进内容键：同一个路径重新剪过（overlay 脚本原地重写）也要换。
+    const stamps = new Map<string, string>();
+    const stampOf = async (file: string, what: string) => {
+      if (!stamps.has(file)) stamps.set(file, await fileStamp(file, importBase.confine, what));
+      return stamps.get(file)!;
+    };
     const recordClips = new Map((record?.body.clips ?? []).map((r) => [r.id, r]));
     const sources = new Map((plan.clips ?? []).map((c) => [c.id, c]));
-    const clips: ClipPlan[] = clipSlots.map((slot) => {
+    const clips: ClipPlan[] = [];
+    for (const slot of clipSlots) {
       const source = sources.get(slot.id)!;
-      const key = clipKey(source, slot);
+      const key = clipKey(source, slot, await stampOf(source.path, `clip ${slot.id}`));
       const r = recordClips.get(slot.id);
       const span = r ? spanOf(items.get(r.item)) : null;
       const keep = !!span && r!.key === key && shifted(span.from) === slot.from && span.frames === slot.frames;
-      return { slot, source, key, action: keep ? 'keep' : 'place', item: keep ? r!.item : null };
-    });
+      clips.push({ slot, source, key, action: keep ? 'keep' : 'place', item: keep ? r!.item : null });
+    }
 
     const recordCards = new Map((record?.body.cards ?? []).map((r) => [r.id, r]));
     const cardSources = new Map((plan.cards ?? []).map((c) => [c.id, c]));
@@ -295,8 +340,21 @@ export class AssembleTools implements ToolSet {
       const span = r ? spanOf(items.get(r.item)) : null;
       const same = !!span && r!.contentHash === contentHash;
       const action: ItemAction = !same ? 'place' : shifted(span!.from) === slot.from ? 'keep' : 'move';
-      return { slot, bundle: source.bundle, name: source.name ?? source.id, contentHash, action, item: same ? r!.item : null, bakeJobId: null };
+      return { slot, bundle: source.bundle, name: source.name ?? source.id, contentHash, action, item: same ? r!.item : null, bakeJobId: null, bake: null };
     });
+
+    const recordWatermarks = new Map((record?.body.watermarks ?? []).map((r) => [r.id, r]));
+    const watermarkSources = new Map((plan.watermarks ?? []).map((w) => [w.id, w]));
+    const watermarks: WatermarkPlan[] = [];
+    for (const slot of watermarkSlots) {
+      const source = watermarkSources.get(slot.id)!;
+      const key = watermarkKey(source, slot, await stampOf(source.path, `watermark ${slot.id}`));
+      const r = recordWatermarks.get(slot.id);
+      const span = r ? spanOf(items.get(r.item)) : null;
+      const same = !!span && r!.key === key && span.frames === slot.frames;
+      const action: ItemAction = !same ? 'place' : shifted(span!.from) === slot.from ? 'keep' : 'move';
+      watermarks.push({ slot, source, key, action, item: same ? r!.item : null });
+    }
 
     // 要删掉的：换了旁白或段落要重放的旧旁白、不在计划里或要重放的实拍与卡片。
     const stale: Id[] = [];
@@ -310,12 +368,15 @@ export class AssembleTools implements ToolSet {
     for (const r of record?.body.clips ?? []) if (!keptClips.has(r.item)) stale.push(...live(r.item));
     const keptCards = new Set(cards.filter((c) => c.action !== 'place').map((c) => c.item));
     for (const r of record?.body.cards ?? []) if (!keptCards.has(r.item)) stale.push(...live(r.item));
+    const keptWatermarks = new Set(watermarks.filter((w) => w.action !== 'place').map((w) => w.item));
+    for (const r of record?.body.watermarks ?? []) if (!keptWatermarks.has(r.item)) stale.push(...live(r.item));
 
     const total = slots.length ? slots[slots.length - 1]!.from + slots[slots.length - 1]!.frames : 0;
     const changed = {
       segments: segments.filter((s) => s.action !== 'keep' || s.narrationAction === 'place').length,
       clips: clips.filter((c) => c.action !== 'keep').length,
       cards: cards.filter((c) => c.action !== 'keep').length,
+      watermarks: watermarks.filter((w) => w.action !== 'keep').length,
     };
     const report = (after: string, recordDocumentId: Id | null, check: { ok: boolean; problems: string[] } | null, approval?: ToolApprovalNote | void) => ({
       videoId,
@@ -332,9 +393,11 @@ export class AssembleTools implements ToolSet {
         sceneItem: s.sceneItem,
         narrationItem: s.narrationItem,
         bakeJobId: s.bakeJobId,
+        bake: s.bake,
       })),
       clips: clips.map((c) => ({ id: c.slot.id, from: c.slot.from, frames: c.slot.frames, action: c.action, item: c.item })),
-      cards: cards.map((c) => ({ id: c.slot.id, from: c.slot.from, frames: c.slot.frames, action: c.action, item: c.item, bakeJobId: c.bakeJobId })),
+      cards: cards.map((c) => ({ id: c.slot.id, from: c.slot.from, frames: c.slot.frames, action: c.action, item: c.item, bakeJobId: c.bakeJobId, bake: c.bake })),
+      watermarks: watermarks.map((w) => ({ id: w.slot.id, from: w.slot.from, frames: w.slot.frames, action: w.action, item: w.item })),
       steps,
       removed: stale.length,
       warnings,
@@ -344,7 +407,26 @@ export class AssembleTools implements ToolSet {
       ...approvalField(approval),
     });
 
-    const nothing = !stale.length && !steps.length && !changed.segments && !changed.clips && !changed.cards;
+    const nothing = !stale.length && !steps.length && !changed.segments && !changed.clips && !changed.cards && !changed.watermarks;
+    if (!nothing) {
+      const locked = lockedTargets(sequence, {
+        touched: [
+          ...stale,
+          ...segments.filter((x) => x.action === 'resize' || x.action === 'replace').map((x) => x.sceneItem!),
+          ...cards.filter((c) => c.action === 'move').map((c) => c.item!),
+          ...watermarks.filter((w) => w.action === 'move').map((w) => w.item!),
+        ],
+        from: steps.length ? Math.min(...steps.map((st) => st.boundary)) : null,
+        tracks: (['scenes', 'narration', 'footage', 'cards', 'watermarks'] as const)
+          .filter((role) => ({ scenes: changed.segments, narration: changed.segments, footage: changed.clips, cards: changed.cards, watermarks: changed.watermarks })[role] > 0)
+          .map((role) => existingTrack(sequence, plan.tracks?.[role], record?.body.tracks[role] ?? null, DEFAULT_TRACKS[role])),
+      });
+      if (locked.length) {
+        throw new ToolError('TARGET_LOCKED', `The run would change locked tracks or items: ${locked.join('; ')}`, {
+          next: 'Unlock them (edits_apply updateTrack or updateItem with locked: false) and run again; nothing was changed',
+        });
+      }
+    }
     if (dryRun || (nothing && record)) {
       return {
         ...report(before.revision, record?.documentId ?? null, null),
@@ -375,6 +457,7 @@ export class AssembleTools implements ToolSet {
     const tracks = await this.#tracks(plan, record?.body.tracks ?? null, opened, write, {
       footage: clips.length > 0,
       cards: cards.length > 0,
+      watermarks: watermarks.length > 0,
     });
 
     // 中途失败时也把已经放好的写进记录，重跑时从这里接着做。
@@ -390,6 +473,7 @@ export class AssembleTools implements ToolSet {
           const result = await importer({ path: s.bundle, name: s.slot.id, replace: { itemId: s.sceneItem!, ripple: true } });
           s.placedHash = s.contentHash;
           s.bakeJobId = result.bakeJobId;
+          s.bake = bakeNote(result.bake);
         } else {
           await this.#makeRoom(opened, write, step);
         }
@@ -399,6 +483,7 @@ export class AssembleTools implements ToolSet {
         const result = await importer({ path: s.bundle, name: s.slot.id, replace: { itemId: s.sceneItem!, ripple: true } });
         s.placedHash = s.contentHash;
         s.bakeJobId = result.bakeJobId;
+        s.bake = bakeNote(result.bake);
       }
       // 5. 新段落的代码画面。
       for (const s of segments.filter((x) => x.action === 'place')) {
@@ -406,6 +491,7 @@ export class AssembleTools implements ToolSet {
         s.sceneItem = result.itemId;
         s.placedHash = s.contentHash;
         s.bakeJobId = result.bakeJobId;
+        s.bake = bakeNote(result.bake);
       }
       // 6. 旁白：一笔导入并放好。
       const voiced = segments.filter((s) => s.narrationAction === 'place');
@@ -461,8 +547,8 @@ export class AssembleTools implements ToolSet {
         );
         if (transitions.length) await write(RcAgentTools.assembleTransitionsLabel().text, transitions);
       }
-      // 8. 卡片：挪动的一笔，新的逐个导入。
-      const moved = cards.filter((c) => c.action === 'move');
+      // 8. 卡片与水印：挪动的一笔，新卡片逐个导入。
+      const moved = [...cards, ...watermarks].filter((c) => c.action === 'move');
       if (moved.length) {
         await write(
           RcAgentTools.assembleMoveLabel({ count: moved.length }).text,
@@ -473,15 +559,44 @@ export class AssembleTools implements ToolSet {
         const result = await importer({ path: c.bundle, name: c.name, place: { track: tracks.cards!, at: atOf(c.slot.from, fps) } });
         c.item = result.itemId;
         c.bakeJobId = result.bakeJobId;
+        c.bake = bakeNote(result.bake);
       }
-
+      // 9. 新水印：一笔导入并写入。
+      const marks = watermarks.filter((w) => w.action === 'place');
+      if (marks.length) {
+        const refs = new Map<string, string>();
+        const ops: Record<string, unknown>[] = [];
+        for (const w of marks) {
+          if (refs.has(w.source.path)) continue;
+          const ref = `watermark-${refs.size}`;
+          refs.set(w.source.path, ref);
+          ops.push({ type: 'importAsset', path: w.source.path, storage: 'managed', name: path.basename(w.source.path), ref });
+        }
+        ops.push({
+          type: 'insertItems',
+          sequenceId: before.rootSequenceId,
+          items: marks.map((w) => watermarkItem(w, tracks.watermarks!, refs.get(w.source.path)!)),
+        });
+        const result = await write(RcAgentTools.assembleWatermarkLabel({ count: marks.length }).text, ops);
+        const created = createdOn(this.#current(opened), result, tracks.watermarks!);
+        for (const w of marks) w.item = created.get(w.slot.from) ?? null;
+      }
     } catch (error) {
-      await this.#writeRecord(write, record?.documentId ?? null, tracks, segments, clips, cards).catch(() => {});
+      await this.#writeRecord(write, record?.documentId ?? null, tracks, segments, clips, cards, watermarks).catch(() => {});
       throw error;
     }
 
-    // 9. 记录。
-    const recordDocumentId = await this.#writeRecord(write, record?.documentId ?? null, tracks, segments, clips, cards);
+    // 前台烘焙退回逐帧截图（慢、文件大）而调用方没有要像素时提一句：按代码场景细则改好包再跑会原地换包。
+    if (args.bake !== 'pixels') {
+      for (const [what, x] of [...segments.map((s) => [`segment ${s.slot.id}`, s] as const), ...cards.map((c) => [`card ${c.slot.id}`, c] as const)]) {
+        if (x.bake?.renderer === 'browser-pixels') {
+          warnings.push(`${what} baked as browser-pixels${x.bake.fallback ? ` (${x.bake.fallback.reason})` : ''}; fix the bundle so it bakes as draw ops and run again, or pass bake: "pixels" when that is intended (WebGL)`);
+        }
+      }
+    }
+
+    // 10. 记录。
+    const recordDocumentId = await this.#writeRecord(write, record?.documentId ?? null, tracks, segments, clips, cards, watermarks);
 
     const after = this.#current(opened);
     return report(after.revision, recordDocumentId, checkScenes(after, segments), approval);
@@ -495,6 +610,7 @@ export class AssembleTools implements ToolSet {
     segments: SegmentPlan[],
     clips: ClipPlan[],
     cards: CardPlan[],
+    watermarks: WatermarkPlan[],
   ): Promise<Id | null> {
     const body: PlanRecord = {
       schema: RECORD_SCHEMA,
@@ -510,6 +626,7 @@ export class AssembleTools implements ToolSet {
         })),
       clips: clips.filter((c) => c.item).map((c) => ({ id: c.slot.id, key: c.key, item: c.item! })),
       cards: cards.filter((c) => c.item).map((c) => ({ id: c.slot.id, contentHash: c.contentHash, item: c.item! })),
+      watermarks: watermarks.filter((w) => w.item).map((w) => ({ id: w.slot.id, key: w.key, item: w.item! })),
     };
     const name = RcAgentTools.assembleRecordName().text;
     const written = await write(
@@ -536,15 +653,15 @@ export class AssembleTools implements ToolSet {
 
   /**
    * 轨道：按 ID 或名字找，记录里的 ID 还在时用它；找不到时用一条同类、空着、没有名字（或是引擎起的 V1、A1）的轨道并改名，再没有就新建。
-   * 新建的按场景、实拍、卡片的顺序加在上面；`footageLayer` 与卡片在最上面的顺序不对时挪一次。
+   * 新建的按场景、实拍、卡片、水印的顺序加在上面；`footageLayer`、卡片与水印在最上面的顺序不对时挪一次。
    */
   async #tracks(
     plan: Plan,
     recorded: PlanRecord['tracks'] | null,
     opened: VideoOpenResult,
     write: (label: string, operations: Record<string, unknown>[]) => Promise<EditResult>,
-    need: { footage: boolean; cards: boolean },
-  ): Promise<{ scenes: Id; narration: Id; footage: Id | null; cards: Id | null }> {
+    need: { footage: boolean; cards: boolean; watermarks: boolean },
+  ): Promise<PlanRecord['tracks']> {
     const sequence = rootSequence(this.#current(opened));
     const used = new Set(sequence.items.map((i) => i.trackId));
     const claimed = new Set<Id>();
@@ -578,11 +695,18 @@ export class AssembleTools implements ToolSet {
       narration: resolve('narration', 'audio'),
       footage: need.footage ? resolve('footage', 'visual') : null,
       cards: need.cards ? resolve('cards', 'visual') : null,
+      watermarks: need.watermarks ? resolve('watermarks', 'visual') : null,
     };
     let refs: Record<string, Id> = {};
     if (ops.length) refs = (await write(RcAgentTools.assembleTracksLabel().text, ops)).receipt.refs ?? {};
     const idOf = (r: { id: Id } | { ref: string } | null) => (r === null ? null : 'id' in r ? r.id : refs[r.ref]!);
-    const ids = { scenes: idOf(roles.scenes)!, narration: idOf(roles.narration)!, footage: idOf(roles.footage), cards: idOf(roles.cards) };
+    const ids = {
+      scenes: idOf(roles.scenes)!,
+      narration: idOf(roles.narration)!,
+      footage: idOf(roles.footage),
+      cards: idOf(roles.cards),
+      watermarks: idOf(roles.watermarks),
+    };
 
     const order = new Map(rootSequence(this.#current(opened)).tracks.map((t) => [t.id, t.order]));
     const moves: Record<string, unknown>[] = [];
@@ -595,6 +719,14 @@ export class AssembleTools implements ToolSet {
       const top = ids.footage && plan.footageLayer !== 'under' ? ids.footage : ids.scenes;
       if (order.get(ids.cards)! < order.get(top)! || (top !== ids.scenes && order.get(ids.cards)! < order.get(ids.scenes)!)) {
         moves.push({ type: 'moveTrack', trackId: ids.cards, target: top, position: 'above' });
+      }
+    }
+    if (ids.watermarks) {
+      // 水印在这几条轨的最上面：卡片刚挪过时直接挪到卡片上面。
+      const others = [ids.scenes, ids.footage, ids.cards].filter((x): x is Id => x !== null);
+      const top = ids.cards ?? (ids.footage && plan.footageLayer !== 'under' ? ids.footage : ids.scenes);
+      if (moves.length || others.some((x) => order.get(ids.watermarks!)! < order.get(x)!)) {
+        moves.push({ type: 'moveTrack', trackId: ids.watermarks, target: top, position: 'above' });
       }
     }
     if (moves.length) await write(RcAgentTools.assembleTracksLabel().text, moves);
@@ -689,11 +821,12 @@ function createdOn(video: VideoSnapshot, result: EditResult, trackId: Id): Map<n
   return out;
 }
 
-/** 实拍片段的内容键：源、入点、长度、画面与声音、转场；时间线上的起点另外比。 */
-function clipKey(c: PlanClip, slot: ClipSlot): string {
+/** 实拍片段的内容键：源（路径与文件的大小、修改时间）、入点、长度、画面与声音、转场；时间线上的起点另外比。 */
+function clipKey(c: PlanClip, slot: ClipSlot, stamp: string): string {
   // 记哈希不记原文：路径是本机绝对路径，写进记录会让便携包拒绝导出（视频格式规范 §4.6）。
   const key = JSON.stringify({
     path: c.path,
+    stamp,
     sourceIn: slot.sourceIn,
     frames: slot.frames,
     fit: c.fit ?? 'cover',
@@ -705,6 +838,71 @@ function clipKey(c: PlanClip, slot: ClipSlot): string {
     name: c.name ?? c.id,
   });
   return `sha256:${createHash('sha256').update(key).digest('hex')}`;
+}
+
+/** 水印的内容键：图片（路径与文件的大小、修改时间）、长度、位置与放法；时间线上的起点另外比。 */
+function watermarkKey(w: PlanWatermark, slot: WatermarkSlot, stamp: string): string {
+  const key = JSON.stringify({ path: w.path, stamp, frames: slot.frames, pip: w.pip ?? null, fit: w.fit ?? 'contain', name: w.name ?? w.id });
+  return `sha256:${createHash('sha256').update(key).digest('hex')}`;
+}
+
+function watermarkItem(w: WatermarkPlan, trackId: Id, assetImportRef: string): Record<string, unknown> {
+  return {
+    type: 'image',
+    trackId,
+    assetImportRef,
+    name: w.source.name ?? w.source.id,
+    role: 'watermark',
+    span: { fromFrame: w.slot.from, durationFrames: w.slot.frames },
+    place: w.source.pip ? { x: w.source.pip.x, y: w.source.pip.y, w: w.source.pip.w } : {},
+    mode: w.source.pip ? 'pip' : 'fullscreen',
+    fit: w.source.fit ?? 'contain',
+  };
+}
+
+function bakeNote(bake: CompositionBakeInfo | null | undefined): BakeNote | null {
+  if (!bake) return null;
+  return { renderer: bake.renderer, fps: bake.fps, seconds: bake.seconds, ...(bake.fallback ? { fallback: bake.fallback } : {}) };
+}
+
+/** 一条角色轨道现在在不在：按给的 ID 或名字、记录里的 ID、缺省名字找，同 `#tracks`。 */
+function existingTrack(sequence: Sequence, wanted: string | undefined, recorded: Id | null, fallback: string): Track | undefined {
+  if (wanted) return sequence.tracks.find((t) => t.id === wanted) ?? sequence.tracks.find((t) => t.name === wanted);
+  return sequence.tracks.find((t) => t.id === recorded) ?? sequence.tracks.find((t) => t.name === fallback);
+}
+
+/**
+ * 这次要动的东西里锁着的：要删、换包、挪的实例，波纹会挪的（起点不早于最早的边界、任何轨道上），要往里放东西的轨道。
+ * 引擎会以 `TARGET_LOCKED` 拒绝它们，但那时前面几笔（甚至前台烘焙）已经做了，所以先查。
+ */
+function lockedTargets(sequence: Sequence, run: { touched: Id[]; from: number | null; tracks: (Track | undefined)[] }): string[] {
+  const tracks = new Map(sequence.tracks.map((t) => [t.id, t]));
+  const out: string[] = [];
+  const seen = new Set<Id>();
+  const lockedTracks = new Set<Id>();
+  const check = (item: SequenceItem) => {
+    if (seen.has(item.id)) return;
+    seen.add(item.id);
+    const track = tracks.get(item.trackId);
+    if (item.locked) out.push(`item ${item.name ?? item.id} (${item.id}) is locked`);
+    else if (track?.locked) {
+      out.push(`item ${item.name ?? item.id} (${item.id}) is on locked track ${track.name ?? track.id}`);
+      lockedTracks.add(track.id);
+    }
+  };
+  const touched = new Set(run.touched);
+  for (const item of sequence.items) {
+    const from = startOf(item);
+    if (touched.has(item.id) || (run.from !== null && from !== null && from >= run.from)) check(item);
+  }
+  for (const t of run.tracks) if (t?.locked && !lockedTracks.has(t.id)) out.push(`track ${t.name ?? t.id} is locked`);
+  return out;
+}
+
+/** 文件指纹：大小与修改时间（大的实拍文件不读内容）。 */
+async function fileStamp(file: string, confine: string | null, what: string): Promise<string> {
+  const stat = await fs.stat(await confined(file, confine, what));
+  return `${stat.size}:${Math.round(stat.mtimeMs)}`;
 }
 
 function footageItem(c: ClipPlan, trackId: Id, assetImportRef: string): Record<string, unknown> {
@@ -797,6 +995,7 @@ async function loadPlan(
       segments,
       ...(plan.clips ? { clips: plan.clips.map((c) => ({ ...c, path: abs(c.path) })) } : {}),
       ...(plan.cards ? { cards: plan.cards.map((c) => ({ ...c, bundle: abs(c.bundle) })) } : {}),
+      ...(plan.watermarks ? { watermarks: plan.watermarks.map((w) => ({ ...w, path: abs(w.path) })) } : {}),
     },
     timings,
   };

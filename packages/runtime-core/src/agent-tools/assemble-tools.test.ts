@@ -16,7 +16,8 @@ import type { Loose } from './testing/fake-agent.ts';
 /**
  * 一次放好制作计划（`edits_assemble`，Agent 面设计 §4.3）端到端：经终端的 `catalog.call` 先预演、再放好两段代码画面与旁白、
  * 一个实拍片段（带入点、音量与转场）和一张卡片；原样重跑什么都不改；第一段变长、中间插进一段、卡片换了时刻时只动变了的，
- * 后面的内容跟着挪；从计划里删掉已放好的段落时拒绝。需要 engine-host、Render Worker、ffmpeg 与 Electron，缺了就跳过。
+ * 后面的内容跟着挪；从计划里删掉已放好的段落时拒绝；水印放在最上面一条轨；同一路径重新剪过的实拍片段重放；要动的轨道锁着时
+ * 什么都不改就拒绝。需要 engine-host、Render Worker、ffmpeg 与 Electron，缺了就跳过。
  */
 
 const engine = resolveEngineHostCommand();
@@ -80,13 +81,14 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('制作计划（终�
       ...['-f', 'lavfi', '-i', 'testsrc=size=320x180:rate=30:duration=5', '-f', 'lavfi', '-i', 'sine=frequency=300:duration=5'],
       ...['-shortest', '-c:v', 'mpeg4', '-q:v', '3', '-c:a', 'aac', path.join(project.path, 'media', 'clip.mp4')],
     ]);
+    run(['-f', 'lavfi', '-i', 'color=c=red:s=64x64', '-frames:v', '1', path.join(project.path, 'media', 'logo.png')]);
   }, 120_000);
 
   afterAll(async () => {
     client?.close();
     await runtime?.close();
     await fs.rm(dir, { recursive: true, force: true });
-  }, 60_000); // 关 Runtime 要等烘焙任务收尾
+  }, 120_000); // 关 Runtime 要等烘焙任务收尾
 
   async function call(name: string, args: unknown): Promise<CatalogCallResult> {
     return client.request('catalog.call', { name, args, cwd: project.path });
@@ -112,8 +114,15 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('制作计划（终�
     ],
     clips: [{ id: 'c1', seg: 's1', line: 1, cue: 'line', path: 'media/clip.mp4', from: 2, to: 2.5, audio: 0.5, in: { kind: 'dissolve', dur: 0.2 } }],
     cards: [{ id: 'k1', seg: 's2', at: 0.2, bundle: 'cards/k1' }],
+    watermarks: [{ id: 'w1', path: 'media/logo.png', at: 0.5, dur: 1, pip: { x: 90, y: 10, w: 10 } }],
     ...over,
   });
+  /** 第一段变长、中间插进 s3、卡片换了时刻。 */
+  const changedPlan = () =>
+    plan({
+      segments: [plan().segments[0], { id: 's3', bundle: 'scenes/s3' }, plan().segments[1]],
+      cards: [{ id: 'k1', seg: 's2', at: 0.5, bundle: 'cards/k1' }],
+    });
 
   it('预演不改视频；放好之后各段首尾相接，旁白在段首，实拍按字放，卡片在卡片轨', async () => {
     expect(TOOL_RISK.edits_assemble).toBe(TOOL_RISK.edits_apply);
@@ -129,6 +138,7 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('制作计划（终�
     // "line" 是第 1 句的第 7 个字：1.7 秒 → 第 51 帧，长 0.5 秒；截在第一段的末尾（60）。
     expect(dry.clips.map((c: Loose) => [c.id, c.from, c.frames])).toEqual([['c1', 51, 9]]);
     expect(dry.cards.map((c: Loose) => [c.id, c.from, c.frames])).toEqual([['k1', 66, 30]]);
+    expect(dry.watermarks.map((w: Loose) => [w.id, w.from, w.frames])).toEqual([['w1', 15, 30]]);
     expect(items()).toHaveLength(0);
 
     const done = await ok('edits_assemble', { video: videoId, plan: plan(), background: false });
@@ -154,6 +164,11 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('制作计划（终�
     expect(tracks.get(byName('s1').trackId)!.name).toBe('Scenes');
     expect(tracks.get(byName('c1').trackId)!.order).toBeGreaterThan(tracks.get(byName('s1').trackId)!.order);
     expect(tracks.get(byName('k1').trackId)!.order).toBeGreaterThan(tracks.get(byName('c1').trackId)!.order);
+    expect(byName('w1')).toMatchObject({ type: 'image', role: 'watermark', mode: 'pip', span: { fromFrame: 15, durationFrames: 30 } });
+    expect(tracks.get(byName('w1').trackId)!.name).toBe('Watermark');
+    expect(tracks.get(byName('w1').trackId)!.order).toBeGreaterThan(tracks.get(byName('k1').trackId)!.order);
+    // 前台烘焙的结果写在回执里。
+    expect(done.segments[0].bake).toMatchObject({ renderer: expect.stringMatching(/^(drawop-cpu|browser-pixels)$/) });
     expect(video.documents[done.recordDocumentId]!.kind).toBe('production-plan');
     // 记录里没有本机路径，便携包照常能带出去。
     expect(JSON.stringify(video.documents[done.recordDocumentId])).not.toContain(project.path);
@@ -163,13 +178,9 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('制作计划（终�
   }, 300_000);
 
   it('第一段变长、中间插进一段、卡片换了时刻：只动变了的，后面的内容跟着挪；删掉已放好的段落时拒绝', async () => {
-    const kept = { s2: byName('s2').id, c1: byName('c1').id, k1: byName('k1').id };
+    const kept = { s2: byName('s2').id, c1: byName('c1').id, k1: byName('k1').id, w1: byName('w1').id };
     await write('scenes/s1/index.html', bundleHtml(2.5, false));
-    const changed = plan({
-      segments: [plan().segments[0], { id: 's3', bundle: 'scenes/s3' }, plan().segments[1]],
-      cards: [{ id: 'k1', seg: 's2', at: 0.5, bundle: 'cards/k1' }],
-    });
-    const done = await ok('edits_assemble', { video: videoId, plan: changed, background: false });
+    const done = await ok('edits_assemble', { video: videoId, plan: changedPlan(), background: false });
     expect(done.steps).toEqual([
       { kind: 'insert', id: 's3', boundary: 60, delta: 45 },
       { kind: 'resize', id: 's1', boundary: 60, delta: 15 },
@@ -188,9 +199,37 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('制作计划（终�
     expect(done.clips.map((c: Loose) => [c.id, c.from, c.frames, c.action])).toEqual([['c1', 51, 15, 'place']]);
     expect(byName('c1').id).not.toBe(kept.c1);
     expect(byName('k1')).toMatchObject({ id: kept.k1, span: { fromFrame: 135 } });
+    // 水印在第一段的边界之前，没被挪。
+    expect(done.watermarks.map((w: Loose) => [w.id, w.action])).toEqual([['w1', 'keep']]);
+    expect(byName('w1')).toMatchObject({ id: kept.w1, span: { fromFrame: 15 } });
 
     const removed = await call('edits_assemble', { video: videoId, plan: plan(), dryRun: true });
     expect(removed.ok).toBe(false);
     if (!removed.ok) expect(removed.error).toMatchObject({ code: 'PLAN_SEGMENT_REMOVED' });
+  }, 300_000);
+
+  it('同一路径重新剪过的实拍片段重放；要动的轨道锁着时什么都不改就拒绝', async () => {
+    const clipFile = path.join(project.path, 'media', 'clip.mp4');
+    await fs.utimes(clipFile, new Date(), new Date(Date.now() + 60_000));
+    const dry = await ok('edits_assemble', { video: videoId, plan: changedPlan(), dryRun: true });
+    expect(dry.clips.map((c: Loose) => [c.id, c.action])).toEqual([['c1', 'place']]);
+    expect(dry.segments.every((s: Loose) => s.action === 'keep')).toBe(true);
+    expect(dry.cards.map((c: Loose) => c.action)).toEqual(['keep']);
+
+    const footage = byName('c1').trackId;
+    const before = runtime.videos.mirror(videoId)!.video.revision;
+    await ok('edits_apply', { video: videoId, expectedRevision: before, label: 'lock', operations: [{ type: 'updateTrack', trackId: footage, locked: true }] });
+    const locked = runtime.videos.mirror(videoId)!.video.revision;
+    const refused = await call('edits_assemble', { video: videoId, plan: changedPlan(), background: false });
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error).toMatchObject({ code: 'TARGET_LOCKED' });
+    expect(runtime.videos.mirror(videoId)!.video.revision).toBe(locked);
+
+    await ok('edits_apply', { video: videoId, expectedRevision: locked, label: 'unlock', operations: [{ type: 'updateTrack', trackId: footage, locked: false }] });
+    const old = byName('c1').id;
+    const done = await ok('edits_assemble', { video: videoId, plan: changedPlan(), background: false });
+    expect(done.check.ok).toBe(true);
+    expect(byName('c1').id).not.toBe(old);
+    expect(byName('c1').span).toMatchObject({ fromFrame: 51, durationFrames: 15 });
   }, 300_000);
 });

@@ -120,8 +120,9 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 - **段落**（`segments`）按播放顺序：每段一个代码包目录（包的长度就是段长），可带旁白（`narration` 给音频文件或配音产物的 `artifactId`）与对齐结果（`timing`：`{ lines: [{ text, start, chars? }], gaps? }` 或它的 JSON 路径，秒数从段首算）。段按整帧首尾相接放在 Scenes 轨，旁白在段首放在 Narration 轨；轨道按 `tracks` 给名字或 ID，没有就建。
 - **实拍片段**（`clips`）属于某一段，起点按句子（`line`，加 `cue` 对到句里几个字被说到的时刻）、留白（`gap`，对到 `timing.gaps` 里给它留的那段）、紧跟上一个片段（`follow`）或段内秒数（`at`）定，截在本段下一个片段或段尾。`from`、`to` 是素材自己的秒（图片只有 `to`，当时长）；`audio` 留原声或给音量；`fit`、`crop`、`pip`（画中画）、单侧转场 `in`、`out`。{{arg:footageLayer}} 为 `under` 时实拍轨挪到 Scenes 下面当底，代码包要透明。
 - **卡片**（`cards`）是透明代码包，按 `line` + `cue` 或 `at` 放在最上面的 Cards 轨，长度就是包的长度。
-- 先带 {{arg:dryRun}} 看排布与每一步要做的事（place、resize、replace、keep、move、remove），再真正提交：一次确认覆盖整趟，每一步各自可撤销。代码包默认进后台烘焙任务，结果里每段、每张卡带 `bakeJobId`，导出前用 {{tool:jobs_inspect}} 核对。
-- **重跑是增量的**：放好之后视频里存一份「制作计划」记录。段落变长变短或换了包走带波纹的换包，后面的内容一起挪；中间插进的段先腾位置；换了旁白文件或产物就换旁白；没变的片段与卡片不动。计划里删掉已放好的段落会拒绝（`PLAN_SEGMENT_REMOVED`：先用 `removeRange` 删掉那段）；段落被手动挪得不再首尾相接时 `LAYOUT_MISMATCH`。
+- **水印**（`watermarks`）是图片，`dur` 秒长：属于某一段时按 `line` + `cue` 或段内 `at` 定起点，不带 `seg` 时 `at` 是整片的秒；`pip` 给位置与宽度（不给就铺满），放在最上面的 Watermark 轨，彼此不能重叠，越过最后一段的尾巴截掉并给警告。
+- 先带 {{arg:dryRun}} 看排布与每一步要做的事（place、resize、replace、keep、move、remove），再真正提交：一次确认覆盖整趟，每一步各自可撤销。代码包默认进后台烘焙任务，结果里每段、每张卡带 `bakeJobId`，导出前用 {{tool:jobs_inspect}} 核对；`background: false` 时当场烘焙，结果带 `bake`（渲染器、帧率、耗时），退回逐帧截图的会给警告。
+- **重跑是增量的**：放好之后视频里存一份「制作计划」记录。段落变长变短或换了包走带波纹的换包，后面的内容一起挪；中间插进的段先腾位置；换了旁白文件或产物就换旁白；同一路径的素材文件重新剪过（大小或修改时间变了）也算变了；没变的片段、卡片与水印不动。要动的轨道或条目锁着时什么都不改，报 `TARGET_LOCKED`，解锁后重跑。计划里删掉已放好的段落会拒绝（`PLAN_SEGMENT_REMOVED`：先用 `removeRange` 删掉那段）；段落被手动挪得不再首尾相接时 `LAYOUT_MISMATCH`。
 - 它不切素材、不配音、不对齐，也不烧来源标签、双语字幕或照片的推拉：这些在它之前做好，把剪好的文件当普通素材给它；有命令行环境时现成的脚本见 {{skill:production-scripts}}。
 
 ### 剪口播的机制
