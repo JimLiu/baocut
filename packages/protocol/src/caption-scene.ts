@@ -112,7 +112,9 @@ export interface CaptionScene {
     fontSizeBindings?: { id: string; nodeId: string; selectorId: string; value: CaptionDynamicValue }[];
     fontStyleBindings?: { id: string; nodeId: string; selectorId: string; style: { fontFamily?: string; fontWeight?: number; italic?: boolean } }[];
     /** maxUnitsPerLine also ends width-wrapped lines at a word quota; requires caption-line-unit-quota/1. */
-    pagination?: { unit?: 'word'; maxUnitsPerPage?: number | null; maxUnitsPerLine?: number | null; wordLinePattern?: number[][] | null;
+    pagination?: { unit?: 'word'; maxUnitsPerPage?: number | null; maxUnitsPerLine?: number | null;
+      /** Cyclic fixed word counts per page, with width-wrapped lines; requires caption-word-page-layout/1. */
+      wordPagePattern?: number[] | null; wordLinePattern?: number[][] | null;
       textLinePattern?: { unit: 'unicode-scalar' | 'grapheme' | 'scalar-cluster'; lines: number[][];
         clusterRules?: { attachments?: { next: [number, number][]; previous?: [number, number][] | null; headExcluded?: [number, number][] | null }[];
           consumeFollowingAfter?: [number, number][]; joiners?: number[] } | null } | null;

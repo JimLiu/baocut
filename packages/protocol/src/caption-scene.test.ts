@@ -1,7 +1,7 @@
 import { expect, expectTypeOf, test } from 'vitest';
 import type {
   CaptionImageSequenceResource, CaptionLayerSource, CaptionMaterial,
-  CaptionRenderLayer, CaptionSceneStyleBody,
+  CaptionRenderLayer, CaptionScene, CaptionSceneStyleBody,
 } from './caption-scene.ts';
 
 const domain = {
@@ -50,4 +50,13 @@ test('layer sources, premultiplication and the binary reveal policy are explicit
   expectTypeOf<Sweep['maskScale']>().toEqualTypeOf<[number, number]>();
   expectTypeOf<Sweep['reveal']>().toEqualTypeOf<boolean>();
   expectTypeOf<Sweep['uvY']>().toEqualTypeOf<'up' | 'down'>();
+});
+
+test('word page quotas keep the strict wire field name and optional legacy shape', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<Pagination['wordPagePattern']>().toEqualTypeOf<number[] | null | undefined>();
+  const pagination: Pagination = { unit: 'word', wordPagePattern: [4, 5, 4] };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual({ unit: 'word', wordPagePattern: [4, 5, 4] });
+  const legacy: Pagination = { maxUnitsPerPage: 3 };
+  expect(JSON.parse(JSON.stringify(legacy))).toEqual({ maxUnitsPerPage: 3 });
 });

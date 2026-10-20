@@ -46,6 +46,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-unit-font-reflow/1",
     "caption-unit-font-style/1",
     "caption-word-line-layout/1",
+    "caption-word-page-layout/1",
     "caption-text-line-layout/1",
     "caption-scalar-cluster-layout/1",
 ];
@@ -159,6 +160,44 @@ fn length(v: &Length, path: &str, scene: &Scene) -> Result<()> {
     }
     if !v.value.is_finite() || !v.offset.is_finite() {
         return Err(invalid(path, "finite length required"));
+    }
+    Ok(())
+}
+fn validate_word_page_pattern(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    let Some(pattern) = &pagination.word_page_pattern else {
+        return Ok(());
+    };
+    let path = "pagination.wordPagePattern";
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-word-page-layout/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-word-page-layout/1 must be declared",
+        ));
+    }
+    let bounded_sum = pattern.iter().try_fold(0usize, |sum, count| sum.checked_add(*count));
+    if pattern.is_empty()
+        || pattern.len() > MAX_UNITS
+        || !pattern.iter().all(|count| (1..=MAX_UNITS).contains(count))
+        || !bounded_sum.is_some_and(|sum| sum <= MAX_UNITS)
+    {
+        return Err(invalid(
+            path,
+            "1..4096 page quotas of 1..4096 words required; total quota must not exceed 4096",
+        ));
+    }
+    if pagination.max_units_per_page.is_some()
+        || pagination.max_units_per_line.is_some()
+        || pagination.word_line_pattern.is_some()
+        || pagination.text_line_pattern.is_some()
+        || pagination.last_page_rule.is_some()
+        || pagination.tail_word_rule.is_some()
+    {
+        return Err(invalid(
+            path,
+            "word page quotas are exclusive with other pagination planning fields",
+        ));
     }
     Ok(())
 }
@@ -390,6 +429,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     {
         return Err(invalid("layout", "invalid page/line limit"));
     }
+    validate_word_page_pattern(s)?;
     validate_text_line_pattern(s)?;
     validate_word_line_pattern(&s.layout)?;
     validate_line_unit_quota(s)?;

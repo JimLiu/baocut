@@ -819,19 +819,27 @@ fn prepare(
         bail!("CAPTION_SCENE_INVALID: resolved font size or width");
     }
     let max = cfg.pagination.max_units_per_page.unwrap_or(MAX_UNITS);
+    let pattern = cfg.pagination.word_page_pattern.as_deref();
     let mut ranges = Vec::new();
+    let mut memberships = Vec::new();
     let mut from = 0;
-    for chunk in words.chunks(max) {
+    let mut word_index = 0;
+    while word_index < words.len() {
+        let quota = pattern.map_or(max, |p| p[ranges.len() % p.len()]);
+        let word_end = (word_index + quota).min(words.len());
+        let chunk = &words[word_index..word_end];
         let end = chunk.last().unwrap().bytes.end;
         ranges.push(from..end);
+        memberships.push(word_index..word_end);
         from = end;
+        word_index = word_end;
     }
     if let Some(last) = ranges.last_mut() {
         last.end = content.len();
     }
     let mut pages = Vec::new();
     for (quota_index, range) in ranges.into_iter().enumerate() {
-        let paint_origin = if quota_index > 0 && cfg.pagination.max_units_per_page.is_some() {
+        let paint_origin = if quota_index > 0 && (cfg.pagination.max_units_per_page.is_some() || pattern.is_some()) {
             quota_paint_start(content, &range)
         } else {
             range.start
@@ -863,7 +871,17 @@ fn prepare(
                 },
             ),
         );
-        for (rowgroup_index, rowgroup) in block.lines.chunks(cfg.max_lines).enumerate() {
+        let rowgroups: Vec<_> = if pattern.is_some() {
+            if cfg.overflow == LayoutOverflow::Error
+                && (block.lines.len() > cfg.max_lines || block.lines.iter().any(|line| line.metrics.width > width + 0.001))
+            {
+                bail!("CAPTION_LAYOUT_OVERFLOW: word page lines");
+            }
+            vec![block.lines.as_slice()]
+        } else {
+            block.lines.chunks(cfg.max_lines).collect()
+        };
+        for (rowgroup_index, rowgroup) in rowgroups.into_iter().enumerate() {
             let x = cfg.x.resolve(size.0, size.1, parameters)?;
             let y = cfg.y.resolve(size.0, size.1, parameters)?;
             let mut lines = Vec::new();
@@ -895,12 +913,16 @@ fn prepare(
             }
             let Some(first) = lines.first() else { continue };
             let Some(last) = lines.last() else { continue };
-            let member = words
-                .iter()
-                .enumerate()
-                .filter(|(_, w)| w.bytes.start < last.bytes.end && w.bytes.end > first.bytes.start)
-                .map(|(i, _)| i)
-                .collect::<Vec<_>>();
+            let member = if pattern.is_some() {
+                memberships[quota_index].clone().collect::<Vec<_>>()
+            } else {
+                words
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, w)| w.bytes.start < last.bytes.end && w.bytes.end > first.bytes.start)
+                    .map(|(i, _)| i)
+                    .collect::<Vec<_>>()
+            };
             let bounds = union(lines.iter().map(|l| l.bounds));
             let paint_start = paint_origin + rowgroup.first().unwrap().bytes.start;
             let source_start = if rowgroup_index == 0 && paint_origin > range.start {
@@ -909,7 +931,11 @@ fn prepare(
                 paint_start
             };
             pages.push(Page {
-                source_range: source_start..paint_origin + rowgroup.last().unwrap().bytes.end,
+                source_range: if pattern.is_some() {
+                    range.clone()
+                } else {
+                    source_start..paint_origin + rowgroup.last().unwrap().bytes.end
+                },
                 paint_start,
                 lines,
                 words: member,
@@ -952,6 +978,7 @@ fn prepare(
         content: content.into(),
     })
 }
+
 fn union(boxes: impl Iterator<Item = Bounds>) -> Bounds {
     let mut b = None;
     for x in boxes {
@@ -2891,6 +2918,101 @@ mod ink_tests {
             }
         }
     }
+    #[test]
+    fn word_page_pattern_freezes_members_despite_grapheme_wrapping_and_reflow() {
+        let content = "  extraordinarily bb cc dd ee ff gg  ";
+        let (mut text, mut style, mut cue, params) = input(content, 1.0);
+        cue.words = content
+            .split_whitespace()
+            .enumerate()
+            .map(|(i, word)| SceneWord {
+                id: format!("w{i}"),
+                text: word.into(),
+                start: i as f64 * 0.5,
+                end: i as f64 * 0.5 + 0.4,
+            })
+            .collect();
+        let SceneSource::Inline { value: scene } = &mut style.scene;
+        scene.layout.pagination = Pagination {
+            word_page_pattern: Some(vec![2, 3]),
+            ..Pagination::default()
+        };
+        scene.layout.max_lines = 1;
+        scene.layout.overflow = LayoutOverflow::Visible;
+        scene.layout.width.value = 8.0;
+        scene.layout.width.basis = LengthBasis::Absolute;
+        let base = prepare(
+            &mut text,
+            &cue,
+            &scene.nodes[0],
+            &scene.layout,
+            &scene.speech_state,
+            (160, 90),
+            &params,
+        )
+        .unwrap();
+        assert_eq!(
+            base.pages.iter().map(|p| p.words.clone()).collect::<Vec<_>>(),
+            vec![vec![0, 1], vec![2, 3, 4], vec![5, 6]]
+        );
+        assert!(base.pages[0].lines.len() > 4, "a single long word wraps onto many rows");
+        assert_eq!(
+            base.pages.iter().map(|p| &base.content[p.source_range.clone()]).collect::<String>(),
+            content
+        );
+        assert_eq!(base.pages.iter().map(|p| p.start).collect::<Vec<_>>(), vec![0.0, 1.0, 2.5]);
+        for page in &base.pages {
+            let mut node = scene.nodes[0].clone();
+            node.style.font_size.value *= 1.6;
+            let next = sampled_layout::reflow(
+                &mut text,
+                &base,
+                page,
+                &node,
+                &scene.layout,
+                (160, 90),
+                &params,
+                &mut Budget::new(100_000),
+            )
+            .unwrap();
+            assert_eq!(next.words, page.words);
+            assert_eq!(next.source_range, page.source_range);
+            assert_eq!((next.start, next.end), (page.start, page.end));
+        }
+        scene.layout.overflow = LayoutOverflow::Error;
+        assert!(
+            prepare(
+                &mut text,
+                &cue,
+                &scene.nodes[0],
+                &scene.layout,
+                &scene.speech_state,
+                (160, 90),
+                &params
+            )
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("CAPTION_LAYOUT_OVERFLOW")
+        );
+        scene.layout.overflow = LayoutOverflow::Visible;
+        scene.layout.pagination = Pagination {
+            max_units_per_page: Some(2),
+            ..Pagination::default()
+        };
+        let legacy = prepare(
+            &mut text,
+            &cue,
+            &scene.nodes[0],
+            &scene.layout,
+            &scene.speech_state,
+            (160, 90),
+            &params,
+        )
+        .unwrap();
+        assert!(legacy.pages.len() > 3, "legacy width/line pagination keeps its previous behavior");
+    }
+
     #[test]
     fn word_quota_does_not_trim_runs_containing_vertical_separators() {
         for separator in [
