@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { methodParamSchemas } from './schemas.ts';
-import { VIDEO_ANNOTATION_LIMITS } from './video.ts';
+import { groupVideoAnnotationsByFrame, VIDEO_ANNOTATION_LIMITS, videoAnnotationFrameMs } from './video.ts';
 
 describe('conversations.send / steer 带的视频标注（产品设计 §3.2.3「视频标注」）', () => {
   const base = { conversationId: 'c', text: 'hi', commandId: 'k' };
@@ -167,5 +167,23 @@ describe('轻量视图标记工具送来的视频标注（docs/design/lite-edito
     ]) {
       expect(send.safeParse({ ...base, videoAnnotations: [bad] }).success, JSON.stringify(bad).slice(0, 200)).toBe(false);
     }
+  });
+});
+
+describe('按帧归条（docs/design/lite-editor §4.1）', () => {
+  it('一处标记属于截图那一帧，没有截图时是它的时刻；同一视频同一帧的并成一条，按第一次出现的先后编号', () => {
+    expect(videoAnnotationFrameMs({ timeMs: 12_380, shot: { timeMs: 12_400 } })).toBe(12_400);
+    expect(videoAnnotationFrameMs({ timeMs: 12_380 })).toBe(12_380);
+    const notes = [
+      { id: 'a', video: 'talk', timeMs: 12_400, shot: { timeMs: 12_400 } },
+      { id: 'b', video: 'talk', timeMs: 30_000 },
+      { id: 'c', video: 'other', timeMs: 12_400 },
+      { id: 'd', video: 'talk', timeMs: 12_390, shot: { timeMs: 12_400 } },
+    ];
+    expect(groupVideoAnnotationsByFrame(notes, (n) => n.video).map((f) => [f.key, f.n, f.timeMs, f.items.map((n) => n.id)])).toEqual([
+      ['talk@12400', 1, 12_400, ['a', 'd']],
+      ['talk@30000', 2, 30_000, ['b']],
+      ['other@12400', 3, 12_400, ['c']],
+    ]);
   });
 });

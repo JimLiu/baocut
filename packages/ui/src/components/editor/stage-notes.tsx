@@ -5,7 +5,12 @@ import Delete from '@react-spectrum/s2/icons/Delete';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
 import { MARKUP_TEXT_SIZE, markAnchor, markOfAnnotation } from '../../model/markup.ts';
-import { videoAnnotationPins, type VideoAnnotationPin } from '../../model/video-annotations.ts';
+import {
+  videoAnnotationFrameLabel,
+  videoAnnotationFrameTexts,
+  videoAnnotationPins,
+  type VideoAnnotationPin,
+} from '../../model/video-annotations.ts';
 import { VIDEO_NOTES as V } from '../../model/video-annotations-copy.ts';
 import { useDraftVideoAnnotationList, useDraftVideoAnnotations } from '../../state/draft-video-annotations-store.ts';
 import { useEditor } from '../../state/editor-store.ts';
@@ -20,7 +25,8 @@ import { drawing, pct, pinMark, stampMark, SvgMark, SVG_KINDS, textMark } from '
  * 视频标注（产品设计 §3.2.3「视频标注」、§5.3；移植自原型 stage-notes.jsx）：编辑器预览画面上的标注层——画已进草稿的标注。
  * 画标注的手势归标记层与标记工具条（markup.tsx，lite-editor §4.1；舞台条的「标记」打开，两种视图同一套），按「添加到对话」或发评论时
  * 这一条进这部视频的草稿（draft-video-annotations-store），画面上出对应的标记。标记的画法与标记层同一套（markup-marks.tsx）：画出来
- * 什么样，进了草稿还是什么样，只多一枚写着草稿里序号的钮（点开看批注、从对话里移除）。标记只画播放头附近那一帧的；别的时刻的在
+ * 什么样，进了草稿还是什么样，只多一枚写着那一条序号的钮（点开看批注、从对话里移除）。同一帧的几处标记算一条（lite-editor §4.1）：
+ * 一个编号，钮只放在这一帧第一处标记上，弹层写这一帧的说法与各处批注，移除时整帧一起移除。标记只画播放头附近那一帧的；别的时刻的在
  * composer 列表里，点一条跳到那个时刻。发送后草稿清空，标记随之消失。标注层盖在画面与舞台点选层之上、标记层之下（preview.tsx），全屏播放器不画。
  */
 
@@ -37,7 +43,7 @@ export function StageNotesLayer({ videoId, frame }: { videoId: Id; frame: { left
   const notes = useDraftVideoAnnotationList(videoId);
   const playhead = useEditor((s) => s.playhead);
   if (!notes.length) return null;
-  const remove = (id: string) => useDraftVideoAnnotations.getState().remove(videoId, id);
+  const remove = (ids: readonly string[]) => useDraftVideoAnnotations.getState().remove(videoId, ids);
   const pins = videoAnnotationPins(notes, videoId, playhead);
   const size = { w: frame.width, h: frame.height };
   return (
@@ -53,17 +59,21 @@ export function StageNotesLayer({ videoId, frame }: { videoId: Id; frame: { left
 }
 
 /**
- * 一条标注的 HTML 部分：文字标记的字（线、框、圆、画笔与元素框在上面的 SVG 里），加一枚写着草稿里序号的钮——编号就是那枚圆点，
- * 评论是那枚印章（画面上写序号，对着 composer 的列表；截图上的印章写缩写），别的种类落在标记的锚点上。点钮看批注，可以从对话里移除。
+ * 一处标记的 HTML 部分：文字标记的字（线、框、圆、画笔与元素框在上面的 SVG 里），这一帧的第一处另加一枚写着那一条序号的钮，落在标记的
+ * 锚点上；编号标记与评论自己就是那枚圆点 / 印章，同一帧的别处也照样带（画面上写序号，对着 composer 的列表；截图上的印章写缩写）。
+ * 点钮看这一帧的说法与批注，可以整帧从对话里移除。
  */
-function StageNoteMark({ pin, onRemove }: { pin: VideoAnnotationPin; onRemove: (id: string) => void }) {
+function StageNoteMark({ pin, onRemove }: { pin: VideoAnnotationPin; onRemove: (ids: readonly string[]) => void }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const mark = markOfAnnotation(pin);
   const tone = mark.color;
   const anchor = markAnchor(mark);
-  // 标记工具画的标记可以没有批注：读屏名与弹层里退回给人看的位置
-  const said = pin.text || pin.label;
+  const label = videoAnnotationFrameLabel(pin.frame.items);
+  const texts = videoAnnotationFrameTexts(pin.frame.items);
+  // 标记工具画的标记可以没有批注：读屏名退回这一帧的说法
+  const said = texts.join('; ') || label;
+  const badge = pin.lead || pin.kind === 'comment' || pin.kind === 'pin';
   return (
     <>
       {pin.kind === 'text' ? (
@@ -76,46 +86,52 @@ function StageNoteMark({ pin, onRemove }: { pin: VideoAnnotationPin; onRemove: (
           {mark.text}
         </span>
       ) : null}
-      <span className={anchorWrap} style={{ left: pct(anchor.x), top: pct(anchor.y) }} onPointerDown={(event) => event.stopPropagation()}>
-        <RACButton
-          ref={buttonRef}
-          className={(rp) => {
-            const on = { tone, isButton: true, isHovered: rp.isHovered, isPressed: rp.isPressed, isFocusVisible: rp.isFocusVisible };
-            return pin.kind === 'comment' ? stampMark(on) : pinMark(on);
-          }}
-          aria-label={V.mark(pin.n, said)}
-          aria-expanded={open}
-          aria-haspopup="dialog"
-          data-mark={pin.kind}
-          onPress={() => setOpen((v) => !v)}
-        >
-          {pin.n}
-        </RACButton>
-        <Popover
-          triggerRef={buttonRef}
-          isOpen={open}
-          onOpenChange={setOpen}
-          placement="bottom"
-          padding="default"
-          aria-label={V.mark(pin.n, said)}
-        >
-          <div className={pinNote}>
-            <p className={pinWhere}>{pin.label}</p>
-            {pin.text ? <p className={pinText}>{pin.text}</p> : null}
-            <ActionButton
-              isQuiet
-              size="S"
-              onPress={() => {
-                setOpen(false);
-                onRemove(pin.id);
-              }}
-            >
-              <Delete />
-              <Text>{V.removeFromChat}</Text>
-            </ActionButton>
-          </div>
-        </Popover>
-      </span>
+      {badge ? (
+        <span className={anchorWrap} style={{ left: pct(anchor.x), top: pct(anchor.y) }} onPointerDown={(event) => event.stopPropagation()}>
+          <RACButton
+            ref={buttonRef}
+            className={(rp) => {
+              const on = { tone, isButton: true, isHovered: rp.isHovered, isPressed: rp.isPressed, isFocusVisible: rp.isFocusVisible };
+              return pin.kind === 'comment' ? stampMark(on) : pinMark(on);
+            }}
+            aria-label={V.mark(pin.n, said)}
+            aria-expanded={open}
+            aria-haspopup="dialog"
+            data-mark={pin.kind}
+            onPress={() => setOpen((v) => !v)}
+          >
+            {pin.n}
+          </RACButton>
+          <Popover
+            triggerRef={buttonRef}
+            isOpen={open}
+            onOpenChange={setOpen}
+            placement="bottom"
+            padding="default"
+            aria-label={V.mark(pin.n, said)}
+          >
+            <div className={pinNote}>
+              <p className={pinWhere}>{label}</p>
+              {texts.map((text, i) => (
+                <p key={i} className={pinText}>
+                  {text}
+                </p>
+              ))}
+              <ActionButton
+                isQuiet
+                size="S"
+                onPress={() => {
+                  setOpen(false);
+                  onRemove(pin.frame.items.map((n) => n.id));
+                }}
+              >
+                <Delete />
+                <Text>{V.removeFromChat}</Text>
+              </ActionButton>
+            </div>
+          </Popover>
+        </span>
+      ) : null}
     </>
   );
 }

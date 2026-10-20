@@ -11,6 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import {
   newId,
+  videoAnnotationFrameMs,
   type AssetRecord,
   type DocumentRecord,
   type Id,
@@ -680,8 +681,7 @@ export function MarkupLayer({
     const marks = useMarkup.getState().markup.marks;
     const notes = buildNotes(marks);
     if (!notes?.length) return;
-    const n = addNotes(notes);
-    if (n === null) return;
+    if (addNotes(notes) === null) return;
     const sent = new Set(notes.map((note) => note.id));
     // 截图先交给草稿再清空：`discard` 把留着的帧一起清了。
     void attachFrames(
@@ -693,7 +693,8 @@ export function MarkupLayer({
       liveNow,
       capture,
     );
-    ToastQueue.neutral(C.added(n), { timeout: 3000 });
+    // 条数按帧（同一帧的几处标记算一条，lite-editor §4.1）。
+    ToastQueue.neutral(C.added(new Set(notes.map(videoAnnotationFrameMs)).size), { timeout: 3000 });
     useMarkup.getState().discard();
   };
   const sendComment = (text: string, toAgent: boolean) => {

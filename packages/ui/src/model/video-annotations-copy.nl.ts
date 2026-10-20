@@ -24,6 +24,8 @@ export const nl: VideoAnnotationMessages = {
     bottomRight: 'rechtsonder',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · beeld ${place}`,
+  frameLabel: (timecode, n, kinds) => `${timecode} · ${n} markeringen · ${kinds}`,
+  kindList: (kinds) => kinds.join(', '),
   mark: (n, text) => `Aantekening ${n}: ${text}`,
   removeFromChat: 'Uit chat verwijderen',
   token: (n) => `Videoaantekeningen · ${n}`,

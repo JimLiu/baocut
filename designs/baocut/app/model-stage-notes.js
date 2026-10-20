@@ -187,7 +187,7 @@
           const style = n.style ? `      style: ${n.style.color} ${n.style.width}px` : null;
           const element = n.element ? `      element: ${n.element.detail || n.element.label || ''}`.trimEnd() : null;
           const stamp = n.shot && n.shot.stamp ? `      stamp: (${n.shot.stamp.x}, ${n.shot.stamp.y}) on the screenshot` : null;
-          const body = n.text ? `      批注：${indent(n.text, '            ')}` : null;
+          const body = n.text ? `      批注：${indent(n.text, '           ')}` : null;
           return [`   ${tag}. ${n.kind} · ${regionText(n)}`, style, element, stamp, body].filter(Boolean).join('\n');
         });
         const count = g.notes.length === 1 ? '1 mark' : `${g.notes.length} marks`;

@@ -24,6 +24,8 @@ export const ja: VideoAnnotationMessages = {
     bottomRight: '右下',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · 画面の${place}`,
+  frameLabel: (timecode, n, kinds) => `${timecode} · マーク ${n} 件 · ${kinds}`,
+  kindList: (kinds) => kinds.join('、'),
   mark: (n, text) => `注釈 ${n}：${text}`,
   removeFromChat: 'チャットから削除',
   token: (n) => `動画の注釈 · ${n} 件`,

@@ -24,6 +24,8 @@ export const zhHans: VideoAnnotationMessages = {
     bottomRight: '右下',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · 画面${place}`,
+  frameLabel: (timecode, n, kinds) => `${timecode} · ${n} 处标记 · ${kinds}`,
+  kindList: (kinds) => kinds.join('、'),
   mark: (n, text) => `第 ${n} 条批注：${text}`,
   removeFromChat: '从对话中移除',
   token: (n) => `视频标注 · ${n} 条`,

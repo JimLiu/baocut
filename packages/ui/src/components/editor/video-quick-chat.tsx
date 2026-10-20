@@ -9,7 +9,7 @@ import { applyAgentChange, draftSelection } from '../../model/agent-choice.ts';
 import { sendFailureMessage } from '../../model/agent-skills.ts';
 import { gateGuide, homeGate } from '../../model/home-brief.ts';
 import { sessionStatus } from '../../model/sidebar.ts';
-import { sentVideoAnnotations } from '../../model/video-annotations.ts';
+import { sentVideoAnnotations, videoAnnotationFrames } from '../../model/video-annotations.ts';
 import { VIDEO_NOTES } from '../../model/video-annotations-copy.ts';
 import { targetKey } from '../../model/workspace.ts';
 import { setDefaultAccessMode } from '../../runtime/agent-commands.ts';
@@ -19,7 +19,6 @@ import { useConversationMeta } from '../../state/directory-store.ts';
 import { useDraftImages } from '../../state/draft-images-store.ts';
 import { useDraftSkills } from '../../state/draft-skills-store.ts';
 import {
-  draftShotUrl,
   uploadDraftVideoShots,
   useDraftVideoAnnotationList,
   useDraftVideoAnnotations,
@@ -29,6 +28,7 @@ import { hostPanelTab, useEditor } from '../../state/editor-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { routeVideo, useShell } from '../../state/shell-store.ts';
 import { useVideo } from '../../state/video-store.ts';
+import { draftVideoTokenItems } from '../annotations-token.tsx';
 import { Composer } from '../composer.tsx';
 import { useEditorReference } from '../use-editor-reference.ts';
 import { AgentGateLine } from './agent-gate-line.tsx';
@@ -130,7 +130,8 @@ export function VideoQuickChat() {
   const [peek, setPeek] = useState(false);
   // 标注模式打开时自动展开一次（工具页开着时走 `peek`，同用户点开）；标记关了、草稿里也没有待发的标注了才复位，回到偏好。
   const annotating = useEditor((s) => s.annotating);
-  const pending = videoAnnotations.length;
+  // 待发的条数按帧数（同一帧的几处标记算一条，lite-editor §4.1）。
+  const pending = videoAnnotationFrames(videoAnnotations).length;
   const [autoOpen, setAutoOpen] = useState(false);
   const min = toolsOpen ? !peek : prefMin && !autoOpen;
   const drivers = useConnection((s) => s.drivers);
@@ -305,24 +306,7 @@ export function VideoQuickChat() {
           placeholder={COPY.placeholder}
           autoFocus={opened}
           reference={editor.reference}
-          videoAnnotations={
-            videoId
-              ? {
-                  items: videoAnnotations.map((n) => ({
-                    id: n.id,
-                    target: n.video,
-                    anchor: '',
-                    timeMs: n.timeMs,
-                    videoId: n.videoId,
-                    image: draftShotUrl(n, videoShots),
-                    label: n.label,
-                    text: n.text,
-                  })),
-                  onRemove: (id) => useDraftVideoAnnotations.getState().remove(videoId, id),
-                  onClear: () => useDraftVideoAnnotations.getState().clear(videoId),
-                }
-              : null
-          }
+          videoAnnotations={videoId ? draftVideoTokenItems(videoId, videoAnnotations, videoShots) : null}
           mentionScope={{ projectId, conversationId: null }}
           onSend={async (text, attachments, skills, { skipProjectBrand }) => {
             // 视频还没载入（不知道它在哪个项目）时先不发，话留在输入框里。

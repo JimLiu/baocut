@@ -2088,8 +2088,8 @@ export interface VideoAnnotation {
   element?: VideoAnnotationElement;
   /**
    * 随消息附上的那一帧截图：哪一帧（毫秒），评论另带印章落在哪（归一化），`attachment` 是这张图在同一条消息 `attachments` 里的
-   * 附件 id（截不出图时没有）。标记工具画的标注都带：那一帧的画面加上这一帧的标记，同一帧的几条共一张图；`comment` 必须带、
-   * 也必须有 `stamp`。
+   * 附件 id（截不出图时没有）。标记工具画的标注都带：那一帧的画面加上这一帧的标记，同一帧的几条共一张图、给人看与给智能体时也算一条
+   * （`groupVideoAnnotationsByFrame`）；`comment` 必须带、也必须有 `stamp`。
    */
   shot?: { timeMs: number; stamp?: { x: number; y: number }; attachment?: Id };
   /**
@@ -2103,6 +2103,45 @@ export interface VideoAnnotation {
   label: string;
   /** 用户写的批注，去掉首尾空白。`text` 与 `comment` 必须写；别的种类可以是空串（lite-editor §4.3「画的标记不逐条要批注」）。 */
   text: string;
+}
+
+/**
+ * 一条视频标注属于哪一帧（lite-editor §4.1「同一帧算一条」）：截图的那一帧，没有截图时是它的时刻。
+ */
+export function videoAnnotationFrameMs(annotation: Pick<VideoAnnotation, 'timeMs' | 'shot'>): number {
+  return annotation.shot && Number.isFinite(annotation.shot.timeMs) ? annotation.shot.timeMs : annotation.timeMs;
+}
+
+/** 按「视频 + 帧」归成的一条：`n` 从 1 起，按各帧第一次出现的先后；`items` 是这一帧的几处标记，按画的先后。 */
+export interface VideoAnnotationFrame<T> {
+  key: string;
+  timeMs: number;
+  n: number;
+  items: T[];
+}
+
+/**
+ * 视频标注按「视频 + 帧」归条（lite-editor §4.1、协议规范 `conversations`）：消息与草稿里仍是一处标记一项，给人看的列表、条数、
+ * 画面编号与给智能体的块都按这里归成的条走——同一帧本来就共一张截图。`videoOf` 给出标注属于哪部视频（草稿用 videoId，消息用视频路径）。
+ */
+export function groupVideoAnnotationsByFrame<T extends Pick<VideoAnnotation, 'timeMs' | 'shot'>>(
+  annotations: readonly T[],
+  videoOf: (annotation: T) => string,
+): VideoAnnotationFrame<T>[] {
+  const frames: VideoAnnotationFrame<T>[] = [];
+  const byKey = new Map<string, VideoAnnotationFrame<T>>();
+  for (const annotation of annotations) {
+    const timeMs = videoAnnotationFrameMs(annotation);
+    const key = `${videoOf(annotation)}@${timeMs}`;
+    let frame = byKey.get(key);
+    if (!frame) {
+      frame = { key, timeMs, n: frames.length + 1, items: [] };
+      byKey.set(key, frame);
+      frames.push(frame);
+    }
+    frame.items.push(annotation);
+  }
+  return frames;
 }
 
 const trimElementText = (value: string, max: number) => {

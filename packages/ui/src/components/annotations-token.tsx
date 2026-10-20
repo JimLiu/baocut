@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { DocsAnnotation, FileTarget, Id } from '@baocut/protocol';
+import { groupVideoAnnotationsByFrame, type DocsAnnotation, type FileTarget, type Id, type VideoAnnotation } from '@baocut/protocol';
 import { ActionButton, Popover, Text } from '@react-spectrum/s2';
 import Close from '@react-spectrum/s2/icons/Close';
 import Comment from '@react-spectrum/s2/icons/Comment';
@@ -10,9 +10,11 @@ import { DESIGN_SYSTEM } from '../model/design-system-copy.ts';
 import { DOCS } from '../model/docs-copy.ts';
 import { SLIDES } from '../model/slides-copy.ts';
 import { VIDEO_NOTES } from '../model/video-annotations-copy.ts';
-import { itemKey, type AnnotatedEditorKind } from '../model/workspace.ts';
+import { videoAnnotationFrameLabel, videoAnnotationFrameTexts, type DraftVideoAnnotation } from '../model/video-annotations.ts';
+import { itemKey, targetKey, type AnnotatedEditorKind } from '../model/workspace.ts';
 import { useShell } from '../state/shell-store.ts';
 import { useEditorReveal } from '../state/editor-bridge.ts';
+import { draftShotUrl, useDraftVideoAnnotations, type DraftVideoShot } from '../state/draft-video-annotations-store.ts';
 import { revealVideoAnnotation } from './editor/stage-notes.tsx';
 
 /** composer 上方与 Space 条目的引用标签同一个样子（composer.tsx `tag`）；已发送消息里只是一行淡色的标记。 */
@@ -113,6 +115,45 @@ export function docsTokenItem(id: string, note: DocsAnnotation): AnnotationToken
     text: note.text,
     tag: note.kind === 'comment' ? DOCS.comment : DOCS.ask,
     ...(note.quote ? { quote: note.quote } : {}),
+  };
+}
+
+/**
+ * 视频标注在列表里一帧一行（lite-editor §4.1）：同一帧的几处标记——不论分几次加进来——是一条，写那一帧的说法（「00:42.3 · 3 处标记 ·
+ * 画笔、框 ×2」）与各处的批注，点一下跳到那一帧。`id` 是这一帧的键（视频 + 帧）。草稿另由 `draftVideoTokenItems` 带视频 id 与截图。
+ */
+export function videoTokenItems<T extends VideoAnnotation>(
+  notes: readonly T[],
+  videoOf: (note: T) => string = (note) => targetKey(note.video),
+  extra: (items: readonly T[]) => Partial<AnnotationTokenItem> = () => ({}),
+): AnnotationTokenItem[] {
+  return groupVideoAnnotationsByFrame(notes, videoOf).map((frame) => ({
+    id: frame.key,
+    target: frame.items[0]!.video,
+    anchor: '',
+    timeMs: frame.timeMs,
+    label: videoAnnotationFrameLabel(frame.items),
+    text: videoAnnotationFrameTexts(frame.items).join('\n'),
+    ...extra(frame.items),
+  }));
+}
+
+/**
+ * composer 上这部视频的草稿：一帧一行，带视频 id 与那一帧画好的截图；移除一行是整帧一起移除（`onRemove` 收到的是这一帧的键）。
+ */
+export function draftVideoTokenItems(
+  videoId: Id,
+  notes: readonly DraftVideoAnnotation[],
+  shots: Record<number, DraftVideoShot>,
+): { items: AnnotationTokenItem[]; onRemove: (id: string) => void; onClear: () => void } {
+  return {
+    items: videoTokenItems(
+      notes,
+      (n) => n.videoId,
+      (items) => ({ videoId: items[0]!.videoId, image: items.map((n) => draftShotUrl(n, shots)).find(Boolean) }),
+    ),
+    onRemove: (key) => useDraftVideoAnnotations.getState().removeFrame(videoId, key),
+    onClear: () => useDraftVideoAnnotations.getState().clear(videoId),
   };
 }
 

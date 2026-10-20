@@ -1,7 +1,10 @@
 import {
   VIDEO_ANNOTATION_LIMITS,
   VIDEO_ANNOTATION_TEXT_KINDS,
+  groupVideoAnnotationsByFrame,
+  videoAnnotationFrameMs,
   type Id,
+  type VideoAnnotationFrame,
   type VideoAnnotation,
   type VideoAnnotationElement,
   type VideoAnnotationKind,
@@ -162,12 +165,51 @@ export function addVideoAnnotation(
   return { list: [...list, { ...note, text, label: note.label || videoAnnotationLabel(note) }], error: null };
 }
 
-export function removeVideoAnnotation(list: readonly DraftVideoAnnotation[], id: string): readonly DraftVideoAnnotation[] {
-  return list.some((n) => n.id === id) ? list.filter((n) => n.id !== id) : list;
+export function removeVideoAnnotation(
+  list: readonly DraftVideoAnnotation[],
+  id: string | readonly string[],
+): readonly DraftVideoAnnotation[] {
+  const gone = new Set(typeof id === 'string' ? [id] : id);
+  return list.some((n) => gone.has(n.id)) ? list.filter((n) => !gone.has(n.id)) : list;
 }
 
-/** 画面上要画的标记带的编号：在整份草稿里的序号，与 composer 列表一致。 */
-export type VideoAnnotationPin = DraftVideoAnnotation & { n: number };
+/**
+ * 草稿按「视频 + 帧」归成的条（lite-editor §4.1）：同一帧的几处标记——不论分几次「添加到对话」——算一条，一个编号、列表里一行、
+ * 一张截图，移除时整帧一起移除；`n` 从 1 起，按各帧第一次出现的先后。协议里仍是一处标记一项（原型 model-stage-notes.js 的 `groups`）。
+ */
+export function videoAnnotationFrames(list: readonly DraftVideoAnnotation[]): VideoAnnotationFrame<DraftVideoAnnotation>[] {
+  return groupVideoAnnotationsByFrame(list, (n) => n.videoId);
+}
+
+type FrameNote = Pick<VideoAnnotation, 'timeMs' | 'shot' | 'kind' | 'label' | 'text'> & Partial<Pick<VideoAnnotation, 'segment' | 'line'>>;
+
+/**
+ * 一条（一帧）给人看的说法（界面语言）：只有一处标记时就是它的标签；几处时「00:42.3 · 3 处标记 · 画笔、框 ×2」，有落点再接段与句
+ * （原型 `groupLabel`）。
+ */
+export function videoAnnotationFrameLabel(notes: readonly FrameNote[]): string {
+  const first = notes[0];
+  if (!first) return '';
+  if (notes.length === 1) return first.label;
+  const counts = new Map<string, number>();
+  for (const n of notes) counts.set(VIDEO_NOTES.kinds[n.kind], (counts.get(VIDEO_NOTES.kinds[n.kind]) ?? 0) + 1);
+  const kinds = [...counts].map(([name, count]) => (count > 1 ? `${name} ×${count}` : name));
+  const head = VIDEO_NOTES.frameLabel(annotationTimecode(videoAnnotationFrameMs(first)), notes.length, VIDEO_NOTES.kindList(kinds));
+  const placed = notes.find((n) => n.segment);
+  if (!placed?.segment) return head;
+  return `${head} · ${placed.segment.id}${placed.line ? ` · ${VIDEO_NOTES.lineNo(placed.line.index)}` : ''}`;
+}
+
+/** 一条里写了字的（文字、评论与写了批注的标记），按画的先后。 */
+export function videoAnnotationFrameTexts(notes: readonly Pick<VideoAnnotation, 'text'>[]): string[] {
+  return notes.map((n) => n.text).filter(Boolean);
+}
+
+/**
+ * 画面上要画的标记：`n` 是它那一帧那一条的编号，与 composer 列表一致；一帧只在第一处标记上放一枚编号钮（`lead`），
+ * 编号标记与评论自己就是圆点 / 印章，照样写编号。`frame` 是这一帧的几处标记（弹层里的说法、整帧移除）。
+ */
+export type VideoAnnotationPin = DraftVideoAnnotation & { n: number; lead: boolean; frame: VideoAnnotationFrame<DraftVideoAnnotation> };
 
 /** 只画这部视频、播放头附近（±near 毫秒）那一帧的；别的时刻的在 composer 的列表里，点一条跳过去。 */
 export function videoAnnotationPins(
@@ -177,10 +219,14 @@ export function videoAnnotationPins(
   near = VIDEO_ANNOTATION_NEAR_MS,
 ): VideoAnnotationPin[] {
   const at = (playheadSeconds || 0) * 1000;
-  return list.flatMap((n, i) => (n.videoId === videoId && Math.abs(n.timeMs - at) <= near ? [{ ...n, n: i + 1 }] : []));
+  return videoAnnotationFrames(list).flatMap((frame) =>
+    frame.items.flatMap((n, i) =>
+      n.videoId === videoId && Math.abs(n.timeMs - at) <= near ? [{ ...n, n: frame.n, lead: i === 0, frame }] : [],
+    ),
+  );
 }
 
-/** 这部视频不在当前帧上的有几条（标注模式的状态行）。 */
+/** 这部视频不在当前帧上的有几条（标注模式的状态行；按帧数）。 */
 export function videoAnnotationsElsewhere(
   list: readonly DraftVideoAnnotation[],
   videoId: Id,
@@ -188,12 +234,12 @@ export function videoAnnotationsElsewhere(
   near = VIDEO_ANNOTATION_NEAR_MS,
 ): number {
   const at = (playheadSeconds || 0) * 1000;
-  return list.filter((n) => n.videoId === videoId && Math.abs(n.timeMs - at) > near).length;
+  return videoAnnotationFrames(list).filter((f) => f.items[0]!.videoId === videoId && Math.abs(f.timeMs - at) > near).length;
 }
 
-/** 多帧标注的候选区间：同一视频两条以上时给出最早与最晚的时刻，只有一条时为 null。只是候选，不是要改的区间。 */
+/** 多帧标注的候选区间：同一视频标了两帧以上时给出最早与最晚的那一帧，只有一帧时为 null。只是候选，不是要改的区间。 */
 export function candidateBounds(list: readonly DraftVideoAnnotation[], videoId: Id): { fromMs: number; toMs: number } | null {
-  const times = list.filter((n) => n.videoId === videoId).map((n) => n.timeMs);
+  const times = [...new Set(list.filter((n) => n.videoId === videoId).map(videoAnnotationFrameMs))];
   if (times.length < 2) return null;
   return { fromMs: Math.min(...times), toMs: Math.max(...times) };
 }

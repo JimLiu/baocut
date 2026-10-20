@@ -4,6 +4,7 @@ import type { Mark } from '../model/markup.ts';
 import {
   addVideoAnnotation,
   removeVideoAnnotation,
+  videoAnnotationFrames,
   type DraftVideoAnnotation,
   type Size,
   type VideoAnnotationError,
@@ -16,7 +17,7 @@ import { paintFrame } from '../render/markup-paint.ts';
  * 发送时随消息交出去，发出去的那几条摘掉。只在这个窗口里，不持久化（同另外三种标注）。
  *
  * 每条标注连着它那一帧的截图（lite-editor §4.1）：`shots[videoId][timeMs]` 是那一帧的底图加上这一帧还在草稿里的标记画成的 PNG，
- * 同一帧的几条共一张。截图归标注所有，不是输入框里另一张可以单独删的图片——移除一条标注，那张图上它的标记就重画掉，这一帧
+ * 同一帧的几条共一张——给人看时它们也算一条（`videoAnnotationFrames`）。截图归标注所有，不是输入框里另一张可以单独删的图片——移除一条标注，那张图上它的标记就重画掉，这一帧
  * 最后一条也没了图就一起丢；发送时每张各上传一次作为消息的附件，标注的 `shot.attachment` 记它的附件 id。
  */
 export interface DraftVideoShot {
@@ -26,7 +27,7 @@ export interface DraftVideoShot {
   layer: Size;
   /** 印章上的缩写。 */
   initials: string;
-  /** 标注 id → 这条标注画的标记（画到图上；按加进来的顺序，编号据此数）。 */
+  /** 标注 id → 这条标注画的标记（画到图上；编号标记的序号按草稿里的顺序在这一帧里数）。 */
   marks: Record<string, Mark>;
   /** 底图加上标记画好的那张图；还在画、或画不出来时 null。 */
   file: File | null;
@@ -48,7 +49,10 @@ interface DraftVideoAnnotationsStore {
    * 不在草稿里的标注的标记不画。
    */
   addShot(videoId: Id, timeMs: number, frame: { base: Blob; layer: Size; initials: string }, marks: readonly Mark[]): void;
-  remove(videoId: Id, id: string): void;
+  /** 移除一条或几条（composer 列表里的一行是一帧的几处标记，整帧一起移除）。 */
+  remove(videoId: Id, id: string | readonly string[]): void;
+  /** 移除一帧：`key` 是 `videoAnnotationFrames` 给的那一帧的键（composer 列表里的一行）。 */
+  removeFrame(videoId: Id, key: string): void;
   clear(videoId: Id): void;
   /** 发出去了：摘掉发出去的那几条（发送期间新加的留着），它们的截图随之丢掉或重画。 */
   sent(videoId: Id, ids: readonly string[]): void;
@@ -86,12 +90,12 @@ export const useDraftVideoAnnotations = create<DraftVideoAnnotationsStore>()((se
       return { shots };
     });
 
-  /** 这部视频草稿里所有画到图上的标记，按标注的顺序（编号按整组数，同标记层上的样子）。 */
-  const group = (videoId: Id): Mark[] => {
-    const shots = get().shots[videoId] ?? NO_SHOTS;
+  /** 这一帧画到图上的标记，按标注在草稿里的顺序（同一帧算一条，编号标记的序号在这一帧里数，分几次加进来也接着数）。 */
+  const frameMarks = (videoId: Id, timeMs: number): Mark[] => {
+    const shot = get().shots[videoId]?.[timeMs];
     const marks: Mark[] = [];
     for (const note of get().annotations[videoId] ?? EMPTY) {
-      const mark = note.shot ? shots[note.shot.timeMs]?.marks[note.id] : undefined;
+      const mark = note.shot?.timeMs === timeMs ? shot?.marks[note.id] : undefined;
       if (mark) marks.push(mark);
     }
     return marks;
@@ -103,7 +107,7 @@ export const useDraftVideoAnnotations = create<DraftVideoAnnotationsStore>()((se
     painting.set(key(videoId, timeMs), seq);
     const shot = get().shots[videoId]?.[timeMs];
     if (!shot) return;
-    void paintFrame(shot.base, Object.values(shot.marks), group(videoId), timeMs, shot.layer, shot.initials)
+    void paintFrame(shot.base, Object.values(shot.marks), frameMarks(videoId, timeMs), timeMs, shot.layer, shot.initials)
       .catch(() => null)
       .then((file) => {
         if (painting.get(key(videoId, timeMs)) !== seq) return;
@@ -160,6 +164,18 @@ export const useDraftVideoAnnotations = create<DraftVideoAnnotationsStore>()((se
       repaint(videoId, timeMs);
     },
     remove: (videoId, id) => write(videoId, removeVideoAnnotation(get().annotations[videoId] ?? EMPTY, id)),
+    removeFrame: (videoId, key) => {
+      const list = get().annotations[videoId] ?? EMPTY;
+      const frame = videoAnnotationFrames(list).find((f) => f.key === key);
+      if (frame)
+        write(
+          videoId,
+          removeVideoAnnotation(
+            list,
+            frame.items.map((n) => n.id),
+          ),
+        );
+    },
     clear: (videoId) => write(videoId, EMPTY),
     sent: (videoId, ids) => {
       const gone = new Set(ids);

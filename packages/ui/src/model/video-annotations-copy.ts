@@ -49,6 +49,12 @@ const en = {
   },
   /** 给人看的位置：「00:42.3 · 框 · 画面右上」。 */
   label: (timecode: string, kind: string, place: string) => `${timecode} · ${kind} · ${place} of the frame`,
+  /**
+   * 同一帧有几处标记时那一条的说法（lite-editor §4.1）：「00:42.3 · 3 处标记 · 画笔、框 ×2」，`n` 至少是 2；
+   * `kinds` 是 `kindList` 拼好的种类（重复的带「×N」）。
+   */
+  frameLabel: (timecode: string, n: number, kinds: string) => `${timecode} · ${n} marks · ${kinds}`,
+  kindList: (kinds: readonly string[]) => kinds.join(', '),
   /** 画面上的标记：编号钮的读屏名、弹层里的移除。 */
   mark: (n: number, text: string) => `Annotation ${n}: ${text}`,
   removeFromChat: 'Remove from chat',

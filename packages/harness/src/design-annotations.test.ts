@@ -123,7 +123,7 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
   });
 
   // 与原型 designs/baocut/app/model-stage-notes.test.js 的 promptText 用例逐字一致。
-  it('一部视频一段，带 revision、时刻、kind 与区域；编号每部视频各自从 1 起；两条以上附 candidateBoundsMs', () => {
+  it('一部视频一段，带 revision；一帧一条，编号每部视频各自从 1 起，逐处列 kind 与区域；标了两帧以上附 candidateBoundsMs', () => {
     const text = withVideoAnnotations('请按这些视频标注修改。', [
       { annotation: videoNote({ timeMs: 10000, kind: 'box', region: { x: 0.25, y: 0.2, w: 0.5, h: 0.4 }, text: '这块字幕挡住了脸' }), videoPath: 'talk/' },
       { annotation: videoNote({ video: { conversationId: 'c', path: 'intro' }, timeMs: 5000, text: '这里加个标题' }), videoPath: 'intro/' },
@@ -137,15 +137,18 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
         '请按这些视频标注修改。',
         '',
         '<baocut-video-annotations video="talk/" revision="3">',
-        '1. 00:10.0 (10000 ms) · box · x=0.25 y=0.2 w=0.5 h=0.4 (25%, 20%, 50% × 40%)',
-        '   批注：这块字幕挡住了脸',
-        '2. 00:42.3 (42300 ms) · arrow · from (0.1, 0.1) to (0.6, 0.5)',
-        '   批注：把 logo 挪到这里',
+        '1. 00:10.0 (10000 ms) · 1 mark',
+        '   a. box · x=0.25 y=0.2 w=0.5 h=0.4 (25%, 20%, 50% × 40%)',
+        '      批注：这块字幕挡住了脸',
+        '2. 00:42.3 (42300 ms) · 1 mark',
+        '   a. arrow · from (0.1, 0.1) to (0.6, 0.5)',
+        '      批注：把 logo 挪到这里',
         'candidateBoundsMs: 10000–42300（候选范围，不是要改的区间）',
         '</baocut-video-annotations>',
         '<baocut-video-annotations video="intro/" revision="3">',
-        '1. 00:05.0 (5000 ms) · pin · at (0.8, 0.2)',
-        '   批注：这里加个标题',
+        '1. 00:05.0 (5000 ms) · 1 mark',
+        '   a. pin · at (0.8, 0.2)',
+        '      批注：这里加个标题',
         '</baocut-video-annotations>',
       ].join('\n'),
     );
@@ -157,13 +160,13 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
       { annotation: videoNote({ revision: '12', timeMs: 3_723_450 }), videoPath: './' },
     ]);
     expect(text).toContain('<baocut-video-annotations video="./" revision="12">');
-    expect(text).toContain('1. 01:00.0 (59960 ms) · text · at (0.8, 0.2)\n   批注：第一行\n        第二行');
-    expect(text).toContain('2. 1:02:03.5 (3723450 ms) · pin · at (0.8, 0.2)');
+    expect(text).toContain('1. 01:00.0 (59960 ms) · 1 mark\n   a. text · at (0.8, 0.2)\n      批注：第一行\n           第二行');
+    expect(text).toContain('2. 1:02:03.5 (3723450 ms) · 1 mark\n   a. pin · at (0.8, 0.2)');
     expect(text).toContain('candidateBoundsMs: 59960–3723450（候选范围，不是要改的区间）');
   });
 
   // docs/design/lite-editor §4.3 的示例块；行序与原型 model-stage-notes.js 的 promptText 一致。
-  it('标记工具送来的：样式、元素、落点与截图各占一行，没有的省略；画的标记不写空批注', () => {
+  it('标记工具送来的：同一帧的几处是一条，落点与截图跟着那一条，逐处的样式、元素、印章各占一行，没有的省略；画的标记不写空批注', () => {
     const style = { color: 'red', width: 4 } as const;
     const blue = { color: 'blue', width: 4 } as const;
     const s03 = { id: 's03', kind: 'scene', index: 2, title: '倒着为什么不掉' };
@@ -220,24 +223,25 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
         '请按这些视频标注修改。',
         '',
         '<baocut-video-annotations video="倒着开的跑车.baocut/" revision="12">',
-        '1. 01:10.0 (70000 ms) · box · x=0.42 y=0.36 w=0.18 h=0.22 (42%, 36%, 18% × 22%)',
-        '   style: red 4px',
+        '1. 01:10.0 (70000 ms) · 2 marks',
         '   segment: s03 (scene #3 倒着为什么不掉) · line 2: 那一个有点危险的做法……',
         "   screenshot: attached (frame-70000.png), frame at 70000 ms with this frame's marks drawn on it",
-        '2. 01:10.0 (70000 ms) · text · at (0.6, 0.3)',
-        '   style: red 4px',
-        '   segment: s03 (scene #3 倒着为什么不掉)',
-        '   批注：字太小',
-        '3. 00:12.4 (12400 ms) · element · x=0.16 y=0.84 w=0.68 h=0.05 (16%, 84%, 68% × 5%)',
-        '   style: blue 4px',
-        '   element: caption s01:l3 "它没有掉下来也没有慢下来"',
+        '   a. box · x=0.42 y=0.36 w=0.18 h=0.22 (42%, 36%, 18% × 22%)',
+        '      style: red 4px',
+        '   b. text · at (0.6, 0.3)',
+        '      style: red 4px',
+        '      批注：字太小',
+        '2. 00:12.4 (12400 ms) · 2 marks',
         '   segment: s01 (scene #1 钩子) · line 3: 它没有掉下来也没有慢下来',
-        '4. 00:12.4 (12400 ms) · comment · at (0.4, 0.3)',
-        '   style: blue 4px',
-        '   element: html button#play.bc-icon-button 32×32 name="播放" role=button',
-        '   segment: s01 (scene #1 钩子)',
-        '   screenshot: not attached, frame at 12400 ms with the stamp at (0.4, 0.3)',
-        '   批注：这里慢一点',
+        "   screenshot: not attached, frame at 12400 ms with this frame's marks drawn on it",
+        '   a. element · x=0.16 y=0.84 w=0.68 h=0.05 (16%, 84%, 68% × 5%)',
+        '      style: blue 4px',
+        '      element: caption s01:l3 "它没有掉下来也没有慢下来"',
+        '   b. comment · at (0.4, 0.3)',
+        '      style: blue 4px',
+        '      element: html button#play.bc-icon-button 32×32 name="播放" role=button',
+        '      stamp: (0.4, 0.3) on the screenshot',
+        '      批注：这里慢一点',
         'candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）',
         '</baocut-video-annotations>',
       ].join('\n'),
@@ -273,12 +277,11 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
         videoPath: './',
       },
     ]);
-    expect(text).toContain('1. 00:42.3 (42300 ms) · line · from (0.1, 0.1) to (0.6, 0.5)\n2.');
-    expect(text).toContain('2. 00:42.3 (42300 ms) · pen · path (0.1, 0.2) → (0.25, 0.3) → (0.4, 0.2) within x=0.1 y=0.2 w=0.3 h=0.1\n3.');
-    expect(text).toContain('3. 00:42.3 (42300 ms) · ellipse · x=0.25 y=0.2 w=0.5 h=0.4 (25%, 20%, 50% × 40%)\n4.');
-    expect(text).toContain(
-      '4. 00:42.3 (42300 ms) · element · x=0.1 y=0.1 w=0.2 h=0.2 (10%, 10%, 20% × 20%)\n   element: element logo (image)\n   批注：这里的字太小',
-    );
+    expect(text).toContain('1. 00:42.3 (42300 ms) · 4 marks\n   a. line · from (0.1, 0.1) to (0.6, 0.5)\n   b.');
+    expect(text).toContain('   b. pen · path (0.1, 0.2) → (0.25, 0.3) → (0.4, 0.2) within x=0.1 y=0.2 w=0.3 h=0.1\n   c.');
+    expect(text).toContain('   c. ellipse · x=0.25 y=0.2 w=0.5 h=0.4 (25%, 20%, 50% × 40%)\n   d.');
+    expect(text).toContain('   d. element · x=0.1 y=0.1 w=0.2 h=0.2 (10%, 10%, 20% × 20%)\n      element: element logo (image)\n      批注：这里的字太小');
+    expect(text).not.toContain('candidateBoundsMs');
   });
 });
 
@@ -498,7 +501,7 @@ describe('send 与 steer 带视频标注', () => {
     const session = await until(() => driver.sessions.at(-1));
     const input = await until(() => session.inputs[0]);
     const systemAt = input.indexOf('<baocut-design-system-annotations system="spectrum-2/">');
-    const videoAt = input.indexOf('<baocut-video-annotations video="talk/" revision="3">\n1. 00:42.3 (42300 ms) · pin');
+    const videoAt = input.indexOf('<baocut-video-annotations video="talk/" revision="3">\n1. 00:42.3 (42300 ms) · 1 mark\n   a. pin');
     expect(systemAt).toBeGreaterThan(0);
     expect(videoAt).toBeGreaterThan(systemAt);
     expect(input.trimEnd().endsWith('</baocut-video-annotations>')).toBe(true);

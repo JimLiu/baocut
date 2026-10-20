@@ -82,6 +82,24 @@ describe('draft-video-annotations-store · 截图', () => {
     expect(store().shots).toEqual({});
   });
 
+  it('同一帧算一条：编号标记的序号只在这一帧里数；移除一帧连它的几处标记与图一起拿掉', async () => {
+    store().add('v1', note('a', 3000));
+    store().add('v1', note('b', 7000));
+    store().add('v1', note('c', 3000));
+    store().addShot('v1', 3000, frame, [mark('a', 3000)]);
+    store().addShot('v1', 7000, frame, [mark('b', 7000)]);
+    store().addShot('v1', 3000, frame, [mark('c', 3000)]);
+    await tick();
+    const last = painted().at(-1)!;
+    expect(last[3]).toBe(3000);
+    expect((last[2] as Mark[]).map((m) => m.id)).toEqual(['a', 'c']);
+    store().removeFrame('v1', 'v1@3000');
+    expect(store().annotations.v1!.map((n) => n.id)).toEqual(['b']);
+    expect(shot(3000)).toBeUndefined();
+    store().removeFrame('v1', 'v1@9999');
+    expect(store().annotations.v1!.map((n) => n.id)).toEqual(['b']);
+  });
+
   it('发送前每一帧各传一次，同一帧的几条共一个附件 id；传过的不重传，重画后作废；有一张失败就整个抛出', async () => {
     store().add('v1', note('a', 3000));
     store().add('v1', note('b', 3000));

@@ -24,6 +24,8 @@ export const ru: VideoAnnotationMessages = {
     bottomRight: 'справа внизу',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · ${place} кадра`,
+  frameLabel: (timecode, n, kinds) => `${timecode} · пометок: ${n} · ${kinds}`,
+  kindList: (kinds) => kinds.join(', '),
   mark: (n, text) => `Пометка ${n}: ${text}`,
   removeFromChat: 'Убрать из чата',
   token: (n) => `Пометки к видео · ${n}`,

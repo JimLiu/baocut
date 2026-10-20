@@ -24,6 +24,8 @@ export const vi: VideoAnnotationMessages = {
     bottomRight: 'góc dưới bên phải',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · ${place} khung hình`,
+  frameLabel: (timecode, n, kinds) => `${timecode} · ${n} dấu · ${kinds}`,
+  kindList: (kinds) => kinds.join(', '),
   mark: (n, text) => `Chú thích ${n}: ${text}`,
   removeFromChat: 'Gỡ khỏi cuộc trò chuyện',
   token: (n) => `Chú thích video · ${n}`,

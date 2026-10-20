@@ -17,7 +17,7 @@ import { Button, ProgressCircle, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { AGENT_PICKER, QUEUE_COPY } from '../copy.ts';
-import { docsTokenItem } from './annotations-token.tsx';
+import { docsTokenItem, draftVideoTokenItems } from './annotations-token.tsx';
 import { sendFailureMessage } from '../model/agent-skills.ts';
 import { enqueueMessage } from '../model/message-queue.ts';
 import { sentDesignAnnotations } from '../model/design-annotations.ts';
@@ -40,7 +40,6 @@ import { useDraftDesignSystemAnnotationList, useDraftDesignSystemAnnotations } f
 import { useDraftDocsAnnotationList, useDraftDocsAnnotations } from '../state/draft-docs-annotations-store.ts';
 import { useDraftSlideAnnotationList, useDraftSlideAnnotations } from '../state/draft-slide-annotations-store.ts';
 import {
-  draftShotUrl,
   uploadDraftVideoShots,
   useDraftVideoAnnotationList,
   useDraftVideoAnnotations,
@@ -240,24 +239,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           onRemove: (id) => useDraftDesignSystemAnnotations.getState().remove(conversationId, id),
           onClear: () => useDraftDesignSystemAnnotations.getState().clear(conversationId),
         }}
-        videoAnnotations={
-          noteVideoId
-            ? {
-                items: videoAnnotations.map((n) => ({
-                  id: n.id,
-                  target: n.video,
-                  anchor: '',
-                  timeMs: n.timeMs,
-                  videoId: n.videoId,
-                  image: draftShotUrl(n, videoShots),
-                  label: n.label,
-                  text: n.text,
-                })),
-                onRemove: (id) => useDraftVideoAnnotations.getState().remove(noteVideoId, id),
-                onClear: () => useDraftVideoAnnotations.getState().clear(noteVideoId),
-              }
-            : null
-        }
+        videoAnnotations={noteVideoId ? draftVideoTokenItems(noteVideoId, videoAnnotations, videoShots) : null}
         docsAnnotations={{
           items: docsAnnotations.map((n) => docsTokenItem(n.id, n)),
           onRemove: (id) => useDraftDocsAnnotations.getState().remove(conversationId, id),

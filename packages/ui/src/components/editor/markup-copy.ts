@@ -40,6 +40,7 @@ const en = {
   redo: 'Redo',
   addToChat: 'Add to chat',
   close: 'Close markup',
+  /** 加进去的条数：按帧数（同一帧的几处标记算一条）。 */
   added: (n: number) => `Added to chat · ${n}`,
   /** 关闭时还有没发的标记。 */
   discardTitle: 'Discard these marks?',

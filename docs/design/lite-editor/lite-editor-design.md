@@ -177,7 +177,9 @@
 
 每条标记属于画它时的那一帧：画下去的那一刻记下播放头（`timeMs`），播放头离开那一帧（±0.5 s，与草稿标注在画面上的时间窗相同）它就不显示，拖回来再显示；选中的那条不在当前帧上时 Delete 不删它。「添加到对话」时每条按自己的时刻带落点（段与句），涉及的每一帧出一张截图——那一帧的画面加上这一帧的标记（线条按画布与画面的比例放大，评论画印章），同一帧的标记共一张，随消息一起交给智能体；画下第一条标记时就从预览画布拷下那一帧留着，因为「添加到对话」时画布上只剩当前帧。截图与标注是一个整体：草稿里按帧留着底图与每条标注的标记（`draft-video-annotations-store` 的 `shots`），移除一条标注就把它的标记从那张图上重画掉，这一帧最后一条也没了图就一起丢；发送时每帧上传一次作为消息的附件（计入每条消息 8 个附件的上限），同一帧几条标注的 `shot.attachment` 指同一个附件，有一张传不上去整条消息不发、草稿留着。实时合成层（HTML 动画）在画布之外的 iframe 里，Electron 截帧时改由窗口截下预览画面那块区域（标记层与工具条暂时隐去，`host.captureFrame`），Web 端仍只拷画布。是不是实时合成层看截图那一刻引擎这一帧的计划，不看「导出前要烘焙」的提示——合成有可用替身时预览照样走实时层、画布照样透明；Web 端遇到实时合成层截不出图，按截不出处理（提示、`screenshot: not attached`），不把透明的画布当那一帧发出去。
 
-种类表（`BC_STAGE_NOTES.KINDS`）加 `pen` / `line` / `ellipse` / `element` / `comment`，与今天的 `box` / `arrow` / `text` / `pin` 并列；两种视图同一条工具条、同一份草稿（`videoNotes[videoId]`），切视图互相能看见。标记的颜色与粗细随标注存成 `style`，舞台照它画。进了草稿的标注在画面上按标记层同一套画法画（`markup-marks.tsx`；原型 `stage-markup.jsx` 的 `SvgMark`），画出来什么样进了草稿还是什么样，只多一枚写着草稿里序号的钮（编号就是那枚圆点，评论是那枚印章）。
+种类表（`BC_STAGE_NOTES.KINDS`）加 `pen` / `line` / `ellipse` / `element` / `comment`，与今天的 `box` / `arrow` / `text` / `pin` 并列；两种视图同一条工具条、同一份草稿（`videoNotes[videoId]`），切视图互相能看见。标记的颜色与粗细随标注存成 `style`，舞台照它画。进了草稿的标注在画面上按标记层同一套画法画（`markup-marks.tsx`；原型 `stage-markup.jsx` 的 `SvgMark`），画出来什么样进了草稿还是什么样，只多一枚写着那一条序号的钮（编号就是那枚圆点，评论是那枚印章）。
+
+同一帧算一条（2026-10-19 定）：草稿里同一视频同一帧（截图的那一帧，没有截图时是标注的时刻）的几处标记，不论分几次「添加到对话」，给人看时都算一条——「视频标注 · N 条」的 N 是帧数；列表里一帧一行，写「00:12.4 · 3 处标记 · 画笔、框 ×2 · s03 · 第 4 句」（只有一处时就是它自己的标签）、各处的批注与那一帧的一张截图，× 整帧移除；画面上一帧只在第一处标记上放一枚编号钮（编号标记与评论自己就是圆点 / 印章，照样带），弹层写这一帧的说法与批注，「从对话中移除」整帧移除；截图上编号标记的序号在这一帧里数；工具条「已添加到对话 · N 条」与快聊最小化时的计数也按帧。协议不变，每处标记仍是一条 `VideoAnnotation`（各带几何、样式与批注），归条只在显示与发给智能体的块里（协议的 `groupVideoAnnotationsByFrame`）；每条消息至多 20 处标记的上限照旧按处数。不同帧仍是不同的条。
 
 工具条的样子照截图标注器：一行、按内容定宽、不折行，浅底圆角、细边、轻阴影（容器照 S2 ActionBar；不直接用 ActionBar，它固定带「已选 N 项」与清除钮、零项时隐藏，放不下切换态、分隔线与主按钮）；钮都是安静的图标钮，当前工具浅蓝底；分组用细竖线隔开——选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 撤销 / 重做 ｜ 添加到对话（黑色胶囊）/ 关闭。形状钮一枚：图标显示当前形状，点开下拉选（直线 / 箭头 / 矩形 / 圆 / 编号，当前项打勾），选了就切到形状工具；颜色的下拉是圆点加名字，粗细的下拉只有四档横线样本；删选中的只走键。钮的尺度照设计系统的工具条：钮 24 方、图标 16、间距 4、圆角 4、底色过渡 60ms；带下拉的钮随内容加宽、左右不留白，小箭头 12 px、一直是灰的；下拉打开时钮显示悬停底色。「选择元素」与「评论」照幻灯片编辑器（`apps/slides-editor`）把选中元素附到评论、发到会话的做法。不共用实现——设计稿与幻灯片的标注绑的是画板里的元素，视频标注绑的是时刻、归一化区域与画面上的节点，中间没有能复用的层。
 
@@ -194,38 +196,38 @@ line:    {id: "s03:l2", index: 2, text: "那一个有点危险的做法……"} 
 
 ### 4.3 发给会话的消息
 
-与今天一样进输入框的「视频标注 · N 条」，随下一条消息发出；只带标注时正文「请按这些视频标注修改。」。画的标记不逐条要批注——一组标记就是一句话的附件，只有文字与评论带 `批注：`。消息里的块多出落点、样式、元素与截图这几行（没有的省略）：
+与今天一样进输入框的「视频标注 · N 条」，随下一条消息发出；只带标注时正文「请按这些视频标注修改。」。画的标记不逐条要批注——一组标记就是一句话的附件，只有文字与评论带 `批注：`。块里一帧一条（同一视频同一帧的几处标记并在一起，见 §4.1「同一帧算一条」）：条头写时刻与几处标记（`1 mark` / `N marks`），下面是这一帧共用的落点（取第一处带的）与截图，再按 `a.`、`b.`……列各处标记的种类、区域、样式、元素、印章位置与批注（没有的省略）：
 
 ```
 <baocut-video-annotations video="…/倒着开的跑车.baocut" revision="12">
-1. 01:10.0 (70000 ms) · box · x=0.42 y=0.36 w=0.18 h=0.22
-   style: red 4px
+1. 01:10.0 (70000 ms) · 2 marks
    segment: s03 (scene #3 倒着为什么不掉) · line 2: 那一个有点危险的做法……
    screenshot: attached (frame-70000.png), frame at 70000 ms with this frame's marks drawn on it
-2. 01:10.0 (70000 ms) · text · x=0.60 y=0.30
-   style: red 4px
-   segment: s03 (scene #3 倒着为什么不掉) · line 2: ……
-   screenshot: attached (frame-70000.png), frame at 70000 ms with this frame's marks drawn on it
-   批注：字太小
-3. 00:12.4 (12400 ms) · element · x=0.16 y=0.84 w=0.68 h=0.05
-   style: blue 4px
-   element: caption s01:l3 "它没有掉下来也没有慢下来"
+   a. box · x=0.42 y=0.36 w=0.18 h=0.22 (42%, 36%, 18% × 22%)
+      style: red 4px
+   b. text · at (0.6, 0.3)
+      style: red 4px
+      批注：字太小
+2. 00:12.4 (12400 ms) · 2 marks
    segment: s01 (scene #1 钩子) · line 3: 它没有掉下来也没有慢下来
-4. 00:12.4 (12400 ms) · comment · x=0.40 y=0.30
-   style: blue 4px
-   element: html button#play.bc-icon-button 32×32 name="播放" role=button
-   segment: s01 (scene #1 钩子) · line 3: ……
-   screenshot: attached (frame-12400.png), frame at 12400 ms with the stamp at (0.4, 0.3)
-   批注：这里慢一点
+   screenshot: attached (frame-12400.png), frame at 12400 ms with this frame's marks drawn on it
+   a. element · x=0.16 y=0.84 w=0.68 h=0.05 (16%, 84%, 68% × 5%)
+      style: blue 4px
+      element: caption s01:l3 "它没有掉下来也没有慢下来"
+   b. comment · at (0.4, 0.3)
+      style: blue 4px
+      element: html button#play.bc-icon-button 32×32 name="播放" role=button
+      stamp: (0.4, 0.3) on the screenshot
+      批注：这里慢一点
 candidateBoundsMs: 12400–70000（候选范围，不是要改的区间）
 </baocut-video-annotations>
 ```
 
-`screenshot` 那一行对应随消息一起交出的图片附件，括号里是附件的文件名（标注的 `shot.attachment` 指的那一个）：评论是那一帧加印章，画的标记是那一帧加上这一帧的全部标记（同一帧的几条共一张，所以上面第 1、2 条指的是同一张图），智能体看图找位置；没截到图的画的标记不带这一行，评论总带（没有附件时写 `not attached`）；`element` 给的是英文 `detail`，让它能在源文件或 HTML 里找到那个节点。
+`screenshot` 那一行对应随消息一起交出的图片附件，括号里是附件的文件名（这一帧各处标记的 `shot.attachment` 指的那一个）：那一帧加上这一帧的全部标记，评论在图上画成印章，`stamp:` 写它在图上的位置，智能体看图找位置；没截到图时，只有画的标记的那一帧不写这一行，带评论的写 `not attached`（评论总带 `shot`）；`element` 给的是英文 `detail`，让它能在源文件或 HTML 里找到那个节点。`candidateBoundsMs` 只在标了两帧以上时给，取最早与最晚的那一帧。
 
 语义不变（产品设计 §3.2.3）：默认含义是「改源视频这个时刻附近」；段落落点只是定位，智能体不把它当成「重做整段」的指令。skill「收到视频标注时的解读」补一句：带 `segment` 的标注优先用章节表的工具改那一章（动画片设计 §6）；带 `element` 的标注改那个元素（字幕行、合成层或 HTML 节点），不是改它附近的画面。
 
-原型：`app/model-markup.js`（标记层的状态：工具、样式、历史、几何、把手、转成标注），`app/stage-markup.jsx`（`MarkupLayer` 画面上的层与元素拾取、`MarkupBar` 工具条、`SvgMark` 等画法也给 `stage-notes.jsx` 用），`app/model-stage-notes.js` 的 `normalize()`、`promptText()`，`app/stage-notes.jsx`（发出去之后的显示与输入框里的缩略图）。
+原型：`app/model-markup.js`（标记层的状态：工具、样式、历史、几何、把手、转成标注），`app/stage-markup.jsx`（`MarkupLayer` 画面上的层与元素拾取、`MarkupBar` 工具条、`SvgMark` 等画法也给 `stage-notes.jsx` 用），`app/model-stage-notes.js` 的 `normalize()`、`groups()`、`groupLabel()`、`promptText()`，`app/stage-notes.jsx`（发出去之后的显示与输入框里的缩略图）。
 
 ## 5. 两种视图，一份视频
 

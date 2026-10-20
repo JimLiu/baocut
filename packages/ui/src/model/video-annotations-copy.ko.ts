@@ -24,6 +24,8 @@ export const ko: VideoAnnotationMessages = {
     bottomRight: '오른쪽 아래',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · 화면 ${place}`,
+  frameLabel: (timecode, n, kinds) => `${timecode} · 표시 ${n}개 · ${kinds}`,
+  kindList: (kinds) => kinds.join(', '),
   mark: (n, text) => `주석 ${n}: ${text}`,
   removeFromChat: '대화에서 제거',
   token: (n) => `동영상 주석 · ${n}개`,

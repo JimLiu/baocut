@@ -24,6 +24,8 @@ export const tr: VideoAnnotationMessages = {
     bottomRight: 'sağ alt',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · görüntünün ${place} kısmı`,
+  frameLabel: (timecode, n, kinds) => `${timecode} · ${n} işaret · ${kinds}`,
+  kindList: (kinds) => kinds.join(', '),
   mark: (n, text) => `Not ${n}: ${text}`,
   removeFromChat: 'Sohbetten kaldır',
   token: (n) => `Video notları · ${n}`,

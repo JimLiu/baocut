@@ -62,6 +62,7 @@ import {
   type SettingsReader,
   type SlideAnnotation,
   type VideoAnnotation,
+  groupVideoAnnotationsByFrame,
   videoAnnotationElementDetail,
   type SpaceEntryReference,
   type SpaceReadScope,
@@ -3006,13 +3007,18 @@ function annotationRegion(a: VideoAnnotation): string {
 
 /**
  * 把视频标注附在发给智能体的文字后面（产品设计 §3.2.3「视频标注」；协议规范 `conversations`），排在设计系统标注段之后：
- * 每部视频一段，按第一次出现的顺序；编号在每部视频里各自从 1 起；段上的 `revision` 取这组标注里最大的。每条一行时码（含毫秒）、
- * 种类与区域，下面依次是标记的样式、点中的元素（给模型看的英文 `detail`）、落点（段与句，lite-editor §4.2）、那一帧的截图
- * （`shot.attachment` 对上这条消息的附件时写它的文件名，对不上或截不出图时写 `not attached`），最后是批注——没有的行省略，
- * 空批注（标记工具画的标记）不写 `批注：`。同一部视频两条以上时段末另给 `candidateBoundsMs`——只是候选范围，不是要改的区间。
+ * 每部视频一段，按第一次出现的顺序；段上的 `revision` 取这组标注里最大的。同一帧的几处标记算一条（lite-editor §4.1，
+ * `groupVideoAnnotationsByFrame`），编号在每部视频里各自从 1 起：首行时码（含毫秒）与几处标记，下面是落点（段与句，lite-editor §4.2）、
+ * 那一帧的截图（`shot.attachment` 对上这条消息的附件时写它的文件名，对不上或截不出图时写 `not attached`），再逐处列出 `a.` `b.` …：
+ * 种类与区域，下面依次是样式、点中的元素（给模型看的英文 `detail`）、评论印章在截图上的位置与批注——没有的行省略，空批注（标记工具画的标记）
+ * 不写 `批注：`。同一部视频标了两帧以上时段末另给 `candidateBoundsMs`——只是候选范围，不是要改的区间。
  * 写法与原型 designs/baocut/app/model-stage-notes.js 的 `promptText` 逐字一致。
  */
-export function withVideoAnnotations(text: string, annotations: readonly ResolvedVideoAnnotation[], attachments: readonly AttachmentRef[] = []): string {
+export function withVideoAnnotations(
+  text: string,
+  annotations: readonly ResolvedVideoAnnotation[],
+  attachments: readonly AttachmentRef[] = [],
+): string {
   if (annotations.length === 0) return text;
   const fileNames = new Map(attachments.map((a) => [a.id, a.fileName]));
   const shotOf = (shot: NonNullable<VideoAnnotation['shot']>) => {
@@ -3023,34 +3029,48 @@ export function withVideoAnnotations(text: string, annotations: readonly Resolve
   for (const { annotation, videoPath } of annotations) groups.set(videoPath, [...(groups.get(videoPath) ?? []), annotation]);
   const blocks = [...groups].map(([videoPath, notes]) => {
     // 版本是十进制数字串：先比位数再比字面，取最大的（都是同一版本时就是那一个）。
-    const revision = notes.reduce((max, n) => (n.revision.length > max.length || (n.revision.length === max.length && n.revision > max) ? n.revision : max), notes[0]!.revision);
+    const revision = notes.reduce(
+      (max, n) => (n.revision.length > max.length || (n.revision.length === max.length && n.revision > max) ? n.revision : max),
+      notes[0]!.revision,
+    );
+    const frames = groupVideoAnnotationsByFrame(notes, () => videoPath);
     // i18n-ignore-start: 发给智能体的标注（给模型的提示词），不随界面语言变化
-    const lines = notes.map((a, i) => {
-      const segment = a.segment
-        ? `   segment: ${a.segment.id} (${a.segment.kind} #${a.segment.index + 1}${a.segment.title ? ` ${a.segment.title}` : ''})` +
-          (a.line ? ` · line ${a.line.index}: ${a.line.text}` : '')
+    const lines = frames.map((frame) => {
+      const head = frame.items[0]!;
+      const segment = head.segment
+        ? `   segment: ${head.segment.id} (${head.segment.kind} #${head.segment.index + 1}${head.segment.title ? ` ${head.segment.title}` : ''})` +
+          (head.line ? ` · line ${head.line.index}: ${head.line.text}` : '')
         : null;
+      const shot = frame.items.find((a) => a.shot)?.shot;
+      const marks = frame.items.map((a, i) =>
+        [
+          `   ${String.fromCharCode(97 + i)}. ${a.kind} · ${annotationRegion(a)}`,
+          a.style ? `      style: ${a.style.color} ${a.style.width}px` : null,
+          a.element ? `      element: ${videoAnnotationElementDetail(a.element)}`.trimEnd() : null,
+          a.shot?.stamp ? `      stamp: (${a.shot.stamp.x}, ${a.shot.stamp.y}) on the screenshot` : null,
+          a.text ? `      批注：${a.text.split('\n').join('\n           ')}` : null,
+        ]
+          .filter((line): line is string => !!line)
+          .join('\n'),
+      );
       return [
-        `${i + 1}. ${annotationTimecode(a.timeMs)} (${a.timeMs} ms) · ${a.kind} · ${annotationRegion(a)}`,
-        a.style ? `   style: ${a.style.color} ${a.style.width}px` : null,
-        a.element ? `   element: ${videoAnnotationElementDetail(a.element)}`.trimEnd() : null,
+        `${frame.n}. ${annotationTimecode(frame.timeMs)} (${frame.timeMs} ms) · ${frame.items.length === 1 ? '1 mark' : `${frame.items.length} marks`}`,
         segment,
-        a.shot
-          ? a.shot.stamp
-            ? `   screenshot: ${shotOf(a.shot)}, frame at ${a.shot.timeMs} ms with the stamp at (${a.shot.stamp.x}, ${a.shot.stamp.y})`
-            : `   screenshot: ${shotOf(a.shot)}, frame at ${a.shot.timeMs} ms with this frame's marks drawn on it`
-          : null,
-        a.text ? `   批注：${a.text.split('\n').join('\n        ')}` : null,
+        shot ? `   screenshot: ${shotOf(shot)}, frame at ${frame.timeMs} ms with this frame's marks drawn on it` : null,
+        ...marks,
       ]
         .filter((line): line is string => !!line)
         .join('\n');
     });
-    const times = notes.map((a) => a.timeMs);
-    const tail = notes.length >= 2 ? [`candidateBoundsMs: ${Math.min(...times)}–${Math.max(...times)}（候选范围，不是要改的区间）`] : [];
+    const times = frames.map((frame) => frame.timeMs);
+    const tail = frames.length >= 2 ? [`candidateBoundsMs: ${Math.min(...times)}–${Math.max(...times)}（候选范围，不是要改的区间）`] : [];
     // i18n-ignore-end
-    return [`<baocut-video-annotations video=${JSON.stringify(videoPath)} revision=${JSON.stringify(revision)}>`, ...lines, ...tail, '</baocut-video-annotations>'].join(
-      '\n',
-    );
+    return [
+      `<baocut-video-annotations video=${JSON.stringify(videoPath)} revision=${JSON.stringify(revision)}>`,
+      ...lines,
+      ...tail,
+      '</baocut-video-annotations>',
+    ].join('\n');
   });
   return [text, '', ...blocks].join('\n');
 }

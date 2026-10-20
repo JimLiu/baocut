@@ -24,6 +24,8 @@ export const pl: VideoAnnotationMessages = {
     bottomRight: 'na dole po prawej',
   },
   label: (timecode, kind, place) => `${timecode} · ${kind} · ${place} kadru`,
+  frameLabel: (timecode, n, kinds) => `${timecode} · znaczniki: ${n} · ${kinds}`,
+  kindList: (kinds) => kinds.join(', '),
   mark: (n, text) => `Adnotacja ${n}: ${text}`,
   removeFromChat: 'Usuń z czatu',
   token: (n) => `Adnotacje wideo · ${n}`,

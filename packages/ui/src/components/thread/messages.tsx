@@ -25,7 +25,7 @@ import { useRuntime } from '../../runtime/context.tsx';
 import { useSkills } from '../../state/skills-store.ts';
 import { AgentMarkdown } from './agent-markdown.tsx';
 import { CopyButton } from './copy-button.tsx';
-import { AnnotationsToken, docsTokenItem } from '../annotations-token.tsx';
+import { AnnotationsToken, docsTokenItem, videoTokenItems } from '../annotations-token.tsx';
 import { BRAND_TOKEN_COPY } from '../skills/skills-copy.ts';
 
 type Item<K extends TimelineItem['kind']> = Extract<TimelineItem, { kind: K }>;
@@ -218,19 +218,9 @@ export const UserMessage = memo(function UserMessage({ item, conversationId }: {
         </div>
       ) : null}
       {item.videoAnnotations?.length ? (
-        // 随这条消息交出去的视频标注（产品设计 §3.2.3「视频标注」）：点一条打开那部视频，播放头放到标注的那一刻。
+        // 随这条消息交出去的视频标注（产品设计 §3.2.3「视频标注」）：一帧一条，点一条打开那部视频，播放头放到那一帧。
         <div className={contextLine}>
-          <AnnotationsToken
-            kind="video"
-            items={item.videoAnnotations.map((a, i) => ({
-              id: sentAnnotationId(item.id, i),
-              target: a.video,
-              anchor: '',
-              timeMs: a.timeMs,
-              label: a.label,
-              text: a.text,
-            }))}
-          />
+          <AnnotationsToken kind="video" items={videoTokenItems(item.videoAnnotations)} />
         </div>
       ) : null}
       {item.docsAnnotations?.length ? (

@@ -9,6 +9,9 @@ import {
   removeVideoAnnotation,
   sentVideoAnnotations,
   videoAnnotationErrorText,
+  videoAnnotationFrameLabel,
+  videoAnnotationFrames,
+  videoAnnotationFrameTexts,
   videoAnnotationLabel,
   videoAnnotationPins,
   videoAnnotationsElsewhere,
@@ -86,25 +89,54 @@ describe('video-annotations', () => {
     const list = [note(), note({ id: 'n2' })];
     expect(removeVideoAnnotation(list, 'missing')).toBe(list);
     expect(removeVideoAnnotation(list, 'n1').map((n) => n.id)).toEqual(['n2']);
+    expect(removeVideoAnnotation(list, ['n1', 'n2'])).toEqual([]);
   });
 
-  it('画面上的标记只画这部视频播放头 ±500ms 的，编号是整份草稿里的序号；其余的计数', () => {
+  it('画面上的标记只画这部视频播放头 ±500ms 的，编号是那一帧那一条的序号，一帧只有第一处是 lead；别的帧按帧计数', () => {
     const list = [
       note({ id: 'a', timeMs: 1_000 }),
       note({ id: 'b', timeMs: 42_300 }),
       note({ id: 'c', videoId: 'v2', timeMs: 42_300 }),
       note({ id: 'd', timeMs: 42_800 }),
+      note({ id: 'e', timeMs: 42_300 }),
+      note({ id: 'f', timeMs: 1_000 }),
     ];
-    expect(videoAnnotationPins(list, 'v1', 42.3).map((p) => [p.id, p.n])).toEqual([
-      ['b', 2],
-      ['d', 4],
+    expect(videoAnnotationPins(list, 'v1', 42.3).map((p) => [p.id, p.n, p.lead])).toEqual([
+      ['b', 2, true],
+      ['e', 2, false],
+      ['d', 4, true],
     ]);
+    expect(videoAnnotationPins(list, 'v1', 42.3)[1]!.frame.items.map((n) => n.id)).toEqual(['b', 'e']);
     expect(videoAnnotationsElsewhere(list, 'v1', 42.3)).toBe(1);
     expect(videoAnnotationPins(list, 'v1', 42.9).map((p) => p.id)).toEqual(['d']);
   });
 
-  it('候选区间：同一视频两条以上才有', () => {
+  it('同一帧的几处标记算一条：按视频 + 截图那一帧归，分几次加进来也并在一起；说法写几处与种类，有落点再接段与句', () => {
+    const shot = { timeMs: 12_400 };
+    const segment = { id: 's03', kind: 'scene' as const, index: 2, title: '' };
+    const list = [
+      note({ id: 'a', timeMs: 12_400, kind: 'pen', shot, text: '', label: '00:12.4 · 画笔 · 画面中央' }),
+      note({ id: 'b', timeMs: 30_000, shot: { timeMs: 30_000 }, label: '00:30.0 · 框 · 画面右上' }),
+      note({ id: 'c', timeMs: 12_400, shot, segment, line: { id: 's03:l4', index: 4, text: '' }, text: '字太小' }),
+      note({ id: 'd', timeMs: 12_400, shot, text: '往左挪' }),
+    ];
+    const frames = videoAnnotationFrames(list);
+    expect(frames.map((f) => [f.n, f.timeMs, f.items.map((n) => n.id)])).toEqual([
+      [1, 12_400, ['a', 'c', 'd']],
+      [2, 30_000, ['b']],
+    ]);
+    expect(videoAnnotationFrameLabel(frames[0]!.items)).toBe('00:12.4 · 3 处标记 · 画笔、框 ×2 · s03 · 第 4 句');
+    expect(videoAnnotationFrameLabel(frames[1]!.items)).toBe('00:30.0 · 框 · 画面右上');
+    expect(videoAnnotationFrameTexts(frames[0]!.items)).toEqual(['字太小', '往左挪']);
+    expect(videoAnnotationFrames([note({ id: 'x', videoId: 'v2', timeMs: 12_400 }), ...list])[0]!.items.map((n) => n.id)).toEqual(['x']);
+    vi.stubEnv('BAOCUT_LOCALE', 'en');
+    setLocale('en');
+    expect(videoAnnotationFrameLabel(frames[0]!.items)).toBe('00:12.4 · 3 marks · Pen, Box ×2 · s03 · line 4');
+  });
+
+  it('候选区间：同一视频标了两帧以上才有', () => {
     expect(candidateBounds([note()], 'v1')).toBeNull();
+    expect(candidateBounds([note({ id: 'a' }), note({ id: 'b' })], 'v1')).toBeNull();
     expect(candidateBounds([note({ timeMs: 9_000 }), note({ timeMs: 2_000 }), note({ videoId: 'v2', timeMs: 0 })], 'v1')).toEqual({
       fromMs: 2_000,
       toMs: 9_000,

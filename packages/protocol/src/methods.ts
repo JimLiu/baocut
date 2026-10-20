@@ -464,8 +464,8 @@ export interface RpcMethods {
    * `designSystemAnnotations`：设计系统标签里加进草稿的标注（docs/design/canvas §10.6），限制相同（`DESIGN_SYSTEM_ANNOTATION_LIMITS`）。
    * 每套设计系统一段 `<baocut-design-system-annotations>`，附在设计稿标注段之后；编号各自从 1 起；设计系统找不到时同样整条 `not-found`。
    * `videoAnnotations`：编辑器预览画面上加进草稿的标注（产品设计 §3.2.3「视频标注」），限制相同（`VIDEO_ANNOTATION_LIMITS`）。
-   * 每部视频一段 `<baocut-video-annotations video="…" revision="…">`，附在设计系统标注段之后；编号各自从 1 起，同一部视频两条以上时
-   * 段末另给 `candidateBoundsMs`；视频找不到时同样整条 `not-found`，`revision` 落后于当前版本时不拒绝。
+   * 每部视频一段 `<baocut-video-annotations video="…" revision="…">`，附在设计系统标注段之后；同一帧的几条并成一条（`groupVideoAnnotationsByFrame`），
+   * 编号各自从 1 起，同一部视频标了两帧以上时段末另给 `candidateBoundsMs`；视频找不到时同样整条 `not-found`，`revision` 落后于当前版本时不拒绝。
    * `docsAnnotations`：文档标签里发给智能体的评论与请求（docs/design/docs §8），最多 `DOCS_ANNOTATION_LIMITS.perMessage` 条。
    * 每份文档一段 `<baocut-docs-annotations>`，附在设计系统标注段之后；编号各自从 1 起；文档找不到时同样整条 `not-found`。
    */
