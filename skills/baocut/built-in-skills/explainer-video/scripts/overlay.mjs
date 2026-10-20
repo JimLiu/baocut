@@ -19,6 +19,10 @@
 //   pip：{ x, y, w } 画中画，不铺满：x、y 是框中心、w 是框宽（画布宽高的百分比），高按原片（裁过之后）的宽高比；代码画面在下面照常讲。
 //   画中画按框的像素大小剪，来源标签烧在框的右上角；不能带 subs（字幕要在画面底部，压在框里太小）。转场作用在框上。
 //   原声在成片片段里做淡入淡出、响度对到 footage.loudness（LUFS）。
+//   来源是图片（png / jpg / webp / bmp / tif）时 from / to 只定时长（写 0 和秒数），整段停在这张图上；不能带 audio。
+//   motion：{ kind, scale? } 给图片做 Ken Burns（kind 取 zoom-in / zoom-out / pan-left / pan-right，scale 缺省 1.08，1–2 之间）：
+//   推近从整幅推到 scale 倍、拉远反过来；平移固定放大 scale 倍，pan-left 镜头从右往左移（画里的东西往右走），pan-right 反过来。
+//   匀速走完整个片段；不能和 pip 一起用。--dry 打印要用的滤镜。
 // 配置 footage：{ clips, layer, font, label: { size, margin }, loudness, subs: { fontsDir, font, size, trFont, trSize, whoSize, marginV } }；watermark：{ file, dur, w, y, x: { left, right }, at: [...] }，
 //   layer 缺省 over（实拍盖在代码画面上面）；under 时实拍轨放到代码包那条轨的下面当底，包要透明（bundle.alpha 为 true，场景只画要叠的卡片与标注），
 //   实拍之外的时刻露出的是画布底色（空），用 coverage.mjs 看有多少空着。
@@ -54,6 +58,28 @@ const fitVf = (c, w, h) => [
 ];
 const KINDS = ['dissolve', 'wipe', 'slide', 'zoom', 'iris'];
 for (const c of cl.clips) for (const side of ['in', 'out']) if (c[side] && !KINDS.includes(c[side].kind)) throw new Error(`${c.id}: ${side}.kind "${c[side].kind}" not one of ${KINDS.join(', ')}`);
+const IMAGE = /\.(png|jpe?g|webp|bmp|tiff?)$/i, MOTIONS = ['zoom-in', 'zoom-out', 'pan-left', 'pan-right'];
+const isImage = c => IMAGE.test(src(c));
+for (const c of cl.clips) {
+  if (isImage(c) && c.audio) throw new Error(`${c.id}: ${src(c)} is a still image and has no sound; drop audio`);
+  if (!c.motion) continue;
+  if (!MOTIONS.includes(c.motion.kind)) throw new Error(`${c.id}: motion.kind "${c.motion.kind}" not one of ${MOTIONS.join(', ')}`);
+  if (c.motion.scale !== undefined && !(c.motion.scale > 1 && c.motion.scale <= 2)) throw new Error(`${c.id}: motion.scale ${c.motion.scale} must be above 1 and at most 2`);
+  if (!isImage(c)) throw new Error(`${c.id}: motion is for still images (png, jpg, webp, bmp, tif); ${src(c)} is not one`);
+  if (c.pip) throw new Error(`${c.id}: motion needs a full-screen clip; drop pip or the motion`);
+}
+// Ken Burns：先按 cover / contain 放进 SUPER 倍大的画幅（zoompan 的 x、y 取整到输入像素，放大了才不抖），再用 zoompan 让一张图出 n 帧
+const SUPER = 4;
+const motionVf = (c, w, h, n) => {
+  const s = c.motion.scale ?? 1.08, d = +(s - 1).toFixed(6), p = n > 1 ? `on/${n - 1}` : '0';
+  const z = { 'zoom-in': `1+${d}*${p}`, 'zoom-out': `${s}-${d}*${p}` }[c.motion.kind] ?? String(s);
+  const x = { 'pan-left': `(iw-iw/zoom)*(1-${p})`, 'pan-right': `(iw-iw/zoom)*${p}` }[c.motion.kind] ?? '(iw-iw/zoom)/2';
+  return [...fitVf(c, w * SUPER, h * SUPER), `zoompan=z='${z}':x='${x}':y='(ih-ih/zoom)/2':d=${n}:s=${w}x${h}:fps=${FPS}`];
+};
+// 输入与画面滤镜：视频从 from 起剪；图片一张出 n 帧（有 motion 走 zoompan，没有就循环同一帧）
+const inputArgs = (c, n) => !isImage(c) ? ['-ss', String(c.from), '-i', src(c), '-t', (n / FPS).toFixed(4)]
+  : [...(c.motion ? [] : ['-loop', '1', '-framerate', String(FPS)]), '-i', src(c), '-frames:v', String(n)];
+const pictureVf = (c, w, h, n) => c.motion ? motionVf(c, w, h, n) : [...fitVf(c, w, h), `fps=${FPS}`];
 for (const c of cl.clips) if (c.pip) {
   if (!['x', 'y', 'w'].every(k => Number.isFinite(c.pip[k])) || c.pip.w <= 0) throw new Error(`${c.id}: pip needs numeric x, y and a positive w (percent of the canvas)`);
   if (c.subs?.length) throw new Error(`${c.id}: subs need a full-screen clip; drop pip or the subs`);
@@ -65,10 +91,11 @@ if (flags.preview) {
   for (const c of cl.clips) {
     if (ids.length && !ids.includes(c.id)) continue;
     const out = path.join(work('clips'), c.id + '.mp4'), keyFile = out.replace(/\.mp4$/, '.json');
-    const key = JSON.stringify({ src: src(c), from: c.from, to: c.to, crop: c.crop ?? null, fit: c.fit ?? null, pip: c.pip ?? null, audio: !!c.audio });
+    const key = JSON.stringify({ src: src(c), from: c.from, to: c.to, crop: c.crop ?? null, fit: c.fit ?? null, pip: c.pip ?? null, audio: !!c.audio, motion: c.motion ?? null });
     if (fs.existsSync(out) && !flags.force && fs.existsSync(keyFile) && fs.readFileSync(keyFile, 'utf8') === key) continue;
     const audio = c.audio ? ['-c:a', 'aac', '-b:a', '128k'] : ['-an'];
-    ffmpeg(['-ss', String(c.from), '-i', src(c), '-t', String(c.to - c.from), ...audio, '-vf', fitVf(c, 1280, 720).join(','), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-movflags', '+faststart', out]);
+    const n = Math.max(1, Math.round((c.to - c.from) * FPS));
+    ffmpeg([...inputArgs(c, n), ...audio, '-vf', pictureVf(c, 1280, 720, n).join(','), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '24', '-movflags', '+faststart', out]);
     fs.writeFileSync(keyFile, key);
     console.log('preview clip', c.id, (c.to - c.from).toFixed(1) + 's');
   }
@@ -110,7 +137,8 @@ const marks = (wm?.at || []).map(m => {
   const f = Math.round((m.t ?? at(m.seg, m.line, m.cue)) * FPS);
   return { side: m.side, f, t: +(f / FPS).toFixed(4) };
 });
-for (const c of plan) console.log(`${c.id.padEnd(16)} ${(c.f0 / FPS).toFixed(2).padStart(8)}s  +${(c.frames / FPS).toFixed(2)}s  src ${c.from}${c.gap ? '  gap' : ''}${c.audio ? `  audio${typeof c.audio === 'number' ? ' ' + c.audio : ''}` : ''}${c.subs ? `  subs:${c.subs.length}` : ''}${c.pip ? `  pip ${c.pip.x},${c.pip.y} w${c.pip.w}` : ''}${c.tin ? `  in ${c.tin.kind} ${(c.tin.frames / FPS).toFixed(2)}` : ''}${c.tout ? `  out ${c.tout.kind} ${(c.tout.frames / FPS).toFixed(2)}` : ''}`);
+for (const c of plan) console.log(`${c.id.padEnd(16)} ${(c.f0 / FPS).toFixed(2).padStart(8)}s  +${(c.frames / FPS).toFixed(2)}s  src ${c.from}${c.gap ? '  gap' : ''}${c.audio ? `  audio${typeof c.audio === 'number' ? ' ' + c.audio : ''}` : ''}${c.subs ? `  subs:${c.subs.length}` : ''}${c.pip ? `  pip ${c.pip.x},${c.pip.y} w${c.pip.w}` : ''}${c.motion ? `  motion ${c.motion.kind} ${c.motion.scale ?? 1.08}` : isImage(c) ? '  still' : ''}${c.tin ? `  in ${c.tin.kind} ${(c.tin.frames / FPS).toFixed(2)}` : ''}${c.tout ? `  out ${c.tout.kind} ${(c.tout.frames / FPS).toFixed(2)}` : ''}`);
+for (const c of plan) if (c.motion) console.log(`${c.id.padEnd(16)} vf ${motionVf(c, W, H, c.frames).join(',')}`);
 for (const m of marks) console.log(`watermark ${m.side.padEnd(5)} ${m.t}s  +${wm.dur}s`);
 if (!flags.render && !flags.place && !flags.check) process.exit(0);
 
@@ -133,7 +161,7 @@ if (flags.render) {
   fs.mkdirSync(work('footage'), { recursive: true });
   for (const c of plan) {
     const out = path.join(work('footage'), `${c.id}.mp4`);
-    const vf = [...fitVf(c, W, H), `fps=${FPS}`];
+    const vf = pictureVf(c, W, H, c.frames);
     const label = c.label ?? cl.label;
     if (label) {
       const tf = path.join(work('footage'), `${c.id}.label.txt`);
@@ -151,7 +179,7 @@ if (flags.render) {
     const len = c.frames / FPS;
     const fin = c.tin ? c.tin.frames / FPS : 0.15, fout = c.tout ? c.tout.frames / FPS : 0.3;
     const audio = c.audio ? ['-af', `afade=t=in:d=${fin.toFixed(3)},afade=t=out:st=${Math.max(0, len - fout).toFixed(3)}:d=${fout.toFixed(3)},loudnorm=I=${fo.loudness}:TP=-1.5:LRA=11,aresample=48000`, '-c:a', 'aac', '-b:a', '192k'] : ['-an'];
-    ffmpeg(['-ss', String(c.from), '-i', src(c), '-t', len.toFixed(4), ...audio, '-vf', vf.join(','), '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out]);
+    ffmpeg([...inputArgs(c, c.frames), ...audio, '-vf', vf.join(','), '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out]);
     console.log('rendered', c.id);
   }
 }
