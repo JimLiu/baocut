@@ -1,7 +1,8 @@
 /* 视频标注（product-design §3.2.3「视频标注」、§5.3）：编辑器预览画面上的标注层（画已进草稿的标注），与 composer 上方、已发送消息里的
    「视频标注 · N 条」。画标注的手势归标记层与标记工具条（stage-markup.jsx；docs/design/lite-editor §4.1）：舞台工具条的「标记」打开，
    轻量与时间线两种视图同一套；按「添加到对话」或发评论时这一条进这部视频的草稿（store 的 `videoNotes[videoId]`），画面上出对应的标记。
-   标记只画播放头附近那一帧的；别的时刻的在 composer 列表里，点一条跳到那个时刻。发送后草稿清空，标记随之消失。只在 App 入口加载。 */
+   标记只画播放头附近那一帧的；别的时刻的在 composer 列表里，点一条跳到那个时刻。发送后草稿清空，标记随之消失。只在 App 入口加载。
+   同一帧的几处标记算一条（model-stage-notes.js 的 `groups`）：一个编号、列表里一行、一张截图，移除时整帧一起移除。 */
 (function () {
   const {useState, useRef} = React;
   const N = window.BC_STAGE_NOTES;
@@ -13,8 +14,8 @@
   const SVG_KINDS = new Set(['rect', 'ellipse', 'line', 'arrow', 'pen']);
 
   /* 画面上的一条标注：画法与标记层同一套（stage-markup.jsx 的 SvgMark、.mk__text、.mk__el），画出来什么样进了草稿还是什么样；
-     只多一枚写着草稿里序号的钮（.stnotes__badge，跟标记的颜色）：编号就是那枚圆点，评论是那枚印章，别的落在标记的锚点上
-     （画笔是第一个点）。点钮看批注，可以从对话里移除（草稿）；已发送的消息不画标记。 */
+     这一帧的第一处标记上多一枚写着那一条序号的钮（.stnotes__badge，跟标记的颜色），落在标记的锚点上（画笔是第一个点）；
+     编号标记与评论自己就是一枚圆点 / 印章，同一帧的别处也照样带。点钮看这一帧的说法与批注，可以整帧从对话里移除（草稿）；已发送的消息不画标记。 */
   function StageNoteMark({pin, mark, px, onRemove}) {
     const R = window.RSP;
     const UI = window.BC_MARKUP_UI;
@@ -22,20 +23,24 @@
     const anchor = useRef(null);
     const p = px(mark);
     const at = px(mark.kind === 'pen' && mark.points?.[0] ? mark.points[0] : mark);
-    const said = pin.text || pin.label;
+    const g = pin.group;
+    const label = N.groupLabel(g);
+    const texts = N.groupTexts(g);
+    const said = texts.join('；') || label;
+    const badge = pin.lead || pin.kind === 'comment' || pin.kind === 'pin';
     return <>
       {mark.kind === 'text' ? <div className="mk__text mk-c" data-color={mark.color} style={{left: p.x, top: p.y, fontSize: UI.TEXT_SIZE[mark.width] || 20}} aria-hidden="true">{mark.text}</div> : null}
       {mark.kind === 'element' ? <div className="mk__el mk-c" data-color={mark.color} style={{left: p.x, top: p.y, width: p.w, height: p.h}} aria-hidden="true"><span className="mk__el-label">{mark.element?.label}</span></div> : null}
-      <span ref={anchor} className={cx('stnotes__badge mk-c', pin.kind === 'comment' && 'is-stamp')} data-color={mark.color} style={{left: at.x, top: at.y}}>
+      {badge ? <span ref={anchor} className={cx('stnotes__badge mk-c', pin.kind === 'comment' && 'is-stamp')} data-color={mark.color} style={{left: at.x, top: at.y}}>
         <R.ActionButton size="XS" aria-label={`标注 ${pin.n}：${said}`} aria-expanded={open} aria-haspopup="dialog" onPress={() => setOpen(v => !v)}>{pin.n}</R.ActionButton>
         <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchor} width={280} label={`标注 ${pin.n}`}>
           <div className="home-design__pin-note">
-            <p className="home-design__form-label">{pin.label}</p>
-            {pin.text ? <p>{pin.text}</p> : null}
-            <R.ActionButton isQuiet size="S" onPress={() => { setOpen(false); onRemove(pin.id); }}><R.Icons.Delete /><R.Text>从对话中移除</R.Text></R.ActionButton>
+            <p className="home-design__form-label">{label}</p>
+            {texts.map((t, i) => <p key={i}>{t}</p>)}
+            <R.ActionButton isQuiet size="S" onPress={() => { setOpen(false); onRemove(g.notes.map(n => n.id)); }}><R.Icons.Delete /><R.Text>从对话中移除</R.Text></R.ActionButton>
           </div>
         </Popover>
-      </span>
+      </span> : null}
     </>;
   }
 
@@ -49,7 +54,7 @@
     const videoId = ctx.proj.id;
     const notes = app.videoNotes[videoId] || [];
     if (!notes.length) return null;
-    const remove = id => app.setVideoNotes(videoId, N.remove(notes, id));
+    const remove = ids => app.setVideoNotes(videoId, N.remove(notes, ids));
     const frame = {w: size.w || 1, h: size.h || 1};
     const px = m => ({x: m.x * frame.w, y: m.y * frame.h, w: (m.w || 0) * frame.w, h: (m.h || 0) * frame.h});
     const pins = N.pins(notes, videoId, ctx.playT).map(pin => ({pin, mark: MK.fromNote(pin)}));
@@ -61,8 +66,8 @@
     </div>;
   }
 
-  /* composer 上方与已发送消息里的「视频标注 · N 条」：画法与幻灯片、设计稿标注的标签一家。点开列出各条：时刻与位置、批注，
-     点一条跳到那部视频的那个时刻。给了 `onRemove` 是草稿，可以逐条移除或全部移除；不给是已发送的消息，只读。 */
+  /* composer 上方与已发送消息里的「视频标注 · N 条」：画法与幻灯片、设计稿标注的标签一家。点开列出各条——一帧一条：时刻与几处标记、
+     批注、那一帧的截图，点一条跳到那部视频的那个时刻。给了 `onRemove` 是草稿，可以逐条（整帧）移除或全部移除；不给是已发送的消息，只读。 */
   function VideoNotesToken({notes, onRemove, onClear}) {
     const app = useApp();
     const [open, setOpen] = useState(false);
@@ -81,16 +86,22 @@
       {draft ? <IconBtn icon="close" size="xs" tip="移除全部视频标注" onClick={onClear} /> : null}
       <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchor} width={360} dir={draft ? 'up' : 'down'} label={N.tokenLabel(notes)}>
         <ol className="home-slides-notes__list bc-scroll">
-          {notes.map((n, i) => <li key={n.id} className="home-slides-notes__item">
-            <BCAction className="home-slides-notes__jump" aria-label={`第 ${i + 1} 条，${n.label}：${n.text}`} onClick={() => jump(n)}>
-              <b className="home-slides-notes__n">{i + 1}</b>
-              <span className="home-slides-notes__body"><small>{n.label}</small>{n.text ? <span>{n.text}</span> : null}
-                {/* 附件：那一帧的截图（原型里画一块示意帧，评论另画印章；正式版是真截图，同一帧的标记共一张） */}
-                {n.shot ? <span className="stnotes__shot" role="img" aria-label={n.shot.stamp ? `截图 · ${T.timecode(n.shot.timeMs / 1000)} · 印章在画面${N.place({...n.shot.stamp, w: 0, h: 0})}` : `截图 · ${T.timecode(n.shot.timeMs / 1000)} · 画着这一帧的标记`}>
-                  {n.shot.stamp ? <span className="stnotes__shot-stamp" style={{left: px(n.shot.stamp.x), top: px(n.shot.stamp.y)}} /> : null}</span> : null}</span>
-            </BCAction>
-            {draft ? <IconBtn icon="close" size="xs" tip={`移除第 ${i + 1} 条标注`} onClick={() => { if (notes.length === 1) setOpen(false); onRemove(n.id); }} /> : null}
-          </li>)}
+          {N.groups(notes).map(g => {
+            const label = N.groupLabel(g);
+            const texts = N.groupTexts(g);
+            const stamps = g.notes.filter(n => n.shot && n.shot.stamp).map(n => n.shot.stamp);
+            const shot = g.notes.some(n => n.shot);
+            return <li key={g.key} className="home-slides-notes__item">
+              <BCAction className="home-slides-notes__jump" aria-label={`第 ${g.n} 条，${label}${texts.length ? '：' + texts.join('；') : ''}`} onClick={() => jump(g)}>
+                <b className="home-slides-notes__n">{g.n}</b>
+                <span className="home-slides-notes__body"><small>{label}</small>{texts.map((t, i) => <span key={i}>{t}</span>)}
+                  {/* 附件：那一帧的截图（原型里画一块示意帧，评论另画印章；正式版是真截图，画着这一帧的全部标记） */}
+                  {shot ? <span className="stnotes__shot" role="img" aria-label={`截图 · ${T.timecode(g.timeMs / 1000)} · 画着这一帧的标记`}>
+                    {stamps.map((st, i) => <span key={i} className="stnotes__shot-stamp" style={{left: px(st.x), top: px(st.y)}} />)}</span> : null}</span>
+              </BCAction>
+              {draft ? <IconBtn icon="close" size="xs" tip={`移除第 ${g.n} 条标注`} onClick={() => { if (N.groups(notes).length === 1) setOpen(false); onRemove(g.notes.map(n => n.id)); }} /> : null}
+            </li>;
+          })}
         </ol>
       </Popover>
     </div>;

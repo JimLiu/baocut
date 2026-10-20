@@ -53,7 +53,8 @@
     return null;
   }
 
-  /** 这一组标记换成视频标注进 composer 草稿（store 的 `videoNotes[videoId]`）：一条标记一条标注，时刻是画它时的播放头，落点（段、句）按各自的时刻。返回加进去的条数。 */
+  /** 这一组标记换成视频标注进 composer 草稿（store 的 `videoNotes[videoId]`）：一处标记一项，时刻是画它时的播放头，落点（段、句）按各自的时刻；
+      给人看时同一帧的几处算一条（model-stage-notes.js 的 `groups`），`whereLabel` 留给那一条的说法。返回加进去的项数。 */
   function sendMarks(app, ctx, marks) {
     const videoId = ctx.proj.id;
     const whereAt = t => (ctx.noteContext ? ctx.noteContext(t / 1000) : {});
@@ -62,7 +63,10 @@
       const ctxLabel = L ? L.contextLabel(whereAt(n.timeMs)) : '';
       return (n.element ? `${T.timecode(n.timeMs / 1000)} · ${n.element.label}` : N.label(n)) + (ctxLabel ? ` · ${ctxLabel}` : '');
     };
-    const notes = MK.toNotes(marks, base, labelOf, whereAt);
+    const notes = MK.toNotes(marks, base, labelOf, whereAt).map(n => {
+      const where = L ? L.contextLabel(whereAt(n.timeMs)) : '';
+      return where ? {...n, whereLabel: where} : n;
+    });
     let list = app.videoNotes[videoId] || [];
     let added = 0;
     for (const n of notes) {

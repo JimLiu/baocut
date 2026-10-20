@@ -490,9 +490,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=91cbc8156c6d",
+    "js": "generated/app.js?v=de398e1e3de2",
     "css": "generated/app.css?v=13048b49bda2",
-    "bytes": 4634856
+    "bytes": 4636096
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -744,9 +744,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=212e4e0c9763",
+    "js": "generated/web.js?v=4e4b95eb83ad",
     "css": "generated/web.css?v=7c89f23390bd",
-    "bytes": 2707078
+    "bytes": 2707077
   },
   "components": {
     "file": "Components.html",

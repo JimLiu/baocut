@@ -32,8 +32,8 @@ test('添加：去空白、空的与超长的不收、箭头要终点、框要�
   assert.equal(one.error, null);
   assert.equal(one.notes[0].text, '字太小');
   assert.equal(one.notes[0].label, '00:42.3 · 编号 · 画面右上');
-  const full = Array.from({length: 20}, (_, i) => note({id: 'n' + i}));
-  assert.match(N.add(full, note()).error, /最多带 20 条/);
+  const full = Array.from({length: 20}, (_, i) => note({id: 'n' + i, timeMs: i * 1000}));
+  assert.match(N.add(full, note()).error, /最多带 20 处/);
   assert.equal(N.remove(full, 'n3').length, 19);
   assert.equal(N.tokenLabel(full), '视频标注 · 20 条');
 });
@@ -42,6 +42,22 @@ test('画面上只画播放头附近那一帧的标记，编号是整份草稿�
   const notes = [note({id: 'a', timeMs: 10000}), note({id: 'b', timeMs: 42300}), note({id: 'c', timeMs: 42600, video: 'p2'}), note({id: 'd', timeMs: 42700})];
   assert.deepEqual(N.pins(notes, 'p1', 42.4).map(n => [n.id, n.n]), [['b', 2], ['d', 4]]);
   assert.equal(N.elsewhere(notes, 'p1', 42.4), 1);
+});
+
+test('同一帧的几处标记算一条：条数、编号、列表的说法与移除都按帧；编号钮只放在那一帧的第一处', () => {
+  const style = {color: 'red', width: 4};
+  const at = (id, kind, timeMs, text = '') => note({id, kind, timeMs, text, style, region: {x: 0.1, y: 0.1, w: 0.2, h: 0.2}, shot: {timeMs}});
+  const notes = [at('a', 'pen', 0), at('b', 'box', 0), at('c', 'box', 0, '字挡住了'), at('d', 'box', 5000)];
+  assert.equal(N.tokenLabel(notes), '视频标注 · 2 条');
+  const [first, second] = N.groups(notes);
+  assert.deepEqual(first.notes.map(n => n.id), ['a', 'b', 'c']);
+  assert.equal(second.n, 2);
+  assert.equal(N.groupLabel({...first, notes: first.notes.map(n => ({...n, whereLabel: 'speech-1'}))}), '00:00.0 · 3 处标记 · 画笔、框 ×2 · speech-1');
+  assert.deepEqual(N.groupTexts(first), ['字挡住了']);
+  assert.deepEqual(N.pins(notes, 'p1', 0).map(n => [n.id, n.n, n.lead]), [['a', 1, true], ['b', 1, false], ['c', 1, false]]);
+  assert.equal(N.elsewhere(notes, 'p1', 0), 1);
+  assert.equal(N.candidateBounds(notes.slice(0, 3)), null);
+  assert.deepEqual(N.remove(notes, first.notes.map(n => n.id)).map(n => n.id), ['d']);
 });
 
 test('候选区间：同一视频两条以上才有，取最早与最晚；按视频分开', () => {
@@ -59,15 +75,18 @@ test('交给智能体的块：一部视频一块，带 revision、时刻、kind 
   const text = N.promptText(notes, id => ({p1: 'talk/', p2: 'intro/'})[id]);
   assert.equal(text, [
     '<baocut-video-annotations video="talk/" revision="3">',
-    '1. 00:10.0 (10000 ms) · box · x=0.25 y=0.2 w=0.5 h=0.4 (25%, 20%, 50% × 40%)',
-    '   批注：这块字幕挡住了脸',
-    '2. 00:42.3 (42300 ms) · arrow · from (0.1, 0.1) to (0.6, 0.5)',
-    '   批注：把 logo 挪到这里',
+    '1. 00:10.0 (10000 ms) · 1 mark',
+    '   a. box · x=0.25 y=0.2 w=0.5 h=0.4 (25%, 20%, 50% × 40%)',
+    '      批注：这块字幕挡住了脸',
+    '2. 00:42.3 (42300 ms) · 1 mark',
+    '   a. arrow · from (0.1, 0.1) to (0.6, 0.5)',
+    '      批注：把 logo 挪到这里',
     'candidateBoundsMs: 10000–42300（候选范围，不是要改的区间）',
     '</baocut-video-annotations>',
     '<baocut-video-annotations video="intro/" revision="3">',
-    '1. 00:05.0 (5000 ms) · pin · at (0.8, 0.2)',
-    '   批注：这里加个标题',
+    '1. 00:05.0 (5000 ms) · 1 mark',
+    '   a. pin · at (0.8, 0.2)',
+    '      批注：这里加个标题',
     '</baocut-video-annotations>',
   ].join('\n'));
   const plan = N.replyPlan(notes.slice(0, 2));
@@ -108,8 +127,10 @@ test('轻量编辑器的标记工具送来的：带 style 的可以不写批注�
     note({id: 'c', kind: 'comment', region: {x: 0.4, y: 0.3, w: 0, h: 0}, text: '这里慢一点', style, element: el, shot: {timeMs: 42300, stamp: {x: 0.4, y: 0.3}}}),
   ];
   const text = N.promptText(notes, () => 'car/');
-  assert.match(text, /1\. 00:42\.3 \(42300 ms\) · box · x=0\.1 y=0\.1 w=0\.2 h=0\.2[^\n]*\n   style: red 4px\n   screenshot: attached \(frame-42300\.png\), frame at 42300 ms with this frame's marks drawn on it\n2\./);
-  assert.match(text, /2\. [^\n]* · element · x=0\.2 y=0\.8 w=0\.6 h=0\.1[^\n]*\n   style: red 4px\n   element: caption c3 "你好"\n3\./);
-  assert.match(text, /3\. [^\n]* · comment · at \(0\.4, 0\.3\)\n   style: red 4px\n   element: caption c3 "你好"\n   screenshot: not attached, frame at 42300 ms with the stamp at \(0\.4, 0\.3\)\n   批注：这里慢一点/);
+  // 同一帧的三处是一条：一张截图，逐处 a. b. c.
+  assert.match(text, /^1\. 00:42\.3 \(42300 ms\) · 3 marks\n   screenshot: attached \(frame-42300\.png\), frame at 42300 ms with this frame's marks drawn on it\n   a\. box · x=0\.1 y=0\.1 w=0\.2 h=0\.2[^\n]*\n      style: red 4px\n   b\./m);
+  assert.match(text, /   b\. element · x=0\.2 y=0\.8 w=0\.6 h=0\.1[^\n]*\n      style: red 4px\n      element: caption c3 "你好"\n   c\./);
+  assert.match(text, /   c\. comment · at \(0\.4, 0\.3\)\n      style: red 4px\n      element: caption c3 "你好"\n      stamp: \(0\.4, 0\.3\) on the screenshot\n      批注：这里慢一点/);
+  assert.doesNotMatch(text, /^2\./m);
   assert.equal(N.label(notes[1]), '00:42.3 · 元素 · 画面下方');
 });

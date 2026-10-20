@@ -4,6 +4,8 @@
    做法与幻灯片、设计稿、设计系统标注（model-home-slides.js、model-home-design.js、model-home-design-system-notes.js）同一家，
    差别只有草稿的归属：那三种挂在会话上，这里按**视频**挂在 store 上（`videoNotes[videoId]`），因为编辑器的快聊会话常常还没建；
    composer 按会话的 `project` 读它，发送后随消息记入会话（`videoAnnotations`），草稿清空。编号与另外三种各自从 1 起。
+   **同一帧的标记算一条**（lite-editor §4.1）：草稿与消息里仍是一处标记一项（几何、颜色、批注各自带），给人看的列表、条数、画面上的编号
+   与给模型的块都按「视频 + 那一帧」（`shot.timeMs`，没有截图时取 `timeMs`）归成一条——那一帧本来就共一张截图。
    一条标注：{id, video, revision, timeMs, kind, region: {x, y, w, h}, to?: {x, y}, label, text}。
    `video` 在原型里是视频 id，正式版是 FileTarget；`revision` 是标注时视频的版本；`timeMs` 是标注时的播放头（时间线时间，毫秒）；
    `region` 相对画面归一化（0–1，左上为原点），文字与编号标记的 w、h 为 0；`to` 只有箭头有，是箭头的终点。
@@ -77,7 +79,7 @@
     const text = String(note?.text || '').trim();
     if (!text && (NEEDS_TEXT[note?.kind] || !note?.style)) return {notes: list, error: '先写下批注，再添加到对话'};
     if (text.length > LIMITS.text) return {notes: list, error: `一条批注最多 ${LIMITS.text} 字`};
-    if (list.length >= LIMITS.notes) return {notes: list, error: `一条消息最多带 ${LIMITS.notes} 条视频标注，先把这些发出去`};
+    if (list.length >= LIMITS.notes) return {notes: list, error: `一条消息最多带 ${LIMITS.notes} 处视频标记，先把这些发出去`};
     if (note.kind === 'arrow' && !note.to) return {notes: list, error: '箭头要拖到它指的地方'};
     if (note.kind === 'box' && !(note.region.w > 0 && note.region.h > 0)) return {notes: list, error: '框要拖出一块面积'};
     if (note.kind === 'line' && !note.to) return {notes: list, error: '直线要拖到它的另一头'};
@@ -87,33 +89,64 @@
     return {notes: [...list, {...note, text, label: note.label || label(note)}], error: null};
   }
 
-  function remove(notes, id) {
+  /** 移除一项或几项（`ids` 可以是数组：列表里的一条是那一帧的几处标记）。 */
+  function remove(notes, ids) {
     const list = notes || [];
-    return list.some(n => n.id === id) ? list.filter(n => n.id !== id) : list;
+    const gone = new Set([].concat(ids));
+    return list.some(n => gone.has(n.id)) ? list.filter(n => !gone.has(n.id)) : list;
   }
 
-  /** composer 上与已发送消息里的那一行。 */
+  /** 一处标记属于哪一帧：截图的那一帧，没有截图时是它的时刻。 */
+  const frameOf = n => (n.shot && Number.isFinite(n.shot.timeMs) ? n.shot.timeMs : n.timeMs);
+  /** 按「视频 + 帧」归成条，按各帧第一次出现的先后排：{key, video, timeMs, notes, n}，`n` 从 1 起。 */
+  function groups(notes) {
+    const out = [];
+    for (const note of notes || []) {
+      const key = `${note.video}@${frameOf(note)}`;
+      let g = out.find(x => x.key === key);
+      if (!g) out.push(g = {key, video: note.video, timeMs: frameOf(note), notes: [], n: out.length + 1});
+      g.notes.push(note);
+    }
+    return out;
+  }
+  /** 一条（一帧）给人看的说法：只有一处标记时就是它的说法；几处时「00:42.3 · 3 处标记 · 画笔、框 ×2」，有落点再带上。 */
+  function groupLabel(g) {
+    if (g.notes.length === 1) return g.notes[0].label;
+    const counts = [];
+    for (const n of g.notes) {
+      const name = kindLabel(n.kind);
+      const c = counts.find(x => x.name === name);
+      if (c) c.n++; else counts.push({name, n: 1});
+    }
+    const kinds = counts.map(c => (c.n > 1 ? `${c.name} ×${c.n}` : c.name)).join('、');
+    const where = g.notes.find(n => n.whereLabel)?.whereLabel;
+    return `${timecode(g.timeMs)} · ${g.notes.length} 处标记 · ${kinds}${where ? ` · ${where}` : ''}`;
+  }
+  /** 一条里写了字的（文字、评论与写了批注的标记），按画的先后。 */
+  const groupTexts = g => g.notes.map(n => n.text).filter(Boolean);
+
+  /** composer 上与已发送消息里的那一行：条数是帧数。 */
   function tokenLabel(notes) {
-    return `视频标注 · ${(notes || []).length} 条`;
+    return `视频标注 · ${groups(notes).length} 条`;
   }
 
-  /** 画面上要画的标记：编号是在整份草稿里的序号，与 composer 列表里的一致；只画播放头附近（±near 毫秒）那一帧的，
-      别的时刻的标注在 composer 的列表里，点一条跳过去。 */
+  /** 画面上要画的标记：编号是这一帧那一条在整份草稿里的序号，与 composer 列表里的一致；一帧只在第一处标记上放一枚编号钮（`lead`）。
+      只画播放头附近（±near 毫秒）那一帧的，别的时刻的标注在 composer 的列表里，点一条跳过去。 */
   function pins(notes, videoId, playT, near = LIMITS.near) {
     const at = (playT || 0) * 1000;
-    return (notes || []).map((n, i) => ({...n, n: i + 1}))
+    return groups(notes).flatMap(g => g.notes.map((n, i) => ({...n, n: g.n, lead: i === 0, group: g})))
       .filter(n => n.video === videoId && Math.abs(n.timeMs - at) <= near);
   }
 
   /** 不在当前帧上的有几条（标注模式的状态行）。 */
   function elsewhere(notes, videoId, playT, near = LIMITS.near) {
-    return (notes || []).filter(n => n.video === videoId && Math.abs(n.timeMs - (playT || 0) * 1000) > near).length;
+    return groups(notes).filter(g => g.video === videoId && Math.abs(g.timeMs - (playT || 0) * 1000) > near).length;
   }
 
-  /** 多帧标注的候选区间：同一视频两条以上时给出最早与最晚的时刻 `{fromMs, toMs}`，只有一条时为 null。
+  /** 多帧标注的候选区间：同一视频标了两帧以上时给出最早与最晚的时刻 `{fromMs, toMs}`，只有一帧时为 null。
       它只是候选——智能体不自动把它当成要改的区间（SKILL「收到视频标注时的解读」）。 */
   function candidateBounds(notes, videoId) {
-    const times = (notes || []).filter(n => videoId == null || n.video === videoId).map(n => n.timeMs);
+    const times = [...new Set((notes || []).filter(n => videoId == null || n.video === videoId).map(frameOf))];
     if (times.length < 2) return null;
     return {fromMs: Math.min(...times), toMs: Math.max(...times)};
   }
@@ -129,32 +162,40 @@
   }
 
   /** product-design §3.2.3、协议 `conversations`：Harness 追加在给智能体的文字后面的块，一部视频一块，排在设计系统标注段之后。
-      `pathOf(videoId)` 给出视频相对会话工作目录的路径；`revision` 取这组标注里最大的（都是同一版本时就是那一个）。 */
+      `pathOf(videoId)` 给出视频相对会话工作目录的路径；`revision` 取这组标注里最大的（都是同一版本时就是那一个）。
+      一帧一条（编号从 1 起）：首行时刻与几处标记，下面是落点与那一帧的截图（画着这一帧的标记），再逐处列出 a. b. …（种类、几何、颜色、元素、批注）。 */
   function promptText(notes, pathOf) {
-    const groups = [];
+    const byVideo = [];
     for (const n of notes || []) {
-      let g = groups.find(x => x.video === n.video);
-      if (!g) groups.push(g = {video: n.video, notes: []});
-      g.notes.push(n);
+      let v = byVideo.find(x => x.video === n.video);
+      if (!v) byVideo.push(v = {video: n.video, notes: []});
+      v.notes.push(n);
     }
-    return groups.map(g => {
-      const revision = Math.max(...g.notes.map(n => n.revision || 0));
-      const lines = g.notes.map((n, i) => {
-        const body = String(n.text).split('\n').join('\n        ');
-        /* 轻量编辑器（docs/design/lite-editor §4.3）：标注落在哪一段、哪一句随标注给出，智能体改「第 3 场第 2 句这里」而不只是一个时刻 */
-        const where = n.segment ? `   segment: ${n.segment.id} (${n.segment.kind} #${n.segment.index + 1}${n.segment.title ? ' ' + n.segment.title : ''})`
-          + (n.line ? ` · line ${n.line.index}: ${n.line.text}` : '') : null;
-        /* 标记工具送来的：颜色与粗细、点中的元素（给模型看的 detail）、那一帧的截图（正式版作为图片附件随消息一起给、写它的文件名：评论画印章，别的画上这一帧的标记；截不出图时写 not attached） */
-        const style = n.style ? `   style: ${n.style.color} ${n.style.width}px` : null;
-        const element = n.element ? `   element: ${n.element.detail || n.element.label || ''}`.trimEnd() : null;
-        const attached = n.shot && n.shot.file ? `attached (${n.shot.file})` : 'not attached';
-        const shot = n.shot ? (n.shot.stamp ? `   screenshot: ${attached}, frame at ${n.shot.timeMs} ms with the stamp at (${n.shot.stamp.x}, ${n.shot.stamp.y})`
-          : `   screenshot: ${attached}, frame at ${n.shot.timeMs} ms with this frame's marks drawn on it`) : null;
-        return [`${i + 1}. ${timecode(n.timeMs)} (${n.timeMs} ms) · ${n.kind} · ${regionText(n)}`, style, element, where, shot, body ? `   批注：${body}` : null].filter(Boolean).join('\n');
+    const indent = (text, pad) => String(text).split('\n').join('\n' + pad);
+    return byVideo.map(v => {
+      const revision = Math.max(...v.notes.map(n => n.revision || 0));
+      const lines = groups(v.notes).map((g, gi) => {
+        const head = g.notes[0];
+        /* 轻量编辑器（docs/design/lite-editor §4.3）：这一帧落在哪一段、哪一句，智能体改「第 3 场第 2 句这里」而不只是一个时刻 */
+        const where = head.segment ? `   segment: ${head.segment.id} (${head.segment.kind} #${head.segment.index + 1}${head.segment.title ? ' ' + head.segment.title : ''})`
+          + (head.line ? ` · line ${head.line.index}: ${head.line.text}` : '') : null;
+        /* 那一帧的截图（正式版作为图片附件随消息一起给、写它的文件名，画着这一帧的标记与评论印章；截不出图时写 not attached） */
+        const shotOf = g.notes.find(n => n.shot)?.shot;
+        const shot = shotOf ? `   screenshot: ${shotOf.file ? `attached (${shotOf.file})` : 'not attached'}, frame at ${g.timeMs} ms with this frame's marks drawn on it` : null;
+        const marks = g.notes.map((n, i) => {
+          const tag = String.fromCharCode(97 + i);
+          const style = n.style ? `      style: ${n.style.color} ${n.style.width}px` : null;
+          const element = n.element ? `      element: ${n.element.detail || n.element.label || ''}`.trimEnd() : null;
+          const stamp = n.shot && n.shot.stamp ? `      stamp: (${n.shot.stamp.x}, ${n.shot.stamp.y}) on the screenshot` : null;
+          const body = n.text ? `      批注：${indent(n.text, '            ')}` : null;
+          return [`   ${tag}. ${n.kind} · ${regionText(n)}`, style, element, stamp, body].filter(Boolean).join('\n');
+        });
+        const count = g.notes.length === 1 ? '1 mark' : `${g.notes.length} marks`;
+        return [`${gi + 1}. ${timecode(g.timeMs)} (${g.timeMs} ms) · ${count}`, where, shot, ...marks].filter(Boolean).join('\n');
       });
-      const bounds = candidateBounds(g.notes);
+      const bounds = candidateBounds(v.notes);
       const tail = bounds ? `\ncandidateBoundsMs: ${bounds.fromMs}–${bounds.toMs}（候选范围，不是要改的区间）` : '';
-      return `<baocut-video-annotations video="${pathOf ? pathOf(g.video) : g.video}" revision="${revision}">\n${lines.join('\n')}${tail}\n</baocut-video-annotations>`;
+      return `<baocut-video-annotations video="${pathOf ? pathOf(v.video) : v.video}" revision="${revision}">\n${lines.join('\n')}${tail}\n</baocut-video-annotations>`;
     }).join('\n');
   }
 
@@ -162,19 +203,20 @@
       先说收到几条，看每个时刻的画面，在时间线上改那一处，最后说改了几处；两条以上时说明没有当成区间。 */
   function replyPlan(notes, titleOf) {
     const list = notes || [];
+    const frames = groups(list);
     const videos = [...new Set(list.map(n => n.video))];
     const bounds = videos.length === 1 ? candidateBounds(list) : null;
     return {
       kind: 'video', write: null, task: null,
-      summary: `收到 ${list.length} 条视频标注，按时刻逐处改源视频的时间线${bounds ? '；几条标注的时刻不连成区间，各改各的' : ''}。`,
+      summary: `收到 ${frames.length} 条视频标注，按时刻逐处改源视频的时间线${bounds ? '；几条标注的时刻不连成区间，各改各的' : ''}。`,
       reads: [
         ...videos.map(v => ({cmd: `videos_inspect ${titleOf ? titleOf(v) : v}`, tool: 'videos_inspect', args: {videoId: v}, out: `revision ${Math.max(...list.filter(n => n.video === v).map(n => n.revision || 0))}`})),
-        ...list.map(n => ({cmd: `videos_frames ${timecode(n.timeMs)}`, tool: 'videos_frames', args: {videoId: n.video, atMs: n.timeMs}, out: '1 帧'})),
-        ...list.map(n => ({cmd: `edits_apply · ${timecode(n.timeMs)}`, kind: 'edit', summary: `${timecode(n.timeMs)} ${n.text}`})),
+        ...frames.map(g => ({cmd: `videos_frames ${timecode(g.timeMs)}`, tool: 'videos_frames', args: {videoId: g.video, atMs: g.timeMs}, out: '1 帧'})),
+        ...frames.map(g => ({cmd: `edits_apply · ${timecode(g.timeMs)}`, kind: 'edit', summary: `${timecode(g.timeMs)} ${groupTexts(g).join('；') || groupLabel(g)}`})),
       ],
-      close: `改好了 ${list.length} 处，都在标注的时刻附近。哪里还不对，再标注一次。`,
+      close: `改好了 ${frames.length} 处，都在标注的时刻附近。哪里还不对，再标注一次。`,
     };
   }
 
-  root.BC_STAGE_NOTES = {LIMITS, KINDS, kindLabel, normalize, place, label, add, remove, tokenLabel, pins, elsewhere, candidateBounds, regionText, promptText, replyPlan};
+  root.BC_STAGE_NOTES = {LIMITS, KINDS, kindLabel, normalize, place, label, add, remove, groups, groupLabel, groupTexts, tokenLabel, pins, elsewhere, candidateBounds, regionText, promptText, replyPlan};
 })();

@@ -152,7 +152,9 @@
   function MovieQuickChat({editor}) {
     const app = useApp();
     const annotating = !!editor.ctx?.annotating;
-    const pending = (app.videoNotes[editor.projectId] || []).length;
+    const N = window.BC_STAGE_NOTES;
+    const notes = app.videoNotes[editor.projectId] || [];
+    const pending = N ? N.groups(notes).length : notes.length;   // 条数按帧（同一帧的几处标记算一条）
     const [autoOpen, setAutoOpen] = useState(false);
     useEffect(() => { if (annotating) setAutoOpen(true); }, [annotating]);
     useEffect(() => { if (!annotating && !pending) setAutoOpen(false); }, [annotating, pending]);
@@ -163,8 +165,7 @@
     const restored = useRef(false);
     const setMin = v => { restored.current = !v; setAutoOpen(false); app.setPref('movieChatMin', v); if (v) requestAnimationFrame(() => trigger.current?.focus()); };
     const live = sess && (sess.status === 'running' || sess.status === 'waiting');
-    const N = window.BC_STAGE_NOTES;
-    const expand = pending && N ? `展开会话 · ${N.tokenLabel(app.videoNotes[editor.projectId])}` : live ? '展开会话 · Agent 正在处理' : '展开会话';
+    const expand = pending && N ? `展开会话 · ${N.tokenLabel(notes)}` : live ? '展开会话 · Agent 正在处理' : '展开会话';
     if (min) return <aside className="movie-quickchat" aria-label="视频会话">
       <BCAction ref={trigger} className="movie-quickchat__trigger" aria-label={expand} onClick={() => setMin(false)}>
         <window.RSP.Icons.Comment />
