@@ -207,9 +207,40 @@ describe('Web 服务', () => {
     await expect(page.request('attachments.prepare',{fileName:'blocked.csv',mimeType:'text/csv',size:1})).rejects.toBeTruthy();
   });
 
-  it('代码包目录地址不查会话：沙箱 iframe 带不上 cookie，只认句柄；响应带包自己的 CSP，不带 DENY 与同源资源策略', async () => {
+  it('代码包在专用端口上：句柄是那个来源的绝对地址，CSP 放开同源、只许 Web 页面嵌入；那个端口只给代码包，主端口不认这种句柄', async () => {
     await boot();
     const origin = await openWeb();
+    const bundle = path.join(dir, 'video', 'assets', 'bundle');
+    await fs.mkdir(bundle, { recursive: true });
+    await fs.writeFile(path.join(bundle, 'index.html'), '<!doctype html><head></head><body>bundle</body>');
+    const handle = await runtime!.services.web.media.issueBundle(path.join(dir, 'video'), 'assets/bundle', { entry: 'index.html', inject: '<script>1</script>' });
+    expect(handle.isolation).toBe('origin');
+    const own = new URL(handle.url);
+    expect(own.hostname).toBe('127.0.0.1');
+    expect(own.port).not.toBe(new URL(origin).port);
+    const page = await send(handle.url + handle.entry, { headers: { 'Sec-Fetch-Site': 'same-site' } });
+    expect(page.status).toBe(200);
+    expect(page.body).toBe('<!doctype html><head><script>1</script></head><body>bundle</body>');
+    expect(page.headers['x-frame-options']).toBeUndefined();
+    const csp = page.headers['content-security-policy'] as string;
+    expect(csp).toContain('sandbox allow-scripts allow-same-origin');
+    expect(csp).toContain(`frame-ancestors ${origin} http://localhost:${new URL(origin).port}`);
+    // 主端口不给专用来源的句柄（那里会与页面同源）；专用端口上别的路径、别的 Host 都不给。
+    expect((await send(origin + own.pathname + handle.entry)).status).toBe(404);
+    expect((await send(`${own.origin}/home`)).status).toBe(404);
+    expect((await send(`${own.origin}/media/x`)).status).toBe(404);
+    expect((await send(handle.url + handle.entry, { headers: { Host: `localhost:${own.port}` } })).status).toBe(403);
+    // Web 页面的 CSP 允许嵌这个端口
+    const app = await send(origin + '/', { headers: { Cookie: await login(origin) } });
+    expect(app.headers['content-security-policy']).toContain(`frame-src 'self' blob: ${origin} http://localhost:${new URL(origin).port} ${own.origin}`);
+    await desktop.request('services.stop', { serviceId: 'web' });
+    await expect(send(handle.url + handle.entry)).rejects.toBeTruthy();
+  });
+
+  it('代码包端口开不起来时退回主端口：句柄是同源的相对地址，沙箱不开同源', async () => {
+    await boot();
+    const origin = await openWeb();
+    runtime!.services.web.media.setBundleOrigin(null);
     const bundle = path.join(dir, 'video', 'assets', 'bundle');
     await fs.mkdir(bundle, { recursive: true });
     await fs.writeFile(path.join(bundle, 'index.html'), '<!doctype html><head></head><body>bundle</body>');

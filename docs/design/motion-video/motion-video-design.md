@@ -134,7 +134,7 @@ bundle 换了版本 → 若 intrinsic 时长 ≠ 章长且 owner 不是 bundle�
 
 今天舞台只有一张 WASM 画的 `<canvas>`。要在编辑器里播代码包，舞台增加一种「实时合成层」：每个在视的代码合成一个沙箱 `<iframe>`（`sandbox` 不放网络、不放顶层导航；包内文件经媒体通道按来源放行），由预览引擎按共用的播放时钟驱动：
 
-- `baocut/1`：每个视频帧调一次 `renderAt(time, params)`，`time` 是实例的 `timeMap` 映射后的本地时间；`hyperframes/1`：调 `seek`。两种合同沿用 `packages/code-runtime/src/composition-adapter.ts` 注入页面的同一份脚本；离屏宿主用 `executeJavaScript` 直接调它，编辑器里要改成 `postMessage` 桥接（沙箱 iframe 不开 `allow-same-origin` 时父页面调不进去），桥的两端与 sandbox 的取值随 §4.2 一起验证。标记工具经桥的 `pick` 拾节点：轻量视图的「选择元素」问页面某一点下最内层的节点（轻量编辑器设计 §4.1、§11 第 12 条）。
+- `baocut/1`：每个视频帧调一次 `renderAt(time, params)`，`time` 是实例的 `timeMap` 映射后的本地时间；`hyperframes/1`：调 `seek`。两种合同沿用 `packages/code-runtime/src/composition-adapter.ts` 注入页面的同一份脚本；离屏宿主用 `executeJavaScript` 直接调它，编辑器里要改成 `postMessage` 桥接（沙箱 iframe 不开 `allow-same-origin` 时父页面调不进去），桥的两端与 sandbox 的取值随 §4.2 一起验证。Web 上代码包放在 Web 服务的专用端口上，句柄带 `isolation: 'origin'` 时 iframe 再开 `allow-same-origin`，页面用那个端口的来源（有的宿主内置浏览器拦不透明来源的沙箱 iframe，架构设计 §4.5「代码包来源」）；它与编辑器页面不同源，桥照旧走 `postMessage`。标记工具经桥的 `pick` 拾节点：轻量视图的「选择元素」问页面某一点下最内层的节点（轻量编辑器设计 §4.1、§11 第 12 条）。
 - 播放中按显示器刷新驱动但一个视频帧只送一次（与架构设计 §9.4 的现规则一致）；定位时送目标帧并等两次 `requestAnimationFrame` 再认为「到了」。
 - 当前章与前后各一章的 iframe 预先载入（`initialize` 跑完、第 0 帧画好），其余按需；一次最多挂 3 个，超出的 `dispose`。
 - 层的几何按实例的 `place`、`fit` 与画布比例摆，与替身是同一套（`item_box.rs` 把合成当媒体算，继续用）。

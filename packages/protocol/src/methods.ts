@@ -1587,11 +1587,14 @@ export type MediaPeaks =
 /**
  * 代码包目录的受限读取地址：`url` 是目录的前缀（以 `/` 结尾），包内文件接在后面；`entry` 是入口页面在包内的相对路径。
  * 与文件句柄一样不可猜、有期限、每次使用顺延；地址本身就是凭证（Web 上沙箱 iframe 里的请求带不上会话 cookie）。
+ * `isolation: 'origin'`：`url` 在一个只给代码包的专用来源上（Web 服务的代码包端口，架构设计 §4.5「代码包来源」），宿主的 iframe
+ * 可以加 `allow-same-origin`，页面用那个来源；没有这个字段时 iframe 只能是不透明来源的沙箱。
  */
 export interface BundleHandle {
   url: string;
   entry: string;
   expiresAt: string;
+  isolation?: 'origin';
 }
 
 export interface MediaThumbnail {

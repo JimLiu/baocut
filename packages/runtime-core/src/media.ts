@@ -23,6 +23,8 @@ import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
  * 响应带自己的 CSP（脚本、样式与资源只能来自这个前缀，不能连网）；入口页面给出时注入取帧脚本与桥（调用方给的 `inject`）。
  * 地址本身就是凭证：沙箱 iframe 的来源是不透明的，Web 上它发出的请求带不上会话 cookie，Web 服务对这个前缀也不查会话；
  * 模块脚本按 CORS 取、带 `Origin: null`，响应对这个来源回 `Access-Control-Allow-Origin: null`。
+ * Web 服务另给代码包一个专用来源（`setBundleOrigin`，架构设计 §4.5「代码包来源」）：句柄是那个来源上的绝对地址、带 `isolation: 'origin'`，
+ * 页面有了真实来源（不透明来源的 iframe 会被一些宿主的内置浏览器拦下），这个来源上除了代码包什么都不给。
  */
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -95,8 +97,9 @@ export function bundleMimeTypeOf(fileName: string): string {
 /**
  * 代码包响应的 CSP：脚本、样式、图片、字体、媒体与 `fetch` 只能来自这个包自己的前缀（内联脚本与样式放行，包里的页面大多是内联的；
  * 不放行 `eval`），Worker 只能是 `blob:`，不能嵌别的页面、不能提交表单；`sandbox allow-scripts` 让直接打开这个地址的页面也是沙箱。
+ * 专用来源上（`ownOrigin`）沙箱再放开 `allow-same-origin`，页面用那个来源而不是不透明来源；`ancestors` 给了时只许这些来源嵌入。
  */
-export function bundleCsp(prefix: string): string {
+export function bundleCsp(prefix: string, options: { ownOrigin?: boolean; ancestors?: readonly string[] } = {}): string {
   return [
     "default-src 'none'",
     `script-src 'unsafe-inline' 'wasm-unsafe-eval' ${prefix}`,
@@ -110,7 +113,8 @@ export function bundleCsp(prefix: string): string {
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
-    'sandbox allow-scripts',
+    ...(options.ancestors ? [`frame-ancestors ${options.ancestors.length ? options.ancestors.join(' ') : "'none'"}`] : []),
+    options.ownOrigin ? 'sandbox allow-scripts allow-same-origin' : 'sandbox allow-scripts',
   ].join('; ');
 }
 
@@ -244,6 +248,7 @@ export class MediaRegistry {
   readonly #grants = new Map<string, Grant>();
   readonly #bundles = new Map<string, BundleGrant>();
   #baseUrl = '';
+  #bundleOrigin: { origin: string; host: string; ancestors: readonly string[] } | null = null;
 
   constructor(options: MediaRegistryOptions) {
     this.#log = options.log.child('media');
@@ -254,6 +259,14 @@ export class MediaRegistry {
 
   setBaseUrl(url: string): void {
     this.#baseUrl = url;
+  }
+
+  /**
+   * 代码包改由专用来源给出（`http://<主机>:<端口>`，没有路径）：之后签发的目录句柄是这个来源上的绝对地址、带 `isolation: 'origin'`；
+   * 内容只在 `Host` 正是这个来源的请求上给（别的端口上 404），CSP 放开 `allow-same-origin`、只许 `ancestors` 嵌入。`null` 恢复原样。
+   */
+  setBundleOrigin(origin: string | null, ancestors: readonly string[] = []): void {
+    this.#bundleOrigin = origin === null ? null : { origin, host: new URL(origin).host, ancestors };
   }
 
   async issue(root: string, target: string): Promise<MediaHandle> {
@@ -298,7 +311,13 @@ export class MediaRegistry {
     this.#pruneBundles();
     const id = crypto.randomBytes(24).toString('base64url');
     const expiresAt = Date.now() + this.#ttlMs;
-    const handle: BundleHandle = { url: `${this.#baseUrl}/bundle/${id}/`, entry, expiresAt: new Date(expiresAt).toISOString() };
+    const own = this.#bundleOrigin;
+    const handle: BundleHandle = {
+      url: `${own ? own.origin : this.#baseUrl}/bundle/${id}/`,
+      entry,
+      expiresAt: new Date(expiresAt).toISOString(),
+      ...(own ? { isolation: 'origin' as const } : {}),
+    };
     this.#bundles.set(id, { handle, root: real, entry, inject: options.inject, expiresAt });
     return handle;
   }
@@ -398,8 +417,10 @@ export class MediaRegistry {
 
   async #serveBundle(id: string, raw: string, request: IncomingMessage, response: ServerResponse): Promise<void> {
     const grant = this.#bundles.get(id);
-    if (!grant || grant.expiresAt <= Date.now()) {
-      if (grant) this.#bundles.delete(id);
+    const own = grant?.handle.isolation === 'origin' ? this.#bundleOrigin : null;
+    // 专用来源的句柄只在那个来源上给：放到别的端口上（比如 Web 客户端自己的来源）就成了同源页面，不认。
+    if (!grant || grant.expiresAt <= Date.now() || (grant.handle.isolation === 'origin' && request.headers.host !== own?.host)) {
+      if (grant && grant.expiresAt <= Date.now()) this.#bundles.delete(id);
       response.writeHead(404).end();
       return;
     }
@@ -418,8 +439,8 @@ export class MediaRegistry {
       'Cache-Control': 'private, no-cache',
       'Last-Modified': stat.mtime.toUTCString(),
       'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': bundleCsp(prefix),
-      // 沙箱 iframe 的来源是不透明的，它取包内脚本与图片时按跨来源算：放行。
+      'Content-Security-Policy': own ? bundleCsp(prefix, { ownOrigin: true, ancestors: own.ancestors }) : bundleCsp(prefix),
+      // 沙箱 iframe 的来源是不透明的，它取包内脚本与图片时按跨来源算：放行（专用来源上是同源，这个头无害）。
       'Cross-Origin-Resource-Policy': 'cross-origin',
     };
     // 模块脚本（`<script type="module">`）与 `fetch` 按 CORS 取，沙箱里带的是 `Origin: null`：只对它回 `null`，别的来源照旧拿不到。

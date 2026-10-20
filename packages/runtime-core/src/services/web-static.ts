@@ -45,9 +45,11 @@ export function setSecurityHeaders(response: ServerResponse): void {
 /**
  * Web 客户端页面的 CSP：只有自身来源。例外都是构建产物需要的，与桌面渲染进程一致：
  * `'wasm-unsafe-eval'` 编译预览的 WebAssembly（不放行 eval），`style-src 'unsafe-inline'` 给 React Spectrum 的内联样式，
- * 字体可以从 Typekit 取。连接只到这个服务自己的 WebSocket。
+ * 字体可以从 Typekit 取。连接只到这个服务自己的 WebSocket。`bundlePort` 是代码包专用端口（架构设计 §4.5「代码包来源」），
+ * 实时合成层的 iframe 装那里的页面。
  */
-export function appCsp(port: number): string {
+export function appCsp(port: number, bundlePort: number | null = null): string {
+  const bundles = bundlePort === null ? '' : ` http://127.0.0.1:${bundlePort} http://localhost:${bundlePort}`;
   return [
     "default-src 'self'",
     "script-src 'self' 'wasm-unsafe-eval'",
@@ -55,8 +57,8 @@ export function appCsp(port: number): string {
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
     "worker-src 'self' blob:",
-    // 设计稿编辑器在这个服务的另一个回环主机名上（docs/design/canvas §6.2）。
-    `frame-src 'self' blob: http://127.0.0.1:${port} http://localhost:${port}`,
+    // 设计稿编辑器在这个服务的另一个回环主机名上（docs/design/canvas §6.2）；代码包在专用端口上。
+    `frame-src 'self' blob: http://127.0.0.1:${port} http://localhost:${port}${bundles}`,
     "font-src 'self' blob: data: https://use.typekit.net",
     `connect-src 'self' blob: ws://127.0.0.1:${port} ws://localhost:${port}`,
     "object-src 'none'",
@@ -313,6 +315,7 @@ export async function sendStatic(
   port: number,
   request: IncomingMessage,
   response: ServerResponse,
+  bundlePort: number | null = null,
 ): Promise<void> {
   let relative: string;
   try {
@@ -336,7 +339,7 @@ export async function sendStatic(
     'Content-Type': type,
     'Content-Length': found.size,
     'Cache-Control': html ? 'no-store' : 'private, no-cache',
-    ...(html ? { 'Content-Security-Policy': appCsp(port) } : {}),
+    ...(html ? { 'Content-Security-Policy': appCsp(port, bundlePort) } : {}),
   });
   response.end(body ?? undefined);
 }

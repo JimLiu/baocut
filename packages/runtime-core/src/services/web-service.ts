@@ -47,6 +47,8 @@ import { resolveWebDist, sendLoginPage, sendLoginScript, sendReviewPage, sendRev
  *   主体是 `{ kind: 'web', sessionId }`，写入的操作者是用户本人（`user_local`）；
  * - 媒体通道 `/media/…`：这个服务自己的句柄表（同源的相对地址），取内容还要会话 cookie；不暴露桌面网关的端口与令牌。
  * - 代码包目录 `/bundle/<句柄>/…`（动效视频设计 §4.1）：同一份句柄表；沙箱 iframe 里的请求带不上 cookie，所以只认句柄、不查会话。
+ *   代码包放在另一个只给代码包的回环端口上（架构设计 §4.5「代码包来源」）：iframe 可以开 `allow-same-origin` 而不与页面同源，
+ *   不透明来源的沙箱 iframe 被宿主的内置浏览器拦下时也能画。这个端口开不起来时退回主端口上的不透明来源沙箱。
  * - 幻灯片编辑器 `/slides/<grant>/…` 与素材 `/_blob/<id>`（docs/design/slides §6.2）：与网关共用一个 SlidesServer，要会话 cookie；
  *   只读配置下发布与上传被拒（`not_writer`）；只能嵌在这个服务自己的页面里（`frame-ancestors 'self'`）。
  * - 设计稿编辑器 `/design/<grant>/…`（docs/design/canvas §6.2）与设计系统编辑器 `/design-system/<grant>/…`（§10.4）：Web 客户端
@@ -103,6 +105,8 @@ export class WebService implements ManagedService {
   #slides: SlidesServer | null = null;
   #docs: DocsServer | null = null;
   #server: Server | null = null;
+  #bundleServer: Server | null = null;
+  #bundlePort: number | null = null;
   #gateway: Gateway | null = null;
   #port: number | null = null;
   #dist: string | null = null;
@@ -181,20 +185,45 @@ export class WebService implements ManagedService {
     this.#dist = dist;
     this.#port = (server.address() as AddressInfo).port;
     this.#log.info('Web service listening', { port: this.#port });
+    await this.#startBundles();
+  }
+
+  /** 代码包的专用来源：同一回环地址上的随机端口，只给 `/bundle/`，句柄改发这个来源上的绝对地址。开不起来时只记日志。 */
+  async #startBundles(): Promise<void> {
+    const server = createServer((request, response) => this.#bundleRequest(request, response));
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, HOST, () => resolve());
+      });
+    } catch (error) {
+      this.#log.warn('Bundle origin unavailable; bundles stay on the main port', { error: String(error) });
+      return;
+    }
+    server.on('error', (error) => this.#log.warn('Bundle origin error', { error: String(error) }));
+    this.#bundleServer = server;
+    this.#bundlePort = (server.address() as AddressInfo).port;
+    this.media.setBundleOrigin(`http://${HOST}:${this.#bundlePort}`, this.#origins());
+    this.#log.info('Bundle origin listening', { port: this.#bundlePort });
   }
 
   async stop(): Promise<void> {
     const server = this.#server;
     const gateway = this.#gateway;
+    const bundles = this.#bundleServer;
     this.#server = null;
     this.#gateway = null;
     this.#port = null;
+    this.#bundleServer = null;
+    this.#bundlePort = null;
+    this.media.setBundleOrigin(null);
     // 会话与代码随服务作废（§12.8：令牌在服务每次启动时重新生成）。
     this.#sessions.clear();
     await gateway?.close();
-    if (server) {
-      server.closeAllConnections();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+    for (const s of [server, bundles]) {
+      if (!s) continue;
+      s.closeAllConnections();
+      await new Promise<void>((resolve) => s.close(() => resolve()));
     }
   }
 
@@ -387,12 +416,25 @@ export class WebService implements ManagedService {
     gateway.upgrade(request, socket, head, { kind: 'web', name: 'web', sessionId });
   }
 
+  /** 代码包端口：只认 `Host` 是它自己、路径在 `/bundle/` 下的请求，别的一律 404（媒体、页面与网关都不在这里）。 */
+  #bundleRequest(request: IncomingMessage, response: ServerResponse): void {
+    setSecurityHeaders(response);
+    const deny = (status: number, text: string) => response.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' }).end(text);
+    if (this.#bundlePort === null || request.headers.host !== `${HOST}:${this.#bundlePort}`) return void deny(403, RcWeb.loopbackOnly().text);
+    const { pathname } = new URL(request.url ?? '/', 'http://localhost');
+    if (!pathname.startsWith('/bundle/')) return void deny(404, RcWeb.fileNotFound().text);
+    response.removeHeader('X-Frame-Options');
+    response.removeHeader('Content-Security-Policy');
+    response.removeHeader('Cross-Origin-Resource-Policy');
+    if (!this.media.handle(request, response)) deny(404, RcWeb.fileNotFound().text);
+  }
+
   #request(request: IncomingMessage, response: ServerResponse): void {
     setSecurityHeaders(response);
     const deny = (status: number, text: string) => response.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' }).end(text);
     if (!this.#hostAllowed(request.headers.host)) return void deny(403, RcWeb.loopbackOnly().text);
     const { pathname } = new URL(request.url ?? '/', 'http://localhost');
-    // 代码包目录（动效视频设计 §4.1）：编辑器的实时合成层在不开 `allow-same-origin` 的沙箱 iframe 里装入口页面，它的来源是
+    // 代码包目录（动效视频设计 §4.1）：代码包端口开不起来时句柄落在这里，实时合成层在不开 `allow-same-origin` 的沙箱 iframe 里装入口页面，它的来源是
     // 不透明的，发出的请求带不上会话 cookie、`Sec-Fetch-Site` 是跨站、模块脚本带 `Origin: null`，所以这个前缀排在来源检查之前、
     // 只认目录句柄（与设计稿编辑器一样）；响应带包自己的 CSP，嵌入由句柄把关。
     if (pathname.startsWith('/bundle/')) {
@@ -484,7 +526,7 @@ export class WebService implements ManagedService {
   }
 
   #sendApp(pathname: string, request: IncomingMessage, response: ServerResponse): void {
-    void sendStatic(this.#dist!, pathname, this.#port!, request, response).catch(() => {
+    void sendStatic(this.#dist!, pathname, this.#port!, request, response, this.#bundlePort).catch(() => {
       if (!response.headersSent) response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }).end(RcWeb.readFailed().text);
       else response.destroy();
     });

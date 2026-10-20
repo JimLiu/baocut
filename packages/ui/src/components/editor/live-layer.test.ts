@@ -108,16 +108,36 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-test('挂上的是不开同源的沙箱 iframe，按固有尺寸布置、指针进不去；地址按目录句柄拼，就位后先画第 0 帧', async () => {
+test('句柄在代码包专用来源上且与页面不同源时才开 allow-same-origin；同源或没标 isolation 的照旧不开', async () => {
+  const page = window.location.origin;
+  const cases: [BundleHandle, string][] = [
+    [{ url: 'http://127.0.0.1:53111/bundle/h/', entry: 'index.html', expiresAt: '2099-01-01T00:00:00Z', isolation: 'origin' }, 'allow-scripts allow-same-origin'],
+    [{ url: `${page}/bundle/h/`, entry: 'index.html', expiresAt: '2099-01-01T00:00:00Z', isolation: 'origin' }, 'allow-scripts'],
+    [{ url: 'http://127.0.0.1:53111/bundle/h/', entry: 'index.html', expiresAt: '2099-01-01T00:00:00Z' }, 'allow-scripts'],
+  ];
+  for (const [bundle, sandbox] of cases) {
+    const { host, frames } = setup({}, () => Promise.resolve(bundle));
+    host.prepare([candidate('a')]);
+    await Promise.resolve();
+    const iframe = frames()[0]!;
+    expect(iframe.getAttribute('src')).toBe(bundle.url + 'index.html');
+    expect(iframe.getAttribute('sandbox')).toBe(sandbox);
+    host.dispose();
+  }
+});
+
+test('挂上的是不开同源的沙箱 iframe，按固有尺寸布置、指针进不去；地址按目录句柄拼，拿到地址才挂进页面，就位后先画第 0 帧', async () => {
   const { host, page, resolved, frames } = setup();
   host.prepare([candidate('a')]);
+  // 有的宿主内置浏览器按挂上那一刻的 sandbox 拦 iframe：拿到地址、定好 sandbox 之前不挂。
+  expect(frames()).toEqual([]);
+  await Promise.resolve();
   const [iframe] = frames();
   expect(iframe).toBeTruthy();
   expect(iframe!.getAttribute('sandbox')).toBe('allow-scripts');
   expect(iframe!.hasAttribute('inert')).toBe(true);
   expect(iframe!.style.pointerEvents).toBe('none');
   expect([iframe!.style.width, iframe!.style.height, iframe!.style.opacity]).toEqual(['1280px', '720px', '0']);
-  await Promise.resolve();
   expect(resolved).toEqual(['asset_a']);
   expect(iframe!.getAttribute('src')).toBe('/bundle/h_asset_a/index.html');
 
@@ -181,10 +201,12 @@ test('在视的按矩阵与显示比例摆、同一帧只定位一次、路上�
 test('最多挂三个，不在列表里的拆掉，换了素材版本的重挂', async () => {
   const { host, frames, resolved } = setup();
   host.prepare([candidate('a'), candidate('b'), candidate('c'), candidate('d')]);
+  await Promise.resolve();
   expect(frames().map((f) => f.dataset.liveItem)).toEqual(['a', 'b', 'c']);
   host.prepare([candidate('c'), { ...candidate('b'), asset: { id: 'asset_b', revision: '2' } }]);
-  expect(frames().map((f) => f.dataset.liveItem)).toEqual(['c', 'b']);
+  expect(frames().map((f) => f.dataset.liveItem)).toEqual(['c']);
   await Promise.resolve();
+  expect(frames().map((f) => f.dataset.liveItem)).toEqual(['c', 'b']);
   expect(resolved).toEqual(['asset_a', 'asset_b', 'asset_c', 'asset_b']);
   host.dispose();
 });

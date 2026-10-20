@@ -136,6 +136,37 @@ describe('代码包目录地址', () => {
     }
   });
 
+  it('专用来源：句柄是那个来源上的绝对地址并标 isolation，CSP 放开同源、只许给定的页面嵌入；别的 Host 上不给', async () => {
+    const own = new MediaRegistry({ log: silentLogger, originAllowed: () => true });
+    const server2 = http.createServer((request, response) => {
+      if (!own.handle(request, response)) response.writeHead(404).end();
+    });
+    await new Promise<void>((resolve) => server2.listen(0, '127.0.0.1', resolve));
+    try {
+      const { port } = server2.address() as { port: number };
+      own.setBundleOrigin(`http://127.0.0.1:${port}`, ['http://127.0.0.1:24320', 'http://localhost:24320']);
+      const handle = await own.issueBundle(root, 'assets/bundle', { entry: 'index.html', inject });
+      expect(handle.url).toMatch(new RegExp(`^http://127\\.0\\.0\\.1:${port}/bundle/[A-Za-z0-9_-]+/$`));
+      expect(handle.isolation).toBe('origin');
+      const page = await get(handle.url + handle.entry);
+      expect(page.status).toBe(200);
+      const csp = page.headers['content-security-policy'] as string;
+      expect(csp).toContain('sandbox allow-scripts allow-same-origin');
+      expect(csp).toContain('frame-ancestors http://127.0.0.1:24320 http://localhost:24320');
+      expect(csp).toContain(`script-src 'unsafe-inline' 'wasm-unsafe-eval' ${handle.url}`);
+      // 同一句柄换个 Host（比如 Web 客户端自己的端口）就不认：那里会与页面同源。
+      expect((await get(handle.url + handle.entry, { Host: `localhost:${port}` })).status).toBe(404);
+      expect((await get(handle.url + handle.entry, { Host: '127.0.0.1:24320' })).status).toBe(404);
+
+      own.setBundleOrigin(null);
+      const plain = await own.issueBundle(root, 'assets/bundle', { entry: 'index.html', inject });
+      expect(plain.isolation).toBeUndefined();
+      expect(plain.url).toMatch(/^\/bundle\/[A-Za-z0-9_-]+\/$/);
+    } finally {
+      await new Promise<void>((resolve) => server2.close(() => resolve()));
+    }
+  });
+
   it('包内路径只认普通的 `/` 分隔相对路径', () => {
     expect(bundlePathOf('index.html')).toBe('index.html');
     expect(bundlePathOf('lib/a%20b.js')).toBe('lib/a b.js');

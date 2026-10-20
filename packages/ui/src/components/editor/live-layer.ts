@@ -18,6 +18,9 @@ import type { LiveLayer } from '../../render/frame-plan.ts';
  * 实时合成层的宿主（动效视频设计 §4.1–§4.3）：舞台画布底下的沙箱 `<iframe>`，每个要实时播的代码包合成一个。
  *
  * - iframe 带 `sandbox="allow-scripts"`（不开 `allow-same-origin`，来源不透明；媒体通道的响应头还带同样的 `sandbox`），
+ *   句柄在只给代码包的专用来源上（`isolation: 'origin'`，Web 服务的代码包端口）且与页面不同源时再开 `allow-same-origin`：
+ *   页面用那个来源，有的宿主内置浏览器会拦不透明来源的沙箱 iframe（架构设计 §4.5「代码包来源」）。iframe 拿到地址、定好 sandbox
+ *   才挂进页面（那种浏览器按挂上那一刻的 sandbox 判断）。
  *   `inert`、`pointer-events: none`：指针与键盘都进不了包，舞台点选照旧按实例的几何盒算。
  * - 页面经 `media.bundle` 的目录句柄载入（每次挂上都重新要一个，句柄有期限）；入口页面里注好了取帧脚本与桥，
  *   页面发 `hello` 之后宿主发 `ready`，就位后先定位到第 0 帧（预载的意思就是这一步做完）。
@@ -79,6 +82,18 @@ function windowPort(element: HTMLIFrameElement): BridgePort {
       return () => view?.removeEventListener('message', onMessage);
     },
   };
+}
+
+/** 句柄在代码包专用来源上、且与嵌它的页面不同源：只有这时开 `allow-same-origin` 不会让包拿到页面的权限。 */
+function ownOrigin(handle: BundleHandle, element: HTMLIFrameElement): boolean {
+  if (handle.isolation !== 'origin') return false;
+  const page = element.ownerDocument.location;
+  try {
+    const origin = new URL(handle.url, page.href).origin;
+    return origin !== 'null' && origin !== page.origin;
+  } catch {
+    return false;
+  }
 }
 
 const LOAD_TIMEOUT_MS = 3000;
@@ -221,7 +236,6 @@ class LiveFrame {
     });
     this.element = element;
     element.addEventListener('error', () => this.#failed('load-error'));
-    root.append(element);
     this.#port = port(element);
     this.#unsubscribe = this.#port.subscribe((message) => this.#receive(message));
     this.#arm(timeouts.load, 'load-timeout');
@@ -230,6 +244,9 @@ class LiveFrame {
         if (this.state !== 'loading') return;
         // 要到地址了：载入页面从这里重新计时，不算要地址的那一程。
         this.#arm(timeouts.load, 'load-timeout');
+        // sandbox 定好再挂进页面：有的宿主内置浏览器按挂上那一刻的 sandbox 拦，之后改不算。
+        if (ownOrigin(handle, element)) element.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+        root.append(element);
         element.src = handle.url + handle.entry;
       },
       () => this.#failed('bundle-unresolved'),
