@@ -9,7 +9,13 @@ import { approvalField, confirmSummary, type ToolPrincipal, type ToolScope } fro
 const objective = z.string().trim().min(1).max(200).describe('The public information to find. Do not include private transcripts, credentials or personal data.');
 const queries = z.array(z.string().trim().min(1).max(300)).min(1).max(3).describe('One to three concise search queries, preferably three to six words each.');
 const publicUrl = z.string().url().max(4000).refine((value) => {
-  const url = new URL(value);
+  // Refinements still run after a failed `.url()` check, so an unparseable string must fail here instead of throwing.
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
   return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
 }, 'Use an HTTP or HTTPS URL without embedded credentials.');
 const schemas = {

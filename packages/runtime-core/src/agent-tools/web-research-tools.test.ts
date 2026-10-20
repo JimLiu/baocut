@@ -8,6 +8,7 @@ import { resolveRuntimeHome } from '@baocut/runtime-storage';
 import { startRuntime, type RunningRuntime } from '../runtime.ts';
 import { PARALLEL_SEARCH_URL, WEB_RESEARCH_USER_AGENT } from '../web-research/parallel-search.ts';
 import { ToolDriver, mcp, tool, until, type ToolSession } from './testing/fake-agent.ts';
+import { WebResearchTools, type WebResearchToolsDeps } from './web-research-tools.ts';
 
 const SEARCH = { objective: 'Find NASA sources on Artemis', search_queries: ['NASA Artemis mission program'] };
 const FETCH = { urls: ['https://www.nasa.gov/humans-in-space/artemis/'], objective: 'Artemis program goals' };
@@ -160,8 +161,10 @@ describe('conversation web research', () => {
     vi.stubEnv('BAOCUT_WEB_RESEARCH', 'off');
     expect((await tool(session, 'web_fetch', FETCH)).body.error.code).toBe('WEB_RESEARCH_DISABLED');
     vi.stubEnv('BAOCUT_WEB_RESEARCH', 'on');
-    for (const url of ['file:///etc/passwd', 'https://user:password@example.org/']) {
-      expect((await tool(session, 'web_fetch', { urls: [url] })).body.error.code).toBe('INVALID_ARGUMENTS');
+    for (const url of ['file:///etc/passwd', 'https://user:password@example.org/', 'https://', 'not a url']) {
+      const response = await tool(session, 'web_fetch', { urls: [url] });
+      expect(response.body.error.code, url).toBe('INVALID_ARGUMENTS');
+      expect(response.body.error.issues, url).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'urls.0' })]));
     }
     expect(requests).toEqual([]);
   });
@@ -253,4 +256,23 @@ describe('conversation web research', () => {
     expect(requests.every((r) => r.url === PARALLEL_SEARCH_URL && r.headers.get('User-Agent') === WEB_RESEARCH_USER_AGENT && !r.headers.has('Authorization'))).toBe(true);
     expect(response.isError ? response.body.error.code : response.body.provider).toBe(response.isError ? 'WEB_RESEARCH_UNAVAILABLE' : 'parallel');
   }, 75_000);
+});
+
+describe('web_fetch URL validation', () => {
+  const schema = new WebResearchTools({
+    scope: {} as WebResearchToolsDeps['scope'],
+    harness: {} as WebResearchToolsDeps['harness'],
+    offlineStrict: () => false,
+    enabled: () => true,
+    search: {} as WebResearchToolsDeps['search'],
+  }).schemas.web_fetch;
+
+  it('reports unparseable URLs as validation issues instead of throwing', () => {
+    for (const url of ['https://', 'not a url']) {
+      const parsed = schema.safeParse({ urls: [url] });
+      expect(parsed.success, url).toBe(false);
+      expect(parsed.error!.issues.map((issue) => issue.path.join('.')), url).toContain('urls.0');
+    }
+    expect(schema.safeParse({ urls: ['https://www.nasa.gov/humans-in-space/artemis/'] }).success).toBe(true);
+  });
 });
