@@ -35,6 +35,9 @@ const en = {
   current: (name: string, value: string) => `${name} · ${value}`,
   /** 带快捷键的提示：「评论 · ⇧⌘C」。 */
   withKeys: (label: string, keys: string) => `${label} · ${keys}`,
+  /** 撤销 / 重做钮（同 ⌘Z / ⇧⌘Z）。 */
+  undo: 'Undo',
+  redo: 'Redo',
   addToChat: 'Add to chat',
   close: 'Close markup',
   added: (n: number) => `Added to chat · ${n}`,

@@ -13,6 +13,8 @@ export const zhHant: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: '還原',
+  redo: '重做',
   addToChat: '加入對話',
   close: '關閉標記',
   added: (n) => `已加入對話 · ${n} 則`,

@@ -13,6 +13,8 @@ export const ja: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: '取り消す',
+  redo: 'やり直す',
   addToChat: 'チャットに追加',
   close: 'マークアップを閉じる',
   added: (n) => `チャットに追加しました · ${n} 件`,

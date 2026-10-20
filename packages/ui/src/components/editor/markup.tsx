@@ -41,8 +41,10 @@ import Brush from '@react-spectrum/s2/icons/Brush';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import Close from '@react-spectrum/s2/icons/Close';
 import Comment from '@react-spectrum/s2/icons/Comment';
+import RedoIcon from '@react-spectrum/s2/icons/Redo';
 import Select from '@react-spectrum/s2/icons/Select';
 import TextIcon from '@react-spectrum/s2/icons/Text';
+import UndoIcon from '@react-spectrum/s2/icons/Undo';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton, ToggleButton as RACToggleButton } from 'react-aria-components';
 import { keyLabel } from '../../model/key-labels.ts';
@@ -54,6 +56,8 @@ import {
   markFrames,
   MARKUP_WIDTHS,
   add,
+  canRedo,
+  canUndo,
   finishDrag,
   forget,
   fromGesture,
@@ -80,6 +84,7 @@ import {
   type MarkupHandle,
   type MarkupPick,
   type MarkupShape,
+  type MarkupState,
   type MarkupTool,
 } from '../../model/markup.ts';
 import { stagePose } from '../../model/stage-framing.ts';
@@ -223,7 +228,7 @@ const divider = style({ width: 1, height: 20, marginX: 4, backgroundColor: 'gray
 /**
  * 工具钮：安静的图标钮，24 方、图标 16、小圆角，底色过渡 60ms 一档；当前工具浅蓝底、蓝图标（照原型的 `.ibtn.is-on`；
  * S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。带下拉的（形状 / 颜色 / 粗细）随内容加宽、左右不留白，图标右边紧跟一枚小箭头；
- * 下拉打开时 RAC 把触发钮当按着，显示按下底色。
+ * 下拉打开时 RAC 把触发钮当按着，显示按下底色；撤销 / 重做无可撤时置灰。
  */
 const toolBtn = style({
   display: 'inline-flex',
@@ -242,7 +247,7 @@ const toolBtn = style({
     isPressed: 'gray-200',
     isSelected: { default: 'blue-200', isHovered: 'blue-300' },
   },
-  color: { default: 'gray-800', isSelected: 'blue-1000' },
+  color: { default: 'gray-800', isSelected: 'blue-1000', isDisabled: 'disabled' },
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
   transition: 'default',
   transitionDuration: 60,
@@ -1015,8 +1020,8 @@ function CommentBox({
 }
 
 /**
- * 标记工具条（lite-editor §4.1；照截图标注器，一行）：选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 添加到对话 / 关闭。
- * 撤销 / 重做 / 删选中的不占钮，走 ⌘Z / ⇧⌘Z / Delete（标记层的键）。挂在 body 下，按 `anchor` 所在舞台的位置浮在舞台底边上方。
+ * 标记工具条（lite-editor §4.1；照截图标注器，一行）：选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 撤销 / 重做 ｜ 添加到对话 / 关闭。
+ * 撤销 / 重做同 ⌘Z / ⇧⌘Z；删选中的不占钮，走 Delete（标记层的键）。挂在 body 下，按 `anchor` 所在舞台的位置浮在舞台底边上方。
  */
 export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLElement | null>; onAddToChat: () => void }) {
   const barRef = useRef<HTMLDivElement>(null);
@@ -1067,6 +1072,19 @@ export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLEleme
         <span className={chevronWrap} aria-hidden>
           <ChevronDown UNSAFE_style={chevronFill} />
         </span>
+      </RACButton>
+    </Tip>
+  );
+  /** 撤销 / 重做：同 ⌘Z / ⇧⌘Z（标记层的键），无可撤时置灰。 */
+  const historyButton = (label: string, k: string, enabled: boolean, step: (s: MarkupState) => MarkupState, icon: ReactElement) => (
+    <Tip label={keys(label, k)}>
+      <RACButton
+        className={({ isHovered, isPressed, isFocusVisible, isDisabled }) => toolBtn({ isHovered, isPressed, isFocusVisible, isDisabled })}
+        aria-label={label}
+        isDisabled={!enabled}
+        onPress={() => apply(step)}
+      >
+        {icon}
       </RACButton>
     </Tip>
   );
@@ -1151,6 +1169,9 @@ export function MarkupBar({ anchor, onAddToChat }: { anchor: RefObject<HTMLEleme
           ))}
         </Menu>
       </MenuTrigger>
+      <span className={divider} />
+      {historyButton(C.undo, '⌘Z', canUndo(markup), undo, <UndoIcon styles={toolIcon} />)}
+      {historyButton(C.redo, '⇧⌘Z', canRedo(markup), redo, <RedoIcon styles={toolIcon} />)}
       <span className={divider} />
       <Button size="S" variant="primary" isDisabled={!count} onPress={onAddToChat}>
         {C.addToChat}

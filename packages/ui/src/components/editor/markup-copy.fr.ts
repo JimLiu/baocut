@@ -13,6 +13,8 @@ export const fr: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: 'Annuler',
+  redo: 'Rétablir',
   addToChat: 'Ajouter au chat',
   close: 'Fermer l’annotation',
   added: (n) => `Ajouté au chat · ${n}`,

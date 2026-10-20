@@ -13,6 +13,8 @@ export const tr: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: 'Geri al',
+  redo: 'Yinele',
   addToChat: 'Sohbete ekle',
   close: 'İşaretlemeyi kapat',
   added: (n) => `Sohbete eklendi · ${n}`,

@@ -13,6 +13,8 @@ export const ptBR: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: 'Desfazer',
+  redo: 'Refazer',
   addToChat: 'Adicionar ao chat',
   close: 'Fechar marcação',
   added: (n) => `Adicionado ao chat · ${n}`,

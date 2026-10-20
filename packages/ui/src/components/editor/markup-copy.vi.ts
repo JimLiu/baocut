@@ -13,6 +13,8 @@ export const vi: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: 'Hoàn tác',
+  redo: 'Làm lại',
   addToChat: 'Thêm vào cuộc trò chuyện',
   close: 'Đóng đánh dấu',
   added: (n) => `Đã thêm vào cuộc trò chuyện · ${n}`,

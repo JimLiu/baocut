@@ -195,6 +195,13 @@ describe('MarkupLayer', () => {
     expect(marks()[0]).toMatchObject({ x: 0.6, y: 0.6, w: 0.1 });
     expect(editorKeys).not.toHaveBeenCalled();
     window.removeEventListener('keydown', editorKeys);
+    // 工具条上的撤销 / 重做钮同 ⌘Z / ⇧⌘Z；没有可重做的时重做钮置灰
+    await press(button('重做'));
+    expect(marks()[0]).toMatchObject({ x: 0.6, y: 0.6, w: 0.2, h: 0.2 });
+    expect(button('重做').hasAttribute('disabled')).toBe(true);
+    await press(button('撤销'));
+    expect(marks()[0]).toMatchObject({ x: 0.6, y: 0.6, w: 0.1, h: 0.1 });
+    expect(button('重做').hasAttribute('disabled')).toBe(false);
 
     await act(() => useMarkup.getState().apply((s) => ({ ...s, sel: id })));
     await key('Delete');

@@ -13,6 +13,8 @@ export const zhHans: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: '撤销',
+  redo: '重做',
   addToChat: '添加到对话',
   close: '关闭标记',
   added: (n) => `已添加到对话 · ${n} 条`,

@@ -13,6 +13,8 @@ export const es: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: 'Deshacer',
+  redo: 'Rehacer',
   addToChat: 'Añadir al chat',
   close: 'Cerrar marcado',
   added: (n) => `Añadido al chat · ${n}`,

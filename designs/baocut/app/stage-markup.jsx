@@ -426,6 +426,11 @@
           </div>
         </div>
         <span className="vrule" />
+        <div className="mk-bar__group">
+          <IconBtn size="s" tip="撤销 · ⌘Z" disabled={!MK.canUndo(st)} onClick={() => set(MK.undo)}><R.Icons.Undo /></IconBtn>
+          <IconBtn size="s" tip="重做 · ⇧⌘Z" disabled={!MK.canRedo(st)} onClick={() => set(MK.redo)}><R.Icons.Redo /></IconBtn>
+        </div>
+        <span className="vrule" />
         <R.Button variant="primary" size="S" isDisabled={!sendable.length} onPress={send} UNSAFE_className="mk-bar__send"><R.Text>添加到对话</R.Text></R.Button>
         <IconBtn size="s" tip="关闭标记 · Esc" onClick={() => ctx.closeMarkup()}><R.Icons.Close /></IconBtn>
       </div>, document.body)}

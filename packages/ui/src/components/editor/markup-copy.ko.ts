@@ -13,6 +13,8 @@ export const ko: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: '실행 취소',
+  redo: '다시 실행',
   addToChat: '대화에 추가',
   close: '마크업 닫기',
   added: (n) => `대화에 추가됨 · ${n}개`,

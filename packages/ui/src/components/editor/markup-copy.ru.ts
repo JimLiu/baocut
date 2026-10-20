@@ -13,6 +13,8 @@ export const ru: MarkupMessages = {
   widthValue: (px) => `${px} px`,
   current: (name, value) => `${name} · ${value}`,
   withKeys: (label, keys) => `${label} · ${keys}`,
+  undo: 'Отменить',
+  redo: 'Повторить',
   addToChat: 'Добавить в чат',
   close: 'Закрыть пометки',
   added: (n) => `Добавлено в чат: ${n}`,
