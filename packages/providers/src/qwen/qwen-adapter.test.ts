@@ -240,7 +240,7 @@ describe('Qwen ASR protocol selection', () => {
     );
     server = await startFakeProviderServer(contractReply);
     const source = new OnlineProviderSource({ store, baseUrls: { qwen: `${server.origin}/compatible-mode/v1` }, ffmpeg: async () => ({ command: 'ffmpeg', env: process.env }) });
-    await source.configure({ providerId: 'qwen', enabled: true });
+    await source.configure({ providerId: 'qwen', enabled: true, models: [{ modelId: id, capability: 'transcribe' }] });
     await source.addAccount({ providerId: 'qwen', credential: key, region: 'cn' });
     const view = (await source.describe('qwen', 'view'))!;
     expect(view.capabilities.transcribe).toMatchObject({ available: true });

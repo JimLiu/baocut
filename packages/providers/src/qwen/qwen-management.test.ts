@@ -26,9 +26,30 @@ async function fixture() {
 }
 
 describe('Qwen additional models', () => {
-  it('retains existing declarations that now match presets through edits and removal', async () => {
+  it.each(['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'])(
+    'adds and removes %s as a user model without refresh restoring it', async (modelId) => {
+      server = await startFakeProviderServer(() => ({ status: 200, json: { data: [{ id: modelId }] } }));
+      const { source, store } = await fixture();
+      expect((await source.describe('qwen', 'view'))!.capabilities.transcribe!.models).toEqual([]);
+      const accounts = structuredClone(store.provider('qwen')!.accounts);
+      await source.configure({ providerId: 'qwen', models: [{ modelId, capability: 'transcribe' }] });
+      expect((await source.describe('qwen', 'view'))!.capabilities.transcribe!.models)
+        .toEqual([expect.objectContaining({ modelId, declared: true })]);
+      await store.setDefault('transcribe', { providerId: 'qwen', modelId });
+      await source.configure({ providerId: 'qwen', models: [] });
+      await source.refresh('qwen');
+      expect((await source.describe('qwen', 'view'))!.capabilities.transcribe!.models).toEqual([]);
+      expect(store.getDefault('transcribe')).toBeNull();
+      expect(store.provider('qwen')!.accounts).toEqual(accounts);
+      await source.configure({ providerId: 'qwen', models: [{ modelId, capability: 'transcribe' }] });
+      expect((await source.describe('qwen', 'view'))!.capabilities.transcribe!.models)
+        .toEqual([expect.objectContaining({ modelId, declared: true })]);
+    },
+  );
+
+  it('retains text preset declarations while ASR declarations are fully removable', async () => {
     const { source, store } = await fixture();
-    // Emulate persisted declarations from before these IDs became presets.
+    // Text can overlap a preset; ASR IDs are always user declarations.
     await store.updateProvider('qwen', { models: [
       { modelId: 'qwen3.8-max', capability: 'generateText' },
       { modelId: 'qwen-audio-3.0-asr-flash', maxDurationSec: 1 },
@@ -41,7 +62,7 @@ describe('Qwen additional models', () => {
     expect(view.capabilities.transcribe!.models).toHaveLength(3);
     expect(view.capabilities.transcribe!.models.every((m) => m.declared)).toBe(true);
     expect(view.capabilities.transcribe!.models.find((m) => m.modelId === 'qwen-audio-3.0-asr-flash'))
-      .toMatchObject({ maxDurationSec: 300, wordTimestamps: 'native', default: true });
+      .toMatchObject({ maxDurationSec: 1, wordTimestamps: 'native', declared: true });
     expect(view.capabilities.generateText!.models.find((m) => m.modelId === 'qwen3.8-max')?.declared).toBe(true);
     const kept = [...before!.models!, { modelId: 'extra-text', capability: 'generateText' as const }];
     await source.configure({ providerId: 'qwen', models: kept });
@@ -54,15 +75,16 @@ describe('Qwen additional models', () => {
     await store.setDefault('generateText', { providerId: 'qwen', modelId: 'extra-text' });
     await source.configure({ providerId: 'qwen', models: kept.filter((m) => m.modelId !== 'qwen3-asr-flash') });
     view = (await source.describe('qwen', 'view'))!;
-    expect(view.capabilities.transcribe!.models).toHaveLength(3);
-    expect(view.capabilities.transcribe!.models.find((m) => m.modelId === 'qwen3-asr-flash')?.declared).not.toBe(true);
+    expect(view.capabilities.transcribe!.models).toHaveLength(2);
+    expect(view.capabilities.transcribe!.models.some((m) => m.modelId === 'qwen3-asr-flash')).toBe(false);
     expect(view.capabilities.transcribe!.models.find((m) => m.modelId === 'qwen-audio-3.1-asr-flash')?.declared).toBe(true);
     expect(store.getDefault('transcribe')).toBeNull();
     expect(store.getDefault('generateText')).toEqual({ providerId: 'qwen', modelId: 'extra-text' });
     expect(store.provider('qwen')!.accounts).toEqual(before!.accounts);
     expect(await fs.readFile(path.join(directory!, 'credentials.json'), 'utf8')).toBe(credentialsBefore);
-    // Removing the declaration does not allow it to be newly added as a duplicate preset.
-    await expect(source.configure({ providerId: 'qwen', models: kept })).rejects.toMatchObject({ code: 'invalid-request' });
+    // Removed ASR models can be explicitly added again.
+    await source.configure({ providerId: 'qwen', models: kept });
+    expect((await source.describe('qwen', 'view'))!.capabilities.transcribe!.models).toHaveLength(3);
   });
 
   it('merges declared text/ASR models while retaining presets and protecting their IDs', async () => {
@@ -85,6 +107,7 @@ describe('Qwen additional models', () => {
     await source.configure({ providerId: 'qwen', models: [
       { modelId: 'deepseek-v4.1-flash-1017', capability: 'generateText' },
       { modelId: 'qwen-audio-3.0-asr-flash-filetrans', capability: 'transcribe' },
+      { modelId: 'qwen-audio-3.0-asr-flash', capability: 'transcribe' },
     ] });
     await source.refresh('qwen');
     const view = (await source.describe('qwen', 'view'))!;
@@ -92,6 +115,7 @@ describe('Qwen additional models', () => {
     expect(text.every((m) => m.available !== false)).toBe(true);
     expect(text.find((m) => m.declared)?.detail).toBe(PC.modelListUnverified().text);
     const asr = view.capabilities.transcribe!.models;
+    expect(asr.find((m) => m.modelId === 'qwen-audio-3.0-asr-flash')).toMatchObject({ declared: true });
     expect(asr.find((m) => m.modelId === 'qwen-audio-3.0-asr-flash')?.available).not.toBe(false);
     expect(asr.find((m) => m.modelId.includes('filetrans'))).toMatchObject({ available: false, unavailableReason: 'unsupported' });
     expect(asr.find((m) => m.modelId.includes('filetrans'))?.detail).toBe(PC.asyncTranscriptionUnsupported().text);

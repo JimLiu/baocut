@@ -56,24 +56,12 @@ export class QwenAdapter implements TranscribeAdapter {
   readonly version = 'baocut-providers/qwen-asr@2';
 
   models(config: AdapterConfig): TranscribeModelInfo[] {
-    const builtins: TranscribeModelInfo[] = ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'].map((modelId, i) => qwenAsrModelInfo({
-      modelId,
-      label: modelId,
-      ...(config.declared.some((m) => m.modelId === modelId && (m.capability ?? 'transcribe') === 'transcribe') ? { declared: true } : {}),
-      ...(i === 0 ? { default: true } : {}),
-      maxInputBytes: MAX_INLINE_BYTES,
-      maxDurationSec: MAX_DURATION_SEC,
-      wordTimestamps: 'none',
-      languages: 'any',
-      acceptsHint: true,
-      cost: 'unknown',
-    }));
-    const extra = config.declared.filter((m) => (m.capability ?? 'transcribe') === 'transcribe' && !builtins.some((b) => b.modelId === m.modelId));
-    return [...builtins, ...extra.map((m): TranscribeModelInfo => qwenAsrModelInfo({
-      modelId: m.modelId, label: m.label ?? m.modelId, declared: true,
-      maxInputBytes: m.maxInputBytes ?? MAX_INLINE_BYTES, maxDurationSec: m.maxDurationSec ?? MAX_DURATION_SEC,
-      wordTimestamps: 'none', languages: 'any', acceptsHint: m.acceptsHint ?? true, cost: 'unknown',
-    }))];
+    return config.declared.filter((m) => (m.capability ?? 'transcribe') === 'transcribe')
+      .map((m): TranscribeModelInfo => qwenAsrModelInfo({
+        modelId: m.modelId, label: m.label ?? m.modelId, declared: true,
+        maxInputBytes: m.maxInputBytes ?? MAX_INLINE_BYTES, maxDurationSec: m.maxDurationSec ?? MAX_DURATION_SEC,
+        wordTimestamps: 'none', languages: 'any', acceptsHint: m.acceptsHint ?? true, cost: 'unknown',
+      }));
   }
 
   chunkFormat(_model: TranscribeModelInfo): ChunkFormat {

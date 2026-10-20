@@ -60,7 +60,7 @@
      auth: 'Bearer', site: 'https://bailian.console.aliyun.com', icon: {mono: false}, balance: false,
      models: {
        text: [m('qwen3.8-max', '旗舰'), m('qwen3.8-flash', '最快'), m('qwen3.7-plus', '均衡')],
-       transcribe: [m('qwen-audio-3.0-asr-flash', '多语种'), m('qwen-audio-3.1-asr-flash', '多语种'), m('qwen3-asr-flash', '多语种')],
+       transcribe: [],
        tts: [m('qwen3-tts-flash', '多语种 · 多方言')],
      }},
     {id: 'zhipu', name: '智谱 GLM（Z.ai）', kind: 'vendor', caps: ['text'], p1: [], beyond: ['image'],

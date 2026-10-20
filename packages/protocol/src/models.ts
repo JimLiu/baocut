@@ -437,7 +437,7 @@ export interface ModelInfoBase {
   label: string;
   /** 这个 Provider 在这种能力下的默认模型。 */
   default?: boolean;
-  /** A saved user declaration exists. Qwen preset ID collisions retain this flag for removal, but use preset limits and features. */
+  /** A saved user declaration exists. Qwen text preset ID collisions retain this flag for removal, but use preset limits and features. */
   declared?: boolean;
   /** 本地与节点逐个模型包报告可用性；不给时与所在 Provider 相同。 */
   available?: boolean;

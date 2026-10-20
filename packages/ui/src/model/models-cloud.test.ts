@@ -346,12 +346,12 @@ describe('Qwen model declarations', () => {
       textModel('qwen3.8-max', { declared: true }), textModel('qwen3.8-flash'),
     ] });
     view.transcribe.providers.push({ ...view.transcribe.providers[1]!, providerId: 'qwen', models: [
-      transcribeModel('qwen3-asr-flash', { declared: true }), transcribeModel('qwen-audio-3.0-asr-flash'),
+      transcribeModel('qwen3-asr-flash', { declared: true }), transcribeModel('qwen-audio-3.0-asr-flash', { declared: true }),
     ] });
     expect(addModelRequest(view, 'qwen', newDeclaredModel('extra-text', 'generateText')).models!.map((m) => m.modelId))
       .toEqual(declaredModels(view, 'qwen').map((m) => m.modelId).concat('extra-text'));
-    expect(declaredModels(view, 'qwen').map((m) => m.modelId).sort()).toEqual(['qwen3-asr-flash', 'qwen3.8-max']);
-    expect(removeModelRequest(view, 'qwen', 'qwen3-asr-flash').models!.map((m) => m.modelId)).toEqual(['qwen3.8-max']);
+    expect(declaredModels(view, 'qwen').map((m) => m.modelId).sort()).toEqual(['qwen-audio-3.0-asr-flash', 'qwen3-asr-flash', 'qwen3.8-max']);
+    expect(removeModelRequest(view, 'qwen', 'qwen3-asr-flash').models!.map((m) => m.modelId).sort()).toEqual(['qwen-audio-3.0-asr-flash', 'qwen3.8-max']);
   });
 
   it('does not copy presets into declarations and cannot offer to remove them', () => {

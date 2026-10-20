@@ -35,9 +35,10 @@ test('目录 id 固定：共享简报 §3 的 15 家 + 豆包语音 + Codex，�
 
 test('Qwen synchronous ASR is available in the shared provider catalog', () => {
   assert.ok(!V.byId('qwen').p1.includes('transcribe'));
-  assert.deepEqual(V.modelsOf('qwen', 'transcribe').map((m) => m.id), [
-    'qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash',
-  ]);
+  assert.deepEqual(V.modelsOf('qwen', 'transcribe'), []);
+  const settings = {qwen: {models: {transcribe: ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash']}}};
+  assert.equal(V.modelsOf('qwen', 'transcribe', settings).length, 3);
+  assert.ok(V.modelsOf('qwen', 'transcribe', settings).every((m) => m.added));
 });
 
 test('能力标签与旧 kind / 左栏项互译', () => {
@@ -261,7 +262,7 @@ test('Qwen additional models can be removed without replacing presets or account
   assert.deepEqual(settings.qwen.models.text, ['extra-text']);
 });
 
-test('a saved Qwen declaration matching a preset remains removable without duplicate rows', () => {
+test('Qwen ASR has no presets and removed declarations do not reappear', () => {
   const settings = {qwen: {models: {transcribe: ['qwen-audio-3.0-asr-flash', 'qwen3-asr-flash', 'extra-asr']}}};
   const list = V.modelsOf('qwen', 'transcribe', settings);
   assert.equal(list.filter((m) => m.id === 'qwen-audio-3.0-asr-flash').length, 1);
@@ -269,7 +270,8 @@ test('a saved Qwen declaration matching a preset remains removable without dupli
   const patch = V.removeAddedModel('qwen', 'transcribe', 'qwen-audio-3.0-asr-flash', settings);
   assert.deepEqual(patch.models.transcribe, ['qwen3-asr-flash', 'extra-asr']);
   const after = V.modelsOf('qwen', 'transcribe', {qwen: {...settings.qwen, ...patch}});
-  assert.ok(after.some((m) => m.id === 'qwen-audio-3.0-asr-flash' && !m.added));
+  assert.equal(after.some((m) => m.id === 'qwen-audio-3.0-asr-flash'), false);
+  assert.deepEqual(V.modelsOf('qwen', 'transcribe', {}), []);
   assert.equal(after.find((m) => m.id === 'qwen3-asr-flash').added, true);
   assert.deepEqual(settings.qwen.models.transcribe, ['qwen-audio-3.0-asr-flash', 'qwen3-asr-flash', 'extra-asr']);
 });
