@@ -78,8 +78,8 @@ import { ProvidersConfig as PC, ProvidersHttp as PH } from '@baocut/protocol/mes
  *   （一个模型也没声明时只列 transcribe）。
  * - 账号（§6.8）：一次调用用第一个启用且有密钥的账号，失败不换账号；调用结束时写一条用量（§6.10）并按结果记下那个
  *   账号的状态。基址：账号的改写优先，其次是服务商的端点，最后是目录的预设（有国际与中国两个基址的按账号的 `region`）。
- * - `refresh()`（`models.refreshProvider`）向供应商取模型（与音色）列表，记在配置里：取到的列表只用来标注内置的模型——
- *   不在列表里的报告为不可用（`unsupported`），账号里的音色补进没有预置音色的语音模型；取不到时照旧用内置列表并标明。
+ * - `refresh()`（`models.refreshProvider`）向供应商取模型（与音色）列表，记在配置里：取到的列表只用来标注已有模型——
+ *   百炼与用户声明模型缺失时仅提示未验证，其他内置模型报告为不可用（`unsupported`），账号里的音色补进没有预置音色的语音模型；取不到时照旧用内置列表并标明。
  * - 可用 = 用户启用了它（启用即是持续的授权，§6.2）且有密钥；自定义端点密钥可选，但那种能力要声明了模型。
  * - 配置与密钥在 `ModelServiceStore` 里；这里的视图只报告密钥有没有，从不回显。密钥在执行时才从凭据存储取；
  *   凭据存储不可用时 Provider 报告为不可用（`missing-credential`，`detail` 写明原因），不回退到别的存放。
@@ -409,12 +409,20 @@ export class OnlineProviderSource implements ProviderSource {
       throw new RpcError('invalid-request', PC.customIdFormat());
     }
     if (!custom && !isBuiltin(id)) throw new RpcError('not-found', PC.providerNotFound({ id }));
-    if (!custom && (request.models !== undefined || request.label !== undefined)) {
+    if (!custom && (request.label !== undefined || (request.models !== undefined && id !== 'qwen'))) {
       throw new RpcError('invalid-request', PC.onlyCustomDeclares());
     }
     const stored = this.#store.provider(id);
     if (custom && !stored && !request.endpoint) throw new RpcError('invalid-request', PC.customNeedsEndpoint());
     if (custom && request.endpoint === null) throw new RpcError('invalid-request', PC.customEndpointRequired());
+    if (request.models && id === 'qwen') {
+      const adapters = this.#adapterSet(id);
+      const config = { ...this.#settings(id), declared: [] };
+      const presetIds = new Set([...(adapters.text?.models(config) ?? []), ...(adapters.transcribe?.models(config) ?? [])].map((m) => m.modelId));
+      if (request.models.some((m) => presetIds.has(m.modelId) || !['generateText', 'transcribe'].includes(m.capability ?? 'transcribe'))) {
+        throw new RpcError('invalid-request', PC.presetModelsProtected());
+      }
+    }
     if (request.models) {
       const ids = request.models.map((m) => m.modelId);
       if (new Set(ids).size !== ids.length) throw new RpcError('invalid-request', PC.duplicateModelIds());
@@ -597,7 +605,7 @@ export class OnlineProviderSource implements ProviderSource {
     if (adapters.image && declares('generateImage')) capabilities.generateImage = offer('generateImage', adapters.image.models(config));
     if (adapters.text && declares('generateText')) capabilities.generateText = offer('generateText', adapters.text.models(config));
     const discovered = this.#store.provider(providerId)?.discovered;
-    if (discovered?.ok) for (const cap of Object.values(capabilities)) annotate(cap.models, discovered);
+    if (discovered?.ok) for (const cap of Object.values(capabilities)) annotate(cap.models, discovered, providerId === 'qwen');
     return {
       providerId,
       kind: 'online',
@@ -811,17 +819,16 @@ export class OnlineProviderSource implements ProviderSource {
 }
 
 /**
- * 用取到的列表标注模型（就地修改）：不在列表里的报告为不可用；账号里的音色补进没有预置音色、接受自定义音色的语音模型。
+ * 用取到的列表标注模型（就地修改）：百炼与用户声明模型缺失时仅提示，其他内置模型报告不可用；账号里的音色补进没有预置音色、接受自定义音色的语音模型。
  * 列表里多出来的模型不加进来：没有它们的限制与特性。
  */
-function annotate(models: ModelInfoBase[], discovered: DiscoveredList): void {
+function annotate(models: ModelInfoBase[], discovered: DiscoveredList, advisory = false): void {
   const listed = new Set(discovered.models ?? []);
   for (const model of models) {
     if (discovered.models && !listed.has(model.modelId) && model.available !== false) {
       Object.assign(model, {
-        available: false,
-        unavailableReason: 'unsupported',
-        ...modelDetail(PC.notInVendorList({ at: discovered.at })),
+        ...(!advisory && !model.declared ? { available: false, unavailableReason: 'unsupported' as const } : {}),
+        ...modelDetail(advisory || model.declared ? PC.modelListUnverified() : PC.notInVendorList({ at: discovered.at })),
       });
     }
     const speech = model as Partial<SpeechModelInfo>;

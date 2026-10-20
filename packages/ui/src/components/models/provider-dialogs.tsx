@@ -36,10 +36,10 @@ function message(err: unknown): string {
  * 用途四选一（设计稿 KIND_ITEMS；添加表单里是一行可换行的选项，见 settings-providers.css `.prov-custom__caps`）。横排放不下时
  * 自动换行，英文等长标签也不会把对话框撑出横向滚动。
  */
-export function KindControl({ value, onChange, label }: { value: OnlineCapability; onChange: (value: OnlineCapability) => void; label?: string }) {
+export function KindControl({ value, onChange, label, qwen = false }: { value: OnlineCapability; onChange: (value: OnlineCapability) => void; label?: string; qwen?: boolean }) {
   return (
     <RadioGroup label={label ?? CUSTOM_COPY.kind} orientation="horizontal" size="S" value={value} onChange={(key) => onChange(key as OnlineCapability)}>
-      {KIND_ITEMS.map((item) => (
+      {KIND_ITEMS.filter((item) => !qwen || item.key === 'generateText' || item.key === 'transcribe').map((item) => (
         <Radio key={item.key} value={item.key}>
           {item.label}
         </Radio>
@@ -111,7 +111,7 @@ export function AddModelDialog({
                     isInvalid={duplicate}
                     errorMessage={ADD_MODEL_COPY.taken}
                   />
-                  <KindControl value={capability} onChange={setCapability} />
+                  <KindControl value={capability} onChange={setCapability} qwen={providerId === 'qwen'} />
                   {capability === 'synthesizeSpeech' ? (
                     <TextField label={CUSTOM_COPY.voices} placeholder={CUSTOM_COPY.voicesPlaceholder} value={voiceIds} onChange={setVoiceIds} />
                   ) : null}

@@ -2,6 +2,7 @@ import type { SpeechModelInfo } from '@baocut/protocol';
 import { describe, expect, it } from 'vitest';
 import {
   addModelRequest,
+  removeModelRequest,
   capabilityCategory,
   categoryCapability,
   cloudDefaultPicker,
@@ -26,7 +27,7 @@ import {
   voiceCount,
   type CloudProviderCard,
 } from './models-cloud.ts';
-import { fixtureView, speechModel } from './models-test-fixtures.ts';
+import { fixtureView, speechModel, textModel, textView } from './models-test-fixtures.ts';
 
 const COPY = { none: '每次选择', noneDesc: '不设默认', codex: 'Codex CLI · 画图', codexDesc: '用你的 Codex 订阅', unavailable: '不可用' };
 
@@ -334,5 +335,19 @@ describe('刷新模型与音色目录', () => {
     expect(refreshAfterKey({ custom: true, capabilities: [] })).toBe(true);
     expect(refreshAfterKey({ custom: false, capabilities: ['transcribe', 'generateText'] })).toBe(true);
     expect(refreshAfterKey({ custom: false, capabilities: ['synthesizeSpeech'] })).toBe(false);
+  });
+});
+
+
+describe('Qwen model declarations', () => {
+  it('does not copy presets into declarations and cannot offer to remove them', () => {
+    const view = textView();
+    view.generateText.providers.push({ ...view.generateText.providers[0]!, providerId: 'qwen', models: [
+      textModel('qwen3.8-max'), textModel('extra-text', { declared: true }),
+    ] });
+    const added = addModelRequest(view, 'qwen', newDeclaredModel('second-extra', 'generateText'));
+    expect(added.models!.map((m) => m.modelId)).toEqual(['extra-text', 'second-extra']);
+    expect(modelIdTaken(view, 'qwen', 'qwen3.8-max')).toBe(true);
+    expect(removeModelRequest(view, 'qwen', 'extra-text')).toEqual({ providerId: 'qwen', models: [] });
   });
 });

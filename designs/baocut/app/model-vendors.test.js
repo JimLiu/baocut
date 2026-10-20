@@ -247,3 +247,16 @@ test('编码 Agent 图标：十家内置的都指向 assets/vendors 里存在的
   assert.equal(V.agentIcon({id: 'claude', added: 'custom'}), null);
   assert.equal(V.agentIcon(null), null);
 });
+
+
+test('Qwen additional models can be removed without replacing presets or accounts', () => {
+  const settings = {qwen: {enabled: true, models: {text: ['extra-text'], transcribe: ['qwen-audio-3.0-asr-flash-filetrans']}, listedModels: []}};
+  const text = V.modelsOf('qwen', 'text', settings);
+  assert.ok(text.some((m) => m.id === 'extra-text' && m.added && m.notice));
+  assert.equal(V.removeAddedModel('qwen', 'text', 'qwen3.8-max', settings), null);
+  const patch = V.removeAddedModel('qwen', 'text', 'extra-text', settings);
+  assert.deepEqual(patch.models.text, []);
+  assert.ok(V.modelsOf('qwen', 'text', {...settings, qwen: {...settings.qwen, ...patch}}).some((m) => m.id === 'qwen3.8-max'));
+  assert.equal(V.modelsOf('qwen', 'transcribe', settings).find((m) => m.id.includes('filetrans')).unsupported, true);
+  assert.deepEqual(settings.qwen.models.text, ['extra-text']);
+});

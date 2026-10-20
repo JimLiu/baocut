@@ -41,7 +41,7 @@ export function qwenAsrModelInfo(model: TranscribeModelInfo): TranscribeModelInf
       ...model,
       available: false,
       unavailableReason: 'unsupported',
-      ...modelDetail(PC.noModel({ label: 'Qwen ASR', model: model.modelId })),
+      ...modelDetail(PC.asyncTranscriptionUnsupported()),
     };
   }
   return {
@@ -55,8 +55,8 @@ export function qwenAsrModelInfo(model: TranscribeModelInfo): TranscribeModelInf
 export class QwenAdapter implements TranscribeAdapter {
   readonly version = 'baocut-providers/qwen-asr@2';
 
-  models(_config: AdapterConfig): TranscribeModelInfo[] {
-    return ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'].map((modelId, i) => qwenAsrModelInfo({
+  models(config: AdapterConfig): TranscribeModelInfo[] {
+    const builtins: TranscribeModelInfo[] = ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'].map((modelId, i) => qwenAsrModelInfo({
       modelId,
       label: modelId,
       ...(i === 0 ? { default: true } : {}),
@@ -67,6 +67,12 @@ export class QwenAdapter implements TranscribeAdapter {
       acceptsHint: true,
       cost: 'unknown',
     }));
+    const extra = config.declared.filter((m) => (m.capability ?? 'transcribe') === 'transcribe' && !builtins.some((b) => b.modelId === m.modelId));
+    return [...builtins, ...extra.map((m): TranscribeModelInfo => qwenAsrModelInfo({
+      modelId: m.modelId, label: m.label ?? m.modelId, declared: true,
+      maxInputBytes: m.maxInputBytes ?? MAX_INLINE_BYTES, maxDurationSec: m.maxDurationSec ?? MAX_DURATION_SEC,
+      wordTimestamps: 'none', languages: 'any', acceptsHint: m.acceptsHint ?? true, cost: 'unknown',
+    }))];
   }
 
   chunkFormat(_model: TranscribeModelInfo): ChunkFormat {
@@ -89,7 +95,7 @@ export class QwenAdapter implements TranscribeAdapter {
 export async function qwenTranscribeChunk(request: ChunkRequest, label: string): Promise<ChunkTranscript> {
   const { config, model } = request;
   if (model.modelId.includes('-filetrans')) {
-    throw new ProviderFailure('unavailable', PC.noModel({ label, model: model.modelId }));
+    throw new ProviderFailure('unavailable', PC.asyncTranscriptionUnsupported());
   }
   if (model.modelId.startsWith('qwen-audio-')) return qwenAudioTranscribeChunk(request, label);
   const response = await providerFetch(httpOptions(label, config, request.http), {

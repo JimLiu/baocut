@@ -15,8 +15,10 @@
   function ModelProbeDialog({probe, onClose, onDone}) {
     const [st, setSt] = useState({state: 'ready'});
     const [scenario, setScenario] = useState('ok');
+    const [fileName, setFileName] = useState('');
+    const fileInput = useRef(null);
     const timer = useRef(null);
-    useEffect(() => { setSt({state: 'ready'}); setScenario('ok'); }, [probe && probe.providerId, probe && probe.modelId]);
+    useEffect(() => { setSt({state: 'ready'}); setScenario('ok'); setFileName(''); }, [probe && probe.providerId, probe && probe.modelId]);
     useEffect(() => () => clearTimeout(timer.current), []);
     if (!probe) return null;
     const kind = KIND_OF_CAP[probe.cap];
@@ -40,17 +42,17 @@
     const ttsCap = kind === 'tts' ? C().capabilities(probe.providerId, probe.modelId) : null;
     return <Dialog open title={TITLE[kind]} onClose={stop}
       footer={<><Btn variant="secondary" onClick={stop}>{st.state === 'running' ? '停止等待' : '关闭'}</Btn>
-        <Btn variant="accent" disabled={st.state === 'running'} onClick={run}>{st.state === 'running' ? '测试中…' : st.state === 'ready' ? '开始测试' : '重新测试'}</Btn></>}>
+        <Btn variant="accent" disabled={st.state === 'running' || (kind === 'stt' && !fileName)} onClick={run}>{st.state === 'running' ? '测试中…' : st.state === 'ready' ? '开始测试' : '重新测试'}</Btn></>}>
       <div className="cloud-probe">
         <div className="row gap8"><b className="t-title-sm">{probe.providerName}</b><Chip tone="neutral">{window.BC_VENDORS.CAP_LABEL[probe.cap]}</Chip></div>
         <div className="t-mono t-detail">{probe.modelId}</div>
         <Card layer className="cloud-sample">
-          <b className="t-title-sm">{kind === 'stt' ? '测试语音 · English' : kind === 'tts' ? '测试文字 · 简体中文' : '测试提示词'}</b>
-          {kind === 'stt' ? <><audio controls preload="metadata" src="assets/cloud-test.wav" aria-label="试听测试语音" /><p className="t-detail">{SAMPLE}</p></>
+          <b className="t-title-sm">{kind === 'stt' ? '测试音频或视频' : kind === 'tts' ? '测试文字 · 简体中文' : '测试提示词'}</b>
+          {kind === 'stt' ? <><input ref={fileInput} type="file" accept="audio/*,video/*" hidden onChange={(e) => setFileName(e.target.files?.[0]?.name || '')} /><Btn variant="secondary" disabled={st.state === 'running'} onClick={() => fileInput.current.click()}>选择音频或视频</Btn><p className="t-detail">{fileName || '请选择一段短音频或视频'}</p></>
             : kind === 'tts' ? <><p className="t-body-sm">{TTS_SAMPLE()}</p><p className="t-detail">音色 · 默认（{(C().defaultVoice(probe.providerId, 'zh') || {name: '由对方缺省'}).name}）{(ttsCap || {speed: true}).speed ? ' · 语速 1.0×' : ''}</p></>
             : <p className="t-body-sm">Reply with OK.</p>}
         </Card>
-        <p className="t-detail">{kind === 'stt' ? '把这段示例语音发给所选模型，检查是否返回识别文本。不会读取你的视频音频。'
+        <p className="t-detail">{kind === 'stt' ? '所选文件的音频会发送给提供方，并在保存位置输出 TXT/SRT、列入 Space。原型仅演示，不实际上传或识别。'
           : kind === 'tts' ? `把这句文字发给所选模型合成，检查能否返回音频。这次约 ${C().chars(TTS_SAMPLE())} 字。`
           : '向所选模型发送上面的提示词，检查是否返回生成文本。'}用的是这家的首选账号，提供方可能按用量计费。停止等待不会撤回已经发送的请求。</p>
         <Card className="cloud-result" role="status" aria-live="polite">

@@ -17,7 +17,7 @@ import { jobErrorText } from './localized-text.ts';
 /**
  * 云端模型的「测试合成 / 测试生图 / 测试生成」（设计稿 settings-cloud.jsx 的测试对话框）：提交一个真实的生成任务，
  * 进度与结果走 `jobs` 主题；完成后读第一个产物给人听、给人看，文本读结果里的预览。任务也会出现在后台任务里——那是真的花了钱的一次调用。
- * 语音识别的测试要一段音频，`models.transcribe` 只认视频里的素材，独立测试还没有接口，这里不做。
+ * 语音识别由桌面端选择本机文件，经现有 transcribe 文件流程处理，不创建视频，结果保存为 TXT/SRT。
  */
 
 /** 测试合成的文字：当前界面语言的一句。 */
@@ -29,8 +29,8 @@ export const PROBE_IMAGE_PROMPT = 'a paper crane on a wooden desk, soft morning 
 export const PROBE_TEXT_PROMPT = 'Reply with OK.';
 
 /** 这种能力在这一版能不能独立测试。 */
-export function probeSupported(capability: OnlineCapability): boolean {
-  return capability !== 'transcribe';
+export function probeSupported(capability: OnlineCapability, localFiles = true): boolean {
+  return capability !== 'transcribe' || localFiles;
 }
 
 /** 模型没有预置音色、也没有默认音色（自建服务商没填音色 ID）时，测试要用户给一个音色 ID。 */
@@ -99,7 +99,7 @@ export function probeFromJob(jobId: string, job: JobRecord | undefined): ProbeSt
       const text = job.kind === 'generateText' ? job.result?.text : undefined;
       if (text) return { status: 'done', jobId, output: null, text, seconds: elapsed(job) };
       const output = job.result?.outputs?.[0];
-      if (!output) return { status: 'failed', jobId, message: M.noResult };
+      if (!output || (output.media.kind === 'text' && output.media.entries === 0)) return { status: 'failed', jobId, message: M.noResult };
       return { status: 'done', jobId, output, text: null, seconds: elapsed(job) };
     }
     case 'failed':

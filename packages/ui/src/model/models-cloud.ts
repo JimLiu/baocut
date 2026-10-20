@@ -288,12 +288,14 @@ export function declaredFromInfo(capability: OnlineCapability, info: ModelInfoBa
   }
 }
 
-/** 一家自建服务商眼下声明的全部模型（三种能力合起来）。 */
+/** 一家提供方眼下的全部用户声明，不包括预置模型。 */
 export function declaredModels(view: ModelCapabilitiesView, providerId: string): DeclaredModel[] {
   const out: DeclaredModel[] = [];
   for (const capability of ONLINE_CAPABILITIES) {
     const entry = view[capability].providers.find((p) => p.providerId === providerId);
-    for (const info of entry?.models ?? []) out.push(declaredFromInfo(capability, info));
+    for (const info of entry?.models ?? []) {
+      if (isCustomProvider(providerId) || info.declared) out.push(declaredFromInfo(capability, info));
+    }
   }
   return out;
 }
@@ -312,10 +314,10 @@ export function newDeclaredModel(modelId: string, capability: OnlineCapability, 
 /** 模型 ID 在这家已经声明过（Runtime 拒绝重复的 modelId，不分用途）。 */
 export function modelIdTaken(view: ModelCapabilitiesView, providerId: string, modelId: string): boolean {
   const id = modelId.trim();
-  return declaredModels(view, providerId).some((m) => m.modelId === id);
+  return ONLINE_CAPABILITIES.some((capability) => view[capability].providers.find((p) => p.providerId === providerId)?.models.some((m) => m.modelId === id));
 }
 
-/** 在一家自建服务商下添加一只模型：原有声明原样带上，再加这一只。 */
+/** 添加一只用户模型：原有声明原样带上，不复制预置模型。 */
 export function addModelRequest(
   view: ModelCapabilitiesView,
   providerId: string,
@@ -537,4 +539,9 @@ export function cloudDefaultPicker(
     sections.push({ key: 'current', items: [{ key: selectedKey, label: M.unavailableItem(refLabel(view, capability, current), copy.unavailable) }] });
   }
   return { selectedKey, sections, empty: empty && !(capability === 'generateImage' && codex?.ready) };
+}
+
+/** A model edit replaces declarations only; presets are never included. */
+export function removeModelRequest(view: ModelCapabilitiesView, providerId: string, modelId: string): ConfigureProviderRequest {
+  return { providerId, models: declaredModels(view, providerId).filter((m) => m.modelId !== modelId) };
 }

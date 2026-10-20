@@ -6,6 +6,7 @@ import { bundle, fixtureView, imageModel, speechModel, textModel } from '../../m
 import {
   addCustomProvider,
   addProviderModel,
+  removeProviderModel,
   chooseCloudDefault,
   chooseLocalDefault,
   disconnectProvider,
@@ -38,6 +39,7 @@ function fakeSession(fail?: { method: string; error: Error }) {
       case 'models.synthesizeSpeech':
       case 'models.generateImage':
       case 'models.generateText':
+      case 'pipelines.start':
         return { jobId: 'job_9' };
       case 'models.setCapabilityParameters': {
         const p = params as { effort?: string | null; concurrency?: number | null };
@@ -203,4 +205,28 @@ describe('测试对话框', () => {
     expect(url).toBe('http://127.0.0.1:1/a/x');
     expect(calls).toEqual([['artifacts.openHandle', { artifactId: 'sha256:aa' }]]);
   });
+});
+
+
+describe('ASR probes', () => {
+  it('uses the existing file transcription pipeline and pins provider and model', async () => {
+    const { session, calls } = fakeSession();
+    expect(await startProbe(session, 'transcribe', 'qwen', { modelId: 'qwen-audio-3.0-asr-flash', label: 'ASR' }, '/tmp/sample.wav')).toBe('job_9');
+    expect(calls).toEqual([['pipelines.start', expect.objectContaining({ pipeline: 'transcribe', params: {
+      file: '/tmp/sample.wav', provider: 'qwen', model: 'qwen-audio-3.0-asr-flash',
+    } })]]);
+  });
+
+  it('does not submit an ASR request without a selected file', async () => {
+    const { session, calls } = fakeSession();
+    await expect(startProbe(session, 'transcribe', 'qwen', { modelId: 'asr', label: 'ASR' })).rejects.toThrow();
+    expect(calls).toEqual([]);
+  });
+});
+
+
+it('removing a declaration sends only the remaining user models and does not write credentials', async () => {
+  const { session, calls } = fakeSession();
+  await removeProviderModel(session, fixtureView(), 'custom:tts-box', 'tts-1');
+  expect(calls).toEqual([['models.configure', { providerId: 'custom:tts-box', models: [] }]]);
 });

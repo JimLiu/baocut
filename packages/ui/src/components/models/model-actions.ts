@@ -14,6 +14,7 @@ import {
   disconnectRequest,
   isCustomProvider,
   parseDefaultKey,
+  removeModelRequest,
   type CustomProviderDraft,
 } from '../../model/models-cloud.ts';
 import { AUTO_KEY, type DefaultCapability } from '../../model/models-default.ts';
@@ -21,7 +22,7 @@ import { canReenable, localDefaultChoice, LOCAL_PROVIDER, VIEW_CAPABILITY, type 
 import { imageProbeRequest, speechProbeRequest, textProbeRequest } from '../../model/models-probe.ts';
 import { concurrencyRequest, effortRequest } from '../../model/models-text.ts';
 import type { RuntimeSession } from '../../runtime/session.ts';
-import { PROBE_COPY } from './models-copy.ts';
+import { M as MANAGEMENT } from './model-management-copy.ts';
 
 /**
  * 模型页的命令：把按钮的意思换成 `RuntimeSession` 上的一次调用。新的能力视图由 `models` 主题送回来，这里不改本地状态。
@@ -40,6 +41,7 @@ type Session = Pick<
   | 'generateText'
   | 'setCapabilityParameters'
   | 'openArtifact'
+  | 'startPipeline'
 >;
 
 /** 云端页的默认模型菜单选了一项。 */
@@ -113,7 +115,7 @@ export async function addCustomProvider(session: Session, view: ModelCapabilitie
   return request.providerId;
 }
 
-/** 在一家自建服务商下添加一只模型。 */
+/** 在自建服务商或百炼下添加一只用户模型。 */
 export async function addProviderModel(
   session: Session,
   view: ModelCapabilitiesView,
@@ -123,7 +125,7 @@ export async function addProviderModel(
   await session.configureModelProvider(addModelRequest(view, providerId, model));
 }
 
-/** 开始一次测试（合成一句话、生成一张图，或让文本模型回一句），返回任务 ID。 */
+/** 开始一次测试；最后的字符串参数用于合成音色或 ASR 的本机文件，返回任务 ID。 */
 export async function startProbe(
   session: Session,
   capability: ModelServiceCapability,
@@ -134,11 +136,17 @@ export async function startProbe(
   if (capability === 'synthesizeSpeech') return session.synthesizeSpeech(speechProbeRequest(providerId, model as SpeechModelInfo, voice));
   if (capability === 'generateImage') return session.generateImage(imageProbeRequest(providerId, model));
   if (capability === 'generateText') return session.generateText(textProbeRequest(providerId, model));
-  throw new Error(PROBE_COPY.asrUnsupported);
+  if (capability === 'transcribe' && voice.trim()) return session.startPipeline('transcribe', { file: voice, provider: providerId, model: model.modelId });
+  throw new Error(MANAGEMENT.desktopOnly);
 }
 
 /** 测试结果的受限地址（给 `<audio>` / `<img>`）。 */
 export async function probeMediaUrl(session: Session, output: GeneratedOutput): Promise<string> {
   const handle = await session.openArtifact(output.artifactId);
   return handle.url;
+}
+
+/** Remove declarations only; the store clears matching defaults in the same save. */
+export async function removeProviderModel(session: Session, view: ModelCapabilitiesView, providerId: string, modelId: string): Promise<void> {
+  await session.configureModelProvider(removeModelRequest(view, providerId, modelId));
 }
