@@ -45,6 +45,7 @@
 | 叠在画面上的下横栏、关键词、大数字、标注、贴片 | 读 [`references/craft/motion-graphics.md`](motion-graphics.md) |
 | 多句旁白：算字数、选音色、一次合成、对齐 | 读 [`references/craft/narration.md`](narration.md) |
 | 有命令行环境、旁白按段配、画面按段上时间线，要跑现成的脚本 | 读 [`references/craft/production-scripts.md`](production-scripts.md)；它是一条省事的路，形态不合时用 BaoCut 的工具或 CLI 自己做 |
+| 段落、实拍片段与卡片都定好了，要一次摆上时间线、改了只动变了的（没有命令行环境时也行） | 把计划写成 `baocut edits assemble` 的格式提交，先 `dryRun` 看排布：读 [baocut-catalog-editing](../catalog/editing.md)「一次放好制作计划」。配音、对齐、切素材在它之前做 |
 
 几种形态常混在一部片子里（讲机制的段落用模型打底，讲人和事的段落用实拍打底）：按段分流，各段照各自的页做。
 

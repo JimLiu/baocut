@@ -68,7 +68,7 @@
 
 ## 6. 制作时的几条手艺
 
-制作照 `video-production` 第 4–6 节；有命令行环境、旁白按段配时，现成的脚本读 [`references/craft/production-scripts.md`](production-scripts.md)。讲解片要多留意的：
+制作照 `video-production` 第 4–6 节；有命令行环境、旁白按段配时，现成的脚本读 [`references/craft/production-scripts.md`](production-scripts.md)；没有命令行环境时，各段定好后写成一份计划交给 `baocut edits assemble` 一次摆上时间线（读 [baocut-catalog-editing](../catalog/editing.md)「一次放好制作计划」）。讲解片要多留意的：
 
 - **主体的画法写成可复用的部分**：以原点为中心、带缩放、状态与文字由调用方传入，同一个主体能在不同镜头、画幅与语言的版本里复用。
 - **节拍跟着真实语音走**：旁白量好、对齐拿到字时间后，画面元素的出场时刻取对应的词被说到的时刻，不按估算的比例；重新配音后按新的字时间重排。改稿后核对每个节拍用的关键词仍在对应那句旁白里（换了个说法就对不上），对不上的报出来改掉，不悄悄退回估算的位置。
