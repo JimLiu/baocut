@@ -29,6 +29,9 @@ export class VendorTextAdapter implements TextAdapter, ModelLister {
   models(config: AdapterConfig): TextModelInfo[] {
     const builtins = structuredClone([...this.#options.models]);
     const extra = config.providerId === 'qwen' ? declaredOf(config, 'generateText') : [];
+    for (const model of builtins) {
+      if (extra.some((m) => m.modelId === model.modelId)) model.declared = true;
+    }
     return [...builtins, ...extra.filter((m) => !builtins.some((b) => b.modelId === m.modelId)).map((m) => declaredTextInfo(m, false))];
   }
 

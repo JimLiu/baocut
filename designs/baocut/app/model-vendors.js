@@ -135,6 +135,7 @@
     if (!list.length && v.models && v.models[cap]) list = v.models[cap].slice();
     const s = settings && settings[id];
     const extra = (s && s.models && s.models[cap]) || [];
+    list = list.map((model) => extra.includes(model.id) ? {...model, added: true} : model);
     extra.forEach((x) => { if (!list.some((y) => y.id === x)) list.push(m(x, '', {added: true})); });
     return list.map((model) => {
       if ((id === 'qwen' || /\.aliyuncs\.com/.test(v.base || '')) && model.id.includes('-filetrans')) return {...model, unsupported: true, desc: '尚不支持 filetrans 异步转写协议，请选择同步 ASR 模型。'};

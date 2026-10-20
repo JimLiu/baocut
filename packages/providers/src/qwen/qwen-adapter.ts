@@ -59,6 +59,7 @@ export class QwenAdapter implements TranscribeAdapter {
     const builtins: TranscribeModelInfo[] = ['qwen-audio-3.0-asr-flash', 'qwen-audio-3.1-asr-flash', 'qwen3-asr-flash'].map((modelId, i) => qwenAsrModelInfo({
       modelId,
       label: modelId,
+      ...(config.declared.some((m) => m.modelId === modelId && (m.capability ?? 'transcribe') === 'transcribe') ? { declared: true } : {}),
       ...(i === 0 ? { default: true } : {}),
       maxInputBytes: MAX_INLINE_BYTES,
       maxDurationSec: MAX_DURATION_SEC,

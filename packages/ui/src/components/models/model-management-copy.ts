@@ -16,7 +16,7 @@ import { vi } from './model-management-copy.vi.ts';
 
 const en = {
   removeModel: "Remove model",
-  removeModelBody: "Remove this added model from BaoCut? Its provider and accounts are kept. If it is the default, that default will be cleared.",
+  removeModelBody: "Remove this added model from BaoCut? Its provider and accounts are kept. If it is the default, that default will be cleared. If a built-in model has the same ID, it will still be listed after removal and cannot be deleted.",
   pickAudio: "Choose audio or video",
   asrTitle: "Test speech recognition",
   asrNote: "Choose a short audio/video file. Its audio is sent to the selected provider; TXT/SRT results are saved to your configured save location and listed in Space.",

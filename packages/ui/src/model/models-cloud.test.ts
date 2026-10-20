@@ -27,7 +27,7 @@ import {
   voiceCount,
   type CloudProviderCard,
 } from './models-cloud.ts';
-import { fixtureView, speechModel, textModel, textView } from './models-test-fixtures.ts';
+import { fixtureView, speechModel, textModel, textView, transcribeModel } from './models-test-fixtures.ts';
 
 const COPY = { none: '每次选择', noneDesc: '不设默认', codex: 'Codex CLI · 画图', codexDesc: '用你的 Codex 订阅', unavailable: '不可用' };
 
@@ -340,6 +340,20 @@ describe('刷新模型与音色目录', () => {
 
 
 describe('Qwen model declarations', () => {
+  it('keeps a declaration matching a preset in add and remove requests', () => {
+    const view = textView();
+    view.generateText.providers.push({ ...view.generateText.providers[0]!, providerId: 'qwen', models: [
+      textModel('qwen3.8-max', { declared: true }), textModel('qwen3.8-flash'),
+    ] });
+    view.transcribe.providers.push({ ...view.transcribe.providers[1]!, providerId: 'qwen', models: [
+      transcribeModel('qwen3-asr-flash', { declared: true }), transcribeModel('qwen-audio-3.0-asr-flash'),
+    ] });
+    expect(addModelRequest(view, 'qwen', newDeclaredModel('extra-text', 'generateText')).models!.map((m) => m.modelId))
+      .toEqual(declaredModels(view, 'qwen').map((m) => m.modelId).concat('extra-text'));
+    expect(declaredModels(view, 'qwen').map((m) => m.modelId).sort()).toEqual(['qwen3-asr-flash', 'qwen3.8-max']);
+    expect(removeModelRequest(view, 'qwen', 'qwen3-asr-flash').models!.map((m) => m.modelId)).toEqual(['qwen3.8-max']);
+  });
+
   it('does not copy presets into declarations and cannot offer to remove them', () => {
     const view = textView();
     view.generateText.providers.push({ ...view.generateText.providers[0]!, providerId: 'qwen', models: [

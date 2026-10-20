@@ -26,6 +26,45 @@ async function fixture() {
 }
 
 describe('Qwen additional models', () => {
+  it('retains existing declarations that now match presets through edits and removal', async () => {
+    const { source, store } = await fixture();
+    // Emulate persisted declarations from before these IDs became presets.
+    await store.updateProvider('qwen', { models: [
+      { modelId: 'qwen3.8-max', capability: 'generateText' },
+      { modelId: 'qwen-audio-3.0-asr-flash', maxDurationSec: 1 },
+      { modelId: 'qwen-audio-3.1-asr-flash', capability: 'transcribe' },
+      { modelId: 'qwen3-asr-flash', capability: 'transcribe' },
+    ] });
+    const before = structuredClone(store.provider('qwen'));
+    const credentialsBefore = await fs.readFile(path.join(directory!, 'credentials.json'), 'utf8');
+    let view = (await source.describe('qwen', 'view'))!;
+    expect(view.capabilities.transcribe!.models).toHaveLength(3);
+    expect(view.capabilities.transcribe!.models.every((m) => m.declared)).toBe(true);
+    expect(view.capabilities.transcribe!.models.find((m) => m.modelId === 'qwen-audio-3.0-asr-flash'))
+      .toMatchObject({ maxDurationSec: 300, wordTimestamps: 'native', default: true });
+    expect(view.capabilities.generateText!.models.find((m) => m.modelId === 'qwen3.8-max')?.declared).toBe(true);
+    const kept = [...before!.models!, { modelId: 'extra-text', capability: 'generateText' as const }];
+    await source.configure({ providerId: 'qwen', models: kept });
+    expect(store.provider('qwen')!.models).toEqual(kept);
+    // An existing declaration cannot be moved to another preset capability.
+    await expect(source.configure({ providerId: 'qwen', models: [
+      { modelId: 'qwen3.8-max', capability: 'transcribe' },
+    ] })).rejects.toMatchObject({ code: 'invalid-request' });
+    await store.setDefault('transcribe', { providerId: 'qwen', modelId: 'qwen3-asr-flash' });
+    await store.setDefault('generateText', { providerId: 'qwen', modelId: 'extra-text' });
+    await source.configure({ providerId: 'qwen', models: kept.filter((m) => m.modelId !== 'qwen3-asr-flash') });
+    view = (await source.describe('qwen', 'view'))!;
+    expect(view.capabilities.transcribe!.models).toHaveLength(3);
+    expect(view.capabilities.transcribe!.models.find((m) => m.modelId === 'qwen3-asr-flash')?.declared).not.toBe(true);
+    expect(view.capabilities.transcribe!.models.find((m) => m.modelId === 'qwen-audio-3.1-asr-flash')?.declared).toBe(true);
+    expect(store.getDefault('transcribe')).toBeNull();
+    expect(store.getDefault('generateText')).toEqual({ providerId: 'qwen', modelId: 'extra-text' });
+    expect(store.provider('qwen')!.accounts).toEqual(before!.accounts);
+    expect(await fs.readFile(path.join(directory!, 'credentials.json'), 'utf8')).toBe(credentialsBefore);
+    // Removing the declaration does not allow it to be newly added as a duplicate preset.
+    await expect(source.configure({ providerId: 'qwen', models: kept })).rejects.toMatchObject({ code: 'invalid-request' });
+  });
+
   it('merges declared text/ASR models while retaining presets and protecting their IDs', async () => {
     const { source } = await fixture();
     await source.configure({ providerId: 'qwen', models: [

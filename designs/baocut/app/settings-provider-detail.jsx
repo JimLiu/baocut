@@ -149,7 +149,7 @@
       setAdding(null);
     };
     const removeModel = (cap, model) => app.confirm({
-      title: '删除模型', body: `删除 ${model.id} 的本地配置？提供方与账号保留；对应默认值会清除。`, confirmLabel: '删除模型', tone: 'negative',
+      title: '删除模型', body: `删除 ${model.id} 的手动配置？提供方与账号保留；对应默认值会清除。如有同名预置模型，删除后它仍会显示，但不再带有手动添加标记。`, confirmLabel: '删除模型', tone: 'negative',
       run: () => {
         const patch = V().removeAddedModel(id, cap, model.id, settings);
         if (!patch) return;

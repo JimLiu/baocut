@@ -260,3 +260,16 @@ test('Qwen additional models can be removed without replacing presets or account
   assert.equal(V.modelsOf('qwen', 'transcribe', settings).find((m) => m.id.includes('filetrans')).unsupported, true);
   assert.deepEqual(settings.qwen.models.text, ['extra-text']);
 });
+
+test('a saved Qwen declaration matching a preset remains removable without duplicate rows', () => {
+  const settings = {qwen: {models: {transcribe: ['qwen-audio-3.0-asr-flash', 'qwen3-asr-flash', 'extra-asr']}}};
+  const list = V.modelsOf('qwen', 'transcribe', settings);
+  assert.equal(list.filter((m) => m.id === 'qwen-audio-3.0-asr-flash').length, 1);
+  assert.equal(list.find((m) => m.id === 'qwen-audio-3.0-asr-flash').added, true);
+  const patch = V.removeAddedModel('qwen', 'transcribe', 'qwen-audio-3.0-asr-flash', settings);
+  assert.deepEqual(patch.models.transcribe, ['qwen3-asr-flash', 'extra-asr']);
+  const after = V.modelsOf('qwen', 'transcribe', {qwen: {...settings.qwen, ...patch}});
+  assert.ok(after.some((m) => m.id === 'qwen-audio-3.0-asr-flash' && !m.added));
+  assert.equal(after.find((m) => m.id === 'qwen3-asr-flash').added, true);
+  assert.deepEqual(settings.qwen.models.transcribe, ['qwen-audio-3.0-asr-flash', 'qwen3-asr-flash', 'extra-asr']);
+});

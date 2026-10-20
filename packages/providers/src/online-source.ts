@@ -418,8 +418,19 @@ export class OnlineProviderSource implements ProviderSource {
     if (request.models && id === 'qwen') {
       const adapters = this.#adapterSet(id);
       const config = { ...this.#settings(id), declared: [] };
-      const presetIds = new Set([...(adapters.text?.models(config) ?? []), ...(adapters.transcribe?.models(config) ?? [])].map((m) => m.modelId));
-      if (request.models.some((m) => presetIds.has(m.modelId) || !['generateText', 'transcribe'].includes(m.capability ?? 'transcribe'))) {
+      const presets = new Map<string, ModelServiceCapability>([
+        ...(adapters.text?.models(config) ?? []).map((m) => [m.modelId, 'generateText'] as const),
+        ...(adapters.transcribe?.models(config) ?? []).map((m) => [m.modelId, 'transcribe'] as const),
+      ]);
+      if (request.models.some((m) => {
+        const capability = m.capability ?? 'transcribe';
+        if (!['generateText', 'transcribe'].includes(capability)) return true;
+        if (!presets.has(m.modelId)) return false;
+        // Preserve an existing declaration when the catalog later adopts its ID.
+        // It remains removable; new declarations cannot replace a preset.
+        return presets.get(m.modelId) !== capability || !(stored?.models ?? []).some((saved) =>
+          saved.modelId === m.modelId && (saved.capability ?? 'transcribe') === capability);
+      })) {
         throw new RpcError('invalid-request', PC.presetModelsProtected());
       }
     }
