@@ -1,4 +1,5 @@
 import { defineMessages, framesToSeconds, sequenceDurationFrames, type EditOperation, type Id, type Sequence } from '@baocut/protocol';
+import { edgeBounds } from './chapter-edges.ts';
 import { zhHans } from './chapters.zh-Hans.ts';
 import { zhHant } from './chapters.zh-Hant.ts';
 import { ja } from './chapters.ja.ts';
@@ -127,13 +128,10 @@ export function bandSegments(chapters: readonly ChapterSpan[], duration: number)
 
 /**
  * 拖一章的起点能到哪些帧：晚于上一章起点、早于下一章起点（引擎只拒同一帧，不拒越过邻居——保住先后次序靠这里），
- * 也不出片尾。第一章最早到 0。
+ * 也不出片尾。第一章最早到 0。规则与片条拖边界同一份（`chapter-edges.ts` 的 `edgeBounds`，这里各留 1 帧）。
  */
 export function startBounds(chapters: readonly ChapterSpan[], index: number, totalFrames: number): { min: number; max: number } {
-  const prev = chapters[index - 1];
-  const next = chapters[index + 1];
-  const min = prev ? prev.startFrame + 1 : 0;
-  const max = Math.min(next ? next.startFrame - 1 : Infinity, totalFrames - 1);
+  const { min, max } = edgeBounds(chapters, index, totalFrames, 1);
   return { min, max: Math.max(min, max) };
 }
 

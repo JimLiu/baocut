@@ -39,6 +39,11 @@ export {
   type RenderedFrame,
 } from './composition-host.ts';
 export { COMPOSITION_ADAPTER_SCRIPT, type AdapterPageInfo } from './composition-adapter.ts';
-export { COMPOSITION_BRIDGE_SCRIPT, compositionPageScript, injectCompositionPageScript } from './composition-bridge.ts';
+export {
+  COMPOSITION_BRIDGE_SCRIPT,
+  COMPOSITION_PICK_SCRIPT,
+  compositionPageScript,
+  injectCompositionPageScript,
+} from './composition-bridge.ts';
 export { verifyBundle, type VerifyBundleOptions } from './bundle-verify.ts';
 export { bakeComposition, ffprobePathFor, resolveFfmpeg, sampleFrames, type BakeOptions, type BakeResult } from './composition-bake.ts';

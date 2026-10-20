@@ -4,22 +4,33 @@ import { EditLabel } from '@baocut/protocol/messages/ui';
 import {
   ActionButton,
   ActionMenu,
+  Header,
+  Menu,
   MenuItem,
+  MenuSection,
+  MenuTrigger,
   ProgressCircle,
+  SegmentedControl,
+  SegmentedControlItem,
   StatusLight,
   Text,
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
 import AIMark from '@react-spectrum/s2/icons/AIMark';
+import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import Close from '@react-spectrum/s2/icons/Close';
 import Asset from '@react-spectrum/s2/icons/Asset';
+import Filmstrip from '@react-spectrum/s2/icons/Filmstrip';
 import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
+import Transcript from '@react-spectrum/s2/icons/Transcript';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { durationSeconds, formatFps } from '../../model/editor.ts';
 import { formatClock } from '../../model/format.ts';
+import { isEditorView, type EditorView, type EditorViewDefault } from '../../model/lite-segments.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, type OpenVideo } from '../../state/video-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { ExportButton } from '../export/export-button.tsx';
@@ -29,6 +40,7 @@ import { useEditorActions } from './editor-context.tsx';
 import { EditorVideoInfo } from './video-info.tsx';
 import { VersionsButton } from './video-versions.tsx';
 import { VIDEO_BAR_COPY as VB } from './video-bar-copy.ts';
+import { LITE_COPY as L } from './lite-copy.ts';
 
 /** 视频栏（产品设计 §5.1）：视频名、保存状态；版本记录按钮（video-versions.tsx）是唯一的历史入口，当前修订号写在它的提示里。 */
 const bar = style({
@@ -69,6 +81,7 @@ const nameButton = style({
 });
 const meta = style({ font: 'ui-xs', color: 'gray-600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' });
 const acts = style({ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 });
+const viewSwitch = style({ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 });
 const saveText = style({ font: 'ui-sm', color: 'gray-700', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 });
 const agentText = style({ font: 'ui-sm', color: 'gray-700', display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: 240 });
 const agentLabel = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
@@ -110,19 +123,22 @@ export function VideoBar({ video, sequence }: { video: OpenVideo; sequence: Sequ
         <span className={meta}>{parts.join(' · ')}</span>
       </div>
       <div className={acts}>
+        {sequence ? <ViewToggle /> : null}
         <TaskPill videoId={video.videoId} />
         <SaveState video={video} />
         {video.state ? <VersionsButton video={video} /> : null}
         <ExportButton video={video} sequence={sequence} />
         <ActionMenu aria-label={VB.actions} isQuiet align="end" onAction={(key) => onMenu(String(key), video.ref)}>
-          <MenuItem id="space" textValue={VB.showInSpace}>
-            <Asset />
-            <Text slot="label">{VB.showInSpace}</Text>
-          </MenuItem>
-          <MenuItem id="reveal" textValue={VB.revealVideoFolder}>
-            <OpenIn />
-            <Text slot="label">{VB.revealVideoFolder}</Text>
-          </MenuItem>
+          <MenuSection aria-label={VB.actions}>
+            <MenuItem id="space" textValue={VB.showInSpace}>
+              <Asset />
+              <Text slot="label">{VB.showInSpace}</Text>
+            </MenuItem>
+            <MenuItem id="reveal" textValue={VB.revealVideoFolder}>
+              <OpenIn />
+              <Text slot="label">{VB.revealVideoFolder}</Text>
+            </MenuItem>
+          </MenuSection>
         </ActionMenu>
         <Tip label={closeLabel}>
           <ActionButton isQuiet aria-label={VB.close} onPress={closeVideo}>
@@ -156,6 +172,68 @@ export function VideoBar({ video, sequence }: { video: OpenVideo; sequence: Sequ
       shell.go({ tab: 'space', category: 'video', projectId: ref.source.projectId });
     }
   }
+}
+
+/**
+ * 轻量 / 时间线的切换（轻量编辑器设计 §3.5、§5、§6）：标题右侧一枚分段控件（照原型 `shell.jsx` 的 `MovieViewSwitch`：
+ * 文稿图标 + 轻量、胶片图标 + 时间线），旁边一枚小菜单「默认打开」改全局偏好（只管以后打开的视频）。同一部视频、
+ * 同一个引擎，只换视频栏之下的那一片；按视频记住选择（editor-store 的 `viewByVideo`）。版面编辑器开着时不切
+ * （它占着时间线视图的右栏，切走会丢草稿）。
+ */
+function ViewToggle() {
+  const view = useEditor((s) => s.view);
+  const setView = useEditor((s) => s.setView);
+  const viewDefault = useEditor((s) => s.viewDefault);
+  const setViewDefault = useEditor((s) => s.setViewDefault);
+  const studio = useEditor((s) => s.templateStudio !== null);
+  return (
+    <div className={viewSwitch} role="group" aria-label={L.viewGroup}>
+      <SegmentedControl
+        aria-label={L.viewGroup}
+        selectedKey={view}
+        isDisabled={studio}
+        onSelectionChange={(key) => {
+          if (isEditorView(key) && key !== view) setView(key);
+        }}>
+        <SegmentedControlItem id="lite">
+          <Transcript />
+          <Text>{L.viewLite}</Text>
+        </SegmentedControlItem>
+        <SegmentedControlItem id="timeline">
+          <Filmstrip />
+          <Text>{L.viewTimeline}</Text>
+        </SegmentedControlItem>
+      </SegmentedControl>
+      <MenuTrigger>
+        <Tip label={L.defaultOpen}>
+          <ActionButton isQuiet size="S" aria-label={L.defaultOpen}>
+            <ChevronDown />
+          </ActionButton>
+        </Tip>
+        <Menu
+          selectionMode="single"
+          selectedKeys={[viewDefault]}
+          onSelectionChange={(keys) => {
+            const next = [...keys][0];
+            if (next === 'auto' || isEditorView(next)) setViewDefault(next as EditorViewDefault);
+          }}>
+          <MenuSection>
+            <Header>{L.defaultOpen}</Header>
+            <MenuItem id="auto" textValue={L.defaultAuto}>
+              <Text slot="label">{L.defaultAuto}</Text>
+              <Text slot="description">{L.defaultAutoHint}</Text>
+            </MenuItem>
+            <MenuItem id="lite" textValue={L.defaultLite}>
+              <Text slot="label">{L.defaultLite}</Text>
+            </MenuItem>
+            <MenuItem id="timeline" textValue={L.defaultTimeline}>
+              <Text slot="label">{L.defaultTimeline}</Text>
+            </MenuItem>
+          </MenuSection>
+        </Menu>
+      </MenuTrigger>
+    </div>
+  );
 }
 
 /** 保存状态：已追平、正在提交、未追平（断线或重新打开中）、打不开（产品设计 §2.6：已连接不等于已追平）。 */

@@ -75,7 +75,7 @@
 }
 svg[role="img"][viewBox="0 0 20 20"]:not(:where(
   .apprail svg, .hs-head__chevron svg, .home-tabs__close svg, .home-tabs__ghost > svg:last-child,
-  .sp-prev--kind > svg, .toolcard__ic svg, .svc__mark svg, .chat-output__icon svg, .media-audio__icon svg)),
+  .sp-prev--kind > svg, .toolcard__ic svg, .svc__mark svg, .chat-output__icon svg, .media-audio__icon svg, .mk-bar__chev svg)),
 .setpage__nav .ic {
   width: var(--bc-icon-compact);
   height: var(--bc-icon-compact);

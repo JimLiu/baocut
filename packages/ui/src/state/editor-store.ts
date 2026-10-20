@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { Id, Revision, VideoAnnotationKind } from '@baocut/protocol';
+import type { Id, Revision } from '@baocut/protocol';
 import { mergeDraft, type ItemDraft } from '../model/item-draft.ts';
 import type { TemplateStudio } from '../model/template-studio.ts';
 import { ZOOM_DEFAULT, ZOOM_MIN, clampZoom } from '../model/timeline-zoom.ts';
+import { clampLiteZoom, rememberEditorView, resolveEditorView, type EditorView, type EditorViewDefault } from '../model/lite-segments.ts';
+import { CAPTION_LAYERS_SHOWN, captionsAllHidden, type CaptionLayer, type CaptionLayersHidden } from '../model/stage-layers.ts';
 
 /**
  * 编辑器的界面状态：选区、播放头、缩放与面板宽度。只属于这个窗口；
@@ -133,23 +135,51 @@ export interface EditorStore {
   rate: number;
   setRate(rate: number): void;
   captionsHidden: boolean;
+  /** 舞台隐藏 / 显示字幕：轻量视图按种类的开关一起跟着全关或全开。 */
   setCaptionsHidden(hidden: boolean): void;
+  /**
+   * 轻量视图的图层开关（轻量编辑器设计 §3.4；model/stage-layers）：字幕按原文 / 译文各藏没藏、配乐藏没藏。观看态，不持久化，
+   * 换视频时复位。与 `captionsHidden` 保持「画面上有的字幕全藏 ⇔ captionsHidden」，时间线视图的字幕钮与全屏的字幕档位照旧。
+   * `present` 是这部视频画面上有的字幕种类（model/stage-layers 的 `layerToggles`）。
+   */
+  captionLayersHidden: CaptionLayersHidden;
+  setCaptionLayerHidden(kind: CaptionLayer, hidden: boolean, present: readonly CaptionLayer[]): void;
+  musicHidden: boolean;
+  setMusicHidden(hidden: boolean): void;
   safeArea: boolean;
   setSafeArea(on: boolean): void;
   /**
-   * 视频标注模式（产品设计 §3.2.3「视频标注」；原型 stage.jsx 的「标注」钮；不持久化，换视频时退出）：开着时预览画面上盖一层
-   * 标注层，拖框、拖箭头或点一下记一条批注；画面里的元素这时不能选、不能拖。`noteKind` 是小工具条上选中的种类。
+   * 视频标注模式（产品设计 §3.2.3「视频标注」、§5.3；舞台条的「标记」钮；不持久化，换视频时退出）：开着时预览画面上盖标记层与
+   * 标记工具条（markup.tsx，两种视图同一套），画面里的元素这时不能选、不能拖。关掉走 markup-store 的 `close`，还有没发的标记先问。
    */
   annotating: boolean;
   setAnnotating(on: boolean): void;
-  noteKind: VideoAnnotationKind;
-  setNoteKind(kind: VideoAnnotationKind): void;
   /**
    * 编辑器之外要把播放头挪到某一秒（例如点 composer 里的一条视频标注）：写播放头并加一次计数，编辑器看到计数变了就让引擎跳过去。
    * 同一部视频开着时 `setPlayhead` 只改显示，不会让引擎跳；换视频时打开的那一刻会按播放头跳，不需要它。
    */
   seekRequests: number;
   requestSeek(seconds: number): void;
+  /**
+   * 编辑器视图（轻量编辑器设计 §5、§6）：`lite` 是画面加按段分格的片条与侧栏，`timeline` 是时间线。两边共用播放头、
+   * 播放状态、倍速、字幕显隐与标注模式（都在这个 store 里）。`view` 本身不持久化：打开视频时由 `resolveView` 按
+   * 路由 > 这部视频上次的选择（`viewByVideo`，持久化）> 全局默认（`viewDefault`，持久化）> 按种类 定下来；
+   * `viewResolvedFor` 记的是已经按哪部视频定过，换视频时重定。
+   */
+  view: EditorView;
+  viewResolvedFor: Id | null;
+  viewByVideo: Record<Id, EditorView>;
+  viewDefault: EditorViewDefault;
+  /** 用户在顶栏切换：换视图并按视频记住；切到轻量时清掉时间线的选区（轻量视图里没有可选的片段）。 */
+  setView(view: EditorView): void;
+  setViewDefault(preference: EditorViewDefault): void;
+  resolveView(videoId: Id, input: { route: EditorView | null; byKind: EditorView }): void;
+  /** 轻量视图片条的缩放（观看态，不持久化，换视频时回到 1）。 */
+  liteZoom: number;
+  setLiteZoom(zoom: number): void;
+  /** 轻量视图的侧栏（脚本与台词）收起（持久化，与时间线视图的 `panelHidden` 各记各的）。 */
+  liteSideHidden: boolean;
+  setLiteSideHidden(hidden: boolean): void;
 }
 
 /** 还没提交（或正在提交）的时间微调：哪几件、累计挪了多少帧、按哪个视频版本算的。 */
@@ -199,8 +229,11 @@ export const useEditor = create<EditorStore>()(
                 documentDraft: null,
                 rate: 1,
                 captionsHidden: false,
+                captionLayersHidden: CAPTION_LAYERS_SHOWN,
+                musicHidden: false,
                 safeArea: false,
                 annotating: false,
+                liteZoom: 1,
                 ...(landing ? { panelTab: landing } : {}),
               },
         ),
@@ -282,15 +315,49 @@ export const useEditor = create<EditorStore>()(
       rate: 1,
       setRate: (rate) => set({ rate }),
       captionsHidden: false,
-      setCaptionsHidden: (captionsHidden) => set({ captionsHidden }),
+      setCaptionsHidden: (captionsHidden) =>
+        set({ captionsHidden, captionLayersHidden: { original: captionsHidden, translation: captionsHidden } }),
+      captionLayersHidden: CAPTION_LAYERS_SHOWN,
+      setCaptionLayerHidden: (kind, hidden, present) =>
+        set((s) => {
+          // 从「全藏」里打开一种：其余的还藏着（只露这一种）。
+          const base = s.captionsHidden ? { original: true, translation: true } : s.captionLayersHidden;
+          const captionLayersHidden = { ...base, [kind]: hidden };
+          return { captionLayersHidden, captionsHidden: captionsAllHidden(captionLayersHidden, present) };
+        }),
+      musicHidden: false,
+      setMusicHidden: (musicHidden) => set({ musicHidden }),
       safeArea: false,
       setSafeArea: (safeArea) => set({ safeArea }),
       annotating: false,
       setAnnotating: (annotating) => set({ annotating }),
-      noteKind: 'box',
-      setNoteKind: (noteKind) => set({ noteKind }),
       seekRequests: 0,
       requestSeek: (seconds) => set((s) => ({ playhead: Math.max(0, seconds), seekRequests: s.seekRequests + 1 })),
+      view: 'timeline',
+      viewResolvedFor: null,
+      viewByVideo: {},
+      viewDefault: 'auto',
+      setView: (view) =>
+        set((s) => ({
+          view,
+          ...(s.videoId ? { viewByVideo: rememberEditorView(s.viewByVideo, s.videoId, view) } : {}),
+          ...(view === 'lite' ? { selection: [], wordSelection: null, draft: null, documentDraft: null } : {}),
+        })),
+      setViewDefault: (viewDefault) => set({ viewDefault }),
+      resolveView: (videoId, input) =>
+        set((s) => ({
+          viewResolvedFor: videoId,
+          view: resolveEditorView({
+            route: input.route,
+            remembered: s.viewByVideo[videoId],
+            preference: s.viewDefault,
+            byKind: input.byKind,
+          }),
+        })),
+      liteZoom: 1,
+      setLiteZoom: (zoom) => set({ liteZoom: clampLiteZoom(zoom) }),
+      liteSideHidden: false,
+      setLiteSideHidden: (liteSideHidden) => set({ liteSideHidden }),
     }),
     {
       name: 'baocut.editor',
@@ -302,6 +369,9 @@ export const useEditor = create<EditorStore>()(
         panelTab: s.panelTab,
         panelWidth: s.panelWidth,
         panelHidden: s.panelHidden,
+        viewByVideo: s.viewByVideo,
+        viewDefault: s.viewDefault,
+        liteSideHidden: s.liteSideHidden,
       }),
     },
   ),

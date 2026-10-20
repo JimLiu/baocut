@@ -286,6 +286,7 @@ interface CompositionContext {
 - Canvas 内部的像素不是 DOM 对象。一个 canvas 里的标题与图表，不能只凭 CSS 选择器拆成两个可编辑的元素。可编辑的内容要么暴露为参数，要么主动实现独立的层输出（`exposedLayers`），要么保留为整体。
 - 透明输出必须由代码真正把背景清成透明，并使用支持 alpha 的目标。配置 `alpha: true` 不能自动移除已经画上去的背景。
 - 声明 `output.alpha: true` 的包在验证时检查 alpha 是否真实（§6.2）。
+- **拾取区域（可选，2026-10-19）**。画在 canvas 里的字与图形没有 DOM 节点，编辑器标记工具的「选择元素」（轻量编辑器设计 §4.1、§11 第 12 条）只拾得到整张画布。页面可以在 `window.__baocutPickRegions` 上登记这一帧画了什么：一个数组，每项 `{ x, y, w, h, name?, id?, role? }`——`x`、`y`、`w`、`h` 是合成固有像素里的框（页面视口坐标，与根元素 `data-width` / `data-height` 同一套），`name` 是给人与智能体认的说法（画的那行字），`id` 是作者自己的标识（字母、数字、`-`、`_`，至多 64 字），`role` 照 ARIA 写（可省）。页面每画一帧先清空再按绘制顺序登记，后登记的在上面。拾取时点落在某个区域里就取最上面那个，写成 `{ selector: "region#<id>"（没有 id 时 "region"）, w, h, name, role, focusable: false, rect }`；没落在区域里照旧 `elementFromPoint`。不合形的项（非有限数、`w` 或 `h` 不大于 0）跳过，一帧至多看最后 500 项，`name` 去空白后截到 80 字。区域只是说明，不影响画面、烘焙与确定性（§4.2）；不登记的包照旧，离屏宿主与导出不读它。
 
 ### 4.6 Remotion
 

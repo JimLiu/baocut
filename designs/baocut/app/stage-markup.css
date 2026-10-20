@@ -1,0 +1,100 @@
+/* 轻量编辑器的标记层与工具条（stage-markup.jsx；docs/design/lite-editor §4）。前缀 mk-。
+   颜色是 token 名到 S2 色阶的映射（`.mk-c[data-color]` → --mk），标记按 --mk 取色、--mkw 取粗细（px）。 */
+.mk-c { --mk: var(--red-900); }
+.mk-c[data-color="red"] { --mk: var(--red-900); }
+.mk-c[data-color="blue"] { --mk: var(--blue-900); }
+.mk-c[data-color="green"] { --mk: var(--green-900); }
+.mk-c[data-color="black"] { --mk: var(--gray-900); }
+.mk-c[data-color="white"] { --mk: var(--gray-25); }
+
+/* 标记层铺满画面，盖在标注层（.stnotes，z 6）之上 */
+.mk { position: absolute; inset: 0; z-index: 7; cursor: crosshair; user-select: none; touch-action: none; }
+.mk__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.mk__stroke { fill: none; stroke: var(--mk); stroke-width: calc(var(--mkw, 4) * 1px); stroke-linecap: round; stroke-linejoin: round; }
+.mk__fill { fill: var(--mk); stroke: none; }
+.mk__n { fill: var(--gray-25); font-size: 12px; font-weight: 700; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+/* 命中区：比可见的线宽一圈的透明描边，只认描边 */
+.mk__hit { fill: none; stroke: var(--gray-25); stroke-opacity: 0; stroke-width: calc(var(--mkw, 4) * 1px + 12px); stroke-linecap: round; stroke-linejoin: round; pointer-events: stroke; cursor: move; }
+.mk__step-hit { fill: var(--gray-25); fill-opacity: 0; stroke: none; pointer-events: fill; }
+.mk__m.is-ghost .mk__stroke { stroke-dasharray: 6 4; }
+.mk__m.is-ghost .mk__hit { pointer-events: none; }
+.mk.is-drawing .mk__hit { pointer-events: none; }
+.mk-c[data-color="white"] .mk__stroke, .mk-c[data-color="white"] .mk__fill { filter: drop-shadow(0 0 1px var(--gray-700)); }
+.mk-c[data-color="white"] .mk__n { fill: var(--gray-900); }
+
+.mk__html { position: absolute; inset: 0; pointer-events: none; }
+.mk__html > * { pointer-events: auto; }
+/* 文字标记：粗体、跟当前颜色；没字时显示占位 */
+.mk__text { position: absolute; transform: translateY(-50%); min-width: 8px; max-width: 60%; padding: 2px 4px; border-radius: 4px; color: var(--mk); font-weight: 700; line-height: 1.2;
+  white-space: pre-wrap; overflow-wrap: anywhere; outline: none; cursor: move; text-shadow: 0 0 2px var(--gray-25); }
+.mk__text[contenteditable="true"] { cursor: text; box-shadow: 0 0 0 1px var(--blue-900); }
+.mk__text[data-empty="true"]::before { content: attr(data-placeholder); opacity: 0.6; }
+/* 元素标记：虚线框，左上角贴一枚标签写它是谁 */
+.mk__el { position: absolute; border: 2px dashed var(--mk); border-radius: 4px; cursor: move; }
+.mk__el-label { position: absolute; left: -2px; bottom: 100%; margin-bottom: 4px; max-width: 280px; padding: 2px 6px; border-radius: 4px; background: var(--mk); color: var(--gray-25);
+  font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-c[data-color="white"] .mk__el-label { color: var(--gray-900); box-shadow: 0 0 0 1px var(--gray-400); }
+/* 评论印章：一枚带角的圆（气泡），写了字就是实心的 */
+.mk__cm { position: absolute; width: 0; height: 0; }
+.mk__stamp { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  border-radius: 999px 999px 999px 4px; background: var(--gray-25); color: var(--blue-900); font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  box-shadow: 0 0 0 2px var(--blue-900), var(--sh-pop); cursor: move; transition: background 150ms cubic-bezier(0.45,0,0.4,1); }
+.mk__cm.has-text .mk__stamp, .mk__cm.is-open .mk__stamp { background: var(--blue-900); color: var(--gray-25); box-shadow: 0 0 0 2px var(--gray-25), var(--sh-pop); }
+/* 选中：把手与虚线框 */
+.mk__sel { position: absolute; border: 1px dashed var(--blue-900); border-radius: 4px; pointer-events: none; }
+.mk__handle { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 3px; background: var(--gray-25); border: 1px solid var(--blue-900); z-index: 2; }
+.mk__handle[data-handle="nw"], .mk__handle[data-handle="se"] { cursor: nwse-resize; }
+.mk__handle[data-handle="ne"], .mk__handle[data-handle="sw"] { cursor: nesw-resize; }
+.mk__handle[data-handle="n"], .mk__handle[data-handle="s"] { cursor: ns-resize; }
+.mk__handle[data-handle="e"], .mk__handle[data-handle="w"] { cursor: ew-resize; }
+.mk__handle[data-handle="from"], .mk__handle[data-handle="to"] { border-radius: 999px; cursor: move; }
+/* 选择元素 / 评论：悬停节点的高亮与说明卡（照 DevTools） */
+.mk__hl { position: absolute; background: var(--blue-200); opacity: 0.45; outline: 1px solid var(--blue-900); pointer-events: none; }
+.mk__hl.is-static { opacity: 0.25; }
+.mk__card { position: absolute; z-index: 3; width: max-content; max-width: 260px; padding: 6px 10px; border-radius: 8px; background: var(--gray-25); box-shadow: var(--sh-pop);
+  font-size: 11px; line-height: 16px; color: var(--gray-800); pointer-events: none; }
+.mk__card-sel { font-family: var(--mono); color: var(--blue-900); overflow-wrap: anywhere; }
+.mk__card-size { margin-left: 6px; color: var(--gray-600); font-family: var(--mono); }
+.mk__card-h { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--gray-200); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--gray-600); }
+.mk__card-row { display: flex; gap: 8px; min-width: 0; }
+.mk__card-row > span:first-child { flex: none; min-width: 64px; color: var(--gray-600); }
+.mk__card-row > span:last-child { min-width: 0; }
+
+/* 工具条：浮在舞台之上（挂在 body 下、fixed，不受舞台 overflow 裁切；left / bottom 由 stage-markup.jsx 按舞台位置算，底边离舞台底 12、
+   对舞台居中、比舞台宽时收进窗口），一行、按内容定宽、不折行（舞台窄时也不把「添加到对话」挤成几行）；
+   一张浅底的卡（radius 10、细边、sh-pop，照 S2 ActionBar 的容器），两种视图同一条。
+   钮是安静的图标钮（24 方、图标 16、间距 4、圆角 4），当前工具浅蓝底（S2 的切换钮选中是灰底，这里按 .ibtn.is-on 的样子盖掉），
+   下拉打开时钮显示悬停底色 */
+.mk-bar { position: fixed; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 4px;
+  width: max-content; padding: 4px; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); box-shadow: var(--sh-pop); white-space: nowrap; }
+.mk-bar__group { display: flex; align-items: center; gap: 4px; }
+.mk-bar .bc-icon-button { border-radius: 4px; transition: background-color 60ms ease-out; }
+.mk-bar .bc-icon-button[data-selected] { background: var(--blue-200); color: var(--blue-1000); }
+.mk-bar .bc-icon-button[data-selected]:hover { background: var(--blue-300); }
+.mk-bar .bc-icon-button[aria-expanded="true"] { background: var(--gray-100); }
+.mk-bar__send, .mk-bar__send * { flex: none; white-space: nowrap; }
+.mk-bar .vrule { height: 20px; align-self: center; margin: 0 2px; }
+.mk-bar__dd { position: relative; }
+/* 带下拉的钮：样本与小箭头并排一行，钮随内容加宽、左右不留白；小箭头 12px、一直是灰的（选中也不变蓝） */
+.mk-bar__dd .bc-icon-button { width: auto; padding-inline: 0; }
+.mk-bar__face { display: inline-flex; align-items: center; gap: 2px; }
+.mk-bar__chev { display: inline-flex; width: 12px; height: 12px; color: var(--gray-600); }
+.mk-bar__chev svg { width: 12px; height: 12px; --iconPrimary: var(--gray-600); }
+.mk-glyph { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.mk-glyph__n { fill: currentColor; stroke: none; font-size: 10px; font-weight: 700; text-anchor: middle; }
+.mk-glyph--wide { width: 20px; }
+.mk-glyph--long { width: 32px; }
+.mk-dot { display: inline-block; width: 14px; height: 14px; border-radius: 999px; background: var(--mk); box-shadow: inset 0 0 0 1px var(--gray-400); flex: none; }
+/* 下拉里的行：样本（图标 / 圆点 / 横线）、名字（粗细没有）、勾 */
+.mk-menu { display: flex; flex-direction: column; padding: 4px; }
+.mk-menu__row { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; padding: 0 8px; border-radius: 8px; font-size: 14px; color: var(--gray-800); cursor: pointer; text-align: left;
+  transition: background 150ms cubic-bezier(0.45,0,0.4,1); }
+.mk-menu__row:hover { background: var(--gray-100); }
+.mk-menu__row.is-on { color: var(--gray-900); }
+.mk-menu__label { flex: 1 1 auto; }
+.mk-menu__row > svg:last-child { width: 12px; height: 12px; flex: none; }
+/* 评论的批注框 */
+.mk-cm { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.mk-cm__where { margin: 0; font-size: 12px; line-height: 16px; color: var(--gray-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-cm__input { width: 100%; }
+.mk-cm__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
