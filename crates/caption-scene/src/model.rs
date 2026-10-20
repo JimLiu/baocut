@@ -1287,6 +1287,9 @@ pub enum ScenePaint {
         #[serde(rename = "uvTransform")]
         uv_transform: [f64; 6],
         space: ImagePaintSpace,
+        /// Glyph-normalized domain growth per side in the resolved glyph font size.
+        #[serde(rename = "glyphOutset", default, skip_serializing_if = "is_zero")]
+        glyph_outset: f64,
         #[serde(default, skip_serializing_if = "ImagePaintWrap::is_clamp")]
         wrap: ImagePaintWrap,
         #[serde(default, skip_serializing_if = "ImagePaintFilter::is_bilinear")]

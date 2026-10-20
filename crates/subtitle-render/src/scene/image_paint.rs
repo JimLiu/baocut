@@ -164,6 +164,36 @@ fn domain(
     ])
 }
 
+/// Nonzero image growth uses the same original outline box and font-size em
+/// as a glyph gradient. It never changes the silhouette, layer pose or bitmap ROI.
+fn expanded_glyph_coordinate(ink: tiny_skia::Rect, em: f64, outset: f64, point: [f64; 2]) -> Result<[f64; 2]> {
+    if !em.is_finite() || em <= 0. || !outset.is_finite() || !(0.0..=4.0).contains(&outset) {
+        bail!("CAPTION_LAYOUT_INVALID: image glyph outset");
+    }
+    let grow = outset * em;
+    let bounds = Bounds {
+        x: f64::from(ink.x()) - grow,
+        y: f64::from(ink.y()) - grow,
+        width: f64::from(ink.width()) + 2. * grow,
+        height: f64::from(ink.height()) + 2. * grow,
+    };
+    if bounds.width <= 0. || bounds.height <= 0. {
+        bail!("CAPTION_LAYOUT_INVALID: image paint domain bounds");
+    }
+    Ok([(point[0] - bounds.x) / bounds.width, (point[1] - bounds.y) / bounds.height])
+}
+
+fn domain_for_image(space: ImagePaintSpace, glyph_outset: f64, g: &GlyphPaint, ink: tiny_skia::Rect, point: [f64; 2]) -> Result<[f64; 2]> {
+    // Preserve every legacy domain operation when the optional field is absent.
+    if glyph_outset == 0. {
+        return domain(space, g, ink, point);
+    }
+    if space != ImagePaintSpace::GlyphNormalized {
+        bail!("CAPTION_SCENE_INVALID: image glyph outset requires glyph-normalized");
+    }
+    expanded_glyph_coordinate(ink, glyph_em(g), glyph_outset, point)
+}
+
 pub(super) enum Base {
     Solid([f64; 4]),
     Linear {
@@ -262,6 +292,7 @@ pub(super) struct CoveredImage<'a> {
     glyph: &'a GlyphPaint,
     path: &'a tiny_skia::Path,
     space: ImagePaintSpace,
+    glyph_outset: f64,
     uv_transform: [f64; 6],
     phase: f64,
     opacity: f64,
@@ -279,6 +310,7 @@ impl<'a> CoveredImage<'a> {
             resource_id,
             uv_transform,
             space,
+            glyph_outset,
             wrap,
             filter,
             opacity,
@@ -310,12 +342,13 @@ impl<'a> CoveredImage<'a> {
             filter,
         )?;
         // Check this prepared glyph domain before recording any node DrawOps.
-        domain(*space, glyph, path.bounds(), [0., 0.])?;
+        domain_for_image(*space, *glyph_outset, glyph, path.bounds(), [0., 0.])?;
         Ok(Self {
             sampler,
             glyph,
             path,
             space: *space,
+            glyph_outset: *glyph_outset,
             uv_transform: *uv_transform,
             phase: phase
                 .as_ref()
@@ -329,7 +362,7 @@ impl<'a> CoveredImage<'a> {
         })
     }
     pub(super) fn sample(&self, point: [f64; 2], coverage_opacity: f64) -> Result<[u8; 4]> {
-        let coordinate = domain(self.space, self.glyph, self.path.bounds(), point)?;
+        let coordinate = domain_for_image(self.space, self.glyph_outset, self.glyph, self.path.bounds(), point)?;
         let m = self.uv_transform;
         let uv = [
             m[0] * coordinate[0] + m[2] * coordinate[1] + m[4] + self.phase,
@@ -406,6 +439,7 @@ fn record_run(
         resource_id,
         uv_transform,
         space,
+        glyph_outset,
         wrap,
         filter,
         opacity,
@@ -611,7 +645,7 @@ fn record_run(
                 );
                 inverse.map_point(&mut point);
                 let local = [f64::from(point.x), f64::from(point.y)];
-                let coordinate = domain(*space, g, path.bounds(), local)?;
+                let coordinate = domain_for_image(*space, *glyph_outset, g, path.bounds(), local)?;
                 let m = uv_transform;
                 let uv = [
                     m[0] * coordinate[0] + m[2] * coordinate[1] + m[4] + phase + phase_offset,
@@ -662,4 +696,29 @@ fn surface_pixels(width: u32, height: u32) -> Result<usize> {
     }
     usize::try_from(count)
         .map_err(|_| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint address space"))
+}
+
+#[cfg(test)]
+mod glyph_domain_tests {
+    use super::*;
+
+    #[test]
+    fn equal_em_growth_keeps_distinct_glyph_widths_and_original_center() {
+        let wide = tiny_skia::Rect::from_xywh(0., 0., 80., 100.).unwrap();
+        let narrow = tiny_skia::Rect::from_xywh(0., 0., 20., 100.).unwrap();
+        assert_eq!(expanded_glyph_coordinate(wide, 100., 0.4, [0., 50.]).unwrap(), [0.25, 0.5]);
+        assert_eq!(expanded_glyph_coordinate(narrow, 100., 0.4, [0., 50.]).unwrap(), [0.4, 0.5]);
+        assert_eq!(expanded_glyph_coordinate(wide, 100., 0.4, [40., 50.]).unwrap(), [0.5, 0.5]);
+        assert_eq!(expanded_glyph_coordinate(narrow, 50., 0.4, [0., 50.]).unwrap(), [1. / 3., 0.5]);
+    }
+
+    #[test]
+    fn glyph_domain_offsets_follow_the_original_box_and_reject_invalid_growth() {
+        let ink = tiny_skia::Rect::from_xywh(10., -20., 20., 40.).unwrap();
+        assert_eq!(expanded_glyph_coordinate(ink, 20., 0.5, [0., -30.]).unwrap(), [0., 0.]);
+        assert_eq!(expanded_glyph_coordinate(ink, 20., 0.5, [40., 30.]).unwrap(), [1., 1.]);
+        for outset in [-0.1, 4.1, f64::NAN, f64::INFINITY] {
+            assert!(expanded_glyph_coordinate(ink, 20., outset, [0., 0.]).is_err());
+        }
+    }
 }

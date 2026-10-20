@@ -970,3 +970,185 @@ fn local_mask_preserves_global_image_phase_domain_and_blur() {
         );
     }
 }
+
+fn glyph_ramp_texture(vertical: bool) -> Vec<u8> {
+    let rgba = (0..=255u8).flat_map(|i| [i, 0, 255 - i, 255]).collect();
+    if vertical { png(1, 256, rgba) } else { png(256, 1, rgba) }
+}
+
+fn glyph_ramp_paint(outset: f64, vertical: bool) -> Value {
+    // Texel i stores i/255. The half-texel transform makes bilinear sampling
+    // reconstruct the continuous ramp exactly: 256 * U - 0.5 = 255 * u.
+    let uv = if vertical {
+        json!([1, 0, 0, 255.0 / 256.0, 0, 0.5 / 256.0])
+    } else {
+        json!([255.0 / 256.0, 0, 0, 1, 0.5 / 256.0, 0])
+    };
+    json!({"kind":"image","resourceId":"texture","space":"glyph-normalized",
+        "glyphOutset":outset,"uvTransform":uv,"wrap":"clamp","filter":"bilinear"})
+}
+
+fn glyph_ramp_gradient(outset: f64, vertical: bool) -> Value {
+    json!({"kind":"linear","from":[0,0],"to":if vertical { [0,1] } else { [1,0] },
+        "space":"normalized","domain":"glyph","glyphOutset":outset,
+        "stops":[{"at":0,"color":"#0000FF"},{"at":1,"color":"#FF0000"}]})
+}
+
+fn glyph_ramp_body(bytes: &[u8], paint: Value) -> Value {
+    let mut source = body(bytes, Some(paint));
+    source["scene"]["value"]["requiredCapabilities"].as_array_mut().unwrap().extend([
+        json!("caption-image-glyph-outset/1"),
+        json!("caption-gradient-glyph/1"),
+        json!("caption-gradient-space/1"),
+    ]);
+    source
+}
+
+fn glyph_ramp_distance(mut source: Value, offset: [f64; 2]) -> Value {
+    source["scene"]["value"]["requiredCapabilities"].as_array_mut().unwrap().extend([
+        json!("caption-glyph-distance-coverage/1"),
+        json!("caption-image-distance-coverage/1"),
+    ]);
+    source["scene"]["value"]["nodes"][0]["style"]["paints"][0]["distanceCoverage"] = json!({
+        "source":"glyph-contours",
+        "bands":[{"offset":offset,"threshold":0,"halfWidth":0.5}],
+        "aa":{"kind":"quad-derivative","sourceBand":0,"scale":0.5},
+        "combine":"multiply","zeroWidth":"step-inclusive"
+    });
+    source
+}
+
+fn assert_same_alpha(a: &[u8], b: &[u8]) {
+    assert_eq!(a.len(), b.len());
+    assert!(
+        a.chunks_exact(4).zip(b.chunks_exact(4)).all(|(a, b)| a[3] == b[3]),
+        "opaque image domain changes cannot change coverage"
+    );
+}
+
+#[test]
+fn zero_image_glyph_outset_keeps_legacy_recorded_bytes_and_pixels() {
+    let bytes = glyph_ramp_texture(false);
+    for space in ["glyph-em", "glyph-normalized", "line-normalized", "page-normalized"] {
+        let mut absent = glyph_ramp_paint(0.0, false);
+        absent.as_object_mut().unwrap().remove("glyphOutset");
+        absent["space"] = json!(space);
+        let mut explicit_zero = absent.clone();
+        explicit_zero["glyphOutset"] = json!(0);
+        let mut old = plan(body(&bytes, Some(absent)), "MWI", words(&[("MWI", 0., 4.)]), &bytes);
+        let mut zero = plan(body(&bytes, Some(explicit_zero)), "MWI", words(&[("MWI", 0., 4.)]), &bytes);
+        assert_eq!(
+            render_raster::drawop::encode(&old.record(0.3).unwrap().0),
+            render_raster::drawop::encode(&zero.record(0.3).unwrap().0),
+            "{space} explicit zero must preserve the legacy transport"
+        );
+        assert_eq!(pixels(&mut old, 0.3), pixels(&mut zero, 0.3), "{space}");
+    }
+}
+
+#[test]
+fn image_glyph_outset_matches_existing_font_em_gradient_for_both_axes_and_glyph_widths() {
+    for vertical in [false, true] {
+        let bytes = glyph_ramp_texture(vertical);
+        for font_size in [24, 48] {
+            for outset in [0.125, 0.4] {
+                let declare = |paint| {
+                    let mut source = glyph_ramp_body(&bytes, paint);
+                    source["scene"]["value"]["nodes"][0]["style"]["fontSize"]["value"] = json!(font_size);
+                    source
+                };
+                let mut image_plan = plan(
+                    declare(glyph_ramp_paint(outset, vertical)),
+                    "MWI",
+                    words(&[("MWI", 0., 4.)]),
+                    &bytes,
+                );
+                let actual = pixels(&mut image_plan, 0.3);
+                let mut gradient = plan(
+                    declare(glyph_ramp_gradient(outset, vertical)),
+                    "MWI",
+                    words(&[("MWI", 0., 4.)]),
+                    &bytes,
+                );
+                let expected = pixels(&mut gradient, 0.3);
+                let worst = max_diff(&actual, &expected);
+                assert!(
+                    worst <= 2,
+                    "font-em image vs existing glyph gradient: vertical={vertical}, font={font_size}, outset={outset}, max={worst}"
+                );
+                assert!(actual.chunks_exact(4).filter(|p| p[3] > 0).count() > 100);
+                let mut zero = plan(declare(glyph_ramp_paint(0.0, vertical)), "MWI", words(&[("MWI", 0., 4.)]), &bytes);
+                let zero = pixels(&mut zero, 0.3);
+                assert_same_alpha(&actual, &zero);
+                assert!(
+                    max_diff(&actual, &zero) > 8,
+                    "fixture must distinguish expanded sampling from the legacy domain"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn image_glyph_outset_changes_color_without_expanding_effects_and_offset_is_rigid() {
+    let bytes = glyph_ramp_texture(false);
+    for (spread, blur) in [(0.0, 0.0), (1.5, 2.0)] {
+        let declare = |outset| {
+            let mut source = glyph_ramp_body(&bytes, glyph_ramp_paint(outset, false));
+            let layer = &mut source["scene"]["value"]["nodes"][0]["style"]["paints"][0];
+            layer["spread"] = json!(spread);
+            layer["blur"] = json!(blur);
+            source
+        };
+        let mut zero = plan(declare(0.0), "MWI", words(&[("MWI", 0., 4.)]), &bytes);
+        let zero = pixels(&mut zero, 0.3);
+        let source = declare(0.4);
+        let mut grown = plan(source.clone(), "MWI", words(&[("MWI", 0., 4.)]), &bytes);
+        let grown = pixels(&mut grown, 0.3);
+        assert_same_alpha(&zero, &grown);
+        assert!(max_diff(&zero, &grown) > 8);
+        let mut shifted_source = source;
+        shifted_source["scene"]["value"]["nodes"][0]["style"]["paints"][0]["offset"] = json!([5, -3]);
+        let mut shifted = plan(shifted_source, "MWI", words(&[("MWI", 0., 4.)]), &bytes);
+        let shifted = pixels(&mut shifted, 0.3);
+        for y in 3..SIZE.1 {
+            for x in 0..SIZE.0 - 5 {
+                let a = ((y * SIZE.0 + x) * 4) as usize;
+                let b = (((y - 3) * SIZE.0 + x + 5) * 4) as usize;
+                assert!(
+                    max_diff(&grown[a..a + 4], &shifted[b..b + 4]) <= 1,
+                    "offset must translate color and silhouette together, spread={spread}, blur={blur}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn distance_image_glyph_outset_uses_original_domain_after_contour_displacement() {
+    for vertical in [false, true] {
+        let bytes = glyph_ramp_texture(vertical);
+        for offset in [[0.0, 0.0], [3.0, -2.0]] {
+            let declare = |paint| glyph_ramp_distance(glyph_ramp_body(&bytes, paint), offset);
+            let mut p = plan(declare(glyph_ramp_paint(0.4, vertical)), "MWI", words(&[("MWI", 0., 4.)]), &bytes);
+            let actual = pixels(&mut p, 0.3);
+            let mut p = plan(
+                declare(glyph_ramp_gradient(0.4, vertical)),
+                "MWI",
+                words(&[("MWI", 0., 4.)]),
+                &bytes,
+            );
+            let expected = pixels(&mut p, 0.3);
+            assert!(
+                max_diff(&actual, &expected) <= 2,
+                "distance coverage must not reanchor the expanded image domain: vertical={vertical}, offset={offset:?}"
+            );
+            let mut p = plan(declare(glyph_ramp_paint(0.0, vertical)), "MWI", words(&[("MWI", 0., 4.)]), &bytes);
+            let zero = pixels(&mut p, 0.3);
+            assert_same_alpha(&actual, &zero);
+            assert!(max_diff(&actual, &zero) > 8);
+            let (ops, _) = p.record(0.3).unwrap();
+            assert!(ops.paths.is_empty(), "distance images must not add a second glyph AA mask");
+        }
+    }
+}

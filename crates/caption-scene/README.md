@@ -17,6 +17,8 @@
 
 `caption-image-distance-coverage/1` 允许在同一轮廓距离覆盖层采样 image paint，必须同时声明原 image／distance 能力。图像坐标保持原域，偏移只改变覆盖场；关联颜色与 base 合成后一次应用覆盖率和透明度，再输出普通 bitmap。已有颜色层及未声明新能力的图像场景保持原准入。
 
+`caption-image-glyph-outset/1` 为 `glyph-normalized` image paint 增加可选 `glyphOutset`（每侧实际字形字号 em，0–4）；只扩展原始取样域，不扩轮廓、阴影或覆盖率。默认零省略且保留原路径，line/page/glyph-em 不接受非零值。普通图片与轮廓距离图片共用该域。
+
 离线生成示例帧：
 
 ```sh

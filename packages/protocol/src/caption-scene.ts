@@ -99,6 +99,8 @@ export type CaptionScenePaint = CaptionColorPaint | {
   /** Explicit [a,b,c,d,e,f]: U=a*x+c*y+e, V=b*x+d*y+f. */
   uvTransform: [number, number, number, number, number, number];
   space: 'glyph-em' | 'glyph-normalized' | 'line-normalized' | 'page-normalized';
+  /** Glyph-normalized only: original outline-box growth per side in resolved font-size em, 0..4; nonzero requires caption-image-glyph-outset/1. Default 0 is omitted. */
+  glyphOutset?: number;
   wrap?: 'clamp' | 'repeat' | 'mirror';
   filter?: 'nearest' | 'bilinear';
   /** Default 1, affects sampled image before over onto base; one coverage follows composition. */

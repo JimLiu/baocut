@@ -39,13 +39,23 @@ fn image_paint_defaults_and_explicit_spaces_are_roundtrippable() {
                 base: None,
                 phase: None,
                 phase_offset: 0.0,
+                glyph_outset: 0.0,
                 ..
             }
         ));
         let serialized = serde_json::to_value(&parsed).unwrap();
         assert_eq!(parse_style(&serialized).unwrap(), parsed);
         let declaration = &serialized["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"];
-        for field in ["wrap", "filter", "opacity", "compositeOpacity", "base", "phase", "phaseOffset"] {
+        for field in [
+            "wrap",
+            "filter",
+            "opacity",
+            "compositeOpacity",
+            "base",
+            "phase",
+            "phaseOffset",
+            "glyphOutset",
+        ] {
             assert!(declaration.get(field).is_none(), "{field}");
         }
         assert_eq!(declaration["space"], json!(space));
@@ -297,5 +307,146 @@ fn image_composite_opacity_rejects_nonfinite_values_in_programmatic_scenes() {
         };
         *composite_opacity = bad;
         assert_eq!(validate_scene(&scene).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    }
+}
+
+#[test]
+fn image_glyph_outset_zero_keeps_the_exact_legacy_schema_in_every_space() {
+    for space in ["glyph-em", "glyph-normalized", "line-normalized", "page-normalized"] {
+        let mut absent = image();
+        absent["space"] = json!(space);
+        let old = parse_style(&body(absent.clone())).unwrap();
+        absent["glyphOutset"] = json!(0);
+        let explicit_zero = parse_style(&body(absent)).unwrap();
+        assert_eq!(explicit_zero, old, "{space} must not require the new capability");
+        assert_eq!(
+            serde_json::to_vec(&explicit_zero).unwrap(),
+            serde_json::to_vec(&old).unwrap(),
+            "{space} zero must not change serialized legacy scenes"
+        );
+        let serialized = serde_json::to_value(explicit_zero).unwrap();
+        assert!(
+            serialized["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]
+                .get("glyphOutset")
+                .is_none()
+        );
+    }
+}
+
+#[test]
+fn image_glyph_outset_is_capability_gated_and_roundtrips_font_em_bounds() {
+    for outset in [0.000001, 0.4, 4.0] {
+        let mut declaration = image();
+        declaration["space"] = json!("glyph-normalized");
+        declaration["glyphOutset"] = json!(outset);
+        let mut value = body(declaration);
+        assert_eq!(parse_style(&value).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+        value["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-image-glyph-outset/1"));
+        let parsed = parse_style(&value).unwrap();
+        let ScenePaint::Image { glyph_outset, space, .. } = &parsed.scene().nodes[0].style.paints[0].paint else {
+            unreachable!()
+        };
+        assert_eq!(*glyph_outset, outset);
+        assert_eq!(*space, ImagePaintSpace::GlyphNormalized);
+        let serialized = serde_json::to_value(&parsed).unwrap();
+        assert_eq!(
+            serialized["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["glyphOutset"],
+            json!(outset)
+        );
+        assert_eq!(parse_style(&serialized).unwrap(), parsed);
+    }
+}
+
+#[test]
+fn image_glyph_outset_rejects_wrong_spaces_bad_types_range_and_nonfinite_values() {
+    let mut declaration = image();
+    declaration["space"] = json!("glyph-normalized");
+    declaration["glyphOutset"] = json!(0.4);
+    let mut valid = body(declaration);
+    valid["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-image-glyph-outset/1"));
+    for space in ["glyph-em", "line-normalized", "page-normalized"] {
+        let mut bad = valid.clone();
+        paint(&mut bad)["space"] = json!(space);
+        assert_eq!(parse_style(&bad).unwrap_err().code, "CAPTION_SCENE_INVALID", "{space}");
+    }
+    for bad_outset in [json!(-0.000001), json!(4.000001), Value::Null, json!("0.4"), json!(true)] {
+        let mut bad = valid.clone();
+        paint(&mut bad)["glyphOutset"] = bad_outset.clone();
+        assert!(parse_style(&bad).is_err(), "{bad_outset}");
+    }
+    for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut scene = parse_style(&valid).unwrap().scene().clone();
+        let ScenePaint::Image { glyph_outset, .. } = &mut scene.nodes[0].style.paints[0].paint else {
+            unreachable!()
+        };
+        *glyph_outset = bad;
+        assert_eq!(validate_scene(&scene).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    }
+}
+
+#[test]
+fn inactive_replacement_image_stack_still_validates_outset_and_capability() {
+    let mut value = body(image());
+    let scene = &mut value["scene"]["value"];
+    scene["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-paint-style-bindings/1"));
+    scene["selectors"][0]["filter"] = json!({"kind":"range","start":5,"end":5});
+    scene["paintStyleBindings"] = json!([{
+        "id":"replacement","nodeId":"caption","selectorId":"words",
+        "style":{"paints":[{"id":"replacement-texture","paint":{
+            "kind":"image","resourceId":"texture","uvTransform":[1,0,0,1,0,0],
+            "space":"glyph-normalized","glyphOutset":0.4
+        }}]}
+    }]);
+    assert_eq!(parse_style(&value).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    value["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-image-glyph-outset/1"));
+    assert!(parse_style(&value).is_ok(), "declared unselected stacks must be valid");
+    for (key, bad) in [("space", json!("page-normalized")), ("glyphOutset", json!(4.01))] {
+        let mut invalid = value.clone();
+        invalid["scene"]["value"]["paintStyleBindings"][0]["style"]["paints"][0]["paint"][key] = bad;
+        assert_eq!(parse_style(&invalid).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    }
+}
+
+#[test]
+fn distance_image_and_glyph_outset_capabilities_are_independent() {
+    let mut declaration = image();
+    declaration["space"] = json!("glyph-normalized");
+    declaration["glyphOutset"] = json!(0.4);
+    let mut value = body(declaration);
+    value["scene"]["value"]["nodes"][0]["style"]["paints"][0]["distanceCoverage"] = json!({
+        "source":"glyph-contours",
+        "bands":[{"offset":[2,-1],"threshold":0,"halfWidth":0.5}],
+        "aa":{"kind":"quad-derivative","sourceBand":0,"scale":0.5},
+        "combine":"multiply","zeroWidth":"step-inclusive"
+    });
+    value["scene"]["value"]["requiredCapabilities"].as_array_mut().unwrap().extend([
+        json!("caption-glyph-distance-coverage/1"),
+        json!("caption-image-distance-coverage/1"),
+        json!("caption-image-glyph-outset/1"),
+    ]);
+    assert!(parse_style(&value).is_ok());
+    for missing in [
+        "caption-glyph-distance-coverage/1",
+        "caption-image-distance-coverage/1",
+        "caption-image-glyph-outset/1",
+    ] {
+        let mut bad = value.clone();
+        bad["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|cap| cap != missing);
+        assert_eq!(parse_style(&bad).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED", "{missing}");
     }
 }

@@ -48,6 +48,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-unit-animation/1",
     "caption-image-png/1",
     "caption-image-paint/1",
+    "caption-image-glyph-outset/1",
     "caption-paint-stack/1",
     EXTENDED_PAINT_STACK_CAPABILITY,
     "caption-paint-style-bindings/1",
@@ -2452,6 +2453,8 @@ fn validate_paint_stack(n: &Node, paints: &[PaintLayer], s: &Scene, resources: &
             ScenePaint::Image {
                 resource_id,
                 uv_transform,
+                space,
+                glyph_outset,
                 opacity,
                 composite_opacity,
                 base,
@@ -2465,6 +2468,9 @@ fn validate_paint_stack(n: &Node, paints: &[PaintLayer], s: &Scene, resources: &
                 if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
                     || !resources.contains(resource_id)
                     || layer.coverage.is_some()
+                    || !glyph_outset.is_finite()
+                    || !(0.0..=4.0).contains(glyph_outset)
+                    || (*glyph_outset != 0.0 && *space != ImagePaintSpace::GlyphNormalized)
                     || uv_transform.iter().any(|v| !v.is_finite() || v.abs() > 4096.0)
                     || !opacity.is_finite()
                     || !(0.0..=1.0).contains(opacity)
@@ -2480,6 +2486,13 @@ fn validate_paint_stack(n: &Node, paints: &[PaintLayer], s: &Scene, resources: &
                     })
                 {
                     return Err(invalid(&n.id, "invalid image paint resource, scope, matrix, opacity or phase"));
+                }
+                if *glyph_outset != 0.0 && !s.required_capabilities.iter().any(|c| c == "caption-image-glyph-outset/1") {
+                    return Err(Diagnostic::new(
+                        "CAPTION_CAPABILITY_REQUIRED",
+                        &n.id,
+                        "caption-image-glyph-outset/1",
+                    ));
                 }
                 if phase.is_some_and(|p| p.arithmetic == ImagePhaseArithmetic::Float32)
                     && !s.required_capabilities.iter().any(|c| c == "caption-image-phase-float32/1")
