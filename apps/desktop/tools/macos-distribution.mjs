@@ -1,7 +1,7 @@
 // 签名与公证只在这里完成；electron-builder 先产出目录，最终归档来自已 staple 的 App。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { closeSync, createReadStream, mkdirSync, openSync, readSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, createReadStream, mkdirSync, openSync, readSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const STAPLER_RETRY_DELAYS = [2000, 5000, 10000, 20000];
@@ -88,6 +88,20 @@ async function facts(file) {
   return { file: path.basename(file), size: statSync(file).size, sha256: hash.digest('hex') };
 }
 
+export function ignoreMacSigningFile(file, app) {
+  // Signing the main executable also seals its bundle. Defer it to the final
+  // bundle signing step so sibling executables such as baocut-cli are signed first.
+  if (realpathSync(file) === realpathSync(path.join(app, 'Contents/MacOS/BaoCut'))) return true;
+  if (file.endsWith('.app') || file.endsWith('.framework')) return false;
+  const fd = openSync(file, 'r');
+  try {
+    const magic = Buffer.alloc(4);
+    if (readSync(fd, magic, 0, 4, 0) !== 4) return true;
+    return ![0xfeedface, 0xcefaedfe, 0xfeedfacf, 0xcffaedfe,
+      0xcafebabe, 0xbebafeca, 0xcafebabf, 0xbfbafeca].includes(magic.readUInt32BE());
+  } finally { closeSync(fd); }
+}
+
 export async function distributeMac({ app, output, stem, version, build, appId, signingSha1, profile, keychain, executables, entitlements, local = false }) {
   const { signAsync } = await import('@electron/osx-sign');
   for (const binary of executables) {
@@ -102,17 +116,8 @@ export async function distributeMac({ app, output, stem, version, build, appId, 
     app, platform: 'darwin', identity: local ? '-' : signingSha1, identityValidation: false,
     ...(keychain ? { keychain } : {}),
     preAutoEntitlements: false, preEmbedProvisioningProfile: false,
-    ignore: [(file) => {
-      if (file.endsWith('.app') || file.endsWith('.framework')) return false;
-      // Resource blobs are sealed by their enclosing bundle. Only sign Mach-O code.
-      const fd = openSync(file, 'r');
-      try {
-        const magic = Buffer.alloc(4);
-        if (readSync(fd, magic, 0, 4, 0) !== 4) return true;
-        return ![0xfeedface, 0xcefaedfe, 0xfeedfacf, 0xcffaedfe,
-          0xcafebabe, 0xbebafeca, 0xcafebabf, 0xbfbafeca].includes(magic.readUInt32BE());
-      } finally { closeSync(fd); }
-    }],
+    // osx-sign 1.3.3 drops an array-valued ignore during option validation.
+    ignore: (file) => ignoreMacSigningFile(file, app),
     optionsForFile: (file) => macSigningOptions(file, { app, entitlements, local }),
   });
   if (local) return archiveLocalMac({ app, output, stem, version, build, appId });
