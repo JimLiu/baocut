@@ -9,12 +9,14 @@ import {
   type GeneratedOutput,
   type Id,
   type JobRecord,
+  type LinkDownloadSection,
   type LinkImportParams,
   type LinkImportSummary,
   type PipelineCreateTarget,
 } from '@baocut/protocol';
 import { JobsLinkImport } from '@baocut/protocol/messages/jobs/link-import.ts';
 import { JobsParams } from '@baocut/protocol/messages/jobs/params.ts';
+import { JobsVideoCreate } from '@baocut/protocol/messages/jobs/video-create.ts';
 import { canonicalJson, sha256Hex } from '../input-hash.ts';
 import { captionsStep, captionsSummary, type CaptionLayerOutput, type CaptionVideos } from './caption-layer.ts';
 import { downloadTranscript } from './download-transcript.ts';
@@ -61,6 +63,8 @@ import {
  *   时只导入素材。
  * - 转写（`transcribe`）：语言、Provider 与模型、提示、说话人与转录流程（`transcribe.ts`）的同名参数相同，Provider 与模型在提交时
  *   选定并冻结；转进视频时套用视频里启用的转写术语表（对外服务启动的不套），`captions` 打开时再建字幕层（与转录流程同一步）。
+ * - 分段（`sections`）：每段单独跑一次 yt-dlp（`<staging>/dl/s<i>/media.<ext>`），逐段校验、发布（文件名带原片区间）；导入时
+ *   同一笔事务把每段作为独立素材导入，来源记 `section`，要放上主轨时按给的顺序首尾相接。不与转写、字幕同给。
  */
 
 export const LINK_IMPORT_PIPELINE = 'link-import';
@@ -87,6 +91,8 @@ const LANGUAGE = /^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{1,8}){0,3}$/;
 /** 识别提示的上限，与转录流程的 `hint` 相同。 */
 const HINT_MAX = 1200;
 const PROGRESS_INTERVAL_MS = 250;
+/** 一次最多下载的段数。 */
+const MAX_SECTIONS = 20;
 
 /** 流程用的下载工具：已安装、同意有效；否则抛 `RpcError('conflict')`（`details.code` 是 `TOOL_*`）。 */
 export interface LinkImportTool {
@@ -149,6 +155,8 @@ export interface FrozenLinkImportParams {
   captions?: boolean;
   /** 转进视频时套用视频里启用的转写术语表：启动它的不是对外服务的客户端。之前的版本没有（不套）。 */
   videoGlossaries?: boolean;
+  /** 只下载原片的这几段；之前的版本没有（整条）。 */
+  sections?: LinkDownloadSection[];
   outDir: string;
 }
 
@@ -174,6 +182,18 @@ const PARAMS_SCHEMA = {
       name: '视频的名字，默认取页面标题',
     }),
     audioOnly: { type: 'boolean', default: false },
+    sections: {
+      type: 'array',
+      minItems: 1,
+      maxItems: MAX_SECTIONS,
+      items: {
+        type: 'object',
+        properties: { start: { type: 'number', minimum: 0 }, end: { type: 'number', exclusiveMinimum: 0 } },
+        required: ['start', 'end'],
+        additionalProperties: false,
+      },
+      description: '只下载原片的这几段（秒，start < end）：每段作为独立的文件与素材；不能与 transcribe、subtitleLanguages 同时给',
+    },
     subtitleLanguages: { type: 'array', items: { type: 'string' }, maxItems: 10, description: '一并下载的字幕语言' },
     cookieBrowsers: {
       type: 'array',
@@ -215,7 +235,10 @@ interface ResolveOutput extends Record<string, unknown> {
 }
 
 interface DownloadOutput extends Record<string, unknown> {
+  /** 媒体；分段下载时是第一段。 */
   media: string;
+  /** 分段下载时每段的区间与媒体；之前的版本与整条下载时没有。 */
+  sections?: Array<LinkDownloadSection & { media: string }>;
   subtitles: Array<{ file: string; language: string; ext: string }>;
   tool: { version: string; source: string };
   downloadedAt: string;
@@ -223,12 +246,17 @@ interface DownloadOutput extends Record<string, unknown> {
 
 interface VerifyOutput extends Record<string, unknown> {
   media: GeneratedOutput['media'];
+  /** 分段下载时每段的媒体信息（与 `DownloadOutput.sections` 同序）。 */
+  sections?: Array<GeneratedOutput['media']>;
 }
 
 interface PublishOutput extends Record<string, unknown> {
+  /** 发布的媒体与它的产物；分段下载时是第一段。 */
   media: string;
   subtitles: string[];
   output: GeneratedOutput;
+  /** 分段下载时每段发布的文件与产物（与 `DownloadOutput.sections` 同序）。 */
+  sections?: Array<LinkDownloadSection & { media: string; output: GeneratedOutput }>;
 }
 
 interface CreateOutput extends Record<string, unknown> {
@@ -237,7 +265,10 @@ interface CreateOutput extends Record<string, unknown> {
 }
 
 interface ImportOutput extends Record<string, unknown> {
+  /** 导入的素材；分段下载时是第一段的。 */
   assetId: Id;
+  /** 分段下载时每段的素材（与 `DownloadOutput.sections` 同序）。 */
+  sections?: Id[];
 }
 
 interface TranscribeOutput extends Record<string, unknown> {
@@ -327,6 +358,7 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
           ...(checked.diarize !== undefined ? { diarize: checked.diarize } : {}),
           ...(checked.captions ? { captions: true } : {}),
           ...(checked.transcribe && submitter?.kind !== 'service' ? { videoGlossaries: true } : {}),
+          ...(checked.sections ? { sections: checked.sections } : {}),
           outDir,
         };
         // 最后一步才写：前面的检查不过时不留下原始链接。
@@ -337,7 +369,7 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
         providerId: 'yt-dlp',
         modelId: tool.version,
         videoId: frozen.videoId ?? null,
-        contentHash: `sha256:${sha256Hex(canonicalJson({ url: frozen.url, sourceRef: frozen.sourceRef }))}`,
+        contentHash: `sha256:${sha256Hex(canonicalJson({ url: frozen.url, sourceRef: frozen.sourceRef, ...(frozen.sections ? { sections: frozen.sections } : {}) }))}`,
       };
     },
     steps: [
@@ -357,6 +389,7 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
             if (run.code === 0) {
               const metadata = parseMetadata(run.stdout);
               if (metadata.webpageUrl) metadata.webpageUrl = redactUrl(metadata.webpageUrl);
+              checkSectionsWithin(params.sections, metadata.durationSec);
               return { output: { metadata, tool: { version: tool.version, source: tool.source }, cookieBrowser: browser } satisfies ResolveOutput };
             }
             const error = classifyFailure(run.stderr, run.code);
@@ -372,7 +405,7 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
         run: (context) => download(deps, context, requireOnline),
         reusable: async (output, { staging }) => {
           const out = output as DownloadOutput;
-          for (const file of [out.media, ...out.subtitles.map((s) => s.file)]) {
+          for (const file of [out.media, ...(out.sections ?? []).map((s) => s.media), ...out.subtitles.map((s) => s.file)]) {
             if (!isInside(file, staging) || !(await fs.stat(file).catch(() => null))) return false;
           }
           return true;
@@ -385,33 +418,12 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
         run: async ({ outputs, signal, progress }) => {
           const downloaded = outputs.download as DownloadOutput;
           progress(null, 'validating');
-          let probed;
-          try {
-            probed = await probeMedia(deps.ffprobe, downloaded.media, signal);
-          } catch (error) {
-            if (error instanceof PipelineStepError && error.code === 'INPUT_UNREADABLE') {
-              throw new PipelineStepError('LINK_DOWNLOAD_UNREADABLE', JobsLinkImport.undecodable(), {
-                remedy: JobsLinkImport.undecodableRemedy().text,
-              });
-            }
-            throw error;
+          if (downloaded.sections) {
+            const sections: Array<GeneratedOutput['media']> = [];
+            for (const section of downloaded.sections) sections.push(await verifyMedia(deps, section.media, signal));
+            return { output: { media: sections[0]!, sections } satisfies VerifyOutput };
           }
-          if (!probed.video && !probed.audio) {
-            throw new PipelineStepError('LINK_DOWNLOAD_UNREADABLE', JobsLinkImport.noStreams(), {
-              remedy: JobsLinkImport.undecodableRemedy().text,
-            });
-          }
-          const media: GeneratedOutput['media'] = probed.video
-            ? {
-                kind: 'video',
-                durationSec: probed.durationSec,
-                width: probed.video.width,
-                height: probed.video.height,
-                videoCodec: probed.video.codec,
-                audioCodec: probed.audio?.codec ?? null,
-              }
-            : { kind: 'audio', durationSec: probed.durationSec, sampleRate: probed.audio!.sampleRate, channels: probed.audio!.channels };
-          return { output: { media } satisfies VerifyOutput };
+          return { output: { media: await verifyMedia(deps, downloaded.media, signal) } satisfies VerifyOutput };
         },
       },
       {
@@ -420,7 +432,9 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
         run: (context) => publish(deps, context),
         reusable: async (output) => {
           const out = output as PublishOutput;
-          for (const file of [out.media, ...out.subtitles]) if (!(await fs.stat(file).catch(() => null))) return false;
+          for (const file of [out.media, ...(out.sections ?? []).map((s) => s.media), ...out.subtitles]) {
+            if (!(await fs.stat(file).catch(() => null))) return false;
+          }
           return true;
         },
       },
@@ -471,6 +485,16 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
         description: summaryDescription(resolved.metadata.description),
         sourceChapters: resolved.metadata.chapters?.length ?? 0,
         files: { media: published.media, subtitles: published.subtitles },
+        ...(published.sections
+          ? {
+              sections: published.sections.map((section, index) => ({
+                start: section.start,
+                end: section.end,
+                media: section.media,
+                assetId: imported?.sections?.[index] ?? null,
+              })),
+            }
+          : {}),
         tool: { name: 'yt-dlp', version: downloaded.tool.version, source: downloaded.tool.source },
         cookieBrowser: usedCookieBrowser(params, resolved),
         downloadedAt: downloaded.downloadedAt,
@@ -492,8 +516,13 @@ export function linkImportPipeline(deps: LinkImportDeps): PipelineDefinition<Fro
             }
           : {}),
       };
-      const output = { ...published.output, assetId: imported?.assetId ?? null };
-      return { summary: { ...summary }, result: { documentId: null, artifactId: output.artifactId, outputs: [output, ...(transcribed?.outputs ?? [])] } };
+      const media = published.sections
+        ? published.sections.map((section, index) => ({ ...section.output, assetId: imported?.sections?.[index] ?? null }))
+        : [{ ...published.output, assetId: imported?.assetId ?? null }];
+      return {
+        summary: { ...summary },
+        result: { documentId: null, artifactId: media[0]!.artifactId, outputs: [...media, ...(transcribed?.outputs ?? [])] },
+      };
     },
   };
 }
@@ -518,6 +547,7 @@ export function parseLinkImportParams(raw: Record<string, unknown>): CheckedLink
     'hint',
     'diarize',
     'captions',
+    'sections',
   ]);
   const url = reader.string('url', { max: 4096 });
   const checked = checkLink(url);
@@ -571,6 +601,10 @@ export function parseLinkImportParams(raw: Record<string, unknown>): CheckedLink
     throw invalid('conversationId', JobsLinkImport.conversationMismatch());
   }
   if (projectId !== undefined && conversationId !== undefined) throw invalid('conversationId', JobsParams.onlyOneOf({ other: 'projectId' }));
+  const sections = readSections(reader.array('sections', { min: 1, max: MAX_SECTIONS, optional: true }));
+  // 每段是独立的素材：转写只收一份素材，字幕是整条的。
+  if (sections && transcribe) throw invalid('sections', JobsParams.onlyOneOf({ other: 'transcribe' }));
+  if (sections && subtitleLanguages?.length) throw invalid('sections', JobsParams.onlyOneOf({ other: 'subtitleLanguages' }));
   return {
     url: checked.canonical,
     raw: checked.raw,
@@ -592,7 +626,30 @@ export function parseLinkImportParams(raw: Record<string, unknown>): CheckedLink
     ...(cookieBrowsers?.length ? { cookieBrowsers } : {}),
     ...(saveTo !== undefined ? { saveTo: saveTo as 'downloads' | 'project' } : {}),
     ...(outDir !== undefined ? { outDir } : {}),
+    ...(sections ? { sections } : {}),
   };
+}
+
+/** `sections` 的每一项：`{ start, end }`，有限的秒数，`0 ≤ start < end`。 */
+function readSections(list: unknown[] | undefined): LinkDownloadSection[] | undefined {
+  return list?.map((item) => {
+    const { start, end, ...rest } = (typeof item === 'object' && item !== null && !Array.isArray(item) ? item : {}) as Record<string, unknown>;
+    const seconds = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+    if (!seconds(start) || !seconds(end) || start >= end || Object.keys(rest).length > 0) throw invalid('sections', JobsLinkImport.sectionItems());
+    return { start, end };
+  });
+}
+
+/** 元数据有时长时，每段的终点不能超过它。 */
+function checkSectionsWithin(sections: readonly LinkDownloadSection[] | undefined, durationSec: number | null): void {
+  if (!sections || durationSec === null) return;
+  const outside = sections.find((section) => section.end > durationSec);
+  if (outside) {
+    throw new PipelineStepError('LINK_SECTION_OUT_OF_RANGE', JobsLinkImport.sectionOutOfRange({ end: outside.end, duration: durationSec }), {
+      section: outside,
+      durationSec,
+    });
+  }
 }
 
 /** 冻结的参数里按顺序要试的浏览器：之前的版本只有一个 `cookieBrowser`。不用 Cookie 时空。 */
@@ -634,44 +691,82 @@ async function download(
   requireOnline();
   const tool = await deps.tool();
   const url = await rawUrl(deps, params);
-  const dir = path.join(staging, 'dl');
-  await fs.mkdir(dir, { recursive: true });
   const ffmpegLocation = (await deps.ffmpegLocation?.()) ?? null;
   const cookieBrowser = usedCookieBrowser(params, outputs.resolve as ResolveOutput);
-  const args = downloadArgs(url, {
-    output: path.join(dir, 'media.%(ext)s'),
-    audioOnly: params.audioOnly,
-    subtitleLanguages: params.subtitleLanguages,
-    ffmpegLocation,
-    ...(cookieBrowser ? { cookieBrowser } : {}),
-  });
   const tracker = new ProgressTracker();
   let last = 0;
   progress(null, 'downloading');
-  const run = await runYtDlp(tool, args, {
-    signal,
-    onLine: (line) => {
-      const sample = parseProgressLine(line);
-      if (!sample) return;
-      const now = Date.now();
-      const value = tracker.update(sample);
-      if (now - last < PROGRESS_INTERVAL_MS) return;
-      last = now;
-      progress({ done: value.done, total: value.total, unit: 'bytes' }, 'downloading');
-    },
-  });
-  if (run.code !== 0) throw classifyFailure(run.stderr, run.code);
-  const files = await collectDownloads(dir);
-  if (!files.media) {
-    throw new PipelineStepError('LINK_DOWNLOAD_FAILED', JobsLinkImport.noMediaFile(), { remedy: linkFailureRemedy('LINK_DOWNLOAD_FAILED') });
-  }
-  const output: DownloadOutput = {
-    media: files.media,
-    subtitles: files.subtitles,
-    tool: { version: tool.version, source: tool.source },
-    downloadedAt: nowIso(),
+  // 整条下载进 `dl/`；分段时每段单独跑一次，进各自的 `dl/s<i>/`（输出模板固定，几段不能共用一个目录）。
+  const fetch = async (dir: string, section?: LinkDownloadSection) => {
+    await fs.mkdir(dir, { recursive: true });
+    const args = downloadArgs(url, {
+      output: path.join(dir, 'media.%(ext)s'),
+      audioOnly: params.audioOnly,
+      subtitleLanguages: params.subtitleLanguages,
+      ffmpegLocation,
+      ...(cookieBrowser ? { cookieBrowser } : {}),
+      ...(section ? { section } : {}),
+    });
+    const run = await runYtDlp(tool, args, {
+      signal,
+      onLine: (line) => {
+        const sample = parseProgressLine(line);
+        if (!sample) return;
+        const now = Date.now();
+        const value = tracker.update(sample);
+        if (now - last < PROGRESS_INTERVAL_MS) return;
+        last = now;
+        progress({ done: value.done, total: value.total, unit: 'bytes' }, 'downloading');
+      },
+    });
+    if (run.code !== 0) throw classifyFailure(run.stderr, run.code);
+    const files = await collectDownloads(dir);
+    if (!files.media) {
+      throw new PipelineStepError('LINK_DOWNLOAD_FAILED', JobsLinkImport.noMediaFile(), { remedy: linkFailureRemedy('LINK_DOWNLOAD_FAILED') });
+    }
+    return { media: files.media, subtitles: files.subtitles };
   };
-  return { output };
+  const toolInfo = { version: tool.version, source: tool.source };
+  if (params.sections) {
+    const sections: NonNullable<DownloadOutput['sections']> = [];
+    for (const [index, section] of params.sections.entries()) {
+      const files = await fetch(path.join(staging, 'dl', `s${index}`), section);
+      sections.push({ start: section.start, end: section.end, media: files.media });
+    }
+    return { output: { media: sections[0]!.media, subtitles: [], sections, tool: toolInfo, downloadedAt: nowIso() } };
+  }
+  const files = await fetch(path.join(staging, 'dl'));
+  return { output: { media: files.media, subtitles: files.subtitles, tool: toolInfo, downloadedAt: nowIso() } };
+}
+
+/** 用 ffprobe 读一遍下载的媒体（与引擎导入素材用的同一个）：解码不了、或既没有画面也没有声音时 `LINK_DOWNLOAD_UNREADABLE`。 */
+async function verifyMedia(deps: LinkImportDeps, file: string, signal: AbortSignal): Promise<GeneratedOutput['media']> {
+  let probed;
+  try {
+    probed = await probeMedia(deps.ffprobe, file, signal);
+  } catch (error) {
+    if (error instanceof PipelineStepError && error.code === 'INPUT_UNREADABLE') {
+      throw new PipelineStepError('LINK_DOWNLOAD_UNREADABLE', JobsLinkImport.undecodable(), {
+        remedy: JobsLinkImport.undecodableRemedy().text,
+      });
+    }
+    throw error;
+  }
+  if (!probed.video && !probed.audio) {
+    throw new PipelineStepError('LINK_DOWNLOAD_UNREADABLE', JobsLinkImport.noStreams(), {
+      remedy: JobsLinkImport.undecodableRemedy().text,
+    });
+  }
+  return probed.video
+    ? {
+        kind: 'video',
+        durationSec: probed.durationSec,
+        width: probed.video.width,
+        height: probed.video.height,
+        videoCodec: probed.video.codec,
+        audioCodec: probed.audio?.codec ?? null,
+      }
+    : { kind: 'audio', durationSec: probed.durationSec, sampleRate: probed.audio!.sampleRate, channels: probed.audio!.channels };
 }
 
 /** staging 里下载得到的文件：只认普通文件（不跟随符号链接）、固定的名字与允许的扩展名，真实路径在 staging 里。 */
@@ -734,25 +829,54 @@ async function publish(
     }
     return file;
   };
+  const outputOf = async (file: string, media: GeneratedOutput['media']): Promise<GeneratedOutput> => {
+    const { size, digest } = await digestFile(file);
+    return {
+      artifactId: `sha256:${digest}`,
+      mediaType: MEDIA_TYPES[path.extname(file).slice(1)] ?? 'application/octet-stream',
+      byteLength: size,
+      assetId: null,
+      media,
+      path: file,
+    };
+  };
   try {
+    if (downloaded.sections) {
+      // 每段一个文件，名字带原片区间（例如 `标题 1m23.5s-1m45s.mp4`）。
+      const sections: NonNullable<PublishOutput['sections']> = [];
+      for (const [index, section] of downloaded.sections.entries()) {
+        const extension = path.extname(section.media);
+        const media = await place(section.media, `${stem} ${sectionTime(section.start)}-${sectionTime(section.end)}`, extension);
+        sections.push({ start: section.start, end: section.end, media, output: await outputOf(media, verified.sections![index]!) });
+      }
+      const outputs = sections.map((section) => section.output);
+      return {
+        output: { media: sections[0]!.media, subtitles: [], output: outputs[0]!, sections },
+        result: { documentId: null, artifactId: outputs[0]!.artifactId, outputs },
+      };
+    }
     const media = await place(downloaded.media, stem, ext);
     const base = path.basename(media, ext);
     const subtitles: string[] = [];
     for (const sub of downloaded.subtitles) subtitles.push(await place(sub.file, `${base}.${sub.language}`, `.${sub.ext}`));
-    const { size, digest } = await digestFile(media);
-    const output: GeneratedOutput = {
-      artifactId: `sha256:${digest}`,
-      mediaType: MEDIA_TYPES[ext.slice(1)] ?? 'application/octet-stream',
-      byteLength: size,
-      assetId: null,
-      media: verified.media,
-      path: media,
-    };
+    const output = await outputOf(media, verified.media);
     return { output: { media, subtitles, output }, result: { documentId: null, artifactId: output.artifactId, outputs: [output] } };
   } catch (error) {
     for (const file of placed) await fs.rm(file, { force: true }).catch(() => {});
     throw error;
   }
+}
+
+/** 文件名里的原片时间：`1h02m03s`、`1m23.5s`、`45s`（秒保留至多三位小数；不用冒号，文件名里不能有）。 */
+export function sectionTime(seconds: number): string {
+  const total = Math.round(seconds * 1000) / 1000;
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = Math.round((total % 60) * 1000) / 1000;
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  if (hours > 0) return `${hours}h${pad(minutes)}m${pad(secs)}s`;
+  if (minutes > 0) return `${minutes}m${pad(secs)}s`;
+  return `${secs}s`;
 }
 
 /** 新建视频（`target.create`）：在项目或会话的来源目录里新建、交给流程持有；名字不给时取页面标题，再没有时取下载的文件名。 */
@@ -785,6 +909,20 @@ async function importIntoVideo(
   const downloaded = outputs.download as DownloadOutput;
   const published = outputs.publish as PublishOutput;
   progress(null, 'applying');
+  if (published.sections) {
+    const assetIds = await importSections(deps.videos, context, {
+      videoId: targetVideo(params, outputs),
+      name: resolved.metadata.title ?? path.basename(published.sections[0]!.media),
+      place: params.create !== undefined ? true : 'if-empty',
+      sections: published.sections.map((section) => ({
+        file: section.media,
+        provenance: linkImportProvenance(params.url, resolved.metadata, downloaded, parentJobId, section),
+        start: section.start,
+        end: section.end,
+      })),
+    });
+    return { output: { assetId: assetIds[0]!, sections: assetIds } };
+  }
   // 新建的视频：同一笔事务把素材放上主轨（第一条同类轨道），从 0 开始、覆盖整段媒体。已有的视频时间线还空着时也放（对外服务
   // 先 `videos_create` 再下载进去，架构设计 §4.8），已经有片段时只导入素材。
   const { assetId } = await importMedia(deps.videos, context, {
@@ -796,6 +934,64 @@ async function importIntoVideo(
     provenance: linkImportProvenance(params.url, resolved.metadata, downloaded, parentJobId),
   });
   return { output: { assetId } };
+}
+
+/**
+ * 分段下载的导入：同一笔事务把每段作为独立的链接素材导入（名字是页面标题加原片区间）；要放上主轨时（规则同 `importMedia`）
+ * 第一段从 0 开始，其余省略 `at` 依次接在末尾，按给的顺序首尾相接。命令与 `importMedia` 相同，中断之后按命令认回那笔事务。
+ */
+async function importSections(
+  videos: MediaVideos,
+  context: Pick<PipelineStepContext<unknown>, 'parentJobId' | 'run'>,
+  request: {
+    videoId: Id;
+    name: string;
+    place: true | 'if-empty';
+    sections: Array<{ file: string; provenance: { origin: string; source: Record<string, unknown> }; start: number; end: number }>;
+  },
+): Promise<Id[]> {
+  const commandId = `${context.parentJobId}:import`;
+  const { videoId } = request;
+  const refs = request.sections.map((_, index) => `link${index}`);
+  const collect = (got: Record<string, Id> | undefined) => {
+    const ids = refs.map((ref) => got?.[ref]);
+    return ids.every((id): id is Id => typeof id === 'string') ? ids : null;
+  };
+  const previous = await videos.receipt?.(videoId, commandId);
+  const recovered = previous ? collect(previous.refs) : null;
+  if (recovered) return recovered;
+  const state = videos.state(videoId);
+  if (!state) throw new PipelineStepError('VIDEO_NOT_OPEN', JobsVideoCreate.videoClosed(), {});
+  const place = request.place === 'if-empty' ? videos.rootSequence?.(videoId)?.items.length === 0 : request.place;
+  const operations: EditOperation[] = request.sections.map((section, index) => ({
+    type: 'importAsset',
+    path: section.file,
+    name: `${request.name} ${sectionTime(section.start)}-${sectionTime(section.end)}`,
+    ref: refs[index]!,
+    storage: 'linked',
+    provenance: section.provenance,
+  }));
+  if (place) {
+    for (const [index, ref] of refs.entries()) {
+      operations.push({
+        type: 'addItem',
+        sequenceId: state.rootSequenceId,
+        asset: { ref },
+        ...(index === 0 ? { at: { unit: 'frames' as const, value: 0 } } : {}),
+        alignment: 'floor-frame',
+      });
+    }
+  }
+  const result = await videos.apply(videoId, {
+    commandId,
+    expectedRevision: state.revision,
+    label: JobsLinkImport.label().text,
+    run: context.run,
+    operations,
+  });
+  const assetIds = collect(result.refs);
+  if (!assetIds) throw new PipelineStepError('INTERNAL', JobsVideoCreate.noAsset(), {});
+  return assetIds;
 }
 
 /** 摘要里的简介最多保留的字符数（素材来源里是完整的）。 */
@@ -814,6 +1010,7 @@ function linkImportProvenance(
   meta: LinkMetadata,
   downloaded: Pick<DownloadOutput, 'tool' | 'downloadedAt'>,
   jobId: Id,
+  section?: LinkDownloadSection,
 ): { origin: string; source: Record<string, unknown> } {
   return {
     origin: 'link-import',
@@ -826,6 +1023,8 @@ function linkImportProvenance(
       uploader: meta.uploader,
       uploadDate: meta.uploadDate,
       durationSec: meta.durationSec,
+      // 分段下载：这份素材是原片的哪一段（秒），整条的时长仍是 `durationSec`。
+      ...(section ? { section: { start: section.start, end: section.end } } : {}),
       // 简介与平台章节：润色、识别说话人与采用来源章节（`chapters_adopt`）读它们；之前的运行记录里没有，没有时不写。
       ...(meta.description ? { description: meta.description } : {}),
       ...(meta.chapters?.length ? { chapters: meta.chapters } : {}),
@@ -853,15 +1052,21 @@ export function linkImportAssetOperation(
   const resolved = step('resolve') as ResolveOutput | null;
   const downloaded = step('download') as DownloadOutput | null;
   const published = step('publish') as PublishOutput | null;
-  if (!resolved || !downloaded || !published || published.output.artifactId !== output.artifactId) return null;
+  if (!resolved || !downloaded || !published) return null;
+  // 分段下载：按产物找是哪一段，来源带上它的区间。
+  const section = published.sections?.find((s) => s.output.artifactId === output.artifactId);
+  if (!section && published.output.artifactId !== output.artifactId) return null;
   const url = typeof run.params.url === 'string' ? run.params.url : '';
+  const title = resolved.metadata.title;
   return {
     type: 'importAsset',
     path: output.file,
-    name: options.name ?? resolved.metadata.title ?? path.basename(published.media),
+    name:
+      options.name ??
+      (section && title ? `${title} ${sectionTime(section.start)}-${sectionTime(section.end)}` : (title ?? path.basename(section?.media ?? published.media))),
     ...(options.ref !== undefined ? { ref: options.ref } : {}),
     storage: 'managed',
-    provenance: linkImportProvenance(url, resolved.metadata, downloaded, record.jobId),
+    provenance: linkImportProvenance(url, resolved.metadata, downloaded, record.jobId, section),
   };
 }
 

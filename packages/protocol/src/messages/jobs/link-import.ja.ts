@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const ja: JobsLinkImportMessages = {
+  sectionItems: 'の各項目は { start, end }（秒、0 ≤ start < end）である必要があります',
+  sectionOutOfRange: (p) => `ダウンロードする区間の ${p.end} 秒が動画の長さ（${p.duration} 秒）を超えています`,
 
   languageTag: 'BCP 47 言語タグである必要があります',
   requiresTranscribe: 'transcribe と一緒に指定する必要があります',

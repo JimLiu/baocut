@@ -71,6 +71,8 @@ export interface DownloadOptions {
   subtitleLanguages: readonly string[];
   /** 给了时用这个 ffmpeg 合并音视频。 */
   ffmpegLocation?: string | null;
+  /** 只下载原片的这一段（秒）；不给时整条。 */
+  section?: { start: number; end: number };
 }
 
 /** 下载媒体（与可选的字幕）。 */
@@ -83,6 +85,8 @@ export function downloadArgs(url: string, options: DownloadOptions): string[] {
   if (!options.audioOnly) args.push('--merge-output-format', 'mp4/webm/mkv');
   if (options.ffmpegLocation) args.push('--ffmpeg-location', options.ffmpegLocation);
   if (options.subtitleLanguages.length > 0) args.push('--write-subs', '--sub-langs', options.subtitleLanguages.join(','));
+  // 一段：`*` 开头是时间范围（秒）；切点上重新编码出关键帧，开头不会是黑屏或花屏。
+  if (options.section) args.push('--download-sections', `*${options.section.start}-${options.section.end}`, '--force-keyframes-at-cuts');
   args.push('--', url);
   return args;
 }

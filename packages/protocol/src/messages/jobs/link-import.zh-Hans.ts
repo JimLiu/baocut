@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const zhHans: JobsLinkImportMessages = {
+  sectionItems: '的每一项应为 { start, end }（秒），且 0 ≤ start < end',
+  sectionOutOfRange: (p) => `要下载的片段 ${p.end} 秒超出了视频的时长（${p.duration} 秒）`,
   languageTag: "应为 BCP 47 语言标签",
   requiresTranscribe: "只与 transcribe 一起给",
   noVideoDiarize: "没有视频目标时只写独立文稿，不区分说话人",

@@ -23,7 +23,7 @@
 按这个顺序，前面有的后面不找：
 
 1. **用户的视频库**。按意思跨视频找（`baocut space search-v2` 给一句意思，`channels` 给 `["visual"]` 可以按画面描述找镜头；`baocut space search` 按字面找原词与说话人），做法照 `cross-video-qa`。库里有的采访、直播、录屏往往比网上的更完整、许可也清楚。
-2. **网上**。`baocut assets search` 一次查三处（YouTube、Commons、Internet Archive），检索词用英文写要拍到的东西、人、事件；`preview` 看接触表挑；`commercial`、`creativeCommons` 按用途筛。Commons 与 Internet Archive 的用 `baocut assets download` 下进视频；YouTube 的用 `download` 给候选的 `pageUrl`。下载是整条：一小时的播客只为一句话也得整条下，先看字幕或简介确认那句话在不在再下；长直播先问用户。要切原声的视频下完要转写（`transcribe`，给语言与人名术语的 `hint`）。检索或下载报 `LINK_LOGIN_REQUIRED` / `LINK_COOKIES_UNAVAILABLE` 时停下来提醒用户登录浏览器并在设置 › 视频下载里勾选它，不自己找 Cookie。
+2. **网上**。`baocut assets search` 一次查三处（YouTube、Commons、Internet Archive），检索词用英文写要拍到的东西、人、事件；`preview` 看接触表挑；`commercial`、`creativeCommons` 按用途筛。Commons 与 Internet Archive 的用 `baocut assets download` 下进视频；YouTube 的用 `download` 给候选的 `pageUrl`。长视频只要其中几句时给 `download` 的 `sections`（秒，`[{ start, end }]`）只下那几段：先看平台字幕或简介里的章节找到那句话在第几秒，前后各留几秒余量；每段是一份独立素材，来源的 `section` 记着原片区间（找授权时用）。不知道在哪、要通读整条时才整条下，长直播整条下之前先问用户。要切原声的素材下完要转写（`transcribe` 给 `video` 与那段的 `asset`，带语言与人名术语的 `hint`；`sections` 不能与 `download` 的 `transcribe` 同给）。检索或下载报 `LINK_LOGIN_REQUIRED` / `LINK_COOKIES_UNAVAILABLE` 时停下来提醒用户登录浏览器并在设置 › 视频下载里勾选它，不自己找 Cookie。
 3. **用户给的**：本机文件、截图、录屏直接导入；用户口头描述的「我有一段……」问清在哪。
 
 素材多（十几个人物、几十个事件）时派子代理分头找：一个找人物采访与原声，一个找事件画面。简报要写全（主题、蓝本、今天的日期、人物或事件清单、已知候选、授权状态、最多下载几条、结果写到哪个文件），结果写成 JSON（视频、链接、标题、频道、日期、时长、下载到哪、每段候选的起止与为什么），不只写在回复里。

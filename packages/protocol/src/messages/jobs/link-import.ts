@@ -16,6 +16,8 @@ import { vi } from './link-import.vi.ts';
 
 /** `packages/jobs/src/pipelines/link-import.ts` 给人看的文字。 */
 const en = {
+  sectionItems: 'must contain only { start, end } ranges in seconds with 0 ≤ start < end',
+  sectionOutOfRange: (p: { end: number; duration: number }) => `The section ${p.end}s goes past the end of the video (${p.duration}s)`,
   languageTag: "must be a BCP 47 language tag",
   requiresTranscribe: "can only be given with transcribe",
   noVideoDiarize: "Without a video target, only standalone transcripts are written; speakers cannot be separated",

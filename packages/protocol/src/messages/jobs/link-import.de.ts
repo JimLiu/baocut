@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const de: JobsLinkImportMessages = {
+  sectionItems: 'darf nur Bereiche { start, end } in Sekunden mit 0 ≤ start < end enthalten',
+  sectionOutOfRange: (p) => `Der Abschnitt bei ${p.end} s liegt hinter dem Ende des Videos (${p.duration} s)`,
   languageTag: "muss ein BCP 47-Sprachtag sein",
   requiresTranscribe: "darf nur zusammen mit transcribe angegeben werden",
   noVideoDiarize: "Ohne Videoziel werden nur eigenständige Transkripte geschrieben; Sprecher können nicht getrennt werden",

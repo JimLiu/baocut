@@ -45,6 +45,7 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 <!-- /surface -->
 | 同时取平台字幕 | 加 {{arg:subs}}（语言列表），字幕文件放在媒体旁边、不导入视频 |
 | 只要音频 | 加 {{arg:audioOnly}} |
+| 长视频只要其中几段 | 加 {{arg:sections}}（秒，`[{ start, end }]`，至多 20 段）：每段单独下载、存成一个文件、作为独立素材导入，来源记原片区间；{{arg:newVideo}} 时按顺序首尾相接放上时间线。end 不能超过视频时长；不能与 {{arg:transcribe}}、{{arg:subs}} 同给，要转写时下完对那段素材用 {{tool:transcribe}} |
 | 视频要登录才能看 | 默认按用户在设置 › 视频下载选的浏览器；用户指明浏览器时加 {{arg:cookieBrowsers}}（例如 `["chrome"]`，按顺序尝试）；{{tool:transcribe}} 给 {{arg:url}} 时同样 |
 
 {{arg:video}}、{{arg:newVideo}}、{{arg:project}} 三选一。只取单个视频，不取播放列表。

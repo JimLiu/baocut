@@ -429,6 +429,13 @@ export interface LinkImportParams {
   /** 只下载音频。 */
   audioOnly?: boolean;
   /**
+   * 只下载原片的这几段（秒，`0 ≤ start < end`，至多 20 段）：每段单独下载（yt-dlp `--download-sections` 与
+   * `--force-keyframes-at-cuts`，切点重新编码出关键帧）、单独发布成文件、作为独立素材导入，素材来源 `source.section` 记下原片区间。
+   * 元数据有时长时 `end` 不能超过它（解析之后以 `LINK_SECTION_OUT_OF_RANGE` 失败）。不能与 `transcribe`、`subtitleLanguages` 同时给。
+   * 不给时下载整条。
+   */
+  sections?: LinkDownloadSection[];
+  /**
    * 本次下载显式使用哪些浏览器的登录信息（不重复，按尝试的顺序）；不给或空时匿名。解析链接时按顺序逐个用：读不到这个浏览器的
    * Cookie、或网站仍要求登录时换下一个，别的失败（网络、磁盘、不支持、工具过旧）不换；用上的那个记在结果的 `cookieBrowser`，
    * 下载沿用它。不保存 Cookie 内容。
@@ -466,6 +473,12 @@ export interface LinkImportParams {
   outDir?: string;
 }
 
+/** 从链接下载的一段：原片的起止（秒）。 */
+export interface LinkDownloadSection {
+  start: number;
+  end: number;
+}
+
 /** 从链接导入完成时父任务的 `pipeline.summary`。 */
 export interface LinkImportSummary {
   /** 脱敏之后的链接（规则见架构设计 §7.9）。 */
@@ -479,13 +492,15 @@ export interface LinkImportSummary {
   description?: string | null;
   /** 平台给的结构化章节（`chapters[]`）的条数；没有时 0。简介里的时间戳大纲不算在内。之前的版本没有这个字段。 */
   sourceChapters?: number;
-  /** 下载得到的文件（绝对路径）：媒体，与字幕。 */
+  /** 下载得到的文件（绝对路径）：媒体，与字幕。分段下载时 `media` 是第一段。 */
   files: { media: string; subtitles: string[] };
+  /** 分段下载（`sections`）时每段的原片区间、文件与导入的素材（没有导入时 null），按给的顺序；整条下载时没有。之前的版本没有这个字段。 */
+  sections?: Array<LinkDownloadSection & { media: string; assetId: Id | null }>;
   tool: { name: string; version: string; source: string };
   /** 实际用上的浏览器 Cookie；匿名下载时 null。之前的版本没有这个字段。 */
   cookieBrowser?: LinkCookieBrowser | null;
   downloadedAt: string;
-  /** 导入的视频与素材；没有导入时 null。 */
+  /** 导入的视频与素材（分段下载时是第一段的）；没有导入时 null。 */
   videoId: Id | null;
   assetId: Id | null;
   /** 视频是这次新建的（`target.create`）；之前的版本没有这个字段。 */

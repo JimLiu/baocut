@@ -21,6 +21,7 @@ import {
   linkImportAssetOperation,
   linkImportPipeline,
   parseLinkImportParams,
+  sectionTime,
   type LinkImportDeps,
 } from './link-import.ts';
 import { PipelineRunner } from './pipeline-runner.ts';
@@ -75,9 +76,31 @@ describe('从链接导入的参数', () => {
       { url: 'https://video.example.com/a', projectId: 'p', conversationId: 'c' },
       { url: 'https://video.example.com/a', subtitleLanguages: ['en;rm'] },
       { url: 'https://video.example.com/a', audioOnly: 'yes' },
+      { url: 'https://video.example.com/a', sections: [] },
+      { url: 'https://video.example.com/a', sections: [{ start: 5, end: 5 }] },
+      { url: 'https://video.example.com/a', sections: [{ start: 9, end: 3 }] },
+      { url: 'https://video.example.com/a', sections: [{ start: -1, end: 3 }] },
+      { url: 'https://video.example.com/a', sections: [{ start: '1', end: 3 }] },
+      { url: 'https://video.example.com/a', sections: [{ start: 0, end: Infinity }] },
+      { url: 'https://video.example.com/a', sections: [{ start: 0, end: 3, title: 'x' }] },
+      { url: 'https://video.example.com/a', sections: Array.from({ length: 21 }, (_, i) => ({ start: i, end: i + 1 })) },
+      { url: 'https://video.example.com/a', sections: [{ start: 0, end: 3 }], transcribe: true },
+      { url: 'https://video.example.com/a', sections: [{ start: 0, end: 3 }], subtitleLanguages: ['en'] },
     ]) {
       expect(() => parseLinkImportParams(bad), JSON.stringify(bad)).toThrow(expect.objectContaining({ code: 'invalid-request' }));
     }
+  });
+
+  it('分段：{ start, end } 秒数原样冻结进参数，不给时没有', () => {
+    const url = 'https://video.example.com/a';
+    expect(parseLinkImportParams({ url, sections: [{ start: 754, end: 781.5 }, { start: 0, end: 3 }] })).toMatchObject({
+      sections: [{ start: 754, end: 781.5 }, { start: 0, end: 3 }],
+    });
+    expect(parseLinkImportParams({ url })).not.toHaveProperty('sections');
+    expect(sectionTime(0)).toBe('0s');
+    expect(sectionTime(0.4)).toBe('0.4s');
+    expect(sectionTime(83.5)).toBe('1m23.5s');
+    expect(sectionTime(3723)).toBe('1h02m03s');
   });
 
   it('新建视频的目标：在项目或会话里；不收 media，不能与 videoId、别的项目或会话同时给；转写可以只给新建', () => {
@@ -217,7 +240,9 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
         },
         apply: async (videoId, request) => {
           applied.push({ videoId, request: request as unknown as Record<string, unknown> });
-          return { refs: { link: 'asset_9' } };
+          // 整条下载的 `link` 是 asset_9；分段的 `link<i>` 是 asset_link<i>。
+          const refs = request.operations.flatMap((op) => (op.type === 'importAsset' && op.ref ? [op.ref] : []));
+          return { refs: Object.fromEntries(refs.map((ref) => [ref, ref === 'link' ? 'asset_9' : `asset_${ref}`])) };
         },
       },
       ffprobe: async () => ({ command: 'ffprobe', env: process.env }),
@@ -584,6 +609,69 @@ describe.skipIf(!hasFfprobe)('从链接导入（假 yt-dlp）', () => {
     expect(await locateArtifact(jobs.artifacts, media!.artifactId, media!)).toBeNull();
     await fs.rm(summary.files.media);
     expect(await locateArtifact(jobs.artifacts, media!.artifactId, media!)).toBeNull();
+  });
+
+  it('分段下载：每段单独下载、发布成带区间的文件，同一笔事务作为独立素材导入并首尾相接放上主轨，来源记原片区间', async () => {
+    const { jobId } = await start({
+      url: 'https://video.example.com/watch?v=abc',
+      target: { create: { projectId: 'prj_1' } },
+      sections: [
+        { start: 0.5, end: 1 },
+        { start: 0, end: 0.4 },
+      ],
+    });
+    const parent = await finished(jobId);
+    expect(parent.state).toBe('completed');
+    // 每段一次 yt-dlp，带 --download-sections 与 --force-keyframes-at-cuts，进各自的目录。
+    const downloadsRun = (await fake.calls()).filter((c) => c.argv?.includes('-o'));
+    expect(downloadsRun.map((c) => c.argv![c.argv!.indexOf('--download-sections') + 1])).toEqual(['*0.5-1', '*0-0.4']);
+    for (const call of downloadsRun) expect(call.argv).toContain('--force-keyframes-at-cuts');
+    expect(downloadsRun.map((c) => path.basename(path.dirname(c.argv![c.argv!.indexOf('-o') + 1]!)))).toEqual(['s0', 's1']);
+    const real = await fs.realpath(downloads());
+    const summary = parent.pipeline!.summary as unknown as LinkImportSummary;
+    expect(summary.sections).toEqual([
+      { start: 0.5, end: 1, media: path.join(real, `rf Fake clip one two it's ok 0.5s-1s.wav`), assetId: 'asset_link0' },
+      { start: 0, end: 0.4, media: path.join(real, `rf Fake clip one two it's ok 0s-0.4s.wav`), assetId: 'asset_link1' },
+    ]);
+    expect(summary).toMatchObject({ files: { media: summary.sections![0]!.media, subtitles: [] }, assetId: 'asset_link0', createdVideo: true });
+    // 结果每段一条产物，内容各不相同。
+    const outputs = parent.result!.outputs!;
+    expect(outputs.map((o) => [o.path, o.assetId])).toEqual(summary.sections!.map((s) => [s.media, s.assetId]));
+    expect(new Set(outputs.map((o) => o.artifactId)).size).toBe(2);
+    expect(outputs[1]!.media).toMatchObject({ kind: 'audio' });
+    // 一笔事务：两份链接素材（来源带区间、整条时长不变），第一段从 0 开始、第二段接在末尾。
+    expect(applied).toHaveLength(1);
+    expect(applied[0]!.request.operations).toEqual([
+      expect.objectContaining({
+        type: 'importAsset',
+        ref: 'link0',
+        storage: 'linked',
+        path: summary.sections![0]!.media,
+        name: `-rf "Fake clip": one/two  it's <ok> 0.5s-1s`,
+        provenance: { origin: 'link-import', source: expect.objectContaining({ section: { start: 0.5, end: 1 }, durationSec: 1, mediaId: 'abc123' }) },
+      }),
+      expect.objectContaining({ type: 'importAsset', ref: 'link1', provenance: expect.objectContaining({ source: expect.objectContaining({ section: { start: 0, end: 0.4 } }) }) }),
+      { type: 'addItem', sequenceId: 'seq_new', asset: { ref: 'link0' }, at: { unit: 'frames', value: 0 }, alignment: 'floor-frame' },
+      { type: 'addItem', sequenceId: 'seq_new', asset: { ref: 'link1' }, alignment: 'floor-frame' },
+    ]);
+  });
+
+  it('分段只下载时按产物导入认得是哪一段；终点超过视频时长时解析之后失败，不下载', async () => {
+    const parent = await finished((await start({ url: 'https://video.example.com/watch?v=abc', sections: [{ start: 0, end: 0.4 }, { start: 0.5, end: 1 }] })).jobId);
+    expect(parent.state).toBe('completed');
+    expect(applied).toEqual([]);
+    const second = parent.result!.outputs![1]!;
+    expect(linkImportAssetOperation(parent, { artifactId: second.artifactId, file: second.path! })).toMatchObject({
+      type: 'importAsset',
+      path: second.path,
+      name: `-rf "Fake clip": one/two  it's <ok> 0.5s-1s`,
+      storage: 'managed',
+      provenance: { origin: 'link-import', source: expect.objectContaining({ section: { start: 0.5, end: 1 } }) },
+    });
+    const before = (await fake.calls()).length;
+    const failed = await finished((await start({ url: 'https://video.example.com/watch?v=abc', sections: [{ start: 0, end: 5 }] })).jobId);
+    expect(failed).toMatchObject({ state: 'failed', error: { code: 'LINK_SECTION_OUT_OF_RANGE', details: { section: { start: 0, end: 5 }, durationSec: 1 } } });
+    expect((await fake.calls()).slice(before).filter((c) => c.argv?.includes('-o'))).toEqual([]);
   });
 
   it('同名文件不覆盖；没有视频时只下载', async () => {
