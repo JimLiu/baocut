@@ -6,6 +6,7 @@ import { COMPOSITION_PICK_SCRIPT, compositionPageScript } from './composition-br
 /** 「选择元素」的拾取脚本（lite-editor §4.1、§11 第 12 条）：在 happy-dom 里装上，按节点核对说明。happy-dom 不排版，框不看。 */
 
 type PickWindow = Window & {
+  __baocutPickRegions?: unknown;
   __baocutPick?: (x: number, y: number) => CompositionBridgePick | null;
   __baocutDescribe?: (node: Element | null) => CompositionBridgePick | null;
 };
@@ -17,6 +18,7 @@ beforeAll(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   document.body.innerHTML = '';
+  delete win().__baocutPickRegions;
 });
 
 const html = (markup: string): Element => {
@@ -95,6 +97,54 @@ describe('拾取脚本', () => {
     at.mockReturnValue(null);
     expect(win().__baocutPick!(1, 1)).toBeNull();
     expect(win().__baocutPick!(Number.NaN, 1)).toBeNull();
+  });
+
+  it('页面登记了拾取区域（代码包规范 §4.5）：点落在区域里取最上面那个（后登记的），写成 region#id；落在外面照旧拾节点', () => {
+    const canvas = html('<canvas id="overlay"></canvas>');
+    const at = vi.spyOn(document, 'elementFromPoint').mockReturnValue(canvas);
+    win().__baocutPickRegions = [
+      { x: 100, y: 300, w: 600, h: 260, name: 'Title block', id: 'title' },
+      { x: 104.4, y: 290.6, w: 560.5, h: 130.2, name: '  Upside   down ', role: 'heading' },
+    ];
+    expect(win().__baocutPick!(200, 350)).toEqual({
+      selector: 'region',
+      w: 561,
+      h: 130,
+      name: 'Upside down',
+      role: 'heading',
+      focusable: false,
+      rect: { x: 104, y: 291, w: 561, h: 130 },
+    });
+    expect(win().__baocutPick!(200, 500)).toMatchObject({ selector: 'region#title', name: 'Title block' });
+    expect(at).not.toHaveBeenCalled();
+    expect(win().__baocutPick!(900, 900)).toMatchObject({ selector: 'canvas#overlay' });
+    expect(at).toHaveBeenCalledWith(900, 900);
+  });
+
+  it('不合形的区域跳过：非有限数、没有面积、不是对象；id 不合规就当没有，name 截到 80 字；不是数组时不看', () => {
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(null);
+    win().__baocutPickRegions = [
+      { x: 0, y: 0, w: 100, h: 100, id: 'bad id!', name: 'x'.repeat(200) },
+      null,
+      'region',
+      { x: Number.NaN, y: 0, w: 100, h: 100 },
+      { x: 0, y: 0, w: 0, h: 100 },
+    ];
+    const pick = win().__baocutPick!(10, 10)!;
+    expect(pick.selector).toBe('region');
+    expect(pick.name).toHaveLength(80);
+    expect(pick.name!.endsWith('\u2026')).toBe(true);
+    win().__baocutPickRegions = { x: 0, y: 0, w: 100, h: 100 };
+    expect(win().__baocutPick!(10, 10)).toBeNull();
+  });
+
+  it('一帧只看最后 500 项', () => {
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(null);
+    const filler = Array.from({ length: 500 }, (_, i) => ({ x: 1000 + i, y: 1000, w: 1, h: 1 }));
+    win().__baocutPickRegions = [{ x: 0, y: 0, w: 10, h: 10, id: 'old' }, ...filler];
+    expect(win().__baocutPick!(5, 5)).toBeNull();
+    win().__baocutPickRegions = [{ x: 0, y: 0, w: 10, h: 10, id: 'old' }, ...filler.slice(1)];
+    expect(win().__baocutPick!(5, 5)).toMatchObject({ selector: 'region#old' });
   });
 
   it('整段注入脚本里有拾取，且不含 </script>', () => {

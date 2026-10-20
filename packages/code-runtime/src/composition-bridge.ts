@@ -19,7 +19,8 @@ import { COMPOSITION_ADAPTER_SCRIPT } from './composition-adapter.ts';
  * 「选择元素」的拾取（lite-editor §4.1、§11 第 12 条；`@baocut/protocol` 的 `CompositionBridgePick`）：装
  * `window.__baocutPick(x, y)`（视口坐标，即合成的固有像素）与 `window.__baocutDescribe(node)`。取最内层节点（与原型
  * `stage-markup.jsx` 的 `pickAt` 同），`html`、`body` 与没有节点时是 `null`。iframe 带 `inert` 与 `pointer-events: none` 不影响
- * 页面里的 `elementFromPoint`（2026-10-19 在 Electron 上核对过）。脚本里不用模板插值，全用 `+` 拼（这段源码本身是模板字符串）。
+ * 页面里的 `elementFromPoint`（2026-10-19 在 Electron 上核对过）。页面在 `window.__baocutPickRegions` 登记了拾取区域（代码包规范 §4.5：
+ * 画在 canvas 里的字与图形）且点落在区域里时，先取最上面那个区域，写成 `region#<id>`。脚本里不用模板插值，全用 `+` 拼（这段源码本身是模板字符串）。
  */
 export const COMPOSITION_PICK_SCRIPT = String.raw`(() => {
   if (window.__baocutPick) return;
@@ -71,8 +72,42 @@ export const COMPOSITION_PICK_SCRIPT = String.raw`(() => {
     if (role) out.role = role;
     return out;
   };
+  // 页面登记的拾取区域（代码包规范 §4.5）：画在 canvas 里的字没有节点，按登记的框拾；后登记的在上，只看最后 REGIONS_MAX 项。
+  const REGIONS_MAX = 500;
+  const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+  const num = (value) => typeof value === 'number' && Number.isFinite(value);
+  const regionAt = (x, y) => {
+    let regions;
+    try {
+      regions = window.__baocutPickRegions;
+    } catch (error) {
+      return null;
+    }
+    if (!Array.isArray(regions)) return null;
+    const stop = Math.max(0, regions.length - REGIONS_MAX);
+    for (let i = regions.length - 1; i >= stop; i -= 1) {
+      const region = regions[i];
+      if (!region || typeof region !== 'object') continue;
+      const rx = region.x, ry = region.y, rw = region.w, rh = region.h;
+      if (!num(rx) || !num(ry) || !num(rw) || !num(rh) || !(rw > 0) || !(rh > 0)) continue;
+      if (x < rx || y < ry || x > rx + rw || y > ry + rh) continue;
+      const id = typeof region.id === 'string' && ID_PATTERN.test(region.id) ? region.id : '';
+      const rect = { x: Math.round(rx), y: Math.round(ry), w: Math.round(rw), h: Math.round(rh) };
+      const out = { selector: id ? 'region#' + id : 'region', w: rect.w, h: rect.h, focusable: false, rect };
+      let name = clean(typeof region.name === 'string' ? region.name : '');
+      if (name.length > NAME_MAX) name = name.slice(0, NAME_MAX - 1) + '\u2026';
+      if (name) out.name = name;
+      const role = clean(typeof region.role === 'string' ? region.role : '').split(' ')[0];
+      if (role) out.role = role;
+      return out;
+    }
+    return null;
+  };
   window.__baocutDescribe = describe;
-  window.__baocutPick = (x, y) => (Number.isFinite(x) && Number.isFinite(y) ? describe(document.elementFromPoint(x, y)) : null);
+  window.__baocutPick = (x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return regionAt(x, y) || describe(document.elementFromPoint(x, y));
+  };
 })();`;
 
 export const COMPOSITION_BRIDGE_SCRIPT = String.raw`(() => {

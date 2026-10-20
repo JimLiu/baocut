@@ -292,7 +292,9 @@ export type CompositionBridgeRequest =
   | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'pick'; id: number; x: number; y: number };
 
 /**
- * `pick` 的结果：那一点下最内层的节点（`document.elementFromPoint`；`html`、`body` 与没有节点时是 `null`）。
+ * `pick` 的结果：那一点下最内层的节点（`document.elementFromPoint`；`html`、`body` 与没有节点时是 `null`）。页面在
+ * `window.__baocutPickRegions` 登记了拾取区域（代码包规范 §4.5，画在 canvas 里的字与图形）且点落在区域里时，是最上面那个区域：
+ * `selector` 写 `region#<id>`（没有 id 时 `region`），`name` 是登记的说法，`focusable` 为假。
  * `selector` 是 `tag#id.class.class`（小写 tag，至多两个 class）；`name` 依次取 `aria-label`、`alt`、`title`、去空白的文字（至多 80 字）；
  * `role` 是显式的 `role` 属性，否则按标签的隐式角色，没有就省略；`focusable` 是 `tabIndex >= 0` 且没禁用；`rect` 是视口里的框
  * （固有像素，四舍五入），`w`、`h` 与它相同。来自不受信的代码包页面：父页面收到后逐字段验形，不合就当 `null`。
