@@ -16,6 +16,7 @@ export const zhHans: AgentToolStepsMessages = {
     deleteVideo: '删除视频',
     readTranscript: '读取文稿',
     undoEdit: '撤销修改',
+    assemblePlan: '放置制作计划',
     captions: '建字幕层',
     transcribe: '转录',
     dub: '翻译配音',

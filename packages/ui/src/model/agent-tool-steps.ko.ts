@@ -16,6 +16,7 @@ export const ko: AgentToolStepsMessages = {
     deleteVideo: '영상 삭제',
     readTranscript: '전사본 읽기',
     undoEdit: '수정 실행 취소',
+    assemblePlan: '제작 계획 배치',
     captions: '자막 레이어 만들기',
     transcribe: '전사',
     dub: '번역 및 더빙',

@@ -1444,6 +1444,7 @@ interface Provenance {
 | `editorial-proposal` | 口播剪辑提案 | 已实现 | §6.2 |
 | `cut-set` | 一个源素材上被口播剪辑删掉的区间 | `baocut.cut-set/1` | §6.7 |
 | `derivation` | 派生子视频的来源：父视频、版本、区间与区间之外的剪口 | `baocut.derivation/1` | 见下 |
+| `production-plan` | 制作计划放上时间线的记录：每个段落、实拍片段与卡片对应哪个片段，用的是哪一版内容 | `baocut.production-plan/1` | 见下 |
 | `dubbing-plan` | 配音计划 | 计划 | §7.2 |
 | `sound-cue-sheet`、`narration-cue-sheet` | 声音事件表、旁白事件表 | 计划 | §7.9、§7.10 |
 | `chapter-sheet` | 章节表：一个序列的每一章的脚本、配音、代码包与它编译成的实例与标记 | `baocut.chapter-sheet/1`（今天只有界面读脚本，编译未实现） | §7.12 |
@@ -1481,6 +1482,26 @@ interface Provenance {
   `hook`、`reason`、`notes` 是加上去的可选字段（派生时调用方给了才写，不参与幂等键），旧文档没有它们照常读；界面没有 `hook` 时取子视频保留段的第一句，没有 `reason`、`notes` 时不显示。
 
   子视频复制了父视频的时间线与文稿，区间之外的部分是记在主素材剪口集合（`cut-set`，§6.7）里的剪口，恢复它们就回到父视频的样子；`cuts` 只是派生时记下的那几个，剪口集合才是当前状态。
+
+- `production-plan` 是 `edits_assemble`（Agent 面设计 §4.3）把制作计划放上时间线之后写的记录：每个视频至多一份，有几份时只认 ID 最小的一份，名字「制作计划」（按当前语言）。重跑时靠它认出哪些段落、片段与卡片已经放好、内容没变，只动变了的；中途失败时写到失败之前放好的部分。正文：
+
+  ```ts
+  interface ProductionPlanBody {
+    schema: 'baocut.production-plan/1';
+    tracks: { scenes: Id; narration: Id; footage: Id | null; cards: Id | null };  // 放到了哪几条轨；没有片段或卡片时 null
+    segments: Array<{
+      id: string;                 // 计划里段落的 id
+      contentHash: string;        // 时间线上那个代码画面用的代码包的内容摘要
+      sceneItem: Id;              // 代码画面的片段
+      narration: string | null;   // 旁白：'artifact:<产物 ID>' 或 'sha256:<文件内容摘要>'；没有旁白时 null
+      narrationItem: Id | null;   // 旁白的片段
+    }>;
+    clips: Array<{ id: string; key: string; item: Id }>;          // 实拍片段：key 是源、入点、长度、画面、声音与转场的 sha256
+    cards: Array<{ id: string; contentHash: string; item: Id }>;  // 卡片：代码包的内容摘要
+  }
+  ```
+
+  记录里只有摘要与 ID，没有本机路径，便携包照常带出去。重跑时按记录里的片段 ID 找，不按名字。实拍片段、卡片或旁白被手动删掉时重新放；代码画面被连同时间一起删掉（`removeRange`）时当作中间插进的段落放回，只删了片段、留下空隙时后面的段落对不上记录，以 `LAYOUT_MISMATCH` 拒绝。
 
 - `library-selection` 记视频启用了用户库里的哪些条目（架构设计 §5.9）：每个视频至多一份，有几份时只认 ID 最小的一份，名字「启用的库条目」。它记条目 ID，不记内容；条目的内容在用到时冻结，记在用到它的文档或任务上（例如译文的 `glossaryRef`，§5.3）。正文：
 

@@ -1,4 +1,5 @@
 import type { ToolSet } from './tool-catalog.ts';
+import { AssembleTools } from './assemble-tools.ts';
 import { CompositionTools } from './composition-tools.ts';
 import { ConversationTools } from './conversation-tools.ts';
 import { DownloadTools } from './download-tools.ts';
@@ -54,6 +55,7 @@ export function allToolSets(): ToolSet[] {
     new EditAidTools(none),
     new VideoDeleteTools(none),
     new CompositionTools(none),
+    new AssembleTools(none),
     new OpenMediaTools(none),
     new AudioTools(none),
     new SlidesTools(none),

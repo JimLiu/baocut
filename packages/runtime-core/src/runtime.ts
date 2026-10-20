@@ -143,6 +143,7 @@ import { JobTools } from './agent-tools/job-tools.ts';
 import { ProjectTools } from './agent-tools/project-tools.ts';
 import { LibraryTools } from './agent-tools/library-tools.ts';
 import { CompositionTools } from './agent-tools/composition-tools.ts';
+import { AssembleTools } from './agent-tools/assemble-tools.ts';
 import { CompositionService, SharedCompositionHost } from './compositions/composition-service.ts';
 import { findOnPath } from './external-tools/tool-probe.ts';
 import { YT_DLP } from './external-tools/tool-manifests.ts';
@@ -841,16 +842,17 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         settingCookieBrowsers: async () => resolveCookieBrowsers(settings.store.get('downloads.cookieBrowsers'), await detectCookieBrowsers()),
         scope: toolScope,
       };
+      const videoTools = new VideoTools({
+        videos,
+        scope: toolScope,
+        analysis,
+        faces,
+        packages,
+        // Space 目录在后面才建好：派生时再取。
+        findDerived: (parentVideoId, key) => spaceDerivedFinder(space)(parentVideoId, key),
+      });
       return [
-        new VideoTools({
-          videos,
-          scope: toolScope,
-          analysis,
-          faces,
-          packages,
-          // Space 目录在后面才建好：派生时再取。
-          findDerived: (parentVideoId, key) => spaceDerivedFinder(space)(parentVideoId, key),
-        }),
+        videoTools,
         new ModelTools({ models, scope: toolScope, space: () => space }),
         new JobTools({ jobs: models.jobs, pipelines: models.pipelines, scope: toolScope }),
         new ExportTools({ exports, scope: toolScope }),
@@ -891,6 +893,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           scope: toolScope,
         }),
         new CompositionTools({ videos, scope: toolScope, compositions }),
+        // 一次放好制作计划：代码画面走同一个导入服务，其余每笔与 edits_apply 同一条路径。
+        new AssembleTools({ videos, scope: toolScope, compositions, edits: videoTools }),
         // 公开许可的网上素材（Agent 面设计 §4.3）：检索只读；下载进视频与 assets_import 同级，严格离线时都拒绝。
         new OpenMediaTools({
           videos,

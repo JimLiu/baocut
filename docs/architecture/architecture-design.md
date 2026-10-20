@@ -660,7 +660,7 @@ Claude 的兜底模型表只保留 `opus`、`fable`、`sonnet`、`haiku` 别名�
 
 | 工具 | 风险 |
 | --- | --- |
-| `edits_apply`、`edits_undo`、`videos_save_version`、`videos_restore_version`、`captions_create`、`videos_create`、`export` | `edit`；`export` 覆盖已有文件时 `high`；不属于项目的会话新建视频时给了别处的 `project`（会话随之放进那个项目，§3.10）时 `high`，`videos_import_package`、`transcribe` 与 `download` 的新视频同样。保存版本建一个检查点，回到版本是一笔可撤销的修改（§5.12） |
+| `edits_apply`、`edits_undo`、`edits_assemble`、`videos_save_version`、`videos_restore_version`、`captions_create`、`videos_create`、`export` | `edit`；`export` 覆盖已有文件时 `high`；不属于项目的会话新建视频时给了别处的 `project`（会话随之放进那个项目，§3.10）时 `high`，`videos_import_package`、`transcribe` 与 `download` 的新视频同样。保存版本建一个检查点，回到版本是一笔可撤销的修改（§5.12） |
 | `artifacts_save` | 存为新文件 `edit`，覆盖已有文件 `high`。路径先检查，不合法的直接拒绝，不生成审批 |
 | `speak`、`image` | 本机模型是 `edit`（结果是候选素材或产物，不改时间线，可以删掉）；交给已配对的节点、或有 Grant 覆盖这次外发的在线与智能体 Provider 是 `command`；启用了但没有 Grant 覆盖（没有、已撤销或到期、金额上限估不出）的外发是 `high`，审批带上要授权的数据（§12.5）。覆盖它的 Grant 额度用完时在审批之前就以 `BUDGET_EXCEEDED` 拒绝，任何模式都一样。Provider 没有启用或解析不到时按 `command`，提交时以 `CAPABILITY_NOT_CONFIGURED` 拒绝，数据不外发 |
 | `grants_request` | `high`：一次申请这个任务要用的几项外发（每项是能力、Provider、视频、次数与用途），合并成一条审批（§12.5）。`surfaces` 只有 `agent`，MCP 服务与 CLI 都没有它 |

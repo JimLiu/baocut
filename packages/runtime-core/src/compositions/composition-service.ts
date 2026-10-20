@@ -566,6 +566,27 @@ export class CompositionService {
   }
 
   /**
+   * 只读：代码包的长度（清单时长换算到 `fps`，与放置时的长度同一个算法）与内容指纹，不验证、不烘焙、不改视频。
+   * 制作计划（`edits_assemble`）排段与判断包改没改用它。
+   */
+  async measure(
+    bundlePath: string,
+    base: { cwd: string; confine: string | null },
+    fps: Rate,
+  ): Promise<{ frames: number; contentHash: string; bundleId: string }> {
+    const work = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-composition-'));
+    try {
+      const dir = await sourceDirectory({ path: bundlePath }, base, work);
+      const { manifest } = await inspect(dir, {}, work);
+      return { frames: intrinsicFrames(manifest.intrinsic, fps), contentHash: manifest.contentHash, bundleId: manifest.bundleId };
+    } catch (error) {
+      throw toolError(error);
+    } finally {
+      await fs.rm(work, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  /**
    * 提交后台烘焙任务（代码包规范 §7.5）。暂存目录放在视频所在卷的 `blobs/.staging`（与替身素材同卷，导入时同卷复制），建不了时用
    * Runtime Home。任务进行中视频由租约保持打开，任务终结时放开。
    */

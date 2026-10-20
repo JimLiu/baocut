@@ -16,6 +16,7 @@ export const ja: AgentToolStepsMessages = {
     deleteVideo: '動画を削除',
     readTranscript: '文字起こしを読む',
     undoEdit: '編集を取り消す',
+    assemblePlan: '制作計画を配置',
     captions: '字幕レイヤーを作成',
     transcribe: '文字起こし',
     dub: '翻訳して吹き替え',
