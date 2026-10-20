@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { WEB_ACCESS_CODE_TTL_MS, WEB_SESSION_TTL_MS, newId, nowIso, type WebSession } from '@baocut/protocol';
+import { WEB_ACCESS_CODE_TTL_MS, WEB_REVIEW_SESSION_TTL_MS, WEB_SESSION_TTL_MS, newId, nowIso, type WebSession } from '@baocut/protocol';
 
 /**
  * Web 服务的登录状态（架构设计 §4.8、§12.8）：访问链接里的一次性代码与浏览器会话，只在内存里。
@@ -7,6 +7,8 @@ import { WEB_ACCESS_CODE_TTL_MS, WEB_SESSION_TTL_MS, newId, nowIso, type WebSess
  * - 代码是 32 字节随机数的 base64url，只存 `sha256`；第一次尝试兑换时就作废（成不成功都一样），到期也作废；
  *   同时有效的代码有上限，超过时丢掉最早发的。
  * - 会话令牌是 `<sessionId>.<secret>`，`secret` 同样 32 字节、只存哈希，比较用 `timingSafeEqual`；令牌只在 cookie 里。
+ * - 审片会话（`openReview`）由审片链接的密钥换来，只能看 `videos` 里的视频；同一个浏览器再打开另一部视频的审片链接时，
+ *   视频加进同一个会话。完整会话的 `videos` 为 null。
  * - 服务停止时全部清空：令牌在服务每次启动时重新生成（§12.8）。
  */
 
@@ -22,16 +24,20 @@ interface StoredSession {
   expiresAt: number;
   userAgent: string | null;
   connections: number;
+  /** 审片会话能看的视频；完整会话为 null。 */
+  videos: Set<string> | null;
 }
 
 export interface WebSessionsOptions {
   codeTtlMs?: number;
   sessionTtlMs?: number;
+  reviewTtlMs?: number;
 }
 
 export class WebSessions {
   readonly codeTtlMs: number;
   readonly sessionTtlMs: number;
+  readonly reviewTtlMs: number;
   /** sha256(代码) → 到期时间。按插入顺序，最早的在前。 */
   readonly #codes = new Map<string, number>();
   readonly #sessions = new Map<string, StoredSession>();
@@ -39,6 +45,7 @@ export class WebSessions {
   constructor(options: WebSessionsOptions = {}) {
     this.codeTtlMs = options.codeTtlMs ?? WEB_ACCESS_CODE_TTL_MS;
     this.sessionTtlMs = options.sessionTtlMs ?? WEB_SESSION_TTL_MS;
+    this.reviewTtlMs = options.reviewTtlMs ?? WEB_REVIEW_SESSION_TTL_MS;
   }
 
   /** 发一个一次性代码。明文只在这里返回。 */
@@ -61,6 +68,30 @@ export class WebSessions {
     const expiresAt = this.#codes.get(key);
     this.#codes.delete(key);
     if (expiresAt === undefined || expiresAt <= Date.now()) return null;
+    return this.#create(null, this.sessionTtlMs, userAgent);
+  }
+
+  /**
+   * 审片链接的密钥核对过之后：浏览器已有的审片会话（`token`，审片 cookie 里的）还有效就把视频加进去、沿用它，否则另开一个。
+   * 返回的 `token` 为 null 时沿用原来的 cookie。
+   */
+  openReview(videoId: string, token: string | null, userAgent: string | undefined): { sessionId: string; token: string | null; maxAgeSec: number } {
+    const existing = token ? this.verify(token) : null;
+    const session = existing ? this.#sessions.get(existing) : undefined;
+    if (session?.videos) {
+      session.videos.add(videoId);
+      return { sessionId: session.sessionId, token: null, maxAgeSec: Math.floor((session.expiresAt - Date.now()) / 1000) };
+    }
+    return this.#create(new Set([videoId]), this.reviewTtlMs, userAgent);
+  }
+
+  /** 会话能看的视频：完整会话为 null，没有这个会话时是空集。 */
+  scope(sessionId: string): ReadonlySet<string> | null {
+    const session = this.#sessions.get(sessionId);
+    return session ? session.videos : new Set();
+  }
+
+  #create(videos: Set<string> | null, ttlMs: number, userAgent: string | undefined): { sessionId: string; token: string; maxAgeSec: number } {
     const sessionId = newId('wses');
     const secret = crypto.randomBytes(SECRET_BYTES);
     const now = nowIso();
@@ -69,11 +100,12 @@ export class WebSessions {
       hash: crypto.createHash('sha256').update(secret).digest(),
       createdAt: now,
       lastUsedAt: now,
-      expiresAt: Date.now() + this.sessionTtlMs,
+      expiresAt: Date.now() + ttlMs,
       userAgent: userAgent ? userAgent.slice(0, USER_AGENT_MAX) : null,
       connections: 0,
+      videos,
     });
-    return { sessionId, token: `${sessionId}.${secret.toString('base64url')}`, maxAgeSec: Math.floor(this.sessionTtlMs / 1000) };
+    return { sessionId, token: `${sessionId}.${secret.toString('base64url')}`, maxAgeSec: Math.floor(ttlMs / 1000) };
   }
 
   /** 会话令牌 → 会话 ID；不认识、已吊销、已过期或写法不规范时为 null。记下最近使用的时间。 */
@@ -121,6 +153,7 @@ export class WebSessions {
       expiresAt: new Date(s.expiresAt).toISOString(),
       connections: s.connections,
       userAgent: s.userAgent,
+      ...(s.videos ? { videos: [...s.videos] } : {}),
     }));
   }
 

@@ -57,6 +57,8 @@ export interface ServiceConfig {
   modelApi?: ModelApiConfig;
   /** 只有 Web 服务用：只读与方法白名单（不给时只读关、默认集合）。 */
   web?: WebServiceAccess;
+  /** 只有 Web 服务用：算审片链接密钥的随机数（base64url，32 字节），第一次发审片链接时生成，之后不变。 */
+  reviewSecret?: string;
 }
 
 const SECRET_BYTES = 32;
@@ -106,6 +108,10 @@ const configSchema = z.object({
       methods: z.array(z.string().max(100).regex(WEB_METHOD_PATTERN)).max(200).nullable(),
     })
     .optional(),
+  reviewSecret: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{43}$/)
+    .optional(),
 });
 
 const fileSchema = z.object({
@@ -143,6 +149,7 @@ export class ServiceConfigStore {
         clients: stored.clients ?? [],
         ...(stored.modelApi ? { modelApi: stored.modelApi } : {}),
         ...(stored.web ? { web: stored.web } : {}),
+        ...(stored.reviewSecret ? { reviewSecret: stored.reviewSecret } : {}),
       });
     }
   }
@@ -171,6 +178,17 @@ export class ServiceConfigStore {
       return { ...config, policy: { ...config.policy, videos: { ids: [...videos.ids, videoId] } } };
     });
     return changed;
+  }
+
+  /** 审片链接的密钥种子（`reviewSecret`）：没有时生成一份并落盘，之后一直是这一份。 */
+  async reviewSecret(serviceId: ConfigurableServiceId): Promise<string> {
+    let secret = this.#configs.get(serviceId)?.reviewSecret;
+    if (secret) return secret;
+    await this.#mutate(serviceId, (config) => {
+      secret = config.reviewSecret ?? crypto.randomBytes(SECRET_BYTES).toString('base64url');
+      return config.reviewSecret ? config : { ...config, reviewSecret: secret };
+    });
+    return secret!;
   }
 
   /** 发放一个客户端：令牌明文只在这里返回。 */

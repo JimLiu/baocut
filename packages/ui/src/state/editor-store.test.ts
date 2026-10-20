@@ -47,6 +47,38 @@ describe('编辑器右侧面板', () => {
     expect(useEditor.getState()).toMatchObject({ rate: 1, captionsHidden: false, safeArea: false });
   });
 
+  it('轻量视图的图层开关：按种类藏字幕与 captionsHidden 双向对齐，配乐单独记；换视频时复位', () => {
+    const both = ['original', 'translation'] as const;
+    useEditor.setState({ videoId: null });
+    useEditor.getState().attach('v1');
+    const { setCaptionLayerHidden, setCaptionsHidden, setMusicHidden } = useEditor.getState();
+    setCaptionLayerHidden('translation', true, both);
+    expect(useEditor.getState()).toMatchObject({ captionsHidden: false, captionLayersHidden: { original: false, translation: true } });
+    setCaptionLayerHidden('original', true, both);
+    expect(useEditor.getState()).toMatchObject({ captionsHidden: true, captionLayersHidden: { original: true, translation: true } });
+    // 从全藏里打开一种：只露这一种。
+    setCaptionLayerHidden('translation', false, both);
+    expect(useEditor.getState()).toMatchObject({ captionsHidden: false, captionLayersHidden: { original: true, translation: false } });
+    // 时间线视图的字幕钮（与舞台字幕条的「隐藏」）全开全关，按种类的跟着走。
+    setCaptionsHidden(false);
+    expect(useEditor.getState().captionLayersHidden).toEqual({ original: false, translation: false });
+    setCaptionsHidden(true);
+    expect(useEditor.getState().captionLayersHidden).toEqual({ original: true, translation: true });
+    setCaptionsHidden(false);
+    // 只有原文的视频：关掉原文就是全藏。
+    setCaptionLayerHidden('original', true, ['original']);
+    expect(useEditor.getState().captionsHidden).toBe(true);
+    setMusicHidden(true);
+    useEditor.getState().attach('v1');
+    expect(useEditor.getState()).toMatchObject({ captionsHidden: true, musicHidden: true });
+    useEditor.getState().attach('v2');
+    expect(useEditor.getState()).toMatchObject({
+      captionsHidden: false,
+      captionLayersHidden: { original: false, translation: false },
+      musicHidden: false,
+    });
+  });
+
   it('拖缝：宽度钳在上限内；拖到收起线以下就收起，记住的宽度不变', () => {
     useEditor.getState().dragPanel(420.4);
     expect(useEditor.getState().panelWidth).toBe(420);
@@ -64,6 +96,9 @@ describe('网页宿主上的面板页', () => {
     expect(hostPanelTab('aitools', true)).toBe('transcript');
     expect(hostPanelTab('aitools', false)).toBe('aitools');
     expect(hostPanelTab('subtitle', true)).toBe('subtitle');
+    expect(hostPanelTab('brand', true)).toBe('brand');
+    expect(hostPanelTab('brand', true, true)).toBe('transcript');
+    expect(hostPanelTab('props', true, true)).toBe('props');
   });
 });
 
@@ -130,5 +165,46 @@ describe('片段选区与文稿词选区互斥（产品设计 §5.7）', () => {
     useEditor.setState({ videoId: 'v1' });
     useEditor.getState().attach('v2');
     expect(useEditor.getState().wordSelection).toBeNull();
+  });
+});
+
+describe('轻量 / 时间线视图', () => {
+  beforeEach(() =>
+    useEditor.setState({ videoId: null, view: 'timeline', viewResolvedFor: null, viewByVideo: {}, viewDefault: 'auto', liteZoom: 1 }),
+  );
+
+  it('打开视频按「路由 > 这部视频上次的选择 > 全局默认 > 按种类」定一次', () => {
+    useEditor.getState().resolveView('v1', { route: null, byKind: 'timeline' });
+    expect(useEditor.getState()).toMatchObject({ view: 'timeline', viewResolvedFor: 'v1' });
+    useEditor.setState({ viewDefault: 'lite' });
+    useEditor.getState().resolveView('v2', { route: null, byKind: 'timeline' });
+    expect(useEditor.getState().view).toBe('lite');
+    useEditor.getState().resolveView('v3', { route: 'timeline', byKind: 'lite' });
+    expect(useEditor.getState().view).toBe('timeline');
+  });
+
+  it('顶栏切换按视频记住，下次打开沿用；切到轻量清掉时间线的选区', () => {
+    useEditor.setState({ videoId: 'v1', selection: ['i1'] });
+    useEditor.getState().setView('lite');
+    expect(useEditor.getState()).toMatchObject({ view: 'lite', viewByVideo: { v1: 'lite' }, selection: [] });
+    useEditor.getState().resolveView('v1', { route: null, byKind: 'timeline' });
+    expect(useEditor.getState().view).toBe('lite');
+  });
+
+  it('已经定过的视频再收到带 view 的链接，照路由重定，按视频的记忆不动', () => {
+    useEditor.setState({ videoId: 'v1' });
+    useEditor.getState().setView('lite');
+    useEditor.getState().resolveView('v1', { route: 'timeline', byKind: 'lite' });
+    expect(useEditor.getState()).toMatchObject({ view: 'timeline', viewResolvedFor: 'v1', viewByVideo: { v1: 'lite' } });
+  });
+
+  it('片条缩放夹在 1–8 倍，换视频回到 1', () => {
+    useEditor.getState().setLiteZoom(3);
+    expect(useEditor.getState().liteZoom).toBe(3);
+    useEditor.getState().setLiteZoom(99);
+    expect(useEditor.getState().liteZoom).toBe(8);
+    useEditor.setState({ videoId: 'v1' });
+    useEditor.getState().attach('v2');
+    expect(useEditor.getState().liteZoom).toBe(1);
   });
 });

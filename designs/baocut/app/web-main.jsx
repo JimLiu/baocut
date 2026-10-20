@@ -8,9 +8,13 @@
   const D = window.BC_DATA;
   const SURF = window.BC_SURFACE;
 
+  /* 审片页（BaoCutWeb.html?review=<项目 id>，表面 `review`）：只有这一部视频，别的路由一律回到它。 */
+  const REVIEW_ID = SURF.videoList ? null : new URLSearchParams(location.search).get('review');
+
   function Screens() {
     const app = useApp();
-    const r = SURF.normalizeRoute(app.route, (id) => !!app.projById(id));
+    const r = REVIEW_ID && app.projById(REVIEW_ID) ? {r: 'editor', id: REVIEW_ID, t: app.route.id === REVIEW_ID ? app.route.t : undefined}
+      : SURF.normalizeRoute(app.route, (id) => !!app.projById(id));
     if (r.r === 'editor') {
       D.activateProject(r.id, app.projById(r.id));
       return <window.EditorPage key={r.id} projectId={r.id} startT={r.t} />;
@@ -22,6 +26,8 @@
   function Landing() {
     const app = useApp();
     useEffect(() => {
+      // 审片页第一次打开落在轻量视图（真产品里路由带 `view: 'lite'`，之后按这部视频记住的选择）
+      if (REVIEW_ID) { app.replace({r: 'editor', id: REVIEW_ID, view: 'lite'}); return; }
       if (app.route.r !== 'home') return;
       const first = window.BC_AGENT.sortProjects(app.activeProjects, 'opened')
         .find((p) => p.status !== 'transcribing' && p.status !== 'queued' && p.status !== 'error');

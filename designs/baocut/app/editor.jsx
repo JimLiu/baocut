@@ -216,7 +216,36 @@
     const [safeArea, setSafeArea] = useState(window.BC_SHORTS.isShorts(proj));
     /* 视频标注模式（product-design §3.2.3「视频标注」、§5.3；stage-notes.jsx）：这个窗口的观看态，不进视频、不进撤销 */
     const [annotating, setAnnotating] = useState(false);
-    const [noteKind, setNoteKind] = useState('box');
+    /* 轻量视图的标记工具（docs/design/lite-editor §4；stage-markup.jsx，模型 model-markup.js）：一次标注会话里画的那组标记，
+       退出标注就清掉（工具、颜色、粗细留着）；关闭时画面上还有没发的标记先问一句（`ask`，工具条上的 ConfirmDialog） */
+    const MKP = window.BC_MARKUP;
+    const [markup, setMarkup] = useState(() => (MKP ? MKP.init() : null));
+    useEffect(() => { if (!annotating && MKP) setMarkup(m => (m && !m.marks.length && !m.ask ? m : MKP.init(m ? {tool: m.tool, shape: m.shape, color: m.color, width: m.width} : undefined))); }, [annotating]);
+    const closeMarkup = useCallback(() => {
+      if (markup && markup.marks.length) setMarkup(m => ({...m, ask: true}));
+      else setAnnotating(false);
+    }, [markup]);
+    /* 轻量 / 时间线视图（docs/design/lite-editor §3、§5）：同一部视频的两种看法，播放头、播放态、字幕开关、标注草稿都在这
+       一个组件里，所以切换不丢任何状态。打开时按 URL 的 `view` > 这部视频上次的选择 > 全局默认 > 视频种类；
+       切换写回按视频的偏好与 URL（replace，不进历史）。 */
+    const LITE = window.BC_LITE;
+    const liteAvailable = !!(LITE && window.EditorLite);
+    const [view, setViewRaw] = useState(() => (liteAvailable ? LITE.viewFor(proj, app.prefs, app.route.view) : 'timeline'));
+    const setView = useCallback((v, asDefault) => {
+      setViewRaw(v);
+      if (!LITE) return;
+      const next = LITE.remember(app.prefs, proj.id, v, asDefault);
+      Object.keys(next).forEach(k => app.setPref(k, next[k]));
+      if (app.route.r === 'editor' && app.route.view !== v) app.replace({...app.route, view: v});
+    }, [app.prefs, app.route, app.replace, app.setPref, proj.id]);
+    useEffect(() => {
+      // 深链接或前进后退带来的 view 变化
+      if (liteAvailable && LITE.VIEWS.includes(app.route.view) && app.route.view !== view) setViewRaw(app.route.view);
+    }, [app.route.view]);
+    /* 轻量视图的图层开关：字幕那几项映到 `subsOn`，别的是这个窗口的观看态（实拍覆盖、来源标注、水印），不进视频 */
+    const [liteLayers, setLiteLayers] = useState({});
+    /* 场景表（动画片设计 §2）：原型里随项目数据来；轻量视图拖片的边改场景时长时在这里改，章节条、字幕与总长一起跟 */
+    const [scenes, setScenes] = useState(proj.scenes || null);
     /* 选中真相住在 [editor-selection.jsx](editor-selection.jsx)（第 115 轮改成数组）：
        `sel` 仍是「最后一次点中的那件」，老面板照旧只读它。`stageRef` 是 ⌘A 的取数口。 */
     const stageRef = useRef({elements: [], playT: 0});
@@ -748,6 +777,7 @@
     const editorBar = {
       exportOpen, closeExport: () => setExportOpen(false), ctx: null,
       entry, setEntry, projectId: proj.id,
+      view, setView, liteAvailable,
       title: proj.title,
       meta: '',
       onExport: () => setExportOpen((v) => !v),
@@ -1145,7 +1175,9 @@
       cutStore.reset(empty, e);
       preview.current = {win: null, snap: null};
     };
+    /* 有场景表的（讲解片）总长跟场景序列走——轻量视图拖短一场时底下那条渲染好的成片还是旧长度，不能让它把总长撑回去 */
     const duration = entry === 'blank' ? Math.max(0, ...els.elements.map(e => e.end || 0))
+      : scenes?.length ? Math.max(durBase, scenes[scenes.length - 1].end)
       : Math.max(durBase, ...els.elements.map(e => e.end || 0));
     durationRef.current = duration;
     /* 空白项目开放式时长（第 216 轮）：时长 = 内容末端，随元素占用延长；新元素按
@@ -1238,8 +1270,59 @@
       return r.closed;
     };
 
+    /* 轻量视图的段（docs/design/lite-editor §2）：场景表 > 章节 > 旁白分段 > 整条；标注落点与图层开关也从这里读 */
+    const segments = useMemo(() => (LITE ? LITE.segments({scenes, chapters, cues, duration, title: proj.title}) : []),
+      [LITE, scenes, proj.title, chapters, cues, duration]);
+    /* 拖片的边（轻量视图设计 §3.2）：场景 = 改这一场的 duration、后面整体推开、总长跟着变（动画片设计 §3.1）；
+       章节 = 挪与下一章的边界，总长不变。都进撤销快照，toast 里带撤销。 */
+    const resizeSegment = useCallback((seg, newEnd) => {
+      if (!LITE || !seg) return;
+      if (seg.kind === 'scene' && scenes) {
+        const r = LITE.retimeScene(scenes, seg.index, newEnd);
+        if (!r) return;
+        const prev = {scenes, chapters, cues, durBase};
+        history.mark();
+        setScenes(r.scenes); setChapters(LITE.chaptersOf(r.scenes)); setCues(LITE.shiftAfter(cues, seg.end, r.delta)); setDurBase(d => d + r.delta);
+        const sc = r.scenes[seg.index];
+        app.toast(`「${seg.title}」现在 ${LITE.fmtDur(sc.end - sc.start)} · 后面 ${r.scenes.length - seg.index - 1} 场${r.delta > 0 ? '后移' : '前移'} ${Math.abs(r.delta).toFixed(1)}s · 画面要按新长度重做`, 'positive',
+          {label: '撤销', undo: true, run: () => { setScenes(prev.scenes); setChapters(prev.chapters); setCues(prev.cues); setDurBase(prev.durBase); app.toast('已还原场景时长'); }});
+      } else {
+        const next = LITE.moveChapterBoundary(chapters, seg.index, newEnd);
+        if (!next) return;
+        const prev = chapters;
+        history.mark();
+        setChapters(next);
+        app.toast(`章节边界 → ${T.timecode(next[seg.index].end, {decimals: 1})}`, 'positive',
+          {label: '撤销', undo: true, run: () => { setChapters(prev); app.toast('已还原章节边界'); }});
+      }
+    }, [LITE, scenes, chapters, cues, durBase, app, history]);
+    const liteLayerSpec = useMemo(() => {
+      if (!LITE) return null;
+      const tracks = S.tracks(subStyle);
+      const kinds = [...new Set((els.elements || []).map(e => e.kind).filter(k => !['audio', 'video'].includes(k)))];
+      const KIND_LABEL = {textgroup: '文字组', sticker: '贴纸', image: '图片', shape: '形状', progress: '进度条', wave: '波形', counter: '计数', overlay: '叠层'};
+      return {
+        captions: subsOn || tracks.length ? tracks.map(t => ({id: t.id, label: t.role === 'translation' ? `译文字幕 · ${t.lang || ''}`.trim() : `字幕 · ${t.lang || t.name || t.id}`})) : [],
+        footage: segments.some(s => s.footage?.length), sourceLabels: segments.some(s => s.footage?.length),
+        watermark: !!scenes, music: !!(setup.music && entry !== 'blank'),
+        overlays: kinds.map(k => ({id: k, label: KIND_LABEL[k] || k})),
+      };
+    }, [LITE, subStyle, els.elements, segments, scenes, setup.music, entry, subsOn]);
+    const liteLayerOn = (key) => (key.startsWith('caption:') ? subsOn && liteLayers[key] !== false
+      : key === 'music' ? !musicMuted : liteLayers[key] !== false);
+    const setLiteLayer = (key, on) => {
+      setLiteLayers((m) => ({...m, [key]: on}));
+      if (key.startsWith('caption:')) {
+        const all = (liteLayerSpec?.captions || []).map(c => `caption:${c.id}`);
+        const anyOn = all.some(k => (k === key ? on : liteLayers[k] !== false));
+        setSubsOn(anyOn);
+      } else if (key === 'music') setMusicMuted(!on);
+    };
+
     const ctx = {
       retainLocalVideoUrl,
+      view, setView, segments, liteLayerSpec, liteLayerOn, setLiteLayer, resizeSegment,
+      noteContext: LITE ? (t) => LITE.noteContext(segments, t) : null,
       proj, tab, setTab, playT, seek, playing, setPlaying, pxps, setPxps, tlBodyRef, tlScrollReq, requestTlScroll: (left) => setTlScrollReq({left}), sources, addSource, removeSource, duration,
       openEnded, filmEnd,
       hasAudio: localMedia ? localMedia.audio : entry !== 'blank', hasMusic: !localMedia && setup.music && entry !== 'blank',
@@ -1253,7 +1336,7 @@
       score: scoreStore.score, scoreOff: scoreStore.scoreOff, scoreJob: scoreStore.scoreJob, regenScore: scoreStore.regenScore,
       dub, dubs, dubOff, bedOff, dubReadings, setDubReadings, applyDub, clearDub, restoreDubs, dubMuted, bedMuted, stretchDub, setDubSource,
       dubSel, pickDub, clearDubSel, updateDub, muteDubBlocks, deleteDubBlocks, regenDubBlocks, restoreDubTake, pruneDubArchive, clearDubArchive, openDubSentence,
-      subsOn, setSubsOn, fs, setFs, safeArea, setSafeArea, annotating, setAnnotating, noteKind, setNoteKind, clips, setClips, split, canSplit, ripple, pop, setPop,
+      subsOn, setSubsOn, fs, setFs, safeArea, setSafeArea, annotating, setAnnotating, markup, setMarkup, closeMarkup, clips, setClips, split, canSplit, ripple, pop, setPop,
       sel, sels, pick, pickSub, clearSel, isSel, selKeys: selection.selKeys,
       pickMany: selection.pickMany, selectAll: selection.selectAll, history,
       editing: selection.editing, startEdit: selection.startEdit, stopEdit: selection.stopEdit,
@@ -1284,7 +1367,7 @@
       ...tpl,
       elements: tpl.withTemplateRow(els.elements, els.elDocs),
       aiReq, requestAi, openCrop, cropInstance, openVideoReplace, replaceWithOutput, applyReplacePlan, clearAiReq: () => setAiReq(null),
-      clearOpening: () => setOpening(null),
+      opening, clearOpening: () => setOpening(null),
     };
     /* ⌘A 读这一份（元素投影在 ctx 里才算齐）；键盘层与剪贴板见 editor-keys.jsx。 */
     stageRef.current = {elements: ctx.elements.filter(e => e.kind !== 'audio'), playT};
@@ -1307,6 +1390,8 @@
             与 App 的 `bar.is_hidden = fullscreen` 同则。 */}
         {fs ? <window.PlayerOverlay ctx={ctx} /> : null}
         <div className="edrow" ref={boxRef}>
+          {/* 轻量视图（docs/design/lite-editor §3）：换掉编辑列、面板与 rail，顶栏与全屏播放器不变 */}
+          {!fs && view === 'lite' && liteAvailable ? <window.EditorLite ctx={ctx} /> : <>
           <div className="editcol" style={{width: geo.stageW}}>
             {cropActive ? <window.CropStage ctx={ctx} /> : <>
             <div className="stagewrap" style={{height: geo.stageH}}>
@@ -1353,6 +1438,7 @@
             </div>
           )}
           {fs ? null : <window.Rail ctx={ctx} />}
+          </>}
         </div>
       </Frame>
     );

@@ -58,6 +58,7 @@ import {
   type PlayerKey,
 } from '../../model/player.ts';
 import { monitorGain, monitorLevel, stepMonitor, toggleMute, type MonitorLevel } from '../../model/preview-volume.ts';
+import { layerCaptionMode, layerToggles } from '../../model/stage-layers.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { PLAYBACK_RATES } from '../../state/player-store.ts';
@@ -155,8 +156,13 @@ export function FullscreenPlayer({
   const rate = useEditor((s) => s.rate);
   const setRate = useEditor((s) => s.setRate);
 
-  // 字幕档位：选过的档还在就用它，否则按画面上实有的字幕取默认档；舞台上隐藏了字幕时从「关闭」起步。
-  const [picked, setPicked] = useState<CaptionMode | null>(() => (useEditor.getState().captionsHidden ? 'off' : null));
+  // 字幕档位：选过的档还在就用它，否则按画面上实有的字幕取默认档；舞台上隐藏了字幕时从「关闭」起步，
+  // 轻量视图从图层开关对应的那一档起步（model/stage-layers）。
+  const [picked, setPicked] = useState<CaptionMode | null>(() => {
+    const s = useEditor.getState();
+    if (s.view === 'lite') return layerCaptionMode(s.captionsHidden, s.captionLayersHidden, layerToggles(sequence, documents).captions);
+    return s.captionsHidden ? 'off' : null;
+  });
   const { hasSource, hasTranslation } = useMemo(() => captionAvailability(sequence, documents), [sequence, documents]);
   const mode = effectiveCaptionMode(picked, hasSource, hasTranslation);
   const modes = captionModes(hasSource, hasTranslation);

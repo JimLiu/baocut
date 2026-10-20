@@ -17,7 +17,7 @@ import { Button, ProgressCircle, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { AGENT_PICKER, QUEUE_COPY } from '../copy.ts';
-import { docsTokenItem } from './annotations-token.tsx';
+import { docsTokenItem, draftVideoTokenItems } from './annotations-token.tsx';
 import { sendFailureMessage } from '../model/agent-skills.ts';
 import { enqueueMessage } from '../model/message-queue.ts';
 import { sentDesignAnnotations } from '../model/design-annotations.ts';
@@ -39,7 +39,12 @@ import { useDraftDesignAnnotationList, useDraftDesignAnnotations } from '../stat
 import { useDraftDesignSystemAnnotationList, useDraftDesignSystemAnnotations } from '../state/draft-design-system-annotations-store.ts';
 import { useDraftDocsAnnotationList, useDraftDocsAnnotations } from '../state/draft-docs-annotations-store.ts';
 import { useDraftSlideAnnotationList, useDraftSlideAnnotations } from '../state/draft-slide-annotations-store.ts';
-import { useDraftVideoAnnotationList, useDraftVideoAnnotations } from '../state/draft-video-annotations-store.ts';
+import {
+  uploadDraftVideoShots,
+  useDraftVideoAnnotationList,
+  useDraftVideoAnnotations,
+  useDraftVideoShots,
+} from '../state/draft-video-annotations-store.ts';
 import { useContextTag } from '../state/agent-context.ts';
 import { flushEditors } from '../state/editor-bridge.ts';
 import { useTimelineItems, useTimelineLoaded } from '../state/timeline-store.ts';
@@ -79,6 +84,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
   // 视频标注的草稿挂在视频上（产品设计 §3.2.3「视频标注」）：这个会话能交给智能体的那部打开着的视频，它的标注显示在输入框上方。
   const noteVideoId = useContextTag(scope)?.videoId ?? null;
   const videoAnnotations = useDraftVideoAnnotationList(noteVideoId);
+  const videoShots = useDraftVideoShots(noteVideoId);
   const slideAnnotations = useDraftSlideAnnotationList(conversationId);
   const designAnnotations = useDraftDesignAnnotationList(conversationId);
   const systemAnnotations = useDraftDesignSystemAnnotationList(conversationId);
@@ -233,23 +239,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           onRemove: (id) => useDraftDesignSystemAnnotations.getState().remove(conversationId, id),
           onClear: () => useDraftDesignSystemAnnotations.getState().clear(conversationId),
         }}
-        videoAnnotations={
-          noteVideoId
-            ? {
-                items: videoAnnotations.map((n) => ({
-                  id: n.id,
-                  target: n.video,
-                  anchor: '',
-                  timeMs: n.timeMs,
-                  videoId: n.videoId,
-                  label: n.label,
-                  text: n.text,
-                })),
-                onRemove: (id) => useDraftVideoAnnotations.getState().remove(noteVideoId, id),
-                onClear: () => useDraftVideoAnnotations.getState().clear(noteVideoId),
-              }
-            : null
-        }
+        videoAnnotations={noteVideoId ? draftVideoTokenItems(noteVideoId, videoAnnotations, videoShots) : null}
         docsAnnotations={{
           items: docsAnnotations.map((n) => docsTokenItem(n.id, n)),
           onRemove: (id) => useDraftDocsAnnotations.getState().remove(conversationId, id),
@@ -288,7 +278,19 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           const designNotes = sentDesignAnnotations(draftedDesigns);
           const systemNotes = sentDesignSystemAnnotations(draftedSystems);
           const draftedVideos = noteVideoId ? (useDraftVideoAnnotations.getState().annotations[noteVideoId] ?? []) : [];
-          const videoNotes = sentVideoAnnotations(draftedVideos);
+          // 视频标注的截图随这条消息作为附件交出（lite-editor §4.1）：每帧一张，先传上去，标注的 `shot.attachment` 指着它；
+          // 传不上去就不发，话与标注都留在输入框里。
+          let videoNotes: ReturnType<typeof sentVideoAnnotations>;
+          try {
+            const shots = noteVideoId
+              ? await uploadDraftVideoShots(noteVideoId, draftedVideos, (file) => runtime.uploadAttachment(file))
+              : { attachments: [], attachmentOf: () => undefined };
+            videoNotes = sentVideoAnnotations(draftedVideos, shots.attachmentOf);
+            attachments = [...attachments, ...shots.attachments];
+          } catch (error) {
+            ToastQueue.negative(sendFailureMessage(error), { timeout: 5000 });
+            return false;
+          }
           const docsNotes = sentDocsAnnotations(draftedDocs);
           const text =
             input ||

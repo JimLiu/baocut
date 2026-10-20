@@ -68,9 +68,15 @@ export class RuntimeSession {
   readonly #waitingVideos = new Map<Id, FileTarget>();
   #stopWaiting: (() => void) | null = null;
   #disposers: (() => void)[] = [];
+  /**
+   * 审片页（Web 的 `/review/<videoId>`，架构设计 §12.8）：会话只能碰这一部视频，不订阅 Agent、目录、任务、Space、作业、
+   * 模型、用户库与授权这些全局主题（Web 服务会拒绝），界面也不给离开这部视频的入口。
+   */
+  readonly review: boolean;
 
-  constructor(host: HostBridge) {
+  constructor(host: HostBridge, options: { review?: boolean } = {}) {
     this.host = host;
+    this.review = options.review === true;
     this.client = new BaoCutClient({
       resolve: () => host.getConnection(),
       client: { kind: 'desktop', name: 'baocut-desktop', version: RUNTIME_VERSION },
@@ -86,6 +92,18 @@ export class RuntimeSession {
         this.videos.onConnection(state);
         if (state.status === 'connected') this.spaceThumbnails.revive();
       }),
+    );
+    if (this.review) {
+      this.#disposers.push(
+        this.client.subscribeSettings({
+          snapshot: (snapshot) => useSettings.getState().replace(snapshot),
+          event: (event) => useSettings.getState().apply(event),
+        }),
+      );
+      void this.client.connect().catch(() => {});
+      return;
+    }
+    this.#disposers.push(
       // Agent 列表与偏好：快照先给上次的探测结果（Runtime 存在磁盘上），后台刷新、纠正与偏好变化都推整份新视图。
       // 断线重连后客户端会重新订阅、重取快照。
       this.client.subscribeAgents({

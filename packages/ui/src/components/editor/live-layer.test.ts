@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { COMPOSITION_BRIDGE_CHANNEL, type CompositionBridgeMessage, type CompositionBridgeRequest } from '@baocut/protocol';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { LiveCandidate } from '../../model/live-composition.ts';
 import type { LiveLayer } from '../../render/frame-plan.ts';
-import { LiveLayerHost, type BridgePort } from './live-layer.ts';
+import { LiveLayerHost, canvasToIntrinsic, intrinsicRectToCanvas, readBridgePick, type BridgePort } from './live-layer.ts';
 
 /** 假的页面：记下父页面发来的请求，由测试决定怎么回。 */
 class FakePage implements BridgePort {
@@ -60,7 +60,7 @@ const layer = (itemId: string, sourceSeconds: number, opacity = 1): LiveLayer =>
   standIn: 'none',
 });
 
-function setup(options: { readyTimeoutMs?: number; maxMounted?: number } = {}) {
+function setup(options: { readyTimeoutMs?: number; pickTimeoutMs?: number; maxMounted?: number } = {}) {
   const root = document.createElement('div');
   document.body.append(root);
   const pages = new Map<string, FakePage>();
@@ -230,4 +230,115 @@ test('在视的还没画出第一帧时报在载入：就位、第一次定位�
   host.show(null, 61);
   expect(loading).toEqual([false, true, false, true, false]);
   host.dispose();
+});
+
+describe('选择元素的拾取（lite-editor §11 第 12 条）', () => {
+  const placed = (itemId: string): LiveLayer => ({ ...layer(itemId, 0), matrix: [960, 0, 0, 540, 100, 50] });
+  const node = { selector: 'div#box', w: 320, h: 180, name: 'Box', focusable: false, rect: { x: 0, y: 360, w: 320, h: 180 } };
+  async function shown(options: { pickTimeoutMs?: number } = {}) {
+    const ctx = setup(options);
+    ctx.host.prepare([candidate('a')]);
+    await Promise.resolve();
+    ctx.page('a').hello();
+    ctx.page('a').answer('ready', {});
+    await Promise.resolve();
+    ctx.page('a').answer('seek');
+    await Promise.resolve();
+    ctx.host.show(placed('a'), 0);
+    return ctx;
+  }
+  const picks = (page: FakePage) => page.requests.filter((r) => r.kind === 'pick');
+
+  test('没有在视的、还没就绪、点不在合成里：立刻 null，不问页面', async () => {
+    const { host, page } = setup();
+    expect(await host.pick({ x: 10, y: 10 })).toBeNull();
+    host.prepare([candidate('a')]);
+    host.show(placed('a'), 0);
+    expect(await host.pick({ x: 580, y: 320 })).toBeNull();
+    expect(picks(page('a'))).toHaveLength(0);
+    host.dispose();
+
+    const ready = await shown();
+    expect(await ready.host.pick({ x: 50, y: 320 })).toBeNull();
+    expect(await ready.host.pick({ x: 580, y: 700 })).toBeNull();
+    expect(picks(ready.page('a'))).toHaveLength(0);
+    ready.host.dispose();
+  });
+
+  test('画布像素按矩阵反推成固有像素再问；回来的框换回画布像素', async () => {
+    const { host, page } = await shown();
+    const pending = host.pick({ x: 580, y: 320 });
+    const [request] = picks(page('a'));
+    expect(request).toMatchObject({ kind: 'pick', x: 640, y: 360 });
+    page('a').reply(request!.id, { ok: true, value: node });
+    expect(await pending).toEqual({ itemId: 'a', rect: { x: 100, y: 320, w: 240, h: 135 }, node });
+    host.dispose();
+  });
+
+  test('一次只一个在路上：路上来的只记最新的，更早没发的兑现 null', async () => {
+    const { host, page } = await shown();
+    const first = host.pick({ x: 580, y: 320 });
+    const second = host.pick({ x: 200, y: 100 });
+    const third = host.pick({ x: 1000, y: 455 });
+    expect(picks(page('a'))).toHaveLength(1);
+    expect(await second).toBeNull();
+    page('a').answer('pick', node);
+    expect((await first)?.node).toEqual(node);
+    expect(picks(page('a'))).toHaveLength(2);
+    expect(picks(page('a'))[1]).toMatchObject({ x: 1200, y: 540 });
+    page('a').answer('pick', null);
+    expect(await third).toBeNull();
+    host.dispose();
+  });
+
+  test('超时兑现 null、晚到的回信不算，名额让出来；页面报错或回的形状不对也是 null，都不算失败', async () => {
+    const { host, page, failures } = await shown({ pickTimeoutMs: 300 });
+    const slow = host.pick({ x: 580, y: 320 });
+    vi.advanceTimersByTime(300);
+    expect(await slow).toBeNull();
+    page('a').reply(picks(page('a'))[0]!.id, { ok: true, value: node });
+
+    const failed = host.pick({ x: 580, y: 320 });
+    expect(picks(page('a'))).toHaveLength(2);
+    page('a').reply(picks(page('a'))[1]!.id, { ok: false, code: 'COMPOSITION_SCRIPT_ERROR', message: 'boom' });
+    expect(await failed).toBeNull();
+
+    for (const value of [
+      { ...node, selector: 1 },
+      { ...node, w: Number.NaN },
+      { ...node, rect: { x: 0, y: 0, w: 1 } },
+      { ...node, name: 3 },
+      'div',
+    ]) {
+      const bad = host.pick({ x: 580, y: 320 });
+      page('a').answer('pick', value);
+      expect(await bad).toBeNull();
+    }
+    expect(failures).toEqual([]);
+    expect(host.mounted.get('a')?.state).toBe('ready');
+    host.dispose();
+  });
+
+  test('拆掉时挂着的拾取兑现 null', async () => {
+    const { host } = await shown();
+    const inFlight = host.pick({ x: 580, y: 320 });
+    const queued = host.pick({ x: 600, y: 320 });
+    host.dispose();
+    expect(await inFlight).toBeNull();
+    expect(await queued).toBeNull();
+  });
+
+  test('验形只留协议的字段；矩阵的正反变换互逆，转过的框取外包盒', () => {
+    expect(readBridgePick({ ...node, extra: 'x', role: 'img' })).toEqual({ ...node, role: 'img' });
+    expect(readBridgePick({ ...node, name: '' })).toEqual({ selector: 'div#box', w: 320, h: 180, focusable: false, rect: node.rect });
+    expect(readBridgePick(null)).toBeNull();
+    expect(readBridgePick({ ...node, focusable: 'yes' })).toBeNull();
+    const size = { width: 1280, height: 720 };
+    // 转 90°：单位方块的 u 轴朝下、v 轴朝左。
+    const turned: LiveLayer['matrix'] = [0, 1080, -1920, 0, 1920, 0];
+    const at = canvasToIntrinsic(turned, size, { x: 1440, y: 270 })!;
+    expect([at.x, at.y]).toEqual([320, 180]);
+    expect(intrinsicRectToCanvas(turned, size, { x: 0, y: 0, w: 640, h: 360 })).toEqual({ x: 960, y: 0, w: 960, h: 540 });
+    expect(canvasToIntrinsic([0, 0, 0, 0, 0, 0], size, { x: 1, y: 1 })).toBeNull();
+  });
 });

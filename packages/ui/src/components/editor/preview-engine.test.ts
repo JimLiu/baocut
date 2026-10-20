@@ -860,6 +860,33 @@ test('字幕档位：送给计划器的序列上停用不该露的字幕，换�
   engine.dispose();
 });
 
+test('图层开关关了配乐：送给计划器的序列上停用配乐实例，与字幕档位叠在一起，打开后照原样送', async () => {
+  const videos: Sequence[] = [];
+  const planner = { ...fakePlanner(), setVideo: ({ sequence: s }: { sequence: Sequence }) => videos.push(s) } as unknown as RenderPlanner;
+  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner));
+  const scored = {
+    ...sequence,
+    items: [
+      { id: 'c', trackId: 's', type: 'caption', enabled: true, documentId: 'orig', span: { fromFrame: 0, durationFrames: 30 } },
+      { id: 'm', trackId: 'a', type: 'audio', role: 'music', enabled: true, span: { fromFrame: 0, durationFrames: 30 } },
+      { id: 'v', trackId: 'a', type: 'audio', enabled: true, span: { fromFrame: 0, durationFrames: 30 } },
+    ],
+  } as unknown as Sequence;
+  const enabled = (s: Sequence | undefined) => s?.items.map((item) => `${item.id}:${item.enabled}`);
+  engine.setVideo(scored, {});
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(videos.at(-1)).toBe(scored);
+
+  engine.setMusicView(true);
+  expect(enabled(videos.at(-1))).toEqual(['c:true', 'm:false', 'v:true']);
+  engine.setCaptionView('off');
+  expect(enabled(videos.at(-1))).toEqual(['c:false', 'm:false', 'v:true']);
+  engine.setCaptionView(null);
+  engine.setMusicView(false);
+  expect(videos.at(-1)).toBe(scored);
+  engine.dispose();
+});
+
 test('监听音量变了时通知订阅者；订阅时先给一次当前的', () => {
   const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(fakePlanner()));
   const seen: { volume: number; muted: boolean }[] = [];

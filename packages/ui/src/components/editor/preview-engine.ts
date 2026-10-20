@@ -12,6 +12,7 @@ import {
 import { durationSeconds, videoSlots } from '../../model/editor.ts';
 import { LIVE_CAPTION_ITEM_ID, liveCaptionCues, liveCaptionDocuments, withLiveCaption, type LiveCue } from '../../model/live-caption.ts';
 import { captionView, type CaptionMode } from '../../model/player.ts';
+import { withoutMusic } from '../../model/stage-layers.ts';
 import type { AssetDecoder, AssetSource } from '../../render/asset-source.ts';
 import { SPECTRUM_MAX_BYTES, spectrumDecoder } from '../../render/audio-spectrum.ts';
 import { isMediaLayer, type FramePlan, type LiveLayer, type MediaLayer, type VisualLayer } from '../../render/frame-plan.ts';
@@ -279,6 +280,8 @@ export class PreviewEngine {
    * `off` 连转录中的临时字幕也不叠；`null` 照视频原样画。
    */
   #captionMode: CaptionMode | null = null;
+  /** 监听时去掉配乐（轻量视图的图层开关，model/stage-layers `withoutMusic`）：送去画的序列上临时停用 `role: music` 的音频实例。 */
+  #musicHidden = false;
   readonly #fonts: FontSource | null;
   readonly #preparing: PreviewPreparing | null;
   /** 报过缺的字体族（常设：渲染内核重新载入后也照这份去要）。 */
@@ -584,6 +587,15 @@ export class PreviewEngine {
     this.#refresh();
   }
 
+  /** 监听时去掉配乐（图层开关）：停用配乐实例再交给渲染内核，没有声部的元素下一次对元素时停下。不进视频、不进撤销、不影响导出。 */
+  setMusicView(hidden: boolean): void {
+    if (hidden === this.#musicHidden) return;
+    this.#musicHidden = hidden;
+    this.#dirty = true;
+    this.#loadVideo();
+    this.#refresh();
+  }
+
   /**
    * 这几个族刚下载好（字体条的「下载」、重试、导出里下载的）：问过、没取到的 face 忘掉，重画一次时再去要。
    * 预览每个 face 只问一次，不这样的话之前报缺的族要到重新打开视频才换上。
@@ -802,10 +814,11 @@ export class PreviewEngine {
 
   #loadVideo(): void {
     if (!this.#planner || !this.#video) return;
-    // 字幕档位先停掉不该露的字幕；转录中的临时字幕不分原文译文，只有 `off` 时不叠。
-    const video = this.#captionMode
-      ? { ...this.#video, sequence: captionView(this.#video.sequence, this.#documentRecords, this.#captionMode) }
-      : this.#video;
+    // 字幕档位先停掉不该露的字幕、图层开关关了配乐时停掉配乐；转录中的临时字幕不分原文译文，只有 `off` 时不叠。
+    let sequence = this.#video.sequence;
+    if (this.#captionMode) sequence = captionView(sequence, this.#documentRecords, this.#captionMode);
+    if (this.#musicHidden) sequence = withoutMusic(sequence);
+    const video = sequence === this.#video.sequence ? this.#video : { ...this.#video, sequence };
     try {
       // 转录中的临时字幕叠一层上去；内核不收这一层时（不该发生）丢掉它照原样送，不让它拖垮整个预览。
       if (this.#liveDocuments && this.#captionMode !== 'off') {

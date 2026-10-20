@@ -51,7 +51,11 @@ export const ko: ServicesMessages = {
                                    한 번만, 2분 동안만 쓸 수 있습니다. --launch는 기본 브라우저에서 코드 없는 로그인
                                    페이지를 열고, 접근 코드는 터미널에만 출력하니 로그인 페이지에 붙여 넣으세요
                                    (코드는 브라우저를 여는 명령의 인수로 전달되지 않음)
-                                   --video는 해당 영상을 편집기에서 바로 엽니다(videoId는 baocut videos list에서 확인).`,
+                                   --video는 해당 영상을 편집기에서 바로 엽니다(videoId는 baocut videos list에서 확인).
+  baocut web review --video <videoId>
+                                   이 동영상의 검토 링크 출력: 이 동영상만 있는 페이지(재생, 마크업, 타임라인 편집)를 에이전트의 내장 브라우저나
+                                   이 컴퓨터의 아무 브라우저에서 엽니다. 동영상이 있고 BaoCut이 실행 중인 동안 링크는 바뀌지 않으며,
+                                   웹 서비스 자동 시작도 켭니다`,
   usage:
     '사용법: baocut services [status | start <서비스> | stop <서비스>\n' +
     '       | configure <서비스> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
@@ -136,4 +140,6 @@ export const ko: ServicesMessages = {
   clientRevoked: (clientId) => `${clientId} 항목을 철회했습니다. 그 토큰은 바로 무효가 됩니다`,
   webSessionRevoked: (sessionId) => `${sessionId} 세션을 철회했습니다. 그 연결은 닫혔습니다`,
   browserFailed: (message) => `브라우저를 열지 못했습니다: ${message}. 위의 로그인 페이지를 직접 여세요`,
+  reviewLinkNote: '이 동영상의 검토 링크입니다. 동영상이 있고 BaoCut이 실행 중인 동안 바뀌지 않습니다. 이 컴퓨터에서 링크를 가진 누구나 이 동영상을 보고 편집할 수 있으니 공유하지 마세요',
+  reviewAutostartOn: '웹 서비스 자동 시작을 켰습니다. BaoCut을 다시 시작해도 링크는 계속 작동합니다',
 };

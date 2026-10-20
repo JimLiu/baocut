@@ -56,6 +56,7 @@
 | 设计系统 / 设计系统标注 | Design system / Design system annotation | 不写 Style guide、UI kit |
 | 协作文档 / 协作文档标注 | Docs (a doc) / Doc annotation | 一份协作文档写 a doc，功能叫 Docs；不写 Collaborative document、Living doc |
 | 时间线 / 检查器 / 编辑器 | Timeline / Inspector / Editor | |
+| 审片视图 / 时间线视图 | Review view / Timeline view | 视频编辑器的两种视图，顶栏切换写「审片 / 时间线」；不写 Lite、Light、Simple，代码里的 `lite` 只是 id |
 | 候选 / 检查点 | Candidate / Checkpoint | |
 | 提交到 git / 自动提交 / 初始化 git / 允许本地过滤器 | Commit to git / Auto-commit / Initialize git / Allow local filters | 版本记录的 git 桥；git 小写；不写 Sync、Push、Save to git |
 | 版本 / 版本记录 / 保存版本 / 回到版本 | Version / Version history / Save version / Restore version | 回到版本与回收站的「恢复」同一个动词，总带上 version；不写 Revert、Roll back、Snapshot |

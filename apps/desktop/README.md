@@ -34,6 +34,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer npm run package:mac -- 
 
 Intel 的 Model Worker 关闭 MLX / Core ML，启用 candle CPU 与 `whisper-ggml-metal`。Whisper 通过 whisper.cpp 的 Metal 后端使用可用的 AMD 显卡；没有兼容 GPU 或 `BAOCUT_GPU=off` 时回落 CPU。其他模型、VAD 与对齐器走 CPU。Metal 内核由 whisper-rs-sys 内嵌，不需要 Apple Silicon 的 `mlx.metallib`。需要完整 Xcode、CMake 与 Rust WASM 目标。Intel Worker 在启动线程前设置 `GGML_METAL_CONCURRENCY_DISABLE=1`，规避当前 ggml 并发 Metal 调度在 AMD 独显上的错误，仍使用 GPU 计算。已用 Radeon Pro 5500M 与 Whisper large-v3 Turbo q8_0 跑通中英文样本；其他 AMD 型号与模型尚未实测。Runtime 的 Intel Mac 握手期限按[架构设计 §6.5](../../docs/architecture/architecture-design.md#65-model-worker本地推理进程)留出首次 Metal 编译时间。打包后的 Worker 启动检查与真实模型推理分别验证。
 
+Intel 包暂不支持 EmbeddingGemma 2 语义搜索：Intel Worker 不启用 `backend-litert`，LiteRT 运行库组件也仅登记了 `darwin-arm64` 下载入口。模型目录中的功能介绍不代表 Intel 可运行；当前平台登记见 [`embedding-bundles.ts`](../../packages/models/src/embedding-bundles.ts)，Worker 编译选项见 [`macos-package-plan.mjs`](tools/macos-package-plan.mjs)。
+
 ### Apple Silicon 发布包
 
 Apple Silicon、macOS 14+、Node 22.18+、Rust 与 Xcode 命令行工具上，从干净、已提交的仓库根运行：

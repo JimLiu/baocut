@@ -353,6 +353,36 @@ describe('Web 服务', () => {
     expect(root.went).toEqual(['/']);
   });
 
+  it('审片页的脚本：fragment 里的密钥连同路径上的视频换审片会话，地址栏原样保留；缺密钥、视频没了分别说明', async () => {
+    await boot();
+    const origin = await openWeb();
+    const source = (await send(`${origin}/_auth/review.js`)).body;
+    const key = 'B'.repeat(43);
+    const run = (hash: string, pathname: string, status = 0) => {
+      const posted: unknown[] = [];
+      const element = { textContent: '' };
+      let reloaded = false;
+      vm.runInNewContext(source, {
+        document: { getElementById: () => element },
+        location: { hash, pathname, reload: () => (reloaded = true) },
+        fetch: (url: string, init: { body: string }) => {
+          posted.push([url, JSON.parse(init.body)]);
+          return status ? Promise.resolve({ ok: status === 200, status }) : new Promise(() => {});
+        },
+      });
+      return { posted, element, reloaded: () => reloaded };
+    };
+
+    expect(run(`#key=${key}`, '/review/vid%201').posted).toEqual([['/_auth/review', { video: 'vid 1', key }]]);
+    const missing = run('', '/review/vid_1');
+    expect(missing.posted).toEqual([]);
+    expect(missing.element.textContent).not.toBe('');
+    const ok = run(`#key=${key}`, '/review/vid_1', 200);
+    await until(() => ok.reloaded());
+    const gone = run(`#key=${key}`, '/review/vid_1', 404);
+    await until(() => gone.element.textContent !== '');
+  });
+
   it('访问链接只能用一次、过期作废；兑换要同源的 POST 与 JSON', async () => {
     await boot({ dist, codeTtlMs: 300 });
     const origin = await openWeb();
@@ -1284,6 +1314,7 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
   let revision: string;
   let sequenceId: Id;
   let videoPath: string;
+  let origin: string;
 
   it('prepares transparent ProRes through the Web grant registry without exposing the original or cache paths', async () => {
     const source = path.join(project.path, 'animation.mov');
@@ -1346,7 +1377,7 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
     });
     await desktop.connect();
     await desktop.request('services.configure', { serviceId: 'web', port: 0 });
-    const origin = (await desktop.request('services.start', { serviceId: 'web' })).service.endpoint!.slice(0, -1);
+    origin = (await desktop.request('services.start', { serviceId: 'web' })).service.endpoint!.slice(0, -1);
     const { url } = await desktop.request('services.web.createAccessLink', {});
     const reply = await send(`${origin}/_auth/session`, {
       method: 'POST',
@@ -1394,6 +1425,93 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
     await until(() => runtime.space.videos().some((video) => video.videoId === videoId), 10_000);
     const again = new URL((await desktop.request('services.web.createAccessLink', { video: videoId })).url);
     expect(again.pathname + again.search).toBe(link.pathname + link.search);
+  });
+
+  it('审片链接：同一部视频始终同一条、Runtime 重启后不变；密钥换来的会话只能看这部视频，不顶掉完整登录', async () => {
+    const first = await desktop.request('services.web.reviewLink', { video: videoId });
+    expect(first.autostartEnabled).toBe(true);
+    expect(first.url).toMatch(new RegExp(`^${origin}/review/${videoId}#key=[A-Za-z0-9_-]{43}$`));
+    const second = await desktop.request('services.web.reviewLink', { video: videoId });
+    expect(second).toEqual({ ...first, autostartEnabled: false });
+    expect((await desktop.request('services.list', {})).services.find((s) => s.serviceId === 'web')!.autostart).toBe(true);
+    expect(details(await desktop.request('services.web.reviewLink', { video: 'vid_missing' }).catch((e: unknown) => e))).toMatchObject({
+      code: 'not-found',
+      details: { code: 'VIDEO_NOT_FOUND' },
+    });
+    const key = first.url.split('#key=')[1]!;
+    const review = (body: object, headers: Record<string, string> = {}) =>
+      send(`${origin}/_auth/review`, {
+        method: 'POST',
+        headers: { Origin: origin, 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify(body),
+      });
+
+    // 没有会话时审片页是换密钥的脚本页；别的视频的密钥、错的密钥、别的来源都换不到。
+    const before = await send(`${origin}/review/${videoId}`);
+    expect(before.body).toContain('/_auth/review.js');
+    expect((await review({ video: videoId, key: 'A'.repeat(43) })).status).toBe(401);
+    expect((await review({ video: 'vid_other', key })).status).toBe(401);
+    expect((await review({ video: videoId, key }, { Origin: 'http://evil.invalid' })).status).toBe(403);
+    const reply = await review({ video: videoId, key });
+    expect(reply.status).toBe(204);
+    const cookie = reply.headers['set-cookie']![0]!.split(';')[0]!;
+    expect(cookie).toMatch(/^baocut_review_\d+=/);
+    // 密钥能反复用：同一个浏览器再换一次沿用原来的会话，不另发 cookie。
+    const again = await review({ video: videoId, key }, { Cookie: cookie });
+    expect(again.status).toBe(204);
+    expect(again.headers['set-cookie']).toBeUndefined();
+
+    // 审片会话：审片页给客户端页面，别的页面仍是登录页；幻灯片这类入口不给。
+    expect((await send(`${origin}/review/${videoId}`, { headers: { Cookie: cookie } })).body).toBe('<!doctype html>');
+    expect((await send(`${origin}/`, { headers: { Cookie: cookie } })).body).toContain('/_auth/login.js');
+    expect((await send(`${origin}/review/vid_other`, { headers: { Cookie: cookie } })).body).toContain('/_auth/review.js');
+    expect((await send(`${origin}/slides/x/`, { headers: { Cookie: cookie } })).status).toBe(401);
+
+    const viewer = new BaoCutClient({
+      resolve: async () => ({ endpoint: `${origin.replace('http:', 'ws:')}/ws`, token: '' }),
+      client: { kind: 'desktop', name: 'review', version: '0' },
+      reconnect: false,
+      WebSocket: browserSocket(origin, cookie),
+    });
+    try {
+      await viewer.connect();
+      const { target } = await viewer.request('videos.target', { videoId });
+      const opened = await viewer.request('videos.open', target);
+      expect(opened.ref.videoId).toBe(videoId);
+      expect(await viewer.request('edits.undoState', { videoId })).toBeDefined();
+      const scoped = (promise: Promise<unknown>) => promise.then(() => 'ok', (e: unknown) => (details(e) as { details?: { code?: string } }).details?.code);
+      expect(await scoped(viewer.request('space.list', {}))).toBe('WEB_REVIEW_SCOPE');
+      expect(await scoped(viewer.request('conversations.list', {}))).toBe('WEB_REVIEW_SCOPE');
+      expect(await scoped(viewer.request('videos.open', { projectId: project.id, path: 'elsewhere.bcut' }))).toBe('WEB_REVIEW_SCOPE');
+      expect(await scoped(viewer.request('videos.target', { videoId: 'vid_other' }))).toBe('WEB_REVIEW_SCOPE');
+      expect(await scoped(viewer.request('subscribe', { topic: 'space' } as never))).toBe('WEB_REVIEW_SCOPE');
+      // 完整登录的会话不受影响。
+      expect((await page.request('space.list', {})).entries).toBeDefined();
+    } finally {
+      viewer.close();
+    }
+
+    // Runtime 重启（服务随 Runtime 启动；测试里端口是系统挑的，先把它固定下来）：同一条链接，密钥照样能换。
+    const port = new URL(origin).port;
+    await desktop.request('services.configure', { serviceId: 'web', port: Number(port) });
+    await runtime.close();
+    runtime = await startRuntime({
+      home: resolveRuntimeHome({ BAOCUT_HOME: path.join(dir, 'home') }),
+      drivers: () => [new ToolDriver()],
+      watchSpace: false,
+      engineHost: engine,
+      videoGraceMs: 100,
+      modelWorker: null,
+      initiator: { discoverer: null },
+      nodes: { host: '127.0.0.1', advertiser: null },
+      services: { web: { dist: path.join(dir, 'dist') } },
+    });
+    expect(runtime.services.manager.status('web')).toMatchObject({ state: 'on' });
+    await runtime.space.rescan();
+    await until(() => runtime.space.videos().some((video) => video.videoId === videoId), 10_000);
+    expect(runtime.services.manager.status('web').endpoint).toBe(`http://127.0.0.1:${port}/`);
+    expect((await runtime.services.web.reviewLink(videoId)).url).toBe(first.url);
+    expect((await review({ video: videoId, key })).status).toBe(204);
   });
 
   it('写入的操作者是用户本人（与桌面相同），不是 external:web；项目目录之外的素材文件被拒绝', async () => {

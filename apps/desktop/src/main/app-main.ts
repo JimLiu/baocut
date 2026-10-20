@@ -20,6 +20,7 @@ import { installStdioErrorGuards } from './stdio-errors.ts';
 import { saveDialogPath, saveFileData } from './save-dialog-path.ts';
 import { downloadToFile, runtimeMediaUrl } from './save-url.ts';
 import { writeImageRef } from './image-ref-file.ts';
+import { captureRect } from './capture-frame.ts';
 import { writeRecording } from './recording-file.ts';
 import { desktopRuntimeHeaders, desktopRuntimeResponseHeaders, isDesktopRuntimeRequest } from './runtime-origin.ts';
 
@@ -252,6 +253,14 @@ export function startDesktopApp(): void {
   ipcMain.handle('baocut:write-image-ref', async (event, raw: unknown) => {
     if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error('not allowed');
     return writeImageRef(raw);
+  });
+
+  // 轻量编辑器的标记截图：截应用窗口里预览画面那一块此刻的像素（HTML 动画的实时合成层只有这样截得到）。只收应用窗口主框架发来的，
+  // 位置在主进程里重新校验；窗口没画出来时（最小化、遮住）给 null。
+  ipcMain.handle('baocut:capture-frame', async (event, raw: unknown) => {
+    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error('not allowed');
+    const image = await event.sender.capturePage(captureRect(raw));
+    return image.isEmpty() ? null : new Uint8Array(image.toPNG());
   });
 
   ipcMain.handle('baocut:reveal', (_event, target: unknown) => {

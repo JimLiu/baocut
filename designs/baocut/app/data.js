@@ -243,6 +243,53 @@
      notes: 'Sintel © Blender Foundation，CC BY 3.0。视频由 W3C 托管；未改动原素材。没有预置虚构字幕。',
      toast: 'Sintel © Blender Foundation · CC BY 3.0 · W3C 视频源',
      url: 'https://media.w3.org/2010/05/sintel/trailer.mp4', content: {}, meta: {}, sample: true},
+    /* 智能体做的讲解动画（docs/design/lite-editor §2.1、motion-video §2.2）：`scenes` 是章节表——一行一个场景，
+       每个场景是时间线上一段代码包实例 + 一个 chapter 标记 + 这一场的旁白；`origin: 'session'` 表示它是会话里新建的。
+       轻量编辑器按这张表折成段；时间线视图照常按 chapters / clips 画。句子时间相对场景开头；实拍覆盖按 `footage` 列。 */
+    {id: 'p15', title: '倒着开的跑车 · 讲明白', dir: 'd8', folder: '倒着开的跑车', status: 'complete', entry: 'sub', bare: true, origin: 'session',
+     src: {name: 'render-v3.mp4', path: '~/BaoCut/产品手册动画/倒着开的跑车/render-v3.mp4', format: 'MP4 · H.264', res: '1920×1080', bytes: 61341696, state: 'ok'},
+     duration: DUR, lang: '中文', modified: '10 分钟前', mtime: 10, otime: 0, ctime: 1440, hue: 206,
+     desc: '智能体按脚本做的讲解动画：七个场景、每场一段旁白与一个代码包，两处实拍覆盖。',
+     notes: '想改哪一场就在审片视图里标注给智能体；时间线视图留给调节奏。',
+     toast: '讲解动画 · 7 个场景 · 点一句台词跳到那里，画面上可以直接标注',
+     scenes: [
+       {id: 's01', title: '钩子', start: 0, end: 22, bundle: 'bundles/s01-hook', bundleVersion: 3, narration: 'audio/s01.wav', status: 'placed',
+        script: '# 钩子\n\n一辆跑车，车顶朝下，贴着隧道的天花板开。镜头从远处推近，字幕只给三个字：**没掉下来**。\n\n（画面：隧道全黑，只有车灯；推近到车底时停一拍）',
+        lines: [{start: 0.4, end: 4.1, text: '这辆车正在倒着开。'}, {start: 4.6, end: 9.8, text: '不是倒车，是车顶朝下，贴着天花板开。'},
+                {start: 10.4, end: 15.2, text: '它没有掉下来，也没有慢下来。'}, {start: 16, end: 21.4, text: '今天讲清楚：它凭什么。'}],
+        footage: [{src: 'clips/tunnel-pass.mp4', at: 4.6, dur: 5.2, label: '实拍 · 隧道通过'}], images: ['ref/tunnel-sketch.png']},
+       {id: 'intro', title: '开场', start: 22, end: 26, bundle: 'bundles/intro', bundleVersion: 1, narration: 'audio/intro.wav', status: 'placed',
+        script: '# 开场\n\n片名卡：**倒着开的跑车**。三秒，不要旁白。', lines: []},
+       {id: 's02', title: '先看它做了什么', start: 26, end: 66, bundle: 'bundles/s02-demo', bundleVersion: 2, narration: 'audio/s02.wav', status: 'placed',
+        script: '# 先看它做了什么\n\n把三个动作拆开给：起步、贴顶、过弯。每个动作配一个侧视图小图，数字只给速度。\n\n（画面：左侧实拍，右侧示意图同步）',
+        lines: [{start: 0.5, end: 6.2, text: '先看它做了三件事。'}, {start: 6.8, end: 14, text: '第一，从地面起步，开到足够快。'},
+                {start: 14.6, end: 23.5, text: '第二，沿着一段弧形的墙，一路开到天花板上。'}, {start: 24, end: 32.6, text: '第三，在天花板上过了一个弯，又开了回来。'},
+                {start: 33.2, end: 39.4, text: '全程没有任何绳子、磁铁或者轨道。'}],
+        footage: [{src: 'clips/loop-side.mp4', at: 14.6, dur: 9, label: '实拍 · 弧墙侧视'}], images: ['ref/three-steps.png']},
+       {id: 's03', title: '倒着为什么不掉', start: 66, end: 118, bundle: 'bundles/s03-downforce', bundleVersion: 4, narration: 'audio/s03.wav', status: 'placed',
+        script: '# 倒着为什么不掉\n\n受力图：重力朝下，车底的气流把车往路面压。压力大过重力，车就贴住了。\n\n- 先画重力箭头\n- 再画气流，箭头从车底指向路面\n- 两个箭头并排比长短',
+        lines: [{start: 0.6, end: 6.4, text: '车为什么不掉下来，只看两个力。'}, {start: 7, end: 13.8, text: '一个是重力，永远朝下。'},
+                {start: 14.4, end: 24, text: '另一个来自车底的风：空气被吸过车底，把车往路面压。'}, {start: 24.6, end: 34.2, text: '只要这个压力比重力大，车就贴着路面，路面朝哪都一样。'},
+                {start: 35, end: 44.8, text: '普通跑车要开得很快才有这么大的压力，它不需要。'}, {start: 45.4, end: 51, text: '因为它的风不是靠速度来的。'}],
+        images: ['ref/force-diagram.png']},
+       {id: 's04', title: '风扇车不是新点子', start: 118, end: 154, bundle: 'bundles/s04-history', bundleVersion: 2, narration: 'audio/s04.wav', status: 'placed',
+        script: '# 风扇车不是新点子\n\n时间轴：上世纪的赛车就试过把风扇装在车尾抽气。赢过一场，然后被禁。\n\n（画面：两张老照片风格的插图，不用真实车队名）',
+        lines: [{start: 0.5, end: 7.2, text: '用风扇把车吸在地上，不是新点子。'}, {start: 7.8, end: 16, text: '几十年前的赛车就在车尾装过风扇，专门抽车底的空气。'},
+                {start: 16.6, end: 25.4, text: '效果好到只跑了一场就被禁了。'}, {start: 26, end: 35.2, text: '它把这套东西装回了一辆能上路的车上。'}],
+        images: ['ref/history-a.png', 'ref/history-b.png']},
+       {id: 's05', title: '凭什么能飞', start: 154, end: 194, bundle: 'bundles/s05-thrust', bundleVersion: 1, narration: 'audio/s05.wav', status: 'stale', stale: ['script'],
+        script: '# 凭什么能飞\n\n把风扇的方向转一下：往下吹就是往上推。数字只给推力和车重的比值，不给具体公斤数。\n\n（画面：风扇朝向的切换动画，比值用一根横条）',
+        lines: [{start: 0.6, end: 7, text: '同一组风扇，换个方向，就是另一回事。'}, {start: 7.6, end: 15.8, text: '往车底抽气是把车往下压，把气往下吹，就是把车往上推。'},
+                {start: 16.4, end: 26, text: '推力和车重的比值够大，车就能离开地面一小会。'}, {start: 26.6, end: 34.6, text: '所以它跳得起来，但飞不远，这不是飞机。'},
+                {start: 35.2, end: 39.4, text: '它只是一辆把风用到极致的车。'}],
+        images: ['ref/thrust-ratio.png']},
+       {id: 'outro', title: '收尾', start: 194, end: 206, bundle: 'bundles/outro', bundleVersion: 1, narration: 'audio/outro.wav', status: 'placed',
+        script: '# 收尾\n\n一句话收：**风往哪吹，车就往哪贴。** 片尾卡停三秒。',
+        lines: [{start: 0.5, end: 6.2, text: '一句话记住它：风往哪吹，车就往哪贴。'}, {start: 7, end: 11.2, text: '下一期，讲它的轮胎。'}]},
+     ],
+     content: {chapters: [{t: 0, title: '钩子'}, {t: 22, title: '开场'}, {t: 26, title: '先看它做了什么'}, {t: 66, title: '倒着为什么不掉'},
+                          {t: 118, title: '风扇车不是新点子'}, {t: 154, title: '凭什么能飞'}, {t: 194, title: '收尾'}], speakers: ['旁白'], paras: []},
+     meta: {speakers: 1, chapters: 7, cues: 26}, sample: true},
     /* 剪口播的实验项目（第 193 轮）：`entry: 'clean'` 直接开在文稿的剪辑模式，`bare`
        表示「画面上没有任何元素」——时间轴只有按 clip 拆出的源视频、字幕轨和源音频，
        没有 B-roll / 文字 / 贴纸 / 音乐，也不预埋 AI 建议：口癖、停顿要用户自己点
@@ -3255,6 +3302,12 @@
     const movie = !!proj.preview;
     const main = {...sources.video[0], name: proj.src.name, dur: proj.duration,
       ...(movie ? {url: proj.preview.url, poster: proj.preview.poster, meta: proj.src.format} : {})};
+    if (proj.scenes) {
+      // 讲解动画（docs/design/lite-editor §2.1）：章节就是场景表的每一行；没有配乐与别的素材，只有成片那一条视频
+      return {entry, tab: entry.tab, transcript: true, captions: true, music: false, score: [], duration: DUR, clips,
+        chapters: proj.scenes.map(s => ({id: s.id, title: s.title, start: s.start, end: s.end})),
+        sources: {image: [], video: [main], audio: []}};
+    }
     return {
       entry, tab: movie ? 'video' : elementLab ? 'elements' : entry.tab,
       transcript: !elementLab && !movie, captions: proj.captions !== false, music: !proj.bare, score: proj.score || [],
@@ -3274,13 +3327,18 @@
     const D = window.BC_DATA;
     const proj = currentProject || projects.find((x) => x.id === id);
     const src = proj && proj.lang === '英语' ? 'en' : 'zh';
-    const key = src + ':' + (proj && proj.entry === 'clean' ? 'monologue' : 'interview');
+    const key = proj && proj.scenes ? 'scenes:' + proj.id : src + ':' + (proj && proj.entry === 'clean' ? 'monologue' : 'interview');
     if (activeProjectKey === key) return;
     activeProjectKey = key;
     const dst = src === 'en' ? 'zh' : 'en';
     D.srcLang = LANG[src];
     D.dstLang = LANG[dst];
     D.cues = makeCues(src === 'en');
+    if (proj && proj.scenes) {
+      /* 讲解动画（docs/design/lite-editor §2.1）：字幕 cue 就是各场旁白的句子（场景内相对时间换成序列时间），
+         画面上的字幕、文稿面板与轻量视图的台词因此是同一份；没有译文、没有预埋剪口 */
+      D.cues = proj.scenes.flatMap(sc => (sc.lines || []).map((l, i) => S(`${sc.id}:l${i + 1}`, +(sc.start + l.start).toFixed(2), +(sc.start + l.end).toFixed(2), 's1', l.text, '')));
+    }
     if (proj && proj.entry === 'clean') {
       // 同语言项目也需换内容包；剪口位置与稳定 cue id 保留供 AI 扫描演示。
       const lines = {

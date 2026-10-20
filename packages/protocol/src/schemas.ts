@@ -15,7 +15,7 @@ import { AGENT_SKILL_HOST_FOLDERS } from './catalog.ts';
 import { SLIDE_ANNOTATION_LIMITS } from './slides.ts';
 import { DESIGN_ANNOTATION_LIMITS } from './design.ts';
 import { DESIGN_SYSTEM_ANNOTATION_LIMITS } from './design-system.ts';
-import { VIDEO_ANNOTATION_LIMITS } from './video.ts';
+import { VIDEO_ANNOTATION_COLORS, VIDEO_ANNOTATION_LIMITS, VIDEO_ANNOTATION_MAX_POINTS, VIDEO_ANNOTATION_WIDTHS } from './video.ts';
 import { DOCS_ANNOTATION_LIMITS } from './docs.ts';
 import { SPACE_PARAM_SCHEMAS } from './space-schemas.ts';
 import { EXTERNAL_TOOL_PARAM_SCHEMAS } from './external-tools-schemas.ts';
@@ -444,31 +444,105 @@ const designSystemAnnotation = z
   .strict();
 const designSystemAnnotations = z.array(designSystemAnnotation).max(DESIGN_SYSTEM_ANNOTATION_LIMITS.perMessage);
 /**
- * 视频标注（产品设计 §3.2.3「视频标注」；协议规范 `conversations`）。按 `kind` 分四种，各自只收自己的形状：`box` 的 `w`、`h`
- * 大于 0；`arrow`、`text`、`pin` 的 `w`、`h` 为 0；`to` 只有 `arrow` 有、也必须有。坐标相对画布归一化（0–1）。
+ * 视频标注（产品设计 §3.2.3「视频标注」；协议规范 `conversations`；轻量视图的标记工具见 docs/design/lite-editor §4）。按 `kind`
+ * 分九种，各自只收自己的形状：`box`、`ellipse` 的 `w`、`h` 大于 0；`element`、`pen` 是外接框，`w`、`h` 不小于 0；`arrow`、`line`、
+ * `text`、`pin`、`comment` 的 `w`、`h` 为 0；`to` 只有 `arrow`、`line` 有、也必须有；`points` 只有 `pen` 有、也必须有；
+ * `element` 是 `element` 必有、`comment` 可有；`shot`（随消息附上的那一帧截图）哪种都可以带，`comment` 必须带、也必须有印章位置 `stamp`；
+ * `shot.attachment` 是那张图在这条消息 `attachments` 里的 id。
+ * 坐标相对画布归一化（0–1）。
+ * 批注只有 `text`、`comment` 必须写，别的种类可以是空串；`style`、`segment`、`line` 哪种都可以带。
  */
 const unit = z.number().min(0).max(1);
+const normPoint = z.object({ x: unit, y: unit }).strict();
+const elementPixels = z.number().nonnegative().max(1_000_000);
+const videoAnnotationElement = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('caption'),
+      id: z.string().min(1).max(1000),
+      text: z.string().max(4096).optional(),
+      detail: z.string().max(4096).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('html'),
+      selector: z.string().min(1).max(4096),
+      w: elementPixels.optional(),
+      h: elementPixels.optional(),
+      name: z.string().max(1000).optional(),
+      role: z.string().max(200).optional(),
+      focusable: z.boolean().optional(),
+      detail: z.string().max(4096).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('element'),
+      id: z.string().min(1).max(1000),
+      text: z.string().max(4096).optional(),
+      detail: z.string().max(4096).optional(),
+    })
+    .strict(),
+]);
 const videoAnnotationBase = {
   video: fileTarget,
   revision,
   timeMs: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   label: z.string().max(1000),
-  text: z.string().trim().min(1).max(VIDEO_ANNOTATION_LIMITS.text),
+  text: z.string().trim().max(VIDEO_ANNOTATION_LIMITS.text),
+  shot: z
+    .object({ timeMs: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), stamp: normPoint.optional(), attachment: id.optional() })
+    .strict()
+    .optional(),
+  style: z
+    .object({ color: z.enum(VIDEO_ANNOTATION_COLORS), width: z.literal(VIDEO_ANNOTATION_WIDTHS) })
+    .strict()
+    .optional(),
+  segment: z
+    .object({
+      id: z.string().min(1).max(200),
+      kind: z.string().min(1).max(64),
+      index: z.number().int().nonnegative().max(1_000_000),
+      title: z.string().max(1000).optional(),
+    })
+    .strict()
+    .optional(),
+  line: z
+    .object({ id: z.string().min(1).max(200), index: z.number().int().min(1).max(1_000_000), text: z.string().max(4096) })
+    .strict()
+    .optional(),
 };
+const requiredText = z.string().trim().min(1).max(VIDEO_ANNOTATION_LIMITS.text);
 const pointRegion = z.object({ x: unit, y: unit, w: z.literal(0), h: z.literal(0) }).strict();
+const areaRegion = z.object({ x: unit, y: unit, w: z.number().gt(0).max(1), h: z.number().gt(0).max(1) }).strict();
+const boundsRegion = z.object({ x: unit, y: unit, w: unit, h: unit }).strict();
 const videoAnnotation = z.discriminatedUnion('kind', [
+  z.object({ ...videoAnnotationBase, kind: z.literal('box'), region: areaRegion }).strict(),
+  z.object({ ...videoAnnotationBase, kind: z.literal('arrow'), region: pointRegion, to: normPoint }).strict(),
+  z.object({ ...videoAnnotationBase, kind: z.literal('text'), region: pointRegion, text: requiredText }).strict(),
+  z.object({ ...videoAnnotationBase, kind: z.literal('pin'), region: pointRegion }).strict(),
   z
     .object({
       ...videoAnnotationBase,
-      kind: z.literal('box'),
-      region: z.object({ x: unit, y: unit, w: z.number().gt(0).max(1), h: z.number().gt(0).max(1) }).strict(),
+      kind: z.literal('pen'),
+      region: boundsRegion,
+      points: z.array(normPoint).min(2).max(VIDEO_ANNOTATION_MAX_POINTS),
     })
     .strict(),
+  z.object({ ...videoAnnotationBase, kind: z.literal('line'), region: pointRegion, to: normPoint }).strict(),
+  z.object({ ...videoAnnotationBase, kind: z.literal('ellipse'), region: areaRegion }).strict(),
+  z.object({ ...videoAnnotationBase, kind: z.literal('element'), region: boundsRegion, element: videoAnnotationElement }).strict(),
   z
-    .object({ ...videoAnnotationBase, kind: z.literal('arrow'), region: pointRegion, to: z.object({ x: unit, y: unit }).strict() })
+    .object({
+      ...videoAnnotationBase,
+      kind: z.literal('comment'),
+      region: pointRegion,
+      text: requiredText,
+      element: videoAnnotationElement.optional(),
+      shot: z.object({ timeMs: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), stamp: normPoint, attachment: id.optional() }).strict(),
+    })
     .strict(),
-  z.object({ ...videoAnnotationBase, kind: z.literal('text'), region: pointRegion }).strict(),
-  z.object({ ...videoAnnotationBase, kind: z.literal('pin'), region: pointRegion }).strict(),
 ]);
 const videoAnnotations = z.array(videoAnnotation).max(VIDEO_ANNOTATION_LIMITS.perMessage);
 /** 文档标注（docs/design/docs §8）。`path` 是元素路径 `f-<tab>#<node>/<block>…;thread=<root>`，长度与编辑器消息一致。 */
@@ -1078,6 +1152,7 @@ export const methodParamSchemas = {
   'designSystem.open': fileTarget,
   'docs.open': fileTarget,
   'videos.open': fileTarget,
+  'videos.target': z.object({ videoId: id }).strict(),
   'videos.importPackage': z
     .object({
       projectId: id.optional(),
@@ -1518,6 +1593,7 @@ export const methodParamSchemas = {
     .strict(),
   'services.modelApi.removeAlias': z.object({ alias: modelApiAlias }).strict(),
   'services.web.createAccessLink': z.object({ video: id.optional() }).strict(),
+  'services.web.reviewLink': z.object({ video: id }).strict(),
   'services.web.listSessions': empty,
   'services.web.revokeSession': z.object({ sessionId: id }).strict(),
   'settings.get': z.object({ keys: z.array(z.enum(SETTING_KEYS)).max(SETTING_KEYS.length).optional() }).strict(),

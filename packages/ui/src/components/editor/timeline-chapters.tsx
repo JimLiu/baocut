@@ -24,6 +24,7 @@ import {
   type BandSegment,
   type ChapterSpan,
 } from '../../model/chapters.ts';
+import { dragEdgeFrame } from '../../model/chapter-edges.ts';
 import { durationSeconds, formatTimecode } from '../../model/editor.ts';
 import { seekFrame, timeAt as scrubTimeAt } from '../../model/player.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -199,11 +200,9 @@ export function TimelineChapters({ sequence }: { sequence: Sequence }) {
     const width = barRef.current?.getBoundingClientRect().width ?? 0;
     const pxPerFrame = totalFrames > 0 ? width / totalFrames : 0;
     const playheadFrame = Math.round(useEditor.getState().playhead * perSecond);
-    let frame = Math.round(timeAt(event.clientX) * perSecond);
-    if (pxPerFrame > 0 && Math.abs(frame - playheadFrame) * pxPerFrame <= SNAP_PX) frame = playheadFrame;
     const bounds = startBounds(chapters, current.index, totalFrames);
-    frame = Math.min(bounds.max, Math.max(bounds.min, frame));
-    setDrag({ ...current, moved: true, frame, snapped: frame === playheadFrame });
+    const next = dragEdgeFrame({ frame: timeAt(event.clientX) * perSecond, playheadFrame, pxPerFrame, snapPx: SNAP_PX, bounds });
+    setDrag({ ...current, moved: true, frame: next.frame, snapped: next.snapped });
   };
 
   const onDragEnd = () => {

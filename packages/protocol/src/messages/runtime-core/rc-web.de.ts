@@ -88,4 +88,10 @@ export const de: RcWebMessages = {
   attachmentNotFound: "Anhang ist nicht vorhanden",
   fileNameLength: (p: { max: number }) => `Dateiname muss 1 bis ${p.max} Zeichen`,
   fileNameInvalid: "Dateiname darf keine Pfadtrennzeichen oder Steuerzeichen enthalten",
+  reviewTitle: 'Prüfseite wird geöffnet',
+  reviewOpening: 'Dieses Video wird geöffnet…',
+  reviewKeyMissing: 'Dieser Prüflink ist unvollständig: den ganzen Link kopieren, auch den Teil nach #.',
+  reviewKeyRejected: 'Dieser Prüflink gilt nicht für dieses BaoCut: den Agent, der ihn gegeben hat, um einen neuen bitten.',
+  reviewVideoMissing: 'Dieses Video existiert nicht mehr: Es wurde vielleicht verschoben oder gelöscht.',
+  reviewNotAllowed: (p) => `Die Prüfseite kann nur ihr eigenes Video öffnen; ${p.method} ist hier nicht verfügbar`,
 };

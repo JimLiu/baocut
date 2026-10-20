@@ -2032,12 +2032,36 @@ export function posterFrame(video: VideoSnapshot): { asset: VersionRef; at: numb
  */
 export const VIDEO_ANNOTATION_LIMITS = { perMessage: 20, text: 2000 } as const;
 
-/** 视频标注的种类：框、箭头、文字、编号。 */
-export const VIDEO_ANNOTATION_KINDS = ['box', 'arrow', 'text', 'pin'] as const;
+/**
+ * 视频标注的种类：框、箭头、文字、编号；标记工具（docs/design/lite-editor §4.1）另加画笔、直线、圆、元素与评论。
+ * 时间线视图的标注条只列前四种。
+ */
+export const VIDEO_ANNOTATION_KINDS = ['box', 'arrow', 'text', 'pin', 'pen', 'line', 'ellipse', 'element', 'comment'] as const;
 export type VideoAnnotationKind = (typeof VIDEO_ANNOTATION_KINDS)[number];
+/** 一定要写批注的种类：文字与评论的内容就是批注；别的种类可以不写（标记工具画的标记不逐条要批注，要说的话在对话里）。 */
+export const VIDEO_ANNOTATION_TEXT_KINDS = ['text', 'comment'] as const satisfies readonly VideoAnnotationKind[];
+/** 标记的颜色与粗细（像素）：标记工具条的「颜色」「粗细」（lite-editor §4.1），随标注存成 `style`。 */
+export const VIDEO_ANNOTATION_COLORS = ['red', 'blue', 'green', 'black', 'white'] as const;
+export type VideoAnnotationColor = (typeof VIDEO_ANNOTATION_COLORS)[number];
+export const VIDEO_ANNOTATION_WIDTHS = [2, 4, 8, 12] as const;
+export type VideoAnnotationWidth = (typeof VIDEO_ANNOTATION_WIDTHS)[number];
+/** 画笔一道至多这么多个点。 */
+export const VIDEO_ANNOTATION_MAX_POINTS = 2000;
 
 /**
- * 一条视频标注（产品设计 §3.2.3「视频标注」、§5.3「标注」）：用户在编辑器预览画面上框、画箭头、写文字或打编号，写的批注。
+ * 标注点中的画面元素（lite-editor §4.1「元素是什么」）：字幕行、HTML 动画视频里的节点（选择器 `tag#id.class`、CSS 像素尺寸，
+ * 可访问名、角色与能否键盘聚焦照 DevTools），或实时合成层与贴片。`detail` 是给模型看的一句英文（`caption s01:l3 "…"`、
+ * `html button#play 32×32 name="播放" role=button`），客户端生成；没给时 Harness 按同一写法从这些字段推出
+ * （`videoAnnotationElementDetail`）。给人看的说法由客户端按界面语言拼进 `label`，不在这里。
+ */
+export type VideoAnnotationElement =
+  | { kind: 'caption'; id: string; text?: string; detail?: string }
+  | { kind: 'html'; selector: string; w?: number; h?: number; name?: string; role?: string; focusable?: boolean; detail?: string }
+  | { kind: 'element'; id: string; text?: string; detail?: string };
+
+/**
+ * 一条视频标注（产品设计 §3.2.3「视频标注」、§5.3「标注」）：用户在编辑器预览画面上框、画箭头、写文字或打编号，写的批注；
+ * 标记工具（lite-editor §4）另能画笔、直线、圆，点中画面上的元素，或落一枚评论印章，并带颜色与粗细、落点。
  * 随 `conversations.send` / `steer` 挂在消息上，Runtime 发送时按视频拼成 `<baocut-video-annotations>` 段交给智能体；
  * 会话里的用户消息上另带一份。默认语义是「改源视频 `timeMs` 附近」，`region` 只用来定位，不裁剪、不作为生成的输入。
  */
@@ -2050,13 +2074,93 @@ export interface VideoAnnotation {
   timeMs: number;
   kind: VideoAnnotationKind;
   /**
-   * 相对那个版本的画布归一化（0–1，左上为原点）。`box` 的 `w`、`h` 大于 0；`arrow` 是起点、`text` 与 `pin` 是那个点，`w`、`h` 为 0。
+   * 相对那个版本的画布归一化（0–1，左上为原点）。`box`、`ellipse` 的 `w`、`h` 大于 0；`element` 是元素在画面里的框、`pen` 是点列的
+   * 外接框，`w`、`h` 不小于 0；`arrow`、`line` 是起点，`text`、`pin`、`comment` 是那个点，`w`、`h` 为 0。
    */
   region: { x: number; y: number; w: number; h: number };
-  /** 箭头的终点（归一化）：只有 `arrow` 有，也必须有。 */
+  /** 终点（归一化）：只有 `arrow` 与 `line` 有，也必须有。 */
   to?: { x: number; y: number };
-  /** 给人看的位置（时码、种类与画面九宫位置），客户端生成。 */
+  /** 画笔的归一化点列：只有 `pen` 有，也必须有，至少两个点。 */
+  points?: { x: number; y: number }[];
+  /** 标记的颜色与粗细：标记工具送来的标注带，画面上照它画；没有时按默认画。 */
+  style?: { color: VideoAnnotationColor; width: VideoAnnotationWidth };
+  /** 点中的画面元素：`element` 必须有，`comment` 点在元素上时有，别的种类没有。 */
+  element?: VideoAnnotationElement;
+  /**
+   * 随消息附上的那一帧截图：哪一帧（毫秒），评论另带印章落在哪（归一化），`attachment` 是这张图在同一条消息 `attachments` 里的
+   * 附件 id（截不出图时没有）。标记工具画的标注都带：那一帧的画面加上这一帧的标记，同一帧的几条共一张图、给人看与给智能体时也算一条
+   * （`groupVideoAnnotationsByFrame`）；`comment` 必须带、也必须有 `stamp`。
+   */
+  shot?: { timeMs: number; stamp?: { x: number; y: number }; attachment?: Id };
+  /**
+   * 标注时的落点（lite-editor §4.2）：播放头所在的那一段，`index` 是段序（从 0 起），`kind` 是段的种类（如 `scene`）。
+   * 是标注时算出的快照，不随段的重算改变；只用来定位，不是「重做整段」。
+   */
+  segment?: { id: string; kind: string; index: number; title?: string };
+  /** 落点里的当前句：`index` 是它在那一段里的句序（从 1 起）；没有当前句时省略。 */
+  line?: { id: string; index: number; text: string };
+  /** 给人看的位置（时码、种类与画面九宫位置，或点中的元素；有落点时另带段与句），客户端生成。 */
   label: string;
-  /** 用户写的批注，去掉首尾空白。 */
+  /** 用户写的批注，去掉首尾空白。`text` 与 `comment` 必须写；别的种类可以是空串（lite-editor §4.3「画的标记不逐条要批注」）。 */
   text: string;
+}
+
+/**
+ * 一条视频标注属于哪一帧（lite-editor §4.1「同一帧算一条」）：截图的那一帧，没有截图时是它的时刻。
+ */
+export function videoAnnotationFrameMs(annotation: Pick<VideoAnnotation, 'timeMs' | 'shot'>): number {
+  return annotation.shot && Number.isFinite(annotation.shot.timeMs) ? annotation.shot.timeMs : annotation.timeMs;
+}
+
+/** 按「视频 + 帧」归成的一条：`n` 从 1 起，按各帧第一次出现的先后；`items` 是这一帧的几处标记，按画的先后。 */
+export interface VideoAnnotationFrame<T> {
+  key: string;
+  timeMs: number;
+  n: number;
+  items: T[];
+}
+
+/**
+ * 视频标注按「视频 + 帧」归条（lite-editor §4.1、协议规范 `conversations`）：消息与草稿里仍是一处标记一项，给人看的列表、条数、
+ * 画面编号与给智能体的块都按这里归成的条走——同一帧本来就共一张截图。`videoOf` 给出标注属于哪部视频（草稿用 videoId，消息用视频路径）。
+ */
+export function groupVideoAnnotationsByFrame<T extends Pick<VideoAnnotation, 'timeMs' | 'shot'>>(
+  annotations: readonly T[],
+  videoOf: (annotation: T) => string,
+): VideoAnnotationFrame<T>[] {
+  const frames: VideoAnnotationFrame<T>[] = [];
+  const byKey = new Map<string, VideoAnnotationFrame<T>>();
+  for (const annotation of annotations) {
+    const timeMs = videoAnnotationFrameMs(annotation);
+    const key = `${videoOf(annotation)}@${timeMs}`;
+    let frame = byKey.get(key);
+    if (!frame) {
+      frame = { key, timeMs, n: frames.length + 1, items: [] };
+      byKey.set(key, frame);
+      frames.push(frame);
+    }
+    frame.items.push(annotation);
+  }
+  return frames;
+}
+
+const trimElementText = (value: string, max: number) => {
+  const s = value.replace(/\s+/g, ' ').trim();
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+};
+
+/**
+ * 点中元素给模型看的那一句（英文；与原型 designs/baocut/app/model-markup.js 的 `elementDetail` 同一写法）：带了 `detail` 时用它，
+ * 否则 `caption <id> "<text>"`、`element <id> "<text>"`、`html <selector> <w>×<h> name="…" role=…`。
+ */
+export function videoAnnotationElementDetail(element: VideoAnnotationElement): string {
+  if (element.detail) return element.detail;
+  if (element.kind === 'html') {
+    const bits = [`html ${element.selector}`];
+    if (element.w && element.h) bits.push(`${Math.round(element.w)}×${Math.round(element.h)}`);
+    if (element.name) bits.push(`name="${trimElementText(element.name, 40)}"`);
+    if (element.role) bits.push(`role=${element.role}`);
+    return bits.join(' ');
+  }
+  return `${element.kind} ${element.id}${element.text ? ` "${trimElementText(element.text, 80)}"` : ''}`;
 }

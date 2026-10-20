@@ -1,9 +1,37 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { archiveLocalMac, runMac } from './macos-distribution.mjs';
+import { archiveLocalMac, ignoreMacSigningFile, macSigningOptions, runMac } from './macos-distribution.mjs';
+
+test('bundle signing defers the main executable until its sibling CLI is signed', { skip: process.platform !== 'darwin' }, async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'baocut-sign-order-')));
+  const app = path.join(root, 'BaoCut.app');
+  try {
+    mkdirSync(path.join(app, 'Contents/MacOS'), { recursive: true });
+    writeFileSync(path.join(root, 'main.c'), 'int main(void) { return 0; }\n');
+    writeFileSync(path.join(app, 'Contents/Info.plist'), `<?xml version="1.0"?><plist version="1.0"><dict>
+      <key>CFBundleExecutable</key><string>BaoCut</string><key>CFBundleIdentifier</key><string>com.baocut.sign-test</string>
+      <key>CFBundlePackageType</key><string>APPL</string><key>CFBundleVersion</key><string>1</string>
+      <key>CFBundleShortVersionString</key><string>1.0.0</string></dict></plist>`);
+    for (const name of ['BaoCut', 'baocut-cli']) {
+      // Apple Silicon's linker signs by default; this regression needs unsigned siblings.
+      execFileSync('clang', [path.join(root, 'main.c'), '-Wl,-no_adhoc_codesign', '-o', path.join(app, 'Contents/MacOS', name)]);
+    }
+    const { signAsync } = await import('@electron/osx-sign');
+    const entitlements = path.resolve(import.meta.dirname, '../build/entitlements.mac.plist');
+    const options = { app, platform: 'darwin', identity: '-', identityValidation: false,
+      preAutoEntitlements: false, preEmbedProvisioningProfile: false,
+      optionsForFile: (file) => macSigningOptions(file, { app, entitlements, local: true }) };
+    const main = path.join(app, 'Contents/MacOS/BaoCut');
+    await assert.rejects(signAsync({ ...options, ignore: [(file) => file === main ? false : ignoreMacSigningFile(file, app)] }), /baocut-cli/);
+    await signAsync({ ...options, ignore: (file) => ignoreMacSigningFile(file, app) });
+    execFileSync('codesign', ['--verify', '--deep', '--strict', app]);
+    execFileSync(path.join(app, 'Contents/MacOS/baocut-cli'));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 const lostConnection = 'Error Domain=NSURLErrorDomain Code=-1005 "The network connection was lost."\nThe validate action failed! Error 68.';
 

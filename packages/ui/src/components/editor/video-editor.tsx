@@ -9,8 +9,13 @@ import { PREVIEW_KEYS_COPY } from '../../copy.ts';
 import { runtimeFonts } from '../../render/local-fonts.ts';
 import { downloadingResolve } from '../../render/font-downloads.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { zoomKey } from '../../model/timeline-zoom.ts';
+import { zoomKey, type ZoomAction } from '../../model/timeline-zoom.ts';
+import { sequenceChapters, visibleChapters } from '../../model/chapters.ts';
+import { defaultEditorView, nextSegmentStart, prevSegmentStart, type LiteZoomAction } from '../../model/lite-segments.ts';
 import { TIMELINE_HEIGHT_MIN, useEditor, type PanelTab } from '../../state/editor-store.ts';
+import { useMarkup } from '../../state/markup-store.ts';
+import { useShell, type Route } from '../../state/shell-store.ts';
+import { LiteView, type LiteHandle } from './lite-view.tsx';
 import { landingPanel } from '../../model/shorts-entry.ts';
 import { readDerivation } from '../../model/shorts-result.ts';
 import { useTranscriptMode } from './transcript-mode.ts';
@@ -86,7 +91,9 @@ export function VideoEditor() {
   const sequence = snapshot ? rootSequence(snapshot) : null;
   const rootRef = useRef<HTMLDivElement>(null);
   const timeline = useRef<TimelineHandle | null>(null);
+  const lite = useRef<LiteHandle | null>(null);
   const timelineHeight = useEditor((s) => s.timelineHeight);
+  const view = useEditor((s) => s.view);
   // 属性页拖动中的值只叠给预览与属性页；时间线、快捷键与提交都按视频里的实际值。
   const draft = useEditor((s) => s.draft);
   const shown = useMemo(() => sequence && applyDraft(sequence, draft), [sequence, draft]);
@@ -171,6 +178,25 @@ export function VideoEditor() {
     engine.seek(useEditor.getState().playhead);
   }, [videoId, engine]);
 
+  // 轻量还是时间线（轻量编辑器设计 §6）：视频读到之后按「路由 > 这部视频上次的选择 > 全局默认 > 按种类」定一次；
+  // 路由上的 `?view=` 用过就去掉（它不进 WorkspaceItem，刷新或回退不再强制）。
+  // 已经定过的视频再收到带 `?view=` 的链接（同一部视频关了重开、或开着时点了入口链接）仍照路由重定。
+  const routeViewParam = useShell((s) => (s.route.tab === 'home' || s.route.tab === 'space' ? s.route.view : undefined));
+  useEffect(() => {
+    if (!videoId || !sequence) return;
+    const editor = useEditor.getState();
+    const shell = useShell.getState();
+    const route = shell.route;
+    const routeView = route.tab === 'home' || route.tab === 'space' ? (route.view ?? null) : null;
+    if (editor.viewResolvedFor === videoId && !routeView) return;
+    const inConversation = route.tab === 'home' && !!route.conversationId;
+    editor.resolveView(videoId, {
+      route: routeView,
+      byKind: defaultEditorView({ chapters: visibleChapters(sequenceChapters(sequence)).length, inConversation }),
+    });
+    if (routeView) shell.replace(withoutView(route));
+  }, [videoId, sequence, routeViewParam]);
+
   // 编辑器之外要求跳到某一秒（点 composer 里的一条视频标注）：同一部视频开着时让引擎跟过去。
   useEffect(
     () =>
@@ -205,7 +231,7 @@ export function VideoEditor() {
     runtime.videos.clearError();
   }, [commandError, runtime]);
 
-  useEditorKeys(rootRef, sequence, actions, timeline);
+  useEditorKeys(rootRef, sequence, actions, timeline, lite);
   useNudgeFlush(actions);
 
   if (!video) return null;
@@ -214,7 +240,9 @@ export function VideoEditor() {
       <div ref={rootRef} className={editor} tabIndex={-1} data-editor-root>
         <VideoBar video={video} sequence={sequence} />
         {snapshot && video.videoId ? <ShortsChildBanner videoId={video.videoId} documents={snapshot.documents} /> : null}
-        {sequence && shown && snapshot ? (
+        {sequence && shown && snapshot && view === 'lite' ? (
+          <LiteView video={video} sequence={sequence} shown={shown} snapshot={snapshot} handle={lite} />
+        ) : sequence && shown && snapshot ? (
           <div className={body}>
             <div className={column}>
               <FontBar videoId={video.videoId} />
@@ -337,11 +365,32 @@ function hasTextSelection(): boolean {
  * 舞台的方向键：舞台已经处理掉（`defaultPrevented`，它推动了选中元素）时，←/→ 不移播放头；舞台有焦点但没选中时照常逐帧；
  * ⌥←/→ 始终是时间微调（原型：⌥←/→ 让给时间微调）。
  */
+/** 路由上用过的 `?view=` 去掉（`replace`，不进历史）。 */
+function withoutView(route: Route): Route {
+  if ((route.tab === 'home' || route.tab === 'space') && route.view) {
+    const { view, ...rest } = route;
+    void view;
+    return rest;
+  }
+  return route;
+}
+
+/** 时间线的缩放动作换成片条的（轻量视图里 ⌘= / ⌘− / ⌘0 照常可用，只是不写进菜单）。 */
+const LITE_ZOOM: Partial<Record<ZoomAction, LiteZoomAction>> = {
+  in: 'in',
+  out: 'out',
+  '100': 'fit',
+  fit: 'fit',
+  fitClip: 'segment',
+  playhead: 'playhead',
+};
+
 function useEditorKeys(
   rootRef: { current: HTMLDivElement | null },
   sequence: Sequence | null,
   actions: EditorActions,
   timeline: { current: TimelineHandle | null },
+  lite: { current: LiteHandle | null },
 ) {
   const latest = useRef(sequence);
   latest.current = sequence;
@@ -367,6 +416,41 @@ function useEditorKeys(
         event.stopPropagation();
       };
       const jump = (seconds: number) => actions.seek(Math.min(duration, Math.max(0, useEditor.getState().playhead + seconds)));
+
+      // 轻量视图（轻量编辑器设计 §3「键盘」）：只有播放与定位的键——空格、K/J/L、←/→ 五秒、⇧←/⇧→ 上一段 / 下一段、
+      // ↑/↓ 与 M 的音量、F 全屏、Home/End、缩放；编辑键（撤销、拆分、删除、复制粘贴、挪片段）都不接。
+      if (editor.view === 'lite') {
+        const zoom = zoomKey(event, mod);
+        if (zoom) {
+          const action = LITE_ZOOM[zoom];
+          if (action) lite.current?.zoom(action);
+          return handled();
+        }
+        if (mod || event.altKey) return;
+        if (arrow) {
+          if (event.defaultPrevented) return;
+          handled();
+          const segments = lite.current?.segments ?? [];
+          const at = useEditor.getState().playhead;
+          if (event.shiftKey) actions.seek(direction < 0 ? prevSegmentStart(segments, at) : nextSegmentStart(segments, at));
+          else jump(direction * JUMP_PLAYING);
+          return;
+        }
+        if (event.key === 'Escape') {
+          // 标记层挂着时 Esc 归它（markup.tsx 的捕获监听）；这里兜画面还没量出来的时候，照样走会问一句的 close
+          if (!editor.annotating) return;
+          handled();
+          useMarkup.getState().close();
+          return;
+        }
+        const liteKeys = new Set([' ', 'k', 'j', 'l', 'm', 'f', '?', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
+        if (!liteKeys.has(letter) && !liteKeys.has(event.key)) return;
+        if (letter === 'f') {
+          handled();
+          enterPreviewFullscreen(root.querySelector<HTMLElement>('[data-preview-stage]'));
+          return;
+        }
+      }
 
       // ⌘Z / ⇧⌘Z：还没提交的微调直接丢掉（撤销）或先提交（新的修改清掉了重做）。
       if (mod && !event.altKey && (letter === 'z' || letter === 'y')) {
@@ -503,11 +587,11 @@ function useEditorKeys(
           void (event.shiftKey ? removeSelectionSpan(actions) : deleteSelection(actions));
           return;
         case 'Escape':
-          // 菜单、对话框、拖动各自先接 Esc（belongsToEditor、时间线的捕获监听）；批注框开着时它先关（它是对话框）。
-          // 到这里先退出视频标注模式，再取消选中。
+          // 菜单、对话框、拖动各自先接 Esc（belongsToEditor、时间线的捕获监听）；标记层挂着时它先接（markup.tsx 的捕获监听）。
+          // 到这里先退出视频标注模式（还有没发的标记会先问），再取消选中。
           if (editor.annotating) {
             handled();
-            editor.setAnnotating(false);
+            useMarkup.getState().close();
             return;
           }
           if (!editor.selection.length) return;

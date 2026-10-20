@@ -49,7 +49,11 @@ export const de: ServicesMessages = {
                                    nur einmal, für zwei Minuten. --video öffnet das Video direkt im Editor (videoId aus
                                    baocut videos list). --launch öffnet die Anmeldeseite ohne Code im Standardbrowser;
                                    der Zugangscode erscheint nur im Terminal und wird von Ihnen auf der Anmeldeseite
-                                   eingefügt (nicht als Argument an den Befehl zum Öffnen des Browsers übergeben)`,
+                                   eingefügt (nicht als Argument an den Befehl zum Öffnen des Browsers übergeben)
+  baocut web review --video <videoId>
+                                   Gibt den Review-Link dieses Videos aus: eine Seite nur mit diesem Video (abspielen, markieren, Timeline
+                                   bearbeiten) für den integrierten Browser eines Agenten oder jeden Browser auf diesem Computer. Der Link bleibt
+                                   gleich, solange das Video existiert und BaoCut läuft; schaltet auch den Autostart des Webdienstes ein`,
   usage: 'Verwendung: baocut services [status | start <service> | stop <service>\n' +
     '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
     '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
@@ -101,4 +105,6 @@ export const de: ServicesMessages = {
   clientRevoked: (clientId) => `${clientId} widerrufen; sein Token funktioniert sofort nicht mehr`,
   webSessionRevoked: (sessionId) => `${sessionId} widerrufen; seine Verbindung wurde geschlossen`,
   browserFailed: (message) => `Browser konnte nicht geöffnet werden: ${message}. Öffnen Sie die Anmeldeseite oben selbst`,
+  reviewLinkNote: 'Review-Link dieses Videos. Er bleibt gleich, solange das Video existiert und BaoCut läuft; jeder auf diesem Computer, der ihn hat, kann dieses Video ansehen und bearbeiten, also nicht teilen',
+  reviewAutostartOn: 'Autostart des Webdienstes eingeschaltet, damit der Link nach einem Neustart von BaoCut weiter funktioniert',
 };

@@ -50,7 +50,10 @@ export const zhHant: ServicesMessages = {
   baocut web open [--video <videoId>] [--launch]       啟動 Web 服務（預設連接埠 ${WEB_DEFAULT_PORT}）並印出一次性存取連結；連結只能使用
                                    一次，兩分鐘內有效。--launch 會在預設瀏覽器中開啟不含代碼的登入頁面；存取代碼
                                    只會印在終端機中，供你貼到登入頁面（代碼不會經由開啟瀏覽器的指令引數傳遞）
-                                   --video 會直接在編輯器中開啟該影片（videoId 來自 baocut videos list）。`,
+                                   --video 會直接在編輯器中開啟該影片（videoId 來自 baocut videos list）。
+  baocut web review --video <videoId>
+                                   列印這個影片的審片連結：只有這一部影片的頁面（播放、標記、改時間軸），給 agent 的內建瀏覽器或本機任何
+                                   瀏覽器開啟。只要影片還在、BaoCut 開著，連結就不變；同時開啟 Web 服務的隨 Runtime 啟動`,
   usage:
     '用法：baocut services [status | start <service> | stop <service>\n' +
     '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
@@ -132,4 +135,6 @@ export const zhHant: ServicesMessages = {
   clientRevoked: (clientId) => `已撤銷 ${clientId}，它的權杖會立即失效`,
   webSessionRevoked: (sessionId) => `已撤銷 ${sessionId}，它的連線已關閉`,
   browserFailed: (message) => `無法開啟瀏覽器：${message}。請自行開啟上方的登入頁面`,
+  reviewLinkNote: '這個影片的審片連結。只要影片還在、BaoCut 開著，連結就不變；本機拿到它的人都能看和編輯這個影片，不要外傳',
+  reviewAutostartOn: '已開啟 Web 服務的隨 Runtime 啟動，BaoCut 重新啟動後連結照樣能用',
 };

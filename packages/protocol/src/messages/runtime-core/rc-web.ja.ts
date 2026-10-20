@@ -93,4 +93,10 @@ export const ja: RcWebMessages = {
   attachmentNotFound: '添付ファイルが存在しません',
   fileNameLength: (p: { max: number }) => `ファイル名は 1〜${p.max} 文字にしてください`,
   fileNameInvalid: 'ファイル名にパスの区切り文字や制御文字を含めることはできません',
+  reviewTitle: 'レビューページを開いています',
+  reviewOpening: 'この動画を開いています…',
+  reviewKeyMissing: 'このレビューリンクは不完全です。# 以降も含めてリンク全体をコピーしてください。',
+  reviewKeyRejected: 'このレビューリンクはこの BaoCut では無効です。リンクをくれた Agent に新しいリンクを頼んでください。',
+  reviewVideoMissing: 'この動画はもう存在しません。移動または削除された可能性があります。',
+  reviewNotAllowed: (p) => `レビューページは自分の動画しか開けません。ここでは ${p.method} は使えません`,
 };

@@ -188,7 +188,7 @@ import type {
   ServiceId,
   ServiceStatus,
 } from './services.ts';
-import type { WebAccessLink, WebSession } from './web.ts';
+import type { WebAccessLink, WebReviewLink, WebSession } from './web.ts';
 import type { SlideAnnotation, SlidesOpenResult } from './slides.ts';
 import type { DesignAnnotation, DesignOpenResult } from './design.ts';
 import type { DesignSystemAnnotation, DesignSystemOpenResult } from './design-system.ts';
@@ -464,8 +464,8 @@ export interface RpcMethods {
    * `designSystemAnnotations`：设计系统标签里加进草稿的标注（docs/design/canvas §10.6），限制相同（`DESIGN_SYSTEM_ANNOTATION_LIMITS`）。
    * 每套设计系统一段 `<baocut-design-system-annotations>`，附在设计稿标注段之后；编号各自从 1 起；设计系统找不到时同样整条 `not-found`。
    * `videoAnnotations`：编辑器预览画面上加进草稿的标注（产品设计 §3.2.3「视频标注」），限制相同（`VIDEO_ANNOTATION_LIMITS`）。
-   * 每部视频一段 `<baocut-video-annotations video="…" revision="…">`，附在设计系统标注段之后；编号各自从 1 起，同一部视频两条以上时
-   * 段末另给 `candidateBoundsMs`；视频找不到时同样整条 `not-found`，`revision` 落后于当前版本时不拒绝。
+   * 每部视频一段 `<baocut-video-annotations video="…" revision="…">`，附在设计系统标注段之后；同一帧的几条并成一条（`groupVideoAnnotationsByFrame`），
+   * 编号各自从 1 起，同一部视频标了两帧以上时段末另给 `candidateBoundsMs`；视频找不到时同样整条 `not-found`，`revision` 落后于当前版本时不拒绝。
    * `docsAnnotations`：文档标签里发给智能体的评论与请求（docs/design/docs §8），最多 `DOCS_ANNOTATION_LIMITS.perMessage` 条。
    * 每份文档一段 `<baocut-docs-annotations>`，附在设计系统标注段之后；编号各自从 1 起；文档找不到时同样整条 `not-found`。
    */
@@ -804,6 +804,11 @@ export interface RpcMethods {
   'docs.open': { params: FileTarget; result: DocsOpenResult };
   /** 打开一个视频：Space 里的视频条目，或来源目录里的视频目录。已经打开的返回同一个 `videoId`。 */
   'videos.open': { params: FileTarget; result: VideoOpenResult };
+  /**
+   * 一部视频在界面里打开用的位置（与从 Space 条目打开时相同：所在项目或会话的工作目录 + 相对路径）。先看已打开的视频，
+   * 再看 Space 登记的；都没有时 `not-found`（`details.code: 'VIDEO_NOT_FOUND'`）。审片页只知道 videoId，用它换出 `videos.open` 的参数。
+   */
+  'videos.target': { params: { videoId: Id }; result: { target: FileTarget } };
   /** 这条连接不再需要这个视频；没有其他连接打开它时 Runtime 关闭它。 */
   'videos.close': { params: { videoId: Id }; result: { closed: boolean } };
   /**
@@ -1405,6 +1410,13 @@ export interface RpcMethods {
    * 浏览器会话自己不能调用这个方法。
    */
   'services.web.createAccessLink': { params: { video?: Id }; result: WebAccessLink };
+  /**
+   * 一部视频的审片链接（架构设计 §4.8「审片链接」）：`http://127.0.0.1:<port>/review/<videoId>#key=<审片密钥>`，只能进这部视频的
+   * 审片页。密钥由 Web 服务存着的一份随机数与 videoId 算出：同一部视频、同一个端口，链接始终是同一条，可以反复打开，
+   * Runtime 重启后照样有效。Web 服务没开时先开起来，并把它设成随 Runtime 启动（`autostartEnabled` 说这次是不是由它打开的）。
+   * 找不到这个视频时 `not-found`（`details.code: 'VIDEO_NOT_FOUND'`）。浏览器会话自己不能调用这个方法。
+   */
+  'services.web.reviewLink': { params: { video: Id }; result: WebReviewLink };
   /** 当前的浏览器会话（不含会话令牌）。 */
   'services.web.listSessions': { params: Record<string, never>; result: { sessions: WebSession[] } };
   /** 吊销一个浏览器会话：它的连接立即断开，cookie 随即失效。没有这个会话时 `not-found`。 */

@@ -1,0 +1,97 @@
+/* 轻量编辑器（editor-lite.jsx；docs/design/lite-editor §3）。前缀 lt-。
+   画面区沿用舞台的底色（gray-100），底下是与时间线视图同一条的舞台工具条（.stagebar，ui.css）；播放条与侧栏是 sheet（gray-25）；边界只画 2px gray-100 的一根线，不叠圆角与底色。 */
+.lt { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; }
+/* 顶栏上的 轻量 / 时间线 切换与「默认打开」菜单（shell.jsx 的 MovieViewSwitch） */
+.moviebar__view { display: flex; align-items: center; gap: 2px; flex: none; }
+.lt__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.lt__stage { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; background: var(--gray-100); }
+/* 画布那格：标记工具条与贴片浮在它上面，不盖到底下的工具条 */
+.lt__canvas { position: relative; display: flex; flex: 1 1 auto; min-height: 0; padding: 24px; }
+.lt__canvas > .stage { flex: 1 1 auto; }
+.lt__player { flex: none; padding: 8px 16px 12px; background: var(--gray-25); border-top: 2px solid var(--gray-100); }
+.lt__side { flex: none; width: 360px; min-width: 0; display: flex; flex-direction: column; min-height: 0; background: var(--gray-25); border-left: 2px solid var(--gray-100); }
+
+/* 标记工具条与标记层在 stage-markup.css（mk-）；标注时右下角的水印让开 */
+.lt.is-annotating .lt-ov--mark { display: none; }
+/* 章节进度条（ui.css 的 .chband，与时间线视图同一条）：贴在播放条上面，两端对齐播放条的内容 */
+.lt-band { margin: 0 -14px 4px; }
+
+/* 播放条 */
+.lt-tport { display: flex; align-items: center; gap: 8px; height: 48px; }
+.lt-tport__mid { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.lt-tport__zoom { position: relative; display: flex; align-items: center; gap: 4px; flex: none; }   /* 缩小 · 百分比 · 放大，标签宽度走 ui.css 的 .tport__zoomv */
+.lt-tport__play { margin-right: 2px; }   /* 与旁边的图标钮同一种无底色钮，只是大一号 */
+.lt-tport__tc { margin-left: 8px; color: var(--gray-800); }
+.lt-tport__total { color: var(--gray-600); }
+.lt-tport__glyph { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 片式段条：一段一片（高 32、radius 8），片之间留 4px 空隙，片上只写名字；当前片灰得更深，播放头是一根伸出上下沿的线、底下带个小把手；
+   片的右边是 8px 宽的把手（col-resize），拖的时候整条换成 col-resize 光标、把手上方浮出新时长；缩放钮在播放条右端 */
+.lt-strip { display: flex; align-items: center; }
+/* 滚动容器：放大后横向滚，细滚动条；上下留 8px 给伸出片的播放头与把手 */
+.lt-strip__scroll { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 8px 0; scrollbar-width: none; }
+.lt-strip__scroll.is-zoomed { scrollbar-width: thin; scrollbar-color: var(--gray-400) transparent; }
+.lt-chips { display: flex; align-items: stretch; gap: 4px; min-width: 100%; user-select: none; touch-action: none; }
+.lt-chips.is-resize, .lt-chips.is-resize * { cursor: col-resize !important; }
+.lt-chips.is-scrub, .lt-chips.is-scrub * { cursor: ew-resize !important; }
+.lt-chip { position: relative; display: flex; min-width: 0; height: 32px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800);
+  transition: background 150ms cubic-bezier(0.45,0,0.4,1); }
+.lt-chip:hover { background: var(--gray-200); }
+.lt-chip.is-current { background: var(--gray-300); color: var(--gray-900); }
+.lt-chip.is-resizing { background: var(--gray-400); }
+.lt-chip__body { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; height: 100%; padding: 0 10px; border-radius: 8px; cursor: pointer; text-align: left; font-size: 12px; line-height: 16px; color: inherit; }
+.lt-chip__body:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+.lt-chip__title { flex: 1 1 auto; }
+/* 很窄的片连名字也收起，只剩一块色 */
+.lt-chip { container-type: inline-size; }
+@container (max-width: 28px) { .lt-chip__title { display: none; } }
+.lt-chip__head { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--gray-900); pointer-events: none; z-index: 2; }
+.lt-chip__head::after { content: ''; position: absolute; left: -3px; bottom: -3px; width: 8px; height: 6px; border-radius: 3px; background: var(--gray-900); }
+.lt-chip__hover { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--gray-500); pointer-events: none; opacity: 0.8; z-index: 1; }
+.lt-chip__edge { position: absolute; top: 0; bottom: 0; right: -2px; width: 8px; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: col-resize; z-index: 3; }
+.lt-chip__edge::after { content: ''; position: absolute; top: 8px; bottom: 8px; left: 3px; width: 2px; background: var(--gray-400); opacity: 0; transition: opacity 150ms cubic-bezier(0.45,0,0.4,1); }
+.lt-chip:hover .lt-chip__edge::after, .lt-chip__edge:focus-visible::after, .lt-chip.is-resizing .lt-chip__edge::after { opacity: 1; }
+.lt-chip.is-resizing .lt-chip__edge::after { background: var(--blue-900); }
+.lt-chip__edge:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 1px; }
+.lt-chip__bubble { position: absolute; right: -4px; bottom: calc(100% + 6px); padding: 2px 6px; border-radius: 8px; font-size: 11px; line-height: 16px; white-space: nowrap;
+  background: var(--gray-900); color: var(--gray-25); box-shadow: var(--sh-pop); pointer-events: none; z-index: 4; }
+.lt-chip__delta { color: var(--gray-300); }
+.lt-tport__tc.is-hover { color: var(--gray-600); }
+/* 轻量视图开着时 toast（S2 的 ToastContainer，直接挂在 body 下、fixed 贴底 16px）抬到播放条（章节条 28 + 48 + 片条 46 + 内边距 20 + 边 2）上方，别盖住片 */
+body.is-lite-view > div[role="region"] { bottom: 156px; }
+
+/* 侧栏 */
+.lt-side__body { display: flex; flex-direction: column; gap: 16px; flex: 1 1 auto; min-height: 0; padding: 16px; }
+.lt-side__head { display: flex; flex-direction: column; gap: 4px; }
+.lt-side__title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 700; color: var(--gray-900); }
+.lt-side__status { align-self: flex-start; margin-top: 4px; }
+.lt-side__h4 { margin: 0 0 8px; font-size: 12px; font-weight: 700; line-height: 16px; color: var(--gray-800); }
+.lt-side__disc { margin: 0 -8px; }
+.lt-script { font-size: 14px; line-height: 22px; color: var(--gray-800); }
+.lt-script p { margin: 0 0 8px; }
+.lt-script h1, .lt-script h2, .lt-script h3 { margin: 0 0 8px; font-size: 14px; line-height: 20px; }
+.lt-script__hint { margin: 8px 0 0; }
+
+.lt-lines__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.lt-line { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 6px 8px; border-radius: 8px; text-align: left; color: var(--gray-800); cursor: pointer;
+  transition: background 150ms cubic-bezier(0.45,0,0.4,1); }
+.lt-line:hover { background: var(--gray-100); }
+.lt-line.is-current { background: var(--blue-100); color: var(--gray-900); }
+.lt-line__n { flex: none; width: 20px; font-size: 11px; line-height: 20px; color: var(--gray-500); text-align: right; }
+.lt-line.is-current .lt-line__n { color: var(--blue-900); font-weight: 700; }
+.lt-line__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 20px; }
+.lt-line__tc { flex: none; line-height: 20px; }
+.lt-lines__empty { margin: 0; padding: 0 8px; }
+
+.lt-assets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lt-asset { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 2px 8px; border-radius: 8px; color: var(--gray-700); }
+.lt-asset__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: 12px; line-height: 16px; color: var(--gray-800); }
+.lt-asset__jump { flex: none; padding: 2px 6px; border-radius: 8px; cursor: pointer; }
+.lt-asset__jump:hover { background: var(--gray-100); }
+
+/* 画面上按图层开出的贴片（演示用） */
+.lt-ov { position: absolute; z-index: 5; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 8px; font-size: 12px; line-height: 16px;
+  background: var(--gray-25); color: var(--gray-800); box-shadow: var(--sh-pop); pointer-events: none; }
+.lt-ov--footage { left: 40px; top: 40px; }
+.lt-ov__src { font-family: var(--mono); color: var(--gray-600); }
+.lt-ov--mark { right: 40px; bottom: 40px; background: var(--gray-900); color: var(--gray-25); opacity: 0.8; box-shadow: none; }

@@ -6,7 +6,7 @@ import type { MediaHandle } from './methods.ts';
  * 代码包（代码包规范 §2、§6、§7；架构设计 §8）的线上类型。
  *
  * 清单的语义以代码包规范为准，这里是按它手写的镜像；验证报告、烘焙记录与错误码是第一期（导入、验证、取帧、烘焙）
- * 在 Runtime 与客户端之间传递的形状。
+ * 在 Runtime 与客户端之间传递的形状。编辑器实时合成层的桥（`CompositionBridge*`：取帧，与「选择元素」的拾取节点）也在这里。
  */
 
 export const CODE_BUNDLE_FORMAT = 'baocut.code-bundle';
@@ -263,6 +263,8 @@ export interface CompositionBakeJob {
  * 编辑器实时合成层的桥（动效视频设计 §4.1；架构设计 §9.4）：舞台里的代码包跑在不开 `allow-same-origin` 的沙箱 `<iframe>` 里，
  * 父页面调不进去，取帧脚本（`composition-adapter.ts`）的三个调用改经 `postMessage` 往返。两端都只认带 `channel` 的消息，
  * 页面只认来自 `window.parent` 的、父页面只认来自那个 iframe 的 `contentWindow` 的；iframe 的来源是不透明的，`targetOrigin` 只能是 `*`。
+ * 另有一个与取帧无关的 `pick`：轻量视图的「选择元素」问页面某一点下最内层的节点（lite-editor §4.1、§11 第 12 条），
+ * 高亮由父页面按回来的框自己画，不进页面。
  */
 export const COMPOSITION_BRIDGE_CHANNEL = 'baocut.composition-bridge/1';
 
@@ -285,9 +287,29 @@ export type CompositionBridgeRequest =
       context: { width: number; height: number; fps: Rate; durationFrames: number };
     }
   | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'seek'; id: number; seconds: number }
-  | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'dispose'; id: number };
+  | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'dispose'; id: number }
+  /** 这一点下是哪个节点：`x`、`y` 是合成的固有像素（页面的视口坐标）；回信的 `value` 是 `CompositionBridgePick` 或 `null`。 */
+  | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'pick'; id: number; x: number; y: number };
 
-/** 页面 → 父页面：取帧脚本的信封原样带回（`{ ok: true, value }` 或 `{ ok: false, code, message }`）。 */
+/**
+ * `pick` 的结果：那一点下最内层的节点（`document.elementFromPoint`；`html`、`body` 与没有节点时是 `null`）。页面在
+ * `window.__baocutPickRegions` 登记了拾取区域（代码包规范 §4.5，画在 canvas 里的字与图形）且点落在区域里时，是最上面那个区域：
+ * `selector` 写 `region#<id>`（没有 id 时 `region`），`name` 是登记的说法，`focusable` 为假。
+ * `selector` 是 `tag#id.class.class`（小写 tag，至多两个 class）；`name` 依次取 `aria-label`、`alt`、`title`、去空白的文字（至多 80 字）；
+ * `role` 是显式的 `role` 属性，否则按标签的隐式角色，没有就省略；`focusable` 是 `tabIndex >= 0` 且没禁用；`rect` 是视口里的框
+ * （固有像素，四舍五入），`w`、`h` 与它相同。来自不受信的代码包页面：父页面收到后逐字段验形，不合就当 `null`。
+ */
+export interface CompositionBridgePick {
+  selector: string;
+  w: number;
+  h: number;
+  name?: string;
+  role?: string;
+  focusable: boolean;
+  rect: { x: number; y: number; w: number; h: number };
+}
+
+/** 页面 → 父页面：取帧脚本的信封原样带回（`{ ok: true, value }` 或 `{ ok: false, code, message }`）；`pick` 的 `value` 见 `CompositionBridgePick`。 */
 export interface CompositionBridgeResponse {
   channel: typeof COMPOSITION_BRIDGE_CHANNEL;
   kind: 'result';

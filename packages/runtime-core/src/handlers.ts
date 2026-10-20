@@ -541,6 +541,7 @@ export function createHandlers({
         return docs.open(root, path.isAbsolute(file) ? path.relative(root, file) : file);
       },
       'videos.open': (p, principal) => videos.open(locateMedia(p), principal),
+      'videos.target': (p) => ({ target: videoTargetOf(videos, space, p.videoId) }),
       'videos.close': (p, principal) => videos.close(p.videoId, principal),
       'videos.delete': (p, principal) => videoTrash.delete(p, principal),
       'videos.restore': (p) => videoTrash.restore(p.entryId),
@@ -731,6 +732,17 @@ export function createHandlers({
       'services.modelApi.removeAlias': async (p) => ({ aliases: await external.modelApi.removeAlias(p.alias) }),
       'services.web.createAccessLink': (p) =>
         external.web.createAccessLink(p.video === undefined ? undefined : webVideoHref(videoTargetOf(videos, space, p.video))),
+      // 审片链接（§4.8）：视频先要找得到；Web 服务没开就开起来，并设成随 Runtime 启动——链接要在 BaoCut 开着时一直能打开。
+      'services.web.reviewLink': async (p) => {
+        videoTargetOf(videos, space, p.video);
+        const autostartEnabled = !external.manager.status('web').autostart;
+        if (autostartEnabled) await external.manager.configure({ serviceId: 'web', autostart: true });
+        const service = await external.manager.start('web');
+        if (service.state !== 'on') {
+          throw new RpcError('conflict', RcWeb.notRunning(), { code: 'SERVICE_NOT_RUNNING', serviceId: 'web', error: service.error });
+        }
+        return { ...(await external.web.reviewLink(p.video)), autostartEnabled };
+      },
       'services.web.listSessions': () => ({ sessions: external.web.listSessions() }),
       'services.web.revokeSession': (p) => ({ sessions: external.web.revokeSession(p.sessionId) }),
       'nodes.remove': async (p) => {

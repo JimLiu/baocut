@@ -88,4 +88,10 @@ export const nl: RcWebMessages = {
   attachmentNotFound: "Bijlage bestaat niet",
   fileNameLength: (p: { max: number }) => `Bestandsnaam moet 1 tot ${p.max} tekens`,
   fileNameInvalid: "Bestandsnaam mag geen padscheidingstekens of besturingstekens bevatten",
+  reviewTitle: 'Reviewpagina openen',
+  reviewOpening: 'Deze video openen…',
+  reviewKeyMissing: 'Deze reviewlink is onvolledig: kopieer de hele link, ook het deel na #.',
+  reviewKeyRejected: 'Deze reviewlink is niet geldig voor deze BaoCut: vraag de agent die hem gaf om een nieuwe.',
+  reviewVideoMissing: 'Deze video bestaat niet meer: hij is misschien verplaatst of verwijderd.',
+  reviewNotAllowed: (p) => `De reviewpagina kan alleen haar eigen video openen; ${p.method} is hier niet beschikbaar`,
 };

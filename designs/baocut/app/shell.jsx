@@ -85,23 +85,52 @@
     </div>;
   }
 
+  /* 审片 / 时间线（docs/design/lite-editor §3.4、§5；代码里仍叫 lite）：同一部视频的两种看法，切换不丢状态。旁边的小菜单改「默认打开」：
+     按视频种类（智能体做的与转录 / 翻译的开轻量，别的开时间线）、总是轻量、总是时间线；按视频的记忆由切换本身写。 */
+  function MovieViewSwitch({editor}) {
+    const app = useApp();
+    const R = window.RSP;
+    const dflt = app.prefs.editorViewDefault || 'kind';
+    return <div className="moviebar__view" role="group" aria-label="编辑器视图">
+      <R.SegmentedControl aria-label="编辑器视图" selectedKey={editor.view} onSelectionChange={k => editor.setView(String(k))} UNSAFE_className="moviebar__view-seg">
+        <R.SegmentedControlItem id="lite"><R.Icons.Transcript /><R.Text>审片</R.Text></R.SegmentedControlItem>
+        <R.SegmentedControlItem id="timeline"><R.Icons.Filmstrip /><R.Text>时间线</R.Text></R.SegmentedControlItem>
+      </R.SegmentedControl>
+      <R.MenuTrigger>
+        <R.TooltipTrigger><R.ActionButton isQuiet size="S" aria-label="默认打开哪种视图"><R.Icons.ChevronDown /></R.ActionButton><R.Tooltip>默认打开</R.Tooltip></R.TooltipTrigger>
+        <R.Menu selectionMode="single" selectedKeys={new Set([dflt])} onSelectionChange={keys => {
+          const k = [...keys][0];
+          if (k) app.setPref('editorViewDefault', k === 'kind' ? null : k);
+        }}>
+          <R.MenuSection><R.Header>默认打开</R.Header>
+            <R.MenuItem id="kind">按视频种类</R.MenuItem>
+            <R.MenuItem id="lite">总是审片</R.MenuItem>
+            <R.MenuItem id="timeline">总是时间线</R.MenuItem>
+          </R.MenuSection>
+        </R.Menu>
+      </R.MenuTrigger>
+    </div>;
+  }
+
   function MovieActions({editor}) {
     const app = useApp();
     const projectId = editor.projectId;
     const exporting = app.tasks.find(t => t.project === projectId && t.kind === 'export' && t.status === 'running');
     const tasks = window.BC_TASKPILL.pillList(app.tasks, {projectId, mineOnly: true});
     return <>
-      <window.TaskPill list={tasks} projectId={projectId} />
+      {editor.liteAvailable && editor.setView ? <MovieViewSwitch editor={editor} /> : null}
+      {SURF.tasks ? <window.TaskPill list={tasks} projectId={projectId} /> : null}
       {/* 版本记录（视频格式规范 §9、版本记录设计 §6）：按钮在导出左边，对话框在 video-versions.jsx */}
       <window.VideoVersionsButton editor={editor} />
-      <div className="moviebar__export">
+      {/* 审片页（SURF.exportVideo 为 false）不导出：成片交给出链接的那个 Agent */}
+      {SURF.exportVideo ? <div className="moviebar__export">
         {exporting
           ? <Btn variant="accent" className="btn--busy" onClick={editor.onExport} title="正在导出 · 点开看进度或取消">
               <span className="btn__sp" />{window.BC_EXPORT.preparationView(exporting).active ? '正在准备导出' : <>导出中 · <span className="t-mono">{exporting.pct || 0}%</span></>}
             </Btn>
           : <Btn variant="accent" icon="export" onClick={editor.onExport}>导出</Btn>}
         {editor.exportOpen ? <window.ExportPopover ctx={editor.ctx} onClose={editor.closeExport} /> : null}
-      </div>
+      </div> : null}
     </>;
   }
 
@@ -118,20 +147,31 @@
 
   /* 悬浮会话（product-design §5.1）：从 Space 打开的视频没有左侧会话栏，会话浮在编辑器右下角。
      默认展开成输入框——收成图标是用户自己点的，记在偏好里；发送后进入 Home 新会话。
-     不抢焦点：编辑器的快捷键（空格播放）不能因为输入框默认在场就失效。 */
+     不抢焦点：编辑器的快捷键（空格播放）不能因为输入框默认在场就失效。
+     进入标注模式（舞台条的「标记」）时收着的图标自动展开一次（autoOpen，不改偏好、不抢焦点）；这期间再最小化就留着收起，
+     图标右上角改标草稿里待发的视频标注条数；标记关了、草稿也空了才回到偏好。 */
   function MovieQuickChat({editor}) {
     const app = useApp();
-    const min = !!app.prefs.movieChatMin;
+    const annotating = !!editor.ctx?.annotating;
+    const N = window.BC_STAGE_NOTES;
+    const notes = app.videoNotes[editor.projectId] || [];
+    const pending = N ? N.groups(notes).length : notes.length;   // 条数按帧（同一帧的几处标记算一条）
+    const [autoOpen, setAutoOpen] = useState(false);
+    useEffect(() => { if (annotating) setAutoOpen(true); }, [annotating]);
+    useEffect(() => { if (!annotating && !pending) setAutoOpen(false); }, [annotating, pending]);
+    const min = !!app.prefs.movieChatMin && !autoOpen;
     const sid = app.movieChats[editor.projectId] || null;
     const sess = sid ? app.sessionById(sid) : null;
     const trigger = useRef(null);
     const restored = useRef(false);
-    const setMin = v => { restored.current = !v; app.setPref('movieChatMin', v); if (v) requestAnimationFrame(() => trigger.current?.focus()); };
+    const setMin = v => { restored.current = !v; setAutoOpen(false); app.setPref('movieChatMin', v); if (v) requestAnimationFrame(() => trigger.current?.focus()); };
     const live = sess && (sess.status === 'running' || sess.status === 'waiting');
+    const expand = pending && N ? `展开会话 · ${N.tokenLabel(notes)}` : live ? '展开会话 · Agent 正在处理' : '展开会话';
     if (min) return <aside className="movie-quickchat" aria-label="视频会话">
-      <BCAction ref={trigger} className="movie-quickchat__trigger" aria-label={live ? '展开会话 · Agent 正在处理' : '展开会话'} onClick={() => setMin(false)}>
+      <BCAction ref={trigger} className="movie-quickchat__trigger" aria-label={expand} onClick={() => setMin(false)}>
         <window.RSP.Icons.Comment />
-        {live ? <i className={cx('movie-quickchat__dot', sess.status === 'waiting' && 'is-waiting')} /> : null}
+        {pending ? <span className="movie-quickchat__count"><window.RSP.NotificationBadge value={pending} size="S" /></span>
+          : live ? <i className={cx('movie-quickchat__dot', sess.status === 'waiting' && 'is-waiting')} /> : null}
       </BCAction>
     </aside>;
     return <aside className="movie-quickchat is-open" aria-label="视频会话">
@@ -149,7 +189,8 @@
   function Titlebar({editor, onHelp}) {
     const app = useApp();
     const {sidebar, toggleSidebar, canBack, canFwd, back, fwd} = app;
-    const pageSide = SURF.appRail ? window.BC_APP_IA.sideOf(app.route) : 'legacy';
+    // Web 的视频列表开关；审片页（SURF.videoList 为 false）只有一部视频，没有这颗钮。
+    const pageSide = SURF.appRail ? window.BC_APP_IA.sideOf(app.route) : SURF.videoList ? 'legacy' : null;
     const bar = useRef(null);
     const [dividers, setDividers] = useState([]);
     const [homeBounds, setHomeBounds] = useState(null);
@@ -285,7 +326,7 @@
     /* App rail（2026-10-01）：rail 常驻最左；页面侧栏按路由显示 Home 会话、Space 分类、工具、服务或后台任务目录，
        打开视频仍保留入口侧栏；视频栏与可选会话只属于内容区（本轮调整 §2.2 / §5.1）。 */
     const pageSide = SURF.appRail ? window.BC_APP_IA.sideOf(app.route) : null;
-    const side = SURF.appRail ? (!!pageSide && (!sidebar.ghost || !!sideForce)) : (!sidebar.ghost || !!sideForce);
+    const side = SURF.appRail ? (!!pageSide && (!sidebar.ghost || !!sideForce)) : SURF.videoList && (!sidebar.ghost || !!sideForce);
     const PageSide = !SURF.appRail ? null : pageSide === 'space' ? window.SpaceSidebar : pageSide === 'home' ? window.HomeSidebar : window.UtilitySidebar;
     /* 帮助中心的开合只活在外壳里；经 app 上下文给下面的页面一个 openHelp（设置左栏的「帮助」行用它，
        2026-10-01），不逐层传 prop。没有帮助中心的表面（Web）是 null。 */

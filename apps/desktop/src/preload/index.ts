@@ -85,6 +85,8 @@ contextBridge.exposeInMainWorld('baocut', {
   writeRecording: (data) => ipcRenderer.invoke('baocut:write-recording', data),
   // 生成图片：粘贴或拖进来、没有本机路径的参考图写进临时目录，路径交给 Runtime（内容在主进程里重新校验）。
   writeImageRef: (data) => ipcRenderer.invoke('baocut:write-image-ref', data),
+  // 轻量编辑器的标记截图：截窗口里预览画面那一块此刻的像素（位置在主进程里重新校验）。
+  captureFrame: (rect) => ipcRenderer.invoke('baocut:capture-frame', rect),
   // 界面语言：主进程据此换应用菜单与对话框的语言（参数在主进程里重新校验）。
   setLocale: (locale) => ipcRenderer.send('baocut:set-locale', locale),
 } satisfies HostBridge);

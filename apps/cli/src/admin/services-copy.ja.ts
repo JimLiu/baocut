@@ -52,7 +52,11 @@ export const ja: ServicesMessages = {
                                    リンクは 1 回だけ、2 分間有効です。--launch は既定のブラウザでコードなしのサインイン
                                    ページを開きます。アクセスコードはターミナルにだけ表示されるので、サインインページに
                                    貼り付けてください（コードはブラウザを開くコマンドの引数には渡しません）
-                                   --video は対象の動画をエディタで直接開きます（videoId は baocut videos list で確認できます）。`,
+                                   --video は対象の動画をエディタで直接開きます（videoId は baocut videos list で確認できます）。
+  baocut web review --video <videoId>
+                                   この動画のレビューリンクを表示：この動画だけのページ（再生、マークアップ、タイムライン編集）を、エージェントの
+                                   内蔵ブラウザやこのコンピュータの任意のブラウザで開けます。動画があり BaoCut が起動している限りリンクは
+                                   変わりません。Web サービスの自動起動もオンにします`,
   usage:
     '使い方：baocut services [status | start <service> | stop <service>\n' +
     '        | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
@@ -136,4 +140,6 @@ export const ja: ServicesMessages = {
   clientRevoked: (clientId) => `${clientId} を撤回しました。そのトークンはすぐに使えなくなります`,
   webSessionRevoked: (sessionId) => `${sessionId} を撤回しました。その接続は切断されました`,
   browserFailed: (message) => `ブラウザを開けませんでした：${message}。上のサインインページを手動で開いてください`,
+  reviewLinkNote: 'この動画のレビューリンクです。動画があり BaoCut が起動している限り変わりません。このコンピュータでリンクを持つ人は誰でもこの動画を表示・編集できるので、共有しないでください',
+  reviewAutostartOn: 'Web サービスの自動起動をオンにしました。BaoCut を再起動してもリンクはそのまま使えます',
 };

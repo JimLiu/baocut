@@ -55,6 +55,14 @@ const routes: Route[] = [
   { tab: 'services', service: 'runtime' },
   { tab: 'archived' },
   { tab: 'archived', focus: 'c/1' },
+  {
+    tab: 'home',
+    conversationId: 'c1',
+    projectId: null,
+    pane: { kind: 'video', target: { conversationId: 'c1', path: 'v.mp4' } },
+    view: 'lite',
+  },
+  { tab: 'space', category: 'all', projectId: null, video: { projectId: 'p1', path: 'v.mp4' }, view: 'timeline' },
 ];
 
 describe('界面内链接', () => {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { DocsAnnotation, FileTarget, Id } from '@baocut/protocol';
+import { groupVideoAnnotationsByFrame, type DocsAnnotation, type FileTarget, type Id, type VideoAnnotation } from '@baocut/protocol';
 import { ActionButton, Popover, Text } from '@react-spectrum/s2';
 import Close from '@react-spectrum/s2/icons/Close';
 import Comment from '@react-spectrum/s2/icons/Comment';
@@ -10,9 +10,11 @@ import { DESIGN_SYSTEM } from '../model/design-system-copy.ts';
 import { DOCS } from '../model/docs-copy.ts';
 import { SLIDES } from '../model/slides-copy.ts';
 import { VIDEO_NOTES } from '../model/video-annotations-copy.ts';
-import { itemKey, type AnnotatedEditorKind } from '../model/workspace.ts';
+import { videoAnnotationFrameLabel, videoAnnotationFrameTexts, type DraftVideoAnnotation } from '../model/video-annotations.ts';
+import { itemKey, targetKey, type AnnotatedEditorKind } from '../model/workspace.ts';
 import { useShell } from '../state/shell-store.ts';
 import { useEditorReveal } from '../state/editor-bridge.ts';
+import { draftShotUrl, useDraftVideoAnnotations, type DraftVideoShot } from '../state/draft-video-annotations-store.ts';
 import { revealVideoAnnotation } from './editor/stage-notes.tsx';
 
 /** composer 上方与 Space 条目的引用标签同一个样子（composer.tsx `tag`）；已发送消息里只是一行淡色的标记。 */
@@ -78,13 +80,15 @@ const quoteText = style({
   lineClamp: 2,
 });
 const note = style({ font: 'ui-sm', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' });
+/** 视频标注那一帧的截图（原型 stage-notes.css `.stnotes__shot`）：96 宽的小图，底灰，画面按比例放在里面。 */
+const shot = style({ display: 'block', width: 96, height: 54, borderRadius: 'sm', backgroundColor: 'gray-300', objectFit: 'contain' });
 const panel = style({ width: 360, maxWidth: '[calc(100vw - 32px)]' });
 const closeIcon = iconStyle({ size: 'XS' });
 
 /**
  * 列表里的一条：草稿里的带自己的 id；已发送的用 `sentAnnotationId` 拼的 id，跳转时临时交给编辑器。
  * `target` 是 deck、设计稿、设计系统目录或视频；`section` 是设计系统里它所在的章节。视频标注没有锚点，带的是标注那一刻
- * `timeMs`，草稿里另带视频 id。
+ * `timeMs`，草稿里另带视频 id 与那一帧截图的地址 `image`（lite-editor §4.1：截图归标注所有，随它一起移除、一起发出）。
  * 协作文档的 `anchor` 是元素路径，另带 `tag`（评论还是请求）与评论挂着的原文 `quote`。
  */
 export interface AnnotationTokenItem {
@@ -96,6 +100,7 @@ export interface AnnotationTokenItem {
   text: string;
   timeMs?: number;
   videoId?: Id;
+  image?: string;
   tag?: string;
   quote?: string;
 }
@@ -110,6 +115,45 @@ export function docsTokenItem(id: string, note: DocsAnnotation): AnnotationToken
     text: note.text,
     tag: note.kind === 'comment' ? DOCS.comment : DOCS.ask,
     ...(note.quote ? { quote: note.quote } : {}),
+  };
+}
+
+/**
+ * 视频标注在列表里一帧一行（lite-editor §4.1）：同一帧的几处标记——不论分几次加进来——是一条，写那一帧的说法（「00:42.3 · 3 处标记 ·
+ * 画笔、框 ×2」）与各处的批注，点一下跳到那一帧。`id` 是这一帧的键（视频 + 帧）。草稿另由 `draftVideoTokenItems` 带视频 id 与截图。
+ */
+export function videoTokenItems<T extends VideoAnnotation>(
+  notes: readonly T[],
+  videoOf: (note: T) => string = (note) => targetKey(note.video),
+  extra: (items: readonly T[]) => Partial<AnnotationTokenItem> = () => ({}),
+): AnnotationTokenItem[] {
+  return groupVideoAnnotationsByFrame(notes, videoOf).map((frame) => ({
+    id: frame.key,
+    target: frame.items[0]!.video,
+    anchor: '',
+    timeMs: frame.timeMs,
+    label: videoAnnotationFrameLabel(frame.items),
+    text: videoAnnotationFrameTexts(frame.items).join('\n'),
+    ...extra(frame.items),
+  }));
+}
+
+/**
+ * composer 上这部视频的草稿：一帧一行，带视频 id 与那一帧画好的截图；移除一行是整帧一起移除（`onRemove` 收到的是这一帧的键）。
+ */
+export function draftVideoTokenItems(
+  videoId: Id,
+  notes: readonly DraftVideoAnnotation[],
+  shots: Record<number, DraftVideoShot>,
+): { items: AnnotationTokenItem[]; onRemove: (id: string) => void; onClear: () => void } {
+  return {
+    items: videoTokenItems(
+      notes,
+      (n) => n.videoId,
+      (items) => ({ videoId: items[0]!.videoId, image: items.map((n) => draftShotUrl(n, shots)).find(Boolean) }),
+    ),
+    onRemove: (key) => useDraftVideoAnnotations.getState().removeFrame(videoId, key),
+    onClear: () => useDraftVideoAnnotations.getState().clear(videoId),
   };
 }
 
@@ -177,6 +221,7 @@ export function AnnotationsToken({
                       {n.label}
                     </span>
                     {n.quote ? <span className={quoteText}>{n.quote}</span> : null}
+                    {n.image ? <img className={shot} src={n.image} alt="" /> : null}
                     <span className={note}>{n.text}</span>
                   </span>
                 </RACButton>

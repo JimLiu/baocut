@@ -16,6 +16,11 @@ export const WEB_DEFAULT_PORT = 47622;
 export const WEB_ACCESS_CODE_TTL_MS = 2 * 60_000;
 /** 浏览器会话的有效期（从登录起算）。服务停止时会话全部作废。 */
 export const WEB_SESSION_TTL_MS = 12 * 60 * 60_000;
+/**
+ * 审片会话的有效期。审片链接本身不过期（密钥由视频算出），会话过期或服务重启后，页面用地址栏里的同一个密钥再换一次，
+ * 所以会话长短只影响开着的标签什么时候要刷新。
+ */
+export const WEB_REVIEW_SESSION_TTL_MS = 7 * 24 * 60 * 60_000;
 
 /**
  * 默认的能力集合：桌面界面的协议，减去设置的修改、模型服务的配置与凭据、对外服务的管理（`services.*`，含
@@ -118,6 +123,58 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   // 给外部 Agent 装说明书（Agent 面设计 §8.2）只看状态：装与移除往用户主目录或任意文件夹写软链接，只在桌面界面与 CLI 里做。
   'agentSkill.status',
 ];
+
+/**
+ * 审片会话（审片链接换来的，只能看一两部指定的视频）能调的方法，逐个列出：先要过上面的白名单与只读，再在这里面；带视频参数的
+ * （`videoId`、`video`，`videos.open` 与 `media.resolve` / `media.subtitles` 的文件位置）只能是会话里的视频。
+ * 没有会话、Space、项目、任务与模型：审片页只有这部视频的编辑器（产品设计 §5.12），要生成、转写的事交给出链接的那个 Agent。
+ */
+export const WEB_REVIEW_METHODS: readonly RpcMethod[] = [
+  'runtime.info',
+  'settings.get',
+  'videos.target',
+  'videos.open',
+  'videos.close',
+  'videos.history',
+  'videos.versions.list',
+  'videos.versions.get',
+  'videos.versions.status',
+  'videos.assetStatus',
+  'documents.read',
+  'edits.apply',
+  'edits.undo',
+  'edits.undoState',
+  'media.resolve',
+  'media.playback',
+  'media.subtitles',
+  'media.peaks',
+  'media.thumbnail',
+  'media.bundle',
+  // 元素面板的随包贴纸与 Codex Pets：句柄只发给目录里的条目；拷进视频带 `videoId`，同样只能是会话里的视频。
+  'stickers.openHandle',
+  'stickers.applyToVideo',
+  'pets.openHandle',
+  'pets.applyToVideo',
+];
+
+/** 审片会话能订阅的主题：会话里的视频（`video:<id>`，另查）之外只有设置（偏好与界面语言）。 */
+export const WEB_REVIEW_TOPICS: readonly string[] = ['settings'];
+
+/** 一部视频的审片页路径（`services.web.reviewLink` 的路径部分，密钥在 fragment 里）。 */
+export function webReviewPath(videoId: string): string {
+  return `/review/${encodeURIComponent(videoId)}`;
+}
+
+/** 审片页路径 → videoId；不是审片页时为 null。 */
+export function parseWebReviewPath(pathname: string): string | null {
+  const match = /^\/review\/([^/]+)\/?$/.exec(pathname);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]!);
+  } catch {
+    return null;
+  }
+}
 
 /** 只读配置下还剩的方法（逐个列出：以后新增的方法在只读下默认不开放）。 */
 export const WEB_READ_METHODS: readonly RpcMethod[] = [
@@ -253,12 +310,22 @@ export interface WebSession {
   connections: number;
   /** 登录时浏览器的 User-Agent（截短），用来认出是哪个浏览器。 */
   userAgent: string | null;
+  /** 审片会话（审片链接换来的）能看的视频；完整会话没有这一项。 */
+  videos?: string[];
 }
 
 /** `services.web.createAccessLink` 的结果。`url` 里的代码只能用一次，`expiresAt` 之后作废。 */
 export interface WebAccessLink {
   url: string;
   expiresAt: string;
+}
+
+/** `services.web.reviewLink` 的结果。`url` 不过期，同一部视频、同一个端口始终相同。 */
+export interface WebReviewLink {
+  url: string;
+  video: string;
+  /** 这次调用把 Web 服务设成了随 Runtime 启动（之前没设）。 */
+  autostartEnabled: boolean;
 }
 
 /**
