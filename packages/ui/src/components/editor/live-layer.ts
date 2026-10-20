@@ -23,7 +23,10 @@ import type { LiveLayer } from '../../render/frame-plan.ts';
  *   页面发 `hello` 之后宿主发 `ready`，就位后先定位到第 0 帧（预载的意思就是这一步做完）。
  * - `seek` 一次只发一个在路上的：播放中一个视频帧只送一次，没回来之前又来了新的就只记最新的，回来再发。
  *   页面里的取帧脚本等两次 `requestAnimationFrame` 才回信，回信到了就是「到了」。
- * - 载入失败、`ready` 或 `seek` 报错、`readyTimeoutMs` 内没就绪：报给引擎，由引擎把这件拉黑、退回替身或占位。
+ * - 计时分两段（动效视频设计 §4.3）：要地址与载入页面到 `hello` 是 `loadTimeoutMs`（要地址、设好地址各起一次），
+ *   发出 `ready` 到回信是 `readyTimeoutMs`。`hello` 由注在 `<head>` 开头的桥发，早于包自己的脚本与字体，所以载入字体、
+ *   图片与 `initialize` 都落在第二段；第二段与离屏宿主的就绪等待同样长，页面里的注册轮询也用它（宿主多等一点，让页面先报）。
+ * - 载入失败、`ready` 或 `seek` 报错、任一段超时：报给引擎，由引擎把这件拉黑、退回替身或占位。
  * - 在视的那个还没画出第一帧（页面在载入、还没就位，或第一次定位还没回信）时报「在载入」，舞台照常盖着载入面板。
  * - 在视的那个按帧计划的 `matrix` 摆（按清单固有尺寸布置页面再 CSS 变换），其余预载的留在版面里但不显示
  *   （`opacity: 0`，不用 `display: none`，否则页面的动画帧不跑）。最多挂 `maxMounted` 个。
@@ -52,6 +55,9 @@ export interface BridgePort {
 }
 
 export interface LiveLayerHostOptions {
+  /** 要地址、载入页面到 `hello` 各等多久（默认 3 s）。 */
+  loadTimeoutMs?: number;
+  /** 发出 `ready` 到回信等多久（默认 20 s）：注册、字体、`initialize` 都在这段里。 */
   readyTimeoutMs?: number;
   /** 拾取等多久（默认 400 ms）；过了兑现 null。 */
   pickTimeoutMs?: number;
@@ -75,7 +81,11 @@ function windowPort(element: HTMLIFrameElement): BridgePort {
   };
 }
 
-const READY_TIMEOUT_MS = 3000;
+const LOAD_TIMEOUT_MS = 3000;
+/** 与离屏宿主的就绪等待（`composition-host.ts` 的 `DEFAULT_OPEN_TIMEOUT_MS`）同样长：冷载入两份 8 MB 的中文字体就要两三秒。 */
+const READY_TIMEOUT_MS = 20_000;
+/** 宿主比页面里的注册轮询多等这么久，让页面的 `COMPOSITION_TIMELINE_MISSING` 先到。 */
+const READY_GRACE_MS = 1000;
 const MAX_MOUNTED = 3;
 const PICK_TIMEOUT_MS = 400;
 
@@ -167,11 +177,14 @@ class LiveFrame {
   readonly #pending = new Map<number, (result: BridgeResult) => void>();
   #nextId = 1;
   #inFlight = false;
+  /** 已经发过 `ready`：页面重新载入再发 `hello` 时照旧回 `ready`，但不重新计时。 */
+  #readyAsked = false;
   #wanted: number | null = null;
   /** 在路上的那个拾取，与路上来了、还没发的最新一个（更早没发的兑现 null）。 */
   #pickInFlight: ((value: CompositionBridgePick | null) => void) | null = null;
   #wantedPick: { x: number; y: number; settle: (value: CompositionBridgePick | null) => void } | null = null;
-  #timer: ReturnType<typeof setTimeout> | null;
+  #timer: ReturnType<typeof setTimeout> | null = null;
+  readonly #readyTimeoutMs: number;
   readonly #port: BridgePort;
   readonly #unsubscribe: () => void;
 
@@ -180,11 +193,12 @@ class LiveFrame {
     root: HTMLElement,
     resolve: ResolveBundle,
     port: (element: HTMLIFrameElement) => BridgePort,
-    readyTimeoutMs: number,
+    timeouts: { load: number; ready: number },
     fail: (reason: string) => void,
     arrive: () => void,
   ) {
     this.candidate = candidate;
+    this.#readyTimeoutMs = timeouts.ready;
     this.#fail = fail;
     this.#arrive = arrive;
     const element = root.ownerDocument.createElement('iframe');
@@ -210,10 +224,12 @@ class LiveFrame {
     root.append(element);
     this.#port = port(element);
     this.#unsubscribe = this.#port.subscribe((message) => this.#receive(message));
-    this.#timer = setTimeout(() => this.#failed('ready-timeout'), readyTimeoutMs);
+    this.#arm(timeouts.load, 'load-timeout');
     resolve(candidate.asset).then(
       (handle) => {
         if (this.state !== 'loading') return;
+        // 要到地址了：载入页面从这里重新计时，不算要地址的那一程。
+        this.#arm(timeouts.load, 'load-timeout');
         element.src = handle.url + handle.entry;
       },
       () => this.#failed('bundle-unresolved'),
@@ -306,12 +322,14 @@ class LiveFrame {
     if (message.kind === 'hello') {
       if (this.state !== 'loading') return;
       const { contract, width, height, fps, durationFrames } = this.candidate;
+      if (!this.#readyAsked) this.#arm(this.#readyTimeoutMs + READY_GRACE_MS, 'ready-timeout');
+      this.#readyAsked = true;
       this.#request({
         channel: COMPOSITION_BRIDGE_CHANNEL,
         kind: 'ready',
         id: this.#nextId++,
         contract: contract as CodeBundleContract,
-        timeoutMs: READY_TIMEOUT_MS,
+        timeoutMs: this.#readyTimeoutMs,
         context: { width, height, fps, durationFrames },
       }).then((result) => {
         if (this.state !== 'loading') return;
@@ -350,6 +368,11 @@ class LiveFrame {
     this.#fail(reason);
   }
 
+  #arm(ms: number, reason: string): void {
+    this.#clearTimer();
+    this.#timer = setTimeout(() => this.#failed(reason), ms);
+  }
+
   #clearTimer(): void {
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
@@ -359,7 +382,7 @@ class LiveFrame {
 export class LiveLayerHost implements LiveHost {
   readonly #root: HTMLElement;
   readonly #resolve: ResolveBundle;
-  readonly #readyTimeoutMs: number;
+  readonly #timeouts: { load: number; ready: number };
   readonly #pickTimeoutMs: number;
   readonly #maxMounted: number;
   readonly #port: (element: HTMLIFrameElement) => BridgePort;
@@ -375,7 +398,7 @@ export class LiveLayerHost implements LiveHost {
   constructor(root: HTMLElement, resolve: ResolveBundle, options: LiveLayerHostOptions = {}) {
     this.#root = root;
     this.#resolve = resolve;
-    this.#readyTimeoutMs = options.readyTimeoutMs ?? READY_TIMEOUT_MS;
+    this.#timeouts = { load: options.loadTimeoutMs ?? LOAD_TIMEOUT_MS, ready: options.readyTimeoutMs ?? READY_TIMEOUT_MS };
     this.#pickTimeoutMs = options.pickTimeoutMs ?? PICK_TIMEOUT_MS;
     this.#maxMounted = options.maxMounted ?? MAX_MOUNTED;
     this.#port = options.port ?? windowPort;
@@ -410,7 +433,7 @@ export class LiveLayerHost implements LiveHost {
         this.#root,
         this.#resolve,
         this.#port,
-        this.#readyTimeoutMs,
+        this.#timeouts,
         (reason) => this.#failed(candidate.itemId, reason),
         () => this.#updateLoading(),
       );
