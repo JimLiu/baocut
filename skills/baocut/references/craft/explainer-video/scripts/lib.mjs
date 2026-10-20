@@ -13,7 +13,7 @@ const DEFAULTS = {
   fps: 30,
   canvas: { width: 1080, height: 1920, background: '#000000' },
   compositionId: 'main',
-  script: { path: 'script.md', notePrefixes: ['（', '(', '>', '<!--'] },
+  script: { path: 'script.md', notePrefixes: ['@', '（', '(', '>', '<!--'] },
   fixedLines: {},
   hold: {},
   tail: 0.35,
@@ -141,7 +141,7 @@ export function scriptNotes(cfg) {
     if (h) { cur = ids.has(h[1]) ? h[1] : null; continue; }
     if (/^-{3,}$/.test(line)) { cur = null; continue; }
     if (!cur || !cfg.script.notePrefixes.some(p => line.startsWith(p))) continue;
-    (out[cur] ||= []).push(line.replace(/^(<!--|>|[（(])\s*/, '').replace(/\s*(-->|[）)])$/, ''));
+    (out[cur] ||= []).push(line.replace(/^(<!--|[@>]|[（(])\s*/, '').replace(/\s*(-->|[）)])$/, ''));
   }
   return Object.fromEntries(Object.entries(out).map(([id, l]) => [id, l.join(' ')]));
 }

@@ -5,7 +5,7 @@
   "fps": 30,
   "canvas": { "width": 1920, "height": 1080, "background": "#17110d" },
   "order": ["s01", "intro", "s02", "s03", "outro"],
-  "script": { "path": "../script.md", "notePrefixes": ["(", "（", ">", "<!--"] },
+  "script": { "path": "../script.md", "notePrefixes": ["@", "(", "（", ">", "<!--"] },
   "fixedLines": {
     "intro": ["<fixed opening line, word for word as the user gave it>"],
     "outro": ["<fixed closing line, word for word as the user gave it>"]
