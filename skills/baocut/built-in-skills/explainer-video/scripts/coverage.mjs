@@ -7,8 +7,10 @@
 //   node tools/coverage.mjs --from <file>    读 `baocut videos inspect <video> --limit 1000 --json` 存下的文件，不连 Runtime
 //   node tools/coverage.mjs --json           结果以 JSON 打印（给别的脚本或报告用）
 //   --bin <秒>                               分段条的粒度，默认 60
+//   --alpha                                  所有代码包都按透明算（默认按 bundles/<段>/index.html 的 data-alpha，没有包时看 bundle.alpha）
 // 分类：video / image 片段铺满时算实拍（footage），放成画中画算 pip（不算谁拥有这一帧）；composition 算代码画面（code）；其余算 other。
 // 一帧的「主人」是最上面一条可见视觉轨上铺满画面的片段（videos inspect 的 tracks 按叠放次序从下到上列）。
+// 透明的代码包（只画卡片、底下垫实拍）不当主人：主人取它下面的片段，下面什么都没有时才算代码画面。inspect 不报透明与否，所以要告诉脚本。
 import fs from 'node:fs';
 import { loadConfig, parseArgs, makeBc, allItems } from './lib.mjs';
 
@@ -33,16 +35,29 @@ if (!(total > 0)) throw new Error('timeline is empty');
 // 视觉轨从下到上；每条轨上的片段按起点排
 const visual = snap.tracks.filter(t => t.kind === 'visual' && t.visible !== false);
 const rank = new Map(visual.map((t, i) => [t.id, i]));
+// 透明与否：段名对应的 bundles/<段>/index.html 根元素 data-alpha（build.mjs 按 bundle.alpha 写），找不到包时看 bundle.alpha
+const alphaOf = new Map();
+const isAlpha = it => {
+  if (flags.alpha) return true;
+  if (!cfg) return false;
+  if (!alphaOf.has(it.name)) {
+    const f = cfg.abs(cfg.dirs.bundles, String(it.name), 'index.html');
+    alphaOf.set(it.name, fs.existsSync(f) ? /data-alpha="true"/.test(fs.readFileSync(f, 'utf8')) : !!cfg.bundle?.alpha);
+  }
+  return alphaOf.get(it.name);
+};
 const kindOf = it => (it.type === 'video' || it.type === 'image') ? (it.place?.mode === 'pip' ? 'pip' : 'footage') : it.type === 'composition' ? 'code' : 'other';
 const items = snap.items.filter(it => rank.has(it.trackId) && it.enabled !== false && it.durationFrames > 0)
-  .map(it => ({ ...it, kind: kindOf(it), end: it.startFrame + it.durationFrames }));
+  .map(it => ({ ...it, kind: kindOf(it), overlay: it.type === 'composition' && isAlpha(it), end: it.startFrame + it.durationFrames }));
 
-// 逐帧找主人：先按轨道从上到下，第一条在这一帧有铺满片段的轨道
+// 逐帧找主人：先按轨道从上到下，第一条在这一帧有铺满片段的轨道；透明代码包先跳过，这一帧下面什么都没有时再由它占
 const byTrack = visual.map(t => items.filter(it => it.trackId === t.id && it.kind !== 'pip').sort((a, b) => a.startFrame - b.startFrame));
 const owner = new Array(total).fill(null);
-for (let r = byTrack.length - 1; r >= 0; r--) for (const it of byTrack[r]) {
+for (const pass of [false, true]) for (let r = byTrack.length - 1; r >= 0; r--) for (const it of byTrack[r]) {
+  if (it.overlay !== pass) continue;
   for (let f = Math.max(0, it.startFrame); f < Math.min(total, it.end); f++) if (!owner[f]) owner[f] = it;
 }
+const overlays = items.filter(it => it.overlay).length;
 const pipOn = new Uint8Array(total);
 for (const it of items) if (it.kind === 'pip') for (let f = Math.max(0, it.startFrame); f < Math.min(total, it.end); f++) pipOn[f] = 1;
 
@@ -93,6 +108,7 @@ for (let f = 0; f < total; f += binFrames) {
 const mmss = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const report = {
   durationSeconds: +secs(total).toFixed(2), fps,
+  overlays,
   screen: { footage: share.footage / total, code: share.code / total, other: share.other / total, empty: share.empty / total, pip: pipFrames / total },
   shots: { count: real.length, medianSeconds: +median.toFixed(2), longest: longest ? { seconds: +secs(longest.frames).toFixed(2), at: +secs(longest.start).toFixed(2), kind: longest.kind, name: longest.item.name } : null },
   longestWithoutFootage: { seconds: +secs(noFootage.frames).toFixed(2), at: +secs(noFootage.start).toFixed(2) },
@@ -102,6 +118,7 @@ const report = {
 if (flags.json) { console.log(JSON.stringify(report, null, 2)); process.exit(0); }
 
 console.log(`runtime ${mmss(report.durationSeconds)}  fps ${fps}  visual tracks ${visual.length}`);
+if (overlays) console.log(`transparent code bundles ${overlays}: counted as overlays, the item under them owns the frame (cards drawn on them are not measured here)`);
 console.log(`on screen: footage ${pct(share.footage)}  code ${pct(share.code)}  other ${pct(share.other)}  empty ${pct(share.empty)}  (pip on top ${pct(pipFrames)})`);
 console.log(`shots ${real.length}  median ${median.toFixed(1)}s  longest ${longest ? `${secs(longest.frames).toFixed(1)}s ${longest.kind} "${longest.item.name}" at ${mmss(secs(longest.start))}` : '-'}  (a shot = one full-frame item on top; a code bundle is one shot however much it animates inside)`);
 console.log(`longest stretch without full-frame footage ${secs(noFootage.frames).toFixed(1)}s at ${mmss(secs(noFootage.start))}`);
