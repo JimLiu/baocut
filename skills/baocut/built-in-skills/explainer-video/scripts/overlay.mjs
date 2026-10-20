@@ -4,7 +4,7 @@
 //   node tools/overlay.mjs [--dry]          打印每个片段与水印在时间线上的起止（默认）
 //   node tools/overlay.mjs --preview [id …] [--force]   从原片剪出静音小片段到 <work>/clips/，给 preview.mjs 与预览页用；clips.json 里这一段的来源、起止或裁法改了就重剪
 //   node tools/overlay.mjs --render         按画幅剪出成片用的片段（铺满裁切，画中画剪成框的大小，对到整帧），把来源标签烧进去，写到 <work>/footage/
-//   node tools/overlay.mjs --place          新建两条视觉轨，导入片段铺满或放成画中画，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
+//   node tools/overlay.mjs --place          新建两条视觉轨（footage.layer 为 under 时实拍轨挪到代码包下面），导入片段铺满或放成画中画，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
 //   node tools/overlay.mjs --check          对照视频里的片段与现在算出的起点（assemble 波纹挪过、段落改过之后跑）
 // clips.json：{ source, label, clips: [{ id, seg, line, cue?, gap?, from, to, source?, label?, audio?, subs?, note? }] }
 //   from / to 是原片的秒数；片段从 seg 段第 line 句（从 0 数）开始放；cue 可省，给了就从这句里 cue 这几个字被说到的时刻开始。
@@ -19,7 +19,9 @@
 //   pip：{ x, y, w } 画中画，不铺满：x、y 是框中心、w 是框宽（画布宽高的百分比），高按原片（裁过之后）的宽高比；代码画面在下面照常讲。
 //   画中画按框的像素大小剪，来源标签烧在框的右上角；不能带 subs（字幕要在画面底部，压在框里太小）。转场作用在框上。
 //   原声在成片片段里做淡入淡出、响度对到 footage.loudness（LUFS）。
-// 配置 footage：{ clips, font, label: { size, margin }, loudness, subs: { fontsDir, font, size, trFont, trSize, whoSize, marginV } }；watermark：{ file, dur, w, y, x: { left, right }, at: [...] }，
+// 配置 footage：{ clips, layer, font, label: { size, margin }, loudness, subs: { fontsDir, font, size, trFont, trSize, whoSize, marginV } }；watermark：{ file, dur, w, y, x: { left, right }, at: [...] }，
+//   layer 缺省 over（实拍盖在代码画面上面）；under 时实拍轨放到代码包那条轨的下面当底，包要透明（bundle.alpha 为 true，场景只画要叠的卡片与标注），
+//   实拍之外的时刻露出的是画布底色（空），用 coverage.mjs 看有多少空着。
 //   at 的每一项是 { seg, line, cue?, side } 或 { t, side }（时间线秒数），side 取 left / right；x、y、w 是画面宽高的百分比。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,6 +34,9 @@ const FPS = cfg.fps, V = cfg.video, { width: W, height: H } = cfg.canvas;
 const fo = { clips: 'clips.json', font: null, loudness: -17, ...cfg.footage, label: { size: 28, margin: 46, ...cfg.footage?.label },
   subs: { fontsDir: null, font: 'sans-serif', size: 54, trFont: null, trSize: 32, whoSize: 36, marginV: 64, ...cfg.footage?.subs } };
 const wm = cfg.watermark ? { dur: 5, w: 6, y: 70, x: { left: 5, right: 95 }, at: [], ...cfg.watermark } : null;
+if (fo.layer && !['over', 'under'].includes(fo.layer)) throw new Error(`footage.layer "${fo.layer}" not one of over, under`);
+const under = fo.layer === 'under';
+if (under && !cfg.bundle.alpha) console.log('warning: footage.layer is under but bundle.alpha is not true; opaque code scenes will hide the footage (set bundle.alpha and rebuild)');
 const cl = readJson(cfg.abs(fo.clips), { clips: [] });
 const work = sub => cfg.abs(cfg.dirs.work, sub);
 const logFile = cfg.abs('overlay.json');
@@ -187,6 +192,15 @@ const trackId = name => {
 };
 if (plan.length) {
   const T = trackId(cfg.names.footage);
+  // footage.layer 为 under：实拍轨挪到代码包那条轨下面（包要透明，bundle.alpha）；tracks 按叠放次序从下到上列
+  if (under) {
+    const vs = inspect().tracks.filter(x => x.kind === 'visual');
+    const base = cfg.tracks?.visual || vs.find(x => ![cfg.names.footage, cfg.names.watermark].includes(x.name))?.id;
+    if (base && vs.findIndex(x => x.id === T) > vs.findIndex(x => x.id === base)) {
+      apply(`Move ${cfg.names.footage} track under the code scenes`, [{ type: 'moveTrack', trackId: T, target: base, position: 'below' }]);
+      console.log('footage track moved under', base);
+    }
+  }
   for (const c of plan) {
     if (log.footage[c.id]) continue;
     const file = path.join(work('footage'), `${c.id}.mp4`);

@@ -21,7 +21,7 @@ const DEFAULTS = {
   asr: { provider: 'google', model: 'gemini-3.5-transcribe', chunkSeconds: 0, args: [] },
   names: { narration: 'Narration', footage: 'Footage', watermark: 'Watermark' },
   dirs: { scenes: 'scenes', shared: 'shared', bundles: 'bundles', timing: 'timing', audio: 'audio', work: '.baocut-out' },
-  bundle: { scripts: null, pick: ['img'], keep: [], exclude: [], module: false, fonts: {} },
+  bundle: { scripts: null, pick: ['img'], keep: [], exclude: [], module: false, fonts: {}, alpha: false },
 };
 
 // 配置：--config <文件>，或环境变量 EXPLAINER_CONFIG，或从当前目录往上找 explainer.json。工程根目录 = 配置所在目录。

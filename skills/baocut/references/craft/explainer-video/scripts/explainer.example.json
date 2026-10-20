@@ -23,10 +23,11 @@
   },
   "asr": { "provider": "google", "model": "gemini-3.5-transcribe", "chunkSeconds": 0 },
   "names": { "narration": "Narration", "footage": "Footage", "watermark": "Watermark" },
-  "bundle": { "pick": ["img"], "keep": ["img/seal.svg"], "exclude": ["fonts/glyphs.txt"], "module": false, "fonts": {} },
+  "bundle": { "pick": ["img"], "keep": ["img/seal.svg"], "exclude": ["fonts/glyphs.txt"], "module": false, "fonts": {}, "alpha": false },
   "preview": { "caption": { "y": 86, "verticalAlign": "center", "fontSize": 28, "width": 80 } },
   "footage": {
     "clips": "clips.json",
+    "layer": "over",
     "font": "shared/fonts/body.ttf",
     "label": { "size": 28, "margin": 46 },
     "loudness": -17,

@@ -21,7 +21,8 @@
   }
   bundle 是代码包目录（入口 index.html）；audio、lines、ref、note、clips 都可省。lines 是 [{ text, start, end }]，
   或 { lines: [...] }，秒数相对这一段的开头。没有 audio 时按页面时钟播放，时长取根元素的 data-duration。
-  clips 是叠在代码画面上的实拍片段：at 是相对这一段开头的秒数，在 [at, at + dur) 里铺满盖在上面、跟着旁白走，
+  clips 是和代码画面一起播的实拍片段：at 是相对这一段开头的秒数，在 [at, at + dur) 里铺满盖在代码画面上面、跟着旁白走；
+  顶层给 "clipsLayer": "under" 时反过来，实拍铺在最下面当底，透明的代码包（data-alpha 不是 false，只画卡片与标注）叠在它上面；
   label 显示在右上角；pip 为 { x, y, w } 时不铺满，放成画中画（x、y 框中心，w 框宽，画布百分比；高按片段的宽高比），label 在框的右上角；默认静音，audio 为 true 时出声，volume 是音量（0–1）。subs 是片段里的双语字幕
   [{ start, end, text, tr, who }]（秒数相对片段开头；text 成片语言，tr 原话，who 说话人），播到时画在字幕带上。
   in / out 是片段一侧的转场 { kind, dur, easing }（kind 取 dissolve / wipe / slide / zoom / iris，dur 秒数），
@@ -38,8 +39,13 @@
   button.on { background: var(--hi); color: #111; border-color: var(--hi); }
   main { display: grid; grid-template-columns: auto minmax(260px, 1fr); gap: 16px; padding: 16px; align-items: start; }
   .stage { position: relative; background: #000; overflow: hidden; }
-  .stage iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .stage iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; background: transparent; }
   .clip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; display: none; pointer-events: none; }
+  /* clipsLayer 为 under：实拍在最下面当底，透明的代码画面叠在上面；标签、字幕带仍在最上。
+     iframe 的 color-scheme 要和包里的文档一致（包默认 light），不一致时浏览器会给 iframe 垫一层不透明的白底，透明的包就露不出实拍 */
+  .stage.under iframe { z-index: 1; color-scheme: light; }
+  .stage.under #clips { position: absolute; inset: 0; z-index: 0; }
+  .stage.under .clipTag, .stage.under .band, .stage.under .cap { z-index: 2; }
   .clipTag { position: absolute; right: 2%; top: 3%; padding: .2em .6em; border-radius: .3em; background: rgba(0,0,0,.55); color: #ddd; font-size: 1.6vh; display: none; pointer-events: none; }
   .band { position: absolute; left: 0; right: 0; outline: 1px dashed rgba(242, 193, 78, .7); pointer-events: none; }
   .cap { position: absolute; text-align: center; color: #fff; font-weight: 700; text-shadow: 0 0 4px #000, 0 1px 3px #000; pointer-events: none; }
@@ -247,6 +253,7 @@
   (async () => {
     try {
       CFG = await getJson(q.get('config') || 'preview.json');
+      $('stage').classList.toggle('under', CFG.clipsLayer === 'under');
       $('tabs').innerHTML = CFG.segments.map(s => `<button data-id="${s.id}">${s.id}</button>`).join('');
       tick();
       await load(CFG.segments.find(s => s.id === q.get('id')) || CFG.segments[0]);

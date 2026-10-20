@@ -1,11 +1,11 @@
 # 制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍
 
-`SKILL.md` 第 6 节的细则。代码画面为主的讲解片按段做（一段旁白一个代码包），每期都要的五步（配音、对齐、打包、摆上时间线、建字幕）和几个可选步骤（预览页配置；实拍片段与水印；给原声片段在旁白里留白）已经写成 `scripts/` 下的脚本，有命令行环境时拷过去用，不再每期重写。脚本只调 baocut CLI（配音、转写、导入、修改都走它），不碰 API Key；内容相关的设定都在一份配置里。
+`SKILL.md` 第 6 节的细则。按段做的讲解片（一段旁白一个代码包），每期都要的五步（配音、对齐、打包、摆上时间线、建字幕）和几个可选步骤（预览页配置；实拍片段与水印；给原声片段在旁白里留白；量画面占比）已经写成 `scripts/` 下的脚本，有命令行环境时拷过去用，不再每期重写。脚本只调 baocut CLI（配音、转写、导入、修改都走它），不碰 API Key；内容相关的设定都在一份配置里。脚本是一条省事的路，不是形态的定义：形态和它不合时自己用 CLI 写流水线（`SKILL.md` 第 6 节）。
 
 ## 1. 适用
 
-- 适用：整段画面由代码画（`baocut/1` 代码包，见 `video-production` 代码场景细则），旁白按段配，一段旁白对一个代码包，首尾相接排在一条视觉轨与一条音频轨上。
-- 不适用：画面以实拍、录屏、生成的视频为主；整片一条旁白不分段；没有命令行环境（这时照 `SKILL.md` 第 6 节「分段做、分段改」手动做）。
+- 适用：旁白按段配，一段旁白对一个代码包，首尾相接排在一条视觉轨与一条音频轨上。代码包可以是整段的画面（动画打底，实拍叠在上面），也可以是透明的叠层（实拍打底铺在下面一条轨上，包里只画卡片、标注；`footage.layer` 为 `under`，`bundle.alpha` 为 true，见 `references/documentary.md` 第 6 节）。
+- 不适用：整片一条旁白不分段；画面不按段切（一条长录屏配旁白）；没有命令行环境（这时照 `SKILL.md` 第 6 节「分段做、分段改」手动做）。
 - 依赖：Node 18 以上，能运行 baocut CLI。`align.mjs --chunk` 切段、`gaps.mjs` 留白与压停顿、 `overlay.mjs` 剪片段时要本机有 ffmpeg（烧双语字幕要带 libass 的 `subtitles` 滤镜）。
 
 ## 2. 拷过去、写配置
@@ -27,11 +27,11 @@
 | `voice` | `provider`、`model`、`voice`、`instructions`、`format`；`attach` 为 true 时配音结果同时作为候选素材进视频；`maxPause`（秒）给了时 `gaps.mjs` 把句间长于它的静音压到这么长，短档给 0.3（`length-and-pace.md` 第 2 节），中档、长档可以不给，留自然的停顿 |
 | `asr` | 对齐用的转写：`provider`、`model`、`chunkSeconds`（大于 0 时长段切块转写） |
 | `names.narration` | 旁白素材与转写文稿的名字前缀，用成片语言写 |
-| `bundle` | 打包规则：`pick`（只拷场景里提到的文件的子目录，默认 `img`）、`keep`（总拷）、`exclude`（不拷）、`scripts`（入口加载的共享脚本，默认 `shared/` 顶层的 `.js`）、`module`（为 true 时 `scene.js` 按 ES 模块加载，能 `import` 包里的库，例如 Three.js）、`fonts`（`{ 字体族名: 包内相对路径 }`，写成入口里的 `@font-face`） |
+| `bundle` | 打包规则：`pick`（只拷场景里提到的文件的子目录，默认 `img`）、`keep`（总拷）、`exclude`（不拷）、`scripts`（入口加载的共享脚本，默认 `shared/` 顶层的 `.js`）、`module`（为 true 时 `scene.js` 按 ES 模块加载，能 `import` 包里的库，例如 Three.js）、`fonts`（`{ 字体族名: 包内相对路径 }`，写成入口里的 `@font-face`）、`alpha`（为 true 时包是透明的：根元素 `data-alpha="true"`、页面底色透明，场景只画要叠在实拍上的东西，不铺底色；配 `footage.layer: "under"` 用） |
 | `tracks` | 可选，`visual` 与 `audio` 轨道 ID；不给时用第一条视觉轨与第一条音频轨 |
 | `names.footage`、`names.watermark` | 可选，实拍片段与水印所在轨道、素材的名字，用成片语言写 |
 | `preview.caption` | 可选，预览页上字幕带的样式（与字幕样式同一套键：`y`、`verticalAlign`、`fontSize`、`width`） |
-| `footage` | 可选：`clips`（片段清单，默认 `clips.json`）、`font`（来源标签用的字体文件）、`label`（`size`、`margin`，像素）、`loudness`（原声的响度，LUFS，默认 -17）、`subs`（双语字幕：`fontsDir` 字体目录、`font` 与 `size` 成片语言那行、`trFont` 与 `trSize` 原话那行、`whoSize` 说话人、`marginV` 离底边的像素；字体写字体族名） |
+| `footage` | 可选：`clips`（片段清单，默认 `clips.json`）、`layer`（`over` 默认，实拍轨压在代码画面上面；`under` 时实拍轨挪到代码包那条轨的下面当底，包要透明，实拍之外的时刻露出画布底色）、`font`（来源标签用的字体文件）、`label`（`size`、`margin`，像素）、`loudness`（原声的响度，LUFS，默认 -17）、`subs`（双语字幕：`fontsDir` 字体目录、`font` 与 `size` 成片语言那行、`trFont` 与 `trSize` 原话那行、`whoSize` 说话人、`marginV` 离底边的像素；字体写字体族名） |
 | `watermark` | 可选：`file`（图片）、`dur`（每次几秒）、`w`、`y`、`x.left`、`x.right`（画面宽高的百分比）、`at`（每次出现的位置：`{ seg, line, cue?, side }` 跟着旁白走，或 `{ t, side }` 写死时间线秒数） |
 
 旁白稿的写法：`## <段落 id> 标题` 开一段（id 要在 `order` 里），段内每个非空行是一句旁白，一句一个画面节拍；别的一、二级标题或单独一行的 `---` 结束这一段，所以来源、简化说明、分镜草案可以写在同一个文件里。
@@ -49,7 +49,8 @@
 | 预览 | `node tools/overlay.mjs --preview`（有实拍时），再 `node tools/preview.mjs` | `--preview` 只剪新的或来源、起止、裁法改过的片段（`--force` 全部重剪）；段里最后一个片段超出段尾时两个脚本都会提示，截到段尾，要么改短 `to`，要么把它往前挪。写 `preview.json`：各段的代码包、旁白、句子时间、稿子里的备注与叠在上面的实拍。把 `video-production` 的 `examples/bundle-preview.html` 拷到工程根目录，在根目录起静态服务打开（代码场景细则第 7 节）。页面跟着旁白画、叠实拍，能连播。烘焙前给用户看 |
 | 排时间线 | `node tools/assemble.mjs --dry`，再 `node tools/assemble.mjs` | `--dry` 不连 Runtime，打印每段的起始帧、帧数和要做的事；确认后去掉 `--dry` 执行。每段导入后打印并记下 `bake` 的 `renderer`、`fps`、`seconds` |
 | 字幕 | `node tools/captions.mjs --dry`，再 `node tools/captions.mjs` | 用稿子原文加对齐时间写转写文稿、建字幕层，专名照稿子的写法上屏。字幕默认比第一个字早约半秒出现，从 0 秒起的那段建好后把字幕片段起点裁到第一个字，封面上不带字幕 |
-| 实拍与水印 | `node tools/overlay.mjs --dry`，再 `--render`，再 `--place` | `--dry` 打印每段实拍与每次水印在时间线上的起止、留白、原声、字幕条数与转场；`--render` 按 `crop`、`fit` 放进画幅（`pip` 的片段剪成框的像素大小）、对到整帧，把来源标签烧进右上角、双语字幕烧在底部，原声按转场长度淡入淡出、响度对到 `footage.loudness`；`--place` 新建两条视觉轨（名字取 `names`），导入片段铺满放好（`pip` 的用 `setStyle` 的 `mode: 'pip'` 加 `setTransform` 的 `x`、`y`、`w` 放成画中画，转场作用在框上），数字的 `audio` 用 `setAudioMix` 设音量，`in`、`out` 用 `setTransition` 设成单侧转场，水印放成画中画。放之前看一眼水印会不会压到画面上的字，压到了改 `at` |
+| 实拍与水印 | `node tools/overlay.mjs --dry`，再 `--render`，再 `--place` | `--dry` 打印每段实拍与每次水印在时间线上的起止、留白、原声、字幕条数与转场；`--render` 按 `crop`、`fit` 放进画幅（`pip` 的片段剪成框的像素大小）、对到整帧，把来源标签烧进右上角、双语字幕烧在底部，原声按转场长度淡入淡出、响度对到 `footage.loudness`；`--place` 新建两条视觉轨（名字取 `names`；`footage.layer` 为 `under` 时用 `moveTrack` 把实拍轨挪到代码包那条轨下面），导入片段铺满放好（`pip` 的用 `setStyle` 的 `mode: 'pip'` 加 `setTransform` 的 `x`、`y`、`w` 放成画中画，转场作用在框上），数字的 `audio` 用 `setAudioMix` 设音量，`in`、`out` 用 `setTransition` 设成单侧转场，水印放成画中画。放之前看一眼水印会不会压到画面上的字，压到了改 `at` |
+| 量画面占比 | `node tools/coverage.mjs`（或 `--from <videos inspect 存下的 JSON>` 不连 Runtime；`--json` 出机器可读的结果） | 读时间线，报每一帧最上面铺满的是实拍、代码画面还是空的各占多少、画中画占多少，镜头数与中位长度、最长一个镜头、最长一段没有实拍，实拍片段数、带原声的几段、同一素材用了几次，再按分钟列一条实拍占比。只报数不判对错：对照 `SKILL.md` 第 3 节定的形态看数对不对（纪录片形态的参考值在 `references/documentary.md` 第 7 节） |
 
 - 第一段导入后先看 `bake`：走成 `browser-pixels` 时脚本停下并打印原因，按代码场景细则第 2.1 节改好、重新打包再跑，它会原地换包。确认走指令后，其余段可以加 `--background` 在后台排队烘焙，之后 `assemble.mjs --verify` 把烘焙结果补进记录并核对首尾相接。
 - 烘全片前照代码场景细则第 2.1 节算时间与磁盘空间。

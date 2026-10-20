@@ -10,6 +10,7 @@
 //   入口按顺序加载 timing.js → bundle.scripts（默认 shared/ 顶层的 .js，按名字排序）→ scene.js。
 //   bundle.module 为 true 时 scene.js 以 <script type="module"> 加载，能 import 包里的模块（例如 ./vendor/three.module.js）；
 //   bundle.fonts 是 { 字体族名: 包内相对路径 }，写成入口里的 @font-face，给 DOM 或 WebGL 之上的 2D 画布用。
+//   bundle.alpha 为 true 时根元素 data-alpha="true"、页面底色透明：实拍铺在下面一条轨上（footage.layer 为 under），场景只画卡片、标注这些要叠上去的东西，不铺底色。
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig, parseArgs, readJson, scriptLines, units } from './lib.mjs';
@@ -67,9 +68,11 @@ function build(id, all) {
   const tags = ['timing.js', ...scripts].map(s => `<script src="./${s}"></script>`).join('') +
     `<script${cfg.bundle.module ? ' type="module"' : ''} src="./scene.js"></script>`;
   const faces = Object.entries(cfg.bundle.fonts || {}).map(([fam, rel]) => `@font-face{font-family:'${fam}';src:url('./${rel}')}`).join('');
+  // bundle.alpha 为 true 时包是透明的：场景只画要叠在实拍上的东西，底色由下面那条轨上的实拍给
+  const alpha = !!cfg.bundle.alpha;
   fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
-<html><head><meta charset="utf-8"><style>${faces}html,body{margin:0;padding:0;overflow:hidden;background:${background}}#root{position:relative;width:${W}px;height:${H}px}</style></head>
-<body><div id="root" data-composition-id="${cfg.compositionId}" data-width="${W}" data-height="${H}" data-fps="${cfg.fps}" data-duration="${dur}" data-alpha="false"></div>
+<html><head><meta charset="utf-8"><style>${faces}html,body{margin:0;padding:0;overflow:hidden;background:${alpha ? 'transparent' : background}}#root{position:relative;width:${W}px;height:${H}px}</style></head>
+<body><div id="root" data-composition-id="${cfg.compositionId}" data-width="${W}" data-height="${H}" data-fps="${cfg.fps}" data-duration="${dur}" data-alpha="${alpha}"></div>
 ${tags}</body></html>
 `);
   return { id, dur, frames: Math.round(dur * cfg.fps), estimated: !!timing.estimated };

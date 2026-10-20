@@ -157,7 +157,8 @@ function makeRoom(id, boundary, frames) {
 }
 
 const tracks = inspect(['--limit', '1']).tracks;
-const V1 = cfg.tracks?.visual || tracks.find(t => t.kind === 'visual')?.id;
+// 代码包所在的视觉轨：不给 tracks.visual 时取最下面一条不是实拍、水印的（footage.layer 为 under 时实拍轨在代码包下面）
+const V1 = cfg.tracks?.visual || tracks.find(t => t.kind === 'visual' && ![cfg.names.footage, cfg.names.watermark].includes(t.name))?.id;
 const A1 = cfg.tracks?.audio || tracks.find(t => t.kind === 'audio')?.id;
 if (!V1 || !A1) throw new Error('video needs a visual and an audio track (or set tracks.visual / tracks.audio in the config)');
 

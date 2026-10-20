@@ -7,7 +7,7 @@
 // 取所在句的开头，给了 cue 取 cue 被说到的时刻，gap 片段取旁白里留出的空白；同一段里后一个开始时截断）。src 是 overlay.mjs --preview 剪出的小片段。
 // 片段的 pip（画中画框：x、y 中心，w 宽，画布百分比）照抄。片段带 subs 时换算成相对片段开头的 [{ start, end, text, tr, who }]，页面画在字幕带上；audio 为数字时是原声音量。
 // 最后一个片段超出段尾（旁白时长 + hold）时截到段尾并提示。片段的 in / out 转场照抄成 { kind, dur, easing }（长度不超过片段一半），和后一个片段首尾相接的那一侧去掉，与 overlay.mjs 放上时间线的一致。
-// 字幕带的样式取配置的 preview.caption（与字幕样式同一套键），不给就不画。
+// 字幕带的样式取配置的 preview.caption（与字幕样式同一套键），不给就不画。footage.layer 为 under 时写 clipsLayer: "under"，页面把实拍铺在透明的代码画面下面。
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig, readJson, writeJson, scriptNotes, clipTimes } from './lib.mjs';
@@ -57,6 +57,7 @@ const segments = cfg.order.map(id => {
     ...(clips.length ? { clips } : {}),
   };
 });
-writeJson(cfg.abs('preview.json'), { ...(cfg.preview?.caption ? { caption: cfg.preview.caption } : {}), segments });
+// footage.layer 为 under 时页面把实拍画在代码画面下面（包要透明：bundle.alpha）
+writeJson(cfg.abs('preview.json'), { ...(cfg.preview?.caption ? { caption: cfg.preview.caption } : {}), ...(cfg.footage?.layer === 'under' ? { clipsLayer: 'under' } : {}), segments });
 if (missing.length) console.log(`no timing yet for ${missing.join(', ')}; those play on the page clock`);
 console.log(segments.map(s => `${s.id}${s.clips ? ` clips:${s.clips.length}` : ''}`).join('  '));
