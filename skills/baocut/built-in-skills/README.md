@@ -23,9 +23,10 @@ BaoCut 随应用分发的内置 Agent skill，也叫 craft（做法）：一件�
 | [`talking-head-cut`](talking-head-cut/SKILL.md) | 剪口播 | 去口癖、长停顿与录废的部分，收紧节奏，按需加强调、B-roll、竖屏取景与配乐闪避 |
 | [`shorts-segments`](shorts-segments/SKILL.md) | 切短视频 | 从长视频里挑出能单独发布的几段，每段建成可编辑的子视频 |
 | [`narration`](narration/SKILL.md) | 旁白成片 | 按实测语速写稿，一个音色一次合成，量时长、只重配不合格的句子，再把画面剪到旁白上 |
-| [`explainer-video`](explainer-video/SKILL.md) | 知识讲解视频 | 把概念、新闻或资料讲成没有背景的人也看得懂、看完能复述的讲解成片：先定画面的底是什么，核实资料，从观众的疑问找讲法，画面一直在动，按需另出语言或画幅版本，写发布文案；制作照从简报到成片 |
+| [`explainer-video`](explainer-video/SKILL.md) | 知识讲解视频 | 讲解片的手艺页：把概念、新闻或资料讲成没有背景的人也看得懂、看完能复述，核实资料，从观众的疑问找讲法，给这期找一个自己会讲道理的主体，画面一直在动，按需另出语言或画幅版本，写发布文案；底是什么与制作照从简报到成片 |
 | [`clip-montage`](clip-montage/SKILL.md) | 解说混剪 | 旁白、视频切片与文字动画混搭：拿一条新闻、一件事或一个故事，从网上与视频库里搜素材、切原声，配旁白剪成画面一直在动的片子，推文与引语做成压在画面上的卡片；题材不限 |
 | [`video-production`](video-production/SKILL.md) | 从简报到成片 | 从零做一条完整成片：风格与分镜规划，逐镜出画面，配旁白、混音、导出验收 |
+| [`production-scripts`](production-scripts/SKILL.md) | 制作脚本 | 有命令行环境时按段配旁白、对齐、打包代码画面、摆上时间线、建字幕、叠实拍、量画面占比的现成脚本；它是一条省事的路，不规定片子的形态 |
 | [`motion-graphics`](motion-graphics/SKILL.md) | 动效图形 | 写一个自包含的 HTML 画面做下横栏、关键词、大数字、标注或品牌贴片，打包导入后放上时间线 |
 | [`slides`](slides/SKILL.md) | 幻灯片 | 在工作目录写一份 deck，校验通过后在线程里出卡片，用户在功能区预览、编辑与标注（只给会话内智能体） |
 | [`design`](design/SKILL.md) | 设计稿 | 在工作目录写一份设计稿（界面、网页、海报、图表、示意图、原型），校验通过后在线程里出卡片，用户在功能区预览、编辑与标注（只给会话内智能体） |

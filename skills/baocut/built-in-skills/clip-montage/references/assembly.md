@@ -47,4 +47,4 @@
 
 ## 7. 量一遍
 
-`node scripts/coverage.mjs <videoId>`（连 Runtime，用 `--bc` 指定 baocut CLI 的命令；或 `--from <videos inspect --limit 1000 --json 存下的文件>` 不连）。它报实拍、代码画面、空白各占屏多少，镜头数与中位长度，最长一段没有实拍，素材重复与带原声的片段，并按分钟画条。这种形式通常实拍八九成、卡片两三成、中位镜头 3–6 秒、没有超过 20 秒没实拍的段落；它只报数，对不对看这期要的是什么。
+量画面占比的脚本在 `production-scripts` 里（用 `skills_read` 读 `production-scripts`，取它的 `scripts/coverage.mjs`）：`node coverage.mjs <videoId>`（连 Runtime，用 `--bc` 指定 baocut CLI 的命令；卡片是透明代码包时加 `--alpha`，它们就不算占帧；或 `--from <videos inspect --limit 1000 --json 存下的文件>` 不连）。它报实拍、代码画面、空白各占屏多少，镜头数与中位长度，最长一段没有实拍，素材重复与带原声的片段，并按分钟画条。这种形式通常实拍八九成、卡片两三成、中位镜头 3–6 秒、没有超过 20 秒没实拍的段落；它只报数，对不对看这期要的是什么。

@@ -1,0 +1,36 @@
+{
+  "name": {
+    "zh-Hans": "制作脚本",
+    "zh-Hant": "製作腳本",
+    "en": "Production scripts",
+    "ja": "制作スクリプト",
+    "ko": "제작 스크립트",
+    "es": "Scripts de producción",
+    "fr": "Scripts de production",
+    "de": "Produktionsskripte",
+    "nl": "Productiescripts",
+    "pt-BR": "Scripts de produção",
+    "it": "Script di produzione",
+    "ru": "Скрипты производства",
+    "pl": "Skrypty produkcyjne",
+    "tr": "Yapım betikleri",
+    "vi": "Script sản xuất"
+  },
+  "summary": {
+    "zh-Hans": "有命令行环境时按段配旁白、对齐、打包代码画面、摆上时间线、建字幕、叠实拍、量画面占比的现成脚本，不规定片子的形态",
+    "zh-Hant": "有命令列環境時按段配旁白、對齊、打包程式畫面、擺上時間軸、建字幕、疊實拍、量畫面占比的現成腳本，不規定影片的形態",
+    "en": "Ready-made scripts for narrated, segment-based videos: voice, align, bundle, timeline, captions, footage, coverage",
+    "ja": "ナレーション単位で作る動画向けのスクリプト集：音声合成、整合、バンドル化、タイムライン配置、字幕、実写、画面比率",
+    "ko": "내레이션을 단락별로 만드는 영상용 스크립트 모음: 음성, 정렬, 번들, 타임라인 배치, 자막, 실사, 화면 비율",
+    "es": "Scripts listos para vídeos narrados por segmentos: voz, alineación, paquete, timeline, subtítulos, metraje, cobertura",
+    "fr": "Scripts prêts pour les vidéos narrées par segments : voix, alignement, paquet, timeline, sous-titres, images, couverture",
+    "de": "Fertige Skripte für segmentweise erzählte Videos: Stimme, Ausrichtung, Bundle, Timeline, Untertitel, Footage, Abdeckung",
+    "nl": "Kant-en-klare scripts voor per segment ingesproken video’s: stem, uitlijning, bundel, tijdlijn, ondertitels, beeld",
+    "pt-BR": "Scripts prontos para vídeos narrados por segmentos: voz, alinhamento, pacote, timeline, legendas, filmagem, cobertura",
+    "it": "Script pronti per video narrati a segmenti: voce, allineamento, pacchetto, timeline, sottotitoli, riprese, copertura",
+    "ru": "Готовые скрипты для видео с посегментной озвучкой: голос, выравнивание, сборка, таймлайн, субтитры, съёмка, покрытие",
+    "pl": "Gotowe skrypty do filmów z narracją segmentami: głos, wyrównanie, pakiet, oś czasu, napisy, materiał, pokrycie",
+    "tr": "Bölüm bölüm seslendirilen videolar için hazır betikler: ses, hizalama, paket, zaman çizelgesi, altyazı, çekim, kapsama",
+    "vi": "Script có sẵn cho video lời bình theo đoạn: giọng, căn chỉnh, đóng gói, dòng thời gian, phụ đề, cảnh quay, tỷ lệ hình"
+  }
+}

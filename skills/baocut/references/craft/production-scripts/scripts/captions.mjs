@@ -2,7 +2,7 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本
 // 字幕：用稿子原文 + 对齐好的字时间（timing/<id>.json）给每段旁白素材写一份转写（ElevenLabs Scribe 形状），
 // documents put 导入后 captions create 建字幕层。用稿子原文而不是识别出的字，专名不会写错。
-//   node tools/captions.mjs [--only=id,id] [--dry] [--config explainer.json]
+//   node tools/captions.mjs [--only=id,id] [--dry] [--config <配置>]
 //   --dry 只打印每段切出的词与前几个词的时间，不连 Runtime。
 // 结果记在 captions.json（timeline.json 归 assemble.mjs 写）。某段的旁白片段换了（assemble 重放了旁白）或字时间变了，
 // 先把所有这样的段的旧字幕片段一起删掉，再逐段重建：逐段「删一段建一段」时，前一段变长后的新字幕会撞上后一段还没删的旧字幕，

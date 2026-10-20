@@ -80,7 +80,7 @@
 
 ## 8. 量一遍、看一遍，交付
 
-- [`scripts/coverage.mjs`](clip-montage/scripts/coverage.mjs) 量时间线：实拍、代码画面、空白各占屏多少；镜头数与中位长度；最长一段没有实拍；素材重复使用；带原声的片段。这种形式的成片通常实拍八九成、卡片两三成、中位镜头 3–6 秒、没有超过 20 秒没实拍的段落；差得远，多半是卡片当了底，回到第 5 节补画面。它只报数，不判对错。
+- 量一遍时间线（读 [`references/craft/production-scripts.md`](production-scripts.md)，用它的 `coverage.mjs`）：实拍、代码画面、空白各占屏多少；镜头数与中位长度；最长一段没有实拍；素材重复使用；带原声的片段。这种形式的成片通常实拍八九成、卡片两三成、中位镜头 3–6 秒、没有超过 20 秒没实拍的段落；差得远，多半是卡片当了底，回到第 5 节补画面。它只报数，不判对错。
 - 静音看一遍：画面自己能不能把故事讲下去。只听不看一遍：原声和旁白的接缝顺不顺、音乐有没有压过人声。
 - 核对每条卡片上的日期、数字、引语与稿子一致；每段原声的字幕是原话。
 - 交付：成片（或审片链接）、片长与章节、每段原声与每条素材的来源清单（来源、链接、发布者、入点出点、署名）、哪些是示意、已知问题。要发布文案时照 `titles-and-description`。
@@ -93,11 +93,9 @@
 | [稿子、结构、原声与声音](clip-montage/references/structure.md) | 写稿之前；要用冷开场、预告、章节钩子这类手法时 |
 | [在 BaoCut 里摆出来](clip-montage/references/assembly.md) | 在 BaoCut 里摆轨道、放原声、做卡片、建字幕之前 |
 
-## 自带脚本
+## 脚本
 
-| 脚本 | 作用 |
-| --- | --- |
-| [`scripts/coverage.mjs`](clip-montage/scripts/coverage.mjs) | 读一条视频的时间线，报实拍、代码画面、空白的占屏比例，镜头长度，最长无实拍段，素材重复与原声片段；只报数 |
+本 skill 不带脚本。有命令行环境、旁白按段配时，配音、对齐、摆时间线、剪实拍、量画面占比的现成脚本读 [`references/craft/production-scripts.md`](production-scripts.md)；它是一条省事的路，形态不合时照第 7 节用 BaoCut 的工具自己摆。
 
 ## 同目录的文件
 
@@ -106,4 +104,3 @@
 - [在 BaoCut 里摆出来](clip-montage/references/assembly.md)
 - [找素材：库里、网上、用户手里](clip-montage/references/sourcing.md)
 - [稿子、结构、原声与声音](clip-montage/references/structure.md)
-- [`scripts/coverage.mjs`](clip-montage/scripts/coverage.mjs)

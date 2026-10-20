@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // i18n-ignore-file: 给智能体拷走用的独立脚本
 // 把 scenes/<id>.js 打成 BaoCut 代码包 bundles/<id>/（baocut/1 合同，入口里不出现注册词，导入时要带 manifest）。
-//   node tools/build.mjs [id ...] [--config explainer.json]      不给 id 时打 order 里的全部
+//   node tools/build.mjs [id ...] [--config <配置>]      不给 id 时打 order 里的全部
 // 包里有：index.html（根元素的 data-* 是清单）、timing.js（window.TIMING）、shared/ 下的文件、scene.js。
 //   旁白时间取 timing/<id>.json（align.mjs 写的）；还没有时按 estimateRate 估一份（TIMING.estimated 为 true），只用于配音前的样帧。
 //   包的时长 = timing.dur + hold[id]（例如片尾卡在最后一句之后多停几秒），对齐到整帧。

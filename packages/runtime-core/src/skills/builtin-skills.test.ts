@@ -21,6 +21,7 @@ const EXPECTED_IDS = [
   'motion-graphics',
   'narration',
   'polish-transcript',
+  'production-scripts',
   'shorts-segments',
   'slides',
   'speaker-labeling',

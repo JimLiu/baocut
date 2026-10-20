@@ -1,12 +1,14 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文，给人看的名字从配置来
-// 讲解片制作脚本的共用部分：找配置、调 baocut CLI、读旁白稿、数语速单位、按整帧排段。
+// 制作脚本的共用部分：找配置、调 baocut CLI、读旁白稿、数语速单位、按整帧排段。
 // 整个 scripts/ 目录一起拷进工程（例如 <工程>/tools/），只依赖 Node 自带的模块。
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-export const CONFIG_NAME = 'explainer.json';
+// 配置文件名：先找 production.json，再找 explainer.json（旧名，继续认）
+export const CONFIG_NAMES = ['production.json', 'explainer.json'];
+export const CONFIG_NAME = CONFIG_NAMES[1];
 
 const DEFAULTS = {
   bc: ['baocut'],
@@ -24,15 +26,16 @@ const DEFAULTS = {
   bundle: { scripts: null, pick: ['img'], keep: [], exclude: [], module: false, fonts: {}, alpha: false },
 };
 
-// 配置：--config <文件>，或环境变量 EXPLAINER_CONFIG，或从当前目录往上找 explainer.json。工程根目录 = 配置所在目录。
+// 配置：--config <文件>，或环境变量 PRODUCTION_CONFIG / EXPLAINER_CONFIG，或从当前目录往上找 production.json / explainer.json。工程根目录 = 配置所在目录。
 export function loadConfig(argv = process.argv) {
   const i = argv.indexOf('--config'), eq = argv.find(a => a.startsWith('--config='));
-  let file = i > 0 ? argv[i + 1] : eq ? eq.slice('--config='.length) : process.env.EXPLAINER_CONFIG;
+  let file = i > 0 ? argv[i + 1] : eq ? eq.slice('--config='.length) : process.env.PRODUCTION_CONFIG || process.env.EXPLAINER_CONFIG;
   if (!file) for (let d = process.cwd(); ; d = path.dirname(d)) {
-    if (fs.existsSync(path.join(d, CONFIG_NAME))) { file = path.join(d, CONFIG_NAME); break; }
+    const hit = CONFIG_NAMES.find(n => fs.existsSync(path.join(d, n)));
+    if (hit) { file = path.join(d, hit); break; }
     if (path.dirname(d) === d) break;
   }
-  if (!file) throw new Error(`${CONFIG_NAME} not found from ${process.cwd()} upwards; pass --config <file>`);
+  if (!file) throw new Error(`${CONFIG_NAMES.join(' or ')} not found from ${process.cwd()} upwards; pass --config <file>`);
   file = path.resolve(file);
   const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
   const cfg = { ...DEFAULTS, ...raw };

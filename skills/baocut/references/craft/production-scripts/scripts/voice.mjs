@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // i18n-ignore-file: 给智能体拷走用的独立脚本
 // 按段配音：每段旁白一次 speak（同一个音色、同一套语气说明），存一份音频到 audio/<id>.<格式>，记在 audio/voice.json。
-//   node tools/voice.mjs <id ...> [--missing] [--seed N] [--config explainer.json]
+//   node tools/voice.mjs <id ...> [--missing] [--seed N] [--config <配置>]
 //   --missing   给 order 里还没配过、或稿子改过的段配音
 //   --seed      只有收 seed 的模型能用；不收的模型每次合成本来就不一样，重配直接再跑一次
 // 任务被打断（Runtime 重启，JOB_INTERRUPTED）时自动重试，最多三次。

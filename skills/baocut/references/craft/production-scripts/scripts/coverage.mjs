@@ -2,21 +2,24 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文，给人看的名字从配置来
 // 量一遍时间线上「观众在看什么」：每一帧最上面铺满画面的是实拍、代码画面还是空的；镜头多长、实拍用了几段、哪段素材反复用。
 // 只报数，不判对错：像幻灯片的片子（一张卡片停很久、实拍只是点缀）和实拍打底、卡片压在上面的片子数出来差别很大，
-// 哪一种对要看这期定的形态（SKILL.md 第 3 节）。
-//   node tools/coverage.mjs                  连 Runtime 读 explainer.json 里的视频
+// 哪一种对要看这部片子定的形态（SKILL.md 第 4 节）。
+//   node tools/coverage.mjs                  在工程里：连 Runtime 读配置（production.json / explainer.json）里的视频
+//   node coverage.mjs <videoId>              不带配置：连 Runtime 读这条视频；--bc "<命令>" 指定 baocut CLI（默认环境变量 BAOCUT_BC，再默认 `baocut`）
 //   node tools/coverage.mjs --from <file>    读 `baocut videos inspect <video> --limit 1000 --json` 存下的文件，不连 Runtime
 //   node tools/coverage.mjs --json           结果以 JSON 打印（给别的脚本或报告用）
 //   --bin <秒>                               分段条的粒度，默认 60
-//   --alpha                                  所有代码包都按透明算（默认按 bundles/<段>/index.html 的 data-alpha，没有包时看 bundle.alpha）
+//   --alpha                                  所有代码包都按透明算（有配置时默认按 bundles/<段>/index.html 的 data-alpha，没有包时看 bundle.alpha；没配置时默认不透明）
 // 分类：video / image 片段铺满时算实拍（footage），放成画中画算 pip（不算谁拥有这一帧）；composition 算代码画面（code）；其余算 other。
 // 一帧的「主人」是最上面一条可见视觉轨上铺满画面的片段（videos inspect 的 tracks 按叠放次序从下到上列）。
 // 透明的代码包（只画卡片、底下垫实拍）不当主人：主人取它下面的片段，下面什么都没有时才算代码画面。inspect 不报透明与否，所以要告诉脚本。
 import fs from 'node:fs';
 import { loadConfig, parseArgs, makeBc, allItems } from './lib.mjs';
 
-const { flags } = parseArgs(process.argv, ['from', 'bin']);
+const { ids, flags } = parseArgs(process.argv, ['from', 'bin', 'bc']);
 let cfg = null;
-try { cfg = loadConfig(); } catch (e) { if (!flags.from) throw e; }
+try { cfg = loadConfig(); } catch (e) { if (!flags.from && !ids[0]) throw e; }
+const video = ids[0] || cfg?.video;
+const bcCommand = (flags.bc || process.env.BAOCUT_BC || '').split(/\s+/).filter(Boolean);
 
 let snap;
 if (flags.from) {
@@ -24,9 +27,10 @@ if (flags.from) {
   snap = raw.result ?? raw;
   if (snap.itemsCoverage?.truncated) throw new Error(`${flags.from} lists only part of the timeline; dump it with --limit 1000 or run without --from`);
 } else {
-  const bc = makeBc(cfg);
-  const head = bc(['videos', 'inspect', cfg.video, '--limit', '1']);
-  snap = { ...head, items: allItems(bc, cfg.video).items };
+  if (!video) throw new Error('usage: coverage.mjs [<videoId>] [--from <inspect json>]');
+  const bc = makeBc(cfg && !bcCommand.length ? cfg : { bc: bcCommand.length ? bcCommand : ['baocut'], root: cfg?.root ?? process.cwd(), abs: p => p });
+  const head = bc(['videos', 'inspect', video, '--limit', '1']);
+  snap = { ...head, items: allItems(bc, video).items };
 }
 const fps = parseFloat(snap.sequence.fps) || cfg?.fps || 30;
 const total = snap.sequence.durationFrames;
@@ -126,4 +130,4 @@ console.log(`footage items ${footage.length} (${secs(footage.reduce((a, it) => a
 const bar = x => '█'.repeat(Math.round(x * 10)).padEnd(10, '·');
 for (const b of bins) console.log(`${mmss(b.at).padStart(6)} ${bar(b.footage)} footage ${(b.footage * 100).toFixed(0).padStart(3)}%  code ${(b.code * 100).toFixed(0).padStart(3)}%`);
 console.log('\nfor reference: a footage-based clip montage usually measures footage 80–95% with cards on top, median shot 3–6s, no stretch over ~20s without footage;');
-console.log('a code-visual explainer measures code 80%+ by design — which is right depends on the form chosen for this episode (SKILL.md §3).');
+console.log('a code-visual explainer measures code 80%+ by design — which is right depends on the form chosen for this episode (SKILL.md §4).');

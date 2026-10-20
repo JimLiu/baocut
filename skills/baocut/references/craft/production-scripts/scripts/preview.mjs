@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文
 // 写 preview.json，给 video-production 的 examples/bundle-preview.html 用（页面拷到工程根目录，在根目录起静态服务打开）。
-//   node tools/preview.mjs [--config explainer.json]
+//   node tools/preview.mjs [--config <配置>]
 // 每段：代码包、旁白音频（audio/<id>.<格式>；gaps.mjs 留过白的用 timing 里的 gapAudio）、对齐好的句子（timing/<id>.json），稿子里这一段的备注行当 note。
 // 有 clips.json 时，落在这一段的实拍片段换算成 clips: [{ src, at, dur, label, audio }]（at 是相对段首的秒数，
 // 取所在句的开头，给了 cue 取 cue 被说到的时刻，gap 片段取旁白里留出的空白；同一段里后一个开始时截断）。src 是 overlay.mjs --preview 剪出的小片段。

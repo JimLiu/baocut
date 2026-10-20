@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // i18n-ignore-file: 给智能体拷走用的独立脚本
 // 把每段旁白音频转写（词级时间），用编辑距离把字对到稿子原文，写 timing/<id>.json，并打印语速、停顿与读错检查。
-//   node tools/align.mjs <id ...> [--fresh] [--chunk N] [--config explainer.json]
+//   node tools/align.mjs <id ...> [--fresh] [--chunk N] [--config <配置>]
 //   已有 .baocut-out/asr/<id>.words.json 时不重新转写，--fresh 强制重转。
 //   --chunk N（或配置 asr.chunkSeconds）：长于 N 秒的段先在停顿处切成 N 秒以内的小段分别转写再合并；
 //   整段转写把字时间挤成一团时用（例如 --fresh --chunk 14）。切段要本机有 ffmpeg。
