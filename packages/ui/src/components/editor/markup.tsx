@@ -328,7 +328,7 @@ interface Draft {
 /**
  * 标记层（lite-editor §4.1）：标注模式里挂（preview.tsx，两种视图都是）。`frame` 是画面在舞台里的位置（像素），
  * `segments` 是轻量视图的分段（时间线视图给空表，标注就只有时刻）；
- * `canvasRef` 是预览画布（截图从这里拷一份；`live` 时画布透明，改截窗口）。连同工具条与「放弃这些标记？」一起渲染。
+ * `canvasRef` 是预览画布（截图从这里拷一份；这一帧底下是实时合成层时画布透明，改截窗口）。连同工具条与「放弃这些标记？」一起渲染。
  * `pickLive` 问实时合成层（HTML 动画视频的 iframe）里某一点（画布像素）下最内层的节点：同步命中的是实时合成层那件时才问，
  * 问到了用它，问不到退回那个元素命中（lite-editor §11 第 12 条）。
  */
@@ -340,7 +340,6 @@ export function MarkupLayer({
   segments,
   frame,
   canvasRef,
-  live,
   pickLive,
 }: {
   videoId: Id;
@@ -350,14 +349,17 @@ export function MarkupLayer({
   segments: readonly LiteSegment[];
   frame: FrameRect;
   canvasRef: { current: HTMLCanvasElement | null };
-  /** 画面底下此刻是实时合成层（HTML 动画的 iframe）：画布上透明，截图要截窗口。 */
-  live: boolean;
   pickLive: (point: Point) => Promise<MarkupPick | null>;
 }) {
   const { engine } = useEditorActions();
   const runtime = useRuntime();
   const cache = runtime.videos.documents;
   const capture = runtime.host.captureFrame?.bind(runtime.host);
+  /**
+   * 截图那一刻画面底下是不是实时合成层（HTML 动画的 iframe）：看引擎这一帧的计划，不看预览状态的 `live`——那个只在替身不可用、
+   * 要提醒烘焙时才有，有可用替身的合成照样走实时层、画布照样透明。
+   */
+  const liveNow = () => !!engine.plan?.live;
   const bind = useMarkup((s) => s.bind);
   const bound = useMarkup((s) => s.videoId === videoId);
   const markup = useMarkup((s) => s.markup);
@@ -625,7 +627,7 @@ export function MarkupLayer({
   const place = (input: Omit<MarkInput, 'timeMs'>) => {
     const timeMs = frameMs();
     apply((s) => add(s, { ...input, timeMs }));
-    void keepFrame(timeMs, canvasRef.current, live, capture);
+    void keepFrame(timeMs, canvasRef.current, liveNow(), capture);
   };
   /** 一组标记换成视频标注：每条按自己的时刻带落点（播放头所在的段与句）、这个版本。视频不是这一部（还没打开好）时 null。 */
   const buildNotes = (marks: readonly Mark[]): DraftVideoAnnotation[] | null => {
@@ -663,7 +665,7 @@ export function MarkupLayer({
       canvasRef.current,
       size,
       C.me,
-      live,
+      liveNow,
       capture,
     );
     ToastQueue.neutral(C.added(n), { timeout: 3000 });
@@ -691,7 +693,7 @@ export function MarkupLayer({
     const notes = buildNotes([mark]);
     if (!notes?.length) return;
     if (addNotes(notes) === null) return;
-    void attachFrames(videoId, [mark], canvasRef.current, size, C.me, live, capture);
+    void attachFrames(videoId, [mark], canvasRef.current, size, C.me, liveNow, capture);
     setComment(null);
     ToastQueue.neutral(C.added(1), { timeout: 3000 });
   };
@@ -1171,9 +1173,13 @@ function overlaysToHide(stage: HTMLElement | null): HTMLElement[] {
   }
   return found;
 }
-/** 此刻的那一帧：实时合成层露着时截窗口（Electron），否则拷画布。 */
+/**
+ * 此刻的那一帧：实时合成层露着时截窗口（Electron），否则拷画布。实时合成层露着而宿主不能截窗口（Web）时画布上是透明的，
+ * 拷下来只有空白，算截不出图（不把空白当那一帧发出去）。
+ */
 async function grabFrame(source: HTMLCanvasElement, live: boolean, capture: CaptureFrame): Promise<Blob | null> {
-  if (!live || !capture) return snapshot(source);
+  if (!live) return snapshot(source);
+  if (!capture) return null;
   const stage = source.closest<HTMLElement>('[data-preview-stage]') ?? source.parentElement;
   const overlays = overlaysToHide(stage);
   const shown = overlays.map((el) => el.style.visibility);
@@ -1222,7 +1228,7 @@ async function attachFrames(
   source: HTMLCanvasElement | null,
   layer: Size,
   initials: string,
-  live: boolean,
+  live: () => boolean,
   capture: CaptureFrame,
 ): Promise<void> {
   const frames = useMarkup.getState().frames;
@@ -1233,7 +1239,7 @@ async function attachFrames(
     // 没留下那一帧的图时只有画面还停在那一帧上才截此刻的：别把另一帧的画面当成这一帧发出去。
     const base =
       frames[timeMs] ??
-      (source && Math.abs(timeMs - nowMs) <= VIDEO_ANNOTATION_NEAR_MS ? await grabFrame(source, live, capture).catch(() => null) : null);
+      (source && Math.abs(timeMs - nowMs) <= VIDEO_ANNOTATION_NEAR_MS ? await grabFrame(source, live(), capture).catch(() => null) : null);
     if (!base) {
       failed = true;
       continue;

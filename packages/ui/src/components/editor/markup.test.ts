@@ -80,7 +80,21 @@ const stubImage = () =>
     },
   );
 
-async function mount(over: { sequence?: Sequence; live?: boolean } = {}) {
+/** 这一帧底下是实时合成层（HTML 动画的 iframe）：引擎计划里有 `live`。有可用替身时也是这样，预览状态不带 `live`。 */
+const livePlan = () => ({
+  layers: [],
+  live: {
+    itemId: 'comp',
+    asset: { id: 'bundle', revision: '1' },
+    matrix: [1920, 0, 0, 1080, 0, 0],
+    opacity: 1,
+    width: 1280,
+    height: 720,
+    standIn: 'usable',
+  },
+});
+
+async function mount(over: { sequence?: Sequence } = {}) {
   await act(() =>
     root.render(
       createElement(
@@ -97,7 +111,6 @@ async function mount(over: { sequence?: Sequence; live?: boolean } = {}) {
             segments,
             frame,
             canvasRef: { current: canvas },
-            live: over.live ?? false,
             pickLive,
           }),
         ),
@@ -350,7 +363,7 @@ describe('MarkupLayer', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:frame');
   });
 
-  it('实时合成层露着时截窗口：藏起标记层、工具条与评论框再请宿主截预览那一块，截到的字节当这一帧的底图', async () => {
+  it('实时合成层露着时截窗口（有可用替身也一样）：藏起标记层、工具条与评论框再请宿主截预览那一块，截到的字节当这一帧的底图', async () => {
     HTMLCanvasElement.prototype.toBlob ??= function () {};
     vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['png'], { type: 'image/png' })));
     const ctx = {
@@ -396,7 +409,8 @@ describe('MarkupLayer', () => {
     });
     (runtime.host as unknown as Record<string, unknown>).captureFrame = captureFrame;
     try {
-      await mount({ live: true });
+      engine.plan = livePlan();
+      await mount();
       container.append(canvas); // 首次 render 会清空容器，画布要在它之后挂进去
       await setTool('comment');
       await pointer('pointerdown', 320, 180);
@@ -419,6 +433,25 @@ describe('MarkupLayer', () => {
       portal.remove();
       delete (runtime.host as unknown as Record<string, unknown>).captureFrame;
     }
+  });
+
+  it('实时合成层露着而宿主不能截窗口（Web）：透明的画布不当截图，这一帧算截不出图，标注照样加', async () => {
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
+    engine.plan = livePlan();
+    await mount();
+    await setTool('comment');
+    await pointer('pointerdown', 320, 180);
+    const area = document.querySelector<HTMLTextAreaElement>('[data-comment-form] textarea')!;
+    await act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, '慢一点');
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await press(button('发送'));
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
+    expect(useDraftVideoAnnotations.getState().annotations.v1).toHaveLength(1);
+    expect(drawImage).not.toHaveBeenCalled();
+    expect(useDraftVideoAnnotations.getState().shots.v1 ?? {}).toEqual({});
   });
 
   it('Esc：有没发的标记先问「放弃这些标记？」，没有就直接退出', async () => {
