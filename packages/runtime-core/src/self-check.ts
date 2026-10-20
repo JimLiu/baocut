@@ -47,6 +47,7 @@ const PROBE_TIMEOUT_MS = 20_000;
 
 interface ProbeSpec {
   args: string[];
+  timeoutMs?: number;
   /** 写给它的一行请求；null 表示不写，只关掉 stdin 看退出码。 */
   request: unknown;
   /** 回复算不算成功。 */
@@ -55,7 +56,8 @@ interface ProbeSpec {
   exitCode?: number;
 }
 
-function probe(command: string, spec: ProbeSpec): Promise<SelfCheckProbe> {
+export function probeNativeCommand(command: string, spec: ProbeSpec): Promise<SelfCheckProbe> {
+  const timeoutMs = spec.timeoutMs ?? PROBE_TIMEOUT_MS;
   return new Promise((resolve) => {
     let settled = false;
     let stderr = '';
@@ -67,7 +69,7 @@ function probe(command: string, spec: ProbeSpec): Promise<SelfCheckProbe> {
       child.kill();
       resolve(result);
     };
-    const timer = setTimeout(() => finish({ ok: false, detail: `timed out (${PROBE_TIMEOUT_MS} ms): ${stderr.trim()}` }), PROBE_TIMEOUT_MS);
+    const timer = setTimeout(() => finish({ ok: false, detail: `timed out (${timeoutMs} ms): ${stderr.trim()}` }), timeoutMs);
     child.stderr.on('data', (chunk: Buffer) => {
       stderr = (stderr + chunk.toString('utf8')).slice(-2000);
     });
@@ -167,6 +169,8 @@ export async function runtimeSelfCheck(options: { probe?: boolean; env?: NodeJS.
       'engine-host': { args: [], request: { id: 1, method: 'host.hello', params: {} }, accept: hasResult },
       'model-worker': {
         args: ['--parent-pid', String(process.pid)],
+        // Match the Intel Runtime handshake budget for first-use Metal compilation.
+        timeoutMs: process.platform === 'darwin' && process.arch === 'x64' ? 60_000 : PROBE_TIMEOUT_MS,
         request: { id: 1, method: 'worker.hello', params: { contractVersion: WORKER_CONTRACT_VERSION } },
         accept: hasResult,
       },
@@ -186,7 +190,7 @@ export async function runtimeSelfCheck(options: { probe?: boolean; env?: NodeJS.
     for (const [name, spec] of Object.entries(specs)) {
       const file = binaries[name];
       if (!file) continue;
-      const result = await probe(file, spec);
+      const result = await probeNativeCommand(file, spec);
       probes[name] = result;
       if (!result.ok) problems.push(`${name}: does not start (${result.detail})`);
     }

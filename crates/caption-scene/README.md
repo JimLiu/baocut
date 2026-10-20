@@ -34,6 +34,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-soft-band/1` 提供单文字子树的画布归一化柔边遮罩，参数绑定明确文字节点的当前页上下文；同时提供页末词的输入时间及可用标记。静态/逐采样布局和反馈历史都使用共同的页解析路径。示例见 [soft-band.json](tests/fixtures/soft-band.json)。
 
+`caption-word-page-layout/1` 用 `wordPagePattern` 固定每页语义词成员，页内保留宽度折行与超长词字素折行。行数只控制 error/visible 溢出，不额外分页；实际字号重排不改变页成员与时间。合同测试见 [word_page_layout.rs](tests/word_page_layout.rs)。
+
 `caption-word-line-layout/1` 提供循环词行配额和一次性的末页调整；行、页成员与时间冻结，超宽按 error/visible 处理。显示空白可折叠，源文本字素索引及词字节范围保持不变；逐采样布局重用同一shape映射。示例见 [word-line-layout.json](tests/fixtures/word-line-layout.json)。
 
 `caption-cue-word-context/1` 提供 cue 首两词原始输入边界、真实绑定词标记与跨页下一词开始时间；保留负值、零值和真实 gap，不延长词结束，也不把 estimated 时序冒充输入。所有边界配有可用标记，见 [cue-word-context.json](tests/fixtures/cue-word-context.json)。

@@ -193,6 +193,8 @@ interface CaptionScene {
 
 `fontStyleBindings` 将静态字体族、字重和斜体patch绑定到page/line/word选择器，与现有`fontSizeBindings`合成为完整的字体runs，再整体整形一行。绑定保留语义成员，更新真实字形、基线、行宽和邻词位置，不用scale冒充字号。保留源空白覆盖，空白行也测量选中face；无原始标签不推断关键词。声明的所有潜在face进入导出字体清点，包含未活跃分支；具体cap、预算和类型合同见视频格式规范。它与独立文本装饰层、每层位置变换分工明确，不自动重建外部运行时生成的层。
 
+`wordPagePattern` 以循环词数计划先固定页成员，页内继续按宽度折行，超长词可以占多行；`maxLines` 只决定溢出处理，不再把该页拆成更多页。这使页分组和行排版成为两个独立决定，逐采样字号重排保留原页成员与时间。能力、预算和互斥字段见视频格式的 `caption-word-page-layout/1`。
+
 `fontSizeBindings` 原本只用于 `wordLinePattern`/`textLinePattern` 固定行；按宽度换行的页声明 `caption-unit-font-reflow/1` 后也可使用。页成员仍在准备阶段按基础字号冻结，每次采样只按实际字号对当前页重新折行，行数可以变化，但不把词移到别的页，因此当前词放大可以把邻词挤到下一行再回来；超过 `maxLines` 或单词超宽按声明的 `overflow` 处理。它不改变分页成员，与 §14 第 2 项不同。重新折行后的行在采样之间没有稳定身份，所以与 line 选择器、按行内序号筛选的 word 选择器、行时钟和 `caption-page-window/1` 同用时拒绝；字号选择仍在基础行上求值。行身份合同另行评审。
 
 ## 6. 语义时钟与朗读状态

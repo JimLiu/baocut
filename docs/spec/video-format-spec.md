@@ -1870,6 +1870,8 @@ lines 外层是循环页计划，内层是该页每行的正字数上限：1–2
 
 每个 TextLayout（单个文字节点的整个 cue）共享 1,048,576 次计数操作预算，不逐词重置：读取 scalar、开始/输出组、检测 attachment、测试区间或 joiner、追加 scalar、检查及拼接后续组均计费，规则按数组顺序短路。超限返回 `CAPTION_BUDGET_EXCEEDED`，不截断单词或返回部分计数。成员冻结后逐采样重排不重跑计数；旧 scalar/grapheme 模式不变。通用玩具规则示例见 [scalar-cluster-layout.json](../../crates/caption-scene/tests/fixtures/scalar-cluster-layout.json)。
 
+`caption-word-page-layout/1` 增加独立的页词数计划 `pagination.wordPagePattern: number[]`。正整数依次循环，例如 `[2,3]` 将语义词分为 2／3／2／3…词页，末页截断；必须是 word 单元。模式非空、长度最多 4096，每项 1–4096，配额总和不超过 4096；与其他分页规划字段互斥。页的词成员和完整源文本范围先固定，再在该页内按宽度折行；超宽单词仍可按字素拆为多行。`maxLines` 不再产生额外页：超过行数或宽度时，`overflow: 'error'` 返回 `CAPTION_LAYOUT_OVERFLOW`，`visible` 保留该页全部行。首段缩进与后续页边界空白沿用词配额的绘制规则，原文与词字节范围不改写。配合 `caption-unit-font-reflow/1` 时可重排页内行，页成员、范围和时间保持不变；不提供本字段时旧分页语义保持不变。契约探针见 [word_page_layout.rs](../../crates/caption-scene/tests/word_page_layout.rs)。
+
 `caption-word-line-layout/1` 增加固定词行分组，启用时使用 `pagination.wordLinePattern: number[][]`：外层为依次循环的页模式，内层每个正整数为该行词数。例如 `[[2,3]]` 表示每页两行，分别取两个词和三个词；`[[1],[2,1]]` 交替使用一词页与两行三词页。该字段与 `maxUnitsPerPage` 互斥，unit 必须是 word；模式1–256项，各页1–maxLines行，每行配额1–4096。未提供时保留原有硬换行、按宽度换行和分页行为。
 
 词行模式将连续源空白折叠成一个显示空格时，每个被折叠的源空白字素仍保留原索引，并共享该显示空格的 advance/caret 几何；剥离空白按源串逻辑顺序定位到相邻字形的 caret 边：行首使用首字形前沿，行尾使用末字形后沿，并沿用整形器给出的 BiDi 方向（LTR 前沿在左，RTL 前沿在右），避免逐字装饰跳至后面的词。
