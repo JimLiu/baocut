@@ -1,5 +1,10 @@
 // @vitest-environment happy-dom
-import { COMPOSITION_BRIDGE_CHANNEL, type CompositionBridgeMessage, type CompositionBridgeRequest } from '@baocut/protocol';
+import {
+  COMPOSITION_BRIDGE_CHANNEL,
+  type BundleHandle,
+  type CompositionBridgeMessage,
+  type CompositionBridgeRequest,
+} from '@baocut/protocol';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { LiveCandidate } from '../../model/live-composition.ts';
 import type { LiveLayer } from '../../render/frame-plan.ts';
@@ -60,7 +65,16 @@ const layer = (itemId: string, sourceSeconds: number, opacity = 1): LiveLayer =>
   standIn: 'none',
 });
 
-function setup(options: { readyTimeoutMs?: number; pickTimeoutMs?: number; maxMounted?: number } = {}) {
+type SetupOptions = { loadTimeoutMs?: number; readyTimeoutMs?: number; pickTimeoutMs?: number; maxMounted?: number };
+
+const handle = (assetId: string): BundleHandle => ({
+  url: `/bundle/h_${assetId}/`,
+  entry: 'index.html',
+  expiresAt: '2099-01-01T00:00:00Z',
+});
+
+/** `resolve` 默认立刻给地址；测试要它慢就传自己的。 */
+function setup(options: SetupOptions = {}, resolve: (assetId: string) => Promise<BundleHandle> = (id) => Promise.resolve(handle(id))) {
   const root = document.createElement('div');
   document.body.append(root);
   const pages = new Map<string, FakePage>();
@@ -70,7 +84,7 @@ function setup(options: { readyTimeoutMs?: number; pickTimeoutMs?: number; maxMo
     root,
     (asset) => {
       resolved.push(asset.id);
-      return Promise.resolve({ url: `/bundle/h_${asset.id}/`, entry: 'index.html', expiresAt: '2099-01-01T00:00:00Z' });
+      return resolve(asset.id);
     },
     {
       ...options,
@@ -175,8 +189,8 @@ test('最多挂三个，不在列表里的拆掉，换了素材版本的重挂',
   host.dispose();
 });
 
-test('就绪超时、ready 报错、定位报错都报给引擎，那个 iframe 不再显示', async () => {
-  const { host, page, failures, frames } = setup({ readyTimeoutMs: 3000 });
+test('载入超时、ready 报错、定位报错都报给引擎，那个 iframe 不再显示', async () => {
+  const { host, page, failures, frames } = setup({ loadTimeoutMs: 3000 });
   host.prepare([candidate('a'), candidate('b'), candidate('c')]);
   await Promise.resolve();
   // b：ready 报错。
@@ -193,15 +207,67 @@ test('就绪超时、ready 报错、定位报错都报给引擎，那个 iframe 
   expect(failures.at(-1)).toEqual(['c', 'seek:COMPOSITION_SCRIPT_ERROR']);
   host.show(layer('c', 0), 0);
   expect(frames().find((f) => f.dataset.liveItem === 'c')!.style.opacity).toBe('0');
-  // a：3 秒内没就绪。
+  // a：页面 3 秒内没发 hello。
   vi.advanceTimersByTime(3000);
-  expect(failures.at(-1)).toEqual(['a', 'ready-timeout']);
+  expect(failures.at(-1)).toEqual(['a', 'load-timeout']);
   expect(host.mounted.get('a')?.state).toBe('failed');
   host.dispose();
 });
 
+test('计时分两段：要地址的那一程不算进载入；hello 之后按 readyTimeoutMs 等就绪，页面的注册轮询用同一个数', async () => {
+  const gate: { give?: () => void } = {};
+  const { host, page, failures, frames } = setup(
+    { loadTimeoutMs: 3000, readyTimeoutMs: 20_000 },
+    (id) => new Promise((done) => (gate.give = () => done(handle(id)))),
+  );
+  host.prepare([candidate('a')]);
+  // 要地址慢：2.5 秒才给。
+  vi.advanceTimersByTime(2500);
+  gate.give!();
+  await Promise.resolve();
+  expect(frames()[0]!.getAttribute('src')).toBe('/bundle/h_asset_a/index.html');
+  // 地址设好后载入重新计时：再过 2.5 秒（从挂上算已 5 秒）没超时。
+  vi.advanceTimersByTime(2500);
+  expect(failures).toEqual([]);
+  page('a').hello();
+  const ready = page('a').requests[0]!;
+  expect(ready).toMatchObject({ kind: 'ready', timeoutMs: 20_000 });
+  // 页面在载两份大字体、跑 initialize：远超 3 秒也照等。
+  vi.advanceTimersByTime(8000);
+  expect(failures).toEqual([]);
+  expect(host.mounted.get('a')?.state).toBe('loading');
+  page('a').answer('ready', {});
+  await Promise.resolve();
+  expect(host.mounted.get('a')?.state).toBe('ready');
+  host.dispose();
+});
+
+test('要地址也有期限；hello 之后的就绪超过 readyTimeoutMs（加一点余量让页面先报）才算超时', async () => {
+  const { host, page, failures } = setup({ loadTimeoutMs: 3000, readyTimeoutMs: 20_000 }, (id) =>
+    id === 'asset_a' ? new Promise(() => {}) : Promise.resolve(handle(id)),
+  );
+  host.prepare([candidate('a'), candidate('b')]);
+  await Promise.resolve();
+  page('b').hello();
+  vi.advanceTimersByTime(3000);
+  expect(failures).toEqual([['a', 'load-timeout']]);
+  // 页面重新载入又发 hello：照旧回 ready，但不重新计时。
+  vi.advanceTimersByTime(10_000);
+  page('b').hello();
+  expect(page('b').requests.filter((r) => r.kind === 'ready')).toHaveLength(2);
+  vi.advanceTimersByTime(7999);
+  expect(failures).toEqual([['a', 'load-timeout']]);
+  vi.advanceTimersByTime(1000);
+  expect(failures).toEqual([
+    ['a', 'load-timeout'],
+    ['b', 'ready-timeout'],
+  ]);
+  expect(host.mounted.get('b')?.state).toBe('failed');
+  host.dispose();
+});
+
 test('在视的还没画出第一帧时报在载入：就位、第一次定位回信才撤；换到没载好的那一章再报，失败与不在视都不算', async () => {
-  const { host, page } = setup({ readyTimeoutMs: 3000 });
+  const { host, page } = setup({ loadTimeoutMs: 3000 });
   const loading: boolean[] = [];
   host.onLoading((value) => loading.push(value));
   expect(loading).toEqual([false]);
@@ -222,7 +288,7 @@ test('在视的还没画出第一帧时报在载入：就位、第一次定位�
   // 同一章里往后播：不再报。
   host.show(layer('a', 0.5), 15);
   expect(loading.at(-1)).toBe(false);
-  // 换到还没载好的那一章：再报；它就绪超时失败了就撤（引擎退回替身）。
+  // 换到还没载好的那一章：再报；它载入超时失败了就撤（引擎退回替身）。
   host.show(layer('b', 0), 60);
   expect(loading.at(-1)).toBe(true);
   vi.advanceTimersByTime(3000);
