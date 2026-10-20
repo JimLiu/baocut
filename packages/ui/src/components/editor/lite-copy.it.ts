@@ -39,6 +39,7 @@ export const it: LiteMessages = {
   noLines: 'Nessuna trascrizione',
   noLinesHint: 'Trascrivi il video nell’editor timeline per vedere qui le battute.',
   noLinesInSegment: 'Nessuna battuta in questo segmento.',
+  script: 'Copione',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

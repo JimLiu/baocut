@@ -39,6 +39,7 @@ export const nl: LiteMessages = {
   noLines: 'Nog geen transcript',
   noLinesHint: 'Transcribeer de video in de tijdlijneditor om hier de tekst te zien.',
   noLinesInSegment: 'Geen tekst in dit segment.',
+  script: 'Script',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

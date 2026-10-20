@@ -24,8 +24,8 @@ import { vi } from './lite-segments.vi.ts';
  * 是片条的一片、侧栏的一页、上一段 / 下一段的落点。纯函数，无 React、无 DOM。
  *
  * 来源按优先级取第一个命中的，不混用：序列上的 `chapter` 标记（`chapter`）→ 按旁白的停顿分组的句（`speech`）→ 整条（`whole`）。
- * 设计稿第一优先级「章节表的场景」要等动画片设计 §2 的章节表落地（协议里今天没有 `chapter-sheet`），那时场景也编译成 `chapter`
- * 标记，这里照章节显示；脚本与素材清单随章节表一起补（§10 第 2 阶段）。
+ * 设计稿第一优先级「章节表的场景」：章节表的章编译成 `chapter` 标记，这里照章节显示；章节表里这一章的脚本（`scripts`，按标记 ID，
+ * `model/chapter-sheet.ts`）挂在那一段上。场景状态与素材清单要等章节表的编译落地（§10 第 2 阶段）。
  *
  * 段的 `start` / `end` 是序列秒数；逐句 `lines` 同样是序列秒数（文稿词的落位 `placements[0]`），有译文时另算（§10 第 2 阶段）。
  */
@@ -62,6 +62,8 @@ export interface LiteSegment {
   start: number;
   end: number;
   lines: LiteLine[];
+  /** 章节表里这一章的脚本 Markdown（只有章节段、且章节表编译到了这个标记时有）。 */
+  script?: string;
 }
 
 /** 旁白分段：相邻两句间隔不小于这么多秒就断开；一段累计不超过这么多秒（超过就在下一句前断）。 */
@@ -121,19 +123,25 @@ export function liteSegments(input: {
   lines: readonly LiteLine[];
   duration: number;
   title: string;
+  /** 章节标记 ID → 章节表里那一章的脚本。 */
+  scripts?: ReadonlyMap<Id, string>;
 }): LiteSegment[] {
   const { lines, duration, title } = input;
   const chapters = visibleChapters(input.chapters);
   if (chapters.length) {
-    return chapters.map((c, index) => ({
-      id: c.id,
-      index,
-      source: 'chapter',
-      title: c.title,
-      start: c.start,
-      end: index + 1 < chapters.length ? chapters[index + 1]!.start : Math.max(c.end, duration),
-      lines: linesIn(lines, c.start, index + 1 < chapters.length ? chapters[index + 1]!.start : Infinity),
-    }));
+    return chapters.map((c, index) => {
+      const script = input.scripts?.get(c.id);
+      return {
+        id: c.id,
+        index,
+        source: 'chapter',
+        title: c.title,
+        start: c.start,
+        end: index + 1 < chapters.length ? chapters[index + 1]!.start : Math.max(c.end, duration),
+        lines: linesIn(lines, c.start, index + 1 < chapters.length ? chapters[index + 1]!.start : Infinity),
+        ...(script ? { script } : {}),
+      };
+    });
   }
   if (lines.length) return fromSpeech(lines, duration);
   return [{ id: 'whole', index: 0, source: 'whole', title, start: 0, end: Math.max(0, duration), lines: [] }];

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { AssetRecord, DocumentRecord, Id, Sequence } from '@baocut/protocol';
+import { chapterScripts, chapterSheetRecord } from '../../model/chapter-sheet.ts';
 import { speechLines, type LiteLine } from '../../model/lite-segments.ts';
 import { readSpeechWords } from '../../model/speech-cues.ts';
 import { transcriptWords } from '../../model/transcript-cut.ts';
@@ -26,4 +27,13 @@ export function useLiteLines(sequence: Sequence, assets: Record<Id, AssetRecord>
     }
     return lines.sort((a, b) => a.start - b.start);
   }, [candidates, bodies, sequence]);
+}
+
+/** 轻量视图侧栏的脚本（轻量编辑器设计 §3「侧栏」）：这个序列的章节表里每章的脚本，按章节标记 ID。还没取到正文、没有章节表时是空表。 */
+export function useChapterScripts(sequenceId: Id, documents: Record<Id, DocumentRecord>): ReadonlyMap<Id, string> {
+  const record = useMemo(() => chapterSheetRecord(documents), [documents]);
+  const records = useMemo(() => (record ? [record] : []), [record]);
+  const { bodies } = useDocumentBodies(records);
+  const body = record ? bodies.get(record.id) : undefined;
+  return useMemo(() => chapterScripts(body, sequenceId), [body, sequenceId]);
 }

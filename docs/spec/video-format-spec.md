@@ -1446,6 +1446,7 @@ interface Provenance {
 | `derivation` | 派生子视频的来源：父视频、版本、区间与区间之外的剪口 | `baocut.derivation/1` | 见下 |
 | `dubbing-plan` | 配音计划 | 计划 | §7.2 |
 | `sound-cue-sheet`、`narration-cue-sheet` | 声音事件表、旁白事件表 | 计划 | §7.9、§7.10 |
+| `chapter-sheet` | 章节表：一个序列的每一章的脚本、配音、代码包与它编译成的实例与标记 | `baocut.chapter-sheet/1`（今天只有界面读脚本，编译未实现） | §7.12 |
 
 - 时间在正文里用整数表示，并写明时间基与时钟：`timescale`（每秒的刻度数）与 `clock`（`source-asset`：这份文档或它的来源文档的 `sourceAssetId` 所指素材的时钟；`sequence`：序列时间）。不用浮点秒。
 - 引擎只核对 `baocut.speech/1` 与 `baocut.translation/2` 里 §5.2、§5.3 补充的字段：出现时形状必须对（类型、枚举值与取值范围），引用的词在不在不查；`baocut.cut-set/1` 按 §6.7 的约束整份核对。其余正文不校验。带 `/1` 的几种格式是导入旧项目时定下来的，比 §5 描述的模型简单；二者怎么统一列在 §10。
@@ -2441,6 +2442,35 @@ interface NarrationCueSheet {
 - 它是受控的输入与派生物，不是另一条会独立漂移的播放时钟。
 - 保留真实的音频与词锚时序。只有在为视觉场景生成 `fromFrame` / `durationFrames` 时才量化，并记录偏差。
 - 替换音频产生新版本；对齐结果与绑定的场景按依赖标记为过期。
+
+### 7.12 ChapterSheet
+
+章节表（[动效视频设计](../design/motion-video/motion-video-design.md) §2）：一章一行，把这一章的脚本、配音、代码包版本与落在时间线上的实例和标记绑在一起。存为 `kind: 'chapter-sheet'` 的文档，正文 `schema` 为 `baocut.chapter-sheet/1`；一个序列最多一张，多于一张时读的一方取最新写入的那份。
+
+```ts
+interface ChapterSheetBody {
+  schema: 'baocut.chapter-sheet/1';
+  sequenceId: Id;
+  kind: 'explainer' | 'music-video' | 'custom';
+  inputs?: { audioRef?: VersionRef; lyricsRef?: VersionRef; scriptRef?: VersionRef };
+  chapters: Array<{
+    id: Id;                                   // 稿里的章节号（s01、s04b…）；重做不换
+    title: string;
+    script?: { markdown: string; imageRefs?: VersionRef[] };
+    narration?: { assetRef: VersionRef; speechRef?: VersionRef };
+    section?: { start: MediaTime; end: MediaTime };
+    bundle?: { assetRef: VersionRef; revision: Revision };
+    duration: { owner: 'narration' | 'section' | 'bundle' | 'user'; frames: number; tail?: number };
+    status: 'planned' | 'narrated' | 'built' | 'placed' | 'stale';
+    stale?: Array<'script' | 'narration' | 'bundle' | 'placement'>;
+  }>;
+  compiled: Record<Id /* chapterId */, { itemId: Id; markerId: Id; audioItemIds: Id[]; viaTransactionId: Id }>;
+}
+```
+
+- `chapters` 的顺序是播放顺序；字段的含义、时长归属与过期链见动效视频设计 §2.2–§2.4。
+- 今天的实现：章节表由写入方（智能体、拼装脚本）经 `putDocument` / `documents_put` 写入，`compiled` 由写入方按它放上时间线的实例与 `chapter` 标记填；Runtime 不编译、不核对正文（与 §4.6 其余正文一样）。读的一方只有轻量视图的侧栏：`compiled[章节 ID].markerId` 对到序列上的章节标记，那一段显示这一章的 `script.markdown`（只读，[轻量编辑器设计](../design/lite-editor/lite-editor-design.md) §3「侧栏」）；`sequenceId` 不是这个序列、或 `schema` 不认识时整份不读。
+- `chapters_compile`、过期传播与 §7.10 的取代随动效视频设计 §11 第 2 阶段补。
 
 ### 7.11 音频事件与视频网格相互独立
 

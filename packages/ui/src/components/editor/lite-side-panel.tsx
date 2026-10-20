@@ -1,10 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
+import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatClock } from '../../model/format.ts';
 import { liteLineAt, liteSegmentAt, type LiteSegment, type LiteSource } from '../../model/lite-segments.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { LITE_COPY as L } from './lite-copy.ts';
+import { ScriptMarkdown } from './script-markdown.tsx';
 import { usePlaybackFollow } from './use-playback-follow.ts';
 
 /** 侧栏固定宽（轻量编辑器设计 §3「侧栏」：360px，不拖宽；收起由舞台条的开关管）。 */
@@ -80,6 +83,20 @@ const lineRow = style({
 });
 const lineTime = style({ font: 'code-xs', color: 'gray-600', flexShrink: 0, paddingTop: 2 });
 const lineText = style({ minWidth: 0, overflowWrap: 'anywhere' });
+const scriptToggle = style({
+  ...reset,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  boxSizing: 'border-box',
+  paddingX: 12,
+  paddingY: 4,
+  font: 'ui-xs',
+  fontWeight: 'bold',
+  color: 'gray-700',
+  backgroundColor: { default: 'transparent', ':hover': 'gray-100' },
+});
+const scriptBody = style({ paddingX: 16, paddingBottom: 8, font: 'body-xs', color: 'gray-800', overflowWrap: 'anywhere' });
 const emptySeg = style({ font: 'ui-xs', color: 'gray-600', margin: 0, paddingX: 16, paddingY: 4 });
 const empty = style({
   display: 'flex',
@@ -109,7 +126,7 @@ const SOURCE_HINT: Record<LiteSource, () => string | null> = {
  * 轻量视图的侧栏（轻量编辑器设计 §3「侧栏」、§4）：段落表加逐句。头部是分了几段、按什么分的；正文每段一个粘顶的段头
  * （序号、标题、起止，点了跳段首），下面是这段的句（时间加文本，点了跳到那一句）。当前句浅蓝底，播放中跟着滚
  * （`usePlaybackFollow`：手动滚开就停，点一句或重新播放恢复）。还没有转写时整栏是一句提示。
- * 章节表的脚本（motion-video §2.2）还没有落到数据里，这一版只有逐句，见设计 §11。
+ * 章节段带章节表的脚本时，段头下面先是可折叠的「脚本」（只读 Markdown，默认展开），再是逐句。
  */
 export function LiteSidePanel({ segments }: { segments: readonly LiteSegment[] }) {
   const { seek } = useEditorActions();
@@ -117,7 +134,14 @@ export function LiteSidePanel({ segments }: { segments: readonly LiteSegment[] }
   const current = liteSegmentAt(segments, playhead);
   const line = current ? liteLineAt(current.lines, playhead) : null;
   const source: LiteSource = segments[0]?.source ?? 'whole';
-  const hasLines = segments.some((s) => s.lines.length > 0);
+  const hasLines = segments.some((s) => s.lines.length > 0 || s.script);
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleScript = (id: string) =>
+    setFolded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const scrollRef = useRef<HTMLDivElement>(null);
   const rows = useRef(new Map<string, HTMLElement>());
   const follow = usePlaybackFollow(scrollRef);
@@ -157,6 +181,24 @@ export function LiteSidePanel({ segments }: { segments: readonly LiteSegment[] }
                   <span className={segTitle}>{segment.title}</span>
                   <span className={`${segRange} bc-tabular`}>{L.range(formatClock(segment.start), formatClock(segment.end))}</span>
                 </button>
+                {segment.script ? (
+                  <>
+                    <button
+                      type="button"
+                      className={scriptToggle({})}
+                      aria-expanded={!folded.has(segment.id)}
+                      onClick={() => toggleScript(segment.id)}
+                    >
+                      {folded.has(segment.id) ? <ChevronRight /> : <ChevronDown />}
+                      {L.script}
+                    </button>
+                    {folded.has(segment.id) ? null : (
+                      <div className={scriptBody}>
+                        <ScriptMarkdown text={segment.script} />
+                      </div>
+                    )}
+                  </>
+                ) : null}
                 {segment.lines.length === 0 ? (
                   <p className={emptySeg}>{L.noLinesInSegment}</p>
                 ) : (

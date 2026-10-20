@@ -39,6 +39,7 @@ export const ptBR: LiteMessages = {
   noLines: 'Ainda não há transcrição',
   noLinesHint: 'Transcreva o vídeo no editor de linha do tempo para ver as falas aqui.',
   noLinesInSegment: 'Não há falas neste segmento.',
+  script: 'Roteiro',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

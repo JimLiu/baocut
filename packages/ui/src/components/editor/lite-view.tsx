@@ -15,7 +15,7 @@ import { Preview } from './preview.tsx';
 import { SoundtrackBed } from './soundtrack-bed.tsx';
 import { StageLiveCaptions } from './stage-live.tsx';
 import { TimelineChapters } from './timeline-chapters.tsx';
-import { useLiteLines } from './use-lite-lines.ts';
+import { useChapterScripts, useLiteLines } from './use-lite-lines.ts';
 import { VIDEO_BAR_COPY as VB } from './video-bar-copy.ts';
 import { VersionsStrip } from './video-versions-conflict.tsx';
 
@@ -63,9 +63,10 @@ export function LiteView({
   const [loop, setLoop] = useState(false);
   const duration = durationSeconds(sequence);
   const lines = useLiteLines(sequence, snapshot.assets, snapshot.documents);
+  const scripts = useChapterScripts(sequence.id, snapshot.documents);
   const chapters = useMemo(() => sequenceChapters(sequence), [sequence]);
   const title = snapshot.name || video.ref?.name || VB.untitled;
-  const segments = useMemo(() => liteSegments({ chapters, lines, duration, title }), [chapters, lines, duration, title]);
+  const segments = useMemo(() => liteSegments({ chapters, lines, duration, title, scripts }), [chapters, lines, duration, title, scripts]);
   const chips = useMemo<{ current: LiteChipsHandle | null }>(() => ({ current: null }), []);
 
   // 把段与片条的缩放口合成一个给快捷键；片条的 handle 在它挂上后才有。

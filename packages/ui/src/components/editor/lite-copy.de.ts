@@ -39,6 +39,7 @@ export const de: LiteMessages = {
   noLines: 'Noch kein Transkript',
   noLinesHint: 'Transkribiere das Video im Timeline-Editor, um hier den Text zu sehen.',
   noLinesInSegment: 'Kein Text in diesem Abschnitt.',
+  script: 'Skript',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

@@ -39,6 +39,7 @@ export const pl: LiteMessages = {
   noLines: 'Brak transkrypcji',
   noLinesHint: 'Transkrybuj film w edytorze osi czasu, aby zobaczyć tu kwestie.',
   noLinesInSegment: 'Brak kwestii w tym segmencie.',
+  script: 'Scenariusz',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

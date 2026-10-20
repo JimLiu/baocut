@@ -39,6 +39,7 @@ export const ru: LiteMessages = {
   noLines: 'Расшифровки пока нет',
   noLinesHint: 'Расшифруйте видео в редакторе таймлайна, чтобы видеть здесь реплики.',
   noLinesInSegment: 'В этом сегменте нет реплик.',
+  script: 'Сценарий',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

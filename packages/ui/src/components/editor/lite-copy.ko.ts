@@ -38,6 +38,7 @@ export const ko: LiteMessages = {
   noLines: '아직 대본이 없습니다',
   noLinesHint: '타임라인 편집기에서 영상을 받아쓰면 여기에서 대사를 볼 수 있습니다.',
   noLinesInSegment: '이 구간에는 대사가 없습니다.',
+  script: '대본',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

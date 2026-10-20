@@ -38,6 +38,7 @@ export const ja: LiteMessages = {
   noLines: '文字起こしがまだありません',
   noLinesHint: 'タイムラインエディターで文字起こしすると、ここにセリフが表示されます。',
   noLinesInSegment: 'このセグメントにセリフはありません。',
+  script: '台本',
   lineLabel: (time: string, text: string) => `${time}、${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

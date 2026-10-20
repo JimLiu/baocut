@@ -39,6 +39,7 @@ export const vi: LiteMessages = {
   noLines: 'Chưa có bản chép lời',
   noLinesHint: 'Chép lời video trong trình chỉnh sửa dòng thời gian để xem lời thoại ở đây.',
   noLinesInSegment: 'Đoạn này không có lời thoại.',
+  script: 'Kịch bản',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

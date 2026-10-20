@@ -39,6 +39,7 @@ export const tr: LiteMessages = {
   noLines: 'Henüz transkript yok',
   noLinesHint: 'Replikleri burada görmek için videoyu zaman çizelgesi düzenleyicisinde yazıya dökün.',
   noLinesInSegment: 'Bu bölümde replik yok.',
+  script: 'Senaryo',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

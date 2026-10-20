@@ -92,6 +92,13 @@ describe('轻量视图的段：来源与兜底', () => {
     ]);
   });
 
+  it('章节表的脚本按标记 ID 挂到章节段上，没有脚本的章节不带', () => {
+    const chapters = [chapter('c1', 0, 0, 10), chapter('c2', 1, 10, 20)];
+    const segs = liteSegments({ chapters, lines: [], duration: 20, title: 'v', scripts: new Map([['c2', '## 第二章\n\n旁白']]) });
+    expect(segs[0]).not.toHaveProperty('script');
+    expect(segs[1]!.script).toBe('## 第二章\n\n旁白');
+  });
+
   it('长度为 0 的章节（起点在片尾）不成段', () => {
     const segs = liteSegments({ chapters: [chapter('c1', 0, 0, 10), chapter('c2', 1, 10, 10)], lines: [], duration: 10, title: 'v' });
     expect(segs.map((s) => s.id)).toEqual(['c1']);

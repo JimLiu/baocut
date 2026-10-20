@@ -39,6 +39,7 @@ export const es: LiteMessages = {
   noLines: 'Aún no hay transcripción',
   noLinesHint: 'Transcribe el vídeo en el editor de línea de tiempo para ver aquí sus líneas.',
   noLinesInSegment: 'No hay líneas en este segmento.',
+  script: 'Guion',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

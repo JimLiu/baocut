@@ -38,6 +38,7 @@ export const zhHant: LiteMessages = {
   noLines: '還沒有文稿',
   noLinesHint: '在時間軸編輯器裡轉寫這部影片，這裡就能按句看台詞。',
   noLinesInSegment: '這一段沒有台詞。',
+  script: '腳本',
   lineLabel: (time: string, text: string) => `${time}，${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

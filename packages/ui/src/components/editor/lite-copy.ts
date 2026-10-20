@@ -65,6 +65,8 @@ const en = {
   noLines: 'No transcript yet',
   noLinesHint: 'Transcribe the video in the timeline editor to see its lines here.',
   noLinesInSegment: 'No lines in this segment.',
+  /** 段里章节表脚本的折叠钮（轻量编辑器设计 §3「侧栏」）。 */
+  script: 'Script',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

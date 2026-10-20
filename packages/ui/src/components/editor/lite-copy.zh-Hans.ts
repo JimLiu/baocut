@@ -38,6 +38,7 @@ export const zhHans: LiteMessages = {
   noLines: '还没有文稿',
   noLinesHint: '在时间线编辑器里转写这部视频，这里就能按句看台词。',
   noLinesInSegment: '这一段没有台词。',
+  script: '脚本',
   lineLabel: (time: string, text: string) => `${time}，${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };

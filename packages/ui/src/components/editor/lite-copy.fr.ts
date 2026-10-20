@@ -39,6 +39,7 @@ export const fr: LiteMessages = {
   noLines: 'Pas encore de transcription',
   noLinesHint: 'Transcrivez la vidéo dans l’éditeur timeline pour voir ses répliques ici.',
   noLinesInSegment: 'Aucune réplique dans ce segment.',
+  script: 'Script',
   lineLabel: (time: string, text: string) => `${time}, ${text}`,
   range: (start: string, end: string) => `${start} – ${end}`,
 };
