@@ -14,7 +14,7 @@
 2. 按论点列出留 / 删清单，一次剪完（第 2 节）。
 3. 收紧句间停顿（第 3 节）。
 4. 定开头（第 4 节）。
-5. **剪口定下之后**才加画面：放大强调、B-roll、文字；然后是取景与声音。做法在 [口播的画面与声音](talking-head-cut/references/picture-and-sound.md)，要做这些时打开对应的页读。
+5. **剪口定下之后**才加画面：放大强调、B-roll、文字；然后是取景与声音。做法在 [口播的画面与声音](talking-head-cut/references/picture-and-sound.md)，要做这些时打开对应的页读；要插一段网上找来的画面或当事人原声（配旁白、压卡片），读 [`references/craft/clip-montage.md`](clip-montage.md)。
 6. 验收（第 5 节）。
 
 画面元素会跟着剪口走，但先剪话、后加画面仍然更省事：话没定下来之前，定不了放大落在哪一句、B-roll 给几秒。

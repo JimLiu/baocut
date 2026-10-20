@@ -113,7 +113,7 @@
 | 来源 | 怎么做 | 限制 |
 | --- | --- | --- |
 | 用户素材 | 导入（`baocut assets import`）后在时间线上裁到这一镜的范围 | 原文件不动，范围在时间线上选 |
-| 网上素材 | 第 1 节「主动找网上素材」：`baocut assets search` 挑，`baocut assets download` 或 `baocut download` 下载进视频，在时间线上裁到这一镜 | 只取真实画面里用得上的几秒；YouTube 的先经用户同意；比例对不上时选铺满裁切或留边 |
+| 网上素材 | 第 1 节「主动找网上素材」：`baocut assets search` 挑，`baocut assets download` 或 `baocut download` 下载进视频，在时间线上裁到这一镜 | 只取真实画面里用得上的几秒；YouTube 的先经用户同意；比例对不上时选铺满裁切或留边；整段都由实拍与当事人原声打底、卡片压在上面的，读 [`references/craft/clip-montage.md`](clip-montage.md) |
 | 生成图片 | 按卡出首帧图：风格说明（简写）、场景、构图（景别、角度、镜头感）、可见内容、主体外观与服装，结尾同样写不要文字水印；尺寸按简报的画幅，模型不收尺寸时在提示词里写明横竖 | 静图本身不动；时间线上没有给片段设运动关键帧的操作，推拉摇移要在代码里把静图渲染成视频片段，做不了时静帧配转场、镜头取短 |
 | 代码画面 | 动态图形、排版、图表与数据动画：读 [`references/craft/motion-graphics.md`](motion-graphics.md)，按它写一个自包含的 HTML 画面（时间的纯函数），打包成代码包导入后放上时间线；它的骨架、语法与自检规则都在那份做法里。整镜整段由代码画的场景（逐句配画面、角色小动画、Canvas 或 SVG），包括它的创意方向、按整帧分段、跟拍、图层、字体、光效、提示表 `cues.json` 与后期效果，读 [代码场景：整镜整段用 Canvas 或 SVG 画](video-production/references/code-scenes.md) | 叠在素材上的图形用透明根；整镜的图形当作一个镜头；三维、物理或需要外部库的画面超出它的范围时如实说明，改用素材或生成图片 |
 
