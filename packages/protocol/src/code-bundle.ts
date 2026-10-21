@@ -502,6 +502,11 @@ export interface CompositionImportParams {
    * 与 `register` 互斥。
    */
   background?: boolean;
+  /**
+   * true 时不烘焙也不排任务（代码包规范 §7.6）：两笔修改只登记代码包、按清单的长度放实例（或原地换包），实例没有替身，
+   * 预览由实时层现画；导出前带 `replace` 再导入一次烘出替身。与 `register`、`background`、`bake` 互斥。
+   */
+  live?: boolean;
   revision?: Revision;
   commandId?: Id;
   conversationId?: Id;
@@ -539,9 +544,9 @@ export interface CompositionImportResult {
     encoding: BakeRecord['encoding'];
     hasAlpha: boolean;
   } | null;
-  /** 烘焙用的渲染器与用时；回退到像素时带 `fallback.reason`。只登记与后台烘焙时为 null。 */
+  /** 烘焙用的渲染器与用时；回退到像素时带 `fallback.reason`。只登记、后台烘焙与 `live` 时为 null。 */
   bake: CompositionBakeInfo | null;
-  /** 后台烘焙（`background: true`）的任务；同步烘焙与只登记时为 null。 */
+  /** 后台烘焙（`background: true`）的任务；同步烘焙、只登记与 `live` 时为 null。 */
   bakeJobId: Id | null;
   /** 放到时间线上（或原地替换）的合成片段与它所在的轨；只登记时为 null。 */
   itemId: Id | null;

@@ -73,6 +73,7 @@ export const COMPOSITION_PARAM_SCHEMAS = {
       register: z.boolean().optional(),
       bake: z.enum(['auto', 'ops', 'pixels']).optional(),
       background: z.boolean().optional(),
+      live: z.boolean().optional(),
       revision: revision.optional(),
       commandId: id.optional(),
       conversationId: id.optional(),

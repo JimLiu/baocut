@@ -297,6 +297,42 @@ describe.skipIf(!engine || !worker || !ffmpeg || !electron)('代码画面 RPC（
     });
   }, 600_000);
 
+  it('compositions.import live：不烘焙、不排任务，按清单长度放实例；再带 replace 不带 live 导入时烘出替身', async () => {
+    for (const extra of [{ register: true }, { background: true }, { bake: 'ops' as const }]) {
+      const bad = await rejection(client.request('compositions.import', { video: videoId, files: inline(), live: true, ...extra }, LONG));
+      expect(bad.details).toMatchObject({ code: 'INVALID_ARGUMENTS' });
+    }
+
+    const jobsBefore: JobRecord[] = (await client.request('jobs.list', {})).jobs;
+    const live = await client.request(
+      'compositions.import',
+      { video: videoId, files: inline(), name: '实时层', live: true, place: { at: '30' } },
+      LONG,
+    );
+    expect(live).toMatchObject({ status: 'committed', prerender: null, bake: null, bakeJobId: null, itemId: expect.any(String) });
+    expect(item(live.itemId!)!.prerender).toBeUndefined();
+    expect(item(live.itemId!)!.span).toEqual({ fromFrame: 900, durationFrames: 120 });
+    const jobsAfter: JobRecord[] = (await client.request('jobs.list', {})).jobs;
+    expect(jobsAfter.filter((j) => j.kind === 'bake')).toHaveLength(jobsBefore.filter((j) => j.kind === 'bake').length);
+
+    const baked = await client.request(
+      'compositions.import',
+      { video: videoId, files: inline(), name: '实时层', replace: { itemId: live.itemId! } },
+      LONG,
+    );
+    expect(baked).toMatchObject({ itemId: live.itemId, prerender: { frames: 120 }, bakeJobId: null });
+    expect(item(live.itemId!)!.prerender).toMatchObject({ id: baked.prerender!.assetId });
+
+    // 带 replace 的 live 原地换包并摘掉替身。
+    const unbaked = await client.request(
+      'compositions.import',
+      { video: videoId, files: inline(), name: '实时层', live: true, replace: { itemId: live.itemId! } },
+      LONG,
+    );
+    expect(unbaked).toMatchObject({ itemId: live.itemId, prerender: null, bakeJobId: null });
+    expect(item(live.itemId!)!.prerender).toBeUndefined();
+  }, 600_000);
+
   it('compositions.import replace 带 ripple：变长时旧终点之后各轨的片段跟着后移，前面的不动', async () => {
     const first = await client.request(
       'compositions.import',

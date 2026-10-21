@@ -505,6 +505,7 @@ interface BakeRecord {
 - **记录位置**。`BakeRecord` 记在烘焙素材的来源里：`provenance` 为 `{ origin: 'composition-bake', source: BakeRecord }`（视频格式规范 §4.5）。合成实例上还没有对应的字段（§3.1、§9）。首版的 `bakedAssetRef` 与 `sourceBundleRef` 先写代码包清单的 `bundleId/revision`：素材 ID 要等导入事务的回执才知道（§9）。
 - 新建的合成实例用 `prerender` 指向烘焙素材，导出走已有的预渲染替身路径（视频格式规范 §3.7）。替身何时过期见 §7.4。
 - **后台烘焙**。`compositions_import` 带 `background: true` 时烘焙交给 `bake` 任务（§7.5），导入不等烘焙。
+- **先不烘焙**。`compositions_import` 带 `live: true` 时只放实例、不烘焙（§7.6），预览由实时层现画，定稿后再烘。
 - 首版分两次事务：先导入代码包与烘焙素材，再用 `insertItems` 放置合成实例。两步合起来不是原子的：第二步失败时，已导入的两个素材留在视频里，没有实例引用它们。并成一笔的做法见 §9。
 
 - Bake **保留**源代码包、参数、映射和来源，并提供「回到可编辑的源码」。Bake 不是删除源文件。
@@ -594,6 +595,14 @@ interface CompositionBakeInfo {
 - 结果 `result.artifactId` 是替身的 `<assetId>@<revision>`，`result.bake` 是实际用的渲染器、用时与回退原因（同导入回执的 `bake`）。烘焙失败的错误码沿用代码包的（`COMPOSITION_*`、`BUNDLE_*`），别的记 `COMPOSITION_BAKE_FAILED`。取消用 `jobs.cancel`。Runtime 重启时未完成的任务按不可重试处理（`interrupted`），实例留着没有替身，重新带 `replace` 导入即可。
 - 没烘完就导出：实例没有替身，渲染内核按 `bundle-without-prerender` 报 `EXPORT_UNSUPPORTED_CONTENT`。
 - `background` 与 `register` 互斥；后台烘焙与前台一样只在有 Electron 离屏宿主的 Runtime 可用。
+
+### 7.6 先不烘焙
+
+`compositions_import` 带 `live: true` 时，两笔事务与 §7.5 相同（登记代码包、按清单长度放实例；带 `replace` 时 `replaceCodeBundle` 的 `prerender` 为 null，旧替身随之摘掉），但不提交 `bake` 任务，结果的 `prerender`、`bake`、`bakeJobId` 都是 null。导入仍在离屏宿主里验证，几秒返回。
+
+- 用途：做片阶段先把各段放上时间线给用户看、反复改，不为每一版付烘焙的时间。预览照 §7.4 显示实时层并提醒「实时预览，导出前要烘焙」。
+- 定稿后带 `replace: { itemId }`、不带 `live` 再导入同一个代码包，烘出替身（前台或 `background`）。没烘就导出时按 §7.5 最后一条报 `EXPORT_UNSUPPORTED_CONTENT`。
+- `live` 与 `register`、`background`、`bake` 互斥（`INVALID_ARGUMENTS`）。
 
 ---
 
