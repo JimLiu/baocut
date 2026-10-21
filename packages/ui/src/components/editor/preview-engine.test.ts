@@ -2,7 +2,7 @@ import type { AssetRecord, DocumentRecord, FontFaceQuery, Sequence } from '@baoc
 import { expect, test, vi } from 'vitest';
 import type { LoadedFace, LocalFont } from '../../render/local-fonts.ts';
 import { PlanFailure, type CaptionHit, type RenderPlanner } from '../../render/render-planner.ts';
-import { PreviewEngine, videoKey, type PreviewStatus } from './preview-engine.ts';
+import { PreviewEngine, audioKey, videoKey, type PreviewStatus } from './preview-engine.ts';
 
 /** 内核转述来的提示（没有自己的引用）：`frameRender.itemNote` 前面写上实例，原话嵌在里面。 */
 function kernelNote(item: string, note: string) {
@@ -814,6 +814,55 @@ test('倍速：播放中从换的那一刻起按新倍速走钟，媒体元素�
     expect(times.at(-1)).toBeCloseTo(3);
     engine.setRate(100);
     expect(engine.rate).toBe(16);
+  } finally {
+    engine.dispose();
+    clock.mockRestore();
+    vi.unstubAllGlobals();
+    vi.stubGlobal('requestAnimationFrame', () => 0);
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    vi.stubGlobal('ImageData', function (data: Uint8ClampedArray, width: number, height: number) {
+      return { data, width, height };
+    });
+  }
+});
+
+test('播放中偏得不多：静音的视频元素调速追，出声的元素只按要的速度放（调速会在声音里留下爆音）', async () => {
+  const { video } = fakeMedia();
+  const audio = new (globalThis.HTMLMediaElement as unknown as new () => typeof video)();
+  const frames: FrameRequestCallback[] = [];
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback));
+  let now = 1000;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+  const asset = { id: 'asset_v', revision: 'r1' };
+  const sound = { id: 'asset_a', revision: 'r1' };
+  const planAt = (seconds: number) => ({
+    sequenceId: 'seq',
+    sequenceRevision: 'r1',
+    frame: Math.floor(seconds * 30 + 1e-6),
+    canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 },
+    layers: [{ kind: 'video', itemId: 'clip', asset, sourceSeconds: seconds, sourceRate: 1, matrix: [1, 0, 0, 1, 0, 0], opacity: 1 }],
+    voices: [{ itemId: 'narration', source: 'audio', asset: sound, sourceSeconds: seconds, sourceRate: 1, gainDb: 0 }],
+  });
+  const planner = { ...fakePlanner(), planAt } as unknown as RenderPlanner;
+  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner));
+  engine.register(videoKey(asset, 0), video as unknown as HTMLVideoElement);
+  engine.register(audioKey('narration'), audio as unknown as HTMLAudioElement);
+  const timed = {
+    ...sequence,
+    items: [{ id: 'clip', trackId: 't', type: 'video', assetRef: asset, span: { fromFrame: 0, durationFrames: 300 } }],
+  } as unknown as Sequence;
+  try {
+    engine.setVideo(timed, {});
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    engine.setRate(1.5);
+    engine.play();
+    expect(audio.paused).toBe(false);
+    // 走了 0.1 秒，两个元素都还停在 0：落后 0.15 秒（倍速 1.5），没到重新定位的 0.25 秒。
+    now = 1100;
+    frames.at(-1)!(now);
+    expect(video.playbackRate).toBeGreaterThan(1.5);
+    expect(audio.playbackRate).toBe(1.5);
+    expect(audio.seeking).toBe(false);
   } finally {
     engine.dispose();
     clock.mockRestore();

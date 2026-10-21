@@ -981,8 +981,10 @@ export class PreviewEngine {
       if (!element.paused) element.pause();
       return;
     }
-    // 偏得不多就调速追上（领先就放慢），不再定位。
-    const correction = Math.abs(drift) > 0.02 ? Math.max(-0.5, Math.min(0.5, -drift * 2)) : 0;
+    // 只出画面的静音元素偏得不多就调速追上（领先就放慢），不再定位。出声的元素不调速，只按要的速度放：Chromium 保持音高时
+    // 速度一离开 1 就切到 WSOLA 变速，进出各断一下，按帧来回调速在声音里留下一串爆音（电流音），实测也追不回声音的实际进度；
+    // 偏得多了照上面重新定位。
+    const correction = target.muted && Math.abs(drift) > 0.02 ? Math.max(-0.5, Math.min(0.5, -drift * 2)) : 0;
     element.playbackRate = Math.max(MIN_RATE, Math.min(MAX_RATE, target.rate * this.#rate * (1 + correction)));
     if (element.paused) void element.play().catch(() => {});
   }
