@@ -245,7 +245,7 @@ const bar = style({
 const divider = style({ width: 1, height: 20, marginX: 4, backgroundColor: 'gray-300', flexShrink: 0 });
 /**
  * 工具钮：安静的图标钮，24 方、图标 16、小圆角，底色过渡 60ms 一档；当前工具浅蓝底、蓝图标（照原型的 `.ibtn.is-on`；
- * S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。带下拉的（形状 / 颜色 / 粗细）随内容加宽、左右不留白，图标右边紧跟一枚小箭头；
+ * S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。带下拉的（形状 / 颜色 / 粗细 / 标记过的帧）随内容加宽、左右各留 4，图标右边紧跟一枚小箭头；
  * 下拉打开时 RAC 把触发钮当按着，显示按下底色；撤销 / 重做无可撤时置灰。
  */
 const toolBtn = style({
@@ -256,7 +256,7 @@ const toolBtn = style({
   height: 24,
   minWidth: 24,
   boxSizing: 'border-box',
-  paddingX: 0,
+  paddingX: { default: 0, isMenuTrigger: 4 },
   borderRadius: 'sm',
   borderWidth: 0,
   backgroundColor: {
@@ -1171,7 +1171,7 @@ export function MarkupBar({
     <Tip label={label}>
       <RACButton
         className={({ isHovered, isPressed, isFocusVisible }) =>
-          toolBtn({ isSelected, isHovered, isPressed, isFocusVisible, hasMenu: true })
+          toolBtn({ isSelected, isHovered, isPressed, isFocusVisible, isMenuTrigger: true })
         }
         aria-label={label}
       >
@@ -1334,7 +1334,7 @@ function MarkBookmarks() {
       <Tip label={label}>
         <RACButton
           className={({ isHovered, isPressed, isFocusVisible, isDisabled }) =>
-            toolBtn({ isHovered, isPressed, isFocusVisible, isDisabled, hasMenu: true })
+            toolBtn({ isHovered, isPressed, isFocusVisible, isDisabled, isMenuTrigger: true })
           }
           aria-label={label}
           isDisabled={!frames.length}

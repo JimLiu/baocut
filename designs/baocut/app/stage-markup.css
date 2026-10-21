@@ -79,13 +79,14 @@
 .mk-bar__dd { position: relative; }
 /* 工具条的下拉挂在 body 末尾，外层定位层没有 z-index，压不过 z-index 8 的 .mk-stack：副工具条往上弹的菜单会被主工具条盖住一截，抬到工具条之上 */
 :has(> .bc-popover.mk-pop) { z-index: 9; }
-/* 带下拉的钮：样本与小箭头并排一行，钮随内容加宽、左右不留白；小箭头 12px、一直是灰的（选中也不变蓝） */
-.mk-bar__dd .bc-icon-button { width: auto; padding-inline: 0; }
+/* 带下拉的钮：样本与小箭头并排一行，钮随内容加宽、左右各留 4（不然样本与箭头贴着钮边）；小箭头 12px、一直是灰的（选中也不变蓝） */
+.mk-bar__dd .bc-icon-button { width: auto; padding-inline: 4px; }
 .mk-bar__face { display: inline-flex; align-items: center; gap: 2px; }
 .mk-bar__chev { display: inline-flex; width: 12px; height: 12px; color: var(--gray-600); }
 .mk-bar__chev svg { width: 12px; height: 12px; --iconPrimary: var(--gray-600); }
-/* 下拉钮上的当前值（字号的数字、字体名）：12px 标签字，钮两边留 4 */
-.mk-bar__val { font-size: 12px; line-height: 16px; color: var(--gray-800); padding-inline-start: 4px; }
+/* 下拉钮上的当前值（字号的数字、字体名）：12px 标签字；跟在图标后面时离图标 4（加上 face 的 2 px 间距） */
+.mk-bar__val { font-size: 12px; line-height: 16px; color: var(--gray-800); }
+.mk-bar__val:not(:first-child) { padding-inline-start: 2px; }
 /* 字体：三种通用字族，标记层、标注层、下拉里的样本同一套。衬线没有 token，画的是视频画面上的字 */
 .mk-font[data-font="sans"], .mk__text[data-font="sans"] { font-family: var(--sans); }
 .mk-font[data-font="serif"], .mk__text[data-font="serif"] { font-family: 'Source Serif 4', Georgia, 'Songti SC', 'Noto Serif CJK SC', serif; } /* @ds-allow: 文字标记画在视频画面上，衬线字族没有 chrome token */
