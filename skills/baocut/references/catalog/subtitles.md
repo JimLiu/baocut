@@ -31,7 +31,7 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 | 链接 | {{tool:transcribe}}，{{arg:url}}：新建视频、下载、放上时间线、转写、建字幕层 |
 | 本机文件 | {{tool:transcribe}}，{{arg:file}}；可给 {{arg:name}} |
 | 已有视频 | {{tool:transcribe}}，{{arg:video}}；素材不止一个时给 {{arg:asset}} |
-| 要先润色再上字幕 | 加 {{arg:noCaptions}}：字幕层等润色之后再建 |
+| 要译文或双语字幕 | 加 {{arg:noCaptions}}：原文层等润色、翻译之后再建，切条按润色后的标点，才和译文层对得上；只要原文字幕时不加，润色写回时字幕层跟着改字 |
 | 用户明说只要文稿文件 | 加 {{arg:noVideo}}：只写 TXT 与 SRT，不建视频；本机文件可给 {{arg:outDir}} |
 | 只取时间给 BaoCut 之外的渲染用 | 同上，{{arg:noVideo}} 加 {{arg:outDir}}；文字按下面「已有正文时」换成原文 |
 
@@ -50,6 +50,7 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 1. {{tool:documents_read}} 读转写（{{arg:documentId}} 给 speech 文档）。
 2. 按 {{skill:polish-transcript}} 改正文，词的时间不动。
 3. {{tool:edits_apply}} 用 `updateWords` 写回**同一份**：操作里给 documentId 与 words 的 [{id,text}]，只传改过的词。必须带 expectedRevision：这里是**视频**的版本（{{tool:videos_inspect}} 或上一次写命令回执里的 `revision`），不是 {{tool:documents_read}} 的文档版本；冲突后重新核对，用新 commandId 提交，不拿旧正文覆盖。
+4. 已有从这份转写建的原文字幕层时，Runtime 在同一笔里把它的文字跟着改（{{tool:documents_put}} 整份写回同一份转写时也一样），时间与切条不动，撤销一次两边一起回去，不用删掉重建。回执的 `syncedCaptions` 是跟着改了字的字幕文档数；`keptCaptionCues`（`[{documentId, cueIds}]`）是文字被手改过、没跟着改的句子，告诉用户。转写几乎没有句末标点、润色补了很多句末标点时，那层的字幕条仍是按宽度和停顿切的：问过用户再删掉重建。
 
 ### 已有正文时：转写只量时间
 
@@ -129,7 +130,7 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 ## 结果怎么读
 
 - {{tool:transcribe}} 完成：`pipeline.summary.documentId` 是新转写，`summary.captions` 是字幕层，新建视频时 `summary.videoId` 是视频。给 url 时找不到 documentId 就 {{tool:videos_inspect}} 找来源素材是这段素材的 speech 文档；给 url 时另有 `summary.description`（截断的简介）与 `summary.sourceChapters`（作者章节的条数），大于 0 时分章用 {{tool:chapters_adopt}}（见 [editing](editing.md)）。
-- {{tool:documents_put}}：与修改相同的回执（新版本 `revision`、`transactionId`），另有文档的 `documentId`；`filledAlignments` 是 Runtime 补了几句对齐，`syncedCaptions` 是改已有译文时跟着换了字幕条的字幕文档数。正文与原来相同时不产生新版本。
+- {{tool:documents_put}}：与修改相同的回执（新版本 `revision`、`transactionId`），另有文档的 `documentId`；`filledAlignments` 是 Runtime 补了几句对齐，`syncedCaptions` 是跟着改了的字幕文档数（改已有译文时换改过的句子的字幕条，整份写回转写时原文字幕跟着改字），`keptCaptionCues` 同上面「润色写回」。正文与原来相同时不产生新版本。
 - {{tool:captions_create}}：`documentId`（字幕文档）、`trackId`、`itemIds`、`styleDocumentId`（这层的样式文档，按默认样式画时 null）、`cueCount`（字幕条数）、`enabled`；双语另有 `pairedOriginal`（`created` 为 true 是这次顺带建的原文层）。`existing` 不为空说明这份文档原本已有字幕层；有 `styleNote` 时 {{arg:style}} 改的是与原文共用的那份样式。
 
 ## 常见错误码

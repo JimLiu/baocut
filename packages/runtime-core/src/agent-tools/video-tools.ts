@@ -54,6 +54,7 @@ import { importElevenLabsTranscript } from './elevenlabs-transcript.ts';
 import { approvalField, bindingConfirmation, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { assetSegments, projectChapters, type ProjectedChapter } from './source-chapters.ts';
 import { fillTranslationAlignments } from './translation-alignment.ts';
+import { syncSpeechCaptions } from './speech-captions.ts';
 import { syncTranslationCaptions } from './translation-captions.ts';
 import { OperationShapeError, digestVideo, digestReceipt, normalizeOperations } from './video-digest.ts';
 import {
@@ -641,6 +642,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '编译成一个 putDocument 操作，一笔修改、可以撤销。局部改名、校订或编辑字段用 edits_apply 的 renameSpeakers、updateWords 或 patchDocument；本工具的 body 是完整的正文对象，只用于新建或整体替换。替换时给 document，新建时不给 document、给 kind。',
       '新建译文：kind "translation"、language 为目标语言、sourceDocument 为它译自的转写，body 照 documents_read 返回的 translationBasis 填（形状见 documents_read 的说明）；alignment 写成 null 时 Runtime 按句子补上句级对齐（结果的 filledAlignments 是补了几句）。写完用 captions_create 把译文做成字幕。',
       '改已有的译文（给 document）：从它生成的字幕层由 Runtime 在同一笔里只换改过的几句的字幕条，时间照旧（结果的 syncedCaptions 是跟着换了几份字幕文档）；不要再建一层字幕。',
+      '整份替换已有的转写（给 document）：词文本改了的，从它生成的原文字幕层由 Runtime 在同一笔里跟着改字，时间与切条不动（同 edits_apply 的 updateWords；手改过的句子不动，列在 keptCaptionCues）。',
       '正文与原来相同时不产生新版本。不给 revision 时用最新的版本。',
       '返回与 edits_apply 相同的回执，另有文档的 documentId。',
       '已有 ElevenLabs Scribe 转录 JSON：format "elevenlabs"、kind "speech"、sourceAsset 为对应媒体的 assetId，body 给单份转录对象。保留词时间与 speaker_id，language 不给时取 language_code；时间必须相对这份原素材，不接受缺词时间、倒序或多声道 transcripts 包。只新建，不整体替换。跳过 spacing 与 audio_event，结果 imported 报告词数与跳过数。写完用 documents_read 取得 translationBasis 再自译，或用 captions_create 建字幕，不必调用 transcribe。',
@@ -1070,6 +1072,7 @@ export class VideoTools implements ToolSet {
       ...submitted.digest,
       ...(submitted.filledAlignments ? { filledAlignments: submitted.filledAlignments } : {}),
       ...(submitted.syncedCaptions ? { syncedCaptions: submitted.syncedCaptions } : {}),
+      ...(submitted.keptCaptionCues.length ? { keptCaptionCues: submitted.keptCaptionCues } : {}),
       ...approvalField(approval),
     };
   }
@@ -1176,7 +1179,11 @@ export class VideoTools implements ToolSet {
     // 智能体写的译文：alignment 为 null 或缺字段的单元按句子补上句级对齐（视频格式规范 §5.3）。
     const filledAlignments = await fillTranslationAlignments(operations, documents, readBody);
     // 改了已有的译文：从它生成的字幕层在同一笔里换掉改过的几句的字幕条。
-    const syncedCaptions = await syncTranslationCaptions(operations, documents, readBody);
+    const translated = await syncTranslationCaptions(operations, documents, readBody);
+    // 改了转写的词文本：从它生成的原文字幕层在同一笔里跟着改字，手改过的句子不动（报在 keptCaptionCues）。
+    const reworded = await syncSpeechCaptions(operations, documents, readBody);
+    const syncedCaptions = translated + reworded.synced;
+    const keptCaptionCues = reworded.kept;
     const result = await this.#videos.apply(
       {
         videoId: opened.ref.videoId,
@@ -1196,7 +1203,7 @@ export class VideoTools implements ToolSet {
         typeof op.documentId === 'string' ? op.documentId : typeof op.ref === 'string' ? (result.receipt.refs?.[op.ref] ?? null) : null;
       this.#scope.translationWritten?.(access, { videoId: opened.ref.videoId, sourceDocumentId: source, language: op.language, documentId });
     }
-    return { result, digest: this.#receipt(opened, result, access), filledAlignments, syncedCaptions };
+    return { result, digest: this.#receipt(opened, result, access), filledAlignments, syncedCaptions, keptCaptionCues };
   }
 
   /** 当前的视频：镜像里的最新状态，镜像不在时用打开时的快照。 */
@@ -1495,6 +1502,7 @@ export class VideoTools implements ToolSet {
       ...(imported ? { imported: imported.imported } : {}),
       ...(submitted.filledAlignments ? { filledAlignments: submitted.filledAlignments } : {}),
       ...(submitted.syncedCaptions ? { syncedCaptions: submitted.syncedCaptions } : {}),
+      ...(submitted.keptCaptionCues.length ? { keptCaptionCues: submitted.keptCaptionCues } : {}),
       ...approvalField(approval),
     };
   }

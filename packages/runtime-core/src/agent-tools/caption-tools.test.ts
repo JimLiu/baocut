@@ -285,6 +285,82 @@ describe.skipIf(!ready)('建字幕层工具（真实引擎）', () => {
     expect(createdBy(captionId)).toBe(createdBy(translationId));
   });
 
+  it('改转写的词：原文字幕层在同一笔里跟着改字、时间不动，撤销一次两边一起回去；手改过的句子不动，报在 keptCaptionCues', async () => {
+    const session = await send('auto');
+    const layer = await tool(session, 'captions_create', { video: videoPath, documentId: speechId });
+    expect(layer.isError).toBe(false);
+    const captionId = layer.body.documentId as Id;
+    const cuesOf = async () =>
+      (await tool(session, 'documents_read', { video: videoPath, documentId: captionId })).body.body.cues.map((c: Loose) => [c.id, c.text, c.start, c.end]);
+    const sourceRevision = () => (video().documents[captionId]!.extensions!['baocut.speechCues'] as { speechRevision: string }).speechRevision;
+    expect(sourceRevision()).toBe(video().documents[speechId]!.currentRevision);
+
+    // 润色：两句各改一个词。
+    const before = video().revision;
+    const polished = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: before,
+      label: '润色',
+      operations: [{ type: 'updateWords', documentId: speechId, words: [{ id: 'w1', text: 'Hi' }, { id: 'w4', text: 'evening.' }] }],
+    });
+    expect(polished.isError).toBe(false);
+    expect(polished.body).toMatchObject({ syncedCaptions: 1, revision: { before, after: video().revision } });
+    expect(polished.body.keptCaptionCues).toBeUndefined();
+    expect(await cuesOf()).toEqual([
+      ['q-w1', 'Hi there.', 0, 1000],
+      ['q-w3', 'Good evening.', 1600, 2500],
+    ]);
+    const docs = video().documents;
+    const createdBy = (id: Id) => docs[id]!.revisions[docs[id]!.currentRevision]!.createdBy;
+    expect(createdBy(captionId)).toBe(createdBy(speechId));
+    // 字幕仍跟着当前这版转写：编辑器不把它当成旧版文稿生成的。
+    expect(sourceRevision()).toBe(video().documents[speechId]!.currentRevision);
+
+    // 撤销一次：转写与字幕一起回去。
+    const undone = await tool(session, 'edits_undo', { video: videoPath, transactionId: polished.body.transactionId });
+    expect(undone.isError).toBe(false);
+    expect(await cuesOf()).toEqual([
+      ['q-w1', 'Hello there.', 0, 1000],
+      ['q-w3', 'Good morning.', 1600, 2500],
+    ]);
+    const speechWords = async () =>
+      (await tool(session, 'documents_read', { video: videoPath, documentId: speechId })).body.body.words.map((w: Loose) => w.text);
+    expect(await speechWords()).toEqual(['Hello', 'there.', 'Good', 'morning.']);
+    expect(sourceRevision()).toBe(video().documents[speechId]!.currentRevision);
+
+    // 用户手改了第二句；再改这一句里的词：第一句跟着改，第二句不覆盖，回执点名。
+    const edited = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: video().revision,
+      label: '手改字幕',
+      operations: [{ type: 'patchDocument', documentId: captionId, changes: [{ path: ['cues', { id: 'q-w3' }, 'text'], value: 'Good morning, all!' }] }],
+    });
+    expect(edited.isError).toBe(false);
+    const again = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: video().revision,
+      label: '润色',
+      operations: [{ type: 'updateWords', documentId: speechId, words: [{ id: 'w2', text: 'there!' }, { id: 'w4', text: 'evening.' }] }],
+    });
+    expect(again.isError).toBe(false);
+    expect(again.body).toMatchObject({ syncedCaptions: 1, keptCaptionCues: [{ documentId: captionId, cueIds: ['q-w3'] }] });
+    expect(await cuesOf()).toEqual([
+      ['q-w1', 'Hello there!', 0, 1000],
+      ['q-w3', 'Good morning, all!', 1600, 2500],
+    ]);
+    // 有句子没跟上：来源版本照旧，编辑器照样提示过期。
+    expect(sourceRevision()).not.toBe(video().documents[speechId]!.currentRevision);
+
+    // 整份替换转写（documents_put）同样跟：第二句仍是手改的，不动。
+    const read = await tool(session, 'documents_read', { video: videoPath, documentId: speechId });
+    const body = read.body.body;
+    body.words[0].text = 'Hey';
+    const put = await tool(session, 'documents_put', { video: videoPath, document: speechId, label: '换转写', body });
+    expect(put.isError).toBe(false);
+    expect(put.body).toMatchObject({ syncedCaptions: 1 });
+    expect((await cuesOf()).map((c: Loose[]) => c[1])).toEqual(['Hey there!', 'Good morning, all!']);
+  });
+
   it('没有原文字幕层时给译文带 bilingual: true：一次调用两层都建、共用样式，pairedOriginal 标 created；撤销一笔两层一起撤', async () => {
     const session = await send('auto');
     const { translationId } = await writeTranslation(session);

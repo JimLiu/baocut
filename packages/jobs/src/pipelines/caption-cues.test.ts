@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CUE_PARAMS, captionBody, deriveCues, readSpeechWords, splitUntimed } from './caption-cues.ts';
+import { CUE_PARAMS, captionBody, deriveCues, readSpeechWords, rewordSpeechCaption, splitUntimed } from './caption-cues.ts';
 
 type W = [id: string, start: number, end: number, text: string, flags?: { hidden?: boolean; timingQuality?: string; glue?: true }];
 
@@ -132,5 +132,96 @@ describe('读转写（与编辑器的 speech-cues.ts 同一条规则）', () => 
     )!;
     expect(read.words.map((w) => w.id)).toEqual(['w1']);
     expect(readSpeechWords({ schema: 'baocut.caption/1', cues: [] })).toBeNull();
+  });
+});
+
+describe('转写改了字，原文字幕跟着改（rewordSpeechCaption）', () => {
+  /** 按转写建一层原文字幕（与 captions_create 同一条路）。 */
+  const layer = (body: ReturnType<typeof speechBody>) => {
+    const read = readSpeechWords(body)!;
+    return captionBody(deriveCues(read.words), read.speakers);
+  };
+  /** 照 updateWords 改词文本。 */
+  const update = (body: ReturnType<typeof speechBody>, texts: Record<string, string>) => ({
+    ...body,
+    words: body.words.map((word) => (word.id in texts ? { ...word, text: texts[word.id]! } : word)),
+  });
+  const rows = (body: Record<string, unknown>) =>
+    (body.cues as Array<{ id: string; text: string; start: number; end: number }>).map((c) => [c.id, c.text, c.start, c.end]);
+
+  const english = speechBody([
+    ['w1', 0, 0.5, 'inter'],
+    ['w2', 0.5, 1, 'national', { glue: true }],
+    ['w3', 1, 1.5, 'news.'],
+    ['w4', 3, 3.5, 'Good'],
+    ['w5', 3.5, 4, 'night.'],
+  ]);
+
+  it('用到改过的词的句子按切条的拼法重拼（认贴前），时间、ID 与别的句子不动', () => {
+    const caption = layer(english);
+    expect(rows(caption)).toEqual([
+      ['q-w1', 'international news.', 0, 1500],
+      ['q-w4', 'Good night.', 3000, 4000],
+    ]);
+    const result = rewordSpeechCaption(caption, english, update(english, { w2: 'nationale', w3: 'news!' }))!;
+    expect(result.changed).toBe(1);
+    expect(result.kept).toEqual([]);
+    expect(rows(result.body)).toEqual([
+      ['q-w1', 'internationale news!', 0, 1500],
+      ['q-w4', 'Good night.', 3000, 4000],
+    ]);
+    const cues = result.body.cues as unknown[];
+    expect(cues[1]).toBe((caption.cues as unknown[])[1]);
+    // 词文本没变：原样返回。
+    const same = rewordSpeechCaption(caption, english, english)!;
+    expect(same).toEqual({ body: caption, changed: 0, kept: [] });
+  });
+
+  it('文字被手改过的句子不覆盖；用到了改过的词的报在 kept，没用到的不报', () => {
+    const caption = layer(english);
+    const cues = caption.cues as Array<{ text: string }>;
+    cues[0]!.text = 'International News';
+    cues[1]!.text = 'Good night!';
+    const result = rewordSpeechCaption(caption, english, update(english, { w1: 'Inter' }))!;
+    expect(result.changed).toBe(0);
+    expect(result.kept).toEqual(['q-w1']);
+    expect(result.body).toBe(caption);
+  });
+
+  it('字幕生成在隐藏之前：连隐藏的词一起拼对得上，照样改（隐藏的词画的时候再拿掉）', () => {
+    const caption = layer(english);
+    const hidden = { ...english, words: english.words.map((word) => (word.id === 'w2' ? { ...word, hidden: true } : word)) };
+    const result = rewordSpeechCaption(caption, hidden, update(hidden, { w3: 'today.' }))!;
+    expect(result.changed).toBe(1);
+    expect(rows(result.body)[0]).toEqual(['q-w1', 'international today.', 0, 1500]);
+  });
+
+  it('中文按字拼、不加空格；句子用 wordIds 指词时同样认', () => {
+    const chinese = speechBody([
+      ['c1', 0, 0.4, '我们'],
+      ['c2', 0.4, 0.6, '修'],
+      ['c3', 0.6, 1, '程序。'],
+    ]);
+    const caption = {
+      schema: 'baocut.caption/1',
+      clock: 'source-asset',
+      timescale: 1000,
+      cues: [{ id: 'k1', start: 0, end: 1000, text: '我们修程序。', words: { wordIds: ['c1', 'c2', 'c3'] } }],
+    };
+    const result = rewordSpeechCaption(caption, chinese, update(chinese, { c3: '程式。' }))!;
+    expect(rows(result.body)).toEqual([['k1', '我们修程式。', 0, 1000]]);
+  });
+
+  it('改过的词拆块的方式变了（中间多了空白，成了没有词时间的几块）时对不上切法，不换，报出来', () => {
+    const caption = layer(english);
+    const result = rewordSpeechCaption(caption, english, update(english, { w5: 'good night.' }))!;
+    expect(result.changed).toBe(0);
+    expect(result.kept).toEqual(['q-w4']);
+  });
+
+  it('没写 words 的句子不动；有一份不是转写时 null', () => {
+    const caption = { schema: 'baocut.caption/1', timescale: 1000, cues: [{ id: 'x', start: 0, end: 1500, text: 'international news.' }] };
+    expect(rewordSpeechCaption(caption, english, update(english, { w3: 'today.' }))).toEqual({ body: caption, changed: 0, kept: [] });
+    expect(rewordSpeechCaption(caption, english, { schema: 'baocut.caption/1' })).toBeNull();
   });
 });

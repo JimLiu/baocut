@@ -248,8 +248,10 @@ export {
   hanInteriorGaps,
   readSpeechWords,
   retextCaption,
+  rewordSpeechCaption,
   translationCues,
   type CueTranslationUnit,
+  type RewordedCaption,
 } from './pipelines/caption-cues.ts';
 export {
   TARGET_STEP,

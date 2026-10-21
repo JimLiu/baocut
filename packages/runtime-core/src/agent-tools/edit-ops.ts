@@ -757,7 +757,9 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
   },
   {
     type: 'updateWords', family: 'speech',
-    doc: ['- {"type":"updateWords","documentId","words":[{"id","text"}]}：按 word ID 只校订词文本，不改 ID、顺序、时间或 speaker；未知或重复 ID 整笔拒绝。'],
+    doc: [
+      '- {"type":"updateWords","documentId","words":[{"id","text"}]}：按 word ID 只校订词文本，不改 ID、顺序、时间或 speaker；未知或重复 ID 整笔拒绝。从这份转写生成的原文字幕层由 Runtime 在同一笔里跟着改字，时间与切条不动（回执的 syncedCaptions 是跟着改了几份字幕文档；keptCaptionCues 列出文字被手改过、没跟着改的句子）；改字不用删掉字幕层重建。',
+    ],
     schema: op('updateWords', { documentId: idOf('转写文档 ID'), words: z.array(z.object({ id: idOf('词 ID'), text: z.string() })).min(1) }),
     example: { type: 'updateWords', documentId: 'doc_1', words: [{ id: 'w1', text: 'Hello' }] },
   },

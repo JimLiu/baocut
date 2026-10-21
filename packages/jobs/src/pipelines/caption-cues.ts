@@ -650,6 +650,108 @@ export function retextCaption(body: Json, unitId: Id, fresh: readonly RetextCue[
   return { ...body, cues: merged };
 }
 
+// ---- 转写改了字，原文字幕跟着改 ----
+
+/** 原文字幕跟着转写改字的结果。 */
+export interface RewordedCaption {
+  /** 改好的正文；一句也没改时就是原来那份。 */
+  body: Json;
+  /** 换了文字的句子数。 */
+  changed: number;
+  /** 用到了改过的词、却没换文字的句子 ID：文字与旧词拼出来的不一样（手改过），或改过的词对不上原来的切法。 */
+  kept: string[];
+}
+
+/** 按 `deriveCues` 的次序排好的词，可以按 ID 找。 */
+interface WordView {
+  words: CueWord[];
+  at: Map<string, number>;
+  leading: boolean;
+}
+
+/**
+ * 读成切条时看到的样子（`readSpeechWords` 后按开始时刻排）。`withHidden` 时隐藏的词也算进来：字幕可能生成在隐藏之前，
+ * 那时它的文字里还有这些词。
+ */
+function wordView(body: unknown, withHidden: boolean): WordView | null {
+  const source =
+    withHidden && isObject(body) && Array.isArray(body.words)
+      ? { ...body, words: body.words.map((word) => (isObject(word) && word.hidden === true ? { ...word, hidden: false } : word)) }
+      : body;
+  const read = readSpeechWords(source);
+  if (!read) return null;
+  const words = [...read.words].sort((a, b) => a.start - b.start);
+  return { words, at: new Map(words.map((word, i) => [word.id, i])), leading: words.some((word) => /^\s/.test(word.text)) };
+}
+
+/** 句子的 `words`（`{ first, last }` 或 `{ wordIds }`）在这份词里指到的词 ID；一个也找不到时 null。 */
+function cueWordIds(words: Json, view: WordView): string[] | null {
+  if (Array.isArray(words.wordIds)) {
+    const ids = words.wordIds.filter((id): id is string => typeof id === 'string' && view.at.has(id));
+    return ids.length ? ids : null;
+  }
+  const first = view.at.get(text(words.first) ?? '');
+  const last = view.at.get(text(words.last) ?? '');
+  if (first === undefined || last === undefined || first > last) return null;
+  return view.words.slice(first, last + 1).map((word) => word.id);
+}
+
+/** 这几个词按切条时的拼法拼成的文字（`deriveCues` 的 `joinCueWords`，认「贴前」）。 */
+function joinView(view: WordView, ids: readonly string[]): string {
+  const words = ids.map((id) => view.words[view.at.get(id)!]!);
+  return joinCueWords(
+    words.map((word) => word.text),
+    view.leading,
+    words.map((word) => word.glue === true),
+  );
+}
+
+/** 没有词时间的词拆成了几块（`w12`、`w12~2`……）。 */
+function pieceCount(view: WordView, id: string): number {
+  let count = 1;
+  while (view.at.has(`${id}~${count + 1}`)) count++;
+  return count;
+}
+
+/**
+ * 转写的词文本改了之后（`before` → `after`，词 ID 与时间不变），从它生成的原文字幕（`baocut.caption/1`，句子用 `words` 指向
+ * 这份转写的词，视频格式规范 §3.8）跟着改字：一句的文字等于它的词在 `before` 里按切条的拼法拼出来的（隐藏的词不算或都算，
+ * 对上一种就行），就换成同样这几个词在 `after` 里拼出来的；时间、切条、句子 ID 与别的字段不动。文字对不上的句子是手改过的，
+ * 不覆盖；其中用到了改过的词的列在 `kept`。没有 `words` 的句子不动。两份正文有一份不是转写时 null。
+ */
+export function rewordSpeechCaption(body: Json, before: unknown, after: unknown): RewordedCaption | null {
+  const views: Array<{ old: WordView; now: WordView }> = [];
+  for (const withHidden of [false, true]) {
+    const old = wordView(before, withHidden);
+    const now = wordView(after, withHidden);
+    if (!old || !now) return null;
+    views.push({ old, now });
+  }
+  let changed = 0;
+  const kept: string[] = [];
+  const cues = (Array.isArray(body.cues) ? body.cues : []).map((cue: unknown) => {
+    if (!isObject(cue) || typeof cue.text !== 'string' || !isObject(cue.words)) return cue;
+    let touched = false;
+    for (const { old, now } of views) {
+      const ids = cueWordIds(cue.words, old);
+      if (!ids) continue;
+      const was = joinView(old, ids);
+      // 改过的词拆块的方式变了（有词时间与没有之间、块数不同）时对不上原来的切法，不换。
+      const mappable = ids.every((id) => now.at.has(id) && pieceCount(old, baseWordId(id)) === pieceCount(now, baseWordId(id)));
+      const fresh = mappable ? joinView(now, ids) : null;
+      if (fresh !== was) touched = true;
+      if (cue.text.trim() !== was) continue;
+      if (fresh === null) break;
+      if (fresh === was) return cue;
+      changed++;
+      return { ...cue, text: fresh };
+    }
+    if (touched && typeof cue.id === 'string') kept.push(cue.id);
+    return cue;
+  });
+  return { body: changed ? { ...body, cues } : body, changed, kept };
+}
+
 /**
  * Speech Worker 切好的字幕条里一个单元的那几条 → `retextCaption` 的输入（秒；ID 与 `workerCaptionBody` 同一个编号：
  * `q-<单元 ID>`，后几条跟 `~2`、`~3`……）。
