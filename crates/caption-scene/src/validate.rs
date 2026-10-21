@@ -20,6 +20,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-line-neighbor-context/1",
     "caption-line-unit-quota/1",
     "caption-word-line-tail-join/1",
+    "caption-remaining-word-page-plan/1",
     "caption-line-box-context/1",
     "caption-shape-paint/1",
     "caption-expressions/1",
@@ -193,6 +194,7 @@ fn validate_word_page_pattern(scene: &Scene) -> Result<()> {
         || pagination.text_line_pattern.is_some()
         || pagination.last_page_rule.is_some()
         || pagination.tail_word_rule.is_some()
+        || pagination.remaining_word_page_plans.is_some()
     {
         return Err(invalid(
             path,
@@ -287,6 +289,46 @@ fn validate_tail_word_rule(scene: &Scene) -> Result<()> {
         return Err(invalid(
             "pagination.tailWordRule",
             "wordLinePattern required; lastPageRule is exclusive",
+        ));
+    }
+    Ok(())
+}
+/// `caption-remaining-word-page-plan/1`: fixed rows chosen by how many words are still
+/// unpaged. Entry `i` may hold at most `i + 1` words, so a page never needs truncation.
+fn validate_remaining_word_page_plans(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    let Some(plans) = &pagination.remaining_word_page_plans else {
+        return Ok(());
+    };
+    let path = "pagination.remainingWordPagePlans";
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-remaining-word-page-plan/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-remaining-word-page-plan/1 must be declared",
+        ));
+    }
+    let valid_entry = |index: usize, rows: &Vec<usize>| {
+        !rows.is_empty()
+            && rows.len() <= scene.layout.max_lines
+            && rows.iter().all(|n| (1..=MAX_UNITS).contains(n))
+            && rows.iter().sum::<usize>() <= index + 1
+    };
+    if plans.is_empty() || plans.len() > 256 || !plans.iter().enumerate().all(|(index, rows)| valid_entry(index, rows)) {
+        return Err(invalid(
+            path,
+            "1..256 entries of 1..maxLines rows required; entry i holds at most i + 1 words",
+        ));
+    }
+    if pagination.max_units_per_page.is_some()
+        || pagination.word_line_pattern.is_some()
+        || pagination.text_line_pattern.is_some()
+        || pagination.last_page_rule.is_some()
+        || pagination.tail_word_rule.is_some()
+    {
+        return Err(invalid(
+            path,
+            "remaining word page plans are exclusive with other pagination planning fields",
         ));
     }
     Ok(())
@@ -434,6 +476,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     validate_word_line_pattern(&s.layout)?;
     validate_line_unit_quota(s)?;
     validate_tail_word_rule(s)?;
+    validate_remaining_word_page_plans(s)?;
     validate_page_window(s)?;
     validate_unit_font_reflow(s)?;
     if s.parameters.len() > 128 || s.functions.len() > 128 || s.selectors.len() > MAX_NODES || s.animations.len() > 1024 {

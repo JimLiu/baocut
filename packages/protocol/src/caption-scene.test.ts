@@ -60,3 +60,10 @@ test('word page quotas keep the strict wire field name and optional legacy shape
   const legacy: Pagination = { maxUnitsPerPage: 3 };
   expect(JSON.parse(JSON.stringify(legacy))).toEqual({ maxUnitsPerPage: 3 });
 });
+
+test('remaining word page plans are row lists indexed by unpaged word count', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<Pagination['remainingWordPagePlans']>().toEqualTypeOf<number[][] | null | undefined>();
+  const pagination: Pagination = { remainingWordPagePlans: [[1], [2], [1, 1, 1]] };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual({ remainingWordPagePlans: [[1], [2], [1, 1, 1]] });
+});

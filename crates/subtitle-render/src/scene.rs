@@ -3014,6 +3014,45 @@ mod ink_tests {
     }
 
     #[test]
+    fn remaining_word_page_plans_freeze_rows_through_the_fixed_line_path() {
+        let content = "aa bb cc dd ee ff gg";
+        let (mut text, mut style, mut cue, params) = input(content, 1.0);
+        cue.words = content
+            .split_whitespace()
+            .enumerate()
+            .map(|(i, word)| SceneWord {
+                id: format!("w{i}"),
+                text: word.into(),
+                start: i as f64 * 0.5,
+                end: i as f64 * 0.5 + 0.4,
+            })
+            .collect();
+        let SceneSource::Inline { value: scene } = &mut style.scene;
+        scene.layout.pagination = Pagination {
+            remaining_word_page_plans: Some(vec![vec![1], vec![2], vec![1, 1, 1], vec![1, 1, 1, 1]]),
+            ..Pagination::default()
+        };
+        scene.layout.max_lines = 4;
+        scene.layout.overflow = LayoutOverflow::Visible;
+        let layout = prepare(
+            &mut text,
+            &cue,
+            &scene.nodes[0],
+            &scene.layout,
+            &scene.speech_state,
+            (160, 90),
+            &params,
+        )
+        .unwrap();
+        assert_eq!(
+            layout.pages.iter().map(|p| p.words.clone()).collect::<Vec<_>>(),
+            vec![vec![0, 1, 2, 3], vec![4, 5, 6]]
+        );
+        assert_eq!(layout.pages.iter().map(|p| p.lines.len()).collect::<Vec<_>>(), vec![4, 3]);
+        assert_eq!(layout.pages.iter().map(|p| p.start).collect::<Vec<_>>(), vec![0.0, 2.0]);
+    }
+
+    #[test]
     fn word_quota_does_not_trim_runs_containing_vertical_separators() {
         for separator in [
             " \n ", "\r\n\t", "\u{000b}", "\u{000c}", "\u{0085}", "\u{2028}", "\u{2029}",

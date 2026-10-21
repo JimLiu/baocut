@@ -176,6 +176,8 @@ interface CaptionScene {
 
 末尾只剩一个词时，有的动画让它并进前一行，而不是单独占一行或一页。`lastPageRule` 是“末页出现某行词数就替换倒数第二页配额再重排”，会改动前一页的分组，表达不了这种只挪一个词的规则。`caption-word-line-tail-join/1` 的 `tailWordRule: 'join-previous-line'` 只处理未填满的末页：最后一行只有一个词时并入前一行，已填满的页不变。两条规则互斥。
 
+有的动画按「还剩几个词」决定下一页取几个词、排成几行：例如剩 3 个词时排成三行各一词，剩 2 个词时一行两词。这种计划不是固定循环，`wordLinePattern` 和 `lastPageRule` 都表达不了。`caption-remaining-word-page-plan/1` 的 `remainingWordPagePlans` 把它写成显式查表：第 i 项是剩余 i 个词时下一页的行计划，超过表长用最后一项。源动画如果用随机数决定页长，由导入器按剩余词数预先算好整张表，渲染期不跑随机，结果只取决于词数。第 i 项最多 i 个词，保证每页取满、不截断。
+
 ### 5.3 布局属性和绘制属性
 
 | 属性 | 阶段 | 是否影响换行 |

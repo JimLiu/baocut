@@ -24,7 +24,23 @@ fn consume(plans: impl IntoIterator<Item = Vec<usize>>, total: usize) -> Vec<Vec
     pages
 }
 
+/// `caption-remaining-word-page-plan/1`: each page takes the rows planned for the number of
+/// words still unpaged. Validation caps entry `i` at `i + 1` words, so pages are never cut.
+fn remaining_plan_groups(total: usize, plans: &[Vec<usize>]) -> Vec<Vec<Range<usize>>> {
+    let mut remaining = total;
+    let mut pages = Vec::new();
+    while remaining > 0 {
+        let rows = plans[remaining.min(plans.len()) - 1].clone();
+        remaining -= rows.iter().sum::<usize>().min(remaining);
+        pages.push(rows);
+    }
+    consume(pages, total)
+}
+
 fn groups(total: usize, pagination: &Pagination) -> Vec<Vec<Range<usize>>> {
+    if let Some(plans) = &pagination.remaining_word_page_plans {
+        return remaining_plan_groups(total, plans);
+    }
     let pattern = pagination
         .word_line_pattern
         .as_ref()
@@ -351,6 +367,32 @@ mod tests {
         for n in (0..=64).chain(std::iter::once(MAX_UNITS)) {
             let words: Vec<usize> = groups(n, &tail).into_iter().flatten().flatten().collect();
             assert_eq!(words, (0..n).collect::<Vec<_>>());
+        }
+    }
+    #[test]
+    fn remaining_word_page_plans_pick_rows_by_unpaged_word_count() {
+        let shapes = Pagination {
+            remaining_word_page_plans: Some(vec![vec![1], vec![2], vec![1, 1, 1], vec![1, 1, 1, 1]]),
+            ..Pagination::default()
+        };
+        let plan = |n| counts(groups(n, &shapes));
+        assert_eq!(plan(1), vec![vec![1]]);
+        assert_eq!(plan(3), vec![vec![1, 1, 1]]);
+        // Counts beyond the table reuse its last entry.
+        assert_eq!(plan(10), vec![vec![1, 1, 1, 1], vec![1, 1, 1, 1], vec![2]]);
+        let varied = Pagination {
+            remaining_word_page_plans: Some(vec![vec![1], vec![1], vec![2, 1], vec![1, 1]]),
+            ..Pagination::default()
+        };
+        assert_eq!(counts(groups(2, &varied)), vec![vec![1], vec![1]]);
+        assert_eq!(counts(groups(5, &varied)), vec![vec![1, 1], vec![2, 1]]);
+        assert_eq!(counts(groups(6, &varied)), vec![vec![1, 1], vec![1, 1], vec![1], vec![1]]);
+        assert_eq!(counts(groups(0, &varied)), Vec::<Vec<usize>>::new());
+        for pagination in [&shapes, &varied] {
+            for n in (0..=64).chain(std::iter::once(MAX_UNITS)) {
+                let words: Vec<usize> = groups(n, pagination).into_iter().flatten().flatten().collect();
+                assert_eq!(words, (0..n).collect::<Vec<_>>());
+            }
         }
     }
     #[test]

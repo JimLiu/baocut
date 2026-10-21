@@ -606,6 +606,53 @@ fn word_line_tail_join_requires_opt_in_and_a_word_line_pattern() {
 }
 
 #[test]
+fn remaining_word_page_plans_require_opt_in_bounded_entries_and_exclusivity() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/remaining-word-page-plan.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    let plans = style.scene().layout.pagination.remaining_word_page_plans.clone().unwrap();
+    assert_eq!(plans[3], vec![1, 1, 1, 1]);
+    assert!(style.scene().layout.pagination.has_fixed_lines());
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let mut legacy = body.clone();
+    legacy["scene"]["value"]["requiredCapabilities"] = json!(["caption-word-line-layout/1"]);
+    let error = parse_style(&legacy).unwrap_err();
+    assert_eq!(
+        (error.code.as_str(), error.path.as_str()),
+        ("CAPTION_CAPABILITY_UNAVAILABLE", "pagination.remainingWordPagePlans")
+    );
+    let plan_path = "pagination.remainingWordPagePlans";
+    for (field, value, path) in [
+        // Entry i may hold at most i + 1 words.
+        ("remainingWordPagePlans", json!([[1], [3]]), plan_path),
+        ("remainingWordPagePlans", json!([[2]]), plan_path),
+        ("remainingWordPagePlans", json!([]), plan_path),
+        ("remainingWordPagePlans", json!([[1], []]), plan_path),
+        ("remainingWordPagePlans", json!([[1], [1, 1], [1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1, 1]]), plan_path),
+        ("remainingWordPagePlans", json!([[1], [0, 2]]), plan_path),
+        ("maxUnitsPerPage", json!(4), plan_path),
+        ("wordLinePattern", json!([[2]]), plan_path),
+        ("textLinePattern", json!({"unit": "grapheme", "lines": [[4]]}), plan_path),
+        ("maxUnitsPerLine", json!(2), "pagination.maxUnitsPerLine"),
+        ("wordPagePattern", json!([2]), "pagination.wordPagePattern"),
+    ] {
+        let mut input = body.clone();
+        input["scene"]["value"]["requiredCapabilities"] = json!([
+            "caption-remaining-word-page-plan/1",
+            "caption-word-line-layout/1",
+            "caption-word-page-layout/1",
+            "caption-text-line-layout/1",
+            "caption-line-unit-quota/1"
+        ]);
+        input["scene"]["value"]["layout"]["pagination"][field] = value;
+        let error = parse_style(&input).unwrap_err();
+        assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_SCENE_INVALID", path), "{field}");
+    }
+    let mut over = body.clone();
+    over["scene"]["value"]["layout"]["pagination"]["remainingWordPagePlans"] = json!(vec![vec![1]; 257]);
+    assert_eq!(parse_style(&over).unwrap_err().code, "CAPTION_SCENE_INVALID");
+}
+
+#[test]
 fn line_unit_quota_requires_opt_in_and_width_wrapped_pages() {
     let body: Value = serde_json::from_str(include_str!("fixtures/line-unit-quota.json")).unwrap();
     let style = parse_style(&body).unwrap();

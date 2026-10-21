@@ -222,6 +222,10 @@ pub struct Pagination {
     pub last_page_rule: Option<LastPageRule>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tail_word_rule: Option<TailWordRule>,
+    /// Entry `i` (0-based) holds the row word counts of the page that starts while
+    /// `i + 1` words remain; larger remaining counts use the last entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remaining_word_page_plans: Option<Vec<Vec<usize>>>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -259,7 +263,7 @@ pub enum TextCountUnit {
 }
 impl Pagination {
     pub fn has_fixed_lines(&self) -> bool {
-        self.word_line_pattern.is_some() || self.text_line_pattern.is_some()
+        self.word_line_pattern.is_some() || self.text_line_pattern.is_some() || self.remaining_word_page_plans.is_some()
     }
 }
 /// What happens to a lone word on the last row of an incomplete final page.
@@ -288,6 +292,7 @@ impl Default for Pagination {
             text_line_pattern: None,
             last_page_rule: None,
             tail_word_rule: None,
+            remaining_word_page_plans: None,
         }
     }
 }

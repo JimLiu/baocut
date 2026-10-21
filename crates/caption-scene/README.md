@@ -56,6 +56,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-word-line-tail-join/1` 开放 `pagination.tailWordRule: 'join-previous-line'`：固定词行模式下，未填满的末页若最后一行只有一个词，该词并入前一行（可以是上一页的最后一行）；与 `lastPageRule` 互斥。见 [word-line-tail-join.json](tests/fixtures/word-line-tail-join.json)。
 
+`caption-remaining-word-page-plan/1` 开放 `pagination.remainingWordPagePlans`：按还没分页的词数查表，第 i 项是剩余 i 个词时下一页的行词数，超过表长用最后一项；第 i 项最多 i 个词，页总是取满。行成员按固定词行冻结，与其他分页字段互斥。见 [remaining-word-page-plan.json](tests/fixtures/remaining-word-page-plan.json)。
+
 `caption-gaussian-axis/1` 与 `caption-glow-cascade/1` 提供单 Text 上下文的独立 RGBA 分量滤波：高斯采样按输入纹理 UV、多尺度 pass 按原画布有理比例定尺寸，明确边界及逐 pass gamma/量化。级联保留各尺度图，按声明的 screen 或 source-over-glow 合成；允许 RGB > alpha，须按视频格式 §5.6 使用关联输出。有效区域包含零 alpha 发光，采样与内存预算超限会拒绝。示例见 [gaussian-axis.json](tests/fixtures/gaussian-axis.json)、[glow-cascade.json](tests/fixtures/glow-cascade.json)。
 
 `caption-text-line-layout/1` 用显式 Unicode scalar 或 extended grapheme 数限制每行，按完整词贪心分组并循环页计划；分隔空白不计，超长词独占行，显式换行强制成员边界。与其他分页策略互斥，复用固定词行的时间、几何与逐采样路径，见 [text-line-layout.json](tests/fixtures/text-line-layout.json)。
