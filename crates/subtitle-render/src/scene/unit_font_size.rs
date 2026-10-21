@@ -202,6 +202,10 @@ fn sample_runs(
         italic: node.style.italic,
     }];
     let mut units = units_for(cue, base, page, t, &scene.speech_state, presentation);
+    if page_line_context::enabled(scene) {
+        // Sibling grapheme counts come from the frozen base lines; geometry is dropped below.
+        page_line_context::bind(&mut units, page, &base.content, budget)?;
+    }
     if cue_unit_context::enabled(scene) {
         cue_unit_context::bind(
             scene,

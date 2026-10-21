@@ -13,6 +13,7 @@ mod materials;
 mod noise_palette;
 mod noisy_sweep;
 mod page_envelope;
+mod page_line_context;
 mod page_window;
 mod sampled_layout;
 mod scalar_cluster;
@@ -200,6 +201,7 @@ fn page_word_input(layout: &TextLayout, page: Option<&Page>) -> PageWordInput {
 struct Unit {
     envelope: Option<Arc<glyph_envelope::Metrics>>,
     page_envelope: Option<Arc<page_envelope::Metrics>>,
+    page_lines: Option<Arc<page_line_context::Lines>>,
     word_position: Option<usize>,
     line_position: Option<usize>,
     cue_bindings: Option<Arc<cue_unit_context::CueBindings>>,
@@ -685,6 +687,14 @@ fn resolved_units(
             if glyph_envelope::enabled(scene) {
                 glyph_envelope::bind(&mut resolved_units, &resolved.pages[pi], budget)?;
             }
+            if page_line_context::enabled(scene) {
+                page_line_context::bind(
+                    &mut resolved_units,
+                    &resolved.pages[pi],
+                    &resolved.content,
+                    budget,
+                )?;
+            }
             if global {
                 cue_unit_context::bind(
                     scene,
@@ -1081,6 +1091,7 @@ fn units_for(
     let base = Unit {
         envelope: None,
         page_envelope: None,
+        page_lines: None,
         word_position: None,
         line_position: None,
         cue_bindings: None,
@@ -1595,6 +1606,13 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
     }
     if line_box::enabled(r.scene) {
         line_box::add_fields(&mut out.fields, u.line_box);
+    }
+    if page_line_context::enabled(r.scene) {
+        page_line_context::add_fields(
+            &mut out.fields,
+            u.page_lines.as_deref(),
+            r.scene.layout.max_lines,
+        );
     }
     cue_unit_context::select(&mut out, u, u.cue_selector.as_deref());
     out

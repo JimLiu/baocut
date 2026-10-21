@@ -21,6 +21,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-line-unit-quota/1",
     "caption-word-line-tail-join/1",
     "caption-remaining-word-page-plan/1",
+    "caption-page-line-context/1",
     "caption-line-box-context/1",
     "caption-shape-paint/1",
     "caption-expressions/1",

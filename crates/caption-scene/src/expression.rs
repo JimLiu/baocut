@@ -101,7 +101,22 @@ pub fn typed_value(t: ValueType, value: &Value) -> Result<Evaluated> {
         }
     }
 }
+/// Static slots of `caption-page-line-context/1`: `<field>.<k>` reads line `k` of the current page.
+pub const PAGE_LINE_SLOTS: usize = 16;
+const PAGE_LINE_FIELDS: [&str; 3] = ["layout.pageLineBoxX", "layout.pageLineBoxWidth", "unit.pageLineGraphemeCount"];
+/// Splits a page line read into its field and zero-based slot; slots are canonical decimals below `PAGE_LINE_SLOTS`.
+pub fn page_line_slot(path: &str) -> Option<(&'static str, usize)> {
+    PAGE_LINE_FIELDS.iter().find_map(|field| {
+        let slot = path.strip_prefix(field)?.strip_prefix('.')?;
+        let canonical = !slot.is_empty() && slot.len() <= 2 && slot.bytes().all(|b| b.is_ascii_digit()) && (slot == "0" || !slot.starts_with('0'));
+        let slot = slot.parse::<usize>().ok().filter(|k| canonical && *k < PAGE_LINE_SLOTS)?;
+        Some((*field, slot))
+    })
+}
 pub fn context_type(path: &str) -> Option<ValueType> {
+    if let Some((field, _)) = page_line_slot(path) {
+        return Some(if field.starts_with("unit.") { ValueType::Scalar } else { ValueType::Length });
+    }
     Some(match path {
         "time.elapsedSeconds"
         | "time.seconds"
@@ -202,6 +217,18 @@ pub fn context_type(path: &str) -> Option<ValueType> {
     })
 }
 fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
+    if let Some((_, slot)) = page_line_slot(path) {
+        if !scene.required_capabilities.iter().any(|c| c == "caption-page-line-context/1") {
+            return Err(Diagnostic::new(
+                "CAPTION_CAPABILITY_UNAVAILABLE",
+                path,
+                "caption-page-line-context/1 must be declared",
+            ));
+        }
+        if slot >= scene.layout.max_lines {
+            return Err(Diagnostic::new("CAPTION_EXPRESSION_TYPE", path, "page line slot is not below maxLines"));
+        }
+    }
     if matches!(
         path,
         "layout.labelWidth"

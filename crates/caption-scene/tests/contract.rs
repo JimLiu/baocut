@@ -799,3 +799,47 @@ fn line_neighbor_context_requires_opt_in_and_cannot_size_or_place_layout() {
     scene["layout"]["fontSizeBindings"][0]["value"] = json!({"kind":"expression","expression":{"op":"if","condition":{"op":"read","path":"unit.previousWordInLine"},"then":{"op":"literal","type":"length","value":12},"else":{"op":"literal","type":"length","value":14}}});
     assert_eq!(parse_style(&sized).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
 }
+
+#[test]
+fn page_line_context_reads_bounded_slots_and_keeps_geometry_out_of_sizing() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/page-line-context.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let scene = style.scene();
+    for (path, ty) in [
+        ("layout.pageLineBoxX.0", ValueType::Length),
+        ("layout.pageLineBoxWidth.3", ValueType::Length),
+        ("unit.pageLineGraphemeCount.2", ValueType::Scalar),
+    ] {
+        let read = json!({"op":"read","path":path});
+        assert_eq!(infer(&expr(read.clone()), scene, &BTreeMap::new()).unwrap(), ty);
+        let mut legacy = scene.clone();
+        legacy.required_capabilities.retain(|cap| cap != "caption-page-line-context/1");
+        assert_eq!(
+            infer(&expr(read), &legacy, &BTreeMap::new()).unwrap_err().code,
+            "CAPTION_CAPABILITY_UNAVAILABLE"
+        );
+    }
+    // Slots are canonical decimals below maxLines (4 here) and the 16-slot ceiling.
+    for path in [
+        "layout.pageLineBoxX.4",
+        "layout.pageLineBoxX.01",
+        "layout.pageLineBoxX.16",
+        "layout.pageLineBoxX.x",
+        "layout.pageLineBoxX",
+        "unit.pageLineGraphemeCount.",
+    ] {
+        let read = json!({"op":"read","path":path});
+        assert_eq!(infer(&expr(read), scene, &BTreeMap::new()).unwrap_err().code, "CAPTION_EXPRESSION_TYPE", "{path}");
+    }
+    assert_eq!(page_line_slot("unit.pageLineGraphemeCount.15"), Some(("unit.pageLineGraphemeCount", 15)));
+    // Line geometry exists only after sizing and wrapping; grapheme counts come from frozen lines.
+    let mut sized = body.clone();
+    sized["scene"]["value"]["layout"]["fontSizeBindings"][0]["value"] = json!({"kind":"expression","expression":
+        {"op":"read","path":"layout.pageLineBoxWidth.1"}});
+    assert_eq!(parse_style(&sized).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+    let mut early = body.clone();
+    early["scene"]["value"]["layout"]["bindings"] = json!([{"nodeId":"caption","property":"lineHeight","value":{"kind":"expression","expression":
+        {"op":"read","path":"unit.pageLineGraphemeCount.0"}}}]);
+    assert_eq!(parse_style(&early).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+}
