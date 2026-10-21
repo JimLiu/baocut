@@ -33,6 +33,7 @@
       "app/model-layout.js",
       "app/model-player.js",
       "app/model-lite.js",
+      "app/model-lite-script.js",
       "app/model-proxy.js",
       "app/model-home-workspace.js",
       "app/model-home-slides.js",
@@ -389,6 +390,7 @@
       "app/editor-history.jsx",
       "app/editor-keys.jsx",
       "app/editor-cuts.jsx",
+      "app/editor-lite-script.jsx",
       "app/editor-lite.jsx",
       "app/editor.jsx",
       "app/home-workspace-store.jsx",
@@ -490,9 +492,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=249e4b118951",
-    "css": "generated/app.css?v=9846206bc521",
-    "bytes": 4644771
+    "js": "generated/app.js?v=6ae966192145",
+    "css": "generated/app.css?v=f26bb069c25b",
+    "bytes": 4659030
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -524,6 +526,7 @@
       "app/model-layout.js",
       "app/model-player.js",
       "app/model-lite.js",
+      "app/model-lite-script.js",
       "app/model-markup.js",
       "app/model-proxy.js",
       "app/model-nav.js",
@@ -715,6 +718,7 @@
       "app/editor-history.jsx",
       "app/editor-keys.jsx",
       "app/editor-cuts.jsx",
+      "app/editor-lite-script.jsx",
       "app/editor-lite.jsx",
       "app/editor.jsx",
       "app/stage-markup.jsx",
@@ -747,9 +751,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=e66507220552",
-    "css": "generated/web.css?v=0aed96e0c88c",
-    "bytes": 2743256
+    "js": "generated/web.js?v=71c783c4c203",
+    "css": "generated/web.css?v=7b0880c091cf",
+    "bytes": 2757493
   },
   "components": {
     "file": "Components.html",

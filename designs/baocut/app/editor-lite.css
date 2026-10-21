@@ -95,3 +95,34 @@ body.is-lite-view > div[role="region"] { bottom: 156px; }
 .lt-ov--footage { left: 40px; top: 40px; }
 .lt-ov__src { font-family: var(--mono); color: var(--gray-600); }
 .lt-ov--mark { right: 40px; bottom: 40px; background: var(--gray-900); color: var(--gray-25); opacity: 0.8; box-shadow: none; }
+
+/* 侧栏的三页（editor-lite-script.jsx）：顶上一行「台词 / 脚本」与「字幕样式」；脚本页整份只读、正在播的那一段的小节标出来；版本页上面列表、下面选中那一版。
+   边界只画一根 2px gray-100 的横线，与侧栏其余分隔一致。改动的标法与协作文档的版本页同一套（home-docs-versions.css）：新加绿、改过橙、删掉红并划掉，另写一个字的标签。 */
+.lt__side > .pview { flex: 1 1 auto; min-height: 0; }
+.lt-side__top { display: flex; align-items: center; gap: 8px; flex: none; height: 48px; padding: 0 12px 0 16px; border-bottom: 2px solid var(--gray-100); }
+.lt-sp { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.lt-sp__meta { display: flex; align-items: center; gap: 8px; flex: none; padding: 8px 12px 8px 16px; border-bottom: 2px solid var(--gray-100); }
+.lt-sp__meta > .t-detail { flex: 1 1 auto; min-width: 0; }
+.lt-sp__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; }
+.lt-sp__blk { position: relative; }
+.lt-sp__plain { white-space: pre-line; }   /* Web 入口没有 Markdown 渲染：列表与多行段落保留原来的换行 */
+.lt-sp__blk > :not(.lt-sp__here):not(.lt-sv__tag) { margin: 0 0 8px; }
+.lt-sp__blk.is-h { margin-top: 16px; }
+.lt-sp__blk:first-child { margin-top: 0; }
+/* 正在播的那一段：小节标题到下一个标题之间左边一根蓝线 */
+.lt-sp__blk.is-in { margin-inline: -16px; padding-inline: 14px 16px; border-left: 2px solid var(--blue-800); }
+.lt-sp__here { float: right; margin: 2px 0 0 8px; color: var(--blue-900); font-weight: 700; }
+.lt-sv__list { flex: none; max-height: 40%; overflow-y: auto; padding: 8px; border-bottom: 2px solid var(--gray-100); }
+.lt-sv__list .vh-row { padding: 8px; }
+.lt-sv__bar { display: flex; align-items: center; gap: 8px; flex: none; padding: 8px 12px; }
+.lt-sv__why { flex: none; margin: 0; padding: 0 12px 8px; }
+.lt-sv__page { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px 16px 16px; border-top: 2px solid var(--gray-100); }
+.lt-sp__blk.is-added, .lt-sp__blk.is-changed, .lt-sp__blk.is-removed { margin-inline: -12px; margin-bottom: 4px; padding: 4px 12px 4px 10px; border-left: 2px solid; border-radius: 8px; }
+.lt-sp__blk.is-added { border-color: var(--green-700); background: var(--green-100); }
+.lt-sp__blk.is-changed { border-color: var(--orange-700); background: var(--orange-100); }
+.lt-sp__blk.is-removed { border-color: var(--red-700); background: var(--red-100); color: var(--gray-600); }
+.lt-sp__blk.is-removed > :not(.lt-sv__tag) { text-decoration: line-through; }
+.lt-sv__tag { float: right; margin: 2px 0 0 8px; font-weight: 700; }
+.lt-sp__blk.is-added > .lt-sv__tag { color: var(--green-1000); }
+.lt-sp__blk.is-changed > .lt-sv__tag { color: var(--orange-1000); }
+.lt-sp__blk.is-removed > .lt-sv__tag { color: var(--red-1000); }

@@ -309,7 +309,8 @@
           <LiteSegBar ctx={ctx} segs={segs} hoverT={hoverT} setHoverT={setHoverT} zoom={zoom} setZoom={setZoom} api={strip} />
         </div>
       </div>
-      {side ? <aside className="lt__side" aria-label="当前段的脚本与台词"><LiteSide ctx={ctx} segs={segs} seg={seg} /></aside> : null}
+      {/* 侧栏顶上是「台词 / 脚本」与「字幕样式」（editor-lite-script.jsx）；台词页就是下面这块 */}
+      {side ? <aside className="lt__side" aria-label="当前段的脚本与台词"><window.LiteSidePane ctx={ctx} seg={seg} lines={<LiteSide ctx={ctx} segs={segs} seg={seg} />} /></aside> : null}
     </div>;
   }
 
