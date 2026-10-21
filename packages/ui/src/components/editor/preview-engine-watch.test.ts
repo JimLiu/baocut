@@ -225,6 +225,7 @@ test('媒体在等兼容副本：画面不算出来过；进度不动满门槛�
   await vi.advanceTimersByTimeAsync(STALL_MS * 2);
   expect(putImageData).toHaveBeenCalled();
   expect(engine.pictured).toBe(false);
+  expect(engine.converting).toEqual([clip.asset]);
   expect(engine.stall).toBeNull();
 
   progress = 0.4;
