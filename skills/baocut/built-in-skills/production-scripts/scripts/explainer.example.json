@@ -28,10 +28,9 @@
   "footage": {
     "clips": "clips.json",
     "layer": "over",
-    "font": "shared/fonts/body.ttf",
-    "label": { "size": 28, "margin": 46 },
+    "label": { "size": 28, "corner": "top-right", "inset": { "x": 2.4, "y": 4 }, "font": "<font family for the label>" },
     "loudness": -17,
-    "subs": { "fontsDir": "shared/fonts", "font": "<font family for the video language>", "size": 54, "trFont": "<font family for the original words>", "trSize": 32, "whoSize": 36, "marginV": 64 }
+    "subs": { "y": 88, "fontSize": 26, "font": "<font family for the video language>", "language": "en", "speaker": { "scale": 0.62, "color": "#BBBBBB" } }
   },
   "watermark": {
     "file": "assets/watermark.png",

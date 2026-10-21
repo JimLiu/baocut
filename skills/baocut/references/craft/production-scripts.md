@@ -19,14 +19,14 @@
 | `explainer.json`（也认 `production.json`） | 视频 id、CLI 命令、语言、帧率与画幅、段落顺序、旁白稿的位置、配音与转写的模型、打包规则、轨道与名字、实拍与水印的设定。字段表读 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](production-scripts/references/pipeline.md) 第 2 节 |
 | 旁白稿（Markdown） | `## <段落 id> 标题` 开一段，段内每个非空行是一句旁白，一句一个画面节拍；`@`、括号、`>`、`<!--` 开头的行是备注（画面意图写在这里，不配音） |
 | `scenes/<id>.js` + `shared/` | 每段的场景代码与共用的引擎、字体、图片；场景从 `window.TIMING` 读这一段的时长与逐句、逐字时间 |
-| `clips.json`（可选） | 实拍片段与照片：来源文件与原片起止，放在哪一段的哪一句、从哪几个字起（`cue`），保留原声、旁白留白（`gap`）、背靠背（`follow`）、双语字幕、单侧转场、裁边与放法、画中画、照片的推拉（`motion`） |
+| `clips.json`（可选） | 实拍片段与照片：来源文件与原片起止，放在哪一段的哪一句、从哪几个字起（`cue`），保留原声、旁白留白（`gap`）、背靠背（`follow`）、双语字幕、单侧转场、裁边与取景（`crop`、`focus`）、放法、画中画 |
 | `watermark`（配置里，可选） | 水印图片、每次出现的位置与时刻 |
 
-计划定下后，剩下的就是把它摆上时间线：`assemble.mjs` 摆旁白与代码包，`captions.mjs` 建字幕，`overlay.mjs` 剪并摆实拍与水印。改计划只重做受影响的段（第 3 节）。摆的这一步也可以交给 Runtime：把段落（代码包、旁白、对齐结果）、实拍片段（`overlay.mjs --render` 剪好的文件当普通素材）、卡片与水印改写成 `baocut edits assemble` 的计划，一次放好，重跑只动变了的；烧进画面的标签与字幕仍由脚本做。
+计划定下后，剩下的就是把它摆上时间线：`assemble.mjs` 摆旁白与代码包，`captions.mjs` 建字幕，`overlay.mjs` 摆实拍、来源标签、原声字幕与水印（都写在时间线上，不剪文件、不烧字）。改计划只重做受影响的段（第 3 节）。摆的这一步也可以交给 Runtime：把段落（代码包、旁白、对齐结果）、实拍片段、卡片与水印改写成 `baocut edits assemble` 的计划，一次放好，重跑只动变了的；来源标签与原声的双语字幕仍由 `overlay.mjs` 放。
 
 ## 2. 按顺序跑
 
-1. 把本 skill 的 `scripts/` 整个拷进工程（例如 `<工程>/tools/`）：能直接读到文件时拷目录，读不到时读 `scripts/` 下每个文件原样写进去。脚本都 import 同目录的 `lib.mjs`，要拷全；`*.example.json` 是配置样例。依赖 Node 18 以上与 baocut CLI；切段转写、留白压停顿、剪实拍要本机有 ffmpeg。
+1. 把本 skill 的 `scripts/` 整个拷进工程（例如 `<工程>/tools/`）：能直接读到文件时拷目录，读不到时读 `scripts/` 下每个文件原样写进去。脚本都 import 同目录的 `lib.mjs`，要拷全；`*.example.json` 是配置样例。依赖 Node 18 以上与 baocut CLI；切段转写、留白压停顿、量原声响度要本机有 ffmpeg。
 2. 照 [`scripts/explainer.example.json`](production-scripts/scripts/explainer.example.json) 在工程根目录写配置（脚本从当前目录往上找它，也可以 `--config <文件>`），有实拍时照 [`scripts/clips.example.json`](production-scripts/scripts/clips.example.json) 写 `clips.json`。
 3. 按顺序跑，每个脚本都能重跑，做完、没变化的段跳过：
 
@@ -38,7 +38,7 @@
 | 打包 | `build.mjs [id …]` | 打成代码包，时长 = 对齐出的时长 + `hold`，对到整帧 |
 | 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs --live` | `--dry` 不连 Runtime 只打印；`--live` 把代码包放上去、先不烘焙，编辑器的实时层现画（`footage.layer` 为 `under` 时眼下画不出来，见 `pipeline.md` 第 3 节） |
 | 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏 |
-| 实拍与水印 | `overlay.mjs --dry`，`--render`，`--place` | 剪到画幅、烧来源标签与双语字幕、对响度；新建实拍轨与水印轨放好（`footage.layer` 为 `under` 时实拍轨挪到代码包轨下面当底） |
+| 实拍与水印 | `overlay.mjs --dry`，再 `--place` | 每个原片链接导入一次，每个镜头一个视频片段（原片区间、裁剪、取景、原声音量与淡变都是片段字段，响度按实测换成音量），转场是时间线转场；来源标签是标签轨上的文字片段，原声字幕是单独样式的双语字幕层（带说话人）；`footage.layer` 为 `under` 时实拍轨挪到代码包轨下面当底 |
 | 给用户看 | `baocut web review --video <videoId>` | 把链接给用户，请用户在系统浏览器或 BaoCut 桌面版的审片视图里看（Claude 的内置浏览器会拦实时层，那里是黑的）；改了哪段照第 3 节重做，再 `assemble.mjs --live` |
 | 定稿烘焙 | `assemble.mjs`（不带 `--live`） | 用户说可以之后：live 的段原地换成烘焙过的包，看 `bake.renderer`；之后再导出 |
 

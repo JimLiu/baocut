@@ -8,7 +8,7 @@
 
 - 适用：旁白按段配，一段旁白对一个代码包，首尾相接排在一条视觉轨与一条音频轨上。代码包可以是整段的画面（动画打底，实拍叠在上面），也可以是透明的叠层（实拍打底铺在下面一条轨上，包里只画卡片、标注；`footage.layer` 为 `under`，`bundle.alpha` 为 true）。
 - 不适用：整片一条旁白不分段；画面不按段切（一条长录屏配旁白）；没有命令行环境（这时照 `video-production` 与代码场景细则第 7 节手动分段做、分段改）。
-- 依赖：Node 18 以上，能运行 baocut CLI。`align.mjs --chunk` 切段、`gaps.mjs` 留白与压停顿、 `overlay.mjs` 剪片段时要本机有 ffmpeg（烧双语字幕要带 libass 的 `subtitles` 滤镜）。
+- 依赖：Node 18 以上，能运行 baocut CLI。`align.mjs --chunk` 切段、`gaps.mjs` 留白与压停顿、 `overlay.mjs` 量原声响度（只读，不写文件）时要本机有 ffmpeg。
 
 ## 2. 拷过去、写配置
 
@@ -38,7 +38,7 @@
 
 旁白稿的写法：`## <段落 id> 标题` 开一段（id 要在 `order` 里），段内每个非空行是一句旁白，一句一个画面节拍；别的一、二级标题或单独一行的 `---` 结束这一段，所以来源、简化说明、分镜草案可以写在同一个文件里。
 
-工程目录：`scenes/<id>.js`（每段的场景代码）、`shared/`（各段共用的引擎、字体、图片），脚本生成 `audio/`、`timing/`、`bundles/`、`.baocut-out/`，记录 `audio/voice.json`、`timeline.json`、`captions.json`、`overlay.json`，预览页读 `preview.json`。有实拍时写一份 `clips.json`（样例 [`scripts/clips.example.json`](../scripts/clips.example.json)）：每个片段的原片起止秒数，放在哪一段的哪一句（`line` 从 0 数），可选从这句里哪几个字开始（`cue`）、保留原声（`audio`：`true`，或 0–1 的音量）、旁白在这里停下单独放（`gap`，这时 `line` 是插在哪一句之前，等于句数时放在段尾；几个 `gap` 片段给同一个 `line` 时按清单先后背靠背连放）、紧接上一个片段放（`follow`：不看 `line` / `cue`，接在清单里上一个片段的原长之后，几段素材连成一块、中间硬切）、双语字幕（`subs`：`[{ from, to, text, tr, who? }]`，原片秒数）、单侧转场（`in`、`out`：`{ kind, dur?, easing? }`，`kind` 取 `dissolve`、`wipe`、`slide`、`zoom`、`iris`，`dur` 默认 0.5 秒，`easing` 默认 `ease-in-out`）、裁边与放法（`crop`：`[x, y, w, h]` 原片像素；`fit`：默认 `cover` 铺满裁切，`contain` 整幅放进、补黑边；`pip`：`{ x, y, w }` 放成画中画，`x`、`y` 是框中心、`w` 是框宽，都是画布的百分比，高按原片裁过之后的宽高比，不能和 `subs` 一起用）、另一个来源文件与标签。来源也可以是一张图片（png、jpg、webp、bmp、tif；截图、海报、照片）：`from`、`to` 只定时长（写 `0` 和秒数），不能带 `audio`；不给 `motion` 就整段停在这张图上，给 `motion`（`{ kind, scale? }`）做 Ken Burns 推拉平移：`kind` 取 `zoom-in`（从整幅推到 `scale` 倍）、`zoom-out`（反过来）、`pan-left`（放大 `scale` 倍，镜头从右往左移，画里的东西往右走）、`pan-right`（反过来），`scale` 默认 1.08、取 1 到 2 之间，匀速走完整个片段，不能和 `pip` 一起用。场景代码从 `window.TIMING` 读这一段的时长与逐句、逐字时间（`{dur, lines:[{text, start, end, chars}]}`，`chars[k]` 是第 k 个字符开始被说到的秒数），在 `window.__baocutCompositions[<compositionId>]` 上注册（默认 `main`）。
+工程目录：`scenes/<id>.js`（每段的场景代码）、`shared/`（各段共用的引擎、字体、图片），脚本生成 `audio/`、`timing/`、`bundles/`、`.baocut-out/`，记录 `audio/voice.json`、`timeline.json`、`captions.json`、`overlay.json`，预览页读 `preview.json`。有实拍时写一份 `clips.json`（样例 [`scripts/clips.example.json`](../scripts/clips.example.json)）：每个片段的原片起止秒数，放在哪一段的哪一句（`line` 从 0 数），可选从这句里哪几个字开始（`cue`）、保留原声（`audio`：`true`，或 0–1 的音量）、旁白在这里停下单独放（`gap`，这时 `line` 是插在哪一句之前，等于句数时放在段尾；几个 `gap` 片段给同一个 `line` 时按清单先后背靠背连放）、紧接上一个片段放（`follow`：不看 `line` / `cue`，接在清单里上一个片段的原长之后，几段素材连成一块、中间硬切）、双语字幕（`subs`：`[{ from, to, text, tr, who? }]`，原片秒数）、单侧转场（`in`、`out`：`{ kind, dur?, easing? }`，`kind` 取 `dissolve`、`wipe`、`slide`、`zoom`、`iris`，`dur` 默认 0.5 秒，`easing` 默认 `ease-in-out`）、裁边与放法（`crop`：`[x, y, w, h]` 原片像素；`fit`：默认 `cover` 铺满裁切，`contain` 整幅放进、补黑边；`focus`：`[s, dx, dy]` 放大 s 倍、画面中心挪到离正中 dx%、dy%（正数往左、往上），换成取景点；`pip`：`{ x, y, w }` 放成画中画，`x`、`y` 是框中心、`w` 是框宽，都是画布的百分比，高按原片裁过之后的宽高比）、另一个来源文件与标签。来源也可以是一张图片（png、jpg、webp、bmp、tif；截图、海报、照片）：`from`、`to` 只定时长（写 `0` 和秒数），不能带 `audio`，整段停在这张图上；图片推拉（旧版的 `motion`）眼下没有时间线上的写法，带 `motion` 的片段报错。场景代码从 `window.TIMING` 读这一段的时长与逐句、逐字时间（`{dur, lines:[{text, start, end, chars}]}`，`chars[k]` 是第 k 个字符开始被说到的秒数），在 `window.__baocutCompositions[<compositionId>]` 上注册（默认 `main`）。
 
 ## 3. 按顺序跑
 
@@ -50,7 +50,7 @@
 | 打包 | `node tools/build.mjs [id …]` | 打成 `bundles/<id>/`，时长 = 对齐出的时长 + `hold`，对齐到整帧。还没对齐的段按估算时长打包，只用于配音前的样帧 |
 | 排时间线 | `node tools/assemble.mjs --dry`，再 `node tools/assemble.mjs --live` | `--dry` 不连 Runtime，打印每段的起始帧、帧数和要做的事；确认后去掉 `--dry` 执行。`--live` 用 `compositions import --live` 放代码包：不烘焙、不排任务，几秒一段，编辑器预览时由实时层现画；`timeline.json` 里这些段记 `live: true`。实时层眼下只画铺满画幅、垫在最底下的代码包：`footage.layer` 为 `under`（透明卡片叠在实拍上）时审片视图提示这些段画不出来，只能先不带 `--live` 烘焙再看，或者先给 BaoCut 补上叠层的实时层（`video-production` 代码场景细则第 7 节） |
 | 字幕 | `node tools/captions.mjs --dry`，再 `node tools/captions.mjs` | 用稿子原文加对齐时间写转写文稿、建字幕层，专名照稿子的写法上屏。字幕默认比第一个字早约半秒出现，从 0 秒起的那段建好后把字幕片段起点裁到第一个字，封面上不带字幕 |
-| 实拍与水印 | `node tools/overlay.mjs --dry`，再 `--render`，再 `--place` | `--dry` 打印每段实拍与每次水印在时间线上的起止、留白、原声、字幕条数、转场与图片的推拉（带 `motion` 的片段另起一行打出要用的 `-vf` 滤镜）；`--render` 按 `crop`、`fit` 放进画幅，图片按片段的帧数出视频（`motion` 用 ffmpeg `zoompan`，先放大到 4 倍画幅再推，免得抖），（`pip` 的片段剪成框的像素大小）、对到整帧，把来源标签烧进右上角、双语字幕烧在底部，原声按转场长度淡入淡出、响度对到 `footage.loudness`；`--place` 新建两条视觉轨（名字取 `names`；`footage.layer` 为 `under` 时用 `moveTrack` 把实拍轨挪到代码包那条轨下面），导入片段铺满放好（`pip` 的用 `setStyle` 的 `mode: 'pip'` 加 `setTransform` 的 `x`、`y`、`w` 放成画中画，转场作用在框上），数字的 `audio` 用 `setAudioMix` 设音量，`in`、`out` 用 `setTransition` 设成单侧转场，水印放成画中画。放之前看一眼水印会不会压到画面上的字，压到了改 `at` |
+| 实拍与水印 | `node tools/overlay.mjs --dry`，再 `--place [段 …]` | `--dry` 不连 Runtime，打印每段实拍与每次水印在时间线上的起止、留白、原声、字幕条数、裁剪与转场。`--place` 不剪、不转码：每个原片 `assets import --storage linked` 一次（素材 ID 记在 `overlay.json` 的 `assets`）；按段一笔 `insertItems` 写入这一段的视频片段——`timeMap.sourceIn` 是原片起点，`crop` 由像素框按素材记录里的原片宽高换成四边比例，`focus` 换成 `focalPoint`，`pip` 写 `mode: 'pip'` 与 `place`，`embeddedAudio` 带音量与淡入淡出（跟着转场长度，没有转场时 0.15 / 0.3 秒）；音量 = 10^((`footage.loudness` − 实测 LUFS) / 20)，实测用 ffmpeg 的 `ebur128` 只读地量放上去的那一段，夹在 0–4，结果缓存在 `overlay.json` 的 `loudness`。同一笔里写来源标签：标签轨（在最上面）上一个文字片段，和镜头同起同止，位置按 `footage.label.corner` 与 `inset` 固定、画中画时贴在框的一角。再一笔给 `in`、`out` 设单侧转场。一个原片的片段都放好后，把它的 `subs` 写成一份转写（原话，词时间按各条的起止摊开，每条一段）和一份译文，`captions create --bilingual` 建双语字幕层：成片语言在上、原话在下、`speakerLabel` 在最上面写说话人，样式文档与旁白字幕分开（`footage.subs` 的 `y`、`fontSize`、`font`、`speaker`）。水印放成画中画。放之前看一眼水印会不会压到画面上的字，压到了改 `at`。旁白字幕的 `captions.mjs` 认 `captions.json` 的 `_style`；视频里有了原声字幕的样式文档之后，没记 `_style` 的工程要先记上 |
 | 给用户看 | `baocut web review --video <videoId>` | 打印的链接整条给用户，请用户在系统浏览器里开，或在 BaoCut 桌面版打开这部视频、切到审片视图。宿主自带的浏览器面板（例如 Claude 的内置浏览器）拦实时层的沙箱页面，没烘的段在那里是黑的，不等于画面坏了。用户逐段提意见，照第 4 节重做改到的段，再 `assemble.mjs --live` |
 | 定稿烘焙 | `node tools/assemble.mjs --dry`，再 `node tools/assemble.mjs` | 用户说可以之后不带 `--live` 再跑：`--dry` 里 live 的段标 `bake (was live)`，执行时原地换成烘焙过的包（`replace`，Δ 为 0 不挪）。每段导入后打印并记下 `bake` 的 `renderer`、`fps`、`seconds`；结尾还有没烘的段时打印 `live (not baked)`。之后再导出 |
 | 量画面占比 | `node tools/coverage.mjs`（或 `--from <videos inspect 存下的 JSON>` 不连 Runtime；`--json` 出机器可读的结果） | 读时间线，报每一帧最上面铺满的是实拍、代码画面还是空的各占多少、画中画占多少，镜头数与中位长度、最长一个镜头、最长一段没有实拍，实拍片段数、带原声的几段、同一素材用了几次，再按分钟列一条实拍占比。只报数不判对错：对照这期定下的形态看数对不对（`SKILL.md` 第 4 节）。在工程里跑时自动按各段代码包的 `data-alpha` 判断透明叠层，不带配置时用 `--alpha` 告诉它 |
@@ -62,7 +62,7 @@
 - 自己调 CLI 读 JSON 时只读标准输出：任务进度一律写在标准错误，`2>&1` 合在一起就解析不了。`assets import` 的 `place.at` 写秒数字符串（`atOf` 算好的整帧秒数）。
 - **单侧转场**：`setTransition` 只给一侧，入场给 `rightItemId`、出场给 `leftItemId`，`params` 给 `{}`；`duration` 写 `{ unit: 'frames', value: <帧数> }`，同时要写 `alignment: 'exact-frame'`。长度超过片段的一半时引擎缩短生效长度，列在回执的 `impact.shortenedTransitions` 里；脚本先按一半夹好，和后一个片段首尾相接的那一侧不设（同一条轨上背靠背只能硬切），与预览页的画法一致。放完导出一小段看转场与字幕。
 - 每个脚本都能重跑：已经做完、没有变化的段跳过。
-- **备选预览页**：还没建视频、或编辑器打不开时，`node tools/overlay.mjs --preview`（有实拍时）再 `node tools/preview.mjs` 写 `preview.json`（各段的代码包、旁白、句子时间、稿子里的备注与叠在上面的实拍；`--preview` 只剪新的或来源、起止、裁法改过的片段，`--force` 全部重剪；段里最后一个片段超出段尾时会提示）。预览页读 [`references/craft/video-production.md`](../../video-production.md)，取它的 `examples/bundle-preview.html` 拷到工程根目录，在根目录起静态服务打开（代码场景细则第 7 节），页面跟着旁白画、叠实拍，能连播。有视频时用实时层，不用它。
+- **备选预览页**：还没建视频、或编辑器打不开时，`node tools/preview.mjs` 写 `preview.json`（各段的代码包、旁白、句子时间与稿子里的备注；实拍不再预先剪成小片段，备选预览页不叠实拍）。预览页读 [`references/craft/video-production.md`](../../video-production.md)，取它的 `examples/bundle-preview.html` 拷到工程根目录，在根目录起静态服务打开（代码场景细则第 7 节），页面跟着旁白画、叠实拍，能连播。有视频时用实时层，不用它。
 
 ## 4. 改一段
 
@@ -81,5 +81,5 @@
 - 插入的段：先用一笔 edits apply 的 `insertRange` 在上一段终点腾出它的帧数（只列之后还有片段的轨道），再放进去。
 - 从 `order` 里删掉的段不自动处理：脚本报错，先在 BaoCut 里用 `removeRange` 波纹删掉它的时间段（代码场景细则第 7 节），再删掉 `timeline.json` 里的那一项。
 - 跨过改动点的片段（全片音乐、在某段中间开始的音效）留在原处、不剪开；章节也不跟着挪，之后的章节另用 `upsertChapter` 改 `at`。做完脚本会核对各段首尾相接，其余自己看一遍。
-- 实拍片段与水印在改动点之后的会跟着波纹一起挪；之后跑 `overlay.mjs --check`，对照视频里的位置与现在按段落算出的起点。改动所在那一段里的片段，以及改了 `clips.json` 或 `watermark.at` 的，在 BaoCut 里删掉旧片段、删掉 `overlay.json` 里对应的记录，再 `--render`、`--place`。
+- 实拍片段与水印在改动点之后的会跟着波纹一起挪；之后跑 `overlay.mjs --check`，对照视频里的位置与现在按段落算出的起点。改动所在那一段里的片段，以及改了 `clips.json` 或 `watermark.at` 的，在 BaoCut 里删掉旧片段、删掉 `overlay.json` 里对应的记录，再 `--place`。改了某个原片的 `subs` 时，`--check` 会报出来：删掉那层原声字幕片段与 `overlay.json` 里 `bites` 的那一项，再 `--place`。
 - 试烘焙、试导出用的临时视频，交付前列给用户；删除（`videos delete --yes`）要用户同意后再做。
