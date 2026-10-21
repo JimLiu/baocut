@@ -146,6 +146,7 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "unit.pageIndex"
         | "unit.pageCount"
         | "unit.pageLineCount"
+        | "unit.pageTag"
         | "time.progress"
         | "time.clampedProgress"
         | "unit.index"
@@ -217,6 +218,18 @@ pub fn context_type(path: &str) -> Option<ValueType> {
     })
 }
 fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
+    if path == "unit.pageTag" {
+        if !scene.required_capabilities.iter().any(|c| c == "caption-page-tag/1") {
+            return Err(Diagnostic::new(
+                "CAPTION_CAPABILITY_UNAVAILABLE",
+                path,
+                "caption-page-tag/1 must be declared",
+            ));
+        }
+        if scene.layout.pagination.page_tags.is_none() {
+            return Err(Diagnostic::new("CAPTION_SCENE_INVALID", path, "pagination.pageTags required"));
+        }
+    }
     if let Some((_, slot)) = page_line_slot(path) {
         if !scene.required_capabilities.iter().any(|c| c == "caption-page-line-context/1") {
             return Err(Diagnostic::new(

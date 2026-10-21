@@ -86,3 +86,10 @@ test('fixed line fit scales fixed rows to the widest row', () => {
   };
   expect(JSON.parse(JSON.stringify(pagination))).toEqual(pagination);
 });
+
+test('page tags label each word line pattern page', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<NonNullable<Pagination['pageTags']>>().toEqualTypeOf<number[]>();
+  const pagination: Pagination = { wordLinePattern: [[1], [2], [1, 1]], pageTags: [7, 0, 3] };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual(pagination);
+});

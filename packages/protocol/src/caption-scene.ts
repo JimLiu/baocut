@@ -130,7 +130,10 @@ export interface CaptionScene {
       /** Scales every fixed row of a page to the widest row; a last row narrower than lastLineWidthRatio of it
        * grows by at most lastLineMaxScale, and rows add extraLineHeight over the page's largest scale.
        * Requires caption-fixed-line-fit/1. */
-      fixedLineFit?: { lastLineWidthRatio: number; lastLineMaxScale: number; extraLineHeight: number } | null };
+      fixedLineFit?: { lastLineWidthRatio: number; lastLineMaxScale: number; extraLineHeight: number } | null;
+      /** One integer of 0..65535 per wordLinePattern page, read as unit.pageTag; page p reads entry p mod the
+       * pattern length. Requires caption-page-tag/1. */
+      pageTags?: number[] | null };
     align?: 'left' | 'center' | 'right'; leadingGap?: 'show' | 'hide';
   };
   speechState?: { gapPolicy?: 'none' | 'hold-previous'; tailPolicy?: 'none' | 'hold-last'; timingPolicy?: 'require-word-timing' | 'estimated' };

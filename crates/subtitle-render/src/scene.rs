@@ -14,6 +14,7 @@ mod noise_palette;
 mod noisy_sweep;
 mod page_envelope;
 mod page_line_context;
+mod page_tag;
 mod page_window;
 mod sampled_layout;
 mod scalar_cluster;
@@ -1618,6 +1619,7 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
             r.scene.layout.max_lines,
         );
     }
+    page_tag::add_fields(&mut out.fields, r.scene, u.page_index);
     cue_unit_context::select(&mut out, u, u.cue_selector.as_deref());
     out
 }

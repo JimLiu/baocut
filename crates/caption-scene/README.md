@@ -52,6 +52,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-page-line-context/1` 让同一文字节点的所有单元按页内行号读取当前页各行：`layout.pageLineBoxX.<k>`、`layout.pageLineBoxWidth.<k>` 是第 k 行的行框，`unit.pageLineGraphemeCount.<k>` 是该行非空白字素数；k 小于 maxLines 且小于 16，超出实际行数读 0。行框只能在绘制阶段读取，字素数还可用于字号绑定。见 [page-line-context.json](tests/fixtures/page-line-context.json)。
 
+`caption-page-tag/1` 开放 `pagination.pageTags`：与 `wordLinePattern` 等长、每项 0–65535 的整数列表，第 p 页读第 p mod n 个标签；每种单元读 `unit.pageTag`（scalar），字号绑定也可读取。没有 `wordLinePattern` 或长度不等时拒绝，核心不解释标签。见 [page-tag.json](tests/fixtures/page-tag.json)。
+
 `caption-shape-paint/1` 让 shape 节点用 `fillPaint` 填充：`solid` 或 `linear`，渐变 from/to 是 shape 实际绘制矩形（宽高姿态之后、节点变换之前）的归一化坐标。只用于 shape，不能与 `fill` 属性或 fill 动画同用；节点 opacity 只作用一次。见 [shape-paint.json](tests/fixtures/shape-paint.json)。
 
 `caption-line-unit-quota/1` 开放 `pagination.maxUnitsPerLine`：按宽度换行的页里一行最多取这么多词，下一个词会超宽时仍提前换行，页仍按 `maxLines` 收行；与固定行模式互斥。见 [line-unit-quota.json](tests/fixtures/line-unit-quota.json)。

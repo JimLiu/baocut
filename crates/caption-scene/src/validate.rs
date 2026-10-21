@@ -24,6 +24,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-fixed-line-wrap/1",
     "caption-fixed-line-fit/1",
     "caption-page-line-context/1",
+    "caption-page-tag/1",
     "caption-line-box-context/1",
     "caption-shape-paint/1",
     "caption-expressions/1",
@@ -296,6 +297,30 @@ fn validate_tail_word_rule(scene: &Scene) -> Result<()> {
     }
     Ok(())
 }
+/// `caption-page-tag/1`: an integer per word-line pattern page that expressions read as
+/// `unit.pageTag`; tags cycle with the pattern, so the lists have equal lengths.
+fn validate_page_tags(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    let Some(tags) = &pagination.page_tags else {
+        return Ok(());
+    };
+    let path = "pagination.pageTags";
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-page-tag/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-page-tag/1 must be declared",
+        ));
+    }
+    let Some(pattern) = &pagination.word_line_pattern else {
+        return Err(invalid(path, "wordLinePattern required"));
+    };
+    if tags.len() != pattern.len() || tags.iter().any(|tag| *tag > MAX_PAGE_TAG) {
+        return Err(invalid(path, "one tag of 0..65535 per wordLinePattern page required"));
+    }
+    Ok(())
+}
+const MAX_PAGE_TAG: u32 = 65_535;
 /// `caption-fixed-line-wrap/1`: fixed rows keep their members and wrap at the layout width.
 /// Font size and style bindings and page windows rely on one display line per row.
 fn validate_fixed_line_overflow(scene: &Scene) -> Result<()> {
@@ -544,6 +569,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     validate_remaining_word_page_plans(s)?;
     validate_fixed_line_overflow(s)?;
     validate_fixed_line_fit(s)?;
+    validate_page_tags(s)?;
     validate_page_window(s)?;
     validate_unit_font_reflow(s)?;
     if s.parameters.len() > 128 || s.functions.len() > 128 || s.selectors.len() > MAX_NODES || s.animations.len() > 1024 {

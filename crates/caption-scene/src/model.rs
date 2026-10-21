@@ -232,6 +232,10 @@ pub struct Pagination {
     /// Scales every fixed row of a page to the widest row; absent keeps the base size.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixed_line_fit: Option<FixedLineFit>,
+    /// `caption-page-tag/1`: one integer per `wordLinePattern` page, read as `unit.pageTag`;
+    /// page `p` of a cue reads entry `p` modulo the pattern length.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page_tags: Option<Vec<u32>>,
 }
 /// `caption-fixed-line-wrap/1`: a fixed row wider than the layout width continues on
 /// further display lines, broken like width-wrapped text; row and page members stay frozen.
@@ -319,6 +323,7 @@ impl Default for Pagination {
             remaining_word_page_plans: None,
             fixed_line_overflow: None,
             fixed_line_fit: None,
+            page_tags: None,
         }
     }
 }
