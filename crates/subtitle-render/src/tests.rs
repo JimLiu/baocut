@@ -3774,6 +3774,34 @@ mod tests {
         assert!(!no_overlays.allows(&element("video", Some("broll"))));
     }
 
+    /// 说话人标签：`speakerLabel.on` 时，有说话人的句子在字幕块最上面多一行名字（小一号、灰色），双语的两行照旧排在它下面；
+    /// 关掉或句子没有说话人时与原来一样。
+    #[test]
+    fn speaker_label_adds_a_name_line_above_the_block() {
+        let mut document = document("none", "none");
+        document["style"]["mode"] = json!("bilingual");
+        document["cues"][0]["speaker"] = json!("Zaremba");
+        document["transCues"] = json!([{ "id": "t1", "start": 0.5, "end": 2.5, "text": "你好，世界" }]);
+        let compile = |document: &Value| {
+            OverlayRenderPlan::compile_with(document, 320, 180, 3.0, 30.0, None, OverlayIncludes::ALL).unwrap()
+        };
+        assert_eq!(compile(&document).active_layouts(1.5).len(), 2, "off by default");
+
+        document["style"]["speakerLabel"] = json!({ "on": true });
+        let mut plan = compile(&document);
+        let layouts = plan.active_layouts(1.5);
+        assert_eq!(layouts.len(), 3);
+        assert_eq!(layouts[0].item.text, "Zaremba");
+        assert!(layouts[0].preview, "the label never enters the cache key or text motion");
+        assert!(layouts[0].style.font_size < layouts[1].style.font_size);
+        assert_eq!(layouts[0].style.color, SubtitleColor::parse(Some(&json!("#BBBBBB")), layouts[0].style.color));
+        let stack = plan.stack_layout(&layouts, 180.0 / REFERENCE_SHORT_EDGE);
+        assert!(stack.placements[0].1 < stack.placements[1].1, "label on top");
+
+        document["cues"][0].as_object_mut().unwrap().remove("speaker");
+        assert_eq!(compile(&document).active_layouts(1.5).len(), 2, "no speaker, no label");
+    }
+
     /// 关掉烧录后，显示模式的前提校验必须一并让路：没有译文也照样能导一版干净画面，
     /// 而不是因为「模式要求译文」把整次导出拒掉。
     #[test]
@@ -6116,6 +6144,7 @@ mod tests {
                     end: 2.5,
                 },
             ],
+            speaker: None,
         };
         assert!((word_phase(&item, 0, 0.85) - 0.35).abs() < 1e-9);
         assert!((word_phase(&item, 1, 1.85) - 0.35).abs() < 1e-9);

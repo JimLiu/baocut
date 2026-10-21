@@ -37,4 +37,13 @@ describe('字幕样式补丁', () => {
     expect(captionStylePatch.safeParse({ anchor: 'bottom' }).success).toBe(false);
     expect(captionStylePatch.safeParse({}).success).toBe(false);
   });
+
+  it('说话人名字：只改给出的字段，缩放比例越界拒绝', () => {
+    const body = { schema: 'baocut.legacy-studio-style/0.1', style: { speakerLabel: { on: true, scale: 0.6 } } };
+    expect(patchStudioStyle(body, { speakerLabel: { color: '#FFCC00' } })?.style).toEqual({
+      speakerLabel: { on: true, scale: 0.6, color: '#FFCC00' },
+    });
+    expect(captionStylePatch.safeParse({ speakerLabel: { on: true } }).success).toBe(true);
+    expect(captionStylePatch.safeParse({ speakerLabel: { scale: 2 } }).success).toBe(false);
+  });
 });

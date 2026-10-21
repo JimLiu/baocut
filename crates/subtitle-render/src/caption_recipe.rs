@@ -971,6 +971,7 @@ mod caption_recipe_tests {
                     end: 1.5,
                 },
             ],
+            speaker: None,
         }
     }
 

@@ -29,6 +29,8 @@ pub struct SpeechWord {
     pub end: f64,
     pub glue: bool,
     pub hidden: bool,
+    /// 说话人的显示名（转写 `speakers` 里的 `name`，没有名字时是说话人 ID）。
+    pub speaker: Option<String>,
 }
 
 /// 读好的转写：词按文档里的次序，可以按 ID 找。
@@ -51,6 +53,13 @@ impl SpeechWords {
         };
         let mut words = Vec::new();
         let mut index = HashMap::new();
+        let names: HashMap<&str, &str> = body
+            .get("speakers")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|speaker| Some((speaker.get("id")?.as_str()?, speaker.get("name")?.as_str()?)))
+            .collect();
         for word in body.get("words")?.as_array()? {
             let (Some(id), Some(start), Some(end)) = (
                 word.get("id").and_then(Value::as_str),
@@ -67,6 +76,11 @@ impl SpeechWords {
                 end: (end / timescale).max(start / timescale),
                 glue: word.get("glue").and_then(Value::as_bool).unwrap_or(false),
                 hidden: word.get("hidden").and_then(Value::as_bool).unwrap_or(false),
+                speaker: word
+                    .get("speaker")
+                    .and_then(Value::as_str)
+                    .filter(|id| !id.is_empty())
+                    .map(|id| names.get(id).copied().filter(|name| !name.trim().is_empty()).unwrap_or(id).to_string()),
             });
         }
         Some(SpeechWords {
@@ -74,6 +88,12 @@ impl SpeechWords {
             index,
             sequence_clock: body.get("clock").and_then(Value::as_str) == Some("sequence"),
         })
+    }
+
+    /// 词的说话人显示名；拆开的 CJK 子词（`<词 ID>~<k>`）按原词找。
+    pub fn speaker_of(&self, id: &str) -> Option<&str> {
+        let id = id.split_once('~').map_or(id, |(parent, _)| parent);
+        self.index.get(id).and_then(|&i| self.words[i].speaker.as_deref())
     }
 
     /// 句子的 `words` 指向的词（文档里的下标，按文档次序）。没写或一个也找不到时为 `None`。
@@ -312,6 +332,23 @@ pub fn cue_words_indexed_with_units(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn words_carry_the_speaker_display_name() {
+        let speech = SpeechWords::read(&json!({
+            "schema": SPEECH_DOCUMENT, "clock": "source-asset", "timescale": 1000,
+            "speakers": [{ "id": "spk-1", "name": "Zaremba" }, { "id": "spk-2", "name": " " }],
+            "words": [
+                { "id": "w1", "text": "I", "start": 0, "end": 100, "speaker": "spk-1" },
+                { "id": "w2", "text": "我们", "start": 100, "end": 200, "speaker": "spk-2" },
+                { "id": "w3", "text": "ok", "start": 200, "end": 300 }
+            ]
+        }))
+        .unwrap();
+        assert_eq!(speech.speaker_of("w1"), Some("Zaremba"));
+        assert_eq!(speech.speaker_of("w2~1"), Some("spk-2"), "no name: the speaker id, split CJK words by their parent");
+        assert_eq!(speech.speaker_of("w3"), None);
+    }
 
     fn speech(words: &[(&str, &str, f64, f64)], hidden: &[&str]) -> SpeechWords {
         SpeechWords::read(&json!({

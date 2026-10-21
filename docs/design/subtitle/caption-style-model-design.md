@@ -297,6 +297,7 @@ interface SequenceOptions {
 | `surface.wordBox` + `activeWord.box` | `wordBackground {color, activeColor, paddingXEm, paddingYEm, radiusEm}` | 已落地 |
 | `layout.anchor / y / width` | `verticalAlign`、`y`、`width` | 已落地 |
 | `layout.maxLines` | — | 待落地（内核按 LayoutProfile 换行，样式不限行数） |
+| `layout.speakerLabel`（字幕块上方的说话人名字） | `speakerLabel {on, scale, color}` | Studio 键已落地（视频格式规范 §3.8「说话人」）；维度模型与编辑器面板待落地 |
 | `activeWord.mode color / scale / lift / underline`, `spoken`, `unspoken` | `wordAnimation {animationId, animationName, spoken, active, unspoken}`（目录格 + 三态覆盖） | 已落地 |
 | `activeWord.scale` 叠加、`durationSeconds` | `textMotion.emphasis {color, scale, durationSeconds}` | 已落地 |
 | `activeWord.mode sweep` | `textMotion.karaoke {color, guide, nextLine}` | `grapheme` 已落地；`word` 待落地 |

@@ -45,6 +45,8 @@ pub struct CaptionCue {
     pub refs: Option<Value>,
     /// 交给内核的词（[`CaptionTrack::attach_words`] 填）；空时内核按空白切分推算。
     pub words: Vec<Value>,
+    /// 说话人的显示名：句子自己写的 `speaker`，没写时取这一句第一个词在转写里的说话人。
+    pub speaker: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,6 +80,12 @@ pub fn read_captions(body: &Value) -> Option<CaptionTrack> {
                 text: cue.get("text").and_then(Value::as_str).unwrap_or_default().to_string(),
                 refs: cue.get("words").filter(|w| w.is_object()).cloned(),
                 words: Vec::new(),
+                speaker: cue
+                    .get("speaker")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_string),
             }
         })
         .collect();
@@ -111,6 +119,13 @@ impl CaptionTrack {
                 preserve_words,
             ) {
                 cue.words = found.words;
+                if cue.speaker.is_none() {
+                    cue.speaker = cue
+                        .words
+                        .iter()
+                        .find_map(|word| word.get("id").and_then(Value::as_str).and_then(|id| speech.speaker_of(id)))
+                        .map(str::to_string);
+                }
                 if let Some(text) = found.text {
                     cue.text = text;
                 }
@@ -397,6 +412,9 @@ impl LegacyCaptionPlan {
                     }
                     if !cue.words.is_empty() {
                         value["words"] = Value::Array(cue.words.clone());
+                    }
+                    if let Some(speaker) = &cue.speaker {
+                        value["speaker"] = json!(speaker);
                     }
                     value
                 })
@@ -848,6 +866,7 @@ mod tests {
                 text: "你好".into(),
                 refs: None,
                 words: Vec::new(),
+                speaker: None,
             }
         );
         // 结束早于开始时按零长；缺 `timescale` 时按微秒。
