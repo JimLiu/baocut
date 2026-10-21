@@ -522,20 +522,33 @@ test('播放中按像素预算降分辨率画；停下来画回原尺寸的那�
   engine.dispose();
 });
 
-/** 假的媒体元素（Node 里没有）：定位要等 `land()` 才落地，读出的画面记着读的时候元素在哪一刻。 */
+/**
+ * 假的媒体元素（Node 里没有）：定位要等 `land()` 才落地，读出的画面记着读的时候元素在哪一刻。放的时候 `currentTime` 不会自己走，
+ * 由测试 `advance()`（时钟的台子按 `playbackRate` 乘 `speed` 拨，冻住的不拨）。
+ */
 function fakeMedia() {
   class FakeMedia {
     static HAVE_METADATA = 1;
     static HAVE_CURRENT_DATA = 2;
+    static HAVE_FUTURE_DATA = 3;
     readyState = 4;
     seeking = false;
     error = null;
     paused = true;
+    ended = false;
     duration = 60;
     muted = false;
     volume = 1;
     playbackRate = 1;
+    /** 没在出声（起播的延迟、缓冲、`play()` 被拦下）：时钟的台子不让它往前走。 */
+    frozen = false;
+    /** 元素自己的时钟比墙钟快慢多少（声卡的时钟、起播之后的偏差）。 */
+    speed = 1;
     #time = 0;
+    /** 放了这么多秒（不报定位）。 */
+    advance(seconds: number) {
+      this.#time += seconds;
+    }
     #listeners: (() => void)[] = [];
     get currentTime() {
       return this.#time;
@@ -577,7 +590,19 @@ function fakeMedia() {
     getImageData: (_x: number, _y: number, width: number, height: number) => ({ data: { at: drawn!.currentTime }, width, height }),
   };
   vi.stubGlobal('document', { createElement: () => ({ getContext: () => scratch }) });
-  return { video: new FakeVideo() };
+  return { video: new FakeVideo(), media: () => new FakeMedia(), clip: () => new FakeVideo() };
+}
+
+type FakeElement = ReturnType<ReturnType<typeof fakeMedia>['media']>;
+
+/** 测试换掉的全局还原成文件开头那几个。 */
+function restoreGlobals(): void {
+  vi.unstubAllGlobals();
+  vi.stubGlobal('requestAnimationFrame', () => 0);
+  vi.stubGlobal('cancelAnimationFrame', () => {});
+  vi.stubGlobal('ImageData', function (data: Uint8ClampedArray, width: number, height: number) {
+    return { data, width, height };
+  });
 }
 
 test('停着定位：视频还在定位时先用它上一张画面马上画，落地了画精确的那一帧；拖动中降分辨率，停下画回原尺寸', async () => {
@@ -826,52 +851,518 @@ test('倍速：播放中从换的那一刻起按新倍速走钟，媒体元素�
   }
 });
 
-test('播放中偏得不多：静音的视频元素调速追，出声的元素只按要的速度放（调速会在声音里留下爆音）', async () => {
-  const { video } = fakeMedia();
-  const audio = new (globalThis.HTMLMediaElement as unknown as new () => typeof video)();
-  const frames: FrameRequestCallback[] = [];
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback));
-  let now = 1000;
-  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
-  const asset = { id: 'asset_v', revision: 'r1' };
-  const sound = { id: 'asset_a', revision: 'r1' };
+/** 与 `element` 同一种的新假媒体元素（`fakeMedia()` 里的类）。 */
+function fakeElementLike(element: FakeElement): FakeElement {
+  return new (element.constructor as new () => FakeElement)();
+}
+
+/** 播放时钟测试的一个 tick：60 Hz 的刷新。 */
+const FRAME_MS = 1000 / 60;
+
+/** 一个在响的声音（与 render-graph 给的一样）：实例从 `start` 秒起，源从 `from` 秒起按 `rate` 走。 */
+function voiceAt(
+  t: number,
+  itemId: string,
+  start: number,
+  options: { source?: 'audio' | 'embedded'; asset?: { id: string; revision: string }; from?: number; rate?: number } = {},
+) {
+  const rate = options.rate ?? 1;
+  return {
+    itemId,
+    source: options.source ?? 'audio',
+    asset: options.asset ?? { id: `asset_${itemId}`, revision: 'r1' },
+    sourceSeconds: (options.from ?? 0) + (t - start) * rate,
+    sourceRate: rate,
+    gainDb: 0,
+  };
+}
+
+/** 序列上的音频实例：从 `start` 秒起放 `seconds` 秒（30 fps）。 */
+function audioItem(id: string, trackId: string, start: number, seconds: number) {
+  return {
+    id,
+    trackId,
+    type: 'audio',
+    enabled: true,
+    assetRef: { id: `asset_${id}`, revision: 'r1' },
+    fromFrame: start * 30,
+    subframeOffset: { ticks: 0, timescale: 30 },
+    playDuration: { ticks: seconds * 30, timescale: 30 },
+  };
+}
+
+/** 序列上只出画面的视频实例与它的层（素材探测过、没有音轨）。 */
+const brollAsset = { id: 'asset_broll', revision: 'r1' };
+const brollItem = { id: 'broll', trackId: 'v1', type: 'video', enabled: true, assetRef: brollAsset, span: { fromFrame: 0, durationFrames: 300 } };
+const brollAssets = {
+  asset_broll: { id: 'asset_broll', revisions: { r1: { revision: 'r1', video: { displayWidth: 1920, displayHeight: 1080 } } } },
+};
+function brollLayer(t: number) {
+  return { kind: 'video', itemId: 'broll', asset: brollAsset, sourceSeconds: t, sourceRate: 1, matrix: [1, 0, 0, 1, 0, 0], opacity: 1 };
+}
+
+/**
+ * 播放时钟的台子：假的媒体元素、手动的动画帧与墙钟、按时刻给层与声音的计划器（层与声音由测试按 render-graph 的样子给）。
+ * `to(ms)` 把墙钟拨到 `ms`，每 1/60 秒一个 tick；tick 之前，没停、没在定位、没冻住、数据够的元素按 `playbackRate` 乘 `speed` 往前走。
+ */
+async function clockRig(options: {
+  items: unknown[];
+  tracks?: { id: string; order: number }[];
+  assets?: Record<string, unknown>;
+  layers?: (t: number) => unknown[];
+  voices: (t: number) => unknown[];
+  elements: (media: ReturnType<typeof fakeMedia>) => Record<string, FakeElement>;
+}) {
+  const media = fakeMedia();
+  const elements = options.elements(media);
+  const frames = manualFrames();
+  const times: number[] = [];
   const planAt = (seconds: number) => ({
     sequenceId: 'seq',
     sequenceRevision: 'r1',
     frame: Math.floor(seconds * 30 + 1e-6),
     canvas: { width: 1920, height: 1080, background: '#000000', backgroundAlpha: 1 },
-    layers: [{ kind: 'video', itemId: 'clip', asset, sourceSeconds: seconds, sourceRate: 1, matrix: [1, 0, 0, 1, 0, 0], opacity: 1 }],
-    voices: [{ itemId: 'narration', source: 'audio', asset: sound, sourceSeconds: seconds, sourceRate: 1, gainDb: 0 }],
+    layers: options.layers?.(seconds) ?? [],
+    voices: options.voices(seconds),
   });
   const planner = { ...fakePlanner(), planAt } as unknown as RenderPlanner;
-  const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner));
-  engine.register(videoKey(asset, 0), video as unknown as HTMLVideoElement);
-  engine.register(audioKey('narration'), audio as unknown as HTMLAudioElement);
-  const timed = {
-    ...sequence,
-    items: [{ id: 'clip', trackId: 't', type: 'video', assetRef: asset, span: { fromFrame: 0, durationFrames: 300 } }],
-  } as unknown as Sequence;
+  const engine = new PreviewEngine({ onTime: (seconds) => times.push(seconds), onEnded: () => {} }, () => Promise.resolve(planner));
+  for (const [key, element] of Object.entries(elements)) engine.register(key, element as unknown as HTMLAudioElement);
+  const video = { ...sequence, tracks: options.tracks ?? [], items: options.items } as unknown as Sequence;
+  engine.setVideo(video, (options.assets ?? {}) as Record<string, AssetRecord>);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  // 落地会报 `seeked`，引擎再对一次元素，可能又定位一次：落到都不在定位为止。
+  const land = () => {
+    for (let round = 0; round < 5; round++) for (const element of Object.values(elements)) if (element.seeking) element.land();
+  };
+  land();
+  let wall = 0;
+  const step = (ms: number) => {
+    const seconds = (ms - wall) / 1000;
+    wall = ms;
+    for (const element of Object.values(elements))
+      if (!element.paused && !element.seeking && !element.frozen && element.readyState >= 3) element.advance(seconds * element.playbackRate * element.speed);
+    frames.tick(ms);
+  };
+  return {
+    engine,
+    elements,
+    times,
+    land,
+    get wall() {
+      return wall;
+    },
+    /** 一个个 tick 走到墙钟的 `ms`；每个 tick 之后调 `each`。 */
+    to(ms: number, each?: () => void) {
+      while (wall + FRAME_MS <= ms + 1e-9) {
+        step(wall + FRAME_MS);
+        each?.();
+      }
+    },
+    dispose() {
+      engine.dispose();
+      frames.restore();
+      restoreGlobals();
+    },
+  };
+}
+
+/**
+ * 引擎时间一个 tick 一个 tick 地看：不倒退，每一步不比墙钟的一个 tick 多走超过交接靠拢的 5%；`steady` 时也不少走超过 5%
+ * （没有停下来等的时候：交接是靠拢过去，不是停住等新来源追上）。
+ */
+function expectSmooth(times: readonly number[], from = 0, steady = false): void {
+  const frame = FRAME_MS / 1000;
+  for (let i = Math.max(1, from); i < times.length; i++) {
+    const step = times[i]! - times[i - 1]!;
+    expect(step).toBeGreaterThanOrEqual(steady ? frame * 0.95 - 1e-9 : 0);
+    expect(step).toBeLessThanOrEqual(frame * 1.05 + 1e-9);
+  }
+}
+
+test('播放时钟：只有一个声音时引擎时间按它的 currentTime 换算，不按墙钟（声卡的时钟比墙钟慢也跟着它）', async () => {
+  const rig = await clockRig({
+    items: [audioItem('narration', 'a1', 0, 10)],
+    tracks: [{ id: 'a1', order: 0 }],
+    // 源从第 2 秒起、按 2 倍走：t = (currentTime − 2) / 2。
+    voices: (t) => [voiceAt(t, 'narration', 0, { from: 2, rate: 2 })],
+    elements: ({ media }) => ({ [audioKey('narration')]: Object.assign(media(), { speed: 0.98 }) }),
+  });
+  const narration = rig.elements[audioKey('narration')]!;
   try {
-    engine.setVideo(timed, {});
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    engine.setRate(1.5);
-    engine.play();
-    expect(audio.paused).toBe(false);
-    // 走了 0.1 秒，两个元素都还停在 0：落后 0.15 秒（倍速 1.5），没到重新定位的 0.25 秒。
-    now = 1100;
-    frames.at(-1)!(now);
-    expect(video.playbackRate).toBeGreaterThan(1.5);
-    expect(audio.playbackRate).toBe(1.5);
-    expect(audio.seeking).toBe(false);
+    rig.engine.play();
+    rig.to(1000);
+    expect(narration.playbackRate).toBe(2);
+    expect(rig.engine.time).toBeCloseTo((narration.currentTime - 2) / 2, 9);
+    expect(rig.engine.time).toBeLessThan(0.985);
+    // 起钟那一下从它已经放出的那一点开始，之后一步步跟着走。
+    expectSmooth(rig.times, 2);
   } finally {
-    engine.dispose();
-    clock.mockRestore();
-    vi.unstubAllGlobals();
-    vi.stubGlobal('requestAnimationFrame', () => 0);
-    vi.stubGlobal('cancelAnimationFrame', () => {});
-    vi.stubGlobal('ImageData', function (data: Uint8ClampedArray, width: number, height: number) {
-      return { data, width, height };
+    rig.dispose();
+  }
+});
+
+test('播放时钟：没有声音时按墙钟走；没有音轨的视频不出声，按只出画面的元素静音、调速追', async () => {
+  const rig = await clockRig({
+    items: [brollItem],
+    tracks: [{ id: 'v1', order: 0 }],
+    assets: brollAssets,
+    layers: (t) => [brollLayer(t)],
+    // 视频实例自带的声音开着，但素材没有音轨。
+    voices: (t) => [voiceAt(t, 'broll', 0, { source: 'embedded', asset: brollAsset })],
+    elements: ({ clip }) => ({ [videoKey(brollAsset, 0)]: Object.assign(clip(), { speed: 0.9 }) }),
+  });
+  const broll = rig.elements[videoKey(brollAsset, 0)]!;
+  try {
+    rig.engine.play();
+    rig.to(1000);
+    expect(rig.engine.time).toBeCloseTo(1, 9);
+    expect(broll.muted).toBe(true);
+    // 它比墙钟慢：调快追上。
+    expect(broll.playbackRate).toBeGreaterThan(1);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：预览静音（监听静音）不换时钟来源，元素静音了照样跟着它走', async () => {
+  const rig = await clockRig({
+    items: [audioItem('narration', 'a1', 0, 10)],
+    tracks: [{ id: 'a1', order: 0 }],
+    voices: (t) => [voiceAt(t, 'narration', 0)],
+    elements: ({ media }) => ({ [audioKey('narration')]: Object.assign(media(), { speed: 0.97 }) }),
+  });
+  const narration = rig.elements[audioKey('narration')]!;
+  try {
+    rig.engine.setMonitor({ volume: 0.5, muted: true });
+    rig.engine.play();
+    rig.to(500);
+    rig.engine.setMonitor({ volume: 0, muted: false });
+    rig.to(1000);
+    rig.engine.setMonitor({ volume: 1, muted: true });
+    rig.to(1500);
+    expect(narration.muted).toBe(true);
+    expect(rig.engine.time).toBeCloseTo(narration.currentTime, 9);
+    expect(rig.engine.time).toBeLessThan(1.46);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：不重叠的前后两段，前一段放完时钟不跳，按墙钟接着走，下一段起播之后以 5%/秒靠拢过去', async () => {
+  const rig = await clockRig({
+    items: [audioItem('a', 'a1', 0, 1), audioItem('b', 'a1', 1, 5)],
+    tracks: [{ id: 'a1', order: 0 }],
+    voices: (t) => (t < 1 ? [voiceAt(t, 'a', 0)] : t < 6 ? [voiceAt(t, 'b', 1)] : []),
+    elements: ({ media }) => ({
+      [audioKey('a')]: Object.assign(media(), { speed: 0.97 }),
+      // 下一段起播要 80 ms 才出声。
+      [audioKey('b')]: Object.assign(media(), { frozen: true }),
+    }),
+  });
+  const a = rig.elements[audioKey('a')]!;
+  const b = rig.elements[audioKey('b')]!;
+  try {
+    rig.engine.play();
+    rig.to(800);
+    // 前一段：跟着它（比墙钟慢）。
+    expect(rig.engine.time).toBeCloseTo(a.currentTime, 9);
+    while (rig.engine.time < 1) rig.to(rig.wall + FRAME_MS);
+    const handoff = rig.times.length;
+    rig.to(rig.wall + 80);
+    expect(a.paused).toBe(true);
+    expect(b.paused).toBe(false);
+    b.frozen = false;
+    rig.to(rig.wall + 2 * FRAME_MS);
+    // 跟上了下一段：引擎比它领先起播的那一截，不跳回去。
+    const lead = rig.engine.time - (1 + b.currentTime);
+    expect(lead).toBeGreaterThan(0.05);
+    expect(lead).toBeLessThan(0.12);
+    rig.to(rig.wall + 3000);
+    expect(rig.engine.time).toBeCloseTo(1 + b.currentTime, 9);
+    expectSmooth(rig.times, handoff, true);
+    expect(rig.engine.stats.resyncs).toBe(0);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：声音重叠时主声音有粘性，放完才换；挑的时候先比开始时刻、再比轨道顺序（与谁先有元素无关）', async () => {
+  const rig = await clockRig({
+    items: [audioItem('dialog', 'a1', 1, 7), audioItem('music', 'a2', 0, 3), audioItem('sfx', 'a3', 1, 7)],
+    tracks: [
+      { id: 'a1', order: 0 },
+      { id: 'a2', order: 1 },
+      { id: 'a3', order: 2 },
+    ],
+    // 与 render-graph 一样按轨道、实例 ID 排。
+    voices: (t) => [
+      ...(t >= 1 && t < 8 ? [voiceAt(t, 'dialog', 1)] : []),
+      ...(t < 3 ? [voiceAt(t, 'music', 0)] : []),
+      ...(t >= 1 && t < 8 ? [voiceAt(t, 'sfx', 1)] : []),
+    ],
+    // 各自的时钟快慢不同：引擎跟着谁，看得出来。配乐的元素晚到（地址还在取）。
+    elements: ({ media }) => ({
+      [audioKey('dialog')]: Object.assign(media(), { speed: 1.03 }),
+      [audioKey('sfx')]: media(),
+    }),
+  });
+  const dialog = rig.elements[audioKey('dialog')]!;
+  try {
+    rig.engine.play();
+    rig.to(900);
+    // 配乐还没有元素：没有能跟的声音，按墙钟。
+    expect(rig.engine.time).toBeCloseTo(0.9, 9);
+    // 对白与音效同时开始：对白的轨道靠前，跟它。
+    rig.to(1500);
+    expect(rig.engine.time).toBeCloseTo(1 + dialog.currentTime, 9);
+    // 配乐的元素到了：按规则它开始得最早，但对白还没放完，不换。
+    const music = Object.assign(fakeElementLike(dialog), { speed: 0.98 });
+    rig.elements[audioKey('music')] = music;
+    rig.engine.register(audioKey('music'), music as unknown as HTMLAudioElement);
+    rig.land();
+    rig.to(2500);
+    expect(music.paused).toBe(false);
+    expect(rig.engine.time).toBeCloseTo(1 + dialog.currentTime, 9);
+
+    // 播放中定位到三个都在的第 2 秒：重新挑，配乐开始得最早（轨道靠后也一样）。
+    rig.engine.seek(2);
+    rig.land();
+    rig.to(rig.wall + 500);
+    expect(rig.engine.time).toBeCloseTo(music.currentTime, 9);
+    // 配乐放完：对白与音效开始得一样早，对白的轨道靠前，交给它。
+    while (rig.engine.time < 3) rig.to(rig.wall + FRAME_MS);
+    rig.to(rig.wall + 3000);
+    expect(rig.engine.time).toBeCloseTo(1 + dialog.currentTime, 9);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：别的声音按要的速度自由走、不调速，偏离引擎时钟超过 0.25 秒才重新定位；主声音不重新定位', async () => {
+  const rig = await clockRig({
+    items: [audioItem('music', 'a1', 0, 10), audioItem('sfx', 'a2', 0, 10)],
+    tracks: [
+      { id: 'a1', order: 0 },
+      { id: 'a2', order: 1 },
+    ],
+    voices: (t) => [voiceAt(t, 'music', 0), voiceAt(t, 'sfx', 0)],
+    elements: ({ media }) => ({
+      [audioKey('music')]: media(),
+      // 每秒多走 0.25 秒。
+      [audioKey('sfx')]: Object.assign(media(), { speed: 1.25 }),
+    }),
+  });
+  const music = rig.elements[audioKey('music')]!;
+  const sfx = rig.elements[audioKey('sfx')]!;
+  try {
+    rig.engine.setRate(1.5);
+    rig.engine.play();
+    const rates = new Set<number>();
+    rig.to(500, () => rates.add(sfx.playbackRate));
+    expect([...rates]).toEqual([1.5]);
+    expect(sfx.currentTime - rig.engine.time).toBeGreaterThan(0.15);
+    expect(rig.engine.stats.resyncs).toBe(0);
+    let reseatedAt: number | null = null;
+    rig.to(1000, () => {
+      if (sfx.seeking) reseatedAt ??= rig.engine.time;
     });
+    expect(rig.engine.stats.resyncs).toBe(1);
+    expect(sfx.seeking).toBe(true);
+    expect(sfx.currentTime).toBeCloseTo(reseatedAt!, 9);
+    expect(music.seeking).toBe(false);
+    expect(music.playbackRate).toBe(1.5);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：没有声音的一段之后声音进来，偏得多先重新定位它，不慢慢追；跟上之后靠拢不倒退，放完回墙钟也不跳', async () => {
+  const rig = await clockRig({
+    // 序列到第 5 秒（标题），旁白只在 1–3 秒。
+    items: [audioItem('vo', 'a1', 1, 2), { id: 'title', type: 'text', enabled: true, trackId: 't1', span: { fromFrame: 0, durationFrames: 150 } }],
+    tracks: [
+      { id: 'a1', order: 0 },
+      { id: 't1', order: 1 },
+    ],
+    voices: (t) => (t >= 1 && t < 3 ? [voiceAt(t, 'vo', 1)] : []),
+    elements: ({ media }) => ({ [audioKey('vo')]: media() }),
+  });
+  const vo = rig.elements[audioKey('vo')]!;
+  try {
+    // 元素停在离它要的源时刻 3 秒远的地方。
+    vo.currentTime = 3;
+    vo.land();
+    rig.engine.play();
+    rig.to(1000);
+    expect(rig.engine.time).toBeCloseTo(1, 9);
+    rig.to(rig.wall + FRAME_MS);
+    expect(rig.engine.stats.resyncs).toBe(1);
+    expect(vo.seeking).toBe(true);
+    // 定位要 50 ms 才落地：这期间按墙钟接着走。
+    rig.to(rig.wall + 50);
+    vo.land();
+    rig.to(rig.wall + 2 * FRAME_MS);
+    const lead = rig.engine.time - (1 + vo.currentTime);
+    expect(lead).toBeGreaterThan(0.04);
+    expect(lead).toBeLessThan(0.1);
+    rig.to(rig.wall + 1800);
+    expect(rig.engine.time).toBeCloseTo(1 + vo.currentTime, 9);
+    rig.to(4000);
+    expect(rig.engine.time).toBeGreaterThan(3.8);
+    expect(rig.engine.stats.resyncs).toBe(1);
+    expectSmooth(rig.times, 0, true);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：起播等主声音真正走起来再起钟，只出画面的元素一起等；最多等 0.5 秒，之后先按墙钟走', async () => {
+  const rig = await clockRig({
+    items: [audioItem('narration', 'a1', 0, 10), brollItem],
+    tracks: [
+      { id: 'a1', order: 0 },
+      { id: 'v1', order: 0 },
+    ],
+    assets: brollAssets,
+    layers: (t) => [brollLayer(t)],
+    voices: (t) => [voiceAt(t, 'narration', 0)],
+    elements: ({ media, clip }) => ({
+      [audioKey('narration')]: Object.assign(media(), { frozen: true }),
+      [videoKey(brollAsset, 0)]: clip(),
+    }),
+  });
+  const narration = rig.elements[audioKey('narration')]!;
+  const broll = rig.elements[videoKey(brollAsset, 0)]!;
+  try {
+    rig.engine.play();
+    rig.to(200);
+    expect(rig.times.every((t) => t === 0)).toBe(true);
+    expect(narration.paused).toBe(false);
+    expect(broll.paused).toBe(true);
+    // 出声了：从它这一刻起钟，画面跟上。
+    narration.frozen = false;
+    rig.to(400);
+    expect(rig.engine.time).toBeGreaterThan(0.15);
+    expect(rig.engine.time).toBeCloseTo(narration.currentTime, 9);
+    expect(broll.paused).toBe(false);
+
+    // 再来一次，这回它一直不出声：等 0.5 秒，之后按墙钟走。
+    rig.engine.pause();
+    rig.engine.seek(0);
+    rig.land();
+    narration.frozen = true;
+    const begun = rig.wall;
+    rig.engine.play();
+    rig.to(begun + 480);
+    expect(rig.engine.time).toBe(0);
+    rig.to(begun + 1000);
+    expect(rig.engine.time).toBeGreaterThan(0.45);
+    expect(rig.engine.time).toBeLessThanOrEqual(0.5 + 1e-9);
+    expect(broll.paused).toBe(false);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：播放中定位一小段（不到 0.25 秒）也把元素对到新位置，时钟从那里起，不被主声音拉回原处', async () => {
+  const rig = await clockRig({
+    items: [audioItem('narration', 'a1', 0, 10)],
+    tracks: [{ id: 'a1', order: 0 }],
+    voices: (t) => [voiceAt(t, 'narration', 0)],
+    elements: ({ media }) => ({ [audioKey('narration')]: media() }),
+  });
+  const narration = rig.elements[audioKey('narration')]!;
+  try {
+    rig.engine.play();
+    rig.to(1000);
+    const target = rig.engine.time + 0.1;
+    rig.engine.seek(target);
+    expect(narration.currentTime).toBeCloseTo(target, 9);
+    rig.land();
+    rig.to(rig.wall + 300);
+    expect(rig.engine.time).toBeGreaterThan(target + 0.2);
+    expect(rig.engine.time).toBeCloseTo(narration.currentTime, 9);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：跟着的主声音缓冲卡住时时钟也停，画面与别的声音一起停；数据到了接着走，不跳', async () => {
+  const rig = await clockRig({
+    items: [audioItem('narration', 'a1', 0, 10), audioItem('music', 'a2', 0, 10), brollItem],
+    tracks: [
+      { id: 'a1', order: 0 },
+      { id: 'a2', order: 1 },
+      { id: 'v1', order: 0 },
+    ],
+    assets: brollAssets,
+    layers: (t) => [brollLayer(t)],
+    voices: (t) => [voiceAt(t, 'narration', 0), voiceAt(t, 'music', 0)],
+    elements: ({ media, clip }) => ({
+      [audioKey('narration')]: media(),
+      [audioKey('music')]: media(),
+      [videoKey(brollAsset, 0)]: clip(),
+    }),
+  });
+  const narration = rig.elements[audioKey('narration')]!;
+  const music = rig.elements[audioKey('music')]!;
+  const broll = rig.elements[videoKey(brollAsset, 0)]!;
+  try {
+    rig.engine.play();
+    rig.to(500);
+    // 没数据了（readyState 掉到 HAVE_CURRENT_DATA）。
+    narration.readyState = 2;
+    rig.to(rig.wall + 2 * FRAME_MS);
+    const stalled = rig.engine.time;
+    rig.to(rig.wall + 1000);
+    expect(rig.engine.time).toBe(stalled);
+    expect(broll.paused).toBe(true);
+    expect(music.paused).toBe(true);
+    expect(narration.paused).toBe(false);
+    narration.readyState = 4;
+    rig.to(rig.wall + 500);
+    expect(rig.engine.time).toBeCloseTo(narration.currentTime, 9);
+    expect(rig.engine.time - stalled).toBeGreaterThan(0.45);
+    expect(broll.paused).toBe(false);
+    expect(music.paused).toBe(false);
+    expectSmooth(rig.times, 2);
+    expect(rig.engine.stats.resyncs).toBe(0);
+  } finally {
+    rig.dispose();
+  }
+});
+
+test('播放时钟：只出画面的静音视频元素照旧调速追引擎时钟（跟着主声音），出声的元素只按要的速度放（调速会在声音里留下爆音）', async () => {
+  const rig = await clockRig({
+    items: [audioItem('narration', 'a1', 0, 10), brollItem],
+    tracks: [
+      { id: 'a1', order: 0 },
+      { id: 'v1', order: 0 },
+    ],
+    assets: brollAssets,
+    layers: (t) => [brollLayer(t)],
+    voices: (t) => [voiceAt(t, 'narration', 0)],
+    elements: ({ media, clip }) => ({
+      // 声音的时钟比墙钟慢 5%，画面元素按墙钟走：画面会跑到声音前面。
+      [audioKey('narration')]: Object.assign(media(), { speed: 0.95 }),
+      [videoKey(brollAsset, 0)]: clip(),
+    }),
+  });
+  const narration = rig.elements[audioKey('narration')]!;
+  const broll = rig.elements[videoKey(brollAsset, 0)]!;
+  try {
+    rig.engine.setRate(1.5);
+    rig.engine.play();
+    const rates = new Set<number>();
+    rig.to(2000, () => rates.add(narration.playbackRate));
+    expect([...rates]).toEqual([1.5]);
+    expect(rig.engine.time).toBeCloseTo(narration.currentTime, 9);
+    expect(broll.playbackRate).toBeLessThan(1.5);
+    expect(Math.abs(broll.currentTime - rig.engine.time)).toBeLessThan(0.05);
+    expect(rig.engine.stats.resyncs).toBe(0);
+  } finally {
+    rig.dispose();
   }
 });
 

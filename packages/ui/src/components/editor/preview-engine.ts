@@ -1,5 +1,6 @@
 import {
   isAnimatedImageType,
+  itemRangeSeconds,
   localizeText,
   type AssetRecord,
   type DocumentRecord,
@@ -15,7 +16,7 @@ import { captionView, type CaptionMode } from '../../model/player.ts';
 import { withoutMusic } from '../../model/stage-layers.ts';
 import type { AssetDecoder, AssetSource } from '../../render/asset-source.ts';
 import { SPECTRUM_MAX_BYTES, spectrumDecoder } from '../../render/audio-spectrum.ts';
-import { isMediaLayer, type FramePlan, type LiveLayer, type MediaLayer, type VisualLayer } from '../../render/frame-plan.ts';
+import { isMediaLayer, type AudioVoice, type FramePlan, type LiveLayer, type MediaLayer, type VisualLayer } from '../../render/frame-plan.ts';
 import type { FontSource, LoadedFace } from '../../render/local-fonts.ts';
 import { paintSize } from '../../render/playback-quality.ts';
 import { isSpeakerNote, missingFontFamily, renderNote } from '../../render/render-notes.ts';
@@ -39,8 +40,9 @@ import { PreviewWatch, probeElement, type MediaProbe, type PreviewSnapshot, type
  *
  * 每一刻先问帧计划器（Rust `render-graph` 编成的 WASM）这一帧有哪些层、怎么摆、各取源的哪一刻、哪些声音在响，
  * 再按计划驱动隐藏的媒体元素。画面由同一个 WASM 里的 `frame-render`（与导出同一个实现）画：界面只把媒体元素
- * 这一刻的画面、字幕文档的正文、Lottie 与 SVG、GIF 图片的字节与声波要的素材频谱送进去，取回一帧 RGBA 放到画布上。播放时以墙上时钟为准推进播放头，
- * 媒体元素偏得多了再校正；这一档允许掉帧，严格的逐帧输出是导出的事。
+ * 这一刻的画面、字幕文档的正文、Lottie 与 SVG、GIF 图片的字节与声波要的素材频谱送进去，取回一帧 RGBA 放到画布上。播放时播放头跟着
+ * 主声音（一个出声的媒体元素）走，没有声音时按墙上时钟走（架构设计 §9.4「播放时钟」），别的媒体元素偏得多了再校正；这一档允许掉帧，
+ * 严格的逐帧输出是导出的事。
  *
  * 视频元素按素材分槽：同一素材同一时刻出现在几处就要几个元素（各自定位）。实例尽量留在原来的槽里，
  * 拆开的两段接得上；音频轨道上的实例各用一个元素，图片按素材共用一个。
@@ -172,6 +174,12 @@ export interface PreviewCallbacks {
 
 /** 播放中偏得超过这么多才重新定位，小的偏差用播放速度追。 */
 const RESYNC_SECONDS = 0.25;
+/** 起播（与播放中定位）之后等主声音真正走起来最多这么久（毫秒），等不到就先按墙钟走。 */
+const LEAD_START_MS = 500;
+/** 主声音能放（不在缓冲、不在定位）却这么久（毫秒）没往前走：当它放不了（`play()` 被拦下、停在了素材末尾），换一个或回墙钟。 */
+const LEAD_STUCK_MS = 500;
+/** 交接时引擎时钟向新来源靠拢的速度：最多比来源快或慢这么多（每秒 5%），不跳、不倒退。 */
+const LEAD_SLEW = 0.05;
 /** 暂停时要逐帧对准。 */
 const EXACT_SECONDS = 1e-3;
 /** 媒体元素收得下的播放速度（浏览器的 playbackRate 范围）。 */
@@ -197,6 +205,13 @@ interface Target {
 
 type Readiness = 'ready' | 'pending' | 'absent';
 
+/** 这一刻在响、能当主声音的一个声音与它的元素。 */
+interface Voiced {
+  voice: AudioVoice;
+  key: MediaKey;
+  element: HTMLMediaElement;
+}
+
 export class PreviewEngine {
   readonly #elements = new Map<MediaKey, SourceElement | HTMLAudioElement>();
   readonly #callbacks: PreviewCallbacks;
@@ -218,8 +233,34 @@ export class PreviewEngine {
   #time = 0;
   #playing = false;
   #tick = 0;
+  /** 墙钟的起点：没有主声音可跟时，引擎时间从 `#timeStart` 起按墙钟走（`performance.now` 毫秒，乘倍速）。 */
   #clockStart = 0;
   #timeStart = 0;
+  /**
+   * 主声音（架构设计 §9.4「播放时钟」）：播放中引擎时间按它的 `currentTime` 换算。挑定之后放完才换（粘性）；`#locked` 是时钟
+   * 已经跟上它（还没走起来、交接中时按墙钟），`#offset` 是交接留下的差（引擎减它，序列秒），随它走过的路程按 `LEAD_SLEW` 收到 0。
+   */
+  #lead: { itemId: Id; key: MediaKey } | null = null;
+  #locked = false;
+  #offset = 0;
+  /** 起播（或播放中定位）之后在等主声音走起来，等到这一刻（`performance.now` 毫秒）为止；不在等是 null。 */
+  #startBy: number | null = null;
+  /**
+   * 时钟停着等主声音：`start` 是起播还没走起来，`stall` 是跟着的主声音在缓冲。等的时候只出画面的静音元素停在原处；
+   * `stall` 时别的声音也停，`start` 时主声音能放了别的声音与它一起起（`#leadReady`）。
+   */
+  #wait: 'start' | 'stall' | null = null;
+  #leadReady = false;
+  /** `#plan` 是按哪一刻（引擎时间）求的：主声音的时间映射取自它。 */
+  #planTime = 0;
+  /** 上一个 tick 的墙钟与倍速：核对主声音这一步走得合不合理。 */
+  #tickAt = 0;
+  #tickRate = 1;
+  /** 能当主声音的元素最近一次读到的 `currentTime`、是第几轮读的、最后一次往前走（或开始看着它）是什么时候。 */
+  #seen = new WeakMap<HTMLMediaElement, { time: number; round: number; movedAt: number }>();
+  #round = 0;
+  /** 播放中定位的那一次对元素：按 `EXACT_SECONDS` 对准，不按 `RESYNC_SECONDS` 放过。 */
+  #reseat = false;
   #paintTimer: ReturnType<typeof setTimeout> | null = null;
   #holdSince: number | null = null;
   /** 画布上现在是哪一帧（序列版本与帧号）；播放中同一帧不重画。 */
@@ -582,7 +623,10 @@ export class PreviewEngine {
     return this.#rate;
   }
 
-  /** 换播放倍速：播放中从此刻起按新倍速走（时钟在这一刻重新起算），媒体元素下一帧跟上。不进视频、不影响导出。 */
+  /**
+   * 换播放倍速：播放中从此刻起按新倍速走（墙钟在这一刻重新起算；跟着主声音时它换了速度，时钟自然跟上），媒体元素马上跟上。
+   * 不进视频、不影响导出。
+   */
   setRate(rate: number): void {
     const next = Math.max(MIN_RATE, Math.min(MAX_RATE, rate));
     if (!(next > 0) || next === this.#rate) return;
@@ -720,23 +764,31 @@ export class PreviewEngine {
     return () => this.#planListeners.delete(listener);
   }
 
-  /** 定位（暂停时由播放头驱动；播放中拖动播放头也走这里）。 */
+  /** 定位（暂停时由播放头驱动；播放中拖动播放头也走这里，像起播一样等主声音在新位置走起来）。 */
   seek(seconds: number): void {
     this.#time = Math.max(0, seconds);
-    if (this.#playing) {
-      this.#clockStart = performance.now();
-      this.#timeStart = this.#time;
-    } else {
-      // 停着定位：先不等定位落地，一阵没再定位才画精确的那一帧（已经是了就不再画）。
-      const dragging = this.#scrubTimer !== null;
-      this.#endScrub();
-      this.#dragging = dragging;
-      this.#scrubTimer = setTimeout(() => {
-        this.#endScrub();
-        if (!this.#exact) this.#requestPaint();
-      }, SCRUB_SETTLE_MS);
-    }
     this.#exact = false;
+    if (this.#playing) {
+      const now = performance.now();
+      this.#restartClock(now);
+      // 这一次对元素按停着的标准对准：偏不到 0.25 秒的也定位过去，否则跟着主声音的时钟又回到定位之前的地方。
+      this.#reseat = true;
+      try {
+        this.#refresh();
+      } finally {
+        this.#reseat = false;
+      }
+      this.#chooseLead(now);
+      return;
+    }
+    // 停着定位：先不等定位落地，一阵没再定位才画精确的那一帧（已经是了就不再画）。
+    const dragging = this.#scrubTimer !== null;
+    this.#endScrub();
+    this.#dragging = dragging;
+    this.#scrubTimer = setTimeout(() => {
+      this.#endScrub();
+      if (!this.#exact) this.#requestPaint();
+    }, SCRUB_SETTLE_MS);
     this.#refresh();
   }
 
@@ -746,8 +798,8 @@ export class PreviewEngine {
     if (end <= 0) return;
     if (this.#time >= end - 1e-3) this.#time = 0;
     this.#playing = true;
-    this.#clockStart = performance.now();
-    this.#timeStart = this.#time;
+    const begun = performance.now();
+    this.#restartClock(begun);
     this.#cancelPaint();
     this.#endScrub();
     this.#exact = false;
@@ -755,7 +807,9 @@ export class PreviewEngine {
     const step = () => {
       if (!this.#playing || !this.#video) return;
       const started = performance.now();
-      const now = this.#timeStart + ((performance.now() - this.#clockStart) / 1000) * this.#rate;
+      const now = this.#clockTime(started);
+      this.#tickAt = started;
+      this.#tickRate = this.#rate;
       const limit = durationSeconds(this.#video.sequence);
       if (now >= limit) {
         this.#time = limit;
@@ -766,6 +820,7 @@ export class PreviewEngine {
       }
       this.#time = now;
       this.#sync();
+      this.#chooseLead(started);
       const plan = this.#plan;
       const painted = this.#painted;
       // 视频帧没变、也没有别的东西变：画布上已经是这一帧（显示器刷新比视频帧率高时，一帧只画一次）。
@@ -786,12 +841,20 @@ export class PreviewEngine {
         if (this.#playing) this.#tick = requestAnimationFrame(tick);
       }
     };
+    // 先挑主声音再对元素：起播时出声的元素与主声音一起起，只出画面的元素等它走起来。挑要用这一刻的计划（从片尾重播时还不是）。
+    if (!this.#plan || this.#planTime !== this.#time) this.#sync();
+    this.#chooseLead(begun);
     this.#sync();
     this.#tick = requestAnimationFrame(tick);
   }
 
   pause(): void {
     this.#playing = false;
+    this.#lead = null;
+    this.#locked = false;
+    this.#offset = 0;
+    this.#startBy = null;
+    this.#wait = null;
     cancelAnimationFrame(this.#tick);
     for (const element of this.#elements.values()) if (!(element instanceof HTMLImageElement)) element.pause();
     // 停下之后逐帧对准，画出停住的那一帧（代码包合成照旧是实时层，动效视频设计 §4.3）。
@@ -892,6 +955,7 @@ export class PreviewEngine {
     if (this.#plan?.sequenceId !== plan.sequenceId || this.#plan?.sequenceRevision !== plan.sequenceRevision || this.#plan?.frame !== plan.frame)
       this.#setCaptionHits([]);
     this.#plan = plan;
+    this.#planTime = this.#time;
     for (const listener of this.#planListeners) listener(plan);
     if (this.#liveHost) {
       this.#prepareLive();
@@ -912,7 +976,9 @@ export class PreviewEngine {
     }
     const wanted = new Map<MediaKey, Target>();
     for (const voice of plan.voices) {
-      const target = { seconds: voice.sourceSeconds, rate: voice.sourceRate, muted: false, volume: dbToVolume(voice.gainDb) };
+      // 没有音轨的视频（素材探测过，只有画面）不出声：按只出画面的元素对（静音、可以调速追），也不当主声音。
+      const muted = this.#silent(voice.asset);
+      const target = { seconds: voice.sourceSeconds, rate: voice.sourceRate, muted, volume: dbToVolume(voice.gainDb) };
       if (voice.source === 'audio') wanted.set(audioKey(voice.itemId), target);
       else videos.set(voice.itemId, { asset: voice.asset, target });
     }
@@ -925,9 +991,162 @@ export class PreviewEngine {
     for (const [key, element] of this.#elements) {
       if (element instanceof HTMLImageElement) continue;
       const target = wanted.get(key);
-      if (target) this.#drive(element, target);
+      if (target) this.#drive(element, target, this.#runs(key, target));
       else if (!element.paused) element.pause();
     }
+  }
+
+  /**
+   * 播放中这个元素放不放：时钟在等主声音时，只出画面的静音元素停在原处等它走起来；跟着的主声音在缓冲（`stall`）时别的声音也停，
+   * 起播（`start`）时主声音能放了别的声音与它一起起，它还在载入、定位时一起等。
+   */
+  #runs(key: MediaKey, target: Target): boolean {
+    if (this.#wait === null || key === this.#lead?.key) return true;
+    return this.#wait === 'start' && !target.muted && (this.#lead === null || this.#leadReady);
+  }
+
+  /** 素材探测过、有画面没有声音（没有音轨的视频，或这样的替身）。没探测过的照有声音算。 */
+  #silent(asset: VersionRef): boolean {
+    const revision = this.#video?.assets[asset.id]?.revisions[asset.revision];
+    return revision !== undefined && revision.video !== undefined && revision.audio === undefined;
+  }
+
+  /**
+   * 这一刻能当主声音的声音（按计划的顺序）：素材有声音、按正速走、元素在页面上没出错、没放完，源时刻还在素材之内。
+   * 预览的静音钮与监听音量不算：元素静音了照样走 `currentTime`。
+   */
+  #voiced(plan: FramePlan): Voiced[] {
+    const voiced: Voiced[] = [];
+    for (const voice of plan.voices) {
+      if (!(voice.sourceRate > 0) || this.#silent(voice.asset)) continue;
+      const key = voice.source === 'audio' ? audioKey(voice.itemId) : this.#slotOf.get(voice.itemId);
+      const element = key ? this.#elements.get(key) : undefined;
+      if (!key || !(element instanceof HTMLMediaElement) || element.error || element.ended) continue;
+      if (Number.isFinite(element.duration) && voice.sourceSeconds >= element.duration - EXACT_SECONDS) continue;
+      voiced.push({ voice, key, element });
+    }
+    return voiced;
+  }
+
+  /** 从头起钟（起播、播放中定位）：先按墙钟从这一刻算，主声音重新挑，最多等它 `LEAD_START_MS` 走起来。 */
+  #restartClock(now: number): void {
+    this.#clockStart = now;
+    this.#timeStart = this.#time;
+    this.#tickAt = now;
+    this.#tickRate = this.#rate;
+    this.#lead = null;
+    this.#locked = false;
+    this.#offset = 0;
+    this.#startBy = now + LEAD_START_MS;
+    this.#wait = 'start';
+    this.#leadReady = false;
+    this.#seen = new WeakMap();
+  }
+
+  /** 不跟主声音了：墙钟从 `at` 那一刻（引擎时间是现在的 `#time`）接着走，时钟不跳。 */
+  #unlock(at: number): void {
+    this.#locked = false;
+    this.#offset = 0;
+    this.#clockStart = at;
+    this.#timeStart = this.#time;
+  }
+
+  /**
+   * 播放中这一个 tick 的引擎时间（架构设计 §9.4「播放时钟」）。跟着主声音时按它换算：
+   * `t = t_plan + (currentTime − sourceSeconds_plan) / sourceRate`（映射取上一份计划里它的声音），加上交接留下的差；
+   * 差按它走过的路程以 `LEAD_SLEW` 收拢，它停（缓冲）时钟也停，永不倒退。起播还在等它时停在原处，其余按墙钟。
+   */
+  #clockTime(now: number): number {
+    if (this.#locked) {
+      const lead = this.#plan ? this.#leadIn(this.#plan) : null;
+      if (lead) {
+        const raw = leadTime(this.#planTime, lead);
+        const step = raw + this.#offset - this.#time;
+        // 这一步走得不合理（往回跳、比墙钟多走了一大截：元素换了、被重新定位）就不跟它，回墙钟、下一轮重新看。
+        const expected = ((now - this.#tickAt) / 1000) * Math.max(this.#rate, this.#tickRate);
+        if (step >= -RESYNC_SECONDS && step <= expected + RESYNC_SECONDS) {
+          if (step <= 0) return this.#time;
+          this.#offset -= Math.sign(this.#offset) * Math.min(Math.abs(this.#offset), LEAD_SLEW * step);
+          return Math.max(this.#time, raw + this.#offset);
+        }
+      }
+      this.#unlock(this.#tickAt);
+    } else if (this.#startBy !== null) {
+      if (now < this.#startBy && this.#lead) return this.#time;
+      // 等够了还没走起来：从这一刻起按墙钟走，它走起来之后再交接过去。
+      this.#startBy = null;
+      this.#wait = null;
+      this.#clockStart = now;
+      this.#timeStart = this.#time;
+      return this.#time;
+    }
+    return this.#timeStart + ((now - this.#clockStart) / 1000) * this.#rate;
+  }
+
+  /** 主声音在这份计划里的声音与元素；不在（放完了、换了元素）是 null。 */
+  #leadIn(plan: FramePlan): Voiced | null {
+    const lead = this.#lead;
+    return lead ? (this.#voiced(plan).find((v) => v.voice.itemId === lead.itemId && v.key === lead.key) ?? null) : null;
+  }
+
+  /**
+   * 对过元素之后看主声音（每个 tick 一轮）：还在、没卡死就不换（粘性）；放完了（不在计划里、元素放到头、出错、能放却一直不走）
+   * 时钟先按墙钟接着走，按 `#pickLead` 挑下一个。没跟上的主声音真正走起来、偏差在 `RESYNC_SECONDS` 之内就跟上它：起播时直接从它
+   * 这一刻起钟，交接时留下差慢慢收；偏得更多先由 `#drive` 重新定位。只有一个声音、或声音互不重叠时任一刻只有一个候选，就是它。
+   */
+  #chooseLead(now: number): void {
+    const round = ++this.#round;
+    const voiced = this.#plan ? this.#voiced(this.#plan) : [];
+    const moving = new Set<Voiced>();
+    const stuck = new Set<Voiced>();
+    for (const v of voiced) {
+      const { element } = v;
+      const time = element.currentTime;
+      const seen = this.#seen.get(element);
+      const watched = seen !== undefined && seen.round === round - 1;
+      const moved = watched && time > seen.time && !element.paused && !element.seeking;
+      const movedAt = moved || !watched ? now : seen.movedAt;
+      this.#seen.set(element, { time, round, movedAt });
+      if (moved) moving.add(v);
+      else if (!buffering(element) && now - movedAt > LEAD_STUCK_MS) stuck.add(v);
+    }
+    const usable = voiced.filter((v) => !stuck.has(v));
+    const current = this.#lead;
+    let lead = current ? usable.find((v) => v.voice.itemId === current.itemId && v.key === current.key) : undefined;
+    if (!lead) {
+      if (this.#locked) this.#unlock(now);
+      lead = this.#pickLead(usable);
+      this.#lead = lead ? { itemId: lead.voice.itemId, key: lead.key } : null;
+    }
+    if (!lead) {
+      // 没有声音（没有音频、视频没有音轨、实例静音了）：按墙钟走，不等。
+      if (this.#startBy !== null) this.#unlock(now);
+      this.#startBy = null;
+      this.#wait = null;
+      return;
+    }
+    const { element, voice } = lead;
+    if (this.#locked && element.seeking) this.#unlock(now);
+    if (!this.#locked && moving.has(lead) && Math.abs(element.currentTime - voice.sourceSeconds) <= RESYNC_SECONDS) {
+      this.#offset = this.#startBy !== null ? 0 : this.#time - leadTime(this.#planTime, lead);
+      this.#locked = true;
+      this.#startBy = null;
+    }
+    this.#leadReady = !buffering(element);
+    this.#wait = this.#locked ? (buffering(element) ? 'stall' : null) : this.#startBy !== null ? 'start' : null;
+  }
+
+  /** 挑主声音：先比开始时刻（早的先），再比轨道顺序、实例 ID。只看视频本身，同一份视频每次挑同一个。 */
+  #pickLead(voiced: Voiced[]): Voiced | undefined {
+    const sequence = this.#video?.sequence;
+    if (voiced.length <= 1 || !sequence) return voiced[0];
+    const ranked = voiced.map((v) => {
+      const item = sequence.items.find((i) => i.id === v.voice.itemId);
+      const order = sequence.tracks.find((track) => track.id === item?.trackId)?.order ?? 0;
+      return { v, start: item ? itemRangeSeconds(item, sequence.fps).start : 0, order };
+    });
+    ranked.sort((a, b) => a.start - b.start || a.order - b.order || compareIds(a.v.voice.itemId, b.v.voice.itemId));
+    return ranked[0]!.v;
   }
 
   /** 给这一刻出视频的实例分元素：还在画面上的留在原槽，新来的挑离目标时刻最近的空槽（少定位一次）。 */
@@ -962,7 +1181,8 @@ export class PreviewEngine {
     }
   }
 
-  #drive(element: HTMLMediaElement, target: Target): void {
+  /** 让一个元素对上目标。`run` 为假时播放中也先停在原处（时钟在等主声音，见 `#runs`），偏过 `RESYNC_SECONDS` 才重新定位。 */
+  #drive(element: HTMLMediaElement, target: Target, run: boolean): void {
     element.muted = target.muted || this.#monitor.muted;
     element.volume = target.volume * this.#monitor.volume;
     // 元数据到了才能定位（loadedmetadata 时再来）；一次定位落地之前不改 currentTime，否则一直到不了 seeked。
@@ -971,19 +1191,19 @@ export class PreviewEngine {
     const seconds = clampToMedia(element, target.seconds);
     const drift = element.currentTime - seconds;
     if (playing) sample(this.#stats.drift, Math.abs(drift));
-    if (Math.abs(drift) > (playing ? RESYNC_SECONDS : EXACT_SECONDS)) {
-      if (!element.paused && !playing) element.pause();
+    if (Math.abs(drift) > (playing && !this.#reseat ? RESYNC_SECONDS : EXACT_SECONDS)) {
+      if (!element.paused && !(playing && run)) element.pause();
       if (playing) this.#stats.resyncs++;
       element.currentTime = seconds;
       return;
     }
-    if (!playing) {
+    if (!playing || !run) {
       if (!element.paused) element.pause();
       return;
     }
-    // 只出画面的静音元素偏得不多就调速追上（领先就放慢），不再定位。出声的元素不调速，只按要的速度放：Chromium 保持音高时
-    // 速度一离开 1 就切到 WSOLA 变速，进出各断一下，按帧来回调速在声音里留下一串爆音（电流音），实测也追不回声音的实际进度；
-    // 偏得多了照上面重新定位。
+    // 只出画面的静音元素偏得不多就调速追上引擎时钟（领先就放慢），不再定位。出声的元素（主声音与别的声音）不调速，只按要的速度放：
+    // Chromium 保持音高时速度一离开 1 就切到 WSOLA 变速，进出各断一下，按帧来回调速在声音里留下一串爆音（电流音），实测也追不回
+    // 声音的实际进度；偏得多了照上面重新定位。
     const correction = target.muted && Math.abs(drift) > 0.02 ? Math.max(-0.5, Math.min(0.5, -drift * 2)) : 0;
     element.playbackRate = Math.max(MIN_RATE, Math.min(MAX_RATE, target.rate * this.#rate * (1 + correction)));
     if (element.paused) void element.play().catch(() => {});
@@ -1562,6 +1782,21 @@ function drawnLayers(plan: FramePlan): VisualLayer[] {
 /** 源时刻超出素材时长时停在最后：否则每次定位都落不到目标，会一直重试。 */
 function clampToMedia(element: HTMLMediaElement, seconds: number): number {
   return Number.isFinite(element.duration) ? Math.min(seconds, element.duration) : seconds;
+}
+
+/** 主声音这一刻说的引擎时间：按它在 `planTime` 那份计划里的时间映射，把元素的 `currentTime` 换回序列时间。 */
+function leadTime(planTime: number, { voice, element }: Voiced): number {
+  return planTime + (element.currentTime - voice.sourceSeconds) / voice.sourceRate;
+}
+
+/** 元素在定位，或手上的数据不够往下放（`waiting`）：放不动是在等数据，不是放不了。 */
+function buffering(element: HTMLMediaElement): boolean {
+  return element.seeking || element.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
+}
+
+/** 实例 ID 按字符串比（ID 是 ASCII，与 render-graph 排声音的顺序一致）。 */
+function compareIds(a: Id, b: Id): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
