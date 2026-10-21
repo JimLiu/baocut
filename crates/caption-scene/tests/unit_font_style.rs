@@ -65,3 +65,47 @@ fn omitted_and_empty_style_bindings_preserve_old_serialization() {
     assert_eq!(before, after);
     assert!(after["scene"]["value"]["layout"].get("fontStyleBindings").is_none());
 }
+
+#[test]
+fn source_only_font_patch_is_capability_gated_typed_and_legacy_family_patch_stays_named() {
+    let hash = "0123456789abcdef".repeat(4);
+    let mut body = fixture();
+    let before = serde_json::to_value(parse_style(&body).unwrap()).unwrap();
+    assert!(
+        before["scene"]["value"]["layout"]["fontStyleBindings"][0]["style"]
+            .get("fontSource")
+            .is_none()
+    );
+    let named = parse_style(&body).unwrap();
+    assert!(
+        named
+            .scene()
+            .layout
+            .font_style_bindings
+            .iter()
+            .all(|binding| binding.style.font_source.is_none())
+    );
+    body["scene"]["value"]["layout"]["fontStyleBindings"][0]["style"] = json!({"fontSource":{"sha256":hash}});
+    assert_eq!(parse_style(&body).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-font-source/1"));
+    let parsed = parse_style(&body).unwrap();
+    let patch = &parsed.scene().layout.font_style_bindings[0].style;
+    assert!(patch.font_family.is_none());
+    assert_eq!(patch.font_source.as_ref().unwrap().sha256, hash);
+    assert_eq!(patch.font_source.as_ref().unwrap().face_index, 0);
+    assert_eq!(parse_style(&serde_json::to_value(&parsed).unwrap()).unwrap(), parsed);
+    for reference in [
+        Value::Null,
+        json!({"sha256":"C".repeat(64)}),
+        json!({"sha256":hash,"faceIndex":1024}),
+        json!({"sha256":hash,"faceIndex":null}),
+        json!({"sha256":hash,"extra":0}),
+    ] {
+        let mut bad = body.clone();
+        bad["scene"]["value"]["layout"]["fontStyleBindings"][0]["style"]["fontSource"] = reference;
+        assert!(parse_style(&bad).is_err());
+    }
+}

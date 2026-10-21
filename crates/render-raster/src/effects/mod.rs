@@ -9,6 +9,8 @@
 pub mod component_filters;
 pub mod composite;
 pub mod filters;
+pub mod material_plan;
+pub mod noisy_sweep;
 pub mod pixel_format;
 pub mod transitions;
 

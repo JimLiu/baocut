@@ -4620,7 +4620,9 @@ fn texture_pool_bounds_all_resize_keys_and_removes_empty_entries() {
 
 #[test]
 fn associated_gaussian_matches_cpu_for_boundaries_gamma_and_resizing() {
-    use render_raster::effects::component_filters::{Axis, Boundary, ComponentImage, GaussianPass, Size, gaussian};
+    use render_raster::effects::component_filters::{
+        Axis, Boundary, ComponentImage, GaussianPass, GaussianSampling, Size, SpacingRamp, gaussian,
+    };
     let Some((device, queue, _, _)) = test_device() else {
         return;
     };
@@ -4673,29 +4675,70 @@ fn associated_gaussian_matches_cpu_for_boundaries_gamma_and_resizing() {
     for boundary in [Boundary::Normalize, Boundary::Replicate, Boundary::Transparent] {
         for axis in [Axis::X, Axis::Y] {
             for gamma in [None, Some(2.2)] {
-                for count in [0.0, 3.75] {
-                    let pass = GaussianPass {
-                        axis,
-                        boundary,
-                        gamma,
-                        sample_count: count,
-                        step_pixels: 0.875,
-                        sigma_pixels: 1.3,
-                        output: Size { width: 7, height: 11 },
-                    };
-                    let cpu = gaussian(&input, pass).unwrap();
-                    let output = texture(7, 11);
-                    let view = output.create_view(&Default::default());
-                    let mut encoder = device.create_command_encoder(&Default::default());
-                    renderer
-                        .encode_gaussian(0, &source_view, input_size, &view, pass, &mut encoder)
-                        .unwrap();
-                    queue.submit(Some(encoder.finish()));
-                    let padded = diagnostic_readback_sized(&device, &queue, &output, 7, 11, 256);
-                    let gpu: Vec<u8> = padded.chunks_exact(256).flat_map(|row| row[..28].iter().copied()).collect();
-                    let error = gpu.iter().zip(cpu.data()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
-                    assert!(error <= 1, "{axis:?} {boundary:?} gamma={gamma:?} count={count}: max error {error}");
-                    assert!(gpu.chunks_exact(4).any(|p| p[2] > p[3]), "emission was clamped to alpha");
+                for count in [0.0, 3.75, 20.0] {
+                    for spacing_ramp in [
+                        None,
+                        Some(SpacingRamp {
+                            positive_first: false,
+                            domain: [-1.0, 0.5, 15.0, 8.0],
+                            axis: Axis::Y,
+                            start: 0.2,
+                            end: 0.8,
+                            reverse: false,
+                            previous_sample: false,
+                        }),
+                        Some(SpacingRamp {
+                            positive_first: true,
+                            domain: [0.0, -1.0, 13.0, 11.0],
+                            axis: Axis::Y,
+                            start: 0.1,
+                            end: 0.9,
+                            reverse: true,
+                            previous_sample: true,
+                        }),
+                        Some(SpacingRamp {
+                            positive_first: false,
+                            domain: [0.0, 0.0, 13.0, 9.0],
+                            axis: Axis::X,
+                            start: 0.2,
+                            end: 0.6,
+                            reverse: false,
+                            previous_sample: true,
+                        }),
+                    ] {
+                        for sampling in [
+                            None,
+                            Some(GaussianSampling {
+                                input: [2, 1, 7, 5],
+                                output: [1.25, 2.25, 4.5, 6.25],
+                            }),
+                        ] {
+                            let pass = GaussianPass {
+                                sampling,
+                                spacing_ramp,
+                                axis,
+                                boundary,
+                                gamma,
+                                sample_count: count,
+                                step_pixels: 0.875,
+                                sigma_pixels: 1.3,
+                                output: Size { width: 7, height: 11 },
+                            };
+                            let cpu = gaussian(&input, pass).unwrap();
+                            let output = texture(7, 11);
+                            let view = output.create_view(&Default::default());
+                            let mut encoder = device.create_command_encoder(&Default::default());
+                            renderer
+                                .encode_gaussian(0, &source_view, input_size, &view, pass, &mut encoder)
+                                .unwrap();
+                            queue.submit(Some(encoder.finish()));
+                            let padded = diagnostic_readback_sized(&device, &queue, &output, 7, 11, 256);
+                            let gpu: Vec<u8> = padded.chunks_exact(256).flat_map(|row| row[..28].iter().copied()).collect();
+                            let error = gpu.iter().zip(cpu.data()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                            assert!(error <= 1, "{axis:?} {boundary:?} gamma={gamma:?} count={count}: max error {error}");
+                            assert!(gpu.chunks_exact(4).any(|p| p[2] > p[3]), "emission was clamped to alpha");
+                        }
+                    }
                 }
             }
         }
@@ -4704,6 +4747,8 @@ fn associated_gaussian_matches_cpu_for_boundaries_gamma_and_resizing() {
     let view = output.create_view(&Default::default());
     let mut encoder = device.create_command_encoder(&Default::default());
     let excessive = GaussianPass {
+        sampling: None,
+        spacing_ramp: None,
         axis: Axis::X,
         boundary: Boundary::Normalize,
         gamma: None,
@@ -4719,4 +4764,373 @@ fn associated_gaussian_matches_cpu_for_boundaries_gamma_and_resizing() {
             .to_string()
             .contains("gpu-component-work-budget")
     );
+}
+
+#[test]
+fn associated_glow_matches_cpu_and_reuses_bounded_intermediates() {
+    use render_raster::effects::component_filters::{
+        Axis, Boundary, ComponentImage, GaussianPass, GlowComposite, GlowConfig, GlowLevel, Size, cascade_glow,
+    };
+    let Some((device, queue, _, _)) = test_device() else {
+        return;
+    };
+    let size = Size { width: 13, height: 9 };
+    let data: Vec<u8> = (0..13 * 9)
+        .flat_map(|i| [(i * 37 % 256) as u8, (i * 11 % 256) as u8, 180, if i % 3 == 0 { 0 } else { 70 }])
+        .collect();
+    let input = ComponentImage::new(13, 9, data.clone()).unwrap();
+    let texture = |label| {
+        device.create_texture(&wgpu::TextureDescriptor {
+            label: Some(label),
+            size: wgpu::Extent3d {
+                width: 13,
+                height: 9,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        })
+    };
+    let source = texture("glow.source");
+    let output = texture("glow.output");
+    queue.write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: &source,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        &data,
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(52),
+            rows_per_image: Some(9),
+        },
+        wgpu::Extent3d {
+            width: 13,
+            height: 9,
+            depth_or_array_layers: 1,
+        },
+    );
+    let source_view = source.create_view(&Default::default());
+    let view = output.create_view(&Default::default());
+    let mut renderer = compositor::GlowRenderer::new(device.clone(), queue.clone());
+    let mut cases = 0;
+    for levels in [1, 3, 7] {
+        for gamma in [1.0, 2.2] {
+            for intensity in [0.0, 0.25, 1.8, 16.0] {
+                for composite in [GlowComposite::Screen, GlowComposite::SourceOverGlow] {
+                    let config = GlowConfig {
+                        levels: (0..levels)
+                            .map(|i| {
+                                let output = Size {
+                                    width: (13 >> i).max(1),
+                                    height: (9 >> i).max(1),
+                                };
+                                let pass = |axis| GaussianPass {
+                                    sampling: None,
+                                    spacing_ramp: None,
+                                    axis,
+                                    sample_count: 3.75,
+                                    step_pixels: 0.875,
+                                    sigma_pixels: 1.3,
+                                    gamma: Some(gamma),
+                                    boundary: Boundary::Replicate,
+                                    output,
+                                };
+                                GlowLevel {
+                                    x: pass(Axis::X),
+                                    y: pass(Axis::Y),
+                                }
+                            })
+                            .collect(),
+                        intensity,
+                        gamma,
+                        original_opacity: 0.4,
+                        glow_tint: [0.9, 0.7, 0.3],
+                        glow_color_matrix: [1.0, 0.1, 0.0, 0.1, 0.9, 0.0, 0.0, -0.1, 0.9],
+                        gamma_alpha: false,
+                        linear: None,
+                        composite,
+                        output: size,
+                    };
+                    let cpu = cascade_glow(&input, &config).unwrap().image;
+                    for repeat in 0..2 {
+                        let allocations = renderer.surface_allocations();
+                        let mut encoder = device.create_command_encoder(&Default::default());
+                        renderer.encode(0, &source_view, size, &view, &config, &mut encoder).unwrap();
+                        queue.submit(Some(encoder.finish()));
+                        if repeat == 1 {
+                            assert_eq!(renderer.surface_allocations(), allocations, "stable frame allocated textures");
+                        }
+                        let padded = diagnostic_readback_sized(&device, &queue, &output, 13, 9, 256);
+                        let gpu: Vec<u8> = padded.chunks_exact(256).flat_map(|row| row[..52].iter().copied()).collect();
+                        let error = gpu.iter().zip(cpu.data()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                        assert!(
+                            error <= 2,
+                            "levels={levels} gamma={gamma} intensity={intensity} {composite:?}: error={error}"
+                        );
+                    }
+                    assert!(renderer.resident_bytes() < 8192);
+                    cases += 1;
+                }
+            }
+        }
+    }
+    assert_eq!(cases, 48);
+    renderer.finish_frame(0);
+    assert_eq!(renderer.resident_bytes(), 0);
+}
+
+#[test]
+fn dynamic_caption_material_plan_renders_in_one_gpu_submission() {
+    use caption_scene::{Presentation, parse_style};
+    use sha2::{Digest, Sha256};
+    use subtitle_render::scene::{SceneCue, ScenePlan};
+    let Some((device, queue, backend, adapter)) = test_device() else {
+        return;
+    };
+    let mut body: serde_json::Value = serde_json::from_str(include_str!("../../caption-scene/tests/fixtures/glow-cascade.json")).unwrap();
+    let c = |v: f64| json!({"kind":"constant","value":v});
+    let scene = &mut body["scene"]["value"];
+    scene["requiredCapabilities"].as_array_mut().unwrap().extend([
+        json!("caption-render-layers/1"),
+        json!("caption-image-sequence/1"),
+        json!("caption-noisy-sweep/1"),
+    ]);
+    let glow = scene["materials"].take()[0].clone();
+    scene["materials"] = json!([]);
+    let noisy = json!({"kind":"noisy-sweep","id":"sweep","contextNodeId":"caption","domain":{"x":c(0.0),"y":c(0.0),"width":c(160.0),"height":c(90.0)},"position":c(0.56),"maskScale":[1,1],"reveal":true,"uvY":"up"});
+    let mut png = tiny_skia::Pixmap::new(2, 2).unwrap();
+    png.data_mut()
+        .copy_from_slice(&[70, 10, 2, 90, 1, 20, 80, 120, 25, 40, 2, 120, 60, 5, 15, 75]);
+    let png = png.encode_png().unwrap();
+    let digest = Sha256::digest(&png).iter().map(|b| format!("{b:02x}")).collect::<String>();
+    scene["sequences"] = json!([{"id":"particles","premultiply":"shifted-byte","frames":[{"id":"frame","assetRef":{"id":"frame","revision":"1"},"contentHash":format!("sha256:{digest}")}]}]);
+    scene["renderLayers"] = json!([
+        {"id":"letters","source":{"kind":"nodes","nodeIds":["caption"]},"materials":[noisy,glow],"blend":"source-over"},
+        {"id":"particles","source":{"kind":"image-sequence","contextNodeId":"caption","sequenceId":"particles","frame":c(0.0),"domain":{"x":c(15.0),"y":c(12.0),"width":c(58.0),"height":c(45.0)},"uvScale":[0.75,1.2],"uvOffset":[0.12,-0.06]},"materials":[],"blend":"screen"}
+    ]);
+    let mut plan = ScenePlan::compile(
+        parse_style(&body).unwrap(),
+        Presentation::default(),
+        vec![SceneCue {
+            id: "cue".into(),
+            document_id: "doc".into(),
+            text: "One two three four".into(),
+            start: 0.0,
+            end: 4.0,
+            words: vec![],
+        }],
+        (160, 90),
+        render_raster::TextEngine::with_document_fonts(&[
+            include_bytes!("../../render-raster/assets/fonts/NotoSansSC-Variable.ttf").to_vec()
+        ]),
+        "gpu-conformance".into(),
+    )
+    .unwrap();
+    plan.load_resources(|_| Some(png.clone())).unwrap();
+    let output = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("caption.material.target"),
+        size: wgpu::Extent3d {
+            width: 160,
+            height: 90,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    });
+    let view = output.create_view(&Default::default());
+    let mut renderer = compositor::CaptionGpuRenderer::from_device(device.clone(), queue.clone(), backend, adapter);
+    let mut replay = None;
+    let mut warm = None;
+    for t in [0.2, 0.9, 2.3, 0.2] {
+        let mut cpu = tiny_skia::Pixmap::new(160, 90).unwrap();
+        cpu.fill(tiny_skia::Color::from_rgba8(80, 100, 120, 255));
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &output,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            cpu.data(),
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(640),
+                rows_per_image: Some(90),
+            },
+            wgpu::Extent3d {
+                width: 160,
+                height: 90,
+                depth_or_array_layers: 1,
+            },
+        );
+        let (layers, _) = plan.render_outputs(t).unwrap();
+        for layer in layers {
+            let pixmap = tiny_skia::PixmapRef::from_bytes(&layer.rgba, 160, 90).unwrap();
+            render_raster::emissive::composite_associated_with_blend(&mut cpu, pixmap, 1.0, [1., 0., 0., 1., 0., 0.], None, layer.blend)
+                .unwrap();
+        }
+        let (frame, _) = plan.record_material_plan(t).unwrap();
+        let stats = renderer
+            .render(
+                &frame,
+                RenderTarget {
+                    view: &view,
+                    width: 160,
+                    height: 90,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                },
+                false,
+            )
+            .unwrap();
+        assert_eq!(stats.submissions, 1);
+        assert_eq!(stats.material_passes, 2);
+        if let Some(fields) = warm {
+            assert_eq!(stats.noise_field_uploads, fields, "time changes rebuilt the static noise field");
+        } else {
+            warm = Some(stats.noise_field_uploads);
+        }
+        let padded = diagnostic_readback_sized(&device, &queue, &output, 160, 90, 768);
+        let gpu: Vec<u8> = padded.chunks_exact(768).flat_map(|row| row[..640].iter().copied()).collect();
+        let gpu_image = tiny_skia::Pixmap::from_vec(gpu.clone(), tiny_skia::IntSize::from_wh(160, 90).unwrap()).unwrap();
+        let comparison = imgcmp::compare(&cpu, &gpu_image).unwrap();
+        assert!(comparison.ssim_downsampled >= 0.98, "time={t}: {comparison:?}");
+        if t == 0.2 {
+            if let Some(prior) = &replay {
+                assert_eq!(&gpu, prior, "out-of-order seek changed GPU pixels");
+            } else {
+                replay = Some(gpu);
+            }
+        }
+    }
+}
+
+#[test]
+fn gaussian_local_scene_plan_preserves_two_sampling_grids_in_one_submission() {
+    use caption_scene::{Presentation, parse_style};
+    use render_raster::drawop::BitmapData;
+    use render_raster::effects::{
+        component_filters::{ComponentImage, gaussian},
+        material_plan::{ImageQuad, MaterialCommand, MaterialSource},
+    };
+    use subtitle_render::scene::{SceneCue, ScenePlan};
+    let Some((device, queue, backend, adapter)) = test_device() else {
+        return;
+    };
+    let mut body: serde_json::Value =
+        serde_json::from_str(include_str!("../../caption-scene/tests/fixtures/gaussian-local-sampling.json")).unwrap();
+    let c = |v: f64| json!({"kind":"constant","value":v});
+    let full = json!({"x":c(0.0),"y":c(0.0),"width":c(160.0),"height":c(90.0)});
+    let mut x = body["scene"]["value"]["materials"][0].clone();
+    x["id"] = json!("horizontal");
+    x["axis"] = json!("x");
+    x["sampling"]["output"] = full.clone();
+    x["spacingRamp"]["sampleOrder"] = json!("negative-first");
+    let mut y = body["scene"]["value"]["materials"][0].clone();
+    y["id"] = json!("vertical");
+    y["sampling"]["input"] = full.clone();
+    y["spacingRamp"]["domain"] = full;
+    body["scene"]["value"]["materials"] = json!([x, y]);
+    let mut plan = ScenePlan::compile(
+        parse_style(&body).unwrap(),
+        Presentation::default(),
+        vec![SceneCue {
+            id: "cue".into(),
+            document_id: "doc".into(),
+            text: "Spatial".into(),
+            start: 0.0,
+            end: 4.0,
+            words: vec![],
+        }],
+        (160, 90),
+        render_raster::TextEngine::with_document_fonts(&[
+            include_bytes!("../../render-raster/assets/fonts/NotoSansSC-Variable.ttf").to_vec()
+        ]),
+        "local-grid".into(),
+    )
+    .unwrap();
+    // Replace only the glyph source with frozen diagnostic pixels; the shared
+    // scene parser, clock evaluation and material recorder remain real.
+    let pixels: Vec<u8> = (0..160 * 90)
+        .flat_map(|i| [(i * 37 % 256) as u8, (i * 13 % 256) as u8, 220, 160])
+        .collect();
+    let bitmap = Arc::new(BitmapData {
+        width: 160,
+        height: 90,
+        rgba: pixels.clone().into(),
+    });
+    let output = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("gaussian.local-scene"),
+        size: wgpu::Extent3d {
+            width: 160,
+            height: 90,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::COPY_SRC | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    });
+    let view = output.create_view(&Default::default());
+    let mut renderer = compositor::CaptionGpuRenderer::from_device(device.clone(), queue.clone(), backend, adapter);
+    let mut results = Vec::new();
+    let mut resident = None;
+    for t in [0.05, 1.0, 3.9, 0.05] {
+        let (mut frame, _) = plan.record_material_plan(t).unwrap();
+        frame.layers[0].source = MaterialSource::Image(ImageQuad {
+            bitmap: bitmap.clone(),
+            domain: [0.0, 0.0, 160.0, 90.0],
+            uv_scale: [1.0, 1.0],
+            uv_offset: [0.0, 0.0],
+        });
+        let mut cpu = ComponentImage::new(160, 90, pixels.clone()).unwrap();
+        for command in &frame.layers[0].materials {
+            let MaterialCommand::Gaussian(pass) = command else {
+                panic!("Unexpected material")
+            };
+            cpu = gaussian(&cpu, *pass).unwrap();
+        }
+        let stats = renderer
+            .render(
+                &frame,
+                RenderTarget {
+                    view: &view,
+                    width: 160,
+                    height: 90,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                },
+                true,
+            )
+            .unwrap();
+        assert_eq!(stats.submissions, 1);
+        assert_eq!(stats.material_passes, 2);
+        if let Some(bytes) = resident {
+            assert_eq!(stats.resident_surface_bytes, bytes);
+        } else {
+            resident = Some(stats.resident_surface_bytes);
+        }
+        let padded = diagnostic_readback_sized(&device, &queue, &output, 160, 90, 768);
+        let gpu: Vec<u8> = padded.chunks_exact(768).flat_map(|row| row[..640].iter().copied()).collect();
+        let error = gpu.iter().zip(cpu.data()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+        assert!(error <= 2, "two-grid mismatch at {t}: max error {error}");
+        assert!(gpu.chunks_exact(4).any(|v| v[2] > v[3]), "emission clamped to coverage");
+        results.push(gpu);
+    }
+    assert_ne!(results[0], results[2]);
+    assert_eq!(results[0], results[3]);
 }

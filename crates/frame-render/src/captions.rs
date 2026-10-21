@@ -779,8 +779,11 @@ impl CaptionPlan {
 }
 
 fn flatten_caption_layers(mut layers: Vec<CaptionLayer>) -> Result<Option<CaptionLayer>> {
-    if layers.iter().any(|layer| layer.associated_blend == Some(AssociatedBlend::Screen)) {
-        anyhow::bail!("CAPTION_BACKDROP_REQUIRED: associated Screen requires ordered output composition");
+    if layers
+        .iter()
+        .any(|layer| matches!(layer.associated_blend, Some(AssociatedBlend::Screen | AssociatedBlend::Add)))
+    {
+        anyhow::bail!("CAPTION_BACKDROP_REQUIRED: associated Screen/Add requires ordered output composition");
     }
     if layers.len() <= 1 {
         return Ok(layers.pop());
@@ -822,13 +825,15 @@ mod tests {
             blend: BlendMode::SourceOver,
             associated_blend,
         };
-        assert!(
-            flatten_caption_layers(vec![layer(Some(AssociatedBlend::Screen))])
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("CAPTION_BACKDROP_REQUIRED")
-        );
+        for blend in [AssociatedBlend::Screen, AssociatedBlend::Add] {
+            assert!(
+                flatten_caption_layers(vec![layer(Some(blend))])
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("CAPTION_BACKDROP_REQUIRED")
+            );
+        }
         let legacy = layer(None);
         let bytes = legacy.rgba.clone();
         let single = flatten_caption_layers(vec![legacy]).unwrap().unwrap();

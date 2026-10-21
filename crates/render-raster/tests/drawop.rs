@@ -518,7 +518,7 @@ fn v5_frame() -> FrameOps {
 #[test]
 fn bitmaps_lift_the_envelope_to_v5_and_round_trip() {
     let frame = v5_frame();
-    assert_eq!(drawop::MAX_VERSION, 8);
+    assert_eq!(drawop::MAX_VERSION, 9);
     assert_eq!(drawop::required_version(&frame), 5);
     let encoded = drawop::encode(&frame);
     assert_eq!(u32::from_le_bytes(encoded[4..8].try_into().unwrap()), 5);

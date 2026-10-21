@@ -41,6 +41,8 @@ pub enum Evaluated {
     Number(ValueType, f64),
     Bool(bool),
     Color([f64; 4]),
+    /// Resolved list parameter; expressions can only read it through `pick`.
+    List(ValueType, Vec<Evaluated>),
 }
 impl Evaluated {
     pub fn value_type(&self) -> ValueType {
@@ -48,6 +50,7 @@ impl Evaluated {
             Self::Number(t, _) => *t,
             Self::Bool(_) => ValueType::Bool,
             Self::Color(_) => ValueType::Color,
+            Self::List(t, _) => *t,
         }
     }
     pub fn number(&self) -> Result<f64> {
@@ -65,6 +68,9 @@ impl Evaluated {
     pub fn finite(self) -> Result<Self> {
         if matches!(&self, Self::Number(_, n) if !n.is_finite()) || matches!(&self, Self::Color(c) if c.iter().any(|n| !n.is_finite())) {
             return Err(invalid("expression", "non-finite result"));
+        }
+        if let Self::List(t, items) = self {
+            return Ok(Self::List(t, items.into_iter().map(Evaluated::finite).collect::<Result<_>>()?));
         }
         Ok(self)
     }
@@ -181,7 +187,12 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "unit.lineEnvelopeAvailable"
         | "unit.rangeInkAvailable"
         | "unit.activeWordAvailable"
-        | "unit.previousWordInLine" => ValueType::Bool,
+        | "unit.previousWordInLine"
+        | "cue.speechPhase.beforeFirst"
+        | "cue.speechPhase.reading"
+        | "cue.speechPhase.afterLast"
+        | "cue.speechPhase.estimated"
+        | "word.inSpan" => ValueType::Bool,
         "layout.labelWidth"
         | "layout.labelHeight"
         | "layout.labelMaxGlyphInkWidth"
@@ -352,7 +363,100 @@ fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
             "rewrapped lines have no stable clock",
         ));
     }
+    if matches!(
+        path,
+        "cue.speechPhase.beforeFirst"
+            | "cue.speechPhase.reading"
+            | "cue.speechPhase.afterLast"
+            | "cue.speechPhase.estimated"
+            | "word.inSpan"
+    ) && !scene.required_capabilities.iter().any(|c| c == "caption-speech-phase/1")
+    {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-speech-phase/1 must be declared",
+        ));
+    }
     Ok(())
+}
+fn require_function_capability(function: &str, scene: &Scene) -> Result<()> {
+    let capability = match function {
+        "exp" => "caption-exponential-expression/1",
+        "round" => "caption-rounding-expression/1",
+        "mod" | "fract" => "caption-modular-expression/1",
+        "pow" => "caption-power-expression/1",
+        "pick" => "caption-list-pick/1",
+        _ => return Ok(()),
+    };
+    if !scene.required_capabilities.iter().any(|c| c == capability) {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            function,
+            format!("{capability} must be declared"),
+        ));
+    }
+    Ok(())
+}
+/// Scalar parameter type for `params.<id>`; list parameters are only readable through `pick`.
+fn parameter_read_type(path: &str, id: &str, scene: &Scene) -> Result<Option<ValueType>> {
+    match scene.parameters.iter().find(|p| p.id == id) {
+        Some(p) if p.list => Err(Diagnostic::new(
+            "CAPTION_EXPRESSION_TYPE",
+            path,
+            "list parameter is only readable through pick",
+        )),
+        p => Ok(p.map(|p| p.value_type)),
+    }
+}
+/// `pick(params.<list>, index)`: the first argument must name a declared list parameter.
+fn pick_list<'a>(args: &'a [Expression], scene: &Scene) -> Result<&'a str> {
+    let [Expression::Read { path }, _] = args else {
+        return Err(Diagnostic::new(
+            "CAPTION_EXPRESSION_TYPE",
+            "pick",
+            "pick requires a list parameter read and one index",
+        ));
+    };
+    match path
+        .strip_prefix("params.")
+        .and_then(|id| scene.parameters.iter().find(|p| p.id == id))
+    {
+        Some(p) if p.list => Ok(path),
+        _ => Err(Diagnostic::new(
+            "CAPTION_EXPRESSION_TYPE",
+            path,
+            "pick requires a declared list parameter",
+        )),
+    }
+}
+fn pick_type(path: &str, index: ValueType, scene: &Scene) -> Result<ValueType> {
+    if !matches!(index, ValueType::Scalar | ValueType::Integer) {
+        return Err(Diagnostic::new(
+            "CAPTION_EXPRESSION_TYPE",
+            "pick",
+            "index must be scalar or integer",
+        ));
+    }
+    let id = &path["params.".len()..];
+    Ok(scene
+        .parameters
+        .iter()
+        .find(|p| p.id == id)
+        .expect("checked list parameter")
+        .value_type)
+}
+/// Floored modulo: the result takes the divisor's sign and stays in `[0, b)` / `(b, 0]`.
+fn floored_mod(a: f64, b: f64) -> Result<f64> {
+    if b == 0.0 {
+        return Err(invalid("mod", "zero divisor"));
+    }
+    let mut r = libm::fmod(a, b);
+    if r != 0.0 && (r < 0.0) != (b < 0.0) {
+        r += b;
+    }
+    // A tiny opposite-signed remainder can round up to the divisor itself.
+    Ok(if r == b { 0.0 } else { r })
 }
 pub fn builtin_type(name: &str, args: &[ValueType]) -> Option<ValueType> {
     use ValueType::*;
@@ -366,12 +470,13 @@ pub fn builtin_type(name: &str, args: &[ValueType]) -> Option<ValueType> {
         ("div", [a, Scalar | Integer]) if numeric(*a) => Some(*a),
         ("div", [a, b]) if a == b && numeric(*a) => Some(Scalar),
         ("abs", [a]) if numeric(*a) => Some(*a),
-        ("floor" | "ceil", [Scalar]) => Some(Scalar),
+        ("floor" | "ceil" | "round" | "fract", [Scalar]) => Some(Scalar),
+        ("mod" | "pow", [Scalar, Scalar]) => Some(Scalar),
         ("sin" | "cos", [Angle]) => Some(Scalar),
         ("phase", [Time, Scalar]) => Some(Angle),
         ("mix", [a, b, Scalar]) if a == b && (numeric(*a) || *a == Color) => Some(*a),
         ("clamp", [a, b, c]) if a == b && b == c && numeric(*a) => Some(*a),
-        ("smoothstep" | "sqrt", [Scalar]) => Some(Scalar),
+        ("smoothstep" | "sqrt" | "exp", [Scalar]) => Some(Scalar),
         ("cubic-bezier", [Scalar, Scalar, Scalar, Scalar, Scalar]) => Some(Scalar),
         ("eq", [a, b]) if a == b => Some(Bool),
         ("lt" | "gt", [a, b]) if a == b && numeric(*a) => Some(Bool),
@@ -402,7 +507,7 @@ pub fn infer(expr: &Expression, scene: &Scene, arguments: &BTreeMap<String, Valu
             Expression::Read { path } => {
                 require_context_capability(path, s)?;
                 let t = if let Some(id) = path.strip_prefix("params.") {
-                    s.parameters.iter().find(|p| p.id == id).map(|p| p.value_type)
+                    parameter_read_type(path, id, s)?
                 } else if let Some(id) = path.strip_prefix("args.") {
                     a.get(id).copied()
                 } else {
@@ -425,6 +530,12 @@ pub fn infer(expr: &Expression, scene: &Scene, arguments: &BTreeMap<String, Valu
                 Ok(t)
             }
             Expression::Call { function, args } => {
+                require_function_capability(function, s)?;
+                if function == "pick" {
+                    let list = pick_list(args, s)?;
+                    let index = inner(&args[1], s, a, stack, budget)?;
+                    return pick_type(list, index, s);
+                }
                 let ts = args.iter().map(|x| inner(x, s, a, stack, budget)).collect::<Result<Vec<_>>>()?;
                 if let Some(t) = builtin_type(function, &ts) {
                     return Ok(t);
@@ -492,7 +603,7 @@ fn infer_dag(expr: &Expression, scene: &Scene, arguments: &BTreeMap<String, Valu
                 Expression::Read { path } => {
                     require_context_capability(path, self.scene)?;
                     let ty = if let Some(id) = path.strip_prefix("params.") {
-                        self.scene.parameters.iter().find(|p| p.id == id).map(|p| p.value_type)
+                        parameter_read_type(path, id, self.scene)?
                     } else if let Some(id) = path.strip_prefix("args.") {
                         arguments.get(id).copied()
                     } else {
@@ -519,7 +630,16 @@ fn infer_dag(expr: &Expression, scene: &Scene, arguments: &BTreeMap<String, Valu
                     }
                     (yes.value_type, 1 + condition.height.max(yes.height).max(no.height))
                 }
+                Expression::Call { function, args } if function == "pick" => {
+                    require_function_capability(function, self.scene)?;
+                    let list = pick_list(args, self.scene)?;
+                    *physical_nodes += 1;
+                    self.unique_nodes += 1;
+                    let index = self.visit(&args[1], arguments, physical_nodes, depth + 1)?;
+                    (pick_type(list, index.value_type, self.scene)?, 1 + index.height)
+                }
                 Expression::Call { function, args } => {
+                    require_function_capability(function, self.scene)?;
                     let args = args
                         .iter()
                         .map(|arg| self.visit(arg, arguments, physical_nodes, depth + 1))
@@ -585,6 +705,9 @@ pub struct Budget {
     remaining: usize,
     permutations: BTreeMap<(usize, u32), Vec<u16>>,
     cached_indices: usize,
+    image_paint_pixels: usize,
+    image_phase_slots: usize,
+    image_paint_work: u64,
 }
 impl Default for Budget {
     fn default() -> Self {
@@ -597,7 +720,41 @@ impl Budget {
             remaining: limit,
             permutations: BTreeMap::new(),
             cached_indices: 0,
+            image_paint_pixels: 0,
+            image_phase_slots: 0,
+            image_paint_work: 0,
         }
+    }
+    /// Shared across all recorded cue/layer image paints in this frame.
+    pub fn reserve_image_paint_pixels(&mut self, count: usize) -> Result<()> {
+        let next = self
+            .image_paint_pixels
+            .checked_add(count)
+            .filter(|total| *total <= 16 * 1024 * 1024)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "image paint surfaces"))?;
+        self.image_paint_pixels = next;
+        Ok(())
+    }
+    /// Source-scalar maps are independent of prepared glyph counts: whitespace
+    /// can take map slots even when it produces no visible glyph.
+    pub fn reserve_image_phase_slots(&mut self, count: usize) -> Result<()> {
+        let next = self
+            .image_phase_slots
+            .checked_add(count)
+            .filter(|total| *total <= 131_072)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "image phase scalar maps"))?;
+        self.image_phase_slots = next;
+        Ok(())
+    }
+    /// Image sample/gradient work and each Gaussian channel tap share one frame cap.
+    pub fn reserve_image_paint_work(&mut self, count: u64) -> Result<()> {
+        let next = self
+            .image_paint_work
+            .checked_add(count)
+            .filter(|total| *total <= 256 * 1024 * 1024)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "image paint sampling work"))?;
+        self.image_paint_work = next;
+        Ok(())
     }
     pub fn remaining(&self) -> usize {
         self.remaining
@@ -677,6 +834,13 @@ pub fn evaluate(expr: &Expression, scene: &Scene, ctx: &Context, budget: &mut Bu
                 } else {
                     c.fields.get(path)
                 };
+                if let Some(Evaluated::List(..)) = v {
+                    return Err(Diagnostic::new(
+                        "CAPTION_EXPRESSION_TYPE",
+                        path,
+                        "list parameter is only readable through pick",
+                    ));
+                }
                 v.cloned().ok_or_else(|| invalid(path, "context unavailable"))?
             }
             Expression::If {
@@ -688,6 +852,19 @@ pub fn evaluate(expr: &Expression, scene: &Scene, ctx: &Context, budget: &mut Bu
                 inner(if choice { then } else { otherwise }, s, c, a, b, depth + 1)?
             }
             Expression::Call { function, args } => {
+                require_function_capability(function, s)?;
+                if function == "pick" {
+                    let list = pick_list(args, s)?;
+                    b.spend()?;
+                    let Some(Evaluated::List(_, items)) = c.fields.get(list) else {
+                        return Err(invalid(list, "context unavailable"));
+                    };
+                    let index = inner(&args[1], s, c, a, b, depth + 1)?.number()?;
+                    if !index.is_finite() || index.fract() != 0.0 || items.is_empty() {
+                        return Err(invalid("pick", "finite integer index and nonempty list required"));
+                    }
+                    return items[index.rem_euclid(items.len() as f64) as usize].clone().finite();
+                }
                 let values = args.iter().map(|x| inner(x, s, c, a, b, depth + 1)).collect::<Result<Vec<_>>>()?;
                 let types = values.iter().map(Evaluated::value_type).collect::<Vec<_>>();
                 if let Some(t) = builtin_type(function, &types) {
@@ -710,6 +887,11 @@ pub fn evaluate(expr: &Expression, scene: &Scene, ctx: &Context, budget: &mut Bu
         value.finite()
     }
     inner(expr, scene, ctx, &BTreeMap::new(), budget, 0)
+}
+/// Seeded unit value in `[0, 1)`; the same hash as the `random` builtin, exposed
+/// for preparation-time choices such as `pagination.patternSelect`.
+pub fn seeded_unit(seed: u64, key: &str, channel: u64) -> f64 {
+    random(seed, key, channel)
 }
 fn random(seed: u64, key: &str, channel: u64) -> f64 {
     let mut h = seed ^ channel;
@@ -763,8 +945,19 @@ fn builtin(name: &str, v: &[Evaluated], t: ValueType, c: &Context) -> Result<Eva
         "abs" => n[0].abs(),
         "floor" => libm::floor(n[0]),
         "ceil" => libm::ceil(n[0]),
+        // libm::round rounds halfway cases away from zero.
+        "round" => libm::round(n[0]),
+        "mod" => floored_mod(n[0], n[1])?,
+        "fract" => floored_mod(n[0], 1.0)?,
+        "pow" => {
+            if n[0] < 0.0 && n[1].fract() != 0.0 {
+                return Err(invalid("pow", "negative base requires an integer exponent"));
+            }
+            libm::pow(n[0], n[1])
+        }
         "sin" => libm::sin(n[0]),
         "cos" => libm::cos(n[0]),
+        "exp" => libm::exp(n[0]),
         "phase" => n[0] * n[1] * std::f64::consts::TAU,
         "mix" => n[0] + (n[1] - n[0]) * n[2],
         "clamp" => {
@@ -838,6 +1031,20 @@ pub fn sample_value(
             } else {
                 (seconds - origin) / duration
             };
+            match clock.tail {
+                ClockTail::None => {}
+                ClockTail::Clamp => u = u.min(1.0),
+                ClockTail::Repeat => {
+                    if duration <= 0.0 {
+                        return Err(invalid("tail", "positive duration required"));
+                    }
+                    let elapsed = seconds - origin;
+                    if elapsed >= 0.0 {
+                        // Floored remainder of the elapsed time keeps exact period ends at 0.
+                        u = (floored_mod(elapsed, duration)? / duration).min(1.0 - f64::EPSILON / 2.0);
+                    }
+                }
+            }
             let mut repeating = false;
             if let Some(repeat) = clock.repeat {
                 if duration <= 0.0 {

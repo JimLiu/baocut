@@ -53,11 +53,18 @@ fn simplex(v: [f32; 2]) -> f32 {
     130.0 * (contributions[0] + contributions[1] + contributions[2])
 }
 
-fn noise(uv: [f32; 2], phase: f32) -> f32 {
+/// The fixed v1 spatial noise in [0, 1]; `phase` is already normalized to [0, 289).
+pub(super) fn noise(uv: [f32; 2], phase: f32) -> f32 {
     let x = uv.map(|v| (v * 0.4 - 103.15) * 2.3 * 1.35);
     let a = simplex([x[0], x[1] + phase]) + simplex([-x[0], -(x[1] - (phase + 2.6))]);
     let m = (a * 0.5 + 0.5).clamp(0.0, 1.0);
     ((m - 0.5) * 1.5 + 0.5).clamp(0.0, 1.0)
+}
+
+/// Converts a validated phase to f32 and wraps it to the kernel period 289.
+pub(super) fn normalized_phase(phase: f64) -> f32 {
+    let phase = phase as f32;
+    phase - libm::floorf(phase / 289.0) * 289.0
 }
 
 fn palette_rgb(palette: &BitmapData, u: f64) -> [f32; 3] {
@@ -107,8 +114,7 @@ pub(super) fn apply(
         "CAPTION_MATERIAL_INVALID: noise palette inputs"
     );
     let palette = palette_rgb(palette, palette_position).map(|v| (v - 0.5) * 2.0 + 0.5);
-    let phase = phase as f32;
-    let phase = phase - libm::floorf(phase / 289.0) * 289.0;
+    let phase = normalized_phase(phase);
     for y in 0..size.1 {
         for x in 0..size.0 {
             let offset = (y as usize * size.0 as usize + x as usize) * 4;

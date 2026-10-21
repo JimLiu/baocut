@@ -59,13 +59,14 @@ pub(super) fn bind(
         // this opt-in context; do not mutate legacy bounds, ink or baselines.
         if line.shape.glyphs.is_empty() && line.shape.ascent == 0.0 && line.shape.descent == 0.0 {
             budget.spend()?;
-            let font = text.shape_spaced(
+            let font = text.shape_spaced_with_shaping(
                 " ",
                 &style.font_family,
                 line.max_font_size,
                 style.font_weight,
                 style.italic,
                 style.letter_spacing * line.max_font_size,
+                font_shaping::mode(style),
             );
             let top = line.bounds.y;
             let bottom = top + font.ascent.max(0.0) + font.descent.abs();

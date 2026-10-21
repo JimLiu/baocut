@@ -375,3 +375,50 @@ fn padded_blur_stack_does_not_resize_or_blur_an_adjacent_surface() {
     assert_ne!(out[0].rgba, plain);
     assert_eq!(out[1].rgba, plain);
 }
+#[test]
+fn add_planes_sum_every_component_on_the_actual_backdrop() {
+    let mut body = base();
+    let scene = &mut body["scene"]["value"];
+    scene["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-layer-add/1"));
+    let red = bytes(RED);
+    let green = bytes(GREEN);
+    scene["sequences"] = json!([{"id":"red","frames":[resource("red-frame",&red)],"premultiply":"rounded"},{"id":"green","frames":[resource("green-frame",&green)],"premultiply":"rounded"}]);
+    scene["renderLayers"] = json!([
+        {"id":"red","source":sequence_source("red",c(0.)),"materials":[],"blend":"add"},
+        {"id":"green","source":sequence_source("green",c(0.)),"materials":[],"blend":"add"}
+    ]);
+    let mut p = plan(body.clone());
+    p.load_resources(|r| match r.id.as_str() {
+        "red-frame" => Some(red.clone()),
+        "green-frame" => Some(green.clone()),
+        _ => None,
+    })
+    .unwrap();
+    let error = p.render(0.3).err().expect("Add must require a backdrop");
+    assert!(error.to_string().contains("CAPTION_BACKDROP_REQUIRED"));
+    let (out, _) = p.render_outputs(0.3).unwrap();
+    assert_eq!(out.len(), 2);
+    assert!(out.iter().all(|plane| plane.blend == AssociatedBlend::Add));
+    let backdrop = [24, 64, 96, 255];
+    let mut target = Pixmap::new(W, H).unwrap();
+    for pixel in target.data_mut().chunks_exact_mut(4) {
+        pixel.copy_from_slice(&backdrop);
+    }
+    for plane in &out {
+        let mut src = Pixmap::new(W, H).unwrap();
+        src.data_mut().copy_from_slice(&plane.rgba);
+        composite_associated_with_blend(&mut target, src.as_ref(), 1., IDENTITY, None, plane.blend)
+            .unwrap();
+    }
+    // red [128,32,16,128] + green [12,181,96,192] + backdrop, clamped per component.
+    all_pixels_equal(target.data(), [164, 255, 208, 255]);
+    let mut missing = body;
+    missing["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|c| c != "caption-layer-add/1");
+    assert!(parse_style(&missing).is_err());
+}

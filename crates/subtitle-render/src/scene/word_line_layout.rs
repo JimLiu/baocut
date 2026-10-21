@@ -2,7 +2,16 @@
 //! changes source text, word byte ranges or Unicode grapheme context indices.
 use super::*;
 
-fn consume(plans: impl IntoIterator<Item = Vec<usize>>, total: usize) -> Vec<Vec<Range<usize>>> {
+/// Consumes words with cyclic row quotas. Isolated words add hard boundaries:
+/// `line` ends the current row before and after the word, `page` also ends the
+/// current page before and after it. Boundaries only shorten rows/pages, so a
+/// quota or maxLines is never exceeded; every emitted page uses one plan.
+fn consume(
+    plans: impl IntoIterator<Item = Vec<usize>>,
+    total: usize,
+    isolation: &[IsolationMode],
+) -> Vec<Vec<Range<usize>>> {
+    let mode = |i: usize| isolation.get(i).copied().unwrap_or_default();
     let mut at = 0;
     let mut pages = Vec::new();
     for plan in plans {
@@ -11,10 +20,25 @@ fn consume(plans: impl IntoIterator<Item = Vec<usize>>, total: usize) -> Vec<Vec
         }
         let mut rows = Vec::new();
         for quota in plan {
-            let end = (at + quota).min(total);
+            if at == total || (mode(at) == IsolationMode::Page && !rows.is_empty()) {
+                break;
+            }
+            let mut end = at;
+            while end < total && end - at < quota {
+                if end > at && mode(end) != IsolationMode::None {
+                    break;
+                }
+                end += 1;
+                if mode(end - 1) != IsolationMode::None {
+                    break;
+                }
+            }
             if at < end {
                 rows.push(at..end);
                 at = end;
+            }
+            if mode(end - 1) == IsolationMode::Page {
+                break;
             }
         }
         if !rows.is_empty() {
@@ -34,19 +58,25 @@ fn remaining_plan_groups(total: usize, plans: &[Vec<usize>]) -> Vec<Vec<Range<us
         remaining -= rows.iter().sum::<usize>().min(remaining);
         pages.push(rows);
     }
-    consume(pages, total)
+    consume(pages, total, &[])
 }
 
-fn groups(total: usize, pagination: &Pagination) -> Vec<Vec<Range<usize>>> {
+fn groups(
+    total: usize,
+    pagination: &Pagination,
+    plan: &WordPlan,
+    isolation: &[IsolationMode],
+) -> Vec<Vec<Range<usize>>> {
     if let Some(plans) = &pagination.remaining_word_page_plans {
         return remaining_plan_groups(total, plans);
     }
-    let pattern = pagination
-        .word_line_pattern
-        .as_ref()
-        .expect("validated pattern");
+    let pattern = plan.pattern;
     // Positive quotas guarantee that at most `total` pattern pages are needed.
-    let initial = consume(pattern.iter().cycle().take(total).cloned(), total);
+    let initial = consume(
+        pattern.iter().cycle().take(total).cloned(),
+        total,
+        isolation,
+    );
     let mut plans: Vec<Vec<usize>> = initial
         .iter()
         .map(|rows| rows.iter().map(|row| row.len()).collect())
@@ -54,12 +84,13 @@ fn groups(total: usize, pagination: &Pagination) -> Vec<Vec<Range<usize>>> {
     if pagination.tail_word_rule == Some(TailWordRule::JoinPreviousLine) {
         return join_tail_word(initial, pattern);
     }
-    if let Some(rule) = &pagination.last_page_rule {
+    // Validation keeps lastPageRule and isolation exclusive.
+    if let Some(rule) = plan.last_page_rule {
         if plans.len() > 1 && plans.last().unwrap().contains(&rule.if_row_count_is) {
             let previous = plans.len() - 2;
             plans[previous] = rule.previous_page_lines.clone();
             // Exactly one rewrite followed by replay; no repeated orphan rule.
-            return consume(plans, total);
+            return consume(plans, total, isolation);
         }
     }
     initial
@@ -92,6 +123,88 @@ fn join_tail_word(
     pages
 }
 
+/// The fixed word line plan of one cue/text node and the frozen choice it came from.
+pub(super) struct WordPlan<'a> {
+    pattern: &'a [Vec<usize>],
+    last_page_rule: Option<&'a LastPageRule>,
+    pub(super) choice: Option<PatternChoice>,
+}
+
+/// Selected `patternSelect` candidate, reported once per cue and text node.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct PatternChoice {
+    pub(super) candidate: String,
+    pub(super) words: usize,
+}
+
+/// Seed selection hashes the instance seed with the cue id on a fixed channel,
+/// so every text node of a cue picks the same candidate.
+const PATTERN_SEED_CHANNEL: u64 = 0x7061_7474_6572_6e73;
+
+pub(super) fn word_plan<'a>(
+    pagination: &'a Pagination,
+    words: usize,
+    cue_id: &str,
+    seed: u64,
+) -> WordPlan<'a> {
+    let Some(select) = &pagination.pattern_select else {
+        return WordPlan {
+            // Remaining word page plans page without a cyclic pattern.
+            pattern: pagination.word_line_pattern.as_deref().unwrap_or(&[]),
+            last_page_rule: pagination.last_page_rule.as_ref(),
+            choice: None,
+        };
+    };
+    let candidate = match select.by {
+        PatternSelectBy::WordCount => select
+            .candidates
+            .iter()
+            .find(|c| match (c.min_words, c.max_words) {
+                (Some(lo), Some(hi)) => (lo..=hi).contains(&words),
+                _ => true,
+            })
+            .expect("validated fallback candidate"),
+        PatternSelectBy::Seed => {
+            let n = select.candidates.len();
+            let u = caption_scene::seeded_unit(seed, cue_id, PATTERN_SEED_CHANNEL);
+            &select.candidates[((u * n as f64) as usize).min(n - 1)]
+        }
+    };
+    WordPlan {
+        pattern: &candidate.word_line_pattern,
+        last_page_rule: candidate.last_page_rule.as_ref(),
+        choice: Some(PatternChoice {
+            candidate: candidate.id.clone(),
+            words,
+        }),
+    }
+}
+
+/// Strongest isolation mode of each word from its explicit tags.
+fn isolation_modes(
+    pagination: &Pagination,
+    words: &[Word],
+    word_tags: &BTreeMap<String, Vec<String>>,
+) -> Vec<IsolationMode> {
+    if pagination.isolation.is_empty() {
+        return vec![];
+    }
+    words
+        .iter()
+        .map(|word| {
+            word_tags.get(&word.id).map_or(IsolationMode::None, |tags| {
+                pagination
+                    .isolation
+                    .iter()
+                    .filter(|rule| tags.contains(&rule.tag))
+                    .map(|rule| rule.mode)
+                    .max()
+                    .unwrap_or_default()
+            })
+        })
+        .collect()
+}
+
 pub(super) fn normalized_row(source: &str) -> (String, Vec<Range<usize>>) {
     let mut normalized = String::new();
     let mut mapping = Vec::new();
@@ -121,13 +234,14 @@ pub(super) fn normalized_row(source: &str) -> (String, Vec<Range<usize>>) {
 
 fn shape_row(text: &mut TextEngine, source: &str, style: &TextStyle, fs: f64) -> ShapedLine {
     let (normalized, mapping) = normalized_row(source);
-    let mut shape = text.shape_spaced(
+    let mut shape = text.shape_spaced_with_shaping(
         &normalized,
         &style.font_family,
         fs,
         style.font_weight,
         style.italic,
         style.letter_spacing * fs,
+        font_shaping::mode(style),
     );
     for glyph in &mut shape.glyphs {
         // Mapping is per normalized UTF-8 byte, so multibyte clusters, ligatures
@@ -188,6 +302,7 @@ fn shape_page(
     cfg: &Layout,
     size: (u32, u32),
     params: &BTreeMap<String, Evaluated>,
+    budget: &mut Budget,
 ) -> Result<Vec<Line>> {
     let fs = node.style.font_size.resolve(size.0, size.1, params)?;
     let width = cfg.width.resolve(size.0, size.1, params)?;
@@ -205,43 +320,45 @@ fn shape_page(
             ranges.push((row, bytes));
         }
     }
-    // Rows without fit keep one height and the uniform row offsets.
-    let row_height = fs * node.style.line_height;
-    let (scales, heights) = match &cfg.pagination.fixed_line_fit {
-        Some(fit) => {
-            let scales = fit_scales(text, content, &ranges, &node.style, fs, fit);
-            let extra = fit.extra_line_height / scales.iter().copied().fold(1.0, f64::max);
-            let heights = scales.iter().map(|scale| fs * scale * (node.style.line_height + extra)).collect();
-            (scales, heights)
-        }
-        None => (vec![1.0; ranges.len()], vec![row_height; ranges.len()]),
+    // Fit rows scale to the widest row; other rows keep the base size.
+    let fit = cfg.pagination.fixed_line_fit;
+    let scales = match &fit {
+        Some(fit) => fit_scales(text, content, &ranges, &node.style, fs, fit),
+        None => vec![1.0; ranges.len()],
     };
-    let tops: Vec<f64> = if cfg.pagination.fixed_line_fit.is_some() {
-        heights
-            .iter()
-            .scan(0.0, |top, height| Some(std::mem::replace(top, *top + height)))
-            .collect()
-    } else {
-        (0..heights.len()).map(|i| i as f64 * row_height).collect()
-    };
-    let height = if cfg.pagination.fixed_line_fit.is_some() {
-        heights.iter().sum::<f64>()
-    } else {
-        heights.len() as f64 * row_height
-    };
-    let mut lines = Vec::new();
-    for ((((row, bytes), scale), row_height), top) in ranges.into_iter().zip(scales).zip(heights).zip(tops) {
+    let extra = fit.map_or(0.0, |fit| fit.extra_line_height / scales.iter().copied().fold(1.0, f64::max));
+    let mut rows = Vec::with_capacity(ranges.len());
+    for ((row, bytes), scale) in ranges.into_iter().zip(scales) {
         let row_fs = fs * scale;
-        let shape = shape_row(text, &content[bytes.clone()], &node.style, row_fs);
+        let mut shape = shape_row(text, &content[bytes.clone()], &node.style, row_fs);
+        font_line_box::apply(text, &mut shape, &node.style, row_fs, budget)?;
         if cfg.overflow == LayoutOverflow::Error && shape.width > width + 0.001 {
             bail!("CAPTION_LAYOUT_OVERFLOW: fixed word line");
         }
+        let row_height = match fit {
+            Some(_) => row_fs * (node.style.line_height + extra),
+            None => font_line_box::row_height(&shape, &node.style, fs),
+        };
+        rows.push((row, bytes, shape, row_height, row_fs));
+    }
+    let height = if node.style.line_box.is_some() || fit.is_some() {
+        rows.iter().map(|(_, _, _, height, _)| height).sum()
+    } else {
+        rows.len() as f64 * (fs * node.style.line_height)
+    };
+    let mut next_y = y - height / 2.0;
+    let mut lines = Vec::new();
+    for (i, (row, bytes, shape, row_height, row_fs)) in rows.into_iter().enumerate() {
         let lx = match cfg.align {
             Align::Left => x - width / 2.0,
             Align::Center => x - shape.width / 2.0,
             Align::Right => x + width / 2.0 - shape.width,
         };
-        let ly = y - height / 2.0 + top;
+        let ly = if node.style.line_box.is_some() || fit.is_some() {
+            next_y
+        } else {
+            y - height / 2.0 + i as f64 * row_height
+        };
         let bounds = Bounds {
             x: lx,
             y: ly,
@@ -252,6 +369,7 @@ fn shape_page(
         let mut line = Line::new(text, bytes, shape, bounds, baseline, row_fs);
         line.row = row;
         lines.push(line);
+        next_y += row_height;
     }
     Ok(lines)
 }
@@ -311,12 +429,18 @@ pub(super) fn prepare(
     cfg: &Layout,
     size: (u32, u32),
     params: &BTreeMap<String, Evaluated>,
+    preparation: &Preparation,
 ) -> Result<TextLayout> {
     let mut pages = Vec::new();
+    let mut pattern_choice = None;
     let page_groups = if let Some(pattern) = &cfg.pagination.text_line_pattern {
         text_line_layout::groups(content, &words, pattern)?
     } else {
-        groups(words.len(), &cfg.pagination)
+        let plan = word_plan(&cfg.pagination, words.len(), &cue.id, preparation.seed);
+        let isolation = isolation_modes(&cfg.pagination, &words, preparation.word_tags);
+        let planned = groups(words.len(), &cfg.pagination, &plan, &isolation);
+        pattern_choice = plan.choice;
+        planned
     };
     for rows in page_groups {
         let first = rows.first().unwrap().start;
@@ -336,7 +460,16 @@ pub(super) fn prepare(
             .iter()
             .map(|row| byte_at(row.start)..byte_at(row.end))
             .collect();
-        let lines = shape_page(text, content, ranges, node, cfg, size, params)?;
+        let lines = shape_page(
+            text,
+            content,
+            ranges,
+            node,
+            cfg,
+            size,
+            params,
+            &mut Budget::default(),
+        )?;
         pages.push(Page {
             source_range: byte_at(first)..byte_at(last),
             paint_start: byte_at(first),
@@ -375,6 +508,7 @@ pub(super) fn prepare(
         pages,
         words,
         content: content.into(),
+        pattern_choice,
     })
 }
 
@@ -386,6 +520,7 @@ pub(super) fn reflow(
     cfg: &Layout,
     size: (u32, u32),
     params: &BTreeMap<String, Evaluated>,
+    budget: &mut Budget,
 ) -> Result<Page> {
     let mut lines = shape_page(
         text,
@@ -395,6 +530,7 @@ pub(super) fn reflow(
         cfg,
         size,
         params,
+        budget,
     )?;
     page_window::inherit_lines(&mut lines, &page.lines)?;
     Ok(Page {
@@ -423,6 +559,20 @@ mod tests {
             ..Pagination::default()
         }
     }
+    fn g(total: usize, pagination: &Pagination) -> Vec<Vec<Range<usize>>> {
+        groups(total, pagination, &word_plan(pagination, total, "cue", 0), &[])
+    }
+    fn isolated(
+        total: usize,
+        pattern: &[Vec<usize>],
+        isolation: &[IsolationMode],
+    ) -> Vec<Vec<Range<usize>>> {
+        let pagination = Pagination {
+            word_line_pattern: Some(pattern.to_vec()),
+            ..Pagination::default()
+        };
+        groups(total, &pagination, &word_plan(&pagination, total, "cue", 0), isolation)
+    }
     fn counts(pages: Vec<Vec<Range<usize>>>) -> Vec<Vec<usize>> {
         pages
             .into_iter()
@@ -431,16 +581,16 @@ mod tests {
     }
     #[test]
     fn word_line_plan_replays_the_tail_rule_once_without_losing_words() {
-        assert_eq!(counts(groups(6, &pagination())), vec![vec![2, 4]]);
-        assert_eq!(counts(groups(8, &pagination())), vec![vec![2, 4], vec![2]]);
+        assert_eq!(counts(g(6, &pagination())), vec![vec![2, 4]]);
+        assert_eq!(counts(g(8, &pagination())), vec![vec![2, 4], vec![2]]);
         assert_eq!(
-            counts(groups(13, &pagination())),
+            counts(g(13, &pagination())),
             vec![vec![2, 3], vec![2, 4], vec![2]]
         );
-        assert_eq!(counts(groups(1, &pagination())), vec![vec![1]]);
-        assert_eq!(counts(groups(0, &pagination())), Vec::<Vec<usize>>::new());
+        assert_eq!(counts(g(1, &pagination())), vec![vec![1]]);
+        assert_eq!(counts(g(0, &pagination())), Vec::<Vec<usize>>::new());
         for n in (0..=64).chain(std::iter::once(MAX_UNITS)) {
-            let pages = groups(n, &pagination());
+            let pages = g(n, &pagination());
             let words: Vec<usize> = pages.into_iter().flatten().flatten().collect();
             assert_eq!(words, (0..n).collect::<Vec<_>>());
         }
@@ -449,7 +599,7 @@ mod tests {
             ..Pagination::default()
         };
         assert_eq!(
-            counts(groups(9, &cycle)),
+            counts(g(9, &cycle)),
             vec![vec![1], vec![2, 1], vec![1], vec![2, 1], vec![1]]
         );
     }
@@ -460,7 +610,7 @@ mod tests {
             tail_word_rule: Some(TailWordRule::JoinPreviousLine),
             ..Pagination::default()
         };
-        let plan = |n| counts(groups(n, &tail));
+        let plan = |n| counts(g(n, &tail));
         assert_eq!(plan(1), vec![vec![1]]);
         assert_eq!(plan(2), vec![vec![2]]);
         assert_eq!(plan(5), vec![vec![5]]);
@@ -476,10 +626,10 @@ mod tests {
             tail_word_rule: Some(TailWordRule::JoinPreviousLine),
             ..Pagination::default()
         };
-        assert_eq!(counts(groups(3, &complete)), vec![vec![2, 1]]);
-        assert_eq!(counts(groups(4, &complete)), vec![vec![2, 2]]);
+        assert_eq!(counts(g(3, &complete)), vec![vec![2, 1]]);
+        assert_eq!(counts(g(4, &complete)), vec![vec![2, 2]]);
         for n in (0..=64).chain(std::iter::once(MAX_UNITS)) {
-            let words: Vec<usize> = groups(n, &tail).into_iter().flatten().flatten().collect();
+            let words: Vec<usize> = g(n, &tail).into_iter().flatten().flatten().collect();
             assert_eq!(words, (0..n).collect::<Vec<_>>());
         }
     }
@@ -489,7 +639,7 @@ mod tests {
             remaining_word_page_plans: Some(vec![vec![1], vec![2], vec![1, 1, 1], vec![1, 1, 1, 1]]),
             ..Pagination::default()
         };
-        let plan = |n| counts(groups(n, &shapes));
+        let plan = |n| counts(g(n, &shapes));
         assert_eq!(plan(1), vec![vec![1]]);
         assert_eq!(plan(3), vec![vec![1, 1, 1]]);
         // Counts beyond the table reuse its last entry.
@@ -498,16 +648,136 @@ mod tests {
             remaining_word_page_plans: Some(vec![vec![1], vec![1], vec![2, 1], vec![1, 1]]),
             ..Pagination::default()
         };
-        assert_eq!(counts(groups(2, &varied)), vec![vec![1], vec![1]]);
-        assert_eq!(counts(groups(5, &varied)), vec![vec![1, 1], vec![2, 1]]);
-        assert_eq!(counts(groups(6, &varied)), vec![vec![1, 1], vec![1, 1], vec![1], vec![1]]);
-        assert_eq!(counts(groups(0, &varied)), Vec::<Vec<usize>>::new());
+        assert_eq!(counts(g(2, &varied)), vec![vec![1], vec![1]]);
+        assert_eq!(counts(g(5, &varied)), vec![vec![1, 1], vec![2, 1]]);
+        assert_eq!(counts(g(6, &varied)), vec![vec![1, 1], vec![1, 1], vec![1], vec![1]]);
+        assert_eq!(counts(g(0, &varied)), Vec::<Vec<usize>>::new());
         for pagination in [&shapes, &varied] {
             for n in (0..=64).chain(std::iter::once(MAX_UNITS)) {
-                let words: Vec<usize> = groups(n, pagination).into_iter().flatten().flatten().collect();
+                let words: Vec<usize> = g(n, pagination).into_iter().flatten().flatten().collect();
                 assert_eq!(words, (0..n).collect::<Vec<_>>());
             }
         }
+    }
+    #[test]
+    fn isolation_boundaries_only_shorten_rows_and_pages() {
+        use IsolationMode::{Line, None as Free, Page};
+        let pattern = vec![vec![2, 2]];
+        let modes = |i: usize, m: IsolationMode| {
+            let mut v = vec![Free; 5];
+            v[i] = m;
+            v
+        };
+        // Line: the tagged word owns a row; following words start a new row.
+        assert_eq!(
+            counts(isolated(5, &pattern, &modes(1, Line))),
+            vec![vec![1, 1], vec![2, 1]]
+        );
+        // Page: the tagged word owns a page; the page before it ends early.
+        assert_eq!(
+            counts(isolated(5, &pattern, &modes(1, Page))),
+            vec![vec![1], vec![1], vec![2, 1]]
+        );
+        // A tagged first or last word never creates empty rows or pages.
+        assert_eq!(
+            counts(isolated(5, &pattern, &modes(0, Page))),
+            vec![vec![1], vec![2, 2]]
+        );
+        assert_eq!(
+            counts(isolated(5, &pattern, &modes(4, Line))),
+            vec![vec![2, 2], vec![1]]
+        );
+        // Line isolation that exhausts the page rows continues on the next page.
+        let rows = vec![vec![3]];
+        assert_eq!(
+            counts(isolated(5, &rows, &modes(1, Line))),
+            vec![vec![1], vec![1], vec![3]]
+        );
+        // Membership is conserved and no row exceeds its quota for any placement.
+        for n in 0..=24 {
+            for k in 0..n {
+                for m in [Line, Page] {
+                    let mut v = vec![Free; n];
+                    v[k] = m;
+                    let pages = isolated(n, &[vec![1], vec![2, 3]], &v);
+                    let words: Vec<usize> =
+                        pages.iter().flatten().flat_map(|r| r.clone()).collect();
+                    assert_eq!(words, (0..n).collect::<Vec<_>>());
+                    for rows in &pages {
+                        assert!(rows.len() <= 2 && rows.iter().all(|r| r.len() <= 3));
+                        if rows.iter().any(|r| r.contains(&k)) {
+                            let own = rows.iter().find(|r| r.contains(&k)).unwrap();
+                            assert_eq!(own.len(), 1);
+                            if m == Page {
+                                assert_eq!(rows.len(), 1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn pattern_select_freezes_word_count_ranges_and_seeded_choice() {
+        let select: Pagination = serde_json::from_value(json!({
+            "patternSelect": {"by": "word-count", "candidates": [
+                {"id": "two", "minWords": 0, "maxWords": 2, "wordLinePattern": [[2]]},
+                {"id": "three", "minWords": 3, "maxWords": 3, "wordLinePattern": [[3]]},
+                {"id": "pairs", "minWords": 4, "maxWords": 4, "wordLinePattern": [[2, 2]]},
+                {"id": "stack", "minWords": 5, "maxWords": 5, "wordLinePattern": [[1, 1, 1, 1, 1]]},
+                {"id": "tail", "minWords": 6, "maxWords": 6, "wordLinePattern": [[1, 1, 4]]},
+                {"id": "lead-stack", "minWords": 7, "maxWords": 7, "wordLinePattern": [[2], [1, 1, 1, 1, 1]]},
+                {"id": "lead-tail", "minWords": 8, "maxWords": 8, "wordLinePattern": [[2], [1, 1, 4]]},
+                {"id": "rest", "wordLinePattern": [[3], [2, 2]]}
+            ]}
+        }))
+        .unwrap();
+        let expected: [(usize, &str, Vec<Vec<usize>>); 9] = [
+            (1, "two", vec![vec![1]]),
+            (2, "two", vec![vec![2]]),
+            (3, "three", vec![vec![3]]),
+            (4, "pairs", vec![vec![2, 2]]),
+            (5, "stack", vec![vec![1, 1, 1, 1, 1]]),
+            (6, "tail", vec![vec![1, 1, 4]]),
+            (7, "lead-stack", vec![vec![2], vec![1, 1, 1, 1, 1]]),
+            (8, "lead-tail", vec![vec![2], vec![1, 1, 4]]),
+            (10, "rest", vec![vec![3], vec![2, 2], vec![3]]),
+        ];
+        for (n, id, pages) in expected {
+            let plan = word_plan(&select, n, "cue", 0);
+            assert_eq!(plan.choice.as_ref().unwrap().candidate, id);
+            assert_eq!(plan.choice.as_ref().unwrap().words, n);
+            assert_eq!(
+                counts(groups(n, &select, &plan, &[])),
+                pages
+            );
+        }
+        let seeded: Pagination = serde_json::from_value(json!({
+            "patternSelect": {"by": "seed", "candidates": [
+                {"id": "a", "wordLinePattern": [[1]]},
+                {"id": "b", "wordLinePattern": [[2]]},
+                {"id": "c", "wordLinePattern": [[3]]}
+            ]}
+        }))
+        .unwrap();
+        let pick =
+            |seed: u64, cue: &str| word_plan(&seeded, 4, cue, seed).choice.unwrap().candidate;
+        let mut seen = std::collections::BTreeSet::new();
+        for seed in 0..64u64 {
+            // Same seed and cue always freeze to the same candidate, regardless of word count.
+            assert_eq!(pick(seed, "cue-1"), pick(seed, "cue-1"));
+            assert_eq!(
+                pick(seed, "cue-1"),
+                word_plan(&seeded, 9, "cue-1", seed)
+                    .choice
+                    .unwrap()
+                    .candidate
+            );
+            seen.insert(pick(seed, "cue-1"));
+        }
+        assert_eq!(seen.len(), 3, "seeded choice must reach every candidate");
+        let u = caption_scene::seeded_unit(0x2a, "cue-1", PATTERN_SEED_CHANNEL);
+        assert_eq!(pick(0x2a, "cue-1"), ["a", "b", "c"][(u * 3.0) as usize]);
     }
     #[test]
     fn word_line_normalization_maps_original_bytes_without_inserting_spaces() {
@@ -584,6 +854,7 @@ mod tests {
             &cfg,
             (600, 200),
             &params,
+            &Preparation::none(),
         )
         .unwrap();
         assert_eq!(base.pages.len(), 2);
@@ -604,6 +875,7 @@ mod tests {
             &cfg,
             (600, 200),
             &params,
+            &mut Budget::default(),
         )
         .unwrap();
         assert_eq!(after.words, base.pages[0].words);
@@ -626,7 +898,8 @@ mod tests {
                 &node,
                 &cfg,
                 (600, 200),
-                &params
+                &params,
+                &mut Budget::default(),
             )
             .err()
             .unwrap()
@@ -643,7 +916,8 @@ mod tests {
                 &node,
                 &cfg,
                 (600, 200),
-                &params
+                &params,
+                &Preparation::none(),
             )
             .is_err()
         );
@@ -661,7 +935,7 @@ mod tests {
         let node = node();
         let params = BTreeMap::new();
         let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
-        let base = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
+        let base = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params, &Preparation::none()).unwrap();
         let page = &base.pages[0];
         assert_eq!(base.pages.len(), 1);
         assert_eq!(page.words, (0..6).collect::<Vec<_>>());
@@ -691,7 +965,7 @@ mod tests {
         );
         // Sampled reflow wraps each frozen row again at the sampled width.
         cfg.width.value = 500.;
-        let wide = reflow(&mut text, &base, page, &node, &cfg, (600, 200), &params).unwrap();
+        let wide = reflow(&mut text, &base, page, &node, &cfg, (600, 200), &params, &mut Budget::default()).unwrap();
         assert_eq!(
             wide.lines.iter().map(|line| line.bytes.clone()).collect::<Vec<_>>(),
             page_rows(&page.lines)
@@ -701,7 +975,7 @@ mod tests {
         cfg.width.value = 120.;
         cfg.pagination.fixed_line_overflow = None;
         let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
-        let kept = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
+        let kept = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params, &Preparation::none()).unwrap();
         assert_eq!(kept.pages[0].lines.len(), 2);
         assert!(kept.pages[0].lines[0].shape.width > 120.);
     }
@@ -726,7 +1000,7 @@ mod tests {
         let first_scale = widest / base_width(&mut text, "one");
         assert!(base_width(&mut text, "six") < widest * 0.5);
         let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
-        let base = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
+        let base = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params, &Preparation::none()).unwrap();
         let page = &base.pages[0];
         assert_eq!(base.pages.len(), 1);
         assert_eq!(page.words, (0..5).collect::<Vec<_>>());
@@ -756,7 +1030,7 @@ mod tests {
         assert!(((page.lines[0].bounds.y + last.bounds.y + last.bounds.height) / 2. - 100.).abs() < 1e-9);
         // Sampled reflow measures the frozen rows again and keeps the same rows and scales.
         cfg.width.value = 300.;
-        let again = reflow(&mut text, &base, page, &node, &cfg, (600, 200), &params).unwrap();
+        let again = reflow(&mut text, &base, page, &node, &cfg, (600, 200), &params, &mut Budget::default()).unwrap();
         assert_eq!(
             again.lines.iter().map(|line| line.bytes.clone()).collect::<Vec<_>>(),
             page.lines.iter().map(|line| line.bytes.clone()).collect::<Vec<_>>()
@@ -769,7 +1043,7 @@ mod tests {
             extra_line_height: 0.,
         });
         let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
-        let fitted = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
+        let fitted = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params, &Preparation::none()).unwrap();
         let last = fitted.pages[0].lines.last().unwrap();
         assert!((last.shape.width - widest).abs() < widest * 0.02);
         assert!((last.bounds.height - last.max_font_size * node.style.line_height).abs() < 1e-9);
@@ -777,7 +1051,7 @@ mod tests {
         cfg.width.value = widest / 2.;
         cfg.overflow = LayoutOverflow::Error;
         let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
-        let error = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params)
+        let error = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params, &Preparation::none())
             .err()
             .unwrap();
         assert!(error.to_string().contains("CAPTION_LAYOUT_OVERFLOW"));
@@ -813,12 +1087,12 @@ mod tests {
         let node = node();
         let params = BTreeMap::new();
         let words = bind_words(&cue, &cue.text, TimingPolicy::RequireWordTiming, false).unwrap();
-        let visible = prepare(&mut text, &cue, &cue.text, words, &node, &cfg, (600, 200), &params).unwrap();
+        let visible = prepare(&mut text, &cue, &cue.text, words, &node, &cfg, (600, 200), &params, &Preparation::none()).unwrap();
         // Overlong words fall back to grapheme breaks; every grapheme is its own line here.
         assert_eq!(visible.pages[0].lines.len(), 6);
         cfg.overflow = LayoutOverflow::Error;
         let words = bind_words(&cue, &cue.text, TimingPolicy::RequireWordTiming, false).unwrap();
-        let error = prepare(&mut text, &cue, &cue.text, words, &node, &cfg, (600, 200), &params)
+        let error = prepare(&mut text, &cue, &cue.text, words, &node, &cfg, (600, 200), &params, &Preparation::none())
             .err()
             .unwrap();
         assert!(error.to_string().contains("CAPTION_LAYOUT_OVERFLOW"));
@@ -843,6 +1117,7 @@ mod tests {
             &cfg,
             (600, 200),
             &params,
+            &Preparation::none(),
         )
         .unwrap();
         assert_eq!(base.content, content);

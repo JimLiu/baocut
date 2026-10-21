@@ -3,6 +3,7 @@ resolver = "3"
 # `render-raster` 带来的打过补丁的 resvg（v2 `core/vendor/bcut-resvg`，见其 README.md）是它 `media` 的
 # 依赖；与 v2 一样是 workspace 成员，`tests/patches.rs` 的对上游逐字节门禁随 workspace 测试跑。
 members = ["crates/*", "bindings/*", "crates/render-raster/vendor/bcut-resvg"]
+exclude = ["crates/render-raster/vendor/tiny-skia-coverage"]
 
 [workspace.package]
 version = "0.4.0"

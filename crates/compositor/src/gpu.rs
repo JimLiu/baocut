@@ -8,10 +8,27 @@ use timeline_render::{SceneCompositeMode, TextureBackground, TextureEffect, Text
 
 use crate::{SceneFrame, SceneNode};
 
+mod associated_quad;
 mod blur;
+mod caption;
+#[path = "gpu/draw-source.rs"]
+mod draw_source;
+#[path = "gpu/linear-paint.rs"]
+mod linear_paint;
+mod noisy;
+#[path = "gpu/stroke-replay.rs"]
+mod stroke_replay;
+pub use caption::{CaptionGpuRenderer, CaptionGpuStats};
+pub use noisy::NoisySweepRenderer;
 mod component;
+#[path = "gpu/material-support.rs"]
+mod material_support;
 pub use component::ComponentRenderer;
+mod affine;
+pub use affine::AffineSampleRenderer;
+mod glow;
 mod glyph;
+pub use glow::GlowRenderer;
 mod rounded_rect;
 mod source_effect;
 mod target_composite;

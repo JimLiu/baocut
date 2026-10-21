@@ -1,0 +1,183 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-glow-cascade/1",
+        "caption-glow-linear/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 2
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last",
+        "timingPolicy": "estimated"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            },
+            "fill": "#FFFFFF"
+          }
+        }
+      ],
+      "selectors": [],
+      "animations": [],
+      "materials": [
+        {
+          "kind": "glow-cascade",
+          "id": "bloom",
+          "contextNodeId": "caption",
+          "gamma": 2.2,
+          "intensity": {
+            "kind": "keyframes",
+            "clock": {
+              "unit": "page",
+              "origin": "start",
+              "duration": {
+                "kind": "unit-span"
+              }
+            },
+            "keys": [
+              {
+                "at": 0.0,
+                "value": 0.05
+              },
+              {
+                "at": 0.5,
+                "value": 0.3
+              },
+              {
+                "at": 1.0,
+                "value": 0.1
+              }
+            ],
+            "fill": {
+              "before": "hold",
+              "after": "hold"
+            }
+          },
+          "originalOpacity": {
+            "kind": "constant",
+            "value": 0.7
+          },
+          "gammaChannels": "rgba",
+          "aggregation": "linear",
+          "levelGains": [
+            1.0,
+            1.5
+          ],
+          "levelColor": {
+            "kind": "constant",
+            "value": "#FFD700FF"
+          },
+          "composite": "original-over-screen",
+          "levels": [
+            {
+              "horizontal": {
+                "scale": {
+                  "num": 1,
+                  "den": 1
+                },
+                "samples": {
+                  "kind": "constant",
+                  "value": 2
+                },
+                "stepUv": {
+                  "kind": "constant",
+                  "value": 0.00625
+                },
+                "sigmaUv": {
+                  "kind": "constant",
+                  "value": 0.005
+                }
+              },
+              "vertical": {
+                "scale": {
+                  "num": 1,
+                  "den": 1
+                },
+                "samples": {
+                  "kind": "constant",
+                  "value": 2
+                },
+                "stepUv": {
+                  "kind": "constant",
+                  "value": 0.00625
+                },
+                "sigmaUv": {
+                  "kind": "constant",
+                  "value": 0.005
+                }
+              }
+            },
+            {
+              "horizontal": {
+                "scale": {
+                  "num": 1,
+                  "den": 2
+                },
+                "samples": {
+                  "kind": "constant",
+                  "value": 2
+                },
+                "stepUv": {
+                  "kind": "constant",
+                  "value": 0.00625
+                },
+                "sigmaUv": {
+                  "kind": "constant",
+                  "value": 0.005
+                }
+              },
+              "vertical": {
+                "scale": {
+                  "num": 1,
+                  "den": 2
+                },
+                "samples": {
+                  "kind": "constant",
+                  "value": 2
+                },
+                "stepUv": {
+                  "kind": "constant",
+                  "value": 0.00625
+                },
+                "sigmaUv": {
+                  "kind": "constant",
+                  "value": 0.005
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

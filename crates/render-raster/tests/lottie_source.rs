@@ -233,6 +233,11 @@ fn disassemble(frame: &FrameOps) -> Vec<String> {
                     f(*opacity),
                     mat(tf)
                 ),
+                render_raster::drawop::AssociatedBlend::Add => format!(
+                    "DrawEmissiveBitmap #{bitmap} blend=Add o={} {}",
+                    f(*opacity),
+                    mat(tf)
+                ),
             },
             // Canvas 2D primitives (v8): Lottie never emits them.
             other => format!("{other:?}"),

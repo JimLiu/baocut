@@ -1,0 +1,310 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-rounding-expression/1",
+        "caption-modular-expression/1",
+        "caption-power-expression/1",
+        "caption-list-pick/1"
+      ],
+      "parameters": [
+        {
+          "id": "palette",
+          "type": "color",
+          "list": true,
+          "default": [
+            "#FFE600",
+            "#4DD2FF",
+            "#FF5C8A"
+          ]
+        },
+        {
+          "id": "blinks",
+          "type": "scalar",
+          "default": 3,
+          "min": 1,
+          "max": 12
+        }
+      ],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 3
+        }
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            }
+          }
+        }
+      ],
+      "selectors": [
+        {
+          "id": "words",
+          "nodeId": "caption",
+          "unit": "word"
+        }
+      ],
+      "animations": [
+        {
+          "id": "word-color",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "words"
+          },
+          "property": "fill",
+          "composite": "replace",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "call",
+              "function": "pick",
+              "args": [
+                {
+                  "op": "read",
+                  "path": "params.palette"
+                },
+                {
+                  "op": "read",
+                  "path": "unit.index"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "blink",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "words"
+          },
+          "property": "opacity",
+          "composite": "multiply",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "call",
+              "function": "sub",
+              "args": [
+                {
+                  "op": "literal",
+                  "type": "scalar",
+                  "value": 1
+                },
+                {
+                  "op": "call",
+                  "function": "mul",
+                  "args": [
+                    {
+                      "op": "literal",
+                      "type": "scalar",
+                      "value": 0.5
+                    },
+                    {
+                      "op": "call",
+                      "function": "floor",
+                      "args": [
+                        {
+                          "op": "call",
+                          "function": "mod",
+                          "args": [
+                            {
+                              "op": "call",
+                              "function": "mul",
+                              "args": [
+                                {
+                                  "op": "read",
+                                  "path": "time.clampedProgress"
+                                },
+                                {
+                                  "op": "call",
+                                  "function": "mul",
+                                  "args": [
+                                    {
+                                      "op": "read",
+                                      "path": "params.blinks"
+                                    },
+                                    {
+                                      "op": "literal",
+                                      "type": "scalar",
+                                      "value": 2
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "op": "literal",
+                              "type": "scalar",
+                              "value": 2
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ease-out-cubic",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "words"
+          },
+          "property": "transform.scale",
+          "composite": "multiply",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "call",
+              "function": "add",
+              "args": [
+                {
+                  "op": "literal",
+                  "type": "scalar",
+                  "value": 0.8
+                },
+                {
+                  "op": "call",
+                  "function": "mul",
+                  "args": [
+                    {
+                      "op": "literal",
+                      "type": "scalar",
+                      "value": 0.2
+                    },
+                    {
+                      "op": "call",
+                      "function": "sub",
+                      "args": [
+                        {
+                          "op": "literal",
+                          "type": "scalar",
+                          "value": 1
+                        },
+                        {
+                          "op": "call",
+                          "function": "pow",
+                          "args": [
+                            {
+                              "op": "call",
+                              "function": "sub",
+                              "args": [
+                                {
+                                  "op": "literal",
+                                  "type": "scalar",
+                                  "value": 1
+                                },
+                                {
+                                  "op": "read",
+                                  "path": "time.clampedProgress"
+                                }
+                              ]
+                            },
+                            {
+                              "op": "literal",
+                              "type": "scalar",
+                              "value": 3
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "quantized-lift",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "words"
+          },
+          "property": "transform.y",
+          "composite": "add",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "call",
+              "function": "mul",
+              "args": [
+                {
+                  "op": "literal",
+                  "type": "length",
+                  "value": -1
+                },
+                {
+                  "op": "call",
+                  "function": "round",
+                  "args": [
+                    {
+                      "op": "call",
+                      "function": "mul",
+                      "args": [
+                        {
+                          "op": "call",
+                          "function": "fract",
+                          "args": [
+                            {
+                              "op": "call",
+                              "function": "mul",
+                              "args": [
+                                {
+                                  "op": "read",
+                                  "path": "time.clampedProgress"
+                                },
+                                {
+                                  "op": "literal",
+                                  "type": "scalar",
+                                  "value": 2.5
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "op": "literal",
+                          "type": "scalar",
+                          "value": 4
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

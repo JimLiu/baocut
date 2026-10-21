@@ -85,6 +85,22 @@ pub fn font_usage(
     fonts: Vec<Arc<Vec<u8>>>,
     captions: bool,
 ) -> Result<FontUsage, RenderError> {
+    font_usage_with_sources(video, frame, seconds, layers, documents, fonts, Vec::new(), captions)
+}
+
+/// [`font_usage`] with additional complete binaries usable only by explicit fontSource references.
+/// Unreferenced source resources do not register ordinary font families or change fallback matching.
+#[allow(clippy::too_many_arguments)]
+pub fn font_usage_with_sources(
+    video: VideoView,
+    frame: &FramePlan,
+    seconds: f64,
+    layers: &[VisualLayer],
+    documents: Documents,
+    fonts: Vec<Arc<Vec<u8>>>,
+    source_fonts: Vec<Arc<Vec<u8>>>,
+    captions: bool,
+) -> Result<FontUsage, RenderError> {
     let (width, height) = (frame.canvas.width.max(1), frame.canvas.height.max(1));
     let scale = f64::from(CENSUS_LONG_EDGE) / f64::from(width.max(height));
     let size = |side: u32| ((f64::from(side) * scale.min(1.0)).round() as u32).max(2);
@@ -98,6 +114,7 @@ pub fn font_usage(
         documents,
         fonts,
     )?;
+    renderer.add_font_sources(source_fonts)?;
     let plan = FramePlan {
         layers: layers
             .iter()

@@ -717,6 +717,14 @@ fn fixed_line_fit_requires_opt_in_fixed_rows_bounded_factors_and_single_line_row
     ] {
         assert_eq!(code(&with_fit(fixture)), invalid);
     }
+    // Fitted row heights come from the page scale, so a text font line box is rejected.
+    let mut boxed = body.clone();
+    boxed["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-font-line-box/1"));
+    boxed["scene"]["value"]["nodes"][0]["style"]["lineBox"] = json!({"minAscent": 0.8});
+    assert_eq!(parse_style(&boxed).unwrap_err().code, "CAPTION_SCENE_INVALID");
     // Page windows keep one display line per row, so they combine with fit.
     parse_style(&with_fit(include_str!("fixtures/page-window.json"))).unwrap();
     let mut text_rows = body.clone();
@@ -851,6 +859,17 @@ fn shape_paint_requires_opt_in_a_shape_and_no_fill_override() {
         &|s| s["nodes"][1]["children"][0]["style"] = json!({"paints":[{"id":"p","paint":{"kind":"solid","color":"#FFFFFF"}}]}),
         "CAPTION_SCENE_INVALID",
     );
+    // Shape fills take solid or plain linear paints; text-only paint kinds and gradient options are rejected.
+    let stops = json!([{"at":0,"color":"#000000"},{"at":1,"color":"#FFFFFF"}]);
+    for paint in [
+        json!({"kind":"node-fill"}),
+        json!({"kind":"image","resourceId":"img","uvTransform":[1,0,0,1,0,0],"space":"glyph-em"}),
+        json!({"kind":"linear","from":[0,0],"to":[1,0],"stops":stops,"space":"normalized"}),
+        json!({"kind":"linear","from":[0,0],"to":[1,0],"stops":stops,"domain":"page"}),
+        json!({"kind":"linear","from":[0,0],"to":[1,0],"stops":stops,"glyphOutset":0.5}),
+    ] {
+        reject(&|s| s["nodes"][1]["children"][0]["fillPaint"] = paint.clone(), "CAPTION_SCENE_INVALID");
+    }
 }
 
 #[test]
@@ -963,4 +982,950 @@ fn page_line_context_reads_bounded_slots_and_keeps_geometry_out_of_sizing() {
     early["scene"]["value"]["layout"]["bindings"] = json!([{"nodeId":"caption","property":"lineHeight","value":{"kind":"expression","expression":
         {"op":"read","path":"unit.pageLineGraphemeCount.0"}}}]);
     assert_eq!(parse_style(&early).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+}
+
+#[test]
+fn paint_effects_need_their_capability_and_keep_bounded_layers() {
+    let shadow = json!({"id":"shadow","unit":"em","offset":[0.05,0.05],"blur":0.1,"paint":{"kind":"solid","color":"#00000080"}});
+    let fill = json!({"id":"fill","paint":{"kind":"node-fill"}});
+    let with = |paints: Value, capability: bool| {
+        let mut v = fixture();
+        v["scene"]["value"]["nodes"][0]["style"]["paints"] = paints;
+        if capability {
+            v["scene"]["value"]["requiredCapabilities"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!("caption-paint-effects/1"));
+        }
+        v
+    };
+    // node-fill is where the word-color animation lands, so the stack is no longer exclusive.
+    let style = parse_style(&with(json!([shadow.clone(), fill.clone()]), true)).unwrap();
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    assert_eq!(
+        parse_style(&with(json!([shadow.clone(), fill.clone()]), false)).unwrap_err().code,
+        "CAPTION_CAPABILITY_REQUIRED"
+    );
+    let solid = json!({"id":"fill","paint":{"kind":"solid","color":"#FFFFFF"}});
+    assert!(parse_style(&with(json!([shadow.clone(), solid]), true)).is_err());
+    for (field, value) in [
+        ("blur", json!(4.5)),
+        ("blur", json!(-0.1)),
+        ("spread", json!(5)),
+        ("offset", json!([17, 0])),
+        ("unit", json!("pt")),
+        ("glow", json!(1)),
+    ] {
+        let mut layer = shadow.clone();
+        layer[field] = value;
+        assert!(parse_style(&with(json!([layer, fill.clone()]), true)).is_err(), "{field}");
+    }
+    let mut both = shadow.clone();
+    both["spread"] = json!(0.1);
+    both["strokeWidth"] = json!(0.1);
+    assert!(parse_style(&with(json!([both, fill.clone()]), true)).is_err());
+    let translucent = json!({"id":"edge","spread":0.1,"unit":"em","paint":{"kind":"linear","from":[0,0],"to":[1,0],"stops":[{"at":0,"color":"#FF000080"},{"at":1,"color":"#0000FF"}]}});
+    assert!(parse_style(&with(json!([translucent, fill.clone()]), true)).is_err());
+    let mut legacy = with(json!([shadow, fill]), true);
+    legacy["scene"]["value"]["nodes"][0]["style"]["stroke"] = json!({"width":2,"color":"#000000"});
+    assert!(parse_style(&legacy).is_err());
+}
+#[test]
+fn text_transform_needs_its_capability_and_known_case() {
+    let mut v = fixture();
+    v["scene"]["value"]["nodes"][0]["style"]["textTransform"] = json!("uppercase");
+    assert_eq!(parse_style(&v).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    v["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-text-transform/1"));
+    let style = parse_style(&v).unwrap();
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    v["scene"]["value"]["nodes"][0]["style"]["textTransform"] = json!("capitalize");
+    assert!(parse_style(&v).is_err());
+    assert_eq!(TextTransform::Uppercase.apply("straße"), "STRASSE");
+}
+
+fn coverage_contract_style(coverage: Option<Value>) -> Value {
+    let mut body = fixture();
+    let scene = &mut body["scene"]["value"];
+    scene["animations"] = json!([]);
+    scene["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-paint-coverage/1"));
+    let mut layer = json!({"id":"ink","paint":{"kind":"solid","color":"#FFFFFF80"}});
+    if let Some(coverage) = coverage {
+        layer["coverage"] = coverage;
+    }
+    scene["nodes"][0]["style"]["paints"] = json!([layer]);
+    body
+}
+
+#[test]
+fn coverage_contract_is_explicit_roundtrippable_and_omitted_for_legacy_layers() {
+    let body = coverage_contract_style(Some(json!({"lo":0.03,"hi":0.2})));
+    let style = parse_style(&body).unwrap();
+    assert_eq!(
+        style.scene().nodes[0].style.paints[0].coverage,
+        Some(PaintCoverage { lo: 0.03, hi: 0.2 })
+    );
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let mut unadvertised = body;
+    unadvertised["scene"]["value"]["requiredCapabilities"] = json!(["caption-scene/1", "caption-expressions/1"]);
+    assert_eq!(parse_style(&unadvertised).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    let legacy = parse_style(&coverage_contract_style(None)).unwrap();
+    assert!(legacy.scene().nodes[0].style.paints[0].coverage.is_none());
+    assert!(
+        serde_json::to_value(legacy).unwrap()["scene"]["value"]["nodes"][0]["style"]["paints"][0]
+            .get("coverage")
+            .is_none()
+    );
+}
+
+#[test]
+fn coverage_contract_rejects_bad_ranges_types_unknown_fields_and_nonfinite_numbers() {
+    for coverage in [
+        json!({"lo":-0.01,"hi":0.2}),
+        json!({"lo":0,"hi":1.01}),
+        json!({"lo":0.3,"hi":0.2}),
+        json!({"lo":0.2,"hi":0.2}),
+        json!({"lo":0,"hi":0}),
+        json!({"lo":1,"hi":1}),
+        json!({"lo":0,"hi":"0.2"}),
+        json!({"lo":0}),
+        json!({"hi":0.2}),
+        json!({"lo":0,"hi":0.2,"gamma":2}),
+        json!([0, 0.2]),
+        json!(null),
+        json!(false),
+    ] {
+        assert!(parse_style(&coverage_contract_style(Some(coverage.clone()))).is_err(), "{coverage}");
+    }
+    for coverage in [json!({"lo":0,"hi":1}), json!({"lo":0.999,"hi":1})] {
+        assert!(parse_style(&coverage_contract_style(Some(coverage))).is_ok());
+    }
+    let mut scene = parse_style(&coverage_contract_style(Some(json!({"lo":0,"hi":0.2}))))
+        .unwrap()
+        .scene()
+        .clone();
+    for (lo, hi) in [(f64::NAN, 0.2), (0.0, f64::NAN), (f64::NEG_INFINITY, 0.2), (0.0, f64::INFINITY)] {
+        scene.nodes[0].style.paints[0].coverage = Some(PaintCoverage { lo, hi });
+        assert!(validate_scene(&scene).is_err());
+    }
+}
+
+#[test]
+fn coverage_gradients_require_opaque_stops_even_without_blur_or_spread() {
+    let mut body = coverage_contract_style(Some(json!({"lo":0,"hi":0.2})));
+    let gradient = json!({"kind":"linear","from":[0,0],"to":[1,0],"stops":[{"at":0,"color":"#FF0000"},{"at":1,"color":"#0000FF"}]});
+    body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"] = gradient;
+    assert!(parse_style(&body).is_ok());
+    for color in ["#FF000080", "#FF000000", "#FF0000FE"] {
+        body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["stops"][0]["color"] = json!(color);
+        assert!(parse_style(&body).is_err(), "{color}");
+    }
+    body["scene"]["value"]["nodes"][0]["style"]["paints"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("coverage");
+    assert!(parse_style(&body).is_ok(), "legacy translucent gradient remains supported");
+}
+
+fn gradient_space_contract_style(space: Option<Value>) -> Value {
+    let mut body = fixture();
+    body["scene"]["value"]["animations"] = json!([]);
+    let mut paint =
+        json!({"kind":"linear","from":[0.2,-0.1],"to":[0.8,0.9],"stops":[{"at":0,"color":"#FF0000"},{"at":1,"color":"#0000FF80"}]});
+    if let Some(space) = space {
+        paint["space"] = space;
+    }
+    body["scene"]["value"]["nodes"][0]["style"]["paints"] = json!([{"id":"ink","paint":paint}]);
+    body
+}
+
+#[test]
+fn gradient_space_local_defaults_preserve_the_legacy_serialized_contract() {
+    let legacy = parse_style(&gradient_space_contract_style(None)).unwrap();
+    let explicit = parse_style(&gradient_space_contract_style(Some(json!("local")))).unwrap();
+    assert_eq!(legacy, explicit);
+    assert!(matches!(
+        &legacy.scene().nodes[0].style.paints[0].paint,
+        ScenePaint::Linear {
+            space: GradientSpace::Local,
+            ..
+        }
+    ));
+    let serialized = serde_json::to_value(&explicit).unwrap();
+    assert!(
+        serialized["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]
+            .get("space")
+            .is_none()
+    );
+    assert_eq!(parse_style(&serialized).unwrap(), explicit);
+}
+
+#[test]
+fn normalized_gradient_space_requires_its_capability_and_roundtrips() {
+    let mut body = gradient_space_contract_style(Some(json!("normalized")));
+    assert_eq!(parse_style(&body).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-gradient-space/1"));
+    let style = parse_style(&body).unwrap();
+    assert!(matches!(
+        &style.scene().nodes[0].style.paints[0].paint,
+        ScenePaint::Linear {
+            space: GradientSpace::Normalized,
+            ..
+        }
+    ));
+    let serialized = serde_json::to_value(&style).unwrap();
+    assert_eq!(
+        serialized["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["space"],
+        json!("normalized")
+    );
+    assert_eq!(parse_style(&serialized).unwrap(), style);
+    let mut unadvertised = style.scene().clone();
+    unadvertised.required_capabilities.retain(|cap| cap != "caption-gradient-space/1");
+    assert_eq!(validate_scene(&unadvertised).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+}
+
+#[test]
+fn gradient_space_rejects_null_unknown_enum_values_and_unknown_fields() {
+    for space in [
+        json!(null),
+        json!(false),
+        json!(1),
+        json!([]),
+        json!({}),
+        json!(""),
+        json!("Normalized"),
+        json!("uv"),
+        json!("canvas"),
+    ] {
+        assert!(parse_style(&gradient_space_contract_style(Some(space.clone()))).is_err(), "{space}");
+    }
+    let mut body = gradient_space_contract_style(Some(json!("local")));
+    body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["aspect"] = json!(true);
+    assert!(parse_style(&body).is_err());
+}
+
+#[test]
+fn normalized_gradient_retains_endpoint_and_coverage_alpha_validation() {
+    let mut body = gradient_space_contract_style(Some(json!("normalized")));
+    body["scene"]["value"]["requiredCapabilities"].as_array_mut().unwrap().extend([
+        json!("caption-gradient-space/1"),
+        json!("caption-paint-coverage/1"),
+        json!("caption-paint-effects/1"),
+    ]);
+    assert!(parse_style(&body).is_ok(), "translucent fill stops remain valid");
+    for property in ["coverage", "spread"] {
+        let mut effect = body.clone();
+        effect["scene"]["value"]["nodes"][0]["style"]["paints"][0][property] = if property == "coverage" {
+            json!({"lo":0,"hi":0.2})
+        } else {
+            json!(2)
+        };
+        assert!(parse_style(&effect).is_err(), "{property} requires opaque stops");
+        effect["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["stops"][1]["color"] = json!("#0000FF");
+        assert!(parse_style(&effect).is_ok(), "{property}");
+    }
+    for to in [json!([0.2, -0.1]), json!([17, 1]), json!([1, "1"])] {
+        let mut bad = body.clone();
+        bad["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["to"] = to;
+        assert!(parse_style(&bad).is_err());
+    }
+    let mut scene = parse_style(&body).unwrap().scene().clone();
+    if let ScenePaint::Linear { to, .. } = &mut scene.nodes[0].style.paints[0].paint {
+        to[1] = f64::NAN;
+    }
+    assert!(validate_scene(&scene).is_err());
+}
+
+#[test]
+fn gradient_page_domain_requires_capability_and_line_defaults_stay_omitted() {
+    let legacy = parse_style(&gradient_space_contract_style(None)).unwrap();
+    let mut body = gradient_space_contract_style(None);
+    body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["domain"] = json!("line");
+    assert_eq!(parse_style(&body).unwrap(), legacy);
+    let serialized = serde_json::to_value(&legacy).unwrap();
+    assert!(
+        serialized["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]
+            .get("domain")
+            .is_none()
+    );
+    body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["domain"] = json!("page");
+    assert_eq!(
+        parse_style(&body).unwrap_err().code,
+        "CAPTION_CAPABILITY_REQUIRED",
+        "page requires opt-in even with local space"
+    );
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-gradient-space/1"));
+    for space in ["local", "normalized"] {
+        body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["space"] = json!(space);
+        let style = parse_style(&body).unwrap();
+        assert!(matches!(
+            &style.scene().nodes[0].style.paints[0].paint,
+            ScenePaint::Linear {
+                domain: GradientDomain::Page,
+                ..
+            }
+        ));
+        let roundtrip = serde_json::to_value(&style).unwrap();
+        assert_eq!(
+            roundtrip["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["domain"],
+            json!("page")
+        );
+        assert_eq!(parse_style(&roundtrip).unwrap(), style);
+    }
+    for domain in [
+        json!(null),
+        json!(false),
+        json!(1),
+        json!([]),
+        json!({}),
+        json!("all"),
+        json!("Page"),
+        json!("canvas"),
+    ] {
+        body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["domain"] = domain.clone();
+        assert!(parse_style(&body).is_err(), "{domain}");
+    }
+}
+
+fn linear_paint(body: &mut Value) -> &mut Value {
+    &mut body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]
+}
+
+#[test]
+fn gradient_glyph_domain_requires_its_capability_and_bounds_its_outset() {
+    let mut body = gradient_space_contract_style(None);
+    linear_paint(&mut body)["domain"] = json!("glyph");
+    assert_eq!(parse_style(&body).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-gradient-glyph/1"));
+    let style = parse_style(&body).unwrap();
+    assert!(matches!(
+        &style.scene().nodes[0].style.paints[0].paint,
+        ScenePaint::Linear {
+            domain: GradientDomain::Glyph,
+            glyph_outset: 0.0,
+            ..
+        }
+    ));
+    let roundtrip = serde_json::to_value(&style).unwrap();
+    let written = &roundtrip["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"];
+    assert_eq!(written["domain"], json!("glyph"));
+    assert!(written.get("glyphOutset").is_none(), "zero outset stays omitted");
+
+    linear_paint(&mut body)["glyphOutset"] = json!(0.4);
+    let style = parse_style(&body).unwrap();
+    let roundtrip = serde_json::to_value(&style).unwrap();
+    assert_eq!(
+        roundtrip["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["glyphOutset"],
+        json!(0.4)
+    );
+    assert_eq!(parse_style(&roundtrip).unwrap(), style);
+
+    linear_paint(&mut body)["space"] = json!("normalized");
+    assert_eq!(
+        parse_style(&body).unwrap_err().code,
+        "CAPTION_CAPABILITY_REQUIRED",
+        "normalized still needs the gradient space capability"
+    );
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-gradient-space/1"));
+    assert!(parse_style(&body).is_ok());
+
+    for outset in [json!(-0.1), json!(4.5), json!(null), json!("0.4")] {
+        let mut bad = body.clone();
+        linear_paint(&mut bad)["glyphOutset"] = outset.clone();
+        assert!(parse_style(&bad).is_err(), "{outset}");
+    }
+    for domain in ["line", "page"] {
+        let mut bad = body.clone();
+        linear_paint(&mut bad)["domain"] = json!(domain);
+        assert_eq!(
+            parse_style(&bad).unwrap_err().code,
+            "CAPTION_SCENE_INVALID",
+            "{domain} with an outset"
+        );
+    }
+    let mut scene = parse_style(&body).unwrap().scene().clone();
+    if let ScenePaint::Linear { glyph_outset, .. } = &mut scene.nodes[0].style.paints[0].paint {
+        *glyph_outset = f64::INFINITY;
+    }
+    assert!(validate_scene(&scene).is_err());
+}
+
+fn font_line_box_contract_style(line_box: Value) -> Value {
+    let mut body = fixture();
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-font-line-box/1"));
+    body["scene"]["value"]["nodes"][0]["style"]["lineBox"] = line_box;
+    body
+}
+
+fn font_source_contract_style(source: Value) -> Value {
+    let mut body = fixture();
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-font-source/1"));
+    body["scene"]["value"]["nodes"][0]["style"]["fontSource"] = source;
+    body
+}
+
+#[test]
+fn font_source_contract_requires_capability_defaults_face_and_preserves_legacy_serialization() {
+    let legacy = parse_style(&fixture()).unwrap();
+    assert!(legacy.scene().nodes[0].style.font_source.is_none());
+    let serialized = serde_json::to_value(&legacy).unwrap();
+    assert!(serialized["scene"]["value"]["nodes"][0]["style"].get("fontSource").is_none());
+    assert_eq!(parse_style(&serialized).unwrap(), legacy);
+    let hash = "0123456789abcdef".repeat(4);
+    for source in [json!({"sha256":hash}), json!({"sha256":hash,"faceIndex":1023})] {
+        let mut body = font_source_contract_style(source.clone());
+        // This is persistent identity, not a filesystem/family lookup at parse.
+        body["scene"]["value"]["nodes"][0]["style"]["fontFamily"] = json!("Human display family");
+        let parsed = parse_style(&body).unwrap();
+        let expected_face = source.get("faceIndex").and_then(Value::as_u64).unwrap_or(0) as u32;
+        assert_eq!(
+            parsed.scene().nodes[0].style.font_source,
+            Some(FontSource {
+                sha256: hash.clone(),
+                face_index: expected_face
+            })
+        );
+        assert_eq!(parsed.scene().nodes[0].style.font_family, "Human display family");
+        assert_eq!(parse_style(&serde_json::to_value(&parsed).unwrap()).unwrap(), parsed);
+        body["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|cap| cap != "caption-font-source/1");
+        assert_eq!(parse_style(&body).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+        let mut scene = parsed.scene().clone();
+        scene.required_capabilities.retain(|cap| cap != "caption-font-source/1");
+        assert_eq!(validate_scene(&scene).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    }
+}
+
+#[test]
+fn font_source_contract_rejects_null_hash_case_unknown_fields_and_face_bounds() {
+    let hash = "a".repeat(64);
+    for source in [
+        Value::Null,
+        json!([]),
+        json!("family"),
+        json!({}),
+        json!({"sha256":null}),
+        json!({"sha256":"a".repeat(63)}),
+        json!({"sha256":"a".repeat(65)}),
+        json!({"sha256":"A".repeat(64)}),
+        json!({"sha256":"g".repeat(64)}),
+        json!({"sha256":"é".repeat(32)}),
+        json!({"sha256":hash,"path":"font.ttf"}),
+        json!({"sha256":hash,"faceIndex":null}),
+        json!({"sha256":hash,"faceIndex":-1}),
+        json!({"sha256":hash,"faceIndex":0.5}),
+        json!({"sha256":hash,"faceIndex":1024}),
+        json!({"sha256":hash,"faceIndex":4294967296_u64}),
+    ] {
+        assert!(parse_style(&font_source_contract_style(source.clone())).is_err(), "{source}");
+    }
+    // Typed callers must observe the same validation as JSON callers.
+    let mut scene = parse_style(&font_source_contract_style(json!({"sha256":hash})))
+        .unwrap()
+        .scene()
+        .clone();
+    scene.nodes[0].style.font_source.as_mut().unwrap().face_index = 1024;
+    assert!(validate_scene(&scene).is_err());
+}
+
+#[test]
+fn font_source_contract_is_text_or_label_only() {
+    let hash = "b".repeat(64);
+    let mut label: Value = serde_json::from_str(include_str!("fixtures/bound-label.json")).unwrap();
+    label["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-font-source/1"));
+    label["scene"]["value"]["nodes"][1]["children"][0]["style"]["fontSource"] = json!({"sha256":hash});
+    let parsed = parse_style(&label).unwrap();
+    assert_eq!(
+        parsed.scene().nodes[1].children[0].style.font_source.as_ref().unwrap().face_index,
+        0
+    );
+    for node in [json!({"id":"plain","type":"group"}), json!({"id":"plain","type":"shape"})] {
+        let mut body = fixture();
+        body["scene"]["value"]["nodes"].as_array_mut().unwrap().push(node);
+        assert!(parse_style(&body).is_ok(), "non-text baseline must be valid");
+        body["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-font-source/1"));
+        body["scene"]["value"]["nodes"][1]["style"]["fontSource"] = json!({"sha256":hash});
+        assert!(parse_style(&body).is_err());
+    }
+    let mut image: Value = serde_json::from_str(include_str!("fixtures/image-paint.json")).unwrap();
+    assert!(parse_style(&image).is_ok());
+    image["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-font-source/1"));
+    image["scene"]["value"]["nodes"][1]["children"][0]["style"]["fontSource"] = json!({"sha256":hash});
+    assert!(parse_style(&image).is_err());
+}
+
+#[test]
+fn font_line_box_contract_requires_capability_roundtrips_and_preserves_omitted_default() {
+    let legacy = parse_style(&fixture()).unwrap();
+    assert!(legacy.scene().nodes[0].style.line_box.is_none());
+    assert!(
+        serde_json::to_value(&legacy).unwrap()["scene"]["value"]["nodes"][0]["style"]
+            .get("lineBox")
+            .is_none()
+    );
+    let minimal = parse_style(&font_line_box_contract_style(json!({}))).unwrap();
+    assert_eq!(
+        minimal.scene().nodes[0].style.line_box,
+        Some(FontLineBox {
+            min_ascent: 0.0,
+            min_descent: 0.0,
+            metric_source: LineMetricSource::Font,
+            fallback_probe: None
+        })
+    );
+    for line_box in [
+        json!({}),
+        json!({"metricSource":"font","minAscent":1.25,"minDescent":0.35}),
+        json!({"metricSource":"typographic","minAscent":0.7,"minDescent":0.2,"fallbackProbe":"Å"}),
+        json!({"metricSource":"typographic","fallbackProbe":"😀"}),
+    ] {
+        let mut body = font_line_box_contract_style(line_box);
+        let style = parse_style(&body).unwrap();
+        assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+        body["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|cap| cap != "caption-font-line-box/1");
+        assert_eq!(parse_style(&body).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+        let mut scene = style.scene().clone();
+        scene.required_capabilities.retain(|cap| cap != "caption-font-line-box/1");
+        assert_eq!(validate_scene(&scene).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    }
+}
+
+#[test]
+fn font_line_box_contract_rejects_invalid_objects_sources_ranges_and_multiscalar_probes() {
+    for line_box in [
+        json!(null),
+        json!(false),
+        json!([]),
+        json!("font"),
+        json!({"unknown":1}),
+        json!({"metricSource":null}),
+        json!({"metricSource":"Font"}),
+        json!({"metricSource":"ink"}),
+        json!({"minAscent":-0.01}),
+        json!({"minDescent":4.01}),
+        json!({"minAscent":"1.25"}),
+        json!({"minDescent":null}),
+        json!({"metricSource":"font","fallbackProbe":"A"}),
+        json!({"metricSource":"typographic","fallbackProbe":null}),
+        json!({"metricSource":"typographic","fallbackProbe":""}),
+        json!({"metricSource":"typographic","fallbackProbe":"AB"}),
+        json!({"metricSource":"typographic","fallbackProbe":"e\u{301}"}),
+        json!({"metricSource":"typographic","fallbackProbe":"👩‍💻"}),
+        json!({"metricSource":"typographic","fallbackProbe":65}),
+    ] {
+        assert!(parse_style(&font_line_box_contract_style(line_box.clone())).is_err(), "{line_box}");
+    }
+    assert!(parse_style(&font_line_box_contract_style(json!({"minAscent":0,"minDescent":4}))).is_ok());
+    let mut scene = parse_style(&font_line_box_contract_style(json!({}))).unwrap().scene().clone();
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        scene.nodes[0].style.line_box.as_mut().unwrap().min_ascent = value;
+        assert!(validate_scene(&scene).is_err());
+        scene.nodes[0].style.line_box.as_mut().unwrap().min_ascent = 0.0;
+        scene.nodes[0].style.line_box.as_mut().unwrap().min_descent = value;
+        assert!(validate_scene(&scene).is_err());
+    }
+}
+
+fn affine_sample_blend_style() -> Value {
+    let mut body = fixture();
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-affine-sample-blend/1"));
+    let constant = |value: f64| json!({"kind":"constant","value":value});
+    let domain = json!({"x":constant(0.0),"y":constant(0.0),"width":constant(160.0),"height":constant(90.0)});
+    let identity: Vec<_> = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0].into_iter().map(constant).collect();
+    body["scene"]["value"]["materials"] = json!([{
+        "kind":"affine-sample-blend","id":"path-blend","contextNodeId":"caption",
+        "sampling":{"input":domain,"output":domain}, "transforms":[identity,identity],
+        "sampleRange":[2,256],"distanceRange":[0.0,1.0],"boundary":"transparent"
+    }]);
+    body
+}
+
+#[test]
+fn affine_sample_blend_roundtrips_all_boundaries_without_implicit_fields() {
+    for boundary in ["normalize", "transparent", "replicate"] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["materials"][0]["boundary"] = json!(boundary);
+        let style = parse_style(&body).unwrap();
+        let encoded = serde_json::to_value(&style).unwrap();
+        assert_eq!(encoded["scene"]["value"]["materials"], body["scene"]["value"]["materials"]);
+        assert_eq!(parse_style(&encoded).unwrap(), style);
+    }
+}
+
+#[test]
+fn affine_sample_blend_requires_its_capability_for_parsed_and_typed_scenes() {
+    let mut body = affine_sample_blend_style();
+    let mut scene = parse_style(&body).unwrap().scene().clone();
+    scene.required_capabilities.retain(|c| c != "caption-affine-sample-blend/1");
+    assert_eq!(validate_scene(&scene).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    body["scene"]["value"]["requiredCapabilities"] = json!(["caption-scene/1", "caption-expressions/1"]);
+    assert_eq!(parse_style(&body).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+}
+
+#[test]
+fn affine_sample_blend_rejects_missing_null_and_unknown_contract_fields() {
+    for field in [
+        "sampling",
+        "transforms",
+        "sampleRange",
+        "distanceRange",
+        "boundary",
+        "contextNodeId",
+    ] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["materials"][0].as_object_mut().unwrap().remove(field);
+        assert!(parse_style(&body).is_err(), "missing {field}");
+        body["scene"]["value"]["materials"][0][field] = Value::Null;
+        assert!(parse_style(&body).is_err(), "null {field}");
+    }
+    for path in [
+        "/scene/value/materials/0",
+        "/scene/value/materials/0/sampling",
+        "/scene/value/materials/0/sampling/input",
+    ] {
+        let mut body = affine_sample_blend_style();
+        body.pointer_mut(path).unwrap()["unexpected"] = json!(1);
+        assert!(parse_style(&body).is_err(), "{path}");
+    }
+}
+
+#[test]
+fn affine_sample_blend_bounds_control_points_and_matrix_arity() {
+    let mut body = affine_sample_blend_style();
+    let identity = body["scene"]["value"]["materials"][0]["transforms"][0].clone();
+    for count in [0, 1, 2, 32, 33] {
+        body["scene"]["value"]["materials"][0]["transforms"] = json!(vec![identity.clone(); count]);
+        assert_eq!(parse_style(&body).is_ok(), (2..=32).contains(&count), "{count}");
+    }
+    for count in [0, 5, 7] {
+        body["scene"]["value"]["materials"][0]["transforms"] = json!([vec![json!({"kind":"constant","value":0}); count], identity]);
+        assert!(parse_style(&body).is_err(), "matrix length {count}");
+    }
+}
+
+#[test]
+fn affine_sample_blend_bounds_all_six_scalar_coefficients() {
+    for index in 0..6 {
+        for (n, valid) in [(-10000.0, true), (10000.0, true), (-10000.1, false), (10000.1, false)] {
+            let mut body = affine_sample_blend_style();
+            body["scene"]["value"]["materials"][0]["transforms"][0][index] = json!({"kind":"constant","value":n});
+            assert_eq!(parse_style(&body).is_ok(), valid, "coefficient {index}: {n}");
+        }
+    }
+}
+
+#[test]
+fn affine_sample_blend_checks_keyframe_coefficients_and_preserves_missing_sample_policy() {
+    for (value, valid) in [(10000.0, true), (10000.1, false)] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["materials"][0]["transforms"][0][0] = json!({
+            "kind":"keyframes", "clock":{"unit":"page","origin":"start","duration":{"kind":"fixed","ticks":1,"timescale":1}},
+            "keys":[{"at":0,"value":1},{"at":1,"value":value}], "fill":{"before":"none", "after":"none"}
+        });
+        assert_eq!(parse_style(&body).is_ok(), valid, "{value}");
+    }
+}
+
+#[test]
+fn affine_sample_blend_accepts_page_scalar_expressions_and_rejects_other_types() {
+    for (expression, valid) in [
+        (json!({"op":"read","path":"time.progress"}), true),
+        (json!({"op":"literal","type":"length","value":1}), false),
+        (json!({"op":"literal","type":"angle","value":1}), false),
+        (json!({"op":"literal","type":"color","value":"#FFFFFF"}), false),
+        (json!({"op":"literal","type":"bool","value":true}), false),
+    ] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["materials"][0]["transforms"][0][0] = json!({"kind":"expression","expression":expression});
+        assert_eq!(parse_style(&body).is_ok(), valid, "{expression}");
+    }
+}
+
+#[test]
+fn affine_sample_blend_requires_static_bounded_integer_sample_range() {
+    for (range, valid) in [
+        (json!([2, 2]), true),
+        (json!([256, 256]), true),
+        (json!([1, 2]), false),
+        (json!([3, 2]), false),
+        (json!([2, 257]), false),
+        (json!([2, 2.5]), false),
+        (json!([-2, 4]), false),
+        (json!([2]), false),
+        (json!([2, 3, 4]), false),
+        (json!([2,{"kind":"constant","value":4}]), false),
+    ] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["materials"][0]["sampleRange"] = range.clone();
+        assert_eq!(parse_style(&body).is_ok(), valid, "{range}");
+    }
+}
+
+#[test]
+fn affine_sample_blend_requires_static_ordered_bounded_distance_range() {
+    for (range, valid) in [
+        (json!([0, 16]), true),
+        (json!([1, 2]), true),
+        (json!([-0.01, 1]), false),
+        (json!([1, 1]), false),
+        (json!([2, 1]), false),
+        (json!([0, 16.01]), false),
+        (json!([0]), false),
+        (json!([0, 1, 2]), false),
+        (json!([0, "1"]), false),
+        (json!([0,{"kind":"constant","value":1}]), false),
+    ] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["materials"][0]["distanceRange"] = range.clone();
+        assert_eq!(parse_style(&body).is_ok(), valid, "{range}");
+    }
+}
+
+#[test]
+fn affine_sample_blend_rejects_typed_nonfinite_distance_values() {
+    let mut scene = parse_style(&affine_sample_blend_style()).unwrap().scene().clone();
+    for index in 0..2 {
+        for n in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let CaptionMaterial::AffineSampleBlend { distance_range, .. } = &mut scene.materials[0] else {
+                unreachable!()
+            };
+            *distance_range = [0.0, 1.0];
+            distance_range[index] = n;
+            assert!(validate_scene(&scene).is_err(), "index {index}: {n}");
+        }
+    }
+}
+
+#[test]
+fn affine_sample_blend_requires_nonnegative_integer_input_roi() {
+    for field in ["x", "y", "width", "height"] {
+        for n in [-1.0, 0.5] {
+            let mut body = affine_sample_blend_style();
+            body["scene"]["value"]["materials"][0]["sampling"]["input"][field] = json!({"kind":"constant","value":n});
+            assert!(parse_style(&body).is_err(), "{field}: {n}");
+        }
+    }
+    for field in ["width", "height"] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["materials"][0]["sampling"]["input"][field] = json!({"kind":"constant","value":0});
+        assert!(parse_style(&body).is_err(), "zero {field}");
+    }
+}
+
+#[test]
+fn affine_sample_blend_allows_fractional_and_canvas_clipped_output_with_positive_size() {
+    let mut body = affine_sample_blend_style();
+    for (field, n) in [("x", -12.25), ("y", -0.5), ("width", 0.001), ("height", 91.5)] {
+        body["scene"]["value"]["materials"][0]["sampling"]["output"][field] = json!({"kind":"constant","value":n});
+    }
+    assert!(parse_style(&body).is_ok());
+    for field in ["width", "height"] {
+        for n in [0.0, -1.0, 0.0009, 1_000_001.0] {
+            let mut invalid = body.clone();
+            invalid["scene"]["value"]["materials"][0]["sampling"]["output"][field] = json!({"kind":"constant","value":n});
+            assert!(parse_style(&invalid).is_err(), "{field}: {n}");
+        }
+    }
+}
+
+#[test]
+fn affine_sample_blend_requires_explicit_unique_text_context_even_for_hidden_nodes() {
+    let mut body = affine_sample_blend_style();
+    body["scene"]["value"]["materials"][0]["contextNodeId"] = json!("missing");
+    assert!(parse_style(&body).is_err());
+    for extra in [
+        json!({"id":"other-text","type":"text","properties":{"opacity":{"kind":"constant","value":0}}}),
+        json!({"id":"shape","type":"shape","properties":{"opacity":{"kind":"constant","value":0}}}),
+    ] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["nodes"].as_array_mut().unwrap().push(extra);
+        assert!(parse_style(&body).is_err());
+    }
+    let mut body = affine_sample_blend_style();
+    let text = body["scene"]["value"]["nodes"][0].clone();
+    body["scene"]["value"]["nodes"] = json!([{"id":"group","type":"group","children":[text]}, {"id":"empty-group","type":"group"}]);
+    assert!(parse_style(&body).is_ok());
+}
+
+#[test]
+fn affine_sample_blend_rejects_duplicate_material_ids_and_unknown_boundary() {
+    let mut body = affine_sample_blend_style();
+    let material = body["scene"]["value"]["materials"][0].clone();
+    body["scene"]["value"]["materials"].as_array_mut().unwrap().push(material);
+    assert!(parse_style(&body).is_err());
+    for boundary in [json!("clamp"), json!("Transparent"), json!(0)] {
+        let mut body = affine_sample_blend_style();
+        body["scene"]["value"]["materials"][0]["boundary"] = boundary;
+        assert!(parse_style(&body).is_err());
+    }
+}
+
+fn affine_over_style() -> Value {
+    let mut body = affine_sample_blend_style();
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-affine-over/1"));
+    let m = body["scene"]["value"]["materials"][0].as_object_mut().unwrap();
+    let controls = m.remove("transforms").unwrap();
+    m.remove("sampleRange");
+    m.remove("distanceRange");
+    m.insert("kind".into(), json!("affine-over"));
+    m.insert("foreground".into(), controls[0].clone());
+    m.insert("background".into(), controls[1].clone());
+    m.insert("backgroundOpacity".into(), json!({"kind":"constant","value":0.35}));
+    m.insert("backgroundRgbScale".into(), json!({"kind":"constant","value":0.8}));
+    body
+}
+#[test]
+fn affine_over_requires_explicit_capability_fields_and_two_scalar_matrices() {
+    let body = affine_over_style();
+    let style = parse_style(&body).unwrap();
+    let encoded = serde_json::to_value(&style).unwrap();
+    assert_eq!(parse_style(&encoded).unwrap(), style);
+    for key in [
+        "foreground",
+        "background",
+        "backgroundOpacity",
+        "backgroundRgbScale",
+        "boundary",
+        "sampling",
+    ] {
+        let mut invalid = body.clone();
+        invalid["scene"]["value"]["materials"][0].as_object_mut().unwrap().remove(key);
+        assert!(parse_style(&invalid).is_err(), "missing {key}");
+        let mut invalid = body.clone();
+        invalid["scene"]["value"]["materials"][0][key] = Value::Null;
+        assert!(parse_style(&invalid).is_err(), "null {key}");
+    }
+    let mut invalid = body.clone();
+    invalid["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|v| v != "caption-affine-over/1");
+    assert!(parse_style(&invalid).is_err());
+    for boundary in ["normalize", "guess"] {
+        let mut invalid = body.clone();
+        invalid["scene"]["value"]["materials"][0]["boundary"] = json!(boundary);
+        assert!(parse_style(&invalid).is_err());
+    }
+    for field in ["foreground", "background"] {
+        for count in [0, 5, 7] {
+            let mut invalid = body.clone();
+            invalid["scene"]["value"]["materials"][0][field] = json!(vec![json!({"kind":"constant","value":1}); count]);
+            assert!(parse_style(&invalid).is_err());
+        }
+    }
+}
+#[test]
+fn affine_over_bounds_literals_keyframes_and_scalar_expression_types() {
+    let body = affine_over_style();
+    for field in ["backgroundOpacity", "backgroundRgbScale"] {
+        for value in [-0.01, 1.01] {
+            let mut invalid = body.clone();
+            invalid["scene"]["value"]["materials"][0][field] = json!({"kind":"constant","value":value});
+            assert!(parse_style(&invalid).is_err());
+            invalid["scene"]["value"]["materials"][0][field] = json!({"kind":"keyframes","clock":{"unit":"page","origin":"start","duration":{"kind":"fixed","ticks":1,"timescale":1}},"keys":[{"at":0,"value":0},{"at":1,"value":value}],"fill":{"before":"hold","after":"hold"}});
+            assert!(parse_style(&invalid).is_err());
+        }
+    }
+    for field in ["foreground", "background"] {
+        for index in 0..6 {
+            let mut invalid = body.clone();
+            invalid["scene"]["value"]["materials"][0][field][index] = json!({"kind":"constant","value":10001});
+            assert!(parse_style(&invalid).is_err());
+            invalid["scene"]["value"]["materials"][0][field][index] =
+                json!({"kind":"expression","expression":{"op":"read","path":"canvas.width"}});
+            assert!(parse_style(&invalid).is_err());
+        }
+    }
+}
+
+fn gaussian_uv_style() -> Value {
+    let mut body = affine_over_style();
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-gaussian-uv/1"));
+    let sampling = body["scene"]["value"]["materials"][0]["sampling"].clone();
+    body["scene"]["value"]["materials"] = json!([{"kind":"gaussian-uv","id":"vector","contextNodeId":"caption","sampling":sampling,"samples":{"kind":"constant","value":2.5},"stepUv":[{"kind":"constant","value":0.1},{"kind":"constant","value":-0.1}],"sigmaUv":{"kind":"constant","value":0.1},"rgbGain":{"kind":"constant","value":1},"boundary":"normalize"}]);
+    body
+}
+#[test]
+fn gaussian_uv_contract_requires_capability_vector_arity_and_bounded_parameters() {
+    let b = gaussian_uv_style();
+    let style = parse_style(&b).unwrap();
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    for k in ["samples", "stepUv", "sigmaUv", "rgbGain", "sampling", "boundary"] {
+        let mut x = b.clone();
+        x["scene"]["value"]["materials"][0].as_object_mut().unwrap().remove(k);
+        assert!(parse_style(&x).is_err());
+    }
+    let mut x = b.clone();
+    x["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|c| c != "caption-gaussian-uv/1");
+    assert!(parse_style(&x).is_err());
+    for (k, v) in [
+        ("samples", 1025.),
+        ("sigmaUv", 0.),
+        ("sigmaUv", 16.01),
+        ("rgbGain", -0.01),
+        ("rgbGain", 10.01),
+    ] {
+        let mut x = b.clone();
+        x["scene"]["value"]["materials"][0][k] = json!({"kind":"constant","value":v});
+        assert!(parse_style(&x).is_err(), "{k} {v}");
+    }
+    for len in [0, 1, 3] {
+        let mut x = b.clone();
+        x["scene"]["value"]["materials"][0]["stepUv"] = json!(vec![json!({"kind":"constant","value":0}); len]);
+        assert!(parse_style(&x).is_err());
+    }
+    for idx in 0..2 {
+        let mut x = b.clone();
+        x["scene"]["value"]["materials"][0]["stepUv"][idx] = json!({"kind":"constant","value":-1.01});
+        assert!(parse_style(&x).is_err());
+    }
 }

@@ -40,6 +40,9 @@ gpu-webgl = [
 ]
 
 [dependencies]
+motion = { workspace = true }
+sha2 = "0.11"
+tiny-skia = "0.11"
 anyhow = "1"
 render-raster = { path = "../render-raster", default-features = false }
 timeline-render = { path = "../timeline-render", features = ["external-media-scene"] }
@@ -52,6 +55,7 @@ wgpu = { version = "30", default-features = false, features = [
 ], optional = true }
 
 [dev-dependencies]
+caption-scene = { workspace = true }
 naga = { version = "30", default-features = false, features = ["wgsl-in", "glsl-out"] }
 motion = { path = "../motion" }
 subtitle-render = { path = "../subtitle-render" }

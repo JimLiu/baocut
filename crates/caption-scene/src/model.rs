@@ -59,6 +59,10 @@ pub struct Parameter {
     pub default: Value,
     pub min: Option<f64>,
     pub max: Option<f64>,
+    /// Finite list of `value_type` elements, readable only through `pick`
+    /// (`caption-list-pick/1`). Omitted when false so older bodies stay byte-identical.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub list: bool,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -236,6 +240,12 @@ pub struct Pagination {
     /// page `p` of a cue reads entry `p` modulo the pattern length.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page_tags: Option<Vec<u32>>,
+    /// `caption-pattern-select/1`: per-cue choice among fixed word line patterns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pattern_select: Option<PatternSelect>,
+    /// `caption-keyword-isolation/1`: hard row/page boundaries around tagged words.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub isolation: Vec<IsolationRule>,
 }
 /// `caption-fixed-line-wrap/1`: a fixed row wider than the layout width continues on
 /// further display lines, broken like width-wrapped text; row and page members stay frozen.
@@ -254,6 +264,44 @@ pub struct FixedLineFit {
     pub last_line_width_ratio: f64,
     pub last_line_max_scale: f64,
     pub extra_line_height: f64,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PatternSelect {
+    pub by: PatternSelectBy,
+    pub candidates: Vec<PatternCandidate>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PatternSelectBy {
+    WordCount,
+    Seed,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PatternCandidate {
+    pub id: String,
+    pub word_line_pattern: Vec<Vec<usize>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_page_rule: Option<LastPageRule>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_words: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_words: Option<usize>,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct IsolationRule {
+    pub tag: String,
+    pub mode: IsolationMode,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum IsolationMode {
+    #[default]
+    None,
+    Line,
+    Page,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -291,7 +339,10 @@ pub enum TextCountUnit {
 }
 impl Pagination {
     pub fn has_fixed_lines(&self) -> bool {
-        self.word_line_pattern.is_some() || self.text_line_pattern.is_some() || self.remaining_word_page_plans.is_some()
+        self.word_line_pattern.is_some()
+            || self.text_line_pattern.is_some()
+            || self.remaining_word_page_plans.is_some()
+            || self.pattern_select.is_some()
     }
 }
 /// What happens to a lone word on the last row of an incomplete final page.
@@ -324,6 +375,8 @@ impl Default for Pagination {
             fixed_line_overflow: None,
             fixed_line_fit: None,
             page_tags: None,
+            pattern_select: None,
+            isolation: vec![],
         }
     }
 }
@@ -447,21 +500,121 @@ pub enum NodeKind {
 pub struct TextStyle {
     #[serde(default = "font")]
     pub font_family: String,
+    /// Exact registered font bytes and face; overrides the display family for shaping.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub font_source: Option<FontSource>,
     #[serde(default = "font_size")]
     pub font_size: Length,
     #[serde(default = "weight")]
     pub font_weight: u16,
+    /// Optional unhinted scalable outlines; advances and shaping stay unchanged.
+    #[serde(default, skip_serializing_if = "FontHinting::is_default")]
+    pub font_hinting: FontHinting,
+    /// Explicit nominal scalar mapping or normal OpenType shaping.
+    #[serde(default, skip_serializing_if = "FontShaping::is_advanced")]
+    pub font_shaping: FontShaping,
     #[serde(default)]
     pub italic: bool,
     #[serde(default)]
     pub letter_spacing: f64,
     #[serde(default = "line_height")]
     pub line_height: f64,
+    /// Opt-in line boxes enclosing the actual glyph fonts rather than only an em height.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_line_box")]
+    pub line_box: Option<FontLineBox>,
     #[serde(default = "white")]
     pub fill: String,
     pub stroke: Option<Stroke>,
     #[serde(default)]
     pub paints: Vec<PaintLayer>,
+    /// Case mapping of the bound text before layout (`caption-text-transform/1`).
+    #[serde(default, skip_serializing_if = "TextTransform::is_none")]
+    pub text_transform: TextTransform,
+}
+/// Glyph shaping policy (`caption-font-shaping/1`); default preserves OpenType shaping.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FontShaping {
+    #[default]
+    Advanced,
+    Nominal,
+}
+impl FontShaping {
+    pub fn is_advanced(&self) -> bool {
+        *self == Self::Advanced
+    }
+}
+/// Outline hinting policy (`caption-font-hinting/1`); default preserves engine behavior.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FontHinting {
+    #[default]
+    Default,
+    None,
+}
+impl FontHinting {
+    pub fn is_default(&self) -> bool {
+        *self == Self::Default
+    }
+}
+/// An exact primary face reference (`caption-font-source/1`); missing resources fail.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FontSource {
+    /// Lowercase SHA-256 of the complete registered font binary.
+    pub sha256: String,
+    /// Collection face index, default zero; the persistent contract allows 0..1023.
+    #[serde(default)]
+    pub face_index: u32,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FontLineBox {
+    #[serde(default)]
+    pub min_ascent: f64,
+    #[serde(default)]
+    pub min_descent: f64,
+    #[serde(default)]
+    pub metric_source: LineMetricSource,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub fallback_probe: Option<char>,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LineMetricSource {
+    #[default]
+    Font,
+    Typographic,
+}
+fn deserialize_font_line_box<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<FontLineBox>, D::Error> {
+    let value = Value::deserialize(d)?;
+    if !value.is_object() {
+        return Err(serde::de::Error::custom("lineBox requires an object"));
+    }
+    serde_json::from_value(value).map(Some).map_err(serde::de::Error::custom)
+}
+/// Locale-independent Unicode default case mapping. Units, selectors and word
+/// timing bind to the mapped text, so a mapping that changes length (ß → SS)
+/// stays one word.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextTransform {
+    #[default]
+    None,
+    Uppercase,
+    Lowercase,
+}
+impl TextTransform {
+    pub fn is_none(&self) -> bool {
+        *self == Self::None
+    }
+    pub fn apply<'a>(&self, text: &'a str) -> std::borrow::Cow<'a, str> {
+        match self {
+            Self::None => text.into(),
+            Self::Uppercase => text.to_uppercase().into(),
+            Self::Lowercase => text.to_lowercase().into(),
+        }
+    }
 }
 fn font() -> String {
     "Noto Sans SC".into()
@@ -487,14 +640,19 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font_family: font(),
+            font_source: None,
             font_size: font_size(),
             font_weight: weight(),
+            font_hinting: FontHinting::Default,
+            font_shaping: FontShaping::Advanced,
             italic: false,
             letter_spacing: 0.0,
             line_height: line_height(),
+            line_box: None,
             fill: white(),
             stroke: None,
             paints: vec![],
+            text_transform: TextTransform::None,
         }
     }
 }
@@ -666,6 +824,29 @@ pub struct Clock {
     #[serde(default)]
     pub stagger: Time,
     pub repeat: Option<ClockRepeat>,
+    /// Post-origin progress policy (`caption-clock-tail/1`). Omitted when `none`
+    /// so older bodies stay byte-identical.
+    #[serde(default, skip_serializing_if = "ClockTail::is_none")]
+    pub tail: ClockTail,
+}
+/// How keyframe progress continues after the clock origin. `tail` only shapes the
+/// sampled value; `fill` still decides whether the track participates.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ClockTail {
+    /// `u = elapsed / duration`, unbounded above.
+    #[default]
+    None,
+    /// `u = min(elapsed, duration) / duration` after the origin.
+    Clamp,
+    /// `u = mod(elapsed, duration) / duration` after the origin; a period's end
+    /// belongs to the next period.
+    Repeat,
+}
+impl ClockTail {
+    pub fn is_none(&self) -> bool {
+        *self == Self::None
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -731,6 +912,8 @@ pub struct CaptionRenderLayer {
 pub enum CaptionLayerBlend {
     SourceOver,
     Screen,
+    /// Independent per-component `S + D`, clamped; needs `caption-layer-add/1`.
+    Add,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
@@ -789,6 +972,57 @@ pub struct PaintLayer {
     pub stroke_width: f64,
     #[serde(default)]
     pub offset: [f64; 2],
+    /// Unit of strokeWidth, offset, spread and blur (`caption-paint-effects/1` for em).
+    #[serde(default, skip_serializing_if = "PaintUnit::is_px")]
+    pub unit: PaintUnit,
+    /// Dilates the glyph silhouette (fill plus outline of this half-width) as one coverage.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub spread: f64,
+    /// Gaussian standard deviation applied to the layer's combined coverage.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub blur: f64,
+    /// Remaps isolated silhouette coverage after blur and before paint/instance alpha.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub coverage: Option<PaintCoverage>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaintCoverage {
+    pub lo: f64,
+    pub hi: f64,
+}
+impl<'de> Deserialize<'de> for PaintCoverage {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Fields {
+            lo: f64,
+            hi: f64,
+        }
+        let value = Value::deserialize(deserializer)?;
+        if !value.is_object() {
+            return Err(serde::de::Error::custom("coverage requires an object"));
+        }
+        let Fields { lo, hi } = serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+        Ok(Self { lo, hi })
+    }
+}
+fn is_zero(value: &f64) -> bool {
+    *value == 0.0
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PaintUnit {
+    /// Resolved canvas pixels, before the glyph transform.
+    #[default]
+    Px,
+    /// Multiples of the glyph's resolved font size.
+    Em,
+}
+impl PaintUnit {
+    pub fn is_px(&self) -> bool {
+        *self == Self::Px
+    }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
@@ -800,7 +1034,137 @@ pub enum ScenePaint {
         from: [f64; 2],
         to: [f64; 2],
         stops: Vec<PaintStop>,
+        /// Projection metric: local pixels by default, or the normalized line box.
+        #[serde(default, skip_serializing_if = "GradientSpace::is_local")]
+        space: GradientSpace,
+        /// Base visual bounds used by both endpoint mapping and projection.
+        #[serde(default, skip_serializing_if = "GradientDomain::is_line")]
+        domain: GradientDomain,
+        /// Glyph domain only: ink box growth per side, in the glyph's resolved font size.
+        #[serde(rename = "glyphOutset", default, skip_serializing_if = "is_zero")]
+        glyph_outset: f64,
     },
+    /// PNG sampling in an explicit pre-pose glyph, line or page coordinate domain.
+    Image {
+        #[serde(rename = "resourceId")]
+        resource_id: String,
+        /// Canvas convention: U=a*x+c*y+e, V=b*x+d*y+f. No implicit fit mapping.
+        #[serde(rename = "uvTransform")]
+        uv_transform: [f64; 6],
+        space: ImagePaintSpace,
+        #[serde(default, skip_serializing_if = "ImagePaintWrap::is_clamp")]
+        wrap: ImagePaintWrap,
+        #[serde(default, skip_serializing_if = "ImagePaintFilter::is_bilinear")]
+        filter: ImagePaintFilter,
+        /// Applied to the sampled image, before source-over onto the optional base.
+        #[serde(default = "image_opacity", skip_serializing_if = "is_image_opacity")]
+        opacity: f64,
+        /// Scales the combined image and base; effect runs apply it after isolation/blur.
+        #[serde(rename = "compositeOpacity", default = "image_opacity", skip_serializing_if = "is_image_opacity")]
+        composite_opacity: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+        base: Option<Box<ScenePaint>>,
+        #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+        phase: Option<ImagePaintPhase>,
+        #[serde(rename = "phaseOffset", default, skip_serializing_if = "is_zero")]
+        phase_offset: f64,
+    },
+    /// The glyph's resolved fill: node fill, fill animations and state styles.
+    NodeFill,
+}
+fn image_opacity() -> f64 {
+    1.0
+}
+fn is_image_opacity(value: &f64) -> bool {
+    *value == 1.0
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImagePaintSpace {
+    GlyphEm,
+    GlyphNormalized,
+    LineNormalized,
+    PageNormalized,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImagePaintWrap {
+    #[default]
+    Clamp,
+    Repeat,
+    Mirror,
+}
+impl ImagePaintWrap {
+    pub fn is_clamp(&self) -> bool {
+        *self == Self::Clamp
+    }
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImagePaintFilter {
+    Nearest,
+    #[default]
+    Bilinear,
+}
+impl ImagePaintFilter {
+    pub fn is_bilinear(&self) -> bool {
+        *self == Self::Bilinear
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ImagePaintPhase {
+    pub period: u32,
+    pub source: ImagePaintPhaseSource,
+    #[serde(default, skip_serializing_if = "ImagePhaseArithmetic::is_integer")]
+    pub arithmetic: ImagePhaseArithmetic,
+    /// Added to the input index before float32 division/fract; default zero.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub index_offset: f64,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImagePhaseArithmetic {
+    #[default]
+    IntegerModulo,
+    Float32,
+}
+impl ImagePhaseArithmetic {
+    pub fn is_integer(&self) -> bool {
+        *self == Self::IntegerModulo
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImagePaintPhaseSource {
+    /// Logical Unicode scalar start in the complete transformed cue (or label's own string).
+    CueScalarIndex,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GradientSpace {
+    #[default]
+    Local,
+    Normalized,
+}
+impl GradientSpace {
+    pub fn is_local(&self) -> bool {
+        *self == Self::Local
+    }
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GradientDomain {
+    #[default]
+    Line,
+    Page,
+    /// Each glyph's own outline ink box, so every glyph carries the whole ramp.
+    Glyph,
+}
+impl GradientDomain {
+    pub fn is_line(&self) -> bool {
+        *self == Self::Line
+    }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -846,6 +1210,9 @@ pub struct FontStyleBinding {
 pub struct FontStylePatch {
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
     pub font_family: Option<String>,
+    /// Exact face override. A family-only patch retains the named-family semantics.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub font_source: Option<FontSource>,
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
     pub font_weight: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
@@ -863,9 +1230,27 @@ fn deserialize_glow_tint<'de, D: serde::Deserializer<'de>>(deserializer: D) -> R
     // Missing means default white; an explicit field must contain a typed value.
     DynamicValue::deserialize(deserializer).map(Some)
 }
+fn deserialize_spacing_ramp<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<GaussianSpacingRamp>, D::Error> {
+    GaussianSpacingRamp::deserialize(deserializer).map(Some)
+}
+fn deserialize_gaussian_sampling<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<GaussianSamplingDomain>, D::Error> {
+    GaussianSamplingDomain::deserialize(deserializer).map(Some)
+}
+fn deserialize_gaussian_order<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<GaussianSampleOrder>, D::Error> {
+    GaussianSampleOrder::deserialize(deserializer).map(Some)
+}
 
 fn deserialize_glow_color_matrix<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<[f64; 9]>, D::Error> {
     <[f64; 9]>::deserialize(deserializer).map(Some)
+}
+fn deserialize_gamma_channels<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<GammaChannels>, D::Error> {
+    GammaChannels::deserialize(deserializer).map(Some)
+}
+fn deserialize_glow_aggregation<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<GlowAggregation>, D::Error> {
+    GlowAggregation::deserialize(deserializer).map(Some)
+}
+fn deserialize_level_gains<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<Vec<f64>>, D::Error> {
+    Vec::<f64>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -935,6 +1320,19 @@ pub enum CaptionMaterial {
         phase: DynamicValue,
         domain: MaterialDomain,
     },
+    /// Fixed v1 noise field shifts normalized domain UVs equally on both axes.
+    NoiseDisplace {
+        id: String,
+        #[serde(rename = "contextNodeId")]
+        context_node_id: String,
+        domain: MaterialDomain,
+        #[serde(rename = "noiseScale")]
+        noise_scale: [f64; 2],
+        phase: DynamicValue,
+        brightness: DynamicValue,
+        contrast: DynamicValue,
+        strength: DynamicValue,
+    },
     AngularSampleBlend {
         id: String,
         #[serde(rename = "contextNodeId")]
@@ -942,6 +1340,48 @@ pub enum CaptionMaterial {
         domain: MaterialDomain,
         aspect: DynamicValue,
         angle: DynamicValue,
+    },
+    /// Two samples of one immutable input ROI, foreground over background.
+    AffineOver {
+        id: String,
+        #[serde(rename = "contextNodeId")]
+        context_node_id: String,
+        sampling: GaussianSamplingDomain,
+        foreground: [DynamicValue; 6],
+        background: [DynamicValue; 6],
+        #[serde(rename = "backgroundOpacity")]
+        background_opacity: DynamicValue,
+        #[serde(rename = "backgroundRgbScale")]
+        background_rgb_scale: DynamicValue,
+        boundary: ComponentBoundary,
+    },
+    /// Equally weighted samples along an explicit normalized-UV affine path.
+    AffineSampleBlend {
+        id: String,
+        #[serde(rename = "contextNodeId")]
+        context_node_id: String,
+        sampling: GaussianSamplingDomain,
+        /// Each matrix maps (u, v) to (a*u+c*v+tx, b*u+d*v+ty).
+        transforms: Vec<[DynamicValue; 6]>,
+        #[serde(rename = "sampleRange")]
+        sample_range: [u32; 2],
+        #[serde(rename = "distanceRange")]
+        distance_range: [f64; 2],
+        boundary: ComponentBoundary,
+    },
+    GaussianUv {
+        id: String,
+        #[serde(rename = "contextNodeId")]
+        context_node_id: String,
+        sampling: GaussianSamplingDomain,
+        samples: DynamicValue,
+        #[serde(rename = "stepUv")]
+        step_uv: [DynamicValue; 2],
+        #[serde(rename = "sigmaUv")]
+        sigma_uv: DynamicValue,
+        #[serde(rename = "rgbGain")]
+        rgb_gain: DynamicValue,
+        boundary: ComponentBoundary,
     },
     GaussianAxis {
         id: String,
@@ -955,6 +1395,19 @@ pub enum CaptionMaterial {
         sigma_uv: DynamicValue,
         gamma: f64,
         boundary: ComponentBoundary,
+        #[serde(
+            rename = "spacingRamp",
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_spacing_ramp"
+        )]
+        spacing_ramp: Option<GaussianSpacingRamp>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_gaussian_sampling"
+        )]
+        sampling: Option<GaussianSamplingDomain>,
     },
     GlowCascade {
         id: String,
@@ -979,6 +1432,33 @@ pub enum CaptionMaterial {
             deserialize_with = "deserialize_glow_color_matrix"
         )]
         glow_color_matrix: Option<[f64; 9]>,
+        #[serde(
+            rename = "gammaChannels",
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_gamma_channels"
+        )]
+        gamma_channels: Option<GammaChannels>,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_glow_aggregation"
+        )]
+        aggregation: Option<GlowAggregation>,
+        #[serde(
+            rename = "levelGains",
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_level_gains"
+        )]
+        level_gains: Option<Vec<f64>>,
+        #[serde(
+            rename = "levelColor",
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_glow_tint"
+        )]
+        level_color: Option<DynamicValue>,
         composite: GlowComposite,
     },
     Feedback {
@@ -988,7 +1468,27 @@ pub enum CaptionMaterial {
         decay: f64,
         #[serde(default)]
         offset: [f64; 2],
+        /// Sample aggregation; omitted keeps the decaying source-over stack.
+        #[serde(default, skip_serializing_if = "FeedbackComposite::is_decay_over")]
+        composite: FeedbackComposite,
     },
+}
+
+/// How feedback combines its re-evaluated past samples.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FeedbackComposite {
+    /// Oldest to newest source-over with weight `decay^i`.
+    #[default]
+    DecayOver,
+    /// Equal-weight mean of the premultiplied samples inside the cue.
+    Mean,
+}
+
+impl FeedbackComposite {
+    pub fn is_decay_over(&self) -> bool {
+        *self == Self::DecayOver
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -996,6 +1496,39 @@ pub enum CaptionMaterial {
 pub enum MaterialUvY {
     Up,
     Down,
+}
+
+/// Spatial modulation of Gaussian tap distance; kernel weights remain unchanged.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GaussianSpacingRamp {
+    pub domain: MaterialDomain,
+    pub axis: WaveAxis,
+    pub start: DynamicValue,
+    pub end: DynamicValue,
+    pub reverse: bool,
+    pub evaluation: GaussianRampEvaluation,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_gaussian_order")]
+    pub sample_order: Option<GaussianSampleOrder>,
+}
+/// Explicit source texel view and output quad, evaluated after layout.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GaussianSamplingDomain {
+    pub input: MaterialDomain,
+    pub output: MaterialDomain,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GaussianSampleOrder {
+    NegativeFirst,
+    PositiveFirst,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GaussianRampEvaluation {
+    Center,
+    PreviousSample,
 }
 
 /// Frozen, bounded octave settings; all angles are radians.
@@ -1038,6 +1571,22 @@ pub enum ComponentBoundary {
 pub enum GlowComposite {
     Screen,
     SourceOverGlow,
+    OriginalOverScreen,
+}
+/// Channels that take the per-pass and aggregation gamma.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GammaChannels {
+    Rgb,
+    Rgba,
+}
+/// Cascade folding: `encoded` keeps the gain-shaped encoded fold, `linear`
+/// folds gamma-decoded levels with per-level gains before encoding once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GlowAggregation {
+    Encoded,
+    Linear,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

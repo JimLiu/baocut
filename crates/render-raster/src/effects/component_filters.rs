@@ -6,9 +6,17 @@
 
 use anyhow::{Result, ensure};
 
+#[path = "affine-samples.rs"]
+pub mod affine_samples;
+
+#[path = "affine_over.rs"]
+pub mod affine_over;
+#[path = "gaussian_uv.rs"]
+pub mod gaussian_uv;
+
 const MAX_PIXELS: u64 = 64 * 1024 * 1024;
 const MAX_GAUSSIAN_SAMPLES: usize = 1024;
-const MAX_GLOW_LEVELS: usize = 7;
+const MAX_GLOW_LEVELS: usize = 8;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Size {
@@ -165,6 +173,50 @@ pub enum Boundary {
     Transparent,
 }
 #[derive(Clone, Copy, Debug)]
+pub struct SpacingRamp {
+    /// Pixel-space domain in the input texture. UVs address pixel centers.
+    pub domain: [f64; 4],
+    pub axis: Axis,
+    pub start: f64,
+    pub end: f64,
+    pub reverse: bool,
+    /// Evaluate the field at the preceding tap, carrying the configured pair order
+    /// across the kernel. This is spatial, not frame history.
+    pub previous_sample: bool,
+    pub positive_first: bool,
+}
+impl SpacingRamp {
+    fn validate(self) -> Result<()> {
+        ensure!(
+            self.domain.iter().all(|v| v.is_finite())
+                && self.domain[2] > 0.0
+                && self.domain[3] > 0.0
+                && self.start.is_finite()
+                && self.end.is_finite()
+                && self.end > self.start
+                && (self.end - self.start).is_finite(),
+            "CAPTION_MATERIAL_INVALID: Gaussian spacing ramp"
+        );
+        Ok(())
+    }
+    fn factor(self, point: [f64; 2]) -> f64 {
+        let i = if self.axis == Axis::X { 0 } else { 1 };
+        let mut uv = (point[i] + 0.5 - self.domain[i]) / self.domain[i + 2];
+        if self.reverse {
+            uv = 1.0 - uv;
+        }
+        let t = ((uv - self.start) / (self.end - self.start)).clamp(0.0, 1.0);
+        1.0 - t * t * (3.0 - 2.0 * t)
+    }
+}
+#[derive(Clone, Copy, Debug)]
+pub struct GaussianSampling {
+    /// Integer texel subview; sampling clamps to this view, not the backing image.
+    pub input: [u32; 4],
+    /// Output pixel-space rectangle. Pixels outside it are transparent.
+    pub output: [f64; 4],
+}
+#[derive(Clone, Copy, Debug)]
 pub struct GaussianPass {
     pub axis: Axis,
     pub sample_count: f64,
@@ -174,6 +226,8 @@ pub struct GaussianPass {
     pub gamma: Option<f64>,
     pub boundary: Boundary,
     pub output: Size,
+    pub spacing_ramp: Option<SpacingRamp>,
+    pub sampling: Option<GaussianSampling>,
 }
 impl GaussianPass {
     pub fn validate(self) -> Result<usize> {
@@ -195,7 +249,48 @@ impl GaussianPass {
             "CAPTION_MATERIAL_INVALID: Gaussian sigma"
         );
         validate_gamma(self.gamma)?;
+        if let Some(ramp) = self.spacing_ramp {
+            ramp.validate()?;
+        }
+        if let Some(view) = self.sampling {
+            ensure!(
+                view.input[2] > 0
+                    && view.input[3] > 0
+                    && view
+                        .output
+                        .iter()
+                        .all(|v| v.is_finite() && v.abs() <= 1_000_000.0)
+                    && view.output[2] > 0.0
+                    && view.output[3] > 0.0,
+                "CAPTION_MATERIAL_INVALID: Gaussian sampling domain"
+            );
+        }
         Ok(count)
+    }
+    pub fn sampling_domains(self, input: Size) -> Result<([f64; 4], [f64; 4])> {
+        if let Some(view) = self.sampling {
+            self.validate()?;
+            ensure!(
+                view.input[0]
+                    .checked_add(view.input[2])
+                    .is_some_and(|end| end <= input.width)
+                    && view.input[1]
+                        .checked_add(view.input[3])
+                        .is_some_and(|end| end <= input.height),
+                "CAPTION_MATERIAL_INVALID: Gaussian source view outside input"
+            );
+            Ok((view.input.map(f64::from), view.output))
+        } else {
+            Ok((
+                [0.0, 0.0, input.width as f64, input.height as f64],
+                [
+                    0.0,
+                    0.0,
+                    self.output.width as f64,
+                    self.output.height as f64,
+                ],
+            ))
+        }
     }
 }
 fn validate_gamma(gamma: Option<f64>) -> Result<()> {
@@ -340,6 +435,17 @@ fn gaussian_support(
     pass: GaussianPass,
     count: usize,
 ) -> Option<Support> {
+    if let Some(view) = pass.sampling {
+        support?;
+        let edge = |v: f64, max: u32| libm::ceil(v - 0.5).clamp(0.0, max as f64) as u32;
+        let roi = Support {
+            left: edge(view.output[0], pass.output.width),
+            top: edge(view.output[1], pass.output.height),
+            right: edge(view.output[0] + view.output[2], pass.output.width),
+            bottom: edge(view.output[1] + view.output[3], pass.output.height),
+        };
+        return (roi.left < roi.right && roi.top < roi.bottom).then_some(roi);
+    }
     if count == 0 && input == pass.output {
         return support;
     }
@@ -360,14 +466,45 @@ fn power(value: f64, exponent: f64) -> f64 {
         libm::pow(value, exponent)
     }
 }
-fn encoded_sample(image: &ComponentImage, x: f64, y: f64, gamma: Option<f64>) -> [f64; 4] {
+/// `channels` is 3 (RGB only) or 4 (`gammaChannels: rgba`, alpha too).
+fn encoded_sample(
+    image: &ComponentImage,
+    x: f64,
+    y: f64,
+    gamma: Option<f64>,
+    channels: usize,
+) -> [f64; 4] {
     let mut value = sample(image, x, y);
     if let Some(gamma) = gamma {
-        for channel in &mut value[..3] {
+        for channel in &mut value[..channels] {
             *channel = power(*channel, gamma);
         }
     }
     value
+}
+fn scoped_sample(
+    image: &ComponentImage,
+    pass: GaussianPass,
+    x: f64,
+    y: f64,
+    gamma: Option<f64>,
+    channels: usize,
+) -> [f64; 4] {
+    let (x, y) = if let Some(view) = pass.sampling {
+        (
+            x.clamp(
+                view.input[0] as f64,
+                (view.input[0] + view.input[2] - 1) as f64,
+            ),
+            y.clamp(
+                view.input[1] as f64,
+                (view.input[1] + view.input[3] - 1) as f64,
+            ),
+        )
+    } else {
+        (x, y)
+    };
+    encoded_sample(image, x, y, gamma, channels)
 }
 /// Validated coefficients shared by CPU and GPU executors. The shader does not
 /// independently approximate exp(), so backend differences are limited to f32
@@ -394,24 +531,71 @@ fn gaussian_pixel(
     image: &ComponentImage,
     pass: GaussianPass,
     weights: &[f64],
+    channels: usize,
     x: u32,
     y: u32,
 ) -> [f64; 4] {
-    let sx = center(x, image.width(), pass.output.width);
-    let sy = center(y, image.height(), pass.output.height);
-    let mut result = encoded_sample(image, sx, sy, pass.gamma);
+    let (sx, sy, bounds) = if let Some(view) = pass.sampling {
+        let a = view.input.map(f64::from);
+        let b = view.output;
+        (
+            ((x as f64 + 0.5 - b[0]) / b[2]) * a[2] + a[0] - 0.5,
+            ((y as f64 + 0.5 - b[1]) / b[3]) * a[3] + a[1] - 0.5,
+            a,
+        )
+    } else {
+        (
+            center(x, image.width(), pass.output.width),
+            center(y, image.height(), pass.output.height),
+            [0.0, 0.0, image.width() as f64, image.height() as f64],
+        )
+    };
+    if weights.is_empty() {
+        return scoped_sample(image, pass, sx, sy, None, channels);
+    }
+    if pass
+        .spacing_ramp
+        .is_some_and(|ramp| ramp.factor([sx, sy]) == 0.0)
+    {
+        // Every following tap remains at this center, including recursive mode.
+        return scoped_sample(image, pass, sx, sy, None, channels);
+    }
+    let mut result = scoped_sample(image, pass, sx, sy, pass.gamma, channels);
     let mut sum_weight = 1.0;
+    let mut previous = [sx, sy];
     for (index, weight) in weights.iter().copied().enumerate() {
-        let distance = (index + 1) as f64 * pass.step_pixels;
-        for sign in [-1.0, 1.0] {
+        let signs = if pass.spacing_ramp.is_some_and(|r| r.positive_first) {
+            [1.0, -1.0]
+        } else {
+            [-1.0, 1.0]
+        };
+        for sign in signs {
+            let factor = pass.spacing_ramp.map_or(1.0, |ramp| {
+                ramp.factor(if ramp.previous_sample {
+                    previous
+                } else {
+                    [sx, sy]
+                })
+            });
+            let distance = (index + 1) as f64 * pass.step_pixels * factor;
             let (tx, ty) = if pass.axis == Axis::X {
                 (sx + sign * distance, sy)
             } else {
                 (sx, sy + sign * distance)
             };
-            let valid = inside(tx, image.width()) && inside(ty, image.height());
+            previous = [tx, ty];
+            if pass.boundary == Boundary::Replicate {
+                previous = [
+                    tx.clamp(bounds[0] - 0.5, bounds[0] + bounds[2] - 0.5),
+                    ty.clamp(bounds[1] - 0.5, bounds[1] + bounds[3] - 0.5),
+                ];
+            }
+            let valid = tx >= bounds[0] - 0.5
+                && tx <= bounds[0] + bounds[2] - 0.5
+                && ty >= bounds[1] - 0.5
+                && ty <= bounds[1] + bounds[3] - 0.5;
             if valid || pass.boundary == Boundary::Replicate {
-                let value = encoded_sample(image, tx, ty, pass.gamma);
+                let value = scoped_sample(image, pass, tx, ty, pass.gamma, channels);
                 for (out, channel) in result.iter_mut().zip(value) {
                     *out += weight * channel;
                 }
@@ -425,7 +609,7 @@ fn gaussian_pixel(
         *channel /= sum_weight;
     }
     if let Some(gamma) = pass.gamma {
-        for channel in &mut result[..3] {
+        for channel in &mut result[..channels] {
             *channel = power(*channel, 1.0 / gamma);
         }
     }
@@ -433,8 +617,16 @@ fn gaussian_pixel(
 }
 
 pub fn gaussian(image: &ComponentImage, pass: GaussianPass) -> Result<ComponentImage> {
+    gaussian_channels(image, pass, 3)
+}
+fn gaussian_channels(
+    image: &ComponentImage,
+    pass: GaussianPass,
+    channels: usize,
+) -> Result<ComponentImage> {
     let count = pass.validate()?;
-    if count == 0 {
+    pass.sampling_domains(image.size)?;
+    if count == 0 && pass.sampling.is_none() {
         return resize(image, pass.output);
     }
     let mut output = ComponentImage::zeroed(pass.output)?;
@@ -442,7 +634,7 @@ pub fn gaussian(image: &ComponentImage, pass: GaussianPass) -> Result<ComponentI
         let weights = weights(pass, count);
         for y in roi.top..roi.bottom {
             for x in roi.left..roi.right {
-                output.write(x, y, gaussian_pixel(image, pass, &weights, x, y));
+                output.write(x, y, gaussian_pixel(image, pass, &weights, channels, x, y));
             }
         }
     }
@@ -525,7 +717,8 @@ fn estimate_gaussian_geometry(
 ) -> Result<WorkEstimate> {
     input.pixels()?;
     let count = pass.validate()?;
-    if count == 0 {
+    pass.sampling_domains(input)?;
+    if count == 0 && pass.sampling.is_none() {
         return estimate_resize_geometry(input, support, pass.output);
     }
     let mut work = WorkEstimate {
@@ -533,6 +726,86 @@ fn estimate_gaussian_geometry(
         ..Default::default()
     };
     if let (Some(bounds), Some(roi)) = (support, gaussian_support(support, input, pass, count)) {
+        if pass.spacing_ramp.is_some() {
+            // Variable positions destroy separability of the sparse read count.
+            // Bound four bilinear reads per tap over the conservative support.
+            work.texel_reads = checked_mul(
+                checked_mul(
+                    u64::from(roi.right - roi.left),
+                    u64::from(roi.bottom - roi.top),
+                )?,
+                (2 * count as u64 + 1) * 4,
+            )?;
+            return Ok(work);
+        }
+        if let Some(view) = pass.sampling {
+            // Rectangular remapping remains separable. Only a spacing field
+            // couples the axes; a subview/fractional quad alone does not.
+            // Count the same clamped 1/2-tap axes that scoped_sample reads,
+            // including discarded vs replicated taps at the ROI edge.
+            let at = |index: u32, axis: usize| {
+                ((index as f64 + 0.5 - view.output[axis]) / view.output[axis + 2])
+                    * view.input[axis + 2] as f64
+                    + view.input[axis] as f64
+                    - 0.5
+            };
+            let clipped = |coordinate: f64, axis: usize| {
+                coordinate.clamp(
+                    view.input[axis] as f64,
+                    (view.input[axis] + view.input[axis + 2] - 1) as f64,
+                )
+            };
+            let axis = if pass.axis == Axis::X { 0 } else { 1 };
+            let other_axis = 1 - axis;
+            let edges = [roi.left, roi.top, roi.right, roi.bottom];
+            let extents = [input.width, input.height];
+            let support_edges = [bounds.left, bounds.top, bounds.right, bounds.bottom];
+            let mut other = 0_u64;
+            for index in edges[other_axis]..edges[other_axis + 2] {
+                other = checked_add(
+                    other,
+                    taps_in_support(
+                        clipped(at(index, other_axis), other_axis),
+                        extents[other_axis],
+                        support_edges[other_axis],
+                        support_edges[other_axis + 2],
+                    ),
+                )?;
+            }
+            let mut along = 0_u64;
+            let lo = view.input[axis] as f64 - 0.5;
+            let hi = lo + view.input[axis + 2] as f64;
+            for index in edges[axis]..edges[axis + 2] {
+                let center = at(index, axis);
+                along = checked_add(
+                    along,
+                    taps_in_support(
+                        clipped(center, axis),
+                        extents[axis],
+                        support_edges[axis],
+                        support_edges[axis + 2],
+                    ),
+                )?;
+                for tap in 1..=count {
+                    for sign in [-1.0, 1.0] {
+                        let point = center + sign * tap as f64 * pass.step_pixels;
+                        if (lo..=hi).contains(&point) || pass.boundary == Boundary::Replicate {
+                            along = checked_add(
+                                along,
+                                taps_in_support(
+                                    clipped(point, axis),
+                                    extents[axis],
+                                    support_edges[axis],
+                                    support_edges[axis + 2],
+                                ),
+                            )?;
+                        }
+                    }
+                }
+            }
+            work.texel_reads = checked_mul(along, other)?;
+            return Ok(work);
+        }
         let (extent, out_extent, lo, hi, support_lo, support_hi, other) = match pass.axis {
             Axis::X => (
                 input.width,
@@ -611,6 +884,17 @@ pub struct GlowLevel {
 pub enum GlowComposite {
     Screen,
     SourceOverGlow,
+    /// Original kept over its screen with the glow (`O'+(1-O.a)*S`, `O'.a=O.a^2`).
+    OriginalOverScreen,
+}
+/// `aggregation: linear`: levels are decoded, folded with per-level gains,
+/// scaled by intensity and encoded once.
+#[derive(Clone, Debug)]
+pub struct LinearGlow {
+    /// One gain per level in [0,2]: `D = 1-(1-D)(1-gain*decoded)`.
+    pub gains: Vec<f64>,
+    /// Straight RGBA; replaces level RGB with `rgb*a*level.a` before decoding.
+    pub color: Option<[f64; 4]>,
 }
 #[derive(Clone, Debug)]
 pub struct GlowConfig {
@@ -623,6 +907,9 @@ pub struct GlowConfig {
     pub glow_tint: [f64; 3],
     /// Row-major RGB matrix after tint, with clamping before source composition.
     pub glow_color_matrix: [f64; 9],
+    /// Per-pass and aggregation gamma also decode/encode alpha.
+    pub gamma_alpha: bool,
+    pub linear: Option<LinearGlow>,
     pub composite: GlowComposite,
     pub output: Size,
 }
@@ -652,6 +939,22 @@ impl GlowConfig {
             self.glow_color_matrix.iter().all(|c| c.is_finite()),
             "CAPTION_MATERIAL_INVALID: glow color matrix"
         );
+        if let Some(linear) = &self.linear {
+            ensure!(
+                linear.gains.len() == self.levels.len()
+                    && linear
+                        .gains
+                        .iter()
+                        .all(|g| g.is_finite() && (0.0..=2.0).contains(g)),
+                "CAPTION_MATERIAL_INVALID: glow level gains"
+            );
+            ensure!(
+                linear
+                    .color
+                    .is_none_or(|c| c.iter().all(|v| v.is_finite() && (0.0..=1.0).contains(v))),
+                "CAPTION_MATERIAL_INVALID: glow level color"
+            );
+        }
         self.output.pixels()?;
         for level in &self.levels {
             ensure!(
@@ -661,9 +964,25 @@ impl GlowConfig {
             level.x.validate()?;
             level.y.validate()?;
         }
+        // Encoded-fold gain; for linear aggregation only its sign (intensity > 0) is used.
         let gain = power(self.intensity * 0.5, 1.0 / self.gamma);
         ensure!(gain.is_finite(), "CAPTION_MATERIAL_INVALID: glow gain");
         Ok(gain)
+    }
+    /// The GPU glow executor covers up to 7 encoded levels with RGB gamma and
+    /// screen/source-over-glow only (`caption-glow-linear/1` runs on the CPU).
+    pub fn gpu_supported(&self) -> bool {
+        self.levels.len() <= 7
+            && !self.gamma_alpha
+            && self.linear.is_none()
+            && self.composite != GlowComposite::OriginalOverScreen
+    }
+    fn gamma_channels(&self) -> usize {
+        if self.gamma_alpha {
+            4
+        } else {
+            3
+        }
     }
 }
 #[derive(Debug)]
@@ -717,20 +1036,55 @@ fn composite_pixel(
     for value in &mut original {
         *value *= cfg.original_opacity;
     }
-    let mut product = [1.0; 4];
-    if gain > 0.0 {
-        for level in levels {
-            let value = sample(
-                level,
-                center(x, level.width(), cfg.output.width),
-                center(y, level.height(), cfg.output.height),
-            );
-            for (out, channel) in product.iter_mut().zip(value) {
-                *out *= 1.0 - (channel * gain).clamp(0.0, 1.0);
+    let mut glow = if let Some(linear) = &cfg.linear {
+        let channels = cfg.gamma_channels();
+        let mut folded = [0.0; 4];
+        if gain > 0.0 {
+            for (level, level_gain) in levels.iter().zip(&linear.gains) {
+                let mut value = sample(
+                    level,
+                    center(x, level.width(), cfg.output.width),
+                    center(y, level.height(), cfg.output.height),
+                );
+                if let Some(color) = linear.color {
+                    for channel in 0..3 {
+                        value[channel] = color[channel] * color[3] * value[3];
+                    }
+                }
+                for (channel, (out, value)) in folded.iter_mut().zip(value).enumerate() {
+                    let decoded = if channel < channels {
+                        power(value, cfg.gamma)
+                    } else {
+                        value
+                    };
+                    *out = 1.0 - (1.0 - *out) * (1.0 - level_gain * decoded);
+                }
             }
         }
-    }
-    let mut glow = product.map(|value| ((1.0 - value) * gain.max(1.0)).clamp(0.0, 1.0));
+        std::array::from_fn(|channel| {
+            let value = folded[channel] * cfg.intensity;
+            if channel < channels {
+                power(value.max(0.0), 1.0 / cfg.gamma).clamp(0.0, 1.0)
+            } else {
+                value.clamp(0.0, 1.0)
+            }
+        })
+    } else {
+        let mut product = [1.0; 4];
+        if gain > 0.0 {
+            for level in levels {
+                let value = sample(
+                    level,
+                    center(x, level.width(), cfg.output.width),
+                    center(y, level.height(), cfg.output.height),
+                );
+                for (out, channel) in product.iter_mut().zip(value) {
+                    *out *= 1.0 - (channel * gain).clamp(0.0, 1.0);
+                }
+            }
+        }
+        product.map(|value| ((1.0 - value) * gain.max(1.0)).clamp(0.0, 1.0))
+    };
     for (channel, tint) in glow.iter_mut().take(3).zip(cfg.glow_tint) {
         *channel *= tint;
     }
@@ -748,6 +1102,18 @@ fn composite_pixel(
     Ok(std::array::from_fn(|channel| match cfg.composite {
         GlowComposite::Screen => 1.0 - (1.0 - glow[channel]) * (1.0 - original[channel]),
         GlowComposite::SourceOverGlow => original[channel] + glow[channel] * (1.0 - original[3]),
+        GlowComposite::OriginalOverScreen => {
+            let alpha = original[3];
+            let screen = 1.0 - (1.0 - glow[channel]) * (1.0 - original[channel]);
+            let kept = if channel == 3 {
+                alpha * alpha
+            } else if alpha > 0.0 {
+                original[channel]
+            } else {
+                0.0
+            };
+            kept + (1.0 - alpha) * screen
+        }
     }))
 }
 pub fn cascade_glow(input: &ComponentImage, cfg: &GlowConfig) -> Result<GlowResult> {
@@ -755,8 +1121,8 @@ pub fn cascade_glow(input: &ComponentImage, cfg: &GlowConfig) -> Result<GlowResu
     let mut levels: Vec<ComponentImage> = Vec::with_capacity(cfg.levels.len());
     for level in &cfg.levels {
         let previous = levels.last().unwrap_or(input);
-        let x = gaussian(previous, level.x)?;
-        levels.push(gaussian(&x, level.y)?);
+        let x = gaussian_channels(previous, level.x, cfg.gamma_channels())?;
+        levels.push(gaussian_channels(&x, level.y, cfg.gamma_channels())?);
     }
     let mut image = ComponentImage::zeroed(cfg.output)?;
     let metadata = levels
@@ -888,6 +1254,8 @@ mod tests {
         boundary: Boundary,
     ) -> GaussianPass {
         GaussianPass {
+            sampling: None,
+            spacing_ramp: None,
             axis,
             sample_count: count,
             step_pixels: step,
@@ -1267,6 +1635,57 @@ mod tests {
         }
     }
 
+    #[test]
+    fn rectangular_sampling_estimates_equal_instrumented_texel_fetches() {
+        let input = image(8, 6, &[(3, 2, [200, 30, 0, 0]), (4, 3, [0, 80, 200, 180])]);
+        for source in [[0, 0, 8, 6], [2, 1, 4, 4], [3, 2, 1, 1]] {
+            for destination in [
+                [0.0, 0.0, 14.0, 9.0],
+                [2.25, -1.375, 10.5, 8.5],
+                [-4.5, 3.25, 15.75, 5.125],
+                [8.5, 9.5, 0.25, 0.25],
+            ] {
+                for axis in [Axis::X, Axis::Y] {
+                    for count in [0.0, 3.7, 40.0] {
+                        for step in [0.0, 0.5, 1.25, 10.0] {
+                            for boundary in [
+                                Boundary::Normalize,
+                                Boundary::Replicate,
+                                Boundary::Transparent,
+                            ] {
+                                let mut config = pass(
+                                    Size {
+                                        width: 14,
+                                        height: 9,
+                                    },
+                                    axis,
+                                    count,
+                                    step,
+                                    Some(2.2),
+                                    boundary,
+                                );
+                                config.sampling = Some(GaussianSampling {
+                                    input: source,
+                                    output: destination,
+                                });
+                                FETCH_COUNT.with(|count| count.set(0));
+                                gaussian(&input, config).unwrap();
+                                let actual = FETCH_COUNT.with(|count| count.get());
+                                let cost = estimate_gaussian_reads(&input, config).unwrap();
+                                assert_eq!(
+                                    cost.texel_reads, actual,
+                                    "{source:?} {destination:?} {axis:?} {count} {step} {boundary:?}"
+                                );
+                                assert_eq!(cost.output_pixels, 14 * 9);
+                                assert_eq!(cost.support_scan_pixels, 8 * 6);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn glow_config(input: Size, output: Size, composite: GlowComposite) -> GlowConfig {
         let first = Size {
             width: (input.width / 2).max(1),
@@ -1288,6 +1707,8 @@ mod tests {
             original_opacity: 0.7,
             glow_tint: [1.0; 3],
             glow_color_matrix: IDENTITY_GLOW_MATRIX,
+            gamma_alpha: false,
+            linear: None,
             composite,
             output,
         }
@@ -1346,6 +1767,7 @@ mod tests {
                         GlowComposite::SourceOverGlow => {
                             foreground[channel] + glow[channel] * (1.0 - foreground[3])
                         }
+                        GlowComposite::OriginalOverScreen => unreachable!(),
                     });
                     dense_output.write(x, y, color);
                 }
@@ -1388,6 +1810,7 @@ mod tests {
                     GlowComposite::SourceOverGlow => {
                         foreground + g * (1.0 - original[3] * cfg.original_opacity)
                     }
+                    GlowComposite::OriginalOverScreen => unreachable!(),
                 })
             });
             assert_eq!(actual.image.data(), &expected);
@@ -1401,6 +1824,125 @@ mod tests {
             cfg.levels.clear();
             assert!(cascade_glow(&input, &cfg).is_err());
         }
+    }
+
+    #[test]
+    fn linear_glow_folds_decoded_levels_with_gains_color_and_original_over_screen() {
+        let input = image(1, 1, &[(0, 0, [180, 70, 2, 40])]);
+        let original = [180.0 / 255.0, 70.0 / 255.0, 2.0 / 255.0, 40.0 / 255.0];
+        for (gamma_alpha, color, composite) in [
+            (false, None, GlowComposite::Screen),
+            (true, Some([1.0, 0.84, 0.0, 0.5]), GlowComposite::OriginalOverScreen),
+            (true, None, GlowComposite::SourceOverGlow),
+            (false, Some([0.2, 0.4, 1.0, 1.0]), GlowComposite::OriginalOverScreen),
+        ] {
+            let mut cfg = glow_config(input.size(), input.size(), composite);
+            for level in &mut cfg.levels {
+                level.x.sample_count = 0.0;
+                level.y.sample_count = 0.0;
+            }
+            cfg.intensity = 3.0;
+            cfg.gamma_alpha = gamma_alpha;
+            cfg.linear = Some(LinearGlow {
+                gains: vec![1.0, 1.5],
+                color,
+            });
+            let channels = if gamma_alpha { 4 } else { 3 };
+            let level: [f64; 4] = std::array::from_fn(|channel| match color {
+                Some(color) if channel < 3 => color[channel] * color[3] * original[3],
+                _ => original[channel],
+            });
+            let o = original.map(|value| value * cfg.original_opacity);
+            let expected: [u8; 4] = std::array::from_fn(|channel| {
+                let decoded = if channel < channels {
+                    libm::pow(level[channel], cfg.gamma)
+                } else {
+                    level[channel]
+                };
+                let mut folded = 0.0;
+                for gain in [1.0, 1.5] {
+                    folded = 1.0 - (1.0 - folded) * (1.0 - gain * decoded);
+                }
+                let g = if channel < channels {
+                    libm::pow(folded * cfg.intensity, 1.0 / cfg.gamma)
+                } else {
+                    folded * cfg.intensity
+                }
+                .clamp(0.0, 1.0);
+                let screen = 1.0 - (1.0 - g) * (1.0 - o[channel]);
+                quantize(match composite {
+                    GlowComposite::Screen => screen,
+                    GlowComposite::SourceOverGlow => o[channel] + g * (1.0 - o[3]),
+                    GlowComposite::OriginalOverScreen => {
+                        let kept = if channel == 3 { o[3] * o[3] } else { o[channel] };
+                        kept + (1.0 - o[3]) * screen
+                    }
+                })
+            });
+            assert_eq!(cascade_glow(&input, &cfg).unwrap().image.data(), &expected);
+            cfg.intensity = 0.0;
+            cfg.original_opacity = 1.0;
+            let unlit = cascade_glow(&input, &cfg).unwrap();
+            if composite == GlowComposite::OriginalOverScreen {
+                // Zero glow screens the original with itself under partial alpha.
+                assert!(unlit.image.data()[0] > input.data()[0]);
+            } else {
+                assert_eq!(unlit.image.data(), input.data());
+            }
+        }
+    }
+
+    #[test]
+    fn rgba_gamma_spreads_alpha_further_and_rgb_gamma_keeps_old_passes() {
+        let input = image(8, 1, &[(4, 0, [255, 255, 255, 255])]);
+        let blur = pass(input.size(), Axis::X, 1.0, 1.0, Some(2.2), Boundary::Normalize);
+        let rgb = gaussian_channels(&input, blur, 3).unwrap();
+        let rgba = gaussian_channels(&input, blur, 4).unwrap();
+        assert_eq!(rgb.data(), gaussian(&input, blur).unwrap().data());
+        assert!(rgba.data()[3 * 4 + 3] > rgb.data()[3 * 4 + 3]);
+        assert!(rgb.data()[3 * 4 + 3] > 0);
+        assert_eq!(rgba.data()[3 * 4], rgba.data()[3 * 4 + 3]);
+    }
+
+    #[test]
+    fn linear_glow_validation_and_gpu_scope() {
+        let size = Size {
+            width: 4,
+            height: 4,
+        };
+        let mut cfg = glow_config(size, size, GlowComposite::Screen);
+        assert!(cfg.gpu_supported());
+        cfg.composite = GlowComposite::OriginalOverScreen;
+        cfg.validate().unwrap();
+        assert!(!cfg.gpu_supported());
+        cfg.composite = GlowComposite::Screen;
+        cfg.gamma_alpha = true;
+        assert!(!cfg.gpu_supported());
+        cfg.gamma_alpha = false;
+        cfg.linear = Some(LinearGlow {
+            gains: vec![0.0, 2.0],
+            color: Some([1.0, 0.0, 0.5, 0.25]),
+        });
+        cfg.validate().unwrap();
+        assert!(!cfg.gpu_supported());
+        for (gains, color) in [
+            (vec![1.0], None),
+            (vec![1.0, 2.1], None),
+            (vec![1.0, -0.1], None),
+            (vec![1.0, f64::NAN], None),
+            (vec![1.0, 1.0], Some([1.0, 1.0, 1.0, 1.5])),
+            (vec![1.0, 1.0], Some([f64::NAN, 1.0, 1.0, 1.0])),
+        ] {
+            cfg.linear = Some(LinearGlow { gains, color });
+            assert!(cfg.validate().is_err());
+        }
+        cfg.linear = None;
+        let level = cfg.levels[0];
+        cfg.levels = vec![level; 8];
+        cfg.validate().unwrap();
+        assert!(!cfg.gpu_supported());
+        cfg.levels = vec![level; 9];
+        assert!(cfg.validate().is_err());
     }
 
     #[test]
@@ -1462,6 +2004,7 @@ mod tests {
                                         original_channel
                                             + emission * (1.0 - original[3] * cfg.original_opacity)
                                     }
+                                    GlowComposite::OriginalOverScreen => unreachable!(),
                                 }
                             });
                             expected.write(x, y, color);
@@ -1582,6 +2125,7 @@ mod tests {
                                 GlowComposite::SourceOverGlow => {
                                     o + g * (1.0 - original[3] * cfg.original_opacity)
                                 }
+                                GlowComposite::OriginalOverScreen => unreachable!(),
                             }));
                         }
                     }
@@ -1639,6 +2183,8 @@ mod tests {
             let base = f64::from(size.width.min(size.height))
                 .max(f64::from(size.width.max(size.height)) / 2.0);
             let initial = GaussianPass {
+                sampling: None,
+                spacing_ramp: None,
                 axis: Axis::X,
                 sample_count: 30.0,
                 step_pixels: base / 1000.0,
@@ -1663,6 +2209,8 @@ mod tests {
                     down[i] * base / f64::from(size.height) / 720.0 * f64::from(half.height);
                 levels.push(GlowLevel {
                     x: GaussianPass {
+                        sampling: None,
+                        spacing_ramp: None,
                         axis: Axis::X,
                         sample_count: count[i],
                         step_pixels: x_step,
@@ -1672,6 +2220,8 @@ mod tests {
                         output: half,
                     },
                     y: GaussianPass {
+                        sampling: None,
+                        spacing_ramp: None,
                         axis: Axis::Y,
                         sample_count: count[i],
                         step_pixels: y_step,
@@ -1696,6 +2246,8 @@ mod tests {
                 original_opacity: 1.0,
                 glow_tint: [1.0; 3],
                 glow_color_matrix: IDENTITY_GLOW_MATRIX,
+                gamma_alpha: false,
+                linear: None,
                 composite: GlowComposite::Screen,
                 output: size,
             };

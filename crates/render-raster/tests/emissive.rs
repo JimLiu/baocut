@@ -475,3 +475,128 @@ fn screen_root_clip_limits_coverage_without_replacing_backdrop() {
     assert_eq!(pixel(&result, 0, 0), [200, 80, 128, 255]);
     assert_eq!(pixel(&result, 1, 0), [0, 0, 128, 255]);
 }
+
+#[test]
+fn associated_add_uses_v9_tag21_and_keeps_v6_v7_bytes() {
+    let legacy = drawop::encode(&fixture());
+    assert_eq!(drawop::required_version(&fixture()), 6);
+    let mut screen = fixture();
+    if let DrawOp::DrawEmissiveBitmap { blend, .. } = &mut screen.ops[0] {
+        *blend = AssociatedBlend::Screen;
+    }
+    assert_eq!(drawop::required_version(&screen), 7);
+    let mut frame = fixture();
+    if let DrawOp::DrawEmissiveBitmap { blend, .. } = &mut frame.ops[0] {
+        *blend = AssociatedBlend::Add;
+    }
+    let encoded = drawop::encode(&frame);
+    let mut expected = legacy.clone();
+    expected[4] = 9;
+    expected[40] = 21;
+    assert_eq!(encoded, expected);
+    assert_eq!(drawop::required_version(&frame), 9);
+    // A frame mixing Screen and Add still needs v9 and keeps tag 15 for Screen.
+    let mut mixed = fixture();
+    mixed.ops.push(DrawOp::DrawEmissiveBitmap {
+        blend: AssociatedBlend::Screen,
+        bitmap: 0,
+        opacity: 1.,
+        tf: IDENTITY,
+    });
+    if let DrawOp::DrawEmissiveBitmap { blend, .. } = &mut mixed.ops[0] {
+        *blend = AssociatedBlend::Add;
+    }
+    assert_eq!(drawop::required_version(&mixed), 9);
+    let (version, decoded) = drawop::decode(&encoded).unwrap();
+    assert_eq!(version, 9);
+    assert!(matches!(
+        decoded.ops[0],
+        DrawOp::DrawEmissiveBitmap {
+            blend: AssociatedBlend::Add,
+            ..
+        }
+    ));
+    assert_eq!(drawop::encode(&decoded), encoded);
+    for version in 2u32..=8 {
+        let mut downgraded = encoded.clone();
+        downgraded[4..8].copy_from_slice(&version.to_le_bytes());
+        assert!(
+            drawop::decode(&downgraded).is_err(),
+            "tag21 is invalid in v{version}"
+        );
+    }
+}
+
+#[test]
+fn associated_add_sums_components_on_the_real_backdrop_and_clamps() {
+    let mut frame = fixture();
+    frame.bitmaps[0].rgba = Arc::from([128, 200, 0, 51]);
+    frame.ops = vec![
+        DrawOp::Clear {
+            color: [0.3, 0.2, 0.1, 0.5],
+        },
+        DrawOp::DrawEmissiveBitmap {
+            blend: AssociatedBlend::Add,
+            bitmap: 0,
+            opacity: 0.5,
+            tf: IDENTITY,
+        },
+    ];
+    let result = raster(&frame, 1, 1);
+    let mut backdrop = Pixmap::new(1, 1).unwrap();
+    backdrop.fill(tiny_skia::Color::from_rgba(0.3, 0.2, 0.1, 0.5).unwrap());
+    let expected: Vec<_> = [128., 200., 0., 51.]
+        .iter()
+        .zip(backdrop.data())
+        .map(|(s, d)| (s * 0.5 + f64::from(*d)).round().clamp(0., 255.) as u8)
+        .collect();
+    assert_eq!(result.data(), expected);
+    let mut bright = Pixmap::new(1, 1).unwrap();
+    bright.data_mut().copy_from_slice(&[250, 10, 0, 200]);
+    let source = Pixmap::from_vec(
+        vec![200, 30, 0, 100],
+        tiny_skia::IntSize::from_wh(1, 1).unwrap(),
+    )
+    .unwrap();
+    composite_associated_with_blend(
+        &mut bright,
+        source.as_ref(),
+        1.,
+        IDENTITY,
+        None,
+        AssociatedBlend::Add,
+    )
+    .unwrap();
+    assert_eq!(bright.data(), [255, 40, 0, 255]);
+}
+
+#[test]
+fn add_rejects_offscreen_layers_and_mattes() {
+    for matte in [false, true] {
+        let mut frame = fixture();
+        frame.bitmaps[0].rgba = Arc::from([20, 10, 0, 100]);
+        frame.ops = vec![DrawOp::PushLayer {
+            opacity: 1.,
+            blend: BlendMode::Normal,
+        }];
+        if matte {
+            frame.ops.push(DrawOp::PushMatte);
+        }
+        frame.ops.push(DrawOp::DrawEmissiveBitmap {
+            blend: AssociatedBlend::Add,
+            bitmap: 0,
+            opacity: 1.,
+            tf: IDENTITY,
+        });
+        if matte {
+            frame.ops.push(DrawOp::PopMatte { mode: 0 });
+        }
+        frame.ops.push(DrawOp::PopLayer);
+        assert!(
+            rasterize_with_media(&frame, 1, 1, &mut Empty)
+                .unwrap_err()
+                .to_string()
+                .contains("ASSOCIATED_ADD_OFFSCREEN_UNSUPPORTED")
+        );
+    }
+}

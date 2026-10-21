@@ -35,7 +35,7 @@ use crate::element::{source_id, visual_element};
 use crate::spectrum::{self, Route, SpeakerActivity};
 use crate::support::{CaptionProblem, UnsupportedItem, asset_text, caption_problem, check_layer, check_layer_with, check_transition};
 use crate::template::TemplateScenes;
-use crate::text_measure::{TextBox, measure_text_element};
+use crate::text_measure::{TextBox, glyph_shaping, measure_text_element};
 use crate::transition::{BoxGeom, compose, effective_progress};
 
 /// 合成失败。`items` 是不跳过时遇到的画不出来的东西（错误码 `EXPORT_UNSUPPORTED_CONTENT`）。
@@ -140,6 +140,8 @@ pub struct FrameRenderer {
     documents: Documents,
     /// 交给内核的字体字节（共享：几台排版引擎只占一份内存）。
     fonts: Vec<Arc<Vec<u8>>>,
+    /// Complete binaries kept outside ordinary family matching until an explicit source binds a face.
+    source_fonts: Vec<Arc<Vec<u8>>>,
     frame: Pixmap,
     /// 这一帧还没铺的底：`Some(背景色)`，背景色为 `None` 时只清屏。推迟到第一次往帧上画（[`Self::paint_background`]）：
     /// 第一层整幅不透明时直接接管那一层（[`Self::composite`]），底就不用铺了。
@@ -206,6 +208,7 @@ impl FrameRenderer {
             options,
             documents,
             fonts,
+            source_fonts: Vec::new(),
             frame,
             background: None,
             frame_plain: false,
@@ -265,10 +268,13 @@ impl FrameRenderer {
 
     /// 一台装好字体的排版引擎：有备用的就用备用的。
     fn take_engine(&mut self) -> TextEngine {
-        let mut engine = self
-            .engines
-            .pop()
-            .unwrap_or_else(|| TextEngine::with_shared_document_fonts(&self.fonts));
+        let mut engine = self.engines.pop().unwrap_or_else(|| {
+            let mut engine = TextEngine::with_shared_document_fonts(&self.fonts);
+            // The setter validates this immutable set before installing it. A fresh engine has
+            // an empty, independent source registry, so replaying the same admission cannot fail.
+            engine.add_font_sources(self.source_fonts.clone()).expect("validated font sources");
+            engine
+        });
         // 上一份计划记下的缺字体不算到下一份头上。
         engine.take_missing_families();
         engine.set_face_log(Some(self.face_log.clone()));
@@ -296,6 +302,32 @@ impl FrameRenderer {
             self.warnings
                 .retain(|w| !(w.code == RENDER_NOTE && w.missing_family() == Some(family.as_str())));
         }
+    }
+
+    /// Register complete font files for exact source references; unreferenced resources stay outside fallback.
+    /// Existing plans are rebuilt so previously compiled captions cannot retain an older resource set.
+    pub fn add_font_sources(&mut self, fonts: Vec<Arc<Vec<u8>>>) -> Result<(), RenderError> {
+        let mut sources = self.source_fonts.clone();
+        for bytes in fonts {
+            if !sources.iter().any(|source| Arc::ptr_eq(source, &bytes)) {
+                sources.push(bytes);
+            }
+        }
+        if sources.len() == self.source_fonts.len() {
+            return Ok(());
+        }
+        // Validate the entire cumulative registry before changing renderer state. This engine also
+        // seeds the spare pool; every engine kept by this renderer contains the validated same set.
+        let mut engine = TextEngine::with_shared_document_fonts(&self.fonts);
+        engine.add_font_sources(sources.clone()).map_err(RenderError::render)?;
+        self.source_fonts = sources;
+        self.engines.clear();
+        self.elements = None;
+        self.captions.clear();
+        self.templates = TemplateScenes::default();
+        self.item_fonts.clear();
+        self.spare_engine(engine);
+        Ok(())
     }
 
     /// 到目前为止画到的层点了名、字体库里没有的字体族（按名字排序；`clear_reports` 清空）。宿主按它去找字体文件，
@@ -336,6 +368,35 @@ impl FrameRenderer {
     pub fn measure_text(&mut self, text: &str, style: &Value, wrap_width: Option<f64>, canvas: (u32, u32)) -> TextBox {
         let mut engine = self.take_engine();
         let measured = measure_text_element(&mut engine, text, style, wrap_width, canvas);
+        self.spare_engine(engine);
+        measured
+    }
+
+    /// [`Self::measure_text`] with strict, optional `fontSource` binding. An explicit source must be
+    /// registered; its private face family overrides the display family only for this measurement.
+    /// `fontShaping` is validated even without a source; the result retains layout padding and ceil.
+    pub fn measure_text_with_source(
+        &mut self,
+        text: &str,
+        style: &Value,
+        wrap_width: Option<f64>,
+        canvas: (u32, u32),
+    ) -> Result<TextBox, RenderError> {
+        glyph_shaping(style).map_err(|error| RenderError::new("FONT_SHAPING_INVALID", format!("cannot read the font shaping policy: {error}")))?;
+        let Some(source) = style.get("fontSource") else {
+            return Ok(self.measure_text(text, style, wrap_width, canvas));
+        };
+        let mut engine = self.take_engine();
+        let measured = (|| {
+            let source: caption_scene::FontSource = serde_json::from_value(source.clone())
+                .map_err(|error| RenderError::new("FONT_SOURCE_INVALID", format!("cannot read the font source: {error}")))?;
+            let family = engine
+                .resolve_font_source(&source.sha256, source.face_index)
+                .map_err(RenderError::render)?;
+            let mut bound_style = style.clone();
+            bound_style["fontFamily"] = json!(family);
+            Ok(measure_text_element(&mut engine, text, &bound_style, wrap_width, canvas))
+        })();
         self.spare_engine(engine);
         measured
     }
@@ -1337,7 +1398,7 @@ impl FrameRenderer {
             self.paint_background();
         }
         // Instance/group opacity is applied to each ordered output, before its
-        // own blend. Do not flatten Screen into a transparent intermediate.
+        // own blend. Do not flatten Screen or Add into a transparent intermediate.
         for layer in rendered {
             let plain = std::mem::replace(&mut self.frame_plain, false);
             composite_caption_layer(&mut self.frame, &layer, opacity, plain)?;
@@ -1520,16 +1581,11 @@ fn composite_caption_layer(
 ) -> Result<(), RenderError> {
     let pixmap = PixmapRef::from_bytes(&layer.rgba, layer.width, layer.height)
         .ok_or_else(|| RenderError::render(anyhow::anyhow!("字幕层的尺寸不对")))?;
-    if layer.associated_blend == Some(render_raster::drawop::AssociatedBlend::Screen) {
-        render_raster::emissive::composite_associated_with_blend(
-            target,
-            pixmap,
-            opacity,
-            [1., 0., 0., 1., 0., 0.],
-            None,
-            render_raster::drawop::AssociatedBlend::Screen,
-        )
-        .map_err(RenderError::render)?;
+    if let Some(blend @ (render_raster::drawop::AssociatedBlend::Screen | render_raster::drawop::AssociatedBlend::Add)) =
+        layer.associated_blend
+    {
+        render_raster::emissive::composite_associated_with_blend(target, pixmap, opacity, [1., 0., 0., 1., 0., 0.], None, blend)
+            .map_err(RenderError::render)?;
         return Ok(());
     }
     // 字幕层只在内核给的字外包矩形里有像素，发光只在框里找。
@@ -1713,6 +1769,253 @@ pub fn item_note(item_id: &str, note: impl Into<Text>) -> Text {
 }
 
 #[cfg(test)]
+mod font_source_tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    #[test]
+    fn measurement_shaping_matches_both_font_paths_and_recovers_after_invalid_policy() {
+        let bytes = include_bytes!("../../render-raster/assets/fonts/VKSans-400.ttf").to_vec();
+        let hash: String = Sha256::digest(&bytes).iter().map(|byte| format!("{byte:02x}")).collect();
+        let engine = TextEngine::with_document_fonts(std::slice::from_ref(&bytes));
+        let family = engine.font_system.db().faces().next().unwrap().families[0].0.clone();
+        let mut renderer = FrameRenderer::new(
+            RenderOptions {
+                width: 16,
+                height: 16,
+                skip_unsupported: false,
+                captions: true,
+            },
+            Documents::default(),
+            vec![bytes.clone()],
+        )
+        .unwrap();
+        renderer.add_font_sources(vec![Arc::new(bytes)]).unwrap();
+        let base = json!({"fontFamily":family,"fontSize":200,"fontWeight":400,"letterSpacing":3});
+        for text in ["AV", "ff"] {
+            let legacy = renderer.measure_text(text, &base, None, (540, 540));
+            let mut advanced = base.clone();
+            advanced["fontShaping"] = json!("advanced");
+            let mut nominal = base.clone();
+            nominal["fontShaping"] = json!("nominal");
+            let nominal_box = renderer.measure_text_with_source(text, &nominal, None, (540, 540)).unwrap();
+            assert!(nominal_box.width > legacy.width, "{text}: {nominal_box:?} vs {legacy:?}");
+            assert_eq!(renderer.measure_text_with_source(text, &base, None, (540, 540)).unwrap(), legacy);
+            assert_eq!(
+                renderer.measure_text_with_source(text, &advanced, None, (540, 540)).unwrap(),
+                legacy
+            );
+            nominal["fontSource"] = json!({"sha256":hash});
+            assert_eq!(
+                renderer.measure_text_with_source(text, &nominal, None, (540, 540)).unwrap(),
+                nominal_box
+            );
+            advanced["fontSource"] = json!({"sha256":hash});
+            assert_eq!(
+                renderer.measure_text_with_source(text, &advanced, None, (540, 540)).unwrap(),
+                legacy
+            );
+            advanced.as_object_mut().unwrap().remove("fontShaping");
+            assert_eq!(
+                renderer.measure_text_with_source(text, &advanced, None, (540, 540)).unwrap(),
+                legacy
+            );
+
+            let pool_size = renderer.engines.len();
+            for source in [None, Some(json!({"sha256":hash})), Some(Value::Null)] {
+                for policy in [Value::Null, json!(true), json!(1), json!("unknown"), json!({})] {
+                    let mut invalid = base.clone();
+                    invalid["fontShaping"] = policy;
+                    if let Some(source) = &source {
+                        invalid["fontSource"] = source.clone();
+                    }
+                    let error = renderer.measure_text_with_source(text, &invalid, None, (540, 540)).unwrap_err();
+                    assert_eq!(error.code, "FONT_SHAPING_INVALID", "policy is checked before source selection");
+                    assert_eq!(renderer.engines.len(), pool_size);
+                }
+            }
+            let mut missing = nominal.clone();
+            missing["fontSource"] = json!({"sha256":"0".repeat(64)});
+            assert!(renderer.measure_text_with_source(text, &missing, None, (540, 540)).is_err());
+            assert_eq!(renderer.engines.len(), pool_size);
+            assert_eq!(
+                renderer.measure_text_with_source(text, &nominal, None, (540, 540)).unwrap(),
+                nominal_box
+            );
+            assert_eq!(renderer.measure_text_with_source(text, &base, None, (540, 540)).unwrap(), legacy);
+        }
+    }
+
+    #[test]
+    fn source_measurement_uses_exact_version_and_preserves_legacy_and_engine_on_error() {
+        let original = include_bytes!("../../render-raster/assets/fonts/VKSans-400.ttf").to_vec();
+        let mut changed = original.clone();
+        let table_at = |tag: &[u8]| {
+            let count = u16::from_be_bytes(original[4..6].try_into().unwrap()) as usize;
+            let record = original[12..12 + count * 16].chunks_exact(16).find(|r| &r[..4] == tag).unwrap();
+            u32::from_be_bytes(record[8..12].try_into().unwrap()) as usize
+        };
+        let advances = table_at(b"hmtx");
+        let metrics = u16::from_be_bytes(original[table_at(b"hhea") + 34..table_at(b"hhea") + 36].try_into().unwrap());
+        for index in 0..usize::from(metrics) {
+            let at = advances + index * 4;
+            let width = u16::from_be_bytes(changed[at..at + 2].try_into().unwrap());
+            changed[at..at + 2].copy_from_slice(&width.saturating_add(512).to_be_bytes());
+        }
+        let text = TextEngine::with_document_fonts(std::slice::from_ref(&original));
+        let family = text.font_system.db().faces().next().unwrap().families[0].0.clone();
+        let hashes: Vec<String> = [&original, &changed]
+            .into_iter()
+            .map(|bytes| Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect())
+            .collect();
+        let mut renderer = FrameRenderer::new(
+            RenderOptions {
+                width: 16,
+                height: 16,
+                skip_unsupported: false,
+                captions: true,
+            },
+            Documents::default(),
+            vec![original.clone()],
+        )
+        .unwrap();
+        renderer.add_font_sources(vec![Arc::new(original), Arc::new(changed)]).unwrap();
+        let style = json!({"fontFamily":family,"fontSize":40,"fontWeight":400});
+        let legacy = renderer.measure_text("AVAVAV", &style, None, (540, 540));
+        assert_eq!(
+            renderer.measure_text_with_source("AVAVAV", &style, None, (540, 540)).unwrap(),
+            legacy
+        );
+        let measured: Vec<TextBox> = hashes
+            .iter()
+            .map(|hash| {
+                let mut exact = style.clone();
+                exact["fontSource"] = json!({"sha256":hash});
+                renderer.measure_text_with_source("AVAVAV", &exact, None, (540, 540)).unwrap()
+            })
+            .collect();
+        assert_eq!(measured[0], legacy);
+        assert!(measured[1].width > measured[0].width, "{measured:?}");
+        assert_eq!(renderer.measure_text("AVAVAV", &style, None, (540, 540)), legacy);
+
+        let pool_size = renderer.engines.len();
+        for source in [
+            Value::Null,
+            json!({"sha256":hashes[0],"extra":0}),
+            json!({"sha256":hashes[0].to_uppercase()}),
+            json!({"sha256":"short"}),
+            json!({"sha256":hashes[0],"faceIndex":-1}),
+            json!({"sha256":hashes[0],"faceIndex":1024}),
+            json!({"sha256":"0".repeat(64)}),
+        ] {
+            let mut invalid = style.clone();
+            invalid["fontSource"] = source;
+            let error = renderer.measure_text_with_source("AVAVAV", &invalid, None, (540, 540)).unwrap_err();
+            assert!(
+                error.code == "FONT_SOURCE_INVALID" || error.message.contains("FONT_SOURCE_"),
+                "{error:?}"
+            );
+            assert_eq!(renderer.engines.len(), pool_size, "failed measurements return the engine");
+        }
+        assert_eq!(
+            renderer.measure_text_with_source("AVAVAV", &style, None, (540, 540)).unwrap(),
+            legacy
+        );
+    }
+
+    #[test]
+    fn original_collection_digest_and_nonzero_index_shape_the_original_face() {
+        let face = include_bytes!("../../render-raster/assets/fonts/PermanentMarker-Regular.ttf");
+        let first = 20usize;
+        let second = first + face.len().next_multiple_of(4);
+        let mut bytes = vec![0; second + face.len()];
+        bytes[..4].copy_from_slice(b"ttcf");
+        bytes[4..8].copy_from_slice(&0x0001_0000u32.to_be_bytes());
+        bytes[8..12].copy_from_slice(&2u32.to_be_bytes());
+        bytes[12..16].copy_from_slice(&(first as u32).to_be_bytes());
+        bytes[16..20].copy_from_slice(&(second as u32).to_be_bytes());
+        for base in [first, second] {
+            bytes[base..base + face.len()].copy_from_slice(face);
+            let count = u16::from_be_bytes(face[4..6].try_into().unwrap()) as usize;
+            for record in bytes[base + 12..base + 12 + count * 16].chunks_exact_mut(16) {
+                let at = u32::from_be_bytes(record[8..12].try_into().unwrap());
+                record[8..12].copy_from_slice(&(at + base as u32).to_be_bytes());
+            }
+        }
+        let digest: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
+        let mut renderer = FrameRenderer::new(
+            RenderOptions {
+                width: 16,
+                height: 16,
+                skip_unsupported: false,
+                captions: true,
+            },
+            Documents::default(),
+            vec![include_bytes!("../../render-raster/assets/fonts/VKSans-400.ttf").to_vec()],
+        )
+        .unwrap();
+        renderer.add_font_sources(vec![Arc::new(bytes)]).unwrap();
+        let mut engine = renderer.take_engine();
+        let family = engine.resolve_font_source(&digest, 1).unwrap();
+        let line = engine.shape("AVA", &family, 40., 400);
+        assert!(!line.glyphs.is_empty());
+        for glyph in line.glyphs {
+            let face = engine.font_system.db().face(glyph.cache_key.font_id).unwrap();
+            assert_eq!(face.index, 1);
+            engine
+                .font_system
+                .db()
+                .with_face_data(face.id, |bytes, index| {
+                    assert_eq!(index, 1);
+                    let actual: String = Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect();
+                    assert_eq!(actual, digest);
+                })
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn source_admission_is_atomic_and_every_fresh_engine_receives_the_registry() {
+        let mut renderer = FrameRenderer::new(
+            RenderOptions {
+                width: 16,
+                height: 16,
+                skip_unsupported: false,
+                captions: true,
+            },
+            Documents::default(),
+            vec![include_bytes!("../../render-raster/assets/fonts/VKSans-400.ttf").to_vec()],
+        )
+        .unwrap();
+        let source = Arc::new(include_bytes!("../../render-raster/assets/fonts/PermanentMarker-Regular.ttf").to_vec());
+        let digest: String = Sha256::digest(source.as_slice()).iter().map(|b| format!("{b:02x}")).collect();
+        assert!(!renderer.take_engine().has_family("Permanent Marker"));
+        renderer.add_font_sources(vec![source.clone()]).unwrap();
+        let pool_size = renderer.engines.len();
+        let error = renderer.add_font_sources(vec![Arc::new(Vec::new())]).unwrap_err();
+        assert!(error.message.contains("FONT_SOURCE_RESOURCE_INVALID"), "{error:?}");
+        assert_eq!(renderer.source_fonts.len(), 1);
+        assert!(Arc::ptr_eq(&renderer.source_fonts[0], &source));
+        assert_eq!(renderer.engines.len(), pool_size);
+
+        // Exhausting the pool makes subsequent engines fresh; both routes retain the original bytes.
+        for _ in 0..3 {
+            let mut engine = renderer.take_engine();
+            assert!(
+                !engine.has_family("Permanent Marker"),
+                "unreferenced sources must not register families"
+            );
+            let family = engine.resolve_font_source(&digest, 0).unwrap();
+            assert!(engine.has_family(&family));
+        }
+        renderer.add_fonts(vec![Arc::new(
+            include_bytes!("../../render-raster/assets/fonts/VKSans-500.ttf").to_vec(),
+        )]);
+        assert!(renderer.take_engine().resolve_font_source(&digest, 0).is_ok());
+    }
+}
+
+#[cfg(test)]
 mod associated_caption_tests {
     use super::composite_caption_layer;
     use crate::captions::CaptionLayer;
@@ -1736,6 +2039,7 @@ mod associated_caption_tests {
             let factor = match blend {
                 AssociatedBlend::SourceOver => 1. - f64::from(source[3]) * opacity / 255.,
                 AssociatedBlend::Screen => 1. - s / 255.,
+                AssociatedBlend::Add => 1.,
             };
             (s + f64::from(destination[c]) * factor).round().clamp(0., 255.) as u8
         })
@@ -1748,6 +2052,7 @@ mod associated_caption_tests {
         let outputs = [
             ([180, 0, 0, 0], AssociatedBlend::SourceOver),
             ([30, 160, 90, 20], AssociatedBlend::Screen),
+            ([90, 40, 0, 30], AssociatedBlend::Add),
             ([0, 0, 100, 0], AssociatedBlend::SourceOver),
         ];
         for (rgba, blend) in outputs {
@@ -1772,5 +2077,15 @@ mod associated_caption_tests {
             composite_caption_layer(&mut target, &layer(rgba, AssociatedBlend::Screen), 0.25, false).unwrap();
             assert_eq!(target.data(), reference(backdrop, rgba, 0.25, AssociatedBlend::Screen));
         }
+    }
+    #[test]
+    fn associated_add_sums_every_component_on_the_backdrop_and_clamps() {
+        let backdrop = [50, 200, 110, 160];
+        let mut target = Pixmap::new(1, 1).unwrap();
+        target.data_mut().copy_from_slice(&backdrop);
+        composite_caption_layer(&mut target, &layer([180, 120, 0, 200], AssociatedBlend::Add), 0.5, false).unwrap();
+        // 50+90, 200+60, 110+0, 160+100 with RGBA8 clamping; alpha adds too.
+        assert_eq!(target.data(), [140, 255, 110, 255]);
+        assert_eq!(target.data(), reference(backdrop, [180, 120, 0, 200], 0.5, AssociatedBlend::Add));
     }
 }

@@ -2,7 +2,7 @@
 //! 帧计划按这个时刻所在的序列帧取实例，视频按这个时刻映射到的源时刻取帧。
 //! 解码与编码都是平台原生优先、ffmpeg 兜底（[`crate::native`]）；用了哪条路、为什么回落，记在 `done` 的 `video` 里。
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, Read};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -10,7 +10,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use font_files::FontFace;
 use frame_render::{FrameRenderer, RenderError, RenderOptions, UnsupportedItem};
 use media_core::encode::{EncodeSettings, Encoder, QueuedEncoder};
 use media_native::EncoderDevice;
@@ -100,9 +99,10 @@ pub fn run(path: &Path) -> Result<ExitCode, Failure> {
     renderer.set_speakers(input.speakers.clone().map(Arc::new));
     // 冻结的本机字体在画第一帧之前装上；之后不再去本机找（成片按冻结的字体画，不随机器上后来的字体变）。
     let fonts = frozen_fonts(&input.fonts)?;
-    if !fonts.is_empty() {
-        renderer.add_fonts(fonts);
+    if !fonts.fonts.is_empty() {
+        renderer.add_fonts(fonts.fonts);
     }
+    renderer.add_font_sources(fonts.sources).map_err(render_failure)?;
     let mut sources = Sources::new(&input, tools.clone(), report.pictures.clone(), skip);
     // 写编码器在单独的线程：合成线程把帧交进队列就画下一帧（`progress` 的帧数是交进队列的帧数）。
     let (mut encoder, encoder_backend, encoder_device, encoder_fallback) = start_encoder(&input, &tools, &settings, &report)?;
@@ -256,14 +256,22 @@ fn start_encoder(
 /// 冻结的本机字体（架构设计 §9.11 的「字体」）：按冻结时记下的文件与文件里第几个，抽出那一个 face（与预览同一个抽法）。
 /// 文件不见了、字节数或摘要与冻结时不同时以 `FONT_MISSING` 失败——成片不悄悄换成别的字体；冻结时就没找到的族不在
 /// 这里，照回退字体画、渲染器报提示。同一个文件只核对一次，同一个 face 只装一次。
-fn frozen_fonts(frozen: &[InputFont]) -> Result<Vec<Arc<Vec<u8>>>, Failure> {
-    let mut checked: HashSet<PathBuf> = HashSet::new();
+/// 完整文件保留给精确 source 引用，普通字体匹配仍只注册抽出的 face；核对与抽取使用同一次读到的字节。
+/// 原文件来源至多 1024 份、合计 256 MiB，读取前和读取中都按同一 source registry 上限准入。
+#[derive(Debug, Default)]
+pub(crate) struct FrozenFonts {
+    pub fonts: Vec<Arc<Vec<u8>>>,
+    pub sources: Vec<Arc<Vec<u8>>>,
+}
+
+pub(crate) fn frozen_fonts(frozen: &[InputFont]) -> Result<FrozenFonts, Failure> {
+    const SOURCE_BYTES: u64 = 256 * 1024 * 1024;
+    const SOURCE_RESOURCES: usize = 1024;
+    let mut checked: HashMap<PathBuf, (Arc<Vec<u8>>, String)> = HashMap::new();
     let mut loaded: HashSet<(PathBuf, u32)> = HashSet::new();
-    let mut fonts = Vec::new();
+    let mut fonts = FrozenFonts::default();
+    let mut total_bytes = 0u64;
     for font in frozen {
-        if !loaded.insert((font.path.clone(), font.face_index)) {
-            continue;
-        }
         let missing = |reason: &str, why: String| {
             let mut failure = Failure::new(
                 "FONT_MISSING",
@@ -282,40 +290,51 @@ fn frozen_fonts(frozen: &[InputFont]) -> Result<Vec<Arc<Vec<u8>>>, Failure> {
             });
             failure
         };
-        if checked.insert(font.path.clone()) {
-            let digest = file_digest(&font.path).map_err(|e| missing("missing", format!("can no longer be read ({e})")))?;
-            if digest != (font.byte_length, font.content_hash.clone()) {
+        let source = if let Some((bytes, digest)) = checked.get(&font.path) {
+            // Each descriptor is checked, including duplicate faces: conflicting snapshots cannot
+            // hide behind a previous descriptor for the same file or face.
+            if bytes.len() as u64 != font.byte_length || *digest != font.content_hash {
+                return Err(missing("changed", "differs from its frozen byte length or digest".into()));
+            }
+            bytes.clone()
+        } else {
+            let remaining = SOURCE_BYTES - total_bytes;
+            let budget = || missing("resource-budget", "exceeds the frozen font source budget".into());
+            if checked.len() >= SOURCE_RESOURCES || font.byte_length > remaining {
+                return Err(budget());
+            }
+            let file = std::fs::File::open(&font.path).map_err(|e| missing("missing", format!("can no longer be read ({e})")))?;
+            let length = file.metadata().map_err(|e| missing("missing", format!("can no longer be read ({e})")))?.len();
+            if length > remaining {
+                return Err(budget());
+            }
+            let mut bytes = Vec::with_capacity(length as usize);
+            // Metadata can race file growth. The extra byte detects that case without an unbounded read.
+            file.take(remaining + 1)
+                .read_to_end(&mut bytes)
+                .map_err(|e| missing("missing", format!("can no longer be read ({e})")))?;
+            if bytes.len() as u64 > remaining {
+                return Err(budget());
+            }
+            let hex: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
+            let digest = format!("sha256:{hex}");
+            if (bytes.len() as u64, &digest) != (font.byte_length, &font.content_hash) {
                 return Err(missing("changed", "differs from when the export started".into()));
             }
-        }
-        let face = FontFace {
-            path: font.path.clone(),
-            index: font.face_index,
-            file_len: font.byte_length,
+            total_bytes += bytes.len() as u64;
+            let bytes = Arc::new(bytes);
+            checked.insert(font.path.clone(), (bytes.clone(), digest));
+            fonts.sources.push(bytes.clone());
+            bytes
         };
-        let bytes = font_files::read_face(&face)
+        if !loaded.insert((font.path.clone(), font.face_index)) {
+            continue;
+        }
+        let bytes = font_files::extract_face(&source, font.face_index)
             .map_err(|e| missing("unreadable", format!("cannot extract font face {} ({e})", font.face_index)))?;
-        fonts.push(Arc::new(bytes));
+        fonts.fonts.push(Arc::new(bytes));
     }
     Ok(fonts)
-}
-
-/// 文件的字节数与内容摘要（`sha256:` 加十六进制，与 Runtime 冻结素材与字体时的写法相同）。
-fn file_digest(path: &Path) -> std::io::Result<(u64, String)> {
-    let mut file = std::fs::File::open(path)?;
-    let mut hasher = Sha256::new();
-    let mut buffer = vec![0u8; 1 << 20];
-    let mut total = 0u64;
-    loop {
-        let n = file.read(&mut buffer)?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buffer[..n]);
-        total += n as u64;
-    }
-    let hex: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    Ok((total, format!("sha256:{hex}")))
 }
 
 /// 输出帧：画面与输出同尺寸时整帧复制进编码队列的缓冲；否则把画面逐行贴进画面那一块。缓冲来自编码队列的池，
@@ -399,8 +418,10 @@ mod tests {
         std::fs::write(&path, &bytes).unwrap();
         let font = frozen(&path, &bytes);
         let fonts = frozen_fonts(&[font.clone(), font.clone()]).unwrap();
-        assert_eq!(fonts.len(), 1);
-        assert_eq!(*fonts[0], font_files::extract_face(&bytes, 0).unwrap());
+        assert_eq!(fonts.fonts.len(), 1);
+        assert_eq!(fonts.sources.len(), 1);
+        assert_eq!(*fonts.fonts[0], font_files::extract_face(&bytes, 0).unwrap());
+        assert_eq!(*fonts.sources[0], bytes);
 
         let mut changed = bytes.clone();
         let last = changed.len() - 1;
@@ -417,7 +438,44 @@ mod tests {
             (failure.code.as_str(), &failure.details["reason"]),
             ("FONT_MISSING", &json!("missing"))
         );
-        assert!(frozen_fonts(&[]).unwrap().is_empty());
+        let fonts = frozen_fonts(&[]).unwrap();
+        assert!(fonts.fonts.is_empty());
+        assert!(fonts.sources.is_empty());
+    }
+
+    #[test]
+    fn frozen_font_admission_checks_budgets_and_every_duplicate_descriptor() {
+        let dir = tempfile::tempdir().unwrap();
+        let bytes = include_bytes!("../../render-raster/assets/fonts/PermanentMarker-Regular.ttf");
+        let path = dir.path().join("marker.ttf");
+        std::fs::write(&path, bytes).unwrap();
+        let font = frozen(&path, bytes);
+        for corrupt_hash in [false, true] {
+            let mut conflict = font.clone();
+            if corrupt_hash {
+                conflict.content_hash = format!("sha256:{}", "0".repeat(64));
+            } else {
+                conflict.byte_length += 1;
+            }
+            let failure = frozen_fonts(&[font.clone(), conflict]).unwrap_err();
+            assert_eq!(failure.code, "FONT_MISSING");
+            assert_eq!(failure.details["reason"], "changed");
+        }
+        let mut too_large = font.clone();
+        too_large.byte_length = 256 * 1024 * 1024 + 1;
+        let failure = frozen_fonts(&[too_large]).unwrap_err();
+        assert_eq!(failure.code, "FONT_MISSING");
+        assert_eq!(failure.details["reason"], "resource-budget");
+        // A small declared snapshot cannot make an oversized actual file get read first.
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(256 * 1024 * 1024 + 1)
+            .unwrap();
+        let failure = frozen_fonts(&[font]).unwrap_err();
+        assert_eq!(failure.code, "FONT_MISSING");
+        assert_eq!(failure.details["reason"], "resource-budget");
     }
 
     /// 黑边与画面：画面逐行落在居中的那一块，其余是不透明的黑；与输出同尺寸时原样交出。

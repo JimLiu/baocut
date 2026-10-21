@@ -24,6 +24,14 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 表达式 `cubic-bezier(progress, x1, y1, x2, y2)` 与关键帧共用 motion 曲线求解器，允许将语义时钟、单元时长和参数组合成连续曲线；能力名为 `caption-bezier-expression/1`。
 
+`caption-exponential-expression/1` 提供 `exp(scalar) -> scalar`，以共享 `libm::exp` 连续求自然指数；支持负指数衰减，非有限输入或溢出结果明确拒绝。普通及 DAG 验证与直接求值都要求该能力，复用现有执行预算；可与 `sin/cos` 组合描述连续衰减振荡。
+
+`caption-rounding-expression/1` 提供 `round`（半数远离零），`caption-modular-expression/1` 提供结果与除数同号的 `mod(a,b)` 与 `fract(x)=mod(x,1)`（零除数拒绝），`caption-power-expression/1` 提供 `pow`（负底数配非整数指数拒绝）；均只接受 scalar，与 `exp` 同样在两条类型路径和直接求值中检查能力。`caption-list-pick/1` 允许参数声明 `list: true`（1–256 个同类型元素，总计不超过 1024），只能经 `pick(params.<id>, index)` 按欧几里得取模读取；覆盖层整体替换列表。示例见 [builtin-expressions.json](tests/fixtures/builtin-expressions.json)。
+
+`caption-clock-tail/1` 为关键帧 clock 开放 `tail: none|clamp|repeat`：`clamp` 在原点后取 `min(elapsed, D)/D`，`repeat` 取 `mod(elapsed, D)/D`，周期右端点归下一周期；`tail` 只定数值，参与仍由 `fill` 决定。不能与 `clock.repeat` 同用，零周期拒绝；省略即 `none`，旧文档字节不变。示例见 [clock-tail.json](tests/fixtures/clock-tail.json)。
+
+`caption-speech-phase/1` 开放布尔 `cue.speechPhase.beforeFirst/reading/afterLast/estimated` 与 `word.inSpan`：cue 阶段按全部非空输入词的最早开始与最晚结束划分，词间空隙算 reading；`word.inSpan` 按绑定词 `start<=t<end`，重叠词可同时为真，不改变 active/read/unread 的唯一选择。缺真实词时间时默认全为 false 并提示 `CAPTION_TIMING_UNAVAILABLE`，显式 estimated 以 cue 起止为区间并标记估算。布局前与字号求值禁止读取。示例见 [speech-phase.json](tests/fixtures/speech-phase.json)。
+
 `caption-text-context/1` 提供整段/分页字素索引、cue/page 时钟和 `sqrt`；grapheme 选择器可显式包含空白，用于连续光标与错开显现。示例见 [text-context.json](tests/fixtures/text-context.json)。
 
 `caption-ink-context/1` 提供单元填充墨迹框 `layout.inkX/inkY/inkWidth/inkHeight` 与所属行的 `layout.lineInkY/lineInkHeight`；光标高度与底框位置可按真实字形求值，旧行框/advance 不变。空白继承行的视觉高度，重排同步更新；不包含描边、材质或动画变换。示例见 [ink-context.json](tests/fixtures/ink-context.json)。
@@ -37,6 +45,10 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 `caption-word-page-layout/1` 用 `wordPagePattern` 固定每页语义词成员，页内保留宽度折行与超长词字素折行。行数只控制 error/visible 溢出，不额外分页；实际字号重排不改变页成员与时间。合同测试见 [word_page_layout.rs](tests/word_page_layout.rs)。
 
 `caption-word-line-layout/1` 提供循环词行配额和一次性的末页调整；行、页成员与时间冻结，超宽按 error/visible 处理。显示空白可折叠，源文本字素索引及词字节范围保持不变；逐采样布局重用同一shape映射。示例见 [word-line-layout.json](tests/fixtures/word-line-layout.json)。
+
+`caption-pattern-select/1` 的 `pagination.patternSelect` 在准备阶段按文字节点词数闭区间（末项为兜底）或按实例 seed 与 cue id 从候选固定词行模式中选一个，结果只依赖冻结输入，并以 `CAPTION_PATTERN_SELECTED` 诊断报告。示例见 [pattern-select.json](tests/fixtures/pattern-select.json)。
+
+`caption-keyword-isolation/1` 的 `pagination.isolation` 按 `wordTags` 在固定词行分组前插入硬边界：`line` 让词独占一行，`page` 让词独占一页；边界只缩短行和页，不放宽配额，不与 `lastPageRule` 同用。示例见 [keyword-isolation.json](tests/fixtures/keyword-isolation.json)。
 
 `caption-cue-word-context/1` 提供 cue 首两词原始输入边界、真实绑定词标记与跨页下一词开始时间；保留负值、零值和真实 gap，不延长词结束，也不把 estimated 时序冒充输入。所有边界配有可用标记，见 [cue-word-context.json](tests/fixtures/cue-word-context.json)。
 
@@ -84,7 +96,13 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-noise-palette-mix/1` 在唯一文字节点的页上下文求值固定空间噪声与冻结 PNG 色条，保持输入 alpha；局部纹理 domain 必须显式给出画布坐标，不推断 ink/advance 范围。数值核、边界和预算见视频格式规范，示例见 [noise-palette-mix.json](tests/fixtures/noise-palette-mix.json)。
 
+`feedback` 默认按 decay 的 i 次方从旧到新 source-over 合成；声明 `caption-feedback-mean/1` 后可写 `composite:"mean"`（decay 必须为 1），对落在 cue 内的历史样本做预乘 RGBA 等权平均（整数四舍五入，cue 外样本不计入分母），用于有界运动模糊；省略 composite 的旧文档不变。示例见 [feedback-mean.json](tests/fixtures/feedback-mean.json)。
+
+`caption-noise-displace/1` 的 `noise-displace` 在唯一文字节点页上下文与显式 domain 内，以固定 v1 空间噪声 `n0=noise(uv*noiseScale, phase)` 求 `n=(n0+brightness-0.5)*contrast*10+0.5`、`d=(n-0.5)*strength*width/height`，把 `uv+(d,d)` 处的输入做预乘双线性采样，画面外透明、domain 外清零；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [noise-displace.json](tests/fixtures/noise-displace.json)。
+
 `caption-glow-color-matrix/1` 提供 glow-cascade 的可选静态 `glowColorMatrix`，以行优先 3×3 矩阵在 tint 后变换辉光 RGB，再 clamp 后合成。alpha 和原图不参与变换；省略/单位矩阵保持旧输出。
+
+`caption-glow-linear/1` 把 glow-cascade 扩到 1–8 级，并开放 `gammaChannels: rgba`（每个 pass 连 alpha 一起做 gamma）、`aggregation: linear`（各级解码到线性域后按静态 `levelGains` 做 screen 累积，再乘强度、编码回去）、可选 `levelColor`（按级 alpha 换成指定颜色，无值时不着色）和 `original-over-screen` 合成。旧文档省略这些字段，序列化与像素不变；GPU 材质计划明确拒绝这些字段，由 CPU 光栅执行。示例见 [glow-linear.json](tests/fixtures/glow-linear.json)。
 
 `caption-angular-sample-blend/1` 在显式局部domain内执行60次角采样，aspect独立、angle为弧度；透明越界仍使用固定分母，再按平均alpha混合原图。零角度不是恒等操作，读取/变换均计入共享预算。示例见 [angular-sample-blend.json](tests/fixtures/angular-sample-blend.json)。
 
@@ -96,4 +114,20 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-unit-font-style/1` 通过 `layout.fontStyleBindings` 对固定page/line/word成员应用静态字体族、字重、斜体patch，与字号runs合并后整体rich shaping，真实更新行宽/基线。未活跃face也进入字体依赖清点，不推断关键词。示例见 [unit-font-style.json](tests/fixtures/unit-font-style.json)。
 
-`caption-render-layers/1` 将根节点子树或 `caption-image-sequence/1` 的有界PNG序列拆成独立处理链，按数组顺序合成。`ScenePlan.render_outputs` 保留关联 source-over / screen；screen 必须直接合到真实背景，单图 render 明确拒绝。`caption-noisy-sweep/1` 提供固定f32噪声扫过遮罩。详见视频格式 §5.6；层间共享采样/表面预算，序列缓存与普通图片共享解码预算。
+`caption-render-layers/1` 将根节点子树或 `caption-image-sequence/1` 的有界PNG序列拆成独立处理链，按数组顺序合成。`ScenePlan.render_outputs` 保留关联 source-over / screen / add（add 需 `caption-layer-add/1`，四分量 `S+D` 钳制，示例 [layer-add.json](tests/fixtures/layer-add.json)）；screen 与 add 必须直接合到真实背景，单图 render 明确拒绝。`caption-noisy-sweep/1` 提供固定f32噪声扫过遮罩。详见视频格式 §5.6；层间共享采样/表面预算，序列缓存与普通图片共享解码预算。
+
+`caption-paint-coverage/1` 通过 paint 层 `coverage: {lo, hi}` 对模糊后的轮廓覆盖率做线性区间重映射，再应用颜色/实例透明度。支持纯色、node-fill 和不透明渐变；零模糊可用于抗锯齿边缘，省略保留旧路径。严格范围、隔离 run 与表面预算见视频格式 §5.6；像素验证在 `subtitle-render/tests/scene.rs`。
+
+`caption-gradient-space/1` 支持 linear paint 的 `space: normalized`（在归一化 UV 域投影）和 `domain: page`（当前页各行共用基础视觉框）。默认 local/line 保持旧端点、序列化和像素行为；任意色标与现有隔离/覆盖率路径共用。共享渲染把 UV 协向量转换成同一 CPU/GPU `PaintData::Linear`，详见视频格式 §5.6。
+
+`caption-gradient-glyph/1` 支持 linear paint 的 `domain: glyph`：每个字形以自身轮廓控制框为域，可用 `glyphOutset`（该字形解析字号的 em，每侧，0–4，默认 0 省略）向四边外扩；同一字形的各涂装层（含 spread/stroke/offset 层与图片 base）共用此域，所以每个字形各自走完整色带。与 `space: normalized` 组合时两个能力都要声明。详见视频格式 §5.6。
+
+`caption-font-line-box/1` 显式开启 `style.lineBox`，按实际字形 face/字号的字体度量和可选 em 下限生成行框，保留词/页成员和时钟；typographic 可通过显式 glyph probe 选择 hhea fallback。静态、固定行、字号重排与 Label 共用测量，省略维持旧路径；完整数值合同见视频格式 §5.6。
+
+`caption-affine-sample-blend/1` 定义必填输入 ROI／输出 quad 与有界归一化 UV 仿射路径。样本数由端点 UV 距离决定，沿等距控制点分段插值，等权平均独立 RGBA；没有矩阵或域缺值回退。合同、边界和预算见视频格式 §5.6；共享 CPU reference 与 GPU 有序链使用同一排版后参数，GPU 无法可靠处理的精度／源操作在提交前明确回退完整 CPU 场景。
+
+`caption-font-hinting/1` 开放 Text/Label 的 `style.fontHinting: "none"`，同一实际字形在轮廓与atlas路径关闭hinting，保留整形/advance/分页语义；缺省保持旧行为。策略隔离glyph cache key，不修改基础shape缓存。可解析的glyf/gvar及标准非CID CFF1使用浮点设计轮廓，其他格式保留既有unhinted scaler；字体provider与整形分段需另外声明。
+
+`caption-font-shaping/1` 开放 Text/Label 的 `style.fontShaping: "nominal"`，在解析字体段内按Unicode scalar映射字形，不跨scalar做OpenType kern／ligature；advanced缺省保持旧行为。测量、分页、富文本字号重排和Label共用策略，独立于hinting。
+
+`caption-image-phase-float32/1` 允许图片phase显式选择float32索引转换／输入偏移／除法／fract；缺省保持整数余数与f64相位。它不改变逻辑scalar索引归属，独立于UV仿射矩阵的计算精度。

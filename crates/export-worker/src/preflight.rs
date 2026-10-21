@@ -212,8 +212,8 @@ pub fn run(input: &Input, tools: &Tools) -> Result<Preflight, Failure> {
     })
 }
 
-/// 成片要用到的本机字体 face（架构设计 §9.11 的「字体」）：范围里出现的每个画面层用随内核发布的字体排一遍字
-/// （[`frame_render::font_census`]），点了名、随内核的字体里没有的族的「族名、字重、斜体」。Runtime 按它在本机字体里
+/// 成片要用到的本机字体 face（架构设计 §9.11 的「字体」）：范围里出现的每个画面层用随内核发布及输入已冻结的字体排一遍字
+/// （[`frame_render::font_census`]），点了名、已注册字体里没有的族的「族名、字重、斜体」。Runtime 按它在本机字体里
 /// 挑好 face、记下文件与摘要冻结进快照；只在预检命令里求（执行时按冻结的装）。
 pub fn font_faces(input: &Input) -> Result<Vec<FaceUse>, Failure> {
     let usage = font_usage(input)?;
@@ -225,20 +225,24 @@ pub fn font_faces(input: &Input) -> Result<Vec<FaceUse>, Failure> {
 }
 
 /// 视频用到的字体（`fonts.usage`，架构设计 §9.1）：与 [`font_faces`] 同一遍排字，点了名的 face 全部给出（随内核的族也在），
-/// 另给出随内核没有的族。不查素材、不查编码器：只排字。
+/// 另给出已注册字体里没有的族。不查素材、不查编码器、不发现系统字体；输入提供的字体按渲染同一规则核对后装入。
 pub fn font_usage(input: &Input) -> Result<frame_render::FontUsage, Failure> {
     let range = input.range()?;
     let view = input.document.view();
     let overview = plan_video(view, &input.sequence_id, Some(range)).map_err(|e| Failure::new(&e.code, e.message))?;
     let frame = plan_frame(view, &input.sequence_id, range.0).map_err(|e| Failure::new(&e.code, e.message))?;
-    let fonts = frame_render::bundled_fonts().into_iter().map(Arc::new).collect();
-    frame_render::font_usage(
+    let mut fonts: Vec<Arc<Vec<u8>>> = frame_render::bundled_fonts().into_iter().map(Arc::new).collect();
+    // Census and rendering register the same extracted face bytes, after the same snapshot checks.
+    let frozen = crate::render::frozen_fonts(&input.fonts)?;
+    fonts.extend(frozen.fonts);
+    frame_render::font_usage_with_sources(
         view,
         &frame,
         range.0.to_f64(),
         &overview.layers,
         documents(input),
         fonts,
+        frozen.sources,
         input.burn_captions,
     )
     .map_err(|e| Failure::new(&e.code, e.message))
@@ -261,4 +265,136 @@ fn check_lottie(input: &Input, layer: &VisualLayer) -> Option<UnsupportedItem> {
         },
     }?;
     Some(UnsupportedItem::asset(layer, None, problem.0, problem.1))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::input::InputFont;
+    use serde_json::{Value, json};
+    use sha2::{Digest, Sha256};
+
+    fn sha(bytes: &[u8]) -> String {
+        Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+    }
+
+    fn collection(face: &[u8]) -> Vec<u8> {
+        let first = 20usize;
+        let second = first + face.len().next_multiple_of(4);
+        let mut bytes = vec![0; second + face.len()];
+        bytes[..4].copy_from_slice(b"ttcf");
+        bytes[4..8].copy_from_slice(&0x0001_0000u32.to_be_bytes());
+        bytes[8..12].copy_from_slice(&2u32.to_be_bytes());
+        bytes[12..16].copy_from_slice(&(first as u32).to_be_bytes());
+        bytes[16..20].copy_from_slice(&(second as u32).to_be_bytes());
+        for base in [first, second] {
+            bytes[base..base + face.len()].copy_from_slice(face);
+            let count = u16::from_be_bytes(face[4..6].try_into().unwrap()) as usize;
+            for record in bytes[base + 12..base + 12 + count * 16].chunks_exact_mut(16) {
+                let at = u32::from_be_bytes(record[8..12].try_into().unwrap());
+                record[8..12].copy_from_slice(&(at + base as u32).to_be_bytes());
+            }
+        }
+        bytes
+    }
+
+    fn caption_input(source: Option<Value>) -> Input {
+        let mut style: Value = serde_json::from_str(include_str!("../../caption-scene/tests/fixtures/word-pop.json")).unwrap();
+        style["scene"]["value"]["nodes"][0]["style"]["fontFamily"] = json!("Permanent Marker");
+        style["scene"]["value"]["nodes"][0]["style"]["fontWeight"] = json!(400);
+        if let Some(source) = source {
+            style["scene"]["value"]["requiredCapabilities"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!("caption-font-source/1"));
+            style["scene"]["value"]["nodes"][0]["style"]["fontSource"] = source;
+        }
+        serde_json::from_value(json!({
+            "document": {
+                "rootSequenceId":"seq", "assets":{}, "sequences":{"seq":{
+                    "id":"seq", "revision":"1", "name":"Font census", "fps":{"num":30,"den":1},
+                    "canvas":{"width":160,"height":90,"workingSpace":"srgb","background":"#000000"},
+                    "durationPolicy":{"kind":"derived"},
+                    "tracks":[{"id":"sub","order":0,"kind":"subtitle","locked":false,"visible":true,
+                        "muted":false,"solo":{"enabled":false,"group":"visual"}}],
+                    "items":[{"id":"caption","trackId":"sub","enabled":true,"locked":false,"paintOrder":0,
+                        "followPolicy":{"kind":"sequence-fixed"},"span":{"fromFrame":0,"durationFrames":30},
+                        "type":"caption","documentId":"cue","styleDocumentId":"style","scopeItemIds":[]}],
+                    "animationBindings":[],"transitions":[],"markers":[],"ducking":[]
+                }}
+            },
+            "sequenceId":"seq", "range":{"start":{"ticks":"0","timescale":1000},"end":{"ticks":"1000","timescale":1000}},
+            "documents":[
+                {"documentId":"cue","kind":"caption","schema":"baocut.caption/1","lineKind":"original",
+                    "body":{"schema":"baocut.caption/1","clock":"sequence","timescale":1000,
+                        "cues":[{"id":"c","start":0,"end":1000,"text":"AV"}]}},
+                {"documentId":"style","kind":"caption-style","schema":style["schema"],"body":style}
+            ],
+            "assets":[],"fonts":[],
+            "output":{"path":"unused.mp4","format":"mp4","width":160,"height":90,"fps":{"num":30,"den":1}},
+            "tools":{"ffmpeg":"unused","ffprobe":"unused"}
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn supplied_snapshot_faces_resolve_in_census_and_changed_files_fail() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut bytes = include_bytes!("../../render-raster/assets/fonts/PermanentMarker-Regular.ttf").to_vec();
+        // Alter a valid advance, keeping the bundled display family but making this a distinct binary.
+        let count = u16::from_be_bytes(bytes[4..6].try_into().unwrap()) as usize;
+        let record = bytes[12..12 + count * 16]
+            .chunks_exact(16)
+            .find(|record| &record[..4] == b"hmtx")
+            .unwrap();
+        let at = u32::from_be_bytes(record[8..12].try_into().unwrap()) as usize;
+        bytes[at + 1] ^= 1;
+        let mut bytes = collection(&bytes);
+        let path = dir.path().join("snapshot.ttc");
+        std::fs::write(&path, &bytes).unwrap();
+        let registered = font_files::extract_face(&bytes, 1).unwrap();
+        let mut input = caption_input(Some(json!({"sha256":sha(&bytes),"faceIndex":1})));
+        let failure = font_usage(&input).unwrap_err();
+        assert!(failure.message.contains("FONT_SOURCE_UNREGISTERED_OR_FACE_MISSING"), "{failure:?}");
+
+        input.fonts.push(InputFont {
+            family: "Permanent Marker".into(),
+            weight: 400,
+            italic: false,
+            path: path.clone(),
+            face_index: 1,
+            content_hash: format!("sha256:{}", sha(&bytes)),
+            byte_length: bytes.len() as u64,
+        });
+        let usage = font_usage(&input).unwrap();
+        assert!(usage.faces.contains(&("Permanent Marker".into(), 400, false)), "{usage:?}");
+        assert!(usage.missing.is_empty(), "{usage:?}");
+        assert!(font_faces(&input).unwrap().is_empty());
+        let frozen = crate::render::frozen_fonts(&input.fonts).unwrap();
+        assert_eq!(*frozen.fonts[0], registered);
+        assert_eq!(*frozen.sources[0], bytes);
+
+        bytes[0] ^= 1;
+        std::fs::write(&path, &bytes).unwrap();
+        let failure = font_usage(&input).unwrap_err();
+        assert_eq!(failure.code, "FONT_MISSING");
+        assert_eq!(failure.details["reason"], "changed");
+        std::fs::remove_file(&path).unwrap();
+        let failure = font_usage(&input).unwrap_err();
+        assert_eq!(failure.code, "FONT_MISSING");
+        assert_eq!(failure.details["reason"], "missing");
+    }
+
+    #[test]
+    fn empty_supplied_fonts_keep_bundled_census_behavior() {
+        let input = caption_input(None);
+        assert!(input.fonts.is_empty());
+        let usage = font_usage(&input).unwrap();
+        assert!(usage.faces.contains(&("Permanent Marker".into(), 400, false)), "{usage:?}");
+        assert!(usage.missing.is_empty(), "{usage:?}");
+        assert!(font_faces(&input).unwrap().is_empty());
+        let frozen = crate::render::frozen_fonts(&input.fonts).unwrap();
+        assert!(frozen.fonts.is_empty());
+        assert!(frozen.sources.is_empty());
+    }
 }

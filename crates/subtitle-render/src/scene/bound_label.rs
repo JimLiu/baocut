@@ -1,7 +1,6 @@
 //! One-line text decorations. Geometry belongs to the label; semantic context
 //! and transform pivot belong to its explicitly selected source unit.
 use super::*;
-use render_raster::fonts::ShapedGlyph;
 
 pub(super) fn register_fonts(nodes: &[Node], text: &mut TextEngine) {
     for node in nodes {
@@ -29,6 +28,8 @@ pub(super) fn draw(
     else {
         bail!("CAPTION_SCENE_INVALID: label text must be static");
     };
+    let content = node.style.text_transform.apply(content);
+    let content = content.as_ref();
     let size_pose = pose_context(node, unit, r, budget, context(unit, r), Some(true))?;
     let size = number(&size_pose, "fontSize");
     if !size.is_finite() || !(1.0..=4096.0).contains(&size) {
@@ -39,24 +40,27 @@ pub(super) fn draw(
         budget.spend()?;
     }
     let style = &node.style;
-    let shape = text.shape_spaced(
+    let mut shape = text.shape_spaced_with_shaping(
         content,
         &style.font_family,
         size,
         style.font_weight,
         style.italic,
         style.letter_spacing * size,
+        font_shaping::mode(style),
     );
+    font_line_box::apply(text, &mut shape, style, size, budget)?;
     let (ascent, descent) =
         if shape.glyphs.is_empty() && shape.ascent == 0.0 && shape.descent == 0.0 {
             budget.spend()?;
-            let metrics = text.shape_spaced(
+            let metrics = text.shape_spaced_with_shaping(
                 " ",
                 &style.font_family,
                 size,
                 style.font_weight,
                 style.italic,
                 0.0,
+                font_shaping::mode(style),
             );
             (metrics.ascent, metrics.descent)
         } else {
@@ -116,97 +120,23 @@ pub(super) fn draw(
     let Evaluated::Color(fill) = pose["fill"] else {
         unreachable!()
     };
+    let scalar_map = super::image_paint::scalar_map(style, content, budget)?;
+    let mut glyphs = Vec::with_capacity(shape.glyphs.len());
     for glyph in &shape.glyphs {
         budget.spend()?;
         let xy = (bounds.x + glyph.x, baseline + glyph.y);
-        let origin = transform.pre_translate(xy.0 as f32, xy.1 as f32);
-        record_glyph(style, glyph, fill, 1.0, origin, bounds, xy, text, b, budget)?;
+        glyphs.push(text_paint::GlyphPaint {
+            glyph: glyph.clone(),
+            fill,
+            opacity: 1.0,
+            source_scalar_index: super::image_paint::scalar_index(&scalar_map, glyph.cluster.start)?,
+            origin: transform.pre_translate(xy.0 as f32, xy.1 as f32),
+            paint_bounds: bounds,
+            page_bounds: bounds,
+            paint_origin: xy,
+        });
     }
+    text_paint::record_glyphs(style, &glyphs, r.size, text, r.images, b, budget)?;
     b.push(DrawOp::PopLayer);
-    Ok(())
-}
-
-/// Shared recording retains the exact outline/paint and intrinsic color bitmap
-/// behavior of ordinary text. Node opacity is applied by the caller's layer.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn record_glyph(
-    style: &TextStyle,
-    glyph: &ShapedGlyph,
-    c: [f64; 4],
-    opacity: f64,
-    origin: Transform,
-    paint_bounds: Bounds,
-    paint_origin: (f64, f64),
-    text: &mut TextEngine,
-    b: &mut FrameBuilder,
-    budget: &mut Budget,
-) -> Result<()> {
-    match text.glyph_render(glyph.cache_key) {
-        GlyphRender::Outline(path) => {
-            let id = b.path_id(path_from_skia(&path));
-            if !style.paints.is_empty() {
-                for layer in &style.paints {
-                    budget.spend()?;
-                    let paint = scene_paint(&layer.paint, paint_bounds, paint_origin, opacity)?;
-                    let paint = b.paint_id(paint);
-                    let transform =
-                        origin.pre_translate(layer.offset[0] as f32, layer.offset[1] as f32);
-                    if layer.stroke_width > 0.0 {
-                        b.push(DrawOp::StrokePathPaint {
-                            path: id,
-                            paint,
-                            width: layer.stroke_width as f32,
-                            cap: 1,
-                            join: 1,
-                            miter: 4.0,
-                            tf: tf(transform),
-                        });
-                    } else {
-                        b.push(DrawOp::FillPathPaint {
-                            path: id,
-                            paint,
-                            even_odd: false,
-                            tf: tf(transform),
-                        });
-                    }
-                }
-                return Ok(());
-            }
-            if let Some(s) = &style.stroke {
-                let mut sc = color(&s.color)?;
-                sc[3] *= opacity.clamp(0.0, 1.0);
-                b.push(DrawOp::StrokePath {
-                    path: id,
-                    color: sc.map(|v| v as f32),
-                    width: s.width as f32,
-                    tf: tf(origin),
-                });
-            }
-            b.push(DrawOp::FillPath {
-                path: id,
-                color: c.map(|v| v.clamp(0.0, 1.0) as f32),
-                tf: tf(origin),
-            });
-        }
-        GlyphRender::ColorBitmap {
-            width,
-            height,
-            rgba,
-            left,
-            top,
-        } => {
-            let id = b.bitmap_id(BitmapData {
-                width,
-                height,
-                rgba,
-            });
-            b.push(DrawOp::DrawBitmap {
-                bitmap: id,
-                opacity: opacity.clamp(0.0, 1.0) as f32,
-                tf: tf(origin.pre_translate(left as f32, -top as f32)),
-            });
-        }
-        GlyphRender::Empty => {}
-    }
     Ok(())
 }

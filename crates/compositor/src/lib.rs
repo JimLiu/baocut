@@ -5,7 +5,13 @@
 //! CPU tiny-skia 仍是 strict reference；本 crate 初始化或执行失败时由宿主回退。
 
 mod atlas;
+mod device_hairline;
+mod retained_draw;
 mod scheduler;
+#[cfg(any(feature = "gpu", feature = "gpu-webgpu", feature = "gpu-webgl"))]
+#[path = "stroke-coverage.rs"]
+mod stroke_coverage;
+pub use retained_draw::RetainedDrawCache;
 
 pub use atlas::{AtlasPrepare, AtlasRect, GlyphAtlas, GlyphAtlasStats, GlyphRequest};
 pub use scheduler::{DirtyReason, FrameScheduler};
@@ -21,8 +27,9 @@ mod gpu;
 mod offline;
 #[cfg(any(feature = "gpu", feature = "gpu-webgpu", feature = "gpu-webgl"))]
 pub use gpu::{
-    ComponentRenderer, Compositor, ExternalTextureDescriptor, ExternalTextureImporter, GlyphRendererStats, ImportedExternalTexture,
-    RenderStats, RenderTarget, RenderTextureTarget, RoundedRectRendererStats, TexturePool, VectorRendererStats,
+    CaptionGpuRenderer, CaptionGpuStats, ComponentRenderer, Compositor, ExternalTextureDescriptor, ExternalTextureImporter, GlowRenderer,
+    GlyphRendererStats, ImportedExternalTexture, NoisySweepRenderer, RenderStats, RenderTarget, RenderTextureTarget,
+    RoundedRectRendererStats, TexturePool, VectorRendererStats,
 };
 #[cfg(feature = "gpu")]
 pub use offline::{OfflineCompositor, OfflineTimings};

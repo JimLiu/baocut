@@ -43,6 +43,12 @@ pub mod bcf;
 #[cfg(feature = "media")]
 pub mod canvas2d;
 pub mod drawop;
+pub mod image_pattern;
+/// Ordered scanner events for GPU replay; the CPU executor keeps upstream skia.
+#[cfg(feature = "ordered-coverage")]
+pub mod coverage {
+    pub use tiny_skia_coverage::coverage::{CoverageError, CoverageSink, trace_aa_hairline};
+}
 pub mod effects;
 pub mod emissive;
 #[cfg(feature = "media")]

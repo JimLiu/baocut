@@ -1,0 +1,72 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-feedback/1",
+        "caption-feedback-mean/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 2
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last",
+        "timingPolicy": "estimated"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            },
+            "fill": "#FFFFFF"
+          }
+        }
+      ],
+      "selectors": [],
+      "animations": [],
+      "materials": [
+        {
+          "kind": "feedback",
+          "id": "motion-mean",
+          "samples": 10,
+          "step": {
+            "ticks": 25,
+            "timescale": 1000
+          },
+          "decay": 1,
+          "offset": [
+            2,
+            0
+          ],
+          "composite": "mean"
+        }
+      ]
+    }
+  }
+}

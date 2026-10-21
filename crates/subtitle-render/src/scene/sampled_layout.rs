@@ -144,7 +144,7 @@ pub(super) fn reflow(
         budget.spend()?;
     }
     if cfg.pagination.has_fixed_lines() {
-        return word_line_layout::reflow(text, base, page, node, cfg, size, params);
+        return word_line_layout::reflow(text, base, page, node, cfg, size, params, budget);
     }
     let paint_range = page.paint_start..range.end;
     let source = &content[paint_range.clone()];
@@ -158,13 +158,14 @@ pub(super) fn reflow(
             cfg.pagination.max_units_per_line,
             line_quota::word_starts(&base.words, paint_range.start, paint_range.end),
             |r| {
-                let sh = text.shape_spaced(
+                let sh = text.shape_spaced_with_shaping(
                     &source[r],
                     &style.font_family,
                     fs,
                     style.font_weight,
                     style.italic,
                     style.letter_spacing * fs,
+                    font_shaping::mode(style),
                 );
                 TextMetricsLine {
                     width: sh.width,
@@ -182,32 +183,49 @@ pub(super) fn reflow(
     }
     let x = cfg.x.resolve(size.0, size.1, params)?;
     let y = cfg.y.resolve(size.0, size.1, params)?;
-    let height = block.lines.len() as f64 * fs * style.line_height;
-    let mut lines = Vec::new();
-    for (i, line) in block.lines.iter().enumerate() {
+    let mut rows = Vec::with_capacity(block.lines.len());
+    for line in &block.lines {
         let bytes = paint_range.start + line.bytes.start..paint_range.start + line.paint_end;
-        let shape = text.shape_spaced(
+        let mut shape = text.shape_spaced_with_shaping(
             &content[bytes.clone()],
             &style.font_family,
             fs,
             style.font_weight,
             style.italic,
             style.letter_spacing * fs,
+            font_shaping::mode(style),
         );
+        font_line_box::apply(text, &mut shape, style, fs, budget)?;
+        let row_height = font_line_box::row_height(&shape, style, fs);
+        rows.push((bytes, shape, row_height));
+    }
+    let height = if style.line_box.is_some() {
+        rows.iter().map(|(_, _, height)| height).sum()
+    } else {
+        block.lines.len() as f64 * fs * style.line_height
+    };
+    let mut next_y = y - height / 2.0;
+    let mut lines = Vec::new();
+    for (i, (bytes, shape, row_height)) in rows.into_iter().enumerate() {
         let lx = match cfg.align {
             Align::Left => x - width / 2.0,
             Align::Center => x - shape.width / 2.0,
             Align::Right => x + width / 2.0 - shape.width,
         };
-        let ly = y - height / 2.0 + i as f64 * fs * style.line_height;
+        let ly = if style.line_box.is_some() {
+            next_y
+        } else {
+            y - height / 2.0 + i as f64 * fs * style.line_height
+        };
         let bounds = Bounds {
             x: lx,
             y: ly,
             width: shape.width,
-            height: fs * style.line_height,
+            height: row_height,
         };
         let baseline = ly + shape.ascent;
         lines.push(Line::new(text, bytes, shape, bounds, baseline, fs));
+        next_y += row_height;
     }
     Ok(Page {
         source_range: range,

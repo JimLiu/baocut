@@ -1,0 +1,168 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-gaussian-axis/1",
+        "caption-gaussian-spacing-ramp/1",
+        "caption-gaussian-sampling/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 2
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last",
+        "timingPolicy": "estimated"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            },
+            "fill": "#FFFFFF"
+          }
+        }
+      ],
+      "selectors": [],
+      "animations": [],
+      "materials": [
+        {
+          "kind": "gaussian-axis",
+          "id": "soften",
+          "contextNodeId": "caption",
+          "axis": "y",
+          "samples": {
+            "kind": "constant",
+            "value": 20
+          },
+          "stepUv": {
+            "kind": "constant",
+            "value": 0.001
+          },
+          "sigmaUv": {
+            "kind": "constant",
+            "value": 0.008
+          },
+          "gamma": 2.2,
+          "boundary": "normalize",
+          "sampling": {
+            "input": {
+              "x": {
+                "kind": "constant",
+                "value": 20
+              },
+              "y": {
+                "kind": "constant",
+                "value": 10
+              },
+              "width": {
+                "kind": "constant",
+                "value": 120
+              },
+              "height": {
+                "kind": "constant",
+                "value": 70
+              }
+            },
+            "output": {
+              "x": {
+                "kind": "constant",
+                "value": 30.25
+              },
+              "y": {
+                "kind": "constant",
+                "value": 20.5
+              },
+              "width": {
+                "kind": "constant",
+                "value": 100.5
+              },
+              "height": {
+                "kind": "constant",
+                "value": 50
+              }
+            }
+          },
+          "spacingRamp": {
+            "domain": {
+              "x": {
+                "kind": "constant",
+                "value": 20
+              },
+              "y": {
+                "kind": "constant",
+                "value": 10
+              },
+              "width": {
+                "kind": "constant",
+                "value": 120
+              },
+              "height": {
+                "kind": "constant",
+                "value": 70
+              }
+            },
+            "axis": "y",
+            "start": {
+              "kind": "keyframes",
+              "clock": {
+                "unit": "page",
+                "origin": "start",
+                "duration": {
+                  "kind": "unit-span"
+                }
+              },
+              "keys": [
+                {
+                  "at": 0,
+                  "value": 0.6
+                },
+                {
+                  "at": 1,
+                  "value": -1.4
+                }
+              ],
+              "fill": {
+                "before": "hold",
+                "after": "hold"
+              }
+            },
+            "end": {
+              "kind": "constant",
+              "value": 1.4
+            },
+            "reverse": true,
+            "evaluation": "previous-sample",
+            "sampleOrder": "positive-first"
+          }
+        }
+      ]
+    }
+  }
+}

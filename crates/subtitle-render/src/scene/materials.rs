@@ -2,6 +2,7 @@
 use super::*;
 use render_raster::effects::component_filters as filters;
 use render_raster::effects::filters::blur::box_blur_premul_u8;
+use render_raster::effects::material_plan::MaterialCommand;
 
 const MAX_WORK_PIXELS: u64 = 256 * 1024 * 1024;
 const MAX_SURFACE_BYTES: u64 = 256 * 1024 * 1024;
@@ -23,9 +24,9 @@ impl Work {
         self.pixels = self
             .pixels
             .checked_add(count)
-            .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: angular sample work"))?;
+            .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: material sample work"))?;
         if self.pixels > MAX_WORK_PIXELS {
-            bail!("CAPTION_BUDGET_EXCEEDED: angular sample work");
+            bail!("CAPTION_BUDGET_EXCEEDED: material sample work");
         }
         Ok(())
     }
@@ -46,7 +47,7 @@ impl Work {
         Ok(())
     }
 }
-struct EmptyMedia;
+pub(super) struct EmptyMedia;
 impl FrameMedia for EmptyMedia {
     fn frame(&mut self, _: &str, _: i64) -> Result<Arc<Pixmap>> {
         bail!("CAPTION_RESOURCE_MISSING")
@@ -74,8 +75,12 @@ fn padding(materials: &[CaptionMaterial]) -> u32 {
             | CaptionMaterial::SoftBand { .. }
             | CaptionMaterial::GradientSmear { .. }
             | CaptionMaterial::AngularSampleBlend { .. }
+            | CaptionMaterial::AffineSampleBlend { .. }
+            | CaptionMaterial::AffineOver { .. }
             | CaptionMaterial::NoisePaletteMix { .. }
+            | CaptionMaterial::NoiseDisplace { .. }
             | CaptionMaterial::GaussianAxis { .. }
+            | CaptionMaterial::GaussianUv { .. }
             | CaptionMaterial::GlowCascade { .. } => 0,
             CaptionMaterial::Feedback {
                 samples, offset, ..
@@ -223,7 +228,10 @@ impl ScenePlan {
             .iter()
             .map(|material| match material {
                 CaptionMaterial::GlowCascade { levels, .. } => levels.len() as u64 + 4,
-                CaptionMaterial::GaussianAxis { .. } => 4,
+                CaptionMaterial::GaussianAxis { .. }
+                | CaptionMaterial::AffineSampleBlend { .. } => 4,
+                CaptionMaterial::AffineOver { .. } => 4,
+                CaptionMaterial::GaussianUv { .. } => 4,
                 _ => 2,
             })
             .sum::<u64>()
@@ -278,6 +286,7 @@ impl ScenePlan {
                             render_raster::drawop::AssociatedBlend::SourceOver
                         }
                         CaptionLayerBlend::Screen => render_raster::drawop::AssociatedBlend::Screen,
+                        CaptionLayerBlend::Add => render_raster::drawop::AssociatedBlend::Add,
                     },
                     opacity: 1.0,
                     tf: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
@@ -292,7 +301,7 @@ impl ScenePlan {
         }
         Ok((builder.finish(), hits))
     }
-    fn material_page_context(
+    pub(super) fn material_page_context(
         &mut self,
         ci: usize,
         t: f64,
@@ -383,15 +392,7 @@ impl ScenePlan {
             ));
         }
         match &materials[prefix - 1] {
-            CaptionMaterial::NoisySweep {
-                id,
-                context_node_id,
-                domain,
-                position,
-                mask_scale,
-                reveal,
-                uv_y,
-            } => {
+            CaptionMaterial::NoisySweep { .. } => {
                 let (mut source, hits) = self.material_prefix(
                     ci,
                     t,
@@ -403,33 +404,30 @@ impl ScenePlan {
                     budget,
                     work,
                 )?;
-                let Some(mut context) =
-                    self.material_page_context(ci, t, context_node_id, budget)?
+                let Some(MaterialCommand::NoisySweep {
+                    domain,
+                    position,
+                    mask_scale,
+                    reveal,
+                    flip_y,
+                }) = self.resolve_material_command(ci, t, &materials[prefix - 1], budget)?
                 else {
                     source.data_mut().fill(0);
                     return Ok((source, vec![]));
                 };
-                context.stable_key.push_str(&format!("|material|{id}"));
-                let rect = sample_domain(domain, self.style.scene(), &context, t, budget)?;
-                let position = component_uniform(
-                    position,
-                    self.style.scene(),
-                    &context,
-                    t,
-                    budget,
-                    0.0,
-                    -1024.0,
-                    1024.0,
-                )?;
                 Ok((
-                    super::noisy_sweep::apply(
+                    render_raster::effects::noisy_sweep::apply(
                         &source,
                         pad,
-                        rect,
+                        domain,
                         position,
-                        *mask_scale,
-                        *reveal,
-                        *uv_y,
+                        mask_scale,
+                        reveal,
+                        if flip_y {
+                            render_raster::effects::noisy_sweep::UvY::Up
+                        } else {
+                            render_raster::effects::noisy_sweep::UvY::Down
+                        },
                         |n| work.samples(n),
                     )?,
                     hits,
@@ -688,6 +686,76 @@ impl ScenePlan {
                 )?;
                 Ok((source, hits))
             }
+            CaptionMaterial::NoiseDisplace {
+                id,
+                context_node_id,
+                domain,
+                noise_scale,
+                phase,
+                brightness,
+                contrast,
+                strength,
+            } => {
+                let (source, hits) = self.material_prefix(
+                    ci,
+                    t,
+                    materials,
+                    source_spec,
+                    prefix - 1,
+                    pad,
+                    size,
+                    budget,
+                    work,
+                )?;
+                let Some(mut context) =
+                    self.material_page_context(ci, t, context_node_id, budget)?
+                else {
+                    let mut source = source;
+                    source.data_mut().fill(0);
+                    return Ok((source, vec![]));
+                };
+                context.stable_key.push_str(&format!("|material|{id}"));
+                let scene = self.style.scene();
+                let mut uniform = |value, low, high| {
+                    component_uniform(value, scene, &context, t, budget, 0.0, low, high)
+                };
+                let phase = uniform(phase, -1_000_000.0, 1_000_000.0)?;
+                let brightness = uniform(brightness, -16.0, 16.0)?;
+                let contrast = uniform(contrast, 0.0, 1000.0)?;
+                let strength = uniform(strength, -16.0, 16.0)?;
+                let mut rect = [0.0; 4];
+                for (index, value) in [&domain.x, &domain.y, &domain.width, &domain.height]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let Some(value) =
+                        sample_value(value, ValueType::Length, scene, &context, t, budget)?
+                    else {
+                        let mut source = source;
+                        source.data_mut().fill(0);
+                        return Ok((source, vec![]));
+                    };
+                    rect[index] = value.number()?;
+                }
+                // Fixed noise kernel plus four bilinear taps per destination pixel,
+                // charged for the full surface before evaluating any pixels.
+                for _ in 0..36 {
+                    work.spend(size.0, size.1)?;
+                }
+                let out = super::noise_displace::apply(
+                    &source,
+                    pad,
+                    &super::noise_displace::NoiseDisplace {
+                        domain: rect,
+                        noise_scale: *noise_scale,
+                        phase,
+                        brightness,
+                        contrast,
+                        strength,
+                    },
+                )?;
+                Ok((out, hits))
+            }
             CaptionMaterial::GradientSmear {
                 id,
                 context_node_id,
@@ -840,16 +908,7 @@ impl ScenePlan {
                     })?;
                 Ok((image, hits))
             }
-            CaptionMaterial::GaussianAxis {
-                id,
-                context_node_id,
-                axis,
-                samples,
-                step_uv,
-                sigma_uv,
-                gamma,
-                boundary,
-            } => {
+            CaptionMaterial::AffineOver { .. } => {
                 let (mut source, hits) = self.material_prefix(
                     ci,
                     t,
@@ -861,59 +920,94 @@ impl ScenePlan {
                     budget,
                     work,
                 )?;
-                let Some(mut context) =
-                    self.material_page_context(ci, t, context_node_id, budget)?
+                let Some(config) =
+                    self.resolve_affine_over(ci, t, &materials[prefix - 1], budget)?
                 else {
                     source.data_mut().fill(0);
                     return Ok((source, vec![]));
                 };
-                context.stable_key.push_str(&format!("|material|{id}"));
                 work.spend(self.width, self.height)?;
                 let input = component_crop(&source, pad, (self.width, self.height))?;
-                let scene = self.style.scene();
-                let sample_count =
-                    component_uniform(samples, scene, &context, t, budget, 0.0, 0.0, 1024.0)?;
-                let step = component_uniform(step_uv, scene, &context, t, budget, 0.0, 0.0, 1.0)?;
-                let sigma =
-                    component_uniform(sigma_uv, scene, &context, t, budget, 0.0, 0.0, 1024.0)?;
-                let dimension = f64::from(if *axis == WaveAxis::X {
-                    input.width()
-                } else {
-                    input.height()
-                });
-                let pass = filters::GaussianPass {
-                    axis: if *axis == WaveAxis::X {
-                        filters::Axis::X
-                    } else {
-                        filters::Axis::Y
-                    },
-                    sample_count,
-                    step_pixels: step * dimension,
-                    sigma_pixels: sigma * dimension,
-                    gamma: (*gamma != 1.0).then_some(*gamma),
-                    boundary: match boundary {
-                        ComponentBoundary::Normalize => filters::Boundary::Normalize,
-                        ComponentBoundary::Replicate => filters::Boundary::Replicate,
-                        ComponentBoundary::Transparent => filters::Boundary::Transparent,
-                    },
-                    output: input.size(),
+                let image =
+                    filters::affine_over::apply(&input, &config, |count| work.samples(count))?;
+                work.spend(size.0, size.1)?;
+                Ok((component_surface(image, pad, size)?, hits))
+            }
+            CaptionMaterial::AffineSampleBlend { .. } => {
+                let (mut source, hits) = self.material_prefix(
+                    ci,
+                    t,
+                    materials,
+                    source_spec,
+                    prefix - 1,
+                    pad,
+                    size,
+                    budget,
+                    work,
+                )?;
+                let Some(config) =
+                    self.resolve_affine_samples(ci, t, &materials[prefix - 1], budget)?
+                else {
+                    source.data_mut().fill(0);
+                    return Ok((source, vec![]));
                 };
+                work.spend(self.width, self.height)?;
+                let input = component_crop(&source, pad, (self.width, self.height))?;
+                let image =
+                    filters::affine_samples::apply(&input, &config, |count| work.samples(count))?;
+                work.spend(size.0, size.1)?;
+                Ok((component_surface(image, pad, size)?, hits))
+            }
+            CaptionMaterial::GaussianUv { .. } => {
+                let (mut source, hits) = self.material_prefix(
+                    ci,
+                    t,
+                    materials,
+                    source_spec,
+                    prefix - 1,
+                    pad,
+                    size,
+                    budget,
+                    work,
+                )?;
+                let Some(config) =
+                    self.resolve_gaussian_uv(ci, t, &materials[prefix - 1], budget)?
+                else {
+                    source.data_mut().fill(0);
+                    return Ok((source, vec![]));
+                };
+                work.spend(self.width, self.height)?;
+                let input = component_crop(&source, pad, (self.width, self.height))?;
+                let image = filters::gaussian_uv::apply(&input, &config, |n| work.samples(n))?;
+                work.spend(size.0, size.1)?;
+                Ok((component_surface(image, pad, size)?, hits))
+            }
+            CaptionMaterial::GaussianAxis { .. } => {
+                let (mut source, hits) = self.material_prefix(
+                    ci,
+                    t,
+                    materials,
+                    source_spec,
+                    prefix - 1,
+                    pad,
+                    size,
+                    budget,
+                    work,
+                )?;
+                let Some(MaterialCommand::Gaussian(pass)) =
+                    self.resolve_material_command(ci, t, &materials[prefix - 1], budget)?
+                else {
+                    source.data_mut().fill(0);
+                    return Ok((source, vec![]));
+                };
+                work.spend(self.width, self.height)?;
+                let input = component_crop(&source, pad, (self.width, self.height))?;
                 work.components(filters::estimate_gaussian_reads(&input, pass)?)?;
                 let image = filters::gaussian(&input, pass)?;
                 work.spend(size.0, size.1)?;
                 Ok((component_surface(image, pad, size)?, hits))
             }
-            CaptionMaterial::GlowCascade {
-                id,
-                context_node_id,
-                levels,
-                gamma,
-                intensity,
-                original_opacity,
-                glow_tint,
-                glow_color_matrix,
-                composite,
-            } => {
+            CaptionMaterial::GlowCascade { .. } => {
                 let (mut source, hits) = self.material_prefix(
                     ci,
                     t,
@@ -925,68 +1019,14 @@ impl ScenePlan {
                     budget,
                     work,
                 )?;
-                let Some(mut context) =
-                    self.material_page_context(ci, t, context_node_id, budget)?
+                let Some(MaterialCommand::Glow(config)) =
+                    self.resolve_material_command(ci, t, &materials[prefix - 1], budget)?
                 else {
                     source.data_mut().fill(0);
                     return Ok((source, vec![]));
                 };
-                context.stable_key.push_str(&format!("|material|{id}"));
                 work.spend(self.width, self.height)?;
                 let input = component_crop(&source, pad, (self.width, self.height))?;
-                let scene = self.style.scene();
-                let mut converted = Vec::with_capacity(levels.len());
-                let mut input_size = input.size();
-                for level in levels {
-                    let x = component_stage(
-                        &level.horizontal,
-                        filters::Axis::X,
-                        input_size,
-                        input.size(),
-                        *gamma,
-                        scene,
-                        &context,
-                        t,
-                        budget,
-                    )?;
-                    let y = component_stage(
-                        &level.vertical,
-                        filters::Axis::Y,
-                        x.output,
-                        input.size(),
-                        *gamma,
-                        scene,
-                        &context,
-                        t,
-                        budget,
-                    )?;
-                    input_size = y.output;
-                    converted.push(filters::GlowLevel { x, y });
-                }
-                let config = filters::GlowConfig {
-                    levels: converted,
-                    gamma: *gamma,
-                    intensity: component_uniform(
-                        intensity, scene, &context, t, budget, 0.0, 0.0, 16.0,
-                    )?,
-                    original_opacity: component_uniform(
-                        original_opacity,
-                        scene,
-                        &context,
-                        t,
-                        budget,
-                        1.0,
-                        0.0,
-                        1.0,
-                    )?,
-                    glow_tint: component_glow_tint(glow_tint.as_ref(), scene, &context, t, budget)?,
-                    glow_color_matrix: glow_color_matrix.unwrap_or(filters::IDENTITY_GLOW_MATRIX),
-                    composite: match composite {
-                        GlowComposite::Screen => filters::GlowComposite::Screen,
-                        GlowComposite::SourceOverGlow => filters::GlowComposite::SourceOverGlow,
-                    },
-                    output: input.size(),
-                };
                 if filters::estimate_glow_peak_bytes(input.size(), &config)? > MAX_SURFACE_BYTES {
                     bail!("CAPTION_BUDGET_EXCEEDED: component surfaces");
                 }
@@ -1000,11 +1040,22 @@ impl ScenePlan {
                 step,
                 decay,
                 offset,
+                composite,
                 ..
             } => {
                 let mut out = Pixmap::new(size.0, size.1)
                     .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: surface"))?;
                 let mut hits = Vec::new();
+                // Mean: each in-cue sample lands on its own transparent surface
+                // through the same placement path, then premultiplied bytes are
+                // averaged with integer round-half-up over the in-cue count.
+                let mean = *composite == FeedbackComposite::Mean;
+                let mut sums = if mean {
+                    vec![0u32; out.data().len()]
+                } else {
+                    Vec::new()
+                };
+                let mut count = 0u32;
                 for i in (0..=*samples).rev() {
                     let past = t - step.seconds() * f64::from(i);
                     if past < self.cues[ci].start || past >= self.cues[ci].end {
@@ -1032,9 +1083,18 @@ impl ScenePlan {
                         hits = current_hits;
                     }
                     work.spend(size.0, size.1)?;
+                    let mut sample_surface =
+                        if mean {
+                            Some(Pixmap::new(size.0, size.1).ok_or_else(|| {
+                                anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: surface")
+                            })?)
+                        } else {
+                            None
+                        };
+                    let target = sample_surface.as_mut().unwrap_or(&mut out);
                     if component_stack(&materials[..prefix - 1]) {
                         render_raster::emissive::composite_associated(
-                            &mut out,
+                            target,
                             source.as_ref(),
                             alpha as f32,
                             [
@@ -1048,7 +1108,7 @@ impl ScenePlan {
                             None,
                         )?;
                     } else {
-                        out.draw_pixmap(
+                        target.draw_pixmap(
                             0,
                             0,
                             source.as_ref(),
@@ -1063,6 +1123,18 @@ impl ScenePlan {
                             None,
                         );
                     }
+                    if let Some(sample) = sample_surface {
+                        work.spend(size.0, size.1)?;
+                        for (sum, byte) in sums.iter_mut().zip(sample.data()) {
+                            *sum += u32::from(*byte);
+                        }
+                        count += 1;
+                    }
+                }
+                if mean && count > 0 {
+                    for (byte, sum) in out.data_mut().iter_mut().zip(&sums) {
+                        *byte = ((sum + count / 2) / count) as u8;
+                    }
                 }
                 Ok((out, hits))
             }
@@ -1076,15 +1148,18 @@ fn component_stack(materials: &[CaptionMaterial]) -> bool {
             material,
             CaptionMaterial::NoisySweep { .. }
                 | CaptionMaterial::AngularSampleBlend { .. }
+                | CaptionMaterial::AffineSampleBlend { .. }
+                | CaptionMaterial::AffineOver { .. }
                 | CaptionMaterial::GradientSmear { .. }
                 | CaptionMaterial::NoisePaletteMix { .. }
                 | CaptionMaterial::GaussianAxis { .. }
+                | CaptionMaterial::GaussianUv { .. }
                 | CaptionMaterial::GlowCascade { .. }
         )
     })
 }
 
-fn component_uniform(
+pub(super) fn component_uniform(
     value: &DynamicValue,
     scene: &Scene,
     context: &Context,
@@ -1103,7 +1178,7 @@ fn component_uniform(
     }
     Ok(value)
 }
-fn component_glow_tint(
+pub(super) fn component_glow_tint(
     value: Option<&DynamicValue>,
     scene: &Scene,
     context: &Context,
@@ -1128,8 +1203,32 @@ fn component_glow_tint(
     // The alpha channel is validated as color data but is never a glow gain.
     Ok([color[0], color[1], color[2]])
 }
+pub(super) fn component_level_color(
+    value: Option<&DynamicValue>,
+    scene: &Scene,
+    context: &Context,
+    t: f64,
+    budget: &mut Budget,
+) -> Result<Option<[f64; 4]>> {
+    // Unlike glowTint, a missing keyframe value means no level color, never white.
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let color = match sample_value(value, ValueType::Color, scene, context, t, budget)? {
+        Some(Evaluated::Color(color)) => color,
+        None => return Ok(None),
+        _ => bail!("CAPTION_MATERIAL_INVALID: glow level color"),
+    };
+    if color
+        .iter()
+        .any(|c| !c.is_finite() || !(0.0..=1.0).contains(c))
+    {
+        bail!("CAPTION_MATERIAL_INVALID: glow level color");
+    }
+    Ok(Some(color))
+}
 
-fn component_stage(
+pub(super) fn component_stage(
     stage: &GaussianStage,
     axis: filters::Axis,
     input: filters::Size,
@@ -1153,6 +1252,8 @@ fn component_stage(
         input.height
     });
     Ok(filters::GaussianPass {
+        sampling: None,
+        spacing_ramp: None,
         axis,
         sample_count: component_uniform(
             &stage.samples,
@@ -1285,7 +1386,7 @@ fn wave_displace(
 }
 
 /// Coordinates here index texel centers (integer zero is the first center).
-fn bilinear_transparent(source: &Pixmap, x: f64, y: f64) -> [u8; 4] {
+pub(super) fn bilinear_transparent(source: &Pixmap, x: f64, y: f64) -> [u8; 4] {
     let left = libm::floor(x) as i64;
     let top = libm::floor(y) as i64;
     let dx = x - left as f64;
@@ -1787,7 +1888,7 @@ mod glow_tint_tests {
     }
 }
 
-fn sample_domain(
+pub(super) fn sample_domain(
     domain: &MaterialDomain,
     scene: &Scene,
     context: &Context,
@@ -1820,46 +1921,16 @@ impl ScenePlan {
         budget: &mut Budget,
         work: &mut Work,
     ) -> Result<(Pixmap, Vec<SceneHit>)> {
-        let CaptionLayerSource::ImageSequence {
-            context_node_id,
-            sequence_id,
-            frame,
-            domain,
-            uv_scale,
-            uv_offset,
-        } = source
-        else {
-            unreachable!()
-        };
         work.spend(size.0, size.1)?;
         let mut out = Pixmap::new(size.0, size.1)
             .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: sequence surface"))?;
-        let Some(context) = self.material_page_context(ci, t, context_node_id, budget)? else {
+        let Some(quad) = self.resolve_sequence_quad(ci, t, source, budget)? else {
             return Ok((out, vec![]));
         };
-        let count = self
-            .style
-            .scene()
-            .sequences
-            .iter()
-            .find(|s| &s.id == sequence_id)
-            .unwrap()
-            .frames
-            .len();
-        let index = component_uniform(
-            frame,
-            self.style.scene(),
-            &context,
-            t,
-            budget,
-            0.0,
-            0.0,
-            (count - 1) as f64,
-        )?;
-        let rect = sample_domain(domain, self.style.scene(), &context, t, budget)?;
-        let bitmap = self
-            .sequences
-            .frame(sequence_id, libm::floor(index) as usize)?;
+        let bitmap = quad.bitmap;
+        let rect = quad.domain;
+        let uv_scale = quad.uv_scale;
+        let uv_offset = quad.uv_offset;
         let x0 = libm::floor(rect[0] + f64::from(pad))
             .max(0.0)
             .min(f64::from(size.0)) as u32;

@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const CAPABILITIES: &[&str] = &[
     "caption-render-layers/1",
+    "caption-layer-add/1",
     "caption-image-sequence/1",
     "caption-noisy-sweep/1",
     "caption-bound-label/1",
@@ -14,6 +15,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-page-envelope/1",
     "caption-unit-context/1",
     "caption-cue-word-context/1",
+    "caption-speech-phase/1",
     "caption-first-page-context/1",
     "caption-cue-unit-context/1",
     "caption-active-word-context/1",
@@ -31,18 +33,43 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-permutation/1",
     "caption-function-dag/1",
     "caption-bezier-expression/1",
+    "caption-exponential-expression/1",
+    "caption-rounding-expression/1",
+    "caption-modular-expression/1",
+    "caption-power-expression/1",
+    "caption-list-pick/1",
+    "caption-clock-tail/1",
     "caption-unit-animation/1",
     "caption-image-png/1",
+    "caption-image-paint/1",
     "caption-paint-stack/1",
+    "caption-paint-effects/1",
+    "caption-paint-coverage/1",
+    "caption-gradient-space/1",
+    "caption-gradient-glyph/1",
+    "caption-font-line-box/1",
+    "caption-font-source/1",
+    "caption-font-hinting/1",
+    "caption-font-shaping/1",
+    "caption-image-phase-float32/1",
+    "caption-text-transform/1",
     "caption-blur/1",
     "caption-feedback/1",
+    "caption-feedback-mean/1",
     "caption-wave-displace/1",
     "caption-soft-band/1",
     "caption-noise-palette-mix/1",
+    "caption-noise-displace/1",
     "caption-angular-sample-blend/1",
+    "caption-affine-sample-blend/1",
+    "caption-affine-over/1",
+    "caption-gaussian-uv/1",
     "caption-gradient-smear/1",
     "caption-gaussian-axis/1",
+    "caption-gaussian-spacing-ramp/1",
+    "caption-gaussian-sampling/1",
     "caption-glow-cascade/1",
+    "caption-glow-linear/1",
     "caption-glow-tint/1",
     "caption-glow-color-matrix/1",
     "caption-layout-per-sample/1",
@@ -53,6 +80,8 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-word-line-layout/1",
     "caption-word-page-layout/1",
     "caption-text-line-layout/1",
+    "caption-pattern-select/1",
+    "caption-keyword-isolation/1",
     "caption-scalar-cluster-layout/1",
 ];
 pub fn property_type(property: &str) -> Option<ValueType> {
@@ -77,10 +106,40 @@ pub fn validate_style(style: &SceneStyle) -> Result<()> {
     parameters(style.scene(), &[&style.parameters])?;
     Ok(())
 }
+/// Elements in one list parameter, and across all resolved list parameters.
+pub const MAX_LIST_PARAMETER_ITEMS: usize = 256;
+pub const MAX_LIST_PARAMETER_TOTAL: usize = 1024;
+/// Typed value of one declared parameter; lists are nonempty arrays whose elements obey min/max.
+fn parameter_value(p: &Parameter, value: &Value, path: &str) -> Result<Evaluated> {
+    let check = |v: &Evaluated| match v {
+        Evaluated::Number(_, n) if p.min.is_some_and(|v| *n < v) || p.max.is_some_and(|v| *n > v) => {
+            Err(invalid(path, "parameter out of range"))
+        }
+        _ => Ok(()),
+    };
+    if !p.list {
+        let v = typed_value(p.value_type, value)?;
+        check(&v)?;
+        return Ok(v);
+    }
+    let items = value
+        .as_array()
+        .filter(|items| (1..=MAX_LIST_PARAMETER_ITEMS).contains(&items.len()))
+        .ok_or_else(|| invalid(path, "list parameter requires 1..256 elements"))?;
+    let items = items
+        .iter()
+        .map(|item| {
+            let v = typed_value(p.value_type, item)?;
+            check(&v)?;
+            Ok(v)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(Evaluated::List(p.value_type, items))
+}
 pub fn parameters(scene: &Scene, overrides: &[&BTreeMap<String, Value>]) -> Result<BTreeMap<String, Evaluated>> {
     let mut out = BTreeMap::new();
     for p in &scene.parameters {
-        out.insert(format!("params.{}", p.id), typed_value(p.value_type, &p.default)?);
+        out.insert(format!("params.{}", p.id), parameter_value(p, &p.default, &p.id)?);
     }
     for layer in overrides {
         for (id, value) in *layer {
@@ -89,14 +148,18 @@ pub fn parameters(scene: &Scene, overrides: &[&BTreeMap<String, Value>]) -> Resu
                 .iter()
                 .find(|p| p.id == *id)
                 .ok_or_else(|| invalid(format!("parameters.{id}"), "undeclared parameter"))?;
-            let v = typed_value(p.value_type, value)?;
-            if let Evaluated::Number(_, n) = v {
-                if p.min.is_some_and(|v| n < v) || p.max.is_some_and(|v| n > v) {
-                    return Err(invalid(id, "parameter out of range"));
-                }
-            }
-            out.insert(format!("params.{id}"), v);
+            out.insert(format!("params.{id}"), parameter_value(p, value, id)?);
         }
+    }
+    let list_items: usize = out
+        .values()
+        .map(|v| match v {
+            Evaluated::List(_, items) => items.len(),
+            _ => 0,
+        })
+        .sum();
+    if list_items > MAX_LIST_PARAMETER_TOTAL {
+        return Err(Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "parameters", "list parameter elements"));
     }
     Ok(out)
 }
@@ -130,12 +193,23 @@ pub fn validate_presentation(p: &Presentation, scene: Option<&Scene>) -> Result<
 fn name(id: &str) -> bool {
     !id.is_empty() && id.len() <= 128 && id.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
 }
-fn paint(paint: &ScenePaint, path: &str) -> Result<()> {
+/// Shape fill paints are a solid colour or a linear gradient over the normalized shape rect.
+fn shape_fill_paint(paint: &ScenePaint, path: &str) -> Result<()> {
     match paint {
         ScenePaint::Solid { color: c } => {
             color(c)?;
         }
-        ScenePaint::Linear { from, to, stops } => {
+        ScenePaint::Linear {
+            from,
+            to,
+            stops,
+            space,
+            domain,
+            glyph_outset,
+        } => {
+            if *space != GradientSpace::Local || *domain != GradientDomain::Line || *glyph_outset != 0.0 {
+                return Err(invalid(path, "shape fill gradients take no space, domain or glyphOutset"));
+            }
             if from == to
                 || from.iter().chain(to).any(|n| !n.is_finite() || n.abs() > 16.0)
                 || stops.len() < 2
@@ -149,6 +223,9 @@ fn paint(paint: &ScenePaint, path: &str) -> Result<()> {
                 color(&stop.color)?;
             }
         }
+        ScenePaint::Image { .. } | ScenePaint::NodeFill => {
+            return Err(invalid(path, "shape fill paints are solid or linear"));
+        }
     }
     Ok(())
 }
@@ -158,7 +235,7 @@ fn length(v: &Length, path: &str, scene: &Scene) -> Result<()> {
         if !scene
             .parameters
             .iter()
-            .any(|p| p.id == *id && matches!(p.value_type, ValueType::Scalar | ValueType::Integer))
+            .any(|p| p.id == *id && !p.list && matches!(p.value_type, ValueType::Scalar | ValueType::Integer))
         {
             return Err(invalid(path, "layout parameter must be a declared scalar"));
         }
@@ -207,24 +284,13 @@ fn validate_word_page_pattern(scene: &Scene) -> Result<()> {
     }
     Ok(())
 }
-fn validate_word_line_pattern(layout: &Layout) -> Result<()> {
-    let pagination = &layout.pagination;
-    let Some(pattern) = &pagination.word_line_pattern else {
-        if pagination.last_page_rule.is_some() {
-            return Err(invalid("pagination.lastPageRule", "wordLinePattern required"));
-        }
-        return Ok(());
-    };
+fn validate_word_rows(layout: &Layout, pattern: &[Vec<usize>], rule: Option<&LastPageRule>, path: &str) -> Result<()> {
     let valid_rows =
         |rows: &[usize]| !rows.is_empty() && rows.len() <= layout.max_lines && rows.iter().all(|n| (1..=MAX_UNITS).contains(n));
-    if pagination.max_units_per_page.is_some() || pattern.is_empty() || pattern.len() > 256 || !pattern.iter().all(|rows| valid_rows(rows))
-    {
-        return Err(invalid(
-            "pagination.wordLinePattern",
-            "bounded nonempty word rows required; maxUnitsPerPage is exclusive",
-        ));
+    if pattern.is_empty() || pattern.len() > 256 || !pattern.iter().all(|rows| valid_rows(rows)) {
+        return Err(invalid(path, "bounded nonempty word rows required; maxUnitsPerPage is exclusive"));
     }
-    if let Some(rule) = &pagination.last_page_rule {
+    if let Some(rule) = rule {
         let largest_page: usize = pattern.iter().map(|rows| rows.iter().sum()).max().unwrap();
         if !(1..=MAX_UNITS).contains(&rule.if_row_count_is)
             || !valid_rows(&rule.previous_page_lines)
@@ -234,6 +300,124 @@ fn validate_word_line_pattern(layout: &Layout) -> Result<()> {
                 "pagination.lastPageRule",
                 "replacement rows must preserve or increase every pattern page capacity",
             ));
+        }
+    }
+    Ok(())
+}
+fn validate_word_line_pattern(scene: &Scene) -> Result<()> {
+    let layout = &scene.layout;
+    let pagination = &layout.pagination;
+    validate_pattern_select(scene)?;
+    validate_isolation(scene)?;
+    let Some(pattern) = &pagination.word_line_pattern else {
+        if pagination.last_page_rule.is_some() {
+            return Err(invalid("pagination.lastPageRule", "wordLinePattern required"));
+        }
+        return Ok(());
+    };
+    if pagination.max_units_per_page.is_some() {
+        return Err(invalid(
+            "pagination.wordLinePattern",
+            "bounded nonempty word rows required; maxUnitsPerPage is exclusive",
+        ));
+    }
+    validate_word_rows(layout, pattern, pagination.last_page_rule.as_ref(), "pagination.wordLinePattern")
+}
+/// `pagination.patternSelect` chooses one fixed word line plan per cue and text node.
+fn validate_pattern_select(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    let Some(select) = &pagination.pattern_select else {
+        return Ok(());
+    };
+    let path = "pagination.patternSelect";
+    if !scene.required_capabilities.iter().any(|c| c == "caption-pattern-select/1") {
+        return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", path, "caption-pattern-select/1"));
+    }
+    if pagination.word_line_pattern.is_some()
+        || pagination.text_line_pattern.is_some()
+        || pagination.max_units_per_page.is_some()
+        || pagination.last_page_rule.is_some()
+    {
+        return Err(invalid(
+            path,
+            "patternSelect is exclusive with wordLinePattern, textLinePattern, maxUnitsPerPage and lastPageRule",
+        ));
+    }
+    if other_word_plans(pagination) {
+        return Err(invalid(path, "patternSelect is exclusive with the other word page and row plan fields"));
+    }
+    if select.candidates.is_empty() || select.candidates.len() > 64 {
+        return Err(invalid(path, "1..64 candidates required"));
+    }
+    let mut ids = BTreeSet::new();
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+    let last = select.candidates.len() - 1;
+    for (i, candidate) in select.candidates.iter().enumerate() {
+        if !name(&candidate.id) || !ids.insert(candidate.id.as_str()) {
+            return Err(invalid(path, "candidate ids must be valid and unique"));
+        }
+        validate_word_rows(&scene.layout, &candidate.word_line_pattern, candidate.last_page_rule.as_ref(), path)?;
+        match (select.by, candidate.min_words, candidate.max_words) {
+            (PatternSelectBy::Seed, None, None) => {}
+            (PatternSelectBy::Seed, _, _) => return Err(invalid(path, "seed selection takes no word ranges")),
+            (PatternSelectBy::WordCount, None, None) if i == last => {}
+            (PatternSelectBy::WordCount, Some(lo), Some(hi)) if i != last && lo <= hi && hi <= MAX_UNITS => {
+                if ranges.iter().any(|&(a, b)| lo <= b && a <= hi) {
+                    return Err(invalid(path, "word ranges must not overlap"));
+                }
+                ranges.push((lo, hi));
+            }
+            (PatternSelectBy::WordCount, _, _) => {
+                return Err(invalid(
+                    path,
+                    "word-count candidates need inclusive minWords..maxWords except one final range-less fallback",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+/// `pagination.isolation` turns word tags into hard row/page boundaries.
+/// Word page and row plan fields that pattern selection and keyword isolation are not defined with.
+fn other_word_plans(pagination: &Pagination) -> bool {
+    pagination.word_page_pattern.is_some()
+        || pagination.max_units_per_line.is_some()
+        || pagination.tail_word_rule.is_some()
+        || pagination.remaining_word_page_plans.is_some()
+        || pagination.fixed_line_overflow.is_some()
+        || pagination.fixed_line_fit.is_some()
+        || pagination.page_tags.is_some()
+}
+fn validate_isolation(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    if pagination.isolation.is_empty() {
+        return Ok(());
+    }
+    let path = "pagination.isolation";
+    if !scene.required_capabilities.iter().any(|c| c == "caption-keyword-isolation/1") {
+        return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", path, "caption-keyword-isolation/1"));
+    }
+    if pagination.word_line_pattern.is_none() && pagination.pattern_select.is_none() {
+        return Err(invalid(path, "wordLinePattern or patternSelect required"));
+    }
+    let rule_present = pagination.last_page_rule.is_some()
+        || pagination
+            .pattern_select
+            .as_ref()
+            .is_some_and(|select| select.candidates.iter().any(|c| c.last_page_rule.is_some()));
+    if rule_present {
+        return Err(invalid(path, "isolation is exclusive with lastPageRule"));
+    }
+    if other_word_plans(pagination) {
+        return Err(invalid(path, "isolation is exclusive with the other word page and row plan fields"));
+    }
+    if pagination.isolation.len() > 32 {
+        return Err(invalid(path, "at most 32 rules"));
+    }
+    let mut tags = BTreeSet::new();
+    for rule in &pagination.isolation {
+        if rule.tag.is_empty() || rule.tag.len() > 64 || !tags.insert(rule.tag.as_str()) {
+            return Err(invalid(path, "tags must be nonempty, at most 64 bytes and unique"));
         }
     }
     Ok(())
@@ -563,7 +747,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     }
     validate_word_page_pattern(s)?;
     validate_text_line_pattern(s)?;
-    validate_word_line_pattern(&s.layout)?;
+    validate_word_line_pattern(s)?;
     validate_line_unit_quota(s)?;
     validate_tail_word_rule(s)?;
     validate_remaining_word_page_plans(s)?;
@@ -580,19 +764,28 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         if !name(&p.id) || !ids.insert(&p.id) {
             return Err(invalid("parameters", "invalid or duplicate id"));
         }
-        let v = typed_value(p.value_type, &p.default)?;
+        if p.list && !s.required_capabilities.iter().any(|c| c == "caption-list-pick/1") {
+            return Err(Diagnostic::new(
+                "CAPTION_CAPABILITY_UNAVAILABLE",
+                &p.id,
+                "caption-list-pick/1 must be declared",
+            ));
+        }
         if p.min.is_some_and(|n| !n.is_finite())
             || p.max.is_some_and(|n| !n.is_finite())
             || matches!((p.min,p.max),(Some(a),Some(b)) if a>b)
         {
             return Err(invalid(&p.id, "invalid range"));
         }
-        if let Evaluated::Number(_, n) = v {
-            if p.min.is_some_and(|v| n < v) || p.max.is_some_and(|v| n > v) {
-                return Err(invalid(&p.id, "default out of range"));
+        parameter_value(p, &p.default, &p.id).map_err(|e| {
+            if e.detail == "parameter out of range" {
+                invalid(&p.id, "default out of range")
+            } else {
+                e
             }
-        }
+        })?;
     }
+    parameters(s, &[])?;
     let mut functions = BTreeSet::new();
     for f in &s.functions {
         if !name(&f.id)
@@ -622,6 +815,12 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 "ceil",
                 "smoothstep",
                 "sqrt",
+                "exp",
+                "round",
+                "mod",
+                "fract",
+                "pow",
+                "pick",
                 "cubic-bezier",
                 "shuffle-index",
             ]
@@ -689,6 +888,15 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         return Err(invalid(
             "renderLayers",
             "at most 8 independent layers, capability required; global materials must be empty",
+        ));
+    }
+    if s.render_layers.iter().any(|l| l.blend == CaptionLayerBlend::Add)
+        && !s.required_capabilities.iter().any(|c| c == "caption-layer-add/1")
+    {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_REQUIRED",
+            "renderLayers",
+            "caption-layer-add/1",
         ));
     }
     let mut layer_ids = BTreeSet::new();
@@ -897,6 +1105,40 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 }
                 id
             }
+            CaptionMaterial::NoiseDisplace {
+                id,
+                context_node_id,
+                domain,
+                noise_scale,
+                phase,
+                brightness,
+                contrast,
+                strength,
+            } => {
+                validate_component_context(s, &nodes, id, context_node_id, "caption-noise-displace/1", 1.0)?;
+                if noise_scale.iter().any(|v| !v.is_finite() || !(0.001..=1000.0).contains(v)) {
+                    return Err(invalid(id, "noiseScale components must be finite in 0.001..1000"));
+                }
+                validate_component_uniform(s, phase, -1_000_000.0, 1_000_000.0)?;
+                validate_component_uniform(s, brightness, -16.0, 16.0)?;
+                validate_component_uniform(s, contrast, 0.0, 1000.0)?;
+                validate_component_uniform(s, strength, -16.0, 16.0)?;
+                for (value, low) in [
+                    (&domain.x, -1_000_000.0),
+                    (&domain.y, -1_000_000.0),
+                    (&domain.width, 0.001),
+                    (&domain.height, 0.001),
+                ] {
+                    validate_value("width", value, s, UnitKind::Page)?;
+                    if let DynamicValue::Constant { value } = value {
+                        let n = typed_value(ValueType::Length, value)?.number()?;
+                        if !n.is_finite() || !(low..=1_000_000.0).contains(&n) {
+                            return Err(invalid(id, "material domain requires finite lengths and positive dimensions"));
+                        }
+                    }
+                }
+                id
+            }
             CaptionMaterial::GradientSmear {
                 id,
                 context_node_id,
@@ -988,6 +1230,120 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 }
                 id
             }
+            CaptionMaterial::AffineOver {
+                id,
+                context_node_id,
+                sampling,
+                foreground,
+                background,
+                background_opacity,
+                background_rgb_scale,
+                boundary,
+            } => {
+                validate_component_context(s, &nodes, id, context_node_id, "caption-affine-over/1", 1.0)?;
+                validate_sampling_domain(s, id, sampling)?;
+                if *boundary == ComponentBoundary::Normalize {
+                    return Err(invalid(id, "affine over boundary must be replicate or transparent"));
+                }
+                for coefficient in foreground.iter().chain(background) {
+                    validate_component_uniform(s, coefficient, -10_000.0, 10_000.0)?;
+                    if let DynamicValue::Keyframes { keys, .. } = coefficient {
+                        for key in keys {
+                            let n = typed_value(ValueType::Scalar, &key.value)?.number()?;
+                            if !n.is_finite() || n.abs() > 10_000.0 {
+                                return Err(invalid(id, "affine over coefficient range"));
+                            }
+                        }
+                    }
+                }
+                for value in [background_opacity, background_rgb_scale] {
+                    validate_component_uniform(s, value, 0.0, 1.0)?;
+                    if let DynamicValue::Keyframes { keys, .. } = value {
+                        for key in keys {
+                            let n = typed_value(ValueType::Scalar, &key.value)?.number()?;
+                            if !n.is_finite() || !(0.0..=1.0).contains(&n) {
+                                return Err(invalid(id, "affine over opacity/scale range"));
+                            }
+                        }
+                    }
+                }
+                id
+            }
+            CaptionMaterial::AffineSampleBlend {
+                id,
+                context_node_id,
+                sampling,
+                transforms,
+                sample_range,
+                distance_range,
+                ..
+            } => {
+                validate_component_context(s, &nodes, id, context_node_id, "caption-affine-sample-blend/1", 1.0)?;
+                validate_sampling_domain(s, id, sampling)?;
+                if !(2..=32).contains(&transforms.len()) {
+                    return Err(invalid(id, "affine path requires 2..32 transforms"));
+                }
+                for transform in transforms {
+                    for coefficient in transform {
+                        validate_component_uniform(s, coefficient, -10_000.0, 10_000.0)?;
+                        if let DynamicValue::Keyframes { keys, .. } = coefficient {
+                            for key in keys {
+                                let n = typed_value(ValueType::Scalar, &key.value)?.number()?;
+                                if !n.is_finite() || n.abs() > 10_000.0 {
+                                    return Err(invalid(id, "affine coefficients must be finite in -10000..10000"));
+                                }
+                            }
+                        }
+                    }
+                }
+                if sample_range[0] < 2 || sample_range[0] > sample_range[1] || sample_range[1] > 256 {
+                    return Err(invalid(id, "affine sample range requires 2 <= min <= max <= 256"));
+                }
+                if distance_range.iter().any(|n| !n.is_finite())
+                    || distance_range[0] < 0.0
+                    || distance_range[0] >= distance_range[1]
+                    || distance_range[1] > 16.0
+                {
+                    return Err(invalid(id, "affine distance range requires finite 0 <= lo < hi <= 16"));
+                }
+                id
+            }
+            CaptionMaterial::GaussianUv {
+                id,
+                context_node_id,
+                sampling,
+                samples,
+                step_uv,
+                sigma_uv,
+                rgb_gain,
+                ..
+            } => {
+                validate_component_context(s, &nodes, id, context_node_id, "caption-gaussian-uv/1", 1.)?;
+                validate_sampling_domain(s, id, sampling)?;
+                for (v, lo, hi) in [
+                    (samples, 0., 1024.),
+                    (&step_uv[0], -1., 1.),
+                    (&step_uv[1], -1., 1.),
+                    (sigma_uv, 0., 16.),
+                    (rgb_gain, 0., 10.),
+                ] {
+                    validate_component_uniform(s, v, lo, hi)?;
+                    if let DynamicValue::Keyframes { keys, .. } = v {
+                        for key in keys {
+                            let n = typed_value(ValueType::Scalar, &key.value)?.number()?;
+                            if !n.is_finite() || !(lo..=hi).contains(&n) {
+                                return Err(invalid(id, "Gaussian UV keyframe range"));
+                            }
+                        }
+                    }
+                }
+                if let (DynamicValue::Constant { value: n }, DynamicValue::Constant { value: sigma }) = (samples, sigma_uv) {
+                    if n.as_f64().is_some_and(|n| n >= 1.) && sigma.as_f64() == Some(0.) {
+                        return Err(invalid(id, "Gaussian UV sigma must be positive with taps"));
+                    }
+                }
+                id
+            }
             CaptionMaterial::GaussianAxis {
                 id,
                 context_node_id,
@@ -995,10 +1351,29 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 step_uv,
                 sigma_uv,
                 gamma,
+                spacing_ramp,
+                sampling,
                 ..
             } => {
                 validate_component_context(s, &nodes, id, context_node_id, "caption-gaussian-axis/1", *gamma)?;
                 validate_gaussian_uniforms(s, samples, step_uv, sigma_uv)?;
+                if sampling.is_some() || spacing_ramp.as_ref().is_some_and(|ramp| ramp.sample_order.is_some()) {
+                    validate_component_context(s, &nodes, id, context_node_id, "caption-gaussian-sampling/1", *gamma)?;
+                }
+                if let Some(sampling) = sampling {
+                    validate_sampling_domain(s, id, sampling)?;
+                }
+                if let Some(ramp) = spacing_ramp {
+                    validate_component_context(s, &nodes, id, context_node_id, "caption-gaussian-spacing-ramp/1", *gamma)?;
+                    validate_material_domain(s, &ramp.domain)?;
+                    validate_component_uniform(s, &ramp.start, -1024.0, 1024.0)?;
+                    validate_component_uniform(s, &ramp.end, -1024.0, 1024.0)?;
+                    if let (DynamicValue::Constant { value: a }, DynamicValue::Constant { value: b }) = (&ramp.start, &ramp.end) {
+                        if typed_value(ValueType::Scalar, b)?.number()? <= typed_value(ValueType::Scalar, a)?.number()? {
+                            return Err(invalid(id, "Gaussian spacing ramp end must exceed start"));
+                        }
+                    }
+                }
                 id
             }
             CaptionMaterial::GlowCascade {
@@ -1010,11 +1385,35 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 original_opacity,
                 glow_tint,
                 glow_color_matrix,
-                ..
+                gamma_channels,
+                aggregation,
+                level_gains,
+                level_color,
+                composite,
             } => {
                 validate_component_context(s, &nodes, id, context_node_id, "caption-glow-cascade/1", *gamma)?;
-                if levels.is_empty() || levels.len() > 7 {
-                    return Err(invalid(id, "glow requires 1..7 finite levels"));
+                let linear_extension = gamma_channels.is_some()
+                    || aggregation.is_some()
+                    || level_gains.is_some()
+                    || level_color.is_some()
+                    || levels.len() == 8
+                    || *composite == GlowComposite::OriginalOverScreen;
+                if linear_extension && !s.required_capabilities.iter().any(|c| c == "caption-glow-linear/1") {
+                    return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", id, "caption-glow-linear/1"));
+                }
+                if levels.is_empty() || levels.len() > 8 {
+                    return Err(invalid(id, "glow requires 1..8 finite levels"));
+                }
+                if (level_gains.is_some() || level_color.is_some()) && *aggregation != Some(GlowAggregation::Linear) {
+                    return Err(invalid(id, "glow level gains and level color require linear aggregation"));
+                }
+                if let Some(gains) = level_gains {
+                    if gains.len() != levels.len() || gains.iter().any(|g| !g.is_finite() || !(0.0..=2.0).contains(g)) {
+                        return Err(invalid(id, "glow level gains need one finite value in 0..2 per level"));
+                    }
+                }
+                if let Some(color) = level_color {
+                    validate_value("fill", color, s, UnitKind::Page)?;
                 }
                 validate_component_uniform(s, intensity, 0.0, 16.0)?;
                 validate_component_uniform(s, original_opacity, 0.0, 1.0)?;
@@ -1048,6 +1447,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 step,
                 decay,
                 offset,
+                composite,
             } => {
                 if *n == 0
                     || *n > 16
@@ -1063,6 +1463,14 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                         id,
                         "feedback needs 1..16 past samples, positive step, window <= 2 seconds, decay 0..1, offset <= 256px",
                     ));
+                }
+                if *composite == FeedbackComposite::Mean {
+                    if !s.required_capabilities.iter().any(|c| c == "caption-feedback-mean/1") {
+                        return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", id, "caption-feedback-mean/1"));
+                    }
+                    if *decay != 1.0 {
+                        return Err(invalid(id, "feedback mean composite requires decay 1"));
+                    }
                 }
                 samples = samples.checked_mul(n + 1).ok_or_else(|| invalid(id, "feedback sample budget"))?;
                 if samples > 32 {
@@ -1191,8 +1599,11 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 ));
             }
             let patch = &binding.style;
-            if patch.font_family.is_none() && patch.font_weight.is_none() && patch.italic.is_none() {
+            if patch.font_family.is_none() && patch.font_source.is_none() && patch.font_weight.is_none() && patch.italic.is_none() {
                 return Err(invalid(&binding.id, "font style patch must specify at least one field"));
+            }
+            if let Some(source) = &patch.font_source {
+                validate_font_source(source, s, &binding.id)?;
             }
             if patch
                 .font_family
@@ -1232,11 +1643,15 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         if n.style.paints.len() > 16 {
             return Err(invalid(&n.id, "paint budget exceeded"));
         }
+        // A node-fill layer is where fill overrides land, so they are no longer
+        // silently replaced by the stack. Legacy stroke still has no place in it.
+        let node_fill = n.style.paints.iter().any(|l| paint_uses_node_fill(&l.paint));
         if !n.style.paints.is_empty()
             && (n.style.stroke.is_some()
-                || !n.state_styles.is_empty()
-                || n.properties.contains_key("fill")
-                || s.animations.iter().any(|a| a.target.node_id == n.id && a.property == "fill"))
+                || (!node_fill
+                    && (!n.state_styles.is_empty()
+                        || n.properties.contains_key("fill")
+                        || s.animations.iter().any(|a| a.target.node_id == n.id && a.property == "fill"))))
         {
             return Err(invalid(
                 &n.id,
@@ -1245,15 +1660,97 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         }
         let mut paints = BTreeSet::new();
         for layer in &n.style.paints {
+            // Em lengths scale with the glyph size; the px limits keep their old range.
+            let (extent, reach) = match layer.unit {
+                PaintUnit::Px => (256.0, 4096.0),
+                PaintUnit::Em => (4.0, 16.0),
+            };
             if !name(&layer.id)
                 || !paints.insert(&layer.id)
-                || !layer.stroke_width.is_finite()
-                || !(0.0..=256.0).contains(&layer.stroke_width)
-                || layer.offset.iter().any(|x| !x.is_finite() || x.abs() > 4096.0)
+                || [layer.stroke_width, layer.spread, layer.blur]
+                    .iter()
+                    .any(|v| !v.is_finite() || !(0.0..=extent).contains(v))
+                || layer.offset.iter().any(|x| !x.is_finite() || x.abs() > reach)
+                || (layer.spread > 0.0 && layer.stroke_width > 0.0)
             {
                 return Err(invalid(&n.id, "invalid paint layer"));
             }
-            paint(&layer.paint, &n.id)?;
+            if (layer.unit == PaintUnit::Em || layer.spread > 0.0 || layer.blur > 0.0 || paint_uses_node_fill(&layer.paint))
+                && !s.required_capabilities.iter().any(|c| c == "caption-paint-effects/1")
+            {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-effects/1"));
+            }
+            if let Some(coverage) = layer.coverage {
+                if !coverage.lo.is_finite()
+                    || !coverage.hi.is_finite()
+                    || coverage.lo < 0.0
+                    || coverage.hi > 1.0
+                    || coverage.lo >= coverage.hi
+                {
+                    return Err(invalid(&n.id, "coverage requires 0 <= lo < hi <= 1"));
+                }
+                if !s.required_capabilities.iter().any(|c| c == "caption-paint-coverage/1") {
+                    return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-coverage/1"));
+                }
+            }
+            match &layer.paint {
+                ScenePaint::Image {
+                    resource_id,
+                    uv_transform,
+                    opacity,
+                    composite_opacity,
+                    base,
+                    phase,
+                    phase_offset,
+                    ..
+                } => {
+                    if !s.required_capabilities.iter().any(|c| c == "caption-image-paint/1") {
+                        return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-image-paint/1"));
+                    }
+                    if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
+                        || !resources.contains(resource_id)
+                        || layer.coverage.is_some()
+                        || uv_transform.iter().any(|v| !v.is_finite() || v.abs() > 4096.0)
+                        || !opacity.is_finite()
+                        || !(0.0..=1.0).contains(opacity)
+                        || !composite_opacity.is_finite()
+                        || !(0.0..=1.0).contains(composite_opacity)
+                        || !phase_offset.is_finite()
+                        || !(0.0..=1.0).contains(phase_offset)
+                        || phase.is_some_and(|p| {
+                            !(1..=4096).contains(&p.period)
+                                || !p.index_offset.is_finite()
+                                || p.index_offset.abs() > 131072.0
+                                || (p.arithmetic == ImagePhaseArithmetic::IntegerModulo && p.index_offset != 0.0)
+                        })
+                    {
+                        return Err(invalid(&n.id, "invalid image paint resource, scope, matrix, opacity or phase"));
+                    }
+                    if phase.is_some_and(|p| p.arithmetic == ImagePhaseArithmetic::Float32)
+                        && !s.required_capabilities.iter().any(|c| c == "caption-image-phase-float32/1")
+                    {
+                        return Err(Diagnostic::new(
+                            "CAPTION_CAPABILITY_REQUIRED",
+                            &n.id,
+                            "caption-image-phase-float32/1",
+                        ));
+                    }
+                    let scale = uv_transform[..4].iter().map(|v| v.abs()).fold(0.0, f64::max);
+                    if scale == 0.0
+                        || ((uv_transform[0] / scale) * (uv_transform[3] / scale) - (uv_transform[1] / scale) * (uv_transform[2] / scale))
+                            .abs()
+                            <= 1e-12
+                    {
+                        return Err(invalid(&n.id, "image paint UV matrix is singular or near-singular"));
+                    }
+                    if let Some(base) = base {
+                        // Texture and base are sampled into one bitmap before coverage; unlike the
+                        // legacy gradient silhouette path this supports translucent base stops.
+                        validate_color_paint(base, s, &n.id, false)?;
+                    }
+                }
+                paint => validate_color_paint(paint, s, &n.id, layer.spread > 0.0 || layer.coverage.is_some())?,
+            }
         }
         if let Some(fill_paint) = &n.fill_paint {
             if n.kind != NodeKind::Shape {
@@ -1267,7 +1764,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
             {
                 return Err(invalid(&n.id, "fillPaint cannot be combined with fill overrides"));
             }
-            paint(fill_paint, &n.id)?;
+            shape_fill_paint(fill_paint, &n.id)?;
         }
 
         if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
@@ -1307,8 +1804,46 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         {
             return Err(invalid(&n.id, "shape geometry property on non-shape node"));
         }
+        if n.style.font_shaping != FontShaping::Advanced {
+            if !matches!(n.kind, NodeKind::Text | NodeKind::Label) {
+                return Err(invalid(&n.id, "font shaping belongs to text/label nodes"));
+            }
+            if !s.required_capabilities.iter().any(|c| c == "caption-font-shaping/1") {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-font-shaping/1"));
+            }
+        }
+        if n.style.font_hinting != FontHinting::Default {
+            if !matches!(n.kind, NodeKind::Text | NodeKind::Label) {
+                return Err(invalid(&n.id, "font hinting belongs to text/label nodes"));
+            }
+            if !s.required_capabilities.iter().any(|c| c == "caption-font-hinting/1") {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-font-hinting/1"));
+            }
+        }
         color(&n.style.fill)?;
+        if let Some(source) = &n.style.font_source {
+            validate_font_source(source, s, &n.id)?;
+        }
+        if let Some(line_box) = &n.style.line_box {
+            if !s.required_capabilities.iter().any(|c| c == "caption-font-line-box/1") {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-font-line-box/1"));
+            }
+            if [line_box.min_ascent, line_box.min_descent]
+                .iter()
+                .any(|v| !v.is_finite() || !(0.0..=4.0).contains(v))
+                || (line_box.fallback_probe.is_some() && line_box.metric_source != LineMetricSource::Typographic)
+            {
+                return Err(invalid(&n.id, "invalid font line box"));
+            }
+            // Fitted rows take their height from the page scale, not from the font line box.
+            if n.kind == NodeKind::Text && s.layout.pagination.fixed_line_fit.is_some() {
+                return Err(invalid(&n.id, "a text font line box is exclusive with pagination.fixedLineFit"));
+            }
+        }
         length(&n.style.font_size, &n.id, s)?;
+        if !n.style.text_transform.is_none() && !s.required_capabilities.iter().any(|c| c == "caption-text-transform/1") {
+            return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-text-transform/1"));
+        }
         if n.style.font_weight == 0
             || n.style.font_weight > 1000
             || !(0.1..=10.0).contains(&n.style.line_height)
@@ -1391,6 +1926,72 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         if (t == ValueType::Color && a.composite != Composite::Replace) || (a.composite == Composite::Multiply && t != ValueType::Scalar) {
             return Err(invalid(&a.id, "invalid composite for property type"));
         }
+    }
+    Ok(())
+}
+
+fn paint_uses_node_fill(paint: &ScenePaint) -> bool {
+    matches!(paint, ScenePaint::NodeFill)
+        || matches!(paint, ScenePaint::Image { base: Some(base), .. } if matches!(base.as_ref(), ScenePaint::NodeFill))
+}
+
+fn validate_color_paint(paint: &ScenePaint, scene: &Scene, id: &str, opaque_stops: bool) -> Result<()> {
+    match paint {
+        ScenePaint::Solid { color: c } => {
+            color(c)?;
+        }
+        ScenePaint::NodeFill => {}
+        ScenePaint::Linear {
+            from,
+            to,
+            stops,
+            space,
+            domain,
+            glyph_outset,
+        } => {
+            if (*space == GradientSpace::Normalized || *domain == GradientDomain::Page)
+                && !scene.required_capabilities.iter().any(|c| c == "caption-gradient-space/1")
+            {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", id, "caption-gradient-space/1"));
+            }
+            if *domain == GradientDomain::Glyph && !scene.required_capabilities.iter().any(|c| c == "caption-gradient-glyph/1") {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", id, "caption-gradient-glyph/1"));
+            }
+            if !glyph_outset.is_finite()
+                || !(0.0..=4.0).contains(glyph_outset)
+                || (*glyph_outset != 0.0 && *domain != GradientDomain::Glyph)
+            {
+                return Err(invalid(id, "glyphOutset requires the glyph domain and 0..4 em"));
+            }
+            if from == to
+                || from.iter().chain(to).any(|n| !n.is_finite() || n.abs() > 16.0)
+                || stops.len() < 2
+                || stops.len() > 32
+                || stops.iter().any(|s| !s.at.is_finite() || !(0.0..=1.0).contains(&s.at))
+                || stops.windows(2).any(|s| s[0].at >= s[1].at)
+            {
+                return Err(invalid(id, "invalid gradient"));
+            }
+            for stop in stops {
+                if color(&stop.color)?[3] < 1.0 && opaque_stops {
+                    return Err(invalid(id, "spread/coverage gradient stops must be opaque"));
+                }
+            }
+        }
+        ScenePaint::Image { .. } => return Err(invalid(id, "image paint base cannot be another image")),
+    }
+    Ok(())
+}
+
+fn validate_font_source(source: &FontSource, scene: &Scene, id: &str) -> Result<()> {
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-font-source/1") {
+        return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", id, "caption-font-source/1"));
+    }
+    if source.sha256.len() != 64
+        || !source.sha256.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        || source.face_index > 1023
+    {
+        return Err(invalid(id, "font source requires lowercase SHA-256 and faceIndex in 0..1023"));
     }
     Ok(())
 }
@@ -1478,6 +2079,17 @@ fn validate_value_context(property: &str, v: &DynamicValue, s: &Scene, unit: Uni
             }
             if clock.stagger.timescale == 0 || clock.stagger.ticks.unsigned_abs() > 9_007_199_254_740_991 {
                 return Err(invalid(property, "invalid stagger"));
+            }
+            if !clock.tail.is_none() {
+                if !s.required_capabilities.iter().any(|c| c == "caption-clock-tail/1") {
+                    return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", property, "caption-clock-tail/1"));
+                }
+                if clock.repeat.is_some() {
+                    return Err(invalid(property, "clock tail cannot combine with repeat"));
+                }
+                if clock.tail == ClockTail::Repeat && matches!(clock.duration, Duration::Fixed { ticks: 0, .. }) {
+                    return Err(invalid(property, "repeat tail requires positive duration"));
+                }
             }
             if clock.repeat.is_some_and(|r| r.iterations == 0 || r.iterations > 1024) {
                 return Err(invalid(property, "invalid repeat count"));
@@ -1784,6 +2396,20 @@ fn validate_material_domain(scene: &Scene, domain: &MaterialDomain) -> Result<()
             let n = typed_value(ValueType::Length, value)?.number()?;
             if !n.is_finite() || !(low..=1_000_000.0).contains(&n) {
                 return Err(invalid("domain", "finite lengths and positive dimensions required"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_sampling_domain(scene: &Scene, id: &str, sampling: &GaussianSamplingDomain) -> Result<()> {
+    validate_material_domain(scene, &sampling.input)?;
+    validate_material_domain(scene, &sampling.output)?;
+    for value in [&sampling.input.x, &sampling.input.y, &sampling.input.width, &sampling.input.height] {
+        if let DynamicValue::Constant { value } = value {
+            let n = typed_value(ValueType::Length, value)?.number()?;
+            if n < 0.0 || n.fract() != 0.0 {
+                return Err(invalid(id, "sampling input domain requires nonnegative integer texel coordinates"));
             }
         }
     }

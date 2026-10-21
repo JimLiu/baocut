@@ -400,6 +400,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "caption-gpu"
+version = "0.4.0"
+dependencies = [
+ "caption-scene",
+ "compositor",
+ "console_error_panic_hook",
+ "js-sys",
+ "render-raster",
+ "serde",
+ "serde_json",
+ "subtitle-render",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+]
+
+[[package]]
 name = "caption-scene"
 version = "0.4.0"
 dependencies = [
@@ -517,6 +535,7 @@ name = "compositor"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "caption-scene",
  "lyon_path",
  "lyon_tessellation",
  "motion",
@@ -524,12 +543,23 @@ dependencies = [
  "pollster",
  "render-raster",
  "serde_json",
+ "sha2 0.11.0",
  "subtitle-render",
  "tempfile",
  "timeline",
  "timeline-render",
  "tiny-skia",
  "wgpu",
+]
+
+[[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3616,6 +3646,9 @@ dependencies = [
  "symphonia",
  "tempfile",
  "tiny-skia",
+ "tiny-skia-coverage",
+ "ttf-parser",
+ "unicode-bidi",
  "unicode-properties",
  "waveform",
  "wgpu",
@@ -4626,6 +4659,18 @@ dependencies = [
  "cfg-if",
  "log",
  "png 0.17.16",
+ "tiny-skia-path",
+]
+
+[[package]]
+name = "tiny-skia-coverage"
+version = "0.11.4"
+dependencies = [
+ "arrayref",
+ "arrayvec",
+ "bytemuck",
+ "cfg-if",
+ "log",
  "tiny-skia-path",
 ]
 

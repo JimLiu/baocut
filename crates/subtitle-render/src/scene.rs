@@ -3,15 +3,22 @@ mod active_word_clock;
 mod angular_samples;
 mod bound_label;
 mod cue_unit_context;
+mod font_line_box;
+mod font_shaping;
+mod font_source;
 mod glyph_envelope;
 mod gradient_smear;
+mod image_paint;
+#[cfg(test)]
+mod image_paint_tests;
 mod image_sequences;
 mod line_box;
 mod line_neighbor;
 mod line_quota;
+mod material_plan;
 mod materials;
+mod noise_displace;
 mod noise_palette;
-mod noisy_sweep;
 mod page_envelope;
 mod page_line_context;
 mod page_tag;
@@ -19,7 +26,9 @@ mod page_window;
 mod sampled_layout;
 mod scalar_cluster;
 mod shape_paint;
+mod speech_phase;
 mod text_line_layout;
+mod text_paint;
 mod unit_font_reflow;
 mod unit_font_size;
 mod word_line_layout;
@@ -169,6 +178,23 @@ struct TextLayout {
     pages: Vec<Page>,
     words: Vec<Word>,
     content: String,
+    /// Frozen `patternSelect` choice; None without that program.
+    pattern_choice: Option<word_line_layout::PatternChoice>,
+}
+/// Instance inputs of preparation-time pagination programs.
+struct Preparation<'a> {
+    word_tags: &'a BTreeMap<String, Vec<String>>,
+    seed: u64,
+}
+#[cfg(test)]
+impl Preparation<'static> {
+    fn none() -> Self {
+        static EMPTY: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        Self {
+            word_tags: &EMPTY,
+            seed: 0,
+        }
+    }
 }
 #[derive(Clone, Copy, Default)]
 struct PageWordInput {
@@ -226,6 +252,7 @@ struct Unit {
     page_input: PageWordInput,
     cue_first_word_span: Option<(f64, f64)>,
     cue_second_word_start: Option<f64>,
+    cue_speech: Option<speech_phase::CueSpeech>,
     word_timed: bool,
     next_word_start: Option<f64>,
     kind: UnitKind,
@@ -274,11 +301,11 @@ pub struct ScenePlan {
 }
 impl ScenePlan {
     pub fn compile(
-        style: SceneStyle,
+        mut style: SceneStyle,
         presentation: Presentation,
         cues: Vec<SceneCue>,
         size: (u32, u32),
-        text: TextEngine,
+        mut text: TextEngine,
         instance_id: String,
     ) -> Result<Self> {
         validate_style(&style)?;
@@ -289,6 +316,7 @@ impl ScenePlan {
         if cues.len() > MAX_UNITS {
             bail!("CAPTION_BUDGET_EXCEEDED: cues");
         }
+        font_source::bind(&mut style, &mut text)?;
         let mut p = Self {
             text,
             diagnostics: vec![],
@@ -319,10 +347,19 @@ impl ScenePlan {
                 bail!("CAPTION_SCENE_INVALID: cue span or text");
             }
             if cue.words.is_empty() && p.style.scene().speech_state.timing_policy==TimingPolicy::RequireWordTiming &&
-                (nodes.iter().any(|n|!n.state_styles.is_empty()) || p.style.scene().animations.iter().any(|a|matches!(&a.value,DynamicValue::Keyframes{clock,..} if matches!(clock.unit,UnitKind::Word|UnitKind::Grapheme))) || p.style.scene().layout.font_size_bindings.iter().any(|b|matches!(&b.value,DynamicValue::Keyframes{clock,..} if clock.unit==UnitKind::Word)) || unit_font_size::style_needs_word_timing(p.style.scene())) {
+                (nodes.iter().any(|n|!n.state_styles.is_empty()) || p.style.scene().animations.iter().any(|a|matches!(&a.value,DynamicValue::Keyframes{clock,..} if matches!(clock.unit,UnitKind::Word|UnitKind::Grapheme))) || p.style.scene().layout.font_size_bindings.iter().any(|b|matches!(&b.value,DynamicValue::Keyframes{clock,..} if clock.unit==UnitKind::Word)) || unit_font_size::style_needs_word_timing(p.style.scene()) || speech_phase::enabled(p.style.scene())) {
                 p.diagnostics.push(Diagnostic::new("CAPTION_TIMING_UNAVAILABLE",&cue.id,"word"));
             }
             let params = cue_parameters(&p.style, &p.presentation, cue, &p.instance_id)?;
+            let preparation = Preparation {
+                word_tags: &p.presentation.word_tags,
+                // Only seeded pattern selection reads the seed during preparation.
+                seed: if p.style.scene().layout.pagination.pattern_select.is_some() {
+                    u64::from_str_radix(&p.presentation.seed, 16)?
+                } else {
+                    0
+                },
+            };
             for n in &nodes {
                 // Unit sizes are sampled later; freeze membership even if the unsampled
                 // base font would overflow. Each actual rich reflow enforces overflow.
@@ -332,7 +369,7 @@ impl ScenePlan {
                         layout.overflow = LayoutOverflow::Visible;
                         layout
                     });
-                let l = prepare(
+                let l = prepare_with(
                     &mut p.text,
                     cue,
                     n,
@@ -342,7 +379,19 @@ impl ScenePlan {
                     &p.style.scene().speech_state,
                     size,
                     &params,
+                    &preparation,
                 )?;
+                if let Some(choice) = &l.pattern_choice {
+                    // The choice is a pure function of frozen inputs; report it so it is auditable.
+                    p.diagnostics.push(Diagnostic::new(
+                        "CAPTION_PATTERN_SELECTED",
+                        &cue.id,
+                        format!(
+                            "node={} candidate={} words={}",
+                            n.id, choice.candidate, choice.words
+                        ),
+                    ));
+                }
                 glyph_count += l
                     .pages
                     .iter()
@@ -551,9 +600,9 @@ impl ScenePlan {
             .scene()
             .render_layers
             .iter()
-            .any(|l| l.blend == CaptionLayerBlend::Screen)
+            .any(|l| l.blend != CaptionLayerBlend::SourceOver)
         {
-            bail!("CAPTION_BACKDROP_REQUIRED: use render_outputs for screen layers");
+            bail!("CAPTION_BACKDROP_REQUIRED: use render_outputs for screen and add layers");
         }
         let (ops, hits) = self.record(seconds)?;
         struct NoMedia;
@@ -806,6 +855,7 @@ fn quota_paint_start(content: &str, range: &Range<usize>) -> usize {
     }
     start
 }
+#[cfg(test)]
 fn prepare(
     text: &mut TextEngine,
     cue: &SceneCue,
@@ -815,10 +865,55 @@ fn prepare(
     size: (u32, u32),
     parameters: &BTreeMap<String, Evaluated>,
 ) -> Result<TextLayout> {
-    let content = match &node.text {
+    prepare_with(
+        text,
+        cue,
+        node,
+        cfg,
+        speech,
+        size,
+        parameters,
+        &Preparation::none(),
+    )
+}
+fn prepare_with(
+    text: &mut TextEngine,
+    cue: &SceneCue,
+    node: &Node,
+    cfg: &Layout,
+    speech: &SpeechState,
+    size: (u32, u32),
+    parameters: &BTreeMap<String, Evaluated>,
+    preparation: &Preparation,
+) -> Result<TextLayout> {
+    let case = node.style.text_transform;
+    let content = case.apply(match &node.text {
         Some(TextBinding::Static { text }) => text.as_str(),
         _ => cue.text.as_str(),
+    });
+    let content = content.as_ref();
+    // Words bind to the mapped text with the same mapping, so ranges stay on
+    // one byte space for layout, selectors and timing.
+    let mapped;
+    let cue = if case.is_none() {
+        cue
+    } else {
+        mapped = SceneCue {
+            words: cue
+                .words
+                .iter()
+                .map(|w| SceneWord {
+                    text: case.apply(&w.text).into_owned(),
+                    ..w.clone()
+                })
+                .collect(),
+            ..cue.clone()
+        };
+        &mapped
     };
+    if content.len() > 65536 {
+        bail!("CAPTION_BUDGET_EXCEEDED: mapped text");
+    }
     let words = bind_words(
         cue,
         content,
@@ -826,7 +921,17 @@ fn prepare(
         matches!(node.text, Some(TextBinding::Static { .. })),
     )?;
     if cfg.pagination.has_fixed_lines() {
-        return word_line_layout::prepare(text, cue, content, words, node, cfg, size, parameters);
+        return word_line_layout::prepare(
+            text,
+            cue,
+            content,
+            words,
+            node,
+            cfg,
+            size,
+            parameters,
+            preparation,
+        );
     }
     let fs = node.style.font_size.resolve(size.0, size.1, parameters)?;
     let width = cfg.width.resolve(size.0, size.1, parameters)?;
@@ -870,13 +975,14 @@ fn prepare(
                 cfg.pagination.max_units_per_line,
                 line_quota::word_starts(&words, paint_origin, range.end),
                 |r| {
-                    let sh = text.shape_spaced(
+                    let sh = text.shape_spaced_with_shaping(
                         &source[r],
                         &style.font_family,
                         fs,
                         style.font_weight,
                         style.italic,
                         style.letter_spacing * fs,
+                        font_shaping::mode(style),
                     );
                     TextMetricsLine {
                         width: sh.width,
@@ -900,31 +1006,45 @@ fn prepare(
             let x = cfg.x.resolve(size.0, size.1, parameters)?;
             let y = cfg.y.resolve(size.0, size.1, parameters)?;
             let mut lines = Vec::new();
-            let height = rowgroup.len() as f64 * fs * style.line_height;
-            for (i, line) in rowgroup.iter().enumerate() {
+            let mut rows = Vec::with_capacity(rowgroup.len());
+            let mut metric_budget = Budget::default();
+            for line in rowgroup {
                 let bytes = paint_origin + line.bytes.start..paint_origin + line.paint_end;
-                let sh = text.shape_spaced(
+                let mut sh = text.shape_spaced_with_shaping(
                     &content[bytes.clone()],
                     &style.font_family,
                     fs,
                     style.font_weight,
                     style.italic,
                     style.letter_spacing * fs,
+                    font_shaping::mode(style),
                 );
+                font_line_box::apply(text, &mut sh, style, fs, &mut metric_budget)?;
+                let height = font_line_box::row_height(&sh, style, fs);
+                rows.push((bytes, sh, height));
+            }
+            let height = if style.line_box.is_some() {
+                rows.iter().map(|(_, _, height)| height).sum()
+            } else {
+                rowgroup.len() as f64 * fs * style.line_height
+            };
+            let mut next_y = y - height / 2.0;
+            for (i, (bytes, sh, row_height)) in rows.into_iter().enumerate() {
                 let lx = match cfg.align {
                     Align::Left => x - width / 2.0,
                     Align::Center => x - sh.width / 2.0,
                     Align::Right => x + width / 2.0 - sh.width,
                 };
-                let ly = y - height / 2.0 + i as f64 * fs * style.line_height;
+                let ly = if style.line_box.is_some() { next_y } else { y - height / 2.0 + i as f64 * fs * style.line_height };
                 let baseline = ly + sh.ascent;
                 let bounds = Bounds {
                     x: lx,
                     y: ly,
                     width: sh.width,
-                    height: fs * style.line_height,
+                    height: row_height,
                 };
                 lines.push(Line::new(text, bytes, sh, bounds, baseline, fs));
+                next_y += row_height;
             }
             let Some(first) = lines.first() else { continue };
             let Some(last) = lines.last() else { continue };
@@ -991,6 +1111,7 @@ fn prepare(
         pages,
         words,
         content: content.into(),
+        pattern_choice: None,
     })
 }
 
@@ -1110,6 +1231,7 @@ fn units_for(
         page_input: page_word_input(layout, Some(page)),
         cue_first_word_span,
         cue_second_word_start,
+        cue_speech: speech_phase::cue_speech(cue, cfg.timing_policy),
         word_timed: false,
         next_word_start: None,
         page_index,
@@ -1602,6 +1724,9 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
     if glyph_envelope::enabled(r.scene) {
         glyph_envelope::add_fields(&mut out, u);
     }
+    if speech_phase::enabled(r.scene) {
+        speech_phase::add_fields(&mut out, u, r.seconds);
+    }
     cue_unit_context::add_fields(&mut out, u);
     if active_word_clock::enabled(r.scene) {
         active_word_clock::add_fields(&mut out.fields, u.active_word, r.seconds);
@@ -1960,6 +2085,17 @@ fn draw_nodes(
                         .unwrap();
                     let pp = pose(n, &page.0, r, budget)?;
                     let t = t.pre_concat(matrix(&pp, page.0.bounds));
+                    let scalar_map = if image_paint::uses_phase(&n.style) {
+                        let source = match &n.text {
+                            Some(TextBinding::Static { text }) => text.as_str(),
+                            _ => r.cue.text.as_str(),
+                        };
+                        let content = n.style.text_transform.apply(source);
+                        image_paint::scalar_map(&n.style, content.as_ref(), budget)?
+                    } else {
+                        None
+                    };
+                    let mut glyphs = Vec::new();
                     for (lineunit, line) in units.iter().filter(|(u, _)| u.kind == UnitKind::Line) {
                         let line = line.as_ref().unwrap();
                         let lp = pose(n, lineunit, r, budget)?;
@@ -2042,18 +2178,16 @@ fn draw_nodes(
                                 (line.bounds.x + glyph.x) as f32,
                                 (line.baseline + glyph.y) as f32,
                             );
-                            bound_label::record_glyph(
-                                &n.style,
-                                glyph,
-                                c,
+                            glyphs.push(text_paint::GlyphPaint {
+                                glyph: glyph.clone(),
+                                fill: c,
                                 opacity,
+                                source_scalar_index: image_paint::scalar_index(&scalar_map, at)?,
                                 origin,
-                                line.bounds,
-                                (line.bounds.x + glyph.x, line.baseline + glyph.y),
-                                text,
-                                b,
-                                budget,
-                            )?;
+                                paint_bounds: line.bounds,
+                                page_bounds: page.0.bounds,
+                                paint_origin: (line.bounds.x + glyph.x, line.baseline + glyph.y),
+                            });
                         }
                         hits.push(SceneHit {
                             cue_id: r.cue.id.clone(),
@@ -2061,6 +2195,7 @@ fn draw_nodes(
                             bounds: union(hit_boxes.into_iter()),
                         });
                     }
+                    text_paint::record_glyphs(&n.style, &glyphs, r.size, text, r.images, b, budget)?;
                 }
             }
             NodeKind::Repeat | NodeKind::Label => unreachable!(),
@@ -2083,16 +2218,41 @@ fn scene_paint(
     };
     Ok(match paint {
         ScenePaint::Solid { color } => PaintData::Solid(rgba(color)?),
-        ScenePaint::Linear { from, to, stops } => {
+        ScenePaint::Linear { from, to, stops, space, .. } => {
             let point = |v: [f64; 2]| {
                 [
                     (bounds.x + v[0] * bounds.width - origin.0) as f32,
                     (bounds.y + v[1] * bounds.height - origin.1) as f32,
                 ]
             };
+            let p0 = point(*from);
+            let p1 = if *space == GradientSpace::Local {
+                point(*to)
+            } else {
+                // A UV-space projection has a covector (dx/W, dy/H), not
+                // an endpoint vector (dx*W, dy*H). Express that same field
+                // as pixel endpoints for the shared CPU/GPU paint primitive.
+                if bounds.width <= 0.0 || bounds.height <= 0.0 {
+                    bail!("CAPTION_LAYOUT_INVALID: normalized gradient requires positive line bounds");
+                }
+                let dx = to[0] - from[0];
+                let dy = to[1] - from[1];
+                let length = dx.hypot(dy);
+                let covector = [dx / length / bounds.width, dy / length / bounds.height];
+                let norm = covector[0].hypot(covector[1]);
+                let reach = length / norm;
+                let end = [
+                    (bounds.x + from[0] * bounds.width - origin.0 + covector[0] / norm * reach) as f32,
+                    (bounds.y + from[1] * bounds.height - origin.1 + covector[1] / norm * reach) as f32,
+                ];
+                if !end.iter().all(|v| v.is_finite()) || end == p0 {
+                    bail!("CAPTION_LAYOUT_INVALID: normalized gradient endpoints are not representable");
+                }
+                end
+            };
             PaintData::Linear {
-                p0: point(*from),
-                p1: point(*to),
+                p0,
+                p1,
                 stops: stops
                     .iter()
                     .map(|s| {
@@ -2104,6 +2264,9 @@ fn scene_paint(
                     .collect::<Result<Vec<_>>>()?,
             }
         }
+        // Text paint resolves the glyph's own fill before reaching here.
+        ScenePaint::Image { .. } => bail!("CAPTION_SCENE_INVALID: image paint requires image recording"),
+        ScenePaint::NodeFill => bail!("CAPTION_SCENE_INVALID: node-fill outside text paint"),
     })
 }
 
@@ -2587,6 +2750,155 @@ mod ink_tests {
                     assert!(!c.fields["unit.nextWordTimed"].boolean().unwrap());
                     assert_eq!(c.fields["time.nextWordStartSeconds"].number().unwrap(), 0.0);
                 }
+            }
+        }
+    }
+    fn speech_fields(c: &Context) -> [bool; 4] {
+        [
+            "cue.speechPhase.beforeFirst",
+            "cue.speechPhase.reading",
+            "cue.speechPhase.afterLast",
+            "cue.speechPhase.estimated",
+        ]
+        .map(|path| c.fields[path].boolean().unwrap())
+    }
+    #[test]
+    fn speech_phase_and_word_in_span_keep_states_unique_and_mark_estimates() {
+        let (mut text, mut style, mut cue, params) = input("Alpha Beta Gamma Delta", 1.0);
+        cue.start = 10.0;
+        cue.end = 14.0;
+        cue.words = [
+            ("a", "Alpha", 10.5, 11.5),
+            ("b", "Beta", 11.2, 12.0),
+            ("c", "Gamma", 12.5, 12.5),
+            ("d", "Delta", 12.8, 13.4),
+        ]
+        .into_iter()
+        .map(|(id, text, start, end)| SceneWord {
+            id: id.into(),
+            text: text.into(),
+            start,
+            end,
+        })
+        .collect();
+        let SceneSource::Inline { value: scene } = &mut style.scene;
+        let layout = prepare(
+            &mut text,
+            &cue,
+            &scene.nodes[0],
+            &scene.layout,
+            &scene.speech_state,
+            (160, 90),
+            &params,
+        )
+        .unwrap();
+        // Without the capability no field is added.
+        for (_, c) in bound_contexts(&cue, scene, &layout, 0, 11.3, &params) {
+            assert!(!c.fields.contains_key("cue.speechPhase.reading"));
+            assert!(!c.fields.contains_key("word.inSpan"));
+        }
+        scene
+            .required_capabilities
+            .push(speech_phase::CAPABILITY.into());
+        let in_span = |t: f64| {
+            // Long words wrap onto later pages; read every page's units.
+            let contexts = (0..layout.pages.len())
+                .flat_map(|page| {
+                    let contexts = bound_contexts(&cue, scene, &layout, page, t, &params);
+                    let active = contexts
+                        .iter()
+                        .filter(|(u, _)| u.kind == UnitKind::Word && u.state == WordState::Active)
+                        .count();
+                    assert!(active <= 1, "the three-state word choice stays unique");
+                    contexts
+                })
+                .collect::<Vec<_>>();
+            let phases = contexts
+                .iter()
+                .map(|(_, c)| speech_fields(c))
+                .collect::<std::collections::BTreeSet<_>>();
+            assert_eq!(phases.len(), 1, "every unit reads the same cue phase");
+            let words = contexts
+                .iter()
+                .filter(|(u, _)| u.kind == UnitKind::Word)
+                .collect::<Vec<_>>();
+            for (u, c) in &contexts {
+                if !matches!(u.kind, UnitKind::Word | UnitKind::Grapheme) || u.whitespace {
+                    assert!(!c.fields["word.inSpan"].boolean().unwrap());
+                }
+            }
+            let ids = words
+                .iter()
+                .filter(|(_, c)| c.fields["word.inSpan"].boolean().unwrap())
+                .map(|(u, _)| u.id.as_str())
+                .collect::<Vec<_>>()
+                .join(",");
+            (phases.into_iter().next().unwrap(), ids)
+        };
+        assert_eq!(in_span(10.2), ([true, false, false, false], String::new()));
+        assert_eq!(in_span(10.5), ([false, true, false, false], "a".into()));
+        // Overlapping words are both in span while only one is active.
+        assert_eq!(in_span(11.3), ([false, true, false, false], "a,b".into()));
+        // A real gap is still reading; a zero-length word is never in span.
+        assert_eq!(in_span(12.2), ([false, true, false, false], String::new()));
+        assert_eq!(in_span(12.5), ([false, true, false, false], String::new()));
+        assert_eq!(in_span(13.0), ([false, true, false, false], "d".into()));
+        assert_eq!(in_span(13.4), ([false, false, true, false], String::new()));
+
+        // Explicit estimated timing: the cue span is the envelope and the result is marked.
+        let (mut text, mut style, cue, params) = input("One two", 1.0);
+        let SceneSource::Inline { value: scene } = &mut style.scene;
+        scene
+            .required_capabilities
+            .push(speech_phase::CAPABILITY.into());
+        scene.speech_state.timing_policy = TimingPolicy::Estimated;
+        let layout = prepare(
+            &mut text,
+            &cue,
+            &scene.nodes[0],
+            &scene.layout,
+            &scene.speech_state,
+            (160, 90),
+            &params,
+        )
+        .unwrap();
+        for (t, phase, first_in_span) in [
+            (-0.5, [true, false, false, true], false),
+            (0.5, [false, true, false, true], true),
+            (2.5, [false, true, false, true], false),
+            (4.0, [false, false, true, true], false),
+        ] {
+            for (u, c) in bound_contexts(&cue, scene, &layout, 0, t, &params) {
+                assert_eq!(speech_fields(&c), phase, "t={t}");
+                if u.kind == UnitKind::Word {
+                    assert!(!c.fields["unit.wordTimed"].boolean().unwrap());
+                    if u.index == 0 {
+                        assert_eq!(
+                            c.fields["word.inSpan"].boolean().unwrap(),
+                            first_in_span,
+                            "t={t}"
+                        );
+                    }
+                }
+            }
+        }
+
+        // Required word timing without words: no phase is claimed and nothing is in span.
+        scene.speech_state.timing_policy = TimingPolicy::RequireWordTiming;
+        let layout = prepare(
+            &mut text,
+            &cue,
+            &scene.nodes[0],
+            &scene.layout,
+            &scene.speech_state,
+            (160, 90),
+            &params,
+        )
+        .unwrap();
+        for t in [-0.5, 0.5, 4.0] {
+            for (_, c) in bound_contexts(&cue, scene, &layout, 0, t, &params) {
+                assert_eq!(speech_fields(&c), [false; 4]);
+                assert!(!c.fields["word.inSpan"].boolean().unwrap());
             }
         }
     }

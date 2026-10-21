@@ -1,0 +1,197 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-speech-phase/1"
+      ],
+      "parameters": [
+        {
+          "id": "accent",
+          "type": "color",
+          "default": "#FFE600"
+        }
+      ],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 3
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            }
+          }
+        }
+      ],
+      "selectors": [
+        {
+          "id": "words",
+          "nodeId": "caption",
+          "unit": "word"
+        }
+      ],
+      "animations": [
+        {
+          "id": "word-color",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "words"
+          },
+          "property": "fill",
+          "composite": "replace",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "if",
+              "condition": {
+                "op": "read",
+                "path": "unit.active"
+              },
+              "then": {
+                "op": "read",
+                "path": "params.accent"
+              },
+              "else": {
+                "op": "literal",
+                "type": "color",
+                "value": "#FFFFFF"
+              }
+            }
+          }
+        },
+        {
+          "id": "word-pop",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "words"
+          },
+          "property": "transform.scale",
+          "composite": "multiply",
+          "value": {
+            "kind": "keyframes",
+            "clock": {
+              "unit": "word",
+              "origin": "start",
+              "duration": {
+                "kind": "fixed",
+                "ticks": 180,
+                "timescale": 1000
+              }
+            },
+            "keys": [
+              {
+                "at": 0,
+                "value": 0.85
+              },
+              {
+                "at": 0.45,
+                "value": 1.18
+              },
+              {
+                "at": 1,
+                "value": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "phase-dim",
+          "target": {
+            "nodeId": "caption"
+          },
+          "property": "opacity",
+          "composite": "multiply",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "if",
+              "condition": {
+                "op": "read",
+                "path": "cue.speechPhase.reading"
+              },
+              "then": {
+                "op": "literal",
+                "type": "scalar",
+                "value": 1
+              },
+              "else": {
+                "op": "if",
+                "condition": {
+                  "op": "read",
+                  "path": "cue.speechPhase.afterLast"
+                },
+                "then": {
+                  "op": "literal",
+                  "type": "scalar",
+                  "value": 0.7
+                },
+                "else": {
+                  "op": "literal",
+                  "type": "scalar",
+                  "value": 0.4
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "in-span-lift",
+          "target": {
+            "nodeId": "caption",
+            "selectorId": "words"
+          },
+          "property": "transform.y",
+          "composite": "add",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "if",
+              "condition": {
+                "op": "read",
+                "path": "word.inSpan"
+              },
+              "then": {
+                "op": "literal",
+                "type": "length",
+                "value": -3
+              },
+              "else": {
+                "op": "literal",
+                "type": "length",
+                "value": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

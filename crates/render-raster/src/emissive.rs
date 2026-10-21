@@ -53,8 +53,9 @@ pub fn composite_associated(
 }
 
 /// Apply opacity and clip to all source channels, then blend with the current
-/// backdrop. Screen computes S + D * (1 - S) independently for RGBA; alpha is
-/// never used as a multiplier for RGB, including when RGB exceeds alpha.
+/// backdrop. Screen computes S + D * (1 - S) and Add computes S + D independently
+/// for RGBA; alpha is never used as a multiplier for RGB, including when RGB
+/// exceeds alpha.
 pub fn composite_associated_with_blend(
     out: &mut Pixmap,
     source: PixmapRef<'_>,
@@ -147,6 +148,7 @@ pub fn composite_associated_with_blend(
                 let factor = match blend {
                     AssociatedBlend::SourceOver => remaining,
                     AssociatedBlend::Screen => 1.0 - color[channel] * coverage / 255.0,
+                    AssociatedBlend::Add => 1.0,
                 };
                 let value = (color[channel] * coverage + f64::from(destination[channel]) * factor)
                     .round()

@@ -23,7 +23,7 @@ pub mod template;
 pub mod text_measure;
 pub mod transition;
 
-pub use census::{FALLBACK_FAMILY, FontUsage, font_census, font_usage};
+pub use census::{FALLBACK_FAMILY, FontUsage, font_census, font_usage, font_usage_with_sources};
 pub use documents::{Documents, FrozenDocument};
 pub use render_raster::fonts::FaceUse;
 pub use renderer::{

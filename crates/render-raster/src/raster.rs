@@ -363,7 +363,10 @@ fn to_color(c: &[f32; 4]) -> Color {
 /// `transform` 因此恒为 identity——`fill_path` 会把 `tf` 一并施加上去。
 /// 退化几何（起止点重合 / 半径 ≤ 0 / 只有一个色标）折成末标纯色：tiny-skia
 /// 会拒绝构造这类 shader，静默不画比画错更难查。
-fn paint_from<'a>(data: &PaintData, bitmaps: &'a [BitmapData]) -> Result<Paint<'a>> {
+///
+/// Convert DrawOp paint data using the CPU executor's shader and fallback rules.
+/// Local coverage preparation uses this same conversion before device painting.
+pub fn paint_from<'a>(data: &PaintData, bitmaps: &'a [BitmapData]) -> Result<Paint<'a>> {
     let mut paint = Paint::default();
     paint.anti_alias = true;
     let stops = |src: &[crate::drawop::GradientStop]| -> Vec<GradientStop> {
@@ -486,7 +489,7 @@ pub(crate) fn apply_matte(target: &mut Pixmap, matte: &Pixmap, mode: MatteMode) 
     }
 }
 
-fn to_skia_path(p: &PathData) -> Option<tiny_skia::Path> {
+pub fn to_skia_path(p: &PathData) -> Option<tiny_skia::Path> {
     let mut pb = PathBuilder::new();
     for seg in &p.0 {
         let q = seg.pts;
@@ -875,10 +878,18 @@ pub fn rasterize_with_media_into(
                 opacity,
                 tf,
             } => {
-                // Screen depends on the final backdrop. Flattening into an
-                // offscreen group and subsequently applying source-over changes it.
-                if *blend == AssociatedBlend::Screen && (!layers.is_empty() || !mattes.is_empty()) {
-                    return Err(anyhow!("ASSOCIATED_SCREEN_OFFSCREEN_UNSUPPORTED"));
+                // Screen and Add depend on the final backdrop. Flattening into an
+                // offscreen group and subsequently applying source-over changes them.
+                if !layers.is_empty() || !mattes.is_empty() {
+                    match blend {
+                        AssociatedBlend::SourceOver => {}
+                        AssociatedBlend::Screen => {
+                            return Err(anyhow!("ASSOCIATED_SCREEN_OFFSCREEN_UNSUPPORTED"));
+                        }
+                        AssociatedBlend::Add => {
+                            return Err(anyhow!("ASSOCIATED_ADD_OFFSCREEN_UNSUPPORTED"));
+                        }
+                    }
                 }
                 if !plain || origin.is_some() {
                     return Err(anyhow!("EMISSIVE_BLEND_UNSUPPORTED"));

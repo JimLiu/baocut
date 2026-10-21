@@ -596,12 +596,14 @@ pub fn measure_text(input: &[u8]) -> Result<String, PlanError> {
             );
         }
         let renderer = renderers.last_mut().expect("至少有一台");
-        let measured = renderer.measure_text(
-            &input.text,
-            &style,
-            input.wrap_width,
-            (canvas(input.canvas.width), canvas(input.canvas.height)),
-        );
+        let measured = renderer
+            .measure_text_with_source(
+                &input.text,
+                &style,
+                input.wrap_width,
+                (canvas(input.canvas.width), canvas(input.canvas.height)),
+            )
+            .map_err(|error| failure(&error.code, error.message))?;
         Ok(json!(measured).to_string())
     })
 }
@@ -813,6 +815,30 @@ pub extern "C" fn bc_output_ptr() -> *const u8 {
 #[unsafe(no_mangle)]
 pub extern "C" fn bc_output_len() -> usize {
     STATE.with_borrow(|state| state.output.len())
+}
+
+#[cfg(test)]
+mod source_measurement_tests {
+    use super::*;
+
+    #[test]
+    fn measure_parameters_reject_explicit_invalid_or_missing_sources() {
+        STATE.with_borrow_mut(|state| *state = State::default());
+        add_font(include_bytes!("../../../crates/render-raster/assets/fonts/VKSans-400.ttf").to_vec()).unwrap();
+        let mut request = json!({"text":"AV","canvas":{"width":540,"height":540},
+            "style":{"fontFamily":"VK Sans","fontSize":40,"fontWeight":400}});
+        let legacy = measure_text(request.to_string().as_bytes()).unwrap();
+        for source in [Value::Null, json!({"sha256":"short"}), json!({"sha256":"0".repeat(64)})] {
+            request["style"]["fontSource"] = source;
+            let error = measure_text(request.to_string().as_bytes()).unwrap_err();
+            assert!(
+                error.code == "FONT_SOURCE_INVALID" || error.message.contains("FONT_SOURCE_"),
+                "{error:?}"
+            );
+        }
+        request["style"].as_object_mut().unwrap().remove("fontSource");
+        assert_eq!(measure_text(request.to_string().as_bytes()).unwrap(), legacy);
+    }
 }
 
 #[cfg(test)]

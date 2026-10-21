@@ -1,6 +1,6 @@
 # BaoCut 动态字幕格式升级设计
 
-状态：BaoCut v3 动态字幕目标设计，共享 CPU 基础执行档已实现，UI 待实施。本文保留完整能力目标；已生效的字段、预算及明确拒绝的扩展以[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)为准。
+状态：BaoCut v3 动态字幕目标设计，共享 CPU 基础执行档已实现，UI 待实施。本文保留完整能力目标，并整理成可直接指导实现的动画配方与材质分级；已生效的字段、预算及明确拒绝的扩展以[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)为准。本文中标注“目标”的字段、内置函数和材质尚未进入格式规范，不能当作已生效合同引用。
 
 为了支持更丰富的动态字幕，将字幕表现升级为 **参数化文字场景、文字单元选择器、语义时钟、属性动画、纯函数表达式和材质效果栈**。字幕内容与词时间继续由已有文档负责，表现模型负责它们如何布局、运动和绘制。
 
@@ -18,10 +18,11 @@
 - [8. 动态函数与表达式](#8-动态函数与表达式)
 - [9. 涂装、装饰与材质](#9-涂装装饰与材质)
 - [10. 求值管线与缓存](#10-求值管线与缓存)
-- [11. 格式示例](#11-格式示例)
-- [12. 现有格式衔接与模块调整](#12-现有格式衔接与模块调整)
-- [13. 验收与实施顺序](#13-验收与实施顺序)
-- [14. 待评审事项](#14-待评审事项)
+- [11. 动画配方目录](#11-动画配方目录)
+- [12. 格式示例](#12-格式示例)
+- [13. 现有格式衔接与模块调整](#13-现有格式衔接与模块调整)
+- [14. 验收与实施顺序](#14-验收与实施顺序)
+- [15. 待评审事项](#15-待评审事项)
 
 ## 1. 目标与现有基础
 
@@ -31,9 +32,11 @@
 | --- | --- |
 | 念到某个词时变色、放大、抬升或扫色 | 词时间、朗读状态、词级样式与属性动画 |
 | 每页若干词，逐词弹入，整页滑出 | 分页、页时钟、词时钟、错开与动画组合 |
-| 每个词独立底框，关键词有下划线或图标 | 按单元重复生成节点、布局框绑定、标签选择器 |
+| 当前词弹性超调入场、横向拉伸并真实放大字号 | 指数/三角函数表达式、按词字号重排、绘制期缩放 |
+| 字幕逐字累积显现、羽化显现或带闪烁光标跟随末字 | 字素序号与页内序号、墨迹框、绑定装饰、取整/取模函数 |
+| 每个词独立底框，关键词有下划线、底色或图标 | 按单元重复生成节点、字形包络绑定、标签选择器 |
 | 字符波浪、交替旋转、带种子的抖动 | 单元索引、连续时间、纯函数表达式 |
-| 多层文字、发光、纹理填字、移动扫光 | 多层场景、有序涂装、遮罩与材质参数动画 |
+| 多层文字、发光、纹理填字、移动扫光、运动模糊 | 多层场景、有序涂装、遮罩、材质参数动画与有界历史采样 |
 | 图标或 emoji 跟随关键词，字幕改字后自动重新布局 | 稳定的词引用、装饰绑定、字体/图片资源和布局依赖 |
 | 跨句交错排版、上一句退场时下一句进入 | 有界的多 cue 场景、独立语义时钟和确定性节点身份 |
 
@@ -52,6 +55,20 @@
 当前 [MotionGraph](../../../crates/motion/src/graph.rs) 会把部分图操作展开为关键帧：曲线对象按不低于 60 fps 的网格采样；振荡/噪声则按既有分段线性波形的断点展开，能够保持该波形的既定语义。这两种情况不能混为“全部按 60 fps 近似”。新连续函数独立定义数值合同，旧配方保持原结果。
 
 现有 [七维样式模型](caption-style-model-design.md) 是面向编辑的描述；[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出) 中仍保留 Studio 和 Boxed 的实际落盘正文。本文增加通用场景正文，不把已有目标合同误写为已实现的新 schema。
+
+### 1.3 表现分级与范围
+
+动态字幕效果按实现依赖分为五级。分级决定一个效果归哪一组合同、在哪个阶段验收（§14.2），不是模板的字段。
+
+| 分级 | 覆盖表现 | 主要依赖 | 当前范围 |
+| --- | --- | --- | --- |
+| glyph-motion 字形运动 | 弹入、滑入、缩放、错峰、累积显现、光标、整页慢推 | 单元时钟、属性动画、表达式、绑定装饰 | 基础执行档与 §8.2 内置函数已生效 |
+| text-paint 文字涂装 | 渐变、描边、阴影、按词底框、关键词配色与字号 | 涂装栈、字形包络、标签与字号绑定 | 已生效 |
+| texture-effects 纹理效果 | 高斯/级联发光、噪声色条、扫光、运动模糊、噪声位移、bloom、背景差值、残影克隆 | 材质节点、渲染层、有界历史采样、背景依赖 | 部分已生效；其余见 §9.5 |
+| pixel-particles 像素实例 | 尘粒、碎裂、逐像素飘散 | 每像素实例化与噪声位移 | 暂缓，不列入阶段 A–E |
+| derived-decoration 派生装饰 | emoji、贴纸、多层图片阴影的装饰字 | 显式实例数据、图片与图片序列资源 | 实例数据路径已生效；自动生成器只产出实例数据 |
+
+分级越高，对渲染后端和预算的要求越强；低分级效果不得因为高分级能力缺失而被整体拒绝。预检按节点和材质逐项给出分级与缺失原因。
 
 ## 2. 内容、模板与实例
 
@@ -98,6 +115,8 @@ interface CaptionScene {
 ```
 
 参数优先级为模板默认值 → 样式文档参数 → 实例参数 → 指定 cue/occurrence 参数。每一层只接受已声明的参数、类型与范围；不存在的参数不静默忽略。参数覆盖与节点属性动画是两个阶段，不能把所有对象递归深合并后猜含义。
+
+模板声明的分页模式、参数默认值和候选资源都是默认值；分页可以由实例或准备阶段的程序化规则覆盖（§5.2），覆盖结果与自动选出的标签一样保存为实例数据，不在每帧重新推断。求值得到的绘制状态只是派生缓存，三层中任何一层都不保存它。
 
 强调词和装饰是用户内容的注解，按稳定词 ID 绑定。改字、删词时失效的绑定作为问题报告，不自动挪到相同索引的其他词。自动生成的标签/emoji 先作为显式实例数据保存，再参与渲染；表达式不在画帧时调用分析服务。
 
@@ -154,7 +173,25 @@ interface CaptionScene {
 
 确需更细的拉丁连字动画，可显式关闭可选 ligature 后重新排版；不能拆开必要的组合字形或 emoji ZWJ。语言未知时采用通用 Unicode 分段与 shaping，不能回退到按字节切分。阿拉伯文、印度文字与组合重音须有专门夹具。
 
+### 4.3 关键词与标签
+
+关键词只来自显式标签：用户手动标记，或离线生成器按规则选出后写入 `wordTags`。典型生成规则是每行按实例 seed 选出固定数量、互不相邻的词；规则的输入是冻结的行成员与 seed，输出是词 ID 集合，渲染只读取该集合。改字后重新运行生成器并重新保存，表达式不在画帧时选词。
+
+关键词样式分解为相互独立的维度，各自走已有合同，不新增一个“关键词模式”总开关：
+
+| 维度 | 合同 | 阶段 |
+| --- | --- | --- |
+| `supersize` | 标签选择器上的静态字号倍率，经字号绑定进入真实重排（§5.4） | 基础布局 |
+| `capitalization: none / upper / mixed` | 显示变换，同步单元映射表，不改源文稿（§4.1） | 基础布局 |
+| `isolation: none / line / page` | 分页约束，关键词独占一行或一页（§5.2） | 分页 |
+| 颜色表 `sequential / shuffled` | 按关键词在 cue 内的全局序号取模选色；shuffled 用固定 seed 做无放回置换（§8.2） | 状态样式 |
+| 底框 `expand / offset / roundness / underline` | 独立装饰节点读取字形包络（§9.2） | 装饰布局 |
+
+同一个词可以同时带多个标签；标签样式按 §7.2 的层次合成，标签之间按声明顺序取优先级。标签不改变词身份，也不把词拆成新的单元。
+
 ## 5. 布局与几何合同
+
+style.lineBox 可显式选择真实字形 face 的字体上下包络，带独立 em 下限与 typographic/probe fallback 策略。排版宽度仍来自同一 shaping，行高提升到至少该包络，基线按最大 ascent 放置；静态、固定页与逐采样重排共用模型，避免相同字号因进入重排路径而使用不同文字中心。默认路径不变。生效字段、度量口径与预算见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
 
 ### 5.1 显式单位与坐标
 
@@ -182,6 +219,22 @@ interface CaptionScene {
 
 另一种常见做法正好相反：固定行永远不续行，而是把每页各行缩放到同样宽，形成「每行一样宽」的块状字幕，短行字大、长行字小。`caption-fixed-line-fit/1` 的 `fixedLineFit` 把它写成显式规则：按基础字号量出各行宽，每行放大到最宽行；末行太短时只放大有限倍数，避免一个词的末行大得突兀；行距随页内最大缩放收紧。缩放只取决于本页文字的测量结果，所以放在核心排版里，而不是用逐单元字号绑定表达——后者读不到行宽，会形成依赖环。
 
+分页由模板声明的分页程序决定，程序只在准备阶段运行，输出稳定的 page/line 成员。候选模式按能力分别列出：
+
+| 模式 | 说明 | 状态 |
+| --- | --- | --- |
+| `maxUnitsPerPage` / `maxUnitsPerLine` | 按单元数上限与宽度构造候选页 | 已生效 |
+| `wordLinePattern` + `lastPageRule` | 循环声明每页各行词数，如 `[[1]]`、`[[3]]`、`[[2],[2]]`、`[[1],[1],[4]]` | 已生效 |
+| `textLinePattern` | 每行字符数上限与每页行数，计数单位为 Unicode scalar 或 extended grapheme，如每行 11 字、每页 3 行 | 已生效 |
+| 字符计数组 | 按显式 scalar 区间与附着规则分组，如 `{2,2}`、`{2,2,2}` 字符组 | 已生效（`caption-scalar-cluster-layout/1`） |
+| `tailWordRule` | 未填满末页只剩一个尾词时并入前一行 | 已生效（`caption-word-line-tail-join/1`） |
+| `remainingWordPagePlans` | 按剩余词数查表决定下一页的行计划 | 已生效（`caption-remaining-word-page-plan/1`） |
+| `fixedLineOverflow` / `fixedLineFit` | 固定行超宽时续行，或把一页各行缩放到同宽 | 已生效（`caption-fixed-line-wrap/1`、`caption-fixed-line-fit/1`） |
+| `patternSelect` | 从候选模式集合中按 cue 词数区间或实例 seed 选取一个模式；选择结果冻结进实例数据并进入诊断 | 已生效（`caption-pattern-select/1`；准备阶段由冻结的词数或实例 seed 与 cue id 确定，不写回实例，以 `CAPTION_PATTERN_SELECTED` 报告） |
+| 关键词隔离 | 在候选页构造前，为带 `isolation` 标签的词插入硬边界：`line` 独占一行，`page` 独占一页 | 已生效（`caption-keyword-isolation/1`；限固定词行模式，不与 `lastPageRule` 同用） |
+
+`patternSelect` 与关键词隔离不和 `wordPagePattern`、`maxUnitsPerLine`、尾词合并、剩余词查表、固定行续行或缩放、页标签同用：这些规则都会改写固定行的成员或几何，与选模式、插边界叠加时的先后顺序还没有定义，校验直接拒绝。隔离只在词边界插入边界，不拆词；隔离后仍超出每页上限时按溢出策略处理，不静默放宽上限。选择器的 `index/count` 按最终成员计算，错开序号不因隔离产生空位。
+
 ### 5.3 布局属性和绘制属性
 
 | 属性 | 阶段 | 是否影响换行 |
@@ -196,6 +249,8 @@ interface CaptionScene {
 已实现的 `layoutEvaluation: 'per-sample'` 允许白名单布局属性随时间求值；它们只能读取时间、参数和稳定单元元数据，不能读取本次生成的行、页、bounds 或依赖这些结果的状态。先求动态布局参数，再布局一次，不做猜测性的迭代求解；基础分页成员保持准备阶段的结果，动态溢出按显式策略处理。当前执行档支持 error/visible 两种动态溢出策略，字段与预算见视频格式 §5.6。
 
 ### 5.4 单元字体与真实重排
+
+可选 `fontSource={sha256,faceIndex}`（`caption-font-source/1`）为Text/Label及fontStyleBindings显式绑定字体资源face。同family/weight的不同字节不再靠全局注册先后选择；仅查询已注入Binary字体，来源或collection index缺失在排版前拒绝。导出保留冻结原文件的摘要与collection index；单face抽取仍用于旧family路径，原完整文件通过source-only资源库传入，未引用资源不扩展普通family或fallback候选；引用face的缺字仍走引擎fallback。来源注册及摘要缓存有明确数量／字节预算，批量注册失败保持旧状态。内部解析先于整形、lineBox与Label，复用同一TextEngine和缓存；旧族名匹配不变，未覆盖字符仍走既有确定性fallback，不将来源绑定误称无fallback。引用保留原family作为展示提示，运行时使用独立内部族；不硬编码任何外部来源族或参数。布局派生程序经共享测量入口传同一fontSource，独立装饰字体单独指定，避免主文字已绑定而测量仍按普通族选错版本。完整类型、cap和顺序规则见视频格式规范。
 
 `fontStyleBindings` 将静态字体族、字重和斜体patch绑定到page/line/word选择器，与现有`fontSizeBindings`合成为完整的字体runs，再整体整形一行。绑定保留语义成员，更新真实字形、基线、行宽和邻词位置，不用scale冒充字号。保留源空白覆盖，空白行也测量选中face；无原始标签不推断关键词。声明的所有潜在face进入导出字体清点，包含未活跃分支；具体cap、预算和类型合同见视频格式规范。它与独立文本装饰层、每层位置变换分工明确，不自动重建外部运行时生成的层。
 
@@ -215,6 +270,12 @@ cue 时间来自投影结果。word 保留真实词时间；page/line 的 speech
 
 动画相对 `word.start` 触发与相对 `page.displayStart + index × stagger` 触发是两个合同，不能互换。退场可绑定 `cue.end/page.displayEnd` 并使用负 offset。变速、裁切或重复使用素材后重新计算映射；显示窗口外裁剪动画，不拉伸全部动画去强行填满 cue。
 
+格式内唯一的时间载体是 `{ ticks, timescale }`。导入外部动画资产时遇到的毫秒词时间、整数微秒关键帧、浮点秒曲线或秒级 seek 位置，一律在导入阶段按有理数精确换算到该载体（毫秒取 timescale 1000，微秒取 1000000，浮点秒按声明精度转为有理数并记录换算精度）；表达式和关键帧内部不再区分这些来源，也不混用。
+
+`ClockRef` 的尾端策略 `tail: 'none' | 'clamp' | 'repeat'`（已生效，`caption-clock-tail/1`）：`none` 让 `progress` 超过 1 并交给 `fill` 决定轨道是否参与；`clamp` 取 `min(elapsed, duration)`；`repeat` 取 `elapsed mod duration`，周期右端点属于下一周期。`tail` 决定数值，`fill` 决定参与，两者不能互相替代。既有 `clampedProgress` 等价于 `tail: clamp`；关键帧 key 位于 `[0,1]`，`clamp` 在关键帧上取值与 `none` 相同，只表明意图。`repeat` 与 `clock.repeat` 互斥，零周期拒绝；精确合同见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
+页边界有两种合同：默认所有页使用 `[start, end)`；固定分页可通过显示窗口（§6.3）选择“第一页 `[start, end]`、其余页 `(start, end]`”，即共享边界属于前页。同一场景只能选一种，页切换帧的验收用例必须覆盖所选规则（§14.1）。
+
 ### 6.2 当前词和缺少词时间
 
 `speechState` 明确指定 `gapPolicy: 'none' | 'hold-previous'` 与 `tailPolicy: 'none' | 'hold-last'`。真实活动词先从满足 `start <= t < end` 的词中选择；重叠时取开始最晚者，再按逻辑索引较大者决定。空隙和尾段按对应策略处理；首词之前没有活动词。active 优先于 read，其他词依其结束/开始时间判 read/unread；被重叠规则排除但仍在发音区间的词记为 read，保证三态唯一。
@@ -232,6 +293,14 @@ cue 时间来自投影结果。word 保留真实词时间；page/line 的 speech
 有的动画按页上的样式编号决定效果：来源脚本排出每页各行的词数时，同时给每页记一个编号，读页时按编号选逐行字号、逐词还是整行淡入。不同编号可能排出同样的页形状（例如两种每行一词的三行页），只看页形状推不回编号。`caption-page-tag/1` 让固定词行计划的每页带一个整数标签（`pagination.pageTags`，与 `wordLinePattern` 同步循环），单元读 `unit.pageTag`，具体样式仍由场景表达式分支，核心不解释标签含义。标签与页形状放在同一份分页数据里，导入时按输入重放的页计划可以一并给出。
 
 没有真实词时间时，`timingPolicy` 默认 `require-word-timing`：关闭朗读驱动并提示缺失依据，cue/line 的入退场仍可用。用户可显式选 `estimated`，按已声明的均分或字符权重生成显示时序；结果标记估算，只存在于派生层，不回写为转录词时间。译文不继承原文逐词时间来冒充目标语对齐。
+
+词的 active/read/unread 三态保持唯一选择。另提供按区间判断的只读布尔 `word.inSpan`（`start <= t < end`，重叠词可同时为真）和 cue 级 `cue.speechPhase: 'before-first' | 'reading' | 'after-last'`（已生效，`caption-speech-phase/1`）。首词之前、末词之后需要特殊表现的效果读取 `speechPhase`，不把它们编码成第四个词状态。表达式类型系统没有枚举，三个取值分别以布尔 `cue.speechPhase.beforeFirst/reading/afterLast` 读取，词间空隙算 reading；缺少真实词时间时按上段 timingPolicy 处理：默认全为 false 并给出 `CAPTION_TIMING_UNAVAILABLE`，显式 estimated 以 `cue.speechPhase.estimated` 与 `unit.wordTimed=false` 标记估算。合同见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
+### 6.3 显示窗口与间隙分配
+
+固定分页可声明显式页/行显示窗口（`caption-page-window/1`）：相邻真实词之间的间隙按阈值分为短/长两类，分别按 `before/after` 比例分配给后词和前词；`before + after = 1` 时两侧共用同一切点，避免浮点伪重叠。首词前、末词后保留原边界，不把首页提前到 cue 起点，也不把末页延到 cue 尾部。典型配置是短间隙对半分配、长间隙在阈值一秒处切换。
+
+显示窗口与原始词时间分开保存；朗读状态、词时钟和装饰仍读原始时间，只有 page/line 显示时钟改用派生窗口。字号重排、装饰与历史采样不能改写窗口。入场提前量用 page 时钟的负 offset 表达；页窗口之外该页不绘制，不留残影。公式、输入约束与边界规则见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
 
 ## 7. 属性动画与合成
 
@@ -274,6 +343,12 @@ interface AnimationBinding {
 
 若某个消费者只能接收关键帧，派生采样产物必须包含区间、误差界、算法版本和足够的采样信息；台阶/断点显式保留。不能达到允许误差时拒绝。输出 fps 变化只改变采样时刻，不改变连续动画本身的频率与时长。
 
+### 7.4 双透明通道与常值轨道
+
+涂装透明度与节点透明度是两条独立通道：涂装项各自的 `opacity` 在涂装栈内作用于填充、描边或效果结果；节点或单元的 `opacity` 在隔离合成后整体相乘。两者相乘得到最终 alpha，不能合并成一个属性，也不能让其中一条通道覆盖另一条。按词底框的 alpha 属于底框节点，不与文字共用。
+
+常值轨道在时间上仍然有意义：选择器按当前词状态选中不同单元，`{ kind: 'constant' }` 的值会随被选中单元变化而作用到不同目标。缓存键因此必须包含朗读状态和页身份，不能把常值轨道当作与时间无关的静态样式。
+
 ## 8. 动态函数与表达式
 
 ### 8.1 需要支持的函数能力
@@ -301,35 +376,34 @@ interface PureFunctionDefinition {
 
 只读上下文提供：`time` 的语义时钟、`unit` 的稳定身份/索引/状态/标签、`layout` 的可访问框/基线、`canvas`、经校验的 `params` 及 `seed`。可访问字段由阶段和 target 决定；没有 word 目标却读取 `word.progress` 在编译时失败。邻词查询通过有限、显式的单元查询操作表达，不能任意遍历整份文稿。
 
-已实现的 `caption-text-context/1` 将文字节点全内容和当前页的字素索引分别提供为 `unit.textIndex/textCount`、`unit.pageTextIndex/pageTextCount`，包含原文空白；cue 时长和当前页时钟独立于当前词的时钟。grapheme 选择器通过 `includeWhitespace: true` 显式选入空白，供跨词连续光标和整段错开显现使用，旧选择器保持原集合。细节及预算见视频格式 §5.6。
-
-`caption-soft-band/1` 允许单文字子树用当前页上下文驱动归一化柔边遮罩，显式指定上下文文字节点，避免给无关层套用效果。页末词输入时间带可用标记，与估算显示时序区分；详细公式与限制见视频格式 §5.6。
-
-`caption-scalar-cluster-layout/1` 允许模板用显式 Unicode scalar 区间、附着条件和独立连接符规则定义分页计数组；两轮算法及预算固定，规则由模板提供，不混同于实际 glyph 或 Unicode grapheme。详见视频格式 §5.6。
-
-`caption-text-line-layout/1` 将每行文字数量限制与完整词成员结合，计数单位显式选择 Unicode scalar 或 extended grapheme，避免把编码长度当成显示单元。冻结后的行成员复用同一排版、时钟和全局上下文路径，详细边界见视频格式 §5.6。
-
-`caption-cue-unit-context/1` 提供全 cue 的词、视觉行和静态标签词选集序号；局部索引与全局索引各自明确，词碎片不会变成新的词。动态重排的全局行数须按同一采样时刻计算全页，显式开启并承担预算；关键词仅来自绑定标签，详见视频格式 §5.6。
-
-`caption-first-page-context/1` 提供文字节点固定第一页与当前页成员的真实输入边界，并保持跨页下一原词关系；显示页窗口不替代词结束，估算时序不冒充真实输入。具体字段与回退见视频格式 §5.6。
-
-`caption-cue-word-context/1` 将 cue 首词/次词与全局下一词的原始输入边界暴露为只读时间，并提供可用标记；保留真实停顿，不在核心内替效果延长词结束。静态文字和估算时序不冒充真实词绑定，详见视频格式 §5.6。
-
-`caption-unit-context/1` 补齐固定分页的页序号与所属行时钟；按行选择和装饰使用真实词成员推导活动状态，逐采样重排保留页身份。缺少词时间时视觉时钟与朗读状态分开，详细规则见视频格式 §5.6。
-
-`caption-ink-context/1` 将当前单元的字形填充边界与所属行的视觉高度独立暴露为 `layout.inkX/inkY/inkWidth/inkHeight`、`layout.lineInkY/lineInkHeight`，用于光标、底框等装饰的视觉对齐。旧布局框与字形 advance 不变；空白继承行的视觉高度，逐采样重排同步更新。坐标、无墨迹回退和效果边界见视频格式 §5.6。
+已生效的只读上下文能力（文字序号、页序号、行时钟、cue 首次词与下一词边界、墨迹框等）统一列在 §13.3 的能力索引，字段与预算以视频格式 §5.6 为准。它们共同遵守：局部索引与全局索引分别命名；显示页窗口不替代词结束；估算时序与静态文字不冒充真实词绑定；缺少词时间时视觉时钟与朗读状态分开。
 
 ### 8.2 内置函数与数值规则
 
 | 类别 | 首版操作 |
 | --- | --- |
-| 数学 | add/sub/mul/div、min/max、abs、clamp、smoothstep、sqrt、sin/cos、取整 |
+| 数学 | add/sub/mul/div、min/max、abs、clamp、smoothstep、sqrt、exp、pow、sin/cos、floor/ceil/round、mod/fract |
 | 插值 | mix、颜色插值、命名 easing、带声明参数的连续曲线 |
 | 字幕 | 状态判断、标签判断、稳定索引/总数、有限邻单元查询 |
 | 几何 | 布局框读取、空间转换、padding 外扩、对齐/锚点计算 |
 | 随机 | `random(seed, stableKey)`、带明确算法/晶格定义的 `noise(seed, x)` |
 
 当前执行合同提供五个 scalar 参数的 `cubic-bezier(progress, x1, y1, x2, y2)`，复用 motion 求解器。它可与语义时钟及 `min/max` 组合，描述持续时间随当前单元时长变化的入场；progress 两端固定为 0/1，控制点 x 限 [0,1]，控制点 y 可超调。能力名为 `caption-bezier-expression/1`，参数和错误语义见视频格式 §5.6。
+
+动画配方（§11）还需要以下内置函数，均须声明对应能力名；取模符号、列表参数与预算见视频格式 §5.6：
+
+| 函数 | 合同 | 状态 |
+| --- | --- | --- |
+| `shuffle-index(index, count, seed)` | 固定 seed 的无放回置换，顺序取值用 `index mod count` 直接索引 | 已生效（`caption-permutation/1`） |
+| `cubic-bezier(progress, x1, y1, x2, y2)` | 进度 easing，y 允许超调 | 已生效（`caption-bezier-expression/1`） |
+| `exp(x)` | 自然指数，用于弹性衰减 | 已生效（`caption-exponential-expression/1`） |
+| `floor / ceil` | 取整，返回 scalar | 已生效 |
+| `round` | 四舍五入到最近整数，半数远离零 | 已生效（`caption-rounding-expression/1`） |
+| `mod(a, b)`、`fract(x)` | 向下取整取模，结果与除数同号；`b` 为零返回诊断；用于闪烁、周期相位和量化时间 | 已生效（`caption-modular-expression/1`） |
+| `pow(base, exponent)` | 仅 scalar，负底数非整数指数返回诊断；用于 `1 − (1 − q)^3` 一类缓出 | 已生效（`caption-power-expression/1`） |
+| `pick(list, index)` | 从声明为参数的有限列表中按 `index mod count` 取值；列表元素类型统一，空列表拒绝 | 已生效（`caption-list-pick/1`） |
+
+`pick` 与 `shuffle-index` 组合即“按序取值”或“按种子洗牌取值”：前者直接用语义序号取模，后者先置换再取模。两者的 seed 都来自实例 `seed` 与显式通道 ID，不读取时间。
 
 random 对同 key 永远返回同值；时间噪声通过明确的连续坐标变化，不用“每画一帧抽一次”。key 由实例 seed、节点 ID、单元 ID 和通道 ID 组成，不因隐藏了邻词或换帧率而重排。函数算法及浮点/取整策略进入 evaluationVersion，native/WASM 使用同一实现和黄金值。
 
@@ -349,15 +423,33 @@ random 对同 key 永远返回同值；时间噪声通过明确的连续坐标�
 
 ## 9. 涂装、装饰与材质
 
+本节按执行位置分为涂装栈（文字局部空间）、装饰节点（读取布局后几何）、内置材质节点（页级离屏表面）和待实现的材质目标。每一项都声明取样对象、坐标空间、alpha 处理与预算；缺少后端能力时按 §9.3 末段的预检规则拒绝精确导出。
+
+### 9.1 涂装栈
+
 文字的 paint stack 是有序操作：填充（纯色/渐变/纹理）、描边、内阴影、投影、发光等。每项有稳定 ID，动画绑定到 ID 对应参数，不能靠删除一个效果后变化的数组下标识别。每项同时声明取样对象是原始 glyph mask 还是累计 layer result，避免多个效果顺序含糊。
 
+渐变的端点域与插值度量分开声明：linear paint 的 domain 选择基础行框、当前页框或每个字形自身的轮廓框（可按字号 em 外扩），space 选择文字局部像素投影或归一化 UV 投影。后者按逆宽高变换梯度协向量，再转换成共享光栅器端点，避免把非均匀缩放后的端点向量误当作同一颜色场。逐采样重排更新域，动画变换在其后应用；默认 local/line 保持旧行为。生效字段与拒绝范围见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
+图片涂装以显式 UV 矩阵和 glyph-em/glyph-normalized/line-normalized/page-normalized 空间取样冻结 PNG。图片与可选固色、渐变或当前填充 base 在同一次覆盖前合成，避免拆层重复抗锯齿；opacity 只调图片采样，compositeOpacity 独立调合成结果，默认1；普通涂装与 coverage/实例 alpha 一次量化，共同 opacity 的外扩/模糊 run 则隔离合成并模糊后一次应用整体 alpha，不能提前修改图片或 base 的 alpha；相位声明 cue-scalar-index，沿完整变换后文本的 Unicode scalar 逻辑起点计数，空白和分页不改变身份。此索引不等于字体物理 glyph 或未验证的来源 ordinal。能力、采样及 alpha 顺序、拒绝范围与帧预算以[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)为准；共享 CPU 录制有界位图后复用 GPU DrawBitmap 合成。
+
+共享执行档允许 paint 通过 `coverage: {lo, hi}` 独立声明轮廓的线性区间重映射。先按相同 paint/opacity 的连续 run 合并不透明轮廓并模糊，再重映射覆盖率，最后应用 paint 和实例 alpha；不得把半透明颜色当作覆盖率输入。固色和不透明渐变复用同一机制，严格范围、预算、能力声明与当前后端边界见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
 文字涂装在局部空间完成，然后应用节点 clip/mask，再应用分组效果及 opacity/blend。需要别的顺序时增加隔离 group。效果扩展绘制 bounds，离屏画布按扩展范围分配，不能裁掉阴影和模糊。基线、布局框不随涂装自动改变。
+
+### 9.2 装饰节点与按词底框
 
 底板、下划线、图标和 emoji 使用独立装饰节点，可读词/行框。底板随当前词移动、缩放时，渐变应跟着底板本身走，而不是固定在画布或文字行上。`caption-shape-paint/1` 让 shape 用 `fillPaint` 填充（纯色或线性渐变），渐变坐标取 shape 实际绘制的矩形，宽高动画会把渐变一起拉伸，节点变换也一起作用。渐变替代普通 fill，二者不能同时声明。emoji 可以是明确字体字形或图片资源；字体 face、字节摘要、variation axes 和 fallback 集合均冻结。缺字或缺图片明确报错，不能因为系统上有另一份同名字体就改变结果。
 
 `caption-glyph-envelope/1` 为按词底板提供两组独立几何：字体行度量与实际字形墨迹共同确定的不含 leading 垂直包络，以及按源 cluster 顺序取得的首/末字形墨迹横端点。端点不改写为 advance 或全部墨迹 union，也不因 RTL 自动交换；范围没有墨迹或没有唯一行时通过 bool 明确报告不可用。装饰、逐采样布局和反馈时刻共用这份布局后结果；现有 bounds/ink 合同保持不变，具体公式与预算见视频格式 §5.6。
 
 `caption-page-envelope/1` 为页材质和装饰提供整页字体/字形垂直包络、实际最大字号和行数。它独立于词级墨迹范围；空白行仍有字体度量，混合字号取重排后的 size runs。普通单元、材质和反馈共享同一时刻的结果，布局前读取被拒绝；字段与预算合同见视频格式 §5.6。
+
+按词底框的参考配方：`shape` 节点通过 `repeat` 按 word 展开，绑定该词的字形包络（首/末字形墨迹横端点与不含 leading 的垂直包络），把中心与半尺寸归一化到页框后再外扩 `expand`、平移 `offset`、设置 `roundness`；下划线是同一包络在基线下方的细条。底框的 alpha 与缩放独立于文字：`boxAlpha = min(2 × sin(π × p), 1)`，缩放走 `cubic-bezier(p, .2, .68, .76, 1.2)` 的超调曲线，`p` 为词时钟进度。底框不改变文字排版，也不参与文字的材质栈。
+
+光标是绑定装饰的一个用法：`label` 携带固定的光标字符或图片，跟随当前页最后一个已显现字素的墨迹右端（竖排时跟随下端并旋转 90°），闪烁用 `floor(mod(p × n, 2))` 决定可见性，cue 尾段按 `cue.end` 负 offset 淡出。光标不创建命中对象，不改变行高。
+
+### 9.3 内置材质节点
 
 材质首版采用版本化内置节点及有类型的 uniform，把扫光、纹理滚动、噪声遮罩等开放为参数。保留 shader 材质扩展合同：资源摘要、入口、输入/输出格式、uniform 类型、纹理/采样器、pass 依赖、所需能力；实际支持的 shader 方言和后端在专门阶段验证后开放。纯函数算出的模糊半径或材质参数只有在渲染器支持时才有效。 当前 `caption-wave-displace/1` 提供 cue 级正弦逆向位移：幅度、波长、相位可纯函数求值，方向为 x/y，使用预乘双线性透明边界采样；具体范围、像素中心与预算合同见视频格式 §5.6。
 
@@ -369,19 +461,61 @@ random 对同 key 永远返回同值；时间噪声通过明确的连续坐标�
 
 缺少某项能力时预检给出具体节点/属性/材质的原因，精确导出拒绝；预览可使用明确标记的简化模式。当前 `compositor` 已启用 retained scene 的 GPU 执行 feature，但动态场景材质与预览宿主尚未接入；丰富材质不能仅凭字段或 adapter 存在就标记为已支持。平台能力按 macOS、Windows 与 Web 分别验证。
 
-### 9.1 局部纹理噪声与色条
-
 共享材质增加 `noise-palette-mix`，以显式 `domain` 描述画布中局部UV范围，绑定冻结PNG色条，并在文字当前页上下文求值噪声phase和色条位置。固定有界噪声核保持输入alpha，只改变RGB；输出RGBA8后可接现有Gaussian/Glow材质。局部坐标与渲染参数由格式明确提供，不能自动以inkBounds或词advance代替；轴对齐domain不隐式跟随旋转。该能力不引入任意shader或脚本执行，完整系数、边界与预算见视频格式规范的“显式局部纹理的噪声色条混合”。
 
 `caption-glow-color-matrix/1` 为 glow-cascade 增加可选静态 `glowColorMatrix`（行优先 9 个有限数）。它在聚合 clamp 和 glowTint 之后变换辉光 RGB，再 clamp 后与原图合成；不影响 alpha 或原图。省略/单位矩阵保持既有像素与序列化兼容，非法形状、null、非有限系数及乘法溢出拒绝。
 
-### 9.2 有界角向纹理采样
+`caption-glow-linear/1` 让 glow-cascade 表达线性域多级辉光：最多 8 级；`gammaChannels: rgba` 让每个 pass 和聚合对 alpha 也做 gamma 编解码；`aggregation: linear` 在解码域按静态 levelGains 做 `1−Π(1−wk×dk)` 聚合，再以 intensity 缩放、编码；可选 levelColor 在解码前用 `color×level.alpha` 替换各级 RGB；`original-over-screen` 把原图放在 screen 结果之上并以 `O.a²` 保留原图覆盖。省略这些字段时旧文档逐字节不变。GPU 材质计划暂不执行该能力，显式拒绝，由 CPU 光栅执行。
 
 `angular-sample-blend` 对显式局部纹理domain执行固定60次逆向角采样，aspect与domain尺寸独立，angle遵守弧度单位。域外读取贡献透明零但不改变分母，随后用平均alpha在.6倍原图和均值之间混合。它保留独立RGBA、零角度的非恒等行为和共享预算，不能降级成节点旋转或高斯模糊；不引入任意shader或帧历史。格式细节见视频格式规范材质章节。
 
 `gradient-smear` 提供 evolving 梯度噪声驱动的固定128次方向采样，显式声明局部domain、噪声尺寸、种子、伸缩、进度及UV纵向。它可以表达词长相关的拉伸拖影，保留冻结多层噪声与透明越界规则；不会把文字动画替换为整层淡入。上下文选择、静态与动态数值边界、独立RGBA以及工作预算按视频格式规范执行，预览和导出使用同一无历史核。
 
 对于文字与装饰需要分别发光、遮罩或混合的效果，共享核心提供有序 `renderLayers`：每层选择明确根节点或有界图片序列，再执行独立材质栈。页面与词时钟仍由冻结的文字布局派生，材质不会改变其他层。关联 screen 输出保留到真实场景背景，不能提前拍成一张透明字幕图。图片序列采用摘要锁定与按需解码，固定噪声扫过属于受限内置材质；字段及预算见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
+`caption-gaussian-sampling/1` 将明确的整数输入 texel 子区域、分数输出 quad 和 tap 顺序接入同一排版后材质求值。UV 核距离按输入子区域计，边界不读取邻接像素；两个方向可使用不同的输入／输出域，保留中间纹理量化和最终输出网格。它不隐式推测字体紧框、纹理 padding 或宿主投影，导入侧须显式提供这些几何。
+
+矩形重映射自身保留轴可分性，固定高斯核的工作量按两轴实际有效 texel 数求和后相乘，覆盖区域夹边、fractional quad 和 RGBA 非零支持；输出与扫描成本另计。空间距离场仍用保守估算。这样避免完整输出域的四读取上界错误拒绝稀疏输入，保持原像素、预算上限与分辨率。
+
+`caption-affine-over/1` 增加两个独立 UV 采样矩阵和背景 opacity/RGB 衰减。两个采样读同一不可变前缀表面，按关联分量做 foreground-over-background，保持半透明边缘与发光；这与两次独立文字光栅化或沿路径平均不同。输入 ROI、输出域、采样边界及数值/预算合同见[格式规范](../../spec/video-format-spec.md)。当前实现落在共享 CPU 场景/导出/WASM 路径，GPU material-plan 返回明确未支持错误；有序 pass 图、独立 offscreen surface 分配及状态式来源重放仍需后续扩展。
+
+`caption-gaussian-uv/1` 表达任意二维signed采样步长及UV空间sigma，使用明确input/output采样域，按中心、负向、正向的有序tap归一关联RGBA；RGBgain与alpha分离。现有affine-over的identity foreground/backgroundOpacity0可把前缀采样到指定整数子网格；后续gaussian-uv读取该网格并写回完整局部域，再按后续材质顺序合成。当前子网格仍须完全在已有画布表面内，不能假装已支持超画布localRT、任意pool或source native捕获。具体合同见[格式规范](../../spec/video-format-spec.md)。
+
+### 9.4 显式仿射路径采样
+
+`caption-affine-sample-blend/1` 为唯一 Text 的当前页提供显式归一化 UV 路径：输入 texel ROI、输出 quad、2–32 个六系数 scalar DynamicValue 矩阵、采样数量区间、端点距离区间和边界模式都由格式给出。每个像素按首末控制点的欧氏 UV 距离经 smoothstep 选择 2–256 个样本，沿等距控制点分段线性插值变换后的 UV，再等权平均独立 RGBA 分量；不求矩阵逆、不改为节点旋转、高斯或依赖过去画面的反馈。
+
+域与所有矩阵系数必须在排版后有有效值，不使用单位矩阵或当前 pose 猜测缺失数据；输入 ROI 不读相邻 texel，输出域可裁到画布。normalize、transparent、replicate 沿用明确 UV 边界，保留 RGB 大于 alpha 的关联颜色，并计入控制点、读取、输出及共享表面预算。完整公式、范围和失败合同见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。共享录制生成已求值的渲染器无关命令；GPU 原生路径采用补偿参数／判定和有运行时整数舍入屏障的运算，保留临界低位。不能可靠复现的内部密度阈值在提交前明确回退，不生成 CPU 密度贴图；CPU f64 reference 保留。源操作、后端和实际场景覆盖分别验收，不据单一材质支持宣称全库 GPU 化。
+
+### 9.5 待实现材质目标
+
+以下材质来自目标效果拆解，尚未进入格式规范。每项先给出纯函数或材质合同，再映射到已有能力；没有映射的列为新材质，须单独立项、声明能力名并通过 §14.1 的验证点。
+
+| 目标效果 | 合同 | 映射 |
+| --- | --- | --- |
+| 运动模糊 | 对同一纯函数在 `t − i × step` 的过去时刻重新求值并等权或按核合成；参考配置为 11 个样本、步长 25 ms，再接一次独立分量高斯，sigma 为采样跨度的固定比例 | 已生效：`caption-feedback/1` 的有界历史采样加 `caption-feedback-mean/1` 的等权平均聚合（`composite:"mean"`，仅统计 cue 内样本），再接 `caption-gaussian-axis/1`；默认衰减 source-over 不变；自定义核仍为目标；不引入帧历史 |
+| 量化噪声相位 | 噪声相位取 `floor(t × rate)`，UV 抖动取 `floor(t × rate2)`，使噪声按固定频率跳变而不是逐帧连续 | 已有 `noise(seed, x)` 与 `floor`；rate 为静态参数 |
+| 噪声 UV 位移 | `uv' = uv + (n − 0.5) × strength × aspect`，其中 `n = (noise + brightness − 0.5) × contrast × 10 + 0.5`；预乘双线性透明边界采样 | 已生效：`caption-noise-displace/1`（噪声源为 noise-palette-mix 的固定 v1 核，仅 CPU，GPU 材质计划显式拒绝）；`caption-wave-displace/1` 只覆盖正弦位移 |
+| 多尺度辉光 | 可分离高斯多级级联，采样距离按 720 基准归一到实际画布 | 已生效：`caption-glow-cascade/1`、`caption-glow-linear/1` |
+| bloom 置底 | 以 0.3 倍降采样做 9 权重核的可分离模糊，纵向权重乘 1.1，再按 `original + bloom × (1 − original.a)` 合成到原图之下 | 先验证 `caption-glow-linear/1` 的 `original-over-screen` 是否等价；不等价则作为 glow 的新聚合模式 |
+| 背景差值负片 | `abs(text.rgb − video.rgb × text.a)`，alpha 取文字 alpha | 新材质，必须声明背景子图依赖（§9.3 末段），不能缓存成透明贴片 |
+| 残影克隆 | 同一文字子树输出多层，各层独立位移/透明度/混合（Normal 或 Add）并可用遮罩裁切 | 复用 `caption-render-layers/1` 的多层与 blend；已生效：`caption-layer-add/1` 的 `blend:"add"`（关联 RGBA 四分量 `S+D` 钳制，直接作用于真实背景） |
+| 多层图片阴影装饰字 | 固定层数的 PNG 偏移叠加（例如十几层）构成火焰或立体质感 | 复用涂装栈多项投影与 `caption-image-paint/1`；层数进入预算 |
+| 像素实例飘散 | 每个像素作为一个实例，按噪声位移、`smoothstep` 遮罩与 `opacity = a^0.3` 显现，非物理积分 | pixel-particles 分级，暂缓；不以材质伪装 |
+
+火焰、辉光等材质输出允许 RGB 大于 alpha 的关联颜色，按 §9.3 的宿主合同保留。背景依赖的材质在缩略图和导出中必须拿到同一时刻的真实背景，预览若用占位背景须标记为简化模式。
+
+### 9.6 GPU 源涂装与隔离
+
+共享 DrawOp source 保留原始顺序、fill rule 与 stroke 的 width/cap/join/miter；只上传缓存字形资源，不上传 CPU 合成的逐帧场景。源 `PushLayer/PopLayer` 的 Normal 隔离先在独立 RGBA8 表面合成子绘制，再一次性应用 opacity，支持嵌套；给每个子绘制分别乘组 opacity 不等价。源组深度最多32，每帧最多128线性涂装与128隔离复合，表面与保守逐字形读取量进入既有 GPU 总预算，在任何提交前拒绝超限。
+
+源 `prepare_for_canvas` 使用1倍设备覆盖，常规 stroke 先按原始局部 path 与原 tf 的 resolution scale 生成整体 outline，再映射到完整设备坐标。曲线细分本身对 f32 平移敏感，不能先移到小块坐标再扫描。缓存 miss 时用原 viewport 大小的 A8 scratch 扫描单字形，保留 CPU 画布裁切与大画幅扫描网格，再裁出有界字形小块上传；不在 CPU 合成整张动画场景。normal coverage 键包含原几何、fill/stroke 参数、完整 tf 与 viewport，Solid／Linear 颜色和 alpha 仍由 GPU 求值并复用 coverage。变换／viewport 变化可能触发准备和上传，不能无条件去掉整数平移。无 viewport 的 `prepare` 保留原局部4倍掩膜及 transform/color uniform 策略，不代表设备扫描等价。
+
+Solid paint 先浮点预乘再量化字节；Linear 先量化直通道再按 CPU lowp 规则预乘；随后应用覆盖率。最多32色标的 pad Linear 保留原路径局部域、独立 alpha、非均匀色标及重复色标硬边，近退化／单色回退按 Solid 顺序。源组采用CPU Pattern的highp路径，在children合成后保留f32 opacity，到目的RGBA8写入时量化；普通 retained scene 与最终关联材质合成的精度政策不变。GPU destination blending 仍可能有字节舍入差异，须以全 RGBA 实测判定，不能用准入成功替代像素或原版保真验收。
+
+零宽及CPU判定为设备细线的正宽stroke在Caption GPU执行器中保留原scanner有序覆盖事件。预合成RGBA tile无法表达每次blit针对当前destination的字节舍入；不能用透明tile对照通过证明非零背景等价。独立coverage fork只增加scanner事件出口，原registry CPU渲染器不变；完整tf、cap曲线细分、裁切及8191扫描grid顺序均保留。设备ROI存储每像素offset/count与有序u8覆盖率，geometry键不含paint或width调制。GPU读取当前源组destination后逐事件执行：原浮点paint不透明时用Source/Lerp的一次组合舍入，其余用lowp预乘SourceOver。不得从量化后alpha255猜测原paint不透明。计算到独立ROI纹理后覆盖回源组，无同一pass读写同纹理，无CPU场景合成或整帧上传；不要求storage buffer或可选GPU特性。
+
+ROI最多2046×2046，每程序最多262144 spans、4 Mi事件、每像素65536事件，每帧最多128stroke操作。事件缓存、整帧唯一活跃程序与准备临时分别有64 MiB预算；GPU估算包含缓存保留、整帧唯一事件纹理和每操作ROI，不能以LRU移除替代encoder存活资源计费。原retained缓存／CPU scratch各64 MiB不变，`prepared_masks`统计字形，`prepared_strokes`统计新事件程序。超限在提交前明确拒绝，不降采样。独立`prepare_for_canvas`保留RGBA hairline兼容准备，它本身不提供destination-aware执行。Radial、非Normal源混合、clip/matte及未接入操作保留明确回退。该backend变化不增加模板字段、不改变CPU出图，GPU执行／像素对照与原版保真仍分别验收。
 
 ## 10. 求值管线与缓存
 
@@ -427,9 +561,33 @@ flowchart TD
 
 实施按执行合同分批接通：retained 字形/矢量/纹理与基础合成 → 动态场景计划适配 → 完整材质图 → Web 与原生宿主接入 → 设备矩阵及压力验收。每批记录真实支持范围，未接通的模板继续明确回退；当前进度见 [`compositor`](../../../crates/compositor/README.md)。
 
-## 11. 格式示例
+## 11. 动画配方目录
 
-### 11.1 每页三个词，当前词变黄并弹入
+本节把目标效果写成可直接落到格式的配方：每条给出驱动单元与时钟、数值合同（以纯函数 AST 的调用链表达）、所需能力和验收点。常数是参考值，由模板参数承载，不是格式默认值。`p` 为所述时钟的进度，`t` 为该时钟的 `elapsedSeconds`，`D` 为时长，`N` 为所属集合的单元总数，`i` 为零基索引。
+
+| 配方 | 单元与时钟 | 数值合同 | 所需能力 | 验收点 |
+| --- | --- | --- | --- | --- |
+| 弹性超调入场 | word，`word.start`，固定 D | `scale = 1 + exp(−7p) × sin((p − 0.075) × 2π / 0.3)`，`p` 经 `tail: clamp`；`f(0) = 0`、`f(1) ≈ 1`，超过 D 后由 fill 固定为 1 | `exp`、`sin`、`cubic-bezier` 可选 | t=0 为 0；峰值超调帧；超过 D 稳定为 1 |
+| 随时长缩放 | word，`word.start`，`unit-span` | `scale = min(0.8 + 1.5 × p × D, 1)` | `min`、`mul` | 短词与长词在相同绝对时间处缩放一致 |
+| 朗读词横向拉伸 | word，active 状态样式 + 关键帧 | `scaleX = (k(t) / 100 − 1) / 3.5 + 1`，`k` 为关键帧曲线；字号倍率 1.5 走字号绑定 | `caption-unit-font-size/1`、状态样式 | 邻词随真实字号重排；拉伸不改行宽 |
+| 透明度阶梯 | word，三态 | `alpha = 0`（unread）/ `p`（active）/ `1`（read）；变体 `min(2p, 1)`、`clamp(1.5p)` | 状态样式、`clamp` | 词边界前后帧；重叠词 |
+| 滑入 | word 或 line，`word.start` | `offset = −4 × fontEm × (1 − cubicOut(p))`，沿书写主轴；竖排时切换到 y 轴 | `fontEm` 基准、`cubic-bezier`；书写方向上下文为目标 | 横/竖排各一组夹具 |
+| 累积显字 | grapheme（含空白），所属 word 的 `word.start` 时钟 | `opacity = if(lt(time.elapsedSeconds, 0), 0, 1)` | `caption-text-context/1` | 空白字素编号稳定；seek 到词中间 |
+| 羽化显现 | grapheme，page 时钟 | `a_i = 0.85 × i / N`；`opacity = smoothstep(a_i, a_i + 0.15, p)` | `pageTextIndex/pageTextCount`、`smoothstep` | 页首页尾字素；页切换帧 |
+| 光标跟随 | label 绑定末已显字素 | 位置读墨迹右端；可见性 `floor(mod(p × n, 2))`；尾段按 `cue.end − offset` 淡出 | `caption-bound-label/1`、`caption-ink-context/1`、`caption-modular-expression/1` | 竖排旋转；cue 尾淡出帧 |
+| 按词底框 | shape 按 word 重复，`word.start` | `boxAlpha = min(2 × sin(π × p), 1)`；`scale = cubic-bezier(p, .2, .68, .76, 1.2)` | `caption-glyph-envelope/1`、`cubic-bezier` | 紧框不随绘制缩放改变排版 |
+| 逐字错峰 | grapheme，page 时钟 | `start_i = (1 − 0.4) × i / N`；`q = clamp((p − start_i) / 0.4, 0, 1)` 驱动位移与 alpha | `pageTextIndex/pageTextCount` | 首末字素；N=1 退化 |
+| 按词延迟段 | word，page 时钟 | 每词从参数列表取 `(startFrame, dur)`：`q = clamp((p × total − startFrame) / dur, 0, 1)`；`alpha = 1 − (1 − q)^3`，y 由曲线 | `caption-list-pick/1`、`caption-power-expression/1`、`cubic-bezier` | 段表长度与词数不符时诊断 |
+| 多行重排 | line，静态 | 按 `lineIndex` 选字号倍率与锚点，经字号绑定真实重排 | `caption-unit-context/1`、`caption-unit-font-size/1` | 行数变化后身份稳定 |
+| 整页慢推 | page，`page.displayStart` | `scale = 0.9 + 0.06 × t`，`tail: clamp` 到页窗口 | `caption-page-window/1` 可选 | 页外不绘制；共享边界归属 |
+| 字符波浪 | grapheme，连续时间 | `offsetY = amplitude × sin(phase(t) + i × phaseStep)` | `sin`、typed phase | 任意帧率同相位；opacity 为零的字符仍编号 |
+| 关键词配色 | word 标签，静态 | `color = pick(palette, shuffle-index(k, K, seed))` 或 `pick(palette, k)`，`k` 为关键词全局序号 | `caption-permutation/1`、`caption-list-pick/1` | 改字后同 seed 结果稳定 |
+
+配方之间的组合遵守 §7.2 的层次和 §7.3 的组合规则：位移相加、缩放相乘、alpha 相乘。任何配方都不得读取上一帧或自己的最终值；需要拖尾的改用 §9.5 的有界历史采样。
+
+## 12. 格式示例
+
+### 12.1 每页三个词，当前词变黄并弹入
 
 以下是拟议 `CaptionScene` 中可组合的字段片段，不是现有可直接加载的文档。`caption` 为文字节点，`words` 为它的 word 选择器；基础颜色为白色。示例通过关键帧完成弹入，不需要自定义函数。
 
@@ -483,19 +641,19 @@ flowchart TD
 
 示例省略资源、字体和其余布局字段，正式文档仍须补全并校验。短词连续弹入允许重叠；缩放绕各词的基础框中心，不重新换行。
 
-### 11.2 字符波浪与随词底框
+### 12.2 字符波浪与随词底框
 
 字符波浪的数学表达为 `offsetY = amplitude × sin(phase(time) + index × phaseStep)`。存储时用 AST 依次调用 typed phase、add、sin 和 mul；amplitude 是 length，phaseStep 是 angle，frequency 的单位明确。index 采用完整逻辑 grapheme 集合，opacity 为零的字符仍参与编号。
 
 底框 width 读取 `word.layoutBounds.width + 2 × padding`，位置锚到该框；文字先布局，再展开 shape。框跟随当前词的绘制缩放时，绑定绘制后框；需要底框保持原大小时绑定基础框。两种都能表示，且不会反向修改文字排版。
 
-### 11.3 关键词与 emoji
+### 12.3 关键词与 emoji
 
 实例把词 ID 标记为 `hero`，模板用标签选择器改变静态样式，并为每个 hero 生成一个 image/text 装饰节点。装饰读取词框中心，通过 `word.start` 时钟做位移、缩放和淡入。换一段文案后依靠新的显式词绑定重新计算，素材选择和标签不会在渲染循环里随机生成。
 
-## 12. 现有格式衔接与模块调整
+## 13. 现有格式衔接与模块调整
 
-### 12.1 版本与回退
+### 13.1 版本与回退
 
 新增场景正文，不改变 `baocut.caption/1` 的内容语义。旧 Studio/Boxed 项目继续原有 lowering 与渲染路径；把既有预设编译到新场景前，对每份预设运行旧/新黄金帧测试，只有通过才切换默认编译路径。升级后保存保留模板和编译器版本，不强制迁移所有历史项目。
 
@@ -503,7 +661,7 @@ flowchart TD
 
 结构化诊断至少包括：`CAPTION_SCENE_SCHEMA_UNSUPPORTED`、`CAPTION_PROPERTY_UNSUPPORTED`、`CAPTION_EXPRESSION_TYPE`、`CAPTION_DEPENDENCY_CYCLE`、`CAPTION_TIMING_UNAVAILABLE`、`CAPTION_RESOURCE_MISSING`、`CAPTION_CAPABILITY_UNAVAILABLE` 和 `CAPTION_BUDGET_EXCEEDED`。问题带节点/属性/表达式位置，UI 与导出预检消费同一结果。
 
-### 12.2 模块职责
+### 13.2 模块职责
 
 | 位置 | 计划调整 |
 | --- | --- |
@@ -520,9 +678,23 @@ flowchart TD
 
 同时审计 `frame-render` 当前按共享样式分组的行为：同 style ID 不足以合并有不同参数、语言、seed 或 occurrence 的场景。公共模板编译可以共享，实例绑定、时钟和最终帧缓存必须隔离。
 
-## 13. 验收与实施顺序
+### 13.3 已生效能力索引
 
-### 13.1 验收矩阵
+下表列出视频格式 §5.6 当前可声明的全部能力、用途与本文对应章节；字段、预算与拒绝范围以规范为准，本文不重复。
+
+| 能力族 | 能力 | 用途 | 章节 |
+| --- | --- | --- | --- |
+| 场景与表达式 | `caption-scene/1`、`caption-expressions/1`、`caption-function-dag/1`、`caption-unit-animation/1`、`caption-permutation/1`、`caption-bezier-expression/1`、`caption-exponential-expression/1`、`caption-rounding-expression/1`、`caption-modular-expression/1`、`caption-power-expression/1`、`caption-list-pick/1`、`caption-clock-tail/1` | 场景正文、typed AST、无环纯函数、按单元动画、置换、easing、指数、取整、取模、幂、列表参数取值与关键帧时钟尾端策略 | §3、§6.1、§7、§8 |
+| 装饰 | `caption-bound-label/1` | Repeat 直接子节点的固定单行装饰，复用源单元时钟与几何 | §3、§9.2 |
+| 字体 | `caption-font-line-box/1`、`caption-font-source/1`、`caption-font-hinting/1`、`caption-font-shaping/1`、`caption-text-transform/1` | 行框包络、按摘要绑定 face、hinting/shaping 选项、显示变换 | §4.1、§5、§5.4 |
+| 布局 | `caption-word-line-layout/1`、`caption-text-line-layout/1`、`caption-pattern-select/1`、`caption-keyword-isolation/1`、`caption-scalar-cluster-layout/1`、`caption-layout-per-sample/1`、`caption-page-window/1`、`caption-unit-font-size/1`、`caption-unit-font-style/1` | 固定词行/字行分页、按词数或 seed 选择分页模式、关键词隔离、字符计数组、逐采样重排、显示窗口、按单元字号与字体样式 | §4.3、§5.2、§5.3、§5.4、§6.3 |
+| 只读上下文 | `caption-text-context/1`、`caption-unit-context/1`、`caption-cue-unit-context/1`、`caption-cue-word-context/1`、`caption-speech-phase/1`、`caption-first-page-context/1`、`caption-ink-context/1`、`caption-glyph-envelope/1`、`caption-page-envelope/1` | 全文/页内字素序号、页与行时钟、全 cue 词行序号、首次词与下一词边界、cue 朗读阶段与词区间布尔、固定第一页成员、字形墨迹框、按词与整页包络 | §6.2、§8.1、§9.2 |
+| 涂装 | `caption-paint-stack/1`、`caption-paint-effects/1`、`caption-paint-coverage/1`、`caption-gradient-space/1`、`caption-gradient-glyph/1`、`caption-image-png/1`、`caption-image-paint/1`、`caption-image-phase-float32/1`、`caption-image-sequence/1` | 有序涂装项、效果外扩、覆盖率重映射、渐变域与空间、图片涂装与相位、图片序列 | §9.1、§9.3 |
+| 材质 | `caption-blur/1`、`caption-gaussian-axis/1`、`caption-gaussian-uv/1`、`caption-gaussian-spacing-ramp/1`、`caption-gaussian-sampling/1`、`caption-glow-cascade/1`、`caption-glow-linear/1`、`caption-glow-tint/1`、`caption-glow-color-matrix/1`、`caption-feedback/1`、`caption-feedback-mean/1`、`caption-wave-displace/1`、`caption-noise-displace/1`、`caption-soft-band/1`、`caption-noise-palette-mix/1`、`caption-noisy-sweep/1`、`caption-angular-sample-blend/1`、`caption-affine-sample-blend/1`、`caption-affine-over/1`、`caption-gradient-smear/1`、`caption-render-layers/1`、`caption-layer-add/1` | 模糊与高斯族、辉光族、有界历史采样与等权平均、正弦与噪声位移、遮罩、噪声与扫光、采样混合、仿射前景/背景、独立渲染层与加法混合 | §9.3、§9.4 |
+
+## 14. 验收与实施顺序
+
+### 14.1 验收矩阵
 
 | 维度 | 必须覆盖的行为 |
 | --- | --- |
@@ -543,7 +715,9 @@ flowchart TD
 
 性能报告记录准备/字体与材质编译耗时、热帧 P50/P95、seek 延迟、实例/节点规模和峰值内存。1080p、30 fps 的整帧目标预算是 33.3 ms，字幕预算根据实际媒体合成开销分配；复杂场景超预算要给出证据，不能默默降低效果、精度或字幕帧率。
 
-### 13.2 实施阶段
+动画配方与材质另有固定验证点，每条配方至少覆盖：`t = 0` 的初值；页共享边界两侧各一帧；超调峰值帧；页窗口之外无残留像素；同一时刻重复 seek、正向与反向 seek 结果逐字节一致；至少两种输出尺寸下归一化几何一致。有状态实现（如“帧序号为 0 时重置”）在反向 seek 和分片渲染下必然失败，这是坚持 `结果 = f(精确时间, …)` 的直接理由，验收用例保留该反例。
+
+### 14.2 实施阶段
 
 | 阶段 | 交付范围 | 完成门 |
 | --- | --- | --- |
@@ -558,7 +732,9 @@ flowchart TD
 
 落地时同步视频格式 §3.8/§5.6、架构 §9、命令诊断与验收矩阵；新功能已实现后再把目标合同改为生效合同。当前格式、表达式和共享 CPU 场景分支已接入；PNG 图片与冻结资源引用、有序填充/描边、线性渐变、cue 级模糊/独立分量高斯/级联发光/波纹位移/反馈材质、逐采样布局、页级活动词时钟和按宽度换行页的逐单元字号重排已接入；场景 artifact 引用、任意 shader、节点级材质与高级场景编辑继续按后续阶段实施。
 
-## 14. 待评审事项
+表现分级（§1.3）与阶段的对应：glyph-motion 与 text-paint 归阶段 B–C，texture-effects 归阶段 D 与 F，derived-decoration 的实例数据路径归阶段 E、自动生成器单独立项，pixel-particles 暂缓且不占用阶段 F 的预算。
+
+## 15. 待评审事项
 
 1. 确认采用 `caption-scene` 表达通用场景、`caption-scene-style` 承载共享样式，实例覆盖放在 `CaptionItem.presentation`；正式 schema 注册前核对已有字段和版本演进策略。
 2. 更细粒度的节点级材质与改变分页成员的动态布局需独立评审；现有逐采样布局保持基础分页，cue 级反馈采用有界无状态采样。
@@ -566,3 +742,6 @@ flowchart TD
 4. 明确高级场景的参数编辑范围及七维面板之外的呈现方式，按原型先行验证，不把高级结构强制摊平成简单样式。
 5. **有上限的空隙保持**。`hold-previous` 把活动词一直保持到下一个词开始；有些模板只在空隙不超过固定时长（例如 1 s）时这样保持，超出时只保持一半空隙。是否给 `speechState` 增加这种有上限的保持待评审；它会同时改变活动词状态和 `caption-active-word-context/1` 的窗口，不在该能力里另造窗口。
 6. **重新折行后的行身份**。`caption-unit-font-reflow/1` 让按宽度换行的页逐采样重新折行，行在采样之间没有稳定身份，所以目前拒绝 line 选择器、行时钟和按行内序号筛选的 word 选择器。要支持“每行依次入场”这类效果，需要先定义重新折行后行的身份（例如按行首词）与行时钟的连续性。
+7. §5.2 的 `patternSelect` 与关键词隔离是进入 `caption-scene` 的分页程序，还是只作为生成器写入实例覆盖；两者都要求结果冻结，差别在于换模板时是否自动重算。
+8. §9.5 的 bloom 置底是否可由 `caption-glow-linear/1` 现有聚合表达；背景差值与噪声 UV 位移作为新材质立项前先确认背景依赖在缩略图与导出中的获取方式。
+9. §11 配方目录随效果增加可能超出单篇篇幅；超出时按文档约定拆为独立文档并在本文保留索引。

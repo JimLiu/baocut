@@ -207,7 +207,11 @@ mod associated_tests {
     #[test]
     fn preview_scale_preserves_associated_blend_and_opacity() {
         let mut frame = FrameOps::default();
-        for blend in [AssociatedBlend::SourceOver, AssociatedBlend::Screen] {
+        for blend in [
+            AssociatedBlend::SourceOver,
+            AssociatedBlend::Screen,
+            AssociatedBlend::Add,
+        ] {
             frame.ops.push(DrawOp::DrawEmissiveBitmap {
                 blend,
                 bitmap: 3,
@@ -216,11 +220,11 @@ mod associated_tests {
             });
         }
         scale_draw_ops(&mut frame, 2.0);
-        for (op, expected) in frame
-            .ops
-            .iter()
-            .zip([AssociatedBlend::SourceOver, AssociatedBlend::Screen])
-        {
+        for (op, expected) in frame.ops.iter().zip([
+            AssociatedBlend::SourceOver,
+            AssociatedBlend::Screen,
+            AssociatedBlend::Add,
+        ]) {
             match op {
                 DrawOp::DrawEmissiveBitmap {
                     blend,

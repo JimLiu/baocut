@@ -374,26 +374,28 @@ fn rich_row(
                 .filter(|run| run.bytes.start < bytes.end && run.bytes.end > bytes.start)
             {
                 budget.spend()?;
-                let metrics = text.shape_spaced(
+                let metrics = text.shape_spaced_with_shaping(
                     " ",
                     &run.family,
                     run.size,
                     run.weight,
                     run.italic,
                     style.letter_spacing * run.size,
+                    font_shaping::mode(style),
                 );
                 measured.ascent = measured.ascent.max(metrics.ascent);
                 measured.descent = measured.descent.max(metrics.descent);
             }
             measured
         } else {
-            text.shape_spaced(
+            text.shape_spaced_with_shaping(
                 " ",
                 &style.font_family,
                 max_size,
                 style.font_weight,
                 style.italic,
                 style.letter_spacing * max_size,
+                font_shaping::mode(style),
             )
         };
         shape.width = 0.0;
@@ -446,7 +448,13 @@ fn rich_row(
             && run.italic == style.italic
     }) {
         // Empty run list preserves the existing uniform-font shaping path.
-        text.shape_rich(&normalized, 0..normalized.len(), base_font, &[])
+        text.shape_rich_with_shaping(
+            &normalized,
+            0..normalized.len(),
+            base_font,
+            &[],
+            font_shaping::mode(style),
+        )
     } else {
         let spans = spans
             .into_iter()
@@ -469,7 +477,13 @@ fn rich_row(
                 }
             })
             .collect::<Vec<_>>();
-        text.shape_rich(&normalized, 0..normalized.len(), base_font, &spans)
+        text.shape_rich_with_shaping(
+            &normalized,
+            0..normalized.len(),
+            base_font,
+            &spans,
+            font_shaping::mode(style),
+        )
     };
     for glyph in &mut shape.glyphs {
         if let (Some(first), Some(last)) = (
@@ -546,7 +560,7 @@ pub(super) fn reflow(
     let mut rows = Vec::new();
     let mut height = 0.0;
     for bytes in line_bytes {
-        let (shape, max_size) = rich_row(
+        let (mut shape, max_size) = rich_row(
             text,
             &base.content,
             bytes.clone(),
@@ -555,6 +569,7 @@ pub(super) fn reflow(
             &sizes,
             budget,
         )?;
+        font_line_box::apply(text, &mut shape, &node.style, max_size, budget)?;
         if cfg.overflow == LayoutOverflow::Error && shape.width > width + 0.001 {
             bail!("CAPTION_LAYOUT_OVERFLOW: unit font size fixed line");
         }
@@ -1039,12 +1054,14 @@ mod tests {
         assign(&mut runs, 0..3, Some(30.), None, &mut budget).unwrap();
         let family = FontStylePatch {
             font_family: Some("Playfair Display".into()),
+            font_source: None,
             font_weight: None,
             italic: Some(true),
         };
         assign(&mut runs, 0..6, None, Some(&family), &mut budget).unwrap();
         let weight = FontStylePatch {
             font_family: None,
+            font_source: None,
             font_weight: Some(700),
             italic: None,
         };

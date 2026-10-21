@@ -30,6 +30,7 @@ struct VertexOut {
     @location(11) @interpolate(flat) mask_rect: vec4f,
     @location(12) @interpolate(flat) stroke_width: f32,
     @location(13) @interpolate(flat) pattern_enabled: u32,
+    @location(14) @interpolate(flat) area_coverage: u32,
 }
 
 @group(0) @binding(0) var glyph_mask_atlas: texture_2d<f32>;
@@ -74,6 +75,7 @@ fn vertex_main(
     out.mask_rect = mask_rect;
     out.stroke_width = stroke.x;
     out.pattern_enabled = select(0u, 1u, stroke.y > 0.5);
+    out.area_coverage = select(0u, 1u, stroke.z > 0.5);
     return out;
 }
 
@@ -108,8 +110,25 @@ fn dilated_coverage(uv: vec2f, rect: vec4f, width: f32) -> f32 {
     return coverage;
 }
 
+fn area_coverage(uv: vec2f, rect: vec4f, dx: vec2f, dy: vec2f) -> f32 {
+    let dimensions = vec2f(textureDimensions(glyph_mask_atlas));
+    let nx = u32(clamp(ceil(length(dx * dimensions) - 0.0001), 1.0, 8.0));
+    let ny = u32(clamp(ceil(length(dy * dimensions) - 0.0001), 1.0, 8.0));
+    var coverage = 0.0;
+    for (var y = 0u; y < ny; y += 1u) {
+        for (var x = 0u; x < nx; x += 1u) {
+            let offset = dx * ((f32(x) + 0.5) / f32(nx) - 0.5)
+                + dy * ((f32(y) + 0.5) / f32(ny) - 0.5);
+            coverage += mask_sample(uv + offset, rect);
+        }
+    }
+    return coverage / f32(nx * ny);
+}
+
 @fragment
 fn fragment_main(input: VertexOut) -> @location(0) vec4f {
+    let coverage_dx = dpdx(input.uv);
+    let coverage_dy = dpdy(input.uv);
     if input.clip_enabled != 0u
         && (input.clip_rect.z <= input.clip_rect.x
             || input.clip_rect.w <= input.clip_rect.y
@@ -123,7 +142,10 @@ fn fragment_main(input: VertexOut) -> @location(0) vec4f {
         let color = textureSampleLevel(glyph_color_atlas, glyph_sampler, input.uv, 0.0);
         return color * clamp(input.color_opacity, 0.0, 1.0);
     }
-    let coverage = dilated_coverage(input.uv, input.mask_rect, input.stroke_width);
+    var coverage = dilated_coverage(input.uv, input.mask_rect, input.stroke_width);
+    if input.area_coverage != 0u {
+        coverage = area_coverage(input.uv, input.mask_rect, coverage_dx, coverage_dy);
+    }
     if input.pattern_enabled != 0u {
         let pattern_size = vec2f(textureDimensions(glyph_pattern));
         let pattern = textureSampleLevel(
@@ -146,6 +168,14 @@ fn fragment_main(input: VertexOut) -> @location(0) vec4f {
         color = mix(input.gradient_first, input.gradient_middle, middle_weight);
     }
     let alpha = clamp(color.a, 0.0, 1.0) * coverage;
+    if input.area_coverage != 0u {
+        // DrawOp solid paint is quantized before AA coverage by the CPU lowp
+        // pipeline. Keep that order; generic retained scenes use the float path.
+        let a = clamp(color.a, 0.0, 1.0);
+        let bytes = floor(vec4f(clamp(color.rgb, vec3f(0), vec3f(1)) * a, a) * 255.0 + vec4f(0.5));
+        let mask_byte = floor(clamp(coverage, 0.0, 1.0) * 255.0 + 0.5);
+        return floor((bytes * mask_byte + vec4f(255.0)) / 256.0) / 255.0;
+    }
     return vec4f(clamp(color.rgb, vec3f(0.0), vec3f(1.0)) * alpha, alpha);
 }
 "#;
@@ -195,6 +225,7 @@ pub(super) struct GlyphRenderer {
     atlas_generation: u64,
     geometry_writes: u64,
     uniform_writes: u64,
+    source_coverage_sampling: bool,
 }
 
 struct CachedPattern {
@@ -272,6 +303,7 @@ impl GlyphRenderer {
             atlas_generation: 0,
             geometry_writes: 0,
             uniform_writes: 0,
+            source_coverage_sampling: false,
         }
     }
 
@@ -446,7 +478,12 @@ impl GlyphRenderer {
         let pose = presentation_time
             .and_then(|time| run.motion.as_ref().map(|motion| motion.sample(time)))
             .unwrap_or(run.pose);
-        let gpu_uniforms = gpu_run_uniforms(run, pose, width, height)?;
+        let mut gpu_uniforms = gpu_run_uniforms(run, pose, width, height)?;
+        if self.source_coverage_sampling {
+            for uniform in &mut gpu_uniforms {
+                uniform.stroke[2] = 1.0;
+            }
+        }
         let uniform_bytes = uniform_bytes(&gpu_uniforms);
         self.ensure_buffer(slot, vertex_byte_len as u64)?;
         if !uniform_bytes.is_empty() {
@@ -515,6 +552,9 @@ impl GlyphRenderer {
         Ok(())
     }
 
+    pub(super) fn set_source_coverage_sampling(&mut self, enabled: bool) {
+        self.source_coverage_sampling = enabled;
+    }
     pub fn finish_frame(&mut self, used_slots: usize) {
         self.meshes.truncate(used_slots);
     }

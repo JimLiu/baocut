@@ -1,3 +1,5 @@
+use render_raster::fonts::GlyphShaping;
+
 pub fn draw_fit_pixmap(destination: &mut Pixmap, source: &Pixmap, fit: Fit, opacity: f32) {
     draw_fit_pixmap_at(destination, source, fit, opacity, 0.5);
 }
@@ -343,7 +345,20 @@ pub fn layout_text(
     wrap_width: f64,
     part_ranges: Option<&[Range<usize>]>,
 ) -> (Vec<LayoutLine>, f64) {
-    layout_text_with(text_engine, item, style, wrap_width, part_ranges, false)
+    layout_text_with_shaping(text_engine, item, style, wrap_width, part_ranges, GlyphShaping::Advanced)
+}
+
+/// 同 [`layout_text`] 的分片、折行与字距，仅显式选择字形 mapping / advance 策略。
+/// 字距仍由遗留排版宽度与绘制落位处理，不叠加到 shaping 的字形坐标。
+pub fn layout_text_with_shaping(
+    text_engine: &mut TextEngine,
+    item: &TimedItem,
+    style: &LineStyle,
+    wrap_width: f64,
+    part_ranges: Option<&[Range<usize>]>,
+    shaping: GlyphShaping,
+) -> (Vec<LayoutLine>, f64) {
+    layout_text_with(text_engine, item, style, wrap_width, part_ranges, false, shaping)
 }
 
 /// 字幕行的排版：与 [`layout_text`] 同一套分片与字形，只是含中日文的行不再贪心填满，
@@ -355,7 +370,7 @@ pub fn layout_subtitle_text(
     style: &LineStyle,
     wrap_width: f64,
 ) -> (Vec<LayoutLine>, f64) {
-    layout_text_with(text_engine, item, style, wrap_width, None, true)
+    layout_text_with(text_engine, item, style, wrap_width, None, true, GlyphShaping::Advanced)
 }
 
 enum LayoutToken {
@@ -371,6 +386,7 @@ fn layout_text_with(
     wrap_width: f64,
     part_ranges: Option<&[Range<usize>]>,
     balance_cjk: bool,
+    shaping: GlyphShaping,
 ) -> (Vec<LayoutLine>, f64) {
     let mut tokens = Vec::new();
     for run in timed_runs(&item.text, &item.words, &style.text_transform) {
@@ -408,7 +424,7 @@ fn layout_text_with(
         // 和字节偏移，让逐词动效与分片高亮仍引用原来的时间跨度。
         let mut pieces = Vec::new();
         let run_width = text_engine
-            .shape_styled(&run.text, font_name, font_size, weight, shaped_italic)
+            .shape_spaced_with_shaping(&run.text, font_name, font_size, weight, shaped_italic, 0.0, shaping)
             .width
             + letter_spacing * run.text.graphemes(true).count().saturating_sub(1) as f64;
         let boundaries = if run.word.is_some()
@@ -426,7 +442,7 @@ fn layout_text_with(
         };
         for (offset, piece) in boundaries {
             let shaped =
-                text_engine.shape_styled(piece, font_name, font_size, weight, shaped_italic);
+                text_engine.shape_spaced_with_shaping(piece, font_name, font_size, weight, shaped_italic, 0.0, shaping);
             let width = shaped.width
                 + letter_spacing * piece.graphemes(true).count().saturating_sub(1) as f64;
             if width > wrap_width {
@@ -445,7 +461,7 @@ fn layout_text_with(
                 continue;
             }
             let shaped =
-                text_engine.shape_styled(&piece, font_name, font_size, weight, shaped_italic);
+                text_engine.shape_spaced_with_shaping(&piece, font_name, font_size, weight, shaped_italic, 0.0, shaping);
             let width = shaped.width
                 + letter_spacing * piece.graphemes(true).count().saturating_sub(1) as f64;
             let chunk = GlyphChunk {
@@ -516,6 +532,58 @@ fn layout_text_with(
     }
     let width = lines.iter().map(|line| line.width).fold(0.0, f64::max);
     (lines, width)
+}
+
+#[cfg(test)]
+mod layout_shaping_tests {
+    use super::*;
+
+    #[test]
+    fn explicit_policy_preserves_legacy_spacing_and_changes_nominal_advances() {
+        let bytes = include_bytes!("../../render-raster/assets/fonts/VKSans-400.ttf").to_vec();
+        let mut engine = TextEngine::with_document_fonts(&[bytes]);
+        let family = engine.font_system.db().faces().next().unwrap().families[0].0.clone();
+        let style = resolve_line_style(
+            &json!({"fontFamily":family,"fontSize":200,"fontWeight":400,"letterSpacing":3}),
+            LineKind::Original,
+            540,
+            540,
+            false,
+        );
+        for text in ["AV", "ff"] {
+            let item = TimedItem {
+                id: String::new(),
+                series_index: 0,
+                text: text.to_owned(),
+                display_start: 0.0,
+                display_end: 1.0,
+                words: Vec::new(),
+                speaker: None,
+            };
+            let (legacy, legacy_width) = layout_text(&mut engine, &item, &style, f64::INFINITY, None);
+            let (advanced, advanced_width) =
+                layout_text_with_shaping(&mut engine, &item, &style, f64::INFINITY, None, GlyphShaping::Advanced);
+            let (nominal, nominal_width) = layout_text_with_shaping(&mut engine, &item, &style, f64::INFINITY, None, GlyphShaping::Nominal);
+            assert_eq!(advanced_width, legacy_width);
+            assert_eq!(advanced[0].chunks[0].shaped.width, legacy[0].chunks[0].shaped.width);
+            assert_eq!(advanced[0].chunks[0].width, legacy[0].chunks[0].width);
+            assert!(nominal_width > advanced_width, "{text}: {nominal_width} <= {advanced_width}");
+            let expected = engine
+                .shape_spaced_with_shaping(
+                    text,
+                    &style.font_name,
+                    style.font_size,
+                    style.font_weight,
+                    style.shaped_italic && style.italic,
+                    0.0,
+                    GlyphShaping::Nominal,
+                )
+                .width
+                + style.letter_spacing * text.graphemes(true).count().saturating_sub(1) as f64;
+            assert_eq!(nominal_width, expected);
+            assert_eq!(nominal[0].chunks[0].width, expected);
+        }
+    }
 }
 
 /// 中日文（汉字、假名、全角标点）。谚文按空格分词，走原来的贪心折行。

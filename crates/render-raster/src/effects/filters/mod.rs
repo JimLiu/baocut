@@ -12,6 +12,7 @@ pub mod chroma_key;
 pub mod color_adjust;
 pub mod composite_premul;
 pub mod drop_shadow;
+pub mod gaussian;
 pub mod god_rays;
 pub mod grade;
 pub mod mask_image;

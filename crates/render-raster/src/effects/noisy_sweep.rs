@@ -3,7 +3,11 @@
 //! The mask coordinate transform never changes the input texture coordinate.
 //! Components remain independent, including associated colors above alpha.
 use anyhow::{Result, ensure};
-use caption_scene::MaterialUvY;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UvY {
+    Up,
+    Down,
+}
 use tiny_skia::Pixmap;
 
 const MASK_WORK: u64 = 64;
@@ -19,12 +23,16 @@ fn sine_noise(uv: [f32; 2]) -> f32 {
     value - libm::floorf(value)
 }
 
-fn visible(source_uv: [f32; 2], position: f32, scale: [f32; 2], reveal: bool) -> bool {
-    let uv = if scale == [1.0, 1.0] {
+fn mask_uv(source_uv: [f32; 2], scale: [f32; 2]) -> [f32; 2] {
+    if scale == [1.0, 1.0] {
         source_uv
     } else {
         std::array::from_fn::<_, 2, _>(|i| (source_uv[i] - 0.5) / scale[i] + 0.5)
-    };
+    }
+}
+
+fn visible(source_uv: [f32; 2], position: f32, scale: [f32; 2], reveal: bool) -> bool {
+    let uv = mask_uv(source_uv, scale);
     let band = smoothstep(position - 0.09, position, uv[0])
         * smoothstep(1.0 - position - 0.05, 1.0 - position, 1.0 - uv[0]);
     let edge = sine_noise(uv) + band >= 1.2;
@@ -38,14 +46,14 @@ fn visible(source_uv: [f32; 2], position: f32, scale: [f32; 2], reveal: bool) ->
 /// sampled at the unchanged source coordinate, so retained texels are copied
 /// exactly rather than passed through an unnecessary identity resampler.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn apply(
+pub fn apply(
     input: &Pixmap,
     pad: u32,
     mut domain: [f64; 4],
     position: f64,
     mask_scale: [f64; 2],
     reveal: bool,
-    uv_y: MaterialUvY,
+    uv_y: UvY,
     mut spend: impl FnMut(u64) -> Result<()>,
 ) -> Result<Pixmap> {
     ensure!(
@@ -85,7 +93,7 @@ pub(super) fn apply(
                 ((f64::from(x) + 0.5 - domain[0]) / domain[2]) as f32,
                 ((f64::from(y) + 0.5 - domain[1]) / domain[3]) as f32,
             ];
-            if uv_y == MaterialUvY::Up {
+            if uv_y == UvY::Up {
                 uv[1] = 1.0 - uv[1];
             }
             if visible(uv, position, scale, reveal) {
@@ -97,6 +105,64 @@ pub(super) fn apply(
         }
     }
     Ok(output)
+}
+
+/// Static field prepared once for a geometry/scale. Dynamic position/reveal
+/// remain GPU uniforms. libm sine is frozen here to avoid backend-dependent
+/// transcendental rounding changing the hash before a binary threshold.
+#[derive(Clone, Debug)]
+pub struct NoiseField {
+    pub rect: [u32; 4],
+    pub pixels: Vec<[f32; 4]>,
+}
+pub fn prepare_field(
+    size: [u32; 2],
+    domain: [f64; 4],
+    scale: [f64; 2],
+    flip_y: bool,
+) -> Result<NoiseField> {
+    ensure!(
+        size[0] > 0
+            && size[1] > 0
+            && domain
+                .iter()
+                .all(|n| n.is_finite() && n.abs() <= 1_000_000.0)
+            && domain[2] >= 0.001
+            && domain[3] >= 0.001
+            && scale
+                .iter()
+                .all(|n| n.is_finite() && (0.001..=1024.0).contains(n)),
+        "CAPTION_MATERIAL_INVALID: noise field"
+    );
+    let edge = |value: f64, max: u32| libm::ceil(value - 0.5).clamp(0.0, f64::from(max)) as u32;
+    let x0 = edge(domain[0], size[0]);
+    let y0 = edge(domain[1], size[1]);
+    let x1 = edge(domain[0] + domain[2], size[0]);
+    let y1 = edge(domain[1] + domain[3], size[1]);
+    let width = x1.saturating_sub(x0);
+    let height = y1.saturating_sub(y0);
+    ensure!(
+        u64::from(width) * u64::from(height) * 16 <= 64 * 1024 * 1024,
+        "CAPTION_BUDGET_EXCEEDED: noise field"
+    );
+    let mut pixels = Vec::with_capacity(width as usize * height as usize);
+    for y in y0..y1 {
+        for x in x0..x1 {
+            let mut uv = [
+                ((f64::from(x) + 0.5 - domain[0]) / domain[2]) as f32,
+                ((f64::from(y) + 0.5 - domain[1]) / domain[3]) as f32,
+            ];
+            if flip_y {
+                uv[1] = 1.0 - uv[1];
+            }
+            let uv = mask_uv(uv, scale.map(|n| n as f32));
+            pixels.push([uv[0], sine_noise(uv), 0.0, 0.0]);
+        }
+    }
+    Ok(NoiseField {
+        rect: [x0, y0, width, height],
+        pixels,
+    })
 }
 
 #[cfg(test)]
@@ -133,7 +199,7 @@ mod tests {
             1.0,
             [1.0; 2],
             true,
-            MaterialUvY::Down,
+            UvY::Down,
             |_| Ok(()),
         )
         .unwrap();
@@ -152,7 +218,7 @@ mod tests {
             0.51,
             [1.3125; 2],
             false,
-            MaterialUvY::Down,
+            UvY::Down,
             |_| Ok(()),
         )
         .unwrap();
@@ -180,7 +246,7 @@ mod tests {
             1.0,
             [1.0; 2],
             true,
-            MaterialUvY::Down,
+            UvY::Down,
             |_| Ok(()),
         )
         .unwrap();
@@ -211,7 +277,7 @@ mod tests {
             0.52,
             [1.0; 2],
             false,
-            MaterialUvY::Up,
+            UvY::Up,
             |_| Ok(()),
         )
         .unwrap();
@@ -222,7 +288,7 @@ mod tests {
             0.52,
             [1.0; 2],
             false,
-            MaterialUvY::Down,
+            UvY::Down,
             |_| Ok(()),
         )
         .unwrap();
@@ -247,7 +313,7 @@ mod tests {
                 0.5,
                 [1.0; 2],
                 true,
-                MaterialUvY::Down,
+                UvY::Down,
                 |_| Ok(())
             )
             .is_err()
@@ -260,7 +326,7 @@ mod tests {
                 f64::NAN,
                 [1.0; 2],
                 true,
-                MaterialUvY::Down,
+                UvY::Down,
                 |_| Ok(())
             )
             .is_err()
@@ -273,7 +339,7 @@ mod tests {
                 0.5,
                 [0.0, 1.0],
                 true,
-                MaterialUvY::Down,
+                UvY::Down,
                 |_| Ok(())
             )
             .is_err()
@@ -287,7 +353,7 @@ mod tests {
                 0.5,
                 [1.0; 2],
                 true,
-                MaterialUvY::Down,
+                UvY::Down,
                 |amount| {
                     spent += amount;
                     ensure!(spent <= 64 + MASK_WORK, "test budget");
@@ -311,7 +377,7 @@ mod tests {
             1.0,
             [1.0; 2],
             true,
-            MaterialUvY::Down,
+            UvY::Down,
             |amount| {
                 spent += amount;
                 Ok(())

@@ -3,8 +3,8 @@
 //! 字形以矢量轮廓绘制，任意变换（camera zoom / pop scale）下不失真。
 
 use cosmic_text::{
-    Attrs, Buffer, CacheKey, Family, FontSystem, Metrics, Shaping, Stretch, Style, SubpixelBin,
-    SwashCache, SwashContent, Weight, fontdb,
+    Attrs, Buffer, CacheKey, CacheKeyFlags, Family, FontSystem, Metrics, Shaping, Stretch, Style,
+    SubpixelBin, SwashCache, SwashContent, Weight, fontdb,
 };
 use scene_primitives::layout::{TextMeasure, TextMetricsLine};
 use std::collections::{HashMap, HashSet};
@@ -15,6 +15,11 @@ use swash::scale::Source;
 use tiny_skia::{
     ColorU8, Paint, Path, PathBuilder, PathSegment, Pixmap, PremultipliedColorU8, Stroke, Transform,
 };
+
+#[path = "font-outline.rs"]
+mod font_outline;
+#[path = "font-source.rs"]
+mod font_source;
 
 static SYSTEM_FONT_DB: OnceLock<fontdb::Database> = OnceLock::new();
 
@@ -460,6 +465,26 @@ const WGHT_TAG: swash::Tag = u32::from_be_bytes(*b"wght");
 /// 字形的键（[`ShapedGlyph::cache_key`]）：同一台排版引擎里，同一个键的轮廓（[`TextEngine::glyph_render`]）不变。
 pub type GlyphKey = CacheKey;
 
+/// Glyph selection policy, independent of font selection and outline hinting.
+/// Nominal maps Unicode scalars through cmap without cross-glyph substitution
+/// or kerning. Layout still applies BiDi across the whole line and may use its ordinary missing-glyph
+/// fallback after `plan_runs`; this is not a source custom-cluster protocol.
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq)]
+pub enum GlyphShaping {
+    #[default]
+    Advanced,
+    Nominal,
+}
+
+impl GlyphShaping {
+    fn cosmic(self) -> Shaping {
+        match self {
+            Self::Advanced => Shaping::Advanced,
+            Self::Nominal => Shaping::Basic,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ShapedGlyph {
     pub cache_key: CacheKey,
@@ -483,6 +508,19 @@ pub struct ShapedLine {
     pub ascent: f64,
     pub descent: f64,
     pub glyphs: Vec<ShapedGlyph>,
+}
+
+impl ShapedLine {
+    /// Select outline/atlas hinting without changing advances, clusters or the cached shape.
+    /// The policy is part of each glyph cache key, so opposite policies never alias paths.
+    pub fn set_hinting(&mut self, enabled: bool) {
+        for glyph in &mut self.glyphs {
+            glyph
+                .cache_key
+                .flags
+                .set(CacheKeyFlags::DISABLE_HINTING, !enabled);
+        }
+    }
 }
 
 /// 一个字形的可绘制形态。
@@ -583,6 +621,7 @@ struct ShapeKey {
     weight: u16,
     italic: bool,
     spacing_bits: u64,
+    shaping: GlyphShaping,
     rich: Vec<RichShapeSpan>,
 }
 
@@ -858,6 +897,16 @@ pub struct TextEngine {
     family_present: HashMap<String, bool>,
     /// 排字时点了名的 face 记到这里（宿主装上；没装时不记）。
     face_log: Option<FaceLog>,
+    /// Exact byte/collection-face bindings; ordinary family lookup is unchanged.
+    font_source_aliases: HashMap<(String, u32), (String, fontdb::ID, String)>,
+    font_source_resources: fontdb::Database,
+    font_source_resource_bytes: usize,
+    font_source_resource_count: usize,
+    font_source_digests: Vec<(
+        std::sync::Weak<dyn AsRef<[u8]> + Send + Sync>,
+        String,
+        usize,
+    )>,
 }
 
 impl TextEngine {
@@ -894,6 +943,11 @@ impl TextEngine {
             missing_families: Default::default(),
             family_present: HashMap::new(),
             face_log: None,
+            font_source_aliases: HashMap::new(),
+            font_source_resources: fontdb::Database::new(),
+            font_source_resource_bytes: 0,
+            font_source_resource_count: 0,
+            font_source_digests: Vec::new(),
         }
     }
 
@@ -1041,6 +1095,11 @@ impl TextEngine {
             return;
         }
         if let Some(log) = &self.face_log {
+            let family = self
+                .font_source_aliases
+                .values()
+                .find(|(alias, _, _)| alias == family)
+                .map_or(family, |(_, _, display)| display.as_str());
             let mut log = log.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             if !log
                 .iter()
@@ -1097,6 +1156,30 @@ impl TextEngine {
         italic: bool,
         spacing: f64,
     ) -> ShapedLine {
+        self.shape_spaced_with_shaping(
+            text,
+            family,
+            font_size,
+            weight,
+            italic,
+            spacing,
+            GlyphShaping::Advanced,
+        )
+    }
+
+    /// Nominal retains scalar byte clusters; tabs use one space advance while
+    /// keeping their original one-byte ranges. Font fallback is still planned.
+    #[allow(clippy::too_many_arguments)]
+    pub fn shape_spaced_with_shaping(
+        &mut self,
+        text: &str,
+        family: &str,
+        font_size: f64,
+        weight: u16,
+        italic: bool,
+        spacing: f64,
+        shaping: GlyphShaping,
+    ) -> ShapedLine {
         self.note_family(family, weight, italic);
         let key = ShapeKey {
             text: text.to_string(),
@@ -1105,12 +1188,13 @@ impl TextEngine {
             weight,
             italic,
             spacing_bits: spacing.to_bits(),
+            shaping,
             rich: Vec::new(),
         };
         if let Some(s) = self.shape_cache.get(&key) {
             return s.clone();
         }
-        let line = self.shape_uncached(text, family, font_size, weight, italic, spacing);
+        let line = self.shape_uncached(text, family, font_size, weight, italic, spacing, shaping);
         self.shape_cache.insert(key, line.clone());
         line
     }
@@ -1124,14 +1208,28 @@ impl TextEngine {
         base: scene_primitives::text_layout::FontStyle<'_>,
         runs: &[scene_primitives::text_layout::Run],
     ) -> ShapedLine {
+        self.shape_rich_with_shaping(text, range, base, runs, GlyphShaping::Advanced)
+    }
+
+    /// Apply one policy to every resolved font span. Nominal uses separate
+    /// buffers so a font boundary inside a grapheme cannot inherit another face.
+    pub fn shape_rich_with_shaping(
+        &mut self,
+        text: &str,
+        range: std::ops::Range<usize>,
+        base: scene_primitives::text_layout::FontStyle<'_>,
+        runs: &[scene_primitives::text_layout::Run],
+        shaping: GlyphShaping,
+    ) -> ShapedLine {
         if runs.is_empty() {
-            let mut out = self.shape_spaced(
+            let mut out = self.shape_spaced_with_shaping(
                 &text[range.clone()],
                 base.family,
                 base.size,
                 base.weight,
                 base.italic,
                 base.spacing,
+                shaping,
             );
             for glyph in &mut out.glyphs {
                 glyph.cluster.start += range.start;
@@ -1163,10 +1261,15 @@ impl TextEngine {
             weight: 0,
             italic: false,
             spacing_bits: 0,
+            shaping,
             rich: spans,
         };
         let mut out = if let Some(hit) = self.shape_cache.get(&key) {
             hit.clone()
+        } else if shaping == GlyphShaping::Nominal {
+            let line = self.shape_nominal_spans(&key.text, &key.rich);
+            self.shape_cache.insert(key, line.clone());
+            line
         } else {
             let mut buffer = Buffer::new(
                 &mut self.font_system,
@@ -1191,7 +1294,7 @@ impl TextEngine {
                     (&key.text[span.start..span.end], attrs)
                 }),
                 &default_attrs,
-                Shaping::Advanced,
+                shaping.cosmic(),
                 None,
             );
             buffer.shape_until_scroll(&mut self.font_system, false);
@@ -1241,6 +1344,7 @@ impl TextEngine {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn shape_uncached(
         &mut self,
         text: &str,
@@ -1249,8 +1353,24 @@ impl TextEngine {
         weight: u16,
         italic: bool,
         spacing: f64,
+        shaping: GlyphShaping,
     ) -> ShapedLine {
         let runs = self.plan_runs(text, family, weight, italic);
+        if shaping == GlyphShaping::Nominal {
+            let spans: Vec<_> = runs
+                .into_iter()
+                .map(|(family, weight, range)| RichShapeSpan {
+                    start: range.start,
+                    end: range.end,
+                    family,
+                    weight,
+                    size_bits: font_size.to_bits(),
+                    italic,
+                    spacing_bits: spacing.to_bits(),
+                })
+                .collect();
+            return self.shape_nominal_spans(text, &spans);
+        }
         if let [(only, only_weight, _)] = runs.as_slice() {
             // 常见情形：整串一个族。走原路，字距与连字一个不少。
             return self.shape_family_uncached(
@@ -1260,6 +1380,7 @@ impl TextEngine {
                 *only_weight,
                 italic,
                 spacing,
+                shaping,
             );
         }
         let mut output = ShapedLine::default();
@@ -1274,6 +1395,7 @@ impl TextEngine {
                     run_weight,
                     italic,
                     spacing,
+                    shaping,
                 ),
                 start,
             );
@@ -1423,6 +1545,100 @@ impl TextEngine {
         runs
     }
 
+    // Basic's cmap selection is useful here, but its advances use empty
+    // variation coordinates. Read design-unit advances with the same location
+    // constructor as cosmic Font::new, then scale in f64. Skrifa's sized metrics
+    // use a fixed-point scale that would otherwise quantize fractional sizes.
+    fn nominal_variation_metrics(
+        &mut self,
+        glyph: &cosmic_text::LayoutGlyph,
+    ) -> Option<(f64, f64, f64)> {
+        use cosmic_text::skrifa::{FontRef, MetadataProvider, Tag, instance::Size};
+        let index = self.font_system.db().face(glyph.font_id)?.index;
+        let font = self
+            .font_system
+            .get_font(glyph.font_id, glyph.font_weight)?;
+        if font.as_swash().variations().next().is_none() {
+            return None;
+        }
+        let face = FontRef::from_index(font.data(), index).ok()?;
+        let location = face
+            .axes()
+            .location([(Tag::new(b"wght"), f32::from(glyph.font_weight.0))]);
+        let advance = face
+            .glyph_metrics(Size::unscaled(), &location)
+            .advance_width(cosmic_text::skrifa::raw::types::GlyphId::from(
+                glyph.glyph_id,
+            ))?;
+        let coords: Vec<_> = location.coords().iter().map(|c| c.to_bits()).collect();
+        let metrics = font.as_swash().metrics(&coords);
+        let scale = f64::from(glyph.font_size) / f64::from(metrics.units_per_em);
+        Some((
+            f64::from(advance) * scale,
+            f64::from(metrics.ascent) * scale,
+            f64::from(metrics.descent) * scale,
+        ))
+    }
+
+    fn shape_nominal_spans(&mut self, text: &str, spans: &[RichShapeSpan]) -> ShapedLine {
+        // Font selection is per scalar, but paragraph direction is resolved once
+        // over the whole line. Never infer visual order from x or signed advances.
+        let bidi_text = text.replace('\t', " ");
+        let bidi = unicode_bidi::BidiInfo::new(&bidi_text, None);
+        let Some(paragraph) = bidi.paragraphs.first() else {
+            return ShapedLine::default();
+        };
+        let levels = bidi.reordered_levels(paragraph, paragraph.range.clone());
+        let mut line = ShapedLine::default();
+        let mut advances = Vec::new();
+        for span in spans {
+            let end = span.end.min(paragraph.range.end);
+            if end <= span.start {
+                continue;
+            }
+            for (offset, scalar) in text[span.start..end].char_indices() {
+                let start = span.start + offset;
+                // Unicode directional controls participate in BiDi resolution,
+                // but have no visible cmap glyph or advance.
+                if matches!(scalar, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+                {
+                    continue;
+                }
+                let mut segment = self.shape_family_uncached(
+                    &text[start..start + scalar.len_utf8()],
+                    &span.family,
+                    f64::from_bits(span.size_bits),
+                    span.weight,
+                    span.italic,
+                    f64::from_bits(span.spacing_bits),
+                    GlyphShaping::Nominal,
+                );
+                line.ascent = line.ascent.max(segment.ascent);
+                line.descent = line.descent.max(segment.descent);
+                for mut glyph in segment.glyphs.drain(..) {
+                    glyph.cluster.start += start;
+                    glyph.cluster.end += start;
+                    glyph.rtl = levels[start].is_rtl();
+                    line.glyphs.push(glyph);
+                    advances.push(segment.width);
+                }
+            }
+        }
+        let glyph_levels: Vec<_> = line
+            .glyphs
+            .iter()
+            .map(|g| levels[g.cluster.start])
+            .collect();
+        for index in unicode_bidi::BidiInfo::reorder_visual(&glyph_levels) {
+            let glyph = &mut line.glyphs[index];
+            glyph.x = line.width;
+            glyph.cache_key.x_bin = SubpixelBin::new(glyph.x as f32).1;
+            line.width += advances[index];
+        }
+        line
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn shape_family_uncached(
         &mut self,
         text: &str,
@@ -1431,6 +1647,7 @@ impl TextEngine {
         weight: u16,
         italic: bool,
         spacing: f64,
+        shaping: GlyphShaping,
     ) -> ShapedLine {
         if text.is_empty() {
             return ShapedLine::default();
@@ -1455,16 +1672,44 @@ impl TextEngine {
         } else {
             attrs.letter_spacing((spacing / font_size) as f32)
         };
-        buffer.set_text(text, &attrs, Shaping::Advanced, None);
+        // A tab is one virtual space in Nominal, not a cmap lookup for U+0009
+        // followed by cosmic-text's tab-stop logic. Replacement preserves bytes.
+        let text = if shaping == GlyphShaping::Nominal && text.contains('\t') {
+            std::borrow::Cow::Owned(text.replace('\t', " "))
+        } else {
+            std::borrow::Cow::Borrowed(text)
+        };
+        buffer.set_text(&text, &attrs, shaping.cosmic(), None);
         buffer.shape_until_scroll(&mut self.font_system, false);
 
         let mut out = ShapedLine::default();
         let mut primary_font = None;
+        let mut nominal_metrics = None;
         // v2 原样；新版 clippy 把 `never_loop` 定为 deny，这里只放行，写法不动。
         #[allow(clippy::never_loop)]
         for run in buffer.layout_runs() {
             out.width = run.line_w as f64;
-            for g in run.glyphs {
+            let mut nominal_glyphs;
+            let glyphs = if shaping == GlyphShaping::Nominal {
+                nominal_glyphs = run.glyphs.to_vec();
+                debug_assert!(
+                    nominal_glyphs.len() <= 1,
+                    "Nominal selection is scalar-local"
+                );
+                if let Some(glyph) = nominal_glyphs.first_mut() {
+                    out.width = f64::from(glyph.w); // signed spacing must not be clamped away
+                    if let Some((advance, ascent, descent)) = self.nominal_variation_metrics(glyph)
+                    {
+                        out.width = advance + spacing;
+                        nominal_metrics = Some((ascent, descent));
+                    }
+                    glyph.x = 0.;
+                }
+                nominal_glyphs.as_slice()
+            } else {
+                run.glyphs
+            };
+            for g in glyphs {
                 if primary_font.is_none() {
                     primary_font = Some(g.font_id);
                 }
@@ -1495,7 +1740,70 @@ impl TextEngine {
             out.ascent = font_size * 0.8;
             out.descent = font_size * 0.2;
         }
+        if let Some((ascent, descent)) = nominal_metrics {
+            out.ascent = ascent;
+            out.descent = descent;
+        }
         out
+    }
+
+    /// Resolved glyph face metrics in pixels at this key's font size. Ascent is
+    /// positive and descent is signed in the font's baseline coordinates.
+    ///
+    /// Typographic mode prefers the OS/2 typographic values regardless of
+    /// `fsSelection`. An explicit probe can reject an alignment box shorter
+    /// than that face's probe outline; missing characters use its `.notdef`.
+    /// Rejected or absent typographic values fall back to hhea, then swash.
+    /// Probe outlines share the existing bounded glyph-path cache.
+    pub fn glyph_font_metrics(
+        &mut self,
+        key: CacheKey,
+        typographic: bool,
+        fallback_probe: Option<char>,
+    ) -> Option<(f64, f64)> {
+        let size = f64::from(f32::from_bits(key.font_size_bits));
+        if !size.is_finite() || size <= 0.0 {
+            return None;
+        }
+        let font = self.font_system.get_font(key.font_id, key.font_weight)?;
+        let face = font.as_swash();
+        let metrics = face.metrics(&[]);
+        if metrics.units_per_em == 0 {
+            return None;
+        }
+        let scale = size / f64::from(metrics.units_per_em);
+        let default = (
+            f64::from(metrics.ascent) * scale,
+            -f64::from(metrics.descent) * scale,
+        );
+        if !typographic {
+            return Some(default);
+        }
+        let table_metrics = |tag, ascent_offset, descent_offset| {
+            let table = face.table(tag)?;
+            let read = |offset| {
+                let bytes: [u8; 2] = table.get(offset..offset + 2)?.try_into().ok()?;
+                Some(f64::from(i16::from_be_bytes(bytes)) * scale)
+            };
+            let ascent = read(ascent_offset)?;
+            let descent = read(descent_offset)?;
+            (ascent > 0.0 && descent <= 0.0).then_some((ascent, descent))
+        };
+        if let Some(typo) = table_metrics(u32::from_be_bytes(*b"OS/2"), 68, 70) {
+            let probe_height = fallback_probe
+                .and_then(|probe| {
+                    let probe_key = CacheKey {
+                        glyph_id: face.charmap().map(probe),
+                        ..key
+                    };
+                    self.glyph_path(probe_key)
+                })
+                .map_or(0.0, |path| f64::from(path.bounds().height()));
+            if typo.0 - typo.1 >= probe_height {
+                return Some(typo);
+            }
+        }
+        Some(table_metrics(u32::from_be_bytes(*b"hhea"), 4, 6).unwrap_or(default))
     }
 
     /// 字形轮廓 → tiny-skia Path（原点 = 基线左端，y 向下为正）
@@ -1503,25 +1811,31 @@ impl TextEngine {
         if let Some(p) = self.path_cache.get(&key) {
             return p.clone();
         }
-        let path = self
-            .swash
-            .get_outline_commands(&mut self.font_system, key)
-            .and_then(|cmds| {
-                let mut pb = PathBuilder::new();
-                for cmd in cmds {
-                    use swash::zeno::Command;
-                    match cmd {
-                        Command::MoveTo(p) => pb.move_to(p.x, -p.y),
-                        Command::LineTo(p) => pb.line_to(p.x, -p.y),
-                        Command::QuadTo(c, p) => pb.quad_to(c.x, -c.y, p.x, -p.y),
-                        Command::CurveTo(c1, c2, p) => {
-                            pb.cubic_to(c1.x, -c1.y, c2.x, -c2.y, p.x, -p.y)
+        let precise = key
+            .flags
+            .contains(CacheKeyFlags::DISABLE_HINTING)
+            .then(|| font_outline::glyph_path(&mut self.font_system, key))
+            .flatten();
+        let path = precise.or_else(|| {
+            self.swash
+                .get_outline_commands(&mut self.font_system, key)
+                .and_then(|cmds| {
+                    let mut pb = PathBuilder::new();
+                    for cmd in cmds {
+                        use swash::zeno::Command;
+                        match cmd {
+                            Command::MoveTo(p) => pb.move_to(p.x, -p.y),
+                            Command::LineTo(p) => pb.line_to(p.x, -p.y),
+                            Command::QuadTo(c, p) => pb.quad_to(c.x, -c.y, p.x, -p.y),
+                            Command::CurveTo(c1, c2, p) => {
+                                pb.cubic_to(c1.x, -c1.y, c2.x, -c2.y, p.x, -p.y)
+                            }
+                            Command::Close => pb.close(),
                         }
-                        Command::Close => pb.close(),
                     }
-                }
-                pb.finish()
-            });
+                    pb.finish()
+                })
+        });
         // 轮廓在 swash 的 `outline_command_cache` 里还有一份影子（同一个
         // `CacheKey`，且比这边更大）。淘汰这边却留着那边，限容就只管住了小头。
         for evicted in self.path_cache.insert(key, path.clone()) {
@@ -2034,6 +2348,600 @@ pub fn fmt_count(v: f64, meta: Option<&serde_json::Map<String, serde_json::Value
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn nominal(engine: &mut TextEngine, text: &str, family: &str, size: f64) -> ShapedLine {
+        engine.shape_spaced_with_shaping(text, family, size, 400, false, 0., GlyphShaping::Nominal)
+    }
+
+    #[test]
+    fn nominal_cmap_keeps_scalar_clusters_and_disables_pair_substitution() {
+        let mut text = TextEngine::with_document_fonts(&[
+            include_bytes!("../assets/fonts/Rubik.ttf").to_vec(),
+            include_bytes!("../assets/fonts/Arimo.ttf").to_vec(),
+        ]);
+        let joined = text.shape("ff", "Rubik", 32., 400);
+        let separate = nominal(&mut text, "ff", "Rubik", 32.);
+        assert_eq!(joined.glyphs.len(), 1, "fixture has an ff ligature");
+        assert_eq!(separate.glyphs.len(), 2);
+        assert_eq!(
+            separate
+                .glyphs
+                .iter()
+                .map(|g| g.cluster.clone())
+                .collect::<Vec<_>>(),
+            vec![0..1, 1..2]
+        );
+        let f = nominal(&mut text, "f", "Rubik", 32.);
+        assert!(
+            separate
+                .glyphs
+                .iter()
+                .all(|g| g.cache_key.glyph_id == f.glyphs[0].cache_key.glyph_id)
+        );
+        assert!((separate.width - f.width * 2.).abs() < 0.00001);
+        let joined = text.shape("AV", "Arimo", 32., 400);
+        let separate = nominal(&mut text, "AV", "Arimo", 32.);
+        let expected = nominal(&mut text, "A", "Arimo", 32.).width
+            + nominal(&mut text, "V", "Arimo", 32.).width;
+        assert!((separate.width - expected).abs() < 0.00001);
+        assert!(
+            joined.width < separate.width - 0.01,
+            "fixture has AV kerning"
+        );
+    }
+
+    #[test]
+    fn shaping_policy_cache_isolation_restores_advanced_default() {
+        let mut text = TextEngine::with_document_fonts(&[include_bytes!(
+            "../assets/fonts/Rubik.ttf"
+        )
+        .to_vec()]);
+        let first = text.shape("ff", "Rubik", 32., 400);
+        let mut separate = nominal(&mut text, "ff", "Rubik", 32.);
+        separate.set_hinting(false);
+        let again = text.shape("ff", "Rubik", 32., 400);
+        let explicit = text.shape_spaced_with_shaping(
+            "ff",
+            "Rubik",
+            32.,
+            400,
+            false,
+            0.,
+            GlyphShaping::Advanced,
+        );
+        assert_eq!(format!("{first:?}"), format!("{again:?}"));
+        assert_eq!(format!("{first:?}"), format!("{explicit:?}"));
+        assert_eq!(text.shape_cache.entries.len(), 2);
+        assert!(
+            text.shape_cache
+                .entries
+                .keys()
+                .any(|k| k.shaping == GlyphShaping::Advanced)
+        );
+        assert!(
+            text.shape_cache
+                .entries
+                .keys()
+                .any(|k| k.shaping == GlyphShaping::Nominal)
+        );
+    }
+
+    #[test]
+    fn nominal_rich_font_boundaries_inside_graphemes_keep_face_size_and_italic() {
+        use scene_primitives::text_layout::{FontStyle, Run};
+        let mut text = TextEngine::with_document_fonts(&[
+            include_bytes!("../assets/fonts/Rubik.ttf").to_vec(),
+            include_bytes!("../assets/fonts/Arimo.ttf").to_vec(),
+        ]);
+        let content = "f\u{0301}AV";
+        let runs = vec![
+            Run {
+                bytes: 0..1,
+                style: json!({"font":"Rubik", "fontSize":24, "fontStyle":"italic"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            },
+            Run {
+                bytes: 1..3,
+                style: json!({"font":"Arimo", "fontSize":12})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            },
+            Run {
+                bytes: 3..5,
+                style: json!({"font":"Arimo", "fontSize":18})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            },
+        ];
+        let base = FontStyle {
+            family: "Rubik",
+            size: 14.,
+            weight: 400,
+            italic: false,
+            spacing: 0.,
+        };
+        let line = text.shape_rich_with_shaping(
+            content,
+            0..content.len(),
+            base,
+            &runs,
+            GlyphShaping::Nominal,
+        );
+        assert_eq!(line.glyphs.len(), 4);
+        assert_eq!(
+            line.glyphs
+                .iter()
+                .map(|g| g.cluster.clone())
+                .collect::<Vec<_>>(),
+            vec![0..1, 1..3, 3..4, 4..5]
+        );
+        assert_eq!(
+            line.glyphs
+                .iter()
+                .map(|g| f32::from_bits(g.cache_key.font_size_bits))
+                .collect::<Vec<_>>(),
+            vec![24., 12., 18., 18.]
+        );
+        assert_ne!(
+            line.glyphs[0].cache_key.font_id,
+            line.glyphs[1].cache_key.font_id
+        );
+        assert_eq!(
+            line.glyphs[1].cache_key.font_id,
+            line.glyphs[2].cache_key.font_id
+        );
+        assert!(
+            line.glyphs[0]
+                .cache_key
+                .flags
+                .contains(CacheKeyFlags::FAKE_ITALIC)
+        );
+        let f =
+            text.shape_spaced_with_shaping("f", "Rubik", 24., 400, true, 0., GlyphShaping::Nominal);
+        let accent = nominal(&mut text, "\u{0301}", "Arimo", 12.);
+        let av = nominal(&mut text, "AV", "Arimo", 18.);
+        assert!((line.width - f.width - accent.width - av.width).abs() < 0.00001);
+        assert_eq!(line.ascent, f.ascent.max(accent.ascent).max(av.ascent));
+        let cached = text.shape_rich_with_shaping(
+            content,
+            0..content.len(),
+            base,
+            &runs,
+            GlyphShaping::Nominal,
+        );
+        assert_eq!(format!("{line:?}"), format!("{cached:?}"));
+        let advanced = text.shape_rich(content, 0..content.len(), base, &runs);
+        let explicit = text.shape_rich_with_shaping(
+            content,
+            0..content.len(),
+            base,
+            &runs,
+            GlyphShaping::Advanced,
+        );
+        assert_eq!(format!("{advanced:?}"), format!("{explicit:?}"));
+    }
+
+    #[test]
+    fn nominal_negative_spacing_preserves_logical_advance_order() {
+        let mut engine = TextEngine::with_document_fonts(&[include_bytes!(
+            "../assets/fonts/Rubik.ttf"
+        )
+        .to_vec()]);
+        let i = nominal(&mut engine, "i", "Rubik", 32.).width;
+        let m = nominal(&mut engine, "M", "Rubik", 32.).width;
+        let line = engine.shape_spaced_with_shaping(
+            "iM",
+            "Rubik",
+            32.,
+            400,
+            false,
+            -10.,
+            GlyphShaping::Nominal,
+        );
+        assert!(i < 10. && i + m - 20. > 0.);
+        assert_eq!(line.glyphs[0].x, 0.);
+        assert!((line.glyphs[1].x - (i - 10.)).abs() < 1e-5);
+        assert!((line.width - (i + m - 20.)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn nominal_directional_controls_resolve_order_without_visible_glyphs() {
+        let mut engine = TextEngine::with_document_fonts(&[include_bytes!(
+            "../assets/fonts/Arimo.ttf"
+        )
+        .to_vec()]);
+        let plain = nominal(&mut engine, "אב", "Arimo", 32.);
+        let isolated = nominal(&mut engine, "\u{2067}אב\u{2069}", "Arimo", 32.);
+        assert_eq!(isolated.glyphs.len(), 2);
+        assert!((isolated.width - plain.width).abs() < 1e-5);
+        assert_eq!(isolated.glyphs[0].cluster, 3..5);
+        assert_eq!(isolated.glyphs[1].cluster, 5..7);
+        assert!(isolated.glyphs[0].x > isolated.glyphs[1].x);
+        for scalar in [
+            '\u{061c}', '\u{200e}', '\u{200f}', '\u{202a}', '\u{202b}', '\u{202c}', '\u{202d}',
+            '\u{202e}', '\u{2066}', '\u{2067}', '\u{2068}', '\u{2069}',
+        ] {
+            let line = nominal(&mut engine, &scalar.to_string(), "Arimo", 32.);
+            assert!(line.glyphs.is_empty());
+            assert_eq!(line.width, 0.);
+        }
+    }
+
+    #[test]
+    fn nominal_variable_advances_use_selected_weight() {
+        let mut text = TextEngine::with_document_fonts(&[include_bytes!(
+            "../assets/fonts/Rubik.ttf"
+        )
+        .to_vec()]);
+        let m = text.shape("M", "Rubik", 32., 400);
+        let mm = nominal(&mut text, "MM", "Rubik", 32.);
+        let default_weight = text.shape_spaced_with_shaping(
+            "MM",
+            "Rubik",
+            32.,
+            300,
+            false,
+            0.,
+            GlyphShaping::Nominal,
+        );
+        assert!(
+            (mm.width - 2. * m.width).abs() < 0.00001,
+            "mm={} advanced m={}",
+            mm.width,
+            m.width
+        );
+        assert!((mm.glyphs[1].x - m.width).abs() < 0.00001);
+        assert!((mm.width - default_weight.width).abs() > 0.01);
+        assert!(mm.glyphs.iter().all(|g| g.cache_key.font_weight.0 == 400));
+    }
+
+    #[test]
+    fn nominal_variable_rtl_preserves_visual_positions_and_byte_clusters() {
+        let mut text = TextEngine::with_document_fonts(&[include_bytes!(
+            "../assets/fonts/Arimo.ttf"
+        )
+        .to_vec()]);
+        let content = "אב";
+        let line = text.shape_spaced_with_shaping(
+            content,
+            "Arimo",
+            32.,
+            650,
+            false,
+            0.,
+            GlyphShaping::Nominal,
+        );
+        assert_eq!(line.glyphs.len(), 2);
+        assert!(line.glyphs.iter().all(|g| g.rtl));
+        let mut clusters: Vec<_> = line.glyphs.iter().map(|g| g.cluster.clone()).collect();
+        clusters.sort_by_key(|r| r.start);
+        assert_eq!(clusters, vec![0..2, 2..4]);
+        let mut visual: Vec<_> = line.glyphs.iter().collect();
+        visual.sort_by(|a, b| a.x.total_cmp(&b.x));
+        assert!(visual[0].x.abs() < 0.00001);
+        let mut cursor = 0.;
+        for glyph in visual {
+            let scalar = text.shape_spaced_with_shaping(
+                &content[glyph.cluster.clone()],
+                "Arimo",
+                32.,
+                650,
+                false,
+                0.,
+                GlyphShaping::Nominal,
+            );
+            assert!((glyph.x - cursor).abs() < 0.00001);
+            cursor += scalar.width;
+        }
+        assert!((line.width - cursor).abs() < 0.00001);
+    }
+
+    #[test]
+    fn nominal_multibyte_ranges_follow_planned_cjk_fallback() {
+        use scene_primitives::text_layout::FontStyle;
+        let mut text = TextEngine::with_document_fonts(&[
+            include_bytes!("../assets/fonts/Arimo.ttf").to_vec(),
+            include_bytes!("../assets/fonts/NotoSansSC-Variable.ttf").to_vec(),
+        ]);
+        let content = "Xé漢Y";
+        let line = text.shape_rich_with_shaping(
+            content,
+            1..6,
+            FontStyle {
+                family: "Arimo",
+                size: 24.,
+                weight: 400,
+                italic: false,
+                spacing: 0.,
+            },
+            &[],
+            GlyphShaping::Nominal,
+        );
+        assert_eq!(
+            line.glyphs
+                .iter()
+                .map(|g| g.cluster.clone())
+                .collect::<Vec<_>>(),
+            vec![1..3, 3..6]
+        );
+        assert_ne!(
+            line.glyphs[0].cache_key.font_id,
+            line.glyphs[1].cache_key.font_id
+        );
+        assert!(line.glyphs.iter().all(|g| g.cache_key.glyph_id != 0));
+        let missing = nominal(&mut text, "\u{10fffd}", "Arimo", 24.);
+        assert_eq!(missing.glyphs.len(), 1);
+        assert_eq!(missing.glyphs[0].cluster, 0..4);
+        assert_eq!(
+            missing.glyphs[0].cache_key.glyph_id, 0,
+            "uncovered scalar retains ordinary notdef behavior"
+        );
+    }
+
+    #[test]
+    fn nominal_tabs_are_virtual_spaces_without_tofu() {
+        let mut text = TextEngine::with_document_fonts(&[include_bytes!(
+            "../assets/fonts/Bangers-Regular.ttf"
+        )
+        .to_vec()]);
+        let tab = text.shape_spaced_with_shaping(
+            "A\tV",
+            "Bangers",
+            24.,
+            400,
+            false,
+            1.,
+            GlyphShaping::Nominal,
+        );
+        let space = text.shape_spaced_with_shaping(
+            "A V",
+            "Bangers",
+            24.,
+            400,
+            false,
+            1.,
+            GlyphShaping::Nominal,
+        );
+        assert_eq!(format!("{tab:?}"), format!("{space:?}"));
+        assert_eq!(tab.glyphs[1].cluster, 1..2);
+        assert_ne!(tab.glyphs[1].cache_key.glyph_id, 0);
+    }
+
+    #[test]
+    fn nominal_retains_exact_font_source_alias() {
+        use sha2::{Digest, Sha256};
+        let source = include_bytes!("../assets/fonts/Rubik.ttf").to_vec();
+        let digest = Sha256::digest(&source)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
+        let mut text = TextEngine::with_document_fonts(&[source]);
+        let alias = text.resolve_font_source(&digest, 0).unwrap();
+        let line = nominal(&mut text, "ff", &alias, 24.);
+        assert_eq!(line.glyphs.len(), 2);
+        for glyph in line.glyphs {
+            let face = text.font_system.db().face(glyph.cache_key.font_id).unwrap();
+            assert_eq!(face.index, 0);
+            assert!(face.families.iter().any(|(family, _)| family == &alias));
+            assert_eq!(
+                text.font_system
+                    .db()
+                    .with_face_data(face.id, |data, _| Sha256::digest(data)
+                        .iter()
+                        .map(|b| format!("{b:02x}"))
+                        .collect::<String>())
+                    .unwrap(),
+                digest
+            );
+        }
+    }
+
+    fn metric_probe_font(typo: (i16, i16), hhea: (i16, i16), use_typo: bool) -> Vec<u8> {
+        let mut data = include_bytes!("../tests/fixtures/fonts/ColrProbe.ttf").to_vec();
+        let face = swash::FontRef::from_index(&data, 0).unwrap();
+        let offset = |tag| {
+            let table = face.table(u32::from_be_bytes(tag)).unwrap();
+            table.as_ptr() as usize - data.as_ptr() as usize
+        };
+        let os2 = offset(*b"OS/2");
+        let header = offset(*b"hhea");
+        for (offset, value) in [
+            (os2 + 68, typo.0),
+            (os2 + 70, typo.1),
+            (header + 4, hhea.0),
+            (header + 6, hhea.1),
+        ] {
+            data[offset..offset + 2].copy_from_slice(&value.to_be_bytes());
+        }
+        let flags = if use_typo { 1_u16 << 7 } else { 0 };
+        data[os2 + 62..os2 + 64].copy_from_slice(&flags.to_be_bytes());
+        data
+    }
+
+    fn metric_probe_engine(typo: (i16, i16), use_typo: bool) -> (TextEngine, CacheKey) {
+        let data = metric_probe_font(typo, (950, -250), use_typo);
+        let mut engine = TextEngine::with_document_fonts(&[data]);
+        let key = engine.shape("A", "ColrProbe", 100.0, 400).glyphs[0].cache_key;
+        (engine, key)
+    }
+
+    #[test]
+    fn glyph_font_metrics_follow_each_resolved_face_and_key_size() {
+        let mut engine = TextEngine::with_document_fonts(&[
+            include_bytes!("../assets/fonts/Arimo.ttf").to_vec(),
+            include_bytes!("../assets/fonts/NotoSansSC-Variable.ttf").to_vec(),
+        ]);
+        let line = engine.shape("A漢", "Arimo", 40.0, 400);
+        assert_eq!(line.glyphs.len(), 2);
+        assert_ne!(
+            line.glyphs[0].cache_key.font_id,
+            line.glyphs[1].cache_key.font_id
+        );
+        let mut results = Vec::new();
+        for glyph in line.glyphs {
+            let key = glyph.cache_key;
+            let font = engine
+                .font_system
+                .get_font(key.font_id, key.font_weight)
+                .unwrap();
+            let raw = font.as_swash().metrics(&[]);
+            let scale = 40.0 / f64::from(raw.units_per_em);
+            let expected = (
+                f64::from(raw.ascent) * scale,
+                -f64::from(raw.descent) * scale,
+            );
+            assert!(expected.0 > 0.0 && expected.1 < 0.0);
+            assert_eq!(
+                engine.glyph_font_metrics(key, false, Some('A')),
+                Some(expected)
+            );
+            let double = CacheKey {
+                font_size_bits: 80.0_f32.to_bits(),
+                ..key
+            };
+            assert_eq!(
+                engine.glyph_font_metrics(double, false, None),
+                Some((expected.0 * 2.0, expected.1 * 2.0))
+            );
+            results.push(expected);
+        }
+        assert_ne!(results[0], results[1]);
+        assert!(
+            engine.path_cache.entries.is_empty(),
+            "Default metrics do not measure probes"
+        );
+    }
+
+    #[test]
+    fn glyph_font_metrics_use_raw_typographic_fields_without_selection_flag() {
+        for use_typo in [false, true] {
+            let (mut engine, key) = metric_probe_engine((650, -150), use_typo);
+            assert_eq!(
+                engine.glyph_font_metrics(key, true, None),
+                Some((65.0, -15.0))
+            );
+            assert_eq!(
+                engine.glyph_font_metrics(key, false, None),
+                Some(if use_typo {
+                    (65.0, -15.0)
+                } else {
+                    (95.0, -25.0)
+                })
+            );
+            assert!(engine.path_cache.entries.is_empty());
+        }
+    }
+
+    #[test]
+    fn glyph_font_metrics_probe_rejects_short_typo_and_reads_actual_hhea() {
+        let (mut engine, key) = metric_probe_engine((400, -100), true);
+        assert_eq!(
+            engine.glyph_font_metrics(key, false, None),
+            Some((40.0, -10.0))
+        );
+        assert_eq!(
+            engine.glyph_font_metrics(key, true, None),
+            Some((40.0, -10.0))
+        );
+        assert_eq!(
+            engine.glyph_font_metrics(key, true, Some(' ')),
+            Some((40.0, -10.0))
+        );
+        assert_eq!(
+            engine.glyph_font_metrics(key, true, Some('A')),
+            Some((95.0, -25.0))
+        );
+        let bytes = engine.path_cache.bytes;
+        let outlines = engine.swash.outline_command_cache.len();
+        assert_eq!(
+            engine.glyph_font_metrics(key, true, Some('A')),
+            Some((95.0, -25.0))
+        );
+        assert_eq!(engine.path_cache.bytes, bytes);
+        assert_eq!(engine.swash.outline_command_cache.len(), outlines);
+        assert!(bytes <= PATH_CACHE_BUDGET);
+        let double = CacheKey {
+            font_size_bits: 200.0_f32.to_bits(),
+            ..key
+        };
+        assert_eq!(
+            engine.glyph_font_metrics(double, true, Some('A')),
+            Some((190.0, -50.0))
+        );
+    }
+
+    #[test]
+    fn glyph_font_metrics_missing_probe_uses_same_face_notdef_outline() {
+        let (mut engine, key) = metric_probe_engine((400, -100), true);
+        let font = engine
+            .font_system
+            .get_font(key.font_id, key.font_weight)
+            .unwrap();
+        assert_eq!(font.as_swash().charmap().map('\u{10ffff}'), 0);
+        assert_eq!(
+            engine.glyph_font_metrics(key, true, Some('\u{10ffff}')),
+            Some((95.0, -25.0))
+        );
+        assert!(
+            engine
+                .path_cache
+                .entries
+                .contains_key(&CacheKey { glyph_id: 0, ..key })
+        );
+    }
+
+    #[test]
+    fn glyph_font_metrics_invalid_typo_falls_back_and_invalid_size_is_absent() {
+        for typo in [(0, -100), (400, 100), (-100, -100)] {
+            let (mut engine, key) = metric_probe_engine(typo, false);
+            assert_eq!(
+                engine.glyph_font_metrics(key, true, None),
+                Some((95.0, -25.0))
+            );
+            for size in [0.0_f32, -1.0, f32::NAN, f32::INFINITY] {
+                assert_eq!(
+                    engine.glyph_font_metrics(
+                        CacheKey {
+                            font_size_bits: size.to_bits(),
+                            ..key
+                        },
+                        true,
+                        None
+                    ),
+                    None
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn glyph_font_metrics_missing_or_truncated_typo_table_falls_back_to_hhea() {
+        for absent in [false, true] {
+            let mut data = metric_probe_font((400, -100), (950, -250), false);
+            let count = usize::from(u16::from_be_bytes(data[4..6].try_into().unwrap()));
+            let record = (0..count)
+                .map(|index| 12 + index * 16)
+                .find(|offset| &data[*offset..*offset + 4] == b"OS/2")
+                .unwrap();
+            if absent {
+                // Preserve directory ordering while making OS/2 unavailable.
+                data[record..record + 4].copy_from_slice(b"OS/1");
+            } else {
+                data[record + 12..record + 16].copy_from_slice(&68_u32.to_be_bytes());
+            }
+            let mut engine = TextEngine::with_document_fonts(&[data]);
+            let key = engine.shape("A", "ColrProbe", 100.0, 400).glyphs[0].cache_key;
+            assert_eq!(
+                engine.glyph_font_metrics(key, true, Some('A')),
+                Some((95.0, -25.0))
+            );
+            assert!(engine.path_cache.entries.is_empty());
+        }
+    }
 
     #[cfg(feature = "external-fonts")]
     #[test]
