@@ -136,6 +136,7 @@ export function digestVideo(snapshot: VideoSnapshot, videoPath: string, history:
           id: asset.id,
           name: asset.name,
           kind: asset.kind,
+          revision: asset.currentRevision,
           durationSeconds: revision?.duration && asset.kind !== 'image' ? round(mediaTimeToSeconds(revision.duration)) : null,
           size: revision?.video ? `${revision.video.displayWidth}x${revision.video.displayHeight}` : null,
           hasAudio: Boolean(revision?.audio),
@@ -468,6 +469,7 @@ const TIMED = new Set(['addItem', 'moveItem', 'moveItems', 'trimItem', 'splitIte
 const SEQUENCE_SCOPED = new Set([
   ...TIMED,
   'deleteItems',
+  'insertItems',
   'arrangeItem',
   'addTrack',
   'deleteTrack',

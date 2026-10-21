@@ -188,7 +188,7 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
         videoPath: '倒着开的跑车.baocut/',
       },
       {
-        annotation: videoNote({ ...at(70000), kind: 'text', region: { x: 0.6, y: 0.3, w: 0, h: 0 }, style, segment: s03, text: '字太小' }),
+        annotation: videoNote({ ...at(70000), kind: 'text', region: { x: 0.6, y: 0.3, w: 0, h: 0 }, style: { ...style, bold: true, italic: true, size: 28, font: 'serif' }, segment: s03, text: '字太小' }),
         videoPath: '倒着开的跑车.baocut/',
       },
       {
@@ -229,7 +229,7 @@ describe('withVideoAnnotations（产品设计 §3.2.3「视频标注」）', () 
         '   a. box · x=0.42 y=0.36 w=0.18 h=0.22 (42%, 36%, 18% × 22%)',
         '      style: red 4px',
         '   b. text · at (0.6, 0.3)',
-        '      style: red 4px',
+        '      style: red 4px · text 28px serif bold italic',
         '      批注：字太小',
         '2. 00:12.4 (12400 ms) · 2 marks',
         '   segment: s01 (scene #1 钩子) · line 3: 它没有掉下来也没有慢下来',

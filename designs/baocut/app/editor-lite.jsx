@@ -304,12 +304,13 @@
         </div>
         <div className="lt__player">
           {/* 章节进度条：照搬时间线视图的那一条（timeline.jsx 的 ChapterBand，悬停出那一刻的画面与段名，点一下跳过去），放在播放条上面；段就是这里的段 */}
-          {window.ChapterBand ? <div className="lt-band"><window.ChapterBand chapters={segs} playT={ctx.playT} seek={ctx.seek} title={ctx.proj.title} duration={ctx.duration} tmap={ctx.tmap} /></div> : null}
+          {window.ChapterBand ? <div className="lt-band"><window.ChapterBand chapters={segs} playT={ctx.playT} seek={ctx.seek} title={ctx.proj.title} duration={ctx.duration} tmap={ctx.tmap} markup={ctx.annotating ? ctx.markup : null} /></div> : null}
           <LiteTransport ctx={ctx} segs={segs} hoverT={hoverT} zoom={zoom} strip={strip} />
           <LiteSegBar ctx={ctx} segs={segs} hoverT={hoverT} setHoverT={setHoverT} zoom={zoom} setZoom={setZoom} api={strip} />
         </div>
       </div>
-      {side ? <aside className="lt__side" aria-label="当前段的脚本与台词"><LiteSide ctx={ctx} segs={segs} seg={seg} /></aside> : null}
+      {/* 侧栏顶上是「台词 / 脚本」与「字幕样式」（editor-lite-script.jsx）；台词页就是下面这块 */}
+      {side ? <aside className="lt__side" aria-label="当前段的脚本与台词"><window.LiteSidePane ctx={ctx} seg={seg} lines={<LiteSide ctx={ctx} segs={segs} seg={seg} />} /></aside> : null}
     </div>;
   }
 

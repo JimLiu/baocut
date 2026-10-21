@@ -75,7 +75,7 @@
 - **不读回主画布**：不 `getImageData` / `putImageData`，不把主画布当 `drawImage` 的源。要先画好再处理的效果，在离屏 canvas 上再画一遍（第 5.1 节的 `post-fx.js` 就这么做）。离屏 canvas 随便用，画进主画布时会按位图记下。
 - **不用**：`ctx.filter`（模糊改用 `shadowBlur`，或缩小再放大）、`createConicGradient`、`Path2D`、`clip('evenodd')`、`imageSmoothingEnabled = false`、`imageSmoothingQuality` 设成 `medium` / `high`（保持默认）、`letterSpacing` 与 `wordSpacing`。`globalCompositeOperation` 只用 `source-over`、`lighter`、`multiply`、`screen`、`overlay`、`darken`、`lighten`、`difference`、`exclusion`。
 - **图片**是包里的文件（`img.src = './art/a.png'`，PNG、JPEG、WebP、SVG 都行），不用 `data:` / `blob:` 地址、`ImageBitmap` 或视频帧。
-- **文字**用第 5 节带进包里的字体（`@font-face`），并且覆盖要画的每个字：缺字、彩色 emoji 都会回退。要粗体就带粗体字体文件（只有常规体却写 `bold` 会回退）。拉丁、希腊、西里尔与中日韩文字走得了指令；阿拉伯、泰、天城等文字会回退。
+- **文字**用第 5 节带进包里的字体（`@font-face`），并且覆盖要画的每个字：缺字、彩色 emoji 都会回退；用 `production-scripts` 的 `build.mjs` 打包时，它按 `bundle.fonts` 先报出字符串里缺的字。要粗体就带粗体字体文件（只有常规体却写 `bold` 会回退）。拉丁、希腊、西里尔与中日韩文字走得了指令；阿拉伯、泰、天城等文字会回退。
 - **导入后看结果的 `bake`**：`renderer` 是 `drawop-cpu` 就是走了指令。是 `browser-pixels` 时，`bake.fallback.reason` 写着第一条原因（例如 `recording: filter: blur(4px)`、`recording: main-canvas-readback`、`CANVAS_OPS_UNSUPPORTED: … text-missing-glyph: U+2665`），按上面改掉后用 `replace: { itemId }` 重新导入。原因是 `CANVAS_OPS_MISMATCH`（抽样画面对不上）时不用改代码，把原因告诉用户。
 - 写完第一个包时可以传 `bake: "ops"` 导入：走不了指令就直接报错并给出原因，不白等截图。确认能走之后其余的包用默认值。
 - **先算时间与空间再烘全片**。走指令时 1080×1920 一段 40 秒约一分钟；截图约 1–3 帧/秒，十分钟的片子要好几个小时。每段导入后把 `bake` 的 `renderer`、`fps`、`seconds` 记进自己的进度记录；第一段烘焙用的时间远超它本身的时长时，先停下看 `renderer` 与 `fallback.reason`，改好再烘其余各段。预渲染是 ProRes：不透明的 422 HQ 在 1080×1920 下每分钟约 1.2 GB，带透明的 4444 更大。长片先看视频所在磁盘的空余，不够时先和用户定把项目放到哪块盘，再在那里建视频。改版重烘后，旧的预渲染还占着空间，确认不会退回旧版后用 assets_prune 清掉（终端里是 `assets prune`）。
@@ -130,9 +130,12 @@
 - 先画一帧风格样张给用户看，定下再写全片。**开头样段要带上第一次高潮**（副歌或第一个爆点）：风格撑不撑得住在高潮上才看得出来，留到最后才发现要返工。
 - compositions_preview 一次最多取 24 个时刻：每句、每个段落交界各取一帧，加 `sheet: true` 拼成一张接触表一次看完（格子里不写时刻，按 `at` 给的顺序从左到右、一行满了换行，对不上就看结果的 `sheet.cells`），查文字重叠、画面空、上一句残留到下一段、元素出画。改完只重看改到的时刻。帧写在工作目录下的 `.baocut-out/frames/`，是临时输出：终端里从自己的工作目录运行，不在用户的代码仓库里跑。
 - 拼起来的帧只看得出排版，看不出动作：入场、换姿势这类动作，在那一下前后约 2 秒里密集地取满 24 帧看连贯不连贯，再导出预览按正常速度看、听画面跟不跟拍。
-- **烘焙前先给用户看会动的画面**：用 `skills_read` 读本 skill 的 `examples/bundle-preview.html`，原样存进工作目录，写一份 `preview.json` 列出各段的代码包、旁白音频、对齐好的句子时间与参考图，起一个本机静态服务打开（文件开头的注释写了用法）。页面跟着旁白逐帧画，叠上字幕带，不导入、不烘焙，改了代码包刷新就能再看；各段可以带 `clips` 把实拍片段叠在代码画面上一起播，勾上 chain 时一段播完接下一段，整片顺着看。用户要逐段提意见时先在这里改到满意，再导入烘焙，省掉一轮轮重烘。
+- **先放实时层给用户看，定稿再烘焙**：各段代码包默认带 `live: true` 导入：验证后直接放上时间线，不烘焙、不排任务，编辑器预览时由实时层现画，几秒一段。旁白、实拍、字幕、章节照常放在同一条时间线上，用户在编辑器的预览里整片顺着看、逐段提意见；改了包就带 `replace: { itemId }` 与 `live: true` 换上去，再看。用户说可以之后，每段带 `replace: { itemId }`、不带 `live` 再导入一次烘出预渲染（第 2.1 节），然后导出。没烘的片段导出会被拒绝。
+  - 什么时候画得出：编辑器眼下只在这一帧只有一个代码画面、它铺满画幅、是最底下的画面层、不在转场里时，才用实时层现画（代码画面打底，实拍、字幕、水印叠在它上面，成立）。透明卡片叠在实拍上（实拍垫底，`production-scripts` 的 `footage.layer: "under"`）、两个代码画面同一帧重叠、代码画面在转场里时，这些片段在审片视图里会提示画不出来。这种形态眼下有两条出路，按用户的意思选：这些段先烘焙再给用户看（改一段要重烘一段）；或者先给 BaoCut 补上叠层的实时层，再照上面的做法。
+  - 在哪里看：会话里就是用户开着的编辑器；终端给 `baocut web review` 的链接，请用户在系统浏览器或 BaoCut 桌面版的审片视图里看。宿主自带的浏览器面板（例如 Claude 的内置浏览器）会拦实时层的沙箱页面，没烘的片段在那里是黑的。
+  - 备选：还没建视频、或编辑器打不开时，用 `skills_read` 读本 skill 的 `examples/bundle-preview.html`，原样存进工作目录，写一份 `preview.json` 列出各段的代码包、旁白音频、对齐好的句子时间与参考图，起一个本机静态服务打开（文件开头的注释写了用法）。页面跟着旁白逐帧画，叠上字幕带与 `clips` 里的实拍，勾上 chain 时整片连播。
 - **全片导入或渲染前先冒烟**：每个包的开头、中点、结尾各用 compositions_preview 取一帧。删掉的辅助函数、拼错的变量这类运行时错误，在这一步就会报出是哪个包、哪个时刻，不等烘焙或渲染到一半才发现。
-- 每个包导入后看结果的 `bake.renderer`：该走指令的包回退成了 `browser-pixels`，按 `bake.fallback.reason` 和第 2.1 节改掉再换上去。
+- 每个包烘焙导入后看结果的 `bake.renderer`：该走指令的包回退成了 `browser-pixels`，按 `bake.fallback.reason` 和第 2.1 节改掉再换上去。
 - 改一段或插入一段只重做那一个包（`replace: { itemId }`；插入时先腾出位置再放新包，见下一条），没改的包不重新导入。
 - **一段变长、变短、删掉或插进新段**：只写 `replace: { itemId }` 不会挪后面的片段，变长时撞上同轨后一段会以 TIMELINE_OVERLAP 拒绝；deleteItems 只删不挪，留下空隙。用下面的波纹写法，让后面各轨的内容一起移动。
 
@@ -144,7 +147,7 @@
 
   换完、插完都用 videos_inspect 核对：各段首尾相接，没有空隙也不重叠，总长等于各段帧数之和。
 
-  有几段要一起改时，从最后一段往前做：前面的段还没变，后面算出的起点不会被打乱。讲解片按段配旁白、按段打包时，`explainer-video` 的制作脚本也能挪段（用 `skills_read` 读 `explainer-video`）；它用的就是上面的 `replace.ripple` 与 `insertRange`。
+  有几段要一起改时，从最后一段往前做：前面的段还没变，后面算出的起点不会被打乱。按段配旁白、按段打包的片子，有命令行环境时现成的脚本也能挪段（用 `skills_read` 读 `production-scripts`）；它用的就是上面的 `replace.ripple` 与 `insertRange`。
 - 在 BaoCut 之外渲染时：按场景分段渲染、能续跑，没改的段沿用；渲染中途不改代码，否则前后段不一致；从成片里抽几帧与单帧渲染比对，核对每段的帧数。
 - 做完是每一段、连同结尾都已就位、看过，不只是开头样段。
 

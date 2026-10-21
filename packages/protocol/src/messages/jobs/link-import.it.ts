@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const it: JobsLinkImportMessages = {
+  sectionItems: 'deve contenere solo intervalli { start, end } in secondi con 0 ≤ start < end',
+  sectionOutOfRange: (p) => `Il tratto fino a ${p.end} s supera la durata del video (${p.duration} s)`,
   languageTag: 'deve essere un tag di lingua BCP 47', requiresTranscribe: 'può essere indicato solo con transcribe',
   noVideoDiarize: 'Senza un video di destinazione vengono scritte solo trascrizioni indipendenti; i parlanti non possono essere separati',
   noVideoCaptions: 'Non vengono creati livelli di sottotitoli senza un video di destinazione', notWrittenToVideo: 'La trascrizione è terminata ma non è stata scritta nel video',

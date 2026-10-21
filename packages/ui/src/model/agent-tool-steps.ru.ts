@@ -17,6 +17,7 @@ export const ru: AgentToolStepsMessages = {
     deleteVideo: "Удалить видео",
     readTranscript: "Прочитать расшифровку",
     undoEdit: "Отменить правку",
+    assemblePlan: "Разместить производственный план",
     captions: "Создать слой субтитров",
     transcribe: "Расшифровать",
     dub: "Перевести и озвучить",

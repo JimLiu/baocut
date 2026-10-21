@@ -263,8 +263,8 @@ export interface CompositionBakeJob {
  * 编辑器实时合成层的桥（动效视频设计 §4.1；架构设计 §9.4）：舞台里的代码包跑在不开 `allow-same-origin` 的沙箱 `<iframe>` 里，
  * 父页面调不进去，取帧脚本（`composition-adapter.ts`）的三个调用改经 `postMessage` 往返。两端都只认带 `channel` 的消息，
  * 页面只认来自 `window.parent` 的、父页面只认来自那个 iframe 的 `contentWindow` 的；iframe 的来源是不透明的，`targetOrigin` 只能是 `*`。
- * 另有一个与取帧无关的 `pick`：轻量视图的「选择元素」问页面某一点下最内层的节点（lite-editor §4.1、§11 第 12 条），
- * 高亮由父页面按回来的框自己画，不进页面。
+ * 另有两个与取帧无关的请求：`pick`，轻量视图的「选择元素」问页面某一点下最内层的节点（lite-editor §4.1、§11 第 12 条），
+ * 高亮由父页面按回来的框自己画，不进页面；`capture`，Web 截图模式要此刻这一帧的位图（父页面拷不到跨源 iframe 的像素）。
  */
 export const COMPOSITION_BRIDGE_CHANNEL = 'baocut.composition-bridge/1';
 
@@ -289,7 +289,21 @@ export type CompositionBridgeRequest =
   | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'seek'; id: number; seconds: number }
   | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'dispose'; id: number }
   /** 这一点下是哪个节点：`x`、`y` 是合成的固有像素（页面的视口坐标）；回信的 `value` 是 `CompositionBridgePick` 或 `null`。 */
-  | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'pick'; id: number; x: number; y: number };
+  | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'pick'; id: number; x: number; y: number }
+  /** 此刻画着的这一帧拷成位图（Web 截图模式，lite-editor §4.1）：回信的 `value` 是 `CompositionBridgeCapture` 或 `null`。 */
+  | { channel: typeof COMPOSITION_BRIDGE_CHANNEL; kind: 'capture'; id: number };
+
+/**
+ * `capture` 的结果：页面把此刻画着的这一帧画成一张 PNG（固有像素，`width`×`height` 是页面视口）。页面自己合成：先铺根元素
+ * （`html` / `body`）的底色，再按文档顺序把纯色底的块与可见的 `<canvas>` 画到它们在视口里的位置（乘不透明度）。别的可见内容
+ * （文字、图片、SVG、视频、边框、阴影、背景图、旋转、滤镜、混合）画不进来：这时回 `null`，由宿主按截不出处理，不交一张缺了东西的图。
+ * 来自不受信的代码包页面：父页面收到后验形（`image` 是 PNG 的 Blob、尺寸有限），不合就当 `null`。
+ */
+export interface CompositionBridgeCapture {
+  width: number;
+  height: number;
+  image: Blob;
+}
 
 /**
  * `pick` 的结果：那一点下最内层的节点（`document.elementFromPoint`；`html`、`body` 与没有节点时是 `null`）。页面在
@@ -502,6 +516,11 @@ export interface CompositionImportParams {
    * 与 `register` 互斥。
    */
   background?: boolean;
+  /**
+   * true 时不烘焙也不排任务（代码包规范 §7.6）：两笔修改只登记代码包、按清单的长度放实例（或原地换包），实例没有替身，
+   * 预览由实时层现画；导出前带 `replace` 再导入一次烘出替身。与 `register`、`background`、`bake` 互斥。
+   */
+  live?: boolean;
   revision?: Revision;
   commandId?: Id;
   conversationId?: Id;
@@ -539,9 +558,9 @@ export interface CompositionImportResult {
     encoding: BakeRecord['encoding'];
     hasAlpha: boolean;
   } | null;
-  /** 烘焙用的渲染器与用时；回退到像素时带 `fallback.reason`。只登记与后台烘焙时为 null。 */
+  /** 烘焙用的渲染器与用时；回退到像素时带 `fallback.reason`。只登记、后台烘焙与 `live` 时为 null。 */
   bake: CompositionBakeInfo | null;
-  /** 后台烘焙（`background: true`）的任务；同步烘焙与只登记时为 null。 */
+  /** 后台烘焙（`background: true`）的任务；同步烘焙、只登记与 `live` 时为 null。 */
   bakeJobId: Id | null;
   /** 放到时间线上（或原地替换）的合成片段与它所在的轨；只登记时为 null。 */
   itemId: Id | null;

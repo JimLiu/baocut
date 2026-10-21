@@ -36,6 +36,16 @@ export function chapterScripts(body: unknown, sequenceId: Id): Map<Id, string> {
   return scripts;
 }
 
+/** 章节标记 ID → 章节表里的章节号（`s01`）：脚本页按它对到脚本里以章节号开头的小节标题。只认这个序列的 `baocut.chapter-sheet/1`。 */
+export function chapterIds(body: unknown, sequenceId: Id): Map<Id, string> {
+  const ids = new Map<Id, string>();
+  if (!isRecord(body) || body.schema !== CHAPTER_SHEET_SCHEMA || body.sequenceId !== sequenceId || !isRecord(body.compiled)) return ids;
+  for (const [chapterId, link] of Object.entries(body.compiled)) {
+    if (isRecord(link) && typeof link.markerId === 'string') ids.set(link.markerId, chapterId);
+  }
+  return ids;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

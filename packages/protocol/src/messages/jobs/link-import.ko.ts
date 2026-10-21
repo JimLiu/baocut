@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const ko: JobsLinkImportMessages = {
+  sectionItems: '의 각 항목은 { start, end }(초, 0 ≤ start < end)여야 합니다',
+  sectionOutOfRange: (p) => `다운로드할 구간의 ${p.end}초가 동영상 길이(${p.duration}초)를 넘습니다`,
 
   languageTag: 'BCP 47 언어 태그여야 합니다',
   requiresTranscribe: 'transcribe와 함께만 지정할 수 있습니다',

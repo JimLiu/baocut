@@ -27,6 +27,7 @@ pub fn measure_text_element(engine: &mut TextEngine, text: &str, style: &Value, 
         display_start: 0.0,
         display_end: 1.0,
         words: Vec::new(),
+        speaker: None,
     };
     let wrap = wrap_width.filter(|w| w.is_finite()).map(|w| w.max(1.0));
     let (lines, width) = layout_text(engine, &item, &line, wrap.unwrap_or(f64::INFINITY), None);

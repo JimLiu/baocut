@@ -9,6 +9,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 - 剪辑：放素材、裁切、拆分、挪动、删除、波纹删除、变速、转场。
 - 剪口播：去口癖与长停顿、删掉录废的部分（剪口）。
 - 章节、文字与元素、画面摆法与外观、效果、声音与闪避、画布尺寸。
+- 旁白按段配、画面按段上时间线的片子：把制作计划（各段的代码包与旁白、实拍片段、卡片）一次放好，改了只动变了的（下面的「一次放好制作计划」）。
 - 写文档（转写、译文）也是一笔修改：已有文档的局部修改用 {{tool:edits_apply}} 的文档操作，新建或整体替换用 {{tool:documents_put}}（见 [subtitles](subtitles.md)）；作者的章节用 {{tool:chapters_adopt}} 写进视频（见下面的「章节」）。
 
 剪哪里、留哪句、停顿多长是 craft 的事：{{skill:talking-head-cut}}、{{skill:video-chapters}}、{{skill:shorts-segments}}。这一页只讲怎么提交、怎么读回执。
@@ -111,6 +112,18 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 
 字幕层用 {{tool:captions_create}} 建，不是这里的操作；剪掉一段并让后面前移用 `removeRange`，空出一段让后面后移用 `insertRange`，口播的剪口用 `addCuts`。其余操作与每个字段的写法用 {{tool:edits_ops}} 取。
 <!-- /generated -->
+
+### 一次放好制作计划：{{tool:edits_assemble}}
+
+旁白按段配、画面按段上时间线的片子（讲解、解说混剪、旁白片）不用一段一段 `importAsset` 与 {{tool:compositions_import}}：把制作计划写成 {{arg:plan}}，或 {{arg:planFile}} 指向一份 JSON（里面的相对路径按它所在目录解析），一次放好。
+
+- **段落**（`segments`）按播放顺序：每段一个代码包目录（包的长度就是段长），可带旁白（`narration` 给音频文件或配音产物的 `artifactId`）与对齐结果（`timing`：`{ lines: [{ text, start, chars? }], gaps? }` 或它的 JSON 路径，秒数从段首算）。段按整帧首尾相接放在 Scenes 轨，旁白在段首放在 Narration 轨；轨道按 `tracks` 给名字或 ID，没有就建。
+- **实拍片段**（`clips`）属于某一段，起点按句子（`line`，加 `cue` 对到句里几个字被说到的时刻）、留白（`gap`，对到 `timing.gaps` 里给它留的那段）、紧跟上一个片段（`follow`）或段内秒数（`at`）定，截在本段下一个片段或段尾。`from`、`to` 是素材自己的秒（图片只有 `to`，当时长）；`audio` 留原声或给音量；`fit`、`crop`、`pip`（画中画）、单侧转场 `in`、`out`。{{arg:footageLayer}} 为 `under` 时实拍轨挪到 Scenes 下面当底，代码包要透明。
+- **卡片**（`cards`）是透明代码包，按 `line` + `cue` 或 `at` 放在最上面的 Cards 轨，长度就是包的长度。
+- **水印**（`watermarks`）是图片，`dur` 秒长：属于某一段时按 `line` + `cue` 或段内 `at` 定起点，不带 `seg` 时 `at` 是整片的秒；`pip` 给位置与宽度（不给就铺满），放在最上面的 Watermark 轨，彼此不能重叠，越过最后一段的尾巴截掉并给警告。
+- 先带 {{arg:dryRun}} 看排布与每一步要做的事（place、resize、replace、keep、move、remove），再真正提交：一次确认覆盖整趟，每一步各自可撤销。代码包默认进后台烘焙任务，结果里每段、每张卡带 `bakeJobId`，导出前用 {{tool:jobs_inspect}} 核对；`background: false` 时当场烘焙，结果带 `bake`（渲染器、帧率、耗时），退回逐帧截图的会给警告。
+- **重跑是增量的**：放好之后视频里存一份「制作计划」记录。段落变长变短或换了包走带波纹的换包，后面的内容一起挪；中间插进的段先腾位置；换了旁白文件或产物就换旁白；同一路径的素材文件重新剪过（大小或修改时间变了）也算变了；没变的片段、卡片与水印不动。要动的轨道或条目锁着时什么都不改，报 `TARGET_LOCKED`，解锁后重跑。计划里删掉已放好的段落会拒绝（`PLAN_SEGMENT_REMOVED`：先用 `removeRange` 删掉那段）；段落被手动挪得不再首尾相接时 `LAYOUT_MISMATCH`。
+- 它不切素材、不配音、不对齐，也不烧来源标签、双语字幕或照片的推拉：这些在它之前做好，把剪好的文件当普通素材给它；有命令行环境时现成的脚本见 {{skill:production-scripts}}。
 
 ### 剪口播的机制
 

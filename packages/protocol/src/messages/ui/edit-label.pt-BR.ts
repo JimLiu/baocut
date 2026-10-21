@@ -100,4 +100,5 @@ export const ptBR: EditLabelMessages = {
   editTemplateLayout: 'Editar layout do template',
   lockTemplateRatio: 'Travar proporção no template',
   unlockTemplateRatio: 'Destravar proporção do template',
+  restoreScript: (p) => `Restaurar a versão ${p.version} do roteiro`,
 };

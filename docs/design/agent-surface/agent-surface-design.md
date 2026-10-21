@@ -177,6 +177,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `edits` | `apply` | mutation | 一笔事务：`ops`（JSON 数组、`@文件` 或 stdin）+ `revision`；`dry-run` 走预检 |
 | | `undo` | mutation | 撤销最近一笔 |
 | | `ops` | query | 列出操作族与每个操作的 schema、示例（命令协议 §4.2）；`spec edits.<op>` 同源 |
+| | `assemble` | mutation | **新增**：一次把制作计划放上时间线（`plan` 或 `planFile`）。段落是代码包加旁白，按包的长度首尾相接放在 Scenes 轨，旁白在段首；实拍片段按段内的句子、几个字（`cue`）、留白（`gap`）、紧跟（`follow`）或秒数定起点，截在下一个片段或段尾，带入点、画中画、单侧转场与原声音量；卡片是透明代码包，按字时间放在卡片轨；水印是图片，按段内的字时间或时间线上的秒数放在最上面一条轨，带时长与画中画位置。`dryRun` 只排版并报告会改什么；前台烘焙（`background: false`）时回执带每段实际用的渲染器，退回逐帧截图时列在 `warnings`。放好之后在视频里写一份 `production-plan` 记录（视频格式规范 §4.6），重跑时按记录只动变了的（同一路径的文件重新剪过也算变了）：段落变长变短或换包走 `replace.ripple`，中间插进的段落先 `insertRange` 腾位置，后面的内容跟着挪。计划里删掉已放好的段落时以 `PLAN_SEGMENT_REMOVED` 拒绝（先用 `removeRange` 删掉那段），时间线上的段落被挪乱时 `LAYOUT_MISMATCH`，记录读不懂时 `PLAN_RECORD_INVALID`；要删、换包、挪的实例或要放东西的轨道锁着时，在改动任何东西之前以 `TARGET_LOCKED` 拒绝。不切素材、不配音、不对齐；只在工具桥与 CLI |
 | `captions` | `create` | mutation | 把转写或译文做成字幕层（现 `captions_create`），`bilingual`、`layout-profile`、`style`（位置与样式：字幕样式文档的键 `y`、`verticalAlign`、`width`、`fontSize`、描边与底板开关等，以默认样式为底；建好后用 `edits_apply` 的 `setCaptionStyle` 改，架构设计 §3.5） |
 | `assets` | `import` | mutation | **新增 sugar**：导入一个文件或 `artifactId`，可选 `place`（同一事务里 `addItem` 到主轨末尾或指定时间）。编译成 `importAsset` [+ `addItem`] |
 | `jobs` | `list` / `inspect` / `wait` / `cancel` / `retry` | query / query / query / mutation / job | `wait` 阻塞到终态或超时；`retry` 是现 `pipelines retry` |

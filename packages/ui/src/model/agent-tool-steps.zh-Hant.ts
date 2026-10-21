@@ -16,6 +16,7 @@ export const zhHant: AgentToolStepsMessages = {
     deleteVideo: '刪除影片',
     readTranscript: '讀取逐字稿',
     undoEdit: '還原修改',
+    assemblePlan: '放置製作計畫',
     captions: '建立字幕層',
     transcribe: '轉錄',
     dub: '翻譯並配音',

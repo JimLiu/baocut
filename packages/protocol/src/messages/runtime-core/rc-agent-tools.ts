@@ -119,6 +119,17 @@ const en = {
   /** 清理没有引用的素材（`assets_prune` 带 `apply`）：确认摘要与这笔修改在视频历史里的说明。`names` 是素材名的列表。 */
   pruneAssetsSummary: (p: { count: number; names: string }) => `Remove unused assets from the video (${p.count}): ${p.names}`,
   pruneAssetsLabel: (p: { count: number }) => `Remove unused assets (${p.count})`,
+  /** 一次放好制作计划（`edits_assemble`）：确认摘要与各笔修改在视频历史里的说明；`assembleRecordName` 是计划记录文档的名字。 */
+  assembleSummary: (p: { segments: number; clips: number; cards: number; watermarks: number }) => `Place the production plan on the timeline: segments (${p.segments}), footage clips (${p.clips}), cards (${p.cards}), watermarks (${p.watermarks})`,
+  assembleTracksLabel: 'Set up tracks for the production plan',
+  assembleRoomLabel: (p: { segment: string }) => `Make room for segment ${p.segment}`,
+  assembleRemoveLabel: (p: { count: number }) => `Remove outdated plan items (${p.count})`,
+  assembleNarrationLabel: (p: { count: number }) => `Place narration (${p.count})`,
+  assembleFootageLabel: (p: { count: number }) => `Place footage clips (${p.count})`,
+  assembleWatermarkLabel: (p: { count: number }) => `Place watermarks (${p.count})`,
+  assembleTransitionsLabel: 'Add footage transitions',
+  assembleMoveLabel: (p: { count: number }) => `Move cards (${p.count})`,
+  assembleRecordName: 'Production plan',
   /** 采用来源章节（`chapters_adopt`）：确认摘要与这笔修改在视频历史里的缺省说明。`existing` 是会被替换的现有章节数。 */
   adoptChaptersSummary: (p: { count: number; existing: number; asset: string }) =>
     `Use the source chapters of ${p.asset} (${p.count})${p.existing ? `, replacing the current chapters (${p.existing})` : ''}`,

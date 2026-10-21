@@ -16,6 +16,7 @@ export const vi: AgentToolStepsMessages = {
     deleteVideo: "Xóa video",
     readTranscript: "Đọc bản chép lời",
     undoEdit: "Hoàn tác chỉnh sửa",
+    assemblePlan: "Đặt kế hoạch sản xuất",
     captions: "Tạo lớp phụ đề",
     transcribe: "Chép lời",
     dub: "Dịch và lồng tiếng",

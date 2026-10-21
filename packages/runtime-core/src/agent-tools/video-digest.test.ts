@@ -202,11 +202,12 @@ describe('digestVideo', () => {
     expect(digest.tracks.find((t) => t.id === 'trk_s1')).toMatchObject({ kind: 'subtitle', items: 1 });
     expect(digest.sequence.durationFrames).toBe(150);
     expect(digest.assets).toEqual([
-      { id: 'asset_v', name: 'talk.mp4', kind: 'video', durationSeconds: 10, size: null, hasAudio: false, storage: 'linked', usedBy: 1 },
+      { id: 'asset_v', name: 'talk.mp4', kind: 'video', revision: '1', durationSeconds: 10, size: null, hasAudio: false, storage: 'linked', usedBy: 1 },
       {
         id: 'asset_b',
         name: '片头',
         kind: 'bundle',
+        revision: '1',
         durationSeconds: null,
         size: null,
         hasAudio: false,

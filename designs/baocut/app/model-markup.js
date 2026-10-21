@@ -3,9 +3,11 @@
    window.BC_MARKUP。纯函数，无 React、无 DOM；App 与 Web 两个入口都加载。
 
    两种用法（docs/design/lite-editor §4.1、§8）：`agent`（App）最后「添加到对话」换成视频标注；`screenshot`（Web，没有会话可发）
-   没有选择元素与评论，最后把当前帧连同这一帧的标记复制或下载成图片（`toolsFor`、`shotName`）。
+   没有评论，最后把当前帧连同这一帧的标记复制或下载成图片（`toolsFor`、`shotName`），出了图就清掉这一帧的标记（`forgetFrame`）。
+   画过标记的帧在时间线章节条上落印章、工具条上列书签（`markedFrames`、`stamps`、`stampTarget`）。
 
    与视频标注（model-stage-notes.js）的分工：这里是**画的过程**——一次标注会话里的标记、颜色与粗细、撤销重做、选中与改形；
+   文字标记另带样式（`bold` / `italic` / `underline` / `size` / `font`，`textStyleOf`）。
    按「添加到对话」时整组换成视频标注（`toNotes`），进 `videoNotes[videoId]` 草稿，之后的事归 model-stage-notes。
    标记本身不带批注，要说的话写在对话里；文字标记的内容与评论的话才进批注。每条标记属于画它时的那一帧（`timeMs`），只在那一帧上显示；
    发出时每一帧带一张截图（`shot`：那一帧 + 画上去的标记，评论另记印章位置，正式版由实现截图合成）。
@@ -19,12 +21,14 @@
     {k: 'red', label: '红'}, {k: 'blue', label: '蓝'}, {k: 'green', label: '绿'}, {k: 'black', label: '黑'}, {k: 'white', label: '白'},
   ];
   const WIDTHS = [2, 4, 8, 12];
-  /* 工具条：选择元素 / 评论 / 画笔 / 形状（下拉：直线、箭头、矩形、圆、编号）/ 文字 */
+  /* 工具条：选择元素 / 评论 / 画笔 / 形状（副工具条上一排：直线、箭头、矩形、圆、编号）/ 文字 */
   const TOOLS = [
     {k: 'element', label: '选择元素', sk: '⇧⌘S'}, {k: 'comment', label: '评论', sk: '⇧⌘C'}, {k: 'pen', label: '画笔'}, {k: 'shape', label: '形状'}, {k: 'text', label: '文字'},
   ];
-  /* 截图模式（Web）只有画的工具：画笔 / 形状 / 文字 */
-  const SCREENSHOT_TOOLS = ['pen', 'shape', 'text'];
+  /* 截图模式（Web）没有评论（没有会话可发）：选择元素 / 画笔 / 形状 / 文字；元素框连它的标签一起画进图里（2026-10-21 用户定） */
+  const SCREENSHOT_TOOLS = ['element', 'pen', 'shape', 'text'];
+  /** 这件工具有没有粗细：文字按字号、评论是一枚印章，都没有描边。副工具条上粗细只给有描边的工具。 */
+  const hasWidth = tool => tool !== 'text' && tool !== 'comment';
   /** 这种用法下工具条上有哪些工具（按工具条的顺序）。 */
   const toolsFor = mode => (mode === 'screenshot' ? TOOLS.filter(t => SCREENSHOT_TOOLS.indexOf(t.k) >= 0) : TOOLS);
   /** 截图模式下载的文件名：`<视频名>-00m12s400.png`（播放头那一帧），满一小时前面加 `1h`；视频名去掉文件名里不能用的字符。 */
@@ -38,6 +42,10 @@
   const SHAPES = [
     {k: 'line', label: '直线'}, {k: 'arrow', label: '箭头'}, {k: 'rect', label: '矩形'}, {k: 'ellipse', label: '圆'}, {k: 'step', label: '编号'},
   ];
+  /* 文字标记的样式（2026-10-21 用户定）：粗体 / 斜体 / 下划线、字号（S2 字号阶梯）、字体（三种通用字族，不点名具体字体：中文缺字形时各端自己回退） */
+  const FONT_SIZES = [16, 20, 28, 36, 48];
+  const FONTS = [{k: 'sans', label: '无衬线'}, {k: 'serif', label: '衬线'}, {k: 'mono', label: '等宽'}];
+  const TEXT_STYLE = {bold: true, italic: false, underline: false, size: 20, font: 'sans'};
   const KIND_LABELS = {pen: '画笔', line: '直线', arrow: '箭头', rect: '矩形', ellipse: '圆', step: '编号', text: '文字', element: '元素', comment: '评论'};
   /** 没写字就发不出去的两种：文字标记、评论。 */
   const NEEDS_TEXT = {text: true, comment: true};
@@ -50,8 +58,10 @@
   const newId = () => `m${Date.now().toString(36)}${(seq++).toString(36)}`;
 
   function init(over) {
-    return {tool: 'pen', shape: 'rect', color: 'red', width: 4, marks: [], past: [], future: [], sel: null, ask: false, ...over};
+    return {tool: 'pen', shape: 'rect', color: 'red', width: 4, textStyle: TEXT_STYLE, marks: [], past: [], future: [], sel: null, ask: false, ...over};
   }
+  /** 重开一组时留下的：上次的工具、形状、颜色、粗细与文字样式（这个窗口里一直记着）。 */
+  const keep = s => ({tool: s.tool, shape: s.shape, color: s.color, width: s.width, textStyle: s.textStyle || TEXT_STYLE});
 
   const setTool = (s, tool) => ({...s, tool, sel: tool === s.tool ? s.sel : null});
   const setShape = (s, shape) => ({...s, shape, tool: 'shape', sel: null});
@@ -70,10 +80,20 @@
     const next = {...s, width};
     return s.sel ? commit(next, s.marks.map(m => (m.id === s.sel ? {...m, width} : m))) : next;
   }
+  /** 文字样式（`{bold}` / `{size: 28}` …）：改之后写的字；选中的是文字标记就连它一起改（进历史）。 */
+  function setTextStyle(s, patch) {
+    const next = {...s, textStyle: {...(s.textStyle || TEXT_STYLE), ...patch}};
+    const sel = s.sel && s.marks.find(m => m.id === s.sel);
+    return sel && sel.kind === 'text' ? commit(next, s.marks.map(m => (m.id === s.sel ? {...m, ...patch} : m))) : next;
+  }
+  /** 一条文字标记的样式：自己的字段，没有的按默认（早先的文字没有这些字段，字号跟粗细档走）。 */
+  const OLD_TEXT_SIZE = {2: 16, 4: 20, 8: 28, 12: 36};
+  const textStyleOf = m => ({...TEXT_STYLE, size: OLD_TEXT_SIZE[m.width] || TEXT_STYLE.size,
+    ...Object.fromEntries(Object.keys(TEXT_STYLE).filter(k => m[k] != null).map(k => [k, m[k]]))});
 
   /** 加一条：`timeMs` 是画它时的播放头（这条标记属于那一帧），没给的在画面上算 0、发出时用 `toNotes` 的 base。 */
   function add(s, mark) {
-    const m = {id: mark.id || newId(), color: s.color, width: s.width, ...mark};
+    const m = {id: mark.id || newId(), color: s.color, width: s.width, ...(mark.kind === 'text' ? s.textStyle || TEXT_STYLE : null), ...mark};
     return commit(s, [...s.marks, m], m.id);
   }
   /** 这一帧上的标记：时刻离播放头 `nowMs` 不超过 `near` 毫秒的（同草稿标注在画面上的时间窗）。 */
@@ -83,6 +103,39 @@
   /** 这组标记涉及的帧（毫秒，升序去重）：每一帧出一张截图。 */
   function frames(marks) {
     return [...new Set(marks.map(m => m.timeMs || 0))].sort((a, b) => a - b);
+  }
+  /** 标记帧的书签（docs/design/lite-editor §4.1）：画过标记的每一帧与这一帧上的条数，按先后；±near 内的几刻算同一帧（从最早的那一刻量起），没写字的不算。 */
+  function markedFrames(marks, near = 500) {
+    const out = [];
+    for (const m of sendable(marks).slice().sort((a, b) => (a.timeMs || 0) - (b.timeMs || 0))) {
+      const t = m.timeMs || 0, last = out[out.length - 1];
+      if (last && t - last.timeMs <= near) last.count += 1;
+      else out.push({timeMs: t, count: 1});
+    }
+    return out;
+  }
+  /** 时间线上的印章：`pos(timeMs)` 给出在整条上的位置（0–1）；离这一枚的第一帧不到 `minGapPx` 像素的帧并进来，印章上写帧数。 */
+  function stamps(list, pos, widthPx, minGapPx = 20) {
+    const out = [];
+    for (const f of list) {
+      const at = Math.min(1, Math.max(0, pos(f.timeMs)));
+      const last = out[out.length - 1];
+      if (last && (at - last.at) * widthPx < minGapPx) last.frames.push(f);
+      else out.push({timeMs: f.timeMs, at, frames: [f]});
+    }
+    return out;
+  }
+  /** 点一枚印章去哪（毫秒）：不在它的帧上去第一帧，在其中一帧上去下一帧，到头回第一帧。 */
+  function stampTarget(stamp, nowMs, near = 500) {
+    const i = stamp.frames.findIndex(f => Math.abs(f.timeMs - nowMs) <= near);
+    return stamp.frames[(i + 1) % stamp.frames.length].timeMs;
+  }
+  /** 出过图的这一帧：它上面的标记从画面与整段历史里拿掉（撤销不再带回来），别的帧的留着。 */
+  function forgetFrame(s, nowMs) {
+    const gone = new Set(onFrame(s.marks, nowMs).map(m => m.id));
+    if (!gone.size) return s;
+    const keep = list => list.filter(m => !gone.has(m.id));
+    return {...s, marks: keep(s.marks), past: s.past.map(keep), future: s.future.map(keep), sel: s.sel && gone.has(s.sel) ? null : s.sel};
   }
   /** 改一条：默认进历史；拖动中的连续改动传 `{history: false}`，松手再 commit 一次。 */
   function update(s, id, patch, opts) {
@@ -229,7 +282,7 @@
       const timeMs = m.timeMs != null ? m.timeMs : (base && base.timeMs != null ? base.timeMs : 0);
       const where = whereAt ? whereAt(timeMs) : {};
       const note = {id: m.id, ...base, timeMs, ...where, kind: NOTE_KIND[m.kind] || m.kind, region: {x: m.x, y: m.y, w: m.w || 0, h: m.h || 0},
-        style: {color: m.color, width: m.width}, text: NEEDS_TEXT[m.kind] ? String(m.text || '').trim() : ''};
+        style: m.kind === 'text' ? {color: m.color, width: m.width, ...textStyleOf(m)} : {color: m.color, width: m.width}, text: NEEDS_TEXT[m.kind] ? String(m.text || '').trim() : ''};
       if (m.to) note.to = m.to;
       if (m.points) note.points = m.points;
       if (m.element) note.element = m.element;
@@ -249,9 +302,11 @@
     if (n.points) m.points = n.points;
     if (n.text) m.text = n.text;
     if (n.element) m.element = n.element;
+    if (n.kind === 'text' && n.style) for (const k of Object.keys(TEXT_STYLE)) if (n.style[k] != null) m[k] = n.style[k];
     return m;
   }
 
-  root.BC_MARKUP = {COLORS, WIDTHS, TOOLS, toolsFor, shotName, SHAPES, KIND_LABELS, BOX_HANDLES, init, setTool, setShape, setColor, setWidth, add, update, finishDrag, remove, clear, select,
-    canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes, fromNote, onFrame, frames};
+  root.BC_MARKUP = {COLORS, WIDTHS, TOOLS, toolsFor, hasWidth, FONT_SIZES, FONTS, TEXT_STYLE, keep, setTextStyle, textStyleOf, shotName, SHAPES, KIND_LABELS, BOX_HANDLES, init, setTool, setShape, setColor, setWidth, add, update, finishDrag, remove, clear, select,
+    canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes, fromNote, onFrame, frames,
+    markedFrames, stamps, stampTarget, forgetFrame};
 })();

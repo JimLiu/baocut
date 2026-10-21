@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const fr: JobsLinkImportMessages = {
+  sectionItems: 'ne doit contenir que des plages { start, end } en secondes avec 0 ≤ start < end',
+  sectionOutOfRange: (p) => `Le passage à ${p.end} s dépasse la durée de la vidéo (${p.duration} s)`,
   languageTag: "doit être une étiquette de langue BCP 47",
   requiresTranscribe: "peut être indiqué uniquement avec transcribe",
   noVideoDiarize: "Sans vidéo cible, seules des transcriptions indépendantes sont écrites ; les locuteurs ne peuvent pas être séparés",

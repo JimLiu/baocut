@@ -100,4 +100,5 @@ export const ko: EditLabelMessages = {
   editTemplateLayout: '템플릿 레이아웃 편집',
   lockTemplateRatio: '템플릿 화면 비율 고정',
   unlockTemplateRatio: '템플릿 화면 비율 고정 해제',
+  restoreScript: (p) => `대본 버전 ${p.version} 복원`,
 };

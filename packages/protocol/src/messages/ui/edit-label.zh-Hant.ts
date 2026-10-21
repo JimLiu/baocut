@@ -100,4 +100,5 @@ export const zhHant: EditLabelMessages = {
   editTemplateLayout: '修改範本版面',
   lockTemplateRatio: '依範本鎖定長寬比',
   unlockTemplateRatio: '解鎖範本長寬比',
+  restoreScript: (p) => `腳本回到版本 ${p.version}`,
 };

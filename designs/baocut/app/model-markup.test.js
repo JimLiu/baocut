@@ -139,10 +139,48 @@ test('进了草稿的标注画回画面：toNotes 的反向，box 回 rect、pin
   assert.deepEqual([M.fromNote(bare).color, M.fromNote(bare).width], ['blue', 2]);
 });
 
-test('截图模式（Web）：没有选择元素与评论；下载的文件名是视频名接播放头的分、秒、毫秒', () => {
+test('截图模式（Web）：没有评论；下载的文件名是视频名接播放头的分、秒、毫秒', () => {
   assert.deepEqual(M.toolsFor('agent').map(t => t.k), ['element', 'comment', 'pen', 'shape', 'text']);
-  assert.deepEqual(M.toolsFor('screenshot').map(t => t.k), ['pen', 'shape', 'text']);
+  assert.deepEqual(M.toolsFor('screenshot').map(t => t.k), ['element', 'pen', 'shape', 'text']);
   assert.equal(M.shotName('倒着开的跑车', 12400), '倒着开的跑车-00m12s400.png');
   assert.equal(M.shotName('a/b: c?', 0), 'a_b_ c_-00m00s000.png');
   assert.equal(M.shotName('', 3723005), 'video-1h02m03s005.png');
+});
+
+test('标记帧的书签与时间线印章（lite-editor §4.1）', () => {
+  const box = (id, timeMs, extra) => ({id, timeMs, kind: 'rect', x: 0.1, y: 0.1, w: 0.1, h: 0.1, ...extra});
+  const marks = [box('c', 12000), box('a', 3000), box('b', 3400), box('d', 3900), box('e', 20000, {kind: 'text', text: ' '})];
+  assert.deepEqual(M.markedFrames(marks), [{timeMs: 3000, count: 2}, {timeMs: 3900, count: 1}, {timeMs: 12000, count: 1}]);
+  const frames = [{timeMs: 10000, count: 1}, {timeMs: 11000, count: 2}, {timeMs: 12500, count: 1}, {timeMs: 60000, count: 1}];
+  const st = M.stamps(frames, t => t / 100000, 1000, 20);
+  assert.deepEqual(st.map(s => [s.timeMs, s.at, s.frames.length]), [[10000, 0.1, 2], [12500, 0.125, 1], [60000, 0.6, 1]]);
+  assert.equal(M.stamps(frames, t => t / 100000, 10000, 20).length, 4);
+  assert.equal(M.stampTarget(st[0], 0), 10000);
+  assert.equal(M.stampTarget(st[0], 10200), 11000);
+  assert.equal(M.stampTarget(st[0], 11000), 10000);
+});
+
+test('出过图的这一帧：标记从画面与历史里拿掉，别的帧的留着', () => {
+  let s = M.add(M.init(), {id: 'a', timeMs: 3000, kind: 'rect', x: 0, y: 0, w: 0.2, h: 0.2});
+  s = M.add(s, {id: 'b', timeMs: 8000, kind: 'rect', x: 0, y: 0, w: 0.2, h: 0.2});
+  s = M.forgetFrame(s, 3200);
+  assert.deepEqual(s.marks.map(m => m.id), ['b']);
+  assert.ok(s.past.every(list => list.every(m => m.id !== 'a')));
+  assert.equal(M.forgetFrame(s, 30000), s);
+});
+
+test('文字样式：新写的字带上当前样式，选中的文字跟着改，进标注再画回来不丢；重开一组记着上次的工具与样式', () => {
+  let s = M.setTextStyle(M.init(), {italic: true, size: 36, font: 'serif'});
+  s = M.add(s, {id: 't', kind: 'text', x: 0.2, y: 0.2, w: 0, h: 0, text: '看这里'});
+  assert.deepEqual(M.textStyleOf(s.marks[0]), {bold: true, italic: true, underline: false, size: 36, font: 'serif'});
+  s = M.setTextStyle(s, {underline: true});
+  assert.equal(s.marks[0].underline, true);
+  assert.equal(M.undo(s).marks[0].underline, false);
+  const [note] = M.toNotes(s.marks, {video: 'p15', revision: 2});
+  assert.equal(note.style.size, 36);
+  assert.equal(M.fromNote(note).font, 'serif');
+  assert.equal(M.textStyleOf({kind: 'text', width: 8}).size, 28);
+  const again = M.init(M.keep(M.setShape(s, 'arrow')));
+  assert.deepEqual([again.tool, again.shape, again.textStyle.size, again.marks.length], ['shape', 'arrow', 36, 0]);
+  assert.deepEqual(['element', 'pen', 'shape', 'text', 'comment'].map(M.hasWidth), [true, true, true, false, false]);
 });

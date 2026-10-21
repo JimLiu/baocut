@@ -100,4 +100,5 @@ export const vi: EditLabelMessages = {
   editTemplateLayout: 'Sửa bố cục mẫu',
   lockTemplateRatio: 'Khóa tỷ lệ khung hình theo mẫu',
   unlockTemplateRatio: 'Mở khóa tỷ lệ khung hình của mẫu',
+  restoreScript: (p) => `Khôi phục phiên bản ${p.version} của kịch bản`,
 };

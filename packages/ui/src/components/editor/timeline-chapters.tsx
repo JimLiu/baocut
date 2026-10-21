@@ -33,6 +33,7 @@ import { canEdit, useVideo } from '../../state/video-store.ts';
 import { moveChapter, removeChapter, renameChapter } from './chapter-commands.ts';
 import { CHAPTER_COPY as C } from './chapter-copy.ts';
 import { useEditorActions } from './editor-context.tsx';
+import { BookmarkStamps } from './markup-stamps.tsx';
 
 /**
  * 时间线顶部的章节条（设计稿 timeline.jsx `ChapterBand`，Mac ChapterScrubberView 形态）：整条宽度就是整片，不随缩放；
@@ -43,6 +44,7 @@ import { useEditorActions } from './editor-context.tsx';
  * - 每章起点左右各 4px 是拖边区，拖动改起点（夹在上一章与下一章之间，6px 内吸附播放头，Esc 取消）；
  * - 右键：改标题、删除这一章；改名在小浮层里起名（product-design §5.1）。
  * 视频只读时（导入中、别处在改）编辑入口都置灰，点击定位照常。
+ * 标注模式里画过标记的帧在条上落印章（`BookmarkStamps`，lite-editor §4.1），两种视图同一条。
  */
 
 const BAND_H = 24;
@@ -351,6 +353,7 @@ export function TimelineChapters({ sequence }: { sequence: Sequence }) {
                 </div>
               ))
           : null}
+        <BookmarkStamps barRef={barRef} duration={duration} />
       </div>
       {tip ? (
         <div className={bubble} style={{ left: tipLeft }} aria-hidden>

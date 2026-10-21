@@ -1,6 +1,8 @@
 import {
   VIDEO_ANNOTATION_COLORS,
+  VIDEO_ANNOTATION_FONTS,
   VIDEO_ANNOTATION_TEXT_KINDS,
+  VIDEO_ANNOTATION_TEXT_SIZES,
   VIDEO_ANNOTATION_WIDTHS,
   newId,
   videoAnnotationElementDetail,
@@ -14,6 +16,7 @@ import {
   type VideoAnnotationColor,
   type VideoAnnotationElement,
   type VideoAnnotationKind,
+  type VideoAnnotationTextStyle,
   type VideoAnnotationWidth,
 } from '@baocut/protocol';
 import type { VisualLayer } from '../render/frame-plan.ts';
@@ -43,16 +46,19 @@ import {
  * 文字、编号与评论只有一个点（w、h 为 0）；元素标记的框是元素在画面上的位置。
  */
 
-/** 工具条上的工具（lite-editor §4.1）：选择元素 / 评论 / 画笔 / 形状（下拉：直线、箭头、矩形、圆、编号）/ 文字。 */
+/**
+ * 工具条上的工具（lite-editor §4.1）：选择元素 / 评论 / 画笔 / 形状 / 文字。开着的工具底下另有一条副工具条：形状的一排形状、文字的
+ * 粗体 / 斜体 / 下划线 / 字号 / 字体，右边是颜色与粗细（文字与评论没有粗细）。
+ */
 export const MARKUP_TOOLS = ['element', 'comment', 'pen', 'shape', 'text'] as const;
 export type MarkupTool = (typeof MARKUP_TOOLS)[number];
 /**
  * 标记的两种用法（lite-editor §4.1、§8）：`agent` 把标记「添加到对话」变成视频标注（Electron）；`screenshot` 是 Web 的截图模式——
- * 没有 BaoCut 会话可发，标记画在当前帧上复制或下载成图片，没有选择元素与评论。宿主只在这里分档：`markupMode(platform)`。
+ * 没有 BaoCut 会话可发，标记画在当前帧上复制或下载成图片，没有评论（选择元素保留，元素框的标签画进图片）。宿主只在这里分档：`markupMode(platform)`。
  */
 export type MarkupMode = 'agent' | 'screenshot';
 export const markupMode = (platform: string): MarkupMode => (platform === 'web' ? 'screenshot' : 'agent');
-const SCREENSHOT_TOOLS: readonly MarkupTool[] = ['pen', 'shape', 'text'];
+const SCREENSHOT_TOOLS: readonly MarkupTool[] = ['element', 'pen', 'shape', 'text'];
 /** 这种用法下工具条上有哪些工具（按工具条的顺序）。 */
 export const markupTools = (mode: MarkupMode): readonly MarkupTool[] => (mode === 'screenshot' ? SCREENSHOT_TOOLS : MARKUP_TOOLS);
 export const MARKUP_SHAPES = ['line', 'arrow', 'box', 'ellipse', 'pin'] as const satisfies readonly VideoAnnotationKind[];
@@ -60,8 +66,28 @@ export type MarkupShape = (typeof MARKUP_SHAPES)[number];
 /** 颜色与粗细与协议的 `style` 同一组：红 / 蓝 / 绿 / 黑 / 白，2 / 4 / 8 / 12 px；默认红、4px。 */
 export const MARKUP_COLORS = VIDEO_ANNOTATION_COLORS;
 export const MARKUP_WIDTHS = VIDEO_ANNOTATION_WIDTHS;
-/** 文字标记的字号跟粗细档走（S2 字号阶梯，原型 stage-markup.jsx 的 `TEXT_SIZE`）。 */
-export const MARKUP_TEXT_SIZE: Record<VideoAnnotationWidth, number> = { 2: 16, 4: 20, 8: 28, 12: 36 };
+/** 这个工具画的标记有没有粗细：文字的大小走字号，评论是印章，副工具条上不给粗细。 */
+export const hasWidth = (tool: MarkupTool): boolean => tool !== 'text' && tool !== 'comment';
+/** 文字标记的字号与字体与协议的文字样式同一组：16 / 20 / 28 / 36 / 48 px，无衬线 / 衬线 / 等宽。 */
+export const MARKUP_TEXT_SIZES = VIDEO_ANNOTATION_TEXT_SIZES;
+export const MARKUP_FONTS = VIDEO_ANNOTATION_FONTS;
+/** 文字的样子：工具条上的当前值与每条文字标记都是这五项；默认粗体、20px、无衬线。 */
+export type MarkupTextStyle = Required<VideoAnnotationTextStyle>;
+export const MARKUP_TEXT_STYLE: MarkupTextStyle = { bold: true, italic: false, underline: false, size: 20, font: 'sans' };
+const TEXT_STYLE_KEYS = ['bold', 'italic', 'underline', 'size', 'font'] as const satisfies readonly (keyof MarkupTextStyle)[];
+/** 字号还跟粗细档走时的对应（旧的文字标记与没带字号的标注按它画）。 */
+const OLD_TEXT_SIZE: Record<VideoAnnotationWidth, MarkupTextStyle['size']> = { 2: 16, 4: 20, 8: 28, 12: 36 };
+/** 一条文字标记的样子：带了的照它，没带的取默认；没带字号的按粗细档的旧对应。 */
+export function textStyleOf(m: Pick<Mark, 'width'> & VideoAnnotationTextStyle): MarkupTextStyle {
+  const own = pickTextStyle(m);
+  return { ...MARKUP_TEXT_STYLE, size: OLD_TEXT_SIZE[m.width] ?? MARKUP_TEXT_STYLE.size, ...own };
+}
+/** 只取带了的文字样式字段。 */
+function pickTextStyle(src: VideoAnnotationTextStyle): VideoAnnotationTextStyle {
+  const out: Record<string, unknown> = {};
+  for (const k of TEXT_STYLE_KEYS) if (src[k] !== undefined) out[k] = src[k];
+  return out as VideoAnnotationTextStyle;
+}
 /** 矩形、圆与元素框的八枚把手；直线 / 箭头两端是 `from` / `to`。 */
 export const BOX_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
 export type MarkupHandle = (typeof BOX_HANDLES)[number] | 'from' | 'to';
@@ -72,9 +98,10 @@ const BOXED: readonly VideoAnnotationKind[] = ['box', 'ellipse', 'element'];
 
 /**
  * 画面上的一条标记。`timeMs` 是画它时的播放头（毫秒）：标记属于那一帧，播放头离开那一帧就不画它（±`VIDEO_ANNOTATION_NEAR_MS`，
- * 同草稿里的标注），发出去时各带自己的时刻。`elementBox` 是评论点中的那个元素的框（只给画面上画高亮，不进标注）。
+ * 同草稿里的标注），发出去时各带自己的时刻。`elementBox` 是评论点中的那个元素的框（只给画面上画高亮，不进标注）。文字标记另带
+ * 粗体、斜体、下划线、字号与字体（`textStyleOf` 补齐没带的）。
  */
-export interface Mark {
+export interface Mark extends VideoAnnotationTextStyle {
   id: string;
   timeMs: number;
   kind: VideoAnnotationKind;
@@ -100,6 +127,8 @@ export interface MarkupState {
   shape: MarkupShape;
   color: VideoAnnotationColor;
   width: VideoAnnotationWidth;
+  /** 文字工具的当前样子：新写的文字标记带它。 */
+  textStyle: MarkupTextStyle;
   marks: Mark[];
   past: Mark[][];
   future: Mark[][];
@@ -118,6 +147,7 @@ export function init(over: Partial<MarkupState> = {}): MarkupState {
     shape: 'box',
     color: 'red',
     width: 4,
+    textStyle: MARKUP_TEXT_STYLE,
     marks: [],
     past: [],
     future: [],
@@ -158,9 +188,27 @@ export function setWidth(s: MarkupState, width: VideoAnnotationWidth): MarkupSta
     : next;
 }
 
-/** 加一条：带当前颜色与粗细（给了就用给的）、画它时的播放头，加完选中它。 */
+/** 文字的样子：改当前值；选中的是文字标记就连它一起改（进历史）。 */
+export function setTextStyle(s: MarkupState, patch: Partial<MarkupTextStyle>): MarkupState {
+  const next = { ...s, textStyle: { ...s.textStyle, ...pickTextStyle(patch) } };
+  const sel = s.sel ? s.marks.find((m) => m.id === s.sel) : undefined;
+  return sel?.kind === 'text'
+    ? commit(
+        next,
+        s.marks.map((m) => (m.id === sel.id ? { ...m, ...textStyleOf(m), ...pickTextStyle(patch) } : m)),
+      )
+    : next;
+}
+
+/** 加一条：带当前颜色与粗细（给了就用给的）、画它时的播放头，文字另带当前的样子，加完选中它。 */
 export function add(s: MarkupState, mark: MarkInput): MarkupState {
-  const m: Mark = { ...mark, id: mark.id || newId('mk'), color: mark.color ?? s.color, width: mark.width ?? s.width };
+  const m: Mark = {
+    ...(mark.kind === 'text' ? s.textStyle : null),
+    ...mark,
+    id: mark.id || newId('mk'),
+    color: mark.color ?? s.color,
+    width: mark.width ?? s.width,
+  };
   return commit(s, [...s.marks, m], m.id);
 }
 /** 改一条：默认进历史；拖动中的连续改动传 `{ history: false }`，松手再 `finishDrag` 记一次。 */
@@ -432,9 +480,63 @@ export function markFrames(marks: readonly Mark[]): number[] {
   return [...new Set(marks.map((m) => m.timeMs))].sort((a, b) => a - b);
 }
 
+/** 一枚书签：画过标记的一帧（`timeMs` 是这一帧里最早的那一刻，定位就去那里）与这一帧上能出图的标记条数。 */
+export interface MarkedFrame {
+  timeMs: number;
+  count: number;
+}
+
+/**
+ * 标记落在哪几帧上，按先后（lite-editor §4.1「标记帧的书签」）：时间线上的印章与工具条的书签列表都照它画。相隔不超过
+ * `VIDEO_ANNOTATION_NEAR_MS` 的几刻在画面上一起显示，算同一帧（从这一帧最早的那一刻量起）。只数能发出去的标记。
+ */
+export function markedFrames(marks: readonly Mark[]): MarkedFrame[] {
+  const out: MarkedFrame[] = [];
+  for (const m of sendable(marks).sort((a, b) => a.timeMs - b.timeMs)) {
+    const last = out[out.length - 1];
+    if (last && m.timeMs - last.timeMs <= VIDEO_ANNOTATION_NEAR_MS) last.count += 1;
+    else out.push({ timeMs: m.timeMs, count: 1 });
+  }
+  return out;
+}
+
+/** 时间线上的一枚印章：一帧，或挤在一起的几帧（`at` 是第一帧在整条上的位置，0–1）。 */
+export interface BookmarkStamp {
+  timeMs: number;
+  at: number;
+  frames: MarkedFrame[];
+}
+
+/**
+ * 印章挤在一起时合成一枚（lite-editor §4.1）：从左往右，离这一枚的第一帧不到 `minGapPx` 像素的帧并进来，印章上写帧数。
+ * `widthPx` 是整条的宽度，`durationMs` 是整片时长。
+ */
+export function bookmarkStamps(frames: readonly MarkedFrame[], durationMs: number, widthPx: number, minGapPx: number): BookmarkStamp[] {
+  if (!(durationMs > 0)) return [];
+  const out: BookmarkStamp[] = [];
+  for (const frame of frames) {
+    const at = Math.min(1, Math.max(0, frame.timeMs / durationMs));
+    const last = out[out.length - 1];
+    if (last && (at - last.at) * widthPx < minGapPx) last.frames.push(frame);
+    else out.push({ timeMs: frame.timeMs, at, frames: [frame] });
+  }
+  return out;
+}
+
+/** 点一枚印章去哪：播放头不在它的帧上就去第一帧，在其中一帧上就去下一帧（到头回第一帧），挤在一起的几帧点几下轮一遍。 */
+export function stampTarget(stamp: Pick<BookmarkStamp, 'frames'>, nowMs: number): number {
+  const i = stamp.frames.findIndex((f) => isOnFrame(f, nowMs));
+  return stamp.frames[(i + 1) % stamp.frames.length]!.timeMs;
+}
+
+/** 播放头在哪一枚书签的帧上（没有时 null）。 */
+export function currentFrame(frames: readonly MarkedFrame[], nowMs: number): MarkedFrame | null {
+  return frames.find((f) => isOnFrame(f, nowMs)) ?? null;
+}
+
 /**
  * 整组标记换成视频标注草稿（一条标记一条，跳过不能发的）：每条带自己的时刻与那一刻的落点；文字与评论的内容进 `text`，别的 `text`
- * 为空（说明写在对话里）；颜色与粗细进 `style`；点中的元素进 `element`（带给模型看的 `detail`，不带画面上用的框）；每条带 `shot`
+ * 为空（说明写在对话里）；颜色与粗细进 `style`，文字另带它的样子；点中的元素进 `element`（带给模型看的 `detail`，不带画面上用的框）；每条带 `shot`
  * （哪一帧：那一帧的截图随消息附上），评论另记印章落在哪。标签按界面语言生成（`videoAnnotationLabel`：点中元素时说元素，带落点时
  * 接段与句）。只输出协议的字段与 id、视频 id。
  */
@@ -449,7 +551,7 @@ export function toNotes(marks: readonly Mark[], base: MarkupNoteBase): DraftVide
       timeMs: m.timeMs,
       kind: m.kind,
       region: { x: m.x, y: m.y, w: m.w || 0, h: m.h || 0 },
-      style: { color: m.color, width: m.width },
+      style: m.kind === 'text' ? { color: m.color, width: m.width, ...textStyleOf(m) } : { color: m.color, width: m.width },
       label: '',
       text: needsText(m.kind) ? String(m.text ?? '').trim() : '',
     };
@@ -466,7 +568,7 @@ export function toNotes(marks: readonly Mark[], base: MarkupNoteBase): DraftVide
 
 /**
  * 已进草稿的标注画回画面上用的标记（stage-notes.tsx）：几何、文字与元素照标注，颜色与粗细照 `style`——没有 `style` 的
- * （别的客户端送来的、没经标记工具的）按蓝色 2px 画。`toNotes` 的反向，只取画它要用的字段。
+ * （别的客户端送来的、没经标记工具的）按蓝色 2px 画；文字的样子也照 `style`。`toNotes` 的反向，只取画它要用的字段。
  */
 export function markOfAnnotation(note: DraftVideoAnnotation): Mark {
   const mark: Mark = {
@@ -484,6 +586,7 @@ export function markOfAnnotation(note: DraftVideoAnnotation): Mark {
   if (note.points) mark.points = note.points;
   if (note.text) mark.text = note.text;
   if (note.element) mark.element = note.element;
+  if (note.kind === 'text' && note.style) Object.assign(mark, pickTextStyle(note.style));
   return mark;
 }
 

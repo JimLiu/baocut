@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { CompositionBridgePick } from '@baocut/protocol';
-import { COMPOSITION_PICK_SCRIPT, compositionPageScript } from './composition-bridge.ts';
+import { COMPOSITION_BRIDGE_SCRIPT, COMPOSITION_CAPTURE_SCRIPT, COMPOSITION_PICK_SCRIPT, compositionPageScript } from './composition-bridge.ts';
 
 /** 「选择元素」的拾取脚本（lite-editor §4.1、§11 第 12 条）：在 happy-dom 里装上，按节点核对说明。happy-dom 不排版，框不看。 */
 
@@ -9,11 +9,13 @@ type PickWindow = Window & {
   __baocutPickRegions?: unknown;
   __baocutPick?: (x: number, y: number) => CompositionBridgePick | null;
   __baocutDescribe?: (node: Element | null) => CompositionBridgePick | null;
+  __baocutCapture?: () => Promise<{ width: number; height: number; image: Blob } | null>;
 };
 const win = () => window as unknown as PickWindow;
 
 beforeAll(() => {
   new Function(COMPOSITION_PICK_SCRIPT)();
+  new Function(COMPOSITION_CAPTURE_SCRIPT)();
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -151,5 +153,131 @@ describe('拾取脚本', () => {
     const page = compositionPageScript();
     expect(page).toContain('__baocutPick');
     expect(page.slice('<script>'.length, -'</script>'.length)).not.toContain('</script>');
+  });
+});
+
+/** Web 截图模式的取图脚本（lite-editor §4.1、§11 第 14 条）：happy-dom 不排版也不画，框与画布上下文都换成假的，看它画了什么。 */
+describe('取图脚本', () => {
+  type Call = [string, ...unknown[]];
+  const fakeContext = (calls: Call[]) => {
+    const ctx = {
+      fillStyle: '',
+      globalAlpha: 1,
+      save: () => calls.push(['save']),
+      restore: () => calls.push(['restore']),
+      beginPath: () => {},
+      rect: (...a: unknown[]) => calls.push(['clip', ...a]),
+      clip: () => {},
+      fillRect: (...a: unknown[]) => calls.push(['fillRect', ctx.fillStyle, ctx.globalAlpha, ...a]),
+      drawImage: (...a: unknown[]) => calls.push(['drawImage', ctx.globalAlpha, ...a]),
+    };
+    return ctx;
+  };
+  const box = (el: Element, left: number, top: number, width: number, height: number) =>
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({ left, top, width, height, right: left + width, bottom: top + height } as DOMRect);
+  const setup = () => {
+    const calls: Call[] = [];
+    const ctx = fakeContext(calls);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as RenderingContext);
+    HTMLCanvasElement.prototype.toBlob ??= function () {};
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['png'], { type: 'image/png' })));
+    return calls;
+  };
+  const page = (markup: string) => {
+    document.body.innerHTML = markup;
+    document.documentElement.style.background = 'rgb(239, 233, 220)';
+  };
+  afterEach(() => {
+    document.documentElement.style.background = '';
+  });
+
+  it('只有画布与纯色底：铺根元素的底色，再按外包盒画纯色块与画布（乘一路的不透明度），出视口大小的 PNG', async () => {
+    const calls = setup();
+    page('<div id="root"><div id="plate" style="background-color: rgb(0, 0, 255)"></div><canvas id="c" width="1080" height="1920" style="opacity: 0.5"></canvas></div>');
+    box(document.getElementById('plate')!, 10, 20, 30, 40);
+    box(document.getElementById('c')!, 0, 0, 540, 960);
+    const got = await win().__baocutCapture!();
+    expect(got).toMatchObject({ width: window.innerWidth, height: window.innerHeight });
+    expect(got!.image.type).toBe('image/png');
+    const paints = calls.filter(([kind]) => kind === 'fillRect' || kind === 'drawImage');
+    expect(paints).toEqual([
+      ['fillRect', 'rgb(239, 233, 220)', 1, 0, 0, window.innerWidth, window.innerHeight],
+      ['fillRect', 'rgb(0, 0, 255)', 1, 10, 20, 30, 40],
+      ['drawImage', 0.5, document.getElementById('c'), 0, 0, 540, 960],
+    ]);
+  });
+
+  it('有画不进来的可见内容时整张回 null：文字、图片、SVG、背景图、边框、旋转', async () => {
+    const cases = [
+      '<p>Hello</p>',
+      '<img src="a.png">',
+      '<svg></svg>',
+      '<div style="background-image: linear-gradient(red, blue)"></div>',
+      '<div style="border: 2px solid red"></div>',
+      '<div style="transform: rotate(10deg)"></div>',
+    ];
+    for (const markup of cases) {
+      setup();
+      page(markup + '<canvas width="10" height="10"></canvas>');
+      for (const el of document.body.querySelectorAll('*')) box(el, 0, 0, 100, 100);
+      expect(await win().__baocutCapture!(), markup).toBeNull();
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('看不见的不算：display: none、opacity: 0、visibility: hidden 的文字，脚本与样式；没保留绘图缓冲的 WebGL 画布回 null', async () => {
+    setup();
+    page(
+      '<p style="display: none">a</p><p style="opacity: 0">b</p><p style="visibility: hidden">c</p><script>var x = 1;</script><style>p{}</style>',
+    );
+    for (const el of document.body.querySelectorAll('*')) box(el, 0, 0, 100, 100);
+    expect(await win().__baocutCapture!()).not.toBeNull();
+    vi.restoreAllMocks();
+
+    setup();
+    page('<canvas width="10" height="10"></canvas>');
+    const gl = { getContextAttributes: () => ({ preserveDrawingBuffer: false }) };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement, kind: string) {
+      if (this.isConnected) return (kind === 'webgl2' ? gl : null) as unknown as RenderingContext;
+      return fakeContext([]) as unknown as RenderingContext;
+    } as unknown as HTMLCanvasElement['getContext']);
+    box(document.querySelector('canvas')!, 0, 0, 10, 10);
+    expect(await win().__baocutCapture!()).toBeNull();
+  });
+
+  it('画布被污染（toBlob 抛 SecurityError）时回 null', async () => {
+    setup();
+    page('<canvas width="10" height="10"></canvas>');
+    box(document.querySelector('canvas')!, 0, 0, 10, 10);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(() => {
+      throw new DOMException('tainted', 'SecurityError');
+    });
+    expect(await win().__baocutCapture!()).toBeNull();
+  });
+
+  it('桥把 capture 交给 __baocutCapture，原样回信；没装时回 null', async () => {
+    const posted: unknown[] = [];
+    let onMessage: ((event: { source: unknown; data: unknown }) => void) | null = null;
+    const parent = { postMessage: (data: unknown) => posted.push(data) };
+    const image = new Blob(['png'], { type: 'image/png' });
+    const fake: Record<string, unknown> = {
+      parent,
+      addEventListener: (_type: string, listener: typeof onMessage) => (onMessage = listener),
+      __baocutCapture: async () => ({ width: 4, height: 2, image }),
+    };
+    new Function('window', COMPOSITION_BRIDGE_SCRIPT)(fake);
+    expect(posted[0]).toMatchObject({ kind: 'hello' });
+    const channel = (posted[0] as { channel: string }).channel;
+    onMessage!({ source: parent, data: { channel, kind: 'capture', id: 7 } });
+    await vi.waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]).toEqual({ channel, kind: 'result', id: 7, result: { ok: true, value: { width: 4, height: 2, image } } });
+    delete fake.__baocutCapture;
+    onMessage!({ source: parent, data: { channel, kind: 'capture', id: 8 } });
+    await vi.waitFor(() => expect(posted).toHaveLength(3));
+    expect(posted[2]).toEqual({ channel, kind: 'result', id: 8, result: { ok: true, value: null } });
+  });
+
+  it('整段注入脚本里有取图', () => {
+    expect(compositionPageScript()).toContain('__baocutCapture');
   });
 });

@@ -32,7 +32,7 @@
   const S = window.BC_SUB;
 
   /* ---------- 属性页 ---------- */
-  function SubProps({ctx, scope, setScope, onBack, onAnim, onGallery, remembered}) {
+  function SubProps({ctx, scope, setScope, onBack, onAnim, onGallery, remembered, backLabel = '字幕'}) {
     const app = useApp();
     const [pop, setPop] = useState(null);
     const tg = (k) => setPop(pop === k ? null : k);
@@ -473,7 +473,7 @@
 
     return (
       <>
-        <window.PanelHead title="字幕属性" onBack={onBack} backTip="返回字幕" />
+        <window.PanelHead title="字幕属性" onBack={onBack} backTip={`返回${backLabel}`} />
         <window.SubPreview ctx={ctx} scope={scope} />
         <div className="mact"><Btn variant="secondary" size="s" onClick={onGallery}>更换样式</Btn></div>
         {/* 几条轨就是几颗 chip。**没有「整组」那一档**（第 47 轮）：字幕各自选中、

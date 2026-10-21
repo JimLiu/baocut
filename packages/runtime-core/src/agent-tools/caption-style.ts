@@ -54,13 +54,21 @@ export const captionStylePatch = z
       .describe('投影；默认样式开着'),
     background: z.boolean().optional().describe('底板开关；默认关'),
     backgroundColor: color.optional().describe('底板颜色，默认 #000000B3'),
+    speakerLabel: z
+      .strictObject({
+        on: z.boolean().describe('说话人标签开关'),
+        scale: z.number().min(0.3).max(1).optional().describe('字号：最上面那行的倍数，默认 0.62'),
+        color: color.optional().describe('颜色，默认 #BBBBBB'),
+      })
+      .optional()
+      .describe('说话人标签：打开时有说话人的句子在字幕块最上面多一行名字（取字幕句子的 speaker，没写时取转写里这一句的说话人）；默认关'),
   })
   .refine((patch) => Object.keys(patch).length > 0, { message: '至少给一个样式字段' });
 
 export type CaptionStylePatch = z.infer<typeof captionStylePatch>;
 
 /** 合并时整体替换以外、要按字段合进去的键：描边与投影只改给出的字段。 */
-const NESTED = new Set(['textOutline', 'dropShadow']);
+const NESTED = new Set(['textOutline', 'dropShadow', 'speakerLabel']);
 
 function isObject(value: unknown): value is Json {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -110,6 +110,7 @@ import I_ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import I_ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
 import I_ChevronUp from '@react-spectrum/s2/icons/ChevronUp';
 import I_Close from '@react-spectrum/s2/icons/Close';
+import I_Draw from '@react-spectrum/s2/icons/Draw';
 import I_Edit from '@react-spectrum/s2/icons/Edit';
 import I_Download from '@react-spectrum/s2/icons/Download';
 import I_Share from '@react-spectrum/s2/icons/Share';
@@ -162,6 +163,10 @@ import I_Refresh from '@react-spectrum/s2/icons/Refresh';
 import I_Revert from '@react-spectrum/s2/icons/Revert';
 import I_Link from '@react-spectrum/s2/icons/Link';
 import I_Bookmark from '@react-spectrum/s2/icons/Bookmark';
+import I_TagBold from '@react-spectrum/s2/icons/TagBold';
+import I_TagItalic from '@react-spectrum/s2/icons/TagItalic';
+import I_TagUnderline from '@react-spectrum/s2/icons/TagUnderline';
+import I_TextSize from '@react-spectrum/s2/icons/TextSize';
 import I_ZoomIn from '@react-spectrum/s2/icons/ZoomIn';
 import I_ZoomOut from '@react-spectrum/s2/icons/ZoomOut';
 import I_Select from '@react-spectrum/s2/icons/Select';
@@ -246,6 +251,7 @@ export const Icons = {
   ChevronLeft: I_ChevronLeft,
   ChevronUp: I_ChevronUp,
   Close: I_Close,
+  Draw: I_Draw,
   Edit: I_Edit,
   Download: I_Download,
   Share: I_Share,
@@ -298,6 +304,10 @@ export const Icons = {
   Revert: I_Revert,
   Link: I_Link,
   Bookmark: I_Bookmark,
+  TagBold: I_TagBold,
+  TagItalic: I_TagItalic,
+  TagUnderline: I_TagUnderline,
+  TextSize: I_TextSize,
   ZoomIn: I_ZoomIn,
   ZoomOut: I_ZoomOut,
   Select: I_Select,

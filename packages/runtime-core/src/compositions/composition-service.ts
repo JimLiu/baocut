@@ -66,6 +66,7 @@ import { writeContactSheet, type ContactSheet } from './contact-sheet.ts';
  * `background: true`（代码包规范 §7.5）时两笔只登记代码包与放实例（长度按清单换算到序列帧率，没有替身），烘焙交给 `bake` 任务：
  * 任务不持有视频的写锁，烘完再以两笔写入替身（导入替身素材；`replaceCodeBundle` 把实例的 `prerender` 指过去），实例在此期间被改过
  * 或删掉时任务以 `COMPOSITION_BAKE_SUPERSEDED` 结束，版本冲突重试三次。任务进行中视频由 Runtime 的租约保持打开。
+ * `live: true`（代码包规范 §7.6）与它的两笔相同，只是不提交任务：实例没有替身，由实时层现画，导出前带 `replace` 再导入烘焙。
  *
  * 错误照工具的写法抛 `ToolError`（错误码、给模型的原话与 `next`）；RPC 的处理函数再换成 `RpcError`。
  */
@@ -151,6 +152,8 @@ export interface CompositionImportRequest extends BundleSourceInput {
   bake?: CompositionBakeMode | undefined;
   /** 烘焙放到后台的 `bake` 任务里（代码包规范 §7.5）：先按清单长度放实例，结果带 `bakeJobId`；与 `register` 互斥。 */
   background?: boolean | undefined;
+  /** 不烘焙（代码包规范 §7.6）：两笔与后台烘焙相同，但不提交任务，实例没有替身；与 `register`、`background`、`bake` 互斥。 */
+  live?: boolean | undefined;
   revision?: string | undefined;
   commandId?: string | undefined;
 }
@@ -271,6 +274,13 @@ export class CompositionService {
     }
     const background = args.background ?? false;
     if (background && args.register) throw new ToolError('INVALID_ARGUMENTS', 'background 与 register 不能同时给：register 不烘焙');
+    const live = args.live ?? false;
+    if (live && (args.register || background || args.bake !== undefined)) {
+      throw new ToolError(
+        'INVALID_ARGUMENTS',
+        'live 与 register、background、bake 不能同时给：live 放实例但不烘焙；只登记用 register，要烘焙就去掉 live',
+      );
+    }
     if (background && !this.#deps.jobs) {
       throw new ToolError('INVALID_ARGUMENTS', '这个 Runtime 没有任务管理器，background 不可用：去掉 background 在前台烘焙');
     }
@@ -296,7 +306,7 @@ export class CompositionService {
       const sequence = before.sequences[target?.sequenceId ?? before.rootSequenceId]!;
       const fps = sequence.fps;
       let bake: BakeResult | null = null;
-      if (!register && !background) {
+      if (!register && !background && !live) {
         // 预渲染与录制都大（ProRes、绘制指令）：放在视频所在卷的 blobs/.staging 下，导入时同卷复制；建不了时退回临时目录。
         const dir = await bakeDirectory(opened.ref.path, work);
         bakeDir = dir;
@@ -380,7 +390,7 @@ export class CompositionService {
         ...(prerenderAssetId ? { prerender: { assetId: prerenderAssetId, revision: prerenderRevision } } : {}),
       };
 
-      // 第二笔：放一个合成片段，源是代码包素材，替身是预渲染（后台烘焙时先没有替身，长度按清单换算到序列的帧率，与引擎
+      // 第二笔：放一个合成片段，源是代码包素材，替身是预渲染（后台烘焙与 live 时没有替身，长度按清单换算到序列的帧率，与引擎
       // replaceCodeBundle 没有替身时的算法一致）；给了 replace 时原地换掉那个片段的代码包与替身。
       let itemId: Id | null = null;
       let trackId: Id | null = null;
@@ -388,7 +398,7 @@ export class CompositionService {
       let after = imported.receipt.videoRevision;
       const prerenderRef: VersionRef | null =
         prerenderAssetId && prerenderRevision ? { id: prerenderAssetId, revision: prerenderRevision } : null;
-      const placing = !register && (bake !== null || background);
+      const placing = !register && (bake !== null || background || live);
       if (target && placing) {
         let swapped: EditResult;
         try {
@@ -561,6 +571,27 @@ export class CompositionService {
       throw toolError(error);
     } finally {
       if (bakeDir && bakeDir !== work) await fs.rm(bakeDir, { recursive: true, force: true }).catch(() => {});
+      await fs.rm(work, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  /**
+   * 只读：代码包的长度（清单时长换算到 `fps`，与放置时的长度同一个算法）与内容指纹，不验证、不烘焙、不改视频。
+   * 制作计划（`edits_assemble`）排段与判断包改没改用它。
+   */
+  async measure(
+    bundlePath: string,
+    base: { cwd: string; confine: string | null },
+    fps: Rate,
+  ): Promise<{ frames: number; contentHash: string; bundleId: string }> {
+    const work = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-composition-'));
+    try {
+      const dir = await sourceDirectory({ path: bundlePath }, base, work);
+      const { manifest } = await inspect(dir, {}, work);
+      return { frames: intrinsicFrames(manifest.intrinsic, fps), contentHash: manifest.contentHash, bundleId: manifest.bundleId };
+    } catch (error) {
+      throw toolError(error);
+    } finally {
       await fs.rm(work, { recursive: true, force: true }).catch(() => {});
     }
   }

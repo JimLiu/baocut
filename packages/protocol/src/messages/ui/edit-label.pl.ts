@@ -100,4 +100,5 @@ export const pl: EditLabelMessages = {
   editTemplateLayout: 'Edytuj układ szablonu',
   lockTemplateRatio: 'Zablokuj proporcje według szablonu',
   unlockTemplateRatio: 'Odblokuj proporcje szablonu',
+  restoreScript: (p) => `Przywróć wersję ${p.version} scenariusza`,
 };

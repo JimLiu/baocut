@@ -30,7 +30,10 @@
   /* ---------- 章节进度条（Mac ChapterScrubberView 形态） ---------- */
   /* 章节条按**成片时钟**画（第 197 轮）：章节区间与播放头都经 `tmap.fold` 折掉已剪段，
      点击反折回时间轴时钟；没传 `tmap` 时是恒等（Components 样本页等）。 */
-  function ChapterBand({chapters, playT, seek, title, duration, tmap, clearSel}) {
+  /* 标注模式里画过标记的帧在章节条上落印章（docs/design/lite-editor §4.1「标记帧的书签」）：点一下去那一帧；挤在一起的几帧合成一枚、写帧数，
+     点几下按先后轮一遍；要直接挑某一帧用标记工具条上的书签列表。`markup` 是标注模式里的那组标记（不在标注模式时不传）。 */
+  function ChapterBand({chapters, playT, seek, title, duration, tmap, clearSel, markup}) {
+    const MKS = window.BC_MARKUP;
     const [hover, setHover] = useState(null);
     const ref = useRef(null);
     const fold = tmap ? tmap.fold : (t) => t, unfold = tmap ? tmap.unfold : (t) => t;
@@ -57,6 +60,17 @@
               </div>
             );
           })}
+          {markup && MKS ? MKS.stamps(MKS.markedFrames(markup.marks), (ms) => fold(ms / 1000) / Math.max(0.1, duration), ref.current ? ref.current.clientWidth - 28 : 800).map((st) => {
+            const nowMs = Math.round(unfold(playT) * 1000);
+            const here = st.frames.some((f) => Math.abs(f.timeMs - nowMs) <= 500);
+            const n = st.frames.length;
+            const label = n > 1 ? `${n} 个标记过的帧，从 ${T.timecode(st.timeMs / 1000, {decimals: 1})} 起` : `标记过的帧 ${T.timecode(st.timeMs / 1000, {decimals: 1})}`;
+            return (
+              <button key={st.timeMs} type="button" className={'chstamp' + (n > 1 ? ' is-group' : '') + (here ? ' is-current' : '')} style={{left: st.at * 100 + '%'}}
+                aria-label={label} title={label}
+                onClick={(e) => { e.stopPropagation(); seek(MKS.stampTarget(st, nowMs) / 1000); }}>{n > 1 ? n : null}</button>
+            );
+          }) : null}
         </div>
         {hover !== null ? (() => {
           const c = spans.find((span) => hover >= span.start && hover <= span.end);
@@ -356,7 +370,7 @@
 
     return (
       <div className="tl" style={{height, '--tl-heads-w': TL.HEADS_W + 'px'}}>
-        <ChapterBand chapters={ctx.chapters} playT={playT} seek={seek} title={ctx.proj.title} duration={ctx.duration} tmap={M} clearSel={ctx.clearSel} />
+        <ChapterBand chapters={ctx.chapters} playT={playT} seek={seek} title={ctx.proj.title} duration={ctx.duration} tmap={M} clearSel={ctx.clearSel} markup={ctx.annotating ? ctx.markup : null} />
         <Transport ctx={ctx} narrow={narrow} />
         <div className="tlbody bc-scroll" ref={bodyRef}>
           <div className="tlinner" style={{width: TL.HEADS_W + contentW, height: TL.RULER_H + rowsH}}

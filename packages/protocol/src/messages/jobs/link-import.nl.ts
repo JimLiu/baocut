@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const nl: JobsLinkImportMessages = {
+  sectionItems: 'mag alleen bereiken { start, end } in seconden bevatten met 0 ≤ start < end',
+  sectionOutOfRange: (p) => `Het fragment tot ${p.end} s valt voorbij het einde van de video (${p.duration} s)`,
   languageTag: "moet een BCP 47-taaltag zijn",
   requiresTranscribe: "mag alleen met transcribe worden opgegeven",
   noVideoDiarize: "Zonder videodoel worden alleen zelfstandige transcripten geschreven; sprekers kunnen niet worden gescheiden",

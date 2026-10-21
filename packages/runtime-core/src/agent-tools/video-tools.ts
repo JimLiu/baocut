@@ -1143,6 +1143,18 @@ export class VideoTools implements ToolSet {
   }
 
   /**
+   * 别的工具组提交编译好的一笔修改（`edits_assemble`）：与 `edits_apply` 同一条路径，回执同样放一张变更卡。确认由调用方先做。
+   */
+  submitEdit(
+    access: ToolAccess,
+    opened: VideoOpenResult,
+    principal: ToolPrincipal,
+    edit: { expectedRevision: string; label: string; operations: Record<string, unknown>[]; commandId: string | undefined },
+  ): Promise<{ result: EditResult }> {
+    return this.#submit(access, opened, principal, edit);
+  }
+
+  /**
    * 提交一笔修改：与 `edits_apply` 同一条路径（产物换成导入操作、秒数换成引擎的形态、对外服务的素材路径限制在项目里、
    * 译文补句级对齐），`documents_put` 与 `assets_import` 编译出操作后也走这里。
    */

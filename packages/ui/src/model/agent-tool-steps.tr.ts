@@ -16,6 +16,7 @@ export const tr: AgentToolStepsMessages = {
     deleteVideo: "Videoyu sil",
     readTranscript: "Dökümü oku",
     undoEdit: "Düzenlemeyi geri al",
+    assemblePlan: "Üretim planını yerleştir",
     captions: "Altyazı katmanı oluştur",
     transcribe: "Yazıya dök",
     dub: "Çevir ve dublaj yap",

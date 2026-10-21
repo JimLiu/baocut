@@ -1,0 +1,21 @@
+{
+  "source": "/path/to/original-event.mp4",
+  "label": "<source label in the video language, e.g. Footage: Example Corp>",
+  "clips": [
+    { "id": "s01-launch", "seg": "s01", "line": 1, "cue": "<word in that line>", "from": 453, "to": 461.5, "note": "the launch seen from the side", "out": { "kind": "dissolve", "dur": 0.4 } },
+    { "id": "s03-quote", "seg": "s03", "line": 10, "gap": true, "audio": true, "from": 502.4, "to": 506.8, "note": "the engineer says it in their own voice; narration pauses before line 10",
+      "subs": [{ "from": 502.6, "to": 506.5, "who": "<speaker>", "text": "<line in the video language>", "tr": "<original words>" }],
+      "in": { "kind": "iris", "dur": 0.6 } },
+    { "id": "s03-quote-2", "seg": "s03", "line": 10, "gap": true, "audio": true, "from": 520.1, "to": 524, "note": "same line as s03-quote: plays right after it, hard cut, one shared pause",
+      "subs": [{ "from": 520.2, "to": 523.8, "who": "<speaker>", "text": "<line in the video language>", "tr": "<original words>" }], "out": { "kind": "dissolve", "dur": 0.5 } },
+    { "id": "s03-crowd", "seg": "s03", "line": 12, "gap": true, "audio": 0.7, "from": 668.5, "to": 674, "note": "live sound of the crowd, a little quieter" },
+    { "id": "s04-gauge", "seg": "s04", "line": 2, "cue": "<word in that line>", "from": 405, "to": 411, "pip": { "x": 74, "y": 36, "w": 38 },
+      "note": "picture-in-picture: the real gauge stays in the corner while the animation works out the number", "in": { "kind": "zoom", "dur": 0.4 }, "out": { "kind": "dissolve", "dur": 0.4 } },
+    { "id": "s05-archive", "seg": "s05", "line": 4, "from": 12, "to": 18, "source": "/path/to/1978-broadcast.mp4", "label": "<another source label>",
+      "crop": [166, 6, 944, 708], "fit": "contain", "note": "4:3 broadcast: cut the black bars, then pillarbox; local 0 s = 13:10 in the original", "in": { "kind": "wipe", "dur": 0.5 } },
+    { "id": "s05-archive-2", "seg": "s05", "follow": true, "from": 40, "to": 44.5, "source": "/path/to/1978-broadcast.mp4", "label": "<another source label>",
+      "crop": [166, 6, 944, 708], "fit": "contain", "note": "same block as s05-archive: starts where it ends, hard cut, narration keeps going over it", "out": { "kind": "dissolve", "dur": 0.4 } },
+    { "id": "s06-photo", "seg": "s06", "line": 0, "head": true, "from": 0, "to": 5, "source": "/path/to/press-photo.jpg", "label": "<photo credit>",
+      "focus": [1.2, 10, 0], "note": "a still photo: from / to only set the length; focus zooms 1.2x and keeps the left part in frame; head starts it at the segment start, before line 0 is spoken" }
+  ]
+}

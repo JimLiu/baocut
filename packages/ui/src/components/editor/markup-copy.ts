@@ -22,7 +22,7 @@ const en = {
   /** 舞台条上的开关（轻量视图里叫「标记」，时间线视图仍是「标注」）。 */
   markup: 'Markup',
   exitMarkup: 'Exit markup',
-  /** 工具条的读屏名与各个工具。 */
+  /** 工具条的读屏名与各个工具；形状钮显示记住的那一种，副工具条上一排形状（`shapeMenu` 是它的读屏名）。 */
   toolbar: 'Markup tools',
   tools: { element: 'Select element', comment: 'Comment', pen: 'Pen', shape: 'Shape', text: 'Text' },
   shapes: { line: 'Line', arrow: 'Arrow', box: 'Rectangle', ellipse: 'Circle', pin: 'Number' },
@@ -31,6 +31,13 @@ const en = {
   color: 'Color',
   width: 'Stroke width',
   widthValue: (px: number) => `${px} px`,
+  /** 文字工具的副工具条：粗体 / 斜体 / 下划线、字号（下拉里是像素数）、字体。 */
+  textStyles: { bold: 'Bold', italic: 'Italic', underline: 'Underline' },
+  fontSize: 'Font size',
+  font: 'Font',
+  fonts: { sans: 'Sans serif', serif: 'Serif', mono: 'Monospace' },
+  /** 副工具条的读屏名：「文字 · 样式」。 */
+  toolOptions: (tool: string) => `${tool} · options`,
   /** 下拉钮的提示：「颜色 · 红」。 */
   current: (name: string, value: string) => `${name} · ${value}`,
   /** 带快捷键的提示：「评论 · ⇧⌘C」。 */
@@ -69,8 +76,17 @@ const en = {
   copied: 'Image copied',
   downloaded: (name: string) => `Downloaded ${name}`,
   copyFailed: 'Couldn’t copy the image. Download it instead.',
+  /** 宿主不许写图片进剪贴板、退成富文本（HTML 里嵌着图）复制时：只有收富文本的地方贴得进去。 */
+  copiedAsHtml: 'Copied as rich text. This browser can’t copy image files, so it pastes into docs and notes only. Download it to get the file.',
   captureFailed: 'Couldn’t capture this frame.',
   discardBodyScreenshot: 'Closing removes the marks on the picture. Copy or download the image first if you need it.',
+  /**
+   * 标记帧的书签（lite-editor §4.1）：工具条上的书签列表（每项是时码与这一帧的标记条数），时间线章节条上的印章（挤在一起的几帧合成一枚，
+   * 读屏名说从哪一刻起几帧）。
+   */
+  bookmarks: 'Marked frames',
+  bookmarkItem: (time: string, n: number) => `${time} · ${n === 1 ? '1 mark' : `${n} marks`}`,
+  stampLabel: (time: string, frames: number) => (frames === 1 ? `Marked frame ${time}` : `${frames} marked frames from ${time}`),
   /** 「选择元素」悬停 HTML 动画里的节点时，说明卡上可访问性的标题与三行（照 DevTools 的检查提示）；空的值显示「—」。 */
   pickInfo: { heading: 'Accessibility', name: 'Name', role: 'Role', focusable: 'Keyboard-focusable' },
 };

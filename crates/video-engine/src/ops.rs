@@ -27,7 +27,8 @@ use timeline::keyframes::Rewindow;
 pub enum EditOperation {
     /// 导入一个文件或目录为素材。`storage` 决定 bytes 留在原处（`linked`）还是复制进视频目录（`managed`）；
     /// 不给时文件默认链接，目录（代码包，没有原文件可以指向）默认收进来（视频格式规范 §4.2）。
-    /// 目录成为代码包素材。`ref` 供同一事务里后面的操作引用。
+    /// 目录成为代码包素材。`ref` 供同一事务里后面的操作引用。相同的 bytes 已在视频里时复用原素材；烘焙替身的
+    /// `sourceBundleRef` 与原素材当前版本记的不同时，原素材加一个版本记下新的来源（代码包规范 §7.4）。
     ImportAsset {
         path: String,
         #[serde(default)]
@@ -1471,15 +1472,52 @@ fn import_asset(
         .prepared
         .get(&index)
         .ok_or_else(|| ErrorBody::invalid_operation(msg!("engine.importNotPrepared", "The imported file is not ready")))?;
+    let now = ctx.now;
+    let revision_record = |revision: String| AssetRevision {
+        revision,
+        content_hash: prepared.content_hash.clone(),
+        byte_length: prepared.byte_length,
+        media_type: prepared.media_type.clone(),
+        storage: prepared.storage.clone(),
+        duration: prepared.probe.duration.clone(),
+        timebase: prepared.probe.timebase,
+        video: prepared.probe.video.clone(),
+        audio: prepared.probe.audio.clone(),
+        tree: prepared.tree.clone(),
+        bundle: bundle.filter(|_| prepared.kind == AssetKind::Bundle).cloned(),
+        provenance: Provenance {
+            origin: provenance.map_or_else(|| "user-import".to_string(), |p| p.origin.clone()),
+            imported_from: Some(ImportedFrom {
+                original_name: prepared.original_name.clone(),
+                imported_at: now.to_string(),
+            }),
+            source: provenance.and_then(|p| p.source.clone()),
+        },
+    };
     // 相同的 bytes 已在视频里：复用原素材，不新增记录（重新链接到相同的 bytes 不改变版本）。
-    let existing = state.assets.values().find(|a| {
+    // 例外是烘焙出的替身：另一个代码包版本烘出了相同的 bytes 时，给原素材加一个版本记下这次的烘焙记录，
+    // 否则替身的来源一直写着第一次烘焙的代码包，永远判为过期（代码包规范 §7.4）。
+    let existing = state.assets.values_mut().find(|a| {
         a.revisions
             .get(&a.current_revision)
             .is_some_and(|r| r.content_hash == prepared.content_hash)
     });
     let asset_id = match existing {
         Some(asset) => {
-            ctx.reused_assets.push(asset.id.clone());
+            let incoming = provenance.and_then(baked_from_bundle);
+            let recorded = asset.revisions.get(&asset.current_revision).and_then(|r| {
+                (r.provenance.origin == crate::asset_usage::BAKE_PROVENANCE_ORIGIN)
+                    .then(|| r.provenance.source.as_ref()?.get("sourceBundleRef"))
+                    .flatten()
+            });
+            if incoming.is_some() && incoming != recorded {
+                let latest = asset.revisions.keys().filter_map(|r| r.parse::<u64>().ok()).max().unwrap_or(0);
+                let next = (latest + 1).to_string();
+                asset.revisions.insert(next.clone(), revision_record(next.clone()));
+                asset.current_revision = next;
+            } else {
+                ctx.reused_assets.push(asset.id.clone());
+            }
             asset.id.clone()
         }
         None => {
@@ -1488,27 +1526,7 @@ fn import_asset(
                 Some(n) => clean_name(n, kinds::asset())?,
                 None => prepared.original_name.clone(),
             };
-            let revision = AssetRevision {
-                revision: "1".into(),
-                content_hash: prepared.content_hash.clone(),
-                byte_length: prepared.byte_length,
-                media_type: prepared.media_type.clone(),
-                storage: prepared.storage.clone(),
-                duration: prepared.probe.duration.clone(),
-                timebase: prepared.probe.timebase,
-                video: prepared.probe.video.clone(),
-                audio: prepared.probe.audio.clone(),
-                tree: prepared.tree.clone(),
-                bundle: bundle.filter(|_| prepared.kind == AssetKind::Bundle).cloned(),
-                provenance: Provenance {
-                    origin: provenance.map_or_else(|| "user-import".to_string(), |p| p.origin.clone()),
-                    imported_from: Some(ImportedFrom {
-                        original_name: prepared.original_name.clone(),
-                        imported_at: ctx.now.to_string(),
-                    }),
-                    source: provenance.and_then(|p| p.source.clone()),
-                },
-            };
+            let revision = revision_record("1".into());
             state.assets.insert(
                 id.clone(),
                 AssetRecord {
@@ -1526,6 +1544,14 @@ fn import_asset(
         ctx.refs.insert(r.to_string(), asset_id);
     }
     Ok(())
+}
+
+/// 烘焙替身的来源（`composition-bake`）里记的代码包身份 `sourceBundleRef`；别的来源为 `None`。
+fn baked_from_bundle(provenance: &ProvenanceInput) -> Option<&Value> {
+    if provenance.origin != crate::asset_usage::BAKE_PROVENANCE_ORIGIN {
+        return None;
+    }
+    provenance.source.as_ref()?.get("sourceBundleRef")
 }
 
 /// `addItem` 放进来的视频与图片：铺满画布、整个放进去（`fullscreen` + `contain`，留边按缺省的黑色），

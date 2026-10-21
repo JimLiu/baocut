@@ -1,6 +1,6 @@
-import type { VideoAnnotationColor } from '@baocut/protocol';
-import { MARKUP_TEXT_SIZE, stepNumber, type Mark } from '../model/markup.ts';
-import type { Size } from '../model/video-annotations.ts';
+import type { VideoAnnotationColor, VideoAnnotationFont } from '@baocut/protocol';
+import { stepNumber, textStyleOf, type Mark } from '../model/markup.ts';
+import { videoAnnotationElementLabel, type Size } from '../model/video-annotations.ts';
 
 /**
  * 标记截图（docs/design/lite-editor §4.1）：把一帧的底图与这一帧的标记画成一张 PNG，随视频标注作为图片附件交给智能体。
@@ -16,6 +16,9 @@ export const SHOT_COLORS: Record<VideoAnnotationColor, string> = {
   black: '#000000',
   white: '#ffffff',
 };
+
+/** 文字标记的字体落到画布 2D：用通用字族（网页里的 S2 字体画布上不一定加载着）。 */
+const CANVAS_FONTS: Record<VideoAnnotationFont, string> = { sans: 'sans-serif', serif: 'serif', mono: 'monospace' };
 
 /** 一帧的图：底图（留下的 PNG 或画布）画到新画布上，再把这一帧的标记画上去（序号按整组 `group` 数），存成 `frame-<毫秒>.png`。 */
 export async function paintFrame(
@@ -62,9 +65,53 @@ function loadImage(blob: Blob): Promise<HTMLImageElement> {
   });
 }
 
+/** 实时合成层此刻这一帧：页面自己画的 PNG，与它在画布上的摆法（`matrix` 把单位方块映到序列画布像素，同帧计划）。 */
+export interface LiveFrameShot {
+  image: Blob;
+  matrix: readonly [number, number, number, number, number, number];
+  opacity: number;
+}
+
+/**
+ * 实时合成层露着时的这一帧（Web 截图模式，lite-editor §4.1）：照舞台上的叠法合成——画面底色（舞台画面框的底色）、按 `matrix` 与
+ * `opacity` 摆好的实时层、上面再盖预览画布（画布上实时层那块是透明的，字幕等层画在上面）。按预览画布的像素出，`canvas` 是序列画布
+ * 的尺寸（`matrix` 的单位）。解不出图、画不了时 null。
+ */
+export async function composeLiveFrame(
+  source: HTMLCanvasElement,
+  live: LiveFrameShot,
+  canvas: { width: number; height: number },
+  background: string,
+): Promise<Blob | null> {
+  const w = source.width;
+  const h = source.height;
+  if (!w || !h || !(canvas.width > 0) || !(canvas.height > 0)) return null;
+  const image = await loadImage(live.image).catch(() => null);
+  if (!image?.width || !image.height) return null;
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d');
+  if (!ctx || typeof out.toBlob !== 'function') return null;
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, w, h);
+  const sx = w / canvas.width;
+  const sy = h / canvas.height;
+  const [a, b, c, d, e, f] = live.matrix;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, live.opacity));
+  // 页面的像素 (px, py) 在画布上是 matrix·(px/宽, py/高)，再按预览画布与序列画布之比缩放。
+  ctx.setTransform((a * sx) / image.width, (b * sy) / image.width, (c * sx) / image.height, (d * sy) / image.height, e * sx, f * sy);
+  ctx.drawImage(image, 0, 0);
+  ctx.restore();
+  ctx.drawImage(source, 0, 0);
+  return new Promise((resolve) => out.toBlob(resolve, 'image/png'));
+}
+
 /**
  * 把一帧的标记画到画布上（同 SvgMark 与 HTML 标记的样子）：坐标按归一化值落到画布像素，线宽、字号与印章按画布比画面的比例放大，
- * 文字描一圈反色边代替网页里的阴影；序号按 `group`（整组标记，默认就是这些）数。
+ * 文字照它的样子（粗体、斜体、下划线、字号、字体）并描一圈反色边代替网页里的阴影；元素框左上角带一枚写着元素是什么的标签
+ * （Web 没有对话可发，图上要看得出点的是哪个元素）；序号按 `group`（整组标记，默认就是这些）数。
  */
 export function paintMarks(
   ctx: CanvasRenderingContext2D,
@@ -119,6 +166,7 @@ export function paintMarks(
       ctx.beginPath();
       ctx.roundRect(X(m.x), Y(m.y), X(m.w), Y(m.h), (m.kind === 'element' ? 4 : 2) * scale);
       ctx.stroke();
+      if (m.kind === 'element' && m.element) drawTag(ctx, X(m.x), Y(m.y), sw, videoAnnotationElementLabel(m.element), fill, scale, size.w);
     } else if (m.kind === 'pin') {
       const r = 12 * scale;
       const cx = X(m.x);
@@ -137,8 +185,9 @@ export function paintMarks(
     } else if (m.kind === 'comment') {
       drawStamp(ctx, X(m.x), Y(m.y), Math.max(14, Math.round(Math.min(size.w, size.h) / 40)), fill, initials);
     } else if (m.kind === 'text' && m.text) {
-      const px = MARKUP_TEXT_SIZE[m.width] * scale;
-      ctx.font = `bold ${Math.round(px)}px sans-serif`;
+      const t = textStyleOf(m);
+      const px = t.size * scale;
+      ctx.font = `${t.italic ? 'italic ' : ''}${t.bold ? 'bold' : 'normal'} ${Math.round(px)}px ${CANVAS_FONTS[t.font]}`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.strokeStyle = fill === SHOT_COLORS.white ? 'rgb(0 0 0 / 0.9)' : 'rgb(255 255 255 / 0.9)';
@@ -147,10 +196,51 @@ export function paintMarks(
         const y = Y(m.y) + i * px * 1.2;
         ctx.strokeText(line, X(m.x), y);
         ctx.fillText(line, X(m.x), y);
+        // 画布 2D 没有下划线：在字底下补一道（粗细随字号），先描反色边再填色，同字的画法
+        if (t.underline) {
+          const thick = Math.max(1, px / 14);
+          const under = { x: X(m.x), y: y + px * 0.95, w: ctx.measureText(line).width };
+          ctx.strokeRect(under.x, under.y, under.w, thick);
+          ctx.fillRect(under.x, under.y, under.w, thick);
+        }
       });
     }
     ctx.restore();
   }
+}
+
+/**
+ * 元素框的标签：一枚实色小牌，写元素是什么（`videoAnnotationElementLabel`，同悬停说明卡的第一行），贴在框的左上角外面；
+ * 上面放不下时贴进框里。太长的截到画布宽以内。
+ */
+function drawTag(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  stroke: number,
+  text: string,
+  fill: string,
+  scale: number,
+  maxW: number,
+): void {
+  if (!text) return;
+  const px = Math.round(12 * scale);
+  const pad = 4 * scale;
+  const h = px + pad * 2;
+  ctx.save();
+  ctx.font = `bold ${px}px sans-serif`;
+  const w = Math.min(ctx.measureText(text).width + pad * 2, Math.max(0, maxW - x));
+  const top = y - stroke / 2 - h >= 0 ? y - stroke / 2 - h : y + stroke / 2;
+  const left = x - stroke / 2;
+  ctx.beginPath();
+  ctx.roundRect(left, top, w, h, 2 * scale);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.fillStyle = fill === SHOT_COLORS.white ? '#000000' : '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, left + pad, top + h / 2, Math.max(0, w - pad * 2));
+  ctx.restore();
 }
 
 /** 印章：半径 r 的圆，左下角收成尖角落在 (x, y)；白边，写缩写。 */

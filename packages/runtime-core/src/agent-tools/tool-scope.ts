@@ -117,6 +117,8 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   videos_create: 'edit',
   edits_apply: 'edit',
   edits_undo: 'edit',
+  // 一次放好制作计划（Agent 面设计 §4.3）：编译成多笔可撤销的修改，与 edits_apply 同级。
+  edits_assemble: 'edit',
   // 建字幕层（§7.9）：一笔可撤销的修改，与 edits_apply 同级。
   captions_create: 'edit',
   // 写文档与导入素材（§3.5）：编译成 edits_apply 的操作，一笔可撤销的修改，同级。

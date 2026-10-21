@@ -2301,7 +2301,62 @@ impl OverlayRenderPlan {
         if let Some(preview) = self.karaoke_next_line(&layouts, base_wrap_width) {
             layouts.push(preview);
         }
+        if let Some(label) = self.speaker_label_line(&layouts, base_wrap_width) {
+            layouts.insert(0, label);
+        }
         layouts
+    }
+
+    /// 说话人标签（样式根的 `speakerLabel: { on, scale?, color? }`）：打开时，这一句有说话人（输入条目的
+    /// `speaker`，原文行优先）就在字幕块最上面加一行说话人的名字。字号是最上面那行的 `scale` 倍（缺省 0.62，
+    /// 夹在 0.3–1），颜色缺省 `#BBBBBB`，其余跟最上面那行一样；它不带逐词与文字动画，随整块一起出入场。
+    fn speaker_label_line(&mut self, layouts: &[LineLayout], wrap_width: f64) -> Option<LineLayout> {
+        let spec = self.style.get("speakerLabel")?;
+        if spec.get("on").and_then(Value::as_bool) != Some(true) {
+            return None;
+        }
+        let top = layouts.first()?;
+        let owner = layouts
+            .iter()
+            .find(|line| line.kind == LineKind::Original && !line.preview)
+            .or_else(|| layouts.iter().find(|line| !line.preview))?;
+        let name = owner.item.speaker.clone()?;
+        let mut style = top.style.clone();
+        style.font_size *= clamp(finite(spec.get("scale"), 0.62), 0.3, 1.0);
+        style.color = SubtitleColor::parse(spec.get("color"), SubtitleColor::parse(Some(&json!("#BBBBBB")), style.color));
+        style.text_motion = None;
+        style.word_background = None;
+        style.emphasis = None;
+        let item = TimedItem {
+            id: format!("{}#speaker", owner.item.id),
+            series_index: owner.item.series_index,
+            text: name,
+            display_start: owner.item.display_start,
+            display_end: owner.item.display_end,
+            words: Vec::new(),
+            speaker: None,
+        };
+        let layout = self.cached_layout(top.kind, &item, &style, wrap_width);
+        let (lines, width) = (Arc::clone(&layout.lines), layout.width);
+        let within_wrap = crate::aligns_within_wrap(&merged_line_style(&self.style, top.kind));
+        Some(LineLayout {
+            kind: top.kind,
+            height: layout_lines_height(&lines),
+            width,
+            align_width: if within_wrap { wrap_width } else { width },
+            text_align: top.text_align,
+            style,
+            item,
+            lines,
+            current_word: 0,
+            render_time: top.render_time,
+            render_fps: self.fps,
+            animation_parts: Vec::new(),
+            animation_short_edge: top.animation_short_edge,
+            preview: true,
+            karaoke_words: None,
+            guide_below: false,
+        })
     }
 
     /// KTV 双行排版：只显示一行（原文或仅译文）时，正在唱的这句带
@@ -3973,6 +4028,7 @@ impl OverlayRenderPlan {
             display_start: element.start,
             display_end: element.end,
             words: Vec::new(),
+            speaker: None,
         };
         let wrap_width = element.place.w.map_or_else(
             || f64::from(self.width) * 0.9,
@@ -4907,6 +4963,7 @@ impl OverlayRenderPlan {
             display_start: element.start,
             display_end: element.end,
             words: Vec::new(),
+            speaker: None,
         };
         let wrap_width = element.place.w.map_or_else(
             || f64::from(self.width) * 0.9,

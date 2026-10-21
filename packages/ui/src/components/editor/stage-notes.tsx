@@ -4,7 +4,7 @@ import { ActionButton, Popover, Text, ToastQueue } from '@react-spectrum/s2';
 import Delete from '@react-spectrum/s2/icons/Delete';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
-import { MARKUP_TEXT_SIZE, markAnchor, markOfAnnotation } from '../../model/markup.ts';
+import { markAnchor, markOfAnnotation } from '../../model/markup.ts';
 import {
   videoAnnotationFrameLabel,
   videoAnnotationFrameTexts,
@@ -19,7 +19,7 @@ import { targetKey } from '../../model/workspace.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { useVideo } from '../../state/video-store.ts';
-import { drawing, pct, pinMark, stampMark, SvgMark, SVG_KINDS, textMark } from './markup-marks.tsx';
+import { drawing, pct, pinMark, stampMark, SvgMark, SVG_KINDS, textLook, textMark } from './markup-marks.tsx';
 
 /*
  * 视频标注（产品设计 §3.2.3「视频标注」、§5.3；移植自原型 stage-notes.jsx）：编辑器预览画面上的标注层——画已进草稿的标注。
@@ -74,12 +74,13 @@ function StageNoteMark({ pin, onRemove }: { pin: VideoAnnotationPin; onRemove: (
   // 标记工具画的标记可以没有批注：读屏名退回这一帧的说法
   const said = texts.join('; ') || label;
   const badge = pin.lead || pin.kind === 'comment' || pin.kind === 'pin';
+  const look = textLook(mark);
   return (
     <>
       {pin.kind === 'text' ? (
         <span
-          className={textMark({ tone })}
-          style={{ left: pct(mark.x), top: pct(mark.y), fontSize: MARKUP_TEXT_SIZE[mark.width] }}
+          className={textMark({ tone, family: look.family })}
+          style={{ left: pct(mark.x), top: pct(mark.y), ...look.style }}
           data-mark="text"
           aria-hidden
         >

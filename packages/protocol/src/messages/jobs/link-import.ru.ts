@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const ru: JobsLinkImportMessages = {
+  sectionItems: 'должен содержать только диапазоны { start, end } в секундах, 0 ≤ start < end',
+  sectionOutOfRange: (p) => `Фрагмент до ${p.end} с выходит за конец видео (${p.duration} с)`,
   languageTag: "должен быть языковым тегом BCP 47",
   requiresTranscribe: "можно указать только с transcribe",
   noVideoDiarize: "Без целевого видео записываются только отдельные расшифровки; говорящие не разделяются",

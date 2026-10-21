@@ -483,7 +483,7 @@
 
     if (view === 'anim') return <window.SubAnimView ctx={ctx} onBack={() => go('props')} />;
     if (view === 'props') {
-      return <window.SubProps ctx={ctx} scope={scope} setScope={setScope} remembered={remembered}
+      return <window.SubProps ctx={ctx} scope={scope} setScope={setScope} remembered={remembered} backLabel={backLabel}
         onBack={() => go('home')} onAnim={() => go('anim')} onGallery={() => go('gallery')} />;
     }
     return <SubGallery ctx={ctx} ops={ops} editId={editId} backLabel={backLabel}

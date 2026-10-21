@@ -1,0 +1,36 @@
+{
+  "name": {
+    "zh-Hans": "解说混剪",
+    "zh-Hant": "解說混剪",
+    "en": "Clip montage",
+    "ja": "解説モンタージュ",
+    "ko": "해설 몽타주",
+    "es": "Montaje narrado",
+    "fr": "Montage commenté",
+    "de": "Kommentierte Montage",
+    "nl": "Montage met voice-over",
+    "pt-BR": "Montagem narrada",
+    "it": "Montaggio narrato",
+    "ru": "Монтаж с закадровым текстом",
+    "pl": "Montaż z narracją",
+    "tr": "Anlatımlı montaj",
+    "vi": "Dựng clip có lời bình"
+  },
+  "summary": {
+    "zh-Hans": "把一条新闻、一件事或一个故事的素材切片、配旁白，剪成画面一直在动的片子，推文与引语做成压在画面上的卡片",
+    "zh-Hant": "把一則新聞、一件事或一個故事的素材切片、配旁白，剪成畫面一直在動的影片，推文與引語做成壓在畫面上的卡片",
+    "en": "Cut sourced clips under narration into a video that never stops moving, with tweets and quotes as cards on top",
+    "ja": "ニュースや出来事、物語の素材を切り出し、ナレーションに合わせて動き続ける映像にまとめ、投稿や引用はカードで重ねる",
+    "ko": "뉴스, 사건, 이야기의 소재를 잘라 내레이션에 맞춰 화면이 계속 움직이는 영상으로 편집하고 트윗과 인용은 카드로 얹습니다",
+    "es": "Monta clips de una noticia o historia bajo una narración, con tuits y citas como tarjetas sobre la imagen",
+    "fr": "Monte des extraits d'une actualité ou d'une histoire sous une narration, tweets et citations en cartes sur l'image",
+    "de": "Schneidet Clips zu einer Nachricht oder Geschichte unter eine Erzählstimme, Tweets und Zitate als Karten darüber",
+    "nl": "Monteert fragmenten over nieuws of een verhaal onder een voice-over, met tweets en citaten als kaarten erop",
+    "pt-BR": "Monta clipes de uma notícia ou história sob narração, com tweets e citações como cartões sobre a imagem",
+    "it": "Monta clip di una notizia o una storia sotto una narrazione, con tweet e citazioni come schede sull'immagine",
+    "ru": "Собирает клипы о новости или истории под закадровый текст, твиты и цитаты — карточками поверх кадра",
+    "pl": "Montuje klipy o wiadomości lub historii pod narrację, tweety i cytaty jako karty na obrazie",
+    "tr": "Bir haber ya da hikâyenin kliplerini anlatım altında keser, tweet ve alıntıları kart olarak üstüne koyar",
+    "vi": "Cắt ghép tư liệu của một tin tức hay câu chuyện theo lời bình, tweet và trích dẫn làm thẻ đè lên hình"
+  }
+}

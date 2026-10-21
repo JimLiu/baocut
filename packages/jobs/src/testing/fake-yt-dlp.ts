@@ -10,6 +10,7 @@
  * - `/members`（解析与下载都一样）：只有 `--cookies-from-browser firefox` 登录着；`chrome` 读不到 Cookie 库，别的浏览器与匿名
  *   都要求登录。
  * - 下载（`-o <模板>`）：按 `--progress-template` 的格式打印真实的字节进度，写一个合法的 WAV（`media.wav`）；
+ *   `--download-sections '*<start>-<end>'` 时只写那一段的时长（原片按 1 秒、16000 字节算），几段的内容各不相同；
  *   `--write-subs` 时按 `--sub-langs` 写 `media.<lang>.vtt`。
  *   `/nospace` 磁盘满；`/flaky` 第一次写一半 `.part` 后以网络错误退出，再次调用时接着 `.part` 写完；
  *   `/slow` 打印一行进度后开一个子进程，先把自己的 pid 写进 `<log>.pid`、再把子进程的写进 `<log>.child.pid`（都是原子写），一直不退出。
@@ -83,7 +84,8 @@ if (route === '/nospace') fail('ERROR: unable to write data: [Errno 28] No space
 
 const media = template!.replace('%(ext)s', 'wav');
 const part = `${media}.part`;
-const wav = silentWav(16_000);
+const section = /^\*([\d.]+)-([\d.]+)$/.exec(option('--download-sections') ?? '');
+const wav = silentWav(section ? Math.max(2, 2 * Math.round((Number(section[2]) - Number(section[1])) * 8000)) : 16_000);
 const progress = (done: number) => {
   const template = option('--progress-template') ?? '';
   if (!template.startsWith('download:bcut-progress ')) return;

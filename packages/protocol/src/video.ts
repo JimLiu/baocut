@@ -2045,6 +2045,19 @@ export const VIDEO_ANNOTATION_COLORS = ['red', 'blue', 'green', 'black', 'white'
 export type VideoAnnotationColor = (typeof VIDEO_ANNOTATION_COLORS)[number];
 export const VIDEO_ANNOTATION_WIDTHS = [2, 4, 8, 12] as const;
 export type VideoAnnotationWidth = (typeof VIDEO_ANNOTATION_WIDTHS)[number];
+/** 文字标记的字号（像素）与字体：标记工具副工具条的「字号」「字体」（lite-editor §4.1），只有 `text` 的 `style` 带。 */
+export const VIDEO_ANNOTATION_TEXT_SIZES = [16, 20, 28, 36, 48] as const;
+export type VideoAnnotationTextSize = (typeof VIDEO_ANNOTATION_TEXT_SIZES)[number];
+export const VIDEO_ANNOTATION_FONTS = ['sans', 'serif', 'mono'] as const;
+export type VideoAnnotationFont = (typeof VIDEO_ANNOTATION_FONTS)[number];
+/** 文字标记的样子：粗体、斜体、下划线、字号与字体（lite-editor §4.1「文字」）；都可以不带，没带的按粗体、无衬线，没带字号时按 `width` 的旧对应（2→16、4→20、8→28、12→36）。 */
+export interface VideoAnnotationTextStyle {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  size?: VideoAnnotationTextSize;
+  font?: VideoAnnotationFont;
+}
 /** 画笔一道至多这么多个点。 */
 export const VIDEO_ANNOTATION_MAX_POINTS = 2000;
 
@@ -2082,8 +2095,8 @@ export interface VideoAnnotation {
   to?: { x: number; y: number };
   /** 画笔的归一化点列：只有 `pen` 有，也必须有，至少两个点。 */
   points?: { x: number; y: number }[];
-  /** 标记的颜色与粗细：标记工具送来的标注带，画面上照它画；没有时按默认画。 */
-  style?: { color: VideoAnnotationColor; width: VideoAnnotationWidth };
+  /** 标记的颜色与粗细：标记工具送来的标注带，画面上照它画；没有时按默认画。`text` 另可带文字的样子（`VideoAnnotationTextStyle`）。 */
+  style?: { color: VideoAnnotationColor; width: VideoAnnotationWidth } & VideoAnnotationTextStyle;
   /** 点中的画面元素：`element` 必须有，`comment` 点在元素上时有，别的种类没有。 */
   element?: VideoAnnotationElement;
   /**

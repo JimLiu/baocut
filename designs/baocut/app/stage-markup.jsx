@@ -1,11 +1,12 @@
 /* 标记层与工具条（docs/design/lite-editor §4；模型在 model-markup.js）：轻量与时间线两种视图同一套，stage.jsx 挂。App 与 Web 两个入口都加载：
-   App（`BC_SURFACE.agent`）最后「添加到对话」；Web 没有会话可发，是截图模式（§4.1、§8）——没有选择元素与评论，「添加到对话」换成
-   复制图片 / 下载图片（原型只出提示示意，不真的出图），复制、下载后标记留着。
+   App（`BC_SURFACE.agent`）最后「添加到对话」；Web 没有会话可发，是截图模式（§4.1、§8）——没有评论，「添加到对话」换成
+   复制图片 / 下载图片（原型只出提示示意，不真的出图），出了图就清掉这一帧的标记；选择元素的框连标签一起画进图里。
    标注模式下铺在画面（`.frame`）上：画笔、直线、箭头、矩形、圆、编号、文字画在一张按像素定位的 SVG 里，文字、元素框与评论印章是 HTML；
    任何工具下按在已有标记上都是选中并拖动（矩形 / 圆有八枚把手，直线 / 箭头两端各一枚），按在空处才按当前工具画。
    「选择元素」与「评论」把指针下的舞台节点（字幕 `[data-subs]`、元素 `[data-el]`，HTML 动画里就是那个节点）照 DevTools 的样子高亮并出一张小卡；
    点一下，选择元素记一条元素标记，评论落一枚印章并打开批注框（点中了元素就连元素一起）。
-   工具条浮在画面底上：工具、颜色、粗细、撤销 / 重做 / 清空、「添加到对话」（整组换成视频标注进 composer 草稿）、关闭（有标记先问一句）。 */
+   工具条浮在画面底上，两行：主工具条是工具、撤销 / 重做、标记过的帧、「添加到对话」（整组换成视频标注进 composer 草稿）、关闭（有标记先问一句）；
+   底下隔 2px 贴一条副工具条，左端与主工具条对齐，放当前工具的属性（形状的一排、文字的粗斜下划线 / 字号 / 字体），竖线右边是颜色与粗细。 */
 (function () {
   const {useState, useRef, useEffect, useLayoutEffect} = React;
   const MK = window.BC_MARKUP;
@@ -15,19 +16,22 @@
   /* 这一组标记的用法：只看表面能不能交给 Agent（Web 不能，是截图模式） */
   const MODE = window.BC_SURFACE && !window.BC_SURFACE.agent ? 'screenshot' : 'agent';
 
-  /* 形状与粗细的小图标：S2 没有直线 / 矩形 / 圆 / 箭头 / 编号的图标，用 currentColor 画几笔 */
-  const Glyph = ({children}) => <svg className="mk-glyph" viewBox="0 0 16 16" aria-hidden="true">{children}</svg>;
-  const SHAPE_GLYPH = {
-    line: <Glyph><path d="M3 13 L13 3" /></Glyph>,
-    arrow: <Glyph><path d="M3 13 L13 3 M7 3 H13 V9" /></Glyph>,
-    rect: <Glyph><rect x="3" y="4" width="10" height="8" /></Glyph>,
-    ellipse: <Glyph><ellipse cx="8" cy="8" rx="6" ry="4.5" /></Glyph>,
-    step: <Glyph><circle cx="8" cy="8" r="6" /><text x="8" y="10.5" className="mk-glyph__n">1</text></Glyph>,
+  /* 形状与粗细的小图标：S2 没有直线 / 矩形 / 圆 / 箭头 / 编号的图标，用 currentColor 画几笔。
+     形状的做成 S2 图标（createIcon）放进按钮的图标槽，和别的图标钮一样大小、一样的内边距；裸 svg 会被当成文字标签加左右内边距。 */
+  const shapeIcon = draw => window.RSP.createIcon(props => <svg {...props} viewBox="0 0 16 16" className={cx(props.className, 'mk-glyph')}>{draw}</svg>);
+  const SHAPE_ICON = {
+    line: shapeIcon(<path d="M3 13 L13 3" />),
+    arrow: shapeIcon(<path d="M3 13 L13 3 M7 3 H13 V9" />),
+    rect: shapeIcon(<rect x="3" y="4" width="10" height="8" />),
+    ellipse: shapeIcon(<ellipse cx="8" cy="8" rx="6" ry="4.5" />),
+    step: shapeIcon(<><circle cx="8" cy="8" r="6" /><text x="8" y="10.5" className="mk-glyph__n">1</text></>),
   };
+  const ShapeGlyph = ({k}) => { const I = SHAPE_ICON[k] || SHAPE_ICON.rect; return <I />; };
   /* 粗细的样本：一段这么粗的横线，圆头缩在框里（最粗的是一枚短胶囊）；下拉里的 `long` 更长一些 */
   const WidthGlyph = ({w, long}) => { const W = long ? 32 : 20; return <svg className={cx('mk-glyph', long ? 'mk-glyph--long' : 'mk-glyph--wide')} viewBox={`0 0 ${W} 16`} aria-hidden="true"><path d={`M${2 + w / 2} 8 H${W - 2 - w / 2}`} style={{strokeWidth: w}} /></svg>; };
-  const TEXT_SIZE = {2: 16, 4: 20, 8: 28, 12: 36};   // 文字标记的字号跟粗细档走（S2 字号阶梯）
-  const TOOL_ICON = {element: 'Select', comment: 'Comment', pen: 'Edit', text: 'Text'};
+  /** 文字标记的样式落到 DOM：字号、粗体、斜体、下划线走内联，字体走 `data-font`（CSS 里给字族）。标记层与标注层同一套。 */
+  const textLook = m => { const t = MK.textStyleOf(m); return {font: t.font, style: {fontSize: t.size, fontWeight: t.bold ? 700 : 400, fontStyle: t.italic ? 'italic' : 'normal', textDecorationLine: t.underline ? 'underline' : 'none'}}; };
+  const TOOL_ICON = {element: 'Select', comment: 'Comment', pen: 'Draw', text: 'Text'};
   const IMPLICIT_ROLE = {BUTTON: 'button', A: 'link', IMG: 'img', H1: 'heading', H2: 'heading', H3: 'heading', H4: 'heading', INPUT: 'textbox', VIDEO: 'video', svg: 'img'};
 
   /** 指针下的舞台节点（document.elementsFromPoint，跳过标记层、标注层、画面自己的底与网格）：
@@ -121,9 +125,10 @@
       el.focus();
       const sel = window.getSelection(); const range = document.createRange(); range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);
     }, [editing]);
-    return <div ref={ref} className="mk__text mk-c" data-mark={m.id} data-color={m.color} data-empty={!m.text ? 'true' : undefined} data-placeholder="输入文字"
+    const look = textLook(m);
+    return <div ref={ref} className="mk__text mk-c" data-mark={m.id} data-color={m.color} data-font={look.font} data-empty={!m.text ? 'true' : undefined} data-placeholder="输入文字"
       contentEditable={editing ? 'true' : 'false'} suppressContentEditableWarning role={editing ? 'textbox' : undefined} aria-label="文字标记"
-      style={{left: p.x, top: p.y, fontSize: TEXT_SIZE[m.width] || 20}}
+      style={{left: p.x, top: p.y, ...look.style}}
       onInput={e => onInput(e.currentTarget.textContent)} onBlur={() => { if (editing) onCommit(); }}
       onKeyDown={e => { e.stopPropagation(); if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Escape') { e.preventDefault(); e.currentTarget.blur(); } }} />;
   }
@@ -346,8 +351,8 @@
     const playRef = useRef(ctx.playT);
     playRef.current = ctx.playT;
     useEffect(() => { if (!on) setMenu(null); }, [on]);
-    /* 工具条挂在 body 下（fixed，不受舞台 overflow 裁切）：舞台里只留一枚空锚点，按舞台的位置放——底边离舞台底 12、对舞台居中，
-       比舞台宽时左右收进窗口 8 以内 */
+    /* 工具条挂在 body 下（fixed，不受舞台 overflow 裁切）：舞台里只留一枚空锚点，按舞台的位置放——两行的底边离舞台底 12，
+       主工具条对舞台居中（副工具条左端跟它对齐，不参与居中），比舞台宽时左右收进窗口 8 以内 */
     const anchorRef = useRef(null);
     const barRef = useRef(null);
     const [place, setPlace] = useState(null);
@@ -358,7 +363,7 @@
       const update = () => {
         const r = stage.getBoundingClientRect();
         const half = bar.offsetWidth / 2;
-        const left = Math.max(8 + half, Math.min(window.innerWidth - 8 - half, r.left + r.width / 2));
+        const left = Math.max(8 + half, Math.min(window.innerWidth - 8 - half, r.left + r.width / 2)) - half;
         setPlace({left, bottom: window.innerHeight - r.bottom + 12});
       };
       update();
@@ -380,7 +385,7 @@
         const stop = () => { e.preventDefault(); e.stopPropagation(); };
         if (k === 'Escape') { stop(); ctx.closeMarkup(); }
         else if (meta && k === 'z') { stop(); set(s => (e.shiftKey ? MK.redo(s) : MK.undo(s))); }
-        else if (meta && e.shiftKey && (k === 's' || k === 'c') && MODE === 'agent') { const tool = k === 's' ? 'element' : 'comment'; stop(); set(s => MK.setTool(s, s.tool === tool ? 'pen' : tool)); }
+        else if (meta && e.shiftKey && (k === 's' || k === 'c') && MK.toolsFor(MODE).some(t => t.k === (k === 's' ? 'element' : 'comment'))) { const tool = k === 's' ? 'element' : 'comment'; stop(); set(s => MK.setTool(s, s.tool === tool ? 'pen' : tool)); }
         else if (k === 'Delete' || k === 'Backspace') { stop(); set(s => (s.sel && MK.onFrame(s.marks, Math.round(playRef.current * 1000)).some(m => m.id === s.sel) ? MK.remove(s, s.sel) : s)); }
       };
       window.addEventListener('keydown', key, true);
@@ -388,73 +393,105 @@
     }, [on]);
     if (!on) return null;
     const sendable = MK.sendable(st.marks);
-    const reset = () => set(s => MK.init({tool: s.tool, shape: s.shape, color: s.color, width: s.width}));
+    const reset = () => set(s => MK.init(MK.keep(s)));
     const send = () => { if (sendMarks(app, ctx, st.marks)) { reset(); ctx.setAnnotating(false); } };
-    /* 截图模式：只出当前帧（播放头那一帧）上的标记；复制 / 下载后标记留着、不退出（原型只出提示） */
+    /* 截图模式：只出当前帧（播放头那一帧）上的标记；出了图就清掉这一帧的标记（别的帧的留着）、不退出（原型只出提示） */
     const nowMs = Math.round(ctx.playT * 1000);
     const onFrame = MK.sendable(MK.onFrame(st.marks, nowMs));
-    const copyShot = () => app.toast('已复制图片');
-    const downloadShot = () => app.toast(`已下载 ${MK.shotName(ctx.proj && ctx.proj.name, nowMs)}`);
+    const copyShot = () => { set(s => MK.forgetFrame(s, nowMs)); app.toast('已复制图片'); };
+    const downloadShot = () => { set(s => MK.forgetFrame(s, nowMs)); app.toast(`已下载 ${MK.shotName(ctx.proj && ctx.proj.name, nowMs)}`); };
+    /* 标记帧的书签（lite-editor §4.1）：画过标记的每一帧，点一项定位过去；播放头所在的那一帧打勾。时间线上的印章挤在一起时靠它挑 */
+    const marked = MK.markedFrames(st.marks);
+    const here = marked.find(f => Math.abs(f.timeMs - nowMs) <= 500);
     const toggle = k => setMenu(menu === k ? null : k);
     /* 带下拉的钮的面：当前值的样本 + 小箭头，并排一行（S2 的钮内部是网格，两个子节点会上下叠，所以先包成一个） */
     const Face = ({children}) => <span className="mk-bar__face">{children}<span className="mk-bar__chev" aria-hidden="true"><R.Icons.ChevronDown /></span></span>;
     /* 下拉里的一行：样本、名字（粗细只有样本，名字给读屏）、当前项打勾 */
     const Row = ({on: isOn, onClick, children, label, ariaLabel}) => <BCAction type="button" className={cx('mk-menu__row', isOn && 'is-on')} role="menuitemradio" aria-checked={isOn} aria-label={ariaLabel} onClick={onClick}>
       {children}<span className="mk-menu__label">{label}</span>{isOn ? <R.Icons.Checkmark /> : null}</BCAction>;
+    const tools = MK.toolsFor(MODE);
+    const toolLabel = k => tools.find(t => t.k === k)?.label || '';
+    const shapeLabel = MK.SHAPES.find(sh => sh.k === st.shape)?.label || '';
+    const ts = st.textStyle || MK.TEXT_STYLE;
+    /* 一件工具：切换钮。形状钮只显示记住的那一种形状（没有下拉），按下就用它画；换形状在副工具条上 */
+    const toolBtn = t => {
+      if (t.k === 'shape') return <IconBtn key={t.k} size="s" on={st.tool === 'shape'} tip={`形状 · ${shapeLabel}`} onClick={() => set(s => MK.setTool(s, 'shape'))}><ShapeGlyph k={st.shape} /></IconBtn>;
+      const I = R.Icons[TOOL_ICON[t.k]];
+      return <IconBtn key={t.k} size="s" on={st.tool === t.k} tip={t.sk ? `${t.label} · ${t.sk}` : t.label} onClick={() => set(s => MK.setTool(s, t.k))}><I /></IconBtn>;
+    };
+    /* 副工具条左半：这件工具自己的属性（选择元素、评论、画笔没有） */
+    const own = st.tool === 'shape' ? <div className="mk-bar__group">
+      {MK.SHAPES.map(sh => <IconBtn key={sh.k} size="s" on={st.shape === sh.k} tip={sh.label} onClick={() => set(s => MK.setShape(s, sh.k))}><ShapeGlyph k={sh.k} /></IconBtn>)}
+    </div> : st.tool === 'text' ? <div className="mk-bar__group">
+      <IconBtn size="s" on={ts.bold} tip="粗体" onClick={() => set(s => MK.setTextStyle(s, {bold: !ts.bold}))}><R.Icons.TagBold /></IconBtn>
+      <IconBtn size="s" on={ts.italic} tip="斜体" onClick={() => set(s => MK.setTextStyle(s, {italic: !ts.italic}))}><R.Icons.TagItalic /></IconBtn>
+      <IconBtn size="s" on={ts.underline} tip="下划线" onClick={() => set(s => MK.setTextStyle(s, {underline: !ts.underline}))}><R.Icons.TagUnderline /></IconBtn>
+      <div className="mk-bar__dd">
+        <IconBtn size="s" tip={`字号 · ${ts.size}`} aria-haspopup="menu" aria-expanded={menu === 'size'} onClick={() => toggle('size')}><Face><R.Icons.TextSize /><span className="mk-bar__val">{ts.size}</span></Face></IconBtn>
+        <Popover open={menu === 'size'} onClose={() => setMenu(null)} dir="up" width={100} label="字号" className="mk-pop">
+          <div className="mk-menu" role="menu">{MK.FONT_SIZES.map(n => <Row key={n} on={ts.size === n} label={String(n)} onClick={() => { set(s => MK.setTextStyle(s, {size: n})); setMenu(null); }} />)}</div>
+        </Popover>
+      </div>
+      <div className="mk-bar__dd">
+        <IconBtn size="s" tip={`字体 · ${MK.FONTS.find(f => f.k === ts.font)?.label || ''}`} aria-haspopup="menu" aria-expanded={menu === 'font'} onClick={() => toggle('font')}>
+          <Face><span className="mk-bar__val mk-font" data-font={ts.font}>{MK.FONTS.find(f => f.k === ts.font)?.label}</span></Face></IconBtn>
+        <Popover open={menu === 'font'} onClose={() => setMenu(null)} dir="up" width={140} label="字体" className="mk-pop">
+          <div className="mk-menu" role="menu">{MK.FONTS.map(f => <Row key={f.k} on={ts.font === f.k} onClick={() => { set(s => MK.setTextStyle(s, {font: f.k})); setMenu(null); }}><span className="mk-menu__label mk-font" data-font={f.k}>{f.label}</span></Row>)}</div>
+        </Popover>
+      </div>
+    </div> : null;
     return <>
       <span ref={anchorRef} hidden />
-      {ReactDOM.createPortal(<div ref={barRef} className="mk-bar" role="toolbar" aria-label="标记工具" style={place || {visibility: 'hidden'}}>
-        <div className="mk-bar__group">
-          {MK.toolsFor(MODE).filter(t => t.k !== 'text').map(t => {
-            if (t.k === 'shape') return <div key={t.k} className="mk-bar__dd">
-              <IconBtn size="s" on={st.tool === 'shape'} tip={`形状 · ${MK.SHAPES.find(s => s.k === st.shape)?.label || ''}`} aria-haspopup="menu" aria-expanded={menu === 'shape'}
-                onClick={() => { set(s => MK.setTool(s, 'shape')); toggle('shape'); }}><Face>{SHAPE_GLYPH[st.shape]}</Face></IconBtn>
-              <Popover open={menu === 'shape'} onClose={() => setMenu(null)} dir="up" width={160} label="形状">
-                <div className="mk-menu" role="menu">{MK.SHAPES.map(sh => <Row key={sh.k} on={st.shape === sh.k} label={sh.label} onClick={() => { set(s => MK.setShape(s, sh.k)); setMenu(null); }}>{SHAPE_GLYPH[sh.k]}</Row>)}</div>
-              </Popover>
-            </div>;
-            const I = R.Icons[TOOL_ICON[t.k]];
-            return <IconBtn key={t.k} size="s" on={st.tool === t.k} tip={t.sk ? `${t.label} · ${t.sk}` : t.label} onClick={() => set(s => MK.setTool(s, t.k))}><I /></IconBtn>;
-          })}
+      {ReactDOM.createPortal(<div className="mk-stack" style={place || {visibility: 'hidden'}}>
+        <div ref={barRef} className="mk-bar" role="toolbar" aria-label="标记工具">
+          <div className="mk-bar__group">{tools.filter(t => t.k !== 'text').map(toolBtn)}</div>
+          <span className="vrule" />
+          {toolBtn(tools.find(t => t.k === 'text'))}
+          <span className="vrule" />
+          <div className="mk-bar__group">
+            <IconBtn size="s" tip="撤销 · ⌘Z" disabled={!MK.canUndo(st)} onClick={() => set(MK.undo)}><R.Icons.Undo /></IconBtn>
+            <IconBtn size="s" tip="重做 · ⇧⌘Z" disabled={!MK.canRedo(st)} onClick={() => set(MK.redo)}><R.Icons.Redo /></IconBtn>
+          </div>
+          <span className="vrule" />
+          <div className="mk-bar__dd">
+            <IconBtn size="s" tip={marked.length ? `标记过的帧 · ${marked.length}` : '标记过的帧'} disabled={!marked.length} aria-haspopup="menu" aria-expanded={menu === 'marks'} onClick={() => toggle('marks')}>
+              <Face><R.Icons.Bookmark /></Face></IconBtn>
+            <Popover open={menu === 'marks' && marked.length > 0} onClose={() => setMenu(null)} dir="up" width={180} label="标记过的帧" className="mk-pop">
+              <div className="mk-menu" role="menu">{marked.map(f => <Row key={f.timeMs} on={here === f} label={`${T.timecode(f.timeMs / 1000, {decimals: 1})} · ${f.count} 处标记`}
+                onClick={() => { ctx.seek(f.timeMs / 1000); setMenu(null); }} />)}</div>
+            </Popover>
+          </div>
+          <span className="vrule" />
+          {MODE === 'screenshot' ? <div className="mk-bar__group">
+            <IconBtn size="s" tip="复制图片" disabled={!onFrame.length} onClick={copyShot}><R.Icons.Copy /></IconBtn>
+            <IconBtn size="s" tip="下载图片" disabled={!onFrame.length} onClick={downloadShot}><R.Icons.Download /></IconBtn>
+          </div> : <R.Button variant="primary" size="S" isDisabled={!sendable.length} onPress={send} UNSAFE_className="mk-bar__send"><R.Text>添加到对话</R.Text></R.Button>}
+          <IconBtn size="s" tip="关闭标记 · Esc" onClick={() => ctx.closeMarkup()}><R.Icons.Close /></IconBtn>
         </div>
-        <span className="vrule" />
-        <IconBtn size="s" on={st.tool === 'text'} tip="文字" onClick={() => set(s => MK.setTool(s, 'text'))}><R.Icons.Text /></IconBtn>
-        <span className="vrule" />
-        <div className="mk-bar__group">
+        {/* 副工具条：当前工具的属性 ｜ 颜色、粗细（文字按字号、评论是印章，没有粗细） */}
+        <div className="mk-bar mk-bar--sub" role="toolbar" aria-label={`${toolLabel(st.tool)} · 样式`}>
+          {own}
+          {own ? <span className="vrule" /> : null}
           <div className="mk-bar__dd">
             <IconBtn size="s" tip={`颜色 · ${MK.COLORS.find(c => c.k === st.color)?.label || ''}`} aria-haspopup="menu" aria-expanded={menu === 'color'} onClick={() => toggle('color')}>
               <Face><span className="mk-dot mk-c" data-color={st.color} /></Face></IconBtn>
-            <Popover open={menu === 'color'} onClose={() => setMenu(null)} dir="up" width={140} label="颜色">
+            <Popover open={menu === 'color'} onClose={() => setMenu(null)} dir="up" width={140} label="颜色" className="mk-pop">
               <div className="mk-menu" role="menu">{MK.COLORS.map(c => <Row key={c.k} on={st.color === c.k} label={c.label} onClick={() => { set(s => MK.setColor(s, c.k)); setMenu(null); }}><span className="mk-dot mk-c" data-color={c.k} /></Row>)}</div>
             </Popover>
           </div>
-        </div>
-        <span className="vrule" />
-        <div className="mk-bar__group">
-          <div className="mk-bar__dd">
+          {MK.hasWidth(st.tool) ? <div className="mk-bar__dd">
             <IconBtn size="s" tip={`粗细 · ${st.width} px`} aria-haspopup="menu" aria-expanded={menu === 'width'} onClick={() => toggle('width')}><Face><WidthGlyph w={st.width} /></Face></IconBtn>
-            <Popover open={menu === 'width'} onClose={() => setMenu(null)} dir="up" width={120} label="粗细">
+            <Popover open={menu === 'width'} onClose={() => setMenu(null)} dir="up" width={120} label="粗细" className="mk-pop">
               <div className="mk-menu" role="menu">{MK.WIDTHS.map(w => <Row key={w} on={st.width === w} ariaLabel={`${w} px`} onClick={() => { set(s => MK.setWidth(s, w)); setMenu(null); }}><WidthGlyph w={w} long /></Row>)}</div>
             </Popover>
-          </div>
+          </div> : null}
         </div>
-        <span className="vrule" />
-        <div className="mk-bar__group">
-          <IconBtn size="s" tip="撤销 · ⌘Z" disabled={!MK.canUndo(st)} onClick={() => set(MK.undo)}><R.Icons.Undo /></IconBtn>
-          <IconBtn size="s" tip="重做 · ⇧⌘Z" disabled={!MK.canRedo(st)} onClick={() => set(MK.redo)}><R.Icons.Redo /></IconBtn>
-        </div>
-        <span className="vrule" />
-        {MODE === 'screenshot' ? <div className="mk-bar__group">
-          <IconBtn size="s" tip="复制图片" disabled={!onFrame.length} onClick={copyShot}><R.Icons.Copy /></IconBtn>
-          <IconBtn size="s" tip="下载图片" disabled={!onFrame.length} onClick={downloadShot}><R.Icons.Download /></IconBtn>
-        </div> : <R.Button variant="primary" size="S" isDisabled={!sendable.length} onPress={send} UNSAFE_className="mk-bar__send"><R.Text>添加到对话</R.Text></R.Button>}
-        <IconBtn size="s" tip="关闭标记 · Esc" onClick={() => ctx.closeMarkup()}><R.Icons.Close /></IconBtn>
       </div>, document.body)}
       <ConfirmDialog ask={st.ask ? {title: '放弃这些标记？', body: MODE === 'screenshot' ? '关闭会去掉画面上的标记。需要的话先复制或下载图片。' : '画面上有还没添加到对话的标记，放弃会把它们去掉。', cancelLabel: '继续标记', confirmLabel: '放弃', tone: 'negative'} : null}
         onCancel={() => set(s => ({...s, ask: false}))} onConfirm={() => { reset(); ctx.setAnnotating(false); }} />
     </>;
   }
 
-  // 画法也给标注层（stage-notes.jsx）用：一条标记的 SVG、文字标记的字号表、画面尺寸
-  Object.assign(window, {MarkupLayer, MarkupBar, BC_MARKUP_UI: {SvgMark, TEXT_SIZE, useFrameSize}});
+  // 画法也给标注层（stage-notes.jsx）用：一条标记的 SVG、文字标记的样式、画面尺寸
+  Object.assign(window, {MarkupLayer, MarkupBar, BC_MARKUP_UI: {SvgMark, textLook, useFrameSize}});
 })();

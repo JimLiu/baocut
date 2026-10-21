@@ -289,6 +289,7 @@ interface CompositionContext {
 - 透明输出必须由代码真正把背景清成透明，并使用支持 alpha 的目标。配置 `alpha: true` 不能自动移除已经画上去的背景。
 - 声明 `output.alpha: true` 的包在验证时检查 alpha 是否真实（§6.2）。
 - **拾取区域（可选，2026-10-19）**。画在 canvas 里的字与图形没有 DOM 节点，编辑器标记工具的「选择元素」（轻量编辑器设计 §4.1、§11 第 12 条）只拾得到整张画布。页面可以在 `window.__baocutPickRegions` 上登记这一帧画了什么：一个数组，每项 `{ x, y, w, h, name?, id?, role? }`——`x`、`y`、`w`、`h` 是合成固有像素里的框（页面视口坐标，与根元素 `data-width` / `data-height` 同一套），`name` 是给人与智能体认的说法（画的那行字），`id` 是作者自己的标识（字母、数字、`-`、`_`，至多 64 字），`role` 照 ARIA 写（可省）。页面每画一帧先清空再按绘制顺序登记，后登记的在上面。拾取时点落在某个区域里就取最上面那个，写成 `{ selector: "region#<id>"（没有 id 时 "region"）, w, h, name, role, focusable: false, rect }`；没落在区域里照旧 `elementFromPoint`。不合形的项（非有限数、`w` 或 `h` 不大于 0）跳过，一帧至多看最后 500 项，`name` 去空白后截到 80 字。区域只是说明，不影响画面、烘焙与确定性（§4.2）；不登记的包照旧，离屏宿主与导出不读它。
+- **Web 截图（2026-10-21）**。Web 端标记工具的截图模式没有窗口截图（轻量编辑器设计 §4.1、§11 第 14 条），经桥的 `capture` 请求让页面自己画这一帧：按 CSS 的位置、裁切与不透明度，把可读的画布（Canvas 2D；WebGL 要开 `preserveDrawingBuffer: true`）与纯色背景叠成视口大小的 PNG。页面里有看得见的 DOM 文字、`img` / `svg` / `video` 等替换元素、背景图、边框与阴影、伪元素内容、滤镜、混合、裁切路径与遮罩、圆角、非轴对齐或翻转的变换、被污染的画布，或节点超过 5000 个、视口边长超过 8192 时回 null，截图按截不出处理；不可见的节点不算。想让 Web 截图截得到的包，把画面画在画布里。离屏宿主与导出不走这条。
 
 ### 4.6 Remotion
 
@@ -505,6 +506,7 @@ interface BakeRecord {
 - **记录位置**。`BakeRecord` 记在烘焙素材的来源里：`provenance` 为 `{ origin: 'composition-bake', source: BakeRecord }`（视频格式规范 §4.5）。合成实例上还没有对应的字段（§3.1、§9）。首版的 `bakedAssetRef` 与 `sourceBundleRef` 先写代码包清单的 `bundleId/revision`：素材 ID 要等导入事务的回执才知道（§9）。
 - 新建的合成实例用 `prerender` 指向烘焙素材，导出走已有的预渲染替身路径（视频格式规范 §3.7）。替身何时过期见 §7.4。
 - **后台烘焙**。`compositions_import` 带 `background: true` 时烘焙交给 `bake` 任务（§7.5），导入不等烘焙。
+- **先不烘焙**。`compositions_import` 带 `live: true` 时只放实例、不烘焙（§7.6），预览由实时层现画，定稿后再烘。
 - 首版分两次事务：先导入代码包与烘焙素材，再用 `insertItems` 放置合成实例。两步合起来不是原子的：第二步失败时，已导入的两个素材留在视频里，没有实例引用它们。并成一笔的做法见 §9。
 
 - Bake **保留**源代码包、参数、映射和来源，并提供「回到可编辑的源码」。Bake 不是删除源文件。
@@ -582,7 +584,7 @@ interface CompositionBakeInfo {
 - 导出预检（命令与协议规范 §4.4）逐个核对这次导出用到的替身，有过期的以 `EXPORT_PRERENDER_STALE` 拒绝：`details.items` 每项是 `{ itemId, sequenceId, name, reason, bakedFrom?, current? }`，`remedy` 是重新导入烘焙。`allowStalePrerender: true` 时照旧替身导出，每项一条同名警告（`detail` 是「实例 ID: 原因」）。`missing` 不由这里报：没有替身的实例由渲染内核按 `bundle-without-prerender` 处理。
 - 预览不论替身过不过期都显示实时层（动效视频设计 §4.3），替身过期或没有时提醒「实时预览，导出前要烘焙」。
 
-重烘就是带 `replace: { itemId }` 再导入一次同一个代码包：`replaceCodeBundle` 写入新替身（§3.3）。
+重烘就是带 `replace: { itemId }` 再导入一次同一个代码包：`replaceCodeBundle` 写入新替身（§3.3）。新代码包烘出的 bytes 与视频里已有的替身完全相同时，引擎不新建素材，而是给那个替身素材加一个版本，来源是这次的 `BakeRecord`，实例指向这个新版本，`bundle-changed` 随之消除（视频格式规范 §4.2）；不这样做，替身的来源会一直写着第一次烘焙的代码包，重烘多少次都判为过期。
 
 ### 7.5 后台烘焙
 
@@ -594,6 +596,14 @@ interface CompositionBakeInfo {
 - 结果 `result.artifactId` 是替身的 `<assetId>@<revision>`，`result.bake` 是实际用的渲染器、用时与回退原因（同导入回执的 `bake`）。烘焙失败的错误码沿用代码包的（`COMPOSITION_*`、`BUNDLE_*`），别的记 `COMPOSITION_BAKE_FAILED`。取消用 `jobs.cancel`。Runtime 重启时未完成的任务按不可重试处理（`interrupted`），实例留着没有替身，重新带 `replace` 导入即可。
 - 没烘完就导出：实例没有替身，渲染内核按 `bundle-without-prerender` 报 `EXPORT_UNSUPPORTED_CONTENT`。
 - `background` 与 `register` 互斥；后台烘焙与前台一样只在有 Electron 离屏宿主的 Runtime 可用。
+
+### 7.6 先不烘焙
+
+`compositions_import` 带 `live: true` 时，两笔事务与 §7.5 相同（登记代码包、按清单长度放实例；带 `replace` 时 `replaceCodeBundle` 的 `prerender` 为 null，旧替身随之摘掉），但不提交 `bake` 任务，结果的 `prerender`、`bake`、`bakeJobId` 都是 null。导入仍在离屏宿主里验证，几秒返回。
+
+- 用途：做片阶段先把各段放上时间线给用户看、反复改，不为每一版付烘焙的时间。预览照 §7.4 显示实时层并提醒「实时预览，导出前要烘焙」。
+- 定稿后带 `replace: { itemId }`、不带 `live` 再导入同一个代码包，烘出替身（前台或 `background`）。没烘就导出时按 §7.5 最后一条报 `EXPORT_UNSUPPORTED_CONTENT`。
+- `live` 与 `register`、`background`、`bake` 互斥（`INVALID_ARGUMENTS`）。
 
 ---
 

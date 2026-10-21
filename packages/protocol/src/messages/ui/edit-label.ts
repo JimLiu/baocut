@@ -130,6 +130,8 @@ const en = {
   editTemplateLayout: 'Edit template layout',
   lockTemplateRatio: 'Lock aspect ratio to template',
   unlockTemplateRatio: 'Unlock template aspect ratio',
+  // 脚本文档（视频格式规范 §7.13）
+  restoreScript: (p: { version: number }) => `Restore script to version ${p.version}`,
 };
 
 export type EditLabelMessages = typeof en;

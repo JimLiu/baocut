@@ -17,6 +17,7 @@ export const pl: AgentToolStepsMessages = {
     deleteVideo: "Usuń wideo",
     readTranscript: "Przeczytać transkrypcję",
     undoEdit: "Cofnij zmianę",
+    assemblePlan: "Umieść plan produkcji",
     captions: "Utwórz warstwę napisów",
     transcribe: "Transkrybuj",
     dub: "Przetłumacz i utwórz dubbing",

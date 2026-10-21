@@ -85,6 +85,8 @@ pub struct TimedItem {
     pub display_start: f64,
     pub display_end: f64,
     pub words: Vec<Word>,
+    /// 说话人的显示名（输入条目的 `speaker`）；样式的 `speakerLabel` 打开时画在字幕块上方。
+    pub speaker: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2047,7 +2049,7 @@ pub fn timed_input_id(item: &Value, text_key: &str, index: usize) -> String {
 pub fn timed_inputs(values: &[TimedInput<'_>], style: &Value) -> Vec<TimedItem> {
     let (lead_in, tail) = timing(style);
     let project_punctuation = style.get("punct").and_then(Value::as_bool).unwrap_or(true);
-    let mut base: Vec<(String, String, f64, f64, Vec<Word>)> = values
+    let mut base: Vec<(String, String, f64, f64, Vec<Word>, Option<String>)> = values
         .iter()
         .enumerate()
         .filter_map(|(index, input)| {
@@ -2072,6 +2074,11 @@ pub fn timed_inputs(values: &[TimedInput<'_>], style: &Value) -> Vec<TimedItem> 
                     input.language,
                     project_punctuation,
                 ),
+                item.get("speaker")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_owned),
             ))
         })
         .collect();
@@ -2096,6 +2103,7 @@ pub fn timed_inputs(values: &[TimedInput<'_>], style: &Value) -> Vec<TimedItem> 
                     - display_padding(lead_in, previous_gap, lead_in, tail),
                 display_end: base[index].3 + display_padding(tail, next_gap, lead_in, tail),
                 words: base[index].4.clone(),
+                speaker: base[index].5.clone(),
             }
         })
         .collect()

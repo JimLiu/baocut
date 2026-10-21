@@ -100,4 +100,5 @@ export const zhHans: EditLabelMessages = {
   editTemplateLayout: '修改模板版面',
   lockTemplateRatio: '按模板锁定画幅',
   unlockTemplateRatio: '解锁模板画幅',
+  restoreScript: (p) => `脚本回到版本 ${p.version}`,
 };

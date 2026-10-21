@@ -1,10 +1,13 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type ReactElement,
+  type ReactNode,
   type RefObject,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -38,7 +41,8 @@ import {
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
-import Brush from '@react-spectrum/s2/icons/Brush';
+import Bookmark from '@react-spectrum/s2/icons/Bookmark';
+import Draw from '@react-spectrum/s2/icons/Draw';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import Close from '@react-spectrum/s2/icons/Close';
 import Comment from '@react-spectrum/s2/icons/Comment';
@@ -46,25 +50,35 @@ import Copy from '@react-spectrum/s2/icons/Copy';
 import Download from '@react-spectrum/s2/icons/Download';
 import RedoIcon from '@react-spectrum/s2/icons/Redo';
 import Select from '@react-spectrum/s2/icons/Select';
+import TagBold from '@react-spectrum/s2/icons/TagBold';
+import TagItalic from '@react-spectrum/s2/icons/TagItalic';
+import TagUnderline from '@react-spectrum/s2/icons/TagUnderline';
 import TextIcon from '@react-spectrum/s2/icons/Text';
+import TextSize from '@react-spectrum/s2/icons/TextSize';
 import UndoIcon from '@react-spectrum/s2/icons/Undo';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { UNSAFE_PortalProvider } from 'react-aria/PortalProvider';
 import { Button as RACButton, ToggleButton as RACToggleButton } from 'react-aria-components';
+import { formatTenths } from '../../model/format.ts';
 import { keyLabel } from '../../model/key-labels.ts';
 import type { LiteSegment } from '../../model/lite-segments.ts';
 import {
   MARKUP_COLORS,
+  MARKUP_FONTS,
   MARKUP_SHAPES,
-  MARKUP_TEXT_SIZE,
+  MARKUP_TEXT_SIZES,
   markFrames,
+  markedFrames,
   MARKUP_WIDTHS,
   add,
   canRedo,
   canUndo,
+  currentFrame,
   finishDrag,
   forget,
   fromGesture,
   handles,
+  hasWidth,
   isOnFrame,
   marksOnFrame,
   markupMode,
@@ -81,6 +95,7 @@ import {
   sendable,
   setColor,
   setShape,
+  setTextStyle,
   setTool,
   setWidth,
   stepNumber,
@@ -94,6 +109,7 @@ import {
   type MarkupPick,
   type MarkupShape,
   type MarkupState,
+  type MarkupTextStyle,
   type MarkupTool,
 } from '../../model/markup.ts';
 import { stagePose } from '../../model/stage-framing.ts';
@@ -107,7 +123,7 @@ import {
   type Size,
 } from '../../model/video-annotations.ts';
 import { readCaptions } from '../../render/captions.ts';
-import { paintFrame } from '../../render/markup-paint.ts';
+import { composeLiveFrame, paintFrame, type LiveFrameShot } from '../../render/markup-paint.ts';
 import { stageLayers } from '../../render/frame-plan.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
 import type { HostBridge } from '../../host.ts';
@@ -119,17 +135,17 @@ import { useVideo } from '../../state/video-store.ts';
 import { downloadBlob } from '../media/gif.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { MARKUP_COPY } from './markup-copy.ts';
-import { drawing, pct, pinMark, stampMark, SvgMark, SVG_KINDS, textMark } from './markup-marks.tsx';
+import { drawing, pct, pinMark, stampMark, SvgMark, SVG_KINDS, textLook, textMark } from './markup-marks.tsx';
 
 /*
  * 标记层与标记工具条（docs/design/lite-editor §4.1–§4.3；轻量与时间线两种视图同一套）：标注模式（舞台条的「标记」）下盖在画面上，
- * 画笔、形状、文字、选择元素与评论画在这一层；画面底上浮一条图标工具条。标记是这个窗口里的一组（state/markup-store.ts），
+ * 画笔、形状、文字、选择元素与评论画在这一层；画面底上浮主工具条与副工具条（`MarkupBar`）。标记是这个窗口里的一组（state/markup-store.ts），
  * 每条标记属于画它时的那一帧（播放头）：播放头离开那一帧（±`VIDEO_ANNOTATION_NEAR_MS`）就不画它，回来再画；画下去的那一刻从预览画布
  * 拷一份那一帧留在 store 里。按「添加到对话」整组换成视频标注草稿，每条带自己的时刻、那一刻的段与句，每一帧截一张图（那一帧的画面
  * 加上这一帧的标记）放进输入框；评论勾着「发给智能体」时单独立刻发出，图上画的是印章。已经进草稿的标注照旧由 StageNotesLayer 画
  * （这一层只画还没发的）。
- * Web 没有 BaoCut 会话可发，是截图模式（model/markup.ts 的 `markupMode`，只看宿主平台）：没有选择元素与评论，「添加到对话」换成
- * 「复制图片」与「下载图片」——当前帧的画面加上这一帧的标记画成一张 PNG；复制、下载后标记留着，关闭时有标记就问一句。
+ * Web 没有 BaoCut 会话可发，是截图模式（model/markup.ts 的 `markupMode`，只看宿主平台）：没有评论（选择元素保留），「添加到对话」换成
+ * 「复制图片」与「下载图片」——当前帧的画面加上这一帧的标记画成一张 PNG；复制、下载出去后这一帧的标记清掉，关闭时有标记就问一句。
  */
 
 /** 拖动短于这么多像素算「点了一下」。 */
@@ -152,7 +168,7 @@ const textInput = style({
   borderColor: 'gray-500',
   borderRadius: 'sm',
   backgroundColor: '[rgb(255 255 255 / 0.15)]',
-  fontWeight: 'bold',
+  fontFamily: { default: 'sans', family: { sans: 'sans', serif: 'serif', mono: 'code' } },
   lineHeight: '[1.2]',
   color: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
   outlineStyle: 'none',
@@ -214,15 +230,25 @@ const anchorDot = style({ position: 'absolute', width: 1, height: 1, pointerEven
 const commentForm = style({ display: 'flex', flexDirection: 'column', gap: 12, width: 280, maxWidth: 'full' });
 const commentActions = style({ display: 'flex', justifyContent: 'end', gap: 8 });
 /**
- * 工具条：浮在舞台之上（挂在 body 下的 portal、fixed 定位，不受舞台 overflow 裁切），底边离舞台底 12、对舞台水平居中，
- * 比舞台宽时左右收进窗口 8 以内（原型 `.mk-bar`）；一行，按内容定宽、不折行（舞台窄时也不把「添加到对话」挤成几行）。
+ * 主工具条与副工具条叠成一列（原型 `.mk-stack`）：浮在舞台之上（挂在 body 下的 portal、fixed 定位，不受舞台 overflow 裁切），
+ * 底边离舞台底 12、主工具条对舞台水平居中，比舞台宽时左右收进窗口 8 以内；两条间隔 2、左端对齐（副工具条不参与居中）。
+ */
+const stack = style({
+  position: 'fixed',
+  zIndex: 12,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'start',
+  gap: 2,
+});
+/** 工具条上的下拉与提示挂在这一层（不占位）：在两条工具条之后，往上弹的菜单压在主工具条之上。 */
+const popLayer = style({ position: 'absolute', top: 0, left: 0, width: 0, height: 0 });
+/**
+ * 一条工具条：一行，按内容定宽、不折行（舞台窄时也不把「添加到对话」挤成几行）。
  * 外观照 S2 ActionBar 的容器：elevated 底、lg 圆角、细边、elevated 阴影。不直接用 ActionBar：它固定带「已选 N 项」与清除钮、
  * 零项时整个隐藏，子节点只收安静的 ActionButton，放不下切换态、分隔线与主按钮。
  */
 const bar = style({
-  position: 'fixed',
-  zIndex: 12,
-  transform: 'translateX(-50%)',
   width: 'max',
   whiteSpace: 'nowrap',
   display: 'flex',
@@ -237,10 +263,17 @@ const bar = style({
   backgroundColor: 'elevated',
   boxShadow: 'elevated',
 });
+/** 副工具条上一组钮（一排形状、文字的样式）。 */
+const group = style({ display: 'flex', alignItems: 'center', gap: 4 });
+/** 下拉钮上的当前值（字号的数字、字体名；字体名用那种字体写）。 */
+const barValue = style({
+  fontSize: 'ui-sm',
+  fontFamily: { default: 'sans', family: { sans: 'sans', serif: 'serif', mono: 'code' } },
+});
 const divider = style({ width: 1, height: 20, marginX: 4, backgroundColor: 'gray-300', flexShrink: 0 });
 /**
  * 工具钮：安静的图标钮，24 方、图标 16、小圆角，底色过渡 60ms 一档；当前工具浅蓝底、蓝图标（照原型的 `.ibtn.is-on`；
- * S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。带下拉的（形状 / 颜色 / 粗细）随内容加宽、左右不留白，图标右边紧跟一枚小箭头；
+ * S2 的切换钮选中是灰底，所以用 RAC 的钮自己画）。带下拉的（形状 / 颜色 / 粗细 / 标记过的帧）随内容加宽、左右各留 4，图标右边紧跟一枚小箭头；
  * 下拉打开时 RAC 把触发钮当按着，显示按下底色；撤销 / 重做无可撤时置灰。
  */
 const toolBtn = style({
@@ -251,7 +284,7 @@ const toolBtn = style({
   height: 24,
   minWidth: 24,
   boxSizing: 'border-box',
-  paddingX: 0,
+  paddingX: { default: 0, isMenuTrigger: 4 },
   borderRadius: 'sm',
   borderWidth: 0,
   backgroundColor: {
@@ -369,6 +402,7 @@ interface Draft {
  * `canvasRef` 是预览画布（截图从这里拷一份；这一帧底下是实时合成层时画布透明，改截窗口）。连同工具条与「放弃这些标记？」一起渲染。
  * `pickLive` 问实时合成层（HTML 动画视频的 iframe）里某一点（画布像素）下最内层的节点：同步命中的是实时合成层那件时才问，
  * 问到了用它，问不到退回那个元素命中（lite-editor §11 第 12 条）。
+ * `captureLive` 要实时合成层此刻这一帧的图（页面自己画的 PNG 与摆法）：宿主不能截窗口（Web）时截图靠它，没有或画不全时是 null。
  */
 export function MarkupLayer({
   videoId,
@@ -379,6 +413,7 @@ export function MarkupLayer({
   frame,
   canvasRef,
   pickLive,
+  captureLive,
 }: {
   videoId: Id;
   sequence: Sequence;
@@ -388,11 +423,12 @@ export function MarkupLayer({
   frame: FrameRect;
   canvasRef: { current: HTMLCanvasElement | null };
   pickLive: (point: Point) => Promise<MarkupPick | null>;
+  captureLive?: () => Promise<LiveFrameShot | null>;
 }) {
   const { engine } = useEditorActions();
   const runtime = useRuntime();
   const cache = runtime.videos.documents;
-  const capture = runtime.host.captureFrame?.bind(runtime.host);
+  const capture: CaptureFrame = { window: runtime.host.captureFrame?.bind(runtime.host), live: captureLive, canvas: sequence.canvas };
   /**
    * 截图那一刻画面底下是不是实时合成层（HTML 动画的 iframe）：看引擎这一帧的计划，不看预览状态的 `live`——那个只在替身不可用、
    * 要提醒烘焙时才有，有可用替身的合成照样走实时层、画布照样透明。
@@ -718,7 +754,7 @@ export function MarkupLayer({
 
   /**
    * 这一帧的图（lite-editor §4.1 截图模式）：播放头所在那一帧的画面加上这一帧上的标记（编号按整组数），画法同「添加到对话」的截图。
-   * 底图取此刻的画面（就是用户看着的那一帧）；截不出时退回画这一帧标记时留下的那张。都没有（例如实时合成层的 iframe 拷不进画布）时 null。
+   * 底图取此刻的画面（就是用户看着的那一帧）；截不出时退回画这一帧标记时留下的那张。都没有（例如实时合成层的页面画不全）时 null。
    */
   const frameShot = async (): Promise<Blob | null> => {
     const nowMs = frameMs();
@@ -737,9 +773,11 @@ export function MarkupLayer({
   };
   /**
    * 复制图片：ClipboardItem 在按下的这一刻同步建好、图片以 Promise 交给它（Safari 要求写剪贴板发生在手势里，画图是异步的）。
-   * 剪贴板不可用或被拒时提示改用下载；是图没截出来时按截不出图提示。标记不清、不退出。
+   * 被拒时（Claude 内置浏览器拒了剪贴板写权限）退成富文本复制（`copyImageAsHtml`）并如实提示；那也不行时提示改用下载；
+   * 是图没截出来时按截不出图提示，这两种标记都留着。复制成了（含富文本）就清掉这一帧的标记（别的帧的留着），不退出。
    */
   const copyImage = () => {
+    const shotMs = frameMs();
     const clipboard = typeof ClipboardItem === 'undefined' ? undefined : navigator.clipboard;
     if (!clipboard?.write) {
       ToastQueue.negative(C.copyFailed, { timeout: 5000 });
@@ -749,15 +787,23 @@ export function MarkupLayer({
     const png = shot.then((blob) => blob ?? Promise.reject(new Error('frame unavailable')));
     png.catch(() => {});
     void clipboard.write([new ClipboardItem({ 'image/png': png })]).then(
-      () => ToastQueue.neutral(C.copied, { timeout: 3000 }),
+      () => {
+        useMarkup.getState().forgetFrame(shotMs);
+        ToastQueue.neutral(C.copied, { timeout: 3000 });
+      },
       async () => {
-        if (await shot) ToastQueue.negative(C.copyFailed, { timeout: 5000 });
-        else ToastQueue.neutral(C.captureFailed, { timeout: 4000 });
+        const blob = await shot;
+        if (!blob) ToastQueue.neutral(C.captureFailed, { timeout: 4000 });
+        else if (await copyImageAsHtml(blob)) {
+          useMarkup.getState().forgetFrame(shotMs);
+          ToastQueue.neutral(C.copiedAsHtml, { timeout: 8000 });
+        } else ToastQueue.negative(C.copyFailed, { timeout: 5000 });
       },
     );
   };
-  /** 下载图片：存成 `<视频名>-00m12s400.png`（播放头所在那一帧）。标记不清、不退出。 */
+  /** 下载图片：存成 `<视频名>-00m12s400.png`（播放头所在那一帧）。下载出去了就清掉这一帧的标记，同复制。 */
   const downloadImage = () => {
+    const shotMs = frameMs();
     const name = shotName();
     void frameShot().then((blob) => {
       if (!blob) {
@@ -765,6 +811,7 @@ export function MarkupLayer({
         return;
       }
       downloadBlob(blob, name);
+      useMarkup.getState().forgetFrame(shotMs);
       ToastQueue.neutral(C.downloaded(name), { timeout: 3000 });
     });
   };
@@ -812,6 +859,10 @@ export function MarkupLayer({
   const selected = shown.find((m) => m.id === markup.sel) ?? null;
   const svgMarks = shown.filter((m) => SVG_KINDS.has(m.kind));
   const htmlMarks = shown.filter((m) => !SVG_KINDS.has(m.kind));
+  // 文字输入框：改一条已有的照它的颜色与样子，新写的照工具条的当前值。
+  const editing = textDraft?.id ? markup.marks.find((m) => m.id === textDraft.id) : undefined;
+  const draftColor = editing?.color ?? markup.color;
+  const draftLook = textLook(editing ?? { width: markup.width, ...markup.textStyle });
 
   return (
     <>
@@ -857,8 +908,8 @@ export function MarkupLayer({
           ) : textDraft?.id === m.id ? null : (
             <span
               key={m.id}
-              className={textMark({ tone: m.color })}
-              style={{ left: pct(m.x), top: pct(m.y), fontSize: MARKUP_TEXT_SIZE[m.width] }}
+              className={textMark({ tone: m.color, family: textLook(m).family })}
+              style={{ left: pct(m.x), top: pct(m.y), ...textLook(m).style }}
               data-mark={m.kind}
               onPointerDown={(event) => grab(event, m)}
               onDoubleClick={() => setTextDraft({ id: m.id, x: m.x, y: m.y, text: m.text ?? '' })}
@@ -870,8 +921,8 @@ export function MarkupLayer({
         {selected ? <Selection mark={selected} frame={size} onGrab={(event, k) => grab(event, selected, k)} /> : null}
         {textDraft ? (
           <input
-            className={textInput({ tone: markup.color })}
-            style={{ left: pct(textDraft.x), top: pct(textDraft.y), fontSize: MARKUP_TEXT_SIZE[markup.width] }}
+            className={textInput({ tone: draftColor, family: draftLook.family })}
+            style={{ left: pct(textDraft.x), top: pct(textDraft.y), ...draftLook.style }}
             aria-label={C.textMark}
             placeholder={C.textPlaceholder}
             value={textDraft.text}
@@ -1093,9 +1144,12 @@ function CommentBox({
 }
 
 /**
- * 标记工具条（lite-editor §4.1；照截图标注器，一行）：选择元素 / 评论 / 画笔 / 形状▾ ｜ 文字 ｜ 颜色▾ ｜ 粗细▾ ｜ 撤销 / 重做 ｜ 添加到对话 / 关闭。
- * 撤销 / 重做同 ⌘Z / ⇧⌘Z；删选中的不占钮，走 Delete（标记层的键）。挂在 body 下，按 `anchor` 所在舞台的位置浮在舞台底边上方。
- * 截图模式（Web）没有选择元素与评论（`markupTools`），「添加到对话」换成复制图片 / 下载图片，当前帧上没有能出图的标记时两枚都置灰。
+ * 标记工具条（lite-editor §4.1；照截图标注器）：主工具条一行——选择元素 / 评论 / 画笔 / 形状 ｜ 文字 ｜ 撤销 / 重做 ｜ 标记过的帧▾ ｜
+ * 添加到对话 / 关闭；底下隔 2 贴一条副工具条，左端与主工具条对齐，放开着的工具的属性：形状是一排形状，文字是粗体 / 斜体 / 下划线、
+ * 字号▾、字体▾，右边（左边有东西时竖线隔开）是颜色▾与粗细▾（文字与评论没有粗细，`hasWidth`）。形状钮不带下拉，显示记住的那一种，
+ * 按下就用它画。撤销 / 重做同 ⌘Z / ⇧⌘Z；删选中的不占钮，走 Delete（标记层的键）。挂在 body 下，按 `anchor` 所在舞台的位置浮在
+ * 舞台底边上方；下拉与提示挂进工具条这一层（`UNSAFE_PortalProvider`），往上弹时压在主工具条之上。
+ * 截图模式（Web）没有评论（`markupTools`），「添加到对话」换成复制图片 / 下载图片，当前帧上没有能出图的标记时两枚都置灰。
  */
 export function MarkupBar({
   anchor,
@@ -1111,6 +1165,8 @@ export function MarkupBar({
   onDownloadImage: () => void;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const popContainer = useCallback(() => popRef.current ?? document.body, []);
   const [place, setPlace] = useState<CSSProperties | null>(null);
   useLayoutEffect(() => {
     const stage = anchor.current?.closest<HTMLElement>('[data-preview-stage]') ?? anchor.current;
@@ -1135,25 +1191,34 @@ export function MarkupBar({
   const tools = markupTools(mode);
   const C = MARKUP_COPY;
   const keys = (label: string, k?: string) => (k ? C.withKeys(label, keyLabel(k, MAC)) : label);
-  const toolButton = (tool: MarkupTool, icon: ReactElement) => (
-    <Tip key={tool} label={keys(C.tools[tool], KEYS[tool])}>
+  /** 切换钮：工具、形状与粗体 / 斜体 / 下划线都是它；`tip` 是提示（带快捷键或当前形状），默认同名字。 */
+  const toggle = (key: string, label: string, isSelected: boolean, onChange: () => void, icon: ReactElement, tip = label) => (
+    <Tip key={key} label={tip}>
       <RACToggleButton
         className={({ isSelected, isHovered, isPressed, isFocusVisible }) => toolBtn({ isSelected, isHovered, isPressed, isFocusVisible })}
-        aria-label={C.tools[tool]}
-        isSelected={markup.tool === tool}
-        onChange={() => apply((s) => setTool(s, tool))}
+        aria-label={label}
+        isSelected={isSelected}
+        onChange={onChange}
       >
         {icon}
       </RACToggleButton>
     </Tip>
   );
-  /** 带下拉的钮：图标显示当前值，右边一枚小箭头；是 MenuTrigger 的触发钮。 */
-  const menuButton = (label: string, isSelected: boolean, content: ReactElement) => (
+  const Shape = SHAPE_GLYPHS[markup.shape];
+  const toolButton = (tool: MarkupTool, icon: ReactElement) =>
+    toggle(
+      tool,
+      C.tools[tool],
+      markup.tool === tool,
+      () => apply((s) => setTool(s, tool)),
+      icon,
+      tool === 'shape' ? C.current(C.tools.shape, C.shapes[markup.shape]) : keys(C.tools[tool], KEYS[tool]),
+    );
+  /** 带下拉的钮：显示当前值，右边一枚小箭头；是 MenuTrigger 的触发钮。 */
+  const menuButton = (label: string, content: ReactNode) => (
     <Tip label={label}>
       <RACButton
-        className={({ isHovered, isPressed, isFocusVisible }) =>
-          toolBtn({ isSelected, isHovered, isPressed, isFocusVisible, hasMenu: true })
-        }
+        className={({ isHovered, isPressed, isFocusVisible }) => toolBtn({ isHovered, isPressed, isFocusVisible, isMenuTrigger: true })}
         aria-label={label}
       >
         {content}
@@ -1176,7 +1241,6 @@ export function MarkupBar({
       </RACButton>
     </Tip>
   );
-  const Shape = SHAPE_GLYPHS[markup.shape];
   const count = sendable(markup.marks).length;
   /** 截图模式：当前帧上能出图的标记（别的帧上的不进这一张）。 */
   const onFrameCount = sendable(marksOnFrame(markup.marks, nowMs)).length;
@@ -1193,114 +1257,218 @@ export function MarkupBar({
       </RACButton>
     </Tip>
   );
-  return createPortal(
-    <div
-      ref={barRef}
-      className={bar}
-      style={place ?? { visibility: 'hidden' }}
-      role="toolbar"
-      aria-label={C.toolbar}
-      data-markup-bar
-      onPointerDown={(event) => event.stopPropagation()}
-    >
-      {tools.includes('element') ? toolButton('element', <Select styles={toolIcon} />) : null}
-      {tools.includes('comment') ? toolButton('comment', <Comment styles={toolIcon} />) : null}
-      {toolButton('pen', <Brush styles={toolIcon} />)}
-      <MenuTrigger
-        onOpenChange={(open) => {
-          if (open) apply((s) => setTool(s, 'shape'));
-        }}
-      >
-        {menuButton(C.current(C.tools.shape, C.shapes[markup.shape]), markup.tool === 'shape', <Shape styles={toolIcon} />)}
-        <Menu
-          aria-label={C.shapeMenu}
-          selectionMode="single"
-          selectedKeys={[markup.shape]}
-          onAction={(key) => apply((s) => setShape(s, key as MarkupShape))}
-        >
-          {MARKUP_SHAPES.map((shape) => {
-            const Glyph = SHAPE_GLYPHS[shape];
-            return (
-              <MenuItem key={shape} id={shape} textValue={C.shapes[shape]}>
-                <Glyph />
-                <Text slot="label">{C.shapes[shape]}</Text>
+  const ts = markup.textStyle;
+  /** 副工具条左半：开着的工具自己的属性（选择元素、评论、画笔没有）。 */
+  const own =
+    markup.tool === 'shape' ? (
+      <div className={group} role="group" aria-label={C.shapeMenu}>
+        {MARKUP_SHAPES.map((shape) => {
+          const Glyph = SHAPE_GLYPHS[shape];
+          return toggle(
+            shape,
+            C.shapes[shape],
+            markup.shape === shape,
+            () => apply((s) => setShape(s, shape)),
+            <Glyph styles={toolIcon} />,
+          );
+        })}
+      </div>
+    ) : markup.tool === 'text' ? (
+      <div className={group}>
+        {toggle('bold', C.textStyles.bold, ts.bold, () => apply((s) => setTextStyle(s, { bold: !ts.bold })), <TagBold styles={toolIcon} />)}
+        {toggle(
+          'italic',
+          C.textStyles.italic,
+          ts.italic,
+          () => apply((s) => setTextStyle(s, { italic: !ts.italic })),
+          <TagItalic styles={toolIcon} />,
+        )}
+        {toggle(
+          'underline',
+          C.textStyles.underline,
+          ts.underline,
+          () => apply((s) => setTextStyle(s, { underline: !ts.underline })),
+          <TagUnderline styles={toolIcon} />,
+        )}
+        <MenuTrigger>
+          {menuButton(
+            C.current(C.fontSize, String(ts.size)),
+            <>
+              <TextSize styles={toolIcon} />
+              <span className={barValue({})}>{ts.size}</span>
+            </>,
+          )}
+          <Menu
+            aria-label={C.fontSize}
+            selectionMode="single"
+            selectedKeys={[ts.size]}
+            onAction={(key) => apply((s) => setTextStyle(s, { size: Number(key) as MarkupTextStyle['size'] }))}
+          >
+            {MARKUP_TEXT_SIZES.map((size) => (
+              <MenuItem key={size} id={size} textValue={String(size)}>
+                <Text slot="label">{size}</Text>
               </MenuItem>
-            );
-          })}
-        </Menu>
-      </MenuTrigger>
-      <span className={divider} />
-      {toolButton('text', <TextIcon styles={toolIcon} />)}
-      <span className={divider} />
-      <MenuTrigger>
-        {menuButton(C.current(C.color, C.colors[markup.color]), false, <span className={swatchDot({ tone: markup.color })} />)}
-        <Menu
-          aria-label={C.color}
-          selectionMode="single"
-          selectedKeys={[markup.color]}
-          onAction={(key) => apply((s) => setColor(s, key as VideoAnnotationColor))}
-        >
-          {MARKUP_COLORS.map((color) => (
-            <MenuItem key={color} id={color} textValue={C.colors[color]}>
-              <Text slot="label">
-                <span className={menuRow}>
-                  <span className={swatchDot({ tone: color })} />
-                  {C.colors[color]}
-                </span>
-              </Text>
-            </MenuItem>
-          ))}
-        </Menu>
-      </MenuTrigger>
-      <span className={divider} />
-      <MenuTrigger>
-        {menuButton(C.current(C.width, C.widthValue(markup.width)), false, <WidthLine width={markup.width} />)}
-        <Menu
-          aria-label={C.width}
-          selectionMode="single"
-          selectedKeys={[markup.width]}
-          onAction={(key) => apply((s) => setWidth(s, Number(key) as VideoAnnotationWidth))}
-        >
-          {MARKUP_WIDTHS.map((width) => (
-            <MenuItem key={width} id={width} textValue={C.widthValue(width)}>
-              <Text slot="label">
-                <span className={menuRow}>
-                  <WidthLine width={width} long />
-                </span>
-              </Text>
-            </MenuItem>
-          ))}
-        </Menu>
-      </MenuTrigger>
-      <span className={divider} />
-      {historyButton(C.undo, '⌘Z', canUndo(markup), undo, <UndoIcon styles={toolIcon} />)}
-      {historyButton(C.redo, '⇧⌘Z', canRedo(markup), redo, <RedoIcon styles={toolIcon} />)}
-      <span className={divider} />
-      {mode === 'screenshot' ? (
-        <>
-          {imageButton(C.copyImage, onCopyImage, <Copy styles={toolIcon} />)}
-          {imageButton(C.downloadImage, onDownloadImage, <Download styles={toolIcon} />)}
-        </>
-      ) : (
-        <Button size="S" variant="primary" isDisabled={!count} onPress={onAddToChat}>
-          {C.addToChat}
-        </Button>
-      )}
-      <Tip label={C.close}>
-        <ActionButton size="S" isQuiet aria-label={C.close} onPress={() => useMarkup.getState().close()}>
-          <Close />
-        </ActionButton>
-      </Tip>
+            ))}
+          </Menu>
+        </MenuTrigger>
+        <MenuTrigger>
+          {menuButton(C.current(C.font, C.fonts[ts.font]), <span className={barValue({ family: ts.font })}>{C.fonts[ts.font]}</span>)}
+          <Menu
+            aria-label={C.font}
+            selectionMode="single"
+            selectedKeys={[ts.font]}
+            onAction={(key) => apply((s) => setTextStyle(s, { font: key as MarkupTextStyle['font'] }))}
+          >
+            {MARKUP_FONTS.map((font) => (
+              <MenuItem key={font} id={font} textValue={C.fonts[font]}>
+                <Text slot="label">
+                  <span className={barValue({ family: font })}>{C.fonts[font]}</span>
+                </Text>
+              </MenuItem>
+            ))}
+          </Menu>
+        </MenuTrigger>
+      </div>
+    ) : null;
+  return createPortal(
+    <div className={stack} style={place ?? { visibility: 'hidden' }} data-markup-bar onPointerDown={(event) => event.stopPropagation()}>
+      <div ref={popRef} className={popLayer} />
+      <UNSAFE_PortalProvider getContainer={popContainer}>
+        <div ref={barRef} className={bar} role="toolbar" aria-label={C.toolbar}>
+          {tools.includes('element') ? toolButton('element', <Select styles={toolIcon} />) : null}
+          {tools.includes('comment') ? toolButton('comment', <Comment styles={toolIcon} />) : null}
+          {toolButton('pen', <Draw styles={toolIcon} />)}
+          {toolButton('shape', <Shape styles={toolIcon} />)}
+          <span className={divider} />
+          {toolButton('text', <TextIcon styles={toolIcon} />)}
+          <span className={divider} />
+          {historyButton(C.undo, '⌘Z', canUndo(markup), undo, <UndoIcon styles={toolIcon} />)}
+          {historyButton(C.redo, '⇧⌘Z', canRedo(markup), redo, <RedoIcon styles={toolIcon} />)}
+          <span className={divider} />
+          <MarkBookmarks />
+          <span className={divider} />
+          {mode === 'screenshot' ? (
+            <>
+              {imageButton(C.copyImage, onCopyImage, <Copy styles={toolIcon} />)}
+              {imageButton(C.downloadImage, onDownloadImage, <Download styles={toolIcon} />)}
+            </>
+          ) : (
+            <Button size="S" variant="primary" isDisabled={!count} onPress={onAddToChat}>
+              {C.addToChat}
+            </Button>
+          )}
+          <Tip label={C.close}>
+            <ActionButton size="S" isQuiet aria-label={C.close} onPress={() => useMarkup.getState().close()}>
+              <Close />
+            </ActionButton>
+          </Tip>
+        </div>
+        <div className={bar} role="toolbar" aria-label={C.toolOptions(C.tools[markup.tool])} data-markup-options={markup.tool}>
+          {own}
+          {own ? <span className={divider} /> : null}
+          <MenuTrigger>
+            {menuButton(C.current(C.color, C.colors[markup.color]), <span className={swatchDot({ tone: markup.color })} />)}
+            <Menu
+              aria-label={C.color}
+              selectionMode="single"
+              selectedKeys={[markup.color]}
+              onAction={(key) => apply((s) => setColor(s, key as VideoAnnotationColor))}
+            >
+              {MARKUP_COLORS.map((color) => (
+                <MenuItem key={color} id={color} textValue={C.colors[color]}>
+                  <Text slot="label">
+                    <span className={menuRow}>
+                      <span className={swatchDot({ tone: color })} />
+                      {C.colors[color]}
+                    </span>
+                  </Text>
+                </MenuItem>
+              ))}
+            </Menu>
+          </MenuTrigger>
+          {hasWidth(markup.tool) ? (
+            <MenuTrigger>
+              {menuButton(C.current(C.width, C.widthValue(markup.width)), <WidthLine width={markup.width} />)}
+              <Menu
+                aria-label={C.width}
+                selectionMode="single"
+                selectedKeys={[markup.width]}
+                onAction={(key) => apply((s) => setWidth(s, Number(key) as VideoAnnotationWidth))}
+              >
+                {MARKUP_WIDTHS.map((width) => (
+                  <MenuItem key={width} id={width} textValue={C.widthValue(width)}>
+                    <Text slot="label">
+                      <span className={menuRow}>
+                        <WidthLine width={width} long />
+                      </span>
+                    </Text>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </MenuTrigger>
+          ) : null}
+        </div>
+      </UNSAFE_PortalProvider>
     </div>,
     document.body,
   );
 }
 
-/** 工具条的落点（视口坐标，配 `translateX(-50%)`）：对舞台水平居中、底边离舞台底 12；比舞台宽时左右收进窗口 8 以内。 */
+/**
+ * 标记帧的书签（lite-editor §4.1）：一枚带下拉的钮，列出画过标记的每一帧（时码 · 几处标记），点一项定位到那一帧；播放头所在的那一帧打勾。
+ * 时间线上的印章挤在一起时靠它挑。没有标记时置灰。
+ */
+function MarkBookmarks() {
+  const { seek } = useEditorActions();
+  const marks = useMarkup((s) => s.markup.marks);
+  const frames = useMemo(() => markedFrames(marks), [marks]);
+  const nowMs = useEditor((s) => Math.round(s.playhead * 1000));
+  const current = currentFrame(frames, nowMs);
+  const C = MARKUP_COPY;
+  const label = frames.length ? C.current(C.bookmarks, String(frames.length)) : C.bookmarks;
+  return (
+    <MenuTrigger>
+      <Tip label={label}>
+        <RACButton
+          className={({ isHovered, isPressed, isFocusVisible, isDisabled }) =>
+            toolBtn({ isHovered, isPressed, isFocusVisible, isDisabled, isMenuTrigger: true })
+          }
+          aria-label={label}
+          isDisabled={!frames.length}
+        >
+          <Bookmark styles={toolIcon} />
+          <span className={chevronWrap} aria-hidden>
+            <ChevronDown UNSAFE_style={chevronFill} />
+          </span>
+        </RACButton>
+      </Tip>
+      <Menu
+        aria-label={C.bookmarks}
+        selectionMode="single"
+        selectedKeys={current ? [String(current.timeMs)] : []}
+        onAction={(key) => seek(Number(key) / 1000)}
+      >
+        {frames.map((frame) => {
+          const text = C.bookmarkItem(formatTenths(frame.timeMs / 1000), frame.count);
+          return (
+            <MenuItem key={frame.timeMs} id={String(frame.timeMs)} textValue={text}>
+              <Text slot="label">{text}</Text>
+            </MenuItem>
+          );
+        })}
+      </Menu>
+    </MenuTrigger>
+  );
+}
+
+/**
+ * 工具条一列的落点（视口坐标，左边沿）：主工具条（宽 `width`）对舞台水平居中、底边离舞台底 12；比舞台宽时左右收进窗口 8 以内。
+ * 副工具条左端跟着主工具条。
+ */
 export function barPlace(stage: Pick<DOMRect, 'left' | 'width' | 'bottom'>, width: number, viewW: number, viewH: number): CSSProperties {
   const half = width / 2;
   const center = stage.left + stage.width / 2;
-  return { left: Math.max(8 + half, Math.min(viewW - 8 - half, center)), bottom: viewH - stage.bottom + 12 };
+  return { left: Math.max(8 + half, Math.min(viewW - 8 - half, center)) - half, bottom: viewH - stage.bottom + 12 };
 }
 
 /** 粗细的示意：一段这么粗的横线，圆头缩在框里（最粗的是一枚短胶囊）；下拉里的 `long` 更长一些。 */
@@ -1315,6 +1483,38 @@ function WidthLine({ width, long = false }: { width: VideoAnnotationWidth; long?
 
 // ---- 帧截图 ----
 
+/**
+ * 异步剪贴板写不进图时的退路（lite-editor §4.1 截图模式）：Claude 桌面版的内置浏览器把 `clipboard-write` 权限拒了（`write` 与
+ * `writeText` 都是 NotAllowedError，2026-10-21 实测），`document.execCommand('copy')` 仍然可用，但 `copy` 事件里只写得进文字与 HTML，
+ * 放进去的文件只落下文件名。于是写一份 HTML：`<img>` 内嵌这张 PNG 的 data 地址——文档、笔记这类收富文本的地方贴得成图，只收图片
+ * 文件的地方贴不进去，提示里照实说。要在点按的用户激活还有效时调（Chromium 约 5 秒）；写不进去时 false。
+ */
+async function copyImageAsHtml(blob: Blob): Promise<boolean> {
+  if (typeof document.execCommand !== 'function') return false;
+  const url = await new Promise<string | null>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+  if (!url?.startsWith('data:image/png;base64,')) return false;
+  let wrote = false;
+  const onCopy = (event: ClipboardEvent) => {
+    if (!event.clipboardData) return;
+    event.preventDefault();
+    event.clipboardData.setData('text/html', `<img src="${url}" alt="">`);
+    wrote = true;
+  };
+  document.addEventListener('copy', onCopy, true);
+  try {
+    return document.execCommand('copy') && wrote;
+  } catch {
+    return false;
+  } finally {
+    document.removeEventListener('copy', onCopy, true);
+  }
+}
+
 /** 此刻的播放头，毫秒整数（标记属于这一帧）。 */
 function frameMs(): number {
   return Math.round(useEditor.getState().playhead * 1000);
@@ -1323,7 +1523,8 @@ function frameMs(): number {
 /**
  * 画下第一条标记的那一刻把那一帧拷成 PNG 留在 store 里（同一帧只留第一次；出不了图就不留，「添加到对话」时再提示）。
  * 底下是实时合成层（HTML 动画的 iframe，画布上透明）而宿主能截窗口时截窗口里画面那一块——先把标记层、工具条与草稿标注层藏起来、
- * 等两帧，截完再放回来；否则同步拷预览画布，PNG 编码在后面慢慢做。此刻的定位若还在路上，截到的是画面上实际那一帧。
+ * 等两帧，截完再放回来；宿主不能截窗口（Web）时问实时合成层要这一帧再叠预览画布；否则同步拷预览画布，PNG 编码在后面慢慢做。
+ * 此刻的定位若还在路上，截到的是画面上实际那一帧。
  */
 async function keepFrame(timeMs: number, source: HTMLCanvasElement | null, live: boolean, capture: CaptureFrame): Promise<void> {
   const store = useMarkup.getState();
@@ -1331,7 +1532,12 @@ async function keepFrame(timeMs: number, source: HTMLCanvasElement | null, live:
   const png = await grabFrame(source, live, capture).catch(() => null);
   if (png) useMarkup.getState().keepFrame(timeMs, png);
 }
-type CaptureFrame = HostBridge['captureFrame'];
+/** 实时合成层露着时怎么截：宿主截窗口（Electron），或问实时合成层要这一帧再叠预览画布（Web）；`canvas` 是序列画布的尺寸。 */
+interface CaptureFrame {
+  window: HostBridge['captureFrame'];
+  live: (() => Promise<LiveFrameShot | null>) | undefined;
+  canvas: { width: number; height: number };
+}
 const OVERLAYS = '[data-markup], [data-video-annotations]';
 const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 /**
@@ -1350,12 +1556,21 @@ function overlaysToHide(stage: HTMLElement | null): HTMLElement[] {
   return found;
 }
 /**
- * 此刻的那一帧：实时合成层露着时截窗口（Electron），否则拷画布。实时合成层露着而宿主不能截窗口（Web）时画布上是透明的，
- * 拷下来只有空白，算截不出图（不把空白当那一帧发出去）。
+ * 此刻的那一帧：实时合成层露着时截窗口（Electron）；宿主不能截窗口（Web）时问实时合成层要这一帧、垫在预览画布底下合成；
+ * 否则拷画布。实时合成层露着而两样都拿不到时画布上是透明的，拷下来只有空白，算截不出图（不把空白当那一帧发出去）。
  */
 async function grabFrame(source: HTMLCanvasElement, live: boolean, capture: CaptureFrame): Promise<Blob | null> {
   if (!live) return snapshot(source);
-  if (!capture) return null;
+  if (capture.window) return captureWindow(source, capture.window);
+  const shot = capture.live ? await capture.live().catch(() => null) : null;
+  if (!shot) return null;
+  // 画面框的底色：实时层没铺到的地方用户看到的就是它（同 preview.tsx 的 frame）。
+  const frameEl = source.parentElement;
+  const background = (frameEl && getComputedStyle(frameEl).backgroundColor) || '#000';
+  return composeLiveFrame(source, shot, capture.canvas, background);
+}
+/** 截窗口里预览画面那一块（Electron）：先把标记层、工具条与评论框藏起来、等两帧，截完再放回来。 */
+async function captureWindow(source: HTMLCanvasElement, capture: NonNullable<HostBridge['captureFrame']>): Promise<Blob | null> {
   const stage = source.closest<HTMLElement>('[data-preview-stage]') ?? source.parentElement;
   const overlays = overlaysToHide(stage);
   const shown = overlays.map((el) => el.style.visibility);

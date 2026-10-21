@@ -100,4 +100,5 @@ export const it: EditLabelMessages = {
   editTemplateLayout: 'Modifica layout del modello',
   lockTemplateRatio: 'Blocca il rapporto d’aspetto del modello',
   unlockTemplateRatio: 'Sblocca il rapporto d’aspetto del modello',
+  restoreScript: (p) => `Ripristina la versione ${p.version} del copione`,
 };

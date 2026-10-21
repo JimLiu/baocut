@@ -1,6 +1,8 @@
 import type { JobsLinkImportMessages } from './link-import.ts';
 
 export const pl: JobsLinkImportMessages = {
+  sectionItems: 'może zawierać tylko zakresy { start, end } w sekundach, 0 ≤ start < end',
+  sectionOutOfRange: (p) => `Fragment do ${p.end} s wykracza poza koniec wideo (${p.duration} s)`,
   languageTag: "musi być znacznikiem języka BCP 47",
   requiresTranscribe: "można podać tylko z transcribe",
   noVideoDiarize: "Bez docelowego wideo zapisywane są tylko osobne transkrypcje; nie można rozróżnić mówców",

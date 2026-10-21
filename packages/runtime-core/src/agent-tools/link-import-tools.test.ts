@@ -188,6 +188,25 @@ describe('download：文件存到哪里', () => {
   });
 });
 
+describe('download：只下几段', () => {
+  it('sections 原样交给流程，next 说明每段一条产物；与 transcribe、subs 同给时拒绝，不弹确认、不启动流程', async () => {
+    const { deps, started, confirmed } = harness();
+    const tools = new LinkImportTools(deps);
+    const sections = [
+      { start: 754, end: 781.5 },
+      { start: 2410, end: 2433 },
+    ];
+    for (const extra of [{ transcribe: true }, { subs: ['en'] }]) {
+      expect((await refused(tools.dispatch('download', { url: LINK, video: 'vid_1', sections, ...extra }, agent))).code).toBe('INVALID_ARGUMENTS');
+    }
+    expect(started).toEqual([]);
+    expect(confirmed).toEqual([]);
+    const result = (await tools.dispatch('download', { url: LINK, video: 'vid_1', sections }, agent)) as { next: string };
+    expect(started[0]).toMatchObject({ url: LINK, videoId: 'vid_1', sections });
+    expect(result.next).toContain('summary.sections');
+  });
+});
+
 describe('download：不属于项目的会话把新视频建到别处', () => {
   /**
    * 假的无项目会话：`project` 是目录时 `locate` 只带上落点（来源仍是会话）；确认之后的调用把会话放进项目，工作目录随之换成项目目录。

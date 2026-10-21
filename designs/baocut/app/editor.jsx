@@ -220,7 +220,7 @@
        退出标注就清掉（工具、颜色、粗细留着）；关闭时画面上还有没发的标记先问一句（`ask`，工具条上的 ConfirmDialog） */
     const MKP = window.BC_MARKUP;
     const [markup, setMarkup] = useState(() => (MKP ? MKP.init() : null));
-    useEffect(() => { if (!annotating && MKP) setMarkup(m => (m && !m.marks.length && !m.ask ? m : MKP.init(m ? {tool: m.tool, shape: m.shape, color: m.color, width: m.width} : undefined))); }, [annotating]);
+    useEffect(() => { if (!annotating && MKP) setMarkup(m => (m && !m.marks.length && !m.ask ? m : MKP.init(m ? MKP.keep(m) : undefined))); }, [annotating]);
     const closeMarkup = useCallback(() => {
       if (markup && markup.marks.length) setMarkup(m => ({...m, ask: true}));
       else setAnnotating(false);

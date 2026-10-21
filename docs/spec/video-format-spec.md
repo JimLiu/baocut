@@ -852,6 +852,7 @@ interface CaptionItem extends ItemBase {
 - **时钟**。字幕文档里的时间要么在源素材的时钟上，要么已经是序列时间，由文档自己声明。`scopeItemIds` 列出把字幕投影到序列上的实例：一行字幕的源时间落在某个实例取用的源区间里，就经过那个实例的 `timeMap` 映射到序列时间；落在所有实例之外的行（被剪掉的话）不显示。`scopeItemIds` 省略表示文档里的时间已经是序列时间。
 - `span` 限定显示的范围：投影之后落在 `span` 之外的行不显示。
 - 一个字幕实例显示一份文档。双语字幕是两条字幕轨道上的两个实例，各自启用或停用；原文与译文不要求逐行对应（§5.1）。
+- **说话人**。一句的说话人是字幕文档里这一句的 `speaker`（显示名），没写时取这一句第一个词在转写里的说话人（转写 `speakers` 里的 `name`，没有名字时是说话人 ID）。Studio 样式的 `speakerLabel: { on, scale?, color? }` 打开时，有说话人的句子在字幕块最上面多画一行名字：字号是最上面那行的 `scale` 倍（缺省 0.62，夹在 0.3–1），颜色缺省 `#BBBBBB`，其余跟那一行一样，不带逐词与文字动画，随整块出入场；双语时取原文行的说话人。缺省关，没有说话人的句子不画。原声片段的「说话人 + 译文 + 原话」就是双语两层字幕加这个开关。
 - **句子的词**。字幕文档（`baocut.caption/1`）的一句可以用 `words`（`{ first, last }` 或 `{ wordIds }`）指向文档头 `sourceDocumentId` 那份转写（`kind: speech`）里的词，生成字幕时写上。逐词动画、逐词高亮与设计字幕的强调（样式里按词 ID 写的 `captionEmphasis`）按这些词推进，词取自有效词流（§5.7）：隐藏的词与剪掉的词不画，句子里有词因此被拿掉时按留下的词重拼文字（认词上的「贴前」标记），一个也不剩的句子不画；多字的 CJK 词按转写落盘的规则逐字拆开，时间按字符权重分摊，子 ID 是 `<词 ID>~<k>`（第一个字沿用词 ID），写在整个词上的强调落到它拆出来的每个字上。逐句样式（样式里的 `cueStyles`）按字幕文档里的句子 ID 找。在源素材时钟上的字幕用词自己的源时刻；在序列时钟上的字幕用词投到序列上、与这一句重叠的那一处。没写 `words` 的句子取时刻落在句子里的词，文字不动。译文字幕、导入的字幕与不派生自转写的字幕没有词，逐词动画按空白切分推算，不冒充词时间（§5.6）。
 
 ### 3.9 混音、转场与效果
@@ -1355,6 +1356,7 @@ interface FileLocator {
 - 已经按绝对路径登记、其实在项目里的链接（这条规则之前导入的）不批量迁移，也不从旧路径猜测新位置：项目被移动之后它们按缺失报告，用 `relinkAsset` 重新指向，定位随之改成相对路径。
 - 文件挪了地方用 `relinkAsset`：核对新位置上的内容与登记的 `contentHash` 一致，然后更新定位。
 - 收进来与重新链接都**不产生新版本**，引用这个版本的实例不受影响。
+- 导入的 bytes 与视频里某个素材当前版本的相同时，复用那个素材，不新增记录，也不改它的来源。例外是烘焙出的预渲染替身（§4.5 的 `composition-bake`）：来源记的 `sourceBundleRef` 与那个版本的不同（另一个代码包版本烘出了相同的画面）时，那个素材加一个版本，bytes 相同，来源是这次的烘焙记录（代码包规范 §7.4）。
 - 同一路径上出现了不同的 bytes 是**新版本**，不是重新链接：必须经显式的替换素材版本，并由它影响选定的实例（架构设计 §5.3）。`relinkAsset` 遇到内容不一致时拒绝。
 - 链接的文件找不到时，视频照常打开，素材标为缺失；用到它的实例不得画成空白之后当作成功。缺失经 `videos.assetStatus` 报告（命令与协议规范 §4.1）：每个素材的当前版本与实例引用的版本里，此刻读不到的逐个列出，原因是 `missing`（不在了）、`changed`（已经不是登记时的文件）或 `outside-project`（相对定位越出了项目目录），与取用时 `ASSET_MISSING` 的 `details.reason` 相同。它只看文件在不在、长度对不对，不重算摘要。
 - `linked` 且 `frozen = false` 的素材不能用于严格的冻结导出（架构设计 §5.6）。
@@ -1444,9 +1446,11 @@ interface Provenance {
 | `editorial-proposal` | 口播剪辑提案 | 已实现 | §6.2 |
 | `cut-set` | 一个源素材上被口播剪辑删掉的区间 | `baocut.cut-set/1` | §6.7 |
 | `derivation` | 派生子视频的来源：父视频、版本、区间与区间之外的剪口 | `baocut.derivation/1` | 见下 |
+| `production-plan` | 制作计划放上时间线的记录：每个段落、实拍片段、卡片与水印对应哪个片段，用的是哪一版内容 | `baocut.production-plan/1` | 见下 |
 | `dubbing-plan` | 配音计划 | 计划 | §7.2 |
 | `sound-cue-sheet`、`narration-cue-sheet` | 声音事件表、旁白事件表 | 计划 | §7.9、§7.10 |
 | `chapter-sheet` | 章节表：一个序列的每一章的脚本、配音、代码包与它编译成的实例与标记 | `baocut.chapter-sheet/1`（今天只有界面读脚本，编译未实现） | §7.12 |
+| `script` | 做视频时写下的整份脚本（Markdown），版本就是文档的版本 | `baocut.script/1` | §7.13 |
 
 - 时间在正文里用整数表示，并写明时间基与时钟：`timescale`（每秒的刻度数）与 `clock`（`source-asset`：这份文档或它的来源文档的 `sourceAssetId` 所指素材的时钟；`sequence`：序列时间）。不用浮点秒。
 - 引擎只核对 `baocut.speech/1` 与 `baocut.translation/2` 里 §5.2、§5.3 补充的字段：出现时形状必须对（类型、枚举值与取值范围），引用的词在不在不查；`baocut.cut-set/1` 按 §6.7 的约束整份核对。其余正文不校验。带 `/1` 的几种格式是导入旧项目时定下来的，比 §5 描述的模型简单；二者怎么统一列在 §10。
@@ -1481,6 +1485,27 @@ interface Provenance {
   `hook`、`reason`、`notes` 是加上去的可选字段（派生时调用方给了才写，不参与幂等键），旧文档没有它们照常读；界面没有 `hook` 时取子视频保留段的第一句，没有 `reason`、`notes` 时不显示。
 
   子视频复制了父视频的时间线与文稿，区间之外的部分是记在主素材剪口集合（`cut-set`，§6.7）里的剪口，恢复它们就回到父视频的样子；`cuts` 只是派生时记下的那几个，剪口集合才是当前状态。
+
+- `production-plan` 是 `edits_assemble`（Agent 面设计 §4.3）把制作计划放上时间线之后写的记录：每个视频至多一份，有几份时只认 ID 最小的一份，名字「制作计划」（按当前语言）。重跑时靠它认出哪些段落、片段与卡片已经放好、内容没变，只动变了的；中途失败时写到失败之前放好的部分。正文：
+
+  ```ts
+  interface ProductionPlanBody {
+    schema: 'baocut.production-plan/1';
+    tracks: { scenes: Id; narration: Id; footage: Id | null; cards: Id | null; watermarks: Id | null };  // 放到了哪几条轨；没有这一类时 null
+    segments: Array<{
+      id: string;                 // 计划里段落的 id
+      contentHash: string;        // 时间线上那个代码画面用的代码包的内容摘要
+      sceneItem: Id;              // 代码画面的片段
+      narration: string | null;   // 旁白：'artifact:<产物 ID>' 或 'sha256:<文件内容摘要>'；没有旁白时 null
+      narrationItem: Id | null;   // 旁白的片段
+    }>;
+    clips: Array<{ id: string; key: string; item: Id }>;          // 实拍片段：key 是源（路径、文件大小与修改时间）、入点、长度、画面、声音与转场的 sha256
+    cards: Array<{ id: string; contentHash: string; item: Id }>;  // 卡片：代码包的内容摘要
+    watermarks: Array<{ id: string; key: string; item: Id }>;     // 水印：key 是图片（路径、文件大小与修改时间）、长度、位置与放法的 sha256
+  }
+  ```
+
+  记录里只有摘要与 ID，没有本机路径，便携包照常带出去。重跑时按记录里的片段 ID 找，不按名字。`tracks.watermarks` 与 `watermarks` 是后加的，没有它们的记录按没有水印读。实拍片段、卡片、水印或旁白被手动删掉时重新放；代码画面被连同时间一起删掉（`removeRange`）时当作中间插进的段落放回，只删了片段、留下空隙时后面的段落对不上记录，以 `LAYOUT_MISMATCH` 拒绝。
 
 - `library-selection` 记视频启用了用户库里的哪些条目（架构设计 §5.9）：每个视频至多一份，有几份时只认 ID 最小的一份，名字「启用的库条目」。它记条目 ID，不记内容；条目的内容在用到时冻结，记在用到它的文档或任务上（例如译文的 `glossaryRef`，§5.3）。正文：
 
@@ -2481,8 +2506,26 @@ interface ChapterSheetBody {
 ```
 
 - `chapters` 的顺序是播放顺序；字段的含义、时长归属与过期链见动效视频设计 §2.2–§2.4。
-- 今天的实现：章节表由写入方（智能体、拼装脚本）经 `putDocument` / `documents_put` 写入，`compiled` 由写入方按它放上时间线的实例与 `chapter` 标记填；Runtime 不编译、不核对正文（与 §4.6 其余正文一样）。读的一方只有轻量视图的侧栏：`compiled[章节 ID].markerId` 对到序列上的章节标记，那一段显示这一章的 `script.markdown`（只读，[轻量编辑器设计](../design/lite-editor/lite-editor-design.md) §3「侧栏」）；`sequenceId` 不是这个序列、或 `schema` 不认识时整份不读。
+- 今天的实现：章节表由写入方（智能体、拼装脚本）经 `putDocument` / `documents_put` 写入，`compiled` 由写入方按它放上时间线的实例与 `chapter` 标记填；Runtime 不编译、不核对正文（与 §4.6 其余正文一样）。读的一方只有轻量视图的侧栏：`compiled[章节 ID].markerId` 对到序列上的章节标记，「台词」页那一段显示这一章的 `script.markdown`（只读），「脚本」页按这个对应把正在播的那一段对到整份脚本（§7.13）里以章节 ID 开头的小节（[轻量编辑器设计](../design/lite-editor/lite-editor-design.md) §3「侧栏」）；`sequenceId` 不是这个序列、或 `schema` 不认识时整份不读。
 - `chapters_compile`、过期传播与 §7.10 的取代随动效视频设计 §11 第 2 阶段补。
+
+### 7.13 Script
+
+做这部视频时写下的整份脚本：存为 `kind: 'script'` 的文档，正文 `schema` 为 `baocut.script/1`。一部视频通常一份；多于一份时读的一方取当前版本最新写入的那份。
+
+```ts
+interface ScriptBody {
+  schema: 'baocut.script/1';
+  markdown: string;          // 整份脚本；小节用 Markdown 标题，标题第一个词写章节表的章节 ID（`## s02 聊天 AI 在写作文`）时能对到章节
+  file?: string;             // 生成方那边的文件名（`脚本.md`），只用来显示
+}
+```
+
+- 脚本的版本就是这份文档的版本（§4.4）：生成方（智能体、拼装脚本）重写一次，经 `putDocument` / `documents_put` 写成新的一版；不另造版本记录。写入的事务按修改历史找到是谁写的。
+- 回到某一版：把那一版的正文原样写成新的一版，文档版本的 `summary` 记 `{ restoredFrom: <那一版的 Revision> }`；之前的版本都还在。正文与当前版本相同时不写。
+- 只换脚本：回到版本不改时间线、旁白、字幕与章节表；要按脚本重做哪一段由智能体另做。
+- `markdown` 不是字符串、或 `schema` 不认识时正文不解释，文档头照常（§4.6）。Runtime 不核对正文。
+- 读的一方今天是轻量视图侧栏的「脚本」页与「脚本的版本」页（[轻量编辑器设计](../design/lite-editor/lite-editor-design.md) §3「侧栏」）：小节对章节先比标题第一个词与章节表的章节 ID（§7.12 的 `compiled[章节 ID].markerId`），再比标题与段名；版本列表按与前一版逐块（空行与标题切块）比对写标题。
 
 ### 7.11 音频事件与视频网格相互独立
 
@@ -2536,7 +2579,7 @@ interface PackageManifest {
 }
 ```
 
-`entries` 是每个素材版本与文档版本一项。收进包的单个文件，它在 `files` 里的 sha256 就是版本的 `contentHash`；目录素材的 `contentHash` 是按 §4.2 的规则算出的目录摘要，由引擎打开时重算。`files` 与归档里的文件一一对应。
+`entries` 是每个素材版本与文档版本一项。收进包的单个文件，它在 `files` 里的 sha256 就是版本的 `contentHash`；目录素材的 `contentHash` 是按 §4.2 的规则算出的目录摘要，由引擎打开时重算。`files` 与归档里的文件一一对应。素材按内容放（`assets/<摘要>`），bytes 相同的几个版本的条目指向同一个文件，那个文件只写一次。
 
 ### 8.2 规则
 

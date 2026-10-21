@@ -29,7 +29,7 @@
     const said = texts.join('；') || label;
     const badge = pin.lead || pin.kind === 'comment' || pin.kind === 'pin';
     return <>
-      {mark.kind === 'text' ? <div className="mk__text mk-c" data-color={mark.color} style={{left: p.x, top: p.y, fontSize: UI.TEXT_SIZE[mark.width] || 20}} aria-hidden="true">{mark.text}</div> : null}
+      {mark.kind === 'text' ? <div className="mk__text mk-c" data-color={mark.color} data-font={UI.textLook(mark).font} style={{left: p.x, top: p.y, ...UI.textLook(mark).style}} aria-hidden="true">{mark.text}</div> : null}
       {mark.kind === 'element' ? <div className="mk__el mk-c" data-color={mark.color} style={{left: p.x, top: p.y, width: p.w, height: p.h}} aria-hidden="true"><span className="mk__el-label">{mark.element?.label}</span></div> : null}
       {badge ? <span ref={anchor} className={cx('stnotes__badge mk-c', pin.kind === 'comment' && 'is-stamp')} data-color={mark.color} style={{left: at.x, top: at.y}}>
         <R.ActionButton size="XS" aria-label={`标注 ${pin.n}：${said}`} aria-expanded={open} aria-haspopup="dialog" onPress={() => setOpen(v => !v)}>{pin.n}</R.ActionButton>

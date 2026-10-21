@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { RpcError, type PackageEntry, type PackageManifest } from '@baocut/protocol';
 import { MAX_ENTRY_BYTES, TarWriter, listArchive, safePackagePath, ustarProblem } from './package-archive.ts';
 import { PackageError, readPackage } from './package-reader.ts';
-import { checkSpace } from './portable-export.ts';
+import { checkSpace, planPortable, type FrozenAsset } from './portable-export.ts';
 import { pathUrl, xmemlRate } from './project-export.ts';
 
 /** `.baocut` 归档的读写与核对：不信任包里的路径、条目种类、清单与内容。 */
@@ -209,6 +209,39 @@ describe('便携包导出的预检与工程导出的小工具', () => {
     expect(error).toBeInstanceOf(RpcError);
     expect((error as RpcError).details).toMatchObject({ code: 'EXPORT_INSUFFICIENT_SPACE', required: 1024 + 64 * 1024 * 1024 });
     await expect(checkSpace(dir, 1024, async () => ({ bavail: 1n << 30n, bsize: 4096n }))).resolves.toBeUndefined();
+  });
+
+  it('同一份 bytes 的两个素材版本（换了出处的烘焙替身）只写一个文件，两个版本都收进包', async () => {
+    const file = path.join(dir, 'prerender.mov');
+    await fs.writeFile(file, 'baked');
+    const contentHash = sha('baked');
+    const packagePath = `assets/${contentHash.slice('sha256:'.length)}.mov`;
+    const frozen = (revision: string): FrozenAsset => ({
+      assetId: 'asset_p',
+      revision,
+      name: 'prerender.mov',
+      mediaType: 'video/quicktime',
+      contentHash,
+      byteLength: 5,
+      storage: 'managed',
+      packagePath,
+      path: file,
+    });
+    const version = { contentHash, byteLength: 5, storage: { mode: 'managed' }, provenance: { origin: 'composition-bake' } };
+    const snapshot = {
+      id: 'video_p',
+      name: 'p',
+      revision: '3',
+      schemaVersion: 1,
+      timeContractVersion: 1,
+      assets: { asset_p: { id: 'asset_p', currentRevision: '2', revisions: { '1': version, '2': version } } },
+    } as unknown as Parameters<typeof planPortable>[0]['snapshot'];
+    const plan = await planPortable({ videoDir: dir, snapshot, documents: [], assets: [frozen('1'), frozen('2')] }, [], 'fail');
+    expect(plan.assets.flatMap((a) => a.files.map((f) => f.packagePath))).toEqual([packagePath]);
+    expect(plan.entries.map((e) => [e.ref.revision, e.inclusion, e.path])).toEqual([
+      ['1', 'included', packagePath],
+      ['2', 'included', packagePath],
+    ]);
   });
 
   it('xmeml 的帧率与路径 URL', () => {

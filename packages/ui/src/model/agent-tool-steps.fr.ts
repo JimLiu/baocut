@@ -17,6 +17,7 @@ export const fr: AgentToolStepsMessages = {
     deleteVideo: "Supprimer la vidéo",
     readTranscript: "Lire la transcription",
     undoEdit: "Annuler la modification",
+    assemblePlan: "Placer le plan de production",
     captions: "Créer un calque de sous-titres",
     transcribe: "Transcrire",
     dub: "Traduire et doubler",

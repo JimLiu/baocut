@@ -326,6 +326,7 @@ export function Preview({
             pickLive={(point) =>
               liveHost.current?.pick(point).then((hit) => (hit ? htmlPick(hit, sequence.canvas) : null)) ?? Promise.resolve(null)
             }
+            captureLive={() => liveHost.current?.capture() ?? Promise.resolve(null)}
           />
         ) : null}
         {fullscreen ? (

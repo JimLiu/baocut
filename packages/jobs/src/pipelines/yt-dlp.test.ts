@@ -59,6 +59,21 @@ describe('参数', () => {
     expect(args[args.indexOf('--merge-output-format') + 1]).toBe('mp4/webm/mkv');
   });
 
+  it('只下一段：--download-sections 给秒数范围并在切点补关键帧，链接仍是最后一个；整条时不带', () => {
+    const whole = downloadArgs('https://v.example.com/a', { output: '/s/dl/media.%(ext)s', audioOnly: false, subtitleLanguages: [] });
+    expect(whole).not.toContain('--download-sections');
+    expect(whole).not.toContain('--force-keyframes-at-cuts');
+    const args = downloadArgs('https://v.example.com/a', {
+      output: '/s/dl/s1/media.%(ext)s',
+      audioOnly: false,
+      subtitleLanguages: [],
+      section: { start: 83.5, end: 105 },
+    });
+    expect(args[args.indexOf('--download-sections') + 1]).toBe('*83.5-105');
+    expect(args).toContain('--force-keyframes-at-cuts');
+    expect(args.slice(-2)).toEqual(['--', 'https://v.example.com/a']);
+  });
+
   it('进度行只认自己的前缀；跨流累计，不知道总数时不报', () => {
     expect(parseProgressLine('bcut-progress 100 1000 NA')).toEqual({ downloaded: 100, total: 1000 });
     expect(parseProgressLine('bcut-progress 100 NA 2000.5')).toEqual({ downloaded: 100, total: 2001 });
