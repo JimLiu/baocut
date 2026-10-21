@@ -606,6 +606,50 @@ fn word_line_tail_join_requires_opt_in_and_a_word_line_pattern() {
 }
 
 #[test]
+fn fixed_line_wrap_requires_opt_in_fixed_rows_and_one_line_per_row_features_absent() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/fixed-line-wrap.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    let pagination = &style.scene().layout.pagination;
+    assert_eq!(pagination.fixed_line_overflow, Some(FixedLineOverflow::Wrap));
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let path = "pagination.fixedLineOverflow";
+    let mut legacy = body.clone();
+    legacy["scene"]["value"]["requiredCapabilities"] = json!(["caption-word-line-layout/1"]);
+    let error = parse_style(&legacy).unwrap_err();
+    assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_CAPABILITY_UNAVAILABLE", path));
+    let mut unknown = body.clone();
+    unknown["scene"]["value"]["layout"]["pagination"]["fixedLineOverflow"] = json!("shrink");
+    assert_eq!(parse_style(&unknown).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    let mut width_wrapped = body.clone();
+    width_wrapped["scene"]["value"]["layout"]["pagination"] = json!({"maxUnitsPerPage": 4, "fixedLineOverflow": "wrap"});
+    let error = parse_style(&width_wrapped).unwrap_err();
+    assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_SCENE_INVALID", path));
+    // Font size or style bindings and page windows need one display line per fixed row.
+    for fixture in [
+        include_str!("fixtures/unit-font-size.json"),
+        include_str!("fixtures/unit-font-style.json"),
+        include_str!("fixtures/page-window.json"),
+    ] {
+        let mut input: Value = serde_json::from_str(fixture).unwrap();
+        parse_style(&input).unwrap();
+        let scene = &mut input["scene"]["value"];
+        scene["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-fixed-line-wrap/1"));
+        scene["layout"]["pagination"]["fixedLineOverflow"] = json!("wrap");
+        let error = parse_style(&input).unwrap_err();
+        assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_SCENE_INVALID", path));
+    }
+    // Text and remaining-count fixed rows wrap the same way.
+    let mut text_rows = body.clone();
+    text_rows["scene"]["value"]["requiredCapabilities"] = json!(["caption-text-line-layout/1", "caption-fixed-line-wrap/1"]);
+    text_rows["scene"]["value"]["layout"]["pagination"] =
+        json!({"textLinePattern": {"unit": "grapheme", "lines": [[8]]}, "fixedLineOverflow": "wrap"});
+    parse_style(&text_rows).unwrap();
+}
+
+#[test]
 fn remaining_word_page_plans_require_opt_in_bounded_entries_and_exclusivity() {
     let body: Value = serde_json::from_str(include_str!("fixtures/remaining-word-page-plan.json")).unwrap();
     let style = parse_style(&body).unwrap();

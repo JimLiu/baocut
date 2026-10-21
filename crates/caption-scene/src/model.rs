@@ -226,6 +226,16 @@ pub struct Pagination {
     /// `i + 1` words remain; larger remaining counts use the last entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub remaining_word_page_plans: Option<Vec<Vec<usize>>>,
+    /// What a fixed row wider than the layout width does; absent keeps it on one line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_line_overflow: Option<FixedLineOverflow>,
+}
+/// `caption-fixed-line-wrap/1`: a fixed row wider than the layout width continues on
+/// further display lines, broken like width-wrapped text; row and page members stay frozen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FixedLineOverflow {
+    Wrap,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -293,6 +303,7 @@ impl Default for Pagination {
             last_page_rule: None,
             tail_word_rule: None,
             remaining_word_page_plans: None,
+            fixed_line_overflow: None,
         }
     }
 }

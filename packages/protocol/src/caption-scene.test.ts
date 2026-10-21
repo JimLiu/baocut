@@ -67,3 +67,10 @@ test('remaining word page plans are row lists indexed by unpaged word count', ()
   const pagination: Pagination = { remainingWordPagePlans: [[1], [2], [1, 1, 1]] };
   expect(JSON.parse(JSON.stringify(pagination))).toEqual({ remainingWordPagePlans: [[1], [2], [1, 1, 1]] });
 });
+
+test('fixed line overflow is an opt-in wrap of fixed rows', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<Pagination['fixedLineOverflow']>().toEqualTypeOf<'wrap' | null | undefined>();
+  const pagination: Pagination = { wordLinePattern: [[4], [5]], fixedLineOverflow: 'wrap' };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual({ wordLinePattern: [[4], [5]], fixedLineOverflow: 'wrap' });
+});

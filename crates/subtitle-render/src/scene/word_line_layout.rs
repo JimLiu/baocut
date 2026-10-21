@@ -146,10 +146,44 @@ fn shape_row(text: &mut TextEngine, source: &str, style: &TextStyle, fs: f64) ->
     shape
 }
 
+/// `caption-fixed-line-wrap/1`: display line byte ranges of one fixed row. The row's
+/// normalized text wraps at `width` like width-wrapped pages (line break opportunities,
+/// grapheme fallback for an overlong word); each break maps back to the source byte of the
+/// next display line's first character, so separators stay on the line before.
+fn wrap_row(text: &mut TextEngine, content: &str, row: Range<usize>, style: &TextStyle, fs: f64, width: f64) -> Vec<Range<usize>> {
+    let (normalized, mapping) = normalized_row(&content[row.clone()]);
+    let block = layout(&normalized, Wrap::Word, Some(width), 1.0, |r| {
+        let shape = text.shape_spaced(
+            &normalized[r],
+            &style.font_family,
+            fs,
+            style.font_weight,
+            style.italic,
+            style.letter_spacing * fs,
+        );
+        TextMetricsLine {
+            width: shape.width,
+            ascent: shape.ascent,
+            descent: shape.descent,
+        }
+    });
+    // A display line starts at its first visible character; a whitespace-only line (from the
+    // grapheme fallback) is left on the line before.
+    let mut starts = vec![row.start];
+    starts.extend(block.lines.iter().skip(1).filter_map(|line| {
+        let visible = normalized[line.bytes.start..line.paint_end].find(|c: char| !c.is_whitespace())?;
+        mapping.get(line.bytes.start + visible).map(|source| row.start + source.start)
+    }));
+    starts.dedup();
+    let mut ends = starts[1..].to_vec();
+    ends.push(row.end);
+    starts.into_iter().zip(ends).map(|(start, end)| start..end).collect()
+}
+
 fn shape_page(
     text: &mut TextEngine,
     content: &str,
-    ranges: Vec<Range<usize>>,
+    rows: Vec<Range<usize>>,
     node: &Node,
     cfg: &Layout,
     size: (u32, u32),
@@ -163,9 +197,18 @@ fn shape_page(
     let x = cfg.x.resolve(size.0, size.1, params)?;
     let y = cfg.y.resolve(size.0, size.1, params)?;
     let row_height = fs * node.style.line_height;
+    let wrap = cfg.pagination.fixed_line_overflow == Some(FixedLineOverflow::Wrap);
+    let mut ranges = Vec::new();
+    for (row, bytes) in rows.into_iter().enumerate() {
+        if wrap {
+            ranges.extend(wrap_row(text, content, bytes, &node.style, fs, width).into_iter().map(|r| (row, r)));
+        } else {
+            ranges.push((row, bytes));
+        }
+    }
     let height = ranges.len() as f64 * row_height;
     let mut lines = Vec::new();
-    for (i, bytes) in ranges.into_iter().enumerate() {
+    for (i, (row, bytes)) in ranges.into_iter().enumerate() {
         let shape = shape_row(text, &content[bytes.clone()], &node.style, fs);
         if cfg.overflow == LayoutOverflow::Error && shape.width > width + 0.001 {
             bail!("CAPTION_LAYOUT_OVERFLOW: fixed word line");
@@ -183,9 +226,24 @@ fn shape_page(
             height: row_height,
         };
         let baseline = ly + shape.ascent;
-        lines.push(Line::new(text, bytes, shape, bounds, baseline, fs));
+        let mut line = Line::new(text, bytes, shape, bounds, baseline, fs);
+        line.row = row;
+        lines.push(line);
     }
     Ok(lines)
+}
+
+/// Frozen row byte ranges of a page: consecutive display lines of one row join again,
+/// so sampled reflow wraps each row afresh at the sampled width.
+fn page_rows(lines: &[Line]) -> Vec<Range<usize>> {
+    let mut rows: Vec<(usize, Range<usize>)> = Vec::new();
+    for line in lines {
+        match rows.last_mut() {
+            Some((row, bytes)) if *row == line.row => bytes.end = line.bytes.end,
+            _ => rows.push((line.row, line.bytes.clone())),
+        }
+    }
+    rows.into_iter().map(|(_, bytes)| bytes).collect()
 }
 
 pub(super) fn prepare(
@@ -276,7 +334,7 @@ pub(super) fn reflow(
     let mut lines = shape_page(
         text,
         &base.content,
-        page.lines.iter().map(|line| line.bytes.clone()).collect(),
+        page_rows(&page.lines),
         node,
         cfg,
         size,
@@ -533,6 +591,85 @@ mod tests {
             )
             .is_err()
         );
+    }
+    #[test]
+    fn fixed_line_wrap_breaks_wide_rows_at_the_width_and_keeps_rows_frozen() {
+        let content = "one two\n three four five six";
+        let cue = cue(&["one", "two", "three", "four", "five", "six"], content);
+        let mut text = font_engine();
+        let mut cfg = config();
+        cfg.pagination.word_line_pattern = Some(vec![vec![4, 2]]);
+        cfg.pagination.last_page_rule = None;
+        cfg.pagination.fixed_line_overflow = Some(FixedLineOverflow::Wrap);
+        cfg.width.value = 120.;
+        let node = node();
+        let params = BTreeMap::new();
+        let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
+        let base = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
+        let page = &base.pages[0];
+        assert_eq!(base.pages.len(), 1);
+        assert_eq!(page.words, (0..6).collect::<Vec<_>>());
+        assert_eq!((page.start, page.end), (0., 6.));
+        // The first row wraps on word boundaries; the second row fits and stays one line.
+        let shown: Vec<_> = page.lines.iter().map(|line| &content[line.bytes.clone()]).collect();
+        assert!(shown.len() > 2, "{shown:?}");
+        assert_eq!(shown.concat(), content);
+        assert!(page.lines.iter().all(|line| line.shape.width <= 120.001));
+        let rows: Vec<_> = page.lines.iter().map(|line| line.row).collect();
+        assert_eq!(rows.last(), Some(&1));
+        assert!(rows.windows(2).all(|pair| pair[0] <= pair[1]));
+        assert_eq!(rows.iter().filter(|row| **row == 1).count(), 1);
+        assert_eq!(shown.last(), Some(&"five six"));
+        let row_height = 20. * node.style.line_height;
+        for (i, line) in page.lines.iter().enumerate() {
+            assert!((line.bounds.y - (page.lines[0].bounds.y + i as f64 * row_height)).abs() < 1e-9);
+            let first = content[line.bytes.clone()].trim_start();
+            assert!(
+                ["one", "two", "three", "four", "five"].iter().any(|w| first.starts_with(w)),
+                "{first:?}"
+            );
+        }
+        assert_eq!(
+            page_rows(&page.lines),
+            vec![0..content.find("five").unwrap(), content.find("five").unwrap()..content.len()]
+        );
+        // Sampled reflow wraps each frozen row again at the sampled width.
+        cfg.width.value = 500.;
+        let wide = reflow(&mut text, &base, page, &node, &cfg, (600, 200), &params).unwrap();
+        assert_eq!(
+            wide.lines.iter().map(|line| line.bytes.clone()).collect::<Vec<_>>(),
+            page_rows(&page.lines)
+        );
+        assert_eq!(wide.words, page.words);
+        // Without the opt-in a wide row stays one line.
+        cfg.width.value = 120.;
+        cfg.pagination.fixed_line_overflow = None;
+        let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
+        let kept = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
+        assert_eq!(kept.pages[0].lines.len(), 2);
+        assert!(kept.pages[0].lines[0].shape.width > 120.);
+    }
+    #[test]
+    fn fixed_line_wrap_reports_a_grapheme_wider_than_the_width_under_error_overflow() {
+        let cue = cue(&["one", "two"], "one two");
+        let mut text = font_engine();
+        let mut cfg = config();
+        cfg.pagination.word_line_pattern = Some(vec![vec![2]]);
+        cfg.pagination.last_page_rule = None;
+        cfg.pagination.fixed_line_overflow = Some(FixedLineOverflow::Wrap);
+        cfg.width.value = 4.;
+        let node = node();
+        let params = BTreeMap::new();
+        let words = bind_words(&cue, &cue.text, TimingPolicy::RequireWordTiming, false).unwrap();
+        let visible = prepare(&mut text, &cue, &cue.text, words, &node, &cfg, (600, 200), &params).unwrap();
+        // Overlong words fall back to grapheme breaks; every grapheme is its own line here.
+        assert_eq!(visible.pages[0].lines.len(), 6);
+        cfg.overflow = LayoutOverflow::Error;
+        let words = bind_words(&cue, &cue.text, TimingPolicy::RequireWordTiming, false).unwrap();
+        let error = prepare(&mut text, &cue, &cue.text, words, &node, &cfg, (600, 200), &params)
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("CAPTION_LAYOUT_OVERFLOW"));
     }
     #[test]
     fn word_line_shape_and_context_keep_original_unicode_indices() {

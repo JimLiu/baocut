@@ -78,6 +78,9 @@ struct Line {
     display_span: Option<(f64, f64)>,
     glyph_ink: Vec<Option<Bounds>>,
     ink_bounds: Bounds,
+    /// Fixed row the display line belongs to; rows wrapped by `caption-fixed-line-wrap/1`
+    /// span several display lines. Zero outside fixed rows.
+    row: usize,
 }
 impl Line {
     fn new(
@@ -119,6 +122,7 @@ impl Line {
             display_span: None,
             glyph_ink,
             ink_bounds,
+            row: 0,
         }
     }
     fn ink_for(&self, range: &Range<usize>, advance: Bounds) -> Bounds {

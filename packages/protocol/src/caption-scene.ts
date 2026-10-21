@@ -123,7 +123,10 @@ export interface CaptionScene {
       tailWordRule?: 'join-previous-line' | null;
       /** Entry i holds the rows of the page that starts while i + 1 words remain; the last entry covers larger counts.
        * Requires caption-remaining-word-page-plan/1. */
-      remainingWordPagePlans?: number[][] | null };
+      remainingWordPagePlans?: number[][] | null;
+      /** 'wrap' lets a fixed row wider than the layout width continue on further display lines;
+       * row and page members stay frozen. Requires caption-fixed-line-wrap/1. */
+      fixedLineOverflow?: 'wrap' | null };
     align?: 'left' | 'center' | 'right'; leadingGap?: 'show' | 'hide';
   };
   speechState?: { gapPolicy?: 'none' | 'hold-previous'; tailPolicy?: 'none' | 'hold-last'; timingPolicy?: 'require-word-timing' | 'estimated' };

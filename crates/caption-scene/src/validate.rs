@@ -21,6 +21,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-line-unit-quota/1",
     "caption-word-line-tail-join/1",
     "caption-remaining-word-page-plan/1",
+    "caption-fixed-line-wrap/1",
     "caption-page-line-context/1",
     "caption-line-box-context/1",
     "caption-shape-paint/1",
@@ -294,6 +295,32 @@ fn validate_tail_word_rule(scene: &Scene) -> Result<()> {
     }
     Ok(())
 }
+/// `caption-fixed-line-wrap/1`: fixed rows keep their members and wrap at the layout width.
+/// Font size and style bindings and page windows rely on one display line per row.
+fn validate_fixed_line_overflow(scene: &Scene) -> Result<()> {
+    let layout = &scene.layout;
+    if layout.pagination.fixed_line_overflow.is_none() {
+        return Ok(());
+    }
+    let path = "pagination.fixedLineOverflow";
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-fixed-line-wrap/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-fixed-line-wrap/1 must be declared",
+        ));
+    }
+    if !layout.pagination.has_fixed_lines() {
+        return Err(invalid(path, "wordLinePattern, textLinePattern or remainingWordPagePlans required"));
+    }
+    if !layout.font_size_bindings.is_empty() || !layout.font_style_bindings.is_empty() || layout.page_window.is_some() {
+        return Err(invalid(
+            path,
+            "wrapped fixed rows are exclusive with fontSizeBindings, fontStyleBindings and pageWindow",
+        ));
+    }
+    Ok(())
+}
 /// `caption-remaining-word-page-plan/1`: fixed rows chosen by how many words are still
 /// unpaged. Entry `i` may hold at most `i + 1` words, so a page never needs truncation.
 fn validate_remaining_word_page_plans(scene: &Scene) -> Result<()> {
@@ -478,6 +505,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     validate_line_unit_quota(s)?;
     validate_tail_word_rule(s)?;
     validate_remaining_word_page_plans(s)?;
+    validate_fixed_line_overflow(s)?;
     validate_page_window(s)?;
     validate_unit_font_reflow(s)?;
     if s.parameters.len() > 128 || s.functions.len() > 128 || s.selectors.len() > MAX_NODES || s.animations.len() > 1024 {
