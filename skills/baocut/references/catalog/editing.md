@@ -127,7 +127,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 
 ### 声波与进度条：内置元素
 
-跟着声音起伏的声波和进度条是 BaoCut 的内置元素：引擎逐帧画，预览与导出一致，用户在编辑器的属性页里能换款、改色、挪位置。一笔 {{tool:edits_apply}} 的 `insertItems` 放上，马上出现在画面上。不要为它写代码包、自己分析音量或逐帧渲染：整段音频要渲染很久，用户也改不了。
+跟着声音起伏的声波和进度条是 BaoCut 的内置元素：引擎逐帧画，预览与导出一致，用户在编辑器的属性页里能换款、改色、挪位置。一笔 {{tool:edits_apply}} 的 `insertItems` 放上，马上出现在画面上。声波**只用**这个内置元素：不写代码包、不按 {{skill:motion-graphics}} 写 HTML、不自己分析音量或逐帧渲染，整段音频要渲染很久，用户也改不了；用户要的样子内置款式里没有时，挑最接近的款改色、挪位置，告诉用户能调哪些。
 
 - **声波**：`{"type":"visualizer","visualizer":{"style":…}}`。横条款有 `bars`、`bars_rounded`、`bars_bottom`、`spectrum_area`、`oscilloscope`、`ribbons`、`dots`，正方款有 `ring_bars`、`ring_wave`、`pulse_rings`。`mainColor`、`secondaryColor`（`#RRGGBB`）不写时用这一款的配色。缺省跟着整条序列混好的声音动；只在某位说话人说话时动给 `speaker`。
 - **进度条**：`{"type":"progress","progress":{"style":…}}`，`style` 如 `normal`、`rounded`、`circle`；在片段时长里从头走到尾。

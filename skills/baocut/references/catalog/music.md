@@ -131,7 +131,7 @@ description: 配乐与音效的机制：配乐从哪来、本机音乐生成怎�
 
 - 配乐导入之后分析它（给 {{arg:asset}}）；还没导入的文件给 {{arg:path}}。超过 20 分钟分段给 {{arg:range}}。
 - 剪辑点：镜头切换对到 `beats.times` 或 `bars` 的开始；段落（`sections`）的边界放章节或大的转场。
-- 代码画面跟着声音动：把文件拷进代码包，先换成源文件时间 `s` = 时间线时间 − 片段在时间线上的开始 + 片段的源起点，帧号 = `floor((s − source.offset) × fps)`，读 `frames.bass` 做脉动、`frames.onset` 做闪动、`frames.level` 做整体亮度。
+- 代码画面跟着声音动：把文件拷进代码包，先换成源文件时间 `s` = 时间线时间 − 片段在时间线上的开始 + 片段的源起点，帧号 = `floor((s − source.offset) × fps)`，读 `frames.bass` 做脉动、`frames.onset` 做闪动、`frames.level` 做整体亮度。画面上要声波（音量条、频谱、示波）时不在代码画面里画，用内置的声波元素（[editing](editing.md)「声波与进度条」）。
 - 讲话与环境声通常没有稳定的拍（`beats` 为 null，`beatsError` 说原因），只用 `frames` 与 `onsets`。
 - 重音（`accents`）是明显高出前面底子的起音：大的剪辑点、揭晓与 Logo 落在它们上，比落在随便一个起音上更有力。
 
