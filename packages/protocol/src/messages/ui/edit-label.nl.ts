@@ -100,4 +100,5 @@ export const nl: EditLabelMessages = {
   editTemplateLayout: 'Sjabloonindeling bewerken',
   lockTemplateRatio: 'Beeldverhouding vastzetten op sjabloon',
   unlockTemplateRatio: 'Beeldverhouding van sjabloon vrijgeven',
+  restoreScript: (p) => `Scriptversie ${p.version} herstellen`,
 };

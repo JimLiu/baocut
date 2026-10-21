@@ -100,4 +100,5 @@ export const fr: EditLabelMessages = {
   editTemplateLayout: 'Modifier la mise en page du modèle',
   lockTemplateRatio: 'Verrouiller le rapport hauteur/largeur du modèle',
   unlockTemplateRatio: 'Déverrouiller le rapport hauteur/largeur du modèle',
+  restoreScript: (p) => `Restaurer la version ${p.version} du script`,
 };

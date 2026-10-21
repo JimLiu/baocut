@@ -100,4 +100,5 @@ export const tr: EditLabelMessages = {
   editTemplateLayout: 'Şablon yerleşimini düzenle',
   lockTemplateRatio: 'En boy oranını şablona kilitle',
   unlockTemplateRatio: 'Şablon en boy oranı kilidini aç',
+  restoreScript: (p) => `Senaryonun ${p.version}. sürümünü geri yükle`,
 };

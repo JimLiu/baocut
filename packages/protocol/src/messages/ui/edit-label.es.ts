@@ -100,4 +100,5 @@ export const es: EditLabelMessages = {
   editTemplateLayout: 'Editar diseño de plantilla',
   lockTemplateRatio: 'Fijar relación de aspecto a la plantilla',
   unlockTemplateRatio: 'Liberar relación de aspecto de la plantilla',
+  restoreScript: (p) => `Restaurar la versión ${p.version} del guion`,
 };

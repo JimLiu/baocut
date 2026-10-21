@@ -100,4 +100,5 @@ export const ru: EditLabelMessages = {
   editTemplateLayout: 'Изменить макет шаблона',
   lockTemplateRatio: 'Закрепить соотношение сторон шаблона',
   unlockTemplateRatio: 'Снять закрепление соотношения сторон',
+  restoreScript: (p) => `Вернуть сценарий к версии ${p.version}`,
 };

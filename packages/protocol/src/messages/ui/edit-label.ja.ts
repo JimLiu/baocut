@@ -100,4 +100,5 @@ export const ja: EditLabelMessages = {
   editTemplateLayout: 'テンプレートのレイアウトを編集',
   lockTemplateRatio: 'テンプレートでアスペクト比を固定',
   unlockTemplateRatio: 'テンプレートのアスペクト比固定を解除',
+  restoreScript: (p) => `台本をバージョン ${p.version} に戻す`,
 };

@@ -195,6 +195,8 @@ export function CaptionGallery({
   chips,
   selected,
   onBack,
+  backLabel,
+  onEdit,
   children,
 }: {
   videoId: Id;
@@ -203,6 +205,10 @@ export function CaptionGallery({
   chips: CaptionChip[];
   selected: string | null;
   onBack(): void;
+  /** 返回钮的说明；不给时是「返回字幕」。 */
+  backLabel?: string;
+  /** 卡上的「编辑」套上之后去哪：给了就交给调用方（轻量视图侧栏自己推属性页），不给时选中这条字幕、打开时间线视图的属性页。 */
+  onEdit?(itemId: Id): void;
   /** 页头下的轨条。 */
   children: ReactNode;
 }) {
@@ -267,16 +273,20 @@ export function CaptionGallery({
   const edit = async (preset: CaptionPreset) => {
     const itemId = current?.itemIds[0];
     if (!itemId) return;
-    // 先选中再套：选中会清掉样式草稿，反过来新样式取到之前会闪回旧的一下。
-    useEditor.getState().select([itemId]);
+    // 先选中再套：选中会清掉样式草稿，反过来新样式取到之前会闪回旧的一下。交给调用方时不动选中。
+    if (!onEdit) useEditor.getState().select([itemId]);
     if (!onCard(preset) && !(await pick(preset))) return;
+    if (onEdit) {
+      onEdit(itemId);
+      return;
+    }
     openGallery(videoId, false);
     useEditor.getState().showPanel('props');
   };
 
   return (
     <>
-      <PanelHead title={S.title} back={{ label: S.back, onPress: onBack }} />
+      <PanelHead title={S.title} back={{ label: backLabel ?? S.back, onPress: onBack }} />
       {children}
       {kinds.length > 1 && root ? (
         <div className={scopeRow}>

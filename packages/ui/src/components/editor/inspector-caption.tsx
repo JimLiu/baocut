@@ -66,8 +66,16 @@ const fixed = (value: number, digits: number) => String(+value.toFixed(digits));
  * 原文与译文共用这份样式才叠成双语两行（预览按样式文档分组），所以双语时顶上给「原文 | 译文」：文字样式写进那一行的
  * `origStyle` / `transStyle` 覆盖，位置、双语次序与显示时机是两行共用的根样式（见 model/caption-lines.ts）。
  */
-export function CaptionPage(props: ItemPageProps<CaptionItem> & { documents: Record<Id, DocumentRecord> }) {
-  const { item, sequence, documents, canChange } = props;
+export function CaptionPage(
+  props: ItemPageProps<CaptionItem> & {
+    documents: Record<Id, DocumentRecord>;
+    /** 「更换样式」去哪：给了就交给调用方（轻量视图侧栏自己推样式库），不给时打开时间线视图字幕面板的样式库。 */
+    onOpenStyles?(chipKey: string): void;
+    /** 只要样式：不画时间与删除（轻量视图侧栏的字幕样式页）。 */
+    styleOnly?: boolean;
+  },
+) {
+  const { item, sequence, documents, canChange, onOpenStyles, styleOnly } = props;
   const { apply } = useEditorActions();
   const videoId = useVideo((s) => s.video?.videoId ?? null);
   // 这份样式管哪几种行：画面上用它的字幕；还没有样式时是画面上同样没有样式、第一次修改会一起挂上的那些。
@@ -144,7 +152,7 @@ export function CaptionPage(props: ItemPageProps<CaptionItem> & { documents: Rec
           <Button
             variant="secondary"
             size="S"
-            onPress={() => openCaptionStyles(chip.key)}>
+            onPress={() => (onOpenStyles ? onOpenStyles(chip.key) : openCaptionStyles(chip.key))}>
             {S.open}
           </Button>
         </div>
@@ -299,7 +307,8 @@ export function CaptionPage(props: ItemPageProps<CaptionItem> & { documents: Rec
   );
 }
 
-function Tail(props: ItemPageProps<CaptionItem>) {
+function Tail(props: ItemPageProps<CaptionItem> & { styleOnly?: boolean }) {
+  if (props.styleOnly) return null;
   return (
     <>
       <TimeSection {...props} />

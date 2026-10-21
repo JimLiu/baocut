@@ -1450,6 +1450,7 @@ interface Provenance {
 | `dubbing-plan` | 配音计划 | 计划 | §7.2 |
 | `sound-cue-sheet`、`narration-cue-sheet` | 声音事件表、旁白事件表 | 计划 | §7.9、§7.10 |
 | `chapter-sheet` | 章节表：一个序列的每一章的脚本、配音、代码包与它编译成的实例与标记 | `baocut.chapter-sheet/1`（今天只有界面读脚本，编译未实现） | §7.12 |
+| `script` | 做视频时写下的整份脚本（Markdown），版本就是文档的版本 | `baocut.script/1` | §7.13 |
 
 - 时间在正文里用整数表示，并写明时间基与时钟：`timescale`（每秒的刻度数）与 `clock`（`source-asset`：这份文档或它的来源文档的 `sourceAssetId` 所指素材的时钟；`sequence`：序列时间）。不用浮点秒。
 - 引擎只核对 `baocut.speech/1` 与 `baocut.translation/2` 里 §5.2、§5.3 补充的字段：出现时形状必须对（类型、枚举值与取值范围），引用的词在不在不查；`baocut.cut-set/1` 按 §6.7 的约束整份核对。其余正文不校验。带 `/1` 的几种格式是导入旧项目时定下来的，比 §5 描述的模型简单；二者怎么统一列在 §10。
@@ -2495,8 +2496,26 @@ interface ChapterSheetBody {
 ```
 
 - `chapters` 的顺序是播放顺序；字段的含义、时长归属与过期链见动效视频设计 §2.2–§2.4。
-- 今天的实现：章节表由写入方（智能体、拼装脚本）经 `putDocument` / `documents_put` 写入，`compiled` 由写入方按它放上时间线的实例与 `chapter` 标记填；Runtime 不编译、不核对正文（与 §4.6 其余正文一样）。读的一方只有轻量视图的侧栏：`compiled[章节 ID].markerId` 对到序列上的章节标记，那一段显示这一章的 `script.markdown`（只读，[轻量编辑器设计](../design/lite-editor/lite-editor-design.md) §3「侧栏」）；`sequenceId` 不是这个序列、或 `schema` 不认识时整份不读。
+- 今天的实现：章节表由写入方（智能体、拼装脚本）经 `putDocument` / `documents_put` 写入，`compiled` 由写入方按它放上时间线的实例与 `chapter` 标记填；Runtime 不编译、不核对正文（与 §4.6 其余正文一样）。读的一方只有轻量视图的侧栏：`compiled[章节 ID].markerId` 对到序列上的章节标记，「台词」页那一段显示这一章的 `script.markdown`（只读），「脚本」页按这个对应把正在播的那一段对到整份脚本（§7.13）里以章节 ID 开头的小节（[轻量编辑器设计](../design/lite-editor/lite-editor-design.md) §3「侧栏」）；`sequenceId` 不是这个序列、或 `schema` 不认识时整份不读。
 - `chapters_compile`、过期传播与 §7.10 的取代随动效视频设计 §11 第 2 阶段补。
+
+### 7.13 Script
+
+做这部视频时写下的整份脚本：存为 `kind: 'script'` 的文档，正文 `schema` 为 `baocut.script/1`。一部视频通常一份；多于一份时读的一方取当前版本最新写入的那份。
+
+```ts
+interface ScriptBody {
+  schema: 'baocut.script/1';
+  markdown: string;          // 整份脚本；小节用 Markdown 标题，标题第一个词写章节表的章节 ID（`## s02 聊天 AI 在写作文`）时能对到章节
+  file?: string;             // 生成方那边的文件名（`脚本.md`），只用来显示
+}
+```
+
+- 脚本的版本就是这份文档的版本（§4.4）：生成方（智能体、拼装脚本）重写一次，经 `putDocument` / `documents_put` 写成新的一版；不另造版本记录。写入的事务按修改历史找到是谁写的。
+- 回到某一版：把那一版的正文原样写成新的一版，文档版本的 `summary` 记 `{ restoredFrom: <那一版的 Revision> }`；之前的版本都还在。正文与当前版本相同时不写。
+- 只换脚本：回到版本不改时间线、旁白、字幕与章节表；要按脚本重做哪一段由智能体另做。
+- `markdown` 不是字符串、或 `schema` 不认识时正文不解释，文档头照常（§4.6）。Runtime 不核对正文。
+- 读的一方今天是轻量视图侧栏的「脚本」页与「脚本的版本」页（[轻量编辑器设计](../design/lite-editor/lite-editor-design.md) §3「侧栏」）：小节对章节先比标题第一个词与章节表的章节 ID（§7.12 的 `compiled[章节 ID].markerId`），再比标题与段名；版本列表按与前一版逐块（空行与标题切块）比对写标题。
 
 ### 7.11 音频事件与视频网格相互独立
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DocumentRecord } from '@baocut/protocol';
-import { chapterScripts, chapterSheetRecord } from './chapter-sheet.ts';
+import { chapterIds, chapterScripts, chapterSheetRecord } from './chapter-sheet.ts';
 
 const record = (id: string, kind: string, createdAt: string): DocumentRecord => ({
   id,
@@ -48,5 +48,14 @@ describe('章节表的脚本', () => {
     };
     expect(chapterSheetRecord(documents)?.id).toBe('b');
     expect(chapterSheetRecord({ c: documents.c })).toBeNull();
+  });
+
+  it('标记 ID 对回章节号：编译了的章节都在，别的序列是空表', () => {
+    expect([...chapterIds(sheet(), 'seq_main')]).toEqual([
+      ['mk_1', 's01'],
+      ['mk_3', 's03'],
+      ['mk_4', 's04'],
+    ]);
+    expect(chapterIds(sheet(), 'seq_other').size).toBe(0);
   });
 });

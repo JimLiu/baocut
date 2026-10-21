@@ -112,7 +112,15 @@ export function LiteView({
         />
         <LiteChips sequence={sequence} segments={segments} duration={duration} handle={chips} />
       </div>
-      {sideHidden ? null : <LiteSidePanel segments={segments} />}
+      {sideHidden ? null : (
+        <LiteSidePanel
+          segments={segments}
+          videoId={video.videoId}
+          sequence={sequence}
+          documents={snapshot.documents}
+          assets={snapshot.assets}
+        />
+      )}
       {video.videoId ? <SoundtrackBed videoId={video.videoId} sequence={sequence} assets={snapshot.assets} /> : null}
     </div>
   );

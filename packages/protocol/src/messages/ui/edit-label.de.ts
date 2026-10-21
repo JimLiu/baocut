@@ -100,4 +100,5 @@ export const de: EditLabelMessages = {
   editTemplateLayout: 'Vorlagenlayout bearbeiten',
   lockTemplateRatio: 'Seitenverhältnis an Vorlage sperren',
   unlockTemplateRatio: 'Seitenverhältnis der Vorlage entsperren',
+  restoreScript: (p) => `Skriptversion ${p.version} wiederherstellen`,
 };
