@@ -40,5 +40,8 @@ export const pl: MarkupMessages = {
   copyFailed: 'Nie udało się skopiować obrazu. Zamiast tego pobierz go.',
   captureFailed: 'Nie udało się przechwycić tej klatki.',
   discardBodyScreenshot: 'Zamknięcie usunie oznaczenia z obrazu. Jeśli go potrzebujesz, najpierw skopiuj lub pobierz obraz.',
+  bookmarks: 'Oznaczone klatki',
+  bookmarkItem: (time, n) => `${time} · oznaczeń: ${n}`,
+  stampLabel: (time, frames) => (frames === 1 ? `Oznaczona klatka ${time}` : `Oznaczone klatki: ${frames}, od ${time}`),
   pickInfo: { heading: 'Ułatwienia dostępu', name: 'Nazwa', role: 'Rola', focusable: 'Fokus z klawiatury' },
 };

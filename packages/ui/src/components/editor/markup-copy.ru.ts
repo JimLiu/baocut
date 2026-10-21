@@ -40,5 +40,8 @@ export const ru: MarkupMessages = {
   copyFailed: 'Не удалось скопировать изображение. Скачайте его.',
   captureFailed: 'Не удалось снять этот кадр.',
   discardBodyScreenshot: 'При закрытии пометки на кадре будут удалены. Если изображение нужно, сначала скопируйте или скачайте его.',
+  bookmarks: 'Отмеченные кадры',
+  bookmarkItem: (time, n) => `${time} · пометок: ${n}`,
+  stampLabel: (time, frames) => (frames === 1 ? `Отмеченный кадр ${time}` : `Отмеченных кадров: ${frames}, с ${time}`),
   pickInfo: { heading: 'Специальные возможности', name: 'Имя', role: 'Роль', focusable: 'Фокус с клавиатуры' },
 };

@@ -432,6 +432,60 @@ export function markFrames(marks: readonly Mark[]): number[] {
   return [...new Set(marks.map((m) => m.timeMs))].sort((a, b) => a - b);
 }
 
+/** 一枚书签：画过标记的一帧（`timeMs` 是这一帧里最早的那一刻，定位就去那里）与这一帧上能出图的标记条数。 */
+export interface MarkedFrame {
+  timeMs: number;
+  count: number;
+}
+
+/**
+ * 标记落在哪几帧上，按先后（lite-editor §4.1「标记帧的书签」）：时间线上的印章与工具条的书签列表都照它画。相隔不超过
+ * `VIDEO_ANNOTATION_NEAR_MS` 的几刻在画面上一起显示，算同一帧（从这一帧最早的那一刻量起）。只数能发出去的标记。
+ */
+export function markedFrames(marks: readonly Mark[]): MarkedFrame[] {
+  const out: MarkedFrame[] = [];
+  for (const m of sendable(marks).sort((a, b) => a.timeMs - b.timeMs)) {
+    const last = out[out.length - 1];
+    if (last && m.timeMs - last.timeMs <= VIDEO_ANNOTATION_NEAR_MS) last.count += 1;
+    else out.push({ timeMs: m.timeMs, count: 1 });
+  }
+  return out;
+}
+
+/** 时间线上的一枚印章：一帧，或挤在一起的几帧（`at` 是第一帧在整条上的位置，0–1）。 */
+export interface BookmarkStamp {
+  timeMs: number;
+  at: number;
+  frames: MarkedFrame[];
+}
+
+/**
+ * 印章挤在一起时合成一枚（lite-editor §4.1）：从左往右，离这一枚的第一帧不到 `minGapPx` 像素的帧并进来，印章上写帧数。
+ * `widthPx` 是整条的宽度，`durationMs` 是整片时长。
+ */
+export function bookmarkStamps(frames: readonly MarkedFrame[], durationMs: number, widthPx: number, minGapPx: number): BookmarkStamp[] {
+  if (!(durationMs > 0)) return [];
+  const out: BookmarkStamp[] = [];
+  for (const frame of frames) {
+    const at = Math.min(1, Math.max(0, frame.timeMs / durationMs));
+    const last = out[out.length - 1];
+    if (last && (at - last.at) * widthPx < minGapPx) last.frames.push(frame);
+    else out.push({ timeMs: frame.timeMs, at, frames: [frame] });
+  }
+  return out;
+}
+
+/** 点一枚印章去哪：播放头不在它的帧上就去第一帧，在其中一帧上就去下一帧（到头回第一帧），挤在一起的几帧点几下轮一遍。 */
+export function stampTarget(stamp: Pick<BookmarkStamp, 'frames'>, nowMs: number): number {
+  const i = stamp.frames.findIndex((f) => isOnFrame(f, nowMs));
+  return stamp.frames[(i + 1) % stamp.frames.length]!.timeMs;
+}
+
+/** 播放头在哪一枚书签的帧上（没有时 null）。 */
+export function currentFrame(frames: readonly MarkedFrame[], nowMs: number): MarkedFrame | null {
+  return frames.find((f) => isOnFrame(f, nowMs)) ?? null;
+}
+
 /**
  * 整组标记换成视频标注草稿（一条标记一条，跳过不能发的）：每条带自己的时刻与那一刻的落点；文字与评论的内容进 `text`，别的 `text`
  * 为空（说明写在对话里）；颜色与粗细进 `style`；点中的元素进 `element`（带给模型看的 `detail`，不带画面上用的框）；每条带 `shot`

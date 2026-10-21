@@ -40,5 +40,8 @@ export const zhHant: MarkupMessages = {
   copyFailed: '沒能複製圖片，可以改用下載',
   captureFailed: '這一幀沒能擷取',
   discardBodyScreenshot: '關閉會移除畫面上的標記。需要的話先複製或下載圖片。',
+  bookmarks: '標記過的影格',
+  bookmarkItem: (time, n) => `${time} · ${n} 處標記`,
+  stampLabel: (time, frames) => (frames === 1 ? `標記過的影格 ${time}` : `${frames} 個標記過的影格，從 ${time} 起`),
   pickInfo: { heading: '無障礙功能', name: '名稱', role: '角色', focusable: '可用鍵盤聚焦' },
 };

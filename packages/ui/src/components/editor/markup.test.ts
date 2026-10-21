@@ -583,7 +583,7 @@ describe('截图模式（Web，lite-editor §4.1、§8）', () => {
     expect(useMarkup.getState().markup.tool).toBe('pen');
   });
 
-  it('复制 / 下载的是播放头那一帧：当前帧没有标记时置灰；复制、下载后标记留着，关闭时照样问', async () => {
+  it('复制 / 下载的是播放头那一帧：当前帧没有标记时置灰；出了图就清掉这一帧的标记（撤销不带回来），别的帧的留着', async () => {
     const write = vi.fn(async (_items: unknown[]) => {});
     const items: Record<string, unknown>[] = [];
     vi.stubGlobal(
@@ -605,27 +605,56 @@ describe('截图模式（Web，lite-editor §4.1、§8）', () => {
     });
     await mount();
     await drag([64, 36], [128, 72]);
-    expect(disabled(button('复制图片'))).toBe(false);
+    await act(() => useEditor.setState({ playhead: 8 }));
+    await drag([200, 100], [260, 160]);
+    expect(marks().map((m) => m.timeMs)).toEqual([3000, 8000]);
     await act(() => useEditor.setState({ playhead: 20 }));
     expect(disabled(button('复制图片')) && disabled(button('下载图片'))).toBe(true);
     await act(() => useEditor.setState({ playhead: 3.2 }));
+    expect(disabled(button('复制图片'))).toBe(false);
 
     await press(button('复制图片'));
     await flush();
     expect(write).toHaveBeenCalledTimes(1);
     await expect(items[0]?.['image/png']).resolves.toBeInstanceOf(Blob);
     expect(neutral).toHaveBeenCalledWith('已复制图片', expect.anything());
+    expect(marks().map((m) => m.timeMs)).toEqual([8000]);
+    expect(Object.keys(useMarkup.getState().frames)).not.toContain('3000');
+    await key('z', { metaKey: true, ctrlKey: true, code: 'KeyZ' });
+    await key('z', { metaKey: true, ctrlKey: true, code: 'KeyZ' });
+    expect(marks().some((m) => m.timeMs === 3000)).toBe(false);
+    await key('z', { metaKey: true, ctrlKey: true, shiftKey: true, code: 'KeyZ' });
+    await key('z', { metaKey: true, ctrlKey: true, shiftKey: true, code: 'KeyZ' });
+    expect(disabled(button('复制图片'))).toBe(true);
 
+    await act(() => useEditor.setState({ playhead: 8 }));
     await press(button('下载图片'));
     await flush();
-    expect(saved).toEqual(['倒着开的跑车-00m03s200.png']);
-    expect(neutral).toHaveBeenCalledWith('已下载 倒着开的跑车-00m03s200.png', expect.anything());
-
-    expect(marks()).toHaveLength(1);
+    expect(saved).toEqual(['倒着开的跑车-00m08s000.png']);
+    expect(neutral).toHaveBeenCalledWith('已下载 倒着开的跑车-00m08s000.png', expect.anything());
+    expect(marks()).toHaveLength(0);
+    expect(useMarkup.getState().frames).toEqual({});
+    // 出完图不退出：还能接着在别的帧上画；没有标记了，关闭不再问
     expect(useEditor.getState().annotating).toBe(true);
     await key('Escape');
-    expect(useMarkup.getState().markup.ask).toBe(true);
-    expect(document.body.textContent).toContain('关闭会去掉画面上的标记');
+    expect(useMarkup.getState().markup.ask).toBe(false);
+    expect(useEditor.getState().annotating).toBe(false);
+  });
+
+  it('工具条的书签列表：列出画过标记的每一帧，点一项定位到那一帧', async () => {
+    await mount();
+    expect(disabled(button('标记过的帧'))).toBe(true);
+    await drag([64, 36], [128, 72]);
+    await drag([300, 100], [340, 160]);
+    await act(() => useEditor.setState({ playhead: 12.5 }));
+    await drag([200, 100], [260, 160]);
+    const trigger = button('标记过的帧 · 2');
+    expect(disabled(trigger)).toBe(false);
+    await press(trigger);
+    const items = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]')];
+    expect(items.map((el) => el.textContent)).toEqual(['00:03.0 · 2 处标记', '00:12.5 · 1 处标记']);
+    await press(items[0]!);
+    expect(actions.seek).toHaveBeenCalledWith(3);
   });
 
   it('这一帧截不出图（实时合成层在画布之外）时按截不出提示，剪贴板不可用时提示改用下载', async () => {

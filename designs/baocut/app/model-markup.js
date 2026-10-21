@@ -3,7 +3,8 @@
    window.BC_MARKUP。纯函数，无 React、无 DOM；App 与 Web 两个入口都加载。
 
    两种用法（docs/design/lite-editor §4.1、§8）：`agent`（App）最后「添加到对话」换成视频标注；`screenshot`（Web，没有会话可发）
-   没有选择元素与评论，最后把当前帧连同这一帧的标记复制或下载成图片（`toolsFor`、`shotName`）。
+   没有选择元素与评论，最后把当前帧连同这一帧的标记复制或下载成图片（`toolsFor`、`shotName`），出了图就清掉这一帧的标记（`forgetFrame`）。
+   画过标记的帧在时间线章节条上落印章、工具条上列书签（`markedFrames`、`stamps`、`stampTarget`）。
 
    与视频标注（model-stage-notes.js）的分工：这里是**画的过程**——一次标注会话里的标记、颜色与粗细、撤销重做、选中与改形；
    按「添加到对话」时整组换成视频标注（`toNotes`），进 `videoNotes[videoId]` 草稿，之后的事归 model-stage-notes。
@@ -83,6 +84,39 @@
   /** 这组标记涉及的帧（毫秒，升序去重）：每一帧出一张截图。 */
   function frames(marks) {
     return [...new Set(marks.map(m => m.timeMs || 0))].sort((a, b) => a - b);
+  }
+  /** 标记帧的书签（docs/design/lite-editor §4.1）：画过标记的每一帧与这一帧上的条数，按先后；±near 内的几刻算同一帧（从最早的那一刻量起），没写字的不算。 */
+  function markedFrames(marks, near = 500) {
+    const out = [];
+    for (const m of sendable(marks).slice().sort((a, b) => (a.timeMs || 0) - (b.timeMs || 0))) {
+      const t = m.timeMs || 0, last = out[out.length - 1];
+      if (last && t - last.timeMs <= near) last.count += 1;
+      else out.push({timeMs: t, count: 1});
+    }
+    return out;
+  }
+  /** 时间线上的印章：`pos(timeMs)` 给出在整条上的位置（0–1）；离这一枚的第一帧不到 `minGapPx` 像素的帧并进来，印章上写帧数。 */
+  function stamps(list, pos, widthPx, minGapPx = 20) {
+    const out = [];
+    for (const f of list) {
+      const at = Math.min(1, Math.max(0, pos(f.timeMs)));
+      const last = out[out.length - 1];
+      if (last && (at - last.at) * widthPx < minGapPx) last.frames.push(f);
+      else out.push({timeMs: f.timeMs, at, frames: [f]});
+    }
+    return out;
+  }
+  /** 点一枚印章去哪（毫秒）：不在它的帧上去第一帧，在其中一帧上去下一帧，到头回第一帧。 */
+  function stampTarget(stamp, nowMs, near = 500) {
+    const i = stamp.frames.findIndex(f => Math.abs(f.timeMs - nowMs) <= near);
+    return stamp.frames[(i + 1) % stamp.frames.length].timeMs;
+  }
+  /** 出过图的这一帧：它上面的标记从画面与整段历史里拿掉（撤销不再带回来），别的帧的留着。 */
+  function forgetFrame(s, nowMs) {
+    const gone = new Set(onFrame(s.marks, nowMs).map(m => m.id));
+    if (!gone.size) return s;
+    const keep = list => list.filter(m => !gone.has(m.id));
+    return {...s, marks: keep(s.marks), past: s.past.map(keep), future: s.future.map(keep), sel: s.sel && gone.has(s.sel) ? null : s.sel};
   }
   /** 改一条：默认进历史；拖动中的连续改动传 `{history: false}`，松手再 commit 一次。 */
   function update(s, id, patch, opts) {
@@ -253,5 +287,6 @@
   }
 
   root.BC_MARKUP = {COLORS, WIDTHS, TOOLS, toolsFor, shotName, SHAPES, KIND_LABELS, BOX_HANDLES, init, setTool, setShape, setColor, setWidth, add, update, finishDrag, remove, clear, select,
-    canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes, fromNote, onFrame, frames};
+    canUndo, canRedo, undo, redo, sendable, stepNumber, fromGesture, bounds, move, handles, resize, elementLabel, elementDetail, describe, toNotes, fromNote, onFrame, frames,
+    markedFrames, stamps, stampTarget, forgetFrame};
 })();

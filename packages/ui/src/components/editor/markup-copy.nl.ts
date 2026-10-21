@@ -40,5 +40,8 @@ export const nl: MarkupMessages = {
   copyFailed: 'Kan de afbeelding niet kopiëren. Download hem in plaats daarvan.',
   captureFailed: 'Kan dit frame niet vastleggen.',
   discardBodyScreenshot: 'Sluiten verwijdert de markeringen op het beeld. Kopieer of download de afbeelding eerst als je hem nodig hebt.',
+  bookmarks: 'Gemarkeerde frames',
+  bookmarkItem: (time, n) => `${time} · ${n === 1 ? '1 markering' : `${n} markeringen`}`,
+  stampLabel: (time, frames) => (frames === 1 ? `Gemarkeerd frame ${time}` : `${frames} gemarkeerde frames vanaf ${time}`),
   pickInfo: { heading: 'Toegankelijkheid', name: 'Naam', role: 'Rol', focusable: 'Focusbaar met toetsenbord' },
 };

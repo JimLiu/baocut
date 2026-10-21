@@ -40,5 +40,8 @@ export const vi: MarkupMessages = {
   copyFailed: 'Không sao chép được ảnh. Hãy tải xuống thay thế.',
   captureFailed: 'Không chụp được khung hình này.',
   discardBodyScreenshot: 'Đóng sẽ xóa các dấu trên khung hình. Hãy sao chép hoặc tải ảnh xuống trước nếu cần.',
+  bookmarks: 'Khung hình đã đánh dấu',
+  bookmarkItem: (time, n) => `${time} · ${n} dấu`,
+  stampLabel: (time, frames) => (frames === 1 ? `Khung hình đã đánh dấu ${time}` : `${frames} khung hình đã đánh dấu từ ${time}`),
   pickInfo: { heading: 'Hỗ trợ tiếp cận', name: 'Tên', role: 'Vai trò', focusable: 'Có thể lấy tiêu điểm bằng bàn phím' },
 };

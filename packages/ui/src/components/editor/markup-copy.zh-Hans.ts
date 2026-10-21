@@ -40,5 +40,8 @@ export const zhHans: MarkupMessages = {
   copyFailed: '没能复制图片，可以改用下载',
   captureFailed: '这一帧没能截下来',
   discardBodyScreenshot: '关闭会去掉画面上的标记。需要的话先复制或下载图片。',
+  bookmarks: '标记过的帧',
+  bookmarkItem: (time, n) => `${time} · ${n} 处标记`,
+  stampLabel: (time, frames) => (frames === 1 ? `标记过的帧 ${time}` : `${frames} 个标记过的帧，从 ${time} 起`),
   pickInfo: { heading: '可访问性', name: '名称', role: '角色', focusable: '键盘可聚焦' },
 };

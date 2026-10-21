@@ -6,6 +6,7 @@ import type { AssetRecord } from '@baocut/protocol';
 import { RuntimeContext } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useEditor } from '../../state/editor-store.ts';
+import { useMarkup } from '../../state/markup-store.ts';
 import { useVideo, type OpenVideo } from '../../state/video-store.ts';
 import { chapter, sequence, track, videoItem } from '../../testing/sequence-records.ts';
 import { EditorContext, type EditorActions } from './editor-context.tsx';
@@ -56,6 +57,7 @@ afterEach(async () => {
   container.remove();
   useEditor.setState(initialEditor, true);
   useVideo.setState(initialVideo, true);
+  useMarkup.getState().bind('none');
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -107,4 +109,45 @@ it('offers only rename and remove for an existing chapter', async () => {
   await mount();
   await act(() => bar.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 450 })));
   expect(Array.from(document.querySelectorAll('[role="menuitem"]')).map((item) => item.textContent)).toEqual(['改标题…', '删除这一章']);
+});
+
+it('stamps the frames marked in markup mode; crowded frames share one stamp that cycles through them', async () => {
+  vi.spyOn(HTMLDivElement.prototype, 'getBoundingClientRect').mockReturnValue({ left: 100, width: 600 } as DOMRect);
+  const box = { kind: 'box' as const, x: 0.1, y: 0.1, w: 0.1, h: 0.1, color: 'red' as const, width: 4 as const };
+  useMarkup.getState().bind('v1');
+  useMarkup.getState().apply((s) => ({
+    ...s,
+    marks: [
+      { ...box, id: 'a', timeMs: 30_000 },
+      { ...box, id: 'b', timeMs: 30_300 },
+      { ...box, id: 'c', timeMs: 31_000 },
+      { ...box, id: 'd', timeMs: 50_000 },
+    ],
+  }));
+  useEditor.setState({ annotating: false, playhead: 0 });
+  useVideo.setState({ video: { videoId: 'v1', status: 'ready', state: { video: { assets } } } as unknown as OpenVideo });
+  await act(() => root.render(createElement(RuntimeContext.Provider, { value: runtime },
+    createElement(EditorContext.Provider, { value: actions }, createElement(TimelineChapters, { sequence: seq })))));
+  // 不在标注模式时不画
+  expect(container.querySelector('[data-bookmark-stamp]')).toBeNull();
+  await act(() => useEditor.setState({ annotating: true }));
+  const stamps = [...container.querySelectorAll<HTMLElement>('[data-bookmark-stamp]')];
+  // 60 s on 600 px: 30.0 s and 31.0 s are 10 px apart and merge; 50 s stands alone
+  expect(stamps.map((el) => el.getAttribute('aria-label'))).toEqual(['2 个标记过的帧，从 00:30.0 起', '标记过的帧 00:50.0']);
+  expect(stamps.map((el) => el.style.left)).toEqual(['50%', `${(50 / 60) * 100}%`]);
+  expect(stamps[0]!.textContent).toBe('2');
+  const press = async (el: HTMLElement) => {
+    await act(async () => {
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }));
+      el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, pointerType: 'mouse' }));
+      el.click();
+    });
+  };
+  await press(stamps[0]!);
+  // the stamp seeks to the marked frame itself, and its click does not reach the band's seek-to-pointer
+  expect(seek.mock.calls).toEqual([[30]]);
+  await act(() => useEditor.setState({ playhead: 30 }));
+  await press(stamps[0]!);
+  expect(seek).toHaveBeenLastCalledWith(31);
+  expect(seek).toHaveBeenCalledTimes(2);
 });

@@ -401,3 +401,65 @@ describe('截图模式（Web，lite-editor §4.1、§8）', () => {
     expect(M.screenshotFileName('', 3_723_005)).toBe('video-1h02m03s005.png');
   });
 });
+
+describe('标记帧的书签与时间线印章（lite-editor §4.1）', () => {
+  const at = (id: string, timeMs: number, kind: M.Mark['kind'] = 'box', text?: string): M.Mark => ({
+    id,
+    timeMs,
+    kind,
+    x: 0.1,
+    y: 0.1,
+    w: 0.1,
+    h: 0.1,
+    color: 'red',
+    width: 4,
+    ...(text === undefined ? {} : { text }),
+  });
+
+  it('按帧数标记：±0.5 s 内的几刻算同一帧（从最早的那一刻量起），没写字的文字不算', () => {
+    const marks = [at('c', 12_000), at('a', 3_000), at('b', 3_400), at('d', 3_900), at('e', 20_000, 'text', ' ')];
+    expect(M.markedFrames(marks)).toEqual([
+      { timeMs: 3_000, count: 2 },
+      { timeMs: 3_900, count: 1 },
+      { timeMs: 12_000, count: 1 },
+    ]);
+    expect(M.markedFrames([])).toEqual([]);
+  });
+
+  it('印章挤在一起时合成一枚：离这一枚的第一帧不到最小间距就并进来', () => {
+    const frames = [
+      { timeMs: 10_000, count: 1 },
+      { timeMs: 11_000, count: 2 },
+      { timeMs: 12_500, count: 1 },
+      { timeMs: 60_000, count: 1 },
+    ];
+    // 整片 100 s、整条 1000 px：1 s = 10 px
+    const stamps = M.bookmarkStamps(frames, 100_000, 1000, 20);
+    expect(stamps.map((s) => [s.timeMs, s.at, s.frames.length])).toEqual([
+      [10_000, 0.1, 2],
+      [12_500, 0.125, 1],
+      [60_000, 0.6, 1],
+    ]);
+    // 条够宽时一帧一枚；整片时长不明时不画
+    expect(M.bookmarkStamps(frames, 100_000, 10_000, 20)).toHaveLength(4);
+    expect(M.bookmarkStamps(frames, 0, 1000, 20)).toEqual([]);
+    // 超出片尾的落在末端
+    expect(M.bookmarkStamps([{ timeMs: 120_000, count: 1 }], 100_000, 1000, 20)[0]!.at).toBe(1);
+  });
+
+  it('点印章：不在它的帧上去第一帧，在其中一帧上去下一帧，到头回第一帧；播放头在哪一枚书签上', () => {
+    const stamp = {
+      frames: [
+        { timeMs: 10_000, count: 1 },
+        { timeMs: 11_000, count: 1 },
+        { timeMs: 12_000, count: 1 },
+      ],
+    };
+    expect(M.stampTarget(stamp, 0)).toBe(10_000);
+    expect(M.stampTarget(stamp, 10_200)).toBe(11_000);
+    expect(M.stampTarget(stamp, 11_000)).toBe(12_000);
+    expect(M.stampTarget(stamp, 12_000)).toBe(10_000);
+    expect(M.currentFrame(stamp.frames, 11_400)).toEqual({ timeMs: 11_000, count: 1 });
+    expect(M.currentFrame(stamp.frames, 30_000)).toBeNull();
+  });
+});

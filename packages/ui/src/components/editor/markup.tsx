@@ -1,6 +1,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -38,6 +39,7 @@ import {
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
+import Bookmark from '@react-spectrum/s2/icons/Bookmark';
 import Brush from '@react-spectrum/s2/icons/Brush';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import Close from '@react-spectrum/s2/icons/Close';
@@ -50,6 +52,7 @@ import TextIcon from '@react-spectrum/s2/icons/Text';
 import UndoIcon from '@react-spectrum/s2/icons/Undo';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton, ToggleButton as RACToggleButton } from 'react-aria-components';
+import { formatTenths } from '../../model/format.ts';
 import { keyLabel } from '../../model/key-labels.ts';
 import type { LiteSegment } from '../../model/lite-segments.ts';
 import {
@@ -57,10 +60,12 @@ import {
   MARKUP_SHAPES,
   MARKUP_TEXT_SIZE,
   markFrames,
+  markedFrames,
   MARKUP_WIDTHS,
   add,
   canRedo,
   canUndo,
+  currentFrame,
   finishDrag,
   forget,
   fromGesture,
@@ -737,9 +742,10 @@ export function MarkupLayer({
   };
   /**
    * 复制图片：ClipboardItem 在按下的这一刻同步建好、图片以 Promise 交给它（Safari 要求写剪贴板发生在手势里，画图是异步的）。
-   * 剪贴板不可用或被拒时提示改用下载；是图没截出来时按截不出图提示。标记不清、不退出。
+   * 剪贴板不可用或被拒时提示改用下载；是图没截出来时按截不出图提示，这两种标记都留着。复制成了就清掉这一帧的标记（别的帧的留着），不退出。
    */
   const copyImage = () => {
+    const shotMs = frameMs();
     const clipboard = typeof ClipboardItem === 'undefined' ? undefined : navigator.clipboard;
     if (!clipboard?.write) {
       ToastQueue.negative(C.copyFailed, { timeout: 5000 });
@@ -749,15 +755,19 @@ export function MarkupLayer({
     const png = shot.then((blob) => blob ?? Promise.reject(new Error('frame unavailable')));
     png.catch(() => {});
     void clipboard.write([new ClipboardItem({ 'image/png': png })]).then(
-      () => ToastQueue.neutral(C.copied, { timeout: 3000 }),
+      () => {
+        useMarkup.getState().forgetFrame(shotMs);
+        ToastQueue.neutral(C.copied, { timeout: 3000 });
+      },
       async () => {
         if (await shot) ToastQueue.negative(C.copyFailed, { timeout: 5000 });
         else ToastQueue.neutral(C.captureFailed, { timeout: 4000 });
       },
     );
   };
-  /** 下载图片：存成 `<视频名>-00m12s400.png`（播放头所在那一帧）。标记不清、不退出。 */
+  /** 下载图片：存成 `<视频名>-00m12s400.png`（播放头所在那一帧）。下载出去了就清掉这一帧的标记，同复制。 */
   const downloadImage = () => {
+    const shotMs = frameMs();
     const name = shotName();
     void frameShot().then((blob) => {
       if (!blob) {
@@ -765,6 +775,7 @@ export function MarkupLayer({
         return;
       }
       downloadBlob(blob, name);
+      useMarkup.getState().forgetFrame(shotMs);
       ToastQueue.neutral(C.downloaded(name), { timeout: 3000 });
     });
   };
@@ -1276,6 +1287,8 @@ export function MarkupBar({
       {historyButton(C.undo, '⌘Z', canUndo(markup), undo, <UndoIcon styles={toolIcon} />)}
       {historyButton(C.redo, '⇧⌘Z', canRedo(markup), redo, <RedoIcon styles={toolIcon} />)}
       <span className={divider} />
+      <MarkBookmarks />
+      <span className={divider} />
       {mode === 'screenshot' ? (
         <>
           {imageButton(C.copyImage, onCopyImage, <Copy styles={toolIcon} />)}
@@ -1293,6 +1306,53 @@ export function MarkupBar({
       </Tip>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * 标记帧的书签（lite-editor §4.1）：一枚带下拉的钮，列出画过标记的每一帧（时码 · 几处标记），点一项定位到那一帧；播放头所在的那一帧打勾。
+ * 时间线上的印章挤在一起时靠它挑。没有标记时置灰。
+ */
+function MarkBookmarks() {
+  const { seek } = useEditorActions();
+  const marks = useMarkup((s) => s.markup.marks);
+  const frames = useMemo(() => markedFrames(marks), [marks]);
+  const nowMs = useEditor((s) => Math.round(s.playhead * 1000));
+  const current = currentFrame(frames, nowMs);
+  const C = MARKUP_COPY;
+  const label = frames.length ? C.current(C.bookmarks, String(frames.length)) : C.bookmarks;
+  return (
+    <MenuTrigger>
+      <Tip label={label}>
+        <RACButton
+          className={({ isHovered, isPressed, isFocusVisible, isDisabled }) =>
+            toolBtn({ isHovered, isPressed, isFocusVisible, isDisabled, hasMenu: true })
+          }
+          aria-label={label}
+          isDisabled={!frames.length}
+        >
+          <Bookmark styles={toolIcon} />
+          <span className={chevronWrap} aria-hidden>
+            <ChevronDown UNSAFE_style={chevronFill} />
+          </span>
+        </RACButton>
+      </Tip>
+      <Menu
+        aria-label={C.bookmarks}
+        selectionMode="single"
+        selectedKeys={current ? [String(current.timeMs)] : []}
+        onAction={(key) => seek(Number(key) / 1000)}
+      >
+        {frames.map((frame) => {
+          const text = C.bookmarkItem(formatTenths(frame.timeMs / 1000), frame.count);
+          return (
+            <MenuItem key={frame.timeMs} id={String(frame.timeMs)} textValue={text}>
+              <Text slot="label">{text}</Text>
+            </MenuItem>
+          );
+        })}
+      </Menu>
+    </MenuTrigger>
   );
 }
 

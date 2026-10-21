@@ -40,5 +40,8 @@ export const fr: MarkupMessages = {
   copyFailed: 'Impossible de copier l’image. Téléchargez-la plutôt.',
   captureFailed: 'Impossible de capturer cette image.',
   discardBodyScreenshot: 'Fermer supprime les marques sur l’image. Copiez ou téléchargez l’image avant si vous en avez besoin.',
+  bookmarks: 'Images annotées',
+  bookmarkItem: (time, n) => `${time} · ${n === 1 ? '1 marque' : `${n} marques`}`,
+  stampLabel: (time, frames) => (frames === 1 ? `Image annotée ${time}` : `${frames} images annotées à partir de ${time}`),
   pickInfo: { heading: 'Accessibilité', name: 'Nom', role: 'Rôle', focusable: 'Focalisable au clavier' },
 };

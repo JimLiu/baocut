@@ -40,5 +40,8 @@ export const it: MarkupMessages = {
   copyFailed: 'Impossibile copiare l’immagine. Scaricala invece.',
   captureFailed: 'Impossibile catturare questo fotogramma.',
   discardBodyScreenshot: 'Chiudendo, i segni sull’immagine vengono rimossi. Se ti serve, copia o scarica prima l’immagine.',
+  bookmarks: 'Fotogrammi segnati',
+  bookmarkItem: (time, n) => `${time} · ${n === 1 ? '1 segno' : `${n} segni`}`,
+  stampLabel: (time, frames) => (frames === 1 ? `Fotogramma segnato ${time}` : `${frames} fotogrammi segnati da ${time}`),
   pickInfo: { heading: 'Accessibilità', name: 'Nome', role: 'Ruolo', focusable: 'Attivabile da tastiera' },
 };

@@ -146,3 +146,25 @@ test('截图模式（Web）：没有选择元素与评论；下载的文件名�
   assert.equal(M.shotName('a/b: c?', 0), 'a_b_ c_-00m00s000.png');
   assert.equal(M.shotName('', 3723005), 'video-1h02m03s005.png');
 });
+
+test('标记帧的书签与时间线印章（lite-editor §4.1）', () => {
+  const box = (id, timeMs, extra) => ({id, timeMs, kind: 'rect', x: 0.1, y: 0.1, w: 0.1, h: 0.1, ...extra});
+  const marks = [box('c', 12000), box('a', 3000), box('b', 3400), box('d', 3900), box('e', 20000, {kind: 'text', text: ' '})];
+  assert.deepEqual(M.markedFrames(marks), [{timeMs: 3000, count: 2}, {timeMs: 3900, count: 1}, {timeMs: 12000, count: 1}]);
+  const frames = [{timeMs: 10000, count: 1}, {timeMs: 11000, count: 2}, {timeMs: 12500, count: 1}, {timeMs: 60000, count: 1}];
+  const st = M.stamps(frames, t => t / 100000, 1000, 20);
+  assert.deepEqual(st.map(s => [s.timeMs, s.at, s.frames.length]), [[10000, 0.1, 2], [12500, 0.125, 1], [60000, 0.6, 1]]);
+  assert.equal(M.stamps(frames, t => t / 100000, 10000, 20).length, 4);
+  assert.equal(M.stampTarget(st[0], 0), 10000);
+  assert.equal(M.stampTarget(st[0], 10200), 11000);
+  assert.equal(M.stampTarget(st[0], 11000), 10000);
+});
+
+test('出过图的这一帧：标记从画面与历史里拿掉，别的帧的留着', () => {
+  let s = M.add(M.init(), {id: 'a', timeMs: 3000, kind: 'rect', x: 0, y: 0, w: 0.2, h: 0.2});
+  s = M.add(s, {id: 'b', timeMs: 8000, kind: 'rect', x: 0, y: 0, w: 0.2, h: 0.2});
+  s = M.forgetFrame(s, 3200);
+  assert.deepEqual(s.marks.map(m => m.id), ['b']);
+  assert.ok(s.past.every(list => list.every(m => m.id !== 'a')));
+  assert.equal(M.forgetFrame(s, 30000), s);
+});

@@ -40,5 +40,8 @@ export const ja: MarkupMessages = {
   copyFailed: '画像をコピーできませんでした。ダウンロードをお使いください',
   captureFailed: 'このフレームをキャプチャできませんでした',
   discardBodyScreenshot: '閉じると画面上のマークは消えます。必要なら先に画像をコピーまたはダウンロードしてください。',
+  bookmarks: 'マークしたフレーム',
+  bookmarkItem: (time, n) => `${time} · マーク ${n} 件`,
+  stampLabel: (time, frames) => (frames === 1 ? `マークしたフレーム ${time}` : `${time} からマークしたフレーム ${frames} 件`),
   pickInfo: { heading: 'アクセシビリティ', name: '名前', role: 'ロール', focusable: 'キーボードでフォーカス可能' },
 };

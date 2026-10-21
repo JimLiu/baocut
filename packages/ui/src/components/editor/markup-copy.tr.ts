@@ -40,5 +40,8 @@ export const tr: MarkupMessages = {
   copyFailed: 'Görüntü kopyalanamadı. Bunun yerine indirin.',
   captureFailed: 'Bu kare yakalanamadı.',
   discardBodyScreenshot: 'Kapatınca görüntüdeki işaretler silinir. Gerekirse önce görüntüyü kopyalayın veya indirin.',
+  bookmarks: 'İşaretli kareler',
+  bookmarkItem: (time, n) => `${time} · ${n} işaret`,
+  stampLabel: (time, frames) => (frames === 1 ? `İşaretli kare ${time}` : `${time} itibarıyla ${frames} işaretli kare`),
   pickInfo: { heading: 'Erişilebilirlik', name: 'Ad', role: 'Rol', focusable: 'Klavyeyle odaklanılabilir' },
 };

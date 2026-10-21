@@ -41,5 +41,8 @@ export const de: MarkupMessages = {
   captureFailed: 'Dieses Bild konnte nicht aufgenommen werden.',
   discardBodyScreenshot:
     'Beim Schließen werden die Markierungen auf dem Bild entfernt. Wird das Bild gebraucht, vorher kopieren oder herunterladen.',
+  bookmarks: 'Markierte Frames',
+  bookmarkItem: (time, n) => `${time} · ${n === 1 ? '1 Markierung' : `${n} Markierungen`}`,
+  stampLabel: (time, frames) => (frames === 1 ? `Markierter Frame ${time}` : `${frames} markierte Frames ab ${time}`),
   pickInfo: { heading: 'Barrierefreiheit', name: 'Name', role: 'Rolle', focusable: 'Per Tastatur fokussierbar' },
 };

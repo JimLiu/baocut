@@ -390,11 +390,14 @@
     const sendable = MK.sendable(st.marks);
     const reset = () => set(s => MK.init({tool: s.tool, shape: s.shape, color: s.color, width: s.width}));
     const send = () => { if (sendMarks(app, ctx, st.marks)) { reset(); ctx.setAnnotating(false); } };
-    /* 截图模式：只出当前帧（播放头那一帧）上的标记；复制 / 下载后标记留着、不退出（原型只出提示） */
+    /* 截图模式：只出当前帧（播放头那一帧）上的标记；出了图就清掉这一帧的标记（别的帧的留着）、不退出（原型只出提示） */
     const nowMs = Math.round(ctx.playT * 1000);
     const onFrame = MK.sendable(MK.onFrame(st.marks, nowMs));
-    const copyShot = () => app.toast('已复制图片');
-    const downloadShot = () => app.toast(`已下载 ${MK.shotName(ctx.proj && ctx.proj.name, nowMs)}`);
+    const copyShot = () => { set(s => MK.forgetFrame(s, nowMs)); app.toast('已复制图片'); };
+    const downloadShot = () => { set(s => MK.forgetFrame(s, nowMs)); app.toast(`已下载 ${MK.shotName(ctx.proj && ctx.proj.name, nowMs)}`); };
+    /* 标记帧的书签（lite-editor §4.1）：画过标记的每一帧，点一项定位过去；播放头所在的那一帧打勾。时间线上的印章挤在一起时靠它挑 */
+    const marked = MK.markedFrames(st.marks);
+    const here = marked.find(f => Math.abs(f.timeMs - nowMs) <= 500);
     const toggle = k => setMenu(menu === k ? null : k);
     /* 带下拉的钮的面：当前值的样本 + 小箭头，并排一行（S2 的钮内部是网格，两个子节点会上下叠，所以先包成一个） */
     const Face = ({children}) => <span className="mk-bar__face">{children}<span className="mk-bar__chev" aria-hidden="true"><R.Icons.ChevronDown /></span></span>;
@@ -442,6 +445,15 @@
         <div className="mk-bar__group">
           <IconBtn size="s" tip="撤销 · ⌘Z" disabled={!MK.canUndo(st)} onClick={() => set(MK.undo)}><R.Icons.Undo /></IconBtn>
           <IconBtn size="s" tip="重做 · ⇧⌘Z" disabled={!MK.canRedo(st)} onClick={() => set(MK.redo)}><R.Icons.Redo /></IconBtn>
+        </div>
+        <span className="vrule" />
+        <div className="mk-bar__dd">
+          <IconBtn size="s" tip={marked.length ? `标记过的帧 · ${marked.length}` : '标记过的帧'} disabled={!marked.length} aria-haspopup="menu" aria-expanded={menu === 'marks'} onClick={() => toggle('marks')}>
+            <Face><R.Icons.Bookmark /></Face></IconBtn>
+          <Popover open={menu === 'marks' && marked.length > 0} onClose={() => setMenu(null)} dir="up" width={180} label="标记过的帧">
+            <div className="mk-menu" role="menu">{marked.map(f => <Row key={f.timeMs} on={here === f} label={`${T.timecode(f.timeMs / 1000, {decimals: 1})} · ${f.count} 处标记`}
+              onClick={() => { ctx.seek(f.timeMs / 1000); setMenu(null); }} />)}</div>
+          </Popover>
         </div>
         <span className="vrule" />
         {MODE === 'screenshot' ? <div className="mk-bar__group">

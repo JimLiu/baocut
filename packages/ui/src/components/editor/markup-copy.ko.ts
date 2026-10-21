@@ -40,5 +40,8 @@ export const ko: MarkupMessages = {
   copyFailed: '이미지를 복사하지 못했습니다. 대신 다운로드하세요',
   captureFailed: '이 프레임을 캡처하지 못했습니다',
   discardBodyScreenshot: '닫으면 화면의 마크가 지워집니다. 필요하면 먼저 이미지를 복사하거나 다운로드하세요.',
+  bookmarks: '표시한 프레임',
+  bookmarkItem: (time, n) => `${time} · 표시 ${n}개`,
+  stampLabel: (time, frames) => (frames === 1 ? `표시한 프레임 ${time}` : `${time}부터 표시한 프레임 ${frames}개`),
   pickInfo: { heading: '접근성', name: '이름', role: '역할', focusable: '키보드 포커스 가능' },
 };

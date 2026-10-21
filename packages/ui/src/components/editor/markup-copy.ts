@@ -71,6 +71,13 @@ const en = {
   copyFailed: 'Couldn’t copy the image. Download it instead.',
   captureFailed: 'Couldn’t capture this frame.',
   discardBodyScreenshot: 'Closing removes the marks on the picture. Copy or download the image first if you need it.',
+  /**
+   * 标记帧的书签（lite-editor §4.1）：工具条上的书签列表（每项是时码与这一帧的标记条数），时间线章节条上的印章（挤在一起的几帧合成一枚，
+   * 读屏名说从哪一刻起几帧）。
+   */
+  bookmarks: 'Marked frames',
+  bookmarkItem: (time: string, n: number) => `${time} · ${n === 1 ? '1 mark' : `${n} marks`}`,
+  stampLabel: (time: string, frames: number) => (frames === 1 ? `Marked frame ${time}` : `${frames} marked frames from ${time}`),
   /** 「选择元素」悬停 HTML 动画里的节点时，说明卡上可访问性的标题与三行（照 DevTools 的检查提示）；空的值显示「—」。 */
   pickInfo: { heading: 'Accessibility', name: 'Name', role: 'Role', focusable: 'Keyboard-focusable' },
 };
