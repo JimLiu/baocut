@@ -423,9 +423,9 @@
     const own = st.tool === 'shape' ? <div className="mk-bar__group">
       {MK.SHAPES.map(sh => <IconBtn key={sh.k} size="s" on={st.shape === sh.k} tip={sh.label} onClick={() => set(s => MK.setShape(s, sh.k))}><ShapeGlyph k={sh.k} /></IconBtn>)}
     </div> : st.tool === 'text' ? <div className="mk-bar__group">
-      <IconBtn size="s" on={ts.bold} tip="粗体" onClick={() => set(s => MK.setTextStyle(s, {bold: !ts.bold}))}><R.Icons.TextBold /></IconBtn>
-      <IconBtn size="s" on={ts.italic} tip="斜体" onClick={() => set(s => MK.setTextStyle(s, {italic: !ts.italic}))}><R.Icons.TextItalic /></IconBtn>
-      <IconBtn size="s" on={ts.underline} tip="下划线" onClick={() => set(s => MK.setTextStyle(s, {underline: !ts.underline}))}><R.Icons.TextUnderline /></IconBtn>
+      <IconBtn size="s" on={ts.bold} tip="粗体" onClick={() => set(s => MK.setTextStyle(s, {bold: !ts.bold}))}><R.Icons.TagBold /></IconBtn>
+      <IconBtn size="s" on={ts.italic} tip="斜体" onClick={() => set(s => MK.setTextStyle(s, {italic: !ts.italic}))}><R.Icons.TagItalic /></IconBtn>
+      <IconBtn size="s" on={ts.underline} tip="下划线" onClick={() => set(s => MK.setTextStyle(s, {underline: !ts.underline}))}><R.Icons.TagUnderline /></IconBtn>
       <div className="mk-bar__dd">
         <IconBtn size="s" tip={`字号 · ${ts.size}`} aria-haspopup="menu" aria-expanded={menu === 'size'} onClick={() => toggle('size')}><Face><R.Icons.TextSize /><span className="mk-bar__val">{ts.size}</span></Face></IconBtn>
         <Popover open={menu === 'size'} onClose={() => setMenu(null)} dir="up" width={100} label="字号" className="mk-pop">
