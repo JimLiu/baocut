@@ -6,11 +6,13 @@
 //   node tools/overlay.mjs --render [id…]   按画幅剪出成片用的片段（铺满裁切，画中画剪成框的大小，对到整帧），把来源标签烧进去，写到 <work>/footage/
 //   node tools/overlay.mjs --place          新建两条视觉轨（footage.layer 为 under 时实拍轨挪到代码包下面），导入片段铺满或放成画中画，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
 //   node tools/overlay.mjs --check          对照视频里的片段与现在算出的起点（assemble 波纹挪过、段落改过之后跑）
-// clips.json：{ source, label, clips: [{ id, seg, line, cue?, gap?, from, to, source?, label?, audio?, subs?, note? }] }
+// clips.json：{ source, label, clips: [{ id, seg, line, cue?, head?, gap?, from, to, source?, label?, audio?, subs?, note? }] }
 //   from / to 是原片的秒数；片段从 seg 段第 line 句（从 0 数）开始放；cue 可省，给了就从这句里 cue 这几个字被说到的时刻开始。
 //   同一段里下一个片段开始时截断，不越过段尾。label 是烧进画面一角的来源标签（成片语言写，例如「画面：<来源>」），
 //   单个片段可以另给 source 与 label；audio 为 true 时保留原声（当事人原话、现场声），否则静音；给数字是放到时间线上的音量（0–1）。
 //   follow 为 true 的片段不看 line / cue，紧接着 clips.json 里上一个片段的原长之后放（几段素材连成一整块，中间硬切）。
+//   head 为 true 的片段不看 line / cue，从段首放：段首到第一句之间有零点几秒的空，实拍垫底（under）时这段露出画布底色，
+//   每段的第一个镜头带上 head 就盖住了（片段长度要算到段首起）。
 //   gap 为 true 的片段让旁白停下来单独放：先跑 gaps.mjs 在旁白里留白，片段放在留白的起点（line 是插在哪一句之前）。
 //   subs：[{ from, to, text, tr, who? }]，from / to 是原片秒数，text 成片语言、tr 原话、who 说话人；--render 时烧成双语字幕。
 //   in / out：{ kind, dur?, easing? } 单侧转场（kind 取 dissolve / wipe / slide / zoom / iris，dur 秒数缺省 0.5，easing 缺省 ease-in-out），
@@ -116,6 +118,8 @@ const plan = [];
 for (const s of lay) {
   const mine = cl.clips.filter(c => c.seg === s.id), t0 = mine.length ? clipTimes(timing(s.id), mine) : {};
   const cs = mine.map(c => ({ ...c, at: s.from / FPS + t0[c.id] })).sort((a, b) => a.at - b.at);
+  const lead = cs.find(c => !c.pip);
+  if (under && lead && lead.at - s.from / FPS >= 1 / FPS) console.log(`warning: ${s.id} has no footage for its first ${(lead.at - s.from / FPS).toFixed(2)}s (the canvas shows); give ${lead.id} head: true`);
   cs.forEach((c, i) => {
     const end = (s.from + s.frames) / FPS, stop = Math.min(cs[i + 1]?.at ?? Infinity, end);
     if (c.at + c.to - c.from > end + 0.5 / FPS && stop === end) console.log(`warning: ${c.id} runs ${(c.at + c.to - c.from - end).toFixed(2)}s past the end of ${s.id}; cut at the segment end (shorten to, or move the clip earlier)`);

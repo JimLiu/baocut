@@ -167,8 +167,10 @@ export function clipTimes(tm, clips) {
   return at;
 }
 
-// 片段在这一段里的起点（秒，相对段首）：留白片段（gap）取 gaps.mjs 在旁白里留出的那段空白的起点，其余按 line / cue
+// 片段在这一段里的起点（秒，相对段首）：head 为 true 的从段首（0）放，盖住第一句之前的那点空；
+// 留白片段（gap）取 gaps.mjs 在旁白里留出的那段空白的起点，其余按 line / cue
 export function clipAt(tm, clip) {
+  if (clip.head) return 0;
   if (!clip.gap) return cueTime(tm, clip.line, clip.cue);
   const g = (tm.gaps || []).find(x => x.clip === clip.id);
   if (!g) throw new Error(`clip ${clip.id} pauses the narration but timing has no gap for it; run gaps.mjs ${clip.seg}`);
