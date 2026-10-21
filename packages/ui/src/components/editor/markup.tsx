@@ -112,7 +112,7 @@ import {
   type Size,
 } from '../../model/video-annotations.ts';
 import { readCaptions } from '../../render/captions.ts';
-import { paintFrame } from '../../render/markup-paint.ts';
+import { composeLiveFrame, paintFrame, type LiveFrameShot } from '../../render/markup-paint.ts';
 import { stageLayers } from '../../render/frame-plan.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
 import type { HostBridge } from '../../host.ts';
@@ -374,6 +374,7 @@ interface Draft {
  * `canvasRef` 是预览画布（截图从这里拷一份；这一帧底下是实时合成层时画布透明，改截窗口）。连同工具条与「放弃这些标记？」一起渲染。
  * `pickLive` 问实时合成层（HTML 动画视频的 iframe）里某一点（画布像素）下最内层的节点：同步命中的是实时合成层那件时才问，
  * 问到了用它，问不到退回那个元素命中（lite-editor §11 第 12 条）。
+ * `captureLive` 要实时合成层此刻这一帧的图（页面自己画的 PNG 与摆法）：宿主不能截窗口（Web）时截图靠它，没有或画不全时是 null。
  */
 export function MarkupLayer({
   videoId,
@@ -384,6 +385,7 @@ export function MarkupLayer({
   frame,
   canvasRef,
   pickLive,
+  captureLive,
 }: {
   videoId: Id;
   sequence: Sequence;
@@ -393,11 +395,12 @@ export function MarkupLayer({
   frame: FrameRect;
   canvasRef: { current: HTMLCanvasElement | null };
   pickLive: (point: Point) => Promise<MarkupPick | null>;
+  captureLive?: () => Promise<LiveFrameShot | null>;
 }) {
   const { engine } = useEditorActions();
   const runtime = useRuntime();
   const cache = runtime.videos.documents;
-  const capture = runtime.host.captureFrame?.bind(runtime.host);
+  const capture: CaptureFrame = { window: runtime.host.captureFrame?.bind(runtime.host), live: captureLive, canvas: sequence.canvas };
   /**
    * 截图那一刻画面底下是不是实时合成层（HTML 动画的 iframe）：看引擎这一帧的计划，不看预览状态的 `live`——那个只在替身不可用、
    * 要提醒烘焙时才有，有可用替身的合成照样走实时层、画布照样透明。
@@ -723,7 +726,7 @@ export function MarkupLayer({
 
   /**
    * 这一帧的图（lite-editor §4.1 截图模式）：播放头所在那一帧的画面加上这一帧上的标记（编号按整组数），画法同「添加到对话」的截图。
-   * 底图取此刻的画面（就是用户看着的那一帧）；截不出时退回画这一帧标记时留下的那张。都没有（例如实时合成层的 iframe 拷不进画布）时 null。
+   * 底图取此刻的画面（就是用户看着的那一帧）；截不出时退回画这一帧标记时留下的那张。都没有（例如实时合成层的页面画不全）时 null。
    */
   const frameShot = async (): Promise<Blob | null> => {
     const nowMs = frameMs();
@@ -742,7 +745,8 @@ export function MarkupLayer({
   };
   /**
    * 复制图片：ClipboardItem 在按下的这一刻同步建好、图片以 Promise 交给它（Safari 要求写剪贴板发生在手势里，画图是异步的）。
-   * 剪贴板不可用或被拒时提示改用下载；是图没截出来时按截不出图提示，这两种标记都留着。复制成了就清掉这一帧的标记（别的帧的留着），不退出。
+   * 被拒时（Claude 内置浏览器拒了剪贴板写权限）退成富文本复制（`copyImageAsHtml`）并如实提示；那也不行时提示改用下载；
+   * 是图没截出来时按截不出图提示，这两种标记都留着。复制成了（含富文本）就清掉这一帧的标记（别的帧的留着），不退出。
    */
   const copyImage = () => {
     const shotMs = frameMs();
@@ -760,8 +764,12 @@ export function MarkupLayer({
         ToastQueue.neutral(C.copied, { timeout: 3000 });
       },
       async () => {
-        if (await shot) ToastQueue.negative(C.copyFailed, { timeout: 5000 });
-        else ToastQueue.neutral(C.captureFailed, { timeout: 4000 });
+        const blob = await shot;
+        if (!blob) ToastQueue.neutral(C.captureFailed, { timeout: 4000 });
+        else if (await copyImageAsHtml(blob)) {
+          useMarkup.getState().forgetFrame(shotMs);
+          ToastQueue.neutral(C.copiedAsHtml, { timeout: 8000 });
+        } else ToastQueue.negative(C.copyFailed, { timeout: 5000 });
       },
     );
   };
@@ -1375,6 +1383,38 @@ function WidthLine({ width, long = false }: { width: VideoAnnotationWidth; long?
 
 // ---- 帧截图 ----
 
+/**
+ * 异步剪贴板写不进图时的退路（lite-editor §4.1 截图模式）：Claude 桌面版的内置浏览器把 `clipboard-write` 权限拒了（`write` 与
+ * `writeText` 都是 NotAllowedError，2026-10-21 实测），`document.execCommand('copy')` 仍然可用，但 `copy` 事件里只写得进文字与 HTML，
+ * 放进去的文件只落下文件名。于是写一份 HTML：`<img>` 内嵌这张 PNG 的 data 地址——文档、笔记这类收富文本的地方贴得成图，只收图片
+ * 文件的地方贴不进去，提示里照实说。要在点按的用户激活还有效时调（Chromium 约 5 秒）；写不进去时 false。
+ */
+async function copyImageAsHtml(blob: Blob): Promise<boolean> {
+  if (typeof document.execCommand !== 'function') return false;
+  const url = await new Promise<string | null>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+  if (!url?.startsWith('data:image/png;base64,')) return false;
+  let wrote = false;
+  const onCopy = (event: ClipboardEvent) => {
+    if (!event.clipboardData) return;
+    event.preventDefault();
+    event.clipboardData.setData('text/html', `<img src="${url}" alt="">`);
+    wrote = true;
+  };
+  document.addEventListener('copy', onCopy, true);
+  try {
+    return document.execCommand('copy') && wrote;
+  } catch {
+    return false;
+  } finally {
+    document.removeEventListener('copy', onCopy, true);
+  }
+}
+
 /** 此刻的播放头，毫秒整数（标记属于这一帧）。 */
 function frameMs(): number {
   return Math.round(useEditor.getState().playhead * 1000);
@@ -1383,7 +1423,8 @@ function frameMs(): number {
 /**
  * 画下第一条标记的那一刻把那一帧拷成 PNG 留在 store 里（同一帧只留第一次；出不了图就不留，「添加到对话」时再提示）。
  * 底下是实时合成层（HTML 动画的 iframe，画布上透明）而宿主能截窗口时截窗口里画面那一块——先把标记层、工具条与草稿标注层藏起来、
- * 等两帧，截完再放回来；否则同步拷预览画布，PNG 编码在后面慢慢做。此刻的定位若还在路上，截到的是画面上实际那一帧。
+ * 等两帧，截完再放回来；宿主不能截窗口（Web）时问实时合成层要这一帧再叠预览画布；否则同步拷预览画布，PNG 编码在后面慢慢做。
+ * 此刻的定位若还在路上，截到的是画面上实际那一帧。
  */
 async function keepFrame(timeMs: number, source: HTMLCanvasElement | null, live: boolean, capture: CaptureFrame): Promise<void> {
   const store = useMarkup.getState();
@@ -1391,7 +1432,12 @@ async function keepFrame(timeMs: number, source: HTMLCanvasElement | null, live:
   const png = await grabFrame(source, live, capture).catch(() => null);
   if (png) useMarkup.getState().keepFrame(timeMs, png);
 }
-type CaptureFrame = HostBridge['captureFrame'];
+/** 实时合成层露着时怎么截：宿主截窗口（Electron），或问实时合成层要这一帧再叠预览画布（Web）；`canvas` 是序列画布的尺寸。 */
+interface CaptureFrame {
+  window: HostBridge['captureFrame'];
+  live: (() => Promise<LiveFrameShot | null>) | undefined;
+  canvas: { width: number; height: number };
+}
 const OVERLAYS = '[data-markup], [data-video-annotations]';
 const nextPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 /**
@@ -1410,12 +1456,21 @@ function overlaysToHide(stage: HTMLElement | null): HTMLElement[] {
   return found;
 }
 /**
- * 此刻的那一帧：实时合成层露着时截窗口（Electron），否则拷画布。实时合成层露着而宿主不能截窗口（Web）时画布上是透明的，
- * 拷下来只有空白，算截不出图（不把空白当那一帧发出去）。
+ * 此刻的那一帧：实时合成层露着时截窗口（Electron）；宿主不能截窗口（Web）时问实时合成层要这一帧、垫在预览画布底下合成；
+ * 否则拷画布。实时合成层露着而两样都拿不到时画布上是透明的，拷下来只有空白，算截不出图（不把空白当那一帧发出去）。
  */
 async function grabFrame(source: HTMLCanvasElement, live: boolean, capture: CaptureFrame): Promise<Blob | null> {
   if (!live) return snapshot(source);
-  if (!capture) return null;
+  if (capture.window) return captureWindow(source, capture.window);
+  const shot = capture.live ? await capture.live().catch(() => null) : null;
+  if (!shot) return null;
+  // 画面框的底色：实时层没铺到的地方用户看到的就是它（同 preview.tsx 的 frame）。
+  const frameEl = source.parentElement;
+  const background = (frameEl && getComputedStyle(frameEl).backgroundColor) || '#000';
+  return composeLiveFrame(source, shot, capture.canvas, background);
+}
+/** 截窗口里预览画面那一块（Electron）：先把标记层、工具条与评论框藏起来、等两帧，截完再放回来。 */
+async function captureWindow(source: HTMLCanvasElement, capture: NonNullable<HostBridge['captureFrame']>): Promise<Blob | null> {
   const stage = source.closest<HTMLElement>('[data-preview-stage]') ?? source.parentElement;
   const overlays = overlaysToHide(stage);
   const shown = overlays.map((el) => el.style.visibility);

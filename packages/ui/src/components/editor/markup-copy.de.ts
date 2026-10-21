@@ -38,6 +38,7 @@ export const de: MarkupMessages = {
   copied: 'Bild kopiert',
   downloaded: (name) => `${name} heruntergeladen`,
   copyFailed: 'Das Bild konnte nicht kopiert werden. Stattdessen herunterladen.',
+  copiedAsHtml: 'Als Rich Text kopiert – lässt sich in Dokumente und Notizen einfügen. Dieser Browser kann keine Bilddateien kopieren; lade sie herunter, um die Datei zu erhalten.',
   captureFailed: 'Dieses Bild konnte nicht aufgenommen werden.',
   discardBodyScreenshot:
     'Beim Schließen werden die Markierungen auf dem Bild entfernt. Wird das Bild gebraucht, vorher kopieren oder herunterladen.',

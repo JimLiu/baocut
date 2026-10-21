@@ -38,6 +38,7 @@ export const fr: MarkupMessages = {
   copied: 'Image copiée',
   downloaded: (name) => `${name} téléchargé`,
   copyFailed: 'Impossible de copier l’image. Téléchargez-la plutôt.',
+  copiedAsHtml: 'Copiée en texte enrichi : elle se colle dans les documents et les notes. Ce navigateur ne permet pas de copier des fichiers image ; téléchargez-la pour obtenir le fichier.',
   captureFailed: 'Impossible de capturer cette image.',
   discardBodyScreenshot: 'Fermer supprime les marques sur l’image. Copiez ou téléchargez l’image avant si vous en avez besoin.',
   bookmarks: 'Images annotées',

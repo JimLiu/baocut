@@ -38,6 +38,7 @@ export const vi: MarkupMessages = {
   copied: 'Đã sao chép ảnh',
   downloaded: (name) => `Đã tải xuống ${name}`,
   copyFailed: 'Không sao chép được ảnh. Hãy tải xuống thay thế.',
+  copiedAsHtml: 'Đã sao chép dạng văn bản định dạng: dán được vào tài liệu và ghi chú. Trình duyệt này không sao chép được tệp ảnh; hãy tải xuống để có tệp.',
   captureFailed: 'Không chụp được khung hình này.',
   discardBodyScreenshot: 'Đóng sẽ xóa các dấu trên khung hình. Hãy sao chép hoặc tải ảnh xuống trước nếu cần.',
   bookmarks: 'Khung hình đã đánh dấu',

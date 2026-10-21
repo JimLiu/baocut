@@ -38,6 +38,7 @@ export const nl: MarkupMessages = {
   copied: 'Afbeelding gekopieerd',
   downloaded: (name) => `${name} gedownload`,
   copyFailed: 'Kan de afbeelding niet kopiëren. Download hem in plaats daarvan.',
+  copiedAsHtml: 'Gekopieerd als opgemaakte tekst: plakken kan in documenten en notities. Deze browser kan geen afbeeldingsbestanden kopiëren; download hem voor het bestand.',
   captureFailed: 'Kan dit frame niet vastleggen.',
   discardBodyScreenshot: 'Sluiten verwijdert de markeringen op het beeld. Kopieer of download de afbeelding eerst als je hem nodig hebt.',
   bookmarks: 'Gemarkeerde frames',

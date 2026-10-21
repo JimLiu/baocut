@@ -38,6 +38,7 @@ export const zhHans: MarkupMessages = {
   copied: '已复制图片',
   downloaded: (name) => `已下载 ${name}`,
   copyFailed: '没能复制图片，可以改用下载',
+  copiedAsHtml: '已按富文本复制，能贴进文档和笔记；这个浏览器不让复制图片文件，要文件请改用下载',
   captureFailed: '这一帧没能截下来',
   discardBodyScreenshot: '关闭会去掉画面上的标记。需要的话先复制或下载图片。',
   bookmarks: '标记过的帧',

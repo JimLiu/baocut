@@ -38,6 +38,7 @@ export const pl: MarkupMessages = {
   copied: 'Skopiowano obraz',
   downloaded: (name) => `Pobrano: ${name}`,
   copyFailed: 'Nie udało się skopiować obrazu. Zamiast tego pobierz go.',
+  copiedAsHtml: 'Skopiowano jako tekst sformatowany: można wkleić do dokumentów i notatek. Ta przeglądarka nie kopiuje plików obrazów; pobierz, aby mieć plik.',
   captureFailed: 'Nie udało się przechwycić tej klatki.',
   discardBodyScreenshot: 'Zamknięcie usunie oznaczenia z obrazu. Jeśli go potrzebujesz, najpierw skopiuj lub pobierz obraz.',
   bookmarks: 'Oznaczone klatki',

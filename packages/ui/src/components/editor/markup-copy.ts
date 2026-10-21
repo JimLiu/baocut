@@ -69,6 +69,8 @@ const en = {
   copied: 'Image copied',
   downloaded: (name: string) => `Downloaded ${name}`,
   copyFailed: 'Couldn’t copy the image. Download it instead.',
+  /** 宿主不许写图片进剪贴板、退成富文本（HTML 里嵌着图）复制时：只有收富文本的地方贴得进去。 */
+  copiedAsHtml: 'Copied as rich text. This browser can’t copy image files, so it pastes into docs and notes only. Download it to get the file.',
   captureFailed: 'Couldn’t capture this frame.',
   discardBodyScreenshot: 'Closing removes the marks on the picture. Copy or download the image first if you need it.',
   /**

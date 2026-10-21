@@ -38,6 +38,7 @@ export const tr: MarkupMessages = {
   copied: 'Görüntü kopyalandı',
   downloaded: (name) => `${name} indirildi`,
   copyFailed: 'Görüntü kopyalanamadı. Bunun yerine indirin.',
+  copiedAsHtml: 'Zengin metin olarak kopyalandı: belgelere ve notlara yapıştırılabilir. Bu tarayıcı görüntü dosyası kopyalayamıyor; dosya için indirin.',
   captureFailed: 'Bu kare yakalanamadı.',
   discardBodyScreenshot: 'Kapatınca görüntüdeki işaretler silinir. Gerekirse önce görüntüyü kopyalayın veya indirin.',
   bookmarks: 'İşaretli kareler',

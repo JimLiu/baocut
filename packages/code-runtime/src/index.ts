@@ -41,6 +41,7 @@ export {
 export { COMPOSITION_ADAPTER_SCRIPT, type AdapterPageInfo } from './composition-adapter.ts';
 export {
   COMPOSITION_BRIDGE_SCRIPT,
+  COMPOSITION_CAPTURE_SCRIPT,
   COMPOSITION_PICK_SCRIPT,
   compositionPageScript,
   injectCompositionPageScript,

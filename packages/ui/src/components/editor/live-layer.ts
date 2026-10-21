@@ -3,6 +3,7 @@ import {
   COMPOSITION_BRIDGE_CHANNEL,
   type BundleHandle,
   type CodeBundleContract,
+  type CompositionBridgeCapture,
   type CompositionBridgeMessage,
   type CompositionBridgePick,
   type CompositionBridgeRequest,
@@ -36,6 +37,9 @@ import type { LiveLayer } from '../../render/frame-plan.ts';
  * - 「选择元素」的拾取（`pick`，lite-editor §4.1、§11 第 12 条）：画布上的点按 `matrix` 反推成固有像素问在视的那个，回来的节点框
  *   再正变换回画布像素；高亮由标记层按这个框画，不进页面。与 `seek` 各占一个在路上的名额，同样只记最新；超时或报错兑现 `null`，
  *   不算失败（不拉黑）。`inert` 与 `pointer-events: none` 不挡页面里的 `elementFromPoint`。
+ * - Web 截图模式的取图（`capture`，lite-editor §4.1、§11 第 14 条）：iframe 与页面不同源，父页面拷不到它的像素，改问在视的那个要
+ *   此刻这一帧的 PNG（页面自己画，画不全时回 `null`）；连同这一帧的摆法（`matrix`、`opacity`）交给截图去叠预览画布。同一时刻只有一个
+ *   在路上，再要就等同一个；超时、报错、拆掉都兑现 `null`，不算失败。
  */
 
 export interface LiveHost {
@@ -64,6 +68,8 @@ export interface LiveLayerHostOptions {
   readyTimeoutMs?: number;
   /** 拾取等多久（默认 400 ms）；过了兑现 null。 */
   pickTimeoutMs?: number;
+  /** 取图等多久（默认 2.5 s，留出剪贴板要的用户手势时限）；过了兑现 null。 */
+  captureTimeoutMs?: number;
   maxMounted?: number;
   port?: (element: HTMLIFrameElement) => BridgePort;
 }
@@ -103,6 +109,10 @@ const READY_TIMEOUT_MS = 20_000;
 const READY_GRACE_MS = 1000;
 const MAX_MOUNTED = 3;
 const PICK_TIMEOUT_MS = 400;
+const CAPTURE_TIMEOUT_MS = 2500;
+/** 页面回的图：边长与字节的上限（与页面里的 `SIDE_MAX` 同）。 */
+const CAPTURE_SIDE_MAX = 8192;
+const CAPTURE_BYTES_MAX = 256 * 1024 * 1024;
 
 type Matrix = LiveLayer['matrix'];
 
@@ -133,6 +143,25 @@ export function readBridgePick(value: unknown): CompositionBridgePick | null {
     focusable: v.focusable,
     rect: { x: rect.x, y: rect.y, w: rect.w, h: rect.h },
   };
+}
+
+/** 页面回的 `capture` 结果（不受信）验形：PNG 的 Blob、正整数边长不过上限；不合就当 `null`。 */
+export function readBridgeCapture(value: unknown): CompositionBridgeCapture | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const v = value as Record<string, unknown>;
+  const side = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0 && n <= CAPTURE_SIDE_MAX;
+  if (!side(v.width) || !side(v.height)) return null;
+  const image = v.image;
+  if (!(image instanceof Blob) || image.type !== 'image/png' || image.size <= 0 || image.size > CAPTURE_BYTES_MAX) return null;
+  return { width: v.width, height: v.height, image };
+}
+
+/** 取到的这一帧：页面画的 PNG，与它此刻在画布上的摆法（画布像素）。 */
+export interface LiveCapture {
+  itemId: Id;
+  image: Blob;
+  matrix: Matrix;
+  opacity: number;
 }
 
 /**
@@ -198,6 +227,8 @@ class LiveFrame {
   /** 在路上的那个拾取，与路上来了、还没发的最新一个（更早没发的兑现 null）。 */
   #pickInFlight: ((value: CompositionBridgePick | null) => void) | null = null;
   #wantedPick: { x: number; y: number; settle: (value: CompositionBridgePick | null) => void } | null = null;
+  /** 在路上的那次取图与兑现它的函数（拆掉、失败时兑现 null）。 */
+  #capture: { promise: Promise<CompositionBridgeCapture | null>; settle: (value: CompositionBridgeCapture | null) => void } | null = null;
   #timer: ReturnType<typeof setTimeout> | null = null;
   readonly #readyTimeoutMs: number;
   readonly #port: BridgePort;
@@ -276,6 +307,29 @@ class LiveFrame {
     });
   }
 
+  /** 要页面此刻这一帧的 PNG；没就绪、超时、报错、回得不对都兑现 null。已有一次在路上就等它。 */
+  capture(timeoutMs: number): Promise<CompositionBridgeCapture | null> {
+    if (this.state !== 'ready') return Promise.resolve(null);
+    if (this.#capture) return this.#capture.promise;
+    const id = this.#nextId++;
+    let settle!: (value: CompositionBridgeCapture | null) => void;
+    const promise = new Promise<CompositionBridgeCapture | null>((resolve) => {
+      settle = (value) => {
+        if (this.#capture?.promise !== promise) return;
+        this.#capture = null;
+        clearTimeout(timer);
+        this.#pending.delete(id);
+        resolve(value);
+      };
+    });
+    this.#capture = { promise, settle };
+    const timer = setTimeout(() => settle(null), timeoutMs);
+    this.#request({ channel: COMPOSITION_BRIDGE_CHANNEL, kind: 'capture', id }).then((result) =>
+      settle(this.state === 'ready' && result.ok ? readBridgeCapture(result.value) : null),
+    );
+    return promise;
+  }
+
   dispose(): void {
     if (this.state === 'disposed') return;
     const live = this.state === 'ready';
@@ -310,8 +364,9 @@ class LiveFrame {
     );
   }
 
-  /** 挂着的拾取一律兑现 null（拆掉、失败时）。 */
+  /** 挂着的拾取与取图一律兑现 null（拆掉、失败时）。 */
   #settlePicks(): void {
+    this.#capture?.settle(null);
     const wanted = this.#wantedPick;
     this.#wantedPick = null;
     wanted?.settle(null);
@@ -379,6 +434,7 @@ class LiveFrame {
   #failed(reason: string): void {
     if (this.state === 'failed' || this.state === 'disposed') return;
     this.#settlePicks();
+    this.#capture?.settle(null);
     this.state = 'failed';
     this.#clearTimer();
     this.element.style.opacity = '0';
@@ -401,6 +457,7 @@ export class LiveLayerHost implements LiveHost {
   readonly #resolve: ResolveBundle;
   readonly #timeouts: { load: number; ready: number };
   readonly #pickTimeoutMs: number;
+  readonly #captureTimeoutMs: number;
   readonly #maxMounted: number;
   readonly #port: (element: HTMLIFrameElement) => BridgePort;
   readonly #frames = new Map<Id, LiveFrame>();
@@ -417,6 +474,7 @@ export class LiveLayerHost implements LiveHost {
     this.#resolve = resolve;
     this.#timeouts = { load: options.loadTimeoutMs ?? LOAD_TIMEOUT_MS, ready: options.readyTimeoutMs ?? READY_TIMEOUT_MS };
     this.#pickTimeoutMs = options.pickTimeoutMs ?? PICK_TIMEOUT_MS;
+    this.#captureTimeoutMs = options.captureTimeoutMs ?? CAPTURE_TIMEOUT_MS;
     this.#maxMounted = options.maxMounted ?? MAX_MOUNTED;
     this.#port = options.port ?? windowPort;
   }
@@ -488,6 +546,19 @@ export class LiveLayerHost implements LiveHost {
     const node = await frame.pick(at.x, at.y, this.#pickTimeoutMs);
     if (!node) return null;
     return { itemId: shown.itemId, rect: intrinsicRectToCanvas(shown.layer.matrix, size, node.rect), node };
+  }
+
+  /**
+   * 在视的那个此刻这一帧（Web 截图模式，lite-editor §4.1）：页面画的 PNG 加上它在画布上的摆法。没有在视的、它还没就绪或还没画出第一帧、
+   * 页面画不全（回 `null`）、没回或回得不对，都是 null。摆法取发请求那一刻在视的这一帧，与页面画的是同一帧。
+   */
+  async capture(): Promise<LiveCapture | null> {
+    const shown = this.#shown;
+    const frame = shown && !this.#disposed ? this.#frames.get(shown.itemId) : undefined;
+    if (!shown || !frame || frame.state !== 'ready' || frame.arrived === null) return null;
+    const got = await frame.capture(this.#captureTimeoutMs);
+    if (!got) return null;
+    return { itemId: shown.itemId, image: got.image, matrix: shown.layer.matrix, opacity: shown.layer.opacity };
   }
 
   onFailure(listener: (itemId: Id, reason: string) => void): () => void {

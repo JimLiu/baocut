@@ -62,6 +62,49 @@ function loadImage(blob: Blob): Promise<HTMLImageElement> {
   });
 }
 
+/** 实时合成层此刻这一帧：页面自己画的 PNG，与它在画布上的摆法（`matrix` 把单位方块映到序列画布像素，同帧计划）。 */
+export interface LiveFrameShot {
+  image: Blob;
+  matrix: readonly [number, number, number, number, number, number];
+  opacity: number;
+}
+
+/**
+ * 实时合成层露着时的这一帧（Web 截图模式，lite-editor §4.1）：照舞台上的叠法合成——画面底色（舞台画面框的底色）、按 `matrix` 与
+ * `opacity` 摆好的实时层、上面再盖预览画布（画布上实时层那块是透明的，字幕等层画在上面）。按预览画布的像素出，`canvas` 是序列画布
+ * 的尺寸（`matrix` 的单位）。解不出图、画不了时 null。
+ */
+export async function composeLiveFrame(
+  source: HTMLCanvasElement,
+  live: LiveFrameShot,
+  canvas: { width: number; height: number },
+  background: string,
+): Promise<Blob | null> {
+  const w = source.width;
+  const h = source.height;
+  if (!w || !h || !(canvas.width > 0) || !(canvas.height > 0)) return null;
+  const image = await loadImage(live.image).catch(() => null);
+  if (!image?.width || !image.height) return null;
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d');
+  if (!ctx || typeof out.toBlob !== 'function') return null;
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, w, h);
+  const sx = w / canvas.width;
+  const sy = h / canvas.height;
+  const [a, b, c, d, e, f] = live.matrix;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, live.opacity));
+  // 页面的像素 (px, py) 在画布上是 matrix·(px/宽, py/高)，再按预览画布与序列画布之比缩放。
+  ctx.setTransform((a * sx) / image.width, (b * sy) / image.width, (c * sx) / image.height, (d * sy) / image.height, e * sx, f * sy);
+  ctx.drawImage(image, 0, 0);
+  ctx.restore();
+  ctx.drawImage(source, 0, 0);
+  return new Promise((resolve) => out.toBlob(resolve, 'image/png'));
+}
+
 /**
  * 把一帧的标记画到画布上（同 SvgMark 与 HTML 标记的样子）：坐标按归一化值落到画布像素，线宽、字号与印章按画布比画面的比例放大，
  * 文字描一圈反色边代替网页里的阴影；序号按 `group`（整组标记，默认就是这些）数。

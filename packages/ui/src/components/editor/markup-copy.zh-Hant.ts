@@ -38,6 +38,7 @@ export const zhHant: MarkupMessages = {
   copied: '已複製圖片',
   downloaded: (name) => `已下載 ${name}`,
   copyFailed: '沒能複製圖片，可以改用下載',
+  copiedAsHtml: '已按富文字複製，能貼進文件和筆記；這個瀏覽器不讓複製圖片檔案，要檔案請改用下載',
   captureFailed: '這一幀沒能擷取',
   discardBodyScreenshot: '關閉會移除畫面上的標記。需要的話先複製或下載圖片。',
   bookmarks: '標記過的影格',

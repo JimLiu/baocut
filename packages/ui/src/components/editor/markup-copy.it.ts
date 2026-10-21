@@ -38,6 +38,7 @@ export const it: MarkupMessages = {
   copied: 'Immagine copiata',
   downloaded: (name) => `${name} scaricato`,
   copyFailed: 'Impossibile copiare l’immagine. Scaricala invece.',
+  copiedAsHtml: 'Copiata come testo formattato: si incolla in documenti e note. Questo browser non può copiare file immagine; scaricala per avere il file.',
   captureFailed: 'Impossibile catturare questo fotogramma.',
   discardBodyScreenshot: 'Chiudendo, i segni sull’immagine vengono rimossi. Se ti serve, copia o scarica prima l’immagine.',
   bookmarks: 'Fotogrammi segnati',

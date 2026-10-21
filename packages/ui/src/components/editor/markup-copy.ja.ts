@@ -38,6 +38,7 @@ export const ja: MarkupMessages = {
   copied: '画像をコピーしました',
   downloaded: (name) => `${name} をダウンロードしました`,
   copyFailed: '画像をコピーできませんでした。ダウンロードをお使いください',
+  copiedAsHtml: 'リッチテキストとしてコピーしました。ドキュメントやメモには貼り付けられます。このブラウザでは画像ファイルをコピーできないため、ファイルが必要ならダウンロードしてください',
   captureFailed: 'このフレームをキャプチャできませんでした',
   discardBodyScreenshot: '閉じると画面上のマークは消えます。必要なら先に画像をコピーまたはダウンロードしてください。',
   bookmarks: 'マークしたフレーム',

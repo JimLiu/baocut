@@ -8,7 +8,14 @@ import {
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { LiveCandidate } from '../../model/live-composition.ts';
 import type { LiveLayer } from '../../render/frame-plan.ts';
-import { LiveLayerHost, canvasToIntrinsic, intrinsicRectToCanvas, readBridgePick, type BridgePort } from './live-layer.ts';
+import {
+  LiveLayerHost,
+  canvasToIntrinsic,
+  intrinsicRectToCanvas,
+  readBridgeCapture,
+  readBridgePick,
+  type BridgePort,
+} from './live-layer.ts';
 
 /** 假的页面：记下父页面发来的请求，由测试决定怎么回。 */
 class FakePage implements BridgePort {
@@ -65,7 +72,13 @@ const layer = (itemId: string, sourceSeconds: number, opacity = 1): LiveLayer =>
   standIn: 'none',
 });
 
-type SetupOptions = { loadTimeoutMs?: number; readyTimeoutMs?: number; pickTimeoutMs?: number; maxMounted?: number };
+type SetupOptions = {
+  loadTimeoutMs?: number;
+  readyTimeoutMs?: number;
+  pickTimeoutMs?: number;
+  captureTimeoutMs?: number;
+  maxMounted?: number;
+};
 
 const handle = (assetId: string): BundleHandle => ({
   url: `/bundle/h_${assetId}/`,
@@ -428,5 +441,95 @@ describe('选择元素的拾取（lite-editor §11 第 12 条）', () => {
     expect([at.x, at.y]).toEqual([320, 180]);
     expect(intrinsicRectToCanvas(turned, size, { x: 0, y: 0, w: 640, h: 360 })).toEqual({ x: 960, y: 0, w: 960, h: 540 });
     expect(canvasToIntrinsic([0, 0, 0, 0, 0, 0], size, { x: 1, y: 1 })).toBeNull();
+  });
+});
+
+describe('Web 截图模式的取图（lite-editor §4.1、§11 第 14 条）', () => {
+  const placed: LiveLayer = { ...layer('a', 0, 0.8), matrix: [960, 0, 0, 540, 100, 50] };
+  const png = () => new Blob(['png'], { type: 'image/png' });
+  async function shown(options: { captureTimeoutMs?: number } = {}) {
+    const ctx = setup(options);
+    ctx.host.prepare([candidate('a')]);
+    await Promise.resolve();
+    ctx.page('a').hello();
+    ctx.page('a').answer('ready', {});
+    await Promise.resolve();
+    ctx.page('a').answer('seek');
+    await Promise.resolve();
+    ctx.host.show(placed, 0);
+    return ctx;
+  }
+  const captures = (page: FakePage) => page.requests.filter((r) => r.kind === 'capture');
+
+  test('没有在视的、还没就绪或还没画出第一帧：立刻 null，不问页面', async () => {
+    const { host, page } = setup();
+    expect(await host.capture()).toBeNull();
+    host.prepare([candidate('a')]);
+    host.show(placed, 0);
+    expect(await host.capture()).toBeNull();
+    await Promise.resolve();
+    page('a').hello();
+    page('a').answer('ready', {});
+    await Promise.resolve();
+    expect(host.mounted.get('a')?.arrived).toBeNull();
+    expect(await host.capture()).toBeNull();
+    expect(captures(page('a'))).toHaveLength(0);
+    host.dispose();
+  });
+
+  test('问在视的那个要这一帧：回来的 PNG 连同此刻的摆法（matrix、opacity）；同时再要就等同一个', async () => {
+    const { host, page } = await shown();
+    const first = host.capture();
+    const second = host.capture();
+    expect(captures(page('a'))).toHaveLength(1);
+    const image = png();
+    page('a').answer('capture', { width: 1280, height: 720, image });
+    const got = await first;
+    expect(got).toEqual({ itemId: 'a', image, matrix: [960, 0, 0, 540, 100, 50], opacity: 0.8 });
+    expect(await second).toEqual(got);
+    // 兑现后名额让出来，再要就再问一次
+    const third = host.capture();
+    expect(captures(page('a'))).toHaveLength(2);
+    page('a').answer('capture', null);
+    expect(await third).toBeNull();
+    host.dispose();
+  });
+
+  test('超时、报错、回的形状不对都是 null，不算失败；拆掉时挂着的兑现 null', async () => {
+    const { host, page, failures } = await shown({ captureTimeoutMs: 500 });
+    const slow = host.capture();
+    vi.advanceTimersByTime(500);
+    expect(await slow).toBeNull();
+    page('a').reply(captures(page('a'))[0]!.id, { ok: true, value: { width: 1280, height: 720, image: png() } });
+
+    const failed = host.capture();
+    page('a').reply(captures(page('a'))[1]!.id, { ok: false, code: 'COMPOSITION_SCRIPT_ERROR', message: 'boom' });
+    expect(await failed).toBeNull();
+
+    for (const value of [
+      { width: 1280, height: 720, image: 'png' },
+      { width: 1280, height: 720, image: new Blob(['x'], { type: 'image/jpeg' }) },
+      { width: 1280, height: 720, image: new Blob([], { type: 'image/png' }) },
+      { width: 0, height: 720, image: png() },
+      { width: 1280.5, height: 720, image: png() },
+      { width: 9000, height: 720, image: png() },
+      'png',
+    ]) {
+      const bad = host.capture();
+      page('a').answer('capture', value);
+      expect(await bad).toBeNull();
+    }
+    expect(failures).toEqual([]);
+    expect(host.mounted.get('a')?.state).toBe('ready');
+
+    const pending = host.capture();
+    host.dispose();
+    expect(await pending).toBeNull();
+  });
+
+  test('验形只留协议的字段', () => {
+    const image = png();
+    expect(readBridgeCapture({ width: 4, height: 2, image, extra: 1 })).toEqual({ width: 4, height: 2, image });
+    expect(readBridgeCapture(null)).toBeNull();
   });
 });

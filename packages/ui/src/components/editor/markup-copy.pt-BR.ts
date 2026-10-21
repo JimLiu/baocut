@@ -38,6 +38,7 @@ export const ptBR: MarkupMessages = {
   copied: 'Imagem copiada',
   downloaded: (name) => `${name} baixado`,
   copyFailed: 'Não foi possível copiar a imagem. Baixe-a em vez disso.',
+  copiedAsHtml: 'Copiada como texto formatado: dá para colar em documentos e notas. Este navegador não copia arquivos de imagem; baixe-a para ter o arquivo.',
   captureFailed: 'Não foi possível capturar este quadro.',
   discardBodyScreenshot: 'Fechar remove as marcas da imagem. Se precisar dela, copie ou baixe a imagem antes.',
   bookmarks: 'Quadros marcados',

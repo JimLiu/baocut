@@ -9,7 +9,8 @@ import { COMPOSITION_ADAPTER_SCRIPT } from './composition-adapter.ts';
  * `dispose` 接到 `postMessage` 上。只认来自 `window.parent` 的、带 `channel` 的消息；回信的 `targetOrigin` 只能是 `*`（自己的来源
  * 是不透明的，父页面按 `event.source` 认 iframe）。就位时先发一次 `hello`，父页面从这时起才发请求。`ready` 没带 `compositionId`
  * 时在页面里按根元素的 `data-composition-id` 取（没有就是 `main`）：浏览器合成的清单里没有这个字段，父页面不知道。
- * `pick` 不经取帧脚本：交给 `COMPOSITION_PICK_SCRIPT` 装的 `window.__baocutPick`，回那一点下最内层节点的说明（或 `null`）。
+ * `pick` 不经取帧脚本：交给 `COMPOSITION_PICK_SCRIPT` 装的 `window.__baocutPick`，回那一点下最内层节点的说明（或 `null`）；
+ * `capture` 也不经取帧脚本：交给 `COMPOSITION_CAPTURE_SCRIPT` 装的 `window.__baocutCapture`，回此刻这一帧的 PNG（或 `null`）。
  *
  * 离屏宿主（`composition-host.ts`）仍直接 `executeJavaScript`，不经这座桥。
  */
@@ -110,6 +111,184 @@ export const COMPOSITION_PICK_SCRIPT = String.raw`(() => {
   };
 })();`;
 
+/**
+ * Web 截图模式的取图（lite-editor §4.1、§11 第 14 条；`@baocut/protocol` 的 `CompositionBridgeCapture`）：装
+ * `window.__baocutCapture()`，把此刻画着的这一帧画成一张视口大小（合成的固有像素）的 PNG。父页面与 iframe 不同源，拷不到它的像素，
+ * 只能由页面自己画：根元素（`html` / `body`）的底色铺满视口，再按文档顺序画纯色底的块与可见的 `<canvas>`（按外包盒放，乘一路累积的
+ * 不透明度，按 `overflow` 裁切）。画不进来的可见内容——文字、替换元素（图片、SVG、视频、表单控件）、伪元素、背景图、边框、阴影、
+ * 描边、圆角底色、旋转或斜切、滤镜、混合、裁切路径、遮罩，没有保留绘图缓冲的 WebGL 画布——一出现就整张回 `null`（按截不出处理，
+ * 不交一张缺了东西的图）；节点多于 `NODES_MAX`、视口大于 `SIDE_MAX`、画布被污染时也是 `null`。文档顺序近似绘制顺序（不看 `z-index`）。
+ */
+export const COMPOSITION_CAPTURE_SCRIPT = String.raw`(() => {
+  if (window.__baocutCapture) return;
+  const NODES_MAX = 5000;
+  const SIDE_MAX = 8192;
+  const SKIP = { script: 1, style: 1, template: 1, noscript: 1, link: 1, meta: 1, title: 1, head: 1, base: 1 };
+  const REPLACED = {
+    img: 1, svg: 1, video: 1, picture: 1, iframe: 1, object: 1, embed: 1, input: 1, textarea: 1, select: 1, button: 1,
+    math: 1, meter: 1, progress: 1, audio: 1, frame: 1, frameset: 1, marquee: 1,
+  };
+  const CLIPS = { hidden: 1, clip: 1, auto: 1, scroll: 1 };
+  const unsupported = new Error('capture unsupported');
+  const alphaOf = (color) => {
+    const text = String(color || '').trim();
+    if (!text || text === 'transparent') return 0;
+    const m = /^rgba?\(([^)]*)\)$/.exec(text);
+    if (!m) return 1;
+    const parts = m[1].split(/[\s,\/]+/).filter(Boolean);
+    if (parts.length < 4) return 1;
+    const a = parseFloat(parts[3]);
+    return parts[3].indexOf('%') >= 0 ? a / 100 : a;
+  };
+  const px = (value) => parseFloat(value) || 0;
+  const none = (value) => value === undefined || value === null || value === '' || value === 'none' || value === 'normal' || value === 'auto';
+  const plainTransform = (value) => {
+    if (none(value)) return true;
+    const m = /^matrix\(([^)]*)\)$/.exec(String(value).trim());
+    if (!m) return false;
+    const v = m[1].split(',').map(Number);
+    return v.length === 6 && v[1] === 0 && v[2] === 0 && v[0] > 0 && v[3] > 0;
+  };
+  const SIDES = ['Top', 'Right', 'Bottom', 'Left'];
+  const hasBorder = (cs) => SIDES.some((side) => {
+    const style = cs['border' + side + 'Style'];
+    return style !== 'none' && style !== 'hidden' && px(cs['border' + side + 'Width']) > 0 && alphaOf(cs['border' + side + 'Color']) > 0;
+  });
+  const rounded = (cs) => ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'].some((k) => px(cs[k]) > 0);
+  const hasPseudo = (el, which) => {
+    const content = getComputedStyle(el, which).content;
+    return !none(content) && content !== '""' && content !== "''";
+  };
+  const intersect = (a, b) => {
+    const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+    return { x, y, w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x), h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y) };
+  };
+  const canvasReadable = (el) => {
+    let ctx = null;
+    try {
+      ctx = el.getContext('2d');
+    } catch (error) {
+      return false;
+    }
+    if (ctx) return true;
+    let gl = null;
+    try {
+      gl = el.getContext('webgl2') || el.getContext('webgl');
+    } catch (error) {
+      return false;
+    }
+    if (!gl) return false;
+    const attrs = gl.getContextAttributes ? gl.getContextAttributes() : null;
+    return !!(attrs && attrs.preserveDrawingBuffer);
+  };
+
+  const collect = (width, height) => {
+    const ops = [];
+    let nodes = 0;
+    const root = document.documentElement;
+    const body = document.body;
+    const view = { x: 0, y: 0, w: width, h: height };
+    const rootBg = root ? getComputedStyle(root).backgroundColor : '';
+    const bodyBg = body ? getComputedStyle(body).backgroundColor : '';
+    // 画布底色：html 的底色铺满视口；html 没有底色时 body 的底色传到视口上（CSS 背景的传播）。
+    if (alphaOf(rootBg) > 0) ops.push({ kind: 'fill', color: rootBg, alpha: 1, rect: view, clip: view });
+    else if (alphaOf(bodyBg) > 0) ops.push({ kind: 'fill', color: bodyBg, alpha: 1, rect: view, clip: view });
+    const visit = (el, alpha, clip) => {
+      nodes += 1;
+      if (nodes > NODES_MAX) throw unsupported;
+      const tag = String(el.tagName || '').toLowerCase();
+      if (SKIP[tag]) return;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none') return;
+      const own = cs.opacity === '' ? 1 : parseFloat(cs.opacity);
+      const opacity = alpha * (Number.isFinite(own) ? own : 1);
+      if (!(opacity > 0)) return;
+      if (!none(cs.filter) || !none(cs.mixBlendMode) || !none(cs.backdropFilter) || !none(cs.clipPath) || !none(cs.maskImage || cs.webkitMaskImage))
+        throw unsupported;
+      if (!plainTransform(cs.transform) || !none(cs.rotate) || String(cs.scale || '').indexOf('-') >= 0) throw unsupported;
+      const box = el.getBoundingClientRect();
+      const rect = { x: box.left, y: box.top, w: box.width, h: box.height };
+      const area = rect.w > 0 && rect.h > 0;
+      const shown = cs.visibility !== 'hidden' && cs.visibility !== 'collapse';
+      if (shown && area) {
+        if (REPLACED[tag]) throw unsupported;
+        if (!none(cs.backgroundImage) || !none(cs.boxShadow) || hasBorder(cs)) throw unsupported;
+        if (cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0) throw unsupported;
+        if (hasPseudo(el, '::before') || hasPseudo(el, '::after')) throw unsupported;
+        const fill = el === root || el === body ? '' : cs.backgroundColor;
+        if (alphaOf(fill) > 0) {
+          if (rounded(cs)) throw unsupported;
+          ops.push({ kind: 'fill', color: fill, alpha: opacity, rect, clip });
+        }
+        // body 在 html 有底色时只画自己的盒（不传播到视口）。
+        if (el === body && alphaOf(rootBg) > 0 && alphaOf(bodyBg) > 0) {
+          if (rounded(cs)) throw unsupported;
+          ops.push({ kind: 'fill', color: bodyBg, alpha: opacity, rect, clip });
+        }
+      }
+      if (tag === 'canvas') {
+        if (!shown || !area || !(el.width > 0) || !(el.height > 0)) return;
+        if (px(cs.paddingTop) || px(cs.paddingRight) || px(cs.paddingBottom) || px(cs.paddingLeft)) throw unsupported;
+        if (cs.objectFit && cs.objectFit !== 'fill') throw unsupported;
+        if (!canvasReadable(el)) throw unsupported;
+        ops.push({ kind: 'canvas', el, alpha: opacity, rect, clip });
+        return;
+      }
+      const clips = CLIPS[cs.overflowX] || CLIPS[cs.overflowY];
+      const inner = clips && el !== root && el !== body ? intersect(clip, rect) : clip;
+      for (let child = el.firstChild; child; child = child.nextSibling) {
+        if (child.nodeType === 1) visit(child, opacity, inner);
+        else if (child.nodeType === 3 && shown && /\S/.test(child.nodeValue || '')) throw unsupported;
+      }
+    };
+    if (root) visit(root, 1, view);
+    return ops;
+  };
+
+  window.__baocutCapture = async () => {
+    const width = Math.round(window.innerWidth);
+    const height = Math.round(window.innerHeight);
+    if (!(width > 0) || !(height > 0) || width > SIDE_MAX || height > SIDE_MAX) return null;
+    let ops;
+    try {
+      ops = collect(width, height);
+    } catch (error) {
+      return null;
+    }
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    const ctx = out.getContext('2d');
+    if (!ctx) return null;
+    try {
+      for (const op of ops) {
+        const c = op.clip;
+        if (!(c.w > 0) || !(c.h > 0)) continue;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(c.x, c.y, c.w, c.h);
+        ctx.clip();
+        ctx.globalAlpha = op.alpha;
+        if (op.kind === 'fill') {
+          ctx.fillStyle = op.color;
+          ctx.fillRect(op.rect.x, op.rect.y, op.rect.w, op.rect.h);
+        } else ctx.drawImage(op.el, op.rect.x, op.rect.y, op.rect.w, op.rect.h);
+        ctx.restore();
+      }
+      const image = await new Promise((resolve, reject) => {
+        try {
+          out.toBlob(resolve, 'image/png');
+        } catch (error) {
+          reject(error);
+        }
+      });
+      return image ? { width, height, image } : null;
+    } catch (error) {
+      return null;
+    }
+  };
+})();`;
+
 export const COMPOSITION_BRIDGE_SCRIPT = String.raw`(() => {
   if (window.__baocutBridge) return;
   const CHANNEL = ${JSON.stringify(COMPOSITION_BRIDGE_CHANNEL)};
@@ -123,6 +302,7 @@ export const COMPOSITION_BRIDGE_SCRIPT = String.raw`(() => {
   };
   const handle = async (message) => {
     if (message.kind === 'pick') return { ok: true, value: window.__baocutPick ? window.__baocutPick(message.x, message.y) : null };
+    if (message.kind === 'capture') return { ok: true, value: window.__baocutCapture ? await window.__baocutCapture() : null };
     const adapter = window.__baocutAdapter;
     if (!adapter) return { ok: false, code: 'COMPOSITION_SCRIPT_ERROR', message: 'The composition adapter is not installed' };
     if (message.kind === 'ready') return adapter.ready(message.contract, message.compositionId || rootCompositionId(), message.timeoutMs, message.context);
@@ -144,9 +324,9 @@ export const COMPOSITION_BRIDGE_SCRIPT = String.raw`(() => {
 })();`;
 // i18n-ignore-end
 
-/** 注进入口页面的整段 `<script>`：取帧脚本、拾取、桥依次。`</script>` 不会出现在这几段脚本里（没有字面量含它）。 */
+/** 注进入口页面的整段 `<script>`：取帧脚本、拾取、取图、桥依次。`</script>` 不会出现在这几段脚本里（没有字面量含它）。 */
 export function compositionPageScript(): string {
-  return `<script>${COMPOSITION_ADAPTER_SCRIPT}\n${COMPOSITION_PICK_SCRIPT}\n${COMPOSITION_BRIDGE_SCRIPT}</script>`;
+  return `<script>${COMPOSITION_ADAPTER_SCRIPT}\n${COMPOSITION_PICK_SCRIPT}\n${COMPOSITION_CAPTURE_SCRIPT}\n${COMPOSITION_BRIDGE_SCRIPT}</script>`;
 }
 
 /**

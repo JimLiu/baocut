@@ -6,6 +6,7 @@ import { ToastQueue } from '@react-spectrum/s2';
 import type { CompositionItem, DocumentRecord, Sequence } from '@baocut/protocol';
 import type { MarkupPick } from '../../model/markup.ts';
 import type { LiteSegment } from '../../model/lite-segments.ts';
+import type { LiveFrameShot } from '../../render/markup-paint.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
 import { RuntimeContext } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
@@ -95,7 +96,7 @@ const livePlan = () => ({
   },
 });
 
-async function mount(over: { sequence?: Sequence } = {}) {
+async function mount(over: { sequence?: Sequence; captureLive?: () => Promise<LiveFrameShot | null> } = {}) {
   await act(() =>
     root.render(
       createElement(
@@ -113,6 +114,7 @@ async function mount(over: { sequence?: Sequence } = {}) {
             frame,
             canvasRef: { current: canvas },
             pickLive,
+            ...(over.captureLive ? { captureLive: over.captureLive } : {}),
           }),
         ),
       ),
@@ -445,7 +447,7 @@ describe('MarkupLayer', () => {
     }
   });
 
-  it('实时合成层露着而宿主不能截窗口（Web）：透明的画布不当截图，这一帧算截不出图，标注照样加', async () => {
+  it('实时合成层露着、宿主不能截窗口、也要不到实时层的图：透明的画布不当截图，这一帧算截不出图，标注照样加', async () => {
     const drawImage = vi.fn();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
     engine.plan = livePlan();
@@ -655,6 +657,77 @@ describe('截图模式（Web，lite-editor §4.1、§8）', () => {
     expect(items.map((el) => el.textContent)).toEqual(['00:03.0 · 2 处标记', '00:12.5 · 1 处标记']);
     await press(items[0]!);
     expect(actions.seek).toHaveBeenCalledWith(3);
+  });
+
+  it('实时合成层露着：问它要这一帧，铺画面框的底色、按摆法画实时层、再盖预览画布，得到的就是下载的那张', async () => {
+    const calls: unknown[][] = [];
+    const ctx = {
+      ...paintCtx(),
+      fillStyle: '',
+      globalAlpha: 1,
+      fillRect: (...a: unknown[]) => calls.push(['fillRect', ctx.fillStyle, ...a]),
+      setTransform: (...a: unknown[]) => calls.push(['setTransform', ctx.globalAlpha, ...a]),
+      drawImage: (...a: unknown[]) => calls.push(['drawImage', ...a]),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const neutral = vi.spyOn(ToastQueue, 'neutral');
+    const image = new Blob(['live'], { type: 'image/png' });
+    const captureLive = vi.fn(async (): Promise<LiveFrameShot | null> => ({ image, matrix: [960, 0, 0, 540, 100, 50], opacity: 0.5 }));
+    engine.plan = livePlan();
+    const frameEl = document.createElement('div');
+    frameEl.style.backgroundColor = 'rgb(0, 0, 0)';
+    frameEl.append(canvas);
+    document.body.append(frameEl);
+    try {
+      await mount({ captureLive });
+      await drag([64, 36], [128, 72]);
+      calls.length = 0;
+      await press(button('下载图片'));
+      await flush();
+      expect(captureLive).toHaveBeenCalled();
+      // 底色铺满预览画布；实时层（解出来 1920×1080）按 matrix 缩进 (100, 50) 起的 960×540、乘不透明度；预览画布盖在上面
+      const compose = calls.slice(0, 4);
+      expect(compose[0]).toEqual(['fillRect', 'rgb(0, 0, 0)', 0, 0, 1920, 1080]);
+      expect(compose[1]).toEqual(['setTransform', 0.5, 0.5, 0, 0, 0.5, 100, 50]);
+      expect(compose[2]?.[0]).toBe('drawImage');
+      expect(compose[3]).toEqual(['drawImage', canvas, 0, 0]);
+      expect(neutral).toHaveBeenCalledWith(expect.stringContaining('已下载'), expect.anything());
+    } finally {
+      frameEl.remove();
+    }
+  });
+
+  it('剪贴板写图被拒（Claude 内置浏览器）：退成富文本复制，HTML 里嵌着这张 PNG，并照实提示', async () => {
+    const neutral = vi.spyOn(ToastQueue, 'neutral');
+    vi.stubGlobal('ClipboardItem', class {});
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { write: vi.fn(async () => Promise.reject(new DOMException('Write permission denied.', 'NotAllowedError'))) },
+      configurable: true,
+    });
+    const set: [string, string][] = [];
+    const exec = vi.fn((command: string) => {
+      const event = new Event('copy', { cancelable: true }) as ClipboardEvent;
+      Object.defineProperty(event, 'clipboardData', { value: { setData: (type: string, value: string) => set.push([type, value]) } });
+      document.dispatchEvent(event);
+      return command === 'copy';
+    });
+    const had = Object.getOwnPropertyDescriptor(document, 'execCommand');
+    Object.defineProperty(document, 'execCommand', { value: exec, configurable: true });
+    try {
+      await mount();
+      await drag([64, 36], [128, 72]);
+      await press(button('复制图片'));
+      await act(() => new Promise<void>((resolve) => setTimeout(resolve, 20)));
+      expect(exec).toHaveBeenCalledWith('copy');
+      expect(set).toHaveLength(1);
+      expect(set[0]?.[0]).toBe('text/html');
+      expect(set[0]?.[1]).toMatch(/^<img src="data:image\/png;base64,[A-Za-z0-9+/=]+" alt="">$/);
+      expect(neutral).toHaveBeenCalledWith('已按富文本复制，能贴进文档和笔记；这个浏览器不让复制图片文件，要文件请改用下载', expect.anything());
+    } finally {
+      if (had) Object.defineProperty(document, 'execCommand', had);
+      else delete (document as { execCommand?: unknown }).execCommand;
+    }
   });
 
   it('这一帧截不出图（实时合成层在画布之外）时按截不出提示，剪贴板不可用时提示改用下载', async () => {

@@ -38,6 +38,7 @@ export const ko: MarkupMessages = {
   copied: '이미지를 복사했습니다',
   downloaded: (name) => `${name} 다운로드됨`,
   copyFailed: '이미지를 복사하지 못했습니다. 대신 다운로드하세요',
+  copiedAsHtml: '서식 있는 텍스트로 복사했습니다. 문서와 메모에는 붙여 넣을 수 있습니다. 이 브라우저는 이미지 파일을 복사할 수 없으니 파일이 필요하면 다운로드하세요',
   captureFailed: '이 프레임을 캡처하지 못했습니다',
   discardBodyScreenshot: '닫으면 화면의 마크가 지워집니다. 필요하면 먼저 이미지를 복사하거나 다운로드하세요.',
   bookmarks: '표시한 프레임',
