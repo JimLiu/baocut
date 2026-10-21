@@ -110,6 +110,7 @@ import I_ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import I_ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
 import I_ChevronUp from '@react-spectrum/s2/icons/ChevronUp';
 import I_Close from '@react-spectrum/s2/icons/Close';
+import I_Draw from '@react-spectrum/s2/icons/Draw';
 import I_Edit from '@react-spectrum/s2/icons/Edit';
 import I_Download from '@react-spectrum/s2/icons/Download';
 import I_Share from '@react-spectrum/s2/icons/Share';
@@ -250,6 +251,7 @@ export const Icons = {
   ChevronLeft: I_ChevronLeft,
   ChevronUp: I_ChevronUp,
   Close: I_Close,
+  Draw: I_Draw,
   Edit: I_Edit,
   Download: I_Download,
   Share: I_Share,

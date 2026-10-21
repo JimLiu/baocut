@@ -31,7 +31,7 @@
   const WidthGlyph = ({w, long}) => { const W = long ? 32 : 20; return <svg className={cx('mk-glyph', long ? 'mk-glyph--long' : 'mk-glyph--wide')} viewBox={`0 0 ${W} 16`} aria-hidden="true"><path d={`M${2 + w / 2} 8 H${W - 2 - w / 2}`} style={{strokeWidth: w}} /></svg>; };
   /** 文字标记的样式落到 DOM：字号、粗体、斜体、下划线走内联，字体走 `data-font`（CSS 里给字族）。标记层与标注层同一套。 */
   const textLook = m => { const t = MK.textStyleOf(m); return {font: t.font, style: {fontSize: t.size, fontWeight: t.bold ? 700 : 400, fontStyle: t.italic ? 'italic' : 'normal', textDecorationLine: t.underline ? 'underline' : 'none'}}; };
-  const TOOL_ICON = {element: 'Select', comment: 'Comment', pen: 'Edit', text: 'Text'};
+  const TOOL_ICON = {element: 'Select', comment: 'Comment', pen: 'Draw', text: 'Text'};
   const IMPLICIT_ROLE = {BUTTON: 'button', A: 'link', IMG: 'img', H1: 'heading', H2: 'heading', H3: 'heading', H4: 'heading', INPUT: 'textbox', VIDEO: 'video', svg: 'img'};
 
   /** 指针下的舞台节点（document.elementsFromPoint，跳过标记层、标注层、画面自己的底与网格）：
