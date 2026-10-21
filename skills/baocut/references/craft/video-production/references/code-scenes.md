@@ -77,7 +77,7 @@
 - **不读回主画布**：不 `getImageData` / `putImageData`，不把主画布当 `drawImage` 的源。要先画好再处理的效果，在离屏 canvas 上再画一遍（第 5.1 节的 `post-fx.js` 就这么做）。离屏 canvas 随便用，画进主画布时会按位图记下。
 - **不用**：`ctx.filter`（模糊改用 `shadowBlur`，或缩小再放大）、`createConicGradient`、`Path2D`、`clip('evenodd')`、`imageSmoothingEnabled = false`、`imageSmoothingQuality` 设成 `medium` / `high`（保持默认）、`letterSpacing` 与 `wordSpacing`。`globalCompositeOperation` 只用 `source-over`、`lighter`、`multiply`、`screen`、`overlay`、`darken`、`lighten`、`difference`、`exclusion`。
 - **图片**是包里的文件（`img.src = './art/a.png'`，PNG、JPEG、WebP、SVG 都行），不用 `data:` / `blob:` 地址、`ImageBitmap` 或视频帧。
-- **文字**用第 5 节带进包里的字体（`@font-face`），并且覆盖要画的每个字：缺字、彩色 emoji 都会回退。要粗体就带粗体字体文件（只有常规体却写 `bold` 会回退）。拉丁、希腊、西里尔与中日韩文字走得了指令；阿拉伯、泰、天城等文字会回退。
+- **文字**用第 5 节带进包里的字体（`@font-face`），并且覆盖要画的每个字：缺字、彩色 emoji 都会回退；用 `production-scripts` 的 `build.mjs` 打包时，它按 `bundle.fonts` 先报出字符串里缺的字。要粗体就带粗体字体文件（只有常规体却写 `bold` 会回退）。拉丁、希腊、西里尔与中日韩文字走得了指令；阿拉伯、泰、天城等文字会回退。
 - **导入后看结果的 `bake`**：`renderer` 是 `drawop-cpu` 就是走了指令。是 `browser-pixels` 时，`bake.fallback.reason` 写着第一条原因（例如 `recording: filter: blur(4px)`、`recording: main-canvas-readback`、`CANVAS_OPS_UNSUPPORTED: … text-missing-glyph: U+2665`），按上面改掉后用 `replace: { itemId }` 重新导入。原因是 `CANVAS_OPS_MISMATCH`（抽样画面对不上）时不用改代码，把原因告诉用户。
 - 写完第一个包时可以传 `bake: "ops"` 导入：走不了指令就直接报错并给出原因，不白等截图。确认能走之后其余的包用默认值。
 - **先算时间与空间再烘全片**。走指令时 1080×1920 一段 40 秒约一分钟；截图约 1–3 帧/秒，十分钟的片子要好几个小时。每段导入后把 `bake` 的 `renderer`、`fps`、`seconds` 记进自己的进度记录；第一段烘焙用的时间远超它本身的时长时，先停下看 `renderer` 与 `fallback.reason`，改好再烘其余各段。预渲染是 ProRes：不透明的 422 HQ 在 1080×1920 下每分钟约 1.2 GB，带透明的 4444 更大。长片先看视频所在磁盘的空余，不够时先和用户定把项目放到哪块盘，再在那里建视频。改版重烘后，旧的预渲染还占着空间，确认不会退回旧版后用 `baocut assets prune` 清掉（终端里是 `assets prune`）。

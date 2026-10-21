@@ -254,3 +254,55 @@ export function focalOf([s, dx, dy]) {
 
 // 时间线上的秒写成整数刻度的 MediaTime（毫秒）
 export const mediaTime = sec => ({ ticks: String(Math.round(sec * 1000)), timescale: 1000 });
+
+// 字体覆盖哪些码位：读 TrueType / OpenType 的 cmap 表（格式 4 与 12），返回码位集合。
+// 依次挑 (3,10)、(0,4)、(3,1)、(0,3) 子表，都没有时取第一个格式 4 或 12 的子表。
+// 读不了的（字体集合 .ttc、WOFF、没有 cmap）返回 { skip: 原因 }，调用方打一行说明后跳过这款字体。
+export function fontCmap(file) {
+  const b = fs.readFileSync(file);
+  if (b.length < 12) return { skip: 'file too short for a font' };
+  const tag = b.toString('latin1', 0, 4);
+  if (tag === 'ttcf') return { skip: 'font collection (.ttc); split out one face first' };
+  if (tag === 'wOFF' || tag === 'wOF2') return { skip: 'WOFF is compressed; check the source TTF / OTF instead' };
+  if (b.readUInt32BE(0) !== 0x00010000 && tag !== 'OTTO' && tag !== 'true') return { skip: 'not a TrueType / OpenType font' };
+  let cmap = -1;
+  for (let i = 0, n = b.readUInt16BE(4); i < n; i++) {
+    const rec = 12 + i * 16;
+    if (b.toString('latin1', rec, rec + 4) === 'cmap') { cmap = b.readUInt32BE(rec + 8); break; }
+  }
+  if (cmap < 0) return { skip: 'no cmap table' };
+  const subs = [];
+  for (let i = 0, n = b.readUInt16BE(cmap + 2); i < n; i++) {
+    const rec = cmap + 4 + i * 8, at = cmap + b.readUInt32BE(rec + 4);
+    subs.push({ pe: `${b.readUInt16BE(rec)},${b.readUInt16BE(rec + 2)}`, at, format: b.readUInt16BE(at) });
+  }
+  const usable = subs.filter(s => s.format === 4 || s.format === 12);
+  const sub = ['3,10', '0,4', '3,1', '0,3'].map(pe => usable.find(s => s.pe === pe)).find(Boolean) || usable[0];
+  if (!sub) return { skip: 'no cmap subtable of format 4 or 12' };
+  const cps = new Set(), at = sub.at;
+  if (sub.format === 4) {
+    // 分段表：endCode[] 后隔两字节是 startCode[]，再是 idDelta[]、idRangeOffset[]；字形号 0 是 .notdef，不算有
+    const seg = b.readUInt16BE(at + 6) / 2, ends = at + 14, starts = ends + seg * 2 + 2, deltas = starts + seg * 2, ranges = deltas + seg * 2;
+    for (let s = 0; s < seg; s++) {
+      const end = b.readUInt16BE(ends + s * 2), start = b.readUInt16BE(starts + s * 2);
+      const delta = b.readInt16BE(deltas + s * 2), ro = b.readUInt16BE(ranges + s * 2);
+      for (let c = start; c <= end && c !== 0xffff; c++) {
+        let g;
+        if (!ro) g = (c + delta) & 0xffff;
+        else {
+          const p = ranges + s * 2 + ro + (c - start) * 2;
+          g = p + 2 <= b.length ? b.readUInt16BE(p) : 0;
+          if (g) g = (g + delta) & 0xffff;
+        }
+        if (g) cps.add(c);
+      }
+    }
+  } else {
+    // 分组表：每组 { startCharCode, endCharCode, startGlyphID }，组内字形号连续
+    for (let i = 0, n = b.readUInt32BE(at + 12); i < n; i++) {
+      const g = at + 16 + i * 12, start = b.readUInt32BE(g), end = Math.min(b.readUInt32BE(g + 4), 0x10ffff), glyph = b.readUInt32BE(g + 8);
+      for (let c = start; c <= end; c++) if (glyph + (c - start)) cps.add(c);
+    }
+  }
+  return { cps, has: cp => cps.has(cp) };
+}
