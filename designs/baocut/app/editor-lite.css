@@ -100,6 +100,10 @@ body.is-lite-view > div[role="region"] { bottom: 156px; }
    边界只画一根 2px gray-100 的横线，与侧栏其余分隔一致。改动的标法与协作文档的版本页同一套（home-docs-versions.css）：新加绿、改过橙、删掉红并划掉，另写一个字的标签。 */
 .lt__side > .pview { flex: 1 1 auto; min-height: 0; }
 .lt-side__top { display: flex; align-items: center; gap: 8px; flex: none; height: 48px; padding: 0 12px 0 16px; border-bottom: 2px solid var(--gray-100); }
+.lt__side > .lt-side__tabs { gap: 0; }
+.lt-side__top--tabs { height: auto; align-items: flex-end; }   /* 标签行高随 S2 TabList（48），选中下划线压在分隔线上沿 */
+.lt-side__top--tabs > .grow + * { align-self: center; }
+.lt-side__panel { margin-top: 0; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .lt-sp { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .lt-sp__meta { display: flex; align-items: center; gap: 8px; flex: none; padding: 8px 12px 8px 16px; border-bottom: 2px solid var(--gray-100); }
 .lt-sp__meta > .t-detail { flex: 1 1 auto; min-width: 0; }

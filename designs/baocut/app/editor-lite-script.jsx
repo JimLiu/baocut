@@ -120,7 +120,7 @@
 
   /** 字幕样式：时间线视图字幕面板的同一套样式页。页的栈（画廊 / 属性 / 动画）记在这里，不写编辑器的 paneView——
       那一格是时间线视图右栏推进到哪一层，两边各推各的，切过去不会把对方的面板也带进样式页。 */
-  function CaptionStyle({ctx, view, setView}) {
+  function CaptionStyle({ctx, view, setView, backLabel}) {
     const st = ctx.subStyle;
     const SUB = window.BC_SUB;
     const src = SUB.source(st) || SUB.tracks(st)[0] || {};
@@ -129,7 +129,7 @@
     const ops = window.useSubTrackOps(ctx, editId);
     const local = {...ctx, paneView: view, setPaneView: v => setView(v && /^sub(gallery|props|anim)$/.test(v) ? v : null)};
     return <div className="pview">
-      <window.SubStyleTab ctx={local} ops={ops} editId={editId} backLabel="台词" />
+      <window.SubStyleTab ctx={local} ops={ops} editId={editId} backLabel={backLabel} />
       {ops.dialog}
     </div>;
   }
@@ -144,22 +144,28 @@
     const [style, setStyle] = useState(null);   // 字幕样式推进到哪一层：subprops / subgallery / subanim；null = 没打开
     const page = !hasScript ? 'lines' : tab;
     useEffect(() => { setVersions(false); setStyle(null); }, [proj.id]);
-    if (style) return <CaptionStyle ctx={ctx} view={style} setView={setStyle} />;
+    if (style) return <CaptionStyle ctx={ctx} view={style} setView={setStyle} backLabel={page === 'script' ? '脚本' : '台词'} />;
     if (page === 'script' && versions) return <ScriptVersions proj={proj} onBack={() => setVersions(false)} />;
     const canStyle = ctx.cues.length > 0 && ctx.subsOn;
-    return <div className="pview">
-      <div className="lt-side__top">
-        {hasScript ? <Segmented size="s" value={page} onChange={setTab} items={[{k: 'lines', label: '台词'}, {k: 'script', label: '脚本'}]} />
-          : <span className="t-title-sm">台词</span>}
-        <span className="grow" />
-        <Tip label={canStyle ? '改字幕的样式，与时间线视图的字幕面板同一套' : ctx.cues.length ? '字幕关着，打开后才能改样式' : '这部视频还没有字幕'}>
-          <R.ActionButton size="S" isQuiet isDisabled={!canStyle} onPress={() => setStyle('subprops')}>
-            <Ic n="captions" className="ic--16" /><R.Text>字幕样式</R.Text>
-          </R.ActionButton>
-        </Tip>
-      </div>
-      {page === 'script' ? <ScriptPane proj={proj} seg={seg} onVersions={() => setVersions(true)} /> : lines}
+    const styleBtn = <Tip label={canStyle ? '改字幕的样式，与时间线视图的字幕面板同一套' : ctx.cues.length ? '字幕关着，打开后才能改样式' : '这部视频还没有字幕'}>
+      <R.ActionButton size="S" isQuiet isDisabled={!canStyle} onPress={() => setStyle('subprops')}>
+        <Ic n="captions" className="ic--16" /><R.Text>字幕样式</R.Text>
+      </R.ActionButton>
+    </Tip>;
+    if (!hasScript) return <div className="pview">
+      <div className="lt-side__top"><span className="t-title-sm">台词</span><span className="grow" />{styleBtn}</div>
+      {lines}
     </div>;
+    /* 有脚本：「台词 / 脚本」是 S2 Tabs（两页并列的内容，不是同一份内容的两种显示），「字幕样式」挂在标签行右端 */
+    return <R.Tabs aria-label="侧栏" selectedKey={page} onSelectionChange={k => setTab(String(k))} UNSAFE_className="pview lt-side__tabs">
+      <div className="lt-side__top lt-side__top--tabs">
+        <R.TabList aria-label="侧栏"><R.Tab id="lines">台词</R.Tab><R.Tab id="script">脚本</R.Tab></R.TabList>
+        <span className="grow" />
+        {styleBtn}
+      </div>
+      <R.TabPanel id="lines" UNSAFE_className="lt-side__panel">{page === 'lines' ? lines : null}</R.TabPanel>
+      <R.TabPanel id="script" UNSAFE_className="lt-side__panel">{page === 'script' ? <ScriptPane proj={proj} seg={seg} onVersions={() => setVersions(true)} /> : null}</R.TabPanel>
+    </R.Tabs>;
   }
 
   Object.assign(window, {LiteSidePane});
