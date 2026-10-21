@@ -230,3 +230,27 @@ export function bundleHash(dir) {
 }
 
 export const textHash = s => 'sha256:' + crypto.createHash('sha256').update(s).digest('hex').slice(0, 32);
+
+// 原片像素裁剪 [x, y, w, h] 换成时间线上的四边比例；W、H 取素材记录里的显示宽高（videos inspect 的 size），不假定 1920×1080
+export function cropFraction([x, y, w, h], W, H) {
+  if (!(W > 0 && H > 0)) throw new Error(`crop needs the source size; got ${W}x${H}`);
+  const r = v => Math.min(Math.max(+v.toFixed(6), 0), 0.95);
+  const c = { left: r(x / W), top: r(y / H), right: r(1 - (x + w) / W), bottom: r(1 - (y + h) / H) };
+  return Object.values(c).some(v => v > 0) ? c : null;
+}
+
+// 取景表 [s, dx, dy]（放大 s 倍，画面中心挪到离正中 dx%、dy% 的地方，正数往左、往上）换成 focalPoint：
+// 铺满裁切留下的那块框按取景点分两边，框的左边 = x × (1 − 1/s)，所以 x = 框左 ÷ (1 − 1/s)；s 为 1 时没有可挪的，取正中
+export function focalOf([s, dx, dy]) {
+  if (!(s >= 1 && s <= 4)) throw new Error(`focus scale ${s} must be within 1 and 4`);
+  const axis = d => {
+    const w = 1 / s, room = 1 - w;
+    if (room < 1e-6) return 0.5;
+    const left = Math.min(Math.max((50 - d) / 100 - w / 2, 0), room);
+    return +(left / room).toFixed(4);
+  };
+  return { x: axis(dx), y: axis(dy), ...(s > 1 ? { zoom: s } : {}) };
+}
+
+// 时间线上的秒写成整数刻度的 MediaTime（毫秒）
+export const mediaTime = sec => ({ ticks: String(Math.round(sec * 1000)), timescale: 1000 });
