@@ -196,7 +196,6 @@ fn shape_page(
     }
     let x = cfg.x.resolve(size.0, size.1, params)?;
     let y = cfg.y.resolve(size.0, size.1, params)?;
-    let row_height = fs * node.style.line_height;
     let wrap = cfg.pagination.fixed_line_overflow == Some(FixedLineOverflow::Wrap);
     let mut ranges = Vec::new();
     for (row, bytes) in rows.into_iter().enumerate() {
@@ -206,10 +205,34 @@ fn shape_page(
             ranges.push((row, bytes));
         }
     }
-    let height = ranges.len() as f64 * row_height;
+    // Rows without fit keep one height and the uniform row offsets.
+    let row_height = fs * node.style.line_height;
+    let (scales, heights) = match &cfg.pagination.fixed_line_fit {
+        Some(fit) => {
+            let scales = fit_scales(text, content, &ranges, &node.style, fs, fit);
+            let extra = fit.extra_line_height / scales.iter().copied().fold(1.0, f64::max);
+            let heights = scales.iter().map(|scale| fs * scale * (node.style.line_height + extra)).collect();
+            (scales, heights)
+        }
+        None => (vec![1.0; ranges.len()], vec![row_height; ranges.len()]),
+    };
+    let tops: Vec<f64> = if cfg.pagination.fixed_line_fit.is_some() {
+        heights
+            .iter()
+            .scan(0.0, |top, height| Some(std::mem::replace(top, *top + height)))
+            .collect()
+    } else {
+        (0..heights.len()).map(|i| i as f64 * row_height).collect()
+    };
+    let height = if cfg.pagination.fixed_line_fit.is_some() {
+        heights.iter().sum::<f64>()
+    } else {
+        heights.len() as f64 * row_height
+    };
     let mut lines = Vec::new();
-    for (i, (row, bytes)) in ranges.into_iter().enumerate() {
-        let shape = shape_row(text, &content[bytes.clone()], &node.style, fs);
+    for ((((row, bytes), scale), row_height), top) in ranges.into_iter().zip(scales).zip(heights).zip(tops) {
+        let row_fs = fs * scale;
+        let shape = shape_row(text, &content[bytes.clone()], &node.style, row_fs);
         if cfg.overflow == LayoutOverflow::Error && shape.width > width + 0.001 {
             bail!("CAPTION_LAYOUT_OVERFLOW: fixed word line");
         }
@@ -218,7 +241,7 @@ fn shape_page(
             Align::Center => x - shape.width / 2.0,
             Align::Right => x + width / 2.0 - shape.width,
         };
-        let ly = y - height / 2.0 + i as f64 * row_height;
+        let ly = y - height / 2.0 + top;
         let bounds = Bounds {
             x: lx,
             y: ly,
@@ -226,11 +249,44 @@ fn shape_page(
             height: row_height,
         };
         let baseline = ly + shape.ascent;
-        let mut line = Line::new(text, bytes, shape, bounds, baseline, fs);
+        let mut line = Line::new(text, bytes, shape, bounds, baseline, row_fs);
         line.row = row;
         lines.push(line);
     }
     Ok(lines)
+}
+
+/// `caption-fixed-line-fit/1`: font size scale of each row of one page. Rows are measured at
+/// the base size; each scales to the widest row, a narrow last row is capped, a row without
+/// width keeps its size and no row grows past 4096 px.
+fn fit_scales(
+    text: &mut TextEngine,
+    content: &str,
+    ranges: &[(usize, Range<usize>)],
+    style: &TextStyle,
+    fs: f64,
+    fit: &FixedLineFit,
+) -> Vec<f64> {
+    let widths: Vec<f64> = ranges
+        .iter()
+        .map(|(_, bytes)| shape_row(text, &content[bytes.clone()], style, fs).width)
+        .collect();
+    let widest = widths.iter().copied().fold(0.0, f64::max);
+    let last = widths.len().saturating_sub(1);
+    widths
+        .iter()
+        .enumerate()
+        .map(|(i, &width)| {
+            if !(width > 0.0 && widest.is_finite()) {
+                return 1.0;
+            }
+            let mut scale = widest / width;
+            if i == last && width < widest * fit.last_line_width_ratio {
+                scale = scale.min(fit.last_line_max_scale);
+            }
+            scale.min(4096.0 / fs)
+        })
+        .collect()
 }
 
 /// Frozen row byte ranges of a page: consecutive display lines of one row join again,
@@ -648,6 +704,102 @@ mod tests {
         let kept = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
         assert_eq!(kept.pages[0].lines.len(), 2);
         assert!(kept.pages[0].lines[0].shape.width > 120.);
+    }
+    #[test]
+    fn fixed_line_fit_scales_rows_to_the_widest_row_and_caps_a_narrow_last_row() {
+        let content = "one three four five six";
+        let cue = cue(&["one", "three", "four", "five", "six"], content);
+        let mut text = font_engine();
+        let mut cfg = config();
+        cfg.max_lines = 3;
+        cfg.pagination.word_line_pattern = Some(vec![vec![1, 3, 1]]);
+        cfg.pagination.last_page_rule = None;
+        cfg.pagination.fixed_line_fit = Some(FixedLineFit {
+            last_line_width_ratio: 0.5,
+            last_line_max_scale: 1.3,
+            extra_line_height: 0.1,
+        });
+        let node = node();
+        let params = BTreeMap::new();
+        let base_width = |text: &mut TextEngine, row: &str| shape_row(text, row, &node.style, 20.).width;
+        let widest = base_width(&mut text, "three four five");
+        let first_scale = widest / base_width(&mut text, "one");
+        assert!(base_width(&mut text, "six") < widest * 0.5);
+        let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
+        let base = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
+        let page = &base.pages[0];
+        assert_eq!(base.pages.len(), 1);
+        assert_eq!(page.words, (0..5).collect::<Vec<_>>());
+        assert_eq!(page.lines.len(), 3);
+        let sizes: Vec<_> = page.lines.iter().map(|line| line.max_font_size).collect();
+        // The narrow first row grows to the widest row; the widest keeps its size; the narrow
+        // last row stops at the cap instead of reaching the widest width.
+        assert!((sizes[0] - 20. * first_scale).abs() < 1e-9);
+        assert_eq!(sizes[1], 20.);
+        assert!((sizes[2] - 26.).abs() < 1e-9);
+        assert!(
+            (page.lines[0].shape.width - widest).abs() < widest * 0.02,
+            "{} vs {widest}",
+            page.lines[0].shape.width
+        );
+        assert!(page.lines[2].shape.width < widest * 0.5 * 1.3 + 1.);
+        // Rows stack at their own heights with the extra spacing over the page's largest scale,
+        // centred on the layout y.
+        let extra = 0.1 / first_scale;
+        for (line, size) in page.lines.iter().zip(&sizes) {
+            assert!((line.bounds.height - size * (node.style.line_height + extra)).abs() < 1e-9);
+        }
+        for pair in page.lines.windows(2) {
+            assert!((pair[1].bounds.y - (pair[0].bounds.y + pair[0].bounds.height)).abs() < 1e-9);
+        }
+        let last = page.lines.last().unwrap();
+        assert!(((page.lines[0].bounds.y + last.bounds.y + last.bounds.height) / 2. - 100.).abs() < 1e-9);
+        // Sampled reflow measures the frozen rows again and keeps the same rows and scales.
+        cfg.width.value = 300.;
+        let again = reflow(&mut text, &base, page, &node, &cfg, (600, 200), &params).unwrap();
+        assert_eq!(
+            again.lines.iter().map(|line| line.bytes.clone()).collect::<Vec<_>>(),
+            page.lines.iter().map(|line| line.bytes.clone()).collect::<Vec<_>>()
+        );
+        assert_eq!(again.lines.iter().map(|line| line.max_font_size).collect::<Vec<_>>(), sizes);
+        // A last row at least the ratio of the widest is fitted like the others.
+        cfg.pagination.fixed_line_fit = Some(FixedLineFit {
+            last_line_width_ratio: 0.,
+            last_line_max_scale: 1.,
+            extra_line_height: 0.,
+        });
+        let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
+        let fitted = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params).unwrap();
+        let last = fitted.pages[0].lines.last().unwrap();
+        assert!((last.shape.width - widest).abs() < widest * 0.02);
+        assert!((last.bounds.height - last.max_font_size * node.style.line_height).abs() < 1e-9);
+        // Fitted rows still overflow a narrower width under error overflow.
+        cfg.width.value = widest / 2.;
+        cfg.overflow = LayoutOverflow::Error;
+        let words = bind_words(&cue, content, TimingPolicy::RequireWordTiming, false).unwrap();
+        let error = prepare(&mut text, &cue, content, words, &node, &cfg, (600, 200), &params)
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("CAPTION_LAYOUT_OVERFLOW"));
+    }
+    #[test]
+    fn fixed_line_fit_keeps_single_and_empty_rows_and_bounds_the_row_font_size() {
+        let mut text = font_engine();
+        let style = node().style;
+        let fit = FixedLineFit {
+            last_line_width_ratio: 0.4,
+            last_line_max_scale: 1.3,
+            extra_line_height: 0.3,
+        };
+        // One row is its own widest row; a whitespace-only row has no width to fit.
+        assert_eq!(fit_scales(&mut text, "one", &[(0, 0..3)], &style, 20., &fit), vec![1.]);
+        let scales = fit_scales(&mut text, "one  ", &[(0, 0..3), (1, 3..5)], &style, 20., &fit);
+        assert_eq!(scales, vec![1., 1.]);
+        // A very short row against a long one stops at 4096 px.
+        let content = "i wwwwwwwwwwwwwwwwwwwwwwww";
+        let scales = fit_scales(&mut text, content, &[(0, 0..2), (1, 2..content.len())], &style, 1000., &fit);
+        assert!((scales[0] - 4.096).abs() < 1e-12, "{scales:?}");
+        assert_eq!(scales[1], 1.);
     }
     #[test]
     fn fixed_line_wrap_reports_a_grapheme_wider_than_the_width_under_error_overflow() {

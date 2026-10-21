@@ -74,3 +74,15 @@ test('fixed line overflow is an opt-in wrap of fixed rows', () => {
   const pagination: Pagination = { wordLinePattern: [[4], [5]], fixedLineOverflow: 'wrap' };
   expect(JSON.parse(JSON.stringify(pagination))).toEqual({ wordLinePattern: [[4], [5]], fixedLineOverflow: 'wrap' });
 });
+
+test('fixed line fit scales fixed rows to the widest row', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<NonNullable<Pagination['fixedLineFit']>>().toEqualTypeOf<{
+    lastLineWidthRatio: number; lastLineMaxScale: number; extraLineHeight: number;
+  }>();
+  const pagination: Pagination = {
+    wordLinePattern: [[4, 3, 3, 3]],
+    fixedLineFit: { lastLineWidthRatio: 0.5, lastLineMaxScale: 1.3, extraLineHeight: 0.1 },
+  };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual(pagination);
+});

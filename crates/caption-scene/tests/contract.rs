@@ -650,6 +650,83 @@ fn fixed_line_wrap_requires_opt_in_fixed_rows_and_one_line_per_row_features_abse
 }
 
 #[test]
+fn fixed_line_fit_requires_opt_in_fixed_rows_bounded_factors_and_single_line_rows() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/fixed-line-fit.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    let fit = style.scene().layout.pagination.fixed_line_fit.unwrap();
+    assert_eq!(
+        (fit.last_line_width_ratio, fit.last_line_max_scale, fit.extra_line_height),
+        (0.5, 1.3, 0.1)
+    );
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let path = "pagination.fixedLineFit";
+    let code = |input: &Value| {
+        let error = parse_style(input).unwrap_err();
+        (error.code, error.path)
+    };
+    let invalid = ("CAPTION_SCENE_INVALID".to_string(), path.to_string());
+    let mut legacy = body.clone();
+    legacy["scene"]["value"]["requiredCapabilities"] = json!(["caption-word-line-layout/1"]);
+    assert_eq!(code(&legacy), ("CAPTION_CAPABILITY_UNAVAILABLE".to_string(), path.to_string()));
+    for (field, value) in [
+        ("lastLineWidthRatio", json!(1.5)),
+        ("lastLineWidthRatio", json!(-0.1)),
+        ("lastLineMaxScale", json!(0.5)),
+        ("lastLineMaxScale", json!(101)),
+        ("extraLineHeight", json!(-0.1)),
+        ("extraLineHeight", json!(11)),
+    ] {
+        let mut bad = body.clone();
+        bad["scene"]["value"]["layout"]["pagination"]["fixedLineFit"][field] = value;
+        assert_eq!(code(&bad), invalid, "{field}");
+    }
+    let mut extra_field = body.clone();
+    extra_field["scene"]["value"]["layout"]["pagination"]["fixedLineFit"]["scale"] = json!(1);
+    assert!(parse_style(&extra_field).is_err());
+    let mut missing = body.clone();
+    missing["scene"]["value"]["layout"]["pagination"]["fixedLineFit"]
+        .as_object_mut()
+        .unwrap()
+        .remove("extraLineHeight");
+    assert!(parse_style(&missing).is_err());
+    let mut width_paged = body.clone();
+    width_paged["scene"]["value"]["layout"]["pagination"] = json!({"maxUnitsPerPage": 4, "fixedLineFit": fit});
+    assert_eq!(code(&width_paged), invalid);
+    // Fitted rows never wrap, and unit font size or style bindings would change the measured rows.
+    let mut wrapped = body.clone();
+    wrapped["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-fixed-line-wrap/1"));
+    wrapped["scene"]["value"]["layout"]["pagination"]["fixedLineOverflow"] = json!("wrap");
+    assert_eq!(code(&wrapped), invalid);
+    let with_fit = |fixture: &str| {
+        let mut input: Value = serde_json::from_str(fixture).unwrap();
+        parse_style(&input).unwrap();
+        let scene = &mut input["scene"]["value"];
+        scene["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-fixed-line-fit/1"));
+        scene["layout"]["pagination"]["fixedLineFit"] = json!(fit);
+        input
+    };
+    for fixture in [
+        include_str!("fixtures/unit-font-size.json"),
+        include_str!("fixtures/unit-font-style.json"),
+    ] {
+        assert_eq!(code(&with_fit(fixture)), invalid);
+    }
+    // Page windows keep one display line per row, so they combine with fit.
+    parse_style(&with_fit(include_str!("fixtures/page-window.json"))).unwrap();
+    let mut text_rows = body.clone();
+    text_rows["scene"]["value"]["requiredCapabilities"] = json!(["caption-text-line-layout/1", "caption-fixed-line-fit/1"]);
+    text_rows["scene"]["value"]["layout"]["pagination"] =
+        json!({"textLinePattern": {"unit": "grapheme", "lines": [[8, 6]]}, "fixedLineFit": fit});
+    parse_style(&text_rows).unwrap();
+}
+
+#[test]
 fn remaining_word_page_plans_require_opt_in_bounded_entries_and_exclusivity() {
     let body: Value = serde_json::from_str(include_str!("fixtures/remaining-word-page-plan.json")).unwrap();
     let style = parse_style(&body).unwrap();

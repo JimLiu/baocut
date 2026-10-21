@@ -126,7 +126,11 @@ export interface CaptionScene {
       remainingWordPagePlans?: number[][] | null;
       /** 'wrap' lets a fixed row wider than the layout width continue on further display lines;
        * row and page members stay frozen. Requires caption-fixed-line-wrap/1. */
-      fixedLineOverflow?: 'wrap' | null };
+      fixedLineOverflow?: 'wrap' | null;
+      /** Scales every fixed row of a page to the widest row; a last row narrower than lastLineWidthRatio of it
+       * grows by at most lastLineMaxScale, and rows add extraLineHeight over the page's largest scale.
+       * Requires caption-fixed-line-fit/1. */
+      fixedLineFit?: { lastLineWidthRatio: number; lastLineMaxScale: number; extraLineHeight: number } | null };
     align?: 'left' | 'center' | 'right'; leadingGap?: 'show' | 'hide';
   };
   speechState?: { gapPolicy?: 'none' | 'hold-previous'; tailPolicy?: 'none' | 'hold-last'; timingPolicy?: 'require-word-timing' | 'estimated' };

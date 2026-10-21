@@ -229,6 +229,9 @@ pub struct Pagination {
     /// What a fixed row wider than the layout width does; absent keeps it on one line.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixed_line_overflow: Option<FixedLineOverflow>,
+    /// Scales every fixed row of a page to the widest row; absent keeps the base size.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_line_fit: Option<FixedLineFit>,
 }
 /// `caption-fixed-line-wrap/1`: a fixed row wider than the layout width continues on
 /// further display lines, broken like width-wrapped text; row and page members stay frozen.
@@ -236,6 +239,17 @@ pub struct Pagination {
 #[serde(rename_all = "kebab-case")]
 pub enum FixedLineOverflow {
     Wrap,
+}
+/// `caption-fixed-line-fit/1`: each fixed row of a page is reshaped at the base font size
+/// times the widest row's width over its own. A last row narrower than `last_line_width_ratio`
+/// of the widest scales by at most `last_line_max_scale`. Rows grow by `extra_line_height`
+/// divided by the page's largest scale.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FixedLineFit {
+    pub last_line_width_ratio: f64,
+    pub last_line_max_scale: f64,
+    pub extra_line_height: f64,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -304,6 +318,7 @@ impl Default for Pagination {
             tail_word_rule: None,
             remaining_word_page_plans: None,
             fixed_line_overflow: None,
+            fixed_line_fit: None,
         }
     }
 }
