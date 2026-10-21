@@ -139,9 +139,9 @@ test('进了草稿的标注画回画面：toNotes 的反向，box 回 rect、pin
   assert.deepEqual([M.fromNote(bare).color, M.fromNote(bare).width], ['blue', 2]);
 });
 
-test('截图模式（Web）：没有选择元素与评论；下载的文件名是视频名接播放头的分、秒、毫秒', () => {
+test('截图模式（Web）：没有评论；下载的文件名是视频名接播放头的分、秒、毫秒', () => {
   assert.deepEqual(M.toolsFor('agent').map(t => t.k), ['element', 'comment', 'pen', 'shape', 'text']);
-  assert.deepEqual(M.toolsFor('screenshot').map(t => t.k), ['pen', 'shape', 'text']);
+  assert.deepEqual(M.toolsFor('screenshot').map(t => t.k), ['element', 'pen', 'shape', 'text']);
   assert.equal(M.shotName('倒着开的跑车', 12400), '倒着开的跑车-00m12s400.png');
   assert.equal(M.shotName('a/b: c?', 0), 'a_b_ c_-00m00s000.png');
   assert.equal(M.shotName('', 3723005), 'video-1h02m03s005.png');
@@ -167,4 +167,20 @@ test('出过图的这一帧：标记从画面与历史里拿掉，别的帧的�
   assert.deepEqual(s.marks.map(m => m.id), ['b']);
   assert.ok(s.past.every(list => list.every(m => m.id !== 'a')));
   assert.equal(M.forgetFrame(s, 30000), s);
+});
+
+test('文字样式：新写的字带上当前样式，选中的文字跟着改，进标注再画回来不丢；重开一组记着上次的工具与样式', () => {
+  let s = M.setTextStyle(M.init(), {italic: true, size: 36, font: 'serif'});
+  s = M.add(s, {id: 't', kind: 'text', x: 0.2, y: 0.2, w: 0, h: 0, text: '看这里'});
+  assert.deepEqual(M.textStyleOf(s.marks[0]), {bold: true, italic: true, underline: false, size: 36, font: 'serif'});
+  s = M.setTextStyle(s, {underline: true});
+  assert.equal(s.marks[0].underline, true);
+  assert.equal(M.undo(s).marks[0].underline, false);
+  const [note] = M.toNotes(s.marks, {video: 'p15', revision: 2});
+  assert.equal(note.style.size, 36);
+  assert.equal(M.fromNote(note).font, 'serif');
+  assert.equal(M.textStyleOf({kind: 'text', width: 8}).size, 28);
+  const again = M.init(M.keep(M.setShape(s, 'arrow')));
+  assert.deepEqual([again.tool, again.shape, again.textStyle.size, again.marks.length], ['shape', 'arrow', 36, 0]);
+  assert.deepEqual(['element', 'pen', 'shape', 'text', 'comment'].map(M.hasWidth), [true, true, true, false, false]);
 });

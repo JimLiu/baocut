@@ -162,6 +162,10 @@ import I_Refresh from '@react-spectrum/s2/icons/Refresh';
 import I_Revert from '@react-spectrum/s2/icons/Revert';
 import I_Link from '@react-spectrum/s2/icons/Link';
 import I_Bookmark from '@react-spectrum/s2/icons/Bookmark';
+import I_TextBold from '@react-spectrum/s2/icons/TextBold';
+import I_TextItalic from '@react-spectrum/s2/icons/TextItalic';
+import I_TextUnderline from '@react-spectrum/s2/icons/TextUnderline';
+import I_TextSize from '@react-spectrum/s2/icons/TextSize';
 import I_ZoomIn from '@react-spectrum/s2/icons/ZoomIn';
 import I_ZoomOut from '@react-spectrum/s2/icons/ZoomOut';
 import I_Select from '@react-spectrum/s2/icons/Select';
@@ -298,6 +302,10 @@ export const Icons = {
   Revert: I_Revert,
   Link: I_Link,
   Bookmark: I_Bookmark,
+  TextBold: I_TextBold,
+  TextItalic: I_TextItalic,
+  TextUnderline: I_TextUnderline,
+  TextSize: I_TextSize,
   ZoomIn: I_ZoomIn,
   ZoomOut: I_ZoomOut,
   Select: I_Select,
