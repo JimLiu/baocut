@@ -22,7 +22,7 @@ const en = {
   /** 舞台条上的开关（轻量视图里叫「标记」，时间线视图仍是「标注」）。 */
   markup: 'Markup',
   exitMarkup: 'Exit markup',
-  /** 工具条的读屏名与各个工具。 */
+  /** 工具条的读屏名与各个工具；形状钮显示记住的那一种，副工具条上一排形状（`shapeMenu` 是它的读屏名）。 */
   toolbar: 'Markup tools',
   tools: { element: 'Select element', comment: 'Comment', pen: 'Pen', shape: 'Shape', text: 'Text' },
   shapes: { line: 'Line', arrow: 'Arrow', box: 'Rectangle', ellipse: 'Circle', pin: 'Number' },
@@ -31,6 +31,13 @@ const en = {
   color: 'Color',
   width: 'Stroke width',
   widthValue: (px: number) => `${px} px`,
+  /** 文字工具的副工具条：粗体 / 斜体 / 下划线、字号（下拉里是像素数）、字体。 */
+  textStyles: { bold: 'Bold', italic: 'Italic', underline: 'Underline' },
+  fontSize: 'Font size',
+  font: 'Font',
+  fonts: { sans: 'Sans serif', serif: 'Serif', mono: 'Monospace' },
+  /** 副工具条的读屏名：「文字 · 样式」。 */
+  toolOptions: (tool: string) => `${tool} · options`,
   /** 下拉钮的提示：「颜色 · 红」。 */
   current: (name: string, value: string) => `${name} · ${value}`,
   /** 带快捷键的提示：「评论 · ⇧⌘C」。 */

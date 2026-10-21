@@ -3005,6 +3005,18 @@ function annotationRegion(a: VideoAnnotation): string {
   return `at (${r.x}, ${r.y})`;
 }
 
+/** 文字标记的样子接在 `style:` 行后（命令与协议规范 `conversations`）：` · text 28px serif bold italic underline`，没带这几项时为空。 */
+function textStyleWords(style: NonNullable<VideoAnnotation['style']>): string {
+  const words = [
+    style.size ? `${style.size}px` : null,
+    style.font ?? null,
+    style.bold === undefined ? null : style.bold ? 'bold' : 'regular',
+    style.italic ? 'italic' : null,
+    style.underline ? 'underline' : null,
+  ].filter((word): word is string => !!word);
+  return words.length ? ` · text ${words.join(' ')}` : '';
+}
+
 /**
  * 把视频标注附在发给智能体的文字后面（产品设计 §3.2.3「视频标注」；协议规范 `conversations`），排在设计系统标注段之后：
  * 每部视频一段，按第一次出现的顺序；段上的 `revision` 取这组标注里最大的。同一帧的几处标记算一条（lite-editor §4.1，
@@ -3045,7 +3057,7 @@ export function withVideoAnnotations(
       const marks = frame.items.map((a, i) =>
         [
           `   ${String.fromCharCode(97 + i)}. ${a.kind} · ${annotationRegion(a)}`,
-          a.style ? `      style: ${a.style.color} ${a.style.width}px` : null,
+          a.style ? `      style: ${a.style.color} ${a.style.width}px${textStyleWords(a.style)}` : null,
           a.element ? `      element: ${videoAnnotationElementDetail(a.element)}`.trimEnd() : null,
           a.shot?.stamp ? `      stamp: (${a.shot.stamp.x}, ${a.shot.stamp.y}) on the screenshot` : null,
           a.text ? `      批注：${a.text.split('\n').join('\n           ')}` : null,

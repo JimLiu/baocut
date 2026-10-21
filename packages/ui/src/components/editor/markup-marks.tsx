@@ -1,6 +1,7 @@
-import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactElement } from 'react';
+import type { VideoAnnotationFont, VideoAnnotationTextStyle } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import type { Mark } from '../../model/markup.ts';
+import { textStyleOf, type Mark } from '../../model/markup.ts';
 
 /*
  * 画面上一条标记的画法（lite-editor §4.1）：标记层（markup.tsx，还没发的一组）与标注层（stage-notes.tsx，已进草稿的）同一套，
@@ -54,17 +55,33 @@ export const pinMark = style({
   outlineWidth: 2,
   outlineOffset: 2,
 });
-/** 文字：一行粗体的字，左上角在那个点上，字号跟粗细档走（`MARKUP_TEXT_SIZE`），描一圈反色的影免得淹在画面里。 */
+/** 文字：一行字，左上角在那个点上，样子照这条标记（`textLook`），描一圈反色的影免得淹在画面里。 */
 export const textMark = style({
   position: 'absolute',
   whiteSpace: 'pre',
-  fontWeight: 'bold',
+  fontFamily: { default: 'sans', family: { sans: 'sans', serif: 'serif', mono: 'code' } },
   lineHeight: '[1.2]',
   color: { default: 'red-900', tone: { red: 'red-900', blue: 'blue-900', green: 'green-900', black: 'black', white: 'white' } },
   textShadow: { default: '[0 0 3px rgb(255 255 255 / 0.9)]', tone: { white: '[0 0 3px rgb(0 0 0 / 0.9)]' } },
   cursor: 'move',
   userSelect: 'none',
 });
+/**
+ * 文字标记的样子落到 DOM：字体走 `textMark` / 输入框的 `family`，字号、粗细、斜体与下划线走内联（`textStyleOf` 补齐没带的）。
+ * 标记层、文字输入框与标注层同一套。
+ */
+export function textLook(m: Pick<Mark, 'width'> & VideoAnnotationTextStyle): { family: VideoAnnotationFont; style: CSSProperties } {
+  const t = textStyleOf(m);
+  return {
+    family: t.font,
+    style: {
+      fontSize: t.size,
+      fontWeight: t.bold ? 700 : 400,
+      fontStyle: t.italic ? 'italic' : 'normal',
+      textDecorationLine: t.underline ? 'underline' : 'none',
+    },
+  };
+}
 /** 评论的印章：一枚带尖角的圆（像一个对话气泡），尖角落在那个点上；标记层里写评论人的缩写，标注层里是写着序号的钮（`isButton`）。 */
 export const stampMark = style({
   position: 'absolute',

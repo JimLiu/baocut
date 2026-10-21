@@ -1,6 +1,6 @@
-import type { VideoAnnotationColor } from '@baocut/protocol';
-import { MARKUP_TEXT_SIZE, stepNumber, type Mark } from '../model/markup.ts';
-import type { Size } from '../model/video-annotations.ts';
+import type { VideoAnnotationColor, VideoAnnotationFont } from '@baocut/protocol';
+import { stepNumber, textStyleOf, type Mark } from '../model/markup.ts';
+import { videoAnnotationElementLabel, type Size } from '../model/video-annotations.ts';
 
 /**
  * 标记截图（docs/design/lite-editor §4.1）：把一帧的底图与这一帧的标记画成一张 PNG，随视频标注作为图片附件交给智能体。
@@ -16,6 +16,9 @@ export const SHOT_COLORS: Record<VideoAnnotationColor, string> = {
   black: '#000000',
   white: '#ffffff',
 };
+
+/** 文字标记的字体落到画布 2D：用通用字族（网页里的 S2 字体画布上不一定加载着）。 */
+const CANVAS_FONTS: Record<VideoAnnotationFont, string> = { sans: 'sans-serif', serif: 'serif', mono: 'monospace' };
 
 /** 一帧的图：底图（留下的 PNG 或画布）画到新画布上，再把这一帧的标记画上去（序号按整组 `group` 数），存成 `frame-<毫秒>.png`。 */
 export async function paintFrame(
@@ -107,7 +110,8 @@ export async function composeLiveFrame(
 
 /**
  * 把一帧的标记画到画布上（同 SvgMark 与 HTML 标记的样子）：坐标按归一化值落到画布像素，线宽、字号与印章按画布比画面的比例放大，
- * 文字描一圈反色边代替网页里的阴影；序号按 `group`（整组标记，默认就是这些）数。
+ * 文字照它的样子（粗体、斜体、下划线、字号、字体）并描一圈反色边代替网页里的阴影；元素框左上角带一枚写着元素是什么的标签
+ * （Web 没有对话可发，图上要看得出点的是哪个元素）；序号按 `group`（整组标记，默认就是这些）数。
  */
 export function paintMarks(
   ctx: CanvasRenderingContext2D,
@@ -162,6 +166,7 @@ export function paintMarks(
       ctx.beginPath();
       ctx.roundRect(X(m.x), Y(m.y), X(m.w), Y(m.h), (m.kind === 'element' ? 4 : 2) * scale);
       ctx.stroke();
+      if (m.kind === 'element' && m.element) drawTag(ctx, X(m.x), Y(m.y), sw, videoAnnotationElementLabel(m.element), fill, scale, size.w);
     } else if (m.kind === 'pin') {
       const r = 12 * scale;
       const cx = X(m.x);
@@ -180,8 +185,9 @@ export function paintMarks(
     } else if (m.kind === 'comment') {
       drawStamp(ctx, X(m.x), Y(m.y), Math.max(14, Math.round(Math.min(size.w, size.h) / 40)), fill, initials);
     } else if (m.kind === 'text' && m.text) {
-      const px = MARKUP_TEXT_SIZE[m.width] * scale;
-      ctx.font = `bold ${Math.round(px)}px sans-serif`;
+      const t = textStyleOf(m);
+      const px = t.size * scale;
+      ctx.font = `${t.italic ? 'italic ' : ''}${t.bold ? 'bold' : 'normal'} ${Math.round(px)}px ${CANVAS_FONTS[t.font]}`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.strokeStyle = fill === SHOT_COLORS.white ? 'rgb(0 0 0 / 0.9)' : 'rgb(255 255 255 / 0.9)';
@@ -190,10 +196,51 @@ export function paintMarks(
         const y = Y(m.y) + i * px * 1.2;
         ctx.strokeText(line, X(m.x), y);
         ctx.fillText(line, X(m.x), y);
+        // 画布 2D 没有下划线：在字底下补一道（粗细随字号），先描反色边再填色，同字的画法
+        if (t.underline) {
+          const thick = Math.max(1, px / 14);
+          const under = { x: X(m.x), y: y + px * 0.95, w: ctx.measureText(line).width };
+          ctx.strokeRect(under.x, under.y, under.w, thick);
+          ctx.fillRect(under.x, under.y, under.w, thick);
+        }
       });
     }
     ctx.restore();
   }
+}
+
+/**
+ * 元素框的标签：一枚实色小牌，写元素是什么（`videoAnnotationElementLabel`，同悬停说明卡的第一行），贴在框的左上角外面；
+ * 上面放不下时贴进框里。太长的截到画布宽以内。
+ */
+function drawTag(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  stroke: number,
+  text: string,
+  fill: string,
+  scale: number,
+  maxW: number,
+): void {
+  if (!text) return;
+  const px = Math.round(12 * scale);
+  const pad = 4 * scale;
+  const h = px + pad * 2;
+  ctx.save();
+  ctx.font = `bold ${px}px sans-serif`;
+  const w = Math.min(ctx.measureText(text).width + pad * 2, Math.max(0, maxW - x));
+  const top = y - stroke / 2 - h >= 0 ? y - stroke / 2 - h : y + stroke / 2;
+  const left = x - stroke / 2;
+  ctx.beginPath();
+  ctx.roundRect(left, top, w, h, 2 * scale);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.fillStyle = fill === SHOT_COLORS.white ? '#000000' : '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, left + pad, top + h / 2, Math.max(0, w - pad * 2));
+  ctx.restore();
 }
 
 /** 印章：半径 r 的圆，左下角收成尖角落在 (x, y)；白边，写缩写。 */

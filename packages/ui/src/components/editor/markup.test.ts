@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastQueue } from '@react-spectrum/s2';
 import type { CompositionItem, DocumentRecord, Sequence } from '@baocut/protocol';
-import type { MarkupPick } from '../../model/markup.ts';
+import { init, type MarkupPick } from '../../model/markup.ts';
 import type { LiteSegment } from '../../model/lite-segments.ts';
 import type { LiveFrameShot } from '../../render/markup-paint.ts';
 import type { CaptionHit } from '../../render/render-planner.ts';
@@ -127,7 +127,7 @@ beforeEach(() => {
   useVideo.setState({ video: { videoId: 'v1', target, status: 'ready', state: { video: { revision: '3' } } } as unknown as OpenVideo });
   useEditor.setState({ annotating: true, playhead: 3, view: 'lite' });
   useShell.setState({ route: { tab: 'home', conversationId: 'c1', projectId: null } });
-  useMarkup.setState({ videoId: null });
+  useMarkup.setState({ videoId: null, markup: init() });
   engine.captionHits = [];
   engine.plan = null;
   pickLive = vi.fn(async () => null);
@@ -565,11 +565,12 @@ describe('截图模式（Web，lite-editor §4.1、§8）', () => {
     else delete (navigator as { clipboard?: unknown }).clipboard;
   });
 
-  it('工具条没有选择元素与评论、没有添加到对话；⇧⌘S / ⇧⌘C 不接，留给浏览器', async () => {
+  it('工具条有选择元素、没有评论与添加到对话；⇧⌘S 换到选择元素，⇧⌘C 不接，留给浏览器', async () => {
     await mount();
     expect(useMarkup.getState().markup.mode).toBe('screenshot');
-    for (const name of ['选择元素', '评论', '添加到对话']) expect(button(name)).toBeUndefined();
+    for (const name of ['评论', '添加到对话']) expect(button(name)).toBeUndefined();
     expect(button('画笔')).toBeDefined();
+    expect(button('选择元素')).toBeDefined();
     expect(disabled(button('复制图片')) && disabled(button('下载图片'))).toBe(true);
     const shortcut = new KeyboardEvent('keydown', {
       key: 's',
@@ -581,8 +582,20 @@ describe('截图模式（Web，lite-editor §4.1、§8）', () => {
       cancelable: true,
     });
     await act(() => document.body.dispatchEvent(shortcut));
-    expect(shortcut.defaultPrevented).toBe(false);
-    expect(useMarkup.getState().markup.tool).toBe('pen');
+    expect(shortcut.defaultPrevented).toBe(true);
+    expect(useMarkup.getState().markup.tool).toBe('element');
+    const comment = new KeyboardEvent('keydown', {
+      key: 'c',
+      metaKey: true,
+      ctrlKey: true,
+      shiftKey: true,
+      code: 'KeyC',
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(() => document.body.dispatchEvent(comment));
+    expect(comment.defaultPrevented).toBe(false);
+    expect(useMarkup.getState().markup.tool).toBe('element');
   });
 
   it('复制 / 下载的是播放头那一帧：当前帧没有标记时置灰；出了图就清掉这一帧的标记（撤销不带回来），别的帧的留着', async () => {
@@ -723,7 +736,10 @@ describe('截图模式（Web，lite-editor §4.1、§8）', () => {
       expect(set).toHaveLength(1);
       expect(set[0]?.[0]).toBe('text/html');
       expect(set[0]?.[1]).toMatch(/^<img src="data:image\/png;base64,[A-Za-z0-9+/=]+" alt="">$/);
-      expect(neutral).toHaveBeenCalledWith('已按富文本复制，能贴进文档和笔记；这个浏览器不让复制图片文件，要文件请改用下载', expect.anything());
+      expect(neutral).toHaveBeenCalledWith(
+        '已按富文本复制，能贴进文档和笔记；这个浏览器不让复制图片文件，要文件请改用下载',
+        expect.anything(),
+      );
     } finally {
       if (had) Object.defineProperty(document, 'execCommand', had);
       else delete (document as { execCommand?: unknown }).execCommand;
@@ -759,10 +775,81 @@ describe('截图模式（Web，lite-editor §4.1、§8）', () => {
 
 describe('标记工具条的落点', () => {
   it('对舞台水平居中、底边离舞台底 12', () => {
-    expect(barPlace({ left: 100, width: 600, bottom: 500 }, 300, 1200, 800)).toEqual({ left: 400, bottom: 312 });
+    expect(barPlace({ left: 100, width: 600, bottom: 500 }, 300, 1200, 800)).toEqual({ left: 250, bottom: 312 });
   });
   it('比舞台宽时收进窗口左右 8 以内', () => {
-    expect(barPlace({ left: 0, width: 200, bottom: 500 }, 374, 1000, 800)).toEqual({ left: 195, bottom: 312 });
-    expect(barPlace({ left: 900, width: 100, bottom: 500 }, 374, 1000, 800)).toEqual({ left: 805, bottom: 312 });
+    expect(barPlace({ left: 0, width: 200, bottom: 500 }, 374, 1000, 800)).toEqual({ left: 8, bottom: 312 });
+    expect(barPlace({ left: 900, width: 100, bottom: 500 }, 374, 1000, 800)).toEqual({ left: 618, bottom: 312 });
+  });
+});
+
+describe('主工具条与副工具条（lite-editor §4.1）', () => {
+  const options = () => document.querySelector<HTMLElement>('[data-markup-options]')!;
+  const inOptions = (name: string) =>
+    [...options().querySelectorAll<HTMLElement>('button')].find((b) => b.getAttribute('aria-label') === name);
+
+  it('形状钮不带下拉、按下就用记住的形状画；副工具条上一排形状，换了主工具条的形状钮跟着换', async () => {
+    await mount();
+    const shape = button('形状');
+    expect(shape.hasAttribute('aria-haspopup')).toBe(false);
+    await press(shape);
+    expect(useMarkup.getState().markup).toMatchObject({ tool: 'shape', shape: 'box' });
+    expect(options().dataset.markupOptions).toBe('shape');
+    for (const name of ['直线', '箭头', '矩形', '圆', '编号']) expect(inOptions(name)).toBeDefined();
+    expect(inOptions('矩形')!.getAttribute('aria-pressed')).toBe('true');
+    await press(inOptions('箭头')!);
+    expect(useMarkup.getState().markup).toMatchObject({ tool: 'shape', shape: 'arrow' });
+    expect(inOptions('箭头')!.getAttribute('aria-pressed')).toBe('true');
+    await drag([64, 36], [128, 72]);
+    expect(marks().at(-1)!.kind).toBe('arrow');
+  });
+
+  it('副工具条右边是颜色与粗细；文字换成粗体 / 斜体 / 下划线、字号、字体，没有粗细', async () => {
+    await mount();
+    expect(inOptions('颜色 · 红')).toBeDefined();
+    expect(inOptions('粗细 · 4 px')).toBeDefined();
+    await press(button('文字'));
+    expect(inOptions('粗细 · 4 px')).toBeUndefined();
+    expect(inOptions('颜色 · 红')).toBeDefined();
+    expect(inOptions('粗体')!.getAttribute('aria-pressed')).toBe('true');
+    await press(inOptions('斜体')!);
+    await press(inOptions('下划线')!);
+    expect(useMarkup.getState().markup.textStyle).toMatchObject({ bold: true, italic: true, underline: true });
+    await press(inOptions('字号 · 20')!);
+    const sizes = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]')];
+    expect(sizes.map((el) => el.textContent)).toEqual(['16', '20', '28', '36', '48']);
+    // 下拉挂在工具条这一层里（压在主工具条之上），不在 body 末尾
+    expect(sizes[0]!.closest('[data-markup-bar]')).not.toBeNull();
+    await press(sizes[3]!);
+    expect(useMarkup.getState().markup.textStyle.size).toBe(36);
+    await press(inOptions('字体 · 无衬线')!);
+    const fonts = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]')];
+    expect(fonts.map((el) => el.textContent)).toEqual(['无衬线', '衬线', '等宽']);
+    await press(fonts[1]!);
+    expect(useMarkup.getState().markup.textStyle.font).toBe('serif');
+  });
+
+  it('写下的文字照它的样子画；换了一部视频标记清掉，工具、形状与文字的样子留着', async () => {
+    await mount();
+    await act(() =>
+      useMarkup.getState().apply((s) => ({ ...s, tool: 'shape', shape: 'ellipse', textStyle: { ...s.textStyle, italic: true, size: 28 } })),
+    );
+    await setTool('text');
+    await pointer('pointerdown', 100, 100);
+    await pointer('pointerup', 100, 100, window);
+    const input = document.querySelector<HTMLInputElement>('[data-markup] input')!;
+    expect(input.style.fontStyle).toBe('italic');
+    expect(input.style.fontSize).toBe('28px');
+    await act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '字');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(() => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    const text = document.querySelector<HTMLElement>('[data-markup] [data-mark="text"]')!;
+    expect(text.textContent).toBe('字');
+    expect([text.style.fontStyle, text.style.fontSize, text.style.fontWeight]).toEqual(['italic', '28px', '700']);
+    await act(() => useMarkup.getState().bind('v2'));
+    expect(useMarkup.getState().markup).toMatchObject({ tool: 'text', shape: 'ellipse', marks: [] });
+    expect(useMarkup.getState().markup.textStyle).toMatchObject({ italic: true, size: 28 });
   });
 });

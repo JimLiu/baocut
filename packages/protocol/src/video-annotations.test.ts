@@ -127,9 +127,17 @@ describe('轻量视图标记工具送来的视频标注（docs/design/lite-edito
     for (const color of ['red', 'blue', 'green', 'black', 'white'])
       for (const width of [2, 4, 8, 12])
         expect(send.safeParse({ ...base, videoAnnotations: [{ ...box, style: { color, width } }] }).success).toBe(true);
+    for (const size of [16, 20, 28, 36, 48])
+      for (const font of ['sans', 'serif', 'mono'])
+        expect(
+          send.safeParse({
+            ...base,
+            videoAnnotations: [{ ...text, style: { ...style, bold: false, italic: true, underline: true, size, font } }],
+          }).success,
+        ).toBe(true);
   });
 
-  it('按种类核对新字段：画笔要点列、直线要终点、元素要元素、评论要截图与批注；文字与评论不能空，样式只认五色四档，不收别的字段', () => {
+  it('按种类核对新字段：画笔要点列、直线要终点、元素要元素、评论要截图与批注；文字与评论不能空，样式只认五色四档、文字另认字号字体，不收别的字段', () => {
     for (const bad of [
       { ...text, text: '' },
       { ...comment, text: '' },
@@ -159,6 +167,12 @@ describe('轻量视图标记工具送来的视频标注（docs/design/lite-edito
       { ...box, style: { color: 'red', width: 3 } },
       { ...box, style: { color: 'red' } },
       { ...box, style: { ...style, opacity: 1 } },
+      { ...box, style: { ...style, bold: true } },
+      { ...pin, style: { ...style, size: 20 } },
+      { ...text, style: { ...style, size: 24 } },
+      { ...text, style: { ...style, font: 'cursive' } },
+      { ...text, style: { ...style, italic: 'yes' } },
+      { ...text, style: { ...style, opacity: 1 } },
       { ...box, segment: { ...segment, index: -1 } },
       { ...box, segment: { id: 's01', index: 0 } },
       { ...box, line: { ...line, index: 0 } },

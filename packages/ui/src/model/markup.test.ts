@@ -373,13 +373,13 @@ describe('换成视频标注', () => {
 });
 
 describe('截图模式（Web，lite-editor §4.1、§8）', () => {
-  it('只看宿主平台：Web 是截图模式，别的添加到对话；截图模式没有选择元素与评论，换不过去', () => {
+  it('只看宿主平台：Web 是截图模式，别的添加到对话；截图模式没有评论，换不过去', () => {
     expect(M.markupMode('web')).toBe('screenshot');
     expect(M.markupMode('darwin')).toBe('agent');
     expect(M.markupTools('agent')).toEqual(M.MARKUP_TOOLS);
-    expect(M.markupTools('screenshot')).toEqual(['pen', 'shape', 'text']);
+    expect(M.markupTools('screenshot')).toEqual(['element', 'pen', 'shape', 'text']);
     const shot = M.init({ mode: 'screenshot' });
-    expect(M.setTool(shot, 'element')).toBe(shot);
+    expect(M.setTool(shot, 'element').tool).toBe('element');
     expect(M.setTool(shot, 'comment')).toBe(shot);
     expect(M.setTool(shot, 'text').tool).toBe('text');
     expect(M.setTool(M.init(), 'comment').tool).toBe('comment');
@@ -461,5 +461,45 @@ describe('标记帧的书签与时间线印章（lite-editor §4.1）', () => {
     expect(M.stampTarget(stamp, 12_000)).toBe(10_000);
     expect(M.currentFrame(stamp.frames, 11_400)).toEqual({ timeMs: 11_000, count: 1 });
     expect(M.currentFrame(stamp.frames, 30_000)).toBeNull();
+  });
+});
+
+describe('文字的样子与副工具条（lite-editor §4.1）', () => {
+  it('新写的文字带工具条的当前样子；改样子时选中的是文字就连它一起改（进历史），别的种类不带', () => {
+    let s = M.setTextStyle(M.init(), { italic: true, size: 36, font: 'serif' });
+    expect(s.textStyle).toEqual({ bold: true, italic: true, underline: false, size: 36, font: 'serif' });
+    s = M.add(s, { timeMs: 0, id: 't', kind: 'text', x: 0.1, y: 0.1, w: 0, h: 0, text: '字' });
+    s = M.add(s, { timeMs: 0, id: 'b', kind: 'box', x: 0.1, y: 0.1, w: 0.2, h: 0.2 });
+    expect(s.marks[1]).not.toHaveProperty('size');
+    s = M.select(s, 't');
+    s = M.setTextStyle(s, { underline: true, bold: false });
+    expect(M.textStyleOf(s.marks[0]!)).toEqual({ bold: false, italic: true, underline: true, size: 36, font: 'serif' });
+    expect(M.textStyleOf(M.undo(s).marks[0]!).underline).toBe(false);
+    s = M.select(s, 'b');
+    const box = s.marks[1];
+    s = M.setTextStyle(s, { size: 48 });
+    expect(s.marks[1]).toBe(box);
+    expect(s.textStyle.size).toBe(48);
+  });
+
+  it('没带样子的文字（旧标记、别的客户端的标注）字号按粗细档的旧对应，别的取默认', () => {
+    expect(M.textStyleOf({ width: 8 })).toEqual({ ...M.MARKUP_TEXT_STYLE, size: 28 });
+    expect(M.textStyleOf({ width: 2, italic: true })).toEqual({ ...M.MARKUP_TEXT_STYLE, size: 16, italic: true });
+    expect(M.textStyleOf({ width: 12, size: 20 }).size).toBe(20);
+  });
+
+  it('文字的样子随标注的 style 出去、画回来；别的种类的 style 只有颜色与粗细', () => {
+    let s = M.setTextStyle(M.init(), { underline: true, font: 'mono' });
+    s = M.add(s, { timeMs: 0, id: 't', kind: 'text', x: 0.1, y: 0.1, w: 0, h: 0, text: '字' });
+    s = M.add(s, { timeMs: 0, id: 'p', kind: 'pin', x: 0.3, y: 0.3, w: 0, h: 0 });
+    const [text, pin] = M.toNotes(s.marks, { videoId: 'v', video: { conversationId: 'c', path: 'p' }, revision: '1' });
+    expect(text!.style).toEqual({ color: 'red', width: 4, bold: true, italic: false, underline: true, size: 20, font: 'mono' });
+    expect(pin!.style).toEqual({ color: 'red', width: 4 });
+    expect(M.textStyleOf(M.markOfAnnotation(text!))).toEqual({ bold: true, italic: false, underline: true, size: 20, font: 'mono' });
+    expect(M.markOfAnnotation({ ...text!, style: { color: 'blue', width: 8 } })).not.toHaveProperty('size');
+  });
+
+  it('文字与评论没有粗细', () => {
+    expect(M.MARKUP_TOOLS.filter(M.hasWidth)).toEqual(['element', 'pen', 'shape']);
   });
 });

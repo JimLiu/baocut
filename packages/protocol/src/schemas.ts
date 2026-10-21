@@ -15,7 +15,14 @@ import { AGENT_SKILL_HOST_FOLDERS } from './catalog.ts';
 import { SLIDE_ANNOTATION_LIMITS } from './slides.ts';
 import { DESIGN_ANNOTATION_LIMITS } from './design.ts';
 import { DESIGN_SYSTEM_ANNOTATION_LIMITS } from './design-system.ts';
-import { VIDEO_ANNOTATION_COLORS, VIDEO_ANNOTATION_LIMITS, VIDEO_ANNOTATION_MAX_POINTS, VIDEO_ANNOTATION_WIDTHS } from './video.ts';
+import {
+  VIDEO_ANNOTATION_COLORS,
+  VIDEO_ANNOTATION_FONTS,
+  VIDEO_ANNOTATION_LIMITS,
+  VIDEO_ANNOTATION_MAX_POINTS,
+  VIDEO_ANNOTATION_TEXT_SIZES,
+  VIDEO_ANNOTATION_WIDTHS,
+} from './video.ts';
 import { DOCS_ANNOTATION_LIMITS } from './docs.ts';
 import { SPACE_PARAM_SCHEMAS } from './space-schemas.ts';
 import { EXTERNAL_TOOL_PARAM_SCHEMAS } from './external-tools-schemas.ts';
@@ -485,6 +492,17 @@ const videoAnnotationElement = z.discriminatedUnion('kind', [
     })
     .strict(),
 ]);
+const markStyle = z.object({ color: z.enum(VIDEO_ANNOTATION_COLORS), width: z.literal(VIDEO_ANNOTATION_WIDTHS) });
+/** 文字标记另可带粗体、斜体、下划线、字号与字体；别的种类不收这几项。 */
+const textMarkStyle = markStyle
+  .extend({
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    size: z.literal(VIDEO_ANNOTATION_TEXT_SIZES).optional(),
+    font: z.enum(VIDEO_ANNOTATION_FONTS).optional(),
+  })
+  .strict();
 const videoAnnotationBase = {
   video: fileTarget,
   revision,
@@ -495,10 +513,7 @@ const videoAnnotationBase = {
     .object({ timeMs: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), stamp: normPoint.optional(), attachment: id.optional() })
     .strict()
     .optional(),
-  style: z
-    .object({ color: z.enum(VIDEO_ANNOTATION_COLORS), width: z.literal(VIDEO_ANNOTATION_WIDTHS) })
-    .strict()
-    .optional(),
+  style: markStyle.strict().optional(),
   segment: z
     .object({
       id: z.string().min(1).max(200),
@@ -520,7 +535,7 @@ const boundsRegion = z.object({ x: unit, y: unit, w: unit, h: unit }).strict();
 const videoAnnotation = z.discriminatedUnion('kind', [
   z.object({ ...videoAnnotationBase, kind: z.literal('box'), region: areaRegion }).strict(),
   z.object({ ...videoAnnotationBase, kind: z.literal('arrow'), region: pointRegion, to: normPoint }).strict(),
-  z.object({ ...videoAnnotationBase, kind: z.literal('text'), region: pointRegion, text: requiredText }).strict(),
+  z.object({ ...videoAnnotationBase, kind: z.literal('text'), region: pointRegion, text: requiredText, style: textMarkStyle.optional() }).strict(),
   z.object({ ...videoAnnotationBase, kind: z.literal('pin'), region: pointRegion }).strict(),
   z
     .object({
