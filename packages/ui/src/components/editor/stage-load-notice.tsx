@@ -99,9 +99,9 @@ export function StageLoadNotice({
   const shown = useDelayed(waiting, SPINNER_DELAY_MS);
   if (stall && !suppressed) return <StallCard stall={stall} frame={frame} onRetry={onRetry} />;
   if (!waiting) return null;
-  // 点名这一刻在等的那个（别的可能还在排队），引擎还没报时按开始的先后。
+  // 只点名这一刻在等的那个：别处的可能还在排队转，这一刻在等的不是它们时只说在载入。
   const converting = shown
-    ? (preparing.find((p) => inView.some((asset) => asset.id === p.assetId && asset.revision === p.revision)) ?? preparing[0])
+    ? preparing.find((p) => inView.some((asset) => asset.id === p.assetId && asset.revision === p.revision))
     : undefined;
   if (converting) return <PreparingPanel preparation={converting} frame={frame} />;
   return (
