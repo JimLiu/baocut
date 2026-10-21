@@ -9,6 +9,11 @@
 // Runtime 就把它放进新建的另一条字幕轨。建好后字幕不在已有的字幕轨上时报出来。
 // 字幕默认比每条的第一个字提前一点出现（字幕样式的 displayTiming.leadIn，默认 0.5 秒）：从第 0 帧起的那段，
 // 第一条会压在封面上，所以建好后把那个字幕片段的起点裁到第一个字被说到的时刻（整帧，向后取）。
+// 字幕默认在每条说完后再停 1 秒（displayTiming.tail）。旁白停下来放原声片段（clips.json 里 gap 为 true）时，这一秒会压在
+// 片段开头烧进去的字幕上，所以建好后按留白收短：tail 不超过任一留白里旁白结尾到片段开始的距离，leadIn 不超过片段结尾到
+// 下一句开口的距离（各少一帧）。配置 captions.displayTiming 可以另给 { leadIn, tail }，同样会被收短。和默认不同时
+// 找视频里的字幕样式文档（没有就以默认样式建一份），patchDocument 写进 style.displayTiming，再把各段字幕挂到这份样式上；
+// 用的样式记在 captions.json 的 _style，各段记 style（重建的字幕是默认样式，记录里 style 不是这份的挂一遍）。
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems } from './lib.mjs';
@@ -52,6 +57,61 @@ export function words(line, floor = 0) {
     w.start = +w.start.toFixed(3);
   });
   return out;
+}
+
+const TIMING = { leadIn: 0.5, tail: 1 };
+
+// 留白给字幕显示时长的上限（秒）：tail 是旁白结尾到原声片段开始，leadIn 是片段结尾到下一句开口，取所有留白里最小的
+export function timingLimits(cfg) {
+  const cl = readJson(cfg.abs(cfg.footage?.clips || 'clips.json'), { clips: [] });
+  const len = new Map(cl.clips.filter(c => c.gap).map(c => [c.id, c.to - c.from]));
+  const lim = { leadIn: Infinity, tail: Infinity };
+  for (const id of cfg.order) {
+    const tm = readJson(cfg.abs(cfg.dirs.timing, id + '.json'), { lines: [] });
+    for (const g of tm.gaps || []) {
+      if (!len.has(g.clip)) continue;
+      const end = g.at + len.get(g.clip);
+      const before = tm.lines.findLast(l => l.end <= g.at + 1e-3), after = tm.lines.find(l => l.start >= end - 1e-3);
+      if (before) lim.tail = Math.min(lim.tail, g.at - before.end);
+      if (after) lim.leadIn = Math.min(lim.leadIn, after.start - end);
+    }
+  }
+  return lim;
+}
+
+function applyTiming(cfg, bc, caps) {
+  const lim = timingLimits(cfg), want = { ...TIMING, ...cfg.captions?.displayTiming };
+  for (const k of ['leadIn', 'tail']) {
+    const max = Math.max(0, Math.floor((lim[k] - 1 / cfg.fps) * 20) / 20);
+    if (want[k] > max) { console.log(`caption ${k} ${want[k]}s -> ${max}s: a sound-bite gap leaves ${lim[k].toFixed(2)}s`); want[k] = max; }
+  }
+  const segs = cfg.order.filter(id => caps[id]?.items?.length);
+  if (!segs.length) return;
+  const head = () => bc(['videos', 'inspect', cfg.video, '--limit', '1']);
+  const apply = (label, ops) => bc(['edits', 'apply', cfg.video, '--expected-revision', String(head().revision), '--label', label, '--operations', JSON.stringify(ops)]);
+  const styles = (head().documents || []).filter(d => d.kind === 'caption-style');
+  let doc = styles.find(d => d.id === caps._style?.documentId)?.id ?? (styles.length === 1 ? styles[0].id : null);
+  if (!doc && want.leadIn === TIMING.leadIn && want.tail === TIMING.tail) return;   // 默认样式、默认时长，不用样式文档
+  if (!doc && styles.length) throw new Error(`video has ${styles.length} caption styles (${styles.map(d => d.id).join(', ')}); put the narration one in captions.json as _style.documentId`);
+  if (!doc) {
+    // 以默认样式建一份（y 86 就是默认），序列上还没有样式的字幕一起挂上
+    const r = apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: { y: 86 } }]);
+    doc = r.createdIds?.find(x => x.startsWith('doc_'));
+    if (!doc) throw new Error(`no style document in receipt: ${JSON.stringify(r).slice(0, 400)}`);
+    for (const id of segs) caps[id].style = doc;
+  }
+  const cur = bc(['documents', 'read', cfg.video, '--document-id', doc]).body?.style?.displayTiming ?? {};
+  if (cur.leadIn !== want.leadIn || cur.tail !== want.tail) {
+    apply(`Caption timing lead ${want.leadIn}s tail ${want.tail}s`, [{ type: 'patchDocument', documentId: doc, changes: [{ path: ['style', 'displayTiming'], value: { ...cur, ...want } }] }]);
+    console.log('caption style', doc, 'displayTiming', JSON.stringify(want));
+  }
+  const loose = segs.filter(id => caps[id].style !== doc);
+  if (loose.length) {
+    apply(`Attach caption style ${loose.join(' ')}`, loose.flatMap(id => caps[id].items.map(itemId => ({ type: 'setCaptionStyle', itemId, styleDocumentId: doc }))));
+    for (const id of loose) caps[id].style = doc;
+    console.log(loose.join(' '), 'captions use style', doc);
+  }
+  caps._style = { documentId: doc, displayTiming: want };
 }
 
 export function scribe(lines, language) {
@@ -134,5 +194,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     writeJson(log, caps);
     console.log(JSON.stringify({ id, ...caps[id] }));
   }
-  if (!flags.dry) writeJson(log, caps);
+  if (!flags.dry) { applyTiming(cfg, bc, caps); writeJson(log, caps); }
 }
