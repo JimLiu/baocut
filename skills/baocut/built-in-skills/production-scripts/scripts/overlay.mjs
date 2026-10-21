@@ -351,11 +351,16 @@ for (const [file, list] of bitesBySource()) {
   const tr = bc(['documents', 'put', V, '--kind', 'translation', '--name', `${cfg.names.footage} ${name} (${cfg.language})`, '--language', cfg.language, '--source-document', speechDoc, '--body', '@' + trFile]);
   const style = { y: fo.subs.y, verticalAlign: 'bottom', speakerLabel: { on: true, scale: fo.subs.speaker.scale, color: fo.subs.speaker.color },
     ...(fo.subs.fontSize ? { fontSize: fo.subs.fontSize } : {}), ...(fo.subs.font ? { fontFamily: fo.subs.font } : {}) };
-  const cap = bc(['captions', 'create', V, '--document-id', tr.documentId, '--bilingual', '--style', JSON.stringify(style)]);
+  // 先给原话单建一层原文字幕（带自己的样式）：转写没有原文层时，双语会配上画面上已有的旁白字幕、改掉旁白的样式
+  const orig = bc(['captions', 'create', V, '--document-id', speechDoc, '--style', JSON.stringify(style)]);
+  if (!orig.styleDocumentId) throw new Error(`captions for ${speechDoc}: no style document in receipt`);
+  const cap = bc(['captions', 'create', V, '--document-id', tr.documentId, '--bilingual']);
+  if (cap.pairedOriginal?.documentId !== orig.documentId || cap.styleDocumentId !== orig.styleDocumentId) {
+    throw new Error(`bilingual captions for ${name} paired with ${cap.pairedOriginal?.documentId}, not the sound-bite layer ${orig.documentId}`);
+  }
   // 原声字幕跟着原话走：显示的提前与拖尾都收短，不越过片段
-  if (cap.styleDocumentId) apply(`${cfg.names.footage} ${name} caption timing`, [{ type: 'patchDocument', documentId: cap.styleDocumentId, changes: [{ path: ['style', 'displayTiming'], value: { leadIn: 0, tail: 0.1 } }] }]);
-  const original = cap.pairedOriginal?.itemIds ?? [];
-  log.bites[file] = { hash: subsHash(list), speechDoc, translationDoc: tr.documentId, styleDocumentId: cap.styleDocumentId, itemIds: [...(cap.itemIds || []), ...original] };
+  apply(`${cfg.names.footage} ${name} caption timing`, [{ type: 'patchDocument', documentId: orig.styleDocumentId, changes: [{ path: ['style', 'displayTiming'], value: { leadIn: 0, tail: 0.1 } }] }]);
+  log.bites[file] = { hash: subsHash(list), speechDoc, translationDoc: tr.documentId, styleDocumentId: orig.styleDocumentId, itemIds: [...(cap.itemIds || []), ...(orig.itemIds || [])] };
   save();
   console.log('sound-bite captions', name, `${list.length} subs, ${units.length} sentences`, log.bites[file].itemIds.join(' '));
 }
