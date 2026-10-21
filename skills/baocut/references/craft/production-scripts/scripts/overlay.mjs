@@ -3,7 +3,7 @@
 // 叠在代码画面之上的两层：实拍片段（footage 轨）与水印（watermark 轨）。都是可选的：没有 clips.json、配置里没有 watermark 就跳过。
 //   node tools/overlay.mjs [--dry]          打印每个片段与水印在时间线上的起止（默认）
 //   node tools/overlay.mjs --preview [id …] [--force]   从原片剪出静音小片段到 <work>/clips/，给 preview.mjs 与预览页用；clips.json 里这一段的来源、起止或裁法改了就重剪
-//   node tools/overlay.mjs --render         按画幅剪出成片用的片段（铺满裁切，画中画剪成框的大小，对到整帧），把来源标签烧进去，写到 <work>/footage/
+//   node tools/overlay.mjs --render [id…]   按画幅剪出成片用的片段（铺满裁切，画中画剪成框的大小，对到整帧），把来源标签烧进去，写到 <work>/footage/
 //   node tools/overlay.mjs --place          新建两条视觉轨（footage.layer 为 under 时实拍轨挪到代码包下面），导入片段铺满或放成画中画，再放水印；记在 overlay.json，已放过的（同一 id、同一帧）不重放
 //   node tools/overlay.mjs --check          对照视频里的片段与现在算出的起点（assemble 波纹挪过、段落改过之后跑）
 // clips.json：{ source, label, clips: [{ id, seg, line, cue?, gap?, from, to, source?, label?, audio?, subs?, note? }] }
@@ -77,7 +77,8 @@ const motionVf = (c, w, h, n) => {
   return [...fitVf(c, w * SUPER, h * SUPER), `zoompan=z='${z}':x='${x}':y='(ih-ih/zoom)/2':d=${n}:s=${w}x${h}:fps=${FPS}`];
 };
 // 输入与画面滤镜：视频从 from 起剪；图片一张出 n 帧（有 motion 走 zoompan，没有就循环同一帧）
-const inputArgs = (c, n) => !isImage(c) ? ['-ss', String(c.from), '-i', src(c), '-t', (n / FPS).toFixed(4)]
+// 视频多读一帧再截到 n 帧：源的时间戳和 1/FPS 对不齐时，-t n/FPS 经 fps 滤镜常只出 n-1 帧，放上时间线后和下一段之间空一帧（实拍垫底时这一帧是黑的）
+const inputArgs = (c, n) => !isImage(c) ? ['-ss', String(c.from), '-i', src(c), '-t', ((n + 1) / FPS).toFixed(4), '-frames:v', String(n)]
   : [...(c.motion ? [] : ['-loop', '1', '-framerate', String(FPS)]), '-i', src(c), '-frames:v', String(n)];
 const pictureVf = (c, w, h, n) => c.motion ? motionVf(c, w, h, n) : [...fitVf(c, w, h), `fps=${FPS}`];
 for (const c of cl.clips) if (c.pip) {
@@ -160,6 +161,7 @@ const esc = p => p.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'")
 if (flags.render) {
   fs.mkdirSync(work('footage'), { recursive: true });
   for (const c of plan) {
+    if (ids.length && !ids.includes(c.id)) continue;
     const out = path.join(work('footage'), `${c.id}.mp4`);
     const vf = pictureVf(c, W, H, c.frames);
     const label = c.label ?? cl.label;
