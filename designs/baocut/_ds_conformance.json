@@ -212,7 +212,9 @@
       "#46E1FF": "声波 10 款自有配方（core/presets/builtin/visualizer）的默认主 / 副色——画进视频画面的波形颜色，不是 S2 表面",
       "#B98CFF": "声波 10 款自有配方（core/presets/builtin/visualizer）的默认主 / 副色——画进视频画面的波形颜色，不是 S2 表面",
       "#437BDC": "声波 10 款自有配方（core/presets/builtin/visualizer）的默认主 / 副色——画进视频画面的波形颜色，不是 S2 表面",
-      "#A477DA": "声波 10 款自有配方（core/presets/builtin/visualizer）的默认主 / 副色——画进视频画面的波形颜色，不是 S2 表面"
+      "#A477DA": "声波 10 款自有配方（core/presets/builtin/visualizer）的默认主 / 副色——画进视频画面的波形颜色，不是 S2 表面",
+      "#7FE0CF": "音量包络原型的已播放波形色，画进视频内容。",
+      "#54616B": "音量包络原型的未播放波形色，画进视频内容。"
     },
     "app/model-elements.test.js": {
       "#FFD646": "断言里写的是元素调色板 `PALETTE` 与核心 preset 的默认色本身——测试要钉住的就是这几个面值",

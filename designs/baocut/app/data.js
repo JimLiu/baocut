@@ -178,8 +178,8 @@
      place: {x: 80, y: 36, w: 18}},
     {id: 'e-prg',  kind: 'progress',  name: '进度条',          icon: 'clock',    hue: 'cyan',     start: 0,    end: null,
      place: {x: 50, y: 94, w: 84}},
-    {id: 'e-wav',  kind: 'wave',      name: '声波 · Trio',     icon: 'wave',     hue: 'magenta',  start: 0,    end: null,
-     place: {x: 50, y: 60, w: 55}},
+    {id: 'e-wav',  kind: 'wave',      name: '声波 · 音量包络',     icon: 'wave',     hue: 'magenta',  start: 0,    end: null,
+     place: {x: 50, y: 54, w: 85}},
     /* 计时（第 88 轮）。**图标与色相都取文字那一族**（`text` ／ orange），因为它就是
        一条文字元素——内容由播放头派生而已（ADR-CT01）。橙系这里已经有文本组与图片两条，
        §12.7 早已写明「行的区分靠图标与行名，不靠色相」；把「它是文字」这件事在时间轴上
@@ -1958,7 +1958,7 @@
        第 39.1 轮那个整体「着色」（`tint`）同轮退场：矢量贴纸只有逐组的填充色卡，
        位图贴纸一个颜色控件都没有，没有它的位置。 */
     // 声波 / 进度（样式 id 取 BC_EL 的真目录，不再是手编的展示名）
-    waveStyle: window.BC_EL.WAVES[0].k, waveColor: 'var(--blue-800)', waveColor2: 'var(--gray-25)',
+    waveStyle: window.BC_EL.WAVES[0].k, waveColor: window.BC_EL.WAVES[0].main, waveColor2: window.BC_EL.WAVES[0].second,
     // dB 窗与平滑（声波建条时的默认值：最低 / 最高分贝与平滑度）：
     // 属性页「控制」那三行与条子上「音量档位」飞出读写的是这同一份。
     waveMinDb: -80, waveMaxDb: 40, waveSmooth: 80,

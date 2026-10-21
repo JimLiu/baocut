@@ -260,7 +260,7 @@
     const cfg = project.config || {};
     const elements = kind === 'audio' && cfg.wave !== false
       ? [{id: 'wave-main', kind: 'wave', name: '声波', icon: 'wave', hue: 'magenta', added: true,
-          start: 0, end: project.duration, place: {x: 50, y: 60, w: 55}}]
+          start: 0, end: project.duration, place: {x: 50, y: 54, w: 85}}]
       : [];
     return {sources, clips: kind === 'video' ? clips : [], audio: kind === 'audio', elements,
       bg: kind === 'audio' ? bgToken(cfg.bg) : null, subs: cfg.subs !== false};

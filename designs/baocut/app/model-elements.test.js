@@ -1,6 +1,6 @@
 /* model-elements.js —— 对着定下来的目录数与核心 preset 把目录钉住。
    这些数不是随手写的：形状网格 24 格里 23 格归形状、arrow 是不出格的
-   端点形状，声波 10（第 232 轮自有配方），进度 14（网格次序 / 枚举次序，
+   端点形状，声波 10 款引擎配方 + 1 款待确认原型，进度 14（网格次序 / 枚举次序，
    都不含落成文字元素的 countdown / countup——那两格第 88 轮起在「计时」自成一组，
    见 docs/design/elements/bcut-counter-element-design.md），动画 13/13/10。 */
 const test = require('node:test');
@@ -89,10 +89,10 @@ test('调色板是七色 × BASE/LIGHTER/DARKER', () => {
   assert.ok(E.PALETTE.pink, '粉色档不能少，进度条 border 的默认主色就是它');
 });
 
-test('声波 10 款；Spectrum Area / Dots / Pulse Rings / Ribbons 是双色；示波器两款无 dB 控件', () => {
-  assert.strictEqual(E.WAVES.length, 10);
+test('声波原型 11 款；Spectrum Area / Dots / Pulse Rings / Ribbons 是双色；示波器两款无 dB 控件', () => {
+  assert.strictEqual(E.WAVES.length, 11);
   const by = (k) => E.WAVES.filter((w) => w.k === k)[0];
-  ['spectrum_area', 'dots', 'pulse_rings', 'ribbons'].forEach((k) => assert.strictEqual(by(k).colors, 2, k));
+  ['audio_envelope', 'spectrum_area', 'dots', 'pulse_rings', 'ribbons'].forEach((k) => assert.strictEqual(by(k).colors, 2, k));
   ['bars', 'bars_rounded', 'bars_bottom', 'ring_bars', 'oscilloscope', 'ring_wave']
     .forEach((k) => assert.strictEqual(by(k).colors, 1, k));
   assert.strictEqual(by('oscilloscope').db, false);
@@ -114,19 +114,19 @@ test('声波的默认主色与 dB 来自核心配方', () => {
   assert.strictEqual(by('bars').minDb, -80);
 });
 
-test('10 款声波逐款有一枚示意图，宽件 156×52、方形族 70×70', () => {
-  const keys = E.WAVES.map((w) => w.k).sort();
+test('声波逐款有一枚示意图，宽件 156×52、方形族 70×70', () => {
+  const keys = E.WAVES.filter(w => !w.art).map((w) => w.k).sort();
   assert.deepStrictEqual(Object.keys(WI.ICONS).sort(), keys,
     '声波目录与 model-waveicons.js 对不上');
   E.WAVES.forEach((w) => {
-    const art = WI.ICONS[w.k];
+    const art = w.art || WI.ICONS[w.k];
     assert.ok(art.c.length > 0, w.k + ' 没有任何图元');
     assert.strictEqual(art.vb, w.aspect === 'square' ? '0 0 70 70' : '0 0 156 52', w.k);
   });
 });
 
-test('缩略图着色全部走 CSS 变量；双色四款才引用副色变量', () => {
-  const paint = (k) => JSON.stringify(WI.ICONS[k]);
+test('缩略图着色全部走 CSS 变量；双色款才引用副色变量', () => {
+  const paint = (k) => JSON.stringify(E.WAVES.find(w => w.k === k).art || WI.ICONS[k]);
   E.WAVES.forEach((w) => {
     assert.ok(paint(w.k).indexOf('var(--color-main)') >= 0, w.k + ' 没有引用主色变量');
     assert.strictEqual(paint(w.k).indexOf('var(--color-secondary)') >= 0, w.colors === 2,
@@ -657,4 +657,15 @@ test('对齐三档是纯图标段，每一档都带名字', () => {
     // `tip` 同时是 aria-label 与悬停提示：没有它这一格在屏幕上没有名字
     assert.ok(a.tip, a.k + ' 缺 tip');
   });
+});
+
+test('音量包络默认采用双颜色，跳播取窗确定且不把首尾声音延伸到片外', () => {
+  assert.strictEqual(E.WAVES[0].k, 'audio_envelope');
+  assert.strictEqual(E.WAVES[0].db, false);
+  const first = E.audioEnvelope(0, 20), middle = E.audioEnvelope(9.8, 20);
+  assert.ok(first.slice(0, 60).every(bar => bar.height === 3));
+  assert.ok(E.audioEnvelope(20, 20).slice(60).every(bar => bar.height === 3));
+  assert.deepStrictEqual(E.audioEnvelope(9.8, 20), middle);
+  assert.notDeepStrictEqual(E.audioEnvelope(10.8, 20), middle);
+  assert.strictEqual(middle.filter(bar => bar.played).length, 61);
 });

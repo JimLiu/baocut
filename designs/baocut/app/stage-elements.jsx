@@ -391,6 +391,25 @@
         </div>;
       }
       if (e.kind === 'wave') {
+        if (st.waveStyle === 'audio_envelope') {
+          const span = spanOf(e.id, e), duration = Math.max(0, span.end - span.start);
+          const time = Math.max(0, Math.min(duration, playT - span.start));
+          const bars = window.BC_EL.audioEnvelope(time, duration);
+          const clock = value => String(Math.floor(value / 60)).padStart(2, '0') + ':'
+            + String(Math.floor(value % 60)).padStart(2, '0');
+          return <svg width="100%" height={fillH ? '100%' : undefined}
+            viewBox="0 0 1632 340" preserveAspectRatio="none" aria-label="Audio envelope">
+            {bars.map((bar, i) => <rect key={i} x={bar.x} y={130 - bar.height / 2}
+              width="5.5" height={bar.height} rx="2.7"
+              fill={bar.played ? st.waveColor : st.waveColor2} />)}
+            <rect x="816" y="22" width="1" height="216" fill={st.waveColor} opacity="0.22" />
+            <rect x="12" y="279" width="1608" height="2" fill={st.waveColor2} />
+            <rect x="12" y="279" width={1608 * (duration > 0 ? time / duration : 0)} height="2" fill={st.waveColor} />
+            <g fill={st.waveColor2} fontSize="20" fontFamily="monospace">
+              <text x="12" y="325">{clock(time)}</text><text x="1620" y="325" textAnchor="end">{clock(duration)}</text>
+            </g>
+          </svg>;
+        }
         return (
           <svg width="100%" height={fillH ? '100%' : Math.max(24, 72 * k)}
             viewBox="0 0 240 72" preserveAspectRatio="none">

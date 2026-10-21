@@ -111,8 +111,8 @@
     return out;
   }
 
-  /* ---------- 可视化 · 声波（10 款自有配方，第 232 轮） ----------
-     整表来自 `core/presets/builtin/visualizer/*.json`：`numColors` 决定色板出几个、
+  /* ---------- 可视化 · 声波（10 款引擎配方 + 待确认的音量包络原型） ----------
+     引擎配方来自 `crates/motion/presets/builtin/visualizer/*.json`：`numColors` 决定色板出几个、
      `labels` 是那几个色板的标题（Bars / Wave / Fill / Line / Dots / Peaks / Core / Rings /
      Ribbon A / Ribbon B）、`db:false` 表示这一款**整个「控制」区块不渲染**
      （读时域行的示波器两款：oscilloscope / ring_wave）。
@@ -124,7 +124,31 @@
   const W = (k, name, en, n, labels, main, second, min, max, db, aspect) =>
     ({k, name, en, fam: 'wave', colors: n, labels, main, second, minDb: min, maxDb: max,
       db: db, aspect});
+  // 待确认的音量包络原型；§3.7 现有引擎只接瞬时频谱，尚不声明为可用配方。
+  // 固定的演示音量沿时间轴取窗：跳播与顺播同一时刻得到同一张图。
+  function audioEnvelope(time, duration) {
+    const t = Math.max(0, Math.min(duration, Number(time) || 0));
+    return Array.from({length: 121}, (_, i) => {
+      const at = t + (i - 60) * 0.045;
+      const seed = Math.imul(Math.floor(at / 0.02), 1597334677) >>> 0;
+      const texture = 0.2 + 0.8 * seed / 4294967295;
+      const envelope = at < 0 || at >= duration ? 0
+        : texture * Math.pow(Math.abs(Math.sin(at * 4.3) * Math.sin(at * 1.17)), 0.65);
+      return {x: 12 + i * 13.4, height: 3 + envelope * 168, played: i <= 60};
+    });
+  }
+  function envelopeArt() {
+    return {vb: '0 0 156 52', c: audioEnvelope(9.8, 206).map(bar => ({t: 'rect', a: {
+      x: bar.x / 1632 * 156, y: 22 - bar.height / 340 * 26,
+      width: 0.6, height: Math.max(0.6, bar.height / 340 * 52), rx: 0.3,
+      fill: bar.played ? 'var(--color-main)' : 'var(--color-secondary)',
+    }}))};
+  }
+  const envelopePreset = Object.assign(
+    W('audio_envelope', '音量包络', 'Audio envelope', 2, ['已播放', '未播放'],
+      '#7FE0CF', '#54616B', -80, 40, false, 'free'), {art: envelopeArt()});
   const WAVES = [
+    envelopePreset,
     W('bars', '柱状', 'Bars', 1, ['柱'], '#3CADFF', '#FFFFFF', -80, 40, true, 'free'),
     W('bars_rounded', '圆头柱', 'Bars Rounded', 1, ['柱'], '#FF6B9A', '#FFFFFF', -80, 40, true, 'free'),
     W('bars_bottom', '底对齐柱', 'Bars Bottom', 1, ['柱'], '#70DB74', '#FFFFFF', -80, 40, true, 'free'),
@@ -750,7 +774,7 @@
   window.BC_EL = {
     SHARED, toStage, fromStage,
     PALETTE, TRANSPARENT, RAINBOW, SHAPE_CYCLE, SHAPE_TILES, SHAPE_NAMES, OUTLINE_W, SHAPES,
-    WAVES, PROGRESS, PROG_TILES, progOf, ANIMS, DIR4, DIR2,
+    audioEnvelope, WAVES, PROGRESS, PROG_TILES, progOf, ANIMS, DIR4, DIR2,
     ALIGNS,
     COUNTERS, COUNT_FORMATS, COUNT_SPAN, counterSpan, countOf, counterValue, counterFormat, counterText, counterNextChange,
     swatchList, shapeColor, shapeAt, shapeNames, find, animEnum, animSummary,

@@ -53,7 +53,7 @@
        `model-confetti.js`），仍摆在这一段里——用户找它的地方没变。 */
     {k: 'gif', tab: 'gif', title: '动态贴纸', note: '5 个 Noto Lottie 分类 ＋ 彩纸 10 款 ＋ Codex Pet · 收 Lottie / GIF / Pet zip · 支持分色编辑', badge: true},
     {k: 'sh', tab: 'sh', title: '形状', note: '23 格 · 五色循环'},
-    {k: 'viz', tab: 'viz', title: '可视化', note: '进度 14 ＋ 计时 2 ＋ 声波 10', subs: 'viz'},
+    {k: 'viz', tab: 'viz', title: '可视化', note: '进度 14 ＋ 计时 2 ＋ 声波 11', subs: 'viz'},
     /* CTA 弹窗（2026-09-14 回归）：一个普通贴纸包被单独提出来摆一段，「查看全部」钻进
        贴纸子页并钉在 `cta` 包上。素材是 Tabler 实心图标 ＋ 圆角底 ＋ 随包 OFL 字体转曲的
        文字，中英各 16 款（`scripts/dev/elements/generate.py` 的 `CTA_BUTTONS`）。 */

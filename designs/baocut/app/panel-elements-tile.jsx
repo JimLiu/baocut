@@ -217,7 +217,7 @@
       在三个读者那里永远是同一张图。10 款全部吃变量，双色四款（spectrum_area / dots /
       pulse_rings / ribbons）再吃副色。 */
   function WaveGlyph({it}) {
-    const art = window.BC_WAVEICON.ICONS[it.k];
+    const art = it.art || window.BC_WAVEICON.ICONS[it.k];
     return art ? <ArtGlyph art={art} main={it.main} second={it.second} /> : null;
   }
 
