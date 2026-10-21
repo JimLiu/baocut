@@ -11,9 +11,12 @@
 // 第一条会压在封面上，所以建好后把那个字幕片段的起点裁到第一个字被说到的时刻（整帧，向后取）。
 // 字幕默认在每条说完后再停 1 秒（displayTiming.tail）。旁白停下来放原声片段（clips.json 里 gap 为 true）时，这一秒会压在
 // 片段开头烧进去的字幕上，所以建好后按留白收短：tail 不超过任一留白里旁白结尾到片段开始的距离，leadIn 不超过片段结尾到
-// 下一句开口的距离（各少一帧）。配置 captions.displayTiming 可以另给 { leadIn, tail }，同样会被收短。和默认不同时
-// 找视频里的字幕样式文档（没有就以默认样式建一份），patchDocument 写进 style.displayTiming，再把各段字幕挂到这份样式上；
-// 用的样式记在 captions.json 的 _style，各段记 style（重建的字幕是默认样式，记录里 style 不是这份的挂一遍）。
+// 下一句开口的距离（各少一帧）。配置 captions.displayTiming 可以另给 { leadIn, tail }，同样会被收短。
+// 配置 captions.style 给旁白字幕的摆放与外观（Studio 样式的键：y、verticalAlign、x、width、fontSize 等，竖版要给，
+// 默认的 y 86 落在平台控件区里）。给了 style，或时长和默认不同时：找视频里旁白的字幕样式文档（overlay.json 里原声字幕的
+// 样式不算；没有就以默认样式加上 style 建一份），只把和配置不同的键 patchDocument 写进去（都一样时不动），再把各段字幕挂到
+// 这份样式上；用的样式记在 captions.json 的 _style，各段记 style（重建的字幕是默认样式，记录里 style 不是这份的挂一遍）。
+// 什么都不给时不建样式文档，字幕按默认样式画。
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems } from './lib.mjs';
@@ -79,8 +82,34 @@ export function timingLimits(cfg) {
   return lim;
 }
 
-function applyTiming(cfg, bc, caps) {
-  const lim = timingLimits(cfg), want = { ...TIMING, ...cfg.captions?.displayTiming };
+// 旁白字幕能配的样式键（setCaptionStyle 的 style 认的键）；描边、投影只比、只改给出的字段
+const STYLE_KEYS = ['y', 'verticalAlign', 'x', 'width', 'fontSize', 'fontWeight', 'fontFamily', 'fontColor', 'textOutline', 'dropShadow', 'background', 'backgroundColor'];
+const NESTED = new Set(['textOutline', 'dropShadow']);
+const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+
+// 配置里旁白字幕的样式：captions.style，没给时 null
+export function styleOf(cfg) {
+  const s = cfg.captions?.style;
+  if (s == null) return null;
+  if (!isObj(s) || !Object.keys(s).length) throw new Error(`captions.style: give an object with some of ${STYLE_KEYS.join(', ')}`);
+  const bad = Object.keys(s).filter(k => !STYLE_KEYS.includes(k));
+  if (bad.length) throw new Error(`captions.style: unknown key ${bad.join(', ')}; use ${STYLE_KEYS.join(', ')}`);
+  return s;
+}
+
+// 样式文档的 style 和配置不同的键，写成 patchDocument 的 changes；都一样时为空
+export function styleChanges(cur, want) {
+  return Object.entries(want).flatMap(([k, v]) => {
+    if (NESTED.has(k) && isObj(v)) {
+      const base = isObj(cur?.[k]) ? cur[k] : {};
+      return Object.entries(v).every(([kk, vv]) => base[kk] === vv) ? [] : [{ path: ['style', k], value: { ...base, ...v } }];
+    }
+    return cur?.[k] === v ? [] : [{ path: ['style', k], value: v }];
+  });
+}
+
+export function applyTiming(cfg, bc, caps) {
+  const lim = timingLimits(cfg), want = { ...TIMING, ...cfg.captions?.displayTiming }, style = styleOf(cfg);
   for (const k of ['leadIn', 'tail']) {
     const max = Math.max(0, Math.floor((lim[k] - 1 / cfg.fps) * 20) / 20);
     if (want[k] > max) { console.log(`caption ${k} ${want[k]}s -> ${max}s: a sound-bite gap leaves ${lim[k].toFixed(2)}s`); want[k] = max; }
@@ -89,21 +118,29 @@ function applyTiming(cfg, bc, caps) {
   if (!segs.length) return;
   const head = () => bc(['videos', 'inspect', cfg.video, '--limit', '1']);
   const apply = (label, ops) => bc(['edits', 'apply', cfg.video, '--expected-revision', String(head().revision), '--label', label, '--operations', JSON.stringify(ops)]);
-  const styles = (head().documents || []).filter(d => d.kind === 'caption-style');
+  // 原声字幕（overlay.mjs 建的）有自己的样式文档，不是旁白的
+  const bites = new Set(Object.values(readJson(cfg.abs('overlay.json'), {}).bites || {}).map(b => b.styleDocumentId));
+  const styles = (head().documents || []).filter(d => d.kind === 'caption-style' && !bites.has(d.id));
   let doc = styles.find(d => d.id === caps._style?.documentId)?.id ?? (styles.length === 1 ? styles[0].id : null);
-  if (!doc && want.leadIn === TIMING.leadIn && want.tail === TIMING.tail) return;   // 默认样式、默认时长，不用样式文档
+  if (!doc && !style && want.leadIn === TIMING.leadIn && want.tail === TIMING.tail) return;   // 默认样式、默认时长，不用样式文档
   if (!doc && styles.length) throw new Error(`video has ${styles.length} caption styles (${styles.map(d => d.id).join(', ')}); put the narration one in captions.json as _style.documentId`);
   if (!doc) {
-    // 以默认样式建一份（y 86 就是默认），序列上还没有样式的字幕一起挂上
-    const r = apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: { y: 86 } }]);
+    // 以默认样式加上配置的 style 建一份（没给 style 时 y 86 就是默认），序列上还没有样式的字幕一起挂上
+    const r = apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: style ?? { y: 86 } }]);
     doc = r.createdIds?.find(x => x.startsWith('doc_'));
     if (!doc) throw new Error(`no style document in receipt: ${JSON.stringify(r).slice(0, 400)}`);
     for (const id of segs) caps[id].style = doc;
+    console.log('caption style', doc, 'created', JSON.stringify(style ?? {}));
   }
-  const cur = bc(['documents', 'read', cfg.video, '--document-id', doc]).body?.style?.displayTiming ?? {};
-  if (cur.leadIn !== want.leadIn || cur.tail !== want.tail) {
-    apply(`Caption timing lead ${want.leadIn}s tail ${want.tail}s`, [{ type: 'patchDocument', documentId: doc, changes: [{ path: ['style', 'displayTiming'], value: { ...cur, ...want } }] }]);
-    console.log('caption style', doc, 'displayTiming', JSON.stringify(want));
+  const cur = bc(['documents', 'read', cfg.video, '--document-id', doc]).body?.style ?? {};
+  const t = cur.displayTiming ?? {};
+  const changes = [
+    ...(t.leadIn !== want.leadIn || t.tail !== want.tail ? [{ path: ['style', 'displayTiming'], value: { ...t, ...want } }] : []),
+    ...(style ? styleChanges(cur, style) : []),
+  ];
+  if (changes.length) {
+    apply('Caption style for narration', [{ type: 'patchDocument', documentId: doc, changes }]);
+    console.log('caption style', doc, changes.map(c => `${c.path[1]} ${JSON.stringify(c.value)}`).join(', '));
   }
   const loose = segs.filter(id => caps[id].style !== doc);
   if (loose.length) {
@@ -111,7 +148,7 @@ function applyTiming(cfg, bc, caps) {
     for (const id of loose) caps[id].style = doc;
     console.log(loose.join(' '), 'captions use style', doc);
   }
-  caps._style = { documentId: doc, displayTiming: want };
+  caps._style = { documentId: doc, displayTiming: want, ...(style ? { style } : {}) };
 }
 
 export function scribe(lines, language) {
@@ -135,6 +172,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const caps = readJson(log, {});
   const bc = flags.dry ? null : makeBc(cfg);
   const segs = readJson(cfg.abs('timeline.json'), {}).segments || {};
+  const style = styleOf(cfg);
+  if (flags.dry && style) console.log('caption style', JSON.stringify(style));
 
   // 1. 每段的字与旁白片段，和记录对一下，找出要重建的段
   const todo = [];

@@ -8,7 +8,9 @@
 //   shared/ 下的文件原样拷进包；bundle.pick 列出的子目录（默认 img）只拷场景源码里用引号提到的文件
 //   （'name.png' 或 'name'；带 * 的字面量如 'bug-*' 当通配），bundle.keep 里的相对路径总拷，bundle.exclude 里的不拷。
 //   入口按顺序加载 timing.js → bundle.scripts（默认 shared/ 顶层的 .js，按名字排序）→ scene.js。
-//   bundle.module 为 true 时 scene.js 以 <script type="module"> 加载，能 import 包里的模块（例如 ./vendor/three.module.js）；
+//   bundle.module 为 true 时 scene.js 以 <script type="module"> 加载，能 import 包里的模块（例如 ./engine.js、./vendor/three.module.js）；
+//   这时 bundle.scripts 默认为空：shared/ 里的 .js 由场景自己 import，不再当经典 <script> 加载（模块按经典脚本跑会报错）。
+//   要混入经典脚本（只挂全局变量、不 import / export 的）时在 bundle.scripts 里列出。
 //   bundle.fonts 是 { 字体族名: 包内相对路径 }，写成入口里的 @font-face，给 DOM 或 WebGL 之上的 2D 画布用。
 //   bundle.alpha 为 true 时根元素 data-alpha="true"、页面底色透明：实拍铺在下面一条轨上（footage.layer 为 under），场景只画卡片、标注这些要叠上去的东西，不铺底色。
 import fs from 'node:fs';
@@ -62,7 +64,7 @@ function build(id, all) {
     fs.mkdirSync(path.dirname(path.join(out, rel)), { recursive: true });
     fs.copyFileSync(path.join(SHARED, rel), path.join(out, rel));
   }
-  const scripts = cfg.bundle.scripts || files.filter(f => !f.includes('/') && f.endsWith('.js')).sort();
+  const scripts = cfg.bundle.scripts || (cfg.bundle.module ? [] : files.filter(f => !f.includes('/') && f.endsWith('.js')).sort());
   fs.writeFileSync(path.join(out, 'scene.js'), src);
   fs.writeFileSync(path.join(out, 'timing.js'), 'window.TIMING = ' + JSON.stringify({ ...timing, dur }) + ';\n');
   const tags = ['timing.js', ...scripts].map(s => `<script src="./${s}"></script>`).join('') +
