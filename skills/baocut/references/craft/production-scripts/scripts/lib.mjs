@@ -90,7 +90,14 @@ export function makeBc(cfg) {
       err.cli = j.error || j;
       throw err;
     }
-    return j.result;
+    // 结果超过 CLI 的输出上限（videos inspect 素材一多就会）：CLI 只回摘要，完整结果写在 path 指的文件里
+    const r = j.result;
+    if (r?.truncated === true && typeof r.path === 'string' && r.continueWith?.file === r.path) {
+      const full = JSON.parse(fs.readFileSync(r.path, 'utf8'));
+      fs.rmSync(r.path, { force: true });
+      return full;
+    }
+    return r;
   };
 }
 
