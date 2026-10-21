@@ -284,7 +284,7 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 | 领域 | 代表性操作 | 回执必须说明 |
 | --- | --- | --- |
 | 素材 | `importAsset` `collectAssets` `removeAssets` `relinkAsset` `replaceAssetVersion` | 版本、受影响的实例、缺失的资源、删掉的素材记录 |
-| 片段 | `addItem` `moveItems` `arrangeItem` `trimItem` `splitItem` `joinItems` `deleteItems` `removeRange` `insertRange` `updateItem` `setSpeed` | 新旧时间、lineage、联动的对象 |
+| 片段 | `addItem` `insertItems` `moveItems` `arrangeItem` `trimItem` `splitItem` `joinItems` `deleteItems` `removeRange` `insertRange` `updateItem` `setSpeed` | 新旧时间、lineage、联动的对象 |
 | 样式 | `setText` `setTransform` `setStyle` `setProps` `setAnimation` `setKeyframes` `setAudioMix` | 属性校验的结果与改变的范围 |
 | 转场与效果 | `setTransition` `removeTransition` `setEffects` | 被连带删掉的转场与原因、随实例变短的单侧转场 |
 | 章节与闪避 | `setChapters` `upsertChapter` `removeChapter` `setDucking` `removeDucking` | 新建或改动的章节与规则 |
@@ -325,7 +325,7 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 - `replaceCodeBundle` 换代码包的规则见 §12.6。可选的 `ripple: true` 让后面的内容跟着长度变化移动，不撞上后一段、也不留空隙：Δ = 新帧数 − 旧帧数；变长时等于在旧终点 `insertRange` Δ 帧、`straddle: 'stay'`；变短时等于 `removeRange` 新终点到旧终点这一段，只是跨过整段的实例（铺底音乐这类）原地不动、不拆开。动的轨道是序列里在这个时刻之后还有实例的全部轨道（别的画面、声音与字幕轨都算），其中有锁着的或要动的实例锁着时整笔拒绝（`TARGET_LOCKED`）；章节不动。回执 `impact.codeEdits` 的这一项带 `rippleFrames`（Δ，没有移动时不写）。不给或 `false` 时与原来相同。
 - `addCuts` 给 `sequenceId`、`assetId` 与 `cuts`（`{ from, to, ref? }`：被剪素材时钟上的十进制秒，`0 ≤ from < to ≤ 素材时长`；`ref` 是剪辑建议的 ID。已定：素材时长由引擎读当前素材版本探测到的时长，调用方不传；素材没有已知时长时拒绝），在这个素材的剪口集合里加入剪口（视频格式规范 §6.7，还没有时新建 `kind: 'cut-set'` 的文档），并在同一笔事务里重排：剪口集合的实例所在的轨道上波纹删除，其余实例按 `followPolicy` 移动（§3.16），章节跟着内容前移（视频格式规范 §6.7）。`restoreCut` 给 `sequenceId`、`assetId` 与 `cutId`，去掉这个剪口并在接缝处放回，接缝之后的章节后移。整个落在剪掉区间里的实例列在 `impact.removedByCuts`，放不回去的剪口列在 `impact.cutsNotRelaid`。音画在不同轨道上错开放置、同一个剪口映射成部分重叠的区间时整笔拒绝（`INVALID_OPERATION`，`details.rule: 'scope-misaligned'`）；轨道或要动的实例锁着时整笔拒绝（`TARGET_LOCKED`）。`putDocument` 写剪口集合时同样按 §6.7 核对。`proposeCuts` 给 `assetId`，可选 `speechDocumentId`（素材有几份转写时必须给）与 `detect`（`pauses`、`fillers`、`minPause`、`compressTo`、`maxGap`、`fillerLanguage`、`customFillers`、`trimChapterStarts`，秒数是十进制字符串），按转写检测口癖与长停顿，写出这个素材的剪辑提案（视频格式规范 §6.2，`kind: 'editorial-proposal'`，没有时新建、有时整份替换），不改时间线。`acceptCutSuggestions` 给 `sequenceId`、`proposalId`（提案文档的 ID）与 `suggestionIds`，把这些建议编译成剪口（同 `addCuts`，`ref` 是建议的 ID）并标成 `accepted`，一笔事务；不认识的建议 ID 整笔拒绝（`ENTITY_NOT_FOUND`），转写在提出之后改过时整笔拒绝（`INVALID_OPERATION`，`details.rule: 'proposal-stale'`）。要改区间时直接用 `addCuts`，把建议的 ID 写进 `ref`。
 - 每笔编辑事务的最后，`untilSequenceEnd` 的实例按视频格式规范 §3.16 求出终点；随之改变的实例列在 `updatedIds`，锁定不挡这一步，任务保护照常核对。
-- `insertItems` 的视频、图片、白板与音频实例给 `assetRef`（已有素材的版本），或给 `assetImportRef`（同一事务里 `importAsset` 的 `ref`，取那个素材的当前版本），二者只给一个；贴纸与占位框引用素材时同样。
+- `insertItems` 按实例的完整字段写入一批实例（视频格式规范 §3.4–§3.9，`id` 与 `lineage` 由引擎分配），时间已在帧网格上、不再量化；智能体的 `edits_apply`（CLI 的 `edits apply`）也收它，用来一次写好 `addItem` 表达不了的字段：视频的 `timeMap`、`crop`、`focalPoint`、`embeddedAudio`，文字的内容与样式，字幕的文档与 `scopeItemIds`。视频、图片、白板与音频实例给 `assetRef`（已有素材的版本），或给 `assetImportRef`（同一事务里 `importAsset` 的 `ref`，取那个素材的当前版本），二者只给一个；贴纸与占位框引用素材时同样。
 
 `importAsset` 的 `storage` 不给时，文件链接（`linked`，bytes 留在原处），目录（代码包）收进视频（`managed`）；给 `storage: 'managed'` 才复制文件，已经链接的素材用 `collectAssets` 收进来（视频格式规范 §4.2）。`managed` 要求绝对路径，`linked` 可以给相对视频目录的路径；链接的定位由引擎规范化，项目目录里的文件记相对视频目录的路径，项目外的记绝对路径，`relinkAsset` 同样（视频格式规范 §4.2）。生成的结果（`artifactId`）总是 `managed`。bytes 与已有素材的当前版本相同时复用那个素材、不新增记录；烘焙替身记的 `sourceBundleRef` 与那个版本的不同时，那个素材加一个版本记下新的来源（视频格式规范 §4.2、代码包规范 §7.4）。
 

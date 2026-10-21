@@ -381,6 +381,47 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
     }
   });
 
+  it('智能体用 insertItems 一次写好原片区间、裁剪、取景与原声音量', async () => {
+    const { session } = await send('放一段原片');
+    const inspected = await tool(session, 'videos_inspect', { video: videoId });
+    const visualTrack = inspected.body.tracks.find((t: { kind: string }) => t.kind === 'visual').id;
+    const applied = await tool(session, 'edits_apply', {
+      video: videoId,
+      expectedRevision: inspected.body.revision,
+      label: '放一段原片',
+      operations: [
+        { type: 'importAsset', path: 'clip.mp4', ref: 'c', storage: 'linked' },
+        {
+          type: 'insertItems',
+          items: [
+            {
+              type: 'video',
+              trackId: visualTrack,
+              assetImportRef: 'c',
+              span: { fromFrame: 15, durationFrames: 30 },
+              mode: 'fullscreen',
+              fit: 'cover',
+              crop: { left: 0.25, top: 0, right: 0.25, bottom: 0.1 },
+              focalPoint: { x: 0.5, y: 0.3, zoom: 1.2 },
+              timeMap: { kind: 'linear', sourceIn: { ticks: '500', timescale: 1000 }, rate: { num: 1, den: 1 } },
+              embeddedAudio: { enabled: true, volume: 0.5, fadeIn: { ticks: '200', timescale: 1000 } },
+            },
+          ],
+        },
+      ],
+    });
+    expect(applied.isError, JSON.stringify(applied.body)).toBe(false);
+    const mirror = runtime.videos.mirror(videoId)!.video;
+    const placed = mirror.sequences[mirror.rootSequenceId]!.items.find((item) => item.type === 'video');
+    expect(placed).toMatchObject({
+      span: { fromFrame: 15, durationFrames: 30 },
+      crop: { left: 0.25, top: 0, right: 0.25, bottom: 0.1 },
+      focalPoint: { x: 0.5, y: 0.3, zoom: 1.2 },
+      timeMap: { kind: 'linear', rate: { num: 1, den: 1 } },
+      embeddedAudio: { enabled: true, volume: 0.5 },
+    });
+  });
+
   it('智能体设置转场、效果、章节与闪避；删掉片段时回执说明转场为什么没了', async () => {
     const { session } = await send('加个转场和章节');
     const inspected = await tool(session, 'videos_inspect', { video: videoId });

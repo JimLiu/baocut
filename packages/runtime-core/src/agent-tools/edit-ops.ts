@@ -121,6 +121,36 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     example: { type: 'addItem', asset: { ref: 'clip' }, at: 1 },
   },
   {
+    type: 'insertItems',
+    family: 'items',
+    doc: [
+      '- {"type":"insertItems","items":[{"type","trackId"|"trackRef","span":{"fromFrame","durationFrames"},…}]}：按实例的完整字段一次写入一批片段（视频格式规范 §3.4–§3.9 的 SequenceItem，不带 id 与 lineage），时间是整帧、不再量化。用在 addItem 表达不了的字段上：视频的 timeMap（{"kind":"linear","sourceIn":{"ticks","timescale"},"rate":{"num":1,"den":1}}，从原片哪一刻起放）、crop（四边比例）、focalPoint、mode / fit / place、embeddedAudio（{"enabled","volume","fadeIn"?,"fadeOut"?}，淡变与 sourceIn 同样写 {"ticks","timescale"}）；文字实例的 text 与 style；字幕实例的 documentId（或同一笔 putDocument 的 documentRef）、styleDocumentId、scopeItemIds。视频、图片给 assetRef（{"id","revision"}）或同一笔 importAsset 的 assetImportRef，二者只给一个；新轨道用同一笔 addTrack 的 trackRef。字段与重叠由引擎校验。',
+    ],
+    schema: op('insertItems', {
+      items: z
+        .array(z.looseObject({ type: z.string().describe('实例种类：video、image、text、caption 等') }))
+        .min(1)
+        .describe('要写入的实例，字段同视频格式规范的 SequenceItem'),
+      sequenceId,
+    }),
+    example: {
+      type: 'insertItems',
+      items: [
+        {
+          type: 'video',
+          trackId: 'track_v1',
+          assetImportRef: 'clip',
+          span: { fromFrame: 30, durationFrames: 90 },
+          mode: 'fullscreen',
+          fit: 'cover',
+          crop: { left: 0.1, top: 0, right: 0.1, bottom: 0 },
+          timeMap: { kind: 'linear', sourceIn: { ticks: '12500', timescale: 1000 }, rate: { num: 1, den: 1 } },
+          embeddedAudio: { enabled: true, volume: 0.8 },
+        },
+      ],
+    },
+  },
+  {
     type: 'moveItem',
     family: 'items',
     doc: [
