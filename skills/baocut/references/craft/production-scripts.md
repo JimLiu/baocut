@@ -36,12 +36,13 @@
 | 对齐 | `align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，打印语速、停顿与读错 |
 | 留白与压停顿 | `gaps.mjs [id …]` | 有 `gap` 片段或给了 `voice.maxPause` 时：在旁白里插静音给原声让位、把过长的句间停顿压短 |
 | 打包 | `build.mjs [id …]` | 打成代码包，时长 = 对齐出的时长 + `hold`，对到整帧 |
-| 预览 | `overlay.mjs --preview`（有实拍时），`preview.mjs` | 写 `preview.json`；预览页读 [`references/craft/video-production.md`](video-production.md)，取它的 `examples/bundle-preview.html` 拷到工程根目录，起静态服务打开，烘焙前给用户看会动的画面 |
-| 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs` | `--dry` 不连 Runtime 只打印；确认后执行，每段导入后看 `bake.renderer` |
+| 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs --live` | `--dry` 不连 Runtime 只打印；`--live` 把代码包放上去、先不烘焙，编辑器的实时层现画 |
 | 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏 |
 | 实拍与水印 | `overlay.mjs --dry`，`--render`，`--place` | 剪到画幅、烧来源标签与双语字幕、对响度；新建实拍轨与水印轨放好（`footage.layer` 为 `under` 时实拍轨挪到代码包轨下面当底） |
+| 给用户看 | `baocut web review --video <videoId>` | 把链接给用户，请用户在系统浏览器或 BaoCut 桌面版的审片视图里看（Claude 的内置浏览器会拦实时层，那里是黑的）；改了哪段照第 3 节重做，再 `assemble.mjs --live` |
+| 定稿烘焙 | `assemble.mjs`（不带 `--live`） | 用户说可以之后：live 的段原地换成烘焙过的包，看 `bake.renderer`；之后再导出 |
 
-每一步的参数、配置字段、烘焙走指令还是截图、WebGL 的段、产物被清掉怎么办：读 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](production-scripts/references/pipeline.md)。
+每一步的参数、配置字段、烘焙走指令还是截图、WebGL 的段、产物被清掉怎么办，以及还没建视频时的备选预览页（`preview.mjs`）：读 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](production-scripts/references/pipeline.md)。
 
 ## 3. 改一段
 
@@ -53,7 +54,7 @@
 
 ## 5. 自检
 
-- 第一段导入后先看 `bake.renderer`：该走指令的包回退成 `browser-pixels` 时按 `video-production` 代码场景细则第 2.1 节改好再烘其余各段；烘全片前先算时间与磁盘。
+- 定稿烘焙时第一段导入后先看 `bake.renderer`：该走指令的包回退成 `browser-pixels` 时按 `video-production` 代码场景细则第 2.1 节改好再烘其余各段；烘全片前先算时间与磁盘。
 - 排完用 `videos inspect` 核对各段首尾相接、总长等于各段帧数之和；`assemble.mjs --verify` 补后台烘焙的结果并核对。
 - 自己调 CLI 读 JSON 时只读标准输出，任务进度在标准错误。
 - 试烘焙、试导出用的临时视频，交付前列给用户，删除要用户同意。

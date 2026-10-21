@@ -46,19 +46,21 @@
 | 对齐 | `node tools/align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，写 `timing/<id>.json`；打印每句的语速（偏离中位数超过 15% 标 RATE；两秒以内的短句容差放宽到 0.3 秒 / 句长，免得句首句尾的误差句句都标）、句间停顿（超过 0.8 秒标 GAP）、多念、漏念与念错的字。读错的处理照 `SKILL.md` 第 6 节「读音核对」。提示时间塌了时 `--fresh --chunk 14` 重转 |
 | 留白与压停顿 | `node tools/gaps.mjs [id …]`（有 `gap` 片段或给了 `voice.maxPause` 时） | 在 `gap` 片段所在那句之前插一段静音（片段长 + 0.35 秒；同一句前的几个 `gap` 片段共用一段，长度是它们的总长 + 0.35 秒），后面的句子整体后挪；给了 `maxPause`（或 `--max-pause 秒数`）时，把句与句之间长于它的静音压到这么长，句内的停顿、留白的接缝与固定口播的段不动。写 `audio/<id>.gaps.<格式>`，`timing/<id>.json` 改成挪过的时间并带上 `gaps`、`tightened` 与 `gapAudio`，原始对齐存成 `timing/<id>.voice.json`，可以反复跑。之后打包、预览、排时间线、字幕都按留过白的时间走，`assemble.mjs` 导入留好白的那份旁白 |
 | 打包 | `node tools/build.mjs [id …]` | 打成 `bundles/<id>/`，时长 = 对齐出的时长 + `hold`，对齐到整帧。还没对齐的段按估算时长打包，只用于配音前的样帧 |
-| 预览 | `node tools/overlay.mjs --preview`（有实拍时），再 `node tools/preview.mjs` | `--preview` 只剪新的或来源、起止、裁法改过的片段（`--force` 全部重剪）；段里最后一个片段超出段尾时两个脚本都会提示，截到段尾，要么改短 `to`，要么把它往前挪。写 `preview.json`：各段的代码包、旁白、句子时间、稿子里的备注与叠在上面的实拍。预览页用 `skills_read` 读 `video-production`，取它的 `examples/bundle-preview.html` 拷到工程根目录，在根目录起静态服务打开（代码场景细则第 7 节）。页面跟着旁白画、叠实拍，能连播。烘焙前给用户看 |
-| 排时间线 | `node tools/assemble.mjs --dry`，再 `node tools/assemble.mjs` | `--dry` 不连 Runtime，打印每段的起始帧、帧数和要做的事；确认后去掉 `--dry` 执行。每段导入后打印并记下 `bake` 的 `renderer`、`fps`、`seconds` |
+| 排时间线 | `node tools/assemble.mjs --dry`，再 `node tools/assemble.mjs --live` | `--dry` 不连 Runtime，打印每段的起始帧、帧数和要做的事；确认后去掉 `--dry` 执行。`--live` 用 `compositions import --live` 放代码包：不烘焙、不排任务，几秒一段，编辑器预览时由实时层现画；`timeline.json` 里这些段记 `live: true` |
 | 字幕 | `node tools/captions.mjs --dry`，再 `node tools/captions.mjs` | 用稿子原文加对齐时间写转写文稿、建字幕层，专名照稿子的写法上屏。字幕默认比第一个字早约半秒出现，从 0 秒起的那段建好后把字幕片段起点裁到第一个字，封面上不带字幕 |
 | 实拍与水印 | `node tools/overlay.mjs --dry`，再 `--render`，再 `--place` | `--dry` 打印每段实拍与每次水印在时间线上的起止、留白、原声、字幕条数、转场与图片的推拉（带 `motion` 的片段另起一行打出要用的 `-vf` 滤镜）；`--render` 按 `crop`、`fit` 放进画幅，图片按片段的帧数出视频（`motion` 用 ffmpeg `zoompan`，先放大到 4 倍画幅再推，免得抖），（`pip` 的片段剪成框的像素大小）、对到整帧，把来源标签烧进右上角、双语字幕烧在底部，原声按转场长度淡入淡出、响度对到 `footage.loudness`；`--place` 新建两条视觉轨（名字取 `names`；`footage.layer` 为 `under` 时用 `moveTrack` 把实拍轨挪到代码包那条轨下面），导入片段铺满放好（`pip` 的用 `setStyle` 的 `mode: 'pip'` 加 `setTransform` 的 `x`、`y`、`w` 放成画中画，转场作用在框上），数字的 `audio` 用 `setAudioMix` 设音量，`in`、`out` 用 `setTransition` 设成单侧转场，水印放成画中画。放之前看一眼水印会不会压到画面上的字，压到了改 `at` |
+| 给用户看 | `baocut web review --video <videoId>` | 打印的链接整条给用户，请用户在系统浏览器里开，或在 BaoCut 桌面版打开这部视频、切到审片视图。宿主自带的浏览器面板（例如 Claude 的内置浏览器）拦实时层的沙箱页面，没烘的段在那里是黑的，不等于画面坏了。用户逐段提意见，照第 4 节重做改到的段，再 `assemble.mjs --live` |
+| 定稿烘焙 | `node tools/assemble.mjs --dry`，再 `node tools/assemble.mjs` | 用户说可以之后不带 `--live` 再跑：`--dry` 里 live 的段标 `bake (was live)`，执行时原地换成烘焙过的包（`replace`，Δ 为 0 不挪）。每段导入后打印并记下 `bake` 的 `renderer`、`fps`、`seconds`；结尾还有没烘的段时打印 `live (not baked)`。之后再导出 |
 | 量画面占比 | `node tools/coverage.mjs`（或 `--from <videos inspect 存下的 JSON>` 不连 Runtime；`--json` 出机器可读的结果） | 读时间线，报每一帧最上面铺满的是实拍、代码画面还是空的各占多少、画中画占多少，镜头数与中位长度、最长一个镜头、最长一段没有实拍，实拍片段数、带原声的几段、同一素材用了几次，再按分钟列一条实拍占比。只报数不判对错：对照这期定下的形态看数对不对（`SKILL.md` 第 4 节）。在工程里跑时自动按各段代码包的 `data-alpha` 判断透明叠层，不带配置时用 `--alpha` 告诉它 |
 
-- 第一段导入后先看 `bake`：走成 `browser-pixels` 时脚本停下并打印原因，按代码场景细则第 2.1 节改好、重新打包再跑，它会原地换包。确认走指令后，其余段可以加 `--background` 在后台排队烘焙，之后 `assemble.mjs --verify` 把烘焙结果补进记录并核对首尾相接。
+- 定稿烘焙时第一段导入后先看 `bake`：走成 `browser-pixels` 时脚本停下并打印原因，按代码场景细则第 2.1 节改好、重新打包再跑，它会原地换包。确认走指令后，其余段可以加 `--background` 在后台排队烘焙，之后 `assemble.mjs --verify` 把烘焙结果补进记录并核对首尾相接。
 - 烘全片前照代码场景细则第 2.1 节算时间与磁盘空间。
 - **用 WebGL 画的段**（Three.js 等）走不了指令，一开始就带 `--allow-pixels`。实测 1080p 约 7–18 帧/秒：八分钟、一万四千多帧的片子约 25 分钟，先告诉用户。
 - **旁白产物被清掉**：Runtime 会清理旧的配音产物，隔了一段时间再排时间线时按 artifactId 导入会报 `ARTIFACT_NOT_FOUND`。`assemble.mjs` 这时改导入 `voice.mjs` 存下的 `audio/<id>.<格式>`（同一份音频），不用重配。
 - 自己调 CLI 读 JSON 时只读标准输出：任务进度一律写在标准错误，`2>&1` 合在一起就解析不了。`assets import` 的 `place.at` 写秒数字符串（`atOf` 算好的整帧秒数）。
 - **单侧转场**：`setTransition` 只给一侧，入场给 `rightItemId`、出场给 `leftItemId`，`params` 给 `{}`；`duration` 写 `{ unit: 'frames', value: <帧数> }`，同时要写 `alignment: 'exact-frame'`。长度超过片段的一半时引擎缩短生效长度，列在回执的 `impact.shortenedTransitions` 里；脚本先按一半夹好，和后一个片段首尾相接的那一侧不设（同一条轨上背靠背只能硬切），与预览页的画法一致。放完导出一小段看转场与字幕。
 - 每个脚本都能重跑：已经做完、没有变化的段跳过。
+- **备选预览页**：还没建视频、或编辑器打不开时，`node tools/overlay.mjs --preview`（有实拍时）再 `node tools/preview.mjs` 写 `preview.json`（各段的代码包、旁白、句子时间、稿子里的备注与叠在上面的实拍；`--preview` 只剪新的或来源、起止、裁法改过的片段，`--force` 全部重剪；段里最后一个片段超出段尾时会提示）。预览页用 `skills_read` 读 `video-production`，取它的 `examples/bundle-preview.html` 拷到工程根目录，在根目录起静态服务打开（代码场景细则第 7 节），页面跟着旁白画、叠实拍，能连播。有视频时用实时层，不用它。
 
 ## 4. 改一段
 

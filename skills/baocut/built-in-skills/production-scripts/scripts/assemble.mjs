@@ -2,6 +2,8 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本
 // 把各段旁白与代码包按 order 摆到视频上：起点按整帧累加，旁白放第一条音频轨（A1），代码包导入烘焙后放第一条视觉轨（V1），同一起点。
 //   node tools/assemble.mjs --dry                 只打印排好的起点与要做的事，不连 Runtime、不改视频
+//   node tools/assemble.mjs --live                不烘焙：代码包带 compositions import --live 放上去，没有预渲染，编辑器预览时由实时层现画；
+//                                                 给用户看、反复改都用它。定稿后不带 --live 再跑一遍，记录里 live 的段原地换成烘焙过的
 //   node tools/assemble.mjs [--background | --foreground] [--bake auto|ops] [--allow-pixels]
 //   node tools/assemble.mjs --verify              不改时间线：补后台烘焙的结果，核对各段首尾相接
 // 进度记在 timeline.json，可以重跑：已放好且没变的段跳过。改过的段这样处理（video-production 代码场景细则第 7 节的 ripple 步骤）：
@@ -60,6 +62,7 @@ for (const s of lay) {
     frames: r.frames,
     resized: r.sceneItem && r.frames !== s.frames,
     rebundled: r.sceneItem && r.bundleHash !== hash,
+    unbaked: r.sceneItem && r.live && !flags.live,
     revoiced: !!(r.audioItem && ((voice[s.id] && voice[s.id].artifactId !== r.audioArtifact) || (r.audioGaps ?? null) !== gapKey(s.id))),
     hash,
   };
@@ -95,10 +98,10 @@ function printPlan() {
   for (const s of lay) {
     const r = rec.segments[s.id], c = cur[s.id];
     const was = r ? ` was ${r.from}+${r.frames}` : '';
-    const act = !c ? 'place' : [c.resized && `resize ${s.frames - c.frames > 0 ? '+' : ''}${s.frames - c.frames}`, !c.resized && c.rebundled && 'replace bundle', c.revoiced && 'replace narration', !r.sceneItem && 'place scene', !r.audioItem && 'place narration'].filter(Boolean).join(', ') || 'ok';
-    const bakes = !c || c.resized || c.rebundled || !r.sceneItem;
-    const bg = bakes && inBackground(s) ? `  bake in background (${(s.frames / FPS / 60).toFixed(1)} min)` : '';
-    const bake = r && r.bake ? `  bake ${r.bake.renderer} ${r.bake.fps ?? '?'}fps ${r.bake.seconds ?? '?'}s` : r && r.bakeJobId ? `  bake pending ${r.bakeJobId}` : '';
+    const act = !c ? 'place' : [c.resized && `resize ${s.frames - c.frames > 0 ? '+' : ''}${s.frames - c.frames}`, !c.resized && c.rebundled && 'replace bundle', !c.resized && !c.rebundled && c.unbaked && 'bake (was live)', c.revoiced && 'replace narration', !r.sceneItem && 'place scene', !r.audioItem && 'place narration'].filter(Boolean).join(', ') || 'ok';
+    const bakes = !c || c.resized || c.rebundled || c.unbaked || !r.sceneItem;
+    const bg = bakes && !flags.live && inBackground(s) ? `  bake in background (${(s.frames / FPS / 60).toFixed(1)} min)` : '';
+    const bake = r && r.live ? '  live (not baked)' : r && r.bake ? `  bake ${r.bake.renderer} ${r.bake.fps ?? '?'}fps ${r.bake.seconds ?? '?'}s` : r && r.bakeJobId ? `  bake pending ${r.bakeJobId}` : '';
     console.log(`${s.id.padEnd(8)} from ${String(s.from).padStart(6)}  at ${(s.from / FPS).toFixed(3).padStart(9)}  frames ${String(s.frames).padStart(5)}${was}  ${act}${bg}${bake}`);
   }
   for (const st of steps) console.log(`ripple: ${st.kind} ${st.id}: ${st.kind === 'insert' ? 'insertRange' : 'replace.ripple'} shifts clips at frame >= ${st.boundary} by ${st.delta > 0 ? '+' : ''}${st.delta}`);
@@ -186,6 +189,10 @@ function checkBake(id, r) {
 
 function importScene(s, place) {
   const args = ['compositions', 'import', V, '--path', `${cfg.dirs.bundles}/${s.id}`, '--name', s.id, '--manifest', '{"contract":"baocut/1"}', ...place];
+  if (flags.live) {
+    const t0 = Date.now();
+    return { c: bc([...args, '--live']), sec: Math.round((Date.now() - t0) / 1000) };
+  }
   if (flags.bake) args.push('--bake', flags.bake);
   if (inBackground(s)) args.push('--background');
   if (inBackground(s) && !flags.background) console.log(`${s.id}: ${s.frames} frames, baking in the background (pass --foreground to wait for it)`);
@@ -202,7 +209,7 @@ function replaceScene(s) {
   const { c, sec } = importScene(s, ['--replace', JSON.stringify({ itemId: r.sceneItem, ripple: true })]);
   const moved = c.replaced?.rippleFrames ?? 0;
   recordBake(r, c);
-  Object.assign(r, { frames: s.frames, bundleHash: cur[s.id].hash, bakeSec: sec });
+  Object.assign(r, { frames: s.frames, bundleHash: cur[s.id].hash, bakeSec: sec, live: !!flags.live });
   shiftRecords(oldEnd, moved);
   if (moved) console.log(`${s.id}: rippled clips at frame >= ${oldEnd} by ${moved > 0 ? '+' : ''}${moved}`);
   if (moved !== want) throw new Error(`${s.id}: engine rippled ${moved} frames, bundle says ${want}; check data-duration against the clip and timeline.json`);
@@ -243,7 +250,7 @@ function placeScene(s) {
   const { c, sec } = importScene(s, ['--place', JSON.stringify({ track: V1, at: atOf(r.from, FPS) })]);
   r.sceneItem = c.itemId;
   recordBake(r, c);
-  Object.assign(r, { bundleHash: cur[s.id]?.hash ?? bundleHash(cfg.abs(cfg.dirs.bundles, s.id)), bakeSec: sec });
+  Object.assign(r, { bundleHash: cur[s.id]?.hash ?? bundleHash(cfg.abs(cfg.dirs.bundles, s.id)), bakeSec: sec, live: !!flags.live });
   save();
   checkBake(s.id, r);
 }
@@ -255,10 +262,10 @@ if (!flags.verify) {
     if (st.kind === 'insert') makeRoom(st.id, st.boundary, st.delta);
     else replaceScene(s);
   }
-  // 2. 帧数没变但包换了的段原地换包；旁白换了的段先一起删掉旧旁白（还在时间线上的），第 3 步在段首重放
+  // 2. 帧数没变但包换了、或上次 --live 没烘的段原地换包；旁白换了的段先一起删掉旧旁白（还在时间线上的），第 3 步在段首重放
   for (const s of lay) {
     const c = cur[s.id];
-    if (c?.rebundled && !c.resized) replaceScene(s);
+    if (c && !c.resized && (c.rebundled || c.unbaked)) replaceScene(s);
   }
   const revoiced = lay.filter(s => cur[s.id]?.revoiced);
   if (revoiced.length) {
@@ -304,4 +311,6 @@ for (const s of lay) {
   else if (it.startFrame !== s.from || it.durationFrames !== s.frames) bad.push(`${s.id}: clip at ${it.startFrame}+${it.durationFrames}, layout ${s.from}+${s.frames}`);
 }
 console.log(bad.length ? 'CHECK FAILED\n' + bad.join('\n') : `check ok: ${lay.length} segments end to end, ${total} frames`);
+const unbakedIds = lay.filter(s => rec.segments[s.id]?.live).map(s => s.id);
+if (unbakedIds.length) console.log(`live (not baked): ${unbakedIds.join(' ')}; run assemble.mjs without --live before exporting`);
 if (bad.length) process.exit(1);
