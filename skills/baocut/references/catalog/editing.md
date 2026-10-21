@@ -1,5 +1,5 @@
 ---
-description: 时间线修改的机制：一笔修改的事务与版本、预检、按需查操作、常用操作的例子、剪口播的提案与剪口、章节、撤销与读回执。第一次改时间线之前读。
+description: 时间线修改的机制：一笔修改的事务与版本、预检、按需查操作、常用操作的例子、内置的声波与进度条、剪口播的提案与剪口、章节、撤销与读回执。第一次改时间线之前读。
 ---
 
 # 编辑：时间线上的修改
@@ -124,6 +124,22 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 - 先带 {{arg:dryRun}} 看排布与每一步要做的事（place、resize、replace、keep、move、remove），再真正提交：一次确认覆盖整趟，每一步各自可撤销。代码包默认进后台烘焙任务，结果里每段、每张卡带 `bakeJobId`，导出前用 {{tool:jobs_inspect}} 核对；`background: false` 时当场烘焙，结果带 `bake`（渲染器、帧率、耗时），退回逐帧截图的会给警告。
 - **重跑是增量的**：放好之后视频里存一份「制作计划」记录。段落变长变短或换了包走带波纹的换包，后面的内容一起挪；中间插进的段先腾位置；换了旁白文件或产物就换旁白；同一路径的素材文件重新剪过（大小或修改时间变了）也算变了；没变的片段、卡片与水印不动。要动的轨道或条目锁着时什么都不改，报 `TARGET_LOCKED`，解锁后重跑。计划里删掉已放好的段落会拒绝（`PLAN_SEGMENT_REMOVED`：先用 `removeRange` 删掉那段）；段落被手动挪得不再首尾相接时 `LAYOUT_MISMATCH`。
 - 它不切素材、不配音、不对齐，也不烧来源标签、双语字幕或照片的推拉：这些在它之前做好，把剪好的文件当普通素材给它；有命令行环境时现成的脚本见 {{skill:production-scripts}}。
+
+### 声波与进度条：内置元素
+
+跟着声音起伏的声波和进度条是 BaoCut 的内置元素：引擎逐帧画，预览与导出一致，用户在编辑器的属性页里能换款、改色、挪位置。一笔 {{tool:edits_apply}} 的 `insertItems` 放上，马上出现在画面上。不要为它写代码包、自己分析音量或逐帧渲染：整段音频要渲染很久，用户也改不了。
+
+- **声波**：`{"type":"visualizer","visualizer":{"style":…}}`。横条款有 `bars`、`bars_rounded`、`bars_bottom`、`spectrum_area`、`oscilloscope`、`ribbons`、`dots`，正方款有 `ring_bars`、`ring_wave`、`pulse_rings`。`mainColor`、`secondaryColor`（`#RRGGBB`）不写时用这一款的配色。缺省跟着整条序列混好的声音动；只在某位说话人说话时动给 `speaker`。
+- **进度条**：`{"type":"progress","progress":{"style":…}}`，`style` 如 `normal`、`rounded`、`circle`；在片段时长里从头走到尾。
+- **时长与轨道**：`span` 从第 0 帧铺到序列末尾（{{tool:videos_inspect}} 的 `sequence.durationFrames`）。同一条轨道上的片段不能重叠：画面轨上已有背景时，同一笔里先 `addTrack`（`kind` 为 `visual`，给 `ref`），再用 `trackRef` 指向它；新轨道排在最上面，盖在背景之上。
+- **落位**（`place`）：`x`、`y` 是框中心在画面宽、高上的百分比，`w` 是框宽占画面宽的百分比（正方款按画面短边）。不写时按种类的缺省：声波横条宽铺满、高为画面的 20%，中心在 `y` 85，正好压在字幕的默认位置（中线在画面高 86%）上；正方款 `w` 30。画面上有字幕时把声波挪开，例如居中 `{"y":50,"w":70}`。
+
+```json
+[{"type":"addTrack","kind":"visual","ref":"wave"},
+ {"type":"insertItems","items":[{"type":"visualizer","trackRef":"wave","span":{"fromFrame":0,"durationFrames":37840},"place":{"y":50,"w":70},"visualizer":{"style":"bars"}}]}]
+```
+
+{{tool:videos_frames}} 的帧里没有这些元素；要看画面就导出一小段（{{tool:export}}，{{arg:purpose}} 为 `preview`）再抽帧。
 
 ### 剪口播的机制
 

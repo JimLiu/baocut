@@ -606,6 +606,174 @@ fn word_line_tail_join_requires_opt_in_and_a_word_line_pattern() {
 }
 
 #[test]
+fn fixed_line_wrap_requires_opt_in_fixed_rows_and_one_line_per_row_features_absent() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/fixed-line-wrap.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    let pagination = &style.scene().layout.pagination;
+    assert_eq!(pagination.fixed_line_overflow, Some(FixedLineOverflow::Wrap));
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let path = "pagination.fixedLineOverflow";
+    let mut legacy = body.clone();
+    legacy["scene"]["value"]["requiredCapabilities"] = json!(["caption-word-line-layout/1"]);
+    let error = parse_style(&legacy).unwrap_err();
+    assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_CAPABILITY_UNAVAILABLE", path));
+    let mut unknown = body.clone();
+    unknown["scene"]["value"]["layout"]["pagination"]["fixedLineOverflow"] = json!("shrink");
+    assert_eq!(parse_style(&unknown).unwrap_err().code, "CAPTION_SCENE_INVALID");
+    let mut width_wrapped = body.clone();
+    width_wrapped["scene"]["value"]["layout"]["pagination"] = json!({"maxUnitsPerPage": 4, "fixedLineOverflow": "wrap"});
+    let error = parse_style(&width_wrapped).unwrap_err();
+    assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_SCENE_INVALID", path));
+    // Font size or style bindings and page windows need one display line per fixed row.
+    for fixture in [
+        include_str!("fixtures/unit-font-size.json"),
+        include_str!("fixtures/unit-font-style.json"),
+        include_str!("fixtures/page-window.json"),
+    ] {
+        let mut input: Value = serde_json::from_str(fixture).unwrap();
+        parse_style(&input).unwrap();
+        let scene = &mut input["scene"]["value"];
+        scene["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-fixed-line-wrap/1"));
+        scene["layout"]["pagination"]["fixedLineOverflow"] = json!("wrap");
+        let error = parse_style(&input).unwrap_err();
+        assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_SCENE_INVALID", path));
+    }
+    // Text and remaining-count fixed rows wrap the same way.
+    let mut text_rows = body.clone();
+    text_rows["scene"]["value"]["requiredCapabilities"] = json!(["caption-text-line-layout/1", "caption-fixed-line-wrap/1"]);
+    text_rows["scene"]["value"]["layout"]["pagination"] =
+        json!({"textLinePattern": {"unit": "grapheme", "lines": [[8]]}, "fixedLineOverflow": "wrap"});
+    parse_style(&text_rows).unwrap();
+}
+
+#[test]
+fn fixed_line_fit_requires_opt_in_fixed_rows_bounded_factors_and_single_line_rows() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/fixed-line-fit.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    let fit = style.scene().layout.pagination.fixed_line_fit.unwrap();
+    assert_eq!(
+        (fit.last_line_width_ratio, fit.last_line_max_scale, fit.extra_line_height),
+        (0.5, 1.3, 0.1)
+    );
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let path = "pagination.fixedLineFit";
+    let code = |input: &Value| {
+        let error = parse_style(input).unwrap_err();
+        (error.code, error.path)
+    };
+    let invalid = ("CAPTION_SCENE_INVALID".to_string(), path.to_string());
+    let mut legacy = body.clone();
+    legacy["scene"]["value"]["requiredCapabilities"] = json!(["caption-word-line-layout/1"]);
+    assert_eq!(code(&legacy), ("CAPTION_CAPABILITY_UNAVAILABLE".to_string(), path.to_string()));
+    for (field, value) in [
+        ("lastLineWidthRatio", json!(1.5)),
+        ("lastLineWidthRatio", json!(-0.1)),
+        ("lastLineMaxScale", json!(0.5)),
+        ("lastLineMaxScale", json!(101)),
+        ("extraLineHeight", json!(-0.1)),
+        ("extraLineHeight", json!(11)),
+    ] {
+        let mut bad = body.clone();
+        bad["scene"]["value"]["layout"]["pagination"]["fixedLineFit"][field] = value;
+        assert_eq!(code(&bad), invalid, "{field}");
+    }
+    let mut extra_field = body.clone();
+    extra_field["scene"]["value"]["layout"]["pagination"]["fixedLineFit"]["scale"] = json!(1);
+    assert!(parse_style(&extra_field).is_err());
+    let mut missing = body.clone();
+    missing["scene"]["value"]["layout"]["pagination"]["fixedLineFit"]
+        .as_object_mut()
+        .unwrap()
+        .remove("extraLineHeight");
+    assert!(parse_style(&missing).is_err());
+    let mut width_paged = body.clone();
+    width_paged["scene"]["value"]["layout"]["pagination"] = json!({"maxUnitsPerPage": 4, "fixedLineFit": fit});
+    assert_eq!(code(&width_paged), invalid);
+    // Fitted rows never wrap, and unit font size or style bindings would change the measured rows.
+    let mut wrapped = body.clone();
+    wrapped["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-fixed-line-wrap/1"));
+    wrapped["scene"]["value"]["layout"]["pagination"]["fixedLineOverflow"] = json!("wrap");
+    assert_eq!(code(&wrapped), invalid);
+    let with_fit = |fixture: &str| {
+        let mut input: Value = serde_json::from_str(fixture).unwrap();
+        parse_style(&input).unwrap();
+        let scene = &mut input["scene"]["value"];
+        scene["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-fixed-line-fit/1"));
+        scene["layout"]["pagination"]["fixedLineFit"] = json!(fit);
+        input
+    };
+    for fixture in [
+        include_str!("fixtures/unit-font-size.json"),
+        include_str!("fixtures/unit-font-style.json"),
+    ] {
+        assert_eq!(code(&with_fit(fixture)), invalid);
+    }
+    // Page windows keep one display line per row, so they combine with fit.
+    parse_style(&with_fit(include_str!("fixtures/page-window.json"))).unwrap();
+    let mut text_rows = body.clone();
+    text_rows["scene"]["value"]["requiredCapabilities"] = json!(["caption-text-line-layout/1", "caption-fixed-line-fit/1"]);
+    text_rows["scene"]["value"]["layout"]["pagination"] =
+        json!({"textLinePattern": {"unit": "grapheme", "lines": [[8, 6]]}, "fixedLineFit": fit});
+    parse_style(&text_rows).unwrap();
+}
+
+#[test]
+fn remaining_word_page_plans_require_opt_in_bounded_entries_and_exclusivity() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/remaining-word-page-plan.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    let plans = style.scene().layout.pagination.remaining_word_page_plans.clone().unwrap();
+    assert_eq!(plans[3], vec![1, 1, 1, 1]);
+    assert!(style.scene().layout.pagination.has_fixed_lines());
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let mut legacy = body.clone();
+    legacy["scene"]["value"]["requiredCapabilities"] = json!(["caption-word-line-layout/1"]);
+    let error = parse_style(&legacy).unwrap_err();
+    assert_eq!(
+        (error.code.as_str(), error.path.as_str()),
+        ("CAPTION_CAPABILITY_UNAVAILABLE", "pagination.remainingWordPagePlans")
+    );
+    let plan_path = "pagination.remainingWordPagePlans";
+    for (field, value, path) in [
+        // Entry i may hold at most i + 1 words.
+        ("remainingWordPagePlans", json!([[1], [3]]), plan_path),
+        ("remainingWordPagePlans", json!([[2]]), plan_path),
+        ("remainingWordPagePlans", json!([]), plan_path),
+        ("remainingWordPagePlans", json!([[1], []]), plan_path),
+        ("remainingWordPagePlans", json!([[1], [1, 1], [1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1, 1]]), plan_path),
+        ("remainingWordPagePlans", json!([[1], [0, 2]]), plan_path),
+        ("maxUnitsPerPage", json!(4), plan_path),
+        ("wordLinePattern", json!([[2]]), plan_path),
+        ("textLinePattern", json!({"unit": "grapheme", "lines": [[4]]}), plan_path),
+        ("maxUnitsPerLine", json!(2), "pagination.maxUnitsPerLine"),
+        ("wordPagePattern", json!([2]), "pagination.wordPagePattern"),
+    ] {
+        let mut input = body.clone();
+        input["scene"]["value"]["requiredCapabilities"] = json!([
+            "caption-remaining-word-page-plan/1",
+            "caption-word-line-layout/1",
+            "caption-word-page-layout/1",
+            "caption-text-line-layout/1",
+            "caption-line-unit-quota/1"
+        ]);
+        input["scene"]["value"]["layout"]["pagination"][field] = value;
+        let error = parse_style(&input).unwrap_err();
+        assert_eq!((error.code.as_str(), error.path.as_str()), ("CAPTION_SCENE_INVALID", path), "{field}");
+    }
+    let mut over = body.clone();
+    over["scene"]["value"]["layout"]["pagination"]["remainingWordPagePlans"] = json!(vec![vec![1]; 257]);
+    assert_eq!(parse_style(&over).unwrap_err().code, "CAPTION_SCENE_INVALID");
+}
+
+#[test]
 fn line_unit_quota_requires_opt_in_and_width_wrapped_pages() {
     let body: Value = serde_json::from_str(include_str!("fixtures/line-unit-quota.json")).unwrap();
     let style = parse_style(&body).unwrap();
@@ -751,4 +919,48 @@ fn line_neighbor_context_requires_opt_in_and_cannot_size_or_place_layout() {
     scene["requiredCapabilities"].as_array_mut().unwrap().push(json!("caption-line-neighbor-context/1"));
     scene["layout"]["fontSizeBindings"][0]["value"] = json!({"kind":"expression","expression":{"op":"if","condition":{"op":"read","path":"unit.previousWordInLine"},"then":{"op":"literal","type":"length","value":12},"else":{"op":"literal","type":"length","value":14}}});
     assert_eq!(parse_style(&sized).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+}
+
+#[test]
+fn page_line_context_reads_bounded_slots_and_keeps_geometry_out_of_sizing() {
+    let body: Value = serde_json::from_str(include_str!("fixtures/page-line-context.json")).unwrap();
+    let style = parse_style(&body).unwrap();
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    let scene = style.scene();
+    for (path, ty) in [
+        ("layout.pageLineBoxX.0", ValueType::Length),
+        ("layout.pageLineBoxWidth.3", ValueType::Length),
+        ("unit.pageLineGraphemeCount.2", ValueType::Scalar),
+    ] {
+        let read = json!({"op":"read","path":path});
+        assert_eq!(infer(&expr(read.clone()), scene, &BTreeMap::new()).unwrap(), ty);
+        let mut legacy = scene.clone();
+        legacy.required_capabilities.retain(|cap| cap != "caption-page-line-context/1");
+        assert_eq!(
+            infer(&expr(read), &legacy, &BTreeMap::new()).unwrap_err().code,
+            "CAPTION_CAPABILITY_UNAVAILABLE"
+        );
+    }
+    // Slots are canonical decimals below maxLines (4 here) and the 16-slot ceiling.
+    for path in [
+        "layout.pageLineBoxX.4",
+        "layout.pageLineBoxX.01",
+        "layout.pageLineBoxX.16",
+        "layout.pageLineBoxX.x",
+        "layout.pageLineBoxX",
+        "unit.pageLineGraphemeCount.",
+    ] {
+        let read = json!({"op":"read","path":path});
+        assert_eq!(infer(&expr(read), scene, &BTreeMap::new()).unwrap_err().code, "CAPTION_EXPRESSION_TYPE", "{path}");
+    }
+    assert_eq!(page_line_slot("unit.pageLineGraphemeCount.15"), Some(("unit.pageLineGraphemeCount", 15)));
+    // Line geometry exists only after sizing and wrapping; grapheme counts come from frozen lines.
+    let mut sized = body.clone();
+    sized["scene"]["value"]["layout"]["fontSizeBindings"][0]["value"] = json!({"kind":"expression","expression":
+        {"op":"read","path":"layout.pageLineBoxWidth.1"}});
+    assert_eq!(parse_style(&sized).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
+    let mut early = body.clone();
+    early["scene"]["value"]["layout"]["bindings"] = json!([{"nodeId":"caption","property":"lineHeight","value":{"kind":"expression","expression":
+        {"op":"read","path":"unit.pageLineGraphemeCount.0"}}}]);
+    assert_eq!(parse_style(&early).unwrap_err().code, "CAPTION_DEPENDENCY_CYCLE");
 }

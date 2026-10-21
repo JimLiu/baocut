@@ -222,6 +222,38 @@ pub struct Pagination {
     pub last_page_rule: Option<LastPageRule>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tail_word_rule: Option<TailWordRule>,
+    /// Entry `i` (0-based) holds the row word counts of the page that starts while
+    /// `i + 1` words remain; larger remaining counts use the last entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remaining_word_page_plans: Option<Vec<Vec<usize>>>,
+    /// What a fixed row wider than the layout width does; absent keeps it on one line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_line_overflow: Option<FixedLineOverflow>,
+    /// Scales every fixed row of a page to the widest row; absent keeps the base size.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_line_fit: Option<FixedLineFit>,
+    /// `caption-page-tag/1`: one integer per `wordLinePattern` page, read as `unit.pageTag`;
+    /// page `p` of a cue reads entry `p` modulo the pattern length.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page_tags: Option<Vec<u32>>,
+}
+/// `caption-fixed-line-wrap/1`: a fixed row wider than the layout width continues on
+/// further display lines, broken like width-wrapped text; row and page members stay frozen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FixedLineOverflow {
+    Wrap,
+}
+/// `caption-fixed-line-fit/1`: each fixed row of a page is reshaped at the base font size
+/// times the widest row's width over its own. A last row narrower than `last_line_width_ratio`
+/// of the widest scales by at most `last_line_max_scale`. Rows grow by `extra_line_height`
+/// divided by the page's largest scale.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FixedLineFit {
+    pub last_line_width_ratio: f64,
+    pub last_line_max_scale: f64,
+    pub extra_line_height: f64,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -259,7 +291,7 @@ pub enum TextCountUnit {
 }
 impl Pagination {
     pub fn has_fixed_lines(&self) -> bool {
-        self.word_line_pattern.is_some() || self.text_line_pattern.is_some()
+        self.word_line_pattern.is_some() || self.text_line_pattern.is_some() || self.remaining_word_page_plans.is_some()
     }
 }
 /// What happens to a lone word on the last row of an incomplete final page.
@@ -288,6 +320,10 @@ impl Default for Pagination {
             text_line_pattern: None,
             last_page_rule: None,
             tail_word_rule: None,
+            remaining_word_page_plans: None,
+            fixed_line_overflow: None,
+            fixed_line_fit: None,
+            page_tags: None,
         }
     }
 }

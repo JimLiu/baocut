@@ -13,6 +13,8 @@ mod materials;
 mod noise_palette;
 mod noisy_sweep;
 mod page_envelope;
+mod page_line_context;
+mod page_tag;
 mod page_window;
 mod sampled_layout;
 mod scalar_cluster;
@@ -77,6 +79,9 @@ struct Line {
     display_span: Option<(f64, f64)>,
     glyph_ink: Vec<Option<Bounds>>,
     ink_bounds: Bounds,
+    /// Fixed row the display line belongs to; rows wrapped by `caption-fixed-line-wrap/1`
+    /// span several display lines. Zero outside fixed rows.
+    row: usize,
 }
 impl Line {
     fn new(
@@ -118,6 +123,7 @@ impl Line {
             display_span: None,
             glyph_ink,
             ink_bounds,
+            row: 0,
         }
     }
     fn ink_for(&self, range: &Range<usize>, advance: Bounds) -> Bounds {
@@ -200,6 +206,7 @@ fn page_word_input(layout: &TextLayout, page: Option<&Page>) -> PageWordInput {
 struct Unit {
     envelope: Option<Arc<glyph_envelope::Metrics>>,
     page_envelope: Option<Arc<page_envelope::Metrics>>,
+    page_lines: Option<Arc<page_line_context::Lines>>,
     word_position: Option<usize>,
     line_position: Option<usize>,
     cue_bindings: Option<Arc<cue_unit_context::CueBindings>>,
@@ -685,6 +692,14 @@ fn resolved_units(
             if glyph_envelope::enabled(scene) {
                 glyph_envelope::bind(&mut resolved_units, &resolved.pages[pi], budget)?;
             }
+            if page_line_context::enabled(scene) {
+                page_line_context::bind(
+                    &mut resolved_units,
+                    &resolved.pages[pi],
+                    &resolved.content,
+                    budget,
+                )?;
+            }
             if global {
                 cue_unit_context::bind(
                     scene,
@@ -1081,6 +1096,7 @@ fn units_for(
     let base = Unit {
         envelope: None,
         page_envelope: None,
+        page_lines: None,
         word_position: None,
         line_position: None,
         cue_bindings: None,
@@ -1596,6 +1612,14 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
     if line_box::enabled(r.scene) {
         line_box::add_fields(&mut out.fields, u.line_box);
     }
+    if page_line_context::enabled(r.scene) {
+        page_line_context::add_fields(
+            &mut out.fields,
+            u.page_lines.as_deref(),
+            r.scene.layout.max_lines,
+        );
+    }
+    page_tag::add_fields(&mut out.fields, r.scene, u.page_index);
     cue_unit_context::select(&mut out, u, u.cue_selector.as_deref());
     out
 }
@@ -3011,6 +3035,45 @@ mod ink_tests {
         )
         .unwrap();
         assert!(legacy.pages.len() > 3, "legacy width/line pagination keeps its previous behavior");
+    }
+
+    #[test]
+    fn remaining_word_page_plans_freeze_rows_through_the_fixed_line_path() {
+        let content = "aa bb cc dd ee ff gg";
+        let (mut text, mut style, mut cue, params) = input(content, 1.0);
+        cue.words = content
+            .split_whitespace()
+            .enumerate()
+            .map(|(i, word)| SceneWord {
+                id: format!("w{i}"),
+                text: word.into(),
+                start: i as f64 * 0.5,
+                end: i as f64 * 0.5 + 0.4,
+            })
+            .collect();
+        let SceneSource::Inline { value: scene } = &mut style.scene;
+        scene.layout.pagination = Pagination {
+            remaining_word_page_plans: Some(vec![vec![1], vec![2], vec![1, 1, 1], vec![1, 1, 1, 1]]),
+            ..Pagination::default()
+        };
+        scene.layout.max_lines = 4;
+        scene.layout.overflow = LayoutOverflow::Visible;
+        let layout = prepare(
+            &mut text,
+            &cue,
+            &scene.nodes[0],
+            &scene.layout,
+            &scene.speech_state,
+            (160, 90),
+            &params,
+        )
+        .unwrap();
+        assert_eq!(
+            layout.pages.iter().map(|p| p.words.clone()).collect::<Vec<_>>(),
+            vec![vec![0, 1, 2, 3], vec![4, 5, 6]]
+        );
+        assert_eq!(layout.pages.iter().map(|p| p.lines.len()).collect::<Vec<_>>(), vec![4, 3]);
+        assert_eq!(layout.pages.iter().map(|p| p.start).collect::<Vec<_>>(), vec![0.0, 2.0]);
     }
 
     #[test]

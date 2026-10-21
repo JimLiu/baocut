@@ -120,7 +120,20 @@ export interface CaptionScene {
           consumeFollowingAfter?: [number, number][]; joiners?: number[] } | null } | null;
       lastPageRule?: { ifRowCountIs: number; previousPageLines: number[] } | null;
       /** A lone word on the last row of an incomplete final page joins the row before; requires caption-word-line-tail-join/1. */
-      tailWordRule?: 'join-previous-line' | null };
+      tailWordRule?: 'join-previous-line' | null;
+      /** Entry i holds the rows of the page that starts while i + 1 words remain; the last entry covers larger counts.
+       * Requires caption-remaining-word-page-plan/1. */
+      remainingWordPagePlans?: number[][] | null;
+      /** 'wrap' lets a fixed row wider than the layout width continue on further display lines;
+       * row and page members stay frozen. Requires caption-fixed-line-wrap/1. */
+      fixedLineOverflow?: 'wrap' | null;
+      /** Scales every fixed row of a page to the widest row; a last row narrower than lastLineWidthRatio of it
+       * grows by at most lastLineMaxScale, and rows add extraLineHeight over the page's largest scale.
+       * Requires caption-fixed-line-fit/1. */
+      fixedLineFit?: { lastLineWidthRatio: number; lastLineMaxScale: number; extraLineHeight: number } | null;
+      /** One integer of 0..65535 per wordLinePattern page, read as unit.pageTag; page p reads entry p mod the
+       * pattern length. Requires caption-page-tag/1. */
+      pageTags?: number[] | null };
     align?: 'left' | 'center' | 'right'; leadingGap?: 'show' | 'hide';
   };
   speechState?: { gapPolicy?: 'none' | 'hold-previous'; tailPolicy?: 'none' | 'hold-last'; timingPolicy?: 'require-word-timing' | 'estimated' };

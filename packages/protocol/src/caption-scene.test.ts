@@ -60,3 +60,36 @@ test('word page quotas keep the strict wire field name and optional legacy shape
   const legacy: Pagination = { maxUnitsPerPage: 3 };
   expect(JSON.parse(JSON.stringify(legacy))).toEqual({ maxUnitsPerPage: 3 });
 });
+
+test('remaining word page plans are row lists indexed by unpaged word count', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<Pagination['remainingWordPagePlans']>().toEqualTypeOf<number[][] | null | undefined>();
+  const pagination: Pagination = { remainingWordPagePlans: [[1], [2], [1, 1, 1]] };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual({ remainingWordPagePlans: [[1], [2], [1, 1, 1]] });
+});
+
+test('fixed line overflow is an opt-in wrap of fixed rows', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<Pagination['fixedLineOverflow']>().toEqualTypeOf<'wrap' | null | undefined>();
+  const pagination: Pagination = { wordLinePattern: [[4], [5]], fixedLineOverflow: 'wrap' };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual({ wordLinePattern: [[4], [5]], fixedLineOverflow: 'wrap' });
+});
+
+test('fixed line fit scales fixed rows to the widest row', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<NonNullable<Pagination['fixedLineFit']>>().toEqualTypeOf<{
+    lastLineWidthRatio: number; lastLineMaxScale: number; extraLineHeight: number;
+  }>();
+  const pagination: Pagination = {
+    wordLinePattern: [[4, 3, 3, 3]],
+    fixedLineFit: { lastLineWidthRatio: 0.5, lastLineMaxScale: 1.3, extraLineHeight: 0.1 },
+  };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual(pagination);
+});
+
+test('page tags label each word line pattern page', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<NonNullable<Pagination['pageTags']>>().toEqualTypeOf<number[]>();
+  const pagination: Pagination = { wordLinePattern: [[1], [2], [1, 1]], pageTags: [7, 0, 3] };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual(pagination);
+});

@@ -50,11 +50,21 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-line-box-context/1` 让 line 单元及该行的 word、grapheme、空白单元和它们的装饰读取所属视觉行的行框 `layout.lineBoxX/Y/Width/Height`；page、cue 为 0，布局与字号绑定都不能读取。见 [line-box-context.json](tests/fixtures/line-box-context.json)。
 
+`caption-page-line-context/1` 让同一文字节点的所有单元按页内行号读取当前页各行：`layout.pageLineBoxX.<k>`、`layout.pageLineBoxWidth.<k>` 是第 k 行的行框，`unit.pageLineGraphemeCount.<k>` 是该行非空白字素数；k 小于 maxLines 且小于 16，超出实际行数读 0。行框只能在绘制阶段读取，字素数还可用于字号绑定。见 [page-line-context.json](tests/fixtures/page-line-context.json)。
+
+`caption-page-tag/1` 开放 `pagination.pageTags`：与 `wordLinePattern` 等长、每项 0–65535 的整数列表，第 p 页读第 p mod n 个标签；每种单元读 `unit.pageTag`（scalar），字号绑定也可读取。没有 `wordLinePattern` 或长度不等时拒绝，核心不解释标签。见 [page-tag.json](tests/fixtures/page-tag.json)。
+
 `caption-shape-paint/1` 让 shape 节点用 `fillPaint` 填充：`solid` 或 `linear`，渐变 from/to 是 shape 实际绘制矩形（宽高姿态之后、节点变换之前）的归一化坐标。只用于 shape，不能与 `fill` 属性或 fill 动画同用；节点 opacity 只作用一次。见 [shape-paint.json](tests/fixtures/shape-paint.json)。
 
 `caption-line-unit-quota/1` 开放 `pagination.maxUnitsPerLine`：按宽度换行的页里一行最多取这么多词，下一个词会超宽时仍提前换行，页仍按 `maxLines` 收行；与固定行模式互斥。见 [line-unit-quota.json](tests/fixtures/line-unit-quota.json)。
 
 `caption-word-line-tail-join/1` 开放 `pagination.tailWordRule: 'join-previous-line'`：固定词行模式下，未填满的末页若最后一行只有一个词，该词并入前一行（可以是上一页的最后一行）；与 `lastPageRule` 互斥。见 [word-line-tail-join.json](tests/fixtures/word-line-tail-join.json)。
+
+`caption-remaining-word-page-plan/1` 开放 `pagination.remainingWordPagePlans`：按还没分页的词数查表，第 i 项是剩余 i 个词时下一页的行词数，超过表长用最后一项；第 i 项最多 i 个词，页总是取满。行成员按固定词行冻结，与其他分页字段互斥。见 [remaining-word-page-plan.json](tests/fixtures/remaining-word-page-plan.json)。
+
+`caption-fixed-line-wrap/1` 开放 `pagination.fixedLineOverflow: 'wrap'`：固定行比行宽宽时在行内按宽度续到下一显示行，行、页成员和时间不变；line 单元按显示行计，与 `fontSizeBindings`、`fontStyleBindings`、`pageWindow` 互斥。见 [fixed-line-wrap.json](tests/fixtures/fixed-line-wrap.json)。
+
+`caption-fixed-line-fit/1` 开放 `pagination.fixedLineFit`：每页固定行按基础字号量宽，各行放大到最宽行宽（末行窄于 `lastLineWidthRatio` 时最多放大 `lastLineMaxScale`），行高随行字号变化并加 `extraLineHeight` / 页最大缩放；行仍是一条显示行，与 `fixedLineOverflow`、`fontSizeBindings`、`fontStyleBindings` 互斥。见 [fixed-line-fit.json](tests/fixtures/fixed-line-fit.json)。
 
 `caption-gaussian-axis/1` 与 `caption-glow-cascade/1` 提供单 Text 上下文的独立 RGBA 分量滤波：高斯采样按输入纹理 UV、多尺度 pass 按原画布有理比例定尺寸，明确边界及逐 pass gamma/量化。级联保留各尺度图，按声明的 screen 或 source-over-glow 合成；允许 RGB > alpha，须按视频格式 §5.6 使用关联输出。有效区域包含零 alpha 发光，采样与内存预算超限会拒绝。示例见 [gaussian-axis.json](tests/fixtures/gaussian-axis.json)、[glow-cascade.json](tests/fixtures/glow-cascade.json)。
 
