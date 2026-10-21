@@ -2,7 +2,7 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本
 // 把各段旁白与代码包按 order 摆到视频上：起点按整帧累加，旁白放第一条音频轨（A1），代码包导入烘焙后放第一条视觉轨（V1），同一起点。
 //   node tools/assemble.mjs --dry                 只打印排好的起点与要做的事，不连 Runtime、不改视频
-//   node tools/assemble.mjs [--background] [--bake auto|ops] [--allow-pixels]
+//   node tools/assemble.mjs [--background | --foreground] [--bake auto|ops] [--allow-pixels]
 //   node tools/assemble.mjs --verify              不改时间线：补后台烘焙的结果，核对各段首尾相接
 // 进度记在 timeline.json，可以重跑：已放好且没变的段跳过。改过的段这样处理（video-production 代码场景细则第 7 节的 ripple 步骤）：
 //   - 代码包帧数变了：带 replace.ripple 换包，引擎把这一段旧终点之后各轨的片段（画面、旁白、字幕、音效、音乐）一起挪 Δ 帧，
@@ -13,6 +13,8 @@
 //   - order 里新插进的段：先用 insertRange 在上一段终点腾出它的帧数，再放进去。从 order 里删掉的段不自动处理，报错让你先手动删。
 //   章节不跟着挪，改完自己核对。
 // 每段记下 bake 的 renderer / fps / seconds；--background 时烘焙在后台排队，之后用 --verify 把结果补进记录。
+// 长于 3 分钟的段不带 --foreground 时自动在后台烘：CLI 一次请求最多等 30 分钟，烘焙和别的渲染抢 CPU 时会掉到每秒几帧，
+// 长段前台烘会超时；超时后 Runtime 照样烘完放上时间线，脚本却没拿到回执，记录里没有这一段，重跑会再烘一遍、再放一个。
 // 前台烘焙走成 browser-pixels 时停下并打印原因（不带 --allow-pixels），按代码场景细则第 2.1 节改好后重跑会原地换包。
 // 用 WebGL（Three.js 等）画的段走不了指令，一开始就带 --allow-pixels，并按代码场景细则先算好要烘多久。
 // 旁白按 voice.json 的 artifactId 导入；Runtime 清掉了旧产物（ARTIFACT_NOT_FOUND）时改导入 voice.mjs 存下的 audio/<id>.<格式>。
@@ -23,6 +25,8 @@ import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, frame
 const cfg = loadConfig();
 const { flags } = parseArgs(process.argv, ['bake']);
 const FPS = cfg.fps;
+const LONG = FPS * 180;   // 帧数超过它的段在后台烘
+const inBackground = s => !!flags.background || (!flags.foreground && s.frames > LONG);
 const logFile = cfg.abs('timeline.json');
 const rec = readJson(logFile, { video: cfg.video, fps: FPS, segments: {} });
 const voice = readJson(cfg.abs(cfg.dirs.audio, 'voice.json'), {});
@@ -92,8 +96,10 @@ function printPlan() {
     const r = rec.segments[s.id], c = cur[s.id];
     const was = r ? ` was ${r.from}+${r.frames}` : '';
     const act = !c ? 'place' : [c.resized && `resize ${s.frames - c.frames > 0 ? '+' : ''}${s.frames - c.frames}`, !c.resized && c.rebundled && 'replace bundle', c.revoiced && 'replace narration', !r.sceneItem && 'place scene', !r.audioItem && 'place narration'].filter(Boolean).join(', ') || 'ok';
+    const bakes = !c || c.resized || c.rebundled || !r.sceneItem;
+    const bg = bakes && inBackground(s) ? `  bake in background (${(s.frames / FPS / 60).toFixed(1)} min)` : '';
     const bake = r && r.bake ? `  bake ${r.bake.renderer} ${r.bake.fps ?? '?'}fps ${r.bake.seconds ?? '?'}s` : r && r.bakeJobId ? `  bake pending ${r.bakeJobId}` : '';
-    console.log(`${s.id.padEnd(8)} from ${String(s.from).padStart(6)}  at ${(s.from / FPS).toFixed(3).padStart(9)}  frames ${String(s.frames).padStart(5)}${was}  ${act}${bake}`);
+    console.log(`${s.id.padEnd(8)} from ${String(s.from).padStart(6)}  at ${(s.from / FPS).toFixed(3).padStart(9)}  frames ${String(s.frames).padStart(5)}${was}  ${act}${bg}${bake}`);
   }
   for (const st of steps) console.log(`ripple: ${st.kind} ${st.id}: ${st.kind === 'insert' ? 'insertRange' : 'replace.ripple'} shifts clips at frame >= ${st.boundary} by ${st.delta > 0 ? '+' : ''}${st.delta}`);
   if (notes.length) console.log(`note: ${notes.join(', ')} have no recorded bundle hash or narration take; assuming the placed clips match the current files`);
@@ -178,10 +184,11 @@ function checkBake(id, r) {
   }
 }
 
-function importScene(id, place) {
-  const args = ['compositions', 'import', V, '--path', `${cfg.dirs.bundles}/${id}`, '--name', id, '--manifest', '{"contract":"baocut/1"}', ...place];
+function importScene(s, place) {
+  const args = ['compositions', 'import', V, '--path', `${cfg.dirs.bundles}/${s.id}`, '--name', s.id, '--manifest', '{"contract":"baocut/1"}', ...place];
   if (flags.bake) args.push('--bake', flags.bake);
-  if (flags.background) args.push('--background');
+  if (inBackground(s)) args.push('--background');
+  if (inBackground(s) && !flags.background) console.log(`${s.id}: ${s.frames} frames, baking in the background (pass --foreground to wait for it)`);
   const t0 = Date.now();
   const c = bc(args);
   return { c, sec: Math.round((Date.now() - t0) / 1000) };
@@ -192,7 +199,7 @@ function replaceScene(s) {
   const r = rec.segments[s.id];
   const oldEnd = r.from + r.frames, want = s.frames - r.frames;
   if (want) { const b = r.from + Math.min(r.frames, s.frames); assertUnlocked(itemsFrom(b, true), b); }
-  const { c, sec } = importScene(s.id, ['--replace', JSON.stringify({ itemId: r.sceneItem, ripple: true })]);
+  const { c, sec } = importScene(s, ['--replace', JSON.stringify({ itemId: r.sceneItem, ripple: true })]);
   const moved = c.replaced?.rippleFrames ?? 0;
   recordBake(r, c);
   Object.assign(r, { frames: s.frames, bundleHash: cur[s.id].hash, bakeSec: sec });
@@ -233,7 +240,7 @@ function snapToFrame(itemId, frame) {
 
 function placeScene(s) {
   const r = rec.segments[s.id];
-  const { c, sec } = importScene(s.id, ['--place', JSON.stringify({ track: V1, at: atOf(r.from, FPS) })]);
+  const { c, sec } = importScene(s, ['--place', JSON.stringify({ track: V1, at: atOf(r.from, FPS) })]);
   r.sceneItem = c.itemId;
   recordBake(r, c);
   Object.assign(r, { bundleHash: cur[s.id]?.hash ?? bundleHash(cfg.abs(cfg.dirs.bundles, s.id)), bakeSec: sec });
@@ -280,7 +287,7 @@ for (const s of lay) {
   const r = rec.segments[s.id];
   if (!r || !r.bakeJobId || r.bake) continue;
   const j = bc(['jobs', 'inspect', r.bakeJobId]);
-  if (j.state !== 'completed') { console.log(`${s.id}: bake job ${r.bakeJobId} ${j.state}`); continue; }
+  if (j.state !== 'completed') { console.log(`${s.id}: bake job ${r.bakeJobId} ${j.state}; run assemble.mjs --verify once it finishes`); continue; }
   const b = (j.result || {}).bake;
   if (b) r.bake = { renderer: b.renderer, fps: b.fps ?? null, seconds: b.seconds ?? null, fallback: b.fallback?.reason ?? null };
   r.prerender = (j.result || {}).prerender?.assetId ?? r.prerender;
