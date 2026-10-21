@@ -26,7 +26,7 @@
 | `fixedLines` | 不从稿子读的段（固定开场、结尾口播），逐字照用户给的写 |
 | `hold` | 某段在最后一句之后多停的秒数，例如片尾卡 |
 | `estimateRate` | 还没配音时估时长用的语速（单位/秒：汉字、假名一个字一个单位，其余文字一个词一个单位）；首稿取实测值 |
-| `voice` | `provider`、`model`、`voice`、`instructions`、`format`；`attach` 为 true 时配音结果同时作为候选素材进视频；`maxPause`（秒）给了时 `gaps.mjs` 把句间长于它的静音压到这么长，要快节奏的短片给 0.3，不赶时间的可以不给，留自然的停顿 |
+| `voice` | `provider`、`model`、`voice`、`instructions`、`format`；`attach` 为 true 时配音结果同时作为候选素材进视频；`pitchHz`（参照音高，缺省取其他段的中位数）与 `pitchTolerance`（缺省 0.05）给 `voice.mjs` 的音高检查用；`maxPause`（秒）给了时 `gaps.mjs` 把句间长于它的静音压到这么长，要快节奏的短片给 0.3，不赶时间的可以不给，留自然的停顿 |
 | `asr` | 对齐用的转写：`provider`、`model`、`chunkSeconds`（大于 0 时长段切块转写） |
 | `names.narration` | 旁白素材与转写文稿的名字前缀，用成片语言写 |
 | `bundle` | 打包规则：`pick`（只拷场景里提到的文件的子目录，默认 `img`）、`keep`（总拷）、`exclude`（不拷）、`scripts`（入口在 `scene.js` 之前以经典 `<script>` 加载的共享脚本，默认 `shared/` 顶层的 `.js`；`module` 为 true 时默认为空）、`module`（为 true 时 `scene.js` 按 ES 模块加载，能 `import` 包里的模块与库，例如 `./engine.js`、Three.js；`shared/` 里的模块由场景自己 `import`，不能再当经典脚本加载，只挂全局变量的经典脚本要用时列进 `scripts`）、`fonts`（`{ 字体族名: 包内相对路径 }`，写成入口里的 `@font-face`）、`alpha`（为 true 时包是透明的：根元素 `data-alpha="true"`、页面底色透明，场景只画要叠在实拍上的东西，不铺底色；配 `footage.layer: "under"` 用） |
@@ -45,7 +45,7 @@
 
 | 步骤 | 命令 | 做什么，看什么 |
 | --- | --- | --- |
-| 配音 | `node tools/voice.mjs <id …>` 或 `--missing` | 一段一次合成，存 `audio/<id>.<格式>`，记 `voice.json`（连同当时的稿子原文）。`--missing` 只配没配过或稿子改过的段。任务被 Runtime 重启打断时自动重试；`--seed` 只对收 seed 的模型有用，不收的模型直接重跑就是另一次合成 |
+| 配音 | `node tools/voice.mjs <id …>` 或 `--missing` | 一段一次合成，存 `audio/<id>.<格式>`，记 `voice.json`（连同当时的稿子原文）。`--missing` 只配没配过或稿子改过的段。任务被 Runtime 重启打断时自动重试；`--seed` 只对收 seed 的模型有用，不收的模型直接重跑就是另一次合成。同一音色、同一套说明，模型仍会偶尔整段漂成另一种嗓音（偏高偏亮，长段更容易），拼进片子一听就换了人：每段配完量中位音高（浊音帧自相关），和参照差超过 `pitchTolerance` 就重配，最多 `--takes` 次（缺省 3）留最接近的，记进 `voice.json` 的 `pitchHz`；全部配完对全片量一遍，报出离群的段。`--check` 只量不配，旧工程补量也用它。量出离群不一定错（开场激昂、结尾放低），先听再决定重配 |
 | 对齐 | `node tools/align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，写 `timing/<id>.json`；打印每句的语速（偏离中位数超过 15% 标 RATE；两秒以内的短句容差放宽到 0.3 秒 / 句长，免得句首句尾的误差句句都标）、句间停顿（超过 0.8 秒标 GAP）、多念、漏念与念错的字。读错的处理照 `SKILL.md` 第 6 节「读音核对」。提示时间塌了时 `--fresh --chunk 14` 重转 |
 | 留白与压停顿 | `node tools/gaps.mjs [id …]`（有 `gap` 片段或给了 `voice.maxPause` 时） | 在 `gap` 片段所在那句之前插一段静音（片段长 + 0.35 秒；同一句前的几个 `gap` 片段共用一段，长度是它们的总长 + 0.35 秒），后面的句子整体后挪；给了 `maxPause`（或 `--max-pause 秒数`）时，把句与句之间长于它的静音压到这么长，句内的停顿、留白的接缝与固定口播的段不动。写 `audio/<id>.gaps.<格式>`，`timing/<id>.json` 改成挪过的时间并带上 `gaps`、`tightened` 与 `gapAudio`，原始对齐存成 `timing/<id>.voice.json`，可以反复跑。之后打包、预览、排时间线、字幕都按留过白的时间走，`assemble.mjs` 导入留好白的那份旁白 |
 | 打包 | `node tools/build.mjs [id …]` | 打成 `bundles/<id>/`，时长 = 对齐出的时长 + `hold`，对齐到整帧。还没对齐的段按估算时长打包，只用于配音前的样帧。给了 `bundle.fonts` 时顺带查字形：场景与 `shared/` 顶层 `.js` 的字符串里有字体都没有的字，打一行 `warn <id>: fonts lack …`（烘焙会因此退回像素，按代码场景细则第 2.1 节改；只提醒，不停） |
