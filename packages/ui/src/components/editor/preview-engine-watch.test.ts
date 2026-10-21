@@ -183,7 +183,7 @@ test('素材地址一直没到（页面上没有元素）：画面是空的、�
   });
 });
 
-test('媒体在等兼容副本：画面不算出来过；进度不动满门槛报卡在转换，不知道进度不报；媒体齐了才算出来，重试与换视频从头算', async () => {
+test('媒体在等兼容副本：画面不算出来过；进度不动满门槛报卡在转换，不知道进度不报；媒体齐了才算出来，重试与换视频从头算；出来过之后在视的又在转换也算没出来', async () => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.stubGlobal('HTMLVideoElement', class {});
@@ -210,8 +210,9 @@ test('媒体在等兼容副本：画面不算出来过；进度不动满门槛�
     frame: () => new Uint8ClampedArray(4),
   } as unknown as RenderPlanner;
   let progress: number | null | undefined = null;
+  let preparing = (asset: { id: string }) => (asset.id === 'asset_a' ? progress : undefined);
   const engine = new PreviewEngine({ onTime: () => {}, onEnded: () => {} }, () => Promise.resolve(planner), null, null, null, (asset) =>
-    asset.id === 'asset_a' ? progress : undefined,
+    preparing(asset),
   );
   const putImageData = vi.fn();
   const canvas = { width: 0, height: 0, getContext: () => ({ canvas, putImageData }) };
@@ -248,6 +249,23 @@ test('媒体在等兼容副本：画面不算出来过；进度不动满门槛�
   expect(engine.pictured).toBe(false);
   await vi.advanceTimersByTimeAsync(0);
   expect(pictures).toEqual([false, true, false, true, false, true]);
+  // 画面出来过之后，这一刻多了一层还在转换的媒体（透明代码包的预渲染盖在实拍上）：重新算没出来、点名它；转好了再算出来。
+  const card = { ...clip, itemId: 'card', asset: { id: 'asset_card', revision: '2' } };
+  const converted: (readonly { id: string; revision: string }[])[] = [];
+  engine.onConverting((assets) => converted.push(assets));
+  let cardProgress: number | null | undefined = 0.1;
+  preparing = (asset) => (asset.id === 'asset_card' ? cardProgress : undefined);
+  layers = [card];
+  engine.setVideo(playable, {});
+  await vi.advanceTimersByTimeAsync(0);
+  expect(engine.pictured).toBe(false);
+  expect(engine.converting).toEqual([card.asset]);
+  cardProgress = undefined;
+  layers = [];
+  engine.setVideo(playable, {});
+  await vi.advanceTimersByTimeAsync(0);
+  expect(engine.pictured).toBe(true);
+  expect(converted).toEqual([[], [card.asset], []]);
   // 载入失败的图片不再等：这一帧照画、跳过它，画面算出来了（缺的由卡住诊断与问题提示说）。
   const broken = { kind: 'image', itemId: 'logo', asset: { id: 'asset_img', revision: '1' }, matrix: [1, 0, 0, 1, 0, 0], opacity: 1 };
   layers = [broken];

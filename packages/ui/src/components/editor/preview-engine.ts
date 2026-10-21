@@ -237,6 +237,9 @@ export class PreviewEngine {
   /** 画布上出过没有还在来的媒体的一帧（不是等着媒体时的黑帧）；重试、换一部视频之后从头算。 */
   #pictured = false;
   readonly #pictureListeners = new Set<(pictured: boolean) => void>();
+  /** 上一帧在视、还在等兼容副本的媒体（Runtime 在转换，还没有元素）：舞台的「正在准备预览」点名它。 */
+  #converting: VersionRef[] = [];
+  readonly #convertingListeners = new Set<(converting: readonly VersionRef[]) => void>();
   #disposed = false;
   readonly #documents: PreviewDocuments | null;
   readonly #assets: PreviewAssets | null;
@@ -532,6 +535,8 @@ export class PreviewEngine {
   /**
    * 这部视频的画面出来过没有：画布上出过这一刻没有还在来的媒体的一帧（没有媒体的帧也算，载入失败的不算在来）。
    * 没出来之前舞台盖着载入面板（产品设计 §5.1「预览载入与卡住」），不露出等着媒体时的黑帧；重试与换一部视频之后从头算。
+   * 出来过之后，跳到或播到一处在视的媒体还在等兼容副本（如透明代码包的预渲染还在转）时也算没出来，转好了再算出来：
+   * 不悄悄少画那一层。
    */
   get pictured(): boolean {
     return this.#pictured;
@@ -542,6 +547,18 @@ export class PreviewEngine {
     this.#pictureListeners.add(listener);
     listener(this.#pictured);
     return () => this.#pictureListeners.delete(listener);
+  }
+
+  /** 上一帧在视、还在等兼容副本的媒体（素材版本），没有是空的。 */
+  get converting(): readonly VersionRef[] {
+    return this.#converting;
+  }
+
+  /** `converting` 变了时通知；订阅时先给一次当前的。 */
+  onConverting(listener: (converting: readonly VersionRef[]) => void): () => void {
+    this.#convertingListeners.add(listener);
+    listener(this.#converting);
+    return () => this.#convertingListeners.delete(listener);
   }
 
   get monitor(): { volume: number; muted: boolean } {
@@ -810,6 +827,13 @@ export class PreviewEngine {
     if (pictured === this.#pictured) return;
     this.#pictured = pictured;
     for (const listener of this.#pictureListeners) listener(pictured);
+  }
+
+  #setConverting(converting: VersionRef[]): void {
+    const key = (assets: readonly VersionRef[]) => assets.map((asset) => `${asset.id}:${asset.revision}`).join('\n');
+    if (key(converting) === key(this.#converting)) return;
+    this.#converting = converting;
+    for (const listener of this.#convertingListeners) listener(converting);
   }
 
   #loadVideo(): void {
@@ -1090,8 +1114,17 @@ export class PreviewEngine {
     // 实时合成层的帧是 Interactive 档（动效视频设计 §4.3）：底下是 iframe 实时画的，不是导出的那一帧。
     this.#exact = quality === 'exact' && !plan.live && [...states.values()].every((state) => state === 'ready');
     // 画面出来了：没有还在来的媒体（实时层撑着的替身不算，舞台不再盖着载入面板）。
-    const coming = layers.filter(isMediaLayer).some((layer) => !heldByLive.has(layer.itemId) && this.#coming(layer, states.get(layer.itemId)));
-    if (!coming) this.#setPictured(true);
+    const media = layers.filter(isMediaLayer).filter((layer) => !heldByLive.has(layer.itemId));
+    const coming = media.some((layer) => this.#coming(layer, states.get(layer.itemId)));
+    // 在视的媒体还在等兼容副本（还没有元素，Runtime 在转换）：画面出来过也重新盖上「正在准备预览」（产品设计 §5.1），
+    // 不悄悄画成少一层的样子（例如透明代码包的预渲染还在转，只露出底下的实拍）。
+    const converting = media
+      .filter((layer) => states.get(layer.itemId) === 'absent' && !this.#kernelDecoded(layer) && this.#sourceOf(layer) === null)
+      .filter((layer) => this.#preparing?.(layer.asset) !== undefined)
+      .map((layer) => layer.asset);
+    this.#setConverting(converting);
+    if (converting.length > 0) this.#setPictured(false);
+    else if (!coming) this.#setPictured(true);
     if (this.#playing) {
       this.#stats.presented++;
       sample(this.#stats.frames, plan.frame);

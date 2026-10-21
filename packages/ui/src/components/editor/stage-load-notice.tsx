@@ -1,5 +1,5 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import type { Id } from '@baocut/protocol';
+import type { Id, VersionRef } from '@baocut/protocol';
 import { Button, ProgressBar, ProgressCircle } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -93,12 +93,16 @@ export function StageLoadNotice({
   const pictured = usePictured(engine);
   const liveLoading = useLiveLoading(engine);
   const preparing = usePreparing(videoId);
+  const inView = useConverting(engine);
   const waiting = status.kind === 'loading' || (status.kind === 'ready' && (!pictured || liveLoading) && !suppressed);
   // 头一小会儿只是安静的深色面板：很快就好的打开（包括很快就转好的短片）不闪出转圈或进度条。
   const shown = useDelayed(waiting, SPINNER_DELAY_MS);
   if (stall && !suppressed) return <StallCard stall={stall} frame={frame} onRetry={onRetry} />;
   if (!waiting) return null;
-  const converting = shown ? preparing[0] : undefined;
+  // 点名这一刻在等的那个（别的可能还在排队），引擎还没报时按开始的先后。
+  const converting = shown
+    ? (preparing.find((p) => inView.some((asset) => asset.id === p.assetId && asset.revision === p.revision)) ?? preparing[0])
+    : undefined;
   if (converting) return <PreparingPanel preparation={converting} frame={frame} />;
   return (
     <div className={layer} style={frame} role="status" aria-label={E.stall.loading} data-preview-load="loading" {...block}>
@@ -194,6 +198,13 @@ function useLiveLoading(engine: PreviewEngine): boolean {
   const [loading, setLoading] = useState(() => engine.liveLoading);
   useEffect(() => engine.onLiveLoading(setLoading), [engine]);
   return loading;
+}
+
+/** 这一刻在视、还在等兼容副本的媒体（预览引擎的 `converting`）。 */
+function useConverting(engine: PreviewEngine): readonly VersionRef[] {
+  const [converting, setConverting] = useState<readonly VersionRef[]>(() => engine.converting);
+  useEffect(() => engine.onConverting(setConverting), [engine]);
+  return converting;
 }
 
 /** 这部视频在等兼容副本的媒体（Runtime 在转换），按开始的先后；进度变了跟着变。 */
