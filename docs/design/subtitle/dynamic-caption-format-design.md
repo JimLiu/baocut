@@ -451,7 +451,7 @@ random 对同 key 永远返回同值；时间噪声通过明确的连续坐标�
 
 ### 9.3 内置材质节点
 
-材质首版采用版本化内置节点及有类型的 uniform，把扫光、纹理滚动、噪声遮罩等开放为参数。保留 shader 材质扩展合同：资源摘要、入口、输入/输出格式、uniform 类型、纹理/采样器、pass 依赖、所需能力；实际支持的 shader 方言和后端在专门阶段验证后开放。纯函数算出的模糊半径或材质参数只有在渲染器支持时才有效。 当前 `caption-wave-displace/1` 提供 cue 级正弦逆向位移：幅度、波长、相位可纯函数求值，方向为 x/y，使用预乘双线性透明边界采样；具体范围、像素中心与预算合同见视频格式 §5.6。
+材质首版采用版本化内置节点及有类型的 uniform，把扫光、纹理滚动、噪声遮罩等开放为参数。保留 shader 材质扩展合同：资源摘要、入口、输入/输出格式、uniform 类型、纹理/采样器、pass 依赖、所需能力；实际支持的 shader 方言和后端在专门阶段验证后开放。纯函数算出的模糊半径或材质参数只有在渲染器支持时才有效。 当前 `caption-wave-displace/1` 提供 cue 级正弦逆向位移：幅度、波长、相位可纯函数求值，方向为 x/y，使用预乘双线性透明边界采样；具体范围、像素中心与预算合同见视频格式 §5.6。`caption-wave-context/1` 让这三个值改在指定文字节点当前页排版后求值：位移核不变，只把波长、幅度与相位原点绑到页矩形，适配“文字先渲染到按页尺寸加边距的离屏纹理，再按 UV 做正弦位移”这类源效果。
 
 当前 `caption-gaussian-axis/1` 与 `caption-glow-cascade/1` 增加单文字子树的独立分量高斯和多尺度级联发光。二者显式绑定唯一 Text 的排版后页上下文；每个 pass 的采样距离以输入纹理 UV 定义，输出缩放按原画布有理比例向下取整，逐 pass 执行 gamma 与 UNORM8 量化。固定画布边界、normalize/replicate/transparent 行为、级联顺序和合成公式均按视频格式 §5.6，不与 box blur 混同。优化按任意 RGBA 分量非零的有效区域传播，实际采样工作与表面峰值都计入预算。可选 `glowTint` 以 `caption-glow-tint/1` 显式启用，使用同一文字节点排版后的页上下文；只在各级发光聚合及 clamp 后乘 RGB，再与原图合成，忽略 tint alpha 并保留发光 alpha。省略为白，旧文档不新增字段或求值成本，旧像素保持不变。
 
@@ -690,7 +690,7 @@ flowchart TD
 | 布局 | `caption-word-line-layout/1`、`caption-text-line-layout/1`、`caption-pattern-select/1`、`caption-keyword-isolation/1`、`caption-scalar-cluster-layout/1`、`caption-layout-per-sample/1`、`caption-page-window/1`、`caption-unit-font-size/1`、`caption-unit-font-style/1` | 固定词行/字行分页、按词数或 seed 选择分页模式、关键词隔离、字符计数组、逐采样重排、显示窗口、按单元字号与字体样式 | §4.3、§5.2、§5.3、§5.4、§6.3 |
 | 只读上下文 | `caption-text-context/1`、`caption-unit-context/1`、`caption-cue-unit-context/1`、`caption-cue-word-context/1`、`caption-speech-phase/1`、`caption-first-page-context/1`、`caption-ink-context/1`、`caption-glyph-envelope/1`、`caption-page-envelope/1` | 全文/页内字素序号、页与行时钟、全 cue 词行序号、首次词与下一词边界、cue 朗读阶段与词区间布尔、固定第一页成员、字形墨迹框、按词与整页包络 | §6.2、§8.1、§9.2 |
 | 涂装 | `caption-paint-stack/1`、`caption-paint-effects/1`、`caption-paint-coverage/1`、`caption-gradient-space/1`、`caption-gradient-glyph/1`、`caption-image-png/1`、`caption-image-paint/1`、`caption-image-phase-float32/1`、`caption-image-sequence/1` | 有序涂装项、效果外扩、覆盖率重映射、渐变域与空间、图片涂装与相位、图片序列 | §9.1、§9.3 |
-| 材质 | `caption-blur/1`、`caption-gaussian-axis/1`、`caption-gaussian-uv/1`、`caption-gaussian-spacing-ramp/1`、`caption-gaussian-sampling/1`、`caption-glow-cascade/1`、`caption-glow-linear/1`、`caption-glow-tint/1`、`caption-glow-color-matrix/1`、`caption-feedback/1`、`caption-feedback-mean/1`、`caption-wave-displace/1`、`caption-noise-displace/1`、`caption-soft-band/1`、`caption-noise-palette-mix/1`、`caption-noisy-sweep/1`、`caption-angular-sample-blend/1`、`caption-affine-sample-blend/1`、`caption-affine-over/1`、`caption-gradient-smear/1`、`caption-render-layers/1`、`caption-layer-add/1` | 模糊与高斯族、辉光族、有界历史采样与等权平均、正弦与噪声位移、遮罩、噪声与扫光、采样混合、仿射前景/背景、独立渲染层与加法混合 | §9.3、§9.4 |
+| 材质 | `caption-blur/1`、`caption-gaussian-axis/1`、`caption-gaussian-uv/1`、`caption-gaussian-spacing-ramp/1`、`caption-gaussian-sampling/1`、`caption-glow-cascade/1`、`caption-glow-linear/1`、`caption-glow-tint/1`、`caption-glow-color-matrix/1`、`caption-feedback/1`、`caption-feedback-mean/1`、`caption-wave-displace/1`、`caption-wave-context/1`、`caption-noise-displace/1`、`caption-soft-band/1`、`caption-noise-palette-mix/1`、`caption-noisy-sweep/1`、`caption-angular-sample-blend/1`、`caption-affine-sample-blend/1`、`caption-affine-over/1`、`caption-gradient-smear/1`、`caption-render-layers/1`、`caption-layer-add/1` | 模糊与高斯族、辉光族、有界历史采样与等权平均、正弦与噪声位移、遮罩、噪声与扫光、采样混合、仿射前景/背景、独立渲染层与加法混合 | §9.3、§9.4 |
 
 ## 14. 验收与实施顺序
 

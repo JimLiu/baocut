@@ -488,8 +488,9 @@ impl ScenePlan {
                 wavelength,
                 phase,
                 axis,
+                context_node_id,
             } => {
-                let (source, hits) = self.material_prefix(
+                let (mut source, hits) = self.material_prefix(
                     ci,
                     t,
                     materials,
@@ -500,19 +501,28 @@ impl ScenePlan {
                     budget,
                     work,
                 )?;
-                let cue = &self.cues[ci];
-                let params =
-                    cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-                let mut context = sampled_layout::early_context(
-                    cue,
-                    ci,
-                    self.cues.len(),
-                    t,
-                    &params,
-                    (self.width, self.height),
-                    &self.instance_id,
-                    &self.presentation.seed,
-                )?;
+                let mut context = if let Some(node_id) = context_node_id {
+                    // Page-relative uniforms: without a current page there is no domain.
+                    let Some(context) = self.material_page_context(ci, t, node_id, budget)? else {
+                        source.data_mut().fill(0);
+                        return Ok((source, vec![]));
+                    };
+                    context
+                } else {
+                    let cue = &self.cues[ci];
+                    let params =
+                        cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
+                    sampled_layout::early_context(
+                        cue,
+                        ci,
+                        self.cues.len(),
+                        t,
+                        &params,
+                        (self.width, self.height),
+                        &self.instance_id,
+                        &self.presentation.seed,
+                    )?
+                };
                 context.stable_key.push_str(&format!("|material|{id}"));
                 let mut sample = |value: &DynamicValue, ty, fallback| -> Result<f64> {
                     Ok(

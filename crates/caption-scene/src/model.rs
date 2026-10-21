@@ -1226,6 +1226,10 @@ where
     T::deserialize(deserializer).map(Some)
 }
 
+fn deserialize_wave_context<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    // Missing keeps the cue-only context; an explicit field must name a node.
+    String::deserialize(deserializer).map(Some)
+}
 fn deserialize_glow_tint<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<DynamicValue>, D::Error> {
     // Missing means default white; an explicit field must contain a typed value.
     DynamicValue::deserialize(deserializer).map(Some)
@@ -1296,6 +1300,14 @@ pub enum CaptionMaterial {
         wavelength: DynamicValue,
         phase: DynamicValue,
         axis: WaveAxis,
+        /// Optional Text node whose current page context evaluates the three uniforms.
+        #[serde(
+            rename = "contextNodeId",
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_wave_context"
+        )]
+        context_node_id: Option<String>,
     },
     SoftBand {
         id: String,

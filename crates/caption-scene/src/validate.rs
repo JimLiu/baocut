@@ -57,6 +57,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-feedback/1",
     "caption-feedback-mean/1",
     "caption-wave-displace/1",
+    "caption-wave-context/1",
     "caption-soft-band/1",
     "caption-noise-palette-mix/1",
     "caption-noise-displace/1",
@@ -1001,8 +1002,12 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 amplitude,
                 wavelength,
                 phase,
+                context_node_id,
                 ..
             } => {
+                if let Some(node_id) = context_node_id {
+                    validate_component_context(s, &nodes, id, node_id, "caption-wave-context/1", 1.0)?;
+                }
                 for (value, ty, low, high, label) in [
                     (
                         amplitude,
@@ -1026,7 +1031,12 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                         "wave phase must be finite",
                     ),
                 ] {
-                    validate_early_value(value, ty, s)?;
+                    if context_node_id.is_some() {
+                        let property = if ty == ValueType::Angle { "transform.rotation" } else { "width" };
+                        validate_value(property, value, s, UnitKind::Page)?;
+                    } else {
+                        validate_early_value(value, ty, s)?;
+                    }
                     if let DynamicValue::Constant { value } = value {
                         let n = typed_value(ty, value)?.number()?;
                         if !n.is_finite() || !(low..=high).contains(&n) {

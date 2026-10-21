@@ -38,7 +38,7 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-unit-context/1` 提供稳定的 `unit.pageIndex/pageCount` 与所属行的 `time.lineElapsedSeconds/lineDurationSeconds`；行朗读状态遵循词时间及 gap/tail 策略。页序号在逐采样重排后保持不变，repeat 装饰继承所绑定单元，见 [unit-context.json](tests/fixtures/unit-context.json)。
 
-`caption-wave-displace/1` 提供有界 cue 级正弦波纹位移，幅度/波长/相位支持动态值；以画布像素中心为基准，预乘双线性采样保留透明边界，不依赖播放历史。示例见 [wave-displace.json](tests/fixtures/wave-displace.json)。
+`caption-wave-displace/1` 提供有界 cue 级正弦波纹位移，幅度/波长/相位支持动态值；以画布像素中心为基准，预乘双线性采样保留透明边界，不依赖播放历史。示例见 [wave-displace.json](tests/fixtures/wave-displace.json)。`caption-wave-context/1` 允许可选 `contextNodeId` 指向唯一 Text，三个动态值改在该节点当前页排版后求值，可按页尺寸定义波长、幅度和相位原点；无当前页输出透明。
 
 `caption-soft-band/1` 提供单文字子树的画布归一化柔边遮罩，参数绑定明确文字节点的当前页上下文；同时提供页末词的输入时间及可用标记。静态/逐采样布局和反馈历史都使用共同的页解析路径。示例见 [soft-band.json](tests/fixtures/soft-band.json)。
 

@@ -105,3 +105,89 @@ fn wave_padding_is_independent_of_uniform_representation_and_bounded() {
             .contains("CAPTION_BUDGET_EXCEEDED")
     );
 }
+
+fn with_context(mut body: Value) -> Value {
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-wave-context/1"));
+    body["scene"]["value"]["materials"][0]["contextNodeId"] = json!("caption");
+    body
+}
+
+#[test]
+fn wave_context_keeps_the_kernel_for_layout_free_uniforms() {
+    let body = fixture();
+    let contextual = with_context(body.clone());
+    for time in [0.0, 0.25, 0.6] {
+        assert_eq!(
+            plan(contextual.clone()).render(time).unwrap().rgba,
+            plan(body.clone()).render(time).unwrap().rgba
+        );
+    }
+}
+
+#[test]
+fn page_anchored_wave_moves_with_its_page() {
+    // phase = -tau * layout.x / wavelength puts the sine origin on the page's left edge.
+    let anchored = |x: f64, context: bool| {
+        let mut body = fixture();
+        body["scene"]["value"]["layout"]["x"] = json!({"value": x, "basis": "absolute"});
+        body["scene"]["value"]["materials"][0]["phase"] = if context {
+            json!({"kind":"expression","expression":{"op":"call","function":"mul","args":[
+                {"op":"call","function":"div","args":[
+                    {"op":"read","path":"layout.x"},
+                    {"op":"literal","type":"length","value":32}
+                ]},
+                {"op":"literal","type":"angle","value":-std::f64::consts::TAU}
+            ]}})
+        } else {
+            json!({"kind":"constant","value":0})
+        };
+        let body = if context { with_context(body) } else { body };
+        plan(body).render(0.25).unwrap().rgba
+    };
+    let shifted = |a: &[u8], b: &[u8]| {
+        // b is a rendered 20 px left of a on the 160x90 canvas.
+        (0..90).all(|y| {
+            (0..140).all(|x| {
+                let i = (y * 160 + x) * 4;
+                let j = (y * 160 + x + 20) * 4;
+                b[i..i + 4] == a[j..j + 4]
+            })
+        })
+    };
+    let right = anchored(80.0, true);
+    let left = anchored(60.0, true);
+    assert!(right.chunks_exact(4).any(|p| p[3] > 0));
+    assert!(shifted(&right, &left));
+    // A canvas-anchored wave with the same wavelength does not follow the page.
+    assert!(!shifted(&anchored(80.0, false), &anchored(60.0, false)));
+}
+
+#[test]
+fn wave_context_without_a_current_page_is_transparent() {
+    let mut contextual = with_context(fixture());
+    contextual["scene"]["value"]["materials"][0]["wavelength"] =
+        json!({"kind":"expression","expression":{"op":"read","path":"layout.width"}});
+    let mut scene = ScenePlan::compile(
+        parse_style(&contextual).unwrap(),
+        Presentation::default(),
+        vec![SceneCue {
+            id: "cue".into(),
+            document_id: "doc".into(),
+            text: "".into(),
+            start: 0.0,
+            end: 4.0,
+            words: vec![],
+        }],
+        (160, 90),
+        TextEngine::with_document_fonts(&[include_bytes!(
+            "../../render-raster/assets/fonts/NotoSansSC-Variable.ttf"
+        )
+        .to_vec()]),
+        "wave-instance".into(),
+    )
+    .unwrap();
+    assert!(scene.render(0.25).unwrap().rgba.iter().all(|v| *v == 0));
+}

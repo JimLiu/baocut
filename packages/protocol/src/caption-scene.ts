@@ -264,7 +264,7 @@ export interface CaptionGaussianStage {
 }
 export type CaptionMaterial =
   | { kind: 'blur'; id: string; radius: CaptionDynamicValue; passes?: number }
-  | { kind: 'wave-displace'; id: string; amplitude: CaptionDynamicValue; wavelength: CaptionDynamicValue; phase: CaptionDynamicValue; axis: 'x' | 'y' }
+  | { kind: 'wave-displace'; id: string; amplitude: CaptionDynamicValue; wavelength: CaptionDynamicValue; phase: CaptionDynamicValue; axis: 'x' | 'y'; contextNodeId?: string }
   | { kind: 'soft-band'; id: string; contextNodeId: string; axis: 'x' | 'y'; center: CaptionDynamicValue; halfWidth: CaptionDynamicValue; feather: CaptionDynamicValue; amount: CaptionDynamicValue; opacity: CaptionDynamicValue }
   | { kind: 'noise-palette-mix'; id: string; contextNodeId: string; paletteResourceId: string; palettePosition: CaptionDynamicValue; phase: CaptionDynamicValue; domain: { x: CaptionDynamicValue; y: CaptionDynamicValue; width: CaptionDynamicValue; height: CaptionDynamicValue } }
   /** caption-noise-displace/1: CPU raster only; the GPU material plan rejects it. */
