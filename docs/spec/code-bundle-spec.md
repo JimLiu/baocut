@@ -582,7 +582,7 @@ interface CompositionBakeInfo {
 - 导出预检（命令与协议规范 §4.4）逐个核对这次导出用到的替身，有过期的以 `EXPORT_PRERENDER_STALE` 拒绝：`details.items` 每项是 `{ itemId, sequenceId, name, reason, bakedFrom?, current? }`，`remedy` 是重新导入烘焙。`allowStalePrerender: true` 时照旧替身导出，每项一条同名警告（`detail` 是「实例 ID: 原因」）。`missing` 不由这里报：没有替身的实例由渲染内核按 `bundle-without-prerender` 处理。
 - 预览不论替身过不过期都显示实时层（动效视频设计 §4.3），替身过期或没有时提醒「实时预览，导出前要烘焙」。
 
-重烘就是带 `replace: { itemId }` 再导入一次同一个代码包：`replaceCodeBundle` 写入新替身（§3.3）。
+重烘就是带 `replace: { itemId }` 再导入一次同一个代码包：`replaceCodeBundle` 写入新替身（§3.3）。新代码包烘出的 bytes 与视频里已有的替身完全相同时，引擎不新建素材，而是给那个替身素材加一个版本，来源是这次的 `BakeRecord`，实例指向这个新版本，`bundle-changed` 随之消除（视频格式规范 §4.2）；不这样做，替身的来源会一直写着第一次烘焙的代码包，重烘多少次都判为过期。
 
 ### 7.5 后台烘焙
 

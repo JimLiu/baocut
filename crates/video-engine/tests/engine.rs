@@ -1363,6 +1363,46 @@ fn reimporting_the_same_bytes_reuses_the_asset() {
 }
 
 #[test]
+fn rebaking_the_same_bytes_from_another_bundle_adds_a_revision() {
+    let Some(fixtures) = fixtures() else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let mut video = new_video(dir.path());
+    let baked = |bundle: &str| {
+        json!({
+            "type": "importAsset",
+            "path": fixtures.video_file,
+            "storage": "managed",
+            "provenance": { "origin": "composition-bake", "source": { "sourceBundleRef": { "id": bundle, "revision": "1" } } },
+        })
+    };
+    let first = video.apply(&tx(&video, "cmd_bake_a", vec![baked("bundle_a")])).unwrap();
+    let asset_id = first.receipt.created_ids[0].clone();
+    let baked_from = |video: &Video, revision: &str| {
+        video.state().assets[&asset_id].revisions[revision].provenance.source.as_ref().unwrap()["sourceBundleRef"]["id"].clone()
+    };
+
+    // 另一个代码包烘出了相同的 bytes：同一个素材加一个版本，记下新的出处；旧版本原样留着。
+    let again = video.apply(&tx(&video, "cmd_bake_b", vec![baked("bundle_b")])).unwrap();
+    assert!(again.receipt.preserved.is_empty());
+    assert_eq!(video.state().assets.len(), 1);
+    let asset = &video.state().assets[&asset_id];
+    assert_eq!(asset.current_revision, "2");
+    assert_eq!(asset.revisions["1"].content_hash, asset.revisions["2"].content_hash);
+    assert_eq!(baked_from(&video, "1"), json!("bundle_a"));
+    assert_eq!(baked_from(&video, "2"), json!("bundle_b"));
+
+    // 同一个代码包再烘一次、或普通导入相同的 bytes：照旧复用，不加版本。
+    for (command, op) in [
+        ("cmd_bake_b_again", baked("bundle_b")),
+        ("cmd_plain", json!({ "type": "importAsset", "path": fixtures.video_file, "storage": "managed" })),
+    ] {
+        let reused = video.apply(&tx(&video, command, vec![op])).unwrap();
+        assert_eq!(reused.receipt.preserved, vec![asset_id.clone()]);
+        assert_eq!(video.state().assets[&asset_id].current_revision, "2");
+    }
+}
+
+#[test]
 fn t08_undo_does_not_erase_later_additions_and_redo_works() {
     let Some(fixtures) = fixtures() else { return };
     let dir = tempfile::tempdir().unwrap();

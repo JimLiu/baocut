@@ -168,7 +168,10 @@ export async function planPortable(freeze: PackageFreeze, roots: string[], missi
   const problems: Problem[] = [];
   const planned: PlannedAsset[] = [];
   const missing = new Map<string, string>();
+  // 包里的素材按内容地址放（视频格式规范 §8）：同一份 bytes 的几个版本（烘焙替身换了出处）只写一次。
+  const plannedPaths = new Set<string>();
   for (const asset of freeze.assets) {
+    if (plannedPaths.has(asset.packagePath)) continue;
     const key = `${asset.assetId}@${asset.revision}`;
     const problem = (reason: string): void => {
       problems.push({
@@ -196,6 +199,7 @@ export async function planPortable(freeze: PackageFreeze, roots: string[], missi
         continue;
       }
       planned.push({ asset, tree, files: [{ packagePath: asset.packagePath, source: asset.path, size: asset.byteLength }] });
+      plannedPaths.add(asset.packagePath);
       continue;
     }
     const files: PlannedAsset['files'] = [];
@@ -210,7 +214,10 @@ export async function planPortable(freeze: PackageFreeze, roots: string[], missi
     }
     if (failed) problem(failed);
     else if (files.reduce((sum, f) => sum + f.size, 0) !== asset.byteLength) problem('changed');
-    else planned.push({ asset, tree, files });
+    else {
+      planned.push({ asset, tree, files });
+      plannedPaths.add(asset.packagePath);
+    }
   }
   if (problems.length > 0 && missingAssets === 'fail') {
     throw new RpcError('conflict', RcPackage.assetsUnreadable({ count: problems.length }), {
