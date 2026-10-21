@@ -124,11 +124,11 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'insertItems',
     family: 'items',
     doc: [
-      '- {"type":"insertItems","items":[{"type","trackId"|"trackRef","span":{"fromFrame","durationFrames"},…}]}：按实例的完整字段一次写入一批片段（视频格式规范 §3.4–§3.9 的 SequenceItem，不带 id 与 lineage），时间是整帧、不再量化。用在 addItem 表达不了的字段上：视频的 timeMap（{"kind":"linear","sourceIn":{"ticks","timescale"},"rate":{"num":1,"den":1}}，从原片哪一刻起放）、crop（四边比例）、focalPoint、mode / fit / place、embeddedAudio（{"enabled","volume","fadeIn"?,"fadeOut"?}，淡变与 sourceIn 同样写 {"ticks","timescale"}）；文字实例的 text 与 style；字幕实例的 documentId（或同一笔 putDocument 的 documentRef）、styleDocumentId、scopeItemIds。视频、图片给 assetRef（{"id","revision"}，revision 取 videos_inspect 素材列表里的 revision）或同一笔 importAsset 的 assetImportRef，二者只给一个；新轨道用同一笔 addTrack 的 trackRef。字段与重叠由引擎校验。',
+      '- {"type":"insertItems","items":[{"type","trackId"|"trackRef","span":{"fromFrame","durationFrames"},…}]}：按实例的完整字段一次写入一批片段（视频格式规范 §3.4–§3.9 的 SequenceItem，不带 id 与 lineage），时间是整帧、不再量化。用在 addItem 表达不了的字段上：视频的 timeMap（{"kind":"linear","sourceIn":{"ticks","timescale"},"rate":{"num":1,"den":1}}，从原片哪一刻起放）、crop（四边比例）、focalPoint、mode / fit / place、embeddedAudio（{"enabled","volume","fadeIn"?,"fadeOut"?}，淡变与 sourceIn 同样写 {"ticks","timescale"}）；文字实例的 text 与 style；字幕实例的 documentId（或同一笔 putDocument 的 documentRef）、styleDocumentId、scopeItemIds；内置元素声波 visualizer（{"style"} 必填，缺省跟着整条序列混好的声音动）与进度条 progress（{"style"} 必填），不写 place 时按种类的缺省落位（声波横条贴在画面底部、高为画面的 20%）。视频、图片给 assetRef（{"id","revision"}，revision 取 videos_inspect 素材列表里的 revision）或同一笔 importAsset 的 assetImportRef，二者只给一个；新轨道用同一笔 addTrack 的 trackRef。字段与重叠由引擎校验。',
     ],
     schema: op('insertItems', {
       items: z
-        .array(z.looseObject({ type: z.string().describe('实例种类：video、image、text、caption 等') }))
+        .array(z.looseObject({ type: z.string().describe('实例种类：video、image、text、caption、visualizer、progress 等') }))
         .min(1)
         .describe('要写入的实例，字段同视频格式规范的 SequenceItem'),
       sequenceId,
@@ -681,10 +681,13 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
   {
     type: 'addTrack',
     family: 'tracks-and-sequences',
-    doc: ['- {"type":"addTrack","kind":"visual"|"audio","name"?}：新增一条轨道。'],
+    doc: [
+      '- {"type":"addTrack","kind":"visual"|"audio","name"?,"ref"?}：新增一条轨道，排在最上面（画面轨上面的盖住下面的）；同一笔后面的 insertItems 用 trackRef 指向 ref。',
+    ],
     schema: op('addTrack', {
       kind: z.enum(['visual', 'audio']).describe('visual（画面）或 audio（声音）'),
       name: z.string().optional().describe('轨道名'),
+      ref,
       sequenceId,
     }),
     example: { type: 'addTrack', kind: 'audio', name: '背景音乐' },
