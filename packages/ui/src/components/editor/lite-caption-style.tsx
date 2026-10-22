@@ -24,7 +24,7 @@ export function useCaptionStyleAvailability(sequence: Sequence, documents: Recor
 
 /**
  * 轻量视图侧栏的字幕样式（轻量编辑器设计 §3「侧栏」；原型 editor-lite-script.jsx 的 CaptionStyle）：与时间线视图字幕面板同一套页——
- * 先是字幕属性（`CaptionPage`，只要样式），「更换样式」推进样式库（`CaptionGallery`，卡上的「编辑」回属性页）。页的栈记在这里，
+ * 先是样式库（`CaptionGallery`），卡上的「编辑」进字幕属性（`CaptionPage`，只要样式），「更换样式」回样式库。页的栈记在这里，
  * 不写时间线视图的面板状态与选中：两边各推各的。两页的返回都回到侧栏原来那一页。改样式的草稿走编辑器的 DraftDocuments，画面照样跟着变。
  */
 export function LiteCaptionStyle({
@@ -44,7 +44,7 @@ export function LiteCaptionStyle({
   onClose(): void;
 }) {
   const chips = useMemo(() => captionChips(sequence, documents), [sequence, documents]);
-  const [view, setView] = useState<'props' | 'gallery'>('props');
+  const [view, setView] = useState<'props' | 'gallery'>('gallery');
   const [chosen, setChosen] = useState<string | null>(null);
   const showing = onScreen(chips);
   const current: CaptionChip | null =

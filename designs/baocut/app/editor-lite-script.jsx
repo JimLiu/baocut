@@ -163,7 +163,7 @@
     if (page === 'script' && versions) return <ScriptVersions proj={proj} onBack={() => setVersions(false)} />;
     const canStyle = ctx.cues.length > 0 && ctx.subsOn;
     const styleBtn = <Tip label={canStyle ? '改字幕的样式，与时间线视图的字幕面板同一套' : ctx.cues.length ? '字幕关着，打开后才能改样式' : '这部视频还没有字幕'}>
-      <R.ActionButton size="S" isQuiet isDisabled={!canStyle} onPress={() => setStyle('subprops')}>
+      <R.ActionButton size="S" isQuiet isDisabled={!canStyle} onPress={() => setStyle('subgallery')}>
         <Ic n="captions" className="ic--16" /><R.Text>字幕样式</R.Text>
       </R.ActionButton>
     </Tip>;

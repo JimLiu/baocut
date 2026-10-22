@@ -129,7 +129,7 @@
     return (
       <div className="substyle-home">
         {noCard ? null : ctx.subsOn ? (
-          <BCAction className="substyle-entry" aria-label="编辑字幕样式" onClick={() => ctx.setPaneView('subprops')}>
+          <BCAction className="substyle-entry" aria-label="编辑字幕样式" onClick={() => ctx.setPaneView('subgallery')}>
             <span className="substyle-entry__preview">
               <window.SubThumb p={Object.assign({}, p, {anim}, src && src.activeWord
                 ? {activeWord: src.activeWord, motion: src.motion || null} : null)} rows={rows} fz={10} />

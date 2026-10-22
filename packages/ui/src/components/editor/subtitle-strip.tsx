@@ -281,12 +281,9 @@ export function SubtitleStrip({
       toastUndo(C.flipped(!translationFirst), receipt);
     }
   };
-  /** 入口卡：选中当下这条字幕的实例，侧栏随之切到属性页（字幕样式）。 */
+  /** 入口卡：打开当前字幕轨的样式列表，卡上的铅笔才进入属性页。 */
   const openStyle = () => {
-    const itemId = current?.itemIds[0];
-    if (!itemId) return;
-    useEditor.getState().select([itemId]);
-    useEditor.getState().showPanel('props');
+    if (videoId) openGallery(videoId, true);
   };
 
   return (
