@@ -148,3 +148,5 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 
 `caption-paint-stack-extended/1` 显式开放每stack及layer ID并集64层、整场景4096声明；所有采样共享表面和工作预算。缺省仍为16层，不删减涂装；完整合同见视频格式§5.6。
+
+`caption-paint-mask-local/1` 允许 mask 显式选择 `rasterization: "glyph-bounds"`：场景录制器在整数设备窗口内完成涂装与遮罩，再输出普通位图，CPU／WASM／GPU共用。默认 canvas 不变；局部曲线 AA、外层 clip 与三账本预算合同见[视频格式 §5.6](../../docs/spec/video-format-spec.md#56-layoutprofile样式与导出)。

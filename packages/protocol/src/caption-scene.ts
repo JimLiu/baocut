@@ -132,6 +132,9 @@ export interface CaptionPaintMask {
   offset?: [number, number];
   /** Default false (omitted); true uses AlphaInverted (255 - mask alpha) and requires transform capability. */
   inverted?: boolean;
+  /** Default canvas; glyph-bounds bakes a device-aligned bitmap during scene recording.
+   * Requires `caption-paint-mask-local/1`; does not request native GPU matte execution. */
+  rasterization?: 'canvas' | 'glyph-bounds';
 }
 /** Finite local lengths in the owning paint unit; positive offset displaces the sampled contour. */
 export interface CaptionGlyphDistanceBand {

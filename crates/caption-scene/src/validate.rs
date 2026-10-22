@@ -49,6 +49,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-paint-coverage/1",
     "caption-paint-mask/1",
     "caption-paint-mask-transform/1",
+    "caption-paint-mask-local/1",
     "caption-glyph-distance-coverage/1",
     "caption-image-distance-coverage/1",
     "caption-gradient-space/1",
@@ -1986,7 +1987,13 @@ fn validate_paint_stack(n: &Node, paints: &[PaintLayer], s: &Scene, resources: &
             }
             validate_glyph_distance_coverage(distance, extent, reach, &n.id)?;
         }
-        if let Some(PaintMask::GlyphFill { spread, offset, inverted }) = layer.mask {
+        if let Some(PaintMask::GlyphFill {
+            spread,
+            offset,
+            inverted,
+            rasterization,
+        }) = layer.mask
+        {
             if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
                 || !spread.is_finite()
                 || !(0.0..=extent).contains(&spread)
@@ -1996,6 +2003,11 @@ fn validate_paint_stack(n: &Node, paints: &[PaintLayer], s: &Scene, resources: &
             }
             if !s.required_capabilities.iter().any(|c| c == "caption-paint-mask/1") {
                 return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-mask/1"));
+            }
+            if rasterization == PaintMaskRasterization::GlyphBounds
+                && !s.required_capabilities.iter().any(|c| c == "caption-paint-mask-local/1")
+            {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-mask-local/1"));
             }
             if (offset != [0.0, 0.0] || inverted) && !s.required_capabilities.iter().any(|c| c == "caption-paint-mask-transform/1") {
                 return Err(Diagnostic::new(

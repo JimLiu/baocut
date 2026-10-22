@@ -18,6 +18,7 @@ mod image_sequences;
 mod line_box;
 mod line_neighbor;
 mod line_quota;
+mod mask_paint;
 mod material_plan;
 mod materials;
 mod noise_displace;

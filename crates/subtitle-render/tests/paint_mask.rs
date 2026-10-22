@@ -501,3 +501,227 @@ fn independent_mask_offset_and_inversion_match_manual_ir_with_em_affine() {
         }
     }
 }
+
+fn locally(mut style: Value) -> Value {
+    let scene = &mut style["scene"]["value"];
+    scene["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-paint-mask-local/1"));
+    for layer in scene["nodes"][0]["style"]["paints"].as_array_mut().unwrap() {
+        if layer.get("mask").is_some() {
+            layer["mask"]["rasterization"] = json!("glyph-bounds");
+        }
+    }
+    style
+}
+
+#[test]
+fn local_blurred_masks_preserve_canvas_pixels_with_gradient_and_affine() {
+    for paint in [
+        red(),
+        json!({"kind":"linear","space":"normalized","domain":"glyph","from":[0,0],"to":[1,1],
+        "stops":[{"at":0,"color":"#FF0000"},{"at":1,"color":"#0000FF"}]}),
+    ] {
+        for blur in [1.25] {
+            for inverted in [false, true] {
+                let mut style = transformed_mask(
+                    body(paint.clone(), [5.25, -2.5], 1.25, blur, false),
+                    [-2.25, 1.5],
+                    1.5,
+                    inverted,
+                );
+                style["scene"]["value"]["nodes"][0]["properties"] = json!({
+                    "opacity":{"kind":"constant","value":0.7},
+                    "transform.rotation":{"kind":"constant","value":17},
+                    "transform.scaleX":{"kind":"constant","value":1.15},
+                    "transform.scaleY":{"kind":"constant","value":0.85}});
+                let expected = pixels(style.clone(), "Ogj");
+                let actual = pixels(locally(style), "Ogj");
+                assert_pixels(&actual, &expected, 1);
+            }
+        }
+    }
+}
+
+#[test]
+fn local_inversion_keeps_displaced_content_outside_mask_support() {
+    let style = transformed_mask(body(red(), [34., 0.], 0., 0., false), [0., 0.], 0., true);
+    let expected = pixels(style.clone(), "O");
+    assert!(expected.chunks_exact(4).any(|p| p[3] > 0));
+    assert_pixels(&pixels(locally(style), "O"), &expected, 0);
+    let normal = transformed_mask(body(red(), [200., 0.], 0., 0., false), [0., 0.], 0., false);
+    assert!(pixels(locally(normal), "O").iter().all(|v| *v == 0));
+}
+
+#[test]
+fn local_multilayer_long_text_uses_small_bitmaps_without_live_matte_groups() {
+    let mut style = body(red(), [0., 0.], 0., 0., true);
+    style["scene"]["value"]["layout"]["x"]["value"] = json!(2048);
+    style["scene"]["value"]["layout"]["y"]["value"] = json!(2048);
+    style["scene"]["value"]["layout"]["width"]["value"] = json!(3000);
+    let first = style["scene"]["value"]["nodes"][0]["style"]["paints"][0].clone();
+    style["scene"]["value"]["nodes"][0]["style"]["paints"] = Value::Array(
+        (0..8)
+            .map(|i| {
+                let mut next = first.clone();
+                next["id"] = json!(format!("layer{i}"));
+                next
+            })
+            .collect(),
+    );
+    let mut old = plan(style.clone(), "INTERSTELLAR");
+    old.width = 4096;
+    old.height = 4096;
+    assert!(
+        old.record(0.3)
+            .unwrap_err()
+            .to_string()
+            .contains("paint mask work")
+    );
+    let mut local = plan(locally(style), "INTERSTELLAR");
+    local.width = 4096;
+    local.height = 4096;
+    let (frame, _) = local.record(0.3).unwrap();
+    assert!(
+        frame
+            .ops
+            .iter()
+            .filter(|op| matches!(op, DrawOp::DrawBitmap { .. }))
+            .count()
+            >= 80
+    );
+    assert!(
+        !frame
+            .ops
+            .iter()
+            .any(|op| matches!(op, DrawOp::PushMatte | DrawOp::PopMatte { .. }))
+    );
+    assert!(frame.bitmaps.iter().all(|b| b.width < 80 && b.height < 80));
+    assert!(frame.bitmaps.iter().any(|b| b.rgba.iter().any(|v| *v > 0)));
+    assert!(frame.bitmaps.iter().map(|b| b.rgba.len()).sum::<usize>() < 1024 * 1024);
+}
+
+#[test]
+fn advertising_local_masks_does_not_change_legacy_ir_or_fingerprint() {
+    let style = body(red(), [2., -1.], 1., 1., true);
+    let mut advertised = style.clone();
+    advertised["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-paint-mask-local/1"));
+    let a = plan(style, "OO").record(0.3).unwrap().0;
+    let b = plan(advertised, "OO").record(0.3).unwrap().0;
+    assert_eq!(
+        render_raster::drawop::encode(&a),
+        render_raster::drawop::encode(&b)
+    );
+}
+
+/// Independent unmasked scene recordings are replayed in the specified device
+/// viewport. Only transforms are rebased; no mask implementation is invoked.
+fn cropped_unmasked(style: Value, window: [i32; 4]) -> Vec<u8> {
+    let (mut frame, _) = plan(style, "O").record(0.3).unwrap();
+    for op in &mut frame.ops {
+        let matrix = match op {
+            DrawOp::FillPath { tf, .. }
+            | DrawOp::StrokePath { tf, .. }
+            | DrawOp::FillPathPaint { tf, .. }
+            | DrawOp::StrokePathPaint { tf, .. }
+            | DrawOp::DrawBitmap { tf, .. } => tf,
+            DrawOp::PushLayer { .. } | DrawOp::PopLayer | DrawOp::Clear { .. } => continue,
+            _ => panic!("unmasked oracle must not contain matte operations"),
+        };
+        matrix[4] -= window[0] as f32;
+        matrix[5] -= window[1] as f32;
+    }
+    rasterize_with_media(&frame, window[2] as u32, window[3] as u32, &mut NoMedia)
+        .unwrap()
+        .data()
+        .to_vec()
+}
+
+#[test]
+fn local_unblurred_masks_match_independent_viewport_coverage_products() {
+    // Curved-path scan conversion is not translation-invariant in tiny-skia.
+    // The local mode defines its own integer device viewport; its arithmetic
+    // oracle uses independently recorded unmasked paint and coverage there.
+    for paint in [
+        red(),
+        json!({"kind":"linear","space":"normalized","domain":"glyph","from":[0,0],"to":[1,1],
+        "stops":[{"at":0,"color":"#FF0000"},{"at":1,"color":"#0000FF"}]}),
+    ] {
+        for em in [false, true] {
+            let (paint_offset, mask_offset, spread) = if em {
+                ([0.15, -0.075], [-0.05, 0.1], 0.075)
+            } else {
+                ([6., -3.], [-2., 4.], 3.)
+            };
+            let mut effect = body(
+                paint.clone(),
+                paint_offset,
+                if em { 0.025 } else { 1. },
+                0.,
+                false,
+            );
+            let mut mask = body(white(), mask_offset, spread, 0., false);
+            let pose = json!({"transform.rotation":{"kind":"constant","value":17},
+                "transform.scaleX":{"kind":"constant","value":1.15},
+                "transform.scaleY":{"kind":"constant","value":0.85}});
+            for source in [&mut effect, &mut mask] {
+                source["scene"]["value"]["nodes"][0]["properties"] = pose.clone();
+                if em {
+                    source["scene"]["value"]["nodes"][0]["style"]["paints"][0]["unit"] =
+                        json!("em");
+                }
+            }
+            for inverted in [false, true] {
+                let masked = locally(transformed_mask(
+                    effect.clone(),
+                    mask_offset,
+                    spread,
+                    inverted,
+                ));
+                let (frame, _) = plan(masked, "O").record(0.3).unwrap();
+                let (bitmap, tf) = frame
+                    .ops
+                    .iter()
+                    .find_map(|op| match op {
+                        DrawOp::DrawBitmap { bitmap, tf, .. } => {
+                            Some((&frame.bitmaps[*bitmap as usize], tf))
+                        }
+                        _ => None,
+                    })
+                    .unwrap();
+                let window = [
+                    tf[4] as i32,
+                    tf[5] as i32,
+                    bitmap.width as i32,
+                    bitmap.height as i32,
+                ];
+                let paint = cropped_unmasked(effect.clone(), window);
+                let mask = cropped_unmasked(mask.clone(), window);
+                let expected: Vec<_> = paint
+                    .chunks_exact(4)
+                    .zip(mask.chunks_exact(4))
+                    .flat_map(|(p, m)| {
+                        let factor = if inverted {
+                            255 - u32::from(m[3])
+                        } else {
+                            u32::from(m[3])
+                        };
+                        p.iter()
+                            .map(move |v| ((u32::from(*v) * factor + 127) / 255) as u8)
+                    })
+                    .collect();
+                assert!(expected.iter().any(|v| *v > 0));
+                assert_eq!(
+                    bitmap.rgba.as_ref(),
+                    expected,
+                    "paint={},em={em},inverted={inverted}",
+                    paint.len()
+                );
+            }
+        }
+    }
+}

@@ -28,7 +28,8 @@ fn glyph_mask_roundtrips_and_old_layers_omit_it() {
         Some(PaintMask::GlyphFill {
             spread: 0.0,
             offset: [0.0, 0.0],
-            inverted: false
+            inverted: false,
+            rasterization: PaintMaskRasterization::Canvas,
         })
     );
     assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
@@ -83,6 +84,7 @@ fn glyph_mask_rejects_invalid_objects_and_bounded_spread() {
         spread: f64::NAN,
         offset: [0.0, 0.0],
         inverted: false,
+        rasterization: PaintMaskRasterization::Canvas,
     });
     assert!(validate_scene(&scene).is_err());
 }
@@ -159,7 +161,48 @@ fn mask_offsets_obey_unit_bounds_and_strict_field_types() {
             spread: 0.,
             offset: [value, 0.],
             inverted: false,
+            rasterization: PaintMaskRasterization::Canvas,
         });
         assert!(validate_scene(&scene).is_err());
+    }
+}
+
+#[test]
+fn local_mask_requires_explicit_capability_and_closed_rasterization_mode() {
+    let mask = json!({"kind":"glyph-fill","rasterization":"glyph-bounds"});
+    let mut body = fixture(Some(mask.clone()));
+    assert_eq!(parse_style(&body).unwrap_err().code, "CAPTION_CAPABILITY_REQUIRED");
+    body["scene"]["value"]["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("caption-paint-mask-local/1"));
+    let style = parse_style(&body).unwrap();
+    assert_eq!(parse_style(&serde_json::to_value(&style).unwrap()).unwrap(), style);
+    assert_eq!(
+        serde_json::to_value(&style).unwrap()["scene"]["value"]["nodes"][0]["style"]["paints"][0]["mask"],
+        mask
+    );
+    for invalid in [json!(null), json!(true), json!("auto"), json!("canvas-local")] {
+        body["scene"]["value"]["nodes"][0]["style"]["paints"][0]["mask"]["rasterization"] = invalid;
+        assert!(parse_style(&body).is_err());
+    }
+    let explicit = fixture(Some(json!({"kind":"glyph-fill","rasterization":"canvas"})));
+    let implicit = fixture(Some(json!({"kind":"glyph-fill"})));
+    assert_eq!(parse_style(&explicit).unwrap(), parse_style(&implicit).unwrap());
+}
+
+#[test]
+fn local_mask_three_counter_reservation_is_atomic_and_shares_image_caps() {
+    let mask_limit = 128 * 1024 * 1024;
+    let pixel_limit = 16 * 1024 * 1024;
+    let work_limit = 256 * 1024 * 1024;
+    // Failure at each successive counter must leave all three available.
+    for (m, p, w) in [(mask_limit + 1, 1, 1), (1, pixel_limit + 1, 1), (1, 1, work_limit + 1)] {
+        let mut budget = Budget::default();
+        assert!(budget.reserve_paint_mask_rasters(m, p, w).is_err());
+        budget.reserve_paint_mask_rasters(mask_limit, pixel_limit, work_limit).unwrap();
+        assert!(budget.reserve_paint_mask_work(1).is_err());
+        assert!(budget.reserve_image_paint_pixels(1).is_err());
+        assert!(budget.reserve_image_paint_work(1).is_err());
     }
 }

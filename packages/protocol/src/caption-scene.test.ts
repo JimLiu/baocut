@@ -296,3 +296,13 @@ test('static word paint bindings retain complete layer replacements', () => {
   const invalid: NonNullable<CaptionScene['paintStyleBindings']>[number]['style'] = { fill: null, paints: [] };
   expect(invalid.fill).toBeNull();
 });
+
+
+test('local glyph mask rasterization is explicit and retains legacy omission', () => {
+  const mask = { kind: 'glyph-fill', rasterization: 'glyph-bounds' } satisfies CaptionPaintMask;
+  expect(JSON.parse(JSON.stringify(mask))).toEqual({ kind: 'glyph-fill', rasterization: 'glyph-bounds' });
+  expectTypeOf<CaptionPaintMask['rasterization']>().toEqualTypeOf<'canvas' | 'glyph-bounds' | undefined>();
+  // @ts-expect-error Rasterization modes are closed.
+  const invalid: CaptionPaintMask = { kind: 'glyph-fill', rasterization: 'auto' };
+  expect(invalid.rasterization).toBe('auto');
+});

@@ -1092,6 +1092,19 @@ pub enum GlyphDistanceAa {
     },
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PaintMaskRasterization {
+    #[default]
+    Canvas,
+    GlyphBounds,
+}
+impl PaintMaskRasterization {
+    fn is_canvas(&self) -> bool {
+        *self == Self::Canvas
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum PaintMask {
@@ -1104,6 +1117,9 @@ pub enum PaintMask {
         /// Multiplies by the complement of the mask alpha when true.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         inverted: bool,
+        /// Opt-in recording-time rasterization into a bounded device bitmap.
+        #[serde(default, skip_serializing_if = "PaintMaskRasterization::is_canvas")]
+        rasterization: PaintMaskRasterization,
     },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]

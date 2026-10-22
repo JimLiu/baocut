@@ -755,7 +755,7 @@ flowchart TD
 8. §9.5 的 bloom 置底是否可由 `caption-glow-linear/1` 现有聚合表达；背景差值与噪声 UV 位移作为新材质立项前先确认背景依赖在缩略图与导出中的获取方式。
 9. §11 配方目录随效果增加可能超出单篇篇幅；超出时按文档约定拆为独立文档并在本文保留索引。
 
-已实现的字形涂装遮罩使用 `caption-paint-mask/1`：单层 paint 的覆盖率与同一字形填充相交，遮罩可按所属层单位外扩；`caption-paint-mask-transform/1` 另外允许遮罩独立位移与反相，缺省保持原位置交集；预算与拒绝范围见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+已实现的字形涂装遮罩使用 `caption-paint-mask/1`：单层 paint 的覆盖率与同一字形填充相交，遮罩可按所属层单位外扩；`caption-paint-mask-transform/1` 另外允许遮罩独立位移与反相，缺省保持原位置交集；预算与拒绝范围见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。 显式 `caption-paint-mask-local/1` 和 `mask.rasterization: 'glyph-bounds'` 允许共享录制期按完整涂装支持域烘焙局部位图，减少实际 content／matte 分配；保留全局采样域。该模式有独立的局部 AA／外层裁剪合同及帧预算，不承诺旧全画布曲线像素逐字节相同；默认 canvas 与旧 DrawOp 协议不变。
 
 `caption-glyph-distance-coverage/1` 另提供逐 glyph 的有界原轮廓距离带：独立位移的 1–2 个 band 共享一个明确选择的 quad 导数场，并相乘后采样原域颜色；它替代普通 glyph AA，不与旧 matte/spread/blur 叠加。距离源、零宽策略、单位和预算以[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)为准。
 

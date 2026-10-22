@@ -121,28 +121,7 @@ pub(super) fn record_glyphs_with_surfaces(
             );
         }
     }
-    // Check the entire node before emitting paint operations. Matte surfaces
-    // use the canvas, and both content and original coverage are charged.
-    let masked_layers = style.paints.iter().filter(|p| p.mask.is_some()).count() as u64;
-    if masked_layers != 0 {
-        if shapes.iter().any(|s| matches!(s, Shape::Bitmap(..))) {
-            bail!("CAPTION_SCENE_INVALID: glyph paint mask requires outline glyphs");
-        }
-        let pixels = u64::from(canvas.0) * u64::from(canvas.1);
-        if pixels > MAX_BLUR_PIXELS {
-            bail!("CAPTION_BUDGET_EXCEEDED: paint mask surface");
-        }
-        let outlines = shapes
-            .iter()
-            .filter(|s| matches!(s, Shape::Outline(_)))
-            .count() as u64;
-        let work = pixels
-            .checked_mul(2)
-            .and_then(|n| n.checked_mul(outlines))
-            .and_then(|n| n.checked_mul(masked_layers))
-            .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: paint mask work"))?;
-        budget.reserve_paint_mask_work(work)?;
-    }
+    let mask_windows = super::mask_paint::prepare(style, glyphs, &shapes, canvas, budget)?;
     if style.paints.is_empty() {
         if let Some(s) = &style.stroke {
             let base = color(&s.color)?;
@@ -185,80 +164,43 @@ pub(super) fn record_glyphs_with_surfaces(
         let surface_pixels = shared_surface_pixels
             .as_deref_mut()
             .unwrap_or(&mut local_surface_pixels);
-        if let Some(PaintMask::GlyphFill {
-            spread,
-            offset,
-            inverted,
-        }) = layer.mask
-        {
+        if let Some(mask) = layer.mask {
             let mut plain = layer.clone();
             plain.mask = None;
-            for (g, shape) in glyphs.iter().zip(&shapes) {
-                let Shape::Outline(path) = shape else {
+            for (glyph_index, (g, shape)) in glyphs.iter().zip(&shapes).enumerate() {
+                if !matches!(shape, Shape::Outline(_)) {
                     continue;
-                };
-                budget.spend()?;
-                b.push(DrawOp::PushLayer {
-                    opacity: 1.0,
-                    blend: motion::effect::BlendMode::Normal,
-                });
-                let one_glyph = std::slice::from_ref(g);
-                let one_shape = std::slice::from_ref(shape);
-                if matches!(plain.paint, ScenePaint::Image { .. }) {
-                    super::image_paint::record_layer(
-                        &plain, one_glyph, one_shape, canvas, images, b, budget,
-                    )?;
-                } else if plain.coverage.is_some() {
-                    coverage_layer_with_surfaces(
+                }
+                if let Some(windows) = mask_windows.get(&layer_index) {
+                    let Some(window) = windows[glyph_index] else {
+                        continue;
+                    };
+                    let mut child = FrameBuilder::default();
+                    masked_glyph(
                         &plain,
-                        one_glyph,
-                        one_shape,
+                        mask,
+                        g,
+                        shape,
                         canvas,
-                        b,
+                        images,
+                        &mut child,
                         budget,
                         surface_pixels,
                     )?;
+                    super::mask_paint::record(child.finish(), window, b)?;
                 } else {
-                    effect_layer(
+                    masked_glyph(
                         &plain,
-                        one_glyph,
-                        one_shape,
+                        mask,
+                        g,
+                        shape,
                         canvas,
+                        images,
                         b,
                         budget,
                         surface_pixels,
                     )?;
                 }
-                b.push(DrawOp::PushMatte);
-                let id = b.path_id(path_from_skia(path));
-                let mask_origin = if offset == [0.0, 0.0] {
-                    g.origin
-                } else {
-                    let unit = em(g, layer.unit);
-                    g.origin
-                        .pre_translate((offset[0] * unit) as f32, (offset[1] * unit) as f32)
-                };
-                b.push(DrawOp::FillPath {
-                    path: id,
-                    color: [1.0; 4],
-                    tf: tf(mask_origin),
-                });
-                if spread > 0.0 {
-                    b.push(DrawOp::StrokePath {
-                        path: id,
-                        color: [1.0; 4],
-                        width: (2.0 * spread * em(g, layer.unit)) as f32,
-                        tf: tf(mask_origin),
-                    });
-                }
-                b.push(DrawOp::PopMatte {
-                    mode: if inverted {
-                        render_raster::drawop::MatteMode::AlphaInverted as u8
-                    } else {
-                        render_raster::drawop::MatteMode::Alpha as u8
-                    },
-                });
-                b.push(DrawOp::PopLayer);
             }
             continue;
         }
@@ -329,6 +271,74 @@ pub(super) fn record_glyphs_with_surfaces(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
+fn masked_glyph(
+    plain: &PaintLayer,
+    mask: PaintMask,
+    g: &GlyphPaint,
+    shape: &Shape,
+    canvas: (u32, u32),
+    images: &BTreeMap<String, BitmapData>,
+    b: &mut FrameBuilder,
+    budget: &mut Budget,
+    surface_pixels: &mut u64,
+) -> Result<()> {
+    let Shape::Outline(path) = shape else {
+        return Ok(());
+    };
+    let PaintMask::GlyphFill {
+        spread,
+        offset,
+        inverted,
+        ..
+    } = mask;
+    budget.spend()?;
+    b.push(DrawOp::PushLayer {
+        opacity: 1.0,
+        blend: motion::effect::BlendMode::Normal,
+    });
+    let glyphs = std::slice::from_ref(g);
+    let shapes = std::slice::from_ref(shape);
+    if matches!(plain.paint, ScenePaint::Image { .. }) {
+        super::image_paint::record_layer(plain, glyphs, shapes, canvas, images, b, budget)?;
+    } else if plain.coverage.is_some() {
+        coverage_layer_with_surfaces(plain, glyphs, shapes, canvas, b, budget, surface_pixels)?;
+    } else {
+        effect_layer(plain, glyphs, shapes, canvas, b, budget, surface_pixels)?;
+    }
+    b.push(DrawOp::PushMatte);
+    let id = b.path_id(path_from_skia(path));
+    let mask_origin = if offset == [0.0, 0.0] {
+        g.origin
+    } else {
+        let unit = em(g, plain.unit);
+        g.origin
+            .pre_translate((offset[0] * unit) as f32, (offset[1] * unit) as f32)
+    };
+    b.push(DrawOp::FillPath {
+        path: id,
+        color: [1.0; 4],
+        tf: tf(mask_origin),
+    });
+    if spread > 0.0 {
+        b.push(DrawOp::StrokePath {
+            path: id,
+            color: [1.0; 4],
+            width: (2.0 * spread * em(g, plain.unit)) as f32,
+            tf: tf(mask_origin),
+        });
+    }
+    b.push(DrawOp::PopMatte {
+        mode: if inverted {
+            render_raster::drawop::MatteMode::AlphaInverted as u8
+        } else {
+            render_raster::drawop::MatteMode::Alpha as u8
+        },
+    });
+    b.push(DrawOp::PopLayer);
+    Ok(())
+}
+
 fn draw_bitmap(g: &GlyphPaint, shape: &Shape, b: &mut FrameBuilder) {
     if let Shape::Bitmap(bitmap, left, top) = shape {
         let id = b.bitmap_id(bitmap.clone());
@@ -340,7 +350,7 @@ fn draw_bitmap(g: &GlyphPaint, shape: &Shape, b: &mut FrameBuilder) {
     }
 }
 
-fn em(g: &GlyphPaint, unit: PaintUnit) -> f64 {
+pub(super) fn em(g: &GlyphPaint, unit: PaintUnit) -> f64 {
     match unit {
         PaintUnit::Px => 1.0,
         PaintUnit::Em => f64::from(f32::from_bits(g.glyph.cache_key.font_size_bits)),
