@@ -3,8 +3,48 @@ use super::*;
 use serde_json::{Value, json};
 
 const SIZE: (u32, u32) = (240, 140);
+
+#[test]
+fn masked_image_preserves_composition_then_multiplies_original_glyph() {
+    let bytes = palette();
+    let origin = pixels(&mut plan(body(&bytes, None), "O", vec![], &bytes), 0.3);
+    for blur in [0.0, 1.25] {
+        let mut paint = image(false);
+        paint["opacity"] = json!(0.5);
+        paint["compositeOpacity"] = json!(0.75);
+        paint["base"] = json!({"kind":"solid","color":"#00FF0080"});
+        let mut source = body(&bytes, Some(paint));
+        let layer = &mut source["scene"]["value"]["nodes"][0]["style"]["paints"][0];
+        layer["offset"] = json!([3, -1]);
+        layer["spread"] = json!(0.75);
+        layer["blur"] = json!(blur);
+        let effect = pixels(&mut plan(source.clone(), "O", vec![], &bytes), 0.3);
+        source["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-paint-mask/1"));
+        source["scene"]["value"]["nodes"][0]["style"]["paints"][0]["mask"] =
+            json!({"kind":"glyph-fill"});
+        let actual = pixels(&mut plan(source, "O", vec![], &bytes), 0.3);
+        let expected: Vec<u8> = effect
+            .chunks_exact(4)
+            .zip(origin.chunks_exact(4))
+            .flat_map(|(p, m)| {
+                p.iter()
+                    .map(move |c| ((u32::from(*c) * u32::from(m[3]) + 127) / 255) as u8)
+            })
+            .collect();
+        assert_eq!(
+            actual, expected,
+            "image composite alpha or mask product changed, blur={blur}"
+        );
+    }
+}
 fn sha(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
 }
 fn png(width: u32, height: u32, pixels: Vec<u8>) -> Vec<u8> {
     Pixmap::from_vec(pixels, tiny_skia::IntSize::from_wh(width, height).unwrap())
@@ -13,7 +53,13 @@ fn png(width: u32, height: u32, pixels: Vec<u8>) -> Vec<u8> {
         .unwrap()
 }
 fn palette() -> Vec<u8> {
-    png(4, 1, vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255])
+    png(
+        4,
+        1,
+        vec![
+            255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 0, 255,
+        ],
+    )
 }
 fn image(phase: bool) -> Value {
     let mut p = json!({"kind":"image","resourceId":"texture","uvTransform":[0.001,0,0,0.001,0.125,0.5],"space":"glyph-normalized","wrap":"repeat","filter":"nearest"});
@@ -24,7 +70,10 @@ fn image(phase: bool) -> Value {
 }
 fn body(bytes: &[u8], paint: Option<Value>) -> Value {
     let font = include_bytes!("../../../render-raster/assets/fonts/VKSans-400.ttf");
-    let mut b: Value = serde_json::from_str(include_str!("../../../caption-scene/tests/fixtures/word-pop.json")).unwrap();
+    let mut b: Value = serde_json::from_str(include_str!(
+        "../../../caption-scene/tests/fixtures/word-pop.json"
+    ))
+    .unwrap();
     let s = &mut b["scene"]["value"];
     s["animations"] = json!([]);
     s["requiredCapabilities"] = json!([
@@ -37,8 +86,7 @@ fn body(bytes: &[u8], paint: Option<Value>) -> Value {
         "caption-text-transform/1"
     ]);
     s["layout"] = json!({"x":{"value":120,"basis":"absolute"},"y":{"value":70,"basis":"absolute"},"width":{"value":220,"basis":"absolute"},"maxLines":2,"overflow":"visible","pagination":{"wordLinePattern":[[1]]}});
-    s["resources"] =
-        json!([{"id":"texture","assetRef":{"id":"generic-palette","revision":"1"},"contentHash":format!("sha256:{}",sha(bytes))}]);
+    s["resources"] = json!([{"id":"texture","assetRef":{"id":"generic-palette","revision":"1"},"contentHash":format!("sha256:{}",sha(bytes))}]);
     s["nodes"][0]["style"] = json!({"fontFamily":"generic-fixture","fontSource":{"sha256":sha(font),"faceIndex":0},"fontWeight":400,"fontSize":{"value":48,"basis":"absolute"},"fill":"#FFFFFF"});
     if let Some(p) = paint {
         s["nodes"][0]["style"]["paints"] = json!([{"id":"texture","paint":p}]);
@@ -80,7 +128,8 @@ fn compile(b: Value, content: &str, words: Vec<SceneWord>) -> ScenePlan {
 }
 fn plan(b: Value, content: &str, words: Vec<SceneWord>, bytes: &[u8]) -> ScenePlan {
     let mut p = compile(b, content, words);
-    p.load_resources(|r| (r.id == "texture").then(|| bytes.to_vec())).unwrap();
+    p.load_resources(|r| (r.id == "texture").then(|| bytes.to_vec()))
+        .unwrap();
     p
 }
 fn pixels(p: &mut ScenePlan, time: f64) -> Vec<u8> {
@@ -98,7 +147,10 @@ fn colors(rgba: &[u8]) -> [usize; 4] {
         };
         n[i] += 1;
     }
-    assert!(n.iter().sum::<usize>() > 20, "fixture must paint actual glyph interiors");
+    assert!(
+        n.iter().sum::<usize>() > 20,
+        "fixture must paint actual glyph interiors"
+    );
     n
 }
 fn assert_palette(rgba: &[u8], expected: &[usize]) {
@@ -121,27 +173,34 @@ fn unit_opacity(b: &mut Value, opacity: f64) {
 
 #[test]
 fn float32_phase_rounding_reaches_real_png_pixels_and_retains_whitespace_indices() {
-    let texture = png(2, 1, vec![255,0,0,255,0,0,255,255]);
+    let texture = png(2, 1, vec![255, 0, 0, 255, 0, 0, 255, 255]);
     let make = |float32: bool, content: &str| {
         let phase = if float32 {
             json!({"period":1,"source":"cue-scalar-index","arithmetic":"float32","indexOffset":1e-6})
-        } else { json!({"period":1,"source":"cue-scalar-index"}) };
-        let paint=json!({"kind":"image","resourceId":"texture","space":"glyph-normalized",
+        } else {
+            json!({"period":1,"source":"cue-scalar-index"})
+        };
+        let paint = json!({"kind":"image","resourceId":"texture","space":"glyph-normalized",
             "uvTransform":[1e-9,0,0,1e-9,0.4999995,0.5],"filter":"nearest","phase":phase});
-        let mut b=body(&texture,Some(paint));
-        if float32 { b["scene"]["value"]["requiredCapabilities"].as_array_mut().unwrap().push(json!("caption-image-phase-float32/1")); }
-        plan(b,content,words(&[("A",0.,4.)]),&texture)
+        let mut b = body(&texture, Some(paint));
+        if float32 {
+            b["scene"]["value"]["requiredCapabilities"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!("caption-image-phase-float32/1"));
+        }
+        plan(b, content, words(&[("A", 0., 4.)]), &texture)
     };
-    let mut old=make(false,"A");
-    let mut at_zero=make(true,"A");
-    let padded=format!("{}A"," ".repeat(32));
-    let mut at_thirty_two=make(true,&padded);
-    assert_palette(&pixels(&mut old,0.5),&[0]);
-    let blue=pixels(&mut at_zero,0.5);
-    assert_palette(&blue,&[2]);
-    assert_palette(&pixels(&mut at_thirty_two,0.5),&[0]);
-    let _=pixels(&mut at_zero,2.5);
-    assert_eq!(pixels(&mut at_zero,0.5),blue);
+    let mut old = make(false, "A");
+    let mut at_zero = make(true, "A");
+    let padded = format!("{}A", " ".repeat(32));
+    let mut at_thirty_two = make(true, &padded);
+    assert_palette(&pixels(&mut old, 0.5), &[0]);
+    let blue = pixels(&mut at_zero, 0.5);
+    assert_palette(&blue, &[2]);
+    assert_palette(&pixels(&mut at_thirty_two, 0.5), &[0]);
+    let _ = pixels(&mut at_zero, 2.5);
+    assert_eq!(pixels(&mut at_zero, 0.5), blue);
 }
 
 #[test]
@@ -149,7 +208,12 @@ fn real_png_requires_matching_sha_and_loaded_resources_and_is_not_constant() {
     let bytes = palette();
     let b = body(&bytes, Some(image(true)));
     let mut p = compile(b, "MM", words(&[("MM", 0., 4.)]));
-    assert!(p.record(0.2).unwrap_err().to_string().contains("CAPTION_RESOURCE_MISSING"));
+    assert!(
+        p.record(0.2)
+            .unwrap_err()
+            .to_string()
+            .contains("CAPTION_RESOURCE_MISSING")
+    );
     assert!(
         p.load_resources(|_| None)
             .unwrap_err()
@@ -163,7 +227,10 @@ fn real_png_requires_matching_sha_and_loaded_resources_and_is_not_constant() {
             .to_string()
             .contains("CAPTION_RESOURCE_DIGEST")
     );
-    assert!(p.record(0.2).is_err(), "failed loads cannot install partial resources");
+    assert!(
+        p.record(0.2).is_err(),
+        "failed loads cannot install partial resources"
+    );
     p.load_resources(|_| Some(bytes.clone())).unwrap();
     assert_palette(&pixels(&mut p, 0.2), &[0, 1]);
 }
@@ -177,7 +244,11 @@ fn png_resource_roundtrip_preserves_every_associated_channel_alpha_pair() {
             let pixel = [channel, alpha - channel, channel / 2, alpha];
             associated.extend(pixel.map(|v| v as u8));
             straight.extend(pixel[..3].iter().map(|v| {
-                if alpha == 0 { 0 } else { ((v * 255 + alpha / 2) / alpha) as u8 }
+                if alpha == 0 {
+                    0
+                } else {
+                    ((v * 255 + alpha / 2) / alpha) as u8
+                }
             }));
             straight.push(alpha as u8);
         }
@@ -190,13 +261,25 @@ fn png_resource_roundtrip_preserves_every_associated_channel_alpha_pair() {
         let mut encoder = png::Encoder::new(&mut encoded, width, 1);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
-        encoder.write_header().unwrap().write_image_data(&straight).unwrap();
+        encoder
+            .write_header()
+            .unwrap()
+            .write_image_data(&straight)
+            .unwrap();
     }
-    let mut p = compile(body(&encoded, Some(image(false))), "M", words(&[("M", 0., 4.)]));
+    let mut p = compile(
+        body(&encoded, Some(image(false))),
+        "M",
+        words(&[("M", 0., 4.)]),
+    );
     p.load_resources(|_| Some(encoded.clone())).unwrap();
     let decoded = &p.images["texture"];
     assert_eq!((decoded.width, decoded.height), (width, 1));
-    assert_eq!(decoded.rgba.as_ref(), associated, "valid associated values must not be premultiplied twice");
+    assert_eq!(
+        decoded.rgba.as_ref(),
+        associated,
+        "valid associated values must not be premultiplied twice"
+    );
 }
 
 #[test]
@@ -232,7 +315,8 @@ fn image_base_node_fill_and_unit_opacity_use_one_glyph_coverage() {
                 let cov = f64::from(m[3]) / 255.;
                 let op = opacity.min(1.);
                 // A separately composed base and texture applies source-over after two AA masks.
-                let double = (255. * (0.5 * op * cov + 0.5 * op * cov * (1. - 0.5 * op * cov))).round() as u8;
+                let double = (255. * (0.5 * op * cov + 0.5 * op * cov * (1. - 0.5 * op * cov)))
+                    .round() as u8;
                 if a[3].abs_diff(double) > 2 {
                     differs_double += 1;
                 }
@@ -259,7 +343,11 @@ fn phase_preserves_cue_scalar_indices_across_pages_spaces_and_tabs() {
     }
     let first = pixels(&mut p, 0.2);
     let _ = pixels(&mut p, 2.2);
-    assert_eq!(pixels(&mut p, 0.2), first, "nonmonotonic seek must preserve phase");
+    assert_eq!(
+        pixels(&mut p, 0.2),
+        first,
+        "nonmonotonic seek must preserve phase"
+    );
 }
 
 #[test]
@@ -366,7 +454,10 @@ fn ligature_phase_is_source_scalar_not_physical_glyph_ordinal() {
     let family = p.style.scene().nodes[0].style.font_family.clone();
     let shaped = p.text.shape("ff", &family, 48., 400);
     assert!(
-        shaped.glyphs.iter().any(|g| g.cluster.end - g.cluster.start >= 2),
+        shaped
+            .glyphs
+            .iter()
+            .any(|g| g.cluster.end - g.cluster.start >= 2),
         "fixture must shape a real multi-scalar ligature"
     );
     assert_palette(&pixels(&mut p, 0.2), &[0]);
@@ -377,7 +468,10 @@ fn ligature_phase_is_source_scalar_not_physical_glyph_ordinal() {
 fn label_phase_uses_its_own_transformed_content() {
     let bytes = palette();
     let mut b = body(&bytes, None);
-    let mut label: Value = serde_json::from_str(include_str!("../../../caption-scene/tests/fixtures/bound-label.json")).unwrap();
+    let mut label: Value = serde_json::from_str(include_str!(
+        "../../../caption-scene/tests/fixtures/bound-label.json"
+    ))
+    .unwrap();
     let s = &mut b["scene"]["value"];
     s["requiredCapabilities"].as_array_mut().unwrap().extend([
         json!("caption-bound-label/1"),
@@ -409,17 +503,27 @@ fn bitmap_recording_roundtrips_bcop_and_unused_image_resources_preserve_legacy()
         }
     }
     let bytes = palette();
-    let mut p = plan(body(&bytes, Some(image(true))), "MM", words(&[("MM", 0., 4.)]), &bytes);
+    let mut p = plan(
+        body(&bytes, Some(image(true))),
+        "MM",
+        words(&[("MM", 0., 4.)]),
+        &bytes,
+    );
     let (ops, _) = p.record(0.2).unwrap();
     assert!(
-        ops.ops.iter().any(|op| matches!(op, DrawOp::DrawBitmap { .. })),
+        ops.ops
+            .iter()
+            .any(|op| matches!(op, DrawOp::DrawBitmap { .. })),
         "image paint must lower to ordinary bitmap composition"
     );
     let encoded = render_raster::drawop::encode(&ops);
     let (_, decoded) = render_raster::drawop::decode(&encoded).unwrap();
     let replay = rasterize_with_media(&decoded, SIZE.0, SIZE.1, &mut NoMedia).unwrap();
     assert_eq!(replay.data(), pixels(&mut p, 0.2));
-    assert_eq!(render_raster::drawop::encode(&p.record(0.2).unwrap().0), encoded);
+    assert_eq!(
+        render_raster::drawop::encode(&p.record(0.2).unwrap().0),
+        encoded
+    );
     let with = body(&bytes, None);
     let mut without = with.clone();
     let s = &mut without["scene"]["value"];
@@ -469,7 +573,10 @@ fn valid_em_effect_that_exceeds_actual_sigma_budget_rejects_before_large_allocat
     layer["blur"] = json!(4);
     let mut p = plan(b, "M", words(&[("M", 0., 4.)]), &bytes);
     let err = p.record(0.2).unwrap_err().to_string();
-    assert!(err.contains("CAPTION_BUDGET_EXCEEDED") && err.contains("blur"), "{err}");
+    assert!(
+        err.contains("CAPTION_BUDGET_EXCEEDED") && err.contains("blur"),
+        "{err}"
+    );
 }
 // Append after the first integration test session has completed.
 #[test]
@@ -490,7 +597,11 @@ fn rtl_phase_uses_logical_scalars_despite_visual_glyph_order() {
     let frame = pixels(&mut p, 0.2);
     assert_palette(&frame, &[0, 1]);
     let mut sums = [(0u64, 0u64); 2];
-    for (i, p) in frame.chunks_exact(4).enumerate().filter(|(_, p)| p[3] >= 250) {
+    for (i, p) in frame
+        .chunks_exact(4)
+        .enumerate()
+        .filter(|(_, p)| p[3] >= 250)
+    {
         let c = if p[0] >= 250 { 0 } else { 1 };
         sums[c].0 += (i as u64 % u64::from(SIZE.0)) * u64::from(p[3]);
         sums[c].1 += u64::from(p[3]);
@@ -508,7 +619,12 @@ fn normalized_line_page_and_em_domains_have_observable_distinct_sampling() {
     let paint = |space| json!({"kind":"image","resourceId":"texture","uvTransform":[1,0,0,1,0,0],"space":space,"filter":"nearest"});
     let mut b = body(&bytes, Some(paint("glyph-normalized")));
     b["scene"]["value"]["layout"]["pagination"] = json!({"wordLinePattern":[[2]]});
-    let mut g = plan(b.clone(), "M M", words(&[("M", 0., 1.8), ("M", 2., 3.8)]), &bytes);
+    let mut g = plan(
+        b.clone(),
+        "M M",
+        words(&[("M", 0., 1.8), ("M", 2., 3.8)]),
+        &bytes,
+    );
     let glyph = pixels(&mut g, 0.2);
     b["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"] = paint("line-normalized");
     let mut l = plan(b, "M M", words(&[("M", 0., 1.8), ("M", 2., 3.8)]), &bytes);
@@ -524,33 +640,56 @@ fn normalized_line_page_and_em_domains_have_observable_distinct_sampling() {
         frame
             .chunks_exact(4)
             .enumerate()
-            .filter(|(i, p)| p[3] >= 250 && ((*i % SIZE.0 as usize) < center) == left && p[channel] >= 250)
+            .filter(|(i, p)| {
+                p[3] >= 250 && ((*i % SIZE.0 as usize) < center) == left && p[channel] >= 250
+            })
             .count()
     };
     assert!(
-        count(&glyph, true, 0) > 20 && count(&glyph, true, 2) > 20 && count(&glyph, false, 0) > 20 && count(&glyph, false, 2) > 20,
+        count(&glyph, true, 0) > 20
+            && count(&glyph, true, 2) > 20
+            && count(&glyph, false, 0) > 20
+            && count(&glyph, false, 2) > 20,
         "each glyph must sample both halves"
     );
     assert!(count(&line, true, 0) > 20 && count(&line, false, 2) > 20);
-    assert_eq!(count(&line, true, 2), 0, "line coordinates cannot restart at each glyph");
+    assert_eq!(
+        count(&line, true, 2),
+        0,
+        "line coordinates cannot restart at each glyph"
+    );
     assert_eq!(count(&line, false, 0), 0);
     // On a one-line page, the declared line and page coordinate bounds coincide.
     let mut same = body(&bytes, Some(paint("line-normalized")));
     let mut l = plan(same.clone(), "M", words(&[("M", 0., 4.)]), &bytes);
-    same["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["space"] = json!("page-normalized");
+    same["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"]["space"] =
+        json!("page-normalized");
     let mut p = plan(same, "M", words(&[("M", 0., 4.)]), &bytes);
     assert_eq!(pixels(&mut l, 0.2), pixels(&mut p, 0.2));
     let vertical = png(1, 2, vec![255, 0, 0, 255, 0, 0, 255, 255]);
     let mut b = body(&vertical, Some(paint("line-normalized")));
     b["scene"]["value"]["layout"]["pagination"] = json!({"wordLinePattern":[[1,1]]});
-    let mut l = plan(b.clone(), "M M", words(&[("M", 0., 1.8), ("M", 2., 3.8)]), &vertical);
+    let mut l = plan(
+        b.clone(),
+        "M M",
+        words(&[("M", 0., 1.8), ("M", 2., 3.8)]),
+        &vertical,
+    );
     let line = pixels(&mut l, 0.2);
     b["scene"]["value"]["nodes"][0]["style"]["paints"][0]["paint"] = paint("page-normalized");
-    let mut p = plan(b, "M M", words(&[("M", 0., 1.8), ("M", 2., 3.8)]), &vertical);
+    let mut p = plan(
+        b,
+        "M M",
+        words(&[("M", 0., 1.8), ("M", 2., 3.8)]),
+        &vertical,
+    );
     let page = pixels(&mut p, 0.2);
     assert_palette(&line, &[0, 2]);
     assert_palette(&page, &[0, 2]);
-    assert!(max_diff(&line, &page) > 128, "page domain must retain two-line position");
+    assert!(
+        max_diff(&line, &page) > 128,
+        "page domain must retain two-line position"
+    );
     let palette = palette();
     let mut norm = paint("glyph-normalized");
     norm["uvTransform"] = json!([1, 0, 0, 1, 0.5, 0.5]);
@@ -575,7 +714,12 @@ fn repeat_mirror_and_uv_shear_are_sampled_in_real_glyphs() {
         paint["uvTransform"] = matrix;
         paint["filter"] = json!("bilinear");
         paint["wrap"] = json!(wrap);
-        let mut p = plan(body(&bytes, Some(paint)), "MM", words(&[("MM", 0., 4.)]), &bytes);
+        let mut p = plan(
+            body(&bytes, Some(paint)),
+            "MM",
+            words(&[("MM", 0., 4.)]),
+            &bytes,
+        );
         pixels(&mut p, 0.2)
     };
     let repeat = sample("repeat", json!([1, 0, 0, 1, 0, 0]));
@@ -584,12 +728,26 @@ fn repeat_mirror_and_uv_shear_are_sampled_in_real_glyphs() {
     assert!(max_diff(&mirror, &sample("mirror", json!([1, 0, 0, 1, 2, 0]))) <= 1);
     assert!(max_diff(&mirror, &sample("mirror", json!([-1, 0, 0, 1, 0, 0]))) <= 1);
     let rotated = sample("repeat", json!([0, 1, -1, 0, 1, 0]));
-    assert!(max_diff(&repeat, &rotated) > 64, "UV rotation must change actual texture sampling");
-    assert!(repeat.chunks_exact(4).zip(rotated.chunks_exact(4)).all(|(a, b)| a[3] == b[3]));
-    let sheared = sample("repeat", json!([1, 0, 0.6, 1, 0, 0]));
-    assert!(max_diff(&repeat, &sheared) > 64, "UV shear must affect nonconstant image paint");
     assert!(
-        repeat.chunks_exact(4).zip(sheared.chunks_exact(4)).all(|(a, b)| a[3] == b[3]),
+        max_diff(&repeat, &rotated) > 64,
+        "UV rotation must change actual texture sampling"
+    );
+    assert!(
+        repeat
+            .chunks_exact(4)
+            .zip(rotated.chunks_exact(4))
+            .all(|(a, b)| a[3] == b[3])
+    );
+    let sheared = sample("repeat", json!([1, 0, 0.6, 1, 0, 0]));
+    assert!(
+        max_diff(&repeat, &sheared) > 64,
+        "UV shear must affect nonconstant image paint"
+    );
+    assert!(
+        repeat
+            .chunks_exact(4)
+            .zip(sheared.chunks_exact(4))
+            .all(|(a, b)| a[3] == b[3]),
         "opaque texture UV changes cannot change glyph coverage"
     );
 }
@@ -646,7 +804,10 @@ fn overlapping_translucent_effects_apply_common_opacity_once_after_blur_and_spre
     unit_opacity(&mut half, 0.5);
     let mut p = plan(half, "MM", words(&[("MM", 0., 4.)]), &bytes);
     let half = pixels(&mut p, 0.2);
-    let expected = full.iter().map(|v| (*v as f64 * 0.5).round() as u8).collect::<Vec<_>>();
+    let expected = full
+        .iter()
+        .map(|v| (*v as f64 * 0.5).round() as u8)
+        .collect::<Vec<_>>();
     assert!(
         max_diff(&half, &expected) <= 2,
         "effect run must composite overlaps before shared unit opacity"
@@ -744,7 +905,10 @@ fn image_base_linear_matches_cpu_gradient_and_tiny_axis_uses_last_stop() {
             );
         }
         let worst = max_diff(&actual, &ordinary);
-        assert!(worst <= 2, "{name} image base vs original CPU gradient max={worst}");
+        assert!(
+            worst <= 2,
+            "{name} image base vs original CPU gradient max={worst}"
+        );
         assert!(
             actual.chunks_exact(4).filter(|p| p[3] > 0).count() > 100,
             "{name} must paint real glyph coverage"
@@ -755,11 +919,16 @@ fn image_base_linear_matches_cpu_gradient_and_tiny_axis_uses_last_stop() {
                 "last stop must produce interior pixels"
             );
             assert!(
-                actual.chunks_exact(4).all(|p| p[0] == 0 && p[1] == 0 && p[2] == p[3]),
+                actual
+                    .chunks_exact(4)
+                    .all(|p| p[0] == 0 && p[1] == 0 && p[2] == p[3]),
                 "tiny axis cannot choose the first stop or unstable interpolation"
             );
         } else {
-            assert!(actual.chunks_exact(4).any(|p| p[0] > 10) && actual.chunks_exact(4).any(|p| p[2] > 10));
+            assert!(
+                actual.chunks_exact(4).any(|p| p[0] > 10)
+                    && actual.chunks_exact(4).any(|p| p[2] > 10)
+            );
         }
     }
 }

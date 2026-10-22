@@ -15,6 +15,7 @@ mod caption;
 mod draw_source;
 #[path = "gpu/linear-paint.rs"]
 mod linear_paint;
+mod matte;
 mod noisy;
 #[path = "gpu/stroke-replay.rs"]
 mod stroke_replay;

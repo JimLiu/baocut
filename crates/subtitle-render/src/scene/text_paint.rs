@@ -12,12 +12,38 @@ use render_raster::fonts::ShapedGlyph;
 /// Largest device surface one blurred paint layer may allocate.
 const MAX_BLUR_PIXELS: u64 = 16 * 1024 * 1024;
 
+/// Allocation bounds only; paint coordinates remain in the global canvas.
+#[derive(Clone, Copy)]
+pub(super) struct PaintViewport {
+    pub origin: [i32; 2],
+    pub size: (u32, u32),
+}
+impl From<(u32, u32)> for PaintViewport {
+    fn from(size: (u32, u32)) -> Self {
+        Self {
+            origin: [0, 0],
+            size,
+        }
+    }
+}
+impl PaintViewport {
+    pub(super) fn min(self, axis: usize) -> f64 {
+        f64::from(self.origin[axis])
+    }
+    pub(super) fn max(self, axis: usize) -> f64 {
+        self.min(axis) + f64::from(if axis == 0 { self.size.0 } else { self.size.1 })
+    }
+}
+
+#[derive(Clone)]
 pub(super) struct GlyphPaint {
     pub glyph: ShapedGlyph,
     /// Resolved fill with the glyph opacity already applied.
     pub fill: [f64; 4],
     pub opacity: f64,
     pub source_scalar_index: usize,
+    /// Scalar origin of the same transformed text at the logical page boundary.
+    pub page_scalar_origin: usize,
     pub origin: Transform,
     pub paint_bounds: Bounds,
     pub page_bounds: Bounds,
@@ -38,6 +64,22 @@ pub(super) fn record_glyphs(
     images: &BTreeMap<String, BitmapData>,
     b: &mut FrameBuilder,
     budget: &mut Budget,
+) -> Result<()> {
+    record_glyphs_with_surfaces(style, glyphs, canvas, text, images, b, budget, None)
+}
+
+/// Static variants of one logical layer share the existing per-layer surface
+/// allowance. Ordinary stacks keep one fresh allowance for each layer.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn record_glyphs_with_surfaces(
+    style: &TextStyle,
+    glyphs: &[GlyphPaint],
+    canvas: (u32, u32),
+    text: &mut TextEngine,
+    images: &BTreeMap<String, BitmapData>,
+    b: &mut FrameBuilder,
+    budget: &mut Budget,
+    mut shared_surface_pixels: Option<&mut u64>,
 ) -> Result<()> {
     let mut shapes = Vec::with_capacity(glyphs.len());
     for g in glyphs {
@@ -60,6 +102,46 @@ pub(super) fn record_glyphs(
             ),
             GlyphRender::Empty => Shape::Empty,
         });
+    }
+    let mut distance_layers = BTreeMap::new();
+    let mut distance_cache = super::distance_paint::DistanceCache::default();
+    for (index, layer) in style.paints.iter().enumerate() {
+        if layer.distance_coverage.is_some() {
+            distance_layers.insert(
+                index,
+                super::distance_paint::prepare(
+                    layer,
+                    glyphs,
+                    &shapes,
+                    canvas.into(),
+                    images,
+                    &mut distance_cache,
+                    budget,
+                )?,
+            );
+        }
+    }
+    // Check the entire node before emitting paint operations. Matte surfaces
+    // use the canvas, and both content and original coverage are charged.
+    let masked_layers = style.paints.iter().filter(|p| p.mask.is_some()).count() as u64;
+    if masked_layers != 0 {
+        if shapes.iter().any(|s| matches!(s, Shape::Bitmap(..))) {
+            bail!("CAPTION_SCENE_INVALID: glyph paint mask requires outline glyphs");
+        }
+        let pixels = u64::from(canvas.0) * u64::from(canvas.1);
+        if pixels > MAX_BLUR_PIXELS {
+            bail!("CAPTION_BUDGET_EXCEEDED: paint mask surface");
+        }
+        let outlines = shapes
+            .iter()
+            .filter(|s| matches!(s, Shape::Outline(_)))
+            .count() as u64;
+        let work = pixels
+            .checked_mul(2)
+            .and_then(|n| n.checked_mul(outlines))
+            .and_then(|n| n.checked_mul(masked_layers))
+            .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: paint mask work"))?;
+        budget.reserve_paint_mask_work(work)?;
     }
     if style.paints.is_empty() {
         if let Some(s) = &style.stroke {
@@ -94,17 +176,110 @@ pub(super) fn record_glyphs(
         }
         return Ok(());
     }
-    for layer in &style.paints {
+    for (layer_index, layer) in style.paints.iter().enumerate() {
+        if let Some(prepared) = distance_layers.remove(&layer_index) {
+            super::distance_paint::record(prepared, b)?;
+            continue;
+        }
+        let mut local_surface_pixels = 0;
+        let surface_pixels = shared_surface_pixels
+            .as_deref_mut()
+            .unwrap_or(&mut local_surface_pixels);
+        if let Some(PaintMask::GlyphFill {
+            spread,
+            offset,
+            inverted,
+        }) = layer.mask
+        {
+            let mut plain = layer.clone();
+            plain.mask = None;
+            for (g, shape) in glyphs.iter().zip(&shapes) {
+                let Shape::Outline(path) = shape else {
+                    continue;
+                };
+                budget.spend()?;
+                b.push(DrawOp::PushLayer {
+                    opacity: 1.0,
+                    blend: motion::effect::BlendMode::Normal,
+                });
+                let one_glyph = std::slice::from_ref(g);
+                let one_shape = std::slice::from_ref(shape);
+                if matches!(plain.paint, ScenePaint::Image { .. }) {
+                    super::image_paint::record_layer(
+                        &plain, one_glyph, one_shape, canvas, images, b, budget,
+                    )?;
+                } else if plain.coverage.is_some() {
+                    coverage_layer_with_surfaces(
+                        &plain,
+                        one_glyph,
+                        one_shape,
+                        canvas,
+                        b,
+                        budget,
+                        surface_pixels,
+                    )?;
+                } else {
+                    effect_layer(
+                        &plain,
+                        one_glyph,
+                        one_shape,
+                        canvas,
+                        b,
+                        budget,
+                        surface_pixels,
+                    )?;
+                }
+                b.push(DrawOp::PushMatte);
+                let id = b.path_id(path_from_skia(path));
+                let mask_origin = if offset == [0.0, 0.0] {
+                    g.origin
+                } else {
+                    let unit = em(g, layer.unit);
+                    g.origin
+                        .pre_translate((offset[0] * unit) as f32, (offset[1] * unit) as f32)
+                };
+                b.push(DrawOp::FillPath {
+                    path: id,
+                    color: [1.0; 4],
+                    tf: tf(mask_origin),
+                });
+                if spread > 0.0 {
+                    b.push(DrawOp::StrokePath {
+                        path: id,
+                        color: [1.0; 4],
+                        width: (2.0 * spread * em(g, layer.unit)) as f32,
+                        tf: tf(mask_origin),
+                    });
+                }
+                b.push(DrawOp::PopMatte {
+                    mode: if inverted {
+                        render_raster::drawop::MatteMode::AlphaInverted as u8
+                    } else {
+                        render_raster::drawop::MatteMode::Alpha as u8
+                    },
+                });
+                b.push(DrawOp::PopLayer);
+            }
+            continue;
+        }
         if matches!(layer.paint, ScenePaint::Image { .. }) {
             super::image_paint::record_layer(layer, glyphs, &shapes, canvas, images, b, budget)?;
             continue;
         }
         if layer.coverage.is_some() {
-            coverage_layer(layer, glyphs, &shapes, canvas, b, budget)?;
+            coverage_layer_with_surfaces(
+                layer,
+                glyphs,
+                &shapes,
+                canvas,
+                b,
+                budget,
+                surface_pixels,
+            )?;
             continue;
         }
         if layer.spread > 0.0 || layer.blur > 0.0 {
-            effect_layer(layer, glyphs, &shapes, canvas, b, budget, &mut 0)?;
+            effect_layer(layer, glyphs, &shapes, canvas, b, budget, surface_pixels)?;
             continue;
         }
         for (g, shape) in glyphs.iter().zip(&shapes) {
@@ -241,23 +416,26 @@ fn paint_run_key(layer: &PaintLayer, g: &GlyphPaint) -> Result<([u32; 3], f64)> 
         ),
         ScenePaint::Solid { color: c } => ([0; 3], color(c)?[3] * g.opacity),
         ScenePaint::Linear { .. } => ([0; 3], g.opacity),
-        ScenePaint::Image { .. } => bail!("CAPTION_SCENE_INVALID: image paint requires image recording"),
+        ScenePaint::Image { .. } => {
+            bail!("CAPTION_SCENE_INVALID: image paint requires image recording")
+        }
     };
     Ok((rgb, alpha.clamp(0.0, 1.0)))
 }
 
 /// Keep opacity out of the coverage transfer. Distinct paint/opacity runs are
 /// isolated separately, preserving the existing run order and overlap semantics.
-fn coverage_layer(
+#[allow(clippy::too_many_arguments)]
+fn coverage_layer_with_surfaces(
     layer: &PaintLayer,
     glyphs: &[GlyphPaint],
     shapes: &[Shape],
     canvas: (u32, u32),
     b: &mut FrameBuilder,
     budget: &mut Budget,
+    surface_pixels: &mut u64,
 ) -> Result<()> {
     let mut start = 0;
-    let mut surface_pixels = 0;
     while start < glyphs.len() {
         if !matches!(shapes[start], Shape::Outline(_)) {
             start += 1;
@@ -283,13 +461,143 @@ fn coverage_layer(
                 canvas,
                 b,
                 budget,
-                &mut surface_pixels,
+                surface_pixels,
             )?;
             b.push(DrawOp::PopLayer);
         }
         start = end;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod mask_surface_tests {
+    use super::*;
+
+    #[test]
+    fn separate_glyph_coverage_calls_preserve_prior_surface_reservations() {
+        let mut text = TextEngine::with_document_fonts(&[include_bytes!(
+            "../../../render-raster/assets/fonts/NotoSansSC-Variable.ttf"
+        )
+        .to_vec()]);
+        let glyph = text.shape("O", "Noto Sans SC", 40., 400).glyphs.remove(0);
+        let g = GlyphPaint {
+            glyph,
+            fill: [1.; 4],
+            opacity: 1.,
+            source_scalar_index: 0,
+            page_scalar_origin: 0,
+            origin: Transform::identity(),
+            paint_bounds: Bounds::default(),
+            page_bounds: Bounds::default(),
+            paint_origin: (0., 0.),
+        };
+        let shape = Shape::Outline(tiny_skia::PathBuilder::from_rect(
+            tiny_skia::Rect::from_xywh(0., 0., 10., 10.).unwrap(),
+        ));
+        let layer: PaintLayer = serde_json::from_value(serde_json::json!({
+            "id":"coverage","paint":{"kind":"solid","color":"#FFFFFF"},
+            "blur":0.5,"coverage":{"lo":0,"hi":1}}))
+        .unwrap();
+        let mut surfaces = 0;
+        coverage_layer_with_surfaces(
+            &layer,
+            std::slice::from_ref(&g),
+            std::slice::from_ref(&shape),
+            (32, 32),
+            &mut FrameBuilder::default(),
+            &mut Budget::default(),
+            &mut surfaces,
+        )
+        .unwrap();
+        assert!(surfaces > 0);
+        // Prior glyphs exhausted this layer's bitmap budget. A separate call
+        // must reject before allocating/rasterizing instead of resetting it.
+        surfaces = MAX_BLUR_PIXELS;
+        let error = coverage_layer_with_surfaces(
+            &layer,
+            std::slice::from_ref(&g),
+            std::slice::from_ref(&shape),
+            (32, 32),
+            &mut FrameBuilder::default(),
+            &mut Budget::default(),
+            &mut surfaces,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("paint blur surface"));
+    }
+
+    #[test]
+    fn shared_logical_layer_surface_budget_survives_different_paint_groups() {
+        fn record(
+            style: &TextStyle,
+            glyph: &GlyphPaint,
+            text: &mut TextEngine,
+            surfaces: &mut u64,
+        ) -> Result<()> {
+            record_glyphs_with_surfaces(
+                style,
+                std::slice::from_ref(glyph),
+                (64, 64),
+                text,
+                &BTreeMap::new(),
+                &mut FrameBuilder::default(),
+                &mut Budget::default(),
+                Some(surfaces),
+            )
+        }
+        let mut text = TextEngine::with_document_fonts(&[include_bytes!(
+            "../../../render-raster/assets/fonts/NotoSansSC-Variable.ttf"
+        )
+        .to_vec()]);
+        let glyph = GlyphPaint {
+            glyph: text.shape("O", "Noto Sans SC", 40., 400).glyphs.remove(0),
+            fill: [1.; 4],
+            opacity: 1.,
+            source_scalar_index: 0,
+            page_scalar_origin: 0,
+            origin: Transform::from_translate(12., 45.),
+            paint_bounds: Bounds::default(),
+            page_bounds: Bounds::default(),
+            paint_origin: (12., 45.),
+        };
+        // Cover every routed silhouette case, including a masked layer that
+        // delegates to coverage/effect recording internally.
+        for (masked, coverage) in [(false, false), (false, true), (true, false), (true, true)] {
+            let mut layer = serde_json::json!({
+                "id":"shadow","paint":{"kind":"solid","color":"#FFFFFF"},"blur":0.5
+            });
+            if masked {
+                layer["mask"] = serde_json::json!({"kind":"glyph-fill"});
+            }
+            if coverage {
+                layer["coverage"] = serde_json::json!({"lo":0,"hi":1});
+            }
+            let first: TextStyle =
+                serde_json::from_value(serde_json::json!({"paints":[layer.clone()]})).unwrap();
+            layer["paint"]["color"] = serde_json::json!("#FF0000");
+            let second: TextStyle =
+                serde_json::from_value(serde_json::json!({"paints":[layer]})).unwrap();
+            assert_eq!(first.paints[0].id, second.paints[0].id);
+            assert_ne!(first.paints[0], second.paints[0]);
+            let mut first_pixels = 0;
+            record(&first, &glyph, &mut text, &mut first_pixels).unwrap();
+            assert!(first_pixels > 0 && first_pixels < MAX_BLUR_PIXELS);
+            let mut shared = MAX_BLUR_PIXELS - first_pixels;
+            record(&first, &glyph, &mut text, &mut shared).unwrap();
+            assert_eq!(shared, MAX_BLUR_PIXELS);
+            let error = record(&second, &glyph, &mut text, &mut shared).unwrap_err();
+            assert!(
+                error.to_string().contains("paint blur surface"),
+                "mask={masked}, coverage={coverage}: {error}"
+            );
+            let mut next_layer = second;
+            next_layer.paints[0].id = "next-layer".into();
+            let mut next_pixels = 0;
+            record(&next_layer, &glyph, &mut text, &mut next_pixels).unwrap();
+            assert!(next_pixels > 0 && next_pixels < MAX_BLUR_PIXELS);
+        }
+    }
 }
 
 /// Spread or blurred layer: the silhouette of each run of glyphs that shares a
@@ -354,6 +662,30 @@ fn effect_layer(
     if *surface_pixels > MAX_BLUR_PIXELS {
         bail!("CAPTION_BUDGET_EXCEEDED: paint blur surface");
     }
+    let pixels = u64::from(width) * u64::from(height);
+    let radius = if sigma < MIN_SIGMA {
+        0
+    } else {
+        ((3.0 * sigma).ceil() as u64).clamp(
+            1,
+            render_raster::effects::filters::gaussian::MAX_RADIUS as u64,
+        )
+    };
+    let taps = if radius == 0 {
+        0
+    } else {
+        u64::from(width).min(2 * radius + 1) + u64::from(height).min(2 * radius + 1)
+    };
+    let work = pixels
+        .checked_mul(taps + 1)
+        .and_then(|n| n.checked_mul(4))
+        .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: extended paint filter work"))?;
+    budget.reserve_extended_paint_surface(
+        usize::try_from(pixels)?
+            .checked_mul(6)
+            .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: extended paint scratch"))?,
+        work,
+    )?;
     let mut sub = FrameBuilder::default();
     let shift = Transform::from_translate(-x0 as f32, -y0 as f32);
     isolated(layer, glyphs, shapes, shift, &mut sub, budget)?;

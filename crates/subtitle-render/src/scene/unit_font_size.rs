@@ -102,7 +102,7 @@ pub(super) fn note_faces(text: &mut TextEngine, scene: &Scene, node: &Node) -> R
     Ok(())
 }
 
-fn matches(filter: &Filter, unit: &Unit, budget: &mut Budget) -> Result<bool> {
+pub(super) fn matches(filter: &Filter, unit: &Unit, budget: &mut Budget) -> Result<bool> {
     budget.spend()?;
     Ok(match filter {
         Filter::And { filters } => {

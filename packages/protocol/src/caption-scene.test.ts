@@ -3,6 +3,8 @@ import type {
   CaptionClock, CaptionClockTail, CaptionExpression, CaptionIsolationRule, CaptionPatternSelect, CaptionImageSequenceResource, CaptionLayerSource, CaptionMaterial,
   CaptionParameterValue, CaptionPresentation, CaptionRenderLayer, CaptionScene, CaptionSceneNode, CaptionSceneStyleBody,
   CaptionSpeechPhaseReadPath, CaptionWordState,
+  CaptionPaintMask, CaptionPaintLayer,
+  CaptionGlyphDistanceBand, CaptionGlyphDistanceCoverage, CaptionGlyphDistanceAa,
 } from './caption-scene.ts';
 
 const domain = {
@@ -175,4 +177,122 @@ test('shape fill paint stays solid or linear while text layers take the richer p
   expectTypeOf<Fill['kind']>().toEqualTypeOf<'solid' | 'linear'>();
   const fill = { kind: 'linear', from: [0, 0], to: [1, 0], stops: [{ at: 0, color: '#000000' }, { at: 1, color: '#FFFFFF' }] } satisfies Fill;
   expect(JSON.parse(JSON.stringify(fill))).toEqual(fill);
+});
+
+test('glyph fill masks use the owning paint layer unit and retain an optional spread', () => {
+  const layers = [
+    { id: 'offset', unit: 'em', offset: [0.1, -0.1], blur: 0.05,
+      mask: { kind: 'glyph-fill' }, paint: { kind: 'solid', color: '#00000080' } },
+    { id: 'grown', mask: { kind: 'glyph-fill', spread: 2 }, paint: { kind: 'node-fill' } },
+    { id: 'texture', mask: { kind: 'glyph-fill', spread: 0 }, paint: { kind: 'image', resourceId: 'texture',
+      uvTransform: [1, 0, 0, 1, 0, 0], space: 'glyph-normalized', compositeOpacity: 0.5 } },
+  ] satisfies CaptionPaintLayer[];
+  const serialized = JSON.parse(JSON.stringify(layers));
+  expect(serialized[0].mask).toEqual({ kind: 'glyph-fill' });
+  expect(serialized[1].mask).toEqual({ kind: 'glyph-fill', spread: 2 });
+  expect(serialized[2].paint.compositeOpacity).toBe(0.5);
+  expectTypeOf<CaptionPaintMask['kind']>().toEqualTypeOf<'glyph-fill'>();
+  expectTypeOf<CaptionPaintMask['spread']>().toEqualTypeOf<number | undefined>();
+  expectTypeOf<NonNullable<CaptionSceneNode['style']>['paints']>().toEqualTypeOf<CaptionPaintLayer[] | undefined>();
+});
+
+test('legacy paint layers serialize without introducing a mask field', () => {
+  const layer = { id: 'fill', paint: { kind: 'solid', color: '#FFFFFF' } } satisfies CaptionPaintLayer;
+  expect(JSON.stringify(layer)).toBe('{"id":"fill","paint":{"kind":"solid","color":"#FFFFFF"}}');
+  // @ts-expect-error A mask requires a glyph-fill object; null is not an omission.
+  const nullMask: CaptionPaintMask = null;
+  // @ts-expect-error A string is not a mask object.
+  const stringMask: CaptionPaintMask = 'glyph-fill';
+  // @ts-expect-error Mask kinds are closed to the original-position glyph fill.
+  const unknownKind: CaptionPaintMask = { kind: 'glyph-stroke' };
+  // @ts-expect-error Mask fields remain closed; paint blur does not belong to the mask.
+  const unknownField: CaptionPaintMask = { kind: 'glyph-fill', blur: 1 };
+  expect([nullMask, stringMask, unknownKind, unknownField]).toHaveLength(4);
+});
+
+test('mask transforms retain independent offset and explicit inversion DTO fields', () => {
+  const layer = { id: 'inside', unit: 'em', offset: [0.25, 0],
+    mask: { kind: 'glyph-fill', spread: 0.1, offset: [-0.1, 0.2], inverted: true },
+    paint: { kind: 'solid', color: '#00000080' } } satisfies CaptionPaintLayer;
+  const serialized = JSON.parse(JSON.stringify(layer));
+  expect(serialized.offset).toEqual([0.25, 0]);
+  expect(serialized.mask).toEqual({ kind: 'glyph-fill', spread: 0.1, offset: [-0.1, 0.2], inverted: true });
+  expectTypeOf<CaptionPaintMask['offset']>().toEqualTypeOf<[number, number] | undefined>();
+  expectTypeOf<CaptionPaintMask['inverted']>().toEqualTypeOf<boolean | undefined>();
+  // @ts-expect-error Null does not mean the default zero offset.
+  const nullOffset: CaptionPaintMask = { kind: 'glyph-fill', offset: null };
+  // @ts-expect-error An offset has exactly two components.
+  const shortOffset: CaptionPaintMask = { kind: 'glyph-fill', offset: [1] };
+  // @ts-expect-error Inversion must be boolean; null does not mean false.
+  const nullInverted: CaptionPaintMask = { kind: 'glyph-fill', inverted: null };
+  // @ts-expect-error Inversion does not accept a string policy.
+  const stringInverted: CaptionPaintMask = { kind: 'glyph-fill', inverted: 'alpha-inverted' };
+  expect([nullOffset, shortOffset, nullInverted, stringInverted]).toHaveLength(4);
+});
+
+
+test('distance coverage DTO preserves explicit bands, shared AA and zero-width policy', () => {
+  const distance = {
+    source: 'glyph-contours',
+    bands: [
+      { offset: [2, -3], distanceClamp: [-8, 9], threshold: -1, halfWidth: 1.5, thresholdClamp: [-4, 5], edgeClamp: [-6, 7] },
+      { offset: [0, 0], threshold: 0, halfWidth: 0 },
+    ],
+    aa: { kind: 'quad-derivative', sourceBand: 0, scale: 0.75 },
+    combine: 'multiply', zeroWidth: 'error',
+  } satisfies CaptionGlyphDistanceCoverage;
+  const layer = { id: 'distance', distanceCoverage: distance, paint: { kind: 'solid', color: '#33669980' } } satisfies CaptionPaintLayer;
+  const serialized = JSON.parse(JSON.stringify(layer));
+  expect(serialized.distanceCoverage).toEqual(distance);
+  expect(serialized.distanceCoverage.bands[0].distanceClamp).toEqual([-8, 9]);
+  expect(serialized.distanceCoverage.bands[1]).not.toHaveProperty('distanceClamp');
+  expect(serialized.distanceCoverage.bands[1]).not.toHaveProperty('thresholdClamp');
+  expect(serialized.distanceCoverage.bands[1]).not.toHaveProperty('edgeClamp');
+  expectTypeOf<CaptionGlyphDistanceCoverage['source']>().toEqualTypeOf<'glyph-contours'>();
+  expectTypeOf<CaptionGlyphDistanceCoverage['combine']>().toEqualTypeOf<'multiply'>();
+  expectTypeOf<CaptionGlyphDistanceCoverage['zeroWidth']>().toEqualTypeOf<'error' | 'step-inclusive'>();
+  expectTypeOf<CaptionGlyphDistanceBand['offset']>().toEqualTypeOf<[number, number]>();
+  expectTypeOf<CaptionGlyphDistanceBand['distanceClamp']>().toEqualTypeOf<[number, number] | undefined>();
+  expectTypeOf<CaptionGlyphDistanceAa['kind']>().toEqualTypeOf<'quad-derivative'>();
+  expectTypeOf<CaptionPaintLayer['distanceCoverage']>().toEqualTypeOf<CaptionGlyphDistanceCoverage | undefined>();
+});
+
+test('distance coverage types require a named source, one/two bands and an explicit collapsed-band policy', () => {
+  const band = { offset: [0, 0], threshold: 0, halfWidth: 0 } satisfies CaptionGlyphDistanceBand;
+  const valid = { source: 'glyph-contours', bands: [band], aa: { kind: 'quad-derivative', sourceBand: 0, scale: 0 },
+    combine: 'multiply', zeroWidth: 'step-inclusive' } satisfies CaptionGlyphDistanceCoverage;
+  const { zeroWidth: _, ...missingPolicy } = valid;
+  // @ts-expect-error The zero-width policy is required, even with nonzero AA.
+  const implicitPolicy: CaptionGlyphDistanceCoverage = missingPolicy;
+  // @ts-expect-error Distance coverage is optional by omission; null is not a value.
+  const nullDistance: CaptionGlyphDistanceCoverage = null;
+  // @ts-expect-error Glyph outlines are not the named contour-distance provider.
+  const unknownSource: CaptionGlyphDistanceCoverage = { ...valid, source: 'glyph-outline' };
+  // @ts-expect-error Exactly one or two bands are supported.
+  const noBands: CaptionGlyphDistanceCoverage = { ...valid, bands: [] };
+  // @ts-expect-error Three bands exceed the shared model's bounded arity.
+  const threeBands: CaptionGlyphDistanceCoverage = { ...valid, bands: [band, band, band] };
+  // @ts-expect-error Offset has two mandatory finite components, not an omitted default.
+  const missingOffset: CaptionGlyphDistanceBand = { threshold: 0, halfWidth: 1 };
+  // @ts-expect-error Optional clamp fields do not accept null.
+  const nullClamp: CaptionGlyphDistanceBand = { ...band, edgeClamp: null };
+  // @ts-expect-error An optional sample clamp cannot be explicitly null.
+  const nullDistanceClamp: CaptionGlyphDistanceBand = { ...band, distanceClamp: null };
+  // @ts-expect-error A sample clamp has exactly two bounds.
+  const shortDistanceClamp: CaptionGlyphDistanceBand = { ...band, distanceClamp: [0] };
+  expect([implicitPolicy, nullDistance, unknownSource, noBands, threeBands, missingOffset, nullClamp, nullDistanceClamp, shortDistanceClamp]).toHaveLength(9);
+  const legacy = { id: 'fill', paint: { kind: 'solid', color: '#FFFFFF' } } satisfies CaptionPaintLayer;
+  expect(JSON.stringify(legacy)).toBe('{"id":"fill","paint":{"kind":"solid","color":"#FFFFFF"}}');
+  expect(JSON.parse(JSON.stringify(valid))).toEqual(valid);
+});
+
+
+test('static word paint bindings retain complete layer replacements', () => {
+  const bindings = [{ id: 'accent', nodeId: 'text', selectorId: 'marked',
+    style: { fill: '#FFFFFFFF', paints: [{ id: 'fill', paint: { kind: 'node-fill' } }] },
+  }] satisfies NonNullable<CaptionScene['paintStyleBindings']>;
+  expect(JSON.parse(JSON.stringify(bindings))).toEqual(bindings);
+  // @ts-expect-error Null is not an omitted fill override.
+  const invalid: NonNullable<CaptionScene['paintStyleBindings']>[number]['style'] = { fill: null, paints: [] };
+  expect(invalid.fill).toBeNull();
 });

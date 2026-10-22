@@ -50,9 +50,20 @@ fn packed_spans(words: &[Word], content: &str, config: &PageWindow) -> Result<Ve
         } else {
             config.long_gap
         };
-        let cut = end + gap * ratios.after;
+        // Endpoint ratios retain the actual word boundary without cancellation.
+        let cut = if ratios.after == 1.0 {
+            start
+        } else if ratios.after == 0.0 {
+            end
+        } else {
+            end + gap * ratios.after
+        };
         let next = if ratios.before + ratios.after == 1.0 {
             cut
+        } else if ratios.before == 1.0 {
+            end
+        } else if ratios.before == 0.0 {
+            start
         } else {
             start - gap * ratios.before
         };

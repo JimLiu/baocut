@@ -2,6 +2,7 @@
 use super::associated_quad::{AssociatedQuadRenderer, QuadBlend};
 use super::linear_paint::{LinearPaint, LinearPaintRenderer};
 use super::material_support::MaterialSupportCache;
+use super::matte::MatteRenderer;
 use super::stroke_replay::StrokeReplayRenderer;
 use super::*;
 use crate::stroke_coverage::{StrokeCoverage, StrokeCoverageCache, StrokeFrameResources};
@@ -19,8 +20,19 @@ use std::sync::Arc;
 const MAX_DEPTH: usize = 32;
 const MAX_COMPOSITES: usize = 128;
 
+#[derive(Clone, Copy, PartialEq)]
+enum Scope {
+    Root,
+    Layer,
+    Matte,
+}
+
 enum Command {
     Draw(SceneFrame),
+    Matte {
+        commands: Vec<Command>,
+        mode: u8,
+    },
     Linear {
         coverage: SceneFrame,
         paint: LinearPaint,
@@ -45,6 +57,7 @@ pub(super) struct DrawSourcePlan {
     pub(super) stroke_count: usize,
     pub(super) stroke_bytes: u64,
     primitive_work: u64,
+    matte_count: usize,
 }
 impl DrawSourcePlan {
     pub(super) fn surfaces(&self) -> usize {
@@ -54,7 +67,7 @@ impl DrawSourcePlan {
     /// canvas. No source operations are omitted to make a budget fit.
     pub(super) fn work(&self, pixels: u64) -> u64 {
         self.primitive_work
-            .saturating_add(pixels.saturating_mul((1 + self.group_count * 2 + self.paint_count) as u64))
+            .saturating_add(pixels.saturating_mul((1 + self.group_count * 2 + self.paint_count + self.matte_count * 32) as u64))
     }
     pub(super) fn prepare(
         frame: &FrameOps,
@@ -75,12 +88,14 @@ impl DrawSourcePlan {
             stroke_count: 0,
             stroke_bytes: 0,
             primitive_work: 0,
+            matte_count: 0,
         };
         let mut index = 0;
         plan.commands = parse(
             frame,
             &mut index,
             0,
+            Scope::Root,
             true,
             cache,
             strokes,
@@ -88,7 +103,8 @@ impl DrawSourcePlan {
             support,
             size,
             &mut plan,
-        )?;
+        )?
+        .0;
         ensure!(index == frame.ops.len(), "gpu-draw-layer-stack-invalid");
         ensure!(
             plan.paint_count <= MAX_COMPOSITES && plan.group_count <= MAX_COMPOSITES,
@@ -126,6 +142,7 @@ fn parse(
     frame: &FrameOps,
     index: &mut usize,
     depth: usize,
+    scope: Scope,
     visible: bool,
     cache: &mut crate::RetainedDrawCache,
     strokes: &mut StrokeCoverageCache,
@@ -133,7 +150,7 @@ fn parse(
     support_cache: &mut MaterialSupportCache,
     size: Size,
     plan: &mut DrawSourcePlan,
-) -> Result<Vec<Command>> {
+) -> Result<(Vec<Command>, Option<u8>)> {
     ensure!(depth <= MAX_DEPTH, "gpu-draw-layer-depth-limit");
     let mut commands = Vec::new();
     let mut ops = Vec::new();
@@ -174,6 +191,7 @@ fn parse(
                     frame,
                     index,
                     depth + 1,
+                    Scope::Layer,
                     child_visible,
                     cache,
                     strokes,
@@ -186,14 +204,48 @@ fn parse(
                     plan.depth = plan.depth.max(depth + 1);
                     commands.push(Command::Group {
                         opacity: *opacity,
-                        commands: children,
+                        commands: children.0,
                     });
                 }
             }
             DrawOp::PopLayer => {
-                ensure!(depth > 0, "gpu-draw-layer-stack-invalid");
+                ensure!(scope != Scope::Root, "gpu-draw-layer-stack-invalid");
+                ensure!(scope == Scope::Layer, "gpu-draw-matte-stack-invalid");
                 batch(frame, &mut ops, cache, &mut commands, plan, size)?;
-                return Ok(commands);
+                return Ok((commands, None));
+            }
+            DrawOp::PushMatte => {
+                ensure!(scope != Scope::Root, "gpu-draw-matte-root-invalid");
+                batch(frame, &mut ops, cache, &mut commands, plan, size)?;
+                let mask = parse(
+                    frame,
+                    index,
+                    depth + 2,
+                    Scope::Matte,
+                    visible,
+                    cache,
+                    strokes,
+                    stroke_resources,
+                    support_cache,
+                    size,
+                    plan,
+                )?;
+                if visible {
+                    plan.depth = plan.depth.max(depth + 2);
+                    plan.group_count += 1; // One copy-back quad slot.
+                    plan.matte_count += 1;
+                    ensure!(plan.group_count <= MAX_COMPOSITES, "gpu-draw-source-composite-limit");
+                    commands.push(Command::Matte {
+                        commands: mask.0,
+                        mode: mask.1.expect("Matte scope requires PopMatte"),
+                    });
+                }
+            }
+            DrawOp::PopMatte { mode } => {
+                ensure!(scope == Scope::Matte, "gpu-draw-matte-stack-invalid");
+                ensure!(*mode <= 3, "gpu-draw-matte-mode-invalid");
+                batch(frame, &mut ops, cache, &mut commands, plan, size)?;
+                return Ok((commands, Some(*mode)));
             }
             _ if !visible => {}
             DrawOp::FillPathPaint { paint, tf, .. } | DrawOp::StrokePathPaint { paint, tf, .. } => {
@@ -223,9 +275,10 @@ fn parse(
             _ => ops.push(op.clone()),
         }
     }
-    ensure!(depth == 0, "gpu-draw-layer-stack-invalid");
+    ensure!(scope != Scope::Matte, "gpu-draw-matte-stack-invalid");
+    ensure!(scope == Scope::Root, "gpu-draw-layer-stack-invalid");
     batch(frame, &mut ops, cache, &mut commands, plan, size)?;
-    Ok(commands)
+    Ok((commands, None))
 }
 
 fn subset(frame: &FrameOps, ops: Vec<DrawOp>) -> FrameOps {
@@ -307,6 +360,7 @@ pub(super) struct DrawSourceRenderer {
     device: wgpu::Device,
     linear: LinearPaintRenderer,
     quad: AssociatedQuadRenderer,
+    matte: MatteRenderer,
     surfaces: Vec<Surface>,
     stroke: StrokeReplayRenderer,
     size: Size,
@@ -316,6 +370,7 @@ impl DrawSourceRenderer {
         Self {
             linear: LinearPaintRenderer::new(device.clone(), queue.clone()),
             quad: AssociatedQuadRenderer::new(device.clone(), queue.clone()),
+            matte: MatteRenderer::new(device.clone(), queue.clone()),
             stroke: StrokeReplayRenderer::new(device.clone(), queue),
             device,
             surfaces: Vec::new(),
@@ -395,6 +450,43 @@ impl DrawSourceRenderer {
     ) -> Result<()> {
         for command in commands {
             match command {
+                Command::Matte { commands, mode } => {
+                    let mask = self.surfaces[depth].view.clone();
+                    let result = self.surfaces[depth + 1].view.clone();
+                    encode_clear(encoder, &mask);
+                    self.commands(
+                        commands,
+                        depth + 2,
+                        coverage_index,
+                        &mask,
+                        compositor,
+                        slots,
+                        textures,
+                        paint_slot,
+                        group_slot,
+                        stroke_slot,
+                        encoder,
+                    )?;
+                    self.matte.encode(*group_slot, target, &mask, &result, *mode, encoder)?;
+                    self.quad.encode(
+                        *group_slot,
+                        &result,
+                        [0.0, 0.0, self.size.width as f64, self.size.height as f64],
+                        [1.0, 1.0],
+                        [0.0, 0.0],
+                        &RenderTarget {
+                            view: target,
+                            width: self.size.width,
+                            height: self.size.height,
+                            format: wgpu::TextureFormat::Rgba8Unorm,
+                        },
+                        QuadBlend::Copy,
+                        1.0,
+                        true,
+                        encoder,
+                    )?;
+                    *group_slot += 1;
+                }
                 Command::Stroke { coverage, paint } => {
                     self.stroke.encode(*stroke_slot, coverage, paint, target, encoder)?;
                     *stroke_slot += 1;
@@ -475,9 +567,12 @@ impl DrawSourceRenderer {
     pub(super) fn finish_frame(&mut self, paint_slots: usize, group_slots: usize, stroke_slots: usize) {
         self.linear.finish_frame(paint_slots);
         self.quad.finish_frame(group_slots);
+        self.matte.finish_frame(group_slots);
         self.stroke.finish_frame(stroke_slots);
     }
     pub(super) fn resident_bytes(&self) -> u64 {
-        self.surfaces.len() as u64 * u64::from(self.size.width) * u64::from(self.size.height) * 4 + self.stroke.resident_bytes()
+        self.surfaces.len() as u64 * u64::from(self.size.width) * u64::from(self.size.height) * 4
+            + self.stroke.resident_bytes()
+            + self.matte.resident_bytes()
     }
 }

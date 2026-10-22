@@ -129,7 +129,11 @@ pub(super) fn draw(
             glyph: glyph.clone(),
             fill,
             opacity: 1.0,
-            source_scalar_index: super::image_paint::scalar_index(&scalar_map, glyph.cluster.start)?,
+            source_scalar_index: super::image_paint::scalar_index(
+                &scalar_map,
+                glyph.cluster.start,
+            )?,
+            page_scalar_origin: 0,
             origin: transform.pre_translate(xy.0 as f32, xy.1 as f32),
             paint_bounds: bounds,
             page_bounds: bounds,

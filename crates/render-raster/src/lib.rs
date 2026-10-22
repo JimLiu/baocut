@@ -54,6 +54,7 @@ pub mod emissive;
 #[cfg(feature = "media")]
 pub mod exec;
 pub mod fonts;
+pub mod glyph_distance;
 pub mod imgcmp;
 #[cfg(feature = "media")]
 pub mod media;
@@ -79,7 +80,8 @@ pub use assets::{LoadedAssets, load_assets, load_assets_with_vars};
 pub use bcf::{BcfFrameWorker, PreparedBcf, SharedBcf};
 pub use drawop::{FrameOps, decode, encode, fingerprint};
 pub use fonts::{
-    GlyphAtlasRender, GlyphColorImage, GlyphKey, GlyphMaskImage, GlyphRender, TextEngine, warm_system_fonts,
+    GlyphAtlasRender, GlyphColorImage, GlyphKey, GlyphMaskImage, GlyphRender, TextEngine,
+    warm_system_fonts,
 };
 #[cfg(feature = "media")]
 pub use media::MediaStore;

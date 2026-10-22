@@ -207,7 +207,13 @@ impl RetainedDrawCache {
                         &mut instances,
                     )?;
                 }
-                DrawOp::DrawBitmap { bitmap, opacity, tf } => {
+                DrawOp::DrawBitmap { bitmap, opacity, tf }
+                | DrawOp::DrawEmissiveBitmap {
+                    blend: render_raster::drawop::AssociatedBlend::SourceOver,
+                    bitmap,
+                    opacity,
+                    tf,
+                } => {
                     let bitmap = frame
                         .bitmaps
                         .get(*bitmap as usize)

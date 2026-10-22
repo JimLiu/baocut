@@ -13,7 +13,11 @@ pub(super) fn uses_phase(style: &TextStyle) -> bool {
         .any(|layer| matches!(layer.paint, ScenePaint::Image { phase: Some(_), .. }))
 }
 
-pub(super) fn scalar_map(style: &TextStyle, content: &str, budget: &mut Budget) -> Result<Option<Vec<usize>>> {
+pub(super) fn scalar_map(
+    style: &TextStyle,
+    content: &str,
+    budget: &mut Budget,
+) -> Result<Option<Vec<usize>>> {
     if !uses_phase(style) {
         return Ok(None);
     }
@@ -28,9 +32,11 @@ pub(super) fn scalar_map(style: &TextStyle, content: &str, budget: &mut Budget) 
 pub(super) fn scalar_index(map: &Option<Vec<usize>>, byte: usize) -> Result<usize> {
     match map {
         None => Ok(0),
-        Some(map) => map
-            .binary_search(&byte)
-            .map_err(|_| anyhow::anyhow!("CAPTION_LAYOUT_INVALID: image phase cluster is not a source scalar boundary")),
+        Some(map) => map.binary_search(&byte).map_err(|_| {
+            anyhow::anyhow!(
+                "CAPTION_LAYOUT_INVALID: image phase cluster is not a source scalar boundary"
+            )
+        }),
     }
 }
 
@@ -48,6 +54,21 @@ fn phase_value(phase: ImagePaintPhase, index: usize) -> f64 {
             f64::from(divided - libm::floorf(divided))
         }
     }
+}
+
+fn glyph_phase_value(phase: ImagePaintPhase, glyph: &GlyphPaint) -> Result<f64> {
+    let index = match phase.source {
+        ImagePaintPhaseSource::CueScalarIndex => glyph.source_scalar_index,
+        ImagePaintPhaseSource::PageScalarIndex => glyph
+            .source_scalar_index
+            .checked_sub(glyph.page_scalar_origin)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "CAPTION_LAYOUT_INVALID: image phase precedes its page source origin"
+                )
+            })?,
+    };
+    Ok(phase_value(phase, index))
 }
 
 #[cfg(test)]
@@ -93,10 +114,19 @@ mod phase_precision_tests {
     }
 }
 fn layer_unit(g: &GlyphPaint, layer: &PaintLayer) -> f64 {
-    if layer.unit == PaintUnit::Em { glyph_em(g) } else { 1. }
+    if layer.unit == PaintUnit::Em {
+        glyph_em(g)
+    } else {
+        1.
+    }
 }
 
-fn domain(space: ImagePaintSpace, g: &GlyphPaint, ink: tiny_skia::Rect, point: [f64; 2]) -> Result<[f64; 2]> {
+fn domain(
+    space: ImagePaintSpace,
+    g: &GlyphPaint,
+    ink: tiny_skia::Rect,
+    point: [f64; 2],
+) -> Result<[f64; 2]> {
     let bounds = match space {
         ImagePaintSpace::GlyphEm => {
             let em = glyph_em(g);
@@ -128,10 +158,13 @@ fn domain(space: ImagePaintSpace, g: &GlyphPaint, ink: tiny_skia::Rect, point: [
     if bounds.width <= 0. || bounds.height <= 0. {
         bail!("CAPTION_LAYOUT_INVALID: image paint domain bounds");
     }
-    Ok([(point[0] - bounds.x) / bounds.width, (point[1] - bounds.y) / bounds.height])
+    Ok([
+        (point[0] - bounds.x) / bounds.width,
+        (point[1] - bounds.y) / bounds.height,
+    ])
 }
 
-enum Base {
+pub(super) enum Base {
     Solid([f64; 4]),
     Linear {
         p0: [f32; 2],
@@ -140,7 +173,11 @@ enum Base {
     },
 }
 impl Base {
-    fn prepare(base: Option<&ScenePaint>, g: &GlyphPaint, path: &tiny_skia::Path) -> Result<Self> {
+    pub(super) fn prepare(
+        base: Option<&ScenePaint>,
+        g: &GlyphPaint,
+        path: &tiny_skia::Path,
+    ) -> Result<Self> {
         let straight = match base {
             None => [0.; 4],
             Some(ScenePaint::NodeFill) => {
@@ -155,7 +192,9 @@ impl Base {
             Some(ScenePaint::Solid { color: c }) => color(c)?,
             Some(paint @ ScenePaint::Linear { .. }) => {
                 let bounds = super::text_paint::paint_bounds(paint, g, path);
-                let PaintData::Linear { p0, p1, stops } = scene_paint(paint, bounds, g.paint_origin, 1.)? else {
+                let PaintData::Linear { p0, p1, stops } =
+                    scene_paint(paint, bounds, g.paint_origin, 1.)?
+                else {
                     unreachable!()
                 };
                 if stops.is_empty() {
@@ -163,7 +202,9 @@ impl Base {
                 }
                 let length = tiny_skia::Point::from_xy(p1[0] - p0[0], p1[1] - p0[1]).length();
                 if stops.len() == 1 || length <= 1. / 32768. {
-                    return Ok(Self::Solid(premultiply(stops.last().unwrap().color.map(f64::from))));
+                    return Ok(Self::Solid(premultiply(
+                        stops.last().unwrap().color.map(f64::from),
+                    )));
                 }
                 return Ok(Self::Linear { p0, p1, stops });
             }
@@ -171,14 +212,18 @@ impl Base {
         };
         Ok(Self::Solid(premultiply(straight)))
     }
-    fn sample(&self, point: [f64; 2]) -> [f64; 4] {
+    pub(super) fn sample(&self, point: [f64; 2]) -> [f64; 4] {
         let Self::Linear { p0, p1, stops } = self else {
-            let Self::Solid(value) = self else { unreachable!() };
+            let Self::Solid(value) = self else {
+                unreachable!()
+            };
             return *value;
         };
         let dx = f64::from(p1[0] - p0[0]);
         let dy = f64::from(p1[1] - p0[1]);
-        let t = (((point[0] - f64::from(p0[0])) * dx + (point[1] - f64::from(p0[1])) * dy) / (dx * dx + dy * dy)).clamp(0., 1.);
+        let t = (((point[0] - f64::from(p0[0])) * dx + (point[1] - f64::from(p0[1])) * dy)
+            / (dx * dx + dy * dy))
+            .clamp(0., 1.);
         let right = stops.partition_point(|stop| f64::from(stop.offset) <= t);
         let straight = if right == 0 {
             stops[0].color.map(f64::from)
@@ -187,8 +232,14 @@ impl Base {
         } else {
             let (a, b) = (stops[right - 1], stops[right]);
             let span = f64::from(b.offset - a.offset);
-            let fraction = if span > 0. { (t - f64::from(a.offset)) / span } else { 1. };
-            std::array::from_fn(|c| f64::from(a.color[c]) * (1. - fraction) + f64::from(b.color[c]) * fraction)
+            let fraction = if span > 0. {
+                (t - f64::from(a.offset)) / span
+            } else {
+                1.
+            };
+            std::array::from_fn(|c| {
+                f64::from(a.color[c]) * (1. - fraction) + f64::from(b.color[c]) * fraction
+            })
         };
         // The existing gradient contract interpolates straight RGBA, then premultiplies.
         premultiply(straight)
@@ -196,7 +247,102 @@ impl Base {
 }
 fn premultiply(straight: [f64; 4]) -> [f64; 4] {
     let alpha = straight[3].clamp(0., 1.);
-    [straight[0] * alpha, straight[1] * alpha, straight[2] * alpha, alpha]
+    [
+        straight[0] * alpha,
+        straight[1] * alpha,
+        straight[2] * alpha,
+        alpha,
+    ]
+}
+
+/// Image color in the original glyph domain, independent of its coverage field.
+/// Resource/domain/base validation happens before any paint DrawOps are emitted.
+pub(super) struct CoveredImage<'a> {
+    sampler: Sampler<'a>,
+    glyph: &'a GlyphPaint,
+    path: &'a tiny_skia::Path,
+    space: ImagePaintSpace,
+    uv_transform: [f64; 6],
+    phase: f64,
+    opacity: f64,
+    composite_opacity: f64,
+    base: Base,
+}
+impl<'a> CoveredImage<'a> {
+    pub(super) fn prepare(
+        paint: &ScenePaint,
+        glyph: &'a GlyphPaint,
+        path: &'a tiny_skia::Path,
+        images: &'a BTreeMap<String, BitmapData>,
+    ) -> Result<Self> {
+        let ScenePaint::Image {
+            resource_id,
+            uv_transform,
+            space,
+            wrap,
+            filter,
+            opacity,
+            composite_opacity,
+            base,
+            phase,
+            phase_offset,
+        } = paint
+        else {
+            bail!("CAPTION_SCENE_INVALID: image color required")
+        };
+        let image = images
+            .get(resource_id)
+            .ok_or_else(|| anyhow::anyhow!("CAPTION_RESOURCE_MISSING: {resource_id}"))?;
+        let wrap = match wrap {
+            ImagePaintWrap::Clamp => Wrap::Clamp,
+            ImagePaintWrap::Repeat => Wrap::Repeat,
+            ImagePaintWrap::Mirror => Wrap::Mirror,
+        };
+        let filter = match filter {
+            ImagePaintFilter::Nearest => Filter::Nearest,
+            ImagePaintFilter::Bilinear => Filter::Bilinear,
+        };
+        let sampler = Sampler::from_decoded_premultiplied(
+            &image.rgba,
+            image.width,
+            image.height,
+            wrap,
+            filter,
+        )?;
+        // Check this prepared glyph domain before recording any node DrawOps.
+        domain(*space, glyph, path.bounds(), [0., 0.])?;
+        Ok(Self {
+            sampler,
+            glyph,
+            path,
+            space: *space,
+            uv_transform: *uv_transform,
+            phase: phase
+                .as_ref()
+                .map(|p| glyph_phase_value(*p, glyph))
+                .transpose()?
+                .unwrap_or(0.)
+                + phase_offset,
+            opacity: *opacity,
+            composite_opacity: *composite_opacity,
+            base: Base::prepare(base.as_deref(), glyph, path)?,
+        })
+    }
+    pub(super) fn sample(&self, point: [f64; 2], coverage_opacity: f64) -> Result<[u8; 4]> {
+        let coordinate = domain(self.space, self.glyph, self.path.bounds(), point)?;
+        let m = self.uv_transform;
+        let uv = [
+            m[0] * coordinate[0] + m[2] * coordinate[1] + m[4] + self.phase,
+            m[1] * coordinate[0] + m[3] * coordinate[1] + m[5],
+        ];
+        // Keep associated color in f64 until the final coverage/opacity and round.
+        Ok(over_base(
+            self.sampler.sample(uv)?,
+            self.base.sample(point),
+            self.opacity,
+            coverage_opacity * self.composite_opacity,
+        ))
+    }
 }
 
 pub(super) fn record_layer(
@@ -221,7 +367,10 @@ pub(super) fn record_layer(
         }
         let opacity = glyphs[start].opacity.clamp(0., 1.);
         let mut end = start + 1;
-        while end < glyphs.len() && (!matches!(shapes[end], Shape::Outline(_)) || glyphs[end].opacity.clamp(0., 1.) == opacity) {
+        while end < glyphs.len()
+            && (!matches!(shapes[end], Shape::Outline(_))
+                || glyphs[end].opacity.clamp(0., 1.) == opacity)
+        {
             end += 1;
         }
         if opacity > 0. {
@@ -278,20 +427,24 @@ fn record_run(
         ImagePaintFilter::Nearest => Filter::Nearest,
         ImagePaintFilter::Bilinear => Filter::Bilinear,
     };
-    let sampler = Sampler::from_decoded_premultiplied(&image.rgba, image.width, image.height, wrap, filter)?;
+    let sampler =
+        Sampler::from_decoded_premultiplied(&image.rgba, image.width, image.height, wrap, filter)?;
     let mut prepared = Vec::new();
     let mut union: Option<[f64; 4]> = None;
     let mut sigma = 0_f64;
     for (g, shape) in glyphs.iter().zip(shapes) {
-        let Shape::Outline(path) = shape else { continue };
+        let Shape::Outline(path) = shape else {
+            continue;
+        };
         if g.opacity <= 0. {
             continue;
         }
         budget.spend()?;
         let scale = layer_unit(g, layer);
-        let transform = g
-            .origin
-            .pre_translate((layer.offset[0] * scale) as f32, (layer.offset[1] * scale) as f32);
+        let transform = g.origin.pre_translate(
+            (layer.offset[0] * scale) as f32,
+            (layer.offset[1] * scale) as f32,
+        );
         let Some(inverse) = transform.invert() else {
             bail!("CAPTION_LAYOUT_INVALID: image paint pose inverse")
         };
@@ -308,14 +461,36 @@ fn record_run(
             bail!("CAPTION_LAYOUT_INVALID: image paint device bounds");
         }
         let bounds = [
-            points.iter().map(|p| f64::from(p.x)).fold(f64::INFINITY, f64::min) - 1.,
-            points.iter().map(|p| f64::from(p.y)).fold(f64::INFINITY, f64::min) - 1.,
-            points.iter().map(|p| f64::from(p.x)).fold(f64::NEG_INFINITY, f64::max) + 1.,
-            points.iter().map(|p| f64::from(p.y)).fold(f64::NEG_INFINITY, f64::max) + 1.,
+            points
+                .iter()
+                .map(|p| f64::from(p.x))
+                .fold(f64::INFINITY, f64::min)
+                - 1.,
+            points
+                .iter()
+                .map(|p| f64::from(p.y))
+                .fold(f64::INFINITY, f64::min)
+                - 1.,
+            points
+                .iter()
+                .map(|p| f64::from(p.x))
+                .fold(f64::NEG_INFINITY, f64::max)
+                + 1.,
+            points
+                .iter()
+                .map(|p| f64::from(p.y))
+                .fold(f64::NEG_INFINITY, f64::max)
+                + 1.,
         ];
         let u = union.get_or_insert(bounds);
-        *u = [u[0].min(bounds[0]), u[1].min(bounds[1]), u[2].max(bounds[2]), u[3].max(bounds[3])];
-        let determinant = f64::from(transform.sx) * f64::from(transform.sy) - f64::from(transform.kx) * f64::from(transform.ky);
+        *u = [
+            u[0].min(bounds[0]),
+            u[1].min(bounds[1]),
+            u[2].max(bounds[2]),
+            u[3].max(bounds[3]),
+        ];
+        let determinant = f64::from(transform.sx) * f64::from(transform.sy)
+            - f64::from(transform.kx) * f64::from(transform.ky);
         let next_sigma = layer.blur * scale * determinant.abs().sqrt();
         if !next_sigma.is_finite() {
             bail!("CAPTION_LAYOUT_INVALID: image paint blur scale");
@@ -329,7 +504,11 @@ fn record_run(
     if sigma > 256. {
         bail!("CAPTION_BUDGET_EXCEEDED: image paint blur radius");
     }
-    let reach = if sigma >= MIN_SIGMA { (3. * sigma).ceil() + 1. } else { 0. };
+    let reach = if sigma >= MIN_SIGMA {
+        (3. * sigma).ceil() + 1.
+    } else {
+        0.
+    };
     let x0 = (bounds[0] - reach).floor().max(-reach);
     let y0 = (bounds[1] - reach).floor().max(-reach);
     let x1 = (bounds[2] + reach).ceil().min(f64::from(canvas.0) + reach);
@@ -337,7 +516,10 @@ fn record_run(
     if !(x1 > x0 && y1 > y0) {
         return Ok(());
     }
-    if ![x0, y0, x1, y1, sigma].iter().all(|v| v.is_finite()) || x1 - x0 > 65536. || y1 - y0 > 65536. {
+    if ![x0, y0, x1, y1, sigma].iter().all(|v| v.is_finite())
+        || x1 - x0 > 65536.
+        || y1 - y0 > 65536.
+    {
         bail!("CAPTION_BUDGET_EXCEEDED: image paint dimensions");
     }
     let width = (x1 - x0) as u32;
@@ -352,17 +534,16 @@ fn record_run(
     budget.reserve_image_paint_work(output_pixels as u64)?;
     if sigma >= MIN_SIGMA {
         // Reserve the f32 Gaussian row scratch as four RGBA8-equivalent surfaces.
-        budget.reserve_image_paint_pixels(
-            output_pixels
-                .checked_mul(4)
-                .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint blur scratch"))?,
-        )?;
+        budget.reserve_image_paint_pixels(output_pixels.checked_mul(4).ok_or_else(|| {
+            anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint blur scratch")
+        })?)?;
         let radius = (3. * sigma).ceil() as u64;
         let taps_x = (2 * radius + 1).min(u64::from(width));
         let taps_y = (2 * radius + 1).min(u64::from(height));
         budget.reserve_image_paint_work(output_pixels as u64 * (taps_x + taps_y) * 4)?;
     }
-    let mut surface = Pixmap::new(width, height).ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint surface"))?;
+    let mut surface = Pixmap::new(width, height)
+        .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint surface"))?;
     for (g, path, transform, inverse, bounds, scale) in prepared {
         let gx0 = bounds[0].floor().max(x0);
         let gy0 = bounds[1].floor().max(y0);
@@ -378,7 +559,8 @@ fn record_run(
         // Includes UV/base preparation per covered pixel, up to four image texels
         // and bounded base-gradient stop lookup; charge before scanning the ROI.
         budget.reserve_image_paint_work(mask_pixels as u64 * 32)?;
-        let mut mask = Pixmap::new(mw, mh).ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint mask"))?;
+        let mut mask = Pixmap::new(mw, mh)
+            .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint mask"))?;
         let mut white = Paint::default();
         white.set_color_rgba8(255, 255, 255, 255);
         white.anti_alias = true;
@@ -390,24 +572,41 @@ fn record_run(
             ..Stroke::default()
         };
         if layer.stroke_width > 0. {
-            mask.stroke_path(path, &white, &stroke((layer.stroke_width * scale) as f32), shifted, None);
+            mask.stroke_path(
+                path,
+                &white,
+                &stroke((layer.stroke_width * scale) as f32),
+                shifted,
+                None,
+            );
         } else {
             mask.fill_path(path, &white, FillRule::Winding, shifted, None);
             if layer.spread > 0. {
-                mask.stroke_path(path, &white, &stroke((layer.spread * scale * 2.) as f32), shifted, None);
+                mask.stroke_path(
+                    path,
+                    &white,
+                    &stroke((layer.spread * scale * 2.) as f32),
+                    shifted,
+                    None,
+                );
             }
         }
         let prepared_base = Base::prepare(base.as_deref(), g, path)?;
         let phase = phase
             .as_ref()
-            .map_or(0., |p| phase_value(*p, g.source_scalar_index));
+            .map(|p| glyph_phase_value(*p, g))
+            .transpose()?
+            .unwrap_or(0.);
         for yy in 0..mh {
             for xx in 0..mw {
                 let coverage = f64::from(mask.data()[((yy * mw + xx) * 4 + 3) as usize]) / 255.;
                 if coverage == 0. {
                     continue;
                 }
-                let mut point = tiny_skia::Point::from_xy((gx0 + f64::from(xx) + 0.5) as f32, (gy0 + f64::from(yy) + 0.5) as f32);
+                let mut point = tiny_skia::Point::from_xy(
+                    (gx0 + f64::from(xx) + 0.5) as f32,
+                    (gy0 + f64::from(yy) + 0.5) as f32,
+                );
                 inverse.map_point(&mut point);
                 let local = [f64::from(point.x), f64::from(point.y)];
                 let coordinate = domain(*space, g, path.bounds(), local)?;
@@ -420,13 +619,20 @@ fn record_run(
                     sampler.sample(uv)?,
                     prepared_base.sample(local),
                     *opacity,
-                    coverage * if group_opacity.is_some() { 1. } else { g.opacity.clamp(0., 1.) * composite_opacity },
+                    coverage
+                        * if group_opacity.is_some() {
+                            1.
+                        } else {
+                            g.opacity.clamp(0., 1.) * composite_opacity
+                        },
                 );
                 let at = ((((gy0 - y0) as u32 + yy) * width + (gx0 - x0) as u32 + xx) * 4) as usize;
                 let dest = &mut surface.data_mut()[at..at + 4];
                 let inverse_alpha = 255 - u32::from(colour[3]);
                 for c in 0..4 {
-                    dest[c] = (u32::from(colour[c]) + (u32::from(dest[c]) * inverse_alpha + 127) / 255).min(255) as u8;
+                    dest[c] = (u32::from(colour[c])
+                        + (u32::from(dest[c]) * inverse_alpha + 127) / 255)
+                        .min(255) as u8;
                 }
             }
         }
@@ -452,5 +658,6 @@ fn surface_pixels(width: u32, height: u32) -> Result<usize> {
     if count > 16 * 1024 * 1024 {
         bail!("CAPTION_BUDGET_EXCEEDED: image paint pixels");
     }
-    usize::try_from(count).map_err(|_| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint address space"))
+    usize::try_from(count)
+        .map_err(|_| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: image paint address space"))
 }

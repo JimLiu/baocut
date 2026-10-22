@@ -114,14 +114,19 @@ const PAGE_LINE_FIELDS: [&str; 3] = ["layout.pageLineBoxX", "layout.pageLineBoxW
 pub fn page_line_slot(path: &str) -> Option<(&'static str, usize)> {
     PAGE_LINE_FIELDS.iter().find_map(|field| {
         let slot = path.strip_prefix(field)?.strip_prefix('.')?;
-        let canonical = !slot.is_empty() && slot.len() <= 2 && slot.bytes().all(|b| b.is_ascii_digit()) && (slot == "0" || !slot.starts_with('0'));
+        let canonical =
+            !slot.is_empty() && slot.len() <= 2 && slot.bytes().all(|b| b.is_ascii_digit()) && (slot == "0" || !slot.starts_with('0'));
         let slot = slot.parse::<usize>().ok().filter(|k| canonical && *k < PAGE_LINE_SLOTS)?;
         Some((*field, slot))
     })
 }
 pub fn context_type(path: &str) -> Option<ValueType> {
     if let Some((field, _)) = page_line_slot(path) {
-        return Some(if field.starts_with("unit.") { ValueType::Scalar } else { ValueType::Length });
+        return Some(if field.starts_with("unit.") {
+            ValueType::Scalar
+        } else {
+            ValueType::Length
+        });
     }
     Some(match path {
         "time.elapsedSeconds"
@@ -250,7 +255,11 @@ fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
             ));
         }
         if slot >= scene.layout.max_lines {
-            return Err(Diagnostic::new("CAPTION_EXPRESSION_TYPE", path, "page line slot is not below maxLines"));
+            return Err(Diagnostic::new(
+                "CAPTION_EXPRESSION_TYPE",
+                path,
+                "page line slot is not below maxLines",
+            ));
         }
     }
     if matches!(
@@ -708,6 +717,9 @@ pub struct Budget {
     image_paint_pixels: usize,
     image_phase_slots: usize,
     image_paint_work: u64,
+    paint_mask_work: u64,
+    glyph_distance_work: u64,
+    extended_paint_stack: bool,
 }
 impl Default for Budget {
     fn default() -> Self {
@@ -723,6 +735,9 @@ impl Budget {
             image_paint_pixels: 0,
             image_phase_slots: 0,
             image_paint_work: 0,
+            paint_mask_work: 0,
+            glyph_distance_work: 0,
+            extended_paint_stack: false,
         }
     }
     /// Shared across all recorded cue/layer image paints in this frame.
@@ -756,8 +771,56 @@ impl Budget {
         self.image_paint_work = next;
         Ok(())
     }
+    /// Opt-in frame scope; retained across cue, history and material recording.
+    pub fn enable_extended_paint_stack(&mut self) {
+        self.extended_paint_stack = true;
+    }
+    pub fn extended_paint_stack_enabled(&self) -> bool {
+        self.extended_paint_stack
+    }
+    /// Extended stacks share existing image surface and sample caps. The whole
+    /// reservation is atomic; callers must not charge captured pixels again.
+    pub fn reserve_extended_paint_surface(&mut self, pixels: usize, work: u64) -> Result<()> {
+        if !self.extended_paint_stack {
+            return Ok(());
+        }
+        let pixels = self
+            .image_paint_pixels
+            .checked_add(pixels)
+            .filter(|total| *total <= 16 * 1024 * 1024)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "extended paint surfaces"))?;
+        let work = self
+            .image_paint_work
+            .checked_add(work)
+            .filter(|total| *total <= 256 * 1024 * 1024)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "extended paint sampling work"))?;
+        self.image_paint_pixels = pixels;
+        self.image_paint_work = work;
+        Ok(())
+    }
     pub fn remaining(&self) -> usize {
         self.remaining
+    }
+    /// Content and alpha-matte canvas work share one cap across the frame.
+    pub fn reserve_paint_mask_work(&mut self, count: u64) -> Result<()> {
+        let next = self
+            .paint_mask_work
+            .checked_add(count)
+            .filter(|total| *total <= 128 * 1024 * 1024)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "paint mask work"))?;
+        self.paint_mask_work = next;
+        Ok(())
+    }
+    /// Contour-segment and distance-sample work has its own frame-wide cap.
+    /// Rejected reservations do not consume this or any existing paint budget.
+    pub fn reserve_glyph_distance_work(&mut self, count: u64) -> Result<()> {
+        let next = self
+            .glyph_distance_work
+            .checked_add(count)
+            .filter(|total| *total <= 128 * 1024 * 1024)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "glyph distance work"))?;
+        self.glyph_distance_work = next;
+        Ok(())
     }
     pub fn spend(&mut self) -> Result<()> {
         self.spend_operations(1)

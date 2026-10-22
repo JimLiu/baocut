@@ -118,3 +118,6 @@ plan; product preview/export host wiring and broader device testing remain pendi
 Run `cargo test --locked -p compositor --features gpu`. GPU tests may skip when no
 adapter is available; acceptance runs set `BAOCUT_REQUIRE_GPU=1` to fail instead.
 Native tests do not establish Windows, browser, or another GPU vendor's conformance.
+
+
+Draw-source alpha and luma mattes use pixel-aligned RGBA8 integer products on the GPU, including inverted modes. Each matte reads the current isolated content and a separate mask surface, writes a third surface, then copies it back before subsequent drawing. Normal group opacity is applied once when the group is composited. Direct and grouped nested mattes reserve distinct live surfaces and one globally bounded copy slot per matte; linear paint scratch is outside the maximum live isolation depth. Root mattes, mismatched closes and invalid modes fail before submission. Associated SourceOver `DrawEmissiveBitmap` preserves RGB greater than alpha; unsupported blend combinations remain rejected. Shader translation checks do not substitute for WebGPU/WebGL2 device testing.

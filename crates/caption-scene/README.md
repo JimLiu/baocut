@@ -10,6 +10,10 @@
 
 `cargo test --locked -p caption-scene` 验证类型、单位、函数调用、关键帧、循环与数值语义。实际像素测试在 `subtitle-render/tests/scene.rs`，跨 native/WASM 夹具在 `frame-render/tests/fixtures/parity.json`。
 
+`caption-glyph-distance-coverage/1` 开放静态 `paint.distanceCoverage`：原 glyph 全轮廓距离的 1–2 个 band 共用明确的 quad 导数场，再相乘替代旧覆盖率；有独立段/样本预算和必填零宽策略。字段、互斥和执行边界见[视频格式 §5.6](../../docs/spec/video-format-spec.md#56-layoutprofile样式与导出)，格式回归见 [distance_coverage.rs](tests/distance_coverage.rs)。
+
+`caption-image-distance-coverage/1` 允许在同一轮廓距离覆盖层采样 image paint，必须同时声明原 image／distance 能力。图像坐标保持原域，偏移只改变覆盖场；关联颜色与 base 合成后一次应用覆盖率和透明度，再输出普通 bitmap。已有颜色层及未声明新能力的图像场景保持原准入。
+
 离线生成示例帧：
 
 ```sh
@@ -108,7 +112,7 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-gradient-smear/1` 提供固定128次梯度噪声方向采样，显式局部domain、UV纵向、噪声相对尺寸和有界静态octave参数；seed/evolution/stretch/progress/strength按页求值。保留独立RGBA与固定透明分母，超限失败，不降低质量。示例见 [gradient-smear.json](tests/fixtures/gradient-smear.json)。
 
-`caption-page-window/1` 通过 `layout.pageWindow` 按相邻真实词的短/长 gap 分配固定页/行显示窗口，显式指定边界归属；不改原始词/字素时间。要求固定行、leadingGap hide 与正时长无重叠输入，重排继承窗口，反馈按时刻查询。示例见 [page-window.json](tests/fixtures/page-window.json)，需提供真实词时间。
+`caption-page-window/1` 通过 `layout.pageWindow` 按相邻真实词的短/长 gap 分配固定页/行显示窗口，显式指定边界归属；不改原始词/字素时间。要求显式固定wordLinePattern／textLinePattern或wordPagePattern页词成员、leadingGap hide 与正时长无重叠输入；不接受普通按宽度分页或maxUnitsPerPage。wordPagePattern保留页首分隔空白等完整源范围，派生页／行窗口仍须无重叠，重排继承窗口且不能改变已绑定的行成员，反馈按时刻查询。示例见 [page-window.json](tests/fixtures/page-window.json)，需提供真实词时间。
 
 `caption-bound-label/1` 提供 Repeat 直接子节点 `label`：静态单行内容用自己的字体整形，继承绑定单元时钟/布局；字号先求值，own advance/font/ink 度量只供后置 pose，直接或函数间接的字号循环均拒绝。复用字体缓存、缺字体登记、彩色字形与 paint 路径，不创建独立页或命中框，见 [bound-label.json](tests/fixtures/bound-label.json)。
 
@@ -116,7 +120,15 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-render-layers/1` 将根节点子树或 `caption-image-sequence/1` 的有界PNG序列拆成独立处理链，按数组顺序合成。`ScenePlan.render_outputs` 保留关联 source-over / screen / add（add 需 `caption-layer-add/1`，四分量 `S+D` 钳制，示例 [layer-add.json](tests/fixtures/layer-add.json)）；screen 与 add 必须直接合到真实背景，单图 render 明确拒绝。`caption-noisy-sweep/1` 提供固定f32噪声扫过遮罩。详见视频格式 §5.6；层间共享采样/表面预算，序列缓存与普通图片共享解码预算。
 
+`caption-paint-style-bindings/1` 增加`Scene.paintStyleBindings: Vec<PaintStyleBinding>`，缺省为空且序列化省略空列表；条目为`{id,nodeId,selectorId,style: PaintStylePatch}`，patch只含可选静态`fill`及必填1–16层的完整替换`paints`，显式null拒绝。最多64条、id唯一；目标限有显式非空基础paints且无旧stroke的Text，选择器限同Text的静态word（all/tag/range/parity及and/or/not，递归禁止state）。最后匹配绑定的整个patch胜出，省略fill沿用节点、父级及既有页填充的普通继承路径，不保留先前绑定fill或强制擦除页填充，再应用word stateStyles和fill动画。某绑定stack无node-fill（含image.base）时，该绑定不得有fill，且该Text不得有任何stateStyles、fill property或fill动画；违反任一项均沿既有guard拒绝，基础stack也须通过原guard，不能静默丢弃fill。字体/字号沿已有绑定，advance和分页成员不变。 同一个global layer ID内不同完整定义的group共同累计16Mi像素的blurred surface allowance，下一个layer ID才重置；绑定匹配中的binding、selector搜索与递归filter求值均计入共享操作budget。彩色字形只在全部轮廓涂装层之后绘制一次位图，不随stack长度重复；实际选中mask的彩色字形仍明确拒绝。
+
+同Text的基础与所有绑定stack共有至多16个不同layer ID；每stack顺序合并为偏序，`paint_style_order(scene: &Scene, node_id: &str) -> Result<Vec<String>>`作稳定拓扑排序，按基础再绑定声明的首次出现顺序打破tie，矛盾环拒绝，支持层增删。渲染按全局layer ID逐层进行；同层内按相同完整PaintLayer定义聚组，组按首glyph首次出现顺序、组内按原glyph顺序，不能按完整style画完一组再画下一组，以免描边/阴影覆盖其他组填充。未活跃stack同样清点资源/能力并复用全部paint数值与预算；同一Text只进入原材质capture一次。无绑定保持旧序列化、执行和像素。完整合同与例子见[视频格式 §5.6](../../docs/spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
+`caption-render-layers/1` 将根节点子树或 `caption-image-sequence/1` 的有界PNG序列拆成独立处理链，按数组顺序合成。`ScenePlan.render_outputs` 保留关联 source-over / screen；screen 必须直接合到真实背景，单图 render 明确拒绝。`caption-noisy-sweep/1` 提供固定f32噪声扫过遮罩。详见视频格式 §5.6；层间共享采样/表面预算，序列缓存与普通图片共享解码预算。
+
 `caption-paint-coverage/1` 通过 paint 层 `coverage: {lo, hi}` 对模糊后的轮廓覆盖率做线性区间重映射，再应用颜色/实例透明度。支持纯色、node-fill 和不透明渐变；零模糊可用于抗锯齿边缘，省略保留旧路径。严格范围、隔离 run 与表面预算见视频格式 §5.6；像素验证在 `subtitle-render/tests/scene.rs`。
+
+`caption-paint-mask/1` 开放 Text/Label 涂装层的可选 `mask: {kind: "glyph-fill", spread?: number, offset?: [number, number], inverted?: boolean}`：spread 默认 0，与所属层的 unit 同单位（px 默认），允许有限非负 px≤256 或 em≤4。遮罩使用矢量字形填充及自身外扩/局部 offset，复用同一个字形仿射变换，不继承涂装层的 offset、strokeWidth、spread、blur 或 coverage。offset 与 spread 同属 layer.unit，有限分量范围 px±4096、em±16；默认 [0,0] 和 inverted=false 均省略。非零 offset 或 inverted=true 另需 `caption-paint-mask-transform/1`，基础 mask 能力仍必需；显式默认值不要求 transform 能力。inverted=true 选择 AlphaInverted，仅将 matte 因子由 alpha 换为 255-alpha，不反转 paint 的 RGBA。每个字形先沿既有涂装流程完成外扩、模糊、覆盖率重映射和透明度，再与自己的白色 alpha matte（或其反相因子）求交，随后在同一 paint 层按字形顺序合成；不能用整行字形的 union 遮罩代替逐字形求交。共享 CPU 路径对 solid/linear/node-fill/image 使用同一 matte，预乘 RGBA 四通道按 `(value * factor + 127) / 255` 整数除法缩放（factor 为 maskAlpha 或反相的 255-maskAlpha）；原来的字形 opacity 和 image compositeOpacity 各只应用一次。未知字段、kind、null、非对象和非法 spread/offset/inverted 严格拒绝，彩色位图字形在运行时明确拒绝。GPU Draw-source 以同像素 RGBA8 双输入整数 matte 执行；涂装与独立遮罩轮廓仍消费共享录制结果，不另建排版路径。CPU 全画布 matte 的每次录制画布至多 16Mi 像素，每次录制按 `2 * canvasPixels * outlineGlyphCount * maskedLayerCount` 预留双表面工作，同一帧所有 cue、节点、Repeat 实例与历史采样共用 Budget，累计至多 128Mi 像素（checked arithmetic）；失败不增加预算计数。完整预算与位图字形准入在录制前检查，工作溢出或超限报 `CAPTION_BUDGET_EXCEEDED`（paint mask work）。没有 mask 时保持旧执行路径和序列化。完整合同见视频格式 §5.6。
 
 `caption-gradient-space/1` 支持 linear paint 的 `space: normalized`（在归一化 UV 域投影）和 `domain: page`（当前页各行共用基础视觉框）。默认 local/line 保持旧端点、序列化和像素行为；任意色标与现有隔离/覆盖率路径共用。共享渲染把 UV 协向量转换成同一 CPU/GPU `PaintData::Linear`，详见视频格式 §5.6。
 
@@ -130,4 +142,9 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-font-shaping/1` 开放 Text/Label 的 `style.fontShaping: "nominal"`，在解析字体段内按Unicode scalar映射字形，不跨scalar做OpenType kern／ligature；advanced缺省保持旧行为。测量、分页、富文本字号重排和Label共用策略，独立于hinting。
 
-`caption-image-phase-float32/1` 允许图片phase显式选择float32索引转换／输入偏移／除法／fract；缺省保持整数余数与f64相位。它不改变逻辑scalar索引归属，独立于UV仿射矩阵的计算精度。
+`caption-image-phase-float32/1` 允许图片phase显式选择float32索引转换／输入偏移／除法／fract；缺省保持整数余数与f64相位。它只改变选定逻辑scalar索引之后的算序，独立于UV仿射矩阵的计算精度。
+
+`caption-image-page-phase/1` 允许图片phase显式使用 `source: "page-scalar-index"`：从完整 textTransform 后绑定文本的逻辑scalar起点减去对应 layout page.source_range.start 的scalar origin，再执行既有integer-modulo或float32算序。页内逻辑source范围中的空白／换行保留计数，包含显示布局隐藏的分隔空白；cluster／ligature取逻辑起点，RTL按逻辑顺序，Label自身完整字符串视为单页。旧 `cue-scalar-index` 跨页不重置，省略phase或默认字段保持旧行为。CPU录制、计划、隔离涂装与layer capture使用相同规则；两种source共用既有scalar表及131072 slots／帧预算，不增第二张表，也不改变256Mi工作／帧上限。完整合同见视频格式 §5.6。
+
+
+`caption-paint-stack-extended/1` 显式开放每stack及layer ID并集64层、整场景4096声明；所有采样共享表面和工作预算。缺省仍为16层，不删减涂装；完整合同见视频格式§5.6。

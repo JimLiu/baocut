@@ -47,6 +47,8 @@ pub struct Scene {
     pub functions: Vec<PureFunction>,
     #[serde(default)]
     pub animations: Vec<Animation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paint_style_bindings: Vec<PaintStyleBinding>,
     #[serde(default)]
     pub materials: Vec<CaptionMaterial>,
 }
@@ -963,6 +965,24 @@ pub enum ImageFit {
     Cover,
     Stretch,
 }
+/// A static paint-stack replacement selected by frozen word membership.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PaintStyleBinding {
+    pub id: String,
+    pub node_id: String,
+    pub selector_id: String,
+    pub style: PaintStylePatch,
+}
+/// The last matching binding replaces the complete stack, not individual layers.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PaintStylePatch {
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub fill: Option<String>,
+    pub paints: Vec<PaintLayer>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PaintLayer {
@@ -984,6 +1004,107 @@ pub struct PaintLayer {
     /// Remaps isolated silhouette coverage after blur and before paint/instance alpha.
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
     pub coverage: Option<PaintCoverage>,
+    /// Intersects each painted glyph with its own independently positioned fill coverage.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub mask: Option<PaintMask>,
+    /// Replaces ordinary glyph coverage with bounded contour-distance bands.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub distance_coverage: Option<GlyphDistanceCoverage>,
+}
+/// Distance is measured to all original flattened glyph contours. Nonzero
+/// winding controls its sign; internal contours are not removed by a fill union.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GlyphDistanceCoverage {
+    pub source: GlyphDistanceSource,
+    pub bands: Vec<GlyphDistanceBand>,
+    pub aa: GlyphDistanceAa,
+    pub combine: GlyphDistanceCombine,
+    pub zero_width: GlyphDistanceZeroWidth,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", try_from = "String")]
+pub enum GlyphDistanceSource {
+    GlyphContours,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", try_from = "String")]
+pub enum GlyphDistanceCombine {
+    Multiply,
+}
+/// Explicit generic policy for finite collapsed band endpoints.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", try_from = "String")]
+pub enum GlyphDistanceZeroWidth {
+    Error,
+    StepInclusive,
+}
+impl TryFrom<String> for GlyphDistanceSource {
+    type Error = &'static str;
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        match value.as_str() {
+            "glyph-contours" => Ok(Self::GlyphContours),
+            _ => Err("unknown glyph distance source"),
+        }
+    }
+}
+impl TryFrom<String> for GlyphDistanceCombine {
+    type Error = &'static str;
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        match value.as_str() {
+            "multiply" => Ok(Self::Multiply),
+            _ => Err("unknown glyph distance combine"),
+        }
+    }
+}
+impl TryFrom<String> for GlyphDistanceZeroWidth {
+    type Error = &'static str;
+    fn try_from(value: String) -> std::result::Result<Self, &'static str> {
+        match value.as_str() {
+            "error" => Ok(Self::Error),
+            "step-inclusive" => Ok(Self::StepInclusive),
+            _ => Err("unknown glyph distance zero-width policy"),
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GlyphDistanceBand {
+    /// Positive offset moves the sampled contour in local paint-unit axes.
+    pub offset: [f64; 2],
+    pub threshold: f64,
+    pub half_width: f64,
+    /// Clamps the sampled signed distance before shared AA and band evaluation.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub distance_clamp: Option<[f64; 2]>,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub threshold_clamp: Option<[f64; 2]>,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub edge_clamp: Option<[f64; 2]>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum GlyphDistanceAa {
+    QuadDerivative {
+        #[serde(rename = "sourceBand")]
+        source_band: usize,
+        scale: f64,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum PaintMask {
+    GlyphFill {
+        #[serde(default, skip_serializing_if = "is_zero")]
+        spread: f64,
+        /// Local mask offset in the owning paint unit; independent of paint offset.
+        #[serde(default, skip_serializing_if = "is_zero_offset")]
+        offset: [f64; 2],
+        /// Multiplies by the complement of the mask alpha when true.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        inverted: bool,
+    },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -1009,6 +1130,9 @@ impl<'de> Deserialize<'de> for PaintCoverage {
 }
 fn is_zero(value: &f64) -> bool {
     *value == 0.0
+}
+fn is_zero_offset(value: &[f64; 2]) -> bool {
+    *value == [0.0, 0.0]
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -1139,6 +1263,8 @@ impl ImagePhaseArithmetic {
 pub enum ImagePaintPhaseSource {
     /// Logical Unicode scalar start in the complete transformed cue (or label's own string).
     CueScalarIndex,
+    /// Same logical scalar stream, relative to the layout page's source range.
+    PageScalarIndex,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

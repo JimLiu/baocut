@@ -109,6 +109,7 @@ interface CaptionScene {
   speechState: SpeechStatePolicy;
   nodes: SceneNode[];
   selectors: UnitSelector[];
+  paintStyleBindings?: PaintStyleBinding[]; // 缺省 []，空列表不写入序列化
   functions: PureFunctionDefinition[];
   animations: AnimationBinding[];
 }
@@ -429,6 +430,14 @@ random 对同 key 永远返回同值；时间噪声通过明确的连续坐标�
 
 文字的 paint stack 是有序操作：填充（纯色/渐变/纹理）、描边、内阴影、投影、发光等。每项有稳定 ID，动画绑定到 ID 对应参数，不能靠删除一个效果后变化的数组下标识别。每项同时声明取样对象是原始 glyph mask 还是累计 layer result，避免多个效果顺序含糊。
 
+`caption-paint-style-bindings/1` 提供场景级`paintStyleBindings`：每条`PaintStyleBinding`为`{id,nodeId,selectorId,style}`，`PaintStylePatch`为`{fill?: string, paints: PaintLayer[]}`。缺省为空列表，序列化省略空值。最多64条、绑定id唯一；目标限有显式非空基础paints且无旧stroke的Text，选择器限同一Text的静态word：all/tag/range/parity及and/or/not，递归禁止state。paints必填1–16层并整组替换，fill可省略但null拒绝；最后匹配绑定的整个patch胜出，不逐字段保留先前patch，省略fill沿用节点、父级及既有页填充的普通继承路径，不保留先前绑定fill或强制擦除页填充。静态fill之后再应用word stateStyles和fill动画；若某绑定stack不含node-fill（包括image.base中的node-fill），则该绑定不得声明fill，且该Text不得有任何stateStyles、fill property或fill动画；违反任一项即沿既有guard拒绝，基础stack也须通过原guard，不能静默忽略fill。字体与字号沿用已有绑定，advance、分页成员和词时钟不因涂装改变。
+
+同一Text的基础与全部绑定stack共用最多16个layer ID，数组内顺序合并为偏序后作稳定拓扑排序，矛盾环在准备阶段拒绝。可选层的tie按首次声明顺序解决：基础stack先，再按绑定顺序扫描。层可增加或删除，同一ID也可替换完整PaintLayer定义。绘制按全局layer ID逐层进行；同一层内，相同完整PaintLayer定义的字形聚组，组按首字形首次出现顺序、组内按原字形顺序录制，不能按完整style分组画完整stack，以免较后组的描边或投影覆盖已画填充。共享纯函数`paint_style_order(scene: &Scene, node_id: &str) -> Result<Vec<String>>`提供统一层顺序。
+
+同一个global layer ID内不同完整定义的group共同累计16Mi像素的blurred surface allowance，下一个layer ID才重置；绑定匹配中的binding、selector搜索与递归filter求值均计入共享操作budget。彩色字形只在全部轮廓涂装层之后绘制一次位图，不随stack长度重复；实际选中mask的彩色字形仍明确拒绝。
+
+所有静态候选stack即使未活跃也进入能力和资源清点，复用已有paint数值、图片、渐变、coverage、mask与预算限制。同一个Text进入既有材质capture一次，不为不同词的涂装拆节点；无绑定保留旧执行、序列化和像素。完整类型、冲突检查、覆盖顺序与示例见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
 渐变的端点域与插值度量分开声明：linear paint 的 domain 选择基础行框、当前页框或每个字形自身的轮廓框（可按字号 em 外扩），space 选择文字局部像素投影或归一化 UV 投影。后者按逆宽高变换梯度协向量，再转换成共享光栅器端点，避免把非均匀缩放后的端点向量误当作同一颜色场。逐采样重排更新域，动画变换在其后应用；默认 local/line 保持旧行为。生效字段与拒绝范围见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
 
 图片涂装以显式 UV 矩阵和 glyph-em/glyph-normalized/line-normalized/page-normalized 空间取样冻结 PNG。图片与可选固色、渐变或当前填充 base 在同一次覆盖前合成，避免拆层重复抗锯齿；opacity 只调图片采样，compositeOpacity 独立调合成结果，默认1；普通涂装与 coverage/实例 alpha 一次量化，共同 opacity 的外扩/模糊 run 则隔离合成并模糊后一次应用整体 alpha，不能提前修改图片或 base 的 alpha；相位声明 cue-scalar-index，沿完整变换后文本的 Unicode scalar 逻辑起点计数，空白和分页不改变身份。此索引不等于字体物理 glyph 或未验证的来源 ordinal。能力、采样及 alpha 顺序、拒绝范围与帧预算以[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)为准；共享 CPU 录制有界位图后复用 GPU DrawBitmap 合成。
@@ -745,3 +754,9 @@ flowchart TD
 7. §5.2 的 `patternSelect` 与关键词隔离是进入 `caption-scene` 的分页程序，还是只作为生成器写入实例覆盖；两者都要求结果冻结，差别在于换模板时是否自动重算。
 8. §9.5 的 bloom 置底是否可由 `caption-glow-linear/1` 现有聚合表达；背景差值与噪声 UV 位移作为新材质立项前先确认背景依赖在缩略图与导出中的获取方式。
 9. §11 配方目录随效果增加可能超出单篇篇幅；超出时按文档约定拆为独立文档并在本文保留索引。
+
+已实现的字形涂装遮罩使用 `caption-paint-mask/1`：单层 paint 的覆盖率与同一字形填充相交，遮罩可按所属层单位外扩；`caption-paint-mask-transform/1` 另外允许遮罩独立位移与反相，缺省保持原位置交集；预算与拒绝范围见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
+`caption-glyph-distance-coverage/1` 另提供逐 glyph 的有界原轮廓距离带：独立位移的 1–2 个 band 共享一个明确选择的 quad 导数场，并相乘后采样原域颜色；它替代普通 glyph AA，不与旧 matte/spread/blur 叠加。距离源、零宽策略、单位和预算以[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)为准。
+
+扩展涂装采用显式 `caption-paint-stack-extended/1`：默认16层不变，选择扩展时stack及候选层并集最多64层、场景累计4096声明，共用有界帧预算，不能通过拆分词样式规避上限。详见视频格式§5.6。

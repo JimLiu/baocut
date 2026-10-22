@@ -3,6 +3,9 @@ mod active_word_clock;
 mod angular_samples;
 mod bound_label;
 mod cue_unit_context;
+mod distance_paint;
+#[cfg(test)]
+mod distance_paint_tests;
 mod font_line_box;
 mod font_shaping;
 mod font_source;
@@ -23,6 +26,7 @@ mod page_envelope;
 mod page_line_context;
 mod page_tag;
 mod page_window;
+mod paint_style_bindings;
 mod sampled_layout;
 mod scalar_cluster;
 mod shape_paint;
@@ -242,6 +246,8 @@ struct Unit {
     text_count: usize,
     page_text_index: usize,
     page_text_count: usize,
+    /// Byte origin of the complete logical page range, including hidden separators.
+    page_source_start: usize,
     page_index: usize,
     page_count: usize,
     page_last_word_span: Option<(f64, f64)>,
@@ -471,6 +477,9 @@ impl ScenePlan {
     }
     pub fn record(&mut self, seconds: f64) -> Result<(FrameOps, Vec<SceneHit>)> {
         let mut budget = Budget::default();
+        if caption_scene::paint_stack_limit(self.style.scene()) > 16 {
+            budget.enable_extended_paint_stack();
+        }
         if !self.style.scene().render_layers.is_empty() {
             self.record_layered_materials(seconds, &mut budget)
         } else if self.style.scene().materials.is_empty() {
@@ -959,7 +968,9 @@ fn prepare_with(
     }
     let mut pages = Vec::new();
     for (quota_index, range) in ranges.into_iter().enumerate() {
-        let paint_origin = if quota_index > 0 && (cfg.pagination.max_units_per_page.is_some() || pattern.is_some()) {
+        let paint_origin = if quota_index > 0
+            && (cfg.pagination.max_units_per_page.is_some() || pattern.is_some())
+        {
             quota_paint_start(content, &range)
         } else {
             range.start
@@ -994,7 +1005,11 @@ fn prepare_with(
         );
         let rowgroups: Vec<_> = if pattern.is_some() {
             if cfg.overflow == LayoutOverflow::Error
-                && (block.lines.len() > cfg.max_lines || block.lines.iter().any(|line| line.metrics.width > width + 0.001))
+                && (block.lines.len() > cfg.max_lines
+                    || block
+                        .lines
+                        .iter()
+                        .any(|line| line.metrics.width > width + 0.001))
             {
                 bail!("CAPTION_LAYOUT_OVERFLOW: word page lines");
             }
@@ -1035,7 +1050,11 @@ fn prepare_with(
                     Align::Center => x - sh.width / 2.0,
                     Align::Right => x + width / 2.0 - sh.width,
                 };
-                let ly = if style.line_box.is_some() { next_y } else { y - height / 2.0 + i as f64 * fs * style.line_height };
+                let ly = if style.line_box.is_some() {
+                    next_y
+                } else {
+                    y - height / 2.0 + i as f64 * fs * style.line_height
+                };
                 let baseline = ly + sh.ascent;
                 let bounds = Bounds {
                     x: lx,
@@ -1054,7 +1073,9 @@ fn prepare_with(
                 words
                     .iter()
                     .enumerate()
-                    .filter(|(_, w)| w.bytes.start < last.bytes.end && w.bytes.end > first.bytes.start)
+                    .filter(|(_, w)| {
+                        w.bytes.start < last.bytes.end && w.bytes.end > first.bytes.start
+                    })
                     .map(|(i, _)| i)
                     .collect::<Vec<_>>()
             };
@@ -1106,6 +1127,9 @@ fn prepare_with(
     }
     for i in 0..pages.len() {
         pages[i].end = pages.get(i + 1).map_or(cue.end, |p| p.start).min(cue.end);
+    }
+    if let Some(window) = &cfg.page_window {
+        page_window::apply(&mut pages, &words, content, window)?;
     }
     Ok(TextLayout {
         pages,
@@ -1234,6 +1258,7 @@ fn units_for(
         cue_speech: speech_phase::cue_speech(cue, cfg.timing_policy),
         word_timed: false,
         next_word_start: None,
+        page_source_start: page.source_range.start,
         page_index,
         page_count: layout.pages.len(),
         page_last_word_span: page.words.last().and_then(|i| {
@@ -1799,6 +1824,13 @@ fn pose_context(
             }
         }
     }
+    if u.kind == UnitKind::Word && accepts("fill") {
+        if let Some(index) = paint_style_bindings::binding_index(r.scene, node, u, budget)? {
+            if let Some(fill) = &r.scene.paint_style_bindings[index].style.fill {
+                p.insert("fill".into(), Evaluated::Color(color(fill)?));
+            }
+        }
+    }
     if u.kind == UnitKind::Word {
         if let Some(fill) = node.state_styles.get(&u.state) {
             p.insert("fill".into(), Evaluated::Color(color(fill)?));
@@ -2085,17 +2117,32 @@ fn draw_nodes(
                         .unwrap();
                     let pp = pose(n, &page.0, r, budget)?;
                     let t = t.pre_concat(matrix(&pp, page.0.bounds));
-                    let scalar_map = if image_paint::uses_phase(&n.style) {
+                    let phase_style = paint_style_bindings::phase_style(r.scene, n);
+                    let (scalar_map, page_scalar_origin) = if image_paint::uses_phase(&phase_style)
+                    {
                         let source = match &n.text {
                             Some(TextBinding::Static { text }) => text.as_str(),
                             _ => r.cue.text.as_str(),
                         };
                         let content = n.style.text_transform.apply(source);
-                        image_paint::scalar_map(&n.style, content.as_ref(), budget)?
+                        let map = image_paint::scalar_map(&phase_style, content.as_ref(), budget)?;
+                        let origin = if paint_style_bindings::uses_page_phase(r.scene, n) {
+                            budget.spend()?;
+                            if page.0.page_source_start == content.len() {
+                                map.as_ref().map_or(0, Vec::len)
+                            } else {
+                                image_paint::scalar_index(&map, page.0.page_source_start)?
+                            }
+                        } else {
+                            0
+                        };
+                        (map, origin)
                     } else {
-                        None
+                        (None, 0)
                     };
                     let mut glyphs = Vec::new();
+                    let bound_paints = paint_style_bindings::applies(r.scene, n);
+                    let mut paint_choices = Vec::new();
                     for (lineunit, line) in units.iter().filter(|(u, _)| u.kind == UnitKind::Line) {
                         let line = line.as_ref().unwrap();
                         let lp = pose(n, lineunit, r, budget)?;
@@ -2178,11 +2225,20 @@ fn draw_nodes(
                                 (line.bounds.x + glyph.x) as f32,
                                 (line.baseline + glyph.y) as f32,
                             );
+                            if bound_paints {
+                                paint_choices.push(match word {
+                                    Some(word) => paint_style_bindings::binding_index(
+                                        r.scene, n, word, budget,
+                                    )?,
+                                    None => None,
+                                });
+                            }
                             glyphs.push(text_paint::GlyphPaint {
                                 glyph: glyph.clone(),
                                 fill: c,
                                 opacity,
                                 source_scalar_index: image_paint::scalar_index(&scalar_map, at)?,
+                                page_scalar_origin,
                                 origin,
                                 paint_bounds: line.bounds,
                                 page_bounds: page.0.bounds,
@@ -2195,7 +2251,23 @@ fn draw_nodes(
                             bounds: union(hit_boxes.into_iter()),
                         });
                     }
-                    text_paint::record_glyphs(&n.style, &glyphs, r.size, text, r.images, b, budget)?;
+                    if bound_paints {
+                        paint_style_bindings::record(
+                            n,
+                            r.scene,
+                            &glyphs,
+                            &paint_choices,
+                            r.size,
+                            text,
+                            r.images,
+                            b,
+                            budget,
+                        )?;
+                    } else {
+                        text_paint::record_glyphs(
+                            &n.style, &glyphs, r.size, text, r.images, b, budget,
+                        )?;
+                    }
                 }
             }
             NodeKind::Repeat | NodeKind::Label => unreachable!(),
@@ -2218,7 +2290,13 @@ fn scene_paint(
     };
     Ok(match paint {
         ScenePaint::Solid { color } => PaintData::Solid(rgba(color)?),
-        ScenePaint::Linear { from, to, stops, space, .. } => {
+        ScenePaint::Linear {
+            from,
+            to,
+            stops,
+            space,
+            ..
+        } => {
             let point = |v: [f64; 2]| {
                 [
                     (bounds.x + v[0] * bounds.width - origin.0) as f32,
@@ -2233,7 +2311,9 @@ fn scene_paint(
                 // an endpoint vector (dx*W, dy*H). Express that same field
                 // as pixel endpoints for the shared CPU/GPU paint primitive.
                 if bounds.width <= 0.0 || bounds.height <= 0.0 {
-                    bail!("CAPTION_LAYOUT_INVALID: normalized gradient requires positive line bounds");
+                    bail!(
+                        "CAPTION_LAYOUT_INVALID: normalized gradient requires positive line bounds"
+                    );
                 }
                 let dx = to[0] - from[0];
                 let dy = to[1] - from[1];
@@ -2242,11 +2322,15 @@ fn scene_paint(
                 let norm = covector[0].hypot(covector[1]);
                 let reach = length / norm;
                 let end = [
-                    (bounds.x + from[0] * bounds.width - origin.0 + covector[0] / norm * reach) as f32,
-                    (bounds.y + from[1] * bounds.height - origin.1 + covector[1] / norm * reach) as f32,
+                    (bounds.x + from[0] * bounds.width - origin.0 + covector[0] / norm * reach)
+                        as f32,
+                    (bounds.y + from[1] * bounds.height - origin.1 + covector[1] / norm * reach)
+                        as f32,
                 ];
                 if !end.iter().all(|v| v.is_finite()) || end == p0 {
-                    bail!("CAPTION_LAYOUT_INVALID: normalized gradient endpoints are not representable");
+                    bail!(
+                        "CAPTION_LAYOUT_INVALID: normalized gradient endpoints are not representable"
+                    );
                 }
                 end
             };
@@ -2265,7 +2349,9 @@ fn scene_paint(
             }
         }
         // Text paint resolves the glyph's own fill before reaching here.
-        ScenePaint::Image { .. } => bail!("CAPTION_SCENE_INVALID: image paint requires image recording"),
+        ScenePaint::Image { .. } => {
+            bail!("CAPTION_SCENE_INVALID: image paint requires image recording")
+        }
         ScenePaint::NodeFill => bail!("CAPTION_SCENE_INVALID: node-fill outside text paint"),
     })
 }
@@ -3288,15 +3374,27 @@ mod ink_tests {
         )
         .unwrap();
         assert_eq!(
-            base.pages.iter().map(|p| p.words.clone()).collect::<Vec<_>>(),
+            base.pages
+                .iter()
+                .map(|p| p.words.clone())
+                .collect::<Vec<_>>(),
             vec![vec![0, 1], vec![2, 3, 4], vec![5, 6]]
         );
-        assert!(base.pages[0].lines.len() > 4, "a single long word wraps onto many rows");
+        assert!(
+            base.pages[0].lines.len() > 4,
+            "a single long word wraps onto many rows"
+        );
         assert_eq!(
-            base.pages.iter().map(|p| &base.content[p.source_range.clone()]).collect::<String>(),
+            base.pages
+                .iter()
+                .map(|p| &base.content[p.source_range.clone()])
+                .collect::<String>(),
             content
         );
-        assert_eq!(base.pages.iter().map(|p| p.start).collect::<Vec<_>>(), vec![0.0, 1.0, 2.5]);
+        assert_eq!(
+            base.pages.iter().map(|p| p.start).collect::<Vec<_>>(),
+            vec![0.0, 1.0, 2.5]
+        );
         for page in &base.pages {
             let mut node = scene.nodes[0].clone();
             node.style.font_size.value *= 1.6;
@@ -3346,7 +3444,10 @@ mod ink_tests {
             &params,
         )
         .unwrap();
-        assert!(legacy.pages.len() > 3, "legacy width/line pagination keeps its previous behavior");
+        assert!(
+            legacy.pages.len() > 3,
+            "legacy width/line pagination keeps its previous behavior"
+        );
     }
 
     #[test]
@@ -3365,7 +3466,12 @@ mod ink_tests {
             .collect();
         let SceneSource::Inline { value: scene } = &mut style.scene;
         scene.layout.pagination = Pagination {
-            remaining_word_page_plans: Some(vec![vec![1], vec![2], vec![1, 1, 1], vec![1, 1, 1, 1]]),
+            remaining_word_page_plans: Some(vec![
+                vec![1],
+                vec![2],
+                vec![1, 1, 1],
+                vec![1, 1, 1, 1],
+            ]),
             ..Pagination::default()
         };
         scene.layout.max_lines = 4;
@@ -3381,11 +3487,25 @@ mod ink_tests {
         )
         .unwrap();
         assert_eq!(
-            layout.pages.iter().map(|p| p.words.clone()).collect::<Vec<_>>(),
+            layout
+                .pages
+                .iter()
+                .map(|p| p.words.clone())
+                .collect::<Vec<_>>(),
             vec![vec![0, 1, 2, 3], vec![4, 5, 6]]
         );
-        assert_eq!(layout.pages.iter().map(|p| p.lines.len()).collect::<Vec<_>>(), vec![4, 3]);
-        assert_eq!(layout.pages.iter().map(|p| p.start).collect::<Vec<_>>(), vec![0.0, 2.0]);
+        assert_eq!(
+            layout
+                .pages
+                .iter()
+                .map(|p| p.lines.len())
+                .collect::<Vec<_>>(),
+            vec![4, 3]
+        );
+        assert_eq!(
+            layout.pages.iter().map(|p| p.start).collect::<Vec<_>>(),
+            vec![0.0, 2.0]
+        );
     }
 
     #[test]

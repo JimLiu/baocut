@@ -783,6 +783,8 @@ fn rejected_sources() -> Vec<(&'static str, Arc<FrameOps>)> {
     }
     for (code, op) in [
         ("gpu-draw-operation-unsupported", DrawOp::ClipPath { path: 0, tf: ID }),
+        ("gpu-draw-matte-root-invalid", DrawOp::PushMatte),
+        ("gpu-draw-matte-stack-invalid", DrawOp::PopMatte { mode: 0 }),
         (
             "gpu-draw-layer-blend-unsupported",
             DrawOp::PushLayer {

@@ -124,6 +124,9 @@ impl CaptionGpuRenderer {
             prepared.push(source);
         }
         estimated = estimated.saturating_add(frame_bytes.saturating_mul(source_surfaces as u64));
+        // Matte slots share the globally bounded source-composite index. A
+        // conservative uniform reserve also covers holes occupied by Groups.
+        estimated = estimated.saturating_add(source_groups as u64 * 16);
         // Persistent cached textures can outlive the last frame that used
         // strokes. Encoded bindings also retain evicted active textures, so the
         // cache reserve cannot stand in for this frame's unique event textures.

@@ -103,8 +103,11 @@ export type CaptionScenePaint = CaptionColorPaint | {
   /** Default 1 in [0,1], scales image over base once; isolated effects apply it after blur. */
   compositeOpacity?: number;
   base?: CaptionColorPaint;
-  /** Cluster's logical scalar start in the complete transformed cue; labels use their own text. */
-  phase?: { period: number; source: 'cue-scalar-index';
+  /** Logical transformed scalar start: complete cue, or relative to the layout page's source-range start.
+   * Page-local source requires `caption-image-page-phase/1`; spaces/newlines in that range still count.
+   * Clusters/ligatures use their logical start, RTL keeps logical order; labels have one page.
+   */
+  phase?: { period: number; source: 'cue-scalar-index' | 'page-scalar-index';
     /** Float32 input conversion/addition/division/fract; needs `caption-image-phase-float32/1`. */
     arithmetic?: 'integer-modulo' | 'float32'; indexOffset?: number };
   /** Static U offset in [0,1], default 0, added after uvTransform and index phase. */
@@ -114,6 +117,72 @@ export type CaptionScenePaint = CaptionColorPaint | {
 export type CaptionShapePaint =
   | { kind: 'solid'; color: string }
   | { kind: 'linear'; from: [number, number]; to: [number, number]; stops: { at: number; color: string }[] };
+
+/**
+ * Vector glyph fill with independent spread/offset in the owning layer's unit (px by default).
+ * Text/Label only; requires `caption-paint-mask/1`. Spread is finite and nonnegative (px <= 256, em <= 4).
+ * Does not inherit the paint's offset, stroke, spread, blur or coverage remap. Bitmap glyphs reject at runtime.
+ */
+export interface CaptionPaintMask {
+  kind: 'glyph-fill';
+  /** Default 0; omitted/zero preserves the unexpanded original glyph fill. */
+  spread?: number;
+  /** Independent local offset, finite components (px +/-4096, em +/-16); default [0, 0] is omitted.
+   * Nonzero offset requires `caption-paint-mask-transform/1` in addition to `caption-paint-mask/1`. */
+  offset?: [number, number];
+  /** Default false (omitted); true uses AlphaInverted (255 - mask alpha) and requires transform capability. */
+  inverted?: boolean;
+}
+/** Finite local lengths in the owning paint unit; positive offset displaces the sampled contour. */
+export interface CaptionGlyphDistanceBand {
+  offset: [number, number];
+  /** Ordered finite sample bounds, applied before quad AA and coverage; independent of threshold/edge clamps. */
+  distanceClamp?: [number, number];
+  threshold: number;
+  /** Nonnegative half-width, before adding the shared derivative AA. */
+  halfWidth: number;
+  /** Ordered finite endpoints; threshold clamp is applied before edge clamp. Explicit null is invalid. */
+  thresholdClamp?: [number, number];
+  edgeClamp?: [number, number];
+}
+export interface CaptionGlyphDistanceAa {
+  kind: 'quad-derivative';
+  /** Integer index into bands; the same displaced-field derivative, after distanceClamp when present, is reused by every band. */
+  sourceBand: number;
+  /** Finite 0..4; zero is permitted when the explicit zeroWidth policy handles a collapsed band. */
+  scale: number;
+}
+/** Signed distance to every original flattened glyph contour, positive for nonzero-winding interiors.
+ * Text/Label paints; requires caption-glyph-distance-coverage/1. Image paints additionally
+ * require caption-image-distance-coverage/1 and retain their original sampling domain. Explicit null is invalid.
+ * Each glyph evaluates its own one/two-band product before ordinary ordered glyph compositing.
+ */
+export interface CaptionGlyphDistanceCoverage {
+  source: 'glyph-contours';
+  bands: [CaptionGlyphDistanceBand] | [CaptionGlyphDistanceBand, CaptionGlyphDistanceBand];
+  aa: CaptionGlyphDistanceAa;
+  combine: 'multiply';
+  /** Required policy for finite collapsed band endpoints; no implicit epsilon or step. */
+  zeroWidth: 'error' | 'step-inclusive';
+}
+/** Each layer covers the node's glyphs before the next layer; masked glyphs intersect separately first. */
+export interface CaptionPaintLayer {
+  id: string;
+  strokeWidth?: number;
+  offset?: [number, number];
+  /** unit/spread/blur/node-fill require `caption-paint-effects/1`. */
+  unit?: 'px' | 'em';
+  spread?: number;
+  blur?: number;
+  /** clamp((coverage - lo)/(hi - lo), 0, 1), before opacity. Requires `caption-paint-coverage/1`. */
+  coverage?: { lo: number; hi: number };
+  /** Same glyph affine, independent local mask offset; CPU/GPU share integer alpha matte semantics. */
+  mask?: CaptionPaintMask;
+  /** Replaces ordinary glyph coverage. Cannot combine with mask, coverage remap,
+   * nonzero offset/strokeWidth/spread/blur. Image paints require caption-image-distance-coverage/1. Absence preserves the existing paint path and JSON. */
+  distanceCoverage?: CaptionGlyphDistanceCoverage;
+  paint: CaptionScenePaint;
+}
 export interface CaptionSceneNode {
   id: string;
   type: 'group' | 'text' | 'label' | 'shape' | 'image' | 'repeat';
@@ -138,12 +207,8 @@ export interface CaptionSceneNode {
     /** Case mapping before layout; needs `caption-text-transform/1`. */
     textTransform?: 'none' | 'uppercase' | 'lowercase';
     stroke?: { width: number; color: string } | null;
-    /** Ordered layers drawn across the whole node. unit/spread/blur/node-fill need `caption-paint-effects/1`. */
-    paints?: { id: string; strokeWidth?: number; offset?: [number, number];
-      unit?: 'px' | 'em'; spread?: number; blur?: number;
-      /** clamp((coverage - lo)/(hi - lo), 0, 1), before opacity. Needs `caption-paint-coverage/1`. */
-      coverage?: { lo: number; hi: number }; paint: CaptionScenePaint
-    }[];
+    /** Ordered layers drawn across the whole node. */
+    paints?: CaptionPaintLayer[];
   };
   /** Shape-only; requires caption-shape-paint/1. Linear from/to are normalized to the drawn shape rect. */
   fillPaint?: CaptionShapePaint | null;
@@ -194,7 +259,7 @@ export interface CaptionScene {
   layout: {
     width: CaptionLength; x: CaptionLength; y: CaptionLength; maxLines?: number;
     layoutEvaluation?: 'static' | 'per-sample'; overflow?: 'error' | 'visible';
-    /** Opt-in windows over real, ordered, nonoverlapping words and fixed logical lines. */
+    /** Opt-in windows over real, ordered, nonoverlapping words with wordLinePattern, textLinePattern, remainingWordPagePlans or fixed wordPagePattern members. */
     pageWindow?: { gapThreshold: { ticks: number; timescale: number }; shortGap: { before: number; after: number };
       longGap: { before: number; after: number }; boundary: 'start-inclusive-end-exclusive' | 'first-start-inclusive-end-inclusive' } | null;
     bindings?: { nodeId?: string | null; property: 'width' | 'x' | 'y' | 'fontSize' | 'letterSpacing' | 'lineHeight'; value: CaptionDynamicValue }[];
@@ -239,6 +304,10 @@ export interface CaptionScene {
   nodes: CaptionSceneNode[];
   selectors?: { id: string; nodeId: string; unit: CaptionUnit; includeWhitespace?: boolean; filter?: CaptionFilter }[];
   functions?: { id: string; arguments: { name: string; type: CaptionValueType }[]; returns: CaptionValueType; body: CaptionExpression }[];
+  /** Static word selectors replace a complete stack. Requires caption-paint-style-bindings/1.
+   * Last matching binding wins; inactive stacks participate in shared layer-order validation. */
+  paintStyleBindings?: { id: string; nodeId: string; selectorId: string;
+    style: { fill?: string; paints: CaptionPaintLayer[] } }[];
   animations?: { id: string; target: { nodeId: string; selectorId?: string | null }; property: string;
     value: CaptionDynamicValue; composite: 'replace' | 'add' | 'multiply'; priority?: number }[];
 }

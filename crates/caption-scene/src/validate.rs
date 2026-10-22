@@ -43,8 +43,14 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-image-png/1",
     "caption-image-paint/1",
     "caption-paint-stack/1",
+    EXTENDED_PAINT_STACK_CAPABILITY,
+    "caption-paint-style-bindings/1",
     "caption-paint-effects/1",
     "caption-paint-coverage/1",
+    "caption-paint-mask/1",
+    "caption-paint-mask-transform/1",
+    "caption-glyph-distance-coverage/1",
+    "caption-image-distance-coverage/1",
     "caption-gradient-space/1",
     "caption-gradient-glyph/1",
     "caption-font-line-box/1",
@@ -52,6 +58,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-font-hinting/1",
     "caption-font-shaping/1",
     "caption-image-phase-float32/1",
+    "caption-image-page-phase/1",
     "caption-text-transform/1",
     "caption-blur/1",
     "caption-feedback/1",
@@ -345,7 +352,10 @@ fn validate_pattern_select(scene: &Scene) -> Result<()> {
         ));
     }
     if other_word_plans(pagination) {
-        return Err(invalid(path, "patternSelect is exclusive with the other word page and row plan fields"));
+        return Err(invalid(
+            path,
+            "patternSelect is exclusive with the other word page and row plan fields",
+        ));
     }
     if select.candidates.is_empty() || select.candidates.len() > 64 {
         return Err(invalid(path, "1..64 candidates required"));
@@ -576,7 +586,11 @@ fn validate_remaining_word_page_plans(scene: &Scene) -> Result<()> {
         return Ok(());
     };
     let path = "pagination.remainingWordPagePlans";
-    if !scene.required_capabilities.iter().any(|cap| cap == "caption-remaining-word-page-plan/1") {
+    if !scene
+        .required_capabilities
+        .iter()
+        .any(|cap| cap == "caption-remaining-word-page-plan/1")
+    {
         return Err(Diagnostic::new(
             "CAPTION_CAPABILITY_UNAVAILABLE",
             path,
@@ -862,6 +876,17 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     walk(&s.nodes, &mut nodes, 0, None)?;
     if !nodes.values().any(|n| n.kind == NodeKind::Text) {
         return Err(invalid("nodes", "text node required"));
+    }
+    if paint_stack_limit(s) > 16 {
+        let declarations = nodes
+            .values()
+            .map(|node| node.style.paints.len())
+            .chain(s.paint_style_bindings.iter().map(|binding| binding.style.paints.len()))
+            .try_fold(0usize, |sum, count| sum.checked_add(count))
+            .filter(|total| *total <= MAX_EXTENDED_PAINT_DECLARATIONS);
+        if declarations.is_none() {
+            return Err(invalid("scene", "extended paint declaration budget exceeded"));
+        }
     }
     if s.layout.bindings.len() > 64 || (s.layout.layout_evaluation == LayoutEvaluation::Static && !s.layout.bindings.is_empty()) {
         return Err(invalid("layout.bindings", "per-sample mode and at most 64 bindings required"));
@@ -1522,6 +1547,66 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         }
         filter(&sel.filter, 0)?;
     }
+    if !s.paint_style_bindings.is_empty() {
+        if !s.required_capabilities.iter().any(|cap| cap == "caption-paint-style-bindings/1") {
+            return Err(Diagnostic::new(
+                "CAPTION_CAPABILITY_REQUIRED",
+                "paintStyleBindings",
+                "caption-paint-style-bindings/1",
+            ));
+        }
+        if s.paint_style_bindings.len() > 64 {
+            return Err(invalid("paintStyleBindings", "at most 64 paint style bindings"));
+        }
+        fn static_filter(filter: &Filter) -> bool {
+            match filter {
+                Filter::State { .. } => false,
+                Filter::And { filters } | Filter::Or { filters } => filters.iter().all(static_filter),
+                Filter::Not { filter } => static_filter(filter),
+                Filter::All | Filter::Tag { .. } | Filter::Range { .. } | Filter::Parity { .. } => true,
+            }
+        }
+        let mut binding_ids = BTreeSet::new();
+        let mut bound_nodes = BTreeSet::new();
+        for binding in &s.paint_style_bindings {
+            if !name(&binding.id) || !binding_ids.insert(&binding.id) {
+                return Err(invalid(&binding.id, "invalid or duplicate paint style binding id"));
+            }
+            let node = nodes
+                .get(binding.node_id.as_str())
+                .filter(|node| node.kind == NodeKind::Text)
+                .ok_or_else(|| invalid(&binding.id, "paint style binding requires a text node"))?;
+            if node.style.paints.is_empty() || node.style.stroke.is_some() {
+                return Err(invalid(
+                    &binding.id,
+                    "paint style binding requires explicit base paints without legacy stroke",
+                ));
+            }
+            let selector = s
+                .selectors
+                .iter()
+                .find(|selector| selector.id == binding.selector_id)
+                .ok_or_else(|| invalid(&binding.id, "paint style selector missing"))?;
+            if selector.node_id != binding.node_id || selector.unit != UnitKind::Word || !static_filter(&selector.filter) {
+                return Err(invalid(
+                    &binding.id,
+                    "paint style selector must address this text node's static word membership",
+                ));
+            }
+            if binding.style.paints.is_empty() {
+                return Err(invalid(&binding.id, "paint style replacement stack must not be empty"));
+            }
+            if let Some(fill) = &binding.style.fill {
+                color(fill)?;
+            }
+            validate_paint_stack(node, &binding.style.paints, s, &resources, binding.style.fill.is_some())?;
+            bound_nodes.insert(binding.node_id.as_str());
+        }
+        // All possible variants participate, including currently unmatched tags.
+        for node_id in bound_nodes {
+            paint_style_order(s, node_id)?;
+        }
+    }
     if !s.layout.font_size_bindings.is_empty() {
         if !s.required_capabilities.iter().any(|cap| cap == "caption-unit-font-size/1") {
             return Err(Diagnostic::new(
@@ -1650,118 +1735,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         } else if n.resource_id.is_some() || n.fit != ImageFit::Contain {
             return Err(invalid(&n.id, "image fields on non-image node"));
         }
-        if n.style.paints.len() > 16 {
-            return Err(invalid(&n.id, "paint budget exceeded"));
-        }
-        // A node-fill layer is where fill overrides land, so they are no longer
-        // silently replaced by the stack. Legacy stroke still has no place in it.
-        let node_fill = n.style.paints.iter().any(|l| paint_uses_node_fill(&l.paint));
-        if !n.style.paints.is_empty()
-            && (n.style.stroke.is_some()
-                || (!node_fill
-                    && (!n.state_styles.is_empty()
-                        || n.properties.contains_key("fill")
-                        || s.animations.iter().any(|a| a.target.node_id == n.id && a.property == "fill"))))
-        {
-            return Err(invalid(
-                &n.id,
-                "paint stack cannot be combined with fill overrides or legacy stroke",
-            ));
-        }
-        let mut paints = BTreeSet::new();
-        for layer in &n.style.paints {
-            // Em lengths scale with the glyph size; the px limits keep their old range.
-            let (extent, reach) = match layer.unit {
-                PaintUnit::Px => (256.0, 4096.0),
-                PaintUnit::Em => (4.0, 16.0),
-            };
-            if !name(&layer.id)
-                || !paints.insert(&layer.id)
-                || [layer.stroke_width, layer.spread, layer.blur]
-                    .iter()
-                    .any(|v| !v.is_finite() || !(0.0..=extent).contains(v))
-                || layer.offset.iter().any(|x| !x.is_finite() || x.abs() > reach)
-                || (layer.spread > 0.0 && layer.stroke_width > 0.0)
-            {
-                return Err(invalid(&n.id, "invalid paint layer"));
-            }
-            if (layer.unit == PaintUnit::Em || layer.spread > 0.0 || layer.blur > 0.0 || paint_uses_node_fill(&layer.paint))
-                && !s.required_capabilities.iter().any(|c| c == "caption-paint-effects/1")
-            {
-                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-effects/1"));
-            }
-            if let Some(coverage) = layer.coverage {
-                if !coverage.lo.is_finite()
-                    || !coverage.hi.is_finite()
-                    || coverage.lo < 0.0
-                    || coverage.hi > 1.0
-                    || coverage.lo >= coverage.hi
-                {
-                    return Err(invalid(&n.id, "coverage requires 0 <= lo < hi <= 1"));
-                }
-                if !s.required_capabilities.iter().any(|c| c == "caption-paint-coverage/1") {
-                    return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-coverage/1"));
-                }
-            }
-            match &layer.paint {
-                ScenePaint::Image {
-                    resource_id,
-                    uv_transform,
-                    opacity,
-                    composite_opacity,
-                    base,
-                    phase,
-                    phase_offset,
-                    ..
-                } => {
-                    if !s.required_capabilities.iter().any(|c| c == "caption-image-paint/1") {
-                        return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-image-paint/1"));
-                    }
-                    if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
-                        || !resources.contains(resource_id)
-                        || layer.coverage.is_some()
-                        || uv_transform.iter().any(|v| !v.is_finite() || v.abs() > 4096.0)
-                        || !opacity.is_finite()
-                        || !(0.0..=1.0).contains(opacity)
-                        || !composite_opacity.is_finite()
-                        || !(0.0..=1.0).contains(composite_opacity)
-                        || !phase_offset.is_finite()
-                        || !(0.0..=1.0).contains(phase_offset)
-                        || phase.is_some_and(|p| {
-                            !(1..=4096).contains(&p.period)
-                                || !p.index_offset.is_finite()
-                                || p.index_offset.abs() > 131072.0
-                                || (p.arithmetic == ImagePhaseArithmetic::IntegerModulo && p.index_offset != 0.0)
-                        })
-                    {
-                        return Err(invalid(&n.id, "invalid image paint resource, scope, matrix, opacity or phase"));
-                    }
-                    if phase.is_some_and(|p| p.arithmetic == ImagePhaseArithmetic::Float32)
-                        && !s.required_capabilities.iter().any(|c| c == "caption-image-phase-float32/1")
-                    {
-                        return Err(Diagnostic::new(
-                            "CAPTION_CAPABILITY_REQUIRED",
-                            &n.id,
-                            "caption-image-phase-float32/1",
-                        ));
-                    }
-                    let scale = uv_transform[..4].iter().map(|v| v.abs()).fold(0.0, f64::max);
-                    if scale == 0.0
-                        || ((uv_transform[0] / scale) * (uv_transform[3] / scale) - (uv_transform[1] / scale) * (uv_transform[2] / scale))
-                            .abs()
-                            <= 1e-12
-                    {
-                        return Err(invalid(&n.id, "image paint UV matrix is singular or near-singular"));
-                    }
-                    if let Some(base) = base {
-                        // Texture and base are sampled into one bitmap before coverage; unlike the
-                        // legacy gradient silhouette path this supports translucent base stops.
-                        validate_color_paint(base, s, &n.id, false)?;
-                    }
-                }
-                paint => validate_color_paint(paint, s, &n.id, layer.spread > 0.0 || layer.coverage.is_some())?,
-            }
-        }
+        validate_paint_stack(n, &n.style.paints, s, &resources, false)?;
         if let Some(fill_paint) = &n.fill_paint {
             if n.kind != NodeKind::Shape {
                 return Err(invalid(&n.id, "fillPaint belongs to shapes"));
@@ -1769,9 +1743,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
             if !s.required_capabilities.iter().any(|c| c == "caption-shape-paint/1") {
                 return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-shape-paint/1"));
             }
-            if n.properties.contains_key("fill")
-                || s.animations.iter().any(|a| a.target.node_id == n.id && a.property == "fill")
-            {
+            if n.properties.contains_key("fill") || s.animations.iter().any(|a| a.target.node_id == n.id && a.property == "fill") {
                 return Err(invalid(&n.id, "fillPaint cannot be combined with fill overrides"));
             }
             shape_fill_paint(fill_paint, &n.id)?;
@@ -1935,6 +1907,200 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         )?;
         if (t == ValueType::Color && a.composite != Composite::Replace) || (a.composite == Composite::Multiply && t != ValueType::Scalar) {
             return Err(invalid(&a.id, "invalid composite for property type"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_paint_stack(n: &Node, paints: &[PaintLayer], s: &Scene, resources: &BTreeSet<&String>, fill_override: bool) -> Result<()> {
+    if paints.len() > paint_stack_limit(s) {
+        return Err(invalid(&n.id, "paint budget exceeded"));
+    }
+    // A node-fill layer is where fill overrides land, so they are no longer
+    // silently replaced by the stack. Legacy stroke still has no place in it.
+    let node_fill = paints.iter().any(|l| paint_uses_node_fill(&l.paint));
+    if !paints.is_empty()
+        && (n.style.stroke.is_some()
+            || (!node_fill
+                && (fill_override
+                    || !n.state_styles.is_empty()
+                    || n.properties.contains_key("fill")
+                    || s.animations.iter().any(|a| a.target.node_id == n.id && a.property == "fill"))))
+    {
+        return Err(invalid(
+            &n.id,
+            "paint stack cannot be combined with fill overrides or legacy stroke",
+        ));
+    }
+    let mut layer_ids = BTreeSet::new();
+    for layer in paints {
+        // Em lengths scale with the glyph size; the px limits keep their old range.
+        let (extent, reach) = match layer.unit {
+            PaintUnit::Px => (256.0, 4096.0),
+            PaintUnit::Em => (4.0, 16.0),
+        };
+        if !name(&layer.id)
+            || !layer_ids.insert(&layer.id)
+            || [layer.stroke_width, layer.spread, layer.blur]
+                .iter()
+                .any(|v| !v.is_finite() || !(0.0..=extent).contains(v))
+            || layer.offset.iter().any(|x| !x.is_finite() || x.abs() > reach)
+            || (layer.spread > 0.0 && layer.stroke_width > 0.0)
+        {
+            return Err(invalid(&n.id, "invalid paint layer"));
+        }
+        if (layer.unit == PaintUnit::Em || layer.spread > 0.0 || layer.blur > 0.0 || paint_uses_node_fill(&layer.paint))
+            && !s.required_capabilities.iter().any(|c| c == "caption-paint-effects/1")
+        {
+            return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-effects/1"));
+        }
+        if let Some(distance) = &layer.distance_coverage {
+            if !s.required_capabilities.iter().any(|cap| cap == "caption-glyph-distance-coverage/1") {
+                return Err(Diagnostic::new(
+                    "CAPTION_CAPABILITY_REQUIRED",
+                    &n.id,
+                    "caption-glyph-distance-coverage/1",
+                ));
+            }
+            if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
+                || layer.offset != [0.0, 0.0]
+                || layer.stroke_width != 0.0
+                || layer.spread != 0.0
+                || layer.blur != 0.0
+                || layer.coverage.is_some()
+                || layer.mask.is_some()
+            {
+                return Err(invalid(
+                    &n.id,
+                    "distance coverage requires text or label paint without legacy coverage or effects",
+                ));
+            }
+            if matches!(layer.paint, ScenePaint::Image { .. })
+                && !s.required_capabilities.iter().any(|cap| cap == "caption-image-distance-coverage/1")
+            {
+                return Err(Diagnostic::new(
+                    "CAPTION_CAPABILITY_REQUIRED",
+                    &n.id,
+                    "caption-image-distance-coverage/1",
+                ));
+            }
+            validate_glyph_distance_coverage(distance, extent, reach, &n.id)?;
+        }
+        if let Some(PaintMask::GlyphFill { spread, offset, inverted }) = layer.mask {
+            if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
+                || !spread.is_finite()
+                || !(0.0..=extent).contains(&spread)
+                || offset.iter().any(|x| !x.is_finite() || x.abs() > reach)
+            {
+                return Err(invalid(&n.id, "invalid glyph paint mask scope, spread or offset"));
+            }
+            if !s.required_capabilities.iter().any(|c| c == "caption-paint-mask/1") {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-mask/1"));
+            }
+            if (offset != [0.0, 0.0] || inverted) && !s.required_capabilities.iter().any(|c| c == "caption-paint-mask-transform/1") {
+                return Err(Diagnostic::new(
+                    "CAPTION_CAPABILITY_REQUIRED",
+                    &n.id,
+                    "caption-paint-mask-transform/1",
+                ));
+            }
+        }
+        if let Some(coverage) = layer.coverage {
+            if !coverage.lo.is_finite() || !coverage.hi.is_finite() || coverage.lo < 0.0 || coverage.hi > 1.0 || coverage.lo >= coverage.hi
+            {
+                return Err(invalid(&n.id, "coverage requires 0 <= lo < hi <= 1"));
+            }
+            if !s.required_capabilities.iter().any(|c| c == "caption-paint-coverage/1") {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-coverage/1"));
+            }
+        }
+        match &layer.paint {
+            ScenePaint::Image {
+                resource_id,
+                uv_transform,
+                opacity,
+                composite_opacity,
+                base,
+                phase,
+                phase_offset,
+                ..
+            } => {
+                if !s.required_capabilities.iter().any(|c| c == "caption-image-paint/1") {
+                    return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-image-paint/1"));
+                }
+                if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
+                    || !resources.contains(resource_id)
+                    || layer.coverage.is_some()
+                    || uv_transform.iter().any(|v| !v.is_finite() || v.abs() > 4096.0)
+                    || !opacity.is_finite()
+                    || !(0.0..=1.0).contains(opacity)
+                    || !composite_opacity.is_finite()
+                    || !(0.0..=1.0).contains(composite_opacity)
+                    || !phase_offset.is_finite()
+                    || !(0.0..=1.0).contains(phase_offset)
+                    || phase.is_some_and(|p| {
+                        !(1..=4096).contains(&p.period)
+                            || !p.index_offset.is_finite()
+                            || p.index_offset.abs() > 131072.0
+                            || (p.arithmetic == ImagePhaseArithmetic::IntegerModulo && p.index_offset != 0.0)
+                    })
+                {
+                    return Err(invalid(&n.id, "invalid image paint resource, scope, matrix, opacity or phase"));
+                }
+                if phase.is_some_and(|p| p.arithmetic == ImagePhaseArithmetic::Float32)
+                    && !s.required_capabilities.iter().any(|c| c == "caption-image-phase-float32/1")
+                {
+                    return Err(Diagnostic::new(
+                        "CAPTION_CAPABILITY_REQUIRED",
+                        &n.id,
+                        "caption-image-phase-float32/1",
+                    ));
+                }
+                if phase.is_some_and(|p| p.source == ImagePaintPhaseSource::PageScalarIndex)
+                    && !s.required_capabilities.iter().any(|c| c == "caption-image-page-phase/1")
+                {
+                    return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-image-page-phase/1"));
+                }
+                let scale = uv_transform[..4].iter().map(|v| v.abs()).fold(0.0, f64::max);
+                if scale == 0.0
+                    || ((uv_transform[0] / scale) * (uv_transform[3] / scale) - (uv_transform[1] / scale) * (uv_transform[2] / scale)).abs()
+                        <= 1e-12
+                {
+                    return Err(invalid(&n.id, "image paint UV matrix is singular or near-singular"));
+                }
+                if let Some(base) = base {
+                    // Texture and base are sampled into one bitmap before coverage; unlike the
+                    // legacy gradient silhouette path this supports translucent base stops.
+                    validate_color_paint(base, s, &n.id, false)?;
+                }
+            }
+            paint => validate_color_paint(paint, s, &n.id, layer.spread > 0.0 || layer.coverage.is_some())?,
+        }
+    }
+    Ok(())
+}
+
+fn validate_glyph_distance_coverage(value: &GlyphDistanceCoverage, extent: f64, reach: f64, id: &str) -> Result<()> {
+    if !(1..=2).contains(&value.bands.len()) {
+        return Err(invalid(id, "distance coverage requires one or two bands"));
+    }
+    let GlyphDistanceAa::QuadDerivative { source_band, scale } = value.aa;
+    if source_band >= value.bands.len() || !scale.is_finite() || !(0.0..=4.0).contains(&scale) {
+        return Err(invalid(id, "invalid distance coverage AA source or scale"));
+    }
+    for band in &value.bands {
+        if band.offset.iter().any(|v| !v.is_finite() || v.abs() > reach)
+            || !band.threshold.is_finite()
+            || band.threshold.abs() > extent
+            || !band.half_width.is_finite()
+            || !(0.0..=extent).contains(&band.half_width)
+        {
+            return Err(invalid(id, "distance band lengths exceed the paint unit bounds"));
+        }
+        for bounds in [band.distance_clamp, band.threshold_clamp, band.edge_clamp].into_iter().flatten() {
+            if bounds.iter().any(|v| !v.is_finite() || v.abs() > extent) || bounds[0] >= bounds[1] {
+                return Err(invalid(id, "distance band clamps require bounded ordered endpoints"));
+            }
         }
     }
     Ok(())
@@ -2306,13 +2472,13 @@ fn validate_page_window(scene: &Scene) -> Result<()> {
             "caption-page-window/1",
         ));
     }
-    if !scene.layout.pagination.has_fixed_lines()
+    if !(scene.layout.pagination.has_fixed_lines() || scene.layout.pagination.word_page_pattern.is_some())
         || scene.layout.leading_gap != LeadingGap::Hide
         || scene.speech_state.timing_policy != TimingPolicy::RequireWordTiming
     {
         return Err(invalid(
             "layout.pageWindow",
-            "fixed word/text lines, leadingGap hide and input word timing required",
+            "fixed word/text lines or word page pattern, leadingGap hide and input word timing required",
         ));
     }
     if window.gap_threshold.timescale == 0 || window.gap_threshold.ticks < 0 || window.gap_threshold.ticks > 9_007_199_254_740_991 {

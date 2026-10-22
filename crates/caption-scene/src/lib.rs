@@ -2,9 +2,11 @@
 //! No filesystem, system clock, UI or platform dependencies.
 mod expression;
 mod model;
+mod paint_style;
 mod validate;
 pub use expression::*;
 pub use model::*;
+pub use paint_style::*;
 pub use validate::*;
 
 pub const STYLE_SCHEMA: &str = "baocut.caption-scene-style/1";
@@ -12,6 +14,16 @@ pub const SCENE_SCHEMA: &str = "baocut.caption-scene/1";
 pub const MAX_NODES: usize = 256;
 pub const MAX_UNITS: usize = 4096;
 pub const MAX_OPERATIONS: usize = 65536;
+pub const EXTENDED_PAINT_STACK_CAPABILITY: &str = "caption-paint-stack-extended/1";
+pub const MAX_EXTENDED_PAINT_DECLARATIONS: usize = 4096;
+/// One node and all of its static variants retain one bounded layer order.
+pub fn paint_stack_limit(scene: &Scene) -> usize {
+    if scene.required_capabilities.iter().any(|cap| cap == EXTENDED_PAINT_STACK_CAPABILITY) {
+        64
+    } else {
+        16
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

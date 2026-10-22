@@ -227,6 +227,7 @@ pub(super) fn reflow(
         lines.push(Line::new(text, bytes, shape, bounds, baseline, fs));
         next_y += row_height;
     }
+    page_window::inherit_lines(&mut lines, &page.lines)?;
     Ok(Page {
         source_range: range,
         paint_start: page.paint_start,
