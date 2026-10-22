@@ -1,10 +1,12 @@
 import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { AssetRecord, Id, Sequence } from '@baocut/protocol';
 import { ActionButton, DialogTrigger, Picker, PickerItem, Popover, Text, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import VolumeOff from '@react-spectrum/s2/icons/VolumeOff';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { STAGE_TOOLBAR_COPY as COPY } from '../../copy.ts';
 import { colorParts, patchShape, patchTextStyle, withAlpha } from '../../model/property-values.ts';
+import { visualStyleOf } from '../../model/element-catalog.ts';
 import { aabbOf, poseOf, type PlacedItem, type Rect } from '../../model/stage-pose.ts';
 import { itemAsset, toolbarFor, toolbarPlacement, type Size, type Tool, type ToolbarSpec } from '../../model/stage-toolbar.ts';
 import { asObject, num, type Json } from '../../render/text-style.ts';
@@ -14,7 +16,7 @@ import { useEditorActions } from './editor-context.tsx';
 import { ToolbarFontField } from './font-field.tsx';
 import { ColorField, ValueRow } from './inspector-controls.tsx';
 import { SoundSection, SpeedSection } from './inspector-sections.tsx';
-import { StyleColorFields, StyleMenu, visualStyleOf } from './inspector-visualizers.tsx';
+import { StyleColorFields, StyleMenu } from './inspector-visualizers.tsx';
 import type { View } from './stage-boxes.tsx';
 import type { FrameRect } from './stage-objects.tsx';
 import { OffNote, StageToolbarMenu, TOOL_ICON, itemHost, type ToolHost, type ToolProps } from './stage-toolbar-menu.tsx';
@@ -49,6 +51,8 @@ const sep = style({ flexShrink: 0, width: '[1px]', height: '[15px]', marginX: '[
 const dim = style({ display: 'flex', opacity: 0.4 });
 const panel = style({ display: 'flex', flexDirection: 'column', gap: 8, width: 248 });
 export const quiet = style({ paddingX: '[6px]' });
+/** 箭头放在款名后面：放进 Text 里，不占 ActionButton 前面的图标位（同 access-picker）。 */
+const chip = style({ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' });
 
 /** 字号下拉的常用档（属性页的滑杆是 8–140）；现值不在其中时也列出来。 */
 const SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64, 72, 80, 96, 120, 140];
@@ -193,12 +197,22 @@ function PopTool({ tool, props }: { tool: Tool; props: ToolProps }) {
       commit: (patch: Json) => edit.commit([{ type: 'setProps', ...target, props: { ...values, ...patch } }]),
     };
     if (tool.id === 'wave-colors' || tool.id === 'progress-colors') return <StyleColorFields catalog={catalog} {...params} />;
-    if (tool.id === 'wave-picker' || tool.id === 'progress-picker')
+    if (tool.id === 'wave-picker' || tool.id === 'progress-picker') {
+      // 格上写现在这一款的名字加下拉箭头（原型的样式 chip），读屏念「样式（款名）」。
+      const { key, kind } = visualStyleOf(catalog, values);
       return (
-        <StyleMenu catalog={catalog} current={visualStyleOf(catalog, values).key} {...params}>
-          <ToolButton tool={tool} />
+        <StyleMenu catalog={catalog} current={key} {...params}>
+          <ActionButton isQuiet size="S" aria-label={E.withNote(tool.label, kind.label)}>
+            <Text>
+              <span className={chip}>
+                {kind.label}
+                <ChevronDown />
+              </span>
+            </Text>
+          </ActionButton>
         </StyleMenu>
       );
+    }
   }
   if (item.type === 'video' && (tool.id === 'volume' || tool.id === 'speed')) {
     const muted = tool.id === 'volume' && !item.embeddedAudio.enabled;

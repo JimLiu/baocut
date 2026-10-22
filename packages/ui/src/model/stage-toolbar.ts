@@ -1,6 +1,7 @@
 import { live, type ArrangeDirection, type AssetRecord, type BrandMediaKind, type Id, type LibrarySource } from '@baocut/protocol';
 import { asObject } from '../render/text-style.ts';
 import { canDetachAudio } from './detach-audio.ts';
+import { visualStyleOf } from './element-catalog.ts';
 import { assetLibrarySource, brandKindForAsset } from './library-brand.ts';
 import { editableTextStyle } from './property-values.ts';
 import type { PlacedItem, Rect } from './stage-pose.ts';
@@ -415,10 +416,11 @@ export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind, context:
 
 const isRow = (group: Group | Row): group is Row => group.some((entry) => Array.isArray(entry));
 
-function specOf(kind: BarKind, layout: Layout, tool: (id: ToolId) => Tool): ToolbarSpec {
+function specOf(kind: BarKind, layout: Layout, tool: (id: ToolId) => Tool, shown: (id: ToolId) => boolean = () => true): ToolbarSpec {
   return {
     kind,
-    visible: layout.visible.map((group) => group.map(tool)),
+    // 一整组都不出时连分隔线一起不出（原型「先画再分段」）。
+    visible: layout.visible.map((group) => group.filter(shown).map(tool)).filter((group) => group.length),
     more: layout.more
       ? layout.more.map((group) =>
           isRow(group) ? { kind: 'row', clusters: group.map((cluster) => cluster.map(tool)) } : { kind: 'list', tools: group.map(tool) },
@@ -431,7 +433,19 @@ function specOf(kind: BarKind, layout: Layout, tool: (id: ToolId) => Tool): Tool
 export function toolbarFor(item: PlacedItem, context: BarContext = {}): ToolbarSpec {
   const kind = barKindOf(item);
   const layout: Layout = kind === 'other' || kind === 'subtitle' ? OTHER_BAR : BAR[kind];
-  return specOf(kind, layout, (id) => ({ id, label: TOOL_LABEL[id], action: toolAction(id, item, kind, context) }));
+  return specOf(
+    kind,
+    layout,
+    (id) => ({ id, label: TOOL_LABEL[id], action: toolAction(id, item, kind, context) }),
+    (id) => toolShown(id, item),
+  );
+}
+
+/** 按这一件的参数整格不出的：两款彩虹边框（进度）没有颜色控件，条子上就没有色点。 */
+function toolShown(id: ToolId, item: PlacedItem): boolean {
+  if (id === 'progress-colors' && item.type === 'progress') return visualStyleOf('progress', asObject(item.progress)).kind.colors.length > 0;
+  if (id === 'wave-colors' && item.type === 'visualizer') return visualStyleOf('wave', asObject(item.visualizer)).kind.colors.length > 0;
+  return true;
 }
 
 // ---- 字幕 ----

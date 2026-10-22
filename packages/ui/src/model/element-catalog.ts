@@ -2,7 +2,7 @@ import { lazyArray, placeDefault } from '@baocut/editor-wasm';
 import type { ConfettiProps } from '@baocut/protocol';
 import { CONFETTI_STYLES, confettiDefaults, confettiStyle, randomSeed } from '../render/confetti.ts';
 import { PROGRESS_STYLES } from '../render/progress.ts';
-import { WAVE_STYLES } from '../render/visualizer.ts';
+import { WAVE_STYLES, waveStyleKey } from '../render/visualizer.ts';
 import { defineMessages, live } from '@baocut/protocol';
 import { placeBox, type VisualLayer } from './new-items.ts';
 import { zhHans } from './element-catalog.zh-Hans.ts';
@@ -278,6 +278,25 @@ export const WAVE_KINDS: readonly StyleKind[] = styleKinds(
   ],
   () => M.waves,
 );
+
+/** 进度条与声波这两份样式目录。 */
+export type VisualCatalog = 'progress' | 'wave';
+
+/**
+ * 进度条或声波这一件现在是哪一款、默认主副色是什么（`values` 是 `item.progress` / `item.visualizer`）。
+ * 认不出的款退回进度 `normal`、声波 `bars`；属性页与画布工具条按同一条判断。
+ */
+export function visualStyleOf(catalog: VisualCatalog, values: Record<string, unknown>): { key: string; kind: StyleKind; main: string; secondary: string } {
+  const kinds = catalog === 'wave' ? WAVE_KINDS : PROGRESS_KINDS;
+  const key =
+    catalog === 'wave'
+      ? (waveStyleKey(typeof values.style === 'string' ? values.style : 'bars') ?? 'bars')
+      : typeof values.style === 'string' && PROGRESS_STYLES[values.style]
+        ? values.style
+        : 'normal';
+  const preset = catalog === 'wave' ? WAVE_STYLES[key]! : PROGRESS_STYLES[key]!;
+  return { key, kind: kinds.find((k) => k.key === key) ?? kinds[0]!, main: preset.mainColor, secondary: preset.secondaryColor };
+}
 
 /** 进度网格的次序（固定网格序去掉计时两格）；计时那两格插在第 11 格（`snake`）之后。 */
 const PROGRESS_GRID = [

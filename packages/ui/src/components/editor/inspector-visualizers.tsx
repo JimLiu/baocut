@@ -3,10 +3,18 @@ import { DialogTrigger, Popover } from '@react-spectrum/s2';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
-import { ELEMENT_TILES, PROGRESS_KINDS, WAVE_KINDS, type ElementTile, type StyleKind } from '../../model/element-catalog.ts';
+import {
+  ELEMENT_TILES,
+  PROGRESS_KINDS,
+  WAVE_KINDS,
+  visualStyleOf,
+  type ElementTile,
+  type StyleKind,
+  type VisualCatalog as Catalog,
+} from '../../model/element-catalog.ts';
 import { PROGRESS_STYLES } from '../../render/progress.ts';
 import { num, type Json } from '../../render/text-style.ts';
-import { WAVE_STYLES, waveStyleKey } from '../../render/visualizer.ts';
+import { WAVE_STYLES } from '../../render/visualizer.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { ElementThumb } from './element-thumb.tsx';
 import { ColorField, Note, PRow, Sec, SecHead, ValueRow } from './inspector-controls.tsx';
@@ -27,7 +35,6 @@ export interface VisualParamProps {
   commit(patch: Json): void;
 }
 
-export type Catalog = 'progress' | 'wave';
 
 const drill = style({
   display: 'flex',
@@ -277,18 +284,6 @@ function StylePicker({ catalog, current, ...props }: VisualParamProps & { catalo
       </StyleMenu>
     </>
   );
-}
-
-/** 进度条或声波这一件的参数（`values` 是 `item.progress` / `item.visualizer`）现在是哪一款、默认主副色是什么。 */
-export function visualStyleOf(catalog: Catalog, values: Json): { key: string; kind: StyleKind; main: string; secondary: string } {
-  if (catalog === 'wave') {
-    const key = waveStyleKey(typeof values.style === 'string' ? values.style : 'bars') ?? 'bars';
-    const preset = WAVE_STYLES[key]!;
-    return { key, kind: kindOf(WAVE_KINDS, key), main: preset.mainColor, secondary: preset.secondaryColor };
-  }
-  const key = typeof values.style === 'string' && PROGRESS_STYLES[values.style] ? values.style : 'normal';
-  const preset = PROGRESS_STYLES[key]!;
-  return { key, kind: kindOf(PROGRESS_KINDS, key), main: preset.mainColor, secondary: preset.secondaryColor };
 }
 
 /** 样式目录弹层：`children` 是点开它的那颗钮（属性页的样式行、画布工具条的「样式」格共用）。 */

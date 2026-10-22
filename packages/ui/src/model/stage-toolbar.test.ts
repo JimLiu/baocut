@@ -248,6 +248,9 @@ describe('每一格做什么', () => {
     const wave = toolbarFor(element('visualizer', { visualizer: { style: 'audio_envelope' } }));
     expect(find(wave, 'wave-picker')?.action).toEqual({ kind: 'pop' });
     expect(find(wave, 'wave-colors')?.action).toEqual({ kind: 'pop' });
+    // 彩虹边框没有颜色控件：色点整组不出，条子也不留那条分隔线。
+    const rainbow = toolbarFor(element('progress', { progress: { style: 'rainbow_border' } }));
+    expect(rainbow.visible.map((group) => group.map((tool) => tool.id))).toEqual([['progress-picker'], ['animation']]);
     const spec = toolbarFor(counter());
     expect(find(spec, 'counter-mode')?.action).toEqual({ kind: 'jump', section: null });
     expect(find(spec, 'color')?.action).toEqual({ kind: 'jump', section: null });
