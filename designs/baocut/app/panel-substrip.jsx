@@ -68,6 +68,12 @@
     );
   }
 
+  /** 原文还没做成字幕层时那枚虚线「原文」chip 的说明（product-design §5.6）：它不是拿下来的，点了是新建。 */
+  function ghostBuildTip(st) {
+    const tr = S.translations(st)[0];
+    return '原文还没做成字幕 · 点击用文稿建一层' + (tr ? '，与「' + tr.name + '」共用样式叠成双语' : '');
+  }
+
   /** 画面上的字幕轨条。`ops` 是调用方那份 `useSubTrackOps`（软上限对话框挂在调用方
    *  树里，不在这里再开一份）。`sel` 高亮的是当下的编辑对象——与画布、属性页顶部那排
    *  chip、语言入口写的是同一个字段（`sel.trackId`）。 */
@@ -102,7 +108,8 @@
         ))}
         {shelved.map((t) => (
           <BCAction key={t.id} className="subtrk subtrk--ghost" onClick={() => ops.put(t)}
-            title={'把「' + t.name + '」' + (G.count(t) > 1 ? '整层 ' + G.count(t) + ' 段' : '') + '放回画面' + (list.length >= 2 ? ' · 第三条会问一次' : '')}>
+            title={t.unbuilt ? ghostBuildTip(st)
+              : '把「' + t.name + '」' + (G.count(t) > 1 ? '整层 ' + G.count(t) + ' 段' : '') + '放回画面' + (list.length >= 2 ? ' · 第三条会问一次' : '')}>
             <Ic n="plus" className="ic--14" />{G.chipLabel(t, all)}
             {G.count(t) > 1 ? <span className="subtrk__cnt t-mono">{G.count(t)}</span> : null}
           </BCAction>

@@ -337,6 +337,17 @@
      notes: '转录时没建字幕：时间轴上是只读的文稿行，点一句落播放头。',
      toast: '链接导入的口播 · 有文稿、还没有字幕轨 · 智能体正在翻译',
      content: {}, meta: {speakers: 1, chapters: 0, cues: 62}, sample: true},
+    /* 只有译文字幕的视频（2026-10-22，product-design §5.6 轨条）：智能体从链接导入、转录（不建字幕层）、翻译成英语时
+       只显示译文——画面上只有一条英文字幕，中文原文还只是文稿，没有字幕层。`captions: 'translation'`：轨条上「原文」
+       是一枚虚线 chip，点它用文稿建原文字幕层，与英文共用样式叠成双语。 */
+    {id: 'p16', title: '中 → EN · 科浪访谈（只有译文字幕）', dir: 'd1', folder: '中译英只有译文', status: 'complete', entry: 'trans', bare: true,
+     captions: 'translation',
+     src: {name: 'kelang-ep42-master.mp4', path: '~/Movies/播客/kelang-ep42-master.mp4', format: 'MP4 · H.264', res: '1920×1080', state: 'ok'},
+     duration: DUR, lang: '中文', model: 'moss-transcribe', modified: '5 分钟前', mtime: 5, otime: 3, ctime: 40, hue: 240,
+     desc: '智能体导入并译成英语的访谈；翻译时只显示译文，中文原文还没做成字幕层。',
+     notes: '字幕 Tab 的轨条上「原文」是虚线 chip：点它建原文字幕层，和英文叠成双语。',
+     toast: '只有英文字幕 · 原文还没做成字幕层 · 轨条上点「原文」叠成双语',
+     content: {}, meta: {speakers: 3, chapters: 0, cues: 62}, sample: true},
     {id: 'p1', title: '中 → EN · 科浪访谈双语版', dir: 'd1', folder: '中译英双语版', status: 'complete', entry: 'trans', bare: true,
      src: {name: 'kelang-ep42-master.mp4', path: '~/Movies/播客/kelang-ep42-master.mp4', format: 'MP4 · H.264', res: '1920×1080', bytes: 88080384, state: 'ok'},
      duration: DUR, lang: '中文', model: 'moss-transcribe', modified: '2 小时前', mtime: 120, otime: 0, ctime: 12960, hue: 252,
@@ -3331,7 +3342,7 @@
     }
     return {
       entry, tab: movie ? 'video' : elementLab ? 'elements' : entry.tab,
-      transcript: !elementLab && !movie, captions: proj.captions !== false, music: !proj.bare, score: proj.score || [],
+      transcript: !elementLab && !movie, captions: proj.captions == null ? true : proj.captions, music: !proj.bare, score: proj.score || [],
       duration: movie ? proj.duration : DUR,
       clips: movie ? [{id: 'k1', start: 0, end: proj.duration, src: 0}] : clips,
       chapters: elementLab || movie ? [] : proj.entry === 'clean'

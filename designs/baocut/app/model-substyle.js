@@ -128,6 +128,21 @@
     return tracks(st).map((t) => (t.id === outId ? next : t));
   }
 
+  /** 用文稿新建原文字幕层，与画面上的译文叠成双语（product-design §5.6 轨条的虚线「原文」chip）。
+   *
+   *  只有译文在画面上、原文从来没建过字幕层时走这里，不是 `addTrack`：种子轨的涂装是默认样式那一份，用户若已给
+   *  译文换过样子，原样放上去就是两行两种字。所以**身份、几何、字号与词级那几件来自原文种子轨，涂装来自配对的
+   *  那条译文**——同一份样式，两层只差主次（实现里是两层共用一份字幕样式文档）。画面上没有译文时就是 `addTrack`。 */
+  const SOURCE_OWN = ['id', 'lang', 'name', 'role', 'y', 'valign', 'size', 'segments', 'of', 'hidden',
+    'wordAnim', 'caption', 'kinetic', 'activeColor', 'highlight', 'activeWord', 'emoji'];
+  function addSourcePaired(st, seed) {
+    const tr = translations(st)[0];
+    if (!tr || byId(st, seed.id)) return addTrack(st, seed);
+    const paint = Object.assign({}, tr);
+    SOURCE_OWN.forEach((k) => { delete paint[k]; });
+    return place(tracks(st), Object.assign({}, seed, paint));
+  }
+
   /** 把一条搁置的轨放回画面时该走哪条路——**软上限**（默认两条，第三条起问一次）。
    *
    *    'add'   画面上不足两条：直接放回去。这是「仅译文 / 只显示原文」的回头路，
@@ -566,7 +581,7 @@
   window.BC_SUB = {
     FORMS, BI_SCALE,
     tracks, byId, source, translations, hasWordTiming, label,
-    place, addTrack, removeTrack, replaceTrack, putBackMode,
+    place, addTrack, addSourcePaired, removeTrack, replaceTrack, putBackMode,
     writable, scopes, memberSections, sections,
     CUE_KEYS, SECTION_KEYS,
     cueStyles, cueOverride, isDetached, overriddenKeys, sectionOverrides,

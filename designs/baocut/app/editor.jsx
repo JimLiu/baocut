@@ -314,7 +314,12 @@
             {id: l.code, lang: l.code, name: l.name, role: 'translation'}));
       /* 种子轨里不以语言代码为 id 的层（第 244 轮纪录片演示的「采访译文」）拿下后也要放得回来 */
       const extra = seed.filter((t) => !langs.some((x) => x.id === t.id));
-      return langs.concat(extra).filter((t) => !S.byId(doc, t.id));
+      /* 原文从来没做成字幕层（`unbuiltSource`）时它不是「拿下来的」，是「还没建的」：轨条与行头点它走新建那条路
+         （`addSourceLayer`，与译文共用样式叠成双语），不是放回。候选用落轨时从同一对里拿出来的那条原文——它与译文
+         一起过了字幕偏好（`PREFS.apply`），几何是配好的一对；种子轨没过偏好，偏好倒转过时会和译文落在同一格。 */
+      const unbuilt = doc.unbuiltSource;
+      return langs.concat(extra).filter((t) => !S.byId(doc, t.id))
+        .map((t) => (unbuilt && t.id === unbuilt.id ? Object.assign({}, unbuilt, {unbuilt: true}) : t));
     };
     // 语言入口当下选中的那条轨；套样式要知道「仅译文」落在哪一条上
     const subEditId = useRef(null);
@@ -345,9 +350,15 @@
       tracks: cutTracks(bilingual ? D.subtitle.defaults.tracks
         : D.subtitle.defaults.tracks.filter((t) => t.role === 'source')),
     }), subtitlePrefs.current);
-    /* `captions: false`（2026-10-08）：转录过却没建字幕的视频——有文稿、零条字幕轨，时间轴画只读文稿行 */
-    const [subStyle, setSubStyleState] = useState(() => initiallyEmpty || awaitingTranscript || !setup.transcript || setup.captions === false
-      ? {...subDoc(false), tracks: []} : subDoc(setup.entry.canvas === 'bi'));
+    /* `captions: false`（2026-10-08）：转录过却没建字幕的视频——有文稿、零条字幕轨，时间轴画只读文稿行。
+       `captions: 'translation'`（2026-10-22）：翻译时只显示译文，原文还没有字幕层——只落译文那几条，记下 `unbuiltSource`
+       （那条原文轨本身，整份文档进撤销快照，撤销建原文时它跟着回来） */
+    const [subStyle, setSubStyleState] = useState(() => {
+      if (initiallyEmpty || awaitingTranscript || !setup.transcript || setup.captions === false) return {...subDoc(false), tracks: []};
+      if (setup.captions !== 'translation') return subDoc(setup.entry.canvas === 'bi');
+      const bi = subDoc(true);
+      return {...bi, tracks: bi.tracks.filter((t) => t.role !== 'source'), unbuiltSource: S.source(bi)};
+    });
     const hadPendingTranscript = useRef(awaitingTranscript);
     useEffect(() => {
       if (!hadPendingTranscript.current || proj.status !== 'complete') return;
@@ -759,12 +770,21 @@
       setPaneView(re.paneView || null);
     }, [handoffBack]);
 
+    /* 下单时读最新的路由与视图：`requestAi` 是一次建好的回调，闭包里的 `app.route` 是首屏那一份 */
+    const aiRoute = useRef(null);
+    aiRoute.current = {route: app.route, view};
     const requestAi = useCallback((tool, scope, agent) => {
       /* Web 表面没有 AI 入口：各面板已经按 `BC_SURFACE.ai` 收掉了按钮，这里是兜底——
          万一漏了一处，也只是说清去处，不会切到一个不存在的 Tab。 */
       if (!window.BC_SURFACE.ai) { app.toast(window.BC_SURFACE.aiElsewhere('AI 操作')); return; }
       setAiReq({tool, scope, agent: agent || null, n: Date.now()});
-      setTab('aitools');
+      /* AI 工具 Tab 只在时间线视图里（product-design §5.10）：从轻量视图（审片页轨条的「翻译成…」）下单先切过去。
+         Tab 与视图写进同一笔 replace——分两笔时后一笔拿旧路由，把前一笔盖掉 */
+      const {route, view: cur} = aiRoute.current;
+      const value = window.BC_SURFACE.landingTab('aitools');
+      if (cur === 'lite') setViewRaw('timeline');
+      setLocalTab(value);
+      app.replace({...route, tab: value, ...(cur === 'lite' ? {view: 'timeline'} : null)});
       setPaneHidden(false);
     }, []);
     /* 会话下的单（store 的 toolReq）：Agent 跑完的结果在这个面板里看，`agent` 让面板直接落在结果上。 */
@@ -877,6 +897,12 @@
     const addSubTrackBack = useCallback((track) => setSubStyleRaw((s) => {
       const list = window.BC_SUB.addTrack(s, track);
       return list === s.tracks ? s : Object.assign({}, s, {tracks: list});
+    }), []);
+    /** 用文稿建原文字幕层（轨条的虚线「原文」chip）：涂装取配对的译文，叠成双语（`BC_SUB.addSourcePaired`）。 */
+    const addSourceLayer = useCallback(({unbuilt, ...track}) => setSubStyleRaw((s) => {
+      const next = Object.assign({}, s, {tracks: window.BC_SUB.addSourcePaired(s, track)});
+      delete next.unbuiltSource;
+      return next;
     }), []);
 
     /* 套用画廊里的一份样式。
@@ -1364,7 +1390,7 @@
       peek, setPeek, peekOf,
       kineticEdit, setKineticEdit,
       availableSubTracks: () => availableSubTracks(subStyle), subEditId,
-      addSubTrack, removeSubTrack, addSubTrackBack, swapSubTrack,
+      addSubTrack, removeSubTrack, addSubTrackBack, addSourceLayer, swapSubTrack,
       ...els,
       ...tpl,
       elements: tpl.withTemplateRow(els.elements, els.elDocs),

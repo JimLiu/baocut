@@ -105,8 +105,8 @@
               disabled={live} onClick={() => { onClose(); ops.drop(at.id); }} />
             {shelved.length ? <MenuRule /> : null}
             {shelved.map((t) => (
-              <MenuItem key={t.id} icon="plus" label={'放回「' + t.name + '」'}
-                sub={live ? '转录完成后再放回' : t.role === 'source' ? '源语言' : '有译文，还没放上去'}
+              <MenuItem key={t.id} icon="plus" label={(t.unbuilt ? '建原文字幕「' : '放回「') + t.name + '」'}
+                sub={live ? '转录完成后再放回' : t.unbuilt ? '用文稿建 · 与译文叠成双语' : t.role === 'source' ? '源语言' : '有译文，还没放上去'}
                 disabled={live} onClick={() => { ops.put(t); onClose(); }} />
             ))}
           </Menu>
