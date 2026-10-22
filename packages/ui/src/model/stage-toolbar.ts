@@ -354,11 +354,13 @@ export function toolAction(id: ToolId, item: PlacedItem, kind: BarKind, context:
       return item.type === 'video' || (item.type === 'composition' && item.audio) ? POP : off(OFF_REASON.sound);
     case 'speed':
       return item.type === 'video' && item.timeMap.kind === 'linear' ? POP : off(OFF_REASON.speed);
-    case 'fill-list':
     case 'progress-colors':
     case 'progress-picker':
     case 'wave-colors':
     case 'wave-picker':
+      // 进度与声波的色点、样式目录在条子上直接开（原型 stage-toolbar.jsx）：跳到属性页页首时属性页常常已经开着，像没反应。
+      return POP;
+    case 'fill-list':
     case 'counter-mode':
     case 'volume-levels':
       // 合成的参数（改的是生成器参数）：控件都在属性页的开头。

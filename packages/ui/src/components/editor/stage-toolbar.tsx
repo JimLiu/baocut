@@ -7,13 +7,14 @@ import { STAGE_TOOLBAR_COPY as COPY } from '../../copy.ts';
 import { colorParts, patchShape, patchTextStyle, withAlpha } from '../../model/property-values.ts';
 import { aabbOf, poseOf, type PlacedItem, type Rect } from '../../model/stage-pose.ts';
 import { itemAsset, toolbarFor, toolbarPlacement, type Size, type Tool, type ToolbarSpec } from '../../model/stage-toolbar.ts';
-import { asObject, num } from '../../render/text-style.ts';
+import { asObject, num, type Json } from '../../render/text-style.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { ToolbarFontField } from './font-field.tsx';
 import { ColorField, ValueRow } from './inspector-controls.tsx';
 import { SoundSection, SpeedSection } from './inspector-sections.tsx';
+import { StyleColorFields, StyleMenu, visualStyleOf } from './inspector-visualizers.tsx';
 import type { View } from './stage-boxes.tsx';
 import type { FrameRect } from './stage-objects.tsx';
 import { OffNote, StageToolbarMenu, TOOL_ICON, itemHost, type ToolHost, type ToolProps } from './stage-toolbar-menu.tsx';
@@ -99,7 +100,7 @@ export function SizePicker({ label, size, isDisabled, onChange }: { label: strin
   );
 }
 
-/** 条子上开弹层改值的格：颜色、字体、字号、描边、音量、变速。 */
+/** 条子上开弹层改值的格：颜色、字体、字号、描边、音量、变速，进度与声波的色点和样式目录。 */
 function PopTool({ tool, props }: { tool: Tool; props: ToolProps }) {
   const { item, sequence, edit, canChange } = props;
   const target = { sequenceId: sequence.id, itemId: item.id };
@@ -178,6 +179,25 @@ function PopTool({ tool, props }: { tool: Tool; props: ToolProps }) {
             </div>
           </Popover>
         </DialogTrigger>
+      );
+  }
+  if (item.type === 'progress' || item.type === 'visualizer') {
+    // 写法与属性页的参数段同一条（inspector-elements 的 `kindParams`）：整份参数带着改动一起写。
+    const catalog = item.type === 'visualizer' ? 'wave' : 'progress';
+    const values = asObject(item.type === 'visualizer' ? item.visualizer : item.progress);
+    const params = {
+      values,
+      isDisabled: !canChange,
+      canvas: sequence.canvas,
+      live: (patch: Json) => edit.live({ props: { ...values, ...patch } }),
+      commit: (patch: Json) => edit.commit([{ type: 'setProps', ...target, props: { ...values, ...patch } }]),
+    };
+    if (tool.id === 'wave-colors' || tool.id === 'progress-colors') return <StyleColorFields catalog={catalog} {...params} />;
+    if (tool.id === 'wave-picker' || tool.id === 'progress-picker')
+      return (
+        <StyleMenu catalog={catalog} current={visualStyleOf(catalog, values).key} {...params}>
+          <ToolButton tool={tool} />
+        </StyleMenu>
       );
   }
   if (item.type === 'video' && (tool.id === 'volume' || tool.id === 'speed')) {

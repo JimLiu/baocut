@@ -240,12 +240,14 @@ describe('每一格做什么', () => {
     expect(find(toolbarFor(video({ kind: 'hold', sourceAt: { ticks: '0', timescale: 1 } })), 'speed')?.action.kind).toBe('off');
   });
 
-  it('元素的参数格（填充色、样式、模式、计时的颜色字体）跳到属性页页首', () => {
+  it('元素的参数格（填充色、模式、计时的颜色字体）跳到属性页页首；进度与声波的色点与样式在条子上开弹层', () => {
     expect(find(toolbarFor(sticker()), 'fill-list')?.action).toEqual({ kind: 'jump', section: null });
-    expect(find(toolbarFor(element('progress', { progress: { style: 'rounded' } })), 'progress-picker')?.action).toEqual({
-      kind: 'jump',
-      section: null,
-    });
+    const progress = toolbarFor(element('progress', { progress: { style: 'rounded' } }));
+    expect(find(progress, 'progress-picker')?.action).toEqual({ kind: 'pop' });
+    expect(find(progress, 'progress-colors')?.action).toEqual({ kind: 'pop' });
+    const wave = toolbarFor(element('visualizer', { visualizer: { style: 'audio_envelope' } }));
+    expect(find(wave, 'wave-picker')?.action).toEqual({ kind: 'pop' });
+    expect(find(wave, 'wave-colors')?.action).toEqual({ kind: 'pop' });
     const spec = toolbarFor(counter());
     expect(find(spec, 'counter-mode')?.action).toEqual({ kind: 'jump', section: null });
     expect(find(spec, 'color')?.action).toEqual({ kind: 'jump', section: null });

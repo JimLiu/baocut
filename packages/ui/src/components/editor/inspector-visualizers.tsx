@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { DialogTrigger, Popover } from '@react-spectrum/s2';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -27,7 +27,7 @@ export interface VisualParamProps {
   commit(patch: Json): void;
 }
 
-type Catalog = 'progress' | 'wave';
+export type Catalog = 'progress' | 'wave';
 
 const drill = style({
   display: 'flex',
@@ -124,11 +124,10 @@ function stylePatch(catalog: Catalog, key: string): Json {
 /** 进度条：颜色、样式、区间（起点、终点 0–100%，终点可以小于起点：倒着走）。 */
 export function ProgressParams(props: VisualParamProps) {
   const { values, isDisabled, live, commit } = props;
-  const key = typeof values.style === 'string' && PROGRESS_STYLES[values.style] ? values.style : 'normal';
-  const preset = PROGRESS_STYLES[key]!;
+  const { key, kind, main, secondary } = visualStyleOf('progress', values);
   return (
     <>
-      <ColorRows kind={kindOf(PROGRESS_KINDS, key)} main={preset.mainColor} secondary={preset.secondaryColor} {...props} />
+      <ColorRows kind={kind} main={main} secondary={secondary} {...props} />
       <StylePicker catalog="progress" current={key} {...props} />
       <SecHead aside={IC.rangeAside}>{IC.progressRange}</SecHead>
       <Sec>
@@ -165,13 +164,13 @@ export function ProgressParams(props: VisualParamProps) {
  */
 export function VisualizerParams(props: VisualParamProps) {
   const { values, isDisabled, live, commit } = props;
-  const key = waveStyleKey(typeof values.style === 'string' ? values.style : 'bars') ?? 'bars';
+  const { key, kind, main, secondary } = visualStyleOf('wave', values);
   const preset = WAVE_STYLES[key]!;
   const minDb = num(values.minDb, preset.minDb);
   const maxDb = num(values.maxDb, preset.maxDb);
   return (
     <>
-      <ColorRows kind={kindOf(WAVE_KINDS, key)} main={preset.mainColor} secondary={preset.secondaryColor} {...props} />
+      <ColorRows kind={kind} main={main} secondary={secondary} {...props} />
       <StylePicker catalog="wave" current={key} {...props} />
       {key === 'audio_envelope' ? null : (
         <>
@@ -257,17 +256,16 @@ function ColorRows({ kind, main, secondary, values, isDisabled, live, commit }: 
 }
 
 /** 样式段：当前那一款的缩略图、名字与「N 种 · 点开选」，点开是目录。 */
-function StylePicker({ catalog, current, isDisabled, canvas, live, commit }: VisualParamProps & { catalog: Catalog; current: string }) {
-  const [open, setOpen] = useState(false);
+function StylePicker({ catalog, current, ...props }: VisualParamProps & { catalog: Catalog; current: string }) {
   const kinds = catalog === 'wave' ? WAVE_KINDS : PROGRESS_KINDS;
   const kind = kindOf(kinds, current);
   const thumb = tileOf(catalog, kind.key);
   return (
     <>
       <SecHead>{IC.style}</SecHead>
-      <DialogTrigger isOpen={open} onOpenChange={setOpen}>
-        <RACButton className={drill} isDisabled={isDisabled} aria-label={IC.styleTile(kind.label, kinds.length)}>
-          <span className={drillThumb}>{thumb ? <ElementThumb tile={thumb} canvas={canvas} /> : null}</span>
+      <StyleMenu catalog={catalog} current={current} {...props}>
+        <RACButton className={drill} isDisabled={props.isDisabled} aria-label={IC.styleTile(kind.label, kinds.length)}>
+          <span className={drillThumb}>{thumb ? <ElementThumb tile={thumb} canvas={props.canvas} /> : null}</span>
           <span className={drillText}>
             <span className={drillName}>{kind.label}</span>
             <span className={drillNote}>{IC.styleCount(kinds.length)}</span>
@@ -276,18 +274,74 @@ function StylePicker({ catalog, current, isDisabled, canvas, live, commit }: Vis
             <ChevronRight />
           </span>
         </RACButton>
-        <Popover placement="bottom" padding="default" aria-label={catalog === 'wave' ? IC.waveStyles : IC.progressStyles}>
-          <StyleCatalog
-            catalog={catalog}
-            kinds={kinds}
-            current={current}
-            canvas={canvas}
-            onPeek={(key) => live(stylePatch(catalog, key))}
-            onPick={(key) => commit(stylePatch(catalog, key))}
-            onClose={() => setOpen(false)}
+      </StyleMenu>
+    </>
+  );
+}
+
+/** 进度条或声波这一件的参数（`values` 是 `item.progress` / `item.visualizer`）现在是哪一款、默认主副色是什么。 */
+export function visualStyleOf(catalog: Catalog, values: Json): { key: string; kind: StyleKind; main: string; secondary: string } {
+  if (catalog === 'wave') {
+    const key = waveStyleKey(typeof values.style === 'string' ? values.style : 'bars') ?? 'bars';
+    const preset = WAVE_STYLES[key]!;
+    return { key, kind: kindOf(WAVE_KINDS, key), main: preset.mainColor, secondary: preset.secondaryColor };
+  }
+  const key = typeof values.style === 'string' && PROGRESS_STYLES[values.style] ? values.style : 'normal';
+  const preset = PROGRESS_STYLES[key]!;
+  return { key, kind: kindOf(PROGRESS_KINDS, key), main: preset.mainColor, secondary: preset.secondaryColor };
+}
+
+/** 样式目录弹层：`children` 是点开它的那颗钮（属性页的样式行、画布工具条的「样式」格共用）。 */
+export function StyleMenu({
+  catalog,
+  current,
+  canvas,
+  live,
+  commit,
+  children,
+}: Omit<VisualParamProps, 'values' | 'isDisabled'> & { catalog: Catalog; current: string; children: ReactElement }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <DialogTrigger isOpen={open} onOpenChange={setOpen}>
+      {children}
+      <Popover placement="bottom" padding="default" aria-label={catalog === 'wave' ? IC.waveStyles : IC.progressStyles}>
+        <StyleCatalog
+          catalog={catalog}
+          kinds={catalog === 'wave' ? WAVE_KINDS : PROGRESS_KINDS}
+          current={current}
+          canvas={canvas}
+          onPeek={(key) => live(stylePatch(catalog, key))}
+          onPick={(key) => commit(stylePatch(catalog, key))}
+          onClose={() => setOpen(false)}
+        />
+      </Popover>
+    </DialogTrigger>
+  );
+}
+
+/** 画布工具条上的色点：这一款有几色出几个（两款彩虹边框一个也没有），写法与属性页的颜色段同一条。 */
+export function StyleColorFields({ catalog, values, isDisabled, live, commit }: Omit<VisualParamProps, 'canvas'> & { catalog: Catalog }) {
+  const { kind, main, secondary } = visualStyleOf(catalog, values);
+  const fields = [
+    { field: 'mainColor', fallback: main },
+    { field: 'secondaryColor', fallback: secondary },
+  ];
+  return (
+    <>
+      {kind.colors.map((label, index) => {
+        const { field, fallback } = fields[index]!;
+        return (
+          <ColorField
+            key={field}
+            label={label}
+            value={values[field]}
+            fallback={fallback}
+            isDisabled={isDisabled}
+            onLive={(color) => live({ [field]: color })}
+            onCommit={(color) => commit({ [field]: color })}
           />
-        </Popover>
-      </DialogTrigger>
+        );
+      })}
     </>
   );
 }
