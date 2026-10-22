@@ -44,6 +44,7 @@ import { BookmarkStamps } from './markup-stamps.tsx';
  * - 每章起点左右各 4px 是拖边区，拖动改起点（夹在上一章与下一章之间，6px 内吸附播放头，Esc 取消）；
  * - 右键：改标题、删除这一章；改名在小浮层里起名（product-design §5.1）。
  * 视频只读时（导入中、别处在改）编辑入口都置灰，点击定位照常。
+ * `readOnly`（审片视图，lite-editor §3.2）：没有拖边区、没有右键菜单，只剩悬停与点击定位。
  * 标注模式里画过标记的帧在条上落印章（`BookmarkStamps`，lite-editor §4.1），两种视图同一条。
  */
 
@@ -141,9 +142,9 @@ interface MenuTarget {
 /** 改名浮层：哪一章，锚在哪（视口坐标）。 */
 type FormTarget = { chapterId: Id; x: number; y: number };
 
-export function TimelineChapters({ sequence }: { sequence: Sequence }) {
+export function TimelineChapters({ sequence, readOnly = false }: { sequence: Sequence; readOnly?: boolean }) {
   const actions = useEditorActions();
-  const editable = useVideo((s) => canEdit(s.video));
+  const editable = useVideo((s) => canEdit(s.video)) && !readOnly;
   const fps = sequence.fps;
   const perSecond = fps.num / fps.den;
   const duration = durationSeconds(sequence);
@@ -317,6 +318,7 @@ export function TimelineChapters({ sequence }: { sequence: Sequence }) {
         onClick={(event) => actions.seek(timeAt(event.clientX))}
         onContextMenu={(event) => {
           event.preventDefault();
+          if (readOnly) return;
           const t = timeAt(event.clientX);
           const hit = segments.find((s) => t >= s.start && t <= s.end);
           if (hit?.chapter) setMenu({ chapterId: hit.chapter.id, x: event.clientX, y: event.clientY });

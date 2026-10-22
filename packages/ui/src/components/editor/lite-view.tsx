@@ -121,7 +121,7 @@ export function LiteView({
           segments={segments}
         />
         <StageLiveCaptions videoId={video.videoId} sequence={shown} documents={snapshot.documents} />
-        <TimelineChapters sequence={sequence} />
+        <TimelineChapters sequence={sequence} readOnly />
         <LiteTransport
           sequence={sequence}
           segments={segments}
