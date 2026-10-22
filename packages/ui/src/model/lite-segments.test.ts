@@ -4,7 +4,7 @@ import type { TranscriptWord } from './transcript-cut.ts';
 import {
   clampLiteZoom,
   liteBoundaryPreview,
-  defaultEditorView,
+  DEFAULT_EDITOR_VIEW,
   liteChips,
   liteFitZoom,
   liteKeepInView,
@@ -19,6 +19,7 @@ import {
   prevSegmentStart,
   rememberEditorView,
   resolveEditorView,
+  speechLineGroups,
   speechLines,
   VIEW_MEMORY_MAX,
   type LiteLine,
@@ -134,6 +135,18 @@ describe('文稿的词折成逐句', () => {
     ];
     expect(speechLines(words).map((l) => l.text)).toEqual(['一。 二', '三']);
   });
+
+  it('每句带上组成它的词（按句对齐译文用），与 speechLines 一一对应', () => {
+    const words = [
+      word('w1', 0, 0.5, '你好'),
+      word('w2', 0.5, 1, '世界。'),
+      word('w3', 1.2, 1.6, '剪掉', { state: 'cut' }),
+      word('w4', 1.7, 2, '第二句'),
+    ];
+    const groups = speechLineGroups(words);
+    expect(groups.map((g) => g.line)).toEqual(speechLines(words));
+    expect(groups.map((g) => g.words.map((w) => w.id))).toEqual([['w1', 'w2'], ['w4']]);
+  });
 });
 
 describe('当前段、当前句与上一段 / 下一段', () => {
@@ -213,17 +226,12 @@ describe('片条与缩放', () => {
 });
 
 describe('默认视图与记忆', () => {
-  it('只有会话里打开、带章节的视频默认轻量', () => {
-    expect(defaultEditorView({ chapters: 3, inConversation: true })).toBe('lite');
-    expect(defaultEditorView({ chapters: 0, inConversation: true })).toBe('timeline');
-    expect(defaultEditorView({ chapters: 3, inConversation: false })).toBe('timeline');
-  });
-
-  it('路由 > 这部视频上次的选择 > 全局默认 > 按种类', () => {
-    expect(resolveEditorView({ route: 'lite', remembered: 'timeline', preference: 'timeline', byKind: 'timeline' })).toBe('lite');
-    expect(resolveEditorView({ route: null, remembered: 'lite', preference: 'timeline', byKind: 'timeline' })).toBe('lite');
-    expect(resolveEditorView({ route: null, remembered: undefined, preference: 'lite', byKind: 'timeline' })).toBe('lite');
-    expect(resolveEditorView({ route: null, remembered: undefined, preference: 'auto', byKind: 'timeline' })).toBe('timeline');
+  it('路由 > 这部视频上次的选择 > 全局默认 > 审片', () => {
+    expect(resolveEditorView({ route: 'lite', remembered: 'timeline', preference: 'timeline' })).toBe('lite');
+    expect(resolveEditorView({ route: null, remembered: 'lite', preference: 'timeline' })).toBe('lite');
+    expect(resolveEditorView({ route: null, remembered: undefined, preference: 'timeline' })).toBe('timeline');
+    expect(resolveEditorView({ route: null, remembered: undefined, preference: 'auto' })).toBe('lite');
+    expect(DEFAULT_EDITOR_VIEW).toBe('lite');
   });
 
   it('按视频记一份，只留最近的 200 部', () => {

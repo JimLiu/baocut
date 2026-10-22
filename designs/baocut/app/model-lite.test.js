@@ -88,19 +88,12 @@ test('图层开关只按实际有的轨道生成', () => {
   assert.deepEqual([...new Set(all.map(l => l.section))], ['captions', 'picture', 'sound']);
 });
 
-test('默认视图：场景表 / 会话新建 / 转录翻译开轻量，元素实验、纯素材、综合制作开时间线', () => {
-  assert.equal(L.defaultViewByKind({scenes: [{}]}), 'lite');
-  assert.equal(L.defaultViewByKind({origin: 'session'}), 'lite');
-  assert.equal(L.defaultViewByKind({entry: 'trans'}), 'lite');
-  assert.equal(L.defaultViewByKind({entry: 'clean'}), 'lite');
-  assert.equal(L.defaultViewByKind({entry: 'trans', focus: 'mixed'}), 'timeline');
-  assert.equal(L.defaultViewByKind({focus: 'elements'}), 'timeline');
-  assert.equal(L.defaultViewByKind({preview: {url: 'x'}}), 'timeline');
-  assert.equal(L.defaultViewByKind(null), 'timeline');
+test('默认视图：不分种类一律审片（2026-10-21）', () => {
+  for (const proj of [{scenes: [{}]}, {entry: 'trans'}, {focus: 'elements'}, {preview: {url: 'x'}}, null]) assert.equal(L.defaultViewByKind(proj), 'lite');
 });
 
-test('打开时的视图：URL > 这部视频的记忆 > 全局默认 > 种类', () => {
-  const proj = {id: 'p1', entry: 'trans'};
+test('打开时的视图：URL > 这部视频的记忆 > 全局默认 > 审片', () => {
+  const proj = {id: 'p1', focus: 'elements'};
   assert.equal(L.viewFor(proj, {}, null), 'lite');
   assert.equal(L.viewFor(proj, {editorViewDefault: 'timeline'}, null), 'timeline');
   assert.equal(L.viewFor(proj, {editorViewDefault: 'timeline', editorViewByVideo: {p1: 'lite'}}, null), 'lite');

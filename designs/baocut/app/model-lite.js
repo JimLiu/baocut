@@ -231,17 +231,12 @@
 
   /* ---------- 默认视图与记忆 ---------- */
   const VIEWS = ['lite', 'timeline'];
-  /** 这部视频按种类默认开哪种：智能体做的（有场景表、或在会话里新建的）与转录 / 翻译的开轻量；
-      元素实验、纯素材（只有一条片子）、综合制作开时间线。 */
-  function defaultViewByKind(proj) {
-    if (!proj) return 'timeline';
-    if (proj.scenes?.length || proj.origin === 'session') return 'lite';
-    if (proj.focus) return 'timeline';
-    if (proj.preview) return 'timeline';
-    if (proj.entry === 'trans' || proj.entry === 'clean' || proj.entry === 'captions') return 'lite';
-    return 'timeline';
+  /** 没有 URL、没有按视频记过、全局默认是「自动」时开哪种：一律审片（轻量）。2026-10-21 起不再按种类分——
+      要时间线的在「默认打开」里选「总是时间线」，切换过的视频按视频记。保留参数是为了调用处不改。 */
+  function defaultViewByKind() {
+    return 'lite';
   }
-  /** 打开时用哪种：URL 显式的 > 这部视频上次的选择 > 用户的全局默认（设置里「总是…」）> 按种类。 */
+  /** 打开时用哪种：URL 显式的 > 这部视频上次的选择 > 用户的全局默认（「总是…」）> 审片。 */
   function viewFor(proj, prefs, routeView) {
     if (VIEWS.includes(routeView)) return routeView;
     const byVideo = prefs?.editorViewByVideo?.[proj?.id];

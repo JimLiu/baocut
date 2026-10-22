@@ -135,6 +135,21 @@
   }
 
   /** 侧栏：顶上一行是「台词 / 脚本」（视频里有脚本才出）与「字幕样式」，下面换页。 */
+  /* 侧栏顶上的运行态头（docs/design/lite-editor §3.3）：这部视频正在转录、正在翻译时各一块，与时间线视图的文稿 / 字幕面板
+     同一套 LiveHead / TransRunHead（进度、阶梯、取消）。完成后台词按句出现、译文挂在每句原文下面；没有在跑的不占地方。 */
+  function LiteJobHeads({ctx}) {
+    const D = window.BC_DATA;
+    const live = ctx.liveJob && ctx.liveJob.status === 'running' ? ctx.liveJob : null;
+    const run = ctx.transJob;
+    if (!live && !run) return null;
+    const lang = run && run.target ? (D.transLangs.find((l) => l.code === run.target) || {code: run.target, name: run.target}) : null;
+    const slice = run ? window.BC_TRUN.runSlice(D.translate.live, run.pct, run.status === 'queued') : null;
+    return <div className="lt-side__jobs">
+      {live ? <window.LiveHead job={live} dur={D.DUR} onCancel={ctx.cancelLive} /> : null}
+      {run ? <window.TransRunHead job={run} lang={lang} slice={slice} onCancel={ctx.cancelTrans} /> : null}
+    </div>;
+  }
+
   function LiteSidePane({ctx, seg, lines}) {
     const R = window.RSP;
     const proj = ctx.proj;
@@ -152,8 +167,10 @@
         <Ic n="captions" className="ic--16" /><R.Text>字幕样式</R.Text>
       </R.ActionButton>
     </Tip>;
+    const jobs = <LiteJobHeads ctx={ctx} />;
     if (!hasScript) return <div className="pview">
       <div className="lt-side__top"><span className="t-title-sm">台词</span><span className="grow" />{styleBtn}</div>
+      {jobs}
       {lines}
     </div>;
     /* 有脚本：「台词 / 脚本」是 S2 Tabs（两页并列的内容，不是同一份内容的两种显示），「字幕样式」挂在标签行右端 */
@@ -163,6 +180,7 @@
         <span className="grow" />
         {styleBtn}
       </div>
+      {jobs}
       <R.TabPanel id="lines" UNSAFE_className="lt-side__panel">{page === 'lines' ? lines : null}</R.TabPanel>
       <R.TabPanel id="script" UNSAFE_className="lt-side__panel">{page === 'script' ? <ScriptPane proj={proj} seg={seg} onVersions={() => setVersions(true)} /> : null}</R.TabPanel>
     </R.Tabs>;

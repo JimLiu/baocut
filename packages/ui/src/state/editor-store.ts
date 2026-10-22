@@ -166,7 +166,7 @@ export interface EditorStore {
   /**
    * 编辑器视图（轻量编辑器设计 §5、§6）：`lite` 是画面加按段分格的片条与侧栏，`timeline` 是时间线。两边共用播放头、
    * 播放状态、倍速、字幕显隐与标注模式（都在这个 store 里）。`view` 本身不持久化：打开视频时由 `resolveView` 按
-   * 路由 > 这部视频上次的选择（`viewByVideo`，持久化）> 全局默认（`viewDefault`，持久化）> 按种类 定下来；
+   * 路由 > 这部视频上次的选择（`viewByVideo`，持久化）> 全局默认（`viewDefault`，持久化）> 审片 定下来；
    * `viewResolvedFor` 记的是已经按哪部视频定过，换视频时重定。
    */
   view: EditorView;
@@ -176,7 +176,7 @@ export interface EditorStore {
   /** 用户在顶栏切换：换视图并按视频记住；切到轻量时清掉时间线的选区（轻量视图里没有可选的片段）。 */
   setView(view: EditorView): void;
   setViewDefault(preference: EditorViewDefault): void;
-  resolveView(videoId: Id, input: { route: EditorView | null; byKind: EditorView }): void;
+  resolveView(videoId: Id, input: { route: EditorView | null }): void;
   /** 轻量视图片条的缩放（观看态，不持久化，换视频时回到 1）。 */
   liteZoom: number;
   setLiteZoom(zoom: number): void;
@@ -354,7 +354,6 @@ export const useEditor = create<EditorStore>()(
             route: input.route,
             remembered: s.viewByVideo[videoId],
             preference: s.viewDefault,
-            byKind: input.byKind,
           }),
         })),
       liteZoom: 1,

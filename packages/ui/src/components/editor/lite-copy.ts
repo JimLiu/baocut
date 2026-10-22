@@ -26,7 +26,7 @@ const en = {
   /** 视频菜单里的「默认打开」。 */
   defaultOpen: 'Open videos in',
   defaultAuto: 'Automatic',
-  defaultAutoHint: 'Review for chaptered videos made in a conversation, timeline otherwise',
+  defaultAutoHint: 'Review, unless you switched this video to the timeline last time',
   defaultLite: 'Review view',
   defaultTimeline: 'Timeline view',
   /** 片条。 */
@@ -65,6 +65,9 @@ const en = {
   noLines: 'No transcript yet',
   noLinesHint: 'Transcribe the video in the timeline editor to see its lines here.',
   noLinesInSegment: 'No lines in this segment.',
+  /** 侧栏顶上转录、翻译运行态头里的那句说明（轻量编辑器设计 §3「侧栏」）。 */
+  transcribingNote: 'When transcription finishes, the lines appear here sentence by sentence.',
+  translatingNote: 'When translation finishes, each line shows its translation below the original.',
   /** 段里章节表脚本的折叠钮（轻量编辑器设计 §3「侧栏」）。 */
   script: 'Script',
   /** 侧栏分页（视频里有脚本时，轻量编辑器设计 §3「侧栏」）与头上的「字幕样式」。 */

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AssetRecord, DocumentRecord, Id, Sequence } from '@baocut/protocol';
 import { ActionButton, Tab, TabList, TabPanel, Tabs, Text, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
@@ -7,12 +7,18 @@ import CloseCaptions from '@react-spectrum/s2/icons/CloseCaptions';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { formatClock } from '../../model/format.ts';
 import { liteLineAt, liteSegmentAt, type LiteSegment, type LiteSource } from '../../model/lite-segments.ts';
+import { useRuntime } from '../../runtime/context.tsx';
 import { useEditor } from '../../state/editor-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { LiteCaptionStyle, useCaptionStyleAvailability } from './lite-caption-style.tsx';
 import { LITE_COPY as L } from './lite-copy.ts';
 import { ScriptPane, ScriptVersionsPage, useScript, type ScriptSource } from './lite-script.tsx';
 import { ScriptMarkdown } from './script-markdown.tsx';
+import { transcribeToast } from './transcribe-progress.tsx';
+import { bindTranscribe, mediaCandidates } from './transcribe-run.ts';
+import { LiveTranscribeHead, useLiveTranscriptJob } from './transcript-live.tsx';
+import { bindTranslate } from './translate-run.ts';
+import { TranslateRunHead, useTranslateLive } from './translate-status.tsx';
 import { useChapterIds } from './use-lite-lines.ts';
 import { usePlaybackFollow } from './use-playback-follow.ts';
 
@@ -108,7 +114,9 @@ const lineRow = style({
   backgroundColor: { default: 'transparent', ':hover': 'gray-100', isCurrent: 'blue-100' },
 });
 const lineTime = style({ font: 'code-xs', color: 'gray-600', flexShrink: 0, paddingTop: 2 });
-const lineText = style({ minWidth: 0, overflowWrap: 'anywhere' });
+const lineBody = style({ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, overflowWrap: 'anywhere' });
+/** 译文（原型 .lt-line__trans）：原文下面一行，次一级的字与颜色；只读。 */
+const lineTrans = style({ font: 'ui-xs', color: 'gray-600' });
 const scriptToggle = style({
   ...reset,
   display: 'flex',
@@ -136,6 +144,7 @@ const empty = style({
   textAlign: 'center',
 });
 const emptyHint = style({ font: 'ui-xs', color: 'gray-600' });
+const status = style({ flexShrink: 0, display: 'flex', flexDirection: 'column' });
 
 const SOURCE_LABEL: Record<LiteSource, () => string> = {
   chapter: () => L.sourceChapter,
@@ -173,6 +182,7 @@ export function LiteSidePanel({
   const [versions, setVersions] = useState(false);
   const [styling, setStyling] = useState(false);
   const availability = useCaptionStyleAvailability(sequence, documents);
+  const jobs = useLiteJobs(videoId, sequence, assets, documents);
   const page: SidePage = script ? tab : 'lines';
   // 换视频时回到台词页的头一层。
   useEffect(() => {
@@ -223,7 +233,8 @@ export function LiteSidePanel({
           <span className={title}>{L.side}</span>
           {styleButton}
         </div>
-        <LinesPane segments={segments} />
+        <LiteJobStatus jobs={jobs} assets={assets} documents={documents} />
+        <LinesPane segments={segments} transcribing={!!jobs.transcribeJobId} />
       </aside>
     );
   // 有脚本：「台词 / 脚本」是两页并列的内容，用 S2 Tabs；「字幕样式」挂在标签行右端。
@@ -238,8 +249,9 @@ export function LiteSidePanel({
           <span className={grow} />
           <span className={center}>{styleButton}</span>
         </div>
+        <LiteJobStatus jobs={jobs} assets={assets} documents={documents} />
         <TabPanel id="lines" styles={tabPanel}>
-          <LinesPane segments={segments} />
+          <LinesPane segments={segments} transcribing={!!jobs.transcribeJobId} />
         </TabPanel>
         <TabPanel id="script" styles={tabPanel}>
           <ScriptTab
@@ -252,6 +264,37 @@ export function LiteSidePanel({
         </TabPanel>
       </Tabs>
     </aside>
+  );
+}
+
+interface LiteJobs {
+  /** 要画进度的那次转录（转写 Job），与文稿面板切到实时态是同一个判断（`useLiveTranscriptJob`）。 */
+  transcribeJobId: Id | null;
+  translating: ReturnType<typeof useTranslateLive>;
+}
+
+/**
+ * 这部视频正在跑的转录与翻译（不论从哪里发起：字幕面板、AI 工具、智能体、命令行）。侧栏可能是这一屏唯一挂着的面板，
+ * 所以这里也绑定转录与翻译的收尾（`bindTranscribe` / `bindTranslate`），进度头上的「取消」才连得上 Runtime。
+ */
+function useLiteJobs(videoId: Id | null, sequence: Sequence, assets: Record<Id, AssetRecord>, documents: Record<Id, DocumentRecord>): LiteJobs {
+  const runtime = useRuntime();
+  useEffect(() => bindTranscribe({ runtime, toast: transcribeToast }), [runtime]);
+  useEffect(() => bindTranslate({ runtime, toast: transcribeToast }), [runtime]);
+  const candidateIds = useMemo(() => mediaCandidates(sequence, assets, documents).map((c) => c.asset.id), [sequence, assets, documents]);
+  const transcribeJobId = useLiveTranscriptJob(videoId, candidateIds, documents);
+  const translating = useTranslateLive(videoId);
+  return { transcribeJobId, translating };
+}
+
+/** 侧栏顶上的运行态头（轻量编辑器设计 §3「侧栏」）：转录、翻译各一块，与时间线视图字幕面板同一套进度、阶梯与取消。没有在跑的就不占地方。 */
+function LiteJobStatus({ jobs, assets, documents }: { jobs: LiteJobs; assets: Record<Id, AssetRecord>; documents: Record<Id, DocumentRecord> }) {
+  if (!jobs.transcribeJobId && !jobs.translating) return null;
+  return (
+    <div className={status}>
+      {jobs.transcribeJobId ? <LiveTranscribeHead jobId={jobs.transcribeJobId} assets={assets} note={L.transcribingNote} /> : null}
+      {jobs.translating ? <TranslateRunHead live={jobs.translating} documents={documents} note={L.translatingNote} /> : null}
+    </div>
   );
 }
 
@@ -277,11 +320,11 @@ function ScriptTab({
 
 /**
  * 「台词」页：段落表加逐句。头部是分了几段、按什么分的；正文每段一个粘顶的段头
- * （序号、标题、起止，点了跳段首），下面是这段的句（时间加文本，点了跳到那一句）。当前句浅蓝底，播放中跟着滚
+ * （序号、标题、起止，点了跳段首），下面是这段的句（时间加文本，有译文时原文下面一行译文，只读；点了跳到那一句）。当前句浅蓝底，播放中跟着滚
  * （`usePlaybackFollow`：手动滚开就停，点一句或重新播放恢复）。还没有转写时整栏是一句提示。
  * 章节段带章节表的脚本时，段头下面先是可折叠的「脚本」（只读 Markdown，默认展开），再是逐句。
  */
-function LinesPane({ segments }: { segments: readonly LiteSegment[] }) {
+function LinesPane({ segments, transcribing }: { segments: readonly LiteSegment[]; transcribing: boolean }) {
   const { seek } = useEditorActions();
   const playhead = useEditor((s) => s.playhead);
   const current = liteSegmentAt(segments, playhead);
@@ -319,7 +362,8 @@ function LinesPane({ segments }: { segments: readonly LiteSegment[] }) {
         {!hasLines ? (
           <div className={empty}>
             <span>{L.noLines}</span>
-            <span className={emptyHint}>{L.noLinesHint}</span>
+            {/* 正在转录时上面的运行态头已经说了台词会出现在这里，不再指去时间线编辑器。 */}
+            {transcribing ? null : <span className={emptyHint}>{L.noLinesHint}</span>}
           </div>
         ) : (
           segments.map((segment) => {
@@ -361,12 +405,15 @@ function LinesPane({ segments }: { segments: readonly LiteSegment[] }) {
                         else rows.current.delete(l.id);
                       }}
                       className={lineRow({ isCurrent: l.id === lineId })}
-                      aria-label={L.lineLabel(formatClock(l.start), l.text)}
+                      aria-label={L.lineLabel(formatClock(l.start), l.translation ? `${l.text} ${l.translation}` : l.text)}
                       aria-current={l.id === lineId ? 'true' : undefined}
                       onClick={() => jump(l.start)}
                     >
                       <span className={`${lineTime} bc-tabular`}>{formatClock(l.start)}</span>
-                      <span className={lineText}>{l.text}</span>
+                      <span className={lineBody}>
+                        <span>{l.text}</span>
+                        {l.translation ? <span className={lineTrans}>{l.translation}</span> : null}
+                      </span>
                     </button>
                   ))
                 )}

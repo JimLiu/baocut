@@ -69,16 +69,13 @@ export function useLiveTranscriptJob(videoId: Id | null, assetIds: readonly Id[]
 }
 
 /**
- * 转录中的文稿（原型 panels.jsx `LiveTranscript`）：任务事件流的投影，整面板只读——不能改字、不能剪、不进撤销栈。头上只留
- * 「复制已转录的部分」（润色、章节、说话人都要等完整文稿）；下面是运行态头（进度、阶梯、取消）与一段段流入的段落。还一段都没有时
- * （刚开始，或服务不流式返回）画骨架加一句提示，不造假数据。默认跟着最新的段落往下滚，往上翻就停住，浮出「回到最新」。
+ * 一次转录的运行态头（`TranscribeProgress`）：进度画转写 Job 本身，取消取消它所属的转录流程（父任务）；识别做完、流程还在把结果
+ * 写进视频时停在「正在保存转写」，不再给取消。文稿面板的实时态与轻量视图的侧栏共用。
  */
-export function LiveTranscript({ jobId, sequence, assets }: { jobId: Id; sequence: Sequence; assets: Record<Id, AssetRecord> }) {
-  const { seek } = useEditorActions();
+export function LiveTranscribeHead({ jobId, assets, note }: { jobId: Id; assets: Record<Id, AssetRecord>; note: string }) {
   const step = useJobs((s) => s.jobs.find((j) => j.jobId === jobId) ?? null);
   const parentId = step?.submitter.kind === 'pipeline' ? step.submitter.id : null;
   const parent = useJobs((s) => (parentId ? (s.jobs.find((j) => j.jobId === parentId) ?? null) : null));
-  const segments = useLiveSegments(jobId);
   const assetId = step?.assetId ?? null;
   const running = !!step && jobLive(step);
   // 识别做完、流程还在把结果写进视频（建字幕层）：头部停在「保存」一级，不再给取消识别。
@@ -89,6 +86,29 @@ export function LiveTranscript({ jobId, sequence, assets }: { jobId: Id; sequenc
         : null,
     [step, running, assetId, assets],
   );
+  return (
+    <TranscribeProgress
+      run={writing}
+      job={step}
+      cancelJobId={parent?.jobId ?? null}
+      assetName={assetId ? (assets[assetId]?.name ?? null) : null}
+      note={note}
+      heading={C.liveSaving}
+    />
+  );
+}
+
+/**
+ * 转录中的文稿（原型 panels.jsx `LiveTranscript`）：任务事件流的投影，整面板只读——不能改字、不能剪、不进撤销栈。头上只留
+ * 「复制已转录的部分」（润色、章节、说话人都要等完整文稿）；下面是运行态头（进度、阶梯、取消）与一段段流入的段落。还一段都没有时
+ * （刚开始，或服务不流式返回）画骨架加一句提示，不造假数据。默认跟着最新的段落往下滚，往上翻就停住，浮出「回到最新」。
+ */
+export function LiveTranscript({ jobId, sequence, assets }: { jobId: Id; sequence: Sequence; assets: Record<Id, AssetRecord> }) {
+  const { seek } = useEditorActions();
+  const step = useJobs((s) => s.jobs.find((j) => j.jobId === jobId) ?? null);
+  const segments = useLiveSegments(jobId);
+  const assetId = step?.assetId ?? null;
+  const running = !!step && jobLive(step);
   // 段落在时间线上第一次出现的位置：点了跳到那里；整段都被剪掉的没有。
   const starts = useMemo(() => {
     const map = new Map<number, number>();
@@ -121,14 +141,7 @@ export function LiveTranscript({ jobId, sequence, assets }: { jobId: Id; sequenc
           <Tooltip>{C.liveCopy}</Tooltip>
         </TooltipTrigger>
       </PanelHead>
-      <TranscribeProgress
-        run={writing}
-        job={step}
-        cancelJobId={parent?.jobId ?? null}
-        assetName={assetId ? (assets[assetId]?.name ?? null) : null}
-        note={C.liveNote}
-        heading={C.liveSaving}
-      />
+      <LiveTranscribeHead jobId={jobId} assets={assets} note={C.liveNote} />
       <div className={frame}>
         <div ref={bodyRef} className={`${body} bc-scroll`} onScroll={onScroll} aria-label={C.title} aria-live="polite">
           {segments.length ? (

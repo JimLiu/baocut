@@ -117,8 +117,17 @@ export function liveChip(live: TranslateLive | null): { label: string; percent: 
   return { label, percent: null, step: C.submitting };
 }
 
-/** 运行态头（原型 `TransRunHead`）：源 → 目标、百分比、进度条、句数与步骤、步骤阶梯、取消。 */
-export function TranslateRunHead({ live, documents }: { live: TranslateLive; documents: Record<Id, DocumentRecord> }) {
+/** 运行态头（原型 `TransRunHead`）：源 → 目标、百分比、进度条、句数与步骤、步骤阶梯、取消。字幕面板与轻量视图的侧栏共用。 */
+export function TranslateRunHead({
+  live,
+  documents,
+  note: noteText,
+}: {
+  live: TranslateLive;
+  documents: Record<Id, DocumentRecord>;
+  /** 换掉取消钮旁边那句（轻量视图的侧栏说译文会出现在原文下面）。 */
+  note?: string;
+}) {
   const { run, job, progress } = live;
   if (job && progress?.agent) return <AgentRunHead live={live} job={job} sentences={progress.agent.sentences} documents={documents} />;
   const submitting = run?.status === 'submitting' || !job;
@@ -166,7 +175,7 @@ export function TranslateRunHead({ live, documents }: { live: TranslateLive; doc
             {C.cancel}
           </Button>
         ) : null}
-        <span className={note}>{run ? C.liveNote : C.foreign}</span>
+        <span className={note}>{noteText ?? (run ? C.liveNote : C.foreign)}</span>
       </div>
     </div>
   );

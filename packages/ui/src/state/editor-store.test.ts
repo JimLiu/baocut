@@ -173,28 +173,29 @@ describe('轻量 / 时间线视图', () => {
     useEditor.setState({ videoId: null, view: 'timeline', viewResolvedFor: null, viewByVideo: {}, viewDefault: 'auto', liteZoom: 1 }),
   );
 
-  it('打开视频按「路由 > 这部视频上次的选择 > 全局默认 > 按种类」定一次', () => {
-    useEditor.getState().resolveView('v1', { route: null, byKind: 'timeline' });
-    expect(useEditor.getState()).toMatchObject({ view: 'timeline', viewResolvedFor: 'v1' });
-    useEditor.setState({ viewDefault: 'lite' });
-    useEditor.getState().resolveView('v2', { route: null, byKind: 'timeline' });
-    expect(useEditor.getState().view).toBe('lite');
-    useEditor.getState().resolveView('v3', { route: 'timeline', byKind: 'lite' });
+  it('打开视频按「路由 > 这部视频上次的选择 > 全局默认 > 审片」定一次', () => {
+    useEditor.getState().resolveView('v1', { route: null });
+    expect(useEditor.getState()).toMatchObject({ view: 'lite', viewResolvedFor: 'v1' });
+    useEditor.setState({ viewDefault: 'timeline' });
+    useEditor.getState().resolveView('v2', { route: null });
     expect(useEditor.getState().view).toBe('timeline');
+    useEditor.getState().resolveView('v3', { route: 'lite' });
+    expect(useEditor.getState().view).toBe('lite');
   });
 
   it('顶栏切换按视频记住，下次打开沿用；切到轻量清掉时间线的选区', () => {
     useEditor.setState({ videoId: 'v1', selection: ['i1'] });
     useEditor.getState().setView('lite');
     expect(useEditor.getState()).toMatchObject({ view: 'lite', viewByVideo: { v1: 'lite' }, selection: [] });
-    useEditor.getState().resolveView('v1', { route: null, byKind: 'timeline' });
+    useEditor.setState({ viewDefault: 'timeline' });
+    useEditor.getState().resolveView('v1', { route: null });
     expect(useEditor.getState().view).toBe('lite');
   });
 
   it('已经定过的视频再收到带 view 的链接，照路由重定，按视频的记忆不动', () => {
     useEditor.setState({ videoId: 'v1' });
     useEditor.getState().setView('lite');
-    useEditor.getState().resolveView('v1', { route: 'timeline', byKind: 'lite' });
+    useEditor.getState().resolveView('v1', { route: 'timeline' });
     expect(useEditor.getState()).toMatchObject({ view: 'timeline', viewResolvedFor: 'v1', viewByVideo: { v1: 'lite' } });
   });
 

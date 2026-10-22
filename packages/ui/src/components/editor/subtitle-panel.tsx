@@ -54,7 +54,7 @@ import { SubtitleEmpty } from './subtitle-empty.tsx';
 import { SubtitleLive } from './subtitle-live.tsx';
 import { SubtitleStrip } from './subtitle-strip.tsx';
 import { useDocumentBody } from './use-document-body.ts';
-import { TranscribeProblemAlert, TranscribeProgress } from './transcribe-progress.tsx';
+import { TranscribeProblemAlert, TranscribeProgress, transcribeToast } from './transcribe-progress.tsx';
 import { TRANSLATE_COPY } from './translate-copy.ts';
 import { TranslateFlow } from './translate-flow.tsx';
 import { bindTranslate, openFlow, setCompare, useTranslateRun, type CompareMode } from './translate-run.ts';
@@ -70,7 +70,6 @@ import {
   focusDocument,
   transcribeStepJob,
   useSubtitleRun,
-  type TranscribeDeps,
 } from './transcribe-run.ts';
 
 type Json = Record<string, unknown>;
@@ -258,10 +257,6 @@ function captionItemsOf(sequence: Sequence): CaptionItem[] {
     .filter((item): item is CaptionItem => item.type === 'caption')
     .sort((a, b) => (order.get(a.trackId) ?? 0) - (order.get(b.trackId) ?? 0) || a.span.fromFrame - b.span.fromFrame);
 }
-
-/** 转录收尾时的提示：成功的带「撤销」。 */
-const transcribeToast: TranscribeDeps['toast'] = (kind, message, undo) =>
-  ToastQueue[kind](message, undo ? { timeout: 5000, actionLabel: C.undo, onAction: undo, shouldCloseOnAction: true } : { timeout: 5000 });
 
 /**
  * 字幕面板（原型 §13.2、panel-subtitle.jsx）：一份字幕文档一张句子列表，改字、拆、并、查找替换都写成这份文档的新版本，

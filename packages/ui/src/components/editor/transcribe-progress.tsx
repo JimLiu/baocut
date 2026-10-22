@@ -1,5 +1,5 @@
 import type { Id, JobPhase, JobRecord } from '@baocut/protocol';
-import { Button, Content, Heading, InlineAlert, ProgressBar } from '@react-spectrum/s2';
+import { Button, Content, Heading, InlineAlert, ProgressBar, ToastQueue } from '@react-spectrum/s2';
 import Microphone from '@react-spectrum/s2/icons/Microphone';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { JOB_PHASE_LABEL } from '../../copy.ts';
@@ -7,7 +7,7 @@ import { formatClock } from '../../model/format.ts';
 import { jobPercent } from '../../model/task-list.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { SUBTITLE_COPY as C } from './subtitle-copy.ts';
-import { cancelTranscribe, dismissProblem, type TranscribeProblem, type TranscribeRun } from './transcribe-run.ts';
+import { cancelTranscribe, dismissProblem, type TranscribeDeps, type TranscribeProblem, type TranscribeRun } from './transcribe-run.ts';
 
 const head = style({
   flexShrink: 0,
@@ -50,6 +50,10 @@ const actions = style({ display: 'flex', alignItems: 'center', gap: 8, marginTop
 const note = style({ flexGrow: 1, minWidth: 0, font: 'ui-xs', color: 'gray-600', lineHeight: '[1.5]' });
 const alertBox = style({ flexShrink: 0, paddingX: 12, paddingTop: 12 });
 const alertActions = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 });
+
+/** 转录、翻译收尾时的提示：成功的带「撤销」（字幕面板与轻量视图的侧栏绑定 `bindTranscribe` / `bindTranslate` 时用）。 */
+export const transcribeToast: TranscribeDeps['toast'] = (kind, message, undo) =>
+  ToastQueue[kind](message, undo ? { timeout: 5000, actionLabel: C.undo, onAction: undo, shouldCloseOnAction: true } : { timeout: 5000 });
 
 /**
  * 任务阶段 → 四段阶梯（原型 model-transcript.js `LIVE_STAGES`：解码音频 / 识别 / 词级对齐 / 落盘）。按 Runtime 报来的真实阶段走，

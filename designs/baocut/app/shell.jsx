@@ -86,7 +86,7 @@
   }
 
   /* 审片 / 时间线（docs/design/lite-editor §3.4、§5；代码里仍叫 lite）：同一部视频的两种看法，切换不丢状态。旁边的小菜单改「默认打开」：
-     按视频种类（智能体做的与转录 / 翻译的开轻量，别的开时间线）、总是轻量、总是时间线；按视频的记忆由切换本身写。 */
+     自动（审片；2026-10-21 起不再按种类分）、总是审片、总是时间线；按视频的记忆由切换本身写。 */
   function MovieViewSwitch({editor}) {
     const app = useApp();
     const R = window.RSP;
@@ -103,7 +103,7 @@
           if (k) app.setPref('editorViewDefault', k === 'kind' ? null : k);
         }}>
           <R.MenuSection><R.Header>默认打开</R.Header>
-            <R.MenuItem id="kind">按视频种类</R.MenuItem>
+            <R.MenuItem id="kind" textValue="自动"><R.Text slot="label">自动</R.Text><R.Text slot="description">审片；上次把这部视频切到时间线的仍开时间线</R.Text></R.MenuItem>
             <R.MenuItem id="lite">总是审片</R.MenuItem>
             <R.MenuItem id="timeline">总是时间线</R.MenuItem>
           </R.MenuSection>

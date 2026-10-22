@@ -27,7 +27,7 @@ import { vi } from './lite-segments.vi.ts';
  * 设计稿第一优先级「章节表的场景」：章节表的章编译成 `chapter` 标记，这里照章节显示；章节表里这一章的脚本（`scripts`，按标记 ID，
  * `model/chapter-sheet.ts`）挂在那一段上。场景状态与素材清单要等章节表的编译落地（§10 第 2 阶段）。
  *
- * 段的 `start` / `end` 是序列秒数；逐句 `lines` 同样是序列秒数（文稿词的落位 `placements[0]`），有译文时另算（§10 第 2 阶段）。
+ * 段的 `start` / `end` 是序列秒数；逐句 `lines` 同样是序列秒数（文稿词的落位 `placements[0]`），译文按句挂在 `translation` 上（`use-lite-lines.ts`）。
  */
 
 const en = {
@@ -37,7 +37,7 @@ export type LiteSegmentsMessages = typeof en;
 const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es, fr, de, nl, 'pt-BR': ptBR, it, ru, pl, tr, vi });
 
 export type EditorView = 'lite' | 'timeline';
-/** 偏好「默认打开」：按视频种类、总是轻量、总是时间线。 */
+/** 偏好「默认打开」：自动（审片）、总是轻量、总是时间线。 */
 export type EditorViewDefault = 'auto' | EditorView;
 export const EDITOR_VIEWS: readonly EditorView[] = ['lite', 'timeline'];
 
@@ -52,6 +52,8 @@ export interface LiteLine {
   start: number;
   end: number;
   text: string;
+  /** 这一句的译文（视频有这份转写的译文文档时；侧栏原文下面只读显示一行）。 */
+  translation?: string;
 }
 
 export interface LiteSegment {
@@ -81,14 +83,23 @@ const round3 = (value: number) => Math.round(value * 1000) / 1000;
  * 只收落到序列上、没剪掉的词；时间按第一处落位（同一个词在序列上出现多处时只认最早的一处）。
  */
 export function speechLines(words: readonly TranscriptWord[]): LiteLine[] {
-  const lines: LiteLine[] = [];
+  return speechLineGroups(words).map((group) => group.line);
+}
+
+/** 同 `speechLines`，每句另带组成它的词（按句对齐译文用，`paragraphTranslations` 把一句当一段）。 */
+export function speechLineGroups(words: readonly TranscriptWord[]): { line: LiteLine; words: TranscriptWord[] }[] {
+  const groups: { line: LiteLine; words: TranscriptWord[] }[] = [];
   let current: TranscriptWord[] = [];
   const flush = () => {
     if (!current.length) return;
     const first = current[0]!;
     const last = current[current.length - 1]!;
     const text = paragraphText(current).text;
-    if (text) lines.push({ id: `line-${first.id}`, start: round3(first.placements[0]!.start), end: round3(last.placements[0]!.end), text });
+    if (text)
+      groups.push({
+        line: { id: `line-${first.id}`, start: round3(first.placements[0]!.start), end: round3(last.placements[0]!.end), text },
+        words: current,
+      });
     current = [];
   };
   for (const word of words) {
@@ -99,7 +110,7 @@ export function speechLines(words: readonly TranscriptWord[]): LiteLine[] {
     current.push(word);
   }
   flush();
-  return lines.sort((a, b) => a.start - b.start);
+  return groups.sort((a, b) => a.line.start - b.line.start);
 }
 
 function breaksLine(last: TranscriptWord, next: TranscriptWord): boolean {
@@ -271,25 +282,19 @@ export function liteKeepInView(headX: number, scrollLeft: number, viewWidth: num
   return Math.max(0, Math.round(headX - viewWidth / 3));
 }
 
-/**
- * 这部视频按种类默认开哪种（轻量编辑器设计 §6 第 4 条，§11 第 2 条取保守口径）：
- * 在会话里打开、并且带章节的视频（智能体做的讲解片、章节化的口播）开轻量；其余一律时间线。
- */
-export function defaultEditorView(kind: { chapters: number; inConversation: boolean }): EditorView {
-  return kind.inConversation && kind.chapters > 0 ? 'lite' : 'timeline';
-}
+/** 没有路由、没有按视频记过、全局默认是「自动」时开哪种：一律审片（轻量）；要时间线的在「默认打开」里选「时间线视图」。 */
+export const DEFAULT_EDITOR_VIEW: EditorView = 'lite';
 
-/** 打开时用哪种（§6）：路由显式给的 > 这部视频上次的选择 > 用户的全局默认 > 按种类。 */
+/** 打开时用哪种（§6）：路由显式给的 > 这部视频上次的选择 > 用户的全局默认 > 审片。 */
 export function resolveEditorView(input: {
   route: EditorView | null | undefined;
   remembered: EditorView | undefined;
   preference: EditorViewDefault;
-  byKind: EditorView;
 }): EditorView {
   if (input.route) return input.route;
   if (input.remembered) return input.remembered;
   if (input.preference !== 'auto') return input.preference;
-  return input.byKind;
+  return DEFAULT_EDITOR_VIEW;
 }
 
 /** 偏好里按视频记的视图（只留最近的 200 部，免得无限增长）。 */

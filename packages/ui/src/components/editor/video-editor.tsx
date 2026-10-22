@@ -10,8 +10,7 @@ import { runtimeFonts } from '../../render/local-fonts.ts';
 import { downloadingResolve } from '../../render/font-downloads.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { zoomKey, type ZoomAction } from '../../model/timeline-zoom.ts';
-import { sequenceChapters, visibleChapters } from '../../model/chapters.ts';
-import { defaultEditorView, nextSegmentStart, prevSegmentStart, type LiteZoomAction } from '../../model/lite-segments.ts';
+import { nextSegmentStart, prevSegmentStart, type LiteZoomAction } from '../../model/lite-segments.ts';
 import { TIMELINE_HEIGHT_MIN, useEditor, type PanelTab } from '../../state/editor-store.ts';
 import { useMarkup } from '../../state/markup-store.ts';
 import { useShell, type Route } from '../../state/shell-store.ts';
@@ -178,7 +177,7 @@ export function VideoEditor() {
     engine.seek(useEditor.getState().playhead);
   }, [videoId, engine]);
 
-  // 轻量还是时间线（轻量编辑器设计 §6）：视频读到之后按「路由 > 这部视频上次的选择 > 全局默认 > 按种类」定一次；
+  // 轻量还是时间线（轻量编辑器设计 §6）：视频读到之后按「路由 > 这部视频上次的选择 > 全局默认 > 审片」定一次；
   // 路由上的 `?view=` 用过就去掉（它不进 WorkspaceItem，刷新或回退不再强制）。
   // 已经定过的视频再收到带 `?view=` 的链接（同一部视频关了重开、或开着时点了入口链接）仍照路由重定。
   const routeViewParam = useShell((s) => (s.route.tab === 'home' || s.route.tab === 'space' ? s.route.view : undefined));
@@ -189,11 +188,7 @@ export function VideoEditor() {
     const route = shell.route;
     const routeView = route.tab === 'home' || route.tab === 'space' ? (route.view ?? null) : null;
     if (editor.viewResolvedFor === videoId && !routeView) return;
-    const inConversation = route.tab === 'home' && !!route.conversationId;
-    editor.resolveView(videoId, {
-      route: routeView,
-      byKind: defaultEditorView({ chapters: visibleChapters(sequenceChapters(sequence)).length, inConversation }),
-    });
+    editor.resolveView(videoId, { route: routeView });
     if (routeView) shell.replace(withoutView(route));
   }, [videoId, sequence, routeViewParam]);
 
