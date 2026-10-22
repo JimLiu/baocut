@@ -195,7 +195,7 @@
       if (play !== 'replay') return;
       const r = L.loopRange(segs, loop, playT, ctx.duration);
       if (r) { seek(r.start); setPlaying(true); }
-    }, [loop, play]);
+    }, [play]);   // 只在播到头的那一下接着放；停在片尾时再改循环方式不自动开播
     const zoomTo = next => strip.current?.zoomTo(next);
     const zoomAction = k => { setPop(null); strip.current?.zoomAction(k); };
     return <div className="lt-tport">
