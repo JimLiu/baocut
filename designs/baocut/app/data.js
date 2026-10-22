@@ -337,7 +337,7 @@
      notes: '转录时没建字幕：时间轴上是只读的文稿行，点一句落播放头。',
      toast: '链接导入的口播 · 有文稿、还没有字幕轨 · 智能体正在翻译',
      content: {}, meta: {speakers: 1, chapters: 0, cues: 62}, sample: true},
-    /* 只有译文字幕的视频（2026-10-22，product-design §5.6 轨条）：智能体从链接导入、转录（不建字幕层）、翻译成英语时
+    /* 只有译文字幕的视频（2026-10-22，product-design §5.9「字幕属性」轨条）：智能体从链接导入、转录（不建字幕层）、翻译成英语时
        只显示译文——画面上只有一条英文字幕，中文原文还只是文稿，没有字幕层。`captions: 'translation'`：轨条上「原文」
        是一枚虚线 chip，点它用文稿建原文字幕层，与英文共用样式叠成双语。 */
     {id: 'p16', title: '中 → EN · 科浪访谈（只有译文字幕）', dir: 'd1', folder: '中译英只有译文', status: 'complete', entry: 'trans', bare: true,

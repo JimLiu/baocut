@@ -54,7 +54,7 @@
       return (next[0] || {}).id || null;
     };
 
-    /** 用文稿建原文字幕层（product-design §5.6 轨条）：原文从没做成字幕层时那枚虚线「原文」chip 与行头那一项走这里。
+    /** 用文稿建原文字幕层（product-design §5.9「字幕属性」轨条）：原文从没做成字幕层时那枚虚线「原文」chip 与行头那一项走这里。
      *  画面上只有译文，所以不过软上限；新的一层与译文共用样式（`addSourceLayer`），叠成双语。 */
     const build = (track) => {
       const before = ctx.subStyle;

@@ -4,12 +4,13 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { captionChips, onScreen, type CaptionChip } from '../../model/caption-tracks.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
-import { CaptionGallery } from './caption-gallery.tsx';
+import { CaptionGallery, openGallery } from './caption-gallery.tsx';
 import { CaptionPage } from './inspector-caption.tsx';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
 import { LITE_COPY as L } from './lite-copy.ts';
 import { PanelHead, panelBody } from './panel-head.tsx';
 import { SubtitleStrip } from './subtitle-strip.tsx';
+import { openFlow } from './translate-run.ts';
 import { useItemEdit } from './use-item-edit.ts';
 
 const page = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0 });
@@ -51,6 +52,14 @@ export function LiteCaptionStyle({
     chips.find((c) => c.key === chosen && c.state !== 'shelved') ?? showing.find((c) => c.kind === 'original') ?? showing[0] ?? null;
   const item = current ? sequence.items.find((i): i is CaptionItem => i.id === current.itemIds[0] && i.type === 'caption') : undefined;
   const back = { label: L.backTo(backLabel), onPress: onClose };
+  /** 「＋ 翻译成…」：翻译设置页在时间线视图的字幕面板里（product-design §5.9「字幕属性」），切过去再打开它。 */
+  const translate = () => {
+    const editor = useEditor.getState();
+    editor.setView('timeline');
+    openGallery(videoId, false);
+    openFlow(videoId, true);
+    editor.showPanel('subtitle');
+  };
 
   if (view === 'gallery' && current) {
     return (
@@ -65,7 +74,7 @@ export function LiteCaptionStyle({
           backLabel={back.label}
           onEdit={() => setView('props')}
         >
-          <SubtitleStrip noCard sequence={sequence} documents={documents} chips={chips} selected={current.key} onSelect={setChosen} />
+          <SubtitleStrip noCard sequence={sequence} documents={documents} chips={chips} selected={current.key} onSelect={setChosen} onTranslate={translate} />
         </CaptionGallery>
       </div>
     );

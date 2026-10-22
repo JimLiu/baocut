@@ -130,6 +130,67 @@ export function pairedOriginal(chips: readonly CaptionChip[], documents: Record<
   );
 }
 
+/** 译自这份转写的译文字幕（字幕文档 → 译文文档 → 转写）：画面上的优先；没有时 null。 */
+export function pairedTranslation(chips: readonly CaptionChip[], documents: Record<Id, DocumentRecord>, speechDocumentId: Id): CaptionChip | null {
+  const translations = chips.filter((chip) => {
+    if (chip.kind !== 'translation') return false;
+    const translation = documents[documents[chip.documentId]?.sourceDocumentId ?? ''];
+    return translation?.sourceDocumentId === speechDocumentId;
+  });
+  return translations.find((chip) => chip.state !== 'shelved') ?? translations[0] ?? null;
+}
+
+/** 有译文字幕、却还没做成原文字幕层的那份转写（轨条的虚线「原文」chip，product-design §5.9「字幕属性」）。 */
+export interface UnbuiltOriginal {
+  speechDocumentId: Id;
+  assetId: Id;
+  /** 转写的名字（素材名）。 */
+  name: string;
+  /** 和它配对的译文字幕：新的原文层与它共用样式，叠成双语。 */
+  translation: CaptionChip;
+}
+
+/**
+ * 翻译时只显示了译文（流程不带双语、原文从没建过字幕层）：译文字幕顺着派生找到的转写，若没有任何原文字幕派生自它
+ * （拿下的也算建过——它有自己的放回 chip），就是一份「还没建」的原文。只认有译文字幕的转写：重新转录留下的旧转写不出现。
+ */
+export function unbuiltOriginals(chips: readonly CaptionChip[], documents: Record<Id, DocumentRecord>): UnbuiltOriginal[] {
+  const built = new Set(chips.filter((chip) => chip.kind === 'original').map((chip) => documents[chip.documentId]?.sourceDocumentId));
+  const found = new Map<Id, UnbuiltOriginal>();
+  for (const chip of chips) {
+    if (chip.kind !== 'translation') continue;
+    const translation = documents[documents[chip.documentId]?.sourceDocumentId ?? ''];
+    const speech = translation?.sourceDocumentId ? documents[translation.sourceDocumentId] : undefined;
+    if (!speech || speech.kind !== 'speech' || !speech.sourceAssetId || built.has(speech.id) || found.has(speech.id)) continue;
+    const translationChip = pairedTranslation(chips, documents, speech.id) ?? chip;
+    found.set(speech.id, { speechDocumentId: speech.id, assetId: speech.sourceAssetId, name: speech.name, translation: translationChip });
+  }
+  return [...found.values()];
+}
+
+const ORIGINAL_STYLE_REF = 'original-style';
+
+/**
+ * 新的原文字幕层怎么与配对的译文共用样式（渲染内核按样式文档叠行，共用一份就是双语）：译文有样式就用它的；没有就新建一份
+ * 默认样式，译文一起换上。译文锁住且没有样式时不动它（引擎会拒绝），原文用自己的。
+ */
+export function sharedCaptionStyle(
+  sequence: Sequence,
+  translation: CaptionChip,
+): { operations: EditOperation[]; style: { styleDocumentId: Id } | { styleDocumentRef: string } | null } {
+  if (translation.styleDocumentId) return { operations: [], style: { styleDocumentId: translation.styleDocumentId } };
+  if (translation.locked) return { operations: [], style: null };
+  return {
+    operations: [
+      { type: 'putDocument', ref: ORIGINAL_STYLE_REF, kind: 'caption-style', name: defaultStyleName(), body: DEFAULT_CAPTION_STYLE },
+      ...translation.itemIds.map(
+        (itemId): EditOperation => ({ type: 'setCaptionStyle', sequenceId: sequence.id, itemId, styleDocument: { ref: ORIGINAL_STYLE_REF } }),
+      ),
+    ],
+    style: { styleDocumentRef: ORIGINAL_STYLE_REF },
+  };
+}
+
 export interface TranslationCaptionSource {
   translationDocumentId: Id;
   translationRevision: string;

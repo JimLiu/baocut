@@ -68,7 +68,7 @@
     );
   }
 
-  /** 原文还没做成字幕层时那枚虚线「原文」chip 的说明（product-design §5.6）：它不是拿下来的，点了是新建。 */
+  /** 原文还没做成字幕层时那枚虚线「原文」chip 的说明（product-design §5.9「字幕属性」）：它不是拿下来的，点了是新建。 */
   function ghostBuildTip(st) {
     const tr = S.translations(st)[0];
     return '原文还没做成字幕 · 点击用文稿建一层' + (tr ? '，与「' + tr.name + '」共用样式叠成双语' : '');

@@ -746,6 +746,8 @@ export interface SpeechCaptionSource {
   assetId: Id;
   /** 新建字幕轨时的名字。 */
   trackName: string;
+  /** 和配对的译文共用的样式（`sharedCaptionStyle`）：给了就叠成双语；不给时由调用方补一份新样式。 */
+  style?: { styleDocumentId: Id } | { styleDocumentRef: string } | null;
 }
 
 /**
@@ -790,6 +792,7 @@ export function speechCaptionOperations(sequence: Sequence, body: Json, source: 
         documentRef: DOCUMENT_REF,
         ...(scopeItemIds.length ? { scopeItemIds } : {}),
         ...(free ? { trackId: free.id } : { trackRef: NEW_TRACK }),
+        ...(source.style ?? {}),
       },
     ],
   });

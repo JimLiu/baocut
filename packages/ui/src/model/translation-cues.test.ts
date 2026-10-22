@@ -10,10 +10,13 @@ import {
   cueOfUnit,
   derivedFrom,
   pairedOriginal,
+  pairedTranslation,
   retextCaption,
+  sharedCaptionStyle,
   translationCaptionOperations,
   translationCues,
   TRANSLATION_CAPTION_EXTENSION,
+  unbuiltOriginals,
 } from './translation-cues.ts';
 
 const base = { enabled: true, locked: false, paintOrder: 0, followPolicy: { kind: 'sequence-fixed' as const } };
@@ -257,6 +260,46 @@ describe('放到画面上的事务', () => {
     const ours = doc('cap', 'caption', { sourceDocumentId: 'trans', extensions: { [TRANSLATION_CAPTION_EXTENSION]: { translationDocumentId: 'trans' } } });
     expect(derivedFrom(ours, 'trans')).toBe(true);
     expect(derivedFrom(doc('cap2', 'caption', { sourceDocumentId: 'trans' }), 'trans')).toBe(false);
+  });
+});
+
+describe('只有译文字幕时用转写建原文层（虚线「原文」chip）', () => {
+  const documents: Record<string, DocumentRecord> = {
+    speech: doc('speech', 'speech', { sourceAssetId: 'asset', name: '访谈.mp4' }),
+    trans: doc('trans', 'translation', { sourceDocumentId: 'speech', language: 'en' }),
+    enCap: doc('enCap', 'caption', { sourceDocumentId: 'trans', language: 'en' }),
+    orig: doc('orig', 'caption', { sourceDocumentId: 'speech' }),
+    old: doc('old', 'speech', { sourceAssetId: 'asset' }),
+  };
+  const tracks = [track('v1', 0, 'visual'), track('s1', 1, 'subtitle'), track('s2', 2, 'subtitle')];
+
+  it('译文字幕顺着派生找到的转写没有原文字幕：列出它，配上那条译文；没有译文字幕的旧转写不列', () => {
+    const seq = sequence([caption('e1', 's1', 'enCap', { styleDocumentId: 'style' })], tracks);
+    const chips = captionChips(seq, documents);
+    expect(unbuiltOriginals(chips, documents)).toEqual([
+      { speechDocumentId: 'speech', assetId: 'asset', name: '访谈.mp4', translation: expect.objectContaining({ documentId: 'enCap' }) },
+    ]);
+    expect(pairedTranslation(chips, documents, 'speech')?.documentId).toBe('enCap');
+    expect(pairedTranslation(chips, documents, 'old')).toBeNull();
+  });
+
+  it('原文字幕已经有了（拿下的也算）：不列', () => {
+    const seq = sequence([caption('e1', 's1', 'enCap'), caption('o1', 's2', 'orig', { enabled: false })], tracks);
+    expect(unbuiltOriginals(captionChips(seq, documents), documents)).toEqual([]);
+  });
+
+  it('共用样式：译文有样式就用它；没有就新建一份，译文一起换上；译文锁住且没样式时各用各的', () => {
+    const styled = captionChips(sequence([caption('e1', 's1', 'enCap', { styleDocumentId: 'style' })], tracks), documents)[0]!;
+    expect(sharedCaptionStyle(sequence([], tracks), styled)).toEqual({ operations: [], style: { styleDocumentId: 'style' } });
+
+    const bare = captionChips(sequence([caption('e1', 's1', 'enCap')], tracks), documents)[0]!;
+    const fresh = sharedCaptionStyle(sequence([], tracks), bare);
+    expect(fresh.operations.map((op) => op.type)).toEqual(['putDocument', 'setCaptionStyle']);
+    expect(fresh.operations[1]).toMatchObject({ itemId: 'e1', styleDocument: { ref: 'original-style' } });
+    expect(fresh.style).toEqual({ styleDocumentRef: 'original-style' });
+
+    const locked = captionChips(sequence([caption('e1', 's1', 'enCap', { locked: true })], tracks), documents)[0]!;
+    expect(sharedCaptionStyle(sequence([], tracks), locked)).toEqual({ operations: [], style: null });
   });
 });
 

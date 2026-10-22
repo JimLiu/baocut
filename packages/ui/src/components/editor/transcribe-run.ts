@@ -17,6 +17,7 @@ import {
   type UndoTarget,
 } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
+import { captionChips, captionGroups, groupOf } from '../../model/caption-tracks.ts';
 import { guessLanguage } from '../../model/cue-edit.ts';
 import { rootSequence } from '../../model/editor.ts';
 import { formatClock } from '../../model/format.ts';
@@ -29,6 +30,7 @@ import {
   speechCaptionOperations,
 } from '../../model/speech-cues.ts';
 import { jobRemedy, type Remedy } from '../../model/task-facts.ts';
+import { pairedTranslation, sharedCaptionStyle } from '../../model/translation-cues.ts';
 import { reconcileOptions } from '../../model/task-reconcile.ts';
 import type { TranscribeOptions, TranscribeSetup } from '../../model/transcribe-setup.ts';
 import { isJobLive, useJobs } from '../../state/jobs-store.ts';
@@ -370,7 +372,7 @@ async function writeCaptions(run: TranscribeRun, speechDocumentId: Id): Promise<
     const video = useVideo.getState().video;
     const snapshot = video?.videoId === videoId && canEdit(video) ? video.state!.video : null;
     const sequence = snapshot ? rootSequence(snapshot) : null;
-    if (!sequence) return leavePending(run);
+    if (!snapshot || !sequence) return leavePending(run);
     // 字幕在素材时钟上切；时间线上一个词也投不到时（素材裁掉了说话的部分）不写。
     const placed = projectSpeech(sequence, assetId, speech.words);
     if (!placed.length) return endRun(videoId, { kind: 'empty', title: C.offTimelineTitle, message: C.offTimeline, remedy: null });
@@ -386,14 +388,22 @@ async function writeCaptions(run: TranscribeRun, speechDocumentId: Id): Promise<
           .map((cue) => cue.text)
           .join(''),
       );
-    const operations = speechCaptionOperations(sequence, body, {
-      name: baseName(run.assetName),
-      ...(language ? { language } : {}),
-      speechDocumentId,
-      speechRevision: content.revision,
-      assetId,
-      trackName: C.trackName,
-    });
+    // 已经有译自这份转写的译文字幕（翻译时只显示了译文）：新的原文层与它共用样式，叠成双语。
+    const chips = captionChips(sequence, snapshot.documents);
+    const paired = pairedTranslation(chips, snapshot.documents, speechDocumentId);
+    const shared = paired ? sharedCaptionStyle(sequence, paired) : null;
+    const operations = [
+      ...(shared?.operations ?? []),
+      ...speechCaptionOperations(sequence, body, {
+        name: baseName(run.assetName),
+        ...(language ? { language } : {}),
+        speechDocumentId,
+        speechRevision: content.revision,
+        assetId,
+        trackName: C.trackName,
+        style: shared?.style ?? null,
+      }),
+    ];
     // 失败时编辑器已经提示了引擎的原话；转写还在视频里，留一句怎么接着做。
     const receipt = await bound.runtime.videos.apply(withNewCaptionStyle(operations, newCaptionStyle()), EditLabel.generateSubtitles());
     if (!receipt) return endRun(videoId, { kind: 'failed', title: C.writeFailedTitle, message: C.pending, remedy: null });
@@ -404,7 +414,10 @@ async function writeCaptions(run: TranscribeRun, speechDocumentId: Id): Promise<
     }));
     const from = placed[0]!.start;
     const to = Math.max(...placed.map((word) => word.end));
-    bound.toast('positive', C.generated(visible, formatClock(from), formatClock(to)), () => {
+    // 叫法与轨条上那枚 chip 一致（组名会省掉地区：「中文」而不是「简体中文」）。
+    const pairedLabel = paired ? (groupOf(captionGroups(sequence, chips, snapshot.documents), paired.key)?.label ?? paired.label) : '';
+    const message = shared?.style ? C.builtOriginal(pairedLabel) : C.generated(visible, formatClock(from), formatClock(to));
+    bound.toast('positive', message, () => {
       void bound.runtime.videos.undo({ transaction: receipt.transactionId });
     });
   } catch (error) {

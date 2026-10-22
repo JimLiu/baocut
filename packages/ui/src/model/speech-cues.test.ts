@@ -571,6 +571,9 @@ describe('写成字幕文档', () => {
     const fresh = speechCaptionOperations(sequence([], [track('s0', 1, 'subtitle', { locked: true })]), body, source);
     expect(fresh[0]).toMatchObject({ type: 'addTrack', kind: 'subtitle', name: '字幕' });
     expect(fresh[2]).toMatchObject({ items: [{ trackRef: 'new-subtitle-track' }] });
+    // 与译文共用样式：样式落在新实例上（叠成双语）。
+    const paired = speechCaptionOperations(sequence([], [track('s1', 1, 'subtitle')]), body, { ...source, style: { styleDocumentId: 'style_en' } });
+    expect(paired[1]).toMatchObject({ items: [{ styleDocumentId: 'style_en' }] });
   });
 
   it('事务：作用实例是取用这个素材的实例（按起点排），实例盖住它们；文档记下素材', () => {

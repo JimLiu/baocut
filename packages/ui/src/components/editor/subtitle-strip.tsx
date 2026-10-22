@@ -13,6 +13,7 @@ import { Button as RACButton, Focusable } from 'react-aria-components';
 import { currentPreset } from '../../model/caption-presets.ts';
 import {
   captionGroups,
+  captionKindLabel,
   dropOperations,
   flipTargets,
   groupOf,
@@ -25,6 +26,7 @@ import {
   type CaptionGroup,
 } from '../../model/caption-tracks.ts';
 import { formatClock } from '../../model/format.ts';
+import { unbuiltOriginals } from '../../model/translation-cues.ts';
 import { DEFAULT_CAPTION_STYLE, captionStyleRoot, patchCaptionStyle } from '../../model/property-values.ts';
 import type { LineKind } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
@@ -36,6 +38,7 @@ import { useEditorActions } from './editor-context.tsx';
 import { CAPTION_STYLE_COPY as S, SUBTITLE_COPY as C } from './subtitle-copy.ts';
 import { useDocumentBodies, useDocumentBody } from './use-document-body.ts';
 import { TRANSLATE_COPY as T } from './translate-copy.ts';
+import { generateFromSpeech, useSubtitleRun } from './transcribe-run.ts';
 
 const home = style({
   display: 'flex',
@@ -229,7 +232,7 @@ export function SubtitleStrip({
   /** 当下的编辑对象（chip 的 key）。 */
   selected: string | null;
   onSelect(key: string): void;
-  /** 「＋ 翻译成…」：推进翻译设置页；不给时这颗钮看得见、按了不动。 */
+  /** 「＋ 翻译成…」：推进翻译设置页；不给时不画。 */
   onTranslate?: () => void;
   /** 正在翻的那门：语言名、百分比（Runtime 没报总数时 null）、正在做的那一步。 */
   running?: { label: string; percent: number | null; step: string } | null;
@@ -249,6 +252,9 @@ export function SubtitleStrip({
   const segments = currentGroup ? onScreen(currentGroup.segments) : [];
   const styleRecord = current?.styleDocumentId ? documents[current.styleDocumentId] : undefined;
   const videoId = useVideo((s) => s.video?.videoId ?? null);
+  // 翻译时只显示了译文、原文还没做成字幕层：虚线「原文」chip，点了用转写建一层，与译文共用样式叠成双语（product-design §5.9「字幕属性」）。
+  const unbuilt = useMemo(() => unbuiltOriginals(chips, documents), [chips, documents]);
+  const building = useSubtitleRun((s) => !!videoId && !!s.runs[videoId]);
 
   // 入口卡的缩略图与名字：当下这条用的样式，画它管的几行（共用这份样式、在画面上的）。
   const styleLoaded = useDocumentBody(styleRecord);
@@ -391,6 +397,22 @@ export function SubtitleStrip({
             <Tooltip>{g.locked ? C.chipLocked : C.putBackTip(nameOf(g), showing.length >= 2)}</Tooltip>
           </TooltipTrigger>
         ))}
+        {unbuilt.map((u) => (
+          <TooltipTrigger key={u.speechDocumentId} delay={500}>
+            <RACButton
+              className={({ isHovered, isFocusVisible, isDisabled }) => ghost({ isHovered, isFocusVisible, isDisabled })}
+              isDisabled={!editable || !videoId || building}
+              onPress={() => {
+                // 字幕文档按素材名起名，与「生成字幕」一致；素材不在快照里时退回转写的名字。
+                const asset = useVideo.getState().video?.state?.video.assets[u.assetId];
+                if (videoId) void generateFromSpeech(videoId, { id: u.assetId, name: asset?.name ?? u.name }, u.speechDocumentId);
+              }}>
+              <Add />
+              {unbuilt.length > 1 ? `${captionKindLabel('original')} · ${u.name}` : captionKindLabel('original')}
+            </RACButton>
+            <Tooltip>{C.buildOriginalTip(groupOf(groups, u.translation.key)?.label ?? u.translation.label)}</Tooltip>
+          </TooltipTrigger>
+        ))}
         {running ? (
           <TooltipTrigger delay={300}>
             <Focusable>
@@ -415,12 +437,7 @@ export function SubtitleStrip({
             </RACButton>
             <Tooltip>{C.translateTip}</Tooltip>
           </TooltipTrigger>
-        ) : (
-          <SoftDisabled className={ghost({ isDisabled: true })} tip={C.translateOff}>
-            <Add />
-            {C.translate}
-          </SoftDisabled>
-        )}
+        ) : null}
         {showing.length >= 2 ? (
           flipReady && editable ? (
             <TooltipTrigger delay={500}>

@@ -414,7 +414,7 @@ test('比例链：原文行的字号就是原文行的字号，根字号是反�
   assert.ok(r.k > 1, '默认双语里译文行比原文行大');
 });
 
-/* ---------- 用文稿建原文字幕层（product-design §5.6 轨条的虚线「原文」chip） ---------- */
+/* ---------- 用文稿建原文字幕层（product-design §5.9「字幕属性」轨条的虚线「原文」chip） ---------- */
 
 test('只有译文在画面上时建原文：涂装取译文，身份、几何与词级那几件留原文自己的，叠成双语', () => {
   const tr = T('en', 'translation', {font: 'picked-font', color: 'picked-color', outline: true});
