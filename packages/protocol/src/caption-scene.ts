@@ -262,6 +262,8 @@ export interface CaptionScene {
   layout: {
     width: CaptionLength; x: CaptionLength; y: CaptionLength; maxLines?: number;
     layoutEvaluation?: 'static' | 'per-sample'; overflow?: 'error' | 'visible';
+    /** Cue-relative sample time; outer activation stays on timeline time. */
+    clock?: { time: CaptionExpression } | null;
     /** Opt-in windows over real, ordered, nonoverlapping words with wordLinePattern, textLinePattern, remainingWordPagePlans or fixed wordPagePattern members. */
     pageWindow?: { gapThreshold: { ticks: number; timescale: number }; shortGap: { before: number; after: number };
       longGap: { before: number; after: number }; boundary: 'start-inclusive-end-exclusive' | 'first-start-inclusive-end-inclusive' } | null;

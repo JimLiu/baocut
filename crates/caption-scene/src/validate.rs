@@ -83,6 +83,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-glow-color-matrix/1",
     "caption-layout-per-sample/1",
     "caption-page-window/1",
+    "caption-layout-clock/1",
     "caption-unit-font-size/1",
     "caption-unit-font-reflow/1",
     "caption-unit-font-style/1",
@@ -771,6 +772,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     validate_fixed_line_fit(s)?;
     validate_page_tags(s)?;
     validate_page_window(s)?;
+    validate_layout_clock(s)?;
     validate_unit_font_reflow(s)?;
     if s.parameters.len() > 128 || s.functions.len() > 128 || s.selectors.len() > MAX_NODES || s.animations.len() > 1024 {
         return Err(invalid("scene", "declaration budget exceeded"));
@@ -2602,4 +2604,85 @@ fn validate_sampling_domain(scene: &Scene, id: &str, sampling: &GaussianSampling
         }
     }
     Ok(())
+}
+
+/// Clock sampling precedes page selection and cannot depend on its output.
+fn validate_layout_clock(scene: &Scene) -> Result<()> {
+    let Some(clock) = &scene.layout.clock else {
+        return Ok(());
+    };
+    if !scene.required_capabilities.iter().any(|c| c == "caption-layout-clock/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_REQUIRED",
+            "layout.clock",
+            "caption-layout-clock/1",
+        ));
+    }
+    if infer(&clock.time, scene, &BTreeMap::new())? != ValueType::Time {
+        return Err(Diagnostic::new(
+            "CAPTION_EXPRESSION_TYPE",
+            "layout.clock.time",
+            "time result required",
+        ));
+    }
+    fn visit(expr: &Expression, scene: &Scene, seen: &mut BTreeSet<String>, left: &mut usize) -> Result<()> {
+        if *left == 0 {
+            return Err(invalid("layout.clock", "dependency budget"));
+        }
+        *left -= 1;
+        match expr {
+            Expression::Read { path } => {
+                if !(path.starts_with("params.")
+                    || path.starts_with("args.")
+                    || matches!(
+                        path.as_str(),
+                        "time.seconds"
+                            | "time.elapsedSeconds"
+                            | "time.durationSeconds"
+                            | "time.cueDurationSeconds"
+                            | "time.progress"
+                            | "time.clampedProgress"
+                            | "unit.index"
+                            | "unit.count"
+                            | "canvas.width"
+                            | "canvas.height"
+                            | "time.inputFirstWordStartSeconds"
+                            | "time.inputFirstWordEndSeconds"
+                            | "time.inputLastWordStartSeconds"
+                            | "time.inputLastWordEndSeconds"
+                            | "unit.inputFirstWordTimed"
+                            | "unit.inputLastWordTimed"
+                    ))
+                {
+                    return Err(Diagnostic::new(
+                        "CAPTION_DEPENDENCY_CYCLE",
+                        path,
+                        "clock cannot read layout or sampled-unit state",
+                    ));
+                }
+            }
+            Expression::Call { function, args } => {
+                for arg in args {
+                    visit(arg, scene, seen, left)?;
+                }
+                if let Some(f) = scene.functions.iter().find(|f| f.id == *function) {
+                    if seen.insert(function.clone()) {
+                        visit(&f.body, scene, seen, left)?;
+                    }
+                }
+            }
+            Expression::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                visit(condition, scene, seen, left)?;
+                visit(then, scene, seen, left)?;
+                visit(otherwise, scene, seen, left)?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    visit(&clock.time, scene, &mut BTreeSet::new(), &mut 16_384)
 }

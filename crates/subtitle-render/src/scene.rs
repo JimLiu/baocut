@@ -15,6 +15,7 @@ mod image_paint;
 #[cfg(test)]
 mod image_paint_tests;
 mod image_sequences;
+mod layout_clock;
 mod line_box;
 mod line_neighbor;
 mod line_quota;
@@ -517,7 +518,20 @@ impl ScenePlan {
             only_cue.is_none_or(|id| id == *i) && seconds >= c.start && seconds < c.end
         }) {
             let params = cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-            let context = sampled_layout::early_context(
+            let seconds = layout_clock::sample(
+                base_scene,
+                cue,
+                ci,
+                self.cues.len(),
+                seconds,
+                &params,
+                (self.width, self.height),
+                &self.instance_id,
+                &self.presentation.seed,
+                budget,
+            )?;
+            let context = layout_clock::early_context(
+                base_scene,
                 cue,
                 ci,
                 self.cues.len(),
@@ -1752,6 +1766,9 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
     }
     if speech_phase::enabled(r.scene) {
         speech_phase::add_fields(&mut out, u, r.seconds);
+    }
+    if layout_clock::enabled(r.scene) {
+        layout_clock::input_fields(&mut out, r.cue);
     }
     cue_unit_context::add_fields(&mut out, u);
     if active_word_clock::enabled(r.scene) {

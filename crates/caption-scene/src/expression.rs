@@ -141,6 +141,10 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "time.pageLastWordDurationSeconds"
         | "time.cueFirstWordStartSeconds"
         | "time.cueFirstWordEndSeconds"
+        | "time.inputFirstWordStartSeconds"
+        | "time.inputFirstWordEndSeconds"
+        | "time.inputLastWordStartSeconds"
+        | "time.inputLastWordEndSeconds"
         | "time.cueSecondWordStartSeconds"
         | "time.nextWordStartSeconds"
         | "time.firstPageFirstWordStartSeconds"
@@ -177,6 +181,8 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "unit.unread"
         | "unit.pageLastWordTimed"
         | "unit.cueFirstWordTimed"
+        | "unit.inputFirstWordTimed"
+        | "unit.inputLastWordTimed"
         | "unit.cueSecondWordTimed"
         | "unit.wordTimed"
         | "unit.pageEnvelopeAvailable"
@@ -234,6 +240,23 @@ pub fn context_type(path: &str) -> Option<ValueType> {
     })
 }
 fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
+    if matches!(
+        path,
+        "time.inputFirstWordStartSeconds"
+            | "time.inputFirstWordEndSeconds"
+            | "time.inputLastWordStartSeconds"
+            | "time.inputLastWordEndSeconds"
+            | "unit.inputFirstWordTimed"
+            | "unit.inputLastWordTimed"
+    ) && !scene.required_capabilities.iter().any(|c| c == "caption-layout-clock/1")
+    {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-layout-clock/1 must be declared",
+        ));
+    }
+
     if path == "unit.pageTag" {
         if !scene.required_capabilities.iter().any(|c| c == "caption-page-tag/1") {
             return Err(Diagnostic::new(
@@ -1085,6 +1108,23 @@ pub fn sample_value(
     budget: &mut Budget,
 ) -> Result<Option<Evaluated>> {
     budget.spend()?;
+    // All channels on a remapped cue, including material keyframes, share its
+    // sampled clock. Callers may still pass timeline time for capture ordering.
+    let seconds = if scene.layout.clock.is_some() {
+        let start = ctx
+            .spans
+            .get(&UnitKind::Cue)
+            .ok_or_else(|| invalid("layout.clock", "cue span unavailable"))?
+            .0;
+        start
+            + ctx
+                .fields
+                .get("time.seconds")
+                .ok_or_else(|| invalid("layout.clock", "sample context unavailable"))?
+                .number()?
+    } else {
+        seconds
+    };
     match value {
         DynamicValue::Constant { value } => Ok(Some(typed_value(t, value)?)),
         DynamicValue::Expression { expression } => Ok(Some(evaluate(expression, scene, ctx, budget)?)),

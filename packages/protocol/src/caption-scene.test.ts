@@ -306,3 +306,11 @@ test('local glyph mask rasterization is explicit and retains legacy omission', (
   const invalid: CaptionPaintMask = { kind: 'glyph-fill', rasterization: 'auto' };
   expect(invalid.rasterization).toBe('auto');
 });
+
+test('layout sampling clock carries a typed expression without changing legacy DTOs', () => {
+  type Clock = NonNullable<CaptionScene['layout']['clock']>;
+  expectTypeOf<Clock>().toEqualTypeOf<{ time: CaptionExpression }>();
+  const clock: Clock = { time: { op: 'literal', type: 'time', value: 0.25 } };
+  expect(JSON.parse(JSON.stringify(clock))).toEqual({ time: { op: 'literal', type: 'time', value: 0.25 } });
+  expect(fixture.scene.value.layout).not.toHaveProperty('clock');
+});

@@ -154,7 +154,15 @@ impl Length {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LayoutClock {
+    pub time: Expression,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Layout {
+    /// Cue-relative sampling clock; outer activation stays on timeline time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clock: Option<LayoutClock>,
     #[serde(default)]
     pub layout_evaluation: LayoutEvaluation,
     #[serde(default)]

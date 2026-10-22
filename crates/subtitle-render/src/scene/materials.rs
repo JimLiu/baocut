@@ -310,7 +310,20 @@ impl ScenePlan {
     ) -> Result<Option<Context>> {
         let cue = &self.cues[ci];
         let params = cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-        let early = sampled_layout::early_context(
+        let t = layout_clock::sample(
+            self.style.scene(),
+            cue,
+            ci,
+            self.cues.len(),
+            t,
+            &params,
+            (self.width, self.height),
+            &self.instance_id,
+            &self.presentation.seed,
+            budget,
+        )?;
+        let early = layout_clock::early_context(
+            self.style.scene(),
             cue,
             ci,
             self.cues.len(),
@@ -448,11 +461,24 @@ impl ScenePlan {
                 let cue = &self.cues[ci];
                 let params =
                     cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-                let mut context = sampled_layout::early_context(
+                let sampled_time = layout_clock::sample(
+                    self.style.scene(),
                     cue,
                     ci,
                     self.cues.len(),
                     t,
+                    &params,
+                    (self.width, self.height),
+                    &self.instance_id,
+                    &self.presentation.seed,
+                    budget,
+                )?;
+                let mut context = layout_clock::early_context(
+                    self.style.scene(),
+                    cue,
+                    ci,
+                    self.cues.len(),
+                    sampled_time,
                     &params,
                     (self.width, self.height),
                     &self.instance_id,
@@ -512,11 +538,24 @@ impl ScenePlan {
                     let cue = &self.cues[ci];
                     let params =
                         cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-                    sampled_layout::early_context(
+                    let sampled_time = layout_clock::sample(
+                        self.style.scene(),
                         cue,
                         ci,
                         self.cues.len(),
                         t,
+                        &params,
+                        (self.width, self.height),
+                        &self.instance_id,
+                        &self.presentation.seed,
+                        budget,
+                    )?;
+                    layout_clock::early_context(
+                        self.style.scene(),
+                        cue,
+                        ci,
+                        self.cues.len(),
+                        sampled_time,
                         &params,
                         (self.width, self.height),
                         &self.instance_id,
