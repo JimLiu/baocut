@@ -23,14 +23,28 @@
    正在翻 / 翻译成…），轨条只画前两组，于是同一件事有两个入口、两种形态；现在四组都在
    轨条上：正在翻的那门是一枚带进度的 chip（可选中，看进度），「＋ 翻译成…」去 AI 工具。
    第 153 轮起列表**不再**从这里的选中反推形态——它有自己的对照条（panel-subtitle.jsx
-   的 ListBar）；这里的选中只管样式作用域，唯一的耦合是选中译文轨会把对照语言切成它。 */
+   的 ListBar）；这里的选中只管样式作用域，唯一的耦合是选中译文轨会把对照语言切成它。
+
+   第 244 轮：**一枚 chip ＝ 一层**（原文 / 译文 ＋ 语言）。纪录片一类的视频按片段各自转录：
+   旁白 11 段、采访 11 段原文、11 段译文，按字幕文档列会冒出 33 枚 chip。现在同一层的各段
+   收成一枚，多于一段时名字后面印一个浅色段数（`原文 · English  11`）；画面上有两层原文时
+   原文带语言（`原文 · 中文` / `原文 · English`），只有一层时写「原文」，译文写语言名
+   （`BC_SUBSEG.chipLabel`）。× 拿下整层、幽灵 chip 放回整层，软上限按层数算；入口卡的
+   「画面上 N 条」也按层数。点一层 = 选中它（样式作用域 ＋ 列表），套样式落到这一层的每一段，
+   倒转 ⇅ 换的是译文与它译自的那层原文（`BC_SUB.stackPair`）。校对列表仍一次改一段，所以
+   选中的层多于一段时轨条下面多一行「段落」＋ S2 Picker，列「开始时刻 · 素材名」，值跟着
+   播放头所在的那一段；挑一段 = 播放头跳到它的开头。单段的层没有这一行。原型里一层就是一条
+   轨，段是轨上可选的 `segments`（model-subseg.js）；纪录片演示在地址 hash 前加
+   `?subdemo=documentary`。 */
 (function () {
   const S = window.BC_SUB;
+  const G = window.BC_SUBSEG;
   const D = window.BC_DATA;
 
-  /** 一条轨的 chip：点名字选中它（作用域），尾部的 × 把它从画面上拿下。
+  /** 一层的 chip：点名字选中它（作用域），尾部的 × 把整层从画面上拿下（第 244 轮起一层可以
+   *  由几段拼成，名字后面印段数）。
    *  `<button>` 不能套 `<button>`，所以外层是 span，两个动作各自一颗钮。 */
-  function TrackChip({t, on, last, run, onPick, onDrop}) {
+  function TrackChip({t, label, on, last, run, onPick, onDrop}) {
     /* 这条轨正在被重翻（第 207 轮）：chip 尾巴挂呼吸点 + 百分比。轨还在画面上、
        列表照旧能看——进度只是提醒「这一门马上会被新译文替掉」。 */
     const rerun = run && run.target === t.id ? run : null;
@@ -40,12 +54,13 @@
           title={rerun ? (rerun.status === 'queued' ? '排队中 · 等着重新翻译' : '正在重新翻译 · ' + Math.round(rerun.pct) + '%')
             : t.hidden ? '已停用 · 时间轴行头能启用' : '改这一条的样式' + (t.role === 'translation' ? ' · 列表也对照到它' : '')}>
           {t.hidden ? <Ic n="eyeoff" className="ic--14" /> : null}
-          {S.label(t)}
+          {label}
+          {G.count(t) > 1 ? <span className="subtrk__cnt t-mono">{G.count(t)}</span> : null}
           {rerun ? <span className="subtrk__run"><i className="livehd__dot" /><span className="t-mono">{Math.round(rerun.pct)}%</span></span> : null}
         </BCAction>
         {last ? null : (
-          <BCAction className="subtrk__x" onClick={onDrop} aria-label={'把「' + t.name + '」从画面上拿下'}
-            title="从画面上拿下 · 不删数据">
+          <BCAction className="subtrk__x" onClick={onDrop} aria-label={'把「' + label + '」从画面上拿下'}
+            title={G.count(t) > 1 ? '整层从画面上拿下 · ' + G.count(t) + ' 段 · 不删数据' : '从画面上拿下 · 不删数据'}>
             <Ic n="close" className="ic--14" />
           </BCAction>
         )}
@@ -61,6 +76,7 @@
     const st = ctx.subStyle;
     const list = S.tracks(st);
     const shelved = ctx.availableSubTracks();
+    const all = list.concat(shelved);
     /* 选中带 trackId 的都算（轨条 chip、画布、时间轴 cue 块）——样式作用域照它走 */
     const selId = (ctx.sel && ctx.sel.trackId) || editId;
     const order = S.stackOrder(st);
@@ -75,17 +91,20 @@
           ctx.restoreSubStyle(before); app.toast('已撤销倒转');
         }});
     };
+    const selTrack = S.byId(st, selId);
     return (
+      <>
       <div className="substrip">
         <span className="substrip__k">画面上</span>
         {list.map((t) => (
-          <TrackChip key={t.id} t={t} on={t.id === selId} last={list.length < 2} run={run}
+          <TrackChip key={t.id} t={t} label={G.chipLabel(t, all)} on={t.id === selId} last={list.length < 2} run={run}
             onPick={() => ctx.pickSub(t.id)} onDrop={() => ops.drop(t.id)} />
         ))}
         {shelved.map((t) => (
           <BCAction key={t.id} className="subtrk subtrk--ghost" onClick={() => ops.put(t)}
-            title={'把「' + t.name + '」放回画面' + (list.length >= 2 ? ' · 第三条会问一次' : '')}>
-            <Ic n="plus" className="ic--14" />{S.label(t)}
+            title={'把「' + t.name + '」' + (G.count(t) > 1 ? '整层 ' + G.count(t) + ' 段' : '') + '放回画面' + (list.length >= 2 ? ' · 第三条会问一次' : '')}>
+            <Ic n="plus" className="ic--14" />{G.chipLabel(t, all)}
+            {G.count(t) > 1 ? <span className="subtrk__cnt t-mono">{G.count(t)}</span> : null}
           </BCAction>
         ))}
         {/* 正在翻、还没落轨的那门语言：选中它看进度（列表换成翻译中那一屏） */}
@@ -104,6 +123,30 @@
           <BCAction className="stlink substrip__flip" onClick={flipIt}
             title="倒转两行的上下——在上那行是主行，字更大">倒转 ⇅</BCAction>
         ) : null}
+      </div>
+      {G.hasRow(selTrack) ? <SegmentRow ctx={ctx} t={selTrack} /> : null}
+      </>
+    );
+  }
+
+  /** 选中的层多于一段时轨条下面那一行（第 244 轮）：校对列表一次改一段，这里挑哪一段。
+   *  值跟着播放头（`BC_SUBSEG.segmentAt`），挑一段 = 播放头跳到它的开头——只有一份真相，
+   *  不另存一份「挑中的段」与播放头打架。 */
+  function SegmentRow({ctx, t}) {
+    const [open, setOpen] = React.useState(false);
+    const cur = G.segmentAt(t, ctx.playT);
+    return (
+      <div className="subseg-row">
+        <span className="substrip__k">段落</span>
+        <Picker size="s" field label="段落" value={G.segmentLabel(cur)} open={open} popWidth={260}
+          onClick={() => setOpen((v) => !v)} onClose={() => setOpen(false)}>
+          <Menu>
+            {G.segments(t).map((seg) => (
+              <MenuItem key={seg.id} label={G.segmentLabel(seg)} on={cur && seg.id === cur.id}
+                onClick={() => { setOpen(false); ctx.seek(seg.start); }} />
+            ))}
+          </Menu>
+        </Picker>
       </div>
     );
   }

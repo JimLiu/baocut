@@ -113,6 +113,8 @@
     const next = Object.assign({}, out, {
       id: inTrack.id, lang: inTrack.lang, name: inTrack.name, role: inTrack.role,
     });
+    /* 段与配对是身份，跟新轨走（第 244 轮）：换下一层分段的轨，不能把它的段数带给新语言 */
+    ['segments', 'of'].forEach((k) => { if (inTrack[k] == null) delete next[k]; else next[k] = inTrack[k]; });
     if (next.role !== 'source') {
       delete next.wordAnim;
       delete next.caption;
@@ -515,10 +517,19 @@
 
   /** 当下的叠法。判据是**画出来的位置**（锚线 `y` 小者在上），不是数组序——数组序
    *  只管 timeline 的行序。画面上凑不齐源语言 ＋ 译文两条时谈不上谁在上，返回 null。 */
-  function stackOrder(st) {
-    const src = source(st);
+  /** 倒转比的那一对：第一条译文轨 ＋ 它译自的那条原文（`of`，第 244 轮：纪录片有两层原文，
+   *  旁白与采访；采访的译文要和采访原文配对，不是和数组里第一条原文）。没有 `of` 时
+   *  退回第一条原文轨，原有演示不变。 */
+  function stackPair(st) {
     const tr = translations(st)[0];
-    if (!src || !tr) return null;
+    const src = tr && ((tr.of && byId(st, tr.of)) || source(st));
+    return src && tr ? {src, tr} : null;
+  }
+
+  function stackOrder(st) {
+    const pair = stackPair(st);
+    if (!pair) return null;
+    const {src, tr} = pair;
     const y = (t) => (t.y == null ? 86 : t.y);
     return y(tr) <= y(src) ? 'transTop' : 'srcTop';
   }
@@ -529,9 +540,9 @@
    *  `highlight`）不动：它们跟角色走，不跟位次走。叠了第三条时只动这两条。
    *  返回新数组；不足两条时原样返回。 */
   function flipStack(st) {
-    const src = source(st);
-    const tr = translations(st)[0];
-    if (!src || !tr) return tracks(st);
+    const pair = stackPair(st);
+    if (!pair) return tracks(st);
+    const {src, tr} = pair;
     const geo = (t) => ({y: t.y, valign: t.valign, size: t.size});
     return tracks(st).map((t) => {
       if (t.id === src.id) return Object.assign({}, t, geo(tr));

@@ -129,35 +129,143 @@ export function captionChips(sequence: Sequence, documents: Record<Id, DocumentR
 }
 
 /** 还在画面上的（含所在轨被停用的）。 */
-export function onScreen(chips: readonly CaptionChip[]): CaptionChip[] {
+export function onScreen<T extends Pick<CaptionChip, 'state'>>(chips: readonly T[]): T[] {
   return chips.filter((chip) => chip.state !== 'shelved');
 }
 
-const toggle = (sequence: Sequence, chip: CaptionChip, enabled: boolean): EditOperation[] =>
+/** 拿下、放回认得的那一枚：一枚 chip，或轨条上的一组（`CaptionGroup`）。 */
+type Toggleable = Pick<CaptionChip, 'key' | 'state' | 'itemIds'>;
+
+const toggle = (sequence: Sequence, chip: Toggleable, enabled: boolean): EditOperation[] =>
   chip.itemIds.map((itemId) => ({ type: 'updateItem', sequenceId: sequence.id, itemId, enabled }));
 
 /** 拿下：画面上只剩这一条时拒绝（一条都不显示是「隐藏字幕」的事，不是这里）。 */
-export function dropOperations(sequence: Sequence, chips: readonly CaptionChip[], chip: CaptionChip): { refused: 'last' } | { operations: EditOperation[] } {
+export function dropOperations(sequence: Sequence, chips: readonly Toggleable[], chip: Toggleable): { refused: 'last' } | { operations: EditOperation[] } {
   if (onScreen(chips).filter((other) => other.key !== chip.key).length === 0) return { refused: 'last' };
   return { operations: toggle(sequence, chip, false) };
 }
 
 /** 放回：画面上已有两条以上时要先问一次（`confirm` 是放回之后的条数）。 */
-export function putBackOperations(sequence: Sequence, chips: readonly CaptionChip[], chip: CaptionChip): { confirm: number | null; operations: EditOperation[] } {
+export function putBackOperations(sequence: Sequence, chips: readonly Toggleable[], chip: Toggleable): { confirm: number | null; operations: EditOperation[] } {
   const showing = onScreen(chips).filter((other) => other.key !== chip.key).length;
   return { confirm: showing >= 2 ? showing + 1 : null, operations: toggle(sequence, chip, true) };
 }
 
 /**
- * 「倒转 ⇅」能动的样式文档：画面上原文与译文叠在同一份样式里（预览按样式文档分组叠行）时，倒转就是改这份样式的
- * `order`（译文在上 / 原文在上，与属性页的「双语次序」同一个字段）。没有这样一组时返回 null。
+ * 轨条上的一组：同是原文（或同是译文）、同一门语言的几份字幕。纪录片一段素材转录一份、翻译一份，画面上同一层字幕就是
+ * 好几份文档、散在好几条轨上；轨条按组一枚 chip，拿下、放回、套样式、倒转都对整组。列表一次仍只校对一份（一段）。
+ * 没有语言的字幕文档各自成组。
  */
-export function flipTarget(chips: readonly CaptionChip[]): Id | null {
+export interface CaptionGroup {
+  key: string;
+  kind: 'original' | 'translation';
+  label: string;
+  /** 组里的每一段（一枚 chip），按开始时刻排。 */
+  segments: CaptionChip[];
+  itemIds: Id[];
+  /** 每段都拿下了才算拿下；画面上的几段所在轨都停用了才算停用。 */
+  state: ChipState;
+  /** 有一段锁着：整组拿不下来。 */
+  locked: boolean;
+  /** 组里各段用的样式文档（去重，按段的次序）。 */
+  styleDocumentIds: Id[];
+}
+
+/** 这枚 chip 的字幕实例。 */
+const spansOf = (chip: CaptionChip, sequence: Sequence) =>
+  sequence.items.filter((item): item is CaptionItem => item.type === 'caption' && chip.itemIds.includes(item.id)).map((item) => item.span);
+
+/** 这枚 chip 在时间线上最早的一帧（没有实例时排最后）。 */
+export const startOf = (chip: CaptionChip, sequence: Sequence) => Math.min(...spansOf(chip, sequence).map((span) => span.fromFrame));
+
+/** 把轨条的 chip 按「原文 / 译文 ＋ 语言」并成组，按第一次出现的次序排。 */
+export function captionGroups(sequence: Sequence, chips: readonly CaptionChip[], documents: Record<Id, DocumentRecord>): CaptionGroup[] {
+  const language = (chip: CaptionChip) => documents[chip.documentId]?.language ?? null;
+  const buckets = new Map<string, CaptionChip[]>();
+  for (const chip of chips) {
+    const tag = language(chip);
+    const key = tag ? `${chip.kind}:${tag}` : `${chip.kind}:${chip.key}`;
+    buckets.set(key, [...(buckets.get(key) ?? []), chip]);
+  }
+  const groups = [...buckets].map(([key, members]): CaptionGroup => {
+    const segments = members
+      .map((chip) => ({ chip, from: startOf(chip, sequence) }))
+      .sort((a, b) => a.from - b.from)
+      .map(({ chip }) => chip);
+    const showing = onScreen(segments);
+    return {
+      key,
+      kind: segments[0]!.kind,
+      label: segments[0]!.label,
+      segments,
+      itemIds: segments.flatMap((chip) => chip.itemIds),
+      state: showing.length === 0 ? 'shelved' : showing.every((chip) => chip.state === 'off') ? 'off' : 'on',
+      locked: segments.some((chip) => chip.locked),
+      styleDocumentIds: [...new Set(segments.flatMap((chip) => (chip.styleDocumentId ? [chip.styleDocumentId] : [])))],
+    };
+  });
+  // 名字按语言叫：译文写语言名，原文同时有几门时带上语言；没有语言的组照旧用 chip 的名字（同名已补过文档名）。
+  const tags = new Map(groups.map((group) => [group.key, language(group.segments[0]!)]));
+  const allTags = [...new Set([...tags.values()].filter((tag): tag is string => !!tag))];
+  const originals = groups.filter((group) => group.kind === 'original').length;
+  return groups.map((group) => {
+    const tag = tags.get(group.key);
+    if (!tag) return group;
+    const name = languageName(shortTag(tag, allTags));
+    return { ...group, label: group.kind === 'translation' ? name : originals > 1 ? M.withName(M.original, name) : M.original };
+  });
+}
+
+/** 语言标签能省掉地区就省（`zh-CN` → `zh`），同一门语言有两个地区时留着。 */
+function shortTag(tag: string, all: readonly string[]): string {
+  const primary = tag.split('-')[0]!;
+  return all.some((other) => other !== tag && other.split('-')[0] === primary) ? tag : primary;
+}
+
+/** 一段的来源名（段落选择里用）：顺着派生找到转写文档，用它的名字（素材名）；找不到时用字幕文档名。 */
+export function segmentSource(chip: CaptionChip, documents: Record<Id, DocumentRecord>): string {
+  let record: DocumentRecord | undefined = documents[chip.documentId];
+  for (let hop = 0; record && hop < 4; hop++) {
+    if (record.kind === 'speech') return record.name;
+    record = record.sourceDocumentId ? documents[record.sourceDocumentId] : undefined;
+  }
+  return chip.name;
+}
+
+/** 这枚 chip 所在的组。 */
+export function groupOf(groups: readonly CaptionGroup[], chipKey: string | null | undefined): CaptionGroup | undefined {
+  return chipKey ? groups.find((group) => group.segments.some((chip) => chip.key === chipKey)) : undefined;
+}
+
+/**
+ * 点一组时校对哪一段：之前选的那段还在这组里就留着；否则取盖住播放头的那段（几段都盖住时取最短的，最具体），
+ * 都不盖住取第一段。拿下的段不选。
+ */
+export function segmentAt(group: CaptionGroup, sequence: Sequence, frame: number, previous?: string | null): CaptionChip {
+  const live = onScreen(group.segments);
+  const pool = live.length ? live : group.segments;
+  const kept = pool.find((chip) => chip.key === previous);
+  if (kept) return kept;
+  let best: { chip: CaptionChip; length: number } | null = null;
+  for (const chip of pool) {
+    for (const span of spansOf(chip, sequence)) {
+      if (frame < span.fromFrame || frame >= span.fromFrame + span.durationFrames) continue;
+      if (!best || span.durationFrames < best.length) best = { chip, length: span.durationFrames };
+    }
+  }
+  return best?.chip ?? pool[0]!;
+}
+
+/**
+ * 「倒转 ⇅」能动的样式文档：画面上原文与译文叠在同一份样式里（预览按样式文档分组叠行）时，倒转就是改这份样式的
+ * `order`（译文在上 / 原文在上，与属性页的「双语次序」同一个字段）。纪录片里每段素材一对原文与译文、各一份样式，
+ * 倒转把这几份一起改。没有这样的一对时是空的。
+ */
+export function flipTargets(chips: readonly CaptionChip[]): Id[] {
   const byStyle = new Map<Id, Set<CaptionChip['kind']>>();
   for (const chip of onScreen(chips)) {
     if (!chip.styleDocumentId || chip.state !== 'on') continue;
     byStyle.set(chip.styleDocumentId, (byStyle.get(chip.styleDocumentId) ?? new Set()).add(chip.kind));
   }
-  for (const [id, kinds] of byStyle) if (kinds.size > 1) return id;
-  return null;
+  return [...byStyle].filter(([, kinds]) => kinds.size > 1).map(([id]) => id);
 }

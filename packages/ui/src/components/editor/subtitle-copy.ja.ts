@@ -60,6 +60,9 @@ export const jaSubtitle: SubtitleMessages = {
   decide: 'バックグラウンドタスクで対応',
 
   // 轨条与样式入口卡
+  groupPick: (n: number) => `${n} 区間 · 校正する区間を下で選択`,
+  segment: '区間',
+  segmentPick: '校正する区間',
   onScreen: '画面に表示中',
   defaultStyle: '既定のスタイル',
   styleEntry: (n: number) => (n ? `スタイルを編集 · 画面上の字幕トラック ${n} 本` : 'スタイルを編集'),

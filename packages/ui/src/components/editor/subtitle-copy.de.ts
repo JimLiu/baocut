@@ -65,6 +65,9 @@ export const deSubtitle: SubtitleMessages = {
     `${message ? `${message}. ` : ""}Das Erkennungsergebnis ist noch verfügbar; unter Hintergrundaufgaben erneut ins Video schreiben. Danach verwendet „Untertitel erzeugen“ es direkt.`,
   decide: "Unter Hintergrundaufgaben lösen",
 
+  groupPick: (n: number) => `${n} Abschnitte · unten einen zum Korrekturlesen wählen`,
+  segment: 'Abschnitt',
+  segmentPick: 'Abschnitt zum Korrekturlesen',
   onScreen: "Im Bild",
   defaultStyle: "Standardstil",
   styleEntry: (n: number) => (n ? `Stil bearbeiten · ${n} ${pluralForm('de', n, { one: "Untertitelspur", other: "Untertitelspuren" })} sichtbar` : "Stil bearbeiten"),

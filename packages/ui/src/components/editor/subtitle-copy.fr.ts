@@ -66,6 +66,9 @@ export const frSubtitle: SubtitleMessages = {
     `${message ? `${message}. ` : ""}Le résultat est disponible ; écrivez-le à nouveau depuis Tâches en arrière-plan. Ensuite, « Générer des sous-titres » l’utilise directement.`,
   decide: "Résoudre dans Tâches en arrière-plan",
 
+  groupPick: (n: number) => `${n} segments · choisissez ci-dessous lequel corriger`,
+  segment: 'Segment',
+  segmentPick: 'Segment à corriger',
   onScreen: "À l'écran",
   defaultStyle: "Style par défaut",
   styleEntry: (n: number) => (n ? `Modifier le style · ${n} piste de sous-titres${pluralForm('fr', n, { one: "", other: "s" })} à l’écran` : "Modifier le style"),

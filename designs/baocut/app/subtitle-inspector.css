@@ -77,6 +77,11 @@
 .subtrk--off { color: var(--gray-500); }
 .subtrk--ghost { gap: 4px; padding: 0 8px 0 6px; background: transparent; border: 1px dashed var(--gray-400); color: var(--gray-600); cursor: pointer; }
 .subtrk--ghost:hover { border-color: var(--blue-800); color: var(--blue-1000); background: var(--blue-100); }
+/* 第 244 轮：一层多段时名字后面的段数，与段落选择那一行（panel-substrip.jsx） */
+.subtrk__cnt { margin-left: 2px; font-size: 11px; font-weight: 400; color: var(--gray-600); }
+.subtrk.is-on .subtrk__cnt { color: var(--blue-800); }
+.subseg-row { display: flex; align-items: center; gap: 8px; }
+.substrip--page .subseg-row { margin-top: 8px; }
 /* 第 207 轮：正在被重翻的那条轨——chip 尾巴挂呼吸点 + 百分比（轨还在画面上，列表照旧） */
 .subtrk__run { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; padding-left: 6px; border-left: 1px solid var(--gray-300); font-size: 11px; color: var(--blue-1000); }
 .subtrk__run .livehd__dot { width: 6px; height: 6px; }

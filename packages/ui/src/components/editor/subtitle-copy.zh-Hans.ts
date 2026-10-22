@@ -62,6 +62,9 @@ export const zhSubtitle: SubtitleMessages = {
   decide: '去后台任务处理',
 
   // 轨条与样式入口卡
+  groupPick: (n: number) => `${n} 段 · 在下面挑一段校对`,
+  segment: '段落',
+  segmentPick: '校对哪一段',
   onScreen: '画面上',
   defaultStyle: '缺省样式',
   styleEntry: (n: number) => (n ? `编辑样式 · 画面上 ${n} 条字幕轨` : '编辑样式'),

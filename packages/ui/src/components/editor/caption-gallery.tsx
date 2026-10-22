@@ -1,6 +1,6 @@
 import { useCaptionPreferences } from '../../state/caption-preferences-store.ts';
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { DocumentRecord, Id, Sequence } from '@baocut/protocol';
+import type { DocumentRecord, EditOperation, Id, Sequence } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import { ActionButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import Checkmark from '@react-spectrum/s2/icons/Checkmark';
@@ -19,7 +19,7 @@ import {
   type CaptionPreset,
   type PresetScope,
 } from '../../model/caption-presets.ts';
-import { onScreen, type CaptionChip } from '../../model/caption-tracks.ts';
+import { captionGroups, groupOf, onScreen, type CaptionChip } from '../../model/caption-tracks.ts';
 import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-values.ts';
 import { asObject, type Json, type LineKind } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
@@ -31,7 +31,7 @@ import { useEditorActions } from './editor-context.tsx';
 import { Note, SecHead, Seg } from './inspector-controls.tsx';
 import { PanelHead, panelBody } from './panel-head.tsx';
 import { CAPTION_STYLE_COPY as S } from './subtitle-copy.ts';
-import { useDocumentBody } from './use-document-body.ts';
+import { useDocumentBodies, useDocumentBody } from './use-document-body.ts';
 import { SUBTITLE_COPY as C } from './subtitle-copy.ts';
 
 /** 画廊开着的视频（推进来的一页，同翻译设置页 `openFlow`）。 */
@@ -223,14 +223,24 @@ export function CaptionGallery({
     if (record) dropStaleDraft(record.id, record.currentRevision, loaded);
   }, [record, loaded]);
   const root = body === undefined ? null : captionStyleRoot(body);
+  // 同组别的段各有一份样式时（纪录片每段素材一份）一起套：画廊画的是这一份，写的是整组，一笔撤销。
+  const layers = useMemo(() => captionGroups(sequence, chips, documents), [sequence, chips, documents]);
+  const siblings = useMemo(() => {
+    const focus = (chips.find((c) => c.key === selected && c.state !== 'shelved') ?? onScreen(chips)[0])?.key;
+    const group = groupOf(layers, focus);
+    return (group?.styleDocumentIds ?? []).flatMap((id) => (id !== target.styleDocumentId && documents[id] ? [documents[id]] : []));
+  }, [layers, chips, documents, selected, target.styleDocumentId]);
+  const siblingBodies = useDocumentBodies(siblings);
 
   // 「套到」：这份样式管两种行时才出；作用域是这一页自己的，不写进选中（原型第 152 轮）。
   const [picked, setPicked] = useState<PresetScope>('all');
   const scope: PresetScope = picked !== 'all' && target.kinds.includes(picked) ? picked : 'all';
   const showing = onScreen(chips);
-  const labelOf = (kind: LineKind) =>
-    showing.find((c) => c.kind === kind && (!c.styleDocumentId || c.styleDocumentId === target.styleDocumentId))?.label ??
-    (kind === 'original' ? S.original : S.translation);
+  /** 「套到」与提示里一种行的名字：用轨条上那一组的名字（几段并成一组时不是某一段的名字）。 */
+  const labelOf = (kind: LineKind) => {
+    const chip = showing.find((c) => c.kind === kind && (!c.styleDocumentId || c.styleDocumentId === target.styleDocumentId));
+    return (chip && groupOf(layers, chip.key)?.label) ?? chip?.label ?? (kind === 'original' ? S.original : S.translation);
+  };
   const groups = useMemo(() => presetGroups(), []);
   const previews = useMemo(() => {
     const out = new Map<string, Json>();
@@ -244,13 +254,16 @@ export function CaptionGallery({
   const changedCard = (preset: CaptionPreset) => !!root && presetModified(root, preset, scope === 'all' ? kinds : [scope]);
 
   const current = chips.find((c) => c.key === selected && c.state !== 'shelved') ?? showing[0] ?? null;
-  const disabled = !editable || !root;
+  const disabled = !editable || !root || siblingBodies.some((sibling) => sibling === undefined);
 
   const pick = async (preset: CaptionPreset): Promise<boolean> => {
     if (disabled || body === undefined) return false;
     const next = applyPreset(body, preset, scope);
     if (record) useEditor.getState().setDocumentDraft({ documentId: record.id, baseRevision: record.currentRevision, body: next });
-    const receipt = await apply(captionStyleOperations(sequence, record, next), EditLabel.applySubtitleStyle());
+    const together = siblings.map(
+      (sibling, i): EditOperation => ({ type: 'putDocument', documentId: sibling.id, kind: sibling.kind, body: applyPreset(siblingBodies[i], preset, scope) }),
+    );
+    const receipt = await apply([...captionStyleOperations(sequence, record, next), ...together], EditLabel.applySubtitleStyle());
     if (!receipt) {
       useEditor.getState().clearDrafts();
       return false;

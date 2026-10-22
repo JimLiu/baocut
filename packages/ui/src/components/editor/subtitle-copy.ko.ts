@@ -60,6 +60,9 @@ export const koSubtitle: SubtitleMessages = {
   decide: '백그라운드 작업에서 처리',
 
   // 轨条与样式入口卡
+  groupPick: (n: number) => `${n}개 구간 · 아래에서 교정할 구간 선택`,
+  segment: '구간',
+  segmentPick: '교정할 구간',
   onScreen: '화면에 표시 중',
   defaultStyle: '기본 스타일',
   styleEntry: (n: number) => (n ? `스타일 편집 · 화면의 자막 트랙 ${n}개` : '스타일 편집'),

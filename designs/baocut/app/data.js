@@ -1541,6 +1541,10 @@
     /* 两轴写法（caption-style-model-design §4/§5）：当前词是轨上的一等字段，`wordAnim` 留作
        兼容投影。译文轨没有词级时间戳，不带当前词。 */
     if (window.BC_CS) srcT.activeWord = window.BC_CS.fromAnim('colourHighlight', L.activeColor).activeWord;
+    /* 纪录片演示（第 244 轮，`?subdemo=documentary`）：旁白 ＋ 采访两层原文、采访的译文一层，
+       每层 11 段（model-subseg.js）。没打开时与默认一对完全相同。 */
+    const G = window.BC_SUBSEG;
+    if (G && window.location && G.demo(window.location.search)) return G.documentaryTracks([trans, srcT], DUR);
     return [trans, srcT];
   }
 

@@ -61,6 +61,9 @@ export const plSubtitle: SubtitleMessages = {
   unapplied: (message: string) => `${message ? `${message}. ` : ""}Wynik rozpoznawania dostępny; zapisz w wideo z zadań w tle. Potem „Generuj napisy” używa go bezpośrednio.`,
   decide: "Rozwiąż w zadaniach w tle",
 
+  groupPick: (n: number) => `Fragmenty: ${n} · wybierz poniżej, który sprawdzić`,
+  segment: 'Fragment',
+  segmentPick: 'Fragment do sprawdzenia',
   onScreen: "Na ekranie",
   defaultStyle: "Styl domyślny",
   styleEntry: (n: number) => n ? `Edytuj styl · ${pluralForm('pl', n, { one: `${n} ścieżka napisów`, few: `${n} ścieżki napisów`, many: `${n} ścieżek napisów`, other: `${n} ścieżki napisów` })} na ekranie` : "Edytuj styl",

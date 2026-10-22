@@ -66,6 +66,9 @@ export const ptBRSubtitle: SubtitleMessages = {
     `${message ? `${message}. ` : ""}Resultado ainda disponível; grave pelo painel Tarefas em segundo plano. Depois “Gerar legendas” usa direto.`,
   decide: "Resolver em Tarefas em segundo plano",
 
+  groupPick: (n: number) => `${n} segmentos · escolha abaixo qual revisar`,
+  segment: 'Segmento',
+  segmentPick: 'Segmento a revisar',
   onScreen: "Na tela",
   defaultStyle: "Estilo padrão",
   styleEntry: (n: number) => (n ? `Editar estilo · ${n} faixa de legendas${pluralForm('pt-BR', n, { one: "", other: "s" })} na tela` : "Editar estilo"),

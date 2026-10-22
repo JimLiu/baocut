@@ -61,6 +61,9 @@ export const trSubtitle: SubtitleMessages = {
   decide: "Arka plan görevleri kısmında çöz",
 
   // 轨条与样式入口卡
+  groupPick: (n: number) => `${n} bölüm · düzeltilecek olanı aşağıda seç`,
+  segment: 'Bölüm',
+  segmentPick: 'Düzeltilecek bölüm',
   onScreen: "Ekranda",
   defaultStyle: "Varsayılan stil",
   styleEntry: (n) => n ? `Stili düzenle · ekranda ${n} altyazı izi` : 'Stili düzenle',

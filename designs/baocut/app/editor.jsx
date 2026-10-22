@@ -307,12 +307,14 @@
     const availableSubTracks = (doc) => {
       if (!cues.length) return [];
       const seed = D.subtitle.defaults.tracks;
-      return D.transLangs
+      const langs = D.transLangs
         .filter((l) => l.done > 0 || l.code === D.srcLang.code)
         .map((l) => S.byId({tracks: seed}, l.code)
           || Object.assign({}, D.subtitle.trackDefaults,
-            {id: l.code, lang: l.code, name: l.name, role: 'translation'}))
-        .filter((t) => !S.byId(doc, t.id));
+            {id: l.code, lang: l.code, name: l.name, role: 'translation'}));
+      /* 种子轨里不以语言代码为 id 的层（第 244 轮纪录片演示的「采访译文」）拿下后也要放得回来 */
+      const extra = seed.filter((t) => !langs.some((x) => x.id === t.id));
+      return langs.concat(extra).filter((t) => !S.byId(doc, t.id));
     };
     // 语言入口当下选中的那条轨；套样式要知道「仅译文」落在哪一条上
     const subEditId = useRef(null);

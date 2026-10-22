@@ -220,6 +220,8 @@
             return window.BC_SUB.tracks(doc)
               .filter((t) => !t.hidden)
               .filter((t) => !player || window.BC_PLAYER.captionVisible(player.capMode, t.role))
+              /* 分段的层（第 244 轮）只在某一段覆盖播放头时画；没有段的轨恒画 */
+              .filter((t) => window.BC_SUBSEG.covers(t, playT))
               .map((t) => {
               /* **画面恒读这一条 cue 的有效样式**（第 102 轮）：`cue.id` 无条件传进去，
                  与属性页此刻在哪个作用域无关。覆盖表是文档的一部分，不是编辑态——

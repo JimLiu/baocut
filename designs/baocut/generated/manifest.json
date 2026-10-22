@@ -67,6 +67,7 @@
       "app/model-subpresets.js",
       "app/model-motioncaption.js",
       "app/model-subprefs.js",
+      "app/model-subseg.js",
       "app/model-substyle.js",
       "app/model-sublist.js",
       "app/model-cueops.js",
@@ -492,9 +493,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/app.js?v=d7390c025c44",
-    "css": "generated/app.css?v=636f148e04a5",
-    "bytes": 4662145
+    "js": "generated/app.js?v=af95db60fe33",
+    "css": "generated/app.css?v=52fcbbdfce6b",
+    "bytes": 4665667
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -545,6 +546,7 @@
       "app/model-subpresets.js",
       "app/model-motioncaption.js",
       "app/model-subprefs.js",
+      "app/model-subseg.js",
       "app/model-substyle.js",
       "app/model-sublist.js",
       "app/model-cueops.js",
@@ -751,9 +753,9 @@
       "app/subtitle-motion.css",
       "app/subtitle-active.css"
     ],
-    "js": "generated/web.js?v=aa72057e8ac1",
-    "css": "generated/web.css?v=24e4a3d8520b",
-    "bytes": 2760621
+    "js": "generated/web.js?v=b544390e5a5f",
+    "css": "generated/web.css?v=f394f565feb3",
+    "bytes": 2764030
   },
   "components": {
     "file": "Components.html",

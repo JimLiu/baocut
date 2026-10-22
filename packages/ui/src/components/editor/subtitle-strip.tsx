@@ -1,8 +1,8 @@
 import { useCaptionPreferences } from '../../state/caption-preferences-store.ts';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { DocumentRecord, EditOperation, Id, Sequence, TransactionReceipt } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
-import { AlertDialog, DialogContainer, ProgressCircle, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
+import { AlertDialog, DialogContainer, Picker, PickerItem, ProgressCircle, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import Close from '@react-spectrum/s2/icons/Close';
@@ -11,7 +11,20 @@ import VisibilityOff from '@react-spectrum/s2/icons/VisibilityOff';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton, Focusable } from 'react-aria-components';
 import { currentPreset } from '../../model/caption-presets.ts';
-import { dropOperations, flipTarget, onScreen, putBackOperations, type CaptionChip } from '../../model/caption-tracks.ts';
+import {
+  captionGroups,
+  dropOperations,
+  flipTargets,
+  groupOf,
+  onScreen,
+  putBackOperations,
+  segmentAt,
+  segmentSource,
+  startOf,
+  type CaptionChip,
+  type CaptionGroup,
+} from '../../model/caption-tracks.ts';
+import { formatClock } from '../../model/format.ts';
 import { DEFAULT_CAPTION_STYLE, captionStyleRoot, patchCaptionStyle } from '../../model/property-values.ts';
 import type { LineKind } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
@@ -21,7 +34,7 @@ import { CaptionThumb } from './caption-thumb.tsx';
 import { draftedBody } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { CAPTION_STYLE_COPY as S, SUBTITLE_COPY as C } from './subtitle-copy.ts';
-import { useDocumentBody } from './use-document-body.ts';
+import { useDocumentBodies, useDocumentBody } from './use-document-body.ts';
 import { TRANSLATE_COPY as T } from './translate-copy.ts';
 
 const home = style({
@@ -117,6 +130,11 @@ const chipClose = style({
   outlineOffset: -2,
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
 });
+/** 几段并成一组时名字后面的段数。 */
+const chipCount = style({ font: 'ui-xs', color: { default: 'gray-600', isOn: 'blue-900' }, fontWeight: 'normal' });
+/** 选中的组有几段时，轨条下面那一行：列表校对哪一段。 */
+const segmentRow = style({ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 });
+const segmentPicker = style({ flexGrow: 1, minWidth: 0 });
 /** 虚线的幽灵 chip（原型 .subtrk--ghost）：拿下的放回、翻译成…。 */
 const ghost = style({
   display: 'inline-flex',
@@ -220,11 +238,15 @@ export function SubtitleStrip({
 }) {
   const { apply, undo } = useEditorActions();
   const editable = useVideo((s) => canEdit(s.video));
-  const [ask, setAsk] = useState<{ chip: CaptionChip; count: number; operations: EditOperation[] } | null>(null);
-  const showing = onScreen(chips);
-  const shelved = chips.filter((c) => c.state === 'shelved');
-  const visible = chips.filter((c) => c.state === 'on').length;
-  const current = chips.find((c) => c.key === selected) ?? showing[0] ?? null;
+  const [ask, setAsk] = useState<{ group: CaptionGroup; count: number; operations: EditOperation[] } | null>(null);
+  // 轨条按组画：同是原文（或译文）、同一门语言的几份并成一枚，纪录片一段素材一份字幕时不至于碎成几十枚。
+  const groups = useMemo(() => captionGroups(sequence, chips, documents), [sequence, chips, documents]);
+  const showing = onScreen(groups);
+  const shelved = groups.filter((g) => g.state === 'shelved');
+  const visible = groups.filter((g) => g.state === 'on').length;
+  const current = chips.find((c) => c.key === selected) ?? onScreen(chips)[0] ?? null;
+  const currentGroup = groupOf(groups, current?.key);
+  const segments = currentGroup ? onScreen(currentGroup.segments) : [];
   const styleRecord = current?.styleDocumentId ? documents[current.styleDocumentId] : undefined;
   const videoId = useVideo((s) => s.video?.videoId ?? null);
 
@@ -234,17 +256,25 @@ export function SubtitleStrip({
   const styleBody = styleRecord ? draftedBody(draft, styleRecord.id, styleRecord.currentRevision, styleLoaded) : DEFAULT_CAPTION_STYLE;
   const styleRoot = styleBody === undefined ? null : captionStyleRoot(styleBody);
   const sharing = new Set(
-    showing.filter((c) => (current?.styleDocumentId ? c.styleDocumentId === current.styleDocumentId : c.key === current?.key)).map((c) => c.kind),
+    onScreen(chips).filter((c) => (current?.styleDocumentId ? c.styleDocumentId === current.styleDocumentId : c.key === current?.key)).map((c) => c.kind),
   );
   const styleKinds = (['original', 'translation'] as const).filter((kind): kind is LineKind => sharing.has(kind));
   const styleName = (styleRoot && currentPreset(styleRoot, styleKinds)?.name) ?? styleRecord?.name ?? C.defaultStyle;
 
-  // 倒转：原文与译文共用的那份样式文档（没有时传 undefined，hook 照常调用）。
-  const flipId = flipTarget(chips);
-  const flipRecord = flipId ? documents[flipId] : undefined;
-  const flipBody = useDocumentBody(flipRecord);
+  // 倒转：原文与译文共用的那几份样式文档（每段素材一对时有几份），以第一份的次序为准一起改。
+  const flipRecords = flipTargets(chips).flatMap((id) => (documents[id] ? [documents[id]] : []));
+  const flipBodies = useDocumentBodies(flipRecords);
+  const flipBody = flipBodies[0];
   const flipRoot = flipBody === undefined ? null : captionStyleRoot(flipBody);
+  const flipReady = !!flipRoot && flipBodies.every((body) => body !== undefined);
 
+  /** 提示里的全名：一段的组用文档名，几段的组用组名。 */
+  const nameOf = (group: CaptionGroup) => (group.segments.length === 1 ? group.segments[0]!.name : group.label);
+  /** 一段在时间线上开始的秒数。 */
+  const segmentStart = (segment: CaptionChip) => {
+    const from = startOf(segment, sequence);
+    return Number.isFinite(from) ? (from * sequence.fps.den) / sequence.fps.num : 0;
+  };
   const toastUndo = (message: string, receipt: TransactionReceipt) =>
     ToastQueue.positive(message, {
       timeout: 5000,
@@ -253,31 +283,40 @@ export function SubtitleStrip({
       shouldCloseOnAction: true,
     });
 
-  const drop = async (target: CaptionChip) => {
-    const result = dropOperations(sequence, chips, target);
+  const drop = async (target: CaptionGroup) => {
+    const result = dropOperations(sequence, groups, target);
     if ('refused' in result) {
       ToastQueue.neutral(C.dropLast, { timeout: 4000 });
       return;
     }
     const receipt = await apply(result.operations, EditLabel.dropSubtitle());
-    if (receipt) toastUndo(C.dropped(target.name), receipt);
+    if (receipt) toastUndo(C.dropped(nameOf(target)), receipt);
   };
-  const land = async (target: CaptionChip, operations: EditOperation[], message: string) => {
+  const land = async (operations: EditOperation[], message: string) => {
     const receipt = await apply(operations, EditLabel.landSubtitle());
     if (receipt) toastUndo(message, receipt);
   };
-  const putBack = (target: CaptionChip) => {
-    const result = putBackOperations(sequence, chips, target);
-    if (result.confirm) setAsk({ chip: target, count: result.confirm, operations: result.operations });
-    else void land(target, result.operations, C.putBack(target.name));
+  const putBack = (target: CaptionGroup) => {
+    const result = putBackOperations(sequence, groups, target);
+    if (result.confirm) setAsk({ group: target, count: result.confirm, operations: result.operations });
+    else void land(result.operations, C.putBack(nameOf(target)));
+  };
+  /** 点一组：之前选的那段还在组里就留着，否则校对盖住播放头的那段。 */
+  const pick = (group: CaptionGroup) => {
+    const { playhead } = useEditor.getState();
+    onSelect(segmentAt(group, sequence, Math.round((playhead * sequence.fps.num) / sequence.fps.den), selected).key);
   };
   const flip = async () => {
-    if (!flipRecord || flipBody === undefined || !flipRoot) return;
+    if (!flipReady || !flipRoot) return;
     const translationFirst = (flipRoot.order ?? 'trans') === 'trans';
-    const body = patchCaptionStyle(flipBody, { order: translationFirst ? 'orig' : 'trans' });
-    const receipt = await apply([{ type: 'putDocument', documentId: flipRecord.id, kind: flipRecord.kind, body }], EditLabel.flipSubtitle());
+    const order = translationFirst ? 'orig' : 'trans';
+    const operations = flipRecords.map(
+      (record, i): EditOperation => ({ type: 'putDocument', documentId: record.id, kind: record.kind, body: patchCaptionStyle(flipBodies[i], { order }) }),
+    );
+    const receipt = await apply(operations, EditLabel.flipSubtitle());
     if (receipt) {
-      useCaptionPreferences.getState().remember(flipRoot, captionStyleRoot(body)!);
+      const first = operations[0];
+      if (first?.type === 'putDocument') useCaptionPreferences.getState().remember(flipRoot, captionStyleRoot(first.body)!);
       toastUndo(C.flipped(!translationFirst), receipt);
     }
   };
@@ -306,29 +345,32 @@ export function SubtitleStrip({
       ) : null}
       <div className={strip}>
         <span className={stripLabel}>{C.onScreen}</span>
-        {showing.map((c) => {
-          const isOn = c.key === current?.key;
-          const isOff = c.state === 'off';
+        {showing.map((g) => {
+          const isOn = g.key === currentGroup?.key;
+          const isOff = g.state === 'off';
+          const count = onScreen(g.segments).length;
           return (
-            <span key={c.key} className={chip({ isOn, isOff })}>
+            <span key={g.key} className={chip({ isOn, isOff })}>
               <TooltipTrigger delay={500}>
                 <RACButton
                   className={({ isHovered, isFocusVisible }) => chipPart({ isHovered, isFocusVisible, isOn })}
                   aria-pressed={isOn}
-                  onPress={() => onSelect(c.key)}>
-                  {isOff ? <VisibilityOff /> : c.locked ? <Lock /> : null}
-                  {c.label}
+                  aria-label={count > 1 ? `${g.label} · ${count}` : undefined}
+                  onPress={() => pick(g)}>
+                  {isOff ? <VisibilityOff /> : g.locked ? <Lock /> : null}
+                  {g.label}
+                  {count > 1 ? <span className={chipCount({ isOn })}>{count}</span> : null}
                 </RACButton>
-                <Tooltip>{isOff ? C.chipOff : c.locked ? C.chipLocked : C.chipPick}</Tooltip>
+                <Tooltip>{isOff ? C.chipOff : g.locked ? C.chipLocked : count > 1 ? C.groupPick(count) : C.chipPick}</Tooltip>
               </TooltipTrigger>
-              {/* 只剩一条时不给 ×（设计稿 `last`）；锁住的拿不下来。 */}
-              {showing.length < 2 || c.locked ? null : (
+              {/* 只剩一组时不给 ×（设计稿 `last`）；有一段锁住的拿不下来。 */}
+              {showing.length < 2 || g.locked ? null : (
                 <TooltipTrigger delay={500}>
                   <RACButton
                     className={({ isHovered, isFocusVisible }) => chipClose({ isHovered, isFocusVisible, isOn })}
-                    aria-label={C.drop(c.name)}
+                    aria-label={C.drop(nameOf(g))}
                     isDisabled={!editable}
-                    onPress={() => void drop(c)}>
+                    onPress={() => void drop(g)}>
                     <Close />
                   </RACButton>
                   <Tooltip>{C.dropTip}</Tooltip>
@@ -337,16 +379,16 @@ export function SubtitleStrip({
             </span>
           );
         })}
-        {shelved.map((c) => (
-          <TooltipTrigger key={c.key} delay={500}>
+        {shelved.map((g) => (
+          <TooltipTrigger key={g.key} delay={500}>
             <RACButton
               className={({ isHovered, isFocusVisible, isDisabled }) => ghost({ isHovered, isFocusVisible, isDisabled })}
-              isDisabled={!editable || c.locked}
-              onPress={() => putBack(c)}>
+              isDisabled={!editable || g.locked}
+              onPress={() => putBack(g)}>
               <Add />
-              {c.label}
+              {g.label}
             </RACButton>
-            <Tooltip>{c.locked ? C.chipLocked : C.putBackTip(c.name, showing.length >= 2)}</Tooltip>
+            <Tooltip>{g.locked ? C.chipLocked : C.putBackTip(nameOf(g), showing.length >= 2)}</Tooltip>
           </TooltipTrigger>
         ))}
         {running ? (
@@ -380,7 +422,7 @@ export function SubtitleStrip({
           </SoftDisabled>
         )}
         {showing.length >= 2 ? (
-          flipRoot && editable ? (
+          flipReady && editable ? (
             <TooltipTrigger delay={500}>
               <RACButton className={({ isHovered, isFocusVisible }) => link({ isHovered, isFocusVisible })} onPress={() => void flip()}>
                 {C.flip}
@@ -402,6 +444,26 @@ export function SubtitleStrip({
           </TooltipTrigger>
         ) : null}
       </div>
+      {currentGroup && current && segments.length > 1 ? (
+        <div className={segmentRow}>
+          <span className={stripLabel}>{C.segment}</span>
+          <Picker
+            aria-label={C.segmentPick}
+            size="S"
+            styles={segmentPicker}
+            selectedKey={current.key}
+            onSelectionChange={(key) => key !== null && onSelect(String(key))}>
+            {segments.map((c) => {
+              const text = `${formatClock(segmentStart(c))} · ${segmentSource(c, documents)}`;
+              return (
+                <PickerItem key={c.key} id={c.key} textValue={text}>
+                  {text}
+                </PickerItem>
+              );
+            })}
+          </Picker>
+        </div>
+      ) : null}
       <DialogContainer onDismiss={() => setAsk(null)}>
         {ask ? (
           <AlertDialog
@@ -409,8 +471,8 @@ export function SubtitleStrip({
             title={C.stackTitle(ask.count)}
             primaryActionLabel={C.stackConfirm}
             cancelLabel={C.cancelLabel}
-            onPrimaryAction={() => void land(ask.chip, ask.operations, C.stacked(ask.chip.name, ask.count))}>
-            {C.stackBody(ask.chip.name, ask.count)}
+            onPrimaryAction={() => void land(ask.operations, C.stacked(nameOf(ask.group), ask.count))}>
+            {C.stackBody(nameOf(ask.group), ask.count)}
           </AlertDialog>
         ) : null}
       </DialogContainer>

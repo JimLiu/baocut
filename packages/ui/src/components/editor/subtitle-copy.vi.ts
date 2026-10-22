@@ -61,6 +61,9 @@ export const viSubtitle: SubtitleMessages = {
   decide: "Xử lý trong Tác vụ nền",
 
   // 轨条与样式入口卡
+  groupPick: (n: number) => `${n} đoạn · chọn đoạn cần hiệu đính bên dưới`,
+  segment: 'Đoạn',
+  segmentPick: 'Đoạn cần hiệu đính',
   onScreen: "Trên màn hình",
   defaultStyle: "Kiểu mặc định",
   styleEntry: (n) => n ? `Sửa kiểu · ${n} rãnh phụ đề trên màn hình` : 'Sửa kiểu',

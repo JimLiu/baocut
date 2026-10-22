@@ -81,6 +81,10 @@ const en = {
   decide: 'Resolve in Background tasks',
 
   // 轨条与样式入口卡
+  /** 几段并成一组的 chip：组里有几段，列表一次校对一段。 */
+  groupPick: (n: number) => `${n} segments · pick one to proofread below`,
+  segment: 'Segment',
+  segmentPick: 'Segment to proofread',
   onScreen: 'On screen',
   defaultStyle: 'Default style',
   styleEntry: (n: number) => (n ? `Edit style · ${n} subtitle track${n === 1 ? '' : 's'} on screen` : 'Edit style'),

@@ -60,6 +60,9 @@ export const zhHantSubtitle: SubtitleMessages = {
   decide: '到背景任務中處理',
 
   // 轨条与样式入口卡
+  groupPick: (n: number) => `${n} 段 · 在下方挑一段校對`,
+  segment: '段落',
+  segmentPick: '校對哪一段',
   onScreen: '畫面上',
   defaultStyle: '預設樣式',
   styleEntry: (n: number) => (n ? `編輯樣式 · 畫面上有 ${n} 條字幕軌` : '編輯樣式'),
