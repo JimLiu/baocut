@@ -193,3 +193,26 @@ test('章节挪边界：总长不变，两边各留 1 秒，末章拖不动', ()
   assert.equal(L.moveChapterBoundary(ch, 0, 10), null);
   assert.equal(L.moveChapterBoundary(ch, 1, 30), null);
 });
+
+test('循环：整片是整条，当前段是播放头所在的段，不循环为 null', () => {
+  const segs = [{start: 0, end: 10}, {start: 10, end: 25}];
+  assert.equal(L.LOOP_DEFAULT, 'whole');
+  assert.deepEqual(L.LOOP_MODES.map(m => m.k), ['whole', 'segment', 'off']);
+  assert.deepEqual(L.loopRange(segs, 'whole', 12, 25), {start: 0, end: 25});
+  assert.deepEqual(L.loopRange(segs, 'segment', 3, 25), {start: 0, end: 10});
+  assert.deepEqual(L.loopRange(segs, 'segment', 25, 25), {start: 10, end: 25});
+  assert.equal(L.loopRange(segs, 'off', 3, 25), null);
+  assert.equal(L.loopRange([], 'segment', 3, 25), null);
+});
+
+test('当前段循环只在播放走的一步跨过段尾时跳回段首，片尾、倒退与比时钟走得快的大步不跳', () => {
+  const segs = [{start: 0, end: 10}, {start: 10, end: 25}];
+  const step = L.loopMaxStep(1 / 60, 1);
+  assert.equal(L.loopJump(segs, 'segment', 9.99, 10.005, 25, step), 0);
+  assert.equal(L.loopJump(segs, 'segment', 9.5, 9.51, 25, step), null);
+  assert.equal(L.loopJump(segs, 'segment', 8, 10, 25, step), null);
+  assert.equal(L.loopJump(segs, 'segment', 24.99, 25, 25, step), null);
+  assert.equal(L.loopJump(segs, 'whole', 9.99, 10.005, 25, step), null);
+  assert.equal(L.loopJump(segs, 'segment', 9.2, 10.2, 25, L.loopMaxStep(1, 1)), 0);
+  assert.equal(L.loopJump(segs, 'segment', 8.5, 10.5, 25, L.loopMaxStep(1, 1)), null);
+});

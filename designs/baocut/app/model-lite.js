@@ -252,6 +252,31 @@
     return out;
   }
 
+  /* ---------- 循环 ---------- */
+  /** 走带的循环方式（轻量编辑器设计 §3「走带」）：整片（默认）、当前段、不循环。只是这个窗口的观看态，不进视频。 */
+  const LOOP_MODES = [
+    {k: 'whole', label: '整片循环'},
+    {k: 'segment', label: '当前段循环'},
+    {k: 'off', label: '不循环'},
+  ];
+  const LOOP_DEFAULT = 'whole';
+  /** 播放头在 t 时正在循环的那一截：整片是 [0, 片长]，当前段是 t 所在的段，不循环或找不到段时为 null。 */
+  function loopRange(segs, mode, t, duration) {
+    if (mode === 'whole') return {start: 0, end: Math.max(0, duration || 0)};
+    if (mode !== 'segment') return null;
+    const seg = segmentAt(segs, t);
+    return seg ? {start: seg.start, end: seg.end} : null;
+  }
+  /** 判断「播过去」时给时钟留的余量（秒）：播放头一步最多走「经过的时间 × 倍速 + 余量」，更大的一步是拖动、点片或跳段。 */
+  const LOOP_SLACK = 0.25;
+  const loopMaxStep = (elapsedSec, rate) => Math.max(0, elapsedSec) * Math.max(0, rate) + LOOP_SLACK;
+  /** 当前段循环：播放头从 from 走到 to 时要不要跳回段首（只认往前、不超过 maxStep 的一步跨过段尾；最后一段的段尾就是片尾，交给播到头的处理）。 */
+  function loopJump(segs, mode, from, to, duration, maxStep) {
+    if (mode !== 'segment' || !(to > from) || to - from > maxStep) return null;
+    const r = loopRange(segs, mode, from, duration);
+    return r && r.end < duration && to >= r.end ? r.start : null;
+  }
+
   /* ---------- 标注 ---------- */
   /** 一条标注落在哪一段、哪一句：随标注交给智能体，让它知道「第 3 场第 4 句这里」而不只是一个时刻。 */
   function noteContext(segs, t) {
@@ -272,5 +297,6 @@
     fmtDur, fmtClock, segments, segmentAt, lineAt, prevStart, nextStart, barSpans, chipSpans, layers,
     TAIL, minSceneLength, retimeScene, chaptersOf, shiftAfter, moveChapterBoundary, resizeBounds,
     ZOOM_MAX, ZOOM_MENU, clampZoom, zoomIn, zoomOut, zoomLabel, fitZoom, keepInView,
+    LOOP_MODES, LOOP_DEFAULT, LOOP_SLACK, loopMaxStep, loopRange, loopJump,
     defaultViewByKind, viewFor, remember, noteContext, contextLabel}});
 })();

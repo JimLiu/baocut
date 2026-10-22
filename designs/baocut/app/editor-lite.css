@@ -17,11 +17,11 @@
 .lt-band { margin: 0 -14px 4px; }
 
 /* 播放条 */
-.lt-tport { display: flex; align-items: center; gap: 8px; height: 48px; }
-.lt-tport__mid { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; }
-.lt-tport__zoom { position: relative; display: flex; align-items: center; gap: 4px; flex: none; }   /* 缩小 · 百分比 · 放大，标签宽度走 ui.css 的 .tport__zoomv */
-.lt-tport__play { margin-right: 2px; }   /* 与旁边的图标钮同一种无底色钮，只是大一号 */
-.lt-tport__tc { margin-left: 8px; color: var(--gray-800); }
+/* 与时间线的 .tport 同一副骨架（ui.css）：两侧 .tport__side 等分、中间 .tport__mid 让播放键落在整条正中 */
+.lt-tport { display: flex; align-items: center; gap: 8px; height: 48px; overflow: hidden; }
+.lt-tport__zoom { position: relative; }   /* 缩小 · 百分比 · 放大，标签宽度走 ui.css 的 .tport__zoomv；百分比菜单相对它弹出 */
+.lt-tport__loop { position: relative; display: flex; }   /* 循环方式菜单相对它弹出 */
+.lt-tport__tc { margin-left: 8px; color: var(--gray-800); white-space: nowrap; }
 .lt-tport__total { color: var(--gray-600); }
 .lt-tport__glyph { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
