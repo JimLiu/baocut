@@ -2,7 +2,7 @@ import { createIcon } from '@react-spectrum/s2';
 import type { LiteLoopMode } from '../../model/lite-segments.ts';
 
 /**
- * 走带上 S2 没有对应原件的图标，按原型的描边几何自绘（20×20 网格、1.5 笔宽、圆端头、只吃 currentColor），放进按钮与菜单的
+ * 走带与全屏播放器上 S2 没有对应原件的图标，按原型的描边几何自绘（20×20 网格、1.5 笔宽、圆端头、只吃 currentColor），放进按钮与菜单的
  * 图标槽时与 S2 原件一样对齐。路径与原型逐字一致（原型 `icon-sync.test.js` 核对）。
  */
 function lineIcon(paths: readonly string[]) {

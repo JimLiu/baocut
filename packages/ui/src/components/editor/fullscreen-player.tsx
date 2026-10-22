@@ -16,8 +16,6 @@ import {
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
-import ChevronDoubleLeft from '@react-spectrum/s2/icons/ChevronDoubleLeft';
-import ChevronDoubleRight from '@react-spectrum/s2/icons/ChevronDoubleRight';
 import CloseCaptions from '@react-spectrum/s2/icons/CloseCaptions';
 import FullScreenExit from '@react-spectrum/s2/icons/FullScreenExit';
 import HelpCircle from '@react-spectrum/s2/icons/HelpCircle';
@@ -68,6 +66,7 @@ import { CHAPTER_COPY } from './chapter-copy.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 import { FULLSCREEN_PLAYER_COPY as F } from './fullscreen-player-copy.ts';
+import { NextIcon, PrevIcon } from './transport-icons.tsx';
 import './fullscreen-player.css';
 
 /**
@@ -350,7 +349,7 @@ export function FullscreenPlayer({
                   aria-label={CHAPTER_COPY.prev}
                   isDisabled={noChapters}
                   onPress={() => seek(prevChapterStart(chapters, useEditor.getState().playhead))}>
-                  <ChevronDoubleLeft />
+                  <PrevIcon />
                 </ActionButton>
               </Tip>
               <Tip label={`${CHAPTER_COPY.next} ${keyLabel('⇧→', MAC)}`}>
@@ -360,7 +359,7 @@ export function FullscreenPlayer({
                   aria-label={CHAPTER_COPY.next}
                   isDisabled={noChapters}
                   onPress={() => seek(nextChapterStart(chapters, useEditor.getState().playhead))}>
-                  <ChevronDoubleRight />
+                  <NextIcon />
                 </ActionButton>
               </Tip>
               {/* 音量：钮常驻，滑杆悬停、聚焦或拖动时展开——控件行不为一条平时用不到的杆常年占 80px。 */}
