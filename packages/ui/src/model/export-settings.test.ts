@@ -1,3 +1,4 @@
+import type { AssetRecord } from '@baocut/protocol';
 import { describe, expect, it } from 'vitest';
 import { audioItem, captionItem, documentRecord, sequence, track, videoItem } from '../testing/sequence-records.ts';
 import {
@@ -17,10 +18,12 @@ import {
   initialSubtitlePick,
   loudnessNote,
   outputSize,
+  pickResolution,
   projectSettings,
   ratioChoices,
   resolutionChoices,
   safeFileStem,
+  sourceShortSide,
   subtitleLanes,
   subtitlePlan,
   transcriptSettings,
@@ -29,9 +32,9 @@ import {
 } from './export-settings.ts';
 
 describe('成片设置', () => {
-  it('分辨率：画布本来的尺寸排第一，往下只列更小的标准档；竖屏按短边算', () => {
+  it('分辨率：不知道原视频多大时画布本来的尺寸排第一，往下只列更小的标准档，没有哪一项标原始；竖屏按短边算', () => {
     expect(resolutionChoices({ width: 1920, height: 1080 }).map((c) => [c.label, c.width, c.height, c.source])).toEqual([
-      ['1080p', 1920, 1080, true],
+      ['1080p', 1920, 1080, false],
       ['720p', 1280, 720, false],
     ]);
     expect(resolutionChoices({ width: 3840, height: 2160 }).map((c) => c.label)).toEqual(['4K', '1080p', '720p']);
@@ -91,7 +94,7 @@ describe('成片设置', () => {
       height: 720,
     });
     expect(resolutionChoices(canvas, { key: '4:5', w: 4, h: 5 }).map((c) => [c.label, c.width, c.height, c.source])).toEqual([
-      ['1080p', 1080, 1350, true],
+      ['1080p', 1080, 1350, false],
       ['720p', 720, 900, false],
     ]);
     // 推出来超过输出上限的档不列：2880 短边的画布出 9:16，画布本来的那一档高 5120，从 4K 起。
@@ -111,6 +114,113 @@ describe('成片设置', () => {
       format: 'mp4',
       burnCaptions: true,
     });
+  });
+
+  it('原视频比画布小：画布各档照列，补上原视频那一档并标原始、缺省选它，导出只给 height', () => {
+    const canvas = { width: 1920, height: 1080 };
+    const choices = resolutionChoices(canvas, undefined, 360);
+    expect(choices.map((c) => [c.label, c.width, c.height, c.source])).toEqual([
+      ['1080p', 1920, 1080, false],
+      ['720p', 1280, 720, false],
+      ['360p', 640, 360, true],
+    ]);
+    expect(pickResolution(choices, null)?.short).toBe(360);
+    expect(pickResolution(choices, 1080)?.short).toBe(1080);
+    // 挑过的档不在这次的列表里时落回原视频那档。
+    expect(pickResolution(choices, 2160)?.short).toBe(360);
+    expect(videoSettings(DEFAULT_VIDEO_FORM, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toEqual({ kind: 'video', format: 'mp4', height: 360, burnCaptions: true });
+    // 挑回画布本来的尺寸：不带宽高。
+    expect(videoSettings({ ...DEFAULT_VIDEO_FORM, short: 1080 }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toEqual({ kind: 'video', format: 'mp4', burnCaptions: true });
+    expect(videoSettings({ ...DEFAULT_VIDEO_FORM, short: 720 }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toMatchObject({ height: 720 });
+    // 不是标准档的原视频（854×480）照实列。
+    expect(resolutionChoices(canvas, undefined, 480).map((c) => [c.label, c.width, c.height])).toEqual([
+      ['1080p', 1920, 1080],
+      ['720p', 1280, 720],
+      ['480p', 854, 480],
+    ]);
+  });
+
+  it('原视频与画布一样大或更大：原视频那档排第一、缺省选它，往下是更小的标准档', () => {
+    const canvas = { width: 1920, height: 1080 };
+    expect(resolutionChoices(canvas, undefined, 1080).map((c) => [c.label, c.source])).toEqual([
+      ['1080p', true],
+      ['720p', false],
+    ]);
+    expect(videoSettings(DEFAULT_VIDEO_FORM, canvas, {}, DEFAULT_LOUDNESS_FORM, 1080)).toEqual({ kind: 'video', format: 'mp4', burnCaptions: true });
+    expect(resolutionChoices(canvas, undefined, 2160).map((c) => [c.label, c.width, c.height, c.source])).toEqual([
+      ['4K', 3840, 2160, true],
+      ['1080p', 1920, 1080, false],
+      ['720p', 1280, 720, false],
+    ]);
+    expect(videoSettings(DEFAULT_VIDEO_FORM, canvas, {}, DEFAULT_LOUDNESS_FORM, 2160)).toMatchObject({ height: 2160 });
+    // 推出来超过输出上限的档不列（短边 5000 宽 8888），比它小的标准档照列，缺省落到第一档。
+    const huge = resolutionChoices(canvas, undefined, 5000);
+    expect(huge.map((c) => [c.label, c.source])).toEqual([
+      ['4K', false],
+      ['1080p', false],
+      ['720p', false],
+    ]);
+    expect(pickResolution(huge, null)?.short).toBe(2160);
+  });
+
+  it('换画幅时原视频那档同样按短边推宽高并缺省选它', () => {
+    const canvas = { width: 1920, height: 1080 };
+    const ratio = { key: '9:16' as const, w: 9, h: 16 };
+    expect(resolutionChoices(canvas, ratio, 360).map((c) => [c.label, c.width, c.height, c.source])).toEqual([
+      ['1080p', 1080, 1920, false],
+      ['720p', 720, 1280, false],
+      ['360p', 360, 640, true],
+    ]);
+    expect(videoSettings({ ...DEFAULT_VIDEO_FORM, ratio: '9:16' }, canvas, {}, DEFAULT_LOUDNESS_FORM, 360)).toMatchObject({ width: 360, height: 640 });
+  });
+
+  it('原视频的分辨率：画进画面的视频实例按画布比例盖满裁切后量短边，取最大；隐藏、停用、别的轨独显时不算', () => {
+    const asset = (id: string, w: number, h: number, par = { num: 1, den: 1 }): AssetRecord => ({
+      id,
+      kind: 'video',
+      name: id,
+      currentRevision: '1',
+      revisions: {
+        '1': {
+          revision: '1',
+          contentHash: 'x',
+          byteLength: 1,
+          mediaType: 'video/mp4',
+          storage: { mode: 'managed' },
+          video: {
+            displayWidth: w,
+            displayHeight: h,
+            rotation: 0,
+            pixelAspectRatio: par,
+            frameRate: { kind: 'cfr', rate: { num: 30, den: 1 } },
+            ptsOrigin: { ticks: '0', timescale: 30 },
+            hasAlpha: false,
+          },
+          provenance: { origin: 'import' },
+        },
+      },
+    });
+    const assets = {
+      small: asset('small', 640, 360),
+      tall: asset('tall', 1080, 1920),
+      hd: asset('hd', 1920, 1080),
+      anamorphic: asset('anamorphic', 960, 1080, { num: 2, den: 1 }),
+    };
+    const canvas = { width: 1920, height: 1080 };
+    const v = (id: string, ref: string, trackId = 'v1', extra = {}) => videoItem(id, trackId, 0, 300, { assetRef: { id: ref, revision: '1' }, ...extra });
+    const one = (ref: string) => sourceShortSide(sequence([track('v1', 'visual', 0)], [v('a', ref)]), assets, canvas);
+    expect(one('small')).toBe(360);
+    expect(one('tall')).toBe(608);
+    expect(one('anamorphic')).toBe(1080);
+    expect(one('missing')).toBeNull();
+    expect(sourceShortSide(sequence([track('v1', 'visual', 0)], []), assets, canvas)).toBeNull();
+    const tracks = [track('v1', 'visual', 0), track('v2', 'visual', 1)];
+    expect(sourceShortSide(sequence(tracks, [v('a', 'small'), v('b', 'hd', 'v2')]), assets, canvas)).toBe(1080);
+    expect(sourceShortSide(sequence(tracks, [v('a', 'small'), v('b', 'hd', 'v2', { enabled: false })]), assets, canvas)).toBe(360);
+    expect(sourceShortSide(sequence([tracks[0]!, track('v2', 'visual', 1, { visible: false })], [v('a', 'small'), v('b', 'hd', 'v2')]), assets, canvas)).toBe(360);
+    expect(
+      sourceShortSide(sequence([track('v1', 'visual', 0, { solo: { enabled: true, group: 'visual' } }), tracks[1]!], [v('a', 'small'), v('b', 'hd', 'v2')]), assets, canvas),
+    ).toBe(360);
   });
 
   it('成片的声音来源：混音不带 source；只要原声、只要某组配音照音频导出的写法', () => {

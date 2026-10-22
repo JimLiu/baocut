@@ -97,7 +97,7 @@ export const zhHant: ExportMessages = {
   letterboxedTo: (ratio: string) => `${ratio}（加黑邊）`,
   letterboxNote: '變更長寬比不會裁切：畫面會依自己的比例放大並置中，周圍加上黑邊；畫面中的版面不會依新的比例重新排列',
   size: '檔案大小',
-  upscaleNote: (label: string) => `解析度最高到原始的 ${label} · 更高的只是放大，畫面不會更清晰`,
+  upscaleNote: (label: string) => `原始影片是 ${label} · 選更高只是把影片放大，不會更清晰；字幕和文字仍然清晰`,
   pictureLanes: '畫面中有什麼',
   burnCaptions: '把字幕燒錄進畫面',
   burnCaptionsFor: (label: string) => `把字幕燒錄進畫面：${label}`,

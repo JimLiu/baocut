@@ -437,7 +437,8 @@
                       items={X.QUALITY_KEYS.map((k) => ({k, label: X.QUALITY[k].label}))} />
                   </div>
                 </div>
-                {srcShort ? <div className="xnote">分辨率最高到原始 {X.resLabel(srcShort)} · 往上只是放大，画面不会更清楚</div> : null}
+                {srcShort && resList.some((c) => c.short > srcShort)
+                  ? <div className="xnote">原视频是 {X.resLabel(srcShort)} · 选更高只是把视频放大，不会更清楚；字幕和文字仍然清晰</div> : null}
                 <div className="xnote">{X.QUALITY[quality].note ? X.QUALITY[quality].note + ' · ' : ''}码率 {est.mbps} Mb/s · 只改体积不改耗时</div>
                 {ratio !== (ctx.ratio === 'Original' ? '16:9' : ctx.ratio)
                   ? <div className="xnote">按 {ratio} 居中裁一版出去 · 视频里的画面不变{ctx.ratioLock ? ` · 模板「${ctx.ratioLock.name}」锁的是视频画幅，不管这里` : ''}</div>

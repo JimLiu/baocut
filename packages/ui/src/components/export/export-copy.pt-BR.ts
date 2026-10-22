@@ -96,7 +96,7 @@ export const ptBR: ExportMessages = {
   letterboxedTo: (ratio: string) => `${ratio} com barras pretas`,
   letterboxNote: "Mudar proporção não recorta: imagem ampliada proporcionalmente e centralizada com barras pretas; layout não é reorganizado.",
   size: "Tamanho",
-  upscaleNote: (label: string) => `Resolução até o original ${label} · maior apenas amplia, sem mais nitidez`,
+  upscaleNote: (label: string) => `O vídeo original é ${label} · resoluções maiores só ampliam o vídeo, sem mais nitidez; legendas e texto continuam nítidos`,
   pictureLanes: "O que aparece no vídeo",
   burnCaptions: "Incorporar legendas à imagem",
   burnCaptionsFor: (label: string) => `Legendas incorporadas: ${label}`,

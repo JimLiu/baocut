@@ -10,13 +10,15 @@
                  章节与片段可多选；自定义是一对起止。时间一律按源时间线。
      · quality   体积档：省空间 / 标准 / 高画质，只缩放码率——改体积不改耗时。
      · res       分辨率的值是**短边像素**：默认原始分辨率（源短边，裁切后算），
-                 比它高的档一律不列——放大渲染只会让画面更糟（resChoices）。
+                 画布的标准档照列——源比画布小时往上只是放大视频，但字幕与文字按输出
+                 分辨率画，烧字幕时仍有用（resChoices，2026-10-22）。
 
    任务侧的两张小表（`TASK_LABEL` / `cancelCopy`）也放这里：顶栏胶囊、任务页与
    导出弹层的「取消」要念同一句话，不能三处三个版本。 */
 (function () {
-  /* 分辨率的值是**短边像素**（不是档位名）：默认就是源的短边，比它高的档一律不给——
-     放大渲染不会把画面变好，只会让它更糟（§17.1）。标准档只在**低于**源短边时出现。 */
+  /* 分辨率的值是**短边像素**（不是档位名）：默认就是源的短边。画布（演示里短边按 1080 算）
+     本来那档总在，比源与画布中较大者低的标准档也列；源比画布小时，高于源的档只是放大视频、
+     不会更清楚，留着是因为字幕与文字按输出分辨率画（2026-10-22，原先比源高的一律不给）。 */
   const STD_SHORTS = [2160, 1080, 720];
   /* 源尺寸未知（纯音频项目、没探到尺寸）时的兜底短边，与内核 `source_height` 同口径。 */
   const FALLBACK_SHORT = 1080;
@@ -98,24 +100,23 @@
     }, main);
   }
 
-  /** 可选分辨率（降序，首项即默认）。每项 `{short, label, source}`，`source` 就是要标
-   *  「原始分辨率」的那一项。源短边未知时按 1080 兜底，且**没有**哪一项配得上那个标注。 */
+  /** 可选分辨率（按短边降序）。每项 `{short, label, source}`，`source` 就是要标「原始分辨率」、
+   *  缺省选中的那一项。画布短边按 1080 算：640×360 的源列 1080p / 720p / 360p（原始）。
+   *  源短边未知时只有画布那几档，**没有**哪一项配得上那个标注，缺省是第一档。 */
   function resChoices(sourceShortSide) {
     const src = +sourceShortSide > 0 ? Math.round(+sourceShortSide) : null;
-    const cap = src || FALLBACK_SHORT;
-    const list = src ? [{short: src, label: resLabel(src), source: true}] : [];
-    STD_SHORTS.forEach((s) => {
-      if (src ? s < cap : s <= cap) list.push({short: s, label: resLabel(s), source: false});
-    });
-    return list;
+    const top = Math.max(src || 0, FALLBACK_SHORT);
+    const shorts = [FALLBACK_SHORT].concat(src ? [src] : [], STD_SHORTS.filter((s) => s < top));
+    return Array.from(new Set(shorts)).sort((a, b) => b - a)
+      .map((s) => ({short: s, label: resLabel(s), source: s === src}));
   }
 
-  /** 记下来的挑选值 → 这次能用的短边：没挑过（或挑了个高于源的）就落回原始分辨率，
-   *  挑过一档更低的就取不超过它的最大档（画幅一变源短边会缩，挑的那档可能已经不在了）。 */
+  /** 记下来的挑选值 → 这次能用的短边：没挑过就落到原始分辨率（源未知时第一档），挑过的档还在就用它，
+   *  不在了（画幅一变源短边会变）取不超过它的最大档，再没有就取最低档。 */
   function resolveShort(pick, sourceShortSide) {
     const list = resChoices(sourceShortSide);
     const p = +pick;
-    if (!(p > 0)) return list[0].short;
+    if (!(p > 0)) return (list.find((c) => c.source) || list[0]).short;
     const hit = list.find((c) => c.short === p) || list.find((c) => c.short <= p);
     return (hit || list[list.length - 1]).short;
   }

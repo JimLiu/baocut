@@ -95,7 +95,7 @@ export const de: ExportMessages = {
   letterboxedTo: (ratio: string) => `${ratio} mit schwarzen Balken`,
   letterboxNote: "Ändern des Seitenverhältnisses schneidet nicht zu: Das Bild wird in seinem Verhältnis skaliert und mit schwarzen Balken zentriert; sein Layout wird nicht für das neue Verhältnis umgeordnet",
   size: "Größe",
-  upscaleNote: (label: string) => `Auflösung höchstens in Originalgröße ${label} · höhere Werte skalieren nur hoch und werden nicht schärfer`,
+  upscaleNote: (label: string) => `Das Originalvideo hat ${label} · höhere Auflösungen vergrößern das Video nur und machen es nicht schärfer; Untertitel und Text bleiben scharf`,
   pictureLanes: "Bildinhalt",
   burnCaptions: "Untertitel ins Bild einbrennen",
   burnCaptionsFor: (label: string) => `Untertitel ins Bild einbrennen: ${label}`,
