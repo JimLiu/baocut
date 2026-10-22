@@ -102,6 +102,16 @@
     if (list.length < 2 || !byId(st, id)) return list;
     return list.filter((x) => x.id !== id);
   }
+  /** 拿下一条轨，并把它此刻的样子记在 `shelf` 上（返回 `{tracks, shelf}`，入参不动）。
+   *
+   *  放回时要原样回来：留在画面上的那条和它是配好的一对（几何互补，可能还倒转过、过了字幕偏好），
+   *  拿种子轨放回去会和它落在同一格，两行叠在一起。拿不下来（最后一条、不在画面上）时原样返回。 */
+  function shelveTrack(st, id) {
+    const list = removeTrack(st, id);
+    if (list === tracks(st)) return {tracks: list, shelf: st.shelf || {}};
+    return {tracks: list, shelf: Object.assign({}, st.shelf, {[id]: byId(st, id)})};
+  }
+
   /** 换一门语言：**身份来自新轨，长相来自被换掉的那条**。
    *
    *  用户调好的双语套装不该因为把英语换成日语就丢——那是两件事。角色变了的时候
@@ -581,7 +591,7 @@
   window.BC_SUB = {
     FORMS, BI_SCALE,
     tracks, byId, source, translations, hasWordTiming, label,
-    place, addTrack, addSourcePaired, removeTrack, replaceTrack, putBackMode,
+    place, addTrack, addSourcePaired, removeTrack, shelveTrack, replaceTrack, putBackMode,
     writable, scopes, memberSections, sections,
     CUE_KEYS, SECTION_KEYS,
     cueStyles, cueOverride, isDetached, overriddenKeys, sectionOverrides,

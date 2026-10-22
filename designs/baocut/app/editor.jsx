@@ -318,8 +318,13 @@
          （`addSourceLayer`，与译文共用样式叠成双语），不是放回。候选用落轨时从同一对里拿出来的那条原文——它与译文
          一起过了字幕偏好（`PREFS.apply`），几何是配好的一对；种子轨没过偏好，偏好倒转过时会和译文落在同一格。 */
       const unbuilt = doc.unbuiltSource;
+      /* 拿下来过的轨按拿下那一刻的样子放回（`shelf`，`BC_SUB.shelveTrack`）；从没上过画面的种子轨先过一遍字幕偏好，
+         与开轨时那一对同一套几何——两样都不做，放回的那条会和留在画面上的那条叠在同一格。 */
+      const prefs = subtitlePrefs.current.roles;
+      const fresh = (t) => Object.assign({}, t, prefs[t.role === 'source' ? 'source' : 'translation']);
       return langs.concat(extra).filter((t) => !S.byId(doc, t.id))
-        .map((t) => (unbuilt && t.id === unbuilt.id ? Object.assign({}, unbuilt, {unbuilt: true}) : t));
+        .map((t) => (unbuilt && t.id === unbuilt.id ? Object.assign({}, unbuilt, {unbuilt: true})
+          : (doc.shelf && doc.shelf[t.id]) || fresh(t)));
     };
     // 语言入口当下选中的那条轨；套样式要知道「仅译文」落在哪一条上
     const subEditId = useRef(null);
@@ -888,7 +893,7 @@
        它落下去就固定在那里，切 Tab、切语言下拉都不会把它拿走（Mac 版当前
        的毛病正是后者）。所以这三个写口子挂在编辑器上，不在面板里。 */
     const removeSubTrack = useCallback((id) => setSubStyleRaw((s) => Object.assign({}, s,
-      {tracks: window.BC_SUB.removeTrack(s, id)})), []);
+      window.BC_SUB.shelveTrack(s, id))), []);
     /* 把拿下来的轨放回画面。插在哪一格由 `BC_SUB.place` 说了算（默认叠法：译文在上、
        原文在下），三个补轨的入口读同一条规矩，免得同一件事三处三种排法。 */
     /** 换一门语言：位次不动，只换这一格里装谁；长相留在原地（`BC_SUB.replaceTrack`）。 */

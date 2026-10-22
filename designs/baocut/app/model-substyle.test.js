@@ -440,6 +440,18 @@ test('建原文：画面上没有译文或原文已在时与 addTrack 相同', (
   assert.strictEqual(S.addSourcePaired(st, seed), st.tracks);
 });
 
+test('拿下一条轨时记下它此刻的样子，放回能原样回来（不和留下的那条叠在同一格）', () => {
+  const st = bi();
+  const src = S.source(st);
+  const r = S.shelveTrack(st, src.id);
+  assert.deepEqual(r.tracks.map((t) => t.id), st.tracks.filter((t) => t.id !== src.id).map((t) => t.id));
+  assert.deepEqual(r.shelf[src.id], src);
+  assert.deepEqual(S.addTrack({tracks: r.tracks}, r.shelf[src.id]), st.tracks);
+  const last = S.shelveTrack({tracks: r.tracks, shelf: r.shelf}, r.tracks[0].id);
+  assert.strictEqual(last.tracks, r.tracks, '最后一条拿不下来');
+  assert.strictEqual(last.shelf, r.shelf);
+});
+
 /* ---------- 软上限：放回一条搁置的轨（方案 C） ---------- */
 
 test('不足两条时直接放回去——这是「仅译文 / 只显示原文」的回头路，不该有摩擦', () => {
