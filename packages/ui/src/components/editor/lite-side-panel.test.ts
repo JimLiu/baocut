@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import type { AssetRecord, Id, JobRecord } from '@baocut/protocol';
+import type { AssetRecord, Id } from '@baocut/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiteSegment } from '../../model/lite-segments.ts';
 import { RuntimeContext } from '../../runtime/context.tsx';
@@ -64,8 +64,8 @@ describe('轻量视图侧栏', () => {
       kind: 'pipeline',
       assetId: null,
       phase: 'starting',
-      pipeline: { name: 'translate', params: { targetLanguage: 'en', documentId: 'd1' }, steps: [] },
-    } as Partial<JobRecord> & Pick<JobRecord, 'jobId'>);
+      pipeline: { name: 'translate', params: { targetLanguage: 'en', documentId: 'd1' }, steps: [], current: null, stoppedAt: null, summary: null },
+    });
     useJobs.setState({ jobs: [transcribe, translate] });
     await render([segment([])]);
     const text = container.textContent ?? '';
