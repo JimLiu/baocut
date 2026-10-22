@@ -49,6 +49,7 @@ export const ptBR: RcExportMessages = {
   noSource: "O vídeo não tem legendas ou transcrição para exportar",
   bilingualDocumentNotFound: "O documento para mesclar em saída bilíngue não existe",
   bilingualNeedsOtherDocument: "A saída bilíngue exige outro documento",
+  layerNeedsTimedDocuments: "Quando vários documentos formam uma camada, informe o outro idioma também como documentos com tempos (legendas ou transcrições, em bilingual.documentIds)",
   noBilingualCounterpart: "Não há outro idioma para mesclar (tradução ou legendas em outro idioma)",
   sourceAmbiguous: "Há vários documentos exportáveis; escolha com documentId ou language",
   linkedAssetMissing: (p: { name: string }) => `A mídia vinculada “${p.name}” não está mais no local`,

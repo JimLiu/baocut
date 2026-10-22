@@ -156,6 +156,8 @@ export const fr: ExportMessages = {
   subtitleLanes: "Quelles pistes",
   subtitlesWhat: (labels: readonly string[]) => (labels.length === 2 ? `${labels.join(" + ")} bilingues` : labels.join(" + ")),
   hiddenOnTimeline: "Désactivée sur la timeline",
+  segmentCount: (n) => `${n} segments`,
+  layerNote: "Les sous-titres segmentés sont réunis dans un seul fichier, chaque segment à sa place sur la timeline",
   noSubtitles: "Aucun sous-titre ni transcription",
   noSubtitlesSub: "Transcrivez d’abord ou ajoutez une piste de sous-titres sur la timeline",
   multiTrack: "Plusieurs pistes",

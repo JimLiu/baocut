@@ -11,7 +11,6 @@ export const de: EngineHostMessages = {
   outputSize: "Ergebnisbreite und -höhe müssen positive ganze Zahlen sein",
   tooManyRanges: (p: P<'max'>) => `Höchstens ${p.max} Bereiche gleichzeitig`,
   textPlanNoDocument: "Ein Textplan benötigt mindestens ein Dokument",
-  textPlanTooManyDocuments: "Ein Textplan akzeptiert höchstens zwei Dokumente (das Hauptdokument und das zweite einer zweisprachigen Zusammenführung)",
   planKindUnknown: (p: P<'kind'>) => `Unbekannte Planart ${p.kind}`,
   unknownMethod: (p: P<'method'>) => `Unbekannte Methode: ${p.method}`,
   paramsInvalid: (p: P<'error'>) => `Ungültige Parameter: ${p.error}`,

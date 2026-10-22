@@ -13,7 +13,7 @@ import {
   type SubtitleExportFormat,
   type TranscriptExportFormat,
 } from '@baocut/protocol';
-import { captionChips, languageName } from './caption-tracks.ts';
+import { captionChips, captionGroups, languageName } from './caption-tracks.ts';
 import { zhHans } from './export-settings.zh-Hans.ts';
 import { zhHant } from './export-settings.zh-Hant.ts';
 import { ja } from './export-settings.ja.ts';
@@ -375,12 +375,18 @@ export const SUBTITLE_FORMATS: readonly { key: SubtitleExportFormat; label: stri
   })),
 ];
 
-/** 「导哪几条」的一行：一份字幕文档（同一份文档在几条轨上只算一行）。 */
+/**
+ * 「导哪几条」的一行：一层字幕（与轨条的一组同一个分法：同是原文或同是译文、同一门语言）。纪录片一段素材一份文档，
+ * 一层就是好几份，Runtime 按各段在时间线上的位置合成一份文件。同一份文档在几条轨上只算一次。
+ */
 export interface SubtitleLane {
-  documentId: Id;
+  /** 勾选用的键：只有一份文档时就是文档 id，几份时是轨条组的键。 */
+  key: string;
+  /** 这一层的文档，按在时间线上的先后。 */
+  documentIds: Id[];
   /** 「原文」或语言名（与字幕轨条同一个叫法）。 */
   label: string;
-  /** 文档名。 */
+  /** 文档名（几份时是第一份的）。 */
   name: string;
   kind: 'original' | 'translation' | 'speech';
   language: string | null;
@@ -388,48 +394,58 @@ export interface SubtitleLane {
   shown: boolean;
 }
 
-/** 时间轴上的字幕文档；一条字幕轨都没有时退回转写文档（`speech`），Runtime 会把它投影到时间线上。 */
+/** 时间轴上的字幕层；一条字幕轨都没有时退回转写文档（`speech`），Runtime 会把它投影到时间线上。 */
 export function subtitleLanes(sequence: Sequence, documents: Record<Id, DocumentRecord>): SubtitleLane[] {
-  const lanes: SubtitleLane[] = [];
-  for (const chip of captionChips(sequence, documents)) {
-    const known = lanes.find((l) => l.documentId === chip.documentId);
-    if (known) {
-      known.shown ||= chip.state === 'on';
-      continue;
-    }
-    lanes.push({ documentId: chip.documentId, label: chip.label, name: chip.name, kind: chip.kind, language: documents[chip.documentId]?.language ?? null, shown: chip.state === 'on' });
-  }
+  const lanes = captionGroups(sequence, captionChips(sequence, documents), documents).map((group): SubtitleLane => {
+    const documentIds = [...new Set(group.segments.map((chip) => chip.documentId))];
+    const first = group.segments[0]!;
+    return {
+      key: documentIds.length === 1 ? documentIds[0]! : group.key,
+      documentIds,
+      label: group.label,
+      name: first.name,
+      kind: group.kind,
+      language: documents[first.documentId]?.language ?? null,
+      shown: group.state === 'on',
+    };
+  });
   if (lanes.length) return [...lanes.filter((l) => l.kind === 'original'), ...lanes.filter((l) => l.kind !== 'original')];
   return Object.values(documents)
     .filter((d) => d.kind === 'speech')
-    .map((d) => ({ documentId: d.id, label: M.transcription, name: d.name, kind: 'speech' as const, language: d.language ?? null, shown: false }));
+    .map((d) => ({ key: d.id, documentIds: [d.id], label: M.transcription, name: d.name, kind: 'speech' as const, language: d.language ?? null, shown: false }));
 }
 
 /** 打开时勾上时间轴上开着的；一条都没开时勾第一条。 */
-export function initialSubtitlePick(lanes: readonly SubtitleLane[]): Id[] {
-  const shown = lanes.filter((l) => l.shown).map((l) => l.documentId);
-  return shown.length ? shown : lanes.slice(0, 1).map((l) => l.documentId);
+export function initialSubtitlePick(lanes: readonly SubtitleLane[]): string[] {
+  const shown = lanes.filter((l) => l.shown).map((l) => l.key);
+  return shown.length ? shown : lanes.slice(0, 1).map((l) => l.key);
 }
 
 export type SubtitleBlock = 'none' | 'too-many' | 'each';
 
+/** 一层的文档参数：一份写 `documentId`，几份写 `documentIds`。 */
+type LaneDocuments = { documentId: Id } | { documentIds: Id[] };
+
 export interface SubtitlePlan {
   /** 发给 Runtime 的文档参数；不能导时为 null。 */
-  options: { documentId: Id; bilingual?: { documentId: Id } } | null;
+  options: (LaneDocuments & { bilingual?: LaneDocuments }) | null;
   block: SubtitleBlock | null;
 }
 
+const laneDocuments = (lane: SubtitleLane): LaneDocuments =>
+  lane.documentIds.length === 1 ? { documentId: lane.documentIds[0]! } : { documentIds: lane.documentIds };
+
 /**
- * 勾选 → 文档参数。一次导出只出一份字幕文件：一条是它自己；两条且「合成一份」是双语（原文在前）；
- * 两条「各出一份」与三条以上 Runtime 一次做不了（要分几次导），置灰。
+ * 勾选 → 文档参数。一次导出只出一份字幕文件：一层是它自己；两层且「合成一份」是双语（原文在前）；
+ * 两层「各出一份」与三层以上 Runtime 一次做不了（要分几次导），置灰。
  */
-export function subtitlePlan(lanes: readonly SubtitleLane[], picked: readonly Id[], merge: boolean): SubtitlePlan {
-  const ordered = lanes.filter((l) => picked.includes(l.documentId));
+export function subtitlePlan(lanes: readonly SubtitleLane[], picked: readonly string[], merge: boolean): SubtitlePlan {
+  const ordered = lanes.filter((l) => picked.includes(l.key));
   if (!ordered.length) return { options: null, block: 'none' };
   if (ordered.length > 2) return { options: null, block: 'too-many' };
   if (ordered.length === 2 && !merge) return { options: null, block: 'each' };
   const [first, second] = ordered as [SubtitleLane, SubtitleLane | undefined];
-  return { options: { documentId: first.documentId, ...(second ? { bilingual: { documentId: second.documentId } } : {}) }, block: null };
+  return { options: { ...laneDocuments(first), ...(second ? { bilingual: laneDocuments(second) } : {}) }, block: null };
 }
 
 export function subtitleSettings(format: SubtitleExportFormat, options: NonNullable<SubtitlePlan['options']>, scope: ExportScope): ExportSettings {
@@ -557,8 +573,9 @@ export function defaultFileNames(
   else if (settings.kind === 'audio') suffix = 'audio';
   else if (settings.kind === 'transcript') suffix = 'transcript';
   else if (settings.kind === 'subtitles') {
-    const primary = settings.documentId ? documents[settings.documentId]?.language : undefined;
-    const secondaryId = typeof settings.bilingual === 'object' ? settings.bilingual.documentId : undefined;
+    const primaryId = settings.documentId ?? settings.documentIds?.[0];
+    const primary = primaryId ? documents[primaryId]?.language : undefined;
+    const secondaryId = typeof settings.bilingual === 'object' ? (settings.bilingual.documentId ?? settings.bilingual.documentIds?.[0]) : undefined;
     const secondary = secondaryId ? documents[secondaryId]?.language : undefined;
     suffix = primary ? (secondary ? `${primary}-${secondary}` : primary) : 'subtitles';
   }

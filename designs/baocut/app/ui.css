@@ -2471,7 +2471,11 @@ div.blkw { display: inline; }
 .xpop--wide { width: 660px; }
 .xcols { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 4px 16px; align-items: start; }
 .xcol { min-width: 0; }
-.xcol--l .cpsec { margin-top: 12px; }
+/* 分节标题与上下的间距（2026-10-22）：与实现的 Sec 一致，上 16、下 8；弹层标题下与栏首的第一节不加；
+   清单下面紧跟一排快捷设置时隔 12 */
+.xpop .cpsec { margin: 16px 0 8px; }
+.xpop .xhead + .cpsec, .xpop .cpsec:first-child { margin-top: 0; }
+.xpop .xlanes + .xquick { margin-top: 12px; }
 
 /* Shorts（2026-09-27，设计稿 bcut-shorts-design §5.6 / §6.3，export-shorts.jsx）
    发布前检查：视频页顶部一块，九行两列，每行一个状态点；能指到地方的行是按钮（悬停变底色、尾巴一个箭头）。

@@ -46,6 +46,7 @@ export const ja: RcExportMessages = {
   noSource: '動画に書き出せる字幕や文字起こしがありません',
   bilingualDocumentNotFound: 'バイリンガル出力で結合するドキュメントが存在しません',
   bilingualNeedsOtherDocument: 'バイリンガル出力には別のドキュメントが必要です',
+  layerNeedsTimedDocuments: '複数のドキュメントで 1 つのレイヤーを構成する場合は、もう一方の言語もタイミング付きのドキュメント（字幕または文字起こし、bilingual.documentIds）で指定してください',
   noBilingualCounterpart: '結合できる別の言語（翻訳、または別の言語の字幕）がありません',
   sourceAmbiguous: '書き出せるドキュメントが複数あります。documentId（または language）で 1 つ指定してください',
   linkedAssetMissing: (p) => `リンクした素材「${p.name}」が元の場所にありません`,

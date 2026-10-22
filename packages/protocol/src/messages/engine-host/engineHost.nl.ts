@@ -11,7 +11,6 @@ export const nl: EngineHostMessages = {
   outputSize: "De breedte en hoogte van de uitvoer moeten positieve gehele getallen zijn",
   tooManyRanges: (p: P<'max'>) => `Maximaal ${p.max} bereiken tegelijk`,
   textPlanNoDocument: "Een tekstplan vereist minstens één document",
-  textPlanTooManyDocuments: "Een tekstplan accepteert maximaal twee documenten (het hoofddocument en het andere van een tweetalige samenvoeging)",
   planKindUnknown: (p: P<'kind'>) => `Onbekend plantype ${p.kind}`,
   unknownMethod: (p: P<'method'>) => `Onbekende methode: ${p.method}`,
   paramsInvalid: (p: P<'error'>) => `Ongeldige parameters: ${p.error}`,

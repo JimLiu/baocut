@@ -29,6 +29,7 @@ export const ko: ProtocolValidationMessages = {
   fontEndpoint: '글꼴 다운로드 소스는 https://로 시작하는 기본 URL이어야 하며 사용자 이름, 비밀번호, 쿼리, 프래그먼트를 포함할 수 없습니다',
   rangeOrder: '범위의 끝은 시작보다 커야 합니다',
   rangeOrRanges: '`range`와 `ranges` 중 하나만 지정하세요',
+  documentOrDocuments: '`documentId`와 `documentIds` 중 하나만 지정하세요',
   wavNoBitrate: 'WAV에는 비트레이트가 없습니다',
   crfOrBitrate: '`crf`와 `bitrateKbps` 중 하나만 지정하세요',
   codecFormat: 'MP4는 h264 또는 hevc, WebM은 vp9를 사용합니다',

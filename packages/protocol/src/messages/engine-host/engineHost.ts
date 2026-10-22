@@ -31,7 +31,6 @@ const en = {
   outputSize: 'The output width and height must be positive integers',
   tooManyRanges: (p: P<'max'>) => `At most ${p.max} ranges at a time`,
   textPlanNoDocument: 'A text plan needs at least one document',
-  textPlanTooManyDocuments: 'A text plan takes at most two documents (the main one and the other one of a bilingual merge)',
   planKindUnknown: (p: P<'kind'>) => `Unknown plan kind ${p.kind}`,
   unknownMethod: (p: P<'method'>) => `Unknown method: ${p.method}`,
   paramsInvalid: (p: P<'error'>) => `Invalid parameters: ${p.error}`,

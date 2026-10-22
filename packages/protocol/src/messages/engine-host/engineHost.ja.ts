@@ -10,7 +10,6 @@ export const ja: EngineHostMessages = {
   outputSize: 'output の幅と高さは正の整数である必要があります',
   tooManyRanges: (p) => `範囲は一度に ${p.max} 個までです`,
   textPlanNoDocument: 'text プランには少なくとも 1 つのドキュメントが必要です',
-  textPlanTooManyDocuments: 'text プランに指定できるドキュメントは 2 つまでです（メインのドキュメントと、2 言語結合のもう一方）',
   planKindUnknown: (p) => `不明なプランの種類：${p.kind}`,
   unknownMethod: (p) => `不明なメソッド：${p.method}`,
   paramsInvalid: (p) => `パラメータが無効です：${p.error}`,

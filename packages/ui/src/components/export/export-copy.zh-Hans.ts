@@ -160,6 +160,8 @@ export const zhHans: ExportMessages = {
   subtitleLanes: '导哪几条',
   subtitlesWhat: (labels: readonly string[]) => `${labels.join(' + ')}${labels.length === 2 ? ' 双语' : ''}`,
   hiddenOnTimeline: '时间轴上停用中',
+  segmentCount: (n) => `${n} 段`,
+  layerNote: '分段的字幕按各段在时间线上的位置合成一份文件',
   noSubtitles: '还没有字幕或转写',
   noSubtitlesSub: '先转录，或在时间轴上加一条字幕',
   multiTrack: '多轨',

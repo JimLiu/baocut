@@ -160,6 +160,8 @@ export const ja: ExportMessages = {
   subtitleLanes: '書き出すトラック',
   subtitlesWhat: (labels: readonly string[]) => (labels.length === 2 ? `${labels.join(' + ')}（2 言語）` : labels.join(' + ')),
   hiddenOnTimeline: 'タイムラインで無効',
+  segmentCount: (n) => `${n} セグメント`,
+  layerNote: '分割された字幕は、各セグメントのタイムライン上の位置で1つのファイルにまとめます',
   noSubtitles: '字幕も文字起こしもまだありません',
   noSubtitlesSub: '先に文字起こしするか、タイムラインに字幕トラックを追加してください',
   multiTrack: '複数トラック',

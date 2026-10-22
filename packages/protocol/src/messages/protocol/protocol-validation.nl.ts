@@ -30,6 +30,7 @@ export const nl: ProtocolValidationMessages = {
   fontEndpoint: "Downloadbron voor lettertypen moet een basis-URL zijn die begint met https://, zonder gebruikersnaam, wachtwoord, query of fragment",
   rangeOrder: "Het einde van het bereik moet na het begin liggen",
   rangeOrRanges: "Geef alleen `range` of `ranges` op",
+  documentOrDocuments: "Geef alleen `documentId` of `documentIds` op",
   wavNoBitrate: "WAV heeft geen bitrate",
   crfOrBitrate: "Geef alleen `crf` of `bitrateKbps` op",
   codecFormat: "MP4 gebruikt h264 of hevc; WebM gebruikt vp9",

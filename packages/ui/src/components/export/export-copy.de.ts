@@ -155,6 +155,8 @@ export const de: ExportMessages = {
   subtitleLanes: "Welche Spuren",
   subtitlesWhat: (labels: readonly string[]) => (labels.length === 2 ? `${labels.join(" + ")} zweisprachig` : labels.join(" + ")),
   hiddenOnTimeline: "In Zeitleiste deaktiviert",
+  segmentCount: (n) => `${n} Segmente`,
+  layerNote: "Segmentierte Untertitel werden zu einer Datei zusammengeführt, jedes Segment an seiner Stelle in der Zeitleiste",
   noSubtitles: "Noch keine Untertitel oder Transkription",
   noSubtitlesSub: "Zuerst transkribieren oder eine Untertitelspur in der Zeitleiste hinzufügen",
   multiTrack: "Mehrere Spuren",

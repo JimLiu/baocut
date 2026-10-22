@@ -38,6 +38,13 @@ export interface TextExportInput {
   format: TextFormat;
   primary: { document: PlannedDocument; plan: TextPlan };
   secondary: { document: PlannedDocument; plan: TextPlan | null } | null;
+  /**
+   * 与主文档同一层的其余文档（`documentIds` 给了几份，例如纪录片每段素材一份字幕）：各自排成句子，与主文档的按开始时间
+   * 合在一起；文件的元信息与 ASS 样式仍取主文档。
+   */
+  primaryRest?: Array<{ document: PlannedDocument; plan: TextPlan }>;
+  /** 另一层的其余文档（`bilingual.documentIds`）：都带时间，与 `secondary` 一起按中点配到句子上。 */
+  secondaryRest?: Array<{ document: PlannedDocument; plan: TextPlan }>;
   /** 主文档的第一个字幕实例的样式文档（ASS 用）。 */
   style: unknown;
   canvas: { width: number; height: number };
@@ -366,16 +373,37 @@ function speakerNames(primary: PlannedDocument): Map<string, string> {
   return new Map((body?.speakers ?? []).map((s, i) => [s.id, s.name?.trim() || JobsSpeechDocument.speakerName({ n: i + 1 }).text]));
 }
 
-/** 主文档的条目拼成句子（字幕文档一条就是一句）。 */
-export function segmentsOf(input: Pick<TextExportInput, 'primary' | 'secondary'>, warnings: JobWarning[]): TextSegment[] {
+type SegmentInput = Pick<TextExportInput, 'primary' | 'secondary' | 'primaryRest' | 'secondaryRest'>;
+
+/** 主文档（与同一层的其余文档）的条目拼成句子（字幕文档一条就是一句），再配上另一层。 */
+export function segmentsOf(input: SegmentInput, warnings: JobWarning[]): TextSegment[] {
   const { plan, document } = input.primary;
-  const names = speakerNames(document);
-  const speakerOf = (id: string | undefined) => (id === undefined ? null : (names.get(id) ?? id));
   // 译文（不带时间的另一份文档）读一次：切句与配译文用同一份成员。
   const translation =
     input.secondary && input.secondary.plan === null
       ? translationOf(input.secondary.document.body as TranslationBody | null, plan.unit === 'speech' ? sentenceDeriver(document) : null)
       : null;
+  let segments = documentSegments(input.primary, input.secondary, translation, '');
+  const rest = input.primaryRest ?? [];
+  if (rest.length > 0) {
+    // 没有句子切分的转写按次序编号（`run-N`）：其余文档的加上文档 ID，合在一起后不重名。
+    const all = [segments, ...rest.map((other) => documentSegments(other, null, null, `${other.document.documentId}:`))].flat();
+    segments = all.sort((a, b) => a.start - b.start);
+  }
+  attachSecondary(input, segments, warnings, translation);
+  return segments;
+}
+
+/** 一份带时间的文档的条目拼成句子。 */
+function documentSegments(
+  primary: TextExportInput['primary'],
+  secondary: TextExportInput['secondary'],
+  translation: Translation | null,
+  runPrefix: string,
+): TextSegment[] {
+  const { plan, document } = primary;
+  const names = speakerNames(document);
+  const speakerOf = (id: string | undefined) => (id === undefined ? null : (names.get(id) ?? id));
   let segments: TextSegment[];
   if (plan.unit === 'caption') {
     segments = plan.entries.map((e) => ({
@@ -393,7 +421,7 @@ export function segmentsOf(input: Pick<TextExportInput, 'primary' | 'secondary'>
     const body = (document.body ?? {}) as SpeechBody;
     // Projection entries retain word IDs; recover the document flag for both projected and source-clock plans.
     const glued = new Set((Array.isArray(body.words) ? body.words : []).filter((word) => word.glue === true).map((word) => word.id));
-    const entries = withTranslationSentences(plan.entries, input.secondary, translation);
+    const entries = withTranslationSentences(plan.entries, secondary, translation);
     const leading = entries.some((e) => /^\s/.test(e.text));
     const runs: TextEntry[][] = [];
     let run: TextEntry[] = [];
@@ -416,7 +444,7 @@ export function segmentsOf(input: Pick<TextExportInput, 'primary' | 'secondary'>
     }
     if (run.length > 0) runs.push(run);
     segments = runs.map((words, i) => ({
-      id: words[0]!.sentenceId !== undefined ? `${words[0]!.scopeItemId ?? ''}:${words[0]!.sentenceId}` : `run-${i + 1}`,
+      id: words[0]!.sentenceId !== undefined ? `${words[0]!.scopeItemId ?? ''}:${words[0]!.sentenceId}` : `${runPrefix}run-${i + 1}`,
       start: words[0]!.start,
       end: Math.max(...words.map((w) => w.end)),
       text: joinWords(
@@ -431,12 +459,11 @@ export function segmentsOf(input: Pick<TextExportInput, 'primary' | 'secondary'>
       words: words.map((w) => ({ id: w.id, text: w.text.trim(), start: w.start, end: w.end, timed: w.wordTiming, ...(glued.has(w.id) ? { glue: true as const } : {}) })),
     }));
   }
-  attachSecondary(input, segments, warnings, translation);
   return segments;
 }
 
 function attachSecondary(
-  input: Pick<TextExportInput, 'primary' | 'secondary'>,
+  input: SegmentInput,
   segments: TextSegment[],
   warnings: JobWarning[],
   translation: Translation | null,
@@ -470,8 +497,9 @@ function attachSecondary(
       warn(warnings, 'TRANSLATION_SKIPPED_STALE', RcExport.translationStale({ count: translation.stale }));
     return;
   }
-  // 另一份带时间的文档：每条按中点归到所在的句子。
-  const other = segmentsOf({ primary: { document: secondary.document, plan: secondary.plan }, secondary: null }, warnings);
+  // 另一层带时间的文档：每条按中点归到所在的句子。
+  const [first, ...rest] = [{ document: secondary.document, plan: secondary.plan }, ...(input.secondaryRest ?? [])];
+  const other = segmentsOf({ primary: first!, secondary: null, primaryRest: rest }, warnings);
   const buckets = new Map<TextSegment, string[]>();
   let unmatched = 0;
   for (const item of other) {
@@ -646,6 +674,10 @@ function writeAss(cues: Cue[], input: TextExportInput, warnings: JobWarning[]): 
   return { content, entries: timed.length, end: (timed.at(-1)?.b ?? 0) / 100 };
 }
 
+function documentRef(document: PlannedDocument): { id: string; kind: string; language: string | null; revision: string } {
+  return { id: document.documentId, kind: document.kind, language: document.language, revision: document.revision };
+}
+
 function writeJson(input: TextExportInput, segments: TextSegment[]): { content: string; entries: number; end: number } {
   const { primary, secondary, meta } = input;
   let timed = 0;
@@ -687,6 +719,11 @@ function writeJson(input: TextExportInput, segments: TextSegment[]): { content: 
             revision: secondary.document.revision,
           },
         }
+      : {}),
+    // 一层由几份文档组成时另列全部（`document`、`translation` 是各层的第一份）。
+    ...(input.primaryRest?.length ? { documents: [primary, ...input.primaryRest].map((p) => documentRef(p.document)) } : {}),
+    ...(secondary && input.secondaryRest?.length
+      ? { translations: [secondary, ...input.secondaryRest].map((p) => documentRef(p.document)) }
       : {}),
     /** 时间是相对导出范围起点的秒。 */
     duration: round3(input.rangeDuration),

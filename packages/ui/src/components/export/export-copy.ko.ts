@@ -160,6 +160,8 @@ export const ko: ExportMessages = {
   subtitleLanes: '내보낼 트랙',
   subtitlesWhat: (labels: readonly string[]) => `${labels.join(' + ')}${labels.length === 2 ? ' 이중 언어' : ''}`,
   hiddenOnTimeline: '타임라인에서 꺼짐',
+  segmentCount: (n) => `${n}개 구간`,
+  layerNote: '나뉜 자막은 각 구간의 타임라인 위치대로 한 파일로 합칩니다',
   noSubtitles: '아직 자막이나 전사본이 없습니다',
   noSubtitlesSub: '먼저 전사하거나 타임라인에 자막 트랙을 추가하세요',
   multiTrack: '여러 트랙',

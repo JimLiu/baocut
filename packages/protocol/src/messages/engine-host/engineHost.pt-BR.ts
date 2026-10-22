@@ -11,7 +11,6 @@ export const ptBR: EngineHostMessages = {
   outputSize: "A largura e altura da saída devem ser inteiros positivos",
   tooManyRanges: (p) => pluralForm('pt-BR', Number(p.max), { one: `Até ${p.max} intervalo por vez`, other: `Até ${p.max} intervalos por vez` }),
   textPlanNoDocument: "Um plano text precisa de pelo menos um documento",
-  textPlanTooManyDocuments: "Um plano text aceita no máximo dois documentos (o principal e o outro de uma mesclagem bilíngue)",
   planKindUnknown: (p) => `Tipo de plano desconhecido ${p.kind}`,
   unknownMethod: (p) => `Método desconhecido: ${p.method}`,
   paramsInvalid: (p) => `Parâmetros inválidos: ${p.error}`,

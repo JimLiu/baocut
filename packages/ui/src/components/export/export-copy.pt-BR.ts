@@ -156,6 +156,8 @@ export const ptBR: ExportMessages = {
   subtitleLanes: "Quais exportar",
   subtitlesWhat: (labels: readonly string[]) => (labels.length === 2 ? `${labels.join(" + ")} bilíngue` : labels.join(" + ")),
   hiddenOnTimeline: "desativado na linha do tempo",
+  segmentCount: (n) => `${n} segmentos`,
+  layerNote: "Legendas em segmentos são combinadas em um só arquivo, cada segmento na sua posição na linha do tempo",
   noSubtitles: "Ainda sem legendas ou transcrição",
   noSubtitlesSub: "Transcreva primeiro ou adicione faixa de legendas",
   multiTrack: "Várias faixas",

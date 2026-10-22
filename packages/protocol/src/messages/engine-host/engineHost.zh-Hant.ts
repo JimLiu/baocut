@@ -10,7 +10,6 @@ export const zhHant: EngineHostMessages = {
   outputSize: '輸出的寬度與高度必須是正整數',
   tooManyRanges: (p) => `一次最多 ${p.max} 個範圍`,
   textPlanNoDocument: 'text 計畫至少需要一份文件',
-  textPlanTooManyDocuments: 'text 計畫最多兩份文件（主文件，以及雙語合併的另一份）',
   planKindUnknown: (p) => `未知的計畫種類 ${p.kind}`,
   unknownMethod: (p) => `未知的方法：${p.method}`,
   paramsInvalid: (p) => `參數無效：${p.error}`,

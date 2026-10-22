@@ -30,6 +30,7 @@ export const ptBR: ProtocolValidationMessages = {
   fontEndpoint: "A fonte de fontes deve ser URL base https://, sem usuário, senha, consulta ou fragmento",
   rangeOrder: "O fim do intervalo deve ser maior que o início",
   rangeOrRanges: "Informe apenas `range` ou `ranges`",
+  documentOrDocuments: "Informe apenas `documentId` ou `documentIds`",
   wavNoBitrate: "WAV não tem taxa de bits",
   crfOrBitrate: "Informe apenas `crf` ou `bitrateKbps`",
   codecFormat: "MP4 usa h264 ou hevc; WebM usa vp9",

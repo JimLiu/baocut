@@ -10,7 +10,6 @@ export const ko: EngineHostMessages = {
   outputSize: '출력 너비와 높이는 양의 정수여야 합니다',
   tooManyRanges: (p) => `한 번에 최대 ${p.max}개 범위까지 가능합니다`,
   textPlanNoDocument: 'text 계획에는 문서가 하나 이상 필요합니다',
-  textPlanTooManyDocuments: 'text 계획에는 문서를 최대 두 개까지 쓸 수 있습니다(주 문서와 이중 언어 병합의 다른 문서)',
   planKindUnknown: (p) => `알 수 없는 계획 종류 ${p.kind}`,
   unknownMethod: (p) => `알 수 없는 메서드: ${p.method}`,
   paramsInvalid: (p) => `잘못된 매개변수: ${p.error}`,

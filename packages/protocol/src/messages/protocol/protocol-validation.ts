@@ -45,6 +45,7 @@ const en = {
   fontEndpoint: 'Font download source must be a base URL starting with https://, without a username, password, query, or fragment',
   rangeOrder: 'The end of the range must be greater than the start',
   rangeOrRanges: 'Give only one of `range` and `ranges`',
+  documentOrDocuments: 'Give only one of `documentId` and `documentIds`',
   wavNoBitrate: 'WAV has no bitrate',
   crfOrBitrate: 'Give only one of `crf` and `bitrateKbps`',
   codecFormat: 'MP4 uses h264 or hevc; WebM uses vp9',

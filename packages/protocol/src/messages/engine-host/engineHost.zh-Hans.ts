@@ -10,7 +10,6 @@ export const zhHans: EngineHostMessages = {
   outputSize: '输出的宽高要是正整数',
   tooManyRanges: (p) => `一次最多 ${p.max} 段范围`,
   textPlanNoDocument: 'text 计划至少要一份文档',
-  textPlanTooManyDocuments: 'text 计划最多两份文档（主文档与双语合并的另一份）',
   planKindUnknown: (p) => `不认识的计划种类 ${p.kind}`,
   unknownMethod: (p) => `未知方法：${p.method}`,
   paramsInvalid: (p) => `参数不合法：${p.error}`,

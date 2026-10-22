@@ -11,7 +11,6 @@ export const ru: EngineHostMessages = {
   outputSize: "Ширина и высота результата должны быть положительными целыми числами",
   tooManyRanges: (p) => pluralForm('ru', Number(p.max), { one: `Не более ${p.max} диапазона за раз`, few: `Не более ${p.max} диапазонов за раз`, many: `Не более ${p.max} диапазонов за раз`, other: `Не более ${p.max} диапазона за раз` }),
   textPlanNoDocument: "Текстовый план требует хотя бы один документ",
-  textPlanTooManyDocuments: "Текстовый план принимает не более двух документов (основной и второй для двуязычного объединения)",
   planKindUnknown: (p) => `Неизвестный вид плана ${p.kind}`,
   unknownMethod: (p) => `Неизвестный метод: ${p.method}`,
   paramsInvalid: (p) => `Недопустимые параметры: ${p.error}`,

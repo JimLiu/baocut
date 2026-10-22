@@ -154,6 +154,8 @@ export const pl: ExportMessages = {
   subtitleLanes: "Które ścieżki",
   subtitlesWhat: (labels: readonly string[]) => (labels.length === 2 ? `${labels.join(" + ")} dwujęzyczne` : labels.join(" + ")),
   hiddenOnTimeline: "Wyłączone na osi czasu",
+  segmentCount: (n) => `Segmenty: ${n}`,
+  layerNote: "Napisy z kilku segmentów łączą się w jeden plik, każdy segment w swoim miejscu na osi czasu",
   noSubtitles: "Brak napisów i transkrypcji",
   noSubtitlesSub: "Najpierw transkrybuj lub dodaj ścieżkę napisów",
   multiTrack: "Wiele ścieżek",

@@ -154,6 +154,8 @@ export const ru: ExportMessages = {
   subtitleLanes: "Какие дорожки",
   subtitlesWhat: (labels: readonly string[]) => (labels.length === 2 ? `${labels.join(" + ")} двуязычные` : labels.join(" + ")),
   hiddenOnTimeline: "Отключено на таймлайне",
+  segmentCount: (n) => `Сегментов: ${n}`,
+  layerNote: "Субтитры из нескольких сегментов объединяются в один файл, каждый сегмент — на своём месте таймлайна",
   noSubtitles: "Субтитров и расшифровки ещё нет",
   noSubtitlesSub: "Сначала расшифруйте или добавьте дорожку субтитров",
   multiTrack: "Несколько дорожек",

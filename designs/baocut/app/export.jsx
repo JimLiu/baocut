@@ -577,6 +577,8 @@
                   ) : null}
                 </div>
                 <div className="xnote">{(X.SUB_FORMATS.find((f) => f.k === fmt) || X.SUB_FORMATS[0]).note}</div>
+                {eff.some((l) => l.kind === 'subs' && l.on && l.segments > 1)
+                  ? <div className="xnote">分段的字幕按各段在时间线上的位置合成一份文件</div> : null}
                 <div className="xsum">
                   {X.subtitleNames(base, eff, fmt, merge).map((n) => (
                     <div key={n} className="xsum__row"><span>文件</span><b className="t-mono">{n}</b></div>

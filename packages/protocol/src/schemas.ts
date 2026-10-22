@@ -742,10 +742,20 @@ const exportScope = {
   range: exportRange.optional(),
   ranges: z.array(exportRange).min(1).max(64).optional(),
 };
+const oneDocumentSource = (s: { documentId?: unknown; documentIds?: unknown }) => s.documentId === undefined || s.documentIds === undefined;
 const textExportOptions = {
   documentId: id.optional(),
+  documentIds: z.array(id).min(1).max(1000).optional(),
   language: languageTag.optional(),
-  bilingual: z.union([z.boolean(), z.object({ documentId: id.optional(), language: languageTag.optional() }).strict()]).optional(),
+  bilingual: z
+    .union([
+      z.boolean(),
+      z
+        .object({ documentId: id.optional(), documentIds: z.array(id).min(1).max(1000).optional(), language: languageTag.optional() })
+        .strict()
+        .refine(oneDocumentSource, { error: () => V.documentOrDocuments().text }),
+    ])
+    .optional(),
   maxCharsPerLine: z.number().int().min(8).max(200).optional(),
   timestamps: z.boolean().optional(),
   scopeItemIds: z.array(id).min(1).max(1000).optional(),
@@ -776,7 +786,8 @@ const oneRange = (s: { range?: unknown; ranges?: unknown }) => s.range === undef
 const subtitleExportSettings = z
   .object({ kind: z.literal('subtitles'), format: z.enum(['srt', 'vtt', 'ass', 'json']), ...exportScope, ...textExportOptions })
   .strict()
-  .refine(oneRange, { error: () => V.rangeOrRanges().text });
+  .refine(oneRange, { error: () => V.rangeOrRanges().text })
+  .refine(oneDocumentSource, { error: () => V.documentOrDocuments().text });
 const transcriptExportSettings = z
   .object({
     kind: z.literal('transcript'),
@@ -786,7 +797,8 @@ const transcriptExportSettings = z
     ...transcriptExportOptions,
   })
   .strict()
-  .refine(oneRange, { error: () => V.rangeOrRanges().text });
+  .refine(oneRange, { error: () => V.rangeOrRanges().text })
+  .refine(oneDocumentSource, { error: () => V.documentOrDocuments().text });
 /** `exports.renderText` 只排字幕与文稿：别的种类在这里就以 `invalid-request` 拒绝。 */
 const textExportSettings = z.union([subtitleExportSettings, transcriptExportSettings]);
 const exportSettings = z.union([

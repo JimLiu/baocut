@@ -65,6 +65,7 @@ const en = {
   noSource: 'The video has no subtitles or transcript to export',
   bilingualDocumentNotFound: "The document to merge for bilingual output doesn't exist",
   bilingualNeedsOtherDocument: 'Bilingual output needs a different document',
+  layerNeedsTimedDocuments: 'When several documents make up one layer, give the other language as timed documents too (subtitles or transcripts, in bilingual.documentIds)',
   noBilingualCounterpart: 'There is no other language to merge (a translation, or subtitles in another language)',
   sourceAmbiguous: 'Several documents could be exported; pick one with documentId (or language)',
   linkedAssetMissing: (p: { name: string }) => `Linked asset "${p.name}" is no longer where it was`,

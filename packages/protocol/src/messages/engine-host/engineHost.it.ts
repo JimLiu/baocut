@@ -11,7 +11,6 @@ export const it: EngineHostMessages = {
   outputSize: "La larghezza e l’altezza dell’output devono essere interi positivi",
   tooManyRanges: (p) => pluralForm('it', Number(p.max), { one: `Fino a ${p.max} intervallo alla volta`, other: `Fino a ${p.max} intervalli alla volta` }),
   textPlanNoDocument: "Un piano text richiede almeno un documento",
-  textPlanTooManyDocuments: "Un piano text accetta al massimo due documenti (quello principale e l’altro di un’unione bilingue)",
   planKindUnknown: (p) => `Tipo di piano sconosciuto ${p.kind}`,
   unknownMethod: (p) => `Metodo sconosciuto: ${p.method}`,
   paramsInvalid: (p) => `Parametri non validi: ${p.error}`,

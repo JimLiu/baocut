@@ -43,6 +43,12 @@ test('lanes：字幕逐轨、元素合组、成员行不重复；初值就是时
   assert.equal(ls[4].on, false);
 });
 
+test('lanes：一层由几段拼成时仍是一行，印上段数（第 245 轮）', () => {
+  const segmented = Object.assign({}, TRACKS[0], {segments: [{id: 's1', start: 0, end: 5}, {id: 's2', start: 9, end: 14}]});
+  const ls = X.lanes([{key: 'subs:zh', kind: 'subs', track: segmented}, ROWS[4]], {});
+  assert.deepEqual(ls.map((l) => [l.key, l.sub, l.segments]), [['subs:zh', '源语言字幕 · 2 段', 2], ['subs:ja', '译文字幕', 1]]);
+});
+
 test('lanes：没有元素时不出元素组', () => {
   const ls = X.lanes(ROWS.filter((r) => r.kind === 'subs' || r.kind === 'audio'), {});
   assert.deepEqual(ls.map((l) => l.key), ['subs:zh', 'subs:ja', 'audio']);

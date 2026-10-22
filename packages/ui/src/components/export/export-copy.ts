@@ -182,6 +182,8 @@ const en = {
   subtitleLanes: 'Which tracks',
   subtitlesWhat: (labels: readonly string[]) => (labels.length === 2 ? `${labels.join(' + ')} bilingual` : labels.join(' + ')),
   hiddenOnTimeline: 'Disabled on the timeline',
+  segmentCount: (n: number) => `${n} segments`,
+  layerNote: 'Segmented subtitles are combined into one file, each segment at its place on the timeline',
   noSubtitles: 'No subtitles or transcription yet',
   noSubtitlesSub: 'Transcribe first, or add a subtitle track on the timeline',
   multiTrack: 'Multiple tracks',

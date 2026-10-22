@@ -160,6 +160,8 @@ export const tr: ExportMessages = {
   subtitleLanes: "İzler",
   subtitlesWhat: (labels) => labels.length === 2 ? `${labels.join(' + ')} iki dilli` : labels.join(' + '),
   hiddenOnTimeline: "Zaman çizelgesinde devre dışı",
+  segmentCount: (n) => `${n} bölüm`,
+  layerNote: "Bölümlere ayrılmış altyazılar, her bölüm zaman çizelgesindeki yerinde olacak şekilde tek dosyada birleştirilir",
   noSubtitles: "Henüz altyazı veya döküm yok",
   noSubtitlesSub: "Önce yazıya dökün veya zaman çizelgesine altyazı izi ekleyin",
   multiTrack: "Birden çok iz",

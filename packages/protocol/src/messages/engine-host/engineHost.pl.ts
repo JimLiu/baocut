@@ -11,7 +11,6 @@ export const pl: EngineHostMessages = {
   outputSize: "Szerokość i wysokość wyniku muszą być dodatnimi liczbami całkowitymi",
   tooManyRanges: (p) => pluralForm('pl', Number(p.max), { one: `Najwyżej ${p.max} zakres naraz`, few: `Najwyżej ${p.max} zakresy naraz`, many: `Najwyżej ${p.max} zakresów naraz`, other: `Najwyżej ${p.max} zakresu naraz` }),
   textPlanNoDocument: "Plan tekstowy wymaga co najmniej jednego dokumentu",
-  textPlanTooManyDocuments: "Plan tekstowy przyjmuje najwyżej dwa dokumenty (główny i drugi dla połączenia dwujęzycznego)",
   planKindUnknown: (p) => `Nieznany rodzaj planu ${p.kind}`,
   unknownMethod: (p) => `Nieznana metoda: ${p.method}`,
   paramsInvalid: (p) => `Nieprawidłowe parametry: ${p.error}`,

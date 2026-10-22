@@ -29,6 +29,7 @@ export const ru: ProtocolValidationMessages = {
   fontEndpoint: "Источник шрифтов должен быть базовым URL https:// без имени пользователя, пароля, запроса и фрагмента",
   rangeOrder: "Конец диапазона должен быть больше начала",
   rangeOrRanges: "Укажите только одно из `range` и `ranges`",
+  documentOrDocuments: "Укажите только одно из `documentId` и `documentIds`",
   wavNoBitrate: "У WAV нет битрейта",
   crfOrBitrate: "Укажите только одно из `crf` и `bitrateKbps`",
   codecFormat: "MP4 использует h264 или hevc; WebM — vp9",

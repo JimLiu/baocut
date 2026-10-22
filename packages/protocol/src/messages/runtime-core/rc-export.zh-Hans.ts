@@ -43,6 +43,7 @@ export const zhHans: RcExportMessages = {
   noSource: '视频里没有字幕或转写可以导出',
   bilingualDocumentNotFound: '双语合并的文档不存在',
   bilingualNeedsOtherDocument: '双语合并要另一份文档',
+  layerNeedsTimedDocuments: '一层由几份文档组成时，另一种语言也要给带时间的文档（字幕或转写，写在 bilingual.documentIds）',
   noBilingualCounterpart: '没有可以合并的另一种语言（译文或另一种语言的字幕）',
   sourceAmbiguous: '有几份文档都可以导出；用 documentId（或 language）指定一份',
   linkedAssetMissing: (p) => `链接的素材「${p.name}」不在原来的位置`,

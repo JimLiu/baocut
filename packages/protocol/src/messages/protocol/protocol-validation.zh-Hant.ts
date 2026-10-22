@@ -29,6 +29,7 @@ export const zhHant: ProtocolValidationMessages = {
   fontEndpoint: '字型下載來源必須是以 https:// 開頭的基礎 URL，且不含使用者名稱、密碼、查詢字串或片段識別碼',
   rangeOrder: '範圍的終點必須大於起點',
   rangeOrRanges: '`range` 和 `ranges` 只能提供其中一個',
+  documentOrDocuments: '`documentId` 和 `documentIds` 只能提供其中一個',
   wavNoBitrate: 'WAV 沒有位元率',
   crfOrBitrate: '`crf` 和 `bitrateKbps` 只能提供其中一個',
   codecFormat: 'MP4 使用 h264 或 hevc；WebM 使用 vp9',

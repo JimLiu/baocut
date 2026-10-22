@@ -10,7 +10,6 @@ export const fr: EngineHostMessages = {
   outputSize: "La largeur et la hauteur de sortie doivent être des entiers positifs",
   tooManyRanges: (p) => `Au plus ${p.max} plages à la fois`,
   textPlanNoDocument: "Un plan texte nécessite au moins un document",
-  textPlanTooManyDocuments: "Un plan texte accepte au plus deux documents (principal et second pour une fusion bilingue)",
   planKindUnknown: (p) => `Type de plan inconnu ${p.kind}`,
   unknownMethod: (p) => `Méthode inconnue : ${p.method}`,
   paramsInvalid: (p) => `Réglages invalides : ${p.error}`,

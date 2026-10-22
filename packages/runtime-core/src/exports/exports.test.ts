@@ -444,6 +444,86 @@ describe.skipIf(!engine || !ffmpeg)('导出（真实引擎 + ffmpeg）', () => {
     expect(cueTimes(await fs.readFile(parts.result!.outputs![1]!.path!, 'utf8'))).toEqual([[0.05, 0.55]]);
   });
 
+  it('一层几份文档（纪录片每段素材一份）：各自按时间线上的位置投影、按时间合成一份；另一层几份按中点配上', async () => {
+    const a = await fixture('a.wav');
+    const b = await fixture('a-other.wav');
+    const { ref } = await client.request('videos.create', { projectId: project.id, name: '纪录片' });
+    const videoId = ref.videoId;
+    const sequenceId = video(videoId).sequenceId;
+    const words = (list: Array<[string, number, number, string]>) => list.map(([id, start, end, text]) => ({ id, start, end, text }));
+    await edit(videoId, [
+      { type: 'importAsset', path: a, ref: 'a' },
+      { type: 'importAsset', path: b, ref: 'b' },
+      { type: 'addItem', sequenceId, asset: { ref: 'a' }, at: at(0), alignment: 'nearest-frame' },
+      { type: 'addItem', sequenceId, asset: { ref: 'b' }, at: at(4), alignment: 'nearest-frame' },
+      { type: 'putDocument', kind: 'speech', name: 'A', language: 'en', sourceAsset: { ref: 'a' }, body: speechBody() },
+      {
+        type: 'putDocument',
+        kind: 'speech',
+        name: 'B',
+        language: 'en',
+        sourceAsset: { ref: 'b' },
+        body: speechBody(words([['b1', 200, 700, 'Second'], ['b2', 700, 1200, 'clip.']])),
+      },
+      { type: 'putDocument', kind: 'speech', name: 'A 中文', language: 'zh', sourceAsset: { ref: 'a' }, body: speechBody(words([['z1', 0, 900, '你好世界。']])) },
+      { type: 'putDocument', kind: 'speech', name: 'B 中文', language: 'zh', sourceAsset: { ref: 'b' }, body: speechBody(words([['y1', 200, 1200, '第二段。']])) },
+    ]);
+    const docOf = (name: string) => Object.values(video(videoId).documents).find((d) => d.name === name)!.id;
+    const [enA, enB, zhA, zhB] = ['A', 'B', 'A 中文', 'B 中文'].map(docOf);
+
+    // 给的次序不影响：按时间线时间排，第二段接在 4 秒处。
+    const layer = await exportOnce({ videoId, settings: { kind: 'subtitles', format: 'srt', documentIds: [enB!, enA!] } });
+    const out = layer.result!.outputs![0]!;
+    expect(path.basename(out.path!)).toBe('纪录片.en.srt');
+    const srt = await fs.readFile(out.path!, 'utf8');
+    // 第二段的时间按帧对齐到时间线，差一毫秒以内。
+    expect(cueTimes(srt).map(([start, end]) => [Math.round(start * 100) / 100, Math.round(end * 100) / 100])).toEqual([
+      [0, 0.9],
+      [1.1, 2.3],
+      [2.6, 3.6],
+      [4.2, 5.2],
+    ]);
+    expect(srt).toContain('Second clip.');
+
+    // 双语：另一层也是几份，每条按中点配到所在的句子。
+    const bilingual = await exportOnce({
+      videoId,
+      settings: { kind: 'subtitles', format: 'srt', documentIds: [enA!, enB!], bilingual: { documentIds: [zhA!, zhB!] } },
+    });
+    const both = await fs.readFile(bilingual.result!.outputs![0]!.path!, 'utf8');
+    expect(path.basename(bilingual.result!.outputs![0]!.path!)).toBe('纪录片.en-zh.srt');
+    expect(both).toContain('Hello world.\n你好世界。');
+    expect(both).toContain('Second clip.\n第二段。');
+
+    // JSON 另列每层的全部文档；renderText 与导出的文件逐字节相同。
+    const settings = { kind: 'subtitles' as const, format: 'json' as const, documentIds: [enA!, enB!], bilingual: { documentIds: [zhA!, zhB!] } };
+    const rendered = await client.request('exports.renderText', { videoId, settings });
+    const json = await exportOnce({ videoId, settings });
+    const content = await fs.readFile(json.result!.outputs![0]!.path!, 'utf8');
+    expect(rendered.outputs[0]!.content).toBe(content);
+    const body = JSON.parse(content) as { document: { id: string }; documents: Array<{ id: string }>; translations: Array<{ id: string }> };
+    expect(body.document.id).toBe(enA);
+    expect(body.documents.map((d) => d.id)).toEqual([enA, enB]);
+    expect(body.translations.map((d) => d.id)).toEqual([zhA, zhB]);
+
+    // 拒绝：documentId 与 documentIds 只能给一个；几份主文档时不按主文档找译文；两层不能重叠。
+    const both2 = await rejection(
+      client.request('exports.renderText', { videoId, settings: { kind: 'subtitles', format: 'srt', documentId: enA!, documentIds: [enB!] } }),
+    );
+    expect(both2.code).toBe('invalid-request');
+    const guess = await rejection(
+      client.request('exports.renderText', { videoId, settings: { kind: 'subtitles', format: 'srt', documentIds: [enA!, enB!], bilingual: true } }),
+    );
+    expect(guess).toMatchObject({ code: 'invalid-request', details: { code: 'EXPORT_SOURCE_UNSUPPORTED' } });
+    const overlap = await rejection(
+      client.request('exports.renderText', {
+        videoId,
+        settings: { kind: 'subtitles', format: 'srt', documentIds: [enA!, enB!], bilingual: { documentIds: [enB!] } },
+      }),
+    );
+    expect(overlap.code).toBe('invalid-request');
+  });
+
   it('exports.renderText：不写文件、不建任务，正文与同样设置导出的文件逐字节相同', async () => {
     const { videoId, documentId } = await speechVideo();
     const exportsDir = path.join(project.path, 'exports');

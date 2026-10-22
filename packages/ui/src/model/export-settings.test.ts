@@ -186,11 +186,11 @@ describe('字幕设置', () => {
     [captionItem('c_en', 's2', 'en'), captionItem('c_zh', 's1', 'zh'), captionItem('c_ja', 's3', 'ja')],
   );
 
-  it('每份字幕文档一行，原文在前、名字与字幕轨条一致；轨道停用的算没开', () => {
+  it('每层字幕一行，原文在前、名字与字幕轨条一致；轨道停用的算没开', () => {
     const lanes = subtitleLanes(seq, documents);
-    expect(lanes.map((l) => [l.documentId, l.label, l.shown])).toEqual([
-      ['zh', '原文（访谈）', true],
-      ['ja', '原文（访谈 日本語）', false],
+    expect(lanes.map((l) => [l.key, l.label, l.shown])).toEqual([
+      ['zh', '原文（中文）', true],
+      ['ja', '原文（日本語）', false],
       ['en', 'English', true],
     ]);
     expect(initialSubtitlePick(lanes)).toEqual(['zh', 'en']);
@@ -198,7 +198,7 @@ describe('字幕设置', () => {
 
   it('没有字幕轨时退回转写文档', () => {
     const lanes = subtitleLanes(sequence([], []), documents);
-    expect(lanes.map((l) => [l.documentId, l.kind])).toEqual([['speech', 'speech']]);
+    expect(lanes.map((l) => [l.key, l.documentIds, l.kind])).toEqual([['speech', ['speech'], 'speech']]);
     expect(initialSubtitlePick(lanes)).toEqual(['speech']);
   });
 
@@ -209,6 +209,28 @@ describe('字幕设置', () => {
     expect(subtitlePlan(lanes, ['en', 'zh'], true)).toEqual({ options: { documentId: 'zh', bilingual: { documentId: 'en' } }, block: null });
     expect(subtitlePlan(lanes, ['en', 'zh'], false).block).toBe('each');
     expect(subtitlePlan(lanes, ['en', 'zh', 'ja'], true).block).toBe('too-many');
+  });
+
+  it('纪录片每段素材一份文档：同一层并成一行，导出时给出这一层的全部文档（按时间线先后）', () => {
+    const docs = {
+      a: documentRecord('a', 'caption', '片段 A', { language: 'en' }),
+      b: documentRecord('b', 'caption', '片段 B', { language: 'en' }),
+      aZh: documentRecord('aZh', 'caption', '片段 A 中文', { language: 'zh' }),
+      bZh: documentRecord('bZh', 'caption', '片段 B 中文', { language: 'zh' }),
+    };
+    const doc = sequence(
+      [track('s1', 'subtitle', 1), track('s2', 'subtitle', 2), track('s3', 'subtitle', 3), track('s4', 'subtitle', 4)],
+      [captionItem('cb', 's2', 'b', 300), captionItem('ca', 's1', 'a', 0), captionItem('cbz', 's4', 'bZh', 300), captionItem('caz', 's3', 'aZh', 0)],
+    );
+    const lanes = subtitleLanes(doc, docs);
+    expect(lanes.map((l) => [l.key, l.documentIds, l.label])).toEqual([
+      ['original:en', ['a', 'b'], '原文（English）'],
+      ['original:zh', ['aZh', 'bZh'], '原文（中文）'],
+    ]);
+    expect(initialSubtitlePick(lanes)).toEqual(['original:en', 'original:zh']);
+    expect(subtitlePlan(lanes, ['original:en'], true).options).toEqual({ documentIds: ['a', 'b'] });
+    expect(subtitlePlan(lanes, ['original:en', 'original:zh'], true).options).toEqual({ documentIds: ['a', 'b'], bilingual: { documentIds: ['aZh', 'bZh'] } });
+    expect(defaultFileNames('纪录片', { kind: 'subtitles', format: 'srt', documentIds: ['a', 'b'], bilingual: { documentIds: ['aZh', 'bZh'] } }, docs)).toEqual(['纪录片.en-zh.srt']);
   });
 
   it('预计文件名照 Runtime 的规则：语言后缀、双语连写、几段加 partN', () => {

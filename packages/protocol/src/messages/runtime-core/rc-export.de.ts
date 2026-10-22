@@ -48,6 +48,7 @@ export const de: RcExportMessages = {
   noSource: "Das Video enthält keine exportierbaren Untertitel oder Transkripte",
   bilingualDocumentNotFound: "Das Dokument zum zweisprachigen Zusammenführen ist nicht vorhanden",
   bilingualNeedsOtherDocument: "Zweisprachige Ausgabe benötigt ein anderes Dokument",
+  layerNeedsTimedDocuments: "Wenn mehrere Dokumente eine Ebene bilden, gib die andere Sprache ebenfalls als Dokumente mit Zeitangaben an (Untertitel oder Transkripte, in bilingual.documentIds)",
   noBilingualCounterpart: "Keine andere Sprache zum Zusammenführen (Übersetzung oder Untertitel in einer anderen Sprache)",
   sourceAmbiguous: "Mehrere Dokumente sind exportierbar; mit documentId (oder language) eines auswählen",
   linkedAssetMissing: (p: { name: string }) => `Verknüpftes Material „${p.name}“ ist nicht mehr am ursprünglichen Speicherort`,

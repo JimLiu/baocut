@@ -255,25 +255,33 @@ export class ExportService {
   /** 选文档、在一个引擎请求里冻结全部范围的计划、预检（文档能不能导、范围里有没有字）。 */
   async #planText(videoId: Id, settings: TextSettings, ranges: ExportRange[], video: VideoSnapshot): Promise<FrozenText> {
     const sequenceId = settings.sequenceId ?? video.rootSequenceId;
-    const primaryId = settings.documentId ?? chooseDocument(video, sequenceId, settings);
-    const documentIds = [primaryId];
-    if (settings.bilingual) documentIds.push(chooseSecondary(video, primaryId, settings.bilingual));
+    // 一层可以是几份文档（`documentIds`）：引擎在同一个请求里各自投影，排的时候合成一份。
+    const primaryIds = settings.documentIds ? [...new Set(settings.documentIds)] : [settings.documentId ?? chooseDocument(video, sequenceId, settings)];
+    const secondaryIds = settings.bilingual ? chooseSecondaries(video, primaryIds, settings.bilingual) : [];
     const plan = await this.#plan<TextPlanResult>(videoId, {
       kind: 'text',
       sequenceId,
       ranges,
-      documentIds,
+      documentIds: [...primaryIds, ...secondaryIds],
       scopeItemIds: settings.scopeItemIds ?? [],
     });
-    const [primary, secondary] = plan.documents as [PlannedDocument, PlannedDocument | undefined];
-    if (primary.schema !== SPEECH_SCHEMA && primary.schema !== CAPTION_SCHEMA) {
-      throw new RpcError('invalid-request', RcExport.documentNotExportable({ kind: primary.kind }), {
-        code: 'EXPORT_SOURCE_UNSUPPORTED',
-        schema: primary.schema,
-      });
+    const [primary, ...primaryRest] = plan.documents.slice(0, primaryIds.length) as [PlannedDocument, ...PlannedDocument[]];
+    const [secondary, ...secondaryRest] = plan.documents.slice(primaryIds.length);
+    for (const document of [primary, ...primaryRest]) {
+      if (document.schema !== SPEECH_SCHEMA && document.schema !== CAPTION_SCHEMA) {
+        throw new RpcError('invalid-request', RcExport.documentNotExportable({ kind: document.kind }), {
+          code: 'EXPORT_SOURCE_UNSUPPORTED',
+          schema: document.schema,
+        });
+      }
+    }
+    // 不带时间的译文按句子 ID 配，只配得上一份主文档：几份组成一层时，另一层也要是带时间的文档。
+    const untimed = plan.parts[0]?.plans.slice(primaryIds.length).some((p) => p === null) ?? false;
+    if (untimed && (primaryRest.length > 0 || secondaryRest.length > 0)) {
+      throw new RpcError('invalid-request', RcExport.layerNeedsTimedDocuments(), { code: 'EXPORT_SOURCE_UNSUPPORTED' });
     }
     for (const part of plan.parts) {
-      const entries = (part.plans[0] as TextPlan).entries.length;
+      const entries = part.plans.slice(0, primaryIds.length).reduce((sum, p) => sum + (p as TextPlan).entries.length, 0);
       if (entries === 0) {
         throw new RpcError('invalid-request', RcExport.nothingInRange(), {
           code: 'EXPORT_NOTHING_TO_EXPORT',
@@ -304,7 +312,9 @@ export class ExportService {
     return {
       plan,
       primary,
+      primaryRest,
       secondary,
+      secondaryRest,
       suffix,
       bodies,
       chapters: chapterMarkers(video, plan),
@@ -1461,7 +1471,11 @@ export class ExportService {
 interface FrozenText {
   plan: TextPlanResult;
   primary: PlannedDocument;
+  /** 与主文档同一层的其余文档（`documentIds`）：计划在 `parts[i].plans` 里紧跟主文档。 */
+  primaryRest: PlannedDocument[];
   secondary: PlannedDocument | undefined;
+  /** 另一层的其余文档（`bilingual.documentIds`），都带时间：计划紧跟 `secondary`。 */
+  secondaryRest: PlannedDocument[];
   /** 默认文件名的种类后缀：`transcript`，字幕的语言（双语是「主-副」），没有语言时 `subtitles`。 */
   suffix: string;
   /** 文稿不跳过剪掉的部分时，带时间的文档的正文（转写的取自计划，字幕的另外读）。 */
@@ -1514,15 +1528,23 @@ function frontMatterOf(
 
 /** 排出第 `index` 段的正文：导出任务与 `exports.renderText` 都只经过这里。 */
 function renderTextPart(frozen: FrozenText, settings: TextSettings, index: number): TextExportOutput {
-  const { plan, primary, secondary } = frozen;
+  const { plan, primary, primaryRest, secondary, secondaryRest } = frozen;
   const part = plan.parts[index]!;
+  const restAt = 1;
+  const secondaryAt = restAt + primaryRest.length;
   const transcript = settings.kind === 'transcript';
   const range = part.plans[0]!.range;
   const unprojected = transcript && settings.skipCut === false;
   // 不跳过剪掉的部分：主文档（与带时间的另一份）换成不经投影的原文，章节换到原文的时钟。
   const whole = !settings.range && !settings.ranges;
   const primaryPlan = unprojected ? sourcePlan(frozen.bodies.get(primary.documentId), part.plans[0]!, whole) : part.plans[0]!;
-  const secondaryPlan = part.plans[1] ?? null;
+  const secondaryPlan = part.plans[secondaryAt] ?? null;
+  // 同一层的其余文档：计划跟在主文档（与 `secondary`）后面，不跳过剪掉的部分时同样换成原文。
+  const rest = (documents: PlannedDocument[], at: number) =>
+    documents.map((document, i) => {
+      const projected = part.plans[at + i]!;
+      return { document, plan: unprojected ? sourcePlan(frozen.bodies.get(document.documentId), projected, whole) : projected };
+    });
   const inRange = frozen.chapters
     .map((c) => ({ title: c.title, start: c.start - range.startSeconds }))
     .filter((c) => c.start >= 0 && c.start < range.durationSeconds);
@@ -1542,6 +1564,8 @@ function renderTextPart(frozen: FrozenText, settings: TextSettings, index: numbe
           plan: secondaryPlan && unprojected ? sourcePlan(frozen.bodies.get(secondary.documentId), secondaryPlan, whole) : secondaryPlan,
         }
       : null,
+    ...(primaryRest.length ? { primaryRest: rest(primaryRest, restAt) } : {}),
+    ...(secondaryRest.length ? { secondaryRest: rest(secondaryRest, secondaryAt + 1) } : {}),
     style: plan.style?.body ?? null,
     canvas: plan.canvas,
     meta: {
@@ -1745,6 +1769,22 @@ function chooseDocument(video: VideoSnapshot, sequenceId: Id, settings: TextSett
   throw new RpcError('not-found', message, {
     code: 'EXPORT_SOURCE_NOT_FOUND',
   });
+}
+
+/**
+ * 双语合并的另一层：`documentIds` 原样（去重；不能与主文档重叠）；否则是一份文档。主文档是几份时只认显式的文档——
+ * 按主文档找译文只找得到一份的。
+ */
+function chooseSecondaries(video: VideoSnapshot, primaryIds: Id[], bilingual: NonNullable<TextSettings['bilingual']>): Id[] {
+  const explicit = typeof bilingual === 'object' ? bilingual : {};
+  const ids = explicit.documentIds ? [...new Set(explicit.documentIds)] : explicit.documentId !== undefined ? [explicit.documentId] : null;
+  for (const id of ids ?? []) {
+    if (!video.documents[id]) throw new RpcError('not-found', RcExport.bilingualDocumentNotFound(), { code: 'EXPORT_SOURCE_NOT_FOUND' });
+    if (primaryIds.includes(id)) throw new RpcError('invalid-request', RcExport.bilingualNeedsOtherDocument());
+  }
+  if (ids) return ids;
+  if (primaryIds.length > 1) throw new RpcError('invalid-request', RcExport.layerNeedsTimedDocuments(), { code: 'EXPORT_SOURCE_UNSUPPORTED' });
+  return [chooseSecondary(video, primaryIds[0]!, bilingual)];
 }
 
 /** 双语合并的另一份文档。 */

@@ -44,6 +44,7 @@ export const pl: RcExportMessages = {
   noSource: "Wideo nie ma napisów ani transkrypcji do eksportu",
   bilingualDocumentNotFound: "Dokument do połączenia dwujęzycznego nie istnieje",
   bilingualNeedsOtherDocument: "Wynik dwujęzyczny wymaga innego dokumentu",
+  layerNeedsTimedDocuments: "Gdy kilka dokumentów tworzy jedną warstwę, podaj drugi język także jako dokumenty z czasami (napisy lub transkrypcje, w bilingual.documentIds)",
   noBilingualCounterpart: "Brak innego języka do połączenia (tłumaczenia lub napisów w innym języku)",
   sourceAmbiguous: "Kilka dokumentów do eksportu; wybierz przez documentId (lub language)",
   linkedAssetMissing: (p) => `Powiązany materiał „${p.name}” nie jest już na wcześniejszym miejscu`,

@@ -160,6 +160,8 @@ export const vi: ExportMessages = {
   subtitleLanes: "Rãnh",
   subtitlesWhat: (labels) => labels.length === 2 ? `${labels.join(' + ')} song ngữ` : labels.join(' + '),
   hiddenOnTimeline: "Tắt trên dòng thời gian",
+  segmentCount: (n) => `${n} đoạn`,
+  layerNote: "Phụ đề nhiều đoạn được gộp thành một tệp, mỗi đoạn đúng vị trí trên dòng thời gian",
   noSubtitles: "Chưa có phụ đề hoặc bản chép lời",
   noSubtitlesSub: "Chép lời trước hoặc thêm rãnh phụ đề",
   multiTrack: "Nhiều rãnh",

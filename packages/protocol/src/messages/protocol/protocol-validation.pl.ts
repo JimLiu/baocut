@@ -29,6 +29,7 @@ export const pl: ProtocolValidationMessages = {
   fontEndpoint: "Źródło czcionek musi być bazowym URL https:// bez nazwy użytkownika, hasła, zapytania ani fragmentu",
   rangeOrder: "Koniec zakresu musi być większy niż początek",
   rangeOrRanges: "Podaj tylko jedną z wartości `range` i `ranges`",
+  documentOrDocuments: "Podaj tylko jedną z wartości `documentId` i `documentIds`",
   wavNoBitrate: "WAV nie ma bitrate",
   crfOrBitrate: "Podaj tylko jedną z wartości `crf` i `bitrateKbps`",
   codecFormat: "MP4 używa h264 lub hevc; WebM używa vp9",

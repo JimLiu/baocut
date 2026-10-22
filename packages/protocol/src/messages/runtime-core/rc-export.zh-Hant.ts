@@ -43,6 +43,7 @@ export const zhHant: RcExportMessages = {
   noSource: '影片沒有可匯出的字幕或逐字稿',
   bilingualDocumentNotFound: '要合併成雙語的文件不存在',
   bilingualNeedsOtherDocument: '雙語輸出需要另一份文件',
+  layerNeedsTimedDocuments: '一層由幾份文件組成時，另一種語言也要提供帶時間的文件（字幕或轉寫，寫在 bilingual.documentIds）',
   noBilingualCounterpart: '沒有可以合併的其他語言（譯文，或其他語言的字幕）',
   sourceAmbiguous: '有多份文件都可以匯出，請用 documentId（或 language）指定一份',
   linkedAssetMissing: (p) => `連結的素材「${p.name}」已不在原來的位置`,

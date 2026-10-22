@@ -48,6 +48,7 @@ export const nl: RcExportMessages = {
   noSource: "De video heeft geen ondertitels of transcript om te exporteren",
   bilingualDocumentNotFound: "Het document om samen te voegen voor tweetalige uitvoer bestaat niet",
   bilingualNeedsOtherDocument: "Tweetalige uitvoer vereist een ander document",
+  layerNeedsTimedDocuments: "Als meerdere documenten één laag vormen, geef de andere taal dan ook als documenten met tijden op (ondertitels of transcripties, in bilingual.documentIds)",
   noBilingualCounterpart: "Er is geen andere taal om samen te voegen (een vertaling of ondertitels in een andere taal)",
   sourceAmbiguous: "Meerdere documenten kunnen worden geëxporteerd; kies er een met documentId (of language)",
   linkedAssetMissing: (p: { name: string }) => `Gekoppelde media ‘${p.name}’ staan niet meer op de oorspronkelijke locatie`,

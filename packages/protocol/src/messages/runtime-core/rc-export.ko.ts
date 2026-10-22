@@ -43,6 +43,7 @@ export const ko: RcExportMessages = {
   noSource: '영상에 내보낼 자막이나 전사본이 없습니다',
   bilingualDocumentNotFound: '이중 언어 출력에 병합할 문서가 없습니다',
   bilingualNeedsOtherDocument: '이중 언어 출력에는 다른 문서가 필요합니다',
+  layerNeedsTimedDocuments: '여러 문서가 한 레이어를 이룰 때는 다른 언어도 시간 정보가 있는 문서(자막 또는 전사, bilingual.documentIds)로 지정하세요',
   noBilingualCounterpart: '병합할 다른 언어(번역 또는 다른 언어의 자막)가 없습니다',
   sourceAmbiguous: '내보낼 수 있는 문서가 여러 개입니다. documentId(또는 language)로 하나를 고르세요',
   linkedAssetMissing: (p) => `연결된 소재 “${p.name}”이(가) 원래 위치에 없습니다`,

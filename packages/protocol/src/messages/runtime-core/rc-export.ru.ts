@@ -44,6 +44,7 @@ export const ru: RcExportMessages = {
   noSource: "В видео нет субтитров или расшифровки для экспорта",
   bilingualDocumentNotFound: "Документ для двуязычного объединения отсутствует",
   bilingualNeedsOtherDocument: "Двуязычный результат требует другой документ",
+  layerNeedsTimedDocuments: "Если слой состоит из нескольких документов, укажите второй язык тоже документами с таймингом (субтитры или расшифровки, в bilingual.documentIds)",
   noBilingualCounterpart: "Нет другого языка для объединения (перевода или субтитров на другом языке)",
   sourceAmbiguous: "Доступно несколько документов; выберите через documentId (или language)",
   linkedAssetMissing: (p) => `Связанный материал «${p.name}» отсутствует в прежнем месте`,

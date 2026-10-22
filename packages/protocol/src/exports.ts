@@ -56,13 +56,19 @@ export interface TextExportOptions {
    * （给了 `language` 时只看这种语言的）；仍然确定不了时以 `EXPORT_SOURCE_AMBIGUOUS` 拒绝，`details.candidates` 列出候选（显示着的字幕与转写都列上）。
    */
   documentId?: Id;
-  /** 只在不给 `documentId` 时用来挑文档（BCP 47）。 */
+  /**
+   * 一层字幕由几份文档组成（例如纪录片每段素材一份字幕）：每份按自己在时间线上的位置投影，按时间合成一份文件。只收带时间的
+   * 文档（字幕、转写），与 `documentId` 只能给一个；只有一份时与 `documentId` 相同。
+   */
+  documentIds?: Id[];
+  /** 只在 `documentId`、`documentIds` 都不给时用来挑文档（BCP 47）。 */
   language?: string;
   /**
    * 双语合并：`true` 时取主文档的译文（`translation` 文档，`sourceDocumentId` 指向主文档；有几份时要 `language`
    * 或显式的 `documentId`），也可以直接给另一份文档（译文，或另一种语言的字幕 / 转写）。没有可用的另一份时拒绝。
+   * `documentIds` 是另一层的几份带时间的文档，每条按中点配到主文档所在的那句上；`true` 只在主文档是一份时可用。
    */
-  bilingual?: boolean | { documentId?: Id; language?: string };
+  bilingual?: boolean | { documentId?: Id; documentIds?: Id[]; language?: string };
   /** 一行的最大宽度，默认 `EXPORT_MAX_CHARS_PER_LINE`。 */
   maxCharsPerLine?: number;
   /** 文稿（Markdown、纯文本）在每段末尾写这一段开始的时间（`[mm:ss]`，满一小时 `[hh:mm:ss]`），默认不写。 */

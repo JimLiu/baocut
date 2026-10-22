@@ -30,6 +30,7 @@ export const de: ProtocolValidationMessages = {
   fontEndpoint: "Schriftdownloadquelle muss eine Basis-URL mit https:// sein, ohne Benutzername, Passwort, Abfrage oder Fragment",
   rangeOrder: "Das Bereichsende muss nach dem Beginn liegen",
   rangeOrRanges: "Nur `range` oder `ranges` angeben",
+  documentOrDocuments: "Nur `documentId` oder `documentIds` angeben",
   wavNoBitrate: "WAV hat keine Bitrate",
   crfOrBitrate: "Nur `crf` oder `bitrateKbps` angeben",
   codecFormat: "MP4 verwendet h264 oder hevc; WebM verwendet vp9",

@@ -139,9 +139,12 @@
     (rows || []).forEach((r) => {
       if (r.kind === 'subs' && r.track) {
         const t = r.track;
+        // 一层由几段拼成（第 245 轮，纪录片每段素材一份字幕）：清单仍是一层一行，印上段数；
+        // 导出时各段按时间线上的位置合成一份文件
+        const segs = Array.isArray(t.segments) ? t.segments.length : 0;
         out.push({key: 'subs:' + t.id, kind: 'subs', id: t.id, label: t.name,
-          sub: t.role === 'source' ? '源语言字幕' : '译文字幕', on: !t.hidden,
-          lang: t.lang || t.id, role: t.role});
+          sub: (t.role === 'source' ? '源语言字幕' : '译文字幕') + (segs > 1 ? ' · ' + segs + ' 段' : ''), on: !t.hidden,
+          lang: t.lang || t.id, role: t.role, segments: segs > 1 ? segs : 1});
       } else if ((r.kind === 'element' || r.kind === 'text') && r.el && !r.member) {
         // 同类共道后一行可能坐着多件（2026-09-11）：导出清单仍逐件列，key 照旧是 `el:<id>`
         (r.els || [r.el]).forEach((el) => {

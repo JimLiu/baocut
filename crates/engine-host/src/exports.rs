@@ -250,15 +250,7 @@ pub fn plan(video: &Video, value: PlanParams) -> Result<Value, ErrorBody> {
                     msg!("engineHost.textPlanNoDocument", "A text plan needs at least one document"),
                 ));
             };
-            if value.document_ids.len() > 2 {
-                return Err(invalid(
-                    "INVALID_PARAMS",
-                    msg!(
-                        "engineHost.textPlanTooManyDocuments",
-                        "A text plan takes at most two documents (the main one and the other one of a bilingual merge)"
-                    ),
-                ));
-            }
+            // 文档个数不设上限：一层字幕可以是几份文档（纪录片每段素材一份），各自投影到时间线上，由 Runtime 合成一份。
             let mut contents = Vec::new();
             let mut documents = Vec::new();
             for document_id in &value.document_ids {

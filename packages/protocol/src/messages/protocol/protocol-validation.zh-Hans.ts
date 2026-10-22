@@ -29,6 +29,7 @@ export const zhHans: ProtocolValidationMessages = {
   fontEndpoint: '字体的下载来源应为 https:// 开头的基址，不含用户名、密码、查询参数与片段',
   rangeOrder: '范围的终点必须大于起点',
   rangeOrRanges: '`range` 与 `ranges` 只能给一个',
+  documentOrDocuments: '`documentId` 与 `documentIds` 只能给一个',
   wavNoBitrate: 'WAV 没有码率',
   crfOrBitrate: '`crf` 与 `bitrateKbps` 只能给一个',
   codecFormat: 'MP4 用 h264 或 hevc，WebM 用 vp9',

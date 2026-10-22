@@ -161,6 +161,8 @@ export const zhHant: ExportMessages = {
   subtitleLanes: '哪些軌道',
   subtitlesWhat: (labels: readonly string[]) => `${labels.join(' + ')}${labels.length === 2 ? ' 雙語' : ''}`,
   hiddenOnTimeline: '已在時間軸上停用',
+  segmentCount: (n) => `${n} 段`,
+  layerNote: '分段的字幕依各段在時間軸上的位置合成一個檔案',
   noSubtitles: '還沒有字幕或轉錄',
   noSubtitlesSub: '請先轉錄，或在時間軸上新增一條字幕軌',
   multiTrack: '多軌',

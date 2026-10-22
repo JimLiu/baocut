@@ -31,6 +31,7 @@ export const ja: ProtocolValidationMessages = {
     'フォントのダウンロード元は https:// で始まるベース URL にし、ユーザ名、パスワード、クエリ、フラグメントを含めないでください',
   rangeOrder: '範囲の終点は始点より大きくしてください',
   rangeOrRanges: '`range` と `ranges` はどちらか一方だけを指定してください',
+  documentOrDocuments: '`documentId` と `documentIds` はどちらか一方だけを指定してください',
   wavNoBitrate: 'WAV にはビットレートがありません',
   crfOrBitrate: '`crf` と `bitrateKbps` はどちらか一方だけを指定してください',
   codecFormat: 'MP4 は h264 または hevc、WebM は vp9 を使用します',
