@@ -17,11 +17,11 @@
 
 ### 内容背景
 
-给播客、访谈等音频配画面时，可以用 HTML 定制背景与标题。先读用户提供的博客正文、音频转写或简报，从主题、语气与受众决定配色、字形、标题层次与装饰；网格、光晕、标签只是可选手法，不固定套同一款，也不因用户没指定背景就只给纯色。用户要求简洁或内容适合时，纯色也可以。
+给播客、访谈等音频配画面时，用 HTML 按内容定制背景与标题，并和内置声波、字幕定成同一套颜色。动手前读 [音频视频的画面设计](motion-graphics/references/audio-backdrop.md)：先从博客正文、转写或简报写三行方案（主题与语气、画面的隐喻、取自本期的母题），再定色、字与版面；里面有声波带与字幕带的位置、HTML 截成背景图的步骤，以及千篇一律的信号。用户要求简洁或内容适合时，纯色也可以。
 
-- **静态版式**：用 HTML 写出设计，按第 4 节预览构图完整的一帧，作为背景图片导入并铺到片尾；保留 HTML 源码供修改，不为一张静态背景烘焙整段长录音。
-- **需要动画**：按下面的代码包做法导入；长录音按需要设计短循环或分章背景，先给实时预览（`baocut compositions import` 的 `live: true`），定稿后的烘焙按第 5 节处理。
-- 背景放在最下面的独立画面轨，给内置声波与字幕留出空间；HTML 可以包含版式标题，需要独立编辑的文字也可另建文字实例。声音、声波和字幕保持独立图层。
+- **静态版式**（长录音的默认）：按骨架写，`baocut compositions preview` 取一帧 PNG，作为图片铺到片尾；保留 HTML 源码供修改，不为一张静态背景烘焙整段长录音。
+- **需要动画**：只在录音短或用户要求时做，整段一个慢而连续的合成，不把短循环重复摆放（每段结尾都会淡出）。
+- 背景放在最下面的独立画面轨；声音、声波和字幕保持独立图层，声波不画进 HTML。
 
 ## 1. 定类别与时长
 
@@ -122,6 +122,7 @@
 - [`exemplars/logo-sting/9x16.html`](motion-graphics/exemplars/logo-sting/9x16.html)
 - [`exemplars/lower-third/16x9.html`](motion-graphics/exemplars/lower-third/16x9.html)
 - [`exemplars/lower-third/9x16.html`](motion-graphics/exemplars/lower-third/9x16.html)
+- [音频视频的画面设计](motion-graphics/references/audio-backdrop.md)
 - [动效图形的语法](motion-graphics/references/grammar.md)
 - [`scaffold.html`](motion-graphics/scaffold.html)
 - [`scripts/build-bundle.mjs`](motion-graphics/scripts/build-bundle.mjs)
