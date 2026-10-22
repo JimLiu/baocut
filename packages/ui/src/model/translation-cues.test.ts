@@ -4,6 +4,9 @@ import { captionChips } from './caption-tracks.ts';
 import { readSpeechWords, speechCaptionBody } from './speech-cues.ts';
 import type { TranslationUnit } from './translation-doc.ts';
 import {
+  compareOptions,
+  followCompare,
+  speechOf,
   cueOfUnit,
   derivedFrom,
   pairedOriginal,
@@ -254,5 +257,40 @@ describe('放到画面上的事务', () => {
     const ours = doc('cap', 'caption', { sourceDocumentId: 'trans', extensions: { [TRANSLATION_CAPTION_EXTENSION]: { translationDocumentId: 'trans' } } });
     expect(derivedFrom(ours, 'trans')).toBe(true);
     expect(derivedFrom(doc('cap2', 'caption', { sourceDocumentId: 'trans' }), 'trans')).toBe(false);
+  });
+});
+
+describe('对照条跟着校对中的那段', () => {
+  const record = (id: string, kind: string, extra: Partial<DocumentRecord> = {}): DocumentRecord => ({ id, kind, name: id, currentRevision: '1', revisions: {}, ...extra });
+  const documents: Record<string, DocumentRecord> = {
+    sa: record('sa', 'speech'),
+    sb: record('sb', 'speech'),
+    ta: record('ta', 'translation', { language: 'zh-CN', sourceDocumentId: 'sa' }),
+    tb: record('tb', 'translation', { language: 'zh-CN', sourceDocumentId: 'sb' }),
+    tb2: record('tb2', 'translation', { language: 'zh-CN', sourceDocumentId: 'sb' }),
+    ja: record('ja', 'translation', { language: 'ja', sourceDocumentId: 'sa' }),
+    ca: record('ca', 'caption', { sourceDocumentId: 'sa' }),
+    cta: record('cta', 'caption', { sourceDocumentId: 'ta' }),
+  };
+  const translations = [documents.ta!, documents.tb!, documents.tb2!, documents.ja!];
+
+  it('字幕文档追到转写：原文直接、译文隔一层；导入的追不到', () => {
+    expect(speechOf('ca', documents)).toBe('sa');
+    expect(speechOf('cta', documents)).toBe('sa');
+    expect(speechOf('missing', documents)).toBeNull();
+  });
+
+  it('每门语言只列与这段同源的；这段没有时列正在对照的；同源重翻的都列', () => {
+    expect(compareOptions(translations, 'sa', null).map((d) => d.id)).toEqual(['ta', 'ja']);
+    expect(compareOptions(translations, 'sb', null).map((d) => d.id)).toEqual(['tb', 'tb2', 'ja']);
+    expect(compareOptions(translations, 'sx', documents.tb!).map((d) => d.id)).toEqual(['tb', 'tb2', 'ja']);
+    expect(compareOptions(translations, null, null).map((d) => d.id)).toEqual(['ta', 'ja']);
+  });
+
+  it('换段时同一门语言跟过去；已同源或这段没有这门时不动', () => {
+    expect(followCompare(translations, 'sb', documents.ta!)?.id).toBe('tb');
+    expect(followCompare(translations, 'sa', documents.ta!)).toBeNull();
+    expect(followCompare(translations, 'sb', documents.ja!)).toBeNull();
+    expect(followCompare(translations, null, documents.ta!)).toBeNull();
   });
 });

@@ -228,3 +228,40 @@ export function derivedFrom(record: DocumentRecord, translationDocumentId: Id): 
   const ext = record.extensions?.[TRANSLATION_CAPTION_EXTENSION] as { translationDocumentId?: unknown } | undefined;
   return record.kind === 'caption' && record.sourceDocumentId === translationDocumentId && ext?.translationDocumentId === translationDocumentId;
 }
+
+/** 一份字幕文档追到的转写文档：原文字幕直接派生自它，译文字幕隔着一份译文；追不到（导入的字幕）是 null。 */
+export function speechOf(documentId: Id | undefined, documents: Record<Id, DocumentRecord>): Id | null {
+  let record = documentId ? documents[documentId] : undefined;
+  for (let hop = 0; record && hop < 4; hop++) {
+    if (record.kind === 'speech') return record.id;
+    record = record.sourceDocumentId ? documents[record.sourceDocumentId] : undefined;
+  }
+  return null;
+}
+
+/**
+ * 对照条的译文选项：纪录片一段素材翻一份时，同一门语言有好几份译文，各译自一段转写。每门语言只列与校对中这段同源的那几份
+ * （这段没有这门译文时列正在对照的那几份，再没有取第一段的）；同一段转写重新翻过的几份照旧都列。
+ */
+export function compareOptions(translations: readonly DocumentRecord[], speechId: Id | null, compared: DocumentRecord | null): DocumentRecord[] {
+  const byLanguage = new Map<string, DocumentRecord[]>();
+  for (const record of translations) {
+    const key = record.language ?? record.id;
+    byLanguage.set(key, [...(byLanguage.get(key) ?? []), record]);
+  }
+  return [...byLanguage.values()].flatMap((records) => {
+    const from = (source: Id | undefined) => records.filter((record) => record.sourceDocumentId === source);
+    if (new Set(records.map((record) => record.sourceDocumentId)).size < 2) return records;
+    for (const source of [speechId, compared?.sourceDocumentId]) {
+      const hit = source ? from(source) : [];
+      if (hit.length) return hit;
+    }
+    return from(records[0]!.sourceDocumentId);
+  });
+}
+
+/** 换着校对另一段时对照跟过去：同一门语言里译自这段转写的那份；正在对照的已经同源、或这段没有这门译文时是 null（留在原处）。 */
+export function followCompare(translations: readonly DocumentRecord[], speechId: Id | null, compared: DocumentRecord | null): DocumentRecord | null {
+  if (!speechId || !compared || compared.sourceDocumentId === speechId) return null;
+  return translations.find((record) => record.language === compared.language && record.sourceDocumentId === speechId) ?? null;
+}

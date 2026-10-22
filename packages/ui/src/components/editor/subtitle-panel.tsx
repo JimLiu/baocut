@@ -38,7 +38,7 @@ import { formatClock } from '../../model/format.ts';
 import { countSentences } from '../../model/speech-cues.ts';
 import { decodeSubtitleText, parseSubtitles, subtitleFormatOf } from '../../model/subtitles.ts';
 import { compileFind, findRanges, replaceRanges, stepIndex, type FindOptions, type TextRange } from '../../model/text-find.ts';
-import { pairedOriginal } from '../../model/translation-cues.ts';
+import { compareOptions, followCompare, pairedOriginal, speechOf } from '../../model/translation-cues.ts';
 import { estimateLines } from '../../model/virtual-rows.ts';
 import { readCaptions } from '../../render/captions.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -318,7 +318,7 @@ export function SubtitlePanel({
   const receipt = useTranslateRun((s) => (videoId ? (s.receipts[videoId] ?? null) : null));
   const translating = useTranslateLive(videoId);
   const translations = useMemo(() => Object.values(documents).filter((d) => d.kind === 'translation'), [documents]);
-  const compared = translations.find((d) => d.id === compare?.documentId) ?? translations[0] ?? null;
+  const stored = translations.find((d) => d.id === compare?.documentId) ?? translations[0] ?? null;
   /** 译文 chip 对应的 `translation` 文档；原文 chip 为 null。 */
   const translationOf = (key: string | undefined) => {
     const chip = chips.find((c) => c.key === key);
@@ -330,6 +330,10 @@ export function SubtitlePanel({
     ? pairedOriginal(chips, documents, documents[currentTranslation]?.sourceDocumentId ?? '')
     : current;
   const originalRecord = original ? documents[original.documentId] : undefined;
+  // 纪录片一段素材翻一份：校对另一段时，对照的那门语言跟到译自这段的那份；对照条每门语言只列这一份。
+  const speech = speechOf(original?.documentId, documents);
+  const compared = followCompare(translations, speech, stored) ?? stored;
+  const options = useMemo(() => compareOptions(translations, speech, compared), [translations, speech, compared]);
   const preferred: CompareMode = compared ? (compare?.mode ?? 'src') : 'src';
   // 画面上没有原文可看（只剩译文轨、或还没放到画面上）时，列表落在译文上。
   const mode: CompareMode = preferred === 'src' && !originalRecord && compared ? 'trans' : preferred;
@@ -400,7 +404,7 @@ export function SubtitlePanel({
           />
           <CompareBar
             mode={mode}
-            translations={translations}
+            translations={options}
             compared={compared}
             onMode={changeMode}
             onPick={(documentId) => videoId && setCompare(videoId, { mode, documentId })}
