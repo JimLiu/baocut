@@ -21,8 +21,8 @@ fn catalogues_follow_the_builtin_order() {
     let presets = presets();
     assert_eq!(ids(&presets["progress"]).len(), 14);
     assert_eq!(
-        ids(&presets["visualizer"])[..4],
-        ["bars", "bars_rounded", "bars_bottom", "ring_bars"]
+        ids(&presets["visualizer"])[..5],
+        ["audio_envelope", "bars", "bars_rounded", "bars_bottom", "ring_bars"]
     );
     assert_eq!(ids(&presets["confetti"])[0], "rainbow-paper");
     assert_eq!(presets["visualizerAliases"]["beam"], json!("oscilloscope"));
