@@ -9,6 +9,8 @@ BaoCut 的 Electron 桌面端：主进程（`src/main`）、preload 与渲染进
 | `tools/` | 对构建产物的检查（`check-file-fonts.mjs`、`check-model-assets.mjs`）、性能测量与打包脚本 |
 | `build/` | 打包用的资源：`icon.ico`（Windows）、`icon.icns`（macOS）、`icon.png`（1024），都由 `tools/app-icon/` 生成，`npm run icons` 重新导出，不手改 |
 
+Electron 升级同时更新 `package.json`、根 lockfile 与安装脚本许可。桌面 Runtime 使用 Electron 内置的 Node，升级开发机或 CI 的 Node 不会替换它。当前 Electron 44.9.3 含 Chromium 安全回移，但内置 Node 24.22.0 尚未包含 [2026 年 10 月 Node 安全公告](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)的 24.22.1 修复；须待 Electron 上游整合后再次升级，不能据此宣称这批漏洞已在桌面包中全部修复。版本对应以 [Electron 官方发布表](https://releases.electronjs.org/release/v44.9.3)为准。
+
 ## 外部 Agent 与 CLI
 
 桌面构建把当前 CLI、离线工具目录和 Runtime 放在同一个 App 中。macOS 的入口是 `BaoCut.app/Contents/MacOS/baocut-cli`，Windows 是安装目录里的 `baocut.cmd`；两者都使用包内的 Electron，无需另装 Node，也不自动向系统 PATH 写文件（`baocut skill status` 与 Skills 页给出可复制的命令）。把该入口的完整路径设为 `BAOCUT_CLI`，或通过绝对路径调用。macOS 的启动器也支持用户自己建立的符号链接；打包时用 Xcode 的 clang 编译为与宿主相同架构的 Mach-O，随 App 签名，避免脚本放在 `Contents/MacOS` 造成嵌套代码签名失败。

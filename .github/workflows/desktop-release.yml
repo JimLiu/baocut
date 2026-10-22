@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '22'
+          node-version: '24.22.1'
           package-manager-cache: false
       - name: Validate tag, package versions, increasing build and main ancestry
         id: release
@@ -73,7 +73,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '22'
+          node-version: '24.22.1'
           package-manager-cache: false
       - name: Download the validated native Mac candidate
         env:
@@ -98,7 +98,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '22'
+          node-version: '24.22.1'
           package-manager-cache: false
       - name: Publish all three validated Windows variants and update feeds
         env:

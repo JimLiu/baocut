@@ -7,7 +7,7 @@
  * - 启动后（`app.whenReady()` 之后）发事件 `ready`；stdin 关闭即退出。不用顶层 await：ready 要等脚本求值结束才发。
  * - `open`：每个会话一个非持久分区、一个隐藏的离屏窗口；拦截根目录以外的 `file:` 与一切 `data:` / `blob:` / `about:` /
  *   `devtools:` 以外的请求（事件 `networkBlocked`），拒绝全部权限请求与导航、弹窗。
- * - `frame`：同一会话串行；seek → 回读校验 → `invalidate()` 等一次 `paint`（最多 500 ms）→ `capturePage()` 截图。
+ * - `frame`：首次 seek 前先初始化截图表面并丢弃初始截图；同一会话串行；seek → 回读校验 → `invalidate()` 等一次 `paint`（最多 500 ms）→ `capturePage()` 截图。
  *   回读容差是采样帧率下的半帧：帧率取请求里的 `fps`（取帧票据的），没有时取 `open` 的 `fps`（包的 intrinsic）。
  *   不直接用 `paint` 事件带来的图像：实测它可能是上一次提交的旧帧，`capturePage()` 才稳定反映 seek 后的画面。
  * - `open` 带 `record: true` 时，在 `ready()` 之前再注入 `CANVAS_RECORDER_SCRIPT`（要赶在 `initialize` 构造 `FontFace` 与离屏画布之前）。
@@ -223,13 +223,19 @@ function seekTolerance(fps) {
 async function renderFrame(state, p) {
   const seconds = Number(p.seconds);
   if (!Number.isFinite(seconds)) throw fail('COMPOSITION_SEEK_MISMATCH', 'Requested time is not a finite number');
+  const wc = state.win.webContents;
+  // Prime the offscreen surface before seeking: Electron 44.9 can return the
+  // initial page on its first capture even after the seek's paint event.
+  if (!state.captureReady) {
+    await guarded(state, wc.capturePage());
+    state.captureReady = true;
+  }
   const expression = 'window.__baocutAdapter.seek(' + JSON.stringify(seconds) + ')';
   const tolerance = seekTolerance(p.fps || state.fps);
   const seek = await guarded(state, adapterCall(state, expression));
   if (!(Math.abs(seek.sampledSeconds - seek.targetSeconds) <= tolerance)) {
     throw fail('COMPOSITION_SEEK_MISMATCH', 'Seek to ' + seconds + ' s sampled ' + seek.sampledSeconds + ' s (target ' + seek.targetSeconds + ' s)', seek);
   }
-  const wc = state.win.webContents;
   const painted = await nextPaint(wc);
   const image = await guarded(state, wc.capturePage());
   const size = image.getSize();

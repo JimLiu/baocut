@@ -2377,7 +2377,7 @@ interface FrameTicket {
 
 **末尾行为**必须显式选择：取可用帧、hold，或报告越界。默认不把超出源码时长的请求自动当作成功的 hold。允许的时间误差来自精确的视频与素材 timebase 及所选的采样策略，不使用一个固定的容差常数；高帧率场景必须验证末帧以及相邻帧可以区分。
 
-**第一期的子集**（`packages/code-runtime`）。`FrameTicket` 只有 `requestId`、`bundleRef`、`compositionId`、`localTime`、`frameIndex`、`fps`、`width`、`height`、`parametersHash`、`quality`；`FrameReceipt` 带回实际采样与请求的秒数、是否被夹到时长上，以及帧 bytes 的 sha256。捕获在 Adapter 等两个动画帧之外，还在 `invalidate()` 之后等待离屏窗口的 `paint` 事件，然后用 `capturePage` 取帧（`paint` 事件自带的图像可能滞后一帧，不直接用）；这仍是上文所说的候选等待策略，对 Export-Exact 的限制不变。同一会话的取帧请求串行执行；采样帧用 sha256 比较，作为确定性的证据。`hyperframes/1` 的末尾行为与 seek 回读容差见代码包规范 §4.7：容差是采样帧率下的半帧，帧率取取帧票据的 `fps`（没有票据时取包的 `intrinsic.fps`），不是固定常数。
+**第一期的子集**（`packages/code-runtime`）。`FrameTicket` 只有 `requestId`、`bundleRef`、`compositionId`、`localTime`、`frameIndex`、`fps`、`width`、`height`、`parametersHash`、`quality`；`FrameReceipt` 带回实际采样与请求的秒数、是否被夹到时长上，以及帧 bytes 的 sha256。首次取帧先用 `capturePage` 初始化离屏表面并丢弃初始截图，再执行目标 seek，避免 Electron 44.9 首次捕获仍返回初始画面。捕获在 Adapter 等两个动画帧之外，还在 `invalidate()` 之后等待离屏窗口的 `paint` 事件，然后用 `capturePage` 取帧（`paint` 事件自带的图像可能滞后一帧，不直接用）；这仍是上文所说的候选等待策略，对 Export-Exact 的限制不变。同一会话的取帧请求串行执行；采样帧用 sha256 比较，作为确定性的证据。`hyperframes/1` 的末尾行为与 seek 回读容差见代码包规范 §4.7：容差是采样帧率下的半帧，帧率取取帧票据的 `fps`（没有票据时取包的 `intrinsic.fps`），不是固定常数。
 
 ### 8.5 混合帧率与精确局部时间
 

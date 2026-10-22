@@ -13,9 +13,11 @@ export function checkEnvironment({
 } = {}) {
   const checks = [];
   const add = (label, ok, hint, required = true) => checks.push({ label, ok, hint, required });
-  const [major, minor] = nodeVersion.split('.').map(Number);
-  // Vite 的 Node 22 下限是 22.12；直接运行 .ts 的 npm scripts 显式启用类型擦除。
-  add('Node.js 22.12+', major > 22 || (major === 22 && minor >= 12), 'Install Node.js 22.12+ from https://nodejs.org and reopen your terminal.');
+  const [major, minor, patch] = nodeVersion.split('.').map(Number);
+  // Minimum patched releases from the October 2026 Node.js security advisory.
+  const minimum = { 22: [23, 4], 24: [22, 1], 26: [12, 1] }[major];
+  const supported = !!minimum && (minor > minimum[0] || (minor === minimum[0] && patch >= minimum[1]));
+  add('Node.js 22.23.4+, 24.22.1+ or 26.12.1+', supported, 'Install Node.js 24.22.1 LTS or a newer patched release in a supported line from https://nodejs.org and reopen your terminal.');
   if (lite) return checks;
 
   add('Cargo', probe('cargo', ['--version']), 'Install Rust from https://rustup.rs and reopen your terminal.');

@@ -24,7 +24,7 @@
   "devDependencies": {
     "@react-aria/optimize-locales-plugin": "^2.0.2",
     "@vitejs/plugin-react": "^5.2.0",
-    "electron": "^44.5.1",
+    "electron": "^44.9.3",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "unplugin-parcel-macros": "^0.2.0",

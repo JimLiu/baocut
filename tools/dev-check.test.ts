@@ -11,18 +11,18 @@ type Check = { label: string; ok: boolean; required: boolean; hint: string };
 const failed = (checks: Check[]) => checks.filter((check) => check.required && !check.ok).map((check) => check.label);
 
 describe('development prerequisites', () => {
-  it('accepts Node 22.16 and uses the Node 22 minimum required by Vite', () => {
-    for (const nodeVersion of ['20.19.0', '22.6.0', '22.11.0']) {
-      expect(failed(checkEnvironment({ nodeVersion, lite: true }))).toEqual(['Node.js 22.12+']);
+  it('requires the October 2026 security patches in each supported Node line', () => {
+    for (const nodeVersion of ['20.19.0', '22.23.3', '22.22.9', '23.11.0', '24.22.0', '24.21.9', '25.9.0', '26.12.0', '26.11.9']) {
+      expect(failed(checkEnvironment({ nodeVersion, lite: true }))).toEqual(['Node.js 22.23.4+, 24.22.1+ or 26.12.1+']);
     }
-    for (const nodeVersion of ['22.12.0', '22.16.0', '22.17.0', '22.18.0', '22.20.0', '24.0.0']) {
+    for (const nodeVersion of ['22.23.4', '22.23.5', '22.24.0', '24.22.1', '24.22.2', '24.23.0', '26.12.1', '26.12.2', '26.13.0']) {
       expect(failed(checkEnvironment({ nodeVersion, lite: true }))).toEqual([]);
     }
   });
 
   it('enables type stripping for npm scripts that run TypeScript directly', () => {
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-    expect(manifest.engines.node).toBe('>=22.12.0');
+    expect(manifest.engines.node).toBe('^22.23.4 || ^24.22.1 || ^26.12.1');
     const scripts: string[] = Object.values(manifest.scripts);
     const typedScripts = scripts.filter((script) => /^node .*\.ts$/.test(script));
     expect(typedScripts).toHaveLength(5);
@@ -31,11 +31,11 @@ describe('development prerequisites', () => {
 
   it('returns the correct CLI exit status for supported and unsupported Node versions', () => {
     const script = fileURLToPath(new URL('./dev-check.mjs', import.meta.url));
-    for (const [nodeVersion, status] of [['22.16.0', 0], ['22.11.0', 1]] as const) {
+    for (const [nodeVersion, status] of [['24.22.1', 0], ['24.22.0', 1], ['26.11.1', 1]] as const) {
       const preload = `Object.defineProperty(process.versions, 'node', { value: '${nodeVersion}' });`;
       const result = spawnSync(process.execPath, ['--import', `data:text/javascript,${encodeURIComponent(preload)}`, script, '--lite'], { encoding: 'utf8' });
       expect(result.status, result.stderr).toBe(status);
-      expect(result.stdout).toContain(`[${status === 0 ? 'OK' : 'MISSING'}] Node.js 22.12+`);
+      expect(result.stdout).toContain(`[${status === 0 ? 'OK' : 'MISSING'}] Node.js 22.23.4+, 24.22.1+ or 26.12.1+`);
     }
   });
 
@@ -63,7 +63,7 @@ process.exitCode = result.status ?? 1;
       }));
       const result = spawnSync(process.execPath, [process.env.npm_execpath!, 'run', 'dev'], { cwd: root, encoding: 'utf8' });
       expect(result.status, result.stderr).toBe(1);
-      expect(result.stdout).toContain('[MISSING] Node.js 22.12+');
+      expect(result.stdout).toContain('[MISSING] Node.js 22.23.4+, 24.22.1+ or 26.12.1+');
       expect(result.stdout).not.toContain('BUILD_OR_DEV_RAN');
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -71,26 +71,26 @@ process.exitCode = result.status ?? 1;
   });
 
   it('does not invoke native tools in lite mode', () => {
-    const checks = checkEnvironment({ nodeVersion: '22.18.0', lite: true, probe: () => { throw new Error('native tool invoked'); } });
+    const checks = checkEnvironment({ nodeVersion: '24.22.1', lite: true, probe: () => { throw new Error('native tool invoked'); } });
     expect(failed(checks)).toEqual([]);
     expect(checks).toHaveLength(1);
   });
 
   it('reports all missing prerequisites, with actionable Windows guidance', () => {
-    const checks: Check[] = checkEnvironment({ nodeVersion: '22.18.0', platform: 'win32', arch: 'x64', probe: () => false });
+    const checks: Check[] = checkEnvironment({ nodeVersion: '24.22.1', platform: 'win32', arch: 'x64', probe: () => false });
     expect(failed(checks)).toEqual(['Cargo', 'rustc', 'CMake', 'MSVC C++ compiler']);
     expect(checks.find((check) => check.label === 'MSVC C++ compiler')?.hint).toContain('x64 Native Tools');
     expect(checks.filter((check) => !check.required).map((check) => check.label)).toEqual(['ffmpeg', 'ffprobe']);
   });
 
   it('requires Metal for Apple Silicon and C++ only for Intel macOS', () => {
-    const options = { nodeVersion: '22.18.0', platform: 'darwin', probe: (_: string, args: string[]) => !args.includes('metal') };
+    const options = { nodeVersion: '24.22.1', platform: 'darwin', probe: (_: string, args: string[]) => !args.includes('metal') };
     expect(failed(checkEnvironment({ ...options, arch: 'arm64' }))).toEqual(['Metal compiler (MLX)']);
     expect(failed(checkEnvironment({ ...options, arch: 'x64' }))).toEqual([]);
   });
 
   it('checks the Linux compiler and treats missing FFmpeg as a warning', () => {
-    const checks = checkEnvironment({ nodeVersion: '24.0.0', platform: 'linux', arch: 'x64', probe: (command: string) => !['c++', 'ffmpeg', 'ffprobe'].includes(command) });
+    const checks = checkEnvironment({ nodeVersion: '24.22.1', platform: 'linux', arch: 'x64', probe: (command: string) => !['c++', 'ffmpeg', 'ffprobe'].includes(command) });
     expect(failed(checks)).toEqual(['C++ compiler']);
   });
 });

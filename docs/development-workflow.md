@@ -58,7 +58,7 @@ summary 写清动作、对象及关键结果，不使用 `update`、`fix some is
 
 命令默认从仓库根运行，`<受影响 crate>`、`<测试文件>` 替换为实际名称或路径。
 
-源码开发的系统依赖与平台安装步骤见[英文 README](../README.md#run-from-source)／[中文 README](../README.zh-Hans.md#从源码运行)。`npm run doctor` 只检查环境，缺少必需工具时返回非零；`npm run setup` 检查并构建原生 Worker、取内置的 audio.cpp 引擎（`npm run build:audiocpp`）并构建 WASM。`npm run dev` 自动执行 setup，构建失败时停止启动；无 Rust 的外壳开发使用 `npm run dev:lite`，启动前明确输出能力限制，不将其作为原生功能的验收环境。Node 版本下限为 22.12（Vite 的 Node 22 要求）；直接执行 TypeScript 源码的 npm scripts 必须显式启用 `--experimental-strip-types`，兼容尚未默认开启类型擦除的 22.12–22.17。修改这组开发入口时运行 `npm test -- tools/dev-check.test.ts`，并核对正常启动与失败退出路径；跨平台模拟测试不能替代对应操作系统的实际构建。
+源码开发的系统依赖与平台安装步骤见[英文 README](../README.md#run-from-source)／[中文 README](../README.zh-Hans.md#从源码运行)。`npm run doctor` 只检查环境，缺少必需工具时返回非零；`npm run setup` 检查并构建原生 Worker、取内置的 audio.cpp 引擎（`npm run build:audiocpp`）并构建 WASM。`npm run dev` 自动执行 setup，构建失败时停止启动；无 Rust 的外壳开发使用 `npm run dev:lite`，启动前明确输出能力限制，不将其作为原生功能的验收环境。Node 的推荐版本由根 `.node-version` 固定为 24.22.1 LTS，CI 使用同一版本；兼容范围为 `^22.23.4 || ^24.22.1 || ^26.12.1`，`doctor` 拒绝缺少 2026 年 10 月安全补丁的旧版本与不受支持的大版本。直接执行 TypeScript 源码的 npm scripts 保留显式的 `--experimental-strip-types`。修改这组开发入口时运行 `npm test -- tools/dev-check.test.ts`，并核对正常启动与失败退出路径；跨平台模拟测试不能替代对应操作系统的实际构建。
 
 | 改动范围 | 检查入口与范围 |
 | --- | --- |
