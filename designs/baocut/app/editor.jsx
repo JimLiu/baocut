@@ -1306,29 +1306,6 @@
     /* 轻量视图的段（docs/design/lite-editor §2）：场景表 > 章节 > 旁白分段 > 整条；标注落点与图层开关也从这里读 */
     const segments = useMemo(() => (LITE ? LITE.segments({scenes, chapters, cues, duration, title: proj.title}) : []),
       [LITE, scenes, proj.title, chapters, cues, duration]);
-    /* 拖片的边（轻量视图设计 §3.2）：场景 = 改这一场的 duration、后面整体推开、总长跟着变（动画片设计 §3.1）；
-       章节 = 挪与下一章的边界，总长不变。都进撤销快照，toast 里带撤销。 */
-    const resizeSegment = useCallback((seg, newEnd) => {
-      if (!LITE || !seg) return;
-      if (seg.kind === 'scene' && scenes) {
-        const r = LITE.retimeScene(scenes, seg.index, newEnd);
-        if (!r) return;
-        const prev = {scenes, chapters, cues, durBase};
-        history.mark();
-        setScenes(r.scenes); setChapters(LITE.chaptersOf(r.scenes)); setCues(LITE.shiftAfter(cues, seg.end, r.delta)); setDurBase(d => d + r.delta);
-        const sc = r.scenes[seg.index];
-        app.toast(`「${seg.title}」现在 ${LITE.fmtDur(sc.end - sc.start)} · 后面 ${r.scenes.length - seg.index - 1} 场${r.delta > 0 ? '后移' : '前移'} ${Math.abs(r.delta).toFixed(1)}s · 画面要按新长度重做`, 'positive',
-          {label: '撤销', undo: true, run: () => { setScenes(prev.scenes); setChapters(prev.chapters); setCues(prev.cues); setDurBase(prev.durBase); app.toast('已还原场景时长'); }});
-      } else {
-        const next = LITE.moveChapterBoundary(chapters, seg.index, newEnd);
-        if (!next) return;
-        const prev = chapters;
-        history.mark();
-        setChapters(next);
-        app.toast(`章节边界 → ${T.timecode(next[seg.index].end, {decimals: 1})}`, 'positive',
-          {label: '撤销', undo: true, run: () => { setChapters(prev); app.toast('已还原章节边界'); }});
-      }
-    }, [LITE, scenes, chapters, cues, durBase, app, history]);
     const liteLayerSpec = useMemo(() => {
       if (!LITE) return null;
       const tracks = S.tracks(subStyle);
@@ -1354,7 +1331,7 @@
 
     const ctx = {
       retainLocalVideoUrl,
-      view, setView, segments, liteLayerSpec, liteLayerOn, setLiteLayer, resizeSegment,
+      view, setView, segments, liteLayerSpec, liteLayerOn, setLiteLayer,
       noteContext: LITE ? (t) => LITE.noteContext(segments, t) : null,
       proj, tab, setTab, playT, seek, playing, setPlaying, pxps, setPxps, tlBodyRef, tlScrollReq, requestTlScroll: (left) => setTlScrollReq({left}), sources, addSource, removeSource, duration,
       openEnded, filmEnd,

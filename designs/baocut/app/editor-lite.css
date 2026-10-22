@@ -26,19 +26,17 @@
 .lt-tport__glyph { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
 /* 片式段条：一段一片（高 32、radius 8），片之间留 4px 空隙，片上只写名字；当前片灰得更深，播放头是一根伸出上下沿的线、底下带个小把手；
-   片的右边是 8px 宽的把手（col-resize），拖的时候整条换成 col-resize 光标、把手上方浮出新时长；缩放钮在播放条右端 */
+   片的边不能拖（只看不改）；缩放钮在播放条右端 */
 .lt-strip { display: flex; align-items: center; }
 /* 滚动容器：放大后横向滚，细滚动条；上下留 8px 给伸出片的播放头与把手 */
 .lt-strip__scroll { flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 8px 0; scrollbar-width: none; }
 .lt-strip__scroll.is-zoomed { scrollbar-width: thin; scrollbar-color: var(--gray-400) transparent; }
 .lt-chips { display: flex; align-items: stretch; gap: 4px; min-width: 100%; user-select: none; touch-action: none; }
-.lt-chips.is-resize, .lt-chips.is-resize * { cursor: col-resize !important; }
 .lt-chips.is-scrub, .lt-chips.is-scrub * { cursor: ew-resize !important; }
 .lt-chip { position: relative; display: flex; min-width: 0; height: 32px; border-radius: 8px; background: var(--gray-100); color: var(--gray-800);
   transition: background 150ms cubic-bezier(0.45,0,0.4,1); }
 .lt-chip:hover { background: var(--gray-200); }
 .lt-chip.is-current { background: var(--gray-300); color: var(--gray-900); }
-.lt-chip.is-resizing { background: var(--gray-400); }
 .lt-chip__body { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; height: 100%; padding: 0 10px; border-radius: 8px; cursor: pointer; text-align: left; font-size: 12px; line-height: 16px; color: inherit; }
 .lt-chip__body:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
 .lt-chip__title { flex: 1 1 auto; }
@@ -48,14 +46,6 @@
 .lt-chip__head { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--gray-900); pointer-events: none; z-index: 2; }
 .lt-chip__head::after { content: ''; position: absolute; left: -3px; bottom: -3px; width: 8px; height: 6px; border-radius: 3px; background: var(--gray-900); }
 .lt-chip__hover { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--gray-500); pointer-events: none; opacity: 0.8; z-index: 1; }
-.lt-chip__edge { position: absolute; top: 0; bottom: 0; right: -2px; width: 8px; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: col-resize; z-index: 3; }
-.lt-chip__edge::after { content: ''; position: absolute; top: 8px; bottom: 8px; left: 3px; width: 2px; background: var(--gray-400); opacity: 0; transition: opacity 150ms cubic-bezier(0.45,0,0.4,1); }
-.lt-chip:hover .lt-chip__edge::after, .lt-chip__edge:focus-visible::after, .lt-chip.is-resizing .lt-chip__edge::after { opacity: 1; }
-.lt-chip.is-resizing .lt-chip__edge::after { background: var(--blue-900); }
-.lt-chip__edge:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 1px; }
-.lt-chip__bubble { position: absolute; right: -4px; bottom: calc(100% + 6px); padding: 2px 6px; border-radius: 8px; font-size: 11px; line-height: 16px; white-space: nowrap;
-  background: var(--gray-900); color: var(--gray-25); box-shadow: var(--sh-pop); pointer-events: none; z-index: 4; }
-.lt-chip__delta { color: var(--gray-300); }
 .lt-tport__tc.is-hover { color: var(--gray-600); }
 /* 轻量视图开着时 toast（S2 的 ToastContainer，直接挂在 body 下、fixed 贴底 16px）抬到播放条（章节条 28 + 48 + 片条 46 + 内边距 20 + 边 2）上方，别盖住片 */
 body.is-lite-view > div[role="region"] { bottom: 156px; }

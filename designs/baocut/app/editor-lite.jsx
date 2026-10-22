@@ -10,12 +10,10 @@
   const T = window.BC_TIME;
   const SURF = window.BC_SURFACE;
 
-  /** 片式段条（照代码动画引擎的宿主时间线：一段一片、播放头是一根跨片的线、片的右边能拖）：
+  /** 片式段条（照代码动画引擎的宿主时间线：一段一片、播放头是一根跨片的线）：
       - 片宽按时长比例，片里写段名，放宽了再写时长；当前片加深，播放头线落在当前片上并伸出上下沿；
       - 在片上按下并拖 = 刷洗（按指针位置连续 seek，跨片也行），悬停 = 预读那一刻（播放条的时码跟着显示）；
-      - 片的右边是一枚把手：拖它改这一段的时长（场景：后面的场景整体推开、总长跟着变；章节：只挪与下一章的边界），
-        拖的过程中片按新长度预览、把手上方浮出新时长与差值，松手才写回（editor.jsx 的 resizeSegment，进撤销）；
-        把手也吃键盘：← / → 各 1 秒，⇧ 是 0.1 秒。 */
+      - 片只看不改：片的边不能拖，段的时长与章节边界到时间线视图里改（轻量编辑器设计 §3.2）。 */
   function LiteSegBar({ctx, segs, hoverT, setHoverT, zoom, setZoom, api}) {
     const {playT, seek, duration} = ctx;
     const barRef = useRef(null);
@@ -74,10 +72,8 @@
       }
     };
     useEffect(() => { if (api) api.current = {zoomTo, zoomAction}; });
-    const [drag, setDrag] = useState(null);   // {kind: 'scrub'} | {kind: 'resize', index, end0, x0, pxPerSec, end}
-    const preview = drag?.kind === 'resize' ? {index: drag.index, end: drag.end} : null;
-    const chips = L.chipSpans(segs, playT, duration, drag ? null : hoverT, preview);
-    const canResize = !!ctx.resizeSegment;
+    const [drag, setDrag] = useState(null);   // {kind: 'scrub'}
+    const chips = L.chipSpans(segs, playT, duration, drag ? null : hoverT);
 
     /* 指针横坐标 → 时间：按片的实际几何算（片之间有空隙，不能按整条宽度线性换），落在空隙里归右边那片的开头 */
     const timeAtX = x => {
@@ -93,25 +89,12 @@
 
     useEffect(() => {
       if (!drag) return;
-      const move = e => {
-        if (drag.kind === 'scrub') seek(timeAtX(e.clientX));
-        else setDrag(d => ({...d, end: Math.max(d.bounds.min, Math.min(d.bounds.max, d.end0 + (e.clientX - d.x0) / d.pxPerSec))}));
-      };
-      const up = e => {
-        if (drag.kind === 'resize') ctx.resizeSegment(segs[drag.index], drag.end0 + (e.clientX - drag.x0) / drag.pxPerSec);
-        setDrag(null);
-      };
+      const move = e => seek(timeAtX(e.clientX));
+      const up = () => setDrag(null);
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up, {once: true});
       return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-    }, [drag?.kind, drag?.index]);
-
-    /* 把手上的 ← / →：±1 秒，⇧ ±0.1 秒。拦住冒泡，别再让编辑器的全局方向键去挪播放头。 */
-    const nudge = (seg, e) => {
-      const step = e.shiftKey ? 0.1 : 1;
-      if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); ctx.resizeSegment(seg, seg.end + step); }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); ctx.resizeSegment(seg, seg.end - step); }
-    };
+    }, [drag?.kind]);
 
     /* 放大后播放头出了视野就滚过去（拖播放头的时候不抢） */
     useEffect(() => {
@@ -130,9 +113,7 @@
       onPointerLeave={() => setHoverT(null)}>
       {chips.map((c, i) => {
         const seg = segs[i];
-        const resizing = preview && preview.index === i;
-        const delta = resizing ? c.span - (seg.end - seg.start) : 0;
-        return <div key={c.id} className={cx('lt-chip', c.current && 'is-current', resizing && 'is-resizing')} style={{flex: `${Math.max(c.flex, 0.02)} 1 0`}}>
+        return <div key={c.id} className={cx('lt-chip', c.current && 'is-current')} style={{flex: `${Math.max(c.flex, 0.02)} 1 0`}}>
           <Tip label={`${c.title} · ${T.timecode(c.start)} – ${T.timecode(c.end)} · ${c.label}${seg.lines?.[0] ? ` · ${seg.lines[0].text}` : ''}`}>
             <BCAction type="button" className="lt-chip__body" aria-label={`${c.title} · ${c.label}${c.current ? ' · 正在播放' : ''}`} aria-current={c.current ? 'true' : undefined}
               onPointerDown={e => { if (e.button !== 0) return; e.preventDefault(); seek(timeAtX(e.clientX)); setDrag({kind: 'scrub'}); }}
@@ -143,17 +124,6 @@
           </Tip>
           {c.head != null ? <span className="lt-chip__head" style={{left: `${c.head * 100}%`}} aria-hidden="true" /> : null}
           {c.hover != null ? <span className="lt-chip__hover" style={{left: `${c.hover * 100}%`}} aria-hidden="true" /> : null}
-          {canResize && c.resizable ? <button type="button" className="lt-chip__edge" aria-label={`拖动改「${c.title}」的时长 · 现在 ${c.label}`}
-            title={seg.kind === 'scene' ? '拖动改这一场的时长' : '拖动挪与下一章的边界'}
-            onPointerDown={e => {
-              if (e.button !== 0) return;
-              e.preventDefault(); e.stopPropagation();
-              const r = e.currentTarget.parentElement.getBoundingClientRect();
-              const bounds = L.resizeBounds(segs, i) || {min: seg.start + 0.1, max: Infinity};
-              setDrag({kind: 'resize', index: i, end0: seg.end, end: seg.end, x0: e.clientX, bounds, pxPerSec: Math.max(0.5, r.width / Math.max(0.1, seg.end - seg.start))});
-            }}
-            onKeyDown={e => nudge(seg, e)} /> : null}
-          {resizing ? <span className="lt-chip__bubble t-mono" role="status">{c.label}<span className="lt-chip__delta">{delta >= 0 ? ' +' : ' −'}{Math.abs(delta).toFixed(1)}s</span></span> : null}
         </div>;
       })}
     </div>

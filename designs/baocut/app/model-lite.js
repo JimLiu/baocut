@@ -122,79 +122,21 @@
   }
   const SECTION_LABELS = {captions: '字幕', picture: '画面', sound: '声音'};
 
-  /* ---------- 段条（片）与拖动改时长 ---------- */
-  /** 片式段条的每一片：占比（flex）、播放头在片里的位置（0–1，不在这片上为 null）、悬停位置；`preview` 是拖边时还没落定的新长度
-      `{index, end}`，片按它显示。场景改长会把后面的片一起推开（总长跟着变）；章节只挪边界，总长不变。 */
-  function chipSpans(segs, playT, duration, hoverT, preview) {
-    const list = (segs || []).map((s, i) => {
-      let start = s.start, end = s.end;
-      if (preview && s.kind === 'scene') {
-        if (i === preview.index) end = preview.end;
-        else if (i > preview.index) { const d = preview.end - segs[preview.index].end; start += d; end += d; }
-      } else if (preview && s.kind !== 'scene') {
-        if (i === preview.index) end = preview.end;
-        else if (i === preview.index + 1) start = preview.end;
-      }
-      return {seg: s, start, end};
-    });
+  /* ---------- 段条（片） ---------- */
+  /** 片式段条的每一片：占比（flex）、播放头在片里的位置（0–1，不在这片上为 null）、悬停位置。片只看不改，边不能拖（轻量编辑器设计 §3.2）。 */
+  function chipSpans(segs, playT, duration, hoverT) {
+    const list = segs || [];
     const last = list[list.length - 1];
-    const total = Math.max(last ? last.end : 0, duration > 0 && !(preview && last?.seg.kind === 'scene') ? duration : 0, 0.001);
+    const total = Math.max(last ? last.end : 0, duration > 0 ? duration : 0, 0.001);
     const frac = (t, a, b) => (t == null || t < a || t > b || b <= a) ? null : Math.max(0, Math.min(1, (t - a) / (b - a)));
-    const at = segmentAt(list.map(x => ({...x.seg, start: x.start, end: x.end})), playT);
-    return list.map(({seg, start, end}, i) => {
+    const at = segmentAt(list, playT);
+    return list.map((seg, i) => {
+      const {start, end} = seg;
       const span = Math.max(0, end - start);
       return {id: seg.id, index: i, title: seg.title, start, end, span, flex: span / total, label: fmtDur(span),
         current: at?.id === seg.id, head: at?.id === seg.id ? frac(playT, start, end) : null,
-        hover: frac(hoverT, start, end), resizable: seg.kind === 'scene' || i < list.length - 1};
+        hover: frac(hoverT, start, end)};
     });
-  }
-
-  /** 讲解片的章长归旁白（动画片设计 §2.3）：拖短不能短过旁白末句 + tail；没有旁白的最短 1 秒。相对场景开头。 */
-  const TAIL = 0.4;
-  function minSceneLength(sc) {
-    const lines = sc.lines || [];
-    return lines.length ? round3(lines[lines.length - 1].end + TAIL) : 1;
-  }
-
-  /** 拖场景的右边 = 改这一场的 `duration`（归属改为 `user`，动画片设计 §3.1）：后面的场景整体推开，总长跟着变。
-      返回 {scenes, delta}；没变化或拖不动时回 null。场景表里句子与实拍的时间都相对场景开头，所以不用改。 */
-  function retimeScene(scenes, index, newEnd) {
-    const sc = scenes?.[index];
-    if (!sc) return null;
-    const end = round3(Math.max(sc.start + minSceneLength(sc), newEnd));
-    const delta = round3(end - sc.end);
-    if (Math.abs(delta) < 0.001) return null;
-    const next = scenes.map((s, i) => i < index ? s : i === index ? {...s, end, durationOwner: 'user'} : {...s, start: round3(s.start + delta), end: round3(s.end + delta)});
-    return {scenes: next, delta};
-  }
-
-  /** 场景表 → 章节标记（时间线顶部的章节条与文稿页读它），与 data.js 的 projectSetup 同一换法。 */
-  const chaptersOf = scenes => (scenes || []).map(s => ({id: s.id, title: s.title, start: s.start, end: s.end}));
-
-  /** 场景推开之后，落在边界之后的字幕 cue 一起平移（边界之前的不动）。 */
-  const shiftAfter = (cues, from, delta) => (cues || []).map(c => c.start >= from - 0.001 ? {...c, start: round3(c.start + delta), end: round3(c.end + delta)} : c);
-
-  /** 拖章节的右边 = 挪它与下一章的边界：总长不变，两边各至少留 `min` 秒；末章的右边是片尾，拖不动。返回新章节表或 null。 */
-  function moveChapterBoundary(chapters, index, t, min = 1) {
-    const a = chapters?.[index], b = chapters?.[index + 1];
-    if (!a || !b) return null;
-    const end = round3(Math.max(a.start + min, Math.min(b.end - min, t)));
-    if (Math.abs(end - a.end) < 0.001) return null;
-    return chapters.map((c, i) => i === index ? {...c, end} : i === index + 1 ? {...c, start: end} : c);
-  }
-
-  /** 拖边能到的范围，给拖动中的预览夹住（松手时 retimeScene / moveChapterBoundary 用同一规则）：
-      场景最短到旁白末句 + tail、没有上限；章节在与下一章之间各留 `min` 秒；末章拖不动，回 null。
-      段里的句子已换成序列时间，所以场景的最短点就是末句的 end + TAIL。 */
-  function resizeBounds(segs, index, min = 1) {
-    const s = segs?.[index];
-    if (!s) return null;
-    if (s.kind === 'scene') {
-      const lines = s.lines || [];
-      return {min: round3(lines.length ? lines[lines.length - 1].end + TAIL : s.start + min), max: Infinity};
-    }
-    const b = segs[index + 1];
-    return b ? {min: round3(s.start + min), max: round3(b.end - min)} : null;
   }
 
   /** 片条的缩放：1 = 整条铺满播放条的宽度（默认），按钮每档 ×1.5、最大 8 倍；⌘ / Ctrl + 滚轮（触控板捏合）连续缩放。放大后横向滚动。 */
@@ -295,7 +237,6 @@
 
   Object.assign(root, {BC_LITE: {SOURCES, SECTION_LABELS, VIEWS, SPEECH_GAP, SPEECH_MAX,
     fmtDur, fmtClock, segments, segmentAt, lineAt, prevStart, nextStart, barSpans, chipSpans, layers,
-    TAIL, minSceneLength, retimeScene, chaptersOf, shiftAfter, moveChapterBoundary, resizeBounds,
     ZOOM_MAX, ZOOM_MENU, clampZoom, zoomIn, zoomOut, zoomLabel, fitZoom, keepInView,
     LOOP_MODES, LOOP_DEFAULT, LOOP_SLACK, loopMaxStep, loopRange, loopJump,
     defaultViewByKind, viewFor, remember, noteContext, contextLabel}});
