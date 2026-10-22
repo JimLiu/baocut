@@ -36,6 +36,9 @@ describe('license and third-party notice distribution', () => {
       expect(audioCpp).toContain('Copyright 2026 ShugoAI LLC');
       expect(audioCpp).toContain('The ggml authors');
       expect(audioCpp).toContain('Susumu Yata');
+      expect(audioCpp).toContain('utf8proc (external/utf8proc/LICENSE.md)');
+      expect(audioCpp).toContain('Copyright (c) 2009, 2013 Public Software Group');
+      expect(audioCpp).toContain('## Unicode data license ##');
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
