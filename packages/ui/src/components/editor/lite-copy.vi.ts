@@ -19,7 +19,6 @@ export const vi: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `“${title}” giờ dài ${duration}`,
   prevSegment: 'Đoạn trước',
   nextSegment: 'Đoạn sau',
-  restart: 'Phát từ đầu',
   loop: 'Lặp lại',
   loopWhole: 'Lặp cả video',
   loopSegment: 'Lặp đoạn hiện tại',

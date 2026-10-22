@@ -18,7 +18,6 @@ export const zhHant: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `「${title}」現在是 ${duration}`,
   prevSegment: '上一段',
   nextSegment: '下一段',
-  restart: '從頭播放',
   loop: '循環方式',
   loopWhole: '整片循環',
   loopSegment: '目前段落循環',

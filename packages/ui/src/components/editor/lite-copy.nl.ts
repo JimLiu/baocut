@@ -19,7 +19,6 @@ export const nl: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `‘${title}’ duurt nu ${duration}`,
   prevSegment: 'Vorig segment',
   nextSegment: 'Volgend segment',
-  restart: 'Vanaf het begin afspelen',
   loop: 'Herhalen',
   loopWhole: 'Hele video herhalen',
   loopSegment: 'Huidig segment herhalen',

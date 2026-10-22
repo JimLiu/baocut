@@ -18,7 +18,6 @@ export const ja: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `「${title}」は ${duration} になりました`,
   prevSegment: '前のセグメント',
   nextSegment: '次のセグメント',
-  restart: '最初から再生',
   loop: 'ループ',
   loopWhole: '全体をループ',
   loopSegment: '現在のセグメントをループ',

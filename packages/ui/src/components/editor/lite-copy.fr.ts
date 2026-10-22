@@ -19,7 +19,6 @@ export const fr: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `« ${title} » dure maintenant ${duration}`,
   prevSegment: 'Segment précédent',
   nextSegment: 'Segment suivant',
-  restart: 'Lire depuis le début',
   loop: 'Boucle',
   loopWhole: 'Lire toute la vidéo en boucle',
   loopSegment: 'Lire le segment actuel en boucle',

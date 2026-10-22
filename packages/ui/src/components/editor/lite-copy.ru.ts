@@ -19,7 +19,6 @@ export const ru: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `Длительность «${title}» теперь ${duration}`,
   prevSegment: 'Предыдущий сегмент',
   nextSegment: 'Следующий сегмент',
-  restart: 'Воспроизвести с начала',
   loop: 'Повтор',
   loopWhole: 'Повторять всё видео',
   loopSegment: 'Повторять текущий сегмент',

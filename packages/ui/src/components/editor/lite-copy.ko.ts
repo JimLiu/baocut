@@ -18,7 +18,6 @@ export const ko: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `“${title}”의 길이가 ${duration}(으)로 바뀌었습니다`,
   prevSegment: '이전 구간',
   nextSegment: '다음 구간',
-  restart: '처음부터 재생',
   loop: '반복',
   loopWhole: '전체 반복',
   loopSegment: '현재 구간 반복',

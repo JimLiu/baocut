@@ -30,7 +30,7 @@ import { LOOP_ICONS, NextIcon, PrevIcon } from './transport-icons.tsx';
 
 /**
  * 轻量视图的走带（轻量编辑器设计 §3「走带」；原型 editor-lite.jsx 的 `LiteTransport`）：与时间线的走带同一副骨架
- * （transport.tsx：46px、两侧等分、播放键居中、图标 16px），只是左边不放编辑键——换成从头播放、循环方式（点开选整片 / 当前段 /
+ * （transport.tsx：46px、两侧等分、播放键居中、图标 16px），只是左边不放编辑键——换成循环方式（点开选整片 / 当前段 /
  * 不循环）与时钟（`1:06 / 45:07`，秒不带小数）；中间是上一段 / 下一段夹着播放键；右边是片条的缩放（缩小、百分比菜单、放大，
  * `onZoom` 交给片条）。窄了分两档收起：先收总长与百分比，再收时钟与上一段 / 下一段。
  * 缩放菜单不标快捷键（设计 §11 第 10 条：⌘= / ⌘− 留给时间线的习惯，这里不写进菜单）。
@@ -110,18 +110,6 @@ export function LiteTransport({
   return (
     <div ref={ref} className={bar}>
       <div className={side}>
-        <Tip label={L.restart}>
-          <ActionButton
-            isQuiet
-            aria-label={L.restart}
-            onPress={() => {
-              seek(0);
-              if (!useEditor.getState().playing) togglePlay();
-            }}
-          >
-            <Refresh />
-          </ActionButton>
-        </Tip>
         <MenuTrigger>
           <TooltipTrigger>
             <ActionButton isQuiet aria-label={`${L.loop}: ${loopCopy[loop]}`}>

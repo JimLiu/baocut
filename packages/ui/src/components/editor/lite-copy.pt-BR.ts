@@ -19,7 +19,6 @@ export const ptBR: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `“${title}” agora dura ${duration}`,
   prevSegment: 'Segmento anterior',
   nextSegment: 'Próximo segmento',
-  restart: 'Reproduzir do início',
   loop: 'Repetir',
   loopWhole: 'Repetir o vídeo inteiro',
   loopSegment: 'Repetir o segmento atual',

@@ -42,7 +42,6 @@ const en = {
   /** 走带。 */
   prevSegment: 'Previous segment',
   nextSegment: 'Next segment',
-  restart: 'Play from the beginning',
   loop: 'Loop',
   loopWhole: 'Loop whole video',
   loopSegment: 'Loop current segment',

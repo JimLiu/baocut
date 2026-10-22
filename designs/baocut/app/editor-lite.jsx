@@ -174,7 +174,7 @@
   </svg>);
 
   /** 播放条（轻量编辑器设计 §3「走带」）：与时间线视图的播放条同一副骨架（timeline.jsx 的 Transport：两侧等分、播放键居中）。
-      左边从头播放、循环方式与时钟；中间上一段 · 播放 · 下一段；右边片条的缩放（缩小 · 百分比菜单 · 放大，与时间线播放条右端同一组）。 */
+      左边循环方式与时钟；中间上一段 · 播放 · 下一段；右边片条的缩放（缩小 · 百分比菜单 · 放大，与时间线播放条右端同一组）。 */
   function LiteTransport({ctx, segs, hoverT, zoom, strip}) {
     const R = window.RSP;
     const {playT, seek, playing, setPlaying, pop, setPop} = ctx;
@@ -200,7 +200,6 @@
     const zoomAction = k => { setPop(null); strip.current?.zoomAction(k); };
     return <div className="lt-tport">
       <div className="tport__side">
-        <IconBtn size="s" tip="从头播放" onClick={() => { seek(0); setPlaying(true); }}><R.Icons.Refresh /></IconBtn>
         <div className="lt-tport__loop">
           <IconBtn size="s" tip={loopLabel} aria-haspopup="menu" aria-expanded={pop === 'ltloop'}
             onClick={() => setPop(pop === 'ltloop' ? null : 'ltloop')}>

@@ -19,7 +19,6 @@ export const pl: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `„${title}” trwa teraz ${duration}`,
   prevSegment: 'Poprzedni segment',
   nextSegment: 'Następny segment',
-  restart: 'Odtwórz od początku',
   loop: 'Pętla',
   loopWhole: 'Zapętl cały film',
   loopSegment: 'Zapętl bieżący segment',

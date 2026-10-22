@@ -19,7 +19,6 @@ export const tr: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `“${title}” artık ${duration}`,
   prevSegment: 'Önceki bölüm',
   nextSegment: 'Sonraki bölüm',
-  restart: 'Baştan oynat',
   loop: 'Döngü',
   loopWhole: 'Tüm videoyu döngüye al',
   loopSegment: 'Geçerli bölümü döngüye al',

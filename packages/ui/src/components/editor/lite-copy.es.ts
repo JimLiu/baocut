@@ -19,7 +19,6 @@ export const es: LiteMessages = {
   edgeMoved: (title: string, duration: string) => `«${title}» dura ahora ${duration}`,
   prevSegment: 'Segmento anterior',
   nextSegment: 'Segmento siguiente',
-  restart: 'Reproducir desde el principio',
   loop: 'Bucle',
   loopWhole: 'Repetir todo el vídeo',
   loopSegment: 'Repetir el segmento actual',
