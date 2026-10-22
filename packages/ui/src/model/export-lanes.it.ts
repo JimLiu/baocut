@@ -11,4 +11,5 @@ export const it: ExportLanesMessages = {
   sound: (reason: string) => `Suono: ${reason}`,
   clips: (n: number) => `${n} clip`,
   sounds: (n: number) => `${n} clip audio`,
+  segments: (n) => `${n} segmenti`,
 };

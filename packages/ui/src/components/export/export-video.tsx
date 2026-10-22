@@ -177,7 +177,7 @@ export function ExportVideoTab({
           {lanes.length ? (
             <Lanes label={EXPORT_COPY.pictureLanes}>
               {lanes.map((lane) => (
-                <PictureLane key={lane.trackId} lane={lane} burn={form.burnCaptions} onBurn={(burnCaptions) => set({ burnCaptions })} />
+                <PictureLane key={lane.key} lane={lane} burn={form.burnCaptions} onBurn={(burnCaptions) => set({ burnCaptions })} />
               ))}
             </Lanes>
           ) : (

@@ -11,4 +11,5 @@ export const ru: ExportLanesMessages = {
   sound: (reason: string) => `Звук: ${reason}`,
   clips: (n: number) => pluralForm('ru', n, { one: `${n} клип`, few: `${n} клипа`, many: `${n} клипов`, other: `${n} клипа` }),
   sounds: (n: number) => pluralForm('ru', n, { one: `${n} аудиоклип`, few: `${n} аудиоклипа`, many: `${n} аудиоклипов`, other: `${n} аудиоклипа` }),
+  segments: (n) => `Сегментов: ${n}`,
 };

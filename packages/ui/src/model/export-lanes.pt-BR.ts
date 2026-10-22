@@ -11,4 +11,5 @@ export const ptBR: ExportLanesMessages = {
   sound: (reason: string) => `Som: ${reason}`,
   clips: (n: number) => pluralForm('pt-BR', n, { one: `${n} clipe`, other: `${n} clipes` }),
   sounds: (n: number) => pluralForm('pt-BR', n, { one: `${n} clipe de áudio`, other: `${n} clipes de áudio` }),
+  segments: (n) => `${n} segmentos`,
 };

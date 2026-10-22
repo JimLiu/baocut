@@ -10,4 +10,5 @@ export const zhHant: ExportLanesMessages = {
   sound: (reason: string) => `聲音：${reason}`,
   clips: (n: number) => `${n} 段片段`,
   sounds: (n: number) => `${n} 段音訊片段`,
+  segments: (n: number) => `${n} 段`,
 };

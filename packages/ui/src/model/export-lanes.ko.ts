@@ -10,4 +10,5 @@ export const ko: ExportLanesMessages = {
   sound: (reason: string) => `소리: ${reason}`,
   clips: (n: number) => `클립 ${n}개`,
   sounds: (n: number) => `오디오 클립 ${n}개`,
+  segments: (n: number) => `${n}개 구간`,
 };

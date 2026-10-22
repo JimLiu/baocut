@@ -11,4 +11,5 @@ export const de: ExportLanesMessages = {
   sound: (reason: string) => `Ton: ${reason}`,
   clips: (n: number) => (pluralForm('de', n, { one: "1 Clip", other: `${n} Clips` })),
   sounds: (n: number) => (pluralForm('de', n, { one: "1 Audioclip", other: `${n} Audioclips` })),
+  segments: (n) => `${n} Segmente`,
 };

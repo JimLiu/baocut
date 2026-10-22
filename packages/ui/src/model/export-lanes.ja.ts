@@ -10,4 +10,5 @@ export const ja: ExportLanesMessages = {
   sound: (reason: string) => `音声：${reason}`,
   clips: (n: number) => `クリップ ${n} 個`,
   sounds: (n: number) => `音声クリップ ${n} 個`,
+  segments: (n: number) => `${n} セグメント`,
 };

@@ -5,4 +5,5 @@ export const es: ExportLanesMessages = {
  names: (names: readonly string[]) => names.join(', '), sound: (reason: string) => `Sonido: ${reason}`,
  clips: (n: number) => `${n} ${pluralForm('es', n, { one: 'clip', other: 'clips' })}`,
  sounds: (n: number) => `${n} ${pluralForm('es', n, { one: 'clip de audio', other: 'clips de audio' })}`,
+ segments: (n: number) => `${n} segmentos`,
 };

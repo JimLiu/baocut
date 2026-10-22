@@ -10,4 +10,5 @@ export const zhHans: ExportLanesMessages = {
   sound: (reason: string) => `声音：${reason}`,
   clips: (n: number) => `${n} 个片段`,
   sounds: (n: number) => `${n} 段声音`,
+  segments: (n: number) => `${n} 段`,
 };
