@@ -53,6 +53,15 @@ test('Mac publication can start before Windows while Windows publication still w
   assert.equal(ready('publish-windows', macPassed), false);
 });
 
+test('Mac publishers install Electron before checking public renderer resources', () => {
+  for (const [file, job] of [['desktop-release.yml', 'publish-macos'], ['desktop-macos.yml', 'publish']]) {
+    const workflow = readFileSync(`.github/workflows/${file}`, 'utf8');
+    const publisher = workflow.split(`  ${job}:\n`)[1].split(/\n  [a-z][a-z-]*:\n/)[0];
+    assert.match(publisher, /run: npm ci/);
+    assert.ok(publisher.indexOf('run: npm ci') < publisher.indexOf('node apps/desktop/tools/macos-release.mjs publish'));
+  }
+});
+
 test('tag planning checks actual git ancestry before allowing the signing jobs', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'baocut-tag-plan-test-'));
   const source = path.join(root, 'source');
