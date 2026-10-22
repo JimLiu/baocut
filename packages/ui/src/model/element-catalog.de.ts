@@ -1,5 +1,7 @@
 import type { ElementSection } from './element-catalog.ts';
 type ColorSlot =
+  | 'played'
+  | 'upcoming'
   | 'bar'
   | 'track'
   | 'background'
@@ -72,6 +74,7 @@ export const de: ElementCatalogMessages = {
     snake_spin_rainbow: "Drehende Regenbogenschlange",
   } as Record<string, string>,
   waves: {
+    audio_envelope: 'Audiohüllkurve',
     bars: "Balken",
     bars_rounded: "Abgerundete Balken",
     bars_bottom: "Unten ausgerichtete Balken",
@@ -84,6 +87,8 @@ export const de: ElementCatalogMessages = {
     ribbons: "Bänder",
   } as Record<string, string>,
   colors: {
+    played: 'Abgespielt',
+    upcoming: 'Verbleibend',
     bar: "Balken",
     track: "Spur",
     background: "Hintergrund",
@@ -118,7 +123,7 @@ export const de: ElementCatalogMessages = {
     shape: { title: "Formen", note: "23 Kacheln · 5-Farben-Zyklus" },
     visualizer: {
       title: "Visualisierungen",
-      note: "14 Fortschrittsstile + 2 Timer + 10 Wellenformen",
+      note: "14 Fortschrittsstile + 2 Timer + 11 Wellenformen",
     },
   } as Record<ElementSection['key'], { title: string; note: string }>,
 };

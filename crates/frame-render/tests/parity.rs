@@ -1547,6 +1547,16 @@ fn scenes() -> Vec<Scene> {
         },
     ];
     scenes.push(scaled);
+    let mut envelope = visualizer_audio();
+    envelope.name = "visualizer-audio-envelope";
+    for item in &mut envelope.video.sequences.values_mut().next().unwrap().items {
+        if let video_model::TimelineItem::Visualizer(viz) = item {
+            viz.visualizer.style = "audio_envelope".into();
+            viz.visualizer.main_color = Some("#7FE0CF".into());
+            viz.visualizer.secondary_color = Some("#54616B".into());
+        }
+    }
+    scenes.push(envelope);
     scenes
 }
 

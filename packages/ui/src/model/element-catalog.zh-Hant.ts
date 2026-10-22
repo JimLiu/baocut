@@ -54,6 +54,7 @@ export const zhHant: ElementCatalogMessages = {
     snake_spin_rainbow: '旋轉彩虹遊走',
   },
   waves: {
+    audio_envelope: '音量包絡',
     bars: '長條',
     bars_rounded: '圓角長條',
     bars_bottom: '底部對齊長條',
@@ -66,6 +67,8 @@ export const zhHant: ElementCatalogMessages = {
     ribbons: '緞帶',
   },
   colors: {
+    played: '已播放',
+    upcoming: '未播放',
     bar: '長條',
     track: '底條',
     background: '背景',
@@ -95,6 +98,6 @@ export const zhHant: ElementCatalogMessages = {
     sticker: { title: '貼紙', note: '16 個包 + 內建 10 款 + 品牌庫' },
     dynamic: { title: '動態貼紙', note: '5 個 Noto Lottie 分類 + 10 款彩紙 + 品牌庫' },
     shape: { title: '形狀', note: '23 格 · 5 色循環' },
-    visualizer: { title: '視覺化', note: '14 種進度 + 2 種計時 + 10 種波形' },
+    visualizer: { title: '視覺化', note: '14 種進度 + 2 種計時 + 11 種波形' },
   },
 };

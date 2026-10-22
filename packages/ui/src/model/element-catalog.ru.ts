@@ -54,6 +54,7 @@ export const ru: ElementCatalogMessages = {
     snake_spin_rainbow: "Вращающаяся радужная змейка",
   },
   waves: {
+    audio_envelope: 'Огибающая звука',
     bars: "Полосы",
     bars_rounded: "Скруглённые полосы",
     bars_bottom: "Полосы по нижнему краю",
@@ -66,6 +67,8 @@ export const ru: ElementCatalogMessages = {
     ribbons: "Ленты",
   },
   colors: {
+    played: 'Воспроизведено',
+    upcoming: 'Впереди',
     bar: "Полоса",
     track: "Дорожка",
     background: "Фон",
@@ -95,6 +98,6 @@ export const ru: ElementCatalogMessages = {
     sticker: { title: "Наклейки", note: "16 наборов + 10 встроенных + библиотека бренда" },
     dynamic: { title: "Анимированные стикеры", note: "5 наборов Noto Lottie + 10 конфетти + библиотека бренда" },
     shape: { title: "Фигуры", note: "23 плитки · цикл из 5 цветов" },
-    visualizer: { title: "Визуализаторы", note: "14 шкал + 2 таймера + 10 звуковых волн" },
+    visualizer: { title: "Визуализаторы", note: "14 шкал + 2 таймера + 11 звуковых волн" },
   },
 };

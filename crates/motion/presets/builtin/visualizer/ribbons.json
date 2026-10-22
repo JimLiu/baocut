@@ -3,7 +3,7 @@
   "version": 1,
   "domain": "visualizer",
   "namespace": "timeline",
-  "order": 9,
+  "order": 10,
   "numColors": 2,
   "colorLabels": [
     "Ribbon A",

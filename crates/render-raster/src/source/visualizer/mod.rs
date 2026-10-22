@@ -165,6 +165,7 @@ pub struct VizTrack {
     analysis_rate: u32,
     frames: Vec<VizFrame>,
     params: VizParams,
+    envelope: Vec<u8>,
     hash: ContentHash,
 }
 
@@ -244,13 +245,58 @@ impl VizTrack {
             hasher.update(&frame.time);
             hasher.update(&frame.freq);
         }
+        let envelope = frames
+            .iter()
+            .map(|frame| {
+                let power = frame
+                    .time
+                    .iter()
+                    .map(|&sample| {
+                        let amplitude = (f64::from(sample) - 128.0) / 128.0;
+                        amplitude * amplitude
+                    })
+                    .sum::<f64>()
+                    / frame.time.len().max(1) as f64;
+                ((power.sqrt() / 0.32).powf(0.65).min(1.0) * 255.0).round() as u8
+            })
+            .collect();
         let hash = ContentHash::new(hasher.finalize().into());
         Ok(VizTrack {
             analysis_rate,
             frames,
             params,
+            envelope,
             hash,
         })
+    }
+
+    /// Draw-only temporal window: `freq` carries amplitude bins and `time` is empty.
+    /// Out-of-clip samples are silent rather than clamped
+    /// to the first/last audio frame; sampling order never changes the result.
+    pub fn envelope_frame(
+        &self,
+        seconds: f64,
+        start: f64,
+        end: f64,
+        count: usize,
+        step: f64,
+    ) -> VizFrame {
+        let center = count / 2;
+        let freq = (0..count)
+            .map(|index| {
+                let at = seconds + (index as f64 - center as f64) * step;
+                if !at.is_finite() || at < start || at >= end || at < 0.0 || at >= self.duration() {
+                    return 0;
+                }
+                let index = (at * f64::from(self.analysis_rate)).floor() as usize;
+                self.envelope.get(index).copied().unwrap_or(0)
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        VizFrame {
+            time: Box::new([]),
+            freq,
+        }
     }
 
     pub fn params(&self) -> VizParams {
@@ -333,6 +379,40 @@ pub const BCS1_TIME_BINS: usize = TIME_BINS as usize;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn envelope_windows_follow_audio_time_and_silence_clip_edges() {
+        let frames = (0..40)
+            .map(|i| {
+                frame(
+                    if i < 10 || i >= 30 {
+                        128
+                    } else if i < 20 {
+                        160
+                    } else {
+                        192
+                    },
+                    255,
+                )
+            })
+            .collect();
+        let track = VizTrack::assemble(10, frames, params(), 0).unwrap();
+        let window = track.envelope_frame(2.0, 1.0, 3.0, 5, 0.5);
+        assert!(window.freq[0] > 0);
+        assert_eq!(window.freq[0], window.freq[1]);
+        assert!(window.freq[2] > window.freq[1]);
+        assert_eq!(window.freq[2], window.freq[3]);
+        assert_eq!(window.freq[4], 0);
+        assert_eq!(track.envelope_frame(1.0, 1.0, 3.0, 5, 0.5).freq[0], 0);
+        assert_eq!(track.envelope_frame(2.0, 1.0, 3.0, 5, 0.5), window);
+        assert!(
+            track
+                .envelope_frame(9.0, 1.0, 10.0, 5, 0.5)
+                .freq
+                .iter()
+                .all(|&v| v == 0)
+        );
+    }
 
     fn params() -> VizParams {
         VizParams {

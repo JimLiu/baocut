@@ -54,6 +54,7 @@ export const zhHans: ElementCatalogMessages = {
     snake_spin_rainbow: '游走旋转彩虹',
   },
   waves: {
+    audio_envelope: '音量包络',
     bars: '柱状',
     bars_rounded: '圆头柱',
     bars_bottom: '底对齐柱',
@@ -66,6 +67,8 @@ export const zhHans: ElementCatalogMessages = {
     ribbons: '丝带',
   },
   colors: {
+    played: '已播放',
+    upcoming: '未播放',
     bar: '条',
     track: '底',
     background: '背景',
@@ -95,6 +98,6 @@ export const zhHans: ElementCatalogMessages = {
     sticker: { title: '贴纸', note: '16 个包 ＋ 内置 10 款 ＋ 品牌库' },
     dynamic: { title: '动态贴纸', note: '5 个 Noto Lottie 分类 ＋ 彩纸 10 款 ＋ 品牌库' },
     shape: { title: '形状', note: '23 格 · 五色循环' },
-    visualizer: { title: '可视化', note: '进度 14 ＋ 计时 2 ＋ 声波 10' },
+    visualizer: { title: '可视化', note: '进度 14 ＋ 计时 2 ＋ 声波 11' },
   },
 };

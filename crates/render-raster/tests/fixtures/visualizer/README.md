@@ -26,7 +26,7 @@ cargo test -p bcut-render --test visualizer_source -- --ignored   # 确认过再
 | `cases.json` | **输入**：两份固定 BCS1 × 四组元素参数 × 五个时刻 + 乱序序列 + 10 个样式 id |
 | `sweep-48k-mono.bcs1` | 程序生成的 3.0 s 合成频谱（180 帧 × 640 字节） |
 | `expected-track.json` | **P2 的 golden**：8 条 `VizTrack` 的整轨指纹 + 五个时刻的帧号与逐行摘要 |
-| `expected-draw.json` | **绘制 golden**：10 款样式 × 五个时刻 + 一帧静音的 DrawOp 指纹，外加折线类冻结的 `samples` 一列（生成器是 `tests/visualizer_draw.rs`） |
+| `expected-draw.json` | **绘制 golden**：11 款样式 × 五个时刻 + 一帧静音的 DrawOp 指纹，外加折线类冻结的 `samples` 一列（生成器是 `tests/visualizer_draw.rs`） |
 | `../spectrum/tone-48k-mono-f32.bcs1` | P1 的真实 DSP golden（0.2 s），`cases.json` 引用，不复制 |
 | `../progress/` | progress 元素的同类夹具（它没有素材源，输入结构完全不同，见那边的 README） |
 
@@ -85,7 +85,7 @@ idx = clamp(floor(t × analysisRate), 0, frameCount - 1)
 频域行走完整的「重映射 → 平滑 → gain」；**时域行逐字节原样搬运**。依据是本方案
 一路对齐的 Web Audio 语义——`smoothingTimeConstant` 只作用于
 `getByteFrequencyData`，而 dB 窗对一条「静音 ≈ 128」的中心化波形没有意义。
-10 款里只有 `oscilloscope-v1`（`oscilloscope` / `ring_wave`）读时域行。
+`oscilloscope-v1`（`oscilloscope` / `ring_wave`）读当前帧时域行；`audio-envelope-v1` 从时域 RMS 缓存取前后时间窗。包络的片段边界与乱序采样由 `envelope_windows_follow_audio_time_and_silence_clip_edges` 覆盖。
 
 ## §8 的 GPU 接口约定（冻结保留，visualizer 当前不走）
 

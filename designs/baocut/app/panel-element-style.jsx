@@ -219,7 +219,7 @@
         ) : null}
 
         {/* 已经画进颜色卡里的那几档（`colors[].w`）不再重复出一行 */}
-        {spec.sliders && spec.sliders.some((s) => !claimed[s.k]) ? (
+        {spec.sliders && !(spec.catalog === 'wave' && curStyle.k === 'audio_envelope') && spec.sliders.some((s) => !claimed[s.k]) ? (
           <>
             <SecHead>{spec.shape ? '圆角' : '控制'}</SecHead>
             <div className="sec">

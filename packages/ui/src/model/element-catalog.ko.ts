@@ -54,6 +54,7 @@ export const ko: ElementCatalogMessages = {
     snake_spin_rainbow: '회전 무지개 스네이크',
   },
   waves: {
+    audio_envelope: '음량 엔벌로프',
     bars: '막대',
     bars_rounded: '둥근 막대',
     bars_bottom: '아래 정렬 막대',
@@ -66,6 +67,8 @@ export const ko: ElementCatalogMessages = {
     ribbons: '리본',
   },
   colors: {
+    played: '재생됨',
+    upcoming: '재생 전',
     bar: '막대',
     track: '바탕',
     background: '배경',
@@ -95,6 +98,6 @@ export const ko: ElementCatalogMessages = {
     sticker: { title: '스티커', note: '16개 팩 + 기본 제공 10개 + 브랜드 라이브러리' },
     dynamic: { title: '애니메이션 스티커', note: 'Noto Lottie 5개 분류 + 색종이 10개 + 브랜드 라이브러리' },
     shape: { title: '도형', note: '타일 23개 · 5색 순환' },
-    visualizer: { title: '비주얼라이저', note: '진행 표시줄 14개 + 타이머 2개 + 파형 10개' },
+    visualizer: { title: '비주얼라이저', note: '진행 표시줄 14개 + 타이머 2개 + 파형 11개' },
   },
 };

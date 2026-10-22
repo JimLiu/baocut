@@ -47,6 +47,8 @@ type At = { x: number; y: number; w?: number };
 
 /** 色板的槽位（显示名在目录的 `colors` 里）。 */
 type ColorSlot =
+  | 'played'
+  | 'upcoming'
   | 'bar'
   | 'track'
   | 'background'
@@ -119,6 +121,7 @@ const en = {
     snake_spin_rainbow: 'Spinning rainbow snake',
   } as Record<string, string>,
   waves: {
+    audio_envelope: 'Audio envelope',
     bars: 'Bars',
     bars_rounded: 'Rounded bars',
     bars_bottom: 'Bottom-aligned bars',
@@ -131,6 +134,8 @@ const en = {
     ribbons: 'Ribbons',
   } as Record<string, string>,
   colors: {
+    played: 'Played',
+    upcoming: 'Upcoming',
     bar: 'Bar',
     track: 'Track',
     background: 'Background',
@@ -165,7 +170,7 @@ const en = {
     shape: { title: 'Shapes', note: '23 tiles · 5-color cycle' },
     visualizer: {
       title: 'Visualizers',
-      note: '14 progress + 2 timers + 10 waveforms',
+      note: '14 progress + 2 timers + 11 waveforms',
     },
   } as Record<ElementSection['key'], { title: string; note: string }>,
 };
@@ -256,9 +261,10 @@ export const PROGRESS_KINDS: readonly StyleKind[] = styleKinds(
   () => M.progress,
 );
 
-/** 声波 10 款，次序是核心的 `order`。 */
+/** 声波 11 款，次序是核心的 `order`。 */
 export const WAVE_KINDS: readonly StyleKind[] = styleKinds(
   [
+    ['audio_envelope', ['played', 'upcoming']],
     ['bars', ['bars']],
     ['bars_rounded', ['bars']],
     ['bars_bottom', ['bars']],
@@ -335,10 +341,13 @@ function waveTile(style: string): ElementTile {
       return labelOf(WAVE_KINDS, style);
     },
     seconds: 'film',
-    layer: () => ({
+    layer: (canvas) => ({
       type: 'visualizer',
       name: M.waveName(labelOf(WAVE_KINDS, style)),
-      place: placeBox(kindPlace('visualizer')),
+      place: {
+        ...placeBox(style === 'audio_envelope' ? { x: 50, y: 54, w: 85 } : kindPlace('visualizer')),
+        ...(style === 'audio_envelope' ? { scaleY: (canvas.width * 0.85 * 340) / (1632 * canvas.height * 0.2) } : {}),
+      },
       // dB 窗跟着款走：示波器与环形波是 −120 / −10 那扇窄窗。
       visualizer: {
         style,

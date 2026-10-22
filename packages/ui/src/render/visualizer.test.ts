@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { WAVE_STYLES, waveStyleKey } from './visualizer.ts';
 
 describe('声波样式', () => {
-  it('10 款，键序是属性页目录的次序；旧名合并到新款上', () => {
+  it('11 款，键序是属性页目录的次序；旧名合并到新款上', () => {
     expect(Object.keys(WAVE_STYLES)).toEqual([
+      'audio_envelope',
       'bars',
       'bars_rounded',
       'bars_bottom',
@@ -25,6 +26,7 @@ describe('声波样式', () => {
   });
 
   it('时域的两款是 −120 / −10 那扇窄窗、没有 dB 控件；频谱款是 −80 / 40', () => {
+    expect(WAVE_STYLES.audio_envelope).toMatchObject({ hasControl: false, mainColor: '#7FE0CF', secondaryColor: '#54616B' });
     expect(WAVE_STYLES.oscilloscope).toMatchObject({ hasControl: false, minDb: -120, maxDb: -10 });
     expect(WAVE_STYLES.ring_wave).toMatchObject({ hasControl: false, aspect: 'square' });
     expect(WAVE_STYLES.dots).toMatchObject({ hasControl: true, minDb: -80, maxDb: 40, secondaryColor: '#FF4C45' });

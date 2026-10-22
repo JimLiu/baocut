@@ -25,9 +25,9 @@ const boxOf = (key: string, size = canvas) => {
 };
 
 describe('元素目录', () => {
-  it('每一类的格数：贴纸 10、彩纸 10、形状 23、进度 14、计时 2、声波 10', () => {
+  it('每一类的格数：贴纸 10、彩纸 10、形状 23、进度 14、计时 2、声波 11', () => {
     const count = (group: string) => ELEMENT_TILES.filter((tile) => tile.group === group).length;
-    expect([count('sticker'), count('confetti'), count('shape'), count('progress'), count('counter'), count('wave')]).toEqual([10, 10, 23, 14, 2, 10]);
+    expect([count('sticker'), count('confetti'), count('shape'), count('progress'), count('counter'), count('wave')]).toEqual([10, 10, 23, 14, 2, 11]);
     expect(new Set(ELEMENT_TILES.map((tile) => tile.key)).size).toBe(ELEMENT_TILES.length);
   });
 
@@ -72,6 +72,7 @@ describe('元素目录', () => {
 
   it('进度与声波的样式都画得出来，默认色与 dB 窗取样式自己的；只有条形两款横跨两列', () => {
     expect(PROGRESS_KINDS.map((kind) => kind.key)).toEqual(Object.keys(PROGRESS_STYLES));
+    expect(layerOf('wave.audio_envelope')).toMatchObject({ place: { x: 50, y: 54, w: 85 }, visualizer: { style: 'audio_envelope', mainColor: '#7FE0CF', secondaryColor: '#54616B' } });
     expect(WAVE_KINDS.map((kind) => kind.key)).toEqual(Object.keys(WAVE_STYLES));
     // 色板的名字是界面文案，个数跟配方走（两款彩虹边框一个也没有）。
     for (const kind of PROGRESS_KINDS) expect(kind.colors).toHaveLength(PROGRESS_STYLES[kind.key]!.numColors);
@@ -102,7 +103,7 @@ describe('元素目录', () => {
       'progress.snake_spin',
       'progress.snake_rainbow',
     ]);
-    expect(visual[16]).toBe('wave.bars');
+    expect(visual[16]).toBe('wave.audio_envelope');
   });
 
   it('彩纸：十款按配方次序，铺满画面、5 秒，参数是那一款的缺省加一枚随机种子，跟配方走的发射参数不写', () => {
@@ -134,7 +135,7 @@ describe('元素目录', () => {
     });
     expect(counter.layer(canvas)).not.toHaveProperty('text');
     const film = ELEMENT_TILES.filter((tile) => tile.seconds === 'film').map((tile) => tile.group);
-    expect(film).toHaveLength(24);
+    expect(film).toHaveLength(25);
     expect(film.every((group) => group === 'progress' || group === 'wave')).toBe(true);
   });
 
@@ -143,7 +144,7 @@ describe('元素目录', () => {
       ['sticker', 10],
       ['dynamic', 10],
       ['shape', 23],
-      ['visualizer', 26],
+      ['visualizer', 27],
     ]);
     expect(elementSections('粒子').map((section) => [section.key, section.tiles.length])).toEqual([['dynamic', 10]]);
     expect(elementSections('彩带').map((section) => section.tiles.map((tile) => tile.key))).toEqual([['confetti.neon-streamers', 'confetti.curling-ribbons']]);
@@ -151,7 +152,7 @@ describe('元素目录', () => {
       ['sticker', 1],
       ['shape', 2],
     ]);
-    expect(elementSections('声波').map((section) => section.tiles.length)).toEqual([10]);
+    expect(elementSections('声波').map((section) => section.tiles.length)).toEqual([11]);
     expect(elementSections('彩虹').map((section) => section.tiles.map((tile) => tile.key))).toEqual([
       ['progress.rainbow_border', 'progress.reverse_rainbow_border', 'progress.snake_rainbow', 'progress.snake_spin_rainbow'],
     ]);

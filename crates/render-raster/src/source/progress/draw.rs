@@ -88,7 +88,8 @@ pub fn progress_frame(
         }
         // visualizer 的七个算法名不可能出现在 progress 配方体里：解析期已按
         // `RecipeAlgorithm::kind()` 拦下（`manifest-invalid`）。
-        RecipeAlgorithm::SpectrumBarsV1
+        RecipeAlgorithm::AudioEnvelopeV1
+        | RecipeAlgorithm::SpectrumBarsV1
         | RecipeAlgorithm::PolarBarsV1
         | RecipeAlgorithm::OscilloscopeV1
         | RecipeAlgorithm::SpectrumAreaV1

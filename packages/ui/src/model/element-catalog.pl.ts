@@ -54,6 +54,7 @@ export const pl: ElementCatalogMessages = {
     snake_spin_rainbow: "Obracający się tęczowy wąż",
   },
   waves: {
+    audio_envelope: 'Obwiednia dźwięku',
     bars: "Słupki",
     bars_rounded: "Zaokrąglone paski",
     bars_bottom: "Paski wyrównane do dołu",
@@ -66,6 +67,8 @@ export const pl: ElementCatalogMessages = {
     ribbons: "Wstążki",
   },
   colors: {
+    played: 'Odtworzone',
+    upcoming: 'Pozostałe',
     bar: "Pasek",
     track: "Ścieżka",
     background: "Tło",
@@ -95,6 +98,6 @@ export const pl: ElementCatalogMessages = {
     sticker: { title: "Naklejki", note: "16 pakietów + 10 wbudowanych + biblioteka marki" },
     dynamic: { title: "Animowane naklejki", note: "5 pakietów Noto Lottie + 10 konfetti + biblioteka marki" },
     shape: { title: "Kształty", note: "23 kafelki · cykl 5 kolorów" },
-    visualizer: { title: "Wizualizatory", note: "14 pasków + 2 zegary + 10 przebiegów fali" },
+    visualizer: { title: "Wizualizatory", note: "14 pasków + 2 zegary + 11 przebiegów fali" },
   },
 };

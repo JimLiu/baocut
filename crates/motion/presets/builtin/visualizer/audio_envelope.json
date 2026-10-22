@@ -1,0 +1,29 @@
+{
+  "id": "audio_envelope",
+  "version": 1,
+  "domain": "visualizer",
+  "namespace": "timeline",
+  "order": 0,
+  "numColors": 2,
+  "colorLabels": [
+    "Played",
+    "Upcoming"
+  ],
+  "defaultMainColor": "#7FE0CF",
+  "defaultSecondaryColor": "#54616B",
+  "defaultMinDb": -80.0,
+  "defaultMaxDb": 40.0,
+  "hasControl": false,
+  "binWidth": "half",
+  "aspect": "free",
+  "recipe": {
+    "algorithm": "audio-envelope-v1",
+    "params": {
+      "barCount": 121,
+      "stepSeconds": 0.045
+    }
+  },
+  "determinism": "strict",
+  "shader": null,
+  "available": true
+}

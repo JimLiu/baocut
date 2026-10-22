@@ -16,6 +16,7 @@
 //! 同一算法名下的样式**全靠 manifest 参数区分**，Rust 侧一份实现；跨算法共用的
 //! 采样 / 压 path 助手在 [`common`]，几何公式在 [`crate::source::kernel`]。
 
+pub(crate) mod audio_envelope_v1;
 pub(crate) mod common;
 pub(crate) mod dot_matrix_v1;
 pub(crate) mod oscilloscope_v1;

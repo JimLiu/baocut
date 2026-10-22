@@ -3,7 +3,7 @@
   "version": 1,
   "domain": "visualizer",
   "namespace": "timeline",
-  "order": 4,
+  "order": 5,
   "numColors": 1,
   "colorLabels": [
     "Wave"

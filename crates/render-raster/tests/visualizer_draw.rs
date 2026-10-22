@@ -69,6 +69,7 @@ fn params() -> VisualizerParams {
     VisualizerParams {
         main_color: [0.235_294_12, 0.678_431_4, 1.0, 1.0],
         secondary_color: [1.0, 1.0, 1.0, 1.0],
+        duration: 3.0,
     }
 }
 
@@ -110,7 +111,13 @@ fn expected_json() -> Value {
             let samples = INSTANTS
                 .iter()
                 .map(|instant| {
-                    let viz = track.sample(*instant).expect("轨非空");
+                    let envelope;
+                    let viz = if recipe.id == "audio_envelope" {
+                        envelope = track.envelope_frame(*instant, 0.0, 3.0, 121, 0.045);
+                        &envelope
+                    } else {
+                        track.sample(*instant).expect("track is nonempty")
+                    };
                     // 时刻既是**取帧**的坐标，也是元素本地时刻：`ribbons-v1` 读后者。
                     let mut entry = record(recipe, viz, *instant);
                     entry["t"] = json!(instant);
@@ -134,7 +141,7 @@ fn expected_json() -> Value {
         })
         .collect::<Vec<_>>();
     json!({
-        "note": "DrawOp 指令流指纹（10 款全量：柱状 4 + 折线 3 + 点阵 1 + 环 1 + 丝带 1）。\
+        "note": "DrawOp 指令流指纹（11 款全量：柱状 4 + 折线 3 + 点阵 1 + 环 1 + 丝带 1）。\
                  输入是 cases.json 的 sweep × default × 五时刻，元素盒取 bcut_timeline 几何默认表在 \
                  1920×1080 上的像素；时刻同时充当元素本地时钟，只有 ribbons 读它。\
                  samples 是折线类冻结的采样密度。",
@@ -184,7 +191,7 @@ fn the_draw_golden_is_up_to_date() {
 #[test]
 fn every_style_is_live_in_the_golden() {
     let golden = expected_json();
-    assert_eq!(golden["styles"].as_array().unwrap().len(), 10);
+    assert_eq!(golden["styles"].as_array().unwrap().len(), 11);
     for style in golden["styles"].as_array().unwrap() {
         let id = style["style"].as_str().unwrap();
         for sample in style["instants"].as_array().unwrap() {

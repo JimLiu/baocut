@@ -54,6 +54,7 @@ export const ja: ElementCatalogMessages = {
     snake_spin_rainbow: '回転する虹色スネーク',
   },
   waves: {
+    audio_envelope: '音量エンベロープ',
     bars: 'バー',
     bars_rounded: '角丸バー',
     bars_bottom: '下揃えバー',
@@ -66,6 +67,8 @@ export const ja: ElementCatalogMessages = {
     ribbons: 'リボン',
   },
   colors: {
+    played: '再生済み',
+    upcoming: '未再生',
     bar: 'バー',
     track: '下地',
     background: '背景',
@@ -95,6 +98,6 @@ export const ja: ElementCatalogMessages = {
     sticker: { title: 'ステッカー', note: '16 パック + 内蔵 10 種 + ブランドキット' },
     dynamic: { title: 'アニメーションステッカー', note: 'Noto Lottie 5 分類 + 紙吹雪 10 種 + ブランドキット' },
     shape: { title: '図形', note: '23 種 · 5 色を循環' },
-    visualizer: { title: 'ビジュアライザ', note: 'プログレス 14 + タイマー 2 + 波形 10' },
+    visualizer: { title: 'ビジュアライザ', note: 'プログレス 14 + タイマー 2 + 波形 11' },
   },
 };

@@ -405,7 +405,7 @@ fn resolve_visualizer(
         ));
         return ResolvedElement::Placeholder;
     };
-    let frame = match source_time {
+    let mut frame = match source_time {
         Some(source_time) => {
             let Some(frame) = render_raster::source::VizSource::sample(track, source_time) else {
                 warn(msg!(
@@ -422,12 +422,27 @@ fn resolve_visualizer(
     let body = recipe
         .visualizer()
         .expect("visualizer 目录里只有 visualizer 配方");
+    if body.recipe.algorithm == motion::preset_registry::RecipeAlgorithm::AudioEnvelopeV1 {
+        let count = body.recipe.integer("barCount").unwrap_or(121) as usize;
+        let step = body.recipe.number("stepSeconds").unwrap_or(0.045);
+        frame = match source_time {
+            Some(at) => {
+                let start = at - (time - element.start);
+                track.envelope_frame(at, start, start + element.end - element.start, count, step)
+            }
+            None => render_raster::source::VizFrame {
+                time: Box::new([]),
+                freq: vec![0; count].into_boxed_slice(),
+            },
+        };
+    }
     let params = render_raster::source::VisualizerParams {
         main_color: resolved_color(
             props.main_color.as_deref(),
             &body.default_main_color,
             opacity,
         ),
+        duration: (element.end - element.start).max(0.0),
         secondary_color: resolved_color(
             props.secondary_color.as_deref(),
             &body.default_secondary_color,

@@ -184,7 +184,7 @@ async function createAndGo(
   const kind = path ? (mediaKindOf(path) === 'audio' ? 'audio' : 'video') : null;
   const sized = flow === 'blank' || flow === 'a2v';
   const size = sized ? RATIO_SIZE[options.ratio] : null;
-  const wave = flow === 'a2v' && options.wave && kind ? ELEMENT_TILES.find((t) => t.key === 'wave.bars')?.layer(size!) : undefined;
+  const wave = flow === 'a2v' && options.wave && kind ? ELEMENT_TILES.find((t) => t.key === 'wave.audio_envelope')?.layer(size!) : undefined;
   let created;
   try {
     created = await bound.runtime.createFlowVideo(

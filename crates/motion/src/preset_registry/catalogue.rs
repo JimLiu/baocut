@@ -446,6 +446,7 @@ impl Recipe {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RecipeAlgorithm {
     // visualizer（设计 §7.2）
+    AudioEnvelopeV1,
     SpectrumBarsV1,
     PolarBarsV1,
     OscilloscopeV1,
@@ -465,6 +466,7 @@ pub enum RecipeAlgorithm {
 impl RecipeAlgorithm {
     pub const fn name(self) -> &'static str {
         match self {
+            Self::AudioEnvelopeV1 => "audio-envelope-v1",
             Self::SpectrumBarsV1 => "spectrum-bars-v1",
             Self::PolarBarsV1 => "polar-bars-v1",
             Self::OscilloscopeV1 => "oscilloscope-v1",
@@ -492,6 +494,7 @@ impl RecipeAlgorithm {
     /// 必填参数键。缺一个就在解析期报 `manifest-invalid`。
     const fn required(self) -> &'static [&'static str] {
         match self {
+            Self::AudioEnvelopeV1 => &["barCount", "stepSeconds"],
             Self::SpectrumBarsV1 => &["barCount", "align", "gap", "radius", "minHeight", "easing"],
             Self::PolarBarsV1 => &["barCount", "innerRadius", "gap", "minHeight", "easing"],
             Self::OscilloscopeV1 => &["layout", "samples", "lineWidth", "amplitude", "baseRadius"],
@@ -546,6 +549,7 @@ impl RecipeAlgorithm {
 
     fn parse(name: &str) -> Option<Self> {
         [
+            Self::AudioEnvelopeV1,
             Self::SpectrumBarsV1,
             Self::PolarBarsV1,
             Self::OscilloscopeV1,
@@ -602,7 +606,7 @@ const UNIT_INTERVAL_KEYS: &[&str] = &[
 ];
 
 /// 必须严格大于 0 的实数参数键（跨算法通用）。
-const POSITIVE_NUMBER_KEYS: &[&str] = &["amplitude", "speed", "cycles"];
+const POSITIVE_NUMBER_KEYS: &[&str] = &["amplitude", "speed", "cycles", "stepSeconds"];
 
 /// 顶层字符串参数的封闭取值表。
 const ENUM_KEYS: &[(&str, &[&str])] = &[

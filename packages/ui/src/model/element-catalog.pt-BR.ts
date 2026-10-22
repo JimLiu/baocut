@@ -1,5 +1,7 @@
 import type { ElementSection } from './element-catalog.ts';
 type ColorSlot =
+  | 'played'
+  | 'upcoming'
   | 'bar'
   | 'track'
   | 'background'
@@ -72,6 +74,7 @@ export const ptBR: ElementCatalogMessages = {
     snake_spin_rainbow: "Serpente arco-íris giratória",
   } as Record<string, string>,
   waves: {
+    audio_envelope: 'Envelope de áudio',
     bars: "Barras",
     bars_rounded: "Barras arredondadas",
     bars_bottom: "Barras alinhadas abaixo",
@@ -84,6 +87,8 @@ export const ptBR: ElementCatalogMessages = {
     ribbons: "Fitas",
   } as Record<string, string>,
   colors: {
+    played: 'Reproduzido',
+    upcoming: 'Restante',
     bar: "Barra",
     track: "Faixa",
     background: "faixa de fundo",
@@ -118,7 +123,7 @@ export const ptBR: ElementCatalogMessages = {
     shape: { title: "Formas", note: "23 formas · ciclo de 5 cores" },
     visualizer: {
       title: "Visualizadores",
-      note: "14 progressos + 2 temporizadores + 10 formas de onda",
+      note: "14 progressos + 2 temporizadores + 11 formas de onda",
     },
   } as Record<ElementSection['key'], { title: string; note: string }>,
 };

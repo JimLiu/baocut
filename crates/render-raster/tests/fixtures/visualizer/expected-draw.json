@@ -4,11 +4,54 @@
     1080.0
   ],
   "mainColor": "#3CADFF",
-  "note": "DrawOp 指令流指纹（10 款全量：柱状 4 + 折线 3 + 点阵 1 + 环 1 + 丝带 1）。输入是 cases.json 的 sweep × default × 五时刻，元素盒取 bcut_timeline 几何默认表在 1920×1080 上的像素；时刻同时充当元素本地时钟，只有 ribbons 读它。samples 是折线类冻结的采样密度。",
+  "note": "DrawOp 指令流指纹（11 款全量：柱状 4 + 折线 3 + 点阵 1 + 环 1 + 丝带 1）。输入是 cases.json 的 sweep × default × 五时刻，元素盒取 bcut_timeline 几何默认表在 1920×1080 上的像素；时刻同时充当元素本地时钟，只有 ribbons 读它。samples 是折线类冻结的采样密度。",
   "params": "default",
   "secondaryColor": "#FFFFFF",
   "spectrum": "sweep",
   "styles": [
+    {
+      "algorithm": "audio-envelope-v1",
+      "aspect": "free",
+      "instants": [
+        {
+          "fingerprint": "168cc3ea73ff55fa",
+          "ops": 275,
+          "paths": 0,
+          "t": 0.0
+        },
+        {
+          "fingerprint": "76dff8434bc01e59",
+          "ops": 276,
+          "paths": 0,
+          "t": 0.1
+        },
+        {
+          "fingerprint": "3d21a59bdce1112d",
+          "ops": 276,
+          "paths": 0,
+          "t": 0.5
+        },
+        {
+          "fingerprint": "6a8c2c67b8ca96bf",
+          "ops": 267,
+          "paths": 0,
+          "t": 1.0
+        },
+        {
+          "fingerprint": "b801da8033f15523",
+          "ops": 271,
+          "paths": 0,
+          "t": 2.5
+        }
+      ],
+      "samples": null,
+      "silence": {
+        "fingerprint": "090c249359fc9433",
+        "ops": 275,
+        "paths": 0
+      },
+      "style": "visualizer.audio_envelope"
+    },
     {
       "algorithm": "spectrum-bars-v1",
       "aspect": "free",

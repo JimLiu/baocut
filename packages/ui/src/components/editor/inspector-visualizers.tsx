@@ -173,43 +173,47 @@ export function VisualizerParams(props: VisualParamProps) {
     <>
       <ColorRows kind={kindOf(WAVE_KINDS, key)} main={preset.mainColor} secondary={preset.secondaryColor} {...props} />
       <StylePicker catalog="wave" current={key} {...props} />
-      <SecHead>{IC.controls}</SecHead>
-      <Sec>
-        {preset.hasControl ? (
-          <>
+      {key === 'audio_envelope' ? null : (
+        <>
+          <SecHead>{IC.controls}</SecHead>
+          <Sec>
+            {preset.hasControl ? (
+              <>
+                <ValueRow
+                  label={IC.minimum}
+                  value={minDb}
+                  min={-120}
+                  max={0}
+                  unit="dB"
+                  isDisabled={isDisabled}
+                  onLive={(v) => live({ minDb: Math.min(v, maxDb - 1) })}
+                  onCommit={(v) => commit({ minDb: Math.min(v, maxDb - 1) })}
+                />
+                <ValueRow
+                  label={IC.maximum}
+                  value={maxDb}
+                  min={-40}
+                  max={60}
+                  unit="dB"
+                  isDisabled={isDisabled}
+                  onLive={(v) => live({ maxDb: Math.max(v, minDb + 1) })}
+                  onCommit={(v) => commit({ maxDb: Math.max(v, minDb + 1) })}
+                />
+              </>
+            ) : null}
             <ValueRow
-              label={IC.minimum}
-              value={minDb}
-              min={-120}
-              max={0}
-              unit="dB"
+              label={IC.smoothing}
+              value={Math.round(num(values.smoothing, 0.8) * 100)}
+              min={0}
+              max={99}
+              unit="%"
               isDisabled={isDisabled}
-              onLive={(v) => live({ minDb: Math.min(v, maxDb - 1) })}
-              onCommit={(v) => commit({ minDb: Math.min(v, maxDb - 1) })}
+              onLive={(v) => live({ smoothing: v / 100 })}
+              onCommit={(v) => commit({ smoothing: v / 100 })}
             />
-            <ValueRow
-              label={IC.maximum}
-              value={maxDb}
-              min={-40}
-              max={60}
-              unit="dB"
-              isDisabled={isDisabled}
-              onLive={(v) => live({ maxDb: Math.max(v, minDb + 1) })}
-              onCommit={(v) => commit({ maxDb: Math.max(v, minDb + 1) })}
-            />
-          </>
-        ) : null}
-        <ValueRow
-          label={IC.smoothing}
-          value={Math.round(num(values.smoothing, 0.8) * 100)}
-          min={0}
-          max={99}
-          unit="%"
-          isDisabled={isDisabled}
-          onLive={(v) => live({ smoothing: v / 100 })}
-          onCommit={(v) => commit({ smoothing: v / 100 })}
-        />
-      </Sec>
+          </Sec>
+        </>
+      )}
     </>
   );
 }

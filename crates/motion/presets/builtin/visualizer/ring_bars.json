@@ -3,7 +3,7 @@
   "version": 1,
   "domain": "visualizer",
   "namespace": "timeline",
-  "order": 3,
+  "order": 4,
   "numColors": 1,
   "colorLabels": [
     "Bars"

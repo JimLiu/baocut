@@ -111,7 +111,7 @@
     return out;
   }
 
-  /* ---------- 可视化 · 声波（10 款引擎配方 + 待确认的音量包络原型） ----------
+  /* ---------- 可视化 · 声波（11 款引擎配方） ----------
      引擎配方来自 `crates/motion/presets/builtin/visualizer/*.json`：`numColors` 决定色板出几个、
      `labels` 是那几个色板的标题（Bars / Wave / Fill / Line / Dots / Peaks / Core / Rings /
      Ribbon A / Ribbon B）、`db:false` 表示这一款**整个「控制」区块不渲染**
@@ -124,7 +124,7 @@
   const W = (k, name, en, n, labels, main, second, min, max, db, aspect) =>
     ({k, name, en, fam: 'wave', colors: n, labels, main, second, minDb: min, maxDb: max,
       db: db, aspect});
-  // 待确认的音量包络原型；§3.7 现有引擎只接瞬时频谱，尚不声明为可用配方。
+  // video-format-spec §3.7：默认音量包络；此原型用固定演示音量，产品读真实音频缓存。
   // 固定的演示音量沿时间轴取窗：跳播与顺播同一时刻得到同一张图。
   function audioEnvelope(time, duration) {
     const t = Math.max(0, Math.min(duration, Number(time) || 0));

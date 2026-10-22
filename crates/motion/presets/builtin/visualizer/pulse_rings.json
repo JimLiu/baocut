@@ -3,7 +3,7 @@
   "version": 1,
   "domain": "visualizer",
   "namespace": "timeline",
-  "order": 8,
+  "order": 9,
   "numColors": 2,
   "colorLabels": [
     "Core",

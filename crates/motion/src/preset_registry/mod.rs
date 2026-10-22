@@ -262,6 +262,7 @@ static STICKER_SOURCES: &[(&str, &str)] = &[
 
 /// 10 种 sound wave（设计 §7.3）。顺序无所谓——目录顺序来自 `order` 字段。
 static VISUALIZER_SOURCES: &[(&str, &str)] = &[
+    builtin!("visualizer", "audio_envelope"),
     builtin!("visualizer", "bars"),
     builtin!("visualizer", "bars_rounded"),
     builtin!("visualizer", "bars_bottom"),
@@ -1482,7 +1483,7 @@ mod tests {
         assert_eq!(registered_files("transition").len(), 13);
         // P7a：23 种基础形状 + BaoCut 自有的 `line`（见 SHAPE_SOURCES）。
         assert_eq!(registered_files("shape").len(), 24);
-        assert_eq!(registered_files("visualizer").len(), 10);
+        assert_eq!(registered_files("visualizer").len(), 11);
         assert_eq!(registered_files("progress").len(), 14);
         // P7b：模板贴纸首批 10 份（见 `STICKER_SOURCES`）。
         assert_eq!(registered_files("sticker").len(), 10);
@@ -1691,6 +1692,7 @@ mod tests {
         assert_eq!(
             ids(Domain::TimelineVisualizer),
             vec![
+                "audio_envelope",
                 "bars",
                 "bars_rounded",
                 "bars_bottom",
@@ -1780,7 +1782,7 @@ mod tests {
             assert!(recipe.available, "{}", recipe.id);
             assert_eq!(recipe.version, 1, "{}", recipe.id);
         }
-        assert_eq!(timeline_visualizers().len(), 10);
+        assert_eq!(timeline_visualizers().len(), 11);
         assert_eq!(timeline_progresses().len(), 14);
         assert_eq!(
             timeline_visualizer("bars").unwrap().qualified_id(),
@@ -1834,6 +1836,16 @@ mod tests {
     fn the_visualizer_style_table_matches_the_design() {
         // (id, numColors, main, minDb, maxDb, hasControl, binWidth, aspect)
         let expect: &[(&str, u8, &str, f64, f64, bool, BinWidth, VisualizerAspect)] = &[
+            (
+                "audio_envelope",
+                2,
+                "#7FE0CF",
+                -80.0,
+                40.0,
+                false,
+                BinWidth::Half,
+                VisualizerAspect::Free,
+            ),
             (
                 "bars",
                 1,
@@ -1957,7 +1969,7 @@ mod tests {
             .filter(|r| r.visualizer().unwrap().bin_width == BinWidth::Half)
             .map(|r| r.id.as_str())
             .collect();
-        assert_eq!(half, vec!["oscilloscope", "ring_wave"]);
+        assert_eq!(half, vec!["audio_envelope", "oscilloscope", "ring_wave"]);
         let labels = |id: &str| {
             timeline_visualizer(id)
                 .unwrap()
@@ -2061,6 +2073,7 @@ mod tests {
     #[test]
     fn every_recipe_declares_one_of_the_closed_algorithm_names() {
         let expect: &[(&str, RecipeAlgorithm)] = &[
+            ("audio_envelope", RecipeAlgorithm::AudioEnvelopeV1),
             ("bars", RecipeAlgorithm::SpectrumBarsV1),
             ("bars_rounded", RecipeAlgorithm::SpectrumBarsV1),
             ("bars_bottom", RecipeAlgorithm::SpectrumBarsV1),
@@ -2207,7 +2220,7 @@ mod tests {
         let total = hashes.len();
         hashes.dedup();
         assert_eq!(hashes.len(), total);
-        assert_eq!(total, 24);
+        assert_eq!(total, 25);
     }
 
     /// 未知算法名、串门算法名、缺参数、越界数值、坏颜色、坏 dB 窗——

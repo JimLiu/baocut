@@ -112,7 +112,7 @@ fn all_manifests_parse_and_the_catalogue_is_frozen() {
     );
     // 声波 10（2026-09 重设计）+ 进度 14（设计 §7.3 / §7.4）——BaoCut 不做付费分层，
     // 也不把 Countdown / Count Up 当 progress（那是文字元素）。
-    assert_eq!(ids(Domain::TimelineVisualizer).len(), 10);
+    assert_eq!(ids(Domain::TimelineVisualizer).len(), 11);
     assert_eq!(ids(Domain::TimelineProgress).len(), 14);
     // 彩纸十款（`docs/design/elements/bcut-confetti-element-design.md` §4.4）。
     assert_eq!(ids(Domain::TimelineConfetti).len(), 10);
@@ -140,10 +140,10 @@ fn the_catalogue_ids_match_the_files_and_the_document_values() {
 }
 
 /// `(id, version)` 是目录型配方的冻结单位，`manifest_hash` 是源文件内容 hash——
-/// 34 份逐份钉住：id 与文件名逐字相同、`version` 恒为 1、`manifest_hash` 互不相同
+/// 35 份逐份钉住：id 与文件名逐字相同、`version` 恒为 1、`manifest_hash` 互不相同
 /// 且随文件内容变（改一个参数就必须自觉升 `version`）。
 #[test]
-fn the_thirty_four_catalogue_recipes_are_frozen_at_version_one() {
+fn the_catalogue_recipes_are_frozen_at_version_one() {
     use motion::preset_registry::{timeline_confettis, timeline_progresses, timeline_visualizers};
 
     let mut hashes = Vec::new();
@@ -176,7 +176,7 @@ fn the_thirty_four_catalogue_recipes_are_frozen_at_version_one() {
         assert_eq!(body.has_emitter_control, burst, "{}", recipe.id);
         hashes.push(recipe.manifest_hash);
     }
-    assert_eq!(hashes.len(), 34);
+    assert_eq!(hashes.len(), 35);
     let total = hashes.len();
     hashes.sort_unstable();
     hashes.dedup();
@@ -462,7 +462,7 @@ fn every_sticker_layer_is_well_formed() {
 fn the_shipped_wave_is_a_function_of_algorithm_and_determinism() {
     use motion::preset_registry::{timeline_progresses, timeline_visualizers};
 
-    const VISUALIZER_BARS: [&str; 2] = ["spectrum-bars-v1", "polar-bars-v1"];
+    const VISUALIZER_BARS: [&str; 3] = ["audio-envelope-v1", "spectrum-bars-v1", "polar-bars-v1"];
     const VISUALIZER_CURVES: [&str; 5] = [
         "oscilloscope-v1",
         "spectrum-area-v1",
@@ -489,7 +489,13 @@ fn the_shipped_wave_is_a_function_of_algorithm_and_determinism() {
     };
     assert_eq!(
         visualizers(&VISUALIZER_BARS),
-        ["bars", "bars_bottom", "bars_rounded", "ring_bars"],
+        [
+            "audio_envelope",
+            "bars",
+            "bars_bottom",
+            "bars_rounded",
+            "ring_bars"
+        ],
         "柱状 4 种"
     );
     assert_eq!(
@@ -540,7 +546,7 @@ fn the_shipped_wave_is_a_function_of_algorithm_and_determinism() {
     // 已上线的合集正是消费者白名单的解：10 + 8。
     let mut shipped = VISUALIZER_BARS.to_vec();
     shipped.extend(VISUALIZER_CURVES);
-    assert_eq!(visualizers(&shipped).len(), 10);
+    assert_eq!(visualizers(&shipped).len(), 11);
     let mut shipped = PROGRESS_P3.to_vec();
     shipped.extend(PROGRESS_P4);
     assert_eq!(progresses(&shipped).len(), 8);

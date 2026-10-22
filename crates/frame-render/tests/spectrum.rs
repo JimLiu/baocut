@@ -294,3 +294,21 @@ fn a_renderer_takes_the_spectrum_tracks_another_one_composed() {
     render_with(&mut third, &video, 4.5, &mut Media::default());
     assert_eq!(third.missing_spectra().len(), 1);
 }
+
+#[test]
+fn audio_envelope_renders_real_mixed_audio_and_supports_shuffled_seeks() {
+    let mut video = scene("project", 1.0);
+    for item in &mut video.sequences.values_mut().next().unwrap().items {
+        if let video_model::TimelineItem::Visualizer(viz) = item {
+            viz.visualizer.style = "audio_envelope".into();
+        }
+    }
+    let mut renderer = renderer(false, frame_render::Documents::default());
+    let mut media = media();
+    let first = render_with(&mut renderer, &video, 0.0, &mut media);
+    let speech = render_with(&mut renderer, &video, 4.5, &mut media);
+    assert_ne!(first, speech);
+    assert_eq!(speech, render_with(&mut renderer, &video, 4.5, &mut media));
+    assert_eq!(first, render_with(&mut renderer, &video, 0.0, &mut media));
+    assert!(renderer.warnings().is_empty());
+}

@@ -47,6 +47,8 @@ pub use crate::source::kernel::DrawBox as VizBox;
 pub struct VisualizerParams {
     pub main_color: Color4,
     pub secondary_color: Color4,
+    /// Instance duration in seconds; used by the envelope progress rail and clocks.
+    pub duration: f64,
 }
 
 /// 一帧 visualizer → 指令流；返回**新压入的 DrawOp 条数**。
@@ -80,6 +82,9 @@ pub fn visualizer_frame(
     };
 
     match body.recipe.algorithm {
+        RecipeAlgorithm::AudioEnvelopeV1 => {
+            recipes::audio_envelope_v1::draw(builder, body, params, viz, time, bbox, tf)
+        }
         RecipeAlgorithm::SpectrumBarsV1 => {
             recipes::spectrum_bars_v1::draw(builder, body, params, viz, bbox, tf)
         }
@@ -145,10 +150,49 @@ mod tests {
         }
     }
 
+    #[test]
+    fn envelope_uses_two_colors_and_progress_is_local_to_the_clip() {
+        let recipe = motion::preset_registry::timeline_visualizer("audio_envelope").unwrap();
+        let mut builder = FrameBuilder::default();
+        let bbox = VizBox {
+            x: 0.0,
+            y: 0.0,
+            w: 1632.0,
+            h: 340.0,
+        };
+        let viz = VizFrame {
+            time: Box::new([]),
+            freq: vec![255; 121].into_boxed_slice(),
+        };
+        let mut values = params();
+        values.duration = 10.0;
+        visualizer_frame(&mut builder, recipe, &values, &viz, 5.0, bbox, TF);
+        let rects: Vec<_> = builder
+            .frame
+            .ops
+            .iter()
+            .filter_map(|op| match op {
+                DrawOp::FillRect {
+                    x, y, w, h, color, ..
+                } => Some((*x, *y, *w, *h, *color)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(rects[60].4, values.main_color);
+        assert_eq!(rects[61].4, values.secondary_color);
+        assert_eq!(rects[0].3, 171.0);
+        assert!(
+            rects
+                .iter()
+                .any(|r| r.1 == 279.0 && r.2 == 804.0 && r.4 == values.main_color)
+        );
+    }
+
     fn params() -> VisualizerParams {
         VisualizerParams {
             main_color: [1.0, 1.0, 1.0, 1.0],
             secondary_color: [0.0, 0.0, 0.0, 1.0],
+            duration: 3.0,
         }
     }
 
@@ -196,7 +240,7 @@ mod tests {
     #[test]
     fn every_catalogue_style_draws_something_even_in_silence() {
         let styles = motion::preset_registry::timeline_visualizers();
-        assert_eq!(styles.len(), 10, "10 种 sound wave 全部登记在目录里");
+        assert_eq!(styles.len(), 11, "11 waveform styles are registered");
         for recipe in styles {
             for viz in [frame(), silence(), shaped()] {
                 let mut builder = FrameBuilder::default();
@@ -226,15 +270,15 @@ mod tests {
         }
     }
 
-    /// `u_time` 的口径（§13 P4 偏离 9）：只有 `ribbons` 随时刻变。
+    /// `u_time` 的口径（§13 P4 偏离 9）：`ribbons` 相位与 `audio_envelope` 进度随时刻变。
     #[test]
-    fn only_the_ribbons_read_the_clock() {
+    fn ribbons_and_envelope_progress_read_the_clock() {
         let print =
             |id: &str, time: f64| crate::drawop::fingerprint(&draw_at(id, &frame(), time).finish());
         for recipe in motion::preset_registry::timeline_visualizers() {
             let id = recipe.id.as_str();
             let same = print(id, 0.0) == print(id, 1.3);
-            assert_eq!(same, id != "ribbons", "{id}");
+            assert_eq!(same, id != "ribbons" && id != "audio_envelope", "{id}");
         }
     }
 

@@ -51,7 +51,7 @@ let sample: Uint8Array | null = null;
  */
 export function sampleSpectrum(): Uint8Array {
   if (sample) return sample;
-  const [frames, timeBins, freqBins] = [30, 128, 512];
+  const [frames, timeBins, freqBins] = [600, 128, 512];
   const out = new Uint8Array(40 + frames * (timeBins + freqBins));
   const view = new DataView(out.buffer);
   out.set(new TextEncoder().encode('BCS1'), 0);
@@ -70,7 +70,8 @@ export function sampleSpectrum(): Uint8Array {
   });
   for (let frame = 0; frame < frames; frame++) {
     const at = 40 + frame * (timeBins + freqBins);
-    out.set(time, at);
+    const gain = 0.15 + 0.85 * Math.abs(Math.sin(frame * 0.11) * Math.cos(frame * 0.027));
+    out.set(time.map(value => Math.round(128 + (value - 128) * gain)), at);
     out.set(freq, at + timeBins);
   }
   sample = out;

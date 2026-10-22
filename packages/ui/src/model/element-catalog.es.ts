@@ -54,6 +54,7 @@ export const es: ElementCatalogMessages = {
     snake_spin_rainbow: 'Serpiente arcoíris giratoria',
   },
   waves: {
+    audio_envelope: 'Envolvente de audio',
     bars: 'Barras',
     bars_rounded: 'Barras redondeadas',
     bars_bottom: 'Barras alineadas abajo',
@@ -66,6 +67,8 @@ export const es: ElementCatalogMessages = {
     ribbons: 'Cintas',
   },
   colors: {
+    played: 'Reproducido',
+    upcoming: 'Pendiente',
     bar: 'Barra',
     track: 'Pista',
     background: 'Fondo',
@@ -95,6 +98,6 @@ export const es: ElementCatalogMessages = {
     sticker: { title: 'Pegatinas', note: '16 paquetes + 10 integradas + biblioteca de marca' },
     dynamic: { title: 'Pegatinas animadas', note: '5 paquetes Lottie de Noto + 10 confetis + biblioteca de marca' },
     shape: { title: 'Formas', note: '23 casillas · ciclo de 5 colores' },
-    visualizer: { title: 'Visualizadores', note: '14 barras de progreso + 2 temporizadores + 10 formas de onda' },
+    visualizer: { title: 'Visualizadores', note: '14 barras de progreso + 2 temporizadores + 11 formas de onda' },
   },
 };

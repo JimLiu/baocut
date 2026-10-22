@@ -239,7 +239,7 @@ description: 端到端的做法：链接到双语字幕成片、润色后翻译�
 
 | 信号 | 处理 | 原因 |
 | --- | --- | --- |
-| 声波 | **只用**内置的声波元素（[editing](catalog/editing.md)「声波与进度条」）：不写代码包、不按 {{skill:motion-graphics}} 写 HTML、不分析音量 | 一笔修改就在画面上、跟着声音动，用户能换款改色；代码包要把整段音频渲染完，长录音要等很久，字幕也被堵在后面 |
+| 声波 | **只用**内置的声波元素（[editing](catalog/editing.md)「声波与进度条」）：不写代码包、不按 {{skill:motion-graphics}} 写 HTML、不分析音量 | 默认样式与摆位见 editing「默认声波」；一笔修改就在画面上、跟着声音动，用户能换款改色；代码包要把整段音频渲染完，长录音要等很久，字幕也被堵在后面 |
 | 用户要的声波样子内置款式里没有（品牌动效、特殊造型） | 仍用内置元素：挑最接近的款，用颜色与 `place` 调；告诉用户内置能换款、改色、挪位置，不改用代码包 | 代码包画的声波渲染慢、用户改不了，这条路不走 |
 | 用户没说背景 | 一个沉稳的底色（`updateSequence` 的 `background`） | 秒级完成，用户随时能换 |
 | 用户给了图片，或要一张生成的背景图 | 图片放在最下面的画面轨，铺满（`setStyle` 的 `fullscreen` 加 `cover`）并拉到片尾 | 一张静图撑全片 |
@@ -251,7 +251,7 @@ description: 端到端的做法：链接到双语字幕成片、润色后翻译�
 步骤：
 
 1. {{tool:transcribe}}，{{arg:file}} 给音频：新建视频、音频放上时间线、转写并建字幕层（不加 {{arg:noCaptions}}）。不等转写完：{{tool:jobs_wait}} 短等一下，任务记录的 `videoId` 在建好视频那一步之后就有。
-2. 转写进行时铺画面：{{tool:videos_inspect}} 拿版本、画面轨与 `sequence.durationFrames`，一笔 {{tool:edits_apply}} 写好背景与声波。声波 `span` 从第 0 帧铺到片尾，放在同一笔 `addTrack` 新建的画面轨上；字幕会在底部，声波用 `place` 居中（`{"y":50,"w":70}`）或放在字幕之上，竖版放在画面中上。
+2. 转写进行时铺画面：{{tool:videos_inspect}} 拿版本、画面轨与 `sequence.durationFrames`，一笔 {{tool:edits_apply}} 写好背景与声波。声波 `span` 从第 0 帧铺到片尾，放在同一笔 `addTrack` 新建的画面轨上；字幕会在底部，默认声波与摆位按 [editing](catalog/editing.md)「默认声波」；用户指定其他款式时同样放在字幕之上，竖版放在画面中上。
 3. 等转写完成，字幕层这时已在画面上；竖版按 [subtitles](catalog/subtitles.md) 用 `setCaptionStyle` 把字幕挪出平台控件区。按 {{skill:polish-transcript}} 润色写回、给说话人实名：字幕的文字在同一笔里跟着改，时间与切条不动。转写几乎没有句末标点、润色补了很多句末标点时，字幕条仍是按宽度和停顿切的：问过用户再删掉这层，{{tool:captions_create}} 按润色后的转写重建。
 4. 旁路：章节（{{skill:video-chapters}}）与视频速览，不挡字幕和导出。
 5. 看画面：导出一小段预览（{{tool:export}}，{{arg:purpose}} 为 `preview`）抽开头、中间、结尾几帧，核对声波在动、不压字幕、背景铺到片尾；{{tool:videos_frames}} 的帧里没有声波与字幕。
