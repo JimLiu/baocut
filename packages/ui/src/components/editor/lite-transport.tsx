@@ -1,8 +1,6 @@
 import { useRef, type ReactElement } from 'react';
 import type { Sequence } from '@baocut/protocol';
 import { ActionButton, Button, Menu, MenuItem, MenuTrigger, Text, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
-import ChevronDoubleLeft from '@react-spectrum/s2/icons/ChevronDoubleLeft';
-import ChevronDoubleRight from '@react-spectrum/s2/icons/ChevronDoubleRight';
 import Pause from '@react-spectrum/s2/icons/Pause';
 import Play from '@react-spectrum/s2/icons/Play';
 import Refresh from '@react-spectrum/s2/icons/Refresh';
@@ -28,7 +26,7 @@ import { useNarrow } from '../use-narrow.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 import { LITE_COPY as L } from './lite-copy.ts';
-import { LOOP_ICONS } from './loop-icons.tsx';
+import { LOOP_ICONS, NextIcon, PrevIcon } from './transport-icons.tsx';
 
 /**
  * 轻量视图的走带（轻量编辑器设计 §3「走带」；原型 editor-lite.jsx 的 `LiteTransport`）：与时间线的走带同一副骨架
@@ -169,7 +167,7 @@ export function LiteTransport({
               isDisabled={single}
               onPress={() => seek(prevSegmentStart(segments, useEditor.getState().playhead))}
             >
-              <ChevronDoubleLeft />
+              <PrevIcon />
             </ActionButton>
           </Tip>
         )}
@@ -194,7 +192,7 @@ export function LiteTransport({
               isDisabled={single}
               onPress={() => seek(nextSegmentStart(segments, useEditor.getState().playhead))}
             >
-              <ChevronDoubleRight />
+              <NextIcon />
             </ActionButton>
           </Tip>
         )}
