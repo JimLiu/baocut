@@ -1,9 +1,11 @@
 import { loadRenderPlanner } from '@baocut/ui/preview-kernel';
+import { speechSentences } from '@baocut/editor-wasm';
 
 /** `baocutKernelCheck()` 的结果：内核注入了哪些字体，经内核量出来的一个文字框。 */
 export interface KernelCheck {
   fonts: string[];
   box: { width: number; height: number };
+  editorSentences: number;
 }
 
 declare global {
@@ -20,5 +22,9 @@ globalThis.baocutKernelCheck = async () => {
   const style = { fontSize: 24, fontWeight: 'bold', lineHeight: 1.2 };
   // i18n-ignore: 量字用的样例文字（要含中文，才能量到中文字体）
   const box = planner.measureText('输入文字 BaoCut', style, null, { width: 1920, height: 1080 });
-  return { fonts: planner.fontFiles(), box };
+  const editor = speechSentences({
+    schema: 'baocut.speech/1', timescale: 1000,
+    words: [{ id: 'w0', start: 0, end: 400, text: 'Hello.' }],
+  });
+  return { fonts: planner.fontFiles(), box, editorSentences: editor.sentences.length };
 };
