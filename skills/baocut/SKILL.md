@@ -58,7 +58,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 做一条某类视频，但没说清 | 先问清主题、目标、受众、手上的材料，再动手 | [workflows](references/workflows.md) | {{skill:video-production}} |
 | 有命令行环境、旁白按段配的片子要跑脚本：配音、对齐、打包、摆上时间线、建字幕、叠实拍、量画面占比 | 拷走现成的脚本，写一份计划（配置、旁白稿、场景代码、实拍片段清单）按顺序跑，改一段只重做那一段；脚本不规定片子的形态。没有命令行环境时把定好的段落、实拍片段与卡片写成计划交给 {{tool:edits_assemble}} 一次放好 | [voice](references/catalog/voice.md)、[media](references/catalog/media.md)、[editing](references/catalog/editing.md) | {{skill:production-scripts}} |
 | 加下横栏、关键词、大数字、标注、品牌贴片这类动效图形 | 按规则写一个自包含的 HTML 画面，打包成代码包导入，放上时间线对齐旁白 | [media](references/catalog/media.md) | {{skill:motion-graphics}} |
-| 把音频做成视频、给播客配上画面与声波 | 建可编辑视频：转写时先铺背景与内置声波，润色后马上建字幕层；声波只用内置元素，不写代码包 | [workflows](references/workflows.md)、[editing](references/catalog/editing.md) | {{skill:subtitle-workflow}}、{{skill:polish-transcript}} |
+| 把音频做成视频、给播客配上画面与声波 | 建可编辑视频：背景与标题按内容定制，可用 HTML；声波只用内置元素；转写、润色与字幕按对应做法 | [workflows](references/workflows.md)、[editing](references/catalog/editing.md) | {{skill:subtitle-workflow}}、{{skill:polish-transcript}}；HTML 背景按需读 {{skill:motion-graphics}} |
 | 给一首歌做 MV、歌词视频；手上有歌词、讲稿或台词，要按声音对上时间 | 转写只取时间，文字以用户的原文为准、写回转写；按需译成双语字幕层，画面按成片做 | [workflows](references/workflows.md)、[subtitles](references/catalog/subtitles.md) | {{skill:polish-transcript}}、{{skill:video-production}} |
 | 整镜整段用代码画：逐句配画面、角色小动画、Canvas 或 SVG 场景 | 画面是时间的纯函数，按段打包成代码包导入；角色与场景底图先成套生成，再在代码里动起来 | [media](references/catalog/media.md) | {{skill:video-production}}（代码场景） |
 <!-- surface: agent -->
@@ -154,7 +154,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 | {{skill:clip-montage}} | 解说混剪 | 拿一条新闻、一件事或一个故事，从网上与视频库里搜素材、切原声，配旁白剪成画面一直在动的片子，推文与引语做成压在画面上的卡片；题材不限 |
 | {{skill:video-production}} | 从简报到成片 | 从零做一条完整成片：风格与分镜规划，逐镜出画面，配旁白、混音、导出验收 |
 | {{skill:production-scripts}} | 制作脚本 | 有命令行环境时按段配旁白、对齐、打包代码画面、摆上时间线、建字幕、叠实拍、量画面占比的现成脚本，不规定片子的形态 |
-| {{skill:motion-graphics}} | 动效图形 | 写一个自包含的 HTML 画面做下横栏、关键词、大数字、标注或品牌贴片，打包导入后放上时间线 |
+| {{skill:motion-graphics}} | 动效图形 | 用自包含 HTML 定制音频视频的背景与标题，或做下横栏、关键词、大数字、标注与品牌贴片，导入后放上时间线 |
 
 这些页是内置 skill 随这份 skill 发布时的副本；`baocut skills read <id>` 取的是这台机器上当前的版本（含用户自己加的 skill），两者不同时以后者为准。
 <!-- /surface -->

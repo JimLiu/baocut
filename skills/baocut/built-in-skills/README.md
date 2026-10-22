@@ -27,7 +27,7 @@ BaoCut 随应用分发的内置 Agent skill，也叫 craft（做法）：一件�
 | [`clip-montage`](clip-montage/SKILL.md) | 解说混剪 | 旁白、视频切片与文字动画混搭：拿一条新闻、一件事或一个故事，从网上与视频库里搜素材、切原声，配旁白剪成画面一直在动的片子，推文与引语做成压在画面上的卡片；题材不限 |
 | [`video-production`](video-production/SKILL.md) | 从简报到成片 | 从零做一条完整成片：风格与分镜规划，逐镜出画面，配旁白、混音、导出验收 |
 | [`production-scripts`](production-scripts/SKILL.md) | 制作脚本 | 有命令行环境时按段配旁白、对齐、打包代码画面、摆上时间线、建字幕、叠实拍、量画面占比的现成脚本；它是一条省事的路，不规定片子的形态 |
-| [`motion-graphics`](motion-graphics/SKILL.md) | 动效图形 | 写一个自包含的 HTML 画面做下横栏、关键词、大数字、标注或品牌贴片，打包导入后放上时间线 |
+| [`motion-graphics`](motion-graphics/SKILL.md) | 动效图形 | 用自包含 HTML 定制音频视频的背景与标题，或做下横栏、关键词、大数字、标注与品牌贴片，导入后放上时间线 |
 | [`slides`](slides/SKILL.md) | 幻灯片 | 在工作目录写一份 deck，校验通过后在线程里出卡片，用户在功能区预览、编辑与标注（只给会话内智能体） |
 | [`design`](design/SKILL.md) | 设计稿 | 在工作目录写一份设计稿（界面、网页、海报、图表、示意图、原型），校验通过后在线程里出卡片，用户在功能区预览、编辑与标注（只给会话内智能体） |
 | [`design-system`](design-system/SKILL.md) | 设计系统 | 在工作目录写一个设计系统目录（tokens、品牌手册、组件、素材），可从代码仓库或设计工具整理，供设计稿装用（只给会话内智能体） |
