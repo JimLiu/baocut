@@ -8,7 +8,6 @@ import {
   liteLoopJump,
   liteLoopMaxStep,
   liteLoopRange,
-  liteBoundaryPreview,
   DEFAULT_EDITOR_VIEW,
   liteChips,
   liteFitZoom,
@@ -197,20 +196,6 @@ describe('片条与缩放', () => {
       [0.25, true, 0.5, null],
       [0.75, false, null, 2 / 3],
     ]);
-  });
-
-  it('拖边界的预览：这一片的终点与下一片的起点一起挪，总长不变；占比跟着变', () => {
-    const preview = liteBoundaryPreview(segs, 0, 20);
-    expect(preview.map((s) => [s.id, s.start, s.end])).toEqual([
-      ['c1', 0, 20],
-      ['c2', 20, 40],
-    ]);
-    expect(liteChips(preview, 5, 40, null).map((c) => c.flex)).toEqual([0.5, 0.5]);
-    expect(segs.map((s) => [s.start, s.end])).toEqual([
-      [0, 10],
-      [10, 40],
-    ]);
-    expect(liteBoundaryPreview(segs, 1, 30)).toEqual(segs);
   });
 
   it('缩放夹在 1–8 倍，每档 ×1.5，标签是整数百分比', () => {

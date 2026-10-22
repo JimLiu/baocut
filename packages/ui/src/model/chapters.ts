@@ -128,7 +128,7 @@ export function bandSegments(chapters: readonly ChapterSpan[], duration: number)
 
 /**
  * 拖一章的起点能到哪些帧：晚于上一章起点、早于下一章起点（引擎只拒同一帧，不拒越过邻居——保住先后次序靠这里），
- * 也不出片尾。第一章最早到 0。规则与片条拖边界同一份（`chapter-edges.ts` 的 `edgeBounds`，这里各留 1 帧）。
+ * 也不出片尾。第一章最早到 0。规则在 `chapter-edges.ts` 的 `edgeBounds`（这里各留 1 帧）。
  */
 export function startBounds(chapters: readonly ChapterSpan[], index: number, totalFrames: number): { min: number; max: number } {
   const { min, max } = edgeBounds(chapters, index, totalFrames, 1);

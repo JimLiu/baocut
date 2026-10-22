@@ -12,11 +12,6 @@ export const ru: LiteMessages = {
   chips: 'Сегменты',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Щёлкните, чтобы перейти, тяните, чтобы перематывать`,
   segmentCount: (n: number) => `Сегментов: ${n}`,
-  edgeHint: 'Перетащите, чтобы сдвинуть границу со следующей главой',
-  edgeLabel: (title: string, duration: string) =>
-    `Конец главы «${title}», ${duration}. Перетащите или нажимайте стрелки, чтобы сдвинуть границу со следующей главой`,
-  seconds: (value: string) => `${value} с`,
-  edgeMoved: (title: string, duration: string) => `Длительность «${title}» теперь ${duration}`,
   prevSegment: 'Предыдущий сегмент',
   nextSegment: 'Следующий сегмент',
   loop: 'Повтор',

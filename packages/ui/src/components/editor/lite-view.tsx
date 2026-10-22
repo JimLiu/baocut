@@ -129,7 +129,7 @@ export function LiteView({
           onLoop={setLoop}
           onZoom={(action) => chips.current?.zoom(action)}
         />
-        <LiteChips sequence={sequence} segments={segments} duration={duration} handle={chips} />
+        <LiteChips segments={segments} duration={duration} handle={chips} />
       </div>
       {sideHidden ? null : (
         <LiteSidePanel

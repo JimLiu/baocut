@@ -12,11 +12,6 @@ export const tr: LiteMessages = {
   chips: 'Bölümler',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Atlamak için tıklayın, gezmek için sürükleyin`,
   segmentCount: (n: number) => `${n} bölüm`,
-  edgeHint: 'Sonraki bölümle sınırı taşımak için sürükleyin',
-  edgeLabel: (title: string, duration: string) =>
-    `“${title}” sonu, ${duration}. Sonraki bölümle sınırı taşımak için sürükleyin veya ok tuşlarını kullanın`,
-  seconds: (value: string) => `${value} sn`,
-  edgeMoved: (title: string, duration: string) => `“${title}” artık ${duration}`,
   prevSegment: 'Önceki bölüm',
   nextSegment: 'Sonraki bölüm',
   loop: 'Döngü',

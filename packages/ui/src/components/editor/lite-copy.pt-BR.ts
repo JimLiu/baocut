@@ -12,11 +12,6 @@ export const ptBR: LiteMessages = {
   chips: 'Segmentos',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Clique para ir, arraste para navegar`,
   segmentCount: (n: number) => `${n} segmento${n === 1 ? '' : 's'}`,
-  edgeHint: 'Arraste para mover o limite com o próximo capítulo',
-  edgeLabel: (title: string, duration: string) =>
-    `Fim de “${title}”, ${duration}. Arraste ou use as setas para mover o limite com o próximo capítulo`,
-  seconds: (value: string) => `${value} s`,
-  edgeMoved: (title: string, duration: string) => `“${title}” agora dura ${duration}`,
   prevSegment: 'Segmento anterior',
   nextSegment: 'Próximo segmento',
   loop: 'Repetir',

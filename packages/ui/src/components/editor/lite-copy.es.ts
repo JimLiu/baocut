@@ -12,11 +12,6 @@ export const es: LiteMessages = {
   chips: 'Segmentos',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Clic para saltar, arrastra para desplazarte`,
   segmentCount: (n: number) => `${n} segmento${n === 1 ? '' : 's'}`,
-  edgeHint: 'Arrastra para mover el límite con el capítulo siguiente',
-  edgeLabel: (title: string, duration: string) =>
-    `Final de «${title}», ${duration}. Arrastra o usa las flechas para mover el límite con el capítulo siguiente`,
-  seconds: (value: string) => `${value} s`,
-  edgeMoved: (title: string, duration: string) => `«${title}» dura ahora ${duration}`,
   prevSegment: 'Segmento anterior',
   nextSegment: 'Segmento siguiente',
   loop: 'Bucle',

@@ -12,11 +12,6 @@ export const vi: LiteMessages = {
   chips: 'Các đoạn',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Nhấp để nhảy tới, kéo để tua`,
   segmentCount: (n: number) => `${n} đoạn`,
-  edgeHint: 'Kéo để dời ranh giới với chương sau',
-  edgeLabel: (title: string, duration: string) =>
-    `Cuối “${title}”, ${duration}. Kéo hoặc dùng phím mũi tên để dời ranh giới với chương sau`,
-  seconds: (value: string) => `${value} giây`,
-  edgeMoved: (title: string, duration: string) => `“${title}” giờ dài ${duration}`,
   prevSegment: 'Đoạn trước',
   nextSegment: 'Đoạn sau',
   loop: 'Lặp lại',

@@ -249,12 +249,6 @@ export function liteChips(segments: readonly LiteSegment[], playhead: number, du
   });
 }
 
-/** 拖第 `index` 片右边时的预览：这一片的终点与下一片的起点都换成 `seconds`（调用方已按 `chipEdge` 夹好），其余不动。 */
-export function liteBoundaryPreview(segments: readonly LiteSegment[], index: number, seconds: number): LiteSegment[] {
-  if (!segments[index] || !segments[index + 1]) return [...segments];
-  return segments.map((s, i) => (i === index ? { ...s, end: seconds } : i === index + 1 ? { ...s, start: seconds } : s));
-}
-
 /** 片条的缩放：1 = 整条铺满播放条的宽度（默认），按钮每档 ×1.5、最大 8 倍；观看态，不进视频、不进偏好。 */
 export const LITE_ZOOM_MAX = 8;
 export const LITE_ZOOM_STEP = 1.5;
