@@ -334,12 +334,12 @@ describe('按说话人切段的拒绝（假的分析）', () => {
     expect(shotsToolError(error)).toMatchObject({ code: 'SHOTS_FACES_UNAVAILABLE', extra: { next: expect.stringContaining('整支分屏') } });
   });
 
-  it('多数取样不是同样 2–4 张主脸：SHOTS_NOT_SINGLE_CAMERA', async () => {
+  it('多数取样不是同样 2–4 张主脸：SHOTS_NOT_SINGLE_CAMERA，next 先说多机位按画面的镜头取景', async () => {
     const body = speechBody(['spk_a', 'spk_b', 'spk_a', 'spk_b', 'spk_a', 'spk_b'], 5);
     const closeUps = fixedFaces((i) => (i % 3 === 0 ? [LEFT_FACE, RIGHT_FACE] : [LEFT_FACE]));
-    await expect(detectSpeakerShots(speakerDeps(body, closeUps.detector, base), speakerVideo(30), {})).rejects.toMatchObject({
-      code: 'SHOTS_NOT_SINGLE_CAMERA',
-    });
+    const error = await detectSpeakerShots(speakerDeps(body, closeUps.detector, base), speakerVideo(30), {}).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'SHOTS_NOT_SINGLE_CAMERA' });
+    expect(shotsToolError(error)).toMatchObject({ code: 'SHOTS_NOT_SINGLE_CAMERA', extra: { next: expect.stringMatching(/^原片有近景与全景来回切时按画面的镜头取景.*整支分屏/) } });
   });
 });
 

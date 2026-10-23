@@ -100,7 +100,10 @@ export function shotsToolError(error: unknown): unknown {
         next: `${SPEAKER_FALLBACK}；请用户先在 AI 工具里识别说话人，再剪一次`,
       });
     case 'SHOTS_NOT_SINGLE_CAMERA':
-      return new ToolError(code, '取样里多数帧不是同样 2–4 张主脸（不是单机位，或检测不到脸），或者能用的取样不到 6 个', { ...details, next: SPEAKER_FALLBACK });
+      return new ToolError(code, '取样里多数帧不是同样 2–4 张主脸（不是单机位，或检测不到脸），或者能用的取样不到 6 个', {
+        ...details,
+        next: `原片有近景与全景来回切时按画面的镜头取景（by picture，同取景「自动」）；整段确实只有一个全景机位时${SPEAKER_FALLBACK}`,
+      });
     case 'SHOTS_SPEAKERS_UNMATCHED':
       return new ToolError(code, '一个说话人也认不出是画面里的哪张脸（嘴部的动静与谁在说话对不上）', { ...details, next: SPEAKER_FALLBACK });
     case 'SHOTS_FACES_UNAVAILABLE':

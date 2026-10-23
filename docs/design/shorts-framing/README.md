@@ -82,7 +82,7 @@
 - `shots [{start, end, sampleAt, speaker, face}]`：每段对准的说话人 ID 与脸的编号，分屏段两项都是 null；`sampleAt` 同按画面切的镜头，用来核对。
 - `faces [{box, speaker}]`：每张脸在所有取样里的中位框（`x`、`y`、`w`、`h` 按帧的宽高归一化，同 `videos_frames` 的 `faces`），按左右排；`speaker` 是认出的说话人，没人对上时 null。每段的取景框、分屏各格的区域都从这些框算（§3.2），不用再取帧。
 - `speakers [{id, name, face, probes, contrast}]`、`confidence`、`detector: "mouth-motion"`；没有 `cuts`、`threshold`、`minShot`。
-- 拒绝：`SHOTS_NO_SPEAKERS`（这个素材没有转写，或转写里不到 2 个说话人）、`SHOTS_NOT_SINGLE_CAMERA`（能用的取样不到 6 个，或不到七成的取样是同样 2–4 张主脸）、`SHOTS_SPEAKERS_UNMATCHED`（一个说话人也认不出）、`SHOTS_FACES_UNAVAILABLE`（人脸检测不可用）。`next` 都写退回整支分屏，`SHOTS_NO_SPEAKERS` 另写请用户先识别说话人。
+- 拒绝：`SHOTS_NO_SPEAKERS`（这个素材没有转写，或转写里不到 2 个说话人）、`SHOTS_NOT_SINGLE_CAMERA`（能用的取样不到 6 个，或不到七成的取样是同样 2–4 张主脸）、`SHOTS_SPEAKERS_UNMATCHED`（一个说话人也认不出）、`SHOTS_FACES_UNAVAILABLE`（人脸检测不可用）。`next` 都写退回整支分屏，`SHOTS_NO_SPEAKERS` 另写请用户先识别说话人；`SHOTS_NOT_SINGLE_CAMERA` 先写原片有近景与全景来回切时按画面的镜头取景（`by: "picture"`），整段确实只有一个全景机位时才整支分屏。
 - 4K 原片 48 个取样约半分钟（每个取样解一帧与 1.2 秒画面），同一素材第二次起用缓存。
 
 ## 3. 版式与构图
