@@ -82,9 +82,11 @@
 像素换成实例坐标（画布宽 W、高 H，结果是百分比）：
 
 - **字幕**：折行区左右边 L、R，顶边 T。写 `x = (L+R)/2/W×100`，`width = (R−L)/W×100`，`y = T/H×100`，`verticalAlign: "top"`。要左对齐贴住 L，写 `textAlign: "left"` 加 `alignWithinWrap: true`；不加时字幕块按字长居中，短句会漂在中间。`fontSize` 按 540 短边算：1080 高的画面上 88 px 的字写 44。字幕块往下长，主区要留够两行。
-- **文字实例**（`insertItems` 的 `text`）：`place.x` 是框中心，`place.w` 是框宽。左边 L、宽 w 的框写 `x = (L + w/2)/W×100`，`w = w/W×100`；`verticalAlign: "top"` 时 `place.y` 是顶边。`style` 与字幕同一组键，`textAlign: "left"` 时贴框的左边。同一条轨道上的实例不能重叠，同时出现的几行字各放一条轨道。
+- **文字实例**（`insertItems` 的 `text`）：字段是 `text`（或计时的 `counter`）、`style`、`verticalAlign`（`top` | `center` | `bottom`，`place.y` 钉住块的哪一处）与 `place`。`style` 用字幕样式的同名键：`fontFamily`、`fontSize`（540 短边下的像素）、`fontWeight`、`fontColor`、`textAlign`、`lineHeight`、`letterSpacing`、`textOutline`、`dropShadow`。`place.x` 是框中心，`place.w` 是框宽：左边 L、宽 w 的框写 `x = (L + w/2)/W×100`，`w = w/W×100`；`textAlign: "left"` 时字贴框的左边。文字按 `place.w` 折行，中文图注要在意群处断时在 `text` 里写 `\n`，免得书名号里断开或剩一个字一行。同一条轨道上的实例不能重叠，同时出现的几行字各放一条轨道。
 - **声波**：`audio_envelope` 的框高约 `W × w% × 340 / 1632`，`scaleY = 框高 / (H × 0.2)`。`place.y` 是框中心；柱子在框高的 13%–63%，柱子中心比框中心高出框高的 12%，读数在最下面。`readout: false` 时下面空着，要让柱子落在格子中线 Y 上，写 `place.y = (Y + 0.12 × 框高)/H×100`。
 - **画中画配图**（`mode: "pip"`）：框宽由 `place.w` 定，框高由图的宽高比定。要放进固定的 w×h 格子，按格子比例 `r = w/h` 和图的比例 `a = 图宽/图高` 用 `crop` 裁：图比格子宽（`a > r`）时左右各裁 `(1 − r/a)/2`；比格子高时上下共裁 `1 − a/r`，人像多裁下面、留住头部。`place.x`、`place.y` 是格子中心。
+
+换算完把每层的左右边与 HTML 注释里的格子线逐一对一遍：手算时常把一层的 L 写错，背景上的线对不上，要到看帧时才发现。
 
 声波居中、字幕在下的默认摆位，各层占的位置（像素按画布）：
 
@@ -108,13 +110,13 @@
 
 几十分钟只有一张静图会闷。让画面跟着说的内容换，比让背景动更有用。
 
-- **配图**：转写里说到具体的人、刊物、事件、地点时，用 assets_search 加 `kind: image` 找。它只查 Wikimedia Commons 与 Internet Archive，`query` 用英文写。
+- **配图**：转写里说到具体的人、刊物、事件、地点时，用 assets_search 加 `kind: image` 找。它只查 Wikimedia Commons 与 Internet Archive，按文件标题与说明匹配：`query` 用英文写人名、作品名、地名这类名词，可加年代（如 `Leo Tolstoy 1908`），不写一句描述，描述性的词常常一条也搜不到。`preview: true` 先看接触表再挑。
   - 优先用 public-domain、cc0；cc-by 要署名；cc-by-sa 先告诉用户；许可没写清的不用。
   - 用 assets_download 导进视频。
   - 每张图从它被说到的时候起，铺到下一张图出现为止，放在同一条画面轨上首尾相接；相邻两张之间可以用 `setTransition` 加 0.3–0.6 秒的 `dissolve`。
   - 旁边用文字实例写名称、年代或一句说明，再小一号写「来源 · 许可」。
   - 没有合适、许可干净的图就不放；不用生成图冒充史料照片。
-- **章节小标题**（可选）：视频有章节时才放（转写时默认会分章，做法见 `video-chapters`）。只有一章，或录音短到只讲一件事时不放，标题区留给本期标题。
+- **章节小标题**（可选）：章节不会自动出现：转写润色后照字幕流程的默认，按 `video-chapters` 自己分、写进视频。这里说的是画面上放不放章节小标题。有两章以上时放；只有一章、没分出章，或录音短到只讲一件事时不放，标题区留给本期标题。
   - 在标题区按章放小标题文字实例：编号、章节标题，可选一句提要（取章节的 `summary`），文字与 videos_inspect 里的章节一致。
   - 每个实例从这一章的起点铺到下一章的起点。章节标题当副标题用，不抢刊头。
   - 也可以按章节换背景的变体：同一套版式，换强调色或母题；图片实例在章节边界首尾相接。
