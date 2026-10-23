@@ -237,6 +237,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 | `LINK_LOGIN_REQUIRED`、`LINK_COOKIES_UNAVAILABLE` | 视频要登录才能看：请用户先在浏览器里登录这个网站，再到设置 › 视频下载确认勾了那个浏览器（用 `error.details.settingsHref` 写成设置链接），然后重新提交；用户说了用哪个浏览器时也可以带上 {{arg:cookieBrowsers}} 重新提交（{{tool:jobs_retry}} 沿用原来的参数，改了设置也不变）。读不到 Cookie 时照 `remedy` 请用户处理。不要自己找 cookies |
 | `OPEN_MEDIA_LICENSE_EXCLUDED`、`OPEN_MEDIA_LICENSE_UNVERIFIED` | 这条许可不允许剪辑或认不出：换一条检索结果 |
 | `OPEN_MEDIA_TOO_LARGE` | 换一条更短的，或给小一点的 {{arg:maxHeight}} |
+| `OPEN_MEDIA_UNSUPPORTED` | 这一条导入不了：不是视频、图片或音频，或是 Commons 还没有 WebM 转码的 `.ogv`。换一条检索结果 |
 | `OPEN_MEDIA_UNAVAILABLE` | 来源暂时连不上：稍后重试一次，仍不行换来源 |
 | `LINK_UNSUPPORTED` | 这个网站不支持：告诉用户，请他换链接或给本机文件 |
 | `LINK_NETWORK_ERROR` | 网络问题：可以重试一次，仍不行告诉用户 |

@@ -194,7 +194,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     title: 'Download open media',
     description: [
       'Download open media found by assets_search into a video or a folder. Give video to import it as an asset, or outDir to save only the file without adding it to a video.',
-      `Refetch the license and file URL from source and id (caller-provided licenses are not trusted). Download only over HTTPS from Wikimedia and Internet Archive file hosts, up to ${OPEN_MEDIA_MAX_BYTES / 1024 / 1024 / 1024} GiB. For video taller than maxHeight (default 1080), use a transcode; for overly wide images or formats other than JPEG, PNG or WebP, use the Commons-rendered image.`,
+      `Refetch the license and file URL from source and id (caller-provided licenses are not trusted). Download only over HTTPS from Wikimedia and Internet Archive file hosts, up to ${OPEN_MEDIA_MAX_BYTES / 1024 / 1024 / 1024} GiB. For video taller than maxHeight (default 1080), or in a format that can't be imported (Theora .ogv, MPEG), use the Commons WebM transcode; for overly wide images or formats other than JPEG, PNG or WebP, use the Commons-rendered image.`,
       'With video, store managed bytes and compile importAsset (plus addItem when place is given) into one undoable edit, subject to user confirmation. Asset provenance records the source, page, license and attribution; videos_inspect returns them as credit.',
       LICENSE_RULES,
       'Returns an edits_apply receipt plus assetId, itemId (null when not placed on the timeline), license, attribution and the downloaded file (url, variant, byteLength). Retain attribution and credit each source in the video ending.',
