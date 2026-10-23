@@ -49,6 +49,8 @@ describe('licenses', () => {
 describe('hosts', () => {
   it('downloads only from the media file hosts', () => {
     expect(allowedDownloadHost('upload.wikimedia.org')).toBe(true);
+    expect(allowedDownloadHost('thumb.wikimedia.org')).toBe(true);
+    expect(allowedDownloadHost('evil.wikimedia.org.example')).toBe(false);
     expect(allowedDownloadHost('ia800204.us.archive.org')).toBe(true);
     expect(allowedDownloadHost('evilarchive.org')).toBe(false);
     expect(allowedDownloadHost('i.ytimg.com')).toBe(false);

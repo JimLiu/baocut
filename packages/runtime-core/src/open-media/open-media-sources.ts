@@ -31,9 +31,14 @@ export const COMMONS_API = 'https://commons.wikimedia.org/w/api.php';
 export const ARCHIVE_SEARCH = 'https://archive.org/advancedsearch.php';
 export const ARCHIVE_METADATA = 'https://archive.org/metadata/';
 
-/** 下载时只认这些主机（https）；Internet Archive 的下载会重定向到 `ia8xxxxx.us.archive.org` 这类节点。 */
+/**
+ * 下载时只认这些主机（https）。Commons 渲染的缩图（过宽或非 JPEG、PNG、WebP 的图片取它）在 `thumb.wikimedia.org`；
+ * Internet Archive 的下载会重定向到 `ia8xxxxx.us.archive.org` 这类节点。
+ */
 export function allowedDownloadHost(host: string): boolean {
-  return host === 'upload.wikimedia.org' || host === 'archive.org' || host.endsWith('.archive.org');
+  return (
+    host === 'upload.wikimedia.org' || host === 'thumb.wikimedia.org' || host === 'archive.org' || host.endsWith('.archive.org')
+  );
 }
 
 /** 检索时取缩略图只认这些主机（https）。 */
