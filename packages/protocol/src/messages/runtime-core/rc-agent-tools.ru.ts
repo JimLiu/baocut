@@ -133,7 +133,9 @@ export const ru: RcAgentToolsMessages = {
   deriveUnsupportedItem: (p) => `В диапазоне есть клип, который нельзя скопировать в производное видео (${p.kind})`,
   deriveParentUnplaced: 'Это видео не находится в папке проекта или сеанса, поэтому рядом с ним нельзя создать производное видео',
   derivePanelsInvalid: (p) =>
-    `Для разделения ${p.layout} нужно ${p.layout === 'grid' ? 'ровно 4' : '2 или 3'} панели, а указано ${p.count}`,
+    `Для разделения ${p.layout} нужно ${p.layout === 'grid' ? 'ровно 4' : p.layout === 'spotlight' ? 'ровно 3' : '2 или 3'} панели, а указано ${p.count}`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Для разделения spotlight нужен main — номер (0–2) панели, которая идёт наверх' : `main принимает только разделение spotlight; уберите его из разделения ${p.layout}`,
   shotsRangeEmpty: 'После привязки к кадрам диапазон пуст',
   shotsRangeTooLong: (p) => `Диапазон длиннее ${p.minutes} мин; определяйте планы по более коротким частям`,
 };

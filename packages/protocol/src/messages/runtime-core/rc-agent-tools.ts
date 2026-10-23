@@ -239,9 +239,12 @@ const en = {
   deriveRangeEmpty: 'The range is empty after snapping to frames',
   deriveUnsupportedItem: (p: { kind: string }) => `The range contains a clip that can’t be copied into a child video (${p.kind})`,
   deriveParentUnplaced: 'This video isn’t inside a project or session folder, so a child video can’t be created next to it',
-  /** 分屏段的格数与版式对不上（错误码 DERIVE_PANELS_INVALID）；layout 是版式，count 是给的格数。 */
+  /** 分屏段的格数与版式对不上（错误码 DERIVE_PANELS_INVALID）：rows 2 或 3 格、grid 4 格、spotlight 3 格；layout 是版式，count 是给的格数。 */
   derivePanelsInvalid: (p: { layout: string; count: number }) =>
-    `A ${p.layout} split needs ${p.layout === 'grid' ? 'exactly 4' : '2 or 3'} panels, but ${p.count} were given`,
+    `A ${p.layout} split needs ${p.layout === 'grid' ? 'exactly 4' : p.layout === 'spotlight' ? 'exactly 3' : '2 or 3'} panels, but ${p.count} were given`,
+  /** spotlight 分屏没给 main 或越界、别的版式给了 main（错误码同 DERIVE_PANELS_INVALID）；layout 是版式。 */
+  derivePanelsMain: (p: { layout: string }) =>
+    p.layout === 'spotlight' ? 'A spotlight split needs main, the index (0–2) of the panel that goes on top' : `Only a spotlight split takes main; remove it from the ${p.layout} split`,
   /** videos.shots 的错误（错误码 SHOTS_RANGE_EMPTY、SHOTS_RANGE_TOO_LONG）；minutes 是区间长度的上限。 */
   shotsRangeEmpty: 'The range is empty after snapping to frames',
   shotsRangeTooLong: (p: { minutes: number }) => `The range is longer than ${p.minutes} minutes; detect shots in shorter pieces`,

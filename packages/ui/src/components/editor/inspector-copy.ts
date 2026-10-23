@@ -220,6 +220,13 @@ const en = {
   panelsToSingle: 'Back to one person · Uses this part’s original framing',
   panelsSoloed: (name: string) => `Kept only the person in “${name}”`,
   panelsSwapped: 'Swapped top and bottom',
+  /** 三格时「格子」一行：三行 / 上一下二；「间距」是格子之间的缝；上一下二时下面两格各一项「放到上格」。 */
+  panelGrid: 'Panels',
+  panelLayoutRows: 'Three rows',
+  panelLayoutSpotlight: 'One over two',
+  panelGap: 'Gap',
+  panelToTop: (name: string) => `Move “${name}” to the top`,
+  panelsMovedTop: (name: string) => `Moved the person in “${name}” to the top`,
   framingZoom: 'Zoom',
   anchor: 'Anchor',
   measureFrom: (name: string) => `Measure from ${name}`,

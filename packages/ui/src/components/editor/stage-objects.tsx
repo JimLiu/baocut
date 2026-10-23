@@ -21,7 +21,7 @@ import {
   type CaptionMove,
   type CaptionMoveFrame,
 } from '../../model/stage-caption-move.ts';
-import { panelsOperations } from '../../model/panels.ts';
+import { layoutOfPanels, panelsOperations } from '../../model/panels.ts';
 import { framingAnchor, framingOperations, isFramed, isPanelled, stagePose, type FramingHit } from '../../model/stage-framing.ts';
 import {
   gestureOperations,
@@ -793,7 +793,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
           angle={active === 'rotate' ? angle : null}
           framing={framed}
         >
-          {split ? <PanelSeams rects={split.map((panel) => panel.rect)} names={panelNames(split.length)} active={panning} /> : null}
+          {split ? <PanelSeams rects={split.map((panel) => panel.rect)} names={panelNames(split.length, layoutOfPanels(split, canvas)?.layout)} active={panning} /> : null}
         </ItemBox>
         {framed && active === 'zoom' ? <FramingAnchor at={framingAnchor(single, canvas)} view={view} /> : null}
       </>

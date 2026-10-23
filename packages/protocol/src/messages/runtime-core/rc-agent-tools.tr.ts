@@ -29,7 +29,9 @@ instructionsNotSet: 'Oturum yönergeleri ayarlanmadı: Runtime birleştirme sır
   deriveUnsupportedItem: (p) => `Aralıkta türetilmiş videoya kopyalanamayan bir klip var (${p.kind})`,
   deriveParentUnplaced: 'Bu video bir proje ya da oturum klasöründe değil; yanında türetilmiş video oluşturulamaz',
   derivePanelsInvalid: (p) =>
-    `${p.layout} bölünmüş ekran ${p.layout === 'grid' ? 'tam 4' : '2 ya da 3'} panel gerektirir, ancak ${p.count} panel verildi`,
+    `${p.layout} bölünmüş ekran ${p.layout === 'grid' ? 'tam 4' : p.layout === 'spotlight' ? 'tam 3' : '2 ya da 3'} panel gerektirir, ancak ${p.count} panel verildi`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'spotlight bölünmüş ekran main gerektirir: üstteki panelin sırası (0–2)' : `main yalnızca spotlight bölünmüş ekranda kullanılır; ${p.layout} bölünmüş ekrandan kaldırın`,
   shotsRangeEmpty: 'Karelere hizalandıktan sonra aralık boş kalıyor',
   shotsRangeTooLong: (p) => `Aralık ${p.minutes} dakikadan uzun; çekimleri daha kısa parçalarda algılayın`,
 };

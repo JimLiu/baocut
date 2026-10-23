@@ -10,6 +10,8 @@ import {
   itemAssetRefs,
   itemRangeSeconds,
   itemTimeMap,
+  panelLayoutOf,
+  panelRects,
   sequenceDisplayName,
   sequenceDurationFrames,
   type AudioItem,
@@ -482,5 +484,73 @@ describe('framingFromCrop', () => {
     expect(framingFromCrop(null, landscape, landscape)).toEqual({ crop: null, focalPoint: { x: 0.5, y: 0.5 } });
     expect(framingFromCrop(null, { width: 0, height: 1080 }, portrait)).toBeNull();
     expect(framingFromCrop({ left: 0.6, top: 0, right: 0.5, bottom: 0 }, landscape, portrait)).toBeNull();
+  });
+});
+
+describe('panelRects', () => {
+  const portrait = { width: 1080, height: 1920 };
+  const square = { width: 1080, height: 1080 };
+
+  it('不留间距时与一期的格子逐位相同', () => {
+    expect(panelRects('rows', 2)).toEqual([
+      { x: 0, y: 0, w: 100, h: 50 },
+      { x: 0, y: 50, w: 100, h: 50 },
+    ]);
+    expect(panelRects('rows', 3)).toEqual([
+      { x: 0, y: 0, w: 100, h: 33.333 },
+      { x: 0, y: 33.333, w: 100, h: 33.334 },
+      { x: 0, y: 66.667, w: 100, h: 33.333 },
+    ]);
+    expect(panelRects('grid', 4, 0, portrait)).toEqual([
+      { x: 0, y: 0, w: 50, h: 50 },
+      { x: 50, y: 0, w: 50, h: 50 },
+      { x: 0, y: 50, w: 50, h: 50 },
+      { x: 50, y: 50, w: 50, h: 50 },
+    ]);
+    expect(panelRects('rows', 4)).toBeNull();
+    expect(panelRects('spotlight', 2)).toBeNull();
+  });
+
+  it('上一下二：上格整宽，下面左右两格', () => {
+    expect(panelRects('spotlight', 3)).toEqual([
+      { x: 0, y: 0, w: 100, h: 50 },
+      { x: 0, y: 50, w: 50, h: 50 },
+      { x: 50, y: 50, w: 50, h: 50 },
+    ]);
+  });
+
+  it('间距按画布短边算，横缝与竖缝像素相同，贴边不留', () => {
+    expect(panelRects('rows', 3, 2, portrait)).toEqual([
+      { x: 0, y: 0, w: 100, h: 32.583 },
+      { x: 0, y: 33.708, w: 100, h: 32.584 },
+      { x: 0, y: 67.417, w: 100, h: 32.583 },
+    ]);
+    const [top, left, right] = panelRects('spotlight', 3, 2, portrait)!;
+    expect(right!.x - (left!.x + left!.w)).toBeCloseTo(2, 3);
+    expect(((left!.y - top!.h) * portrait.height) / 100).toBeCloseTo((2 * portrait.width) / 100, 1);
+    expect(right!.x + right!.w).toBe(100);
+    expect(left!.y + left!.h).toBe(100);
+    const grid = panelRects('grid', 4, 4, square)!;
+    expect(grid[1]!.x - grid[0]!.w).toBeCloseTo(4, 3);
+    expect(grid[2]!.y - grid[0]!.h).toBeCloseTo(4, 3);
+    expect(panelRects('rows', 2, 99, portrait)).toEqual(panelRects('rows', 2, 10, portrait));
+  });
+
+  it('读回来认出原来的版式与间距', () => {
+    for (const [layout, count] of [
+      ['rows', 2],
+      ['rows', 3],
+      ['spotlight', 3],
+      ['grid', 4],
+    ] as const) {
+      for (const gap of [0, 1.5, 2, 10]) {
+        for (const canvas of [portrait, square]) {
+          const panels = panelRects(layout, count, gap, canvas)!.map((rect) => ({ rect }));
+          expect(panelLayoutOf(panels, canvas)).toEqual({ layout, gap });
+        }
+      }
+    }
+    expect(panelLayoutOf([{ rect: { x: 0, y: 0, w: 100, h: 40 } }, { rect: { x: 0, y: 60, w: 100, h: 40 } }], portrait)).toBeNull();
+    expect(panelLayoutOf([{ rect: { x: 0, y: 0, w: 100, h: 50 } }])).toBeNull();
   });
 });

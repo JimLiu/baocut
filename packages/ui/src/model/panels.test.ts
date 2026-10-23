@@ -1,22 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { panelRects, type AssetRecord, type Sequence, type SequenceItem, type VideoPanel } from '@baocut/protocol';
+import { panelRects, panelWindow, type AssetRecord, type Sequence, type SequenceItem, type VideoPanel } from '@baocut/protocol';
 import { patchItem } from './item-draft.ts';
 import {
   applyPanelsTo,
   applyPanelsToAll,
   defaultPanels,
   hasPanels,
+  layoutOfPanels,
   panPanel,
   panelAt,
   panelSource,
+  panelsInLayout,
   panelsOperations,
+  pointInPanel,
   singleOperations,
   soloFocal,
   soloOperations,
   splitOperations,
+  swapPanelViews,
   swapPanels,
   upscaledPanels,
   withPanelFocal,
+  zoomPanel,
   type PanelledVideo,
 } from './panels.ts';
 import { fillFramingOperations, framedPose, freeFramingOperations, isFramed, isPanelled, stagePose } from './stage-framing.ts';
@@ -173,5 +178,80 @@ describe('属性面板「版式」', () => {
     expect(operations).toEqual([{ type: 'setStyle', sequenceId: 's1', itemId: 'b', panels: applyPanelsTo(here.panels, twin.panels) }]);
     const zoomed = video('e', 360, { focalPoint: { x: 0.5, y: 0.5, zoom: 1.5 } }) as PanelledVideo;
     expect(applyFramingToAll('s1', zoomed, [...pieces, zoomed]).map((op) => (op as { itemId: string }).itemId)).toEqual(['c']);
+  });
+});
+
+describe('格子、间距、放到上格与在一格里缩放', () => {
+  const cellOf = (p: VideoPanel) => ({ width: (canvas.width * p.rect.w) / 100, height: (canvas.height * p.rect.h) / 100 });
+  /** 一格看得见的那块原片：中心与高。 */
+  const view = (p: VideoPanel) => {
+    const w = panelWindow(p.focalPoint, source, cellOf(p));
+    return { cx: w.left + w.width / 2, cy: w.top + w.height / 2, h: w.height };
+  };
+  const rows3 = panelRects('rows', 3)!.map((rect, i) => ({ rect, focalPoint: { x: [0.2, 0.5, 0.8][i]!, y: 0.4, zoom: 1.5 } }));
+
+  it('三行换成上一下二：上格的人仍在上格，中、下两格依次进左下、右下，各自保留看得见的那块原片的中心与高', () => {
+    expect(layoutOfPanels(rows3, canvas)).toEqual({ layout: 'rows', gap: 0 });
+    const spot = panelsInLayout(rows3, 'spotlight', 0, source, canvas);
+    expect(spot.map((p) => p.rect)).toEqual(panelRects('spotlight', 3));
+    expect(layoutOfPanels(spot, canvas)).toEqual({ layout: 'spotlight', gap: 0 });
+    spot.forEach((p, i) => {
+      const before = view(rows3[i]!);
+      const after = view(p);
+      expect(after.cx).toBeCloseTo(before.cx, 3);
+      expect(after.h).toBeCloseTo(before.h, 3);
+    });
+    // 换回三行回到原来的取景
+    const back = panelsInLayout(spot, 'rows', 0, source, canvas);
+    back.forEach((p, i) => expect(p.focalPoint.zoom ?? 1).toBeCloseTo(rows3[i]!.focalPoint.zoom, 2));
+  });
+
+  it('改间距：格子往里收、读回来认出间距；不知道源尺寸时只换格子', () => {
+    const spaced = panelsInLayout(rows3, 'rows', 2, source, canvas);
+    expect(spaced.map((p) => p.rect)).toEqual(panelRects('rows', 3, 2, canvas));
+    expect(layoutOfPanels(spaced, canvas)).toEqual({ layout: 'rows', gap: 2 });
+    spaced.forEach((p, i) => expect(view(p).cx).toBeCloseTo(view(rows3[i]!).cx, 3));
+    const blind = panelsInLayout(rows3, 'rows', 2, null, canvas);
+    expect(blind.map((p) => p.focalPoint)).toEqual(rows3.map((p) => p.focalPoint));
+    expect(layoutOfPanels([{ rect: { x: 0, y: 0, w: 100, h: 40 }, focalPoint: { x: 0.5, y: 0.5 } }], canvas)).toBeNull();
+  });
+
+  it('放到上格：两格的人对调，各自保留看得见的那块原片；套到整支连格子一起套', () => {
+    const spot = panelsInLayout(rows3, 'spotlight', 2, source, canvas);
+    const moved = swapPanelViews(spot, 0, 2, source, canvas);
+    expect(moved.map((p) => p.rect)).toEqual(spot.map((p) => p.rect));
+    expect(view(moved[0]!).cx).toBeCloseTo(view(spot[2]!).cx, 3);
+    expect(view(moved[2]!).cx).toBeCloseTo(view(spot[0]!).cx, 3);
+    expect(moved[1]).toEqual(spot[1]);
+    expect(applyPanelsTo(spot, rows3)!.map((p) => p.rect)).toEqual(spot.map((p) => p.rect));
+  });
+
+  it('在一格里缩放：指针下那一点对着的原片位置不动，夹在 1–4 倍，碰到上限、下限、边缘时说明', () => {
+    const panels = defaultPanels();
+    const at = { x: 0.3, y: 0.6 };
+    const under = (p: VideoPanel) => {
+      const w = panelWindow(p.focalPoint, source, cellOf(p));
+      return { x: w.left + at.x * w.width, y: w.top + at.y * w.height };
+    };
+    const { panels: zoomed, hit } = zoomPanel(panels, 0, 1.25, at, source, canvas);
+    expect(hit).toBeNull();
+    expect(zoomed[0]!.focalPoint.zoom).toBe(1.75);
+    expect(under(zoomed[0]!).x).toBeCloseTo(under(panels[0]!).x, 3);
+    expect(under(zoomed[0]!).y).toBeCloseTo(under(panels[0]!).y, 3);
+    expect(zoomed[1]).toEqual(panels[1]);
+    expect(zoomPanel(panels, 0, 10, at, source, canvas)).toMatchObject({ hit: 'max' });
+    expect(zoomPanel(panels, 0, 10, at, source, canvas).panels[0]!.focalPoint.zoom).toBe(4);
+    const filled = zoomPanel(panels, 0, 0.1, at, source, canvas);
+    expect(filled.hit).toBe('min');
+    expect(filled.panels[0]!.focalPoint.zoom).toBeUndefined();
+    // 贴着左边的格子在左上角往外缩：窗口要越过原片左边，往里推
+    const corner = withPanelFocal(panels, 0, { x: 0, y: 0, zoom: 3 });
+    expect(zoomPanel(corner, 0, 0.8, { x: 0.9, y: 0.9 }, source, canvas).hit).toBe('edge');
+  });
+
+  it('画布上的一点在格子里的位置', () => {
+    const [top, bottom] = defaultPanels();
+    expect(pointInPanel(top!, { x: 540, y: 480 }, canvas)).toEqual({ x: 0.5, y: 0.5 });
+    expect(pointInPanel(bottom!, { x: 270, y: 1920 }, canvas)).toEqual({ x: 0.25, y: 1 });
   });
 });

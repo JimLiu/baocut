@@ -132,7 +132,9 @@ export const pl: RcAgentToolsMessages = {
   deriveRangeEmpty: 'Po wyrównaniu do klatek zakres jest pusty',
   deriveUnsupportedItem: (p) => `Zakres zawiera klip, którego nie można skopiować do wideo pochodnego (${p.kind})`,
   deriveParentUnplaced: 'To wideo nie znajduje się w folderze projektu ani sesji, więc nie można obok niego utworzyć wideo pochodnego',
-  derivePanelsInvalid: (p) => `Podział ${p.layout} wymaga ${p.layout === 'grid' ? 'dokładnie 4' : '2 lub 3'} paneli, a podano ${p.count}`,
+  derivePanelsInvalid: (p) => `Podział ${p.layout} wymaga ${p.layout === 'grid' ? 'dokładnie 4' : p.layout === 'spotlight' ? 'dokładnie 3' : '2 lub 3'} paneli, a podano ${p.count}`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Podział spotlight wymaga main: indeksu (0–2) panelu, który trafia na górę' : `Tylko podział spotlight przyjmuje main; usuń go z podziału ${p.layout}`,
   shotsRangeEmpty: 'Po wyrównaniu do klatek zakres jest pusty',
   shotsRangeTooLong: (p) => `Zakres jest dłuższy niż ${p.minutes} min; wykrywaj ujęcia w krótszych częściach`,
 };

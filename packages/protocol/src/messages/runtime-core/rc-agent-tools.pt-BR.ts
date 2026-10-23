@@ -178,7 +178,9 @@ export const ptBR: RcAgentToolsMessages = {
   deriveUnsupportedItem: (p) => `O intervalo contém um clipe que não pode ser copiado para um vídeo derivado (${p.kind})`,
   deriveParentUnplaced: 'Este vídeo não está em uma pasta de projeto ou de sessão, então não é possível criar um vídeo derivado ao lado dele',
   derivePanelsInvalid: (p) =>
-    `Uma divisão ${p.layout} precisa de ${p.layout === 'grid' ? 'exatamente 4' : '2 ou 3'} painéis, mas foram informados ${p.count}`,
+    `Uma divisão ${p.layout} precisa de ${p.layout === 'grid' ? 'exatamente 4' : p.layout === 'spotlight' ? 'exatamente 3' : '2 ou 3'} painéis, mas foram informados ${p.count}`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Uma divisão spotlight precisa de main: o índice (0–2) do painel que vai em cima' : `Só uma divisão spotlight aceita main; remova-o da divisão ${p.layout}`,
   shotsRangeEmpty: 'O intervalo fica vazio ao alinhar aos quadros',
   shotsRangeTooLong: (p) => `O intervalo passa de ${p.minutes} minutos; detecte as tomadas em partes menores`,
 };

@@ -282,40 +282,82 @@ export interface VideoPanel {
 export const PANELS_MIN = 2;
 export const PANELS_MAX = 4;
 
-/** 分屏的版式：`rows` 2–3 行整宽等高，`grid` 田字格 4 格。人按在原片里从左到右的次序排进格子（从上到下；`grid` 先左上、右上）。 */
-export type PanelLayout = 'rows' | 'grid';
+/**
+ * 分屏的版式：`rows` 2–3 行整宽等高，`grid` 田字格 4 格，`spotlight` 上一下二（上格整宽，下面左右两格）。人按在原片里从左到右的
+ * 次序排进格子（从上到下；`grid` 先左上、右上）；`spotlight` 的上格是指定的那个人，另两人按左右进下面两格。
+ */
+export type PanelLayout = 'rows' | 'grid' | 'spotlight';
 
-/** 版式的格子（画布百分比，次序同 {@link PanelLayout}）：`rows` 要 2 或 3 格，`grid` 要 4 格，别的 null。三行是 33.333 / 33.334 / 33.333。 */
-export function panelRects(layout: PanelLayout, count: number): PanelRect[] | null {
+/** 格子间距的上限：画布短边的百分比。 */
+export const PANEL_GAP_MAX = 10;
+
+const round3 = (n: number) => Math.round(n * 1e3) / 1e3;
+
+/** 间距（画布短边的百分比）在横、竖两个方向上各占画布宽、高的几个百分点：横缝与竖缝像素相同。 */
+function gapPercents(gap: number, canvas: { width: number; height: number } | undefined): { gx: number; gy: number } {
+  const g = Math.min(PANEL_GAP_MAX, Math.max(0, Number.isFinite(gap) ? gap : 0));
+  const r = canvas && canvas.width > 0 && canvas.height > 0 ? canvas.width / canvas.height : 9 / 16;
+  return r <= 1 ? { gx: g, gy: g * r } : { gx: g / r, gy: g };
+}
+
+/**
+ * 一条边（`[0, 100]`）切成 `n` 段、段间留 `g`：每段的起点与长度。起点取三位小数，终点是倒过来那一段起点的镜像，所以前后对称、
+ * 最后一段收在 100（三行不留间距是 33.333 / 33.334 / 33.333）。
+ */
+function cuts(n: number, g: number): { at: number; len: number }[] {
+  const step = (100 - (n - 1) * g) / n + g;
+  return Array.from({ length: n }, (_, i) => {
+    const a = round3(i * step);
+    const b = round3(100 - round3((n - 1 - i) * step));
+    return { at: a, len: round3(b - a) };
+  });
+}
+
+/**
+ * 版式的格子（画布百分比，次序同 {@link PanelLayout}）：`rows` 要 2 或 3 格，`grid` 要 4 格，`spotlight` 要 3 格，别的 null。
+ * `gap` 是格子之间的间距（画布短边的百分比，0–{@link PANEL_GAP_MAX}），只留在格子之间、贴画布边的一侧不留；`canvas` 是画布尺寸
+ * （只看宽高比，留间距时才用得上，缺省 9:16）。不留间距时三行是 33.333 / 33.334 / 33.333。
+ */
+export function panelRects(layout: PanelLayout, count: number, gap = 0, canvas?: { width: number; height: number }): PanelRect[] | null {
+  const { gx, gy } = gapPercents(gap, canvas);
   if (layout === 'grid' && count === 4) {
-    return [
-      { x: 0, y: 0, w: 50, h: 50 },
-      { x: 50, y: 0, w: 50, h: 50 },
-      { x: 0, y: 50, w: 50, h: 50 },
-      { x: 50, y: 50, w: 50, h: 50 },
-    ];
+    const xs = cuts(2, gx);
+    const ys = cuts(2, gy);
+    return [0, 1, 2, 3].map((i) => ({ x: xs[i % 2]!.at, y: ys[i >> 1]!.at, w: xs[i % 2]!.len, h: ys[i >> 1]!.len }));
   }
-  if (layout === 'rows' && count === 2) {
-    return [
-      { x: 0, y: 0, w: 100, h: 50 },
-      { x: 0, y: 50, w: 100, h: 50 },
-    ];
-  }
-  if (layout === 'rows' && count === 3) {
-    return [
-      { x: 0, y: 0, w: 100, h: 33.333 },
-      { x: 0, y: 33.333, w: 100, h: 33.334 },
-      { x: 0, y: 66.667, w: 100, h: 33.333 },
-    ];
+  if (layout === 'rows' && (count === 2 || count === 3)) return cuts(count, gy).map((c) => ({ x: 0, y: c.at, w: 100, h: c.len }));
+  if (layout === 'spotlight' && count === 3) {
+    const xs = cuts(2, gx);
+    const ys = cuts(2, gy);
+    return [{ x: 0, y: 0, w: 100, h: ys[0]!.len }, ...xs.map((c) => ({ x: c.at, y: ys[1]!.at, w: c.len, h: ys[1]!.len }))];
   }
   return null;
 }
 
-/** 一组格子是哪种版式：与 {@link panelRects} 给的格子一致（差不到 0.01%）时；认不出时 null。 */
-export function panelLayoutOf(panels: readonly { rect: PanelRect }[]): PanelLayout | null {
-  for (const layout of ['rows', 'grid'] as const) {
-    const rects = panelRects(layout, panels.length);
-    if (rects?.every((r, n) => (['x', 'y', 'w', 'h'] as const).every((k) => Math.abs(r[k] - panels[n]!.rect[k]) < 0.01))) return layout;
+/** 这么多格时能用的版式：2 格 `rows`，3 格 `rows` 与 `spotlight`，4 格 `grid`。 */
+export function panelLayoutsFor(count: number): PanelLayout[] {
+  return count === 2 ? ['rows'] : count === 3 ? ['rows', 'spotlight'] : count === 4 ? ['grid'] : [];
+}
+
+/**
+ * 一组格子是哪种版式、留了多少间距：按第一条缝（`grid` 是左右那条）量出间距（两位小数），再与 {@link panelRects} 给的格子逐格比
+ * （差不到 0.01%）；认不出时 null。`canvas` 同 {@link panelRects}。
+ */
+export function panelLayoutOf(
+  panels: readonly { rect: PanelRect }[],
+  canvas?: { width: number; height: number },
+): { layout: PanelLayout; gap: number } | null {
+  const a = panels[0]?.rect;
+  const b = panels[1]?.rect;
+  if (!a || !b) return null;
+  const unit = gapPercents(1, canvas);
+  for (const layout of panelLayoutsFor(panels.length)) {
+    const measured = layout === 'grid' ? (b.x - (a.x + a.w)) / unit.gx : (b.y - (a.y + a.h)) / unit.gy;
+    const gap = Math.round(Math.min(PANEL_GAP_MAX, Math.max(0, measured)) * 100) / 100;
+    const rects = panelRects(layout, panels.length, gap, canvas);
+    if (rects?.every((r, n) => (['x', 'y', 'w', 'h'] as const).every((k) => Math.abs(r[k] - panels[n]!.rect[k]) < 0.01))) {
+      return { layout, gap };
+    }
   }
   return null;
 }

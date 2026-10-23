@@ -157,7 +157,9 @@ export const ja: RcAgentToolsMessages = {
   deriveUnsupportedItem: (p) => `範囲に子動画へコピーできないクリップがあります（${p.kind}）`,
   deriveParentUnplaced: 'この動画はプロジェクトやセッションのフォルダーにないため、隣に子動画を作成できません',
   derivePanelsInvalid: (p) =>
-    `${p.layout} の分割画面には ${p.layout === 'grid' ? '4' : '2 か 3'} マス必要ですが、${p.count} マス指定されています`,
+    `${p.layout} の分割画面には ${p.layout === 'grid' ? '4' : p.layout === 'spotlight' ? '3' : '2 か 3'} マス必要ですが、${p.count} マス指定されています`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'spotlight の分割画面には main（上のマスに置くマスの番号、0–2）が必要です' : `main を使うのは spotlight の分割画面だけです。${p.layout} の分割画面からは外してください`,
   shotsRangeEmpty: 'フレームに合わせると範囲が空になります',
   shotsRangeTooLong: (p) => `範囲が ${p.minutes} 分を超えています。短く分けてショットを検出してください`,
 };

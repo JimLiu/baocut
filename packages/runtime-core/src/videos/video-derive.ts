@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   RpcError,
+  panelRects,
   type DocumentRecord,
   type EditOperation,
   type Id,
@@ -111,6 +112,14 @@ function deriveCall<T>(fn: () => T): T {
   }
 }
 
+/** 分屏段被拒的说明：格数与版式对不上时说格数，对得上时是 `main` 给错了。 */
+function panelsInvalidMessage(layout: string, count: number) {
+  const known = layout === 'rows' || layout === 'grid' || layout === 'spotlight';
+  return known && panelRects(layout, count)
+    ? RcAgentTools.derivePanelsMain({ layout })
+    : RcAgentTools.derivePanelsInvalid({ layout, count });
+}
+
 export function deriveRpcError(error: unknown): unknown {
   if (!(error instanceof DeriveError)) return error;
   const message =
@@ -119,7 +128,7 @@ export function deriveRpcError(error: unknown): unknown {
       : error.code === 'DERIVE_UNSUPPORTED_ITEM'
         ? RcAgentTools.deriveUnsupportedItem({ kind: String(error.details.itemType ?? error.details.kind ?? '') })
         : error.code === 'DERIVE_PANELS_INVALID'
-          ? RcAgentTools.derivePanelsInvalid({ layout: String(error.details.layout ?? ''), count: Number(error.details.count ?? 0) })
+          ? panelsInvalidMessage(String(error.details.layout ?? ''), Number(error.details.count ?? 0))
           : RcAgentTools.deriveParentUnplaced();
   return new RpcError('invalid-request', message, { code: error.code, ...error.details });
 }

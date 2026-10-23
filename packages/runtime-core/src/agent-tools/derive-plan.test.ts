@@ -755,7 +755,7 @@ describe('planDerivation：铺满画布的取景不丢画面', () => {
   /** 两人全景：左边的人中心 0.3，右边的 0.7，各宽 0.3、高 0.6。 */
   const L = { left: 0.15, top: 0.15, right: 0.55, bottom: 0.25 };
   const R = { left: 0.55, top: 0.15, right: 0.15, bottom: 0.25 };
-  const split = (from: number, to: number, panels: (typeof L)[], layout: 'rows' | 'grid' = 'rows') => ({ from, to, layout, panels });
+  const split = (from: number, to: number, panels: (typeof L)[], layout: 'rows' | 'grid' | 'spotlight' = 'rows') => ({ from, to, layout, panels });
   const upperCell = { width: 1080, height: 960 };
 
   it('分屏段：主素材的全屏 cover 片段写 panels（不写 crop、focalPoint），最左的人在上格；短于 3 秒提醒', () => {
@@ -832,6 +832,77 @@ describe('planDerivation：铺满画布的取景不丢画面', () => {
     const p = framed(sized(), 1, 5, [split(1, 5, [wide, tiny])]);
     expect(p.warnings).toContainEqual({ code: 'panel-region-cropped', count: 1 });
     expect(p.warnings).toContainEqual({ code: 'panel-upscaled', count: 1 });
+  });
+
+  /** 三人全景的中间那人：中心 0.5。 */
+  const M = { left: 0.4, top: 0.15, right: 0.4, bottom: 0.25 };
+
+  it('上一下二：main 那一格进上格，另两格按横坐标进左下、右下；记下的 main 是 0，键随 main 变', () => {
+    const p = framed(sized(), 1, 5, [{ ...split(1, 5, [L, M, R], 'spotlight'), main: 2 }]);
+    const [entry] = videoEntries(p) as [Loose];
+    expect(entry.panels.map((panel: Loose) => panel.rect)).toEqual([
+      { x: 0, y: 0, w: 100, h: 50 },
+      { x: 0, y: 50, w: 50, h: 50 },
+      { x: 50, y: 50, w: 50, h: 50 },
+    ]);
+    const centers = entry.panels.map((panel: Loose) => {
+      const w = panelWindow(panel.focalPoint, landscape, { width: (1080 * panel.rect.w) / 100, height: (1920 * panel.rect.h) / 100 });
+      return w.left + w.width / 2;
+    });
+    expect(centers[0]).toBeCloseTo(0.7, 3);
+    expect(centers[1]).toBeCloseTo(0.3, 3);
+    expect(centers[2]).toBeCloseTo(0.5, 3);
+    expect(p.derivation.settings.crops?.[0]).toEqual({ from: 1, to: 5, layout: 'spotlight', panels: [R, L, M], main: 0 });
+    expect(p.derivation.framing?.shots[0]).toMatchObject({ layout: 'spotlight', panels: entry.panels });
+    const sequence = video(items).sequences.seq_1!;
+    const range = alignRange(sequence, 1, 5);
+    const key = (main: number) =>
+      derivationKey({
+        parentVideoId: 'video_parent',
+        parentRevision: '7',
+        range: { start: 1, end: 5 },
+        settings: { ...settings, crops: alignCrops(sequence, range, [{ from: 1, to: 5, layout: 'spotlight', panels: [L, M, R], main }]).crops },
+      });
+    expect(key(2)).toBe(key(2));
+    expect(key(2)).not.toBe(key(0));
+  });
+
+  it('间距按画布短边留在格子之间；间距 0 与不给的格子与键都相同', () => {
+    const p = framed(sized(), 1, 5, [{ ...split(1, 5, [L, M, R]), gap: 2 }]);
+    const [entry] = videoEntries(p) as [Loose];
+    expect(entry.panels.map((panel: Loose) => panel.rect)).toEqual([
+      { x: 0, y: 0, w: 100, h: 32.583 },
+      { x: 0, y: 33.708, w: 100, h: 32.584 },
+      { x: 0, y: 67.417, w: 100, h: 32.583 },
+    ]);
+    expect(p.derivation.settings.crops?.[0]).toEqual({ ...split(1, 5, [L, M, R]), gap: 2 });
+    const sequence = video(items).sequences.seq_1!;
+    const range = alignRange(sequence, 1, 5);
+    const zero = alignCrops(sequence, range, [{ ...split(1, 5, [L, M, R]), gap: 0 }]).crops;
+    const none = alignCrops(sequence, range, [split(1, 5, [L, M, R])]).crops;
+    expect(zero).toEqual(none);
+    const key = (crops: typeof none) =>
+      derivationKey({ parentVideoId: 'video_parent', parentRevision: '7', range: { start: 1, end: 5 }, settings: { ...settings, crops } });
+    expect(key(zero)).toBe(key(none));
+    expect(key(alignCrops(sequence, range, [{ ...split(1, 5, [L, M, R]), gap: 2 }]).crops)).not.toBe(key(none));
+  });
+
+  it('上一下二没给 main 或越界、别的版式给了 main、格数不是 3 时拒绝（DERIVE_PANELS_INVALID）', () => {
+    const sequence = video(items).sequences.seq_1!;
+    const range = alignRange(sequence, 1, 5);
+    const reject = (shot: Parameters<typeof alignCrops>[2][number]) => {
+      try {
+        alignCrops(sequence, range, [shot]);
+      } catch (error) {
+        expect((error as DeriveError).code).toBe('DERIVE_PANELS_INVALID');
+        return (error as DeriveError).details;
+      }
+      throw new Error('not rejected');
+    };
+    expect(reject({ from: 1, to: 5, layout: 'spotlight', panels: [L, M, R] })).toMatchObject({ layout: 'spotlight', count: 3 });
+    expect(reject({ from: 1, to: 5, layout: 'spotlight', panels: [L, M, R], main: 3 })).toMatchObject({ main: 3 });
+    expect(reject({ from: 1, to: 5, layout: 'rows', panels: [L, R], main: 0 })).toMatchObject({ layout: 'rows', main: 0 });
+    expect(reject({ from: 1, to: 5, layout: 'spotlight', panels: [L, R], main: 0 })).toMatchObject({ count: 2 });
   });
 });
 

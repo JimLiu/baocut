@@ -84,22 +84,31 @@ impl PanelSeams {
     }
 }
 
-/// 格子（画布百分比的 `[x, y, w, h]`）之间的横向接缝：一格的下边正是另一格的上边、两格横向有重叠的地方。
+/// 格子（画布百分比的 `[x, y, w, h]`）之间的横向接缝：一格的下边与另一格的上边相接、或隔着不到画布高 10% 的缝，两格横向
+/// 有重叠的地方；隔着缝（格子间距）时取缝的中线，取三位小数。
 pub fn horizontal_seams(rects: &[[f64; 4]]) -> Vec<f64> {
     const TOUCH: f64 = 0.05;
+    const GAP_MAX: f64 = 10.0;
     let mut seams: Vec<f64> = Vec::new();
     for upper in rects {
         let edge = upper[1] + upper[3];
         if edge <= TOUCH || edge >= 100.0 - TOUCH {
             continue;
         }
-        let touches = rects.iter().any(|lower| {
-            (lower[1] - edge).abs() <= TOUCH
-                && lower[0] < upper[0] + upper[2] - TOUCH
-                && upper[0] < lower[0] + lower[2] - TOUCH
-        });
-        if touches && !seams.iter().any(|seam| (seam - edge).abs() <= TOUCH) {
-            seams.push(edge);
+        let below = rects
+            .iter()
+            .filter(|lower| {
+                lower[1] - edge >= -TOUCH
+                    && lower[1] - edge <= GAP_MAX
+                    && lower[0] < upper[0] + upper[2] - TOUCH
+                    && upper[0] < lower[0] + lower[2] - TOUCH
+            })
+            .map(|lower| lower[1])
+            .min_by(f64::total_cmp);
+        let Some(below) = below else { continue };
+        let seam = ((edge + below.max(edge)) / 2.0 * 1000.0).round() / 1000.0;
+        if !seams.iter().any(|s| (s - seam).abs() <= TOUCH) {
+            seams.push(seam);
         }
     }
     seams.sort_by(f64::total_cmp);
@@ -137,6 +146,26 @@ mod tests {
         assert_eq!(horizontal_seams(&grid), vec![50.0]);
         // 左右并排的两格没有横向接缝
         assert!(horizontal_seams(&[[0.0, 0.0, 50.0, 100.0], [50.0, 0.0, 50.0, 100.0]]).is_empty());
+    }
+
+    #[test]
+    fn seams_between_spaced_cells_sit_on_the_gap_midline() {
+        // 9:16 上三行留 2 的间距（横缝高 1.125%）
+        let rows3 = [
+            [0.0, 0.0, 100.0, 32.583],
+            [0.0, 33.708, 100.0, 32.584],
+            [0.0, 67.417, 100.0, 32.583],
+        ];
+        assert_eq!(horizontal_seams(&rows3), vec![33.146, 66.855]);
+        // 上一下二留 2：上格与下面两格之间一条缝，左右两格之间的竖缝不算
+        let spotlight = [
+            [0.0, 0.0, 100.0, 49.437],
+            [0.0, 50.563, 49.0, 49.437],
+            [51.0, 50.563, 49.0, 49.437],
+        ];
+        assert_eq!(horizontal_seams(&spotlight), vec![50.0]);
+        // 隔得太远（画布高的 20%）不是接缝
+        assert!(horizontal_seams(&[[0.0, 0.0, 100.0, 40.0], [0.0, 60.0, 100.0, 40.0]]).is_empty());
     }
 
     #[test]

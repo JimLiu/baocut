@@ -203,7 +203,9 @@ export const it: RcAgentToolsMessages = {
   deriveUnsupportedItem: (p) => `L’intervallo contiene una clip che non si può copiare in un video derivato (${p.kind})`,
   deriveParentUnplaced: 'Questo video non si trova in una cartella di progetto o di sessione, quindi non si può creare un video derivato accanto',
   derivePanelsInvalid: (p) =>
-    `Uno schermo diviso ${p.layout} richiede ${p.layout === 'grid' ? 'esattamente 4' : '2 o 3'} riquadri, ma ne sono stati dati ${p.count}`,
+    `Uno schermo diviso ${p.layout} richiede ${p.layout === 'grid' ? 'esattamente 4' : p.layout === 'spotlight' ? 'esattamente 3' : '2 o 3'} riquadri, ma ne sono stati dati ${p.count}`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Uno schermo diviso spotlight richiede main: l’indice (0–2) del riquadro da mettere in alto' : `Solo uno schermo diviso spotlight accetta main; toglilo dallo schermo diviso ${p.layout}`,
   shotsRangeEmpty: 'L’intervallo è vuoto dopo l’allineamento ai fotogrammi',
   shotsRangeTooLong: (p) => `L’intervallo supera i ${p.minutes} minuti: rileva le inquadrature in parti più brevi`,
 };

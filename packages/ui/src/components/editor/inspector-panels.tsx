@@ -1,4 +1,12 @@
-import { FOCAL_MAX_ZOOM, focalZoom, type EditOperation, type Localized, type Sequence } from '@baocut/protocol';
+import {
+  FOCAL_MAX_ZOOM,
+  PANEL_GAP_MAX,
+  focalZoom,
+  type EditOperation,
+  type Localized,
+  type PanelLayout,
+  type Sequence,
+} from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import { ActionButton, Button, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -7,12 +15,16 @@ import { rootSequence } from '../../model/editor.ts';
 import {
   applyPanelsToAll,
   hasPanels,
+  layoutOfPanels,
+  layoutsForPanels,
   panelSource,
+  panelsInLayout,
   panelsOperations,
   singleOperations,
   soloOperations,
   splitOperations,
   swapPanels,
+  swapPanelViews,
   upscaledPanels,
   withPanelFocal,
   type PanelledVideo,
@@ -30,9 +42,10 @@ import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
 
 /**
  * 「版式」（原型 stage-panels.jsx 的 `PanelsSection` / `PanelsLayoutRow`，短视频分屏设计 §8.4）：分屏的片段顶替「取景」段，
- * 一人 / 分屏切换，每格一组「放大、左右位置、上下位置」，两格时「互换上下」，每格「只留这一格的人」，有同格数的分屏段时
- * 「套到整支」。一人段的「取景」段里也有同一行「版式」，切成分屏用默认的两格。拖滑杆只叠草稿，松手按视频里的实际值比出
- * 变了的格子再提交；切版式、互换、只留一人、套到整支各是一笔事务，提示里可以撤销。
+ * 一人 / 分屏切换，三格时「格子」（三行 / 上一下二），认得出版式时「间距」，每格一组「放大、左右位置、上下位置」，两格时
+ * 「互换上下」，上一下二时下面两格各一项「放到上格」，每格「只留这一格的人」，有同格数的分屏段时「套到整支」。一人段的「取景」段
+ * 里也有同一行「版式」，切成分屏用默认的两格。拖滑杆只叠草稿（间距每次都从视频里存着的格子换算），松手按视频里的实际值比出
+ * 变了的格子再提交；切版式、换格子、互换、放到上格、只留一人、套到整支各是一笔事务，提示里可以撤销。
  */
 
 const cell = style({ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 });
@@ -119,7 +132,9 @@ export function PanelsSection({
   const actions = useEditorActions();
   const { panels } = item;
   const canvas = sequence.canvas;
-  const names = panelNames(panels.length);
+  const lay = layoutOfPanels(panels, canvas);
+  const layouts = layoutsForPanels(panels.length);
+  const names = panelNames(panels.length, lay?.layout);
   const source = panelSource(item, assets);
   const soft = upscaledPanels(panels, source, canvas);
   const others = framingPieces(sequence, item).filter(
@@ -140,6 +155,41 @@ export function PanelsSection({
   const live = (index: number, patch: { x?: number; y?: number; zoom?: number }) =>
     edit.live({ panels: withPanelFocal(panels, index, patch) });
 
+  const setLayout = (layout: PanelLayout) => {
+    const base = stored();
+    const from = layoutOfPanels(base.panels, canvas);
+    if (!from || from.layout === layout) return;
+    const next = panelsInLayout(base.panels, layout, from.gap, panelSource(base, assets), canvas);
+    const message = layout === 'spotlight' ? IC.panelLayoutSpotlight : IC.panelLayoutRows;
+    commitLayout(actions, panelsOperations(sequence.id, base, next), EditLabel.changeLayout(), message);
+  };
+  /** 改间距：每次都从视频里存着的格子换算，夹在 1–4 倍里的放大不会越拖越偏。 */
+  const gapPanels = (gap: number) => {
+    const base = stored();
+    const from = layoutOfPanels(base.panels, canvas);
+    return from ? panelsInLayout(base.panels, from.layout, gap, panelSource(base, assets), canvas) : null;
+  };
+  const liveGap = (gap: number) => {
+    const next = gapPanels(gap);
+    if (next) edit.live({ panels: next });
+  };
+  const commitGap = (gap: number) => {
+    const next = gapPanels(gap);
+    const operations = next ? panelsOperations(sequence.id, stored(), next) : [];
+    if (operations.length) edit.commit(operations, EditLabel.adjustPanel());
+    else useEditor.getState().clearDrafts();
+  };
+  const toTop = (index: number) => {
+    const base = stored();
+    const src = panelSource(base, assets);
+    if (!src) return;
+    commitLayout(
+      actions,
+      panelsOperations(sequence.id, base, swapPanelViews(base.panels, 0, index, src, canvas)),
+      EditLabel.changeLayout(),
+      IC.panelsMovedTop(names[index]!),
+    );
+  };
   const toSingle = () =>
     commitLayout(
       actions,
@@ -183,6 +233,30 @@ export function PanelsSection({
             }}
           />
         </PRow>
+        {lay && layouts.length > 1 ? (
+          <PRow label={IC.panelGrid}>
+            <Seg<PanelLayout>
+              label={IC.panelGrid}
+              value={lay.layout}
+              options={layouts.map((key) => ({ key, label: key === 'spotlight' ? IC.panelLayoutSpotlight : IC.panelLayoutRows }))}
+              isDisabled={isDisabled}
+              onChange={setLayout}
+            />
+          </PRow>
+        ) : null}
+        {lay ? (
+          <ValueRow
+            label={IC.panelGap}
+            value={lay.gap}
+            min={0}
+            max={PANEL_GAP_MAX}
+            step={0.5}
+            digits={1}
+            isDisabled={isDisabled}
+            onLive={liveGap}
+            onCommit={commitGap}
+          />
+        ) : null}
         {panels.map((panel, i) => (
           <div key={i} className={cell}>
             <div className={cellHead}>
@@ -225,6 +299,13 @@ export function PanelsSection({
               {IC.panelSwap}
             </Button>
           ) : null}
+          {lay?.layout === 'spotlight' && source
+            ? [1, 2].map((i) => (
+                <Button key={`top-${i}`} variant="secondary" size="S" isDisabled={isDisabled} onPress={() => toTop(i)}>
+                  {IC.panelToTop(names[i]!)}
+                </Button>
+              ))
+            : null}
           {names.map((name, i) => (
             <Button key={i} variant="secondary" size="S" isDisabled={isDisabled} onPress={() => solo(i)}>
               {IC.panelSolo(name)}

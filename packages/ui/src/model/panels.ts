@@ -2,6 +2,7 @@ import {
   FOCAL_MAX_ZOOM,
   focalZoom,
   panelLayoutOf,
+  panelLayoutsFor,
   panelRects,
   panelUpscale,
   panelWindow,
@@ -19,8 +20,9 @@ import { sourceSize } from './stage-framing.ts';
 
 /**
  * 分屏（短视频分屏设计 §3–§4、§8，原型 model-panels.js；视频格式规范 §3.5 `VideoItem.panels`）：一件全屏铺满的视频画成 2–4 格，
- * 每格同一帧原片按自己的取景点铺满。格子是固定的，改的只是每格的取景点（放大与位置）；版式切换、互换、只留一人、套到整支
- * 都是一次 `setStyle`。版式的格子、格子里看得见原片哪一块、放大量都用 protocol 里与派生同一份的算法。
+ * 每格同一帧原片按自己的取景点铺满。格子按版式与间距生成；换版式、改间距、放到上格时每格保留看得见的那块原片；在一格里拖动、
+ * 缩放改的是这一格的取景点。一人 / 分屏切换、互换、只留一人、套到整支都是一次 `setStyle`。版式的格子、格子里看得见原片哪一块、
+ * 放大量都用 protocol 里与派生同一份的算法。
  */
 
 /** 每一格的放大量（成片一个像素对原片几个像素）超过它就提醒发虚；与派生的 `panel-upscaled` 同一个门槛。 */
@@ -80,10 +82,94 @@ export function withPanelFocal(panels: readonly VideoPanel[], index: number, pat
   );
 }
 
-/** 把一段的格子取景套到另一段：格数相同才套（格子不动、各格的取景点照搬），否则 null。 */
+/** 把一段的格子套到另一段：格数相同才套，格子（版式与间距）与各格的取景点照搬，否则 null。 */
 export function applyPanelsTo(from: readonly VideoPanel[], to: readonly VideoPanel[]): VideoPanel[] | null {
   if (from.length !== to.length) return null;
-  return to.map((p, i) => ({ rect: p.rect, focalPoint: { ...from[i]!.focalPoint } }));
+  return from.map((p) => ({ rect: { ...p.rect }, focalPoint: { ...p.focalPoint } }));
+}
+
+/** 一格看得见的那块原片：中心与高（源的比例）。 */
+function viewOf(panel: VideoPanel, source: CanvasSize, canvas: CanvasSize): { cx: number; cy: number; h: number } {
+  const w = panelWindow(panel.focalPoint, source, cellSize(panel.rect, canvas));
+  return { cx: w.left + w.width / 2, cy: w.top + w.height / 2, h: w.height };
+}
+
+/** 让格子 `rect` 看得见以 `view` 的中心为中心、高 `view.h` 的那块原片：放大夹在 [1, 上限]，碰到原片边往里推。 */
+function focalForView(view: { cx: number; cy: number; h: number }, rect: PanelRect, source: CanvasSize, canvas: CanvasSize): FocalPoint {
+  const fill = panelWindow({ x: 0.5, y: 0.5 }, source, cellSize(rect, canvas));
+  const zoom = clamp(fill.height / view.h, 1, FOCAL_MAX_ZOOM);
+  const at = (center: number, kept: number) => (kept < 1 - 1e-9 ? clamp(center - kept / 2, 0, 1 - kept) / (1 - kept) : 0.5);
+  return cleanFocal({ x: at(view.cx, fill.width / zoom), y: at(view.cy, fill.height / zoom), zoom });
+}
+
+/**
+ * 换成另一组格子（换版式、改间距）：第 i 格的人进新的第 i 格，各自保留看得见的那块原片的中心与高；不知道源尺寸时取景点不动。
+ * 格数不同时原样。
+ */
+export function relayoutPanels(
+  panels: readonly VideoPanel[],
+  rects: readonly PanelRect[] | null,
+  source: CanvasSize | null,
+  canvas: CanvasSize,
+): VideoPanel[] {
+  if (!rects || rects.length !== panels.length) return [...panels];
+  return panels.map((p, i) => ({
+    rect: { ...rects[i]! },
+    focalPoint: source ? focalForView(viewOf(p, source, canvas), rects[i]!, source, canvas) : { ...p.focalPoint },
+  }));
+}
+
+/** 两格的人对调，各自保留看得见的那块原片（上一下二的「放到上格」：两格宽高比不同，不能直接换取景点）。 */
+export function swapPanelViews(panels: readonly VideoPanel[], a: number, b: number, source: CanvasSize, canvas: CanvasSize): VideoPanel[] {
+  const pa = panels[a];
+  const pb = panels[b];
+  if (!pa || !pb) return [...panels];
+  const va = viewOf(pa, source, canvas);
+  const vb = viewOf(pb, source, canvas);
+  return panels.map((p, i) =>
+    i === a
+      ? { rect: p.rect, focalPoint: focalForView(vb, p.rect, source, canvas) }
+      : i === b
+        ? { rect: p.rect, focalPoint: focalForView(va, p.rect, source, canvas) }
+        : p,
+  );
+}
+
+/** 在一格里缩放碰到了什么：上限、下限（铺满这一格）或原片边缘。 */
+export type PanelZoomHit = 'max' | 'min' | 'edge' | null;
+
+/**
+ * 在一格里缩放（滚轮、捏合）：`factor` 是放大的倍数，`at` 是指针在这一格里的位置（0–1）。指针下那一点对着的原片位置不动，
+ * 放大夹在 [1, 上限]，碰到原片边往里推。`hit` 说碰到了什么，没碰到时 null。
+ */
+export function zoomPanel(
+  panels: readonly VideoPanel[],
+  index: number,
+  factor: number,
+  at: Point,
+  source: CanvasSize,
+  canvas: CanvasSize,
+): { panels: VideoPanel[]; hit: PanelZoomHit } {
+  const panel = panels[index];
+  if (!panel || !(factor > 0)) return { panels: [...panels], hit: null };
+  const w = panelWindow(panel.focalPoint, source, cellSize(panel.rect, canvas));
+  const z0 = clamp(focalZoom(panel.focalPoint), 1, FOCAL_MAX_ZOOM);
+  const want = z0 * factor;
+  const zoom = clamp(want, 1, FOCAL_MAX_ZOOM);
+  let hit: PanelZoomHit = want > FOCAL_MAX_ZOOM + 1e-9 ? 'max' : want < 1 - 1e-9 ? 'min' : null;
+  const fx = clamp(at.x, 0, 1);
+  const fy = clamp(at.y, 0, 1);
+  const along = (s: number, f: number, kept: number) => {
+    if (kept >= 1 - 1e-9) return 0.5;
+    const start = s - f * kept;
+    const next = clamp(start, 0, 1 - kept);
+    if (Math.abs(start - next) > 1e-4 && !hit) hit = 'edge';
+    return next / (1 - kept);
+  };
+  const x = along(w.left + fx * w.width, fx, (w.width * z0) / zoom);
+  const y = along(w.top + fy * w.height, fy, (w.height * z0) / zoom);
+  const focalPoint = cleanFocal({ x, y, zoom });
+  return { panels: panels.map((p, i) => (i === index ? { rect: p.rect, focalPoint } : p)), hit };
 }
 
 /**
@@ -94,6 +180,12 @@ export function soloFocal(panel: VideoPanel, source: CanvasSize, canvas: CanvasS
   const whole = panelWindow({ x: 0.5, y: 0.5 }, source, canvas);
   const at = (center: number, kept: number) => (kept < 1 - 1e-9 ? clamp(center - kept / 2, 0, 1 - kept) / (1 - kept) : 0.5);
   return cleanFocal({ x: at(w.left + w.width / 2, whole.width), y: 0.5 });
+}
+
+/** 画布上的一点在这一格里的位置（0–1，左上角是 0）。 */
+export function pointInPanel(panel: VideoPanel, p: Point, canvas: CanvasSize): Point {
+  const { rect } = panel;
+  return { x: ((p.x / canvas.width) * 100 - rect.x) / rect.w, y: ((p.y / canvas.height) * 100 - rect.y) / rect.h };
 }
 
 /** 画布上的一点落在哪一格；不在任何一格里时 -1。 */
@@ -136,8 +228,23 @@ export function upscaledPanels(panels: readonly VideoPanel[], source: CanvasSize
   return panels.map((p) => !!source && panelUpscale(p, source, canvas) > PANEL_UPSCALE_WARN);
 }
 
-/** 这组格子的版式；认不出（格子被别处改过）时 null。 */
-export const layoutOfPanels = (panels: readonly VideoPanel[]): PanelLayout | null => panelLayoutOf(panels);
+/** 这组格子的版式与间距；认不出（格子被别处改过）时 null。 */
+export const layoutOfPanels = (panels: readonly VideoPanel[], canvas: CanvasSize): { layout: PanelLayout; gap: number } | null =>
+  panelLayoutOf(panels, canvas);
+
+/** 这么多格时能选的版式（属性面板「格子」一行）：三格多一个上一下二。 */
+export const layoutsForPanels = (count: number): PanelLayout[] => panelLayoutsFor(count);
+
+/** 换版式或改间距后的格子：每格保留看得见的那块原片；版式与格数对不上时原样。 */
+export function panelsInLayout(
+  panels: readonly VideoPanel[],
+  layout: PanelLayout,
+  gap: number,
+  source: CanvasSize | null,
+  canvas: CanvasSize,
+): VideoPanel[] {
+  return relayoutPanels(panels, panelRects(layout, panels.length, gap, canvas), source, canvas);
+}
 
 const samePanels = (a: readonly VideoPanel[] | undefined, b: readonly VideoPanel[] | null) =>
   JSON.stringify(a ?? null) === JSON.stringify(b && b.length ? b : null);
@@ -183,7 +290,7 @@ export function soloOperations(
   return panelsOperations(sequenceId, item, null, source ? soloFocal(panel, source, canvas) : { x: 0.5, y: 0.5 });
 }
 
-/** 套到整支：把这一段各格的取景点写到同一素材的其它分屏段，格数相同的才套，一人段不动；一笔事务。 */
+/** 套到整支：把这一段的格子（版式、间距与各格的取景点）写到同一素材的其它分屏段，格数相同的才套，一人段不动；一笔事务。 */
 export function applyPanelsToAll(
   sequenceId: Id,
   item: PanelledVideo,

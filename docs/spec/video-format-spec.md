@@ -643,7 +643,7 @@ interface FocalPoint { x: number; y: number; zoom?: number }   // cover 留下�
 - 文字的纵向钉点是 `TextItem.verticalAlign`（§3.6），不在 `place` 里。
 - **裁剪**（`crop`）从源的显示画面（已按旋转元数据摆正）四边各裁掉一个比例：每边在 [0, 1)，左右之和、上下之和都小于 1。四边都是 0 等于没有裁剪，不保存。裁剪在 `fit` 之前：留下的区域当作源画面，它的宽高比参与框的高与 `fit`。
 - **取景点**（`focalPoint`）决定 `cover` 裁掉多余部分时留哪一段，同 CSS `object-position` 的百分比：`x`、`y` 各在 [0, 1]，0 贴左（上）、0.5 居中、1 贴右（下），多出来的部分按它分到两边。它在裁剪之后定位，只对 `cover` 起作用，不改框，也不裁源画面：换画幅时多出来的画面还在。省略时居中，与没有这个字段的文档一样。`zoom` 是在刚好铺满之上再放大多少，在 [1, 4]，缺省 1；1 不保存（写 1 时去掉这个字段）。放大围着取景点：`cover` 的倍率乘上 `zoom`，源画面上 (`x`, `y`) 那一点仍落在框里的 (`x`, `y`) 处，所以画面始终铺满、不露底；它同样只对 `cover` 起作用，不改框。放大不借用 `place.scale`：`place.scale` 是可以打关键帧的整体倍率，铺满时按框中心放大，与取景点无关；取景的放大跟着取景点走，换画幅时随取景点一起重算。换画幅的取景（剪成短视频）写取景点而不是把左右或上下裁掉；`videos.derive` 收到裁剪时，全屏加 `cover` 的视频按派生画布换成取景点，铺满方向上多出来的那一边不裁，另一边的裁剪（放大、去黑边）留着，看到的画面不变。
-- **分屏**（`VideoItem.panels`）把一件全屏铺满的视频画成 2–4 格：每格是画布上的一个百分比矩形（`rect`，`w`、`h` 大于 0，落在 [0, 100] 之内，两两不重叠，可以贴边），画同一帧源画面——先按实例的 `crop` 取源区域，再按这一格的 `focalPoint` 铺满这一格（同上面的取景点与 `zoom`，只是「刚好铺满」指铺满这一格），裁到格子之内。有 `panels` 时实例自己的 `focalPoint` 不参与渲染（保留着，去掉 `panels` 时回到它）。整件仍是一个画面实例：声音、时间映射、剪口、字幕投影、转场与不透明度都按实例算，滤镜与效果作用在每一格的源画面上；格子是固定的，实例的遮罩、翻转、入场 / 出场与循环动画、关键帧在分屏时不参与；转场把几格合成的整幅当作一个铺满画布的画面。`setStyle` 的 `panels` 整份替换（`null` 去掉）；`mode` 或 `fit` 改得不再是全屏 `cover` 时 `panels` 一并去掉；写入与读取时格数、矩形或取景点不合法的拒绝。常用版式（短视频分屏设计 §3.1）：两格上下各一半，三格三行 33.333 / 33.334 / 33.333，四格田字格；人按在原片里从左到右的次序排进格子。导出交给编码的源尺寸不按画布缩小（格子取一块再放大）。
+- **分屏**（`VideoItem.panels`）把一件全屏铺满的视频画成 2–4 格：每格是画布上的一个百分比矩形（`rect`，`w`、`h` 大于 0，落在 [0, 100] 之内，两两不重叠，可以贴边），画同一帧源画面——先按实例的 `crop` 取源区域，再按这一格的 `focalPoint` 铺满这一格（同上面的取景点与 `zoom`，只是「刚好铺满」指铺满这一格），裁到格子之内。有 `panels` 时实例自己的 `focalPoint` 不参与渲染（保留着，去掉 `panels` 时回到它）。整件仍是一个画面实例：声音、时间映射、剪口、字幕投影、转场与不透明度都按实例算，滤镜与效果作用在每一格的源画面上；格子是固定的，实例的遮罩、翻转、入场 / 出场与循环动画、关键帧在分屏时不参与；转场把几格合成的整幅当作一个铺满画布的画面。`setStyle` 的 `panels` 整份替换（`null` 去掉）；`mode` 或 `fit` 改得不再是全屏 `cover` 时 `panels` 一并去掉；写入与读取时格数、矩形或取景点不合法的拒绝。常用版式（短视频分屏设计 §3.1、§11）：两格上下各一半，三格三行 33.333 / 33.334 / 33.333，三格「上一下二」（上格整宽、下面左右各半），四格田字格；人按在原片里从左到右的次序排进格子，「上一下二」的上格放主讲的那人。格子之间可以留间距：间距是画布短边的百分比（0–10），横竖两个方向在画布上的像素一样宽，由矩形本身体现（格式不另记间距），间距里露出下层轨道；`@baocut/protocol` 的 `panelRects(layout, count, gap, canvas)` 按版式与间距给出矩形（三位小数，左右、上下对称；间距为 0 时与上面的版式一致），`panelLayoutOf` 反过来认出版式与间距。导出交给编码的源尺寸不按画布缩小（格子取一块再放大）。
 - 选中框、命中框与露底检查读静态的 `place`；关键帧与元素动画叠在它上面（§3.15）。
 
 字段来源：`schema.rs` 的 `Place`、`CornerRadii`、`VisualMode`、`Fit`、`Background`、`Tile`；`geometry.rs` 的 `default_place`、`width_basis`、`static_box`、`media_box`、`tile_stamp_points`。
@@ -1478,12 +1478,13 @@ interface Provenance {
     cuts: Array<{ assetId: Id; from: number; to: number }>;  // 区间之外的剪口：主素材源时钟上的秒
     settings: { width: number; height: number; fit: 'cover' | 'contain' | null; crop: Crop | null;
                 captions: boolean; translations: boolean; chapters: boolean;
-                crops?: Array<{ from: number; to: number } & (Crop | { layout: 'rows' | 'grid'; panels: Crop[] })> };
-                                       // 分段取景：父视频剪辑后时间线上的秒，已对到帧、截到区间；分屏段的各格已按区域从左到右排好
+                crops?: Array<{ from: number; to: number } & (Crop | { layout: 'rows' | 'grid' | 'spotlight'; panels: Crop[]; main?: number; gap?: number })> };
+                                       // 分段取景：父视频剪辑后时间线上的秒，已对到帧、截到区间；分屏段的各格已按区域从左到右排好，
+                                       // spotlight 的上格排在最前（记下的 main 是 0）；间距为 0 时不写 gap
     framing?: {                        // 分段取景落在主素材源时钟上的样子：给了 crops 且有主素材时才有
       assetId: Id;                     // 主素材（父视频里的 ID）
       shots: Array<{ from: number; to: number; crop: Crop | null;              // 区间里主素材的每一段：源时钟上的秒与它用的裁剪
-                     layout?: 'rows' | 'grid'; panels?: VideoPanel[] }>;      // 分屏段：版式与写到片段上的格子（crop 为 null）
+                     layout?: 'rows' | 'grid' | 'spotlight'; panels?: VideoPanel[] }>;  // 分屏段：版式与写到片段上的格子（crop 为 null；间距已在矩形里）
     };
     key: string;                       // 幂等键：父视频、版本、区间与设置的 sha256 前 12 位（settings.crops 有才算进来）
     hook?: string;                     // 开头一句：派生时调用方给了才有
@@ -2293,7 +2294,7 @@ box blur、波纹位移与反馈按各自传播范围预留透明边界；独立
 
 - Studio 样式（`baocut.legacy-studio-style/0.1`）：`style` 是 v2 的字幕样式，逐词动画写在 `style.wordAnimation`（或 `style.anim`）里，`catalogId` 指逐词动画目录的一格。
 - Studio 样式的摆放：`style.y` 是锚线高度（画布高度的百分比，缺省 86），`style.verticalAlign`（`top` | `center` | `bottom`，缺省 `center`）说字幕块的上边、中线或下边落在锚线上，折成多行时往另一边长；`style.x` 是块中心（画布宽度的百分比，缺省 50）；`style.width` 是最大行宽（画布宽度的百分比，[5, 100]，缺省 80），烧录与预览在这个宽度里折行；`style.fontSize` 是 540 短边下的字号（缺省 30，按画布短边等比放大）。`origStyle` / `transStyle` 里的同名键只挪那一行。切字幕条按 LayoutProfile，不看这些键。智能体用 `captions_create` 的 `style` 与 `edits_apply` 的 `setCaptionStyle` 写同一组键（架构设计 §3.5）。
-- Studio 样式在分屏段的摆放：`style.panelSeam`（缺省 true）开着时，一句字幕开始的那一刻画面上是分屏的视频（§3.5 的 `panels` 起作用），这一句整块的中线落在离 `style.y` 最近的一条横向接缝上（一格的下边与另一格的上边相接处：上下两格与田字格是 50，三行是 33.333 或 66.667），到这一句结束都不动，片段中途换回一人也不动。「开始的那一刻」是字幕文档里这一句的开始，不含 `displayTiming.leadIn` 提前显示的那一段（镜头切到全景通常正落在下一句开头）；源素材时钟上，这一刻被剪掉时取它之后第一次显示的地方。那一刻不是分屏、或格子之间没有横向接缝时照 `style.y` 与 `verticalAlign` 摆。按块的中线而不是 `verticalAlign` 那条边落到接缝：底边钉在接缝上，几行字都长在上一格人的胸口上。只挪位置，不改字号、宽度与底板；双语的两行一起挪，按两行里先开始的那一句定；居中摆放的字幕、逐句样式 `cueStyles` 里自己写了 `y` 的那一句、`origStyle` / `transStyle` 里写了 `x`、`y` 单独摆的那一行不挪；模板避让（§3.17）照样作用。位置不写进文档，跟着片段当下的 `panels`：换回一人、改格子、整份重套字幕样式之后都不用补写。定位框样式与动态场景不挪，导出的字幕文件（SRT、VTT、ASS）不受影响。
+- Studio 样式在分屏段的摆放：`style.panelSeam`（缺省 true）开着时，一句字幕开始的那一刻画面上是分屏的视频（§3.5 的 `panels` 起作用），这一句整块的中线落在离 `style.y` 最近的一条横向接缝上（一格的下边与另一格的上边相接处：上下两格、田字格与「上一下二」是 50，三行是 33.333 或 66.667；格子之间留了间距时，接缝是间距的中线——下面那格的上边离上面那格的下边不到画布高度的 10%、两格横向有重叠，取两边的中点，三位小数，例如 9:16 三行间距 2 是 33.146 与 66.855，「上一下二」仍是 50），到这一句结束都不动，片段中途换回一人也不动。「开始的那一刻」是字幕文档里这一句的开始，不含 `displayTiming.leadIn` 提前显示的那一段（镜头切到全景通常正落在下一句开头）；源素材时钟上，这一刻被剪掉时取它之后第一次显示的地方。那一刻不是分屏、或格子之间没有横向接缝时照 `style.y` 与 `verticalAlign` 摆。按块的中线而不是 `verticalAlign` 那条边落到接缝：底边钉在接缝上，几行字都长在上一格人的胸口上。只挪位置，不改字号、宽度与底板；双语的两行一起挪，按两行里先开始的那一句定；居中摆放的字幕、逐句样式 `cueStyles` 里自己写了 `y` 的那一句、`origStyle` / `transStyle` 里写了 `x`、`y` 单独摆的那一行不挪；模板避让（§3.17）照样作用。位置不写进文档，跟着片段当下的 `panels`：换回一人、改格子、整份重套字幕样式之后都不用补写。定位框样式与动态场景不挪，导出的字幕文件（SRT、VTT、ASS）不受影响。
 - 定位框样式（`baocut.boxed-caption-style/<N>`）：`canvas` 是样式所在画布的像素尺寸，`box` 是字幕框（相对画布中心的像素），`style` 是字号、颜色、对齐、底板等外观；渲染时换算成等价的 Studio 样式。`style.animationPresetId` 选逐词动画，取值是目录的 id，按那一格画，与 Studio 样式选中同一格相同；省略表示不动画。
 - 逐词动画目录有 19 格：`none`、`boxHighlight`、`flipClock`、`highlight`、`karaoke`、`impact`、`reveal`、`floatInTop`、`floatInBottom`、`scaleIn`、`dropIn`、`impactPop`、`colourHighlight`、`rotateFlipClock`、`rotateHighlight`、`stack`、`stomp`、`bounce`、`paint`。`reveal` 是逐字显现：没念到的词不画，念到一个就整个显出来。句子没有词时先应用显示间距，再按 §3.8 的空白切分推算；补间距后仍不带空格的一句是一个词、开头就整句显出来。
 - 引擎写入定位框样式时核对：`style` 是对象，`style.animationPresetId` 出现时是目录里的 id，否则拒绝整份文档（`INVALID_OPERATION`）。Studio 样式的正文不核对；内核遇到认不出的 `catalogId` 按动画名画。

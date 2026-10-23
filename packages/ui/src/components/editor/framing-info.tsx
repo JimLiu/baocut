@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FOCAL_MAX_ZOOM, type Sequence } from '@baocut/protocol';
+import { FOCAL_MAX_ZOOM, type PanelLayout, type Sequence } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import { Button, Content, ContextualHelp, Footer, Heading, ToastQueue, type ContextualHelpProps } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -75,10 +75,11 @@ export function FramingInfo({ onFree, placement }: { onFree: (() => void) | null
   );
 }
 
-/** 格子的叫法（原型 model-panels.js `names`）：两格、三格按上下，四格按左上、右上、左下、右下。 */
-export function panelNames(n: number): string[] {
+/** 格子的叫法（原型 model-panels.js `names`）：两格、三行按上下，上一下二是上、左下、右下，四格按左上、右上、左下、右下。 */
+export function panelNames(n: number, layout?: PanelLayout | null): string[] {
   const c = STAGE_COPY;
   if (n === 2) return [c.panelTop, c.panelBottom];
+  if (n === 3 && layout === 'spotlight') return [c.panelTop, c.panelBottomLeft, c.panelBottomRight];
   if (n === 3) return [c.panelTop, c.panelMiddle, c.panelBottom];
   if (n === 4) return [c.panelTopLeft, c.panelTopRight, c.panelBottomLeft, c.panelBottomRight];
   return Array.from({ length: n }, (_, i) => String(i + 1));

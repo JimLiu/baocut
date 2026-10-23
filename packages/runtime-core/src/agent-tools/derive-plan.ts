@@ -116,14 +116,19 @@ export interface SingleShot extends Crop {
 }
 
 /**
- * 分屏的一段（视频格式规范 §3.5 `VideoItem.panels`）：版式与每格要看见的源区域（四边比例）。`alignCrops` 之后各格已按区域
- * 中心的横坐标从左到右排好，依次放进版式的格子（`rows` 从上到下，`grid` 左上、右上、左下、右下）。
+ * 分屏的一段（视频格式规范 §3.5 `VideoItem.panels`）：版式、每格要看见的源区域（四边比例）与格子间距。`alignCrops` 之后各格已按
+ * 区域中心的横坐标从左到右排好，依次放进版式的格子（`rows` 从上到下，`grid` 左上、右上、左下、右下）；`spotlight` 的 `main`
+ * 那一格排在最前（上格，排好后 `main` 是 0），另两格按横坐标进左下、右下。
  */
 export interface SplitShot {
   from: number;
   to: number;
   layout: PanelLayout;
   panels: Crop[];
+  /** `spotlight` 放到上格的那一格（`panels` 里的下标）；别的版式没有。 */
+  main?: number;
+  /** 格子间距（画布短边的百分比，0–10）；0 不写。 */
+  gap?: number;
 }
 
 export const isSplitShot = <T extends CropShot | ShotFraming>(shot: T): shot is Extract<T, { layout: PanelLayout }> => 'layout' in shot;
@@ -413,7 +418,15 @@ export function derivationKey(input: {
         ? {
             crops: s.crops.map((c) =>
               isSplitShot(c)
-                ? [c.from, c.to, c.layout, ...c.panels.map((p) => [p.left, p.top, p.right, p.bottom])]
+                ? [
+                    c.from,
+                    c.to,
+                    c.layout,
+                    ...c.panels.map((p) => [p.left, p.top, p.right, p.bottom]),
+                    // 一期的键不变：间距为 0 与不给相同，main 只在 spotlight 时有。
+                    ...(c.layout === 'spotlight' ? [['main', c.main ?? 0]] : []),
+                    ...(c.gap ? [['gap', c.gap]] : []),
+                  ]
                 : [c.from, c.to, c.left, c.top, c.right, c.bottom],
             ),
           }
@@ -432,7 +445,8 @@ const EDGE_CROP_TOLERANCE_SECONDS = 0.5;
  * 对齐后，第一段起点晚于区间起点、最后一段终点早于区间终点，且缺口小于 `EDGE_CROP_TOLERANCE_SECONDS`（0.5 秒）时，把它向外延到
  * 区间边界：区间边界为落在停顿里被吸附（可比请求的宽几帧），而调用方的首尾段正好是请求的起止，不延的话那一小条会自成一个很短的
  * 片段并套用缺省裁剪。只动首尾两段、只向外延，不计入 `adjusted`；缺口更大的仍沿用缺省裁剪，且已计入 `adjusted` 的不变。
- * 分屏段的格数要与版式对上（`rows` 2 或 3 格、`grid` 4 格），否则拒绝（`DERIVE_PANELS_INVALID`）；各格按区域排好（{@link SplitShot}）。
+ * 分屏段的格数要与版式对上（`rows` 2 或 3 格、`grid` 4 格、`spotlight` 3 格），`spotlight` 要给 `main`（`panels` 里的下标）、
+ * 别的版式不给，否则拒绝（`DERIVE_PANELS_INVALID`）；各格按区域排好（{@link SplitShot}）。
  */
 export function alignCrops(sequence: Sequence, range: AlignedRange, crops: readonly CropShot[]): { crops: CropShot[]; adjusted: number } {
   const fps = sequence.fps;
@@ -442,8 +456,20 @@ export function alignCrops(sequence: Sequence, range: AlignedRange, crops: reado
   const outFrames: Array<{ from: number; to: number }> = [];
   let previous = range.startFrame;
   for (const shot of [...crops].sort((x, y) => x.from - y.from)) {
-    if (isSplitShot(shot) && !panelRects(shot.layout, shot.panels.length)) {
-      throw new DeriveError('DERIVE_PANELS_INVALID', { from: shot.from, to: shot.to, layout: shot.layout, count: shot.panels.length });
+    if (isSplitShot(shot)) {
+      const count = shot.panels.length;
+      const spotlight = shot.layout === 'spotlight';
+      const main = shot.main;
+      const badMain = spotlight ? !(Number.isInteger(main) && main! >= 0 && main! < count) : main !== undefined;
+      if (!panelRects(shot.layout, count) || badMain) {
+        throw new DeriveError('DERIVE_PANELS_INVALID', {
+          from: shot.from,
+          to: shot.to,
+          layout: shot.layout,
+          count,
+          ...(main !== undefined ? { main } : {}),
+        });
+      }
     }
     const rawFrom = toFrame(shot.from);
     const rawTo = toFrame(shot.to);
@@ -550,8 +576,9 @@ function keepFullPicture(entry: Record<string, unknown>, source: { width: number
 
 // ---- 分段取景：把主素材的视频实例在镜头边界上拆开 ----
 
-/** 一段的取景：一人的裁剪，或分屏的版式与各格区域。 */
-type ShotFraming = Crop | { layout: PanelLayout; panels: Crop[] };
+/** 一段的取景：一人的裁剪，或分屏的版式、各格区域（已排好，`spotlight` 的上格在最前）与间距（0 不写）。 */
+type SplitFraming = { layout: PanelLayout; panels: Crop[]; gap?: number };
+type ShotFraming = Crop | SplitFraming;
 
 /** 对到帧的一段取景。 */
 interface FrameShot {
@@ -572,7 +599,14 @@ const sameFraming = (a: ShotFraming | null, b: ShotFraming | null): boolean => {
   if (a === b) return true;
   if (!a || !b) return false;
   if (isSplitShot(a) || isSplitShot(b)) {
-    return isSplitShot(a) && isSplitShot(b) && a.layout === b.layout && a.panels.length === b.panels.length && a.panels.every((p, n) => sameCrop(p, b.panels[n]!));
+    return (
+      isSplitShot(a) &&
+      isSplitShot(b) &&
+      a.layout === b.layout &&
+      (a.gap ?? 0) === (b.gap ?? 0) &&
+      a.panels.length === b.panels.length &&
+      a.panels.every((p, n) => sameCrop(p, b.panels[n]!))
+    );
   }
   return sameCrop(a, b);
 };
@@ -580,9 +614,17 @@ const sameFraming = (a: ShotFraming | null, b: ShotFraming | null): boolean => {
 /** 区域中心的横坐标（排格子用），一样时按纵坐标。 */
 const byCenter = (a: Crop, b: Crop) => a.left - a.right - (b.left - b.right) || a.top - a.bottom - (b.top - b.bottom);
 
-/** 一段的取景，复制出来：分屏的各格按区域中心从左到右排好。 */
-function shotFraming(shot: CropShot): ShotFraming {
-  return isSplitShot(shot) ? { layout: shot.layout, panels: shot.panels.map(cropOf).sort(byCenter) } : cropOf(shot);
+/**
+ * 一段的取景，复制出来：分屏的各格按区域中心从左到右排好，`spotlight` 先放 `main` 那一格（上格），另两格按横坐标；排好后
+ * `spotlight` 的 `main` 是 0。间距为 0 时不写。
+ */
+function shotFraming(shot: CropShot): ShotFraming | (SplitFraming & { main?: number }) {
+  if (!isSplitShot(shot)) return cropOf(shot);
+  const gap = shot.gap ? { gap: shot.gap } : {};
+  if (shot.layout !== 'spotlight') return { layout: shot.layout, panels: shot.panels.map(cropOf).sort(byCenter), ...gap };
+  const top = shot.panels[shot.main ?? 0]!;
+  const rest = shot.panels.filter((_, n) => n !== (shot.main ?? 0));
+  return { layout: shot.layout, panels: [cropOf(top), ...rest.map(cropOf).sort(byCenter)], main: 0, ...gap };
 }
 
 /** 分屏各格区域的并集：分屏用不上时当一人裁剪（`panels-ignored`）。 */
@@ -600,13 +642,13 @@ export function withoutSplits(crops: readonly CropShot[]): CropShot[] {
   return crops.map((c) => (isSplitShot(c) ? { from: c.from, to: c.to, ...unionCrop(c.panels) } : c));
 }
 
-/** 分屏段的格子：版式的格子，各格区域换成这一格的取景点（`panelFocalForRegion`）；记下装不下、放大过头的格数。 */
+/** 分屏段的格子：版式与间距的格子（按画布算），各格区域换成这一格的取景点（`panelFocalForRegion`）；记下装不下、放大过头的格数。 */
 function splitPanels(
-  shot: { layout: PanelLayout; panels: Crop[] },
+  shot: SplitFraming,
   source: { width: number; height: number },
   canvas: { width: number; height: number },
 ): { panels: VideoPanel[]; cropped: number; upscaled: number } {
-  const rects = panelRects(shot.layout, shot.panels.length)!;
+  const rects = panelRects(shot.layout, shot.panels.length, shot.gap ?? 0, canvas)!;
   let cropped = 0;
   let upscaled = 0;
   const panels = rects.map((rect, n) => {

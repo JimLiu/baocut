@@ -364,15 +364,19 @@ export interface VideoDeriveCrop {
 }
 
 /**
- * 分屏的一段（视频格式规范 §3.5 `VideoItem.panels`）：`rows` 2 或 3 格、`grid` 4 格，每格是要看见的源区域（四边比例，同
- * `crop`）。各格按区域中心的横坐标从左到右排进格子，给的次序不影响结果。只用于画幅变了、`fit` 为 cover 的派生；否则按各格
- * 区域的并集当一人裁剪处理（`panels-ignored`）。
+ * 分屏的一段（视频格式规范 §3.5 `VideoItem.panels`）：`rows` 2 或 3 格、`grid` 4 格、`spotlight`（上一下二）3 格，每格是要看见的
+ * 源区域（四边比例，同 `crop`）。各格按区域中心的横坐标从左到右排进格子，给的次序不影响结果；`spotlight` 先把 `main` 那一格放进
+ * 上格，另两格按横坐标进左下、右下。只用于画幅变了、`fit` 为 cover 的派生；否则按各格区域的并集当一人裁剪处理（`panels-ignored`）。
  */
 export interface VideoDeriveSplit {
   from: number;
   to: number;
-  layout: 'rows' | 'grid';
+  layout: 'rows' | 'grid' | 'spotlight';
   panels: { left: number; top: number; right: number; bottom: number }[];
+  /** `spotlight` 放到上格的那一格（`panels` 里的下标，0 起）；`spotlight` 必给，别的版式不给。 */
+  main?: number;
+  /** 格子之间的间距：画布短边的百分比，0–10，缺省 0；只留在格子之间，贴画布边的一侧不留。 */
+  gap?: number;
 }
 
 /** 分段取景的一段：一人（四边裁剪）或分屏。 */

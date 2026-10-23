@@ -85,7 +85,9 @@ export const fr: RcAgentToolsMessages = {
   deriveUnsupportedItem: (p) => `La plage contient un clip qui ne peut pas être copié dans une vidéo dérivée (${p.kind})`,
   deriveParentUnplaced: 'Cette vidéo n’est pas dans un dossier de projet ou de session : impossible de créer une vidéo dérivée à côté',
   derivePanelsInvalid: (p) =>
-    `Un écran partagé ${p.layout} nécessite ${p.layout === 'grid' ? 'exactement 4' : '2 ou 3'} panneaux, mais ${p.count} ont été fournis`,
+    `Un écran partagé ${p.layout} nécessite ${p.layout === 'grid' ? 'exactement 4' : p.layout === 'spotlight' ? 'exactement 3' : '2 ou 3'} panneaux, mais ${p.count} ont été fournis`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Un écran partagé spotlight nécessite main : l’indice (0–2) du panneau placé en haut' : `Seul un écran partagé spotlight accepte main ; retirez-le de l’écran partagé ${p.layout}`,
   shotsRangeEmpty: 'La plage est vide une fois alignée sur les images',
   shotsRangeTooLong: (p) => `La plage dépasse ${p.minutes} minutes : détectez les plans par morceaux plus courts`,
 };

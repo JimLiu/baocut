@@ -70,7 +70,9 @@ export const es: RcAgentToolsMessages = {
   deriveUnsupportedItem: (p) => `El intervalo contiene un clip que no se puede copiar a un vídeo derivado (${p.kind})`,
   deriveParentUnplaced: 'Este vídeo no está en una carpeta de proyecto o de sesión, así que no se puede crear un vídeo derivado a su lado',
   derivePanelsInvalid: (p) =>
-    `Una división ${p.layout} necesita ${p.layout === 'grid' ? 'exactamente 4' : '2 o 3'} paneles, pero se dieron ${p.count}`,
+    `Una división ${p.layout} necesita ${p.layout === 'grid' ? 'exactamente 4' : p.layout === 'spotlight' ? 'exactamente 3' : '2 o 3'} paneles, pero se dieron ${p.count}`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Una división spotlight necesita main: el índice (0–2) del panel que va arriba' : `Solo una división spotlight admite main; quítalo de la división ${p.layout}`,
   shotsRangeEmpty: 'El intervalo queda vacío al ajustarlo a fotogramas',
   shotsRangeTooLong: (p) => `El intervalo dura más de ${p.minutes} minutos; detecta los planos por partes más cortas`,
 };

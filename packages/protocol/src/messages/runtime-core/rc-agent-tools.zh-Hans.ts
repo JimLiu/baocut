@@ -147,7 +147,9 @@ export const zhHans: RcAgentToolsMessages = {
   deriveRangeEmpty: '对齐到帧之后区间是空的',
   deriveUnsupportedItem: (p) => `区间里有不能复制到子视频的片段（${p.kind}）`,
   deriveParentUnplaced: '这个视频不在项目或会话的目录里，没法在它旁边建子视频',
-  derivePanelsInvalid: (p) => `${p.layout} 分屏要 ${p.layout === 'grid' ? '4' : '2 或 3'} 格，给了 ${p.count} 格`,
+  derivePanelsInvalid: (p) => `${p.layout} 分屏要 ${p.layout === 'grid' ? '4' : p.layout === 'spotlight' ? '3' : '2 或 3'} 格，给了 ${p.count} 格`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'spotlight 分屏要给 main：放到上格的那一格的序号（0–2）' : `只有 spotlight 分屏用 main，${p.layout} 分屏不要给`,
   shotsRangeEmpty: '对齐到帧之后区间是空的',
   shotsRangeTooLong: (p) => `区间超过 ${p.minutes} 分钟，请分段检测镜头`,
 };

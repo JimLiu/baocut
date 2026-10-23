@@ -22,6 +22,7 @@ import {
   VIDEO_ANNOTATION_MAX_POINTS,
   VIDEO_ANNOTATION_TEXT_SIZES,
   VIDEO_ANNOTATION_WIDTHS,
+  PANEL_GAP_MAX,
 } from './video.ts';
 import { DOCS_ANNOTATION_LIMITS } from './docs.ts';
 import { SPACE_PARAM_SCHEMAS } from './space-schemas.ts';
@@ -92,7 +93,10 @@ const nestedMessageRef = z
   .object({ key: messageKey, params: z.record(messageParamName, messageScalar).optional(), text: z.string().max(1000).optional() })
   .strict();
 const messageRef = z.object({ key: messageKey, params: z.record(messageParamName, z.union([messageScalar, nestedMessageRef])).optional() }).strict();
-/** 分屏段一格要看见的源区域（四边比例，同 `crop`）。格数与版式对不上由 `videos.derive` 拒绝（`DERIVE_PANELS_INVALID`）。 */
+/**
+ * 分屏段一格要看见的源区域（四边比例，同 `crop`）。格数与版式对不上、`spotlight` 没给 `main` 或越界、别的版式给了 `main` 由
+ * `videos.derive` 拒绝（`DERIVE_PANELS_INVALID`）。
+ */
 const deriveRegion = z
   .object({
     left: z.number().min(0).lt(1),
@@ -1167,8 +1171,10 @@ export const methodParamSchemas = {
               .object({
                 from: z.number().finite().nonnegative(),
                 to: z.number().finite().positive(),
-                layout: z.enum(['rows', 'grid']),
+                layout: z.enum(['rows', 'grid', 'spotlight']),
                 panels: z.array(deriveRegion).min(2).max(4),
+                main: z.number().int().min(0).max(3).optional(),
+                gap: z.number().min(0).max(PANEL_GAP_MAX).optional(),
               })
               .strict()
               .refine((c) => c.to > c.from),
