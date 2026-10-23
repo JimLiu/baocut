@@ -105,7 +105,10 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 | `verticalAlign` | 字幕块哪条边落在 `y` 上：`top`、`center`、`bottom`；折成多行时往另一边长 | `center` |
 | `x`、`width` | 块中心、最大行宽，画面宽度的百分比；烧进画面时超过 `width` 就折行 | 50、80 |
 | `fontSize` | 字号，按 540 短边下的像素（1080 宽的画面乘 2） | 30 |
-| `fontColor`、`fontWeight`、`fontFamily` | 字色、字重、字体族 | 白、700、system |
+| `fontColor`、`fontWeight`、`fontFamily` | 字色、字重（100–900）、字体族（本机的系统字体名，如 `Songti SC`）；写 `fontWeight` 时粗体跟着变 | 白、700、system |
+| `textAlign`、`alignWithinWrap` | 各行左、中、右对齐；`alignWithinWrap: true` 时贴住折行区的边（左对齐的左边固定在 `x − width/2`），不加时整块按字长居中 | `center`、false |
+| `lineHeight`、`letterSpacing` | 行高（字号的倍数）；字距（30 号字下的像素，随字号等比） | 1.2、0 |
+| `punct` | true 时画面上的逗号、句号换成空格；排成书页式的主文时写 false 留住标点 | true |
 | `textOutline`、`dropShadow` | `{"on": false}` 关掉描边、投影；描边还可给 `color`、`width` | 都开着 |
 | `background`、`backgroundColor` | 底板开关与颜色 | 关、`#000000B3` |
 | `panelSeam` | 开始在分屏画面上的一句，整块的中线落在离 `y` 最近的两格接缝上，到这一句结束不动；`false` 照 `y` 摆 | 开 |
