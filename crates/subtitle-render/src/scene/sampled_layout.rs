@@ -154,25 +154,28 @@ pub(super) fn reflow(
         Wrap::Word,
         Some(width),
         fs * style.line_height,
-        line_quota::capped(
-            cfg.pagination.max_units_per_line,
-            line_quota::word_starts(&base.words, paint_range.start, paint_range.end),
-            |r| {
-                let sh = text.shape_spaced_with_shaping(
-                    &source[r],
-                    &style.font_family,
-                    fs,
-                    style.font_weight,
-                    style.italic,
-                    style.letter_spacing * fs,
-                    font_shaping::mode(style),
-                );
-                TextMetricsLine {
-                    width: sh.width,
-                    ascent: sh.ascent,
-                    descent: sh.descent,
-                }
-            },
+        tag_runs::barrier(
+            tag_runs::starts(&base.words, paint_range.start, paint_range.end),
+            line_quota::capped(
+                cfg.pagination.max_units_per_line,
+                line_quota::word_starts(&base.words, paint_range.start, paint_range.end),
+                |r| {
+                    let sh = text.shape_spaced_with_shaping(
+                        &source[r],
+                        &style.font_family,
+                        fs,
+                        style.font_weight,
+                        style.italic,
+                        style.letter_spacing * fs,
+                        font_shaping::mode(style),
+                    );
+                    TextMetricsLine {
+                        width: sh.width,
+                        ascent: sh.ascent,
+                        descent: sh.descent,
+                    }
+                },
+            ),
         ),
     );
     if cfg.overflow == LayoutOverflow::Error

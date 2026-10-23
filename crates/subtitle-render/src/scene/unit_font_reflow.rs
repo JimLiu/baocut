@@ -27,28 +27,32 @@ pub(super) fn line_bytes(
     let source = &content[paint_range.clone()];
     let mut failure = None;
     let starts = line_quota::word_starts(words, paint_range.start, paint_range.end);
+    let runs = tag_runs::starts(words, paint_range.start, paint_range.end);
     let quota = cfg.pagination.max_units_per_line;
     let block = layout(
         source,
         Wrap::Word,
         Some(width),
         line_height,
-        line_quota::capped(quota, starts, |r| {
-            if failure.is_some() {
-                return TextMetricsLine::default();
-            }
-            match measure(paint_range.start + r.start..paint_range.start + r.end) {
-                Ok(shape) => TextMetricsLine {
-                    width: shape.width,
-                    ascent: shape.ascent,
-                    descent: shape.descent,
-                },
-                Err(error) => {
-                    failure = Some(error);
-                    TextMetricsLine::default()
+        tag_runs::barrier(
+            runs,
+            line_quota::capped(quota, starts, |r| {
+                if failure.is_some() {
+                    return TextMetricsLine::default();
                 }
-            }
-        }),
+                match measure(paint_range.start + r.start..paint_range.start + r.end) {
+                    Ok(shape) => TextMetricsLine {
+                        width: shape.width,
+                        ascent: shape.ascent,
+                        descent: shape.descent,
+                    },
+                    Err(error) => {
+                        failure = Some(error);
+                        TextMetricsLine::default()
+                    }
+                }
+            }),
+        ),
     );
     if let Some(error) = failure {
         return Err(error);

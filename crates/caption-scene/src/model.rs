@@ -256,6 +256,25 @@ pub struct Pagination {
     /// `caption-keyword-isolation/1`: hard row/page boundaries around tagged words.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub isolation: Vec<IsolationRule>,
+    /// `caption-tag-run-isolation/1`: width-wrapped lines or pages never span a change of a
+    /// word's tag state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_runs: Option<TagRuns>,
+}
+/// A word is in the tagged state when `presentation.wordTags` lists `tag` for it; a boundary lies
+/// between adjacent words whose state differs. `line` ends the display line there and `page` ends
+/// the page, so a run is never split by a boundary but is still wrapped by width and quotas.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TagRuns {
+    pub tag: String,
+    pub mode: TagRunMode,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TagRunMode {
+    Line,
+    Page,
 }
 /// `caption-fixed-line-wrap/1`: a fixed row wider than the layout width continues on
 /// further display lines, broken like width-wrapped text; row and page members stay frozen.
@@ -387,6 +406,7 @@ impl Default for Pagination {
             page_tags: None,
             pattern_select: None,
             isolation: vec![],
+            tag_runs: None,
         }
     }
 }

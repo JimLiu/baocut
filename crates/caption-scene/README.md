@@ -54,6 +54,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-keyword-isolation/1` 的 `pagination.isolation` 按 `wordTags` 在固定词行分组前插入硬边界：`line` 让词独占一行，`page` 让词独占一页；边界只缩短行和页，不放宽配额，不与 `lastPageRule` 同用。示例见 [keyword-isolation.json](tests/fixtures/keyword-isolation.json)。
 
+`caption-tag-run-isolation/1` 的 `pagination.tagRuns` 按 `wordTags` 把词分成连续的同状态段，只在状态变化处断开：`line` 让显示行不跨段，`page` 让页不跨段并让页配额在每段内重新计数；只用于按宽度换行的默认分页，冻结布局、逐采样布局和单元字号重排的折行规则相同，不与固定行模式或 `isolation` 同用。示例见 [tag-run-isolation.json](tests/fixtures/tag-run-isolation.json)。
+
 `caption-cue-word-context/1` 提供 cue 首两词原始输入边界、真实绑定词标记与跨页下一词开始时间；保留负值、零值和真实 gap，不延长词结束，也不把 estimated 时序冒充输入。所有边界配有可用标记，见 [cue-word-context.json](tests/fixtures/cue-word-context.json)。
 
 `caption-first-page-context/1` 提供固定第一页与当前页的真实首词/末词/下一原词输入边界及可用标记，按文字节点绑定继承，区别真实词结束与延长的页面显示窗口。见 [first-page-context.json](tests/fixtures/first-page-context.json)。

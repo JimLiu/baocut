@@ -28,6 +28,8 @@ export interface CaptionPatternSelect {
 }
 /** Hard row (`line`) or page (`page`) boundaries around words carrying `tag` in presentation.wordTags. */
 export interface CaptionIsolationRule { tag: string; mode: 'none' | 'line' | 'page' }
+/** Width-wrapped lines (`line`) or pages (`page`) never span a change of whether words carry `tag` in presentation.wordTags. */
+export interface CaptionTagRuns { tag: string; mode: 'line' | 'page' }
 /** Post-layout paths requiring caption-glyph-envelope/1. Numeric paths are length; unit paths are bool. */
 export type CaptionGlyphEnvelopeReadPath =
   | 'layout.lineEnvelopeY' | 'layout.lineEnvelopeHeight' | 'layout.firstInkLeft' | 'layout.lastInkRight'
@@ -303,7 +305,10 @@ export interface CaptionScene {
        * and the other word page and row plans above. */
       patternSelect?: CaptionPatternSelect | null;
       /** caption-keyword-isolation/1; fixed word line plans only, never with lastPageRule or the other word page and row plans above. */
-      isolation?: CaptionIsolationRule[] };
+      isolation?: CaptionIsolationRule[];
+      /** caption-tag-run-isolation/1; width-wrapped pages with maxUnitsPerPage and maxUnitsPerLine only, never with the fixed
+       * line plans or isolation above. */
+      tagRuns?: CaptionTagRuns | null };
     align?: 'left' | 'center' | 'right'; leadingGap?: 'show' | 'hide';
   };
   speechState?: { gapPolicy?: 'none' | 'hold-previous'; tailPolicy?: 'none' | 'hold-last'; timingPolicy?: 'require-word-timing' | 'estimated' };

@@ -93,6 +93,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-text-line-layout/1",
     "caption-pattern-select/1",
     "caption-keyword-isolation/1",
+    "caption-tag-run-isolation/1",
     "caption-scalar-cluster-layout/1",
 ];
 pub fn property_type(property: &str) -> Option<ValueType> {
@@ -320,6 +321,7 @@ fn validate_word_line_pattern(scene: &Scene) -> Result<()> {
     let pagination = &layout.pagination;
     validate_pattern_select(scene)?;
     validate_isolation(scene)?;
+    validate_tag_runs(scene)?;
     let Some(pattern) = &pagination.word_line_pattern else {
         if pagination.last_page_rule.is_some() {
             return Err(invalid("pagination.lastPageRule", "wordLinePattern required"));
@@ -433,6 +435,35 @@ fn validate_isolation(scene: &Scene) -> Result<()> {
         if rule.tag.is_empty() || rule.tag.len() > 64 || !tags.insert(rule.tag.as_str()) {
             return Err(invalid(path, "tags must be nonempty, at most 64 bytes and unique"));
         }
+    }
+    Ok(())
+}
+/// `pagination.tagRuns` is defined for width-wrapped pages only (default pagination and a page cap).
+fn validate_tag_runs(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    let Some(runs) = &pagination.tag_runs else {
+        return Ok(());
+    };
+    let path = "pagination.tagRuns";
+    if !scene.required_capabilities.iter().any(|c| c == "caption-tag-run-isolation/1") {
+        return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", path, "caption-tag-run-isolation/1"));
+    }
+    if runs.tag.is_empty() || runs.tag.len() > 64 {
+        return Err(invalid(path, "tag must be nonempty and at most 64 bytes"));
+    }
+    if pagination.has_fixed_lines()
+        || !pagination.isolation.is_empty()
+        || pagination.word_page_pattern.is_some()
+        || pagination.last_page_rule.is_some()
+        || pagination.tail_word_rule.is_some()
+        || pagination.fixed_line_overflow.is_some()
+        || pagination.fixed_line_fit.is_some()
+        || pagination.page_tags.is_some()
+    {
+        return Err(invalid(
+            path,
+            "tag runs are defined on width-wrapped pages with maxUnitsPerPage and maxUnitsPerLine only",
+        ));
     }
     Ok(())
 }

@@ -174,6 +174,7 @@ mod tests {
                 bytes: i * 2..i * 2 + 1,
                 span: Some(*span),
                 input_timed: true,
+                run_start: false,
             })
             .collect()
     }

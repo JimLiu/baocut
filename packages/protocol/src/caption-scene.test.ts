@@ -1,6 +1,6 @@
 import { expect, expectTypeOf, test } from 'vitest';
 import type {
-  CaptionClock, CaptionClockTail, CaptionExpression, CaptionIsolationRule, CaptionPatternSelect, CaptionImageSequenceResource, CaptionLayerSource, CaptionMaterial,
+  CaptionClock, CaptionClockTail, CaptionExpression, CaptionIsolationRule, CaptionTagRuns, CaptionPatternSelect, CaptionImageSequenceResource, CaptionLayerSource, CaptionMaterial,
   CaptionParameterValue, CaptionPresentation, CaptionRenderLayer, CaptionScene, CaptionSceneNode, CaptionSceneStyleBody,
   CaptionSpeechPhaseReadPath, CaptionWordState,
   CaptionPaintMask, CaptionPaintLayer,
@@ -145,6 +145,17 @@ test('pagination programs select fixed word line plans and isolate tagged words'
   expectTypeOf<CaptionIsolationRule['mode']>().toEqualTypeOf<'none' | 'line' | 'page'>();
   expectTypeOf<NonNullable<NonNullable<CaptionScene['layout']['pagination']>['isolation']>>()
     .toEqualTypeOf<CaptionIsolationRule[]>();
+});
+
+test('tag runs keep same-state words together on width-wrapped pages', () => {
+  const pagination = {
+    maxUnitsPerPage: 8, maxUnitsPerLine: 3,
+    tagRuns: { tag: 'keyword', mode: 'line' },
+  } satisfies NonNullable<CaptionScene['layout']['pagination']>;
+  expect(pagination.tagRuns.mode).toBe('line');
+  expectTypeOf<CaptionTagRuns['mode']>().toEqualTypeOf<'line' | 'page'>();
+  expectTypeOf<NonNullable<NonNullable<CaptionScene['layout']['pagination']>['tagRuns']>>()
+    .toEqualTypeOf<CaptionTagRuns>();
 });
 
 test('noise-displace material carries a domain, static noise scale and four uniforms', () => {

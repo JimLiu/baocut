@@ -33,6 +33,7 @@ mod sampled_layout;
 mod scalar_cluster;
 mod shape_paint;
 mod speech_phase;
+mod tag_runs;
 mod text_line_layout;
 mod text_paint;
 mod unit_font_reflow;
@@ -76,6 +77,8 @@ struct Word {
     bytes: Range<usize>,
     span: Option<(f64, f64)>,
     input_timed: bool,
+    /// `caption-tag-run-isolation/1`: begins a run of the other tag state than the word before.
+    run_start: bool,
 }
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Bounds {
@@ -827,6 +830,7 @@ fn bind_words(
                 bytes: a..b,
                 span: Some((w.start, w.end)),
                 input_timed: true,
+                run_start: false,
             });
             at = b;
         }
@@ -838,6 +842,7 @@ fn bind_words(
                 bytes: a..a + w.len(),
                 span: None,
                 input_timed: false,
+                run_start: false,
             });
         }
         if words.is_empty() && !content.is_empty() {
@@ -846,6 +851,7 @@ fn bind_words(
                 bytes: 0..content.len(),
                 span: None,
                 input_timed: false,
+                run_start: false,
             });
         }
         if timing == TimingPolicy::Estimated {
@@ -938,12 +944,13 @@ fn prepare_with(
     if content.len() > 65536 {
         bail!("CAPTION_BUDGET_EXCEEDED: mapped text");
     }
-    let words = bind_words(
+    let mut words = bind_words(
         cue,
         content,
         speech.timing_policy,
         matches!(node.text, Some(TextBinding::Static { .. })),
     )?;
+    tag_runs::mark(&mut words, &cfg.pagination, preparation.word_tags);
     if cfg.pagination.has_fixed_lines() {
         return word_line_layout::prepare(
             text,
@@ -970,7 +977,12 @@ fn prepare_with(
     let mut word_index = 0;
     while word_index < words.len() {
         let quota = pattern.map_or(max, |p| p[ranges.len() % p.len()]);
-        let word_end = (word_index + quota).min(words.len());
+        let word_end = tag_runs::page_end(
+            &words,
+            &cfg.pagination,
+            word_index,
+            (word_index + quota).min(words.len()),
+        );
         let chunk = &words[word_index..word_end];
         let end = chunk.last().unwrap().bytes.end;
         ranges.push(from..end);
@@ -984,7 +996,9 @@ fn prepare_with(
     let mut pages = Vec::new();
     for (quota_index, range) in ranges.into_iter().enumerate() {
         let paint_origin = if quota_index > 0
-            && (cfg.pagination.max_units_per_page.is_some() || pattern.is_some())
+            && (cfg.pagination.max_units_per_page.is_some()
+                || pattern.is_some()
+                || tag_runs::cuts_pages(&cfg.pagination))
         {
             quota_paint_start(content, &range)
         } else {
@@ -997,25 +1011,28 @@ fn prepare_with(
             Wrap::Word,
             Some(width),
             fs * style.line_height,
-            line_quota::capped(
-                cfg.pagination.max_units_per_line,
-                line_quota::word_starts(&words, paint_origin, range.end),
-                |r| {
-                    let sh = text.shape_spaced_with_shaping(
-                        &source[r],
-                        &style.font_family,
-                        fs,
-                        style.font_weight,
-                        style.italic,
-                        style.letter_spacing * fs,
-                        font_shaping::mode(style),
-                    );
-                    TextMetricsLine {
-                        width: sh.width,
-                        ascent: sh.ascent,
-                        descent: sh.descent,
-                    }
-                },
+            tag_runs::barrier(
+                tag_runs::starts(&words, paint_origin, range.end),
+                line_quota::capped(
+                    cfg.pagination.max_units_per_line,
+                    line_quota::word_starts(&words, paint_origin, range.end),
+                    |r| {
+                        let sh = text.shape_spaced_with_shaping(
+                            &source[r],
+                            &style.font_family,
+                            fs,
+                            style.font_weight,
+                            style.italic,
+                            style.letter_spacing * fs,
+                            font_shaping::mode(style),
+                        );
+                        TextMetricsLine {
+                            width: sh.width,
+                            ascent: sh.ascent,
+                            descent: sh.descent,
+                        }
+                    },
+                ),
             ),
         );
         let rowgroups: Vec<_> = if pattern.is_some() {
