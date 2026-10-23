@@ -260,7 +260,7 @@ export --video V --kind subtitles --format srt --bilingual
 
 ### 5.4 长任务
 
-- 返回 `jobId` 的命令默认 `--wait`：阻塞到终态，退出码按终态，结果里带 `outputs`（文件路径、`documentId`、`assetId`、`artifactId`）与终态的任务记录 `job`；提交回执里的 `state` 换成终态，与 `job.state` 一致。`--no-wait` 立即返回 `jobId`。`--timeout <秒>` 到时打印 `jobId` 与最近进度，以退出码 1 返回，任务继续跑。
+- 返回 `jobId` 的命令默认 `--wait`：阻塞到终态，退出码按终态，结果里带 `outputs`（文件路径、`documentId`、`assetId`、`artifactId`）与终态的任务记录 `job`；提交回执里的 `state` 换成终态，与 `job.state` 一致；导出回执里提交时定下的 `files` 换成实际写下的文件名（发布时重名会加序号），与 `outputs` 的路径一致。`--no-wait` 立即返回 `jobId`。`--timeout <秒>` 到时打印 `jobId` 与最近进度，以退出码 1 返回，任务继续跑。
 - Ctrl-C 取消任务（现有行为），`--no-wait` 后用 `jobs cancel`。
 - 进度走 stderr，不污染 stdout 的 JSON。
 
