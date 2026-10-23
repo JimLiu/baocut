@@ -165,7 +165,7 @@ fn video_items_draw_the_picture_at_the_planned_source_time() {
 #[test]
 fn panels_draw_each_cell_from_its_own_window() {
     // 左红右蓝的 640×90 原片，画面左右各一格（80×90）：每格按自己的取景点铺满这一格（格式规范 §3.5）。
-    let frame_at = |left: Value, right: Value| {
+    let frame_on = |canvas: (u32, u32), left: Value, right: Value| {
         let video = video(
             vec![video_item(
                 "v",
@@ -178,16 +178,23 @@ fn panels_draw_each_cell_from_its_own_window() {
                 ] }),
             )],
             vec![video_asset("a_v", 640, 90)],
-            json!({}),
+            json!({ "canvas": { "width": canvas.0, "height": canvas.1, "workingSpace": "srgb", "background": "#000000" } }),
         );
         assert_eq!(plan(&video, 0.5).layers[0].panels.len(), 2);
         render(&video, 0.5, &mut Media::default().with("v", halves(640, 90, RED, BLUE)))
     };
+    let frame_at = |left: Value, right: Value| frame_on((W, H), left, right);
     let apart = frame_at(json!({ "x": 0, "y": 0.5 }), json!({ "x": 1, "y": 0.5 }));
     near(px(&apart, 2, 45), RED, 2);
     near(px(&apart, 78, 45), RED, 2);
     near(px(&apart, 81, 45), BLUE, 2);
     near(px(&apart, 157, 2), BLUE, 2);
+    // 画得比画布小（预览）：格子仍按画布的比例摆，左右两格各占一半。
+    let small = frame_on((W * 2, H * 2), json!({ "x": 0, "y": 0.5 }), json!({ "x": 1, "y": 0.5 }));
+    near(px(&small, 2, 45), RED, 2);
+    near(px(&small, 78, 45), RED, 2);
+    near(px(&small, 81, 45), BLUE, 2);
+    near(px(&small, 157, 2), BLUE, 2);
     // 互换：格子不动，取景点对调。
     let swapped = frame_at(json!({ "x": 1, "y": 0.5 }), json!({ "x": 0, "y": 0.5 }));
     near(px(&swapped, 2, 45), BLUE, 2);

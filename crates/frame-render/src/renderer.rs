@@ -833,6 +833,9 @@ impl FrameRenderer {
         let size = (self.options.width, self.options.height);
         let (width, height) = (f64::from(size.0), f64::from(size.1));
         let short_edge = width.min(height);
+        // 格子的矩阵是序列画布像素；预览画得比画布小（预览质量、设备像素比），摆格子按画布换成百分比。
+        let canvas = &context.sequence.header.canvas;
+        let (canvas_w, canvas_h) = (f64::from(canvas.width.max(1)), f64::from(canvas.height.max(1)));
         let mut out = Pixmap::new(size.0, size.1).expect("output size is checked at construction");
         for (index, panel) in layer.panels.iter().enumerate() {
             let mut source = Arc::new(cropped(picture, panel.source_rect).ok_or_else(|| {
@@ -850,9 +853,9 @@ impl FrameRenderer {
             (cell.focal, cell.zoom, cell.bg, cell.tile, cell.mask) = (None, 1.0, None, None, None);
             (cell.animation, cell.keyframes) = (None, None);
             cell.place = timeline::schema::Place {
-                x: Some((left + cell_w / 2.0) / width * 100.0),
-                y: Some((top + cell_h / 2.0) / height * 100.0),
-                w: Some(cell_w / width * 100.0),
+                x: Some((left + cell_w / 2.0) / canvas_w * 100.0),
+                y: Some((top + cell_h / 2.0) / canvas_h * 100.0),
+                w: Some(cell_w / canvas_w * 100.0),
                 // 取源的窗口与格子同宽高比；取整到源像素差的那一点按格子拉齐，格与格之间不留缝。
                 scale_y: Some(cell_h / (cell_w * natural.1 / natural.0)),
                 opacity: element.place.opacity,
