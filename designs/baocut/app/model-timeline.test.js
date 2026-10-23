@@ -889,3 +889,10 @@ test('画布叠放次序：画面与字幕同一叠，越靠上名次越大，�
     {subTracks: [], music: false}).rows;
   assert.deepStrictEqual(TL.stackRank(shared), {a: 0, b: 0}, '同一条轨道上的名次相同');
 });
+
+test('单条文字叠在原片上面：「添加文本框」造出来的字不被铺满画幅的视频盖住', () => {
+  const rows = TL.rows([{id: 'vid', kind: 'video', start: 0, end: 20}, {id: 'txt', kind: 'text', start: 0, end: 5}],
+    {subTracks: [], audio: false, music: false}).rows;
+  const rank = TL.stackRank(rows);
+  assert.ok(rank.txt > rank.vid, '文字的名次高于原片');
+});

@@ -316,8 +316,10 @@
      时间轴上跟着摆在一起。不在这张表里的类别一律沉到末尾——计时刚加进来那会儿正是
      这样，一条本该挨着声波的行掉到了模板下面。
      'video' 排在画面类的最后（2026-10-08）：行序就是画布的叠放次序（越靠上越在前），项目原片铺满
-     画幅，默认得在别的画面元素底下，否则形状、进度、声波一出来就被它盖住。 */
-  const CLASS_RANK = ['textgroup', 'sticker', 'confetti', 'image', 'whiteboard', 'shape', 'progress', 'wave',
+     画幅，默认得在别的画面元素底下，否则形状、进度、声波一出来就被它盖住。
+     'text'（单条文字）挨着 'textgroup'：此前它不在表里、沉到末尾，于是排在原片下面，
+     「添加文本框」造出来的字被原片整幅盖住。 */
+  const CLASS_RANK = ['textgroup', 'text', 'sticker', 'confetti', 'image', 'whiteboard', 'shape', 'progress', 'wave',
     'counter', 'overlay', 'vframe', 'video', 'tpl'];
   /* 两层高的媒体行（74）：视频是「上半缩略图 + 下半波形」，白板手绘（2026-09-11）是
      「上半画面带 + 下半画时带」——都要那 42 + 24 的两层，30px 的元素行装不下一张画面。 */
