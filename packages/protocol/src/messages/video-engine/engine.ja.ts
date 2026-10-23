@@ -56,6 +56,12 @@ export const ja: EngineMessages = {
   focalPointRange: 'フォーカルポイントの x と y はどちらも [0, 1] の範囲内にしてください',
   focalPointZoomRange: 'フォーカルポイントの拡大率は [1, 4] の範囲内にしてください',
   focalPointNotVideoOrImage: '動画でも画像でもないため、フォーカルポイントがありません',
+  panelsCount: '分割画面は 2〜4 マスにしてください',
+  panelsRect: '各マスの幅と高さは 0 より大きく、画面内（0〜100%）に収めてください',
+  panelsOverlap: '分割画面のマスは重ねられません',
+  panelsFocalPoint: '各マスのフォーカルポイントの x と y は [0, 1]、拡大率は [1, 4] の範囲内にしてください',
+  panelsNeedFullscreenCover: '分割画面は全画面かつカバー（cover）の動画にのみ使えます',
+  panelsNotVideo: '動画ではないため、分割画面にできません',
 
   // elements.rs
   itemSpanInvalid: 'クリップは 0 より前から開始できず、長さは 1 フレーム以上必要です',

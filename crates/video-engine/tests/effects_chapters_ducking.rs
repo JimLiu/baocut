@@ -358,6 +358,64 @@ fn crop_goes_through_set_style() {
 }
 
 #[test]
+fn panels_go_through_set_style_and_leave_with_fullscreen_cover() {
+    let Some((_media, path)) = clip() else { return };
+    let dir = tempfile::tempdir().unwrap();
+    let mut video = new_video(&dir.path().join("m"));
+    let s = seq(&video);
+    let committed = apply(
+        &mut video,
+        "cmd_add",
+        vec![
+            json!({ "type": "importAsset", "path": path, "ref": "clip" }),
+            json!({ "type": "addItem", "sequenceId": s, "asset": { "ref": "clip" }, "alignment": "nearest-frame" }),
+        ],
+    )
+    .unwrap();
+    let id = committed
+        .receipt
+        .created_ids
+        .iter()
+        .find(|id| video.state().items.contains_key(*id))
+        .unwrap()
+        .clone();
+    let panels_of = |video: &Video| match &video.state().items[&id].value {
+        TimelineItem::Video(v) => v.panels.clone(),
+        _ => unreachable!(),
+    };
+    let rows = json!([
+        { "rect": { "x": 0, "y": 0, "w": 100, "h": 50 }, "focalPoint": { "x": 0.25, "y": 0.4, "zoom": 1.4 } },
+        { "rect": { "x": 0, "y": 50, "w": 100, "h": 50 }, "focalPoint": { "x": 0.75, "y": 0.4, "zoom": 1.4 } },
+    ]);
+    /* 新加的视频是全屏加 contain：分屏只用于 cover */
+    let refused = apply(&mut video, "cmd_contain", vec![json!({ "type": "setStyle", "itemId": id, "panels": rows })]);
+    assert_eq!(code(refused), "INVALID_OPERATION");
+    apply(&mut video, "cmd_split", vec![json!({ "type": "setStyle", "itemId": id, "fit": "cover", "panels": rows })]).unwrap();
+    let panels = panels_of(&video).unwrap();
+    assert_eq!(panels.len(), 2);
+    assert_eq!(panels[1].focal_point.x, 0.75);
+    for (n, bad) in [
+        json!([rows[0]]),
+        json!([rows[0], { "rect": { "x": 0, "y": 40, "w": 100, "h": 50 }, "focalPoint": { "x": 0.5, "y": 0.5 } }]),
+        json!([rows[0], { "rect": { "x": 0, "y": 50, "w": 100, "h": 60 }, "focalPoint": { "x": 0.5, "y": 0.5 } }]),
+        json!([rows[0], { "rect": { "x": 0, "y": 50, "w": 100, "h": 50 }, "focalPoint": { "x": 0.5, "y": 0.5, "zoom": 6 } }]),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let result = apply(&mut video, &format!("cmd_bad_{n}"), vec![json!({ "type": "setStyle", "itemId": id, "panels": bad })]);
+        assert_eq!(code(result), "INVALID_OPERATION", "第 {n} 组");
+    }
+    assert_eq!(panels_of(&video).unwrap().len(), 2, "改不成的不动原来的格子");
+    /* 换回 contain：格子跟着去掉 */
+    apply(&mut video, "cmd_fit", vec![json!({ "type": "setStyle", "itemId": id, "fit": "contain" })]).unwrap();
+    assert_eq!(panels_of(&video), None);
+    apply(&mut video, "cmd_again", vec![json!({ "type": "setStyle", "itemId": id, "fit": "cover", "panels": rows })]).unwrap();
+    apply(&mut video, "cmd_single", vec![json!({ "type": "setStyle", "itemId": id, "panels": null })]).unwrap();
+    assert_eq!(panels_of(&video), None);
+}
+
+#[test]
 fn chapters_are_set_upserted_and_removed() {
     let Fixture {
         mut video, seq: s, text, ..

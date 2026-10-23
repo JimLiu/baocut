@@ -711,6 +711,9 @@ impl FrameRenderer {
                         None => return Ok(None),
                     },
                 };
+                if layer.kind == LayerKind::Video && !layer.panels.is_empty() {
+                    return self.draw_panels(context, layer, &element, &picture, fx.as_ref(), eval).map(Some);
+                }
                 // 不裁剪时源画面原样共享给内核（导出每帧的整幅视频不再整帧复制）；要作用效果时才复制一份。
                 let mut source =
                     match crop_of(item) {
@@ -755,6 +758,31 @@ impl FrameRenderer {
         }
 
         let has_source = injected.is_some();
+        let mut pixmap = self.render_element(context, &mut element, injected, eval, &layer.item_id)?;
+        if let Some(fx) = &fx {
+            if !has_source {
+                apply_to_source(fx, &mut pixmap, short_edge);
+            }
+            if needs_layer_pass(fx) {
+                apply_to_layer(fx, &mut pixmap, short_edge).map_err(RenderError::render)?;
+            }
+        }
+        element.keyframe_place(eval);
+        let geom = BoxGeom::of(&element, natural, (f64::from(size.0), f64::from(size.1)));
+        Ok(Some(DrawnLayer { pixmap, geom: Some(geom) }))
+    }
+
+    /// 用内核把一个元素画成整幅画布大小的一层。`source` 是注入的源画面（视频、图片、Lottie 的一帧），内核按 `element.id`
+    /// 取它。
+    fn render_element(
+        &mut self,
+        context: &SequenceContext,
+        element: &mut TimelineVisualElement,
+        source: Option<Arc<Pixmap>>,
+        eval: f64,
+        item_id: &str,
+    ) -> Result<Pixmap, RenderError> {
+        let size = (self.options.width, self.options.height);
         let duration = context.duration;
         let fps = context.fps;
         let viz = self.viz.get(&element.id).and_then(|entry| entry.track.clone());
@@ -762,7 +790,7 @@ impl FrameRenderer {
         plan.duration = duration;
         plan.fps = fps;
         plan.media.injected.clear();
-        if let Some(source) = injected {
+        if let Some(source) = source {
             let id = source_id(&element.id);
             plan.media.injected.insert(id.clone(), source);
             element.src_id = Some(id);
@@ -780,26 +808,75 @@ impl FrameRenderer {
         let notes = std::mem::take(&mut plan.warnings);
         let missing = plan.text.take_missing_families();
         for note in notes {
-            self.warn(RENDER_NOTE, item_note(&layer.item_id, note));
+            self.warn(RENDER_NOTE, item_note(item_id, note));
         }
-        self.note_missing_fonts(&layer.item_id, missing);
+        self.note_missing_fonts(item_id, missing);
         let rendered = rendered?;
-        let mut pixmap = Pixmap::from_vec(
+        Pixmap::from_vec(
             rendered.rgba,
             IntSize::from_wh(size.0, size.1).ok_or_else(|| RenderError::new("INVALID_PARAMS", "输出尺寸不可用"))?,
         )
-        .ok_or_else(|| RenderError::new("EXPORT_RENDER_FAILED", "内核画出的层尺寸不对"))?;
-        if let Some(fx) = &fx {
-            if !has_source {
-                apply_to_source(fx, &mut pixmap, short_edge);
+        .ok_or_else(|| RenderError::new("EXPORT_RENDER_FAILED", "内核画出的层尺寸不对"))
+    }
+
+    /// 分屏视频（格式规范 §3.5）：每一格把源画面里自己的那块（帧计划的 `sourceRect`，已含裁剪）按画中画摆进格子，各格叠成
+    /// 这一层。格子是固定的：实例的遮罩、动画与关键帧不参与；效果按格作用在源画面上。转场把整层当作一个铺满画面的框。
+    fn draw_panels(
+        &mut self,
+        context: &SequenceContext,
+        layer: &VisualLayer,
+        element: &TimelineVisualElement,
+        picture: &Pixmap,
+        fx: Option<&Fx>,
+        eval: f64,
+    ) -> Result<DrawnLayer, RenderError> {
+        let size = (self.options.width, self.options.height);
+        let (width, height) = (f64::from(size.0), f64::from(size.1));
+        let short_edge = width.min(height);
+        let mut out = Pixmap::new(size.0, size.1).expect("output size is checked at construction");
+        for (index, panel) in layer.panels.iter().enumerate() {
+            let mut source = Arc::new(cropped(picture, panel.source_rect).ok_or_else(|| {
+                RenderError::new("EXPORT_RENDER_FAILED", format!("panel {index} of item {} has no usable source area", layer.item_id))
+            })?);
+            if let Some(fx) = fx {
+                apply_to_source(fx, Arc::make_mut(&mut source), short_edge);
             }
-            if needs_layer_pass(fx) {
-                apply_to_layer(fx, &mut pixmap, short_edge).map_err(RenderError::render)?;
-            }
+            let [cell_w, _, _, cell_h, left, top] = panel.matrix;
+            let natural = (f64::from(source.width()), f64::from(source.height()));
+            let mut cell = element.clone();
+            cell.id = format!("{}#panel{index}", element.id);
+            cell.mode = timeline::schema::VisualMode::Pip;
+            cell.fit = timeline::schema::Fit::Cover;
+            (cell.focal, cell.zoom, cell.bg, cell.tile, cell.mask) = (None, 1.0, None, None, None);
+            (cell.animation, cell.keyframes) = (None, None);
+            cell.place = timeline::schema::Place {
+                x: Some((left + cell_w / 2.0) / width * 100.0),
+                y: Some((top + cell_h / 2.0) / height * 100.0),
+                w: Some(cell_w / width * 100.0),
+                // 取源的窗口与格子同宽高比；取整到源像素差的那一点按格子拉齐，格与格之间不留缝。
+                scale_y: Some(cell_h / (cell_w * natural.1 / natural.0)),
+                opacity: element.place.opacity,
+                ..Default::default()
+            };
+            let pixmap = self.render_element(context, &mut cell, Some(source), eval, &layer.item_id)?;
+            over(&mut out, &pixmap, false);
+            self.recycle(pixmap);
         }
-        element.keyframe_place(eval);
-        let geom = BoxGeom::of(&element, natural, (f64::from(size.0), f64::from(size.1)));
-        Ok(Some(DrawnLayer { pixmap, geom: Some(geom) }))
+        if let Some(fx) = fx
+            && needs_layer_pass(fx)
+        {
+            apply_to_layer(fx, &mut out, short_edge).map_err(RenderError::render)?;
+        }
+        let geom = BoxGeom {
+            cx: width / 2.0,
+            cy: height / 2.0,
+            w: width,
+            h: height,
+            rotation: 0.0,
+            flip_x: false,
+            flip_y: false,
+        };
+        Ok(DrawnLayer { pixmap: out, geom: Some(geom) })
     }
 
     /// 画实例用的内核计划（第一次用时编）。

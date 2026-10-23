@@ -211,6 +211,85 @@ impl FocalPoint {
     }
 }
 
+/// 分屏的一格（§3.5）：画面上的一个矩形，与原片在这一格里的取景点（同 [`FocalPoint`]，只是「刚好铺满」指铺满这一格）。
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct VideoPanel {
+    pub rect: PanelRect,
+    pub focal_point: FocalPoint,
+}
+
+/// 分屏格子在画面上的矩形：左上角与宽高，都是画布的百分比（同 `place`）。
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PanelRect {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
+
+/// 一组格子哪里不合法（[`VideoPanel::check`]）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PanelsProblem {
+    /// 不是 2–4 格。
+    Count,
+    /// 有一格没有面积或出了画面。
+    Rect,
+    /// 有两格重叠。
+    Overlap,
+    /// 有一格的取景点越界。
+    FocalPoint,
+}
+
+impl PanelRect {
+    /// 宽高大于 0，整个落在画面里（0–100，容许万分之一的舍入）。
+    pub fn is_valid(&self) -> bool {
+        let edge = 100.0 + 1e-4;
+        [self.x, self.y, self.w, self.h].iter().all(|v| v.is_finite())
+            && self.x >= 0.0
+            && self.y >= 0.0
+            && self.w > 0.0
+            && self.h > 0.0
+            && self.x + self.w <= edge
+            && self.y + self.h <= edge
+    }
+
+    /// 两格有公共的面积（只碰边不算）。
+    pub fn overlaps(&self, other: &PanelRect) -> bool {
+        let gap = 1e-3;
+        self.x + self.w > other.x + gap
+            && other.x + other.w > self.x + gap
+            && self.y + self.h > other.y + gap
+            && other.y + other.h > self.y + gap
+    }
+}
+
+impl VideoPanel {
+    /// 一组格子最少、最多几格。
+    pub const MIN: usize = 2;
+    pub const MAX: usize = 4;
+
+    /// 格数、矩形、重叠与取景点。
+    pub fn check(panels: &[VideoPanel]) -> Result<(), PanelsProblem> {
+        if !(Self::MIN..=Self::MAX).contains(&panels.len()) {
+            return Err(PanelsProblem::Count);
+        }
+        if panels.iter().any(|p| !p.rect.is_valid()) {
+            return Err(PanelsProblem::Rect);
+        }
+        for (i, a) in panels.iter().enumerate() {
+            if panels[i + 1..].iter().any(|b| a.rect.overlaps(&b.rect)) {
+                return Err(PanelsProblem::Overlap);
+            }
+        }
+        if panels.iter().any(|p| !p.focal_point.is_valid()) {
+            return Err(PanelsProblem::FocalPoint);
+        }
+        Ok(())
+    }
+}
+
 /// `#RRGGBB` 或 `#RRGGBBAA`（§3.7：颜色一律这两种写法）。
 pub fn is_color(text: &str) -> bool {
     matches!(text.len(), 7 | 9) && text.starts_with('#') && text[1..].chars().all(|c| c.is_ascii_hexdigit())
@@ -286,5 +365,35 @@ mod tests {
         assert_eq!(serde_json::to_value(plain).unwrap(), json!({ "x": 0.3, "y": 0.5 }));
         let zoomed: FocalPoint = serde_json::from_value(json!({ "x": 0.3, "y": 0.5, "zoom": 1.5 })).unwrap();
         assert_eq!(zoomed.zoom(), 1.5);
+    }
+
+    #[test]
+    fn panels_check_count_rects_overlap_and_focal() {
+        let panel = |x: f64, y: f64, w: f64, h: f64| VideoPanel {
+            rect: PanelRect { x, y, w, h },
+            focal_point: FocalPoint { x: 0.5, y: 0.5, zoom: Some(1.5) },
+        };
+        let rows = [panel(0.0, 0.0, 100.0, 50.0), panel(0.0, 50.0, 100.0, 50.0)];
+        assert_eq!(VideoPanel::check(&rows), Ok(()));
+        /* 三行：33.333 + 33.334 + 33.333 铺满，只碰边不算重叠 */
+        let three = [panel(0.0, 0.0, 100.0, 33.333), panel(0.0, 33.333, 100.0, 33.334), panel(0.0, 66.667, 100.0, 33.333)];
+        assert_eq!(VideoPanel::check(&three), Ok(()));
+        assert_eq!(VideoPanel::check(&rows[..1]), Err(PanelsProblem::Count));
+        assert_eq!(VideoPanel::check(&[rows[0]; 5]), Err(PanelsProblem::Count));
+        assert_eq!(VideoPanel::check(&[rows[0], panel(0.0, 50.0, 100.0, 60.0)]), Err(PanelsProblem::Rect), "出了画面");
+        assert_eq!(VideoPanel::check(&[rows[0], panel(0.0, 50.0, 0.0, 50.0)]), Err(PanelsProblem::Rect), "没有面积");
+        assert_eq!(VideoPanel::check(&[rows[0], panel(0.0, 40.0, 100.0, 50.0)]), Err(PanelsProblem::Overlap));
+        let mut off = rows;
+        off[1].focal_point.zoom = Some(5.0);
+        assert_eq!(VideoPanel::check(&off), Err(PanelsProblem::FocalPoint));
+        /* 读写：focalPoint 用驼峰，矩形不收别的字段 */
+        let value = json!({ "rect": { "x": 0, "y": 50, "w": 100, "h": 50 }, "focalPoint": { "x": 0.75, "y": 0.4, "zoom": 1.4 } });
+        let read: VideoPanel = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(
+            serde_json::to_value(read).unwrap(),
+            json!({ "rect": { "x": 0.0, "y": 50.0, "w": 100.0, "h": 50.0 }, "focalPoint": { "x": 0.75, "y": 0.4, "zoom": 1.4 } })
+        );
+        let extra = json!({ "rect": { "x": 0, "y": 0, "w": 1, "h": 1, "r": 1 }, "focalPoint": { "x": 0, "y": 0 } });
+        assert!(serde_json::from_value::<VideoPanel>(extra).is_err());
     }
 }

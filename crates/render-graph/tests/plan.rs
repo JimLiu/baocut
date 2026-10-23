@@ -11,7 +11,7 @@ use render_graph::{
     FramePlan, LayerContent, LayerKind, LiveOptions, StandInState, TransitionRole, VideoView, VisualLayer, VoiceSource, plan_interactive,
     plan_interactive_live, stand_in_state,
 };
-use video_model::{Crop, Fit, FocalPoint, SoloGroup, TimelineItem, VideoSnapshot, VisualMode};
+use video_model::{Crop, Fit, FocalPoint, PanelRect, SoloGroup, TimelineItem, VideoPanel, VideoSnapshot, VisualMode};
 
 /// 覆盖片段边界、子帧音频起止、定格与浮点帧边界的采样时刻。
 const SAMPLE_SECONDS: &[f64] = &[
@@ -139,6 +139,54 @@ fn cover_crops_the_source_around_its_center() {
     let kept = (1080.0f64 / 1920.0).powi(2);
     assert_eq!((u0, u1), (0.0, 1.0));
     assert!((v0 - (1.0 - kept) / 2.0).abs() < 1e-12 && (v1 - (1.0 + kept) / 2.0).abs() < 1e-12);
+}
+
+#[test]
+fn panels_give_each_cell_its_own_cover_window() {
+    // 横版 1920×1080 剪成竖版 1080×1920，上下两格各 9:8。左边那个人的区域（左 0.15、上 0.15、右 0.55、下 0.25）换成的取景点
+    // 与原型的 BC_PANELS.regionToFocal 相同：放大到高刚好装下（1 ÷ 0.6），窗口以区域中心（0.3, 0.45）为中心。
+    let with = |fit: Fit| {
+        let mut video = fixture();
+        let sequence = video.sequences.get_mut("seq_main").unwrap();
+        (sequence.header.canvas.width, sequence.header.canvas.height) = (1080, 1920);
+        for item in &mut sequence.items {
+            if let TimelineItem::Video(land) = item
+                && land.base.id == "item_land_a"
+            {
+                land.media.fit = Some(fit);
+                land.panels = Some(vec![
+                    VideoPanel {
+                        rect: PanelRect { x: 0.0, y: 0.0, w: 100.0, h: 50.0 },
+                        focal_point: FocalPoint { x: 0.1777, y: 0.375, zoom: Some(1.667) },
+                    },
+                    VideoPanel {
+                        rect: PanelRect { x: 0.0, y: 50.0, w: 100.0, h: 50.0 },
+                        focal_point: FocalPoint { x: 1.0, y: 0.5, zoom: None },
+                    },
+                ]);
+            }
+        }
+        layer(&plan(&video, 0.0), "item_land_a").clone()
+    };
+    let split = with(Fit::Cover);
+    assert_eq!(split.panels.len(), 2);
+    // 这一层本身仍是不分屏时的一整幅，不认识 `panels` 的后端照它画。
+    assert_eq!(split.matrix, [1080.0, 0.0, 0.0, 1920.0, 0.0, 0.0]);
+    let [top, bottom] = [&split.panels[0], &split.panels[1]];
+    assert_eq!(top.matrix, [1080.0, 0.0, 0.0, 960.0, 0.0, 0.0]);
+    assert_eq!(bottom.matrix, [1080.0, 0.0, 0.0, 960.0, 0.0, 960.0]);
+    let [u0, v0, u1, v1] = top.source_rect;
+    assert!(((u0 + u1) / 2.0 - 0.3).abs() < 2e-3 && ((v0 + v1) / 2.0 - 0.45).abs() < 2e-3, "{:?}", top.source_rect);
+    assert!((v1 - v0 - 1.0 / 1.667).abs() < 1e-9);
+    // 取源的窗口与格子同宽高比：画进格子不变形。
+    for panel in [top, bottom] {
+        let [u0, v0, u1, v1] = panel.source_rect;
+        assert!(((u1 - u0) * 1920.0 / ((v1 - v0) * 1080.0) - 1080.0 / 960.0).abs() < 1e-9);
+    }
+    // 下格贴右、不放大：窗口宽 0.633，到原片右边为止。
+    assert!((bottom.source_rect[2] - 1.0).abs() < 1e-12 && (bottom.source_rect[3] - bottom.source_rect[1] - 1.0).abs() < 1e-12);
+    // 分屏只用于 cover：contain 时没有格子，照一整幅画。
+    assert!(with(Fit::Contain).panels.is_empty());
 }
 
 #[test]

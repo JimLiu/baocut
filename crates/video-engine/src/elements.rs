@@ -212,6 +212,26 @@ fn to_element(item: &TimelineItem, keyframes: Keyframes) -> Element {
     element
 }
 
+/// 分屏（§3.5）：2–4 格、各格在画面里不重叠、取景点不越界，只用于全屏加 `cover`。
+pub(crate) fn check_panels(video: &VideoItem, panels: &[VideoPanel]) -> Result<(), Text> {
+    VideoPanel::check(panels).map_err(|problem| match problem {
+        PanelsProblem::Count => msg!("engine.panelsCount", "A split layout needs 2 to 4 panels"),
+        PanelsProblem::Rect => msg!(
+            "engine.panelsRect",
+            "Each panel must have a positive width and height and stay inside the canvas (0–100%)"
+        ),
+        PanelsProblem::Overlap => msg!("engine.panelsOverlap", "Panels cannot overlap"),
+        PanelsProblem::FocalPoint => msg!(
+            "engine.panelsFocalPoint",
+            "Each panel's focal point x and y must be within [0, 1], and its zoom within [1, 4]"
+        ),
+    })?;
+    if video.media.mode() != VisualMode::Fullscreen || video.media.fit() != Fit::Cover {
+        return Err(msg!("engine.panelsNeedFullscreenCover", "Panels only apply to a fullscreen video with cover fit"));
+    }
+    Ok(())
+}
+
 /// v2 没有、v3 要求的字段规则。
 fn check_v3_fields(item: &TimelineItem) -> Result<(), Text> {
     if let Some(fx) = item.fx() {
@@ -221,6 +241,11 @@ fn check_v3_fields(item: &TimelineItem) -> Result<(), Text> {
         check_place(place)?;
     }
     check_mask(item.media().and_then(|m| m.mask.as_ref()))?;
+    if let TimelineItem::Video(video) = item
+        && let Some(panels) = &video.panels
+    {
+        check_panels(video, panels)?;
+    }
     match item {
         TimelineItem::Video(VideoItem { crop: Some(c), .. }) | TimelineItem::Image(ImageItem { crop: Some(c), .. }) if !c.is_valid() => {
             return Err(msg!(

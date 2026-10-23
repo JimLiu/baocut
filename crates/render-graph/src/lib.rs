@@ -27,7 +27,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use video_model::{
     AssetKind, AssetRecord, AudioItem, CompositionSource, Crop, Easing, EnvelopePoint, Fit, FocalPoint, FrameRateInfo, FrameSpan, Id,
-    MediaFields, Place, Revision, Sequence, SoloGroup, TimelineItem, Track, Transition, TransitionKind, VersionRef, VideoSnapshot,
+    MediaFields, Place, Revision, Sequence, SoloGroup, TimelineItem, Track, Transition, TransitionKind, VersionRef, VideoItem,
+    VideoSnapshot,
 };
 
 use crate::ducking::DuckingEnvelope;
@@ -150,6 +151,19 @@ pub struct VisualLayer {
     /// 这一刻这一层在转场里（格式规范 §3.9）。不认识这个字段的后端只画这一层本身，即硬切。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transition: Option<Box<LayerTransition>>,
+    /// 分屏（格式规范 §3.5）：视频按格子画，每一格把源画面的 `sourceRect` 画进自己的 `matrix`，各格合起来是这一层。
+    /// 有它时这一层的 `matrix`、`sourceRect` 是不分屏时的一整幅：不认识这个字段的后端照它画。
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub panels: Vec<LayerPanel>,
+}
+
+/// 分屏的一格：`matrix` 把单位正方形映到格子的像素框（不旋转、不翻转），`sourceRect` 是这一格取源的区域
+/// （相对源的显示尺寸归一化的 `[u0, v0, u1, v1]`，已含实例的裁剪），宽高比与格子相同。
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LayerPanel {
+    pub matrix: [f64; 6],
+    pub source_rect: [f64; 4],
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -596,6 +610,7 @@ fn plan_frame_live(
                     content: Some(content),
                     effects: Vec::new(),
                     transition: None,
+                    panels: Vec::new(),
                 };
                 layers.push((
                     LayerOrder::new(track, &caption.base.id, caption.base.paint_order, caption.span),
@@ -885,6 +900,10 @@ fn visual_layer(
                 v.crop.as_ref(),
                 v.focal_point.as_ref(),
             )
+            .map(|mut layer| {
+                layer.panels = layer_panels(v, dims, canvas);
+                layer
+            })
         }
         TimelineItem::Image(i) => {
             let dims = display_size(video.assets, &i.asset_ref);
@@ -1696,7 +1715,46 @@ fn media_layer(
         content: None,
         effects: Vec::new(),
         transition: None,
+        panels: Vec::new(),
     })
+}
+
+/// 分屏视频的各格（格式规范 §3.5）：每格按自己的取景点 `cover` 铺满，裁剪先作用。全屏加 `cover`、格子合法时才有。
+fn layer_panels(video: &VideoItem, source: Option<(f64, f64)>, canvas: (f64, f64)) -> Vec<LayerPanel> {
+    let Some(panels) = video.active_panels() else {
+        return Vec::new();
+    };
+    panels
+        .iter()
+        .filter_map(|panel| {
+            let r = panel.rect;
+            let cell = PixelBox {
+                cx: canvas.0 * (r.x + r.w / 2.0) / 100.0,
+                cy: canvas.1 * (r.y + r.h / 2.0) / 100.0,
+                width: canvas.0 * r.w / 100.0,
+                height: canvas.1 * r.h / 100.0,
+                rotation: 0.0,
+                flip_x: false,
+                flip_y: false,
+            };
+            let drawn = media_layer(
+                &video.base.id,
+                LayerKind::Video,
+                &video.asset_ref,
+                None,
+                &cell,
+                Fit::Cover,
+                1.0,
+                source,
+                video.crop.as_ref(),
+                Some(&panel.focal_point),
+            )?;
+            Some(LayerPanel {
+                matrix: drawn.matrix,
+                source_rect: drawn.source_rect?,
+            })
+        })
+        .collect()
 }
 
 /// 内容就是整个像素框的层：文字、图形、生成器与不支持的层。
@@ -1714,6 +1772,7 @@ fn box_layer(item_id: &str, kind: LayerKind, pixel: &PixelBox, opacity: f64, con
         content: Some(content),
         effects: Vec::new(),
         transition: None,
+        panels: Vec::new(),
     })
 }
 

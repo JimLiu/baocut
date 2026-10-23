@@ -1,4 +1,4 @@
-//! 效果（视频格式规范 §3.8）、裁剪与取景点（§3.5）。
+//! 效果（视频格式规范 §3.8）、裁剪、取景点与分屏（§3.5）。
 //!
 //! 效果是 v2 的 `fx`：一组固定字段，按固定顺序作用。`setEffects` 整个替换；字段的取值区间由
 //! `elements::check_item` 交给 `timeline` 校验。
@@ -77,5 +77,15 @@ pub(crate) fn apply_focal_point(item: &mut TimelineItem, item_id: &str, focal: O
         }
     };
     *slot = focal.map(|f| FocalPoint { zoom: f.zoom.filter(|z| *z != 1.0), ..*f });
+    Ok(())
+}
+
+/// `setStyle` 的 `panels`：整组替换，`null` 去掉（回到 `focalPoint` 的一整幅）。只有视频能分屏；全屏、`cover` 与格子本身
+/// 由 `elements::check_item` 校验。
+pub(crate) fn apply_panels(item: &mut TimelineItem, item_id: &str, panels: Option<&[VideoPanel]>) -> EngineResult<()> {
+    let TimelineItem::Video(video) = item else {
+        return Err(not_applicable(item_id, msg!("engine.panelsNotVideo", "is not a video, so it cannot be split into panels")));
+    };
+    video.panels = panels.map(<[VideoPanel]>::to_vec);
     Ok(())
 }

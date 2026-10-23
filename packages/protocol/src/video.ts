@@ -261,6 +261,27 @@ export function focalZoom(focal: FocalPoint | null | undefined): number {
   return typeof z === 'number' && Number.isFinite(z) ? Math.min(FOCAL_MAX_ZOOM, Math.max(1, z)) : 1;
 }
 
+/** 分屏格子在画面上的矩形：左上角与宽高，画布的百分比（同 `place`）。 */
+export interface PanelRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * 分屏的一格（视频格式规范 §3.5）：画面上的一个矩形，与原片在这一格里的取景点（同 {@link FocalPoint}，只是「刚好铺满」
+ * 指铺满这一格）。一组 2–{@link PANELS_MAX} 格，不重叠。
+ */
+export interface VideoPanel {
+  rect: PanelRect;
+  focalPoint: FocalPoint;
+}
+
+/** 一组分屏格子最少、最多几格。 */
+export const PANELS_MIN = 2;
+export const PANELS_MAX = 4;
+
 /** 视觉媒体的字段：视频、图片、素材贴纸、占位框与白板共用。 */
 export interface MediaFields {
   mode?: VisualMode;
@@ -296,6 +317,8 @@ export interface VideoItem extends VisualBase, MediaFields {
   crop?: Crop;
   /** 没有时居中。 */
   focalPoint?: FocalPoint;
+  /** 分屏：画面分成 2–4 格，每格各取原片的一块。只用于全屏加 `cover`；有它时 `focalPoint` 不参与。没有时省略。 */
+  panels?: VideoPanel[];
   embeddedAudio: EmbeddedAudio;
 }
 
@@ -1340,7 +1363,8 @@ export type EditOperation =
   /**
    * 改画面实例的外观：只改给出的字段，给 `null` 去掉（回到缺省）。`opacity`、`radius`、`cornerRadii` 写进 `place`；
    * `mode`、`fit`、`bg`、`mask` 是视觉媒体的；`tile` 用于图片与文字；`style`、`stylePresetId`、`verticalAlign` 用于文字；
-   * `shape` 整个替换图形的参数；`crop`、`focalPoint` 用于视频与图片。适用范围与取值由引擎按元素模型校验。
+   * `shape` 整个替换图形的参数；`crop`、`focalPoint` 用于视频与图片，`panels` 只用于视频。适用范围与取值由引擎按元素模型校验。
+   * 改 `mode`、`fit` 离开全屏加 `cover` 而没有同时给 `panels` 时，分屏一并去掉。
    */
   | {
       type: 'setStyle';
@@ -1362,6 +1386,8 @@ export type EditOperation =
       crop?: Crop | null;
       /** 视频与图片的取景点；`null` 去掉（居中）。 */
       focalPoint?: FocalPoint | null;
+      /** 视频的分屏格子，整组替换；`null` 去掉（回到一整幅）。 */
+      panels?: VideoPanel[] | null;
     }
   /** 改文字实例的内容：`text` 与 `counter` 给且只给一个，给了的那个替换另一个。 */
   | { type: 'setText'; sequenceId?: Id; itemId: Id; text?: string; counter?: CounterProps }

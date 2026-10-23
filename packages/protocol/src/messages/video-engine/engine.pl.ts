@@ -56,6 +56,12 @@ export const pl: EngineMessages = {
   focalPointRange: "Współrzędne x i y punktu ostrości muszą mieścić się w [0, 1]",
   focalPointZoomRange: "Powiększenie punktu ostrości musi mieścić się w [1, 4]",
   focalPointNotVideoOrImage: "nie jest wideo ani obrazem, więc nie ma punktu ostrości",
+  panelsCount: "Podzielony ekran wymaga od 2 do 4 paneli",
+  panelsRect: "Każdy panel musi mieć dodatnią szerokość i wysokość oraz mieścić się w obszarze (0–100%)",
+  panelsOverlap: "Panele nie mogą na siebie nachodzić",
+  panelsFocalPoint: "Punkt ostrości każdego panelu musi mieć x i y w [0, 1] oraz powiększenie w [1, 4]",
+  panelsNeedFullscreenCover: "Panele dotyczą tylko wideo pełnoekranowego z dopasowaniem cover",
+  panelsNotVideo: "nie jest wideo, więc nie można go podzielić na panele",
 
   // elements.rs
   itemSpanInvalid: "Klip nie może zaczynać się przed zerem i musi trwać co najmniej jedną klatkę",

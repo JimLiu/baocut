@@ -57,6 +57,12 @@ export const fr: EngineMessages = {
   focalPointRange: "Les valeurs x et y du point focal doivent être comprises dans [0, 1]",
   focalPointZoomRange: "Le zoom du point focal doit être compris dans [1, 4]",
   focalPointNotVideoOrImage: "n’est ni une vidéo ni une image et n’a donc pas de point focal",
+  panelsCount: "Un écran partagé nécessite de 2 à 4 panneaux",
+  panelsRect: "Chaque panneau doit avoir une largeur et une hauteur positives et rester dans le canevas (0–100 %)",
+  panelsOverlap: "Les panneaux ne peuvent pas se chevaucher",
+  panelsFocalPoint: "Le point focal de chaque panneau doit avoir x et y dans [0, 1] et un zoom dans [1, 4]",
+  panelsNeedFullscreenCover: "Les panneaux ne s’appliquent qu’à une vidéo plein écran en mode cover",
+  panelsNotVideo: "n’est pas une vidéo et ne peut donc pas être divisé en panneaux",
   // elements.rs
 
   itemSpanInvalid: "Un clip ne peut pas commencer avant zéro et doit durer au moins une image",

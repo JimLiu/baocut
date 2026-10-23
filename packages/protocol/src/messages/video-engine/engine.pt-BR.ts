@@ -56,6 +56,12 @@ export const ptBR: EngineMessages = {
   focalPointRange: "x e y do ponto focal devem estar em [0, 1]",
   focalPointZoomRange: "O zoom do ponto focal deve estar em [1, 4]",
   focalPointNotVideoOrImage: "não é vídeo nem imagem e não tem ponto focal",
+  panelsCount: "Uma tela dividida precisa de 2 a 4 painéis",
+  panelsRect: "Cada painel deve ter largura e altura positivas e ficar dentro da tela (0–100%)",
+  panelsOverlap: "Os painéis não podem se sobrepor",
+  panelsFocalPoint: "O ponto focal de cada painel deve ter x e y em [0, 1] e zoom em [1, 4]",
+  panelsNeedFullscreenCover: "Os painéis só se aplicam a um vídeo em tela cheia com ajuste cover",
+  panelsNotVideo: "não é um vídeo, então não pode ser dividido em painéis",
 
   // elements.rs
   itemSpanInvalid: "O clipe não pode começar antes de zero e deve durar ao menos um quadro",

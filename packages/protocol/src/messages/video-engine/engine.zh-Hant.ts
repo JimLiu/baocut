@@ -56,6 +56,12 @@ export const zhHant: EngineMessages = {
   focalPointRange: '取景點的 x、y 都須在 [0, 1] 之間',
   focalPointZoomRange: '取景點的放大倍數須在 [1, 4] 之間',
   focalPointNotVideoOrImage: '不是影片或圖片，因此沒有取景點',
+  panelsCount: '分割畫面須有 2 到 4 格',
+  panelsRect: '每一格的寬高須大於 0，且整個落在畫面內（0–100%）',
+  panelsOverlap: '分割畫面的格子不能重疊',
+  panelsFocalPoint: '每一格取景點的 x、y 須在 [0, 1] 之間，放大倍數須在 [1, 4] 之間',
+  panelsNeedFullscreenCover: '分割畫面只用於全螢幕且填滿（cover）的影片',
+  panelsNotVideo: '不是影片，不能分割畫面',
 
   // elements.rs
   itemSpanInvalid: '片段不能在零之前開始，且長度至少要有一個影格',

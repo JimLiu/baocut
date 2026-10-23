@@ -29,7 +29,7 @@ pub use animation::{Animation, AnimationBinding, AnimationSlot, Keyframe, Keyfra
 pub use ducking::{DuckingGroup, DuckingRule, DuckingTrigger};
 pub use effect::{
     Crop, EffectPreset, FX_SHADOW_BLUR_RANGE, FX_SHADOW_OPACITY_RANGE, FX_STROKE_WIDTH_MAX, FX_TEMPERATURE_RANGE, FilterPreset, Fx,
-    FocalPoint, FxShadow, FxStroke, Mask, MaskShape, is_color,
+    FocalPoint, FxShadow, FxStroke, Mask, MaskShape, PanelRect, PanelsProblem, VideoPanel, is_color,
 };
 pub use marker::{Marker, MarkerKind};
 pub use place::{Background, CornerRadii, Fit, MediaFields, Place, Tile, VisualMode};
@@ -322,8 +322,20 @@ pub struct VideoItem {
     /// 取景点：`cover` 留下哪一段（§3.5）；没有时居中。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub focal_point: Option<FocalPoint>,
+    /// 分屏（§3.5）：画面分成 2–4 格，每格各取原片的一块。只用于全屏加 `cover`；有它时 `focalPoint` 不参与。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panels: Option<Vec<VideoPanel>>,
     /// 内嵌音频的路由。拆开成独立音频实例之前，跟着画面播放。
     pub embedded_audio: EmbeddedAudio,
+}
+
+impl VideoItem {
+    /// 这一刻起作用的分屏格子：全屏、`cover`、格子合法时才有，否则按一整幅画。
+    pub fn active_panels(&self) -> Option<&[VideoPanel]> {
+        let panels = self.panels.as_deref()?;
+        (self.media.mode() == VisualMode::Fullscreen && self.media.fit() == Fit::Cover && VideoPanel::check(panels).is_ok())
+            .then_some(panels)
+    }
 }
 
 /// 视频实例的内嵌音频、合成实例自己的声音（§3.9）。
