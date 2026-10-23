@@ -764,6 +764,8 @@ export interface RpcMethods {
   /**
    * 镜头切换（架构设计 §3.5「镜头切换」，工具 `videos_shots`）：剪辑后时间线一段区间里画面的切换点与镜头。只读，不写文件。
    * 区间超过 20 分钟、终点不大于起点时 `invalid-request`（`details.code` 为 `SHOTS_RANGE_TOO_LONG`、`SHOTS_RANGE_EMPTY`）；没装 ffmpeg 时 `internal`。
+   * `by: "speaker"` 跟不了说话人时 `unsupported`（`details.code` 为 `SHOTS_NO_SPEAKERS`、`SHOTS_NOT_SINGLE_CAMERA`、
+   * `SHOTS_SPEAKERS_UNMATCHED`、`SHOTS_FACES_UNAVAILABLE`，docs/design/shorts-framing §2.5）。
    */
   'videos.shots': {
     params: VideoShotsParams;

@@ -137,4 +137,8 @@ export const pl: RcAgentToolsMessages = {
     p.layout === 'spotlight' ? 'Podział spotlight wymaga main: indeksu (0–2) panelu, który trafia na górę' : `Tylko podział spotlight przyjmuje main; usuń go z podziału ${p.layout}`,
   shotsRangeEmpty: 'Po wyrównaniu do klatek zakres jest pusty',
   shotsRangeTooLong: (p) => `Zakres jest dłuższy niż ${p.minutes} min; wykrywaj ujęcia w krótszych częściach`,
+  shotsNoSpeakers: 'Transkrypcja tego wideo nie rozróżnia jeszcze dwóch lub więcej mówców; najpierw rozpoznaj mówców',
+  shotsNotSingleCamera: 'Na większości próbkowanych klatek nie widać tych samych 2–4 twarzy, więc to nie jest jedna kamera w planie ogólnym',
+  shotsSpeakersUnmatched: 'Nie udało się ustalić, która twarz w kadrze należy do któregokolwiek z mówców',
+  shotsFacesUnavailable: 'Wykrywanie twarzy jest niedostępne',
 };

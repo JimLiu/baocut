@@ -75,4 +75,8 @@ export const es: RcAgentToolsMessages = {
     p.layout === 'spotlight' ? 'Una división spotlight necesita main: el índice (0–2) del panel que va arriba' : `Solo una división spotlight admite main; quítalo de la división ${p.layout}`,
   shotsRangeEmpty: 'El intervalo queda vacío al ajustarlo a fotogramas',
   shotsRangeTooLong: (p) => `El intervalo dura más de ${p.minutes} minutos; detecta los planos por partes más cortas`,
+  shotsNoSpeakers: 'La transcripción de este video aún no distingue dos o más hablantes; identifica primero a los hablantes',
+  shotsNotSingleCamera: 'La mayoría de los fotogramas muestreados no muestran las mismas 2–4 caras, así que no es una sola cámara abierta',
+  shotsSpeakersUnmatched: 'No se pudo saber qué cara de la imagen corresponde a ninguno de los hablantes',
+  shotsFacesUnavailable: 'La detección de caras no está disponible',
 };

@@ -162,4 +162,8 @@ export const ja: RcAgentToolsMessages = {
     p.layout === 'spotlight' ? 'spotlight の分割画面には main（上のマスに置くマスの番号、0–2）が必要です' : `main を使うのは spotlight の分割画面だけです。${p.layout} の分割画面からは外してください`,
   shotsRangeEmpty: 'フレームに合わせると範囲が空になります',
   shotsRangeTooLong: (p) => `範囲が ${p.minutes} 分を超えています。短く分けてショットを検出してください`,
+  shotsNoSpeakers: 'この素材の文字起こしでは話者がまだ 2 人以上に分かれていません。先に話者を識別してください',
+  shotsNotSingleCamera: 'サンプルしたフレームの多くで同じ 2〜4 人の顔が写っていないため、固定の引きカメラ 1 台ではありません',
+  shotsSpeakersUnmatched: 'どの話者が画面のどの顔なのか判別できませんでした',
+  shotsFacesUnavailable: '顔検出を利用できません',
 };

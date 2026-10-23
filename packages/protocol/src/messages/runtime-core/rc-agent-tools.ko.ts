@@ -156,4 +156,8 @@ export const ko: RcAgentToolsMessages = {
     p.layout === 'spotlight' ? 'spotlight 분할 화면에는 main(위 칸에 놓을 칸의 번호, 0~2)이 필요합니다' : `main은 spotlight 분할 화면에서만 씁니다. ${p.layout} 분할 화면에서는 빼세요`,
   shotsRangeEmpty: '프레임에 맞추면 구간이 비어 있습니다',
   shotsRangeTooLong: (p) => `구간이 ${p.minutes}분을 넘습니다. 더 짧게 나눠서 샷을 감지하세요`,
+  shotsNoSpeakers: '이 원본의 전사에서 아직 화자가 2명 이상으로 나뉘지 않았습니다. 먼저 화자를 식별하세요',
+  shotsNotSingleCamera: '샘플 프레임 대부분에 같은 2~4개의 얼굴이 보이지 않아 고정된 와이드 카메라 한 대가 아닙니다',
+  shotsSpeakersUnmatched: '어느 화자가 화면의 어느 얼굴인지 알아낼 수 없습니다',
+  shotsFacesUnavailable: '얼굴 감지를 사용할 수 없습니다',
 };

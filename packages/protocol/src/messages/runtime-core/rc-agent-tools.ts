@@ -248,6 +248,11 @@ const en = {
   /** videos.shots 的错误（错误码 SHOTS_RANGE_EMPTY、SHOTS_RANGE_TOO_LONG）；minutes 是区间长度的上限。 */
   shotsRangeEmpty: 'The range is empty after snapping to frames',
   shotsRangeTooLong: (p: { minutes: number }) => `The range is longer than ${p.minutes} minutes; detect shots in shorter pieces`,
+  /** videos.shots 按说话人切段（by speaker）的拒绝：错误码 SHOTS_NO_SPEAKERS、SHOTS_NOT_SINGLE_CAMERA、SHOTS_SPEAKERS_UNMATCHED、SHOTS_FACES_UNAVAILABLE。 */
+  shotsNoSpeakers: 'This video’s transcript doesn’t have two or more speakers yet; identify speakers first',
+  shotsNotSingleCamera: 'Most sampled frames don’t show the same 2–4 faces, so this isn’t a single wide camera',
+  shotsSpeakersUnmatched: 'Couldn’t tell which face on screen belongs to any of the speakers',
+  shotsFacesUnavailable: 'Face detection isn’t available',
 };
 
 export type RcAgentToolsMessages = typeof en;

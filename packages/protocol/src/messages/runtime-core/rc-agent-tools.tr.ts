@@ -34,4 +34,8 @@ instructionsNotSet: 'Oturum yönergeleri ayarlanmadı: Runtime birleştirme sır
     p.layout === 'spotlight' ? 'spotlight bölünmüş ekran main gerektirir: üstteki panelin sırası (0–2)' : `main yalnızca spotlight bölünmüş ekranda kullanılır; ${p.layout} bölünmüş ekrandan kaldırın`,
   shotsRangeEmpty: 'Karelere hizalandıktan sonra aralık boş kalıyor',
   shotsRangeTooLong: (p) => `Aralık ${p.minutes} dakikadan uzun; çekimleri daha kısa parçalarda algılayın`,
+  shotsNoSpeakers: 'Bu videonun dökümünde henüz iki veya daha fazla konuşmacı ayrılmamış; önce konuşmacıları tanıyın',
+  shotsNotSingleCamera: 'Örneklenen karelerin çoğunda aynı 2–4 yüz görünmüyor, yani bu tek bir geniş açı kamera değil',
+  shotsSpeakersUnmatched: 'Konuşmacılardan hiçbirinin ekrandaki hangi yüz olduğu anlaşılamadı',
+  shotsFacesUnavailable: 'Yüz algılama kullanılamıyor',
 };

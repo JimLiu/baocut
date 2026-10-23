@@ -1199,9 +1199,12 @@ export const methodParamSchemas = {
       end: z.number().finite().positive().optional(),
       threshold: z.number().gt(0).max(1).optional(),
       minShot: z.number().min(0).max(60).optional(),
+      by: z.enum(['picture', 'speaker']).optional(),
+      split: z.boolean().optional(),
     })
     .strict()
-    .refine((p) => p.start === undefined || p.end === undefined || p.end > p.start),
+    .refine((p) => p.start === undefined || p.end === undefined || p.end > p.start)
+    .refine((p) => (p.by === 'speaker' ? p.threshold === undefined && p.minShot === undefined : p.split === undefined)),
   'slides.open': fileTarget,
   'design.open': fileTarget,
   'designSystem.open': fileTarget,

@@ -194,6 +194,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 
 - 只看画面突变，不认人：叠化、推拉会漏，闪光可能多报。拿不准的切换点用 {{tool:videos_frames}} 取它前一帧与它本身看一眼。
 - 每个镜头的 `sampleAt` 是 3 个时刻，直接交给 {{tool:videos_frames}} 的 {{arg:at}}；一次最多 24 帧，也就是 8 个镜头。
+- 只有一个固定的全景机位、几个人一直同框时，给 {{arg:by}} `speaker` 按说话人切段：在原片的整份转写里取样、量每张脸嘴部的动静，认出谁是哪张脸，再按转写切成对准一个人或分屏的段（每段至少 3 秒）。转写里要分出 2 个以上说话人；{{arg:split}} 为 `false` 时该分屏的段留在前一个人身上。先按画面切看出是单机位再用；拒绝时 `next` 说怎么退回。
 
 ## 结果怎么读
 
@@ -202,7 +203,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 - {{tool:videos_inspect}} 的 `brief`：写过视频速览时有，`markdown` 是正文（时间链接已换成完整的 `/videos/<videoId>?t=<秒>`），`language` 是正文的语言；没写过时没有这一项。章节（`chapters`）每章带 `href`，写速览的要点时照抄。
 - {{tool:transcode}}：`outputs` 的 `path`（`pipeline.summary.files`）是输出文件，把位置告诉用户。
 - {{tool:videos_frames}}：`frames` 每帧有 `at`、`file`、`width`、`height`、`faces` 与取自哪个片段（`item`）、哪个素材（`asset`）。读 `file` 这张图片。`faces` 是 `[{x, y, w, h, score}]`：框的左上角与宽高，按帧的宽高归一化到 0–1，`score` 0–1，按 score 从高到低；顶层 `detector` 是 `yunet`，检测器不可用时为 null（`faces` 都是空数组）。`file` 为 null 的帧没有 `faces`。
-- {{tool:videos_shots}}：`cuts` 每处有 `at`（新镜头第一帧的秒）、`score`（`edit` 为 null）与 `kind`；`shots` 每个有 `start`、`end` 与 `sampleAt`。
+- {{tool:videos_shots}}：`cuts` 每处有 `at`（新镜头第一帧的秒）、`score`（`edit` 为 null）与 `kind`；`shots` 每个有 `start`、`end` 与 `sampleAt`。按说话人切时没有 `cuts`：`shots` 每段另有 `speaker` 与 `face`（`faces` 的下标，分屏段两项都是 null），另有 `faces [{box, speaker}]`（各取样里的中位脸框，从左到右）、`speakers [{id, name, face, probes, contrast}]` 与 `confidence`。
 - {{tool:assets_import}}：回执里有 `assetId`、`itemId`（没放上时间线时为 null）与新版本。
 - {{tool:assets_search}}：`candidates` 每条有 `source`、`id`、`title`、`kind`、尺寸与时长（archive 与 youtube 没有尺寸）、`author`、`license`、`attribution`（一行署名）、`pageUrl`、`thumbnailUrl` 与 `downloadWith`；`excluded` 是因许可去掉的条数；`sheet` 是接触表（`sheet.cells[i].at` 是候选的序号）；`errors` 是出错的来源。
 - {{tool:assets_download}}：回执里有 `assetId`、`itemId`、`license`、`attribution` 与实际下载的 `file`；给 {{arg:outDir}} 时没有素材，`path` 是存下的文件。网上素材与链接导入的素材在 {{tool:videos_inspect}} 的 `assets[].credit` 里有 `attribution`：成片片尾的署名照它写。

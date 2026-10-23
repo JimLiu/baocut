@@ -6,7 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { SequenceItem, Track, VideoItem, VideoSnapshot } from '@baocut/protocol';
 import { silentLogger } from '@baocut/harness';
 import { MediaAnalysis, type SceneCut } from '../media-analysis.ts';
-import { ShotsError, detectShots, shotSegments, shotsRange, shotsToolError } from './video-shots.ts';
+import type { DetectedFace, FaceDetector } from '../face-detection.ts';
+import { ShotsError, detectShots, detectSpeakerShots, shotSegments, shotsRange, shotsToolError, type SpeakerShotsDeps } from './video-shots.ts';
 
 const track = (id: string, order: number): Track => ({
   id,
@@ -254,5 +255,163 @@ describe.skipIf(!hasFfmpeg)('镜头切换（真实 ffmpeg）', () => {
       [60, 'scene'],
       [90, 'edit'],
     ]);
+  });
+});
+
+// ---- 按说话人切段（by: "speaker"，docs/design/shorts-framing §2.5） ----
+
+/** 讲话转写：说话人 `turns[k]` 从 `k × every` 秒起说到 `(k + 1) × every − 0.1` 秒，每 0.3 秒一个词。 */
+function speechBody(turns: string[], every: number, speakers = ['spk_a', 'spk_b']) {
+  const words: { id: string; start: number; end: number; text: string; speaker: string }[] = [];
+  turns.forEach((speaker, k) => {
+    for (let t = k * every; t < (k + 1) * every - 0.1 - 1e-9; t += 0.3) {
+      words.push({ id: `w${words.length}`, start: Math.round(t * 1e6), end: Math.round(Math.min((k + 1) * every - 0.1, t + 0.3) * 1e6), text: 'x', speaker });
+    }
+  });
+  return { schema: 'baocut.speech/1', clock: 'source-asset', timescale: 1_000_000, speakers: speakers.map((id) => ({ id, name: id.toUpperCase() })), words };
+}
+
+/** 带一份讲话转写的视频：素材长 `seconds` 秒，片段从时间线 0 起播源 0 起。 */
+function speakerVideo(seconds: number): VideoSnapshot {
+  const v = video([clip('a', 0, seconds * 30, 0)]);
+  const asset = v.assets['asset_v']!;
+  asset.revisions['1']!.duration = { ticks: String(seconds), timescale: 1 };
+  v.documents = {
+    doc_speech: { id: 'doc_speech', kind: 'speech', name: 'Transcript', sourceAssetId: 'asset_v', currentRevision: '1', revisions: {} },
+  } as unknown as VideoSnapshot['documents'];
+  return v;
+}
+
+/** 素材时钟与时间线重合（片段从 0 起播源 0 起），时间线上的词就是转写的词。 */
+function speakerDeps(
+  body: unknown,
+  faces: FaceDetector | undefined,
+  base: { analysis: MediaAnalysis; assetFile: SpeakerShotsDeps['assetFile'] },
+  revision = '1',
+): SpeakerShotsDeps {
+  const words = ((body as ReturnType<typeof speechBody>).words ?? []).map((w) => ({ start: w.start / 1e6, end: w.end / 1e6, speaker: w.speaker }));
+  return {
+    ...base,
+    faces,
+    document: async () => ({ revision, body }),
+    words: async (_id, range) => words.filter((w) => w.end > range.start && w.start < range.end),
+  };
+}
+
+/** 假的人脸检测：每个文件都回同样几张脸；记下调用次数。 */
+function fixedFaces(perFile: (index: number) => DetectedFace[]) {
+  const calls: number[] = [];
+  const detector: FaceDetector = {
+    detect: async (files) => {
+      calls.push(files.length);
+      return { detector: 'yunet', faces: files.map((_, i) => perFile(i)) };
+    },
+  };
+  return { detector, calls };
+}
+
+// 320×180 的画面里两张「脸」：左脸 x 40–90、右脸 x 230–280，y 都是 40–90 像素。
+const LEFT_FACE = { x: 40 / 320, y: 40 / 180, w: 50 / 320, h: 50 / 180, score: 0.9 };
+const RIGHT_FACE = { x: 230 / 320, y: 40 / 180, w: 50 / 320, h: 50 / 180, score: 0.9 };
+
+describe('按说话人切段的拒绝（假的分析）', () => {
+  const base = { analysis: { keyframeFile: async () => '/missing.jpg' } as unknown as MediaAnalysis, assetFile: async () => ({ root: '/', file: 'x' }) };
+
+  it('没有转写、转写里不到 2 个说话人：SHOTS_NO_SPEAKERS，next 请用户先识别说话人', async () => {
+    const none = video([clip('a', 0, 300, 0)]);
+    await expect(detectSpeakerShots(speakerDeps({}, fixedFaces(() => []).detector, base), none, {})).rejects.toMatchObject({ code: 'SHOTS_NO_SPEAKERS' });
+    const single = speechBody(['spk_a', 'spk_a'], 5, ['spk_a']);
+    const error = await detectSpeakerShots(speakerDeps(single, fixedFaces(() => []).detector, base), speakerVideo(10), {}).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ShotsError);
+    expect(shotsToolError(error)).toMatchObject({ code: 'SHOTS_NO_SPEAKERS', extra: { next: expect.stringContaining('识别说话人') } });
+  });
+
+  it('人脸检测不可用：SHOTS_FACES_UNAVAILABLE', async () => {
+    const body = speechBody(['spk_a', 'spk_b', 'spk_a', 'spk_b'], 5);
+    await expect(detectSpeakerShots(speakerDeps(body, undefined, base), speakerVideo(20), {})).rejects.toMatchObject({ code: 'SHOTS_FACES_UNAVAILABLE' });
+    const broken: FaceDetector = { detect: async () => null };
+    const error = await detectSpeakerShots(speakerDeps(body, broken, base), speakerVideo(20), {}).catch((e: unknown) => e);
+    expect(shotsToolError(error)).toMatchObject({ code: 'SHOTS_FACES_UNAVAILABLE', extra: { next: expect.stringContaining('整支分屏') } });
+  });
+
+  it('多数取样不是同样 2–4 张主脸：SHOTS_NOT_SINGLE_CAMERA', async () => {
+    const body = speechBody(['spk_a', 'spk_b', 'spk_a', 'spk_b', 'spk_a', 'spk_b'], 5);
+    const closeUps = fixedFaces((i) => (i % 3 === 0 ? [LEFT_FACE, RIGHT_FACE] : [LEFT_FACE]));
+    await expect(detectSpeakerShots(speakerDeps(body, closeUps.detector, base), speakerVideo(30), {})).rejects.toMatchObject({
+      code: 'SHOTS_NOT_SINGLE_CAMERA',
+    });
+  });
+});
+
+describe.skipIf(!hasFfmpeg)('按说话人切段（真实 ffmpeg）', () => {
+  let dir: string;
+  let analysis: MediaAnalysis;
+
+  beforeAll(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-speaker-shots-'));
+    // 40 秒、每秒 12 帧：每 5 秒换一张脸的嘴部逐帧闪（128 ↔ 188），先右脸、再左脸，轮流。
+    const mouth = (x0: number, x1: number, block: number) => `between(X,${x0},${x1})*between(Y,74,90)*eq(mod(floor(T/5),2),${block})`;
+    execFileSync('ffmpeg', [
+      ...['-v', 'error', '-y'],
+      ...['-f', 'lavfi', '-i', `nullsrc=s=320x180:r=12:d=40,format=gray,geq=lum='128+60*mod(N,2)*(${mouth(52, 78, 1)}+${mouth(242, 268, 0)})'`],
+      ...['-pix_fmt', 'yuv420p', '-c:v', 'mpeg4', '-q:v', '2', path.join(dir, 'talk.mp4')],
+    ]);
+    analysis = new MediaAnalysis({
+      cacheDir: path.join(dir, 'cache'),
+      log: silentLogger,
+      ffmpeg: async () => ({ command: 'ffmpeg', env: process.env }),
+    });
+  });
+
+  afterAll(async () => {
+    analysis.close();
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  const base = () => ({ analysis, assetFile: async () => ({ root: dir, file: 'talk.mp4' }) });
+
+  it('grayBurst：按每秒帧数解出 1.2 秒的灰度画面，每帧 宽 × 高 个字节', async () => {
+    const asset = { contentHash: `sha256:${'ef'.repeat(32)}`, mediaType: 'video/mp4', durationSec: 40 };
+    const frames = await analysis.grayBurst(asset, { fromSec: 2, durSec: 1.2, fps: 12, width: 320, height: 180 }, async () => ({
+      root: dir,
+      file: 'talk.mp4',
+    }));
+    expect(frames.length).toBeGreaterThanOrEqual(14);
+    expect(frames.length).toBeLessThanOrEqual(16);
+    for (const frame of frames) expect(frame.length).toBe(320 * 180);
+  });
+
+  it('认出每个说话人是哪张脸，按说话人切段，每段对准正在说的人；同一素材与转写第二次用缓存', async () => {
+    const body = speechBody(['spk_a', 'spk_b', 'spk_a', 'spk_b', 'spk_a', 'spk_b', 'spk_a', 'spk_b'], 5);
+    const faces = fixedFaces(() => [RIGHT_FACE, LEFT_FACE]);
+    const result = await detectSpeakerShots(speakerDeps(body, faces.detector, base()), speakerVideo(40), {});
+    expect(result.detector).toBe('mouth-motion');
+    expect(result.faces.map((f) => f.speaker)).toEqual(['spk_b', 'spk_a']);
+    expect(result.faces[0]!.box.x).toBeCloseTo(LEFT_FACE.x, 3);
+    expect(result.speakers).toEqual([
+      { id: 'spk_a', name: 'SPK_A', face: 1, probes: 8, contrast: expect.any(Number) },
+      { id: 'spk_b', name: 'SPK_B', face: 0, probes: 8, contrast: expect.any(Number) },
+    ]);
+    expect(result.confidence).toBeGreaterThan(2);
+    expect(result.shots.map((s) => [s.start, s.end, s.speaker, s.face])).toEqual(
+      Array.from({ length: 8 }, (_, k) => [k * 5, (k + 1) * 5, k % 2 ? 'spk_b' : 'spk_a', k % 2 ? 0 : 1]),
+    );
+
+    const again = await detectSpeakerShots(speakerDeps(body, faces.detector, base()), speakerVideo(40), { start: 10, end: 20, split: false });
+    expect(again.range).toEqual({ start: 10, end: 20 });
+    expect(again.shots.map((s) => [s.start, s.end, s.face])).toEqual([
+      [10, 15, 1],
+      [15, 20, 0],
+    ]);
+    expect(faces.calls).toEqual([16]);
+  });
+
+  it('说话人与嘴部的动静对不上：SHOTS_SPEAKERS_UNMATCHED', async () => {
+    // 每人说 10 秒，跨过两张脸各闪 5 秒：两个取样一个落在左脸闪时、一个落在右脸闪时。转写换了修订，不用上一条的缓存。
+    const body = speechBody(['spk_a', 'spk_b', 'spk_a', 'spk_b'], 10);
+    const deps = speakerDeps(body, fixedFaces(() => [LEFT_FACE, RIGHT_FACE]).detector, base(), '2');
+    const error = await detectSpeakerShots(deps, speakerVideo(40), {}).catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'SHOTS_SPEAKERS_UNMATCHED' });
+    expect(shotsToolError(error)).toMatchObject({ code: 'SHOTS_SPEAKERS_UNMATCHED', extra: { next: expect.stringContaining('整支分屏') } });
   });
 });

@@ -156,4 +156,8 @@ export const zhHant: RcAgentToolsMessages = {
     p.layout === 'spotlight' ? 'spotlight 分割畫面要給 main：放到上格的那一格的序號（0–2）' : `只有 spotlight 分割畫面用 main，${p.layout} 分割畫面不要給`,
   shotsRangeEmpty: '對齊到影格之後區間是空的',
   shotsRangeTooLong: (p) => `區間超過 ${p.minutes} 分鐘，請分段偵測鏡頭`,
+  shotsNoSpeakers: '這一路原片的轉寫裡還沒分出 2 個以上說話人，請先辨識說話人',
+  shotsNotSingleCamera: '取樣的畫面裡多數不是同樣 2–4 張臉，不是單一全景機位',
+  shotsSpeakersUnmatched: '認不出哪位說話人是畫面裡的哪張臉',
+  shotsFacesUnavailable: '人臉偵測無法使用',
 };

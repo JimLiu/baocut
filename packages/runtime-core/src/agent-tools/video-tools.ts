@@ -62,8 +62,11 @@ import {
   DEFAULT_SCENE_THRESHOLD,
   MAX_SHOTS_RANGE_SECONDS,
   SHOTS_NOTE,
+  SPEAKER_SHOTS_NOTE,
   detectShots,
+  detectSpeakerShots,
   shotsToolError,
+  speakerShotsDeps,
 } from './video-shots.ts';
 import {
   DEFAULT_RANGE_COUNT,
@@ -185,6 +188,14 @@ const schemas = {
       .max(60)
       .optional()
       .describe(`可选。最短镜头（秒），更短的并进前一个；默认 ${DEFAULT_MIN_SHOT}`),
+    by: z
+      .enum(['picture', 'speaker'])
+      .optional()
+      .describe('可选。怎么切：picture（默认）按画面的切换；speaker 按说话人切段，只用于一个固定的全景机位、几个人一直同框的原片'),
+    split: z
+      .boolean()
+      .optional()
+      .describe('可选，只用于 by speaker。默认 true：停顿、两人抢着说、认不出的人说话时分屏；false 时这些段留在前一个人身上'),
   }),
   videos_history: z.strictObject({
     video: videoArg,
@@ -563,12 +574,14 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '只看画面的突变，不认人：叠化、推拉、缓慢摇镜会漏报，闪光、快速运动可能多报；结果不对时调 threshold，或用 videos_frames 看切换点前后的帧核对。',
       '返回 range（对到帧之后实际检测的区间）、cuts [{at, score, kind}]（at 是时间线上的秒，对到帧，是新镜头的第一帧）、shots [{start, end, sampleAt}]（sampleAt 是镜头 20%、50%、80% 处的 3 个时刻，可直接作为 videos_frames 的 at）、threshold、minShot、detector（"ffmpeg-scene"）与 note。',
       '要解码整段画面：长区间要等一会儿；同一素材、同一区间与阈值再问时用缓存。',
+      'by "speaker"（先用默认的 picture 看出只有一个全景机位再用）不找画面切换：在原片的整份转写里取样，量每张脸嘴部的动静，认出每个说话人是哪张脸（按素材与转写缓存），再按转写切段：谁在说对准谁；超过 1.5 秒的停顿、两人 2 秒内交替说、认不出的人说话时分屏；短于 1.5 秒的插话不换人；每段至少 3 秒。返回 shots [{start, end, sampleAt, speaker, face}]（face 是 faces 的下标，分屏段两项都是 null）、faces [{box, speaker}]（各取样里的中位脸框，从左到右）、speakers [{id, name, face, probes, contrast}]、confidence、detector（"mouth-motion"）与 note。转写不到 2 个说话人、不是单机位、谁也认不出、人脸检测不可用时分别以 SHOTS_NO_SPEAKERS、SHOTS_NOT_SINGLE_CAMERA、SHOTS_SPEAKERS_UNMATCHED、SHOTS_FACES_UNAVAILABLE 拒绝，next 说怎么退回。',
     ].join('\n'),
     annotations: { readOnlyHint: true },
     effect: 'query',
     examples: [
       { title: '找一段里的镜头切换', args: { video: 'demo', range: '1477.8:1532.5' } },
       { title: '调低阈值重找', args: { video: 'demo', range: '0:60', threshold: 0.2, minShot: 0.5 } },
+      { title: '单机位按说话人切段', args: { video: 'demo', range: '600:690', by: 'speaker' } },
     ],
     surfaces: ['agent', 'mcp', 'cli'],
     positional: 'video',
@@ -1282,7 +1295,16 @@ export class VideoTools implements ToolSet {
     const opened = await this.#scope.open(args.video, access);
     const videoId = opened.ref.videoId;
     const video = this.#current(opened);
+    if (args.by === 'speaker' ? args.threshold !== undefined || args.minShot !== undefined : args.split !== undefined) {
+      // i18n-ignore: 给模型的工具说明、错误与下一步
+      throw new ToolError('INVALID_ARGUMENTS', args.by === 'speaker' ? 'threshold、minShot 只用于 by picture' : 'split 只用于 by speaker');
+    }
     try {
+      if (args.by === 'speaker') {
+        const deps = speakerShotsDeps({ analysis: this.#deps.analysis, videos: this.#videos, faces: this.#deps.faces }, videoId);
+        const result = await detectSpeakerShots(deps, video, { start, end, split: args.split });
+        return { videoId, ...result, note: SPEAKER_SHOTS_NOTE };
+      }
       const result = await detectShots(
         { analysis: this.#deps.analysis, assetFile: (assetId, revision) => this.#videos.assetFile(videoId, assetId, revision) },
         video,

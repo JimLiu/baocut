@@ -185,4 +185,8 @@ export const nl: RcAgentToolsMessages = {
     p.layout === 'spotlight' ? 'Een gesplitst beeld spotlight heeft main nodig: de index (0–2) van het vak dat bovenaan komt' : `Alleen een gesplitst beeld spotlight neemt main; haal het weg bij ${p.layout}`,
   shotsRangeEmpty: 'Het bereik is leeg na uitlijnen op frames',
   shotsRangeTooLong: (p) => `Het bereik is langer dan ${p.minutes} minuten; detecteer shots in kortere stukken`,
+  shotsNoSpeakers: 'Het transcript van deze video onderscheidt nog geen twee of meer sprekers; herken eerst de sprekers',
+  shotsNotSingleCamera: 'De meeste steekproefbeelden tonen niet dezelfde 2–4 gezichten, dus dit is geen enkele vaste totaalcamera',
+  shotsSpeakersUnmatched: 'Kon bij geen enkele spreker vaststellen welk gezicht in beeld van hem is',
+  shotsFacesUnavailable: 'Gezichtsherkenning is niet beschikbaar',
 };

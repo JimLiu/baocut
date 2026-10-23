@@ -186,4 +186,8 @@ export const de: RcAgentToolsMessages = {
     p.layout === 'spotlight' ? 'Ein geteiltes Bild spotlight braucht main: den Index (0–2) des Felds, das nach oben kommt' : `Nur ein geteiltes Bild spotlight nimmt main an; bei ${p.layout} weglassen`,
   shotsRangeEmpty: 'Nach dem Einrasten auf Frames ist der Bereich leer',
   shotsRangeTooLong: (p) => `Der Bereich ist länger als ${p.minutes} Minuten; erkenne Einstellungen in kürzeren Abschnitten`,
+  shotsNoSpeakers: 'Das Transkript dieses Videos unterscheidet noch keine zwei oder mehr Sprecher; erkenne zuerst die Sprecher',
+  shotsNotSingleCamera: 'Die meisten Stichprobenbilder zeigen nicht dieselben 2–4 Gesichter, es ist also keine einzelne Totale',
+  shotsSpeakersUnmatched: 'Es ließ sich keinem Sprecher ein Gesicht im Bild zuordnen',
+  shotsFacesUnavailable: 'Gesichtserkennung ist nicht verfügbar',
 };
