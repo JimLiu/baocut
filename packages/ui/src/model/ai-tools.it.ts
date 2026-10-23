@@ -30,6 +30,7 @@ export const it: AiToolsMessages = {
       `${count === null ? 'Decidi quanti video brevi fare in base ai temi trovati' : `Crea ${count === 1 ? '1 video breve' : `${count} video brevi`}`}, ${len ? `ciascuno di ${len.min}–${len.max} secondi` : 'ciascuno lungo quanto serve al suo tema, dall’aggancio iniziale a dove l’idea si chiude'}, con inizio e fine sui confini di frase`,
     lineFrame: (ratio, focus) => (ratio ? `Proporzioni ${ratio}, inquadratura ${focus}` : 'Proporzioni: mantieni l’originale, senza ritagliare'),
     lineSubtitles: (tracks, style) => `Sottotitoli: ${tracks}, ${style}`,
+    lineSplit: { on: 'Dividi i campi larghi con più persone in riquadri, una persona per riquadro', off: 'Non dividere; anche nei campi larghi con più persone punta su una sola' },
     lineSkipDone: 'Salta le parti già tagliate in video brevi',
     lineTopic: (topic) => `Cerca solo nelle parti che parlano di «${topic}»: trovale prima con speech_relevant, poi scegli tra quelle`,
     lineDirect: 'Crea i video appena li trovi; non serve chiedermelo prima',

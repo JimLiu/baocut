@@ -49,6 +49,8 @@ export const vi: EditLabelMessages = {
   editText: 'Sửa văn bản',
   nudgePosition: 'Dịch vị trí',
   applyFramingToAll: 'Áp dụng cho cả short',
+  adjustPanel: 'Chỉnh ô chia màn hình',
+  changeLayout: 'Đổi bố cục',
   zoomFraming: 'Phóng khung hình',
   freePlacement: 'Chuyển sang đặt tự do',
   aspectRatio: (p) => `Tỷ lệ khung hình ${p.ratio}`,

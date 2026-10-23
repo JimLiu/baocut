@@ -14,6 +14,7 @@ import type {
   SequenceItem,
   ShapeProps,
   StickerProps,
+  VideoPanel,
   VisualizerProps,
   VisualMode,
 } from '@baocut/protocol';
@@ -48,6 +49,8 @@ export interface ItemPatch {
   fx?: Fx | null;
   /** 视频与图片的取景（裁剪与取景点整体替换，null 是去掉）：画布上放大按原片取景的视频时跟手。 */
   framing?: { crop: Crop | null; focalPoint: FocalPoint | null };
+  /** 视频的分屏格子（整份替换，`null` 去掉）：画布上在一格里拖、属性面板拖格子的滑杆时跟手。 */
+  panels?: VideoPanel[] | null;
   /** 视觉媒体的铺满 / 画中画：画布上拖动铺满画布的媒体时它换成画中画（`stage-framing.ts` 的 `placeChange`）。 */
   mode?: VisualMode;
 }
@@ -91,7 +94,7 @@ export function patchItem(item: SequenceItem, patch: ItemPatch): SequenceItem {
   switch (placed.type) {
     case 'video':
       return withFx(
-        patch.embeddedAudio ? { ...placed, embeddedAudio: { ...placed.embeddedAudio, ...patch.embeddedAudio } } : placed,
+        withPanels(patch.embeddedAudio ? { ...placed, embeddedAudio: { ...placed.embeddedAudio, ...patch.embeddedAudio } } : placed, patch),
         patch,
       );
     case 'image':
@@ -128,6 +131,14 @@ export function patchItem(item: SequenceItem, patch: ItemPatch): SequenceItem {
 function withFraming<T extends { crop?: Crop; focalPoint?: FocalPoint }>(item: T, framing: NonNullable<ItemPatch['framing']>): T {
   const { crop: _crop, focalPoint: _focal, ...rest } = item;
   return { ...rest, ...(framing.crop ? { crop: framing.crop } : {}), ...(framing.focalPoint ? { focalPoint: framing.focalPoint } : {}) } as T;
+}
+
+/** 换上或去掉分屏格子（`null` 去掉字段，与引擎落盘一致）。 */
+function withPanels<T extends { panels?: VideoPanel[] }>(item: T, patch: ItemPatch): T {
+  if (patch.panels === undefined) return item;
+  if (patch.panels !== null) return { ...item, panels: patch.panels };
+  const { panels: _gone, ...rest } = item;
+  return rest as T;
 }
 
 /** 换上或去掉 `fx`（`null` 去掉字段，与引擎落盘一致）。 */

@@ -10,6 +10,7 @@ import {
   type VideoItem,
   type VisualMode,
 } from '@baocut/protocol';
+import type { PanelledVideo } from './panels.ts';
 import { placeFields, poseOf, type Assets, type CanvasSize, type PlaceFields, type PlacedItem, type Point, type Pose } from './stage-pose.ts';
 
 /**
@@ -17,13 +18,22 @@ import { placeFields, poseOf, type Assets, type CanvasSize, type PlaceFields, ty
  * 剪成短视频时每段原片都这样摆：取景点是剪的时候按画面里的人找到的位置，按镜头分段时每段各有一份；换画幅时按新画幅重新对准，
  * 画面始终铺满。所以画布上只能围着取景点放大、缩小（`focalPoint.zoom`，视频格式规范 §3.5），不能拖动、留边、拉伸或旋转；
  * 要自己摆就明确地「改成自由摆放」。旧的短视频只带裁剪、没有取景点，按居中的取景点看（看到的一样）。
+ * 分屏的片段（`panels`，见 `panels.ts`）也算：选中框是整块画布，放大与位置在各格里改，实例自己的取景点不参与。
  */
 
 export type FramedVideo = VideoItem;
 
 export function isFramed(item: SequenceItem): item is FramedVideo {
-  return item.type === 'video' && item.mode === 'fullscreen' && (item.fit ?? 'cover') === 'cover' && !!(item.crop || item.focalPoint);
+  return (
+    item.type === 'video' &&
+    item.mode === 'fullscreen' &&
+    (item.fit ?? 'cover') === 'cover' &&
+    !!(item.crop || item.focalPoint || item.panels?.length)
+  );
 }
+
+/** 分屏的片段：按原片取景、带格子。 */
+export const isPanelled = (item: SequenceItem): item is PanelledVideo => isFramed(item) && !!item.panels?.length;
 
 /** 源的显示尺寸（已按旋转交换，乘上像素宽高比；与 `render-graph` 的 `display_size` 同口径）；素材表里没有时 null。 */
 export function sourceSize(item: VideoItem, assets: Assets | undefined): { width: number; height: number } | null {
@@ -38,9 +48,9 @@ export interface ItemFraming {
 
 export const framingOf = (item: VideoItem): ItemFraming => ({ crop: item.crop ?? null, focalPoint: item.focalPoint ?? null });
 
-/** 缩过头、放过头多少倍才说一句（手上的抖动不该一直弹）；拖画面本身是 `locked`。 */
+/** 缩过头、放过头多少倍才说一句（手上的抖动不该一直弹）；拖画面本身是 `locked`，在分屏的一格里拖到原片边上是 `edge`。 */
 const SLACK = 0.03;
-export type FramingHit = 'locked' | 'min' | 'max';
+export type FramingHit = 'locked' | 'min' | 'max' | 'edge';
 
 /**
  * 铺满画布的盒随 `rot` 与镜像绕画布中心转、翻（帧计划里铺满的视频就是画布那么大的框）：画布上的点 → 画面上看到的位置。
@@ -68,6 +78,7 @@ export function framingAnchor(item: FramedVideo, canvas: CanvasSize): Point {
  * 选中框和四角落在原片的边上，可以超出画面。不知道源尺寸时 null。
  */
 export function framedPose(item: FramedVideo, canvas: CanvasSize, assets: Assets | undefined): Pose | null {
+  if (item.panels?.length) return { cx: canvas.width / 2, cy: canvas.height / 2, w: canvas.width, h: canvas.height, rotation: 0 };
   return sourceSize(item, assets) ? picturePose(item, canvas, assets) : null;
 }
 
@@ -139,9 +150,9 @@ export function framingOperations(sequenceId: Id, item: SequenceItem, framing: I
   return [{ type: 'setStyle', sequenceId, itemId: item.id, ...crop, ...focal }];
 }
 
-/** 「填满画布」：放大回 100%。已经是 100% 的空表。 */
+/** 「填满画布」：放大回 100%。已经是 100% 的、分屏的（格子恒铺满，放大在各格里）空表。 */
 export function fillFramingOperations(sequenceId: Id, item: FramedVideo): EditOperation[] {
-  return focalZoom(item.focalPoint) === 1 ? [] : framingOperations(sequenceId, item, withZoom(item, 1));
+  return item.panels?.length || focalZoom(item.focalPoint) === 1 ? [] : framingOperations(sequenceId, item, withZoom(item, 1));
 }
 
 /**
@@ -149,6 +160,8 @@ export function fillFramingOperations(sequenceId: Id, item: FramedVideo): EditOp
  * 之后换画幅时这一段不再自动对准。一笔事务；不知道源尺寸时空表。
  */
 export function freeFramingOperations(sequenceId: Id, item: FramedVideo, canvas: CanvasSize, assets: Assets | undefined): EditOperation[] {
+  // 分屏的出口是属性面板「版式」里换回一人：换成画中画会连格子一起去掉。
+  if (item.panels?.length) return [];
   const pose = framedPose(item, canvas, assets);
   if (!pose) return [];
   const { focalPoint: _focal, ...rest } = item;

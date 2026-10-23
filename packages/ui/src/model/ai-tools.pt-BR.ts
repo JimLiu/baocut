@@ -34,6 +34,7 @@ export const ptBR: AiToolsMessages = {
       `${count === null ? 'Decida quantos vídeos curtos fazer pelos temas que encontrar' : `Faça ${count === 1 ? '1 vídeo curto' : `${count} vídeos curtos`}`}, ${len ? `cada um com ${len.min}–${len.max} segundos` : 'cada um do tamanho que o tema pedir, do gancho de abertura até a ideia se fechar'}, começando e terminando em limites de frase`,
     lineFrame: (ratio, focus) => (ratio ? `Proporção ${ratio}, enquadramento ${focus}` : 'Proporção: manter a original, sem recortar'),
     lineSubtitles: (tracks, style) => `Legendas: ${tracks}, ${style}`,
+    lineSplit: { on: 'Divida planos abertos de várias pessoas em painéis, uma pessoa por painel', off: 'Não divida; mire uma pessoa só também nos planos abertos de várias pessoas' },
     lineSkipDone: 'Pule as partes que já viraram vídeos curtos',
     lineTopic: (topic) => `Procure só nas partes que falam de “${topic}”: encontre-as primeiro com speech_relevant e escolha entre elas`,
     lineDirect: 'Crie os vídeos assim que encontrá-los; não precisa me perguntar antes',

@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { DocumentRecord, SpaceEntry, TimelineItem } from '@baocut/protocol';
 import { SHORTS_COPY } from '../components/editor/shorts-copy.ts';
-import { MADE_SHOWN, createdVideoIds, framingShots, madeShorts, pagerIndex, readDerivation, shortFactsKey, shortsBatch } from './shorts-result.ts';
+import {
+  MADE_SHOWN,
+  createdVideoIds,
+  framingShots,
+  layoutStrip,
+  madeShorts,
+  pagerIndex,
+  readDerivation,
+  shortFactsKey,
+  shortsBatch,
+} from './shorts-result.ts';
 
 function video(id: string, over: Partial<SpaceEntry> = {}): SpaceEntry {
   return {
@@ -110,6 +120,8 @@ describe('readDerivation', () => {
       reason: null,
       notes: [],
       shots: 0,
+      splits: 0,
+      strip: null,
     });
     expect(readDerivation({})).toBeNull();
     expect(readDerivation(null)).toBeNull();
@@ -168,12 +180,48 @@ describe('framingShots', () => {
     expect(derivation({ settings: { crop } })?.shots).toBe(0);
   });
 
-  it('the result card shows the framing line only when there is more than one shot', () => {
-    expect(framingShots({ shots: 3 })).toBe(3);
-    expect(framingShots({ shots: 1 })).toBeNull();
-    expect(framingShots({ shots: 0 })).toBeNull();
+  it('the result card shows the framing line only when there is more than one shot, or a split one', () => {
+    expect(framingShots({ shots: 3, splits: 0 })).toBe(3);
+    expect(framingShots({ shots: 1, splits: 0 })).toBeNull();
+    expect(framingShots({ shots: 0, splits: 0 })).toBeNull();
+    expect(framingShots({ shots: 1, splits: 1 })).toBe(1);
     expect(framingShots(null)).toBeNull();
     expect(SHORTS_COPY.framingShots(3)).toBe('按 3 个镜头分别取景 · 打开后选中某一段可以放大，要挪位置先改成自由摆放');
+    expect(SHORTS_COPY.framingSplits(4, 1)).toBe('4 段 · 1 段分屏 · 打开后选中某一段可以改版式、互换上下');
+  });
+
+  it('counts split shots and lays out the strip on the child clock (gaps are one person, same counts merge)', () => {
+    const left = { left: 0, top: 0, right: 0.5, bottom: 0 };
+    const right = { left: 0.5, top: 0, right: 0, bottom: 0 };
+    const crops = [
+      { from: 100, to: 104, ...crop },
+      { from: 104, to: 110, layout: 'rows', panels: [left, right] },
+      { from: 110, to: 112, layout: 'rows', panels: [left, right] },
+      { from: 115, to: 120, ...crop },
+    ];
+    const d = derivation({ range: { start: 100, end: 125 }, settings: { crops } });
+    expect(d?.splits).toBe(2);
+    expect(d?.strip).toEqual([
+      { start: 0, end: 4, n: 1 },
+      { start: 4, end: 12, n: 2 },
+      { start: 12, end: 25, n: 1 },
+    ]);
+    expect(derivation({ settings: { crops: [{ from: 0, to: 10, ...crop }] } })?.strip).toBeNull();
+    expect(SHORTS_COPY.stripSeg('0:04', '0:12', 2)).toBe('0:04 – 0:12 · 分屏 2 格');
+    expect(SHORTS_COPY.stripSeg('0:00', '0:04', 1)).toBe('0:00 – 0:04 · 一人');
+  });
+
+  it('layoutStrip clips crops to the range and is null without a split', () => {
+    const spans = [
+      { start: -5, end: 3, n: 2 },
+      { start: 3, end: 50, n: 1 },
+    ];
+    expect(layoutStrip(spans, { start: 0, end: 10 })).toEqual([
+      { start: 0, end: 3, n: 2 },
+      { start: 3, end: 10, n: 1 },
+    ]);
+    expect(layoutStrip([{ start: 0, end: 3, n: 1 }], { start: 0, end: 10 })).toBeNull();
+    expect(layoutStrip([{ start: 0, end: 3, n: 2 }], { start: 5, end: 5 })).toBeNull();
   });
 });
 

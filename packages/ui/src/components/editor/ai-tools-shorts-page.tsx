@@ -48,7 +48,8 @@ const radioSub = style({ display: 'block', paddingStart: 24, marginTop: -2, marg
 /**
  * 剪成短视频的参数页（原型 panel-aitools-shorts.jsx `ShortsCutSetup`，产品设计 §5.10「参数页」）：只交给 Agent，所以没有「用」一行；
  * 总是新开一条会话，所以也没有「会话」一行。自上而下：说明卡（找出值得单独发的话题、各剪成一支新的子视频），范围、「已经切过的不再找」与主题，
- * 切成什么样（几支、多长缺省都是「自动」——交给 Agent 按话题定，下面一行说明自动怎么定；画幅），取景（画幅不是保留原画幅时），
+ * 切成什么样（几支、多长缺省都是「自动」——交给 Agent 按话题定，下面一行说明自动怎么定；画幅），取景（画幅不是保留原画幅时；自动取景时
+ * 另有「多人全景时分屏」，缺省开），
  * 字幕（带哪几轨、样式），提示词框（意图句加一行一句的参数，最后一行
  * 「找好就直接创建」可以单独删），主按钮与去向。按下就新开会话发出去，那条会话打开到眼前，工具页回列表；这一轮记下来（`recordShortsRun`），
  * 跑完、切出了子视频时这部视频的 AI 工具 Tab 翻到结果页（ai-tools-shorts-result.tsx）。
@@ -222,6 +223,15 @@ export function ShortsToolPage({
                   </div>
                 ))}
               </RadioGroup>
+              {/* 多人全景时分屏（短视频分屏设计 §8.1）：自动取景时才有，自己定的取景每支只有一个位置。 */}
+              {s.focus === 'auto' ? (
+                <Option
+                  label={C.shortsSplit}
+                  sub={s.split ? C.shortsSplitOn : C.shortsSplitOff}
+                  isSelected={s.split}
+                  onChange={(on) => set({ split: on })}
+                />
+              ) : null}
             </div>
           </>
         )}

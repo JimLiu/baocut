@@ -28,6 +28,7 @@ export const ja: AiToolsMessages = {
       `${count === null ? '本数は見つけた話題に合わせて決める' : `${count} 本作る`}。${len ? `各 ${len.min}〜${len.max} 秒` : '長さは話題ごとに決める（冒頭の引きのある一文から話が結論に届くまで）'}、開始と終了は文の境目に合わせる`,
     lineFrame: (ratio, focus) => (ratio ? `アスペクト比 ${ratio}、フレーミングは${focus}` : 'アスペクト比：元のまま、切り抜かない'),
     lineSubtitles: (tracks, style) => `字幕：${tracks}、${style}`,
+    lineSplit: { on: '複数人の引きのショットは分割画面にし、1 人 1 マスにする', off: '分割しない。複数人の引きでも 1 人に合わせる' },
     lineSkipDone: 'すでに切り出した部分は探さない',
     lineTopic: (topic) => `「${topic}」について話している部分だけから探す：まず speech_relevant でその部分を見つけ、その中から選ぶ`,
     lineDirect: '見つかったらそのまま動画として作成する。先に確認しなくてよい',

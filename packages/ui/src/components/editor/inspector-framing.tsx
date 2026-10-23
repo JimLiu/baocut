@@ -11,6 +11,7 @@ import { useEditor } from '../../state/editor-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { FramingInfo, freeFraming } from './framing-info.tsx';
+import { LayoutRow } from './inspector-panels.tsx';
 import { Note, Sec, SecHead, ValueRow } from './inspector-controls.tsx';
 import type { ItemEdit } from './use-item-edit.ts';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
@@ -23,7 +24,8 @@ const freeRow = style({ display: 'flex' });
 /**
  * 「取景」段（原型 stage-framing.jsx 的 `FramingSection`，产品设计 §5.10「画面怎么取景」）：按原片取景的视频顶替几何段——
  * 位置、大小、旋转由取景点与画幅现算，没有意义；只留「放大」（100% 就是刚好铺满，围着取景点），同一句为什么，
- * 和明确的出口「改成自由摆放」。拖滑杆时只叠草稿，松手按视频里的实际值比出变了的取景点再提交。
+ * 和明确的出口「改成自由摆放」。拖滑杆时只叠草稿，松手按视频里的实际值比出变了的取景点再提交。视频才有「版式」一行
+ * （一人 / 分屏，`inspector-panels.tsx`）。
  */
 export function FramingSection({
   item,
@@ -69,6 +71,7 @@ export function FramingSection({
           onLive={(value) => edit.live({ framing: withZoom(item, value / 100) })}
           onCommit={commit}
         />
+        {item.type === 'video' ? <LayoutRow item={item} sequence={sequence} isDisabled={isDisabled} /> : null}
         <Note>{STAGE_COPY.framingLimits}</Note>
         <div className={freeRow}>
           <Button variant="secondary" size="S" isDisabled={!free} onPress={() => free?.()}>

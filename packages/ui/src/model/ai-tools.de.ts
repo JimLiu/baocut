@@ -66,6 +66,7 @@ export const de: AiToolsMessages = {
       `${count === null ? 'Entscheide anhand der gefundenen Themen, wie viele Kurzvideos es werden' : `Erstelle ${count === 1 ? '1 Kurzvideo' : `${count} Kurzvideos`}`}, ${len ? `jeweils ${len.min}–${len.max} Sekunden` : 'jedes so lang, wie sein Thema braucht, vom Einstiegssatz bis zur Pointe'}, mit Anfang und Ende an Satzgrenzen`,
     lineFrame: (ratio, focus) => (ratio ? `Seitenverhältnis ${ratio}, Ausschnitt ${focus}` : 'Seitenverhältnis: Original beibehalten, nicht zuschneiden'),
     lineSubtitles: (tracks, style) => `Untertitel: ${tracks}, ${style}`,
+    lineSplit: { on: 'Totalen mit mehreren Personen in Felder teilen, eine Person pro Feld', off: 'Nicht teilen; auch Totalen mit mehreren Personen auf eine Person ausrichten' },
     lineSkipDone: 'Bereits zu Kurzvideos geschnittene Stellen überspringen',
     lineTopic: (topic) => `Suche nur in den Stellen, in denen es um „${topic}“ geht: finde sie zuerst mit speech_relevant und wähle dann daraus`,
     lineDirect: 'Erstelle die Videos, sobald sie gefunden sind; du musst mich vorher nicht fragen',

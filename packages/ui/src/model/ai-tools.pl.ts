@@ -31,6 +31,7 @@ export const pl: AiToolsMessages = {
       `${count === null ? 'Liczbę krótkich filmów ustal według znalezionych tematów' : `Liczba krótkich filmów: ${count}`}, ${len ? `każdy ${len.min}–${len.max} sekund` : 'każdy tak długi, jak wymaga jego temat, od chwytliwego otwarcia do puenty'}, początek i koniec na granicach zdań`,
     lineFrame: (ratio, focus) => (ratio ? `Proporcje ${ratio}, kadr ${focus}` : 'Proporcje: zachowaj oryginalne, bez przycinania'),
     lineSubtitles: (tracks, style) => `Napisy: ${tracks}, ${style}`,
+    lineSplit: { on: 'Dziel szerokie plany z kilkoma osobami na panele, jedna osoba na panel', off: 'Nie dziel; szerokie plany z kilkoma osobami też kadruj na jedną osobę' },
     lineSkipDone: 'Pomiń fragmenty już pocięte na krótkie filmy',
     lineTopic: (topic) => `Szukaj tylko we fragmentach, które mówią o „${topic}”: najpierw znajdź je przez speech_relevant, potem wybieraj spośród nich`,
     lineDirect: 'Twórz filmy od razu, gdy je znajdziesz; nie musisz mnie najpierw pytać',

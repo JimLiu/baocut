@@ -212,7 +212,7 @@ describe('剪成短视频', () => {
     expect(shortsLengthRange({ length: 'custom', lenMin: Number.NaN, lenMax: 45 })).toEqual({ min: 30, max: 45 });
   });
 
-  it('参数一行一句折进模板：意图句、几支多长、画幅与取景、字幕、已切过的不再找，最后一行直接创建', () => {
+  it('参数一行一句折进模板：意图句、几支多长、画幅与取景、分屏、字幕、已切过的不再找，最后一行直接创建', () => {
     const intent = intentPrompt({ tool: 'shortscut', title: 'A', scope: '第 2 章 · 开场' });
     expect(intent).toBe('从「A」的第 2 章 · 开场里找出最值得单独发布的话题，每个话题剪成一支完整的短视频：每支一部新视频，引用同一份原片，原视频和时间轴不动。');
     const lines = toolTemplate('shortscut', intent, { lines: shortsLines(SHORTS_DEFAULTS, { hasTranslation: true }) }).split('\n');
@@ -220,10 +220,19 @@ describe('剪成短视频', () => {
       intent,
       '几支由你按话题定，每支多长按话题定：从开头能抓人的那句剪到讲完，起止落在句子边界上',
       '画幅 9:16，取景自动：在片段里均匀抽几帧，看说话的人在画面哪一侧，把裁框放到他身上；找不到人就居中',
+      '多人全景镜头分屏，每人一格',
       '字幕：原文 + 译文，短视频字幕',
       '已经切过的不再找',
       '找好就直接创建成视频，不用先问我',
     ]);
+  });
+
+  it('分屏开关（短视频分屏设计 §8.1）缺省开；关了说不要分屏；自己定取景或保留原画幅时没有这一句', () => {
+    expect(SHORTS_DEFAULTS.split).toBe(true);
+    const lines = (s: Partial<typeof SHORTS_DEFAULTS>) => shortsLines({ ...SHORTS_DEFAULTS, ...s }, { hasTranslation: true });
+    expect(lines({ split: false })[2]).toBe('不要分屏，多人全景也对准一个人');
+    expect(lines({ focus: 'manual' }).some((line) => line.includes('分屏'))).toBe(false);
+    expect(lines({ ratio: 'source' }).some((line) => line.includes('分屏'))).toBe(false);
   });
 
   it('写了主题（§2.8）时多一句只在讲这件事的片段里找、先用 speech_relevant 圈出，排在直接创建之前；空白不加', () => {

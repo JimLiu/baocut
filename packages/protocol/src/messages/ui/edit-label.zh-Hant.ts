@@ -49,6 +49,8 @@ export const zhHant: EditLabelMessages = {
   editText: '編輯文字',
   nudgePosition: '微調位置',
   applyFramingToAll: '套用到整支',
+  adjustPanel: '調整分屏格',
+  changeLayout: '改版式',
   zoomFraming: '放大取景',
   freePlacement: '改成自由擺放',
   aspectRatio: (p) => `長寬比 ${p.ratio}`,

@@ -28,6 +28,7 @@ export const vi: AiToolsMessages = {
       `${count === null ? 'Tự quyết số video ngắn theo các chủ đề tìm được' : `Làm ${count} video ngắn`}, ${len ? `mỗi video ${len.min}–${len.max} giây` : 'mỗi video dài đúng bằng chủ đề cần, từ câu mở đầu gây chú ý đến khi ý chính khép lại'}, bắt đầu và kết thúc ở ranh giới câu`,
     lineFrame: (ratio, focus) => (ratio ? `Tỷ lệ khung hình ${ratio}, khung ${focus}` : 'Tỷ lệ khung hình: giữ nguyên bản gốc, không cắt'),
     lineSubtitles: (tracks, style) => `Phụ đề: ${tracks}, ${style}`,
+    lineSplit: { on: 'Cảnh rộng nhiều người thì chia màn hình, mỗi người một ô', off: 'Không chia màn hình; cảnh rộng nhiều người cũng chỉ căn vào một người' },
     lineSkipDone: 'Bỏ qua những phần đã cắt thành video ngắn',
     lineTopic: (topic) => `Chỉ tìm trong những đoạn nói về “${topic}”: trước hết dùng speech_relevant để tìm các đoạn đó, rồi chọn trong số đó`,
     lineDirect: 'Tìm được là tạo video luôn, không cần hỏi tôi trước',

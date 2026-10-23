@@ -33,6 +33,7 @@ export const fr: AiToolsMessages = {
       `${count === null ? 'Décidez du nombre de vidéos courtes selon les sujets trouvés' : `Faites ${count === 1 ? '1 vidéo courte' : `${count} vidéos courtes`}`}, ${len ? `de ${len.min} à ${len.max} secondes chacune` : 'chacune aussi longue que son sujet l’exige, de l’accroche d’ouverture jusqu’à la chute'}, qui commencent et finissent sur des limites de phrase`,
     lineFrame: (ratio, focus) => (ratio ? `Format ${ratio}, cadrage ${focus}` : 'Format : garder l’original, sans recadrer'),
     lineSubtitles: (tracks, style) => `Sous-titres : ${tracks}, ${style}`,
+    lineSplit: { on: 'Partage les plans larges de plusieurs personnes en panneaux, une personne par panneau', off: 'Ne partage pas ; vise aussi une seule personne dans les plans larges à plusieurs' },
     lineSkipDone: 'Ignorez les passages déjà découpés en vidéos courtes',
     lineTopic: (topic) => `Ne cherchez que dans les passages qui parlent de « ${topic} » : trouvez-les d’abord avec speech_relevant, puis choisissez parmi eux`,
     lineDirect: 'Créez les vidéos dès qu’elles sont trouvées ; inutile de me demander avant',

@@ -19,13 +19,15 @@ import {
   type CaptionMove,
   type CaptionMoveFrame,
 } from '../../model/stage-caption-move.ts';
-import { framingAnchor, framingOperations, isFramed, stagePose, type FramingHit } from '../../model/stage-framing.ts';
+import { panelsOperations } from '../../model/panels.ts';
+import { framingAnchor, framingOperations, isFramed, isPanelled, stagePose, type FramingHit } from '../../model/stage-framing.ts';
 import {
   gestureOperations,
   gesturePatch,
   memberOf,
   membersOf,
   nudgeOperations,
+  panGesture,
   resetRotation,
   stepGesture,
   zoomGesture,
@@ -67,7 +69,8 @@ import { previewCaptionStyle, saveCaptionStyle } from './caption-style-edit.ts';
 import { draftedBody } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import type { PreviewEngine } from './preview-engine.ts';
-import { FramingAnchor, GroupBox, Guides, ItemBox, Marquee, ThinBox, type View } from './stage-boxes.tsx';
+import { panelNames } from './framing-info.tsx';
+import { FramingAnchor, GroupBox, Guides, ItemBox, Marquee, PanelSeams, ThinBox, type View } from './stage-boxes.tsx';
 import { StageCaptionToolbar } from './stage-caption-toolbar.tsx';
 import { StageFramingChip } from './stage-framing-chip.tsx';
 import { StageTextEdit } from './stage-text-edit.tsx';
@@ -87,6 +90,8 @@ import { StageToolbar } from './stage-toolbar.tsx';
  * - 只读、锁定或正在播放时不出把手，只读时点选照常；播放中按下画面只暂停（原型 stage.jsx），停下后再点选。
  * - 按原片取景的视频（`stage-framing`，原型 stage-objects.jsx `FramingSelection`）：框是整幅原片，只有四角，拖角围着取景点
  *   放大、缩小；拖画面本身不动它，只让小牌说一句为什么（不提交）。整组拖动、缩放与方向键都不挪它。
+ * - 分屏的视频（`panels.ts`，原型 stage-panels.jsx `PanelsSelection`）：框是整块画布，画出各格的接缝与叫法，没有把手；按在一格里拖
+ *   只改这一格的取景点（画面跟着手走），拖到原片边上小牌说一句。
  */
 
 const root = style({ position: 'absolute', inset: 0, outlineStyle: 'none', userSelect: 'none', touchAction: 'none' });
@@ -108,6 +113,7 @@ const LABEL: Record<Gesture['kind'], () => Localized> = {
   rotate: EditLabel.rotate,
   zoom: EditLabel.zoomFraming,
   hold: EditLabel.move,
+  pan: EditLabel.adjustPanel,
   'group-move': EditLabel.groupMove,
   'group-scale': EditLabel.groupScale,
 };
@@ -205,6 +211,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const [editing, setEditing] = useState<Id | null>(null);
   const [captionShift, setCaptionShift] = useState<{ hits: CaptionHit[]; dx: number; dy: number } | null>(null);
   const [hit, setHit] = useState<FramingHit | null>(null);
+  const [panning, setPanning] = useState<number | null>(null);
   const hitTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(hitTimer.current), []);
 
@@ -345,7 +352,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       useEditor.getState().setDraft({
         itemId: m.item.id,
         revision: seq.revision,
-        patch: gesturePatch(m.item, result.poses[0]!, result.factor, seq.canvas, assets, result.framing),
+        patch: gesturePatch(m.item, result.poses[0]!, result.factor, seq.canvas, assets, result.framing, result.panels),
       });
     }
     setGuides(live ? result.guides : []);
@@ -368,7 +375,11 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
           ? result.framing
             ? framingOperations(seq.id, gesture.member.item, result.framing)
             : []
-          : gestureOperations(seq.id, membersOf(gesture), result.poses, result.factor, seq.canvas);
+          : gesture.kind === 'pan'
+            ? result.panels
+              ? panelsOperations(seq.id, gesture.member.item, result.panels)
+              : []
+            : gestureOperations(seq.id, membersOf(gesture), result.poses, result.factor, seq.canvas);
     if (!operations.length) return discard(gesture);
     show(gesture, result, false);
     if ('members' in gesture) setOverride((o) => (o ? { ...o, until: seq.revision } : o));
@@ -463,6 +474,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     setGuides([]);
     setAngle(null);
     setMarquee(null);
+    setPanning(null);
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -531,8 +543,9 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       if (captionGroup) click = () => select([hit]);
       else if (!current.includes(hit) || current.length > 1) select([hit]);
       if (item?.type === 'caption') useEditor.getState().showPanel('props');
-      // 按原片取景的视频（剪成短视频的子视频）位置跟着取景点：拖不动，只让小牌说一句为什么。
-      if (item && isFramed(item) && changeable(item)) gesture = { kind: 'hold', member: memberOf(item, seq.canvas, assets), p0: p };
+      // 按原片取景的视频（剪成短视频的子视频）位置跟着取景点：拖不动，只让小牌说一句为什么。分屏的拖的是按下那一格的取景点。
+      if (item && isPanelled(item) && changeable(item)) gesture = panGesture(item, p, seq.canvas, assets);
+      else if (item && isFramed(item) && changeable(item)) gesture = { kind: 'hold', member: memberOf(item, seq.canvas, assets), p0: p };
       else if (item && isPlaced(item) && changeable(item)) gesture = { kind: 'move', member: memberOf(item, seq.canvas, assets), p0: p };
       else if (item?.type === 'caption' && changeable(item) && (!captionGroup || current.every((id) => changeable(byId.get(id)!))))
         caption = captionDragOf(item, p, captionGroup);
@@ -544,7 +557,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     }
 
     // 上一下留着的那句说明不带进这一下：缩到底之后马上往外拉，不该还写着「已经铺满」。
-    if (gesture?.kind === 'zoom' || gesture?.kind === 'hold') {
+    if (gesture?.kind === 'zoom' || gesture?.kind === 'hold' || gesture?.kind === 'pan') {
       window.clearTimeout(hitTimer.current);
       setHit(null);
     }
@@ -578,9 +591,9 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     if (!(fr.width > 0)) return;
     const hit = hitTest(toCanvas(latest.current.canvas, fr, event.clientX, event.clientY));
     const item = hit ? byId.get(hit) : undefined;
-    // 选中的字幕没有自己的选中框接指针：能拖时在这里换成移动光标。
-    const movable = item?.type === 'caption' && changeable(item) && useEditor.getState().selection.includes(item.id);
-    rootEl.style.cursor = movable ? 'move' : hit ? 'pointer' : '';
+    // 选中的字幕没有自己的选中框接指针：能拖时在这里换成移动光标。选中的分屏视频在格子里拖，换成抓手。
+    const chosen = !!item && changeable(item) && useEditor.getState().selection.includes(item.id);
+    rootEl.style.cursor = chosen && item.type === 'caption' ? 'move' : chosen && isPanelled(item) ? 'grab' : hit ? 'pointer' : '';
   };
 
   const flush = (p: Press) => {
@@ -604,7 +617,8 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       } else if (!p.marquee || !marqueeRect(p.client0, { x: event.clientX, y: event.clientY }).on) return;
       p.moved = true;
       setActive(p.gesture?.kind ?? (p.caption ? 'move' : 'marquee'));
-      if (p.caption && rootRef.current) rootRef.current.style.cursor = 'grabbing';
+      if (p.gesture?.kind === 'pan') setPanning(p.gesture.cell);
+      if ((p.caption || p.gesture?.kind === 'pan') && rootRef.current) rootRef.current.style.cursor = 'grabbing';
     }
     if (p.gesture || p.caption) {
       p.queued = { p: toCanvas(p.env.canvas, p.frame, event.clientX, event.clientY), mods: modsOf(event) };
@@ -699,7 +713,8 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     if (!candidates.length) return;
     event.preventDefault();
     const targets = candidates.filter((item) => !isFramed(item));
-    if (!targets.length) return void ToastQueue.info(STAGE_COPY.framingLocked, { timeout: 5000 });
+    if (!targets.length)
+      return void ToastQueue.info(candidates.every(isPanelled) ? STAGE_COPY.panelsHow : STAGE_COPY.framingLocked, { timeout: 5000 });
     // 连按时上一笔还没回来：从上一笔的落点接着推，不从旧位置重算（铺满画布的媒体第一下换成了画中画，也接着那一份）。
     const pending = nudges.current;
     const base = targets.map((item) => {
@@ -754,6 +769,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   } else if (single) {
     const can = changeable(single);
     const framed = isFramed(single);
+    const split = isPanelled(single) ? single.panels : null;
     boxes = (
       <>
         <ItemBox
@@ -762,12 +778,14 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
           view={view}
           kind={resizeKindOf(single)}
           video={single.type === 'video'}
-          controls={can}
+          controls={can && !split}
           movable={can && !framed}
           dragging={dragging}
           angle={active === 'rotate' ? angle : null}
           framing={framed}
-        />
+        >
+          {split ? <PanelSeams rects={split.map((panel) => panel.rect)} names={panelNames(split.length)} active={panning} /> : null}
+        </ItemBox>
         {framed && active === 'zoom' ? <FramingAnchor at={framingAnchor(single, canvas)} view={view} /> : null}
       </>
     );

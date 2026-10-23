@@ -27,6 +27,7 @@ export const nl: AiToolsMessages = {
       `${count === null ? 'Bepaal aan de hand van de gevonden onderwerpen hoeveel korte video’s het worden' : `Maak ${count === 1 ? '1 korte video' : `${count} korte video’s`}`}, ${len ? `elk ${len.min}–${len.max} seconden` : 'elk zo lang als het onderwerp nodig heeft, van de openingshaak tot de clou'}, met begin en eind op zinsgrenzen`,
     lineFrame: (ratio, focus) => (ratio ? `Beeldverhouding ${ratio}, kader ${focus}` : 'Beeldverhouding: origineel behouden, niet bijsnijden'),
     lineSubtitles: (tracks, style) => `Ondertitels: ${tracks}, ${style}`,
+    lineSplit: { on: 'Splits totaalshots met meerdere mensen in vakken, één persoon per vak', off: 'Niet splitsen; richt ook totaalshots met meerdere mensen op één persoon' },
     lineSkipDone: 'Sla delen over die al tot korte video’s zijn geknipt',
     lineTopic: (topic) => `Zoek alleen in de delen die over ‘${topic}’ gaan: vind ze eerst met speech_relevant en kies daaruit`,
     lineDirect: 'Maak de video’s zodra ze gevonden zijn; je hoeft het niet eerst te vragen',

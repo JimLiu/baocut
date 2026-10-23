@@ -28,6 +28,7 @@ export const zhHans: AiToolsMessages = {
       `${count === null ? '几支由你按话题定' : `要 ${count} 支`}，${len ? `每支 ${len.min}–${len.max} 秒` : '每支多长按话题定：从开头能抓人的那句剪到讲完'}，起止落在句子边界上`,
     lineFrame: (ratio, focus) => (ratio ? `画幅 ${ratio}，取景${focus}` : '画幅：保留原画幅，不裁'),
     lineSubtitles: (tracks, style) => `字幕：${tracks}，${style}`,
+    lineSplit: { on: '多人全景镜头分屏，每人一格', off: '不要分屏，多人全景也对准一个人' },
     lineSkipDone: '已经切过的不再找',
     lineTopic: (topic) => `只在讲「${topic}」的片段里找：先用 speech_relevant 找出这些片段，再从中挑`,
     lineDirect: '找好就直接创建成视频，不用先问我',

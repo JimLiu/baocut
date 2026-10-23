@@ -28,6 +28,7 @@ export const ko: AiToolsMessages = {
       `${count === null ? '몇 개 만들지는 찾은 주제를 보고 정하기' : `${count}개 만들기`}, ${len ? `각각 ${len.min}–${len.max}초` : '길이는 주제마다 정하기(시선을 끄는 첫 문장부터 요점이 마무리되는 곳까지)'}, 시작과 끝은 문장 경계에 맞추기`,
     lineFrame: (ratio, focus) => (ratio ? `화면 비율 ${ratio}, 프레이밍: ${focus}` : '화면 비율: 원본 유지, 자르지 않기'),
     lineSubtitles: (tracks, style) => `자막: ${tracks}, ${style}`,
+    lineSplit: { on: '여러 사람 와이드 샷은 분할 화면으로, 한 사람에 한 칸', off: '분할하지 말고 여러 사람 와이드 샷도 한 사람에게 맞추기' },
     lineSkipDone: '이미 잘라 낸 부분은 다시 찾지 않기',
     lineTopic: (topic) => `“${topic}”에 대해 말하는 부분에서만 찾기: 먼저 speech_relevant로 그 부분을 찾은 뒤 그중에서 고르기`,
     lineDirect: '찾으면 바로 영상으로 만들기, 먼저 묻지 않아도 됨',

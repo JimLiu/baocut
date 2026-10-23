@@ -28,6 +28,7 @@ export const tr: AiToolsMessages = {
       `${count === null ? 'Kaç kısa video yapılacağına bulduğun konulara göre karar ver' : `${count} kısa video yap`}, ${len ? `her biri ${len.min}–${len.max} saniye` : 'her biri konusunun gerektirdiği kadar uzun olsun, dikkat çeken ilk cümleden fikrin bağlandığı yere kadar'}, başı ve sonu cümle sınırlarında olsun`,
     lineFrame: (ratio, focus) => (ratio ? `En boy oranı ${ratio}, çerçeve ${focus}` : 'En boy oranı: orijinali koru, kırpma'),
     lineSubtitles: (tracks, style) => `Altyazı: ${tracks}, ${style}`,
+    lineSplit: { on: 'Birkaç kişilik geniş çekimleri panellere böl, her panele bir kişi', off: 'Bölme; birkaç kişilik geniş çekimlerde de tek kişiye odaklan' },
     lineSkipDone: 'Daha önce kısa videoya kesilmiş bölümleri atla',
     lineTopic: (topic) => `Yalnızca “${topic}” hakkında konuşulan bölümlerde ara: önce speech_relevant ile bu bölümleri bul, sonra aralarından seç`,
     lineDirect: 'Bulduğun anda videoları oluştur; önce bana sormana gerek yok',

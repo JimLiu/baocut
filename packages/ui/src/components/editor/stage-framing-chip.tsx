@@ -4,11 +4,11 @@ import { EditLabel } from '@baocut/protocol/messages/ui';
 import { ActionButton, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { STAGE_COPY } from '../../copy.ts';
-import type { FramedVideo, FramingHit } from '../../model/stage-framing.ts';
+import { isPanelled, type FramedVideo, type FramingHit } from '../../model/stage-framing.ts';
 import { applyFramingToAll, framingPieces, shotSeconds, showsShotChip } from '../../model/stage-shots.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
-import { FramingInfo, framingHitText, freeFraming } from './framing-info.tsx';
+import { FramingInfo, PanelsInfo, framingHitText, freeFraming } from './framing-info.tsx';
 import type { FrameRect } from './stage-objects.tsx';
 
 /**
@@ -18,6 +18,8 @@ import type { FrameRect } from './stage-objects.tsx';
  * 它是按镜头分段的其中一段时，再写「这一段 · 第 X–Y 秒」（子视频时间线上的秒）与次要操作「套到整支」：只把这一段的放大倍数
  * 写到同一素材的每一段（各段仍对准各自的人），一笔事务，提示里可以撤销。挂在画面外面：画面上方是视频工具条，画面里面会挡住
  * 要对的人。带 `data-stage-editor`，舞台的点选与框选不接它上面的指针。
+ * 分屏的片段（原型 stage-panels.jsx `PanelsChip`）写「分屏 · N 格」，ⓘ 弹出「分屏怎么改」，没有「套到整支」（在属性面板「版式」里）；
+ * 一人段的「套到整支」跳过分屏段，计数也不算它们。
  */
 
 const chip = style({
@@ -103,7 +105,8 @@ export function StageFramingChip({
   }, []);
 
   const shot = showsShotChip(sequence, item);
-  const pieces = shot ? framingPieces(sequence, item) : [];
+  const split = isPanelled(item);
+  const pieces = shot ? framingPieces(sequence, item).filter((piece) => !piece.panels?.length) : [];
   const { from, to } = shotSeconds(item, sequence);
   const top = chipTop(frame, room);
 
@@ -125,19 +128,25 @@ export function StageFramingChip({
   return (
     <div ref={ref} className={chip} style={{ left: frame.left, top }} data-stage-editor data-framing-chip={item.id}>
       <span className={mode({ isHit: !!hit })} role="status">
-        {hit ? framingHitText(hit) : STAGE_COPY.framingMode}
+        {hit ? framingHitText(hit) : split ? STAGE_COPY.panelsMode(item.panels!.length) : STAGE_COPY.framingMode}
       </span>
-      <FramingInfo placement="top start" onFree={() => freeFraming(actions, sequence, item, assets)} />
+      {split ? (
+        <PanelsInfo placement="top start" />
+      ) : (
+        <FramingInfo placement="top start" onFree={() => freeFraming(actions, sequence, item, assets)} />
+      )}
       {shot ? (
         <>
           <i className={sep} />
           <span>{STAGE_COPY.shotPiece(from, to)}</span>
-          <TooltipTrigger placement="top">
-            <ActionButton size="S" isQuiet onPress={applyAll}>
-              {STAGE_COPY.applyAll}
-            </ActionButton>
-            <Tooltip>{STAGE_COPY.applyAllTip}</Tooltip>
-          </TooltipTrigger>
+          {split || pieces.length < 2 ? null : (
+            <TooltipTrigger placement="top">
+              <ActionButton size="S" isQuiet onPress={applyAll}>
+                {STAGE_COPY.applyAll}
+              </ActionButton>
+              <Tooltip>{STAGE_COPY.applyAllTip}</Tooltip>
+            </TooltipTrigger>
+          )}
         </>
       ) : null}
     </div>

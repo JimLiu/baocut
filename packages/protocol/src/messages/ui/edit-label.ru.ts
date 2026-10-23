@@ -49,6 +49,8 @@ export const ru: EditLabelMessages = {
   editText: "Редактировать текст",
   nudgePosition: "Сдвинуть положение",
   applyFramingToAll: 'Применить ко всему шортсу',
+  adjustPanel: 'Настроить ячейку',
+  changeLayout: 'Изменить раскладку',
   zoomFraming: 'Масштаб кадра',
   freePlacement: 'Свободное размещение',
   aspectRatio: (p) => `Соотношение сторон ${p.ratio}`,
