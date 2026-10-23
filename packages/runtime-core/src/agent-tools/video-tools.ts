@@ -478,7 +478,7 @@ const schemas = {
     style: captionStylePatch
       .optional()
       .describe(
-        '可选。字幕的位置与样式，键是字幕样式文档（Studio 样式）里的键，只给要改的：y、verticalAlign 定高度（y 是画面高度的百分比，verticalAlign 说字幕块哪条边落在 y 上），width 是折行宽度，fontSize 按 540 短边下的像素，textOutline、background 开关描边与底板。以默认样式为底写进这层的样式文档；与配对的原文共用已有样式时改的是那一份，原文一起变',
+        '可选。字幕的位置与样式，键是字幕样式文档（Studio 样式）里的键，只给要改的：y、verticalAlign 定高度（y 是画面高度的百分比，verticalAlign 说字幕块哪条边落在 y 上），width 是折行宽度，fontSize 按 540 短边下的像素，textOutline、background 开关描边与底板，textAlign 配 alignWithinWrap: true 让各行贴住折行区域的左边或右边，lineHeight、letterSpacing 调行距与字距，punct: false 照原文画标点。以默认样式为底写进这层的样式文档；与配对的原文共用已有样式时改的是那一份，原文一起变',
       ),
   }),
 };

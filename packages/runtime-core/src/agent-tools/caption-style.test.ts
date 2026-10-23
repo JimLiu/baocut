@@ -41,6 +41,17 @@ describe('字幕样式补丁', () => {
     expect(captionStylePatch.safeParse({}).success).toBe(false);
   });
 
+  it('排版键：对齐、贴边、行高、字距与标点照写；字重同时写粗体', () => {
+    const patch = { textAlign: 'left', alignWithinWrap: true, lineHeight: 1.45, letterSpacing: 1, punct: false, fontWeight: 400 } as const;
+    expect(captionStylePatch.safeParse(patch).success).toBe(true);
+    const next = freshCaptionStyle(patch).style as Record<string, unknown>;
+    expect(next).toMatchObject({ ...patch, bold: false });
+    expect((freshCaptionStyle({ fontWeight: 800 }).style as Record<string, unknown>).bold).toBe(true);
+    expect(captionStylePatch.safeParse({ textAlign: 'justify' }).success).toBe(false);
+    expect(captionStylePatch.safeParse({ lineHeight: 0.2 }).success).toBe(false);
+    expect(captionStylePatch.safeParse({ alignWithinWrap: 'yes' }).success).toBe(false);
+  });
+
   it('说话人名字：只改给出的字段，缩放比例越界拒绝', () => {
     const body = { schema: 'baocut.legacy-studio-style/0.1', style: { speakerLabel: { on: true, scale: 0.6 } } };
     expect(patchStudioStyle(body, { speakerLabel: { on: true, color: '#FFCC00' } })?.style).toEqual({
