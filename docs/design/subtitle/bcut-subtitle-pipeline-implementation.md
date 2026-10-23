@@ -187,6 +187,8 @@ minCueDisplaySec = 1.0
 派生端从 `words + autoBreaks ⊕ breaks` 重放即可复现。阈值来源是
 `bcut-flow-core::layout_profile::LayoutProfile`（`default` = 既有全部常量）。
 
+> v3 的 TS 切条（编辑器 `speech-cues.ts`、jobs `caption-cues.ts`）没有这一步 DP，在贪心之后多守两条规则：切点不落在放得进一行的成对符号里；短于 `minCueDisplaySec` 的条并进同一句相邻的一条，并不进去时从它挪词。见[视频格式规范 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
 ### 2.3 Sentence 如何由代码派生
 
 `derive_sentences` 把连续 Cue 合并为翻译句。满足任一条件即封句：
