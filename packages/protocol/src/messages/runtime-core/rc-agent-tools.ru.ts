@@ -132,6 +132,8 @@ export const ru: RcAgentToolsMessages = {
   deriveRangeEmpty: 'После выравнивания по кадрам диапазон пуст',
   deriveUnsupportedItem: (p) => `В диапазоне есть клип, который нельзя скопировать в производное видео (${p.kind})`,
   deriveParentUnplaced: 'Это видео не находится в папке проекта или сеанса, поэтому рядом с ним нельзя создать производное видео',
+  derivePanelsInvalid: (p) =>
+    `Для разделения ${p.layout} нужно ${p.layout === 'grid' ? 'ровно 4' : '2 или 3'} панели, а указано ${p.count}`,
   shotsRangeEmpty: 'После привязки к кадрам диапазон пуст',
   shotsRangeTooLong: (p) => `Диапазон длиннее ${p.minutes} мин; определяйте планы по более коротким частям`,
 };

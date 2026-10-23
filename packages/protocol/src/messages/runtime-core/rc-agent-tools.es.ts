@@ -69,6 +69,8 @@ export const es: RcAgentToolsMessages = {
   deriveRangeEmpty: 'El intervalo queda vacío al ajustarlo a fotogramas',
   deriveUnsupportedItem: (p) => `El intervalo contiene un clip que no se puede copiar a un vídeo derivado (${p.kind})`,
   deriveParentUnplaced: 'Este vídeo no está en una carpeta de proyecto o de sesión, así que no se puede crear un vídeo derivado a su lado',
+  derivePanelsInvalid: (p) =>
+    `Una división ${p.layout} necesita ${p.layout === 'grid' ? 'exactamente 4' : '2 o 3'} paneles, pero se dieron ${p.count}`,
   shotsRangeEmpty: 'El intervalo queda vacío al ajustarlo a fotogramas',
   shotsRangeTooLong: (p) => `El intervalo dura más de ${p.minutes} minutos; detecta los planos por partes más cortas`,
 };

@@ -339,9 +339,9 @@ export interface VideoDeriveParams {
   /**
    * 按镜头分段取景：父视频剪辑后时间线上的 `[from, to)` 秒（与 `start`、`end` 同一个时钟）各用一份裁剪，最多 64 段、互不重叠。
    * 各段的起止就近对到帧、截到区间（截过或丢掉的以 `crops-adjusted` 说明）；主素材的视频片段在取景变化处拆开，各段带自己的
-   * 裁剪。没盖住的地方用 `crop`。给了才参与幂等键。
+   * 裁剪。没盖住的地方用 `crop`。给了才参与幂等键。一段也可以是分屏（{@link VideoDeriveSplit}）。
    */
-  crops?: VideoDeriveCrop[];
+  crops?: VideoDeriveShot[];
   captions?: boolean;
   translations?: boolean;
   chapters?: boolean;
@@ -364,10 +364,27 @@ export interface VideoDeriveCrop {
 }
 
 /**
+ * 分屏的一段（视频格式规范 §3.5 `VideoItem.panels`）：`rows` 2 或 3 格、`grid` 4 格，每格是要看见的源区域（四边比例，同
+ * `crop`）。各格按区域中心的横坐标从左到右排进格子，给的次序不影响结果。只用于画幅变了、`fit` 为 cover 的派生；否则按各格
+ * 区域的并集当一人裁剪处理（`panels-ignored`）。
+ */
+export interface VideoDeriveSplit {
+  from: number;
+  to: number;
+  layout: 'rows' | 'grid';
+  panels: { left: number; top: number; right: number; bottom: number }[];
+}
+
+/** 分段取景的一段：一人（四边裁剪）或分屏。 */
+export type VideoDeriveShot = VideoDeriveCrop | VideoDeriveSplit;
+
+/**
  * 派生时丢掉、改动或没做到的东西（架构设计 §3.5「派生子视频」）。`translations-skipped`：父视频的一份译文没能复制
  * （`documentId` 是父视频里的译文；正文既不是 `baocut.translation/2`，旧项目的 `/1` 也换不过去）。`crops-adjusted`：
  * 分段取景有 `count` 段截到了区间或截完为空丢掉。`animation-split`：拆开的片段（`itemId`，父视频里的）有循环动画或音量包络，
- * 拆开后每段从头算。
+ * 拆开后每段从头算。分屏段：`panels-ignored` 有 `count` 段因画幅没变、`fit` 不是 cover 或片段不是全屏铺满而当一人裁剪处理；
+ * `panel-region-cropped` 有 `count` 格的区域在这一格里装不下（对准中心，多出的裁掉）；`panel-upscaled` 有 `count` 格放大量超过
+ * 2.5（画面会发虚）；`split-short` 有 `count` 段分屏短于 3 秒。
  */
 export type VideoDeriveWarningCode =
   | 'anchor-dropped'
@@ -379,7 +396,11 @@ export type VideoDeriveWarningCode =
   | 'captions-skipped'
   | 'translations-skipped'
   | 'crops-adjusted'
-  | 'animation-split';
+  | 'animation-split'
+  | 'panels-ignored'
+  | 'panel-region-cropped'
+  | 'panel-upscaled'
+  | 'split-short';
 
 export interface VideoDeriveResult {
   /** 子视频：与 `videos_create` 的 `video-created` 同一个写法。 */
@@ -396,8 +417,8 @@ export interface VideoDeriveResult {
   cuts: { assetId: Id; from: number; to: number }[];
   /** 复制的片段数；分段取景拆开的片段按段数算。 */
   itemCount: number;
-  /** 实际采用的分段取景：对到帧、截到区间之后的各段（父视频剪辑后时间线上的秒）。给了 `crops` 才有。 */
-  framing?: VideoDeriveCrop[];
+  /** 实际采用的分段取景：对到帧、截到区间之后的各段（父视频剪辑后时间线上的秒；分屏段的格子已按区域从左到右排好）。给了 `crops` 才有。 */
+  framing?: VideoDeriveShot[];
   /** 子视频里的派生来源文档（`kind: 'derivation'`）。 */
   derivationDocumentId: Id | null;
   /**

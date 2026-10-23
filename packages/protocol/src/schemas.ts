@@ -92,6 +92,17 @@ const nestedMessageRef = z
   .object({ key: messageKey, params: z.record(messageParamName, messageScalar).optional(), text: z.string().max(1000).optional() })
   .strict();
 const messageRef = z.object({ key: messageKey, params: z.record(messageParamName, z.union([messageScalar, nestedMessageRef])).optional() }).strict();
+/** 分屏段一格要看见的源区域（四边比例，同 `crop`）。格数与版式对不上由 `videos.derive` 拒绝（`DERIVE_PANELS_INVALID`）。 */
+const deriveRegion = z
+  .object({
+    left: z.number().min(0).lt(1),
+    top: z.number().min(0).lt(1),
+    right: z.number().min(0).lt(1),
+    bottom: z.number().min(0).lt(1),
+  })
+  .strict()
+  .refine((c) => c.left + c.right < 1 && c.top + c.bottom < 1);
+
 /** 分段取景（`videos.derive` 的 `crops`）按 from 排好之后互不重叠。 */
 const cropsDisjoint = (crops: { from: number; to: number }[]) =>
   [...crops].sort((a, b) => a.from - b.from).every((c, n, all) => n === 0 || c.from >= all[n - 1]!.to);
@@ -1140,17 +1151,28 @@ export const methodParamSchemas = {
         .optional(),
       crops: z
         .array(
-          z
-            .object({
-              from: z.number().finite().nonnegative(),
-              to: z.number().finite().positive(),
-              left: z.number().min(0).lt(1),
-              top: z.number().min(0).lt(1),
-              right: z.number().min(0).lt(1),
-              bottom: z.number().min(0).lt(1),
-            })
-            .strict()
-            .refine((c) => c.to > c.from && c.left + c.right < 1 && c.top + c.bottom < 1),
+          z.union([
+            z
+              .object({
+                from: z.number().finite().nonnegative(),
+                to: z.number().finite().positive(),
+                left: z.number().min(0).lt(1),
+                top: z.number().min(0).lt(1),
+                right: z.number().min(0).lt(1),
+                bottom: z.number().min(0).lt(1),
+              })
+              .strict()
+              .refine((c) => c.to > c.from && c.left + c.right < 1 && c.top + c.bottom < 1),
+            z
+              .object({
+                from: z.number().finite().nonnegative(),
+                to: z.number().finite().positive(),
+                layout: z.enum(['rows', 'grid']),
+                panels: z.array(deriveRegion).min(2).max(4),
+              })
+              .strict()
+              .refine((c) => c.to > c.from),
+          ]),
         )
         .max(64)
         .refine(cropsDisjoint)

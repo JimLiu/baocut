@@ -151,6 +151,7 @@ export const zhHant: RcAgentToolsMessages = {
   deriveRangeEmpty: '對齊到影格之後區間是空的',
   deriveUnsupportedItem: (p) => `區間裡有無法複製到子影片的片段（${p.kind}）`,
   deriveParentUnplaced: '這部影片不在專案或工作階段的資料夾裡，無法在它旁邊建立子影片',
+  derivePanelsInvalid: (p) => `${p.layout} 分割畫面要 ${p.layout === 'grid' ? '4' : '2 或 3'} 格，給了 ${p.count} 格`,
   shotsRangeEmpty: '對齊到影格之後區間是空的',
   shotsRangeTooLong: (p) => `區間超過 ${p.minutes} 分鐘，請分段偵測鏡頭`,
 };

@@ -165,6 +165,8 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 
 按镜头分别取景时给 {{arg:crops}}：每段 `from`、`to` 是父视频剪辑后时间线上的秒（直接用 {{tool:videos_shots}} 的 `shots`），加这段的四边裁剪。主素材的片段在取景变化处拆开，各带自己的裁剪；结果的 `framing` 是对到帧、截到区间后实际采用的各段，`crops-adjusted` 说明有段被截过或丢掉，`animation-split` 说明拆开的片段有循环动画或音量包络、每段从头算。区间之前、之后的部分沿用第一段、最后一段的取景：恢复首尾的话时放回来的画面跟着那一段，那截若是另一个镜头取景就不对，要在提示牌里说。全屏加 `cover` 的片段里这些裁剪存成取景点（`focalPoint`）：画面一样，源画面不裁，用户之后把画布改回原画幅还能看到完整画面；要改单个片段的取景就用 `setStyle` 的 `focalPoint`；它的 `zoom`（1 到 4，缺省 1）是在铺满之上围着取景点再放大。用户在画布上对这种片段只能改放大，位置跟着取景点。
 
+多人全景要每人一格时，{{arg:crops}} 的那一段写 `{from, to, layout, panels}`：`layout` 是 `rows`（2 或 3 人上下排开）或 `grid`（4 人田字格），`panels` 是每个人要看见的源区域（四边比例）。Runtime 按区域中心从左到右排进格子（最左的人在最上面），换成每格的取景点，主素材的全屏 `cover` 片段写成 `panels`；只在画幅变了、`fit` 为 `cover` 时生效，否则当一人裁剪（`panels-ignored`）。`split-short`（分屏段短于 3 秒）、`panel-upscaled`（某格放大量超过 2.5，会发虚）、`panel-region-cropped`（区域装不下）要如实转述。之后改某一格用 `setStyle` 的 `panels`（整份替换，`null` 换回一人）。
+
 ### 撤销与历史
 
 - {{tool:edits_undo}}：撤销你自己最近的一笔；也可以给 {{arg:transactionId}} 指定一笔。撤销本身也是一笔新修改，返回同样的回执。

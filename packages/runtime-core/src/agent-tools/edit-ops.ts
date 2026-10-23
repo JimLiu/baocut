@@ -341,7 +341,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'setStyle',
     family: 'styles',
     doc: [
-      '- {"type":"setStyle","itemId","mode"?:"fullscreen"|"pip","fit"?:"cover"|"contain","bg"?:"blur"|"black"|"#RRGGBB","opacity"?,"radius"?,"mask"?:{"shape":"ellipse","feather"?},"crop"?:{"left","top","right","bottom"},"focalPoint"?:{"x","y","zoom"?},"style"?:{…},"verticalAlign"?:"top"|"center"|"bottom"}：改片段的外观，只改给出的字段，给 null 回到缺省。mode 只用于视频、图片、素材贴纸、占位框与白板：fullscreen 铺满画布（画中画的位置与宽保留，切回 pip 时还原），pip 按 setTransform 的位置与宽摆放，缺省为 pip；fit 是铺满时裁切（cover）还是留边（contain），bg 是留边的底。opacity 在 0 到 1；radius 是圆角，按 540 短边下的像素；mask 的 feather 不小于 0；crop 每边是 0 到 1 的比例，左右、上下之和小于 1，只用于视频与图片；focalPoint 是 cover 裁掉多余部分时留哪一段（x、y 在 0 到 1，0 贴左 / 上，0.5 居中，1 贴右 / 下），源画面不裁，换画幅时还在；zoom 是在刚好铺满之上再放大多少（1 到 4，缺省 1），源上 x、y 那一点在画面上不动、围着它放大；只用于视频与图片。style 与 verticalAlign 只用于文字片段；字幕的位置与样式用 setCaptionStyle。',
+      '- {"type":"setStyle","itemId","mode"?:"fullscreen"|"pip","fit"?:"cover"|"contain","bg"?:"blur"|"black"|"#RRGGBB","opacity"?,"radius"?,"mask"?:{"shape":"ellipse","feather"?},"crop"?:{"left","top","right","bottom"},"focalPoint"?:{"x","y","zoom"?},"panels"?:[{"rect":{"x","y","w","h"},"focalPoint":{"x","y","zoom"?}}],"style"?:{…},"verticalAlign"?:"top"|"center"|"bottom"}：改片段的外观，只改给出的字段，给 null 回到缺省。mode 只用于视频、图片、素材贴纸、占位框与白板：fullscreen 铺满画布（画中画的位置与宽保留，切回 pip 时还原），pip 按 setTransform 的位置与宽摆放，缺省为 pip；fit 是铺满时裁切（cover）还是留边（contain），bg 是留边的底。opacity 在 0 到 1；radius 是圆角，按 540 短边下的像素；mask 的 feather 不小于 0；crop 每边是 0 到 1 的比例，左右、上下之和小于 1，只用于视频与图片；focalPoint 是 cover 裁掉多余部分时留哪一段（x、y 在 0 到 1，0 贴左 / 上，0.5 居中，1 贴右 / 下），源画面不裁，换画幅时还在；zoom 是在刚好铺满之上再放大多少（1 到 4，缺省 1），源上 x、y 那一点在画面上不动、围着它放大；只用于视频与图片。panels 把全屏 cover 的视频分成 2 到 4 格（rect 是画面的百分比，不重叠；上下两格是 {x:0,y:0,w:100,h:50} 与 {x:0,y:50,w:100,h:50}），每格各按自己的 focalPoint 铺满这一格，有 panels 时片段的 focalPoint 不起作用；数组整份替换，null 换回一人；mode 或 fit 改得不再是全屏 cover 时格子跟着去掉。style 与 verticalAlign 只用于文字片段；字幕的位置与样式用 setCaptionStyle。',
     ],
     schema: op('setStyle', {
       itemId: idOf('画面片段 ID'),
@@ -374,6 +374,20 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
         .nullable()
         .optional()
         .describe('取景点（视频与图片）：cover 留下哪一段'),
+      panels: z
+        .array(
+          z.object({
+            rect: z
+              .object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() })
+              .describe('这一格在画面上的矩形：左上角与宽高，画面的百分比'),
+            focalPoint: z
+              .object({ x: z.number(), y: z.number(), zoom: z.number().optional() })
+              .describe('这一格的取景点与放大，同 focalPoint，只是铺满指铺满这一格'),
+          }),
+        )
+        .nullable()
+        .optional()
+        .describe('分屏（只用于全屏 cover 的视频）：2 到 4 格，不重叠；整份替换，null 去掉换回一人'),
       style: z.record(z.string(), z.unknown()).nullable().optional().describe('文字样式对象（只用于文字片段）'),
       verticalAlign: z.enum(['top', 'center', 'bottom']).nullable().optional().describe('文字的垂直对齐：top、center、bottom'),
       sequenceId,

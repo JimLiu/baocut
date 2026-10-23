@@ -179,6 +179,8 @@ export const nl: RcAgentToolsMessages = {
   deriveRangeEmpty: 'Het bereik is leeg na uitlijnen op frames',
   deriveUnsupportedItem: (p) => `Het bereik bevat een clip die niet naar een afgeleide video kan worden gekopieerd (${p.kind})`,
   deriveParentUnplaced: 'Deze video staat niet in een project- of sessiemap, dus er kan geen afgeleide video naast worden gemaakt',
+  derivePanelsInvalid: (p) =>
+    `Een gesplitst beeld ${p.layout} heeft ${p.layout === 'grid' ? 'precies 4' : '2 of 3'} vakken nodig, maar er zijn er ${p.count} opgegeven`,
   shotsRangeEmpty: 'Het bereik is leeg na uitlijnen op frames',
   shotsRangeTooLong: (p) => `Het bereik is langer dan ${p.minutes} minuten; detecteer shots in kortere stukken`,
 };

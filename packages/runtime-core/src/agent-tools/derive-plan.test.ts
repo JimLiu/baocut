@@ -7,6 +7,7 @@ import { BaoCutClient } from '@baocut/client';
 import {
   framingFromCrop,
   newId,
+  panelWindow,
   type AudioItem,
   type DocumentRecord,
   type EditOperation,
@@ -32,6 +33,7 @@ import {
   pickFields,
   planDerivationTrim,
   timelineWords,
+  type CropShot,
   type DerivePick,
   type DeriveSettings,
 } from './derive-plan.ts';
@@ -585,7 +587,7 @@ const B = { left: 0.4, top: 0, right: 0.2, bottom: 0 };
 const C = { left: 0.3, top: 0.05, right: 0.3, bottom: 0.05 };
 const shot = (from: number, to: number, crop: typeof A) => ({ from, to, ...crop });
 /** 区间对齐之后再对齐分段取景，与 prepareDerive 一样。 */
-function framed(snapshot: VideoSnapshot, start: number, end: number, crops: ReturnType<typeof shot>[], extra: Partial<DeriveSettings> = {}) {
+function framed(snapshot: VideoSnapshot, start: number, end: number, crops: CropShot[], extra: Partial<DeriveSettings> = {}) {
   const range = alignRange(snapshot.sequences.seq_1!, start, end);
   const aligned = alignCrops(snapshot.sequences.seq_1!, range, crops);
   return plan(snapshot, start, end, { ...settings, ...extra, crops: aligned.crops }, {}, undefined, aligned.adjusted);
@@ -748,6 +750,88 @@ describe('planDerivation：铺满画布的取景不丢画面', () => {
       [C, null],
       [C, null],
     ]);
+  });
+
+  /** 两人全景：左边的人中心 0.3，右边的 0.7，各宽 0.3、高 0.6。 */
+  const L = { left: 0.15, top: 0.15, right: 0.55, bottom: 0.25 };
+  const R = { left: 0.55, top: 0.15, right: 0.15, bottom: 0.25 };
+  const split = (from: number, to: number, panels: (typeof L)[], layout: 'rows' | 'grid' = 'rows') => ({ from, to, layout, panels });
+  const upperCell = { width: 1080, height: 960 };
+
+  it('分屏段：主素材的全屏 cover 片段写 panels（不写 crop、focalPoint），最左的人在上格；短于 3 秒提醒', () => {
+    const p = framed(sized({ focalPoint: { x: 0, y: 0 } }), 1, 5, [split(1, 3, [R, L]), shot(3, 5, B)]);
+    const entries = videoEntries(p);
+    expect(entries).toHaveLength(2);
+    const [first, second] = entries as [Loose, Loose];
+    expect(first.crop).toBeUndefined();
+    expect(first.focalPoint).toBeUndefined();
+    expect(first.panels.map((panel: Loose) => panel.rect)).toEqual([
+      { x: 0, y: 0, w: 100, h: 50 },
+      { x: 0, y: 50, w: 100, h: 50 },
+    ]);
+    // 每格看得见的窗口以这个人为中心（上格是左边的人），窗口与格子同宽高比。
+    const centers = first.panels.map((panel: Loose) => {
+      const w = panelWindow(panel.focalPoint, landscape, upperCell);
+      return [w.left + w.width / 2, w.top + w.height / 2];
+    });
+    expect(centers[0][0]).toBeCloseTo(0.3, 3);
+    expect(centers[1][0]).toBeCloseTo(0.7, 3);
+    expect(centers[0][1]).toBeCloseTo(0.45, 3);
+    expect(first.panels[0].focalPoint.zoom).toBe(1.667);
+    expect(second.panels).toBeUndefined();
+    expect(second.focalPoint).toEqual(framingFromCrop(B, landscape, portrait)!.focalPoint);
+    expect(p.warnings).toContainEqual({ code: 'split-short', count: 1 });
+    expect(p.warnings.some((w) => w.code === 'panel-upscaled' || w.code === 'panel-region-cropped' || w.code === 'panels-ignored')).toBe(false);
+    // 派生来源文档：settings.crops 里格子已排好，framing 多记版式与格子。
+    expect(p.derivation.settings.crops?.[0]).toEqual(split(1, 3, [L, R]));
+    expect(p.derivation.framing?.shots[0]).toEqual({ from: 1, to: 3, crop: null, layout: 'rows', panels: first.panels });
+  });
+
+  it('分屏段的格子次序与给的次序无关，幂等键也一样；与一人段的键不同', () => {
+    const range = alignRange(video(items).sequences.seq_1!, 1, 5);
+    const sequence = video(items).sequences.seq_1!;
+    const a = alignCrops(sequence, range, [split(1, 3, [R, L])]).crops;
+    const b = alignCrops(sequence, range, [split(1, 3, [L, R])]).crops;
+    expect(a).toEqual(b);
+    const key = (crops: typeof a) =>
+      derivationKey({ parentVideoId: 'video_parent', parentRevision: '7', range: { start: 1, end: 5 }, settings: { ...settings, crops } });
+    expect(key(a)).toBe(key(b));
+    expect(key(a)).not.toBe(key(alignCrops(sequence, range, [shot(1, 3, L)]).crops));
+  });
+
+  it('格数与版式对不上时拒绝（DERIVE_PANELS_INVALID）', () => {
+    const sequence = video(items).sequences.seq_1!;
+    const range = alignRange(sequence, 1, 5);
+    expect(() => alignCrops(sequence, range, [split(1, 3, [L, R], 'grid')])).toThrow(DeriveError);
+    try {
+      alignCrops(sequence, range, [split(1, 3, [L, R, L, R], 'rows')]);
+    } catch (error) {
+      expect((error as DeriveError).code).toBe('DERIVE_PANELS_INVALID');
+      expect((error as DeriveError).details).toMatchObject({ layout: 'rows', count: 4 });
+    }
+  });
+
+  it('画幅没变或 contain 时分屏段按区域的并集当一人裁剪（panels-ignored）', () => {
+    const union = { left: 0.15, top: 0.15, right: 0.15, bottom: 0.25 };
+    const same = framed(sized(), 1, 5, [split(1, 3, [L, R])], { width: 1920, height: 1080 });
+    expect(videoEntries(same).some((e) => (e as Loose).panels)).toBe(false);
+    expect(same.warnings).toContainEqual({ code: 'panels-ignored', count: 1 });
+    expect(same.warnings.some((w) => w.code === 'split-short')).toBe(false);
+    const contain = framed(sized(), 1, 5, [split(1, 3, [L, R])], { fit: 'contain' });
+    expect((videoEntries(contain)[0] as Loose).crop).toEqual(union);
+    expect(contain.warnings).toContainEqual({ code: 'panels-ignored', count: 1 });
+    // 画中画的片段：这一个片段当一人裁剪。
+    const pip = framed(sized({ mode: 'pip' }), 1, 5, [split(1, 3, [L, R])]);
+    expect((videoEntries(pip)[0] as Loose).crop).toEqual(union);
+    expect(pip.warnings).toContainEqual({ code: 'panels-ignored', itemId: 'item_a' });
+  });
+
+  it('区域装不下、放大过头时提醒（count 是格数）', () => {
+    const wide = { left: 0, top: 0, right: 0, bottom: 0.1 };
+    const tiny = { left: 0.6, top: 0.3, right: 0.35, bottom: 0.6 };
+    const p = framed(sized(), 1, 5, [split(1, 5, [wide, tiny])]);
+    expect(p.warnings).toContainEqual({ code: 'panel-region-cropped', count: 1 });
+    expect(p.warnings).toContainEqual({ code: 'panel-upscaled', count: 1 });
   });
 });
 
@@ -1053,6 +1137,45 @@ describe.skipIf(!engine || !ffmpeg)('videos.derive（真实引擎）', () => {
       [45, 30, 2, B],
       [75, 15, 3, C],
     ]);
+  });
+
+  it('分屏段：竖屏派生时主素材的片段写 panels，格子按区域从左到右排；引擎收下、短于 3 秒提醒', async () => {
+    const parent = await parentWithCut();
+    const A = { left: 0.1, top: 0, right: 0.5, bottom: 0 };
+    const left = { left: 0.15, top: 0.15, right: 0.55, bottom: 0.25 };
+    const right = { left: 0.55, top: 0.15, right: 0.15, bottom: 0.25 };
+    const derived = await client.request('videos.derive', {
+      videoId: parent.videoId,
+      start: 0.5,
+      end: 3,
+      width: 1080,
+      height: 1920,
+      fit: 'cover',
+      crops: [
+        { from: 0.5, to: 1, ...A },
+        { from: 1, to: 3, layout: 'rows', panels: [right, left] },
+      ],
+    });
+    // 320×180 的源放进 1080×960 的格子：两格都放大过头。
+    expect(derived.warnings).toEqual([
+      { code: 'split-short', count: 1 },
+      { code: 'panel-upscaled', count: 2 },
+    ]);
+    expect(derived.framing).toEqual([
+      { from: 0.5, to: 1, ...A },
+      { from: 1, to: 3, layout: 'rows', panels: [left, right] },
+    ]);
+    const pieces = sequenceOf(derived.video.videoId)
+      .items.filter((item): item is VideoItem => item.type === 'video')
+      .sort((a, b) => a.span.fromFrame - b.span.fromFrame);
+    // 父视频在 1.5s 有剪口：分屏段落在两个片段上，两段的格子一样；一人段换成取景点。
+    expect(pieces.map((item) => [item.span.fromFrame, item.panels?.length ?? 0, !!item.crop, !!item.focalPoint])).toEqual([
+      [0, 0, false, true],
+      [15, 2, false, false],
+      [30, 2, false, false],
+    ]);
+    expect(pieces[1]!.panels).toEqual(pieces[2]!.panels);
+    expect(pieces[1]!.panels![0]!.focalPoint.x).toBeLessThan(pieces[1]!.panels![1]!.focalPoint.x);
   });
 
   it('父视频的旧译文（/1）换成 /2 带进子视频，并按父视频的译文字幕层建一层', async () => {

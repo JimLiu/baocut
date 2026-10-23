@@ -282,6 +282,103 @@ export interface VideoPanel {
 export const PANELS_MIN = 2;
 export const PANELS_MAX = 4;
 
+/** 分屏的版式：`rows` 2–3 行整宽等高，`grid` 田字格 4 格。人按在原片里从左到右的次序排进格子（从上到下；`grid` 先左上、右上）。 */
+export type PanelLayout = 'rows' | 'grid';
+
+/** 版式的格子（画布百分比，次序同 {@link PanelLayout}）：`rows` 要 2 或 3 格，`grid` 要 4 格，别的 null。三行是 33.333 / 33.334 / 33.333。 */
+export function panelRects(layout: PanelLayout, count: number): PanelRect[] | null {
+  if (layout === 'grid' && count === 4) {
+    return [
+      { x: 0, y: 0, w: 50, h: 50 },
+      { x: 50, y: 0, w: 50, h: 50 },
+      { x: 0, y: 50, w: 50, h: 50 },
+      { x: 50, y: 50, w: 50, h: 50 },
+    ];
+  }
+  if (layout === 'rows' && count === 2) {
+    return [
+      { x: 0, y: 0, w: 100, h: 50 },
+      { x: 0, y: 50, w: 100, h: 50 },
+    ];
+  }
+  if (layout === 'rows' && count === 3) {
+    return [
+      { x: 0, y: 0, w: 100, h: 33.333 },
+      { x: 0, y: 33.333, w: 100, h: 33.334 },
+      { x: 0, y: 66.667, w: 100, h: 33.333 },
+    ];
+  }
+  return null;
+}
+
+/** 一组格子是哪种版式：与 {@link panelRects} 给的格子一致（差不到 0.01%）时；认不出时 null。 */
+export function panelLayoutOf(panels: readonly { rect: PanelRect }[]): PanelLayout | null {
+  for (const layout of ['rows', 'grid'] as const) {
+    const rects = panelRects(layout, panels.length);
+    if (rects?.every((r, n) => (['x', 'y', 'w', 'h'] as const).every((k) => Math.abs(r[k] - panels[n]!.rect[k]) < 0.01))) return layout;
+  }
+  return null;
+}
+
+/** 刚好铺满时看得见源的多大一块（源的比例）：源比格子宽时左右裁掉，否则上下裁掉。 */
+function coverFraction(source: { width: number; height: number }, cell: { width: number; height: number }) {
+  const s = source.width / source.height;
+  const c = cell.width / cell.height;
+  return s > c ? { u: c / s, v: 1 } : { u: 1, v: s / c };
+}
+
+/**
+ * 一格看得见源的哪一块（源的比例：左、上、宽、高）：源按格子的宽高比铺满，再围着取景点放大（同帧计划的 cover 取景）。
+ * `source` 是源的显示尺寸（裁剪之后），`cell` 是格子的尺寸（只看宽高比）。
+ */
+export function panelWindow(
+  focal: FocalPoint,
+  source: { width: number; height: number },
+  cell: { width: number; height: number },
+): { left: number; top: number; width: number; height: number } {
+  const { u: u1, v: v1 } = coverFraction(source, cell);
+  const zoom = focalZoom(focal);
+  const u = u1 / zoom;
+  const v = v1 / zoom;
+  return { left: (1 - u) * focal.x, top: (1 - v) * focal.y, width: u, height: v };
+}
+
+/**
+ * 「要看见的源区域」（四边比例，同 {@link Crop}）换成一格的取景点：在铺满这一格之上放大到刚好装下区域（夹在
+ * [1, {@link FOCAL_MAX_ZOOM}]），看得见的窗口以区域中心为中心，碰到源的边往里推。区域在放大 1 倍时也装不下时 `cropped`
+ * 为 true：对准区域中心，多出的裁掉。取景点取四位小数、放大取三位，放大为 1 时不写。
+ */
+export function panelFocalForRegion(
+  region: Crop,
+  source: { width: number; height: number },
+  cell: { width: number; height: number },
+): { focalPoint: FocalPoint; cropped: boolean } {
+  const { u: u1, v: v1 } = coverFraction(source, cell);
+  const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+  const l = clamp(region.left, 0, 1);
+  const t = clamp(region.top, 0, 1);
+  const rw = Math.max(1e-3, 1 - l - clamp(region.right, 0, 1));
+  const rh = Math.max(1e-3, 1 - t - clamp(region.bottom, 0, 1));
+  const zoom = Math.round(clamp(Math.min(u1 / rw, v1 / rh), 1, FOCAL_MAX_ZOOM) * 1e3) / 1e3;
+  const u = u1 / zoom;
+  const v = v1 / zoom;
+  const at = (start: number, size: number, kept: number) =>
+    kept < 1 - 1e-9 ? Math.round((clamp(start + size / 2 - kept / 2, 0, 1 - kept) / (1 - kept)) * 1e4) / 1e4 : 0.5;
+  const focalPoint: FocalPoint = { x: at(l, rw, u), y: at(t, rh, v), ...(zoom > 1 ? { zoom } : {}) };
+  return { focalPoint, cropped: rw > u1 + 1e-6 || rh > v1 + 1e-6 };
+}
+
+/** 一格的放大量：成片的一个像素对源几个像素，`max(格宽 ÷ 源宽, 格高 ÷ 源高) × 放大倍数`；`source`、`canvas` 是像素尺寸。 */
+export function panelUpscale(
+  panel: VideoPanel,
+  source: { width: number; height: number },
+  canvas: { width: number; height: number },
+): number {
+  const cw = (canvas.width * panel.rect.w) / 100;
+  const ch = (canvas.height * panel.rect.h) / 100;
+  return Math.max(cw / source.width, ch / source.height) * focalZoom(panel.focalPoint);
+}
+
 /** 视觉媒体的字段：视频、图片、素材贴纸、占位框与白板共用。 */
 export interface MediaFields {
   mode?: VisualMode;

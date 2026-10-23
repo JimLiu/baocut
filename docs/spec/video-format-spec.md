@@ -535,7 +535,13 @@ interface VideoItem extends VisualItemBase, MediaFields {
   timeMap: TimeMap;
   crop?: Crop;                         // §3.5
   focalPoint?: FocalPoint;             // §3.5
+  panels?: VideoPanel[];               // §3.5 分屏：2–4 格，只用于全屏 cover；省略时一整幅
   embeddedAudio: EmbeddedAudio;        // 内嵌音频的路由（§3.9）
+}
+
+interface VideoPanel {
+  rect: { x: number; y: number; w: number; h: number };  // 画布百分比：左上角与宽高
+  focalPoint: FocalPoint;              // 这一格的取景点与放大，「铺满」指铺满这一格
 }
 
 interface ImageItem extends VisualItemBase, MediaFields {
@@ -585,6 +591,7 @@ type SequenceItem =
   - `mode`、`fit`、`bg`：视频、图片、占位框、白板，以及 `sticker.source` 为 `'asset'` 的贴纸（下称视觉媒体）。`mask`、`fx` 用于视觉媒体与合成实例。
   - `tile`：文字与图片。
   - `crop`、`focalPoint`：视频与图片。
+  - `panels`：只用于 `mode` 为 `fullscreen`、`fit` 为 `cover`（或省略）的视频。
   - `source`、`html`：只用于图片；有 `html` 时 `source` 必须是 `'html'`。
 - **`role`** 说明实例的作用，供界面分组与智能体理解，不改变渲染。词表开放，读到不认识的取值照常保留。其中五个值写入时校验与种类的搭配：`broll`（图片、视频）、`watermark`（文字、图片、视频、贴纸）、`screentext`（文字）、`overlay` 与 `frame`（图片、视频、贴纸）。其余常用的取值：`a-roll`、`narration`、`dub`、`music`、`sfx`；字幕实例用 `source`、`translation`。
 - **`extensions`** 的键是命名空间（例如 `baocut.import`）。引擎不解释其中的内容，写回时原样保留。画面元素的参数一律写正式字段，不放进这里（架构设计 §13.4）；这里只放说明来源的数据，例如导入时的原始 ID。
@@ -636,6 +643,7 @@ interface FocalPoint { x: number; y: number; zoom?: number }   // cover 留下�
 - 文字的纵向钉点是 `TextItem.verticalAlign`（§3.6），不在 `place` 里。
 - **裁剪**（`crop`）从源的显示画面（已按旋转元数据摆正）四边各裁掉一个比例：每边在 [0, 1)，左右之和、上下之和都小于 1。四边都是 0 等于没有裁剪，不保存。裁剪在 `fit` 之前：留下的区域当作源画面，它的宽高比参与框的高与 `fit`。
 - **取景点**（`focalPoint`）决定 `cover` 裁掉多余部分时留哪一段，同 CSS `object-position` 的百分比：`x`、`y` 各在 [0, 1]，0 贴左（上）、0.5 居中、1 贴右（下），多出来的部分按它分到两边。它在裁剪之后定位，只对 `cover` 起作用，不改框，也不裁源画面：换画幅时多出来的画面还在。省略时居中，与没有这个字段的文档一样。`zoom` 是在刚好铺满之上再放大多少，在 [1, 4]，缺省 1；1 不保存（写 1 时去掉这个字段）。放大围着取景点：`cover` 的倍率乘上 `zoom`，源画面上 (`x`, `y`) 那一点仍落在框里的 (`x`, `y`) 处，所以画面始终铺满、不露底；它同样只对 `cover` 起作用，不改框。放大不借用 `place.scale`：`place.scale` 是可以打关键帧的整体倍率，铺满时按框中心放大，与取景点无关；取景的放大跟着取景点走，换画幅时随取景点一起重算。换画幅的取景（剪成短视频）写取景点而不是把左右或上下裁掉；`videos.derive` 收到裁剪时，全屏加 `cover` 的视频按派生画布换成取景点，铺满方向上多出来的那一边不裁，另一边的裁剪（放大、去黑边）留着，看到的画面不变。
+- **分屏**（`VideoItem.panels`）把一件全屏铺满的视频画成 2–4 格：每格是画布上的一个百分比矩形（`rect`，`w`、`h` 大于 0，落在 [0, 100] 之内，两两不重叠，可以贴边），画同一帧源画面——先按实例的 `crop` 取源区域，再按这一格的 `focalPoint` 铺满这一格（同上面的取景点与 `zoom`，只是「刚好铺满」指铺满这一格），裁到格子之内。有 `panels` 时实例自己的 `focalPoint` 不参与渲染（保留着，去掉 `panels` 时回到它）。整件仍是一个画面实例：声音、时间映射、剪口、字幕投影、转场与不透明度都按实例算，滤镜与效果作用在每一格的源画面上；格子是固定的，实例的遮罩、翻转、入场 / 出场与循环动画、关键帧在分屏时不参与；转场把几格合成的整幅当作一个铺满画布的画面。`setStyle` 的 `panels` 整份替换（`null` 去掉）；`mode` 或 `fit` 改得不再是全屏 `cover` 时 `panels` 一并去掉；写入与读取时格数、矩形或取景点不合法的拒绝。常用版式（短视频分屏设计 §3.1）：两格上下各一半，三格三行 33.333 / 33.334 / 33.333，四格田字格；人按在原片里从左到右的次序排进格子。导出交给编码的源尺寸不按画布缩小（格子取一块再放大）。
 - 选中框、命中框与露底检查读静态的 `place`；关键帧与元素动画叠在它上面（§3.15）。
 
 字段来源：`schema.rs` 的 `Place`、`CornerRadii`、`VisualMode`、`Fit`、`Background`、`Tile`；`geometry.rs` 的 `default_place`、`width_basis`、`static_box`、`media_box`、`tile_stamp_points`。
@@ -1470,10 +1478,12 @@ interface Provenance {
     cuts: Array<{ assetId: Id; from: number; to: number }>;  // 区间之外的剪口：主素材源时钟上的秒
     settings: { width: number; height: number; fit: 'cover' | 'contain' | null; crop: Crop | null;
                 captions: boolean; translations: boolean; chapters: boolean;
-                crops?: Array<{ from: number; to: number } & Crop> };  // 分段取景：父视频剪辑后时间线上的秒，已对到帧、截到区间
+                crops?: Array<{ from: number; to: number } & (Crop | { layout: 'rows' | 'grid'; panels: Crop[] })> };
+                                       // 分段取景：父视频剪辑后时间线上的秒，已对到帧、截到区间；分屏段的各格已按区域从左到右排好
     framing?: {                        // 分段取景落在主素材源时钟上的样子：给了 crops 且有主素材时才有
       assetId: Id;                     // 主素材（父视频里的 ID）
-      shots: Array<{ from: number; to: number; crop: Crop | null }>;  // 区间里主素材的每一段：源时钟上的秒与它用的裁剪
+      shots: Array<{ from: number; to: number; crop: Crop | null;              // 区间里主素材的每一段：源时钟上的秒与它用的裁剪
+                     layout?: 'rows' | 'grid'; panels?: VideoPanel[] }>;      // 分屏段：版式与写到片段上的格子（crop 为 null）
     };
     key: string;                       // 幂等键：父视频、版本、区间与设置的 sha256 前 12 位（settings.crops 有才算进来）
     hook?: string;                     // 开头一句：派生时调用方给了才有

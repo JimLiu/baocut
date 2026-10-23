@@ -180,6 +180,8 @@ export const de: RcAgentToolsMessages = {
   deriveRangeEmpty: 'Der Bereich ist nach dem Ausrichten auf Frames leer',
   deriveUnsupportedItem: (p) => `Der Bereich enthält einen Clip, der nicht in ein abgeleitetes Video kopiert werden kann (${p.kind})`,
   deriveParentUnplaced: 'Dieses Video liegt in keinem Projekt- oder Sitzungsordner, daher kann daneben kein abgeleitetes Video erstellt werden',
+  derivePanelsInvalid: (p) =>
+    `Ein geteiltes Bild ${p.layout} braucht ${p.layout === 'grid' ? 'genau 4' : '2 oder 3'} Felder, angegeben wurden ${p.count}`,
   shotsRangeEmpty: 'Nach dem Einrasten auf Frames ist der Bereich leer',
   shotsRangeTooLong: (p) => `Der Bereich ist länger als ${p.minutes} Minuten; erkenne Einstellungen in kürzeren Abschnitten`,
 };

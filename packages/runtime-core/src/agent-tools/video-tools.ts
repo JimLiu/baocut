@@ -393,22 +393,45 @@ const schemas = {
       .describe('可选。视频片段四边各裁掉的比例（0 到 1，左右之和、上下之和小于 1）'),
     crops: z
       .array(
-        z
-          .strictObject({
-            from: z.number().nonnegative(),
-            to: z.number().positive(),
-            left: z.number().min(0).lt(1),
-            top: z.number().min(0).lt(1),
-            right: z.number().min(0).lt(1),
-            bottom: z.number().min(0).lt(1),
-          })
-          .refine((c) => c.to > c.from && c.left + c.right < 1 && c.top + c.bottom < 1),
+        z.union([
+          z
+            .strictObject({
+              from: z.number().nonnegative(),
+              to: z.number().positive(),
+              left: z.number().min(0).lt(1),
+              top: z.number().min(0).lt(1),
+              right: z.number().min(0).lt(1),
+              bottom: z.number().min(0).lt(1),
+            })
+            .refine((c) => c.to > c.from && c.left + c.right < 1 && c.top + c.bottom < 1),
+          z
+            .strictObject({
+              from: z.number().nonnegative(),
+              to: z.number().positive(),
+              layout: z.enum(['rows', 'grid']).describe('rows：2 或 3 人上下排开；grid：4 人田字格'),
+              panels: z
+                .array(
+                  z
+                    .strictObject({
+                      left: z.number().min(0).lt(1),
+                      top: z.number().min(0).lt(1),
+                      right: z.number().min(0).lt(1),
+                      bottom: z.number().min(0).lt(1),
+                    })
+                    .refine((c) => c.left + c.right < 1 && c.top + c.bottom < 1),
+                )
+                .min(2)
+                .max(4)
+                .describe('每人一格要看见的源区域（四边比例，同 crop），次序随意'),
+            })
+            .refine((c) => c.to > c.from),
+        ]),
       )
       .max(64)
       .refine((list) => [...list].sort((a, b) => a.from - b.from).every((c, n, all) => n === 0 || c.from >= all[n - 1]!.to))
       .optional()
       .describe(
-        '可选。按镜头分段取景：每段 from、to 是父视频剪辑后时间线上的秒（与 start、end 同一个时钟，可直接用 videos_shots 的 shots），加上这段的四边裁剪比例（同 crop）；最多 64 段，互不重叠。区间首尾不足 0.5 秒的缺口（区间边界落在停顿里被吸附而比请求的宽几帧）由第一段、最后一段自动延上去；更大的缺口和中间没盖住的地方用 crop',
+        '可选。按镜头分段取景：每段 from、to 是父视频剪辑后时间线上的秒（与 start、end 同一个时钟，可直接用 videos_shots 的 shots），加上这段的四边裁剪比例（同 crop），或分屏的 layout 与 panels（每人一格）；最多 64 段，互不重叠。区间首尾不足 0.5 秒的缺口（区间边界落在停顿里被吸附而比请求的宽几帧）由第一段、最后一段自动延上去；更大的缺口和中间没盖住的地方用 crop',
       ),
     captions: z.boolean().optional().describe('可选。按复制来的转写给子视频建原文字幕层，默认 true'),
     translations: z.boolean().optional().describe('可选。复制父视频的译文，默认 true'),
@@ -819,6 +842,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '首版只支持单主素材时间线：剪口只记在时间线上播放得最多的那个素材（主素材）上；别的素材与图文片段跟着剪口移动、缩短，整个落在剪掉范围里的会被删掉，恢复剪口时回不来。父视频有多个媒体素材时 warnings 有 multiple-assets；主素材盖不到的区间之外部分没剪掉时有 range-not-exact（count 是帧数）；会被删掉、恢复不回来的片段有 items-not-restorable。父视频有代码画面（composition）时拒绝（DERIVE_UNSUPPORTED_ITEM）；区间对到帧后为空时拒绝（DERIVE_RANGE_EMPTY）；父视频本身就是项目或会话的目录时拒绝（DERIVE_PARENT_UNPLACED）。',
       '分段取景（crops）：各段起止就近对到帧、截到区间（截过或截完为空丢掉的，warnings 有 crops-adjusted，count 是段数）；主素材的视频片段在取景变化的帧上拆成几段，各带自己的 crop（入场动画只留第一段、出场只留最后一段，内嵌音频淡入淡出同理；循环动画或音量包络每段从头算，warnings 有 animation-split）。区间首尾不足 0.5 秒的缺口由第一段、最后一段向外延盖住（不计入 crops-adjusted）；区间之前、之后的部分沿用第一段、最后一段的取景，恢复首尾的话时画面跟着那一段。结果的 framing 是实际采用的各段；派生来源文档的 settings.crops 记同一份，framing 记它们在主素材源时钟上的位置。crops 给了才参与幂等键。',
       '取景不丢画面：全屏 + cover 的视频片段知道源尺寸时，crop、crops 给的裁剪换成取景点（focalPoint）写到片段上，铺满方向上多出来的那一边不裁掉（另一边的裁剪，如放大或去黑边，照样留着）。子视频里看到的画面与给的裁剪一样，以后改回原画幅还能看到全部。',
+      '分屏段（crops 里带 layout 与 panels 的段）：rows 要 2 或 3 格（上下排开），grid 要 4 格（田字格），格数不对时拒绝（DERIVE_PANELS_INVALID）。panels 是每人要看见的源区域，Runtime 按区域中心从左到右排进格子（最左的人在最上面、grid 在左上），换成每格的取景点与放大，主素材的全屏 cover 片段写 panels（不写 crop、focalPoint）。画幅没变或 fit 为 contain 时分屏段按各格区域的并集当一人裁剪（warnings 有 panels-ignored）；区域在一格里装不下时有 panel-region-cropped，某格放大量（成片一个像素对原片几个像素）超过 2.5 时有 panel-upscaled（count 都是格数）；分屏段短于 3 秒时有 split-short（count 是段数）。结果的 framing 里分屏段的 panels 已按左右排好。',
       'hook、reason、notes 写进派生来源文档，供剪成短视频的结果页显示开头一句、为什么挑它与提示牌；它们与 name 一样不参与幂等键，认回已有的子视频时不改写。',
       '幂等：父视频同一版本、同一区间与设置再调用时认回已有的子视频（reused 为 true），不再复制。会向用户确认。',
       '返回 video（子视频的 videoId、名字与打开位置）、reused、key、对到帧的 range、primaryAssetId、cuts（区间之外的剪口：主素材源时钟上的秒）、itemCount、framing（给了 crops 时）、derivationDocumentId（派生来源文档）、hook、reason、notes（派生来源文档里记下的挑选说明，原样回显，没有的不带；认回时是原来那份）、speech、translations、captions（每层字幕的 documentId、sourceDocumentId 与 cueCount：字幕按整份文稿切条，cueCount 只数落在保留区间里、子视频里看得到的字幕条；认回已有的一层时为 null）与 warnings。之后用 videos_inspect 读子视频。',
@@ -2120,6 +2144,7 @@ const DERIVE_TOOL_MESSAGES: Record<string, string> = {
   DERIVE_RANGE_EMPTY: '区间对到帧之后是空的：start、end 是剪辑后时间线上的秒，先用 videos_inspect 看时长',
   DERIVE_UNSUPPORTED_ITEM: '父视频里有不能复制到子视频的片段（代码画面或不能复制的链接素材，details 指出是哪个），首版不支持派生',
   DERIVE_PARENT_UNPLACED: '这个视频就是项目或会话的目录本身（或不是从项目、会话打开的），旁边没有地方建子视频',
+  DERIVE_PANELS_INVALID: '分屏段的格数与版式对不上：rows 要 2 或 3 格，grid 要 4 格；5 人及以上不分屏，改成一人裁剪',
 };
 // i18n-ignore-end
 
