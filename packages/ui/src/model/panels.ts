@@ -173,6 +173,15 @@ export function zoomPanel(
 }
 
 /**
+ * 一次滚轮事件放大多少倍（原型 stage-panels.jsx `useWheelZoom`）：往上滚是放大；`deltaMode` 按行（1）、按页（2）的换成像素；
+ * 触控板捏合到达时是按着 Ctrl 的滚轮，`deltaY` 小而密，按 0.01 算，普通滚轮一格约 100 像素，按 0.002 算。
+ */
+export function wheelZoomFactor(event: { deltaY: number; deltaMode: number; ctrlKey: boolean }): number {
+  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1;
+  return Math.exp(-event.deltaY * unit * (event.ctrlKey ? 0.01 : 0.002));
+}
+
+/**
  * 只留这一格的人：换成整幅一人的取景点，这个人仍落在原片里原来的横向位置（整幅的窗口中心对准这一格窗口的中心），不放大。
  */
 export function soloFocal(panel: VideoPanel, source: CanvasSize, canvas: CanvasSize): FocalPoint {

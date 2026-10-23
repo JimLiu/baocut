@@ -128,7 +128,7 @@ export function StageFramingChip({
   return (
     <div ref={ref} className={chip} style={{ left: frame.left, top }} data-stage-editor data-framing-chip={item.id}>
       <span className={mode({ isHit: !!hit })} role="status">
-        {hit ? framingHitText(hit) : split ? STAGE_COPY.panelsMode(item.panels!.length) : STAGE_COPY.framingMode}
+        {hit ? framingHitText(hit, split) : split ? STAGE_COPY.panelsMode(item.panels!.length) : STAGE_COPY.framingMode}
       </span>
       {split ? (
         <PanelsInfo placement="top start" />

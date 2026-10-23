@@ -18,10 +18,10 @@ const body = style({ display: 'flex', flexDirection: 'column', gap: 8 });
 const para = style({ margin: 0 });
 const hint = style({ margin: 0, font: 'ui-sm', color: 'gray-600' });
 
-/** 拖不动、缩到铺满、放到上限时小牌上临时说的那一句。 */
-export function framingHitText(hit: FramingHit): string {
+/** 拖不动、缩到铺满、放到上限时小牌上临时说的那一句；`split` 是分屏的视频（缩到底是铺满那一格）。 */
+export function framingHitText(hit: FramingHit, split = false): string {
   if (hit === 'locked') return STAGE_COPY.framingLocked;
-  if (hit === 'min') return STAGE_COPY.framingMin;
+  if (hit === 'min') return split ? STAGE_COPY.panelsZoomMin : STAGE_COPY.framingMin;
   if (hit === 'edge') return STAGE_COPY.panelsEdge;
   return STAGE_COPY.framingMax(FOCAL_MAX_ZOOM);
 }

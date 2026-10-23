@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import type { CaptionItem, DocumentRecord, Id, Localized, Place, Revision, Sequence, SequenceItem, VisualMode } from '@baocut/protocol';
+import type { CaptionItem, DocumentRecord, Id, Localized, Place, Revision, Sequence, SequenceItem, VideoPanel, VisualMode } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import { ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -21,7 +21,16 @@ import {
   type CaptionMove,
   type CaptionMoveFrame,
 } from '../../model/stage-caption-move.ts';
-import { layoutOfPanels, panelsOperations } from '../../model/panels.ts';
+import {
+  layoutOfPanels,
+  panelAt,
+  panelSource,
+  panelsOperations,
+  pointInPanel,
+  wheelZoomFactor,
+  zoomPanel,
+  type PanelledVideo,
+} from '../../model/panels.ts';
 import { framingAnchor, framingOperations, isFramed, isPanelled, stagePose, type FramingHit } from '../../model/stage-framing.ts';
 import {
   gestureOperations,
@@ -93,7 +102,8 @@ import { StageToolbar } from './stage-toolbar.tsx';
  * - 按原片取景的视频（`stage-framing`，原型 stage-objects.jsx `FramingSelection`）：框是整幅原片，只有四角，拖角围着取景点
  *   放大、缩小；拖画面本身不动它，只让小牌说一句为什么（不提交）。整组拖动、缩放与方向键都不挪它。
  * - 分屏的视频（`panels.ts`，原型 stage-panels.jsx `PanelsSelection`）：框是整块画布，画出各格的接缝与叫法，没有把手；按在一格里拖
- *   只改这一格的取景点（画面跟着手走），拖到原片边上小牌说一句。
+ *   只改这一格的取景点（画面跟着手走），拖到原片边上小牌说一句。指针在一格里滚轮（触控板双指滑动、捏合）或触屏两指捏合，缩放这一格，
+ *   指针下那一点不动，一阵缩放停下 0.4 秒记一步；指针不在格子里时不拦滚轮。
  */
 
 const root = style({ position: 'absolute', inset: 0, outlineStyle: 'none', userSelect: 'none', touchAction: 'none' });
@@ -122,6 +132,16 @@ const LABEL: Record<Gesture['kind'], () => Localized> = {
 
 /** 小牌上那句「为什么」留多久（原型 stage-objects.jsx `HIT_MS`）。 */
 const HIT_MS = 2400;
+
+/** 一阵滚轮、捏合缩放停下多久记一步历史（原型 stage-panels.jsx `useWheelZoom`）。 */
+const ZOOM_SETTLE_MS = 400;
+
+/** 一阵连续的滚轮、捏合缩放：缩的是哪一件（起手时的它，提交时拿它比有没有变）、此刻的格子、停下记一步的计时。 */
+interface ZoomSession {
+  item: PanelledVideo;
+  panels: VideoPanel[];
+  timer: number;
+}
 
 /**
  * 拖字幕：起手时的样式文档、正文与根样式，拖到某处时根样式变成什么（整组挪根样式，双语单拖一行写那一行的覆盖），
@@ -202,6 +222,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const rootRef = useRef<HTMLDivElement>(null);
   const spaceRef = useRef<HTMLDivElement>(null);
   const press = useRef<Press | null>(null);
+  const zoom = useRef<ZoomSession | null>(null);
   const latest = useRef(sequence);
   latest.current = sequence;
   const nudges = useRef({ inflight: 0, at: new Map<Id, { place: Place; mode?: VisualMode }>() });
@@ -390,6 +411,112 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     });
   };
 
+  // ---- 分屏：在一格里滚轮、捏合缩放 ----
+
+  /**
+   * 收起这一阵缩放：记一步历史（什么都没变时丢掉草稿），返回它最后的格子，按下指针时接着在一格里拖用。
+   * 只读 ref 与 store，原生监听里也能调。
+   */
+  const settleZoom = (): ZoomSession | null => {
+    const session = zoom.current;
+    if (!session) return null;
+    zoom.current = null;
+    window.clearTimeout(session.timer);
+    const operations = panelsOperations(latest.current.id, session.item, session.panels);
+    if (!operations.length) useEditor.getState().clearDrafts();
+    else
+      void apply(operations, EditLabel.adjustPanel()).then((receipt) => {
+        if (!receipt) useEditor.getState().clearDrafts();
+      });
+    return session;
+  };
+
+  /**
+   * 以 `clientX, clientY` 为中心把选中的分屏视频指针下那一格放大 `factor` 倍，画面跟手、停下 0.4 秒记一步；指针不在它的格子里
+   * （或此刻改不了、正在拖）时 false，不拦这个事件（原型 stage-panels.jsx `useWheelZoom` 的 `zoomBy`）。
+   */
+  const zoomBy = (factor: number, clientX: number, clientY: number): boolean => {
+    const frameEl = spaceRef.current;
+    if (press.current || !frameEl || !single || !isPanelled(single) || !changeable(single)) return false;
+    const source = panelSource(single, assets);
+    const fr = frameEl.getBoundingClientRect();
+    if (!source || !(fr.width > 0) || !(fr.height > 0)) return false;
+    if (zoom.current && zoom.current.item.id !== single.id) settleZoom();
+    const seq = latest.current;
+    const panels = zoom.current?.panels ?? single.panels;
+    const p = toCanvas(seq.canvas, fr, clientX, clientY);
+    const cell = panelAt(panels, p, seq.canvas);
+    if (cell < 0) return false;
+    const out = zoomPanel(panels, cell, factor, pointInPanel(panels[cell]!, p, seq.canvas), source, seq.canvas);
+    const session = (zoom.current ??= { item: single, panels, timer: 0 });
+    session.panels = out.panels;
+    useEditor.getState().setDraft({ itemId: single.id, revision: seq.revision, patch: { panels: out.panels } });
+    bump(out.hit);
+    window.clearTimeout(session.timer);
+    session.timer = window.setTimeout(settleZoom, ZOOM_SETTLE_MS);
+    return true;
+  };
+
+  // 拦得住浏览器的滚轮、触摸要挂原生监听（React 的是 passive 的）；监听只挂一次，经 ref 调到这一轮渲染的函数。
+  const zoomByRef = useRef(zoomBy);
+  zoomByRef.current = zoomBy;
+  const settleRef = useRef(settleZoom);
+  settleRef.current = settleZoom;
+  const cancelPressRef = useRef(() => {});
+  useEffect(() => {
+    const rootEl = rootRef.current;
+    if (!rootEl) return;
+    let pinch: { d: number; x: number; y: number } | null = null;
+    const spread = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const onWheel = (event: WheelEvent) => {
+      if (!event.deltaY) return;
+      if (zoomByRef.current(wheelZoomFactor(event), event.clientX, event.clientY)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    // 两指按下：先收起第一指已经起手的拖动，再以两指中点为中心缩放。
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 2) return;
+      const a = event.touches[0]!;
+      const b = event.touches[1]!;
+      cancelPressRef.current();
+      pinch = { d: spread(a, b), x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+      if (zoomByRef.current(1, pinch.x, pinch.y)) event.preventDefault();
+      else pinch = null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (!pinch || event.touches.length !== 2) return;
+      const d = spread(event.touches[0]!, event.touches[1]!);
+      if (pinch.d > 0 && zoomByRef.current(d / pinch.d, pinch.x, pinch.y)) event.preventDefault();
+      pinch.d = d;
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) pinch = null;
+    };
+    rootEl.addEventListener('wheel', onWheel, { passive: false });
+    rootEl.addEventListener('touchstart', onTouchStart, { passive: false });
+    rootEl.addEventListener('touchmove', onTouchMove, { passive: false });
+    rootEl.addEventListener('touchend', onTouchEnd);
+    rootEl.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      rootEl.removeEventListener('wheel', onWheel);
+      rootEl.removeEventListener('touchstart', onTouchStart);
+      rootEl.removeEventListener('touchmove', onTouchMove);
+      rootEl.removeEventListener('touchend', onTouchEnd);
+      rootEl.removeEventListener('touchcancel', onTouchEnd);
+      settleRef.current();
+    };
+  }, []);
+  // 换了选中就把上一件的这一阵缩放记下来；缩放中序列换了版本（撤销、别处改了），草稿跟到新版本上，画面不弹回。
+  useEffect(() => {
+    settleRef.current();
+  }, [single?.id]);
+  useEffect(() => {
+    const session = zoom.current;
+    if (session) useEditor.getState().setDraft({ itemId: session.item.id, revision: sequence.revision, patch: { panels: session.panels } });
+  }, [sequence.revision]);
+
   // ---- 拖字幕 ----
 
   /**
@@ -495,6 +622,8 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const frameEl = spaceRef.current;
     if (!rootEl || !frameEl) return;
     event.preventDefault();
+    // 刚滚轮缩放过：先记下那一步，接着拖的从缩放后的格子起手（最后几下滚轮可能还没渲染进序列）。
+    const zoomed = settleZoom();
     rootEl.focus({ preventScroll: true });
     const fr = frameEl.getBoundingClientRect();
     if (!(fr.width > 0) || !(fr.height > 0)) return;
@@ -553,7 +682,8 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       else if (!current.includes(hit) || current.length > 1) select([hit]);
       if (item?.type === 'caption') useEditor.getState().showPanel('props');
       // 按原片取景的视频（剪成短视频的子视频）位置跟着取景点：拖不动，只让小牌说一句为什么。分屏的拖的是按下那一格的取景点。
-      if (item && isPanelled(item) && changeable(item)) gesture = panGesture(item, p, seq.canvas, assets);
+      if (item && isPanelled(item) && changeable(item))
+        gesture = panGesture(zoomed?.item.id === item.id ? { ...item, panels: zoomed.panels } : item, p, seq.canvas, assets);
       else if (item && isFramed(item) && changeable(item)) gesture = { kind: 'hold', member: memberOf(item, seq.canvas, assets), p0: p };
       else if (item && isPlaced(item) && changeable(item)) gesture = { kind: 'move', member: memberOf(item, seq.canvas, assets), p0: p };
       else if (item?.type === 'caption' && changeable(item) && (!captionGroup || current.every((id) => changeable(byId.get(id)!))))
@@ -653,14 +783,21 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     else if (p.marquee) finishMarquee(p, event.clientX, event.clientY, p.marquee.additive);
   };
 
-  const onPointerCancel = (event: PointerEvent<HTMLDivElement>) => {
+  /** 丢下这一下按住：拖过的画面弹回，不提交（指针被系统收走；触屏上第二指按下改成捏合）。 */
+  const cancelPress = () => {
     const p = press.current;
-    if (!p || event.pointerId !== p.pointerId) return;
+    if (!p) return;
     press.current = null;
     if (p.raf) cancelAnimationFrame(p.raf);
     if (p.moved && p.gesture) discard(p.gesture);
     else if (p.moved && p.caption) useEditor.getState().clearDrafts();
+    if (rootRef.current?.hasPointerCapture(p.pointerId)) rootRef.current.releasePointerCapture(p.pointerId);
     reset();
+  };
+  cancelPressRef.current = cancelPress;
+
+  const onPointerCancel = (event: PointerEvent<HTMLDivElement>) => {
+    if (press.current && event.pointerId === press.current.pointerId) cancelPress();
   };
 
   // ---- 双击：旋转钮归零；文字就地改 ----

@@ -20,6 +20,7 @@ import {
   swapPanelViews,
   swapPanels,
   upscaledPanels,
+  wheelZoomFactor,
   withPanelFocal,
   zoomPanel,
   type PanelledVideo,
@@ -253,5 +254,16 @@ describe('格子、间距、放到上格与在一格里缩放', () => {
     const [top, bottom] = defaultPanels();
     expect(pointInPanel(top!, { x: 540, y: 480 }, canvas)).toEqual({ x: 0.5, y: 0.5 });
     expect(pointInPanel(bottom!, { x: 270, y: 1920 }, canvas)).toEqual({ x: 0.25, y: 1 });
+  });
+
+  it('滚轮的倍数：往上滚放大，按行、按页换成像素，捏合（按着 Ctrl）更灵敏', () => {
+    const wheel = (deltaY: number, deltaMode = 0, ctrlKey = false) => wheelZoomFactor({ deltaY, deltaMode, ctrlKey });
+    expect(wheel(-100)).toBeCloseTo(Math.exp(0.2), 6);
+    expect(wheel(100)).toBeCloseTo(Math.exp(-0.2), 6);
+    expect(wheel(0)).toBe(1);
+    expect(wheel(-3, 1)).toBeCloseTo(wheel(-48), 6);
+    expect(wheel(-1, 2)).toBeCloseTo(wheel(-400), 6);
+    expect(wheel(-10, 0, true)).toBeCloseTo(Math.exp(0.1), 6);
+    expect(wheel(-50) * wheel(50)).toBeCloseTo(1, 9);
   });
 });
