@@ -322,8 +322,12 @@
                   pose={{x, y, w: ln.width || 84, scale: 1, rot: 0}}
                   setPose={(patch) => {
                     // 拖动直接写锚线 y 与水平中心 x——都是绝对的帧百分比，不需要「换锚点再折算」那一套。
-                    // 宽度柄的补丁（带 w）不改宽也不挪 x：只认移动。
-                    if (seam != null && patch.w == null) window.unseamSubs(ctx, doc, cue, shown, seam);
+                    // 宽度柄的补丁（带 w）不改宽也不挪 x：只认移动。挂在接缝上时它的 y 是画出来的接缝位置，
+                    // 写回锚线会再叠一次接缝，所以整个补丁不认；真拖动才先解开接缝。
+                    if (seam != null) {
+                      if (patch.w != null) return;
+                      window.unseamSubs(ctx, doc, cue, shown, seam);
+                    }
                     const next = {};
                     if (patch.y != null) next.y = P.subClampY(patch.y);
                     if (patch.x != null && patch.w == null) next.x = P.subClampY(patch.x);
