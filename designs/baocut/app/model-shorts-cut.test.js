@@ -44,7 +44,7 @@ test('参数：缺省值、条数夹在 1–10、时长档不设上限、画幅�
   assert.equal(M.DEFAULTS.focus, 'auto');
   assert.equal(M.DEFAULTS.ratio, '9:16');
   assert.equal(M.FOCUS[0].id, 'speaker');
-  assert.equal(M.FOCUS[0].off, '这一版还没有人物与发言人模型');
+  assert.equal(M.FOCUS[0].off, '转写里还没分出说话人 · 先用「识别说话人」');
   assert.equal(M.clampCount(0), 1);
   assert.equal(M.clampCount(99), 10);
   assert.equal(M.clampCount('x'), 'auto');
@@ -81,11 +81,14 @@ test('参数落到项目上：没有译文只有原文；竖屏原片不取景�
   assert.deepEqual([b.tracks, b.focus, b.skipDone], ['trans', 'manual', false]);
 });
 
-test('取景缺省自动：跟着说话的人这一版不开放、旧版的居中不再单列，带进来都落回自动；竖屏原片仍不取景', () => {
+test('取景：分不出说话人时缺省自动、跟着说话的人选不了；旧版的居中不再单列，带进来落回缺省；竖屏原片仍不取景', () => {
   const ctx = {hasTrans: true, portrait: false, children: 0};
   assert.deepEqual(M.FOCUS.map((f) => f.id), ['speaker', 'auto', 'manual']);
   assert.equal(M.normalize({}, ctx).focus, 'auto');
   assert.equal(M.normalize({focus: 'speaker'}, ctx).focus, 'auto');
+  assert.equal(M.normalize({focus: 'speaker'}, Object.assign({}, ctx, {speakers: 1})).focus, 'auto', '一个说话人不算分出来');
+  assert.equal(M.focusOpen(M.focusOf('speaker'), ctx), false);
+  assert.equal(M.focusOpen(M.focusOf('auto'), ctx), true);
   assert.equal(M.normalize({focus: 'center'}, ctx).focus, 'auto');
   assert.equal(M.normalize({focus: 'nope'}, ctx).focus, 'auto');
   assert.equal(M.normalize({focus: 'manual'}, ctx).focus, 'manual');
@@ -93,6 +96,22 @@ test('取景缺省自动：跟着说话的人这一版不开放、旧版的居�
   assert.equal(M.focusOf('nope').id, 'auto');
   assert.equal(M.summaryLine(M.normalize({}, ctx)), '按话题定几支、多长 · 9:16 · 自动');
   assert.equal(M.summaryLine(M.normalize({count: 3, length: 'mid'}, ctx)), '3 支 · 每支 30–60 秒 · 9:16 · 自动');
+});
+
+test('取景：转写里分出 2 个以上说话人时缺省跟着说话的人，可以改成别的；分屏开关跟着它也出现', () => {
+  const ctx = {hasTrans: true, portrait: false, children: 0, speakers: 3};
+  assert.equal(M.focusOpen(M.focusOf('speaker'), ctx), true);
+  assert.equal(M.normalize({}, ctx).focus, 'speaker');
+  assert.equal(M.normalize({focus: 'nope'}, ctx).focus, 'speaker');
+  assert.equal(M.normalize({focus: 'auto'}, ctx).focus, 'auto');
+  assert.equal(M.normalize({focus: 'manual'}, ctx).focus, 'manual');
+  assert.equal(M.normalize({}, Object.assign({}, ctx, {portrait: true})).focus, 'auto', '竖屏原片不取景');
+  assert.deepEqual(['speaker', 'auto', 'manual'].map(M.splitApplies), [true, true, false]);
+  const x = M.agentExtra({focus: 'speaker'});
+  assert.ok(x.includes('画幅 9:16，取景跟着说话的人：有近景与全景来回切时按镜头取景；只有一个全景机位时用 videos_shots 的 by speaker 按说话人切段，谁说话对准谁'));
+  assert.ok(x.includes(M.SPLIT.promptOn));
+  assert.ok(M.agentExtra({focus: 'speaker', split: false}).includes(M.SPLIT.promptOff));
+  assert.ok(!M.agentExtra({focus: 'manual'}).some((l) => l === M.SPLIT.promptOn || l === M.SPLIT.promptOff));
 });
 
 test('吸附：模型给的时间落到最近的句首和句尾，终点不会跑到起点前面', () => {

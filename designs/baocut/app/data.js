@@ -490,8 +490,9 @@
      },
      meta: {speakers: 1, chapters: 1, cues: 24}},
     /* 同一个来源的第二支：切出后在文稿里点回了后面一句，所以片段外尾巴那条剪口从第 15 句之后才开始，
-       现状比 `origin` 长一句；取景是自动。原片在这一段里机位切了两次（按镜头分段取景）：主讲人近景 → 全景
-       → 采访者近景，`cut.shots` 记这三个镜头（原片时钟）各自的 focusX；恢复回来的那一句沿用最后一个镜头 */
+       现状比 `origin` 长一句；取景是自动。原片在这一段里机位切了两次（按镜头分段取景）：主讲人近景 → 三人全景
+       （`regions`：分屏三行，docs/design/shorts-framing §3.1）→ 采访者近景，`cut.shots` 记这三个镜头（原片时钟）
+       各自的 focusX；恢复回来的那一句沿用最后一个镜头 */
     {id: 'p12', title: '为什么要把视频工具做在本机', dir: 'd1', folder: '切片-本机', status: 'complete', entry: 'trans', bare: true,
      delivery: 'shorts', ratio: '9:16',
      origin: {project: 'p1', in: cues[4].start, out: cues[13].end, dur: DUR},
@@ -499,7 +500,8 @@
             {id: 'outside-tail', start: cues[14].end, end: DUR, kind: 'outside', state: 'cut', by: 'agent', text: ''}],
      cut: {focus: 'auto', focusX: null, tracks: 'orig', style: 'shorts',
        shots: [{start: cues[4].start, end: 28, focusX: 0.3},
-               {start: 28, end: cues[11].end, focusX: 0.5},
+               {start: 28, end: cues[11].end, focusX: 0.5, regions: [{left: 0.04, top: 0.14, right: 0.7, bottom: 0.3},
+                 {left: 0.37, top: 0.12, right: 0.37, bottom: 0.3}, {left: 0.7, top: 0.14, right: 0.04, bottom: 0.3}]},
                {start: cues[11].end, end: cues[13].end, focusX: 0.74}]},
      src: {name: 'kelang-ep42-master.mp4', path: '~/Movies/播客/kelang-ep42-master.mp4', format: 'MP4 · H.264', res: '1920×1080', state: 'ok'},
      duration: +(cues[14].end - cues[4].start).toFixed(2), lang: '中文', model: 'moss-transcribe', modified: '3 天前', mtime: 4320, otime: 4320, ctime: 10100, hue: 252,

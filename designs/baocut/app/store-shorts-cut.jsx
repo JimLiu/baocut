@@ -51,7 +51,7 @@
       const cur = live.current[proj];
       if (cur) { patch(proj, {open: true}); return {ok: true, resumed: true}; }
       const o = info || {};
-      const facts = {hasTrans: !!o.hasTrans, portrait: !!o.portrait, children: kids(proj).length};
+      const facts = {hasTrans: !!o.hasTrans, portrait: !!o.portrait, speakers: o.speakers || 0, children: kids(proj).length};
       setSessions((all) => ({...all, [proj]: fresh(proj, SC.normalize({}, facts), facts)}));
       return {ok: true};
     }, [patch]);
@@ -228,7 +228,7 @@
       const sentences = (cur && cur.sentences && cur.sentences.length ? cur.sentences : o.sentences) || [];
       const c = SC.redoCandidate(sentences, child, projRef.current.map((x) => x.title));
       if (!c || !parent) return {ok: false};
-      const facts = {hasTrans: !!o.hasTrans, portrait: !!o.portrait, children: kids(proj).length};
+      const facts = {hasTrans: !!o.hasTrans, portrait: !!o.portrait, speakers: o.speakers || 0, children: kids(proj).length};
       const params = SC.redoParams(child, cur ? cur.params : {}, facts);
       const made = SC.childProject({id: newId(++seq.current), parent, seg: c, title: c.title, params});
       setProjects((ps) => [made].concat(ps));

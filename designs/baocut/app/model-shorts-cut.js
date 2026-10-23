@@ -39,11 +39,15 @@
     {id: '1:1', name: '1:1', value: 1},
     {id: 'source', name: '保留原画幅', value: null},
   ];
-  /* 缺省「自动」：智能体在片段里均匀抽帧看说话的人在哪一侧，裁框放到他身上，找不到人就居中（§5.10）；
+  /* 「自动」：智能体在片段里均匀抽帧看说话的人在哪一侧，裁框放到他身上，找不到人就居中（§5.10）；
      `prompt` 是折进提示词的那半句，没有就用 `name`。
-     「跟着说话的人」这一版不开放：还没有人物与发言人模型（§5.10），选项留着、置灰并说明。 */
+     「跟着说话的人」（docs/design/shorts-framing §2.3、§8.1）：转写里分出 2 个以上说话人时可选，并且是缺省；
+     分不出时置灰、写 `off`，缺省回到「自动」（`focusOpen` / `defaultFocus`）。 */
   const FOCUS = [
-    {id: 'speaker', name: '跟着说话的人', desc: '谁说话框跟谁', off: '这一版还没有人物与发言人模型'},
+    {id: 'speaker', name: '跟着说话的人',
+      desc: '谁说话对准谁：原片有近景与全景来回切时跟着原片的镜头；只有一个全景机位时按说话人换人，两人抢着说或都不说话时分屏',
+      off: '转写里还没分出说话人 · 先用「识别说话人」',
+      prompt: '跟着说话的人：有近景与全景来回切时按镜头取景；只有一个全景机位时用 videos_shots 的 by speaker 按说话人切段，谁说话对准谁'},
     {id: 'auto', name: '自动', desc: '看说话的人在画面哪一侧，框放到他身上；找不到人就居中',
       prompt: '自动：在片段里均匀抽几帧，看说话的人在画面哪一侧，把裁框放到他身上；找不到人就居中'},
     {id: 'manual', name: '我自己定', desc: '在结果页的原片上拖取景框，每支定一个位置'},
@@ -61,6 +65,7 @@
   const SPLIT = {
     label: '多人全景时分屏',
     on: '原片切到几个人的全景、一个竖屏框装不下时，每人一格上下排开；只在镜头切换处换，短于 3 秒的全景不分屏',
+    speakerOn: '切到几个人的全景、两人抢着说或都不说话时，每人一格上下排开；每段至少 3 秒',
     off: '几个人的全景也只对准一个人',
     promptOn: '多人全景镜头分屏，每人一格',
     promptOff: '不要分屏，多人全景也对准一个人',
@@ -73,6 +78,12 @@
 
   const lengthOf = (id) => LENGTHS.find((l) => l.id === id) || LENGTHS.find((l) => l.id === DEFAULTS.length);
   const focusOf = (id) => FOCUS.find((f) => f.id === id) || FOCUS.find((f) => f.id === DEFAULTS.focus);
+  /** 这一项在这个项目上能不能选：「跟着说话的人」要转写里分出 2 个以上说话人（`ctx.speakers`）。 */
+  const focusOpen = (f, ctx) => !!f && (f.id !== 'speaker' || ((ctx && ctx.speakers) || 0) >= 2);
+  /** 这个项目上缺省选哪一项：分得出说话人时「跟着说话的人」，否则「自动」。 */
+  const defaultFocus = (ctx) => (focusOpen(focusOf('speaker'), ctx) ? 'speaker' : DEFAULTS.focus);
+  /** 这种取景下有没有「多人全景时分屏」的开关：自动与跟着说话的人才有，自己定的每支只有一个位置。 */
+  const splitApplies = (focus) => focus === 'auto' || focus === 'speaker';
   const ratioOf = (id) => RATIOS.find((r) => r.id === id) || RATIOS[0];
   const clampSec = (n, d) => (Number.isFinite(+n) && n !== '' && n != null ? Math.max(CUSTOM.min, Math.min(CUSTOM.max, Math.round(+n))) : d);
   /** 这次要的时长区间（秒）：预设一档，或自定义的两头（1–600 秒，下限小于上限）；自动时 min / max 为 null。 */
@@ -93,10 +104,11 @@
     Array.from({length: COUNT.max - COUNT.min + 1}, (_, i) => ({id: COUNT.min + i, name: `${COUNT.min + i} 支`})));
   const countName = (n) => (clampCount(n) === AUTO ? '自动' : `${clampCount(n)} 支`);
 
-  /** 参数落到这个项目上：没有译文就只有原文；原片本来就是竖屏就不用取景。
-      「跟着说话的人」这一版不开放，带进来的（连同旧版的「居中」）一律落回缺省的自动。 */
+  /** 参数落到这个项目上：没有译文就只有原文；原片本来就是竖屏就不用取景。没给取景、给了这个项目上选不了的
+      （分不出说话人时的「跟着说话的人」、旧版的「居中」）落回这个项目的缺省（`defaultFocus`）。 */
   function normalize(params, ctx) {
     const c = ctx || {};
+    const want = (params || {}).focus;
     const p = Object.assign({}, DEFAULTS, params);
     p.count = clampCount(p.count);
     p.length = lengthOf(p.length).id;
@@ -105,7 +117,7 @@
     if (!c.hasTrans) p.tracks = 'orig';
     else if (!TRACKS.some((t) => t.id === p.tracks)) p.tracks = 'both';
     if (c.portrait) p.focus = DEFAULTS.focus;
-    else if (!FOCUS.some((f) => f.id === p.focus && !f.off)) p.focus = DEFAULTS.focus;
+    else p.focus = FOCUS.some((f) => f.id === want && focusOpen(f, c)) ? want : defaultFocus(c);
     if (!c.children) p.skipDone = DEFAULTS.skipDone;
     p.split = p.split !== false;
     return p;
@@ -484,7 +496,10 @@
     {k: 'f', at: 17, n: 9, title: '词是真相，句子只是投影', reason: '开头一句就能单独引用'},
     {k: 'b', at: 11, n: 12, title: '渲染最难的是确定性', reason: '有例子，结尾落在一句结论上'},
     {k: 'e', at: 50, n: 11, title: '每个小改动都要三次签字', reason: '有故事，但开头那句在接前面的话', weak: true},
-    {k: 'g', at: 56, n: 6, title: '像是把编译器那套搬过来了', reason: '一问一答，收得干净'},
+    /* 后半段切到三人全景：开着分屏时三行（属性面板里可以换成上一下二） */
+    {k: 'g', at: 56, n: 6, title: '像是把编译器那套搬过来了', reason: '一问一答，收得干净',
+     shots: [{at: 0, focusX: 0.5}, {at: 3, focusX: 0.5, regions: [{left: 0.04, top: 0.14, right: 0.7, bottom: 0.3},
+       {left: 0.37, top: 0.12, right: 0.37, bottom: 0.3}, {left: 0.7, top: 0.14, right: 0.04, bottom: 0.3}]}]},
   ];
   function demoPool(sentences, params, scope) {
     const p = Object.assign({}, DEFAULTS, params);
@@ -605,7 +620,7 @@
     const r = ratioOf(p.ratio);
     const out = [countLine(clampCount(p.count), len)];
     out.push(r.id === 'source' ? '画幅：保留原画幅，不裁' : `画幅 ${r.name}，取景${focusOf(p.focus).prompt || focusOf(p.focus).name}`);
-    if (r.id !== 'source' && p.focus === 'auto') out.push(p.split ? SPLIT.promptOn : SPLIT.promptOff);
+    if (r.id !== 'source' && splitApplies(p.focus)) out.push(p.split ? SPLIT.promptOn : SPLIT.promptOff);
     out.push(`字幕：${tracksOf(p.tracks).name}，${(STYLES.find((x) => x.id === p.style) || STYLES[0]).name}`);
     if (c.scopeName) out.push(`只在「${c.scopeName}」里找`);
     if (p.hook) out.push('每段从一句能单独成立的话起');
@@ -835,7 +850,7 @@
 
   const api = {
     AUTO, COUNT, COUNTS, DONE_RATIO, LENGTHS, CUSTOM, RATIOS, FOCUS, TRACKS, STYLES, DEFAULTS, FIND_STAGES, CREATE_STAGES, DIRECT_LINE, NEAR,
-    lengthOf, lengthRange, focusOf, ratioOf, clampCount, countName, normalize,
+    lengthOf, lengthRange, focusOf, focusOpen, defaultFocus, splitApplies, ratioOf, clampCount, countName, normalize,
     mmss, secs, spanText, overlapSec, durText,
     indexAt, rangeOf, snap,
     isChild, hostId, childrenOf, parentOf, originLabel, countLabel, creatingTitle, createNote, doneBy, deleteNote,
