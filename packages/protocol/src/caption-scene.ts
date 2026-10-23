@@ -293,7 +293,8 @@ export interface CaptionScene {
       fixedLineOverflow?: 'wrap' | null;
       /** Scales every fixed row of a page to the widest row; a last row narrower than lastLineWidthRatio of it
        * grows by at most lastLineMaxScale, and rows add extraLineHeight over the page's largest scale.
-       * Requires caption-fixed-line-fit/1. */
+       * Requires caption-fixed-line-fit/1. A text lineBox additionally requires caption-fixed-line-font-box/1;
+       * the scaled font envelope is reserved before adding extraLineHeight divided by the largest scale. */
       fixedLineFit?: { lastLineWidthRatio: number; lastLineMaxScale: number; extraLineHeight: number } | null;
       /** One integer of 0..65535 per wordLinePattern page, read as unit.pageTag; page p reads entry p mod the
        * pattern length. Requires caption-page-tag/1. */

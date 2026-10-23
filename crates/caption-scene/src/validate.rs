@@ -25,6 +25,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-remaining-word-page-plan/1",
     "caption-fixed-line-wrap/1",
     "caption-fixed-line-fit/1",
+    "caption-fixed-line-font-box/1",
     "caption-page-line-context/1",
     "caption-page-tag/1",
     "caption-line-box-context/1",
@@ -1820,9 +1821,13 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
             {
                 return Err(invalid(&n.id, "invalid font line box"));
             }
-            // Fitted rows take their height from the page scale, not from the font line box.
-            if n.kind == NodeKind::Text && s.layout.pagination.fixed_line_fit.is_some() {
-                return Err(invalid(&n.id, "a text font line box is exclusive with pagination.fixedLineFit"));
+            // Combining fitted rows with a font envelope is a separate opt-in:
+            // it reserves the scaled font box before adding the fit's extra leading.
+            if n.kind == NodeKind::Text
+                && s.layout.pagination.fixed_line_fit.is_some()
+                && !s.required_capabilities.iter().any(|c| c == "caption-fixed-line-font-box/1")
+            {
+                return Err(invalid(&n.id, "fitted font line boxes require caption-fixed-line-font-box/1"));
             }
         }
         length(&n.style.font_size, &n.id, s)?;

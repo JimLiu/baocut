@@ -82,6 +82,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-fixed-line-fit/1` 开放 `pagination.fixedLineFit`：每页固定行按基础字号量宽，各行放大到最宽行宽（末行窄于 `lastLineWidthRatio` 时最多放大 `lastLineMaxScale`），行高随行字号变化并加 `extraLineHeight` / 页最大缩放；行仍是一条显示行，与 `fixedLineOverflow`、`fontSizeBindings`、`fontStyleBindings` 互斥。见 [fixed-line-fit.json](tests/fixtures/fixed-line-fit.json)。
 
+`caption-fixed-line-font-box/1` 允许固定行缩放同时保留 `style.lineBox`：先按缩放字号取得字体行框，行高取原字号行高与字体框高度的较大值，再加该行字号乘 `extraLineHeight` / 页最大缩放。基线、页居中与上下文使用组合后的真实行框；省略新能力仍拒绝该组合，旧布局结果不变。
+
 `caption-gaussian-axis/1` 与 `caption-glow-cascade/1` 提供单 Text 上下文的独立 RGBA 分量滤波：高斯采样按输入纹理 UV、多尺度 pass 按原画布有理比例定尺寸，明确边界及逐 pass gamma/量化。级联保留各尺度图，按声明的 screen 或 source-over-glow 合成；允许 RGB > alpha，须按视频格式 §5.6 使用关联输出。有效区域包含零 alpha 发光，采样与内存预算超限会拒绝。示例见 [gaussian-axis.json](tests/fixtures/gaussian-axis.json)、[glow-cascade.json](tests/fixtures/glow-cascade.json)。
 
 `caption-text-line-layout/1` 用显式 Unicode scalar 或 extended grapheme 数限制每行，按完整词贪心分组并循环页计划；分隔空白不计，超长词独占行，显式换行强制成员边界。与其他分页策略互斥，复用固定词行的时间、几何与逐采样路径，见 [text-line-layout.json](tests/fixtures/text-line-layout.json)。
