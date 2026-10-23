@@ -98,9 +98,11 @@
      `FramingChip`：选中视频时挂在画面左下角外面。 */
 
   /* ---------- 选中框 ---------- */
-  /* `framing`：按原片取景的视频（stage-framing.jsx `framingFor`）走 `FramingSelection`，其余走自由摆放的
+  /* `panels`：分屏的视频（stage-panels.jsx）走 `PanelsSelection`。
+     `framing`：按原片取景的视频（stage-framing.jsx `framingFor`）走 `FramingSelection`，其余走自由摆放的
      `FreeSelection`。分成两个组件而不是在一个里分支：「改成自由摆放」之后同一件换一套把手与手势，得重新挂载。 */
   function SelectionBox(props) {
+    if (props.kind === 'video' && props.panels && window.PanelsSelection) return <window.PanelsSelection {...props} />;
     return props.kind === 'video' && props.framing ? <FramingSelection {...props} /> : <FreeSelection {...props} />;
   }
 

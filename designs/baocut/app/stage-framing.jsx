@@ -146,6 +146,8 @@
           <FramingInfo align="right" onFree={disabled ? null : () => freeFraming(ctx, id, app)} />
         </div>
         <ValueRow label="放大" value={pct} min={100} max={F.MAX_ZOOM * 100} unit="%" onChange={zoom} />
+        {/* 一人改分屏（docs/design/shorts-framing §8.4）：只给竖屏、方屏的子视频；原片画幅的视频没有分屏 */}
+        {window.PanelsLayoutRow && fr.out < fr.src - 0.01 ? <window.PanelsLayoutRow ctx={ctx} id={id} disabled={disabled} /> : null}
         <div className="hint">{F.COPY.limits}</div>
         <Btn variant="secondary" size="s" style={{marginTop: 8}} disabled={disabled}
           onPress={() => freeFraming(ctx, id, app)}>{F.COPY.free}</Btn>

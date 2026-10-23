@@ -478,6 +478,22 @@
         const asset = selected.asset;
         const src = window.BC_VIDEO_REPLACE.sourceFor(selected, ctx.sources.video)
           || (!selected.srcId && !selected.sourceId && window.videoSourceOf ? window.videoSourceOf(asset) : null);
+        /* 分屏（`panels`，stage-panels.jsx）：每格画一份原片，格子之间不留缝、不加圆角 */
+        if (selected.panels && selected.panels.length && window.PanelsPaint) {
+          return (
+            <span className="fxwrap" style={{display: 'block', height: '100%', position: 'relative',
+              opacity: (vs.opacity == null ? 100 : vs.opacity) / 100}}>
+              <window.PanelsPaint ctx={ctx} id={e.id} panels={selected.panels}>
+                {src && src.url ? <window.RemoteVideo source={src} el={e} ctx={ctx} style={vs} fillH />
+                  : <span className="pnl__fill" style={{background: (src || D.sources.video[1]).grad, filter: window.BC_EL.fxCss(vs) || null}}>
+                    {window.CropScene ? <span className="vscene">
+                      <window.CropScene subjects={window.BC_CROP.demoSubjects('podcast')} ratio={window.BC_CROP.sourceRatio(src)} />
+                    </span> : null}
+                  </span>}
+              </window.PanelsPaint>
+            </span>
+          );
+        }
         return (
           <span className="fxwrap" style={{display: 'block',
             height: fillH ? '100%' : null,
@@ -563,11 +579,14 @@
                规范的取样在内核（动画下沉），这里只让人在画布上看见「它在动」。 */
             /* 按原片取景的视频（`focal`，stage-framing.jsx）：盒由取景点和当前画幅现算，`pose` 里的位置、大小、旋转
                与位置关键帧都不参与——换画幅时自动重新对准就靠这一条。翻转与不透明度仍读 `pose`。 */
-            const framing = window.framingFor ? window.framingFor(ctx, e.id, e) : null;
+            const panels = e.kind === 'video' ? ((ctx.elDocs[e.id] || {}).panels || null) : null;
+            const framing = !panels && window.framingFor ? window.framingFor(ctx, e.id, e) : null;
             const kfDoc = (ctx.elDocs[e.id] || {}).keyframes;
-            const kfOn = !framing && !on && !(multi && mine) && window.BC_KF.any(kfDoc);
+            const kfOn = !framing && !panels && !on && !(multi && mine) && window.BC_KF.any(kfDoc);
             const kfSpan = kfOn ? spanOf(e.id, e) : null;
-            const pose = framing ? Object.assign(poseOf(e.id), framing.pose)
+            /* 分屏的视频盒就是整个画面（格子是画面的百分比），位置、大小、旋转与关键帧都不参与 */
+            const pose = panels ? Object.assign(poseOf(e.id), {x: 50, y: 50, w: 100, h: 100, scale: 1, rot: 0})
+              : framing ? Object.assign(poseOf(e.id), framing.pose)
               : kfOn ? window.BC_KF.poseAt(poseOf(e.id), kfDoc, playT - kfSpan.start, kfSpan.end - kfSpan.start)
               : poseOf(e.id);
             /* 盒宽 = `w% × scale`（与 App v2 `static_box` 同式）；`data-el` 是吸附时
@@ -631,7 +650,7 @@
                 el={e.added ? e : elDoc(asAlt ? e.alt : e.kind)} ctx={ctx}
                 st={styleOf(e.id)} set={setOf(e)} style={box2}
                 inner={hasH ? {height: '100%'} : null}
-                pose={pose} setPose={(patch) => ctx.setElPose(e.id, patch)} framing={framing}
+                pose={pose} setPose={(patch) => ctx.setElPose(e.id, patch)} framing={framing} panels={panels}
                 frameRef={frameRef} onGuides={onGuides}
                 onDoubleClick={(ev) => { ev.stopPropagation(); beginEdit(e); }}
                 onClick={(ev) => {

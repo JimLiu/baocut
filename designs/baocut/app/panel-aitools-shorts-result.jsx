@@ -11,13 +11,32 @@
   const {TOOLS} = window.BC_AIFLOWS;
   const NAME = TOOLS.shortscut.name;
 
-  function MadeCard({c, n, s, host, flags, cur, onOpen, onTrim}) {
+  /* 版式条（docs/design/shorts-framing §8.2）：按这一支的时长排开一人段与分屏段，分屏段标格数；点一段把播放头移到那一段开头，
+     这一支没在看时先打开它。 */
+  function LayoutStrip({strip, onPick}) {
+    return (
+      <>
+        <div className="sc-strip" role="list" aria-label="版式">
+          {strip.map((g, i) => (
+            <Tip key={i} label={g.label} side="bottom">
+              <BCAction type="button" role="listitem" className={cx('sc-strip__seg', g.n > 1 && 'is-split')} style={{flexGrow: g.len}}
+                aria-label={g.label} onClick={(e) => { e.stopPropagation(); onPick(g); }}>{g.n > 1 ? g.n : null}</BCAction>
+            </Tip>
+          ))}
+        </div>
+        <div className="sc-strip-key"><span><i />一人</span><span><i className="is-split" />分屏（数字是格数）</span></div>
+      </>
+    );
+  }
+
+  function MadeCard({c, n, s, host, flags, cur, onOpen, onTrim, onSeek}) {
     const app = useApp();
     const api = app.shortsCut;
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(c.title);
     const cut = (app.projById(c.id) || {}).cut;
     const shots = SC.shotsOf(cut).length;
+    const strip = SC.layoutStrip(cut, c);
     const commit = () => { setEditing(false); const t = draft.trim(); if (t && t !== c.title) api.edit(host, c.id, {title: t}); else setDraft(c.title); };
     return (
       <div className={cx('sc-card', cur && 'is-sel')} onClick={() => onOpen(c.id)} aria-current={cur ? 'true' : undefined}>
@@ -37,6 +56,7 @@
         {/* 取景：分了镜头的写「按 N 个镜头分别取景」（每个镜头裁到谁写在 agent 的说明里）；只有一个位置的照旧只在「我自己定」时说 */}
         {shots > 1 || (s.params.focus === 'manual' && s.params.ratio !== 'source')
           ? <div className="sc-why"><em>取景</em><span>{SC.frameText(cut, c.focusX)}</span></div> : null}
+        {strip ? <LayoutStrip strip={strip} onPick={(g) => (cur && onSeek ? onSeek(g.start) : onOpen(c.id))} /> : null}
         {flags.length ? (
           <div className="sc-flags">{flags.map((f, i) => <Chip key={f.k + i} tone={f.tone}>{f.text}</Chip>)}</div>
         ) : null}
@@ -123,7 +143,8 @@
 
         <div className="sc-list">
           {live.map((c, i) => <MadeCard key={c.id} c={c} n={i + 1} s={s} host={hostId} flags={SC.flags(c, fctx)}
-            cur={inChild ? c.id === ctx.proj.id : false} onOpen={openChild} onTrim={ctx.openCutEntry} />)}
+            cur={inChild ? c.id === ctx.proj.id : false} onOpen={openChild} onTrim={ctx.openCutEntry}
+            onSeek={inChild ? (t) => ctx.seek(ctx.tmap ? ctx.tmap.fold(t) : t) : null} />)}
           {!live.length ? <div className="hint">这几支都移入回收站了。可以在 Space 的回收站里恢复，或者再切几支。</div> : null}
         </div>
 

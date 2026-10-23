@@ -1,0 +1,35 @@
+/* 分屏同框（stage-panels.jsx，docs/design/shorts-framing §8.3–§8.4）。 */
+
+/* 画面：每格裁到自己的矩形里，格子里是一整幅原片按取景点铺满、放大 */
+.pnl { position: absolute; inset: 0; display: block; overflow: hidden; }
+.pnl__cell { position: absolute; display: block; overflow: hidden; }
+.pnl__src { position: absolute; display: block; }
+.pnl__fill { position: absolute; inset: 0; display: block; }
+
+/* 选中框：整个画面；格子之间一条接缝线，角上标格子的叫法；拖动中的那一格描一圈 */
+.pnl-sel { position: absolute; inset: 0; cursor: grab; }
+.pnl-sel.is-drag { cursor: grabbing; }
+.pnl-sel__cell { position: absolute; display: block; pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--gray-25); }
+.pnl-sel__cell.is-drag { box-shadow: inset 0 0 0 2px var(--blue-800); }
+.pnl-sel__name { position: absolute; left: 6px; top: 6px; padding: 0 6px; min-height: 20px; line-height: 20px;
+  border-radius: 8px; background: var(--gray-25); color: var(--gray-800); font-size: 11px; font-style: normal;
+  font-weight: 500; color-scheme: light; }
+
+/* 属性面板「版式」段：每格一组（叫法、放大与位置），下面一排操作 */
+.pnl-row { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.pnl-row__head { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.pnl-row__name { font-size: 12px; font-weight: 700; color: var(--gray-800); }
+.pnl-row__warn { font-size: 11px; color: var(--orange-1000); }
+.pnl-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
+
+/* 结果卡的版式条（panel-aitools-shorts-result.jsx）：按子视频时长排开的一人段与分屏段 */
+.sc-strip { display: flex; gap: 2px; height: 20px; margin-top: 6px; }
+.sc-strip__seg { position: relative; display: flex; align-items: center; justify-content: center; min-width: 4px;
+  border: 0; padding: 0; border-radius: 4px; background: var(--gray-200); color: var(--gray-800); font-size: 11px; cursor: pointer; }
+.sc-strip__seg.is-split { background: var(--blue-200); color: var(--blue-1000); font-weight: 700; }
+.sc-strip__seg:hover { box-shadow: inset 0 0 0 1px var(--gray-600); }
+.sc-strip__seg:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.sc-strip-key { display: flex; gap: 12px; margin-top: 4px; font-size: 11px; color: var(--gray-600); }
+.sc-strip-key i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 2px; background: var(--gray-200); }
+.sc-strip-key i.is-split { background: var(--blue-200); }

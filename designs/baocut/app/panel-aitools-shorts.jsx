@@ -197,6 +197,12 @@
             <BCChoiceGroup className="sec cr-scenes" value={p.focus} onChange={(focus) => set({focus})} aria-label="画面怎么取景">
               {SC.FOCUS.map((f) => <OptionRow key={f.id} o={f} on={p.focus === f.id} disabled={!!f.off} />)}
             </BCChoiceGroup>
+            {/* 多人全景时分屏（docs/design/shorts-framing §8.1）：自动取景时才有，自己定的取景每支只有一个位置 */}
+            {p.focus === 'auto' ? (
+              <div className="sec">
+                <window.ToolOption on={p.split} onChange={(v) => set({split: v})} label={SC.SPLIT.label} sub={p.split ? SC.SPLIT.on : SC.SPLIT.off} />
+              </div>
+            ) : null}
           </>
         ) : null}
 

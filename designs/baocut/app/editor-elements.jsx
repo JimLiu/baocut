@@ -2,6 +2,7 @@
    一处存四样东西，都是**逐元素**的：起止（时间轴与属性页共用）、动画（In/Out/Loop）、
    摆位 `pose`（x/y/w/scale/rot，字段名与核心 `bcut-timeline` 一致）、文字的字符样式。按原片取景的视频另带
    `focal`（取景点 + 放大倍数，BC_FRAMING）：有它时画布按它算盒，`pose` 的位置与大小不参与。
+   `panels`（分屏的格子，BC_PANELS）：有它时视频按格子画，`focal` 也不参与，去掉 `panels` 时回到它。
 
    为什么不进画布共用的样式袋（`elStyle`）：那个袋子里的键按类型天然不重叠
    （fill / tint / waveStyle…），而 In/Out/Loop 每类都有——给贴纸设一次入场，
@@ -41,7 +42,7 @@
       const m = {};
       (empty ? seed : D.elements.concat(initialVideos)).forEach((e) => {
         m[e.id] = {start: e.start, end: e.end == null ? D.DUR : e.end, anim: NO_ANIM,
-          pose: Object.assign({scale: 1, rot: 0}, e.place), style:e.style, focal: e.focal || null,
+          pose: Object.assign({scale: 1, rot: 0}, e.place), style:e.style, focal: e.focal || null, panels: e.panels || null,
           keyframes: e.keyframes || null, duck: e.duck || null};
         seedMembers(m, e);
       });
@@ -88,6 +89,7 @@
           transitions: el.transitions || null,
           members: el.members || null, box: el.box || null,
           style: el.style || null, pose: Object.assign({scale: 1, rot: 0}, el.place, el.pose), focal: el.focal || null,
+          panels: el.panels || null,
           /* 关键帧与闪避（G11a）跟着元素走：粘贴 / 再制 / 撤销删除都不得丢 */
           keyframes: el.keyframes || null, duck: el.duck || null}});
         seedMembers(next, el);
@@ -174,7 +176,7 @@
       const docs = {};
       (empty ? [] : seed || D.elements.concat(initialVideos)).forEach(e => {
         docs[e.id] = {start: e.start, end: e.end == null ? D.DUR : e.end, anim: NO_ANIM,
-          pose: Object.assign({scale: 1, rot: 0}, e.place), style: e.style, focal: e.focal || null,
+          pose: Object.assign({scale: 1, rot: 0}, e.place), style: e.style, focal: e.focal || null, panels: e.panels || null,
           keyframes: e.keyframes || null, duck: e.duck || null};
         seedMembers(docs, e);
       });

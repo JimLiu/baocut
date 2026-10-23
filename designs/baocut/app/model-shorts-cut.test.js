@@ -727,3 +727,39 @@ test('编辑器：openCutEntry 记下来处，离开文稿 / 点 rail / 换视�
   assert.match(ed, /if \(clearCutOrigin\) clearCutOrigin\(\); setTab\(key\)/);
   assert.match(ed, /openCutEntry, cutOrigin, closeCutEntry, clearCutOrigin/);
 });
+
+/* ---------- 分屏同框（docs/design/shorts-framing） ---------- */
+test('shotElements：多人全景的镜头写分屏的格子，最左的人在上面；元素自己的取景点照旧给一份', () => {
+  window.BC_PANELS = require('./model-panels.js');
+  const regions = [{left: 0.55, top: 0.12, right: 0.15, bottom: 0.3}, {left: 0.15, top: 0.12, right: 0.55, bottom: 0.3}];
+  const shots = [SHOTS[0], Object.assign({}, SHOTS[1], {regions}), SHOTS[2]];
+  const out = M.shotElements(base(), shots, 16 / 9, 9 / 16);
+  const split = out.filter((e) => e.panels);
+  assert.deepEqual(split.map((e) => e.id), ['video-k2']);
+  assert.equal(split[0].panels.length, 2);
+  assert.ok(split[0].panels[0].focal.x < split[0].panels[1].focal.x, '左边那个人在上格');
+  assert.deepEqual(split[0].panels.map((p) => p.rect.y), [0, 50]);
+  assert.equal(split[0].focal.x, 0.5, '一人的取景点仍按这个镜头的 focusX');
+  delete window.BC_PANELS;
+});
+
+test('layoutStrip：按这一支的时长排开一人段与分屏段，相邻同版式并成一段；没有分屏段不画', () => {
+  const regions = [{left: 0.1, top: 0, right: 0.6, bottom: 0}, {left: 0.6, top: 0, right: 0.1, bottom: 0}];
+  const cut = {ratio: '9:16', shots: [{start: 10, end: 14, focusX: 0.3}, {start: 14, end: 20, focusX: 0.3, regions},
+    {start: 20, end: 25, focusX: 0.7}, {start: 25, end: 30, focusX: 0.3}]};
+  const strip = M.layoutStrip(cut, {start: 10, end: 30});
+  assert.deepEqual(strip.map((g) => [g.start, g.end, g.n]), [[10, 14, 1], [14, 20, 2], [20, 30, 1]]);
+  assert.equal(strip[1].label, '0:04 – 0:10 · 分屏 2 格');
+  assert.ok(Math.abs(strip.reduce((a, g) => a + g.len, 0) - 1) < 1e-9);
+  assert.equal(M.layoutStrip({ratio: '9:16', shots: [cut.shots[0], cut.shots[2]]}, {start: 10, end: 30}), null);
+  assert.equal(M.frameText(cut), '4 段 · 1 段分屏 · 打开后选中某一段可以改版式、互换上下');
+});
+
+test('多人全景时分屏：缺省开，提示词多一行；关掉、自己定取景或保留原画幅时不说分屏', () => {
+  assert.equal(M.DEFAULTS.split, true);
+  assert.ok(M.agentExtra({}).includes(M.SPLIT.promptOn));
+  assert.ok(M.agentExtra({split: false}).includes(M.SPLIT.promptOff));
+  assert.ok(!M.agentExtra({focus: 'manual'}).some((x) => x === M.SPLIT.promptOn || x === M.SPLIT.promptOff));
+  assert.ok(!M.agentExtra({ratio: 'source'}).some((x) => x === M.SPLIT.promptOn || x === M.SPLIT.promptOff));
+  assert.equal(M.normalize({split: undefined}, {}).split, true);
+});
