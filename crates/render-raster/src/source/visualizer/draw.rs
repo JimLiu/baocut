@@ -49,6 +49,8 @@ pub struct VisualizerParams {
     pub secondary_color: Color4,
     /// Instance duration in seconds; used by the envelope progress rail and clocks.
     pub duration: f64,
+    /// Whether the envelope draws its progress rail and clocks under the bars.
+    pub readout: bool,
 }
 
 /// 一帧 visualizer → 指令流；返回**新压入的 DrawOp 条数**。
@@ -186,6 +188,16 @@ mod tests {
                 .iter()
                 .any(|r| r.1 == 279.0 && r.2 == 804.0 && r.4 == values.main_color)
         );
+
+        // Without the readout only the 121 bars and the playhead marker remain.
+        let mut bare = FrameBuilder::default();
+        values.readout = false;
+        let drawn = visualizer_frame(&mut bare, recipe, &values, &viz, 5.0, bbox, TF);
+        assert_eq!(drawn, 122);
+        assert!(bare.frame.ops.iter().all(|op| match op {
+            DrawOp::FillRect { y, .. } => *y < 279.0,
+            _ => true,
+        }));
     }
 
     fn params() -> VisualizerParams {
@@ -193,6 +205,7 @@ mod tests {
             main_color: [1.0, 1.0, 1.0, 1.0],
             secondary_color: [0.0, 0.0, 0.0, 1.0],
             duration: 3.0,
+            readout: true,
         }
     }
 

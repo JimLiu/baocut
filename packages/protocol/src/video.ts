@@ -542,6 +542,8 @@ export interface VisualizerProps {
   audio?: string;
   speaker?: string;
   alwaysShow?: boolean;
+  /** 包络款下方的进度线与 mm:ss 读数，缺省 true。 */
+  readout?: boolean;
 }
 
 /** 声波。 */

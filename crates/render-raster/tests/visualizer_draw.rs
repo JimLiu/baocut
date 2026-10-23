@@ -70,6 +70,7 @@ fn params() -> VisualizerParams {
         main_color: [0.235_294_12, 0.678_431_4, 1.0, 1.0],
         secondary_color: [1.0, 1.0, 1.0, 1.0],
         duration: 3.0,
+        readout: true,
     }
 }
 

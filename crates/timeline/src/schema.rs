@@ -1286,6 +1286,9 @@ pub struct VisualizerProps {
     /// 说话人未命中时是否仍显示静音形态；缺省 true。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub always_show: Option<bool>,
+    /// 包络款下方的进度线与 `mm:ss` 读数；缺省 true，false 时只画细柱与中线。其他款不读。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub readout: Option<bool>,
 }
 
 impl VisualizerProps {
@@ -1302,6 +1305,7 @@ impl VisualizerProps {
             audio: None,
             speaker: None,
             always_show: None,
+            readout: None,
         }
     }
 
@@ -1336,6 +1340,10 @@ impl VisualizerProps {
 
     pub fn always_show(&self) -> bool {
         self.always_show.unwrap_or(true)
+    }
+
+    pub fn readout(&self) -> bool {
+        self.readout.unwrap_or(true)
     }
 
     fn validate(&self, element_id: &str) -> Result<(), TimelineError> {
@@ -2917,7 +2925,8 @@ pub fn schema_json() -> Value {
                     "fftSize": {"enum": VISUALIZER_FFT_SIZES}, "minDb": {"type": "number"}, "maxDb": {"type": "number"},
                     "smoothing": {"type": "number", "minimum": 0, "exclusiveMaximum": 1},
                     "gain": {"type": "number", "minimum": 0}, "audio": {"type": "string"},
-                    "speaker": {"type": "string", "minLength": 1}, "alwaysShow": {"type": "boolean"}
+                    "speaker": {"type": "string", "minLength": 1}, "alwaysShow": {"type": "boolean"},
+                    "readout": {"type": "boolean"}
                 }
             },
             "progressProps": {
@@ -3623,7 +3632,7 @@ mod tests {
             r##"{"id":"e3","kind":"visualizer","visualizer":{"style":"bars",
                 "mainColor":"#ff0000","secondaryColor":"#00ff00","fftSize":512,
                 "minDb":-120,"maxDb":-10,"smoothing":0.5,"gain":1.5,"audio":"src-a",
-                "speaker":"spk-1","alwaysShow":false}}"##,
+                "speaker":"spk-1","alwaysShow":false,"readout":false}}"##,
         );
         let props = visualizer.visualizer.as_ref().unwrap();
         assert_eq!(
@@ -3645,8 +3654,10 @@ mod tests {
         );
         assert_eq!(props.speaker.as_deref(), Some("spk-1"));
         assert!(!props.always_show());
+        assert!(!props.readout());
         // **新建默认**这一组（§5.2）。
         let bare = VisualizerProps::new("bars");
+        assert!(bare.readout());
         assert_eq!(
             (
                 bare.fft_size(),

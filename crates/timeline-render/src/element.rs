@@ -443,6 +443,7 @@ fn resolve_visualizer(
             opacity,
         ),
         duration: (element.end - element.start).max(0.0),
+        readout: props.readout(),
         secondary_color: resolved_color(
             props.secondary_color.as_deref(),
             &body.default_secondary_color,
