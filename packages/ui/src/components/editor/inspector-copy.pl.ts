@@ -306,4 +306,5 @@ export const pl: InspectorMessages = {
   lag: "Później",
   punctuation: "Interpunkcja",
   punctToSpace: "Zastępuj przecinki i kropki spacjami",
+  panelSeam: "Umieszczaj na styku paneli",
 };

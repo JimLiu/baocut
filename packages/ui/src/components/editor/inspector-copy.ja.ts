@@ -303,4 +303,5 @@ export const ja: InspectorMessages = {
   lag: '遅らせる',
   punctuation: '句読点',
   punctToSpace: '読点と句点をスペースに置き換える',
+  panelSeam: '枠と枠の境目に置く',
 };

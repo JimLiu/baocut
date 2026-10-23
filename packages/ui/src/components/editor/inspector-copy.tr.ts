@@ -303,4 +303,5 @@ export const tr: InspectorMessages = {
   lag: "Daha sonra",
   punctuation: "Noktalama işaretleri",
   punctToSpace: "Virgül ve noktaları boşlukla değiştir",
+  panelSeam: "Paneller arasındaki birleşim çizgisine yerleştir",
 };

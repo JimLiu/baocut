@@ -303,4 +303,5 @@ export const ko: InspectorMessages = {
   lag: '늦추기',
   punctuation: '문장 부호',
   punctToSpace: '쉼표와 마침표를 공백으로 바꾸기',
+  panelSeam: '칸과 칸의 경계에 놓기',
 };

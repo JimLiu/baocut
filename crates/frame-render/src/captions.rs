@@ -17,7 +17,7 @@ use message_ref::{Text, msg};
 use render_raster::{TextEngine, drawop::AssociatedBlend};
 use serde::Serialize;
 use serde_json::{Value, json};
-use subtitle_render::{CaptionCompositeMode, OverlayIncludes, OverlayRenderPlan, TemplateScene};
+use subtitle_render::{CaptionCompositeMode, OverlayIncludes, OverlayRenderPlan, PanelSeams, TemplateScene};
 use timeline::template::TemplateDoc;
 use tiny_skia::BlendMode;
 
@@ -221,6 +221,8 @@ pub fn boxed_as_studio(body: &Value, size: (u32, u32)) -> KernelStyle {
         "background": text("backgroundColor").and_then(|c| crate::effects::hex_rgba(&c)).is_some_and(|c| c[3] > 0),
         "displayTiming": { "leadIn": 0, "tail": 0 },
         "punct": false,
+        // 定位框是导入时定下的位置，分屏段也不挪（格式规范 §5.6）。
+        "panelSeam": false,
         // 没选逐词动画时不动画（Studio 样式缺省是逐词变色）。
         "anim": { "name": "None" },
     });
@@ -347,6 +349,9 @@ pub struct CaptionHit {
     pub w: f64,
     pub h: f64,
     pub rotation: f64,
+    /// 这一行所在的字幕块挂在分屏的接缝上（格式规范 §5.6）：画面上拖它时按画出来的框起手，不按样式的 `y`。
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub panel_seam: bool,
 }
 
 /// 一帧字幕层：共享 RGBA、非零像素框，以及普通预乘或显式关联分量混合方式。
@@ -480,6 +485,11 @@ impl LegacyCaptionPlan {
             .set_template_scene(template.map(|doc| TemplateScene::new(doc.clone(), Vec::new(), "", Vec::new())));
     }
 
+    /// 分屏段的接缝（格式规范 §5.6）：开始在分屏画面上的一句挂到接缝。
+    pub fn follow_panels(&mut self, seams: Option<PanelSeams>) {
+        self.plan.set_panel_seams(seams);
+    }
+
     /// 拆下排版引擎，给下一份计划用。
     pub fn into_text_engine(self) -> TextEngine {
         self.plan.into_text_engine()
@@ -516,8 +526,9 @@ impl LegacyCaptionPlan {
     /// 与光栅同源的行几何；不在 UI 里估算字宽或重做显示时机。
     pub fn hits(&mut self, seconds: f64) -> Result<Vec<CaptionHit>> {
         let layout = self.plan.subtitle_layout(seconds)?;
+        let panel_seam = layout.panel_seam;
         let mut hits = Vec::new();
-        let mut push = |translation: bool, cue: &str, cx, cy, w, h, rotation| {
+        let mut push = |translation: bool, cue: &str, cx, cy, w, h, rotation, panel_seam| {
             if let Some((document_id, cue_id)) = self.sources.get(&(translation, cue.to_owned())) {
                 hits.push(CaptionHit {
                     layer_id: String::new(),
@@ -529,6 +540,7 @@ impl LegacyCaptionPlan {
                     w,
                     h,
                     rotation,
+                    panel_seam,
                 });
             }
         };
@@ -544,6 +556,7 @@ impl LegacyCaptionPlan {
                 line.w,
                 line.h,
                 layout.rotation,
+                panel_seam,
             );
         }
         if let Some(sequence) = layout.sequence {
@@ -557,6 +570,7 @@ impl LegacyCaptionPlan {
                     (b[0] - a[0]).hypot(b[1] - a[1]),
                     (d[0] - a[0]).hypot(d[1] - a[1]),
                     (b[1] - a[1]).atan2(b[0] - a[0]).to_degrees(),
+                    false,
                 );
             }
         }
@@ -694,6 +708,12 @@ impl CaptionPlan {
             l.avoid_template(template);
         }
     }
+    /// 动态场景按自己的版面摆，不挂接缝。
+    pub fn follow_panels(&mut self, seams: Option<PanelSeams>) {
+        if let Some(l) = &mut self.legacy {
+            l.follow_panels(seams);
+        }
+    }
     pub fn into_text_engine(self) -> TextEngine {
         match (self.legacy, self.scene) {
             (Some(l), _) => l.into_text_engine(),
@@ -762,6 +782,7 @@ impl CaptionPlan {
                 w: h.bounds.width,
                 h: h.bounds.height,
                 rotation: 0.0,
+                panel_seam: false,
             })
             .collect())
     }

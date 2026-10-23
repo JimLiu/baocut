@@ -956,6 +956,7 @@ mod caption_recipe_tests {
             series_index: 0,
             text: "hello world".to_owned(),
             display_start: 0.5,
+            start: 0.5,
             display_end: 2.0,
             words: vec![
                 Word {

@@ -303,4 +303,5 @@ export const zhHans: InspectorMessages = {
   lag: '延后',
   punctuation: '标点',
   punctToSpace: '逗号句号换成空格',
+  panelSeam: '挂到两格的接缝上',
 };

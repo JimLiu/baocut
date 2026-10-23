@@ -303,4 +303,5 @@ export const fr: InspectorMessages = {
   lag: "Plus tard",
   punctuation: "Ponctuation",
   punctToSpace: "Remplacer virgules et points par des espaces",
+  panelSeam: "Placer sur la jonction entre les panneaux",
 };

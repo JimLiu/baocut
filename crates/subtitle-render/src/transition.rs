@@ -927,6 +927,8 @@ pub struct OverlayRenderPlan {
     /// 照画，装饰层缺席并把话说出口（App 在模板属性页显示，`serve` 走
     /// `X-Bcut-Template-Error`）。
     pub chrome_error: Option<String>,
+    /// 分屏段的接缝（视频格式规范 §5.6），字幕文档的时钟；`None` = 没有分屏段，或调用方不管分屏。
+    pub panel_seams: Option<crate::PanelSeams>,
     /// 倒鸭子（跨句序列配方）：编译期只定「开不开」与字体口径，计划本身首帧懒建。
     /// `None` = 这份计划不走序列路，所有字幕仍按 cue 级排版。
     pub sequence: Option<SequenceState>,

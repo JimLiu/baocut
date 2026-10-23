@@ -303,4 +303,5 @@ export const nl: InspectorMessages = {
   lag: "Later",
   punctuation: "Interpunctie",
   punctToSpace: "Komma’s en punten vervangen door spaties",
+  panelSeam: "Op de naad tussen de vakken plaatsen",
 };

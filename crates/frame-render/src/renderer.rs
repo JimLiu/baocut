@@ -23,7 +23,8 @@ use render_raster::fonts::{FaceLog, FaceUse};
 use render_raster::source::{Lottie, MediaTime, VizParams, VizSource, VizTrack};
 use serde::Serialize;
 use serde_json::{Value, json};
-use subtitle_render::{DynamicAssetNames, OverlayIncludes, OverlayRenderPlan, TimelineVisualElement};
+use subtitle_render::panel_seams::horizontal_seams;
+use subtitle_render::{DynamicAssetNames, OverlayIncludes, OverlayRenderPlan, PanelSeams, SeamWindow, TimelineVisualElement};
 use tiny_skia::{BlendMode, Color, FilterQuality, IntSize, Pixmap, PixmapPaint, PixmapRef, Rect, Transform};
 use video_model::{AssetRecord, Fx, Id, Sequence, TimelineItem, VersionRef};
 
@@ -155,6 +156,8 @@ pub struct FrameRenderer {
     caption_checks: HashMap<(String, Option<String>), Option<CaptionProblem>>,
     /// 各 `(序列, 字幕组)` 的剪辑签名（[`Self::caption_signature`]）：换文档或序列变了（[`Self::sequence_changed`]）时清空。
     caption_signatures: HashMap<(String, String), String>,
+    /// 各 `(序列, 字幕实例, 源素材)` 的分屏接缝（[`Self::panel_seams`]）：序列变了时清空。
+    panel_seams: HashMap<(String, String, Option<String>), Option<PanelSeams>>,
     collect_caption_hits: bool,
     caption_hits: Vec<CaptionHit>,
     /// 画帧时字幕层真正光栅了几张（[`Self::caption_rasters`]）。
@@ -216,6 +219,7 @@ impl FrameRenderer {
             captions: HashMap::new(),
             caption_checks: HashMap::new(),
             caption_signatures: HashMap::new(),
+            panel_seams: HashMap::new(),
             collect_caption_hits: false,
             caption_hits: Vec::new(),
             caption_rasters: 0,
@@ -264,6 +268,7 @@ impl FrameRenderer {
     /// 导出的输入不变，不用调。
     pub fn sequence_changed(&mut self) {
         self.caption_signatures.clear();
+        self.panel_seams.clear();
     }
 
     /// 一台装好字体的排版引擎：有备用的就用备用的。
@@ -1431,8 +1436,14 @@ impl FrameRenderer {
             }
             self.captions.insert(key.clone(), compiled);
         }
+        let source_asset = match self.captions.get(&key) {
+            Some(captions) if !captions.sequence_clock => scope.as_ref().map(|s| s.asset.id.clone()),
+            _ => None,
+        };
+        let seams = self.panel_seams(sequence, &first.item_id, source_asset);
         let captions = self.captions.get_mut(&key).expect("刚编好");
         captions.avoid_template(sequence.header.template.as_ref());
+        captions.follow_panels(seams);
         // 一组按第一层的时钟取时刻：源素材时钟上没有作用实例时这一刻不画。
         let at = if captions.sequence_clock {
             Some(*sequence_seconds)
@@ -1484,6 +1495,33 @@ impl FrameRenderer {
             composite_caption_layer(&mut self.frame, &layer, opacity, plain)?;
         }
         Ok(())
+    }
+
+    /// 一条字幕实例在自己时钟上的分屏接缝（格式规范 §5.6）：`source_asset` 给了是源素材时钟。按序列记下，
+    /// 序列变了（[`Self::sequence_changed`]）才重算；算不出来时不挪，帧计划会照常报那个错。
+    fn panel_seams(&mut self, sequence: &Sequence, caption_id: &str, source_asset: Option<String>) -> Option<PanelSeams> {
+        let key = (sequence.id.to_string(), caption_id.to_owned(), source_asset);
+        if let Some(seams) = self.panel_seams.get(&key) {
+            return seams.clone();
+        }
+        let seams = render_graph::caption_panels::caption_panel_times(sequence, caption_id, key.2.as_deref())
+            .ok()
+            .flatten()
+            .map(|times| {
+                let windows = times
+                    .windows
+                    .into_iter()
+                    .map(|(start, end, rects)| SeamWindow {
+                        start,
+                        end,
+                        seams: horizontal_seams(&rects),
+                    })
+                    .collect();
+                PanelSeams::new(Some(times.shown), windows)
+            })
+            .filter(|seams| !seams.is_empty());
+        self.panel_seams.insert(key, seams.clone());
+        seams
     }
 
     /// 字幕编译结果依赖的剪辑：组里有字幕从转写取词时，词的去留与时刻随取用素材的实例与字幕实例变。只看这些实例，

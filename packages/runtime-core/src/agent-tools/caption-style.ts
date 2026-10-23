@@ -31,6 +31,12 @@ export const captionStylePatch = z
       .describe('字幕块的哪条边落在 y 上：top 上边、center 中线（缺省）、bottom 下边；折成多行时往另一边长'),
     x: z.number().min(0).max(100).optional().describe('字幕块中心的横向位置：画面宽度的百分比，缺省 50'),
     width: z.number().min(5).max(100).optional().describe('最大行宽：画面宽度的百分比，缺省 80；烧进画面时一行超过它就折行'),
+    panelSeam: z
+      .boolean()
+      .optional()
+      .describe(
+        '分屏段挂到接缝：开着（缺省）时，开始在分屏画面上的一句整块的中线落在离 y 最近的那条两格接缝上，到这一句结束不动；关掉就照 y 摆',
+      ),
     fontSize: z
       .number()
       .min(4)

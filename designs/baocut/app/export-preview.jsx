@@ -71,6 +71,8 @@
     const doc = ctx.subStyle;
     /* 生效清单的 on 已经把「时间轴上停用」与「这次导出的覆盖」都算进去了，这里只看它 */
     const tracks = window.BC_SUB.tracks(doc).filter((t) => !off['subs:' + t.id]);
+    /* 分屏段里开始的一句挂到接缝上，与画面同一条（stage-panels.jsx `subSeam`） */
+    const seam = window.subSeam(ctx, doc, cue, tracks);
 
     const els = (ctx.elements || []).filter((e) => e.kind !== 'tpl' && !off['el:' + e.id]
       && pt >= (e.start || 0) && (e.end == null || pt <= e.end));
@@ -121,7 +123,8 @@
               if (!text) return null;
               const n = window.BC_WA.split(cue.text).length;
               const lift = ctx.tplDoc && ctx.tplDoc.subsAvoid !== false ? window.BC_TPL.subsBottom(ctx.tplDoc, 0) : 0;
-              const y = lift ? Math.min(ln.y, 100 - lift) : ln.y;
+              const y0 = seam == null ? ln.y : ln.y + seam;
+              const y = lift ? Math.min(y0, 100 - lift) : y0;
               /* 可读下限只托底、不放大（2026-09-27 Shorts）：字号大于缺省的轨按真比例折算，
                  否则小窗口里 99 号的 Shorts 预设会被下限 × 3 撑出画面。缺省及更小的字号与此前逐像素相同。 */
               const fzBase = D.subtitle.trackDefaults.size || 32;
@@ -129,7 +132,7 @@
               const cap = isSrc ? ln.caption : null;
               return (
                 <div key={t.id} className="xpv__sub"
-                  style={Object.assign({top: y + '%', transform: 'translateY(' + P.subShift(ln.valign) + '%)'},
+                  style={Object.assign({top: y + '%', transform: 'translateY(' + P.subShift(seam == null ? ln.valign : 'center') + '%)'},
                     ln.width ? {left: (100 - ln.width) / 2 + '%', right: (100 - ln.width) / 2 + '%'} : null)}>
                   {cap ? (
                     <div className="subline subline--cap">

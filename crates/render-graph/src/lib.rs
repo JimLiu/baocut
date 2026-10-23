@@ -14,6 +14,7 @@
 //! 章节不进计划。
 
 pub mod audio_plan;
+pub mod caption_panels;
 pub mod ducking;
 pub mod envelope;
 pub mod item_box;

@@ -1450,6 +1450,7 @@ impl OverlayRenderPlan {
             warnings,
             chrome: None,
             chrome_error: None,
+            panel_seams: None,
             sequence,
             dynamic_asset_names: DynamicAssetNames::default(),
             consume_injected_sources: false,
@@ -1555,6 +1556,42 @@ impl OverlayRenderPlan {
         self.chrome_error = None;
         self.composited = None;
         self.cache.clear();
+    }
+
+    /// 换入分屏段的接缝（视频格式规范 §5.6）。和上一份一样时什么都不做；变了的话哪一句挂到接缝跟着变，帧缓存随之作废。
+    pub fn set_panel_seams(&mut self, seams: Option<crate::PanelSeams>) {
+        let seams = seams.filter(|seams| !seams.is_empty());
+        if self.panel_seams == seams {
+            return;
+        }
+        self.panel_seams = seams;
+        self.composited = None;
+        self.cache.clear();
+    }
+
+    /// 这一组字幕挂到哪条接缝（画布高的百分比）：按几行里先开始的那一句、它自己的开始定，样式关掉了、
+    /// 这一句的逐句样式自己写了 `y`、那一刻不是分屏时 `None`。
+    fn panel_seam(&self, layouts: &[LineLayout], anchor_root: &Value) -> Option<f64> {
+        let seams = self.panel_seams.as_ref()?;
+        if !anchor_root
+            .get("panelSeam")
+            .and_then(Value::as_bool)
+            .unwrap_or(true)
+        {
+            return None;
+        }
+        if !std::ptr::eq(anchor_root, &self.style) && anchor_root.get("y") != self.style.get("y") {
+            return None;
+        }
+        let first = layouts
+            .iter()
+            .map(|line| &line.item)
+            .min_by(|a, b| a.start.total_cmp(&b.start))?;
+        seams.seam_for(
+            first.start,
+            first.display_end,
+            finite(anchor_root.get("y"), 86.0),
+        )
     }
 
     /// 取一帧模板像素（`None` = 没套模板）。`fallback_family` 是原文行的字体。
@@ -2331,6 +2368,7 @@ impl OverlayRenderPlan {
             id: format!("{}#speaker", owner.item.id),
             series_index: owner.item.series_index,
             text: name,
+            start: owner.item.start,
             display_start: owner.item.display_start,
             display_end: owner.item.display_end,
             words: Vec::new(),
@@ -2769,10 +2807,16 @@ impl OverlayRenderPlan {
         let lift = self.chrome.as_ref().map_or(0.0, |layer| {
             timeline::template::subs_bottom(&layer.scene.doc, 0.0)
         });
+        // 分屏段（视频格式规范 §5.6）：开始在分屏画面上的一句，整块的中线落在接缝上，同样只挪位置。
+        let seam = if centered_caption {
+            None
+        } else {
+            self.panel_seam(layouts, anchor_root)
+        };
         let center_y = if centered_caption {
             f64::from(self.height) / 2.0
         } else {
-            let mut y = finite(anchor_root.get("y"), 86.0);
+            let mut y = seam.unwrap_or_else(|| finite(anchor_root.get("y"), 86.0));
             if lift > 0.0 {
                 y = y.min(100.0 - lift);
             }
@@ -2843,12 +2887,17 @@ impl OverlayRenderPlan {
             (x, center_y),
             gap,
             (f64::from(self.width), f64::from(self.height)),
-            parse_vertical_align(anchor_root.get("verticalAlign")),
+            if seam.is_some() {
+                Some(VerticalAlign::Center)
+            } else {
+                parse_vertical_align(anchor_root.get("verticalAlign"))
+            },
             plate,
         );
         let span = stacked_span(&placements, &boxes);
         StackLayout {
             anchor: (x, center_y),
+            panel_seam: seam.is_some(),
             overrides,
             plate_line,
             shared_background,
@@ -2886,6 +2935,7 @@ impl OverlayRenderPlan {
             height: canvas_h,
             rotation: 0.0,
             anchor: (0.0, 0.0),
+            panel_seam: false,
             lines: Vec::new(),
             sequence: None,
         };
@@ -2932,6 +2982,7 @@ impl OverlayRenderPlan {
             height: self.height,
             rotation: finite(self.style.get("rotation"), 0.0),
             anchor: stack.anchor,
+            panel_seam: stack.panel_seam,
             lines,
             sequence: None,
         })
@@ -4026,6 +4077,7 @@ impl OverlayRenderPlan {
             series_index: 0,
             text: element_display_text(element, time),
             display_start: element.start,
+            start: element.start,
             display_end: element.end,
             words: Vec::new(),
             speaker: None,
@@ -4961,6 +5013,7 @@ impl OverlayRenderPlan {
             series_index: 0,
             text: element_display_text(element, time),
             display_start: element.start,
+            start: element.start,
             display_end: element.end,
             words: Vec::new(),
             speaker: None,
@@ -8574,6 +8627,8 @@ pub fn alpha_bbox_within(
 pub struct StackLayout {
     /// 全局锚点（画布像素），转场缩放与整组旋转都绕它。
     pub anchor: (f64, f64),
+    /// 这一组挂在分屏的接缝上（视频格式规范 §5.6）：锚点是接缝，块的中线落在它上面。
+    pub panel_seam: bool,
     /// 每行的位置覆盖（与 `layouts` 同序）。
     pub overrides: Vec<Option<(f64, f64)>>,
     /// 共享底板取哪一行的样式（`layouts` 下标）。
@@ -8605,6 +8660,8 @@ pub struct SubtitleLayoutFrame {
     pub height: u32,
     pub rotation: f64,
     pub anchor: (f64, f64),
+    /// 同 [`StackLayout::panel_seam`]：客户端拖它时按画出来的框起手，不按样式的 `y`。
+    pub panel_seam: bool,
     pub lines: Vec<SubtitleLayoutLine>,
     /// 倒鸭子接管原文轨时的行几何（§3.2 舞台拾取、§3.3 编辑态）；`None` = 没有序列层。
     pub sequence: Option<SequenceLayout>,

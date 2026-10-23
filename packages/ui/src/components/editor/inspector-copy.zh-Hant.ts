@@ -305,4 +305,5 @@ export const zhHant: InspectorMessages = {
   lag: '延後',
   punctuation: '標點',
   punctToSpace: '將逗號與句號換成空格',
+  panelSeam: '掛到兩格的接縫上',
 };

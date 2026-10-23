@@ -66,6 +66,9 @@ pub mod host_support;
 #[cfg(feature = "host")]
 pub mod paths;
 
+/// 分屏段的接缝：字幕挂不挂、挂哪条（视频格式规范 §5.6）；两个 feature 共用。
+pub mod panel_seams;
+pub use panel_seams::{PanelSeams, SeamWindow};
 /// 模板层文档（`timeline.json` 的 `template`）的逐帧直绘；两个 feature 共用。
 pub mod template_layer;
 pub use template_layer::{FrameParams as TemplateFrameParams, TemplateScene, TemplateSource};

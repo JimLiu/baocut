@@ -16,6 +16,7 @@ import { CaptionActiveSection, type WordSectionProps } from './inspector-caption
 import { CaptionMotionSection } from './inspector-caption-motion.tsx';
 import { CaptionSequenceSection } from './inspector-caption-sequence.tsx';
 import { lineBody } from '../../model/caption-presets.ts';
+import { hasPanels } from '../../model/panels.ts';
 import { CAPTION_STYLE_COPY as S } from './subtitle-copy.ts';
 import { useCaptionStyle } from './use-caption-style.ts';
 import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
@@ -243,6 +244,13 @@ export function CaptionPage(
           onLive={(v) => live({ width: v })}
           onCommit={(v) => commit({ width: v })}
         />
+        {!sequenceMode && (root.panelSeam === false || sequence.items.some(hasPanels)) ? (
+          <PRow label={IC.layoutSplit}>
+            <Switch size="S" isSelected={root.panelSeam !== false} isDisabled={disabled} onChange={(panelSeam) => commit({ panelSeam })}>
+              {IC.panelSeam}
+            </Switch>
+          </PRow>
+        ) : null}
       </Sec>
       {paired ? (
         <>

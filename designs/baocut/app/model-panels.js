@@ -129,6 +129,52 @@
     return [];
   }
 
+  /* ---------- 分屏段字幕挂到接缝（视频格式规范 §5.6，短视频分屏设计 §7） ---------- */
+
+  const TOUCH = 0.05;
+  /** 格子之间的横向接缝（画面高的百分比，升序）：一格的下边正是另一格的上边、两格横向有重叠的地方。
+   *  上下两格与田字格是 50，三行是 33.333 / 66.667；左右并排的两格没有。 */
+  function seams(panels) {
+    const out = [];
+    (panels || []).forEach(({rect: a}) => {
+      const edge = a.y + a.h;
+      if (edge <= TOUCH || edge >= 100 - TOUCH) return;
+      const touches = panels.some(({rect: b}) => Math.abs(b.y - edge) <= TOUCH && b.x < a.x + a.w - TOUCH && a.x < b.x + b.w - TOUCH);
+      if (touches && !out.some((s) => Math.abs(s - edge) <= TOUCH)) out.push(round(edge, 3));
+    });
+    return out.sort((x, y) => x - y);
+  }
+
+  /** 画面上分屏视频的时间段 `[{start, end, seams}]`：`elements` 里没隐藏、元素文档带 `panels` 的视频，时间段先取文档的。 */
+  function spansOf(elements, elDocs, dur) {
+    return (elements || []).flatMap((e) => {
+      const d = (elDocs || {})[e.id] || {};
+      if (e.kind !== 'video' || d.hidden || !d.panels || !d.panels.length) return [];
+      const start = d.start == null ? (e.start || 0) : d.start;
+      const end = d.end == null ? (e.end == null ? dur : e.end) : d.end;
+      const s = seams(d.panels);
+      return s.length ? [{start, end, seams: s}] : [];
+    });
+  }
+
+  /** 这一刻（`t`）画面上离 `y` 最近的接缝；这一刻不是分屏时 null。 */
+  function seamFor(spans, t, y) {
+    const span = (spans || []).find((s) => s.start <= t && t < s.end);
+    if (!span) return null;
+    return span.seams.reduce((best, s) => (best == null || Math.abs(s - y) < Math.abs(best - y) ? s : best), null);
+  }
+
+  /** 一句字幕挂到接缝时各轨锚线的平移量：`on` 是样式的 `panelSeam !== false`，`start` 是这一句自己的开始（不含提前显示），
+   *  `lines` 是这一句在画的各轨 `{y, ownY}`（`ownY`：这一句的逐条覆盖自己写了 `y`，不挪）。开始的那一刻是分屏时，整块
+   *  （各轨锚线的中点）平移到离它最近的接缝上，各轨按中线对齐；否则 null。原型各轨各自摆，拿锚线的中点代替块的中线。 */
+  function captionSeam(spans, on, start, lines) {
+    if (!on || !lines.length || lines.some((l) => l.ownY)) return null;
+    const ys = lines.map((l) => (l.y == null ? 86 : l.y));
+    const mid = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const seam = seamFor(spans, start, mid);
+    return seam == null ? null : round(seam - mid, 3);
+  }
+
   const COPY = {
     mode: (n) => `分屏 · ${n} 格`,
     section: '版式',
@@ -151,11 +197,13 @@
     how: '在一格里拖动可以挪这个人；放大、互换上下、换回一个人，在属性面板的「版式」里改。',
     dragTip: '拖动挪这一格里的人 · 只在这一格里挪',
     hit: {edge: '已经到原片边上了'},
+    /* 字幕属性「位置」段的一行（行名用 `split`） */
+    seam: '挂到两格的接缝上',
     upscaled: '这一格放得太大，画面会发虚',
   };
 
   const api = {MAX_ZOOM, UPSCALE_WARN, rectsFor, layoutFor, layoutOf, sameRect, cellRatio, boxIn, windowOf, regionToFocal,
-    upscaleOf, panelsFrom, defaultPanels, swap, withFocal, soloFrom, applyTo, names, COPY};
+    upscaleOf, panelsFrom, defaultPanels, swap, withFocal, soloFrom, applyTo, names, seams, spansOf, seamFor, captionSeam, COPY};
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.BC_PANELS = api;
 })();

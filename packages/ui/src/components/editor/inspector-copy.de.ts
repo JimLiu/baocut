@@ -303,4 +303,5 @@ export const de: InspectorMessages = {
   lag: "Später",
   punctuation: "Interpunktion",
   punctToSpace: "Kommas und Punkte durch Leerzeichen ersetzen",
+  panelSeam: "Auf die Naht zwischen den Feldern setzen",
 };

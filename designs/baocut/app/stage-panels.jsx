@@ -7,6 +7,7 @@
      · `PanelsChip`：挂在画面左下角外面的小牌，写「分屏 · 2 格」与段号，ⓘ 说怎么改。
      · `PanelsSection`：属性面板的「版式」段，顶替「取景」段：一人 / 分屏、每格的放大与位置、互换上下、只留一格的人、套到整支。
      · `PanelsLayoutRow`：按原片取景的一人段在「取景」段下面多的那一行，把这一段改成分屏。
+     · `subSeam` / `unseamSubs`：分屏段里开始的字幕挂到接缝上（画面与导出预览）、拖走时解开。
    ============================================================================ */
 (function () {
   const {useState} = React;
@@ -225,5 +226,25 @@
     );
   }
 
-  Object.assign(window, {PanelsPaint, PanelsSelection, PanelsSection, PanelsLayoutRow});
+  /* ---------- 字幕挂到接缝（视频格式规范 §5.6，短视频分屏设计 §7） ---------- */
+
+  /** 这一句字幕在画的各轨（`tracks`）挂到接缝时锚线的平移量（`PN.captionSeam`），不挂时 null。画面与导出预览共用。 */
+  function subSeam(ctx, doc, cue, tracks) {
+    if (!cue || !tracks.length) return null;
+    const S = window.BC_SUB;
+    const lines = tracks.map((t) => ({y: S.line(doc, t.id, cue.id).y, ownY: (S.cueOverride(doc, cue.id, t.id) || {}).y != null}));
+    return PN.captionSeam(PN.spansOf(ctx.elements, ctx.elDocs, window.BC_DATA.DUR), doc.panelSeam !== false, cue.start, lines);
+  }
+
+  /** 拖走挂在接缝上的字幕：放下的地方就是用户要的位置。这一句在画的各轨先按画出来的位置写成中线对齐的锚线，再关掉
+   *  `panelSeam`，拖动从这里接着算（原型各轨各自摆，所以各轨都写；产品里写的是根样式的 `y` 与 `verticalAlign`）。 */
+  function unseamSubs(ctx, doc, cue, tracks, shift) {
+    tracks.forEach((t) => {
+      const y = window.BC_SUB.line(doc, t.id, cue.id).y;
+      ctx.setSubTrack(t.id, {y: window.BC_POSE.subClampY((y == null ? 86 : y) + shift), valign: 'center'});
+    });
+    ctx.setSubStyle({panelSeam: false});
+  }
+
+  Object.assign(window, {PanelsPaint, PanelsSelection, PanelsSection, PanelsLayoutRow, subSeam, unseamSubs});
 })();

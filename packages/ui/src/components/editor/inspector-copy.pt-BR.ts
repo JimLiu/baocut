@@ -303,4 +303,5 @@ export const ptBR: InspectorMessages = {
   lag: "Mais tarde",
   punctuation: "Pontuação",
   punctToSpace: "Substituir vírgulas e pontos por espaços",
+  panelSeam: "Posicionar na junção entre os painéis",
 };

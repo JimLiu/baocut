@@ -15,7 +15,9 @@ import {
   movedCaptionStyle,
   movedLineStyle,
   restackedRootY,
+  seamMoveStart,
   stepCaptionMove,
+  unseamedCaptionStyle,
   type CaptionMove,
   type CaptionMoveFrame,
 } from '../../model/stage-caption-move.ts';
@@ -423,15 +425,22 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
         const other = sharing(hit.itemId);
         return !!other && captionKind(other.documentId, records) !== own;
       });
-      const anchorY = detached ? null : restackedRootY(root, own, rest, canvas);
+      // 另一行挂在接缝上时它不看根样式的 `y`：别把接缝的位置写进根样式，一人段的字幕会跟着跳。
+      const anchorY = detached || rest.some((hit) => hit.panelSeam) ? null : restackedRootY(root, own, rest, canvas);
       const restyle = (to: { x: number; y: number }) => movedLineStyle(root, own, to, detached, anchorY);
       return { move: { box, x0, y0, p0 }, record, body, root, restyle, remember: false, hits };
     }
     const box = captionBox(lines);
     if (!box) return null;
-    const move = { box, x0: num(root.x, CAPTION_X), y0: num(root.y, CAPTION_Y), p0 };
     const selected = useEditor.getState().selection;
     const hits = lines.filter((hit) => (group ? selected.includes(hit.itemId) : hit.itemId === item.id));
+    // 挂在分屏接缝上的一块从画出来的框起手，放下时关掉 `panelSeam`（短视频分屏设计 §7）。
+    if (lines.some((hit) => hit.panelSeam)) {
+      const from = seamMoveStart(root, box, latest.current.canvas);
+      const restyle = (to: { x: number; y: number }) => unseamedCaptionStyle(root, from, to);
+      return { move: { box, ...from, p0 }, record, body, root, restyle, remember: true, hits };
+    }
+    const move = { box, x0: num(root.x, CAPTION_X), y0: num(root.y, CAPTION_Y), p0 };
     return { move, record, body, root, restyle: (to) => movedCaptionStyle(root, to), remember: true, hits };
   };
 

@@ -108,6 +108,7 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 | `fontColor`、`fontWeight`、`fontFamily` | 字色、字重、字体族 | 白、700、system |
 | `textOutline`、`dropShadow` | `{"on": false}` 关掉描边、投影；描边还可给 `color`、`width` | 都开着 |
 | `background`、`backgroundColor` | 底板开关与颜色 | 关、`#000000B3` |
+| `panelSeam` | 开始在分屏画面上的一句，整块的中线落在离 `y` 最近的两格接缝上，到这一句结束不动；`false` 照 `y` 摆 | 开 |
 
 不给 {{arg:style}} 时块的中线在画面高度 86% 处；竖版（9:16）这里落在平台的标题与按钮区，要往上挪：底边放在 78%（1080×1920 上约 y 1500，两行时顶边约 y 1360）写 `{"y": 78, "verticalAlign": "bottom"}`。建好后再改用 {{tool:edits_apply}} 的 `setCaptionStyle`：`itemId` 给字幕实例，`style` 同样的键，合进这层的样式文档；共用这份样式的字幕层（双语的原文与译文）一起变。换成视频里另一份样式给 `styleDocumentId`；品牌库的字幕样式先照 {{tool:library_show}} 的正文 `putDocument` 一份（kind `caption-style`），再用 `styleDocument: {"ref": …}` 挂上。
 

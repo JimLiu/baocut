@@ -88,3 +88,29 @@ test('names：格子的叫法', () => {
   assert.deepEqual(P.names(2), ['上', '下']);
   assert.deepEqual(P.names(4), ['左上', '右上', '左下', '右下']);
 });
+
+test('seams：上下两格与田字格是 50，三行是两条；左右并排没有横向接缝', () => {
+  assert.deepStrictEqual(P.seams(P.rectsFor('rows', 2).map((rect) => ({rect}))), [50]);
+  assert.deepStrictEqual(P.seams(P.rectsFor('rows', 3).map((rect) => ({rect}))), [33.333, 66.667]);
+  assert.deepStrictEqual(P.seams(P.rectsFor('grid', 4).map((rect) => ({rect}))), [50]);
+  assert.deepStrictEqual(P.seams([{rect: {x: 0, y: 0, w: 50, h: 100}}, {rect: {x: 50, y: 0, w: 50, h: 100}}]), []);
+});
+
+test('captionSeam：按这一句自己的开始定，整块的中点平移到最近的接缝；关掉、自己写了 y 的不挪', () => {
+  const panels = P.rectsFor('rows', 2).map((rect) => ({rect}));
+  const spans = P.spansOf([{id: 'v', kind: 'video'}, {id: 'w', kind: 'video'}], {v: {start: 10, end: 20, panels}, w: {start: 0, end: 30}}, 206);
+  assert.deepStrictEqual(spans, [{start: 10, end: 20, seams: [50]}]);
+  assert.strictEqual(P.captionSeam(spans, true, 12, [{y: 86}]), -36);
+  // 双语两条轨一起挪，中点落在接缝上
+  assert.strictEqual(P.captionSeam(spans, true, 12, [{y: 80}, {y: 86}]), -33);
+  // 开始在一人段、延续进分屏段的不挪；开始在分屏段、延续出去的照挂
+  assert.strictEqual(P.captionSeam(spans, true, 9, [{y: 86}]), null);
+  assert.strictEqual(P.captionSeam(spans, true, 19.5, [{y: 86}]), -36);
+  assert.strictEqual(P.captionSeam(spans, false, 12, [{y: 86}]), null);
+  assert.strictEqual(P.captionSeam(spans, true, 12, [{y: 86}, {y: 20, ownY: true}]), null);
+  // 三行取离锚线最近的那条；隐藏的视频不算
+  const rows3 = [{start: 0, end: 5, seams: P.seams(P.rectsFor('rows', 3).map((rect) => ({rect})))}];
+  assert.strictEqual(P.captionSeam(rows3, true, 1, [{y: 86}]), -19.333);
+  assert.deepStrictEqual(P.spansOf([{id: 'v', kind: 'video'}], {v: {start: 10, end: 20, panels, hidden: true}}, 206), []);
+});
+

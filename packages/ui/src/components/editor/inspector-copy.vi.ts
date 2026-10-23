@@ -303,4 +303,5 @@ export const vi: InspectorMessages = {
   lag: "Để sau",
   punctuation: "Dấu câu",
   punctToSpace: "Thay dấu phẩy và chấm bằng dấu cách",
+  panelSeam: "Đặt trên đường nối giữa các ô",
 };

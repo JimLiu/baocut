@@ -14,6 +14,7 @@ describe('字幕样式补丁', () => {
       style: { y: 75, verticalAlign: 'bottom', textOutline: { on: false, color: '#000000', width: 14 }, punct: true },
     });
     expect(body.style.y).toBe(86);
+    expect(patchStudioStyle(body, { panelSeam: false })?.style).toMatchObject({ y: 86, panelSeam: false });
   });
 
   it('新建的样式以默认预设为底', () => {
@@ -31,6 +32,8 @@ describe('字幕样式补丁', () => {
     expect(captionStylePatch.safeParse({ y: 75, verticalAlign: 'bottom', width: 84, fontSize: 32, fontColor: '#FFEE00CC' }).success).toBe(
       true,
     );
+    expect(captionStylePatch.safeParse({ panelSeam: false }).success).toBe(true);
+    expect(captionStylePatch.safeParse({ panelSeam: 'off' }).success).toBe(false);
     expect(captionStylePatch.safeParse({ y: 101 }).success).toBe(false);
     expect(captionStylePatch.safeParse({ width: 2 }).success).toBe(false);
     expect(captionStylePatch.safeParse({ fontColor: 'yellow' }).success).toBe(false);

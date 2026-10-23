@@ -238,11 +238,17 @@
        位移先按全组夹进画面再逐条加，没动的那一轴不写。 */
     const startMove = (e) => {
       if (e.button !== 0) return;
+      /* 挂在分屏接缝上的一句（stage-panels.jsx `subSeam`）从画出来的位置起手，真拖动了才解开 */
+      const cue = ctx.curCue;
+      const shown = window.BC_SUB.tracks(ctx.subStyle).filter((t) => !t.hidden && window.BC_SUBSEG.covers(t, ctx.playT));
+      let seam = window.subSeam(ctx, ctx.subStyle, cue, shown);
       const start = members.map((s) => {
         const t = window.BC_SUB.byId(ctx.subStyle, s.trackId) || {};
-        return {trackId: s.trackId, x: t.x == null ? 50 : t.x, y: t.y == null ? 86 : t.y};
+        const y = t.y == null ? 86 : t.y;
+        return {trackId: s.trackId, x: t.x == null ? 50 : t.x, y: seam == null ? y : P.subClampY(y + seam)};
       });
       runGesture(ctx, setDrag, e, start, (list, p0, p) => {
+        if (seam != null) { window.unseamSubs(ctx, ctx.subStyle, cue, shown, seam); seam = null; }
         const d = S.groupShift(list, (p.x - p0.x) / fr.width * 100, (p.y - p0.y) / fr.height * 100, SUB_LIMITS);
         list.forEach((it) => {
           const patch = {};

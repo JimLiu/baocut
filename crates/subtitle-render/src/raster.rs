@@ -556,6 +556,7 @@ mod layout_shaping_tests {
                 series_index: 0,
                 text: text.to_owned(),
                 display_start: 0.0,
+                start: 0.0,
                 display_end: 1.0,
                 words: Vec::new(),
                 speaker: None,

@@ -320,6 +320,8 @@ const en = {
   lag: 'Later',
   punctuation: 'Punctuation',
   punctToSpace: 'Replace commas and periods with spaces',
+  /** 字幕「位置」段：分屏段里开始的字幕挂到两格的接缝上（Studio 样式 `panelSeam`），行名用 `layoutSplit`。 */
+  panelSeam: 'Sit on the seam between panels',
 };
 
 export type InspectorMessages = typeof en;

@@ -1030,3 +1030,101 @@ fn scene_output_screen_uses_video_backdrop_and_preserves_order_on_seek() {
     let end = render_with(&mut actual, &video, 2.2, &mut Media::default());
     assert!(end.chunks_exact(4).all(|p| p == [51, 77, 102, 255]));
 }
+
+/// 上下两格的分屏视频（素材 `a_clip`）：接缝在画布高的 50%。
+fn split_clip(id: &str, from: i64, frames: i64, source_in: f64) -> Value {
+    let mut value = clip_at(id, from, frames, source_in);
+    value["panels"] = json!([
+        { "rect": { "x": 0, "y": 0, "w": 100, "h": 50 }, "focalPoint": { "x": 0.25, "y": 0.5 } },
+        { "rect": { "x": 0, "y": 50, "w": 100, "h": 50 }, "focalPoint": { "x": 0.75, "y": 0.5 } },
+    ]);
+    value
+}
+
+#[test]
+fn captions_that_start_on_a_split_shot_sit_on_the_seam() {
+    // 底边贴锚线（86%）的样式：不挂时白字的中线在画布下部，挂到接缝时整块的中线在 50%（y 45）。
+    let style = |extra: Value| {
+        let mut style = json!({ "fontSize": 80, "verticalAlign": "bottom", "anim": { "name": "None" },
+                                "displayTiming": { "leadIn": 0, "tail": 0 } });
+        if let (Some(style), Value::Object(extra)) = (style.as_object_mut(), extra) {
+            style.extend(extra);
+        }
+        style_doc("style", studio(style))
+    };
+    let draw_at = |clock: &str, cue: (f64, f64), style: FrozenDocument, clips: Vec<Value>, scopes: &[&str], seconds: f64| {
+        let documents = vec![caption_doc("doc", clock, &[(cue.0, cue.1, "AB")], "original"), style];
+        let mut items = clips;
+        items.push(caption("cap", "doc", Some("style"), 90, scopes));
+        let video = video(items, vec![video_asset("a_clip", 320, 90)], json!({}));
+        let mut renderer = renderer(false, Documents::new(documents));
+        renderer.set_collect_caption_hits(true);
+        let frame = render_with(&mut renderer, &video, seconds, &mut Media::default());
+        let (n, _, y) = centroid(&frame, whiteish);
+        assert!(n > 10, "{clock} {cue:?} {seconds}: {n}");
+        (y, renderer.caption_hits().first().is_some_and(|hit| hit.panel_seam))
+    };
+    let on_seam = |(y, hit): (f64, bool)| (y - 45.0).abs() < 3.0 && hit;
+    let at_bottom = |(y, hit): (f64, bool)| y > 65.0 && !hit;
+    // 序列时钟：分屏片段从 1 秒起。开始在片段里的一句挂到接缝，命中框也说它挂着。
+    let split = || vec![split_clip("v", 30, 30, 0.0)];
+    assert!(on_seam(draw_at("sequence", (1.2, 1.8), style(json!({})), split(), &[], 1.5)));
+    // 开始在分屏之前、延续进分屏的一句不挂；关掉 panelSeam 也不挂。
+    assert!(at_bottom(draw_at("sequence", (0.5, 1.8), style(json!({})), split(), &[], 1.5)));
+    assert!(at_bottom(draw_at(
+        "sequence",
+        (1.2, 1.8),
+        style(json!({ "panelSeam": false })),
+        split(),
+        &[],
+        1.5
+    )));
+    // 开始在分屏片段、片段结束后还在显示的一句一直挂着。
+    assert!(on_seam(draw_at("sequence", (1.8, 2.5), style(json!({})), split(), &[], 2.2)));
+    // 源素材时钟：句子在源的 10.2 秒开始，都看源 10.5 秒那一刻。作用实例从源 10 秒起分屏播：挂。
+    let source =
+        |clips: Vec<Value>, scopes: &[&str], seconds: f64| draw_at("source-asset", (10.2, 10.8), style(json!({})), clips, scopes, seconds);
+    assert!(on_seam(source(vec![split_clip("b", 0, 60, 10.0)], &["b"], 0.5)));
+    // 句子开始的 10.2 秒被剪掉、从 10.3 秒起才显示在分屏片段里：按第一次显示的地方定，挂。
+    assert!(on_seam(source(vec![split_clip("b", 0, 60, 10.3)], &["b"], 0.2)));
+    // 10.2 秒显示在一人的片段里、10.3 秒起接分屏片段：按开始那一刻定，不挂。
+    assert!(at_bottom(source(
+        vec![clip_at("a", 0, 9, 10.0), split_clip("b", 9, 51, 10.3)],
+        &["a", "b"],
+        0.5
+    )));
+}
+
+#[test]
+fn boxed_captions_stay_in_their_box_on_a_split_shot() {
+    let documents = || {
+        vec![
+            caption_doc("doc", "sequence", &[(0.0, 1.0, "AB")], "original"),
+            style_doc(
+                "style",
+                json!({
+                    "schema": "baocut.boxed-caption-style/1",
+                    "canvas": { "width": 320, "height": 180 },
+                    "box": { "x": 0, "y": 60, "width": 240, "height": 40 },
+                    "style": { "fontSize": 24, "color": "#FFFFFF", "verticalAlign": "bottom" },
+                }),
+            ),
+        ]
+    };
+    let draw_with = |clip: Value| {
+        let video = video(
+            vec![clip, caption("cap", "doc", Some("style"), 60, &[])],
+            vec![video_asset("a_clip", 320, 90)],
+            json!({}),
+        );
+        render_with(
+            &mut renderer(false, Documents::new(documents())),
+            &video,
+            0.5,
+            &mut Media::default(),
+        )
+    };
+    let split = draw_with(split_clip("v", 0, 60, 0.0));
+    assert!(centroid(&split, whiteish).0 > 10);
+    assert!(split == draw_with(clip_at("v", 0, 60, 0.0)), "定位框样式不挂到接缝");
+}

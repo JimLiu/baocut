@@ -306,4 +306,5 @@ export const ru: InspectorMessages = {
   lag: "Позже",
   punctuation: "Пунктуация",
   punctToSpace: "Заменять запятые и точки пробелами",
+  panelSeam: "Размещать на стыке панелей",
 };
