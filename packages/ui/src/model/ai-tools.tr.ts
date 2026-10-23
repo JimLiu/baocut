@@ -9,15 +9,15 @@ export const tr: AiToolsMessages = {
     focus: {
       auto: { label: 'Otomatik', sub: 'Konuşan kişinin hangi tarafta olduğuna bakıp çerçeveyi ona yerleştirir; kimse yoksa ortalanmış' },
       manual: { label: 'Kendim belirleyeceğim', sub: 'Her kısa videonun çerçevesini sonra kendin yerleştirirsin' },
-      speaker: { label: 'Konuşanı takip et', sub: 'Çerçeve konuşan kişiyi takip eder' },
+      speaker: { label: 'Konuşanı takip et', sub: 'Konuşana odaklanır: orijinal yakın ve geniş çekimler arasında geçiyorsa onun çekimlerini izler; tek bir geniş kamera varsa konuşana göre kişi değiştirir, iki kişi aynı anda konuştuğunda veya kimse konuşmadığında böler' },
     },
-    speakerOff: 'Bu sürümde henüz kişi ve konuşmacı modeli yok',
+    speakerOff: 'Dökümde henüz konuşmacılar ayrılmadı · önce “Konuşmacıları belirle”yi kullanın',
     tracks: { both: 'Orijinal + çeviri', source: 'Yalnızca orijinal', translation: 'Yalnızca çeviri' },
     styles: {
       shorts: { label: 'Kısa video altyazısı', sub: 'Platform düğmelerinden uzak duran yerleşik ön ayar' },
       video: { label: 'Bu videonun stilini kullan', sub: 'Aynı boyut ve konum; platform düğmeleri altyazıyı örtebilir' },
     },
-    focusPrompt: { auto: 'otomatik: bölüm boyunca eşit aralıklı kareler al, konuşan kişinin karenin hangi tarafında olduğuna bak ve kırpmayı ona yerleştir; kimseyi bulamazsan ortala', manual: 'şimdilik ortalanmış; her birini sonra kendim ayarlayacağım' },
+    focusPrompt: { speaker: 'konuşanı takip et: orijinal yakın ve geniş çekimler arasında geçiyorsa çekim çekim kadrajla; tek bir geniş kamera varsa videos_shots by speaker ile konuşmacıya göre böl ve konuşan kişiye odaklan', auto: 'otomatik: bölüm boyunca eşit aralıklı kareler al, konuşan kişinin karenin hangi tarafında olduğuna bak ve kırpmayı ona yerleştir; kimseyi bulamazsan ortala', manual: 'şimdilik ortalanmış; her birini sonra kendim ayarlayacağım' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Otomatik: ajan tek başına anlam taşıyan en güçlü konuları bulur; kaç kısa video yapılacağına ve her birinin uzunluğuna konulara göre karar verir, sayıyı doldurmak için zayıf bölüm eklemez, konuyu yarıda kesmez.',

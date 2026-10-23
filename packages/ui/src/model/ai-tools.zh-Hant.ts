@@ -9,15 +9,15 @@ export const zhHant: AiToolsMessages = {
     focus: {
       auto: { label: '自動', sub: '看說話的人在畫面哪一側，框放到他身上；找不到人就置中' },
       manual: { label: '我自己定', sub: '之後每支自己定取景位置' },
-      speaker: { label: '跟著說話的人', sub: '誰說話框跟誰' },
+      speaker: { label: '跟著說話的人', sub: '誰說話對準誰：原片有近景與全景來回切時跟著原片的鏡頭；只有一個全景機位時按說話者換人，兩人搶著說或都不說話時分屏' },
     },
-    speakerOff: '這一版還沒有人物與說話者模型',
+    speakerOff: '逐字稿裡還沒分出說話者 · 先用「辨識說話者」',
     tracks: { both: '原文 + 譯文', source: '只要原文', translation: '只要譯文' },
     styles: {
       shorts: { label: '短影音字幕', sub: '內建預設，避開平台按鈕' },
       video: { label: '沿用這部影片的樣式', sub: '字級和位置照搬，可能被平台按鈕擋住' },
     },
-    focusPrompt: { auto: '自動：在片段裡均勻抽幾格畫面，看說話的人在畫面哪一側，把裁切框放到他身上；找不到人就置中', manual: '先置中，之後我逐支自己調' },
+    focusPrompt: { speaker: '跟著說話的人：有近景與全景來回切時按鏡頭取景；只有一個全景機位時用 videos_shots 的 by speaker 按說話者切段，誰說話對準誰', auto: '自動：在片段裡均勻抽幾格畫面，看說話的人在畫面哪一側，把裁切框放到他身上；找不到人就置中', manual: '先置中，之後我逐支自己調' },
     countN: (n) => `${n} 支`,
     autoHint: {
       both: '自動：Agent 先找出能單獨成立的好話題，幾支、每支多長都依話題決定，不湊數也不截半截。',

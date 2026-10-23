@@ -19,6 +19,7 @@ export const vi: AiToolsMessages = {
   shortsSkipDoneOff: 'Tìm khắp nơi; có thể trùng với các video đã cắt',
   shortsSplit: 'Chia màn hình khi cảnh rộng có nhiều người',
   shortsSplitOn: 'Khi bản gốc chuyển sang cảnh rộng nhiều người mà một khung dọc không chứa hết, mỗi người một ô xếp trên dưới; chỉ đổi ở chỗ chuyển cảnh, cảnh rộng ngắn hơn 3 giây không chia',
+  shortsSplitSpeakerOn: 'Khi cảnh rộng có nhiều người, hai người nói cùng lúc hoặc không ai nói, mỗi người một ô xếp trên dưới; mỗi đoạn dài ít nhất 3 giây',
   shortsSplitOff: 'Cảnh rộng nhiều người cũng chỉ căn vào một người',
   shortsTopic: 'Chủ đề',
   shortsTopicPlaceholder: 'Không bắt buộc: ví dụ “vì sao chạy cục bộ”',

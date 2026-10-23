@@ -20,6 +20,7 @@ export const fr: AiToolsMessages = {
   shortsSkipDoneOff: 'Cherche partout ; peut chevaucher les vidéos déjà découpées',
   shortsSplit: 'Partager les plans larges à plusieurs',
   shortsSplitOn: 'Quand l’original passe à un plan large de plusieurs personnes qu’un cadre vertical ne peut pas contenir, chaque personne a son panneau, empilés ; le changement se fait seulement aux coupes, et les plans larges de moins de 3 secondes ne sont pas partagés',
+  shortsSplitSpeakerOn: 'Sur un plan large de plusieurs personnes, ou quand deux parlent en même temps ou que personne ne parle, chaque personne a son panneau, empilés ; chaque passage dure au moins 3 secondes',
   shortsSplitOff: 'Les plans larges à plusieurs visent aussi une seule personne',
   shortsTopic: 'Sujet',
   shortsTopicPlaceholder: 'Facultatif : par ex. « pourquoi tout tourne en local »',

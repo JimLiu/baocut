@@ -20,6 +20,7 @@ export const ptBR: AiToolsMessages = {
   shortsSkipDoneOff: 'Procura em tudo; pode coincidir com os já cortados',
   shortsSplit: 'Dividir planos abertos de várias pessoas',
   shortsSplitOn: 'Quando o original corta para um plano aberto de várias pessoas que não cabem num quadro vertical, cada pessoa ganha um painel, empilhados; só muda nos cortes de câmera, e planos abertos com menos de 3 segundos não são divididos',
+  shortsSplitSpeakerOn: 'Em planos abertos de várias pessoas, ou quando duas falam ao mesmo tempo ou ninguém fala, cada pessoa ganha um painel, empilhados; cada trecho dura pelo menos 3 segundos',
   shortsSplitOff: 'Planos abertos de várias pessoas também miram uma pessoa só',
   shortsTopic: 'Tema',
   shortsTopicPlaceholder: 'Opcional: ex. “por que rodamos localmente”',

@@ -19,6 +19,7 @@ export const es: AiToolsMessages = {
   shortsSkipDoneOff: 'Busca en todo; puede solaparse con los ya cortados',
   shortsSplit: 'Dividir planos generales de varias personas',
   shortsSplitOn: 'Cuando el original pasa a un plano general de varias personas que no caben en un cuadro vertical, cada persona va en su panel, apilados; solo cambia en los cortes de cámara y los planos de menos de 3 segundos no se dividen',
+  shortsSplitSpeakerOn: 'En planos generales de varias personas, o cuando dos hablan a la vez o nadie habla, cada persona va en su panel, apilados; cada tramo dura al menos 3 segundos',
   shortsSplitOff: 'Los planos generales de varias personas también apuntan a una sola',
   shortsTopic: 'Tema',
   shortsTopicPlaceholder: 'Opcional: p. ej., «por qué lo ejecutamos en local»',

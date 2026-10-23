@@ -19,6 +19,7 @@ export const ko: AiToolsMessages = {
   shortsSkipDoneOff: '모두 찾습니다. 이미 만든 쇼츠와 겹칠 수 있습니다',
   shortsSplit: '여러 사람 와이드 샷은 분할',
   shortsSplitOn: '원본이 여러 사람이 나오는 와이드 샷으로 바뀌어 세로 화면 하나에 담기지 않으면 한 사람씩 칸에 나눠 위아래로 쌓습니다. 컷이 바뀌는 곳에서만 바꾸고 3초보다 짧은 와이드 샷은 나누지 않습니다',
+  shortsSplitSpeakerOn: '여러 사람 와이드 샷이거나 두 사람이 겹쳐 말하거나 아무도 말하지 않을 때 한 사람씩 칸에 나눠 위아래로 쌓습니다. 한 구간은 최소 3초입니다',
   shortsSplitOff: '여러 사람 와이드 샷도 한 사람에게 맞춥니다',
   shortsTopic: '주제',
   shortsTopicPlaceholder: '선택: 예) “왜 로컬에서 돌리나”. 이 이야기를 하는 부분에서만 찾습니다',

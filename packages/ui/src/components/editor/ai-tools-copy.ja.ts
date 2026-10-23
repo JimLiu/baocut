@@ -19,6 +19,7 @@ export const ja: AiToolsMessages = {
   shortsSkipDoneOff: 'すべて探します。切り出し済みのショートと重なることがあります',
   shortsSplit: '複数人の引きは分割',
   shortsSplitOn: '元動画が複数人の引きのショットに切り替わり、縦長の枠に収まらないときは、1 人 1 マスで上下に並べます。切り替えはカットの位置だけで、3 秒未満の引きは分割しません',
+  shortsSplitSpeakerOn: '複数人の引き、2 人が同時に話すとき、誰も話さないときは、1 人 1 マスで上下に並べます。1 区間は 3 秒以上です',
   shortsSplitOff: '複数人の引きでも 1 人に合わせます',
   shortsTopic: 'テーマ',
   shortsTopicPlaceholder: '任意：例「なぜローカルで動かすのか」。その話をしている部分だけから探します',

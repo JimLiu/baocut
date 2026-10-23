@@ -12,15 +12,15 @@ export const pl: AiToolsMessages = {
     focus: {
       auto: { label: 'Automatyczny', sub: 'Sprawdza, po której stronie jest mówiący, i ustawia kadr na nim; bez osoby — wyśrodkowany' },
       manual: { label: 'Ustawię sam', sub: 'Potem sam ustawiasz kadr każdego krótkiego filmu' },
-      speaker: { label: 'Śledź mówiącego', sub: 'Kadr podąża za osobą, która mówi' },
+      speaker: { label: 'Śledź mówiącego', sub: 'Celuj w osobę, która mówi: gdy oryginał przełącza między zbliżeniami a szerokimi planami, kadr idzie za jego ujęciami; przy jednej szerokiej kamerze zmienia osobę według tego, kto mówi, i dzieli, gdy dwie osoby mówią naraz lub nikt nie mówi' },
     },
-    speakerOff: 'Ta wersja nie ma jeszcze modelu osób i mówców',
+    speakerOff: 'Transkrypcja nie rozróżnia jeszcze mówców · najpierw użyj „Zidentyfikuj mówców”',
     tracks: { both: 'Oryginał + tłumaczenie', source: 'Tylko oryginał', translation: 'Tylko tłumaczenie' },
     styles: {
       shorts: { label: 'Napisy do krótkich filmów', sub: 'Wbudowany preset, który omija przyciski platformy' },
       video: { label: 'Zachowaj styl tego wideo', sub: 'Ten sam rozmiar i pozycja; przyciski platformy mogą je zasłonić' },
     },
-    focusPrompt: { auto: 'automatyczny: weź klatki rozłożone równo w całym fragmencie, sprawdź, po której stronie kadru jest mówiący, i ustaw przycięcie na nim; jeśli nikogo nie znajdziesz, wyśrodkuj', manual: 'na razie wyśrodkowany; każdy dopasuję sam' },
+    focusPrompt: { speaker: 'śledź mówiącego: gdy oryginał przełącza między zbliżeniami a szerokimi planami, kadruj według ujęć; przy jednej szerokiej kamerze tnij według mówców przez videos_shots by speaker i celuj w tego, kto mówi', auto: 'automatyczny: weź klatki rozłożone równo w całym fragmencie, sprawdź, po której stronie kadru jest mówiący, i ustaw przycięcie na nim; jeśli nikogo nie znajdziesz, wyśrodkuj', manual: 'na razie wyśrodkowany; każdy dopasuję sam' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Automatycznie: agent znajduje najmocniejsze tematy, które bronią się same, i decyduje, ile krótkich filmów zrobić i jak długi ma być każdy – bez zapychaczy i bez tematów uciętych w połowie.',

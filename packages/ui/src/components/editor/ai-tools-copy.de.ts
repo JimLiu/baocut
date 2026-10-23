@@ -20,6 +20,7 @@ export const de: AiToolsMessages = {
   shortsSkipDoneOff: 'Sucht überall; kann sich mit bereits geschnittenen überschneiden',
   shortsSplit: 'Totalen mit mehreren Personen teilen',
   shortsSplitOn: 'Wenn das Original auf eine Totale mit mehreren Personen schneidet, die ein Hochformat nicht fasst, bekommt jede Person ein eigenes Feld, übereinander; gewechselt wird nur an Schnitten, Totalen unter 3 Sekunden werden nicht geteilt',
+  shortsSplitSpeakerOn: 'Bei einer Totale mit mehreren Personen, wenn zwei durcheinanderreden oder niemand spricht, bekommt jede Person ein eigenes Feld, übereinander; jeder Abschnitt dauert mindestens 3 Sekunden',
   shortsSplitOff: 'Auch Totalen mit mehreren Personen zielen auf eine Person',
   shortsTopic: 'Thema',
   shortsTopicPlaceholder: 'Optional: z. B. „warum wir lokal arbeiten“',

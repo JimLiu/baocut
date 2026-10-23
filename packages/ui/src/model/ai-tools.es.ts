@@ -9,15 +9,15 @@ export const es: AiToolsMessages = {
     focus: {
       auto: { label: 'Automático', sub: 'Detecta en qué lado está quien habla y pone el encuadre sobre esa persona; si no hay nadie, centrado' },
       manual: { label: 'Lo decido yo', sub: 'Después colocas tú el encuadre de cada vídeo corto' },
-      speaker: { label: 'Seguir a quien habla', sub: 'El encuadre sigue a quien esté hablando' },
+      speaker: { label: 'Seguir a quien habla', sub: 'Apunta a quien habla: si el original alterna primeros planos y planos generales, sigue sus cortes; con una sola cámara general, cambia de persona según quién habla y divide cuando dos hablan a la vez o nadie habla' },
     },
-    speakerOff: 'Esta versión aún no tiene un modelo de personas y hablantes',
+    speakerOff: 'La transcripción aún no distingue hablantes · usa primero «Identificar hablantes»',
     tracks: { both: 'Original + traducción', source: 'Solo original', translation: 'Solo traducción' },
     styles: {
       shorts: { label: 'Subtítulos para vídeos cortos', sub: 'Preajuste integrado que evita los botones de la plataforma' },
       video: { label: 'Mantener el estilo de este vídeo', sub: 'Mismo tamaño y posición; los botones de la plataforma pueden taparlos' },
     },
-    focusPrompt: { auto: 'automático: toma fotogramas repartidos por el segmento, mira en qué lado del encuadre está quien habla y coloca el recorte sobre esa persona; si no encuentras a nadie, céntralo', manual: 'centrado por ahora; yo ajustaré cada uno' },
+    focusPrompt: { speaker: 'seguir a quien habla: si el original alterna primeros planos y planos generales, encuadra según cada plano; con una sola cámara general, corta por hablante con videos_shots by speaker y apunta a quien esté hablando', auto: 'automático: toma fotogramas repartidos por el segmento, mira en qué lado del encuadre está quien habla y coloca el recorte sobre esa persona; si no encuentras a nadie, céntralo', manual: 'centrado por ahora; yo ajustaré cada uno' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Automático: el agente encuentra los temas más fuertes que se sostienen solos y decide cuántos vídeos cortos hacer y cuánto dura cada uno, sin relleno ni temas cortados a la mitad.',

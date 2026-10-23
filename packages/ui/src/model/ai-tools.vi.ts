@@ -9,15 +9,15 @@ export const vi: AiToolsMessages = {
     focus: {
       auto: { label: 'Tự động', sub: 'Xem người nói ở phía nào của khung hình rồi đặt khung vào người đó; không thấy ai thì để ở giữa' },
       manual: { label: 'Tôi tự đặt', sub: 'Sau đó bạn tự đặt khung cho từng video ngắn' },
-      speaker: { label: 'Theo người nói', sub: 'Khung hình đi theo người đang nói' },
+      speaker: { label: 'Theo người nói', sub: 'Căn vào người đang nói: khi bản gốc chuyển qua lại giữa cận cảnh và cảnh rộng thì theo cảnh của bản gốc; khi chỉ có một máy quay cảnh rộng thì đổi theo người nói, hai người nói cùng lúc hoặc không ai nói thì chia màn hình' },
     },
-    speakerOff: 'Phiên bản này chưa có mô hình người và người nói',
+    speakerOff: 'Bản chép lời chưa tách người nói · hãy dùng “Nhận dạng người nói” trước',
     tracks: { both: 'Bản gốc + bản dịch', source: 'Chỉ bản gốc', translation: 'Chỉ bản dịch' },
     styles: {
       shorts: { label: 'Phụ đề video ngắn', sub: 'Mẫu dựng sẵn, tránh các nút của nền tảng' },
       video: { label: 'Giữ kiểu của video này', sub: 'Giữ cỡ chữ và vị trí; nút của nền tảng có thể che mất' },
     },
-    focusPrompt: { auto: 'tự động: lấy đều các khung hình trong đoạn, xem người nói ở phía nào của khung hình và đặt vùng cắt vào người đó; nếu không thấy ai thì để ở giữa', manual: 'tạm để ở giữa; tôi sẽ tự chỉnh từng video' },
+    focusPrompt: { speaker: 'theo người nói: khi bản gốc chuyển qua lại giữa cận cảnh và cảnh rộng thì căn khung theo từng cảnh; khi chỉ có một máy quay cảnh rộng thì dùng videos_shots by speaker để cắt theo người nói và căn vào người đang nói', auto: 'tự động: lấy đều các khung hình trong đoạn, xem người nói ở phía nào của khung hình và đặt vùng cắt vào người đó; nếu không thấy ai thì để ở giữa', manual: 'tạm để ở giữa; tôi sẽ tự chỉnh từng video' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Tự động: Agent tìm những chủ đề mạnh nhất có thể đứng riêng rồi tự quyết làm mấy video ngắn và mỗi video dài bao lâu, không độn cho đủ số, không cắt chủ đề giữa chừng.',

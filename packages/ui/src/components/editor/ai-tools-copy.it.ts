@@ -20,6 +20,7 @@ export const it: AiToolsMessages = {
   shortsSkipDoneOff: 'Cerca ovunque; può sovrapporsi a quelli già tagliati',
   shortsSplit: 'Dividi i campi larghi con più persone',
   shortsSplitOn: 'Quando l’originale passa a un campo largo con più persone che un riquadro verticale non può contenere, ognuno ha il suo riquadro, uno sopra l’altro; cambia solo ai tagli di inquadratura e i campi larghi sotto i 3 secondi non vengono divisi',
+  shortsSplitSpeakerOn: 'Nei campi larghi con più persone, o quando due parlano insieme o nessuno parla, ognuno ha il suo riquadro, uno sopra l’altro; ogni tratto dura almeno 3 secondi',
   shortsSplitOff: 'Anche i campi larghi con più persone puntano su una sola',
   shortsTopic: 'Tema',
   shortsTopicPlaceholder: 'Facoltativo: ad es. «perché lo eseguiamo in locale»',

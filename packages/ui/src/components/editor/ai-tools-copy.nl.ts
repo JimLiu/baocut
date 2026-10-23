@@ -20,6 +20,7 @@ export const nl: AiToolsMessages = {
   shortsSkipDoneOff: 'Zoekt overal; kan overlappen met al geknipte video’s',
   shortsSplit: 'Totaalshots met meerdere mensen splitsen',
   shortsSplitOn: 'Als het origineel overgaat op een totaalshot van meerdere mensen dat niet in één staand kader past, krijgt iedereen een eigen vak, onder elkaar; dat wisselt alleen bij een cut, en totaalshots korter dan 3 seconden worden niet gesplitst',
+  shortsSplitSpeakerOn: 'Bij een totaalshot van meerdere mensen, of als twee door elkaar praten of niemand praat, krijgt iedereen een eigen vak, onder elkaar; elk stuk duurt minstens 3 seconden',
   shortsSplitOff: 'Ook totaalshots met meerdere mensen richten zich op één persoon',
   shortsTopic: 'Onderwerp',
   shortsTopicPlaceholder: 'Optioneel: bijv. ‘waarom we lokaal draaien’',

@@ -19,6 +19,7 @@ export const zhHant: AiToolsMessages = {
   shortsSkipDoneOff: '照找，可能和切過的幾支重疊',
   shortsSplit: '多人全景時分屏',
   shortsSplitOn: '原片切到幾個人的全景、一個直式畫面裝不下時，每人一格上下排開；只在鏡頭切換處換，短於 3 秒的全景不分屏',
+  shortsSplitSpeakerOn: '切到幾個人的全景、兩人搶著說或都不說話時，每人一格上下排開；每段至少 3 秒',
   shortsSplitOff: '幾個人的全景也只對準一個人',
   shortsTopic: '主題',
   shortsTopicPlaceholder: '可空：比如「為什麼做本機」，只在講這件事的片段裡找',
