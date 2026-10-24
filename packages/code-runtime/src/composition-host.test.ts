@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CodeBundleError, inspectBundle, type InspectedBundle } from './bundle-inspect.ts';
 import { CompositionHost, frameTicketAt, hostSpawnArgs, resolveElectronBinary } from './composition-host.ts';
+import { JsonLineWorker } from '@baocut/process-host';
+import { COMPOSITION_HOST_SCRIPT } from './composition-host-script.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixtures = path.join(here, 'fixtures');
@@ -33,6 +35,16 @@ describe('resolveElectronBinary', () => {
     expect(error).toBeInstanceOf(CodeBundleError);
     expect((error as CodeBundleError).code).toBe('COMPOSITION_HOST_UNAVAILABLE');
   });
+
+  it('retains startup diagnostics when the executable rejects the host switch', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-host-start-failure-'));
+    try {
+      const error = await CompositionHost.start({ electron: process.execPath, cacheDir: dir }).catch(error => error);
+      expect(error).toBeInstanceOf(CodeBundleError);
+      expect((error as CodeBundleError).code).toBe('COMPOSITION_HOST_UNAVAILABLE');
+      expect((error as CodeBundleError).details).toMatchObject({ stderr: expect.stringContaining('--composition-host') });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 describe.skipIf(!electron)('CompositionHost（Electron 离屏）', { timeout: 120_000 }, () => {
@@ -50,6 +62,24 @@ describe.skipIf(!electron)('CompositionHost（Electron 离屏）', { timeout: 12
   });
 
   const at = (bundle: InspectedBundle, seconds: number) => frameTicketAt(bundle, { seconds });
+
+  it('answers through the socket when GUI startup has closed stdin', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-host-eof-'));
+    const script = path.join(dir, 'closed-stdin.cjs');
+    // An already-closed Windows handle need not expose a usable Readable.
+    fs.writeFileSync(script, `try { process.stdin.destroy(); } catch {}\n${COMPOSITION_HOST_SCRIPT}`);
+    const env = { ...process.env };
+    delete env.ELECTRON_RUN_AS_NODE;
+    let worker: JsonLineWorker | undefined;
+    try {
+      worker = await JsonLineWorker.start({ command: electron!, args: [script], env, socket: { timeoutMs: 20_000 } });
+      expect(await worker.request('ping', {}, { timeoutMs: 3000 })).toMatchObject({ electron: expect.any(String), sessions: 0 });
+      expect(await worker.close()).toMatchObject({ code: 0, expected: true });
+    } finally {
+      await worker?.kill();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it('hyperframes/1：同一时刻两次取帧相同，不同时刻不同，越界被夹到末尾', async () => {
     const bundle = await inspect('hyperframes-basic', { manifest: { alpha: true } });
