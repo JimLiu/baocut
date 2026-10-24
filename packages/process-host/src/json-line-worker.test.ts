@@ -116,6 +116,7 @@ describe('JsonLineWorker authenticated socket', () => {
           lines.on('line', line => {
             const { id, method, params } = JSON.parse(line);
             if (method === 'disconnect') socket.destroy();
+            else if (method === 'reset') socket.resetAndDestroy();
             else if (method === 'exit') { socket.end(JSON.stringify({ id, result: { bye: true } }) + '\\n', () => process.exit(3)); }
             else if (method === 'hang') {}
             else if (method === 'error') socket.write(JSON.stringify({ id, error: { code: 'BAD', message: 'nope' } }) + '\\n');
@@ -167,6 +168,12 @@ describe('JsonLineWorker authenticated socket', () => {
   it('bounds graceful shutdown even when the child ignores EOF', async () => {
     const worker = await start({ IGNORE_CLOSE: '1' });
     expect(await worker.close(30)).toMatchObject({ expected: true });
+    expect(worker.alive).toBe(false);
+  });
+
+  it('turns a TCP reset into a worker exit instead of an unhandled readline error', async () => {
+    const worker = await start({ IGNORE_CLOSE: '1' });
+    await expect(worker.request('reset', {})).rejects.toBeInstanceOf(WorkerExitedError);
     expect(worker.alive).toBe(false);
   });
 

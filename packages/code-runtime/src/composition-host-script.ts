@@ -144,6 +144,8 @@ async function open(p) {
     show: false,
     width: p.width,
     height: p.height,
+    minWidth: p.width,
+    minHeight: p.height,
     useContentSize: true,
     frame: false,
     enableLargerThanScreen: true,
@@ -159,6 +161,9 @@ async function open(p) {
       partition,
     },
   });
+  // Windows can clamp initial hidden-window bounds to the current display.
+  // Establish the required client size before loading or sampling the bundle.
+  win.setContentSize(p.width, p.height);
   state.win = win;
   sessions.set(id, state);
   const wc = win.webContents;
@@ -370,6 +375,7 @@ function main() {
 
 function listen() {
   const lines = readline.createInterface({ input: channel, crlfDelay: Infinity });
+  lines.on('error', quit);
   lines.on('line', (line) => {
     let message;
     try {

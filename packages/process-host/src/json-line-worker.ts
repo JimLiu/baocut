@@ -159,6 +159,12 @@ export class JsonLineWorker {
       socket.once('close', () => { if (!this.#exit && !this.#expected) child.kill('SIGKILL'); });
     }
     lines.on('line', (line) => this.#onLine(line));
+    // readline forwards input errors as its own error event (not just the
+    // socket's). A reset must follow the normal worker-exit path.
+    lines.on('error', () => {
+      socket?.destroy();
+      if (!this.#expected) child.kill('SIGKILL');
+    });
     child.stderr.on('data', (chunk: Buffer) => this.#onStderr(chunk));
     if (options.onStderrLine) {
       const onLine = options.onStderrLine;
