@@ -656,6 +656,35 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     },
   );
 
+  it.skipIf(!posix)(
+    '这台机器没有能用的 ffmpeg：合成自检以 MEDIA_TOOL_UNAVAILABLE 失败，不记成模型自测没通过',
+    async () => {
+      side = await startSide(source, free);
+      const plan = (await side.client.request('models.install', { bundleId: SPEECH_BUNDLE })).plan;
+      const { jobId } = await side.client.request('models.install', { bundleId: SPEECH_BUNDLE, confirmBytes: plan.confirmBytes });
+      expect((await until(() => terminal(jobOf(side!, jobId!)), 15_000)).state).toBe('completed');
+      const speechOf = () => side!.models()?.bundles.find((b) => b.bundleId === SPEECH_BUNDLE);
+      await until(() => speechOf()?.state === 'installed');
+
+      // 自检的默认声音是内置音色的录音，转成 WAV 要用 ffmpeg：这台机器上没有能用的 ffmpeg。
+      const saved = process.env.BAOCUT_FFMPEG;
+      process.env.BAOCUT_FFMPEG = path.join(side.dir, 'no-such-bin', 'ffmpeg');
+      try {
+        const { jobId: testJob } = await side.client.request('models.test', { bundleId: SPEECH_BUNDLE });
+        const failed = await until(() => terminal(jobOf(side!, testJob)), 15_000);
+        expect(failed).toMatchObject({ kind: 'modelTest', state: 'failed', error: { code: 'MEDIA_TOOL_UNAVAILABLE' } });
+        expect(failed.error!.message).toContain('ffmpeg');
+        expect(failed.error!.message).not.toContain('重新安装 BaoCut');
+        // 检查没能跑完，不是模型检查没通过：结论不记进 selfTest，也没有发出合成请求。
+        expect(speechOf()?.selfTest ?? null).toBeNull();
+        expect(await side.audioCpp.recorded('request')).toEqual([]);
+      } finally {
+        if (saved === undefined) delete process.env.BAOCUT_FFMPEG;
+        else process.env.BAOCUT_FFMPEG = saved;
+      }
+    },
+  );
+
   it.skipIf(!appleSilicon)(
     '文生图模型包：装好后自检生成一张 256² 的小图（4 步、固定 seed），PNG 能解码、尺寸对、不是纯色才通过',
     async () => {

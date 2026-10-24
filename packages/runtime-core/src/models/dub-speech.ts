@@ -308,6 +308,9 @@ function stepError(error: unknown, providerId: string): unknown {
         return new PipelineStepError('MODEL_OUTPUT_INVALID', error.message, { ...details, providerId });
       case 'output-unwritable':
         return new PipelineStepError('STAGING_WRITE_FAILED', error.message, { ...details, providerId });
+      case 'tool-unavailable':
+        // 参考录音转换要的 ffmpeg 找不到或不能运行：外部工具的问题，不是录音读不出来。
+        return new PipelineStepError('MEDIA_TOOL_UNAVAILABLE', error.message, { ...details, providerId });
       case 'input-unreadable':
         // 冻结的参考录音执行前读不出或变了；随应用分发的（内置音色的录音）读不出来是安装不完整。
         return new PipelineStepError(code === 'APP_FILE_MISSING' ? 'APP_FILE_MISSING' : 'ASSET_MISSING', error.message, { ...details, providerId });

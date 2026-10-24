@@ -66,6 +66,7 @@ export type TranscribeAttempt =
  * - `crashed`：推理进程崩溃或推理失败，可以按 §6.5 重试一次；
  * - `version-changed`：重试时 Worker 版本变了，不重试；
  * - `input-unreadable`：输入文件读不了，不重试；
+ * - `tool-unavailable`：要用的外部工具（参考录音转换的 ffmpeg）找不到或不能运行，`MEDIA_TOOL_UNAVAILABLE`，与输入和模型都无关，不重试；
  * - `output-unwritable`：Worker 的输出写不进 staging（磁盘满、权限），与模型无关：不计崩溃、不停用模型包，不重试；
  * - `unavailable`：Provider 此刻不可用（模型包已停用、没有 Worker 可执行文件），不重试；
  * - `protocol`：响应不合协议（例如 `completed` 却没有输出），按输出不合合同处理，不重试；
@@ -84,6 +85,7 @@ export type ProviderFailureKind =
   | 'crashed'
   | 'version-changed'
   | 'input-unreadable'
+  | 'tool-unavailable'
   | 'output-unwritable'
   | 'unavailable'
   | 'protocol'

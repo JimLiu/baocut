@@ -99,7 +99,8 @@ export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
     capabilities: ['synthesizeSpeech'],
     optionalCapabilities: [],
     externalTools: [],
-    optionalExternalTools: [],
+    // 参考录音（内置音色、音色库的音色、自己给的文件）要经 ffmpeg 转成引擎读的 WAV；只说声音、不合成录音时用不到它。
+    optionalExternalTools: [FFMPEG],
     network: 'none',
     candidates: null,
   },
