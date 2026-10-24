@@ -92,12 +92,14 @@ describe('工具目录', () => {
       candidates: null,
     });
     expect(toolDefinition('merge-video')).toMatchObject({ execution: { pipeline: TRANSCODE_PIPELINE, params: { action: 'merge' } } });
-    // Space 里的文档、字幕条目经 `material` 当素材（§7.9）。
+    // Space 里的文档、字幕条目经 `material` 当素材（§7.9）。参考录音要经 ffmpeg 转 WAV：没有它照样能用（只听声音、不克隆）。
     expect(toolDefinition('synthesize-speech')).toMatchObject({
       category: 'speech',
       inputs: ['text', 'document'],
       results: ['artifact'],
       execution: { kind: 'job', method: 'models.synthesizeSpeech', capability: 'synthesizeSpeech' },
+      externalTools: [],
+      optionalExternalTools: ['ffmpeg'],
     });
     expect(toolDefinition('generate-image')?.execution).toEqual({
       kind: 'job',

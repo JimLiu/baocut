@@ -618,6 +618,11 @@ export class ModelInstallService {
       if (error instanceof ProviderFailure && error.details.code === APP_FILE_MISSING) {
         throw new TaskFailure(APP_FILE_MISSING, error.message, { kind: error.kind, ...error.details, check: APP_FILE_MISSING });
       }
+      // 这台机器没有能用的 ffmpeg：检查没能跑完，不是模型检查没通过（不记进 `selfTest`）。
+      if (error instanceof ProviderFailure && error.kind === 'tool-unavailable') {
+        const failure = new TaskFailure('MEDIA_TOOL_UNAVAILABLE', error.message, { kind: error.kind, ...error.details });
+        throw error.messageRef ? Object.assign(failure, { messageRef: error.messageRef }) : failure;
+      }
       if (error instanceof ProviderFailure) return fail(providerCheckCode(error), RcModels.workerFailed({ reason: localizedOf(error) }), providerDetails(error));
       throw error;
     }

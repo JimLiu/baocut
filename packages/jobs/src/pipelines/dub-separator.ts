@@ -88,6 +88,8 @@ export function providerStepError(error: unknown): unknown {
       return new PipelineStepError('INPUT_UNREADABLE', message, details);
     case 'output-unwritable':
       return new PipelineStepError('STAGING_WRITE_FAILED', message, details);
+    case 'tool-unavailable':
+      return new PipelineStepError('MEDIA_TOOL_UNAVAILABLE', message, details);
     case 'protocol':
       return new PipelineStepError('MODEL_OUTPUT_INVALID', message, details);
     default:
