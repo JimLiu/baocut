@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { JsonLineWorker, WorkerExitedError, WorkerRequestError, WorkerTimeoutError, type WorkerEvent } from '@baocut/process-host';
+import { JsonLineWorker, WorkerExitedError, WorkerRequestError, WorkerSpawnError, WorkerTimeoutError, type WorkerEvent } from '@baocut/process-host';
 import { CODE_BUNDLE_ERROR_CODES, type CodeBundleErrorCode, type FrameReceipt, type FrameTicket, type Rate } from '@baocut/protocol';
 import { CodeBundleError, parseRate, type InspectedBundle } from './bundle-inspect.ts';
 import { COMPOSITION_ADAPTER_SCRIPT, type AdapterPageInfo } from './composition-adapter.ts';
@@ -250,7 +250,10 @@ export class CompositionHost {
         ...(options.log ? { onStderrLine: options.log } : {}),
       });
     } catch (error) {
-      throw new CodeBundleError('COMPOSITION_HOST_UNAVAILABLE', `Could not start Electron: ${(error as Error).message}`, { electron });
+      throw new CodeBundleError('COMPOSITION_HOST_UNAVAILABLE', `Could not start Electron: ${(error as Error).message}`, {
+        electron,
+        ...(error instanceof WorkerSpawnError ? { stderr: error.stderr.slice(-4000) } : {}),
+      });
     }
     const timeoutMs = options.openTimeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS;
     // The socket is connected only after app.whenReady(); a request also avoids

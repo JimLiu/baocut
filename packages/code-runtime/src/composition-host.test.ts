@@ -35,6 +35,16 @@ describe('resolveElectronBinary', () => {
     expect(error).toBeInstanceOf(CodeBundleError);
     expect((error as CodeBundleError).code).toBe('COMPOSITION_HOST_UNAVAILABLE');
   });
+
+  it('retains startup diagnostics when the executable rejects the host switch', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-host-start-failure-'));
+    try {
+      const error = await CompositionHost.start({ electron: process.execPath, cacheDir: dir }).catch(error => error);
+      expect(error).toBeInstanceOf(CodeBundleError);
+      expect((error as CodeBundleError).code).toBe('COMPOSITION_HOST_UNAVAILABLE');
+      expect((error as CodeBundleError).details).toMatchObject({ stderr: expect.stringContaining('--composition-host') });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 describe.skipIf(!electron)('CompositionHost（Electron 离屏）', { timeout: 120_000 }, () => {

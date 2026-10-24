@@ -115,12 +115,15 @@ export class WorkerTimeoutError extends Error {
 export class WorkerSpawnError extends Error {
   /** 说明的消息引用，供按读者语言重新显示。 */
   readonly messageRef: MessageRef;
+  /** Bounded startup diagnostics captured before the transport connected. */
+  readonly stderr: string;
 
-  constructor(command: string, cause: Error) {
+  constructor(command: string, cause: Error, stderr = '') {
     const message = W.spawnFailed({ command, error: cause.message });
     super(message.text, { cause });
     this.messageRef = refOf(message);
     this.name = 'WorkerSpawnError';
+    this.stderr = stderr;
   }
 }
 
@@ -237,7 +240,11 @@ export class JsonLineWorker {
         settled = true;
         cleanup();
         child?.kill('SIGKILL');
-        reject(new WorkerSpawnError(options.command, error));
+        const diagnostics = stderr.toString('utf8');
+        for (const line of diagnostics.split(/\r?\n/).filter(Boolean)) {
+          try { options.onStderrLine?.(line); } catch { /* Diagnostics cannot prevent failure cleanup. */ }
+        }
+        reject(new WorkerSpawnError(options.command, error, diagnostics));
       };
       const timer = setTimeout(() => fail(new Error('Worker socket handshake timed out')), options.socket!.timeoutMs);
       server.on('error', fail);

@@ -105,6 +105,7 @@ describe('JsonLineWorker authenticated socket', () => {
     const net = require('node:net');
     const readline = require('node:readline');
     process.stdin.destroy(); // GUI startup has made stdin unusable.
+    if (process.env.FATAL_START) { process.stderr.write('fatal startup diagnostic\\n'); process.exit(7); }
     if (process.env.NO_CONNECT) setInterval(() => {}, 1000);
     else {
       const connect = () => {
@@ -155,6 +156,18 @@ describe('JsonLineWorker authenticated socket', () => {
     }
     await expect(JsonLineWorker.start({ command: path.join(os.tmpdir(), 'missing-worker'), socket: { timeoutMs: 1000 } }))
       .rejects.toBeInstanceOf(WorkerSpawnError);
+  });
+
+  it('preserves startup stderr in the spawn error and log callback before authentication', async () => {
+    const logs: string[] = [];
+    const error = await JsonLineWorker.start({
+      command: process.execPath, args: ['-e', socketScript],
+      env: { ...process.env, FATAL_START: '1' }, socket: { timeoutMs: 5000 },
+      onStderrLine: line => logs.push(line),
+    }).catch(error => error);
+    expect(error).toBeInstanceOf(WorkerSpawnError);
+    expect((error as WorkerSpawnError).stderr).toContain('fatal startup diagnostic');
+    expect(logs).toEqual(['fatal startup diagnostic']);
   });
 
   it('rejects pending requests on disconnect and terminates a stuck child', async () => {
