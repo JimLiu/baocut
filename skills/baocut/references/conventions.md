@@ -68,7 +68,7 @@ Ctrl-C 先取消正在等的任务，第二次直接退出（130）。
 
 ## 5. 版本冲突
 
-视频有一个版本号（`revision`，十进制数字字符串），每笔修改加一。写操作带上你读到的版本：{{tool:edits_apply}} 与 {{tool:edits_undo}} 是 {{arg:expectedRevision}}，{{tool:documents_put}} 是 {{arg:revision}}。
+视频有一个版本号（`revision`，十进制数字字符串），每笔修改加一；转写、翻译、配音这类任务把结果写进视频时也算一笔，任务结束后先重读版本再改。写操作带上你读到的版本：{{tool:edits_apply}} 与 {{tool:edits_undo}} 是 {{arg:expectedRevision}}，{{tool:documents_put}} 是 {{arg:revision}}。
 
 返回 `PROJECT_REVISION_CONFLICT` 说明用户（或别的程序）刚改过视频：
 

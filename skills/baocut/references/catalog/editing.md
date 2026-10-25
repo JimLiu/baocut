@@ -29,8 +29,9 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 - {{arg:label}} 写一句简短说明，显示在历史与撤销里（例如「删掉开头的寒暄」）。
 - 相关的几步放进同一笔：用户说「不要那一批」时一次撤销就退回去。同一笔里后面的操作可以用 `ref` 引用前面 `importAsset` 导入的素材。
 - 时间写秒数（`1.5`），也可以写 `{"unit":"frames","value":30}`。
+- 回执的 `createdIds` 是这一笔新建的全部对象，按 ID 前缀分辨种类（`item_`、`track_`、`asset_`、`doc_`），**不按操作或 `items` 的顺序排**。一笔插了几个片段、接着要按片段做事（加转场、调次序）时，用 {{tool:videos_inspect}} 按轨道与起点认回各自的 ID。
 
-已有文档只修改局部时用 `renameSpeakers`（姓名）、`updateWords`（词文本）或 `patchDocument`（字幕、译文、章节、换行、样式等）。先用 {{tool:edits_ops}} 查询操作格式，按稳定 ID 提交变化，保持 `expectedRevision` 与编辑依据一致。不要为改几个名字或校订几个词上传整份文稿；`putDocument` 留给新建或整体替换。
+已有文档只修改局部时用 `renameSpeakers`（姓名）、`updateWords`（词文本）或 `patchDocument`（字幕、译文、章节、换行、样式等）。先用 {{tool:edits_ops}} 查询操作格式，按稳定 ID 提交变化（`patchDocument` 的路径从正文里面算起：{{tool:documents_read}} 返回的 `body.cues` 写成 `["cues",{"id":…},"text"]`，不带 `body`；路径错了预检发现不了，提交时才报 `path-missing`），保持 `expectedRevision` 与编辑依据一致。不要为改几个名字或校订几个词上传整份文稿；`putDocument` 留给新建或整体替换。
 
 ### 先预检
 
@@ -47,8 +48,8 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 
 | 族 | 操作 | 做什么 |
 | --- | --- | --- |
-| 素材 | `importAsset`、`collectAssets` | 登记素材（链接或复制进视频）；把链接的素材收进视频 |
-| 片段 | `addItem`、`moveItem`、`moveItems`、`trimItem`、`splitItem`、`joinItems`、`deleteItems`、`updateItem` | 放上时间线、挪、裁、拆、合、删（留空隙）、改名与启用、跟随策略 |
+| 素材 | `importAsset`、`collectAssets`、`removeAssets` | 登记素材（链接或复制进视频）；把链接的素材收进视频；删掉没有引用的素材 |
+| 片段 | `addItem`、`moveItem`、`moveItems`、`trimItem`、`splitItem`、`joinItems`、`deleteItems`、`updateItem`、`arrangeItem` | 放上时间线、挪、裁、拆、合、删（留空隙）、改名与启用、跟随策略；调整画面的叠放次序 |
 | 波纹 | `removeRange`、`insertRange` | 删掉一段时间并让后面的前移，或空出一段时间让后面的后移；要一起动的配音、字幕轨都要列上 |
 | 画面 | `setTransform`、`setStyle`、`setEffects`、`setSpeed` | 位置与大小、铺满或画中画、裁切与外观、调色与效果、恒定变速 |
 | 文字 | `setText` | 改文字片段的文字或改成计时读数 |
@@ -56,7 +57,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 | 转场 | `setTransition`、`removeTransition` | 片段之间或单侧的转场 |
 | 章节 | `setChapters`、`upsertChapter`、`removeChapter` | 整个替换或逐章修改章节 |
 | 剪口 | `proposeCuts`、`acceptCutSuggestions`、`addCuts`、`restoreCut` | 生成口癖与停顿的剪辑提案、接受建议、直接剪、恢复 |
-| 轨道与画布 | `addTrack`、`updateTrack`、`updateSequence` | 加轨道、锁定与隐藏、画布尺寸与底色 |
+| 轨道与画布 | `addTrack`、`updateTrack`、`moveTrack`、`deleteTrack`、`updateSequence` | 加轨道、锁定与隐藏、挪动与删除轨道、画布尺寸与底色 |
 | 文档与历史 | `patchDocument`、`renameSpeakers`、`updateWords`、`putDocument`、`createCheckpoint`、`renameVideo`、`setVideoBrief` | 写文档、留检查点、改视频名、写视频速览 |
 
 常用操作（由目录生成）：
