@@ -114,11 +114,18 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 字幕层用 {{tool:captions_create}} 建，不是这里的操作；剪掉一段并让后面前移用 `removeRange`，空出一段让后面后移用 `insertRange`，口播的剪口用 `addCuts`。其余操作与每个字段的写法用 {{tool:edits_ops}} 取。
 <!-- /generated -->
 
-**换片段的素材**（重截的背景图、重剪的视频）：没有原地换素材的操作，代码画面除外（`replaceCodeBundle`）。编辑器的「替换」也是这样做的：一笔里 `importAsset` 导入新文件（带 `ref`），`deleteItems` 删掉旧片段，`insertItems` 在同一条轨道、同一个起点按原来的字段写回，只把 `assetRef` 换成 `assetImportRef`（素材库里已有的素材给 `assetRef`）。一次撤销就能退回。
+**换片段的素材**（重截的背景图、重剪的视频）：用 `replaceItemAsset` 原地换。片段的 ID、轨道、起点、长度、摆位、裁剪、效果与关键帧都不动，挂在它上面的转场、按它投影的字幕（`scopeItemIds`）与指着它的闪避规则照旧。新文件在同一笔里先 `importAsset`（带 `ref`），再用 `assetImportRef` 指过去；素材库里已有的素材给 `assetRef`。编辑器的「替换」也是这样做的，一次撤销就能退回。
 
-- 视频与音频的 `timeMap` 说从新素材哪一刻起放，片段长度不能超过新素材剩下的那段，不够长时引擎整笔拒绝。
-- 写回的片段是新 ID。挂在旧片段上的转场被删掉（回执的 `removedTransitions`），要的话按新 ID 再 `setTransition`。按旧片段投影的字幕（`scopeItemIds`）与以它为触发或目标的闪避规则也对不上了，要一并改。
-- {{tool:videos_inspect}} 只列效果的名字，不列取值，也不列关键帧。片段上有你没写过的效果或动画时，按摘要写回会丢掉它们：告诉用户在编辑器的素材库里对这个素材用「替换…」，那里原样保留。
+```json
+[{"type":"importAsset","path":"/abs/take2.mp4","ref":"take2"},
+ {"type":"replaceItemAsset","itemId":"item_1","assetImportRef":"take2","timeMap":{"kind":"linear","sourceIn":{"ticks":"0","timescale":1000},"rate":{"num":1,"den":1}}}]
+```
+
+- 一次换一个片段；同一个素材用了几段，就写几条。
+- 种类要对上：视频片段换视频，图片换图片，音频片段换音频或视频（取它的声音）。代码画面换包用 `replaceCodeBundle`。
+- 不给 `timeMap` 就沿用原来的取用位置，新素材盖不住那段时整笔拒绝（`SOURCE_TIME_OUT_OF_RANGE`）。重剪的新视频通常从 0 秒起放，像上面那样给 `timeMap`。图片不给 `timeMap`。
+- 新素材比片段短：同一笔里先 `trimItem` 收短终点，再换；同轨后面的片段要跟上就 `moveItems`。
+- 新素材的余量不够两侧转场时，转场会被去掉，回执的 `removedTransitions` 列出；回执的 `assetSwaps` 列出每个片段换前换后的素材。
 
 ### 一次放好制作计划：{{tool:edits_assemble}}
 

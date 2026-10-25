@@ -24,7 +24,7 @@ import InfoCircle from '@react-spectrum/s2/icons/InfoCircle';
 import MusicNote from '@react-spectrum/s2/icons/MusicNote';
 import Video from '@react-spectrum/s2/icons/Video';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { describeReplace, planAssetReplace, replaceSideEffects, type AssetReplacePlan, type ReplaceSource } from '../../model/asset-replace.ts';
+import { describeReplace, planAssetReplace, type AssetReplacePlan, type ReplaceSource } from '../../model/asset-replace.ts';
 import { libraryAssets, type PlaceableKind } from '../../model/editor-ops.ts';
 import { formatClock } from '../../model/format.ts';
 import { formatBytes, kindOfFileName } from '../../model/space.ts';
@@ -146,7 +146,6 @@ export function AssetReplaceDialog({ asset, sequence, assets, itemId, onClose }:
   // 不管换成什么都会被拒的情形（都锁着、没用到）在选之前就说。
   const precheck = frozen?.precheck ?? planAssetReplace({ sequence, asset, source: { from: 'file', path: '', name: '', kind: asset.kind }, itemId });
   const blocked = !precheck.ok ? precheck.reason : null;
-  const sideEffects = plan ? replaceSideEffects(plan) : [];
   const kept = precheck.ok ? precheck.kept : [];
   const users = precheck.ok ? precheck.replaced : [];
   const sourceName = source ? (source.from === 'library' ? source.asset.name : source.name) : null;
@@ -249,11 +248,6 @@ export function AssetReplaceDialog({ asset, sequence, assets, itemId, onClose }:
                     <p className={status({ isError: !!blocked || (!!plan && !plan.ok) })} role="status">
                       {blocked ?? (plan ? describeReplace(plan) : MC.pickToReplace)}
                     </p>
-                    {sideEffects.map((line) => (
-                      <p key={line} className={detail}>
-                        {line}
-                      </p>
-                    ))}
                     {users.length || kept.length ? (
                       <ul className={rows} aria-label={MC.usingClips}>
                         {(plan?.ok ? plan.replaced : users).map((r) => (

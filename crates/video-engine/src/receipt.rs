@@ -72,6 +72,9 @@ pub struct Impact {
     /// 连同前后的版本与长度；长度变短就是裁掉了尾部。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub code_edits: Vec<CodeEdit>,
+    /// 这笔事务里 `replaceItemAsset` 换了素材的实例：前后的素材版本。实例 ID 不变，同时出现在 `updatedIds` 里。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub asset_swaps: Vec<AssetSwap>,
     /// `deleteTrack` 删掉的空轨道。它们同时出现在 `deletedIds` 里。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub removed_tracks: Vec<Id>,
@@ -97,6 +100,15 @@ pub struct CodeEdit {
     /// 带 `ripple` 时旧终点之后的内容移动了多少帧（正数后移、负数前移）；没有移动时不写。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ripple_frames: Option<i64>,
+}
+
+/// 一个实例换了素材（`replaceItemAsset`）：换掉的与换上的素材版本。
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetSwap {
+    pub item_id: Id,
+    pub previous_asset_ref: VersionRef,
+    pub asset_ref: VersionRef,
 }
 
 /// 代码画面的编辑层（代码包规范 §3.4）。目前只有换源。

@@ -17,7 +17,4 @@ export const ja: AssetReplaceMessages = {
   shortenOne: (seconds: string) => `クリップが ${seconds} 秒短くなります`,
   moved: (head: string, n: number) => `${head}。同じトラックで後ろにある ${n} 個のクリップも前に移動します。`,
   trackShorter: (head: string) => `${head}。トラックも短くなります。`,
-  transitions: (n: number) => `これらのクリップにある ${n} 個のトランジションは削除されます。`,
-  captions: (n: number) => `${n} 件の字幕はこれらのクリップを基準にタイミングが決まっているため、置き換え後に合わせ直す必要があります。`,
-  ducking: (n: number) => `${n} 件のダッキングルールがこれらのクリップを参照しているため、置き換え後は合わなくなります。`,
 };

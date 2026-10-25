@@ -17,7 +17,4 @@ export const ko: AssetReplaceMessages = {
   shortenOne: (seconds: string) => `클립이 ${seconds}초 짧아지고`,
   moved: (head: string, n: number) => `${head}, 트랙에서 뒤따르는 클립 ${n}개가 앞으로 당겨집니다.`,
   trackShorter: (head: string) => `${head}, 트랙도 짧아집니다.`,
-  transitions: (n: number) => `이 클립들에 있는 전환 ${n}개가 제거됩니다.`,
-  captions: (n: number) => `자막 ${n}개가 이 클립들에 맞춰 시간이 정해져 있어 교체한 뒤 다시 맞춰야 합니다.`,
-  ducking: (n: number) => `더킹 규칙 ${n}개가 이 클립들을 가리키고 있어 교체한 뒤에는 맞지 않게 됩니다.`,
 };

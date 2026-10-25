@@ -16,7 +16,4 @@ export const es: AssetReplaceMessages = {
   shortenOne: (seconds) => `El clip se acorta ${seconds} s`,
   moved: (head, n) => `${head}, y ${pluralForm('es', n, { one: 'el siguiente clip de la pista se adelanta', other: `los siguientes ${n} clips de la pista se adelantan` })}.`,
   trackShorter: (head) => `${head}, y la pista se acorta.`,
-  transitions: (n) => n === 1 ? 'Se eliminará la transición de estos clips.' : `Se eliminarán las ${n} transiciones de estos clips.`,
-  captions: (n) => `${pluralForm('es', n, { one: `${n} subtítulo está sincronizado`, other: `${n} subtítulos están sincronizados` })} con estos clips y será necesario ajustar su alineación después del reemplazo.`,
-  ducking: (n) => pluralForm('es', n, { one: `${n} regla de atenuación apunta a estos clips y no coincidirá después del reemplazo.`, other: `${n} reglas de atenuación apuntan a estos clips y no coincidirán después del reemplazo.` }),
 };

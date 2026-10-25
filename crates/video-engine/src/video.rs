@@ -288,6 +288,7 @@ fn operation_label(op: &EditOperation) -> Text {
         EditOperation::ArrangeItem { .. } => msg!("engine.labelChangeStackingOrder", "Change stacking order"),
         EditOperation::MoveTrack { .. } => msg!("engine.labelMoveTrack", "Move track"),
         EditOperation::UpdateItem { .. } => msg!("engine.labelEditClip", "Edit clip"),
+        EditOperation::ReplaceItemAsset { .. } => msg!("engine.labelReplaceClipAsset", "Replace clip asset"),
         EditOperation::SetTransform { .. } => msg!("engine.labelAdjustPositionAndSize", "Adjust position and size"),
         EditOperation::SetStyle { .. } => msg!("engine.labelEditStyle", "Edit style"),
         EditOperation::SetText { .. } => msg!("engine.labelEditText", "Edit text"),
@@ -897,6 +898,7 @@ impl Video {
             document_bodies: &document_bodies,
             cut_impact: Default::default(),
             code_edits: Vec::new(),
+            asset_swaps: Vec::new(),
             removed_tracks: Vec::new(),
             removed_assets: Vec::new(),
         };
@@ -942,6 +944,7 @@ impl Video {
         let documents = std::mem::take(&mut ctx.documents);
         let cut_impact = std::mem::take(&mut ctx.cut_impact);
         let code_edits = std::mem::take(&mut ctx.code_edits);
+        let asset_swaps = std::mem::take(&mut ctx.asset_swaps);
         let removed_tracks = std::mem::take(&mut ctx.removed_tracks);
         let removed_assets = std::mem::take(&mut ctx.removed_assets);
         let refs: BTreeMap<String, Id> = ctx
@@ -975,6 +978,7 @@ impl Video {
                 orphaned_anchors,
                 removed_with_target,
                 code_edits,
+                asset_swaps,
                 removed_tracks,
                 removed_assets,
             },
@@ -1030,10 +1034,10 @@ impl Video {
             hash_file(&resolved)?.0
         };
         if hash != record.content_hash {
-            // 同一路径出现新的 bytes 是新版本，不是重新链接（视频格式规范 §4.2）。
+            // 同一路径出现新的 bytes 是新内容，不是重新链接：导入成新素材，再换进选定的实例（视频格式规范 §4.2）。
             return Err(ErrorBody::invalid_operation(msg!(
                 "engine.relinkContentMismatch",
-                "The content at the new location does not match the asset; replace the asset revision to change content"
+                "The content at the new location does not match the asset; to use the new content, import it (importAsset) and swap it into the clips (replaceItemAsset)"
             )).entities([asset_id]));
         }
         Ok(locator)
@@ -1172,6 +1176,7 @@ impl Video {
                 orphaned_anchors: Vec::new(),
                 removed_with_target: Vec::new(),
                 code_edits: Vec::new(),
+                asset_swaps: Vec::new(),
                 removed_tracks: Vec::new(),
                 removed_assets: Vec::new(),
             },
@@ -1247,6 +1252,7 @@ impl Video {
                 cuts_not_relaid: input.cut_impact.not_relaid,
                 removed_with_target: input.removed_with_target,
                 code_edits: input.code_edits,
+                asset_swaps: input.asset_swaps,
                 removed_tracks: input.removed_tracks,
                 removed_assets: input.removed_assets,
             },
@@ -1337,6 +1343,8 @@ pub(crate) struct CommitInput {
     removed_with_target: Vec<Id>,
     /// `replaceCodeBundle` 换掉的代码画面（代码包规范 §3.4）。
     code_edits: Vec<crate::receipt::CodeEdit>,
+    /// `replaceItemAsset` 换了素材的实例。
+    asset_swaps: Vec<crate::receipt::AssetSwap>,
     /// `deleteTrack` 删掉的轨道。
     removed_tracks: Vec<Id>,
     /// `removeAssets` 删掉的素材。
@@ -1369,6 +1377,7 @@ impl CommitInput {
             orphaned_anchors: Vec::new(),
             removed_with_target: Vec::new(),
             code_edits: Vec::new(),
+            asset_swaps: Vec::new(),
             removed_tracks: Vec::new(),
             removed_assets: Vec::new(),
         }

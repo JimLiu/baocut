@@ -17,7 +17,4 @@ export const zhHans: AssetReplaceMessages = {
   shortenOne: (seconds: string) => `片段会变短 ${seconds} 秒`,
   moved: (head: string, n: number) => `${head}，同轨后面 ${n} 段往前挪。`,
   trackShorter: (head: string) => `${head}，这条轨道跟着变短。`,
-  transitions: (n: number) => `这些片段上的 ${n} 个转场会去掉。`,
-  captions: (n: number) => `${n} 段字幕按这些片段投影时间，换完要重新对齐。`,
-  ducking: (n: number) => `${n} 条压低原声的规则指着这些片段，换完对不上了。`,
 };

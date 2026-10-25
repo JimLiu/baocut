@@ -979,7 +979,7 @@ VideoStore 用 SQLite，表至少包括 `videos`、`entities`、`document_versio
 源路径变化与源内容变化是两种事件：
 
 - 重新链接到相同的 bytes，不改变语义版本。
-- 同一路径出现新的 bytes，必须产生新的 revision，并经显式的 `replaceAssetVersion` 影响选定的实例。
+- 同一路径出现新的 bytes，是新的内容：导入成新的素材记录，再经显式的 `replaceItemAsset` 换进选定的实例；没选的实例仍用旧素材。
 - 禁止悄悄用「文件的最新内容」替换冻结导出中的素材。
 
 记录格式见视频格式规范 §4。
@@ -2809,7 +2809,7 @@ outputFrame → outputTime → sequenceTime → composition / sourceTime → act
 
 人工 pin、手动构图、已确认的术语、选用的声音和禁改范围都是视频事实。自动排版、生成修复和源内容替换不得悄悄恢复模型的旧值。
 
-替换素材的影响按选中的实例计算；同一媒体的其他 occurrence 保持不变，除非用户明确要求批量更新。
+替换素材的影响按选中的实例计算（`replaceItemAsset` 一次换一个实例，实例 ID 与手工改过的字段不变）；同一媒体的其他 occurrence 保持不变，除非用户明确要求批量更新。
 
 用户接受警告之后，接受记录绑定到当时的输入指纹与视频版本。相关依赖变化之后重新检查；一次历史上的同意不是永久豁免。转录换用文稿的手工修改闸门（§6.6，`acceptEdited`）是它的一例。
 

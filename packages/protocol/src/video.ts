@@ -1498,6 +1498,14 @@ export type EditOperation =
    * `followPolicy` 整个替换（视频格式规范 §3.16）。
    */
   | { type: 'updateItem'; sequenceId?: Id; itemId: Id; name?: string; enabled?: boolean; locked?: boolean; followPolicy?: FollowPolicy }
+  /**
+   * 原地换视频、图片或音频片段的素材：`assetRef`（已有素材的版本）与 `assetImportRef`（同一事务里 `importAsset` 的 `ref`，
+   * 取那个素材的当前版本）只给一个。片段 ID、轨道、起止、位置与裁剪、效果、关键帧、声音、名字与跟随都不变，转场、字幕的
+   * `scopeItemIds` 与闪避规则照样指着它。种类：视频片段换视频，图片换图片，音频换音频或视频。`timeMap` 给了就整个替换
+   * （图片没有）；新素材盖不住取用的源区间时以 `SOURCE_TIME_OUT_OF_RANGE` 拒绝，不截短、不推开别人——要变短先 `trimItem`。
+   * 回执的 `impact.assetSwaps` 列出前后的素材版本。
+   */
+  | { type: 'replaceItemAsset'; sequenceId?: Id; itemId: Id; assetRef?: VersionRef; assetImportRef?: string; timeMap?: TimeMap }
   /** 改画面实例的位置（`place`）：只改给出的字段；数值给 `null` 去掉，回到按种类的缺省。字幕与音频没有位置。 */
   | {
       type: 'setTransform';
@@ -1696,6 +1704,13 @@ export interface CodeEdit {
   rippleFrames?: number;
 }
 
+/** 一个片段换了素材（`replaceItemAsset`）：换掉的与换上的素材版本。片段 ID 不变。 */
+export interface AssetSwap {
+  itemId: Id;
+  previousAssetRef: VersionRef;
+  assetRef: VersionRef;
+}
+
 export interface TransactionReceipt {
   transactionId: Id;
   commandId: Id;
@@ -1740,6 +1755,8 @@ export interface TransactionReceipt {
     removedWithTarget?: Id[];
     /** 这笔事务改过的代码画面（代码包规范 §3.4）：改在哪一层，前后的代码包版本、替身与长度。空的时候省略。 */
     codeEdits?: CodeEdit[];
+    /** 这笔事务里 `replaceItemAsset` 换了素材的片段：前后的素材版本。它们同时在 `updatedIds` 里。空的时候省略。 */
+    assetSwaps?: AssetSwap[];
     /** `deleteTrack` 删掉的空轨道。它们同时在 `deletedIds` 里。空的时候省略。 */
     removedTracks?: Id[];
     /** `removeAssets` 删掉的素材记录，含成对一起删掉的代码包或预渲染替身。它们同时在 `deletedIds` 里。空的时候省略。 */

@@ -303,6 +303,32 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     example: { type: 'updateItem', itemId: 'item_1', followPolicy: { kind: 'sequence-fixed' } },
   },
   {
+    type: 'replaceItemAsset',
+    family: 'items',
+    doc: [
+      '- {"type":"replaceItemAsset","itemId","assetRef"?:{"id","revision"},"assetImportRef"?,"timeMap"?}：原地换一个视频、图片或音频片段的素材：片段 ID、轨道、起点与长度、位置与裁剪、效果、遮罩、关键帧、声音、名字与跟随都不变，转场、字幕的 scopeItemIds 与闪避规则照样指着它。assetRef（revision 取 videos_inspect 素材列表里的 revision）与同一笔 importAsset 的 assetImportRef 只给一个。种类：视频片段换视频，图片换图片，音频换音频或视频。timeMap 给了就整个替换（写法同 insertItems，例如从新素材 0 秒起放），省略是不改；图片没有 timeMap。新素材盖不住片段取用的源区间时以 SOURCE_TIME_OUT_OF_RANGE 拒绝，不截短、不推开别人：新素材更短时同一笔里先 trimItem 收短，或给从 0 起的 timeMap。新素材的余量不够的两侧转场会被去掉，列在回执的 removedTransitions；回执的 impact.assetSwaps 列出前后的素材版本。一次换一个片段，多个片段写多条。',
+    ],
+    schema: op('replaceItemAsset', {
+      itemId: idOf('要换素材的视频、图片或音频片段'),
+      assetRef: z
+        .object({ id: idOf('素材 ID'), revision: z.string().describe('素材版本') })
+        .optional()
+        .describe('换上的已有素材版本；与 assetImportRef 只给一个'),
+      assetImportRef: z.string().optional().describe('同一笔修改里 importAsset 的 ref，取那个素材的当前版本；与 assetRef 只给一个'),
+      timeMap: z
+        .looseObject({ kind: z.enum(['linear', 'hold']).describe('linear（从 sourceIn 起按 rate 放）或 hold（停在 sourceAt）') })
+        .optional()
+        .describe('整个替换时间映射，写法同 insertItems 的 timeMap；省略是不改，图片不能给'),
+      sequenceId,
+    }),
+    example: {
+      type: 'replaceItemAsset',
+      itemId: 'item_1',
+      assetImportRef: 'take2',
+      timeMap: { kind: 'linear', sourceIn: { ticks: '0', timescale: 1000 }, rate: { num: 1, den: 1 } },
+    },
+  },
+  {
     type: 'setSpeed',
     family: 'items',
     doc: [

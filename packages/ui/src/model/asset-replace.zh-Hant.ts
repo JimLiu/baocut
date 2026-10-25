@@ -17,7 +17,4 @@ export const zhHant: AssetReplaceMessages = {
   shortenOne: (seconds: string) => `片段會縮短 ${seconds} 秒`,
   moved: (head: string, n: number) => `${head}，同一軌道上後面的 ${n} 段片段會往前移。`,
   trackShorter: (head: string) => `${head}，軌道也會跟著變短。`,
-  transitions: (n: number) => (n === 1 ? '這些片段上的轉場會被移除。' : `這些片段上的 ${n} 個轉場會被移除。`),
-  captions: (n: number) => `有 ${n} 句字幕依這些片段計時，替換後需要重新對齊。`,
-  ducking: (n: number) => `有 ${n} 條自動壓低音量的規則指向這些片段，替換後會對不上。`,
 };

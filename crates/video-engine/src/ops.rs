@@ -280,6 +280,21 @@ pub enum EditOperation {
         #[serde(default)]
         follow_policy: Option<FollowPolicy>,
     },
+    /// 原地换视频、图片或音频实例的素材（命令与协议规范 §4.2）：`assetRef`（已有素材的版本）与 `assetImportRef`
+    /// （同一事务里 `importAsset` 的 `ref`，取那个素材的当前版本）只给一个。实例 ID、轨道、起止、几何与裁剪、效果、
+    /// 关键帧、声音、名字、跟随与 lineage 都不变，转场、字幕的 `scopeItemIds` 与闪避规则照样指着它。`timeMap` 给了就
+    /// 整个替换（图片没有）；新素材盖不住取用的源区间时拒绝（`SOURCE_TIME_OUT_OF_RANGE`），不截短、不推开别人。
+    ReplaceItemAsset {
+        #[serde(default)]
+        sequence_id: Option<Id>,
+        item_id: Id,
+        #[serde(default)]
+        asset_ref: Option<VersionRef>,
+        #[serde(default)]
+        asset_import_ref: Option<String>,
+        #[serde(default)]
+        time_map: Option<TimeMap>,
+    },
     /// 改画面实例的几何（视频格式规范 §3.5 `place`）。只改给出的字段；数值给 `null` 去掉，回到按种类的缺省。
     SetTransform {
         #[serde(default)]
@@ -779,6 +794,8 @@ pub struct EditContext<'a> {
     pub cut_impact: crate::cuts::CutImpact,
     /// `replaceCodeBundle` 写进回执 `impact.codeEdits` 的结果。
     pub code_edits: Vec<crate::receipt::CodeEdit>,
+    /// `replaceItemAsset` 写进回执 `impact.assetSwaps` 的结果。
+    pub asset_swaps: Vec<crate::receipt::AssetSwap>,
     /// `deleteTrack` 删掉的轨道，写进回执 `impact.removedTracks`。
     pub removed_tracks: Vec<Id>,
     /// `removeAssets` 删掉的素材（含成对带走的），写进回执 `impact.removedAssets`。
@@ -991,6 +1008,21 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
                 locked: *locked,
                 follow_policy: follow_policy.as_ref(),
             },
+        ),
+        EditOperation::ReplaceItemAsset {
+            sequence_id,
+            item_id,
+            asset_ref,
+            asset_import_ref,
+            time_map,
+        } => replace_item_asset(
+            state,
+            sequence_id.as_deref(),
+            item_id,
+            asset_ref.as_ref(),
+            asset_import_ref.as_deref(),
+            time_map.as_ref(),
+            ctx,
         ),
         EditOperation::SetTransform {
             sequence_id,
@@ -2004,6 +2036,101 @@ pub(crate) fn trim_item(
         seconds_between(new_start, new_end),
     );
     crate::item_keyframes::rewindow_item(state, item_id, window, fps)
+}
+
+/// `replaceItemAsset`：只换视频、图片、音频实例的素材（与可选的时间映射），实例的其余部分原样保留。
+/// 种类按 [`check_item`] 的规则核对；时间不变，所以新素材要盖住取用的源区间。
+#[allow(clippy::too_many_arguments)]
+fn replace_item_asset(
+    state: &mut VideoState,
+    sequence_id: Option<&str>,
+    item_id: &str,
+    asset_ref: Option<&VersionRef>,
+    asset_import_ref: Option<&str>,
+    time_map: Option<&TimeMap>,
+    ctx: &mut EditContext<'_>,
+) -> EngineResult<()> {
+    let target = match (asset_ref, asset_import_ref) {
+        (Some(r), None) => r.clone(),
+        (None, Some(reference)) => {
+            let id = resolve_asset(
+                &AssetTarget::Ref {
+                    reference: reference.to_string(),
+                },
+                ctx,
+            )?;
+            let asset = state.assets.get(&id).ok_or_else(|| ErrorBody::not_found(kinds::asset(), &id))?;
+            VersionRef {
+                id,
+                revision: asset.current_revision.clone(),
+            }
+        }
+        _ => {
+            return Err(ErrorBody::invalid_operation(msg!(
+                "engine.replaceAssetTarget",
+                "Give exactly one of assetRef and assetImportRef"
+            ))
+            .entities([item_id]));
+        }
+    };
+    let placed = checked_item(state, sequence_id, item_id)?;
+    let seq_id = placed.sequence_id.clone();
+    let fps = state.sequence(&seq_id)?.header.fps;
+    let mut item = placed.value.clone();
+    asset_revision(state, &target)?;
+
+    let previous = match &mut item {
+        TimelineItem::Video(VideoItem { asset_ref, time_map: map, .. }) | TimelineItem::Audio(AudioItem { asset_ref, time_map: map, .. }) => {
+            if let Some(next) = time_map {
+                *map = next.clone();
+            }
+            std::mem::replace(asset_ref, target.clone())
+        }
+        TimelineItem::Image(image) => {
+            if time_map.is_some() {
+                return Err(not_applicable(
+                    item_id,
+                    msg!("engine.replaceAssetImageTimeMap", "is an image clip and has no time mapping; leave out timeMap"),
+                ));
+            }
+            std::mem::replace(&mut image.asset_ref, target.clone())
+        }
+        _ => {
+            return Err(not_applicable(
+                item_id,
+                msg!(
+                    "engine.replaceAssetNotMedia",
+                    "is not a video, image or audio clip; swap the code bundle of a composition clip with replaceCodeBundle"
+                ),
+            ));
+        }
+    };
+    state.items.insert(
+        item_id.to_string(),
+        Placed {
+            sequence_id: seq_id,
+            value: item,
+        },
+    );
+    // 种类先查（视频片段要视频素材，音频片段要有声音的素材），再查源区间，报的错才对得上原因。
+    check_item(state, item_id)?;
+    let item = &state.items[item_id].value;
+    if let Some(map) = item.time_map() {
+        let (start, end) = item_range(item, fps)?;
+        let length = end.checked_sub(start).ok_or_else(overflow)?;
+        check_time_map(state, item_id, map, length, Some(&target))?;
+        // 定格也不能停在新素材之外。
+        if let TimeMap::Hold { source_at } = map {
+            let at = source_at.to_ratio("sourceAt")?;
+            check_source_range(item_id, at, at, asset_duration(state, &target)?)?;
+        }
+    }
+    ctx.asset_swaps.push(crate::receipt::AssetSwap {
+        item_id: item_id.to_string(),
+        previous_asset_ref: previous,
+        asset_ref: target,
+    });
+    Ok(())
 }
 
 /// `replaceCodeBundle`（代码包规范 §3.3）：只换代码包版本与替身，实例的其余部分原样保留。

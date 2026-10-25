@@ -152,7 +152,7 @@
    - 保留骨架其余部分，compositions_preview 才能取帧。
 2. compositions_preview 在出场淡出之前取一帧（4 s 的骨架取 `"1"`），得到 PNG。看字形、构图与留位。
 3. 一笔 edits_apply：`importAsset` 导入这张 PNG，`insertItems` 在最下面的画面轨放一个图片实例。`span` 从第 0 帧到 `sequence.durationFrames`，铺满（`mode: "fullscreen"`、`fit: "cover"`）。
-4. 源目录留着，告诉用户在哪；改版时改 HTML、重截、换图。换图没有原地替换的操作：同一笔 `importAsset` 新图、`deleteItems` 旧图，再按原 `span`、`mode`、`fit` 在同一条轨道 `insertItems`；挂在旧图上的转场会被删掉，回执的 `removedTransitions` 列出。
+4. 源目录留着，告诉用户在哪；改版时改 HTML、重截、换图。换图用一笔 edits_apply：`importAsset` 导入新图（带 `ref`），`replaceItemAsset` 用 `assetImportRef` 把背景实例换过去，不给 `timeMap`。实例的 ID、`span`、`mode`、`fit` 与挂在上面的转场都不动。
 
 ## 8. 会动的背景
 

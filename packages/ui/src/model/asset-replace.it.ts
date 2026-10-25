@@ -16,7 +16,4 @@ export const it: AssetReplaceMessages = {
   shortenOne: (seconds: string) => `La clip si accorcia di ${seconds} s`,
   moved: (head: string, n: number) => `${head}, e ${pluralForm('it', n, { one: `la prossima ${n} clip sulla traccia si sposta prima`, other: `le prossime ${n} clip sulla traccia si spostano prima` })}.`,
   trackShorter: (head: string) => `${head}, e la traccia si accorcia.`,
-  transitions: (n: number) => n === 1 ? 'La transizione di queste clip verrà rimossa.' : pluralForm('it', n, { other: `Le ${n} transizioni di queste clip verranno rimosse.` }),
-  captions: (n: number) => pluralForm('it', n, { one: `${n} sottotitolo è temporizzato in base a queste clip e dovrà essere riallineato dopo la sostituzione.`, other: `${n} sottotitoli sono temporizzati in base a queste clip e dovranno essere riallineati dopo la sostituzione.` }),
-  ducking: (n: number) => pluralForm('it', n, { one: `${n} regola di attenuazione punta a queste clip e non corrisponderà dopo la sostituzione.`, other: `${n} regole di attenuazione puntano a queste clip e non corrisponderanno dopo la sostituzione.` }),
 };

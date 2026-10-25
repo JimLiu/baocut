@@ -16,7 +16,4 @@ export const ptBR: AssetReplaceMessages = {
   shortenOne: (seconds: string) => `O clipe fica ${seconds} s mais curto`,
   moved: (head: string, n: number) => `${head}, e ${pluralForm('pt-BR', n, { one: `o próximo ${n} clipe da faixa se move para antes`, other: `os próximos ${n} clipes da faixa se movem para antes` })}.`,
   trackShorter: (head: string) => `${head}, e a faixa fica mais curta.`,
-  transitions: (n: number) => n === 1 ? 'A transição destes clipes será removida.' : pluralForm('pt-BR', n, { other: `As ${n} transições destes clipes serão removidas.` }),
-  captions: (n: number) => pluralForm('pt-BR', n, { one: `${n} legenda tem seu tempo baseado nestes clipes e precisará ser realinhada após a substituição.`, other: `${n} legendas têm seus tempos baseados nestes clipes e precisarão ser realinhadas após a substituição.` }),
-  ducking: (n: number) => pluralForm('pt-BR', n, { one: `${n} regra de redução de volume aponta para estes clipes e não corresponderá após a substituição.`, other: `${n} regras de redução de volume apontam para estes clipes e não corresponderão após a substituição.` }),
 };

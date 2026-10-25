@@ -17,9 +17,4 @@ export const de: AssetReplaceMessages = {
   shortenOne: (seconds: string) => `Der Clip wird um ${seconds} s kürzer`,
   moved: (head: string, n: number) => `${head}; ${pluralForm('de', n, { one: "der nächste Clip", other: `die nächsten ${n} Clips` })} auf der Spur rücken nach vorne.`,
   trackShorter: (head: string) => `${head}; die Spur wird kürzer.`,
-  transitions: (n: number) => (pluralForm('de', n, { one: "Der Übergang dieser Clips wird entfernt.", other: `${n} Übergänge dieser Clips werden entfernt.` })),
-  captions: (n: number) =>
-    `${pluralForm('de', n, { one: "1 Untertitel ist", other: `${n} Untertitel sind` })} an diesen Clips ausgerichtet und müssen nach Ersetzen neu ausgerichtet werden.`,
-  ducking: (n: number) =>
-    `${pluralForm('de', n, { one: "1 Absenkungsregel verweist", other: `${n} Absenkungsregeln verweisen` })} auf diese Clips und passen nach Ersetzen nicht mehr.`,
 };

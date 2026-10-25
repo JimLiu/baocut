@@ -1,20 +1,5 @@
 import { defineMessages } from '@baocut/protocol';
-import type {
-  AssetRecord,
-  AudioItem,
-  EditOperation,
-  EmbeddedAudio,
-  EnvelopePoint,
-  Id,
-  MediaTime,
-  Rate,
-  Sequence,
-  SequenceItem,
-  SequenceItemInput,
-  TimeMap,
-  VersionRef,
-  VideoItem,
-} from '@baocut/protocol';
+import type { AssetRecord, AudioItem, EditOperation, Id, MediaTime, Rate, Sequence, SequenceItem, TimeMap, VersionRef, VideoItem } from '@baocut/protocol';
 import { itemFrames } from './editor.ts';
 import type { PlaceableKind } from './editor-ops.ts';
 import { zhHans } from './asset-replace.zh-Hans.ts';
@@ -34,21 +19,22 @@ import { vi } from './asset-replace.vi.ts';
 
 /**
  * 替换素材（设计稿 model-video-replace.js 的规则，搬到素材库这一层）：时间线上用到旧素材的每个实例换成新素材，一笔事务——
- * 本地文件先 `importAsset`（带 `ref`），再 `deleteItems` 删掉旧实例、`moveItems` 挪同轨后面的片段、`insertItems` 按原样写回
- * （同轨道、同起点，布局、裁剪、效果、音量、名字、作用与扩展照抄，只换素材与时间映射），撤销一步回去。
+ * 本地文件先 `importAsset`（带 `ref`）；变短的片段 `trimItem` 收短终点，`moveItems` 挪同轨后面的片段（换掉的片段自己也在里面），
+ * 再逐个 `replaceItemAsset` 原地换素材与时间映射（命令与协议规范 §4.2）；淡入淡出放不下时 `setAudioMix` 收进新长度，片段名还是
+ * 旧素材名时 `updateItem` 跟着改。撤销一步回去。
+ *
+ * 实例 ID 不变，布局、裁剪、效果、关键帧、音量、作用与扩展都留在原处；挂在它上面的转场、按它投影的字幕（`scopeItemIds`）与
+ * 指着它的闪避照样对得上。新素材余量不够的两侧转场由引擎在事务末尾去掉，列在回执里。
  *
  * 时间的规则：
  * - 新素材从 0 秒起（设计稿二次修订去掉了开始时间）；勾了「按原素材时间对齐」且原来取用的那一段在新素材里放得下时，源时间照旧
  *   （设计稿的 `aligned`：同一段内容的另一个版本）。
  * - 片段长度不变；新素材不够长时片段跟着变短（设计稿「片段长度跟着新素材走」只取变短这一半：素材库这一层一次换掉所有用到它的
- *   片段，变长会把拆开的几段都拉成整段新素材），同一条轨道上后面的片段往前挪同样多（ripple），别的轨道不动。
+ *   片段，变长会把拆开的几段都拉成整段新素材），同一条轨道上后面的片段往前挪（ripple），别的轨道不动。音频变短时终点落在帧上。
  * - 新素材的时长不知道（本地文件要导入之后才探测）：先保留片段原时长（设计稿 `keep`），新文件不够长时引擎整笔拒绝。
  * - 锁着的片段（或在锁着的轨道上）与合成的预渲染替身保持原样；同轨的波纹挪到锁着的片段为止。
  *
  * 画布工具条上的「替换视频 / 替换图片」只换选中的那一段（`itemId`）：同样的规则，只是用到这个素材的别的片段不动。
- *
- * 协议里没有「给实例换素材」的操作，删了再写回的实例是新 ID：挂在它们上面的转场被引擎去掉，按它们投影的字幕、
- * 以它们为触发或目标的闪避对不上了。计划里数出这几样，替换框照实写出来。
  */
 
 /** 用来替换的新素材：素材库里已有的同类素材，或要在同一笔事务里导入的本地文件。 */
@@ -101,10 +87,6 @@ export type AssetReplacePlan =
       moved: number;
       /** 所有片段加起来短了多少秒（≤ 0）。 */
       delta: number;
-      /** 删了再写回会丢掉的关联：挂在这些片段上的转场、按它们投影的字幕实例、用到它们的闪避规则。 */
-      transitions: number;
-      captions: number;
-      ducking: number;
       operations: EditOperation[];
     };
 
@@ -130,7 +112,6 @@ const q = (n: bigint, d: bigint): Q => {
 };
 const ofTime = (t: MediaTime): Q => q(BigInt(t.ticks), BigInt(t.timescale));
 const ofRate = (r: Rate): Q => q(BigInt(r.num), BigInt(r.den));
-const ofInt = (v: number): Q => q(BigInt(v), 1n);
 const add = (a: Q, b: Q): Q => q(a.n * b.d + b.n * a.d, a.d * b.d);
 const sub = (a: Q, b: Q): Q => q(a.n * b.d - b.n * a.d, a.d * b.d);
 const mul = (a: Q, b: Q): Q => q(a.n * b.n, a.d * b.d);
@@ -141,9 +122,16 @@ const cmp = (a: Q, b: Q): number => {
 };
 const minQ = (a: Q, b: Q): Q => (cmp(a, b) <= 0 ? a : b);
 const floorQ = (a: Q): bigint => (a.n >= 0n ? a.n / a.d : -((-a.n + a.d - 1n) / a.d));
-const ceilQ = (a: Q): bigint => -floorQ(q(-a.n, a.d));
-const toTime = (a: Q): MediaTime => ({ ticks: String(a.n), timescale: Number(a.d) });
+const toNumber = (a: Q): number => Number(a.n) / Number(a.d);
 const ZERO: Q = { n: 0n, d: 1n };
+const MICRO = 1_000_000n;
+/** 向下取到微秒：`setAudioMix` 的淡变只收十进制秒。 */
+const floorMicro = (a: Q): Q => q(floorQ(mul(a, q(MICRO, 1n))), MICRO);
+const decimal = (a: Q): string => {
+  const micros = floorQ(mul(a, q(MICRO, 1n)));
+  const frac = micros % MICRO;
+  return frac ? `${micros / MICRO}.${String(frac).padStart(6, '0').replace(/0+$/, '')}` : String(micros / MICRO);
+};
 
 /** 帧数 → 秒（分数）。 */
 const framesQ = (frames: number, fps: Rate): Q => q(BigInt(frames) * BigInt(fps.den), BigInt(fps.num));
@@ -151,13 +139,16 @@ const framesQ = (frames: number, fps: Rate): Q => q(BigInt(frames) * BigInt(fps.
 // ---- 一个实例换成新素材之后的时间 ----
 
 interface Timing {
-  /** 图片没有时间映射。 */
+  /** 换上的时间映射；省略是不改（图片没有时间映射）。 */
   timeMap?: TimeMap;
-  /** 新长度：视频按帧，音频按精确时间。 */
-  lengthFrames?: number;
-  playDuration?: MediaTime;
-  /** 片段变短了几帧（≥ 0）：同轨后面的片段往前挪这么多。 */
+  /** 变短时终点收到哪一帧（`trimItem`），没变短时省略。 */
+  endFrame?: number;
+  /** 变短之后的长度（秒），淡入淡出放不下时按它收。 */
+  length?: Q;
+  /** 同轨后面的片段往前挪几帧（≥ 0）。 */
   shrinkFrames: number;
+  /** 片段短了几秒（≥ 0），给替换框看。 */
+  shrinkSeconds: number;
   aligned: boolean;
 }
 
@@ -175,44 +166,64 @@ function fits(map: TimeMap, length: Q, duration: Q): boolean {
 /** 从 0 秒起，新素材能放多长（秒）。 */
 const reach = (map: TimeMap, duration: Q): Q | null => (map.kind === 'linear' ? div(duration, ofRate(map.rate)) : null);
 
+const unchanged = (aligned: boolean, timeMap?: TimeMap): Timing => ({ ...(timeMap ? { timeMap } : {}), shrinkFrames: 0, shrinkSeconds: 0, aligned });
+
 function videoTiming(item: VideoItem, fps: Rate, duration: Q | null, align: boolean): Timing | null {
   const lengthFrames = item.span.durationFrames;
   const length = framesQ(lengthFrames, fps);
-  if (align && duration && fits(item.timeMap, length, duration)) return { timeMap: item.timeMap, lengthFrames, shrinkFrames: 0, aligned: true };
+  if (align && duration && fits(item.timeMap, length, duration)) return unchanged(true);
   // 时长未知：先保留原时长（设计稿 `keep`）；对齐时源时间也照旧。
-  if (!duration) return { timeMap: align ? item.timeMap : restartMap(item.timeMap), lengthFrames, shrinkFrames: 0, aligned: align };
+  if (!duration) return align ? unchanged(true) : unchanged(false, restartMap(item.timeMap));
   const most = reach(item.timeMap, duration);
   const maxFrames = most ? Number(floorQ(mul(most, ofRate(fps)))) : lengthFrames;
   if (maxFrames < 1) return null;
-  const next = Math.min(lengthFrames, maxFrames);
-  return { timeMap: restartMap(item.timeMap), lengthFrames: next, shrinkFrames: lengthFrames - next, aligned: false };
+  if (maxFrames >= lengthFrames) return unchanged(false, restartMap(item.timeMap));
+  const shrinkFrames = lengthFrames - maxFrames;
+  return {
+    timeMap: restartMap(item.timeMap),
+    endFrame: item.span.fromFrame + maxFrames,
+    length: framesQ(maxFrames, fps),
+    shrinkFrames,
+    shrinkSeconds: toNumber(framesQ(shrinkFrames, fps)),
+    aligned: false,
+  };
 }
 
 function audioTiming(item: AudioItem, fps: Rate, duration: Q | null, align: boolean): Timing | null {
   const length = ofTime(item.playDuration);
-  const keep = { playDuration: item.playDuration, shrinkFrames: 0 };
-  if (align && duration && fits(item.timeMap, length, duration)) return { timeMap: item.timeMap, ...keep, aligned: true };
-  if (!duration) return { timeMap: align ? item.timeMap : restartMap(item.timeMap), ...keep, aligned: align };
+  if (align && duration && fits(item.timeMap, length, duration)) return unchanged(true);
+  if (!duration) return align ? unchanged(true) : unchanged(false, restartMap(item.timeMap));
   const most = reach(item.timeMap, duration);
-  if (!most || cmp(length, most) <= 0) return { timeMap: restartMap(item.timeMap), ...keep, aligned: false };
-  // 变短整帧数：同轨后面的片段按帧往前挪，不留缝也不重叠（音频的起点可以不在帧上，长度按精确时间减）。
-  const shrinkFrames = Number(ceilQ(mul(sub(length, most), ofRate(fps))));
-  const next = sub(length, framesQ(shrinkFrames, fps));
+  if (!most || cmp(length, most) <= 0) return unchanged(false, restartMap(item.timeMap));
+  // 变短：终点收到新素材放得下的最后一帧（`trimItem` 的时间按帧给）；同轨后面的片段按帧往前挪，不重叠（起点不在帧上时留下不到一帧的缝）。
+  const start = add(framesQ(item.fromFrame, fps), ofTime(item.subframeOffset));
+  const endFrame = Number(floorQ(mul(add(start, most), ofRate(fps))));
+  const next = sub(framesQ(endFrame, fps), start);
   if (cmp(next, ZERO) <= 0) return null;
-  return { timeMap: restartMap(item.timeMap), playDuration: toTime(next), shrinkFrames, aligned: false };
+  const shrink = sub(length, next);
+  return {
+    timeMap: restartMap(item.timeMap),
+    endFrame,
+    length: next,
+    shrinkFrames: Number(floorQ(mul(shrink, ofRate(fps)))),
+    shrinkSeconds: toNumber(shrink),
+    aligned: false,
+  };
 }
 
-/** 片段变短之后淡入淡出放不下时收进新长度（淡出优先），包络去掉超出的点（引擎要求淡入加淡出不超过片段长度）。 */
-function clampFades<T extends { fadeIn?: MediaTime; fadeOut?: MediaTime }>(fades: T, length: Q): T {
-  const out = fades.fadeOut ? minQ(ofTime(fades.fadeOut), length) : null;
-  const room = out ? sub(length, out) : length;
-  const inn = fades.fadeIn ? minQ(ofTime(fades.fadeIn), room) : null;
-  const next = { ...fades };
-  if (fades.fadeOut) next.fadeOut = toTime(out!);
-  if (fades.fadeIn) next.fadeIn = toTime(inn!);
-  return next;
+/** 片段变短之后淡入淡出放不下时收进新长度（淡出优先）；放得下时不用改，返回 null。引擎要求淡入加淡出不超过片段长度。 */
+function clampFades(fades: { fadeIn?: MediaTime; fadeOut?: MediaTime }, length: Q): { fadeIn?: string; fadeOut?: string } | null {
+  const fadeIn = fades.fadeIn ? ofTime(fades.fadeIn) : ZERO;
+  const fadeOut = fades.fadeOut ? ofTime(fades.fadeOut) : ZERO;
+  if (cmp(add(fadeIn, fadeOut), length) <= 0) return null;
+  const out = cmp(fadeOut, length) > 0 ? floorMicro(length) : fadeOut;
+  const room = sub(length, out);
+  const inn = cmp(fadeIn, room) > 0 ? floorMicro(room) : fadeIn;
+  return {
+    ...(cmp(inn, fadeIn) !== 0 ? { fadeIn: decimal(inn) } : {}),
+    ...(cmp(out, fadeOut) !== 0 ? { fadeOut: decimal(out) } : {}),
+  };
 }
-const clampEnvelope = (points: EnvelopePoint[] | undefined, length: Q) => points?.filter((p) => !p.at || cmp(ofTime(p.at), length) <= 0);
 
 // ---- 计划 ----
 
@@ -232,11 +243,6 @@ const en = {
   shortenOne: (seconds: string) => `The clip gets ${seconds} sec shorter`,
   moved: (head: string, n: number) => `${head}, and ${n === 1 ? 'the next clip' : `the next ${n} clips`} on the track move earlier.`,
   trackShorter: (head: string) => `${head}, and the track gets shorter.`,
-  transitions: (n: number) => (n === 1 ? 'The transition on these clips will be removed.' : `The ${n} transitions on these clips will be removed.`),
-  captions: (n: number) =>
-    `${n === 1 ? '1 caption is' : `${n} captions are`} timed against these clips and will need realigning after the replacement.`,
-  ducking: (n: number) =>
-    `${n === 1 ? '1 ducking rule points' : `${n} ducking rules point`} at these clips and won’t match after the replacement.`,
 };
 export type AssetReplaceMessages = typeof en;
 const M = defineMessages(en, { 'zh-Hans': zhHans, 'zh-Hant': zhHant, ja, ko, es, fr, de, nl, 'pt-BR': ptBR, it, ru, pl, tr, vi });
@@ -285,18 +291,14 @@ export function planAssetReplace({ sequence, asset, source, align = false, itemI
     else if (item.locked || lockedTracks.has(item.trackId)) kept.push({ ...facts, reason: 'locked' });
     else {
       const timing =
-        item.type === 'video'
-          ? videoTiming(item, fps, duration, align)
-          : item.type === 'audio'
-            ? audioTiming(item, fps, duration, align)
-            : { shrinkFrames: 0, aligned: false };
+        item.type === 'video' ? videoTiming(item, fps, duration, align) : item.type === 'audio' ? audioTiming(item, fps, duration, align) : unchanged(false);
       if (!timing) return fail(M.tooShort);
       timings.set(item.id, timing);
     }
   }
   if (!timings.size) return fail(itemId === undefined ? M.allLocked : M.clipLocked);
 
-  // 同轨的波纹：按起点排，变短的片段之后的往前挪累计的帧数；碰到锁着的片段就停（它和它后面的不动）。
+  // 同轨的波纹：按起点排，变短的片段之后的往前挪累计的帧数（换掉的片段自己也挪）；碰到锁着的片段就停（它和它后面的不动）。
   const shiftOf = new Map<Id, number>();
   const moves: { itemId: Id; frames: number }[] = [];
   for (const trackId of new Set(users.filter((i) => timings.has(i.id)).map((i) => i.trackId))) {
@@ -310,25 +312,33 @@ export function planAssetReplace({ sequence, asset, source, align = false, itemI
         shift = 0;
         continue;
       }
+      if (shift !== 0) moves.push({ itemId: item.id, frames: shift });
       const timing = timings.get(item.id);
       if (timing) {
         shiftOf.set(item.id, shift);
         shift -= timing.shrinkFrames;
-      } else if (shift !== 0) moves.push({ itemId: item.id, frames: shift });
+      }
     }
   }
 
   const replaced: ReplacedInstance[] = [];
-  const inputs: SequenceItemInput[] = [];
+  const trims: EditOperation[] = [];
+  const swaps: EditOperation[] = [];
+  const mixes: EditOperation[] = [];
+  const renames: EditOperation[] = [];
+  const sequenceId = sequence.id;
   for (const item of users) {
     const timing = timings.get(item.id);
-    if (!timing) continue;
+    if (!timing || (item.type !== 'video' && item.type !== 'audio' && item.type !== 'image')) continue;
     const shift = shiftOf.get(item.id) ?? 0;
     const range = itemFrames(item, fps);
-    const input = rewrite(item, timing, shift, target, fps);
-    if (!input) continue;
+    if (timing.endFrame !== undefined)
+      trims.push({ type: 'trimItem', sequenceId, itemId: item.id, edge: 'end', at: { unit: 'frames', value: timing.endFrame }, alignment: 'exact-frame' });
+    swaps.push({ type: 'replaceItemAsset', sequenceId, itemId: item.id, ...target, ...(timing.timeMap ? { timeMap: timing.timeMap } : {}) });
+    const fades = timing.length && item.type !== 'image' ? clampFades(item.type === 'video' ? item.embeddedAudio : item.mix, timing.length) : null;
+    if (fades && (fades.fadeIn !== undefined || fades.fadeOut !== undefined)) mixes.push({ type: 'setAudioMix', sequenceId, itemId: item.id, ...fades });
     // 片段名还是旧素材的名字（放上时间线时的默认名）就跟着换成新素材的名字；改过名的保留。
-    inputs.push(item.name === asset.name ? ({ ...input, name: newName } as SequenceItemInput) : input);
+    if (item.name === asset.name && newName !== asset.name) renames.push({ type: 'updateItem', sequenceId, itemId: item.id, name: newName });
     replaced.push({
       itemId: item.id,
       trackId: item.trackId,
@@ -336,79 +346,34 @@ export function planAssetReplace({ sequence, asset, source, align = false, itemI
       start: toSeconds(range.start),
       end: toSeconds(range.end),
       newStart: toSeconds(range.start + shift),
-      newEnd: toSeconds(range.end + shift - timing.shrinkFrames),
-      delta: timing.shrinkFrames ? -toSeconds(timing.shrinkFrames) : 0,
+      newEnd: toSeconds(range.end + shift) - timing.shrinkSeconds,
+      delta: 0 - timing.shrinkSeconds,
       aligned: timing.aligned,
     });
   }
 
-  const gone = new Set(replaced.map((r) => r.itemId));
+  // 顺序：导入 → 收短 → 挪（重叠在整笔之后检查）→ 换素材 → 收淡变 → 改名。
   const operations: EditOperation[] = [];
   if (source.from === 'file') operations.push({ type: 'importAsset', path: source.path, ref: REPLACE_IMPORT_REF });
-  operations.push({ type: 'deleteItems', sequenceId: sequence.id, itemIds: [...gone] });
+  operations.push(...trims);
   if (moves.length)
     operations.push({
       type: 'moveItems',
-      sequenceId: sequence.id,
+      sequenceId,
       moves: moves.map((m) => ({ itemId: m.itemId, offset: { unit: 'frames', value: m.frames } })),
       alignment: 'exact-frame',
     });
-  operations.push({ type: 'insertItems', sequenceId: sequence.id, items: inputs });
+  operations.push(...swaps, ...mixes, ...renames);
 
-  const touches = (ids: readonly Id[] | undefined) => !!ids?.some((id) => gone.has(id));
   return {
     ok: true,
     durationKnown: duration !== null,
     replaced,
     kept,
-    moved: moves.length,
+    moved: moves.filter((m) => !timings.has(m.itemId)).length,
     delta: replaced.reduce((sum, r) => sum + r.delta, 0),
-    transitions: sequence.transitions.filter((t) => (t.leftItemId && gone.has(t.leftItemId)) || (t.rightItemId && gone.has(t.rightItemId))).length,
-    captions: sequence.items.filter((item) => item.type === 'caption' && touches(item.scopeItemIds)).length,
-    ducking: (sequence.ducking ?? []).filter(
-      (rule) => (rule.trigger.kind === 'items' && touches(rule.trigger.itemIds)) || touches(rule.target.itemIds),
-    ).length,
     operations,
   };
-}
-
-/** 按原样写回一个实例：去掉引擎分配的 `id` 与 `lineage`，换素材与时间，起点挪 `shift` 帧。 */
-function rewrite(
-  item: SequenceItem,
-  timing: Timing,
-  shift: number,
-  target: { assetRef: VersionRef } | { assetImportRef: string },
-  fps: Rate,
-): SequenceItemInput | null {
-  if (item.type === 'video') {
-    const { id: _id, lineage: _lineage, assetRef: _asset, ...rest } = item;
-    const lengthFrames = timing.lengthFrames ?? item.span.durationFrames;
-    const audio: EmbeddedAudio = timing.shrinkFrames ? clampFades(item.embeddedAudio, framesQ(lengthFrames, fps)) : item.embeddedAudio;
-    return {
-      ...rest,
-      ...target,
-      span: { fromFrame: item.span.fromFrame + shift, durationFrames: lengthFrames },
-      timeMap: timing.timeMap ?? item.timeMap,
-      embeddedAudio: audio,
-    } as SequenceItemInput;
-  }
-  if (item.type === 'audio') {
-    const { id: _id, lineage: _lineage, assetRef: _asset, ...rest } = item;
-    const playDuration = timing.playDuration ?? item.playDuration;
-    const length = ofTime(playDuration);
-    let mix = item.mix;
-    if (timing.shrinkFrames) {
-      const { envelope: _envelope, ...fades } = clampFades(item.mix, length);
-      const envelope = clampEnvelope(item.mix.envelope, length);
-      mix = envelope?.length ? { ...fades, envelope } : fades;
-    }
-    return { ...rest, ...target, fromFrame: item.fromFrame + shift, playDuration, timeMap: timing.timeMap ?? item.timeMap, mix } as SequenceItemInput;
-  }
-  if (item.type === 'image') {
-    const { id: _id, lineage: _lineage, assetRef: _asset, ...rest } = item;
-    return { ...rest, ...target, span: { fromFrame: item.span.fromFrame + shift, durationFrames: item.span.durationFrames } } as SequenceItemInput;
-  }
-  return null;
 }
 
 /** 一句话说清这次替换对时间线的影响（设计稿 `describe` 的说法，搬到一次换多段）。 */
@@ -420,14 +385,4 @@ export function describeReplace(plan: AssetReplacePlan): string {
   const d = Math.abs(plan.delta).toFixed(1);
   const head = plan.replaced.length > 1 ? M.shortenMany(shortened.length, d) : M.shortenOne(d);
   return plan.moved ? M.moved(head, plan.moved) : M.trackShorter(head);
-}
-
-/** 删了再写回会丢掉的关联，一样一句；没有时空的。 */
-export function replaceSideEffects(plan: AssetReplacePlan): string[] {
-  if (!plan.ok) return [];
-  const out: string[] = [];
-  if (plan.transitions) out.push(M.transitions(plan.transitions));
-  if (plan.captions) out.push(M.captions(plan.captions));
-  if (plan.ducking) out.push(M.ducking(plan.ducking));
-  return out;
 }

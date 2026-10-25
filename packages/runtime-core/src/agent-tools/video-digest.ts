@@ -456,6 +456,7 @@ export function digestReceipt(receipt: TransactionReceipt, fps: Rate, replayed: 
     ...(receipt.impact.cutsNotRelaid?.length ? { cutsNotRelaid: receipt.impact.cutsNotRelaid } : {}),
     ...(receipt.impact.removedWithTarget?.length ? { removedWithTarget: receipt.impact.removedWithTarget } : {}),
     ...(receipt.impact.codeEdits?.length ? { codeEdits: receipt.impact.codeEdits } : {}),
+    ...(receipt.impact.assetSwaps?.length ? { assetSwaps: receipt.impact.assetSwaps } : {}),
     ...(receipt.impact.removedTracks?.length ? { removedTracks: receipt.impact.removedTracks } : {}),
     ...(receipt.impact.removedAssets?.length ? { removedAssets: receipt.impact.removedAssets } : {}),
     ...(receipt.impact.orphanedAnchors.length ? { orphanedAnchors: receipt.impact.orphanedAnchors } : {}),
