@@ -1,4 +1,5 @@
-// Drawing mechanics for history-video intro scenes (baocut/1, one canvas, drawn from scratch every frame).
+// Drawing mechanics for production-scripts code scenes (baocut/1, one canvas, drawn from scratch every frame),
+// first written for history-video intros.
 // Copy into the project's shared/ and trim what you do not use. It has no look of its own:
 // the scene sets this episode's colours and font families with K.style({...}) before K.scene(draw).
 //
@@ -10,6 +11,7 @@
 // Timing comes from window.TIMING (build.mjs): lines[i].chars are per-character start times,
 // clips[] are this segment's clips (at/end in segment seconds, box in canvas px, words[{t,s,e}] in segment seconds),
 // credits{file: line} are the on-screen source lines from sources.json.
+// build.mjs, quotes.mjs and sources.mjs write these fields; change their format and this file together.
 // Baking rules kept here: one canvas, full clear every frame, no main-canvas readback, no ctx.filter,
 // no letterSpacing (manual tracking instead), unscaled images on integer pixels, textures blitted 1:1.
 // Over a photo or footage frame draw at most one full-frame translucent layer live (shade, wash, fade);

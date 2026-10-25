@@ -89,7 +89,7 @@ version: 1.0.0
 - **新闻片与照片**：视频片段照 `clips.json` 放成铺满或画中画，画中画框的位置在 `TIMING.clips[].box`，场景在框下画底板、框旁写说明。
 - **出处**：`sources.json` 一份；`sources.mjs` 查漏、写 `sources.csv`；画面上的出处行从 `TIMING.credits` 取，不在场景里另写一遍。
 - **字体**：`fonts.mjs` 按稿子与场景里的字裁子集；定稿后改字会让引用这些字体的段全部重烘，改用已有的字更省。
-- 代码画面的规则在 `video-production` 的代码场景细则（单个画布、每帧清屏、不读回像素、不用 `filter` 与 `letterSpacing`）。这类片子最常撞上的是照片上叠了好几层半透明层、中文字体排年份：照 `references/forms.md` 第 1 节开头的两条做，烘焙才走得了指令。场景的骨架与地图数据可以从本 skill 的 `kit/` 拷（`references/forms.md` 第 3 节）。
+- 代码画面的规则在 `video-production` 的代码场景细则（单个画布、每帧清屏、不读回像素、不用 `filter` 与 `letterSpacing`）。这类片子最常撞上的是照片上叠了好几层半透明层、中文字体排年份，细则第 2.1 节写了怎么避开，烘焙才走得了指令。场景的骨架与地图数据用 `skills_read` 读 `production-scripts`，拷它的 `scene-kit/`（`references/forms.md` 第 3 节）。
 
 ## 7. 审片、烘焙、导出、交付
 

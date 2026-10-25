@@ -31,6 +31,7 @@ version: 1.3.0
 ## 2. 按顺序跑
 
 1. 把本 skill 的 `scripts/` 整个拷进工程（例如 `<工程>/tools/`）：能直接读到文件时拷目录，读不到时用 `skills_read` 读本 skill 的 `scripts/` 下每个文件原样写进去。脚本都 import 同目录的 `lib.mjs`，要拷全；`*.example.json` 是配置样例。依赖 Node 18 以上与 baocut CLI；切段转写、留白压停顿、量原声响度要本机有 ffmpeg。
+   要画代码场景时，本 skill 的 `scene-kit/` 可以拷进工程的 `shared/` 当起点（读不到文件时用 `skills_read` 读本 skill 的 `scene-kit/` 下的文件）。它在浏览器里跑，不和 `scripts/` 放在一起。`scene-kit.js` 只有机制、没有配色：颜色与字体由场景调用 `K.style()` 给，拷过去照这期的需要改、删掉不用的；它读 `build.mjs`、`quotes.mjs`、`sources.mjs` 写进 `window.TIMING` 的数据（`lines[].chars`、`clips`、`words`、`credits`）。`geo110.js` 是 Natural Earth 1:110m 的陆地轮廓（公有领域）。
 2. 照 `scripts/explainer.example.json` 在工程根目录写配置（脚本从当前目录往上找它，也可以 `--config <文件>`），有实拍时照 `scripts/clips.example.json` 写 `clips.json`。
 3. 按顺序跑，每个脚本都能重跑，做完、没变化的段跳过：
 
