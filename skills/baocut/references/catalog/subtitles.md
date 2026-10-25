@@ -104,7 +104,7 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 | `y` | 锚线高度，画面高度的百分比（0 顶、100 底） | 86 |
 | `verticalAlign` | 字幕块哪条边落在 `y` 上：`top`、`center`、`bottom`；折成多行时往另一边长 | `center` |
 | `x`、`width` | 块中心、最大行宽，画面宽度的百分比；烧进画面时超过 `width` 就折行 | 50、80 |
-| `fontSize` | 字号，按 540 短边下的像素（1080 宽的画面乘 2） | 30 |
+| `fontSize` | 字号，按 540 短边下的像素（1080 宽的画面乘 2）；双语时两行按比例画：原文是它的 2/3，译文是原文的 1.6 倍（30 时原文 20、译文 32） | 30 |
 | `fontColor`、`fontWeight`、`fontFamily` | 字色、字重（100–900）、字体族（本机的系统字体名，如 `Songti SC`）；写 `fontWeight` 时粗体跟着变 | 白、700、system |
 | `textAlign`、`alignWithinWrap` | 各行左、中、右对齐；`alignWithinWrap: true` 时贴住折行区的边（左对齐的左边固定在 `x − width/2`），不加时整块按字长居中 | `center`、false |
 | `lineHeight`、`letterSpacing` | 行高（字号的倍数）；字距（30 号字下的像素，随字号等比） | 1.2、0 |
@@ -112,8 +112,10 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 | `textOutline`、`dropShadow` | `{"on": false}` 关掉描边、投影；描边还可给 `color`、`width` | 都开着 |
 | `background`、`backgroundColor` | 底板开关与颜色 | 关、`#000000B3` |
 | `panelSeam` | 开始在分屏画面上的一句，整块的中线落在离 `y` 最近的两格接缝上，到这一句结束不动；`false` 照 `y` 摆 | 开 |
+| `order`、`gap` | 双语两行的上下次序（`trans` 译文在上，`orig` 原文在上）；两行的距离（540 短边下的像素，0–40） | `trans`、6 |
+| `origStyle`、`transStyle` | 双语里原文、译文一行自己的样式，只写要与共用样式不同的键：`fontSize`（写了就不跟比例）、`fontWeight`、`fontFamily`、`fontColor`、`lineHeight`、`letterSpacing`、`textOutline`、`dropShadow`、`background`、`backgroundColor`；`x`、`y` 一起给时这一行离开两行的堆栈单独摆（`x` 是它的中心，行内的 `verticalAlign` 说哪条边落在 `y` 上），另一行留在根上的 `y`；`null` 去掉这一行的全部覆盖 | 无 |
 
-不给 {{arg:style}} 时块的中线在画面高度 86% 处；竖版（9:16）这里落在平台的标题与按钮区，要往上挪：底边放在 78%（1080×1920 上约 y 1500，两行时顶边约 y 1360）写 `{"y": 78, "verticalAlign": "bottom"}`。建好后再改用 {{tool:edits_apply}} 的 `setCaptionStyle`：`itemId` 给字幕实例，`style` 同样的键，合进这层的样式文档；共用这份样式的字幕层（双语的原文与译文）一起变。换成视频里另一份样式给 `styleDocumentId`；品牌库的字幕样式先照 {{tool:library_show}} 的正文 `putDocument` 一份（kind `caption-style`），再用 `styleDocument: {"ref": …}` 挂上。
+不给 {{arg:style}} 时块的中线在画面高度 86% 处；竖版（9:16）这里落在平台的标题与按钮区，要往上挪：底边放在 78%（1080×1920 上约 y 1500，两行时顶边约 y 1360）写 `{"y": 78, "verticalAlign": "bottom"}`。建好后再改用 {{tool:edits_apply}} 的 `setCaptionStyle`：`itemId` 给字幕实例，`style` 同样的键，合进这层的样式文档。双语的原文与译文共用这份样式：根上的键两行一起变，根上改字号、字色这类外观时两行覆盖里的同名键一起去掉；只改一行写进它的 `origStyle` / `transStyle`，例如原文做成灰色小字 `{"origStyle": {"fontColor": "#9A9A9A", "fontSize": 16}}`。换成视频里另一份样式给 `styleDocumentId`；品牌库的字幕样式先照 {{tool:library_show}} 的正文 `putDocument` 一份（kind `caption-style`），再用 `styleDocument: {"ref": …}` 挂上。
 
 <!-- surface: cli -->
 `--style` 写 JSON，例如 `--style '{"y":78,"verticalAlign":"bottom","background":true}'`。

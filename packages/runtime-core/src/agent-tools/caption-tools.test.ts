@@ -474,6 +474,36 @@ describe.skipIf(!ready)('建字幕层工具（真实引擎）', () => {
     expect(bilingual.body).toMatchObject({ styleDocumentId: styleId, styleNote: expect.any(String) });
     expect(captionItems(bilingual.body.documentId).map((i) => i.styleDocumentId)).toEqual([styleId]);
     expect((await readStyle()).style).toMatchObject({ fontColor: '#FFEE00', y: 72, fontSize: 34 });
+
+    // 两行分开调：原文那一行换成灰色小字、单独摆到画面上部，译文换字体。之后在根上改字色，两行都按新字色画：
+    // 原文那一行覆盖里的字色一起去掉，它自己的字号与位置留着。
+    const translatedItem = bilingual.body.itemIds[0] as Id;
+    const split = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: '原文与译文分开调',
+      operations: [
+        {
+          type: 'setCaptionStyle',
+          itemId: translatedItem,
+          style: { order: 'orig', origStyle: { fontColor: '#9A9A9A', fontSize: 16, x: 50, y: 20 }, transStyle: { fontFamily: 'Songti SC' } },
+        },
+        { type: 'setCaptionStyle', itemId, style: { fontColor: '#F5F0E6' } },
+      ],
+    });
+    expect(split.isError).toBe(false);
+    const split2 = (await readStyle()).style;
+    expect(split2).toMatchObject({ order: 'orig', fontColor: '#F5F0E6', transStyle: { fontFamily: 'Songti SC' } });
+    expect(split2.origStyle).toEqual({ fontSize: 16, x: 50, y: 20 });
+    expect(captionItems(bilingual.body.documentId).map((i) => i.styleDocumentId)).toEqual([styleId]);
+    const half = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: '只给 x',
+      operations: [{ type: 'setCaptionStyle', itemId, style: { transStyle: { x: 30 } } }],
+    });
+    expect(half.body.error).toMatchObject({ code: 'INVALID_OPERATION', operationIndex: 0 });
+    expect(half.body.error.message).toContain('style.transStyle');
   });
 
   it('setCaptionStyle 给没有样式的字幕：新建一份，其余没有样式的字幕一起挂上；styleDocumentId 换用已有的一份', async () => {

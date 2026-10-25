@@ -11,6 +11,9 @@ import { OperationShapeError } from './video-digest.ts';
  * 不另造一套字段：补丁的键就是字幕样式文档（`caption-style`，Studio 样式 `baocut.legacy-studio-style/0.1`）`style` 里的键，
  * 编辑器的字幕属性页读写的也是这几个，预览与导出的渲染内核按它们摆放、折行。补丁合进实例现有的样式文档（写一个新版本，
  * 用同一份样式的字幕层一起变）；实例还没有样式时以默认预设（`DEFAULT_CAPTION_STYLE_BODY`）为底新建一份。
+ *
+ * 双语的原文、译文两行共用这一份样式；一行要不同时写进它的覆盖 `origStyle` / `transStyle`，与编辑器字幕属性页的
+ * 「原文 | 译文」和在画面上单独拖一行写的是同一处。
  */
 
 type Json = Record<string, unknown>;
@@ -22,11 +25,61 @@ const color = z
   .regex(/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)
   .describe('#RRGGBB 或带不透明度的 #RRGGBBAA');
 
+const verticalAlign = z.enum(['top', 'center', 'bottom']);
+const fontWeight = z
+  .number()
+  .int()
+  .min(100)
+  .max(900)
+  .describe('字重，100–900，默认样式 700；同时写 bold（低于 700 时去掉粗体，否则粗体会把字重抬回 700）');
+const fontFamily = z.string().trim().min(1).max(200).describe('字体族名；system 为系统字体（默认）');
+const lineHeight = z.number().min(0.5).max(3).describe('行高：字号的倍数，缺省 1.2');
+const letterSpacing = z.number().min(-5).max(30).describe('字距：以 30 号字为基准的像素，随字号等比（3 约为字号的 10%），缺省 0');
+const textOutline = z
+  .strictObject({
+    on: z.boolean().describe('描边开关'),
+    color: color.optional().describe('描边颜色'),
+    width: z.number().min(0).max(50).optional().describe('描边粗细：字号的百分比，默认 14'),
+  })
+  .describe('描边；默认样式开着（黑色）');
+const dropShadow = z.strictObject({ on: z.boolean().describe('投影开关') }).describe('投影；默认样式开着');
+const background = z.boolean().describe('底板开关；默认关');
+const backgroundColor = color.describe('底板颜色，默认 #000000B3');
+
+/**
+ * 双语时原文、译文一行自己的样式（样式文档的 `origStyle` / `transStyle`，视频格式规范 §5.6）：盖在两行共用的样式上，
+ * 只给这一行要不同的键。`x`、`y` 一起给时这一行离开两行的堆栈单独摆（渲染内核的 `line_position_override` 要两者都在）。
+ */
+const captionLinePatch = z
+  .strictObject({
+    x: z.number().min(0).max(100).optional().describe('这一行单独摆放时文本块中心的横向位置：画面宽度的百分比；与 y 一起给'),
+    y: z.number().min(0).max(100).optional().describe('这一行单独摆放时的锚线高度：画面高度的百分比；与 x 一起给'),
+    verticalAlign: verticalAlign.optional().describe('单独摆放的这一行哪条边落在它的 y 上，缺省 center；配 x、y 用'),
+    fontSize: z
+      .number()
+      .min(4)
+      .max(200)
+      .optional()
+      .describe('这一行的字号：按 540 短边下的像素；写了就不再跟双语的字号比例'),
+    fontWeight: fontWeight.optional(),
+    fontFamily: fontFamily.optional(),
+    fontColor: color.optional().describe('这一行的字色'),
+    lineHeight: lineHeight.optional(),
+    letterSpacing: letterSpacing.optional(),
+    textOutline: textOutline.optional(),
+    dropShadow: dropShadow.optional(),
+    background: background.optional(),
+    backgroundColor: backgroundColor.optional(),
+  })
+  .refine((line) => Object.keys(line).length > 0, { message: '至少给一个样式字段' })
+  .refine((line) => (line.x === undefined) === (line.y === undefined), {
+    message: 'x 与 y 要一起给：两者都在时这一行才离开两行的堆栈单独摆',
+  });
+
 export const captionStylePatch = z
   .strictObject({
     y: z.number().min(0).max(100).optional().describe('锚线的高度：画面高度的百分比（0 顶、100 底），缺省 86'),
-    verticalAlign: z
-      .enum(['top', 'center', 'bottom'])
+    verticalAlign: verticalAlign
       .optional()
       .describe('字幕块的哪条边落在 y 上：top 上边、center 中线（缺省）、bottom 下边；折成多行时往另一边长'),
     x: z.number().min(0).max(100).optional().describe('字幕块中心的横向位置：画面宽度的百分比，缺省 50'),
@@ -42,15 +95,11 @@ export const captionStylePatch = z
       .min(4)
       .max(200)
       .optional()
-      .describe('字号：按 540 短边下的像素（1080×1920 上乘 2），缺省 30；双语时是原文行，译文行按比例放大'),
-    fontWeight: z
-      .number()
-      .int()
-      .min(100)
-      .max(900)
-      .optional()
-      .describe('字重，100–900，默认样式 700；同时写 bold（低于 700 时去掉粗体，否则粗体会把字重抬回 700）'),
-    fontFamily: z.string().trim().min(1).max(200).optional().describe('字体族名；system 为系统字体（默认）'),
+      .describe(
+        '字号：按 540 短边下的像素（1080×1920 上乘 2），缺省 30。双语时两行按比例画：原文是它的 2/3，译文是原文的 1.6 倍（30 时原文 20、译文 32）；单独定一行的字号写在 origStyle / transStyle 里',
+      ),
+    fontWeight: fontWeight.optional(),
+    fontFamily: fontFamily.optional(),
     fontColor: color.optional().describe('字色，默认白 #FFFFFF'),
     textAlign: z
       .enum(['left', 'center', 'right'])
@@ -60,31 +109,16 @@ export const captionStylePatch = z
       .boolean()
       .optional()
       .describe('true 时各行在折行宽度里按 textAlign 对齐：左对齐的左边固定在 x − width/2，右对齐的右边固定在 x + width/2，长短句都贴同一条边；缺省 false'),
-    lineHeight: z.number().min(0.5).max(3).optional().describe('行高：字号的倍数，缺省 1.2'),
-    letterSpacing: z
-      .number()
-      .min(-5)
-      .max(30)
-      .optional()
-      .describe('字距：以 30 号字为基准的像素，随字号等比（3 约为字号的 10%），缺省 0'),
+    lineHeight: lineHeight.optional(),
+    letterSpacing: letterSpacing.optional(),
     punct: z
       .boolean()
       .optional()
       .describe('true（缺省）时逗号、句号在画面上换成空格；false 照原文画标点。只影响画面，转写与导出的字幕文件不变'),
-    textOutline: z
-      .strictObject({
-        on: z.boolean().describe('描边开关'),
-        color: color.optional().describe('描边颜色'),
-        width: z.number().min(0).max(50).optional().describe('描边粗细：字号的百分比，默认 14'),
-      })
-      .optional()
-      .describe('描边；默认样式开着（黑色）'),
-    dropShadow: z
-      .strictObject({ on: z.boolean().describe('投影开关') })
-      .optional()
-      .describe('投影；默认样式开着'),
-    background: z.boolean().optional().describe('底板开关；默认关'),
-    backgroundColor: color.optional().describe('底板颜色，默认 #000000B3'),
+    textOutline: textOutline.optional(),
+    dropShadow: dropShadow.optional(),
+    background: background.optional(),
+    backgroundColor: backgroundColor.optional(),
     speakerLabel: z
       .strictObject({
         on: z.boolean().describe('说话人标签开关'),
@@ -93,6 +127,16 @@ export const captionStylePatch = z
       })
       .optional()
       .describe('说话人标签：打开时有说话人的句子在字幕块最上面多一行名字（取字幕句子的 speaker，没写时取转写里这一句的说话人）；默认关'),
+    order: z.enum(['trans', 'orig']).optional().describe('双语两行的上下次序：trans 译文在上（缺省），orig 原文在上'),
+    gap: z.number().min(0).max(40).optional().describe('双语两行之间的距离：按 540 短边下的像素，缺省 6'),
+    origStyle: captionLinePatch
+      .nullable()
+      .optional()
+      .describe('双语时原文那一行自己的样式，盖在共用样式上，只给要不同的键；null 去掉这一行的全部覆盖、跟回共用样式'),
+    transStyle: captionLinePatch
+      .nullable()
+      .optional()
+      .describe('双语时译文那一行自己的样式，写法同 origStyle'),
   })
   .refine((patch) => Object.keys(patch).length > 0, { message: '至少给一个样式字段' });
 
@@ -101,9 +145,30 @@ export type CaptionStylePatch = z.infer<typeof captionStylePatch>;
 /** 合并时整体替换以外、要按字段合进去的键：描边与投影只改给出的字段。 */
 const NESTED = new Set(['textOutline', 'dropShadow', 'speakerLabel']);
 
+/**
+ * 两行各自能改的外观键。根上改它们时，两行覆盖里的同名键去掉，两行都按新值画（不然有覆盖的那一行看不见这一笔），
+ * 与编辑器两行一起改的规则相同（packages/ui/src/model/caption-lines.ts 的 `editBlock`）。位置键不在里面：
+ * 根上的 `x`、`y`、`verticalAlign` 是两行堆栈的锚点，行覆盖里的是单独摆走的那一行自己的位置，两者不相干。
+ */
+const LINE_APPEARANCE = [
+  'fontSize',
+  'fontWeight',
+  'bold',
+  'fontFamily',
+  'fontColor',
+  'lineHeight',
+  'letterSpacing',
+  'textOutline',
+  'dropShadow',
+  'background',
+  'backgroundColor',
+] as const;
+
 function isObject(value: unknown): value is Json {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+const objectOr = (value: unknown): Json => (isObject(value) ? value : {});
 
 /** 这份正文能不能按补丁改：只有 Studio 样式（定位框样式与动态场景的键不同）。 */
 export function isStudioStyle(body: unknown): body is Json & { style: Json } {
@@ -114,12 +179,33 @@ export function isStudioStyle(body: unknown): body is Json & { style: Json } {
 export function patchStudioStyle(body: unknown, patch: CaptionStylePatch): Json | null {
   if (!isStudioStyle(body)) return null;
   const style: Json = { ...body.style };
-  for (const [key, value] of Object.entries(patch)) {
+  const { origStyle, transStyle, ...root } = patch;
+  for (const [key, value] of Object.entries(root)) {
     if (value === undefined) continue;
-    style[key] = NESTED.has(key) ? { ...(isObject(style[key]) ? style[key] : {}), ...(value as Json) } : value;
+    style[key] = NESTED.has(key) ? { ...objectOr(style[key]), ...(value as Json) } : value;
   }
   // 渲染时 bold 把字重抬到至少 700：字重与粗体一起写，与编辑器属性页的同步规则相同。
-  if (patch.fontWeight !== undefined) style.bold = patch.fontWeight >= 700;
+  if (root.fontWeight !== undefined) style.bold = root.fontWeight >= 700;
+  const shared = LINE_APPEARANCE.filter((key) => (key === 'bold' ? root.fontWeight : (root as Json)[key]) !== undefined);
+  for (const [lineKey, line] of [
+    ['origStyle', origStyle],
+    ['transStyle', transStyle],
+  ] as const) {
+    let partial: Json | null = isObject(style[lineKey]) ? { ...style[lineKey] } : null;
+    if (partial) for (const key of shared) delete partial[key];
+    if (line === null) partial = null;
+    else if (line !== undefined) {
+      partial ??= {};
+      for (const [key, value] of Object.entries(line)) {
+        if (value === undefined) continue;
+        // 行覆盖整键盖在共用样式上（渲染内核的 merged_line_style 是浅合并）：描边、投影从这一行此刻画出来的值合起，写全。
+        partial[key] = NESTED.has(key) ? { ...objectOr(style[key]), ...objectOr(partial[key]), ...(value as Json) } : value;
+      }
+      if (line.fontWeight !== undefined) partial.bold = line.fontWeight >= 700;
+    }
+    if (partial && Object.keys(partial).length) style[lineKey] = partial;
+    else delete style[lineKey];
+  }
   return { ...body, style };
 }
 
