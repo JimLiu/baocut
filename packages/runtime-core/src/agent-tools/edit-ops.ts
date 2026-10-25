@@ -244,7 +244,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
   {
     type: 'deleteItems',
     family: 'items',
-    doc: ['- {"type":"deleteItems","itemIds":["..."]}：删除片段（不移动其他片段，留下空隙）。'],
+    doc: ['- {"type":"deleteItems","itemIds":["..."]}：删除片段（不移动其他片段，留下空隙）。挂在这些片段上的转场一起删掉，列在回执的 removedTransitions。'],
     schema: op('deleteItems', {
       itemIds: z.array(idOf('片段 ID')).min(1).describe('要删的片段（不移动其他片段）'),
       sequenceId,

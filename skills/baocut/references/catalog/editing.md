@@ -114,6 +114,12 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 字幕层用 {{tool:captions_create}} 建，不是这里的操作；剪掉一段并让后面前移用 `removeRange`，空出一段让后面后移用 `insertRange`，口播的剪口用 `addCuts`。其余操作与每个字段的写法用 {{tool:edits_ops}} 取。
 <!-- /generated -->
 
+**换片段的素材**（重截的背景图、重剪的视频）：没有原地换素材的操作，代码画面除外（`replaceCodeBundle`）。编辑器的「替换」也是这样做的：一笔里 `importAsset` 导入新文件（带 `ref`），`deleteItems` 删掉旧片段，`insertItems` 在同一条轨道、同一个起点按原来的字段写回，只把 `assetRef` 换成 `assetImportRef`（素材库里已有的素材给 `assetRef`）。一次撤销就能退回。
+
+- 视频与音频的 `timeMap` 说从新素材哪一刻起放，片段长度不能超过新素材剩下的那段，不够长时引擎整笔拒绝。
+- 写回的片段是新 ID。挂在旧片段上的转场被删掉（回执的 `removedTransitions`），要的话按新 ID 再 `setTransition`。按旧片段投影的字幕（`scopeItemIds`）与以它为触发或目标的闪避规则也对不上了，要一并改。
+- {{tool:videos_inspect}} 只列效果的名字，不列取值，也不列关键帧。片段上有你没写过的效果或动画时，按摘要写回会丢掉它们：告诉用户在编辑器的素材库里对这个素材用「替换…」，那里原样保留。
+
 ### 一次放好制作计划：{{tool:edits_assemble}}
 
 旁白按段配、画面按段上时间线的片子（讲解、解说混剪、旁白片）不用一段一段 `importAsset` 与 {{tool:compositions_import}}：把制作计划写成 {{arg:plan}}，或 {{arg:planFile}} 指向一份 JSON（里面的相对路径按它所在目录解析），一次放好。
@@ -132,7 +138,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 
 - **声波**：`{"type":"visualizer","visualizer":{"style":…}}`。横条款有 `audio_envelope`（默认）、`bars`、`bars_rounded`、`bars_bottom`、`spectrum_area`、`oscilloscope`、`ribbons`、`dots`，正方款有 `ring_bars`、`ring_wave`、`pulse_rings`。`mainColor`、`secondaryColor`（`#RRGGBB`）不写时用这一款的配色。缺省跟着整条序列混好的声音动；只在某位说话人说话时动给 `speaker`。
 - **默认声波**：`audio_envelope` 是播放头前后约 5.4 秒的真实音量包络，121 根细圆柱上下对称，固定中线左侧为已播放青绿、右侧为未播放灰色，下方带片段进度与起止时间。默认 `mainColor` 为 `#7FE0CF`、`secondaryColor` 为 `#54616B`；可改色、换款、移动与缩放。它读取音频缓存的时域 RMS，不是瞬时频谱，dB 窗与频谱平滑不参与；无需代码包与全片烘焙。用户没指定声波样式时使用它；有字幕时用 `place` 居中到 `y:54`、`w:85`，并按 `scaleY = (画布宽 × 0.85 × 340) / (1632 × 画布高 × 0.2)` 保持参考比例；1920×1080 时约为 `1.574074`。版面另有计时，或声波收窄后下方的小字看不清时，`visualizer` 里写 `"readout": false`，去掉进度线与起止时间，只留细柱与中线。
-- **进度条**：`{"type":"progress","progress":{"style":…}}`，`style` 如 `normal`、`rounded`、`circle`；在片段时长里从头走到尾。
+- **进度条**：`{"type":"progress","progress":{"style":…}}`，只看播放头，在片段时长里从头走到尾。横条款有 `normal`、`rounded`；正方款有 `circle`、`donut`、`snake`、`snake_spin`、`snake_rainbow`、`snake_spin_rainbow`；画面四周的边框款有 `border`、`reverse_border`、`rainbow_border`、`reverse_rainbow_border`、`strobe_border`、`reverse_strobe_border`。`mainColor`、`secondaryColor`（`#RRGGBB`，可带透明度 `#RRGGBBAA`）是这一款的两种颜色，多数款前者是走过的那段、后者是底，不写时用这一款的配色；两款彩虹边框的颜色固定，两款彩虹游走只有底色（写在 `mainColor`）。`startProgress`、`endProgress` 是起止的值（0–1），起点大于终点时倒着走。不写 `place` 时：横条款 `w` 80、高为画面的 5%，正方款 `w` 30，边框款铺满。
 - **时长与轨道**：`span` 从第 0 帧铺到序列末尾（{{tool:videos_inspect}} 的 `sequence.durationFrames`）。同一条轨道上的片段不能重叠：画面轨上已有背景时，同一笔里先 `addTrack`（`kind` 为 `visual`，给 `ref`），再用 `trackRef` 指向它；新轨道排在最上面，盖在背景之上。
 - **落位**（`place`）：`x`、`y` 是框中心在画面宽、高上的百分比，`w` 是框宽占画面宽的百分比（正方款按画面短边）。不写时按种类的缺省：声波横条宽铺满、高为画面的 20%，中心在 `y` 85，正好压在字幕的默认位置（中线在画面高 86%）上；正方款 `w` 30。画面上有字幕时把声波挪开，例如居中 `{"y":50,"w":70}`。
 
