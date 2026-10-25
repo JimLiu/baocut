@@ -175,7 +175,7 @@ export const zhHans: EngineMessages = {
   operationInvalid: (p) => `第 ${p.number} 个操作不合法：${p.error}`,
   moveItemsEmpty: 'moveItems 至少要有一项',
   noPictureNoGeometry: '没有画面，没有几何',
-  setTextOneOf: 'setText 的 text 与 counter 给且只给一个',
+  setTextOneOf: 'setText 的 text、counter 与 chapter 给且只给一个',
   textTooLong: (p) => `文字最多 ${p.max} 个字符`,
   notTextItem: '不是文字实例',
   noPictureNoAnimation: '没有画面，不能加元素动画',

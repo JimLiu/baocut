@@ -481,13 +481,24 @@ export interface CounterProps {
 }
 
 /**
- * 文字实例：一段文字或计时读数，加文字样式（视频格式规范 §3.6）。`text` 与 `counter` 二选一。
+ * 章节文字：画当前时刻所在章节的标题、摘要或序号（视频格式规范 §3.7）。不在任何章节里时不画，
+ * 章节没有摘要时 `summary` 也不画。
+ */
+export interface ChapterTextProps {
+  field: 'title' | 'summary' | 'number';
+  /** 只用于 `number`：`1`（缺省）、`01`（至少两位补零）、`1/N`（第几章/共几章）。 */
+  numberFormat?: '1' | '01' | '1/N';
+}
+
+/**
+ * 文字实例：一段文字、计时读数或章节文字，加文字样式（视频格式规范 §3.6）。`text`、`counter`、`chapter` 给且只给一个。
  * `style` 是 v2 的文字样式对象，引擎按对象保存。
  */
 export interface TextItem extends VisualBase {
   type: 'text';
   text?: string;
   counter?: CounterProps;
+  chapter?: ChapterTextProps;
   style?: Record<string, unknown>;
   stylePresetId?: string;
   /** `place.y` 钉住文字块的哪一处，缺省 `center`。 */
@@ -1530,8 +1541,8 @@ export type EditOperation =
       /** 视频的分屏格子，整组替换；`null` 去掉（回到一整幅）。 */
       panels?: VideoPanel[] | null;
     }
-  /** 改文字实例的内容：`text` 与 `counter` 给且只给一个，给了的那个替换另一个。 */
-  | { type: 'setText'; sequenceId?: Id; itemId: Id; text?: string; counter?: CounterProps }
+  /** 改文字实例的内容：`text`、`counter`、`chapter` 给且只给一个，给了的那个替换另外两个。 */
+  | { type: 'setText'; sequenceId?: Id; itemId: Id; text?: string; counter?: CounterProps; chapter?: ChapterTextProps }
   /**
    * 整个替换生成类元素与图形的种类参数（`shape`、`sticker`、`visualizer`、`progress`、`draw`、`placeholder`、`confetti`、
    * `whiteboard` 里与实例种类相同的那一个）。

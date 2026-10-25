@@ -967,6 +967,7 @@ pub fn build_screen_text_element(
         html: None,
         ai: Some(Value::Object(provenance.into_iter().collect())),
         counter: None,
+        chapter: None,
         shape: None,
         sticker: None,
         visualizer: None,

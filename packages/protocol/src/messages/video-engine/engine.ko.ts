@@ -175,7 +175,7 @@ export const ko: EngineMessages = {
   operationInvalid: (p) => `작업 ${p.number}이(가) 잘못되었습니다: ${p.error}`,
   moveItemsEmpty: 'moveItems에는 항목이 하나 이상 필요합니다',
   noPictureNoGeometry: '화면이 없어 지오메트리가 없습니다',
-  setTextOneOf: 'setText에는 text와 counter 중 정확히 하나가 필요합니다',
+  setTextOneOf: 'setText에는 text, counter, chapter 중 정확히 하나가 필요합니다',
   textTooLong: (p) => `텍스트는 최대 ${p.max}자입니다`,
   notTextItem: '텍스트 클립이 아닙니다',
   noPictureNoAnimation: '화면이 없어 요소 애니메이션을 넣을 수 없습니다',

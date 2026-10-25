@@ -61,4 +61,8 @@ export const nl: ElementsMessages = {
   added: (label: string, start: string, end: string) => `Toegevoegd: ${label} · ${start} → ${end}`,
   undo: "Ongedaan maken",
   lottieFetchFailed: (status: number) => `Kan het Lottie-bestand niet laden (${status})`,
+  addChapterTitle: 'Hoofdstuktitel toevoegen',
+  chapterTitle: 'Hoofdstuktitel',
+  chapterTitleTip: 'Loopt over de hele video; de tekst wisselt mee met het hoofdstuk bij de afspeelkop',
+  noChapters: 'Deze video heeft nog geen hoofdstukken',
 };

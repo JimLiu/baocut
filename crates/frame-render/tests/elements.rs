@@ -519,6 +519,35 @@ fn counters_count() {
 }
 
 #[test]
+fn chapter_text_draws_the_current_chapter_like_plain_text() {
+    // 一个章节文字铺满 0–89 帧；章节从 15 帧起，第二章从 45 帧起。
+    let style = json!({ "fontSize": 60, "fontColor": "#FFFFFF" });
+    let place = json!({ "x": 50, "y": 50, "w": 90 });
+    let markers = json!({ "markers": [
+        { "id": "c1", "frame": 15, "label": "HHHH", "kind": "chapter" },
+        { "id": "c2", "frame": 45, "label": "WW", "kind": "chapter" }
+    ] });
+    let chapter = video(
+        vec![item("sub", 0, 90, json!({ "type": "text", "chapter": { "field": "title" }, "style": style, "place": place }))],
+        vec![],
+        markers.clone(),
+    );
+    let before = render(&chapter, 0.2, &mut Media::default());
+    assert_eq!(painted(&before), 0, "第一章之前不画");
+    let first = render(&chapter, 1.0, &mut Media::default());
+    let second = render(&chapter, 2.0, &mut Media::default());
+    assert!(painted(&first) > 20 && painted(&second) > 20);
+    assert_ne!(first, second, "换章就换字");
+    // 画出来与写死同样文字的实例逐像素相同。
+    let plain = video(
+        vec![item("sub", 0, 90, json!({ "type": "text", "text": "HHHH", "style": style, "place": place }))],
+        vec![],
+        markers,
+    );
+    assert_eq!(first, render(&plain, 1.0, &mut Media::default()));
+}
+
+#[test]
 fn progress_bars_fill_over_the_span() {
     let body = json!({ "type": "progress", "progress": { "style": "normal", "mainColor": "#FFFFFF" }, "place": { "y": 90, "w": 80 } });
     let (early, _) = generated(body.clone(), 0.3);

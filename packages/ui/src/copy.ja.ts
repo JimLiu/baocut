@@ -678,6 +678,7 @@ export const ja: CopyMessages = {
     filesNoConversation: 'セッションが作成されると、そのフォルダ内のファイルがここに表示されます。',
   },
   stage: {
+    chapterTextLocked: 'この文字はチャプターに連動しています。自分で入力するには、プロパティパネルで「内容」を「自分で入力」に戻してください',
     label: 'キャンバス上のオブジェクト',
     textEditor: 'テキストを編集',
     edgeHeightTip: 'ドラッグで高さを変更 · ⌥ で中心から',

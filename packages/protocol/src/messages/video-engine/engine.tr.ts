@@ -175,7 +175,7 @@ export const tr: EngineMessages = {
   operationInvalid: (p) => `${p.number} işlemi geçersiz: ${p.error}`,
   moveItemsEmpty: "moveItems en az bir öğe gerektirir",
   noPictureNoGeometry: "görüntüsü yok; geometri içermez",
-  setTextOneOf: "setText tam olarak text veya counter gerektirir",
+  setTextOneOf: "setText tam olarak text, counter veya chapter alanlarından birini gerektirir",
   textTooLong: (p) => `Metin en fazla ${p.max} karakter içerebilir`,
   notTextItem: "metin klipi değil",
   noPictureNoAnimation: "görüntüsü yok; öğe animasyonu içeremez",

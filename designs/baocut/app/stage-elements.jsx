@@ -153,6 +153,8 @@
       if (!TEXTY(e.kind)) return;
       const mem = ((ctx.elements || []).filter((x) => x.id === e.id)[0] || {}).members;
       if (mem && mem.length) { app.toast('文本组的文字在右侧属性面板逐条改写'); return; }
+      /* 章节文字的字跟着章节换，就地改字等于把它改回普通文字——不进编辑，指去属性面板。 */
+      if ((ctx.elDocs[e.id] || {}).chapter) { app.toast('这段字跟着章节换。要自己写，先在右侧把内容切回「自己写」'); return; }
       if (ctx.playing) ctx.setPlaying(false);
       ctx.startEdit(e.id, e.kind);
     };
@@ -287,8 +289,11 @@
             )))}
           </span>;
         }
-        // 文字内容也跟着元素走：用户造出来的那些各写各的（`elDocs[id].text`）
-        const txt = doc.text || e.label || e.name;
+        /* 文字内容也跟着元素走：用户造出来的那些各写各的（`elDocs[id].text`）。章节文字
+           （`doc.chapter`，视频格式规范 §3.7）画播放头所在那一章的标题 / 摘要 / 编号，
+           这一刻不在章节里就不画。 */
+        const txt = doc.chapter ? window.BC_EL.chapterText(ctx.chapters, playT, doc.chapter) : doc.text || e.label || e.name;
+        if (txt == null) return null;
         const f = frameOf(animOf(e.id, doc.anim), sp, 0, e.added, prevOf(e.id));
         if (f.hidden) return null;
         // A per-line background uses inline box-decoration-break. Transforms need a

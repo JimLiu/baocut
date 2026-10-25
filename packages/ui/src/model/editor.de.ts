@@ -20,4 +20,5 @@ export const de: EditorMessages = {
     draw: "Wird erstellt",
   } as Record<ElementName, string>,
   seconds: (value: string) => `${value} s`,
+  chapterText: { title: 'Kapiteltitel', summary: 'Kapitelzusammenfassung', number: 'Kapitelnummer' },
 };

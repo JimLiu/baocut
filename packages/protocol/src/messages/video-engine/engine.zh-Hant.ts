@@ -175,7 +175,7 @@ export const zhHant: EngineMessages = {
   operationInvalid: (p) => `第 ${p.number} 個操作無效：${p.error}`,
   moveItemsEmpty: 'moveItems 至少需要一項',
   noPictureNoGeometry: '沒有畫面，因此沒有幾何屬性',
-  setTextOneOf: 'setText 必須剛好提供 text 與 counter 其中之一',
+  setTextOneOf: 'setText 必須剛好提供 text、counter 與 chapter 其中之一',
   textTooLong: (p) => `文字最多只能有 ${p.max} 字`,
   notTextItem: '不是文字片段',
   noPictureNoAnimation: '沒有畫面，因此不能有元素動畫',

@@ -19,4 +19,5 @@ export const ru: EditorMessages = {
     draw: "Рисуется",
   },
   seconds: (value: string) => `${value} с`,
+  chapterText: { title: 'Название главы', summary: 'Описание главы', number: 'Номер главы' },
 };

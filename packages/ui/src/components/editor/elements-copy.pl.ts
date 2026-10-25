@@ -62,4 +62,8 @@ export const pl: ElementsMessages = {
   added: (label: string, start: string, end: string) => `Dodano: ${label} · ${start} → ${end}`,
   undo: "Cofnij",
   lottieFetchFailed: (status: number) => `Nie udało się wczytać pliku Lottie (${status})`,
+  addChapterTitle: 'Dodaj tytuł rozdziału',
+  chapterTitle: 'Tytuł rozdziału',
+  chapterTitleTip: 'Na cały film; tekst zmienia się razem z rozdziałem pod głowicą',
+  noChapters: 'Ten film nie ma jeszcze rozdziałów',
 };

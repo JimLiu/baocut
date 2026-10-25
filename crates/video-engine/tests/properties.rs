@@ -242,6 +242,20 @@ fn style_text_and_props_go_to_the_matching_item_kinds() {
     let TimelineItem::Text(t) = item(&video, &text) else { panic!() };
     assert!(t.text.is_none() && t.counter.is_some());
 
+    // 章节文字是第三种内容：chapter 替换 counter，章节的增删改不用再动它。
+    apply(
+        &mut video,
+        "cmd_chapter",
+        vec![json!({ "type": "setText", "itemId": text, "chapter": { "field": "number", "numberFormat": "1/N" } })],
+    )
+    .unwrap();
+    let TimelineItem::Text(t) = item(&video, &text) else { panic!() };
+    assert!(t.text.is_none() && t.counter.is_none());
+    assert_eq!(
+        serde_json::to_value(&t.chapter).unwrap(),
+        json!({ "field": "number", "numberFormat": "1/N" })
+    );
+
     let before = video.revision();
     let cases = [
         json!({ "type": "setStyle", "itemId": shape, "style": {} }),
@@ -257,6 +271,11 @@ fn style_text_and_props_go_to_the_matching_item_kinds() {
         json!({ "type": "setText", "itemId": shape, "text": "x" }),
         json!({ "type": "setText", "itemId": text }),
         json!({ "type": "setText", "itemId": text, "text": "x", "counter": { "mode": "countup" } }),
+        json!({ "type": "setText", "itemId": text, "text": "x", "chapter": { "field": "title" } }),
+        json!({ "type": "setText", "itemId": text, "counter": { "mode": "countup" }, "chapter": { "field": "title" } }),
+        json!({ "type": "setText", "itemId": text, "chapter": { "field": "date" } }),
+        json!({ "type": "setText", "itemId": text, "chapter": { "field": "number", "numberFormat": "i" } }),
+        json!({ "type": "setAnimation", "itemId": text, "animate": { "enter": { "preset": "typewriter", "dur": 0.5 } } }),
         json!({ "type": "setText", "itemId": text, "text": "字".repeat(10_001) }),
         json!({ "type": "setProps", "itemId": text, "props": { "style": "bar" } }),
         json!({ "type": "setProps", "itemId": progress, "props": { "style": "bar", "endProgress": 2 } }),

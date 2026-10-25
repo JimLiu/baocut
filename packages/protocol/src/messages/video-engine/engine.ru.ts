@@ -175,7 +175,7 @@ export const ru: EngineMessages = {
   operationInvalid: (p) => `Операция ${p.number} неверно: ${p.error}`,
   moveItemsEmpty: "moveItems требует хотя бы одну запись",
   noPictureNoGeometry: "не имеет изображения и геометрии",
-  setTextOneOf: "setText требует ровно одно из text и counter",
+  setTextOneOf: "setText требует ровно одно из text, counter и chapter",
   textTooLong: (p) => `Текст может содержать не более ${p.max} символов`,
   notTextItem: "не является текстовым клипом",
   noPictureNoAnimation: "не имеет изображения и не может иметь анимацию элемента",

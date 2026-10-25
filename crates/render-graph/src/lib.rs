@@ -28,8 +28,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use video_model::{
     AssetKind, AssetRecord, AudioItem, CompositionSource, Crop, Easing, EnvelopePoint, Fit, FocalPoint, FrameRateInfo, FrameSpan, Id,
-    MediaFields, Place, Revision, Sequence, SoloGroup, TimelineItem, Track, Transition, TransitionKind, VersionRef, VideoItem,
-    VideoSnapshot,
+    Marker, MediaFields, Place, Revision, Sequence, SoloGroup, TimelineItem, Track, Transition, TransitionKind, VersionRef,
+    VideoItem, VideoSnapshot, chapter_text,
 };
 
 use crate::ducking::DuckingEnvelope;
@@ -456,7 +456,7 @@ fn plan_frame_live(
                 let rate = source_rate(&video_item.time_map)?;
                 let source = map_time(&video_item.time_map, start, t)?.to_f64();
                 if rules.visible(track)
-                    && let Some(layer) = visual_layer(video, item, t, fps, canvas)?
+                    && let Some(layer) = visual_layer(video, &sequence.markers, item, t, fps, canvas)?
                 {
                     layers.push((
                         LayerOrder::new(track, &video_item.base.id, video_item.base.paint_order, video_item.span),
@@ -516,7 +516,7 @@ fn plan_frame_live(
                 let rate = source_rate(&composition.time_map)?;
                 let source = map_time(&composition.time_map, start, t)?.to_f64();
                 if rules.visible(track)
-                    && let Some(layer) = visual_layer(video, item, t, fps, canvas)?
+                    && let Some(layer) = visual_layer(video, &sequence.markers, item, t, fps, canvas)?
                 {
                     let order = LayerOrder::new(track, &composition.base.id, composition.base.paint_order, composition.span);
                     layers.push((order, layer));
@@ -564,7 +564,7 @@ fn plan_frame_live(
                 if !covers(span, frame) || !rules.visible(track) {
                     continue;
                 }
-                if let Some(layer) = visual_layer(video, item, t, fps, canvas)? {
+                if let Some(layer) = visual_layer(video, &sequence.markers, item, t, fps, canvas)? {
                     layers.push((LayerOrder::new(track, &base.id, base.paint_order, span), layer));
                 }
             }
@@ -838,9 +838,10 @@ fn live_layer(
 
 /// 视觉实例在 `t` 的画面层（含效果栈）。不检查它是否覆盖这一刻、是否启用、轨道是否显示：转场的另一侧
 /// 要在自己的区间之外取画面（源时刻落在 handles 里）。画不出来（全透明、框没有面积）时为 `None`；音频与字幕没有。
-/// 旧画法画不了的种类给出 `Unsupported` 的层，不是 `None`。
+/// 旧画法画不了的种类给出 `Unsupported` 的层，不是 `None`。`markers` 是实例所在序列的标记，章节文字按它求字。
 fn visual_layer(
     video: VideoView<'_>,
+    markers: &[Marker],
     item: &TimelineItem,
     t: Ratio,
     fps: Rate,
@@ -937,10 +938,19 @@ fn visual_layer(
                     generator_layer(&text.base.id, &pixel, op(text.place.opacity()), made)
                 }
                 None => {
-                    let content = LayerContent::Text {
-                        text: text.text.clone().unwrap_or_default(),
-                        style,
+                    // 章节文字：按这一帧所在的章节求字；这一刻不在任何章节里就没有这一层（格式规范 §3.7）。
+                    let words = match &text.chapter {
+                        Some(chapter) => {
+                            let frame = frames_at(t, fps).ok_or_else(|| PlanError::overflow("t"))?.floor();
+                            let frame = i64::try_from(frame).map_err(|_| PlanError::overflow("t"))?;
+                            match chapter_text(markers, frame, chapter) {
+                                Some(words) => words,
+                                None => return Ok(None),
+                            }
+                        }
+                        None => text.text.clone().unwrap_or_default(),
                     };
+                    let content = LayerContent::Text { text: words, style };
                     box_layer(&text.base.id, LayerKind::Text, &pixel, op(text.place.opacity()), content)
                 }
             }
@@ -1343,7 +1353,7 @@ impl<'a> Scene<'a> {
                     if !other.base().enabled || !visible {
                         continue;
                     }
-                    match visual_layer(self.video, other, self.t, self.fps, self.canvas)? {
+                    match visual_layer(self.video, &self.sequence.markers, other, self.t, self.fps, self.canvas)? {
                         Some(layer) => Some(Box::new(layer)),
                         None => continue,
                     }

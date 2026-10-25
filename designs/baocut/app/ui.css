@@ -2037,6 +2037,11 @@ div.blkw { display: inline; }
 .tpb--anim { top: auto; bottom: 5px; right: 5px; }
 .addtile { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 44px; margin: 10px 0 4px; border-radius: 8px; background: var(--gray-100); font-size: 14px; font-weight: 700; color: var(--gray-900); cursor: pointer; }
 .addtile:hover { background: var(--gray-200); }
+.addrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 4px; }
+.addrow .addtile { margin: 0; }
+/* 置灰的「添加章节标题」说为什么：禁用的按钮不出悬停提示，所以写在两格下面 */
+.addrow__note { grid-column: 1 / -1; margin: 0; font-size: 11px; line-height: 1.6; color: var(--gray-600); }
+.addtile:disabled, .addtile[aria-disabled="true"] { background: var(--gray-75); color: var(--gray-400); cursor: default; }
 
 .abcgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 /* @ds-allow: Abc 样例渲染的是导出画面里的文字样式 */
@@ -2697,6 +2702,9 @@ div.blkw { display: inline; }
 .cntpv { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--gray-75); }
 .cntpv b { flex: none; font-size: 22px; font-weight: 700; color: var(--gray-900); font-variant-numeric: tabular-nums; }
 .cntpv span { font-size: 11px; color: var(--gray-600); }
+/* 章节文字的读数：章名 / 摘要长短不一，字号收一档、可换行，说明另起一行 */
+.cntpv.chapv { flex-direction: column; align-items: stretch; gap: 4px; }
+.cntpv.chapv b { font-size: 16px; overflow-wrap: anywhere; }
 /* 画布上的读数。字体 / 字号 / 色 / 粗斜由元素自己的字符样式给（第 88 轮起计时有
    Text 面板那一批控件），这里只留三件跟内容有关的：**等宽数字**（读数逐秒换字，
    比例字距下 1 与 8 不一样宽，整串会跟着跳）、行高 1、压在任意画面上都读得出的投影。 */

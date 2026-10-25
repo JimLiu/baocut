@@ -329,6 +329,31 @@ const en = {
   punctToSpace: 'Replace commas and periods with spaces',
   /** 字幕「位置」段：分屏段里开始的字幕挂到两格的接缝上（Studio 样式 `panelSeam`），行名用 `layoutSplit`。 */
   panelSeam: 'Sit on the seam between panels',
+  /** 文字页「内容」：自己写，或跟着播放头所在的章节换字（视频格式规范 §3.7 `TextItem.chapter`）。 */
+  content: 'Content',
+  contentWrite: 'Write my own',
+  contentChapter: 'Follow chapters',
+  /** 跟着章节时显示章节的哪一项。 */
+  chapterShow: 'Show',
+  chapterFieldTitle: 'Title',
+  chapterFieldSummary: 'Summary',
+  chapterFieldNumber: 'Number',
+  numberFormat: 'Number format',
+  /** 编号格式那一行右侧的样例（`3`、`03`、`3/7`）。 */
+  numberSample: (sample: string) => `e.g. ${sample}`,
+  /** 读数：此刻画什么之下的那一行，说清下一次什么时候换，或此刻为什么什么都不画。`time` 是播放头或换章的时刻。 */
+  chapterOutsideItem: (time: string) => `The playhead (${time}) is outside this clip`,
+  chapterNone: (time: string) => `The playhead (${time}) isn’t in any chapter, so nothing shows now`,
+  chapterNoTitle: (n: number) => `Chapter ${n} has no title, so nothing shows now`,
+  chapterNoSummary: (n: number, title: string) => `Chapter ${n} “${title}” has no summary, so nothing shows now`,
+  chapterNoSummaryUntitled: (n: number) => `Chapter ${n} has no summary, so nothing shows now`,
+  chapterNext: (n: number, count: number, time: string) => `Chapter ${n} of ${count} · next chapter at ${time}`,
+  /** 这一章到头之后是没有章的空档。 */
+  chapterEnds: (n: number, count: number, time: string) => `Chapter ${n} of ${count} · ends at ${time}`,
+  chapterLast: (n: number, count: number, time: string) => `Chapter ${n} of ${count} · last chapter, ends at ${time}`,
+  chapterHelp: 'The words follow the chapters: rename, move, add or remove chapters without touching this clip.',
+  /** 切到跟着章节时去掉了打字机、逐词升起的入场或退场。 */
+  fixedTextAnimRemoved: 'Typewriter and word-by-word entrances need fixed words, so they were removed now that the text follows chapters',
 };
 
 export type InspectorMessages = typeof en;

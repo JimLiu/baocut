@@ -5,8 +5,9 @@ import Add from '@react-spectrum/s2/icons/Add';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
+import { chapterTitleLayer, hasChapters } from '../../model/chapter-text.ts';
 import { frameAt } from '../../model/editor.ts';
-import { spanAtPlayhead } from '../../model/new-items.ts';
+import { spanAtPlayhead, wholeFilmSpan } from '../../model/new-items.ts';
 import {
   BLANK_TEXT_SECONDS,
   PEEK,
@@ -73,7 +74,11 @@ const viewAll = style({
   cursor: 'pointer',
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
 });
-const addRow = style({ display: 'flex', flexDirection: 'column', marginBottom: 4 });
+/** 两枚新建钮（原型 .addrow）：放得下就并排，长译名放不下时各占一行。 */
+const addRow = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 4 });
+const addButton = style({ flexGrow: 1 });
+/** 置灰的「添加章节标题」说为什么：禁用的按钮不出提示，所以写在下面。 */
+const addNote = style({ width: 'full', margin: 0, font: 'ui-xs', color: 'gray-600' });
 
 /** 一条预设在提示里的名字：取它第一条文字。 */
 function presetName(preset: TextPreset): string {
@@ -83,7 +88,7 @@ function presetName(preset: TextPreset): string {
 }
 
 /**
- * 文字面板（原型 §13.5，51 条预设）：「添加文本框」加四类预设；「全部」每类只摆前几格。
+ * 文字面板（原型 §13.5，51 条预设）：「添加文本框」「添加章节标题」加四类预设；「全部」每类只摆前几格。
  * 点一格就在播放头处新建这一组文字（多层的错峰出现）并选中第一条文字。框由渲染内核量：内核还没载入或正在重新载入时
  * 等它，再按那时的序列建（等的期间序列可能变了）；内核载入失败就提示，不建。
  */
@@ -128,6 +133,23 @@ export function TextPanel({ sequence }: { sequence: Sequence }) {
       trackName: EL.text,
       selectLayer: preferredLayer(preset),
     }));
+  /** 「添加章节标题」：一条从片头铺到片尾的章节文字，字跟着播放头所在的章节换；不用量字，框宽是定的。 */
+  const chapters = hasChapters(sequence);
+  const addChapterTitle = () => {
+    const current = latest.current;
+    void insert(current, {
+      span: wholeFilmSpan(current, frameAt(useEditor.getState().playhead, current.fps)),
+      layers: [chapterTitleLayer()],
+      label: EL.chapterTitle,
+      trackName: EL.text,
+    });
+  };
+  const chapterButton = (
+    <Button variant="secondary" styles={addButton} isDisabled={!editable || !chapters} onPress={addChapterTitle}>
+      <Add />
+      <Text>{EL.addChapterTitle}</Text>
+    </Button>
+  );
 
   return (
     <>
@@ -136,10 +158,19 @@ export function TextPanel({ sequence }: { sequence: Sequence }) {
       <div className={`${panelBody} bc-scroll`}>
         {category === 'all' ? (
           <div className={addRow}>
-            <Button variant="secondary" isDisabled={!editable} onPress={addBlank}>
+            <Button variant="secondary" styles={addButton} isDisabled={!editable} onPress={addBlank}>
               <Add />
               <Text>{EL.addTextBox}</Text>
             </Button>
+            {chapters ? (
+              <TooltipTrigger delay={600}>
+                {chapterButton}
+                <Tooltip>{EL.chapterTitleTip}</Tooltip>
+              </TooltipTrigger>
+            ) : (
+              chapterButton
+            )}
+            {chapters ? null : <p className={addNote}>{EL.noChapters}</p>}
           </div>
         ) : null}
         {sections.map((section, index) => {

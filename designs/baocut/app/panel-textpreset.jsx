@@ -70,7 +70,7 @@
 
   /* 目录本体。分类芯片是全部 / 简单 / 标题 / 下三分 / 其它，「全部」那一档
      每个分区只出前六格、多的走「查看全部」。 */
-  function TextAddView({onAdd, cat, setCat}) {
+  function TextAddView({onAdd, onAddChapter, chapterN, cat, setCat}) {
     const secs = cat === 'all' ? D.textCats.slice(1) : D.textCats.filter((c) => c.k === cat);
     const ref = React.useRef(null);
     const [w, setW] = React.useState(360);
@@ -89,10 +89,23 @@
           {D.textCats.map((c) => <Chip key={c.k} pill on={cat === c.k} onClick={() => setCat(c.k)}>{c.label}</Chip>)}
         </div>
         <div className="pscroll bc-scroll" ref={ref}>
+          {/* 两格新建：空文本框落在播放头；章节标题从头铺到尾、字跟着章节换（视频格式规范
+              §3.7 `TextItem.chapter`）。视频还没有章节时那一格置灰，原因写在两格下面一行：
+              禁用的按钮不出悬停提示（Electron / Web 的 S2 按钮同样如此），可用时才挂 mtip 说明。
+              `title` 只当按钮的名字（BCAction 把它写成 aria-label），不当提示。 */}
           {cat === 'all' ? (
-            <BCAction className="addtile" onClick={() => onAdd(null)}>
-              <Ic n="plus" className="ic--16" />添加文本框
-            </BCAction>
+            <div className="addrow">
+              <BCAction className="addtile" onClick={() => onAdd(null)}>
+                <Ic n="plus" className="ic--16" />添加文本框
+              </BCAction>
+              {onAddChapter ? (
+                <BCAction className="addtile" disabled={!chapterN} onClick={onAddChapter} title="添加章节标题">
+                  <Ic n="plus" className="ic--16" />添加章节标题
+                  {chapterN ? <span className="mtip">从片头铺到片尾，画面上的字跟着播放头所在的章节换</span> : null}
+                </BCAction>
+              ) : null}
+              {onAddChapter && !chapterN ? <p className="addrow__note">这个视频还没有章节</p> : null}
+            </div>
           ) : null}
           {secs.map((c, i) => {
             const all = D.textPresets.filter((p) => p.cat === c.k);

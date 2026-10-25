@@ -158,6 +158,15 @@ describe('digestVideo', () => {
         },
         {
           ...base,
+          ...visual,
+          id: 'item_ch',
+          trackId: 'trk_v1',
+          type: 'text',
+          span: { fromFrame: 0, durationFrames: 150 },
+          chapter: { field: 'number', numberFormat: '1/N' },
+        },
+        {
+          ...base,
           id: 'item_c',
           trackId: 'trk_s1',
           type: 'caption',
@@ -177,6 +186,8 @@ describe('digestVideo', () => {
     expect(item('item_t')).not.toHaveProperty('place');
     expect(item('item_n')).toMatchObject({ type: 'text', counter: { mode: 'countdown', format: 'mm:ss' } });
     expect(item('item_n')).not.toHaveProperty('text');
+    expect(item('item_ch')).toMatchObject({ type: 'text', chapter: { field: 'number', numberFormat: '1/N' } });
+    expect(item('item_ch')).not.toHaveProperty('text');
     expect(item('item_s')).toMatchObject({ type: 'shape', startSeconds: 1, endSeconds: 2 });
     expect(item('item_s')).not.toHaveProperty('shape');
     expect(item('item_k')).toMatchObject({

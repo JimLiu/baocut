@@ -105,7 +105,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 {"type":"setAudioMix","itemId":"item_1","volume":0.5,"fadeOut":1}
 ```
 
-**改文字**（`setText`）：改文字片段的文字，或改成计时读数；两者只给一个。
+**改文字**（`setText`）：改文字片段的文字，或改成计时读数、章节文字；三者只给一个，给了的替换另外两个。
 
 ```json
 {"type":"setText","itemId":"item_1","text":"第一章"}

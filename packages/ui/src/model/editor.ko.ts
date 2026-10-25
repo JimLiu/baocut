@@ -18,4 +18,5 @@ export const ko: EditorMessages = {
     draw: '드로잉',
   },
   seconds: (value: string) => `${value}초`,
+  chapterText: { title: '챕터 제목', summary: '챕터 요약', number: '챕터 번호' },
 };

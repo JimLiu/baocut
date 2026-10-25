@@ -14,6 +14,43 @@
   /* 预设库在 `panel-textpreset.jsx`（第 59 轮拆出去）：51 条预设 + 两种目录格版式，
      那一段与这一栏的其余部分没有共享状态，留在这里只会把文件推过 600 行。 */
 
+  /* ---------- 章节文字 ----------
+     「跟着章节」时内容段换成这一块（视频格式规范 §3.7 `TextItem.chapter`）：显示章节的哪一项、
+     编号写成什么样，再加一行跟着播放头走的读数。读数要回答的是静态截图说不清的那两件事：
+     这条字下一次什么时候换，以及此刻为什么什么都不画（不在时间窗里 / 不在章节里 / 这一章没写）。 */
+  function ChapterBind({ctx, bind, st, set}) {
+    const t = ctx.playT || 0;
+    const field = bind.field || 'title';
+    const fmt = bind.fmt || '1';
+    const at = E.chapterAtT(ctx.chapters, t);
+    const inSpan = t >= st.tStart && t < st.tEnd;
+    const read = inSpan ? E.chapterText(ctx.chapters, t, bind) : null;
+    const where = '播放头 ' + T.timecode(t);
+    const why = !inSpan ? where + ' 不在这条的时间窗里'
+      : !at ? where + ' 不在任何章节里，这一刻不显示'
+      : read == null ? `第 ${at.index + 1} 章「${at.chapter.title}」没写${field === 'summary' ? '摘要' : '标题'}，这一刻不显示`
+      : `第 ${at.index + 1} / ${at.count} 章 · ` + (at.index + 1 < at.count
+        ? T.timecode(at.chapter.end) + ' 换下一章' : '最后一章，' + T.timecode(at.chapter.end) + ' 结束');
+    const sample = E.CHAPTER_FORMATS.filter((f) => f.k === fmt)[0].sample;
+    return (
+      <>
+        <SecHead>显示</SecHead>
+        <Segmented size="s" value={field} onChange={(x) => set({chapter: {field: x, fmt}})}
+          items={E.CHAPTER_FIELDS.map((f) => ({k: f.k, label: f.name}))} />
+        {field === 'number' ? <>
+          <SecHead aside={'例 ' + sample}>编号格式</SecHead>
+          <Segmented size="s" value={fmt} onChange={(x) => set({chapter: {field, fmt: x}})}
+            items={E.CHAPTER_FORMATS.map((f) => ({k: f.k, label: f.name}))} />
+        </> : null}
+        <div className="cntpv chapv">
+          <b>{read == null ? '—' : read}</b>
+          <span>{why}</span>
+        </div>
+        <p className="text-help">字随章节换：改章节名、挪边界、增删章节都不用再动这一条。</p>
+      </>
+    );
+  }
+
   /* ---------- Edit text ---------- */
   /* `member` 有值时这一页编的是**文本组里的一条成员**（第 58.1 轮）：返回键回到组视图
      而不是预设库——从哪一层钻进来就回哪一层，否则用户得重新点一遍组才能看第二条成员。
@@ -54,9 +91,20 @@
                 onAnims={onAnims} onAdjust={onAdjust}
                 onReplace={(name) => set({text: name})} />
             </>
-          ) : (
-            <Field area aria-label="文本内容" value={st.text} onChange={(e) => set({text: e.target.value})} />
-          )}
+          ) : <>
+            {/* 内容从哪来（章节文字）：自己写，或跟着播放头所在的章节换。只给单条文字——
+                文本组的成员各管一行、摆位归组，跟着章节换字的是整条副标题，不是组里的一行。 */}
+            {member ? null : <>
+              <SecHead first={!group}>内容</SecHead>
+              <Segmented size="s" value={st.chapter ? 'chapter' : 'text'}
+                onChange={(x) => set(x === 'chapter' ? {chapter: {field: 'title', fmt: '1'}}
+                  /* 切回自己写：从此刻画面上那串字接着改，不从空白重打 */
+                  : {chapter: null, text: E.chapterText(ctx.chapters, ctx.playT || 0, st.chapter) || '在这里输入文字'})}
+                items={[{k: 'text', label: '自己写'}, {k: 'chapter', label: '跟着章节'}]} />
+            </>}
+            {st.chapter ? <ChapterBind ctx={ctx} bind={st.chapter} st={st} set={set} />
+              : <Field area aria-label="文本内容" value={st.text} onChange={(e) => set({text: e.target.value})} />}
+          </>}
 
           {img ? null : <>
             <SecHead action={<Btn variant="tertiary" size="s"
@@ -267,6 +315,7 @@
     const mspan = member ? window.BC_TL.memberSpan(grp, member) : null;
     const stv = Object.assign({}, E.fromStage('text', ctx.elStyleOf(ID)), {
       text: span.text == null ? '本地优先的视频工具' : span.text,
+      chapter: member ? null : span.chapter || null,
       rot: pose.rot,
       flipX: !!pose.flipX, flipY: !!pose.flipY,
       delay: member ? member.delay || 0 : 0,
@@ -276,7 +325,15 @@
     const set = (patch) => {
       const shared = E.toStage('text', patch);
       if (Object.keys(shared).length) ctx.setElStyle(shared, ID);
-      if (patch.text != null) ctx.setElDoc(ID, {text: patch.text});
+      /* 章节文字与 `text` 二选一（与引擎 `setText` 同口径）：一次写进同一份文档，撤销是一步。
+         打字机入场是逐字露出一段写定的字，章节文字用不了（引擎同样拒绝），切过去时一并换成无。 */
+      if (patch.chapter !== undefined) {
+        const anim = span.anim || NO_ANIM;
+        const tw = !!patch.chapter && anim.in && anim.in.k === 'typewriter';
+        ctx.setElDoc(ID, !patch.chapter ? {chapter: null, text: patch.text}
+          : Object.assign({chapter: patch.chapter, text: null}, tw ? {anim: Object.assign({}, anim, {in: {k: 'none'}})} : null));
+        if (tw) app.toast('打字机入场要一段写定的字，跟着章节换字时用不了，已换成无');
+      } else if (patch.text != null) ctx.setElDoc(ID, {text: patch.text});
       if (patch.delay != null) ctx.setElDoc(ID, {delay: patch.delay});
       if (patch.tStart != null) ctx.setElDoc(ID, {start: patch.tStart});
       if (patch.tEnd != null) ctx.setElDoc(ID, {end: patch.tEnd});
@@ -291,6 +348,14 @@
     /* 点一格 = **在播放头那里造一个元素**（第 58 轮）。此前它只是选中画布上那一块演示
        文字：目录点了半天，时间轴上一条都不多。落点、时长、成员错峰的判据全在纯层
        `BC_EL.newText`，面板只负责把播放头与序号递进去。 */
+    /* 「添加章节标题」：一条从片头铺到片尾的章节文字，造好就选中，右边直接是它的属性页 */
+    const addChapter = () => {
+      const e = E.newChapterText({total: ctx.filmEnd, seq: ctx.nextSeq()});
+      ctx.addElement(e);
+      ctx.setPaneView(null);
+      app.toast(`章节标题 · ${T.timecode(e.start)} → ${T.timecode(e.end)} · 字跟着章节换`, 'positive',
+        {label: '撤销', undo: true, run: () => ctx.removeElement(e.id)});
+    };
     const add = (p) => {
       const e = E.newText(p, {playT: ctx.playT, total: ctx.filmEnd, seq: ctx.nextSeq()});
       ctx.addElement(e);
@@ -334,7 +399,8 @@
 
     return (
       <div className="pview">
-        {view === 'add'    ? <window.TextAddView cat={cat} setCat={setCat} onAdd={add} /> : null}
+        {view === 'add'    ? <window.TextAddView cat={cat} setCat={setCat} onAdd={add}
+                               onAddChapter={addChapter} chapterN={(ctx.chapters || []).length} /> : null}
         {view === 'adjust' ? <window.ImageAdjust v={Object.assign({}, imgEdit.v, {name: stv.text})}
                                set={imgEdit.set} onBack={() => ctx.setPaneView(null)} /> : null}
         {view === 'props'  ? <PropsView ctx={ctx} id={ID} kind={el ? el.kind : 'text'} pose={pose} st={stv} set={set} member={member} imgEdit={imgEdit}

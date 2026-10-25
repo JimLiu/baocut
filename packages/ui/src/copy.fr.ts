@@ -730,6 +730,7 @@ export const fr: CopyMessages = {
   },
 
   stage: {
+    chapterTextLocked: 'Ce texte suit les chapitres. Pour le saisir vous-même, repassez Contenu sur « Saisir » dans le panneau des propriétés.',
     label: "Objets du canevas",
     textEditor: "Modifier le texte",
     edgeHeightTip: "Glisser pour la hauteur · ⌥ depuis le centre",

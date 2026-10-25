@@ -61,4 +61,8 @@ export const fr: ElementsMessages = {
   added: (label: string, start: string, end: string) => `Ajouté : ${label} · ${start} → ${end}`,
   undo: "Annuler",
   lottieFetchFailed: (status: number) => `Impossible de charger le fichier Lottie (${status})`,
+  addChapterTitle: 'Ajouter un titre de chapitre',
+  chapterTitle: 'Titre du chapitre',
+  chapterTitleTip: 'Couvre toute la vidéo ; le texte change selon le chapitre où se trouve la tête de lecture',
+  noChapters: 'Cette vidéo n’a pas encore de chapitres',
 };

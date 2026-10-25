@@ -679,6 +679,7 @@ export const ko: CopyMessages = {
     filesNoConversation: '세션이 만들어지면 세션 폴더의 파일이 여기에 표시됩니다.',
   },
   stage: {
+    chapterTextLocked: '이 글자는 챕터를 따라 바뀝니다. 직접 입력하려면 속성 패널에서 ‘내용’을 ‘직접 입력’으로 바꾸세요',
     label: '캔버스의 개체',
     textEditor: '텍스트 편집',
     edgeHeightTip: '끌어서 높이 변경 · ⌥ 중심 기준',

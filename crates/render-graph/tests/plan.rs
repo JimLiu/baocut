@@ -772,6 +772,84 @@ fn chapters_are_not_in_the_plan() {
     assert!(!json.contains("chap_intro"));
 }
 
+/// 把 `item_title` 换成章节文字，序列的章节换成 `markers`。
+fn chapter_title_fixture(chapter: serde_json::Value, markers: serde_json::Value) -> VideoSnapshot {
+    let mut video = fixture();
+    let sequence = video.sequences.get_mut("seq_main").unwrap();
+    sequence.markers = serde_json::from_value(markers).unwrap();
+    for item in &mut sequence.items {
+        if let TimelineItem::Text(text) = item
+            && text.base.id == "item_title"
+        {
+            text.text = None;
+            text.chapter = Some(serde_json::from_value(chapter.clone()).unwrap());
+        }
+    }
+    video
+}
+
+fn text_of<'a>(plan: &'a FramePlan, item_id: &str) -> Option<&'a str> {
+    plan.layers.iter().find(|l| l.item_id == item_id).map(|l| match &l.content {
+        Some(LayerContent::Text { text, .. }) => text.as_str(),
+        other => panic!("{item_id} 应是文字层：{other:?}"),
+    })
+}
+
+#[test]
+fn chapter_text_draws_the_chapter_of_each_frame() {
+    // item_title 占 215–274 帧；第二章从 240 帧起。
+    let markers = serde_json::json!([
+        { "id": "c2", "frame": 240, "label": "Main", "kind": "chapter", "summary": "The body." },
+        { "id": "c1", "frame": 0, "label": "Intro", "kind": "chapter" },
+    ]);
+    let video = chapter_title_fixture(serde_json::json!({ "field": "title" }), markers.clone());
+    assert_eq!(text_of(&plan(&video, 7.5), "item_title"), Some("Intro"));
+    // 按整帧判断：8 秒前一点点还在 239 帧。
+    assert_eq!(text_of(&plan(&video, 7.999), "item_title"), Some("Intro"));
+    assert_eq!(text_of(&plan(&video, 8.0), "item_title"), Some("Main"));
+    let at_main = plan(&video, 8.0);
+    let title = layer(&at_main, "item_title");
+    assert_eq!(title.kind, LayerKind::Text);
+    // 框与样式照旧：与写死文字的同一个实例相同。
+    assert_eq!(title.matrix, [960.0, 0.0, 0.0, 960.0, 480.0, -264.0]);
+
+    let number = chapter_title_fixture(serde_json::json!({ "field": "number", "numberFormat": "01" }), markers.clone());
+    assert_eq!(text_of(&plan(&number, 7.5), "item_title"), Some("01"));
+    let number = chapter_title_fixture(serde_json::json!({ "field": "number", "numberFormat": "1/N" }), markers.clone());
+    assert_eq!(text_of(&plan(&number, 8.0), "item_title"), Some("2/2"));
+
+    // 没有摘要的章不出层；有摘要的照画。
+    let summary = chapter_title_fixture(serde_json::json!({ "field": "summary" }), markers);
+    assert_eq!(text_of(&plan(&summary, 7.5), "item_title"), None);
+    assert_eq!(text_of(&plan(&summary, 8.0), "item_title"), Some("The body."));
+}
+
+#[test]
+fn chapter_text_follows_chapter_edits_and_skips_frames_outside_chapters() {
+    let chapter = serde_json::json!({ "field": "title" });
+    // 改了章节，实例不动：第一章改名、第二章挪到 250 帧。
+    let markers = serde_json::json!([
+        { "id": "c1", "frame": 0, "label": "Renamed", "kind": "chapter" },
+        { "id": "c2", "frame": 250, "label": "Main", "kind": "chapter" },
+    ]);
+    let video = chapter_title_fixture(chapter.clone(), markers);
+    assert_eq!(text_of(&plan(&video, 8.0), "item_title"), Some("Renamed"));
+    assert_eq!(text_of(&plan(&video, 250.0 / 30.0), "item_title"), Some("Main"));
+
+    // 第一章之前、`durationFrames` 留出的空档、没有章节：这一刻没有这一层。
+    let markers = serde_json::json!([
+        { "id": "c1", "frame": 220, "durationFrames": 10, "label": "Short", "kind": "chapter" },
+        { "id": "c2", "frame": 250, "label": "Main", "kind": "chapter" },
+    ]);
+    let video = chapter_title_fixture(chapter.clone(), markers);
+    assert_eq!(text_of(&plan(&video, 7.2), "item_title"), None, "第一章之前");
+    assert_eq!(text_of(&plan(&video, 7.4), "item_title"), Some("Short"));
+    assert_eq!(text_of(&plan(&video, 8.0), "item_title"), None, "空档");
+    let video = chapter_title_fixture(chapter, serde_json::json!([]));
+    assert_eq!(text_of(&plan(&video, 8.0), "item_title"), None, "没有章节");
+    assert!(layer_ids(&plan(&video, 8.0)).contains(&"item_badge"), "别的层照画");
+}
+
 #[test]
 fn golden_plans_match() {
     let video = fixture();

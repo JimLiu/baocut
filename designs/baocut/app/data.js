@@ -29,12 +29,14 @@
   /* 演示视频标题：模板目录 / 品牌库 / 向导缩略图里 `{title}` 的示例值（§14.5；编辑器里读项目自己的 title）。 */
   const projectTitle = '本地视频工具怎么做';
 
-  /* ---------- 章节（§12.2，边界有意不与 clip 对齐） ---------- */
+  /* ---------- 章节（§12.2，边界有意不与 clip 对齐） ----------
+     `summary` 是章节的一句话摘要（视频格式规范 §3.13 的 `Marker.summary`，通常由 Agent
+     写章节时一并给出）。原型里只有「章节文字」选了「摘要」时读它。 */
   const chapters = [
-    {id: 'c1', title: '开场', start: 0, end: 22},
-    {id: 'c2', title: '现场访谈', start: 22, end: 95},
-    {id: 'c3', title: '产品演示', start: 95, end: 158},
-    {id: 'c4', title: '观点与总结', start: 158, end: 206},
+    {id: 'c1', title: '开场', start: 0, end: 22, summary: '为什么想要一个本地优先的视频工具'},
+    {id: 'c2', title: '现场访谈', start: 22, end: 95, summary: '三位创作者讲各自的剪辑流程'},
+    {id: 'c3', title: '产品演示', start: 95, end: 158, summary: '从导入到导出走一遍'},
+    {id: 'c4', title: '观点与总结', start: 158, end: 206, summary: '工具该替人做什么，不该做什么'},
   ];
 
   /* ---------- 视频轨 clip（§12.6） ---------- */

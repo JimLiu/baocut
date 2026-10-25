@@ -34,21 +34,15 @@ pub fn unsupported_reason(doc: &TemplateDoc, layer_id: &str, parameters: &Value)
 
 /// 序列的章节：章节标记按帧排序，每章到下一章开始（或标记自己的长度、序列的终点）为止。
 pub fn chapters(sequence: &Sequence, fps: f64, end_seconds: f64) -> Vec<ChapterSpan> {
-    let mut marks: Vec<_> = sequence.markers.iter().filter(|m| m.is_chapter()).collect();
-    marks.sort_by_key(|m| m.frame);
-    marks
-        .iter()
-        .enumerate()
-        .map(|(index, mark)| {
-            let start = mark.frame as f64 / fps;
-            let end = match (mark.duration_frames, marks.get(index + 1)) {
-                (Some(d), _) if d > 0 => (mark.frame + d) as f64 / fps,
-                (_, Some(next)) => next.frame as f64 / fps,
-                _ => end_seconds,
-            };
+    // 分章与章节文字（视频格式规范 §3.7）是同一份：`video_model::chapter_ranges`。
+    video_model::chapter_ranges(&sequence.markers)
+        .into_iter()
+        .map(|chapter| {
+            let start = chapter.from_frame as f64 / fps;
+            let end = chapter.end_frame.map_or(end_seconds, |end| end as f64 / fps);
             ChapterSpan {
-                id: mark.id.clone(),
-                title: mark.label.clone(),
+                id: chapter.marker.id.clone(),
+                title: chapter.marker.label.clone(),
                 start,
                 end: end.max(start),
             }

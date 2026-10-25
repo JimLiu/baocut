@@ -777,6 +777,8 @@ const en = {
   stage: {
     label: 'Objects on canvas',
     textEditor: 'Edit text',
+    /** 双击章节文字：它的字跟着章节换，不就地改字，指去属性面板。 */
+    chapterTextLocked: 'This text follows the chapters. To write your own, switch Content back to “Write my own” in the properties panel.',
     edgeHeightTip: 'Drag to change height · ⌥ from center',
     edgeWidthTip: 'Drag to change width · ⌥ from center',
     cornerFreeTip: 'Drag to resize · ⇧ unlocks proportions, ⌥ from center',

@@ -653,8 +653,9 @@ interface FocalPoint { x: number; y: number; zoom?: number }   // cover 留下�
 ```ts
 interface TextItem extends VisualItemBase {
   type: 'text';
-  text?: string;                       // 与 counter 二选一，必须有其一
+  text?: string;                       // 与 counter、chapter 三者只给一个，必须有其一
   counter?: CounterProps;              // 计时读数（§3.7）
+  chapter?: ChapterTextProps;          // 当前章节的标题、摘要或编号（§3.7）
   style?: TextStyle;                   // 文字样式，见下
   stylePresetId?: string;              // 样式取自的样式库条目或文字预设
   verticalAlign?: 'top' | 'center' | 'bottom';   // place.y 钉住文字块的哪一处，缺省 'center'
@@ -684,7 +685,7 @@ interface ShapeProps {
 - 文字的描边、阴影与底色在 `style` 里，`fx` 与 `mask` 不用于文字。
 - `stylePresetId` 只记样式的来源，渲染只读 `style`；它指向的条目不存在时不影响渲染。
 - 文字用到的字体按 §3.14 引用：`style.fontFamily` 按族名在视频的字体记录里解析，解析不到时按缺字体处理。
-- `text` 与 `counter` 互斥，必须有其一。计时读数见 §3.7。
+- `text`、`counter` 与 `chapter` 互斥，必须有其一。计时读数与章节文字见 §3.7。
 - **图形**。`shape` 是预设注册表形状目录里的 id（首批 `rect`、`ellipse`、`line`、`arrow`，其余是目录里的轮廓）。写入只要求非空；目录里没有这个名字时渲染报 `preset-unknown`，这个实例画不出来，不得画成空白。这一款不用的参数（例如线没有填充）不读。端点与 `head` 只对 `line`、`arrow` 有意义。
 - `strokeWidth` 与 `cornerRadius` 渲染时乘 `短边 / 540`，再夹到框的半边长以内。`shape.cornerRadius` 是图形自己的轮廓，不与 `place` 的圆角裁切（§3.5）合并。
 - 旧版的 `baocut.legacy-text-style/0` 与 `baocut.legacy-shape/0` 两种形态已取消，从 v2 导入的文字与图形直接写本节的字段。
@@ -699,6 +700,11 @@ interface ShapeProps {
 interface CounterProps {               // TextItem.counter
   mode: 'countdown' | 'countup';
   format?: 's' | 'mm:ss' | 'hh:mm:ss';   // 缺省 's'
+}
+
+interface ChapterTextProps {           // TextItem.chapter
+  field: 'title' | 'summary' | 'number';   // 当前章节的标题、摘要或序号
+  numberFormat?: '1' | '01' | '1/N';   // 只用于 number，缺省 '1'
 }
 
 interface StickerItem extends VisualItemBase, MediaFields {   // MediaFields 只用于素材贴纸
@@ -824,6 +830,10 @@ interface CompositionItem extends VisualItemBase {
 - **款式引用**。`shape`、`templateId`、`visualizer.style`、`progress.style`、`confetti.style` 都是预设注册表里对应目录的 id。预设是数据，内容在 `crates/motion/presets/builtin/` 下，本规范只规定引用：写入只要求非空；渲染时目录里找不到报 `preset-unknown`，这个实例画不出来，要报告，不得画成空白。款式给出的缺省（配色、纵横比、配方参数）只在实例没写这个字段时用。
 - 颜色一律 `#RRGGBB` 或 `#RRGGBBAA`。
 - **计时读数**。读数在毫秒栅格上求值，单位秒：倒计时是 ⌈实例终点 − t⌉，正计时是 ⌊t − 实例起点⌋，按 `format` 显示。实例是半开区间，终点那一刻已不可见。计时文字沿用普通文字的 `style`、`place` 与 `animate`，但不能用 `typewriter`、`riseWords`。
+- **章节文字**。画的是这一帧所在章节（§3.13）的内容。章节标记按帧排序，每一章从它的帧起，到它自己的 `durationFrames`（大于 0 时）或下一章的帧为止，最后一章开到序列终点，与模板层的章节条同一分法；几章重叠时取开始得晚的那一章。`title` 画这一章的标题；`summary` 画它的摘要，没有摘要或只有空白时不画；`number` 画它在章节表里的序号，从 1 起：`'1'` 写成 `3`，`'01'` 至少两位、不足补零（`03`），`'1/N'` 带上章节数（`3/7`）。`numberFormat` 只对 `number` 起作用，别的 `field` 不读。
+  - 不在任何一章里的帧（第一章之前、序列没有章节、`durationFrames` 留出的空档）这个实例不画，帧计划里没有它的层。这与模板层的 `{chapter}` 不同：章节外不回退到首章或末章。
+  - 字在帧计划里按整帧求好，写进文字层，预览与导出画同一串。章节改了（`upsertChapter`、`setChapters`、剪口带着章节走）实例不用改：从第 0 帧铺到片尾的一个实例就是随章节换的副标题。
+  - 章节文字沿用普通文字的 `style`、`place` 与 `animate`；入场与退场按实例自己的区间播，换章时直接换字，所以同计时一样不能用 `typewriter`、`riseWords`。
 - **贴纸**。`source: 'template'` 画贴纸目录里的矢量；`'asset'` 画 `assetRef` 指向的图片、视频或 Lottie 素材。`loop` 只对视频、Lottie 与动图（GIF、APNG）素材起作用：`loop` 循环，`once` 播一次停在末帧，`hold` 停在首帧。`fillOverrides` 在绘制前把 SVG 或 Lottie 里的原色换成目标色（Lottie 的渐变不参与；位图与视频素材不换色）。GIF 与 APNG 是图片素材，按帧的延时播放，没有单独的种类；图片实例里的动图按自己的总时长循环。APNG 只按 `.apng` 扩展名认（`mediaType` 为 `image/apng`），扩展名是 `.png` 的动画 PNG 记成 `image/png`，按第一帧的静态图画。
 - **声波**。`audio_envelope` 是新建音频视频与 Agent 未指定样式时的默认款；已保存的其他 `style` 不迁移。画面由声音的分析缓存驱动：`audio` 指定取哪一路声音，按序列时刻映射到那一路的源时刻取样；`speaker` 只在这位说话人的词区间里动。
   - `audio_envelope` 使用每个分析帧时域样本的 RMS：样本字节先以 128 为中心除以 128；取平方均值的平方根，再按 `min(1, (RMS / 0.32)^0.65)` 压缩、量化到 0–255。在当前取样时刻两侧各取 60 个样本，间距 0.045 秒（共 121 根）；片段起点前、终点及之后、缓存覆盖外都按静音，不延长首末帧。说话人筛选、剪口、速度、音量与混音先按下面的声音路由求好，再取包络。`minDb`、`maxDb`、`smoothing`、`gain` 不改变包络；它们只用于频谱款。
@@ -843,7 +853,7 @@ interface CompositionItem extends VisualItemBase {
 - **预渲染替身**。`prerender` 是把这段合成渲染好的视频。它与合成共用 `timeMap`：合成的局部时间就是替身视频的源时间。合成的运行环境不可用，或来不及实时渲染时，预览与导出用替身代替；能运行时以代码为准。替身不是源：改了参数或换了代码包版本，替身就过期了；过期的判定与后果见代码包规范 §7.4。
 - **声音**。合成发出的声音（用替身时是替身视频的音轨）由 `audio` 路由。时间线上另有同一段声音的音频实例时（例如渲染结果里已经混入了配音，配音又单独放在音频轨道上），必须关掉 `audio.enabled`，不得两处同时出声。合成与这些音频实例写进同一个音画联动组（`linkGroupId`，§3.4）表示组里的音频是合成声音单独放的一份：引擎写入时核对，同一条序列里组内有音频实例时，组内合成的 `audio` 必须省略或 `enabled: false`。替身是混好的成片，只扣掉其中几句做不到，整条关掉。
 
-字段来源：`schema.rs` 的 `CounterProps`、`StickerProps`、`VisualizerProps`、`ProgressProps`、`DrawProps`、`PlaceholderProps`、`ConfettiProps`、`WhiteboardProps`、`WhiteboardBeat` 及其 `validate`；缺省落位见 `geometry.rs`。
+字段来源：`schema.rs` 的 `CounterProps`、`ChapterTextProps`、`StickerProps`、`VisualizerProps`、`ProgressProps`、`DrawProps`、`PlaceholderProps`、`ConfettiProps`、`WhiteboardProps`、`WhiteboardBeat` 及其 `validate`；缺省落位见 `geometry.rs`。
 
 ### 3.8 字幕实例
 
@@ -1093,7 +1103,7 @@ interface Marker {
 - 章节固定在序列时间上：移动、裁切、删除实例、波纹删除与插入（`removeRange`、`insertRange`，以及带 `ripple` 的 `replaceCodeBundle`）都不改变它的帧。例外是剪口：应用与恢复剪口时章节跟着内容走（§6.7）。
 - 章节的帧不小于 0，严格递增（同一帧不能有两章）。标题 1–200 个字符（去掉首尾空白），摘要不超过 2000 个字符，一个序列最多 1000 章。缩略图是写入时那个图片素材的当前版本。
 - 整表替换章节时，其他种类的标记不动。章节不受轨道与实例的锁定影响。
-- 章节不进帧计划，不影响画面与声音。
+- 章节本身不进帧计划，不影响声音。画面上读它的只有章节文字（§3.7 的 `TextItem.chapter`）与模板层的章节类层（§3.17）。
 
 ### 3.14 字体
 

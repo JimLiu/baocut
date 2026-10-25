@@ -677,6 +677,7 @@ export const zhHans: CopyMessages = {
     filesNoConversation: '会话建好之后，这里列出它所在目录里的文件。',
   },
   stage: {
+    chapterTextLocked: '这段字跟着章节换。要自己写，先在属性面板把「内容」切回「自己写」',
     label: '画面上的对象',
     textEditor: '改文字',
     edgeHeightTip: '拖动改高度 · ⌥ 以中心对称',

@@ -167,7 +167,7 @@ export const de: EngineMessages = {
   operationInvalid: (p: P<'number' | 'error'>) => `Operation ${p.number} ist ungültig: ${p.error}`,
   moveItemsEmpty: "moveItems benötigt mindestens einen Eintrag",
   noPictureNoGeometry: "hat kein Bild und daher keine Geometrie",
-  setTextOneOf: "setText benötigt genau einen der Werte text oder counter",
+  setTextOneOf: "setText benötigt genau einen der Werte text, counter oder chapter",
   textTooLong: (p: P<'max'>) => `Text darf höchstens enthalten: ${p.max} Zeichen`,
   notTextItem: "ist kein Textclip",
   noPictureNoAnimation: "hat kein Bild und kann daher keine Elementanimation haben",

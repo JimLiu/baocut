@@ -97,7 +97,8 @@
         return c.addElement(Object.assign({}, el, {
           id: SEL.pasteId(el.id, n), added: true, endAnchor: undefined,
           name: String(el.name || '元素').replace(/ · 副本$/, '') + ' · 副本',
-          text: doc.text, asset: doc.asset || el.asset, style: doc.style || null, anim: doc.anim || null,
+          text: doc.text, chapter: doc.chapter || null,
+          asset: doc.asset || el.asset, style: doc.style || null, anim: doc.anim || null,
           transitions: doc.transitions || null,
           keyframes: doc.keyframes || null, duck: doc.duck || null,
           members: mem ? mem.map((m) => Object.assign({}, m, {id: SEL.pasteId(m.id, n)})) : null,

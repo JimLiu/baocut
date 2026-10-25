@@ -167,7 +167,7 @@ export const nl: EngineMessages = {
   operationInvalid: (p: P<'number' | 'error'>) => `Actie ${p.number} is ongeldig: ${p.error}`,
   moveItemsEmpty: "moveItems vereist minstens één item",
   noPictureNoGeometry: "heeft geen beeld, dus heeft geen geometrie",
-  setTextOneOf: "setText vereist precies text of counter",
+  setTextOneOf: "setText vereist precies één van text, counter of chapter",
   textTooLong: (p: P<'max'>) => `Tekst mag maximaal bevatten: ${p.max} tekens`,
   notTextItem: "is geen tekstclip",
   noPictureNoAnimation: "heeft geen beeld, dus kan geen elementanimatie hebben",

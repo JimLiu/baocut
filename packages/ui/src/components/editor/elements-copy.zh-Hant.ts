@@ -61,4 +61,8 @@ export const zhHant: ElementsMessages = {
   added: (label: string, start: string, end: string) => `已新增${label} · ${start} → ${end}`,
   undo: '還原',
   lottieFetchFailed: (status: number) => `無法載入 Lottie 檔案（${status}）`,
+  addChapterTitle: '新增章節標題',
+  chapterTitle: '章節標題',
+  chapterTitleTip: '從片頭鋪到片尾，畫面上的文字跟著播放頭所在的章節更換',
+  noChapters: '這部影片還沒有章節',
 };

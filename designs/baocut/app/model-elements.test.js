@@ -669,3 +669,47 @@ test('音量包络默认采用双颜色，跳播取窗确定且不把首尾声�
   assert.notDeepStrictEqual(E.audioEnvelope(10.8, 20), middle);
   assert.strictEqual(middle.filter(bar => bar.played).length, 61);
 });
+
+test('章节文字：播放头所在那一章的标题、摘要或编号，章节之外不显示', () => {
+  // 存的顺序不要紧；第二章 30 s 止，30–40 s 是空档；第三章与第二章不重叠
+  const chapters = [
+    {id: 'c3', title: '收尾', start: 40, end: 60},
+    {id: 'c1', title: '开场', start: 5, end: 20, summary: '先讲为什么做。'},
+    {id: 'c2', title: '  ', start: 20, end: 30},
+  ];
+  const title = {field: 'title'};
+  assert.strictEqual(E.chapterText(chapters, 0, title), null, '第一章之前不显示');
+  assert.strictEqual(E.chapterText(chapters, 4.999, title), null);
+  assert.strictEqual(E.chapterText(chapters, 5, title), '开场');
+  assert.strictEqual(E.chapterText(chapters, 19.999, title), '开场');
+  assert.strictEqual(E.chapterText(chapters, 20, title), null, '标题是空的那一章不显示');
+  assert.strictEqual(E.chapterText(chapters, 35, title), null, '章节之间的空档不显示');
+  assert.strictEqual(E.chapterText(chapters, 40, title), '收尾');
+  assert.strictEqual(E.chapterText(chapters, 60, title), null, '末章是半开的');
+  assert.strictEqual(E.chapterText(chapters, 10, {field: 'summary'}), '先讲为什么做。');
+  assert.strictEqual(E.chapterText(chapters, 45, {field: 'summary'}), null, '没写摘要的章不显示');
+  assert.strictEqual(E.chapterText(chapters, 45, {field: 'number'}), '3');
+  assert.strictEqual(E.chapterText(chapters, 45, {field: 'number', fmt: '01'}), '03');
+  assert.strictEqual(E.chapterText(chapters, 10, {field: 'number', fmt: '1/N'}), '1/3');
+  assert.strictEqual(E.chapterText([], 10, title), null, '没有章节时不显示');
+  assert.deepStrictEqual(E.chapterAtT(chapters, 22).index, 1);
+  assert.strictEqual(E.chapterAtT(chapters, 35), null);
+});
+
+test('章节文字：几章重叠时取开始得晚的', () => {
+  const chapters = [{id: 'a', title: '甲', start: 0, end: 50}, {id: 'b', title: '乙', start: 20, end: 30}];
+  assert.strictEqual(E.chapterText(chapters, 25, {field: 'title'}), '乙');
+  assert.strictEqual(E.chapterText(chapters, 35, {field: 'title'}), '甲');
+});
+
+test('添加章节标题：一条从 0 铺到视频结尾的文字，内容绑在章节标题上', () => {
+  const e = E.newChapterText({seq: 3, total: 206});
+  assert.strictEqual(e.kind, 'text');
+  assert.strictEqual(e.start, 0);
+  assert.strictEqual(e.end, 206, '从片头铺到片尾');
+  assert.deepStrictEqual(e.chapter, {field: 'title', fmt: '1'});
+  assert.strictEqual(e.text, null, 'text 与 chapter 二选一');
+  assert.strictEqual(E.chapterLabel(e.chapter), '章节标题');
+  assert.strictEqual(E.chapterLabel({field: 'number'}), '章节编号');
+  assert.strictEqual(E.chapterLabel({field: 'summary'}), '章节摘要');
+});

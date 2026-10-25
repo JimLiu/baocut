@@ -61,4 +61,8 @@ export const ja: ElementsMessages = {
   added: (label: string, start: string, end: string) => `${label} を追加しました · ${start} → ${end}`,
   undo: '取り消す',
   lottieFetchFailed: (status: number) => `Lottie ファイルを読み込めませんでした（${status}）`,
+  addChapterTitle: 'チャプタータイトルを追加',
+  chapterTitle: 'チャプタータイトル',
+  chapterTitleTip: '動画の最初から最後まで配置され、再生ヘッドのあるチャプターに合わせて文字が変わります',
+  noChapters: 'この動画にはまだチャプターがありません',
 };

@@ -88,6 +88,8 @@
     });
     const write = (next) => { off(); setAnim(Object.assign({}, anim, {[slot]: next})); };
     const span = window.animSpanOf(ctx, id);
+    // 章节文字的字随章节换，没有一段写定的字给打字机逐字露出（引擎同样拒绝），那一格不出
+    const bound = !!(ctx.elDocs[id] || {}).chapter;
     const occupied = (anim.in && anim.in.k !== 'none' ? TC.duration('in', anim.in) : 0)
       + (anim.out && anim.out.k !== 'none' ? TC.duration('out', anim.out) : 0);
     return <>
@@ -130,7 +132,7 @@
       </div>
       <div className="pscroll bc-scroll text-inspector text-motion-list" onScroll={() => { if (!segmentPlaying) off(); }}>
         <div className="agrid">
-          {TP.ANIMS[slot].map((it) => {
+          {TP.ANIMS[slot].filter((it) => !(bound && it.k === 'typewriter')).map((it) => {
             const next = TC.chooseAnimation(slot, it, cur);
             const pv = preview(it, next);
             return <BCAction key={it.k} className={cx('atile', cur.k === it.k && 'is-on')}

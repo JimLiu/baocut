@@ -196,7 +196,7 @@ const en = {
   operationInvalid: (p: P<'number' | 'error'>) => `Operation ${p.number} is invalid: ${p.error}`,
   moveItemsEmpty: 'moveItems needs at least one entry',
   noPictureNoGeometry: 'has no picture, so it has no geometry',
-  setTextOneOf: 'setText needs exactly one of text and counter',
+  setTextOneOf: 'setText needs exactly one of text, counter and chapter',
   textTooLong: (p: P<'max'>) => `Text can have at most ${p.max} characters`,
   notTextItem: 'is not a text clip',
   noPictureNoAnimation: 'has no picture, so it cannot have element animation',

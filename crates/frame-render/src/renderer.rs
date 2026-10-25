@@ -678,6 +678,15 @@ impl FrameRenderer {
         let Some(mut element) = visual_element(item, context.fps, bindings) else {
             return Ok(None);
         };
+        // 章节文字的字由帧计划按这一帧求好（render-graph），这里照用，不再自己求。
+        if let TimelineItem::Text(text) = item
+            && text.chapter.is_some()
+        {
+            match &layer.content {
+                Some(LayerContent::Text { text: words, .. }) => element.text = Some(words.clone()),
+                _ => return Ok(None),
+            }
+        }
         // 两侧转场的另一侧在自己的区间之外：几何与动画按区间里最近的一刻求，源画面取计划给的时刻。
         let eval = seconds.clamp(element.start, (element.end - 1e-6).max(element.start));
         let fx = item.fx().map(|fx| without(fx, skipped_effects));

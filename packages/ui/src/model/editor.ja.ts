@@ -18,4 +18,5 @@ export const ja: EditorMessages = {
     draw: '手描き',
   },
   seconds: (value: string) => `${value} 秒`,
+  chapterText: { title: 'チャプタータイトル', summary: 'チャプター概要', number: 'チャプター番号' },
 };

@@ -124,7 +124,7 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'insertItems',
     family: 'items',
     doc: [
-      '- {"type":"insertItems","items":[{"type","trackId"|"trackRef","span":{"fromFrame","durationFrames"},…}]}：按实例的完整字段一次写入一批片段（视频格式规范 §3.4–§3.9 的 SequenceItem，不带 id 与 lineage），时间是整帧、不再量化。用在 addItem 表达不了的字段上：视频的 timeMap（{"kind":"linear","sourceIn":{"ticks","timescale"},"rate":{"num":1,"den":1}}，从原片哪一刻起放）、crop（四边比例）、focalPoint、mode / fit / place、embeddedAudio（{"enabled","volume","fadeIn"?,"fadeOut"?}，淡变与 sourceIn 同样写 {"ticks","timescale"}）；文字实例的 text 与 style；字幕实例的 documentId（或同一笔 putDocument 的 documentRef）、styleDocumentId、scopeItemIds；内置元素声波 visualizer（{"style"} 必填，缺省跟着整条序列混好的声音动）与进度条 progress（{"style"} 必填），不写 place 时按种类的缺省落位（声波横条贴在画面底部、高为画面的 20%）。视频、图片给 assetRef（{"id","revision"}，revision 取 videos_inspect 素材列表里的 revision）或同一笔 importAsset 的 assetImportRef，二者只给一个；新轨道用同一笔 addTrack 的 trackRef。字段与重叠由引擎校验。',
+      '- {"type":"insertItems","items":[{"type","trackId"|"trackRef","span":{"fromFrame","durationFrames"},…}]}：按实例的完整字段一次写入一批片段（视频格式规范 §3.4–§3.9 的 SequenceItem，不带 id 与 lineage），时间是整帧、不再量化。用在 addItem 表达不了的字段上：视频的 timeMap（{"kind":"linear","sourceIn":{"ticks","timescale"},"rate":{"num":1,"den":1}}，从原片哪一刻起放）、crop（四边比例）、focalPoint、mode / fit / place、embeddedAudio（{"enabled","volume","fadeIn"?,"fadeOut"?}，淡变与 sourceIn 同样写 {"ticks","timescale"}）；文字实例的 text 与 style（text 也可换成计时读数 counter，或章节文字 chapter：{"field":"title"|"summary"|"number","numberFormat"?:"1"|"01"|"1/N"}，画此刻所在章节的标题、摘要或序号，章节之外不画；一个 chapter 文字从 0 帧铺到片尾就是跟着章节换的小标题，改章节不用动它，三者只给一个）；字幕实例的 documentId（或同一笔 putDocument 的 documentRef）、styleDocumentId、scopeItemIds；内置元素声波 visualizer（{"style"} 必填，缺省跟着整条序列混好的声音动）与进度条 progress（{"style"} 必填），不写 place 时按种类的缺省落位（声波横条贴在画面底部、高为画面的 20%）。视频、图片给 assetRef（{"id","revision"}，revision 取 videos_inspect 素材列表里的 revision）或同一笔 importAsset 的 assetImportRef，二者只给一个；新轨道用同一笔 addTrack 的 trackRef。字段与重叠由引擎校验。',
     ],
     schema: op('insertItems', {
       items: z
@@ -398,18 +398,25 @@ export const EDIT_OPERATIONS: readonly EditOperationSpec[] = [
     type: 'setText',
     family: 'styles',
     doc: [
-      '- {"type":"setText","itemId","text"} 或 {"type":"setText","itemId","counter":{"mode":"countdown"|"countup","format"?:"s"|"mm:ss"|"hh:mm:ss"}}：改文字片段的文字，或改成计时读数；两者只给一个。',
+      '- {"type":"setText","itemId","text"}、{"type":"setText","itemId","counter":{"mode":"countdown"|"countup","format"?:"s"|"mm:ss"|"hh:mm:ss"}} 或 {"type":"setText","itemId","chapter":{"field":"title"|"summary"|"number","numberFormat"?:"1"|"01"|"1/N"}}：改文字片段的文字，或改成计时读数、章节文字；三者只给一个，给了的替换另外两个。章节文字每一帧画此刻所在章节的标题、摘要或序号（numberFormat 只用于 number：1、01 补零、1/N 带总章数），不在章节里或章节没有摘要时不画；章节增删改后自动跟着变。计时读数与章节文字不能用 typewriter、riseWords 入场。',
     ],
     schema: op('setText', {
       itemId: idOf('文字片段 ID'),
-      text: z.string().optional().describe('新的文字；与 counter 只给一个'),
+      text: z.string().optional().describe('新的文字；与 counter、chapter 只给一个'),
       counter: z
         .object({
           mode: z.enum(['countdown', 'countup']).describe('countdown（倒计时）或 countup（正计时）'),
           format: z.enum(['s', 'mm:ss', 'hh:mm:ss']).optional().describe('s、mm:ss 或 hh:mm:ss'),
         })
         .optional()
-        .describe('改成计时读数；与 text 只给一个'),
+        .describe('改成计时读数；与 text、chapter 只给一个'),
+      chapter: z
+        .object({
+          field: z.enum(['title', 'summary', 'number']).describe('title（章节标题）、summary（章节摘要）或 number（第几章）'),
+          numberFormat: z.enum(['1', '01', '1/N']).optional().describe('只用于 number：1（缺省）、01（补零到两位）、1/N（第几章/共几章）'),
+        })
+        .optional()
+        .describe('改成章节文字：画此刻所在章节的标题、摘要或序号；与 text、counter 只给一个'),
       sequenceId,
     }),
     example: { type: 'setText', itemId: 'item_1', text: '第一章' },

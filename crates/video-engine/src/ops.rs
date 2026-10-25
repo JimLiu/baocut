@@ -344,7 +344,7 @@ pub enum EditOperation {
         #[serde(default, deserialize_with = "nullable", skip_serializing_if = "Option::is_none")]
         panels: Option<Option<Vec<VideoPanel>>>,
     },
-    /// 改文字实例的内容：`text` 与 `counter` 给且只给一个，给了的那个替换另一个（§3.6）。
+    /// 改文字实例的内容：`text`、`counter` 与 `chapter` 给且只给一个，给了的那个替换另外两个（§3.6）。
     SetText {
         #[serde(default)]
         sequence_id: Option<Id>,
@@ -353,6 +353,8 @@ pub enum EditOperation {
         text: Option<String>,
         #[serde(default)]
         counter: Option<CounterProps>,
+        #[serde(default)]
+        chapter: Option<ChapterTextProps>,
     },
     /// 整个替换生成类元素与图形的种类参数（§3.7：`shape`、`sticker`、`visualizer`、`progress`、`draw`、
     /// `placeholder`、`confetti`、`whiteboard` 里与实例种类相同的那一个）。
@@ -1164,11 +1166,17 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             item_id,
             text,
             counter,
+            chapter,
         } => {
-            if text.is_some() == counter.is_some() {
+            if [text.is_some(), counter.is_some(), chapter.is_some()]
+                .into_iter()
+                .filter(|given| *given)
+                .count()
+                != 1
+            {
                 return Err(ErrorBody::invalid_operation(msg!(
                     "engine.setTextOneOf",
-                    "setText needs exactly one of text and counter"
+                    "setText needs exactly one of text, counter and chapter"
                 )).entities([item_id.clone()]));
             }
             if let Some(text) = text
@@ -1184,6 +1192,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
                 TimelineItem::Text(t) => {
                     t.text = text.clone();
                     t.counter = counter.clone();
+                    t.chapter = chapter.clone();
                 }
                 _ => return Err(not_applicable(item_id, msg!("engine.notTextItem", "is not a text clip"))),
             }

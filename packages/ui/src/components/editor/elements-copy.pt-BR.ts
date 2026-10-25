@@ -61,4 +61,8 @@ export const ptBR: ElementsMessages = {
   added: (label: string, start: string, end: string) => `Adicionado ${label} · ${start} → ${end}`,
   undo: "Desfazer",
   lottieFetchFailed: (status: number) => `Não foi possível carregar Lottie (${status})`,
+  addChapterTitle: 'Adicionar título do capítulo',
+  chapterTitle: 'Título do capítulo',
+  chapterTitleTip: 'Cobre o vídeo inteiro; o texto muda com o capítulo onde está o indicador de reprodução',
+  noChapters: 'Este vídeo ainda não tem capítulos',
 };

@@ -19,4 +19,5 @@ export const pl: EditorMessages = {
     draw: "W toku",
   },
   seconds: (value: string) => `${value} s`,
+  chapterText: { title: 'Tytuł rozdziału', summary: 'Streszczenie rozdziału', number: 'Numer rozdziału' },
 };

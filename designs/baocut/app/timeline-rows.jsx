@@ -116,11 +116,12 @@
     const bands = TL.animBands(span, (ctx.elDocs[el.id] || {}).anim);
     /* 块上写什么是**按类型分**的，不是一刀切：
          图片 / 视频 / 音频 → 素材名
-         文字 → 文字内容 · 字幕 → 这一条字幕的文字
+         文字 → 文字内容（章节文字写「章节标题」这类绑定名：它的字随章节换） · 字幕 → 这一条字幕的文字
          贴纸 / 形状 / 声波 / 进度 / 组 → **类型名**
        所以这里只有带素材的几类写文件名，贴纸照旧写「贴纸 · ON AIR」。 */
     const hasAsset = el.kind === 'image' || el.kind === 'video' || el.kind === 'audio';
     const title = hasAsset && el.asset ? TL.truncate(el.asset)
+      : el.kind === 'text' && el.chapter ? window.BC_EL.chapterLabel(el.chapter)
       : el.kind === 'text' && el.text ? window.BC_EL.textLabel(el.text, 20) : el.name;
     const imp = TL.importState((ctx.elDocs[el.id] || {}).media);
     const kfN = window.BC_KF.total((ctx.elDocs[el.id] || {}).keyframes);

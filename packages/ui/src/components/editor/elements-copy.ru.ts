@@ -62,4 +62,8 @@ export const ru: ElementsMessages = {
   added: (label: string, start: string, end: string) => `Добавлено: ${label} · ${start} → ${end}`,
   undo: "Отменить",
   lottieFetchFailed: (status: number) => `Не удалось загрузить файл Lottie (${status})`,
+  addChapterTitle: 'Добавить название главы',
+  chapterTitle: 'Название главы',
+  chapterTitleTip: 'На всё видео; текст меняется вместе с главой под курсором воспроизведения',
+  noChapters: 'В этом видео пока нет глав',
 };

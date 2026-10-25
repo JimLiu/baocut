@@ -86,6 +86,8 @@
       setElDocsRaw((s) => {
         const next = Object.assign({}, s, {[el.id]: {
           start: el.start, end: el.end, anim: el.anim || NO_ANIM, text: el.text,
+          /* 章节文字（`chapter`，视频格式规范 §3.7）：与 `text` 二选一，跟着元素走 */
+          chapter: el.chapter || null,
           transitions: el.transitions || null,
           members: el.members || null, box: el.box || null,
           style: el.style || null, pose: Object.assign({scale: 1, rot: 0}, el.place, el.pose), focal: el.focal || null,

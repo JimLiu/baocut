@@ -12,4 +12,8 @@ export const it: ElementsMessages = {
   layers: (count: number) => pluralForm('it', count, { one: `${count} livello`, other: `${count} livelli` }), layersInTurn: (name: string, count: number) => `${name} · ${pluralForm('it', count, { one: `${count} livello, che appare in successione`, other: `${count} livelli, che appaiono in successione` })}`,
   tabTranscript: 'Trascrizione', tabSubtitle: 'Sottotitoli', tabAiTools: 'Strumenti IA', tabImage: 'Immagini', tabVideo: 'Video', tabAudio: 'Audio', tabBrand: 'Brand', tabProps: 'Proprietà', currentTool: 'Strumento di modifica attuale', videoTools: 'Strumenti di modifica video', resizePanel: 'Ridimensiona pannello',
   added: (label: string, start: string, end: string) => `Aggiunto: ${label} · ${start} → ${end}`, undo: 'Annulla', lottieFetchFailed: (status: number) => `Impossibile caricare il file Lottie (${status})`,
+  addChapterTitle: 'Aggiungi titolo del capitolo',
+  chapterTitle: 'Titolo del capitolo',
+  chapterTitleTip: 'Copre tutto il video; il testo cambia con il capitolo in cui si trova la testina di riproduzione',
+  noChapters: 'Questo video non ha ancora capitoli',
 };

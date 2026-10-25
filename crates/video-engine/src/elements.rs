@@ -175,6 +175,7 @@ fn to_element(item: &TimelineItem, keyframes: Keyframes) -> Element {
         html: None,
         ai: base.ai.clone(),
         counter: None,
+        chapter: None,
         shape: None,
         sticker: None,
         visualizer: None,
@@ -194,6 +195,7 @@ fn to_element(item: &TimelineItem, keyframes: Keyframes) -> Element {
         TimelineItem::Text(t) => {
             element.text = t.text.clone();
             element.counter = t.counter.clone();
+            element.chapter = t.chapter.clone();
             element.style = t.style.clone();
             element.style_preset_id = t.style_preset_id.clone();
             element.vertical_align = t.vertical_align.clone();

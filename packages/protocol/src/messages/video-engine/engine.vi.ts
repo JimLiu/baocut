@@ -175,7 +175,7 @@ export const vi: EngineMessages = {
   operationInvalid: (p) => `Thao tác ${p.number} không hợp lệ: ${p.error}`,
   moveItemsEmpty: "moveItems cần ít nhất một mục",
   noPictureNoGeometry: "không có hình ảnh nên không có hình học",
-  setTextOneOf: "setText cần đúng một trong text và counter",
+  setTextOneOf: "setText cần đúng một trong text, counter và chapter",
   textTooLong: (p) => `Văn bản tối đa ${p.max} ký tự`,
   notTextItem: "không phải clip văn bản",
   noPictureNoAnimation: "không có hình ảnh nên không có hoạt ảnh phần tử",

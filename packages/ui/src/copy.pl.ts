@@ -759,6 +759,7 @@ export const pl: CopyMessages = {
   },
   /** 舞台上的对象：选中框、把手、旋转钮、多选统一框与就地改字（原型 stage-objects.jsx、stage-marquee.jsx）。 */
   stage: {
+    chapterTextLocked: 'Ten tekst podąża za rozdziałami. Aby wpisać własny, przełącz Treść z powrotem na „Własny tekst” w panelu właściwości.',
     label: "Obiekty na płótnie",
     textEditor: "Edytuj tekst",
     edgeHeightTip: "Przeciągnij, aby zmienić wysokość · ⌥ od środka",

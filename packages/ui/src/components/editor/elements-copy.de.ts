@@ -61,4 +61,8 @@ export const de: ElementsMessages = {
   added: (label: string, start: string, end: string) => `Hinzugefügt: ${label} · ${start} → ${end}`,
   undo: "Rückgängig machen",
   lottieFetchFailed: (status: number) => `Lottie-Datei konnte nicht geladen werden (${status})`,
+  addChapterTitle: 'Kapiteltitel hinzufügen',
+  chapterTitle: 'Kapiteltitel',
+  chapterTitleTip: 'Läuft über das ganze Video; der Text wechselt mit dem Kapitel am Abspielkopf',
+  noChapters: 'Dieses Video hat noch keine Kapitel',
 };

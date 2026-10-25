@@ -18,4 +18,5 @@ export const zhHant: EditorMessages = {
     draw: '手繪',
   },
   seconds: (value: string) => `${value} 秒`,
+  chapterText: { title: '章節標題', summary: '章節摘要', number: '章節編號' },
 };

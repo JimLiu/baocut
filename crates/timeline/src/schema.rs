@@ -552,9 +552,12 @@ pub struct Element {
     pub html: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ai: Option<Value>,
-    /// `kind == "text"` 的动态计时文本。与 `text` 严格互斥。
+    /// `kind == "text"` 的动态计时文本。与 `text`、`chapter` 严格互斥。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counter: Option<CounterProps>,
+    /// `kind == "text"` 的章节文字：当前章节的标题、摘要或序号。与 `text`、`counter` 严格互斥。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chapter: Option<ChapterTextProps>,
     /// `kind == "shape"` 的形状参数（0.2 新增）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shape: Option<ShapeProps>,
@@ -635,15 +638,19 @@ impl Element {
                 self.id
             )));
         }
-        if self.kind == ElementKind::Text && self.text.is_none() && self.counter.is_none() {
+        let contents = [self.text.is_some(), self.counter.is_some(), self.chapter.is_some()]
+            .into_iter()
+            .filter(|present| *present)
+            .count();
+        if self.kind == ElementKind::Text && contents == 0 {
             return Err(TimelineError::Invalid(format!(
-                "text element {} 必须带 text 或 counter",
+                "text element {} 必须带 text、counter 或 chapter",
                 self.id
             )));
         }
-        if self.kind == ElementKind::Text && self.text.is_some() && self.counter.is_some() {
+        if self.kind == ElementKind::Text && contents > 1 {
             return Err(TimelineError::Invalid(format!(
-                "text element {} 的 text 与 counter 必须互斥",
+                "text element {} 的 text、counter 与 chapter 必须互斥",
                 self.id
             )));
         }
@@ -700,6 +707,7 @@ impl Element {
         if !is_text
             && (self.text.is_some()
                 || self.counter.is_some()
+                || self.chapter.is_some()
                 || self.style.is_some()
                 || self.style_preset_id.is_some())
         {
@@ -842,7 +850,7 @@ impl Element {
                 self.id
             )));
         }
-        if self.counter.is_some()
+        if (self.counter.is_some() || self.chapter.is_some())
             && self.animate.as_ref().is_some_and(|animation| {
                 [animation.enter.as_ref(), animation.exit.as_ref()]
                     .into_iter()
@@ -850,8 +858,9 @@ impl Element {
                     .any(|slot| matches!(slot.preset.as_str(), "typewriter" | "riseWords"))
             })
         {
+            let what = if self.counter.is_some() { "counter" } else { "chapter" };
             return Err(TimelineError::Invalid(format!(
-                "counter element {} 不支持 typewriter/riseWords",
+                "{what} element {} 不支持 typewriter/riseWords",
                 self.id
             )));
         }
@@ -1779,6 +1788,61 @@ impl CounterProps {
 
     fn validate(&self, _element_id: &str) -> Result<(), TimelineError> {
         Ok(())
+    }
+}
+
+/// 章节文字画章节的哪一项（格式规范 §3.7）。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ChapterTextField {
+    Title,
+    Summary,
+    Number,
+}
+
+/// 章节序号的写法：`1` 原样，`01` 至少两位、不足补零，`1/N` 带上章节数。
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ChapterNumberFormat {
+    #[default]
+    #[serde(rename = "1")]
+    Plain,
+    #[serde(rename = "01")]
+    TwoDigits,
+    #[serde(rename = "1/N")]
+    OfCount,
+}
+
+fn is_plain_chapter_number(value: &ChapterNumberFormat) -> bool {
+    *value == ChapterNumberFormat::Plain
+}
+
+/// 章节文字（`TextItem.chapter`，格式规范 §3.7）：画这一帧所在章节的标题、摘要或序号。哪一章由调用方按序列的
+/// 章节表找（`video_model::Sequence::chapter_at`），这里只把找到的那一章写成字。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ChapterTextProps {
+    pub field: ChapterTextField,
+    /// 只对 `number` 起作用，别的 `field` 不读。
+    #[serde(default, skip_serializing_if = "is_plain_chapter_number")]
+    pub number_format: ChapterNumberFormat,
+}
+
+impl ChapterTextProps {
+    /// 第 `index` 章（从 0 起，共 `count` 章）要画的字。摘要没有或只有空白、标题是空白时为 `None`：这一帧不画。
+    pub fn text_of(&self, index: usize, count: usize, title: &str, summary: Option<&str>) -> Option<String> {
+        let nonblank = |value: &str| (!value.trim().is_empty()).then(|| value.to_string());
+        match self.field {
+            ChapterTextField::Title => nonblank(title),
+            ChapterTextField::Summary => summary.and_then(nonblank),
+            ChapterTextField::Number => {
+                let n = index + 1;
+                Some(match self.number_format {
+                    ChapterNumberFormat::Plain => n.to_string(),
+                    ChapterNumberFormat::TwoDigits => format!("{n:02}"),
+                    ChapterNumberFormat::OfCount => format!("{n}/{count}"),
+                })
+            }
+        }
     }
 }
 
@@ -3227,6 +3291,54 @@ mod tests {
         assert_eq!(countup.text_at(24.12, 34.12, 25.12), "00:01");
         // `mm:ss` 不进位到小时（§3）：选了这一档就不该突然冒出小时段。
         assert_eq!(countup.text_at(0.0, 7000.0, 6000.0), "100:00");
+    }
+
+    #[test]
+    fn chapter_text_writes_the_title_summary_or_number_of_the_chapter() {
+        let props = |value: Value| serde_json::from_value::<ChapterTextProps>(value).unwrap();
+        let title = props(json!({ "field": "title" }));
+        assert_eq!(title.text_of(2, 7, "新文学，何以发生", None).as_deref(), Some("新文学，何以发生"));
+        assert_eq!(title.text_of(0, 1, "  ", None), None);
+        let summary = props(json!({ "field": "summary" }));
+        assert_eq!(summary.text_of(0, 1, "A", Some("One line.")).as_deref(), Some("One line."));
+        assert_eq!(summary.text_of(0, 1, "A", None), None);
+        assert_eq!(summary.text_of(0, 1, "A", Some(" \n ")), None);
+        let number = |format: &str| props(json!({ "field": "number", "numberFormat": format }));
+        assert_eq!(props(json!({ "field": "number" })).text_of(2, 7, "A", None).as_deref(), Some("3"));
+        assert_eq!(number("01").text_of(2, 7, "A", None).as_deref(), Some("03"));
+        assert_eq!(number("01").text_of(102, 120, "A", None).as_deref(), Some("103"));
+        assert_eq!(number("1/N").text_of(2, 7, "A", None).as_deref(), Some("3/7"));
+        // 缺省的写法不写出来；别的 field 不读 numberFormat。
+        assert_eq!(serde_json::to_value(number("1")).unwrap(), json!({ "field": "number" }));
+        assert_eq!(
+            props(json!({ "field": "title", "numberFormat": "01" }))
+                .text_of(0, 1, "A", None)
+                .as_deref(),
+            Some("A")
+        );
+        assert!(serde_json::from_value::<ChapterTextProps>(json!({ "field": "label" })).is_err());
+        assert!(serde_json::from_value::<ChapterTextProps>(json!({ "field": "title", "prefix": "Ch " })).is_err());
+    }
+
+    /// 文字元素的内容三选一：`text`、`counter`、`chapter` 只给一个；章节文字同计时一样不能逐字入场。
+    #[test]
+    fn a_text_element_carries_exactly_one_of_text_counter_and_chapter() {
+        let element = |extra: Value| {
+            let mut value = json!({ "id": "t1", "kind": "text", "start": 0, "end": 5 });
+            value.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            serde_json::from_value::<Element>(value).unwrap().validate_fields()
+        };
+        assert!(element(json!({ "chapter": { "field": "title" } })).is_ok());
+        assert!(element(json!({})).is_err());
+        assert!(element(json!({ "text": "A", "chapter": { "field": "title" } })).is_err());
+        assert!(element(json!({ "counter": { "mode": "countup" }, "chapter": { "field": "number" } })).is_err());
+        assert!(
+            element(json!({ "chapter": { "field": "title" }, "animate": { "enter": { "preset": "typewriter", "dur": 0.5 } } })).is_err()
+        );
+        assert!(element(json!({ "chapter": { "field": "title" }, "animate": { "enter": { "preset": "fade", "dur": 0.5 } } })).is_ok());
+        let shape =
+            json!({ "id": "s1", "kind": "shape", "start": 0, "end": 5, "shape": { "shape": "rect" }, "chapter": { "field": "title" } });
+        assert!(serde_json::from_value::<Element>(shape).unwrap().validate_fields().is_err());
     }
 
     /// 空白项目先 clip add 旁白、再把同一文件转录成项目媒体：主轨 clip 指着副本源，

@@ -664,6 +664,7 @@ export const zhHant: CopyMessages = {
     filesNoConversation: '對話建立後，這裡會列出它所在資料夾中的檔案。',
   },
   stage: {
+    chapterTextLocked: '這段文字跟著章節更換。要自己寫，請先在屬性面板把「內容」切回「自己寫」',
     label: '畫面上的物件',
     textEditor: '編輯文字',
     edgeHeightTip: '拖曳以調整高度 · ⌥ 以中心為準',

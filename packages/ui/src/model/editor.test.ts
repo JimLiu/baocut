@@ -193,6 +193,7 @@ describe('编辑器模型', () => {
       }),
     ).toBe('图形');
     expect(label({ ...text('t', 'v1', ''), text: undefined, counter: { mode: 'countdown' } })).toBe('计数器');
+    expect(label({ ...text('t', 'v1', ''), text: undefined, chapter: { field: 'summary' } })).toBe('章节摘要');
     expect(label(element('sticker', { sticker: { source: 'template', templateId: 'heart' } }))).toBe('贴纸');
     expect(label(element('sticker', { assetRef: { id: 'asset_v', revision: '1' }, sticker: { source: 'asset' } }))).toBe('clip.mp4');
     expect(label(element('visualizer'))).toBe('波形');

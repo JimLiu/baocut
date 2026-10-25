@@ -18,4 +18,5 @@ export const it: EditorMessages = {
     draw: "Disegno",
   },
   seconds: (value: string) => `${value} s`,
+  chapterText: { title: 'Titolo del capitolo', summary: 'Riepilogo del capitolo', number: 'Numero del capitolo' },
 };

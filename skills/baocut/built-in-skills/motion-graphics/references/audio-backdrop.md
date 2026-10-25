@@ -118,8 +118,8 @@
   - 旁边用文字实例写名称、年代或一句说明，再小一号写「来源 · 许可」。
   - 没有合适、许可干净的图就不放；不用生成图冒充史料照片。
 - **章节小标题**（可选）：章节不会自动出现：转写润色后照字幕流程的默认，按 `video-chapters` 自己分、写进视频。这里说的是画面上放不放章节小标题。有两章以上时放；只有一章、没分出章，或录音短到只讲一件事时不放，标题区留给本期标题。
-  - 在标题区按章放小标题文字实例：编号、章节标题，可选一句提要（取章节的 `summary`），文字与 videos_inspect 里的章节一致。
-  - 每个实例从这一章的起点铺到下一章的起点。章节标题当副标题用，不抢刊头。
+  - 用章节文字：在标题区放一个文字实例，写 `chapter: {"field": "title"}`（不写 `text`），从第 0 帧铺到片尾。引擎每一帧画此刻所在章节的标题，第一章开始之前不画；章节改名、增删或被剪辑挪动后自动跟着变，不用再改实例，也不按章拆成多个实例。
+  - 要编号、提要时各加一个同样铺满全片的实例：`{"field": "number", "numberFormat": "01"}`（`"1/N"` 画成「3/7」），`{"field": "summary"}`（取章节的 `summary`，没写摘要的那一章不画）。几个实例用同一套字与颜色；章节标题当副标题用，不抢刊头。
   - 也可以按章节换背景的变体：同一套版式，换强调色或母题；图片实例在章节边界首尾相接。
 - **计时**：文字实例写 `counter: {"mode": "countup", "format": "mm:ss"}`（超过一小时用 `hh:mm:ss`），从第 0 帧铺到片尾，放在声波旁边或页脚。有了它就关掉声波的 `readout`，画面上不出现两个时间。
 
@@ -130,7 +130,7 @@
  {"type":"addTrack","kind":"visual","ref":"photo"},
  {"type":"addTrack","kind":"visual","ref":"clock"},
  {"type":"insertItems","items":[
-  {"type":"text","trackRef":"chapterTitle","span":{"fromFrame":0,"durationFrames":2084},"text":"新文学，何以发生",
+  {"type":"text","trackRef":"chapterTitle","span":{"fromFrame":0,"durationFrames":4501},"chapter":{"field":"title"},
    "style":{"fontFamily":"Songti SC","fontSize":20,"fontWeight":400,"fontColor":"#2A2620","textAlign":"left","textOutline":{"on":false},"dropShadow":{"on":false}},
    "verticalAlign":"top","place":{"x":37.2,"y":13.3,"w":52.1}},
   {"type":"image","trackRef":"photo","assetRef":{"id":"asset_…","revision":"1"},"span":{"fromFrame":0,"durationFrames":1089},

@@ -175,7 +175,7 @@ export const ptBR: EngineMessages = {
   operationInvalid: (p) => `Operação ${p.number} é inválido: ${p.error}`,
   moveItemsEmpty: "moveItems exige ao menos uma entrada",
   noPictureNoGeometry: "não tem imagem e não tem geometria",
-  setTextOneOf: "setText exige exatamente text ou counter",
+  setTextOneOf: "setText exige exatamente um entre text, counter e chapter",
   textTooLong: (p) => `O texto pode ter no máximo ${p.max} caracteres`,
   notTextItem: "não é clipe de texto",
   noPictureNoAnimation: "não tem imagem e não pode ter animação de elemento",

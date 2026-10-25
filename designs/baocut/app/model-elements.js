@@ -299,6 +299,71 @@
     return next >= s1 ? null : next / 1000;
   }
 
+  /* ---------- 章节文字 ----------
+     文字元素的另一种派生内容（视频格式规范 §3.7 的 `TextItem.chapter`）：画面上的字不来自
+     `text`，而是播放头所在那一章的标题、摘要或编号。一条从 0 铺到片尾就是跟着章节换字的
+     小标题，章节改名、挪边界、增删都不用再动它。判据与引擎同一套：第一章之前与章节之间的
+     空档不显示，几章重叠时取开始得晚的，标题或摘要是空的那一章不显示；编号按开始时刻排第几。
+     边界同计时一样按毫秒栅格判。 */
+  const CHAPTER_FIELDS = [
+    {k: 'title', name: '标题'},
+    {k: 'summary', name: '摘要'},
+    {k: 'number', name: '编号'},
+  ];
+  const CHAPTER_FORMATS = [
+    {k: '1', name: '1', sample: '3'},
+    {k: '01', name: '01', sample: '03'},
+    {k: '1/N', name: '1/N', sample: '3/7'},
+  ];
+  /** 按开始时刻排好的章节表（只留有长度的章） */
+  const chapterList = (chapters) => (chapters || [])
+    .filter((c) => c && MS(c.end) > MS(c.start))
+    .slice().sort((a, b) => MS(a.start) - MS(b.start));
+  /** 播放头 `t` 落在排好序的章节表里第几章（从 0 起）；不在任何一章里时 -1 */
+  function chapterIndexAt(list, t) {
+    const ms = MS(t);
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (ms >= MS(list[i].start) && ms < MS(list[i].end)) return i;
+    }
+    return -1;
+  }
+  /** 章节文字此刻显示的那串字；不显示时 null。`bind` 是 `{field, fmt}`，`fmt` 只用于编号。 */
+  function chapterText(chapters, t, bind) {
+    const b = bind || {};
+    const list = chapterList(chapters);
+    const i = chapterIndexAt(list, t);
+    if (i < 0) return null;
+    if (b.field === 'number') {
+      const n = i + 1;
+      return b.fmt === '01' ? pad2(n) : b.fmt === '1/N' ? n + '/' + list.length : String(n);
+    }
+    const v = String((b.field === 'summary' ? list[i].summary : list[i].title) || '');
+    return v.trim() ? v : null;
+  }
+  /** 章节文字在时间轴与属性页上的名字：「章节标题」「章节摘要」「章节编号」 */
+  function chapterLabel(bind) {
+    const f = CHAPTER_FIELDS.filter((x) => x.k === (bind && bind.field))[0] || CHAPTER_FIELDS[0];
+    return '章节' + f.name;
+  }
+  /** 「添加章节标题」：一条从 0 铺到片尾（`total`，与其他新建即铺满全片的元素同一口径）的
+      章节文字。落在右上角那一格（演示装置的标题文本组占着中上、计时占着左上），字号取
+      副标题那一档，不抢刊头。 */
+  function newChapterText(opts) {
+    const o = opts || {};
+    const seq = o.seq || 1;
+    const bind = {field: 'title', fmt: '1'};
+    return {id: 'e-txt-' + seq, kind: 'text', name: chapterLabel(bind), icon: 'text', hue: 'orange',
+      added: true, preset: null, start: 0, end: o.total > 0 ? o.total : NEW_SPAN,
+      place: {x: 78, y: 8, w: 36}, text: null, chapter: bind,
+      style: {size: 28}, anim: {in: {k: 'none'}, out: {k: 'none'}, loop: {k: 'none'}}};
+  }
+  /** 此刻所在的那一章（读数预览要写「第几章 · 章名」）；不在章节里时 null */
+  function chapterAtT(chapters, t) {
+    const list = chapterList(chapters);
+    const i = chapterIndexAt(list, t);
+    return i < 0 ? null : {index: i, count: list.length, chapter: list[i]};
+  }
+
   /* ---------- 动画 ----------
      面板是 In / Out / Loop 三个 tab。方向不是面板上的第四个 tab——后端的
      动画枚举把方向展开进枚举值（inSlideRight/Left/Up/Down…），所以
@@ -777,6 +842,7 @@
     audioEnvelope, WAVES, PROGRESS, PROG_TILES, progOf, ANIMS, DIR4, DIR2,
     ALIGNS,
     COUNTERS, COUNT_FORMATS, COUNT_SPAN, counterSpan, countOf, counterValue, counterFormat, counterText, counterNextChange,
+    CHAPTER_FIELDS, CHAPTER_FORMATS, chapterText, chapterAtT, chapterLabel, newChapterText,
     swatchList, shapeColor, shapeAt, shapeNames, find, animEnum, animSummary,
     pct, unpct, zAction, resize,
     NEW_SPAN, spanAt, newText, textLabel, memberOf, projectMembers, dropMember,

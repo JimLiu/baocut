@@ -591,6 +591,7 @@ mod tests {
             html: None,
             ai: None,
             counter: None,
+            chapter: None,
             shape: None,
             sticker: None,
             visualizer: None,

@@ -826,7 +826,12 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       openCaptionEditor(item);
       return;
     }
-    if (!item || item.type !== 'text' || item.counter || !changeable(item)) return;
+    // 计时读数与章节文字的字由引擎每帧求出，不能就地改字（改了就丢掉绑定）。章节文字指去属性面板切回「自己写」。
+    if (item?.type === 'text' && item.chapter && !item.counter) {
+      select([item.id]);
+      return void ToastQueue.info(STAGE_COPY.chapterTextLocked, { timeout: 5000 });
+    }
+    if (!item || item.type !== 'text' || item.counter || item.chapter || !changeable(item)) return;
     select([item.id]);
     setEditing(item.id);
   };

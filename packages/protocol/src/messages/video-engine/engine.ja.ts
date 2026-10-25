@@ -175,7 +175,7 @@ export const ja: EngineMessages = {
   operationInvalid: (p) => `操作 ${p.number} が無効です：${p.error}`,
   moveItemsEmpty: 'moveItems には少なくとも 1 つの項目が必要です',
   noPictureNoGeometry: '映像がないため、ジオメトリがありません',
-  setTextOneOf: 'setText には text と counter のどちらか一方だけを指定してください',
+  setTextOneOf: 'setText には text、counter、chapter のうちどれか 1 つだけを指定してください',
   textTooLong: (p) => `テキストは最大 ${p.max} 文字です`,
   notTextItem: 'テキストクリップではありません',
   noPictureNoAnimation: '映像がないため、要素アニメーションを設定できません',

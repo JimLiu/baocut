@@ -58,6 +58,13 @@ const en = {
   textPresetLabel: (name: string) => `Text · ${name}`,
   textCategories: 'Text preset categories',
   addTextBox: 'Add text box',
+  /** 「添加章节标题」：从片头铺到片尾、字跟着章节换的一条文字（视频格式规范 §3.7 `TextItem.chapter`）。 */
+  addChapterTitle: 'Add chapter title',
+  /** 新建那一条在撤销记录与提示里的名字。 */
+  chapterTitle: 'Chapter title',
+  chapterTitleTip: 'Spans the whole video; the words change with the chapter at the playhead',
+  /** 视频没有章节时，按钮置灰并在下面写这一句。 */
+  noChapters: 'This video has no chapters yet',
   presetCount: (count: number) => `${count}`,
   addPreset: (name: string) => `Add text preset “${name}”`,
   layers: (count: number) => `${count} layers`,

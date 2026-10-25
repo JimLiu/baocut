@@ -19,4 +19,5 @@ export const zhHans: EditorMessages = {
     draw: '手绘',
   },
   seconds: (value: string) => `${value} 秒`,
+  chapterText: { title: '章节标题', summary: '章节摘要', number: '章节编号' },
 };

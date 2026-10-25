@@ -175,7 +175,7 @@ export const pl: EngineMessages = {
   operationInvalid: (p) => `Operacja ${p.number} jest nieprawidłowe: ${p.error}`,
   moveItemsEmpty: "moveItems wymaga co najmniej jednego wpisu",
   noPictureNoGeometry: "nie ma obrazu, więc nie ma geometrii",
-  setTextOneOf: "setText wymaga dokładnie jednego z text i counter",
+  setTextOneOf: "setText wymaga dokładnie jednego z text, counter i chapter",
   textTooLong: (p) => `Tekst może mieć najwyżej ${p.max} znaków`,
   notTextItem: "nie jest klipem tekstowym",
   noPictureNoAnimation: "nie ma obrazu, więc nie może mieć animacji elementu",

@@ -1,10 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type {
   AssetRecord,
+  ChapterTextProps,
   CompositionItem,
   ConfettiItem,
   CounterProps,
   ProgressItem,
+  Sequence,
   ShapeItem,
   StickerItem,
   TextItem,
@@ -12,14 +14,19 @@ import type {
   VisualItem,
   VisualizerItem,
 } from '@baocut/protocol';
-import { isAnimatedImageType } from '@baocut/protocol';
-import { ActionButton, Picker, PickerItem, TextArea } from '@react-spectrum/s2';
+import { framesToSeconds, isAnimatedImageType, sequenceDurationFrames } from '@baocut/protocol';
+import { ActionButton, Picker, PickerItem, TextArea, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { CHAPTER_TITLE_BIND, animationWithoutFixedText, chapterReading, chapterTextAt } from '../../model/chapter-text.ts';
+import { frameAt } from '../../model/editor.ts';
 import { hasEffects } from '../../model/effects-panel.ts';
+import { formatTenths } from '../../model/format.ts';
 import { SHAPE_CHOICES } from '../../model/element-catalog.ts';
 import { colorParts, editableTextStyle, patchShape, patchTextStyle, withAlpha } from '../../model/property-values.ts';
+import { BLANK_TEXT } from '../../model/text-presets.ts';
 import { STICKER_TEMPLATES } from '../../render/sticker-templates.ts';
 import { asObject, num, type Json } from '../../render/text-style.ts';
+import { useEditor } from '../../state/editor-store.ts';
 import { Card, ColorField, Note, PRow, Sec, SecHead, Seg, ValueRow } from './inspector-controls.tsx';
 import { EffectsSection } from './inspector-effects.tsx';
 import { GeometrySection } from './inspector-geometry.tsx';
@@ -34,6 +41,18 @@ import { INSPECTOR_COPY as IC } from './inspector-copy.ts';
 const textArea = style({ width: 'full' });
 const shapePicker = style({ flexGrow: 1, minWidth: 0 });
 const dots = style({ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' });
+/** 章节文字的读数（原型 .cntpv.chapv）：此刻画的字，下面一行说下一次什么时候换或为什么不画。章名长短不一，可换行。 */
+const readout = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+  paddingX: 12,
+  paddingY: '[10px]',
+  borderRadius: 'lg',
+  backgroundColor: 'gray-75',
+});
+const readoutValue = style({ font: 'ui-lg', fontWeight: 'bold', color: 'gray-900', overflowWrap: 'anywhere' });
+const readoutWhy = style({ font: 'ui-xs', color: 'gray-600' });
 
 /** 片段页的末尾几节：外观之后是效果（有 `fx` 的片段）、转场、几何、时间与删除。 */
 function Tail(props: ItemPageProps<VisualItem>) {
@@ -48,23 +67,47 @@ function Tail(props: ItemPageProps<VisualItem>) {
   );
 }
 
-/** 编辑文本：文字、样式（与字幕同一套）、不透明度。 */
+/** 编辑文本：内容（自己写，或跟着章节换字）、样式（与字幕同一套）、不透明度。 */
 export function TextPage(props: ItemPageProps<TextItem>) {
   if (props.item.counter) return <CounterPage {...props} counter={props.item.counter} />;
   const { item, sequence, edit, canChange } = props;
   const editable = editableTextStyle(item.style);
   const current = asObject(item.style);
   const patch = (p: Json) => patchTextStyle(item.style, p);
+  const setText = (change: { text: string } | { chapter: ChapterTextProps }) =>
+    edit.commit([{ type: 'setText', sequenceId: sequence.id, itemId: item.id, ...change }]);
+  /**
+   * 切换内容从哪来。`setText` 里 `text` 与 `chapter` 二选一，写一项就清掉另一项。切到章节前先去掉打字机、逐词升起：
+   * 它们要一段写定的字，引擎每笔操作后都校验，所以去动画排在前面，两笔同一次提交（撤销是一步）。
+   */
+  const setContent = (key: ContentKey) => {
+    if (key === 'chapter') {
+      const animate = animationWithoutFixedText(item.animate);
+      edit.commit([
+        ...(animate === undefined ? [] : [{ type: 'setAnimation', sequenceId: sequence.id, itemId: item.id, animate } as const]),
+        { type: 'setText', sequenceId: sequence.id, itemId: item.id, chapter: { ...CHAPTER_TITLE_BIND } },
+      ]);
+      if (animate !== undefined) ToastQueue.info(IC.fixedTextAnimRemoved, { timeout: 5000 });
+      return;
+    }
+    // 切回自己写：从画面上那串字接着改，不从空白重打。播放头不在这一条上时取离它最近的那一帧。
+    const { fromFrame, durationFrames } = item.span;
+    const frame = Math.min(Math.max(frameAt(useEditor.getState().playhead, sequence.fps), fromFrame), fromFrame + durationFrames - 1);
+    setText({ text: (item.chapter && chapterTextAt(sequence.markers, frame, item.chapter)) || BLANK_TEXT.text });
+  };
   return (
     <>
-      <SecHead first>{IC.text}</SecHead>
+      <SecHead first>{IC.content}</SecHead>
       <Sec>
-        <TextBody
-          text={item.text ?? ''}
-          isDisabled={!canChange}
-          onCommit={(text) => edit.commit([{ type: 'setText', sequenceId: sequence.id, itemId: item.id, text }])}
-        />
+        <Seg label={IC.content} value={item.chapter ? 'chapter' : 'text'} options={CONTENTS} isDisabled={!canChange} onChange={setContent} />
       </Sec>
+      {item.chapter ? (
+        <ChapterBind item={item} sequence={sequence} bind={item.chapter} isDisabled={!canChange} onChange={(chapter) => setText({ chapter })} />
+      ) : (
+        <Sec>
+          <TextBody text={item.text ?? ''} isDisabled={!canChange} onCommit={(text) => setText({ text })} />
+        </Sec>
+      )}
       <SecHead>{IC.style}</SecHead>
       <Sec>
         {editable ? (
@@ -80,6 +123,122 @@ export function TextPage(props: ItemPageProps<TextItem>) {
         <OpacityRow {...props} />
       </Sec>
       <Tail {...props} />
+    </>
+  );
+}
+
+type ContentKey = 'text' | 'chapter';
+const CONTENTS = [
+  {
+    key: 'text',
+    get label() {
+      return IC.contentWrite;
+    },
+  },
+  {
+    key: 'chapter',
+    get label() {
+      return IC.contentChapter;
+    },
+  },
+] as const;
+
+const CHAPTER_FIELDS = [
+  {
+    key: 'title',
+    get label() {
+      return IC.chapterFieldTitle;
+    },
+  },
+  {
+    key: 'summary',
+    get label() {
+      return IC.chapterFieldSummary;
+    },
+  },
+  {
+    key: 'number',
+    get label() {
+      return IC.chapterFieldNumber;
+    },
+  },
+] as const;
+
+/** 编号格式：选项上写格式本身，右侧样例按第 3 章、共 7 章写。 */
+const NUMBER_FORMATS = [
+  { key: '1', label: '1', sample: '3' },
+  { key: '01', label: '01', sample: '03' },
+  { key: '1/N', label: '1/N', sample: '3/7' },
+] as const;
+
+/**
+ * 跟着章节时的内容段（原型 panel-text.jsx `ChapterBind`）：显示章节的哪一项、编号写成什么样，再加一块跟着播放头走的读数。
+ * 读数回答截图说不清的两件事：这条字下一次什么时候换，以及此刻为什么什么都不画（播放头不在这一条上 / 不在章节里 /
+ * 这一章没写）。判据与引擎一致（`chapter-text.ts`）。
+ */
+function ChapterBind({
+  item,
+  sequence,
+  bind,
+  isDisabled,
+  onChange,
+}: {
+  item: TextItem;
+  sequence: Sequence;
+  bind: ChapterTextProps;
+  isDisabled: boolean;
+  onChange(bind: ChapterTextProps): void;
+}) {
+  const playhead = useEditor((s) => s.playhead);
+  const frame = frameAt(playhead, sequence.fps);
+  const format = bind.numberFormat ?? '1';
+  const inSpan = frame >= item.span.fromFrame && frame < item.span.fromFrame + item.span.durationFrames;
+  const reading = chapterReading(sequence.markers, frame, bind, sequenceDurationFrames(sequence));
+  const clock = (f: number) => formatTenths(framesToSeconds(f, sequence.fps));
+  const where = formatTenths(playhead);
+  let shown: string | null = null;
+  let why: string;
+  if (!inSpan) why = IC.chapterOutsideItem(where);
+  else if (reading.kind === 'noChapter') why = IC.chapterNone(where);
+  else if (reading.kind === 'blank') {
+    const n = reading.range.index + 1;
+    const title = reading.range.marker.label;
+    why = bind.field === 'title' ? IC.chapterNoTitle(n) : title.trim() ? IC.chapterNoSummary(n, title) : IC.chapterNoSummaryUntitled(n);
+  } else {
+    shown = reading.text;
+    const n = reading.range.index + 1;
+    const count = reading.range.count;
+    const at = clock(reading.changeFrame);
+    why = reading.then === 'next' ? IC.chapterNext(n, count, at) : reading.then === 'last' ? IC.chapterLast(n, count, at) : IC.chapterEnds(n, count, at);
+  }
+  const sample = NUMBER_FORMATS.find((f) => f.key === format)?.sample ?? '3';
+  return (
+    <>
+      <SecHead>{IC.chapterShow}</SecHead>
+      <Sec>
+        <Seg label={IC.chapterShow} value={bind.field} options={CHAPTER_FIELDS} isDisabled={isDisabled} onChange={(field) => onChange({ ...bind, field })} />
+      </Sec>
+      {bind.field === 'number' ? (
+        <>
+          <SecHead aside={IC.numberSample(sample)}>{IC.numberFormat}</SecHead>
+          <Sec>
+            <Seg
+              label={IC.numberFormat}
+              value={format}
+              options={NUMBER_FORMATS}
+              isDisabled={isDisabled}
+              onChange={(numberFormat) => onChange({ ...bind, numberFormat })}
+            />
+          </Sec>
+        </>
+      ) : null}
+      <Sec>
+        <div className={readout}>
+          <span className={readoutValue}>{shown ?? '\u2014'}</span>
+          <span className={readoutWhy}>{why}</span>
+        </div>
+        <Note>{IC.chapterHelp}</Note>
+      </Sec>
     </>
   );
 }

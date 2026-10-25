@@ -31,11 +31,11 @@ pub use effect::{
     Crop, EffectPreset, FX_SHADOW_BLUR_RANGE, FX_SHADOW_OPACITY_RANGE, FX_STROKE_WIDTH_MAX, FX_TEMPERATURE_RANGE, FilterPreset, Fx,
     FocalPoint, FxShadow, FxStroke, Mask, MaskShape, PanelRect, PanelsProblem, VideoPanel, is_color,
 };
-pub use marker::{Marker, MarkerKind};
+pub use marker::{ChapterRange, Marker, MarkerKind, chapter_at, chapter_ranges, chapter_text};
 pub use place::{Background, CornerRadii, Fit, MediaFields, Place, Tile, VisualMode};
 pub use timeline::protocol::template::TemplateDoc as TemplateLayers;
 pub use timeline::schema::{
-    ConfettiProps, CounterProps, DrawProps, PlaceholderProps, ProgressProps, ShapeProps, StickerProps, VisualizerProps, WhiteboardProps,
+    ChapterNumberFormat, ChapterTextField, ChapterTextProps, ConfettiProps, CounterProps, DrawProps, PlaceholderProps, ProgressProps, ShapeProps, StickerProps, VisualizerProps, WhiteboardProps,
 };
 pub use transition::{Direction, Easing, SINGLE_SIDED_KINDS, TWO_SIDED_ONLY_KINDS, Transition, TransitionKind, TransitionPlacement};
 
@@ -379,7 +379,7 @@ pub struct ImageItem {
     pub html: Option<String>,
 }
 
-/// 文字实例：一段文字或计时读数，加文字样式（§3.6）。样式是 v2 的文字样式对象，引擎按对象保存。
+/// 文字实例：一段文字、计时读数或章节文字，加文字样式（§3.6）。样式是 v2 的文字样式对象，引擎按对象保存。
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextItem {
@@ -389,11 +389,14 @@ pub struct TextItem {
     pub place: Place,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub animate: Option<Animation>,
-    /// 与 `counter` 二选一，必须有其一。
+    /// 与 `counter`、`chapter` 三者只给一个，必须有其一。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub counter: Option<CounterProps>,
+    /// 章节文字：这一帧所在章节的标题、摘要或序号（§3.7），由帧计划按序列的章节表求字。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chapter: Option<ChapterTextProps>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -61,4 +61,8 @@ export const zhHans: ElementsMessages = {
   added: (label: string, start: string, end: string) => `已添加${label} · ${start} → ${end}`,
   undo: '撤销',
   lottieFetchFailed: (status: number) => `读不到 Lottie 文件（${status}）`,
+  addChapterTitle: '添加章节标题',
+  chapterTitle: '章节标题',
+  chapterTitleTip: '从片头铺到片尾，画面上的字跟着播放头所在的章节换',
+  noChapters: '这个视频还没有章节',
 };

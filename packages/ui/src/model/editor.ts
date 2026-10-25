@@ -4,6 +4,7 @@ import {
   itemRangeSeconds,
   sequenceDurationFrames,
   type AssetRecord,
+  type ChapterTextProps,
   type DocumentRecord,
   type Id,
   type VideoSnapshot,
@@ -35,6 +36,8 @@ type ElementName = 'sticker' | 'placeholder' | 'whiteboard' | 'progress' | 'visu
 const en = {
   trackKind: { visual: 'Visual', audio: 'Audio', subtitle: 'Subtitles' } as Record<Track['kind'], string>,
   counter: 'Counter',
+  /** 章节文字（`TextItem.chapter`）的名字：字随章节换，写它绑的是哪一项。 */
+  chapterText: { title: 'Chapter title', summary: 'Chapter summary', number: 'Chapter number' } as Record<ChapterTextProps['field'], string>,
   text: 'Text',
   shape: 'Shape',
   composition: 'Composition',
@@ -212,6 +215,7 @@ export function itemLabel(item: SequenceItem, assets: Record<Id, AssetRecord>, d
   switch (item.type) {
     case 'text':
       if (item.counter) return M.counter;
+      if (item.chapter) return M.chapterText[item.chapter.field];
       return (item.text ?? '').replace(/\s+/g, ' ').trim() || M.text;
     case 'shape':
       return M.shape;

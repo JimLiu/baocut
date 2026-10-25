@@ -18,4 +18,5 @@ export const ptBR: EditorMessages = {
     draw: "Desenho",
   },
   seconds: (value: string) => `${value} s`,
+  chapterText: { title: 'Título do capítulo', summary: 'Resumo do capítulo', number: 'Número do capítulo' },
 };

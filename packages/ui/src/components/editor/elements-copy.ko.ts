@@ -61,4 +61,8 @@ export const ko: ElementsMessages = {
   added: (label: string, start: string, end: string) => `${label} 추가함 · ${start} → ${end}`,
   undo: '실행 취소',
   lottieFetchFailed: (status: number) => `Lottie 파일을 불러오지 못했습니다(${status})`,
+  addChapterTitle: '챕터 제목 추가',
+  chapterTitle: '챕터 제목',
+  chapterTitleTip: '영상 처음부터 끝까지 깔리고, 플레이헤드가 있는 챕터에 맞춰 글자가 바뀝니다',
+  noChapters: '이 영상에는 아직 챕터가 없습니다',
 };
