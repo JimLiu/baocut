@@ -112,7 +112,7 @@ export const MCP_SERVICE_TOOL_NAMES: readonly McpServiceTool[] = [
   { name: 'download', title: '从链接下载', effect: 'job' },
 ];
 // i18n-ignore-end
-/** 模型接口服务的默认端口（回环），与 MCP 服务相邻。 */
+/** 模型接口服务的默认端口（默认只监听回环，可开局域网访问），与 MCP 服务相邻。 */
 export const MODEL_API_DEFAULT_PORT = 47621;
 /**
  * 模型接口服务的接口版本：路径、请求与响应的字段是对外合同，破坏性变更升这个版本（每个响应的
@@ -157,6 +157,10 @@ export interface ModelApiStatus {
   maxUploadBytes: number;
   maxJsonBytes: number;
   interfaceVersion: string;
+  /** 是否允许局域网访问：开着时监听 `0.0.0.0`，只接受私有网段与回环来源（architecture §12.8）。 */
+  lan: boolean;
+  /** 局域网访问开着时本机的局域网 IPv4 地址（客户端用 `http://<地址>:<端口>/v1` 连）；关着时为空数组。 */
+  lanAddresses: string[];
 }
 
 /** 服务审批的时限：超时按拒绝处理。比常见 MCP 客户端的请求超时（60 秒）短，调用方能收到明确的拒绝。 */
@@ -251,6 +255,8 @@ export interface ServiceConfigureParams {
   routing?: Partial<ModelApiRouting>;
   /** 只用于模型接口服务：每个客户端同时在途的生成请求上限。 */
   maxConcurrentPerClient?: number;
+  /** 只用于模型接口服务：允许局域网访问（监听 `0.0.0.0`），改动后重启服务。其他服务以 `invalid-request` 拒绝。 */
+  lan?: boolean;
   /** 只有 Web 服务接受：只读。 */
   readOnly?: boolean;
   /** 只有 Web 服务接受：方法白名单（方法名或 `<命名空间>.*`），只能在默认集合之内收紧；null 恢复默认集合。 */

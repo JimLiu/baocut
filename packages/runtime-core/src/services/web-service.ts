@@ -24,7 +24,7 @@ import {
   type WebServiceAccess,
   type WebSession,
 } from '@baocut/protocol';
-import { RcWeb } from '@baocut/protocol/messages/runtime-core';
+import { RcServices, RcWeb } from '@baocut/protocol/messages/runtime-core';
 import type { Harness, Logger } from '@baocut/harness';
 import type { SlidesServer } from '@baocut/slides';
 import type { DocsServer } from '@baocut/docs';
@@ -247,6 +247,7 @@ export class WebService implements ManagedService {
     if (params.level !== undefined || params.videos !== undefined) {
       throw new RpcError('invalid-request', RcWeb.noLevelOrScope());
     }
+    if (params.lan !== undefined) throw new RpcError('invalid-request', RcServices.lanOnlyForModelApi());
     if (params.methods) {
       const wider = params.methods.filter((p) => !withinDefault(p));
       if (wider.length > 0) {

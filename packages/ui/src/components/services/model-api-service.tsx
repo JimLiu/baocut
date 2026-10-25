@@ -5,7 +5,7 @@ import { Badge, Button, Checkbox, NumberField, Switch, Text } from '@react-spect
 import Copy from '@react-spectrum/s2/icons/Copy';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { SERVICE_COPY, SERVICES_PAGE_COPY } from '../../copy.ts';
-import { API_CAPABILITIES, API_ENDPOINTS, CAPABILITY_LABEL, capabilityLine, formatBytes, ROUTING_ROWS } from '../../model/services-api.ts';
+import { API_CAPABILITIES, API_ENDPOINTS, CAPABILITY_LABEL, capabilityLine, formatBytes, lanBaseUrls, ROUTING_ROWS } from '../../model/services-api.ts';
 import { levelTitle, MCP_LEVELS } from '../../model/services-mcp.ts';
 import { serviceBusy, serviceStateLabel, SERVICE_DEFAULT_PORT } from '../../model/services.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -40,6 +40,8 @@ import { copyText, useConfigureService, useFlipService } from './use-service-act
  * - 原型每一类能力能单独关、能挂独立端口——Runtime 没有：开关与「独立端口」置灰；
  * - 原型点端点进详情页看参数、「试一试」——没有端点文档的数据，界面也拿不到令牌明文发请求：省略，原因写在端点段；
  * - 原型只用本机模型——Runtime 能把请求路由到在线服务、局域网节点与智能体，各有开关（「路由」段）。
+ * - 「允许局域网访问」（原型同名开关，架构设计 §12.8）：Runtime 重启服务监听 `0.0.0.0`，只收私有网段的来源；令牌本来就总要，
+ *   「需要 API key」不随它变。打开后页头标签改成局域网，连接段多列每个局域网地址的 Base URL。
  */
 
 const methodBadge = style({ flexShrink: 0, width: 40, font: 'code-xs', fontWeight: 'bold', color: { default: 'gray-700', isGet: 'informative-900' } });
@@ -66,6 +68,7 @@ const DEFAULT_ROUTING = { online: false, nodes: false, agent: false };
 export function ModelApiServicePage() {
   const { status, ready, connected, state } = useServiceStatus('model-api');
   const flip = useFlipService('model-api');
+  const configure = useConfigureService();
   const runtime = useRuntime();
   const [info, setInfo] = useState<ModelApiConnectionInfo | null>(null);
   const usable = !!status && state !== 'unavailable';
@@ -82,7 +85,10 @@ export function ModelApiServicePage() {
   }, [runtime, usable, status?.port, status?.state]);
 
   const copy = SERVICE_COPY['model-api'];
-  const base = info?.baseUrl ?? `http://127.0.0.1:${status?.port ?? SERVICE_DEFAULT_PORT['model-api']}/v1`;
+  const port = status?.port ?? SERVICE_DEFAULT_PORT['model-api'];
+  const base = info?.baseUrl ?? `http://127.0.0.1:${port}/v1`;
+  const lan = status?.modelApi?.lan === true;
+  const lanBases = lan ? lanBaseUrls(status?.modelApi?.lanAddresses ?? [], port) : [];
   let heading: string = MODEL_API_COPY.off;
   let subline: string = MODEL_API_COPY.offSub(base);
   let mono = false;
@@ -104,8 +110,8 @@ export function ModelApiServicePage() {
       kind="services"
       title={MODEL_API_COPY.title}
       actions={
-        <Badge size="S" fillStyle="subtle" variant="neutral">
-          {copy.scope}
+        <Badge size="S" fillStyle="subtle" variant={lan ? 'notice' : 'neutral'}>
+          {lan ? MODEL_API_COPY.scopeLan : copy.scope}
         </Badge>
       }>
       <p className={lede}>{MODEL_API_COPY.lede}</p>
@@ -135,8 +141,12 @@ export function ModelApiServicePage() {
           <SectionHead title={COMMON_COPY.section.connect} />
           <section className={panel}>
             <CodeLine label={MODEL_API_COPY.baseUrl} value={base} copyLabel={MODEL_API_COPY.copyBase} what={MODEL_API_COPY.baseUrl} />
+            {lanBases.map((url) => (
+              <CodeLine key={url} label={MODEL_API_COPY.lanBaseUrl} value={url} copyLabel={MODEL_API_COPY.copyLanBase} what={MODEL_API_COPY.lanBaseUrl} />
+            ))}
             <p className={note}>
               {MODEL_API_COPY.baseLede}
+              {lan ? ` ${lanBases.length > 0 ? MODEL_API_COPY.lanBaseLede : MODEL_API_COPY.lanNoAddress}` : ''}
               {state === 'on' ? '' : ` ${MODEL_API_COPY.baseOff}`}
             </p>
             {info ? <Snippet text={info.snippet} /> : null}
@@ -146,6 +156,17 @@ export function ModelApiServicePage() {
                 <Text>{MODEL_API_COPY.copySnippet}</Text>
               </Button>
             </ActionsRow>
+            <SetRow label={MODEL_API_COPY.lanTitle} desc={MODEL_API_COPY.lanDesc}>
+              <Switch
+                size="S"
+                aria-label={MODEL_API_COPY.lanTitle}
+                isSelected={lan}
+                isDisabled={!connected || serviceBusy(state)}
+                onChange={(on) =>
+                  void configure({ serviceId: 'model-api', lan: on }, state === 'on' ? (on ? MODEL_API_COPY.lanOn : MODEL_API_COPY.lanOff) : undefined)
+                }
+              />
+            </SetRow>
             <SetRow label={MODEL_API_COPY.needKey} desc={COMMON_COPY.needTokenDesc} dim>
               <Switch size="S" aria-label={MODEL_API_COPY.needKey} isSelected isDisabled />
             </SetRow>

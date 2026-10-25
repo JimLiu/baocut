@@ -121,8 +121,17 @@ export const mcpPtBR: McpMessages = {
 };
 
 export const modelApiPtBR: ModelApiMessages = {
+  lanTitle: 'Permitir acesso pela rede local',
+  lanDesc: 'Dispositivos na mesma rede local ou VPN podem chamar a API com o próprio token; endereços públicos são sempre recusados. As solicitações usam HTTP sem criptografia, então ative só em redes confiáveis. Os serviços MCP e Web continuam só neste computador.',
+  lanOn: 'Acesso pela rede local permitido. A API de modelos reiniciou e está escutando na sua rede.',
+  lanOff: 'De volta a só este computador. As conexões da rede local foram encerradas.',
+  lanBaseUrl: 'Rede local',
+  copyLanBase: 'Copiar endereço da rede local',
+  lanBaseLede: 'Outros dispositivos da sua rede usam um endereço da rede local; apps neste computador continuam usando 127.0.0.1. Na primeira vez, o sistema pode perguntar se permite conexões de entrada.',
+  lanNoAddress: 'Este computador não tem endereço de rede local agora. Conecte-se a uma rede e ele aparece aqui.',
+  scopeLan: 'Rede local',
   title: "API de modelos",
-  lede: "Ferramentas OpenAI API (SDKs, CLI, aplicativos) usam modelos BaoCut para transcrever, sintetizar, gerar imagens e texto. Escuta só local. Só modelos locais por padrão; nuvem, nós e agentes ativados separadamente.",
+  lede: "Ferramentas OpenAI API (SDKs, CLI, aplicativos) usam modelos BaoCut para transcrever, sintetizar, gerar imagens e texto. Escuta só local, a menos que você permita acesso pela rede local. Só modelos locais por padrão; nuvem, nós e agentes ativados separadamente.",
   on: "API de modelos em execução",
   off: "API de modelos não iniciada",
   error: "API de modelos falhou ao iniciar",

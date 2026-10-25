@@ -28,7 +28,7 @@ import { readJson, writeJsonAtomic } from '@baocut/runtime-storage';
  * 对外服务的配置（架构设计 §4.8）：`store/services.json`，权限 0600，原子写。Runtime 启动时读入，服务按 `autostart` 恢复。
  *
  * - 每个服务：是否随 Runtime 启动、端口、访问策略、已发放的客户端。节点服务的配置在 `node-share.json`，不在这里。
- * - 模型接口服务另有路由开关、别名表与每客户端的并发上限（`modelApi`）；没有存过时由服务取默认值。
+ * - 模型接口服务另有路由开关、别名表、每客户端的并发上限与局域网访问开关（`modelApi`）；没有存过时由服务取默认值。
  * - 客户端令牌是 `<clientId>.<secret>`，`secret` 是 32 字节随机数的 base64url；只保存盐与 `sha256(盐 ‖ secret)`，
  *   比较用 `crypto.timingSafeEqual`。明文只在发放时返回一次。
  */
@@ -46,6 +46,8 @@ export interface ModelApiConfig {
   routing: ModelApiRouting;
   aliases: ModelApiAlias[];
   maxConcurrentPerClient: number;
+  /** 允许局域网访问（监听 `0.0.0.0`）；旧文件没有这个字段，按关处理。 */
+  lan?: boolean;
 }
 
 export interface ServiceConfig {
@@ -100,6 +102,7 @@ const configSchema = z.object({
         }),
       ),
       maxConcurrentPerClient: z.number().int().min(1).max(MODEL_API_MAX_CONCURRENT_LIMIT),
+      lan: z.boolean().optional(),
     })
     .optional(),
   web: z

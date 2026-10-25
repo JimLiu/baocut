@@ -27,6 +27,7 @@ const en = {
   cannotListen: (p: { port: number; reason: string }) => `Can't listen on port ${p.port}: ${p.reason}`,
   configFileInvalid: (p: { file: string }) => `The services config file is malformed: ${p.file}`,
   routingOnlyForModelApi: 'routing and maxConcurrentPerClient only apply to the model API service (model-api)',
+  lanOnlyForModelApi: 'lan only applies to the model API service (model-api)',
   tokenPlaceholder: (p: { client: string }) => `<token for ${p.client}>`,
   tokenPlaceholderGeneric: '<token>',
   mcpNotRunning: "The MCP service is off: start it first (baocut services start mcp), or clients can't connect.",

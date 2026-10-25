@@ -2,6 +2,10 @@ import { MCP_DEFAULT_PORT, MODEL_API_DEFAULT_PORT, WEB_DEFAULT_PORT } from '@bao
 import type { ServicesMessages } from './services-copy.ts';
 
 export const ja: ServicesMessages = {
+  lanOnlyModelApi: '--lan は model-api にのみ使えます',
+  lanOn: (urls: readonly string[]) => `  LAN アクセス：オン  ${urls.join(', ')}`,
+  lanOff: '  LAN アクセス：オフ（このコンピュータのみ）',
+  lanNoAddress: '  LAN アクセス：オン（ただし現在このコンピュータに LAN アドレスがありません）',
 
   accessLinkVideo: (video) => `サインイン後、動画 ${video} のエディタが直接開きます`,
   help: `使い方：
@@ -22,6 +26,7 @@ export const ja: ServicesMessages = {
     --route-nodes on|off           モデル API サービス：ペアリング済みの LAN ノードに転送（既定は off）
     --route-agent on|off           モデル API サービス：Agent のプロバイダに転送（既定は off）
     --max-concurrent <n>           モデル API サービス：クライアントごとの同時処理リクエスト数（既定は 4）。上限を超えると 429
+    --lan on|off                   モデル API サービス：LAN でも待ち受ける（プライベートアドレスのみ受け付け、トークンは引き続き必須。既定はオフ）
     --read-only on|off             web のみ：ブラウザは表示だけで、編集、メッセージ送信、タスクの送信はできません
     --methods default|<method,…>   web のみ：許可するメソッドのリスト（メソッド名または <namespace>.*）。既定のセットより
                                    狭めることだけができます
@@ -60,7 +65,7 @@ export const ja: ServicesMessages = {
   usage:
     '使い方：baocut services [status | start <service> | stop <service>\n' +
     '        | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
-    '                     [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
+    '                     [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n' +
     '                     [--read-only on|off] [--methods default|<method,…>]\n' +
     '        | mcp|model-api add-client <name> | mcp|model-api clients | mcp|model-api revoke <clientId>\n' +
     '        | mcp|model-api connection [clientId]\n' +

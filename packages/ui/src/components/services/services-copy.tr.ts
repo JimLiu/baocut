@@ -112,8 +112,17 @@ export const mcpTr: McpMessages = {
 };
 
 export const modelApiTr: ModelApiMessages = {
+  lanTitle: 'Yerel ağ erişimine izin ver',
+  lanDesc: 'Aynı yerel ağdaki veya VPN’deki cihazlar API’yi kendi belirteçleriyle çağırabilir; genel adresler her zaman reddedilir. İstekler şifresiz HTTP ile gider, bu yüzden yalnızca güvendiğiniz ağlarda açın. MCP ve Web hizmetleri yalnızca bu bilgisayarda kalır.',
+  lanOn: 'Yerel ağ erişimine izin verildi. Model API yeniden başladı ve ağda dinliyor.',
+  lanOff: 'Yeniden yalnızca bu bilgisayar. Yerel ağ bağlantıları kapatıldı.',
+  lanBaseUrl: 'Yerel ağ',
+  copyLanBase: 'Yerel ağ adresini kopyala',
+  lanBaseLede: 'Ağdaki diğer cihazlar yerel ağ adresini kullanır; bu bilgisayardaki uygulamalar 127.0.0.1 kullanmaya devam eder. İlk seferde sistem gelen bağlantılara izin verilip verilmeyeceğini sorabilir.',
+  lanNoAddress: 'Bu bilgisayarın şu anda yerel ağ adresi yok. Bir ağa bağlanınca burada görünür.',
+  scopeLan: 'Yerel ağ',
   title: "Model API",
-  lede: "OpenAI API kullanan araçlar (SDK, komut satırı, diğer uygulamalar) BaoCut modelleriyle yazıya döksün, konuşma sentezlesin, görsel ve metin oluştursun. Yalnızca bu bilgisayarda dinler. Varsayılan yalnızca yerel modellerdir; bulut, LAN düğümleri ve ajanlar ayrı açılmalıdır.",
+  lede: "OpenAI API kullanan araçlar (SDK, komut satırı, diğer uygulamalar) BaoCut modelleriyle yazıya döksün, konuşma sentezlesin, görsel ve metin oluştursun. Yerel ağ erişimine izin vermedikçe yalnızca bu bilgisayarda dinler. Varsayılan yalnızca yerel modellerdir; bulut, LAN düğümleri ve ajanlar ayrı açılmalıdır.",
   on: "Model API çalışıyor",
   off: "Model API başlatılmadı",
   error: "Model API başlatılamadı",

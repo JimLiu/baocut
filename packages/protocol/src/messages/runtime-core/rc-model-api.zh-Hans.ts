@@ -1,6 +1,8 @@
 import type { RcModelApiMessages } from './rc-model-api.ts';
 
 export const zhHans: RcModelApiMessages = {
+  sourceNotAllowed: '只接受本机或局域网私有地址发来的请求',
+  hostNameNotAllowed: 'Host 必须是 IP 地址，不接受主机名',
   serviceLabel: '模型接口服务',
   notRunning: '模型接口服务现在没有开着：先开启（baocut services start model-api），否则连不上。',
   aliasNotFound: (p: { alias: string }) => `没有别名「${p.alias}」`,

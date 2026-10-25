@@ -112,8 +112,17 @@ export const mcpVi: McpMessages = {
 };
 
 export const modelApiVi: ModelApiMessages = {
+  lanTitle: 'Cho phép truy cập qua mạng LAN',
+  lanDesc: 'Thiết bị trong cùng mạng LAN hoặc VPN có thể gọi API bằng token riêng; địa chỉ công khai luôn bị từ chối. Yêu cầu đi qua HTTP không mã hóa, nên chỉ bật trên mạng bạn tin cậy. Dịch vụ MCP và Web vẫn chỉ ở máy này.',
+  lanOn: 'Đã cho phép truy cập qua mạng LAN. API mô hình đã khởi động lại và lắng nghe trên mạng.',
+  lanOff: 'Đã trở lại chỉ máy này. Các kết nối qua mạng LAN đã đóng.',
+  lanBaseUrl: 'LAN',
+  copyLanBase: 'Sao chép địa chỉ LAN',
+  lanBaseLede: 'Thiết bị khác trong mạng dùng địa chỉ LAN; ứng dụng trên máy này vẫn dùng 127.0.0.1. Lần đầu, hệ thống có thể hỏi có cho phép kết nối đến không.',
+  lanNoAddress: 'Máy này hiện chưa có địa chỉ LAN. Kết nối mạng thì địa chỉ sẽ hiện ở đây.',
+  scopeLan: 'Mạng LAN',
   title: "API mô hình",
-  lede: "Cho công cụ dùng OpenAI API (SDK, dòng lệnh, ứng dụng khác) dùng mô hình BaoCut để chép lời, tổng hợp giọng, tạo hình, văn bản. Chỉ lắng nghe máy này. Mặc định chỉ mô hình máy này; đám mây, nút LAN, Agent phải bật riêng.",
+  lede: "Cho công cụ dùng OpenAI API (SDK, dòng lệnh, ứng dụng khác) dùng mô hình BaoCut để chép lời, tổng hợp giọng, tạo hình, văn bản. Chỉ lắng nghe máy này, trừ khi cho phép truy cập qua mạng LAN. Mặc định chỉ mô hình máy này; đám mây, nút LAN, Agent phải bật riêng.",
   on: "API mô hình đang chạy",
   off: "API mô hình chưa chạy",
   error: "API mô hình khởi chạy thất bại",

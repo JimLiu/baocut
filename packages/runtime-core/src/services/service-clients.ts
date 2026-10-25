@@ -65,13 +65,16 @@ export class ServiceClients {
   }
 }
 
-/** 在回环地址上开始监听，返回实际端口。失败时抛出给用户看的原因（端口被占用之类）。 */
-export async function listenLoopback(server: Server, port: number): Promise<number> {
+/**
+ * 开始监听，返回实际端口。默认只在回环地址上；只有模型接口服务开了局域网访问时传 `0.0.0.0`（§12.8）。
+ * 失败时抛出给用户看的原因（端口被占用之类）。
+ */
+export async function listenLoopback(server: Server, port: number, host: string = LOOPBACK_HOST): Promise<number> {
   await new Promise<void>((resolve, reject) => {
     server.once('error', (error: NodeJS.ErrnoException) => {
       reject(listenError(port, error));
     });
-    server.listen(port, LOOPBACK_HOST, () => resolve());
+    server.listen(port, host, () => resolve());
   });
   return (server.address() as AddressInfo).port;
 }

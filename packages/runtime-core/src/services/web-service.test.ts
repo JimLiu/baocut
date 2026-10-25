@@ -680,6 +680,12 @@ describe('Web 服务', () => {
     ).toMatchObject({
       code: 'invalid-request',
     });
+    // 局域网访问只属于模型接口服务（§12.8）：Web 服务仍然只在回环上。
+    expect(
+      details(await desktop.request('services.configure', { serviceId: 'web', lan: true }).catch((e: unknown) => e)),
+    ).toMatchObject({
+      code: 'invalid-request',
+    });
 
     // 收紧：已有连接断开，重新连上后按新的白名单。
     const narrowed = await desktop.request('services.configure', {

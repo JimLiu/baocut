@@ -1,4 +1,5 @@
 import {
+  MODEL_API_DEFAULT_PORT,
   ONLINE_CAPABILITIES,
   SERVICE_IDS,
   SERVICE_LEVELS,
@@ -49,6 +50,7 @@ export interface ServicesFlags {
   routeNodes?: string | undefined;
   routeAgent?: string | undefined;
   maxConcurrent?: string | undefined;
+  lan?: string | undefined;
   readOnly?: string | undefined;
   methods?: string | undefined;
 }
@@ -158,6 +160,10 @@ function parseConfigure(serviceId: ServiceId, flags: ServicesFlags): ServiceConf
   if ((params.routing || params.maxConcurrentPerClient !== undefined) && serviceId !== 'model-api') {
     throw new Error(M.routingOnlyModelApi);
   }
+  if (flags.lan !== undefined) {
+    if (serviceId !== 'model-api') throw new Error(M.lanOnlyModelApi);
+    params.lan = onOff('--lan', flags.lan);
+  }
   if (flags.readOnly !== undefined) {
     if (flags.readOnly !== 'on' && flags.readOnly !== 'off') throw new Error(M.onOff('--read-only'));
     params.readOnly = flags.readOnly === 'on';
@@ -210,6 +216,12 @@ export function formatService(service: ServiceStatus): string[] {
     ];
     lines.push(M.routing(routes, maxConcurrentPerClient));
     lines.push(M.aliases(aliases.map(formatAliasTarget)));
+    const { lan, lanAddresses } = service.modelApi;
+    const port = service.port ?? MODEL_API_DEFAULT_PORT;
+    // 局域网里的设备用这些地址连；这台电脑上的程序仍用首行的回环地址。
+    if (!lan) lines.push(M.lanOff);
+    else if (lanAddresses.length === 0) lines.push(M.lanNoAddress);
+    else lines.push(M.lanOn(lanAddresses.map((a) => `http://${a.includes(':') ? `[${a}]` : a}:${port}/v1`)));
   }
   if (service.serviceId === 'mcp' || service.serviceId === 'model-api') lines.push(M.clientCount(service.clients.length));
   if (service.web) {

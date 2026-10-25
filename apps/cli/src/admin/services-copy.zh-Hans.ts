@@ -2,6 +2,10 @@ import { MCP_DEFAULT_PORT, MODEL_API_DEFAULT_PORT, WEB_DEFAULT_PORT } from '@bao
 import type { ServicesMessages } from './services-copy.ts';
 
 export const zhHans: ServicesMessages = {
+  lanOnlyModelApi: '--lan 只适用于 model-api',
+  lanOn: (urls: readonly string[]) => `  局域网访问：开  ${urls.join(', ')}`,
+  lanOff: '  局域网访问：关（只在本机）',
+  lanNoAddress: '  局域网访问：开，但这台电脑现在没有局域网地址',
   accessLinkVideo: (video) => `登录后直接打开视频 ${video} 的编辑器`,
 
   help: `用法：
@@ -18,6 +22,7 @@ export const zhHans: ServicesMessages = {
     --route-nodes on|off           模型接口服务：转给已配对的局域网节点（默认 off）
     --route-agent on|off           模型接口服务：转给智能体 Provider（默认 off）
     --max-concurrent <n>           模型接口服务：每个客户端同时在途的请求数（默认 4），超出的回答 429
+    --lan on|off                   模型接口服务：也监听局域网（只收私有网段的来源，仍要令牌；默认关）
     --read-only on|off             只用于 web：浏览器只能查看，不能编辑、发消息或提交任务
     --methods default|<方法,…>     只用于 web：方法白名单（方法名或 <命名空间>.*），只能在默认集合之内收紧
   baocut services mcp add-client <名字>
@@ -50,7 +55,7 @@ export const zhHans: ServicesMessages = {
   usage:
     '用法：baocut services [status | start <服务> | stop <服务>\n' +
     '       | configure <服务> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
-    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
+    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n' +
     '                    [--read-only on|off] [--methods default|<方法,…>]\n' +
     '       | mcp|model-api add-client <名字> | mcp|model-api clients | mcp|model-api revoke <clientId>\n' +
     '       | mcp|model-api connection [clientId]\n' +

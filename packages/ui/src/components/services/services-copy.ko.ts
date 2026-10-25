@@ -119,8 +119,17 @@ export const mcpKo: McpMessages = {
 };
 
 export const modelApiKo: ModelApiMessages = {
+  lanTitle: 'LAN 접근 허용',
+  lanDesc: '같은 LAN이나 VPN에 있는 기기도 각자의 토큰으로 API를 호출할 수 있습니다. 공인 주소는 항상 거부합니다. 요청은 암호화되지 않은 HTTP로 오가므로 신뢰하는 네트워크에서만 켜세요. MCP 서비스와 Web 서비스는 계속 이 컴퓨터에서만 열립니다.',
+  lanOn: 'LAN 접근을 허용했습니다. 모델 API가 네트워크에서 다시 수신 대기합니다',
+  lanOff: '이 컴퓨터 전용으로 되돌렸습니다. LAN 연결은 끊겼습니다',
+  lanBaseUrl: 'LAN',
+  copyLanBase: 'LAN 주소 복사',
+  lanBaseLede: '네트워크의 다른 기기는 LAN 주소를, 이 컴퓨터의 앱은 계속 127.0.0.1을 씁니다. 처음에는 시스템이 들어오는 연결을 허용할지 물을 수 있습니다.',
+  lanNoAddress: '이 컴퓨터에는 지금 LAN 주소가 없습니다. 네트워크에 연결하면 여기에 표시됩니다.',
+  scopeLan: '로컬 네트워크',
   title: '모델 API',
-  lede: 'OpenAI API를 쓰는 도구(SDK, 명령줄 도구, 다른 앱)가 BaoCut에서 쓸 수 있는 모델로 전사, 음성 합성, 이미지 생성, 텍스트 생성을 하게 합니다. 이 컴퓨터에서만 수신 대기합니다. 기본으로 이 컴퓨터의 모델만 쓰며, 클라우드, LAN 노드, Agent는 각각 켜야 합니다.',
+  lede: 'OpenAI API를 쓰는 도구(SDK, 명령줄 도구, 다른 앱)가 BaoCut에서 쓸 수 있는 모델로 전사, 음성 합성, 이미지 생성, 텍스트 생성을 하게 합니다. LAN 접근을 허용하지 않으면 이 컴퓨터에서만 수신 대기합니다. 기본으로 이 컴퓨터의 모델만 쓰며, 클라우드, LAN 노드, Agent는 각각 켜야 합니다.',
   on: '모델 API 실행 중',
   off: '모델 API 시작 안 됨',
   error: '모델 API를 시작하지 못했습니다',

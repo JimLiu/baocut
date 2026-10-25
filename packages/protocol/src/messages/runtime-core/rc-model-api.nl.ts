@@ -2,6 +2,8 @@ import { pluralForm } from '../../i18n.ts';
 import type { RcModelApiMessages } from './rc-model-api.ts';
 
 export const nl: RcModelApiMessages = {
+  sourceNotAllowed: 'Alleen verzoeken van deze computer of van privénetwerkadressen worden geaccepteerd',
+  hostNameNotAllowed: 'Host moet een IP-adres zijn: hostnamen worden niet geaccepteerd',
   serviceLabel: "Model-API-dienst",
   notRunning: "De model-API-dienst staat uit: start die eerst (baocut services start model-api), anders kunnen clients niet verbinden.",
   aliasNotFound: (p: { alias: string }) => `Geen alias ‘${p.alias}’`,

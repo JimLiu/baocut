@@ -1628,6 +1628,7 @@ export const methodParamSchemas = {
         .strict()
         .optional(),
       maxConcurrentPerClient: z.number().int().min(1).max(MODEL_API_MAX_CONCURRENT_LIMIT).optional(),
+      lan: z.boolean().optional(),
       readOnly: z.boolean().optional(),
       methods: z.array(z.string().max(100).regex(WEB_METHOD_PATTERN)).max(200).nullable().optional(),
     })

@@ -142,8 +142,17 @@ const mcpEn = {
 };
 
 const modelApiEn = {
+  lanTitle: 'Allow LAN access',
+  lanDesc: 'Devices on the same local network or VPN can call the API with their own token; public addresses are always refused. Requests use plain HTTP, so turn this on only on networks you trust. The MCP and Web services stay on this computer.',
+  lanOn: 'LAN access allowed. The model API restarted and is listening on your network.',
+  lanOff: 'Back to this computer only. LAN connections were closed.',
+  lanBaseUrl: 'LAN',
+  copyLanBase: 'Copy LAN address',
+  lanBaseLede: 'Other devices on your network use a LAN address; apps on this computer keep using 127.0.0.1. The first time, your system may ask whether to allow incoming connections.',
+  lanNoAddress: 'This computer has no LAN address right now. Connect to a network and it appears here.',
+  scopeLan: 'Local network',
   title: 'Model API',
-  lede: 'Let tools that speak the OpenAI API (SDKs, command-line tools, other apps) use the models BaoCut can use to transcribe, synthesize speech, generate images, and generate text. Listens on this computer only. By default only models on this computer are used; cloud, LAN nodes, and agents each need to be turned on.',
+  lede: 'Let tools that speak the OpenAI API (SDKs, command-line tools, other apps) use the models BaoCut can use to transcribe, synthesize speech, generate images, and generate text. Listens on this computer only unless you allow LAN access. By default only models on this computer are used; cloud, LAN nodes, and agents each need to be turned on.',
   on: 'Model API running',
   off: 'Model API not started',
   error: 'Model API failed to start',

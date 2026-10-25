@@ -1,6 +1,7 @@
 import type { RcServicesMessages } from './rc-services.ts';
 
 export const zhHans: RcServicesMessages = {
+  lanOnlyForModelApi: 'lan 只适用于模型接口服务（model-api）',
   mcpServiceLabel: 'MCP 服务',
   nodeServiceLabel: '局域网节点',
   serviceNotAvailable: (p: { serviceId: string }) => `这个版本还没有提供「${p.serviceId}」服务`,

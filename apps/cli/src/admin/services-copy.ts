@@ -25,6 +25,10 @@ const s = (n: number) => (n === 1 ? '' : 's');
 
 /** `baocut services` 与 `baocut web` 的文案（英文是键与类型的来源，译文在 `services-copy.<语言>.ts`）。 */
 const en = {
+  lanOnlyModelApi: '--lan only applies to model-api',
+  lanOn: (urls: readonly string[]) => `  LAN access: on  ${urls.join(', ')}`,
+  lanOff: '  LAN access: off (this computer only)',
+  lanNoAddress: '  LAN access: on, but this computer has no LAN address right now',
   accessLinkVideo: (video: string) => `After signing in, the editor for video ${video} opens directly`,
 
   /** `baocut services --help` 与 `baocut help services` 的正文。 */
@@ -46,6 +50,7 @@ const en = {
     --route-nodes on|off           Model API service: forward to paired LAN nodes (default off)
     --route-agent on|off           Model API service: forward to agent providers (default off)
     --max-concurrent <n>           Model API service: in-flight requests per client (default 4); requests over the limit get 429
+    --lan on|off                   Model API service: also listen on the LAN (private addresses only, token still required; default off)
     --read-only on|off             web only: the browser can only view, not edit, send messages, or submit tasks
     --methods default|<method,…>   web only: method allowlist (method names or <namespace>.*), can only narrow the default set
   baocut services mcp add-client <name>
@@ -84,7 +89,7 @@ const en = {
   usage:
     'Usage: baocut services [status | start <service> | stop <service>\n' +
     '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
-    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
+    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n' +
     '                    [--read-only on|off] [--methods default|<method,…>]\n' +
     '       | mcp|model-api add-client <name> | mcp|model-api clients | mcp|model-api revoke <clientId>\n' +
     '       | mcp|model-api connection [clientId]\n' +

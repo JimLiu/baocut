@@ -2,6 +2,10 @@ import { MCP_DEFAULT_PORT, MODEL_API_DEFAULT_PORT, WEB_DEFAULT_PORT } from '@bao
 import type { ServicesMessages } from './services-copy.ts';
 
 export const ko: ServicesMessages = {
+  lanOnlyModelApi: '--lan은 model-api에만 적용됩니다',
+  lanOn: (urls: readonly string[]) => `  LAN 접근: 켬  ${urls.join(', ')}`,
+  lanOff: '  LAN 접근: 끔(이 컴퓨터만)',
+  lanNoAddress: '  LAN 접근: 켬(지금은 이 컴퓨터에 LAN 주소가 없음)',
 
   accessLinkVideo: (video) => `로그인하면 영상 ${video}의 편집기가 바로 열립니다`,
   help: `사용법:
@@ -22,6 +26,7 @@ export const ko: ServicesMessages = {
     --route-nodes on|off           모델 API 서비스: 페어링된 LAN 노드로 전달합니다(기본값 off)
     --route-agent on|off           모델 API 서비스: Agent 공급자로 전달합니다(기본값 off)
     --max-concurrent <n>           모델 API 서비스: 클라이언트별 동시 처리 요청 수(기본값 4). 초과한 요청은 429를 받습니다
+    --lan on|off                   모델 API 서비스: LAN에서도 수신 대기(사설 주소만 허용, 토큰은 계속 필요, 기본값 끔)
     --read-only on|off             web 전용: 브라우저에서 보기만 가능하고 편집, 메시지 전송, 작업 제출은 불가
     --methods default|<메서드,…>   web 전용: 메서드 허용 목록(메서드 이름 또는 <네임스페이스>.*). 기본 집합 안에서만 좁힐 수 있음
   baocut services mcp add-client <이름>
@@ -59,7 +64,7 @@ export const ko: ServicesMessages = {
   usage:
     '사용법: baocut services [status | start <서비스> | stop <서비스>\n' +
     '       | configure <서비스> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
-    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
+    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n' +
     '                    [--read-only on|off] [--methods default|<메서드,…>]\n' +
     '       | mcp|model-api add-client <이름> | mcp|model-api clients | mcp|model-api revoke <clientId>\n' +
     '       | mcp|model-api connection [clientId]\n' +

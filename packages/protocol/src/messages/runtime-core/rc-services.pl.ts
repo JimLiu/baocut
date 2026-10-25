@@ -1,6 +1,7 @@
 import type { RcServicesMessages } from './rc-services.ts';
 
 export const pl: RcServicesMessages = {
+  lanOnlyForModelApi: 'lan dotyczy tylko usługi API modeli (model-api)',
   mcpServiceLabel: "Usługa MCP",
   nodeServiceLabel: "Węzeł sieci lokalnej",
   serviceNotAvailable: (p: { serviceId: string }) => `Ta wersja nie udostępnia jeszcze usługi „${p.serviceId}”`,

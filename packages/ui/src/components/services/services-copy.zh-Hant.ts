@@ -115,8 +115,17 @@ export const mcpZhHant: McpMessages = {
 };
 
 export const modelApiZhHant: ModelApiMessages = {
+  lanTitle: '允許區域網路存取',
+  lanDesc: '開啟後，同一區域網路或 VPN 裡的裝置也能用各自的權杖呼叫，公網位址一律拒絕。請求走明文 HTTP，只在信任的網路裡開啟。MCP 服務與 Web 服務仍只在本機。',
+  lanOn: '已允許區域網路存取，模型介面已重新監聽',
+  lanOff: '已改回只在本機存取，區域網路裡的連線已中斷',
+  lanBaseUrl: '區域網路',
+  copyLanBase: '複製區域網路位址',
+  lanBaseLede: '區域網路裡的其他裝置用「區域網路」那一行；這台電腦上的程式仍用 127.0.0.1。第一次開啟時，系統可能會詢問是否允許傳入連線。',
+  lanNoAddress: '這台電腦目前沒有區域網路位址，連上網路後會顯示在這裡。',
+  scopeLan: '區域網路',
   title: '模型 API',
-  lede: '讓支援 OpenAI API 的工具（SDK、命令列工具、其他應用程式）使用 BaoCut 可用的模型來轉錄、合成語音、生成圖片與生成文字。只在這台電腦上監聽。預設只使用這台電腦上的模型；雲端、區域網路節點與 Agent 需要分別開啟。',
+  lede: '讓支援 OpenAI API 的工具（SDK、命令列工具、其他應用程式）使用 BaoCut 可用的模型來轉錄、合成語音、生成圖片與生成文字。預設只在這台電腦上監聽，可以開放到區域網路。預設只使用這台電腦上的模型；雲端、區域網路節點與 Agent 需要分別開啟。',
   on: '模型 API 執行中',
   off: '模型 API 未啟動',
   error: '模型 API 無法啟動',

@@ -10,9 +10,11 @@ import { FAKE_MODEL_WORKER } from '@baocut/jobs';
 import { BUNDLES, DEFAULT_TRANSCRIBE_BUNDLE, MANIFEST_FILE } from '@baocut/models';
 import { chatCompletionReply, fakeOpenAiHandler, startFakeProviderServer, type FakeProviderServer } from '@baocut/providers/testing';
 import { MODEL_API_INTERFACE_VERSION, type ServicesSnapshot } from '@baocut/protocol';
+import { lanAddresses, sourceAllowed } from '@baocut/nodes';
 import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { startRuntime, type RunningRuntime } from '../runtime.ts';
 import { imageRequest } from './model-api-openai.ts';
+import { ipLiteralHost } from './model-api-service.ts';
 
 /**
  * 模型接口服务（架构设计 §4.8、§12.8）：OpenAI 形状的本机端点。临时的 Runtime Home、系统挑的端口、假的 OpenAI
@@ -172,6 +174,17 @@ describe('imageRequest', () => {
   });
 });
 
+describe('ipLiteralHost', () => {
+  it('IP 字面量（可带端口，IPv6 带方括号）可以，主机名与写法不对的不行', () => {
+    for (const host of ['192.168.1.23', '192.168.1.23:47621', '10.0.0.5:1', '[fe80::1]:47621', '[::1]']) {
+      expect(ipLiteralHost(host), host).toBe(true);
+    }
+    for (const host of [undefined, '', 'evil.example', 'evil.example:47621', '192.168.1.23.nip.io', 'fe80::1', '[evil]:1', '192.168.1.23:abc']) {
+      expect(ipLiteralHost(host), String(host)).toBe(false);
+    }
+  });
+});
+
 describe('模型接口服务', () => {
   let dir: string;
   let fixtures: string;
@@ -308,6 +321,61 @@ describe('模型接口服务', () => {
     const status = services.find((s) => s.serviceId === 'model-api')!;
     expect(status.recentRequests.map((r) => r.outcome)).toContain('ok');
     expect(JSON.stringify(status)).not.toContain(secret);
+  });
+
+  it('局域网访问（§12.8）：默认关；打开后重启在 0.0.0.0 上，Host 可以是 IP、不能是主机名，来源只收私有网段；只适用于模型接口服务', async () => {
+    const { token } = await issue();
+    const before = (await client.request('services.list', {})).services.find((s) => s.serviceId === 'model-api')!;
+    expect(before.modelApi).toMatchObject({ lan: false, lanAddresses: [] });
+    // 只监听回环时，IP 形式的 Host 仍然拒绝。
+    expect((await send(base, '/v1/models', { token, headers: { Host: `192.168.1.23:${new URL(base).port}` } })).json.error.code).toBe(
+      'HOST_NOT_ALLOWED',
+    );
+
+    const { service } = await client.request('services.configure', { serviceId: 'model-api', lan: true });
+    expect(service.state).toBe('on');
+    expect(service.modelApi).toMatchObject({ lan: true });
+    expect(service.modelApi!.lanAddresses).toEqual(lanAddresses());
+    // 连接信息与本机的基址仍然是回环地址。
+    expect(service.endpoint).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/v1$/);
+    const lanBase = service.endpoint!.replace(/\/v1$/, '');
+    const port = new URL(lanBase).port;
+    const stored = JSON.parse(await fs.readFile(home.servicesFile, 'utf8'));
+    expect(JSON.stringify(stored)).toContain('"lan":true');
+
+    expect((await send(lanBase, '/v1/models', { token, headers: { Host: `192.168.1.23:${port}` } })).status).toBe(200);
+    expect((await send(lanBase, '/v1/models', { token, headers: { Host: `[fe80::1]:${port}` } })).status).toBe(200);
+    expect((await send(lanBase, '/v1/models', { token })).status).toBe(200);
+    const named = await send(lanBase, '/v1/models', { token, headers: { Host: `my-mac.local:${port}` } });
+    expect(named.status).toBe(403);
+    expect(named.json.error.code).toBe('HOST_NOT_ALLOWED');
+    // 令牌与 Origin 的规则不变。
+    expect((await send(lanBase, '/v1/models', { headers: { Host: `192.168.1.23:${port}` } })).status).toBe(401);
+    expect((await send(lanBase, '/v1/models', { token, headers: { Origin: 'http://192.168.1.50' } })).json.error.code).toBe(
+      'ORIGIN_NOT_ALLOWED',
+    );
+    // 真的监听在网卡上：从本机的局域网地址连进来，来源就是那个地址——私有网段放行，其他 403 SOURCE_NOT_ALLOWED。
+    for (const address of lanAddresses()) {
+      const reply = await send(`http://${address}:${port}`, '/v1/models', { token });
+      if (sourceAllowed(address)) expect(reply.status, address).toBe(200);
+      else expect(reply.json.error.code, address).toBe('SOURCE_NOT_ALLOWED');
+    }
+
+    // MCP 服务不能开局域网访问。
+    const refused = await client.request('services.configure', { serviceId: 'mcp', lan: true }).catch((e: unknown) => e);
+    expect(refused).toMatchObject({ code: 'invalid-request' });
+
+    // 关掉：重启回到回环，IP 形式的 Host 又被拒绝。
+    const { service: off } = await client.request('services.configure', { serviceId: 'model-api', lan: false });
+    expect(off.modelApi).toMatchObject({ lan: false, lanAddresses: [] });
+    const offBase = off.endpoint!.replace(/\/v1$/, '');
+    const offPort = new URL(offBase).port;
+    expect((await send(offBase, '/v1/models', { token, headers: { Host: `192.168.1.23:${offPort}` } })).json.error.code).toBe(
+      'HOST_NOT_ALLOWED',
+    );
+    for (const address of lanAddresses()) {
+      await expect(send(`http://${address}:${offPort}`, '/v1/models', { token })).rejects.toThrow();
+    }
   });
 
   it('/v1/models 按路由开关：默认只有本机；开启在线路由后列出在线模型，关掉又看不见，按名请求 404 或 503', async () => {

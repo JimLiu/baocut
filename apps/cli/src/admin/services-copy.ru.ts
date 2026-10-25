@@ -2,6 +2,10 @@ import { MCP_DEFAULT_PORT, MODEL_API_DEFAULT_PORT, WEB_DEFAULT_PORT } from '@bao
 import type { ServicesMessages } from './services-copy.ts';
 
 export const ru: ServicesMessages = {
+  lanOnlyModelApi: '--lan применяется только к model-api',
+  lanOn: (urls: readonly string[]) => `  Доступ из локальной сети: вкл.  ${urls.join(', ')}`,
+  lanOff: '  Доступ из локальной сети: выкл. (только этот компьютер)',
+  lanNoAddress: '  Доступ из локальной сети: вкл., но сейчас у этого компьютера нет адреса в локальной сети',
   accessLinkVideo: (video) => `После входа сразу откроется редактор видео ${video}`,
 
   help: `Использование:
@@ -22,6 +26,7 @@ export const ru: ServicesMessages = {
     --route-nodes on|off           API моделей: пересылать сопряжённым узлам (по умолчанию off)
     --route-agent on|off           API моделей: пересылать поставщикам агентов (по умолчанию off)
     --max-concurrent <n>           API моделей: параллельные запросы на клиент (по умолчанию 4); сверх лимита 429
+    --lan on|off                   API моделей: принимать подключения и из локальной сети (только частные адреса, токен по-прежнему нужен; по умолчанию выкл.)
     --read-only on|off             Только web: просмотр без правок, сообщений и задач
     --methods default|<method,…>   Только web: разрешённые методы (имена или <namespace>.*), только сужение стандартного набора
   baocut services mcp add-client <name>
@@ -59,7 +64,7 @@ export const ru: ServicesMessages = {
   usage:
     'Usage: baocut services [status | start <service> | stop <service>\n' +
     '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
-    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
+    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n' +
     '                    [--read-only on|off] [--methods default|<method,…>]\n' +
     '       | mcp|model-api add-client <name> | mcp|model-api clients | mcp|model-api revoke <clientId>\n' +
     '       | mcp|model-api connection [clientId]\n' +

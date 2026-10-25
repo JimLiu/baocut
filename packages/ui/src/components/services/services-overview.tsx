@@ -24,11 +24,13 @@ import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { UtilityPage } from '../utility-page.tsx';
 import { FlipButton, lede, ServiceLightDot, ServiceLights, ServiceMark } from './service-card.tsx';
+import { MODEL_API_COPY } from './services-copy.ts';
 import { useFlipService } from './use-service-actions.ts';
 import { useServiceStates } from './use-share-status.ts';
 
 /* 服务总览（原型 designs/baocut/app/page-services.jsx `ServicesOverview` / `ServiceItem`，services.css `.svclist` / `.svcitem`）：
-   一张卡四行（原型三行，加上从 Web 服务页拆出来的模型接口），行内就地起停，点名字进详情。 */
+   一张卡四行（原型三行，加上从 Web 服务页拆出来的模型接口），行内就地起停，点名字进详情。
+   模型接口允许局域网访问时，范围标签改说局域网并用 notice 色（原型 `scopeOf`）。 */
 
 const actions = style({ display: 'flex', alignItems: 'center', gap: 12 });
 const list = style({
@@ -140,6 +142,7 @@ function ServiceItem({ id, state }: { id: ServiceId; state: ServiceState }) {
   const flip = useFlipService(id);
   const detail = useItemDetail(id, state);
   const copy = SERVICE_COPY[id];
+  const lan = useServices((s) => id === 'model-api' && findService(s.services, id)?.modelApi?.lan === true);
   const open = () => go({ tab: 'services', service: id });
   return (
     <div className={item}>
@@ -150,8 +153,8 @@ function ServiceItem({ id, state }: { id: ServiceId; state: ServiceState }) {
             <span className={itemTxt}>
               <span className={itemName}>
                 <span className={itemNameText({ isHovered })}>{copy.name}</span>
-                <Badge size="S" fillStyle="subtle" variant="neutral">
-                  {copy.scope}
+                <Badge size="S" fillStyle="subtle" variant={lan ? 'notice' : 'neutral'}>
+                  {lan ? MODEL_API_COPY.scopeLan : copy.scope}
                 </Badge>
               </span>
               <span className={itemState}>

@@ -1,6 +1,10 @@
 import { MCP_DEFAULT_PORT, MODEL_API_DEFAULT_PORT, WEB_DEFAULT_PORT, pluralForm } from '@baocut/protocol';
 import type { ServicesMessages } from './services-copy.ts';
 export const it: ServicesMessages = {
+  lanOnlyModelApi: '--lan si applica solo a model-api',
+  lanOn: (urls: readonly string[]) => `  Accesso dalla rete locale: attivo  ${urls.join(', ')}`,
+  lanOff: '  Accesso dalla rete locale: disattivato (solo questo computer)',
+  lanNoAddress: '  Accesso dalla rete locale: attivo, ma questo computer al momento non ha un indirizzo di rete locale',
  accessLinkVideo: (video) => `Dopo l’accesso si apre direttamente l’editor del video ${video}`,
  help: `Uso:
   baocut services [status]         Servizi esterni: stato, indirizzo, livello e ambito del
@@ -20,6 +24,7 @@ export const it: ServicesMessages = {
     --route-nodes on|off           API dei modelli: inoltra a nodi LAN abbinati (disattivato per default)
     --route-agent on|off           API dei modelli: inoltra a provider di agenti (disattivato per default)
     --max-concurrent <n>           API dei modelli: richieste contemporanee per client (default 4); oltre il limite restituisce 429
+    --lan on|off                   API dei modelli: ascolta anche sulla rete locale (solo indirizzi privati, token sempre richiesto; default disattivato)
     --read-only on|off             Solo web: il browser può solo vedere, non modificare, inviare messaggi o attività
     --methods default|<method,…>   Solo web: metodi consentiti (nomi o <namespace>.*), solo riduzione dell’insieme predefinito
   baocut services mcp add-client <name>
@@ -56,7 +61,7 @@ export const it: ServicesMessages = {
                                    il video esiste e BaoCut è aperto; attiva anche l'avvio automatico del servizio web`,
  usage: 'Uso: baocut services [status | start <service> | stop <service>\n' +
  '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
- '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
+ '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n' +
  '                    [--read-only on|off] [--methods default|<method,…>]\n' +
  '       | mcp|model-api add-client <name> | mcp|model-api clients | mcp|model-api revoke <clientId>\n' +
  '       | mcp|model-api connection [clientId]\n' +

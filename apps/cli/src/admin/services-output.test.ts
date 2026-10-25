@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { setLocale, type McpConnectionInfo, type ServiceStatus } from '@baocut/protocol';
+import { setLocale, type McpConnectionInfo, type ModelApiStatus, type ServiceStatus } from '@baocut/protocol';
 import {
   browserCommand,
   formatAccessLink,
   formatLaunchCode,
   formatConnectionInfo,
   formatNewClient,
+  formatService,
   formatServices,
   formatWebSessions,
   parseServicesArgs,
@@ -25,6 +26,17 @@ const base: ServiceStatus = {
   policy: { videos: 'all', level: 'ask' },
   clients: [],
   recentRequests: [],
+};
+
+const modelApiStatus: ModelApiStatus = {
+  routing: { online: true, nodes: false, agent: false },
+  aliases: [{ alias: 'whisper-1', capability: 'transcribe', providerId: 'local', modelId: null }],
+  maxConcurrentPerClient: 4,
+  maxUploadBytes: 1,
+  maxJsonBytes: 1,
+  interfaceVersion: '1',
+  lan: false,
+  lanAddresses: [],
 };
 
 describe('baocut services 的参数', () => {
@@ -84,6 +96,11 @@ describe('baocut services 的参数', () => {
     expect(() => parseServicesArgs(['configure', 'mcp'], { routeOnline: 'on' })).toThrow(/只适用于 model-api/);
     expect(() => parseServicesArgs(['configure', 'model-api'], { routeNodes: 'yes' })).toThrow(/--route-nodes/);
     expect(() => parseServicesArgs(['configure', 'model-api'], { maxConcurrent: '0' })).toThrow(/--max-concurrent/);
+    // 局域网访问只属于模型接口服务。
+    expect(parseServicesArgs(['configure', 'model-api'], { lan: 'on' })).toEqual({ kind: 'configure', params: { serviceId: 'model-api', lan: true } });
+    expect(parseServicesArgs(['configure', 'model-api'], { lan: 'off' })).toEqual({ kind: 'configure', params: { serviceId: 'model-api', lan: false } });
+    expect(() => parseServicesArgs(['configure', 'web'], { lan: 'on' })).toThrow(/--lan 只适用于 model-api/);
+    expect(() => parseServicesArgs(['configure', 'model-api'], { lan: 'yes' })).toThrow(/--lan/);
   });
 
   it('写错时给出用法', () => {
@@ -147,14 +164,7 @@ describe('baocut services 的输出', () => {
         state: 'on',
         port: 47621,
         endpoint: 'http://127.0.0.1:47621/v1',
-        modelApi: {
-          routing: { online: true, nodes: false, agent: false },
-          aliases: [{ alias: 'whisper-1', capability: 'transcribe', providerId: 'local', modelId: null }],
-          maxConcurrentPerClient: 4,
-          maxUploadBytes: 1,
-          maxJsonBytes: 1,
-          interfaceVersion: '1',
-        },
+        modelApi: modelApiStatus,
       },
     ]);
     expect(modelApi).toEqual([
@@ -163,8 +173,22 @@ describe('baocut services 的输出', () => {
       '  等级：ask（生成请求逐次确认）',
       '  路由到：本机、在线服务  每个客户端同时 4 个请求',
       '  别名：whisper-1 → local/默认模型（transcribe）',
+      '  局域网访问：关（只在本机）',
       '  客户端：0 个',
     ]);
+    // 开了局域网访问：列出每个局域网地址的 Base URL；没有地址时说明。
+    const withLan = (lanAddresses: string[]) =>
+      formatService({
+        ...base,
+        serviceId: 'model-api',
+        label: '模型接口服务',
+        state: 'on',
+        port: 47621,
+        endpoint: 'http://127.0.0.1:47621/v1',
+        modelApi: { ...modelApiStatus, lan: true, lanAddresses },
+      });
+    expect(withLan(['192.168.1.23', '10.0.0.5'])).toContain('  局域网访问：开  http://192.168.1.23:47621/v1, http://10.0.0.5:47621/v1');
+    expect(withLan([])).toContain('  局域网访问：开，但这台电脑现在没有局域网地址');
   });
 
   it('新客户端的令牌只在创建时出现；连接信息不含令牌', () => {

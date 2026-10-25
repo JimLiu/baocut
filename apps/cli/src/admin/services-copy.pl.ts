@@ -2,6 +2,10 @@ import { MCP_DEFAULT_PORT, MODEL_API_DEFAULT_PORT, WEB_DEFAULT_PORT } from '@bao
 import type { ServicesMessages } from './services-copy.ts';
 
 export const pl: ServicesMessages = {
+  lanOnlyModelApi: '--lan dotyczy tylko model-api',
+  lanOn: (urls: readonly string[]) => `  Dostęp z sieci lokalnej: wł.  ${urls.join(', ')}`,
+  lanOff: '  Dostęp z sieci lokalnej: wył. (tylko ten komputer)',
+  lanNoAddress: '  Dostęp z sieci lokalnej: wł., ale ten komputer nie ma teraz adresu w sieci lokalnej',
   accessLinkVideo: (video) => `Po logowaniu otworzy się od razu edytor wideo ${video}`,
 
   help: `Użycie:
@@ -22,6 +26,7 @@ export const pl: ServicesMessages = {
     --route-nodes on|off           API modeli: przekazuj sparowanym węzłom (domyślnie off)
     --route-agent on|off           API modeli: przekazuj dostawcom agentów (domyślnie off)
     --max-concurrent <n>           API modeli: współbieżne żądania na klienta (domyślnie 4); ponad limit 429
+    --lan on|off                   API modeli: nasłuchuj także w sieci lokalnej (tylko adresy prywatne, token nadal wymagany; domyślnie wył.)
     --read-only on|off             Tylko web: podgląd bez edycji, wiadomości i zadań
     --methods default|<method,…>   Tylko web: dozwolone metody (nazwy lub <namespace>.*), tylko zawężenie domyślnego zbioru
   baocut services mcp add-client <name>
@@ -59,7 +64,7 @@ export const pl: ServicesMessages = {
   usage:
     'Usage: baocut services [status | start <service> | stop <service>\n' +
     '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
-    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
+    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n' +
     '                    [--read-only on|off] [--methods default|<method,…>]\n' +
     '       | mcp|model-api add-client <name> | mcp|model-api clients | mcp|model-api revoke <clientId>\n' +
     '       | mcp|model-api connection [clientId]\n' +

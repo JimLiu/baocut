@@ -1,6 +1,8 @@
 import type { RcModelApiMessages } from './rc-model-api.ts';
 
 export const zhHant: RcModelApiMessages = {
+  sourceNotAllowed: '只接受本機或區域網路私有位址送來的請求',
+  hostNameNotAllowed: 'Host 必須是 IP 位址，不接受主機名稱',
   serviceLabel: '模型 API 服務',
   notRunning: '模型 API 服務已關閉：請先啟動（baocut services start model-api），否則用戶端無法連線。',
   aliasNotFound: (p: { alias: string }) => `沒有別名「${p.alias}」`,

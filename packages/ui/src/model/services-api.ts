@@ -173,6 +173,11 @@ export function withToken(snippet: string, token: string): string {
   return tokenPlaceholders().reduce((text, placeholder) => text.split(placeholder).join(token), snippet);
 }
 
+/** 局域网访问开着时，每个局域网地址一条 Base URL（`http://<地址>:<端口>/v1`）；IPv6 加方括号。 */
+export function lanBaseUrls(addresses: readonly string[], port: number): string[] {
+  return addresses.map((address) => `http://${address.includes(':') ? `[${address}]` : address}:${port}/v1`);
+}
+
 /** 字节数 → 「256 MB」。 */
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${Math.round(bytes / (1024 * 1024 * 1024))} GB`;

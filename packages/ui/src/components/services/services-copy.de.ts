@@ -121,8 +121,17 @@ export const mcpDe: McpMessages = {
 };
 
 export const modelApiDe: ModelApiMessages = {
+  lanTitle: 'LAN-Zugriff erlauben',
+  lanDesc: 'Geräte im selben lokalen Netzwerk oder VPN können die API mit ihrem eigenen Token aufrufen; öffentliche Adressen werden immer abgelehnt. Anfragen laufen über unverschlüsseltes HTTP, schalte das also nur in vertrauenswürdigen Netzwerken ein. Der MCP- und der Web-Dienst bleiben auf diesem Computer.',
+  lanOn: 'LAN-Zugriff erlaubt. Die Modell-API wurde neu gestartet und empfängt jetzt im Netzwerk.',
+  lanOff: 'Wieder nur auf diesem Computer. LAN-Verbindungen wurden getrennt.',
+  lanBaseUrl: 'LAN',
+  copyLanBase: 'LAN-Adresse kopieren',
+  lanBaseLede: 'Andere Geräte im Netzwerk verwenden eine LAN-Adresse; Apps auf diesem Computer nutzen weiter 127.0.0.1. Beim ersten Mal fragt das System eventuell, ob eingehende Verbindungen erlaubt werden.',
+  lanNoAddress: 'Dieser Computer hat gerade keine LAN-Adresse. Verbinde dich mit einem Netzwerk, dann erscheint sie hier.',
+  scopeLan: 'Lokales Netzwerk',
   title: "Modell-API",
-  lede: "Werkzeuge mit OpenAI-API-Unterstützung (SDKs, CLI-Werkzeuge, andere Apps) verwenden BaoCuts Modelle zum Transkribieren, zur Sprachsynthese sowie zum Erzeugen von Bildern und Text. Empfang nur auf diesem Computer. Standardmäßig nur lokale Modelle; Cloud, LAN-Knoten und Agenten müssen einzeln eingeschaltet werden.",
+  lede: "Werkzeuge mit OpenAI-API-Unterstützung (SDKs, CLI-Werkzeuge, andere Apps) verwenden BaoCuts Modelle zum Transkribieren, zur Sprachsynthese sowie zum Erzeugen von Bildern und Text. Empfang nur auf diesem Computer, sofern du keinen LAN-Zugriff erlaubst. Standardmäßig nur lokale Modelle; Cloud, LAN-Knoten und Agenten müssen einzeln eingeschaltet werden.",
   on: "Modell-API läuft",
   off: "Modell-API nicht gestartet",
   error: "Modell-API konnte nicht starten",

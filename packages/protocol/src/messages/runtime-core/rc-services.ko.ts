@@ -1,6 +1,7 @@
 import type { RcServicesMessages } from './rc-services.ts';
 
 export const ko: RcServicesMessages = {
+  lanOnlyForModelApi: 'lan은 모델 API 서비스(model-api)에만 적용됩니다',
   mcpServiceLabel: 'MCP 서비스',
   nodeServiceLabel: 'LAN 노드',
   serviceNotAvailable: (p: { serviceId: string }) => `이 버전은 아직 “${p.serviceId}” 서비스를 제공하지 않습니다`,

@@ -1,6 +1,8 @@
 import type { RcModelApiMessages } from './rc-model-api.ts';
 
 export const ja: RcModelApiMessages = {
+  sourceNotAllowed: 'このコンピューターまたはプライベートネットワークのアドレスからのリクエストのみ受け付けます',
+  hostNameNotAllowed: 'Host は IP アドレスである必要があります。ホスト名は受け付けません',
   serviceLabel: 'モデル API サービス',
   notRunning:
     'モデル API サービスはオフです。先に開始してください（baocut services start model-api）。開始しないとクライアントは接続できません。',

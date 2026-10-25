@@ -2,6 +2,10 @@ import { MCP_DEFAULT_PORT, MODEL_API_DEFAULT_PORT, WEB_DEFAULT_PORT } from '@bao
 import type { ServicesMessages } from './services-copy.ts';
 
 export const zhHant: ServicesMessages = {
+  lanOnlyModelApi: '--lan 只適用於 model-api',
+  lanOn: (urls: readonly string[]) => `  區域網路存取：開  ${urls.join(', ')}`,
+  lanOff: '  區域網路存取：關（只在本機）',
+  lanNoAddress: '  區域網路存取：開，但這台電腦目前沒有區域網路位址',
 
   accessLinkVideo: (video) => `登入後會直接開啟影片 ${video} 的編輯器`,
   help: `用法：
@@ -22,6 +26,7 @@ export const zhHant: ServicesMessages = {
     --route-nodes on|off           模型 API 服務：轉送給已配對的區域網路節點（預設 off）
     --route-agent on|off           模型 API 服務：轉送給 Agent 供應商（預設 off）
     --max-concurrent <n>           模型 API 服務：每個用戶端同時處理中的請求數（預設 4）；超出上限的請求會收到 429
+    --lan on|off                   模型 API 服務：也在區域網路上監聽（只接受私有網段的來源，仍需權杖；預設關閉）
     --read-only on|off             僅限 web：瀏覽器只能檢視，不能編輯、傳送訊息或提交任務
     --methods default|<method,…>   僅限 web：方法允許清單（方法名稱或 <namespace>.*），只能在預設集合內縮小
   baocut services mcp add-client <name>
@@ -57,7 +62,7 @@ export const zhHant: ServicesMessages = {
   usage:
     '用法：baocut services [status | start <service> | stop <service>\n' +
     '       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n' +
-    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n' +
+    '                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n' +
     '                    [--read-only on|off] [--methods default|<method,…>]\n' +
     '       | mcp|model-api add-client <name> | mcp|model-api clients | mcp|model-api revoke <clientId>\n' +
     '       | mcp|model-api connection [clientId]\n' +

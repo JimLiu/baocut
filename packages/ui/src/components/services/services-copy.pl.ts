@@ -112,8 +112,17 @@ export const mcpPl: McpMessages = {
 };
 
 export const modelApiPl: ModelApiMessages = {
+  lanTitle: 'Zezwól na dostęp z sieci lokalnej',
+  lanDesc: 'Urządzenia w tej samej sieci lokalnej lub VPN mogą wywoływać API własnym tokenem; adresy publiczne są zawsze odrzucane. Żądania idą nieszyfrowanym HTTP, więc włączaj to tylko w zaufanych sieciach. Usługi MCP i Web działają nadal tylko na tym komputerze.',
+  lanOn: 'Zezwolono na dostęp z sieci lokalnej. API modeli uruchomiło się ponownie i nasłuchuje w sieci.',
+  lanOff: 'Z powrotem tylko ten komputer. Połączenia z sieci lokalnej zostały zamknięte.',
+  lanBaseUrl: 'Sieć lokalna',
+  copyLanBase: 'Kopiuj adres w sieci lokalnej',
+  lanBaseLede: 'Inne urządzenia w sieci używają adresu w sieci lokalnej; aplikacje na tym komputerze nadal używają 127.0.0.1. Za pierwszym razem system może zapytać, czy zezwolić na połączenia przychodzące.',
+  lanNoAddress: 'Ten komputer nie ma teraz adresu w sieci lokalnej. Połącz się z siecią, a pojawi się tutaj.',
+  scopeLan: 'Sieć lokalna',
   title: "API modeli",
-  lede: "Pozwala narzędziom obsługującym OpenAI API (SDK, narzędzia wiersza poleceń, inne aplikacje) używać modeli dostępnych BaoCut do transkrypcji, syntezy mowy oraz generowania obrazów i tekstu. Nasłuchuje tylko na tym komputerze. Domyślnie używa tylko modeli na tym komputerze; chmurę, węzły LAN i agentów trzeba włączyć osobno.",
+  lede: "Pozwala narzędziom obsługującym OpenAI API (SDK, narzędzia wiersza poleceń, inne aplikacje) używać modeli dostępnych BaoCut do transkrypcji, syntezy mowy oraz generowania obrazów i tekstu. Nasłuchuje tylko na tym komputerze, chyba że zezwolisz na dostęp z sieci lokalnej. Domyślnie używa tylko modeli na tym komputerze; chmurę, węzły LAN i agentów trzeba włączyć osobno.",
   on: "API modeli działa",
   off: "API modeli nie zostało uruchomione",
   error: "Nie udało się uruchomić API modeli",

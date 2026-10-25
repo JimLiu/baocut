@@ -153,6 +153,7 @@ export class McpService implements ManagedService {
     if (params.routing !== undefined || params.maxConcurrentPerClient !== undefined) {
       throw new RpcError('invalid-request', RcServices.routingOnlyForModelApi());
     }
+    if (params.lan !== undefined) throw new RpcError('invalid-request', RcServices.lanOnlyForModelApi());
     const before = this.#deps.store.get('mcp');
     const policy = {
       level: params.level ?? before.policy.level,

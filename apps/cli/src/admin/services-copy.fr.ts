@@ -11,6 +11,10 @@ import { pluralForm } from '@baocut/protocol';
 import type { ServicesMessages } from './services-copy.ts';
 
 export const fr: ServicesMessages = {
+  lanOnlyModelApi: '--lan ne s’applique qu’à model-api',
+  lanOn: (urls: readonly string[]) => `  Accès réseau local : activé  ${urls.join(', ')}`,
+  lanOff: '  Accès réseau local : désactivé (cet ordinateur uniquement)',
+  lanNoAddress: '  Accès réseau local : activé, mais cet ordinateur n’a pas d’adresse réseau local pour le moment',
   accessLinkVideo: (video: string) => `Après connexion, l’éditeur de la vidéo ${video} s’ouvre directement`,
 
 
@@ -32,6 +36,7 @@ export const fr: ServicesMessages = {
     --route-nodes on|off           API de modèles : transférer aux nœuds réseau local jumelés (désactivé par défaut)
     --route-agent on|off           API de modèles : transférer aux fournisseurs Agent (désactivé par défaut)
     --max-concurrent <n>           API de modèles : requêtes simultanées par client (4 par défaut) ; au-delà, erreur 429
+    --lan on|off                   API de modèles : écouter aussi sur le réseau local (adresses privées uniquement, jeton toujours requis ; désactivé par défaut)
     --read-only on|off             web uniquement : consultation seule, sans modification, message ni soumission de tâche
     --methods default|<method,…>   web uniquement : méthodes autorisées (noms ou <namespace>.*), peut seulement réduire l’ensemble par défaut
   baocut services mcp add-client <name>
@@ -70,7 +75,7 @@ export const fr: ServicesMessages = {
   usage:
     "Utilisation : baocut services [status | start <service> | stop <service>\n" +
     "       | configure <service> [--port <n>] [--level read|ask|auto] [--videos all|<id,…>] [--autostart on|off]\n" +
-    "                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>]\n" +
+    "                    [--route-online on|off] [--route-nodes on|off] [--route-agent on|off] [--max-concurrent <n>] [--lan on|off]\n" +
     "                    [--read-only on|off] [--methods default|<method,…>]\n" +
     "       | mcp|model-api add-client <name> | mcp|model-api clients | mcp|model-api revoke <clientId>\n" +
     "       | mcp|model-api connection [clientId]\n" +

@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import net from 'node:net';
 import path from 'node:path';
 import {
   MODEL_API_DEFAULT_MAX_CONCURRENT,
@@ -23,6 +24,7 @@ import {
 } from '@baocut/protocol';
 import { RcModelApi, RcServices } from '@baocut/protocol/messages/runtime-core';
 import type { AsrResult } from '@baocut/models';
+import { lanAddresses, sourceAllowed } from '@baocut/nodes';
 import { localizedOf } from '../localized.ts';
 import type { Logger } from '@baocut/harness';
 import { loopbackHost } from '../agent-tools/mcp-endpoint.ts';
@@ -55,7 +57,9 @@ import type { ManagedService, ServiceReport } from './service-manager.ts';
  * 模型接口服务（架构设计 §4.8、§12.8）：给支持 OpenAI 接口的程序用的本机 HTTP 端点，把请求映射为一次没有视频的
  * 能力调用（§7.9），结果直接作为 HTTP 响应返回。
  *
- * - 只监听回环地址，端口可配置（默认 `MODEL_API_DEFAULT_PORT`），被占用时进入 `error`，不换端口；
+ * - 默认只监听回环地址，端口可配置（默认 `MODEL_API_DEFAULT_PORT`），被占用时进入 `error`，不换端口；
+ * - 局域网访问（`modelApi.lan`，默认关）：开着时监听 `0.0.0.0`（只有 IPv4），来源只接受回环与私有网段（与节点服务同一道来源门），
+ *   其他来源 403 `SOURCE_NOT_ALLOWED`；`Host` 可以是回环名或 IP 字面量，主机名仍然 403（DNS 重绑定）。开关改动后重启服务；
  * - 认证：每个客户端一枚令牌（`Authorization: Bearer <令牌>`），与 MCP 服务的令牌互不通用；缺失、错误或已吊销时 401；
  *   带 `Origin` 的请求 403（网页不能调用），`Host` 不是回环地址的 403（DNS 重绑定）；
  * - 等级：`read` 只有 `GET /v1/models`（与 `/v1/baocut/info`），生成请求 403；`ask` 每个生成请求一条服务审批；`auto` 直接执行。
@@ -78,6 +82,8 @@ export interface ModelApiServiceDeps {
   onChange: () => void;
   /** 测试用更小的上限。 */
   limits?: { maxUploadBytes?: number; maxJsonBytes?: number };
+  /** 本机的局域网 IPv4 地址；测试可以替换。 */
+  lanAddresses?: () => string[];
 }
 
 /** 别名表的默认内容：`whisper-1` → 本机的默认转写模型（`modelId: null` 取本机 Provider 的默认模型包）。 */
@@ -90,8 +96,12 @@ export function defaultModelApiConfig(): ModelApiConfig {
     routing: { online: false, nodes: false, agent: false },
     aliases: DEFAULT_MODEL_API_ALIASES.map((a) => ({ ...a })),
     maxConcurrentPerClient: MODEL_API_DEFAULT_MAX_CONCURRENT,
+    lan: false,
   };
 }
+
+/** 开了局域网访问时的监听地址：所有 IPv4 网卡。 */
+const LAN_HOST = '0.0.0.0';
 
 type Route =
   | { kind: 'models' }
@@ -140,6 +150,8 @@ export class ModelApiService implements ManagedService {
   readonly #maxJsonBytes: number;
   #server: Server | null = null;
   #port: number | null = null;
+  /** 这次监听是不是开在局域网上（`0.0.0.0`）：请求的来源与 Host 检查跟着实际监听走，不跟着还没生效的配置。 */
+  #listeningLan = false;
   #stopping = false;
 
   constructor(deps: ModelApiServiceDeps) {
@@ -168,16 +180,19 @@ export class ModelApiService implements ManagedService {
         else response.destroy();
       });
     });
-    this.#port = await listenLoopback(server, port);
+    const lan = this.#config().lan === true;
+    this.#port = await listenLoopback(server, port, lan ? LAN_HOST : HOST);
     server.on('error', (error) => this.#log.warn('Model API service error', { error: String(error) }));
     this.#server = server;
-    this.#log.info('Model API service listening', { port: this.#port });
+    this.#listeningLan = lan;
+    this.#log.info('Model API service listening', { port: this.#port, lan });
   }
 
   async stop(): Promise<void> {
     const server = this.#server;
     this.#server = null;
     this.#port = null;
+    this.#listeningLan = false;
     // 停止服务断开连接，但不取消已经提交的任务（§12.8）：连接的关闭不当作调用方断开。
     this.#stopping = true;
     if (server) await closeLoopback(server);
@@ -206,17 +221,19 @@ export class ModelApiService implements ManagedService {
       const value = params.routing?.[key];
       if (value !== undefined) routing[key] = value;
     }
-    const changesOwn = params.routing !== undefined || params.maxConcurrentPerClient !== undefined;
+    const lan = params.lan ?? current.lan === true;
+    const changesOwn = params.routing !== undefined || params.maxConcurrentPerClient !== undefined || params.lan !== undefined;
     // 视频范围对这个服务没有意义：给了也忽略。
     await this.#deps.store.update('model-api', {
       ...(params.autostart !== undefined ? { autostart: params.autostart } : {}),
       ...(params.port !== undefined ? { port: params.port } : {}),
       policy: { videos: before.policy.videos, level: params.level ?? before.policy.level },
       ...(changesOwn
-        ? { modelApi: { ...current, routing, maxConcurrentPerClient: params.maxConcurrentPerClient ?? current.maxConcurrentPerClient } }
+        ? { modelApi: { ...current, routing, maxConcurrentPerClient: params.maxConcurrentPerClient ?? current.maxConcurrentPerClient, lan } }
         : {}),
     });
-    return params.port !== undefined && params.port !== before.port;
+    // 端口或监听地址变了：服务开着时重启。
+    return (params.port !== undefined && params.port !== before.port) || lan !== (current.lan === true);
   }
 
   // ---- 客户端与别名 ----
@@ -278,6 +295,8 @@ export class ModelApiService implements ManagedService {
       maxUploadBytes: this.#maxUploadBytes,
       maxJsonBytes: this.#maxJsonBytes,
       interfaceVersion: MODEL_API_INTERFACE_VERSION,
+      lan: config.lan === true,
+      lanAddresses: config.lan === true ? (this.#deps.lanAddresses ?? lanAddresses)() : [],
     };
   }
 
@@ -285,8 +304,18 @@ export class ModelApiService implements ManagedService {
 
   async #handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     response.setHeader('X-BaoCut-Interface-Version', MODEL_API_INTERFACE_VERSION);
+    // 来源门只看套接字对端（不读转发头）。只监听回环时对端总是回环，这道检查不会拦下什么。
+    if (!sourceAllowed(request.socket.remoteAddress)) {
+      return this.#refuse(request, response, new ApiError(403, 'SOURCE_NOT_ALLOWED', RcModelApi.sourceNotAllowed()));
+    }
     if (!loopbackHost(request.headers.host)) {
-      return this.#refuse(request, response, new ApiError(403, 'HOST_NOT_ALLOWED', RcModelApi.hostNotAllowed()));
+      if (!this.#listeningLan) {
+        return this.#refuse(request, response, new ApiError(403, 'HOST_NOT_ALLOWED', RcModelApi.hostNotAllowed()));
+      }
+      // 局域网访问时客户端用 IP 地址连；主机名仍然拒绝，防 DNS 重绑定。
+      if (!ipLiteralHost(request.headers.host)) {
+        return this.#refuse(request, response, new ApiError(403, 'HOST_NOT_ALLOWED', RcModelApi.hostNameNotAllowed()));
+      }
     }
     if (request.headers.origin !== undefined) {
       return this.#refuse(request, response, new ApiError(403, 'ORIGIN_NOT_ALLOWED', RcModelApi.originNotAllowed()));
@@ -813,6 +842,16 @@ function describe(name: string, target: ModelApiTarget): string | Localized {
 function sizeText(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+/** `Host` 是 IP 字面量（`192.168.1.23`、`192.168.1.23:47621`、`[fe80::1]:47621`）：局域网访问时可以接受，主机名不行。 */
+export function ipLiteralHost(host: string | undefined): boolean {
+  if (!host) return false;
+  const text = host.trim();
+  const v6 = /^\[([^\]]+)\](?::\d{1,5})?$/.exec(text);
+  if (v6) return net.isIP(v6[1]!) === 6;
+  const v4 = /^([^:]+)(?::\d{1,5})?$/.exec(text);
+  return v4 !== null && net.isIP(v4[1]!) === 4;
 }
 
 function safeDecode(text: string): string {

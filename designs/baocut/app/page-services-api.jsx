@@ -4,7 +4,8 @@
    路径与 OpenAI 相同；参数表按内核实际收的字段手写在 `BC_OPENAI_API.ENDPOINTS`，说明、表单、代码片段都从它生成。
    原型不监听端口：「发送请求」按表单值算一份演示响应（`demoResponse`），状态码与响应形状照设计稿。
    「允许局域网访问」（GitHub issue 106，2026-10-25）：默认只在本机；打开后 API 也监听局域网，只放行私有网段的来源，
-   总要 API key，地址段多列局域网地址。网页本身仍只在本机。规格（架构设计 §4.8 / §12.7 / §12.8）待确认后同步。 */
+   总要 API key，地址段多列局域网地址。网页本身仍只在本机。实现与规格见架构设计 §4.8 / §12.7 / §12.8（Runtime 的模型接口服务、
+   packages/ui 的模型接口页）。 */
 (function () {
   const {useState, useEffect, useRef} = React;
   const D = window.BC_DATA;

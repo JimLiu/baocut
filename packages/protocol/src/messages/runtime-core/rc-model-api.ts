@@ -26,6 +26,8 @@ const en = {
   jobNotCompleted: "The task didn't finish",
   jobCancelled: 'The task was cancelled in BaoCut',
   hostNotAllowed: 'Host is not a loopback address',
+  hostNameNotAllowed: "Host must be an IP address: host names aren't accepted",
+  sourceNotAllowed: 'Requests are only accepted from this computer or private network addresses',
   originNotAllowed: "Requests from web pages aren't accepted",
   authRequired: 'Missing or invalid token: use Authorization: Bearer <token> (create a client for this app in BaoCut)',
   methodNotAllowed: (p: { path: string; method: string }) => `${p.path} only accepts ${p.method}`,

@@ -121,8 +121,17 @@ export const mcpFr: McpMessages = {
 };
 
 export const modelApiFr: ModelApiMessages = {
+  lanTitle: 'Autoriser l’accès réseau local',
+  lanDesc: 'Les appareils du même réseau local ou VPN peuvent appeler l’API avec leur propre jeton ; les adresses publiques sont toujours refusées. Les requêtes passent en HTTP non chiffré : n’activez cette option que sur un réseau de confiance. Les services MCP et Web restent sur cet ordinateur.',
+  lanOn: 'Accès réseau local autorisé. L’API de modèles a redémarré et écoute sur votre réseau.',
+  lanOff: 'Retour à cet ordinateur uniquement. Les connexions du réseau local ont été fermées.',
+  lanBaseUrl: 'Réseau local',
+  copyLanBase: 'Copier l’adresse réseau local',
+  lanBaseLede: 'Les autres appareils de votre réseau utilisent une adresse réseau local ; les apps de cet ordinateur continuent d’utiliser 127.0.0.1. La première fois, le système peut demander s’il faut autoriser les connexions entrantes.',
+  lanNoAddress: 'Cet ordinateur n’a pas d’adresse réseau local pour le moment. Connectez-vous à un réseau et elle apparaîtra ici.',
+  scopeLan: 'Réseau local',
   title: "API de modèles",
-  lede: "Permet aux outils OpenAI API (SDK, CLI, applications) d’utiliser les modèles BaoCut pour transcription, synthèse, images et texte. Écoute locale uniquement. Modèles locaux par défaut ; cloud, nœuds réseau et Agents à activer séparément.",
+  lede: "Permet aux outils OpenAI API (SDK, CLI, applications) d’utiliser les modèles BaoCut pour transcription, synthèse, images et texte. Écoute locale uniquement, sauf si vous autorisez l’accès réseau local. Modèles locaux par défaut ; cloud, nœuds réseau et Agents à activer séparément.",
   on: "API de modèles active",
   off: "API de modèles non démarrée",
   error: "Échec du démarrage de l’API de modèles",

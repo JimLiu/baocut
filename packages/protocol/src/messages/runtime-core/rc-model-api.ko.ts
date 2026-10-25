@@ -1,6 +1,8 @@
 import type { RcModelApiMessages } from './rc-model-api.ts';
 
 export const ko: RcModelApiMessages = {
+  sourceNotAllowed: '이 컴퓨터나 사설 네트워크 주소에서 온 요청만 받습니다',
+  hostNameNotAllowed: 'Host는 IP 주소여야 합니다. 호스트 이름은 받지 않습니다',
   serviceLabel: '모델 API 서비스',
   notRunning: '모델 API 서비스가 꺼져 있습니다. 먼저 시작하세요(baocut services start model-api). 그러지 않으면 클라이언트가 연결할 수 없습니다.',
   aliasNotFound: (p: { alias: string }) => `별칭 “${p.alias}”이(가) 없습니다`,

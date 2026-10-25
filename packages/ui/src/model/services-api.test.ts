@@ -8,6 +8,7 @@ import {
   API_ENDPOINTS,
   capabilityLine,
   formatBytes,
+  lanBaseUrls,
   routable,
   routableModelCount,
   targetKey,
@@ -115,5 +116,13 @@ describe('令牌与片段', () => {
     expect(formatBytes(8 * 1024 * 1024)).toBe('8 MB');
     expect(formatBytes(2048)).toBe('2 KB');
     expect(formatBytes(12)).toBe('12 B');
+  });
+});
+
+describe('局域网地址', () => {
+  it('每个地址一条 Base URL，IPv6 加方括号；没有地址时为空', () => {
+    expect(lanBaseUrls(['192.168.1.23', '10.0.0.5'], 47621)).toEqual(['http://192.168.1.23:47621/v1', 'http://10.0.0.5:47621/v1']);
+    expect(lanBaseUrls(['fe80::1'], 1)).toEqual(['http://[fe80::1]:1/v1']);
+    expect(lanBaseUrls([], 47621)).toEqual([]);
   });
 });

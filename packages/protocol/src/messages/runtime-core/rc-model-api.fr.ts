@@ -2,6 +2,8 @@ import type { RcModelApiMessages } from './rc-model-api.ts';
 import { pluralForm } from '../../i18n.ts';
 
 export const fr: RcModelApiMessages = {
+  sourceNotAllowed: 'Seules les requêtes venant de cet ordinateur ou d’adresses de réseau privé sont acceptées',
+  hostNameNotAllowed: 'Host doit être une adresse IP : les noms d’hôte ne sont pas acceptés',
   serviceLabel: 'Service d’API de modèles', notRunning: 'Le service d’API de modèles est désactivé : démarrez-le d’abord (baocut services start model-api), sinon les clients ne peuvent pas se connecter.', aliasNotFound: (p) => `Alias « ${p.alias} » introuvable`, internalError: 'Erreur interne', jobNotCompleted: 'La tâche n’est pas terminée', jobCancelled: 'La tâche a été annulée dans BaoCut',
   hostNotAllowed: 'Host n’est pas une adresse de bouclage', originNotAllowed: 'Les requêtes provenant de pages web ne sont pas acceptées', authRequired: 'Jeton manquant ou invalide : utilisez Authorization: Bearer <token> (créez un client pour cette application dans BaoCut)', methodNotAllowed: (p) => `${p.path} accepte uniquement ${p.method}`, endpointNotFound: (p) => `Point de terminaison introuvable : ${p.path}`,
   modelNotFound: (p) => `Modèle « ${p.model} » introuvable : GET /v1/models liste les modèles disponibles`, readOnly: 'Ce service accepte uniquement les requêtes de lecture', readOnlyHint: 'Ce service accepte uniquement les requêtes de lecture (GET /v1/models) : dans BaoCut, passez le niveau du service d’API de modèles à ask ou auto',
