@@ -49,6 +49,8 @@ export const nl: EditLabelMessages = {
   editText: 'Tekst wijzigen',
   nudgePosition: 'Positie fijn aanpassen',
   applyFramingToAll: 'Op hele short toepassen',
+  adjustPanel: 'Vak aanpassen',
+  changeLayout: 'Indeling wijzigen',
   zoomFraming: 'Kadrering zoomen',
   freePlacement: 'Overschakelen op vrije plaatsing',
   aspectRatio: (p) => `Beeldverhouding ${p.ratio}`,

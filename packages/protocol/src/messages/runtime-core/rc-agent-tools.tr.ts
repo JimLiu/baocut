@@ -28,6 +28,14 @@ instructionsNotSet: 'Oturum yönergeleri ayarlanmadı: Runtime birleştirme sır
   deriveRangeEmpty: 'Karelere hizalandıktan sonra aralık boş',
   deriveUnsupportedItem: (p) => `Aralıkta türetilmiş videoya kopyalanamayan bir klip var (${p.kind})`,
   deriveParentUnplaced: 'Bu video bir proje ya da oturum klasöründe değil; yanında türetilmiş video oluşturulamaz',
+  derivePanelsInvalid: (p) =>
+    `${p.layout} bölünmüş ekran ${p.layout === 'grid' ? 'tam 4' : p.layout === 'spotlight' ? 'tam 3' : '2 ya da 3'} panel gerektirir, ancak ${p.count} panel verildi`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'spotlight bölünmüş ekran main gerektirir: üstteki panelin sırası (0–2)' : `main yalnızca spotlight bölünmüş ekranda kullanılır; ${p.layout} bölünmüş ekrandan kaldırın`,
   shotsRangeEmpty: 'Karelere hizalandıktan sonra aralık boş kalıyor',
   shotsRangeTooLong: (p) => `Aralık ${p.minutes} dakikadan uzun; çekimleri daha kısa parçalarda algılayın`,
+  shotsNoSpeakers: 'Bu videonun dökümünde henüz iki veya daha fazla konuşmacı ayrılmamış; önce konuşmacıları tanıyın',
+  shotsNotSingleCamera: 'Örneklenen karelerin çoğunda aynı 2–4 yüz görünmüyor, yani bu tek bir geniş açı kamera değil',
+  shotsSpeakersUnmatched: 'Konuşmacılardan hiçbirinin ekrandaki hangi yüz olduğu anlaşılamadı',
+  shotsFacesUnavailable: 'Yüz algılama kullanılamıyor',
 };

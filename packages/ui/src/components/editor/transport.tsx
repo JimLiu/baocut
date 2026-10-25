@@ -2,8 +2,6 @@ import { useMemo, useRef, type ReactElement } from 'react';
 import { localizeText, type Sequence } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import { ActionButton, Button, Keyboard, Menu, MenuItem, MenuTrigger, Text, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
-import ChevronDoubleLeft from '@react-spectrum/s2/icons/ChevronDoubleLeft';
-import ChevronDoubleRight from '@react-spectrum/s2/icons/ChevronDoubleRight';
 import Cut from '@react-spectrum/s2/icons/Cut';
 import Delete from '@react-spectrum/s2/icons/Delete';
 import Pause from '@react-spectrum/s2/icons/Pause';
@@ -28,6 +26,7 @@ import { CHAPTER_COPY } from './chapter-copy.ts';
 import { useEditorActions } from './editor-context.tsx';
 import { deleteSelection } from './timeline-commands.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
+import { NextIcon, PrevIcon } from './transport-icons.tsx';
 
 /**
  * 走带（原型 `.tport`）：左边撤销、重做、拆分、删除；中间播放；右边时码与缩放。两侧等分剩余宽度，让播放键居中；
@@ -149,7 +148,7 @@ export function Transport({ sequence, onZoom }: { sequence: Sequence; onZoom(act
               aria-label={CHAPTER_COPY.prev}
               isDisabled={noChapters}
               onPress={() => seek(prevChapterStart(chapters, useEditor.getState().playhead))}>
-              <ChevronDoubleLeft />
+              <PrevIcon />
             </ActionButton>
           </Tip>
         )}
@@ -173,7 +172,7 @@ export function Transport({ sequence, onZoom }: { sequence: Sequence; onZoom(act
               aria-label={CHAPTER_COPY.next}
               isDisabled={noChapters}
               onPress={() => seek(nextChapterStart(chapters, useEditor.getState().playhead))}>
-              <ChevronDoubleRight />
+              <NextIcon />
             </ActionButton>
           </Tip>
         )}

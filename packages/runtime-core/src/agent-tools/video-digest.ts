@@ -395,11 +395,12 @@ function describeSound(item: SequenceItem): Record<string, unknown> {
   }
 }
 
-/** 裁剪、取景点与效果：效果只列写了的 `fx` 字段名，取值不进摘要。 */
+/** 裁剪、取景点、分屏格子与效果：效果只列写了的 `fx` 字段名，取值不进摘要。 */
 function describeLook(item: SequenceItem): Record<string, unknown> {
   const look: Record<string, unknown> = {};
   if ((item.type === 'video' || item.type === 'image') && item.crop) look.crop = item.crop;
   if ((item.type === 'video' || item.type === 'image') && item.focalPoint) look.focalPoint = item.focalPoint;
+  if (item.type === 'video' && item.panels?.length) look.panels = item.panels;
   const fx = item.type === 'audio' || item.type === 'caption' || !('fx' in item) ? undefined : item.fx;
   if (fx && Object.keys(fx).length > 0) look.fx = Object.keys(fx);
   return look;

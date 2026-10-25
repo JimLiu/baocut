@@ -52,7 +52,7 @@
 
 - 角色词：mark（标志、图标）、headline、label、card、rail（横条、轨道）、node（节点）、badge、chip、pill、note、divider、track（进度轨）、state（状态字）、anchor（锚点）、cursor、token（被强调的词）。
 - 数量：一个图形 2–6 个可动元素；列表 3–4 项；对比 2 项。
-- 文案：一条主文案 `data-copy-primary`、一条次文案 `data-copy-secondary`，其余是固定装饰字；文字容器加 `class="copy"`。
+- 文案：一条主文案 `data-copy-primary`、一条次文案 `data-copy-secondary`，其余是固定装饰字；文字容器加 `class="copy"`。`.copy` 会裁掉框外的部分：字带 `text-shadow` 光晕或投影时，给它留出与光晕半径相当的 `padding`，不要拿掉 `.copy`。
 - 常用组合：
 
 | 组合 | 用途 |

@@ -11,15 +11,15 @@ export const it: AiToolsMessages = {
     focus: {
       auto: { label: 'Automatica', sub: 'Vede da che lato si trova chi parla e mette l’inquadratura su di lui; se non trova nessuno, centrata' },
       manual: { label: 'Decido io', sub: 'Poi posizioni tu l’inquadratura di ogni video breve' },
-      speaker: { label: 'Segui chi parla', sub: 'L’inquadratura segue chi sta parlando' },
+      speaker: { label: 'Segui chi parla', sub: 'Punta su chi parla: se l’originale alterna primi piani e campi larghi, segue le sue inquadrature; con una sola camera larga, passa da una persona all’altra secondo chi parla e divide quando due parlano insieme o nessuno parla' },
     },
-    speakerOff: 'Questa versione non ha ancora un modello di persone e parlanti',
+    speakerOff: 'La trascrizione non distingue ancora i parlanti · usa prima «Identifica parlanti»',
     tracks: { both: 'Originale + traduzione', source: 'Solo originale', translation: 'Solo traduzione' },
     styles: {
       shorts: { label: 'Sottotitoli per video brevi', sub: 'Preset integrato che evita i pulsanti della piattaforma' },
       video: { label: 'Mantieni lo stile di questo video', sub: 'Stessa dimensione e posizione; i pulsanti della piattaforma possono coprirli' },
     },
-    focusPrompt: { auto: 'automatica: prendi fotogrammi distribuiti nel segmento, guarda da che lato dell’inquadratura si trova chi parla e metti il ritaglio su di lui; se non trovi nessuno, centrala', manual: 'centrata per ora; regolerò ciascuno io' },
+    focusPrompt: { speaker: 'segui chi parla: se l’originale alterna primi piani e campi larghi, inquadra secondo ogni inquadratura; con una sola camera larga, taglia per parlante con videos_shots by speaker e punta su chi sta parlando', auto: 'automatica: prendi fotogrammi distribuiti nel segmento, guarda da che lato dell’inquadratura si trova chi parla e metti il ritaglio su di lui; se non trovi nessuno, centrala', manual: 'centrata per ora; regolerò ciascuno io' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Automatico: l’agente trova i temi più forti che stanno in piedi da soli e decide quanti video brevi fare e quanto dura ciascuno, senza riempitivi né temi tagliati a metà.',
@@ -30,6 +30,7 @@ export const it: AiToolsMessages = {
       `${count === null ? 'Decidi quanti video brevi fare in base ai temi trovati' : `Crea ${count === 1 ? '1 video breve' : `${count} video brevi`}`}, ${len ? `ciascuno di ${len.min}–${len.max} secondi` : 'ciascuno lungo quanto serve al suo tema, dall’aggancio iniziale a dove l’idea si chiude'}, con inizio e fine sui confini di frase`,
     lineFrame: (ratio, focus) => (ratio ? `Proporzioni ${ratio}, inquadratura ${focus}` : 'Proporzioni: mantieni l’originale, senza ritagliare'),
     lineSubtitles: (tracks, style) => `Sottotitoli: ${tracks}, ${style}`,
+    lineSplit: { on: 'Dividi i campi larghi con più persone in riquadri, una persona per riquadro', off: 'Non dividere; anche nei campi larghi con più persone punta su una sola' },
     lineSkipDone: 'Salta le parti già tagliate in video brevi',
     lineTopic: (topic) => `Cerca solo nelle parti che parlano di «${topic}»: trovale prima con speech_relevant, poi scegli tra quelle`,
     lineDirect: 'Crea i video appena li trovi; non serve chiedermelo prima',

@@ -151,6 +151,13 @@ export const ko: RcAgentToolsMessages = {
   deriveRangeEmpty: '프레임에 맞추면 구간이 비어 있습니다',
   deriveUnsupportedItem: (p) => `구간에 하위 영상으로 복사할 수 없는 클립이 있습니다(${p.kind})`,
   deriveParentUnplaced: '이 영상은 프로젝트나 세션 폴더에 있지 않아 옆에 하위 영상을 만들 수 없습니다',
+  derivePanelsInvalid: (p) => `${p.layout} 분할 화면에는 ${p.layout === 'grid' ? '4' : p.layout === 'spotlight' ? '3' : '2~3'}칸이 필요하지만 ${p.count}칸이 주어졌습니다`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'spotlight 분할 화면에는 main(위 칸에 놓을 칸의 번호, 0~2)이 필요합니다' : `main은 spotlight 분할 화면에서만 씁니다. ${p.layout} 분할 화면에서는 빼세요`,
   shotsRangeEmpty: '프레임에 맞추면 구간이 비어 있습니다',
   shotsRangeTooLong: (p) => `구간이 ${p.minutes}분을 넘습니다. 더 짧게 나눠서 샷을 감지하세요`,
+  shotsNoSpeakers: '이 원본의 전사에서 아직 화자가 2명 이상으로 나뉘지 않았습니다. 먼저 화자를 식별하세요',
+  shotsNotSingleCamera: '샘플 프레임 대부분에 같은 2~4개의 얼굴이 보이지 않아 고정된 와이드 카메라 한 대가 아닙니다',
+  shotsSpeakersUnmatched: '어느 화자가 화면의 어느 얼굴인지 알아낼 수 없습니다',
+  shotsFacesUnavailable: '얼굴 감지를 사용할 수 없습니다',
 };

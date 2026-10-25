@@ -49,6 +49,8 @@ export const it: EditLabelMessages = {
   editText: 'Modifica testo',
   nudgePosition: 'Sposta posizione',
   applyFramingToAll: 'Applica a tutto lo short',
+  adjustPanel: 'Regola riquadro',
+  changeLayout: 'Cambia layout',
   zoomFraming: 'Zoom dell’inquadratura',
   freePlacement: 'Passa al posizionamento libero',
   aspectRatio: (p) => `Rapporto d’aspetto ${p.ratio}`,

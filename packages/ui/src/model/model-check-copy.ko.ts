@@ -106,6 +106,12 @@ export const ko: ModelCheckMessages = {
     todo: '다른 녹음으로 시도하거나, 먼저 샘플 녹음으로 어떻게 들리는지 확인하세요.',
   }),
   refUnknown: '녹음',
+  toolMissing: {
+    text: (tool) => `이 컴퓨터에 사용할 수 있는 ${tool}이(가) 없습니다`,
+    install: (tool) => `${tool}을(를) 설치하세요`,
+    checkTodo: (remedy) => `${remedy}. 그런 다음 다시 검사하세요.`,
+    tryTodo: (remedy) => `${remedy}. 그런 다음 다시 시도하세요.`,
+  },
   trySpeech: trySubject('합성', '미리 듣기', '다른 큰 모델이나 메모리를 많이 쓰는 앱을 닫은 뒤 다시 시도하세요.'),
   tryImage: trySubject('이미지 생성', '테스트 이미지 생성', '다른 큰 모델을 닫은 뒤 다시 시도하거나 단계 수를 낮추세요.'),
   tryMusic: trySubject('생성', '미리 듣기', '다른 큰 모델을 닫은 뒤 다시 시도하거나 길이를 줄이세요.'),

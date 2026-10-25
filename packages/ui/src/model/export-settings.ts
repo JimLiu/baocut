@@ -4,6 +4,7 @@ import {
   DEFAULT_LOUDNESS_TARGET,
   type AudioExportFormat,
   type AudioExportSource,
+  type AssetRecord,
   type DocumentRecord,
   type ExportScope,
   type ExportSettings,
@@ -14,6 +15,7 @@ import {
   type TranscriptExportFormat,
 } from '@baocut/protocol';
 import { captionChips, captionGroups, languageName } from './caption-tracks.ts';
+import { pictureTrackIds } from './export-lanes.ts';
 import { zhHans } from './export-settings.zh-Hans.ts';
 import { zhHant } from './export-settings.zh-Hant.ts';
 import { ja } from './export-settings.ja.ts';
@@ -115,7 +117,7 @@ export interface ResolutionChoice {
   height: number;
   /** 「4K」「1080p」。 */
   label: string;
-  /** 画布本来的尺寸（不带 `height`）。 */
+  /** 原视频的分辨率（`sourceShortSide`）：标「原始分辨率」、缺省选它。不知道原视频多大时没有哪一项是。 */
   source: boolean;
 }
 
@@ -127,22 +129,59 @@ export function resolutionLabel(short: number): string {
 const STANDARD_SHORTS = [2160, 1080, 720];
 
 /**
- * 可选分辨率（设计稿 `resChoices`）：画布本来的尺寸排第一（默认），往下是比它小的标准档。不往上放大——
- * 放大不会让画面更清楚。宽高按画布比例、取偶数（与 Runtime 对 yuv420p 的处理一致）。
- *
- * 选了别的画幅（`ratio`）时短边照旧由档位定，长边按画幅推、取偶数（`outputSize`）；推出来超过 `exports.create` 上限
- * （宽 7680、高 4320）的档不列（例如短边大于 2430 的画布出 9:16 时，画布本来的那一档）。
+ * 原视频的分辨率（设计稿 `exportShort`）：这次画进画面的视频实例（启用、所在轨显示，独显同 `exportLanes`），各自的显示尺寸
+ * （乘上像素宽高比）按画布比例盖满裁切后量短边，取最大。画布常是 1920×1080 这样的固定档，640×360 的原片放进去也是这么大，
+ * 所以分辨率要看原片，不能看画布。一个都没有（纯音频、只有图片、探不到尺寸）时 null。
  */
-export function resolutionChoices(canvas: { width: number; height: number }, ratio?: RatioChoice): ResolutionChoice[] {
+export function sourceShortSide(sequence: Sequence, assets: Record<Id, AssetRecord>, canvas: { width: number; height: number }): number | null {
+  if (!(canvas.width > 0 && canvas.height > 0)) return null;
+  const drawn = pictureTrackIds(sequence);
+  const r = canvas.width / canvas.height;
+  let best: number | null = null;
+  for (const item of sequence.items) {
+    if (item.type !== 'video' || !item.enabled || !drawn.has(item.trackId)) continue;
+    const video = assets[item.assetRef.id]?.revisions[item.assetRef.revision]?.video;
+    if (!video) continue;
+    const par = video.pixelAspectRatio;
+    const w = video.displayWidth * (par && par.num > 0 && par.den > 0 ? par.num / par.den : 1);
+    const h = video.displayHeight;
+    if (!(w > 0 && h > 0)) continue;
+    const ch = w / h > r ? even(h) : Math.min(even(h), even(w / r));
+    const short = Math.min(even(ch * r), ch);
+    if (best === null || short > best) best = short;
+  }
+  return best;
+}
+
+/**
+ * 可选分辨率，按短边从高到低：画布本来的尺寸、原视频的分辨率（`sourceShort`，标 `source`），加上比两者中较大者小的标准档。
+ * 原视频比画布小时，比它高的档照样列——视频只是被放大、不会更清楚，但字幕与文字按输出分辨率画，烧字幕时仍有用；
+ * 原视频比画布大时列到原视频那一档（导出按输出尺寸画，原片的细节留得住）。宽高按画布比例、取偶数（与 Runtime 对 yuv420p 的处理一致）。
+ *
+ * 选了别的画幅（`ratio`）时短边照旧由档位定，长边按画幅推、取偶数（`outputSize`）。推出来超过 `exports.create` 上限
+ * （宽 7680、高 4320）的档不列（例如短边大于 2430 的画布出 9:16 时，画布本来的那一档）；跟随画布时画布本身那一档不带宽高，总是留着。
+ */
+export function resolutionChoices(canvas: { width: number; height: number }, ratio?: RatioChoice, sourceShort?: number | null): ResolutionChoice[] {
   const shortSide = Math.min(canvas.width, canvas.height);
   if (!(shortSide > 0)) return [];
-  const scaled = (short: number, source: boolean): ResolutionChoice => {
+  const original = sourceShort && sourceShort > 0 ? Math.round(sourceShort) : null;
+  const top = Math.max(shortSide, original ?? 0);
+  const shorts = [...new Set([shortSide, ...(original ? [original] : []), ...STANDARD_SHORTS.filter((s) => s < top)])].sort((a, b) => b - a);
+  const choice = (short: number): ResolutionChoice => {
+    const source = short === original;
     if (ratio) return { short, ...outputSize(short, ratio), label: resolutionLabel(short), source };
+    if (short === shortSide) return { short, width: canvas.width, height: canvas.height, label: resolutionLabel(short), source };
     const k = short / shortSide;
-    return { short, width: source ? canvas.width : even(canvas.width * k), height: source ? canvas.height : even(canvas.height * k), label: resolutionLabel(short), source };
+    return { short, width: even(canvas.width * k), height: even(canvas.height * k), label: resolutionLabel(short), source };
   };
-  const all = [scaled(shortSide, true), ...STANDARD_SHORTS.filter((s) => s < shortSide).map((s) => scaled(s, false))];
-  return ratio ? all.filter((c) => c.width <= MAX_OUTPUT.width && c.height <= MAX_OUTPUT.height) : all;
+  return shorts
+    .map(choice)
+    .filter((c) => (!ratio && c.short === shortSide) || (c.width <= MAX_OUTPUT.width && c.height <= MAX_OUTPUT.height));
+}
+
+/** 表单挑的分辨率落到这次的列表上：挑过且还在列表里的那档；没挑过（或那档已经不在）是原视频那档，不知道原视频多大时是第一档。 */
+export function pickResolution(choices: readonly ResolutionChoice[], short: number | null): ResolutionChoice | null {
+  return (short !== null ? choices.find((c) => c.short === short) : undefined) ?? choices.find((c) => c.source) ?? choices[0] ?? null;
 }
 
 /** `exports.create` 的输出宽高上限（packages/protocol/src/schemas.ts）。 */
@@ -219,7 +258,7 @@ export function loudnessNote(form: LoudnessForm): string {
 
 export interface VideoForm {
   quality: QualityKey;
-  /** 选的短边；null 是画布本来的尺寸。 */
+  /** 选的短边；null 是原视频的分辨率（`sourceShortSide`），不知道时是画布本来的尺寸。 */
   short: number | null;
   /** 换的画幅；null 是跟随画布。 */
   ratio: RatioKey | null;
@@ -244,18 +283,27 @@ export function videoRatio(form: Pick<VideoForm, 'ratio'>, canvas: { width: numb
   return ratioChoices(canvas).find((r) => r.key === form.ratio);
 }
 
-export function videoSettings(form: VideoForm, canvas: { width: number; height: number }, scope: ExportScope, loudness: LoudnessForm): ExportSettings {
+export function videoSettings(
+  form: VideoForm,
+  canvas: { width: number; height: number },
+  scope: ExportScope,
+  loudness: LoudnessForm,
+  sourceShort?: number | null,
+): ExportSettings {
   const ratio = videoRatio(form, canvas);
-  const choices = resolutionChoices(canvas, ratio);
-  const choice = choices.find((c) => c.short === form.short) ?? (ratio ? choices[0] : undefined);
+  const choice = pickResolution(resolutionChoices(canvas, ratio, sourceShort), form.short);
   const crf = QUALITY_CHOICES.find((q) => q.key === form.quality)?.crf;
   const target = loudnessTarget(loudness);
   return {
     kind: 'video',
     format: 'mp4',
     ...scope,
-    // 换画幅时宽高都给（引擎加黑边）；只换分辨率时只给高，宽按画布比例。
-    ...(ratio && choice ? { width: choice.width, height: choice.height } : choice && !choice.source ? { height: choice.height } : {}),
+    // 换画幅时宽高都给（引擎加黑边）；只换分辨率时只给高，宽按画布比例；就是画布本来的尺寸时都不给。
+    ...(ratio && choice
+      ? { width: choice.width, height: choice.height }
+      : choice && (choice.width !== canvas.width || choice.height !== canvas.height)
+        ? { height: choice.height }
+        : {}),
     ...(crf !== undefined ? { crf } : {}),
     burnCaptions: form.burnCaptions,
     ...(form.source !== 'mix' ? { source: audioSource(form.source) } : {}),

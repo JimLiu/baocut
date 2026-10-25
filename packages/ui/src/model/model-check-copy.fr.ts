@@ -96,6 +96,12 @@ export const fr: ModelCheckMessages = {
     todo: "Essayez une autre référence ou écoutez d’abord l’échantillon.",
   }),
   refUnknown: "enregistrement",
+  toolMissing: {
+    text: (tool) => `Cet ordinateur n’a pas de ${tool} qui fonctionne`,
+    install: (tool) => `Installez ${tool}`,
+    checkTodo: (remedy) => `${remedy}, puis vérifiez à nouveau.`,
+    tryTodo: (remedy) => `${remedy}, puis réessayez.`,
+  },
 
   trySpeech: {
     noMemory: {

@@ -44,7 +44,7 @@ test('参数：缺省值、条数夹在 1–10、时长档不设上限、画幅�
   assert.equal(M.DEFAULTS.focus, 'auto');
   assert.equal(M.DEFAULTS.ratio, '9:16');
   assert.equal(M.FOCUS[0].id, 'speaker');
-  assert.equal(M.FOCUS[0].off, '这一版还没有人物与发言人模型');
+  assert.equal(M.FOCUS[0].off, '转写里还没分出说话人 · 先用「识别说话人」');
   assert.equal(M.clampCount(0), 1);
   assert.equal(M.clampCount(99), 10);
   assert.equal(M.clampCount('x'), 'auto');
@@ -81,11 +81,14 @@ test('参数落到项目上：没有译文只有原文；竖屏原片不取景�
   assert.deepEqual([b.tracks, b.focus, b.skipDone], ['trans', 'manual', false]);
 });
 
-test('取景缺省自动：跟着说话的人这一版不开放、旧版的居中不再单列，带进来都落回自动；竖屏原片仍不取景', () => {
+test('取景：分不出说话人时缺省自动、跟着说话的人选不了；旧版的居中不再单列，带进来落回缺省；竖屏原片仍不取景', () => {
   const ctx = {hasTrans: true, portrait: false, children: 0};
   assert.deepEqual(M.FOCUS.map((f) => f.id), ['speaker', 'auto', 'manual']);
   assert.equal(M.normalize({}, ctx).focus, 'auto');
   assert.equal(M.normalize({focus: 'speaker'}, ctx).focus, 'auto');
+  assert.equal(M.normalize({focus: 'speaker'}, Object.assign({}, ctx, {speakers: 1})).focus, 'auto', '一个说话人不算分出来');
+  assert.equal(M.focusOpen(M.focusOf('speaker'), ctx), false);
+  assert.equal(M.focusOpen(M.focusOf('auto'), ctx), true);
   assert.equal(M.normalize({focus: 'center'}, ctx).focus, 'auto');
   assert.equal(M.normalize({focus: 'nope'}, ctx).focus, 'auto');
   assert.equal(M.normalize({focus: 'manual'}, ctx).focus, 'manual');
@@ -93,6 +96,22 @@ test('取景缺省自动：跟着说话的人这一版不开放、旧版的居�
   assert.equal(M.focusOf('nope').id, 'auto');
   assert.equal(M.summaryLine(M.normalize({}, ctx)), '按话题定几支、多长 · 9:16 · 自动');
   assert.equal(M.summaryLine(M.normalize({count: 3, length: 'mid'}, ctx)), '3 支 · 每支 30–60 秒 · 9:16 · 自动');
+});
+
+test('取景：转写里分出 2 个以上说话人时缺省跟着说话的人，可以改成别的；分屏开关跟着它也出现', () => {
+  const ctx = {hasTrans: true, portrait: false, children: 0, speakers: 3};
+  assert.equal(M.focusOpen(M.focusOf('speaker'), ctx), true);
+  assert.equal(M.normalize({}, ctx).focus, 'speaker');
+  assert.equal(M.normalize({focus: 'nope'}, ctx).focus, 'speaker');
+  assert.equal(M.normalize({focus: 'auto'}, ctx).focus, 'auto');
+  assert.equal(M.normalize({focus: 'manual'}, ctx).focus, 'manual');
+  assert.equal(M.normalize({}, Object.assign({}, ctx, {portrait: true})).focus, 'auto', '竖屏原片不取景');
+  assert.deepEqual(['speaker', 'auto', 'manual'].map(M.splitApplies), [true, true, false]);
+  const x = M.agentExtra({focus: 'speaker'});
+  assert.ok(x.includes('画幅 9:16，取景跟着说话的人：有近景与全景来回切时按镜头取景；只有一个全景机位时用 videos_shots 的 by speaker 按说话人切段，谁说话对准谁'));
+  assert.ok(x.includes(M.SPLIT.promptOn));
+  assert.ok(M.agentExtra({focus: 'speaker', split: false}).includes(M.SPLIT.promptOff));
+  assert.ok(!M.agentExtra({focus: 'manual'}).some((l) => l === M.SPLIT.promptOn || l === M.SPLIT.promptOff));
 });
 
 test('吸附：模型给的时间落到最近的句首和句尾，终点不会跑到起点前面', () => {
@@ -726,4 +745,40 @@ test('编辑器：openCutEntry 记下来处，离开文稿 / 点 rail / 换视�
   assert.match(ed, /useEffect\(\(\) => \{ if \(tab !== 'transcript'\) setCutOrigin\(null\); \}, \[tab\]\)/);
   assert.match(ed, /if \(clearCutOrigin\) clearCutOrigin\(\); setTab\(key\)/);
   assert.match(ed, /openCutEntry, cutOrigin, closeCutEntry, clearCutOrigin/);
+});
+
+/* ---------- 分屏同框（docs/design/shorts-framing） ---------- */
+test('shotElements：多人全景的镜头写分屏的格子，最左的人在上面；元素自己的取景点照旧给一份', () => {
+  window.BC_PANELS = require('./model-panels.js');
+  const regions = [{left: 0.55, top: 0.12, right: 0.15, bottom: 0.3}, {left: 0.15, top: 0.12, right: 0.55, bottom: 0.3}];
+  const shots = [SHOTS[0], Object.assign({}, SHOTS[1], {regions}), SHOTS[2]];
+  const out = M.shotElements(base(), shots, 16 / 9, 9 / 16);
+  const split = out.filter((e) => e.panels);
+  assert.deepEqual(split.map((e) => e.id), ['video-k2']);
+  assert.equal(split[0].panels.length, 2);
+  assert.ok(split[0].panels[0].focal.x < split[0].panels[1].focal.x, '左边那个人在上格');
+  assert.deepEqual(split[0].panels.map((p) => p.rect.y), [0, 50]);
+  assert.equal(split[0].focal.x, 0.5, '一人的取景点仍按这个镜头的 focusX');
+  delete window.BC_PANELS;
+});
+
+test('layoutStrip：按这一支的时长排开一人段与分屏段，相邻同版式并成一段；没有分屏段不画', () => {
+  const regions = [{left: 0.1, top: 0, right: 0.6, bottom: 0}, {left: 0.6, top: 0, right: 0.1, bottom: 0}];
+  const cut = {ratio: '9:16', shots: [{start: 10, end: 14, focusX: 0.3}, {start: 14, end: 20, focusX: 0.3, regions},
+    {start: 20, end: 25, focusX: 0.7}, {start: 25, end: 30, focusX: 0.3}]};
+  const strip = M.layoutStrip(cut, {start: 10, end: 30});
+  assert.deepEqual(strip.map((g) => [g.start, g.end, g.n]), [[10, 14, 1], [14, 20, 2], [20, 30, 1]]);
+  assert.equal(strip[1].label, '0:04 – 0:10 · 分屏 2 格');
+  assert.ok(Math.abs(strip.reduce((a, g) => a + g.len, 0) - 1) < 1e-9);
+  assert.equal(M.layoutStrip({ratio: '9:16', shots: [cut.shots[0], cut.shots[2]]}, {start: 10, end: 30}), null);
+  assert.equal(M.frameText(cut), '4 段 · 1 段分屏 · 打开后选中某一段可以改版式、互换上下');
+});
+
+test('多人全景时分屏：缺省开，提示词多一行；关掉、自己定取景或保留原画幅时不说分屏', () => {
+  assert.equal(M.DEFAULTS.split, true);
+  assert.ok(M.agentExtra({}).includes(M.SPLIT.promptOn));
+  assert.ok(M.agentExtra({split: false}).includes(M.SPLIT.promptOff));
+  assert.ok(!M.agentExtra({focus: 'manual'}).some((x) => x === M.SPLIT.promptOn || x === M.SPLIT.promptOff));
+  assert.ok(!M.agentExtra({ratio: 'source'}).some((x) => x === M.SPLIT.promptOn || x === M.SPLIT.promptOff));
+  assert.equal(M.normalize({split: undefined}, {}).split, true);
 });

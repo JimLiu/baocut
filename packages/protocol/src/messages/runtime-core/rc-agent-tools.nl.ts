@@ -179,6 +179,14 @@ export const nl: RcAgentToolsMessages = {
   deriveRangeEmpty: 'Het bereik is leeg na uitlijnen op frames',
   deriveUnsupportedItem: (p) => `Het bereik bevat een clip die niet naar een afgeleide video kan worden gekopieerd (${p.kind})`,
   deriveParentUnplaced: 'Deze video staat niet in een project- of sessiemap, dus er kan geen afgeleide video naast worden gemaakt',
+  derivePanelsInvalid: (p) =>
+    `Een gesplitst beeld ${p.layout} heeft ${p.layout === 'grid' ? 'precies 4' : p.layout === 'spotlight' ? 'precies 3' : '2 of 3'} vakken nodig, maar er zijn er ${p.count} opgegeven`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Een gesplitst beeld spotlight heeft main nodig: de index (0–2) van het vak dat bovenaan komt' : `Alleen een gesplitst beeld spotlight neemt main; haal het weg bij ${p.layout}`,
   shotsRangeEmpty: 'Het bereik is leeg na uitlijnen op frames',
   shotsRangeTooLong: (p) => `Het bereik is langer dan ${p.minutes} minuten; detecteer shots in kortere stukken`,
+  shotsNoSpeakers: 'Het transcript van deze video onderscheidt nog geen twee of meer sprekers; herken eerst de sprekers',
+  shotsNotSingleCamera: 'De meeste steekproefbeelden tonen niet dezelfde 2–4 gezichten, dus dit is geen enkele vaste totaalcamera',
+  shotsSpeakersUnmatched: 'Kon bij geen enkele spreker vaststellen welk gezicht in beeld van hem is',
+  shotsFacesUnavailable: 'Gezichtsherkenning is niet beschikbaar',
 };

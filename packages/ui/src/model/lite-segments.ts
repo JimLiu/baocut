@@ -249,12 +249,6 @@ export function liteChips(segments: readonly LiteSegment[], playhead: number, du
   });
 }
 
-/** 拖第 `index` 片右边时的预览：这一片的终点与下一片的起点都换成 `seconds`（调用方已按 `chipEdge` 夹好），其余不动。 */
-export function liteBoundaryPreview(segments: readonly LiteSegment[], index: number, seconds: number): LiteSegment[] {
-  if (!segments[index] || !segments[index + 1]) return [...segments];
-  return segments.map((s, i) => (i === index ? { ...s, end: seconds } : i === index + 1 ? { ...s, start: seconds } : s));
-}
-
 /** 片条的缩放：1 = 整条铺满播放条的宽度（默认），按钮每档 ×1.5、最大 8 倍；观看态，不进视频、不进偏好。 */
 export const LITE_ZOOM_MAX = 8;
 export const LITE_ZOOM_STEP = 1.5;
@@ -280,6 +274,46 @@ export function liteFitZoom(segment: LiteSegment | null, duration: number): numb
 export function liteKeepInView(headX: number, scrollLeft: number, viewWidth: number, margin = 24): number | null {
   if (headX >= scrollLeft + margin && headX <= scrollLeft + viewWidth - margin) return null;
   return Math.max(0, Math.round(headX - viewWidth / 3));
+}
+
+/** 走带的循环方式（轻量编辑器设计 §3「走带」）：整片（默认）、当前段、不循环。只是这个窗口的观看态，不进视频、不进偏好。 */
+export type LiteLoopMode = 'whole' | 'segment' | 'off';
+export const LITE_LOOP_MODES: readonly LiteLoopMode[] = ['whole', 'segment', 'off'];
+export const DEFAULT_LITE_LOOP: LiteLoopMode = 'whole';
+
+/** 播放头在 `seconds` 时正在循环的那一截：整片是 [0, 片长]，当前段是它所在的段；不循环或找不到段时为 null（原型 model-lite.js `loopRange`）。 */
+export function liteLoopRange(
+  segments: readonly LiteSegment[],
+  mode: LiteLoopMode,
+  seconds: number,
+  duration: number,
+): { start: number; end: number } | null {
+  if (mode === 'whole') return { start: 0, end: Math.max(0, duration) };
+  if (mode !== 'segment') return null;
+  const segment = liteSegmentAt(segments, seconds);
+  return segment ? { start: segment.start, end: segment.end } : null;
+}
+
+/** 判断「播过去」时给时钟留的余量（秒）：播放头一步最多走「经过的时间 × 倍速 + 余量」，更大的一步是拖动、点片或跳段。 */
+export const LITE_LOOP_SLACK = 0.25;
+/** 两次播放头更新之间，播放最多能走多少秒。按真实经过的时间算，不假定每帧都更新（后台或被节流的页面一秒才更新一次）。 */
+export const liteLoopMaxStep = (elapsedSeconds: number, rate: number) => Math.max(0, elapsedSeconds) * Math.max(0, rate) + LITE_LOOP_SLACK;
+
+/**
+ * 当前段循环：播放头从 `from` 走到 `to` 时要不要跳回段首，要就返回段首。只认往前、不超过 `maxStep`（`liteLoopMaxStep`）的一步跨过段尾；
+ * 最后一段的段尾就是片尾，交给引擎停下后的处理（`liteLoopRange` 的开头）。
+ */
+export function liteLoopJump(
+  segments: readonly LiteSegment[],
+  mode: LiteLoopMode,
+  from: number,
+  to: number,
+  duration: number,
+  maxStep: number,
+): number | null {
+  if (mode !== 'segment' || !(to > from) || to - from > maxStep) return null;
+  const range = liteLoopRange(segments, mode, from, duration);
+  return range && range.end < duration && to >= range.end ? range.start : null;
 }
 
 /** 没有路由、没有按视频记过、全局默认是「自动」时开哪种：一律审片（轻量）；要时间线的在「默认打开」里选「时间线视图」。 */

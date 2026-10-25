@@ -425,7 +425,7 @@ interface ModelFiles {
 
 `audio-cpp` backend 的模型包**不交给 Model Worker**，由随应用内置的 audio.cpp 引擎（上游 [0xShug0/audio.cpp](https://github.com/0xShug0/audio.cpp)）执行：音乐生成（`generateMusic`，架构设计 §6.1）每个任务起一个命令行进程 `audiocpp_cli`，语音合成（`synthesizeSpeech`）每个用到的模型包一个常驻服务进程 `audiocpp_server`。两者是同一份构建，直接读模型包目录里的 GGUF，没有 `model.load` 与 `job.cancel`。模型包只有权重：安装、清单与校验照 §4.1–4.2（`.bcut-manifest.json`、只下载清单列出的文件）。
 
-**引擎**。随应用分发，不另外下载，也不是受管外部工具：上游预编译包的版本、各平台的文件名、大小与 sha256 登记在 `@baocut/models` 的 `audio-cpp-engine.ts`（目前 0.9.2），打包时取目标平台的包、核对后原样放进 `<resources>/bin/audiocpp/`（`audiocpp_cli`、`audiocpp_server`、上游 `LICENSE`，Windows 另有 MSVC 运行库 DLL）。各平台：macOS arm64 / x64 是 Metal 版（静态链接，只依赖系统框架）；Windows x64 与 Linux x64 是 Vulkan portable 版，Windows 的 `cpu` 安装包与 Linux 的 CPU 构建用 CPU portable 版。Vulkan 版启动时要系统里有 Vulkan 加载器（显卡驱动带的 `vulkan-1.dll` / `libvulkan.so.1`），没有时进程起不来。Linux arm64 与 Windows arm64 上游没有发布。开发时引擎在 cargo 产物目录的 `audiocpp/`，由 `npm run build:audiocpp` 按同一份登记下载、核对、解开（`npm run setup` 包含它）。
+**引擎**。随应用分发，不另外下载，也不是受管外部工具：上游预编译包的版本、各平台的文件名、大小与 sha256 登记在 `@baocut/models` 的 `audio-cpp-engine.ts`（目前 0.9.2-drama3-base-small），打包时取目标平台的包、核对后原样放进 `<resources>/bin/audiocpp/`（`audiocpp_cli`、`audiocpp_server`、上游 `LICENSE`，Windows 另有 MSVC 运行库 DLL）。各平台：macOS arm64 / x64 是 Metal 版（静态链接，只依赖系统框架）；Windows x64 与 Linux x64 是 Vulkan portable 版，Windows 的 `cpu` 安装包与 Linux 的 CPU 构建用 CPU portable 版。Vulkan 版启动时要系统里有 Vulkan 加载器（显卡驱动带的 `vulkan-1.dll` / `libvulkan.so.1`），没有时进程起不来。Linux arm64 与 Windows arm64 上游没有发布。开发时引擎在 cargo 产物目录的 `audiocpp/`，由 `npm run build:audiocpp` 按同一份登记下载、核对、解开（`npm run setup` 包含它）。
 
 可执行文件每个任务重新找：环境变量 `BAOCUT_AUDIOCPP_CLI` 给了就只用它（文件不存在算找不到；服务取同目录的 `audiocpp_server`），否则是内置的目录；不找 `PATH`。找不到时，装好的 `audio-cpp` 模型包是 `error` / `unsupported`（说明是 `engineMissing` 的文案：这台主机没有引擎的构建，或安装不完整），任务以 `unavailable`（`MODEL_LOAD_FAILED`，`details.reason: 'unsupported'`，`details.bundleId`）失败。Runtime 的自检（`runtime --self-check`）报告两个可执行文件解析到哪里，`--probe` 时各跑一次 `--version`，退出码须为 0。`--version` 的第一行是 `audio.cpp <版本>`（自己构建的是 `audio.cpp dev`），另有一行 `backends: <逗号分隔>` 列出编进去的后端。
 
@@ -487,7 +487,7 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
 
 **读音标注**。正文里的读音标注写成 `<字|读音>`：表面含汉字，读音是拼音，多字按空格分音节，音节数等于表面字数（`<银行|yin2 hang2>`）。每个音节写声调数字（`hang2`，轻声 `5`，ü 写 `v` 或 `ü`）或带调拼音（`háng`、`lǜ`；不标调是轻声，`<了|le>`），同一个注记里可以混用（`<银行|yín hang2>`），不分大小写；Runtime 解析时（`speech-readings.ts`）一律规范成小写的声调数字写法（j / q / x / y 后的 ü 写 `u`）。音节去调后须是 1–6 个字母、含元音（成音节的 `m n ng hm hng` 除外）；只认预组合的带调字母，调号与数字并存、一个音节两个调号都不合法。读音带数字或调号却不合法的是畸形注记，原样留作文字；既不带数字也不带调号又不合法的（`<中文|Chinese>`）不算注记。认读音标注的模型（IndexTTS 2.5）收到规范写法的注记，畸形注记按字面留在文字里；别的模型按表面文字合成，畸形注记只留表面的字。念不了的（模型不认、注记畸形）逐条记成任务的 `reading-dropped` 警告（`detail` 只说位置与读音，偏移按去注记后文字的 Unicode 码点算），不静默丢弃，也不让任务失败。
 
-参考录音在执行前按提交时的摘要再核对一次，变了或读不出来时失败（内置音色的录音读不出来是安装不完整，`APP_FILE_MISSING`；请求给出的文件是 `ASSET_MISSING`），不换声音。核对过的录音经 ffmpeg 转成 staging 里的单声道 16 位 WAV（`reference.wav`，保留采样率，解封装器白名单与识别相同），引擎只读 WAV；模型对带原文的参考有时长上限时（Fish S2 Pro 30 秒）在这里检查，超出是 `rejected`（`details.reason: 'reference-duration'`，带 `seconds` 与 `range`）。
+参考录音在执行前按提交时的摘要再核对一次，变了或读不出来时失败（内置音色的录音读不出来是安装不完整，`APP_FILE_MISSING`；请求给出的文件是 `ASSET_MISSING`），不换声音。核对过的录音经 ffmpeg 转成 staging 里的单声道 16 位 WAV（`reference.wav`，保留采样率，解封装器白名单与识别相同），引擎只读 WAV；这台机器上没有能用的 ffmpeg（找不到、不能执行）时任务失败，错误码 `MEDIA_TOOL_UNAVAILABLE`、带按平台给的安装修法：那是外部工具的问题，不是录音读不出来，也不说成安装不完整；模型对带原文的参考有时长上限时（Fish S2 Pro 30 秒）在这里检查，超出是 `rejected`（`details.reason: 'reference-duration'`，带 `seconds` 与 `range`）。
 
 **进度与取消**。引擎不报告进度：请求发出后进入 `generating`，只有不定进度，完成时报 1/1。服务不能中途停下一次合成，取消就结束这个服务进程（整个进程组，宽限期 5 秒后强杀），下次再起。
 

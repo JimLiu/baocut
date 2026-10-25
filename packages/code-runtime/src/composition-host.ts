@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { JsonLineWorker, WorkerExitedError, WorkerRequestError, WorkerTimeoutError, type WorkerEvent } from '@baocut/process-host';
+import { JsonLineWorker, WorkerExitedError, WorkerRequestError, WorkerSpawnError, WorkerTimeoutError, type WorkerEvent } from '@baocut/process-host';
 import { CODE_BUNDLE_ERROR_CODES, type CodeBundleErrorCode, type FrameReceipt, type FrameTicket, type Rate } from '@baocut/protocol';
 import { CodeBundleError, parseRate, type InspectedBundle } from './bundle-inspect.ts';
 import { COMPOSITION_ADAPTER_SCRIPT, type AdapterPageInfo } from './composition-adapter.ts';
@@ -246,25 +246,19 @@ export class CompositionHost {
         command: electron,
         args: hostSpawnArgs(script),
         env,
+        socket: { timeoutMs: options.openTimeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS },
         ...(options.log ? { onStderrLine: options.log } : {}),
       });
     } catch (error) {
-      throw new CodeBundleError('COMPOSITION_HOST_UNAVAILABLE', `Could not start Electron: ${(error as Error).message}`, { electron });
+      throw new CodeBundleError('COMPOSITION_HOST_UNAVAILABLE', `Could not start Electron: ${(error as Error).message}`, {
+        electron,
+        ...(error instanceof WorkerSpawnError ? { stderr: error.stderr.slice(-4000) } : {}),
+      });
     }
     const timeoutMs = options.openTimeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS;
-    const ready = await new Promise<boolean>((resolve) => {
-      const timer = setTimeout(() => finish(false), timeoutMs);
-      const offEvent = worker.onEvent((event: WorkerEvent) => {
-        if (event.event === 'ready') finish(true);
-      });
-      const offExit = worker.onExit(() => finish(false));
-      function finish(ok: boolean) {
-        clearTimeout(timer);
-        offEvent();
-        offExit();
-        resolve(ok);
-      }
-    });
+    // The socket is connected only after app.whenReady(); a request also avoids
+    // losing a one-shot ready event between authentication and subscription.
+    const ready = await worker.request('ping', {}, { timeoutMs }).then(() => true, () => false);
     if (!ready) {
       await worker.kill();
       throw new CodeBundleError('COMPOSITION_HOST_UNAVAILABLE', 'Electron composition host did not become ready', {
@@ -360,7 +354,7 @@ export class CompositionHost {
     await this.#request('close', { sessionId }, this.#frameTimeoutMs);
   }
 
-  /** 关掉宿主（关 stdin，宿主销毁全部窗口后退出）。 */
+  /** 关掉宿主通道，宿主销毁全部窗口后退出。 */
   async close(): Promise<void> {
     await this.#worker.close(5_000);
   }

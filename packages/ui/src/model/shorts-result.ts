@@ -22,6 +22,57 @@ export interface ShortsDerivation {
   notes: string[];
   /** 分段取景有几个镜头（派生来源文档的 `settings.crops`，没有时按 `framing.shots`）；没有分段取景时 0。 */
   shots: number;
+  /** 其中几段分屏（`settings.crops` 里带 `layout` 的项，短视频分屏设计 §8.2）。 */
+  splits: number;
+  /** 版式条（子视频时间线的秒）；没有分屏段时 null。 */
+  strip: LayoutSegment[] | null;
+}
+
+/** 版式条的一段（子视频时间线的秒）：一人（`n` 为 1）或分屏 `n` 格；相邻同格数的合成一段。 */
+export interface LayoutSegment {
+  start: number;
+  end: number;
+  n: number;
+}
+
+/** `settings.crops` 的每一项：父视频时间线上的 `[from, to)` 与格数（一人是 1）；认不出的项跳过。 */
+function cropSpans(summary: Record<string, unknown>): LayoutSegment[] {
+  const crops = (summary.settings as { crops?: unknown } | undefined)?.crops;
+  if (!Array.isArray(crops)) return [];
+  return crops.flatMap((crop: unknown) => {
+    if (!crop || typeof crop !== 'object') return [];
+    const c = crop as { from?: unknown; to?: unknown; layout?: unknown; panels?: unknown };
+    const start = Number(c.from);
+    const end = Number(c.to);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || !(end > start)) return [];
+    return [{ start, end, n: typeof c.layout === 'string' && Array.isArray(c.panels) ? c.panels.length : 1 }];
+  });
+}
+
+/**
+ * 版式条（原型 model-shorts-cut.js `layoutStrip`）：把各段取景按时间排开，没盖住的地方按兜底的一人取景算，相邻同格数的合成一段，
+ * 换成子视频时间线的秒（减去区间起点）。没有分屏段、或区间是空的时 null。
+ */
+export function layoutStrip(spans: readonly LayoutSegment[], range: { start: number; end: number }): LayoutSegment[] | null {
+  if (!spans.some((s) => s.n > 1) || !(range.end > range.start)) return null;
+  const out: LayoutSegment[] = [];
+  const push = (start: number, end: number, n: number) => {
+    if (!(end - start > 1e-6)) return;
+    const last = out[out.length - 1];
+    if (last && last.n === n) last.end = end;
+    else out.push({ start, end, n });
+  };
+  let at = range.start;
+  for (const s of [...spans].sort((a, b) => a.start - b.start)) {
+    const start = Math.max(s.start, at);
+    const end = Math.min(s.end, range.end);
+    if (!(end > start)) continue;
+    push(at, start, 1);
+    push(start, end, s.n);
+    at = end;
+  }
+  push(at, range.end, 1);
+  return out.map((s) => ({ start: s.start - range.start, end: s.end - range.start, n: s.n }));
 }
 
 const textOf = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
@@ -35,9 +86,9 @@ function shotCount(summary: Record<string, unknown>): number {
   return lengthOf(settings?.crops) || lengthOf(framing?.shots);
 }
 
-/** 结果页卡上「取景」那一行写几个镜头：分了不止一个镜头时是段数，否则 null（不出这一行）。 */
-export function framingShots(derivation: Pick<ShortsDerivation, 'shots'> | null): number | null {
-  return derivation && derivation.shots > 1 ? derivation.shots : null;
+/** 结果页卡上「取景」那一行写几个镜头：分了不止一个镜头、或有分屏段时是段数，否则 null（不出这一行）。 */
+export function framingShots(derivation: Pick<ShortsDerivation, 'shots' | 'splits'> | null): number | null {
+  return derivation && (derivation.shots > 1 || derivation.splits > 0) ? Math.max(1, derivation.shots) : null;
 }
 
 /** 视频里的派生来源文档的概要；不是子视频（没有这份文档、或认不出）时 null。 */
@@ -61,6 +112,8 @@ export function readDerivation(documents: Record<Id, DocumentRecord> | null | un
       reason: textOf(summary.reason),
       notes: Array.isArray(summary.notes) ? summary.notes.flatMap((n) => textOf(n) ?? []) : [],
       shots: shotCount(summary),
+      splits: cropSpans(summary).filter((s) => s.n > 1).length,
+      strip: layoutStrip(cropSpans(summary), { start, end }),
     };
   }
   return null;

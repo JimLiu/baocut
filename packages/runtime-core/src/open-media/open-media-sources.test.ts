@@ -49,6 +49,8 @@ describe('licenses', () => {
 describe('hosts', () => {
   it('downloads only from the media file hosts', () => {
     expect(allowedDownloadHost('upload.wikimedia.org')).toBe(true);
+    expect(allowedDownloadHost('thumb.wikimedia.org')).toBe(true);
+    expect(allowedDownloadHost('evil.wikimedia.org.example')).toBe(false);
     expect(allowedDownloadHost('ia800204.us.archive.org')).toBe(true);
     expect(allowedDownloadHost('evilarchive.org')).toBe(false);
     expect(allowedDownloadHost('i.ytimg.com')).toBe(false);
@@ -157,6 +159,98 @@ describe('Wikimedia Commons', () => {
     const file = parseCommonsFile(body, { maxHeight: 1080, maxImageWidth: 3840 });
     expect(file).toMatchObject({ url: 'https://upload.wikimedia.org/big.1080p.vp9.webm', extension: 'webm', variant: '1080p.vp9.webm' });
     expect(file.candidate.height).toBe(1080);
+  });
+
+  it('picks the tallest webm derivative for a Theora original even when it is within maxHeight', () => {
+    const derivative = (height: number, width: number, type = 'video/webm; codecs="vp9"') => ({
+      src: `https://upload.wikimedia.org/speech.ogv/speech.ogv.${height}p.vp9.webm`,
+      type,
+      height,
+      width,
+      transcodekey: `${height}p.vp9.webm`,
+    });
+    const body = {
+      query: {
+        pages: [
+          commonsPage(
+            'File:Speech.ogv',
+            {
+              url: 'https://upload.wikimedia.org/speech.ogv',
+              mime: 'application/ogg',
+              mediatype: 'VIDEO',
+              width: 640,
+              height: 480,
+              extmetadata: { LicenseShortName: { value: 'Public domain' } },
+            },
+            {
+              videoinfo: [
+                {
+                  derivatives: [
+                    { src: 'https://upload.wikimedia.org/speech.ogv', type: 'video/ogg; codecs="theora, vorbis"', height: 480, width: 640 },
+                    derivative(240, 320),
+                    derivative(480, 640),
+                    derivative(360, 480),
+                  ],
+                },
+              ],
+            },
+          ),
+        ],
+      },
+    };
+    const file = parseCommonsFile(body, { maxHeight: 1080, maxImageWidth: 3840 });
+    expect(file).toMatchObject({
+      url: 'https://upload.wikimedia.org/speech.ogv/speech.ogv.480p.vp9.webm',
+      extension: 'webm',
+      variant: '480p.vp9.webm',
+    });
+    expect(file.candidate).toMatchObject({ width: 640, height: 480 });
+  });
+
+  it('refuses a Theora original that has no webm derivative', () => {
+    const body = {
+      query: {
+        pages: [
+          commonsPage('File:Fresh.ogv', {
+            url: 'https://upload.wikimedia.org/fresh.ogv',
+            mime: 'application/ogg',
+            mediatype: 'VIDEO',
+            width: 640,
+            height: 480,
+            extmetadata: { LicenseShortName: { value: 'Public domain' } },
+          }),
+        ],
+      },
+    };
+    expect(() => parseCommonsFile(body, { maxHeight: 1080, maxImageWidth: 3840 })).toThrow(
+      expect.objectContaining({ code: 'OPEN_MEDIA_UNSUPPORTED' }),
+    );
+  });
+
+  it('keeps an importable original within maxHeight', () => {
+    const body = {
+      query: {
+        pages: [
+          commonsPage(
+            'File:Small.webm',
+            {
+              url: 'https://upload.wikimedia.org/small.webm',
+              mime: 'video/webm',
+              mediatype: 'VIDEO',
+              width: 640,
+              height: 480,
+              size: 1234,
+              extmetadata: { LicenseShortName: { value: 'CC0' } },
+            },
+            { videoinfo: [{ derivatives: [{ src: 'https://upload.wikimedia.org/small.360p.webm', type: 'video/webm', height: 360, transcodekey: '360p.webm' }] }] },
+          ),
+        ],
+      },
+    };
+    expect(parseCommonsFile(body, { maxHeight: 1080, maxImageWidth: 3840 })).toMatchObject({
+      url: 'https://upload.wikimedia.org/small.webm',
+      variant: null,
+    });
   });
 
   it('reports a missing file', () => {

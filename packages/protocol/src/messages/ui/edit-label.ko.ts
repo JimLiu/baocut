@@ -49,6 +49,8 @@ export const ko: EditLabelMessages = {
   editText: '텍스트 편집',
   nudgePosition: '위치 미세 조정',
   applyFramingToAll: '쇼츠 전체에 적용',
+  adjustPanel: '분할 칸 조정',
+  changeLayout: '레이아웃 변경',
   zoomFraming: '프레이밍 확대',
   freePlacement: '자유 배치로 바꾸기',
   aspectRatio: (p) => `화면 비율 ${p.ratio}`,

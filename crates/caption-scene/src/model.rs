@@ -154,7 +154,15 @@ impl Length {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LayoutClock {
+    pub time: Expression,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Layout {
+    /// Cue-relative sampling clock; outer activation stays on timeline time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clock: Option<LayoutClock>,
     #[serde(default)]
     pub layout_evaluation: LayoutEvaluation,
     #[serde(default)]
@@ -248,6 +256,25 @@ pub struct Pagination {
     /// `caption-keyword-isolation/1`: hard row/page boundaries around tagged words.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub isolation: Vec<IsolationRule>,
+    /// `caption-tag-run-isolation/1`: width-wrapped lines or pages never span a change of a
+    /// word's tag state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_runs: Option<TagRuns>,
+}
+/// A word is in the tagged state when `presentation.wordTags` lists `tag` for it; a boundary lies
+/// between adjacent words whose state differs. `line` ends the display line there and `page` ends
+/// the page, so a run is never split by a boundary but is still wrapped by width and quotas.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct TagRuns {
+    pub tag: String,
+    pub mode: TagRunMode,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TagRunMode {
+    Line,
+    Page,
 }
 /// `caption-fixed-line-wrap/1`: a fixed row wider than the layout width continues on
 /// further display lines, broken like width-wrapped text; row and page members stay frozen.
@@ -379,6 +406,7 @@ impl Default for Pagination {
             page_tags: None,
             pattern_select: None,
             isolation: vec![],
+            tag_runs: None,
         }
     }
 }
@@ -1092,6 +1120,19 @@ pub enum GlyphDistanceAa {
     },
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PaintMaskRasterization {
+    #[default]
+    Canvas,
+    GlyphBounds,
+}
+impl PaintMaskRasterization {
+    fn is_canvas(&self) -> bool {
+        *self == Self::Canvas
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum PaintMask {
@@ -1104,6 +1145,9 @@ pub enum PaintMask {
         /// Multiplies by the complement of the mask alpha when true.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         inverted: bool,
+        /// Opt-in recording-time rasterization into a bounded device bitmap.
+        #[serde(default, skip_serializing_if = "PaintMaskRasterization::is_canvas")]
+        rasterization: PaintMaskRasterization,
     },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
@@ -1471,6 +1515,20 @@ pub enum CaptionMaterial {
         contrast: DynamicValue,
         strength: DynamicValue,
     },
+    /// One resampling of the page domain: evolving noise warp, a scanning stripe that
+    /// stretches the content sideways, then scanline shimmer and a global gain.
+    ScanWarp {
+        id: String,
+        #[serde(rename = "contextNodeId")]
+        context_node_id: String,
+        domain: MaterialDomain,
+        #[serde(rename = "uvY")]
+        uv_y: MaterialUvY,
+        warp: ScanWarpField,
+        stripe: ScanWarpStripe,
+        scanlines: ScanWarpScanlines,
+        gain: DynamicValue,
+    },
     AngularSampleBlend {
         id: String,
         #[serde(rename = "contextNodeId")]
@@ -1685,6 +1743,56 @@ pub struct GradientSmearNoise {
     pub sub_scale: f64,
     pub sub_rotation: f64,
     pub sub_offset: [f64; 2],
+}
+
+/// Noise warp of `scan-warp`: two fractal gradient-noise fields move the sample point.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScanWarpField {
+    /// Noise lattice cells per domain height (the width is scaled by the aspect ratio).
+    pub scale: f64,
+    pub complexity: f64,
+    pub sub_impact: f64,
+    pub sub_scale: f64,
+    pub evolution: DynamicValue,
+    /// Noise-space translation subtracted from the lattice coordinate.
+    pub offset: [DynamicValue; 2],
+    /// Maximum sample displacement per axis, in domain fractions.
+    pub strength: [DynamicValue; 2],
+    #[serde(default)]
+    pub swap_axes: bool,
+}
+
+/// Which side of the stripe centre the stretch applies to, along material y.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ScanWarpSide {
+    Above,
+    Below,
+}
+
+/// Horizontal stretch about the domain centre inside a thin band; lengths are output pixels.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScanWarpStripe {
+    /// Band centre as a fraction of the domain height along material y.
+    pub center: DynamicValue,
+    pub core_half_height: DynamicValue,
+    pub falloff: DynamicValue,
+    /// Soft edge of the one-sided cut at the band centre; zero is a hard cut.
+    pub gate: DynamicValue,
+    pub amount: DynamicValue,
+    pub side: ScanWarpSide,
+}
+
+/// Brightness ripple along material y: `1 - amount * sin(pitch * y - phase)`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScanWarpScanlines {
+    pub amount: DynamicValue,
+    /// Radians per output pixel.
+    pub pitch: f64,
+    pub phase: DynamicValue,
 }
 
 /// Explicit axis-aligned canvas coordinates for a material's local texture domain.

@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import {
   framingFromCrop,
   itemAssetRef,
+  panelFocalForRegion,
+  panelRects,
+  panelUpscale,
   sequenceDurationFrames,
   videoDisplaySize,
   type Crop,
@@ -11,12 +14,14 @@ import {
   type FocalPoint,
   type Id,
   type MediaTime,
+  type PanelLayout,
   type Rate,
   type Sequence,
   type SequenceItem,
   type Track,
   type TrackKind,
   type VersionRef,
+  type VideoPanel,
   type VideoSnapshot,
 } from '@baocut/protocol';
 import { upgradeLegacyTranslation } from '../videos/legacy-translation.ts';
@@ -42,7 +47,7 @@ import { upgradeLegacyTranslation } from '../videos/legacy-translation.ts';
  * 以 `range-not-exact` 说明。
  */
 
-export type DeriveErrorCode = 'DERIVE_RANGE_EMPTY' | 'DERIVE_UNSUPPORTED_ITEM' | 'DERIVE_PARENT_UNPLACED';
+export type DeriveErrorCode = 'DERIVE_RANGE_EMPTY' | 'DERIVE_UNSUPPORTED_ITEM' | 'DERIVE_PARENT_UNPLACED' | 'DERIVE_PANELS_INVALID';
 
 /** 派生的拒绝：调用方按 `code` 换成 RPC 错误或工具错误。 */
 export class DeriveError extends Error {
@@ -65,7 +70,11 @@ export type DeriveWarningCode =
   | 'items-not-restorable'
   | 'translations-skipped'
   | 'crops-adjusted'
-  | 'animation-split';
+  | 'animation-split'
+  | 'panels-ignored'
+  | 'panel-region-cropped'
+  | 'panel-upscaled'
+  | 'split-short';
 
 export interface DeriveWarning {
   code: DeriveWarningCode;
@@ -75,7 +84,9 @@ export interface DeriveWarning {
   documentId?: Id;
   /**
    * `range-not-exact`：区间之外没能剪掉的帧数；`items-not-restorable`：会被剪口删掉的实例数；`multiple-assets`：媒体素材数；
-   * `crops-adjusted`：截到区间、或截完为空丢掉的分段取景数。
+   * `crops-adjusted`：截到区间、或截完为空丢掉的分段取景数；`panels-ignored`：当一人裁剪处理的分屏段数（只说一个片段时带
+   * `itemId`）；`panel-region-cropped`、`panel-upscaled`：区域装不下、放大量超过 {@link PANEL_UPSCALE_WARN} 的格数；
+   * `split-short`：短于 {@link SPLIT_SHORT_SECONDS} 秒的分屏段数。
    */
   count?: number;
 }
@@ -95,18 +106,42 @@ export interface DeriveSettings {
   crops?: CropShot[];
 }
 
-/** 一段取景：时间线上的 `[from, to)` 秒与这段的裁剪（四边比例，同 `Crop`）。 */
-export interface CropShot extends Crop {
+/** 一段取景：时间线上的 `[from, to)` 秒，一人（四边裁剪，同 `Crop`）或分屏（{@link SplitShot}）。 */
+export type CropShot = SingleShot | SplitShot;
+
+/** 一人的一段：这段的裁剪（四边比例，同 `Crop`）。 */
+export interface SingleShot extends Crop {
   from: number;
   to: number;
 }
+
+/**
+ * 分屏的一段（视频格式规范 §3.5 `VideoItem.panels`）：版式、每格要看见的源区域（四边比例）与格子间距。`alignCrops` 之后各格已按
+ * 区域中心的横坐标从左到右排好，依次放进版式的格子（`rows` 从上到下，`grid` 左上、右上、左下、右下）；`spotlight` 的 `main`
+ * 那一格排在最前（上格，排好后 `main` 是 0），另两格按横坐标进左下、右下。
+ */
+export interface SplitShot {
+  from: number;
+  to: number;
+  layout: PanelLayout;
+  panels: Crop[];
+  /** `spotlight` 放到上格的那一格（`panels` 里的下标）；别的版式没有。 */
+  main?: number;
+  /** 格子间距（画布短边的百分比，0–10）；0 不写。 */
+  gap?: number;
+}
+
+export const isSplitShot = <T extends CropShot | ShotFraming>(shot: T): shot is Extract<T, { layout: PanelLayout }> => 'layout' in shot;
 
 /** 分段取景在主素材源时钟上的样子（派生来源文档的 `framing`），供以后恢复剪口时按镜头补拆。 */
 export interface DerivationFraming {
   /** 主素材（父视频里的 ID）。 */
   assetId: Id;
-  /** 区间里主素材的每一段：源时钟上的 `[from, to)` 秒与它用的裁剪（没有裁剪时 null）。 */
-  shots: { from: number; to: number; crop: Crop | null }[];
+  /**
+   * 区间里主素材的每一段：源时钟上的 `[from, to)` 秒与它用的裁剪（没有裁剪时 null）。分屏的段 `crop` 为 null，多记版式与
+   * 写到片段上的格子。
+   */
+  shots: { from: number; to: number; crop: Crop | null; layout?: PanelLayout; panels?: VideoPanel[] }[];
 }
 
 /** 对到帧之后的区间：帧号与秒（`[start, end)`）。 */
@@ -378,8 +413,24 @@ export function derivationKey(input: {
       captions: s.captions,
       translations: s.translations,
       chapters: s.chapters,
-      // 只在给了分段取景时才算进来：老调用的键不变。
-      ...(s.crops ? { crops: s.crops.map((c) => [c.from, c.to, c.left, c.top, c.right, c.bottom]) } : {}),
+      // 只在给了分段取景时才算进来：老调用的键不变。分屏段的格子已按区域排好（`alignCrops`），给的次序不影响键。
+      ...(s.crops
+        ? {
+            crops: s.crops.map((c) =>
+              isSplitShot(c)
+                ? [
+                    c.from,
+                    c.to,
+                    c.layout,
+                    ...c.panels.map((p) => [p.left, p.top, p.right, p.bottom]),
+                    // 一期的键不变：间距为 0 与不给相同，main 只在 spotlight 时有。
+                    ...(c.layout === 'spotlight' ? [['main', c.main ?? 0]] : []),
+                    ...(c.gap ? [['gap', c.gap]] : []),
+                  ]
+                : [c.from, c.to, c.left, c.top, c.right, c.bottom],
+            ),
+          }
+        : {}),
     },
   });
   return createHash('sha256').update(canonical).digest('hex').slice(0, 12);
@@ -394,6 +445,8 @@ const EDGE_CROP_TOLERANCE_SECONDS = 0.5;
  * 对齐后，第一段起点晚于区间起点、最后一段终点早于区间终点，且缺口小于 `EDGE_CROP_TOLERANCE_SECONDS`（0.5 秒）时，把它向外延到
  * 区间边界：区间边界为落在停顿里被吸附（可比请求的宽几帧），而调用方的首尾段正好是请求的起止，不延的话那一小条会自成一个很短的
  * 片段并套用缺省裁剪。只动首尾两段、只向外延，不计入 `adjusted`；缺口更大的仍沿用缺省裁剪，且已计入 `adjusted` 的不变。
+ * 分屏段的格数要与版式对上（`rows` 2 或 3 格、`grid` 4 格、`spotlight` 3 格），`spotlight` 要给 `main`（`panels` 里的下标）、
+ * 别的版式不给，否则拒绝（`DERIVE_PANELS_INVALID`）；各格按区域排好（{@link SplitShot}）。
  */
 export function alignCrops(sequence: Sequence, range: AlignedRange, crops: readonly CropShot[]): { crops: CropShot[]; adjusted: number } {
   const fps = sequence.fps;
@@ -403,6 +456,21 @@ export function alignCrops(sequence: Sequence, range: AlignedRange, crops: reado
   const outFrames: Array<{ from: number; to: number }> = [];
   let previous = range.startFrame;
   for (const shot of [...crops].sort((x, y) => x.from - y.from)) {
+    if (isSplitShot(shot)) {
+      const count = shot.panels.length;
+      const spotlight = shot.layout === 'spotlight';
+      const main = shot.main;
+      const badMain = spotlight ? !(Number.isInteger(main) && main! >= 0 && main! < count) : main !== undefined;
+      if (!panelRects(shot.layout, count) || badMain) {
+        throw new DeriveError('DERIVE_PANELS_INVALID', {
+          from: shot.from,
+          to: shot.to,
+          layout: shot.layout,
+          count,
+          ...(main !== undefined ? { main } : {}),
+        });
+      }
+    }
     const rawFrom = toFrame(shot.from);
     const rawTo = toFrame(shot.to);
     const from = Math.max(rawFrom, range.startFrame, previous);
@@ -411,14 +479,7 @@ export function alignCrops(sequence: Sequence, range: AlignedRange, crops: reado
     if (to <= from) continue;
     previous = to;
     outFrames.push({ from, to });
-    out.push({
-      from: toNumber(frames(from, fps)),
-      to: toNumber(frames(to, fps)),
-      left: shot.left,
-      top: shot.top,
-      right: shot.right,
-      bottom: shot.bottom,
-    });
+    out.push({ from: toNumber(frames(from, fps)), to: toNumber(frames(to, fps)), ...shotFraming(shot) });
   }
   // 首尾边缘的小缺口并入第一段、最后一段（只向外，不计 adjusted）。
   const tolerance = (EDGE_CROP_TOLERANCE_SECONDS * fps.num) / fps.den;
@@ -486,21 +547,25 @@ function itemInput(item: SequenceItem, settings: DeriveSettings, warnings: Deriv
   delete input.assetRef;
   if (item.type === 'video') {
     if (settings.fit) input.fit = settings.fit;
-    // 设置里的裁剪按居中铺满给：原来的取景点不算。
+    // 设置里的裁剪按居中铺满给：原来的取景点与分屏格子不算；不铺满时也没有格子（格子只用于全屏铺满）。
     if (settings.crop) {
       input.crop = settings.crop;
       delete input.focalPoint;
+      delete input.panels;
     }
+    if (settings.fit === 'contain') delete input.panels;
   }
   return input;
 }
 
 /**
  * 铺满画布的视频把「裁剪 + 铺满」换成不丢画面的取景（`framingFromCrop`，视频格式规范 §3.5）：剪成别的画幅只是取景，
- * 源画面完整留着，以后改回原画幅还能看到全部；画布上看到的不变。不是全屏 + `cover`、没有裁剪或不知道源尺寸时原样。
+ * 源画面完整留着，以后改回原画幅还能看到全部；画布上看到的不变。不是全屏 + `cover`、没有裁剪、有分屏格子或不知道源尺寸时原样。
  */
 function keepFullPicture(entry: Record<string, unknown>, source: { width: number; height: number } | null, canvas: DeriveSettings) {
   if (entry.type !== 'video' || entry.mode !== 'fullscreen' || (entry.fit ?? 'cover') !== 'cover' || !entry.crop || !source) return entry;
+  // 有分屏格子的片段：格子的区域按裁剪之后的源算，裁剪不能换成取景点。
+  if (entry.panels) return entry;
   const framing = framingFromCrop(entry.crop as Crop, source, canvas, entry.focalPoint as FocalPoint | undefined);
   if (!framing) return entry;
   const out: Record<string, unknown> = { ...entry, focalPoint: framing.focalPoint };
@@ -511,16 +576,91 @@ function keepFullPicture(entry: Record<string, unknown>, source: { width: number
 
 // ---- 分段取景：把主素材的视频实例在镜头边界上拆开 ----
 
+/** 一段的取景：一人的裁剪，或分屏的版式、各格区域（已排好，`spotlight` 的上格在最前）与间距（0 不写）。 */
+type SplitFraming = { layout: PanelLayout; panels: Crop[]; gap?: number };
+type ShotFraming = Crop | SplitFraming;
+
 /** 对到帧的一段取景。 */
 interface FrameShot {
   fromFrame: number;
   toFrame: number;
-  crop: Crop;
+  framing: ShotFraming;
 }
+
+/** 分屏段短于这个秒数时以 `split-short` 提醒（门槛是剪成短视频 skill 的规则，这里只提醒）。 */
+export const SPLIT_SHORT_SECONDS = 3;
+/** 一格的放大量（成片一个像素对源几个像素）超过它时以 `panel-upscaled` 提醒：画面会发虚。 */
+export const PANEL_UPSCALE_WARN = 2.5;
 
 const cropOf = (c: Crop): Crop => ({ left: c.left, top: c.top, right: c.right, bottom: c.bottom });
 const sameCrop = (a: Crop | null, b: Crop | null): boolean =>
   a === b || (!!a && !!b && a.left === b.left && a.top === b.top && a.right === b.right && a.bottom === b.bottom);
+const sameFraming = (a: ShotFraming | null, b: ShotFraming | null): boolean => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (isSplitShot(a) || isSplitShot(b)) {
+    return (
+      isSplitShot(a) &&
+      isSplitShot(b) &&
+      a.layout === b.layout &&
+      (a.gap ?? 0) === (b.gap ?? 0) &&
+      a.panels.length === b.panels.length &&
+      a.panels.every((p, n) => sameCrop(p, b.panels[n]!))
+    );
+  }
+  return sameCrop(a, b);
+};
+
+/** 区域中心的横坐标（排格子用），一样时按纵坐标。 */
+const byCenter = (a: Crop, b: Crop) => a.left - a.right - (b.left - b.right) || a.top - a.bottom - (b.top - b.bottom);
+
+/**
+ * 一段的取景，复制出来：分屏的各格按区域中心从左到右排好，`spotlight` 先放 `main` 那一格（上格），另两格按横坐标；排好后
+ * `spotlight` 的 `main` 是 0。间距为 0 时不写。
+ */
+function shotFraming(shot: CropShot): ShotFraming | (SplitFraming & { main?: number }) {
+  if (!isSplitShot(shot)) return cropOf(shot);
+  const gap = shot.gap ? { gap: shot.gap } : {};
+  if (shot.layout !== 'spotlight') return { layout: shot.layout, panels: shot.panels.map(cropOf).sort(byCenter), ...gap };
+  const top = shot.panels[shot.main ?? 0]!;
+  const rest = shot.panels.filter((_, n) => n !== (shot.main ?? 0));
+  return { layout: shot.layout, panels: [cropOf(top), ...rest.map(cropOf).sort(byCenter)], main: 0, ...gap };
+}
+
+/** 分屏各格区域的并集：分屏用不上时当一人裁剪（`panels-ignored`）。 */
+function unionCrop(panels: readonly Crop[]): Crop {
+  return {
+    left: Math.min(...panels.map((p) => p.left)),
+    top: Math.min(...panels.map((p) => p.top)),
+    right: Math.min(...panels.map((p) => p.right)),
+    bottom: Math.min(...panels.map((p) => p.bottom)),
+  };
+}
+
+/** 分屏用不上（画幅没变或 `fit: 'contain'`）时把分屏段换成一人裁剪（各格区域的并集）。 */
+export function withoutSplits(crops: readonly CropShot[]): CropShot[] {
+  return crops.map((c) => (isSplitShot(c) ? { from: c.from, to: c.to, ...unionCrop(c.panels) } : c));
+}
+
+/** 分屏段的格子：版式与间距的格子（按画布算），各格区域换成这一格的取景点（`panelFocalForRegion`）；记下装不下、放大过头的格数。 */
+function splitPanels(
+  shot: SplitFraming,
+  source: { width: number; height: number },
+  canvas: { width: number; height: number },
+): { panels: VideoPanel[]; cropped: number; upscaled: number } {
+  const rects = panelRects(shot.layout, shot.panels.length, shot.gap ?? 0, canvas)!;
+  let cropped = 0;
+  let upscaled = 0;
+  const panels = rects.map((rect, n) => {
+    const cell = { width: (canvas.width * rect.w) / 100, height: (canvas.height * rect.h) / 100 };
+    const fit = panelFocalForRegion(shot.panels[n]!, source, cell);
+    const panel: VideoPanel = { rect, focalPoint: fit.focalPoint };
+    if (fit.cropped) cropped++;
+    if (panelUpscale(panel, source, canvas) > PANEL_UPSCALE_WARN) upscaled++;
+    return panel;
+  });
+  return { panels, cropped, upscaled };
+}
 
 function mediaTime(value: Q): MediaTime {
   if (value.d > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('sourceIn timescale overflow');
@@ -539,17 +679,17 @@ class Framing {
     this.shots = crops.map((c) => ({
       fromFrame: Math.round((c.from * fps.num) / fps.den),
       toFrame: Math.round((c.to * fps.num) / fps.den),
-      crop: cropOf(c),
+      framing: shotFraming(c),
     }));
     const candidates = [...new Set(this.shots.flatMap((s) => [s.fromFrame, s.toFrame]))]
       .filter((f) => f > range.startFrame && f < range.endFrame)
       .sort((a, b) => a - b);
-    this.splits = candidates.filter((f) => !sameCrop(this.at(f - 1), this.at(f)));
+    this.splits = candidates.filter((f) => !sameFraming(this.at(f - 1), this.at(f)));
   }
 
-  at(frame: number): Crop | null {
+  at(frame: number): ShotFraming | null {
     const f = Math.min(Math.max(frame, this.#range.startFrame), this.#range.endFrame - 1);
-    return this.shots.find((s) => s.fromFrame <= f && f < s.toFrame)?.crop ?? null;
+    return this.shots.find((s) => s.fromFrame <= f && f < s.toFrame)?.framing ?? null;
   }
 }
 
@@ -558,32 +698,65 @@ class Framing {
  * （以后两段的裁剪改成一样时能按源连续合并）；入场动画只留第一段、出场只留最后一段，内嵌音频的淡入只留第一段、淡出只留
  * 最后一段，循环动画与音量包络每段从头算（`animation-split`）。别的视频实例不拆，整段取它在区间里中间那一帧的取景。
  * 没有段盖住的地方用缺省裁剪（`crop` 设置，否则实例原来的）。`shots` 收区间里主素材各段的源区间与裁剪。
+ * 分屏段只给主素材的全屏铺满片段（且知道源尺寸）：写 `panels`，不写 `crop` 与 `focalPoint`（格子的区域按整幅源画面算）；
+ * 主素材别的片段按各格区域的并集当一人裁剪（`panels-ignored`），别的素材的片段在分屏段里用缺省裁剪。
  */
 function framedEntries(
   item: SequenceItem,
   entry: Record<string, unknown>,
-  context: { fps: Rate; range: AlignedRange; framing: Framing; primary: Id | null; warnings: DeriveWarning[]; shots: DerivationFraming['shots'] },
+  context: {
+    fps: Rate;
+    range: AlignedRange;
+    framing: Framing;
+    primary: Id | null;
+    warnings: DeriveWarning[];
+    shots: DerivationFraming['shots'];
+    /** 这个片段的源显示尺寸与子视频画布：算分屏的格子用。 */
+    source: { width: number; height: number } | null;
+    canvas: { width: number; height: number };
+    /** 每个分屏段第一次算格子时记下装不下、放大过头的格数（同一段只记一次）。 */
+    panelNotes: Map<ShotFraming, { cropped: number; upscaled: number }>;
+  },
 ): Record<string, unknown>[] {
   if (item.type !== 'video') return [entry];
   const { fps, range, framing } = context;
   const fallback = (entry.crop as Crop | undefined) ?? null;
-  const cropAt = (frame: number): Crop | null => framing.at(frame) ?? fallback;
-  const withCrop = (e: Record<string, unknown>, frame: number) => {
-    const out = { ...e };
-    const crop = cropAt(frame);
-    if (crop) out.crop = cropOf(crop);
-    else delete out.crop;
-    // 分段取景按居中铺满给：原来的取景点不算。
-    if (framing.at(frame)) delete out.focalPoint;
-    return out;
-  };
   const a = item.span.fromFrame;
   const b = a + item.span.durationFrames;
-  const piece = mediaPiece(item, fps);
-  if (!piece || piece === 'unsupported' || piece.assetId !== context.primary) {
+  const media = mediaPiece(item, fps);
+  const piece = media && media !== 'unsupported' && media.assetId === context.primary ? media : null;
+  const fullCover = entry.mode === 'fullscreen' && (entry.fit ?? 'cover') === 'cover' && !!context.source;
+  let ignored = false;
+  /** 这一帧的取景落到片段上：分屏（格子）、一人裁剪，或没有段盖住时的缺省裁剪。 */
+  const framingAt = (frame: number): { crop: Crop | null; split?: { layout: PanelLayout; panels: VideoPanel[] }; framed: boolean } => {
+    const shot = framing.at(frame);
+    if (!shot) return { crop: fallback, framed: false };
+    if (!isSplitShot(shot)) return { crop: shot, framed: true };
+    if (!piece) return { crop: fallback, framed: false };
+    if (!fullCover) {
+      ignored = true;
+      return { crop: unionCrop(shot.panels), framed: true };
+    }
+    const made = splitPanels(shot, context.source!, context.canvas);
+    if (!context.panelNotes.has(shot)) context.panelNotes.set(shot, { cropped: made.cropped, upscaled: made.upscaled });
+    return { crop: null, split: { layout: shot.layout, panels: made.panels }, framed: true };
+  };
+  const withFraming = (e: Record<string, unknown>, at: ReturnType<typeof framingAt>) => {
+    const out = { ...e };
+    if (at.crop) out.crop = cropOf(at.crop);
+    else delete out.crop;
+    // 分段取景按居中铺满给：原来的取景点与格子不算。
+    if (at.framed) {
+      delete out.focalPoint;
+      delete out.panels;
+    }
+    if (at.split) out.panels = at.split.panels;
+    return out;
+  };
+  if (!piece) {
     const lo = Math.max(a, range.startFrame);
     const hi = Math.min(b, range.endFrame);
-    return [withCrop(entry, lo < hi ? Math.floor((lo + hi - 1) / 2) : a)];
+    return [withFraming(entry, framingAt(lo < hi ? Math.floor((lo + hi - 1) / 2) : a))];
   }
   const bounds = [a, ...framing.splits.filter((f) => f > a && f < b), b];
   const last = bounds.length - 2;
@@ -595,7 +768,7 @@ function framedEntries(
   for (let n = 0; n <= last; n++) {
     const from = bounds[n]!;
     const to = bounds[n + 1]!;
-    const crop = cropAt(from);
+    const at = framingAt(from);
     const e: Record<string, unknown> = { ...entry, span: { fromFrame: from, durationFrames: to - from } };
     if (n > 0 && item.timeMap.kind === 'linear') {
       e.timeMap = { ...item.timeMap, sourceIn: mediaTime(add(piece.sourceIn, mul(sub(frames(from, fps), piece.a), piece.rate))) };
@@ -616,10 +789,16 @@ function framedEntries(
     const part = intersect({ start: frames(from, fps), end: frames(to, fps) }, kept);
     if (part) {
       const source = toSource(piece, part);
-      context.shots.push({ from: toNumber(source.start), to: toNumber(source.end), crop: crop ? cropOf(crop) : null });
+      context.shots.push({
+        from: toNumber(source.start),
+        to: toNumber(source.end),
+        crop: at.crop ? cropOf(at.crop) : null,
+        ...(at.split ? { layout: at.split.layout, panels: at.split.panels } : {}),
+      });
     }
-    out.push(withCrop(e, from));
+    out.push(withFraming(e, at));
   }
+  if (ignored) context.warnings.push({ code: 'panels-ignored', itemId: item.id });
   return out;
 }
 
@@ -968,9 +1147,18 @@ export function planDerivation(input: DerivationInput): DerivationPlan {
   // 一个父实例对应子视频里的几段（`piecesOf`，按时间排好）。
   const inserted: Record<string, unknown>[] = [];
   const piecesOf = new Map<Id, ItemLocator[]>();
-  const framing = settings.crops ? new Framing(sequence.fps, range, settings.crops) : null;
+  // 分屏只用于画幅变了、铺满的派生：否则分屏段按各格区域的并集当一人裁剪（`panels-ignored`）。
+  const splitShots = settings.crops?.filter(isSplitShot) ?? [];
+  const reframed = Math.abs(settings.width / settings.height - sequence.canvas.width / sequence.canvas.height) > 1e-3;
+  const splitsUsable = reframed && settings.fit !== 'contain';
+  const crops = settings.crops && splitShots.length && !splitsUsable ? withoutSplits(settings.crops) : settings.crops;
+  const framing = crops ? new Framing(sequence.fps, range, crops) : null;
   const framingShots: DerivationFraming['shots'] = [];
+  const panelNotes = new Map<ShotFraming, { cropped: number; upscaled: number }>();
   if (input.cropsAdjusted) warnings.push({ code: 'crops-adjusted', count: input.cropsAdjusted });
+  if (splitShots.length && !splitsUsable) warnings.push({ code: 'panels-ignored', count: splitShots.length });
+  const short = splitsUsable ? splitShots.filter((s) => s.to - s.from < SPLIT_SHORT_SECONDS - 1e-9).length : 0;
+  if (short) warnings.push({ code: 'split-short', count: short });
   for (const item of items) {
     const track = trackTargets.get(item.trackId)!;
     const entry: Record<string, unknown> = { ...itemInput(item, settings, warnings), ...track };
@@ -979,7 +1167,17 @@ export function planDerivation(input: DerivationInput): DerivationPlan {
     const source = item.type === 'video' ? videoDisplaySize(snapshot.assets[item.assetRef.id]?.revisions[item.assetRef.revision]) : null;
     const entries = (
       framing
-        ? framedEntries(item, entry, { fps: sequence.fps, range, framing, primary: cutPlan.primaryAssetId, warnings, shots: framingShots })
+        ? framedEntries(item, entry, {
+            fps: sequence.fps,
+            range,
+            framing,
+            primary: cutPlan.primaryAssetId,
+            warnings,
+            shots: framingShots,
+            source,
+            canvas: settings,
+            panelNotes,
+          })
         : [entry]
     ).map((e) => keepFullPicture(e, source, settings));
     inserted.push(...entries);
@@ -994,6 +1192,11 @@ export function planDerivation(input: DerivationInput): DerivationPlan {
     );
   }
   if (inserted.length) operations.push({ type: 'insertItems', sequenceId: target.sequenceId, items: inserted as never });
+  const notes = [...panelNotes.values()];
+  const cropped = notes.reduce((n, x) => n + x.cropped, 0);
+  const upscaled = notes.reduce((n, x) => n + x.upscaled, 0);
+  if (cropped) warnings.push({ code: 'panel-region-cropped', count: cropped });
+  if (upscaled) warnings.push({ code: 'panel-upscaled', count: upscaled });
   if (sequence.animationBindings.length) warnings.push({ code: 'animation-bindings-dropped' });
 
   // 章节：全部复制；剪口剪掉时章节跟着内容走（§3.13 的例外）。缩略图引用父视频的素材，不带过来。

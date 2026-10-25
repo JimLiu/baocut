@@ -20,6 +20,7 @@
   const hostOf = (app, ctx) => app.projById(SC.hostId(ctx.proj)) || ctx.proj;
   const projectFacts = (ctx) => ({
     hasTrans: ctx.cues.some((c) => !!c.trans),
+    speakers: new Set(ctx.cues.map((c) => c.sp).filter(Boolean)).size,
     portrait: C.sourceRatio(ctx.sources.video.find((v) => !v.crop)) < 1,
   });
 
@@ -195,8 +196,15 @@
           <>
             <SecHead aside={`原画幅 → ${SC.ratioOf(p.ratio).name}`}>画面怎么取景</SecHead>
             <BCChoiceGroup className="sec cr-scenes" value={p.focus} onChange={(focus) => set({focus})} aria-label="画面怎么取景">
-              {SC.FOCUS.map((f) => <OptionRow key={f.id} o={f} on={p.focus === f.id} disabled={!!f.off} />)}
+              {SC.FOCUS.map((f) => <OptionRow key={f.id} o={f} on={p.focus === f.id} disabled={!SC.focusOpen(f, s.facts)} />)}
             </BCChoiceGroup>
+            {/* 多人全景时分屏（docs/design/shorts-framing §8.1）：自动与跟着说话的人才有，自己定的取景每支只有一个位置 */}
+            {SC.splitApplies(p.focus) ? (
+              <div className="sec">
+                <window.ToolOption on={p.split} onChange={(v) => set({split: v})} label={SC.SPLIT.label}
+                  sub={!p.split ? SC.SPLIT.off : p.focus === 'speaker' ? SC.SPLIT.speakerOn : SC.SPLIT.on} />
+              </div>
+            ) : null}
           </>
         ) : null}
 

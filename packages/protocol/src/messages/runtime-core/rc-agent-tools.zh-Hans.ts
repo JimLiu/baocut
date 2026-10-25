@@ -147,6 +147,13 @@ export const zhHans: RcAgentToolsMessages = {
   deriveRangeEmpty: '对齐到帧之后区间是空的',
   deriveUnsupportedItem: (p) => `区间里有不能复制到子视频的片段（${p.kind}）`,
   deriveParentUnplaced: '这个视频不在项目或会话的目录里，没法在它旁边建子视频',
+  derivePanelsInvalid: (p) => `${p.layout} 分屏要 ${p.layout === 'grid' ? '4' : p.layout === 'spotlight' ? '3' : '2 或 3'} 格，给了 ${p.count} 格`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'spotlight 分屏要给 main：放到上格的那一格的序号（0–2）' : `只有 spotlight 分屏用 main，${p.layout} 分屏不要给`,
   shotsRangeEmpty: '对齐到帧之后区间是空的',
   shotsRangeTooLong: (p) => `区间超过 ${p.minutes} 分钟，请分段检测镜头`,
+  shotsNoSpeakers: '这一路原片的转写里还没分出 2 个以上说话人，请先识别说话人',
+  shotsNotSingleCamera: '取样的画面里多数不是同样 2–4 张脸，不是单个全景机位',
+  shotsSpeakersUnmatched: '认不出哪个说话人是画面里的哪张脸',
+  shotsFacesUnavailable: '人脸检测不可用',
 };

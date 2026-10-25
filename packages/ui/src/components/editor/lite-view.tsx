@@ -3,7 +3,15 @@ import type { Sequence, VideoSnapshot } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { sequenceChapters } from '../../model/chapters.ts';
 import { durationSeconds } from '../../model/editor.ts';
-import { liteSegments, type LiteSegment } from '../../model/lite-segments.ts';
+import {
+  DEFAULT_LITE_LOOP,
+  liteLoopJump,
+  liteLoopMaxStep,
+  liteLoopRange,
+  liteSegments,
+  type LiteLoopMode,
+  type LiteSegment,
+} from '../../model/lite-segments.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import type { OpenVideo } from '../../state/video-store.ts';
 import { useEditorActions } from './editor-context.tsx';
@@ -41,7 +49,7 @@ export interface LiteHandle extends LiteChipsHandle {
 /**
  * 轻量视图（轻量编辑器设计 §3、§5；原型 editor-lite.jsx）：视频栏之下换掉时间线那一列——画面与舞台条（`Preview` 的 lite 档：
  * 标记、音量、全屏、侧栏开关）、章节条（与时间线共用 `TimelineChapters`，悬停出那一刻的画面）、走带、片条；右边是固定宽的侧栏。
- * 段按设计 §2 从章节、转写或整条推出来（`liteSegments`）。循环是这个窗口的观看态：播到片尾再从头播。
+ * 段按设计 §2 从章节、转写或整条推出来（`liteSegments`）。循环方式是这个窗口的观看态，默认整片循环。
  * 引擎、播放头、倍速与标注模式都在 editor-store 里，两种视图切换时不丢。
  */
 export function LiteView({
@@ -60,7 +68,7 @@ export function LiteView({
 }) {
   const { seek, togglePlay } = useEditorActions();
   const sideHidden = useEditor((s) => s.liteSideHidden);
-  const [loop, setLoop] = useState(false);
+  const [loop, setLoop] = useState<LiteLoopMode>(DEFAULT_LITE_LOOP);
   const duration = durationSeconds(sequence);
   const lines = useLiteLines(sequence, snapshot.assets, snapshot.documents);
   const scripts = useChapterScripts(sequence.id, snapshot.documents);
@@ -77,16 +85,27 @@ export function LiteView({
     };
   }, [handle, segments, chips]);
 
-  // 循环：引擎播到片尾会把 playing 置回 false，这时回到 0 再开播。
+  // 循环：引擎播到片尾会把 playing 置回 false，这时回到循环那一截的开头再开播（整片回 0，当前段回最后一段的段首）；
+  // 当前段循环还要在播过段尾时跳回段首：`liteLoopJump` 只认往前、不比真实经过的时间走得快的一步，拖动、点片、上一段 / 下一段不算。
   useEffect(() => {
-    if (!loop) return;
+    if (loop === 'off') return;
+    let lastAt = performance.now();
     return useEditor.subscribe((state, previous) => {
-      if (previous.playing && !state.playing && state.playhead >= duration - END_EPSILON) {
-        seek(0);
+      const now = performance.now();
+      const elapsed = (now - lastAt) / 1000;
+      lastAt = now;
+      if (!previous.playing) return;
+      if (!state.playing) {
+        const range = liteLoopRange(segments, loop, previous.playhead, duration);
+        if (!range || state.playhead < duration - END_EPSILON) return;
+        seek(range.start);
         togglePlay();
+        return;
       }
+      const jump = liteLoopJump(segments, loop, previous.playhead, state.playhead, duration, liteLoopMaxStep(elapsed, state.rate));
+      if (jump != null) seek(jump);
     });
-  }, [loop, duration, seek, togglePlay]);
+  }, [loop, segments, duration, seek, togglePlay]);
 
   return (
     <div className={body}>
@@ -102,7 +121,7 @@ export function LiteView({
           segments={segments}
         />
         <StageLiveCaptions videoId={video.videoId} sequence={shown} documents={snapshot.documents} />
-        <TimelineChapters sequence={sequence} />
+        <TimelineChapters sequence={sequence} readOnly />
         <LiteTransport
           sequence={sequence}
           segments={segments}
@@ -110,7 +129,7 @@ export function LiteView({
           onLoop={setLoop}
           onZoom={(action) => chips.current?.zoom(action)}
         />
-        <LiteChips sequence={sequence} segments={segments} duration={duration} handle={chips} />
+        <LiteChips segments={segments} duration={duration} handle={chips} />
       </div>
       {sideHidden ? null : (
         <LiteSidePanel

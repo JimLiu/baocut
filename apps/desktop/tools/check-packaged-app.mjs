@@ -88,3 +88,11 @@ console.log('通过');
 // Offline CLI commands must work before any Runtime or agent configuration exists.
 const cliCheck = spawnSync(process.execPath, [path.join(HERE, 'check-bundled-cli.mjs'), arg], {stdio: 'inherit', timeout: TIMEOUT_MS});
 if (cliCheck.error || cliCheck.status !== 0) process.exit(cliCheck.status || 1);
+
+// Run on Windows unpacked, installed and ZIP apps, as well as the verified Mac app.
+if (arg !== '--dev') {
+  const resources = path.join(path.resolve(arg), process.platform === 'darwin' ? 'Contents/Resources' : 'resources');
+  const rendererCheck = spawnSync(process.execPath, [path.join(HERE, 'check-file-fonts.mjs'),
+    `--out=${path.join(resources, 'app.asar/out')}`], { stdio: 'inherit', timeout: TIMEOUT_MS });
+  if (rendererCheck.error || rendererCheck.status !== 0) process.exit(rendererCheck.status || 1);
+}

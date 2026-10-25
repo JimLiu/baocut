@@ -336,6 +336,9 @@ fn shape_page(
             bail!("CAPTION_LAYOUT_OVERFLOW: fixed word line");
         }
         let row_height = match fit {
+            Some(_) if node.style.line_box.is_some() => {
+                font_line_box::row_height(&shape, &node.style, row_fs) + row_fs * extra
+            }
             Some(_) => row_fs * (node.style.line_height + extra),
             None => font_line_box::row_height(&shape, &node.style, fs),
         };

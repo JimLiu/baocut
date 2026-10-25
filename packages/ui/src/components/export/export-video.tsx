@@ -12,9 +12,11 @@ import {
   defaultFileNames,
   dubGroups,
   formatDb,
+  pickResolution,
   QUALITY_CHOICES,
   ratioChoices,
   resolutionChoices,
+  sourceShortSide,
   videoRatio,
   videoSettings,
   type AudioSourceKey,
@@ -71,9 +73,12 @@ export function ExportVideoTab({
   const canvas = useMemo(() => ({ width, height }), [width, height]);
   const ratios = useMemo(() => ratioChoices(canvas), [canvas]);
   const ratio = videoRatio(form, canvas);
-  const resolutions = useMemo(() => resolutionChoices(canvas, ratio), [canvas, ratio]);
+  const sourceShort = useMemo(() => sourceShortSide(env.sequence, env.assets, canvas), [env.sequence, env.assets, canvas]);
+  const resolutions = useMemo(() => resolutionChoices(canvas, ratio, sourceShort), [canvas, ratio, sourceShort]);
   const lanes = useMemo(() => exportLanes(env.sequence, env.documents), [env.sequence, env.documents]);
-  const resolution = resolutions.find((r) => r.short === form.short) ?? resolutions[0] ?? null;
+  const resolution = pickResolution(resolutions, form.short);
+  const original = resolutions.find((r) => r.source) ?? null;
+  const upscaled = original !== null && resolutions.some((r) => r.short > original.short);
   const quality = QUALITY_CHOICES.find((q) => q.key === form.quality) ?? QUALITY_CHOICES[1]!;
   const captions = lanes.filter((l) => l.kind === 'subtitle');
   const burned = form.burnCaptions && captions.some((l) => l.picture);
@@ -81,12 +86,12 @@ export function ExportVideoTab({
   const sources = useMemo(() => audioSourceChoices(groups), [groups]);
   const source = sources.find((c) => c.key === form.source) ?? sources[0]!;
 
-  const settings = range.plan.empty ? null : videoSettings({ ...form, source: source.key }, canvas, rangeScope(range.plan), loudness);
+  const settings = range.plan.empty ? null : videoSettings({ ...form, source: source.key }, canvas, rangeScope(range.plan), loudness, sourceShort);
   const files = settings ? defaultFileNames(env.videoName, settings, env.documents, env.sequence) : [];
   const what = [
     range.plan.label,
     ratio ? EXPORT_COPY.letterboxedTo(ratio.key) : null,
-    resolution ? `${resolution.label}${resolution.source && !ratio ? '' : ` · ${resolution.width}×${resolution.height}`}` : null,
+    resolution ? `${resolution.label}${!ratio && (resolution.source || resolution.short === Math.min(width, height)) ? '' : ` · ${resolution.width}×${resolution.height}`}` : null,
     quality.label,
     captions.length ? (burned ? EXPORT_COPY.captionsBurned : EXPORT_COPY.captionsNotBurned) : null,
     source.key !== 'mix' ? source.label : null,
@@ -158,7 +163,7 @@ export function ExportVideoTab({
           </div>
           <Note>
             {quality.note}
-            {resolution ? ` · ${EXPORT_COPY.upscaleNote(resolutions[0]!.label)}` : ''}
+            {upscaled ? ` · ${EXPORT_COPY.upscaleNote(original.label)}` : ''}
           </Note>
           {ratio ? <Note>{EXPORT_COPY.letterboxNote}</Note> : null}
 

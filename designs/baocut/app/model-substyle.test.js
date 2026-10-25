@@ -414,6 +414,44 @@ test('比例链：原文行的字号就是原文行的字号，根字号是反�
   assert.ok(r.k > 1, '默认双语里译文行比原文行大');
 });
 
+/* ---------- 用文稿建原文字幕层（product-design §5.9「字幕属性」轨条的虚线「原文」chip） ---------- */
+
+test('只有译文在画面上时建原文：涂装取译文，身份、几何与词级那几件留原文自己的，叠成双语', () => {
+  const tr = T('en', 'translation', {font: 'picked-font', color: 'picked-color', outline: true});
+  const seed = T('zh', 'source', {wordAnim: 'pop', activeColor: 'hl'});
+  const list = S.addSourcePaired(doc(tr), seed);
+  assert.deepEqual(list.map((t) => t.id), ['en', 'zh'], '原文恒在最下');
+  const src = list[1];
+  assert.equal(src.font, 'picked-font');
+  assert.equal(src.color, 'picked-color');
+  assert.equal(src.outline, true);
+  assert.equal(src.role, 'source');
+  assert.equal(src.y, 93);
+  assert.equal(src.size, 32);
+  assert.equal(src.wordAnim, 'pop');
+  assert.equal(src.activeColor, 'hl');
+  assert.equal(S.stackOrder({tracks: list}), 'transTop', '叠成双语之后倒转可用');
+});
+
+test('建原文：画面上没有译文或原文已在时与 addTrack 相同', () => {
+  const seed = T('zh', 'source');
+  assert.deepEqual(S.addSourcePaired(doc(), seed), [seed]);
+  const st = bi();
+  assert.strictEqual(S.addSourcePaired(st, seed), st.tracks);
+});
+
+test('拿下一条轨时记下它此刻的样子，放回能原样回来（不和留下的那条叠在同一格）', () => {
+  const st = bi();
+  const src = S.source(st);
+  const r = S.shelveTrack(st, src.id);
+  assert.deepEqual(r.tracks.map((t) => t.id), st.tracks.filter((t) => t.id !== src.id).map((t) => t.id));
+  assert.deepEqual(r.shelf[src.id], src);
+  assert.deepEqual(S.addTrack({tracks: r.tracks}, r.shelf[src.id]), st.tracks);
+  const last = S.shelveTrack({tracks: r.tracks, shelf: r.shelf}, r.tracks[0].id);
+  assert.strictEqual(last.tracks, r.tracks, '最后一条拿不下来');
+  assert.strictEqual(last.shelf, r.shelf);
+});
+
 /* ---------- 软上限：放回一条搁置的轨（方案 C） ---------- */
 
 test('不足两条时直接放回去——这是「仅译文 / 只显示原文」的回头路，不该有摩擦', () => {

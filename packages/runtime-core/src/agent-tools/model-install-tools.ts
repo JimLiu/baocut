@@ -84,7 +84,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '用固定样本把一个已装好的本地模型包完整跑一遍，检查它能不能用。',
       '识别的模型包识别一段固定录音，合成的合成一句固定短句，生图的出一张小图，分离的分一段录音；说话人区分模型包没有单独的检查。不含用户的内容。',
-      '立即返回 jobId；用 jobs_wait 等它结束：completed 是通过，failed 时 error.details.check 是原因（MODEL_FILES_DAMAGED 可以请用户修复）。结果也记进 models_list 的 selfTest。',
+      '立即返回 jobId；用 jobs_wait 等它结束：completed 是通过，failed 时 error.details.check 是原因（MODEL_FILES_DAMAGED 可以请用户修复）；没有 details.check 时看 error.code（MEDIA_TOOL_UNAVAILABLE 是这台电脑缺 ffmpeg，不是模型的问题，按 details.remedy 请用户安装）。结果也记进 models_list 的 selfTest。',
     ].join('\n'),
     annotations: { destructiveHint: false },
     effect: 'job',
@@ -151,8 +151,8 @@ export class ModelInstallTools implements ToolSet {
       jobId,
       bundleId: args.bundleId,
       ...approvalField(approval),
-      // i18n-ignore: 给模型的工具说明、错误与下一步
-      next: '检查已提交：用 jobs_wait 等它结束。completed 是通过；failed 时 error.details.check 是原因，告诉用户。不要重复提交。',
+      next:
+        'Check submitted: wait for it with jobs_wait. completed means it passed; when it failed, error.details.check is the reason. Without details.check read error.code: MEDIA_TOOL_UNAVAILABLE means this computer has no working ffmpeg and details.remedy says how to install it. Tell the user. Do not submit it again.',
     };
   }
 

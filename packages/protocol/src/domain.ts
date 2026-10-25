@@ -339,9 +339,9 @@ export interface VideoDeriveParams {
   /**
    * 按镜头分段取景：父视频剪辑后时间线上的 `[from, to)` 秒（与 `start`、`end` 同一个时钟）各用一份裁剪，最多 64 段、互不重叠。
    * 各段的起止就近对到帧、截到区间（截过或丢掉的以 `crops-adjusted` 说明）；主素材的视频片段在取景变化处拆开，各段带自己的
-   * 裁剪。没盖住的地方用 `crop`。给了才参与幂等键。
+   * 裁剪。没盖住的地方用 `crop`。给了才参与幂等键。一段也可以是分屏（{@link VideoDeriveSplit}）。
    */
-  crops?: VideoDeriveCrop[];
+  crops?: VideoDeriveShot[];
   captions?: boolean;
   translations?: boolean;
   chapters?: boolean;
@@ -364,10 +364,31 @@ export interface VideoDeriveCrop {
 }
 
 /**
+ * 分屏的一段（视频格式规范 §3.5 `VideoItem.panels`）：`rows` 2 或 3 格、`grid` 4 格、`spotlight`（上一下二）3 格，每格是要看见的
+ * 源区域（四边比例，同 `crop`）。各格按区域中心的横坐标从左到右排进格子，给的次序不影响结果；`spotlight` 先把 `main` 那一格放进
+ * 上格，另两格按横坐标进左下、右下。只用于画幅变了、`fit` 为 cover 的派生；否则按各格区域的并集当一人裁剪处理（`panels-ignored`）。
+ */
+export interface VideoDeriveSplit {
+  from: number;
+  to: number;
+  layout: 'rows' | 'grid' | 'spotlight';
+  panels: { left: number; top: number; right: number; bottom: number }[];
+  /** `spotlight` 放到上格的那一格（`panels` 里的下标，0 起）；`spotlight` 必给，别的版式不给。 */
+  main?: number;
+  /** 格子之间的间距：画布短边的百分比，0–10，缺省 0；只留在格子之间，贴画布边的一侧不留。 */
+  gap?: number;
+}
+
+/** 分段取景的一段：一人（四边裁剪）或分屏。 */
+export type VideoDeriveShot = VideoDeriveCrop | VideoDeriveSplit;
+
+/**
  * 派生时丢掉、改动或没做到的东西（架构设计 §3.5「派生子视频」）。`translations-skipped`：父视频的一份译文没能复制
  * （`documentId` 是父视频里的译文；正文既不是 `baocut.translation/2`，旧项目的 `/1` 也换不过去）。`crops-adjusted`：
  * 分段取景有 `count` 段截到了区间或截完为空丢掉。`animation-split`：拆开的片段（`itemId`，父视频里的）有循环动画或音量包络，
- * 拆开后每段从头算。
+ * 拆开后每段从头算。分屏段：`panels-ignored` 有 `count` 段因画幅没变、`fit` 不是 cover 或片段不是全屏铺满而当一人裁剪处理；
+ * `panel-region-cropped` 有 `count` 格的区域在这一格里装不下（对准中心，多出的裁掉）；`panel-upscaled` 有 `count` 格放大量超过
+ * 2.5（画面会发虚）；`split-short` 有 `count` 段分屏短于 3 秒。
  */
 export type VideoDeriveWarningCode =
   | 'anchor-dropped'
@@ -379,7 +400,11 @@ export type VideoDeriveWarningCode =
   | 'captions-skipped'
   | 'translations-skipped'
   | 'crops-adjusted'
-  | 'animation-split';
+  | 'animation-split'
+  | 'panels-ignored'
+  | 'panel-region-cropped'
+  | 'panel-upscaled'
+  | 'split-short';
 
 export interface VideoDeriveResult {
   /** 子视频：与 `videos_create` 的 `video-created` 同一个写法。 */
@@ -396,8 +421,8 @@ export interface VideoDeriveResult {
   cuts: { assetId: Id; from: number; to: number }[];
   /** 复制的片段数；分段取景拆开的片段按段数算。 */
   itemCount: number;
-  /** 实际采用的分段取景：对到帧、截到区间之后的各段（父视频剪辑后时间线上的秒）。给了 `crops` 才有。 */
-  framing?: VideoDeriveCrop[];
+  /** 实际采用的分段取景：对到帧、截到区间之后的各段（父视频剪辑后时间线上的秒；分屏段的格子已按区域从左到右排好）。给了 `crops` 才有。 */
+  framing?: VideoDeriveShot[];
   /** 子视频里的派生来源文档（`kind: 'derivation'`）。 */
   derivationDocumentId: Id | null;
   /**
@@ -419,6 +444,10 @@ export interface VideoDeriveResult {
  * 里画面的切换点。按取帧的同一条规则（最上层、启用、轨道可见的视频片段）把区间分段：换了片段、源画面不接续的地方是
  * `edit`；每段的源画面交给 ffmpeg 的场景分数（`select='gt(scene,T)'`），超过 `threshold`（0–1，缺省 0.3）的是 `scene`。
  * 短于 `minShot` 秒（缺省 0.8）的镜头并进前一个。只看画面突变，不认人；叠化、推拉会漏报，闪光会多报。
+ *
+ * `by: "speaker"`（docs/design/shorts-framing §2.3、§2.5）用于只有一个全景机位的原片：不找画面的切换，先认出讲话转写里每个
+ * 说话人是画面里的哪张脸（在整份转写里取样，量每张脸嘴部的动静），再按转写逐词切段，每段对准一个人或分屏。`split: false`
+ * 时该分屏的段留在前一个人身上。这时不收 `threshold`、`minShot`。
  */
 export interface VideoShotsParams {
   videoId: Id;
@@ -426,6 +455,10 @@ export interface VideoShotsParams {
   end?: number;
   threshold?: number;
   minShot?: number;
+  /** 怎么切：`picture`（缺省）按画面的切换，`speaker` 按说话人。 */
+  by?: 'picture' | 'speaker';
+  /** 只用于 `by: "speaker"`：缺省 true；false 时不分屏。 */
+  split?: boolean;
 }
 
 /** 一处切换：时间线上的秒（对到帧）；`score` 是场景分数（`edit` 为 null）。 */
@@ -435,7 +468,8 @@ export interface VideoShotCut {
   kind: 'scene' | 'edit';
 }
 
-export interface VideoShotsResult {
+/** 按画面切（`by: "picture"`）的结果。 */
+export interface VideoPictureShotsResult {
   videoId: Id;
   revision: string;
   /** 实际检测的区间（对到帧）。 */
@@ -447,6 +481,45 @@ export interface VideoShotsResult {
   minShot: number;
   detector: 'ffmpeg-scene';
 }
+
+/** 按说话人切的一段：对准的说话人 ID 与脸（`faces` 的下标），分屏段两项都是 null；`sampleAt` 同按画面切。 */
+export interface VideoSpeakerShot {
+  start: number;
+  end: number;
+  sampleAt: string[];
+  speaker: string | null;
+  face: number | null;
+}
+
+/** 画面里的一张脸：各取样里的中位框（按帧的宽高归一化，同 `videos_frames` 的 `faces`）与认出的说话人（没人对上时 null）。 */
+export interface VideoShotFace {
+  box: { x: number; y: number; w: number; h: number };
+  speaker: string | null;
+}
+
+/** 转写里的一个说话人：对上的脸（认不出时 null）、用上的取样数与 `contrast`（对上的脸的分数 ÷ 别的脸上的最高分；没参与对应时 null）。 */
+export interface VideoShotSpeaker {
+  id: string;
+  name: string;
+  face: number | null;
+  probes: number;
+  contrast: number | null;
+}
+
+/** 按说话人切（`by: "speaker"`）的结果；`confidence` 是认出的说话人里最小的 `contrast`。 */
+export interface VideoSpeakerShotsResult {
+  videoId: Id;
+  revision: string;
+  range: { start: number; end: number };
+  shots: VideoSpeakerShot[];
+  /** 从左到右。 */
+  faces: VideoShotFace[];
+  speakers: VideoShotSpeaker[];
+  confidence: number;
+  detector: 'mouth-motion';
+}
+
+export type VideoShotsResult = VideoPictureShotsResult | VideoSpeakerShotsResult;
 
 /**
  * 智能体在这条会话里做好了一份幻灯片（`slides_check` 校验通过，docs/design/slides §7.3）：线程里出现幻灯片卡片，点开在功能区的幻灯片标签里编辑。

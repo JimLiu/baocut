@@ -56,6 +56,12 @@ export const ko: EngineMessages = {
   focalPointRange: '초점의 x와 y는 각각 [0, 1] 범위여야 합니다',
   focalPointZoomRange: '초점 확대 배율은 [1, 4] 범위여야 합니다',
   focalPointNotVideoOrImage: '영상이나 이미지가 아니어서 초점이 없습니다',
+  panelsCount: '분할 화면은 2~4칸이어야 합니다',
+  panelsRect: '각 칸의 너비와 높이는 0보다 커야 하고 화면 안(0~100%)에 있어야 합니다',
+  panelsOverlap: '분할 화면의 칸은 겹칠 수 없습니다',
+  panelsFocalPoint: '각 칸의 초점 x, y는 [0, 1], 확대 배율은 [1, 4] 범위여야 합니다',
+  panelsNeedFullscreenCover: '분할 화면은 전체 화면이면서 채우기(cover)인 영상에만 쓸 수 있습니다',
+  panelsNotVideo: '영상이 아니어서 분할 화면으로 만들 수 없습니다',
 
   // elements.rs
   itemSpanInvalid: '클립은 0보다 앞에서 시작할 수 없고 길이가 한 프레임 이상이어야 합니다',

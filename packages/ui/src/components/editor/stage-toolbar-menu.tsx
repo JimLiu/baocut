@@ -63,7 +63,7 @@ import { STAGE_COPY, STAGE_TOOLBAR_COPY as COPY } from '../../copy.ts';
 import { canArrange } from '../../model/editor-ops.ts';
 import { fitCanvas } from '../../model/geometry-panel.ts';
 import { patchTextStyle } from '../../model/property-values.ts';
-import { fillFramingOperations, isFramed, placeOperations, stagePose } from '../../model/stage-framing.ts';
+import { fillFramingOperations, isFramed, isPanelled, placeOperations, stagePose } from '../../model/stage-framing.ts';
 import type { PlacedItem } from '../../model/stage-pose.ts';
 import { M as TOOLBAR_COPY } from '../../model/stage-toolbar-copy.ts';
 import { ARRANGE_COPY, ARRANGE_ROWS, brandTarget, itemAsset, type InspectorSection, type MenuGroup, type Tool, type ToolId } from '../../model/stage-toolbar.ts';
@@ -243,8 +243,10 @@ export function runTool(tool: Tool, { item, sequence, assets, edit }: ToolProps,
         return;
       }
       // 按原片取景的视频画面恒铺满（原型 stage-toolbar-menu.jsx）：「填满画布」是放大回 100%；「适应画布」要留边，
-      // 说明为什么不行，给「改成自由摆放」。
+      // 说明为什么不行，给「改成自由摆放」。分屏的格子恒铺满：「适应画布」说明换回一人在「版式」里，「填满画布」本来就是。
       if ((tool.id === 'fit-canvas' || tool.id === 'fill-canvas') && isFramed(item)) {
+        if (isPanelled(item))
+          return tool.id === 'fit-canvas' ? void ToastQueue.info(STAGE_COPY.panelsFitBlocked, { timeout: 8000 }) : undefined;
         if (tool.id === 'fit-canvas')
           return void ToastQueue.info(STAGE_COPY.framingFitBlocked, {
             timeout: 8000,

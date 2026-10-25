@@ -1126,6 +1126,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       docs: docs.opener(),
       attachments,
       analysis,
+      faces,
       spaceThumbnails: new SpaceThumbnails({
         catalog: space,
         analysis,

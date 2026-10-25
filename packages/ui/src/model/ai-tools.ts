@@ -100,7 +100,7 @@ export type ShortsLength = (typeof SHORTS_LENGTH_KEYS)[number];
 export type ShortsCount = number | 'auto';
 const SHORTS_RATIO_KEYS = ['9:16', '1:1', 'source'] as const;
 export type ShortsRatio = (typeof SHORTS_RATIO_KEYS)[number];
-const SHORTS_FOCUS_KEYS = ['auto', 'manual', 'speaker'] as const;
+const SHORTS_FOCUS_KEYS = ['speaker', 'auto', 'manual'] as const;
 export type ShortsFocus = (typeof SHORTS_FOCUS_KEYS)[number];
 const SHORTS_TRACK_KEYS = ['both', 'source', 'translation'] as const;
 export type ShortsTracks = (typeof SHORTS_TRACK_KEYS)[number];
@@ -268,20 +268,26 @@ const en = {
     focus: {
       auto: { label: 'Auto', sub: 'Finds which side the speaker is on and puts the frame on them; centered if no one is found' },
       manual: { label: 'I’ll set it', sub: 'You place the frame for each short yourself afterwards' },
-      speaker: { label: 'Follow the speaker', sub: 'The frame follows whoever is talking' },
+      speaker: {
+        label: 'Follow the speaker',
+        sub: 'Aim at whoever is talking: follow the original’s camera when it cuts between close-ups and wide shots; on a single wide camera, switch to each speaker in turn, and split when two talk over each other or nobody talks',
+      },
     } as Record<ShortsFocus, { label: string; sub: string }>,
-    speakerOff: 'This version doesn’t have a person and speaker model yet',
+    /** 转写里分不出 2 个以上说话人时「跟着说话的人」置灰的原因。 */
+    speakerOff: 'No speakers in the transcript yet · run “Identify speakers” first',
     tracks: { both: 'Original + translation', source: 'Original only', translation: 'Translation only' } as Record<ShortsTracks, string>,
     styles: {
       shorts: { label: 'Shorts captions', sub: 'Built-in preset that stays clear of platform buttons' },
       video: { label: 'Keep this video’s style', sub: 'Same size and position; platform buttons may cover them' },
     } as Record<ShortsStyle, { label: string; sub: string }>,
     /** 折进提示词：取景怎么说。自动是给智能体的做法（抽帧看说话的人在哪一侧、裁到他身上、找不到就居中）；
-        「跟着说话的人」这一版不开放，不进句子。 */
+        跟着说话的人（短视频分屏设计 §8.1）：多机位按镜头取景，单个全景机位用 `videos_shots` 的 `by: "speaker"` 按说话人切段。 */
     focusPrompt: {
+      speaker:
+        'follow the speaker: when the original cuts between close-ups and wide shots, frame by camera shot; on a single wide camera, cut by speaker with videos_shots by speaker and aim at whoever is talking',
       auto: 'auto: sample frames evenly across the segment, see which side of the frame the speaker is on, and place the crop on them; if no one is found, center it',
       manual: 'centered for now; I’ll adjust each one myself',
-    } as Record<'auto' | 'manual', string>,
+    } as Record<ShortsFocus, string>,
     /** 「切几支」下拉里的一项（自动那一项用 `lengths.auto`）。 */
     countN: (n: number) => `${n}`,
     /** 「切成什么样」下面那行说明：哪一项是自动就说那一项怎么定。 */
@@ -297,6 +303,8 @@ const en = {
       }, starting and ending on sentence boundaries`,
     lineFrame: (ratio: string | null, focus: string) => (ratio ? `Aspect ratio ${ratio}, framing ${focus}` : 'Aspect ratio: keep the original, no cropping'),
     lineSubtitles: (tracks: string, style: string) => `Subtitles: ${tracks}, ${style}`,
+    /** 分屏开关折进提示词的一句（自动或跟着说话的人取景时才有）。 */
+    lineSplit: { on: 'Split wide shots of several people into panels, one person per panel', off: 'Don’t split; aim wide shots of several people at one person too' },
     lineSkipDone: 'Skip the parts already cut into shorts',
     lineTopic: (topic: string) => `Only look in the parts that talk about “${topic}”: find them first with speech_relevant, then pick from those`,
     lineDirect: 'Create the videos as soon as they’re found; no need to ask me first',
@@ -623,11 +631,20 @@ export const SHORTS_FOCUS = SHORTS_FOCUS_KEYS.map((key) => ({
   get sub() {
     return M.shorts.focus[key].sub;
   },
-  /** 这一版不开放时的原因（「跟着说话的人」：还没有人物与发言人模型）。 */
+  /** 选不了时的原因（「跟着说话的人」：转写里还没分出说话人）；能不能选看 `shortsFocusOpen`。 */
   get off(): string | null {
     return key === 'speaker' ? M.shorts.speakerOff : null;
   },
 }));
+/** 这一项在这部视频上能不能选：「跟着说话的人」要转写里分出 2 个以上说话人（原型 model-shorts-cut.js `focusOpen`）。 */
+export const shortsFocusOpen = (focus: ShortsFocus, speakers: number): boolean => focus !== 'speaker' || speakers >= 2;
+/** 实际用的取景：用户选过、这部视频上又选得了的照用；否则分得出说话人时「跟着说话的人」，分不出时「自动」（原型 `defaultFocus`）。 */
+export function shortsFocus(chosen: ShortsFocus | null, speakers: number): ShortsFocus {
+  if (chosen && shortsFocusOpen(chosen, speakers)) return chosen;
+  return shortsFocusOpen('speaker', speakers) ? 'speaker' : 'auto';
+}
+/** 这种取景下有没有「多人全景时分屏」：自动与跟着说话的人才有，自己定的每支只有一个位置。 */
+export const shortsSplitApplies = (focus: ShortsFocus): boolean => focus === 'auto' || focus === 'speaker';
 export const SHORTS_TRACKS = options(SHORTS_TRACK_KEYS, () => M.shorts.tracks);
 export const SHORTS_STYLES = SHORTS_STYLE_KEYS.map((key) => ({
   key,
@@ -647,7 +664,10 @@ export interface ShortsSettings {
   lenMin: number;
   lenMax: number;
   ratio: ShortsRatio;
+  /** 取景；参数页按这部视频分不分得出说话人落成实际的一项（`shortsFocus`）。 */
   focus: ShortsFocus;
+  /** 多人全景时分屏（短视频分屏设计 §8.1）：自动或跟着说话的人取景时才有，自己定的取景每支只有一个位置。 */
+  split: boolean;
   tracks: ShortsTracks;
   style: ShortsStyle;
   /** 已经切过的不再找。 */
@@ -661,6 +681,7 @@ export const SHORTS_DEFAULTS: Readonly<ShortsSettings> = {
   lenMax: 60,
   ratio: '9:16',
   focus: 'auto',
+  split: true,
   tracks: 'both',
   style: 'shorts',
   skipDone: true,
@@ -700,21 +721,23 @@ export function shortsAutoHint(s: Pick<ShortsSettings, 'count' | 'length'>): str
 }
 
 /**
- * 设置态折成提示词里的参数行（原型 model-shorts-cut.js `agentExtra`），一行一句：几支、多长（自动的一半交给 Agent 按话题定）、画幅与取景、字幕，
+ * 设置态折成提示词里的参数行（原型 model-shorts-cut.js `agentExtra`），一行一句：几支、多长（自动的一半交给 Agent 按话题定）、画幅与取景、
+ * 自动或跟着说话的人取景时分不分屏、字幕，
  * 勾着「已经切过的不再找」时一句；写了主题（创作辅助集成设计 §2.8，调用方只在本机语义能用时给）时一句「只在讲……的片段里找」，
  * 让 Agent 先用 `speech_relevant` 圈出候选段落；最后一行「找好就直接创建」，可以单独删掉。
- * 「跟着说话的人」这一版不开放，落回自动；没有译文时字幕只有原文。
+ * 取景照 `s.focus` 写（调用方先用 `shortsFocus` 落到这部视频选得了的一项）；没有译文时字幕只有原文。
  */
 export function shortsLines(s: ShortsSettings, o: { hasTranslation: boolean; topic?: string | null }): string[] {
   const count = clampShortsCount(s.count);
   const len = shortsLengthRange(s);
-  const focus = s.focus === 'manual' ? 'manual' : 'auto';
+  const focus = s.focus;
   const tracks: ShortsTracks = o.hasTranslation ? s.tracks : 'source';
   const out = [
     M.shorts.lineCount(count === 'auto' ? null : count, len),
     M.shorts.lineFrame(s.ratio === 'source' ? null : s.ratio, M.shorts.focusPrompt[focus]),
-    M.shorts.lineSubtitles(M.shorts.tracks[tracks], M.shorts.styles[s.style].label),
   ];
+  if (s.ratio !== 'source' && shortsSplitApplies(focus)) out.push(s.split ? M.shorts.lineSplit.on : M.shorts.lineSplit.off);
+  out.push(M.shorts.lineSubtitles(M.shorts.tracks[tracks], M.shorts.styles[s.style].label));
   if (s.skipDone) out.push(M.shorts.lineSkipDone);
   const topic = o.topic?.trim();
   if (topic) out.push(M.shorts.lineTopic(topic));

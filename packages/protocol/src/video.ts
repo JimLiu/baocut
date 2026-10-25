@@ -261,6 +261,166 @@ export function focalZoom(focal: FocalPoint | null | undefined): number {
   return typeof z === 'number' && Number.isFinite(z) ? Math.min(FOCAL_MAX_ZOOM, Math.max(1, z)) : 1;
 }
 
+/** 分屏格子在画面上的矩形：左上角与宽高，画布的百分比（同 `place`）。 */
+export interface PanelRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * 分屏的一格（视频格式规范 §3.5）：画面上的一个矩形，与原片在这一格里的取景点（同 {@link FocalPoint}，只是「刚好铺满」
+ * 指铺满这一格）。一组 2–{@link PANELS_MAX} 格，不重叠。
+ */
+export interface VideoPanel {
+  rect: PanelRect;
+  focalPoint: FocalPoint;
+}
+
+/** 一组分屏格子最少、最多几格。 */
+export const PANELS_MIN = 2;
+export const PANELS_MAX = 4;
+
+/**
+ * 分屏的版式：`rows` 2–3 行整宽等高，`grid` 田字格 4 格，`spotlight` 上一下二（上格整宽，下面左右两格）。人按在原片里从左到右的
+ * 次序排进格子（从上到下；`grid` 先左上、右上）；`spotlight` 的上格是指定的那个人，另两人按左右进下面两格。
+ */
+export type PanelLayout = 'rows' | 'grid' | 'spotlight';
+
+/** 格子间距的上限：画布短边的百分比。 */
+export const PANEL_GAP_MAX = 10;
+
+const round3 = (n: number) => Math.round(n * 1e3) / 1e3;
+
+/** 间距（画布短边的百分比）在横、竖两个方向上各占画布宽、高的几个百分点：横缝与竖缝像素相同。 */
+function gapPercents(gap: number, canvas: { width: number; height: number } | undefined): { gx: number; gy: number } {
+  const g = Math.min(PANEL_GAP_MAX, Math.max(0, Number.isFinite(gap) ? gap : 0));
+  const r = canvas && canvas.width > 0 && canvas.height > 0 ? canvas.width / canvas.height : 9 / 16;
+  return r <= 1 ? { gx: g, gy: g * r } : { gx: g / r, gy: g };
+}
+
+/**
+ * 一条边（`[0, 100]`）切成 `n` 段、段间留 `g`：每段的起点与长度。起点取三位小数，终点是倒过来那一段起点的镜像，所以前后对称、
+ * 最后一段收在 100（三行不留间距是 33.333 / 33.334 / 33.333）。
+ */
+function cuts(n: number, g: number): { at: number; len: number }[] {
+  const step = (100 - (n - 1) * g) / n + g;
+  return Array.from({ length: n }, (_, i) => {
+    const a = round3(i * step);
+    const b = round3(100 - round3((n - 1 - i) * step));
+    return { at: a, len: round3(b - a) };
+  });
+}
+
+/**
+ * 版式的格子（画布百分比，次序同 {@link PanelLayout}）：`rows` 要 2 或 3 格，`grid` 要 4 格，`spotlight` 要 3 格，别的 null。
+ * `gap` 是格子之间的间距（画布短边的百分比，0–{@link PANEL_GAP_MAX}），只留在格子之间、贴画布边的一侧不留；`canvas` 是画布尺寸
+ * （只看宽高比，留间距时才用得上，缺省 9:16）。不留间距时三行是 33.333 / 33.334 / 33.333。
+ */
+export function panelRects(layout: PanelLayout, count: number, gap = 0, canvas?: { width: number; height: number }): PanelRect[] | null {
+  const { gx, gy } = gapPercents(gap, canvas);
+  if (layout === 'grid' && count === 4) {
+    const xs = cuts(2, gx);
+    const ys = cuts(2, gy);
+    return [0, 1, 2, 3].map((i) => ({ x: xs[i % 2]!.at, y: ys[i >> 1]!.at, w: xs[i % 2]!.len, h: ys[i >> 1]!.len }));
+  }
+  if (layout === 'rows' && (count === 2 || count === 3)) return cuts(count, gy).map((c) => ({ x: 0, y: c.at, w: 100, h: c.len }));
+  if (layout === 'spotlight' && count === 3) {
+    const xs = cuts(2, gx);
+    const ys = cuts(2, gy);
+    return [{ x: 0, y: 0, w: 100, h: ys[0]!.len }, ...xs.map((c) => ({ x: c.at, y: ys[1]!.at, w: c.len, h: ys[1]!.len }))];
+  }
+  return null;
+}
+
+/** 这么多格时能用的版式：2 格 `rows`，3 格 `rows` 与 `spotlight`，4 格 `grid`。 */
+export function panelLayoutsFor(count: number): PanelLayout[] {
+  return count === 2 ? ['rows'] : count === 3 ? ['rows', 'spotlight'] : count === 4 ? ['grid'] : [];
+}
+
+/**
+ * 一组格子是哪种版式、留了多少间距：按第一条缝（`grid` 是左右那条）量出间距（两位小数），再与 {@link panelRects} 给的格子逐格比
+ * （差不到 0.01%）；认不出时 null。`canvas` 同 {@link panelRects}。
+ */
+export function panelLayoutOf(
+  panels: readonly { rect: PanelRect }[],
+  canvas?: { width: number; height: number },
+): { layout: PanelLayout; gap: number } | null {
+  const a = panels[0]?.rect;
+  const b = panels[1]?.rect;
+  if (!a || !b) return null;
+  const unit = gapPercents(1, canvas);
+  for (const layout of panelLayoutsFor(panels.length)) {
+    const measured = layout === 'grid' ? (b.x - (a.x + a.w)) / unit.gx : (b.y - (a.y + a.h)) / unit.gy;
+    const gap = Math.round(Math.min(PANEL_GAP_MAX, Math.max(0, measured)) * 100) / 100;
+    const rects = panelRects(layout, panels.length, gap, canvas);
+    if (rects?.every((r, n) => (['x', 'y', 'w', 'h'] as const).every((k) => Math.abs(r[k] - panels[n]!.rect[k]) < 0.01))) {
+      return { layout, gap };
+    }
+  }
+  return null;
+}
+
+/** 刚好铺满时看得见源的多大一块（源的比例）：源比格子宽时左右裁掉，否则上下裁掉。 */
+function coverFraction(source: { width: number; height: number }, cell: { width: number; height: number }) {
+  const s = source.width / source.height;
+  const c = cell.width / cell.height;
+  return s > c ? { u: c / s, v: 1 } : { u: 1, v: s / c };
+}
+
+/**
+ * 一格看得见源的哪一块（源的比例：左、上、宽、高）：源按格子的宽高比铺满，再围着取景点放大（同帧计划的 cover 取景）。
+ * `source` 是源的显示尺寸（裁剪之后），`cell` 是格子的尺寸（只看宽高比）。
+ */
+export function panelWindow(
+  focal: FocalPoint,
+  source: { width: number; height: number },
+  cell: { width: number; height: number },
+): { left: number; top: number; width: number; height: number } {
+  const { u: u1, v: v1 } = coverFraction(source, cell);
+  const zoom = focalZoom(focal);
+  const u = u1 / zoom;
+  const v = v1 / zoom;
+  return { left: (1 - u) * focal.x, top: (1 - v) * focal.y, width: u, height: v };
+}
+
+/**
+ * 「要看见的源区域」（四边比例，同 {@link Crop}）换成一格的取景点：在铺满这一格之上放大到刚好装下区域（夹在
+ * [1, {@link FOCAL_MAX_ZOOM}]），看得见的窗口以区域中心为中心，碰到源的边往里推。区域在放大 1 倍时也装不下时 `cropped`
+ * 为 true：对准区域中心，多出的裁掉。取景点取四位小数、放大取三位，放大为 1 时不写。
+ */
+export function panelFocalForRegion(
+  region: Crop,
+  source: { width: number; height: number },
+  cell: { width: number; height: number },
+): { focalPoint: FocalPoint; cropped: boolean } {
+  const { u: u1, v: v1 } = coverFraction(source, cell);
+  const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+  const l = clamp(region.left, 0, 1);
+  const t = clamp(region.top, 0, 1);
+  const rw = Math.max(1e-3, 1 - l - clamp(region.right, 0, 1));
+  const rh = Math.max(1e-3, 1 - t - clamp(region.bottom, 0, 1));
+  const zoom = Math.round(clamp(Math.min(u1 / rw, v1 / rh), 1, FOCAL_MAX_ZOOM) * 1e3) / 1e3;
+  const u = u1 / zoom;
+  const v = v1 / zoom;
+  const at = (start: number, size: number, kept: number) =>
+    kept < 1 - 1e-9 ? Math.round((clamp(start + size / 2 - kept / 2, 0, 1 - kept) / (1 - kept)) * 1e4) / 1e4 : 0.5;
+  const focalPoint: FocalPoint = { x: at(l, rw, u), y: at(t, rh, v), ...(zoom > 1 ? { zoom } : {}) };
+  return { focalPoint, cropped: rw > u1 + 1e-6 || rh > v1 + 1e-6 };
+}
+
+/** 一格的放大量：成片的一个像素对源几个像素，`max(格宽 ÷ 源宽, 格高 ÷ 源高) × 放大倍数`；`source`、`canvas` 是像素尺寸。 */
+export function panelUpscale(
+  panel: VideoPanel,
+  source: { width: number; height: number },
+  canvas: { width: number; height: number },
+): number {
+  const cw = (canvas.width * panel.rect.w) / 100;
+  const ch = (canvas.height * panel.rect.h) / 100;
+  return Math.max(cw / source.width, ch / source.height) * focalZoom(panel.focalPoint);
+}
+
 /** 视觉媒体的字段：视频、图片、素材贴纸、占位框与白板共用。 */
 export interface MediaFields {
   mode?: VisualMode;
@@ -296,6 +456,8 @@ export interface VideoItem extends VisualBase, MediaFields {
   crop?: Crop;
   /** 没有时居中。 */
   focalPoint?: FocalPoint;
+  /** 分屏：画面分成 2–4 格，每格各取原片的一块。只用于全屏加 `cover`；有它时 `focalPoint` 不参与。没有时省略。 */
+  panels?: VideoPanel[];
   embeddedAudio: EmbeddedAudio;
 }
 
@@ -380,6 +542,8 @@ export interface VisualizerProps {
   audio?: string;
   speaker?: string;
   alwaysShow?: boolean;
+  /** 包络款下方的进度线与 mm:ss 读数，缺省 true。 */
+  readout?: boolean;
 }
 
 /** 声波。 */
@@ -1340,7 +1504,8 @@ export type EditOperation =
   /**
    * 改画面实例的外观：只改给出的字段，给 `null` 去掉（回到缺省）。`opacity`、`radius`、`cornerRadii` 写进 `place`；
    * `mode`、`fit`、`bg`、`mask` 是视觉媒体的；`tile` 用于图片与文字；`style`、`stylePresetId`、`verticalAlign` 用于文字；
-   * `shape` 整个替换图形的参数；`crop`、`focalPoint` 用于视频与图片。适用范围与取值由引擎按元素模型校验。
+   * `shape` 整个替换图形的参数；`crop`、`focalPoint` 用于视频与图片，`panels` 只用于视频。适用范围与取值由引擎按元素模型校验。
+   * 改 `mode`、`fit` 离开全屏加 `cover` 而没有同时给 `panels` 时，分屏一并去掉。
    */
   | {
       type: 'setStyle';
@@ -1362,6 +1527,8 @@ export type EditOperation =
       crop?: Crop | null;
       /** 视频与图片的取景点；`null` 去掉（居中）。 */
       focalPoint?: FocalPoint | null;
+      /** 视频的分屏格子，整组替换；`null` 去掉（回到一整幅）。 */
+      panels?: VideoPanel[] | null;
     }
   /** 改文字实例的内容：`text` 与 `counter` 给且只给一个，给了的那个替换另一个。 */
   | { type: 'setText'; sequenceId?: Id; itemId: Id; text?: string; counter?: CounterProps }

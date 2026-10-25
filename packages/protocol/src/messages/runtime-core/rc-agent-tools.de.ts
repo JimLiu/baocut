@@ -180,6 +180,14 @@ export const de: RcAgentToolsMessages = {
   deriveRangeEmpty: 'Der Bereich ist nach dem Ausrichten auf Frames leer',
   deriveUnsupportedItem: (p) => `Der Bereich enthält einen Clip, der nicht in ein abgeleitetes Video kopiert werden kann (${p.kind})`,
   deriveParentUnplaced: 'Dieses Video liegt in keinem Projekt- oder Sitzungsordner, daher kann daneben kein abgeleitetes Video erstellt werden',
+  derivePanelsInvalid: (p) =>
+    `Ein geteiltes Bild ${p.layout} braucht ${p.layout === 'grid' ? 'genau 4' : p.layout === 'spotlight' ? 'genau 3' : '2 oder 3'} Felder, angegeben wurden ${p.count}`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Ein geteiltes Bild spotlight braucht main: den Index (0–2) des Felds, das nach oben kommt' : `Nur ein geteiltes Bild spotlight nimmt main an; bei ${p.layout} weglassen`,
   shotsRangeEmpty: 'Nach dem Einrasten auf Frames ist der Bereich leer',
   shotsRangeTooLong: (p) => `Der Bereich ist länger als ${p.minutes} Minuten; erkenne Einstellungen in kürzeren Abschnitten`,
+  shotsNoSpeakers: 'Das Transkript dieses Videos unterscheidet noch keine zwei oder mehr Sprecher; erkenne zuerst die Sprecher',
+  shotsNotSingleCamera: 'Die meisten Stichprobenbilder zeigen nicht dieselben 2–4 Gesichter, es ist also keine einzelne Totale',
+  shotsSpeakersUnmatched: 'Es ließ sich keinem Sprecher ein Gesicht im Bild zuordnen',
+  shotsFacesUnavailable: 'Gesichtserkennung ist nicht verfügbar',
 };

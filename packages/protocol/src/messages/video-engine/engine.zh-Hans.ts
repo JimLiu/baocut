@@ -56,6 +56,12 @@ export const zhHans: EngineMessages = {
   focalPointRange: '取景点的 x、y 都须在 [0, 1] 之间',
   focalPointZoomRange: '取景点的放大倍数须在 [1, 4] 之间',
   focalPointNotVideoOrImage: '不是视频或图片，没有取景点',
+  panelsCount: '分屏须有 2 到 4 格',
+  panelsRect: '每一格的宽高须大于 0，且整个落在画面里（0–100%）',
+  panelsOverlap: '分屏的格子不能重叠',
+  panelsFocalPoint: '每一格取景点的 x、y 须在 [0, 1] 之间，放大倍数须在 [1, 4] 之间',
+  panelsNeedFullscreenCover: '分屏只用于全屏且铺满（cover）的视频',
+  panelsNotVideo: '不是视频，不能分屏',
 
   // elements.rs
   itemSpanInvalid: '实例的起点不能为负，长度至少一帧',

@@ -129,7 +129,7 @@
       if (errs.length) { setFail({kind: 'invalid', msg: errs[0]}); return; }
       setFail(null);
       // 结果由原型开关「下次试听的结果」决定（shell.jsx TweaksPanel）
-      job.current = {form, pick: eff, t0: Date.now(), outcome: CK.tryOutcome(app.prefs.modelTryDemo, ownFile), file: file && file.name};
+      job.current = {form, pick: eff, t0: Date.now(), outcome: CK.tryOutcome(app.prefs.modelTryDemo, ownFile, 'tts'), file: file && file.name};
       setPct(0);
       clearInterval(timer.current);
       timer.current = setInterval(() => setPct((x) => {

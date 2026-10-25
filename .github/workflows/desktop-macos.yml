@@ -77,6 +77,8 @@ jobs:
         with:
           node-version: "24.22.1"
           package-manager-cache: false
+      - name: Install dependencies for native public read-back
+        run: npm ci
       - name: Download this run's native candidate
         env:
           GH_TOKEN: ${{ github.token }}

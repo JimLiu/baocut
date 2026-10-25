@@ -78,6 +78,13 @@ const en = {
   shortsSkipDone: 'Skip parts already cut',
   shortsSkipDoneOn: 'Doesn’t look again in ranges that earlier shorts used',
   shortsSkipDoneOff: 'Looks everywhere; may overlap shorts already cut',
+  /** 参数页「取景」下的开关：多人全景时分屏（短视频分屏设计 §8.1）。 */
+  shortsSplit: 'Split wide shots of several people',
+  shortsSplitOn: 'When the original cuts to a wide shot of several people that one vertical frame can’t hold, each person gets a panel, stacked; it switches only at camera cuts, and wide shots under 3 seconds stay as one person',
+  /** 取景选「跟着说话的人」时开着的说明。 */
+  shortsSplitSpeakerOn:
+    'When it cuts to a wide shot of several people, or two talk over each other or nobody talks, each person gets a panel, stacked; each stretch lasts at least 3 seconds',
+  shortsSplitOff: 'Wide shots of several people are aimed at one person too',
   shortsTopic: 'Topic',
   shortsTopicPlaceholder: 'Optional: e.g. “why we run it locally”',
   shortsTopicEmpty: 'Optional: leave it empty to analyze the whole video',

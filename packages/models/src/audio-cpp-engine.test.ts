@@ -13,6 +13,8 @@ describe('audio.cpp 引擎', () => {
 
   it('版本取第一行；自己构建没给版本时是 dev', () => {
     expect(parseAudioCppVersion('audio.cpp 0.9.2\ngit: 0097d365 2026-10-15\nbackends: cpu,metal\n')).toBe('0.9.2');
+    expect(parseAudioCppVersion(`audio.cpp ${AUDIO_CPP_RELEASE.version}\ngit: 5074956\nbackends: cpu,metal\n`)).toBe(AUDIO_CPP_RELEASE.version);
+    expect(parseAudioCppVersion(`audio.cpp v${AUDIO_CPP_RELEASE.version}\n`)).toBe(AUDIO_CPP_RELEASE.version);
     expect(parseAudioCppVersion('audio.cpp dev\n')).toBe('dev');
     expect(parseAudioCppVersion('usage: …')).toBeNull();
   });

@@ -14,15 +14,15 @@ export const fr: AiToolsMessages = {
     focus: {
       auto: { label: 'Automatique', sub: 'Repère de quel côté se trouve la personne qui parle et cadre sur elle ; sinon, centré' },
       manual: { label: 'Je le règle', sub: 'Vous placez ensuite le cadre de chaque vidéo courte' },
-      speaker: { label: 'Suivre la personne qui parle', sub: 'Le cadre suit la personne qui parle' },
+      speaker: { label: 'Suivre la personne qui parle', sub: 'Viser la personne qui parle : si l’original alterne plans serrés et plans larges, suivre ses plans ; avec une seule caméra en plan large, passer d’une personne à l’autre selon qui parle, et partager quand deux parlent en même temps ou que personne ne parle' },
     },
-    speakerOff: 'Cette version n’a pas encore de modèle de personnes et de locuteurs',
+    speakerOff: 'La transcription ne distingue pas encore les intervenants · utilisez d’abord « Identifier les intervenants »',
     tracks: { both: 'Original + traduction', source: 'Original seul', translation: 'Traduction seule' },
     styles: {
       shorts: { label: 'Sous-titres pour vidéos courtes', sub: 'Préréglage intégré qui évite les boutons des plateformes' },
       video: { label: 'Garder le style de cette vidéo', sub: 'Même taille et position ; les boutons des plateformes peuvent les masquer' },
     },
-    focusPrompt: { auto: 'automatique : prends des images réparties sur le segment, regarde de quel côté de l’image se trouve la personne qui parle et place le recadrage sur elle ; si tu ne trouves personne, centre-le', manual: 'centré pour l’instant ; j’ajusterai chacune moi-même' },
+    focusPrompt: { speaker: 'suivre la personne qui parle : si l’original alterne plans serrés et plans larges, cadre selon chaque plan ; avec une seule caméra en plan large, découpe par intervenant avec videos_shots by speaker et vise la personne qui parle', auto: 'automatique : prends des images réparties sur le segment, regarde de quel côté de l’image se trouve la personne qui parle et place le recadrage sur elle ; si tu ne trouves personne, centre-le', manual: 'centré pour l’instant ; j’ajusterai chacune moi-même' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Automatique : l’agent trouve les sujets les plus forts qui tiennent seuls et décide du nombre de vidéos courtes et de la durée de chacune, sans remplissage ni sujet coupé en deux.',
@@ -33,6 +33,7 @@ export const fr: AiToolsMessages = {
       `${count === null ? 'Décidez du nombre de vidéos courtes selon les sujets trouvés' : `Faites ${count === 1 ? '1 vidéo courte' : `${count} vidéos courtes`}`}, ${len ? `de ${len.min} à ${len.max} secondes chacune` : 'chacune aussi longue que son sujet l’exige, de l’accroche d’ouverture jusqu’à la chute'}, qui commencent et finissent sur des limites de phrase`,
     lineFrame: (ratio, focus) => (ratio ? `Format ${ratio}, cadrage ${focus}` : 'Format : garder l’original, sans recadrer'),
     lineSubtitles: (tracks, style) => `Sous-titres : ${tracks}, ${style}`,
+    lineSplit: { on: 'Partage les plans larges de plusieurs personnes en panneaux, une personne par panneau', off: 'Ne partage pas ; vise aussi une seule personne dans les plans larges à plusieurs' },
     lineSkipDone: 'Ignorez les passages déjà découpés en vidéos courtes',
     lineTopic: (topic) => `Ne cherchez que dans les passages qui parlent de « ${topic} » : trouvez-les d’abord avec speech_relevant, puis choisissez parmi eux`,
     lineDirect: 'Créez les vidéos dès qu’elles sont trouvées ; inutile de me demander avant',

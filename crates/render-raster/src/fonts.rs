@@ -193,7 +193,7 @@ pub fn bundled_display_fonts() -> &'static [&'static [u8]] {
     })
 }
 
-/// App-only release mode: Electron's export worker reads the same sealed Web
+/// App-only release mode: Electron's export worker reads the same shared Web
 /// assets as the file:// preview. Older native Apps use `Resources/fonts`.
 #[cfg(feature = "external-fonts")]
 pub fn external_bundled_font(name: &str) -> &'static [u8] {
@@ -202,18 +202,25 @@ pub fn external_bundled_font(name: &str) -> &'static [u8] {
         let executable = crate::exec::current_exe()
             .expect("bundled font lookup requires the current executable");
         let directory = app_fonts_dir(&executable)
-            .expect("external-fonts requires an executable inside BaoCut.app");
+            .expect("external-fonts requires an executable inside a packaged BaoCut app");
         load_external_fonts_at(&directory)
     });
     fonts
         .get(name)
-        .unwrap_or_else(|| panic!("bundled font {name} is missing from the signed App"))
+        .unwrap_or_else(|| panic!("bundled font {name} is missing from the packaged app"))
         .as_slice()
 }
 
 #[cfg(feature = "external-fonts")]
 fn app_fonts_dir(executable: &std::path::Path) -> Option<std::path::PathBuf> {
     let parent = executable.parent()?;
+    if parent.file_name()? == "bin" {
+        let resources = parent.parent()?;
+        // Windows NSIS installations and portable ZIPs have the same layout.
+        if resources.file_name()? == "resources" {
+            return Some(resources.join("web/assets"));
+        }
+    }
     let (contents, fonts) = if parent.file_name()? == "MacOS" {
         (parent.parent()?, "Resources/fonts")
     } else {
@@ -2945,13 +2952,21 @@ mod tests {
 
     #[cfg(feature = "external-fonts")]
     #[test]
-    fn external_fonts_resolve_only_inside_an_app_bundle() {
+    fn external_fonts_resolve_inside_packaged_apps() {
         let app = std::path::Path::new("/Applications/BaoCut.app/Contents/MacOS/bcut-serve");
         assert_eq!(
             app_fonts_dir(app).unwrap(),
             std::path::Path::new("/Applications/BaoCut.app/Contents/Resources/fonts")
         );
         assert!(app_fonts_dir(std::path::Path::new("/tmp/bcut-serve")).is_none());
+        assert_eq!(
+            app_fonts_dir(std::path::Path::new(
+                "C:/Program Files/BaoCut/resources/bin/export-worker.exe"
+            ))
+            .unwrap(),
+            std::path::Path::new("C:/Program Files/BaoCut/resources/web/assets")
+        );
+        assert!(app_fonts_dir(std::path::Path::new("/tmp/bin/export-worker.exe")).is_none());
         assert_eq!(
             app_fonts_dir(std::path::Path::new(
                 "/Applications/BaoCut.app/Contents/Resources/bin/export-worker"

@@ -10,12 +10,14 @@ import {
   CHECK_SENTENCES,
   CHECK_UNKNOWN,
   TRY_FAILURE,
+  TOOL_MISSING,
   TRY_NOTICE,
   TRY_SUBJECT,
   sentence,
   type CheckSubject,
   type TrySubject,
 } from './model-check-copy.ts';
+import { remedyText } from './localized-text.ts';
 import { installProgressView } from './models-install.ts';
 import { isBundleInstalled } from './models-local.ts';
 
@@ -96,6 +98,30 @@ export function failedProblem(
   };
 }
 
+/** 要用的外部工具（`MEDIA_TOOL_UNAVAILABLE`，`details.tool`，缺省是 ffmpeg）。 */
+function toolOf(details: unknown): string {
+  const tool = asRecord(details).tool;
+  return typeof tool === 'string' && tool ? tool : 'ffmpeg';
+}
+
+/**
+ * 这台电脑上没有能用的外部工具（`MEDIA_TOOL_UNAVAILABLE`）：检查没能开始（模型没被检查，不记进 `selfTest`），修复帮不上；
+ * 「怎么办」用 Runtime 按平台给的安装说法（`details.remedy` / `remedyRef`）。任务失败与提交被拒说法一样。
+ */
+function toolMissingProblem(input: { message: string | null; details: unknown; facts: string[] }): CheckProblem {
+  const tool = toolOf(input.details);
+  return {
+    kind: 'not-started',
+    code: null,
+    rawCode: 'MEDIA_TOOL_UNAVAILABLE',
+    text: TOOL_MISSING.text(tool),
+    todo: TOOL_MISSING.checkTodo(remedyText(input.details) ?? TOOL_MISSING.install(tool)),
+    repair: 'no',
+    message: input.message,
+    facts: input.facts,
+  };
+}
+
 /**
  * 提交被拒 → 状态行。随应用分发的文件缺失是检查没通过（重新安装 BaoCut）；其余是检查没能开始。
  * 连不上 Runtime（客户端的 `internal`，没有 `details.code`）说后台服务没响应。
@@ -103,6 +129,9 @@ export function failedProblem(
 export function rejectionProblem(rejection: CheckRejection, subject: CheckSubject): CheckProblem {
   if (rejection.code === 'APP_FILE_MISSING') {
     return failedProblem({ code: 'APP_FILE_MISSING', message: rejection.message, facts: rejectionFacts(rejection.details) }, subject);
+  }
+  if (rejection.code === 'MEDIA_TOOL_UNAVAILABLE') {
+    return toolMissingProblem({ message: rejection.message, details: rejection.details, facts: rejectionFacts(rejection.details) });
   }
   const sentence = (rejection.code && CHECK_NOT_STARTED[rejection.code]) || CHECK_NOT_STARTED_UNKNOWN;
   return {
@@ -172,7 +201,8 @@ function latestTest(jobs: readonly JobRecord[], bundleId: string): JobRecord | n
 
 /**
  * 行上的检查状态。先看这一行发起的修复在不在跑，再看最近一次（没取消的）检查任务在不在跑；结论按时间取最新的一个：
- * 模型包上记下的 `selfTest`、没记进去的失败任务（例如 `APP_FILE_MISSING`），或提交被拒。
+ * 模型包上记下的 `selfTest`、没记进去的失败任务（`APP_FILE_MISSING` 是检查没通过，`MEDIA_TOOL_UNAVAILABLE` 是检查没能开始），
+ * 或提交被拒。
  */
 export function checkState({ bundle, jobs, subject, rejection = null, repairJobId = null }: CheckInputs): CheckState {
   if (repairJobId) {
@@ -207,15 +237,16 @@ export function checkState({ bundle, jobs, subject, rejection = null, repairJobI
   }
   if (job?.state === 'failed' && job.error && job.jobId !== result?.jobId) {
     const details = asRecord(job.error.details);
-    const code = details.check ?? (job.error.code === 'APP_FILE_MISSING' ? 'APP_FILE_MISSING' : null);
-    verdicts.push({
-      at: job.updatedAt,
-      state: {
-        phase: 'failed',
-        at: job.updatedAt,
-        problem: failedProblem({ code, rawCode: job.error.code, message: localizeText(job.error.message, job.error.messageRef), facts: strings(details.facts) }, subject),
-      },
-    });
+    const message = localizeText(job.error.message, job.error.messageRef);
+    const facts = strings(details.facts);
+    const problem =
+      job.error.code === 'MEDIA_TOOL_UNAVAILABLE'
+        ? toolMissingProblem({ message, details, facts })
+        : failedProblem(
+            { code: details.check ?? (job.error.code === 'APP_FILE_MISSING' ? 'APP_FILE_MISSING' : null), rawCode: job.error.code, message, facts },
+            subject,
+          );
+    verdicts.push({ at: job.updatedAt, state: { phase: 'failed', at: job.updatedAt, problem } });
   }
   if (rejection)
     verdicts.push({ at: rejection.at, state: { phase: 'failed', at: rejection.at, problem: rejectionProblem(rejection, subject) } });
@@ -375,7 +406,7 @@ export function noticeAfterTry(notice: TryNoteView | null, okAt: string | null |
   return Date.parse(okAt) > Date.parse(notice.at) ? null : notice;
 }
 
-export type TryFailureKind = 'invalid' | 'refUnreadable' | 'appFileMissing' | 'noMemory' | 'modelError' | 'other';
+export type TryFailureKind = 'invalid' | 'refUnreadable' | 'appFileMissing' | 'toolMissing' | 'noMemory' | 'modelError' | 'other';
 
 const MODEL_ERRORS = new Set(['MODEL_LOAD_FAILED', 'MODEL_WORKER_CRASHED', 'MODEL_OUTPUT_INVALID', 'MODEL_UNAVAILABLE']);
 
@@ -383,6 +414,7 @@ const MODEL_ERRORS = new Set(['MODEL_LOAD_FAILED', 'MODEL_WORKER_CRASHED', 'MODE
 export function tryFailureKind(code: string | null, details: unknown): TryFailureKind {
   if (code === 'INPUT_UNREADABLE' || code === 'ASSET_MISSING') return 'refUnreadable';
   if (code === 'APP_FILE_MISSING') return 'appFileMissing';
+  if (code === 'MEDIA_TOOL_UNAVAILABLE') return 'toolMissing';
   if (code === 'RESOURCE_ADMISSION_UNSATISFIABLE') return 'noMemory';
   if (code === 'MODEL_LOAD_FAILED' && asRecord(details).reason === 'resource') return 'noMemory';
   if (code && MODEL_ERRORS.has(code)) return 'modelError';
@@ -401,6 +433,8 @@ export interface TryFailureInput {
   message?: string | null;
   /** 读不出的录音：用户选的文件名，或 `details.file`。 */
   file?: string | null;
+  /** Runtime 的 `details`：缺外部工具（`toolMissing`）时取工具名与按平台给的安装说法。 */
+  details?: unknown;
   /** 这次提交被拒（没开始），而不是任务失败。 */
   notStarted?: boolean;
   /** 行上能检查。 */
@@ -429,6 +463,14 @@ export function tryFailureView(input: TryFailureInput): TryNoteView {
     case 'appFileMissing': {
       const s = TRY_FAILURE.appFileMissing;
       return { text: sentence(s.text), todo: s.todo, actions: [] };
+    }
+    case 'toolMissing': {
+      const tool = toolOf(input.details);
+      return {
+        text: sentence(TOOL_MISSING.text(tool)),
+        todo: TOOL_MISSING.tryTodo(remedyText(input.details) ?? TOOL_MISSING.install(tool)),
+        actions: [{ k: 'retry', label: CHECK_LABEL.retry, primary: true }],
+      };
     }
     case 'noMemory': {
       const s = subject.noMemory;

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { CaptionHit } from '../render/render-planner.ts';
-import { captionBox, lineMoveStart, movedCaptionStyle, movedLineStyle, restackedRootY, stepCaptionMove } from './stage-caption-move.ts';
+import {
+  captionBox,
+  lineMoveStart,
+  movedCaptionStyle,
+  movedLineStyle,
+  restackedRootY,
+  seamMoveStart,
+  stepCaptionMove,
+  unseamedCaptionStyle,
+} from './stage-caption-move.ts';
 
 const canvas = { width: 1920, height: 1080 };
 const env = { canvas, others: [], pxScale: 1 };
@@ -178,5 +187,33 @@ describe('单拖一行的整个过程', () => {
     expect(stepCaptionMove(move, { x: 960, y: 900 }, loose, env)).toMatchObject({ x: x0, y: y0 });
     const moved = stepCaptionMove(move, { x: 960, y: 900 - 108 }, loose, env);
     expect(moved).toMatchObject({ x: 50, y: 73.2 });
+  });
+});
+
+describe('整组拖挂在接缝上的字幕', () => {
+  // 底边钉在 86% 的样式，这一句挂在分屏接缝上：画出来的框 510–570，中心 540 → 50%。
+  const root = { x: 40, y: 86, verticalAlign: 'bottom' };
+  const box = { x: 368, y: 510, w: 800, h: 60 };
+
+  it('从画出来的框的中线起手，x 仍是根样式的', () => {
+    expect(seamMoveStart(root, box, canvas)).toEqual({ x0: 40, y0: 50 });
+  });
+
+  it('放下的地方就是位置：写 y 与 center 对齐、关掉 panelSeam；只左右拖也写 y', () => {
+    const from = seamMoveStart(root, box, canvas);
+    const moved = stepCaptionMove({ box, ...from, p0: { x: 768, y: 540 } }, { x: 768, y: 540 + 108 }, loose, env);
+    expect(moved).toMatchObject({ x: 40, y: 60 });
+    expect(unseamedCaptionStyle(root, from, moved)).toEqual({ x: 40, y: 60, verticalAlign: 'center', panelSeam: false });
+    expect(unseamedCaptionStyle(root, from, { x: 45, y: 50 })).toEqual({ x: 45, y: 50, verticalAlign: 'center', panelSeam: false });
+  });
+
+  it('自己定了位置的行按拖动的量平移，不按根样式的 y 算', () => {
+    const detached = { y: 86, transStyle: { x: 40, y: 70, verticalAlign: 'center' } };
+    expect(unseamedCaptionStyle(detached, { x0: 50, y0: 50 }, { x: 50, y: 60 })).toEqual({
+      y: 60,
+      verticalAlign: 'center',
+      panelSeam: false,
+      transStyle: { x: 40, y: 80, verticalAlign: 'center' },
+    });
   });
 });

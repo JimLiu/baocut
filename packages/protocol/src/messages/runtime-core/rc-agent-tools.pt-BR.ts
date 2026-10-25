@@ -177,6 +177,14 @@ export const ptBR: RcAgentToolsMessages = {
   deriveRangeEmpty: 'O intervalo fica vazio ao ser alinhado aos quadros',
   deriveUnsupportedItem: (p) => `O intervalo contém um clipe que não pode ser copiado para um vídeo derivado (${p.kind})`,
   deriveParentUnplaced: 'Este vídeo não está em uma pasta de projeto ou de sessão, então não é possível criar um vídeo derivado ao lado dele',
+  derivePanelsInvalid: (p) =>
+    `Uma divisão ${p.layout} precisa de ${p.layout === 'grid' ? 'exatamente 4' : p.layout === 'spotlight' ? 'exatamente 3' : '2 ou 3'} painéis, mas foram informados ${p.count}`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Uma divisão spotlight precisa de main: o índice (0–2) do painel que vai em cima' : `Só uma divisão spotlight aceita main; remova-o da divisão ${p.layout}`,
   shotsRangeEmpty: 'O intervalo fica vazio ao alinhar aos quadros',
   shotsRangeTooLong: (p) => `O intervalo passa de ${p.minutes} minutos; detecte as tomadas em partes menores`,
+  shotsNoSpeakers: 'A transcrição deste vídeo ainda não separa dois ou mais falantes; identifique os falantes primeiro',
+  shotsNotSingleCamera: 'A maioria dos quadros amostrados não mostra os mesmos 2–4 rostos, então não é uma única câmera aberta',
+  shotsSpeakersUnmatched: 'Não foi possível saber qual rosto na imagem é de algum dos falantes',
+  shotsFacesUnavailable: 'A detecção de rostos não está disponível',
 };

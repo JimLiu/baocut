@@ -25,6 +25,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-remaining-word-page-plan/1",
     "caption-fixed-line-wrap/1",
     "caption-fixed-line-fit/1",
+    "caption-fixed-line-font-box/1",
     "caption-page-line-context/1",
     "caption-page-tag/1",
     "caption-line-box-context/1",
@@ -49,6 +50,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-paint-coverage/1",
     "caption-paint-mask/1",
     "caption-paint-mask-transform/1",
+    "caption-paint-mask-local/1",
     "caption-glyph-distance-coverage/1",
     "caption-image-distance-coverage/1",
     "caption-gradient-space/1",
@@ -68,6 +70,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-soft-band/1",
     "caption-noise-palette-mix/1",
     "caption-noise-displace/1",
+    "caption-scan-warp/1",
     "caption-angular-sample-blend/1",
     "caption-affine-sample-blend/1",
     "caption-affine-over/1",
@@ -82,6 +85,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-glow-color-matrix/1",
     "caption-layout-per-sample/1",
     "caption-page-window/1",
+    "caption-layout-clock/1",
     "caption-unit-font-size/1",
     "caption-unit-font-reflow/1",
     "caption-unit-font-style/1",
@@ -90,6 +94,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-text-line-layout/1",
     "caption-pattern-select/1",
     "caption-keyword-isolation/1",
+    "caption-tag-run-isolation/1",
     "caption-scalar-cluster-layout/1",
 ];
 pub fn property_type(property: &str) -> Option<ValueType> {
@@ -317,6 +322,7 @@ fn validate_word_line_pattern(scene: &Scene) -> Result<()> {
     let pagination = &layout.pagination;
     validate_pattern_select(scene)?;
     validate_isolation(scene)?;
+    validate_tag_runs(scene)?;
     let Some(pattern) = &pagination.word_line_pattern else {
         if pagination.last_page_rule.is_some() {
             return Err(invalid("pagination.lastPageRule", "wordLinePattern required"));
@@ -430,6 +436,35 @@ fn validate_isolation(scene: &Scene) -> Result<()> {
         if rule.tag.is_empty() || rule.tag.len() > 64 || !tags.insert(rule.tag.as_str()) {
             return Err(invalid(path, "tags must be nonempty, at most 64 bytes and unique"));
         }
+    }
+    Ok(())
+}
+/// `pagination.tagRuns` is defined for width-wrapped pages only (default pagination and a page cap).
+fn validate_tag_runs(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    let Some(runs) = &pagination.tag_runs else {
+        return Ok(());
+    };
+    let path = "pagination.tagRuns";
+    if !scene.required_capabilities.iter().any(|c| c == "caption-tag-run-isolation/1") {
+        return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", path, "caption-tag-run-isolation/1"));
+    }
+    if runs.tag.is_empty() || runs.tag.len() > 64 {
+        return Err(invalid(path, "tag must be nonempty and at most 64 bytes"));
+    }
+    if pagination.has_fixed_lines()
+        || !pagination.isolation.is_empty()
+        || pagination.word_page_pattern.is_some()
+        || pagination.last_page_rule.is_some()
+        || pagination.tail_word_rule.is_some()
+        || pagination.fixed_line_overflow.is_some()
+        || pagination.fixed_line_fit.is_some()
+        || pagination.page_tags.is_some()
+    {
+        return Err(invalid(
+            path,
+            "tag runs are defined on width-wrapped pages with maxUnitsPerPage and maxUnitsPerLine only",
+        ));
     }
     Ok(())
 }
@@ -770,6 +805,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     validate_fixed_line_fit(s)?;
     validate_page_tags(s)?;
     validate_page_window(s)?;
+    validate_layout_clock(s)?;
     validate_unit_font_reflow(s)?;
     if s.parameters.len() > 128 || s.functions.len() > 128 || s.selectors.len() > MAX_NODES || s.animations.len() > 1024 {
         return Err(invalid("scene", "declaration budget exceeded"));
@@ -1158,6 +1194,58 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 validate_component_uniform(s, brightness, -16.0, 16.0)?;
                 validate_component_uniform(s, contrast, 0.0, 1000.0)?;
                 validate_component_uniform(s, strength, -16.0, 16.0)?;
+                for (value, low) in [
+                    (&domain.x, -1_000_000.0),
+                    (&domain.y, -1_000_000.0),
+                    (&domain.width, 0.001),
+                    (&domain.height, 0.001),
+                ] {
+                    validate_value("width", value, s, UnitKind::Page)?;
+                    if let DynamicValue::Constant { value } = value {
+                        let n = typed_value(ValueType::Length, value)?.number()?;
+                        if !n.is_finite() || !(low..=1_000_000.0).contains(&n) {
+                            return Err(invalid(id, "material domain requires finite lengths and positive dimensions"));
+                        }
+                    }
+                }
+                id
+            }
+            CaptionMaterial::ScanWarp {
+                id,
+                context_node_id,
+                domain,
+                warp,
+                stripe,
+                scanlines,
+                gain,
+                ..
+            } => {
+                validate_component_context(s, &nodes, id, context_node_id, "caption-scan-warp/1", 1.0)?;
+                for (value, low, high) in [
+                    (warp.scale, 0.001, 1000.0),
+                    (warp.complexity, 1.0, 10.0),
+                    (warp.sub_impact, 0.0, 1.0),
+                    (warp.sub_scale, 1.0, 10_000.0),
+                    (scanlines.pitch, 0.0, 1000.0),
+                ] {
+                    if !value.is_finite() || !(low..=high).contains(&value) {
+                        return Err(invalid(id, "scan warp static parameters outside finite bounds"));
+                    }
+                }
+                for value in [&warp.evolution, &warp.offset[0], &warp.offset[1]] {
+                    validate_component_uniform(s, value, -100_000.0, 100_000.0)?;
+                }
+                for value in &warp.strength {
+                    validate_component_uniform(s, value, -4.0, 4.0)?;
+                }
+                validate_component_uniform(s, &stripe.center, -4.0, 4.0)?;
+                for value in [&stripe.core_half_height, &stripe.falloff, &stripe.gate] {
+                    validate_component_uniform(s, value, 0.0, 1_000_000.0)?;
+                }
+                validate_component_uniform(s, &stripe.amount, -1.0, 1.0)?;
+                validate_component_uniform(s, &scanlines.amount, -1.0, 1.0)?;
+                validate_component_uniform(s, &scanlines.phase, -1_000_000.0, 1_000_000.0)?;
+                validate_component_uniform(s, gain, 0.0, 4.0)?;
                 for (value, low) in [
                     (&domain.x, -1_000_000.0),
                     (&domain.y, -1_000_000.0),
@@ -1817,9 +1905,13 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
             {
                 return Err(invalid(&n.id, "invalid font line box"));
             }
-            // Fitted rows take their height from the page scale, not from the font line box.
-            if n.kind == NodeKind::Text && s.layout.pagination.fixed_line_fit.is_some() {
-                return Err(invalid(&n.id, "a text font line box is exclusive with pagination.fixedLineFit"));
+            // Combining fitted rows with a font envelope is a separate opt-in:
+            // it reserves the scaled font box before adding the fit's extra leading.
+            if n.kind == NodeKind::Text
+                && s.layout.pagination.fixed_line_fit.is_some()
+                && !s.required_capabilities.iter().any(|c| c == "caption-fixed-line-font-box/1")
+            {
+                return Err(invalid(&n.id, "fitted font line boxes require caption-fixed-line-font-box/1"));
             }
         }
         length(&n.style.font_size, &n.id, s)?;
@@ -1986,7 +2078,13 @@ fn validate_paint_stack(n: &Node, paints: &[PaintLayer], s: &Scene, resources: &
             }
             validate_glyph_distance_coverage(distance, extent, reach, &n.id)?;
         }
-        if let Some(PaintMask::GlyphFill { spread, offset, inverted }) = layer.mask {
+        if let Some(PaintMask::GlyphFill {
+            spread,
+            offset,
+            inverted,
+            rasterization,
+        }) = layer.mask
+        {
             if !matches!(n.kind, NodeKind::Text | NodeKind::Label)
                 || !spread.is_finite()
                 || !(0.0..=extent).contains(&spread)
@@ -1996,6 +2094,11 @@ fn validate_paint_stack(n: &Node, paints: &[PaintLayer], s: &Scene, resources: &
             }
             if !s.required_capabilities.iter().any(|c| c == "caption-paint-mask/1") {
                 return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-mask/1"));
+            }
+            if rasterization == PaintMaskRasterization::GlyphBounds
+                && !s.required_capabilities.iter().any(|c| c == "caption-paint-mask-local/1")
+            {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &n.id, "caption-paint-mask-local/1"));
             }
             if (offset != [0.0, 0.0] || inverted) && !s.required_capabilities.iter().any(|c| c == "caption-paint-mask-transform/1") {
                 return Err(Diagnostic::new(
@@ -2590,4 +2693,85 @@ fn validate_sampling_domain(scene: &Scene, id: &str, sampling: &GaussianSampling
         }
     }
     Ok(())
+}
+
+/// Clock sampling precedes page selection and cannot depend on its output.
+fn validate_layout_clock(scene: &Scene) -> Result<()> {
+    let Some(clock) = &scene.layout.clock else {
+        return Ok(());
+    };
+    if !scene.required_capabilities.iter().any(|c| c == "caption-layout-clock/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_REQUIRED",
+            "layout.clock",
+            "caption-layout-clock/1",
+        ));
+    }
+    if infer(&clock.time, scene, &BTreeMap::new())? != ValueType::Time {
+        return Err(Diagnostic::new(
+            "CAPTION_EXPRESSION_TYPE",
+            "layout.clock.time",
+            "time result required",
+        ));
+    }
+    fn visit(expr: &Expression, scene: &Scene, seen: &mut BTreeSet<String>, left: &mut usize) -> Result<()> {
+        if *left == 0 {
+            return Err(invalid("layout.clock", "dependency budget"));
+        }
+        *left -= 1;
+        match expr {
+            Expression::Read { path } => {
+                if !(path.starts_with("params.")
+                    || path.starts_with("args.")
+                    || matches!(
+                        path.as_str(),
+                        "time.seconds"
+                            | "time.elapsedSeconds"
+                            | "time.durationSeconds"
+                            | "time.cueDurationSeconds"
+                            | "time.progress"
+                            | "time.clampedProgress"
+                            | "unit.index"
+                            | "unit.count"
+                            | "canvas.width"
+                            | "canvas.height"
+                            | "time.inputFirstWordStartSeconds"
+                            | "time.inputFirstWordEndSeconds"
+                            | "time.inputLastWordStartSeconds"
+                            | "time.inputLastWordEndSeconds"
+                            | "unit.inputFirstWordTimed"
+                            | "unit.inputLastWordTimed"
+                    ))
+                {
+                    return Err(Diagnostic::new(
+                        "CAPTION_DEPENDENCY_CYCLE",
+                        path,
+                        "clock cannot read layout or sampled-unit state",
+                    ));
+                }
+            }
+            Expression::Call { function, args } => {
+                for arg in args {
+                    visit(arg, scene, seen, left)?;
+                }
+                if let Some(f) = scene.functions.iter().find(|f| f.id == *function) {
+                    if seen.insert(function.clone()) {
+                        visit(&f.body, scene, seen, left)?;
+                    }
+                }
+            }
+            Expression::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                visit(condition, scene, seen, left)?;
+                visit(then, scene, seen, left)?;
+                visit(otherwise, scene, seen, left)?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    visit(&clock.time, scene, &mut BTreeSet::new(), &mut 16_384)
 }

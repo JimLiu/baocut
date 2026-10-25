@@ -56,6 +56,12 @@ export const tr: EngineMessages = {
   focalPointRange: "Odak noktasının x ve y değerleri [0, 1] aralığında olmalı",
   focalPointZoomRange: "Odak noktasının yakınlaştırması [1, 4] aralığında olmalı",
   focalPointNotVideoOrImage: "video veya görsel değil; odak noktası yok",
+  panelsCount: "Bölünmüş ekran 2 ile 4 panel gerektirir",
+  panelsRect: "Her panelin genişliği ve yüksekliği pozitif olmalı ve tuvalin içinde kalmalıdır (%0–100)",
+  panelsOverlap: "Paneller üst üste binemez",
+  panelsFocalPoint: "Her panelin odak noktasının x ve y değeri [0, 1], yakınlaştırması [1, 4] aralığında olmalıdır",
+  panelsNeedFullscreenCover: "Paneller yalnızca cover sığdırmalı tam ekran videoya uygulanır",
+  panelsNotVideo: "video değil; panellere bölünemez",
 
   // elements.rs
   itemSpanInvalid: "Klip sıfırdan önce başlayamaz, en az bir kare uzun olmalı",

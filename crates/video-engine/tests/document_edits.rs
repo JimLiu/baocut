@@ -134,6 +134,30 @@ fn text_and_generic_changes_compose_in_one_transaction_and_preserve_unknown_fiel
 }
 
 #[test]
+fn an_id_field_outside_keyed_entries_is_an_ordinary_field() {
+    let (_dir, mut video, id, _body) = setup();
+    video
+        .apply(&tx(
+            &video,
+            "cmd_add_preset",
+            vec![json!({"type":"patchDocument","documentId":id,"changes":[{"path":["extensions","preset"],"value":{"id":"daoyazi","revision":1}}]})],
+        ))
+        .unwrap();
+    // 换字幕样式时只改 `stylePreset.id` 这一类字段：它不是条目身份，不能整笔拒绝。
+    video
+        .apply(&tx(
+            &video,
+            "cmd_switch_preset",
+            vec![json!({"type":"patchDocument","documentId":id,"changes":[{"path":["extensions","preset","id"],"value":"studio-ktv"}]})],
+        ))
+        .unwrap();
+    assert_eq!(
+        video.document(&id, None).unwrap().body["extensions"]["preset"],
+        json!({"id":"studio-ktv","revision":1})
+    );
+}
+
+#[test]
 fn keyed_array_insert_remove_and_move_preserve_other_entries() {
     let (_dir, mut video, id, _body) = setup();
     video
@@ -171,6 +195,7 @@ fn no_op_and_malformed_changes_keep_the_current_document_version() {
         json!([{"path":[],"value":{}}]),
         json!([{"path":["missing","text"],"value":"wrong"}]),
         json!([{"path":["words",{"id":"w0"},"id"],"value":"changed"}]),
+        json!([{"path":["words",{"id":"w0"},"id"],"remove":true}]),
         json!([{"path":["words",{"id":"w0"},"text"],"value":"wrong","remove":true}]),
         json!([{"path":["words",{"id":"w0"}],"moveBefore":"missing"}]),
         json!([{"path":["userBreaks"],"value":{"w0":"invalid-pin"}}]),

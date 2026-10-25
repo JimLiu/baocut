@@ -104,6 +104,17 @@ export interface MediaLayer extends LayerBase {
   /** 源时间相对序列时间的速度；定格是 0。图片没有。 */
   sourceRate?: number;
   sourceRect: [number, number, number, number];
+  /**
+   * 分屏（格式规范 §3.5）：每一格把源画面的 `sourceRect` 画进自己的 `matrix`，各格合起来是这一层；没有时省略。
+   * 有它时这一层自己的 `matrix`、`sourceRect` 是不分屏时的一整幅。
+   */
+  panels?: LayerPanel[];
+}
+
+/** 分屏的一格：格子的像素框（不旋转）与这一格取源的区域，宽高比与格子相同。 */
+export interface LayerPanel {
+  matrix: Matrix;
+  sourceRect: [number, number, number, number];
 }
 
 export interface TextLayer extends LayerBase {

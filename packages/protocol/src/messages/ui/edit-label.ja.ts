@@ -49,6 +49,8 @@ export const ja: EditLabelMessages = {
   editText: 'テキストを編集',
   nudgePosition: '位置を微調整',
   applyFramingToAll: 'ショート全体に適用',
+  adjustPanel: '分割マスを調整',
+  changeLayout: 'レイアウトを変更',
   zoomFraming: 'フレーミングを拡大',
   freePlacement: '自由配置に切り替え',
   aspectRatio: (p) => `アスペクト比 ${p.ratio}`,

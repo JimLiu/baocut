@@ -8,15 +8,15 @@ export const nl: AiToolsMessages = {
     focus: {
       auto: { label: 'Automatisch', sub: 'Kijkt aan welke kant de spreker staat en legt het kader op die persoon; zonder persoon gecentreerd' },
       manual: { label: 'Zelf bepalen', sub: 'Je plaatst het kader van elke korte video daarna zelf' },
-      speaker: { label: 'De spreker volgen', sub: 'Het kader volgt wie er aan het woord is' },
+      speaker: { label: 'De spreker volgen', sub: 'Richt op wie er spreekt: wisselt het origineel tussen close-ups en totaalshots, dan volgt het die shots; bij één totaalcamera wisselt het per spreker, en splitst het als twee door elkaar praten of niemand praat' },
     },
-    speakerOff: 'Deze versie heeft nog geen model voor personen en sprekers',
+    speakerOff: 'Het transcript onderscheidt nog geen sprekers · gebruik eerst ‘Sprekers identificeren’',
     tracks: { both: 'Origineel + vertaling', source: 'Alleen origineel', translation: 'Alleen vertaling' },
     styles: {
       shorts: { label: 'Ondertitels voor korte video’s', sub: 'Ingebouwde voorinstelling die platformknoppen vrijhoudt' },
       video: { label: 'Stijl van deze video behouden', sub: 'Zelfde grootte en positie; platformknoppen kunnen ze bedekken' },
     },
-    focusPrompt: { auto: 'automatisch: neem gelijkmatig verdeelde frames uit het fragment, kijk aan welke kant van het beeld de spreker staat en leg de uitsnede op die persoon; vind je niemand, centreer dan', manual: 'voorlopig gecentreerd; ik pas ze elk zelf aan' },
+    focusPrompt: { speaker: 'de spreker volgen: wisselt het origineel tussen close-ups en totaalshots, kadreer dan per shot; bij één totaalcamera knip je per spreker met videos_shots by speaker en richt je op wie er praat', auto: 'automatisch: neem gelijkmatig verdeelde frames uit het fragment, kijk aan welke kant van het beeld de spreker staat en leg de uitsnede op die persoon; vind je niemand, centreer dan', manual: 'voorlopig gecentreerd; ik pas ze elk zelf aan' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Automatisch: de agent vindt de sterkste onderwerpen die op zichzelf staan en bepaalt hoeveel korte video’s het worden en hoe lang elk is, zonder opvulling en zonder onderwerpen half af te knippen.',
@@ -27,6 +27,7 @@ export const nl: AiToolsMessages = {
       `${count === null ? 'Bepaal aan de hand van de gevonden onderwerpen hoeveel korte video’s het worden' : `Maak ${count === 1 ? '1 korte video' : `${count} korte video’s`}`}, ${len ? `elk ${len.min}–${len.max} seconden` : 'elk zo lang als het onderwerp nodig heeft, van de openingshaak tot de clou'}, met begin en eind op zinsgrenzen`,
     lineFrame: (ratio, focus) => (ratio ? `Beeldverhouding ${ratio}, kader ${focus}` : 'Beeldverhouding: origineel behouden, niet bijsnijden'),
     lineSubtitles: (tracks, style) => `Ondertitels: ${tracks}, ${style}`,
+    lineSplit: { on: 'Splits totaalshots met meerdere mensen in vakken, één persoon per vak', off: 'Niet splitsen; richt ook totaalshots met meerdere mensen op één persoon' },
     lineSkipDone: 'Sla delen over die al tot korte video’s zijn geknipt',
     lineTopic: (topic) => `Zoek alleen in de delen die over ‘${topic}’ gaan: vind ze eerst met speech_relevant en kies daaruit`,
     lineDirect: 'Maak de video’s zodra ze gevonden zijn; je hoeft het niet eerst te vragen',

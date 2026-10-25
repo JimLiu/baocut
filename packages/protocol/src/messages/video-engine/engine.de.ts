@@ -53,6 +53,12 @@ export const de: EngineMessages = {
   focalPointRange: "x und y des Fokuspunkts müssen jeweils in [0, 1] liegen",
   focalPointZoomRange: "Der Zoom des Fokuspunkts muss in [1, 4] liegen",
   focalPointNotVideoOrImage: "ist kein Video oder Bild und hat daher keinen Fokuspunkt",
+  panelsCount: "Ein geteiltes Bild braucht 2 bis 4 Felder",
+  panelsRect: "Jedes Feld muss eine positive Breite und Höhe haben und innerhalb der Leinwand liegen (0–100 %)",
+  panelsOverlap: "Felder dürfen sich nicht überlappen",
+  panelsFocalPoint: "Der Fokuspunkt jedes Felds muss x und y in [0, 1] und einen Zoom in [1, 4] haben",
+  panelsNeedFullscreenCover: "Felder gelten nur für ein Vollbildvideo mit Anpassung „cover“",
+  panelsNotVideo: "ist kein Video und kann daher nicht in Felder geteilt werden",
 
   itemSpanInvalid: "Ein Clip darf nicht vor null beginnen und muss mindestens einen Frame lang sein",
   keyframesNeedPicture: (p: P<'item'>) => `Clip ${p.item} hat kein Bild und kann daher keine Keyframes haben`,

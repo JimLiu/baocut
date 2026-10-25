@@ -28,7 +28,7 @@ export function compositionHostProfileDir(script: string): string {
 
 /**
  * 跑宿主脚本。必须同步 require：脚本在 ready 之前调 `disableHardwareAcceleration` / `appendSwitch`，等到 whenReady 就晚了。
- * 脚本自己发 `ready`、按 stdin 关闭退出。
+ * 脚本在 ready 后连接 Runtime 的认证 socket，通道关闭时退出。
  */
 export function runCompositionHost(script: string): void {
   if (!script) {

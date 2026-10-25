@@ -3,7 +3,8 @@
  * 不发请求（请求在 `open-media-http.ts`）。
  *
  * - **Wikimedia Commons**：MediaWiki 的检索（文件命名空间、`filetype:` 关键字）加 `imageinfo` 的 `extmetadata`，许可、作者、
- *   出处都由 Commons 的文件页给出，社区审核过；视频另取 `videoinfo` 的转码，原文件太大时换不超过上限高度的转码。
+ *   出处都由 Commons 的文件页给出，社区审核过；视频另取 `videoinfo` 的转码，原文件太大或格式导入不了（`.ogv`、`.mpg`）时
+ *   换不超过上限高度的 WebM 转码。
  * - **Internet Archive**：只检索几处策展过的公有领域集合（Prelinger、NASA、FedFlix）。别处的条目许可是上传者自己填的，常有
  *   冒充 CC 的商业影片，不收。
  *
@@ -31,9 +32,14 @@ export const COMMONS_API = 'https://commons.wikimedia.org/w/api.php';
 export const ARCHIVE_SEARCH = 'https://archive.org/advancedsearch.php';
 export const ARCHIVE_METADATA = 'https://archive.org/metadata/';
 
-/** 下载时只认这些主机（https）；Internet Archive 的下载会重定向到 `ia8xxxxx.us.archive.org` 这类节点。 */
+/**
+ * 下载时只认这些主机（https）。Commons 渲染的缩图（过宽或非 JPEG、PNG、WebP 的图片取它）在 `thumb.wikimedia.org`；
+ * Internet Archive 的下载会重定向到 `ia8xxxxx.us.archive.org` 这类节点。
+ */
 export function allowedDownloadHost(host: string): boolean {
-  return host === 'upload.wikimedia.org' || host === 'archive.org' || host.endsWith('.archive.org');
+  return (
+    host === 'upload.wikimedia.org' || host === 'thumb.wikimedia.org' || host === 'archive.org' || host.endsWith('.archive.org')
+  );
 }
 
 /** 检索时取缩略图只认这些主机（https）。 */
@@ -288,6 +294,8 @@ export function parseCommonsSearch(body: unknown, kind: OpenMediaKind): OpenMedi
 
 /** 图片原文件能直接用的格式；别的（TIFF、SVG、GIF…）取 Commons 渲染的缩图（PNG 或 JPEG）。 */
 const DIRECT_IMAGE = new Set(['image/jpeg', 'image/png', 'image/webp']);
+/** 视频原文件能直接导入的扩展名（引擎 `media_type_of`）；别的（`.ogv`、`.mpg`）取 Commons 的 WebM 转码。 */
+const IMPORTABLE_VIDEO = new Set(['mp4', 'm4v', 'mov', 'webm', 'mkv']);
 
 export function parseCommonsFile(body: unknown, limits: { maxHeight: number; maxImageWidth: number }): OpenMediaFile {
   const page = commonsPages(body)[0];
@@ -310,7 +318,9 @@ export function parseCommonsFile(body: unknown, limits: { maxHeight: number; max
       };
     }
   }
-  if (candidate.kind === 'video' && (info.height ?? 0) > limits.maxHeight) {
+  // 原文件超过上限高度，或是导入不了的格式（Theora 的 `.ogv` 浏览器也不再播放）：换 Commons 的 WebM 转码。
+  const importable = candidate.kind !== 'video' || IMPORTABLE_VIDEO.has(extensionOf(info.url, ''));
+  if (candidate.kind === 'video' && ((info.height ?? 0) > limits.maxHeight || !importable)) {
     const derivatives = (page.videoinfo?.[0]?.derivatives ?? []).filter(
       (d) => d.src && d.transcodekey && (d.height ?? 0) <= limits.maxHeight && (d.type ?? '').startsWith('video/webm'),
     );
@@ -325,6 +335,11 @@ export function parseCommonsFile(body: unknown, limits: { maxHeight: number; max
         variant: best.transcodekey ?? null,
       };
     }
+    if (!importable)
+      throw new OpenMediaError(
+        'OPEN_MEDIA_UNSUPPORTED',
+        'This video is in a format that cannot be imported (such as Theora .ogv) and Commons has no WebM transcode of it yet: pick another result, or try again later',
+      );
   }
   const url = stripTracking(info.url);
   return { candidate, url, extension: extensionOf(url, 'bin'), byteLength: info.size ?? null, variant: null };

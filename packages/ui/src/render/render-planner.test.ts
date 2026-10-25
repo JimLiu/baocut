@@ -121,6 +121,33 @@ describe.skipIf(!built)('帧计划器（WASM）', () => {
     expect(() => planner.setPicture('item_land_a', red, 10, 10)).toThrow(expect.objectContaining({ code: 'INVALID_PICTURE' }));
   });
 
+  it('分屏的片段画得比画布小（预览）时，格子仍按画布摆：上格取原片左边的人，下格取右边的人', async () => {
+    const { planner, video } = await setup();
+    planner.addFonts([new Uint8Array(readFileSync(`${fonts}${planner.fontFiles()[0]}`))]);
+    const sequence = video.sequences[video.rootSequenceId]!;
+    const land = sequence.items.find((item) => item.id === 'item_land_a')!;
+    const panels = [
+      { rect: { x: 0, y: 0, w: 100, h: 50 }, focalPoint: { x: 0.25, y: 0.4, zoom: 1.4 } },
+      { rect: { x: 0, y: 50, w: 100, h: 50 }, focalPoint: { x: 0.75, y: 0.4, zoom: 1.4 } },
+    ];
+    planner.setVideo({
+      sequence: { ...sequence, canvas: { ...sequence.canvas, width: 1080, height: 1920 }, items: [{ ...land, fit: 'cover', panels } as never] },
+      assets: video.assets,
+    });
+    // 左红右蓝的原片，按预览的做法缩小后送进去；画成 270×480（画布的四分之一）。
+    const [w, h] = [64, 36];
+    const halves = new Uint8Array(w * h * 4).map((_, index) => {
+      const [x, channel] = [(index >> 2) % w, index % 4];
+      return channel === 3 || channel === (x < w / 2 ? 0 : 2) ? 255 : 0;
+    });
+    planner.setPicture('item_land_a', halves, w, h);
+    planner.render(1.5, 270, 480);
+    const pixels = planner.frame();
+    const at = (x: number, y: number) => Array.from(pixels.subarray((y * 270 + x) * 4, (y * 270 + x) * 4 + 3));
+    expect(at(135, 120)).toEqual([255, 0, 0]);
+    expect(at(135, 360)).toEqual([0, 0, 255]);
+  });
+
   it('素材频谱在临时实例里算；声波缺哪份报哪份，送进去之后照着声音画', async () => {
     const { planner, video } = await setup();
     planner.addFonts([new Uint8Array(readFileSync(`${fonts}${planner.fontFiles()[0]}`))]);

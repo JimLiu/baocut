@@ -38,3 +38,15 @@ test('图标适配保留无障碍标签，未知名称不渲染错误图形', ()
   assert.equal(window.Ic({n: 'play', title: '播放'}).props['aria-label'], '播放');
   assert.equal(window.Ic({n: 'play'}).props['aria-hidden'], true);
 });
+test('走带的上一段 / 下一段与循环图标，路径与应用 transport-icons.tsx 逐字一致', () => {
+  const {window} = icons();
+  const app = read('packages/ui/src/components/editor/transport-icons.tsx');
+  const quoted = block => [...block.matchAll(/'([^']+)'/g)].map(m => m[1]);
+  const appList = name => quoted(app.match(new RegExp(`export const ${name} = \\[([^\\]]*)\\]`))[1]);
+  const protoPaths = n => window.Ic({n}).type({}).children.map(c => c.props.d);
+  assert.deepEqual(appList('PREV_PATHS'), protoPaths('prev'));
+  assert.deepEqual(appList('NEXT_PATHS'), protoPaths('next'));
+  const lite = read('designs/baocut/app/editor-lite.jsx').match(/const LOOP_PATHS = \{([\s\S]*?)\n  \};/)[1];
+  const appLoop = quoted(app.match(/const LOOP_BASE = \[([^\]]*)\]/)[1]).concat(quoted(app.match(/export const LOOP_PATHS[\s\S]*?\n\};/)[0]));
+  assert.deepEqual(quoted(lite).sort(), appLoop.sort());
+});

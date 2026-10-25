@@ -513,7 +513,11 @@ fn nested_linear_matte_has_only_existing_gradient_rounding_and_exact_products() 
 }
 
 fn masked_text_scene(paint: Value) -> ScenePlan {
-    let style = json!({"schema":"baocut.caption-scene-style/1","scene":{"kind":"inline","value":{
+    masked_text_scene_with_mode(paint, false, false)
+}
+
+fn masked_text_scene_with_mode(paint: Value, local: bool, inverted: bool) -> ScenePlan {
+    let mut style = json!({"schema":"baocut.caption-scene-style/1","scene":{"kind":"inline","value":{
         "schema":"baocut.caption-scene/1","evaluationVersion":1,
         "requiredCapabilities":["caption-scene/1","caption-expressions/1","caption-paint-stack/1",
             "caption-paint-effects/1","caption-paint-mask/1","caption-gradient-space/1","caption-gradient-glyph/1"],
@@ -531,6 +535,22 @@ fn masked_text_scene(paint: Value) -> ScenePlan {
             "value":{"kind":"keyframes","clock":{"unit":"cue","origin":"start","duration":{"kind":"unit-span"}},
                 "keys":[{"at":0,"value":-3},{"at":1,"value":4}]}}]
     }}});
+    if local {
+        style["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-paint-mask-local/1"));
+        style["scene"]["value"]["nodes"][0]["style"]["paints"][0]["mask"]["rasterization"] = json!("glyph-bounds");
+    }
+    if inverted {
+        style["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-paint-mask-transform/1"));
+        let mask = &mut style["scene"]["value"]["nodes"][0]["style"]["paints"][0]["mask"];
+        mask["inverted"] = json!(true);
+        mask["offset"] = json!([-3.0, 2.0]);
+    }
     ScenePlan::compile(
         parse_style(&style).unwrap(),
         Presentation::default(),
@@ -547,6 +567,119 @@ fn masked_text_scene(paint: Value) -> ScenePlan {
         "actual-masked-text".into(),
     )
     .unwrap()
+}
+
+#[test]
+fn local_mask_bitmaps_reduce_gpu_surfaces_and_preserve_pixels_and_reverse_seek() {
+    let Some((device, queue, backend, adapter)) = device(wgpu::Trace::Off) else {
+        return;
+    };
+    let output = target_size(&device, 160, 96);
+    for inverted in [false, true] {
+        for (kind, paint) in [
+            ("solid", json!({"kind":"solid","color":"#2ABBD0"})),
+            (
+                "gradient",
+                json!({"kind":"linear","space":"normalized","domain":"glyph","from":[0,0],"to":[1,1],
+                    "stops":[{"at":0,"color":"#FF0000"},{"at":1,"color":"#0000FF"}]}),
+            ),
+        ] {
+            let mut legacy_scene = masked_text_scene_with_mode(paint.clone(), false, inverted);
+            let (legacy_frame, _) = legacy_scene.record_material_plan(0.2).unwrap();
+            assert!(legacy_frame.layers.iter().any(|layer| {
+                let MaterialSource::Draw(ops) = &layer.source else { return false };
+                ops.ops.iter().any(|op| matches!(op, DrawOp::PushMatte))
+            }));
+            let mut legacy = CaptionGpuRenderer::from_device(device.clone(), queue.clone(), backend.clone(), adapter.clone());
+            let legacy_stats = legacy
+                .render(
+                    &legacy_frame,
+                    RenderTarget {
+                        view: &output.create_view(&Default::default()),
+                        width: 160,
+                        height: 96,
+                        format: wgpu::TextureFormat::Rgba8Unorm,
+                    },
+                    true,
+                )
+                .unwrap();
+            assert_eq!(legacy_stats.submissions, 1);
+
+            let mut local_scene = masked_text_scene_with_mode(paint, true, inverted);
+            let mut renderer = CaptionGpuRenderer::from_device(device.clone(), queue.clone(), backend.clone(), adapter.clone());
+            let mut seen = std::collections::BTreeMap::new();
+            let mut uploaded_bitmaps = std::collections::BTreeSet::new();
+            let mut previous_uploads = 0;
+            for time in [0.2_f64, 0.8, 0.1, 0.8, 0.2] {
+                let cpu = local_scene.render(time).unwrap();
+                let (frame, _) = local_scene.record_material_plan(time).unwrap();
+                let mut draws = 0;
+                for layer in &frame.layers {
+                    let MaterialSource::Draw(ops) = &layer.source else {
+                        panic!("local mask must retain an ordered DrawOp source");
+                    };
+                    assert!(!ops.bitmaps.is_empty(), "explicit local mode must produce real bitmap bytes");
+                    for bitmap in &ops.bitmaps {
+                        let area = u64::from(bitmap.width) * u64::from(bitmap.height);
+                        assert!(bitmap.width < 160 && bitmap.height < 96 && area < 160 * 96 / 2);
+                        assert_eq!(bitmap.rgba.len() as u64, area * 4);
+                        uploaded_bitmaps.insert((bitmap.width, bitmap.height, bitmap.rgba.to_vec()));
+                    }
+                    for op in &ops.ops {
+                        match op {
+                            DrawOp::DrawBitmap { opacity, tf, .. } => {
+                                draws += 1;
+                                assert_eq!(*opacity, 1.0, "glyph opacity is already included once");
+                                assert_eq!(&tf[..4], &[1., 0., 0., 1.]);
+                                assert_eq!(tf[4].fract(), 0.0);
+                                assert_eq!(tf[5].fract(), 0.0);
+                            }
+                            DrawOp::PushLayer { .. } | DrawOp::PopLayer | DrawOp::Clear { .. } => {}
+                            _ => panic!("local mask unexpectedly retained vector/matte work: {op:?}"),
+                        }
+                    }
+                }
+                assert_eq!(draws, 2, "OO must preserve per-glyph masking and order");
+                let stats = renderer
+                    .render(
+                        &frame,
+                        RenderTarget {
+                            view: &output.create_view(&Default::default()),
+                            width: 160,
+                            height: 96,
+                            format: wgpu::TextureFormat::Rgba8Unorm,
+                        },
+                        true,
+                    )
+                    .unwrap();
+                assert_eq!(stats.submissions, 1);
+                assert_eq!(stats.prepared_strokes, 0, "local IR must not prepare vector strokes");
+                // This historical counter includes cached RGBA bitmap uploads;
+                // zero would incorrectly claim that the GPU received no tiles.
+                assert_eq!(stats.prepared_masks as usize, uploaded_bitmaps.len());
+                assert!(
+                    stats.resident_surface_bytes < legacy_stats.resident_surface_bytes,
+                    "local mask must eliminate real full-canvas isolation surfaces"
+                );
+                let actual = read_size(&device, &queue, &output, 160, 96);
+                let maximum = actual.iter().zip(cpu.rgba.iter()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                assert!(cpu.rgba.chunks_exact(4).any(|pixel| pixel[3] > 0));
+                assert!(maximum <= 1, "local {kind} inverted={inverted} t={time}: GPU/CPU delta={maximum}");
+                eprintln!(
+                    "local masked {kind} inverted={inverted} t={time}: maxDelta={maximum}, bitmapUploads={}, preparedStrokes={}, residentBytes={}, legacyResidentBytes={}",
+                    stats.prepared_masks, stats.prepared_strokes, stats.resident_surface_bytes, legacy_stats.resident_surface_bytes
+                );
+                if let Some((old_cpu, old_gpu)) = seen.get(&time.to_bits()) {
+                    assert_eq!(cpu.rgba.as_ref(), old_cpu, "local CPU reverse seek");
+                    assert_eq!(&actual, old_gpu, "local GPU reverse seek");
+                    assert_eq!(stats.prepared_masks, previous_uploads, "repeat seek must not upload new bitmaps");
+                } else {
+                    seen.insert(time.to_bits(), (cpu.rgba.as_ref().clone(), actual));
+                }
+                previous_uploads = stats.prepared_masks;
+            }
+        }
+    }
 }
 
 #[test]

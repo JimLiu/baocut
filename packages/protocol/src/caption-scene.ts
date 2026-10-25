@@ -28,6 +28,8 @@ export interface CaptionPatternSelect {
 }
 /** Hard row (`line`) or page (`page`) boundaries around words carrying `tag` in presentation.wordTags. */
 export interface CaptionIsolationRule { tag: string; mode: 'none' | 'line' | 'page' }
+/** Width-wrapped lines (`line`) or pages (`page`) never span a change of whether words carry `tag` in presentation.wordTags. */
+export interface CaptionTagRuns { tag: string; mode: 'line' | 'page' }
 /** Post-layout paths requiring caption-glyph-envelope/1. Numeric paths are length; unit paths are bool. */
 export type CaptionGlyphEnvelopeReadPath =
   | 'layout.lineEnvelopeY' | 'layout.lineEnvelopeHeight' | 'layout.firstInkLeft' | 'layout.lastInkRight'
@@ -132,6 +134,9 @@ export interface CaptionPaintMask {
   offset?: [number, number];
   /** Default false (omitted); true uses AlphaInverted (255 - mask alpha) and requires transform capability. */
   inverted?: boolean;
+  /** Default canvas; glyph-bounds bakes a device-aligned bitmap during scene recording.
+   * Requires `caption-paint-mask-local/1`; does not request native GPU matte execution. */
+  rasterization?: 'canvas' | 'glyph-bounds';
 }
 /** Finite local lengths in the owning paint unit; positive offset displaces the sampled contour. */
 export interface CaptionGlyphDistanceBand {
@@ -259,6 +264,8 @@ export interface CaptionScene {
   layout: {
     width: CaptionLength; x: CaptionLength; y: CaptionLength; maxLines?: number;
     layoutEvaluation?: 'static' | 'per-sample'; overflow?: 'error' | 'visible';
+    /** Cue-relative sample time; outer activation stays on timeline time. */
+    clock?: { time: CaptionExpression } | null;
     /** Opt-in windows over real, ordered, nonoverlapping words with wordLinePattern, textLinePattern, remainingWordPagePlans or fixed wordPagePattern members. */
     pageWindow?: { gapThreshold: { ticks: number; timescale: number }; shortGap: { before: number; after: number };
       longGap: { before: number; after: number }; boundary: 'start-inclusive-end-exclusive' | 'first-start-inclusive-end-inclusive' } | null;
@@ -288,7 +295,8 @@ export interface CaptionScene {
       fixedLineOverflow?: 'wrap' | null;
       /** Scales every fixed row of a page to the widest row; a last row narrower than lastLineWidthRatio of it
        * grows by at most lastLineMaxScale, and rows add extraLineHeight over the page's largest scale.
-       * Requires caption-fixed-line-fit/1. */
+       * Requires caption-fixed-line-fit/1. A text lineBox additionally requires caption-fixed-line-font-box/1;
+       * the scaled font envelope is reserved before adding extraLineHeight divided by the largest scale. */
       fixedLineFit?: { lastLineWidthRatio: number; lastLineMaxScale: number; extraLineHeight: number } | null;
       /** One integer of 0..65535 per wordLinePattern page, read as unit.pageTag; page p reads entry p mod the
        * pattern length. Requires caption-page-tag/1. */
@@ -297,7 +305,10 @@ export interface CaptionScene {
        * and the other word page and row plans above. */
       patternSelect?: CaptionPatternSelect | null;
       /** caption-keyword-isolation/1; fixed word line plans only, never with lastPageRule or the other word page and row plans above. */
-      isolation?: CaptionIsolationRule[] };
+      isolation?: CaptionIsolationRule[];
+      /** caption-tag-run-isolation/1; width-wrapped pages with maxUnitsPerPage and maxUnitsPerLine only, never with the fixed
+       * line plans or isolation above. */
+      tagRuns?: CaptionTagRuns | null };
     align?: 'left' | 'center' | 'right'; leadingGap?: 'show' | 'hide';
   };
   speechState?: { gapPolicy?: 'none' | 'hold-previous'; tailPolicy?: 'none' | 'hold-last'; timingPolicy?: 'require-word-timing' | 'estimated' };
@@ -331,6 +342,24 @@ export interface CaptionGaussianStage {
   stepUv: CaptionDynamicValue;
   sigmaUv: CaptionDynamicValue;
 }
+export interface CaptionScanWarpField {
+  scale: number;
+  complexity: number;
+  subImpact: number;
+  subScale: number;
+  evolution: CaptionDynamicValue;
+  offset: [CaptionDynamicValue, CaptionDynamicValue];
+  strength: [CaptionDynamicValue, CaptionDynamicValue];
+  swapAxes?: boolean;
+}
+export interface CaptionScanWarpStripe {
+  center: CaptionDynamicValue;
+  coreHalfHeight: CaptionDynamicValue;
+  falloff: CaptionDynamicValue;
+  gate: CaptionDynamicValue;
+  amount: CaptionDynamicValue;
+  side: 'above' | 'below';
+}
 export type CaptionMaterial =
   | { kind: 'blur'; id: string; radius: CaptionDynamicValue; passes?: number }
   | { kind: 'wave-displace'; id: string; amplitude: CaptionDynamicValue; wavelength: CaptionDynamicValue; phase: CaptionDynamicValue; axis: 'x' | 'y'; contextNodeId?: string }
@@ -338,6 +367,8 @@ export type CaptionMaterial =
   | { kind: 'noise-palette-mix'; id: string; contextNodeId: string; paletteResourceId: string; palettePosition: CaptionDynamicValue; phase: CaptionDynamicValue; domain: { x: CaptionDynamicValue; y: CaptionDynamicValue; width: CaptionDynamicValue; height: CaptionDynamicValue } }
   /** caption-noise-displace/1: CPU raster only; the GPU material plan rejects it. */
   | { kind: 'noise-displace'; id: string; contextNodeId: string; domain: CaptionMaterialDomain; noiseScale: [number, number]; phase: CaptionDynamicValue; brightness: CaptionDynamicValue; contrast: CaptionDynamicValue; strength: CaptionDynamicValue }
+  /** caption-scan-warp/1: CPU raster only; the GPU material plan rejects it. */
+  | { kind: 'scan-warp'; id: string; contextNodeId: string; domain: CaptionMaterialDomain; uvY: 'up' | 'down'; warp: CaptionScanWarpField; stripe: CaptionScanWarpStripe; scanlines: { amount: CaptionDynamicValue; pitch: number; phase: CaptionDynamicValue }; gain: CaptionDynamicValue }
   | { kind: 'angular-sample-blend'; id: string; contextNodeId: string; domain: { x: CaptionDynamicValue; y: CaptionDynamicValue; width: CaptionDynamicValue; height: CaptionDynamicValue }; aspect: CaptionDynamicValue; angle: CaptionDynamicValue }
   | { kind: 'affine-over'; id: string; contextNodeId: string; sampling: { input: CaptionMaterialDomain; output: CaptionMaterialDomain }; foreground: [CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue]; background: [CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue]; backgroundOpacity: CaptionDynamicValue; backgroundRgbScale: CaptionDynamicValue; boundary: 'replicate' | 'transparent' }
   | { kind: 'affine-sample-blend'; id: string; contextNodeId: string; sampling: { input: CaptionMaterialDomain; output: CaptionMaterialDomain }; transforms: [CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue][]; sampleRange: [number, number]; distanceRange: [number, number]; boundary: 'normalize' | 'replicate' | 'transparent' }

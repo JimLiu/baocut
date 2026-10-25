@@ -153,6 +153,16 @@ const en = {
     todo: 'Try another recording, or hear how it sounds with the sample recording first.',
   }),
   refUnknown: 'recording',
+  /**
+   * 要用的外部工具这台电脑上没有能用的（`MEDIA_TOOL_UNAVAILABLE`，例如语音合成转参考录音的 ffmpeg）：检查没能开始，试用也做不了，
+   * 修复帮不上。`remedy` 是 Runtime 按平台给的安装说法（`details.remedy`），没有时用 `install`。
+   */
+  toolMissing: {
+    text: (tool: string) => `This computer doesn't have a working ${tool}`,
+    install: (tool: string) => `Install ${tool}`,
+    checkTodo: (remedy: string) => `${remedy}, then check again.`,
+    tryTodo: (remedy: string) => `${remedy}, then try again.`,
+  },
   /** 语音合成的试听。 */
   trySpeech: {
     noMemory: {
@@ -224,6 +234,9 @@ export const CHECK_UNKNOWN: CheckSentence = live(() => M.unknown);
 export const CHECK_NOT_STARTED: Record<string, CheckSentence> = live(() => M.notStarted);
 
 export const CHECK_NOT_STARTED_UNKNOWN: CheckSentence = live(() => M.notStartedUnknown);
+
+/** 要用的外部工具（ffmpeg）没有能用的：检查行与试用面板共用。 */
+export const TOOL_MISSING: ModelCheckMessages['toolMissing'] = live(() => M.toolMissing);
 
 /** 技术详情的几行。 */
 export const CHECK_DETAIL: ModelCheckMessages['detail'] = live(() => M.detail);

@@ -3,7 +3,11 @@ import type { ChapterSpan } from './chapters.ts';
 import type { TranscriptWord } from './transcript-cut.ts';
 import {
   clampLiteZoom,
-  liteBoundaryPreview,
+  DEFAULT_LITE_LOOP,
+  LITE_LOOP_MODES,
+  liteLoopJump,
+  liteLoopMaxStep,
+  liteLoopRange,
   DEFAULT_EDITOR_VIEW,
   liteChips,
   liteFitZoom,
@@ -194,20 +198,6 @@ describe('片条与缩放', () => {
     ]);
   });
 
-  it('拖边界的预览：这一片的终点与下一片的起点一起挪，总长不变；占比跟着变', () => {
-    const preview = liteBoundaryPreview(segs, 0, 20);
-    expect(preview.map((s) => [s.id, s.start, s.end])).toEqual([
-      ['c1', 0, 20],
-      ['c2', 20, 40],
-    ]);
-    expect(liteChips(preview, 5, 40, null).map((c) => c.flex)).toEqual([0.5, 0.5]);
-    expect(segs.map((s) => [s.start, s.end])).toEqual([
-      [0, 10],
-      [10, 40],
-    ]);
-    expect(liteBoundaryPreview(segs, 1, 30)).toEqual(segs);
-  });
-
   it('缩放夹在 1–8 倍，每档 ×1.5，标签是整数百分比', () => {
     expect(clampLiteZoom(0.3)).toBe(1);
     expect(clampLiteZoom(99)).toBe(LITE_ZOOM_MAX);
@@ -216,6 +206,30 @@ describe('片条与缩放', () => {
     expect(liteZoomLabel(2.25)).toBe('225%');
     expect(liteFitZoom(segs[0]!, 40)).toBe(4);
     expect(liteFitZoom(null, 40)).toBe(1);
+  });
+
+  it('循环：整片是整条，当前段是播放头所在的段，不循环为 null', () => {
+    expect(DEFAULT_LITE_LOOP).toBe('whole');
+    expect(LITE_LOOP_MODES).toEqual(['whole', 'segment', 'off']);
+    expect(liteLoopRange(segs, 'whole', 12, 40)).toEqual({ start: 0, end: 40 });
+    expect(liteLoopRange(segs, 'segment', 3, 40)).toEqual({ start: 0, end: 10 });
+    expect(liteLoopRange(segs, 'segment', 40, 40)).toEqual({ start: 10, end: 40 });
+    expect(liteLoopRange(segs, 'off', 3, 40)).toBeNull();
+    expect(liteLoopRange([], 'segment', 3, 40)).toBeNull();
+  });
+
+  it('当前段循环只在播放走的一步跨过段尾时跳回段首，片尾、倒退与比时钟走得快的大步不跳', () => {
+    const step = liteLoopMaxStep(1 / 60, 1);
+    expect(liteLoopJump(segs, 'segment', 9.99, 10.005, 40, step)).toBe(0);
+    expect(liteLoopJump(segs, 'segment', 9.5, 9.51, 40, step)).toBeNull();
+    expect(liteLoopJump(segs, 'segment', 8, 10, 40, step)).toBeNull();
+    expect(liteLoopJump(segs, 'segment', 10.02, 9.9, 40, step)).toBeNull();
+    expect(liteLoopJump(segs, 'segment', 39.99, 40, 40, step)).toBeNull();
+    expect(liteLoopJump(segs, 'whole', 9.99, 10.005, 40, step)).toBeNull();
+    // 页面被节流、一秒才更新一次：走一秒仍算播放；倍速按比例放宽
+    expect(liteLoopJump(segs, 'segment', 9.2, 10.2, 40, liteLoopMaxStep(1, 1))).toBe(0);
+    expect(liteLoopJump(segs, 'segment', 8.5, 10.5, 40, liteLoopMaxStep(1, 2))).toBe(0);
+    expect(liteLoopJump(segs, 'segment', 8.5, 10.5, 40, liteLoopMaxStep(1, 1))).toBeNull();
   });
 
   it('播放头出了视野就滚到让它落在 1/3 处', () => {

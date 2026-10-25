@@ -62,8 +62,11 @@ import {
   DEFAULT_SCENE_THRESHOLD,
   MAX_SHOTS_RANGE_SECONDS,
   SHOTS_NOTE,
+  SPEAKER_SHOTS_NOTE,
   detectShots,
+  detectSpeakerShots,
   shotsToolError,
+  speakerShotsDeps,
 } from './video-shots.ts';
 import {
   DEFAULT_RANGE_COUNT,
@@ -185,6 +188,14 @@ const schemas = {
       .max(60)
       .optional()
       .describe(`可选。最短镜头（秒），更短的并进前一个；默认 ${DEFAULT_MIN_SHOT}`),
+    by: z
+      .enum(['picture', 'speaker'])
+      .optional()
+      .describe('可选。怎么切：picture（默认）按画面的切换；speaker 按说话人切段，只用于一个固定的全景机位、几个人一直同框的原片'),
+    split: z
+      .boolean()
+      .optional()
+      .describe('可选，只用于 by speaker。默认 true：停顿、两人抢着说、认不出的人说话时分屏；false 时这些段留在前一个人身上'),
   }),
   videos_history: z.strictObject({
     video: videoArg,
@@ -393,22 +404,54 @@ const schemas = {
       .describe('可选。视频片段四边各裁掉的比例（0 到 1，左右之和、上下之和小于 1）'),
     crops: z
       .array(
-        z
-          .strictObject({
-            from: z.number().nonnegative(),
-            to: z.number().positive(),
-            left: z.number().min(0).lt(1),
-            top: z.number().min(0).lt(1),
-            right: z.number().min(0).lt(1),
-            bottom: z.number().min(0).lt(1),
-          })
-          .refine((c) => c.to > c.from && c.left + c.right < 1 && c.top + c.bottom < 1),
+        z.union([
+          z
+            .strictObject({
+              from: z.number().nonnegative(),
+              to: z.number().positive(),
+              left: z.number().min(0).lt(1),
+              top: z.number().min(0).lt(1),
+              right: z.number().min(0).lt(1),
+              bottom: z.number().min(0).lt(1),
+            })
+            .refine((c) => c.to > c.from && c.left + c.right < 1 && c.top + c.bottom < 1),
+          z
+            .strictObject({
+              from: z.number().nonnegative(),
+              to: z.number().positive(),
+              layout: z
+                .enum(['rows', 'grid', 'spotlight'])
+                .describe('rows：2 或 3 人上下排开；grid：4 人田字格；spotlight：3 人上一下二（上格整宽，用户要时才用）'),
+              panels: z
+                .array(
+                  z
+                    .strictObject({
+                      left: z.number().min(0).lt(1),
+                      top: z.number().min(0).lt(1),
+                      right: z.number().min(0).lt(1),
+                      bottom: z.number().min(0).lt(1),
+                    })
+                    .refine((c) => c.left + c.right < 1 && c.top + c.bottom < 1),
+                )
+                .min(2)
+                .max(4)
+                .describe('每人一格要看见的源区域（四边比例，同 crop），次序随意'),
+              main: z.number().int().min(0).max(3).optional().describe('spotlight 必给：panels 里放到上格的那一个（0 起）；别的版式不给'),
+              gap: z
+                .number()
+                .min(0)
+                .max(10)
+                .optional()
+                .describe('可选。格子之间的间距：画布短边的百分比，0–10，缺省 0；用户要留缝时给 1–2'),
+            })
+            .refine((c) => c.to > c.from),
+        ]),
       )
       .max(64)
       .refine((list) => [...list].sort((a, b) => a.from - b.from).every((c, n, all) => n === 0 || c.from >= all[n - 1]!.to))
       .optional()
       .describe(
-        '可选。按镜头分段取景：每段 from、to 是父视频剪辑后时间线上的秒（与 start、end 同一个时钟，可直接用 videos_shots 的 shots），加上这段的四边裁剪比例（同 crop）；最多 64 段，互不重叠。区间首尾不足 0.5 秒的缺口（区间边界落在停顿里被吸附而比请求的宽几帧）由第一段、最后一段自动延上去；更大的缺口和中间没盖住的地方用 crop',
+        '可选。按镜头分段取景：每段 from、to 是父视频剪辑后时间线上的秒（与 start、end 同一个时钟，可直接用 videos_shots 的 shots），加上这段的四边裁剪比例（同 crop），或分屏的 layout 与 panels（每人一格）；最多 64 段，互不重叠。区间首尾不足 0.5 秒的缺口（区间边界落在停顿里被吸附而比请求的宽几帧）由第一段、最后一段自动延上去；更大的缺口和中间没盖住的地方用 crop',
       ),
     captions: z.boolean().optional().describe('可选。按复制来的转写给子视频建原文字幕层，默认 true'),
     translations: z.boolean().optional().describe('可选。复制父视频的译文，默认 true'),
@@ -435,7 +478,7 @@ const schemas = {
     style: captionStylePatch
       .optional()
       .describe(
-        '可选。字幕的位置与样式，键是字幕样式文档（Studio 样式）里的键，只给要改的：y、verticalAlign 定高度（y 是画面高度的百分比，verticalAlign 说字幕块哪条边落在 y 上），width 是折行宽度，fontSize 按 540 短边下的像素，textOutline、background 开关描边与底板。以默认样式为底写进这层的样式文档；与配对的原文共用已有样式时改的是那一份，原文一起变',
+        '可选。字幕的位置与样式，键是字幕样式文档（Studio 样式）里的键，只给要改的：y、verticalAlign 定高度（y 是画面高度的百分比，verticalAlign 说字幕块哪条边落在 y 上），width 是折行宽度，fontSize 按 540 短边下的像素，textOutline、background 开关描边与底板，textAlign 配 alignWithinWrap: true 让各行贴住折行区域的左边或右边，lineHeight、letterSpacing 调行距与字距，punct: false 照原文画标点。以默认样式为底写进这层的样式文档；与配对的原文共用已有样式时改的是那一份，原文一起变',
       ),
   }),
 };
@@ -531,12 +574,14 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '只看画面的突变，不认人：叠化、推拉、缓慢摇镜会漏报，闪光、快速运动可能多报；结果不对时调 threshold，或用 videos_frames 看切换点前后的帧核对。',
       '返回 range（对到帧之后实际检测的区间）、cuts [{at, score, kind}]（at 是时间线上的秒，对到帧，是新镜头的第一帧）、shots [{start, end, sampleAt}]（sampleAt 是镜头 20%、50%、80% 处的 3 个时刻，可直接作为 videos_frames 的 at）、threshold、minShot、detector（"ffmpeg-scene"）与 note。',
       '要解码整段画面：长区间要等一会儿；同一素材、同一区间与阈值再问时用缓存。',
+      'by "speaker"（先用默认的 picture 看出只有一个全景机位再用）不找画面切换：在原片的整份转写里取样，量每张脸嘴部的动静，认出每个说话人是哪张脸（按素材与转写缓存），再按转写切段：谁在说对准谁；超过 1.5 秒的停顿、两人 2 秒内交替说、认不出的人说话时分屏；短于 1.5 秒的插话不换人；每段至少 3 秒。返回 shots [{start, end, sampleAt, speaker, face}]（face 是 faces 的下标，分屏段两项都是 null）、faces [{box, speaker}]（各取样里的中位脸框，从左到右）、speakers [{id, name, face, probes, contrast}]、confidence、detector（"mouth-motion"）与 note。转写不到 2 个说话人、不是单机位、谁也认不出、人脸检测不可用时分别以 SHOTS_NO_SPEAKERS、SHOTS_NOT_SINGLE_CAMERA、SHOTS_SPEAKERS_UNMATCHED、SHOTS_FACES_UNAVAILABLE 拒绝，next 说怎么退回。',
     ].join('\n'),
     annotations: { readOnlyHint: true },
     effect: 'query',
     examples: [
       { title: '找一段里的镜头切换', args: { video: 'demo', range: '1477.8:1532.5' } },
       { title: '调低阈值重找', args: { video: 'demo', range: '0:60', threshold: 0.2, minShot: 0.5 } },
+      { title: '单机位按说话人切段', args: { video: 'demo', range: '600:690', by: 'speaker' } },
     ],
     surfaces: ['agent', 'mcp', 'cli'],
     positional: 'video',
@@ -819,6 +864,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       '首版只支持单主素材时间线：剪口只记在时间线上播放得最多的那个素材（主素材）上；别的素材与图文片段跟着剪口移动、缩短，整个落在剪掉范围里的会被删掉，恢复剪口时回不来。父视频有多个媒体素材时 warnings 有 multiple-assets；主素材盖不到的区间之外部分没剪掉时有 range-not-exact（count 是帧数）；会被删掉、恢复不回来的片段有 items-not-restorable。父视频有代码画面（composition）时拒绝（DERIVE_UNSUPPORTED_ITEM）；区间对到帧后为空时拒绝（DERIVE_RANGE_EMPTY）；父视频本身就是项目或会话的目录时拒绝（DERIVE_PARENT_UNPLACED）。',
       '分段取景（crops）：各段起止就近对到帧、截到区间（截过或截完为空丢掉的，warnings 有 crops-adjusted，count 是段数）；主素材的视频片段在取景变化的帧上拆成几段，各带自己的 crop（入场动画只留第一段、出场只留最后一段，内嵌音频淡入淡出同理；循环动画或音量包络每段从头算，warnings 有 animation-split）。区间首尾不足 0.5 秒的缺口由第一段、最后一段向外延盖住（不计入 crops-adjusted）；区间之前、之后的部分沿用第一段、最后一段的取景，恢复首尾的话时画面跟着那一段。结果的 framing 是实际采用的各段；派生来源文档的 settings.crops 记同一份，framing 记它们在主素材源时钟上的位置。crops 给了才参与幂等键。',
       '取景不丢画面：全屏 + cover 的视频片段知道源尺寸时，crop、crops 给的裁剪换成取景点（focalPoint）写到片段上，铺满方向上多出来的那一边不裁掉（另一边的裁剪，如放大或去黑边，照样留着）。子视频里看到的画面与给的裁剪一样，以后改回原画幅还能看到全部。',
+      '分屏段（crops 里带 layout 与 panels 的段）：rows 要 2 或 3 格（上下排开），grid 要 4 格（田字格），spotlight 要 3 格（上一下二：上格整宽，下面左右两格），格数不对时拒绝（DERIVE_PANELS_INVALID）。panels 是每人要看见的源区域，Runtime 按区域中心从左到右排进格子（最左的人在最上面、grid 在左上）；spotlight 要给 main（panels 里放到上格的那一个，0 起），另两人按左右进下面两格，spotlight 没给 main 或越界、别的版式给了 main 时同样拒绝。三人默认用 rows，用户要「上一下二」或「主讲在上面」时才用 spotlight。gap 是格子之间的间距（画布短边的百分比，0–10，缺省 0；用户要留缝时给 1–2），只留在格子之间、贴画布边的一侧不留，缝里露出序列底色。区域换成每格的取景点与放大，主素材的全屏 cover 片段写 panels（不写 crop、focalPoint）。画幅没变或 fit 为 contain 时分屏段按各格区域的并集当一人裁剪（warnings 有 panels-ignored）；区域在一格里装不下时有 panel-region-cropped，某格放大量（成片一个像素对原片几个像素）超过 2.5 时有 panel-upscaled（count 都是格数）；分屏段短于 3 秒时有 split-short（count 是段数）。结果的 framing 里分屏段的 panels 已按左右排好。',
       'hook、reason、notes 写进派生来源文档，供剪成短视频的结果页显示开头一句、为什么挑它与提示牌；它们与 name 一样不参与幂等键，认回已有的子视频时不改写。',
       '幂等：父视频同一版本、同一区间与设置再调用时认回已有的子视频（reused 为 true），不再复制。会向用户确认。',
       '返回 video（子视频的 videoId、名字与打开位置）、reused、key、对到帧的 range、primaryAssetId、cuts（区间之外的剪口：主素材源时钟上的秒）、itemCount、framing（给了 crops 时）、derivationDocumentId（派生来源文档）、hook、reason、notes（派生来源文档里记下的挑选说明，原样回显，没有的不带；认回时是原来那份）、speech、translations、captions（每层字幕的 documentId、sourceDocumentId 与 cueCount：字幕按整份文稿切条，cueCount 只数落在保留区间里、子视频里看得到的字幕条；认回已有的一层时为 null）与 warnings。之后用 videos_inspect 读子视频。',
@@ -1249,7 +1295,16 @@ export class VideoTools implements ToolSet {
     const opened = await this.#scope.open(args.video, access);
     const videoId = opened.ref.videoId;
     const video = this.#current(opened);
+    if (args.by === 'speaker' ? args.threshold !== undefined || args.minShot !== undefined : args.split !== undefined) {
+      // i18n-ignore: 给模型的工具说明、错误与下一步
+      throw new ToolError('INVALID_ARGUMENTS', args.by === 'speaker' ? 'threshold、minShot 只用于 by picture' : 'split 只用于 by speaker');
+    }
     try {
+      if (args.by === 'speaker') {
+        const deps = speakerShotsDeps({ analysis: this.#deps.analysis, videos: this.#videos, faces: this.#deps.faces }, videoId);
+        const result = await detectSpeakerShots(deps, video, { start, end, split: args.split });
+        return { videoId, ...result, note: SPEAKER_SHOTS_NOTE };
+      }
       const result = await detectShots(
         { analysis: this.#deps.analysis, assetFile: (assetId, revision) => this.#videos.assetFile(videoId, assetId, revision) },
         video,
@@ -2120,6 +2175,7 @@ const DERIVE_TOOL_MESSAGES: Record<string, string> = {
   DERIVE_RANGE_EMPTY: '区间对到帧之后是空的：start、end 是剪辑后时间线上的秒，先用 videos_inspect 看时长',
   DERIVE_UNSUPPORTED_ITEM: '父视频里有不能复制到子视频的片段（代码画面或不能复制的链接素材，details 指出是哪个），首版不支持派生',
   DERIVE_PARENT_UNPLACED: '这个视频就是项目或会话的目录本身（或不是从项目、会话打开的），旁边没有地方建子视频',
+  DERIVE_PANELS_INVALID: '分屏段的格数或 main 不对：rows 要 2 或 3 格，grid 要 4 格，spotlight 要 3 格并给 main（放到上格的那一格，0 起），别的版式不给 main；5 人及以上不分屏，改成一人裁剪',
 };
 // i18n-ignore-end
 

@@ -304,7 +304,8 @@ pub enum EditOperation {
     },
     /// 改画面实例的外观（§3.5、§3.6）。只改给出的字段，给 `null` 去掉（回到缺省）。`opacity`、`radius`、`cornerRadii`
     /// 写进 `place`；`mode`、`fit`、`bg`、`mask` 是视觉媒体的；`tile` 用于图片与文字；`style`、`stylePresetId`、
-    /// `verticalAlign` 用于文字；`shape` 整个替换图形的参数；`crop`、`focalPoint` 用于视频与图片。适用范围与取值由 `timeline` 校验。
+    /// `verticalAlign` 用于文字；`shape` 整个替换图形的参数；`crop`、`focalPoint` 用于视频与图片，`panels` 只用于视频。适用范围与取值由 `timeline` 校验。
+    /// 改 `mode`、`fit` 离开全屏加 `cover` 而没有同时给 `panels` 时，分屏一并去掉。
     SetStyle {
         #[serde(default)]
         sequence_id: Option<Id>,
@@ -339,6 +340,9 @@ pub enum EditOperation {
         /// 视频与图片的取景点（§3.5）；`null` 去掉（居中）。
         #[serde(default, deserialize_with = "nullable", skip_serializing_if = "Option::is_none")]
         focal_point: Option<Option<FocalPoint>>,
+        /// 视频的分屏格子（§3.5），整组替换；`null` 去掉（回到一整幅）。
+        #[serde(default, deserialize_with = "nullable", skip_serializing_if = "Option::is_none")]
+        panels: Option<Option<Vec<VideoPanel>>>,
     },
     /// 改文字实例的内容：`text` 与 `counter` 给且只给一个，给了的那个替换另一个（§3.6）。
     SetText {
@@ -1040,6 +1044,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             shape,
             crop,
             focal_point,
+            panels,
         } => set_style(
             state,
             sequence_id.as_deref(),
@@ -1059,6 +1064,7 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
                 shape: shape.clone(),
                 crop: *crop,
                 focal_point: *focal_point,
+                panels: panels.clone(),
             },
         ),
         EditOperation::SetTransition {
@@ -1720,6 +1726,7 @@ fn add_item(
                     },
                     crop: None,
                     focal_point: None,
+                    panels: None,
                     embedded_audio: EmbeddedAudio {
                         enabled: true,
                         volume: 1.0,
@@ -3379,6 +3386,7 @@ struct StyleInput {
     shape: Option<ShapeProps>,
     crop: Option<Option<Crop>>,
     focal_point: Option<Option<FocalPoint>>,
+    panels: Option<Option<Vec<VideoPanel>>>,
 }
 
 fn set_style(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str, input: StyleInput) -> EngineResult<()> {
@@ -3457,6 +3465,18 @@ fn set_style(state: &mut VideoState, sequence_id: Option<&str>, item_id: &str, i
     }
     if let Some(focal) = input.focal_point {
         crate::effects::apply_focal_point(item, item_id, focal.as_ref())?;
+    }
+    match input.panels {
+        Some(panels) => crate::effects::apply_panels(item, item_id, panels.as_deref())?,
+        // 换成画中画或 contain：格子只用于全屏加 `cover`，跟着去掉，回到一整幅。
+        None if input.mode.is_some() || input.fit.is_some() => {
+            if let TimelineItem::Video(video) = &mut *item
+                && (video.media.mode() != VisualMode::Fullscreen || video.media.fit() != Fit::Cover)
+            {
+                video.panels = None;
+            }
+        }
+        None => {}
     }
     check_item(state, item_id)
 }

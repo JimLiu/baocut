@@ -14,6 +14,7 @@ describe('字幕样式补丁', () => {
       style: { y: 75, verticalAlign: 'bottom', textOutline: { on: false, color: '#000000', width: 14 }, punct: true },
     });
     expect(body.style.y).toBe(86);
+    expect(patchStudioStyle(body, { panelSeam: false })?.style).toMatchObject({ y: 86, panelSeam: false });
   });
 
   it('新建的样式以默认预设为底', () => {
@@ -31,11 +32,24 @@ describe('字幕样式补丁', () => {
     expect(captionStylePatch.safeParse({ y: 75, verticalAlign: 'bottom', width: 84, fontSize: 32, fontColor: '#FFEE00CC' }).success).toBe(
       true,
     );
+    expect(captionStylePatch.safeParse({ panelSeam: false }).success).toBe(true);
+    expect(captionStylePatch.safeParse({ panelSeam: 'off' }).success).toBe(false);
     expect(captionStylePatch.safeParse({ y: 101 }).success).toBe(false);
     expect(captionStylePatch.safeParse({ width: 2 }).success).toBe(false);
     expect(captionStylePatch.safeParse({ fontColor: 'yellow' }).success).toBe(false);
     expect(captionStylePatch.safeParse({ anchor: 'bottom' }).success).toBe(false);
     expect(captionStylePatch.safeParse({}).success).toBe(false);
+  });
+
+  it('排版键：对齐、贴边、行高、字距与标点照写；字重同时写粗体', () => {
+    const patch = { textAlign: 'left', alignWithinWrap: true, lineHeight: 1.45, letterSpacing: 1, punct: false, fontWeight: 400 } as const;
+    expect(captionStylePatch.safeParse(patch).success).toBe(true);
+    const next = freshCaptionStyle(patch).style as Record<string, unknown>;
+    expect(next).toMatchObject({ ...patch, bold: false });
+    expect((freshCaptionStyle({ fontWeight: 800 }).style as Record<string, unknown>).bold).toBe(true);
+    expect(captionStylePatch.safeParse({ textAlign: 'justify' }).success).toBe(false);
+    expect(captionStylePatch.safeParse({ lineHeight: 0.2 }).success).toBe(false);
+    expect(captionStylePatch.safeParse({ alignWithinWrap: 'yes' }).success).toBe(false);
   });
 
   it('说话人名字：只改给出的字段，缩放比例越界拒绝', () => {

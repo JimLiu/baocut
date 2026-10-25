@@ -4639,6 +4639,116 @@ mod tests {
         assert_eq!(lifted.stack_layout(&[], 1.0).anchor, plain_anchor);
     }
 
+    fn seams_from(start: f64, end: f64, seams: &[f64]) -> crate::PanelSeams {
+        crate::PanelSeams::new(
+            None,
+            vec![crate::SeamWindow {
+                start,
+                end,
+                seams: seams.to_vec(),
+            }],
+        )
+    }
+
+    /// 字幕的 alpha 外包框的纵向中点（画布像素）。
+    fn alpha_center_y(rgba: &[u8], width: usize) -> f64 {
+        let rows: Vec<usize> = rgba
+            .chunks_exact(width * 4)
+            .enumerate()
+            .filter(|(_, row)| row.chunks_exact(4).any(|pixel| pixel[3] > 0))
+            .map(|(index, _)| index)
+            .collect();
+        (rows[0] + rows[rows.len() - 1] + 1) as f64 / 2.0
+    }
+
+    /// 分屏段的接缝（视频格式规范 §5.6）：开始在分屏画面上的一句，整块的中线落在接缝上，到结束都不动。
+    ///
+    /// 判别点：按这一句自己的开始（0.5）定，不按 `leadIn` 提前的显示（0.0）；提前的那半秒已经在接缝上；
+    /// `verticalAlign` 不管用；关掉 `panelSeam`、开始在分屏之前时照样式的 `y`；只挪位置，字号不动。
+    #[test]
+    fn a_cue_that_starts_on_a_split_shot_sits_centered_on_the_seam() {
+        let mut document = document("none", "none");
+        document["style"]["verticalAlign"] = json!("bottom");
+        let layout_at = |plan: &mut OverlayRenderPlan, time: f64| {
+            let layouts = plan.active_layouts(time);
+            plan.stack_layout(&layouts, 1.0)
+        };
+        let plain = OverlayRenderPlan::compile(&document, 640, 360, 3.0, 30.0, None).unwrap();
+        let plain_size = plain.original_style.font_size;
+
+        // 分屏从 0.5 起：显示从 0.0 起，这一句自己从 0.5 起 ⇒ 挂上
+        let mut split = OverlayRenderPlan::compile(&document, 640, 360, 3.0, 30.0, None).unwrap();
+        let before = split.render_rgba_frame(1.0).unwrap().rgba;
+        split.set_panel_seams(Some(seams_from(0.5, 3.0, &[50.0])));
+        for time in [0.2, 1.0, 2.8] {
+            let stack = layout_at(&mut split, time);
+            assert!(stack.panel_seam, "{time}");
+            assert!(
+                (stack.anchor.1 - 180.0).abs() < 1e-6,
+                "{time}: {:?}",
+                stack.anchor
+            );
+        }
+        assert_eq!(split.original_style.font_size, plain_size, "只挪位置");
+        // 帧缓存跟着作废，画出来的块中线在接缝上（底边钉在锚线上的话中线会在接缝之上）
+        let after = split.render_rgba_frame(1.0).unwrap().rgba;
+        assert_ne!(before, after);
+        let center = alpha_center_y(&after, 640);
+        assert!((center - 180.0).abs() <= 2.0, "{center}");
+        // 几何侧车同一个答案
+        let sidecar = split.subtitle_layout(1.0).unwrap();
+        assert!(sidecar.panel_seam);
+        assert!((sidecar.anchor.1 - 180.0).abs() < 1e-6);
+
+        // 分屏只盖住提前显示的那半秒：这一句不是在分屏上开始的
+        let mut early = OverlayRenderPlan::compile(&document, 640, 360, 3.0, 30.0, None).unwrap();
+        early.set_panel_seams(Some(seams_from(0.0, 0.5, &[50.0])));
+        let stack = layout_at(&mut early, 0.2);
+        assert!(!stack.panel_seam);
+        assert!((stack.anchor.1 - 360.0 * 0.86).abs() < 1e-6);
+
+        // 关掉 panelSeam
+        let mut off_doc = document.clone();
+        off_doc["style"]["panelSeam"] = json!(false);
+        let mut off = OverlayRenderPlan::compile(&off_doc, 640, 360, 3.0, 30.0, None).unwrap();
+        off.set_panel_seams(Some(seams_from(0.0, 3.0, &[50.0])));
+        assert!(!layout_at(&mut off, 1.0).panel_seam);
+
+        // 三行取离样式 y 最近的接缝
+        let mut rows3 = OverlayRenderPlan::compile(&document, 640, 360, 3.0, 30.0, None).unwrap();
+        rows3.set_panel_seams(Some(seams_from(0.0, 3.0, &[33.333, 66.667])));
+        assert!((layout_at(&mut rows3, 1.0).anchor.1 - 360.0 * 0.66667).abs() < 1e-6);
+
+        // 底部模板带抬不到接缝上面，接缝照用
+        let mut lifted = OverlayRenderPlan::compile(&document, 640, 360, 3.0, 30.0, None).unwrap();
+        lifted.set_template_scene(Some(chrome_scene(80.0, 20.0)));
+        lifted.set_panel_seams(Some(seams_from(0.0, 3.0, &[50.0])));
+        assert!((layout_at(&mut lifted, 1.0).anchor.1 - 180.0).abs() < 1e-6);
+
+        // 撤掉接缝恢复原位
+        split.set_panel_seams(None);
+        let stack = layout_at(&mut split, 1.0);
+        assert!(!stack.panel_seam);
+        assert!((stack.anchor.1 - 360.0 * 0.86).abs() < 1e-6);
+    }
+
+    /// 逐句样式自己写了 `y` 的那一句不挂接缝；居中摆放的字幕不动。
+    #[test]
+    fn a_cue_placed_by_its_own_style_stays_off_the_seam() {
+        let mut document = document("none", "none");
+        document["style"]["cueStyles"] = json!({"q1": {"source": {"y": 20}}});
+        let mut plan = OverlayRenderPlan::compile(&document, 640, 360, 3.0, 30.0, None).unwrap();
+        plan.set_panel_seams(Some(seams_from(0.0, 3.0, &[50.0])));
+        let layouts = plan.active_layouts(1.0);
+        let stack = plan.stack_layout(&layouts, 1.0);
+        assert!(!stack.panel_seam);
+        assert!(
+            (stack.anchor.1 - 360.0 * 0.2).abs() < 1e-6,
+            "{:?}",
+            stack.anchor
+        );
+    }
+
     /// 元素指纹出口是跨引擎门禁；模板层是 host 光栅化的，必须主动拒绝而不是
     /// 给一个比不了的数。
     #[test]
@@ -6129,6 +6239,7 @@ mod tests {
             series_index: 0,
             text: "Hello world".to_owned(),
             display_start: 0.5,
+            start: 0.5,
             display_end: 2.5,
             words: vec![
                 Word {

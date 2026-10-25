@@ -7,7 +7,8 @@
 //!
 //! 只缩小、不放大；绑定边恰为画布的边，另一条边按比例取整到偶数（`cover` 向上取整，不小于画布），这样帧光栅
 //! 算出的 `fit` 缩放恰为 1，剩下的只是整数偏移的贴图。有裁剪（在 `fit` 之前生效）或效果（效果的长度按画布算、
-//! 作用在源像素上，源分辨率一变画面就不同）的实例不缩，仍交源尺寸；全零的裁剪与空的效果对象按没有算。
+//! 作用在源像素上，源分辨率一变画面就不同）、分屏（每格只取一块再放大）的实例不缩，仍交源尺寸；全零的裁剪与空的效果对象
+//! 按没有算。
 
 use video_model::{Fit, TimelineItem, VisualMode};
 
@@ -19,7 +20,9 @@ pub fn delivery_size(item: &TimelineItem, source: (u32, u32), canvas: (u32, u32)
     // 裁剪与效果的「有」与帧光栅同一个判法：全零的裁剪、空的效果对象都等于没有。
     let cropped = video.crop.as_ref().is_some_and(|crop| crop.is_valid() && !crop.is_empty());
     let effects = video.media.fx.as_ref().is_some_and(|fx| !fx.is_empty());
-    if video.media.mode() != VisualMode::Fullscreen || cropped || effects {
+    // 分屏的每一格只取原片的一块再放大：按整幅铺满缩小会让格子发虚。
+    let panels = video.active_panels().is_some();
+    if video.media.mode() != VisualMode::Fullscreen || cropped || effects || panels {
         return None;
     }
     fitted_size(video.media.fit(), source, canvas)
@@ -159,6 +162,11 @@ mod tests {
             None
         );
         assert_eq!(delivery_size(&item(serde_json::json!({})), (1920, 1080), CANVAS), None);
+        let split = serde_json::json!({ "fit": "cover", "panels": [
+            { "rect": { "x": 0, "y": 0, "w": 100, "h": 50 }, "focalPoint": { "x": 0.25, "y": 0.4, "zoom": 1.4 } },
+            { "rect": { "x": 0, "y": 50, "w": 100, "h": 50 }, "focalPoint": { "x": 0.75, "y": 0.4, "zoom": 1.4 } }
+        ] });
+        assert_eq!(delivery_size(&item(split), source, CANVAS), None, "分屏的格子取一块再放大，交源尺寸");
         // 全零的裁剪与空的效果对象等于没有（与帧光栅的 `crop_of` / `Fx::is_empty` 一致）。
         let empty = serde_json::json!({ "crop": { "left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0 }, "fx": {} });
         assert_eq!(delivery_size(&item(empty), source, CANVAS), Some((1920, 1080)));

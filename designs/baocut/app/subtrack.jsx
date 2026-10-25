@@ -18,7 +18,7 @@
 (function () {
   const S = window.BC_SUB;
 
-  /** 拿下 / 放回。`editId` 是调用方当下的编辑对象（语言入口选中的那条、行头那一行），
+  /** 拿下 / 放回（原文还没建字幕层时「放回」就是新建，见 `build`）。`editId` 是调用方当下的编辑对象（语言入口选中的那条、行头那一行），
    *  它只影响「换掉哪一条」的默认值。返回 `{put, drop, dialog}`——`dialog` 要挂进
    *  调用方的树里（软上限那一句确认）。 */
   function useSubTrackOps(ctx, editId) {
@@ -54,7 +54,18 @@
       return (next[0] || {}).id || null;
     };
 
+    /** 用文稿建原文字幕层（product-design §5.9「字幕属性」轨条）：原文从没做成字幕层时那枚虚线「原文」chip 与行头那一项走这里。
+     *  画面上只有译文，所以不过软上限；新的一层与译文共用样式（`addSourceLayer`），叠成双语。 */
+    const build = (track) => {
+      const before = ctx.subStyle;
+      const tr = S.translations(before)[0];
+      ctx.addSourceLayer(track);
+      app.toast(tr ? '已用文稿建原文字幕 · 与「' + tr.name + '」共用样式，叠成双语' : '已用文稿建原文字幕',
+        'positive', undoable(before));
+    };
+
     const put = (track) => {
+      if (track.unbuilt) { build(track); return; }
       const before = ctx.subStyle;
       const r = S.putBackMode(before, track, editId);
       if (r.mode === 'add') { ctx.addSubTrackBack(track); land(track, '放回画面', before); return; }

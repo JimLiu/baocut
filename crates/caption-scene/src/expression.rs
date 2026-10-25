@@ -141,6 +141,10 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "time.pageLastWordDurationSeconds"
         | "time.cueFirstWordStartSeconds"
         | "time.cueFirstWordEndSeconds"
+        | "time.inputFirstWordStartSeconds"
+        | "time.inputFirstWordEndSeconds"
+        | "time.inputLastWordStartSeconds"
+        | "time.inputLastWordEndSeconds"
         | "time.cueSecondWordStartSeconds"
         | "time.nextWordStartSeconds"
         | "time.firstPageFirstWordStartSeconds"
@@ -177,6 +181,8 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "unit.unread"
         | "unit.pageLastWordTimed"
         | "unit.cueFirstWordTimed"
+        | "unit.inputFirstWordTimed"
+        | "unit.inputLastWordTimed"
         | "unit.cueSecondWordTimed"
         | "unit.wordTimed"
         | "unit.pageEnvelopeAvailable"
@@ -234,6 +240,23 @@ pub fn context_type(path: &str) -> Option<ValueType> {
     })
 }
 fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
+    if matches!(
+        path,
+        "time.inputFirstWordStartSeconds"
+            | "time.inputFirstWordEndSeconds"
+            | "time.inputLastWordStartSeconds"
+            | "time.inputLastWordEndSeconds"
+            | "unit.inputFirstWordTimed"
+            | "unit.inputLastWordTimed"
+    ) && !scene.required_capabilities.iter().any(|c| c == "caption-layout-clock/1")
+    {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-layout-clock/1 must be declared",
+        ));
+    }
+
     if path == "unit.pageTag" {
         if !scene.required_capabilities.iter().any(|c| c == "caption-page-tag/1") {
             return Err(Diagnostic::new(
@@ -803,12 +826,30 @@ impl Budget {
     }
     /// Content and alpha-matte canvas work share one cap across the frame.
     pub fn reserve_paint_mask_work(&mut self, count: u64) -> Result<()> {
+        self.reserve_paint_mask_rasters(count, 0, 0)
+    }
+    /// Atomically reserve mask work, cropped raster storage and transfer work.
+    /// Local masks share the existing image-paint frame caps even without an
+    /// extended paint stack. Failed preflight leaves every counter unchanged.
+    pub fn reserve_paint_mask_rasters(&mut self, count: u64, pixels: usize, work: u64) -> Result<()> {
         let next = self
             .paint_mask_work
             .checked_add(count)
             .filter(|total| *total <= 128 * 1024 * 1024)
             .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "paint mask work"))?;
+        let pixels = self
+            .image_paint_pixels
+            .checked_add(pixels)
+            .filter(|total| *total <= 16 * 1024 * 1024)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "paint mask surfaces"))?;
+        let work = self
+            .image_paint_work
+            .checked_add(work)
+            .filter(|total| *total <= 256 * 1024 * 1024)
+            .ok_or_else(|| Diagnostic::new("CAPTION_BUDGET_EXCEEDED", "frame", "paint mask transfer work"))?;
         self.paint_mask_work = next;
+        self.image_paint_pixels = pixels;
+        self.image_paint_work = work;
         Ok(())
     }
     /// Contour-segment and distance-sample work has its own frame-wide cap.
@@ -1067,6 +1108,23 @@ pub fn sample_value(
     budget: &mut Budget,
 ) -> Result<Option<Evaluated>> {
     budget.spend()?;
+    // All channels on a remapped cue, including material keyframes, share its
+    // sampled clock. Callers may still pass timeline time for capture ordering.
+    let seconds = if scene.layout.clock.is_some() {
+        let start = ctx
+            .spans
+            .get(&UnitKind::Cue)
+            .ok_or_else(|| invalid("layout.clock", "cue span unavailable"))?
+            .0;
+        start
+            + ctx
+                .fields
+                .get("time.seconds")
+                .ok_or_else(|| invalid("layout.clock", "sample context unavailable"))?
+                .number()?
+    } else {
+        seconds
+    };
     match value {
         DynamicValue::Constant { value } => Ok(Some(typed_value(t, value)?)),
         DynamicValue::Expression { expression } => Ok(Some(evaluate(expression, scene, ctx, budget)?)),

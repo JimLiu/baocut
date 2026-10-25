@@ -94,7 +94,7 @@ export const pl: ExportMessages = {
   letterboxedTo: (ratio: string) => `${ratio} z czarnymi pasami`,
   letterboxNote: "Zmiana proporcji nie przycina: obraz skalowany z własnymi proporcjami, wyśrodkowany z czarnymi pasami; układy nie są przebudowywane",
   size: "Rozmiar",
-  upscaleNote: (label: string) => `Rozdzielczość do oryginalnej ${label} · wyższe tylko skalowane, bez wzrostu ostrości`,
+  upscaleNote: (label: string) => `Oryginalne wideo ma ${label} · wyższe rozdzielczości tylko powiększają wideo, bez wzrostu ostrości; napisy i tekst pozostają ostre`,
   pictureLanes: "Treść obrazu",
   burnCaptions: "Wypal napisy w obrazie",
   burnCaptionsFor: (label: string) => `Wypal napisy w obrazie: ${label}`,

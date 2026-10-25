@@ -39,11 +39,15 @@
     {id: '1:1', name: '1:1', value: 1},
     {id: 'source', name: '保留原画幅', value: null},
   ];
-  /* 缺省「自动」：智能体在片段里均匀抽帧看说话的人在哪一侧，裁框放到他身上，找不到人就居中（§5.10）；
+  /* 「自动」：智能体在片段里均匀抽帧看说话的人在哪一侧，裁框放到他身上，找不到人就居中（§5.10）；
      `prompt` 是折进提示词的那半句，没有就用 `name`。
-     「跟着说话的人」这一版不开放：还没有人物与发言人模型（§5.10），选项留着、置灰并说明。 */
+     「跟着说话的人」（docs/design/shorts-framing §2.3、§8.1）：转写里分出 2 个以上说话人时可选，并且是缺省；
+     分不出时置灰、写 `off`，缺省回到「自动」（`focusOpen` / `defaultFocus`）。 */
   const FOCUS = [
-    {id: 'speaker', name: '跟着说话的人', desc: '谁说话框跟谁', off: '这一版还没有人物与发言人模型'},
+    {id: 'speaker', name: '跟着说话的人',
+      desc: '谁说话对准谁：原片有近景与全景来回切时跟着原片的镜头；只有一个全景机位时按说话人换人，两人抢着说或都不说话时分屏',
+      off: '转写里还没分出说话人 · 先用「识别说话人」',
+      prompt: '跟着说话的人：有近景与全景来回切时按镜头取景；只有一个全景机位时用 videos_shots 的 by speaker 按说话人切段，谁说话对准谁'},
     {id: 'auto', name: '自动', desc: '看说话的人在画面哪一侧，框放到他身上；找不到人就居中',
       prompt: '自动：在片段里均匀抽几帧，看说话的人在画面哪一侧，把裁框放到他身上；找不到人就居中'},
     {id: 'manual', name: '我自己定', desc: '在结果页的原片上拖取景框，每支定一个位置'},
@@ -57,7 +61,16 @@
     {id: 'shorts', name: '短视频字幕', desc: '内置预设，避开平台按钮'},
     {id: 'project', name: '沿用这部视频的样式', desc: '字号和位置照搬，可能被平台按钮挡住'},
   ];
-  const DEFAULTS = {count: AUTO, length: AUTO, lenMin: 30, lenMax: 60, ratio: '9:16', focus: 'auto',
+  /* 多人全景时分屏（docs/design/shorts-framing §2、§8.1）：「取景」一节单选下面的开关，缺省开。 */
+  const SPLIT = {
+    label: '多人全景时分屏',
+    on: '原片切到几个人的全景、一个竖屏框装不下时，每人一格上下排开；只在镜头切换处换，短于 3 秒的全景不分屏',
+    speakerOn: '切到几个人的全景、两人抢着说或都不说话时，每人一格上下排开；每段至少 3 秒',
+    off: '几个人的全景也只对准一个人',
+    promptOn: '多人全景镜头分屏，每人一格',
+    promptOff: '不要分屏，多人全景也对准一个人',
+  };
+  const DEFAULTS = {count: AUTO, length: AUTO, lenMin: 30, lenMax: 60, ratio: '9:16', focus: 'auto', split: true,
     tracks: 'both', style: 'shorts', scope: 'all', skipDone: true, hook: true, crossChapter: false};
   /** 一条进度走完：找片段 → 创建视频（BC_TASK_FACTS.SHORTS_CUT_STAGE 的 find / create）。 */
   const FIND_STAGES = ['读文稿', '找片段', '核对起止'];
@@ -65,6 +78,12 @@
 
   const lengthOf = (id) => LENGTHS.find((l) => l.id === id) || LENGTHS.find((l) => l.id === DEFAULTS.length);
   const focusOf = (id) => FOCUS.find((f) => f.id === id) || FOCUS.find((f) => f.id === DEFAULTS.focus);
+  /** 这一项在这个项目上能不能选：「跟着说话的人」要转写里分出 2 个以上说话人（`ctx.speakers`）。 */
+  const focusOpen = (f, ctx) => !!f && (f.id !== 'speaker' || ((ctx && ctx.speakers) || 0) >= 2);
+  /** 这个项目上缺省选哪一项：分得出说话人时「跟着说话的人」，否则「自动」。 */
+  const defaultFocus = (ctx) => (focusOpen(focusOf('speaker'), ctx) ? 'speaker' : DEFAULTS.focus);
+  /** 这种取景下有没有「多人全景时分屏」的开关：自动与跟着说话的人才有，自己定的每支只有一个位置。 */
+  const splitApplies = (focus) => focus === 'auto' || focus === 'speaker';
   const ratioOf = (id) => RATIOS.find((r) => r.id === id) || RATIOS[0];
   const clampSec = (n, d) => (Number.isFinite(+n) && n !== '' && n != null ? Math.max(CUSTOM.min, Math.min(CUSTOM.max, Math.round(+n))) : d);
   /** 这次要的时长区间（秒）：预设一档，或自定义的两头（1–600 秒，下限小于上限）；自动时 min / max 为 null。 */
@@ -85,10 +104,11 @@
     Array.from({length: COUNT.max - COUNT.min + 1}, (_, i) => ({id: COUNT.min + i, name: `${COUNT.min + i} 支`})));
   const countName = (n) => (clampCount(n) === AUTO ? '自动' : `${clampCount(n)} 支`);
 
-  /** 参数落到这个项目上：没有译文就只有原文；原片本来就是竖屏就不用取景。
-      「跟着说话的人」这一版不开放，带进来的（连同旧版的「居中」）一律落回缺省的自动。 */
+  /** 参数落到这个项目上：没有译文就只有原文；原片本来就是竖屏就不用取景。没给取景、给了这个项目上选不了的
+      （分不出说话人时的「跟着说话的人」、旧版的「居中」）落回这个项目的缺省（`defaultFocus`）。 */
   function normalize(params, ctx) {
     const c = ctx || {};
+    const want = (params || {}).focus;
     const p = Object.assign({}, DEFAULTS, params);
     p.count = clampCount(p.count);
     p.length = lengthOf(p.length).id;
@@ -97,8 +117,9 @@
     if (!c.hasTrans) p.tracks = 'orig';
     else if (!TRACKS.some((t) => t.id === p.tracks)) p.tracks = 'both';
     if (c.portrait) p.focus = DEFAULTS.focus;
-    else if (!FOCUS.some((f) => f.id === p.focus && !f.off)) p.focus = DEFAULTS.focus;
+    else p.focus = FOCUS.some((f) => f.id === want && focusOpen(f, c)) ? want : defaultFocus(c);
     if (!c.children) p.skipDone = DEFAULTS.skipDone;
+    p.split = p.split !== false;
     return p;
   }
 
@@ -314,10 +335,13 @@
       返回的每一段带 `shot`（镜头下标，从 0 起）；拆出来的右半 id 是 `<原 id>-shot<k>`。 */
   function shotElements(elements, shots, srcRatio, outRatio) {
     const list = (shots || []).filter((x) => x && x.end > x.start).slice().sort((a, b) => a.start - b.start);
+    /* 分屏的镜头（`regions`）：格子按 BC_PANELS 从左到右排，元素自己的取景点仍按 focusX 给一份（改回一人时用它） */
+    const PN = typeof window !== 'undefined' ? window.BC_PANELS : null;
     const place = (e, k) => {
       const cut = {focusX: list[k] ? list[k].focusX : null};
+      const panels = e.kind === 'video' && PN && list[k] && list[k].regions ? PN.panelsFrom(list[k].regions, srcRatio, outRatio) : null;
       return Object.assign({}, e, {place: framePlace(cut, srcRatio, outRatio, e.place)},
-        e.kind === 'video' ? {focal: frameFocal(cut)} : {}, list.length ? {shot: k} : {});
+        e.kind === 'video' ? {focal: frameFocal(cut)} : {}, panels ? {panels} : {}, list.length ? {shot: k} : {});
     };
     if (!list.length) return (elements || []).map((e) => place(e, -1));
     const VE = typeof window !== 'undefined' ? window.BC_VIDEO_EDIT : null;
@@ -352,8 +376,28 @@
      带取景点的原片只能围着取景点放大，挪位置要先改成自由摆放（model-framing.js），不说「拖」。 */
   function frameText(cut, focusX) {
     const n = shotsOf(cut).length;
+    const split = shotsOf(cut).filter((x) => x.regions).length;
+    if (split) return `${n} 段 · ${split} 段分屏 · 打开后选中某一段可以改版式、互换上下`;
     return n > 1 ? `按 ${n} 个镜头分别取景 · 打开后选中某一段可以放大，要挪位置先改成自由摆放`
       : `${focusText(focusX)} · 打开后选中这段视频可以放大，要挪位置先改成自由摆放`;
+  }
+  /** 结果卡上的版式条：按子视频时长排开的一人段与分屏段（秒在原片时钟上，`start` 是这一支的起点）。
+      相邻同一版式的并成一段；没有分屏段时 null（不画这条）。 */
+  function layoutStrip(cut, span) {
+    const shots = shotsOf(cut);
+    if (!shots.some((x) => x.regions) || !span || !(span.end > span.start)) return null;
+    const out = [];
+    shots.forEach((x) => {
+      const a = Math.max(span.start, x.start), b = Math.min(span.end, x.end);
+      if (b <= a) return;
+      const n = x.regions ? x.regions.length : 1;
+      const last = out[out.length - 1];
+      if (last && last.n === n) last.end = b;
+      else out.push({start: a, end: b, n});
+    });
+    const total = span.end - span.start;
+    return out.map((g) => Object.assign(g, {at: (g.start - span.start) / total, len: (g.end - g.start) / total,
+      label: `${mmss(g.start - span.start)} – ${mmss(g.end - span.start)} · ${g.n > 1 ? `分屏 ${g.n} 格` : '一人'}`}));
   }
   /** 取景念成一句（结果页卡上那一行）。 */
   function focusText(x) {
@@ -445,12 +489,17 @@
     /* `shots`：这一段里机位切了几次（句子下标相对 `at`、该镜头的 focusX）——近景主讲 / 全景 / 采访者近景 */
     {k: 'c', at: 26, n: 10, title: '上传本身就是一个决定', reason: '开头一句就是结论，后面是理由',
      shots: [{at: 0, focusX: 0.3}, {at: 5, focusX: 0.7}]},
+    /* 中间那个镜头是两人全景（`regions`：每个人要看见的源区域，同裁剪的四边比例）：开着分屏时上下两格，关着时对准左边说话的人 */
     {k: 'd', at: 37, n: 12, title: '字幕为什么是单独的一层', reason: '一个观点讲完整，中间有一句可以单独引用',
-     shots: [{at: 0, focusX: 0.3}, {at: 4, focusX: 0.5}, {at: 8, focusX: 0.72}]},
+     shots: [{at: 0, focusX: 0.3}, {at: 4, focusX: 0.3, regions: [
+       {left: 0.15, top: 0.12, right: 0.55, bottom: 0.3}, {left: 0.55, top: 0.12, right: 0.15, bottom: 0.3}]}, {at: 8, focusX: 0.72}]},
     {k: 'f', at: 17, n: 9, title: '词是真相，句子只是投影', reason: '开头一句就能单独引用'},
     {k: 'b', at: 11, n: 12, title: '渲染最难的是确定性', reason: '有例子，结尾落在一句结论上'},
     {k: 'e', at: 50, n: 11, title: '每个小改动都要三次签字', reason: '有故事，但开头那句在接前面的话', weak: true},
-    {k: 'g', at: 56, n: 6, title: '像是把编译器那套搬过来了', reason: '一问一答，收得干净'},
+    /* 后半段切到三人全景：开着分屏时三行（属性面板里可以换成上一下二） */
+    {k: 'g', at: 56, n: 6, title: '像是把编译器那套搬过来了', reason: '一问一答，收得干净',
+     shots: [{at: 0, focusX: 0.5}, {at: 3, focusX: 0.5, regions: [{left: 0.04, top: 0.14, right: 0.7, bottom: 0.3},
+       {left: 0.37, top: 0.12, right: 0.37, bottom: 0.3}, {left: 0.7, top: 0.14, right: 0.04, bottom: 0.3}]}]},
   ];
   function demoPool(sentences, params, scope) {
     const p = Object.assign({}, DEFAULTS, params);
@@ -462,9 +511,10 @@
         let to = Math.min(sentences.length - 1, d.at + Math.max(2, Math.round(d.n * k)) - 1);
         if (scope && !p.crossChapter) while (to > d.at && sentences[to].end > hi + EPS) to--;
         const span = rangeOf(sentences, d.at, to);
-        const shots = (d.shots || []).filter((x) => d.at + x.at <= to).map((x, i, all) => ({
+        const shots = (d.shots || []).filter((x) => d.at + x.at <= to).map((x, i, all) => Object.assign({
           start: i ? sentences[d.at + x.at].start : span.start,
-          end: i < all.length - 1 ? sentences[d.at + all[i + 1].at].start : span.end, focusX: x.focusX}));
+          end: i < all.length - 1 ? sentences[d.at + all[i + 1].at].start : span.end, focusX: x.focusX},
+          p.split && x.regions ? {regions: x.regions.map((r) => Object.assign({}, r))} : {}));
         return Object.assign({id: 'sc-' + d.k, title: d.title, reason: d.reason, weak: !!d.weak, on: false}, span,
           shots.length > 1 ? {shots} : {});
       });
@@ -570,6 +620,7 @@
     const r = ratioOf(p.ratio);
     const out = [countLine(clampCount(p.count), len)];
     out.push(r.id === 'source' ? '画幅：保留原画幅，不裁' : `画幅 ${r.name}，取景${focusOf(p.focus).prompt || focusOf(p.focus).name}`);
+    if (r.id !== 'source' && splitApplies(p.focus)) out.push(p.split ? SPLIT.promptOn : SPLIT.promptOff);
     out.push(`字幕：${tracksOf(p.tracks).name}，${(STYLES.find((x) => x.id === p.style) || STYLES[0]).name}`);
     if (c.scopeName) out.push(`只在「${c.scopeName}」里找`);
     if (p.hook) out.push('每段从一句能单独成立的话起');
@@ -799,12 +850,12 @@
 
   const api = {
     AUTO, COUNT, COUNTS, DONE_RATIO, LENGTHS, CUSTOM, RATIOS, FOCUS, TRACKS, STYLES, DEFAULTS, FIND_STAGES, CREATE_STAGES, DIRECT_LINE, NEAR,
-    lengthOf, lengthRange, focusOf, ratioOf, clampCount, countName, normalize,
+    lengthOf, lengthRange, focusOf, focusOpen, defaultFocus, splitApplies, ratioOf, clampCount, countName, normalize,
     mmss, secs, spanText, overlapSec, durText,
     indexAt, rangeOf, snap,
     isChild, hostId, childrenOf, parentOf, originLabel, countLabel, creatingTitle, createNote, doneBy, deleteNote,
     seedCuts, cutsOf, sourceDur, keptRanges, usedRanges, reclaimSpan, foldRows, clipTime, STEP, coverScale, framePlace, focusText,
-    shotsOf, shotAt, shotElements, shotBadge, SHOT_COPY, frameText, frameFocal,
+    shotsOf, shotAt, shotElements, shotBadge, SHOT_COPY, frameText, frameFocal, layoutStrip, SPLIT,
     flags, visible, chosen, totalSec, resultHead, hookOf, tailOf, preselect,
     demoCandidates, manualCandidate,
     EXPORT_COPY, exportBatch, exportNotes,

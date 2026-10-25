@@ -58,7 +58,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 做一条某类视频，但没说清 | 先问清主题、目标、受众、手上的材料，再动手 | [workflows](references/workflows.md) | {{skill:video-production}} |
 | 有命令行环境、旁白按段配的片子要跑脚本：配音、对齐、打包、摆上时间线、建字幕、叠实拍、量画面占比 | 拷走现成的脚本，写一份计划（配置、旁白稿、场景代码、实拍片段清单）按顺序跑，改一段只重做那一段；脚本不规定片子的形态。没有命令行环境时把定好的段落、实拍片段与卡片写成计划交给 {{tool:edits_assemble}} 一次放好 | [voice](references/catalog/voice.md)、[media](references/catalog/media.md)、[editing](references/catalog/editing.md) | {{skill:production-scripts}} |
 | 加下横栏、关键词、大数字、标注、品牌贴片这类动效图形 | 按规则写一个自包含的 HTML 画面，打包成代码包导入，放上时间线对齐旁白 | [media](references/catalog/media.md) | {{skill:motion-graphics}} |
-| 把音频做成视频、给播客配上画面与声波 | 建可编辑视频：背景、标题、声波与字幕的颜色按内容定成一套，背景可用 HTML；声波只用内置元素；转写、润色与字幕按对应做法 | [workflows](references/workflows.md)、[editing](references/catalog/editing.md) | {{skill:subtitle-workflow}}、{{skill:polish-transcript}}；HTML 背景按需读 {{skill:motion-graphics}} |
+| 把音频做成视频、给播客或录音配上画面与声波；把历史演讲、讲座这类说话的影像排成同样的版面（影像只占一格） | 建可编辑视频：背景、标题、声波、字幕与配图按内容排成一张版面，背景可用 HTML；影像放进版面的一格；说到的人与事可配许可干净的图，有章节时作副标题；声波只用内置元素；转写、润色、翻译与字幕按对应做法 | [workflows](references/workflows.md)、[editing](references/catalog/editing.md) | {{skill:subtitle-workflow}}、{{skill:polish-transcript}}；HTML 背景按需读 {{skill:motion-graphics}} |
 | 给一首歌做 MV、歌词视频；手上有歌词、讲稿或台词，要按声音对上时间 | 转写只取时间，文字以用户的原文为准、写回转写；按需译成双语字幕层，画面按成片做 | [workflows](references/workflows.md)、[subtitles](references/catalog/subtitles.md) | {{skill:polish-transcript}}、{{skill:video-production}} |
 | 整镜整段用代码画：逐句配画面、角色小动画、Canvas 或 SVG 场景 | 画面是时间的纯函数，按段打包成代码包导入；角色与场景底图先成套生成，再在代码里动起来 | [media](references/catalog/media.md) | {{skill:video-production}}（代码场景） |
 <!-- surface: agent -->

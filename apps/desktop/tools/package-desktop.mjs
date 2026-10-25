@@ -57,7 +57,8 @@ import { devTargetDir, fetchAudioCpp } from '../../../tools/fetch-audiocpp.ts';
 import { AUDIO_CPP_COMMAND, AUDIO_CPP_SERVER, AUDIO_CPP_TOOL } from '../../../packages/models/src/audio-cpp-engine.ts';
 import { DISTRIBUTED_NOTICES } from '../../../tools/third-party-notices.ts';
 import { distributeMac, runMac, signingPreflight } from './macos-distribution.mjs';
-import { macElectronLanguages, shareMacFonts } from './macos-package-resources.mjs';
+import { macElectronLanguages } from './macos-package-resources.mjs';
+import { shareFonts, shareWasm } from './shared-package-resources.mjs';
 import { macPackagePlan } from './macos-package-plan.mjs';
 import { LOCALES } from '../../../packages/protocol/src/i18n.ts';
 import { readReleaseNotes } from './release-notes.mjs';
@@ -289,7 +290,7 @@ if (options['bin-dir']) {
   ensureCargo();
   const cargo = ['build', '--release', '--locked', '--target', options.target];
   run('cargo', [...cargo, ...BUNDLED_EXECUTABLES.filter((name) => name !== 'model-worker').flatMap((name) => ['-p', name]),
-    ...(isMac ? ['--features', 'export-worker/external-fonts'] : [])]);
+    '--features', 'export-worker/external-fonts']);
   const features = [...(isMac ? macPlan.modelWorkerFeatures : variant.modelWorkerFeatures), ...options['worker-features'].split(',').filter(Boolean)];
   run('cargo', [...cargo, '-p', 'model-worker', ...(!isMac || macPlan.noDefaultFeatures ? ['--no-default-features'] : []), ...(features.length ? ['--features', features.join(',')] : [])], isMac ? process.env : modelWorkerBuildEnv());
   const metadata = spawnSync('cargo', ['metadata', '--format-version', '1', '--no-deps'], {
@@ -405,11 +406,14 @@ try {
   cpSync(DESIGN_EDITOR_DIST, path.join(resDir, RESOURCE_DIRS.designEditor), { recursive: true });
   cpSync(DESIGN_SYSTEM_EDITOR_DIST, path.join(resDir, RESOURCE_DIRS.designSystemEditor), { recursive: true });
   cpSync(DOCS_EDITOR_DIST, path.join(resDir, RESOURCE_DIRS.docsEditor), { recursive: true });
-  if (isMac) {
-    const fonts = shareMacFonts({ appDir, webDir: path.join(resDir, RESOURCE_DIRS.web),
-      fontSource: path.join(ROOT, 'crates/render-raster/assets/fonts'), exportWorker: path.join(bin, 'export-worker') });
-    console.log(`Shared ${Object.keys(fonts.manifest).length} fonts; removed ${(fonts.savedBytes / 2 ** 20).toFixed(1)} MiB from app.asar`);
-  }
+  const sharedWeb = path.join(resDir, RESOURCE_DIRS.web);
+  const fonts = shareFonts({ appDir, webDir: sharedWeb,
+    fontSource: path.join(ROOT, 'crates/render-raster/assets/fonts'), exportWorker: path.join(bin, exe('export-worker')) });
+  const wasm = shareWasm({ appDir, webDir: sharedWeb, sources: {
+    editor: path.join(ROOT, 'packages/editor-wasm/src/generated/editor.wasm'),
+    preview: path.join(ROOT, 'packages/ui/src/render/generated/preview.wasm'),
+  } });
+  console.log(`Shared ${Object.keys(fonts.manifest).length} fonts and ${Object.keys(wasm.manifest).length} WASM modules; removed ${((fonts.savedBytes + wasm.savedBytes) / 2 ** 20).toFixed(1)} MiB of duplicate resources`);
 
   // 4. electron-builder。
   const { build: buildElectron, Platform, Arch } = await import('electron-builder');
@@ -486,8 +490,6 @@ try {
       executables: [...BUNDLED_EXECUTABLES, ...AUDIO_CPP_EXECUTABLES].map((name) => path.join(unpacked, 'Contents/Resources/bin', name)),
       entitlements: path.join(DESKTOP, 'build/entitlements.mac.plist') });
     run(process.execPath, [path.join(HERE, 'check-packaged-app.mjs'), distribution.verifiedApp]);
-    run(process.execPath, [path.join(HERE, 'check-file-fonts.mjs'),
-      `--out=${path.join(distribution.verifiedApp, 'Contents/Resources/app.asar/out')}`]);
     const report = { schema: 1, product: PRODUCT_NAME, appId: APP_ID, version: desktop.version, build, target: options.target,
       sourceCommit, minimumSystemVersion: '14.0', ...distribution };
     writeFileSync(path.join(outDir, 'app-release.json'), `${JSON.stringify(report, null, 2)}\n`);
@@ -655,6 +657,9 @@ function verifyUnpacked(dir, variantName) {
   }
   for (const sub of Object.values(RESOURCE_DIRS)) if (!existsSync(path.join(resources, sub))) problems.push(`没有 resources/${sub}`);
   if (!existsSync(path.join(resources, RESOURCE_DIRS.web, 'index.html'))) problems.push('没有 resources/web/index.html');
+  for (const name of ['bundled-fonts.json', 'bundled-wasm.json']) {
+    if (!existsSync(path.join(resources, RESOURCE_DIRS.web, 'assets', name))) problems.push(`Missing shared resource manifest: ${name}`);
+  }
   if (!existsSync(path.join(resources, RESOURCE_DIRS.agentSkill, 'baocut', 'SKILL.md'))) problems.push(`没有 resources/${RESOURCE_DIRS.agentSkill}/baocut/SKILL.md`);
   for (const file of SLIDES_EDITOR_FILES) {
     if (!existsSync(path.join(resources, RESOURCE_DIRS.slidesEditor, file))) problems.push(`没有 resources/${RESOURCE_DIRS.slidesEditor}/${file}`);
@@ -681,7 +686,6 @@ function verifyUnpacked(dir, variantName) {
       '/out/main/runtime.js',
       '/out/main/cli.js',
       '/out/main/generated/cli-catalog.json',
-      '/out/main/generated/editor.wasm',
       '/out/preload/index.js',
       '/out/renderer/index.html',
     ]) {

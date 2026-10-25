@@ -31,15 +31,46 @@ export const captionStylePatch = z
       .describe('字幕块的哪条边落在 y 上：top 上边、center 中线（缺省）、bottom 下边；折成多行时往另一边长'),
     x: z.number().min(0).max(100).optional().describe('字幕块中心的横向位置：画面宽度的百分比，缺省 50'),
     width: z.number().min(5).max(100).optional().describe('最大行宽：画面宽度的百分比，缺省 80；烧进画面时一行超过它就折行'),
+    panelSeam: z
+      .boolean()
+      .optional()
+      .describe(
+        '分屏段挂到接缝：开着（缺省）时，开始在分屏画面上的一句整块的中线落在离 y 最近的那条两格接缝上，到这一句结束不动；关掉就照 y 摆',
+      ),
     fontSize: z
       .number()
       .min(4)
       .max(200)
       .optional()
       .describe('字号：按 540 短边下的像素（1080×1920 上乘 2），缺省 30；双语时是原文行，译文行按比例放大'),
-    fontWeight: z.number().int().min(100).max(900).optional().describe('字重，100–900，默认样式 700'),
+    fontWeight: z
+      .number()
+      .int()
+      .min(100)
+      .max(900)
+      .optional()
+      .describe('字重，100–900，默认样式 700；同时写 bold（低于 700 时去掉粗体，否则粗体会把字重抬回 700）'),
     fontFamily: z.string().trim().min(1).max(200).optional().describe('字体族名；system 为系统字体（默认）'),
     fontColor: color.optional().describe('字色，默认白 #FFFFFF'),
+    textAlign: z
+      .enum(['left', 'center', 'right'])
+      .optional()
+      .describe('各行的水平对齐，缺省 center。行在字幕块自己的宽里对齐、块居中在 x 上，单行时看不出左右；要贴住折行区域的一边，同时给 alignWithinWrap: true'),
+    alignWithinWrap: z
+      .boolean()
+      .optional()
+      .describe('true 时各行在折行宽度里按 textAlign 对齐：左对齐的左边固定在 x − width/2，右对齐的右边固定在 x + width/2，长短句都贴同一条边；缺省 false'),
+    lineHeight: z.number().min(0.5).max(3).optional().describe('行高：字号的倍数，缺省 1.2'),
+    letterSpacing: z
+      .number()
+      .min(-5)
+      .max(30)
+      .optional()
+      .describe('字距：以 30 号字为基准的像素，随字号等比（3 约为字号的 10%），缺省 0'),
+    punct: z
+      .boolean()
+      .optional()
+      .describe('true（缺省）时逗号、句号在画面上换成空格；false 照原文画标点。只影响画面，转写与导出的字幕文件不变'),
     textOutline: z
       .strictObject({
         on: z.boolean().describe('描边开关'),
@@ -87,6 +118,8 @@ export function patchStudioStyle(body: unknown, patch: CaptionStylePatch): Json 
     if (value === undefined) continue;
     style[key] = NESTED.has(key) ? { ...(isObject(style[key]) ? style[key] : {}), ...(value as Json) } : value;
   }
+  // 渲染时 bold 把字重抬到至少 700：字重与粗体一起写，与编辑器属性页的同步规则相同。
+  if (patch.fontWeight !== undefined) style.bold = patch.fontWeight >= 700;
   return { ...body, style };
 }
 

@@ -1,0 +1,197 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-scan-warp/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 2
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last",
+        "timingPolicy": "estimated"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            },
+            "fill": "#FFFFFF"
+          }
+        }
+      ],
+      "selectors": [],
+      "animations": [],
+      "materials": [
+        {
+          "kind": "scan-warp",
+          "id": "glitch-scan",
+          "contextNodeId": "caption",
+          "domain": {
+            "x": {
+              "kind": "constant",
+              "value": 30
+            },
+            "y": {
+              "kind": "constant",
+              "value": 10
+            },
+            "width": {
+              "kind": "constant",
+              "value": 100
+            },
+            "height": {
+              "kind": "constant",
+              "value": 70
+            }
+          },
+          "uvY": "down",
+          "warp": {
+            "scale": 0.25,
+            "complexity": 3,
+            "subImpact": 0.85,
+            "subScale": 40,
+            "evolution": {
+              "kind": "constant",
+              "value": 1.5
+            },
+            "offset": [
+              {
+                "kind": "keyframes",
+                "clock": {
+                  "unit": "page",
+                  "origin": "start",
+                  "duration": {
+                    "kind": "unit-span"
+                  }
+                },
+                "keys": [
+                  {
+                    "at": 0,
+                    "value": 0
+                  },
+                  {
+                    "at": 1,
+                    "value": 2
+                  }
+                ]
+              },
+              {
+                "kind": "constant",
+                "value": 0.1
+              }
+            ],
+            "strength": [
+              {
+                "kind": "constant",
+                "value": 0.07
+              },
+              {
+                "kind": "constant",
+                "value": 0.06
+              }
+            ],
+            "swapAxes": false
+          },
+          "stripe": {
+            "center": {
+              "kind": "keyframes",
+              "clock": {
+                "unit": "page",
+                "origin": "start",
+                "duration": {
+                  "kind": "unit-span"
+                }
+              },
+              "keys": [
+                {
+                  "at": 0,
+                  "value": 1
+                },
+                {
+                  "at": 1,
+                  "value": 0
+                }
+              ]
+            },
+            "coreHalfHeight": {
+              "kind": "constant",
+              "value": 0.5
+            },
+            "falloff": {
+              "kind": "constant",
+              "value": 5.6
+            },
+            "gate": {
+              "kind": "constant",
+              "value": 0.2
+            },
+            "amount": {
+              "kind": "constant",
+              "value": 0.04
+            },
+            "side": "above"
+          },
+          "scanlines": {
+            "amount": {
+              "kind": "constant",
+              "value": 0.05
+            },
+            "pitch": 2.5,
+            "phase": {
+              "kind": "keyframes",
+              "clock": {
+                "unit": "page",
+                "origin": "start",
+                "duration": {
+                  "kind": "unit-span"
+                }
+              },
+              "keys": [
+                {
+                  "at": 0,
+                  "value": 0
+                },
+                {
+                  "at": 1,
+                  "value": 6
+                }
+              ]
+            }
+          },
+          "gain": {
+            "kind": "constant",
+            "value": 1
+          }
+        }
+      ]
+    }
+  }
+}

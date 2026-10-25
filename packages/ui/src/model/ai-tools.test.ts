@@ -27,8 +27,11 @@ import {
   SHORTS_FOCUS,
   SHORTS_LENGTHS,
   shortsAutoHint,
+  shortsFocus,
+  shortsFocusOpen,
   shortsLengthRange,
   shortsLines,
+  shortsSplitApplies,
   standingLines,
   TOOL_SKILL,
   toolEffect,
@@ -212,7 +215,7 @@ describe('剪成短视频', () => {
     expect(shortsLengthRange({ length: 'custom', lenMin: Number.NaN, lenMax: 45 })).toEqual({ min: 30, max: 45 });
   });
 
-  it('参数一行一句折进模板：意图句、几支多长、画幅与取景、字幕、已切过的不再找，最后一行直接创建', () => {
+  it('参数一行一句折进模板：意图句、几支多长、画幅与取景、分屏、字幕、已切过的不再找，最后一行直接创建', () => {
     const intent = intentPrompt({ tool: 'shortscut', title: 'A', scope: '第 2 章 · 开场' });
     expect(intent).toBe('从「A」的第 2 章 · 开场里找出最值得单独发布的话题，每个话题剪成一支完整的短视频：每支一部新视频，引用同一份原片，原视频和时间轴不动。');
     const lines = toolTemplate('shortscut', intent, { lines: shortsLines(SHORTS_DEFAULTS, { hasTranslation: true }) }).split('\n');
@@ -220,10 +223,21 @@ describe('剪成短视频', () => {
       intent,
       '几支由你按话题定，每支多长按话题定：从开头能抓人的那句剪到讲完，起止落在句子边界上',
       '画幅 9:16，取景自动：在片段里均匀抽几帧，看说话的人在画面哪一侧，把裁框放到他身上；找不到人就居中',
+      '多人全景镜头分屏，每人一格',
       '字幕：原文 + 译文，短视频字幕',
       '已经切过的不再找',
       '找好就直接创建成视频，不用先问我',
     ]);
+  });
+
+  it('分屏开关（短视频分屏设计 §8.1）缺省开；关了说不要分屏；跟着说话的人也有这一句；自己定取景或保留原画幅时没有', () => {
+    expect(SHORTS_DEFAULTS.split).toBe(true);
+    const lines = (s: Partial<typeof SHORTS_DEFAULTS>) => shortsLines({ ...SHORTS_DEFAULTS, ...s }, { hasTranslation: true });
+    expect(lines({ split: false })[2]).toBe('不要分屏，多人全景也对准一个人');
+    expect(lines({ focus: 'speaker' })[2]).toBe('多人全景镜头分屏，每人一格');
+    expect(['speaker', 'auto', 'manual'].map((f) => shortsSplitApplies(f as typeof SHORTS_DEFAULTS.focus))).toEqual([true, true, false]);
+    expect(lines({ focus: 'manual' }).some((line) => line.includes('分屏'))).toBe(false);
+    expect(lines({ ratio: 'source' }).some((line) => line.includes('分屏'))).toBe(false);
   });
 
   it('写了主题（§2.8）时多一句只在讲这件事的片段里找、先用 speech_relevant 圈出，排在直接创建之前；空白不加', () => {
@@ -236,7 +250,7 @@ describe('剪成短视频', () => {
     expect(shortsLines(SHORTS_DEFAULTS, { hasTranslation: true, topic: '   ' })).toEqual(shortsLines(SHORTS_DEFAULTS, { hasTranslation: true }));
   });
 
-  it('保留原画幅不裁；没有译文只带原文；「跟着说话的人」不开放、落回自动；不叫 Agent 把视频收进项目', () => {
+  it('保留原画幅不裁；没有译文只带原文；跟着说话的人照写进取景那一句；不叫 Agent 把视频收进项目', () => {
     const lines = shortsLines(
       { ...SHORTS_DEFAULTS, count: 12, length: 'medium', ratio: 'source', tracks: 'translation', style: 'video', skipDone: false },
       { hasTranslation: false },
@@ -247,10 +261,26 @@ describe('剪成短视频', () => {
       '字幕：只要原文，沿用这部视频的样式',
       '找好就直接创建成视频，不用先问我',
     ]);
-    expect(shortsLines({ ...SHORTS_DEFAULTS, focus: 'speaker' }, { hasTranslation: true })[1]).toBe('画幅 9:16，取景自动：在片段里均匀抽几帧，看说话的人在画面哪一侧，把裁框放到他身上；找不到人就居中');
+    expect(shortsLines({ ...SHORTS_DEFAULTS, focus: 'speaker' }, { hasTranslation: true })[1]).toBe(
+      '画幅 9:16，取景跟着说话的人：有近景与全景来回切时按镜头取景；只有一个全景机位时用 videos_shots 的 by speaker 按说话人切段，谁说话对准谁',
+    );
     expect(shortsLines({ ...SHORTS_DEFAULTS, ratio: '1:1', focus: 'manual' }, { hasTranslation: true })[1]).toBe(
       '画幅 1:1，取景先居中，之后我逐支自己调',
     );
+  });
+
+  it('「跟着说话的人」（短视频分屏设计 §8.1）排在最前：转写里分出 2 个以上说话人时能选并且是缺省，分不出时置灰写原因、缺省回到自动', () => {
+    expect(SHORTS_FOCUS.map((f) => f.key)).toEqual(['speaker', 'auto', 'manual']);
+    expect(SHORTS_FOCUS[0]!.off).toBe('转写里还没分出说话人 · 先用「识别说话人」');
+    expect(SHORTS_FOCUS[1]!.off).toBeNull();
+    expect([0, 1, 2, 3].map((n) => shortsFocusOpen('speaker', n))).toEqual([false, false, true, true]);
+    expect(shortsFocusOpen('auto', 0)).toBe(true);
+    // 没选过：分得出说话人时跟着说话的人，否则自动；选过的、这部视频上选得了的照用，选不了的落回缺省。
+    expect(shortsFocus(null, 2)).toBe('speaker');
+    expect(shortsFocus(null, 1)).toBe('auto');
+    expect(shortsFocus('manual', 2)).toBe('manual');
+    expect(shortsFocus('auto', 3)).toBe('auto');
+    expect(shortsFocus('speaker', 0)).toBe('auto');
   });
 
   it('几支、多长可以各自交给 Agent 按话题定：下拉自动在最前，提示词里那一句只把自动的一半交出去，下面那行说明跟着变', () => {

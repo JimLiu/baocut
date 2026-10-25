@@ -56,6 +56,12 @@ export const vi: EngineMessages = {
   focalPointRange: "x và y của điểm lấy nét phải nằm trong [0, 1]",
   focalPointZoomRange: "Mức phóng của điểm lấy nét phải nằm trong [1, 4]",
   focalPointNotVideoOrImage: "không phải video hoặc hình ảnh nên không có điểm lấy nét",
+  panelsCount: "Chia khung cần từ 2 đến 4 ô",
+  panelsRect: "Mỗi ô phải có chiều rộng và chiều cao dương và nằm trong khung hình (0–100%)",
+  panelsOverlap: "Các ô không được chồng lên nhau",
+  panelsFocalPoint: "Điểm lấy nét của mỗi ô phải có x, y trong [0, 1] và mức phóng trong [1, 4]",
+  panelsNeedFullscreenCover: "Chia khung chỉ áp dụng cho video toàn màn hình với kiểu lấp đầy cover",
+  panelsNotVideo: "không phải video nên không thể chia khung",
 
   // elements.rs
   itemSpanInvalid: "Clip không bắt đầu trước 0 và phải dài ít nhất một khung hình",

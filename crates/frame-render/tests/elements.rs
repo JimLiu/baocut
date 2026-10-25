@@ -163,6 +163,49 @@ fn video_items_draw_the_picture_at_the_planned_source_time() {
 }
 
 #[test]
+fn panels_draw_each_cell_from_its_own_window() {
+    // 左红右蓝的 640×90 原片，画面左右各一格（80×90）：每格按自己的取景点铺满这一格（格式规范 §3.5）。
+    let frame_on = |canvas: (u32, u32), left: Value, right: Value| {
+        let video = video(
+            vec![video_item(
+                "v",
+                "a_v",
+                0,
+                30,
+                json!({ "panels": [
+                    { "rect": { "x": 0, "y": 0, "w": 50, "h": 100 }, "focalPoint": left },
+                    { "rect": { "x": 50, "y": 0, "w": 50, "h": 100 }, "focalPoint": right },
+                ] }),
+            )],
+            vec![video_asset("a_v", 640, 90)],
+            json!({ "canvas": { "width": canvas.0, "height": canvas.1, "workingSpace": "srgb", "background": "#000000" } }),
+        );
+        assert_eq!(plan(&video, 0.5).layers[0].panels.len(), 2);
+        render(&video, 0.5, &mut Media::default().with("v", halves(640, 90, RED, BLUE)))
+    };
+    let frame_at = |left: Value, right: Value| frame_on((W, H), left, right);
+    let apart = frame_at(json!({ "x": 0, "y": 0.5 }), json!({ "x": 1, "y": 0.5 }));
+    near(px(&apart, 2, 45), RED, 2);
+    near(px(&apart, 78, 45), RED, 2);
+    near(px(&apart, 81, 45), BLUE, 2);
+    near(px(&apart, 157, 2), BLUE, 2);
+    // 画得比画布小（预览）：格子仍按画布的比例摆，左右两格各占一半。
+    let small = frame_on((W * 2, H * 2), json!({ "x": 0, "y": 0.5 }), json!({ "x": 1, "y": 0.5 }));
+    near(px(&small, 2, 45), RED, 2);
+    near(px(&small, 78, 45), RED, 2);
+    near(px(&small, 81, 45), BLUE, 2);
+    near(px(&small, 157, 2), BLUE, 2);
+    // 互换：格子不动，取景点对调。
+    let swapped = frame_at(json!({ "x": 1, "y": 0.5 }), json!({ "x": 0, "y": 0.5 }));
+    near(px(&swapped, 2, 45), BLUE, 2);
+    near(px(&swapped, 157, 45), RED, 2);
+    // 放大 2 倍对准原片中线：左格只取 288..352，红蓝的分界落在这一格中间。
+    let zoomed = frame_at(json!({ "x": 0.5, "y": 0.5, "zoom": 2 }), json!({ "x": 1, "y": 0.5 }));
+    near(px(&zoomed, 20, 45), RED, 2);
+    near(px(&zoomed, 60, 45), BLUE, 2);
+}
+
+#[test]
 fn shapes_fill_stroke_and_round_their_corners() {
     let shape = |props: serde_json::Value| {
         video(

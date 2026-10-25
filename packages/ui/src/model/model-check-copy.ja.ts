@@ -113,6 +113,12 @@ export const ja: ModelCheckMessages = {
     todo: '別の録音を試すか、先にサンプル録音で仕上がりを聞いてみてください。',
   }),
   refUnknown: '録音',
+  toolMissing: {
+    text: (tool) => `このコンピュータには使える ${tool} がありません`,
+    install: (tool) => `${tool} をインストールしてください`,
+    checkTodo: (remedy) => `${remedy}。その後、もう一度確認してください。`,
+    tryTodo: (remedy) => `${remedy}。その後、もう一度試してください。`,
+  },
   trySpeech: trySubject('合成', '試聴', 'ほかの大きなモデルやメモリを多く使うアプリを閉じてから、再試行してください。'),
   tryImage: trySubject('描画', '試し描き', 'ほかの大きなモデルを閉じてから再試行するか、ステップ数を下げてください。'),
   tryMusic: trySubject('生成', '試聴', 'ほかの大きなモデルを閉じてから再試行するか、長さを短くしてください。'),

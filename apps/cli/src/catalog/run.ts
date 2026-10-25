@@ -271,13 +271,23 @@ async function completed(ctx: RunContext, submitted: Record<string, unknown>, jo
   const outputs = record.outputs ?? job.result?.outputs;
   const { next: recordNext, ...recordRest } = record;
   // 提交回执里的 state 是提交那一刻的（queued / running）：等到终态之后换成终态，与 job.state 一致。
+  // 导出回执的 files 是提交时定下的名字，发布时重名会加序号（`a (2).mp4`）：换成实际写下的文件名，与 outputs 一致。
+  const published = publishedNames(outputs);
   const result = {
     ...rest,
     ...('state' in rest ? { state: job.state } : {}),
+    ...(Array.isArray(rest.files) && published ? { files: published } : {}),
     job: recordRest,
     ...(outputs !== undefined ? { outputs } : {}),
   };
   return finish(ctx, result, typeof recordNext === 'string' ? recordNext : null);
+}
+
+/** 每个输出都写在了文件里时，它们的文件名；没有输出或有的不是文件时 null。 */
+function publishedNames(outputs: unknown): string[] | null {
+  if (!Array.isArray(outputs) || outputs.length === 0) return null;
+  const names = outputs.map((output) => (isRecord(output) && typeof output.path === 'string' ? path.basename(output.path) : null));
+  return names.every((name): name is string => name !== null) ? names : null;
 }
 
 /** 以失败、取消、中断或待对账结束：按任务的错误码给退出码（只会是 1 或 2）。 */

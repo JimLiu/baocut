@@ -1,6 +1,6 @@
 import { expect, expectTypeOf, test } from 'vitest';
 import type {
-  CaptionClock, CaptionClockTail, CaptionExpression, CaptionIsolationRule, CaptionPatternSelect, CaptionImageSequenceResource, CaptionLayerSource, CaptionMaterial,
+  CaptionClock, CaptionClockTail, CaptionExpression, CaptionIsolationRule, CaptionTagRuns, CaptionPatternSelect, CaptionImageSequenceResource, CaptionLayerSource, CaptionMaterial,
   CaptionParameterValue, CaptionPresentation, CaptionRenderLayer, CaptionScene, CaptionSceneNode, CaptionSceneStyleBody,
   CaptionSpeechPhaseReadPath, CaptionWordState,
   CaptionPaintMask, CaptionPaintLayer,
@@ -147,6 +147,17 @@ test('pagination programs select fixed word line plans and isolate tagged words'
     .toEqualTypeOf<CaptionIsolationRule[]>();
 });
 
+test('tag runs keep same-state words together on width-wrapped pages', () => {
+  const pagination = {
+    maxUnitsPerPage: 8, maxUnitsPerLine: 3,
+    tagRuns: { tag: 'keyword', mode: 'line' },
+  } satisfies NonNullable<CaptionScene['layout']['pagination']>;
+  expect(pagination.tagRuns.mode).toBe('line');
+  expectTypeOf<CaptionTagRuns['mode']>().toEqualTypeOf<'line' | 'page'>();
+  expectTypeOf<NonNullable<NonNullable<CaptionScene['layout']['pagination']>['tagRuns']>>()
+    .toEqualTypeOf<CaptionTagRuns>();
+});
+
 test('noise-displace material carries a domain, static noise scale and four uniforms', () => {
   const constant = (value: number) => ({ kind: 'constant', value }) as const;
   const material = {
@@ -155,6 +166,26 @@ test('noise-displace material carries a domain, static noise scale and four unif
   } satisfies CaptionMaterial;
   expect(material.noiseScale).toEqual([4, 2]);
   expectTypeOf<Extract<CaptionMaterial, { kind: 'noise-displace' }>['noiseScale']>().toEqualTypeOf<[number, number]>();
+});
+
+test('scan-warp material groups the noise warp, stripe and scanline uniforms', () => {
+  const constant = (value: number) => ({ kind: 'constant', value }) as const;
+  const material = {
+    kind: 'scan-warp', id: 'glitch', contextNodeId: 'text', domain, uvY: 'down',
+    warp: {
+      scale: 0.25, complexity: 3, subImpact: 0.85, subScale: 40,
+      evolution: constant(1.5), offset: [constant(0), constant(0.1)], strength: [constant(0.07), constant(0.06)],
+    },
+    stripe: {
+      center: constant(0.5), coreHalfHeight: constant(0.5), falloff: constant(5.6), gate: constant(0.2),
+      amount: constant(0.04), side: 'above',
+    },
+    scanlines: { amount: constant(0.05), pitch: 2.5, phase: constant(0) },
+    gain: constant(1),
+  } satisfies CaptionMaterial;
+  expect(material.stripe.side).toBe('above');
+  expectTypeOf<Extract<CaptionMaterial, { kind: 'scan-warp' }>['warp']['swapAxes']>().toEqualTypeOf<boolean | undefined>();
+  expectTypeOf<Extract<CaptionMaterial, { kind: 'scan-warp' }>['stripe']['side']>().toEqualTypeOf<'above' | 'below'>();
 });
 
 test('feedback composite defaults to decay-over and opts into an equal-weight mean', () => {
@@ -295,4 +326,22 @@ test('static word paint bindings retain complete layer replacements', () => {
   // @ts-expect-error Null is not an omitted fill override.
   const invalid: NonNullable<CaptionScene['paintStyleBindings']>[number]['style'] = { fill: null, paints: [] };
   expect(invalid.fill).toBeNull();
+});
+
+
+test('local glyph mask rasterization is explicit and retains legacy omission', () => {
+  const mask = { kind: 'glyph-fill', rasterization: 'glyph-bounds' } satisfies CaptionPaintMask;
+  expect(JSON.parse(JSON.stringify(mask))).toEqual({ kind: 'glyph-fill', rasterization: 'glyph-bounds' });
+  expectTypeOf<CaptionPaintMask['rasterization']>().toEqualTypeOf<'canvas' | 'glyph-bounds' | undefined>();
+  // @ts-expect-error Rasterization modes are closed.
+  const invalid: CaptionPaintMask = { kind: 'glyph-fill', rasterization: 'auto' };
+  expect(invalid.rasterization).toBe('auto');
+});
+
+test('layout sampling clock carries a typed expression without changing legacy DTOs', () => {
+  type Clock = NonNullable<CaptionScene['layout']['clock']>;
+  expectTypeOf<Clock>().toEqualTypeOf<{ time: CaptionExpression }>();
+  const clock: Clock = { time: { op: 'literal', type: 'time', value: 0.25 } };
+  expect(JSON.parse(JSON.stringify(clock))).toEqual({ time: { op: 'literal', type: 'time', value: 0.25 } });
+  expect(fixture.scene.value.layout).not.toHaveProperty('clock');
 });

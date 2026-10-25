@@ -97,7 +97,7 @@ export const ko: ExportMessages = {
   letterboxedTo: (ratio: string) => `${ratio} 레터박스`,
   letterboxNote: '화면 비율을 바꿔도 잘라내지 않습니다. 화면은 원래 비율 그대로 최대한 키워 가운데에 놓이고, 나머지는 검은 띠로 채워집니다. 화면 안의 레이아웃은 새 비율에 맞춰 다시 배치하지 않습니다',
   size: '크기',
-  upscaleNote: (label: string) => `해상도는 원본 ${label}까지입니다 · 그보다 높으면 확대만 될 뿐 더 선명해지지 않습니다`,
+  upscaleNote: (label: string) => `원본 영상은 ${label}입니다 · 더 높이면 영상이 확대될 뿐 더 선명해지지 않습니다. 자막과 텍스트는 선명하게 그려집니다`,
   pictureLanes: '화면에 들어갈 것',
   burnCaptions: '자막을 화면에 입히기',
   burnCaptionsFor: (label: string) => `자막을 화면에 입히기: ${label}`,

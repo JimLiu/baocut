@@ -102,6 +102,16 @@
     if (list.length < 2 || !byId(st, id)) return list;
     return list.filter((x) => x.id !== id);
   }
+  /** 拿下一条轨，并把它此刻的样子记在 `shelf` 上（返回 `{tracks, shelf}`，入参不动）。
+   *
+   *  放回时要原样回来：留在画面上的那条和它是配好的一对（几何互补，可能还倒转过、过了字幕偏好），
+   *  拿种子轨放回去会和它落在同一格，两行叠在一起。拿不下来（最后一条、不在画面上）时原样返回。 */
+  function shelveTrack(st, id) {
+    const list = removeTrack(st, id);
+    if (list === tracks(st)) return {tracks: list, shelf: st.shelf || {}};
+    return {tracks: list, shelf: Object.assign({}, st.shelf, {[id]: byId(st, id)})};
+  }
+
   /** 换一门语言：**身份来自新轨，长相来自被换掉的那条**。
    *
    *  用户调好的双语套装不该因为把英语换成日语就丢——那是两件事。角色变了的时候
@@ -126,6 +136,21 @@
       delete next.emoji;
     }
     return tracks(st).map((t) => (t.id === outId ? next : t));
+  }
+
+  /** 用文稿新建原文字幕层，与画面上的译文叠成双语（product-design §5.9「字幕属性」轨条的虚线「原文」chip）。
+   *
+   *  只有译文在画面上、原文从来没建过字幕层时走这里，不是 `addTrack`：种子轨的涂装是默认样式那一份，用户若已给
+   *  译文换过样子，原样放上去就是两行两种字。所以**身份、几何、字号与词级那几件来自原文种子轨，涂装来自配对的
+   *  那条译文**——同一份样式，两层只差主次（实现里是两层共用一份字幕样式文档）。画面上没有译文时就是 `addTrack`。 */
+  const SOURCE_OWN = ['id', 'lang', 'name', 'role', 'y', 'valign', 'size', 'segments', 'of', 'hidden',
+    'wordAnim', 'caption', 'kinetic', 'activeColor', 'highlight', 'activeWord', 'emoji'];
+  function addSourcePaired(st, seed) {
+    const tr = translations(st)[0];
+    if (!tr || byId(st, seed.id)) return addTrack(st, seed);
+    const paint = Object.assign({}, tr);
+    SOURCE_OWN.forEach((k) => { delete paint[k]; });
+    return place(tracks(st), Object.assign({}, seed, paint));
   }
 
   /** 把一条搁置的轨放回画面时该走哪条路——**软上限**（默认两条，第三条起问一次）。
@@ -566,7 +591,7 @@
   window.BC_SUB = {
     FORMS, BI_SCALE,
     tracks, byId, source, translations, hasWordTiming, label,
-    place, addTrack, removeTrack, replaceTrack, putBackMode,
+    place, addTrack, addSourcePaired, removeTrack, shelveTrack, replaceTrack, putBackMode,
     writable, scopes, memberSections, sections,
     CUE_KEYS, SECTION_KEYS,
     cueStyles, cueOverride, isDetached, overriddenKeys, sectionOverrides,

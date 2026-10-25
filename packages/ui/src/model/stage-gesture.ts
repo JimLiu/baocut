@@ -1,8 +1,9 @@
-import type { EditOperation, Id } from '@baocut/protocol';
+import type { EditOperation, Id, VideoPanel } from '@baocut/protocol';
 import { asObject, num } from '../render/text-style.ts';
 import type { ItemPatch } from './item-draft.ts';
 import { editableTextStyle, patchTextStyle } from './property-values.ts';
 import { round1 } from './geometry-panel.ts';
+import { panPanel, panelAt, panelSource, type PanelledVideo } from './panels.ts';
 import { framingAnchor, placeChange, stagePose, zoomFraming, type FramedVideo, type FramingHit, type ItemFraming } from './stage-framing.ts';
 import {
   GUIDE_TOL,
@@ -51,6 +52,8 @@ export type Gesture =
   | { kind: 'zoom'; member: Member & { item: FramedVideo }; anchor: Point; p0: Point }
   /** 按在按原片取景的视频上拖：位置跟着取景点，什么都不动，只让小牌说一句为什么。 */
   | { kind: 'hold'; member: Member; p0: Point }
+  /** 按在分屏的一格里拖：只改这一格的取景点，画面跟着手走（`source` 是交给格子的源尺寸）。 */
+  | { kind: 'pan'; member: Member & { item: PanelledVideo }; cell: number; source: CanvasSize; p0: Point }
   | { kind: 'group-move'; members: Member[]; p0: Point }
   | { kind: 'group-scale'; members: Member[]; bounds: Rect; p0: Point };
 
@@ -68,13 +71,14 @@ export interface StageEnv {
 
 /**
  * 这一刻的结果：每件的盒（与成员同序）、等比倍率（文字连字号一起放大用）、参考线；按原片取景时另有新的取景（盒按它现算），
- * 与要不要说一句为什么（`hit`：拖不动、缩到铺满、放到上限）。
+ * 与要不要说一句为什么（`hit`：拖不动、缩到铺满、放到上限、一格拖到原片边上）；在分屏的一格里拖时另有新的格子。
  */
 export interface GestureFrame {
   poses: Pose[];
   factor: number;
   guides: Guide[];
   framing?: ItemFraming;
+  panels?: VideoPanel[];
   hit?: FramingHit | null;
 }
 
@@ -131,6 +135,11 @@ export function stepGesture(gesture: Gesture, p: Point, mods: Modifiers, env: St
     }
     case 'hold':
       return { poses: [gesture.member.start], factor: 1, guides: [], hit: 'locked' };
+    case 'pan': {
+      const { item, start } = gesture.member;
+      const { panels, edge } = panPanel(item.panels, gesture.cell, { x: dx, y: dy }, gesture.source, canvas);
+      return { poses: [start], factor: 1, guides: [], panels, hit: edge ? 'edge' : null };
+    }
     case 'group-move': {
       const starts = gesture.members.map((m) => m.start);
       const d = groupShift(
@@ -160,7 +169,7 @@ export function scaledFontSize(item: PlacedItem, factor: number): number | null 
   return Math.min(400, Math.max(1, round1(size * factor)));
 }
 
-/** 拖动中叠给预览与属性页的草稿；按原片取景只叠取景，铺满画布的媒体挪动了就叠成画中画（`placeChange`）。 */
+/** 拖动中叠给预览与属性页的草稿；按原片取景只叠取景，分屏只叠格子，铺满画布的媒体挪动了就叠成画中画（`placeChange`）。 */
 export function gesturePatch(
   item: PlacedItem,
   pose: Pose,
@@ -168,8 +177,10 @@ export function gesturePatch(
   canvas: CanvasSize,
   assets?: Assets,
   framing?: ItemFraming,
+  panels?: VideoPanel[],
 ): ItemPatch {
   if (framing) return { framing };
+  if (panels) return { panels };
   const fontSize = scaledFontSize(item, factor);
   const { mode, place } = placeChange(item, pose, canvas, assets);
   return {
@@ -232,4 +243,12 @@ export function resetRotation(sequenceId: Id, item: PlacedItem): EditOperation[]
 /** 按住按原片取景的视频的一角：起一次围着取景点的缩放。 */
 export function zoomGesture(item: FramedVideo, p0: Point, canvas: CanvasSize, assets?: Assets): Extract<Gesture, { kind: 'zoom' }> {
   return { kind: 'zoom', member: { ...memberOf(item, canvas, assets), item }, anchor: framingAnchor(item, canvas), p0 };
+}
+
+/** 按在分屏的一格里：起一次只改这一格取景点的拖动。不知道源尺寸、或按在格子外面时 null。 */
+export function panGesture(item: PanelledVideo, p0: Point, canvas: CanvasSize, assets?: Assets): Extract<Gesture, { kind: 'pan' }> | null {
+  const source = panelSource(item, assets);
+  const cell = panelAt(item.panels, p0, canvas);
+  if (!source || cell < 0) return null;
+  return { kind: 'pan', member: { ...memberOf(item, canvas, assets), item }, cell, source, p0 };
 }

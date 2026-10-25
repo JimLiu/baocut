@@ -79,6 +79,7 @@ fn padding(materials: &[CaptionMaterial]) -> u32 {
             | CaptionMaterial::AffineOver { .. }
             | CaptionMaterial::NoisePaletteMix { .. }
             | CaptionMaterial::NoiseDisplace { .. }
+            | CaptionMaterial::ScanWarp { .. }
             | CaptionMaterial::GaussianAxis { .. }
             | CaptionMaterial::GaussianUv { .. }
             | CaptionMaterial::GlowCascade { .. } => 0,
@@ -310,7 +311,20 @@ impl ScenePlan {
     ) -> Result<Option<Context>> {
         let cue = &self.cues[ci];
         let params = cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-        let early = sampled_layout::early_context(
+        let t = layout_clock::sample(
+            self.style.scene(),
+            cue,
+            ci,
+            self.cues.len(),
+            t,
+            &params,
+            (self.width, self.height),
+            &self.instance_id,
+            &self.presentation.seed,
+            budget,
+        )?;
+        let early = layout_clock::early_context(
+            self.style.scene(),
             cue,
             ci,
             self.cues.len(),
@@ -448,11 +462,24 @@ impl ScenePlan {
                 let cue = &self.cues[ci];
                 let params =
                     cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-                let mut context = sampled_layout::early_context(
+                let sampled_time = layout_clock::sample(
+                    self.style.scene(),
                     cue,
                     ci,
                     self.cues.len(),
                     t,
+                    &params,
+                    (self.width, self.height),
+                    &self.instance_id,
+                    &self.presentation.seed,
+                    budget,
+                )?;
+                let mut context = layout_clock::early_context(
+                    self.style.scene(),
+                    cue,
+                    ci,
+                    self.cues.len(),
+                    sampled_time,
                     &params,
                     (self.width, self.height),
                     &self.instance_id,
@@ -512,11 +539,24 @@ impl ScenePlan {
                     let cue = &self.cues[ci];
                     let params =
                         cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-                    sampled_layout::early_context(
+                    let sampled_time = layout_clock::sample(
+                        self.style.scene(),
                         cue,
                         ci,
                         self.cues.len(),
                         t,
+                        &params,
+                        (self.width, self.height),
+                        &self.instance_id,
+                        &self.presentation.seed,
+                        budget,
+                    )?;
+                    layout_clock::early_context(
+                        self.style.scene(),
+                        cue,
+                        ci,
+                        self.cues.len(),
+                        sampled_time,
                         &params,
                         (self.width, self.height),
                         &self.instance_id,
@@ -763,6 +803,99 @@ impl ScenePlan {
                         contrast,
                         strength,
                     },
+                )?;
+                Ok((out, hits))
+            }
+            CaptionMaterial::ScanWarp {
+                id,
+                context_node_id,
+                domain,
+                uv_y,
+                warp,
+                stripe,
+                scanlines,
+                gain,
+            } => {
+                let (source, hits) = self.material_prefix(
+                    ci,
+                    t,
+                    materials,
+                    source_spec,
+                    prefix - 1,
+                    pad,
+                    size,
+                    budget,
+                    work,
+                )?;
+                let Some(mut context) =
+                    self.material_page_context(ci, t, context_node_id, budget)?
+                else {
+                    let mut source = source;
+                    source.data_mut().fill(0);
+                    return Ok((source, vec![]));
+                };
+                context.stable_key.push_str(&format!("|material|{id}"));
+                let scene = self.style.scene();
+                let mut uniform = |value, low, high| {
+                    component_uniform(value, scene, &context, t, budget, 0.0, low, high)
+                };
+                let evolution = uniform(&warp.evolution, -100_000.0, 100_000.0)?;
+                let offset = [
+                    uniform(&warp.offset[0], -100_000.0, 100_000.0)?,
+                    uniform(&warp.offset[1], -100_000.0, 100_000.0)?,
+                ];
+                let strength = [
+                    uniform(&warp.strength[0], -4.0, 4.0)?,
+                    uniform(&warp.strength[1], -4.0, 4.0)?,
+                ];
+                let stripe_uniform = super::scan_warp::Stripe {
+                    center: uniform(&stripe.center, -4.0, 4.0)?,
+                    core_half_height: uniform(&stripe.core_half_height, 0.0, 1_000_000.0)?,
+                    falloff: uniform(&stripe.falloff, 0.0, 1_000_000.0)?,
+                    gate: uniform(&stripe.gate, 0.0, 1_000_000.0)?,
+                    amount: uniform(&stripe.amount, -1.0, 1.0)?,
+                    side: stripe.side,
+                };
+                let scanline_uniform = super::scan_warp::Scanlines {
+                    amount: uniform(&scanlines.amount, -1.0, 1.0)?,
+                    pitch: scanlines.pitch,
+                    phase: uniform(&scanlines.phase, -1_000_000.0, 1_000_000.0)?,
+                };
+                let gain = uniform(gain, 0.0, 4.0)?;
+                let mut rect = [0.0; 4];
+                for (index, value) in [&domain.x, &domain.y, &domain.width, &domain.height]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let Some(value) =
+                        sample_value(value, ValueType::Length, scene, &context, t, budget)?
+                    else {
+                        let mut source = source;
+                        source.data_mut().fill(0);
+                        return Ok((source, vec![]));
+                    };
+                    rect[index] = value.number()?;
+                }
+                work.spend(size.0, size.1)?;
+                let out = super::scan_warp::apply(
+                    &source,
+                    pad,
+                    &super::scan_warp::ScanWarp {
+                        domain: rect,
+                        uv_y: *uv_y,
+                        scale: warp.scale,
+                        complexity: warp.complexity,
+                        sub_impact: warp.sub_impact,
+                        sub_scale: warp.sub_scale,
+                        evolution,
+                        offset,
+                        strength,
+                        swap_axes: warp.swap_axes,
+                        stripe: stripe_uniform,
+                        scanlines: scanline_uniform,
+                        gain,
+                    },
+                    |count| work.samples(count),
                 )?;
                 Ok((out, hits))
             }

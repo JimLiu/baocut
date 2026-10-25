@@ -95,6 +95,12 @@ export const de: ModelCheckMessages = {
     todo: "Andere Aufnahme verwenden oder zuerst Beispielaufnahme anhören.",
   }),
   refUnknown: "Aufnahme",
+  toolMissing: {
+    text: (tool) => `Auf diesem Computer gibt es kein funktionierendes ${tool}`,
+    install: (tool) => `${tool} installieren`,
+    checkTodo: (remedy) => `${remedy}, dann erneut prüfen.`,
+    tryTodo: (remedy) => `${remedy}, dann erneut versuchen.`,
+  },
 
   trySpeech: {
     noMemory: {

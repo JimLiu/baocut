@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useContext, useEffect, useMemo, useState, type ComponentType } from 'react';
 import type { Id, SpaceEntry } from '@baocut/protocol';
 import { ActionButton, Badge, Button, ProgressCircle, TextField, ToastQueue, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
@@ -12,7 +12,15 @@ import { untitled } from '../../copy.ts';
 import { aiTool } from '../../model/ai-tools.ts';
 import { agentRunState } from '../../model/ai-tools-handoff.ts';
 import { formatClock, formatDuration } from '../../model/format.ts';
-import { createdVideoIds, entryVideoId, framingShots, pagerIndex, shortsBatch, type ShortsDerivation } from '../../model/shorts-result.ts';
+import {
+  createdVideoIds,
+  entryVideoId,
+  framingShots,
+  pagerIndex,
+  shortsBatch,
+  type LayoutSegment,
+  type ShortsDerivation,
+} from '../../model/shorts-result.ts';
 import { derivedFrom, videoTargetOf } from '../../model/space.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useShell } from '../../state/shell-store.ts';
@@ -22,6 +30,7 @@ import { useVideo } from '../../state/video-store.ts';
 import { requestExport } from '../export/export-request.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import { setAiToolPage, setPanelLanding, type AiToolPage } from './ai-tools-nav.ts';
+import { EditorContext } from './editor-context.tsx';
 import { PanelHead } from './panel-head.tsx';
 import { SHORTS_COPY as S } from './shorts-copy.ts';
 import { openCutEntry } from './shorts-entry.ts';
@@ -82,6 +91,35 @@ const line = style({ display: 'flex', alignItems: 'baseline', gap: 8, font: 'ui-
 const lineLabel = style({ flexShrink: 0, font: 'ui-xs', color: 'gray-600' });
 const quote = style({ minWidth: 0, color: 'gray-900' });
 const why = style({ minWidth: 0, color: 'gray-700' });
+const stripRow = style({ display: 'flex', gap: '[2px]', height: 20 });
+const stripSeg = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexBasis: 0,
+  minWidth: 4,
+  padding: 0,
+  borderWidth: 0,
+  borderRadius: 'sm',
+  font: 'ui-xs',
+  fontWeight: { default: 'normal', isSplit: 'bold' },
+  color: { default: 'gray-800', isSplit: 'blue-1000' },
+  backgroundColor: { default: 'gray-200', isHovered: 'gray-300', isSplit: { default: 'blue-200', isHovered: 'blue-300' } },
+  cursor: 'pointer',
+  outlineStyle: { default: 'none', isFocusVisible: 'solid' },
+  outlineWidth: 2,
+  outlineOffset: 2,
+  outlineColor: 'focus-ring',
+});
+const stripKey = style({ display: 'flex', gap: 12, font: 'ui-xs', color: 'gray-600' });
+const keyDot = style({
+  display: 'inline-block',
+  width: 8,
+  height: 8,
+  marginEnd: 4,
+  borderRadius: 'sm',
+  backgroundColor: { default: 'gray-200', isSplit: 'blue-200' },
+});
 const flags = style({ display: 'flex', flexWrap: 'wrap', gap: 4 });
 const cardActs = style({ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'end' });
 const status = style({ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, font: 'ui-sm', color: 'gray-700' });
@@ -320,6 +358,45 @@ function spanText(derivation: ShortsDerivation | null, seconds: number | null): 
   return length;
 }
 
+/**
+ * 版式条（原型 panel-aitools-shorts-result.jsx `LayoutStrip`，短视频分屏设计 §8.2）：按子视频时长排开的一人段与分屏段，分屏段写格数，
+ * 下面一行图例。点一段：正在看这一支时播放头跳到那一段的开头，否则打开这一支。
+ */
+function LayoutStrip({ strip, onPick }: { strip: readonly LayoutSegment[]; onPick(segment: LayoutSegment): void }) {
+  return (
+    <>
+      <div className={stripRow} role="group" aria-label={S.stripLabel}>
+        {strip.map((segment, i) => {
+          const label = S.stripSeg(formatClock(segment.start), formatClock(segment.end), segment.n);
+          return (
+            <TooltipTrigger key={i} placement="bottom">
+              <RACButton
+                className={(state) => stripSeg({ ...state, isSplit: segment.n > 1 })}
+                style={{ flexGrow: segment.end - segment.start }}
+                aria-label={label}
+                onPress={() => onPick(segment)}
+              >
+                {segment.n > 1 ? segment.n : null}
+              </RACButton>
+              <Tooltip>{label}</Tooltip>
+            </TooltipTrigger>
+          );
+        })}
+      </div>
+      <div className={stripKey}>
+        <span>
+          <i className={keyDot({ isSplit: false })} />
+          {S.stripSingle}
+        </span>
+        <span>
+          <i className={keyDot({ isSplit: true })} />
+          {S.stripSplit}
+        </span>
+      </div>
+    </>
+  );
+}
+
 function ShortCard({
   entry,
   n,
@@ -341,6 +418,10 @@ function ShortCard({
   const reason = facts.derivation?.reason ?? null;
   const notes = facts.derivation?.notes ?? [];
   const shots = framingShots(facts.derivation);
+  const splits = facts.derivation?.splits ?? 0;
+  const strip = facts.derivation?.strip ?? null;
+  // 结果页在编辑器的 AI 工具 Tab 里，正在看的那一支就是编辑器里开着的这部视频。
+  const editor = useContext(EditorContext);
   const [draft, setDraft] = useState<string | null>(null);
   const span = spanText(facts.derivation, facts.seconds);
   const commit = () => {
@@ -401,9 +482,10 @@ function ShortCard({
       {shots !== null ? (
         <div className={line}>
           <span className={lineLabel}>{S.framingLabel}</span>
-          <span className={why}>{S.framingShots(shots)}</span>
+          <span className={why}>{splits ? S.framingSplits(shots, splits) : S.framingShots(shots)}</span>
         </div>
       ) : null}
+      {strip ? <LayoutStrip strip={strip} onPick={(segment) => (current && editor ? editor.seek(segment.start) : onOpen())} /> : null}
       {notes.length ? (
         <div className={flags}>
           {notes.map((note, i) => (

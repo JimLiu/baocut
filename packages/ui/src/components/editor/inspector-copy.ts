@@ -207,6 +207,26 @@ const en = {
   geometry: 'Geometry',
   /** 按原片取景的视频顶替「几何」的那一段（`stage-framing.ts`）。 */
   framing: 'Framing',
+  /** 属性面板「版式」段（`panels.ts`）：一人 / 分屏、每格的放大与位置、互换、只留一人与提示。 */
+  layout: 'Layout',
+  layoutSingle: 'One person',
+  layoutSplit: 'Split',
+  panelX: 'Left–right',
+  panelY: 'Up–down',
+  panelSwap: 'Swap top and bottom',
+  panelSolo: (name: string) => `Keep only the person in “${name}”`,
+  panelUpscaled: 'Zoomed in so far this panel may look soft',
+  panelsToSplit: 'Split into two panels · Top shows the left half of the original, bottom the right half; drag inside a panel to adjust',
+  panelsToSingle: 'Back to one person · Uses this part’s original framing',
+  panelsSoloed: (name: string) => `Kept only the person in “${name}”`,
+  panelsSwapped: 'Swapped top and bottom',
+  /** 三格时「格子」一行：三行 / 上一下二；「间距」是格子之间的缝；上一下二时下面两格各一项「放到上格」。 */
+  panelGrid: 'Panels',
+  panelLayoutRows: 'Three rows',
+  panelLayoutSpotlight: 'One over two',
+  panelGap: 'Gap',
+  panelToTop: (name: string) => `Move “${name}” to the top`,
+  panelsMovedTop: (name: string) => `Moved the person in “${name}” to the top`,
   framingZoom: 'Zoom',
   anchor: 'Anchor',
   measureFrom: (name: string) => `Measure from ${name}`,
@@ -307,6 +327,8 @@ const en = {
   lag: 'Later',
   punctuation: 'Punctuation',
   punctToSpace: 'Replace commas and periods with spaces',
+  /** 字幕「位置」段：分屏段里开始的字幕挂到两格的接缝上（Studio 样式 `panelSeam`），行名用 `layoutSplit`。 */
+  panelSeam: 'Sit on the seam between panels',
 };
 
 export type InspectorMessages = typeof en;

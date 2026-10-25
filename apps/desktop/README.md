@@ -53,7 +53,9 @@ npm run package:mac -- --build 60 \
 
 构建桌面与 Web 后，打包器用 `cargo build --release --locked --target aarch64-apple-darwin` 构建 Worker 与凭据助手；Model Worker 保留默认 MLX / Core ML 后端。同一次构建的 `mlx.metallib` 随包进入 `Contents/Resources/bin`，Runtime 通过 `PMETAL_METALLIB_PATH` 指定它。找到多份时必须用 `--metallib` 指向本次构建产物，不能借用开发机的缓存。`--bin-dir` 只用于已核对来源 commit 的 release 程序。
 
-Mac 的 Export Worker 另开 `export-worker/external-fonts`：内置字体只保留在 `Contents/Resources/web/assets`，`bundled-fonts.json` 将内核的原始文件名映射到 Vite 的哈希文件名；桌面 `app.asar` 内的字体 URL 在 staging 时改指向同一目录，Web 的地址不变。打包前逐份核对桌面、Web 与原生字体的字节，并拒绝仍嵌入字体的 `--bin-dir` Export Worker。普通开发构建与 Windows 打包仍用原有字体布局。Electron 只保留应用出货语言及其 Chromium 地区、性别变体，英文兜底保留。DMG 使用 LZFSE（`ULFO`）压缩。
+Mac 与 Windows 的 Export Worker 都开 `export-worker/external-fonts`：内置字体只保留在 `<resources>/web/assets`（Mac 的 `<resources>` 是 `Contents/Resources`），`bundled-fonts.json` 将内核的原始文件名映射到 Vite 的哈希文件名；桌面 `app.asar` 内的字体 URL 在 staging 时改指向同一目录，Web 的地址不变。打包前逐份核对桌面、Web 与原生字体的字节，并拒绝仍嵌入字体的 `--bin-dir` Export Worker。普通开发构建仍用原有字体布局。Windows 的 NSIS 与 ZIP 使用同一共享布局。Electron 只保留应用出货语言及其 Chromium 地区、性别变体，英文兜底保留。DMG 使用 LZFSE（`ULFO`）压缩。
+
+Mac 与 Windows 安装包还共用 `<resources>/web/assets` 下的 WASM：`bundled-wasm.json` 将 `editor.wasm`、`preview.wasm` 映射到带内容摘要的二进制。打包暂存时核对桌面、Web 与 Runtime 的字节一致，再移除内联副本和 Runtime 的独立副本。浏览器的共享 ESM 适配器用异步 XHR（`file://`）或 fetch（HTTP）加载，模块求值完成后保留原有同步编辑语义 API；Runtime 直接读同一份二进制。普通桌面 / Web 构建仍内联，不依赖此清单。缺失、过期或不一致的产物拒绝出包。
 
 Electron-builder 先装成 `BaoCut.app`；签名脚本用完整证书指纹选择身份，从内向外签名，不用 `--deep` 签名。App 和 DMG 都需 Apple 公证为 `Accepted`，随后 staple；最终 ZIP 从已 staple 的 App 生成，重新解压复验签名、公证票据与 Gatekeeper，并用解压出的应用执行 Runtime 与 Worker 自检。产物为 `BaoCut-<版本>-build.<n>-aarch64-apple-darwin.zip`、`.dmg`、对应 `.sha256`、`app-release.json` 与公证记录。中间 `notary-submission.zip` 不分发。输出目录必须全新或为空。
 
@@ -61,7 +63,7 @@ Electron-builder 先装成 `BaoCut.app`；签名脚本用完整证书指纹选�
 
 包内资源与 Windows 用同一布局；Mac 的 `<resources>` 是 `Contents/Resources`。`node apps/desktop/tools/check-packaged-app.mjs /路径/BaoCut.app` 对真实包检查。仍需从仓库外、用独立 `BAOCUT_HOME` 启动 `verified-extraction/BaoCut.app` 检查页面与功能，签名成功不替代预览、导出、模型与 Agent 验收。ffmpeg 与 Agent 可执行文件沿用受管外部工具发现，不假装包含在安装包内。
 
-共享字体的产物检查用 `node apps/desktop/tools/check-file-fonts.mjs --out=/路径/BaoCut.app/Contents/Resources/app.asar/out`：隐藏 Electron 窗口读取最终 ASAR 中的页面和字体 URL，核对清单中的字体全部加载并注入预览内核；不启动 Runtime，也不读取用户数据。
+共享字体与 WASM 的产物检查用 `node apps/desktop/tools/check-file-fonts.mjs --out=/路径/BaoCut.app/Contents/Resources/app.asar/out`：隐藏 Electron 窗口读取最终 ASAR 中的页面和字体 URL，核对清单中的字体与两份 WASM 全部加载、字体注入预览内核、编辑语义能分句；不启动 Runtime，也不读取用户数据。
 
 发布通过 GitHub Releases，归档文件名与内容不可变。`--download-base-url` 生成 App 自己的解析器验证过的 ZIP 更新清单；公开归档读回通过后才更新 `apps/desktop/releases/` 的版本钉。新版使用独立 ID，不将旧版官网的更新源直接换成新包；全部选定平台发布与验证完成后，将最新稳定桌面版本标记为 GitHub Latest，步骤见[发布 skill](../../.agents/skills/bcut-release/SKILL.md#complete-public-release)。
 
@@ -90,6 +92,8 @@ npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍�
 - `BaoCut-<版本>[-build.<n>]-win-x64[-cuda|-vulkan]-release.json`：发布报告，版本、build、变体，安装器与 zip 的文件名、大小与 sha256；
 - `win-unpacked/`：同样的内容，未打包。
 
+Windows 同样启用上述字体与 WASM 共享：Export Worker 用 `external-fonts`，从 `resources/web/assets/bundled-fonts.json` 解析字体，字体不再内嵌或在桌面与 Web 间重复。NSIS 安装后的目录和 ZIP 目录共用此路径；`--bin-dir` 必须提供以相同 feature 构建的 Worker。
+
 都不签名。appId 与产品名取自更新规则（`app-update-rules.ts` 的 `BUNDLE_ID`、`PRODUCT_NAME`）。
 
 **发布与更新**。发布的包要给 build 号：`node apps/desktop/tools/package-desktop.mjs --variant <cpu|cuda|vulkan> --build <n>`（`desktop-windows` 工作流的 `build` 输入）。build 号与变体写进应用的 `package.json`（`baocutBuild`、`baocutVariant`），产物名带 `build.<n>`；没有 build 号的包不检查更新。再给 `--download-base-url <https 目录>`（工作流的 `download_base_url`）时另写更新源 `appcast-x86_64-pc-windows-msvc[-cuda|-vulkan].json`：schema-1 清单，指向那个目录里的安装器，带大小与 sha256，写完用应用的解析器读一遍。再给 `--rollout-hours <n>`（工作流的 `rollout_hours`）时分批推送：更新源另写 `rolloutHours` 与 `releasedAt`（生成的时刻），自动检查在这之后的 n 小时里按本机位置逐步放开，手动检查不受限（[架构设计 §2.6](../../docs/architecture/architecture-design.md#26-应用更新)）；隔了很久才上传时，把 `releasedAt` 改成真正发布的时刻再传（它不在任何摘要里）。应用按自己的变体读对应的一份。更新源为 GitHub 仓库的 `apps/desktop/releases/` 版本钉，安装器为同一 GitHub Release 的不可变资产（[架构设计 §2.6](../../docs/architecture/architecture-design.md#26-应用更新)）；演练时用 `BAOCUT_UPDATE_APPCAST=<清单的路径>` 指过去，清单里的安装器地址这时也可以是本地路径。
@@ -113,7 +117,7 @@ npm run package:win:vulkan   # Vulkan 版：Whisper 用 Vulkan GPU（candle 仍�
 
 [BaoCut 许可](../../LICENSE)、第三方代码的来源、修改声明与原始许可由 `tools/third-party-notices.ts` 的清单随桌面与 Web 构建分发。安装包在 asar 内附带 `LICENSE`，另在 `resources/LICENSE`、`resources/THIRD_PARTY_NOTICES.md` 与 `resources/crates/model-runtime/licenses/speech-swift.txt` 保留原文副本；打包结构检查与安装后的自检核对这些文件的内容。
 
-**自检**。`node apps/desktop/tools/check-packaged-app.mjs <BaoCut.exe 所在目录>` 用应用自己的可执行文件按 Node 方式运行 asar 里的 `runtime.js --self-check --probe`：报告每项解析到哪里，并把每个原生程序起一次、走一遍握手（缺 DLL、架构不对在这里暴露）。只能在 Windows 上对 Windows 的包跑；`--dev` 对开发构建跑一遍。
+**自检**。`node apps/desktop/tools/check-packaged-app.mjs <BaoCut.exe 所在目录>` 用应用自己的可执行文件按 Node 方式运行 asar 里的 `runtime.js --self-check --probe`：报告每项解析到哪里，并把每个原生程序起一次、走一遍握手（缺 DLL、架构不对在这里暴露）。随后用隐藏 Electron 窗口验证最终 ASAR 页面的共享字体与两份 WASM。只能在 Windows 上对 Windows 的包跑；`--dev` 对开发构建跑一遍。
 
 ### GitHub Actions 发布
 

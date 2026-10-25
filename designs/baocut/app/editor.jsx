@@ -314,7 +314,17 @@
             {id: l.code, lang: l.code, name: l.name, role: 'translation'}));
       /* 种子轨里不以语言代码为 id 的层（第 244 轮纪录片演示的「采访译文」）拿下后也要放得回来 */
       const extra = seed.filter((t) => !langs.some((x) => x.id === t.id));
-      return langs.concat(extra).filter((t) => !S.byId(doc, t.id));
+      /* 原文从来没做成字幕层（`unbuiltSource`）时它不是「拿下来的」，是「还没建的」：轨条与行头点它走新建那条路
+         （`addSourceLayer`，与译文共用样式叠成双语），不是放回。候选用落轨时从同一对里拿出来的那条原文——它与译文
+         一起过了字幕偏好（`PREFS.apply`），几何是配好的一对；种子轨没过偏好，偏好倒转过时会和译文落在同一格。 */
+      const unbuilt = doc.unbuiltSource;
+      /* 拿下来过的轨按拿下那一刻的样子放回（`shelf`，`BC_SUB.shelveTrack`）；从没上过画面的种子轨先过一遍字幕偏好，
+         与开轨时那一对同一套几何——两样都不做，放回的那条会和留在画面上的那条叠在同一格。 */
+      const prefs = subtitlePrefs.current.roles;
+      const fresh = (t) => Object.assign({}, t, prefs[t.role === 'source' ? 'source' : 'translation']);
+      return langs.concat(extra).filter((t) => !S.byId(doc, t.id))
+        .map((t) => (unbuilt && t.id === unbuilt.id ? Object.assign({}, unbuilt, {unbuilt: true})
+          : (doc.shelf && doc.shelf[t.id]) || fresh(t)));
     };
     // 语言入口当下选中的那条轨；套样式要知道「仅译文」落在哪一条上
     const subEditId = useRef(null);
@@ -345,9 +355,15 @@
       tracks: cutTracks(bilingual ? D.subtitle.defaults.tracks
         : D.subtitle.defaults.tracks.filter((t) => t.role === 'source')),
     }), subtitlePrefs.current);
-    /* `captions: false`（2026-10-08）：转录过却没建字幕的视频——有文稿、零条字幕轨，时间轴画只读文稿行 */
-    const [subStyle, setSubStyleState] = useState(() => initiallyEmpty || awaitingTranscript || !setup.transcript || setup.captions === false
-      ? {...subDoc(false), tracks: []} : subDoc(setup.entry.canvas === 'bi'));
+    /* `captions: false`（2026-10-08）：转录过却没建字幕的视频——有文稿、零条字幕轨，时间轴画只读文稿行。
+       `captions: 'translation'`（2026-10-22）：翻译时只显示译文，原文还没有字幕层——只落译文那几条，记下 `unbuiltSource`
+       （那条原文轨本身，整份文档进撤销快照，撤销建原文时它跟着回来） */
+    const [subStyle, setSubStyleState] = useState(() => {
+      if (initiallyEmpty || awaitingTranscript || !setup.transcript || setup.captions === false) return {...subDoc(false), tracks: []};
+      if (setup.captions !== 'translation') return subDoc(setup.entry.canvas === 'bi');
+      const bi = subDoc(true);
+      return {...bi, tracks: bi.tracks.filter((t) => t.role !== 'source'), unbuiltSource: S.source(bi)};
+    });
     const hadPendingTranscript = useRef(awaitingTranscript);
     useEffect(() => {
       if (!hadPendingTranscript.current || proj.status !== 'complete') return;
@@ -759,12 +775,21 @@
       setPaneView(re.paneView || null);
     }, [handoffBack]);
 
+    /* 下单时读最新的路由与视图：`requestAi` 是一次建好的回调，闭包里的 `app.route` 是首屏那一份 */
+    const aiRoute = useRef(null);
+    aiRoute.current = {route: app.route, view};
     const requestAi = useCallback((tool, scope, agent) => {
       /* Web 表面没有 AI 入口：各面板已经按 `BC_SURFACE.ai` 收掉了按钮，这里是兜底——
          万一漏了一处，也只是说清去处，不会切到一个不存在的 Tab。 */
       if (!window.BC_SURFACE.ai) { app.toast(window.BC_SURFACE.aiElsewhere('AI 操作')); return; }
       setAiReq({tool, scope, agent: agent || null, n: Date.now()});
-      setTab('aitools');
+      /* AI 工具 Tab 只在时间线视图里（product-design §5.10）：从轻量视图（审片页轨条的「翻译成…」）下单先切过去。
+         Tab 与视图写进同一笔 replace——分两笔时后一笔拿旧路由，把前一笔盖掉 */
+      const {route, view: cur} = aiRoute.current;
+      const value = window.BC_SURFACE.landingTab('aitools');
+      if (cur === 'lite') setViewRaw('timeline');
+      setLocalTab(value);
+      app.replace({...route, tab: value, ...(cur === 'lite' ? {view: 'timeline'} : null)});
       setPaneHidden(false);
     }, []);
     /* 会话下的单（store 的 toolReq）：Agent 跑完的结果在这个面板里看，`agent` 让面板直接落在结果上。 */
@@ -868,7 +893,7 @@
        它落下去就固定在那里，切 Tab、切语言下拉都不会把它拿走（Mac 版当前
        的毛病正是后者）。所以这三个写口子挂在编辑器上，不在面板里。 */
     const removeSubTrack = useCallback((id) => setSubStyleRaw((s) => Object.assign({}, s,
-      {tracks: window.BC_SUB.removeTrack(s, id)})), []);
+      window.BC_SUB.shelveTrack(s, id))), []);
     /* 把拿下来的轨放回画面。插在哪一格由 `BC_SUB.place` 说了算（默认叠法：译文在上、
        原文在下），三个补轨的入口读同一条规矩，免得同一件事三处三种排法。 */
     /** 换一门语言：位次不动，只换这一格里装谁；长相留在原地（`BC_SUB.replaceTrack`）。 */
@@ -877,6 +902,12 @@
     const addSubTrackBack = useCallback((track) => setSubStyleRaw((s) => {
       const list = window.BC_SUB.addTrack(s, track);
       return list === s.tracks ? s : Object.assign({}, s, {tracks: list});
+    }), []);
+    /** 用文稿建原文字幕层（轨条的虚线「原文」chip）：涂装取配对的译文，叠成双语（`BC_SUB.addSourcePaired`）。 */
+    const addSourceLayer = useCallback(({unbuilt, ...track}) => setSubStyleRaw((s) => {
+      const next = Object.assign({}, s, {tracks: window.BC_SUB.addSourcePaired(s, track)});
+      delete next.unbuiltSource;
+      return next;
     }), []);
 
     /* 套用画廊里的一份样式。
@@ -1275,29 +1306,6 @@
     /* 轻量视图的段（docs/design/lite-editor §2）：场景表 > 章节 > 旁白分段 > 整条；标注落点与图层开关也从这里读 */
     const segments = useMemo(() => (LITE ? LITE.segments({scenes, chapters, cues, duration, title: proj.title}) : []),
       [LITE, scenes, proj.title, chapters, cues, duration]);
-    /* 拖片的边（轻量视图设计 §3.2）：场景 = 改这一场的 duration、后面整体推开、总长跟着变（动画片设计 §3.1）；
-       章节 = 挪与下一章的边界，总长不变。都进撤销快照，toast 里带撤销。 */
-    const resizeSegment = useCallback((seg, newEnd) => {
-      if (!LITE || !seg) return;
-      if (seg.kind === 'scene' && scenes) {
-        const r = LITE.retimeScene(scenes, seg.index, newEnd);
-        if (!r) return;
-        const prev = {scenes, chapters, cues, durBase};
-        history.mark();
-        setScenes(r.scenes); setChapters(LITE.chaptersOf(r.scenes)); setCues(LITE.shiftAfter(cues, seg.end, r.delta)); setDurBase(d => d + r.delta);
-        const sc = r.scenes[seg.index];
-        app.toast(`「${seg.title}」现在 ${LITE.fmtDur(sc.end - sc.start)} · 后面 ${r.scenes.length - seg.index - 1} 场${r.delta > 0 ? '后移' : '前移'} ${Math.abs(r.delta).toFixed(1)}s · 画面要按新长度重做`, 'positive',
-          {label: '撤销', undo: true, run: () => { setScenes(prev.scenes); setChapters(prev.chapters); setCues(prev.cues); setDurBase(prev.durBase); app.toast('已还原场景时长'); }});
-      } else {
-        const next = LITE.moveChapterBoundary(chapters, seg.index, newEnd);
-        if (!next) return;
-        const prev = chapters;
-        history.mark();
-        setChapters(next);
-        app.toast(`章节边界 → ${T.timecode(next[seg.index].end, {decimals: 1})}`, 'positive',
-          {label: '撤销', undo: true, run: () => { setChapters(prev); app.toast('已还原章节边界'); }});
-      }
-    }, [LITE, scenes, chapters, cues, durBase, app, history]);
     const liteLayerSpec = useMemo(() => {
       if (!LITE) return null;
       const tracks = S.tracks(subStyle);
@@ -1323,7 +1331,7 @@
 
     const ctx = {
       retainLocalVideoUrl,
-      view, setView, segments, liteLayerSpec, liteLayerOn, setLiteLayer, resizeSegment,
+      view, setView, segments, liteLayerSpec, liteLayerOn, setLiteLayer,
       noteContext: LITE ? (t) => LITE.noteContext(segments, t) : null,
       proj, tab, setTab, playT, seek, playing, setPlaying, pxps, setPxps, tlBodyRef, tlScrollReq, requestTlScroll: (left) => setTlScrollReq({left}), sources, addSource, removeSource, duration,
       openEnded, filmEnd,
@@ -1364,7 +1372,7 @@
       peek, setPeek, peekOf,
       kineticEdit, setKineticEdit,
       availableSubTracks: () => availableSubTracks(subStyle), subEditId,
-      addSubTrack, removeSubTrack, addSubTrackBack, swapSubTrack,
+      addSubTrack, removeSubTrack, addSubTrackBack, addSourceLayer, swapSubTrack,
       ...els,
       ...tpl,
       elements: tpl.withTemplateRow(els.elements, els.elDocs),

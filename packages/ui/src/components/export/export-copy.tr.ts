@@ -97,7 +97,7 @@ export const tr: ExportMessages = {
   letterboxedTo: (ratio) => `${ratio} siyah şeritli`,
   letterboxNote: "En boy oranı değiştirmek kırpmaz: görüntü kendi oranıyla ölçeklenip ortalanır, etrafında siyah şerit olur; görüntü düzeni yeni orana göre yeniden kurulmaz",
   size: "Boyut",
-  upscaleNote: (label) => `Çözünürlük özgün ${label} sınırına kadar çıkar; üzeri yalnızca büyütülür, daha net olmaz`,
+  upscaleNote: (label) => `Özgün video ${label} · daha yüksek çözünürlük videoyu yalnızca büyütür, daha net yapmaz; altyazılar ve metin net kalır`,
   pictureLanes: "Görüntü içeriği",
   burnCaptions: "Altyazıları görüntüye göm",
   burnCaptionsFor: (label) => `Altyazıları görüntüye göm: ${label}`,

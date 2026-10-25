@@ -85,11 +85,11 @@ export function stepCaptionMove(move: CaptionMove, p: Point, mods: Modifiers, en
 
 /**
  * 根样式换上新的水平中心与锚线（没变的那一项不写，免得把缺省值落进文档）。双语里自己定了位置的那一行（行覆盖里 `x`、`y`
- * 都有，渲染器才当它离开堆栈单独摆）跟着平移同样的量，整组一起动。
+ * 都有，渲染器才当它离开堆栈单独摆）跟着平移同样的量，整组一起动。`from` 是起手的位置，缺省是根样式里的。
  */
-export function movedCaptionStyle(root: Json, to: { x: number; y: number }): Json {
-  const sx = to.x - num(root.x, CAPTION_X);
-  const sy = to.y - num(root.y, CAPTION_Y);
+export function movedCaptionStyle(root: Json, to: { x: number; y: number }, from = { x: num(root.x, CAPTION_X), y: num(root.y, CAPTION_Y) }): Json {
+  const sx = to.x - from.x;
+  const sy = to.y - from.y;
   const next: Json = { ...root };
   if (sx) next.x = to.x;
   if (sy) next.y = to.y;
@@ -100,6 +100,22 @@ export function movedCaptionStyle(root: Json, to: { x: number; y: number }): Jso
       next[key] = { ...line, x: shift(line.x as number, sx), y: shift(line.y as number, sy) };
   }
   return next;
+}
+
+/**
+ * 整组拖一块挂在分屏接缝上的字幕（`CaptionHit.panelSeam`，视频格式规范 §5.6）的起点：画出来的位置是接缝，不是样式里的 `y`，
+ * 所以 `y` 按框的垂直中心量（`x` 不受接缝影响，仍是根样式的）。
+ */
+export function seamMoveStart(root: Json, box: Rect, canvas: { width: number; height: number }): { x0: number; y0: number } {
+  return { x0: num(root.x, CAPTION_X), y0: round1(((box.y + box.h / 2) * 100) / canvas.height) };
+}
+
+/**
+ * 整组拖走挂在接缝上的字幕之后的根样式：放下的地方就是用户要的位置，所以关掉 `panelSeam`，`y` 总是写（按中心量的，配上
+ * `verticalAlign: 'center'` 松手不跳），自己定了位置的行跟着平移同样的量。`from` 是 `seamMoveStart` 给的起点。一笔提交，一步撤销。
+ */
+export function unseamedCaptionStyle(root: Json, from: { x0: number; y0: number }, to: { x: number; y: number }): Json {
+  return { ...movedCaptionStyle(root, to, { x: from.x0, y: from.y0 }), y: to.y, verticalAlign: 'center', panelSeam: false };
 }
 
 /**

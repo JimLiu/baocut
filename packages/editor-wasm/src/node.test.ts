@@ -216,6 +216,28 @@ it('finds the shipped WASM from a shared chunk outside the repository', () => {
   }
 });
 
+it('finds shared packaged WASM from main and chunks, rejecting unsafe manifest paths', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-editor-shared-'));
+  try {
+    const main = path.join(root, 'resources/app.asar/out/main');
+    const assets = path.join(root, 'resources/web/assets');
+    fs.mkdirSync(main, { recursive: true });
+    fs.mkdirSync(assets, { recursive: true });
+    const file = path.join(assets, 'editor-0123456789ab.wasm');
+    const manifest = path.join(assets, 'bundled-wasm.json');
+    fs.writeFileSync(file, new Uint8Array());
+    fs.writeFileSync(manifest, JSON.stringify({ 'editor.wasm': path.basename(file) }));
+    expect(locateEditorWasm(main)).toBe(file);
+    expect(locateEditorWasm(path.join(main, 'chunks'))).toBe(file);
+    fs.rmSync(file);
+    expect(locateEditorWasm(main)).toBeNull();
+    for (const name of ['../editor.wasm', '/tmp/editor.wasm', 'editor-0123456789ab\\.wasm', null]) {
+      fs.writeFileSync(manifest, JSON.stringify({ 'editor.wasm': name }));
+      expect(() => locateEditorWasm(main)).toThrow('Invalid shared editor WASM manifest');
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 describe.skipIf(!built)('editor-wasm audio（Node）', () => {
   it('analyzes PCM passed as bytes and renders SFX as WAV', () => {
     const rate = 16000;

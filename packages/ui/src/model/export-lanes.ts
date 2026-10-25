@@ -72,6 +72,12 @@ function soloRules(tracks: readonly Track[]) {
   };
 }
 
+/** 这次会画进画面的轨道（显示、独显规则同 `exportLanes` 的 `picture`）。 */
+export function pictureTrackIds(sequence: Sequence): Set<Id> {
+  const rules = soloRules(sequence.tracks);
+  return new Set(sequence.tracks.filter((t) => t.kind !== 'audio' && rules.visible(t)).map((t) => t.id));
+}
+
 /**
  * 时间轴上的轨道，顺序与时间轴一致（字幕在上，画面按叠放，音频在下）；一个启用实例都没有的轨道不列。
  * 字幕按层列（与轨条的组、字幕页同一个分法和叫法）：一层散在几条轨上时并成一行，排在其中最靠上那条轨的位置——

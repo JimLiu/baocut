@@ -19,7 +19,7 @@ import type { ComponentRelease, ComponentReleaseAsset } from './bundle-registry.
  * - Linux arm64、Windows arm64：上游没有发布，这样的主机上本地合成与音乐不可用，只能自己构建后用 `BAOCUT_AUDIOCPP_CLI` 指定。
  *
  * 不随引擎分发：`model_specs/`（模型包的 GGUF 自带规格）、eSpeak-ng 与 MeCab（引擎运行时按需 `dlopen`，这里用到的模型族都不需要）。
- * 大小与 sha256 取自 2026-10-15 上游 Releases API 给出的 `digest`；macOS arm64 的包在本机下载后重新算过，一致。
+ * 大小与 sha256 取自 2026-10-22 上游 Releases API 给出的 `digest`；macOS arm64 的包在本机下载后重新算过，一致。
  * 许可：上游 `LICENSE` 是 Apache-2.0（Copyright 2026 ShugoAI LLC），静态链接的第三方组件见 `THIRD_PARTY_NOTICES.md` 与随应用分发的
  * `packages/models/licenses/audio.cpp.txt`。模型权重的许可另算，见 `speech-bundles.ts`、`music-bundles.ts`。
  */
@@ -56,39 +56,39 @@ function windows(fileName: string, size: number, sha256: string): ComponentRelea
 /** 内置引擎的版本与各平台的压缩包。平台键是 `<platform>-<arch>`，CPU 构建另加 `-cpu`（`audioCppAssetKey`）。 */
 export const AUDIO_CPP_RELEASE: ComponentRelease = {
   name: AUDIO_CPP_TOOL,
-  version: '0.9.2',
+  version: '0.9.2-drama3-base-small',
   // 上游的标签带 `v`，版本号（`--version` 打印的）不带。
   urlTemplate: 'https://github.com/0xShug0/audio.cpp/releases/download/v{version}/{file}',
   assets: {
     'darwin-arm64': posix(
-      'audio-v0.9.2-bin-macos-arm64-metal.tar.gz',
-      31972675,
-      '827239e1d5824f8294cce461661dc7f20f933869bd333dfc60ba3c089f29faab',
+      'audio-v0.9.2-drama3-base-small-bin-macos-arm64-metal.tar.gz',
+      32708971,
+      '1281998c1acd170a7d92139853fe6ce6ab920e211d2ad3359775d43ad9ba616d',
     ),
     'darwin-x64': posix(
-      'audio-v0.9.2-bin-macos-x64-metal.tar.gz',
-      33862576,
-      'b199add8ab8d53f81769367b9869a021eae838fa6104c9b05a012ec7899774d8',
+      'audio-v0.9.2-drama3-base-small-bin-macos-x64-metal.tar.gz',
+      34649590,
+      'e4f1bca78339092c679bb51b90c895bdef6b2e6658eef467879f89c78a3941f0',
     ),
     'linux-x64': posix(
-      'audio-v0.9.2-bin-ubuntu-x64-vulkan-portable.tar.gz',
-      73616441,
-      '37294a0d9d52383475a47df95dc725c83faee0dbfae00088f1509ed4d7f3619d',
+      'audio-v0.9.2-drama3-base-small-bin-ubuntu-x64-vulkan-portable.tar.gz',
+      74761470,
+      'dfd0ad832829210eb13a03779bdd90f3e6e68f68edf762bf25b3915067beeb73',
     ),
     'linux-x64-cpu': posix(
-      'audio-v0.9.2-bin-ubuntu-x64-cpu-portable.tar.gz',
-      59857917,
-      '72bfb07f46bb8f4cc0217a604619dbb78cfc388dfa4e639feb412ca7e2410980',
+      'audio-v0.9.2-drama3-base-small-bin-ubuntu-x64-cpu-portable.tar.gz',
+      61000844,
+      'd5e6110daae50800429680a277b70557d333d552c4a130a8f1d0e56181fa8697',
     ),
     'win32-x64': windows(
-      'audio-v0.9.2-bin-windows-x64-vulkan-portable.zip',
-      62556276,
-      '4d11a82c560f7a1dc0934e6fef847d6e0b779cf79854aa7d90d8b28e4ad04d93',
+      'audio-v0.9.2-drama3-base-small-bin-windows-x64-vulkan-portable.zip',
+      63227361,
+      '9c943d406af3543cc5005d158ed583210cd7a13371bffcd4b7f262f7a6a5ad16',
     ),
     'win32-x64-cpu': windows(
-      'audio-v0.9.2-bin-windows-x64-cpu-portable.zip',
-      28114705,
-      '4bea04239d753d2d0a294580ad4af2a0fa81b0de244a1b9146650c7f9fa4e84d',
+      'audio-v0.9.2-drama3-base-small-bin-windows-x64-cpu-portable.zip',
+      28786884,
+      '9654c8f66f87bda768196d934059be896399b43703b06e5f2b857430775bec3b',
     ),
   },
 };
@@ -123,7 +123,7 @@ export function audioCppServerBackend(versionOutput: string): string {
 }
 
 /**
- * 从 `audiocpp_cli --version` 的输出取版本：第一行是 `audio.cpp <版本>`（发布构建是 `0.9.2`，自己构建没给版本时是 `dev`）。
+ * 从 `audiocpp_cli --version` 的输出取版本：第一行是 `audio.cpp <版本>`（发布构建保留完整版本后缀，自己构建没给版本时是 `dev`）。
  */
 export function parseAudioCppVersion(output: string): string | null {
   return /^\s*audio\.cpp\s+v?(\S+)/m.exec(output)?.[1] ?? null;

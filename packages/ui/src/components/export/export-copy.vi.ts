@@ -97,7 +97,7 @@ export const vi: ExportMessages = {
   letterboxedTo: (ratio) => `${ratio} có dải đen`,
   letterboxNote: "Đổi tỷ lệ không cắt hình: hình phóng theo tỷ lệ riêng, đặt giữa với dải đen; bố cục không sắp lại theo tỷ lệ mới",
   size: "Kích thước",
-  upscaleNote: (label) => `Độ phân giải đến mức gốc ${label}; cao hơn chỉ phóng to, không sắc nét hơn`,
+  upscaleNote: (label) => `Video gốc là ${label}; độ phân giải cao hơn chỉ phóng to video, không sắc nét hơn; phụ đề và chữ vẫn sắc nét`,
   pictureLanes: "Nội dung hình",
   burnCaptions: "Ghi phụ đề vào hình",
   burnCaptionsFor: (label) => `Ghi phụ đề vào hình: ${label}`,

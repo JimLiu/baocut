@@ -932,3 +932,41 @@ fn image_base_linear_matches_cpu_gradient_and_tiny_axis_uses_last_stop() {
         }
     }
 }
+
+#[test]
+fn local_mask_preserves_global_image_phase_domain_and_blur() {
+    let bytes = palette();
+    for blur in [0., 1.25] {
+        let mut source = body(&bytes, Some(image(true)));
+        for cap in ["caption-paint-mask/1", "caption-paint-mask-transform/1"] {
+            source["scene"]["value"]["requiredCapabilities"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!(cap));
+        }
+        let layer = &mut source["scene"]["value"]["nodes"][0]["style"]["paints"][0];
+        layer["offset"] = json!([4.25, -2.5]);
+        layer["spread"] = json!(1.);
+        layer["blur"] = json!(blur);
+        layer["mask"] = json!({"kind":"glyph-fill","offset":[-1.5,2.25],"inverted":true});
+        let expected = pixels(&mut plan(source.clone(), "OOgj", vec![], &bytes), 0.3);
+        source["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-paint-mask-local/1"));
+        source["scene"]["value"]["nodes"][0]["style"]["paints"][0]["mask"]["rasterization"] =
+            json!("glyph-bounds");
+        let actual = pixels(&mut plan(source, "OOgj", vec![], &bytes), 0.3);
+        assert!(expected.iter().any(|v| *v > 0));
+        let delta = actual
+            .iter()
+            .zip(&expected)
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(
+            delta <= 1,
+            "local image domain/phase changed: blur={blur}, maxDelta={delta}"
+        );
+    }
+}

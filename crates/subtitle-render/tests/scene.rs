@@ -2103,6 +2103,170 @@ fn font_line_box_style(policy: Option<Value>) -> Value {
     body
 }
 
+fn fixed_line_font_box_style(policy: Option<Value>, extra: f64) -> Value {
+    let enabled = policy.is_some();
+    let mut body = font_line_box_style(policy);
+    let scene = &mut body["scene"]["value"];
+    scene["nodes"][0]["style"]["fontSize"] = json!({"value":10,"basis":"absolute"});
+    scene["layout"]["pagination"] = json!({"wordLinePattern":[[1,1]],"fixedLineFit":{
+        "lastLineWidthRatio":0,"lastLineMaxScale":100,"extraLineHeight":extra
+    }});
+    scene["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .extend([
+            json!("caption-word-line-layout/1"),
+            json!("caption-fixed-line-fit/1"),
+        ]);
+    if enabled {
+        scene["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-fixed-line-font-box/1"));
+    }
+    body
+}
+
+fn unique_font_line_boxes(plan: &mut ScenePlan, seconds: f64) -> Vec<([f64; 4], f64)> {
+    let mut rows: Vec<([f64; 4], f64)> = Vec::new();
+    for candidate in font_line_box_geometry(plan, seconds) {
+        if !rows.iter().any(|row| {
+            row.0
+                .iter()
+                .zip(candidate.0)
+                .all(|(a, b)| (a - b).abs() < 0.0001)
+                && (row.1 - candidate.1).abs() < 0.0001
+        }) {
+            rows.push(candidate);
+        }
+    }
+    rows
+}
+
+#[test]
+fn fixed_line_font_box_unused_capability_preserves_legacy_pixels_and_fingerprint() {
+    for text in ["O OOOO", "Wide short", "One"] {
+        let body = fixed_line_font_box_style(None, 0.2);
+        let reference = font_line_box_plan(body.clone(), text, font_line_box_fonts())
+            .render(0.3)
+            .unwrap();
+        let mut advertised = body;
+        advertised["scene"]["value"]["requiredCapabilities"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("caption-fixed-line-font-box/1"));
+        let actual = font_line_box_plan(advertised, text, font_line_box_fonts())
+            .render(0.3)
+            .unwrap();
+        assert_eq!(reference.rgba, actual.rgba, "{text}");
+        assert_eq!(reference.fingerprint, actual.fingerprint, "{text}");
+    }
+}
+
+#[test]
+fn fixed_line_font_box_fits_width_before_font_height_and_centers_extra_leading() {
+    let mut unscaled = font_line_box_style(None);
+    unscaled["scene"]["value"]["nodes"][0]["style"]["fontSize"] =
+        json!({"value":10,"basis":"absolute"});
+    let base = unique_font_line_boxes(
+        &mut font_line_box_plan(unscaled, "O\nOOOO", font_line_box_fonts()),
+        0.3,
+    );
+    assert_eq!(base.len(), 2);
+    // Independent widths from two unfitted rows determine the expected fit.
+    let scale = base[1].0[2] / base[0].0[2];
+    assert!((scale - 4.0).abs() < 0.001);
+    let sizes = [10.0 * scale, 10.0];
+    for line_height in [0.25_f64, 2.0] {
+        let extra = 0.2;
+        let mut body = fixed_line_font_box_style(
+            Some(json!({"metricSource":"font","minAscent":1.25,"minDescent":0.35})),
+            extra,
+        );
+        body["scene"]["value"]["nodes"][0]["style"]["lineHeight"] = json!(line_height);
+        let rows = unique_font_line_boxes(
+            &mut font_line_box_plan(body, "O OOOO", font_line_box_fonts()),
+            0.3,
+        );
+        assert_eq!(rows.len(), 2);
+        let heights = sizes.map(|size| size * (line_height.max(1.6) + extra / scale));
+        let mut top = 45.0 - heights.iter().sum::<f64>() / 2.0;
+        for (i, (domain, baseline)) in rows.iter().enumerate() {
+            assert!((domain[2] - base[1].0[2]).abs() < 0.05, "width={domain:?}");
+            assert!((domain[1] - top).abs() < 0.001, "row={i}, top={domain:?}");
+            assert!((domain[3] - heights[i]).abs() < 0.001);
+            assert!((baseline - top - sizes[i] * 1.25).abs() < 0.001);
+            top += heights[i];
+        }
+        assert!((rows[0].0[1] + top - 90.0).abs() < 0.001);
+    }
+}
+
+#[test]
+fn fixed_line_font_box_page_envelope_excludes_final_leading_and_seeks_deterministically() {
+    use render_raster::drawop::DrawOp;
+    let mut body = fixed_line_font_box_style(
+        Some(json!({"metricSource":"font","minAscent":1.25,"minDescent":0.35})),
+        0.2,
+    );
+    let scene = &mut body["scene"]["value"];
+    scene["requiredCapabilities"]
+        .as_array_mut()
+        .unwrap()
+        .extend([
+            json!("caption-page-envelope/1"),
+            json!("caption-layout-per-sample/1"),
+        ]);
+    scene["selectors"].as_array_mut().unwrap().push(json!({
+        "id":"page-metrics","nodeId":"caption","unit":"page"
+    }));
+    scene["nodes"].as_array_mut().unwrap().push(json!({
+        "id":"envelope-probe","type":"repeat","selectorId":"page-metrics","children":[{
+            "id":"envelope-height","type":"shape","properties":{
+                "width":{"kind":"constant","value":1},
+                "height":{"kind":"expression","expression":{"op":"read","path":"layout.pageEnvelopeHeight"}},
+                "fill":{"kind":"constant","value":"#00FF00"}
+            }
+        }]
+    }));
+    let mut rendered = font_line_box_plan(body.clone(), "O OOOO", font_line_box_fonts());
+    let rows = unique_font_line_boxes(&mut rendered, 0.3);
+    let expected = rows[1].1 + 10.0 * 0.35 - rows[0].0[1];
+    let (ops, _) = rendered.record(0.3).unwrap();
+    let height = ops
+        .ops
+        .iter()
+        .find_map(|op| match op {
+            DrawOp::FillRect { w, h, .. } if (*w - 1.0).abs() < 0.001 => Some(f64::from(*h)),
+            _ => None,
+        })
+        .unwrap();
+    assert!((height - expected).abs() < 0.001);
+    let full_height = rows[1].0[1] + rows[1].0[3] - rows[0].0[1];
+    assert!((full_height - height - 0.5).abs() < 0.001);
+
+    let scene = &mut body["scene"]["value"];
+    scene["layout"]["layoutEvaluation"] = json!("per-sample");
+    scene["layout"]["bindings"] = json!([{
+        "nodeId":"caption","property":"fontSize","value":{"kind":"keyframes",
+            "clock":{"unit":"cue","origin":"start","duration":{"kind":"unit-span"}},
+            "keys":[{"at":0,"value":10},{"at":1,"value":12}]
+        }
+    }]);
+    let mut rendered = font_line_box_plan(body.clone(), "O OOOO", font_line_box_fonts());
+    let first = rendered.render(0.3).unwrap();
+    assert_ne!(first.rgba, rendered.render(2.0).unwrap().rgba);
+    for seconds in [3.1, 0.3, 1.2, 0.3] {
+        let frame = rendered.render(seconds).unwrap();
+        let fresh = font_line_box_plan(body.clone(), "O OOOO", font_line_box_fonts())
+            .render(seconds)
+            .unwrap();
+        assert_eq!(frame.rgba, fresh.rgba, "seek={seconds}");
+        assert_eq!(frame.fingerprint, fresh.fingerprint, "seek={seconds}");
+    }
+    assert_eq!(first.rgba, rendered.render(0.3).unwrap().rgba);
+}
+
 fn font_line_box_fonts() -> Vec<Vec<u8>> {
     vec![
         include_bytes!("../../render-raster/assets/fonts/Arimo.ttf").to_vec(),

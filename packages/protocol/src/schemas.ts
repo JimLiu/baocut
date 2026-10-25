@@ -22,6 +22,7 @@ import {
   VIDEO_ANNOTATION_MAX_POINTS,
   VIDEO_ANNOTATION_TEXT_SIZES,
   VIDEO_ANNOTATION_WIDTHS,
+  PANEL_GAP_MAX,
 } from './video.ts';
 import { DOCS_ANNOTATION_LIMITS } from './docs.ts';
 import { SPACE_PARAM_SCHEMAS } from './space-schemas.ts';
@@ -92,6 +93,20 @@ const nestedMessageRef = z
   .object({ key: messageKey, params: z.record(messageParamName, messageScalar).optional(), text: z.string().max(1000).optional() })
   .strict();
 const messageRef = z.object({ key: messageKey, params: z.record(messageParamName, z.union([messageScalar, nestedMessageRef])).optional() }).strict();
+/**
+ * 分屏段一格要看见的源区域（四边比例，同 `crop`）。格数与版式对不上、`spotlight` 没给 `main` 或越界、别的版式给了 `main` 由
+ * `videos.derive` 拒绝（`DERIVE_PANELS_INVALID`）。
+ */
+const deriveRegion = z
+  .object({
+    left: z.number().min(0).lt(1),
+    top: z.number().min(0).lt(1),
+    right: z.number().min(0).lt(1),
+    bottom: z.number().min(0).lt(1),
+  })
+  .strict()
+  .refine((c) => c.left + c.right < 1 && c.top + c.bottom < 1);
+
 /** 分段取景（`videos.derive` 的 `crops`）按 from 排好之后互不重叠。 */
 const cropsDisjoint = (crops: { from: number; to: number }[]) =>
   [...crops].sort((a, b) => a.from - b.from).every((c, n, all) => n === 0 || c.from >= all[n - 1]!.to);
@@ -1140,17 +1155,30 @@ export const methodParamSchemas = {
         .optional(),
       crops: z
         .array(
-          z
-            .object({
-              from: z.number().finite().nonnegative(),
-              to: z.number().finite().positive(),
-              left: z.number().min(0).lt(1),
-              top: z.number().min(0).lt(1),
-              right: z.number().min(0).lt(1),
-              bottom: z.number().min(0).lt(1),
-            })
-            .strict()
-            .refine((c) => c.to > c.from && c.left + c.right < 1 && c.top + c.bottom < 1),
+          z.union([
+            z
+              .object({
+                from: z.number().finite().nonnegative(),
+                to: z.number().finite().positive(),
+                left: z.number().min(0).lt(1),
+                top: z.number().min(0).lt(1),
+                right: z.number().min(0).lt(1),
+                bottom: z.number().min(0).lt(1),
+              })
+              .strict()
+              .refine((c) => c.to > c.from && c.left + c.right < 1 && c.top + c.bottom < 1),
+            z
+              .object({
+                from: z.number().finite().nonnegative(),
+                to: z.number().finite().positive(),
+                layout: z.enum(['rows', 'grid', 'spotlight']),
+                panels: z.array(deriveRegion).min(2).max(4),
+                main: z.number().int().min(0).max(3).optional(),
+                gap: z.number().min(0).max(PANEL_GAP_MAX).optional(),
+              })
+              .strict()
+              .refine((c) => c.to > c.from),
+          ]),
         )
         .max(64)
         .refine(cropsDisjoint)
@@ -1171,9 +1199,12 @@ export const methodParamSchemas = {
       end: z.number().finite().positive().optional(),
       threshold: z.number().gt(0).max(1).optional(),
       minShot: z.number().min(0).max(60).optional(),
+      by: z.enum(['picture', 'speaker']).optional(),
+      split: z.boolean().optional(),
     })
     .strict()
-    .refine((p) => p.start === undefined || p.end === undefined || p.end > p.start),
+    .refine((p) => p.start === undefined || p.end === undefined || p.end > p.start)
+    .refine((p) => (p.by === 'speaker' ? p.threshold === undefined && p.minShot === undefined : p.split === undefined)),
   'slides.open': fileTarget,
   'design.open': fileTarget,
   'designSystem.open': fileTarget,

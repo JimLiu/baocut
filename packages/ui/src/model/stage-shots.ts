@@ -30,10 +30,13 @@ export function shotSeconds(item: FramedVideo, sequence: Pick<Sequence, 'fps'>):
   return { from, to };
 }
 
-/** 「套到整支」：把 `item` 现在的放大倍数写到同一素材的其它几段（一笔事务），各段的取景点与裁剪不动；已经一样的不写。 */
+/**
+ * 「套到整支」：把 `item` 现在的放大倍数写到同一素材的其它几段（一笔事务），各段的取景点与裁剪不动；已经一样的不写。
+ * 分屏段的放大在各格里（`panels.ts` 的 `applyPanelsToAll`），这里跳过。
+ */
 export function applyFramingToAll(sequenceId: Id, item: FramedVideo, pieces: readonly FramedVideo[]): EditOperation[] {
   const zoom = focalZoom(item.focalPoint);
   return pieces
-    .filter((piece) => piece.id !== item.id && focalZoom(piece.focalPoint) !== zoom)
+    .filter((piece) => piece.id !== item.id && !piece.panels?.length && focalZoom(piece.focalPoint) !== zoom)
     .flatMap((piece) => framingOperations(sequenceId, piece, withZoom(piece, zoom)));
 }

@@ -135,6 +135,49 @@ describe('读转写（与编辑器的 speech-cues.ts 同一条规则）', () => 
   });
 });
 
+describe('切条：成对符号里不切，太短的条并进同一句（与编辑器的 speech-cues.ts 同一条规则）', () => {
+  const even = (tokens: string[], step: number): W[] => tokens.map((text, i) => [`w${i}`, i * step, (i + 1) * step, text]);
+  /** 整个词表是一句。 */
+  const oneSentence = (list: W[]) => ({ ...speechBody(list), sentences: [{ id: 's1', first: list[0]![0], last: list.at(-1)![0] }] });
+  const cut = (body: unknown) => deriveCues(readSpeechWords(body)!.words);
+  const texts = (body: unknown) => cut(body).map((cue) => cue.text);
+
+  it('再收一个词就超行宽时，书名号、引号从开符号起整段挪进下一条（中文《》、日文「」、英文直引号）；没存句子时一样', () => {
+    const zh = even([...'伍尔夫在日记里很不客气地写道狄更斯的《大卫·科波菲尔》不过是业余作者的粗劣之作。'], 0.2);
+    expect(texts(oneSentence(zh))).toEqual(['伍尔夫在日记里很不客气地写道狄更斯的', '《大卫·科波菲尔》不过是业余作者的粗劣之作。']);
+    expect(texts(speechBody(zh))).toEqual(texts(oneSentence(zh)));
+    const ja = even([...'トルストイは日記の中で「絞首台は恐ろしい道具だ」と書いている。'], 0.2);
+    expect(texts(oneSentence(ja))).toEqual(['トルストイは日記の中で', '「絞首台は恐ろしい道具だ」と書いている。']);
+    // 末尾的「an amateur.」只有 0.7 秒，并回上一条超宽，改成从上一条挪一个词过来。
+    const en = even('Woolf wrote in her diary that "David Copperfield" was merely the clumsy work of an amateur.'.split(' '), 0.35);
+    expect(texts(oneSentence(en))).toEqual(['Woolf wrote in her diary that', '"David Copperfield" was merely the clumsy', 'work of an amateur.']);
+  });
+
+  it('太短的条并不进去时从同一句相邻的一条挪词，两条都不短于 1 秒；并回去超过 7 秒时同样挪词；句子的时间范围不变', () => {
+    const zh = even([...'我们今天来讲一讲这个很有名的模型就是它修程序崩溃的问题。'], 0.15);
+    expect(cut(oneSentence(zh)).map((cue) => cue.text)).toEqual(['我们今天来讲一讲这个很有名的', '模型就是它修程序崩溃的问题。']);
+    const en = even('one two three four five six seven eight.'.split(' '), 0.9);
+    expect(cut(oneSentence(en)).map((cue) => [cue.text, cue.start, cue.end])).toEqual([
+      ['one two three four', 0, 3.6],
+      ['five six seven eight.', 3.6, 7.2],
+    ]);
+  });
+
+  it('不跨句、不跨说话人并；没存句子的转写不并', () => {
+    const list: W[] = [...even('It is a fine day for a walk in the park today.'.split(' '), 0.3), ['y', 3.6, 4, 'Yes.']];
+    const body = { ...speechBody(list), sentences: [{ id: 's1', first: 'w0', last: 'w11' }, { id: 's2', first: 'y', last: 'y' }] };
+    expect(cut(body).map((cue) => [cue.text, cue.start, cue.end])).toEqual([
+      ['It is a fine day for a walk in the park today.', 0, 3.6],
+      ['Yes.', 3.6, 4],
+    ]);
+    const en = even('one two three four five six seven eight.'.split(' '), 0.9);
+    expect(texts(speechBody(en))).toEqual(['one two three four five six seven', 'eight.']);
+    const swapped = oneSentence(en);
+    swapped.words[7]!.speaker = 'spk-2';
+    expect(texts(swapped)).toEqual(['one two three four five six seven', 'eight.']);
+  });
+});
+
 describe('转写改了字，原文字幕跟着改（rewordSpeechCaption）', () => {
   /** 按转写建一层原文字幕（与 captions_create 同一条路）。 */
   const layer = (body: ReturnType<typeof speechBody>) => {

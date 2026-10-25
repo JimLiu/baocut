@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   RpcError,
+  panelRects,
   type DocumentRecord,
   type EditOperation,
   type Id,
@@ -94,7 +95,8 @@ export async function prepareDerive(videos: Pick<VideoService, 'document'>, snap
   for (const id of needs.documentIds) documents.set(id, (await videos.document(snapshot.id, id)).body);
   const range = deriveCall(() => alignRange(sequence, params.start, params.end, timelineWords(snapshot, documents)));
   // 分段取景对到帧、截到区间之后才进设置（幂等键按对齐后的算）；没给时不带这个字段，老调用的键不变。
-  const aligned = params.crops?.length ? alignCrops(sequence, range, params.crops) : null;
+  const crops = params.crops;
+  const aligned = crops?.length ? deriveCall(() => alignCrops(sequence, range, crops)) : null;
   if (aligned) settings.crops = aligned.crops;
   const key = derivationKey({ parentVideoId: snapshot.id, parentRevision: snapshot.revision, range, settings });
   const name = params.name?.trim() || defaultDerivedName(snapshot.name, range);
@@ -110,6 +112,14 @@ function deriveCall<T>(fn: () => T): T {
   }
 }
 
+/** 分屏段被拒的说明：格数与版式对不上时说格数，对得上时是 `main` 给错了。 */
+function panelsInvalidMessage(layout: string, count: number) {
+  const known = layout === 'rows' || layout === 'grid' || layout === 'spotlight';
+  return known && panelRects(layout, count)
+    ? RcAgentTools.derivePanelsMain({ layout })
+    : RcAgentTools.derivePanelsInvalid({ layout, count });
+}
+
 export function deriveRpcError(error: unknown): unknown {
   if (!(error instanceof DeriveError)) return error;
   const message =
@@ -117,7 +127,9 @@ export function deriveRpcError(error: unknown): unknown {
       ? RcAgentTools.deriveRangeEmpty()
       : error.code === 'DERIVE_UNSUPPORTED_ITEM'
         ? RcAgentTools.deriveUnsupportedItem({ kind: String(error.details.itemType ?? error.details.kind ?? '') })
-        : RcAgentTools.deriveParentUnplaced();
+        : error.code === 'DERIVE_PANELS_INVALID'
+          ? panelsInvalidMessage(String(error.details.layout ?? ''), Number(error.details.count ?? 0))
+          : RcAgentTools.deriveParentUnplaced();
   return new RpcError('invalid-request', message, { code: error.code, ...error.details });
 }
 

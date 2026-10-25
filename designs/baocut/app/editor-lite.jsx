@@ -10,12 +10,10 @@
   const T = window.BC_TIME;
   const SURF = window.BC_SURFACE;
 
-  /** 片式段条（照代码动画引擎的宿主时间线：一段一片、播放头是一根跨片的线、片的右边能拖）：
+  /** 片式段条（照代码动画引擎的宿主时间线：一段一片、播放头是一根跨片的线）：
       - 片宽按时长比例，片里写段名，放宽了再写时长；当前片加深，播放头线落在当前片上并伸出上下沿；
       - 在片上按下并拖 = 刷洗（按指针位置连续 seek，跨片也行），悬停 = 预读那一刻（播放条的时码跟着显示）；
-      - 片的右边是一枚把手：拖它改这一段的时长（场景：后面的场景整体推开、总长跟着变；章节：只挪与下一章的边界），
-        拖的过程中片按新长度预览、把手上方浮出新时长与差值，松手才写回（editor.jsx 的 resizeSegment，进撤销）；
-        把手也吃键盘：← / → 各 1 秒，⇧ 是 0.1 秒。 */
+      - 片只看不改：片的边不能拖，段的时长与章节边界到时间线视图里改（轻量编辑器设计 §3.2）。 */
   function LiteSegBar({ctx, segs, hoverT, setHoverT, zoom, setZoom, api}) {
     const {playT, seek, duration} = ctx;
     const barRef = useRef(null);
@@ -74,10 +72,8 @@
       }
     };
     useEffect(() => { if (api) api.current = {zoomTo, zoomAction}; });
-    const [drag, setDrag] = useState(null);   // {kind: 'scrub'} | {kind: 'resize', index, end0, x0, pxPerSec, end}
-    const preview = drag?.kind === 'resize' ? {index: drag.index, end: drag.end} : null;
-    const chips = L.chipSpans(segs, playT, duration, drag ? null : hoverT, preview);
-    const canResize = !!ctx.resizeSegment;
+    const [drag, setDrag] = useState(null);   // {kind: 'scrub'}
+    const chips = L.chipSpans(segs, playT, duration, drag ? null : hoverT);
 
     /* 指针横坐标 → 时间：按片的实际几何算（片之间有空隙，不能按整条宽度线性换），落在空隙里归右边那片的开头 */
     const timeAtX = x => {
@@ -93,25 +89,12 @@
 
     useEffect(() => {
       if (!drag) return;
-      const move = e => {
-        if (drag.kind === 'scrub') seek(timeAtX(e.clientX));
-        else setDrag(d => ({...d, end: Math.max(d.bounds.min, Math.min(d.bounds.max, d.end0 + (e.clientX - d.x0) / d.pxPerSec))}));
-      };
-      const up = e => {
-        if (drag.kind === 'resize') ctx.resizeSegment(segs[drag.index], drag.end0 + (e.clientX - drag.x0) / drag.pxPerSec);
-        setDrag(null);
-      };
+      const move = e => seek(timeAtX(e.clientX));
+      const up = () => setDrag(null);
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up, {once: true});
       return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-    }, [drag?.kind, drag?.index]);
-
-    /* 把手上的 ← / →：±1 秒，⇧ ±0.1 秒。拦住冒泡，别再让编辑器的全局方向键去挪播放头。 */
-    const nudge = (seg, e) => {
-      const step = e.shiftKey ? 0.1 : 1;
-      if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); ctx.resizeSegment(seg, seg.end + step); }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); ctx.resizeSegment(seg, seg.end - step); }
-    };
+    }, [drag?.kind]);
 
     /* 放大后播放头出了视野就滚过去（拖播放头的时候不抢） */
     useEffect(() => {
@@ -130,9 +113,7 @@
       onPointerLeave={() => setHoverT(null)}>
       {chips.map((c, i) => {
         const seg = segs[i];
-        const resizing = preview && preview.index === i;
-        const delta = resizing ? c.span - (seg.end - seg.start) : 0;
-        return <div key={c.id} className={cx('lt-chip', c.current && 'is-current', resizing && 'is-resizing')} style={{flex: `${Math.max(c.flex, 0.02)} 1 0`}}>
+        return <div key={c.id} className={cx('lt-chip', c.current && 'is-current')} style={{flex: `${Math.max(c.flex, 0.02)} 1 0`}}>
           <Tip label={`${c.title} · ${T.timecode(c.start)} – ${T.timecode(c.end)} · ${c.label}${seg.lines?.[0] ? ` · ${seg.lines[0].text}` : ''}`}>
             <BCAction type="button" className="lt-chip__body" aria-label={`${c.title} · ${c.label}${c.current ? ' · 正在播放' : ''}`} aria-current={c.current ? 'true' : undefined}
               onPointerDown={e => { if (e.button !== 0) return; e.preventDefault(); seek(timeAtX(e.clientX)); setDrag({kind: 'scrub'}); }}
@@ -143,17 +124,6 @@
           </Tip>
           {c.head != null ? <span className="lt-chip__head" style={{left: `${c.head * 100}%`}} aria-hidden="true" /> : null}
           {c.hover != null ? <span className="lt-chip__hover" style={{left: `${c.hover * 100}%`}} aria-hidden="true" /> : null}
-          {canResize && c.resizable ? <button type="button" className="lt-chip__edge" aria-label={`拖动改「${c.title}」的时长 · 现在 ${c.label}`}
-            title={seg.kind === 'scene' ? '拖动改这一场的时长' : '拖动挪与下一章的边界'}
-            onPointerDown={e => {
-              if (e.button !== 0) return;
-              e.preventDefault(); e.stopPropagation();
-              const r = e.currentTarget.parentElement.getBoundingClientRect();
-              const bounds = L.resizeBounds(segs, i) || {min: seg.start + 0.1, max: Infinity};
-              setDrag({kind: 'resize', index: i, end0: seg.end, end: seg.end, x0: e.clientX, bounds, pxPerSec: Math.max(0.5, r.width / Math.max(0.1, seg.end - seg.start))});
-            }}
-            onKeyDown={e => nudge(seg, e)} /> : null}
-          {resizing ? <span className="lt-chip__bubble t-mono" role="status">{c.label}<span className="lt-chip__delta">{delta >= 0 ? ' +' : ' −'}{Math.abs(delta).toFixed(1)}s</span></span> : null}
         </div>;
       })}
     </div>
@@ -161,32 +131,73 @@
     </div>;
   }
 
-  /** 播放条：播放 / 从头 / 循环、时钟；右侧是片条的缩放（缩小 · 百分比菜单 · 放大，与时间线的播放条同一组）。 */
+  /* 循环键的三枚图标（20 网格、1.5 笔宽、只吃 currentColor，由 spectrum.css 按紧凑档显示 16px）：整片是首尾相接的两枚箭头，
+     当前段在中间加一个「1」，不循环加一道斜杠。路径与 packages/ui 的 transport-icons.tsx 逐字一致（icon-sync.test.js 核对）。 */
+  const LOOP_PATHS = {
+    base: ['M4 9V8a3 3 0 0 1 3-3h8.5', 'M13.5 2.5 16 5l-2.5 2.5', 'M16 11v1a3 3 0 0 1-3 3H4.5', 'M7 17.5 4.5 15 7 12.5'],
+    whole: [],
+    segment: ['M8.8 8.8 10.4 7.6v4.8'],
+    off: ['M3 3l14 14'],
+  };
+  const LoopGlyph = window.RSP.createIcon(({mode, ...props}) => <svg {...props} viewBox="0 0 20 20" className={cx(props.className, 'lt-tport__glyph')}>
+    {[...LOOP_PATHS.base, ...(LOOP_PATHS[mode] || [])].map(d => <path key={d} d={d} />)}
+  </svg>);
+
+  /** 播放条（轻量编辑器设计 §3「走带」）：与时间线视图的播放条同一副骨架（timeline.jsx 的 Transport：两侧等分、播放键居中）。
+      左边循环方式与时钟；中间上一段 · 播放 · 下一段；右边片条的缩放（缩小 · 百分比菜单 · 放大，与时间线播放条右端同一组）。 */
   function LiteTransport({ctx, segs, hoverT, zoom, strip}) {
     const R = window.RSP;
     const {playT, seek, playing, setPlaying, pop, setPop} = ctx;
-    const [loop, setLoop] = useState(false);   // 这个窗口的观看态，不进视频
+    const [loop, setLoop] = useState(L.LOOP_DEFAULT);   // 这个窗口的观看态，不进视频
     const play = window.BC_PLAYER.playButtonState({playing, out: playT, dur: ctx.duration});
-    /* 循环：播到片尾（播放钮变成「重放」）就回头接着放 */
-    useEffect(() => { if (loop && play === 'replay') { seek(0); setPlaying(true); } }, [loop, play]);
+    const loopLabel = L.LOOP_MODES.find(m => m.k === loop).label;
+    const single = segs.length <= 1;
+    /* 循环：当前段循环在播过段尾时跳回段首（loopJump 只认往前、不比真实经过的时间走得快的一步，拖动、点片不算）；
+       播到片尾（播放钮变成「重放」）时，整片回到 0、当前段回到最后一段的段首，接着放 */
+    const last = useRef({t: playT, at: performance.now()});
+    useEffect(() => {
+      const prev = last.current, at = performance.now();
+      last.current = {t: playT, at};
+      const jump = playing ? L.loopJump(segs, loop, prev.t, playT, ctx.duration, L.loopMaxStep((at - prev.at) / 1000, ctx.speed || 1)) : null;
+      if (jump != null) seek(jump);
+    }, [playT]);
+    useEffect(() => {
+      if (play !== 'replay') return;
+      const r = L.loopRange(segs, loop, playT, ctx.duration);
+      if (r) { seek(r.start); setPlaying(true); }
+    }, [play]);   // 只在播到头的那一下接着放；停在片尾时再改循环方式不自动开播
     const zoomTo = next => strip.current?.zoomTo(next);
     const zoomAction = k => { setPop(null); strip.current?.zoomAction(k); };
     return <div className="lt-tport">
-      <div className="lt-tport__mid">
-        <IconBtn size="m" className="lt-tport__play" tip={play === 'replay' ? '重放' : playing ? '暂停' : '播放'}
-          onClick={() => { if (play === 'replay') { seek(0); setPlaying(true); } else setPlaying(!playing); }}>
-          <Ic n={window.BC_PLAYER.PLAY_ICON[play]} />
-        </IconBtn>
-        <IconBtn size="s" tip="从头开始" onClick={() => seek(0)}><R.Icons.Refresh /></IconBtn>
-        <IconBtn size="s" on={loop} tip={loop ? '关闭循环' : '循环播放'} onClick={() => setLoop(v => !v)}>
-          <svg className="lt-tport__glyph" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 9V8a3 3 0 0 1 3-3h8.5" /><path d="M13.5 2.5 16 5l-2.5 2.5" /><path d="M16 11v1a3 3 0 0 1-3 3H4.5" /><path d="M7 17.5 4.5 15 7 12.5" /></svg>
-        </IconBtn>
+      <div className="tport__side">
+        <div className="lt-tport__loop">
+          <IconBtn size="s" tip={loopLabel} aria-haspopup="menu" aria-expanded={pop === 'ltloop'}
+            onClick={() => setPop(pop === 'ltloop' ? null : 'ltloop')}>
+            <LoopGlyph mode={loop} />
+          </IconBtn>
+          <Popover open={pop === 'ltloop'} onClose={() => setPop(null)} dir="up" align="left" width={180} label="循环方式">
+            <Menu>
+              {L.LOOP_MODES.map(m => <MenuItem key={m.k} icon={<LoopGlyph mode={m.k} />} label={m.label} on={m.k === loop}
+                disabled={m.k === 'segment' && single} onClick={() => { setLoop(m.k); setPop(null); }} />)}
+            </Menu>
+          </Popover>
+        </div>
         {/* 悬停在片条上时先显示那一刻（淡一点），移开回到播放头 */}
         <span className={cx('t-mono t-detail lt-tport__tc', hoverT != null && 'is-hover')} aria-live="off">{L.fmtClock(hoverT != null ? hoverT : playT)}<span className="lt-tport__total"> / {L.fmtClock(ctx.duration)}</span></span>
       </div>
+      <div className="tport__mid">
+        <IconBtn icon="prev" size="s" tip="上一段" disabled={single} onClick={() => seek(L.prevStart(segs, playT))} />
+        <Tip label={play === 'replay' ? '重放' : playing ? '暂停' : '播放'}>
+          <R.Button variant="accent" size="M" aria-label={play === 'replay' ? '重放' : playing ? '暂停' : '播放'} UNSAFE_className="tport__play"
+            onPress={() => { if (play === 'replay') { seek(0); setPlaying(true); } else setPlaying(!playing); }}>
+            <Ic n={window.BC_PLAYER.PLAY_ICON[play]} />
+          </R.Button>
+        </Tip>
+        <IconBtn icon="next" size="s" tip="下一段" disabled={single} onClick={() => { const t = L.nextStart(segs, playT); if (t != null) seek(t); }} />
+      </div>
       {/* 片条缩放：与时间线播放条右端同一组（timeline.jsx 的 Transport）——缩小、可点开的百分比、放大；百分比钮弹出菜单。
           不标 ⌘= / ⌘− 快捷键：那组键今天还归时间线的缩放（editor-keys.jsx）。 */}
-      <div className="lt-tport__zoom" role="group" aria-label="片条缩放">
+      <div className="tport__side tport__side--end lt-tport__zoom" role="group" aria-label="片条缩放">
         <IconBtn icon="zoomout" size="s" tip={zoom > 1 ? '缩小' : '已铺满'} disabled={zoom <= 1} onClick={() => zoomTo(L.zoomOut(zoom))} />
         <BCAction className="stp__v tport__zoomv" style={{cursor: 'pointer'}} aria-label={`片条缩放 ${L.zoomLabel(zoom)}，点开选项`} aria-haspopup="menu" aria-expanded={pop === 'ltzoom'}
           onClick={() => setPop(pop === 'ltzoom' ? null : 'ltzoom')}>

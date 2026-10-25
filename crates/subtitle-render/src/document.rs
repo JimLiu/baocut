@@ -82,6 +82,8 @@ pub struct TimedItem {
     pub id: String,
     pub series_index: u32,
     pub text: String,
+    /// 这一句自己的开始（文档里的 `start`，不含 `displayTiming.leadIn`）：分屏段的接缝按它定（视频格式规范 §5.6）。
+    pub start: f64,
     pub display_start: f64,
     pub display_end: f64,
     pub words: Vec<Word>,
@@ -2099,6 +2101,7 @@ pub fn timed_inputs(values: &[TimedInput<'_>], style: &Value) -> Vec<TimedItem> 
                 id: base[index].0.clone(),
                 series_index: index as u32,
                 text: base[index].1.clone(),
+                start: base[index].2,
                 display_start: base[index].2
                     - display_padding(lead_in, previous_gap, lead_in, tail),
                 display_end: base[index].3 + display_padding(tail, next_gap, lead_in, tail),

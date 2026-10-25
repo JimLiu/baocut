@@ -49,6 +49,8 @@ export const tr: EditLabelMessages = {
   editText: 'Metni düzenle',
   nudgePosition: 'Konumu ince ayarla',
   applyFramingToAll: 'Tüm kısa videoya uygula',
+  adjustPanel: 'Paneli ayarla',
+  changeLayout: 'Düzeni değiştir',
   zoomFraming: 'Çerçeveyi yakınlaştır',
   freePlacement: 'Serbest yerleşime geç',
   aspectRatio: (p) => `En boy oranı ${p.ratio}`,

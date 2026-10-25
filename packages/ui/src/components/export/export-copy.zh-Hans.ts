@@ -97,7 +97,7 @@ export const zhHans: ExportMessages = {
   letterboxedTo: (ratio: string) => `${ratio} 加黑边`,
   letterboxNote: '换了画幅不裁切：画面按视频自己的比例放到最大、居中，其余是黑边；画面里的排版不按新画幅重排',
   size: '体积',
-  upscaleNote: (label: string) => `分辨率最高到原始 ${label} · 往上只是放大，画面不会更清楚`,
+  upscaleNote: (label: string) => `原视频是 ${label} · 选更高只是把视频放大，不会更清楚；字幕和文字仍然清晰`,
   pictureLanes: '画面里有什么',
   burnCaptions: '把字幕烧进画面',
   burnCaptionsFor: (label: string) => `把字幕烧进画面：${label}`,

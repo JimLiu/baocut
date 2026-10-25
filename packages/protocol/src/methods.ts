@@ -764,6 +764,8 @@ export interface RpcMethods {
   /**
    * 镜头切换（架构设计 §3.5「镜头切换」，工具 `videos_shots`）：剪辑后时间线一段区间里画面的切换点与镜头。只读，不写文件。
    * 区间超过 20 分钟、终点不大于起点时 `invalid-request`（`details.code` 为 `SHOTS_RANGE_TOO_LONG`、`SHOTS_RANGE_EMPTY`）；没装 ffmpeg 时 `internal`。
+   * `by: "speaker"` 跟不了说话人时 `unsupported`（`details.code` 为 `SHOTS_NO_SPEAKERS`、`SHOTS_NOT_SINGLE_CAMERA`、
+   * `SHOTS_SPEAKERS_UNMATCHED`、`SHOTS_FACES_UNAVAILABLE`，docs/design/shorts-framing §2.5）。
    */
   'videos.shots': {
     params: VideoShotsParams;
@@ -970,7 +972,9 @@ export interface RpcMethods {
   'models.repair': { params: { bundleId: string; confirmBytes?: number; commandId?: Id }; result: ModelInstallResult };
   /**
    * 检查：用随附的固定样本走一遍完整的 Worker 流程（加载、识别或合成、核对输出），结论记在模型包状态的 `selfTest` 上
-   * （没通过时带 `code` 与 `facts`）。是一个任务（`kind: 'modelTest'`），失败时 `error.details.check` 是同一个 `code`。
+   * （没通过时带 `code` 与 `facts`）。是一个任务（`kind: 'modelTest'`），失败时 `error.details.check` 是同一个 `code`；
+   * 要用的 ffmpeg 没有能用的时以 `MEDIA_TOOL_UNAVAILABLE` 失败（检查没能跑，不记进 `selfTest`），没有 `details.check`，
+   * `details.remedy` / `remedyRef` 是按平台给的安装说法。
    * 模型包不可用时 `conflict`（`MODEL_UNAVAILABLE`）；随应用分发的样本读不出来时 `conflict`（`APP_FILE_MISSING`）。
    */
   'models.test': { params: { bundleId: string; commandId?: Id }; result: { jobId: Id } };

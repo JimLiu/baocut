@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CaptionItem, DocumentRecord, Sequence, Track, VideoItem } from '@baocut/protocol';
 import { captionChips } from './caption-tracks.ts';
-import { readSpeechWords, speechCaptionBody } from './speech-cues.ts';
+import { CUE_PARAMS, displayWidth, readSpeechWords, speechCaptionBody } from './speech-cues.ts';
 import type { TranslationUnit } from './translation-doc.ts';
 import {
   compareOptions,
@@ -10,10 +10,13 @@ import {
   cueOfUnit,
   derivedFrom,
   pairedOriginal,
+  pairedTranslation,
   retextCaption,
+  sharedCaptionStyle,
   translationCaptionOperations,
   translationCues,
   TRANSLATION_CAPTION_EXTENSION,
+  unbuiltOriginals,
 } from './translation-cues.ts';
 
 const base = { enabled: true, locked: false, paintOrder: 0, followPolicy: { kind: 'sequence-fixed' as const } };
@@ -141,6 +144,76 @@ describe('译文 → 字幕条', () => {
   });
 });
 
+describe('译文切条：成对符号里不切，太短的条并进同一句（中文、英文、日文）', () => {
+  /** 十个词均匀铺满 `seconds` 秒的原文；对齐到全部十个词的单元，时间就是 [0, seconds]。 */
+  const even = (seconds: number) =>
+    readSpeechWords({
+      ...speechBody,
+      words: Array.from({ length: 10 }, (_, i) => ({ id: `e${i}`, start: i * seconds * 100, end: (i + 1) * seconds * 100, text: 'x', speaker: 'A' })),
+    })!;
+  const all = Array.from({ length: 10 }, (_, i) => `e${i}`);
+  const cut = (seconds: number, text: string) => translationCues(even(seconds), [unit('t-s-e0', all, text)]);
+  const longEnough = (cue: { start: number; end: number }) => cue.end - cue.start >= CUE_PARAMS.minCueDisplaySec - 1e-9;
+  const fits = (cue: { text: string }) => displayWidth(cue.text) <= CUE_PARAMS.maxChars + CUE_PARAMS.overflowSlack;
+
+  it('放得进一行的书名号、引号整段留在一条里（中文《》、日文『』、英文弯引号与直引号）；每条不短于 1 秒，拼回去与原文相同', () => {
+    for (const [seconds, text, span] of [
+      [3, '他认为狄更斯的小说《大卫·科波菲尔》不过是业余作者的粗劣之作，毫无价值。', '《大卫·科波菲尔》'],
+      [6, 'ウルフは日記に、ディケンズの『デイヴィッド・コパフィールド』は素人の下手な作品にすぎないと書いた。', '『デイヴィッド・コパフィールド』'],
+      [4, 'Woolf’s essay says the novel ‘David Copperfield’ is the clumsy work of an amateur.', '‘David Copperfield’'],
+      [6, 'Woolf wrote in her diary that "David Copperfield" was merely the clumsy work of an amateur.', '"David Copperfield"'],
+    ] as const) {
+      const cues = cut(seconds, text);
+      const shown = cues.map((c) => c.text).join('|');
+      expect(cues.length, shown).toBeGreaterThan(1);
+      expect(cues.some((c) => c.text.includes(span)), shown).toBe(true);
+      expect(cues.every(longEnough), shown).toBe(true);
+      expect(cues.every(fits), shown).toBe(true);
+      expect(cues.map((c) => c.text).join(/[a-z]/i.test(text) ? ' ' : '')).toBe(text);
+    }
+  });
+
+  it('撇号不当引号：弯撇号（Woolf’s）与直撇号切在同样的地方', () => {
+    const curly = cut(6, 'It’s Woolf’s view that Dickens’s novel isn’t worth a reader’s time, and she’s blunt about it.');
+    const straight = cut(6, "It's Woolf's view that Dickens's novel isn't worth a reader's time, and she's blunt about it.");
+    expect(curly.length).toBeGreaterThan(1);
+    expect(curly.map((c) => c.text.replaceAll('’', "'"))).toEqual(straight.map((c) => c.text));
+  });
+
+  it('太短的问句并进同一句的下一条（「绞刑架？」可以用满溢出余量）；并不进去时从下一条挪词过来', () => {
+    const gallows = '绞刑架？那是一种在大庭广众之下把人处死的可怕刑具。';
+    expect(displayWidth(gallows)).toBe(CUE_PARAMS.maxChars + CUE_PARAMS.overflowSlack);
+    expect(cut(3, gallows).map((c) => [c.text, c.start, c.end])).toEqual([[gallows, 0, 3]]);
+    expect(cut(3, 'Gallows? It is a terrible device for killing people in public.').map((c) => c.text)).toEqual([
+      'Gallows? It is a terrible',
+      'device for killing people in public.',
+    ]);
+    const ja = cut(3, '絞首台？それは大勢の前で人を処刑するための恐ろしい道具だ。');
+    expect(ja.length).toBe(2);
+    expect(ja[0]!.text.startsWith('絞首台？そ')).toBe(true);
+    expect(ja.every(longEnough) && ja.every(fits)).toBe(true);
+    expect([ja[0]!.start, ja.at(-1)!.end]).toEqual([0, 3]);
+  });
+
+  it('整段宽过一行的引号照样在里面切', () => {
+    const text = '她说：「这部小说写得像一个业余作者匆匆忙忙拼凑出来的粗劣之作，毫无价值，根本不值得任何人花时间去读」，然后走了。';
+    const cues = cut(4, text);
+    expect(cues.some((c) => c.text.includes('「') && !c.text.includes('」'))).toBe(true);
+    expect(cues.every(fits) && cues.every(longEnough)).toBe(true);
+    expect(cues.map((c) => c.text).join('')).toBe(text);
+  });
+
+  it('不跨句并：一个单元自己再短也单独成条，各句的时间范围不变', () => {
+    const cues = translationCues(even(3), [
+      unit('t-s-e0', all.slice(0, 8), 'It is a fine day, so we should all go out for a long walk in the park.'),
+      unit('t-s-e8', ['e8'], 'Yes.'),
+    ]);
+    const of = (id: string) => cues.filter((c) => c.id === `q-${id}` || c.id.startsWith(`q-${id}~`));
+    expect(of('t-s-e8').map((c) => [c.text, c.start, c.end])).toEqual([['Yes.', 2.4, 2.7]]);
+    expect([of('t-s-e0')[0]!.start, of('t-s-e0').at(-1)!.end]).toEqual([0, 2.4]);
+  });
+});
+
 describe('改一句译文 → 只换字幕里这一句的几条', () => {
   const units = [unit('t-s-w1', ['w1', 'w2'], 'Fine.'), unit('t-s-w10', ['w3', 'w4'], 'Go.')];
   const body = speechCaptionBody(translationCues(speech, units), speech.speakers);
@@ -257,6 +330,46 @@ describe('放到画面上的事务', () => {
     const ours = doc('cap', 'caption', { sourceDocumentId: 'trans', extensions: { [TRANSLATION_CAPTION_EXTENSION]: { translationDocumentId: 'trans' } } });
     expect(derivedFrom(ours, 'trans')).toBe(true);
     expect(derivedFrom(doc('cap2', 'caption', { sourceDocumentId: 'trans' }), 'trans')).toBe(false);
+  });
+});
+
+describe('只有译文字幕时用转写建原文层（虚线「原文」chip）', () => {
+  const documents: Record<string, DocumentRecord> = {
+    speech: doc('speech', 'speech', { sourceAssetId: 'asset', name: '访谈.mp4' }),
+    trans: doc('trans', 'translation', { sourceDocumentId: 'speech', language: 'en' }),
+    enCap: doc('enCap', 'caption', { sourceDocumentId: 'trans', language: 'en' }),
+    orig: doc('orig', 'caption', { sourceDocumentId: 'speech' }),
+    old: doc('old', 'speech', { sourceAssetId: 'asset' }),
+  };
+  const tracks = [track('v1', 0, 'visual'), track('s1', 1, 'subtitle'), track('s2', 2, 'subtitle')];
+
+  it('译文字幕顺着派生找到的转写没有原文字幕：列出它，配上那条译文；没有译文字幕的旧转写不列', () => {
+    const seq = sequence([caption('e1', 's1', 'enCap', { styleDocumentId: 'style' })], tracks);
+    const chips = captionChips(seq, documents);
+    expect(unbuiltOriginals(chips, documents)).toEqual([
+      { speechDocumentId: 'speech', assetId: 'asset', name: '访谈.mp4', translation: expect.objectContaining({ documentId: 'enCap' }) },
+    ]);
+    expect(pairedTranslation(chips, documents, 'speech')?.documentId).toBe('enCap');
+    expect(pairedTranslation(chips, documents, 'old')).toBeNull();
+  });
+
+  it('原文字幕已经有了（拿下的也算）：不列', () => {
+    const seq = sequence([caption('e1', 's1', 'enCap'), caption('o1', 's2', 'orig', { enabled: false })], tracks);
+    expect(unbuiltOriginals(captionChips(seq, documents), documents)).toEqual([]);
+  });
+
+  it('共用样式：译文有样式就用它；没有就新建一份，译文一起换上；译文锁住且没样式时各用各的', () => {
+    const styled = captionChips(sequence([caption('e1', 's1', 'enCap', { styleDocumentId: 'style' })], tracks), documents)[0]!;
+    expect(sharedCaptionStyle(sequence([], tracks), styled)).toEqual({ operations: [], style: { styleDocumentId: 'style' } });
+
+    const bare = captionChips(sequence([caption('e1', 's1', 'enCap')], tracks), documents)[0]!;
+    const fresh = sharedCaptionStyle(sequence([], tracks), bare);
+    expect(fresh.operations.map((op) => op.type)).toEqual(['putDocument', 'setCaptionStyle']);
+    expect(fresh.operations[1]).toMatchObject({ itemId: 'e1', styleDocument: { ref: 'original-style' } });
+    expect(fresh.style).toEqual({ styleDocumentRef: 'original-style' });
+
+    const locked = captionChips(sequence([caption('e1', 's1', 'enCap', { locked: true })], tracks), documents)[0]!;
+    expect(sharedCaptionStyle(sequence([], tracks), locked)).toEqual({ operations: [], style: null });
   });
 });
 

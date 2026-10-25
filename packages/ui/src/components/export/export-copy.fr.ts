@@ -96,7 +96,7 @@ export const fr: ExportMessages = {
   letterboxedTo: (ratio: string) => `${ratio} avec bandes noires`,
   letterboxNote: "Changer le format ne recadre pas : image agrandie à son rapport, centrée avec bandes noires ; la mise en page n’est pas réorganisée.",
   size: "Taille",
-  upscaleNote: (label: string) => `La résolution est limitée à l’original ${label} · au-delà, simple agrandissement sans netteté supplémentaire`,
+  upscaleNote: (label: string) => `La vidéo d’origine est en ${label} · au-delà, la vidéo est simplement agrandie, sans netteté supplémentaire ; les sous-titres et le texte restent nets`,
   pictureLanes: "Contenu de l’image",
   burnCaptions: "Incruster les sous-titres dans l’image",
   burnCaptionsFor: (label: string) => `Sous-titres incrustés : ${label}`,

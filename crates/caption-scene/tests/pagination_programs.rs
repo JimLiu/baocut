@@ -5,6 +5,7 @@ fn fixture(name: &str) -> Value {
     let text = match name {
         "select" => include_str!("fixtures/pattern-select.json"),
         "isolation" => include_str!("fixtures/keyword-isolation.json"),
+        "runs" => include_str!("fixtures/tag-run-isolation.json"),
         _ => include_str!("fixtures/word-line-layout.json"),
     };
     serde_json::from_str(text).unwrap()
@@ -47,11 +48,16 @@ fn old_word_line_documents_serialize_without_new_fields() {
     let pagination = serde_json::to_value(&style.scene().layout.pagination).unwrap();
     assert!(pagination.get("patternSelect").is_none());
     assert!(pagination.get("isolation").is_none());
+    assert!(pagination.get("tagRuns").is_none());
 }
 
 #[test]
 fn pagination_programs_require_their_capabilities() {
-    for (name, capability) in [("select", "caption-pattern-select/1"), ("isolation", "caption-keyword-isolation/1")] {
+    for (name, capability) in [
+        ("select", "caption-pattern-select/1"),
+        ("isolation", "caption-keyword-isolation/1"),
+        ("runs", "caption-tag-run-isolation/1"),
+    ] {
         let err = edit(name, |scene| {
             scene["requiredCapabilities"].as_array_mut().unwrap().retain(|c| c != capability);
         })
@@ -158,5 +164,75 @@ fn pagination_programs_are_exclusive_with_the_other_word_plans() {
             .unwrap_err();
             assert_eq!(err.code, "CAPTION_SCENE_INVALID", "{name} {field}: {}", err.detail);
         }
+    }
+}
+
+#[test]
+fn tag_runs_round_trip_and_accept_both_modes_on_width_wrapped_pages() {
+    let style = parse_style(&fixture("runs")).unwrap();
+    let runs = style.scene().layout.pagination.tag_runs.clone().unwrap();
+    assert_eq!((runs.tag.as_str(), runs.mode), ("keyword", TagRunMode::Line));
+    let again: Scene = serde_json::from_str(&serde_json::to_string(style.scene()).unwrap()).unwrap();
+    assert_eq!(&again, style.scene());
+    for pagination in [
+        json!({"tagRuns": {"tag": "keyword", "mode": "page"}}),
+        json!({"maxUnitsPerPage": 4, "tagRuns": {"tag": "keyword", "mode": "page"}}),
+        json!({"maxUnitsPerLine": 2, "tagRuns": {"tag": "keyword", "mode": "line"}}),
+    ] {
+        let accepted = edit("runs", |s| s["layout"]["pagination"] = pagination.clone());
+        assert!(accepted.is_ok(), "{pagination}: {:?}", accepted.err());
+    }
+    // Only line and page are modes; anything else fails schema parsing instead of falling back.
+    assert!(edit("runs", |s| s["layout"]["pagination"]["tagRuns"]["mode"] = json!("none")).is_err());
+    assert!(edit("runs", |s| s["layout"]["pagination"]["tagRuns"]["extra"] = json!(1)).is_err());
+}
+
+#[test]
+fn tag_runs_need_a_bounded_tag_and_no_fixed_or_isolated_plan() {
+    let fit = json!({"lastLineWidthRatio": 0.5, "lastLineMaxScale": 1.3, "extraLineHeight": 0.1});
+    let mut cases: Vec<(&str, Box<dyn FnOnce(&mut Value)>)> = vec![
+        ("empty tag", Box::new(|s| s["layout"]["pagination"]["tagRuns"]["tag"] = json!(""))),
+        ("long tag", Box::new(|s| s["layout"]["pagination"]["tagRuns"]["tag"] = json!("t".repeat(65)))),
+        (
+            "isolation",
+            Box::new(|s| {
+                s["requiredCapabilities"].as_array_mut().unwrap().push(json!("caption-keyword-isolation/1"));
+                s["layout"]["pagination"]["isolation"] = json!([{"tag": "keyword", "mode": "line"}]);
+            }),
+        ),
+    ];
+    for (field, value) in [
+        ("wordLinePattern", json!([[2]])),
+        ("wordPagePattern", json!([2])),
+        ("tailWordRule", json!("join-previous-line")),
+        ("remainingWordPagePlans", json!([[1], [2]])),
+        ("fixedLineOverflow", json!("wrap")),
+        ("fixedLineFit", fit),
+        ("pageTags", json!([1])),
+        ("lastPageRule", json!({"ifRowCountIs": 1, "previousPageLines": [2]})),
+        ("textLinePattern", json!({"unit": "grapheme", "lines": [[4]]})),
+    ] {
+        cases.push((
+            field,
+            Box::new(move |s| {
+                s["requiredCapabilities"].as_array_mut().unwrap().extend(
+                    [
+                        "caption-word-page-layout/1",
+                        "caption-word-line-layout/1",
+                        "caption-text-line-layout/1",
+                        "caption-word-line-tail-join/1",
+                        "caption-remaining-word-page-plan/1",
+                        "caption-fixed-line-wrap/1",
+                        "caption-fixed-line-fit/1",
+                        "caption-page-tag/1",
+                    ]
+                    .map(Value::from),
+                );
+                s["layout"]["pagination"][field] = value;
+            }),
+        ));
+    }
+    for (name, case) in cases {
+        assert_eq!(invalid("runs", case), "CAPTION_SCENE_INVALID", "{name}");
     }
 }

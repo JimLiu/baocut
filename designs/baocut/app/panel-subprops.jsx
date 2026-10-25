@@ -380,6 +380,11 @@
                 </BCDisclosure>
                 <ValueRow label="水平位置" value={ln.x == null ? 50 : ln.x} min={0} max={100} unit="%" onChange={(x) => set({x})} />
                 <ValueRow label="宽度" value={ln.width == null ? 80 : ln.width} min={30} max={100} unit="%" onChange={(width) => set({width})} />
+                {/* 分屏段的接缝（格式规范 §5.6）是整份样式的开关，不分轨：时间线上有分屏画面、或者关掉过才露出来 */}
+                {st.panelSeam === false || window.BC_PANELS.spansOf(ctx.elements, ctx.elDocs, D.DUR).length ? (
+                  <PRow label="分屏"><Switch ariaLabel={window.BC_PANELS.COPY.seam} on={st.panelSeam !== false}
+                    onChange={(panelSeam) => ctx.setSubStyle({panelSeam})} /><span>{window.BC_PANELS.COPY.seam}</span></PRow>
+                ) : null}
               </div>
             </React.Fragment>
           );

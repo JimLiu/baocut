@@ -118,48 +118,16 @@ test('标注落点：哪一段、哪一句，与给人看的写法', () => {
   assert.equal(L.contextLabel({}), '');
 });
 
-test('片式段条：播放头只落在当前片上，拖边预览把后面的场景推开', () => {
+test('片式段条：播放头只落在当前片上，悬停线落在悬停的那片', () => {
   const segs = L.segments({scenes: [
     {id: 'a', title: 'A', start: 0, end: 10, lines: [{start: 0, end: 8, text: 'x'}]},
     {id: 'b', title: 'B', start: 10, end: 20},
   ], duration: 20});
-  const chips = L.chipSpans(segs, 12, 20, 15, null);
+  const chips = L.chipSpans(segs, 12, 20, 15);
   assert.deepEqual(chips.map(c => c.head), [null, 0.2]);
   assert.deepEqual(chips.map(c => c.hover), [null, 0.5]);
-  assert.deepEqual(chips.map(c => c.resizable), [true, true]);
-  const dragged = L.chipSpans(segs, 12, 20, null, {index: 0, end: 15});
-  assert.deepEqual(dragged.map(c => [c.start, c.end]), [[0, 15], [15, 25]]);
-  assert.ok(Math.abs(dragged[0].flex - 15 / 25) < 1e-9);
-});
-
-test('场景改时长：不能短过旁白末句 + tail，后面的场景与字幕整体平移', () => {
-  const scenes = [
-    {id: 'a', title: 'A', start: 0, end: 10, lines: [{start: 0, end: 8, text: 'x'}]},
-    {id: 'b', title: 'B', start: 10, end: 20, lines: [{start: 1, end: 3, text: 'y'}]},
-  ];
-  assert.equal(L.minSceneLength(scenes[0]), 8.4);
-  const shrink = L.retimeScene(scenes, 0, 5);
-  assert.equal(shrink.scenes[0].end, 8.4);
-  assert.equal(shrink.delta, -1.6);
-  assert.deepEqual([shrink.scenes[1].start, shrink.scenes[1].end], [8.4, 18.4]);
-  assert.equal(shrink.scenes[0].durationOwner, 'user');
-  assert.equal(L.retimeScene(scenes, 0, 10), null);
-  const grow = L.retimeScene(scenes, 0, 12.5);
-  assert.deepEqual(L.chaptersOf(grow.scenes).map(c => [c.start, c.end]), [[0, 12.5], [12.5, 22.5]]);
-  const cues = [{id: 'c1', start: 2, end: 4}, {id: 'c2', start: 11, end: 13}];
-  assert.deepEqual(L.shiftAfter(cues, 10, grow.delta).map(c => [c.start, c.end]), [[2, 4], [13.5, 15.5]]);
-});
-
-test('拖边的范围：场景到旁白末句 + tail 为止、没有上限；章节两边各留 1 秒；末章没有', () => {
-  const sc = L.segments({scenes: [
-    {id: 'a', title: 'A', start: 0, end: 10, lines: [{start: 0, end: 8, text: 'x'}]},
-    {id: 'b', title: 'B', start: 10, end: 20},
-  ], duration: 20});
-  assert.deepEqual(L.resizeBounds(sc, 0), {min: 8.4, max: Infinity});
-  assert.deepEqual(L.resizeBounds(sc, 1), {min: 11, max: Infinity});
-  const ch = L.segments({chapters: [{id: 'c1', title: '一', start: 0, end: 10}, {id: 'c2', title: '二', start: 10, end: 20}], duration: 20});
-  assert.deepEqual(L.resizeBounds(ch, 0), {min: 1, max: 19});
-  assert.equal(L.resizeBounds(ch, 1), null);
+  assert.deepEqual(chips.map(c => [c.start, c.end, c.flex]), [[0, 10, 0.5], [10, 20, 0.5]]);
+  assert.ok(chips.every(c => !('resizable' in c)));
 });
 
 test('片条缩放：1 倍起每档 ×1.5、顶到 8 倍；放大后播放头出了视野才滚', () => {
@@ -186,10 +154,25 @@ test('播放条时钟：分不补零、秒不带小数、有小时才写小时',
   assert.deepEqual([0, 29.4, 180, 3723.6, -2].map(L.fmtClock), ['0:00', '0:29', '3:00', '1:02:04', '0:00']);
 });
 
-test('章节挪边界：总长不变，两边各留 1 秒，末章拖不动', () => {
-  const ch = [{id: 'c1', title: '一', start: 0, end: 10}, {id: 'c2', title: '二', start: 10, end: 20}];
-  assert.deepEqual(L.moveChapterBoundary(ch, 0, 14).map(c => [c.start, c.end]), [[0, 14], [14, 20]]);
-  assert.deepEqual(L.moveChapterBoundary(ch, 0, 25).map(c => [c.start, c.end]), [[0, 19], [19, 20]]);
-  assert.equal(L.moveChapterBoundary(ch, 0, 10), null);
-  assert.equal(L.moveChapterBoundary(ch, 1, 30), null);
+test('循环：整片是整条，当前段是播放头所在的段，不循环为 null', () => {
+  const segs = [{start: 0, end: 10}, {start: 10, end: 25}];
+  assert.equal(L.LOOP_DEFAULT, 'whole');
+  assert.deepEqual(L.LOOP_MODES.map(m => m.k), ['whole', 'segment', 'off']);
+  assert.deepEqual(L.loopRange(segs, 'whole', 12, 25), {start: 0, end: 25});
+  assert.deepEqual(L.loopRange(segs, 'segment', 3, 25), {start: 0, end: 10});
+  assert.deepEqual(L.loopRange(segs, 'segment', 25, 25), {start: 10, end: 25});
+  assert.equal(L.loopRange(segs, 'off', 3, 25), null);
+  assert.equal(L.loopRange([], 'segment', 3, 25), null);
+});
+
+test('当前段循环只在播放走的一步跨过段尾时跳回段首，片尾、倒退与比时钟走得快的大步不跳', () => {
+  const segs = [{start: 0, end: 10}, {start: 10, end: 25}];
+  const step = L.loopMaxStep(1 / 60, 1);
+  assert.equal(L.loopJump(segs, 'segment', 9.99, 10.005, 25, step), 0);
+  assert.equal(L.loopJump(segs, 'segment', 9.5, 9.51, 25, step), null);
+  assert.equal(L.loopJump(segs, 'segment', 8, 10, 25, step), null);
+  assert.equal(L.loopJump(segs, 'segment', 24.99, 25, 25, step), null);
+  assert.equal(L.loopJump(segs, 'whole', 9.99, 10.005, 25, step), null);
+  assert.equal(L.loopJump(segs, 'segment', 9.2, 10.2, 25, L.loopMaxStep(1, 1)), 0);
+  assert.equal(L.loopJump(segs, 'segment', 8.5, 10.5, 25, L.loopMaxStep(1, 1)), null);
 });

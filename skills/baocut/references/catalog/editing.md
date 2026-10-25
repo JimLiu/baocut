@@ -29,8 +29,9 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 - {{arg:label}} 写一句简短说明，显示在历史与撤销里（例如「删掉开头的寒暄」）。
 - 相关的几步放进同一笔：用户说「不要那一批」时一次撤销就退回去。同一笔里后面的操作可以用 `ref` 引用前面 `importAsset` 导入的素材。
 - 时间写秒数（`1.5`），也可以写 `{"unit":"frames","value":30}`。
+- 回执的 `createdIds` 是这一笔新建的全部对象，按 ID 前缀分辨种类（`item_`、`track_`、`asset_`、`doc_`），**不按操作或 `items` 的顺序排**。一笔插了几个片段、接着要按片段做事（加转场、调次序）时，用 {{tool:videos_inspect}} 按轨道与起点认回各自的 ID。
 
-已有文档只修改局部时用 `renameSpeakers`（姓名）、`updateWords`（词文本）或 `patchDocument`（字幕、译文、章节、换行、样式等）。先用 {{tool:edits_ops}} 查询操作格式，按稳定 ID 提交变化，保持 `expectedRevision` 与编辑依据一致。不要为改几个名字或校订几个词上传整份文稿；`putDocument` 留给新建或整体替换。
+已有文档只修改局部时用 `renameSpeakers`（姓名）、`updateWords`（词文本）或 `patchDocument`（字幕、译文、章节、换行、样式等）。先用 {{tool:edits_ops}} 查询操作格式，按稳定 ID 提交变化（`patchDocument` 的路径从正文里面算起：{{tool:documents_read}} 返回的 `body.cues` 写成 `["cues",{"id":…},"text"]`，不带 `body`；路径错了预检发现不了，提交时才报 `path-missing`），保持 `expectedRevision` 与编辑依据一致。不要为改几个名字或校订几个词上传整份文稿；`putDocument` 留给新建或整体替换。
 
 ### 先预检
 
@@ -47,8 +48,8 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 
 | 族 | 操作 | 做什么 |
 | --- | --- | --- |
-| 素材 | `importAsset`、`collectAssets` | 登记素材（链接或复制进视频）；把链接的素材收进视频 |
-| 片段 | `addItem`、`moveItem`、`moveItems`、`trimItem`、`splitItem`、`joinItems`、`deleteItems`、`updateItem` | 放上时间线、挪、裁、拆、合、删（留空隙）、改名与启用、跟随策略 |
+| 素材 | `importAsset`、`collectAssets`、`removeAssets` | 登记素材（链接或复制进视频）；把链接的素材收进视频；删掉没有引用的素材 |
+| 片段 | `addItem`、`moveItem`、`moveItems`、`trimItem`、`splitItem`、`joinItems`、`deleteItems`、`updateItem`、`arrangeItem` | 放上时间线、挪、裁、拆、合、删（留空隙）、改名与启用、跟随策略；调整画面的叠放次序 |
 | 波纹 | `removeRange`、`insertRange` | 删掉一段时间并让后面的前移，或空出一段时间让后面的后移；要一起动的配音、字幕轨都要列上 |
 | 画面 | `setTransform`、`setStyle`、`setEffects`、`setSpeed` | 位置与大小、铺满或画中画、裁切与外观、调色与效果、恒定变速 |
 | 文字 | `setText` | 改文字片段的文字或改成计时读数 |
@@ -56,7 +57,7 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 | 转场 | `setTransition`、`removeTransition` | 片段之间或单侧的转场 |
 | 章节 | `setChapters`、`upsertChapter`、`removeChapter` | 整个替换或逐章修改章节 |
 | 剪口 | `proposeCuts`、`acceptCutSuggestions`、`addCuts`、`restoreCut` | 生成口癖与停顿的剪辑提案、接受建议、直接剪、恢复 |
-| 轨道与画布 | `addTrack`、`updateTrack`、`updateSequence` | 加轨道、锁定与隐藏、画布尺寸与底色 |
+| 轨道与画布 | `addTrack`、`updateTrack`、`moveTrack`、`deleteTrack`、`updateSequence` | 加轨道、锁定与隐藏、挪动与删除轨道、画布尺寸与底色 |
 | 文档与历史 | `patchDocument`、`renameSpeakers`、`updateWords`、`putDocument`、`createCheckpoint`、`renameVideo`、`setVideoBrief` | 写文档、留检查点、改视频名、写视频速览 |
 
 常用操作（由目录生成）：
@@ -113,6 +114,12 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 字幕层用 {{tool:captions_create}} 建，不是这里的操作；剪掉一段并让后面前移用 `removeRange`，空出一段让后面后移用 `insertRange`，口播的剪口用 `addCuts`。其余操作与每个字段的写法用 {{tool:edits_ops}} 取。
 <!-- /generated -->
 
+**换片段的素材**（重截的背景图、重剪的视频）：没有原地换素材的操作，代码画面除外（`replaceCodeBundle`）。编辑器的「替换」也是这样做的：一笔里 `importAsset` 导入新文件（带 `ref`），`deleteItems` 删掉旧片段，`insertItems` 在同一条轨道、同一个起点按原来的字段写回，只把 `assetRef` 换成 `assetImportRef`（素材库里已有的素材给 `assetRef`）。一次撤销就能退回。
+
+- 视频与音频的 `timeMap` 说从新素材哪一刻起放，片段长度不能超过新素材剩下的那段，不够长时引擎整笔拒绝。
+- 写回的片段是新 ID。挂在旧片段上的转场被删掉（回执的 `removedTransitions`），要的话按新 ID 再 `setTransition`。按旧片段投影的字幕（`scopeItemIds`）与以它为触发或目标的闪避规则也对不上了，要一并改。
+- {{tool:videos_inspect}} 只列效果的名字，不列取值，也不列关键帧。片段上有你没写过的效果或动画时，按摘要写回会丢掉它们：告诉用户在编辑器的素材库里对这个素材用「替换…」，那里原样保留。
+
 ### 一次放好制作计划：{{tool:edits_assemble}}
 
 旁白按段配、画面按段上时间线的片子（讲解、解说混剪、旁白片）不用一段一段 `importAsset` 与 {{tool:compositions_import}}：把制作计划写成 {{arg:plan}}，或 {{arg:planFile}} 指向一份 JSON（里面的相对路径按它所在目录解析），一次放好。
@@ -130,8 +137,8 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 跟着声音起伏的声波和进度条是 BaoCut 的内置元素：引擎逐帧画，预览与导出一致，用户在编辑器的属性页里能换款、改色、挪位置。一笔 {{tool:edits_apply}} 的 `insertItems` 放上，马上出现在画面上。声波**只用**这个内置元素：不写代码包、不按 {{skill:motion-graphics}} 写 HTML、不自己分析音量或逐帧渲染，整段音频要渲染很久，用户也改不了；用户要的样子内置款式里没有时，挑最接近的款改色、挪位置，告诉用户能调哪些。
 
 - **声波**：`{"type":"visualizer","visualizer":{"style":…}}`。横条款有 `audio_envelope`（默认）、`bars`、`bars_rounded`、`bars_bottom`、`spectrum_area`、`oscilloscope`、`ribbons`、`dots`，正方款有 `ring_bars`、`ring_wave`、`pulse_rings`。`mainColor`、`secondaryColor`（`#RRGGBB`）不写时用这一款的配色。缺省跟着整条序列混好的声音动；只在某位说话人说话时动给 `speaker`。
-- **默认声波**：`audio_envelope` 是播放头前后约 5.4 秒的真实音量包络，121 根细圆柱上下对称，固定中线左侧为已播放青绿、右侧为未播放灰色，下方带片段进度与起止时间。默认 `mainColor` 为 `#7FE0CF`、`secondaryColor` 为 `#54616B`；可改色、换款、移动与缩放。它读取音频缓存的时域 RMS，不是瞬时频谱，dB 窗与频谱平滑不参与；无需代码包与全片烘焙。用户没指定声波样式时使用它；有字幕时用 `place` 居中到 `y:54`、`w:85`，并按 `scaleY = (画布宽 × 0.85 × 340) / (1632 × 画布高 × 0.2)` 保持参考比例；1920×1080 时约为 `1.574074`。
-- **进度条**：`{"type":"progress","progress":{"style":…}}`，`style` 如 `normal`、`rounded`、`circle`；在片段时长里从头走到尾。
+- **默认声波**：`audio_envelope` 是播放头前后约 5.4 秒的真实音量包络，121 根细圆柱上下对称，固定中线左侧为已播放青绿、右侧为未播放灰色，下方带片段进度与起止时间。默认 `mainColor` 为 `#7FE0CF`、`secondaryColor` 为 `#54616B`；可改色、换款、移动与缩放。它读取音频缓存的时域 RMS，不是瞬时频谱，dB 窗与频谱平滑不参与；无需代码包与全片烘焙。用户没指定声波样式时使用它；有字幕时用 `place` 居中到 `y:54`、`w:85`，并按 `scaleY = (画布宽 × 0.85 × 340) / (1632 × 画布高 × 0.2)` 保持参考比例；1920×1080 时约为 `1.574074`。版面另有计时，或声波收窄后下方的小字看不清时，`visualizer` 里写 `"readout": false`，去掉进度线与起止时间，只留细柱与中线。
+- **进度条**：`{"type":"progress","progress":{"style":…}}`，只看播放头，在片段时长里从头走到尾。横条款有 `normal`、`rounded`；正方款有 `circle`、`donut`、`snake`、`snake_spin`、`snake_rainbow`、`snake_spin_rainbow`；画面四周的边框款有 `border`、`reverse_border`、`rainbow_border`、`reverse_rainbow_border`、`strobe_border`、`reverse_strobe_border`。`mainColor`、`secondaryColor`（`#RRGGBB`，可带透明度 `#RRGGBBAA`）是这一款的两种颜色，多数款前者是走过的那段、后者是底，不写时用这一款的配色；两款彩虹边框的颜色固定，两款彩虹游走只有底色（写在 `mainColor`）。`startProgress`、`endProgress` 是起止的值（0–1），起点大于终点时倒着走。不写 `place` 时：横条款 `w` 80、高为画面的 5%，正方款 `w` 30，边框款铺满。
 - **时长与轨道**：`span` 从第 0 帧铺到序列末尾（{{tool:videos_inspect}} 的 `sequence.durationFrames`）。同一条轨道上的片段不能重叠：画面轨上已有背景时，同一笔里先 `addTrack`（`kind` 为 `visual`，给 `ref`），再用 `trackRef` 指向它；新轨道排在最上面，盖在背景之上。
 - **落位**（`place`）：`x`、`y` 是框中心在画面宽、高上的百分比，`w` 是框宽占画面宽的百分比（正方款按画面短边）。不写时按种类的缺省：声波横条宽铺满、高为画面的 20%，中心在 `y` 85，正好压在字幕的默认位置（中线在画面高 86%）上；正方款 `w` 30。画面上有字幕时把声波挪开，例如居中 `{"y":50,"w":70}`。
 
@@ -164,6 +171,8 @@ description: 时间线修改的机制：一笔修改的事务与版本、预检�
 {{tool:videos_derive}} 把父视频的一段建成旁边的一个可编辑子视频（做法见 {{skill:shorts-segments}}）。{{arg:hook}}、{{arg:reason}}、{{arg:notes}} 写进子视频的派生来源文档（notes 每条至多 80 字、至多 8 条）；结果原样回显文档里记下的 `hook`、`reason`、`notes`，没有的不带。认回已有的子视频（`reused` 为 true）时文档不改写，回显的是原来那份，不是这次传的。要再读一次就用 {{tool:documents_read}} 读结果的 `derivationDocumentId`。
 
 按镜头分别取景时给 {{arg:crops}}：每段 `from`、`to` 是父视频剪辑后时间线上的秒（直接用 {{tool:videos_shots}} 的 `shots`），加这段的四边裁剪。主素材的片段在取景变化处拆开，各带自己的裁剪；结果的 `framing` 是对到帧、截到区间后实际采用的各段，`crops-adjusted` 说明有段被截过或丢掉，`animation-split` 说明拆开的片段有循环动画或音量包络、每段从头算。区间之前、之后的部分沿用第一段、最后一段的取景：恢复首尾的话时放回来的画面跟着那一段，那截若是另一个镜头取景就不对，要在提示牌里说。全屏加 `cover` 的片段里这些裁剪存成取景点（`focalPoint`）：画面一样，源画面不裁，用户之后把画布改回原画幅还能看到完整画面；要改单个片段的取景就用 `setStyle` 的 `focalPoint`；它的 `zoom`（1 到 4，缺省 1）是在铺满之上围着取景点再放大。用户在画布上对这种片段只能改放大，位置跟着取景点。
+
+多人全景要每人一格时，{{arg:crops}} 的那一段写 `{from, to, layout, panels}`：`layout` 是 `rows`（2 或 3 人上下排开）或 `grid`（4 人田字格），`panels` 是每个人要看见的源区域（四边比例）。Runtime 按区域中心从左到右排进格子（最左的人在最上面），换成每格的取景点，主素材的全屏 `cover` 片段写成 `panels`；只在画幅变了、`fit` 为 `cover` 时生效，否则当一人裁剪（`panels-ignored`）。`split-short`（分屏段短于 3 秒）、`panel-upscaled`（某格放大量超过 2.5，会发虚）、`panel-region-cropped`（区域装不下）要如实转述。之后改某一格用 `setStyle` 的 `panels`（整份替换，`null` 换回一人）。
 
 ### 撤销与历史
 

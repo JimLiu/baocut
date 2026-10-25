@@ -33,18 +33,13 @@ const en = {
   chips: 'Segments',
   chipLabel: (title: string, range: string) => `${title}, ${range}. Click to jump, drag to scrub`,
   segmentCount: (n: number) => `${n} segment${n === 1 ? '' : 's'}`,
-  /** 片条上章节边界的把手（轻量编辑器设计 §3.2）：悬停提示、可访问名、秒数、松手后的提示。 */
-  edgeHint: 'Drag to move the boundary with the next chapter',
-  edgeLabel: (title: string, duration: string) =>
-    `End of “${title}”, ${duration}. Drag, or use the arrow keys, to move the boundary with the next chapter`,
-  seconds: (value: string) => `${value}s`,
-  edgeMoved: (title: string, duration: string) => `“${title}” is now ${duration}`,
   /** 走带。 */
   prevSegment: 'Previous segment',
   nextSegment: 'Next segment',
-  restart: 'Play from the beginning',
-  loopOn: 'Loop: on',
-  loopOff: 'Loop: off',
+  loop: 'Loop',
+  loopWhole: 'Loop whole video',
+  loopSegment: 'Loop current segment',
+  loopOff: "Don't loop",
   zoomFit: 'Fit all segments',
   zoomSegment: 'Fit current segment',
   zoomPlayhead: 'Zoom to playhead',

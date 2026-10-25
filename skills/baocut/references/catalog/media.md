@@ -194,6 +194,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 
 - 只看画面突变，不认人：叠化、推拉会漏，闪光可能多报。拿不准的切换点用 {{tool:videos_frames}} 取它前一帧与它本身看一眼。
 - 每个镜头的 `sampleAt` 是 3 个时刻，直接交给 {{tool:videos_frames}} 的 {{arg:at}}；一次最多 24 帧，也就是 8 个镜头。
+- 只有一个固定的全景机位、几个人一直同框时，给 {{arg:by}} `speaker` 按说话人切段：在原片的整份转写里取样、量每张脸嘴部的动静，认出谁是哪张脸，再按转写切成对准一个人或分屏的段（每段至少 3 秒）。转写里要分出 2 个以上说话人；{{arg:split}} 为 `false` 时该分屏的段留在前一个人身上。先按画面切看出是单机位再用；拒绝时 `next` 说怎么退回。
 
 ## 结果怎么读
 
@@ -202,7 +203,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 - {{tool:videos_inspect}} 的 `brief`：写过视频速览时有，`markdown` 是正文（时间链接已换成完整的 `/videos/<videoId>?t=<秒>`），`language` 是正文的语言；没写过时没有这一项。章节（`chapters`）每章带 `href`，写速览的要点时照抄。
 - {{tool:transcode}}：`outputs` 的 `path`（`pipeline.summary.files`）是输出文件，把位置告诉用户。
 - {{tool:videos_frames}}：`frames` 每帧有 `at`、`file`、`width`、`height`、`faces` 与取自哪个片段（`item`）、哪个素材（`asset`）。读 `file` 这张图片。`faces` 是 `[{x, y, w, h, score}]`：框的左上角与宽高，按帧的宽高归一化到 0–1，`score` 0–1，按 score 从高到低；顶层 `detector` 是 `yunet`，检测器不可用时为 null（`faces` 都是空数组）。`file` 为 null 的帧没有 `faces`。
-- {{tool:videos_shots}}：`cuts` 每处有 `at`（新镜头第一帧的秒）、`score`（`edit` 为 null）与 `kind`；`shots` 每个有 `start`、`end` 与 `sampleAt`。
+- {{tool:videos_shots}}：`cuts` 每处有 `at`（新镜头第一帧的秒）、`score`（`edit` 为 null）与 `kind`；`shots` 每个有 `start`、`end` 与 `sampleAt`。按说话人切时没有 `cuts`：`shots` 每段另有 `speaker` 与 `face`（`faces` 的下标，分屏段两项都是 null），另有 `faces [{box, speaker}]`（各取样里的中位脸框，从左到右）、`speakers [{id, name, face, probes, contrast}]` 与 `confidence`。
 - {{tool:assets_import}}：回执里有 `assetId`、`itemId`（没放上时间线时为 null）与新版本。
 - {{tool:assets_search}}：`candidates` 每条有 `source`、`id`、`title`、`kind`、尺寸与时长（archive 与 youtube 没有尺寸）、`author`、`license`、`attribution`（一行署名）、`pageUrl`、`thumbnailUrl` 与 `downloadWith`；`excluded` 是因许可去掉的条数；`sheet` 是接触表（`sheet.cells[i].at` 是候选的序号）；`errors` 是出错的来源。
 - {{tool:assets_download}}：回执里有 `assetId`、`itemId`、`license`、`attribution` 与实际下载的 `file`；给 {{arg:outDir}} 时没有素材，`path` 是存下的文件。网上素材与链接导入的素材在 {{tool:videos_inspect}} 的 `assets[].credit` 里有 `attribution`：成片片尾的署名照它写。
@@ -236,6 +237,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 | `LINK_LOGIN_REQUIRED`、`LINK_COOKIES_UNAVAILABLE` | 视频要登录才能看：请用户先在浏览器里登录这个网站，再到设置 › 视频下载确认勾了那个浏览器（用 `error.details.settingsHref` 写成设置链接），然后重新提交；用户说了用哪个浏览器时也可以带上 {{arg:cookieBrowsers}} 重新提交（{{tool:jobs_retry}} 沿用原来的参数，改了设置也不变）。读不到 Cookie 时照 `remedy` 请用户处理。不要自己找 cookies |
 | `OPEN_MEDIA_LICENSE_EXCLUDED`、`OPEN_MEDIA_LICENSE_UNVERIFIED` | 这条许可不允许剪辑或认不出：换一条检索结果 |
 | `OPEN_MEDIA_TOO_LARGE` | 换一条更短的，或给小一点的 {{arg:maxHeight}} |
+| `OPEN_MEDIA_UNSUPPORTED` | 这一条导入不了：不是视频、图片或音频，或是 Commons 还没有 WebM 转码的 `.ogv`。换一条检索结果 |
 | `OPEN_MEDIA_UNAVAILABLE` | 来源暂时连不上：稍后重试一次，仍不行换来源 |
 | `LINK_UNSUPPORTED` | 这个网站不支持：告诉用户，请他换链接或给本机文件 |
 | `LINK_NETWORK_ERROR` | 网络问题：可以重试一次，仍不行告诉用户 |

@@ -15,15 +15,15 @@ export const ptBR: AiToolsMessages = {
     focus: {
       auto: { label: 'Automático', sub: 'Vê de que lado está quem fala e põe o quadro nessa pessoa; sem ninguém, centralizado' },
       manual: { label: 'Eu defino', sub: 'Depois você posiciona o enquadramento de cada vídeo curto' },
-      speaker: { label: 'Seguir quem fala', sub: 'O enquadramento segue quem estiver falando' },
+      speaker: { label: 'Seguir quem fala', sub: 'Mira em quem fala: se o original alterna closes e planos abertos, segue os planos dele; com uma só câmera aberta, troca de pessoa conforme quem fala e divide quando duas falam ao mesmo tempo ou ninguém fala' },
     },
-    speakerOff: 'Esta versão ainda não tem um modelo de pessoas e falantes',
+    speakerOff: 'A transcrição ainda não separa falantes · use antes “Identificar falantes”',
     tracks: { both: 'Original + tradução', source: 'Só o original', translation: 'Só a tradução' },
     styles: {
       shorts: { label: 'Legendas para vídeos curtos', sub: 'Predefinição integrada que evita os botões da plataforma' },
       video: { label: 'Manter o estilo deste vídeo', sub: 'Mesmo tamanho e posição; os botões da plataforma podem cobri-las' },
     },
-    focusPrompt: { auto: 'automático: pegue quadros espalhados pelo trecho, veja de que lado do quadro está quem fala e coloque o recorte nessa pessoa; se não encontrar ninguém, centralize', manual: 'centralizado por enquanto; eu ajusto cada um depois' },
+    focusPrompt: { speaker: 'seguir quem fala: se o original alterna closes e planos abertos, enquadre por plano; com uma só câmera aberta, corte por falante com videos_shots by speaker e mire em quem estiver falando', auto: 'automático: pegue quadros espalhados pelo trecho, veja de que lado do quadro está quem fala e coloque o recorte nessa pessoa; se não encontrar ninguém, centralize', manual: 'centralizado por enquanto; eu ajusto cada um depois' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Automático: o agente encontra os temas mais fortes que se sustentam sozinhos e decide quantos vídeos curtos fazer e quanto dura cada um, sem enchimento e sem cortar temas pela metade.',
@@ -34,6 +34,7 @@ export const ptBR: AiToolsMessages = {
       `${count === null ? 'Decida quantos vídeos curtos fazer pelos temas que encontrar' : `Faça ${count === 1 ? '1 vídeo curto' : `${count} vídeos curtos`}`}, ${len ? `cada um com ${len.min}–${len.max} segundos` : 'cada um do tamanho que o tema pedir, do gancho de abertura até a ideia se fechar'}, começando e terminando em limites de frase`,
     lineFrame: (ratio, focus) => (ratio ? `Proporção ${ratio}, enquadramento ${focus}` : 'Proporção: manter a original, sem recortar'),
     lineSubtitles: (tracks, style) => `Legendas: ${tracks}, ${style}`,
+    lineSplit: { on: 'Divida planos abertos de várias pessoas em painéis, uma pessoa por painel', off: 'Não divida; mire uma pessoa só também nos planos abertos de várias pessoas' },
     lineSkipDone: 'Pule as partes que já viraram vídeos curtos',
     lineTopic: (topic) => `Procure só nas partes que falam de “${topic}”: encontre-as primeiro com speech_relevant e escolha entre elas`,
     lineDirect: 'Crie os vídeos assim que encontrá-los; não precisa me perguntar antes',

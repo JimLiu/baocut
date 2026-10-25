@@ -184,30 +184,37 @@ test('exportShort：多个视频源取裁切后最高的短边，画幅跟舞台
   assert.equal(X.exportShort(undefined, [null, 'x'], '16:9'), null);
 });
 
-test('resChoices：原始分辨率在首位并带标注，比它高的一档都不给', () => {
+test('resChoices：画布各档加原始分辨率，原始那项带标注；源比画布小时高于它的档照列', () => {
   assert.deepEqual(X.resChoices(1080), [
     {short: 1080, label: '1080p', source: true},
     {short: 720, label: '720p', source: false},
   ]);
   assert.deepEqual(X.resChoices(2160).map((c) => c.short), [2160, 1080, 720]);
   assert.deepEqual(X.resChoices(1440).map((c) => c.label), ['1440p', '1080p', '720p']);
-  // 裁出来只剩 608 短边：能给的只有原始那一档。
-  assert.deepEqual(X.resChoices(608).map((c) => c.short), [608]);
-  // 源尺寸未知：1080 兜底，没有哪一项标「原始」。
+  // 640×360 的原片：1080p、720p 照列（字幕与文字更清楚），360p 是原始。
+  assert.deepEqual(X.resChoices(360), [
+    {short: 1080, label: '1080p', source: false},
+    {short: 720, label: '720p', source: false},
+    {short: 360, label: '360p', source: true},
+  ]);
+  assert.deepEqual(X.resChoices(608).map((c) => [c.short, c.source]), [[1080, false], [720, false], [608, true]]);
+  // 源尺寸未知：画布那几档，没有哪一项标「原始」。
   assert.deepEqual(X.resChoices(null), [
     {short: 1080, label: '1080p', source: false},
     {short: 720, label: '720p', source: false},
   ]);
 });
 
-test('resolveShort：没挑过跟原始走，挑高了夹回来', () => {
+test('resolveShort：没挑过跟原始走，挑的档不在了夹回来', () => {
   assert.equal(X.resolveShort(null, 1080), 1080);
+  assert.equal(X.resolveShort(null, 360), 360, '源比画布小：缺省仍是原始，不是第一档');
   assert.equal(X.resolveShort(null, null), 1080);
   assert.equal(X.resolveShort(720, 1080), 720);
-  // 挑过 4K 之后换了个只有 1080 的源（或把画幅裁小了）：夹回原始那一档。
+  assert.equal(X.resolveShort(1080, 360), 1080, '挑了比源高的画布档就用它');
+  // 挑过 4K 之后换了个只有 1080 的源（或把画幅裁小了）：取不超过它的最大档。
   assert.equal(X.resolveShort(2160, 1080), 1080);
-  assert.equal(X.resolveShort(1080, 608), 608);
-  // 挑的那档已经不在清单里（画幅一变源短边涨了）：取不超过它的最大档。
+  assert.equal(X.resolveShort(1080, 608), 1080);
+  // 挑的那档已经不在清单里、也没有更低的：取最低档。
   assert.equal(X.resolveShort(608, 1080), 720);
 });
 

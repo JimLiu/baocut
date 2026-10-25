@@ -233,6 +233,7 @@ style.lineBox 可显式选择真实字形 face 的字体上下包络，带独立
 | `fixedLineOverflow` / `fixedLineFit` | 固定行超宽时续行，或把一页各行缩放到同宽 | 已生效（`caption-fixed-line-wrap/1`、`caption-fixed-line-fit/1`） |
 | `patternSelect` | 从候选模式集合中按 cue 词数区间或实例 seed 选取一个模式；选择结果冻结进实例数据并进入诊断 | 已生效（`caption-pattern-select/1`；准备阶段由冻结的词数或实例 seed 与 cue id 确定，不写回实例，以 `CAPTION_PATTERN_SELECTED` 报告） |
 | 关键词隔离 | 在候选页构造前，为带 `isolation` 标签的词插入硬边界：`line` 独占一行，`page` 独占一页 | 已生效（`caption-keyword-isolation/1`；限固定词行模式，不与 `lastPageRule` 同用） |
+| 标签段隔离 | 按词是否带标签把词分成连续同状态段，只在状态变化处断开：`line` 显示行不跨段，`page` 页不跨段且页配额逐段重数 | 已生效（`caption-tag-run-isolation/1`；限按宽度换行的默认分页，折行规则在冻结布局、逐采样布局和单元字号重排中相同） |
 
 `patternSelect` 与关键词隔离不和 `wordPagePattern`、`maxUnitsPerLine`、尾词合并、剩余词查表、固定行续行或缩放、页标签同用：这些规则都会改写固定行的成员或几何，与选模式、插边界叠加时的先后顺序还没有定义，校验直接拒绝。隔离只在词边界插入边界，不拆词；隔离后仍超出每页上限时按溢出策略处理，不静默放宽上限。选择器的 `index/count` 按最终成员计算，错开序号不因隔离产生空位。
 
@@ -505,6 +506,7 @@ random 对同 key 永远返回同值；时间噪声通过明确的连续坐标�
 | 运动模糊 | 对同一纯函数在 `t − i × step` 的过去时刻重新求值并等权或按核合成；参考配置为 11 个样本、步长 25 ms，再接一次独立分量高斯，sigma 为采样跨度的固定比例 | 已生效：`caption-feedback/1` 的有界历史采样加 `caption-feedback-mean/1` 的等权平均聚合（`composite:"mean"`，仅统计 cue 内样本），再接 `caption-gaussian-axis/1`；默认衰减 source-over 不变；自定义核仍为目标；不引入帧历史 |
 | 量化噪声相位 | 噪声相位取 `floor(t × rate)`，UV 抖动取 `floor(t × rate2)`，使噪声按固定频率跳变而不是逐帧连续 | 已有 `noise(seed, x)` 与 `floor`；rate 为静态参数 |
 | 噪声 UV 位移 | `uv' = uv + (n − 0.5) × strength × aspect`，其中 `n = (noise + brightness − 0.5) × contrast × 10 + 0.5`；预乘双线性透明边界采样 | 已生效：`caption-noise-displace/1`（噪声源为 noise-palette-mix 的固定 v1 核，仅 CPU，GPU 材质计划显式拒绝）；`caption-wave-displace/1` 只覆盖正弦位移 |
+| 扫描扭曲 | 一次重采样内：两路分形梯度噪声移动采样点，再让条纹内的内容围绕 domain 中心列横向拉伸，最后叠加扫描线明暗与整体增益；条纹以像素给出核心半高、衰减与门限 | 已生效：`caption-scan-warp/1`（噪声复用 gradient-smear 的固定核，仅 CPU，GPU 材质计划显式拒绝） |
 | 多尺度辉光 | 可分离高斯多级级联，采样距离按 720 基准归一到实际画布 | 已生效：`caption-glow-cascade/1`、`caption-glow-linear/1` |
 | bloom 置底 | 以 0.3 倍降采样做 9 权重核的可分离模糊，纵向权重乘 1.1，再按 `original + bloom × (1 − original.a)` 合成到原图之下 | 先验证 `caption-glow-linear/1` 的 `original-over-screen` 是否等价；不等价则作为 glow 的新聚合模式 |
 | 背景差值负片 | `abs(text.rgb − video.rgb × text.a)`，alpha 取文字 alpha | 新材质，必须声明背景子图依赖（§9.3 末段），不能缓存成透明贴片 |
@@ -696,10 +698,10 @@ flowchart TD
 | 场景与表达式 | `caption-scene/1`、`caption-expressions/1`、`caption-function-dag/1`、`caption-unit-animation/1`、`caption-permutation/1`、`caption-bezier-expression/1`、`caption-exponential-expression/1`、`caption-rounding-expression/1`、`caption-modular-expression/1`、`caption-power-expression/1`、`caption-list-pick/1`、`caption-clock-tail/1` | 场景正文、typed AST、无环纯函数、按单元动画、置换、easing、指数、取整、取模、幂、列表参数取值与关键帧时钟尾端策略 | §3、§6.1、§7、§8 |
 | 装饰 | `caption-bound-label/1` | Repeat 直接子节点的固定单行装饰，复用源单元时钟与几何 | §3、§9.2 |
 | 字体 | `caption-font-line-box/1`、`caption-font-source/1`、`caption-font-hinting/1`、`caption-font-shaping/1`、`caption-text-transform/1` | 行框包络、按摘要绑定 face、hinting/shaping 选项、显示变换 | §4.1、§5、§5.4 |
-| 布局 | `caption-word-line-layout/1`、`caption-text-line-layout/1`、`caption-pattern-select/1`、`caption-keyword-isolation/1`、`caption-scalar-cluster-layout/1`、`caption-layout-per-sample/1`、`caption-page-window/1`、`caption-unit-font-size/1`、`caption-unit-font-style/1` | 固定词行/字行分页、按词数或 seed 选择分页模式、关键词隔离、字符计数组、逐采样重排、显示窗口、按单元字号与字体样式 | §4.3、§5.2、§5.3、§5.4、§6.3 |
+| 布局 | `caption-word-line-layout/1`、`caption-text-line-layout/1`、`caption-pattern-select/1`、`caption-keyword-isolation/1`、`caption-tag-run-isolation/1`、`caption-scalar-cluster-layout/1`、`caption-layout-per-sample/1`、`caption-page-window/1`、`caption-unit-font-size/1`、`caption-unit-font-style/1` | 固定词行/字行分页、按词数或 seed 选择分页模式、关键词隔离与标签段隔离、字符计数组、逐采样重排、显示窗口、按单元字号与字体样式 | §4.3、§5.2、§5.3、§5.4、§6.3 |
 | 只读上下文 | `caption-text-context/1`、`caption-unit-context/1`、`caption-cue-unit-context/1`、`caption-cue-word-context/1`、`caption-speech-phase/1`、`caption-first-page-context/1`、`caption-ink-context/1`、`caption-glyph-envelope/1`、`caption-page-envelope/1` | 全文/页内字素序号、页与行时钟、全 cue 词行序号、首次词与下一词边界、cue 朗读阶段与词区间布尔、固定第一页成员、字形墨迹框、按词与整页包络 | §6.2、§8.1、§9.2 |
 | 涂装 | `caption-paint-stack/1`、`caption-paint-effects/1`、`caption-paint-coverage/1`、`caption-gradient-space/1`、`caption-gradient-glyph/1`、`caption-image-png/1`、`caption-image-paint/1`、`caption-image-phase-float32/1`、`caption-image-sequence/1` | 有序涂装项、效果外扩、覆盖率重映射、渐变域与空间、图片涂装与相位、图片序列 | §9.1、§9.3 |
-| 材质 | `caption-blur/1`、`caption-gaussian-axis/1`、`caption-gaussian-uv/1`、`caption-gaussian-spacing-ramp/1`、`caption-gaussian-sampling/1`、`caption-glow-cascade/1`、`caption-glow-linear/1`、`caption-glow-tint/1`、`caption-glow-color-matrix/1`、`caption-feedback/1`、`caption-feedback-mean/1`、`caption-wave-displace/1`、`caption-wave-context/1`、`caption-noise-displace/1`、`caption-soft-band/1`、`caption-noise-palette-mix/1`、`caption-noisy-sweep/1`、`caption-angular-sample-blend/1`、`caption-affine-sample-blend/1`、`caption-affine-over/1`、`caption-gradient-smear/1`、`caption-render-layers/1`、`caption-layer-add/1` | 模糊与高斯族、辉光族、有界历史采样与等权平均、正弦与噪声位移、遮罩、噪声与扫光、采样混合、仿射前景/背景、独立渲染层与加法混合 | §9.3、§9.4 |
+| 材质 | `caption-blur/1`、`caption-gaussian-axis/1`、`caption-gaussian-uv/1`、`caption-gaussian-spacing-ramp/1`、`caption-gaussian-sampling/1`、`caption-glow-cascade/1`、`caption-glow-linear/1`、`caption-glow-tint/1`、`caption-glow-color-matrix/1`、`caption-feedback/1`、`caption-feedback-mean/1`、`caption-wave-displace/1`、`caption-wave-context/1`、`caption-noise-displace/1`、`caption-scan-warp/1`、`caption-soft-band/1`、`caption-noise-palette-mix/1`、`caption-noisy-sweep/1`、`caption-angular-sample-blend/1`、`caption-affine-sample-blend/1`、`caption-affine-over/1`、`caption-gradient-smear/1`、`caption-render-layers/1`、`caption-layer-add/1` | 模糊与高斯族、辉光族、有界历史采样与等权平均、正弦与噪声位移、遮罩、噪声与扫光、采样混合、仿射前景/背景、独立渲染层与加法混合 | §9.3、§9.4 |
 
 ## 14. 验收与实施顺序
 
@@ -755,7 +757,7 @@ flowchart TD
 8. §9.5 的 bloom 置底是否可由 `caption-glow-linear/1` 现有聚合表达；背景差值与噪声 UV 位移作为新材质立项前先确认背景依赖在缩略图与导出中的获取方式。
 9. §11 配方目录随效果增加可能超出单篇篇幅；超出时按文档约定拆为独立文档并在本文保留索引。
 
-已实现的字形涂装遮罩使用 `caption-paint-mask/1`：单层 paint 的覆盖率与同一字形填充相交，遮罩可按所属层单位外扩；`caption-paint-mask-transform/1` 另外允许遮罩独立位移与反相，缺省保持原位置交集；预算与拒绝范围见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。
+已实现的字形涂装遮罩使用 `caption-paint-mask/1`：单层 paint 的覆盖率与同一字形填充相交，遮罩可按所属层单位外扩；`caption-paint-mask-transform/1` 另外允许遮罩独立位移与反相，缺省保持原位置交集；预算与拒绝范围见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。 显式 `caption-paint-mask-local/1` 和 `mask.rasterization: 'glyph-bounds'` 允许共享录制期按完整涂装支持域烘焙局部位图，减少实际 content／matte 分配；保留全局采样域。该模式有独立的局部 AA／外层裁剪合同及帧预算，不承诺旧全画布曲线像素逐字节相同；默认 canvas 与旧 DrawOp 协议不变。
 
 `caption-glyph-distance-coverage/1` 另提供逐 glyph 的有界原轮廓距离带：独立位移的 1–2 个 band 共享一个明确选择的 quad 导数场，并相乘后采样原域颜色；它替代普通 glyph AA，不与旧 matte/spread/blur 叠加。距离源、零宽策略、单位和预算以[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)为准。
 

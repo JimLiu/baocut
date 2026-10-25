@@ -17,6 +17,10 @@ import { trackFree } from './editor-ops.ts';
  * - 切条的贪心阶梯移植自旧版 `baocut-app/core/crates/bcut-flow-core/src/cue.rs`（`derive_cues` 与 `auto_break`，
  *   规范 §18.5）以及同目录 `atomize.rs` 的 `sentence_end` / `clause_end_char` / 缩写表。只移植贪心派生；
  *   `layout.rs` 的 DP 排版与手工的 break / nobreak 钉不移植（新格式里没有这两张表）。
+ * - 贪心阶梯之外多两条规则（见规范 §5.6；cue.rs 没有，Rust 那边成对符号由 `seam.rs` 的译文片缝 lint 管，最短时长由
+ *   `layout.rs` 的排版管）：切点不落在一对放得进一行的成对符号（书名号、引号、括号）里面（`pairGuards` /
+ *   `pairInteriorGaps`）；显示短于 `minCueDisplaySec` 的条并进同一句里相邻的一条，并不进去时从那一条挪几个词过来
+ *   （`mergeShortCues`）。按宽度切没有词时间的段（`chopWide`）时成对符号整段是一个单元，切点取单元前后离目标宽度近的一边。
  * - 显示宽度、拼词与句子成员关系改成与 `packages/runtime-core/src/exports/text-export.ts`
  *   （`displayWidth` / `joinWords` / `segmentsOf`）一致，免得「生成的字幕」和「导出的字幕」切法不一样：
  *   行宽是拼好的文字的显示宽度（全角字算 2），不再是 cue.rs 的逐词累加；
@@ -53,6 +57,8 @@ export const CUE_PARAMS = {
   /** 破折号断行的最短行宽，比逗号档低。 */
   minDashChars: 6,
   overflowSlack: 8,
+  /** 最短显示时长（秒，LayoutProfile 的 `minDuration`、seam.rs 的 `MIN_CUE_DISPLAY_SEC`）：更短的条并进同一句里相邻的一条（`mergeShortCues`）。 */
+  minCueDisplaySec: 1,
 } as const;
 
 export type CueParams = { [K in keyof typeof CUE_PARAMS]: number };
@@ -167,6 +173,57 @@ export function clauseEndChar(token: string): string | null {
   if (index === 0) return null;
   const last = chars[index - 1]!;
   return CLAUSE_END.has(last) ? last : null;
+}
+
+// ---- 成对符号 ----
+
+// i18n-ignore-start: 成对符号（开 → 闭）
+/**
+ * 开、闭字形分得开的成对符号（与 `crates/speech-doc` 的 `seam.rs` `DELIM_PAIRS` 同表），另加直双引号：它开闭同形，按出现
+ * 次序两两配。直单引号不认，它兼作撇号（`it's`），配对必然误判；右弯单引号前面没有配得上的左弯单引号时也是撇号（`Woolf’s`）。
+ */
+const PAIRS = new Map([
+  ['“', '”'],
+  ['‘', '’'],
+  ['「', '」'],
+  ['『', '』'],
+  ['《', '》'],
+  ['〈', '〉'],
+  ['（', '）'],
+  ['【', '】'],
+  ['〔', '〕'],
+  ['(', ')'],
+  ['[', ']'],
+  ['{', '}'],
+  ['"', '"'],
+]);
+// i18n-ignore-end
+
+/** 一串字里配得上的成对符号：每项是开、闭两个符号在 `chars` 里的位置。开了没闭的不算，套在里面没闭的随外层闭掉。 */
+function pairedSpans(chars: readonly string[]): Array<[number, number]> {
+  const open: Array<{ close: string; at: number }> = [];
+  const spans: Array<[number, number]> = [];
+  chars.forEach((char, at) => {
+    const match = open.findLastIndex((entry) => entry.close === char);
+    if (match >= 0) {
+      spans.push([open[match]!.at, at]);
+      open.length = match;
+      return;
+    }
+    const close = PAIRS.get(char);
+    if (close !== undefined) open.push({ close, at });
+  });
+  return spans;
+}
+
+/** 每个字之后的缝是不是在一对放得进一行（整段不宽过 `maxChars`）的成对符号里面：开符号之后、闭符号之前。 */
+function pairInteriorGaps(chars: readonly string[], maxChars: number): boolean[] {
+  const out = chars.map(() => false);
+  for (const [open, close] of pairedSpans(chars)) {
+    if (displayWidth(chars.slice(open, close + 1).join('')) > maxChars) continue;
+    for (let at = open; at < close; at++) out[at] = true;
+  }
+  return out;
 }
 
 // ---- 读转写 ----
@@ -298,7 +355,8 @@ const BREAK_AFTER = new Set([...TERMINAL, ...CLAUSE_END]);
 
 /**
  * 没有词时间的一段拆成几块：在空白处与句末、从句标点（连同跟着的右引号、括号）之后断开，宽过 `maxChars` 的再按宽度切；
- * 时间按各块的显示宽度在 [start, end] 里线性分。拆不开时原样一块。
+ * 时间按各块的显示宽度在 [start, end] 里线性分。拆不开时原样一块。放得进一行的成对符号（书名号、引号、括号）里面不在
+ * 标点处断，按宽度切时整段挪动；空白处照样断，成对符号里的西文词缝由 `deriveCues` 守。
  */
 export function splitUntimed(value: string, start: number, end: number, maxChars: number): Array<{ text: string; start: number; end: number }> {
   const chunks: string[] = [];
@@ -308,12 +366,13 @@ export function splitUntimed(value: string, start: number, end: number, maxChars
     current = '';
   };
   const chars = [...value];
+  const paired = pairInteriorGaps(chars, maxChars);
   chars.forEach((char, i) => {
     if (/\s/.test(char)) return push();
     current += char;
     // 标点后面紧跟着字的（中日文不用空格）：挨着全角字时才断，`2.14`、`3:30`、`1,000` 不断。
     const next = chars[i + 1];
-    if (next === undefined || /\s/.test(next) || CLOSERS.has(next)) return;
+    if (next === undefined || /\s/.test(next) || CLOSERS.has(next) || paired[i]) return;
     if (!BREAK_AFTER.has(char) && !CLOSERS.has(char)) return;
     if ((WIDE.test(char) || WIDE.test(next)) && sentenceOrClause(current)) push();
   });
@@ -337,19 +396,22 @@ function sentenceOrClause(chunk: string): boolean {
 
 /**
  * 宽过 `maxChars` 的一块按显示宽度切成差不多一样宽的几段。只在全角字之间、或全角字与西文之间切：一串连着的西文
- * （字母、数字与夹在里面的符号，如 `Transformer`、`GPT-4o`）与一个中文词（`hanInteriorGaps`，如「程序」）整个挪进
- * 下一段；行首不放不能起行的标点。只有一个单元自己就宽过 `maxChars` 时才在它中间切。
+ * （字母、数字与夹在里面的符号，如 `Transformer`、`GPT-4o`）与一个中文词（`hanInteriorGaps`，如「程序」）是一个单元，
+ * 整个留在前一段或挪进下一段，取离这一段目标宽度近的一边；行首不放不能起行的标点。放得进一行的成对符号
+ * （`《大卫·科波菲尔》`）连同里面的字也是一个单元。只有一个单元自己就宽过 `maxChars` 时才在它中间切。
  */
 function chopWide(chunk: string, maxChars: number): string[] {
   const width = displayWidth(chunk);
   if (width <= maxChars) return [chunk];
+  const chars = [...chunk];
+  const paired = pairInteriorGaps(chars, maxChars);
   const units: string[] = [];
-  for (const char of chunk) {
+  chars.forEach((char, i) => {
     const last = units.at(-1);
-    if (last !== undefined && (NO_SPACE_BEFORE.test(char) || (!WIDE.test(char) && !WIDE.test([...last].at(-1)!)))) {
+    if (last !== undefined && (paired[i - 1] || NO_SPACE_BEFORE.test(char) || (!WIDE.test(char) && !WIDE.test([...last].at(-1)!)))) {
       units[units.length - 1] = last + char;
     } else units.push(char);
-  }
+  });
   // 一个中文词里的几个字并成一个单元，和西文串一样整个挪进下一段。
   const inside = hanInteriorGaps(units);
   for (let i = units.length - 2; i >= 0; i--) {
@@ -362,7 +424,10 @@ function chopWide(chunk: string, maxChars: number): string[] {
   let currentWidth = 0;
   let used = 0;
   const place = (piece: string, w: number) => {
-    if (current && (currentWidth + w > maxChars || (used + w > target * (out.length + 1) + 1e-9 && out.length < parts - 1))) {
+    // 越过这一段的目标宽度时，切在这个单元前后离目标近的一边（一样近切前面）；切在后面时下一个单元进来时再切。
+    const goal = target * (out.length + 1);
+    const over = used + w > goal + 1e-9 && out.length < parts - 1 && goal - used <= used + w - goal;
+    if (current && (currentWidth + w > maxChars || over)) {
       out.push(current);
       current = '';
       currentWidth = 0;
@@ -580,14 +645,56 @@ export interface DerivedCue {
   wordIds: string[];
 }
 
-/** 远端导出在这两个词之间一定分句（`segmentsOf`），cue.rs 在说话人切换时一定断：这里都强制断开。 */
-function mustBreak(last: SpeechWord, next: SpeechWord, first: SpeechWord): boolean {
+/** 远端导出在这两个词之间一定分句（`segmentsOf`），cue.rs 在说话人切换时一定断：句子的边界。 */
+function sentenceBreak(last: SpeechWord, next: SpeechWord): boolean {
   if (next.paragraphStart) return true;
   if ((last.speaker ?? null) !== (next.speaker ?? null)) return true;
   const known = last.sentenceId !== undefined || next.sentenceId !== undefined;
-  if (known ? last.sentenceId !== next.sentenceId : next.start - last.end > PAUSE_SECONDS || SENTENCE_END.test(last.text.trim())) return true;
-  // 远端 cuesOf 的 tooLong：一条不超过 7 秒。
-  return next.end - first.start > EXPORT_MAX_CUE_SECONDS;
+  return known ? last.sentenceId !== next.sentenceId : next.start - last.end > PAUSE_SECONDS || SENTENCE_END.test(last.text.trim());
+}
+
+/** 句子的边界与远端 cuesOf 的 tooLong（一条不超过 7 秒）：这里都强制断开。 */
+function mustBreak(last: SpeechWord, next: SpeechWord, first: SpeechWord): boolean {
+  return sentenceBreak(last, next) || next.end - first.start > EXPORT_MAX_CUE_SECONDS;
+}
+
+/** 几个词按切条的拼法拼起来的显示宽度（认「贴前」）。 */
+function groupWidth(words: readonly SpeechWord[], leading: boolean): number {
+  return displayWidth(
+    joinWords(
+      words.map((word) => word.text),
+      leading,
+      words.map((word) => word.glue === true),
+    ),
+  );
+}
+
+/**
+ * 每个词之后的缝在不在一对成对符号里面：在时是这对符号的开符号所在的词（几对套着时取最外层的），不在时 -1。只在同一句里配
+ * （`sentenceBreak` 隔开）；从开符号所在的词到闭符号所在的词拼起来宽过 `maxChars` 的放不进一行，不守。
+ */
+function pairGuards(words: readonly SpeechWord[], leading: boolean, maxChars: number): number[] {
+  const out = words.map(() => -1);
+  let from = 0;
+  for (let end = 0; end < words.length; end++) {
+    if (end + 1 < words.length && !sentenceBreak(words[end]!, words[end + 1]!)) continue;
+    const chars: string[] = [];
+    const owner: number[] = [];
+    for (let at = from; at <= end; at++) {
+      for (const char of words[at]!.text.trim()) {
+        chars.push(char);
+        owner.push(at);
+      }
+    }
+    for (const [open, close] of pairedSpans(chars)) {
+      const first = owner[open]!;
+      const last = owner[close]!;
+      if (first === last || groupWidth(words.slice(first, last + 1), leading) > maxChars) continue;
+      for (let at = first; at < last; at++) if (out[at]! < 0 || first < out[at]!) out[at] = first;
+    }
+    from = end + 1;
+  }
+  return out;
 }
 
 /** 写空格的文字的字母或数字：汉字、假名与泰、老挝、缅甸、高棉、藏文以外（atomize.rs `spaced_script_letter`，谚文算）。 */
@@ -623,49 +730,146 @@ function autoBreak(word: SpeechWord, next: SpeechWord, lineWidth: number, projec
 }
 
 /**
- * 按素材时钟上的词切字幕条（cue.rs `derive_cues` 的贪心扫描），词按开始时刻排。`leading` 按整个词表判断一次，
- * 与远端一致。
+ * 按素材时钟上的词切字幕条，词按开始时刻排：cue.rs `derive_cues` 的贪心扫描（`cueGroups`），再处理太短的条：并进同一句里
+ * 相邻的一条，并不进去时从那一条挪几个词过来（`mergeShortCues`；cue.rs 没有这一步，Rust 那边最短时长由 `layout.rs` 的排版管）。
+ * `leading` 按整个词表判断一次，与远端一致。
  */
 export function deriveCues(source: readonly SpeechWord[], params: CueParams = CUE_PARAMS): DerivedCue[] {
   const words = [...source].sort((a, b) => a.start - b.start);
   const leading = words.some((word) => /^\s/.test(word.text));
   const inside = hanInteriorGaps(words.map((word) => word.text));
-  const cues: DerivedCue[] = [];
-  let current: SpeechWord[] = [];
-  const flush = () => {
-    if (!current.length) return;
-    const first = current[0]!;
-    cues.push({
+  const guards = pairGuards(words, leading, params.maxChars);
+  // 后面不能切的词：切点会落在中文词里、成对符号里或同一个西文词被切开的几段之间。
+  const held = new Set(words.filter((word, i) => inside[i] || guards[i]! >= 0 || (i + 1 < words.length && gluedWordInterior(word, words[i + 1]!))));
+  return mergeShortCues(cueGroups(words, params, leading, inside, guards), params, leading, held).map((group) => {
+    const first = group[0]!;
+    return {
       id: `q-${first.id}`,
       start: first.start,
-      end: Math.max(...current.map((word) => word.end)),
+      end: Math.max(...group.map((word) => word.end)),
       text: joinWords(
-        current.map((word) => word.text),
+        group.map((word) => word.text),
         leading,
-        current.map((word) => word.glue === true),
+        group.map((word) => word.glue === true),
       ),
       ...(first.speaker !== undefined ? { speaker: first.speaker } : {}),
-      wordIds: current.map((word) => word.id),
-    });
-    current = [];
-  };
-  for (let i = 0; i < words.length; i++) {
+      wordIds: group.map((word) => word.id),
+    };
+  });
+}
+
+/**
+ * 贪心扫描：`mustBreak` 一定断，其余按 `autoBreak` 的阶梯。词缝落在一对放得进一行的成对符号里（`pairGuards`）时不断；
+ * 再收下一个词就宽过 `maxChars` 时，把从开符号所在的词起的这一段整个挪进下一条（这一段从这一条中间开始时）。
+ */
+function cueGroups(
+  words: readonly SpeechWord[],
+  params: CueParams,
+  leading: boolean,
+  inside: readonly boolean[],
+  guards: readonly number[],
+): SpeechWord[][] {
+  const groups: SpeechWord[][] = [];
+  let from = 0;
+  for (let i = 0; i + 1 < words.length; i++) {
     const word = words[i]!;
-    current.push(word);
-    const next = words[i + 1];
-    if (!next) break;
-    if (mustBreak(word, next, current[0]!)) {
-      flush();
+    const next = words[i + 1]!;
+    if (mustBreak(word, next, words[from]!)) {
+      groups.push(words.slice(from, i + 1));
+      from = i + 1;
       continue;
     }
-    const tokens = current.map((w) => w.text);
-    const glues = current.map((word) => word.glue === true);
-    const lineWidth = displayWidth(joinWords(tokens, leading, glues));
-    const projected = displayWidth(joinWords([...tokens, next.text], leading, [...glues, next.glue === true]));
-    if (autoBreak(word, next, lineWidth, projected, params, inside[i]!)) flush();
+    const current = words.slice(from, i + 1);
+    const lineWidth = groupWidth(current, leading);
+    const projected = groupWidth([...current, next], leading);
+    const guard = guards[i]!;
+    if (guard >= 0 && (projected <= params.maxChars || guard > from)) {
+      if (projected > params.maxChars) {
+        groups.push(words.slice(from, guard));
+        from = guard;
+      }
+      continue;
+    }
+    if (autoBreak(word, next, lineWidth, projected, params, inside[i]!)) {
+      groups.push(current);
+      from = i + 1;
+    }
   }
-  flush();
-  return cues;
+  if (from < words.length) groups.push(words.slice(from));
+  return groups;
+}
+
+/** 一条字幕跨过的缝有多强：句末 2、从句标点 1、没有标点 0（看这一条最后一个词）。 */
+function seamStrength(group: readonly SpeechWord[]): number {
+  const token = group.at(-1)!.text.trim();
+  if (sentenceEnd(token)) return 2;
+  return clauseEndChar(token) !== null ? 1 : 0;
+}
+
+/**
+ * 显示短于 `minCueDisplaySec` 的条并进同一句里相邻的一条：两条的词标着同一句（`sentenceId`）、同一个说话人，后一条不是段首，
+ * 并完不超过 7 秒、宽不超过 `maxChars + overflowSlack`。两边都能并时依次取：并完放得进 `maxChars` 的、跨过的缝弱的
+ * （`seamStrength`）、并完窄的、前一条。两边都并不进去时，从同句相邻的一条挪几个词过来，挪到两条都不短于最短时长、都不超过
+ * 上面两个上限；新切点不落在 `held` 的词后面（中文词里、成对符号里、西文词的几段之间），依次取：切在标点处的、两条都放得进
+ * `maxChars` 的、两条宽度接近的、前一条。也挪不成时留着。句子的时间范围不变；没存句子的转写不动。
+ */
+function mergeShortCues(groups: readonly SpeechWord[][], params: CueParams, leading: boolean, held: ReadonlySet<SpeechWord>): SpeechWord[][] {
+  const out = [...groups];
+  const seconds = (group: readonly SpeechWord[]) => Math.max(...group.map((word) => word.end)) - group[0]!.start;
+  const short = (group: readonly SpeechWord[]) => seconds(group) < params.minCueDisplaySec - 1e-9;
+  const fits = (group: readonly SpeechWord[]) =>
+    seconds(group) <= EXPORT_MAX_CUE_SECONDS && groupWidth(group, leading) <= params.maxChars + params.overflowSlack;
+  const sameSentence = (a: readonly SpeechWord[], b: readonly SpeechWord[]) => {
+    const last = a.at(-1)!;
+    const first = b[0]!;
+    return (
+      last.sentenceId !== undefined &&
+      last.sentenceId === first.sentenceId &&
+      (last.speaker ?? null) === (first.speaker ?? null) &&
+      !first.paragraphStart
+    );
+  };
+  let i = 0;
+  while (i < out.length) {
+    if (!short(out[i]!)) {
+      i++;
+      continue;
+    }
+    // 和前一条（at = i - 1）或后一条（at = i）：动的是 out[at] 与 out[at + 1]，换成 parts。排序键的头一位让并先于挪。
+    const options: Array<{ at: number; parts: SpeechWord[][]; rank: number[] }> = [];
+    for (const at of [i - 1, i]) {
+      const a = out[at];
+      const b = out[at + 1];
+      if (!a || !b || !sameSentence(a, b)) continue;
+      const side = at === i - 1 ? 0 : 1;
+      const merged = [...a, ...b];
+      if (fits(merged)) {
+        const width = groupWidth(merged, leading);
+        options.push({ at, parts: [merged], rank: [0, width > params.maxChars ? 1 : 0, seamStrength(a), width, side] });
+        continue;
+      }
+      for (let k = 1; k < merged.length; k++) {
+        const parts = [merged.slice(0, k), merged.slice(k)];
+        if (held.has(merged[k - 1]!) || parts.some((part) => short(part) || !fits(part))) continue;
+        const [left, right] = parts.map((part) => groupWidth(part, leading)) as [number, number];
+        options.push({ at, parts, rank: [1, -seamStrength(parts[0]!), Math.max(left, right) > params.maxChars ? 1 : 0, Math.abs(left - right), side] });
+      }
+    }
+    const best = options.reduce<(typeof options)[number] | null>((kept, option) => (kept && !lessRank(option.rank, kept.rank) ? kept : option), null);
+    if (!best) {
+      i++;
+      continue;
+    }
+    out.splice(best.at, 2, ...best.parts);
+    i = best.at;
+  }
+  return out;
+}
+
+/** 按字典序比两组排序键：前一组更靠前时 true。 */
+function lessRank(a: readonly number[], b: readonly number[]): boolean {
+  const n = a.findIndex((value, at) => value !== b[at]);
+  return n >= 0 && a[n]! < b[n]!;
 }
 
 // ---- 写成字幕文档 ----
@@ -746,6 +950,8 @@ export interface SpeechCaptionSource {
   assetId: Id;
   /** 新建字幕轨时的名字。 */
   trackName: string;
+  /** 和配对的译文共用的样式（`sharedCaptionStyle`）：给了就叠成双语；不给时由调用方补一份新样式。 */
+  style?: { styleDocumentId: Id } | { styleDocumentRef: string } | null;
 }
 
 /**
@@ -790,6 +996,7 @@ export function speechCaptionOperations(sequence: Sequence, body: Json, source: 
         documentRef: DOCUMENT_REF,
         ...(scopeItemIds.length ? { scopeItemIds } : {}),
         ...(free ? { trackId: free.id } : { trackRef: NEW_TRACK }),
+        ...(source.style ?? {}),
       },
     ],
   });

@@ -38,6 +38,12 @@ const en = {
   reasonLabel: 'Why this one',
   /** 卡上「取景」那一行（原型 `frameText`）：按镜头分段取景时写几个镜头；打开后能放大，挪位置要先改成自由摆放。 */
   framingLabel: 'Framing',
+  /** 结果卡「取景」一行有分屏段时的说法与版式条（短视频分屏设计 §8.2）。 */
+  framingSplits: (n: number, splits: number) => `${n} parts · ${splits} split · Open it and select a part to change its layout or swap top and bottom`,
+  stripLabel: 'Layout',
+  stripSingle: 'One person',
+  stripSplit: 'Split (number = panels)',
+  stripSeg: (from: string, to: string, n: number) => `${from}–${to} · ${n > 1 ? `split, ${n} panels` : 'one person'}`,
   framingShots: (n: number) => `Framed per shot (${n} shots) · Open it and select a part to zoom in; to move it, switch to free placement first`,
   rename: 'Click to rename',
   renameLabel: 'Short title',

@@ -77,6 +77,12 @@ const en = {
   focalPointRange: 'The focal point x and y must each be within [0, 1]',
   focalPointZoomRange: 'The focal point zoom must be within [1, 4]',
   focalPointNotVideoOrImage: 'is not a video or image, so it has no focal point',
+  panelsCount: 'A split layout needs 2 to 4 panels',
+  panelsRect: 'Each panel must have a positive width and height and stay inside the canvas (0–100%)',
+  panelsOverlap: 'Panels cannot overlap',
+  panelsFocalPoint: "Each panel's focal point x and y must be within [0, 1], and its zoom within [1, 4]",
+  panelsNeedFullscreenCover: 'Panels only apply to a fullscreen video with cover fit',
+  panelsNotVideo: 'is not a video, so it cannot be split into panels',
 
   // elements.rs
   itemSpanInvalid: 'A clip cannot start before zero and must be at least one frame long',

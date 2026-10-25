@@ -117,7 +117,8 @@ pub(crate) fn patch_document(
         let parent = target(&mut body, parents)?;
         match last {
             PathPart::Field(key) => {
-                if key == "id" {
+                // 只有数组条目的 `id` 是身份；普通对象里的 `id`（如样式的 `stylePreset.id`）是一般字段。
+                if key == "id" && matches!(parents.last(), Some(PathPart::Entry(_))) {
                     return Err(invalid("identity-change"));
                 }
                 if move_before.is_some() || change.action.contains_key("beforeId") {

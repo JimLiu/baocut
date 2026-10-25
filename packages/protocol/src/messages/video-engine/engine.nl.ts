@@ -53,6 +53,12 @@ export const nl: EngineMessages = {
   focalPointRange: "x en y van het focuspunt moeten elk binnen [0, 1] liggen",
   focalPointZoomRange: "De zoom van het focuspunt moet binnen [1, 4] liggen",
   focalPointNotVideoOrImage: "is geen video of afbeelding, dus heeft geen focuspunt",
+  panelsCount: "Een gesplitst beeld heeft 2 tot 4 vakken nodig",
+  panelsRect: "Elk vak moet een positieve breedte en hoogte hebben en binnen het canvas blijven (0–100%)",
+  panelsOverlap: "Vakken mogen niet overlappen",
+  panelsFocalPoint: "Het focuspunt van elk vak moet x en y binnen [0, 1] en een zoom binnen [1, 4] hebben",
+  panelsNeedFullscreenCover: "Vakken gelden alleen voor een schermvullende video met passing cover",
+  panelsNotVideo: "is geen video en kan dus niet in vakken worden gesplitst",
 
   itemSpanInvalid: "Een clip mag niet vóór nul beginnen en moet minstens één frame lang zijn",
   keyframesNeedPicture: (p: P<'item'>) => `Clip ${p.item} heeft geen beeld, dus kan geen sleutelbeelden hebben`,

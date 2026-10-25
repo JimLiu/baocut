@@ -28,6 +28,13 @@ instructionsNotSet: 'Chưa đặt hướng dẫn phiên: thứ tự lắp ráp R
   deriveRangeEmpty: 'Khoảng trống sau khi căn theo khung hình',
   deriveUnsupportedItem: (p) => `Khoảng có đoạn không thể sao chép sang video con (${p.kind})`,
   deriveParentUnplaced: 'Video này không nằm trong thư mục dự án hoặc phiên nên không thể tạo video con bên cạnh',
+  derivePanelsInvalid: (p) => `Chia khung ${p.layout} cần ${p.layout === 'grid' ? 'đúng 4' : p.layout === 'spotlight' ? 'đúng 3' : '2 hoặc 3'} ô nhưng đã cho ${p.count} ô`,
+  derivePanelsMain: (p) =>
+    p.layout === 'spotlight' ? 'Chia khung spotlight cần main: chỉ số (0–2) của ô được đặt lên trên' : `Chỉ chia khung spotlight mới dùng main; hãy bỏ nó khỏi chia khung ${p.layout}`,
   shotsRangeEmpty: 'Sau khi căn theo khung hình, khoảng này trống',
   shotsRangeTooLong: (p) => `Khoảng này dài hơn ${p.minutes} phút; hãy phát hiện cảnh quay theo từng đoạn ngắn hơn`,
+  shotsNoSpeakers: 'Bản chép lời của video này chưa tách được từ hai người nói trở lên; hãy nhận diện người nói trước',
+  shotsNotSingleCamera: 'Phần lớn khung hình lấy mẫu không có cùng 2–4 khuôn mặt, nên đây không phải một máy quay toàn cảnh duy nhất',
+  shotsSpeakersUnmatched: 'Không xác định được khuôn mặt nào trên hình là của người nói nào',
+  shotsFacesUnavailable: 'Không dùng được tính năng phát hiện khuôn mặt',
 };

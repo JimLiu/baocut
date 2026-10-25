@@ -332,7 +332,7 @@ BaoCut 的 Qwen3-ASR、Whisper、强制对齐、Silero VAD，以及 HTDemucs 人
 
 ## audio.cpp
 
-- 来源：[audio.cpp](https://github.com/0xShug0/audio.cpp)，版本 0.9.2（标签 `v0.9.2`）
+- 来源：[audio.cpp](https://github.com/0xShug0/audio.cpp)，版本 0.9.2-drama3-base-small（标签 `v0.9.2-drama3-base-small`）
 - 版权：Copyright 2026 ShugoAI LLC
 - 许可：Apache License, Version 2.0；[audio.cpp 与第三方组件的许可原文](packages/models/licenses/audio.cpp.txt)收录上游 `LICENSE` 与下列组件的完整许可条款。
 
@@ -345,6 +345,7 @@ BaoCut 的本地语音合成与本地音乐生成都由 audio.cpp 引擎执行�
 | cJSON（`external/cJSON`，Dave Gamble and cJSON contributors） | MIT |
 | cpp-httplib（`external/cpp-httplib`，yhirose） | MIT |
 | libyaml（`external/libyaml`，Ingy döt Net、Kirill Simonov） | MIT |
+| utf8proc（`external/utf8proc`，Julia-language developers、Public Software Group 与 Unicode, Inc.） | MIT；Unicode 数据许可 |
 | SentencePiece（`external/sentencepiece`，Google） | Apache-2.0 |
 | SentencePiece 内含的 Abseil、Darts-clone、esaxx、Protocol Buffers lite | Apache-2.0、BSD 3-Clause、MIT、BSD 3-Clause |
 

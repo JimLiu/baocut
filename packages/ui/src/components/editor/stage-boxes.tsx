@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import type { Id } from '@baocut/protocol';
+import type { Id, PanelRect } from '@baocut/protocol';
 import RotateCW from '@react-spectrum/s2/icons/RotateCW';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { STAGE_COPY } from '../../copy.ts';
@@ -38,6 +38,30 @@ const itemBox = style({
   outlineColor: 'blue-800',
   outlineOffset: 0,
   cursor: { default: 'pointer', isMovable: 'move', isDragging: 'grabbing' },
+});
+const panelSeam = style({
+  position: 'absolute',
+  display: 'block',
+  pointerEvents: 'none',
+  boxSizing: 'border-box',
+  outlineStyle: 'solid',
+  outlineWidth: { default: 1, isActive: 2 },
+  outlineOffset: { default: -1, isActive: -2 },
+  outlineColor: { default: 'gray-25', isActive: 'blue-800' },
+});
+const panelName = style({
+  position: 'absolute',
+  left: 8,
+  top: 8,
+  display: 'flex',
+  alignItems: 'center',
+  paddingX: 8,
+  minHeight: 20,
+  borderRadius: 'default',
+  backgroundColor: 'gray-25',
+  color: 'gray-800',
+  font: 'ui-xs',
+  fontWeight: 'medium',
 });
 const thinBox = style({
   position: 'absolute',
@@ -237,6 +261,27 @@ export function ItemBox({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 分屏的选中框里（原型 stage-panels.jsx `PanelsSelection`）：每格描一圈接缝、左上角标格子的叫法，正在拖的那一格描蓝。
+ * 格子是画布百分比，画在整块画布大小的选中框里。
+ */
+export function PanelSeams({ rects, names, active }: { rects: readonly PanelRect[]; names: readonly string[]; active: number | null }) {
+  return (
+    <>
+      {rects.map((rect, i) => (
+        <span
+          key={i}
+          className={panelSeam({ isActive: active === i })}
+          style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.w}%`, height: `${rect.h}%` }}
+          data-panel-cell={i}
+        >
+          <span className={panelName}>{names[i]}</span>
+        </span>
+      ))}
+    </>
   );
 }
 

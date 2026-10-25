@@ -583,6 +583,47 @@ export class MediaAnalysis {
   }
 
   /**
+   * 视频素材源时钟 `[fromSec, fromSec + durSec)` 的灰度画面（`videos_shots` 的 `by: "speaker"` 量嘴部的动静）：按每秒 `fps` 帧
+   * 缩到 `width × height`，每帧 `width × height` 个字节、逐行。只在内存里用一次，不写缓存（用它算出来的说话人对应另有缓存）；
+   * 与波形峰值共用并发名额。
+   */
+  async grayBurst(
+    asset: FrameAsset,
+    options: { fromSec: number; durSec: number; fps: number; width: number; height: number },
+    locate: () => Promise<{ root: string; file: string }>,
+  ): Promise<Uint8Array[]> {
+    const demuxers = DEMUXERS[asset.mediaType];
+    if (!demuxers) throw new RpcError('forbidden', RcRuntime.onlyAudioVideoAnalyzable());
+    const frameBytes = options.width * options.height;
+    const maxBytes = frameBytes * (Math.ceil(options.durSec * options.fps) + 2);
+    return this.#peakSlots.run(async () => {
+      const { root, file: target } = await locate();
+      const { realPath } = await resolveInside(root, target);
+      const chunks: Buffer[] = [];
+      let size = 0;
+      await this.#ffmpeg(
+        // `-ss`、`-t` 放在输入之前：按索引跳到附近的关键帧再解码，只读这一段。
+        { realPath, demuxers, before: ['-ss', Math.max(0, options.fromSec).toFixed(6), '-t', options.durSec.toFixed(6)] },
+        [
+          ...['-map', '0:v:0', '-an', '-sn', '-dn'],
+          ...['-vf', `fps=${options.fps},scale=${options.width}:${options.height},format=gray`],
+          ...['-f', 'rawvideo', 'pipe:1'],
+        ],
+        {
+          timeoutMs: THUMBNAIL_TIMEOUT_MS + options.durSec * 10_000,
+          onData: (chunk) => {
+            size += chunk.length;
+            if (size > maxBytes) throw new RpcError('internal', RcRuntime.ffmpegCannotRead());
+            chunks.push(chunk);
+          },
+        },
+      );
+      const bytes = Buffer.concat(chunks);
+      return Array.from({ length: Math.floor(bytes.length / frameBytes) }, (_, i) => bytes.subarray(i * frameBytes, (i + 1) * frameBytes));
+    });
+  }
+
+  /**
    * Space 里的一个视频或图片文件的一帧，缩到不超过 `width` 宽（不放大）。视频取 `at` 秒（取不到时，比如视频比它短，
    * 退回第一帧），图片取第一帧。缓存键是真实路径、大小、修改时间、宽与时间：文件被覆盖之后重新取。
    */

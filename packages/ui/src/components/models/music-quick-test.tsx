@@ -115,7 +115,7 @@ export function MusicQuickTest({ bundleId, name, model, notice = null, canCheck 
   const shownNotice = noticeAfterTry(notice, shownJob?.endedAt ?? shownJob?.updatedAt);
   const jobFailed = runState?.status === 'failed' && runJob?.state !== 'cancelled' && run?.key === key;
   const failure: Omit<TryFailureInput, 'canCheck'> | null =
-    issue ?? (jobFailed && run ? { kind: tryFailureKind(runJob?.error?.code ?? null, runJob?.error?.details), message: runState.message } : null);
+    issue ?? (jobFailed && run ? { kind: tryFailureKind(runJob?.error?.code ?? null, runJob?.error?.details), message: runState.message, details: runJob?.error?.details } : null);
   const failureView = failure && !busy ? tryFailureView({ ...failure, canCheck: canCheck && !!onCheck, subject: TRY_SUBJECT_MUSIC }) : null;
 
   const update = (next: MusicQuickPick) => {

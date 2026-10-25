@@ -217,12 +217,14 @@
             const subSel = window.BC_SELECT.subMembers(ctx.sels);
             const subMulti = subSel.length >= 2;
             /* 停用的轨（第 120 轮）：行留在时间轴上，画面与导出都跳过它 */
-            return window.BC_SUB.tracks(doc)
+            const shown = window.BC_SUB.tracks(doc)
               .filter((t) => !t.hidden)
               .filter((t) => !player || window.BC_PLAYER.captionVisible(player.capMode, t.role))
               /* 分段的层（第 244 轮）只在某一段覆盖播放头时画；没有段的轨恒画 */
-              .filter((t) => window.BC_SUBSEG.covers(t, playT))
-              .map((t) => {
+              .filter((t) => window.BC_SUBSEG.covers(t, playT));
+            /* 分屏段里开始的一句整块按中线挂到接缝上（stage-panels.jsx `subSeam`），拖动时先解开 */
+            const seam = window.subSeam(ctx, doc, cue, shown);
+            return shown.map((t) => {
               /* **画面恒读这一条 cue 的有效样式**（第 102 轮）：`cue.id` 无条件传进去，
                  与属性页此刻在哪个作用域无关。覆盖表是文档的一部分，不是编辑态——
                  只在「仅这一条」那一档才把它画出来的话，切回「全部字幕」画面就会
@@ -243,13 +245,14 @@
                  这正是字幕的常态，也是 CSS 里一句 translateY(-100%) 的事。 */
               /* 模板避让（第 112 轮）：底部有整宽的模板带时，字幕底边最多抬到带的上沿 */
               const lift = ctx.tplDoc && ctx.tplDoc.subsAvoid !== false ? window.BC_TPL.subsBottom(ctx.tplDoc, 0) : 0;
-              const y = lift ? Math.min(ln.y, 100 - lift) : ln.y;
+              const y0 = seam == null ? ln.y : ln.y + seam;
+              const y = lift ? Math.min(y0, 100 - lift) : y0;
               /* `x` 是字幕框的水平中心，`width` 是画宽百分比；Shorts 预设落 64。 */
               const width = ln.width == null ? 80 : ln.width;
               const x = ln.x == null ? 50 : ln.x;
               const pos = {position: 'absolute', left: (x - width / 2) + '%', width: width + '%',
                 top: y + '%', bottom: 'auto',
-                transform: 'translateY(' + P.subShift(ln.valign) + '%)', zIndex: subZ(t.id)};
+                transform: 'translateY(' + P.subShift(seam == null ? ln.valign : 'center') + '%)', zIndex: subZ(t.id)};
               const picked = !!sel && sel.kind === 'subs' && sel.trackId === t.id;
               /* 字号换算（第 74.1 轮改口径）：名义字号 32 ↔ 画面基准 fz（20px@880），
                  每条轨各自按自己的字号折算。此前按 `src.size` 归一——源语言轨恒画成
@@ -319,7 +322,12 @@
                   pose={{x, y, w: ln.width || 84, scale: 1, rot: 0}}
                   setPose={(patch) => {
                     // 拖动直接写锚线 y 与水平中心 x——都是绝对的帧百分比，不需要「换锚点再折算」那一套。
-                    // 宽度柄的补丁（带 w）不改宽也不挪 x：只认移动。
+                    // 宽度柄的补丁（带 w）不改宽也不挪 x：只认移动。挂在接缝上时它的 y 是画出来的接缝位置，
+                    // 写回锚线会再叠一次接缝，所以整个补丁不认；真拖动才先解开接缝。
+                    if (seam != null) {
+                      if (patch.w != null) return;
+                      window.unseamSubs(ctx, doc, cue, shown, seam);
+                    }
                     const next = {};
                     if (patch.y != null) next.y = P.subClampY(patch.y);
                     if (patch.x != null && patch.w == null) next.x = P.subClampY(patch.x);

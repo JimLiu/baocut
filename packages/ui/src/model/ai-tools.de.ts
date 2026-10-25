@@ -47,15 +47,15 @@ export const de: AiToolsMessages = {
     focus: {
       auto: { label: 'Automatisch', sub: 'Erkennt, auf welcher Seite die sprechende Person ist, und legt den Ausschnitt auf sie; ohne Person mittig' },
       manual: { label: 'Selbst festlegen', sub: 'Du legst den Ausschnitt jedes Kurzvideos danach selbst fest' },
-      speaker: { label: 'Der sprechenden Person folgen', sub: 'Der Ausschnitt folgt der Person, die gerade spricht' },
+      speaker: { label: 'Der sprechenden Person folgen', sub: 'Auf die Person zielen, die spricht: Schneidet das Original zwischen Nahen und Totalen, folgt der Ausschnitt seinen Einstellungen; bei nur einer Totale wechselt er von Sprecher zu Sprecher und teilt, wenn zwei durcheinanderreden oder niemand spricht' },
     },
-    speakerOff: 'Diese Version hat noch kein Personen- und Sprechermodell',
+    speakerOff: 'Im Transkript sind noch keine Sprecher getrennt · zuerst „Sprecher erkennen“ nutzen',
     tracks: { both: 'Original + Übersetzung', source: 'Nur Original', translation: 'Nur Übersetzung' },
     styles: {
       shorts: { label: 'Kurzvideo-Untertitel', sub: 'Integrierte Vorlage, die Plattform-Schaltflächen freihält' },
       video: { label: 'Stil dieses Videos übernehmen', sub: 'Gleiche Größe und Position; Plattform-Schaltflächen können sie verdecken' },
     },
-    focusPrompt: { auto: 'automatisch: gleichmäßig über den Abschnitt verteilt Einzelbilder ansehen, erkennen, auf welcher Bildseite die sprechende Person ist, und den Ausschnitt auf sie legen; wird niemand gefunden, mittig', manual: 'vorerst mittig; ich passe jedes selbst an' },
+    focusPrompt: { speaker: 'der sprechenden Person folgen: schneidet das Original zwischen Nahen und Totalen, nach Einstellung kadrieren; bei nur einer Totale mit videos_shots by speaker nach Sprechern schneiden und auf die Person zielen, die spricht', auto: 'automatisch: gleichmäßig über den Abschnitt verteilt Einzelbilder ansehen, erkennen, auf welcher Bildseite die sprechende Person ist, und den Ausschnitt auf sie legen; wird niemand gefunden, mittig', manual: 'vorerst mittig; ich passe jedes selbst an' },
     countN: (n) => `${n}`,
     autoHint: {
       both: 'Automatisch: Der Agent findet die stärksten Themen, die für sich allein stehen, und entscheidet, wie viele Kurzvideos es werden und wie lang jedes ist – ohne Füllmaterial und ohne halbierte Themen.',
@@ -66,6 +66,7 @@ export const de: AiToolsMessages = {
       `${count === null ? 'Entscheide anhand der gefundenen Themen, wie viele Kurzvideos es werden' : `Erstelle ${count === 1 ? '1 Kurzvideo' : `${count} Kurzvideos`}`}, ${len ? `jeweils ${len.min}–${len.max} Sekunden` : 'jedes so lang, wie sein Thema braucht, vom Einstiegssatz bis zur Pointe'}, mit Anfang und Ende an Satzgrenzen`,
     lineFrame: (ratio, focus) => (ratio ? `Seitenverhältnis ${ratio}, Ausschnitt ${focus}` : 'Seitenverhältnis: Original beibehalten, nicht zuschneiden'),
     lineSubtitles: (tracks, style) => `Untertitel: ${tracks}, ${style}`,
+    lineSplit: { on: 'Totalen mit mehreren Personen in Felder teilen, eine Person pro Feld', off: 'Nicht teilen; auch Totalen mit mehreren Personen auf eine Person ausrichten' },
     lineSkipDone: 'Bereits zu Kurzvideos geschnittene Stellen überspringen',
     lineTopic: (topic) => `Suche nur in den Stellen, in denen es um „${topic}“ geht: finde sie zuerst mit speech_relevant und wähle dann daraus`,
     lineDirect: 'Erstelle die Videos, sobald sie gefunden sind; du musst mich vorher nicht fragen',

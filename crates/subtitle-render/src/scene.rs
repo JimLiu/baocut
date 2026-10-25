@@ -15,9 +15,11 @@ mod image_paint;
 #[cfg(test)]
 mod image_paint_tests;
 mod image_sequences;
+mod layout_clock;
 mod line_box;
 mod line_neighbor;
 mod line_quota;
+mod mask_paint;
 mod material_plan;
 mod materials;
 mod noise_displace;
@@ -28,9 +30,11 @@ mod page_tag;
 mod page_window;
 mod paint_style_bindings;
 mod sampled_layout;
+mod scan_warp;
 mod scalar_cluster;
 mod shape_paint;
 mod speech_phase;
+mod tag_runs;
 mod text_line_layout;
 mod text_paint;
 mod unit_font_reflow;
@@ -74,6 +78,8 @@ struct Word {
     bytes: Range<usize>,
     span: Option<(f64, f64)>,
     input_timed: bool,
+    /// `caption-tag-run-isolation/1`: begins a run of the other tag state than the word before.
+    run_start: bool,
 }
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Bounds {
@@ -516,7 +522,20 @@ impl ScenePlan {
             only_cue.is_none_or(|id| id == *i) && seconds >= c.start && seconds < c.end
         }) {
             let params = cue_parameters(&self.style, &self.presentation, cue, &self.instance_id)?;
-            let context = sampled_layout::early_context(
+            let seconds = layout_clock::sample(
+                base_scene,
+                cue,
+                ci,
+                self.cues.len(),
+                seconds,
+                &params,
+                (self.width, self.height),
+                &self.instance_id,
+                &self.presentation.seed,
+                budget,
+            )?;
+            let context = layout_clock::early_context(
+                base_scene,
                 cue,
                 ci,
                 self.cues.len(),
@@ -812,6 +831,7 @@ fn bind_words(
                 bytes: a..b,
                 span: Some((w.start, w.end)),
                 input_timed: true,
+                run_start: false,
             });
             at = b;
         }
@@ -823,6 +843,7 @@ fn bind_words(
                 bytes: a..a + w.len(),
                 span: None,
                 input_timed: false,
+                run_start: false,
             });
         }
         if words.is_empty() && !content.is_empty() {
@@ -831,6 +852,7 @@ fn bind_words(
                 bytes: 0..content.len(),
                 span: None,
                 input_timed: false,
+                run_start: false,
             });
         }
         if timing == TimingPolicy::Estimated {
@@ -923,12 +945,13 @@ fn prepare_with(
     if content.len() > 65536 {
         bail!("CAPTION_BUDGET_EXCEEDED: mapped text");
     }
-    let words = bind_words(
+    let mut words = bind_words(
         cue,
         content,
         speech.timing_policy,
         matches!(node.text, Some(TextBinding::Static { .. })),
     )?;
+    tag_runs::mark(&mut words, &cfg.pagination, preparation.word_tags);
     if cfg.pagination.has_fixed_lines() {
         return word_line_layout::prepare(
             text,
@@ -955,7 +978,12 @@ fn prepare_with(
     let mut word_index = 0;
     while word_index < words.len() {
         let quota = pattern.map_or(max, |p| p[ranges.len() % p.len()]);
-        let word_end = (word_index + quota).min(words.len());
+        let word_end = tag_runs::page_end(
+            &words,
+            &cfg.pagination,
+            word_index,
+            (word_index + quota).min(words.len()),
+        );
         let chunk = &words[word_index..word_end];
         let end = chunk.last().unwrap().bytes.end;
         ranges.push(from..end);
@@ -969,7 +997,9 @@ fn prepare_with(
     let mut pages = Vec::new();
     for (quota_index, range) in ranges.into_iter().enumerate() {
         let paint_origin = if quota_index > 0
-            && (cfg.pagination.max_units_per_page.is_some() || pattern.is_some())
+            && (cfg.pagination.max_units_per_page.is_some()
+                || pattern.is_some()
+                || tag_runs::cuts_pages(&cfg.pagination))
         {
             quota_paint_start(content, &range)
         } else {
@@ -982,25 +1012,28 @@ fn prepare_with(
             Wrap::Word,
             Some(width),
             fs * style.line_height,
-            line_quota::capped(
-                cfg.pagination.max_units_per_line,
-                line_quota::word_starts(&words, paint_origin, range.end),
-                |r| {
-                    let sh = text.shape_spaced_with_shaping(
-                        &source[r],
-                        &style.font_family,
-                        fs,
-                        style.font_weight,
-                        style.italic,
-                        style.letter_spacing * fs,
-                        font_shaping::mode(style),
-                    );
-                    TextMetricsLine {
-                        width: sh.width,
-                        ascent: sh.ascent,
-                        descent: sh.descent,
-                    }
-                },
+            tag_runs::barrier(
+                tag_runs::starts(&words, paint_origin, range.end),
+                line_quota::capped(
+                    cfg.pagination.max_units_per_line,
+                    line_quota::word_starts(&words, paint_origin, range.end),
+                    |r| {
+                        let sh = text.shape_spaced_with_shaping(
+                            &source[r],
+                            &style.font_family,
+                            fs,
+                            style.font_weight,
+                            style.italic,
+                            style.letter_spacing * fs,
+                            font_shaping::mode(style),
+                        );
+                        TextMetricsLine {
+                            width: sh.width,
+                            ascent: sh.ascent,
+                            descent: sh.descent,
+                        }
+                    },
+                ),
             ),
         );
         let rowgroups: Vec<_> = if pattern.is_some() {
@@ -1751,6 +1784,9 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
     }
     if speech_phase::enabled(r.scene) {
         speech_phase::add_fields(&mut out, u, r.seconds);
+    }
+    if layout_clock::enabled(r.scene) {
+        layout_clock::input_fields(&mut out, r.cue);
     }
     cue_unit_context::add_fields(&mut out, u);
     if active_word_clock::enabled(r.scene) {

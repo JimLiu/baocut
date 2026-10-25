@@ -29,6 +29,7 @@ import type { TrustedPrincipal } from './gateway.ts';
 import { findSubtitles, type MediaRegistry } from './media.ts';
 import { listProjectFiles } from './project-files.ts';
 import { createProjectFile, type ProjectFileScope } from './project-file-create.ts';
+import type { FaceDetector } from './face-detection.ts';
 import type { MediaAnalysis } from './media-analysis.ts';
 import {
   resolveDesignAnnotations,
@@ -115,6 +116,8 @@ export interface HandlerDeps {
   docs: DocsOpener;
   attachments: AttachmentStore;
   analysis: MediaAnalysis;
+  /** 人脸检测（`videos.shots` 的 `by: "speaker"`）；不给时按说话人切段以 `SHOTS_FACES_UNAVAILABLE` 拒绝。 */
+  faces?: FaceDetector;
   /** Space 条目的缩略图（`space.thumbnail`）。 */
   spaceThumbnails: SpaceThumbnails;
   videos: VideoService;
@@ -212,6 +215,7 @@ export function createHandlers({
   docs,
   attachments,
   analysis,
+  faces,
   spaceThumbnails,
   videos,
   videoTrash,
@@ -514,7 +518,7 @@ export function createHandlers({
       'videos.derive': async (p, principal) =>
         (await deriveVideo({ videos, findDerived: spaceDerivedFinder(space) }, p, principal)).result,
       // 镜头切换（§3.5）：与工具 videos_shots 同一个实现。
-      'videos.shots': (p) => videoShots({ analysis, videos }, p),
+      'videos.shots': (p) => videoShots({ analysis, videos, faces }, p),
       // 便携包（视频格式规范 §8）：建成来源目录里的一个新视频。不给智能体与对外服务（它们没有这个方法的入口）。
       'videos.importPackage': async (p, principal) => {
         const { root, scope } = await videoRoot(p);

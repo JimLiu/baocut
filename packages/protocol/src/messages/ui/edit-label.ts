@@ -71,6 +71,8 @@ const en = {
   editText: 'Edit text',
   nudgePosition: 'Nudge position',
   applyFramingToAll: 'Apply to whole short',
+  adjustPanel: 'Adjust panel',
+  changeLayout: 'Change layout',
   zoomFraming: 'Zoom framing',
   freePlacement: 'Switch to free placement',
   aspectRatio: (p: { ratio: string }) => `Aspect ratio ${p.ratio}`,

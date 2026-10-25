@@ -275,8 +275,11 @@
 
           <MediaSection v={v} set={set} onAdjust={onAdjust} onFilters={onFilters} />
           {/* 几何段（几何面板设计稿 §8.2）：旋转 · 翻转 · 适应画布那一行放到本段末行。
-              按原片取景的视频（`focal`）换成「取景」段（stage-framing.jsx）：位置、大小、旋转由取景点和画幅现算，只留放大。 */}
-          {id && (ctx.elDocs[id] || {}).focal ? (
+              按原片取景的视频（`focal`）换成「取景」段（stage-framing.jsx）：位置、大小、旋转由取景点和画幅现算，只留放大。
+              分屏的视频（`panels`）换成「版式」段（stage-panels.jsx）。 */}
+          {id && ((ctx.elDocs[id] || {}).panels || []).length ? (
+            <window.PanelsSection ctx={ctx} id={id} disabled={window.geometryReadOnly(ctx)} />
+          ) : id && (ctx.elDocs[id] || {}).focal ? (
             <window.FramingSection ctx={ctx} id={id} disabled={window.geometryReadOnly(ctx)} />
           ) : id ? (
             <window.ElementGeometry ctx={ctx} id={id} kind="video" pose={window.BC_POSE.poseOf(ctx.elDocs[id])}

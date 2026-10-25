@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import type { CaptionItem, DocumentRecord, Id, Localized, Place, Revision, Sequence, SequenceItem, VisualMode } from '@baocut/protocol';
+import type { CaptionItem, DocumentRecord, Id, Localized, Place, Revision, Sequence, SequenceItem, VideoPanel, VisualMode } from '@baocut/protocol';
 import { EditLabel } from '@baocut/protocol/messages/ui';
 import { ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -15,17 +15,30 @@ import {
   movedCaptionStyle,
   movedLineStyle,
   restackedRootY,
+  seamMoveStart,
   stepCaptionMove,
+  unseamedCaptionStyle,
   type CaptionMove,
   type CaptionMoveFrame,
 } from '../../model/stage-caption-move.ts';
-import { framingAnchor, framingOperations, isFramed, stagePose, type FramingHit } from '../../model/stage-framing.ts';
+import {
+  layoutOfPanels,
+  panelAt,
+  panelSource,
+  panelsOperations,
+  pointInPanel,
+  wheelZoomFactor,
+  zoomPanel,
+  type PanelledVideo,
+} from '../../model/panels.ts';
+import { framingAnchor, framingOperations, isFramed, isPanelled, stagePose, type FramingHit } from '../../model/stage-framing.ts';
 import {
   gestureOperations,
   gesturePatch,
   memberOf,
   membersOf,
   nudgeOperations,
+  panGesture,
   resetRotation,
   stepGesture,
   zoomGesture,
@@ -67,7 +80,8 @@ import { previewCaptionStyle, saveCaptionStyle } from './caption-style-edit.ts';
 import { draftedBody } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
 import type { PreviewEngine } from './preview-engine.ts';
-import { FramingAnchor, GroupBox, Guides, ItemBox, Marquee, ThinBox, type View } from './stage-boxes.tsx';
+import { panelNames } from './framing-info.tsx';
+import { FramingAnchor, GroupBox, Guides, ItemBox, Marquee, PanelSeams, ThinBox, type View } from './stage-boxes.tsx';
 import { StageCaptionToolbar } from './stage-caption-toolbar.tsx';
 import { StageFramingChip } from './stage-framing-chip.tsx';
 import { StageTextEdit } from './stage-text-edit.tsx';
@@ -87,6 +101,9 @@ import { StageToolbar } from './stage-toolbar.tsx';
  * - 只读、锁定或正在播放时不出把手，只读时点选照常；播放中按下画面只暂停（原型 stage.jsx），停下后再点选。
  * - 按原片取景的视频（`stage-framing`，原型 stage-objects.jsx `FramingSelection`）：框是整幅原片，只有四角，拖角围着取景点
  *   放大、缩小；拖画面本身不动它，只让小牌说一句为什么（不提交）。整组拖动、缩放与方向键都不挪它。
+ * - 分屏的视频（`panels.ts`，原型 stage-panels.jsx `PanelsSelection`）：框是整块画布，画出各格的接缝与叫法，没有把手；按在一格里拖
+ *   只改这一格的取景点（画面跟着手走），拖到原片边上小牌说一句。指针在一格里滚轮（触控板双指滑动、捏合）或触屏两指捏合，缩放这一格，
+ *   指针下那一点不动，一阵缩放停下 0.4 秒记一步；指针不在格子里时不拦滚轮。
  */
 
 const root = style({ position: 'absolute', inset: 0, outlineStyle: 'none', userSelect: 'none', touchAction: 'none' });
@@ -108,12 +125,23 @@ const LABEL: Record<Gesture['kind'], () => Localized> = {
   rotate: EditLabel.rotate,
   zoom: EditLabel.zoomFraming,
   hold: EditLabel.move,
+  pan: EditLabel.adjustPanel,
   'group-move': EditLabel.groupMove,
   'group-scale': EditLabel.groupScale,
 };
 
 /** 小牌上那句「为什么」留多久（原型 stage-objects.jsx `HIT_MS`）。 */
 const HIT_MS = 2400;
+
+/** 一阵滚轮、捏合缩放停下多久记一步历史（原型 stage-panels.jsx `useWheelZoom`）。 */
+const ZOOM_SETTLE_MS = 400;
+
+/** 一阵连续的滚轮、捏合缩放：缩的是哪一件（起手时的它，提交时拿它比有没有变）、此刻的格子、停下记一步的计时。 */
+interface ZoomSession {
+  item: PanelledVideo;
+  panels: VideoPanel[];
+  timer: number;
+}
 
 /**
  * 拖字幕：起手时的样式文档、正文与根样式，拖到某处时根样式变成什么（整组挪根样式，双语单拖一行写那一行的覆盖），
@@ -194,6 +222,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const rootRef = useRef<HTMLDivElement>(null);
   const spaceRef = useRef<HTMLDivElement>(null);
   const press = useRef<Press | null>(null);
+  const zoom = useRef<ZoomSession | null>(null);
   const latest = useRef(sequence);
   latest.current = sequence;
   const nudges = useRef({ inflight: 0, at: new Map<Id, { place: Place; mode?: VisualMode }>() });
@@ -205,6 +234,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const [editing, setEditing] = useState<Id | null>(null);
   const [captionShift, setCaptionShift] = useState<{ hits: CaptionHit[]; dx: number; dy: number } | null>(null);
   const [hit, setHit] = useState<FramingHit | null>(null);
+  const [panning, setPanning] = useState<number | null>(null);
   const hitTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(hitTimer.current), []);
 
@@ -345,7 +375,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       useEditor.getState().setDraft({
         itemId: m.item.id,
         revision: seq.revision,
-        patch: gesturePatch(m.item, result.poses[0]!, result.factor, seq.canvas, assets, result.framing),
+        patch: gesturePatch(m.item, result.poses[0]!, result.factor, seq.canvas, assets, result.framing, result.panels),
       });
     }
     setGuides(live ? result.guides : []);
@@ -368,7 +398,11 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
           ? result.framing
             ? framingOperations(seq.id, gesture.member.item, result.framing)
             : []
-          : gestureOperations(seq.id, membersOf(gesture), result.poses, result.factor, seq.canvas);
+          : gesture.kind === 'pan'
+            ? result.panels
+              ? panelsOperations(seq.id, gesture.member.item, result.panels)
+              : []
+            : gestureOperations(seq.id, membersOf(gesture), result.poses, result.factor, seq.canvas);
     if (!operations.length) return discard(gesture);
     show(gesture, result, false);
     if ('members' in gesture) setOverride((o) => (o ? { ...o, until: seq.revision } : o));
@@ -376,6 +410,112 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       if (!receipt) discard(gesture);
     });
   };
+
+  // ---- 分屏：在一格里滚轮、捏合缩放 ----
+
+  /**
+   * 收起这一阵缩放：记一步历史（什么都没变时丢掉草稿），返回它最后的格子，按下指针时接着在一格里拖用。
+   * 只读 ref 与 store，原生监听里也能调。
+   */
+  const settleZoom = (): ZoomSession | null => {
+    const session = zoom.current;
+    if (!session) return null;
+    zoom.current = null;
+    window.clearTimeout(session.timer);
+    const operations = panelsOperations(latest.current.id, session.item, session.panels);
+    if (!operations.length) useEditor.getState().clearDrafts();
+    else
+      void apply(operations, EditLabel.adjustPanel()).then((receipt) => {
+        if (!receipt) useEditor.getState().clearDrafts();
+      });
+    return session;
+  };
+
+  /**
+   * 以 `clientX, clientY` 为中心把选中的分屏视频指针下那一格放大 `factor` 倍，画面跟手、停下 0.4 秒记一步；指针不在它的格子里
+   * （或此刻改不了、正在拖）时 false，不拦这个事件（原型 stage-panels.jsx `useWheelZoom` 的 `zoomBy`）。
+   */
+  const zoomBy = (factor: number, clientX: number, clientY: number): boolean => {
+    const frameEl = spaceRef.current;
+    if (press.current || !frameEl || !single || !isPanelled(single) || !changeable(single)) return false;
+    const source = panelSource(single, assets);
+    const fr = frameEl.getBoundingClientRect();
+    if (!source || !(fr.width > 0) || !(fr.height > 0)) return false;
+    if (zoom.current && zoom.current.item.id !== single.id) settleZoom();
+    const seq = latest.current;
+    const panels = zoom.current?.panels ?? single.panels;
+    const p = toCanvas(seq.canvas, fr, clientX, clientY);
+    const cell = panelAt(panels, p, seq.canvas);
+    if (cell < 0) return false;
+    const out = zoomPanel(panels, cell, factor, pointInPanel(panels[cell]!, p, seq.canvas), source, seq.canvas);
+    const session = (zoom.current ??= { item: single, panels, timer: 0 });
+    session.panels = out.panels;
+    useEditor.getState().setDraft({ itemId: single.id, revision: seq.revision, patch: { panels: out.panels } });
+    bump(out.hit);
+    window.clearTimeout(session.timer);
+    session.timer = window.setTimeout(settleZoom, ZOOM_SETTLE_MS);
+    return true;
+  };
+
+  // 拦得住浏览器的滚轮、触摸要挂原生监听（React 的是 passive 的）；监听只挂一次，经 ref 调到这一轮渲染的函数。
+  const zoomByRef = useRef(zoomBy);
+  zoomByRef.current = zoomBy;
+  const settleRef = useRef(settleZoom);
+  settleRef.current = settleZoom;
+  const cancelPressRef = useRef(() => {});
+  useEffect(() => {
+    const rootEl = rootRef.current;
+    if (!rootEl) return;
+    let pinch: { d: number; x: number; y: number } | null = null;
+    const spread = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const onWheel = (event: WheelEvent) => {
+      if (!event.deltaY) return;
+      if (zoomByRef.current(wheelZoomFactor(event), event.clientX, event.clientY)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    // 两指按下：先收起第一指已经起手的拖动，再以两指中点为中心缩放。
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 2) return;
+      const a = event.touches[0]!;
+      const b = event.touches[1]!;
+      cancelPressRef.current();
+      pinch = { d: spread(a, b), x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+      if (zoomByRef.current(1, pinch.x, pinch.y)) event.preventDefault();
+      else pinch = null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (!pinch || event.touches.length !== 2) return;
+      const d = spread(event.touches[0]!, event.touches[1]!);
+      if (pinch.d > 0 && zoomByRef.current(d / pinch.d, pinch.x, pinch.y)) event.preventDefault();
+      pinch.d = d;
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) pinch = null;
+    };
+    rootEl.addEventListener('wheel', onWheel, { passive: false });
+    rootEl.addEventListener('touchstart', onTouchStart, { passive: false });
+    rootEl.addEventListener('touchmove', onTouchMove, { passive: false });
+    rootEl.addEventListener('touchend', onTouchEnd);
+    rootEl.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      rootEl.removeEventListener('wheel', onWheel);
+      rootEl.removeEventListener('touchstart', onTouchStart);
+      rootEl.removeEventListener('touchmove', onTouchMove);
+      rootEl.removeEventListener('touchend', onTouchEnd);
+      rootEl.removeEventListener('touchcancel', onTouchEnd);
+      settleRef.current();
+    };
+  }, []);
+  // 换了选中就把上一件的这一阵缩放记下来；缩放中序列换了版本（撤销、别处改了），草稿跟到新版本上，画面不弹回。
+  useEffect(() => {
+    settleRef.current();
+  }, [single?.id]);
+  useEffect(() => {
+    const session = zoom.current;
+    if (session) useEditor.getState().setDraft({ itemId: session.item.id, revision: sequence.revision, patch: { panels: session.panels } });
+  }, [sequence.revision]);
 
   // ---- 拖字幕 ----
 
@@ -412,15 +552,22 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
         const other = sharing(hit.itemId);
         return !!other && captionKind(other.documentId, records) !== own;
       });
-      const anchorY = detached ? null : restackedRootY(root, own, rest, canvas);
+      // 另一行挂在接缝上时它不看根样式的 `y`：别把接缝的位置写进根样式，一人段的字幕会跟着跳。
+      const anchorY = detached || rest.some((hit) => hit.panelSeam) ? null : restackedRootY(root, own, rest, canvas);
       const restyle = (to: { x: number; y: number }) => movedLineStyle(root, own, to, detached, anchorY);
       return { move: { box, x0, y0, p0 }, record, body, root, restyle, remember: false, hits };
     }
     const box = captionBox(lines);
     if (!box) return null;
-    const move = { box, x0: num(root.x, CAPTION_X), y0: num(root.y, CAPTION_Y), p0 };
     const selected = useEditor.getState().selection;
     const hits = lines.filter((hit) => (group ? selected.includes(hit.itemId) : hit.itemId === item.id));
+    // 挂在分屏接缝上的一块从画出来的框起手，放下时关掉 `panelSeam`（短视频分屏设计 §7）。
+    if (lines.some((hit) => hit.panelSeam)) {
+      const from = seamMoveStart(root, box, latest.current.canvas);
+      const restyle = (to: { x: number; y: number }) => unseamedCaptionStyle(root, from, to);
+      return { move: { box, ...from, p0 }, record, body, root, restyle, remember: true, hits };
+    }
+    const move = { box, x0: num(root.x, CAPTION_X), y0: num(root.y, CAPTION_Y), p0 };
     return { move, record, body, root, restyle: (to) => movedCaptionStyle(root, to), remember: true, hits };
   };
 
@@ -463,6 +610,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     setGuides([]);
     setAngle(null);
     setMarquee(null);
+    setPanning(null);
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -474,6 +622,8 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const frameEl = spaceRef.current;
     if (!rootEl || !frameEl) return;
     event.preventDefault();
+    // 刚滚轮缩放过：先记下那一步，接着拖的从缩放后的格子起手（最后几下滚轮可能还没渲染进序列）。
+    const zoomed = settleZoom();
     rootEl.focus({ preventScroll: true });
     const fr = frameEl.getBoundingClientRect();
     if (!(fr.width > 0) || !(fr.height > 0)) return;
@@ -531,8 +681,10 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       if (captionGroup) click = () => select([hit]);
       else if (!current.includes(hit) || current.length > 1) select([hit]);
       if (item?.type === 'caption') useEditor.getState().showPanel('props');
-      // 按原片取景的视频（剪成短视频的子视频）位置跟着取景点：拖不动，只让小牌说一句为什么。
-      if (item && isFramed(item) && changeable(item)) gesture = { kind: 'hold', member: memberOf(item, seq.canvas, assets), p0: p };
+      // 按原片取景的视频（剪成短视频的子视频）位置跟着取景点：拖不动，只让小牌说一句为什么。分屏的拖的是按下那一格的取景点。
+      if (item && isPanelled(item) && changeable(item))
+        gesture = panGesture(zoomed?.item.id === item.id ? { ...item, panels: zoomed.panels } : item, p, seq.canvas, assets);
+      else if (item && isFramed(item) && changeable(item)) gesture = { kind: 'hold', member: memberOf(item, seq.canvas, assets), p0: p };
       else if (item && isPlaced(item) && changeable(item)) gesture = { kind: 'move', member: memberOf(item, seq.canvas, assets), p0: p };
       else if (item?.type === 'caption' && changeable(item) && (!captionGroup || current.every((id) => changeable(byId.get(id)!))))
         caption = captionDragOf(item, p, captionGroup);
@@ -544,7 +696,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     }
 
     // 上一下留着的那句说明不带进这一下：缩到底之后马上往外拉，不该还写着「已经铺满」。
-    if (gesture?.kind === 'zoom' || gesture?.kind === 'hold') {
+    if (gesture?.kind === 'zoom' || gesture?.kind === 'hold' || gesture?.kind === 'pan') {
       window.clearTimeout(hitTimer.current);
       setHit(null);
     }
@@ -578,9 +730,9 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     if (!(fr.width > 0)) return;
     const hit = hitTest(toCanvas(latest.current.canvas, fr, event.clientX, event.clientY));
     const item = hit ? byId.get(hit) : undefined;
-    // 选中的字幕没有自己的选中框接指针：能拖时在这里换成移动光标。
-    const movable = item?.type === 'caption' && changeable(item) && useEditor.getState().selection.includes(item.id);
-    rootEl.style.cursor = movable ? 'move' : hit ? 'pointer' : '';
+    // 选中的字幕没有自己的选中框接指针：能拖时在这里换成移动光标。选中的分屏视频在格子里拖，换成抓手。
+    const chosen = !!item && changeable(item) && useEditor.getState().selection.includes(item.id);
+    rootEl.style.cursor = chosen && item.type === 'caption' ? 'move' : chosen && isPanelled(item) ? 'grab' : hit ? 'pointer' : '';
   };
 
   const flush = (p: Press) => {
@@ -604,7 +756,8 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       } else if (!p.marquee || !marqueeRect(p.client0, { x: event.clientX, y: event.clientY }).on) return;
       p.moved = true;
       setActive(p.gesture?.kind ?? (p.caption ? 'move' : 'marquee'));
-      if (p.caption && rootRef.current) rootRef.current.style.cursor = 'grabbing';
+      if (p.gesture?.kind === 'pan') setPanning(p.gesture.cell);
+      if ((p.caption || p.gesture?.kind === 'pan') && rootRef.current) rootRef.current.style.cursor = 'grabbing';
     }
     if (p.gesture || p.caption) {
       p.queued = { p: toCanvas(p.env.canvas, p.frame, event.clientX, event.clientY), mods: modsOf(event) };
@@ -630,14 +783,21 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     else if (p.marquee) finishMarquee(p, event.clientX, event.clientY, p.marquee.additive);
   };
 
-  const onPointerCancel = (event: PointerEvent<HTMLDivElement>) => {
+  /** 丢下这一下按住：拖过的画面弹回，不提交（指针被系统收走；触屏上第二指按下改成捏合）。 */
+  const cancelPress = () => {
     const p = press.current;
-    if (!p || event.pointerId !== p.pointerId) return;
+    if (!p) return;
     press.current = null;
     if (p.raf) cancelAnimationFrame(p.raf);
     if (p.moved && p.gesture) discard(p.gesture);
     else if (p.moved && p.caption) useEditor.getState().clearDrafts();
+    if (rootRef.current?.hasPointerCapture(p.pointerId)) rootRef.current.releasePointerCapture(p.pointerId);
     reset();
+  };
+  cancelPressRef.current = cancelPress;
+
+  const onPointerCancel = (event: PointerEvent<HTMLDivElement>) => {
+    if (press.current && event.pointerId === press.current.pointerId) cancelPress();
   };
 
   // ---- 双击：旋转钮归零；文字就地改 ----
@@ -699,7 +859,8 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     if (!candidates.length) return;
     event.preventDefault();
     const targets = candidates.filter((item) => !isFramed(item));
-    if (!targets.length) return void ToastQueue.info(STAGE_COPY.framingLocked, { timeout: 5000 });
+    if (!targets.length)
+      return void ToastQueue.info(candidates.every(isPanelled) ? STAGE_COPY.panelsHow : STAGE_COPY.framingLocked, { timeout: 5000 });
     // 连按时上一笔还没回来：从上一笔的落点接着推，不从旧位置重算（铺满画布的媒体第一下换成了画中画，也接着那一份）。
     const pending = nudges.current;
     const base = targets.map((item) => {
@@ -754,6 +915,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   } else if (single) {
     const can = changeable(single);
     const framed = isFramed(single);
+    const split = isPanelled(single) ? single.panels : null;
     boxes = (
       <>
         <ItemBox
@@ -762,12 +924,14 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
           view={view}
           kind={resizeKindOf(single)}
           video={single.type === 'video'}
-          controls={can}
+          controls={can && !split}
           movable={can && !framed}
           dragging={dragging}
           angle={active === 'rotate' ? angle : null}
           framing={framed}
-        />
+        >
+          {split ? <PanelSeams rects={split.map((panel) => panel.rect)} names={panelNames(split.length, layoutOfPanels(split, canvas)?.layout)} active={panning} /> : null}
+        </ItemBox>
         {framed && active === 'zoom' ? <FramingAnchor at={framingAnchor(single, canvas)} view={view} /> : null}
       </>
     );

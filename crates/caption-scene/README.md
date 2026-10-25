@@ -54,6 +54,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-keyword-isolation/1` 的 `pagination.isolation` 按 `wordTags` 在固定词行分组前插入硬边界：`line` 让词独占一行，`page` 让词独占一页；边界只缩短行和页，不放宽配额，不与 `lastPageRule` 同用。示例见 [keyword-isolation.json](tests/fixtures/keyword-isolation.json)。
 
+`caption-tag-run-isolation/1` 的 `pagination.tagRuns` 按 `wordTags` 把词分成连续的同状态段，只在状态变化处断开：`line` 让显示行不跨段，`page` 让页不跨段并让页配额在每段内重新计数；只用于按宽度换行的默认分页，冻结布局、逐采样布局和单元字号重排的折行规则相同，不与固定行模式或 `isolation` 同用。示例见 [tag-run-isolation.json](tests/fixtures/tag-run-isolation.json)。
+
 `caption-cue-word-context/1` 提供 cue 首两词原始输入边界、真实绑定词标记与跨页下一词开始时间；保留负值、零值和真实 gap，不延长词结束，也不把 estimated 时序冒充输入。所有边界配有可用标记，见 [cue-word-context.json](tests/fixtures/cue-word-context.json)。
 
 `caption-first-page-context/1` 提供固定第一页与当前页的真实首词/末词/下一原词输入边界及可用标记，按文字节点绑定继承，区别真实词结束与延长的页面显示窗口。见 [first-page-context.json](tests/fixtures/first-page-context.json)。
@@ -82,6 +84,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-fixed-line-fit/1` 开放 `pagination.fixedLineFit`：每页固定行按基础字号量宽，各行放大到最宽行宽（末行窄于 `lastLineWidthRatio` 时最多放大 `lastLineMaxScale`），行高随行字号变化并加 `extraLineHeight` / 页最大缩放；行仍是一条显示行，与 `fixedLineOverflow`、`fontSizeBindings`、`fontStyleBindings` 互斥。见 [fixed-line-fit.json](tests/fixtures/fixed-line-fit.json)。
 
+`caption-fixed-line-font-box/1` 允许固定行缩放同时保留 `style.lineBox`：先按缩放字号取得字体行框，行高取原字号行高与字体框高度的较大值，再加该行字号乘 `extraLineHeight` / 页最大缩放。基线、页居中与上下文使用组合后的真实行框；省略新能力仍拒绝该组合，旧布局结果不变。
+
 `caption-gaussian-axis/1` 与 `caption-glow-cascade/1` 提供单 Text 上下文的独立 RGBA 分量滤波：高斯采样按输入纹理 UV、多尺度 pass 按原画布有理比例定尺寸，明确边界及逐 pass gamma/量化。级联保留各尺度图，按声明的 screen 或 source-over-glow 合成；允许 RGB > alpha，须按视频格式 §5.6 使用关联输出。有效区域包含零 alpha 发光，采样与内存预算超限会拒绝。示例见 [gaussian-axis.json](tests/fixtures/gaussian-axis.json)、[glow-cascade.json](tests/fixtures/glow-cascade.json)。
 
 `caption-text-line-layout/1` 用显式 Unicode scalar 或 extended grapheme 数限制每行，按完整词贪心分组并循环页计划；分隔空白不计，超长词独占行，显式换行强制成员边界。与其他分页策略互斥，复用固定词行的时间、几何与逐采样路径，见 [text-line-layout.json](tests/fixtures/text-line-layout.json)。
@@ -103,6 +107,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 `feedback` 默认按 decay 的 i 次方从旧到新 source-over 合成；声明 `caption-feedback-mean/1` 后可写 `composite:"mean"`（decay 必须为 1），对落在 cue 内的历史样本做预乘 RGBA 等权平均（整数四舍五入，cue 外样本不计入分母），用于有界运动模糊；省略 composite 的旧文档不变。示例见 [feedback-mean.json](tests/fixtures/feedback-mean.json)。
 
 `caption-noise-displace/1` 的 `noise-displace` 在唯一文字节点页上下文与显式 domain 内，以固定 v1 空间噪声 `n0=noise(uv*noiseScale, phase)` 求 `n=(n0+brightness-0.5)*contrast*10+0.5`、`d=(n-0.5)*strength*width/height`，把 `uv+(d,d)` 处的输入做预乘双线性采样，画面外透明、domain 外清零；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [noise-displace.json](tests/fixtures/noise-displace.json)。
+
+`caption-scan-warp/1` 的 `scan-warp` 在唯一文字节点页上下文与显式 domain 内一次完成三件事：用 gradient-smear 的分形梯度噪声核取两路场（seed 1 与 3）移动采样点；按以像素给出的核心半高、衰减与门限，在条纹内围绕 domain 中心列横向拉伸；再乘扫描线明暗与整体增益。`warp`、`stripe`、`scanlines` 与 `gain` 的范围见规格，domain 外清零、画布外透明；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [scan-warp.json](tests/fixtures/scan-warp.json)。
 
 `caption-glow-color-matrix/1` 提供 glow-cascade 的可选静态 `glowColorMatrix`，以行优先 3×3 矩阵在 tint 后变换辉光 RGB，再 clamp 后合成。alpha 和原图不参与变换；省略/单位矩阵保持旧输出。
 
@@ -148,3 +154,7 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 
 `caption-paint-stack-extended/1` 显式开放每stack及layer ID并集64层、整场景4096声明；所有采样共享表面和工作预算。缺省仍为16层，不删减涂装；完整合同见视频格式§5.6。
+
+`caption-paint-mask-local/1` 允许 mask 显式选择 `rasterization: "glyph-bounds"`：场景录制器在整数设备窗口内完成涂装与遮罩，再输出普通位图，CPU／WASM／GPU共用。默认 canvas 不变；局部曲线 AA、外层 clip 与三账本预算合同见[视频格式 §5.6](../../docs/spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
+`caption-layout-clock/1` 提供显式 cue 相对采样时钟：保留外层时间线激活和原始词时间，同时统一分页、字号、pose 与材质采样；时钟只读早期上下文，拒绝布局依赖反馈。未声明的旧场景不增加输入词上下文字段。详见视频格式规范的布局时钟说明及 `tests/layout_clock.rs`。

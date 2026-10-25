@@ -83,6 +83,7 @@ async function check() {
   await app.whenReady();
   const blocked = [];
   const fontLoads = new Map();
+  const wasmLoads = new Map();
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
     const local = /^(file|data|blob|devtools):/.test(details.url);
     if (!local) blocked.push(details.url);
@@ -90,6 +91,7 @@ async function check() {
   });
   session.defaultSession.webRequest.onCompleted({ urls: ['file://*/*'] }, (details) => {
     if (details.url.endsWith('.ttf')) fontLoads.set(basename(fileURLToPath(details.url)), details.statusCode);
+    if (details.url.endsWith('.wasm')) wasmLoads.set(basename(fileURLToPath(details.url)), details.statusCode);
   });
   // 页面照常向主进程要 Runtime 的连接与更新状态：这里不启动 Runtime、不查更新，一直不答（页面停在连接中）。
   for (const channel of ['baocut:connection', 'baocut:updates-get']) ipcMain.handle(channel, () => new Promise(() => {}));
@@ -131,6 +133,13 @@ async function check() {
     const injected = [...result.fonts].sort();
     const expected = shipped.map((item) => item.font).sort();
     const problems = [];
+    const wasmManifest = resolve(OUT, '../../web/assets/bundled-wasm.json');
+    if (existsSync(wasmManifest)) {
+      for (const file of Object.values(JSON.parse(readFileSync(wasmManifest, 'utf8')))) {
+        if (![0, 200].includes(wasmLoads.get(file))) problems.push(`Shared WASM was not loaded over file://: ${file}`);
+      }
+    }
+    if (result.editorSentences !== 1) problems.push('Editor semantics WASM did not derive the expected sentence');
     if (expected.length === 0) problems.push('产物里没有字体');
     if (JSON.stringify(injected) !== JSON.stringify(expected)) {
       const missing = expected.filter((name) => !injected.includes(name));

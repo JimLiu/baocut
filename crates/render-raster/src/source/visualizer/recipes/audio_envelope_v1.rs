@@ -1,4 +1,4 @@
-//! Scrolling amplitude envelope with a fixed playhead and local progress clocks.
+//! Scrolling amplitude envelope with a fixed playhead and optional local progress clocks.
 //! The temporal RMS window is prepared by `VizTrack::envelope_frame`, shared by
 //! native export and WASM preview. Every coordinate scales with the element box.
 
@@ -60,6 +60,9 @@ pub(crate) fn draw(
     let mut marker = params.main_color;
     marker[3] *= 0.22;
     rect(816.0, 22.0, 1.0, 216.0, 0.0, marker);
+    if !params.readout {
+        return builder.frame.ops.len() - before;
+    }
     let duration = if params.duration.is_finite() {
         params.duration.max(0.0)
     } else {

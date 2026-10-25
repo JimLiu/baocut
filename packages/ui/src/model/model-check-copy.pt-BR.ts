@@ -90,6 +90,12 @@ export const ptBR: ModelCheckMessages = {
     todo: "Tente outra referência, ou ouça com amostra primeiro.",
   }),
   refUnknown: "gravação",
+  toolMissing: {
+    text: (tool) => `Este computador não tem um ${tool} que funcione`,
+    install: (tool) => `Instale ${tool}`,
+    checkTodo: (remedy) => `${remedy}, depois verifique novamente.`,
+    tryTodo: (remedy) => `${remedy}, depois tente novamente.`,
+  },
 
   trySpeech: {
     noMemory: {

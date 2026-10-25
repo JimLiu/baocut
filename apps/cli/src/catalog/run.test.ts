@@ -96,6 +96,34 @@ describe('runTool：等任务（Agent 面设计 §5.2、§5.4）', () => {
     expect(body.result.kind).toBe('transcode');
   });
 
+  it('完成：导出回执里提交时定下的 files 换成实际写下的文件名（重名加了序号）', async () => {
+    const { fake, run, envelope } = setup(command('export'), { video: 'demo', kind: 'video', format: 'mp4' });
+    const dir = path.join(os.tmpdir(), 'exports');
+    fake.tools.export = () => {
+      later(fake, { jobId: 'job_1', state: 'completed' });
+      return { ok: true, result: { jobId: 'job_1', kind: 'export', state: 'queued', dir, files: ['a.mp4'], next: '用 jobs_wait 等它结束' } };
+    };
+    fake.tools.jobs_inspect = () => ({
+      ok: true,
+      result: { jobId: 'job_1', state: 'completed', outputs: [{ artifactId: 'sha256:1', path: path.join(dir, 'a (2).mp4') }], next: '把产物给用户' },
+    });
+    expect(await run()).toBe(0);
+    const body = envelope();
+    expect(body.result.files).toEqual(['a (2).mp4']);
+    expect(body.result.outputs[0].path).toBe(path.join(dir, 'a (2).mp4'));
+  });
+
+  it('完成：没有写成文件的输出时 files 保持提交时的', async () => {
+    const { fake, run, envelope } = setup(command('export'), { video: 'demo', kind: 'video', format: 'mp4' });
+    fake.tools.export = () => {
+      later(fake, { jobId: 'job_1', state: 'completed' });
+      return { ok: true, result: { jobId: 'job_1', kind: 'export', state: 'queued', files: ['a.mp4'], next: '用 jobs_wait 等它结束' } };
+    };
+    fake.tools.jobs_inspect = () => ({ ok: true, result: { jobId: 'job_1', state: 'completed', outputs: [], next: '把产物给用户' } });
+    expect(await run()).toBe(0);
+    expect(envelope().result.files).toEqual(['a.mp4']);
+  });
+
   it('--timeout 到时：WAIT_TIMEOUT，退出码 1，任务继续，next 是 baocut jobs wait', async () => {
     const { fake, run, envelope } = setup(command('transcode'), { files: ['a.mp4'] }, { timeout: 0.05 });
     fake.tools.transcode = () => {

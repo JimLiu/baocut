@@ -97,7 +97,7 @@ export const ja: ExportMessages = {
   letterboxedTo: (ratio: string) => `${ratio}（黒帯付き）`,
   letterboxNote: 'アスペクト比を変えてもトリミングはしません。映像は元の比率のまま最大まで拡大して中央に配置し、周囲に黒帯を付けます。画面内のレイアウトは新しい比率に合わせて組み直されません',
   size: 'サイズ',
-  upscaleNote: (label: string) => `解像度は元の ${label} まで · それ以上は拡大するだけで、鮮明にはなりません`,
+  upscaleNote: (label: string) => `元の動画は ${label} · それより高くしても動画は拡大されるだけで鮮明にはなりません。字幕と文字はくっきり描かれます`,
   pictureLanes: '映像に含めるもの',
   burnCaptions: '字幕を映像に焼き込む',
   burnCaptionsFor: (label: string) => `字幕を映像に焼き込む：${label}`,

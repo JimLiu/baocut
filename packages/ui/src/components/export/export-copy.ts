@@ -119,7 +119,7 @@ const en = {
   letterboxedTo: (ratio: string) => `${ratio} letterboxed`,
   letterboxNote: 'Changing the aspect ratio doesn’t crop: the picture is scaled up at its own ratio and centered, with black bars around it; layouts in the picture aren’t rearranged for the new ratio',
   size: 'Size',
-  upscaleNote: (label: string) => `Resolution goes up to the original ${label} · anything higher is only upscaled and won’t look sharper`,
+  upscaleNote: (label: string) => `The original video is ${label} · higher resolutions only enlarge the video and won’t make it sharper; subtitles and text still render crisp`,
   pictureLanes: 'What’s in the picture',
   burnCaptions: 'Burn subtitles into the picture',
   burnCaptionsFor: (label: string) => `Burn subtitles into the picture: ${label}`,

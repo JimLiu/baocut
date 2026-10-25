@@ -14,8 +14,11 @@ import {
   SHORTS_STYLES,
   SHORTS_TRACKS,
   shortsAutoHint,
+  shortsFocus,
+  shortsFocusOpen,
   shortsLengthRange,
   shortsLines,
+  shortsSplitApplies,
   toolEffect,
   toolTemplate,
   type ShortsCount,
@@ -26,6 +29,7 @@ import {
   type ShortsStyle,
   type ShortsTracks,
 } from '../../model/ai-tools.ts';
+import { speechSpeakers } from '../../model/dub-setup.ts';
 import { chapterPieces } from '../../model/export-range.ts';
 import { topicUsable } from '../../model/writing-topic.ts';
 import { useSemanticStatus } from '../../state/semantic-store.ts';
@@ -36,6 +40,7 @@ import { Option, Row, ToolCard } from './ai-tools-agent-page.tsx';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
 import { PanelHead } from './panel-head.tsx';
 import { recordShortsRun } from './shorts-runs.ts';
+import { useDocumentBodies } from './use-document-body.ts';
 
 const body = style({ flexGrow: 1, minHeight: 0, overflowY: 'auto', paddingX: 12, paddingTop: 12, paddingBottom: 16 });
 const secHead = style({ marginTop: 20, marginBottom: 0, font: 'detail', fontWeight: 'bold', color: 'gray-700' });
@@ -48,7 +53,8 @@ const radioSub = style({ display: 'block', paddingStart: 24, marginTop: -2, marg
 /**
  * 剪成短视频的参数页（原型 panel-aitools-shorts.jsx `ShortsCutSetup`，产品设计 §5.10「参数页」）：只交给 Agent，所以没有「用」一行；
  * 总是新开一条会话，所以也没有「会话」一行。自上而下：说明卡（找出值得单独发的话题、各剪成一支新的子视频），范围、「已经切过的不再找」与主题，
- * 切成什么样（几支、多长缺省都是「自动」——交给 Agent 按话题定，下面一行说明自动怎么定；画幅），取景（画幅不是保留原画幅时），
+ * 切成什么样（几支、多长缺省都是「自动」——交给 Agent 按话题定，下面一行说明自动怎么定；画幅），取景（画幅不是保留原画幅时；
+ * 「跟着说话的人」要转写里分出 2 个以上说话人，分得出时是缺省，分不出时置灰、缺省回到「自动」；自动或跟着说话的人取景时另有「多人全景时分屏」，缺省开），
  * 字幕（带哪几轨、样式），提示词框（意图句加一行一句的参数，最后一行
  * 「找好就直接创建」可以单独删），主按钮与去向。按下就新开会话发出去，那条会话打开到眼前，工具页回列表；这一轮记下来（`recordShortsRun`），
  * 跑完、切出了子视频时这部视频的 AI 工具 Tab 翻到结果页（ai-tools-shorts-result.tsx）。
@@ -77,8 +83,15 @@ export function ShortsToolPage({
   const scope = scopeIndex >= 0 ? C.scopeChapter(scopeIndex + 1, chapters[scopeIndex]!.label) : null;
 
   const hasTranslation = useMemo(() => Object.values(documents).some((d) => d.kind === 'translation'), [documents]);
-  const [s, setS] = useState<ShortsSettings>(() => ({ ...SHORTS_DEFAULTS, ...(skipDone ? { skipDone: true } : {}) }));
-  const set = (patch: Partial<ShortsSettings>) => setS((prev) => ({ ...prev, ...patch }));
+  const [form, setForm] = useState<ShortsSettings>(() => ({ ...SHORTS_DEFAULTS, ...(skipDone ? { skipDone: true } : {}) }));
+  const set = (patch: Partial<ShortsSettings>) => setForm((prev) => ({ ...prev, ...patch }));
+  // 取景（短视频分屏设计 §8.1）：用户没选过时跟着这部视频定——转写里分得出 2 个以上说话人就「跟着说话的人」，否则「自动」；
+  // 正文还没取到时按分不出算。
+  const speeches = useMemo(() => Object.values(documents).filter((d) => d.kind === 'speech' && !!d.sourceAssetId), [documents]);
+  const speechBodies = useDocumentBodies(speeches);
+  const speakers = useMemo(() => Math.max(0, ...speechBodies.map((b) => (b === undefined ? 0 : speechSpeakers(b).length))), [speechBodies]);
+  const [chosenFocus, setChosenFocus] = useState<ShortsFocus | null>(null);
+  const s: ShortsSettings = { ...form, focus: shortsFocus(chosenFocus, speakers) };
   const range = shortsLengthRange(s);
   const autoHint = shortsAutoHint(s);
 
@@ -212,16 +225,28 @@ export function ShortsToolPage({
           <>
             <h3 className={secHead}>{C.shortsFraming}</h3>
             <div className={rows}>
-              <RadioGroup aria-label={C.shortsFraming} size="S" value={s.focus} onChange={(value) => set({ focus: value as ShortsFocus })}>
-                {SHORTS_FOCUS.map((f) => (
-                  <div key={f.key}>
-                    <Radio value={f.key} isDisabled={!!f.off}>
-                      {f.label}
-                    </Radio>
-                    <span className={radioSub}>{f.off ?? f.sub}</span>
-                  </div>
-                ))}
+              <RadioGroup aria-label={C.shortsFraming} size="S" value={s.focus} onChange={(value) => setChosenFocus(value as ShortsFocus)}>
+                {SHORTS_FOCUS.map((f) => {
+                  const open = shortsFocusOpen(f.key, speakers);
+                  return (
+                    <div key={f.key}>
+                      <Radio value={f.key} isDisabled={!open}>
+                        {f.label}
+                      </Radio>
+                      <span className={radioSub}>{open ? f.sub : f.off}</span>
+                    </div>
+                  );
+                })}
               </RadioGroup>
+              {/* 多人全景时分屏（短视频分屏设计 §8.1）：自动与跟着说话的人取景时才有，自己定的取景每支只有一个位置。 */}
+              {shortsSplitApplies(s.focus) ? (
+                <Option
+                  label={C.shortsSplit}
+                  sub={s.split ? (s.focus === 'speaker' ? C.shortsSplitSpeakerOn : C.shortsSplitOn) : C.shortsSplitOff}
+                  isSelected={s.split}
+                  onChange={(on) => set({ split: on })}
+                />
+              ) : null}
             </div>
           </>
         )}

@@ -94,6 +94,8 @@ export interface CaptionHit {
   w: number;
   h: number;
   rotation: number;
+  /** 这一句挂在分屏的接缝上（格式规范 §5.6）：画出来的位置不是样式里的 `y`，拖动从框的中线起手。 */
+  panelSeam?: boolean;
 }
 
 /** 一帧画完：这一刻的计划，与画的时候报出来的东西。画面经 `frame()` 取。 */

@@ -64,14 +64,7 @@ describe('轻量视图侧栏', () => {
       kind: 'pipeline',
       assetId: null,
       phase: 'starting',
-      pipeline: {
-        name: 'translate',
-        params: { targetLanguage: 'en', documentId: 'd1' },
-        steps: [],
-        current: null,
-        stoppedAt: null,
-        summary: null,
-      },
+      pipeline: { name: 'translate', params: { targetLanguage: 'en', documentId: 'd1' }, steps: [], current: null, stoppedAt: null, summary: null },
     });
     useJobs.setState({ jobs: [transcribe, translate] });
     await render([segment([])]);
