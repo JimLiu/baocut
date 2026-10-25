@@ -594,7 +594,6 @@ describe('Web 服务', () => {
       ['externalTools.setPath', { name: 'yt-dlp', path: '/tmp/yt-dlp' }],
       ['externalTools.remove', { name: 'yt-dlp' }],
       ['externalTools.consent', { name: 'yt-dlp', grant: true }],
-      ['fonts.resolve', { faces: [{ family: 'Lobster', weight: 400, italic: false }], download: true }],
       ['fonts.catalogue', {}],
       ['fonts.download', { family: 'Lobster' }],
       ['fonts.downloaded', {}],
@@ -1346,6 +1345,9 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
   let sequenceId: Id;
   let videoPath: string;
   let origin: string;
+  /** 本机字体库只扫这个目录（引擎宿主启动时带上的测试钩子），放一份探针字体 ColrProbe。 */
+  let systemFonts: string;
+  let previousFontDirs: string | undefined;
 
   it('prepares transparent ProRes through the Web grant registry without exposing the original or cache paths', async () => {
     const source = path.join(project.path, 'animation.mov');
@@ -1378,10 +1380,17 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
       ...['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=320x180:rate=30:duration=2'],
       ...['-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', '-c:v', 'mpeg4', '-c:a', 'aac', '-shortest', clip],
     ]);
+    systemFonts = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-web-fonts-'));
+    await fs.copyFile(new URL('../../../../crates/render-raster/tests/fixtures/fonts/ColrProbe.ttf', import.meta.url), path.join(systemFonts, 'ColrProbe.ttf'));
+    previousFontDirs = process.env.BAOCUT_FONT_DIRS;
+    process.env.BAOCUT_FONT_DIRS = systemFonts;
   });
 
   afterAll(async () => {
+    if (previousFontDirs === undefined) delete process.env.BAOCUT_FONT_DIRS;
+    else process.env.BAOCUT_FONT_DIRS = previousFontDirs;
     await fs.rm(fixtures, { recursive: true, force: true });
+    await fs.rm(systemFonts, { recursive: true, force: true });
   });
 
   beforeEach(async () => {
@@ -1516,8 +1525,29 @@ describe.skipIf(!engine || !ffmpeg)('Web 服务：浏览器里的编辑（真实
       expect(await scoped(viewer.request('videos.open', { projectId: project.id, path: 'elsewhere.bcut' }))).toBe('WEB_REVIEW_SCOPE');
       expect(await scoped(viewer.request('videos.target', { videoId: 'vid_other' }))).toBe('WEB_REVIEW_SCOPE');
       expect(await scoped(viewer.request('subscribe', { topic: 'space' } as never))).toBe('WEB_REVIEW_SCOPE');
+      // 预览要的本机字体：审片会话也能解析，只解析、不下载；句柄要会话，按区间取表；字体的管理仍不开放。
+      const resolved = await viewer.request('fonts.resolve', {
+        faces: [
+          { family: 'ColrProbe', weight: 400, italic: false },
+          { family: 'Nowhere Sans', weight: 700, italic: false },
+        ],
+        download: true,
+      });
+      expect(resolved.missing).toEqual([{ family: 'Nowhere Sans', weight: 700, italic: false, reason: 'not-found' }]);
+      const [face] = resolved.faces;
+      expect([face!.family, face!.source, face!.file.fileName]).toEqual(['ColrProbe', 'local', 'ColrProbe.ttf']);
+      expect(face!.file.url).toMatch(/^\/media\/[A-Za-z0-9_-]+\//);
+      const table = face!.tables.find((t) => t.length > 0)!;
+      const range = { Range: `bytes=${table.from}-${table.from + table.length - 1}` };
+      const part = await send(`${origin}${face!.file.url}`, { headers: { ...range, Cookie: cookie } });
+      expect(part.status).toBe(206);
+      expect(Number(part.headers['content-length'])).toBe(table.length);
+      expect((await send(`${origin}${face!.file.url}`, { headers: range })).status).toBe(401);
+      expect(await scoped(viewer.request('fonts.download', { family: 'ColrProbe' }))).toBe('WEB_REVIEW_SCOPE');
+      expect(await scoped(viewer.request('fonts.catalogue', {}))).toBe('WEB_REVIEW_SCOPE');
       // 完整登录的会话不受影响。
       expect((await page.request('space.list', {})).entries).toBeDefined();
+      expect((await page.request('fonts.resolve', { faces: [{ family: 'ColrProbe', weight: 400, italic: false }] })).faces).toHaveLength(1);
     } finally {
       viewer.close();
     }

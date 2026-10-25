@@ -68,7 +68,7 @@ async function assemble(face: ResolvedFace, fetcher: (url: string, init?: Reques
  * 经 Runtime 的 `fonts.resolve` 取本机字体（架构设计 §9.1）：引擎按「族名、字重、斜体」挑 face（与成片导出冻结的是
  * 同一份解析与抽法），这里按读取句柄只取这个 face 的表拼成单独的字体——字体集合（一个几十 MB 的 .ttc 里有几十个
  * face）不整个下载。只要预览报缺的族里排字点了名的 face，不列字体目录。同一个 face（几个查询落到它时）只给一次。
- * 浏览器会话没有这个方法，请求被拒时当作都没有。
+ * 浏览器会话同样能问（Runtime 对它只解析、不下载）；请求被拒时当作都没有。
  */
 export function runtimeFonts(
   resolve: (faces: FontFaceQuery[], onPartial?: (faces: ResolvedFace[]) => void) => Promise<FontsResolveResult>,

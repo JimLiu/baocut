@@ -19,7 +19,7 @@ type FontMethod =
 
 /**
  * `fonts.*` 的处理函数（架构设计 §9.1），由 `handlers.ts` 并进方法表。下载与删除改的是这台机器的字体缓存，只给界面与 CLI：
- * Web 服务的白名单里没有 `fonts.*`，这里对浏览器与对外服务再挡一次（`fonts.resolve` 对它们只解析、不下载）。
+ * Web 服务的白名单里只有 `fonts.resolve`（预览要的本机字体），这里对浏览器与对外服务再挡一次（`fonts.resolve` 对它们只解析、不下载）。
  */
 export function fontMethods(
   fonts: () => FontService,
