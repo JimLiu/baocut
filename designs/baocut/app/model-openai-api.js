@@ -1,5 +1,6 @@
 /* Web 服务 › OpenAI 兼容 API 的纯模型 —— §17.6（2026-09-27 第二版，设计稿 docs/design/cli/bcut-serve-openai-api-design.md）。
-   路径与 OpenAI 一字不差：Base URL 是 `http://127.0.0.1:<端口>/v1`，只有主机和端口不同。
+   路径与 OpenAI 一字不差：Base URL 是 `http://127.0.0.1:<端口>/v1`，只有主机和端口不同；
+   允许局域网访问时（GitHub issue 106，架构设计 §4.8 / §12.8 待改）局域网里的设备另用 `http://<本机局域网 IP>:<端口>/v1`。
    `model` 与 OpenAI 一样必填（出图可不写，用默认）；本机模型的 id 直接能用，别的名字要在「模型映射」里登记，
    都不是就 404 MODEL_NOT_FOUND（设计稿 §3）。映射是多对多：一个名字可以指向几只模型（每一类按顺序取第一只已下载的），
    一只模型也可以挂几个名字；目标写 `default:<能力>` 时跟着 设置 › 模型 › 本地模型 里那一类的默认走。
@@ -134,7 +135,7 @@
   ];
   ENDPOINTS.forEach((e) => {
     e.cap = capBy(e.group) ? e.group : null;
-    e.errors = ['ORIGIN_NOT_ALLOWED', 'HOST_NOT_ALLOWED', 'AUTHENTICATION_REQUIRED'].concat(e.cap ? ['CAPABILITY_NOT_CONFIGURED'] : [], e.errors);
+    e.errors = ['ORIGIN_NOT_ALLOWED', 'HOST_NOT_ALLOWED', 'SOURCE_NOT_ALLOWED', 'AUTHENTICATION_REQUIRED'].concat(e.cap ? ['CAPABILITY_NOT_CONFIGURED'] : [], e.errors);
   });
   const epBy = (id) => ENDPOINTS.find((e) => e.id === id) || null;
   const epsOf = (group) => ENDPOINTS.filter((e) => e.group === group);
@@ -146,7 +147,8 @@
       码取自命令与协议规范 §11.3 的封闭列表，只列本机路由会遇到的；在线 Provider 的授权、预算与供应商错误不在这里。 */
   const ERRORS = Object.fromEntries([
     ['ORIGIN_NOT_ALLOWED', 403, '请求带了 Origin：来自网页'],
-    ['HOST_NOT_ALLOWED', 403, 'Host 不是回环地址：不是从这台电脑发出的'],
+    ['HOST_NOT_ALLOWED', 403, 'Host 是域名（防 DNS 重绑定）：只认回环地址；允许局域网访问时也认 IP 地址'],
+    ['SOURCE_NOT_ALLOWED', 403, '允许局域网访问时，请求来自私有网段之外（公网地址）；没允许时只接受本机'],
     ['AUTHENTICATION_REQUIRED', 401, '开了「需要 API key」，而请求没带 key、key 不对或已作废（带 WWW-Authenticate: Bearer）'],
     ['CAPABILITY_NOT_CONFIGURED', 503, '这一类此刻没有能用的模型：还没下载，或在 API 页被关掉了；说明里写着怎么开启'],
     ['INVALID_REQUEST', 400, '请求体不是合法的 JSON 或 multipart、缺字段、取值不对（含尺寸、步数、张数、描述过长）'],
@@ -160,6 +162,8 @@
 
   /* ---------- 地址 ---------- */
   const apiBase = (port) => `${HOST}:${port || WEB_PORT}/v1`;
+  /** 允许局域网访问时，局域网里的设备用的地址：本机的一个局域网 IP 换掉 127.0.0.1，端口与路径不变。 */
+  const lanBase = (addr, port) => `http://${addr}:${port || WEB_PORT}/v1`;
   /** 路径参数 {model} 有值就代进去。 */
   const epPath = (ep, values) => ep.path.replace('{model}', (values && values.model) ? encodeURIComponent(values.model) : '{model}');
   const epUrl = (base, ep, values) => base + epPath(ep, values);
@@ -550,7 +554,7 @@
 
   const BC_OPENAI_API = {
     CAPS, capBy, ENDPOINTS, epBy, epsOf, ERRORS, OPENAI_VOICES, ttsSupport, supports, IMAGE_STEPS, imageSteps,
-    apiBase, epPath, epUrl, defaultOf, ctxOf, resolveModel, listModels,
+    apiBase, lanBase, epPath, epUrl, defaultOf, ctxOf, resolveModel, listModels,
     MAP_SEED, mapRows, mapIssues, mapSummary, targetInfo, targetsOf, capOfTarget,
     suggestPort, parseCapPort, blocker, suggestModel, modelChoices,
     initialValues, formGroups, sentFields, SNIPPETS, snippet, curl, maskKey, demoResponse, fmtMs,

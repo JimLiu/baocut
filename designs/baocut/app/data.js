@@ -3005,6 +3005,8 @@
     },
     web: {
       sessions: [{id: 'b1', browser: '浏览器标签页', page: '编辑器', ago: '2 分钟前'}],
+      /* OpenAI 兼容 API 允许局域网访问时列出的本机地址（非回环的 IPv4，与远端算力 share.addr 同一台机器） */
+      lanAddrs: ['192.168.1.23'],
     },
   };
 

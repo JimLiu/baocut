@@ -242,9 +242,12 @@
       setPortErr('');
       if (p.port !== app.webPort) app.setPref('webPort', p.port);
     };
+    const scope = SV.scopeOf('web', app.prefs.api);
     return (
-      <window.Page title="Web 服务" actions={<Chip>仅本机</Chip>}>
-        <Lede>在这台 Mac 的浏览器里打开 BaoCut Web，编辑同一批视频。服务只监听本机地址，局域网里的其他设备访问不到。</Lede>
+      <window.Page title="Web 服务" actions={<Chip tone={scope.tone}>{scope.text}</Chip>}>
+        <Lede>{scope.tone
+          ? '在这台 Mac 的浏览器里打开 BaoCut Web，编辑同一批视频。网页只在本机能打开；下面的 OpenAI 兼容 API 允许了局域网访问。'
+          : '在这台 Mac 的浏览器里打开 BaoCut Web，编辑同一批视频。服务只监听本机地址，局域网里的其他设备访问不到。'}</Lede>
 
         <ServiceCard id="web" st={st} subMono={live}
           title={live ? 'Web 服务运行中' : k === 'error' ? 'Web 服务启动失败' : st.phase ? SV.stateLabel('web', st) : 'Web 服务未启动'}
@@ -308,6 +311,7 @@
     const open = () => app.go({r: 'services', id: svc.id});
     const scope = SV.mcpScope(app.mcp.projects, app.projects.length, (id) => (app.projById(id) || {}).title || id);
     const share = D.remote.share;
+    const scopeChip = SV.scopeOf(svc.id, app.prefs.api);
     const detail = k === 'error' ? st.error
       : svc.id === 'mcp' ? SV.mcpSub(st, scope, app.mcp.access, app.mcp.requireToken)
       : svc.id === 'remote' ? (k === 'on' ? `${share.nodeName} · ${share.addr}` : svc.desc)
@@ -319,7 +323,7 @@
             <ServiceIcon id={svc.id} error={k === 'error'} />
           </span>
           <span className="svcitem__txt">
-            <span className="svcitem__nm"><b>{svc.name}</b><Chip>{svc.scope}</Chip></span>
+            <span className="svcitem__nm"><b>{svc.name}</b><Chip tone={scopeChip.tone}>{scopeChip.text}</Chip></span>
             <span className="svcitem__st">
               <span className={cx('svclight', 'is-' + SV.dotTone(st), (k === 'starting' || k === 'stopping') && 'is-busy')} />
               <span className="svcitem__lbl">{SV.stateLabel(svc.id, st)}</span><span className="svcitem__sep">·</span><span className="svcitem__detail">{detail}</span>

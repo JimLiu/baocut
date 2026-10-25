@@ -201,8 +201,18 @@
     return alias ? nodesOffering(nodes, task).find((n) => n.id === alias) || null : null;
   }
 
+  /** 服务名旁的范围标签：目录里写死的 `scope`，只有 Web 服务的 OpenAI 兼容 API 开着且允许局域网访问时
+   *  改说 API 开放到了局域网（网页本身仍只在本机），用 notice 色提醒（GitHub issue 106）。`api` = prefs.api。 */
+  function scopeOf(id, api) {
+    const svc = byId(id);
+    if (!svc) return null;
+    const a = api || {};
+    if (id === 'web' && a.on && a.lan) return {text: 'API 开放到局域网', tone: 'notice'};
+    return {text: svc.scope, tone: null};
+  }
+
   window.BC_SERVICES = {
-    SERVICES, IDS, byId, stateOf, dotTone, stateLabel, startBlock, quickAction, lights, summary, resolve,
+    SERVICES, IDS, byId, stateOf, dotTone, stateLabel, startBlock, quickAction, lights, summary, resolve, scopeOf,
     WEB_DEFAULT_PORT, parsePort, webUrl, MCP_ACCESS, MCP_PORT, mcpUrl, mcpClientConfig, mcpScope, mcpToggleProject, mcpSub,
     REMOTE_TASKS, remoteTaskRows, remoteTaskSummary, nodeTaskMeta, nodesFor, nodeOn, nodesOffering, nodeOffering,
   };

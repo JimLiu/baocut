@@ -148,3 +148,13 @@ test('下载 / 导出不靠模型：候选只看在线 + 开放该任务', () =>
   assert.equal(S.nodeOffering(nodes, 'b', 'download'), null);
   assert.equal(S.nodeOffering(nodes, null, 'download'), null);
 });
+
+test('范围标签：Web 服务的 API 允许局域网访问时改说开放到局域网', () => {
+  assert.deepEqual(S.scopeOf('web', null), {text: '仅本机', tone: null});
+  assert.deepEqual(S.scopeOf('web', {on: true}), {text: '仅本机', tone: null});
+  assert.deepEqual(S.scopeOf('web', {on: false, lan: true}), {text: '仅本机', tone: null});
+  assert.deepEqual(S.scopeOf('web', {on: true, lan: true}), {text: 'API 开放到局域网', tone: 'notice'});
+  assert.deepEqual(S.scopeOf('mcp', {on: true, lan: true}), {text: '仅本机', tone: null});
+  assert.deepEqual(S.scopeOf('remote', null), {text: '局域网', tone: null});
+  assert.equal(S.scopeOf('nope'), null);
+});

@@ -23,6 +23,8 @@ test('三类能力，路径与 OpenAI 相同，只有主机和端口不同', () 
     'GET /models', 'GET /models/{model}', 'POST /audio/transcriptions', 'POST /audio/speech', 'POST /images/generations']);
   assert.equal(A.apiBase(24320), 'http://127.0.0.1:24320/v1');
   assert.equal(A.apiBase(), 'http://127.0.0.1:24320/v1');
+  assert.equal(A.lanBase('192.168.1.23', 24321), 'http://192.168.1.23:24321/v1');
+  assert.equal(A.lanBase('192.168.1.23'), 'http://192.168.1.23:24320/v1');
   assert.equal(A.epUrl(A.apiBase(24321), A.epBy('asr.transcriptions')), 'http://127.0.0.1:24321/v1/audio/transcriptions');
   assert.equal(A.epUrl(A.apiBase(), A.epBy('models.retrieve'), {model: 'whisper-1'}), 'http://127.0.0.1:24320/v1/models/whisper-1');
   assert.equal(A.epUrl(A.apiBase(), A.epBy('models.retrieve'), {}), 'http://127.0.0.1:24320/v1/models/{model}');

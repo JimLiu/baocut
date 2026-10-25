@@ -117,6 +117,7 @@
 .oai-cap__txt .t-detail { display: block; margin-top: 2px; }
 .oai-base { margin-left: 44px; }
 .oai-base.oai-base--main { margin: 0; }
+.oai-addr .oai-base--main + .oai-base--main { margin-top: 8px; }
 .oai-base__lbl { flex: none; width: 64px; font-size: 11px; color: var(--gray-600); }
 .oai-cap__fix { margin-left: 44px; }
 .oai-eps { margin: 8px 0 0 44px; }

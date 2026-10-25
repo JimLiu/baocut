@@ -2,7 +2,9 @@
    两块：Web 服务页里的 `ApiSection`（开关 + key、地址、端点：模型组 + 一类能力一块、模型映射 `ApiModelMap`），
    与端点详情页 `ApiEndpointPage`（路由 `{r:'services', id:'web', tab:'asr.transcriptions'}`：参数说明 + 试一试）。
    路径与 OpenAI 相同；参数表按内核实际收的字段手写在 `BC_OPENAI_API.ENDPOINTS`，说明、表单、代码片段都从它生成。
-   原型不监听端口：「发送请求」按表单值算一份演示响应（`demoResponse`），状态码与响应形状照设计稿。 */
+   原型不监听端口：「发送请求」按表单值算一份演示响应（`demoResponse`），状态码与响应形状照设计稿。
+   「允许局域网访问」（GitHub issue 106，2026-10-25）：默认只在本机；打开后 API 也监听局域网，只放行私有网段的来源，
+   总要 API key，地址段多列局域网地址。网页本身仍只在本机。规格（架构设计 §4.8 / §12.7 / §12.8）待确认后同步。 */
 (function () {
   const {useState, useEffect, useRef} = React;
   const D = window.BC_DATA;
@@ -48,19 +50,35 @@
     const api = app.prefs.api || {};
     const [key, regenerate] = useApiKey();
     const base = A.apiBase(app.webPort);
+    const lan = !!api.lan;
+    // 开放到局域网时总要 key：局域网里的其他设备只凭 key 进来。
+    const needKey = lan || !!api.requireKey;
+    const lanBases = lan ? D.services.web.lanAddrs.map((ip) => A.lanBase(ip, app.webPort)) : [];
+    const flipLan = (v) => {
+      setApi(app, {lan: v});
+      if (!live) return;
+      app.toast(v ? '已允许局域网访问，API 已重新监听' : '已改回只在本机访问，局域网里的连接已断开', 'positive');
+    };
     return (
       <>
         <div className="t-section svc__sec">OpenAI 兼容 API</div>
         <Card layer className="svc__panel svc__rows">
-          <Row label="开放 API" desc="让支持 OpenAI 接口的工具用这台电脑上已下载的模型转录、合成语音和生成图片。只在本机可访问，数据不会离开这台电脑。">
+          <Row label="开放 API" desc={'让支持 OpenAI 接口的工具用这台电脑上已下载的模型转录、合成语音和生成图片。'
+            + (api.on && lan ? '局域网里的其他设备也能调用。' : '只在本机可访问，数据不会离开这台电脑。')}>
             <Switch on={!!api.on} onChange={(v) => setApi(app, {on: v})} ariaLabel="开放 OpenAI 兼容 API" />
           </Row>
           {api.on ? (
-            <Row label="需要 API key" desc="打开后，请求要带 Authorization: Bearer <key>。这台电脑上有你不信任的程序时打开。">
-              <Switch on={!!api.requireKey} onChange={(v) => setApi(app, {requireKey: v})} ariaLabel="需要 API key" />
+            <Row label="允许局域网访问" desc="打开后，同一局域网或 VPN 里的设备也能用 API key 调用，公网地址一律拒绝。请求走明文 HTTP，只在信任的网络里打开。网页本身仍只在本机。">
+              <Switch on={lan} onChange={flipLan} ariaLabel="允许局域网访问" />
             </Row>
           ) : null}
-          {api.on && api.requireKey ? (
+          {api.on ? (
+            <Row label="需要 API key" desc={lan ? '允许局域网访问时总要 key：请求要带 Authorization: Bearer <key>。'
+              : '打开后，请求要带 Authorization: Bearer <key>。这台电脑上有你不信任的程序时打开。'}>
+              <Switch on={needKey} disabled={lan} onChange={(v) => setApi(app, {requireKey: v})} ariaLabel="需要 API key" />
+            </Row>
+          ) : null}
+          {api.on && needKey ? (
             <div className="agm-token oai-key"><span>API key <code>{A.maskKey(key)}</code></span>
               <span className="row gap8">
                 <Btn size="s" variant="quiet" icon="copy" onClick={() => copy(key, 'API key')}>复制 key</Btn>
@@ -76,9 +94,14 @@
             <Card layer className="oai-addr">
               <div className="agset-code oai-base oai-base--main"><span className="oai-base__lbl">Base URL</span><code>{base}</code>
                 <IconBtn icon="copy" size="s" tip="复制 Base URL" onClick={() => copy(base, 'Base URL')} /></div>
+              {lanBases.map((u) => (
+                <div className="agset-code oai-base oai-base--main" key={u}><span className="oai-base__lbl">局域网</span><code>{u}</code>
+                  <IconBtn icon="copy" size="s" tip="复制局域网地址" onClick={() => copy(u, '局域网地址')} /></div>
+              ))}
               <p className="t-detail oai-addr__lede">
                 路径与 OpenAI 相同，只换主机和端口：把工具里的 Base URL 换成这个就行。<code>model</code> 写本机模型的 id，或下面「模型映射」里的名字。
-                {api.requireKey ? '' : ' 没开 key 校验时，客户端的 key 一栏随便填。'}
+                {lan ? ' 局域网里的其他设备用「局域网」那一行；这台电脑上的程序用 127.0.0.1。' : ''}
+                {needKey ? '' : ' 没开 key 校验时，客户端的 key 一栏随便填。'}
                 {live ? '' : ' 启动 Web 服务后才能访问，设置和说明现在就能看。'}
               </p>
             </Card>
