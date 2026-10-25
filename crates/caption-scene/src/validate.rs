@@ -1220,7 +1220,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 gain,
                 ..
             } => {
-                validate_component_context(s, &nodes, id, context_node_id, "caption-scan-warp/1", 1.0)?;
+                validate_component_backdrop_context(s, &nodes, id, context_node_id, "caption-scan-warp/1")?;
                 for (value, low, high) in [
                     (warp.scale, 0.001, 1000.0),
                     (warp.complexity, 1.0, 10.0),
@@ -2283,6 +2283,28 @@ fn validate_component_context(
     capability: &str,
     gamma: f64,
 ) -> Result<()> {
+    validate_component_scene(scene, nodes, id, node_id, capability, gamma, false)
+}
+/// Like `validate_component_context`, but shapes, images and repeats may share the filtered
+/// composition with the context text (a box drawn behind each page is filtered with it).
+fn validate_component_backdrop_context(
+    scene: &Scene,
+    nodes: &BTreeMap<&str, &Node>,
+    id: &str,
+    node_id: &str,
+    capability: &str,
+) -> Result<()> {
+    validate_component_scene(scene, nodes, id, node_id, capability, 1.0, true)
+}
+fn validate_component_scene(
+    scene: &Scene,
+    nodes: &BTreeMap<&str, &Node>,
+    id: &str,
+    node_id: &str,
+    capability: &str,
+    gamma: f64,
+    backdrops: bool,
+) -> Result<()> {
     if !scene.required_capabilities.iter().any(|c| c == capability) {
         return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", id, capability));
     }
@@ -2291,7 +2313,10 @@ fn validate_component_context(
     }
     if nodes.get(node_id).is_none_or(|n| n.kind != NodeKind::Text)
         || nodes.values().filter(|n| n.kind == NodeKind::Text).count() != 1
-        || nodes.values().any(|n| !matches!(n.kind, NodeKind::Text | NodeKind::Group))
+        || nodes.values().any(|n| {
+            !matches!(n.kind, NodeKind::Text | NodeKind::Group)
+                && !(backdrops && matches!(n.kind, NodeKind::Shape | NodeKind::Image | NodeKind::Repeat))
+        })
     {
         return Err(invalid(
             id,

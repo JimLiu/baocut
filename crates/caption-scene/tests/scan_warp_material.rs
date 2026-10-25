@@ -72,3 +72,28 @@ fn scan_warp_requires_capability_text_context_and_bounded_uniforms() {
         "swapAxes defaults to false"
     );
 }
+
+fn with_backdrop(body: &mut Value, node: Value) {
+    let value = &mut body["scene"]["value"];
+    value["selectors"] = json!([{"id": "pages", "nodeId": "caption", "unit": "page", "filter": {"kind": "all"}}]);
+    value["nodes"].as_array_mut().unwrap().push(node);
+}
+
+#[test]
+fn scan_warp_accepts_page_backdrops_but_only_one_text() {
+    let plate = |fill: &str| json!({"id": "plate", "type": "shape", "properties": {"fill": {"kind": "constant", "value": fill}}});
+    let mut body = fixture();
+    with_backdrop(
+        &mut body,
+        json!({"id": "boxes", "type": "repeat", "selectorId": "pages", "children": [plate("#336699")]}),
+    );
+    assert!(parse_style(&body).is_ok(), "a box repeated per page may be filtered with the text");
+    let mut second = fixture();
+    with_backdrop(
+        &mut second,
+        json!({"id": "other", "type": "text", "style": {"fontSize": {"value": 16, "basis": "absolute"}, "fill": "#FFFFFF"}}),
+    );
+    let err = parse_style(&second).unwrap_err();
+    assert_eq!(err.code, "CAPTION_SCENE_INVALID");
+    assert!(err.detail.contains("sole visual node"), "{}", err.detail);
+}

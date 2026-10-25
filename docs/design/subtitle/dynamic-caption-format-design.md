@@ -506,7 +506,7 @@ random 对同 key 永远返回同值；时间噪声通过明确的连续坐标�
 | 运动模糊 | 对同一纯函数在 `t − i × step` 的过去时刻重新求值并等权或按核合成；参考配置为 11 个样本、步长 25 ms，再接一次独立分量高斯，sigma 为采样跨度的固定比例 | 已生效：`caption-feedback/1` 的有界历史采样加 `caption-feedback-mean/1` 的等权平均聚合（`composite:"mean"`，仅统计 cue 内样本），再接 `caption-gaussian-axis/1`；默认衰减 source-over 不变；自定义核仍为目标；不引入帧历史 |
 | 量化噪声相位 | 噪声相位取 `floor(t × rate)`，UV 抖动取 `floor(t × rate2)`，使噪声按固定频率跳变而不是逐帧连续 | 已有 `noise(seed, x)` 与 `floor`；rate 为静态参数 |
 | 噪声 UV 位移 | `uv' = uv + (n − 0.5) × strength × aspect`，其中 `n = (noise + brightness − 0.5) × contrast × 10 + 0.5`；预乘双线性透明边界采样 | 已生效：`caption-noise-displace/1`（噪声源为 noise-palette-mix 的固定 v1 核，仅 CPU，GPU 材质计划显式拒绝）；`caption-wave-displace/1` 只覆盖正弦位移 |
-| 扫描扭曲 | 一次重采样内：两路分形梯度噪声移动采样点，再让条纹内的内容围绕 domain 中心列横向拉伸，最后叠加扫描线明暗与整体增益；条纹以像素给出核心半高、衰减与门限 | 已生效：`caption-scan-warp/1`（噪声复用 gradient-smear 的固定核，仅 CPU，GPU 材质计划显式拒绝） |
+| 扫描扭曲 | 文字背后按页重复的底板与文字一起被重采样；一次重采样内：两路分形梯度噪声移动采样点，再让条纹内的内容围绕 domain 中心列横向拉伸，最后叠加扫描线明暗与整体增益；条纹以像素给出核心半高、衰减与门限 | 已生效：`caption-scan-warp/1`（噪声复用 gradient-smear 的固定核，仅 CPU，GPU 材质计划显式拒绝） |
 | 多尺度辉光 | 可分离高斯多级级联，采样距离按 720 基准归一到实际画布 | 已生效：`caption-glow-cascade/1`、`caption-glow-linear/1` |
 | bloom 置底 | 以 0.3 倍降采样做 9 权重核的可分离模糊，纵向权重乘 1.1，再按 `original + bloom × (1 − original.a)` 合成到原图之下 | 先验证 `caption-glow-linear/1` 的 `original-over-screen` 是否等价；不等价则作为 glow 的新聚合模式 |
 | 背景差值负片 | `abs(text.rgb − video.rgb × text.a)`，alpha 取文字 alpha | 新材质，必须声明背景子图依赖（§9.3 末段），不能缓存成透明贴片 |

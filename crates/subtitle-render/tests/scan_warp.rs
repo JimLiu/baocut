@@ -134,3 +134,39 @@ fn scan_warp_is_cpu_only_and_checks_dynamic_ranges() {
         );
     }
 }
+
+/// A box repeated per page, drawn behind the text and filtered with it.
+fn boxed(mut body: Value) -> Value {
+    let value = &mut body["scene"]["value"];
+    value["selectors"] =
+        json!([{"id": "pages", "nodeId": "caption", "unit": "page", "filter": {"kind": "all"}}]);
+    value["nodes"].as_array_mut().unwrap().insert(
+        0,
+        json!({"id": "boxes", "type": "repeat", "selectorId": "pages", "children": [
+            {"id": "plate", "type": "shape", "properties": {
+                "fill": {"kind": "constant", "value": "#336699"}}}]}),
+    );
+    body
+}
+
+#[test]
+fn scan_warp_filters_a_page_box_together_with_the_text() {
+    let body = boxed(fixture());
+    let mut plain = body.clone();
+    plain["scene"]["value"]["materials"] = json!([]);
+    let plain = plan(plain).render(0.25).unwrap().rgba;
+    let boxes = |rgba: &[u8]| {
+        rgba.chunks_exact(4)
+            .filter(|p| p[3] > 0 && p[2] > p[0])
+            .count()
+    };
+    assert!(boxes(&plain) > 0, "the plain render draws the box");
+    assert_eq!(
+        plan(neutral(body.clone())).render(0.25).unwrap().rgba,
+        plain,
+        "neutral uniforms copy the box through"
+    );
+    let warped = plan(body).render(0.25).unwrap().rgba;
+    assert_ne!(warped, plain);
+    assert!(boxes(&warped) > 0, "the box is warped, not removed");
+}
