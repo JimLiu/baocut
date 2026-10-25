@@ -39,7 +39,7 @@
 | 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs --live` | `--dry` 不连 Runtime 只打印；`--live` 把代码包放上去、先不烘焙，编辑器的实时层现画（`footage.layer` 为 `under` 时眼下画不出来，见 `pipeline.md` 第 3 节） |
 | 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏 |
 | 实拍与水印 | `overlay.mjs --dry`，再 `--place` | 每个原片链接导入一次，每个镜头一个视频片段（原片区间、裁剪、取景、原声音量与淡变都是片段字段，响度按实测换成音量），转场是时间线转场；来源标签是标签轨上的文字片段，原声字幕是单独样式的双语字幕层（带说话人）；`footage.layer` 为 `under` 时实拍轨挪到代码包轨下面当底 |
-| 给用户看 | `baocut web review --video <videoId>` | 把链接给用户，请用户在系统浏览器或 BaoCut 桌面版的审片视图里看（Claude 的内置浏览器会拦实时层，那里是黑的）；改了哪段照第 3 节重做，再 `assemble.mjs --live` |
+| 给用户看 | `baocut web review --video <videoId>` | 在宿主的浏览器面板里打开链接、整条给用户（见 baocut 说明书 web 页「请用户审片」）；用户说可以之前不烘焙、不导出；改了哪段照第 3 节重做，再 `assemble.mjs --live`，请用户刷新 |
 | 定稿烘焙 | `assemble.mjs`（不带 `--live`） | 用户说可以之后：live 的段原地换成烘焙过的包，看 `bake.renderer`；之后再导出 |
 
 每一步的参数、配置字段、烘焙走指令还是截图、WebGL 的段、产物被清掉怎么办，以及还没建视频时的备选预览页（`preview.mjs`）：读 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](production-scripts/references/pipeline.md)。
