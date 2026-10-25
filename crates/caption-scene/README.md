@@ -110,6 +110,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-scan-warp/1` 的 `scan-warp` 在唯一文字节点页上下文与显式 domain 内一次完成三件事（场景里按页重复的 shape / image 底板和文字一起被重采样，第二个文字节点不允许）：用 gradient-smear 的分形梯度噪声核取两路场（seed 1 与 3）移动采样点；按以像素给出的核心半高、衰减与门限，在条纹内围绕 domain 中心列横向拉伸；再乘扫描线明暗与整体增益。`warp`、`stripe`、`scanlines` 与 `gain` 的范围见规格，domain 外清零、画布外透明；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [scan-warp.json](tests/fixtures/scan-warp.json)。
 
+`caption-radial-warp/1` 的 `radial-warp` 在同一类上下文（唯一文字节点，底板可随文字一起处理）与显式 domain 内做一次径向重采样：目标像素的采样点沿 domain 中心向外按 `1+strength·|p|²` 缩放，再平移 `shift`（domain 分数）；`strength` 限 ±4、`shift` 两分量限 ±4，domain 外清零，采样点落到 domain 外的像素透明；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [radial-warp.json](tests/fixtures/radial-warp.json)。
+
 `caption-glow-color-matrix/1` 提供 glow-cascade 的可选静态 `glowColorMatrix`，以行优先 3×3 矩阵在 tint 后变换辉光 RGB，再 clamp 后合成。alpha 和原图不参与变换；省略/单位矩阵保持旧输出。
 
 `caption-glow-linear/1` 把 glow-cascade 扩到 1–8 级，并开放 `gammaChannels: rgba`（每个 pass 连 alpha 一起做 gamma）、`aggregation: linear`（各级解码到线性域后按静态 `levelGains` 做 screen 累积，再乘强度、编码回去）、可选 `levelColor`（按级 alpha 换成指定颜色，无值时不着色）和 `original-over-screen` 合成。旧文档省略这些字段，序列化与像素不变；GPU 材质计划明确拒绝这些字段，由 CPU 光栅执行。示例见 [glow-linear.json](tests/fixtures/glow-linear.json)。

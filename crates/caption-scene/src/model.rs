@@ -1529,6 +1529,20 @@ pub enum CaptionMaterial {
         scanlines: ScanWarpScanlines,
         gain: DynamicValue,
     },
+    /// One resampling of the page domain about its centre: the sample point is pushed along its
+    /// radius by a cubic term, then moved by a constant offset.
+    RadialWarp {
+        id: String,
+        #[serde(rename = "contextNodeId")]
+        context_node_id: String,
+        domain: MaterialDomain,
+        #[serde(rename = "uvY")]
+        uv_y: MaterialUvY,
+        /// Cubic radial coefficient `k` of `p * (1 + k * |p|^2)`; positive pulls the content inward.
+        strength: DynamicValue,
+        /// Sample offset per axis in domain fractions, along material y (see `uvY`).
+        shift: [DynamicValue; 2],
+    },
     AngularSampleBlend {
         id: String,
         #[serde(rename = "contextNodeId")]

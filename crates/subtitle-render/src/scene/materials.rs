@@ -80,6 +80,7 @@ fn padding(materials: &[CaptionMaterial]) -> u32 {
             | CaptionMaterial::NoisePaletteMix { .. }
             | CaptionMaterial::NoiseDisplace { .. }
             | CaptionMaterial::ScanWarp { .. }
+            | CaptionMaterial::RadialWarp { .. }
             | CaptionMaterial::GaussianAxis { .. }
             | CaptionMaterial::GaussianUv { .. }
             | CaptionMaterial::GlowCascade { .. } => 0,
@@ -894,6 +895,67 @@ impl ScenePlan {
                         stripe: stripe_uniform,
                         scanlines: scanline_uniform,
                         gain,
+                    },
+                    |count| work.samples(count),
+                )?;
+                Ok((out, hits))
+            }
+            CaptionMaterial::RadialWarp {
+                id,
+                context_node_id,
+                domain,
+                uv_y,
+                strength,
+                shift,
+            } => {
+                let (source, hits) = self.material_prefix(
+                    ci,
+                    t,
+                    materials,
+                    source_spec,
+                    prefix - 1,
+                    pad,
+                    size,
+                    budget,
+                    work,
+                )?;
+                let Some(mut context) =
+                    self.material_page_context(ci, t, context_node_id, budget)?
+                else {
+                    let mut source = source;
+                    source.data_mut().fill(0);
+                    return Ok((source, vec![]));
+                };
+                context.stable_key.push_str(&format!("|material|{id}"));
+                let scene = self.style.scene();
+                let mut uniform = |value, low, high| {
+                    component_uniform(value, scene, &context, t, budget, 0.0, low, high)
+                };
+                let strength = uniform(strength, -4.0, 4.0)?;
+                let shift = [uniform(&shift[0], -4.0, 4.0)?, uniform(&shift[1], -4.0, 4.0)?];
+                let mut rect = [0.0; 4];
+                for (index, value) in [&domain.x, &domain.y, &domain.width, &domain.height]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let Some(value) =
+                        sample_value(value, ValueType::Length, scene, &context, t, budget)?
+                    else {
+                        let mut source = source;
+                        source.data_mut().fill(0);
+                        return Ok((source, vec![]));
+                    };
+                    rect[index] = value.number()?;
+                }
+                work.spend(size.0, size.1)?;
+                let out = super::radial_warp::apply(
+                    &source,
+                    pad,
+                    &super::radial_warp::RadialWarp {
+                        domain: rect,
+                        uv_y: *uv_y,
+                        strength,
+                        shift,
                     },
                     |count| work.samples(count),
                 )?;

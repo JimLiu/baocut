@@ -188,6 +188,17 @@ test('scan-warp material groups the noise warp, stripe and scanline uniforms', (
   expectTypeOf<Extract<CaptionMaterial, { kind: 'scan-warp' }>['stripe']['side']>().toEqualTypeOf<'above' | 'below'>();
 });
 
+test('radial-warp material carries a radial strength and a two-axis shift', () => {
+  const constant = (value: number) => ({ kind: 'constant', value }) as const;
+  const material = {
+    kind: 'radial-warp', id: 'lens', contextNodeId: 'text', domain, uvY: 'down',
+    strength: constant(0.26), shift: [constant(0), constant(-0.05)],
+  } satisfies CaptionMaterial;
+  expect(material.shift).toHaveLength(2);
+  expectTypeOf<Extract<CaptionMaterial, { kind: 'radial-warp' }>['shift']['length']>().toEqualTypeOf<2>();
+  expectTypeOf<Extract<CaptionMaterial, { kind: 'radial-warp' }>['uvY']>().toEqualTypeOf<'up' | 'down'>();
+});
+
 test('feedback composite defaults to decay-over and opts into an equal-weight mean', () => {
   const material = {
     kind: 'feedback', id: 'motion', samples: 10, step: { ticks: 25, timescale: 1000 }, decay: 1, offset: [2, 0], composite: 'mean',

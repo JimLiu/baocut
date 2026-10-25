@@ -1,0 +1,110 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-radial-warp/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 2
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last",
+        "timingPolicy": "estimated"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            },
+            "fill": "#FFFFFF"
+          }
+        }
+      ],
+      "selectors": [],
+      "animations": [],
+      "materials": [
+        {
+          "kind": "radial-warp",
+          "id": "lens",
+          "contextNodeId": "caption",
+          "domain": {
+            "x": {
+              "kind": "constant",
+              "value": 30
+            },
+            "y": {
+              "kind": "constant",
+              "value": 10
+            },
+            "width": {
+              "kind": "constant",
+              "value": 100
+            },
+            "height": {
+              "kind": "constant",
+              "value": 70
+            }
+          },
+          "uvY": "down",
+          "strength": {
+            "kind": "constant",
+            "value": 0.26
+          },
+          "shift": [
+            {
+              "kind": "constant",
+              "value": 0
+            },
+            {
+              "kind": "keyframes",
+              "clock": {
+                "unit": "page",
+                "origin": "start",
+                "duration": {
+                  "kind": "unit-span"
+                }
+              },
+              "keys": [
+                {
+                  "at": 0,
+                  "value": -0.05
+                },
+                {
+                  "at": 1,
+                  "value": 0.05
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

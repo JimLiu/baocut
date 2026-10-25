@@ -646,6 +646,7 @@ fn material_id(material: &CaptionMaterial) -> &str {
         | CaptionMaterial::NoisePaletteMix { id, .. }
         | CaptionMaterial::NoiseDisplace { id, .. }
         | CaptionMaterial::ScanWarp { id, .. }
+        | CaptionMaterial::RadialWarp { id, .. }
         | CaptionMaterial::AngularSampleBlend { id, .. }
         | CaptionMaterial::AffineSampleBlend { id, .. }
         | CaptionMaterial::AffineOver { id, .. }

@@ -29,6 +29,7 @@ mod page_line_context;
 mod page_tag;
 mod page_window;
 mod paint_style_bindings;
+mod radial_warp;
 mod sampled_layout;
 mod scan_warp;
 mod scalar_cluster;

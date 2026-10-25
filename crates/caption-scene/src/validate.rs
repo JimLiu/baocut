@@ -71,6 +71,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-noise-palette-mix/1",
     "caption-noise-displace/1",
     "caption-scan-warp/1",
+    "caption-radial-warp/1",
     "caption-angular-sample-blend/1",
     "caption-affine-sample-blend/1",
     "caption-affine-over/1",
@@ -1246,6 +1247,35 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 validate_component_uniform(s, &scanlines.amount, -1.0, 1.0)?;
                 validate_component_uniform(s, &scanlines.phase, -1_000_000.0, 1_000_000.0)?;
                 validate_component_uniform(s, gain, 0.0, 4.0)?;
+                for (value, low) in [
+                    (&domain.x, -1_000_000.0),
+                    (&domain.y, -1_000_000.0),
+                    (&domain.width, 0.001),
+                    (&domain.height, 0.001),
+                ] {
+                    validate_value("width", value, s, UnitKind::Page)?;
+                    if let DynamicValue::Constant { value } = value {
+                        let n = typed_value(ValueType::Length, value)?.number()?;
+                        if !n.is_finite() || !(low..=1_000_000.0).contains(&n) {
+                            return Err(invalid(id, "material domain requires finite lengths and positive dimensions"));
+                        }
+                    }
+                }
+                id
+            }
+            CaptionMaterial::RadialWarp {
+                id,
+                context_node_id,
+                domain,
+                strength,
+                shift,
+                ..
+            } => {
+                validate_component_backdrop_context(s, &nodes, id, context_node_id, "caption-radial-warp/1")?;
+                validate_component_uniform(s, strength, -4.0, 4.0)?;
+                for value in shift {
+                    validate_component_uniform(s, value, -4.0, 4.0)?;
+                }
                 for (value, low) in [
                     (&domain.x, -1_000_000.0),
                     (&domain.y, -1_000_000.0),
