@@ -10,6 +10,7 @@ import { decodeGlossaryMarkdown } from './library/glossary-markdown.ts';
 /** 界面语言是英文时，存储层写给人看的文字是英文；落盘的、Runtime 写成的授权目的带消息引用。 */
 describe('runtime-storage 的英文文案', () => {
   let dir: string;
+  const opened: GrantStore[] = [];
 
   beforeEach(async () => {
     vi.stubEnv('BAOCUT_LOCALE', 'en');
@@ -17,6 +18,7 @@ describe('runtime-storage 的英文文案', () => {
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-storage-en-'));
   });
   afterEach(async () => {
+    await Promise.all(opened.splice(0).map((store) => store.flush()));
     vi.unstubAllEnvs();
     setLocale('zh-Hans');
     await fs.rm(dir, { recursive: true, force: true });
@@ -28,6 +30,7 @@ describe('runtime-storage 的英文文案', () => {
 
   it('授权：错误带引用；默认授权的目的带引用，切回中文后能重新生成', async () => {
     const store = await GrantStore.open(path.join(dir, 'grants.json'));
+    opened.push(store);
     let caught: unknown;
     try {
       store.update({ grantId: 'grant_missing' });
