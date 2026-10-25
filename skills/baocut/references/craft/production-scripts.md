@@ -19,8 +19,10 @@
 | `explainer.json`（也认 `production.json`） | 视频 id、CLI 命令、语言、帧率与画幅、段落顺序、旁白稿的位置、配音与转写的模型、打包规则、轨道与名字、实拍与水印的设定。字段表读 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](production-scripts/references/pipeline.md) 第 2 节 |
 | 旁白稿（Markdown） | `## <段落 id> 标题` 开一段，段内每个非空行是一句旁白，一句一个画面节拍；`@`、括号、`>`、`<!--` 开头的行是备注（画面意图写在这里，不配音） |
 | `scenes/<id>.js` + `shared/` | 每段的场景代码与共用的引擎、字体、图片；场景从 `window.TIMING` 读这一段的时长与逐句、逐字时间 |
-| `clips.json`（可选） | 实拍片段与照片：来源文件与原片起止，放在哪一段的哪一句、从哪几个字起（`cue`），保留原声、旁白留白（`gap`）、背靠背（`follow`）、双语字幕、单侧转场、裁边与取景（`crop`、`focus`）、放法、画中画 |
+| `clips.json`（可选） | 实拍片段与照片：来源文件与原片起止，放在哪一段的哪一句、从哪几个字起（`cue`），保留原声、旁白留白（`gap`）、背靠背（`follow`）、双语字幕、单侧转场、裁边与取景（`crop`、`focus`）、放法、画中画；只有声音的原声引用（逐词点亮用 `words`） |
 | `watermark`（配置里，可选） | 水印图片、每次出现的位置与时刻 |
+| `sources.json`（可选） | 用到的图片、影像、录音与生成图的出处与许可，一条一行；画面上的出处行与交付的 `sources.csv` 都从它来 |
+| `prepend`、`fonts`（配置里，可选） | 片头补在已有视频前面（正片与章节一起后移）；要裁子集的字体 |
 
 计划定下后，剩下的就是把它摆上时间线：`assemble.mjs` 摆旁白与代码包，`captions.mjs` 建字幕，`overlay.mjs` 摆实拍、来源标签、原声字幕与水印（都写在时间线上，不剪文件、不烧字）。改计划只重做受影响的段（第 3 节）。摆的这一步也可以交给 Runtime：把段落（代码包、旁白、对齐结果）、实拍片段、卡片与水印改写成 `baocut edits assemble` 的计划，一次放好，重跑只动变了的；来源标签与原声的双语字幕仍由 `overlay.mjs` 放。
 
@@ -35,18 +37,19 @@
 | 配音 | `voice.mjs <id …>` 或 `--missing`；`--check` 只量不配 | 一段一次合成，记稿子原文，`--missing` 只配没配过或稿子改过的段。每段量中位音高，和其他段差 5% 以上就重配（`--takes`，缺省 3 次）留最接近的；配完报出全片离群的段 |
 | 对齐 | `align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，打印语速、停顿与读错 |
 | 留白与压停顿 | `gaps.mjs [id …]` | 有 `gap` 片段或给了 `voice.maxPause` 时：在旁白里插静音给原声让位、把过长的句间停顿压短 |
-| 打包 | `build.mjs [id …]` | 打成代码包，时长 = 对齐出的时长 + `hold`，对到整帧 |
+| 字体、原声、出处 | `fonts.mjs`、`quotes.mjs`、`sources.mjs` | 用到时在打包前跑：裁字体子集（缺省去掉会让字宽对不上的 `locl`）；给 `words: true` 的原声片段对出逐词时间；查出处表漏了什么并写 `sources.csv` |
+| 打包 | `build.mjs [id …]` | 打成代码包，时长 = 对齐出的时长 + `hold`，对到整帧；这一段的片段时间、画中画框、原声逐词与出处行写进 `TIMING` |
 | 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs --live` | `--dry` 不连 Runtime 只打印；`--live` 把代码包放上去、先不烘焙，编辑器的实时层现画（`footage.layer` 为 `under` 时眼下画不出来，见 `pipeline.md` 第 3 节） |
 | 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏 |
 | 实拍与水印 | `overlay.mjs --dry`，再 `--place` | 每个原片链接导入一次，每个镜头一个视频片段（原片区间、裁剪、取景、原声音量与淡变都是片段字段，响度按实测换成音量），转场是时间线转场；来源标签是标签轨上的文字片段，原声字幕是单独样式的双语字幕层（带说话人）；`footage.layer` 为 `under` 时实拍轨挪到代码包轨下面当底 |
 | 给用户看 | `baocut web review --video <videoId>` | 在宿主的浏览器面板里打开链接、整条给用户（见 baocut 说明书 web 页「请用户审片」）；用户说可以之前不烘焙、不导出；改了哪段照第 3 节重做，再 `assemble.mjs --live`，请用户刷新 |
-| 定稿烘焙 | `assemble.mjs`（不带 `--live`） | 用户说可以之后：live 的段原地换成烘焙过的包，看 `bake.renderer`；之后再导出 |
+| 定稿烘焙 | `assemble.mjs --bake ops`，再 `assemble.mjs`（不带 `--live`） | 用户说可以之后：live 的段原地换成烘焙过的包。先 `--bake ops` 只走指令（几秒一段），画不出的段列出原因、视频不动；改不了的再不带它退回截图。之后再导出 |
 
 每一步的参数、配置字段、烘焙走指令还是截图、WebGL 的段、产物被清掉怎么办，以及还没建视频时的备选预览页（`preview.mjs`）：读 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](production-scripts/references/pipeline.md)。
 
 ## 3. 改一段
 
-改了稿子或画面只重做那几段：改旁白是 `voice.mjs <id>` → `align.mjs <id> --fresh` →（有留白时）`gaps.mjs <id>` → `build.mjs <id>`；只改画面是 `build.mjs <id>`；插一段是加进 `order` 与稿子后照常做这一段。然后 `assemble.mjs --dry` 看它打算怎么挪：帧数变了带 `replace.ripple` 换包，后面各轨一起挪；插入的段先 `insertRange` 腾位置；旁白换了先删旧的再放新的；之后 `captions.mjs` 重建变过的段的字幕，`overlay.mjs --check` 核对实拍位置。细则在 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](production-scripts/references/pipeline.md) 第 4 节。
+改了稿子或画面只重做那几段：改旁白是 `voice.mjs <id>` → `align.mjs <id> --fresh` →（有留白时）`gaps.mjs <id>` → `build.mjs <id>`；只改画面是 `build.mjs <id>`；插一段是加进 `order` 与稿子后照常做这一段；给已有的视频补片头时配置写 `prepend`，第一次排时间线时正片与章节一起后移。然后 `assemble.mjs --dry` 看它打算怎么挪：帧数变了带 `replace.ripple` 换包，后面各轨一起挪；插入的段先 `insertRange` 腾位置；旁白换了先删旧的再放新的；之后 `captions.mjs` 重建变过的段的字幕，`overlay.mjs --check` 核对实拍位置。细则在 [制作脚本：配音、对齐、打包、预览、摆上时间线、建字幕、叠实拍](production-scripts/references/pipeline.md) 第 4 节。
 
 ## 4. 量一遍
 
@@ -72,8 +75,11 @@
 - [`scripts/clips.example.json`](production-scripts/scripts/clips.example.json)
 - [`scripts/coverage.mjs`](production-scripts/scripts/coverage.mjs)
 - [`scripts/explainer.example.json`](production-scripts/scripts/explainer.example.json)
+- [`scripts/fonts.mjs`](production-scripts/scripts/fonts.mjs)
 - [`scripts/gaps.mjs`](production-scripts/scripts/gaps.mjs)
 - [`scripts/lib.mjs`](production-scripts/scripts/lib.mjs)
 - [`scripts/overlay.mjs`](production-scripts/scripts/overlay.mjs)
 - [`scripts/preview.mjs`](production-scripts/scripts/preview.mjs)
+- [`scripts/quotes.mjs`](production-scripts/scripts/quotes.mjs)
+- [`scripts/sources.mjs`](production-scripts/scripts/sources.mjs)
 - [`scripts/voice.mjs`](production-scripts/scripts/voice.mjs)

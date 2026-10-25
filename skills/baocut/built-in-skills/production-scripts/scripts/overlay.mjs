@@ -16,6 +16,11 @@
 //   gap 为 true 的片段让旁白停下来单独放：先跑 gaps.mjs 在旁白里留白，片段放在留白的起点（line 是插在哪一句之前）。
 //   subs：[{ from, to, text, tr, who? }]，from / to 是原片秒数，text 成片语言、tr 原话、who 说话人。同一原片的 subs 写成一份转写
 //   （原话，按 subs 的起止摊开词时间）和一份译文（text），再建成双语字幕层：成片语言在上、原话在下、说话人名字在最上面，样式与旁白字幕分开。
+//   after：从第 after 句念完的时刻放（负数从末句倒数，true 是末句），用在段尾 hold 里放一句原声；offset（秒）在任何起点之上再挪。
+//   只有声音的片段：来源是录音文件（mp3 / wav / m4a / aac / flac / ogg / opus），或视频片段写 video: false。要带 audio，
+//   放在单独一条音频轨（names.quote）上，起点精确到子帧（原声与场景里逐词点亮的字对得上），没有画面、裁剪、画中画与转场；
+//   来源标签只在片段自己写了 label 时放（顶层的 label 不套用，通常由场景画出处）。asset 可给已在视频里的素材 ID（例如正片的录音），
+//   这时不再按 source 导入，source 仍用来量响度。words 为 true 时 quotes.mjs 给它对出逐词时间，build.mjs 写进这一段的 TIMING.clips。
 //   in / out：{ kind, dur?, easing? } 单侧转场（kind 取 dissolve / wipe / slide / zoom / iris，dur 秒数缺省 0.5，easing 缺省 ease-in-out），
 //   片段从下面的代码画面里渐入、渐出；和前后片段首尾相接的那一侧不做（同一条轨上背靠背只能硬切）。原声的淡入淡出跟着转场的长度走，没有转场时 0.15 / 0.3 秒。
 //   crop：[x, y, w, h] 按原片像素裁掉黑边、色条，按素材记录里的原片宽高换成四边比例；focus：[s, dx, dy] 放大 s 倍、画面中心挪到离正中
@@ -32,11 +37,12 @@
 //   label.corner 取 top-right（缺省）/ top-left / bottom-right / bottom-left，inset 是离画面边的距离（画面宽高的百分比），size 是画布像素。
 //   subs.language 是原话的语言（缺省 en）；译文的语言是配置的 language。
 //   at 的每一项是 { seg, line, cue?, side } 或 { t, side }（时间线秒数），side 取 left / right；x、y、w 是画面宽高的百分比。
+//   单个水印可以另给 x、y（百分比）放在别处：穿插在片中、换着位置放，裁掉一角也去不掉。
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipTimes, allItems, cropFraction, focalOf, mediaTime } from './lib.mjs';
+import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipTimes, allItems, cropFraction, focalOf, mediaTime, isAudioOnly } from './lib.mjs';
 
 const cfg = loadConfig();
 const { ids, flags } = parseArgs(process.argv);
@@ -59,13 +65,17 @@ const log = { video: V, assets: {}, footage: {}, loudness: {}, bites: {}, waterm
 if (log.video !== V) throw new Error(`overlay.json belongs to ${log.video}, config says ${V}`);
 const save = () => writeJson(logFile, log);
 const src = c => c.source || cl.source;
-const labelOf = c => c.label ?? cl.label ?? null;
+const audioOnly = c => isAudioOnly(c, src(c));
+// 只有声音的片段不套用顶层的 label（出处通常由场景画），自己写了才放
+const labelOf = c => (audioOnly(c) ? (typeof c.label === 'string' ? c.label : null) : c.label ?? cl.label ?? null);
 const KINDS = ['dissolve', 'wipe', 'slide', 'zoom', 'iris'];
 const IMAGE = /\.(png|jpe?g|webp|bmp|tiff?)$/i;
 const isImage = c => IMAGE.test(src(c));
 for (const c of cl.clips) {
   for (const side of ['in', 'out']) if (c[side] && !KINDS.includes(c[side].kind)) throw new Error(`${c.id}: ${side}.kind "${c[side].kind}" not one of ${KINDS.join(', ')}`);
   if (isImage(c) && c.audio) throw new Error(`${c.id}: ${src(c)} is a still image and has no sound; drop audio`);
+  if (audioOnly(c) && !c.audio) throw new Error(`${c.id}: ${src(c)} is placed as sound only (an audio file, or video: false); give it audio: true`);
+  if (audioOnly(c) && (c.pip || c.crop || c.focus || c.in || c.out)) throw new Error(`${c.id}: a sound-only clip has no picture; drop pip, crop, focus, in and out`);
   if (c.motion) throw new Error(`${c.id}: motion (Ken Burns) has no timeline form yet; drop it, or use a video clip`);
   if (c.crop && !(Array.isArray(c.crop) && c.crop.length === 4)) throw new Error(`${c.id}: crop is [x, y, w, h] in source pixels`);
   if (c.focus) focalOf(c.focus);
@@ -91,14 +101,16 @@ for (const s of lay) {
   cs.forEach((c, i) => {
     const end = (s.from + s.frames) / FPS, stop = Math.min(cs[i + 1]?.at ?? Infinity, end);
     if (c.at + c.to - c.from > end + 0.5 / FPS && stop === end) console.log(`warning: ${c.id} runs ${(c.at + c.to - c.from - end).toFixed(2)}s past the end of ${s.id}; cut at the segment end (shorten to, or move the clip earlier)`);
-    const f0 = Math.round(c.at * FPS), f1 = Math.min(Math.round((c.at + c.to - c.from) * FPS), Math.round(stop * FPS));
-    if (f1 > f0) plan.push({ ...c, f0, frames: f1 - f0 });
+    // 只有声音的片段按精确时刻放（整帧 + 子帧），画面片段按最近的整帧
+    const f0 = audioOnly(c) ? Math.floor(c.at * FPS + 1e-9) : Math.round(c.at * FPS), f1 = Math.min(Math.round((c.at + c.to - c.from) * FPS), Math.round(stop * FPS));
+    if (f1 > f0) plan.push({ ...c, f0, frames: f1 - f0, play: Math.min(c.to - c.from, stop - c.at) });
   });
 }
 // 转场：首尾和别的片段相接的一侧不做；长度不超过片段的一半
 plan.sort((a, b) => a.f0 - b.f0);
 plan.forEach((c, i) => {
   const prev = plan[i - 1], next = plan[i + 1];
+  if (audioOnly(c)) { c.tin = c.tout = null; return; }
   const tr = (t, touching) => t && !touching ? { kind: t.kind, easing: t.easing || 'ease-in-out', frames: Math.min(Math.round((t.dur ?? 0.5) * FPS), Math.floor(c.frames / 2)) } : null;
   c.tin = tr(c.in, prev && prev.f0 + prev.frames >= c.f0);
   c.tout = tr(c.out, next && c.f0 + c.frames >= next.f0);
@@ -106,20 +118,20 @@ plan.forEach((c, i) => {
 const stray = cl.clips.filter(c => !seg[c.seg]).map(c => c.id);
 if (stray.length) throw new Error(`clips in segments not in order: ${stray.join(', ')}`);
 const marks = (wm?.at || []).map(m => {
-  if (!wm.x[m.side]) throw new Error(`watermark side "${m.side}" not in watermark.x`);
+  if (m.x == null && !wm.x[m.side]) throw new Error(`watermark side "${m.side}" not in watermark.x (or give the mark its own x)`);
   const f = Math.round((m.t ?? at(m.seg, m.line, m.cue)) * FPS);
-  return { side: m.side, f, t: +(f / FPS).toFixed(4) };
+  return { side: m.side, f, t: +(f / FPS).toFixed(4), x: m.x ?? wm.x[m.side], y: m.y ?? wm.y };
 });
-for (const c of plan) console.log(`${c.id.padEnd(16)} ${(c.f0 / FPS).toFixed(2).padStart(8)}s  +${(c.frames / FPS).toFixed(2)}s  src ${c.from}${c.gap ? '  gap' : ''}${c.audio ? `  audio${typeof c.audio === 'number' ? ' ' + c.audio : ''}` : ''}${c.subs ? `  subs:${c.subs.length}` : ''}${c.pip ? `  pip ${c.pip.x},${c.pip.y} w${c.pip.w}` : ''}${c.crop ? `  crop ${c.crop.join(',')}` : ''}${c.focus ? `  focus ${c.focus.join(',')}` : ''}${isImage(c) ? '  still' : ''}${c.tin ? `  in ${c.tin.kind} ${(c.tin.frames / FPS).toFixed(2)}` : ''}${c.tout ? `  out ${c.tout.kind} ${(c.tout.frames / FPS).toFixed(2)}` : ''}`);
-for (const m of marks) console.log(`watermark ${m.side.padEnd(5)} ${m.t}s  +${wm.dur}s`);
+for (const c of plan) console.log(`${c.id.padEnd(16)} ${(c.f0 / FPS).toFixed(2).padStart(8)}s  +${(c.frames / FPS).toFixed(2)}s  src ${c.from}${c.gap ? '  gap' : ''}${c.audio ? `  audio${typeof c.audio === 'number' ? ' ' + c.audio : ''}` : ''}${c.subs ? `  subs:${c.subs.length}` : ''}${c.pip ? `  pip ${c.pip.x},${c.pip.y} w${c.pip.w}` : ''}${c.crop ? `  crop ${c.crop.join(',')}` : ''}${c.focus ? `  focus ${c.focus.join(',')}` : ''}${isImage(c) ? '  still' : ''}${audioOnly(c) ? '  sound only' : ''}${c.tin ? `  in ${c.tin.kind} ${(c.tin.frames / FPS).toFixed(2)}` : ''}${c.tout ? `  out ${c.tout.kind} ${(c.tout.frames / FPS).toFixed(2)}` : ''}`);
+for (const m of marks) console.log(`watermark ${String(m.side ?? '').padEnd(5)} ${m.t}s  +${wm.dur}s  at ${m.x},${m.y}`);
 if (!flags.place && !flags.check) process.exit(0);
 
 // 原声的响度：只读地量放上去的那一段（ebur128 的积分响度），按来源与起止缓存在 overlay.json
-const spanKey = c => `${src(c)}|${c.from}|${(c.frames / FPS).toFixed(3)}`;
+const spanKey = c => `${src(c)}|${c.from}|${(audioOnly(c) ? c.play : c.frames / FPS).toFixed(3)}`;
 function ebur(c) {
   const key = spanKey(c);
   if (log.loudness[key] !== undefined) return log.loudness[key];
-  const r = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-ss', String(c.from), '-t', (c.frames / FPS).toFixed(3), '-i', src(c), '-vn', '-af', 'ebur128', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 64 << 20 });
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-ss', String(c.from), '-t', (audioOnly(c) ? c.play : c.frames / FPS).toFixed(3), '-i', src(c), '-vn', '-af', 'ebur128', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 64 << 20 });
   const hit = [...(r.stderr || '').matchAll(/I:\s+(-?[\d.]+|-inf)\s+LUFS/g)].at(-1);
   if (!hit) throw new Error(`${c.id}: loudness of ${src(c)} not measured (ffmpeg exit ${r.status}): ${(r.stderr || '').slice(-400)}`);
   const lufs = hit[1] === '-inf' ? null : +hit[1];
@@ -187,20 +199,25 @@ if (flags.check) {
 
 // 3. 放上时间线
 const apply = (label, ops) => bc(['edits', 'apply', V, '--expected-revision', String(inspect().revision), '--label', label, '--operations', JSON.stringify(ops)]);
-const trackId = name => {
-  const find = () => inspect().tracks.find(x => x.kind === 'visual' && x.name === name);
+const trackId = (name, kind = 'visual') => {
+  const find = () => inspect().tracks.find(x => x.kind === kind && x.name === name);
   let t = find();
-  if (!t) { apply(`Add ${name} track`, [{ type: 'addTrack', kind: 'visual', name }]); t = find(); }
+  if (!t) { apply(`Add ${name} track`, [{ type: 'addTrack', kind, name }]); t = find(); }
   return t.id;
 };
 const labelName = `${cfg.names.footage} · label`;
 const todoClips = plan.filter(c => !log.footage[c.id] && (!ids.length || ids.includes(c.seg)));
 
 // 3a. 每个原片链接导入一次；宽高与版本取素材记录
-const assetOf = file => {
+const assetOf = (file, { needSize = true, assetId = null } = {}) => {
+  if (assetId) {
+    const rec = inspect().assets?.find(a => a.id === assetId);
+    if (!rec?.revision) throw new Error(`asset ${assetId} not in videos inspect`);
+    return { assetId, ...(rec.size ? sizeOf(rec) : { revision: rec.revision }) };
+  }
   const known = log.assets[file];
   const listed = inspect().assets?.find(a => a.id === known?.assetId);
-  if (listed?.size && listed.revision) return { ...known, ...sizeOf(listed) };
+  if (listed?.revision && (listed.size || !needSize)) return { ...known, ...(listed.size ? sizeOf(listed) : { revision: listed.revision }) };
   if (!known) {
     if (!fs.existsSync(file)) throw new Error(`source ${file} not found`);
     const a = bc(['assets', 'import', V, '--path', file, '--storage', 'linked', '--name', path.basename(file)]);
@@ -210,15 +227,16 @@ const assetOf = file => {
   }
   const rec = inspect().assets?.find(a => a.id === log.assets[file].assetId);
   if (!rec?.revision) throw new Error(`asset ${log.assets[file].assetId} for ${file} not in videos inspect; was it removed?`);
-  if (!rec.size) throw new Error(`asset ${rec.id} (${path.basename(file)}) has no picture size in its record; crop and pip need it`);
-  return { ...log.assets[file], ...sizeOf(rec) };
+  if (!rec.size && needSize) throw new Error(`asset ${rec.id} (${path.basename(file)}) has no picture size in its record; crop and pip need it`);
+  return { ...log.assets[file], ...(rec.size ? sizeOf(rec) : { revision: rec.revision }) };
 };
 const sizeOf = rec => { const [w, h] = rec.size.split('x').map(Number); return { revision: rec.revision, w, h }; };
 
 if (todoClips.length) {
-  const T = trackId(cfg.names.footage);
+  const T = todoClips.some(c => !audioOnly(c)) ? trackId(cfg.names.footage) : null;
+  const QA = todoClips.some(audioOnly) ? trackId(cfg.names.quote, 'audio') : null;
   // footage.layer 为 under：实拍轨挪到代码包那条轨下面（包要透明，bundle.alpha）；tracks 按叠放次序从下到上列
-  if (under) {
+  if (under && T) {
     const vs = inspect().tracks.filter(x => x.kind === 'visual');
     const base = cfg.tracks?.visual || vs.find(x => ![cfg.names.footage, cfg.names.watermark, labelName].includes(x.name))?.id;
     if (base && vs.findIndex(x => x.id === T) > vs.findIndex(x => x.id === base)) {
@@ -238,6 +256,22 @@ if (todoClips.length) {
     const batch = todoClips.filter(c => c.seg === segId);
     const items = [], meta = [];
     for (const c of batch) {
+      if (audioOnly(c)) {
+        // 只有声音：一个音频片段，起点 = 整帧 + 子帧，长度按原片秒数（不越过下一个片段与段尾）
+        const a = assetOf(src(c), { needSize: false, assetId: c.asset || null });
+        const audio = volumeOf(c), name = `${cfg.names.quote} ${c.id}`;
+        const fadeIn = c.fadeIn ?? 0.08, fadeOut = c.fadeOut ?? 0.45;
+        items.push({
+          type: 'audio', trackId: QA, name, assetRef: { id: a.assetId, revision: a.revision },
+          fromFrame: c.f0, subframeOffset: mediaTime(Math.max(0, c.at - c.f0 / FPS)), playDuration: mediaTime(c.play),
+          timeMap: { kind: 'linear', sourceIn: mediaTime(c.from), rate: { num: 1, den: 1 } },
+          mix: { volume: audio.volume, fadeIn: mediaTime(fadeIn), fadeOut: mediaTime(fadeOut) },
+        });
+        const label = labelText(c);
+        if (label) items.push(labelItem(c, label, L, null, null, fontSize));
+        meta.push({ c, name, label, audio, assetId: a.assetId });
+        continue;
+      }
       const a = assetOf(src(c));
       const image = isImage(c);
       const crop = c.crop ? cropFraction(c.crop, a.w, a.h) : null;

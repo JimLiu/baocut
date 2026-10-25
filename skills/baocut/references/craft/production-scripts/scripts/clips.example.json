@@ -16,6 +16,9 @@
     { "id": "s05-archive-2", "seg": "s05", "follow": true, "from": 40, "to": 44.5, "source": "/path/to/1978-broadcast.mp4", "label": "<another source label>",
       "crop": [166, 6, 944, 708], "fit": "contain", "note": "same block as s05-archive: starts where it ends, hard cut, narration keeps going over it", "out": { "kind": "dissolve", "dur": 0.4 } },
     { "id": "s06-photo", "seg": "s06", "line": 0, "head": true, "from": 0, "to": 5, "source": "/path/to/press-photo.jpg", "label": "<photo credit>",
-      "focus": [1.2, 10, 0], "note": "a still photo: from / to only set the length; focus zooms 1.2x and keeps the left part in frame; head starts it at the segment start, before line 0 is spoken" }
+      "focus": [1.2, 10, 0], "note": "a still photo: from / to only set the length; focus zooms 1.2x and keeps the left part in frame; head starts it at the segment start, before line 0 is spoken" },
+    { "id": "s06-voice", "seg": "s06", "after": true, "offset": 0.4, "audio": true, "video": false, "asset": "asset_0123456789abcdef", "from": 774.4, "to": 781.2,
+      "source": "/path/to/speech-recording.mp3", "words": true, "said": "<the original words, as spoken>", "text": "<the same words in the video language>",
+      "note": "sound only: the speaker's own voice 0.4 s after the last line, in the segment's hold; asset reuses the recording already in the video; quotes.mjs times each word and the scene lights them from TIMING.clips" }
   ]
 }

@@ -21,9 +21,10 @@ const DEFAULTS = {
   tail: 0.35,
   voice: { format: 'wav', attach: false },
   asr: { provider: 'google', model: 'gemini-3.5-transcribe', chunkSeconds: 0, args: [] },
-  names: { narration: 'Narration', footage: 'Footage', watermark: 'Watermark' },
+  names: { narration: 'Narration', footage: 'Footage', watermark: 'Watermark', quote: 'Original voice' },
   dirs: { scenes: 'scenes', shared: 'shared', bundles: 'bundles', timing: 'timing', audio: 'audio', work: '.baocut-out' },
   bundle: { scripts: null, pick: ['img'], keep: [], exclude: [], module: false, fonts: {}, alpha: false },
+  prepend: false,
 };
 
 // 配置：--config <文件>，或环境变量 PRODUCTION_CONFIG / EXPLAINER_CONFIG，或从当前目录往上找 production.json / explainer.json。工程根目录 = 配置所在目录。
@@ -168,14 +169,27 @@ export function clipTimes(tm, clips) {
 }
 
 // 片段在这一段里的起点（秒，相对段首）：head 为 true 的从段首（0）放，盖住第一句之前的那点空；
-// 留白片段（gap）取 gaps.mjs 在旁白里留出的那段空白的起点，其余按 line / cue
+// 留白片段（gap）取 gaps.mjs 在旁白里留出的那段空白的起点；after 给了句号（从 0 数，负数从末句倒数，true 是末句）时
+// 从那一句念完的时刻放（段尾 hold 里放一句原声）；其余按 line / cue。offset（秒）在这之上再挪，可正可负
 export function clipAt(tm, clip) {
-  if (clip.head) return 0;
-  if (!clip.gap) return cueTime(tm, clip.line, clip.cue);
-  const g = (tm.gaps || []).find(x => x.clip === clip.id);
-  if (!g) throw new Error(`clip ${clip.id} pauses the narration but timing has no gap for it; run gaps.mjs ${clip.seg}`);
-  return g.at;
+  const off = clip.offset ?? 0;
+  if (clip.head) return off;
+  if (clip.gap) {
+    const g = (tm.gaps || []).find(x => x.clip === clip.id);
+    if (!g) throw new Error(`clip ${clip.id} pauses the narration but timing has no gap for it; run gaps.mjs ${clip.seg}`);
+    return g.at + off;
+  }
+  if (clip.after != null && clip.after !== false) {
+    const n = tm.lines.length, i = clip.after === true ? n - 1 : clip.after < 0 ? n + clip.after : clip.after;
+    if (!tm.lines[i]) throw new Error(`clip ${clip.id}: after ${clip.after} is not a line of ${clip.seg} (it has ${n})`);
+    return tm.lines[i].end + off;
+  }
+  return cueTime(tm, clip.line, clip.cue) + off;
 }
+
+// 只有声音的来源：录音文件，或 video 为 false 的视频片段（只取原声、不上画面）
+export const AUDIO_FILE = /\.(mp3|wav|m4a|aac|flac|ogg|oga|opus)$/i;
+export const isAudioOnly = (clip, source) => clip.video === false || AUDIO_FILE.test(source || '');
 
 // 一句旁白里某个时刻（秒，相对这一段开头）：第 line 句（从 0 数）的开头；给了 cue 就取 cue 这几个字开始被说到的时刻
 export function cueTime(tm, line, cue) {

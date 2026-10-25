@@ -15,9 +15,18 @@
 //   bundle.alpha 为 true 时根元素 data-alpha="true"、页面底色透明：实拍铺在下面一条轨上（footage.layer 为 under），场景只画卡片、标注这些要叠上去的东西，不铺底色。
 //   给了 bundle.fonts 时查字形：场景与 shared/ 顶层 .js 的字符串、模板字面量里的字，哪款带进包的字体都没有就打一行 warn（只提醒，不停）。
 //   烘焙遇到缺字会退回逐帧截图（text-missing-glyph），在这里先报出来省一轮烘焙；字符串也可能是不上画布的数据，所以不当错误。
+//   bundle.fonts 的族名不要用 serif、sans-serif 这类 CSS 通用名：页面会拿系统字体顶替，和烘焙用的字对不上，这里报一行 warn。
+// 这一段的片段与出处也写进 timing.js，场景照着画，不用自己再算一遍（只改了这一段的片段时只有这一段的包变）：
+//   TIMING.clips：clips.json 里 seg 是这一段的片段，按 overlay.mjs 同一套算法排好：{ id, at, end, from, to, audio, soundOnly, label,
+//     box?（画中画框在画布上的像素 { x, y, w, h }，按裁剪或原片宽高算）, words?, said?, text? }。at / end 是相对段首的秒数，
+//     截在下一个片段与段尾。words 来自 quotes.json（quotes.mjs 写的，原片秒数），换成相对段首的秒数 [{ t, s, e }]；said / text 是原话与成片语言的译文。
+//     片段越过包的结尾时报 warn（段尾的原声要放进 hold）。timing 还是估的、或片段的起点算不出来（还没跑 gaps.mjs）时不写 clips。
+//   TIMING.credits：{ 文件名: 出处 }，场景源码用引号提到的文件与这一段片段的原片，在 sources.json 里有 credit 的（sources.mjs 管这份表）。
+//   这些字符串也查字形。
 import fs from 'node:fs';
 import path from 'node:path';
-import { fontCmap, loadConfig, parseArgs, readJson, scriptLines, units } from './lib.mjs';
+import { spawnSync } from 'node:child_process';
+import { clipTimes, fontCmap, isAudioOnly, loadConfig, parseArgs, readJson, scriptLines, units } from './lib.mjs';
 
 const cfg = loadConfig();
 const { ids } = parseArgs(process.argv);
@@ -126,6 +135,54 @@ function checkGlyphs(id, sources) {
   console.warn(`warn ${id}: fonts lack ${list} — the bake will fall back to pixels; draw marks or reword (code-scenes 2.1)`);
 }
 
+const GENERIC = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded', 'math', 'emoji', 'fangsong']);
+for (const fam of Object.keys(cfg.bundle.fonts || {})) if (GENERIC.has(fam.toLowerCase())) console.warn(`warn: bundle.fonts family "${fam}" is a CSS generic name; the page and the bake may pick different fonts. Give it its own name (e.g. "Body${fam[0].toUpperCase()}${fam.slice(1)}") and use that in the scenes`);
+
+// 片段、原声逐词时间与出处：没有这些文件时都是空的
+const clipsFile = readJson(cfg.abs(cfg.footage?.clips || 'clips.json'), { clips: [] });
+const quotes = readJson(cfg.abs('quotes.json'), {});
+const sources = readJson(cfg.abs('sources.json'), { items: [] });
+const creditOf = new Map((sources.items || []).filter(x => x.credit).flatMap(x => [x.file, x.id].filter(Boolean).map(k => [path.basename(k), x.credit])));
+const sizes = new Map();
+function sourceSize(file) {
+  if (sizes.has(file)) return sizes.get(file);
+  const r = spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', file], { encoding: 'utf8' });
+  const [w, h] = (r.stdout || '').trim().split(',').map(Number);
+  const size = w && h ? { w, h } : null;
+  sizes.set(file, size);
+  return size;
+}
+const round = x => +x.toFixed(3);
+
+function clipsOf(id, timing, dur) {
+  const mine = clipsFile.clips.filter(c => c.seg === id);
+  if (!mine.length || timing.estimated) return null;
+  let at;
+  try { at = clipTimes(timing, mine); } catch (e) { console.warn(`note ${id}: TIMING.clips left out (${e.message})`); return null; }
+  const list = mine.map(c => ({ c, at: at[c.id] })).sort((a, b) => a.at - b.at);
+  return list.map(({ c, at: t }, i) => {
+    const source = c.source || clipsFile.source;
+    const end = Math.min(t + c.to - c.from, list[i + 1]?.at ?? Infinity, dur);
+    if (t + c.to - c.from > dur + 0.5 / cfg.fps && !list[i + 1]) console.warn(`warn ${id}: clip ${c.id} runs ${(t + c.to - c.from - dur).toFixed(2)}s past the end of the bundle; raise hold.${id} to at least ${(cfg.hold[id] || 0) + Math.ceil((t + c.to - c.from - dur) * 10) / 10} or shorten the clip`);
+    const out = { id: c.id, at: round(t), end: round(end), from: c.from, to: c.to, audio: !!c.audio, soundOnly: isAudioOnly(c, source) };
+    const label = c.label ?? (out.soundOnly ? null : clipsFile.label ?? null);
+    if (typeof label === 'string') out.label = label;
+    if (c.pip) {
+      const size = c.crop ? { w: c.crop[2], h: c.crop[3] } : sourceSize(source);
+      const w = c.pip.w * W / 100, h = size ? w * size.h / size.w : null;
+      if (h) out.box = { x: round(c.pip.x * W / 100 - w / 2), y: round(c.pip.y * H / 100 - h / 2), w: round(w), h: round(h) };
+      else console.warn(`note ${id}: ${c.id} pip box left out (no crop and ffprobe could not read ${source})`);
+    }
+    const q = quotes[c.id];
+    if (q) {
+      if (q.words) out.words = q.words.map(w => ({ t: w.t, s: round(t + w.s - c.from), e: round(t + w.e - c.from) }));
+      if (q.said) out.said = q.said;
+      if (q.text) out.text = q.text;
+    } else if (c.words) console.warn(`note ${id}: ${c.id} wants words but quotes.json has none; run quotes.mjs ${c.id}`);
+    return out;
+  });
+}
+
 function build(id, all) {
   const scene = cfg.abs(cfg.dirs.scenes, id + '.js');
   if (!fs.existsSync(scene)) throw new Error('missing ' + scene);
@@ -149,11 +206,16 @@ function build(id, all) {
     copied.push(rel);
   }
   const scripts = cfg.bundle.scripts || (cfg.bundle.module ? [] : files.filter(f => !f.includes('/') && f.endsWith('.js')).sort());
-  // 查字形的源码：场景本身，加上拷进包的 shared/ 顶层 .js 与 bundle.scripts 列的脚本（子目录里的库不查，字符串多半不上画布）
+  const clips = clipsOf(id, timing, dur);
+  // 出处：场景提到的文件与这一段片段的原片
+  const credits = {};
+  for (const k of [...literals].map(x => path.basename(x)).concat((clips || []).map(c => path.basename(clipsFile.clips.find(x => x.id === c.id).source || clipsFile.source || '')))) if (creditOf.has(k)) credits[k] = creditOf.get(k);
+  const extra = { ...(clips ? { clips } : {}), ...(Object.keys(credits).length ? { credits } : {}) };
+  // 查字形的源码：场景本身，加上拷进包的 shared/ 顶层 .js 与 bundle.scripts 列的脚本（子目录里的库不查，字符串多半不上画布），和写进 TIMING 的出处与原话
   const checked = copied.filter(rel => rel.endsWith('.js') && (!rel.includes('/') || scripts.includes(rel)));
-  checkGlyphs(id, [src, ...checked.map(rel => fs.readFileSync(path.join(SHARED, rel), 'utf8'))]);
+  checkGlyphs(id, [src, ...checked.map(rel => fs.readFileSync(path.join(SHARED, rel), 'utf8')), JSON.stringify(extra)]);
   fs.writeFileSync(path.join(out, 'scene.js'), src);
-  fs.writeFileSync(path.join(out, 'timing.js'), 'window.TIMING = ' + JSON.stringify({ ...timing, dur }) + ';\n');
+  fs.writeFileSync(path.join(out, 'timing.js'), 'window.TIMING = ' + JSON.stringify({ ...timing, dur, ...extra }) + ';\n');
   const tags = ['timing.js', ...scripts].map(s => `<script src="./${s}"></script>`).join('') +
     `<script${cfg.bundle.module ? ' type="module"' : ''} src="./scene.js"></script>`;
   const faces = Object.entries(cfg.bundle.fonts || {}).map(([fam, rel]) => `@font-face{font-family:'${fam}';src:url('./${rel}')}`).join('');

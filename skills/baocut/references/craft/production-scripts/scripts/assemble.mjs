@@ -13,11 +13,17 @@
 //     不逐段「删一段放一段」：旧旁白可能比段首早一帧，波纹只挪旧终点及之后的片段，它会被留在原地，和前一段变长的新旁白重叠（TIMELINE_OVERLAP）。
 //   - 导入时 place.at 只能写秒数，Runtime 换成帧时可能落到前一帧；放好后核对起点，不在段首就用 moveItem 按整帧挪回去。
 //   - order 里新插进的段：先用 insertRange 在上一段终点腾出它的帧数，再放进去。从 order 里删掉的段不自动处理，报错让你先手动删。
-//   章节不跟着挪，改完自己核对。
+//   引擎挪片段时章节不动（视频格式规范 §3.13）：每次波纹、腾位置之后，脚本把起点不早于那一帧的章节一起挪过去。
+// 片头前插（config 的 prepend 为 true，或 { chapter: { title, summary? } }）：视频里已有正片（录音、实拍、字幕、章节），段落要放在它前面。
+//   第一次放段落之前，一笔事务在第 0 帧给所有有片段的轨道腾出整个片头的帧数（insertRange，straddle: stay），已有章节跟着后移，
+//   给了 chapter 时在第 0 帧加一章；核对每个旧片段都后移了片头的帧数，记在 timeline.json 的 prepended。之后片头变长变短照常波纹，正片跟着走。
 // 每段记下 bake 的 renderer / fps / seconds；--background 时烘焙在后台排队，之后用 --verify 把结果补进记录。
 // 长于 3 分钟的段不带 --foreground 时自动在后台烘：CLI 一次请求最多等 30 分钟，烘焙和别的渲染抢 CPU 时会掉到每秒几帧，
 // 长段前台烘会超时；超时后 Runtime 照样烘完放上时间线，脚本却没拿到回执，记录里没有这一段，重跑会再烘一遍、再放一个。
 // 前台烘焙走成 browser-pixels 时停下并打印原因（不带 --allow-pixels），按代码场景细则第 2.1 节改好后重跑会原地换包。
+// --bake ops 只用指令烘焙（快几十到上百倍）：画不出的段 Runtime 以 COMPOSITION_BAKE_FAILED 拒绝、视频不动，脚本记下原因接着做别的段，
+// 最后列出来（退出码 1）。先用它试一遍哪些段能走指令，改好再试；剩下改不了的（大量照片滤镜、WebGL）不带 --bake ops 重跑，退回逐帧截图。
+// 变长变短的段（第 1 步，要波纹）指令画不出时直接停下：后面各段的位置要靠它挪。
 // 用 WebGL（Three.js 等）画的段走不了指令，一开始就带 --allow-pixels，并按代码场景细则先算好要烘多久。
 // 旁白按 voice.json 的 artifactId 导入；Runtime 清掉了旧产物（ARTIFACT_NOT_FOUND）时改导入 voice.mjs 存下的 audio/<id>.<格式>。
 // gaps.mjs 留过白的段（timing 里有 gapAudio）改导入留好白的那份；留白变了（重跑过 gaps.mjs）也当旁白换了。
@@ -146,10 +152,58 @@ function assertUnlocked(items, boundary) {
   if (hit.length) throw new Error(`locked tracks or clips after frame ${boundary}: ${hit.join(', ')}; unlock them first, nothing was changed`);
 }
 
-// 引擎挪完片段后，记录里起点不早于 boundary 的段跟着挪，然后存盘
+// 引擎挪完片段后，记录里起点不早于 boundary 的段跟着挪，然后存盘；章节不归引擎挪，这里一起挪
 function shiftRecords(boundary, delta) {
   if (delta) for (const r of Object.values(rec.segments)) if (r.from >= boundary) { r.from += delta; r.at = atOf(r.from, FPS); }
   save();
+  if (delta) shiftChapters(boundary, delta);
+}
+
+// 起点不早于 boundary 的章节挪 delta 帧。往后挪时从最后一章往前，往前挪时从前往后，免得途中两章落在同一帧
+const frameAt = value => ({ unit: 'frames', value });
+function chapterMoves(chapters, boundary, delta) {
+  const hit = chapters.filter(c => c.atFrame >= boundary).sort((a, b) => (delta > 0 ? b.atFrame - a.atFrame : a.atFrame - b.atFrame));
+  return hit.map(c => ({ type: 'upsertChapter', chapterId: c.id, at: frameAt(c.atFrame + delta), alignment: 'exact-frame' }));
+}
+function shiftChapters(boundary, delta) {
+  const ops = chapterMoves(inspect(['--limit', '1']).chapters || [], boundary, delta);
+  if (!ops.length) return;
+  apply(`Shift ${ops.length} chapters by ${delta} frames`, ops);
+  console.log(`chapters at frame >= ${boundary}: moved ${ops.length} by ${delta > 0 ? '+' : ''}${delta}`);
+}
+
+// 片头前插：第 0 帧腾出 total 帧，旧片段与章节一起后移（见文件头）。insertRange 不挪伸到序列末尾的片段，
+// 所以同一笔先在末尾之后放一个临时文字片段，让正片都不在末尾，腾完再删掉它。
+const SPACER = 'prepend spacer';
+function prependRoom() {
+  if (!cfg.prepend || rec.prepended || lay.some(s => placed(s.id))) return;
+  const items = allItems(bc, V).items.filter(it => it.name !== SPACER);
+  const first = Math.min(...items.map(it => it.startFrame));
+  if (!items.length || first >= total) {
+    rec.prepended = { frames: 0, note: items.length ? `content already starts at frame ${first}` : 'video was empty' };
+    save();
+    return;
+  }
+  assertUnlocked(items, 0);
+  const end = Math.max(...items.map(it => it.startFrame + it.durationFrames));
+  const trackIds = [...new Set(items.map(it => it.trackId))];
+  const chapters = inspect(['--limit', '1']).chapters || [];
+  const intro = typeof cfg.prepend === 'object' ? cfg.prepend.chapter : null;
+  if (intro && !intro.title) throw new Error('prepend.chapter needs a title');
+  apply('Make room for the intro', [
+    { type: 'insertItems', items: [{ type: 'text', trackId: V1, name: SPACER, role: 'screentext', text: '.', span: { fromFrame: end, durationFrames: FPS }, place: {}, style: {} }] },
+    { type: 'insertRange', at: frameAt(0), duration: frameAt(total), trackIds, alignment: 'exact-frame', straddle: 'stay' },
+    ...chapterMoves(chapters, 0, total),
+    ...(intro ? [{ type: 'upsertChapter', at: frameAt(0), alignment: 'exact-frame', title: intro.title, ...(intro.summary ? { summary: intro.summary } : {}) }] : []),
+  ]);
+  const spacer = allItems(bc, V, end / FPS).items.filter(it => it.name === SPACER).map(it => it.id);
+  if (spacer.length) apply('Remove the intro spacer', [{ type: 'deleteItems', itemIds: spacer }]);
+  const after = new Map(allItems(bc, V).items.map(it => [it.id, it]));
+  const stuck = items.filter(it => after.get(it.id)?.startFrame !== it.startFrame + total);
+  rec.prepended = { frames: total, items: items.length, chapters: chapters.length, introChapter: !!intro };
+  save();
+  if (stuck.length) throw new Error(`intro room: ${stuck.length} clips did not move by ${total} frames (${stuck.slice(0, 5).map(it => `${it.id} ${it.name ?? ''} at ${after.get(it.id)?.startFrame ?? 'gone'}`).join(', ')}); fix them by hand, timeline.json already records the room`);
+  console.log(`intro room: moved ${items.length} clips on ${trackIds.length} tracks and ${chapters.length} chapters by ${total} frames${intro ? `, added chapter "${intro.title}" at 0` : ''}`);
 }
 
 // 插入的段：在 boundary（上一段终点）用 insertRange 腾出 frames 帧。只列这之后还有片段的轨道，
@@ -161,6 +215,7 @@ function makeRoom(id, boundary, frames) {
   if (!trackIds.length) return;
   const frame = value => ({ unit: 'frames', value });
   apply(`Make room for ${id}`, [{ type: 'insertRange', at: frame(boundary), duration: frame(frames), trackIds, alignment: 'exact-frame', straddle: 'stay' }]);
+  // shiftRecords 也把 boundary 及之后的章节挪过去
   shiftRecords(boundary, frames);
   console.log(`inserted ${frames} frames at ${boundary} on ${trackIds.length} tracks for ${id}`);
 }
@@ -187,6 +242,16 @@ function checkBake(id, r) {
   }
 }
 
+// --bake ops 画不出的段：记下原因，不改视频
+const opsFailed = [];
+function opsRefused(s, e) {
+  if (flags.bake !== 'ops' || e.cli?.code !== 'COMPOSITION_BAKE_FAILED') return false;
+  const reason = (e.cli?.message || e.message).replace(/^[^:]*?: ?The instruction bake cannot render this bundle: /, '');
+  opsFailed.push({ id: s.id, reason });
+  console.log(`${s.id}: ops bake refused (${reason}); left as it was`);
+  return true;
+}
+
 function importScene(s, place) {
   const args = ['compositions', 'import', V, '--path', `${cfg.dirs.bundles}/${s.id}`, '--name', s.id, '--manifest', '{"contract":"baocut/1"}', ...place];
   if (flags.live) {
@@ -206,7 +271,10 @@ function replaceScene(s) {
   const r = rec.segments[s.id];
   const oldEnd = r.from + r.frames, want = s.frames - r.frames;
   if (want) { const b = r.from + Math.min(r.frames, s.frames); assertUnlocked(itemsFrom(b, true), b); }
-  const { c, sec } = importScene(s, ['--replace', JSON.stringify({ itemId: r.sceneItem, ripple: true })]);
+  let got;
+  try { got = importScene(s, ['--replace', JSON.stringify({ itemId: r.sceneItem, ripple: true })]); }
+  catch (e) { if (!want && opsRefused(s, e)) return; throw e; }
+  const { c, sec } = got;
   const moved = c.replaced?.rippleFrames ?? 0;
   recordBake(r, c);
   Object.assign(r, { frames: s.frames, bundleHash: cur[s.id].hash, bakeSec: sec, live: !!flags.live });
@@ -247,7 +315,10 @@ function snapToFrame(itemId, frame) {
 
 function placeScene(s) {
   const r = rec.segments[s.id];
-  const { c, sec } = importScene(s, ['--place', JSON.stringify({ track: V1, at: atOf(r.from, FPS) })]);
+  let got;
+  try { got = importScene(s, ['--place', JSON.stringify({ track: V1, at: atOf(r.from, FPS) })]); }
+  catch (e) { if (opsRefused(s, e)) return; throw e; }
+  const { c, sec } = got;
   r.sceneItem = c.itemId;
   recordBake(r, c);
   Object.assign(r, { bundleHash: cur[s.id]?.hash ?? bundleHash(cfg.abs(cfg.dirs.bundles, s.id)), bakeSec: sec, live: !!flags.live });
@@ -255,8 +326,9 @@ function placeScene(s) {
   checkBake(s.id, r);
 }
 
-// 1. 已放好的段：倒序处理变长变短（换包带 ripple），插入的段先腾出位置
+// 1. 已放好的段：倒序处理变长变短（换包带 ripple），插入的段先腾出位置；片头前插先腾出整个片头
 if (!flags.verify) {
+  prependRoom();
   for (const st of steps) {
     const s = lay.find(x => x.id === st.id);
     if (st.kind === 'insert') makeRoom(st.id, st.boundary, st.delta);
@@ -307,10 +379,15 @@ const scenes = new Map(itemsFrom(0).map(it => [it.id, it]));
 const bad = [];
 for (const s of lay) {
   const it = scenes.get(rec.segments[s.id]?.sceneItem);
-  if (!it) bad.push(`${s.id}: scene clip not found`);
+  if (!it) bad.push(`${s.id}: scene clip not found${opsFailed.some(f => f.id === s.id) ? ' (ops bake refused it, see below)' : ''}`);
   else if (it.startFrame !== s.from || it.durationFrames !== s.frames) bad.push(`${s.id}: clip at ${it.startFrame}+${it.durationFrames}, layout ${s.from}+${s.frames}`);
 }
 console.log(bad.length ? 'CHECK FAILED\n' + bad.join('\n') : `check ok: ${lay.length} segments end to end, ${total} frames`);
+if (opsFailed.length) {
+  console.log(`ops bake refused ${opsFailed.length} segments (unchanged on the timeline):`);
+  for (const f of opsFailed) console.log(`  ${f.id}: ${f.reason}`);
+  console.log('fix them (code-scenes 2.1) and rerun with --bake ops, or rerun without --bake ops to bake them as pixels');
+}
 const unbakedIds = lay.filter(s => rec.segments[s.id]?.live).map(s => s.id);
 if (unbakedIds.length) console.log(`live (not baked): ${unbakedIds.join(' ')}; run assemble.mjs without --live before exporting`);
-if (bad.length) process.exit(1);
+if (bad.length || opsFailed.length) process.exit(1);
