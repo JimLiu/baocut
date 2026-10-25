@@ -22,6 +22,7 @@ import {
 } from '@baocut/models/testing';
 import {
   RpcError,
+  formatRef,
   newId,
   type JobRecord,
   type JobsSnapshot,
@@ -675,6 +676,11 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
         expect(failed).toMatchObject({ kind: 'modelTest', state: 'failed', error: { code: 'MEDIA_TOOL_UNAVAILABLE' } });
         expect(failed.error!.message).toContain('ffmpeg');
         expect(failed.error!.message).not.toContain('重新安装 BaoCut');
+        // 存下的说明带着嵌套的消息引用：换成英文重新生成时，安装修法也一起换。
+        const english = formatRef(failed.error!.messageRef!, failed.error!.message, 'en');
+        expect(english).toContain("Can't find");
+        expect(english).toContain('Install ffmpeg');
+        expect(english).not.toContain('安装');
         // 检查没能跑完，不是模型检查没通过：结论不记进 selfTest，也没有发出合成请求。
         expect(speechOf()?.selfTest ?? null).toBeNull();
         expect(await side.audioCpp.recorded('request')).toEqual([]);

@@ -16,7 +16,7 @@ import {
   builtinVoiceFile,
   type BundleDefinition,
 } from '@baocut/models';
-import type { RpcError } from '@baocut/protocol';
+import { formatRef, type RpcError } from '@baocut/protocol';
 import { FileCredentialStore } from '@baocut/runtime-storage';
 import { LibraryStore } from '@baocut/runtime-storage/library';
 import type { GrantService } from '../grants/grant-service.ts';
@@ -53,6 +53,8 @@ const sha256 = async (file: string) => crypto.createHash('sha256').update(await 
 describe.skipIf(process.platform === 'win32')('配音的逐句合成：本地克隆模型的内置音色', () => {
   let dir: string;
   let fake: FakeAudioCpp;
+  /** 参考录音转换用的 ffmpeg；默认是上面那个假的，测外部工具缺失时换成找不到的路径。 */
+  let ffmpeg: string;
   let provider: LocalSpeechProvider;
   let speech: DubSpeech;
   let library: LibraryStore;
@@ -63,7 +65,7 @@ describe.skipIf(process.platform === 'win32')('配音的逐句合成：本地克
     savedAssets = process.env[MODEL_ASSETS_ENV];
     fake = await writeFakeAudioCpp(path.join(dir, 'bin'));
     await fs.writeFile(path.join(dir, 'ffmpeg.cjs'), FAKE_FFMPEG);
-    const ffmpeg = path.join(dir, 'ffmpeg');
+    ffmpeg = path.join(dir, 'ffmpeg');
     await fs.writeFile(ffmpeg, `#!/bin/sh\nexec "${process.execPath}" "${path.join(dir, 'ffmpeg.cjs')}" "$@"\n`, { mode: 0o755 });
 
     const models = path.join(dir, 'models');
@@ -205,6 +207,22 @@ describe.skipIf(process.platform === 'win32')('配音的逐句合成：本地克
     expect(refused.message).toContain('重新安装 BaoCut');
     expect(refused.message).not.toContain(empty);
     expect(await fake.recorded()).toEqual([]);
+  });
+
+  it('没有能用的 ffmpeg：这一句以 MEDIA_TOOL_UNAVAILABLE 失败，存下的说明按读者的语言重新生成', async () => {
+    const voice = await speech.prepare({ provider: 'local', model: CLONE, voice: 'en-female', language: 'en' });
+    ffmpeg = path.join(dir, 'no-such-tools', 'ffmpeg');
+    const failed = await failure(say(voice, 'Hello everyone.', 1));
+    expect(failed).toBeInstanceOf(PipelineStepError);
+    const error = failed as PipelineStepError;
+    expect(error).toMatchObject({ code: 'MEDIA_TOOL_UNAVAILABLE', details: { providerId: 'local', tool: 'ffmpeg' } });
+    // 这一步失败存下的说明带着 Provider 的消息引用：换一种语言重新生成时整句都换，不残留生成时那种语言的一段。
+    expect(error.messageRef).toBeDefined();
+    const english = formatRef(error.messageRef!, error.message, 'en');
+    expect(english).toContain("Can't find");
+    expect(english).toContain('Install ffmpeg');
+    expect(english).not.toContain('安装');
+    expect(await fake.recorded('request')).toEqual([]);
   });
 
   /** 音色库里的一个音色：参考录音借内置音色的，没有本人声明（本地合成不上传，用不着）。 */

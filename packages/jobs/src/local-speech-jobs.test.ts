@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { RpcError, type EditOperation, type JobRecord, type JobSubmitter, type SynthesizeSpeechRequest } from '@baocut/protocol';
+import { RpcError, formatRef, type EditOperation, type JobRecord, type JobSubmitter, type SynthesizeSpeechRequest } from '@baocut/protocol';
 import { FileCredentialStore } from '@baocut/runtime-storage';
 import { LibraryStore } from '@baocut/runtime-storage/library';
 import {
@@ -521,6 +521,11 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
     expect(job.error!.message).toContain('ffmpeg');
     expect(job.error!.message).not.toContain('重新安装 BaoCut');
     expect(job.error!.messageRef).toBeDefined();
+    // 存下的说明带嵌套的消息引用：换成英文重新生成时，里面的安装修法也一起换，不残留生成时那种语言的一段。
+    const english = formatRef(job.error!.messageRef!, job.error!.message, 'en');
+    expect(english).toContain("Can't find");
+    expect(english).toContain('Install ffmpeg');
+    expect(english).not.toContain('安装');
     // 转换在起服务之前：一个请求都没发出去，服务也没起。
     expect(await recorded('start')).toEqual([]);
     expect(await requests()).toEqual([]);

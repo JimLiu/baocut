@@ -25,7 +25,7 @@ import {
   type ModelCatalog,
   type SpeechBundleProfile,
 } from '@baocut/models';
-import { ffmpegMissingRemedy, killProcessTree } from '@baocut/process-host';
+import { ffmpegMissingRemedyMessage, killProcessTree } from '@baocut/process-host';
 import { JobsFfmpeg } from '@baocut/protocol/messages/jobs/ffmpeg.ts';
 import { ModelsModelCatalog as MC } from '@baocut/protocol/messages/models/model-catalog.ts';
 import { JobsLocalProvider as L } from '@baocut/protocol/messages/jobs/local-provider.ts';
@@ -623,11 +623,12 @@ function fileUnreadable(file: string): { message: JobText; details: Record<strin
 
 /**
  * 这台机器上没有能用的 ffmpeg（找不到、不能执行）：参考录音没法转成引擎要的 WAV。按外部工具的问题报告
- * （`MEDIA_TOOL_UNAVAILABLE`，带按平台给的安装修法），不说成录音读不出来、也不说成安装不完整。
+ * （`MEDIA_TOOL_UNAVAILABLE`，带按平台给的安装修法），不说成录音读不出来、也不说成安装不完整。修法作为嵌套的目录文字
+ * （`ffmpegMissingRemedyMessage`）：存下的说明在别的语言的界面里整句重新生成，不会剩下生成时那种语言的一段。
  */
 function ffmpegUnavailable(command: string): ProviderFailure {
-  const remedy = ffmpegMissingRemedy();
-  return new ProviderFailure('tool-unavailable', JobsFfmpeg.notFound({ command, remedy }), { tool: 'ffmpeg', remedy });
+  const remedy = ffmpegMissingRemedyMessage();
+  return new ProviderFailure('tool-unavailable', JobsFfmpeg.notFound({ command, remedy }), { tool: 'ffmpeg', remedy: remedy.text });
 }
 
 /** 服务的错误回应：`{"error":{"message":…}}` 或纯文本；截短。 */
