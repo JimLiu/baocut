@@ -31,7 +31,9 @@
 //   来源是图片（png / jpg / webp / bmp / tif）时 from / to 只定时长（写 0 和秒数），整段停在这张图上；不能带 audio。
 //   图片推拉（Ken Burns，旧版的 motion）现在没有时间线上的写法：带 motion 的片段报错，换成不动的图或一段视频。
 // 配置 footage：{ clips, layer, loudness, label: { size, corner, inset: { x, y }, w, color, background, font }, subs: { y, fontSize, font, speaker: { scale, color }, language } }；
-//   watermark：{ file, dur, w, y, x: { left, right }, at: [...] }。
+//   watermark：{ file | text, dur, w, y, x: { left, right }, at: [...], style?, opacity?, fade? }。
+//   给 file 是图片水印（画中画）；给 text 是文字水印（品牌要一行字时用它）：style 是文字样式（fontFamily、fontSize、fontWeight、fontColor 等，
+//   与 setStyle 的写法相同），opacity 缺省 0.6，fade 是淡入淡出的秒数（缺省 0.8，0 为硬切）；w 是文字框宽（画面宽的百分比）。
 //   layer 缺省 over（实拍盖在代码画面上面）；under 时实拍轨放到代码包那条轨的下面当底，包要透明（bundle.alpha 为 true，场景只画要叠的卡片与标注），
 //   实拍之外的时刻露出的是画布底色（空），用 coverage.mjs 看有多少空着。标签轨总在最上面。
 //   label.corner 取 top-right（缺省）/ top-left / bottom-right / bottom-left，inset 是离画面边的距离（画面宽高的百分比），size 是画布像素。
@@ -53,7 +55,8 @@ const fo = {
   label: { size: 26, corner: 'top-right', w: 40, color: '#DDDDDD', background: '#0000008C', font: null, ...cfg.footage?.label, inset: { x: 2.4, y: 4, ...cfg.footage?.label?.inset } },
   subs: { y: 88, fontSize: null, font: null, language: 'en', ...cfg.footage?.subs, speaker: { scale: 0.62, color: '#BBBBBB', ...cfg.footage?.subs?.speaker } },
 };
-const wm = cfg.watermark ? { dur: 5, w: 6, y: 70, x: { left: 5, right: 95 }, at: [], ...cfg.watermark } : null;
+const wm = cfg.watermark ? { dur: 5, w: cfg.watermark.text ? 20 : 6, y: 70, x: { left: 5, right: 95 }, at: [], opacity: 0.6, fade: 0.8, ...cfg.watermark } : null;
+if (wm && !wm.text === !wm.file) throw new Error('watermark needs exactly one of file (an image) or text');
 if (fo.layer && !['over', 'under'].includes(fo.layer)) throw new Error(`footage.layer "${fo.layer}" not one of over, under`);
 const CORNERS = ['top-right', 'top-left', 'bottom-right', 'bottom-left'];
 if (!CORNERS.includes(fo.label.corner)) throw new Error(`footage.label.corner "${fo.label.corner}" not one of ${CORNERS.join(', ')}`);
@@ -416,7 +419,28 @@ function splitText(text, counts) {
 
 // 3c. 水印
 const todo = marks.filter(m => !log.watermarks.some(r => Math.round(r.t * FPS) === m.f));
-if (wm && todo.length) {
+if (wm?.text && todo.length) {
+  // 文字水印：一笔放下全部文字片段，再一笔设不透明度与两侧的淡入淡出（转场要片段 ID）
+  const S = trackId(cfg.names.watermark);
+  const dur = Math.round(wm.dur * FPS);
+  const style = { textAlign: 'center', lineHeight: 1.2, textOutline: { on: false }, dropShadow: { on: false }, ...wm.style };
+  const r = apply(`${cfg.names.watermark} × ${todo.length}`, [{ type: 'insertItems', items: todo.map(m => ({
+    type: 'text', trackId: S, name: cfg.names.watermark, text: wm.text, style, verticalAlign: 'center',
+    span: { fromFrame: m.f, durationFrames: dur }, place: { x: m.x, y: m.y, w: wm.w },
+  })) }]);
+  const created = r.createdIds || [];
+  if (created.length !== todo.length) throw new Error(`expected ${todo.length} watermark items, receipt has ${created.length}: ${JSON.stringify(r).slice(0, 600)}`);
+  const fade = Math.min(wm.fade, wm.dur / 2);
+  apply(`${cfg.names.watermark} opacity and fades`, created.flatMap(itemId => [
+    { type: 'setStyle', itemId, opacity: wm.opacity },
+    ...(fade > 0 ? [
+      { type: 'setTransition', rightItemId: itemId, kind: 'dissolve', duration: fade, easing: 'linear' },
+      { type: 'setTransition', leftItemId: itemId, kind: 'dissolve', duration: fade, easing: 'linear' },
+    ] : []),
+  ]));
+  todo.forEach((m, i) => { log.watermarks.push({ t: m.t, side: m.side, itemId: created[i] }); console.log('watermark', m.side ?? '', m.t, created[i]); });
+  save();
+} else if (wm && todo.length) {
   const S = trackId(cfg.names.watermark);
   const a = inspect().assets?.find(x => x.name === cfg.names.watermark) ?? bc(['assets', 'import', V, '--path', cfg.abs(wm.file), '--storage', 'managed', '--name', cfg.names.watermark]);
   const assetId = a.assetId ?? a.id;
@@ -427,7 +451,7 @@ if (wm && todo.length) {
     apply(`${cfg.names.watermark} ${m.t}s layout`, [
       { type: 'trimItem', itemId, edge: 'end', at: m.t + wm.dur },
       { type: 'setStyle', itemId, mode: 'pip' },
-      { type: 'setTransform', itemId, x: wm.x[m.side], y: wm.y, w: wm.w },
+      { type: 'setTransform', itemId, x: m.x, y: m.y, w: wm.w },
     ]);
     log.watermarks.push({ t: m.t, side: m.side, itemId });
     save();

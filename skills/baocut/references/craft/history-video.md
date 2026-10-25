@@ -82,7 +82,7 @@
 正片在前，片头在后：正片定了，片头才知道交到哪里。
 
 - **正片**：已有字幕视频时先复制一份（新版在副本里做）；没有时照 `subtitle-workflow` 做：转写、按讲稿校对、翻译、双语字幕、分章（`video-chapters`）。
-- **片头**用 `production-scripts` 的脚本（读 [`references/craft/production-scripts.md`](production-scripts.md)）：配置里写 `prepend`（带一章 `chapter`，例如「背景」），片头按段配音、对齐、写场景代码打包；`assemble.mjs` 在第 0 帧腾出整个片头，正片的画面、声音、字幕与章节一起后移。
+- **片头**用 `production-scripts` 的脚本（读 [`references/craft/production-scripts.md`](production-scripts.md)）：配置里写 `prepend`（带一章 `chapter`，例如「背景」），片头按段配音、对齐、写场景代码打包；`assemble.mjs` 在第 0 帧腾出整个片头，正片的画面、声音、字幕与章节一起后移（`--dry` 先打印这一步）。两件事要先想好：正片里写成文字的章节序号（`01`）因为多了一章会都加一，要保留原序号就换成每章一段的静态文字；片头的原声引用按响度量过，正片录音沿用旧音量，两边差几个分贝时调正片录音片段的音量，切过去才不会突然变小。
 - **原声引用**：`clips.json` 里只有声音的片段：`asset` 写正片录音的素材 ID，`after` 把它放在段尾、`hold` 留出它的长度，`words: true` 与 `said`（原话）、`text`（译文）；`quotes.mjs` 对出逐词时间，`build.mjs` 写进这一段的 `TIMING.clips`，场景照它点亮每个词。
 - **新闻片与照片**：视频片段照 `clips.json` 放成铺满或画中画，画中画框的位置在 `TIMING.clips[].box`，场景在框下画底板、框旁写说明。
 - **出处**：`sources.json` 一份；`sources.mjs` 查漏、写 `sources.csv`；画面上的出处行从 `TIMING.credits` 取，不在场景里另写一遍。
@@ -92,7 +92,7 @@
 
 ## 7. 审片、烘焙、导出、交付
 
-- 片头 `assemble.mjs --live` 摆上去后，`baocut web review` 把审片页开在宿主的浏览器里，整条交给用户。**用户说可以之前不烘焙、不导出**；改哪段只重做哪段，再请用户刷新。
+- 片头 `assemble.mjs --live` 摆上去后，`baocut web review --video <videoId>` 把审片页开在宿主的浏览器里（本机装的字体审片页也能用，和导出一致），整条交给用户。**用户说可以之前不烘焙、不导出**；改哪段只重做哪段，再请用户刷新。
 - 烘焙先用 `assemble.mjs --bake ops` 试：指令烘焙几秒一段；画不出的段列出来，按代码场景细则改，改不了的（照片滤镜多的）不带 `--bake ops` 退回逐帧截图，1080p 每秒两三帧，先告诉用户要等多久。
 - 导出成片（`--purpose deliverable`），抽几帧核对出处行、字、水印与片尾卡；字幕导出成片语言（片头旁白加正片译文）与原话语言两份。
 - 烘焙中换下来的旧代码包与替身没有引用了，交付前用 `assets prune` 列出，确认都是自己换下来的再用 `removeAssets` 删掉记录；用户导入的素材不动。

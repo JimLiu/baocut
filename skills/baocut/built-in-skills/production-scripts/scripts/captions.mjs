@@ -120,7 +120,10 @@ export function applyTiming(cfg, bc, caps) {
   const apply = (label, ops) => bc(['edits', 'apply', cfg.video, '--expected-revision', String(head().revision), '--label', label, '--operations', JSON.stringify(ops)]);
   // 原声字幕（overlay.mjs 建的）有自己的样式文档，不是旁白的
   const bites = new Set(Object.values(readJson(cfg.abs('overlay.json'), {}).bites || {}).map(b => b.styleDocumentId));
-  const styles = (head().documents || []).filter(d => d.kind === 'caption-style' && !bites.has(d.id));
+  // 不是本脚本建的字幕在用的样式（前插项目里正片的字幕）也不是旁白的
+  const ours = new Set(segs.flatMap(id => caps[id].items));
+  const foreign = new Set(allItems(bc, cfg.video).items.filter(it => it.type === 'caption' && !ours.has(it.id) && it.styleDocumentId).map(it => it.styleDocumentId));
+  const styles = (head().documents || []).filter(d => d.kind === 'caption-style' && !bites.has(d.id) && !foreign.has(d.id));
   let doc = styles.find(d => d.id === caps._style?.documentId)?.id ?? (styles.length === 1 ? styles[0].id : null);
   if (!doc && !style && want.leadIn === TIMING.leadIn && want.tail === TIMING.tail) return;   // 默认样式、默认时长，不用样式文档
   if (!doc && styles.length) throw new Error(`video has ${styles.length} caption styles (${styles.map(d => d.id).join(', ')}); put the narration one in captions.json as _style.documentId`);

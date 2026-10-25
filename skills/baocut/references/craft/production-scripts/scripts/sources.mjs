@@ -7,6 +7,8 @@
 //   file：shared/ 下的文件名（img/house.jpg 写 house.jpg 就行）或原片路径；没有文件的条目（核对用的网页、目录记录）给 id。
 //   credit：画面上的出处一行，成片语言（例如「照片：<机构>，CC BY 4.0」），CC BY 这类要署名的必须有；公有领域可省。
 //   use：用在哪里、画面出不出现；ai 为 true 的是 AI 生成的图（license 写生成它的模型，画面要标明）。
+//   match：场景源码里认它的字样（字符串或数组，例如地图数据的全局名 GEO110）；不是图片、音视频的数据与脚本（地图轮廓、字体之外的 .js / .json）
+//   场景不按文件名引用，给了 match 就按它找用在哪几段，没给时 shared/ 下确有这个文件就记作每个包都带着。
 // 查漏：场景源码引号里提到、shared/ 下确有的图片、视频、音频，clips.json 用到的原片，在 sources.json 里没有条目的；
 //   有条目但缺 url 或 license 的；要署名的许可（CC BY 系列）没有 credit 的。
 // sources.csv：UTF-8 带 BOM（Excel 直接打开不乱码），一条一行，最后一列是用在哪几段（场景引用、片段所在段与时刻）。
@@ -49,6 +51,15 @@ for (const id of cfg.order) {
     const b = base(rel), stem = b.replace(/\.[^.]+$/, '');
     if (lits.has(b) || lits.has(stem)) note(b, id);
   }
+}
+// 数据与脚本：按 match 的字样找段；没给 match、shared/ 下有这个文件的，记作每个包都带着（build.mjs 把 shared/ 原样拷进包）
+const sceneSource = id => { const f = cfg.abs(cfg.dirs.scenes, `${id}.js`); return fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : ''; };
+for (const it of items) {
+  const k = base(it.file);
+  if (!k || MEDIA.test(k)) continue;
+  const words = [].concat(it.match || []);
+  if (words.length) { for (const id of cfg.order) if (words.some(w => sceneSource(id).includes(w))) note(k, id); }
+  else if (fs.existsSync(path.join(SHARED, it.file)) || fs.existsSync(path.join(SHARED, k))) note(k, 'every bundle (shared/)');
 }
 for (const c of cl.clips) {
   const src = c.source || cl.source;

@@ -15,7 +15,7 @@
 // Baking rules kept here: one canvas, full clear every frame, no main-canvas readback, no ctx.filter,
 // no letterSpacing (manual tracking instead), unscaled images on integer pixels, textures blitted 1:1.
 // Over a photo or footage frame draw at most one full-frame translucent layer live (shade, wash, fade);
-// vignette() and grain() are pre-rendered bitmaps for that reason. To darken a photo, prefer
+// vignette(), edge() and grain() are pre-rendered bitmaps for that reason. To darken a photo, prefer
 // full(ctx, im, { alpha }) over a dark clear() to shade() on top of it.
 (function () {
   const root = document.getElementById('root');
@@ -119,6 +119,26 @@
     }
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha *= a; ctx.drawImage(vignettes.get(color), 0, 0); ctx.restore();
   }
+  // one side darkened so text can sit on a full-frame picture (side: left | right | top | bottom, o.reach = fraction of
+  // the frame the shade covers, o.stops = [[offset, alpha], ...]); pre-rendered once per look and blitted 1:1 like vignette()
+  const edges = new Map();
+  function edge(ctx, side = 'left', color = '0,0,0', a = 1, o = {}) {
+    if (a <= 0) return;
+    const reach = o.reach ?? 0.65, stops = o.stops || [[0, 0.82], [0.42, 0.55], [1, 0]];
+    const key = `${side}|${color}|${reach}|${JSON.stringify(stops)}`;
+    if (!edges.has(key)) {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const g = c.getContext('2d'), across = side === 'left' || side === 'right' ? W : H, len = across * reach;
+      const [x0, y0, x1, y1] = { left: [0, 0, len, 0], right: [W, 0, W - len, 0], top: [0, 0, 0, len], bottom: [0, H, 0, H - len] }[side];
+      const gr = g.createLinearGradient(x0, y0, x1, y1);
+      for (const [k, al] of stops) gr.addColorStop(k, `rgba(${color},${al})`);
+      g.fillStyle = gr;
+      g.fillRect(0, 0, W, H);
+      edges.set(key, c);
+    }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha *= a; ctx.drawImage(edges.get(key), 0, 0); ctx.restore();
+  }
   // a flat full-frame tint; over a photo this is the one live layer, see the header
   function shade(ctx, color, a) {
     if (a <= 0) return;
@@ -208,6 +228,55 @@
     if (o.ai) aiTag(ctx, -w / 2 + 14, -h / 2 + 14, { size: 18 });
     ctx.restore();
   }
+  // a paper slip with one phrase on it, centred at (x, y), settling onto the table over k = 0..1 (a quote pulled out of
+  // the recording, a slogan); o.out (0..1) lifts it away, o.under (0..1) draws an accent line under the words. Returns its box.
+  function slip(ctx, s, x, y, k, o = {}) {
+    const size = o.size || 60, pad = Math.round(size * 0.55);
+    const w = Math.round(measure(ctx, s, size, o.font || 'title') + 2 * pad), h = Math.round(size * 1.75);
+    const box = { x0: x - w / 2, y0: y - h / 2, w, h };
+    const away = o.out || 0;
+    if (k <= 0 || away >= 1) return box;
+    const e = ease.out(k), eo = ease.sine(away);
+    ctx.save();
+    ctx.globalAlpha *= (o.alpha ?? 1) * Math.min(1, k * 2.2) * (1 - eo);
+    ctx.translate(x, y - (1 - e) * 22 - eo * 24);
+    ctx.rotate((((o.rot || 0) + (1 - e) * 2.5) * Math.PI) / 180);
+    const sc = (o.s || 1) * lerp(1.04, 1, e);
+    ctx.scale(sc, sc);
+    ctx.save();
+    ctx.shadowColor = o.shadowColor || S.shadow; ctx.shadowBlur = o.blur ?? 22; ctx.shadowOffsetY = o.drop ?? 8;
+    ctx.fillStyle = o.paper || S.print;
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.restore();
+    text(ctx, s, 0, size * 0.36, { size, font: o.font || 'title', color: o.color || S.plate, align: 'center' });
+    if (o.under > 0) {
+      const tw = w - 2 * pad;
+      ctx.fillStyle = o.accent || S.accent;
+      ctx.fillRect(-tw / 2, Math.round(size * 0.56), tw * clamp(o.under), Math.max(3, Math.round(size * 0.07)));
+    }
+    ctx.restore();
+    return box;
+  }
+  // a recording drawn as bars: env = { dur, bars: [0..1, ...] } (production-scripts envelope.mjs writes one into shared/).
+  // k (0..1) draws it left to right; o.hot = [[from, to], ...] recording seconds drawn in the accent colour;
+  // o.head (recording seconds) puts a playhead on it; o.color / o.hotColor / o.headColor override the style.
+  function bars(ctx, env, x, y, w, h, k = 1, o = {}) {
+    if (!env || !env.bars?.length || k <= 0) return;
+    const n = env.bars.length, bw = w / n, hot = o.hot || [];
+    ctx.save();
+    ctx.globalAlpha *= o.alpha ?? 1;
+    for (let i = 0; i < n * k; i++) {
+      const t0 = (i / n) * env.dur, t1 = ((i + 1) / n) * env.dur;
+      const bh = Math.max(2, env.bars[i] * h);
+      ctx.fillStyle = hot.some(([p, q]) => t1 > p && t0 < q) ? o.hotColor || S.accent : o.color || S.muted;
+      ctx.fillRect(Math.round(x + i * bw), Math.round(y + (h - bh) / 2), Math.max(1, Math.round(bw * (o.fill ?? 0.62))), Math.round(bh));
+    }
+    if (o.head != null) {
+      ctx.fillStyle = o.headColor || S.ink;
+      ctx.fillRect(Math.round(x + (w * o.head) / env.dur) - 1, Math.round(y - 10), 2, Math.round(h + 20));
+    }
+    ctx.restore();
+  }
   // a magnified detail of `im` inside a circle (o.r) or a rectangle (o.w, o.h) centred at (o.x, o.y).
   // o.src = [sx, sy, sw, sh] is the detail in image pixels; o.ring colours the edge; o.alpha fades it.
   function loupe(ctx, im, o) {
@@ -233,7 +302,11 @@
   // a role in S.fonts ('body', 'title', ...) or a family name
   const fam = f => S.fonts[f] || f || S.fonts.body;
   const font = (size, f) => `${size}px ${fam(f)}`;
-  function measure(ctx, s, size, f) { ctx.font = font(size, f); return ctx.measureText(s).width; }
+  // a Latin-only face (latin, mono) has no CJK: a string with any goes to the body face, not a browser fallback
+  // (a fallback font is a missing glyph to the instruction bake)
+  const WIDE = /[⺀-鿿가-힯豈-﫿＀-￯]/;
+  const roleFor = (s, f) => ((f === 'latin' || f === 'mono') && WIDE.test(s) ? 'body' : f);
+  function measure(ctx, s, size, f) { ctx.font = font(size, roleFor(s, f)); return ctx.measureText(s).width; }
   // o: size, font, color, align, base, alpha, track (px between characters, instead of letterSpacing), halo (outline colour), haloW.
   // Returns the drawn width.
   function text(ctx, s, x, y, o = {}) {
@@ -241,7 +314,7 @@
     if (a <= 0.002 || !s) return 0;
     ctx.save();
     ctx.globalAlpha *= a;
-    ctx.font = font(o.size || 32, o.font);
+    ctx.font = font(o.size || 32, roleFor(s, o.font));
     ctx.textBaseline = o.base || 'alphabetic';
     ctx.fillStyle = o.color || S.ink;
     const halo = (str, px) => { if (o.halo) { ctx.lineWidth = o.haloW || 6; ctx.strokeStyle = o.halo; ctx.lineJoin = 'round'; ctx.strokeText(str, px, y); } };
@@ -270,7 +343,7 @@
     const soft = o.soft ?? 2;
     const n = k * (chars.length + soft);
     ctx.save();
-    ctx.font = font(o.size || 32, o.font);
+    ctx.font = font(o.size || 32, roleFor(s, o.font));
     ctx.textBaseline = o.base || 'alphabetic';
     const ws = chars.map(ch => ctx.measureText(ch).width);
     const tr = o.track || 0;
@@ -294,7 +367,7 @@
   }
   // greedy line breaking for CJK and Latin; closing punctuation stays on its line
   function wrap(ctx, s, maxW, size, f) {
-    ctx.font = font(size, f);
+    ctx.font = font(size, roleFor(s, f));
     const lines = [];
     let cur = '';
     const tokens = s.match(/[A-Za-z0-9À-ɏ'’.,;:!?\-–—()"“”]+\s*|\s+|./gu) || [];
@@ -619,7 +692,7 @@
     if (!c?.words?.length) return { lines: 0, height: 0 };
     const size = o.size || 52, lh = size * (o.lh ?? 1.42);
     ctx.save();
-    ctx.font = font(size, o.font || 'latin');
+    ctx.font = font(size, roleFor(c.words.map(w => w.t).join(''), o.font || 'latin'));
     const sp = ctx.measureText(' ').width;
     const rows = [[]];
     let x = 0;
@@ -687,8 +760,8 @@
   window.K = {
     W, H, S, style, clamp, lerp, prog, ease, io, out, win,
     at, line, lastEnd, dur, clips, clip, clipWin, credit,
-    img, aspect, reset, clear, wash, vignette, shade, grain,
-    cover, full, print, loupe,
+    img, aspect, reset, clear, wash, vignette, edge, shade, grain,
+    cover, full, print, slip, bars, loupe,
     font, measure, text, typeOn, wrap, tag, aiTag, creditLine,
     rule, stamp, dot, partial, bez, arrowHead, plate,
     rings, makeMap, makeZone, view, camAt, drawMap, drawZone, graticule, city,

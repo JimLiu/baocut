@@ -110,6 +110,11 @@ function printPlan() {
     const bake = r && r.live ? '  live (not baked)' : r && r.bake ? `  bake ${r.bake.renderer} ${r.bake.fps ?? '?'}fps ${r.bake.seconds ?? '?'}s` : r && r.bakeJobId ? `  bake pending ${r.bakeJobId}` : '';
     console.log(`${s.id.padEnd(8)} from ${String(s.from).padStart(6)}  at ${(s.from / FPS).toFixed(3).padStart(9)}  frames ${String(s.frames).padStart(5)}${was}  ${act}${bg}${bake}`);
   }
+  // 前插只做一次、撤回要靠撤销整笔：干跑时说清它会做什么（不连 Runtime，片段与章节的个数要等真跑时才知道）
+  if (cfg.prepend && !rec.prepended && !lay.some(s => placed(s.id))) {
+    const intro = typeof cfg.prepend === 'object' ? cfg.prepend.chapter : null;
+    console.log(`prepend: insertRange ${total} frames (${(total / FPS).toFixed(1)} s) at frame 0 on every track that has clips; existing chapters move +${total}${intro ? `; adds chapter "${intro.title}" at 0, so chapter numbers written as text in the film (01, 02 …) are now one off` : ''}`);
+  } else if (rec.prepended) console.log(`prepend: done (${rec.prepended.frames} frames${rec.prepended.items != null ? `, ${rec.prepended.items} clips, ${rec.prepended.chapters} chapters moved` : ''})`);
   for (const st of steps) console.log(`ripple: ${st.kind} ${st.id}: ${st.kind === 'insert' ? 'insertRange' : 'replace.ripple'} shifts clips at frame >= ${st.boundary} by ${st.delta > 0 ? '+' : ''}${st.delta}`);
   if (notes.length) console.log(`note: ${notes.join(', ')} have no recorded bundle hash or narration take; assuming the placed clips match the current files`);
   for (const o of off) console.log('MISMATCH: ' + o);
@@ -140,9 +145,12 @@ function apply(label, ops) {
   }
 }
 
+// 音频片段只给 startSeconds / endSeconds、没有 durationFrames（结尾不必落在帧上）：取盖住结尾的那一帧
+const endFrame = it => (it.durationFrames != null ? it.startFrame + it.durationFrames : Math.ceil(it.endSeconds * FPS - 1e-6));
+
 // 起点不早于 boundary 帧的全部片段（各轨），分页读到底；spanning 时连跨过 boundary 的也算
 function itemsFrom(boundary, spanning = false) {
-  return allItems(bc, V, boundary / FPS).items.filter(it => (spanning ? it.startFrame + it.durationFrames > boundary : it.startFrame >= boundary));
+  return allItems(bc, V, boundary / FPS).items.filter(it => (spanning ? endFrame(it) > boundary : it.startFrame >= boundary));
 }
 
 // 要挪的轨道或片段锁着时先停下：引擎也会以 TARGET_LOCKED 拒绝，但换包时那已经在烘焙之后
@@ -185,7 +193,7 @@ function prependRoom() {
     return;
   }
   assertUnlocked(items, 0);
-  const end = Math.max(...items.map(it => it.startFrame + it.durationFrames));
+  const end = Math.max(...items.map(endFrame));
   const trackIds = [...new Set(items.map(it => it.trackId))];
   const chapters = inspect(['--limit', '1']).chapters || [];
   const intro = typeof cfg.prepend === 'object' ? cfg.prepend.chapter : null;

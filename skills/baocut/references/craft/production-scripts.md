@@ -20,7 +20,7 @@
 | 旁白稿（Markdown） | `## <段落 id> 标题` 开一段，段内每个非空行是一句旁白，一句一个画面节拍；`@`、括号、`>`、`<!--` 开头的行是备注（画面意图写在这里，不配音） |
 | `scenes/<id>.js` + `shared/` | 每段的场景代码与共用的引擎、字体、图片；场景从 `window.TIMING` 读这一段的时长与逐句、逐字时间 |
 | `clips.json`（可选） | 实拍片段与照片：来源文件与原片起止，放在哪一段的哪一句、从哪几个字起（`cue`），保留原声、旁白留白（`gap`）、背靠背（`follow`）、双语字幕、单侧转场、裁边与取景（`crop`、`focus`）、放法、画中画；只有声音的原声引用（逐词点亮用 `words`） |
-| `watermark`（配置里，可选） | 水印图片、每次出现的位置与时刻 |
+| `watermark`（配置里，可选） | 水印图片或一行文字、每次出现的位置与时刻 |
 | `sources.json`（可选） | 用到的图片、影像、录音与生成图的出处与许可，一条一行；画面上的出处行与交付的 `sources.csv` 都从它来 |
 | `prepend`、`fonts`（配置里，可选） | 片头补在已有视频前面（正片与章节一起后移）；要裁子集的字体 |
 
@@ -38,7 +38,7 @@
 | 配音 | `voice.mjs <id …>` 或 `--missing`；`--check` 只量不配 | 一段一次合成，记稿子原文，`--missing` 只配没配过或稿子改过的段。每段量中位音高，和其他段差 5% 以上就重配（`--takes`，缺省 3 次）留最接近的；配完报出全片离群的段 |
 | 对齐 | `align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，打印语速、停顿与读错 |
 | 留白与压停顿 | `gaps.mjs [id …]` | 有 `gap` 片段或给了 `voice.maxPause` 时：在旁白里插静音给原声让位、把过长的句间停顿压短 |
-| 字体、原声、出处 | `fonts.mjs`、`quotes.mjs`、`sources.mjs` | 用到时在打包前跑：裁字体子集（缺省去掉会让字宽对不上的 `locl`）；给 `words: true` 的原声片段对出逐词时间；查出处表漏了什么并写 `sources.csv` |
+| 字体、原声、出处 | `fonts.mjs`、`quotes.mjs`、`envelope.mjs`、`sources.mjs` | 用到时在打包前跑：裁字体子集（缺省去掉会让字宽对不上的 `locl`）；给 `words: true` 的原声片段对出逐词时间；把录音量成波形条写进 `shared/`；查出处表漏了什么并写 `sources.csv` |
 | 打包 | `build.mjs [id …]` | 打成代码包，时长 = 对齐出的时长 + `hold`，对到整帧；这一段的片段时间、画中画框、原声逐词与出处行写进 `TIMING` |
 | 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs --live` | `--dry` 不连 Runtime 只打印；`--live` 把代码包放上去、先不烘焙，编辑器的实时层现画（`footage.layer` 为 `under` 时眼下画不出来，见 `pipeline.md` 第 3 节） |
 | 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏 |
@@ -77,6 +77,7 @@
 - [`scripts/captions.mjs`](production-scripts/scripts/captions.mjs)
 - [`scripts/clips.example.json`](production-scripts/scripts/clips.example.json)
 - [`scripts/coverage.mjs`](production-scripts/scripts/coverage.mjs)
+- [`scripts/envelope.mjs`](production-scripts/scripts/envelope.mjs)
 - [`scripts/explainer.example.json`](production-scripts/scripts/explainer.example.json)
 - [`scripts/fonts.mjs`](production-scripts/scripts/fonts.mjs)
 - [`scripts/gaps.mjs`](production-scripts/scripts/gaps.mjs)

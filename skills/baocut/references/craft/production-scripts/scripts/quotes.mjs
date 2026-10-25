@@ -84,10 +84,11 @@ for (const c of want) {
   for (let j = 0; j <= m; j++) D[0][j] = j;
   const cost = (i, j) => (fold(S[i - 1].c) === fold(A[j - 1].c) ? 0 : 1);
   for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) D[i][j] = Math.min(D[i - 1][j - 1] + cost(i, j), D[i - 1][j] + 1, D[i][j - 1] + 1);
-  const map = new Array(n).fill(null);
+  const map = new Array(n).fill(null), subs = new Array(n).fill(false);
   let differs = 0;
   for (let i = n, j = m; i > 0 && j > 0;) {
-    if (D[i][j] === D[i - 1][j - 1] + cost(i, j)) { if (!cost(i, j)) map[i - 1] = A[j - 1]; else differs++; i--; j--; }
+    // 替换的字是转写听成了别的（口音、旧录音）：它也占那段时间，逐词点亮才不漏字
+    if (D[i][j] === D[i - 1][j - 1] + cost(i, j)) { map[i - 1] = A[j - 1]; if (cost(i, j)) { differs++; subs[i - 1] = true; } i--; j--; }
     else if (D[i][j] === D[i - 1][j] + 1) i--;
     else j--;
   }
@@ -104,7 +105,7 @@ for (const c of want) {
     const idx = S.map((s, i) => (s.ti === ti ? i : -1)).filter(i => i >= 0);
     return { t: tok.t, s: +(c.from + Math.min(...idx.map(i => t0[i]))).toFixed(3), e: +(c.from + Math.max(...idx.map(i => t1[i]))).toFixed(3) };
   });
-  const matched = map.filter(Boolean).length;
+  const matched = map.filter((a, i) => a && !subs[i]).length;
   out[c.id] = { said, ...(c.text ? { text: c.text } : {}), words };
   writeJson(outFile, out);
   console.log(`## ${c.id}  ${c.from}–${c.to}s  ${words.length} words  ${matched}/${n} chars matched${differs ? `, ${differs} differ` : ''}`);
