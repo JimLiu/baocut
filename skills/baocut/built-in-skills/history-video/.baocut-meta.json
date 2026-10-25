@@ -1,0 +1,36 @@
+{
+  "name": {
+    "zh-Hans": "历史视频",
+    "zh-Hant": "歷史影片",
+    "en": "History video",
+    "ja": "歴史動画",
+    "ko": "역사 영상",
+    "es": "Vídeo histórico",
+    "fr": "Vidéo historique",
+    "de": "Geschichtsvideo",
+    "nl": "Geschiedenisvideo",
+    "pt-BR": "Vídeo histórico",
+    "it": "Video storico",
+    "ru": "Историческое видео",
+    "pl": "Film historyczny",
+    "tr": "Tarih videosu",
+    "vi": "Video lịch sử"
+  },
+  "summary": {
+    "zh-Hans": "把历史演讲、访谈或档案影像做成成片：先用几分钟讲清人物与时代，再放完整的原声与字幕",
+    "zh-Hant": "把歷史演講、訪談或檔案影像做成成片：先用幾分鐘講清人物與時代，再放完整的原聲與字幕",
+    "en": "Turn a historic speech into a video: a short intro on the person and the time, then the full original with subtitles",
+    "ja": "歴史的な演説や記録映像を動画に：数分で人物と時代を伝え、続けて原音を字幕付きで全編流す",
+    "ko": "역사적 연설이나 기록 영상을 영상으로: 몇 분간 인물과 시대를 소개한 뒤 원음 전체를 자막과 함께",
+    "es": "Un discurso histórico en vídeo: una breve introducción a la persona y la época, y luego el original completo subtitulado",
+    "fr": "Un discours historique en vidéo : une courte intro sur la personne et l'époque, puis l'original complet sous-titré",
+    "de": "Eine historische Rede als Video: kurze Einführung zu Person und Zeit, dann das vollständige Original mit Untertiteln",
+    "nl": "Een historische toespraak als video: een korte intro over persoon en tijd, daarna het volledige origineel ondertiteld",
+    "pt-BR": "Um discurso histórico em vídeo: uma breve introdução à pessoa e à época, depois o original completo legendado",
+    "it": "Un discorso storico in video: una breve introduzione su persona ed epoca, poi l'originale completo sottotitolato",
+    "ru": "Историческая речь как видео: короткий рассказ о человеке и времени, затем полный оригинал с субтитрами",
+    "pl": "Historyczne przemówienie jako wideo: krótki wstęp o osobie i epoce, potem cały oryginał z napisami",
+    "tr": "Tarihî bir konuşma videoya: kişi ve dönem üzerine kısa bir giriş, ardından altyazılı tam orijinal",
+    "vi": "Bài diễn văn lịch sử thành video: vài phút giới thiệu nhân vật và thời đại, rồi phát toàn bộ bản gốc kèm phụ đề"
+  }
+}

@@ -55,6 +55,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 按模板做一条成片、从零做一条视频 | 简报定下后写风格与分镜规划，逐镜用素材、生成图片或代码画面做出来，配旁白、混音、导出 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:video-production}} |
 | 做科普、知识讲解、教学视频，把概念、新闻、论文讲明白 | 先在组合入口定这期画面的底是什么，核实资料，从观众的疑问找讲法，给这期找一个自己会讲道理的主体，再按成片做；要另一种语言或画幅的版本时主版本确认后再做 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:explainer-video}}、{{skill:video-production}} |
 | 拿一条新闻、一件事、一段八卦或一个人物、产品的故事去搜素材、切原声、配旁白剪成片子；别的成片里要插一段这样的切片 | 从视频库与网上找真实画面与当事人原声，旁白配好后按字时间切画面，推文、引语、日期做成压在画面上的卡片，画面一直在动 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:clip-montage}} |
+| 把历史演讲、访谈、广播或档案影像做成历史视频：先讲人物与时代背景，再放完整原声 | 先查录音与材料、写一页简报请用户确认；正片照转录与字幕的做法（转写、校对、翻译、分章），背景按手上的材料定讲法与画面、补在正片前面，审片确认后再烘焙导出 | [media](references/catalog/media.md)、[voice](references/catalog/voice.md) | {{skill:history-video}}、{{skill:subtitle-workflow}} |
 | 做一条某类视频，但没说清 | 先问清主题、目标、受众、手上的材料，再动手 | [workflows](references/workflows.md) | {{skill:video-production}} |
 | 有命令行环境、旁白按段配的片子要跑脚本：配音、对齐、打包、摆上时间线、建字幕、叠实拍、量画面占比 | 拷走现成的脚本，写一份计划（配置、旁白稿、场景代码、实拍片段清单）按顺序跑，改一段只重做那一段；脚本不规定片子的形态。没有命令行环境时把定好的段落、实拍片段与卡片写成计划交给 {{tool:edits_assemble}} 一次放好 | [voice](references/catalog/voice.md)、[media](references/catalog/media.md)、[editing](references/catalog/editing.md) | {{skill:production-scripts}} |
 | 加下横栏、关键词、大数字、标注、品牌贴片这类动效图形 | 按规则写一个自包含的 HTML 画面，打包成代码包导入，放上时间线对齐旁白 | [media](references/catalog/media.md) | {{skill:motion-graphics}} |
@@ -152,6 +153,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 | {{skill:narration}} | 旁白成片 | 按实测语速写稿，一个音色一次合成，量时长、只重配不合格的句子，再把画面剪到旁白上 |
 | {{skill:explainer-video}} | 知识讲解视频 | 把概念、新闻或资料讲成没有背景的人也看得懂、看完能复述的讲解成片：从观众的疑问找讲法，给这期找一个自己会讲道理的主体，画面一直在动，按需另出语言或画幅版本 |
 | {{skill:clip-montage}} | 解说混剪 | 拿一条新闻、一件事或一个故事，从网上与视频库里搜素材、切原声，配旁白剪成画面一直在动的片子，推文与引语做成压在画面上的卡片；题材不限 |
+| {{skill:history-video}} | 历史视频 | 历史演讲、访谈或档案影像做成成片：先用几分钟讲清人物、时代与这番话的分量，再放完整原声与字幕；讲法与画面按材料定，真实的照片与影像优先 |
 | {{skill:video-production}} | 从简报到成片 | 从零做一条完整成片：风格与分镜规划，逐镜出画面，配旁白、混音、导出验收 |
 | {{skill:production-scripts}} | 制作脚本 | 有命令行环境时按段配旁白、对齐、打包代码画面、摆上时间线、建字幕、叠实拍、量画面占比的现成脚本，不规定片子的形态 |
 | {{skill:motion-graphics}} | 动效图形 | 用自包含 HTML 定制音频视频的背景与标题，或做下横栏、关键词、大数字、标注与品牌贴片，导入后放上时间线 |

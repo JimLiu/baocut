@@ -18,6 +18,7 @@ const EXPECTED_IDS = [
   'design-system',
   'docs',
   'explainer-video',
+  'history-video',
   'motion-graphics',
   'narration',
   'polish-transcript',
