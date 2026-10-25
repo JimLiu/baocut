@@ -232,6 +232,7 @@ pub(super) fn reflow(
     }
     page_window::inherit_lines(&mut lines, &page.lines)?;
     Ok(Page {
+        reference_geometry: page.reference_geometry.clone(),
         source_range: range,
         paint_start: page.paint_start,
         bounds: union(lines.iter().map(|l| l.bounds)),

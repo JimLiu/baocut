@@ -28,8 +28,10 @@ mod page_envelope;
 mod page_line_context;
 mod page_tag;
 mod page_window;
+mod paint_property_bindings;
 mod paint_style_bindings;
 mod radial_warp;
+mod reference_geometry;
 mod sampled_layout;
 mod scan_warp;
 mod scalar_cluster;
@@ -41,6 +43,9 @@ mod text_paint;
 mod unit_font_reflow;
 mod unit_font_size;
 mod word_line_layout;
+mod word_text_projection;
+#[cfg(test)]
+mod word_text_projection_tests;
 use anyhow::{Result, bail};
 use caption_scene::*;
 use render_raster::drawop::{
@@ -175,6 +180,7 @@ impl Line {
 }
 #[derive(Clone)]
 struct Page {
+    reference_geometry: Option<Arc<reference_geometry::PageMetrics>>,
     source_range: Range<usize>,
     // Artificial word-quota separators retain source identity but are not indentation.
     paint_start: usize,
@@ -196,6 +202,7 @@ struct TextLayout {
 struct Preparation<'a> {
     word_tags: &'a BTreeMap<String, Vec<String>>,
     seed: u64,
+    projection: Option<&'a WordTextProjection>,
 }
 #[cfg(test)]
 impl Preparation<'static> {
@@ -204,6 +211,7 @@ impl Preparation<'static> {
         Self {
             word_tags: &EMPTY,
             seed: 0,
+            projection: None,
         }
     }
 }
@@ -241,6 +249,7 @@ fn page_word_input(layout: &TextLayout, page: Option<&Page>) -> PageWordInput {
 }
 #[derive(Clone)]
 struct Unit {
+    reference_ink: Option<Bounds>,
     envelope: Option<Arc<glyph_envelope::Metrics>>,
     page_envelope: Option<Arc<page_envelope::Metrics>>,
     page_lines: Option<Arc<page_line_context::Lines>>,
@@ -360,7 +369,7 @@ impl ScenePlan {
                 bail!("CAPTION_SCENE_INVALID: cue span or text");
             }
             if cue.words.is_empty() && p.style.scene().speech_state.timing_policy==TimingPolicy::RequireWordTiming &&
-                (nodes.iter().any(|n|!n.state_styles.is_empty()) || p.style.scene().animations.iter().any(|a|matches!(&a.value,DynamicValue::Keyframes{clock,..} if matches!(clock.unit,UnitKind::Word|UnitKind::Grapheme))) || p.style.scene().layout.font_size_bindings.iter().any(|b|matches!(&b.value,DynamicValue::Keyframes{clock,..} if clock.unit==UnitKind::Word)) || unit_font_size::style_needs_word_timing(p.style.scene()) || speech_phase::enabled(p.style.scene())) {
+                (nodes.iter().any(|n|!n.state_styles.is_empty()) || p.style.scene().animations.iter().any(|a|matches!(&a.value,DynamicValue::Keyframes{clock,..} if matches!(clock.unit,UnitKind::Word|UnitKind::Grapheme))) || p.style.scene().layout.font_size_bindings.iter().any(|b|matches!(&b.value,DynamicValue::Keyframes{clock,..} if clock.unit==UnitKind::Word)) || unit_font_size::style_needs_word_timing(p.style.scene()) || speech_phase::enabled(p.style.scene()) || paint_property_bindings::needs_word_timing(p.style.scene())) {
                 p.diagnostics.push(Diagnostic::new("CAPTION_TIMING_UNAVAILABLE",&cue.id,"word"));
             }
             let params = cue_parameters(&p.style, &p.presentation, cue, &p.instance_id)?;
@@ -372,6 +381,7 @@ impl ScenePlan {
                 } else {
                     0
                 },
+                projection: word_text_projection::for_cue(&p.presentation, cue, &p.instance_id),
             };
             for n in &nodes {
                 // Unit sizes are sampled later; freeze membership even if the unsampled
@@ -382,7 +392,7 @@ impl ScenePlan {
                         layout.overflow = LayoutOverflow::Visible;
                         layout
                     });
-                let l = prepare_with(
+                let mut l = prepare_with(
                     &mut p.text,
                     cue,
                     n,
@@ -411,6 +421,37 @@ impl ScenePlan {
                     .flat_map(|p| &p.lines)
                     .map(|l| l.shape.glyphs.len())
                     .sum::<usize>();
+                if reference_geometry::enabled(p.style.scene()) {
+                    let mut budget = Budget::default();
+                    for page_index in 0..l.pages.len() {
+                        let reference = unit_font_size::reflow(
+                            &mut p.text,
+                            &l,
+                            page_index,
+                            cue,
+                            n,
+                            p.style.scene(),
+                            cue.start,
+                            size,
+                            &params,
+                            &p.presentation,
+                            &p.instance_id,
+                            &mut budget,
+                            true,
+                        )?;
+                        glyph_count += reference
+                            .lines
+                            .iter()
+                            .map(|line| line.shape.glyphs.len())
+                            .sum::<usize>();
+                        if glyph_count > 131072 {
+                            bail!("CAPTION_BUDGET_EXCEEDED: prepared glyphs");
+                        }
+                        l.pages[page_index].reference_geometry = Some(
+                            reference_geometry::PageMetrics::measure(&reference, &mut budget)?,
+                        );
+                    }
+                }
                 if glyph_count > 131072 {
                     bail!("CAPTION_BUDGET_EXCEEDED: prepared glyphs");
                 }
@@ -510,6 +551,16 @@ impl ScenePlan {
         selected: Option<&[String]>,
         budget: &mut Budget,
     ) -> Result<(FrameOps, Vec<SceneHit>)> {
+        self.record_selected_nodes_in_viewport(seconds, only_cue, selected, None, budget)
+    }
+    fn record_selected_nodes_in_viewport(
+        &mut self,
+        seconds: f64,
+        only_cue: Option<usize>,
+        selected: Option<&[String]>,
+        paint_viewport: Option<text_paint::PaintViewport>,
+        budget: &mut Budget,
+    ) -> Result<(FrameOps, Vec<SceneHit>)> {
         if !seconds.is_finite() {
             bail!("CAPTION_SCENE_INVALID: sample time");
         }
@@ -566,6 +617,7 @@ impl ScenePlan {
                 continue;
             }
             let context = RenderContext {
+                paint_viewport,
                 scene,
                 units: &units,
                 params: &params,
@@ -610,14 +662,77 @@ impl ScenePlan {
             ));
         }
         let (ops, hits) = self.record(seconds)?;
+        let output_bytes = u64::from(self.width) * u64::from(self.height) * 4;
+        let source_bytes: u64 = ops
+            .bitmaps
+            .iter()
+            .map(|image| image.rgba.len() as u64)
+            .sum();
+        let placement_scratch = u64::from(ops.ops.iter().any(|op| {
+            if let DrawOp::DrawEmissiveBitmap {
+                bitmap,
+                opacity,
+                tf,
+                ..
+            } = op
+            {
+                let image = &ops.bitmaps[*bitmap as usize];
+                image.width != self.width
+                    || image.height != self.height
+                    || *tf != [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+                    || *opacity != 1.0
+            } else {
+                false
+            }
+        })) * output_bytes;
+        if output_bytes
+            .saturating_mul(ops.ops.len() as u64)
+            .saturating_add(source_bytes)
+            .saturating_add(placement_scratch)
+            > 256 * 1024 * 1024
+        {
+            bail!("CAPTION_BUDGET_EXCEEDED: placed layer outputs");
+        }
         let mut outputs = Vec::new();
         for op in &ops.ops {
-            let DrawOp::DrawEmissiveBitmap { bitmap, blend, .. } = op else {
+            let DrawOp::DrawEmissiveBitmap {
+                bitmap,
+                blend,
+                opacity,
+                tf,
+            } = op
+            else {
                 bail!("CAPTION_SCENE_INVALID: layered output operation");
             };
             let bitmap = &ops.bitmaps[*bitmap as usize];
+            let rgba = if bitmap.width == self.width
+                && bitmap.height == self.height
+                && *tf == [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+                && *opacity == 1.0
+            {
+                bitmap.rgba.to_vec()
+            } else {
+                let mut canvas = Pixmap::new(self.width, self.height).ok_or_else(|| {
+                    anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: placed layer surface")
+                })?;
+                let source =
+                    tiny_skia::PixmapRef::from_bytes(&bitmap.rgba, bitmap.width, bitmap.height)
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("CAPTION_MATERIAL_INVALID: capture image")
+                        })?;
+                // Preserve the layer components here. Its actual blend is applied
+                // later against the caller's real backdrop, including Screen.
+                render_raster::emissive::composite_associated(
+                    &mut canvas,
+                    source,
+                    *opacity,
+                    *tf,
+                    None,
+                )?;
+                canvas.data().to_vec()
+            };
             outputs.push(SceneOutput {
-                rgba: Arc::new(bitmap.rgba.to_vec()),
+                rgba: Arc::new(rgba),
                 blend: *blend,
             });
         }
@@ -729,6 +844,7 @@ fn resolved_units(
                             presentation,
                             instance,
                             budget,
+                            false,
                         )?
                     } else {
                         sampled_layout::reflow(
@@ -756,6 +872,9 @@ fn resolved_units(
                 &scene.speech_state,
                 presentation,
             );
+            if let Some(reference) = &l.pages[pi].reference_geometry {
+                reference.bind(&mut resolved_units, budget)?;
+            }
             if page_envelope::enabled(scene) {
                 let node =
                     sampled_layout::find_text(&scene.nodes, id).expect("validated text node");
@@ -918,6 +1037,14 @@ fn prepare_with(
     parameters: &BTreeMap<String, Evaluated>,
     preparation: &Preparation,
 ) -> Result<TextLayout> {
+    let projection = if matches!(node.text, Some(TextBinding::Static { .. })) {
+        None
+    } else {
+        preparation.projection
+    };
+    if projection.is_some() && !node.style.text_transform.is_none() {
+        bail!("CAPTION_SCENE_INVALID: explicit word projection requires identity node textTransform");
+    }
     let case = node.style.text_transform;
     let content = case.apply(match &node.text {
         Some(TextBinding::Static { text }) => text.as_str(),
@@ -946,12 +1073,16 @@ fn prepare_with(
     if content.len() > 65536 {
         bail!("CAPTION_BUDGET_EXCEEDED: mapped text");
     }
-    let mut words = bind_words(
-        cue,
-        content,
-        speech.timing_policy,
-        matches!(node.text, Some(TextBinding::Static { .. })),
-    )?;
+    let mut words = if let Some(projection) = projection {
+        word_text_projection::bind(cue, content, projection)?
+    } else {
+        bind_words(
+            cue,
+            content,
+            speech.timing_policy,
+            matches!(node.text, Some(TextBinding::Static { .. })),
+        )?
+    };
     tag_runs::mark(&mut words, &cfg.pagination, preparation.word_tags);
     if cfg.pagination.has_fixed_lines() {
         return word_line_layout::prepare(
@@ -1121,6 +1252,7 @@ fn prepare_with(
                 paint_start
             };
             pages.push(Page {
+                reference_geometry: None,
                 source_range: if pattern.is_some() {
                     range.clone()
                 } else {
@@ -1273,6 +1405,7 @@ fn units_for(
     let cue_first_word_span = input_words.next().map(|word| (word.start, word.end));
     let cue_second_word_start = input_words.next().map(|word| word.start);
     let base = Unit {
+        reference_ink: None,
         envelope: None,
         page_envelope: None,
         page_lines: None,
@@ -1572,7 +1705,13 @@ struct RenderContext<'a> {
     instance: &'a str,
     cue: &'a SceneCue,
     size: (u32, u32),
+    paint_viewport: Option<text_paint::PaintViewport>,
     images: &'a BTreeMap<String, BitmapData>,
+}
+impl RenderContext<'_> {
+    fn paint_viewport(&self) -> text_paint::PaintViewport {
+        self.paint_viewport.unwrap_or_else(|| self.size.into())
+    }
 }
 fn context(u: &Unit, r: &RenderContext) -> Context {
     let mut fields = r.params.clone();
@@ -1777,6 +1916,9 @@ fn context(u: &Unit, r: &RenderContext) -> Context {
         seed: r.seed,
         stable_key: format!("{}|{}|{}", r.instance, r.cue.id, u.id),
     };
+    if reference_geometry::enabled(r.scene) {
+        reference_geometry::add_fields(&mut out, u);
+    }
     if page_envelope::enabled(r.scene) {
         page_envelope::add_fields(&mut out, u);
     }
@@ -2180,6 +2322,10 @@ fn draw_nodes(
                     let mut glyphs = Vec::new();
                     let bound_paints = paint_style_bindings::applies(r.scene, n);
                     let mut paint_choices = Vec::new();
+                    let dynamic_paints = paint_property_bindings::applies(r.scene, n);
+                    let mut property_choices = Vec::new();
+                    let mut property_stacks = Vec::new();
+                    let mut property_units = BTreeMap::<usize, usize>::new();
                     for (lineunit, line) in units.iter().filter(|(u, _)| u.kind == UnitKind::Line) {
                         let line = line.as_ref().unwrap();
                         let lp = pose(n, lineunit, r, budget)?;
@@ -2188,10 +2334,10 @@ fn draw_nodes(
                         for glyph in &line.shape.glyphs {
                             budget.spend()?;
                             let at = line.bytes.start + glyph.cluster.start;
-                            let word = units
-                                .iter()
-                                .find(|(u, _)| u.kind == UnitKind::Word && u.bytes.contains(&at))
-                                .map(|(u, _)| u);
+                            let word_index = units.iter().position(|(u, _)| {
+                                u.kind == UnitKind::Word && u.bytes.contains(&at)
+                            });
+                            let word = word_index.map(|index| &units[index].0);
                             let grapheme = units
                                 .iter()
                                 .find(|(u, _)| {
@@ -2262,7 +2408,20 @@ fn draw_nodes(
                                 (line.bounds.x + glyph.x) as f32,
                                 (line.baseline + glyph.y) as f32,
                             );
-                            if bound_paints {
+                            if dynamic_paints {
+                                let key = word_index.unwrap_or(usize::MAX);
+                                let choice = if let Some(index) = property_units.get(&key) {
+                                    *index
+                                } else {
+                                    let layers =
+                                        paint_property_bindings::resolve(n, r, word, budget)?;
+                                    let index = property_stacks.len();
+                                    property_stacks.push(layers);
+                                    property_units.insert(key, index);
+                                    index
+                                };
+                                property_choices.push(choice);
+                            } else if bound_paints {
                                 paint_choices.push(match word {
                                     Some(word) => paint_style_bindings::binding_index(
                                         r.scene, n, word, budget,
@@ -2288,13 +2447,26 @@ fn draw_nodes(
                             bounds: union(hit_boxes.into_iter()),
                         });
                     }
-                    if bound_paints {
+                    if dynamic_paints {
+                        paint_style_bindings::record_resolved(
+                            n,
+                            r.scene,
+                            &glyphs,
+                            &property_choices,
+                            &property_stacks,
+                            r.paint_viewport(),
+                            text,
+                            r.images,
+                            b,
+                            budget,
+                        )?;
+                    } else if bound_paints {
                         paint_style_bindings::record(
                             n,
                             r.scene,
                             &glyphs,
                             &paint_choices,
-                            r.size,
+                            r.paint_viewport(),
                             text,
                             r.images,
                             b,
@@ -2302,7 +2474,13 @@ fn draw_nodes(
                         )?;
                     } else {
                         text_paint::record_glyphs(
-                            &n.style, &glyphs, r.size, text, r.images, b, budget,
+                            &n.style,
+                            &glyphs,
+                            r.paint_viewport(),
+                            text,
+                            r.images,
+                            b,
+                            budget,
                         )?;
                     }
                 }
@@ -2721,6 +2899,7 @@ mod ink_tests {
         let unit_map = BTreeMap::new();
         let images = BTreeMap::new();
         let r = RenderContext {
+            paint_viewport: None,
             scene,
             units: &unit_map,
             params: &params,
@@ -2772,6 +2951,7 @@ mod ink_tests {
         let empty_units = BTreeMap::new();
         let images = BTreeMap::new();
         let r = RenderContext {
+            paint_viewport: None,
             scene,
             units: &empty_units,
             params,

@@ -3,8 +3,11 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const CAPABILITIES: &[&str] = &[
+    "caption-word-text-projection/1",
     "caption-render-layers/1",
     "caption-layer-add/1",
+    "caption-reference-geometry/1",
+    "caption-layer-capture/1",
     "caption-image-sequence/1",
     "caption-noisy-sweep/1",
     "caption-bound-label/1",
@@ -31,6 +34,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-line-box-context/1",
     "caption-shape-paint/1",
     "caption-expressions/1",
+    "caption-expression-precondition/1",
     "caption-permutation/1",
     "caption-function-dag/1",
     "caption-bezier-expression/1",
@@ -46,6 +50,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-paint-stack/1",
     EXTENDED_PAINT_STACK_CAPABILITY,
     "caption-paint-style-bindings/1",
+    "caption-unit-paint-properties/1",
     "caption-paint-effects/1",
     "caption-paint-coverage/1",
     "caption-paint-mask/1",
@@ -191,9 +196,35 @@ pub fn validate_presentation(p: &Presentation, scene: Option<&Scene>) -> Result<
         return Err(invalid("presentation", "binding budget exceeded"));
     }
     let mut seen = BTreeSet::new();
+    let mut projected_words = 0usize;
     for c in &p.cue_overrides {
         if !seen.insert((&c.cue_id, &c.occurrence_id)) {
             return Err(invalid("cueOverrides", "duplicate cue/occurrence"));
+        }
+        if let Some(projection) = &c.word_text_projection {
+            projected_words = projected_words.saturating_add(projection.words.len());
+            if projected_words > MAX_UNITS {
+                return Err(invalid("wordTextProjection", "total projection word budget exceeded"));
+            }
+            let hash = projection.text_sha256.as_bytes();
+            if hash.len() != 64 || !hash.iter().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b)) {
+                return Err(invalid("wordTextProjection.textSha256", "lowercase SHA256 required"));
+            }
+            if projection.words.is_empty() || projection.words.len() > MAX_UNITS {
+                return Err(invalid("wordTextProjection.words", "bounded nonempty word ranges required"));
+            }
+            let mut word_ids = BTreeSet::new();
+            let mut previous_end = 0;
+            for word in &projection.words {
+                if word.word_id.is_empty() || word.word_id.len() > 128 || !word_ids.insert(&word.word_id)
+                    || word.start < previous_end || word.start >= word.end || word.end > 65536 {
+                    return Err(invalid("wordTextProjection.words", "unique ordered bounded word ranges required"));
+                }
+                previous_end = word.end;
+            }
+            if scene.is_some_and(|s| !s.required_capabilities.iter().any(|c| c == "caption-word-text-projection/1")) {
+                return Err(invalid("wordTextProjection", "caption-word-text-projection/1 capability required"));
+            }
         }
     }
     if let Some(s) = scene {
@@ -842,6 +873,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     for f in &s.functions {
         if !name(&f.id)
             || !functions.insert(&f.id)
+            || (f.id == "require" && s.required_capabilities.iter().any(|cap| cap == "caption-expression-precondition/1"))
             || [
                 "add",
                 "sub",
@@ -925,6 +957,14 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
             return Err(invalid("scene", "extended paint declaration budget exceeded"));
         }
     }
+    let reference_geometry = s.required_capabilities.iter().any(|cap| cap == "caption-reference-geometry/1");
+    if reference_geometry && (s.layout.layout_evaluation != LayoutEvaluation::PerSample || !s.layout.pagination.has_fixed_lines()) {
+        return Err(invalid(
+            "layout",
+            "reference geometry requires per-sample mode and fixed line membership",
+        ));
+    }
+    validate_surface_expression_scopes(s)?;
     if s.layout.bindings.len() > 64 || (s.layout.layout_evaluation == LayoutEvaluation::Static && !s.layout.bindings.is_empty()) {
         return Err(invalid("layout.bindings", "per-sample mode and at most 64 bindings required"));
     }
@@ -967,6 +1007,43 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
         if !name(&layer.id) || !layer_ids.insert(&layer.id) || layer.materials.len() > 8 {
             return Err(invalid("renderLayers", "unique id and at most 8 materials per layer required"));
         }
+        if let Some(capture) = &layer.capture {
+            if !s.required_capabilities.iter().any(|cap| cap == "caption-layer-capture/1") {
+                return Err(Diagnostic::new("CAPTION_CAPABILITY_REQUIRED", &layer.id, "caption-layer-capture/1"));
+            }
+            let CaptionLayerSource::Nodes { node_ids } = &layer.source else {
+                return Err(invalid(&layer.id, "layer capture requires node roots"));
+            };
+            let mut selected_nodes = BTreeMap::new();
+            for node in s.nodes.iter().filter(|node| node_ids.contains(&node.id)) {
+                walk(std::slice::from_ref(node), &mut selected_nodes, 0, None)?;
+            }
+            let text_ids = selected_nodes
+                .values()
+                .filter(|node| node.kind == NodeKind::Text)
+                .map(|node| node.id.as_str())
+                .collect::<Vec<_>>();
+            if text_ids != [capture.context_node_id.as_str()] {
+                return Err(invalid(&layer.id, "capture context must identify the layer's unique text node"));
+            }
+            if layer.materials.iter().any(|material| {
+                !matches!(
+                    material,
+                    CaptionMaterial::NoisySweep { .. }
+                        | CaptionMaterial::GaussianAxis { .. }
+                        | CaptionMaterial::GaussianUv { .. }
+                        | CaptionMaterial::AffineSampleBlend { .. }
+                        | CaptionMaterial::AffineOver { .. }
+                        | CaptionMaterial::GlowCascade { .. }
+                )
+            }) {
+                return Err(invalid(
+                    &layer.id,
+                    "unsupported capture material; history and global filters are not capture-compatible",
+                ));
+            }
+            validate_material_domain(s, &capture.rect)?;
+        }
         match &layer.source {
             CaptionLayerSource::Nodes { node_ids } => {
                 let mut selected = BTreeSet::new();
@@ -1005,6 +1082,14 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 }
             }
         }
+    }
+    if s.render_layers.iter().any(|layer| layer.capture.is_some())
+        && s.materials
+            .iter()
+            .chain(s.render_layers.iter().flat_map(|layer| &layer.materials))
+            .any(|material| matches!(material, CaptionMaterial::Feedback { .. }))
+    {
+        return Err(invalid("renderLayers", "layer capture cannot combine with feedback history"));
     }
     let mut names = BTreeSet::new();
     let mut samples = 1u32;
@@ -1725,6 +1810,93 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
             paint_style_order(s, node_id)?;
         }
     }
+    if !s.paint_property_bindings.is_empty() {
+        if !s.required_capabilities.iter().any(|cap| cap == "caption-unit-paint-properties/1") {
+            return Err(Diagnostic::new(
+                "CAPTION_CAPABILITY_REQUIRED",
+                "paintPropertyBindings",
+                "caption-unit-paint-properties/1",
+            ));
+        }
+        if s.paint_property_bindings.len() > 64 {
+            return Err(invalid("paintPropertyBindings", "at most 64 paint property bindings"));
+        }
+        let mut binding_ids = BTreeSet::new();
+        let mut bound_nodes = BTreeSet::new();
+        for binding in &s.paint_property_bindings {
+            if !name(&binding.id) || !binding_ids.insert(&binding.id) {
+                return Err(invalid(&binding.id, "invalid or duplicate paint property binding id"));
+            }
+            let node = nodes
+                .get(binding.node_id.as_str())
+                .filter(|node| node.kind == NodeKind::Text)
+                .ok_or_else(|| invalid(&binding.id, "paint property binding requires a text node"))?;
+            if node.style.paints.is_empty() || node.style.stroke.is_some() {
+                return Err(invalid(
+                    &binding.id,
+                    "paint property binding requires explicit base paints without legacy stroke",
+                ));
+            }
+            let selector = s
+                .selectors
+                .iter()
+                .find(|selector| selector.id == binding.selector_id)
+                .ok_or_else(|| invalid(&binding.id, "paint property selector missing"))?;
+            if selector.node_id != binding.node_id || selector.unit != UnitKind::Word {
+                return Err(invalid(
+                    &binding.id,
+                    "paint property selector must address this text node's word units",
+                ));
+            }
+            if !name(&binding.paint_id) {
+                return Err(invalid(&binding.id, "invalid paint property layer id"));
+            }
+            let layers = node
+                .style
+                .paints
+                .iter()
+                .chain(
+                    s.paint_style_bindings
+                        .iter()
+                        .filter(|style| style.node_id == binding.node_id)
+                        .flat_map(|style| &style.style.paints),
+                )
+                .filter(|layer| layer.id == binding.paint_id)
+                .collect::<Vec<_>>();
+            if layers.is_empty() {
+                return Err(invalid(&binding.id, "paint property layer missing from all possible stacks"));
+            }
+            let ty = match binding.property {
+                PaintProperty::Color => {
+                    if binding.composite != Composite::Replace
+                        || layers.iter().any(|layer| !matches!(layer.paint, ScenePaint::Solid { .. }))
+                    {
+                        return Err(invalid(
+                            &binding.id,
+                            "paint color requires replace and solid paint in every possible definition",
+                        ));
+                    }
+                    ValueType::Color
+                }
+                PaintProperty::Blur => {
+                    if !s.required_capabilities.iter().any(|cap| cap == "caption-paint-effects/1") {
+                        return Err(Diagnostic::new(
+                            "CAPTION_CAPABILITY_REQUIRED",
+                            &binding.id,
+                            "caption-paint-effects/1",
+                        ));
+                    }
+                    ValueType::Scalar
+                }
+            };
+            validate_label_dependencies(&binding.value, s)?;
+            validate_typed_value(&binding.id, &binding.value, s, UnitKind::Word, ty)?;
+            bound_nodes.insert(binding.node_id.as_str());
+        }
+        for node_id in bound_nodes {
+            paint_style_order(s, node_id)?;
+        }
+    }
     if !s.layout.font_size_bindings.is_empty() {
         if !s.required_capabilities.iter().any(|cap| cap == "caption-unit-font-size/1") {
             return Err(Diagnostic::new(
@@ -1760,6 +1932,23 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                     &binding.id,
                     "font size selector must address this text node's page, line or word units",
                 ));
+            }
+            if reference_geometry && !reference_static_filter(&selector.filter) {
+                return Err(invalid(&binding.id, "reference font size selection cannot depend on word state"));
+            }
+            match &binding.reference_value {
+                Some(value) => {
+                    if !reference_geometry {
+                        return Err(Diagnostic::new(
+                            "CAPTION_CAPABILITY_REQUIRED",
+                            &binding.id,
+                            "caption-reference-geometry/1",
+                        ));
+                    }
+                    validate_reference_size(value, s, selector.unit, &binding.id)?;
+                }
+                None if reference_geometry => return Err(invalid(&binding.id, "referenceValue is required for every font size binding")),
+                None => {}
             }
             validate_value("width", &binding.value, s, selector.unit)?;
             validate_font_size_dependencies(&binding.value, s)?;
@@ -1810,6 +1999,9 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                     &binding.id,
                     "font style selector must address this text node's page, line or word units",
                 ));
+            }
+            if reference_geometry && !reference_static_filter(&selector.filter) {
+                return Err(invalid(&binding.id, "reference font style selection cannot depend on word state"));
             }
             let patch = &binding.style;
             if patch.font_family.is_none() && patch.font_source.is_none() && patch.font_weight.is_none() && patch.italic.is_none() {
@@ -2384,6 +2576,9 @@ fn validate_value_context(property: &str, v: &DynamicValue, s: &Scene, unit: Uni
         validate_label_dependencies(v, s)?;
     }
     let t = property_type(property).ok_or_else(|| Diagnostic::new("CAPTION_PROPERTY_UNSUPPORTED", property, "unknown property"))?;
+    validate_typed_value(property, v, s, unit, t)
+}
+fn validate_typed_value(property: &str, v: &DynamicValue, s: &Scene, unit: UnitKind, t: ValueType) -> Result<ValueType> {
     match v {
         DynamicValue::Constant { value } => {
             typed_value(t, value)?;
@@ -2525,6 +2720,154 @@ fn validate_early_value(value: &DynamicValue, ty: ValueType, scene: &Scene) -> R
     Ok(())
 }
 
+fn reference_static_filter(filter: &Filter) -> bool {
+    match filter {
+        Filter::State { .. } => false,
+        Filter::And { filters } | Filter::Or { filters } => filters.iter().all(reference_static_filter),
+        Filter::Not { filter } => reference_static_filter(filter),
+        _ => true,
+    }
+}
+
+/// Follow actual expression uses through functions; declarations alone have no scope.
+fn validate_context_dependencies(expression: &Expression, scene: &Scene, forbidden: fn(&str) -> bool, message: &str) -> Result<()> {
+    fn visit(
+        expression: &Expression,
+        scene: &Scene,
+        forbidden: fn(&str) -> bool,
+        message: &str,
+        visited: &mut BTreeSet<String>,
+        budget: &mut usize,
+    ) -> Result<()> {
+        if *budget == 0 {
+            return Err(invalid("expression", "context dependency budget exceeded"));
+        }
+        *budget -= 1;
+        match expression {
+            Expression::Read { path } if forbidden(path) => {
+                return Err(Diagnostic::new("CAPTION_DEPENDENCY_CYCLE", path, message));
+            }
+            Expression::Call { function, args } => {
+                for argument in args {
+                    visit(argument, scene, forbidden, message, visited, budget)?;
+                }
+                if let Some(function) = scene.functions.iter().find(|candidate| candidate.id == *function) {
+                    if visited.insert(function.id.clone()) {
+                        visit(&function.body, scene, forbidden, message, visited, budget)?;
+                    }
+                }
+            }
+            Expression::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                for branch in [condition, then, otherwise] {
+                    visit(branch, scene, forbidden, message, visited, budget)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    visit(expression, scene, forbidden, message, &mut BTreeSet::new(), &mut 16_384)
+}
+
+fn validate_reference_size(value: &DynamicValue, scene: &Scene, unit: UnitKind, id: &str) -> Result<()> {
+    if matches!(value, DynamicValue::Keyframes { .. }) {
+        return Err(invalid(id, "referenceValue must be a constant or time-independent expression"));
+    }
+    validate_value("width", value, scene, unit)?;
+    match value {
+        DynamicValue::Constant { value } => {
+            if !value
+                .as_f64()
+                .is_some_and(|value| value.is_finite() && (1.0..=4096.0).contains(&value))
+            {
+                return Err(invalid(id, "reference font size must be 1..4096 pixels"));
+            }
+        }
+        DynamicValue::Expression { expression } => {
+            validate_context_dependencies(
+                expression,
+                scene,
+                |path| {
+                    !(path.starts_with("params.") || path.starts_with("args.") || path.starts_with("canvas.") || path.starts_with("unit."))
+                        || matches!(
+                            path,
+                            "unit.active"
+                                | "unit.read"
+                                | "unit.unread"
+                                | "unit.labelInkAvailable"
+                                | "unit.referenceInkAvailable"
+                                | "unit.lineEnvelopeAvailable"
+                                | "unit.rangeInkAvailable"
+                                | "unit.pageEnvelopeAvailable"
+                                | "unit.pageLineCount"
+                        )
+                },
+                "reference font size cannot depend on time, layout, material surfaces or word state",
+            )?;
+        }
+        _ => unreachable!(),
+    }
+    Ok(())
+}
+
+/// Only materials run after a local surface exists. Scan typed expression roots
+/// so every property, paint, clock, source and capture rectangle shares this rule.
+fn validate_surface_expression_scopes(scene: &Scene) -> Result<()> {
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-layer-capture/1") {
+        return Ok(());
+    }
+    fn scan(value: &Value, scene: &Scene, material: bool) -> Result<()> {
+        match value {
+            Value::Object(object) => {
+                if object.contains_key("op") {
+                    let expression: Expression =
+                        serde_json::from_value(value.clone()).map_err(|error| invalid("expression", error.to_string()))?;
+                    if !material {
+                        validate_context_dependencies(
+                            &expression,
+                            scene,
+                            |path| path.starts_with("material.surface"),
+                            "material surface fields are available only in material dynamic expressions",
+                        )?;
+                    }
+                } else {
+                    for value in object.values() {
+                        scan(value, scene, material)?;
+                    }
+                }
+            }
+            Value::Array(values) => {
+                for value in values {
+                    scan(value, scene, material)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    let value = serde_json::to_value(scene).map_err(|error| invalid("scene", error.to_string()))?;
+    let object = value.as_object().ok_or_else(|| invalid("scene", "object required"))?;
+    for (key, value) in object {
+        match key.as_str() {
+            "functions" => {}
+            "materials" => scan(value, scene, true)?,
+            "renderLayers" => {
+                for layer in value.as_array().ok_or_else(|| invalid("renderLayers", "array required"))? {
+                    for (key, value) in layer.as_object().ok_or_else(|| invalid("renderLayers", "object required"))? {
+                        scan(value, scene, key == "materials")?;
+                    }
+                }
+            }
+            _ => scan(value, scene, false)?,
+        }
+    }
+    Ok(())
+}
+
 /// Unit font sizing sees frozen semantic membership and clocks, never resulting geometry.
 fn validate_font_size_dependencies(value: &DynamicValue, scene: &Scene) -> Result<()> {
     fn visit(expr: &Expression, scene: &Scene, seen: &mut BTreeSet<String>, budget: &mut usize) -> Result<()> {
@@ -2546,6 +2889,7 @@ fn validate_font_size_dependencies(value: &DynamicValue, scene: &Scene) -> Resul
                             | "unit.pageEnvelopeAvailable"
                             | "unit.pageLineCount"
                             | "unit.previousWordInLine"
+                            | "unit.referenceInkAvailable"
                     )
                 {
                     return Err(Diagnostic::new(

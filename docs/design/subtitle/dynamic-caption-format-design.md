@@ -78,7 +78,7 @@
 | --- | --- | --- |
 | 字幕文档 | cue、显示文本、源词引用、文档时钟 | 原文、译文及真实词时间 |
 | 场景模板 | 参数声明、布局、图层、选择器、动画、表达式和材质 | 不持有项目的具体朗读内容 |
-| 字幕实例 | 模板参数覆盖、词标签、装饰绑定、seed、作用范围 | 引用当前字幕及其 occurrence |
+| 字幕实例 | 模板参数覆盖、词标签、词显示范围、装饰绑定、seed、作用范围 | 引用当前字幕及其 occurrence |
 
 继续使用 `CaptionItem.documentId/styleDocumentId/scopeItemIds`。拟增加 `caption-style` 文档正文 `baocut.caption-scene-style/1`，其中保存场景模板及共享参数；实例级覆盖拟放在 `CaptionItem.presentation`。场景模板自身使用独立的 `baocut.caption-scene/1`，既可内嵌，也可引用冻结的内容寻址产物。
 
@@ -94,9 +94,19 @@ interface CaptionSceneStyleBody {
 interface CaptionPresentation {
   parameters?: Record<string, ParameterValue>;
   cueOverrides?: CueOverride[];    // cueId，必要时带 occurrenceId
-  wordTags?: WordTagBinding[];     // 稳定 wordId -> emphasis、hero 等标签
+  wordTags?: Record<string, string[]>; // 稳定 wordId -> emphasis、hero 等标签
   decorations?: DecorationBinding[];
   seed: string;                   // 固定十六进制 uint64；创建时落盘
+}
+
+interface CueOverride {
+  cueId: string;
+  occurrenceId?: string | null;
+  parameters: Record<string, ParameterValue>;
+  wordTextProjection?: {
+    textSha256: string;           // 当前 cue 显示文本的原始 UTF-8 字节摘要
+    words: { wordId: string; start: number; end: number }[];
+  } | null;
 }
 
 interface CaptionScene {
@@ -118,6 +128,7 @@ interface CaptionScene {
 参数优先级为模板默认值 → 样式文档参数 → 实例参数 → 指定 cue/occurrence 参数。每一层只接受已声明的参数、类型与范围；不存在的参数不静默忽略。参数覆盖与节点属性动画是两个阶段，不能把所有对象递归深合并后猜含义。
 
 模板声明的分页模式、参数默认值和候选资源都是默认值；分页可以由实例或准备阶段的程序化规则覆盖（§5.2），覆盖结果与自动选出的标签一样保存为实例数据，不在每帧重新推断。求值得到的绘制状态只是派生缓存，三层中任何一层都不保存它。
+`caption-word-text-projection/1` 允许实例通过 `CueOverride.wordTextProjection` 将有效源词 ID 绑定到当前 cue 显示文本的 UTF-8 字节范围。它只提供显示成员关系，不改写字幕文档、源 speech 词文案或真实词时间，也不在 core 中执行大小写、语言或模板专属转换。范围是 `[start,end)`，由文本摘要约束；完整有序绑定、cue/occurrence 覆盖、静态文本与节点大小写的限制及预算统一见[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)。未提供投影时继续既有词文本匹配，不能静默猜测或用估算时间替代无效投影。
 
 强调词和装饰是用户内容的注解，按稳定词 ID 绑定。改字、删词时失效的绑定作为问题报告，不自动挪到相同索引的其他词。自动生成的标签/emoji 先作为显式实例数据保存，再参与渲染；表达式不在画帧时调用分析服务。
 
@@ -423,6 +434,9 @@ random 对同 key 永远返回同值；时间噪声通过明确的连续坐标�
 
 `caption-unit-font-size/1` 将按 page/line/word 的字号选择放在富文本整形之前：先固定页与逻辑行源成员，再按当前语义时钟求有序字号区间，最后完整覆盖文字/空白并通过共享 rich shaping 重新计算几何。表达式不可读取本轮 layout/ink；绘制期缩放仍是另一条属性路径。新能力要求显式固定词行/文本计数布局，字号不会改变分页身份；行高采用字体 ascent/descent 与最大区间字号共同确定，repeat 与反馈采样复用同一结果。参数、覆盖顺序、Unicode 映射和预算详见视频格式 §5.6。此阶段不开放任意动态分页程序或依赖兄弟行最终位置的循环布局。
 
+`caption-reference-geometry/1` 显式建立动画前参考墨迹：复用固定成员的rich shaping与静态字体patch，使用独立referenceValue字号，在编译计划中缓存真实glyph ink。动态字号和绘制矩阵随后消费当前几何与参考几何，避免用整体scale冒充逐字间距变化。无墨迹不使用advance回退；需要真实几何的作者可用显式precondition能力在所选单位执行时拒绝缺失值。稳定依赖、类型、惰性失败与预算合同见视频格式§5.6。
+
+
 ## 9. 涂装、装饰与材质
 
 本节按执行位置分为涂装栈（文字局部空间）、装饰节点（读取布局后几何）、内置材质节点（页级离屏表面）和待实现的材质目标。每一项都声明取样对象、坐标空间、alpha 处理与预算；缺少后端能力时按 §9.3 末段的预检规则拒绝精确导出。
@@ -490,6 +504,8 @@ random 对同 key 永远返回同值；时间噪声通过明确的连续坐标�
 `caption-affine-over/1` 增加两个独立 UV 采样矩阵和背景 opacity/RGB 衰减。两个采样读同一不可变前缀表面，按关联分量做 foreground-over-background，保持半透明边缘与发光；这与两次独立文字光栅化或沿路径平均不同。输入 ROI、输出域、采样边界及数值/预算合同见[格式规范](../../spec/video-format-spec.md)。当前实现落在共享 CPU 场景/导出/WASM 路径，GPU material-plan 返回明确未支持错误；有序 pass 图、独立 offscreen surface 分配及状态式来源重放仍需后续扩展。
 
 `caption-gaussian-uv/1` 表达任意二维signed采样步长及UV空间sigma，使用明确input/output采样域，按中心、负向、正向的有序tap归一关联RGBA；RGBgain与alpha分离。现有affine-over的identity foreground/backgroundOpacity0可把前缀采样到指定整数子网格；后续gaussian-uv读取该网格并写回完整局部域，再按后续材质顺序合成。当前子网格仍须完全在已有画布表面内，不能假装已支持超画布localRT、任意pool或source native捕获。具体合同见[格式规范](../../spec/video-format-spec.md)。
+
+`caption-layer-capture/1` 为层提供显式独立局部纹理，先在局部尺寸直接光栅化全局源，再执行材料，最后按原点贴回最终背景；源可以位于最终画布外。布局与时钟仍使用全局上下文，材料另读surface原点与尺寸。首版有界无历史组件链由CPU执行，GPU明确回退；整数矩形、支持范围与资源预算见视频格式§5.6。
 
 ### 9.4 显式仿射路径采样
 

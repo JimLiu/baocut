@@ -494,13 +494,18 @@ fn positive_and_negative_viewport_origins_preserve_global_quad_phase() {
     let full = PaintViewport {
         origin: [-16, -12],
         size: (40, 30),
+        captured: false,
     };
     let (reference, _) = render(&layer, &g, geometry, full);
     assert_pixels(&reference, full, |x, y| {
         rgba([1.0; 4], coverage(&layer, &g, geometry, x, y), 1.0)
     });
     for (origin, size) in [([-7, -5], (19, 17)), ([3, 1], (13, 11))] {
-        let viewport = PaintViewport { origin, size };
+        let viewport = PaintViewport {
+            origin,
+            size,
+            captured: false,
+        };
         let (crop, _) = render(&layer, &g, geometry, viewport);
         assert_pixels(&crop, viewport, |x, y| {
             rgba([1.0; 4], coverage(&layer, &g, geometry, x, y), 1.0)
@@ -1195,6 +1200,7 @@ fn distance_image_odd_negative_viewport_origins_keep_original_uv_and_global_quad
         let viewport = PaintViewport {
             origin,
             size: (21, 17),
+            captured: false,
         };
         let (actual, _) = render_image(
             &layer,

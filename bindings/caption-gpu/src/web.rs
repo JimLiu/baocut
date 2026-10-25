@@ -254,9 +254,13 @@ impl GpuCaptions {
             .ok_or_else(|| err("gpu-caption-plan-missing"))?
             .record_material_plan(seconds)
             .map_err(err)?;
+        if frame.layers.iter().any(|layer| layer.capture.is_some()) {
+            return Err(err("gpu-caption-layer-capture-unsupported"));
+        }
         frame.layers.insert(
             0,
             MaterialLayer {
+                capture: None,
                 source: MaterialSource::Image(ImageQuad {
                     bitmap: background,
                     domain: [0.0, 0.0, self.config.width as f64, self.config.height as f64],

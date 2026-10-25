@@ -99,6 +99,7 @@ mod tests {
             &Presentation::default(),
         );
         let r = RenderContext {
+            paint_viewport: None,
             scene,
             units: &BTreeMap::new(),
             params: &params,

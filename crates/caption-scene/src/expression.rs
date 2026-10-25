@@ -175,7 +175,8 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "unit.cueSelectedIndex"
         | "unit.cueSelectedCount"
         | "unit.activeWordIndexInPage" => ValueType::Scalar,
-        "unit.labelInkAvailable"
+        "unit.referenceInkAvailable"
+        | "unit.labelInkAvailable"
         | "unit.active"
         | "unit.read"
         | "unit.unread"
@@ -204,7 +205,15 @@ pub fn context_type(path: &str) -> Option<ValueType> {
         | "cue.speechPhase.afterLast"
         | "cue.speechPhase.estimated"
         | "word.inSpan" => ValueType::Bool,
-        "layout.labelWidth"
+        "material.surfaceX"
+        | "material.surfaceY"
+        | "material.surfaceWidth"
+        | "material.surfaceHeight"
+        | "layout.referenceInkX"
+        | "layout.referenceInkY"
+        | "layout.referenceInkWidth"
+        | "layout.referenceInkHeight"
+        | "layout.labelWidth"
         | "layout.labelHeight"
         | "layout.labelMaxGlyphInkWidth"
         | "layout.labelMaxGlyphInkHeight"
@@ -240,6 +249,32 @@ pub fn context_type(path: &str) -> Option<ValueType> {
     })
 }
 fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
+    let capability = if matches!(
+        path,
+        "layout.referenceInkX"
+            | "layout.referenceInkY"
+            | "layout.referenceInkWidth"
+            | "layout.referenceInkHeight"
+            | "unit.referenceInkAvailable"
+    ) {
+        Some("caption-reference-geometry/1")
+    } else if matches!(
+        path,
+        "material.surfaceX" | "material.surfaceY" | "material.surfaceWidth" | "material.surfaceHeight"
+    ) {
+        Some("caption-layer-capture/1")
+    } else {
+        None
+    };
+    if let Some(capability) = capability {
+        if !scene.required_capabilities.iter().any(|value| value == capability) {
+            return Err(Diagnostic::new(
+                "CAPTION_CAPABILITY_UNAVAILABLE",
+                path,
+                format!("{capability} must be declared"),
+            ));
+        }
+    }
     if matches!(
         path,
         "time.inputFirstWordStartSeconds"
@@ -412,7 +447,27 @@ fn require_context_capability(path: &str, scene: &Scene) -> Result<()> {
     }
     Ok(())
 }
+fn precondition_enabled(scene: &Scene) -> bool {
+    scene
+        .required_capabilities
+        .iter()
+        .any(|cap| cap == "caption-expression-precondition/1")
+}
+fn scene_builtin_type(name: &str, arguments: &[ValueType], scene: &Scene) -> Option<ValueType> {
+    if name == "require" && !precondition_enabled(scene) {
+        None
+    } else {
+        builtin_type(name, arguments)
+    }
+}
 fn require_function_capability(function: &str, scene: &Scene) -> Result<()> {
+    if function == "require" && !precondition_enabled(scene) && !scene.functions.iter().any(|value| value.id == "require") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_REQUIRED",
+            function,
+            "caption-expression-precondition/1 must be declared",
+        ));
+    }
     let capability = match function {
         "exp" => "caption-exponential-expression/1",
         "round" => "caption-rounding-expression/1",
@@ -494,6 +549,7 @@ pub fn builtin_type(name: &str, args: &[ValueType]) -> Option<ValueType> {
     use ValueType::*;
     let numeric = |t| matches!(t, Scalar | Integer | Length | Time | Angle);
     match (name, args) {
+        ("require", [Bool, value]) => Some(*value),
         ("add" | "sub" | "min" | "max", [a, b]) if a == b && numeric(*a) => Some(*a),
         ("mul", [Scalar, Integer] | [Integer, Scalar]) => Some(Scalar),
         ("div", [Integer, Scalar | Integer]) => Some(Scalar),
@@ -569,7 +625,14 @@ pub fn infer(expr: &Expression, scene: &Scene, arguments: &BTreeMap<String, Valu
                     return pick_type(list, index, s);
                 }
                 let ts = args.iter().map(|x| inner(x, s, a, stack, budget)).collect::<Result<Vec<_>>>()?;
-                if let Some(t) = builtin_type(function, &ts) {
+                if function == "require" && precondition_enabled(s) && !matches!(ts.as_slice(), [ValueType::Bool, _]) {
+                    return Err(Diagnostic::new(
+                        "CAPTION_EXPRESSION_TYPE",
+                        function,
+                        "boolean condition and one value required",
+                    ));
+                }
+                if let Some(t) = scene_builtin_type(function, &ts, s) {
                     return Ok(t);
                 }
                 let f =
@@ -678,7 +741,14 @@ fn infer_dag(expr: &Expression, scene: &Scene, arguments: &BTreeMap<String, Valu
                         .collect::<Result<Vec<_>>>()?;
                     let types = args.iter().map(|arg| arg.value_type).collect::<Vec<_>>();
                     let argument_height = args.iter().map(|arg| arg.height).max().unwrap_or(0);
-                    if let Some(ty) = builtin_type(function, &types) {
+                    if function == "require" && precondition_enabled(self.scene) && !matches!(types.as_slice(), [ValueType::Bool, _]) {
+                        return Err(Diagnostic::new(
+                            "CAPTION_EXPRESSION_TYPE",
+                            function,
+                            "boolean condition and one value required",
+                        ));
+                    }
+                    if let Some(ty) = scene_builtin_type(function, &types, self.scene) {
                         (ty, 1 + argument_height)
                     } else {
                         let scene = self.scene;
@@ -933,6 +1003,9 @@ pub fn evaluate(expr: &Expression, scene: &Scene, ctx: &Context, budget: &mut Bu
         let value = match e {
             Expression::Literal { value_type, value } => typed_value(*value_type, value)?,
             Expression::Read { path } => {
+                if path.starts_with("layout.referenceInk") || path == "unit.referenceInkAvailable" || path.starts_with("material.surface") {
+                    require_context_capability(path, s)?;
+                }
                 let v = if let Some(id) = path.strip_prefix("args.") {
                     a.get(id)
                 } else {
@@ -969,9 +1042,22 @@ pub fn evaluate(expr: &Expression, scene: &Scene, ctx: &Context, budget: &mut Bu
                     }
                     return items[index.rem_euclid(items.len() as f64) as usize].clone().finite();
                 }
+                if function == "require" && precondition_enabled(s) {
+                    let [condition, value] = args.as_slice() else {
+                        return Err(invalid("require", "boolean condition and one value required"));
+                    };
+                    if !inner(condition, s, c, a, b, depth + 1)?.boolean()? {
+                        return Err(Diagnostic::new(
+                            "CAPTION_PRECONDITION_FAILED",
+                            "require",
+                            "expression precondition was not met",
+                        ));
+                    }
+                    return inner(value, s, c, a, b, depth + 1);
+                }
                 let values = args.iter().map(|x| inner(x, s, c, a, b, depth + 1)).collect::<Result<Vec<_>>>()?;
                 let types = values.iter().map(Evaluated::value_type).collect::<Vec<_>>();
-                if let Some(t) = builtin_type(function, &types) {
+                if let Some(t) = scene_builtin_type(function, &types, s) {
                     if function == "shuffle-index" {
                         Evaluated::Number(t, b.shuffle_index(values[0].number()?, values[1].number()?, values[2].number()?)?)
                     } else {

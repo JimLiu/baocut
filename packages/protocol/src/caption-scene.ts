@@ -43,6 +43,7 @@ export type CaptionBoundLabelReadPath =
  * Capability-gated scalar builtins: round (half away from zero), mod/fract (floored, divisor sign),
  * pow (negative base needs an integer exponent). `pick` takes `{ op: 'read', path: 'params.<list>' }`
  * and a scalar/integer index taken modulo the list length.
+ * With caption-expression-precondition/1, require(bool, value) rejects false before evaluating value.
  */
 export type CaptionExpression =
   | { op: 'literal'; type: CaptionValueType; value: CaptionValue }
@@ -188,6 +189,20 @@ export interface CaptionPaintLayer {
   distanceCoverage?: CaptionGlyphDistanceCoverage;
   paint: CaptionScenePaint;
 }
+export type CaptionPaintProperty = 'color' | 'blur';
+/** Ordered word-scoped patches after static stack selection; requires caption-unit-paint-properties/1. */
+export interface CaptionPaintPropertyBinding {
+  id: string;
+  nodeId: string;
+  selectorId: string;
+  /** Stable logical layer ID. A selected stack without this layer is unchanged. */
+  paintId: string;
+  /** Color requires solid paint and replace; blur is scalar in the layer's existing unit. */
+  property: CaptionPaintProperty;
+  composite: 'replace' | 'add' | 'multiply';
+  /** Every composed blur must remain finite in 0..4em or 0..256px; sampling rejects otherwise. */
+  value: CaptionDynamicValue;
+}
 export interface CaptionSceneNode {
   id: string;
   type: 'group' | 'text' | 'label' | 'shape' | 'image' | 'repeat';
@@ -243,9 +258,15 @@ export type CaptionLayerSource =
       frame: CaptionDynamicValue; domain: CaptionMaterialDomain;
       uvScale: [number, number]; uvOffset: [number, number] };
 /** Ordered isolated surfaces composite directly into the actual scene target. */
+export interface CaptionLayerCapture {
+  contextNodeId: string;
+  rect: CaptionMaterialDomain;
+}
 export interface CaptionRenderLayer {
   id: string;
   source: CaptionLayerSource;
+  /** Local surface; requires caption-layer-capture/1. Explicit null is invalid. */
+  capture?: CaptionLayerCapture;
   materials?: CaptionMaterial[];
   /** 'add' needs caption-layer-add/1: per-component S + D on the real backdrop, clamped. */
   blend: 'source-over' | 'screen' | 'add';
@@ -271,7 +292,9 @@ export interface CaptionScene {
       longGap: { before: number; after: number }; boundary: 'start-inclusive-end-exclusive' | 'first-start-inclusive-end-inclusive' } | null;
     bindings?: { nodeId?: string | null; property: 'width' | 'x' | 'y' | 'fontSize' | 'letterSpacing' | 'lineHeight'; value: CaptionDynamicValue }[];
     /** Ordered replacement sizes on frozen page/line/word membership; requires caption-unit-font-size/1. */
-    fontSizeBindings?: { id: string; nodeId: string; selectorId: string; value: CaptionDynamicValue }[];
+    fontSizeBindings?: { id: string; nodeId: string; selectorId: string; value: CaptionDynamicValue;
+      /** Constant/expression length independent of time, layout and state; requires caption-reference-geometry/1. */
+      referenceValue?: CaptionDynamicValue }[];
     fontStyleBindings?: { id: string; nodeId: string; selectorId: string; style: {
       fontFamily?: string; fontWeight?: number; italic?: boolean;
       /** Exact static face override; a source-only patch is valid, and a family-only patch uses named-family resolution. */
@@ -321,15 +344,25 @@ export interface CaptionScene {
     style: { fill?: string; paints: CaptionPaintLayer[] } }[];
   animations?: { id: string; target: { nodeId: string; selectorId?: string | null }; property: string;
     value: CaptionDynamicValue; composite: 'replace' | 'add' | 'multiply'; priority?: number }[];
+  /** Up to 64 ordered properties on existing layers; word state filters are supported. */
+  paintPropertyBindings?: CaptionPaintPropertyBinding[];
 }
 export interface CaptionSceneStyleBody {
   schema: 'baocut.caption-scene-style/1';
   scene: { kind: 'inline'; value: CaptionScene };
   parameters?: Record<string, CaptionParameterValue>;
 }
+/** Explicit UTF-8 half-open ranges in the unchanged cue display text.
+ * Requires caption-word-text-projection/1; source word IDs and clocks are retained.
+ */
+export interface CaptionWordTextProjection {
+  /** Lowercase SHA256 of the exact UTF-8 cue text. */
+  textSha256: string;
+  words: { wordId: string; start: number; end: number }[];
+}
 export interface CaptionPresentation {
   parameters?: Record<string, CaptionParameterValue>;
-  cueOverrides?: { cueId: string; occurrenceId?: string | null; parameters: Record<string, CaptionParameterValue> }[];
+  cueOverrides?: { cueId: string; occurrenceId?: string | null; parameters: Record<string, CaptionParameterValue>; wordTextProjection?: CaptionWordTextProjection | null }[];
   wordTags?: Record<string, string[]>;
   /** 16 hexadecimal digits; omitted values resolve to zero. */
   seed?: string;

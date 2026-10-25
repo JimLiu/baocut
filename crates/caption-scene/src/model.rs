@@ -49,6 +49,8 @@ pub struct Scene {
     pub animations: Vec<Animation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub paint_style_bindings: Vec<PaintStyleBinding>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paint_property_bindings: Vec<PaintPropertyBinding>,
     #[serde(default)]
     pub materials: Vec<CaptionMaterial>,
 }
@@ -112,6 +114,22 @@ pub struct CueOverride {
     pub cue_id: String,
     pub occurrence_id: Option<String>,
     pub parameters: BTreeMap<String, Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub word_text_projection: Option<WordTextProjection>,
+}
+/// Instance display ranges; source word text and timing remain authoritative.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WordTextProjection {
+    pub text_sha256: String,
+    pub words: Vec<WordTextRange>,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WordTextRange {
+    pub word_id: String,
+    pub start: usize,
+    pub end: usize,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -933,9 +951,18 @@ pub struct ImageResource {
 pub struct CaptionRenderLayer {
     pub id: String,
     pub source: CaptionLayerSource,
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub capture: Option<CaptionLayerCapture>,
     #[serde(default)]
     pub materials: Vec<CaptionMaterial>,
     pub blend: CaptionLayerBlend,
+}
+/// Explicit local surface in completed-layout canvas coordinates.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CaptionLayerCapture {
+    pub context_node_id: String,
+    pub rect: MaterialDomain,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -993,6 +1020,25 @@ pub enum ImageFit {
     Cover,
     Stretch,
 }
+/// An ordered property patch on a selected word's existing logical paint layer.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PaintPropertyBinding {
+    pub id: String,
+    pub node_id: String,
+    pub selector_id: String,
+    pub paint_id: String,
+    pub property: PaintProperty,
+    pub composite: Composite,
+    pub value: DynamicValue,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PaintProperty {
+    Color,
+    Blur,
+}
+
 /// A static paint-stack replacement selected by frozen word membership.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1365,6 +1411,9 @@ pub struct FontSizeBinding {
     pub node_id: String,
     pub selector_id: String,
     pub value: DynamicValue,
+    /// Time-independent size for the compile-time reference layout.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_font_field")]
+    pub reference_value: Option<DynamicValue>,
 }
 /// A static font patch selected by frozen semantic membership.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

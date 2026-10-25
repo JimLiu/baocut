@@ -1,0 +1,208 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-function-dag/1",
+        "caption-paint-stack/1",
+        "caption-paint-effects/1",
+        "caption-paint-style-bindings/1",
+        "caption-unit-paint-properties/1"
+      ],
+      "parameters": [
+        {
+          "id": "accent",
+          "type": "color",
+          "default": "#FFE600"
+        }
+      ],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 3
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            },
+            "paints": [
+              {
+                "id": "shade",
+                "unit": "em",
+                "paint": {
+                  "kind": "solid",
+                  "color": "#00000080"
+                },
+                "blur": 0.02
+              },
+              {
+                "id": "ink",
+                "paint": {
+                  "kind": "node-fill"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "selectors": [
+        {
+          "id": "words",
+          "nodeId": "caption",
+          "unit": "word",
+          "filter": {
+            "kind": "state",
+            "value": "active"
+          }
+        },
+        {
+          "id": "keywords",
+          "nodeId": "caption",
+          "unit": "word",
+          "filter": {
+            "kind": "tag",
+            "value": "accent"
+          }
+        }
+      ],
+      "animations": [],
+      "paintStyleBindings": [
+        {
+          "id": "accent-stack",
+          "nodeId": "caption",
+          "selectorId": "keywords",
+          "style": {
+            "paints": [
+              {
+                "id": "accent-shade",
+                "unit": "em",
+                "paint": {
+                  "kind": "solid",
+                  "color": "#FF800080"
+                },
+                "blur": 0.03
+              },
+              {
+                "id": "ink",
+                "paint": {
+                  "kind": "node-fill"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "functions": [
+        {
+          "id": "word-blur",
+          "arguments": [],
+          "returns": "scalar",
+          "body": {
+            "op": "call",
+            "function": "mul",
+            "args": [
+              {
+                "op": "literal",
+                "type": "scalar",
+                "value": 0.1
+              },
+              {
+                "op": "read",
+                "path": "time.clampedProgress"
+              }
+            ]
+          }
+        }
+      ],
+      "paintPropertyBindings": [
+        {
+          "id": "shade-color",
+          "nodeId": "caption",
+          "selectorId": "words",
+          "paintId": "shade",
+          "property": "color",
+          "composite": "replace",
+          "value": {
+            "kind": "constant",
+            "value": "#0044FFFF"
+          }
+        },
+        {
+          "id": "shade-blur",
+          "nodeId": "caption",
+          "selectorId": "words",
+          "paintId": "shade",
+          "property": "blur",
+          "composite": "multiply",
+          "value": {
+            "kind": "keyframes",
+            "clock": {
+              "unit": "word",
+              "origin": "start",
+              "duration": {
+                "kind": "unit-span"
+              }
+            },
+            "keys": [
+              {
+                "at": 0,
+                "value": 1
+              },
+              {
+                "at": 0.5,
+                "value": 2
+              },
+              {
+                "at": 1,
+                "value": 1
+              }
+            ]
+          }
+        },
+        {
+          "id": "accent-blur",
+          "nodeId": "caption",
+          "selectorId": "words",
+          "paintId": "accent-shade",
+          "property": "blur",
+          "composite": "replace",
+          "value": {
+            "kind": "expression",
+            "expression": {
+              "op": "call",
+              "function": "word-blur",
+              "args": []
+            }
+          }
+        }
+      ]
+    }
+  }
+}

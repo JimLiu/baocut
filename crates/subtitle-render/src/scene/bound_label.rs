@@ -140,7 +140,15 @@ pub(super) fn draw(
             paint_origin: xy,
         });
     }
-    text_paint::record_glyphs(style, &glyphs, r.size, text, r.images, b, budget)?;
+    text_paint::record_glyphs(
+        style,
+        &glyphs,
+        r.paint_viewport(),
+        text,
+        r.images,
+        b,
+        budget,
+    )?;
     b.push(DrawOp::PopLayer);
     Ok(())
 }

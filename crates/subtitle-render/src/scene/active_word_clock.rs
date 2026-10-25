@@ -120,6 +120,7 @@ mod tests {
             start: 0.0,
             end,
             bounds: Bounds::default(),
+            reference_geometry: None,
         }
     }
     fn cfg(gap: GapPolicy, tail: TailPolicy) -> SpeechState {
@@ -256,6 +257,7 @@ mod tests {
                 &Presentation::default(),
             );
             let r = RenderContext {
+                paint_viewport: None,
                 scene,
                 units: &BTreeMap::new(),
                 params: &params,

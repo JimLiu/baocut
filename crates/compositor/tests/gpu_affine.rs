@@ -195,6 +195,7 @@ fn frame(bitmap: Arc<BitmapData>, config: Config) -> MaterialFrame {
         width: config.output.width,
         height: config.output.height,
         layers: vec![MaterialLayer {
+            capture: None,
             source: source(bitmap),
             materials: vec![MaterialCommand::AffineSampleBlend(config)],
             blend: AssociatedBlend::SourceOver,
@@ -559,6 +560,7 @@ fn affine_mixed_layers_distinct_uniform_slots_and_reordered_seeks_match_cpu() {
         second.boundary = Boundary::Normalize;
         let mut layers = vec![
             MaterialLayer {
+                capture: None,
                 source: source(bitmaps[0].clone()),
                 materials: vec![
                     MaterialCommand::Gaussian(gaussian_pass(size, Axis::X, 3.0)),
@@ -569,6 +571,7 @@ fn affine_mixed_layers_distinct_uniform_slots_and_reordered_seeks_match_cpu() {
                 blend: AssociatedBlend::SourceOver,
             },
             MaterialLayer {
+                capture: None,
                 source: source(bitmaps[1].clone()),
                 materials: vec![MaterialCommand::AffineSampleBlend(second)],
                 blend: AssociatedBlend::Screen,

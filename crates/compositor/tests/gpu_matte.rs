@@ -176,6 +176,7 @@ fn material(source: Arc<FrameOps>) -> MaterialFrame {
         width: W,
         height: H,
         layers: vec![MaterialLayer {
+            capture: None,
             source: MaterialSource::Draw(source),
             materials: vec![],
             blend: AssociatedBlend::SourceOver,
@@ -187,6 +188,7 @@ fn rejected_with_valid_prefix(source: Arc<FrameOps>, data: &[Vec<u8>]) -> Materi
     result.layers.insert(
         0,
         MaterialLayer {
+            capture: None,
             source: MaterialSource::Draw(frame(data, vec![draw(0)])),
             materials: vec![],
             blend: AssociatedBlend::SourceOver,

@@ -96,12 +96,13 @@ pub(super) fn record(
     scene: &Scene,
     glyphs: &[text_paint::GlyphPaint],
     choices: &[Option<usize>],
-    canvas: (u32, u32),
+    canvas: impl Into<text_paint::PaintViewport>,
     text: &mut TextEngine,
     images: &BTreeMap<String, BitmapData>,
     builder: &mut FrameBuilder,
     budget: &mut Budget,
 ) -> Result<()> {
+    let canvas: text_paint::PaintViewport = canvas.into();
     if glyphs.len() != choices.len() {
         bail!("CAPTION_SCENE_INVALID: paint choice count");
     }
@@ -117,20 +118,94 @@ pub(super) fn record(
         );
     }
     // Color glyphs have one final bitmap pass, independent of stack length.
+    let stacks = choices
+        .iter()
+        .map(|choice| match choice {
+            Some(index) => scene.paint_style_bindings[*index].style.paints.as_slice(),
+            None => node.style.paints.as_slice(),
+        })
+        .collect::<Vec<_>>();
+    record_stacks(
+        node, scene, glyphs, &stacks, false, canvas, text, images, builder, budget,
+    )
+}
+
+/// Dynamic properties are already sampled on the selected complete word stack.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn record_resolved(
+    node: &Node,
+    scene: &Scene,
+    glyphs: &[text_paint::GlyphPaint],
+    choices: &[usize],
+    resolved: &[Vec<PaintLayer>],
+    canvas: impl Into<text_paint::PaintViewport>,
+    text: &mut TextEngine,
+    images: &BTreeMap<String, BitmapData>,
+    builder: &mut FrameBuilder,
+    budget: &mut Budget,
+) -> Result<()> {
+    let canvas: text_paint::PaintViewport = canvas.into();
+    if glyphs.len() != choices.len() {
+        bail!("CAPTION_SCENE_INVALID: paint choice count");
+    }
+    let mut stacks = Vec::with_capacity(choices.len());
+    for &choice in choices {
+        budget.spend()?;
+        stacks.push(
+            resolved
+                .get(choice)
+                .ok_or_else(|| anyhow::anyhow!("CAPTION_SCENE_INVALID: resolved paint choice"))?
+                .as_slice(),
+        );
+    }
+    record_stacks(
+        node, scene, glyphs, &stacks, true, canvas, text, images, builder, budget,
+    )
+}
+
+/// Resolve effect coordinates by the actual shaped glyph size. Paint domains
+/// retain their own contracts, including glyph-relative gradient outsets.
+fn pixel_effects(layer: &PaintLayer, glyph: &text_paint::GlyphPaint) -> PaintLayer {
+    let mut out = layer.clone();
+    if layer.unit == PaintUnit::Em {
+        let em = f64::from(f32::from_bits(glyph.glyph.cache_key.font_size_bits));
+        out.unit = PaintUnit::Px;
+        out.stroke_width *= em;
+        out.offset = out.offset.map(|value| value * em);
+        out.spread *= em;
+        out.blur *= em;
+        if let Some(PaintMask::GlyphFill { spread, offset, .. }) = &mut out.mask {
+            *spread *= em;
+            *offset = offset.map(|value| value * em);
+        }
+    }
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+fn record_stacks(
+    node: &Node,
+    scene: &Scene,
+    glyphs: &[text_paint::GlyphPaint],
+    stacks: &[&[PaintLayer]],
+    split_effect_scales: bool,
+    canvas: impl Into<text_paint::PaintViewport>,
+    text: &mut TextEngine,
+    images: &BTreeMap<String, BitmapData>,
+    builder: &mut FrameBuilder,
+    budget: &mut Budget,
+) -> Result<()> {
+    let canvas: text_paint::PaintViewport = canvas.into();
     // Validate masks against the selected stack before emitting any operations.
     let mut bitmap_glyphs = Vec::new();
     let mut outline_glyphs = Vec::with_capacity(glyphs.len());
-    for (glyph, choice) in glyphs.iter().zip(choices) {
+    for (glyph, layers) in glyphs.iter().zip(stacks) {
         budget.spend()?;
         let bitmap = matches!(
             text.glyph_render(glyph.glyph.cache_key),
             GlyphRender::ColorBitmap { .. }
         );
         if bitmap {
-            let layers = match choice {
-                Some(index) => &scene.paint_style_bindings[*index].style.paints,
-                None => &node.style.paints,
-            };
             if layers.iter().any(|layer| layer.mask.is_some()) {
                 bail!("CAPTION_SCENE_INVALID: glyph paint mask requires outline glyphs");
             }
@@ -145,18 +220,14 @@ pub(super) fn record(
     // the previous style's fill. Every glyph completes a layer before the next.
     for id in caption_scene::paint_style_order(scene, &node.id)? {
         budget.spend()?;
-        let mut groups: Vec<(PaintLayer, Vec<text_paint::GlyphPaint>)> = Vec::new();
-        for ((glyph, choice), outline) in glyphs.iter().zip(choices).zip(&outline_glyphs) {
+        let mut groups: Vec<(PaintLayer, [u64; 2], Vec<text_paint::GlyphPaint>)> = Vec::new();
+        for ((glyph, layers), outline) in glyphs.iter().zip(stacks).zip(&outline_glyphs) {
             budget.spend()?;
             if !outline {
                 continue;
             }
-            let layers = match choice {
-                Some(index) => &scene.paint_style_bindings[*index].style.paints,
-                None => &node.style.paints,
-            };
             let mut selected_layer = None;
-            for layer in layers {
+            for layer in *layers {
                 budget.spend()?;
                 if layer.id == id {
                     selected_layer = Some(layer);
@@ -166,24 +237,50 @@ pub(super) fn record(
             let Some(layer) = selected_layer else {
                 continue;
             };
+            let pixels;
+            let layer = if split_effect_scales {
+                pixels = pixel_effects(layer, glyph);
+                &pixels
+            } else {
+                layer
+            };
+            // The existing effect recorder uses one device-space sigma per
+            // group. A differing pose scale must therefore form a new group.
+            let scale = if split_effect_scales && layer.blur > 0.0 {
+                let t = glyph.origin;
+                // Outline effects multiply the f32 determinant; image effects
+                // promote each coefficient first. Preserve both recorder scales
+                // even for near-singular transforms where rounding differs.
+                [
+                    f64::from((t.sx * t.sy - t.kx * t.ky).abs())
+                        .sqrt()
+                        .to_bits(),
+                    (f64::from(t.sx) * f64::from(t.sy) - f64::from(t.kx) * f64::from(t.ky))
+                        .abs()
+                        .sqrt()
+                        .to_bits(),
+                ]
+            } else {
+                [0; 2]
+            };
             let mut equal_group = None;
-            for (index, (paint, _)) in groups.iter().enumerate() {
+            for (index, (paint, group_scale, _)) in groups.iter().enumerate() {
                 budget.spend()?;
-                if paint == layer {
+                if paint == layer && *group_scale == scale {
                     equal_group = Some(index);
                     break;
                 }
             }
             if let Some(index) = equal_group {
-                groups[index].1.push(glyph.clone());
+                groups[index].2.push(glyph.clone());
             } else {
-                groups.push((layer.clone(), vec![glyph.clone()]));
+                groups.push((layer.clone(), scale, vec![glyph.clone()]));
             }
         }
         // Equal paint definitions share coverage even across nonadjacent words.
         // Different definitions keep deterministic first-glyph batch order.
         let mut surface_pixels = 0;
-        for (layer, members) in groups {
+        for (layer, _, members) in groups {
             let mut style = node.style.clone();
             style.stroke = None;
             style.paints = vec![layer];
@@ -245,6 +342,7 @@ mod selection_budget_tests {
 
     fn word() -> Unit {
         Unit {
+            reference_ink: None,
             envelope: None,
             page_envelope: None,
             page_lines: None,

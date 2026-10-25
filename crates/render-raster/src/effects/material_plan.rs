@@ -27,8 +27,16 @@ pub enum MaterialSource {
     Draw(std::sync::Arc<FrameOps>),
     Image(ImageQuad),
 }
+/// A local source texture, placed one texel per canvas pixel after filtering.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MaterialCapture {
+    pub origin: [i32; 2],
+    pub width: u32,
+    pub height: u32,
+}
 #[derive(Clone, Debug)]
 pub struct MaterialLayer {
+    pub capture: Option<MaterialCapture>,
     pub source: MaterialSource,
     pub materials: Vec<MaterialCommand>,
     pub blend: AssociatedBlend,

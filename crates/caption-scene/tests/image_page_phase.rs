@@ -111,7 +111,6 @@ fn public_layer_capture_is_not_implicitly_enabled_by_page_phase() {
         "materials":[],"blend":"source-over"
     }]);
     let error = parse_style(&v).unwrap_err();
-    assert_eq!(error.code, "CAPTION_SCENE_INVALID");
-    assert!(error.detail.contains("capture"), "{error}");
-    assert!(error.detail.contains("unknown field"), "{error}");
+    assert_eq!(error.code, "CAPTION_CAPABILITY_REQUIRED");
+    assert!(error.detail.contains("caption-layer-capture/1"), "{error}");
 }

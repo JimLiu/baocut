@@ -343,6 +343,7 @@ mod tests {
         let params = BTreeMap::new();
         let images = BTreeMap::new();
         let r = RenderContext {
+            paint_viewport: None,
             scene: &scene,
             units: &current,
             params: &params,

@@ -474,6 +474,7 @@ pub(super) fn prepare(
             &mut Budget::default(),
         )?;
         pages.push(Page {
+            reference_geometry: None,
             source_range: byte_at(first)..byte_at(last),
             paint_start: byte_at(first),
             bounds: union(lines.iter().map(|line| line.bounds)),
@@ -537,6 +538,7 @@ pub(super) fn reflow(
     )?;
     page_window::inherit_lines(&mut lines, &page.lines)?;
     Ok(Page {
+        reference_geometry: page.reference_geometry.clone(),
         source_range: page.source_range.clone(),
         paint_start: page.paint_start,
         words: page.words.clone(),

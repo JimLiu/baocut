@@ -68,6 +68,7 @@ mod tests {
         let params = cue_parameters(&plan.style, &plan.presentation, cue, &plan.instance_id).unwrap();
         let layout = plan.layouts.values().next().unwrap();
         let r = RenderContext {
+            paint_viewport: None,
             scene,
             units: &BTreeMap::new(),
             params: &params,

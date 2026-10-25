@@ -10,6 +10,8 @@
 
 `cargo test --locked -p caption-scene` 验证类型、单位、函数调用、关键帧、循环与数值语义。实际像素测试在 `subtitle-render/tests/scene.rs`，跨 native/WASM 夹具在 `frame-render/tests/fixtures/parity.json`。
 
+`caption-word-text-projection/1` 在实例的 `cueOverrides[].wordTextProjection` 绑定源词 ID 与当前 cue 文本的 UTF-8 字节半开范围，校验原始文本 SHA-256、完整词序、字符边界和预算；不替换源 speech 文本或词时间。省略字段保留旧精确匹配，static text 不消费此映射，绑定 cue 的节点目前要求 identity textTransform。格式及 occurrence 覆盖语义见[视频格式 §5.6](../../docs/spec/video-format-spec.md#56-layoutprofile样式与导出)；格式回归见 [word_text_projection.rs](tests/word_text_projection.rs)，实际排版/像素回归见 `subtitle-render` 的 `scene::word_text_projection_tests`。
+
 `caption-glyph-distance-coverage/1` 开放静态 `paint.distanceCoverage`：原 glyph 全轮廓距离的 1–2 个 band 共用明确的 quad 导数场，再相乘替代旧覆盖率；有独立段/样本预算和必填零宽策略。字段、互斥和执行边界见[视频格式 §5.6](../../docs/spec/video-format-spec.md#56-layoutprofile样式与导出)，格式回归见 [distance_coverage.rs](tests/distance_coverage.rs)。
 
 `caption-image-distance-coverage/1` 允许在同一轮廓距离覆盖层采样 image paint，必须同时声明原 image／distance 能力。图像坐标保持原域，偏移只改变覆盖场；关联颜色与 base 合成后一次应用覆盖率和透明度，再输出普通 bitmap。已有颜色层及未声明新能力的图像场景保持原准入。
@@ -131,6 +133,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 `caption-paint-style-bindings/1` 增加`Scene.paintStyleBindings: Vec<PaintStyleBinding>`，缺省为空且序列化省略空列表；条目为`{id,nodeId,selectorId,style: PaintStylePatch}`，patch只含可选静态`fill`及必填1–16层的完整替换`paints`，显式null拒绝。最多64条、id唯一；目标限有显式非空基础paints且无旧stroke的Text，选择器限同Text的静态word（all/tag/range/parity及and/or/not，递归禁止state）。最后匹配绑定的整个patch胜出，省略fill沿用节点、父级及既有页填充的普通继承路径，不保留先前绑定fill或强制擦除页填充，再应用word stateStyles和fill动画。某绑定stack无node-fill（含image.base）时，该绑定不得有fill，且该Text不得有任何stateStyles、fill property或fill动画；违反任一项均沿既有guard拒绝，基础stack也须通过原guard，不能静默丢弃fill。字体/字号沿已有绑定，advance和分页成员不变。 同一个global layer ID内不同完整定义的group共同累计16Mi像素的blurred surface allowance，下一个layer ID才重置；绑定匹配中的binding、selector搜索与递归filter求值均计入共享操作budget。彩色字形只在全部轮廓涂装层之后绘制一次位图，不随stack长度重复；实际选中mask的彩色字形仍明确拒绝。
 
 同Text的基础与所有绑定stack共有至多16个不同layer ID；每stack顺序合并为偏序，`paint_style_order(scene: &Scene, node_id: &str) -> Result<Vec<String>>`作稳定拓扑排序，按基础再绑定声明的首次出现顺序打破tie，矛盾环拒绝，支持层增删。渲染按全局layer ID逐层进行；同层内按相同完整PaintLayer定义聚组，组按首glyph首次出现顺序、组内按原glyph顺序，不能按完整style画完一组再画下一组，以免描边/阴影覆盖其他组填充。未活跃stack同样清点资源/能力并复用全部paint数值与预算；同一Text只进入原材质capture一次。无绑定保持旧序列化、执行和像素。完整合同与例子见[视频格式 §5.6](../../docs/spec/video-format-spec.md#56-layoutprofile样式与导出)。
+
+`caption-unit-paint-properties/1` 通过可选有序`Scene.paintPropertyBindings: [{id,nodeId,selectorId,paintId,property,composite,value}]`修改同Text的word单元选中stack中既有逻辑层。color只接受solid/replace，blur为沿该层unit解释的scalar，可replace/add/multiply；每次合成后必须有限且在0–4em或0–256px内，越界采样拒绝。先静态整栈替换，再按声明顺序求属性；当前stack缺层时不执行、不创建层。允许state和递归语义filter，共用函数/关键帧/预算；em效果用真实glyph字号解析成px后聚组，保持全node逻辑层顺序和共享表面预算。它不改变shape、分页、未涂装envelope或局部材质domain；空字段省略，旧路径不变。完整合同见[视频格式 §5.6](../../docs/spec/video-format-spec.md#56-layoutprofile样式与导出)，示例见[unit-paint-properties.json](tests/fixtures/unit-paint-properties.json)。
 
 `caption-render-layers/1` 将根节点子树或 `caption-image-sequence/1` 的有界PNG序列拆成独立处理链，按数组顺序合成。`ScenePlan.render_outputs` 保留关联 source-over / screen；screen 必须直接合到真实背景，单图 render 明确拒绝。`caption-noisy-sweep/1` 提供固定f32噪声扫过遮罩。详见视频格式 §5.6；层间共享采样/表面预算，序列缓存与普通图片共享解码预算。
 

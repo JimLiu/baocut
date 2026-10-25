@@ -2,7 +2,7 @@
 use super::*;
 use render_raster::effects::component_filters as filters;
 use render_raster::effects::filters::blur::box_blur_premul_u8;
-use render_raster::effects::material_plan::MaterialCommand;
+use render_raster::effects::material_plan::{MaterialCapture, MaterialCommand};
 
 const MAX_WORK_PIXELS: u64 = 256 * 1024 * 1024;
 const MAX_SURFACE_BYTES: u64 = 256 * 1024 * 1024;
@@ -98,6 +98,9 @@ fn raster_depth(nodes: &[Node]) -> u64 {
         .unwrap_or(0)
 }
 fn translated(frame: &mut FrameOps, pad: u32) {
+    translate_frame_ops(frame, [pad as f32; 2]);
+}
+pub(super) fn translate_frame_ops(frame: &mut FrameOps, offset: [f32; 2]) {
     for op in &mut frame.ops {
         let matrix = match op {
             DrawOp::FillRect { tf, .. }
@@ -112,11 +115,30 @@ fn translated(frame: &mut FrameOps, pad: u32) {
             _ => None,
         };
         if let Some(m) = matrix {
-            m[4] += pad as f32;
-            m[5] += pad as f32;
+            m[4] += offset[0];
+            m[5] += offset[1];
         }
     }
 }
+pub(super) fn material_surface_context(context: &mut Context, surface: MaterialCapture) {
+    for (key, value) in [
+        ("material.surfaceX", f64::from(surface.origin[0])),
+        ("material.surfaceY", f64::from(surface.origin[1])),
+        ("material.surfaceWidth", f64::from(surface.width)),
+        ("material.surfaceHeight", f64::from(surface.height)),
+    ] {
+        context
+            .fields
+            .insert(key.into(), Evaluated::Number(ValueType::Length, value));
+    }
+}
+
+enum CapturedMaterial {
+    Shared(MaterialCommand),
+    AffineOver(filters::affine_over::Config),
+    GaussianUv(filters::gaussian_uv::Config),
+}
+
 impl ScenePlan {
     pub(super) fn record_materials(
         &mut self,
@@ -163,8 +185,12 @@ impl ScenePlan {
             .filter(|c| t >= c.start && t < c.end)
             .count() as u64;
         // Both FrameOps bytes and the public Vec-backed output planes coexist briefly.
-        let retained =
-            u64::from(self.width) * u64::from(self.height) * 8 * active * layers.len() as u64;
+        let has_capture = layers.iter().any(|layer| layer.capture.is_some());
+        let retained = if has_capture {
+            0
+        } else {
+            u64::from(self.width) * u64::from(self.height) * 8 * active * layers.len() as u64
+        };
         if retained > MAX_SURFACE_BYTES {
             bail!("CAPTION_BUDGET_EXCEEDED: layer outputs");
         }
@@ -172,16 +198,37 @@ impl ScenePlan {
         let mut hits = Vec::new();
         let mut work = Work { pixels: 0 };
         for layer in layers {
-            let (mut ops, layer_hits) = self.record_stack(
-                t,
-                &layer.materials,
-                Some(&layer.source),
-                layer.blend,
-                true,
-                retained,
-                budget,
-                &mut work,
-            )?;
+            // Local captures retain their own actual output bytes, not one canvas
+            // allocation per layer. Existing uncaptured-only budgeting stays unchanged.
+            let retained = if has_capture {
+                result
+                    .bitmaps
+                    .iter()
+                    .map(|image| image.rgba.len() as u64 * 2)
+                    .sum()
+            } else {
+                retained
+            };
+            let (mut ops, layer_hits) = if let Some(capture) = &layer.capture {
+                self.record_captured_stack(t, &layer, capture, retained, budget, &mut work)?
+            } else {
+                let retained = if has_capture {
+                    retained
+                        .saturating_add(u64::from(self.width) * u64::from(self.height) * 8 * active)
+                } else {
+                    retained
+                };
+                self.record_stack(
+                    t,
+                    &layer.materials,
+                    Some(&layer.source),
+                    layer.blend,
+                    true,
+                    retained,
+                    budget,
+                    &mut work,
+                )?
+            };
             let base = result.bitmaps.len() as u32;
             for op in &mut ops.ops {
                 if let DrawOp::DrawEmissiveBitmap { bitmap, .. } = op {
@@ -303,6 +350,174 @@ impl ScenePlan {
         }
         Ok((builder.finish(), hits))
     }
+    /// Rasterize a source directly in its explicit local texture. No canvas
+    /// crop or implicit effect padding can remove source pixels before filtering.
+    fn record_captured_stack(
+        &mut self,
+        t: f64,
+        layer: &CaptionRenderLayer,
+        capture: &CaptionLayerCapture,
+        mut retained: u64,
+        budget: &mut Budget,
+        work: &mut Work,
+    ) -> Result<(FrameOps, Vec<SceneHit>)> {
+        let CaptionLayerSource::Nodes { node_ids } = &layer.source else {
+            bail!("CAPTION_MATERIAL_INVALID: capture requires a node source");
+        };
+        let indices: Vec<_> = self
+            .cues
+            .iter()
+            .enumerate()
+            .filter(|(_, cue)| t >= cue.start && t < cue.end)
+            .map(|(index, _)| index)
+            .collect();
+        let mut builder = FrameBuilder::default();
+        let mut hits = Vec::new();
+        for ci in indices {
+            let Some(surface) = self.resolve_layer_capture(ci, t, capture, budget)? else {
+                continue;
+            };
+            let size = filters::Size {
+                width: surface.width,
+                height: surface.height,
+            };
+            let bytes = u64::from(size.width) * u64::from(size.height) * 4;
+            let mut commands = Vec::with_capacity(layer.materials.len());
+            let mut visible = true;
+            // Reserve source raster isolation, component conversion and retained
+            // output copies before allocating any source or effect image.
+            // Paint preparation shares a frame-wide cap of 16M RGBA-equivalent
+            // pixels, including expanded blur scratch and immutable source bitmaps.
+            let mut peak = bytes
+                .saturating_mul(4 + raster_depth(&self.style.scene().nodes))
+                .saturating_add(64 * 1024 * 1024);
+            for material in &layer.materials {
+                let command = match material {
+                    CaptionMaterial::AffineOver { .. } => self
+                        .resolve_affine_over_on_surface(ci, t, material, surface, budget)?
+                        .map(CapturedMaterial::AffineOver),
+                    CaptionMaterial::GaussianUv { .. } => self
+                        .resolve_gaussian_uv_on_surface(ci, t, material, surface, budget)?
+                        .map(CapturedMaterial::GaussianUv),
+                    _ => self
+                        .resolve_material_command_on_surface(ci, t, material, surface, budget)?
+                        .map(CapturedMaterial::Shared),
+                };
+                let Some(command) = command else {
+                    visible = false;
+                    break;
+                };
+                let extra = match &command {
+                    CapturedMaterial::Shared(MaterialCommand::Glow(config)) => {
+                        filters::estimate_glow_peak_bytes(size, config)?
+                    }
+                    _ => bytes.saturating_mul(4),
+                };
+                peak = peak.saturating_add(extra);
+                commands.push(command);
+            }
+            if !visible {
+                continue;
+            }
+            if peak.saturating_add(retained) > MAX_SURFACE_BYTES {
+                bail!("CAPTION_BUDGET_EXCEEDED: capture surfaces");
+            }
+            let (mut source, source_hits) = self.record_selected_nodes_in_viewport(
+                t,
+                Some(ci),
+                Some(node_ids),
+                Some(surface.into()),
+                budget,
+            )?;
+            translate_frame_ops(&mut source, surface.origin.map(|value| -(value as f32)));
+            work.spend(size.width, size.height)?;
+            let mut image =
+                rasterize_with_media(&source, size.width, size.height, &mut EmptyMedia)?;
+            for command in commands {
+                if let CapturedMaterial::Shared(MaterialCommand::NoisySweep {
+                    domain,
+                    position,
+                    mask_scale,
+                    reveal,
+                    flip_y,
+                }) = command
+                {
+                    image = render_raster::effects::noisy_sweep::apply(
+                        &image,
+                        0,
+                        domain,
+                        position,
+                        mask_scale,
+                        reveal,
+                        if flip_y {
+                            render_raster::effects::noisy_sweep::UvY::Up
+                        } else {
+                            render_raster::effects::noisy_sweep::UvY::Down
+                        },
+                        |count| work.samples(count),
+                    )?;
+                    continue;
+                }
+                work.spend(size.width, size.height)?;
+                let input = component_crop(&image, 0, (size.width, size.height))?;
+                let filtered = match command {
+                    CapturedMaterial::Shared(MaterialCommand::Gaussian(pass)) => {
+                        work.components(filters::estimate_gaussian_reads(&input, pass)?)?;
+                        filters::gaussian(&input, pass)?
+                    }
+                    CapturedMaterial::Shared(MaterialCommand::AffineSampleBlend(config)) => {
+                        filters::affine_samples::apply(&input, &config, |count| {
+                            work.samples(count)
+                        })?
+                    }
+                    CapturedMaterial::Shared(MaterialCommand::Glow(config)) => {
+                        work.components(filters::estimate_glow_reads(&input, &config)?)?;
+                        filters::cascade_glow(&input, &config)?.image
+                    }
+                    CapturedMaterial::AffineOver(config) => {
+                        filters::affine_over::apply(&input, &config, |count| work.samples(count))?
+                    }
+                    CapturedMaterial::GaussianUv(config) => {
+                        filters::gaussian_uv::apply(&input, &config, |count| work.samples(count))?
+                    }
+                    CapturedMaterial::Shared(MaterialCommand::NoisySweep { .. }) => unreachable!(),
+                };
+                if filtered.size() != size {
+                    bail!("CAPTION_MATERIAL_INVALID: capture filter output size");
+                }
+                work.spend(size.width, size.height)?;
+                image = component_surface(filtered, 0, (size.width, size.height))?;
+            }
+            work.spend(size.width, size.height)?;
+            let bitmap = builder.bitmap_id(BitmapData {
+                width: size.width,
+                height: size.height,
+                rgba: Arc::from(image.data()),
+            });
+            builder.push(DrawOp::DrawEmissiveBitmap {
+                bitmap,
+                blend: match layer.blend {
+                    CaptionLayerBlend::SourceOver => {
+                        render_raster::drawop::AssociatedBlend::SourceOver
+                    }
+                    CaptionLayerBlend::Screen => render_raster::drawop::AssociatedBlend::Screen,
+                    CaptionLayerBlend::Add => render_raster::drawop::AssociatedBlend::Add,
+                },
+                opacity: 1.0,
+                tf: [
+                    1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    surface.origin[0] as f32,
+                    surface.origin[1] as f32,
+                ],
+            });
+            retained = retained.saturating_add(bytes.saturating_mul(2));
+            hits.extend(source_hits);
+        }
+        Ok((builder.finish(), hits))
+    }
     pub(super) fn material_page_context(
         &mut self,
         ci: usize,
@@ -358,6 +573,7 @@ impl ScenePlan {
             return Ok(None);
         };
         let render = RenderContext {
+            paint_viewport: None,
             scene,
             units: &units,
             params: &params,
@@ -486,6 +702,7 @@ impl ScenePlan {
                     &self.instance_id,
                     &self.presentation.seed,
                 )?;
+                material_surface_context(&mut context, self.canvas_material_surface());
                 context.stable_key.push_str(&format!("|material|{id}"));
                 let amount = sample_value(
                     radius,
@@ -564,6 +781,7 @@ impl ScenePlan {
                         &self.presentation.seed,
                     )?
                 };
+                material_surface_context(&mut context, self.canvas_material_surface());
                 context.stable_key.push_str(&format!("|material|{id}"));
                 let mut sample = |value: &DynamicValue, ty, fallback| -> Result<f64> {
                     Ok(
@@ -623,6 +841,7 @@ impl ScenePlan {
                     source.data_mut().fill(0);
                     return Ok((source, vec![]));
                 };
+                material_surface_context(&mut context, self.canvas_material_surface());
                 context.stable_key.push_str(&format!("|material|{id}"));
                 let mut sample = |value: &DynamicValue, fallback: f64| -> Result<f64> {
                     Ok(sample_value(
@@ -691,6 +910,7 @@ impl ScenePlan {
                     source.data_mut().fill(0);
                     return Ok((source, vec![]));
                 };
+                material_surface_context(&mut context, self.canvas_material_surface());
                 context.stable_key.push_str(&format!("|material|{id}"));
                 let scene = self.style.scene();
                 let phase = component_uniform(
@@ -991,6 +1211,7 @@ impl ScenePlan {
                     source.data_mut().fill(0);
                     return Ok((source, vec![]));
                 };
+                material_surface_context(&mut context, self.canvas_material_surface());
                 context.stable_key.push_str(&format!("|material|{id}"));
                 let scene = self.style.scene();
                 let mut rect = [0.0; 4];
@@ -1083,6 +1304,7 @@ impl ScenePlan {
                     source.data_mut().fill(0);
                     return Ok((source, vec![]));
                 };
+                material_surface_context(&mut context, self.canvas_material_surface());
                 context.stable_key.push_str(&format!("|material|{id}"));
                 let scene = self.style.scene();
                 let aspect =

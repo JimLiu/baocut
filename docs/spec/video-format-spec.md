@@ -1886,6 +1886,29 @@ interface CaptionStyleBody {
 
 `CaptionItem.presentation` 可保存实例参数、`cueOverrides`（cueId 及可选 occurrenceId）、`wordTags`（wordId 到标签数组）和 16 位十六进制 `seed`。seed 省略时固定为零。参数合并次序为模板默认值、样式参数、实例参数、cue 覆盖、匹配 occurrence 的覆盖；未知参数、错误类型和越界值拒绝。样式与内容仍由各自文档拥有，实际词时间只从有效词流取得；新场景保留源词组，旧样式继续既有拆字路径。
 
+**实例词显示范围。** 场景声明 `caption-word-text-projection/1` 后，`cueOverrides` 项可增加 `wordTextProjection`：
+
+```ts
+interface CaptionWordTextProjection {
+  textSha256: string;
+  words: { wordId: string; start: number; end: number }[];
+}
+interface CaptionCueOverride {
+  cueId: string;
+  occurrenceId?: string | null;
+  parameters: Record<string, CaptionValue>;
+  wordTextProjection?: CaptionWordTextProjection | null;
+}
+```
+
+投影把有效源词绑定到当前 cue 的显示文本，不提供替换文本，不改变源 speech 的词文案、ID 或时间，也不执行大小写或语言转换。`textSha256` 是当前 cue 显示文本原始 UTF-8 字节的 SHA-256，恰好 64 位小写十六进制，不带 `sha256:` 前缀，不先做 Unicode、空白或大小写规范化。`start/end` 是该文本中的非负整数 UTF-8 **字节**偏移，采用半开区间 `[start,end)`，不使用 UTF-16 code unit、Unicode scalar 或字形索引。各端点必须是字符边界，`start < end <= 文本字节数`；相邻词可相接或留间隙，不得交叠。
+
+`words` 必须按有效源词顺序完整列出所有文案非空的词，每个源 `wordId` 恰好一次；不能引用未知 ID、漏词、重复或重排。每个投影的范围数量为 1–4096，全部 cueOverrides 的投影范围数量合计至多 4096；每个 ID 非空且最多 128 UTF-8 字节，范围终点至多 65536。源词的起止时刻必须有限且 `end >= start`，继续作为逐词状态与动画的真实时间。投影可以绑定与源词不同长度的显示片段，范围里的文字无需等于源词；逐词标签仍按同一源 ID 选择，布局、字形 cluster 与选择器统一消费显示范围。
+
+没有 `occurrenceId` 的 cue 投影先应用，再应用匹配当前 occurrence 的投影；后者整个替换前者的摘要和范围，不按词合并。省略或显式 `null` 都表示未提供投影；匹配项未提供投影时保留先前投影，不清除它。相同 `(cueId, occurrenceId)` 的重复项拒绝。未在当前作用域载入的 cue 覆盖可以保留，只有匹配当前 cue 的投影参与正文与源词绑定。有效投影只用于绑定 cue 的文字节点，节点 `textTransform` 必须为省略或 `none`；显式静态文本节点忽略该 cue 投影，沿用自身文本与原有绑定。未提供投影时保留既有精确词文本匹配路径及其错误，不自动大小写折叠或改写 speech。
+
+实例必须在 cue 文本或有效词序列变化后重新生成投影；摘要、源词完整性、范围或时间不符时报 `CAPTION_SCENE_INVALID`，不退回猜测匹配或估算词时间。需要此字段却缺少能力声明时拒绝；旧程序遇到不支持的新能力也必须明确拒绝，不能丢字段后继续渲染。
+
 当前共享 CPU 执行档的字段和能力：
 
 | 领域 | 生效合同 |
@@ -1903,6 +1926,7 @@ interface CaptionStyleBody {
 | 逐字形轮廓距离覆盖 | `caption-glyph-distance-coverage/1` 开放 Text/Label paint 层的可选 `distanceCoverage`：由同一原字形轮廓的 1–2 个有符号距离带相乘替代普通 glyph 覆盖率，保留原涂装坐标与单次 alpha；完整字段、共享导数和预算见下方「轮廓距离覆盖」。省略字段保持旧路径与序列化 |
 | 图片涂装 | `caption-image-paint/1` 增加仅 Text/Label 的 paint `{kind:'image',resourceId,uvTransform:[a,b,c,d,e,f],space,wrap?,filter?,opacity?,compositeOpacity?,base?,phase?,phaseOffset?}`，引用 scene.resources 声明的冻结 PNG；uvTransform/space 必须显式，资源、空间、采样、相位与一次覆盖合成合同见下文「图片涂装」。共享 CPU 录制有界位图，GPU 沿现有 DrawBitmap 合成，不宣称 GPU 原生 texture shader |
 | 静态逐词涂装 | `scene.paintStyleBindings` 以同一 Text 的静态 word selector 选择可选 fill 和完整 paints 替换；须声明 `caption-paint-style-bindings/1`，最多 64 条。所有候选 stack 合并为无环的全局层顺序，默认最多 16 个不同 layer ID，详见下文「逐词静态涂装样式」 |
+| 动态逐词涂装属性 | `scene.paintPropertyBindings` 按声明顺序对选中词的既有逻辑层设置动态 solid color 或 blur；须声明 `caption-unit-paint-properties/1`，不创建层或改变排版，详见下文「逐词动态涂装属性」 |
 | 绘制顺序 | 文字节点按层整体绘制：每个 paint 层（或旧 stroke，然后 fill）覆盖该节点全部字形后再画下一层，描边与投影不会盖住相邻字形的填充。静态逐词涂装沿合并后的全局 layer ID 顺序绘制，同层再按完整 PaintLayer 定义分组，不能先画完一组词的完整 stack；彩色字形位图最后绘制，不参与描边和投影 |
 | 选择器 | cue/page/line/word/grapheme；all、state、tag、range、parity、and/or/not；按基础文字整形的 cluster 归属单元，不把字形拆开 |
 | 状态 | stateStyles 的 unit 为 word，active/read/unread 各为 `{fill}`；gapPolicy 为 none/hold-previous，tailPolicy 为 none/hold-last；timingPolicy 默认 require-word-timing，可显式 estimated |
@@ -1917,7 +1941,7 @@ interface CaptionStyleBody {
 
 录制前对整个节点预计算窗口并原子预留三账本：所有 mask 的工作仍共用 128Mi 像素上限，canvas 按旧公式、local 按每窗口 `2P` 计；local 另在既有 image-paint 的 16Mi RGBA8 等效像素槽预算计 `4P`（base／content／matte 与不可变输出），在其 256Mi work 预算计 `8P`（遮罩通道乘法及输出传输）。任一超限或 checked arithmetic 溢出不改变三计数；原有 paint／PNG／模糊／扩展栈预算仍另计。GPU 接收的是小位图，适用既有位图尺寸与总预算门；不为满足 GPU admission 缩小或截断纹理。没有逐字形全画布 GPU matte 临时表面，但最终帧与材质所需的全画布目标仍保留。
 
-`requiredCapabilities` 当前可声明 `caption-render-layers/1`、`caption-layer-add/1`、`caption-image-sequence/1`、`caption-noisy-sweep/1`、`caption-bound-label/1`、`caption-scene/1`、`caption-text-context/1`、`caption-ink-context/1`、`caption-glyph-envelope/1`、`caption-page-envelope/1`、`caption-unit-context/1`、`caption-cue-word-context/1`、`caption-speech-phase/1`、`caption-first-page-context/1`、`caption-cue-unit-context/1`、`caption-active-word-context/1`、`caption-line-neighbor-context/1`、`caption-line-unit-quota/1`、`caption-word-line-tail-join/1`、`caption-remaining-word-page-plan/1`、`caption-fixed-line-wrap/1`、`caption-fixed-line-fit/1`、`caption-fixed-line-font-box/1`、`caption-page-line-context/1`、`caption-page-tag/1`、`caption-line-box-context/1`、`caption-shape-paint/1`、`caption-expressions/1`、`caption-permutation/1`、`caption-function-dag/1`、`caption-bezier-expression/1`、`caption-exponential-expression/1`、`caption-rounding-expression/1`、`caption-modular-expression/1`、`caption-power-expression/1`、`caption-list-pick/1`、`caption-clock-tail/1`、`caption-unit-animation/1`、`caption-image-png/1`、`caption-image-paint/1`、`caption-paint-stack/1`、`caption-paint-style-bindings/1`、`caption-paint-effects/1`、`caption-paint-coverage/1`、`caption-paint-mask/1`、`caption-paint-mask-transform/1`、`caption-paint-mask-local/1`、`caption-glyph-distance-coverage/1`、`caption-image-distance-coverage/1`、`caption-gradient-space/1`、`caption-gradient-glyph/1`、`caption-font-line-box/1`、`caption-font-source/1`、`caption-font-hinting/1`、`caption-font-shaping/1`、`caption-image-phase-float32/1`、`caption-image-page-phase/1`、`caption-text-transform/1`、`caption-blur/1`、`caption-feedback/1`、`caption-feedback-mean/1`、`caption-wave-displace/1`、`caption-wave-context/1`、`caption-soft-band/1`、`caption-noise-palette-mix/1`、`caption-noise-displace/1`、`caption-scan-warp/1`、`caption-radial-warp/1`、`caption-angular-sample-blend/1`、`caption-affine-sample-blend/1`、`caption-affine-over/1`、`caption-gaussian-uv/1`、`caption-gradient-smear/1`、`caption-gaussian-axis/1`、`caption-gaussian-spacing-ramp/1`、`caption-gaussian-sampling/1`、`caption-glow-cascade/1`、`caption-glow-linear/1`、`caption-glow-tint/1`、`caption-glow-color-matrix/1`、`caption-layout-per-sample/1`、`caption-page-window/1`、`caption-layout-clock/1`、`caption-unit-font-size/1`、`caption-unit-font-reflow/1`、`caption-unit-font-style/1`、`caption-word-line-layout/1`、`caption-word-page-layout/1`、`caption-text-line-layout/1`、`caption-pattern-select/1`、`caption-keyword-isolation/1`、`caption-tag-run-isolation/1`、`caption-scalar-cluster-layout/1`。未知能力、属性或字段拒绝；artifact 形式的场景引用、非 PNG 图片、任意 shader、无限递归反馈、节点级材质栈及改变分页成员的时间布局尚未开放，不能保存为成功后在渲染中忽略。完整扩展方向仍按[设计文档](../design/subtitle/dynamic-caption-format-design.md)维护。
+`requiredCapabilities` 当前可声明 `caption-render-layers/1`、`caption-layer-add/1`、`caption-image-sequence/1`、`caption-noisy-sweep/1`、`caption-bound-label/1`、`caption-scene/1`、`caption-text-context/1`、`caption-ink-context/1`、`caption-glyph-envelope/1`、`caption-page-envelope/1`、`caption-unit-context/1`、`caption-cue-word-context/1`、`caption-speech-phase/1`、`caption-first-page-context/1`、`caption-cue-unit-context/1`、`caption-active-word-context/1`、`caption-line-neighbor-context/1`、`caption-line-unit-quota/1`、`caption-word-line-tail-join/1`、`caption-remaining-word-page-plan/1`、`caption-fixed-line-wrap/1`、`caption-fixed-line-fit/1`、`caption-fixed-line-font-box/1`、`caption-page-line-context/1`、`caption-page-tag/1`、`caption-line-box-context/1`、`caption-shape-paint/1`、`caption-expressions/1`、`caption-permutation/1`、`caption-function-dag/1`、`caption-bezier-expression/1`、`caption-exponential-expression/1`、`caption-rounding-expression/1`、`caption-modular-expression/1`、`caption-power-expression/1`、`caption-list-pick/1`、`caption-clock-tail/1`、`caption-unit-animation/1`、`caption-image-png/1`、`caption-image-paint/1`、`caption-paint-stack/1`、`caption-paint-style-bindings/1`、`caption-unit-paint-properties/1`、`caption-paint-effects/1`、`caption-paint-coverage/1`、`caption-paint-mask/1`、`caption-paint-mask-transform/1`、`caption-paint-mask-local/1`、`caption-glyph-distance-coverage/1`、`caption-image-distance-coverage/1`、`caption-gradient-space/1`、`caption-gradient-glyph/1`、`caption-font-line-box/1`、`caption-font-source/1`、`caption-font-hinting/1`、`caption-font-shaping/1`、`caption-image-phase-float32/1`、`caption-image-page-phase/1`、`caption-text-transform/1`、`caption-word-text-projection/1`、`caption-blur/1`、`caption-feedback/1`、`caption-feedback-mean/1`、`caption-wave-displace/1`、`caption-wave-context/1`、`caption-soft-band/1`、`caption-noise-palette-mix/1`、`caption-noise-displace/1`、`caption-scan-warp/1`、`caption-radial-warp/1`、`caption-angular-sample-blend/1`、`caption-affine-sample-blend/1`、`caption-affine-over/1`、`caption-gaussian-uv/1`、`caption-gradient-smear/1`、`caption-gaussian-axis/1`、`caption-gaussian-spacing-ramp/1`、`caption-gaussian-sampling/1`、`caption-glow-cascade/1`、`caption-glow-linear/1`、`caption-glow-tint/1`、`caption-glow-color-matrix/1`、`caption-layout-per-sample/1`、`caption-page-window/1`、`caption-layout-clock/1`、`caption-unit-font-size/1`、`caption-reference-geometry/1`、`caption-expression-precondition/1`、`caption-layer-capture/1`、`caption-unit-font-reflow/1`、`caption-unit-font-style/1`、`caption-word-line-layout/1`、`caption-word-page-layout/1`、`caption-text-line-layout/1`、`caption-pattern-select/1`、`caption-keyword-isolation/1`、`caption-tag-run-isolation/1`、`caption-scalar-cluster-layout/1`。未知能力、属性或字段拒绝；artifact 形式的场景引用、非 PNG 图片、任意 shader、无限递归反馈、节点级材质栈及改变分页成员的时间布局尚未开放，不能保存为成功后在渲染中忽略。完整扩展方向仍按[设计文档](../design/subtitle/dynamic-caption-format-design.md)维护。
 
 `caption-layout-clock/1` 可选增加 `layout.clock: { time: Expression }`。表达式结果为 `time`，表示 cue 起点之后的采样秒数；缺省不改旧路径。外层 cue／时间线激活仍按原始半开时间窗决定，表达式只在活跃 cue 内执行。先用未映射的 cue 上下文求时钟一次，再用 `cue.start + result` 统一选择页、计算词状态、逐采样字号／布局、绘制 pose 和同 cue 材质（含关键帧）；它不会改写正文、词时间或外层 occurrence 时钟。负值或落在页窗之外可产生空画面，结果必须有限且绝对值不超过 1,000,000 秒，异常明确报错，不夹紧。
 
@@ -2002,6 +2026,10 @@ lines 外层是循环页计划，内层是该页每行的正字数上限：1–2
 列表参数在 `parameters[]` 上写 `list: true`，`type` 为元素类型（scalar/integer/length/time/angle/bool/color 均可），`default` 是 1–256 个同类型元素的 JSON 数组，`min/max` 逐元素检查。声明列表参数必须同时声明 `caption-list-pick/1`。样式、实例与 cue 覆盖按普通参数的次序整体替换列表，可以改变长度，但仍须是非空、同类型、不越界的数组；空数组、非数组、混合类型返回诊断。全部列表参数解析后的元素总数不超过 1024，超出返回 `CAPTION_BUDGET_EXCEEDED`。列表参数只能经 `pick` 读取：直接 `read` 返回 `CAPTION_EXPRESSION_TYPE`，长度字段的 `parameter` 不能引用列表参数。`list` 省略即 false，序列化时省略，旧正文逐字节不变。`pick` 与 `shuffle-index` 组合即按 seed 置换后取值，两者都不读取时间。可运行示例见 [builtin-expressions.json](../../crates/caption-scene/tests/fixtures/builtin-expressions.json)。
 
 关键帧 clock 可写 `tail: 'none' | 'clamp' | 'repeat'`，决定原点之后的周期进度 `u`；省略即 `none`，序列化时不写出，旧文档字节与像素不变。非 `none` 必须显式声明 `caption-clock-tail/1`，缺失返回 `CAPTION_CAPABILITY_REQUIRED`；与 `clock.repeat` 同时出现返回 `CAPTION_SCENE_INVALID`（两者都改写周期进度，不叠加）。`none`：`u=(t-origin)/D`，可超过 1。`clamp`：原点之后取 `min(t-origin, D)/D`，与表达式字段 `time.clampedProgress` 的上端一致，原点之前不改写；零时长仍是一步跳变。`repeat`：原点之后取 `mod(t-origin, D)/D`（向下取整取模，同 `mod` 函数），落在 `[0,1)`，周期右端点 `t=origin+kD` 属于下一周期、取 `u=0`；没有终点，原点之前不回绕。固定零时长在验证时返回 `CAPTION_SCENE_INVALID`，`unit-span` 在采样时取得零时长同样返回该诊断。`tail` 只决定数值，是否参与仍由 `fill` 决定：`u` 小于首个 key 用 `fill.before`，`u` 不小于末个 key 用 `fill.after`。因 key 的 `at` 位于 `[0,1]`，`clamp` 的取值与 `none` 一致，声明它只表明意图；`repeat` 末个 key 早于 1 时，各周期尾段仍按 `fill.after` 参与或不参与。示例见 [clock-tail.json](../../crates/caption-scene/tests/fixtures/clock-tail.json)。
+
+**表达式前置条件**。`caption-expression-precondition/1` 开放 `call('require', [condition,value])`，condition必须为bool，结果保持value的原类型（scalar/integer/length/time/angle/bool/color）。执行时先求condition；false立即返回 `CAPTION_PRECONDITION_FAILED`，不求value；true才求value并传播它的实际错误。静态类型、函数DAG、依赖与作用域校验仍访问两参及所有间接函数体，不能用false条件隐藏布局循环或非法material字段。适合在使用可选几何时执行 `require(unit.referenceInkAvailable, delta)`，不能把缺失字形当零坐标继续绘制。
+
+此条件只在该表达式实际执行时生效，不是自动编译期或load前几何预检；时间、可见性或选择器跳过的单元不会被额外强制执行。参考字段的零值及availability合同不变。声明此能力后require是保留内置名；未声明时，已有同名用户函数继续原本的普通／DAG推断与求值行为，未声明且未定义的require调用明确要求能力。省略新能力不改变旧表达式分派。
 
 `caption-text-context/1` 增加 `unit.textIndex/textCount`（当前文字节点完整内容中的 Unicode 字素位置/数量）和 `unit.pageTextIndex/pageTextCount`（当前页的源文本范围内位置/数量）；空格、换行和组合字素按原文计数，重排不改变它们。`time.cueDurationSeconds` 是整个 cue 的时长，`time.pageElapsedSeconds/pageDurationSeconds` 是当前页经过的时间/时长，类型均为 time，repeat 装饰继承所绑定单元的上下文。旧 `unit.index/count` 的局部含义保持不变。
 
@@ -2094,6 +2122,12 @@ label 的静态 `TextStyle` 包含自己的字体族、字重、斜体、字距�
 
 **按宽度换行页的逐单元字号重排**。`caption-unit-font-reflow/1` 只用于没有 `wordLinePattern`/`textLinePattern`/`remainingWordPagePlans` 的页，并要求非空 `fontSizeBindings`，否则返回 `CAPTION_SCENE_INVALID`。页成员、页显示时间和页数仍在编译时按基础字号冻结；每次采样先按上面的规则求出字号区间，再用实际字号对当前页的源文本按同一按词换行规则重新折行，行数可以变化，词不会移到别的页。折行后超过 `maxLines` 时，`overflow:error` 返回 `CAPTION_LAYOUT_OVERFLOW`，visible 保留全部行；单行超宽与固定行相同。字号选择与字号表达式仍在准备阶段的基础行上求值。重新折行的行在采样之间没有稳定身份，因此场景不得声明 line 选择器、按 range/parity 筛选的 word 选择器或 line 时钟，也不得读取 `time.lineElapsedSeconds/lineDurationSeconds`，违者返回 `CAPTION_SCENE_INVALID`；页窗本来就要求固定行。绘制阶段 word 的 `unit.index/count` 按当次采样的行计算。`fontStyleBindings` 仍要求固定行。同时声明 `caption-cue-unit-context/1` 时，所有页按同一时刻重新折行后再计全局行数。重新折行的测量计入共享操作预算。示例见 [unit-font-reflow.json](../../crates/caption-scene/tests/fixtures/unit-font-reflow.json)。
 
+**动画前的参考字形几何**。显式能力 `caption-reference-geometry/1` 为所有 Text 的冻结页/行成员建立独立参考排版，要求 `layoutEvaluation: per-sample` 与明确固定的 word/text 行模式。`fontSizeBindings` 增加可选 length DynamicValue `referenceValue`；声明此能力时全部字号绑定都必须提供它，未声明时不得提供。参考字号同样限 1–4096 输出像素，按现有绑定顺序覆盖原文字节范围，再应用相同的静态 `fontStyleBindings`。没有字号绑定的 Text 使用基础字号。字体样式与字号选择器不得使用 `State`，参考字号只接受常量或稳定表达式；禁止 keyframes、time、layout、material、状态或几何可用性读取，函数间接依赖同样检查。参数、画布与稳定语义序号仍可使用。
+
+参考几何在编译时以原始静态布局、节点样式、cue 参数和参考字号求得，不采样 `layout.bindings` 或绘制动画；后续动态字号、布局位置与动画矩阵不会移动它。只缓存每页按源 cluster 索引的墨迹并集，实际排版仍使用原有 `value`。`layout.referenceInkX/Y/Width/Height` 为当前单元原文字节成员在参考页中的未涂装真实 glyph ink 并集，使用未变换画布坐标；不含描边、阴影、发光、材质或 advance/行框回退。按 cluster 首字节归属，不拆连字。没有真实 ink 时四值为零、`unit.referenceInkAvailable=false`；这些只读字段均需声明新能力。参考 shaping 与实际 shaping 使用同一字体解析；不承诺其它字体后端的 bbox 含义相同。
+
+参考页在 cue/node/page 身份下仅生成一次，参数覆盖和字体来源属于编译计划身份，逆序 seek 不重新采样参考字号。参考 glyph 数计入既有 131072 prepared glyph 总上限，参考区间切分、整形准备与索引构建共用每 cue/node 的 65536 操作预算与8192 typography runs上限；逐帧范围查询和绑定计入当前共享预算。省略能力及字段不建立参考缓存、不增测量、不改变旧帧。
+
 **关联颜色与发光位图传输**。共享 DrawOp 的 `DrawEmissiveBitmap { bitmap, opacity, tf, blend }` 使用位图侧表的四个独立 RGBA8 UNORM 分量，RGB 可以大于 alpha，甚至在 alpha 为零时仍贡献光。当 blend 为 source-over 时使用 BCOP v6 的 tag 14，旧编码逐字节不变；screen 使用 v7 的 tag 15，add 使用 v9 的 tag 21，payload 相同：bitmap u32、opacity f32、六个仿射 f32（均 little-endian），侧表布局沿用 v5。详见[DrawOp 二进制规范](drawop-binary-spec.md)。仅实际含关联 source-over 的帧提升到 v6，含关联 screen 的帧提升到 v7，含关联 add 的帧提升到 v9；普通 v3/v4/v5 帧的编码不变。普通 `DrawBitmap` 仍要求预乘像素，不能暗中承载发光分量。
 
 CPU/native/WASM 对发光位图执行同一个 source-over：`Cout = Cs + (1−As)Cd`、`Aout = As + (1−As)Ad`。逆仿射在目标像素中心求源坐标，源像素中心使用双线性过滤，图外为透明零，不夹到边缘；opacity 和 clip 覆盖率同时乘源的全部四个分量。合成结果各分量独立按最近整数舍入并限于 0–255，不将 RGB 限到 alpha。离屏组、遮罩和透明内容判定不能仅因 alpha 为零而丢弃非零 RGB。含发光分量时，未定义的非 Normal 混合返回 `EMISSIVE_BLEND_UNSUPPORTED`；尚未支持关联分量的通用滤镜/转场返回明确能力错误，不默用普通预乘路径。当前执行器为共享 CPU reference；GPU feature 尚不可用，未宣称额外 GPU 支持。
@@ -2169,6 +2203,30 @@ interface PaintStylePatch {
   ]
 }
 ```
+
+**逐词动态涂装属性**。能力 `caption-unit-paint-properties/1` 开放 `Scene.paintPropertyBindings`，缺省为空列表，序列化省略空列表，显式null拒绝。每条绑定只修改一个已经存在的逻辑涂装层属性：
+
+```ts
+interface PaintPropertyBinding {
+  id: string;
+  nodeId: string;
+  selectorId: string;
+  paintId: string;                // PaintLayer.id，不是数组序号
+  property: 'color' | 'blur';
+  composite: 'replace' | 'add' | 'multiply';
+  value: DynamicValue;
+}
+```
+
+最多64条，id在本列表内唯一；目标限有显式非空基础`style.paints`且没有旧`style.stroke`的Text。选择器必须引用同一Text的word单元，支持all/tag/range/parity、动态state及其and/or/not组合，沿用已有过滤器深度、数量与执行预算。paintId必须在基础stack及该Text所有静态paintStyleBindings的层并集中出现；未活跃静态分支同样参与验证。若当前字形选中的完整stack省略此paintId，本条绑定不执行，不创建层，不回退到基础stack的同名层。未知字段、属性、composite、显式null或缺少必填字段均拒绝，不接受priority。
+
+先按既有规则选出完整静态stack，再按paintPropertyBindings的声明顺序应用所有匹配属性绑定。同属性后续绑定以刚合成的值为基底；每次采样都从该时刻选中的静态stack重新开始，seek和反馈历史不累积上次状态。`color`要求replace和color类型DynamicValue，且所有可能stack中同paintId的现存定义都必须是solid，即使该分支当前不匹配；不能用属性绑定把gradient、image或node-fill悄悄改为solid。fill继承、word stateStyles和fill动画仍沿用原顺序，node-fill读取最终字形fill，独立层的color不会覆盖它。
+
+`blur`要求scalar类型DynamicValue和`caption-paint-effects/1`，沿选中PaintLayer既有unit解释：em为实际字形解析字号的倍数，px为变换前像素数量。replace直接使用新值，add加到当前blur，multiply乘当前blur；负add操作数允许，但**每次合成后的blur**都必须有限且在em的0–4或px的0–256内，否则采样明确拒绝，不夹紧，不等到后续绑定补回合法范围。const/表达式/纯函数/关键帧共用既有类型、时钟、函数和操作预算；缺真实词时间时不为关键帧制造时序。它们只读同一时刻已解析语义单元、原字形几何及显式开启的上下文字段，不反向修改shape、advance、行页成员、字号或命中框，也不提供自身paint bounds作为反馈输入。
+
+em效果按各字形真实缓存字号解析，之后再进入既有字形变换；不能用节点基础字号或绘制scale冒充真实字号。动态路径将层的em效果解析成px后按完整解析定义聚组，保留字形顺序；同一逻辑层不同实际字号或动态值不得因为原始em定义相同而被合成一份最大sigma。外层继续全Text的全局逻辑layer顺序，不能逐词画完整stack。相同逻辑layer ID的动态group共用既有16Mi像素surface allowance，选择器匹配、表达式与分组均计入共享操作预算；彩色字形与mask仍沿用现有准入和最后位图绘制规则。
+
+该能力不改变已有未涂装的ink/page envelope字段，也不隐式扩大局部材质domain。局部capture的domain仍须由作者显式覆盖预期的动态paint范围，同一个Text只进入原材质链一次；反馈的每个历史采样分别重算字号、选集和paint属性。无绑定时保持旧执行路径、序列化及像素。完整示例见[unit-paint-properties.json](../../crates/caption-scene/tests/fixtures/unit-paint-properties.json)。
 
 **模糊、发光、位移、遮罩与反馈材质**。场景的 `materials` 按数组顺序执行，逐 cue 隔离，作用于该 cue 的完整文字和装饰合成；最多 8 项，每项 id 唯一。材质输出使用 sRGB 关联 RGBA8；普通颜色满足 RGB ≤ alpha，显式发光分量允许 RGB > alpha，输出记录为相应 DrawOp 位图，精确预览与导出共用；点击几何来自当前时刻的文字，不把拖尾当作可编辑文字。
 
@@ -2293,6 +2351,12 @@ soft-band 固定以原始画布归一化坐标计算，`U = (x + .5 − padding)
 **独立渲染层与真实背景合成**。`caption-render-layers/1` 启用可选 `scene.renderLayers`，最多8项，按数组顺序输出；同一层内按原始cue顺序绘制所有当前活跃cue，重叠cue也不改变层的先后。每项具有唯一 `id`、`source`、最多8个 `materials` 和显式 `blend: source-over|screen|add`（add 另须声明 `caption-layer-add/1`，否则 `CAPTION_CAPABILITY_REQUIRED`）；此时全局 `scene.materials` 必须为空。`source.kind=nodes` 通过 `nodeIds` 选取不重复的场景根节点，每个源只栅格化该子树，未选节点仍参与布局与时钟求值。层内组件材质须绑定该层唯一 Text；不同层可以选择同一文字形成独立处理链，也可以引用不同文字。材质标识在整个场景唯一。旧场景省略 renderLayers 时行为不变。
 
 source-over 使用上述关联分量公式；screen 对每个 RGBA 分量使用 `S+D×(1−S)`，add 对每个 RGBA 分量（含 alpha）使用 `S+D` 并钳到 RGBA8，opacity 与 clip 同乘四个源分量，逐次写目标均独立量化。输出层必须直接作用到真实背景；先在透明底合并再 source-over 会改变结果。共享 `ScenePlan.render_outputs` 保留有序输出，frame-render 逐层合成，字幕实例 opacity 逐输出层应用。单图 `ScenePlan.render` / `CaptionPlan.render` 遇 screen 或 add 明确返回 `CAPTION_BACKDROP_REQUIRED`。通用 DrawOp 的 screen 与 add 只允许根目标（可带仿射与 clip），PushLayer 或 PushMatte 内明确拒绝，不能隐式更改隔离语义。GPU 材质计划把 add 层映射为 RGBA 四分量 One/One 加法混合，写入 RGBA8 目标时同样钳制。示例见 [layer-add.json](../../crates/caption-scene/tests/fixtures/layer-add.json)。材质工作的256Mi采样预算在各层共享，256MiB表面预算包含暂存输出和传输副本，不能每层重置。
+
+**局部层捕获**。`caption-layer-capture/1` 开放 `renderLayers[].capture: {contextNodeId,rect:{x,y,width,height}}`。首版只用于 `source.kind=nodes`，目标必须是该源子树唯一 Text；空材质或 `noisy-sweep`、`gaussian-axis`、`gaussian-uv`、`affine-sample-blend`、`affine-over`、`glow-cascade` 的无历史链可使用，其他材料及 Feedback 组合拒绝。四项为 length DynamicValue，在该页完成排版后求值；实际值必须是整数，x/y 为±1000000，width/height为1–4096。不自动夹取或四舍五入；可用表达式显式 floor/ceil。原点允许为负，矩形可以越过最终画布。
+
+源保留全局排版和动画上下文；描边、阴影、coverage和图片涂装的预栅格化也使用捕获矩形对应的全局范围并保留模糊reach，不能提前裁到原canvas。这些expanded paint位图及模糊scratch共用既有64MiB涂装预算，捕获材质峰值另预留该上界。将全部绘制操作平移 `[-x,-y]` 后直接栅格化到独立 `width×height` 纹理，保留最终画布外的源内容；不是先画全画布再裁切。此矩形就是显式纹理边界，不叠加旧自动 padding。材料的输入、输出与UV尺寸均相对局部表面，完成后以1:1和原层blend贴回 `[x,y]`，最后由最终画布裁切。`canvas.*`、`layout.*`、页与cue时钟仍保持全局语义；材料表达式可读取 length `material.surfaceX/Y/Width/Height`（局部表面全局原点与实际尺寸）。捕获矩形、普通节点与其它非材料表达式禁止读取这些字段，函数间接读取同样拒绝；避免循环或把局部尺寸误当布局画布。省略capture维持旧路径；已声明能力但无capture的材料上下文使用surface原点(0,0)与全画布尺寸。
+
+局部源、每个中间表面、输出保留与贴回副本均计入既有256MiB表面预算，像素工作预算按实际局部尺寸共享计费；超限明确失败，不缩小捕获域。首版CPU支持此路径；GPU有序计划在编码前明确报告捕获层尚不支持，由宿主显示既有CPU回退。`affine-over` / `gaussian-uv` 的GPU支持边界保持原义，不因新增capture而宣称已支持。
 
 **有界图片序列**。`caption-image-sequence/1` 启用 `scene.sequences`：最多64个逻辑序列，每个含唯一 `id`、1..256个标准 `ImageResource` 帧、显式 `premultiply: rounded|shifted-byte`。帧 id 在序列内唯一，assetRef 与 SHA-256 进入正式素材依赖、缺失检查及打包。全部压缩帧限制32MiB；加载时取得所有字节并验证摘要及PNG头，实际选中帧才完整解码。解码输出为RGBA8：调色板及灰度输入接受合法1/2/4/8位，RGB、灰度加alpha及RGBA输入接受8位，拒绝16位；低位深与调色板先展开，再执行预乘。rounded 使用最近整数的 `C×A/255`；shifted-byte 使用整数 `(C×(A+1))>>8`，alpha保持原值；均在双线性采样前执行，不能二次预乘。
 

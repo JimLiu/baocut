@@ -188,6 +188,7 @@ fn sample_runs(
     presentation: &Presentation,
     instance: &str,
     budget: &mut Budget,
+    reference: bool,
 ) -> Result<Vec<TypographyRun>> {
     let page = &base.pages[page_index];
     let base_size = node.style.font_size.resolve(size.0, size.1, params)?;
@@ -220,6 +221,7 @@ fn sample_runs(
     let empty_units = BTreeMap::new();
     let images = BTreeMap::new();
     let rendering = RenderContext {
+        paint_viewport: None,
         scene,
         units: &empty_units,
         params,
@@ -236,6 +238,14 @@ fn sample_runs(
         .iter()
         .filter(|binding| binding.node_id == node.id)
     {
+        let value = if reference {
+            binding
+                .reference_value
+                .as_ref()
+                .expect("validated reference font size")
+        } else {
+            &binding.value
+        };
         let selector = scene
             .selectors
             .iter()
@@ -272,19 +282,12 @@ fn sample_runs(
             context
                 .stable_key
                 .push_str(&format!("|font-size|{}|{}", node.id, binding.id));
-            if let DynamicValue::Keyframes { clock, .. } = &binding.value {
+            if let DynamicValue::Keyframes { clock, .. } = value {
                 if !context.spans.contains_key(&clock.unit) {
                     continue;
                 }
             }
-            let Some(value) = sample_value(
-                &binding.value,
-                ValueType::Length,
-                scene,
-                &context,
-                t,
-                budget,
-            )?
+            let Some(value) = sample_value(value, ValueType::Length, scene, &context, t, budget)?
             else {
                 continue;
             };
@@ -512,6 +515,7 @@ pub(super) fn reflow(
     presentation: &Presentation,
     instance: &str,
     budget: &mut Budget,
+    reference: bool,
 ) -> Result<Page> {
     let page = &base.pages[page_index];
     let cfg = &scene.layout;
@@ -527,6 +531,7 @@ pub(super) fn reflow(
         presentation,
         instance,
         budget,
+        reference,
     )?;
     let base_size = node.style.font_size.resolve(size.0, size.1, params)?;
     let width = cfg.width.resolve(size.0, size.1, params)?;
@@ -613,6 +618,7 @@ pub(super) fn reflow(
     }
     page_window::inherit_lines(&mut lines, &page.lines)?;
     Ok(Page {
+        reference_geometry: page.reference_geometry.clone(),
         source_range: page.source_range.clone(),
         paint_start: page.paint_start,
         words: page.words.clone(),

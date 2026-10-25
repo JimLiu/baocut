@@ -12,17 +12,29 @@ use render_raster::fonts::ShapedGlyph;
 /// Largest device surface one blurred paint layer may allocate.
 const MAX_BLUR_PIXELS: u64 = 16 * 1024 * 1024;
 
-/// Allocation bounds only; paint coordinates remain in the global canvas.
+/// Pixel allocation viewport only; layout, glyph origins and paint coordinates
+/// remain in the scene's global canvas coordinate system.
 #[derive(Clone, Copy)]
 pub(super) struct PaintViewport {
     pub origin: [i32; 2],
     pub size: (u32, u32),
+    pub captured: bool,
 }
 impl From<(u32, u32)> for PaintViewport {
     fn from(size: (u32, u32)) -> Self {
         Self {
             origin: [0, 0],
             size,
+            captured: false,
+        }
+    }
+}
+impl From<render_raster::effects::material_plan::MaterialCapture> for PaintViewport {
+    fn from(capture: render_raster::effects::material_plan::MaterialCapture) -> Self {
+        Self {
+            origin: capture.origin,
+            size: (capture.width, capture.height),
+            captured: true,
         }
     }
 }
@@ -59,12 +71,13 @@ pub(super) enum Shape {
 pub(super) fn record_glyphs(
     style: &TextStyle,
     glyphs: &[GlyphPaint],
-    canvas: (u32, u32),
+    canvas: impl Into<PaintViewport>,
     text: &mut TextEngine,
     images: &BTreeMap<String, BitmapData>,
     b: &mut FrameBuilder,
     budget: &mut Budget,
 ) -> Result<()> {
+    let canvas: PaintViewport = canvas.into();
     record_glyphs_with_surfaces(style, glyphs, canvas, text, images, b, budget, None)
 }
 
@@ -74,13 +87,14 @@ pub(super) fn record_glyphs(
 pub(super) fn record_glyphs_with_surfaces(
     style: &TextStyle,
     glyphs: &[GlyphPaint],
-    canvas: (u32, u32),
+    canvas: impl Into<PaintViewport>,
     text: &mut TextEngine,
     images: &BTreeMap<String, BitmapData>,
     b: &mut FrameBuilder,
     budget: &mut Budget,
     mut shared_surface_pixels: Option<&mut u64>,
 ) -> Result<()> {
+    let canvas: PaintViewport = canvas.into();
     let mut shapes = Vec::with_capacity(glyphs.len());
     for g in glyphs {
         shapes.push(match text.glyph_render(g.glyph.cache_key) {
@@ -277,7 +291,7 @@ fn masked_glyph(
     mask: PaintMask,
     g: &GlyphPaint,
     shape: &Shape,
-    canvas: (u32, u32),
+    canvas: PaintViewport,
     images: &BTreeMap<String, BitmapData>,
     b: &mut FrameBuilder,
     budget: &mut Budget,
@@ -440,11 +454,12 @@ fn coverage_layer_with_surfaces(
     layer: &PaintLayer,
     glyphs: &[GlyphPaint],
     shapes: &[Shape],
-    canvas: (u32, u32),
+    canvas: impl Into<PaintViewport>,
     b: &mut FrameBuilder,
     budget: &mut Budget,
     surface_pixels: &mut u64,
 ) -> Result<()> {
+    let canvas: PaintViewport = canvas.into();
     let mut start = 0;
     while start < glyphs.len() {
         if !matches!(shapes[start], Shape::Outline(_)) {
@@ -617,11 +632,12 @@ fn effect_layer(
     layer: &PaintLayer,
     glyphs: &[GlyphPaint],
     shapes: &[Shape],
-    canvas: (u32, u32),
+    canvas: impl Into<PaintViewport>,
     b: &mut FrameBuilder,
     budget: &mut Budget,
     surface_pixels: &mut u64,
 ) -> Result<()> {
+    let canvas: PaintViewport = canvas.into();
     let mut device: Option<[f32; 4]> = None;
     let mut sigma = 0.0_f64;
     for (g, shape) in glyphs.iter().zip(shapes) {
@@ -654,16 +670,16 @@ fn effect_layer(
     if sigma < MIN_SIGMA && layer.coverage.is_none() {
         return isolated(layer, glyphs, shapes, Transform::identity(), b, budget);
     }
-    // Only the canvas plus the blur reach can contribute visible pixels.
+    // Only this source viewport plus the blur reach can contribute pixels.
     let pad = (3.0 * sigma).ceil() + 1.0;
-    let x0 = (f64::from(device[0]) - pad).floor().max(-pad);
-    let y0 = (f64::from(device[1]) - pad).floor().max(-pad);
-    let x1 = (f64::from(device[2]) + pad)
-        .ceil()
-        .min(f64::from(canvas.0) + pad);
-    let y1 = (f64::from(device[3]) + pad)
-        .ceil()
-        .min(f64::from(canvas.1) + pad);
+    let x0 = (f64::from(device[0]) - pad)
+        .floor()
+        .max(canvas.min(0) - pad);
+    let y0 = (f64::from(device[1]) - pad)
+        .floor()
+        .max(canvas.min(1) - pad);
+    let x1 = (f64::from(device[2]) + pad).ceil().min(canvas.max(0) + pad);
+    let y1 = (f64::from(device[3]) + pad).ceil().min(canvas.max(1) + pad);
     if !(x1 > x0 && y1 > y0) {
         return Ok(());
     }
@@ -696,6 +712,15 @@ fn effect_layer(
             .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: extended paint scratch"))?,
         work,
     )?;
+    if canvas.captured {
+        // Shared with image paints for the entire sampled frame: source RGBA,
+        // isolation, immutable bitmap transfer and the f32 Gaussian row scratch.
+        let pixels = usize::try_from(u64::from(width) * u64::from(height))
+            .ok()
+            .and_then(|pixels| pixels.checked_mul(6))
+            .ok_or_else(|| anyhow::anyhow!("CAPTION_BUDGET_EXCEEDED: capture paint scratch"))?;
+        budget.reserve_image_paint_pixels(pixels)?;
+    }
     let mut sub = FrameBuilder::default();
     let shift = Transform::from_translate(-x0 as f32, -y0 as f32);
     isolated(layer, glyphs, shapes, shift, &mut sub, budget)?;

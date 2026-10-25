@@ -1,6 +1,6 @@
 //! Explicit local mask baking. Paint domains remain in global coordinates;
 //! only the final matte replay is translated into an integer device viewport.
-use super::text_paint::{GlyphPaint, Shape, em};
+use super::text_paint::{GlyphPaint, PaintViewport, Shape, em};
 use super::*;
 
 #[derive(Clone, Copy, Debug)]
@@ -16,7 +16,7 @@ pub(super) fn prepare(
     style: &TextStyle,
     glyphs: &[GlyphPaint],
     shapes: &[Shape],
-    canvas: (u32, u32),
+    canvas: PaintViewport,
     budget: &mut Budget,
 ) -> Result<Windows> {
     let mut windows = Windows::new();
@@ -31,7 +31,7 @@ pub(super) fn prepare(
             bail!("CAPTION_SCENE_INVALID: glyph paint mask requires outline glyphs");
         }
         if rasterization == PaintMaskRasterization::Canvas
-            && u64::from(canvas.0) * u64::from(canvas.1) > 16 * 1024 * 1024
+            && u64::from(canvas.size.0) * u64::from(canvas.size.1) > 16 * 1024 * 1024
         {
             bail!("CAPTION_BUDGET_EXCEEDED: paint mask surface");
         }
@@ -45,8 +45,8 @@ pub(super) fn prepare(
                 support(layer, g, path, canvas)?
             } else {
                 Some(Window {
-                    origin: [0, 0],
-                    size: canvas,
+                    origin: canvas.origin,
+                    size: canvas.size,
                 })
             };
             if let Some(window) = window {
@@ -87,7 +87,7 @@ fn support(
     layer: &PaintLayer,
     g: &GlyphPaint,
     path: &tiny_skia::Path,
-    canvas: (u32, u32),
+    canvas: PaintViewport,
 ) -> Result<Option<Window>> {
     let unit = em(g, layer.unit);
     // Solid stroked paths may use the default miter join. Four half-widths
@@ -129,28 +129,28 @@ fn support(
         .fold(f64::INFINITY, f64::min)
         - pad)
         .floor()
-        .max(0.0);
+        .max(canvas.min(0));
     let y0 = (corners
         .iter()
         .map(|p| f64::from(p.y))
         .fold(f64::INFINITY, f64::min)
         - pad)
         .floor()
-        .max(0.0);
+        .max(canvas.min(1));
     let x1 = (corners
         .iter()
         .map(|p| f64::from(p.x))
         .fold(f64::NEG_INFINITY, f64::max)
         + pad)
         .ceil()
-        .min(f64::from(canvas.0));
+        .min(canvas.max(0));
     let y1 = (corners
         .iter()
         .map(|p| f64::from(p.y))
         .fold(f64::NEG_INFINITY, f64::max)
         + pad)
         .ceil()
-        .min(f64::from(canvas.1));
+        .min(canvas.max(1));
     if x1 <= x0 || y1 <= y0 {
         return Ok(None);
     }

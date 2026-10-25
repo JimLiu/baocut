@@ -154,6 +154,7 @@ fn material(sources: Vec<Arc<FrameOps>>) -> MaterialFrame {
         layers: sources
             .into_iter()
             .map(|ops| MaterialLayer {
+                capture: None,
                 source: MaterialSource::Draw(ops),
                 materials: vec![],
                 blend: AssociatedBlend::SourceOver,

@@ -367,9 +367,8 @@ fn undeclared_dynamic_paint_properties_do_not_expand_distance_schema() {
                 "property":property,"composite":"replace","value":{"kind":"constant","value":value}
             }]);
             let error = parse_style(&body).unwrap_err();
-            assert_eq!(error.code, "CAPTION_SCENE_INVALID");
-            assert!(error.detail.contains("paintPropertyBindings"), "{error}");
-            assert!(error.detail.contains("unknown field"), "{error}");
+            assert_eq!(error.code, "CAPTION_CAPABILITY_REQUIRED");
+            assert!(error.detail.contains("caption-unit-paint-properties/1"), "{error}");
         }
     }
 }

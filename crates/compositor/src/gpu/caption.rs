@@ -78,6 +78,10 @@ impl CaptionGpuRenderer {
             "gpu-caption-target-size"
         );
         ensure!(frame.layers.len() <= 64, "gpu-caption-layer-limit");
+        ensure!(
+            frame.layers.iter().all(|layer| layer.capture.is_none()),
+            "gpu-caption-layer-capture-unsupported"
+        );
         let limit = self.device().limits().max_texture_dimension_2d;
         ensure!(frame.width <= limit && frame.height <= limit, "gpu-caption-size-limit");
         let frame_bytes = u64::from(frame.width) * u64::from(frame.height) * 4;

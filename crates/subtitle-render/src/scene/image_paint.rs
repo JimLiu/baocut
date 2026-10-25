@@ -1,6 +1,6 @@
 //! Explicit image paint domains, lowered to bounded associated RGBA surfaces.
 //! The resulting ordinary DrawBitmap has the same CPU/native/WASM/GPU transport.
-use super::text_paint::{GlyphPaint, Shape};
+use super::text_paint::{GlyphPaint, PaintViewport, Shape};
 use super::*;
 use render_raster::effects::filters::gaussian::{MIN_SIGMA, gaussian_blur_premul_u8};
 use render_raster::image_pattern::{Filter, Sampler, Wrap, over_base};
@@ -349,11 +349,12 @@ pub(super) fn record_layer(
     layer: &PaintLayer,
     glyphs: &[GlyphPaint],
     shapes: &[Shape],
-    canvas: (u32, u32),
+    canvas: impl Into<PaintViewport>,
     images: &BTreeMap<String, BitmapData>,
     builder: &mut FrameBuilder,
     budget: &mut Budget,
 ) -> Result<()> {
+    let canvas: PaintViewport = canvas.into();
     if layer.spread == 0. && layer.blur == 0. {
         return record_run(layer, glyphs, shapes, canvas, images, builder, budget, None);
     }
@@ -394,12 +395,13 @@ fn record_run(
     layer: &PaintLayer,
     glyphs: &[GlyphPaint],
     shapes: &[Shape],
-    canvas: (u32, u32),
+    canvas: impl Into<PaintViewport>,
     images: &BTreeMap<String, BitmapData>,
     builder: &mut FrameBuilder,
     budget: &mut Budget,
     group_opacity: Option<f64>,
 ) -> Result<()> {
+    let canvas: PaintViewport = canvas.into();
     let ScenePaint::Image {
         resource_id,
         uv_transform,
@@ -509,10 +511,10 @@ fn record_run(
     } else {
         0.
     };
-    let x0 = (bounds[0] - reach).floor().max(-reach);
-    let y0 = (bounds[1] - reach).floor().max(-reach);
-    let x1 = (bounds[2] + reach).ceil().min(f64::from(canvas.0) + reach);
-    let y1 = (bounds[3] + reach).ceil().min(f64::from(canvas.1) + reach);
+    let x0 = (bounds[0] - reach).floor().max(canvas.min(0) - reach);
+    let y0 = (bounds[1] - reach).floor().max(canvas.min(1) - reach);
+    let x1 = (bounds[2] + reach).ceil().min(canvas.max(0) + reach);
+    let y1 = (bounds[3] + reach).ceil().min(canvas.max(1) + reach);
     if !(x1 > x0 && y1 > y0) {
         return Ok(());
     }

@@ -152,6 +152,7 @@ mod tests {
         );
         bind(&mut units, page, &layout.content, &mut Budget::default()).unwrap();
         let r = RenderContext {
+            paint_viewport: None,
             scene,
             units: &BTreeMap::new(),
             params: &params,

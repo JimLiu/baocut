@@ -1,19 +1,68 @@
 //! Resolve the shared caption semantics before selecting a pixel executor.
 use super::materials::{
-    component_glow_tint, component_level_color, component_stage, component_uniform, sample_domain,
+    component_glow_tint, component_level_color, component_stage, component_uniform,
+    material_surface_context, sample_domain, translate_frame_ops,
 };
 use super::*;
 use render_raster::drawop::AssociatedBlend;
 use render_raster::effects::{
     component_filters as filters,
-    material_plan::{ImageQuad, MaterialCommand, MaterialFrame, MaterialLayer, MaterialSource},
+    material_plan::{
+        ImageQuad, MaterialCapture, MaterialCommand, MaterialFrame, MaterialLayer, MaterialSource,
+    },
 };
 impl ScenePlan {
+    pub(super) fn canvas_material_surface(&self) -> MaterialCapture {
+        MaterialCapture {
+            origin: [0, 0],
+            width: self.width,
+            height: self.height,
+        }
+    }
+    pub(super) fn resolve_layer_capture(
+        &mut self,
+        ci: usize,
+        t: f64,
+        capture: &CaptionLayerCapture,
+        budget: &mut Budget,
+    ) -> Result<Option<MaterialCapture>> {
+        let Some(context) = self.material_page_context(ci, t, &capture.context_node_id, budget)?
+        else {
+            return Ok(None);
+        };
+        let rect = sample_domain(&capture.rect, self.style.scene(), &context, t, budget)?;
+        if rect.iter().any(|v| v.fract() != 0.0)
+            || rect[2] < 1.0
+            || rect[3] < 1.0
+            || rect[2] > 4096.0
+            || rect[3] > 4096.0
+        {
+            bail!(
+                "CAPTION_MATERIAL_INVALID: capture requires integer origin and dimensions in 1..4096"
+            );
+        }
+        Ok(Some(MaterialCapture {
+            origin: [rect[0] as i32, rect[1] as i32],
+            width: rect[2] as u32,
+            height: rect[3] as u32,
+        }))
+    }
     pub(super) fn resolve_gaussian_uv(
         &mut self,
         ci: usize,
         t: f64,
         material: &CaptionMaterial,
+        budget: &mut Budget,
+    ) -> Result<Option<filters::gaussian_uv::Config>> {
+        let surface = self.canvas_material_surface();
+        self.resolve_gaussian_uv_on_surface(ci, t, material, surface, budget)
+    }
+    pub(super) fn resolve_gaussian_uv_on_surface(
+        &mut self,
+        ci: usize,
+        t: f64,
+        material: &CaptionMaterial,
+        surface: MaterialCapture,
         budget: &mut Budget,
     ) -> Result<Option<filters::gaussian_uv::Config>> {
         let CaptionMaterial::GaussianUv {
@@ -32,12 +81,13 @@ impl ScenePlan {
         let Some(mut context) = self.material_page_context(ci, t, context_node_id, budget)? else {
             return Ok(None);
         };
+        material_surface_context(&mut context, surface);
         context.stable_key.push_str(&format!("|material|{id}"));
         let scene = self.style.scene();
         let input = sample_domain(&sampling.input, scene, &context, t, budget)?;
         let size = filters::Size {
-            width: self.width,
-            height: self.height,
+            width: surface.width,
+            height: surface.height,
         };
         if input.iter().any(|v| *v < 0. || v.fract() != 0.)
             || input[0] + input[2] > size.width as f64
@@ -80,6 +130,17 @@ impl ScenePlan {
         material: &CaptionMaterial,
         budget: &mut Budget,
     ) -> Result<Option<filters::affine_over::Config>> {
+        let surface = self.canvas_material_surface();
+        self.resolve_affine_over_on_surface(ci, t, material, surface, budget)
+    }
+    pub(super) fn resolve_affine_over_on_surface(
+        &mut self,
+        ci: usize,
+        t: f64,
+        material: &CaptionMaterial,
+        surface: MaterialCapture,
+        budget: &mut Budget,
+    ) -> Result<Option<filters::affine_over::Config>> {
         let CaptionMaterial::AffineOver {
             id,
             context_node_id,
@@ -96,12 +157,13 @@ impl ScenePlan {
         let Some(mut context) = self.material_page_context(ci, t, context_node_id, budget)? else {
             return Ok(None);
         };
+        material_surface_context(&mut context, surface);
         context.stable_key.push_str(&format!("|material|{id}"));
         let scene = self.style.scene();
         let input = sample_domain(&sampling.input, scene, &context, t, budget)?;
         let size = filters::Size {
-            width: self.width,
-            height: self.height,
+            width: surface.width,
+            height: surface.height,
         };
         if input.iter().any(|v| *v < 0. || v.fract() != 0.)
             || input[0] + input[2] > size.width as f64
@@ -160,6 +222,17 @@ impl ScenePlan {
         material: &CaptionMaterial,
         budget: &mut Budget,
     ) -> Result<Option<filters::affine_samples::Config>> {
+        let surface = self.canvas_material_surface();
+        self.resolve_affine_samples_on_surface(ci, t, material, surface, budget)
+    }
+    pub(super) fn resolve_affine_samples_on_surface(
+        &mut self,
+        ci: usize,
+        t: f64,
+        material: &CaptionMaterial,
+        surface: MaterialCapture,
+        budget: &mut Budget,
+    ) -> Result<Option<filters::affine_samples::Config>> {
         let CaptionMaterial::AffineSampleBlend {
             id,
             context_node_id,
@@ -175,12 +248,13 @@ impl ScenePlan {
         let Some(mut context) = self.material_page_context(ci, t, context_node_id, budget)? else {
             return Ok(None);
         };
+        material_surface_context(&mut context, surface);
         context.stable_key.push_str(&format!("|material|{id}"));
         let scene = self.style.scene();
         let input = sample_domain(&sampling.input, scene, &context, t, budget)?;
         let size = filters::Size {
-            width: self.width,
-            height: self.height,
+            width: surface.width,
+            height: surface.height,
         };
         if input.iter().any(|v| *v < 0.0 || v.fract() != 0.0)
             || input[0] + input[2] > size.width as f64
@@ -241,6 +315,7 @@ impl ScenePlan {
                 },
                 materials: self.style.scene().materials.clone(),
                 blend: CaptionLayerBlend::SourceOver,
+                capture: None,
             }]
         } else {
             self.style.scene().render_layers.clone()
@@ -300,10 +375,29 @@ impl ScenePlan {
         let mut hits = Vec::new();
         for layer in layers {
             for &ci in &active {
+                let capture = match &layer.capture {
+                    Some(spec) => {
+                        let Some(capture) = self.resolve_layer_capture(ci, t, spec, &mut budget)?
+                        else {
+                            continue;
+                        };
+                        Some(capture)
+                    }
+                    None => None,
+                };
+                let surface = capture.unwrap_or_else(|| self.canvas_material_surface());
                 let (source, source_hits) = match &layer.source {
                     CaptionLayerSource::Nodes { node_ids } => {
-                        let (ops, hits) =
-                            self.record_selected_nodes(t, Some(ci), Some(node_ids), &mut budget)?;
+                        let (mut ops, hits) = self.record_selected_nodes_in_viewport(
+                            t,
+                            Some(ci),
+                            Some(node_ids),
+                            capture.map(Into::into),
+                            &mut budget,
+                        )?;
+                        if let Some(capture) = capture {
+                            translate_frame_ops(&mut ops, capture.origin.map(|v| -(v as f32)));
+                        }
                         (MaterialSource::Draw(Arc::new(ops)), hits)
                     }
                     CaptionLayerSource::ImageSequence { .. } => {
@@ -318,7 +412,13 @@ impl ScenePlan {
                 let mut materials = Vec::new();
                 let mut visible = true;
                 for material in &layer.materials {
-                    match self.resolve_material_command(ci, t, material, &mut budget)? {
+                    match self.resolve_material_command_on_surface(
+                        ci,
+                        t,
+                        material,
+                        surface,
+                        &mut budget,
+                    )? {
                         Some(value) => materials.push(value),
                         None => {
                             visible = false;
@@ -328,6 +428,7 @@ impl ScenePlan {
                 }
                 if visible {
                     result.layers.push(MaterialLayer {
+                        capture,
                         source,
                         materials,
                         blend: match layer.blend {
@@ -360,9 +461,20 @@ impl ScenePlan {
         material: &CaptionMaterial,
         budget: &mut Budget,
     ) -> Result<Option<MaterialCommand>> {
+        let surface = self.canvas_material_surface();
+        self.resolve_material_command_on_surface(ci, t, material, surface, budget)
+    }
+    pub(super) fn resolve_material_command_on_surface(
+        &mut self,
+        ci: usize,
+        t: f64,
+        material: &CaptionMaterial,
+        surface: MaterialCapture,
+        budget: &mut Budget,
+    ) -> Result<Option<MaterialCommand>> {
         if matches!(material, CaptionMaterial::AffineSampleBlend { .. }) {
             return Ok(self
-                .resolve_affine_samples(ci, t, material, budget)?
+                .resolve_affine_samples_on_surface(ci, t, material, surface, budget)?
                 .map(MaterialCommand::AffineSampleBlend));
         }
         let (id, node) = match material {
@@ -389,11 +501,12 @@ impl ScenePlan {
         let Some(mut context) = self.material_page_context(ci, t, node, budget)? else {
             return Ok(None);
         };
+        material_surface_context(&mut context, surface);
         context.stable_key.push_str(&format!("|material|{id}"));
         let scene = self.style.scene();
         let size = filters::Size {
-            width: self.width,
-            height: self.height,
+            width: surface.width,
+            height: surface.height,
         };
         Ok(Some(match material {
             CaptionMaterial::NoisySweep {
