@@ -797,6 +797,9 @@ pub struct OverlayRenderPlan {
     /// 元素盒里。源比盒大就先缩一次再揭示——缩这一下本身也只做一次，不然等于把
     /// 逐帧的账从揭示挪到重采样。
     pub whiteboard_sources: HashMap<(String, u32, u32), Arc<Pixmap>>,
+    /// 媒体元素的源画面缩到一半以下时按面积平均缩小的那份，按源 ID 留着（见
+    /// [`render_raster::resample::PrefilterCache`]）：导出里同一张静态图每帧只缩一次。
+    pub media_prefilter: render_raster::resample::PrefilterCache,
     pub definition_key: String,
     pub style: Value,
     pub mode: StudioMode,

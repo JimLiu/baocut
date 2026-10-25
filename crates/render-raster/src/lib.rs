@@ -69,6 +69,7 @@ pub mod program;
 pub mod program;
 pub mod raster;
 pub mod renderer;
+pub mod resample;
 pub mod source;
 #[cfg(feature = "svg")]
 pub mod svg;

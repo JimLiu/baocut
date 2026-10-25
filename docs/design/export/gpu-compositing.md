@@ -84,6 +84,7 @@ GPU 合成只有在它**去掉**这些遍历时才有收益；如果只是把 CP
 - 能逐字节的地方必须逐字节：恒等摆放（整幅视频、恒等画中画）用纹理到纹理的拷贝或整数偏移的最近邻采样；目标格式用 `Rgba8Unorm`（不是 `Rgba8UnormSrgb`），在编码值上混合（§9.3）；预乘的 `One, OneMinusSrcAlpha`。
 - 已知的差异来源，都要进对拍清单：
   - 双线性的权重：tiny-skia 的定点与 highp 管线，与 GPU 采样器的 8 位小数权重、纹素中心约定不同；
+  - 缩小采样：CPU 在某一轴倍率低于 0.5 时先按面积平均再双线性（架构设计 §9.3）；GPU 合成器的采样器是 `Linear`、纹理只有一级 mip，缩到一半以下的层会混叠。这样的层要先在 GPU 上做同样的整数面积平均，或由 CPU 缩好再上传，否则不进 §4.1 的形态；
   - 混合的取整：unorm8 的就近取整与 tiny-skia lowp 的 `div255` 近似；
   - 关联 alpha（发光分量 rgb > a、Screen 混合）：CPU 走 `composite_associated`，GPU 要走 `compositor` 的关联 RGBA 路径；
   - 不透明度：CPU 的 `multiply_premultiplied_alpha` 按通道在 f64 里取整；

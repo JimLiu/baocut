@@ -2508,8 +2508,11 @@ VideoStore 的格式与 RenderGraph 是不同的层。RenderGraph 是派生的�
 - 层画在全透明的离屏画布上，回贴时按层的不透明度与混合模式合成；混合模式逐一对应 tiny-skia（normal 即 source-over，另有 multiply、screen、overlay、darken、lighten、difference、exclusion、plus，`effects/composite/blend.rs`）。裁剪作用在层内的每一次绘制上，回贴不再裁剪；遮罩把遮罩层的 alpha 或亮度（Rec.709 整数权重）当作 0..255 的定点因子，按 `(c × f + 127) / 255` 乘到预乘的四个分量上（`raster.rs`）。
 - 颜色类滤镜先反预乘到 f64，在 0..255 域运算、夹紧，再乘回 alpha 四舍五入，alpha 不变，亮度权重是 Rec.709（`effects/filters/color_adjust.rs`）。交叉淡化与按逐像素覆盖率合成的转场（划像、圆形、墨迹）在预乘值上做整数插值 `(f × (255 − a) + t × a + 127) / 255`，覆盖率为 0、1 的像素逐字节拷贝输入（`effects/transitions/mod.rs`）；超采样与运动模糊在预乘数域里求平均（`imgcmp.rs`、`motion_blur.rs`）。
 - 交给只收非预乘像素的一方时，按 tiny-skia 的取整反预乘（`c / (a / 255) + 0.5`，`effects/pixel_format.rs`）。
+- 源画面按仿射画进层用 tiny-skia 的双线性，它每个像素只读 2×2 个源像素，缩到一半以下时其余的源像素没有贡献，细纹理（看台座椅、织物）混叠成摩尔纹。所以某一轴的绘制倍率（源单位向量画出来的长度，旋转、翻转不改它）低于 0.5 时，先把源画面在那一轴按面积平均缩到 `ceil(长度 × 倍率)`，再按原来的落点双线性画上去；倍率不低于 0.5（含 1:1 与放大）的轴不动，两轴都不低于 0.5 时画面与直接双线性逐字节相同。面积平均在预乘值上做、四个分量同一份权重，是精确的整数运算（权重是坐标放大到公倍数后的整数重叠长度，整体除一次、四舍五入），没有浮点，原生与 WASM 相同（`resample.rs`）。媒体元素的 `fit` 放进盒子、`place.scale` 与动画缩小盒子、平铺的每一格都走它（`subtitle-render` 的 `draw_fit_pixmap_*` 与 `render_media_element`）；同一块静态图的缩小结果按源 ID 缓存，视频每帧重算。
 
 现状：预览与导出都经 `frame-render` 用 `render-raster` 画（§9.1），上面的规则两边相同；转场把两侧画好的层合起来也在 sRGB 编码值上混合（`frame-render` 的 `transition.rs`）。交给界面的透明帧（缩略图）按上面的取整反预乘。素材按 ffmpeg 的缺省换成 RGB，成片编码为 BT.709 标记的 yuv420p（`colorspace`、`color_primaries`、`color_trc` 都写 bt709）。浏览器像素作为带明确标记的输入做转换，不能只改 BT.709 标签而不转换像素。
+
+缩小采样的现状与缺口：预览送进内核的图片与视频帧先由浏览器的 `drawImage` 缩到刚好铺满输出（`preview-engine.ts` 的 `#readPixels`），内核再按上面的规则缩剩下的倍率，所以缩小的画中画在预览里与导出规则相同、像素不逐字节相同；预览每帧送进来的是新画面，缓存不命中，每帧重算。导出里缩小的画中画视频同样每帧整幅平均一次：在 Apple M4 的 release 构建下，4K 缩到 768×432 约 2.4 ms，与直接双线性画一次（约 2 ms）相当。解码端的交付尺寸（[§9.11](#911-冻结导出与发布)「画面」）只缩铺满画布的视频，画中画暂不缩。原因有二：画中画的盒子随 `place`、关键帧与转场变，要按整段最大的绘制尺寸交付才不发虚；解码端缩放换了一种核，预览与导出也就不再是同一条规则。倍率在 0.5 到 1 之间仍是单纯的双线性，不利的相位下会留一点混叠；动画缩放跨过 0.5 时锐度有一档细微的变化。模板层的图片 logo 也走面积平均，但不缓存、每帧重算。BCF 与 Lottie 里的位图（`raster.rs` 的 `DrawMedia` / `DrawBitmap`）还是单纯的双线性，GPU 合成器的采样器也没有这一步（[导出 GPU 合成 §5](../design/export/gpu-compositing.md#5-像素一致性)）。
 
 Alpha 必须声明 straight 或 premultiplied；格式转换由 `FrameSurface` 的接收端统一完成。透明边缘、文字阴影、半透明转场要有专门的基准图像。HDR 输入无法完整保持时，必须提示显式的 tone-map 或拒绝，不能无提示地当作普通 SDR。
 

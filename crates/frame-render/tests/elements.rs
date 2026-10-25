@@ -107,6 +107,38 @@ fn focal_point_picks_the_part_cover_keeps() {
 }
 
 #[test]
+fn large_pictures_shrunk_into_a_pip_do_not_alias() {
+    // 800×450 的细正弦竖纹（周期 2.7 像素）缩 10 倍放进半宽的画中画（架构设计 §9.3）：理想的结果是均匀的灰。
+    // 只读 2×2 的双线性会把它混叠成满幅的明暗条（起伏约 90）；先按面积平均只剩下一点。
+    let mut picture = tiny_skia::Pixmap::new(800, 450).unwrap();
+    for (index, pixel) in picture.data_mut().chunks_exact_mut(4).enumerate() {
+        let x = (index % 800) as f64;
+        let value = (127.5 + 127.5 * (std::f64::consts::TAU * x / 2.7).cos()).round() as u8;
+        pixel.copy_from_slice(&[value, value, value, 255]);
+    }
+    let video = video(
+        vec![image("img", 0, 0, 30, json!({ "place": { "w": 50 } }))],
+        vec![image_asset("a_img", 800, 450)],
+        json!({}),
+    );
+    let mut media = Media::default().with("img", picture);
+    let mut renderer = renderer(false, frame_render::Documents::default());
+    let first = render_with(&mut renderer, &video, at(1.0), &mut media);
+    // 盒子 [40, 120) × [22.5, 67.5)，边上留两像素不算。
+    let values: Vec<f64> = (25..65)
+        .flat_map(|y| (42..118).map(move |x| (x, y)))
+        .map(|(x, y)| f64::from(px(&first, x, y)[0]))
+        .collect();
+    let mean = values.iter().sum::<f64>() / values.len() as f64;
+    let deviation = (values.iter().map(|value| (value - mean).powi(2)).sum::<f64>() / values.len() as f64).sqrt();
+    assert!((mean - 127.5).abs() < 4.0, "mean {mean}");
+    assert!(deviation < 15.0, "deviation {deviation}");
+    // 下一帧复用缩好的那份：画面不变。
+    let second = render_with(&mut renderer, &video, at(2.0), &mut media);
+    assert_eq!(first, second);
+}
+
+#[test]
 fn text_is_drawn_with_its_opacity() {
     let video = video(
         vec![item(

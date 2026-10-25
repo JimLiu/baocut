@@ -19,40 +19,121 @@ pub fn draw_fit_pixmap_at(
 /// 同 [`draw_fit_pixmap`]，水平、竖直余量分别按 `anchor` 的 x、y 分配（视频格式规范 §3.5 的取景点）：
 /// 0 贴左（上）、0.5 居中、1 贴右（下）。`zoom`（≥ 1）是 `cover` 在刚好铺满之上再放大多少：余量照旧按
 /// `anchor` 分，所以源上 anchor 那一点仍落在目标的 anchor 处，画面围着它放大。`contain` 不看它。
+///
+/// 缩到一半以下时先按面积平均（`render_raster::resample`），再双线性画上去，细纹理不混叠成摩尔纹；落点不变。
 pub fn draw_fit_pixmap_anchored(
     destination: &mut Pixmap,
     source: &Pixmap,
     fit: Fit,
     opacity: f32,
-    [anchor_x, anchor_y]: [f64; 2],
+    anchor: [f64; 2],
     zoom: f64,
 ) {
-    let source_width = f64::from(source.width().max(1));
-    let source_height = f64::from(source.height().max(1));
-    let destination_width = f64::from(destination.width());
-    let destination_height = f64::from(destination.height());
-    let scale = match fit {
-        Fit::Cover => (destination_width / source_width).max(destination_height / source_height) * zoom.max(1.0),
-        Fit::Contain => (destination_width / source_width).min(destination_height / source_height),
-    };
-    let width = source_width * scale;
-    let height = source_height * scale;
-    let transform = Transform::from_scale(scale as f32, scale as f32).post_translate(
-        ((destination_width - width) * anchor_x) as f32,
-        ((destination_height - height) * anchor_y) as f32,
-    );
-    destination.draw_pixmap(
-        0,
-        0,
-        source.as_ref(),
-        &PixmapPaint {
-            opacity,
-            quality: FilterQuality::Bilinear,
-            ..Default::default()
-        },
-        transform,
-        None,
-    );
+    let placement = FitPlacement::of(source, destination, fit, anchor, zoom);
+    let prefiltered = placement
+        .prefilter_size(source)
+        .and_then(|(width, height)| {
+            render_raster::resample::area_average(source.as_ref(), width, height)
+        });
+    placement.draw(destination, source, prefiltered.as_ref(), opacity);
+}
+
+/// 同 [`draw_fit_pixmap_anchored`]，面积平均的结果经 `cache` 按 `key`（源画面的 ID）复用：导出里同一张静态图每帧
+/// 都是同一个 `Arc`，只缩一次。
+pub fn draw_fit_pixmap_cached(
+    destination: &mut Pixmap,
+    source: &Arc<Pixmap>,
+    fit: Fit,
+    opacity: f32,
+    anchor: [f64; 2],
+    zoom: f64,
+    cache: &mut render_raster::resample::PrefilterCache,
+    key: &str,
+) {
+    let placement = FitPlacement::of(source, destination, fit, anchor, zoom);
+    let prefiltered = placement
+        .prefilter_size(source)
+        .and_then(|size| cache.get(key, source, size));
+    placement.draw(destination, source, prefiltered.as_deref(), opacity);
+}
+
+/// `fit` 把源画面放进目标的倍率与左上角。
+struct FitPlacement {
+    scale: f64,
+    left: f64,
+    top: f64,
+}
+
+impl FitPlacement {
+    fn of(
+        source: &Pixmap,
+        destination: &Pixmap,
+        fit: Fit,
+        [anchor_x, anchor_y]: [f64; 2],
+        zoom: f64,
+    ) -> Self {
+        let source_width = f64::from(source.width().max(1));
+        let source_height = f64::from(source.height().max(1));
+        let destination_width = f64::from(destination.width());
+        let destination_height = f64::from(destination.height());
+        let scale = match fit {
+            Fit::Cover => {
+                (destination_width / source_width).max(destination_height / source_height)
+                    * zoom.max(1.0)
+            }
+            Fit::Contain => {
+                (destination_width / source_width).min(destination_height / source_height)
+            }
+        };
+        let width = source_width * scale;
+        let height = source_height * scale;
+        Self {
+            scale,
+            left: (destination_width - width) * anchor_x,
+            top: (destination_height - height) * anchor_y,
+        }
+    }
+
+    fn prefilter_size(&self, source: &Pixmap) -> Option<(u32, u32)> {
+        render_raster::resample::prefilter_size(
+            source.width(),
+            source.height(),
+            self.scale,
+            self.scale,
+        )
+    }
+
+    /// `prefiltered` 是源画面缩小后的那份：按它与源的尺寸比放大回同一个范围。
+    fn draw(
+        &self,
+        destination: &mut Pixmap,
+        source: &Pixmap,
+        prefiltered: Option<&Pixmap>,
+        opacity: f32,
+    ) {
+        let (drawn, scale_x, scale_y) = match prefiltered {
+            Some(small) => (
+                small,
+                self.scale * f64::from(source.width()) / f64::from(small.width()),
+                self.scale * f64::from(source.height()) / f64::from(small.height()),
+            ),
+            None => (source, self.scale, self.scale),
+        };
+        let transform = Transform::from_scale(scale_x as f32, scale_y as f32)
+            .post_translate(self.left as f32, self.top as f32);
+        destination.draw_pixmap(
+            0,
+            0,
+            drawn.as_ref(),
+            &PixmapPaint {
+                opacity,
+                quality: FilterQuality::Bilinear,
+                ..Default::default()
+            },
+            transform,
+            None,
+        );
+    }
 }
 
 /// Timeline 0.1 的 `fx {grayscale, blur, brightness}`。

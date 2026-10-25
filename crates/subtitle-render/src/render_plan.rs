@@ -1437,6 +1437,7 @@ impl OverlayRenderPlan {
             confetti_peek_undo: None,
             whiteboard_cache: HashMap::new(),
             whiteboard_sources: HashMap::new(),
+            media_prefilter: render_raster::resample::PrefilterCache::default(),
             blank_frame: None,
             subtitle_rasters: 0,
             effect_scratch: None,
@@ -5754,7 +5755,16 @@ impl OverlayRenderPlan {
                         local.fill(tiny_skia::Color::from_rgba8(r, g, b, 255));
                     }
                     Background::Blur => {
-                        draw_fit_pixmap(&mut local, &filtered, Fit::Cover, 1.0);
+                        draw_fit_pixmap_cached(
+                            &mut local,
+                            &filtered,
+                            Fit::Cover,
+                            1.0,
+                            [0.5, 0.5],
+                            1.0,
+                            &mut self.media_prefilter,
+                            &format!("{source_id}\u{0}backdrop"),
+                        );
                         box_blur_rgba(
                             local.data_mut(),
                             local_width,
@@ -5767,17 +5777,20 @@ impl OverlayRenderPlan {
                     }
                 }
             }
-            match element.focal.filter(|_| element.fit == Fit::Cover) {
-                Some(anchor) => draw_fit_pixmap_anchored(
-                    &mut local,
-                    &filtered,
-                    element.fit,
-                    1.0,
-                    anchor,
-                    element.zoom,
-                ),
-                None => draw_fit_pixmap(&mut local, &filtered, element.fit, 1.0),
-            }
+            let (anchor, zoom) = match element.focal.filter(|_| element.fit == Fit::Cover) {
+                Some(anchor) => (anchor, element.zoom),
+                None => ([0.5, 0.5], 1.0),
+            };
+            draw_fit_pixmap_cached(
+                &mut local,
+                &filtered,
+                element.fit,
+                1.0,
+                anchor,
+                zoom,
+                &mut self.media_prefilter,
+                source_id,
+            );
             Arc::new(local)
         };
         if transition.iris < 1.0 {
@@ -5845,6 +5858,16 @@ impl OverlayRenderPlan {
                 tile.angle.unwrap_or(-30.0) + element.place.rot.unwrap_or(0.0) + pose.rotation;
             let points =
                 tile_stamp_points(self.width, self.height, local_width, local_height, tile);
+            // 每一格的倍率相同（只差平移）：缩到一半以下时局部画布只按面积平均缩一次。
+            let prefiltered = render_raster::resample::prefilter_size(
+                local_width,
+                local_height,
+                (uniform_scale * flip_x).abs(),
+                (vertical_scale * flip_y).abs(),
+            )
+            .and_then(|(width, height)| {
+                render_raster::resample::area_average((*local).as_ref(), width, height)
+            });
             for (point_x, point_y) in points {
                 let radians = rotation.to_radians();
                 let scaled_x = point_x * uniform_scale;
@@ -5864,10 +5887,20 @@ impl OverlayRenderPlan {
                     (canvas_width / 2.0 + dx + rotated_x) as f32,
                     (canvas_height / 2.0 + dy + rotated_y) as f32,
                 );
+                let (drawn, transform) = match &prefiltered {
+                    Some(small) => (
+                        small.as_ref(),
+                        transform.pre_scale(
+                            local_width as f32 / small.width() as f32,
+                            local_height as f32 / small.height() as f32,
+                        ),
+                    ),
+                    None => ((*local).as_ref(), transform),
+                };
                 stamped.draw_pixmap(
                     0,
                     0,
-                    (*local).as_ref(),
+                    drawn,
                     &PixmapPaint {
                         quality: FilterQuality::Bilinear,
                         ..Default::default()
@@ -5897,10 +5930,17 @@ impl OverlayRenderPlan {
             } else {
                 let mut placed = Pixmap::new(self.width, self.height)
                     .ok_or_else(|| anyhow!("无法创建媒体元素合成层"))?;
+                // `place.scale` 或动画把盒子缩到一半以下时，局部画布同样先按面积平均。
+                let prefiltered =
+                    render_raster::resample::prefilter_for((*local).as_ref(), transform);
+                let (drawn, transform) = match &prefiltered {
+                    Some((small, transform)) => (small.as_ref(), *transform),
+                    None => ((*local).as_ref(), transform),
+                };
                 placed.draw_pixmap(
                     0,
                     0,
-                    (*local).as_ref(),
+                    drawn,
                     &PixmapPaint {
                         quality: FilterQuality::Bilinear,
                         ..Default::default()
