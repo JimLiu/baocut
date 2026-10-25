@@ -180,6 +180,7 @@ export function TtsQuickTest({ bundleId, name, model, cloneNames, notice = null,
           kind: tryFailureKind(runJob?.error?.code ?? null, runJob?.error?.details),
           message: runState.message,
           file: run.pick.file?.name ?? fileOf(runJob?.error?.details),
+          details: runJob?.error?.details,
         }
       : null);
   const failureView = failure && !busy ? tryFailureView({ ...failure, canCheck: canCheck && !!onCheck }) : null;
@@ -211,6 +212,7 @@ export function TtsQuickTest({ bundleId, name, model, cloneNames, notice = null,
         kind: tryFailureKind(typeof code === 'string' ? code : null, details),
         message: (error as Error).message,
         file: pick.file?.name ?? fileOf(details),
+        details,
         notStarted: true,
       });
     } finally {

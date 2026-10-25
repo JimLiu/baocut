@@ -122,7 +122,7 @@ export function ImageTryDialog({
   const shownNotice = noticeAfterTry(notice, output ? (job?.endedAt ?? job?.updatedAt) : null);
   const failure: Omit<TryFailureInput, 'canCheck' | 'subject'> | null =
     issue ??
-    (state?.status === 'failed' ? { kind: tryFailureKind(job?.error?.code ?? null, job?.error?.details), message: state.message } : null);
+    (state?.status === 'failed' ? { kind: tryFailureKind(job?.error?.code ?? null, job?.error?.details), message: state.message, details: job?.error?.details } : null);
   const failureView = failure && !running ? tryFailureView({ ...failure, canCheck, subject: TRY_SUBJECT_IMAGE }) : null;
   // 在跑时按 worker 报的步数走；还没有按步的进度（加载模型、编码提示词）与解码时进度条不定，剩余时间只在去噪时有。
   const now = useNow(1000, running);

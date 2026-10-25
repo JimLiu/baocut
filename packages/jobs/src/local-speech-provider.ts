@@ -26,6 +26,7 @@ import {
   type SpeechBundleProfile,
 } from '@baocut/models';
 import { ffmpegMissingRemedyMessage, killProcessTree } from '@baocut/process-host';
+import { refOf } from '@baocut/protocol';
 import { JobsFfmpeg } from '@baocut/protocol/messages/jobs/ffmpeg.ts';
 import { ModelsModelCatalog as MC } from '@baocut/protocol/messages/models/model-catalog.ts';
 import { JobsLocalProvider as L } from '@baocut/protocol/messages/jobs/local-provider.ts';
@@ -334,12 +335,14 @@ export class LocalSpeechProvider implements GenerationProvider {
         clearTimeout(timer);
         signal.removeEventListener('abort', onAbort);
       };
-      // 进程都没起来：这台机器上没有能用的 ffmpeg，按外部工具的问题报告。已经取消时照旧按取消处理。
-      child.once('error', (error) => {
+      // 进程都没起来。找不到、不能执行：这台机器上没有能用的 ffmpeg，按外部工具的问题报告；别的系统错误（例如打开的文件
+      // 太多）不是没装 ffmpeg，照原样抛出，按内部错误处理。已经取消时照旧按取消处理。
+      child.once('error', (error: NodeJS.ErrnoException) => {
         if (settled) return;
         settle();
         if (signal.aborted) return resolve(false);
-        this.#log.warn('ffmpeg unavailable', { command: tool.command, code: (error as NodeJS.ErrnoException).code ?? null });
+        if (!TOOL_MISSING_ERRNO.has(error.code ?? '')) return reject(error);
+        this.#log.warn('ffmpeg unavailable', { command: tool.command, code: error.code ?? null });
         reject(ffmpegUnavailable(tool.command));
       });
       child.once('exit', (code) => {
@@ -621,6 +624,9 @@ function fileUnreadable(file: string): { message: JobText; details: Record<strin
   return { message: referenceUnreadableMessage(file), details: { file } };
 }
 
+/** 起进程时算作「没有能用的 ffmpeg」的系统错误：找不到（含路径里有一段不是目录）、没有执行权限。 */
+const TOOL_MISSING_ERRNO = new Set(['ENOENT', 'ENOTDIR', 'EACCES', 'EPERM']);
+
 /**
  * 这台机器上没有能用的 ffmpeg（找不到、不能执行）：参考录音没法转成引擎要的 WAV。按外部工具的问题报告
  * （`MEDIA_TOOL_UNAVAILABLE`，带按平台给的安装修法），不说成录音读不出来、也不说成安装不完整。修法作为嵌套的目录文字
@@ -628,7 +634,11 @@ function fileUnreadable(file: string): { message: JobText; details: Record<strin
  */
 function ffmpegUnavailable(command: string): ProviderFailure {
   const remedy = ffmpegMissingRemedyMessage();
-  return new ProviderFailure('tool-unavailable', JobsFfmpeg.notFound({ command, remedy }), { tool: 'ffmpeg', remedy: remedy.text });
+  return new ProviderFailure('tool-unavailable', JobsFfmpeg.notFound({ command, remedy }), {
+    tool: 'ffmpeg',
+    remedy: remedy.text,
+    remedyRef: refOf(remedy),
+  });
 }
 
 /** 服务的错误回应：`{"error":{"message":…}}` 或纯文本；截短。 */

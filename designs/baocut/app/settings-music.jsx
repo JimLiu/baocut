@@ -32,7 +32,7 @@
       if (bad) { setFail({kind: 'invalid', msg: bad}); return; }
       setFail(null);
       // 结果由原型开关「下次试听的结果」决定（shell.jsx TweaksPanel）；录音读不出只属语音合成，这里按成功算
-      job.current = {form, pick, t0: Date.now(), outcome: CK.tryOutcome(app.prefs.modelTryDemo, false)};
+      job.current = {form, pick, t0: Date.now(), outcome: CK.tryOutcome(app.prefs.modelTryDemo, false, 'music')};
       setPct(0);
       clearInterval(timer.current);
       timer.current = setInterval(() => setPct((x) => {

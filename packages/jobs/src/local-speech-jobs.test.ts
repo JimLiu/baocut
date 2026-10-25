@@ -1,4 +1,6 @@
+import { spawn, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -123,6 +125,8 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
   let engine: string | null;
   /** 参考录音转换用的 ffmpeg；默认是上面那个假的，测外部工具缺失时换成找不到的路径。 */
   let ffmpeg: string;
+  /** 起 ffmpeg 时改用的假进程（测起进程本身的系统错误）；null 时照常起。 */
+  let fakeFfmpegSpawn: (() => ChildProcess) | null;
   let catalog: ModelCatalog;
   let services: ModelServices;
   let provider: LocalSpeechProvider;
@@ -140,8 +144,8 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-local-speech-'));
     fake = await writeFakeAudioCpp(path.join(dir, 'bin'));
     engine = fake.cli;
-    const ffmpegScript = await writeScript(dir, 'ffmpeg', FAKE_FFMPEG);
-    ffmpeg = ffmpegScript;
+    ffmpeg = await writeScript(dir, 'ffmpeg', FAKE_FFMPEG);
+    fakeFfmpegSpawn = null;
     const models = path.join(dir, 'models');
     for (const bundle of BUNDLES) await writeRepo(models, bundle);
     // 内置清单只给资源调度估计常驻量用。
@@ -157,6 +161,8 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
       engine: () => engine,
       env: async () => process.env,
       ffmpeg: async () => ({ command: ffmpeg, env: process.env }),
+      spawn: ((command: string, args: string[], options: object) =>
+        command === ffmpeg && fakeFfmpegSpawn ? fakeFfmpegSpawn() : spawn(command, args, options)) as typeof spawn,
       threads: 2,
       resources: scheduler,
       idleMs: 60_000,
@@ -529,6 +535,25 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
     // 转换在起服务之前：一个请求都没发出去，服务也没起。
     expect(await recorded('start')).toEqual([]);
     expect(await requests()).toEqual([]);
+    // 安装修法旁边带它的引用（命令协议规范 §11.3），界面按自己的语言显示。
+    expect(job.error!.details).toMatchObject({ remedyRef: { key: 'processHostTools.remedy' } });
+  });
+
+  it('ffmpeg 不能执行（没有执行权限）：同样是 MEDIA_TOOL_UNAVAILABLE', async () => {
+    await fs.chmod(ffmpeg, 0o644);
+    const job = await speak({ voice: 'en-female', language: 'en' });
+    expect(job).toMatchObject({ state: 'failed', error: { code: 'MEDIA_TOOL_UNAVAILABLE', details: { tool: 'ffmpeg' } } });
+  });
+
+  it('起 ffmpeg 时别的系统错误（打开的文件太多）：不是没装 ffmpeg，按内部错误处理', async () => {
+    fakeFfmpegSpawn = () => {
+      const child = Object.assign(new EventEmitter(), { stderr: null, kill: () => true }) as unknown as ChildProcess;
+      queueMicrotask(() => child.emit('error', Object.assign(new Error('spawn EMFILE'), { code: 'EMFILE' })));
+      return child;
+    };
+    const job = await speak({ voice: 'en-female', language: 'en' });
+    expect(job).toMatchObject({ state: 'failed', error: { code: 'INTERNAL' } });
+    expect(job.error!.message).not.toContain('ffmpeg');
   });
 
   it('念不了的读音标注：按表面文字合成，任务照常完成，逐条带 reading-dropped 警告', async () => {

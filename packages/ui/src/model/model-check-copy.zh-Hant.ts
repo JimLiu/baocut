@@ -97,6 +97,12 @@ export const zhHant: ModelCheckMessages = {
     todo: '請改用其他錄音，或先使用範例錄音聽聽效果。',
   }),
   refUnknown: '錄音',
+  toolMissing: {
+    text: (tool) => `這台電腦上沒有可用的 ${tool}`,
+    install: (tool) => `安裝 ${tool}`,
+    checkTodo: (remedy) => `${remedy}，然後再檢查一次。`,
+    tryTodo: (remedy) => `${remedy}，然後再試一次。`,
+  },
   trySpeech: trySubject('合成', '試聽', '請關閉其他大型模型或佔用記憶體的應用程式後重試。'),
   tryImage: trySubject('繪製', '試畫', '請關閉其他大型模型後重試，或調低步數。'),
   tryMusic: trySubject('生成', '試聽', '請關閉其他大型模型後重試，或縮短長度。'),

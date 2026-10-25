@@ -33,6 +33,12 @@ export const es: ModelCheckMessages = {
  noticeText: (what) => `Este modelo no superó su última comprobación: ${what}`,
  refUnreadable: (file) => ({ text: `No se pudo leer tu grabación «${file}». Puede que el archivo esté dañado o no sea audio`, todo: 'Prueba otra grabación o escucha primero cómo suena con la grabación de muestra.' }),
  refUnknown: 'grabación',
+  toolMissing: {
+    text: (tool) => `Este ordenador no tiene un ${tool} que funcione`,
+    install: (tool) => `Instala ${tool}`,
+    checkTodo: (remedy) => `${remedy}, luego comprueba de nuevo.`,
+    tryTodo: (remedy) => `${remedy}, luego vuelve a intentarlo.`,
+  },
  trySpeech: {
  noMemory: { text: 'No hay suficiente memoria para terminar la síntesis', todo: 'Cierra otros modelos grandes o aplicaciones que consuman mucha memoria y vuelve a intentarlo.' },
  modelError: { text: 'El modelo encontró un error y no produjo audio', todo: 'Comprueba el modelo para ver qué falló.' },

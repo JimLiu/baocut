@@ -98,6 +98,12 @@ export const pl: ModelCheckMessages = {
     todo: "Spróbuj innego nagrania lub najpierw posłuchaj próbki.",
   }),
   refUnknown: "nagranie",
+  toolMissing: {
+    text: (tool) => `Na tym komputerze nie ma działającego ${tool}`,
+    install: (tool) => `Zainstaluj ${tool}`,
+    checkTodo: (remedy) => `${remedy}, a potem sprawdź ponownie.`,
+    tryTodo: (remedy) => `${remedy}, a potem spróbuj ponownie.`,
+  },
   trySpeech: trySubject('syntezy', 'podgląd', 'Zamknij inne duże modele lub aplikacje zużywające pamięć i spróbuj ponownie.'),
   tryImage: trySubject('rysowania', 'próbny obraz', 'Zamknij inne duże modele i spróbuj ponownie lub zmniejsz liczbę kroków.'),
   tryMusic: trySubject('generowania', 'podgląd', 'Zamknij inne duże modele i spróbuj ponownie lub skróć czas trwania.'),

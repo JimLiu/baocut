@@ -37,6 +37,11 @@
   /** 已安装列表上方那句说明：检查和修复各做什么，一句话；第二句是删除的规矩。 */
   const CAPTION = '检查会确认模型能正常使用；修复只重新下载坏掉的文件。删除时，别的模型还在用的公共组件会保留。';
 
+  /** Runtime 按平台给的 ffmpeg 安装说法（macOS）。 */
+  const FFMPEG_REMEDY = '安装 ffmpeg（例如 brew install ffmpeg），或用 BAOCUT_FFMPEG 指定路径';
+  /** 要用 ffmpeg 的能力：只有语音合成（转参考录音）。别的能力不会遇到「没有 ffmpeg」。 */
+  const NEEDS_FFMPEG = ['tts'];
+
   /* 检查跑的是一小段随 BaoCut 自带的样本；这里只写人看得懂的阶段名。 */
   function phaseLabel(pct) {
     if (pct < 35) return '加载模型';
@@ -93,6 +98,14 @@
       todo: '稍后再检查一次；一直这样就重启 BaoCut。',
       detail: ['modelTest 没有在 10 秒内被接收', 'Worker 进程未就绪'],
     }),
+    /* 语音合成先用 ffmpeg 把参考录音转成 WAV：这台电脑上没有能用的 ffmpeg 时，模型没被检查（不是没通过），修复帮不上。
+       「怎么办」是 Runtime 按平台给的安装说法（这里是 macOS 的）。 */
+    toolMissing: () => ({
+      head: '检查没能开始', fix: 'retry', code: 'MEDIA_TOOL_UNAVAILABLE',
+      text: '这台电脑上没有能用的 ffmpeg',
+      todo: `${FFMPEG_REMEDY}，然后再检查一次。`,
+      detail: [`说明 找不到 ffmpeg：${FFMPEG_REMEDY}`, 'tool: ffmpeg'],
+    }),
   };
   const PROBLEM_KEYS = Object.keys(PROBLEMS);
   /** 状态行与试用面板的主动作：修复帮得上给「修复…」。 */
@@ -113,15 +126,18 @@
   const CHECK_DEMOS = [
     {k: 'pass', label: '通过'}, {k: 'appFileMissing', label: '自带文件缺失'}, {k: 'modelDamaged', label: '模型文件损坏'},
     {k: 'wrongOutput', label: '结果不对'}, {k: 'noMemory', label: '内存不够'}, {k: 'notStarted', label: '没能开始'},
+    {k: 'toolMissing', label: '没有 ffmpeg（语音合成）'},
   ];
   /* 原型开关「下次试听的结果」 */
   const TRY_DEMOS = [
     {k: 'ok', label: '成功'}, {k: 'refUnreadable', label: '录音读不出'}, {k: 'noMemory', label: '内存不够'}, {k: 'modelError', label: '模型出错'},
+    {k: 'toolMissing', label: '没有 ffmpeg（语音合成）'},
   ];
 
   /** 跑完一次检查后的状态。`demo` 是原型开关的值；`at` 是毫秒时间戳。 */
   function finish(demo, m, cat, at) {
     if (!demo || demo === 'pass' || !PROBLEMS[demo]) return {phase: 'passed', at};
+    if (demo === 'toolMissing' && !NEEDS_FFMPEG.includes(cat)) return {phase: 'passed', at};
     return {phase: 'failed', at, problem: problem(demo, m, cat)};
   }
 
@@ -164,10 +180,12 @@
 
   /**
    * 试用面板开头的提醒：上次检查没通过就先说，并给「修复… / 重新检查」。没有提醒时 null。
+   * 检查没能开始的不算（那次没检查模型）。
    * okAt 是这块面板里试用做成的那次的时间：在那次检查之后就不再说（眼前的结果已经做成了）；行上那条检查结果照旧。
    */
   function tryNotice(st, cat, okAt) {
     if (!st || st.phase !== 'failed' || !tryOf(cat)) return null;
+    if (st.problem.head === '检查没能开始') return null;
     if (okAt && okAt > st.at) return null;
     const p = st.problem;
     const actions = [];
@@ -180,6 +198,7 @@
   /**
    * 试用（试听 / 试画）自己的失败。kind 是 TRY_DEMOS 的键（ok 除外）或 'invalid'（表单没填好，ctx.msg 是那条校验）。
    * ctx.file 是用户自己选的录音名（参考录音读不出时点名）。返回 {text, todo, actions:[{k,label,primary?}]}。
+   * 没有能用的 ffmpeg（toolMissing）不是模型的问题：只给重试，不让去检查模型。
    * 动作键：pickRef（换一段录音…）/ useSample（用示例录音）/ retry（重试）/ check（检查模型）。
    */
   function tryFailure(kind, cat, ctx) {
@@ -191,6 +210,13 @@
         text: `读不出你的录音「${c.file || '录音'}」，文件可能损坏，或者不是音频`,
         todo: '换一段录音再试，或先用示例录音听听效果。',
         actions: [{k: 'pickRef', label: '换一段录音…', primary: true}, {k: 'useSample', label: '用示例录音'}],
+      };
+    }
+    if (kind === 'toolMissing') {
+      return {
+        text: '这台电脑上没有能用的 ffmpeg',
+        todo: `${FFMPEG_REMEDY}，然后再试一次。`,
+        actions: [{k: 'retry', label: '重试', primary: true}],
       };
     }
     if (kind === 'noMemory') {
@@ -206,10 +232,11 @@
       actions: [{k: 'check', label: LABEL.checkFull, primary: true}, {k: 'retry', label: '重试'}],
     };
   }
-  /** 这次试用会不会失败（原型开关）：录音读不出只在用了自己的录音时成立。 */
-  function tryOutcome(demo, usesOwnFile) {
+  /** 这次试用会不会失败（原型开关）：录音读不出只在用了自己的录音时成立；没有 ffmpeg 只碰到语音合成。 */
+  function tryOutcome(demo, usesOwnFile, cat) {
     if (!demo || demo === 'ok') return 'ok';
     if (demo === 'refUnreadable' && !usesOwnFile) return 'ok';
+    if (demo === 'toolMissing' && !NEEDS_FFMPEG.includes(cat)) return 'ok';
     return TRY_DEMOS.some((d) => d.k === demo) ? demo : 'ok';
   }
 

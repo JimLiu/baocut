@@ -1099,7 +1099,7 @@ interface ErrorBody {
 | `LIBRARY_VERSION_CONFLICT` | `library.put` 的 `expectedVersion` 不是条目的当前版本（`conflict`，`details.currentVersion`） | 重新读取条目，在新版本上修改 |
 | `LIBRARY_ENTRY_NOT_APPLICABLE` | 条目不能用在这里：术语表、音色、颜色拷进视频；翻译用术语表交给转写，转写用术语表交给翻译，或语言与翻译的方向不符；视频里启用的术语表种类与步骤不符；对外服务的客户端引用用户库的术语表或音色（`details.reason: 'service-client'`）（`invalid-request`） | 换一个合适的条目或方法 |
 | `INPUT_UNREADABLE` | 输入读不出来：ffprobe 解析不了文件或文件没有视频轨（`details.file`），或流程的源文档不是认识的格式、没有句子；本地合成的 `reference` 文件读不出来时放在 `RpcError.details.code`（`invalid-request`，`message` 说文件名，完整路径在 `details.file`） | 换一个输入；不重试同一输入 |
-| `MEDIA_TOOL_UNAVAILABLE` | 要用的 ffmpeg / ffprobe 找不到或不能正常运行：固定流程（文件转码），以及本地合成把参考录音（内置音色、音色库的音色、请求给的文件）转成 WAV 时（导出用 `EXPORT_TOOL_MISSING`）。提交时检查到的放在 `RpcError.details.code`（`conflict`），执行中发现的是任务的 `error.code`（语音合成这类执行中才用到的转换也会在 `models.test` 的检查任务里以它失败，不记进模型包的 `selfTest`） | 安装 ffmpeg，或用 `BAOCUT_FFMPEG` / `BAOCUT_FFPROBE` 指定，然后重试 |
+| `MEDIA_TOOL_UNAVAILABLE` | 要用的 ffmpeg / ffprobe 找不到或不能正常运行：固定流程（文件转码），以及本地合成把参考录音（内置音色、音色库的音色、请求给的文件）转成 WAV 时（导出用 `EXPORT_TOOL_MISSING`）。提交时检查到的放在 `RpcError.details.code`（`conflict`），执行中发现的是任务的 `error.code`（语音合成这类执行中才用到的转换也会在 `models.test` 的检查任务里以它失败，不记进模型包的 `selfTest`；这是检查没能跑，不是没通过，没有 `details.check`）。`details.remedy` 是按平台给的安装说法（本地合成另带 `tool` 与 `remedyRef`） | 安装 ffmpeg，或用 `BAOCUT_FFMPEG` / `BAOCUT_FFPROBE` 指定，然后重试 |
 | `SUBTITLE_FILE_INVALID` | 字幕文件的翻译读不准输入：不是能严格解析的 SRT / WebVTT（`details.line`、`details.problem`），或没有一条有文本。提交时是 `invalid-request`（`details.code`、`details.file`），重试时源文件已经改坏是任务的 `error.code` | 修好文件或换一个；不重试同一输入 |
 | `SUBTITLE_FILE_TOO_LARGE` | 字幕文件超过上限：4 MiB 或 10000 条（`details.limit`）。提交时是 `invalid-request` | 拆成几个文件分别翻译 |
 | `TRANSCODE_FAILED` | ffmpeg 以非零状态退出（`details.exitCode`，`details.stderr` 是输出的结尾） | 按 stderr 调整参数或换输入；临时文件已清理 |

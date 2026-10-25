@@ -97,6 +97,12 @@ export const vi: ModelCheckMessages = {
     todo: 'Thử bản ghi khác hoặc nghe bằng bản ghi mẫu trước.',
   }),
   refUnknown: 'bản ghi',
+  toolMissing: {
+    text: (tool) => `Máy tính này không có ${tool} dùng được`,
+    install: (tool) => `Cài ${tool}`,
+    checkTodo: (remedy) => `${remedy}, rồi kiểm tra lại.`,
+    tryTodo: (remedy) => `${remedy}, rồi thử lại.`,
+  },
   trySpeech: trySubject('tổng hợp', 'nghe thử', 'Đóng mô hình lớn hoặc ứng dụng tốn bộ nhớ khác rồi thử lại.'),
   tryImage: trySubject('vẽ', 'vẽ thử', 'Đóng mô hình lớn khác rồi thử lại hoặc giảm số bước.'),
   tryMusic: trySubject('tạo nhạc', 'nghe thử', 'Đóng mô hình lớn khác rồi thử lại hoặc rút ngắn thời lượng.'),

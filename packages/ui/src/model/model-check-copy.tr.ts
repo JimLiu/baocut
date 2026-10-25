@@ -97,6 +97,12 @@ export const tr: ModelCheckMessages = {
     todo: 'Başka kayıt deneyin veya önce örnek kaydı dinleyin.',
   }),
   refUnknown: 'kayıt',
+  toolMissing: {
+    text: (tool) => `Bu bilgisayarda çalışan bir ${tool} yok`,
+    install: (tool) => `${tool} yükleyin`,
+    checkTodo: (remedy) => `${remedy}, sonra yeniden denetleyin.`,
+    tryTodo: (remedy) => `${remedy}, sonra yeniden deneyin.`,
+  },
   trySpeech: trySubject('sentez', 'önizleme', 'Diğer büyük modelleri veya çok bellek kullanan uygulamaları kapatıp yeniden deneyin.'),
   tryImage: trySubject('çizim', 'deneme çizimi', 'Diğer büyük modelleri kapatıp yeniden deneyin veya adım sayısını düşürün.'),
   tryMusic: trySubject('üretim', 'önizleme', 'Diğer büyük modelleri kapatıp yeniden deneyin veya süreyi kısaltın.'),

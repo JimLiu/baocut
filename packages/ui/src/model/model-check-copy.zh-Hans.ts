@@ -98,6 +98,12 @@ export const zhHans: ModelCheckMessages = {
     todo: '换一段录音再试，或先用示例录音听听效果。',
   }),
   refUnknown: '录音',
+  toolMissing: {
+    text: (tool) => `这台电脑上没有能用的 ${tool}`,
+    install: (tool) => `安装 ${tool}`,
+    checkTodo: (remedy) => `${remedy}，然后再检查一次。`,
+    tryTodo: (remedy) => `${remedy}，然后再试一次。`,
+  },
   trySpeech: trySubject('合成', '试听', '关掉别的大模型或占内存的应用后重试。'),
   tryImage: trySubject('画', '试画', '关掉别的大模型后重试，或把步数调低。'),
   tryMusic: trySubject('生成', '试听', '关掉别的大模型后重试，或把时长缩短。'),

@@ -150,7 +150,8 @@ export interface ModelSelfTestResult {
 
 /**
  * 检查没通过的原因（命令与协议规范 §11.3）。模型包上的 `selfTest.code`，以及 `modelTest` 任务失败时的 `error.details.check`
- * 用同一组值；任务的 `error.code` 仍是 `MODEL_SELF_TEST_FAILED`（`APP_FILE_MISSING` 除外）。
+ * 用同一组值；任务的 `error.code` 仍是 `MODEL_SELF_TEST_FAILED`（`APP_FILE_MISSING` 除外）。这台电脑没有能用的 ffmpeg
+ * （语音合成转参考录音要用）不是检查的结论：任务以 `MEDIA_TOOL_UNAVAILABLE` 失败，没有 `details.check`，也不记进 `selfTest`。
  * - `APP_FILE_MISSING`：随应用分发的文件（样本、内置音色的录音）缺失，是安装不完整，不是模型的问题（不记进 `selfTest`）；
  * - `MODEL_FILES_DAMAGED`：模型的文件缺失或损坏，Worker 加载不了；
  * - `MODEL_OUTPUT_WRONG`：模型能加载、能运行，但输出不对（不合合同、识别不出样本、合成是静音……）；

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { MODEL_CHECK_CODES, RpcError, type JobRecord, type ModelBundleStatus } from '@baocut/protocol';
+import { MODEL_CHECK_CODES, RpcError, refOf, type JobRecord, type ModelBundleStatus } from '@baocut/protocol';
+import { ProcessHostTools } from '@baocut/protocol/messages/process-host';
 import {
   checkDetailLines,
   checkLineView,
@@ -280,6 +281,40 @@ describe('检查没能开始', () => {
     expect(checkDetailLines(state, ASR, NOW).join('\n')).not.toMatch(/Applications/);
   });
 
+  it('没有能用的 ffmpeg（检查任务以 MEDIA_TOOL_UNAVAILABLE 失败）：是没能开始，不是没通过；怎么办用 Runtime 按平台给的安装说法', () => {
+    // 存下的是英文，引用按界面当前语言重新生成。
+    const remedy = ProcessHostTools.remedy({ hint: ProcessHostTools.hintWindows() });
+    const missing = (details: Record<string, unknown>) =>
+      testJob({
+        state: 'failed',
+        updatedAt: ago(MIN),
+        error: { code: 'MEDIA_TOOL_UNAVAILABLE', message: `找不到 ffmpeg：${remedy.text}`, retryable: false, details } as never,
+      });
+    const passedBefore = tts({ selfTest: { state: 'passed', jobId: 'job_old', at: ago(10 * MIN) } });
+    const state = checkState({
+      bundle: passedBefore,
+      jobs: [missing({ kind: 'tool-unavailable', tool: 'ffmpeg', remedy: 'Install ffmpeg (stored text)', remedyRef: refOf(remedy) })],
+      subject: 'synthesize',
+    });
+    expect(state).toMatchObject({ phase: 'failed', problem: { kind: 'not-started', code: null, repair: 'no' } });
+    const view = checkLineView(state, ALL, NOW)!;
+    expect(view.head).toBe('检查没能开始：');
+    expect(view.text).toBe('这台电脑上没有能用的 ffmpeg。');
+    expect(view.todo).toBe(`${remedy.text}，然后再检查一次。`);
+    expect(view.todo).toMatch(/winget/);
+    expect(view.actions.map((a) => a.k)).toEqual(['recheck', 'details']);
+    expect(checkDetailLines(state, TTS, NOW).slice(0, 1)).toEqual(['代码 MEDIA_TOOL_UNAVAILABLE']);
+    // 模型没被检查：试听面板不说「上次检查没通过」。
+    expect(tryNotice(state, ALL)).toBeNull();
+
+    // 没有安装说法时用通用的一句；提交时就被拒的说法一样。
+    const bare = checkState({ bundle: tts(), jobs: [missing({ tool: 'ffmpeg' })], subject: 'synthesize' });
+    expect(checkLineView(bare, ALL, NOW)!.todo).toBe('安装 ffmpeg，然后再检查一次。');
+    const r = rejectionOf(new RpcError('conflict', 'no ffmpeg', { code: 'MEDIA_TOOL_UNAVAILABLE', tool: 'ffmpeg', remedy: remedy.text }), ago(0));
+    const rejected = checkLineView(checkState({ bundle: tts(), jobs: [], subject: 'synthesize', rejection: r }), ALL, NOW)!;
+    expect([rejected.head, rejected.text, rejected.todo]).toEqual(['检查没能开始：', '这台电脑上没有能用的 ffmpeg。', `${remedy.text}，然后再检查一次。`]);
+  });
+
   it('被拒之后又跑过检查：取新的', () => {
     const r = rejectionOf(new RpcError('conflict', 'busy', { code: 'MODEL_IN_USE' }), ago(5 * MIN));
     const b = tts({ selfTest: { state: 'passed', jobId: 'j', at: ago(MIN) } });
@@ -398,6 +433,18 @@ describe('试用面板', () => {
       todo: null,
       actions: [],
     });
+  });
+
+  it('自己的失败：没有能用的 ffmpeg，装好后再试；不让去检查模型（模型没问题）', () => {
+    expect(tryFailureKind('MEDIA_TOOL_UNAVAILABLE', null)).toBe('toolMissing');
+    const remedy = ProcessHostTools.remedy({ hint: ProcessHostTools.hintMac() });
+    const details = { kind: 'tool-unavailable', tool: 'ffmpeg', remedy: 'Install ffmpeg (stored text)', remedyRef: refOf(remedy) };
+    expect(tryFailureView({ kind: 'toolMissing', details, canCheck: true })).toEqual({
+      text: '这台电脑上没有能用的 ffmpeg。',
+      todo: `${remedy.text}，然后再试一次。`,
+      actions: [{ k: 'retry', label: '重试', primary: true }],
+    });
+    expect(tryFailureView({ kind: 'toolMissing', canCheck: true }).todo).toBe('安装 ffmpeg，然后再试一次。');
   });
 
   it('试画说「画」：提醒、内存不够、模型出错都换成图像的说法', () => {
