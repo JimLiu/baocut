@@ -108,6 +108,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-noise-displace/1` 的 `noise-displace` 在唯一文字节点页上下文与显式 domain 内，以固定 v1 空间噪声 `n0=noise(uv*noiseScale, phase)` 求 `n=(n0+brightness-0.5)*contrast*10+0.5`、`d=(n-0.5)*strength*width/height`，把 `uv+(d,d)` 处的输入做预乘双线性采样，画面外透明、domain 外清零；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [noise-displace.json](tests/fixtures/noise-displace.json)。
 
+`caption-scan-warp/1` 的 `scan-warp` 在唯一文字节点页上下文与显式 domain 内一次完成三件事：用 gradient-smear 的分形梯度噪声核取两路场（seed 1 与 3）移动采样点；按以像素给出的核心半高、衰减与门限，在条纹内围绕 domain 中心列横向拉伸；再乘扫描线明暗与整体增益。`warp`、`stripe`、`scanlines` 与 `gain` 的范围见规格，domain 外清零、画布外透明；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [scan-warp.json](tests/fixtures/scan-warp.json)。
+
 `caption-glow-color-matrix/1` 提供 glow-cascade 的可选静态 `glowColorMatrix`，以行优先 3×3 矩阵在 tint 后变换辉光 RGB，再 clamp 后合成。alpha 和原图不参与变换；省略/单位矩阵保持旧输出。
 
 `caption-glow-linear/1` 把 glow-cascade 扩到 1–8 级，并开放 `gammaChannels: rgba`（每个 pass 连 alpha 一起做 gamma）、`aggregation: linear`（各级解码到线性域后按静态 `levelGains` 做 screen 累积，再乘强度、编码回去）、可选 `levelColor`（按级 alpha 换成指定颜色，无值时不着色）和 `original-over-screen` 合成。旧文档省略这些字段，序列化与像素不变；GPU 材质计划明确拒绝这些字段，由 CPU 光栅执行。示例见 [glow-linear.json](tests/fixtures/glow-linear.json)。

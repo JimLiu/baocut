@@ -342,6 +342,24 @@ export interface CaptionGaussianStage {
   stepUv: CaptionDynamicValue;
   sigmaUv: CaptionDynamicValue;
 }
+export interface CaptionScanWarpField {
+  scale: number;
+  complexity: number;
+  subImpact: number;
+  subScale: number;
+  evolution: CaptionDynamicValue;
+  offset: [CaptionDynamicValue, CaptionDynamicValue];
+  strength: [CaptionDynamicValue, CaptionDynamicValue];
+  swapAxes?: boolean;
+}
+export interface CaptionScanWarpStripe {
+  center: CaptionDynamicValue;
+  coreHalfHeight: CaptionDynamicValue;
+  falloff: CaptionDynamicValue;
+  gate: CaptionDynamicValue;
+  amount: CaptionDynamicValue;
+  side: 'above' | 'below';
+}
 export type CaptionMaterial =
   | { kind: 'blur'; id: string; radius: CaptionDynamicValue; passes?: number }
   | { kind: 'wave-displace'; id: string; amplitude: CaptionDynamicValue; wavelength: CaptionDynamicValue; phase: CaptionDynamicValue; axis: 'x' | 'y'; contextNodeId?: string }
@@ -349,6 +367,8 @@ export type CaptionMaterial =
   | { kind: 'noise-palette-mix'; id: string; contextNodeId: string; paletteResourceId: string; palettePosition: CaptionDynamicValue; phase: CaptionDynamicValue; domain: { x: CaptionDynamicValue; y: CaptionDynamicValue; width: CaptionDynamicValue; height: CaptionDynamicValue } }
   /** caption-noise-displace/1: CPU raster only; the GPU material plan rejects it. */
   | { kind: 'noise-displace'; id: string; contextNodeId: string; domain: CaptionMaterialDomain; noiseScale: [number, number]; phase: CaptionDynamicValue; brightness: CaptionDynamicValue; contrast: CaptionDynamicValue; strength: CaptionDynamicValue }
+  /** caption-scan-warp/1: CPU raster only; the GPU material plan rejects it. */
+  | { kind: 'scan-warp'; id: string; contextNodeId: string; domain: CaptionMaterialDomain; uvY: 'up' | 'down'; warp: CaptionScanWarpField; stripe: CaptionScanWarpStripe; scanlines: { amount: CaptionDynamicValue; pitch: number; phase: CaptionDynamicValue }; gain: CaptionDynamicValue }
   | { kind: 'angular-sample-blend'; id: string; contextNodeId: string; domain: { x: CaptionDynamicValue; y: CaptionDynamicValue; width: CaptionDynamicValue; height: CaptionDynamicValue }; aspect: CaptionDynamicValue; angle: CaptionDynamicValue }
   | { kind: 'affine-over'; id: string; contextNodeId: string; sampling: { input: CaptionMaterialDomain; output: CaptionMaterialDomain }; foreground: [CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue]; background: [CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue]; backgroundOpacity: CaptionDynamicValue; backgroundRgbScale: CaptionDynamicValue; boundary: 'replicate' | 'transparent' }
   | { kind: 'affine-sample-blend'; id: string; contextNodeId: string; sampling: { input: CaptionMaterialDomain; output: CaptionMaterialDomain }; transforms: [CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue, CaptionDynamicValue][]; sampleRange: [number, number]; distanceRange: [number, number]; boundary: 'normalize' | 'replicate' | 'transparent' }

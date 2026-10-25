@@ -1515,6 +1515,20 @@ pub enum CaptionMaterial {
         contrast: DynamicValue,
         strength: DynamicValue,
     },
+    /// One resampling of the page domain: evolving noise warp, a scanning stripe that
+    /// stretches the content sideways, then scanline shimmer and a global gain.
+    ScanWarp {
+        id: String,
+        #[serde(rename = "contextNodeId")]
+        context_node_id: String,
+        domain: MaterialDomain,
+        #[serde(rename = "uvY")]
+        uv_y: MaterialUvY,
+        warp: ScanWarpField,
+        stripe: ScanWarpStripe,
+        scanlines: ScanWarpScanlines,
+        gain: DynamicValue,
+    },
     AngularSampleBlend {
         id: String,
         #[serde(rename = "contextNodeId")]
@@ -1729,6 +1743,56 @@ pub struct GradientSmearNoise {
     pub sub_scale: f64,
     pub sub_rotation: f64,
     pub sub_offset: [f64; 2],
+}
+
+/// Noise warp of `scan-warp`: two fractal gradient-noise fields move the sample point.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScanWarpField {
+    /// Noise lattice cells per domain height (the width is scaled by the aspect ratio).
+    pub scale: f64,
+    pub complexity: f64,
+    pub sub_impact: f64,
+    pub sub_scale: f64,
+    pub evolution: DynamicValue,
+    /// Noise-space translation subtracted from the lattice coordinate.
+    pub offset: [DynamicValue; 2],
+    /// Maximum sample displacement per axis, in domain fractions.
+    pub strength: [DynamicValue; 2],
+    #[serde(default)]
+    pub swap_axes: bool,
+}
+
+/// Which side of the stripe centre the stretch applies to, along material y.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ScanWarpSide {
+    Above,
+    Below,
+}
+
+/// Horizontal stretch about the domain centre inside a thin band; lengths are output pixels.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScanWarpStripe {
+    /// Band centre as a fraction of the domain height along material y.
+    pub center: DynamicValue,
+    pub core_half_height: DynamicValue,
+    pub falloff: DynamicValue,
+    /// Soft edge of the one-sided cut at the band centre; zero is a hard cut.
+    pub gate: DynamicValue,
+    pub amount: DynamicValue,
+    pub side: ScanWarpSide,
+}
+
+/// Brightness ripple along material y: `1 - amount * sin(pitch * y - phase)`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScanWarpScanlines {
+    pub amount: DynamicValue,
+    /// Radians per output pixel.
+    pub pitch: f64,
+    pub phase: DynamicValue,
 }
 
 /// Explicit axis-aligned canvas coordinates for a material's local texture domain.

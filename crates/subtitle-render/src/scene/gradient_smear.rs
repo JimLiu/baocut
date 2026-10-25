@@ -78,7 +78,8 @@ fn interpolation(uv: [f32; 2], u: &Uniforms, noise: &GradientSmearNoise, seed: f
     ) * 0.5
         + 0.5
 }
-fn gradient(mut uv: [f32; 2], u: &Uniforms, n: &GradientSmearNoise, seed: f32) -> f32 {
+/// Fractal gradient noise in [0, 1]; also the displacement field of `scan_warp`.
+pub(super) fn gradient(mut uv: [f32; 2], u: &Uniforms, n: &GradientSmearNoise, seed: f32) -> f32 {
     let complexity = n.complexity as f32;
     let mut sum = interpolation(uv, u, n, seed);
     let mut total = 1.0;

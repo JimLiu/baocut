@@ -168,6 +168,26 @@ test('noise-displace material carries a domain, static noise scale and four unif
   expectTypeOf<Extract<CaptionMaterial, { kind: 'noise-displace' }>['noiseScale']>().toEqualTypeOf<[number, number]>();
 });
 
+test('scan-warp material groups the noise warp, stripe and scanline uniforms', () => {
+  const constant = (value: number) => ({ kind: 'constant', value }) as const;
+  const material = {
+    kind: 'scan-warp', id: 'glitch', contextNodeId: 'text', domain, uvY: 'down',
+    warp: {
+      scale: 0.25, complexity: 3, subImpact: 0.85, subScale: 40,
+      evolution: constant(1.5), offset: [constant(0), constant(0.1)], strength: [constant(0.07), constant(0.06)],
+    },
+    stripe: {
+      center: constant(0.5), coreHalfHeight: constant(0.5), falloff: constant(5.6), gate: constant(0.2),
+      amount: constant(0.04), side: 'above',
+    },
+    scanlines: { amount: constant(0.05), pitch: 2.5, phase: constant(0) },
+    gain: constant(1),
+  } satisfies CaptionMaterial;
+  expect(material.stripe.side).toBe('above');
+  expectTypeOf<Extract<CaptionMaterial, { kind: 'scan-warp' }>['warp']['swapAxes']>().toEqualTypeOf<boolean | undefined>();
+  expectTypeOf<Extract<CaptionMaterial, { kind: 'scan-warp' }>['stripe']['side']>().toEqualTypeOf<'above' | 'below'>();
+});
+
 test('feedback composite defaults to decay-over and opts into an equal-weight mean', () => {
   const material = {
     kind: 'feedback', id: 'motion', samples: 10, step: { ticks: 25, timescale: 1000 }, decay: 1, offset: [2, 0], composite: 'mean',

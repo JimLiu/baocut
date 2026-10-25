@@ -70,6 +70,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-soft-band/1",
     "caption-noise-palette-mix/1",
     "caption-noise-displace/1",
+    "caption-scan-warp/1",
     "caption-angular-sample-blend/1",
     "caption-affine-sample-blend/1",
     "caption-affine-over/1",
@@ -1193,6 +1194,58 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 validate_component_uniform(s, brightness, -16.0, 16.0)?;
                 validate_component_uniform(s, contrast, 0.0, 1000.0)?;
                 validate_component_uniform(s, strength, -16.0, 16.0)?;
+                for (value, low) in [
+                    (&domain.x, -1_000_000.0),
+                    (&domain.y, -1_000_000.0),
+                    (&domain.width, 0.001),
+                    (&domain.height, 0.001),
+                ] {
+                    validate_value("width", value, s, UnitKind::Page)?;
+                    if let DynamicValue::Constant { value } = value {
+                        let n = typed_value(ValueType::Length, value)?.number()?;
+                        if !n.is_finite() || !(low..=1_000_000.0).contains(&n) {
+                            return Err(invalid(id, "material domain requires finite lengths and positive dimensions"));
+                        }
+                    }
+                }
+                id
+            }
+            CaptionMaterial::ScanWarp {
+                id,
+                context_node_id,
+                domain,
+                warp,
+                stripe,
+                scanlines,
+                gain,
+                ..
+            } => {
+                validate_component_context(s, &nodes, id, context_node_id, "caption-scan-warp/1", 1.0)?;
+                for (value, low, high) in [
+                    (warp.scale, 0.001, 1000.0),
+                    (warp.complexity, 1.0, 10.0),
+                    (warp.sub_impact, 0.0, 1.0),
+                    (warp.sub_scale, 1.0, 10_000.0),
+                    (scanlines.pitch, 0.0, 1000.0),
+                ] {
+                    if !value.is_finite() || !(low..=high).contains(&value) {
+                        return Err(invalid(id, "scan warp static parameters outside finite bounds"));
+                    }
+                }
+                for value in [&warp.evolution, &warp.offset[0], &warp.offset[1]] {
+                    validate_component_uniform(s, value, -100_000.0, 100_000.0)?;
+                }
+                for value in &warp.strength {
+                    validate_component_uniform(s, value, -4.0, 4.0)?;
+                }
+                validate_component_uniform(s, &stripe.center, -4.0, 4.0)?;
+                for value in [&stripe.core_half_height, &stripe.falloff, &stripe.gate] {
+                    validate_component_uniform(s, value, 0.0, 1_000_000.0)?;
+                }
+                validate_component_uniform(s, &stripe.amount, -1.0, 1.0)?;
+                validate_component_uniform(s, &scanlines.amount, -1.0, 1.0)?;
+                validate_component_uniform(s, &scanlines.phase, -1_000_000.0, 1_000_000.0)?;
+                validate_component_uniform(s, gain, 0.0, 4.0)?;
                 for (value, low) in [
                     (&domain.x, -1_000_000.0),
                     (&domain.y, -1_000_000.0),

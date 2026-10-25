@@ -30,6 +30,7 @@ mod page_tag;
 mod page_window;
 mod paint_style_bindings;
 mod sampled_layout;
+mod scan_warp;
 mod scalar_cluster;
 mod shape_paint;
 mod speech_phase;
