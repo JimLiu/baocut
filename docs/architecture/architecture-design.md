@@ -2342,6 +2342,8 @@ interface CompositionAdapter {
 
 第一期由 `packages/code-runtime`（§13.1 的 `code-runtime`）实现其中的子集：`VerifiedCapabilities` 只有合同、随机访问、透明、音频、实际的宽高帧率与时长、执行环境（Electron 离屏窗口）以及网络是否被实际拦截；可独立输出的层、采样与编码、GPU 能力尚未测量。
 
+Runtime 与 Electron 离屏宿主之间的私有 JSON 行通道使用认证的本机 socket，不依赖 GUI 进程继承的 stdin（Windows Chromium 初始化可能关闭它）。Runtime 只监听 `127.0.0.1` 的临时端口，给本次子进程注入一次性随机令牌；认证成功后停止接受新连接，以 `ping` 请求确认就绪。通道关闭时宿主销毁窗口并退出；连接、请求和停止均有时限，异常断线终止子进程并拒绝在途请求。此通道不向页面开放、不改变页面网络白名单；其他原生 Worker 继续使用原有 stdio 协议。
+
 ### 8.4 FrameTicket、就绪握手与同页串行
 
 ```ts

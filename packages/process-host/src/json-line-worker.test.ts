@@ -99,3 +99,102 @@ describe('JsonLineWorker', () => {
     await expect(JsonLineWorker.start({ command: path.join(dir, 'missing') })).rejects.toBeInstanceOf(WorkerSpawnError);
   });
 });
+
+describe('JsonLineWorker authenticated socket', () => {
+  const socketScript = `
+    const net = require('node:net');
+    const readline = require('node:readline');
+    process.stdin.destroy(); // GUI startup has made stdin unusable.
+    if (process.env.FATAL_START) { process.stderr.write('fatal startup diagnostic\\n'); process.exit(7); }
+    if (process.env.NO_CONNECT) setInterval(() => {}, 1000);
+    else {
+      const connect = () => {
+        const socket = net.connect(Number(process.env.BAOCUT_WORKER_PORT), '127.0.0.1');
+        socket.on('error', () => {});
+        socket.on('connect', () => {
+          socket.write(JSON.stringify({ token: process.env.BAD_TOKEN ? 'wrong' : process.env.BAOCUT_WORKER_TOKEN }) + '\\n');
+          const lines = readline.createInterface({ input: socket });
+          lines.on('line', line => {
+            const { id, method, params } = JSON.parse(line);
+            if (method === 'disconnect') socket.destroy();
+            else if (method === 'reset') socket.resetAndDestroy();
+            else if (method === 'exit') { socket.end(JSON.stringify({ id, result: { bye: true } }) + '\\n', () => process.exit(3)); }
+            else if (method === 'hang') {}
+            else if (method === 'error') socket.write(JSON.stringify({ id, error: { code: 'BAD', message: 'nope' } }) + '\\n');
+            else if (method === 'event') {
+              socket.write(JSON.stringify({ event: 'tick', params }) + '\\n');
+              socket.write(JSON.stringify({ id, result: params }) + '\\n');
+            } else socket.write(JSON.stringify({ id, result: params }) + '\\n');
+          });
+          if (process.env.IGNORE_CLOSE) lines.on('close', () => setInterval(() => {}, 1000));
+          else lines.on('close', () => process.exit(0));
+        });
+      };
+      connect();
+    }
+  `;
+  const start = (env: NodeJS.ProcessEnv = {}, timeoutMs = 5000) => JsonLineWorker.start({
+    command: process.execPath, args: ['-e', socketScript], env: { ...process.env, ...env }, socket: { timeoutMs },
+  });
+
+  it('round-trips concurrent requests, errors and events after stdin is closed', async () => {
+    const worker = await start();
+    try {
+      expect(await Promise.all([worker.request('echo', { n: 1 }), worker.request('echo', { n: 2 })])).toEqual([{ n: 1 }, { n: 2 }]);
+      await expect(worker.request('error', {})).rejects.toBeInstanceOf(WorkerRequestError);
+      const events: WorkerEvent[] = [];
+      worker.onEvent(event => events.push(event));
+      await worker.request('event', { n: 3 });
+      expect(events).toEqual([{ event: 'tick', params: { n: 3 } }]);
+      await expect(worker.request('hang', {}, { timeoutMs: 20 })).rejects.toBeInstanceOf(WorkerTimeoutError);
+    } finally { expect(await worker.close()).toMatchObject({ code: 0, expected: true }); }
+  });
+
+  it('rejects an incorrect token and cleans up a worker that never connects', async () => {
+    for (const env of [{ BAD_TOKEN: '1' }, { NO_CONNECT: '1' }]) {
+      await expect(start(env, 500)).rejects.toBeInstanceOf(WorkerSpawnError);
+    }
+    await expect(JsonLineWorker.start({ command: path.join(os.tmpdir(), 'missing-worker'), socket: { timeoutMs: 1000 } }))
+      .rejects.toBeInstanceOf(WorkerSpawnError);
+  });
+
+  it('preserves startup stderr in the spawn error and log callback before authentication', async () => {
+    const logs: string[] = [];
+    const error = await JsonLineWorker.start({
+      command: process.execPath, args: ['-e', socketScript],
+      env: { ...process.env, FATAL_START: '1' }, socket: { timeoutMs: 5000 },
+      onStderrLine: line => logs.push(line),
+    }).catch(error => error);
+    expect(error).toBeInstanceOf(WorkerSpawnError);
+    expect((error as WorkerSpawnError).stderr).toContain('fatal startup diagnostic');
+    expect(logs).toEqual(['fatal startup diagnostic']);
+  });
+
+  it('rejects pending requests on disconnect and terminates a stuck child', async () => {
+    const worker = await start({ IGNORE_CLOSE: '1' });
+    const pending = worker.request('disconnect', {}).catch(error => error);
+    expect(await pending).toBeInstanceOf(WorkerExitedError);
+    expect(worker.alive).toBe(false);
+    expect((await worker.exited).expected).toBe(false);
+  });
+
+  it('bounds graceful shutdown even when the child ignores EOF', async () => {
+    const worker = await start({ IGNORE_CLOSE: '1' });
+    expect(await worker.close(30)).toMatchObject({ expected: true });
+    expect(worker.alive).toBe(false);
+  });
+
+  it('turns a TCP reset into a worker exit instead of an unhandled readline error', async () => {
+    const worker = await start({ IGNORE_CLOSE: '1' });
+    await expect(worker.request('reset', {})).rejects.toBeInstanceOf(WorkerExitedError);
+    expect(worker.alive).toBe(false);
+  });
+
+  it('drains the last socket response before rejecting other pending calls on exit', async () => {
+    const worker = await start();
+    const pending = worker.request('hang', {}).catch(error => error);
+    expect(await worker.request('exit', {})).toEqual({ bye: true });
+    expect(await pending).toBeInstanceOf(WorkerExitedError);
+    expect(await worker.exited).toMatchObject({ expected: false });
+  });
+});

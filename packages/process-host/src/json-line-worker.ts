@@ -1,10 +1,13 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import readline from 'node:readline';
+import net from 'node:net';
+import crypto from 'node:crypto';
+import type { Writable } from 'node:stream';
 import { refOf, type Localized, type MessageRef } from '@baocut/protocol';
 import { ProcessHostWorker as W } from '@baocut/protocol/messages/process-host';
 
 /**
- * 私有执行器通道（架构设计 §13.1 `process-host`）：stdio 上的 JSON 行子进程客户端。
+ * 私有执行器通道（架构设计 §13.1 `process-host`）：stdio 或认证本机 socket 上的 JSON 行子进程客户端。
  *
  * 协议与 Engine Host、Model Worker 相同：请求 `{id, method, params}`，响应 `{id, result}` / `{id, error}`，
  * 推送 `{event, params}`。这里不认识任何方法或事件的名字，只负责：
@@ -12,7 +15,7 @@ import { ProcessHostWorker as W } from '@baocut/protocol/messages/process-host';
  * - 递增的数字 `id` 与在途请求表；子进程退出时所有在途请求以 `WorkerExitedError` 拒绝；
  * - 可选的请求超时（不给就不超时：一次推理可以跑好几分钟）；
  * - stderr 只记最后一段（默认 64 KiB），供崩溃诊断取尾部；
- * - `close()` 关 stdin 让子进程自己退出，超过宽限期 SIGKILL；`kill()` 立即结束。
+ * - `close()` 关请求通道让子进程自己退出，超过宽限期 SIGKILL；`kill()` 立即结束。
  *
  * 由 `close()` / `kill()` 引起的退出标为 `expected`，调用方据此区分正常停止与崩溃。
  */
@@ -25,6 +28,8 @@ export interface WorkerCommand {
 }
 
 export interface JsonLineWorkerOptions extends WorkerCommand {
+  /** Authenticated loopback transport for GUI executables that cannot retain stdin. */
+  socket?: { timeoutMs: number };
   /** stderr 尾部保留的字节数（默认 64 KiB）。 */
   stderrLimitBytes?: number;
   /** 每一行 stderr（日志转发用）。 */
@@ -110,12 +115,15 @@ export class WorkerTimeoutError extends Error {
 export class WorkerSpawnError extends Error {
   /** 说明的消息引用，供按读者语言重新显示。 */
   readonly messageRef: MessageRef;
+  /** Bounded startup diagnostics captured before the transport connected. */
+  readonly stderr: string;
 
-  constructor(command: string, cause: Error) {
+  constructor(command: string, cause: Error, stderr = '') {
     const message = W.spawnFailed({ command, error: cause.message });
     super(message.text, { cause });
     this.messageRef = refOf(message);
     this.name = 'WorkerSpawnError';
+    this.stderr = stderr;
   }
 }
 
@@ -131,6 +139,7 @@ const DEFAULT_GRACE_MS = 5_000;
 
 export class JsonLineWorker {
   readonly #child: ChildProcessWithoutNullStreams;
+  readonly #input: Writable;
   readonly #pending = new Map<number, Pending>();
   readonly #eventListeners = new Set<(event: WorkerEvent) => void>();
   readonly #exitListeners = new Set<(exit: WorkerExit) => void>();
@@ -142,35 +151,57 @@ export class JsonLineWorker {
   #expected = false;
   #exit: WorkerExit | null = null;
 
-  private constructor(child: ChildProcessWithoutNullStreams, options: JsonLineWorkerOptions) {
+  private constructor(child: ChildProcessWithoutNullStreams, options: JsonLineWorkerOptions, socket?: net.Socket) {
     this.#child = child;
+    this.#input = socket ?? child.stdin;
     this.#stderrLimit = options.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT;
-    const lines = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
+    const lines = readline.createInterface({ input: socket ?? child.stdout, crlfDelay: Infinity });
+    if (socket) {
+      child.stdout.resume(); // Chromium diagnostics are not protocol messages.
+      socket.on('error', () => {});
+      socket.once('close', () => { if (!this.#exit && !this.#expected) child.kill('SIGKILL'); });
+    }
     lines.on('line', (line) => this.#onLine(line));
+    // readline forwards input errors as its own error event (not just the
+    // socket's). A reset must follow the normal worker-exit path.
+    lines.on('error', () => {
+      socket?.destroy();
+      if (!this.#expected) child.kill('SIGKILL');
+    });
     child.stderr.on('data', (chunk: Buffer) => this.#onStderr(chunk));
     if (options.onStderrLine) {
       const onLine = options.onStderrLine;
       readline.createInterface({ input: child.stderr, crlfDelay: Infinity }).on('line', (line) => onLine(line));
     }
     child.stdin.on('error', () => {});
-    // `close` 而不是 `exit`：stdio 读完之后才算退出，子进程退出前写出的最后几行响应不会丢。
+    // `close` waits for stdio; a socket also needs its readable side drained.
     this.#exited = new Promise((resolve) => {
       child.once('close', (code, signal) => {
         const exit: WorkerExit = { code, signal, expected: this.#expected };
-        this.#exit = exit;
-        for (const pending of this.#pending.values()) {
-          if (pending.timer) clearTimeout(pending.timer);
-          pending.reject(new WorkerExitedError(pending.method, exit));
-        }
-        this.#pending.clear();
-        for (const listener of this.#exitListeners) listener(exit);
-        resolve(exit);
+        const finish = () => {
+          if (this.#exit) return;
+          this.#exit = exit;
+          socket?.destroy();
+          lines.close();
+          for (const pending of this.#pending.values()) {
+            if (pending.timer) clearTimeout(pending.timer);
+            pending.reject(new WorkerExitedError(pending.method, exit));
+          }
+          this.#pending.clear();
+          for (const listener of this.#exitListeners) listener(exit);
+          resolve(exit);
+        };
+        if (socket && !socket.readableEnded && !socket.destroyed) {
+          socket.once('end', finish);
+          socket.once('close', finish);
+        } else finish();
       });
     });
   }
 
-  /** 启动子进程；进程起来（`spawn` 事件）就返回，不发任何请求。 */
+  /** stdio 模式在 spawn 后返回；socket 模式等待子进程认证，不发业务请求。 */
   static start(options: JsonLineWorkerOptions): Promise<JsonLineWorker> {
+    if (options.socket) return this.#startSocket(options);
     return new Promise((resolve, reject) => {
       const child = spawn(options.command, [...(options.args ?? [])], {
         env: options.env ?? process.env,
@@ -179,6 +210,93 @@ export class JsonLineWorker {
       });
       child.once('error', (error) => reject(new WorkerSpawnError(options.command, error)));
       child.once('spawn', () => resolve(new JsonLineWorker(child, options)));
+    });
+  }
+
+  static async #startSocket(options: JsonLineWorkerOptions): Promise<JsonLineWorker> {
+    const token = crypto.randomBytes(32).toString('hex');
+    const server = net.createServer();
+    const sockets = new Set<net.Socket>();
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', () => { server.removeListener('error', reject); resolve(); });
+    });
+    const port = (server.address() as net.AddressInfo).port;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let child: ChildProcessWithoutNullStreams;
+      let stderr = Buffer.alloc(0);
+      const capture = (chunk: Buffer) => {
+        const limit = Math.max(0, options.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT);
+        stderr = limit ? Buffer.concat([stderr, chunk]).subarray(-limit) : Buffer.alloc(0);
+      };
+      const cleanup = (keep?: net.Socket) => {
+        clearTimeout(timer);
+        server.close();
+        for (const socket of sockets) if (socket !== keep) socket.destroy();
+      };
+      const fail = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        child?.kill('SIGKILL');
+        const diagnostics = stderr.toString('utf8');
+        for (const line of diagnostics.split(/\r?\n/).filter(Boolean)) {
+          try { options.onStderrLine?.(line); } catch { /* Diagnostics cannot prevent failure cleanup. */ }
+        }
+        reject(new WorkerSpawnError(options.command, error, diagnostics));
+      };
+      const timer = setTimeout(() => fail(new Error('Worker socket handshake timed out')), options.socket!.timeoutMs);
+      server.on('error', fail);
+      server.on('connection', (socket) => {
+        if (settled || sockets.size >= 8) { socket.destroy(); return; }
+        sockets.add(socket);
+        socket.on('error', () => {});
+        const authTimer = setTimeout(() => socket.destroy(), Math.min(5000, options.socket!.timeoutMs));
+        socket.once('close', () => { clearTimeout(authTimer); sockets.delete(socket); });
+        let pending = Buffer.alloc(0);
+        const authenticate = (chunk: Buffer) => {
+          pending = Buffer.concat([pending, chunk]);
+          const newline = pending.indexOf(10);
+          if (newline > 4096 || (newline < 0 && pending.length > 4096)) { socket.destroy(); return; }
+          if (newline < 0) return;
+          let message: unknown;
+          try { message = JSON.parse(pending.subarray(0, newline).toString('utf8')); } catch { socket.destroy(); return; }
+          if (!message || typeof message !== 'object' || !('token' in message) || message.token !== token) {
+            socket.destroy(); return;
+          }
+          if (settled) { socket.destroy(); return; }
+          settled = true;
+          clearTimeout(authTimer);
+          socket.removeListener('data', authenticate);
+          socket.pause();
+          if (pending.length > newline + 1) socket.unshift(pending.subarray(newline + 1));
+          cleanup(socket);
+          child.stderr.removeListener('data', capture);
+          const worker = new JsonLineWorker(child, options, socket);
+          if (stderr.length) {
+            worker.#onStderr(stderr);
+            for (const line of stderr.toString('utf8').split(/\r?\n/).filter(Boolean)) {
+              try { options.onStderrLine?.(line); } catch { /* Diagnostics cannot interrupt authentication. */ }
+            }
+          }
+          socket.resume();
+          resolve(worker);
+        };
+        socket.on('data', authenticate);
+      });
+      try {
+        child = spawn(options.command, [...(options.args ?? [])], {
+          env: { ...(options.env ?? process.env), BAOCUT_WORKER_PORT: String(port), BAOCUT_WORKER_TOKEN: token },
+          cwd: options.cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        child.stdin.on('error', () => {});
+        child.stdout.resume();
+        child.stderr.on('data', capture);
+        child.once('error', fail);
+        child.once('close', () => fail(new Error('Worker exited before socket handshake')));
+      } catch (error) { fail(error as Error); }
     });
   }
 
@@ -208,7 +326,7 @@ export class JsonLineWorker {
         }, timeoutMs);
       }
       this.#pending.set(id, pending);
-      this.#child.stdin.write(`${JSON.stringify({ id, method, params })}\n`);
+      this.#input.write(`${JSON.stringify({ id, method, params })}\n`);
     });
   }
 
@@ -222,11 +340,11 @@ export class JsonLineWorker {
     return () => this.#exitListeners.delete(listener);
   }
 
-  /** 关 stdin，让子进程处理完已收到的请求后自己退出；超过宽限期 SIGKILL。 */
+  /** 关请求通道，让子进程自己退出；超过宽限期 SIGKILL。 */
   async close(graceMs = DEFAULT_GRACE_MS): Promise<WorkerExit> {
     if (this.#exit) return this.#exit;
     this.#expected = true;
-    this.#child.stdin.end();
+    this.#input.end();
     const timer = setTimeout(() => this.#child.kill('SIGKILL'), graceMs);
     const exit = await this.#exited;
     clearTimeout(timer);

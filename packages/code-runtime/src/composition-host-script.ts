@@ -2,9 +2,9 @@
  * Electron 离屏宿主的主进程脚本（CommonJS 源码，作为字符串随 bundle 分发）。
  *
  * `composition-host.ts` 把它连同 `COMPOSITION_ADAPTER_SCRIPT` 写进缓存目录的 `host-<摘要>.cjs`，以 `<Electron> --composition-host <脚本>` 启动（`hostSpawnArgs`）。
- * 协议同 `JsonLineWorker`：stdin 每行一个请求 `{id, method, params}`，stdout 每行一个响应或事件；日志写 stderr。
+ * 协议同 `JsonLineWorker`：带一次性令牌的本机 socket 上每行一个请求、响应或事件；日志写 stderr。
  *
- * - 启动后（`app.whenReady()` 之后）发事件 `ready`；stdin 关闭即退出。不用顶层 await：ready 要等脚本求值结束才发。
+ * - 启动后（`app.whenReady()` 之后）连接父进程的 socket；通道关闭即退出。不用顶层 await：ready 要等脚本求值结束才发。
  * - `open`：每个会话一个非持久分区、一个隐藏的离屏窗口；拦截根目录以外的 `file:` 与一切 `data:` / `blob:` / `about:` /
  *   `devtools:` 以外的请求（事件 `networkBlocked`），拒绝全部权限请求与导航、弹窗。
  * - `frame`：首次 seek 前先初始化截图表面并丢弃初始截图；同一会话串行；seek → 回读校验 → `invalidate()` 等一次 `paint`（最多 500 ms）→ `capturePage()` 截图。
@@ -28,6 +28,7 @@ const { app, BrowserWindow, session } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const net = require('net');
 const { fileURLToPath } = require('url');
 
 const ADAPTER_SOURCE = /*__BAOCUT_ADAPTER_SOURCE__*/null;
@@ -44,11 +45,12 @@ if (app.dock && typeof app.dock.hide === 'function') app.dock.hide();
 // 所有窗口关掉也不退出：会话结束不等于宿主结束。
 app.on('window-all-closed', () => {});
 
+let channel;
 const send = (message) => {
   try {
-    process.stdout.write(JSON.stringify(message) + '\n');
+    channel.write(JSON.stringify(message) + '\n');
   } catch (error) {
-    process.stderr.write('[composition-host] stdout write failed: ' + error + '\n');
+    process.stderr.write('[composition-host] socket write failed: ' + error + '\n');
   }
 };
 const log = (line) => process.stderr.write('[composition-host] ' + line + '\n');
@@ -63,6 +65,7 @@ function quit() {
   quitting = true;
   for (const state of sessions.values()) destroy(state);
   sessions.clear();
+  if (channel) channel.end();
   setImmediate(() => app.exit(0));
 }
 
@@ -141,6 +144,8 @@ async function open(p) {
     show: false,
     width: p.width,
     height: p.height,
+    minWidth: p.width,
+    minHeight: p.height,
     useContentSize: true,
     frame: false,
     enableLargerThanScreen: true,
@@ -156,6 +161,9 @@ async function open(p) {
       partition,
     },
   });
+  // Windows can clamp initial hidden-window bounds to the current display.
+  // Establish the required client size before loading or sampling the bundle.
+  win.setContentSize(p.width, p.height);
   state.win = win;
   sessions.set(id, state);
   const wc = win.webContents;
@@ -345,7 +353,29 @@ async function handle(method, p) {
 }
 
 function main() {
-  const lines = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+  const port = Number(process.env.BAOCUT_WORKER_PORT);
+  const token = process.env.BAOCUT_WORKER_TOKEN;
+  delete process.env.BAOCUT_WORKER_PORT;
+  delete process.env.BAOCUT_WORKER_TOKEN;
+  if (!Number.isInteger(port) || port < 1 || port > 65535 || !/^[a-f0-9]{64}$/.test(token || '')) {
+    log('Missing authenticated parent socket');
+    app.exit(1);
+    return;
+  }
+  // Windows Chromium can close inherited stdin before ready. Never use it as
+  // the request channel or as evidence that the Runtime has exited.
+  channel = net.connect({ host: '127.0.0.1', port });
+  channel.on('error', (error) => { log('parent socket failed: ' + error.message); quit(); });
+  channel.on('close', quit);
+  channel.on('connect', () => {
+    channel.write(JSON.stringify({ token }) + '\n');
+    listen();
+  });
+}
+
+function listen() {
+  const lines = readline.createInterface({ input: channel, crlfDelay: Infinity });
+  lines.on('error', quit);
   lines.on('line', (line) => {
     let message;
     try {
