@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { RpcError, type EditOperation, type JobRecord, type JobSubmitter, type SynthesizeSpeechRequest } from '@baocut/protocol';
+import { RpcError, formatRef, type EditOperation, type JobRecord, type JobSubmitter, type SynthesizeSpeechRequest } from '@baocut/protocol';
 import { FileCredentialStore } from '@baocut/runtime-storage';
 import { LibraryStore } from '@baocut/runtime-storage/library';
 import {
@@ -121,6 +121,8 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
   let dir: string;
   let fake: FakeAudioCpp;
   let engine: string | null;
+  /** 参考录音转换用的 ffmpeg；默认是上面那个假的，测外部工具缺失时换成找不到的路径。 */
+  let ffmpeg: string;
   let catalog: ModelCatalog;
   let services: ModelServices;
   let provider: LocalSpeechProvider;
@@ -138,7 +140,8 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-local-speech-'));
     fake = await writeFakeAudioCpp(path.join(dir, 'bin'));
     engine = fake.cli;
-    const ffmpeg = await writeScript(dir, 'ffmpeg', FAKE_FFMPEG);
+    const ffmpegScript = await writeScript(dir, 'ffmpeg', FAKE_FFMPEG);
+    ffmpeg = ffmpegScript;
     const models = path.join(dir, 'models');
     for (const bundle of BUNDLES) await writeRepo(models, bundle);
     // 内置清单只给资源调度估计常驻量用。
@@ -505,6 +508,27 @@ describe.skipIf(process.platform === 'win32')('本地语音合成（假 audio.cp
       if (saved === undefined) delete process.env[MODEL_ASSETS_ENV];
       else process.env[MODEL_ASSETS_ENV] = saved;
     }
+  });
+
+  it('ffmpeg 找不到：MEDIA_TOOL_UNAVAILABLE（说安装 ffmpeg），不误报成录音读不出来、也不说成安装不完整', async () => {
+    // 参考录音要经 ffmpeg 转成引擎读的 WAV：这台机器上没有能用的 ffmpeg 时，是外部工具的问题。
+    ffmpeg = path.join(dir, 'no-such-tools', 'ffmpeg');
+    const job = await speak({ voice: 'en-female', language: 'en' });
+    expect(job).toMatchObject({
+      state: 'failed',
+      error: { code: 'MEDIA_TOOL_UNAVAILABLE', details: { tool: 'ffmpeg', remedy: expect.stringContaining('ffmpeg') } },
+    });
+    expect(job.error!.message).toContain('ffmpeg');
+    expect(job.error!.message).not.toContain('重新安装 BaoCut');
+    expect(job.error!.messageRef).toBeDefined();
+    // 存下的说明带嵌套的消息引用：换成英文重新生成时，里面的安装修法也一起换，不残留生成时那种语言的一段。
+    const english = formatRef(job.error!.messageRef!, job.error!.message, 'en');
+    expect(english).toContain("Can't find");
+    expect(english).toContain('Install ffmpeg');
+    expect(english).not.toContain('安装');
+    // 转换在起服务之前：一个请求都没发出去，服务也没起。
+    expect(await recorded('start')).toEqual([]);
+    expect(await requests()).toEqual([]);
   });
 
   it('念不了的读音标注：按表面文字合成，任务照常完成，逐条带 reading-dropped 警告', async () => {

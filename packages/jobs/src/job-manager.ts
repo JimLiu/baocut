@@ -2925,6 +2925,9 @@ function failureError(failure: ProviderFailure, providerId: string): JobError {
       return jobError('MODEL_LOAD_FAILED', message, details);
     case 'output-unwritable':
       return jobError('STAGING_WRITE_FAILED', message, details);
+    case 'tool-unavailable':
+      // 外部工具（参考录音转换的 ffmpeg）找不到或不能运行：不是输入、也不是模型的问题。
+      return jobError('MEDIA_TOOL_UNAVAILABLE', message, details);
     case 'input-unreadable':
       // 随应用分发的文件（内置音色的录音）读不出来是安装不完整：`details.code` 是 `APP_FILE_MISSING`。
       return jobError(details.code === 'APP_FILE_MISSING' ? 'APP_FILE_MISSING' : 'ASSET_MISSING', message, details);
