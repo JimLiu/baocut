@@ -11,8 +11,9 @@
 // 已弃用），响应带 `usage`。带输入图时走 `POST {base}/images/edits`：JSON 的 `images` 是 `[{ image_url }]`（完整地址或
 // base64 data URL，GPT image 模型至多 16 张），其余字段同上，响应形状相同；`input_fidelity` 不发（gpt-image-2 不接受）。
 // 鉴权 `Authorization: Bearer`。
-// 没能确认的：兼容端点是否接受这些字段、是否返回 `b64_json`（这里对兼容端点额外发 `response_format: 'b64_json'`；
-// 只返回 `url` 的端点不支持——不去下载响应里给的任意地址）。
+// 没能确认的：兼容端点是否接受这些字段、是否返回 `b64_json`（这里对兼容端点额外发 `response_format: 'b64_json'`）。
+// 有的兼容端点忽略它、只在 `data[].url` 里给图片地址：没有 `b64_json` 时按 `url` 取图（只限兼容端点）。`data:` 地址
+// 就地解码；`http(s)` 地址 GET 下载，与配置的端点同源才带密钥，跨源的不带；回来的是文本或 JSON 当协议错误。
 import { ProviderFailure } from '@baocut/models';
 import { generationTimeoutMs, type ImageOutput, type ImageRequest, type SpeechOutput, type SpeechRequest } from '../adapter.ts';
 import { providerFetch } from '../http/provider-fetch.ts';
@@ -77,17 +78,45 @@ export async function openAiGenerateImages(request: ImageRequest, style: OpenAiG
   });
   const value = response.json<{ data?: unknown; usage?: unknown }>();
   const data = Array.isArray(value?.data) ? value.data : [];
+  if (data.length !== parameters.count) {
+    throw new ProviderFailure('protocol', PH.imageCount({ label: style.label, got: data.length, want: parameters.count }).text);
+  }
   const images: Buffer[] = [];
   for (const item of data) {
-    const b64 = typeof item === 'object' && item !== null ? (item as { b64_json?: unknown }).b64_json : undefined;
-    if (typeof b64 !== 'string' || !b64) {
-      throw new ProviderFailure('protocol', PH.noB64({ label: style.label }).text);
-    }
-    images.push(Buffer.from(b64, 'base64'));
-  }
-  if (images.length !== parameters.count) {
-    throw new ProviderFailure('protocol', PH.imageCount({ label: style.label, got: images.length, want: parameters.count }).text);
+    const { b64_json: b64, url } = (typeof item === 'object' && item !== null ? item : {}) as { b64_json?: unknown; url?: unknown };
+    if (typeof b64 === 'string' && b64) images.push(Buffer.from(b64, 'base64'));
+    else if (style.compatible && typeof url === 'string' && url) images.push(await imageFromUrl(url, request, style));
+    else throw new ProviderFailure('protocol', PH.noImageData({ label: style.label }).text);
   }
   request.progress(images.length);
   return { images, ...(value.usage !== undefined ? { usage: value.usage } : {}) };
+}
+
+/** 兼容端点只给了图片地址：`data:` 就地解码，`http(s)` GET 下载（与端点同源才带密钥）。 */
+async function imageFromUrl(url: string, request: ImageRequest, style: OpenAiGenerationStyle): Promise<Buffer> {
+  const { config } = request;
+  const inline = /^data:image\/[\w.+-]+;base64,(.*)$/is.exec(url);
+  if (inline) return Buffer.from(inline[1]!, 'base64');
+  let target: URL;
+  try {
+    target = new URL(url);
+  } catch {
+    throw new ProviderFailure('protocol', PH.badImageUrl({ label: style.label }).text);
+  }
+  if (target.protocol !== 'https:' && target.protocol !== 'http:') {
+    throw new ProviderFailure('protocol', PH.badImageUrl({ label: style.label }).text);
+  }
+  const sameOrigin = target.origin === new URL(config.baseUrl).origin;
+  const response = await providerFetch(httpOptions(style.label, config, request.http), {
+    method: 'GET',
+    url: target.href,
+    auth: sameOrigin ? authOf(config) : null,
+    timeoutMs: generationTimeoutMs(request.http),
+    signal: request.signal,
+  });
+  const type = response.contentType?.split(';')[0]!.trim().toLowerCase() ?? '';
+  if (type.startsWith('text/') || type.includes('json')) {
+    throw new ProviderFailure('protocol', PH.imageUrlNotImage({ label: style.label, type }).text);
+  }
+  return response.bytes;
 }

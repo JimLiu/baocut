@@ -1,7 +1,7 @@
 // OpenAI 兼容端点的语音合成与图片生成（架构设计 §6.4）：用户声明 `capability` 为 `synthesizeSpeech` / `generateImage`
 // 的模型，请求形状同 OpenAI（`POST {base}/audio/speech`、`POST {base}/images/generations`，见 openai-generation.ts）。
 // 都是假定，没有逐家确认：兼容端点接受 `voice` 为任意字符串、`response_format` 为声明的格式；图片端点接受
-// `response_format: 'b64_json'` 并在 `data[].b64_json` 里返回图片（只返回 `url` 的端点不支持）；`output_format` 可能被忽略，
+// `response_format: 'b64_json'` 并在 `data[].b64_json` 里返回图片（忽略它、只给 `data[].url` 的端点按地址取图）；`output_format` 可能被忽略，
 // 端点返回的图片格式与声明不符时在发布前的校验里失败（`MODEL_OUTPUT_INVALID`）。
 import type { DeclaredModel, ImageModelInfo, SpeechModelInfo } from '@baocut/protocol';
 import type { AdapterConfig, ImageAdapter, ImageOutput, ImageRequest, SpeechAdapter, SpeechOutput, SpeechRequest } from '../adapter.ts';

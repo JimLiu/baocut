@@ -215,7 +215,7 @@ describe('OpenAI 图片', () => {
     });
   });
 
-  it('张数不对、没有 b64_json：协议错误', async () => {
+  it('张数不对、没有 b64_json：协议错误（官方端点不按 url 取图）', async () => {
     server = await startFakeProviderServer(() => ({ status: 200, json: { data: [{ b64_json: 'AAAA' }] } }));
     const cfg = config(`${server.origin}/v1`, OPENAI_KEY);
     expect((await failure(generate(new OpenAiImageAdapter(), cfg, 'gpt-image-1', image({ count: 2 })))).kind).toBe('protocol');
@@ -662,6 +662,73 @@ describe('OpenAI 兼容端点', () => {
       output_format: 'png',
       response_format: 'b64_json',
     });
+  });
+});
+
+describe('OpenAI 兼容端点：只给图片地址', () => {
+  const declared: AdapterConfig['declared'] = [{ modelId: 'sdxl', capability: 'generateImage', sizes: ['512x512'], maxCount: 2 }];
+  const KEY = 'sk-compat-ONLY-FOR-TESTS-0123456789abcdef';
+  let other: FakeProviderServer | undefined;
+  afterEach(async () => {
+    await other?.close();
+    other = undefined;
+  });
+
+  it('同源地址带密钥下载，跨源地址不带密钥；data: 地址就地解码', async () => {
+    other = await startFakeProviderServer(() => ({ status: 200, bytes: pngFixture(16, 9, 1), headers: { 'content-type': 'image/png' } }));
+    server = await startFakeProviderServer((req, srv) => {
+      if (req.path.startsWith('/files/')) return { status: 200, bytes: pngFixture(16, 9, 0), headers: { 'content-type': 'image/png' } };
+      return {
+        status: 200,
+        json: {
+          data: [
+            { url: `${srv.origin}/files/a.png` },
+            { url: `${other!.origin}/cdn/b.png?sig=1` },
+            { url: `data:image/png;base64,${pngFixture(16, 9, 2).toString('base64')}` },
+          ],
+        },
+      };
+    });
+    const progress: number[] = [];
+    const out = await generate(
+      new CompatibleImageAdapter(() => '本机'),
+      config(`${server.origin}/v1`, KEY, [{ ...declared[0]!, maxCount: 3 }]),
+      'sdxl',
+      image({ count: 3, size: '512x512' }),
+      progress,
+    );
+    expect(out.images.map((b, i) => b.equals(pngFixture(16, 9, i)))).toEqual([true, true, true]);
+    expect(progress).toEqual([3]);
+    expect(server.requests[1]!).toMatchObject({ method: 'GET', path: '/files/a.png' });
+    expect(server.requests[1]!.headers.authorization).toBe(`Bearer ${KEY}`);
+    expect(other.requests).toHaveLength(1);
+    expect(other.requests[0]!).toMatchObject({ method: 'GET', path: '/cdn/b.png?sig=1' });
+    expect(other.requests[0]!.headers.authorization).toBeUndefined();
+  });
+
+  it('地址回来的是网页或 JSON、地址不是 http(s)、既没有 b64_json 也没有地址：协议错误', async () => {
+    server = await startFakeProviderServer((req, srv) =>
+      req.path.startsWith('/files/')
+        ? { status: 200, text: '<html>login</html>', headers: { 'content-type': 'text/html; charset=utf-8' } }
+        : { status: 200, json: { data: [{ url: `${srv.origin}/files/a.png` }] } },
+    );
+    const cfg = config(`${server.origin}/v1`, null, declared);
+    const run = () => generate(new CompatibleImageAdapter(() => '本机'), cfg, 'sdxl', image({ size: '512x512' }));
+    expect(await failure(run())).toMatchObject({ kind: 'protocol', message: expect.stringContaining('text/html') });
+    for (const item of [{ url: 'file:///etc/passwd' }, { url: 'not a url' }, {}]) {
+      server.handler = () => ({ status: 200, json: { data: [item] } });
+      expect((await failure(run())).kind).toBe('protocol');
+    }
+    expect(server.requests.filter((r) => r.method === 'GET')).toHaveLength(1);
+  });
+
+  it('张数不对时不去下载', async () => {
+    server = await startFakeProviderServer((_req, srv) => ({ status: 200, json: { data: [{ url: `${srv.origin}/files/a.png` }] } }));
+    const cfg = config(`${server.origin}/v1`, null, declared);
+    expect((await failure(generate(new CompatibleImageAdapter(() => '本机'), cfg, 'sdxl', image({ count: 2, size: '512x512' })))).kind).toBe(
+      'protocol',
+    );
+    expect(server.requests).toHaveLength(1);
   });
 });
 

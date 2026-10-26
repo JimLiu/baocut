@@ -1520,7 +1520,7 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 
 `JobSpec` 固定 `outputContract`，例如语言、采样率、声道、对齐质量、必需的实体 ID、图片尺寸。返回的格式、bytes 与时长不通过校验，就不能注册为就绪的产物。
 
-**外发与凭据**。在线调用把素材或文本送出本机：首次向某个 Provider 发送某类数据需要授权（§12.5），付费调用过预算准入（§7.8）。API key 只出现在发往该 Provider 端点的请求头里：不进日志、任务记录、事件与错误详情，下载结果时不传给任意的重定向地址。
+**外发与凭据**。在线调用把素材或文本送出本机：首次向某个 Provider 发送某类数据需要授权（§12.5），付费调用过预算准入（§7.8）。API key 只出现在发往该 Provider 端点的请求头里：不进日志、任务记录、事件与错误详情，下载结果时不传给任意的重定向地址，按响应给的图片地址下载时也只在与端点同源时带上。
 
 来源记录保留 provider / model / version / 输入 hash / 输出 hash、可用的 seed，以及 `estimate` / `reported` / `unknown` 的费用状态；没有可信的报告时不写伪精确的实付金额。转写结果里，每一次请求都报告了用量才是 `reported`（`usage` 为供应商原样的用量），有一块没报告就是 `unknown`。
 
@@ -1546,7 +1546,7 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 
 **转写的结果**。供应商的词时间先按它给的顺序（说话的顺序）查一遍：起止依次排成一列，取最长的不减子序列作为可信的骨架，越出这一块一秒以上的点、离前后骨架点超过一秒的点算离群（实测 `gemini-3.5-transcribe` 偶尔丢或多一位数字，例如 13.4 秒写成 `3.400s`），按前后可信的点线性插值修好，这个词标 `estimated`，所在的段带 `timing-adjusted`；一秒以内的回退是相邻词的正常重叠，交给单调修正。各块的段拼到一起按起点排序、去掉重叠，规则与 Model Worker 相同（Model Worker 协议规范 §2.5.1）：与前一段部分重叠的在重叠区中点分开；整个落在前一段里的（多人同时说话时的插话）按原时长从包住它的那段的尾巴上分出来（几段合起来至多分走那段的一半，超出时按比例缩短），排在那段之后，带 `timing-adjusted`；换算成 tick 之后没有长度的段丢弃，带 `segment-degenerate`。
 
-**生成的请求**。`synthesizeSpeech` 与 `generateImage` 的一次尝试是一次（图片按张数可以是几次）同步请求，期限 5 分钟；响应体按字节读，不超过 64 MB。参数的检查都在提交时（§6.2）：文本或提示词按 Unicode 码点计，超过模型上限直接拒绝，不截断、不切块、不改写；音色、语言、格式、尺寸、张数、语速、`instructions` 与 `seed` 不在模型描述里的都拒绝。适配器把冻结的参数换成供应商的写法，按请求的格式把输出写进 staging（`output-<n>.<扩展名>`），声明媒体类型、长度与 sha256；响应的类型或张数与请求不符是协议错误，供应商只回文字不回图片是 `PROVIDER_REJECTED`。只认响应体里的字节，不去下载响应给出的任意地址。
+**生成的请求**。`synthesizeSpeech` 与 `generateImage` 的一次尝试是一次（图片按张数可以是几次）同步请求，期限 5 分钟；响应体按字节读，不超过 64 MB。参数的检查都在提交时（§6.2）：文本或提示词按 Unicode 码点计，超过模型上限直接拒绝，不截断、不切块、不改写；音色、语言、格式、尺寸、张数、语速、`instructions` 与 `seed` 不在模型描述里的都拒绝。适配器把冻结的参数换成供应商的写法，按请求的格式把输出写进 staging（`output-<n>.<扩展名>`），声明媒体类型、长度与 sha256；响应的类型或张数与请求不符是协议错误，供应商只回文字不回图片是 `PROVIDER_REJECTED`。官方端点只认响应体里的字节，不去下载响应给出的地址；OpenAI 兼容端点（`custom:<名字>`）忽略 `response_format: 'b64_json'`、只在 `data[].url` 给图片地址时按地址取图：`data:image/…;base64,` 就地解码，`http(s)` 地址经同一套请求规矩 GET 下载（与配置的端点同源才带密钥，跨源的不带），回来的是文本或 JSON、地址不是这几种都是协议错误。
 
 **首批的生成适配器**。
 
@@ -1558,7 +1558,7 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 | `google` | `synthesizeSpeech`：Gemini Interactions API `POST {base}/interactions`，`response_format: { type: 'audio', mime_type: 'audio/wav' }`，`store: false` | `gemini-3.8-flash-tts`（默认）、`gemini-3.8-flash-lite-tts` | 30 个预置音色，默认 `Kore`，也接受复刻音色的 ID（`voice_…`，见下文音色克隆的请求）；文本逐字念，`instructions` 放进 `speech_metadata.style`；语言自动识别；2000 字符（输出上限 16,384 token，约 655 秒）；只出 wav（返回的就是带头的 WAV，不自己补头）；没有语速与 seed |
 | `volcengine-speech` | `synthesizeSpeech`：`POST {base}/tts/unidirectional`（`X-Api-Key`，`X-Api-Resource-Id: seed-tts-2.0`），响应是一串 JSON 包，音频片段 base64 | `seed-tts-2.0`（豆包语音合成 2.0） | 13 个 2.0 音色，默认 `zh_female_vv_uranus_bigtts`，也接受别的音色 ID；`instructions` 放进 `additions.context_texts`；非中英文时开自动识别语言；1000 字符；mp3，wav 取 24 kHz PCM 后补头；语速 0.5–2（换成 `speech_rate`）；没有 seed。这种密钥没有只读接口：验证与刷新发一个空文本的合成请求，401 才算密钥不对；刷新不给模型列表 |
 | `google` | `generateImage`：Gemini Interactions API `POST {base}/interactions`，`response_format.type: 'image'` | `gemini-3.1-flash-image`（默认）、`gemini-3-pro-image`、`gemini-3.1-flash-lite-image`、`gemini-2.5-flash-image` | 尺寸按各模型的宽高比 × 分辨率表，请求里换成 `aspect_ratio` 与 `image_size`；一张一次请求，一次任务最多 4 张；只取 `model_output` 里的最后一张图，不取 `thought` 的中间图；png、jpeg；没有 seed |
-| `custom:<名字>` | 与 `openai` 相同的两个端点；图片请求加 `response_format: 'b64_json'` | 用户声明 `capability` 为 `synthesizeSpeech` / `generateImage` 的模型 | 限制按声明，没声明的取保守值：语音 4096 字符、mp3，声明了音色时第一个是默认音色、其他音色 ID 也原样交给端点，没声明时必须给出音色；图片 1024x1024、一次 1 张、png、提示词 4000 字符 |
+| `custom:<名字>` | 与 `openai` 相同的两个端点；图片请求加 `response_format: 'b64_json'`，取 `data[].b64_json`，没有时按 `data[].url` 取图 | 用户声明 `capability` 为 `synthesizeSpeech` / `generateImage` 的模型 | 限制按声明，没声明的取保守值：语音 4096 字符、mp3，声明了音色时第一个是默认音色、其他音色 ID 也原样交给端点，没声明时必须给出音色；图片 1024x1024、一次 1 张、png、提示词 4000 字符 |
 
 **音色克隆的请求**。ElevenLabs 的即时克隆是 `POST {base}/voices/add`（multipart：`name`、一个参考录音 `files`、可选的 `description`；`xi-api-key` 请求头），取响应的 `voice_id`；只发一次（重发可能多建一个克隆），期限 2 分钟。删除是 `DELETE {base}/voices/{voice_id}`，404 当作远端已经没有。Gemini 的复刻音色是 `POST {base}/voices`（JSON；`x-goog-api-key` 与 `Api-Revision` 请求头）：`store: true`、`voice: { type: 'replicated', display_name, description?, language_code?, replicated: { source_audio, consent_audio } }`，两段录音都是 `{ mime_type, data }`（base64 内嵌）：`source_audio` 是音色的参考录音，`consent_audio` 是授权声明录音（`requiresConsentClip`），`language_code` 给授权声明录音的语言，自定义的一句不给；取响应的 `id`（`voice_…`），合成时直接当音色 ID；同样只发一次，期限 2 分钟。删除是 `DELETE {base}/voices/{id}`，404 当作远端已经没有。没有离线核对过的细节列在 §14。
 
