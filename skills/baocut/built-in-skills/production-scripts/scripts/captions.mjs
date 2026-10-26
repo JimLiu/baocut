@@ -16,6 +16,8 @@
 // 默认的 y 86 落在平台控件区里）。给了 style，或时长和默认不同时：找视频里旁白的字幕样式文档（overlay.json 里原声字幕的
 // 样式不算；没有就以默认样式加上 style 建一份），只把和配置不同的键 patchDocument 写进去（都一样时不动），再把各段字幕挂到
 // 这份样式上；用的样式记在 captions.json 的 _style，各段记 style（重建的字幕是默认样式，记录里 style 不是这份的挂一遍）。
+// 默认样式念到的字变青色（#18E1D6）：配色不同的片子给 captions.style.activeColor（#RRGGBB）换成这期的强调色，
+// 写在样式文档的 wordAnimation.active.color 上（setCaptionStyle 不收这个键，建好文档后用 patchDocument 改）。
 // 什么都不给时不建样式文档，字幕按默认样式画。
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -82,8 +84,9 @@ export function timingLimits(cfg) {
   return lim;
 }
 
-// 旁白字幕能配的样式键（setCaptionStyle 的 style 认的键）；描边、投影只比、只改给出的字段
-const STYLE_KEYS = ['y', 'verticalAlign', 'x', 'width', 'fontSize', 'fontWeight', 'fontFamily', 'fontColor', 'textOutline', 'dropShadow', 'background', 'backgroundColor'];
+// 旁白字幕能配的样式键：setCaptionStyle 的 style 认的键，加上 activeColor（念到的字的颜色，只能 patchDocument 写）；
+// 描边、投影只比、只改给出的字段
+const STYLE_KEYS = ['y', 'verticalAlign', 'x', 'width', 'fontSize', 'fontWeight', 'fontFamily', 'fontColor', 'textOutline', 'dropShadow', 'background', 'backgroundColor', 'activeColor'];
 const NESTED = new Set(['textOutline', 'dropShadow']);
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
 
@@ -94,12 +97,18 @@ export function styleOf(cfg) {
   if (!isObj(s) || !Object.keys(s).length) throw new Error(`captions.style: give an object with some of ${STYLE_KEYS.join(', ')}`);
   const bad = Object.keys(s).filter(k => !STYLE_KEYS.includes(k));
   if (bad.length) throw new Error(`captions.style: unknown key ${bad.join(', ')}; use ${STYLE_KEYS.join(', ')}`);
+  if ('activeColor' in s && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s.activeColor)) throw new Error(`captions.style.activeColor: give #RRGGBB or #RRGGBBAA, not ${JSON.stringify(s.activeColor)}`);
   return s;
 }
 
 // 样式文档的 style 和配置不同的键，写成 patchDocument 的 changes；都一样时为空
 export function styleChanges(cur, want) {
   return Object.entries(want).flatMap(([k, v]) => {
+    if (k === 'activeColor') {
+      const anim = isObj(cur?.wordAnimation) ? cur.wordAnimation : {};
+      const active = isObj(anim.active) ? anim.active : {};
+      return active.color === v ? [] : [{ path: ['style', 'wordAnimation'], value: { ...anim, active: { ...active, color: v } } }];
+    }
     if (NESTED.has(k) && isObj(v)) {
       const base = isObj(cur?.[k]) ? cur[k] : {};
       return Object.entries(v).every(([kk, vv]) => base[kk] === vv) ? [] : [{ path: ['style', k], value: { ...base, ...v } }];
@@ -129,7 +138,8 @@ export function applyTiming(cfg, bc, caps) {
   if (!doc && styles.length) throw new Error(`video has ${styles.length} caption styles (${styles.map(d => d.id).join(', ')}); put the narration one in captions.json as _style.documentId`);
   if (!doc) {
     // 以默认样式加上配置的 style 建一份（没给 style 时 y 86 就是默认），序列上还没有样式的字幕一起挂上
-    const r = apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: style ?? { y: 86 } }]);
+    const { activeColor: _active, ...first } = style ?? {};   // activeColor 不是 setCaptionStyle 的键，下面 patchDocument 补上
+    const r = apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: Object.keys(first).length ? first : { y: 86 } }]);
     doc = r.createdIds?.find(x => x.startsWith('doc_'));
     if (!doc) throw new Error(`no style document in receipt: ${JSON.stringify(r).slice(0, 400)}`);
     for (const id of segs) caps[id].style = doc;
