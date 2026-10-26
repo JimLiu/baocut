@@ -27,6 +27,7 @@ export const ko: ExportMessages = {
   noEstimate: '이 버전에서는 아직 시간과 크기를 예상할 수 없습니다',
   place: '위치',
   defaultPlace: '프로젝트의 exports/',
+  savePlace: '기본 저장 위치',
   sourcePlace: (dir) => `원본 동영상 폴더 · ${dir}`,
   pickPlace: '위치 선택',
   resetPlace: '기본 위치 사용',

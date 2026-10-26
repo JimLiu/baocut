@@ -33,6 +33,7 @@ import {
   type PrerenderStaleReason,
   type RenderedTextOutput,
   type VersionRef,
+  type VideoRef,
   type VideoSnapshot,
 } from '@baocut/protocol';
 import { RcCommon, RcExport, RcPackage } from '@baocut/protocol/messages/runtime-core';
@@ -126,6 +127,11 @@ export interface ExportServiceOptions {
   exportWorker?: () => string | null;
   /** 按需下载的字体（架构设计 §9.1）：不给时只用本机字体。 */
   fonts?: FontService;
+  /**
+   * 不属于项目的会话里的视频，不给目录的交付（`purpose: 'deliverable'`）写到哪：保存位置（设置 `downloads.directory`，默认主机的
+   * 下载文件夹，§7.9）。会话的工作目录不是用户挑的地方，成片不留在那里。不给时（单测）照旧写来源目录下的 `exports/`。
+   */
+  sessionDeliverableDir?: () => string;
   log: Logger;
 }
 
@@ -1298,8 +1304,9 @@ export class ExportService {
   }
 
   /**
-   * 目标目录与每个输出的文件名；预检目录可写、给定的文件名不存在（除非覆盖）。不给目录时是来源目录下的 `exports/`，
-   * 内部检查用的（`purpose: 'preview'`）是 `.baocut-out/exports/`：Space 不扫点开头的目录，检查文件不混进交付物。
+   * 目标目录与每个输出的文件名；预检目录可写、给定的文件名不存在（除非覆盖）。不给目录时是来源目录下的 `exports/`
+   * （不属于项目的会话里的视频是保存位置，`sessionDeliverableDir`），内部检查用的（`purpose: 'preview'`）是
+   * `.baocut-out/exports/`：Space 不扫点开头的目录，检查文件不混进交付物。
    */
   async #destination(
     request: ExportCreateRequest,
@@ -1313,8 +1320,7 @@ export class ExportService {
     const destination = request.destination ?? {};
     const ref = this.#videos.ref(request.videoId)!;
     try {
-      const fallback = request.settings.purpose === 'preview' ? path.join('.baocut-out', 'exports') : 'exports';
-      const dir = await prepareDirectory(destination.dir ?? path.join(sourceRoot(ref), fallback), destination.dir === undefined);
+      const dir = await prepareDirectory(destination.dir ?? this.#defaultDir(request, ref), destination.dir === undefined);
       const outputs = Array.from({ length: parts }, (_, i) => ({
         range: rangeOf(i),
         fileName:
@@ -1328,6 +1334,13 @@ export class ExportService {
       if (error instanceof DestinationError) throw error.toRpc();
       throw error;
     }
+  }
+
+  #defaultDir(request: ExportCreateRequest, ref: VideoRef): string {
+    if (request.settings.purpose === 'preview') return path.join(sourceRoot(ref), '.baocut-out', 'exports');
+    const session = ref.source.projectId === null && ref.source.conversationId !== null;
+    if (session && this.#options.sessionDeliverableDir) return this.#options.sessionDeliverableDir();
+    return path.join(sourceRoot(ref), 'exports');
   }
 
   async #submit(

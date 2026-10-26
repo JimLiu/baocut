@@ -230,6 +230,9 @@ test('exportPlace：原视频所在的文件夹；不是本机文件时放 expor
   assert.equal(X.exportPlace({path: 'https://media.w3.org/2010/05/sintel/trailer.mp4'}), '项目下的 exports/');
   assert.equal(X.exportPlace(null), '项目下的 exports/');
   assert.equal(X.exportPlace({path: '~/Movies/播客/kelang-ep42-master.mp4'}, false), '项目下的 exports/', 'Web 拿不到本机路径');
+  assert.equal(X.exportPlace(null, true, true), '默认保存位置', '不属于项目的会话：桌面端放默认保存位置');
+  assert.equal(X.exportPlace(null, false, true), '项目下的 exports/', 'Web 照旧 exports/');
+  assert.equal(X.exportPlace({path: '~/Movies/播客/kelang-ep42-master.mp4'}, true, true), '原视频所在的文件夹 · ~/Movies/播客');
 });
 
 test('fmtEta：秒 / 分 / 小时三档', () => {

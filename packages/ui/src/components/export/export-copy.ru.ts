@@ -28,6 +28,7 @@ export const ru: ExportMessages = {
   noEstimate: "Оценки времени и размера ещё недоступны",
   place: "Расположение",
   defaultPlace: "exports/ проекта",
+  savePlace: "Место сохранения по умолчанию",
   sourcePlace: (dir) => `Папка исходного видео · ${dir}`,
   pickPlace: "Выбрать расположение",
   resetPlace: "Использовать стандартное расположение",

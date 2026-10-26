@@ -29,6 +29,7 @@ export const de: ExportMessages = {
   noEstimate: "Zeit- und Größenschätzungen sind in dieser Version noch nicht verfügbar",
   place: "Speicherort",
   defaultPlace: "exports/ im Projekt",
+  savePlace: "Standard-Speicherort",
   sourcePlace: (dir) => `Ordner des Originalvideos · ${dir}`,
   pickPlace: "Speicherort auswählen",
   resetPlace: "Standard-Speicherort verwenden",

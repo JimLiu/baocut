@@ -90,7 +90,7 @@ const PARAMS_SCHEMA = {
     crf: { type: 'integer', minimum: 0, maximum: 51, description: '恒定质量；与 videoBitrateKbps 二选一' },
     videoBitrateKbps: { type: 'integer', minimum: 100, maximum: 200000 },
     audioBitrateKbps: { type: 'integer', minimum: 32, maximum: 1024, default: 128 },
-    outDir: { type: 'string', description: '输出目录的绝对路径（不存在时创建）；不给时是保存位置（设置 downloads.directory，默认主机的下载文件夹）' },
+    outDir: { type: 'string', description: '输出目录的绝对路径（不存在时创建）；不给时是保存位置（设置 downloads.directory，默认主机的下载文件夹）。只为检查、用完就丢的输出给系统临时目录下的子目录；要导入视频的输出不放临时目录（重启会被清掉），也不放会话的工作目录' },
     // i18n-ignore-end
   },
   required: ['inputs', 'action'],

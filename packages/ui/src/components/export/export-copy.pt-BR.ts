@@ -30,6 +30,7 @@ export const ptBR: ExportMessages = {
   noEstimate: "Estimativas de tempo e tamanho ainda indisponíveis",
   place: "Posição",
   defaultPlace: "exports/ do projeto",
+  savePlace: "Local padrão de salvamento",
   sourcePlace: (dir) => `Pasta do vídeo original · ${dir}`,
   pickPlace: "Escolher local",
   resetPlace: "Usar local padrão",

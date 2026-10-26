@@ -267,7 +267,7 @@ export interface SpaceCatalogOptions {
   videos?: SpaceVideoEvents;
   index?: ContentIndex;
   /**
-   * 无项目会话的工作目录放在哪（`RuntimeHome.scratchDir`，以及旧版本的 `legacyScratchDir`）：会话放进项目之前发布在
+   * 无项目会话的工作目录放在哪（`RuntimeHome.scratchDir`，以及旧版本的 `legacyScratchDirs`）：会话放进项目之前发布在
    * `<目录>/<会话 id>/` 里的导出，按搬进项目之后的位置认（`DeriveSource.formerRoots`）。
    */
   scratchDirs?: readonly string[];

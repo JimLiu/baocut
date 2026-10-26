@@ -308,7 +308,8 @@ async function confinePaths(deps: WebHandlerDeps, params: RpcParams<'edits.apply
 
 /**
  * `exports.create` 的目标目录：给了的按真实路径必须在视频的来源目录里、已经存在、不在视频目录（含 `video.db`）或 `.bcut` 里，
- * 换成真实路径交给导出服务；不给时检查默认的 `exports/`（已经存在时）没有经符号链接指到别处。
+ * 换成真实路径交给导出服务；不给时检查默认的 `exports/`（已经存在时）没有经符号链接指到别处。不属于项目的会话里的视频
+ * 不给时也明确给出来源目录下的 `exports/`：导出服务对它们的缺省是保存位置，浏览器拿不到。
  */
 async function confineExportDir(deps: WebHandlerDeps, params: RpcParams<'exports.create'>): Promise<string | undefined> {
   const ref = deps.videos.ref(params.videoId);
@@ -318,8 +319,15 @@ async function confineExportDir(deps: WebHandlerDeps, params: RpcParams<'exports
   const refuse = () => new RpcError('forbidden', RcWeb.exportOutsideProject(), { code: 'PATH_OUTSIDE_PROJECT' });
   const given = params.destination?.dir;
   if (given === undefined) {
-    const real = await fs.realpath(path.join(exportSourceRoot(ref), 'exports')).catch(() => null);
+    const exportsDir = path.join(exportSourceRoot(ref), 'exports');
+    const real = await fs.realpath(exportsDir).catch(() => null);
     if (real !== null && !within(real, rootReal)) throw refuse();
+    // 不属于项目的会话里的视频，交付的缺省是保存位置（下载文件夹）：浏览器拿不到那里的文件，网页面照旧写来源目录下的 exports/。
+    if (ref.source.projectId === null && params.settings.purpose !== 'preview') {
+      if (real !== null) return real;
+      await fs.mkdir(exportsDir, { recursive: true });
+      return fs.realpath(exportsDir);
+    }
     return undefined;
   }
   const target = path.isAbsolute(given) ? given : path.resolve(rootReal, given);

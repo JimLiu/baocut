@@ -726,6 +726,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       ffprobe: async () => ({ command: process.env.BAOCUT_FFPROBE || 'ffprobe', env: await toolEnv() }),
       // 成片的 Render Worker 与引擎宿主同一次 cargo 构建，放在它旁边。
       exportWorker: () => resolveExportWorkerCommand(options.engineHost !== undefined ? options.engineHost : resolveEngineHostCommand()),
+      // 不属于项目的会话里的视频：交付写到保存位置（默认下载文件夹），不留在会话的工作目录（架构设计 §3.10）。
+      sessionDeliverableDir: () => resolveSaveDirectory({ settings: settingsStore?.get('downloads.directory') ?? null }),
       log: log.child('exports'),
     });
     // 共享开着的话，节点服务在这里就开始监听（不重新发配对码）；端口被占不影响 Runtime 启动。
@@ -925,7 +927,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         harness,
         videos,
         jobs: models.jobs,
-        sessionsDirs: [home.scratchDir, ...(home.legacyScratchDir ? [home.legacyScratchDir] : [])],
+        sessionsDirs: [home.scratchDir, ...home.legacyScratchDirs],
       }),
       local: new LocalScope({ harness, videos, jobs: models.jobs, space: () => space, projectsDir: home.projectsDir }),
     });
@@ -974,7 +976,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       artifacts: spaceArtifacts,
       videos,
       index: contentIndex,
-      scratchDirs: [home.scratchDir, ...(home.legacyScratchDir ? [home.legacyScratchDir] : [])],
+      scratchDirs: [home.scratchDir, ...home.legacyScratchDirs],
       // 索引文件夹（`space.folderAdd` 写，设置里不能直接改）：只读的来源，扫描时跳过 Runtime 自己的目录。
       folders: settings.store.get('semantic.folders'),
       skipRoots: [home.root],

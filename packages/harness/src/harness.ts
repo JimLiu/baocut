@@ -181,6 +181,8 @@ const SESSION_IDLE_MS = 10 * 60_000;
 const STALE_RECHECK_MS = 60_000;
 /** 无项目会话绑定项目时，选定的项目目录先记在工作目录里的这个文件（§3.10 的幂等键）；绑定完成后删掉。 */
 const BIND_INTENT_FILE = '.baocut-binding.json';
+/** 会话工作目录的名字是会话 id（`newId('conv')`）；会话目录里别的名字不是 Runtime 建的，启动收拾时不碰。 */
+const CONVERSATION_DIR_PREFIX = 'conv_';
 /** 搬进项目时因为视频开着留下的工作目录，隔多久再搬一次。 */
 const FOLD_RETRY_MS = 30_000;
 /** 隔多久查一次登记的项目目录还在不在（`Project.missing`，架构设计 §5.1）。`projects.list`、新建会话时另外现查。 */
@@ -797,17 +799,17 @@ export class Harness {
   /**
    * 启动时收拾会话的工作目录（§3.10），在客户端连上之前跑：
    *
-   * - 旧版本放在 Runtime Home 里的（`legacyScratchDir`）：无项目会话的搬到 `scratchDir`，会话的工作目录跟着换；
+   * - 旧版本的位置（`legacyScratchDirs`：Runtime Home 里的、系统给应用的数据目录里的）：无项目会话的搬到 `scratchDir`，会话的工作目录跟着换；
    * - 已经属于项目的会话还留着的工作目录或链接（回合中绑定后没来得及收拾）：链接删掉，目录里剩下的东西搬进项目，删掉空目录；
    * - 没有对应会话的：有视频的把其中不隐藏的条目搬进「恢复的视频」项目（按界面语言命名，已有就沿用），然后删掉；没有视频的直接删掉。
    *
    * 无项目会话自己的工作目录不动：里面的视频就留在那里。一个目录出错不影响别的，记日志后留着，下次启动再试。
+   * 会话目录在用户看得见的影片文件夹里，用户可能放了自己的东西：名字不是会话 id（`conv_…`）的条目一律不碰。
    */
   async migrateScratch(): Promise<{ moved: number; folded: number; recovered: number; removed: number }> {
     const result = { moved: 0, folded: 0, recovered: 0, removed: 0 };
     const recovered: { project: Project | null } = { project: null };
-    const legacy = this.#home.legacyScratchDir;
-    if (legacy) {
+    for (const legacy of this.#home.legacyScratchDirs) {
       await this.#tidyScratchDir(legacy, result, recovered, true);
       await this.#relocateLegacyCwds(legacy, result);
       await removeIfEmpty(legacy);
@@ -831,6 +833,7 @@ export class Harness {
       return;
     }
     for (const entry of entries) {
+      if (!entry.name.startsWith(CONVERSATION_DIR_PREFIX)) continue;
       const dir = path.join(base, entry.name);
       // 回合中绑定时留下的链接：启动时没有回合，删掉。
       if (entry.isSymbolicLink()) {

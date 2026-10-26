@@ -345,9 +345,17 @@ describe('无项目会话绑定项目', () => {
     const empty = path.join(home.scratchDir, 'conv_empty');
     await fs.mkdir(empty, { recursive: true });
     await fs.writeFile(path.join(empty, 'scrap.txt'), 'x');
+    // 会话目录在用户的影片文件夹里：用户自己放的目录与文件（名字不是会话 id）不碰，有视频也不收。
+    const own = path.join(home.scratchDir, '我的素材');
+    await fakeVideo(path.join(own, '自己的视频'));
+    await fs.mkdir(path.join(home.scratchDir, '空目录'));
+    await fs.writeFile(path.join(home.scratchDir, '下载的.mp4'), 'x');
 
     const result = await harness.migrateScratch();
     expect(result).toEqual({ moved: 0, folded: 0, recovered: 1, removed: 1 });
+    expect(await exists(path.join(own, '自己的视频', 'video.db'))).toBe(true);
+    expect(await exists(path.join(home.scratchDir, '空目录'))).toBe(true);
+    expect(await exists(path.join(home.scratchDir, '下载的.mp4'))).toBe(true);
 
     // 有视频的无项目会话不建项目：视频留在它的工作目录里。
     expect(harness.getConversation(live.id).conversation).toMatchObject({ projectId: null, cwd: live.cwd });
@@ -405,10 +413,40 @@ describe('无项目会话绑定项目', () => {
     expect(harness.listProjects()).toHaveLength(1);
   });
 
+  it('旧版本放在应用数据目录里的工作目录：启动时整个搬到影片文件夹，会话跟着换；那里不是会话的条目留着', async () => {
+    await harness.shutdown();
+    const appData = path.join(dir, 'Application Support', 'BaoCut', 'Sessions');
+    const oldHome = resolveRuntimeHome({ BAOCUT_HOME: path.join(dir, 'home'), BAOCUT_SESSIONS_DIR: appData });
+    harness = await Harness.open({
+      home: oldHome,
+      conversations: new ConversationStore(oldHome.conversationsDir),
+      projects: new ProjectStore(oldHome.projectsFile),
+      drivers: new DriverRegistry(),
+      log: silentLogger,
+    });
+    const kept = await harness.createConversation({ title: '大文件' });
+    await fakeVideo(path.join(kept.cwd, '视频'));
+    await fs.writeFile(path.join(kept.cwd, 'big.mov'), 'x');
+    await fs.writeFile(path.join(appData, '.DS_Store'), 'x');
+    await harness.shutdown();
+
+    const movies = path.join(dir, 'Movies', 'BaoCut');
+    home = { ...resolveRuntimeHome({ BAOCUT_HOME: path.join(dir, 'home'), BAOCUT_SESSIONS_DIR: movies }), legacyScratchDirs: [path.join(dir, 'home', 'scratch'), appData] };
+    harness = await open();
+    expect(await harness.migrateScratch()).toMatchObject({ moved: 1 });
+    const moved = harness.getConversation(kept.id).conversation;
+    expect(moved).toMatchObject({ projectId: null, cwd: path.join(movies, kept.id) });
+    expect(await exists(path.join(moved.cwd, '视频', 'video.db'))).toBe(true);
+    expect(await exists(path.join(moved.cwd, 'big.mov'))).toBe(true);
+    expect(await exists(path.join(appData, kept.id))).toBe(false);
+    // 不是会话的条目不碰，目录因此留着。
+    expect(await exists(path.join(appData, '.DS_Store'))).toBe(true);
+  });
+
   it('旧版本放在 Runtime Home 里的工作目录：启动时搬到新位置，会话跟着换；属于项目的与没有会话的照旧收拾', async () => {
     await harness.shutdown();
     home = resolveRuntimeHome({ BAOCUT_HOME: path.join(dir, 'home'), BAOCUT_SESSIONS_DIR: path.join(dir, 'sessions') });
-    const legacyDir = home.legacyScratchDir!;
+    const legacyDir = home.legacyScratchDirs[0]!;
     expect(legacyDir).toBe(path.join(dir, 'home', 'scratch'));
     // 先按旧位置建会话：用一个旧布局的 Home 打开。
     const oldHome = resolveRuntimeHome({ BAOCUT_HOME: path.join(dir, 'home') });

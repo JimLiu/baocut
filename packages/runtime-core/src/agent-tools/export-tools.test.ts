@@ -210,6 +210,44 @@ describe.skipIf(!engine || !ffmpeg)('导出工具（真实引擎）', () => {
     expect(stored.jobs.find((j: Loose) => j.record.jobId === record.jobId).record.export.settings.purpose).toBe('preview');
   });
 
+  it('不属于项目的会话里的视频：不给目录的交付写到保存位置（下载文件夹），内部检查仍在工作目录的 .baocut-out/exports/', async () => {
+    const { conversation } = await client.request('conversations.create', {});
+    const opened = await client.request('videos.create', { conversationId: conversation.id, name: '会话样片' });
+    await client.request('edits.apply', {
+      videoId: opened.ref.videoId,
+      commandId: newId('cmd'),
+      expectedRevision: opened.snapshot.video.revision,
+      operations: [
+        { type: 'importAsset', path: audio, ref: 'a' },
+        { type: 'addItem', sequenceId: opened.snapshot.video.rootSequenceId, asset: { ref: 'a' }, alignment: 'nearest-frame' },
+        {
+          type: 'putDocument',
+          kind: 'speech',
+          language: 'en',
+          sourceAsset: { ref: 'a' },
+          body: { schema: 'baocut.speech/1', clock: 'source-asset', timescale: 1000, speakers: [], words: [{ id: 'w1', start: 0, end: 500, text: 'Hi.' }], sentences: null, chapters: [] },
+        },
+      ],
+    });
+    const run = async (purpose: 'deliverable' | 'preview') => {
+      const { jobId } = await client.request('exports.create', {
+        videoId: opened.ref.videoId,
+        settings: { kind: 'subtitles', format: 'srt', purpose },
+        commandId: newId('cmd'),
+      });
+      return until(async () => {
+        const record = await client.request('exports.get', { jobId });
+        return record.state === 'completed' ? record : null;
+      }, 15_000);
+    };
+    const fileOf = (record: Awaited<ReturnType<typeof run>>) => String(record.result?.outputs?.[0]?.path);
+    const delivered = fileOf(await run('deliverable'));
+    expect(path.dirname(await fs.realpath(delivered))).toBe(await fs.realpath(process.env.BAOCUT_DOWNLOADS_DIR!));
+    const preview = fileOf(await run('preview'));
+    expect(path.dirname(await fs.realpath(preview))).toBe(await fs.realpath(path.join(conversation.cwd, '.baocut-out', 'exports')));
+    await fs.rm(delivered, { force: true });
+  });
+
   it('智能体自己翻译：documents_read 的转写带 translationBasis，照它写的译文能写入视频', async () => {
     const session = await send('auto');
     const speechId = Object.values(runtime.videos.mirror(videoId)!.video.documents).find((d) => d.kind === 'speech')!.id;

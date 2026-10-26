@@ -43,7 +43,8 @@ import path from 'node:path';
  * 「新建项目」的目录不在 Home 里，而在 `projectsDir`：默认 `~/BaoCut`，
  * 指定了 `BAOCUT_HOME`（开发、测试）时跟着放到 `<home>/projects`，`BAOCUT_PROJECTS_DIR` 可以覆盖。
  *
- * 无项目会话的工作目录（`scratchDir`，一个会话一个子目录，视频可以一直留在里面）放在系统给应用的数据目录里（`defaultSessionsDir`）；
+ * 无项目会话的工作目录（`scratchDir`，一个会话一个子目录，视频可以一直留在里面）放在用户的影片文件夹里（`defaultSessionsDir`）：
+ * 里面是视频与媒体，要让用户在文件管理器里看得见、自己清理，不放进系统给应用的数据目录。
  * Home 不是默认的 `~/.baocut`（开发、测试）时跟着放到 `<home>/scratch`，`BAOCUT_SESSIONS_DIR` 可以覆盖。按 Home 的位置决定而不是
  * 按有没有给 `BAOCUT_HOME`：桌面端拉起 Runtime 时总会给出它。
  */
@@ -58,8 +59,11 @@ export interface RuntimeHome {
   conversationsDir: string;
   /** 无项目会话的工作目录（架构设计 §3.10）。 */
   scratchDir: string;
-  /** 旧版本放无项目会话工作目录的地方（`<home>/scratch`）；与 `scratchDir` 相同时为 null。启动时搬过去。 */
-  legacyScratchDir: string | null;
+  /**
+   * 旧版本放无项目会话工作目录的地方，启动时搬到 `scratchDir`：Home 里的 `<home>/scratch`，以及默认 Home 下系统给应用的
+   * 数据目录里的 `BaoCut/Sessions`（`legacySessionsDir`）。与 `scratchDir` 相同的不列。
+   */
+  legacyScratchDirs: string[];
   cacheDir: string;
   logsDir: string;
   projectsDir: string;
@@ -127,7 +131,9 @@ export function resolveRuntimeHome(
     spaceArtifactsFile: path.join(root, 'store', 'space-artifacts.json'),
     conversationsDir: path.join(root, 'store', 'conversations'),
     scratchDir,
-    legacyScratchDir: path.resolve(scratchDir) === path.resolve(homeScratch) ? null : homeScratch,
+    legacyScratchDirs: [homeScratch, ...(isDefaultRoot ? [legacySessionsDir(env, platform, userHome)] : [])].filter(
+      (dir, i, all) => !samePath(dir, scratchDir, platform) && all.findIndex((d) => samePath(d, dir, platform)) === i,
+    ),
     cacheDir: path.join(root, 'cache'),
     logsDir: path.join(root, 'logs'),
     projectsDir,
@@ -155,11 +161,27 @@ export function resolveRuntimeHome(
 }
 
 /**
- * 系统给应用的数据目录里放无项目会话的地方：macOS `~/Library/Application Support/BaoCut/Sessions`，
- * Windows `%LOCALAPPDATA%\BaoCut\Sessions`（不随漫游配置同步：里面是媒体），其余 `${XDG_DATA_HOME:-~/.local/share}/BaoCut/Sessions`。
+ * 无项目会话的工作目录的缺省位置：用户的影片文件夹下的 `BaoCut`。macOS `~/Movies/BaoCut`，Windows `%USERPROFILE%\Videos\BaoCut`，
+ * 其余 `${XDG_VIDEOS_DIR:-~/Videos}/BaoCut`。
  */
 export function defaultSessionsDir(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform, userHome = os.homedir()): string {
+  if (platform === 'darwin') return path.posix.join(userHome, 'Movies', 'BaoCut');
+  if (platform === 'win32') return path.win32.join(userHome, 'Videos', 'BaoCut');
+  return path.posix.join(env.XDG_VIDEOS_DIR || path.posix.join(userHome, 'Videos'), 'BaoCut');
+}
+
+/**
+ * 旧版本放无项目会话的地方（系统给应用的数据目录）：macOS `~/Library/Application Support/BaoCut/Sessions`，
+ * Windows `%LOCALAPPDATA%\BaoCut\Sessions`，其余 `${XDG_DATA_HOME:-~/.local/share}/BaoCut/Sessions`。启动时搬到 `scratchDir`。
+ */
+export function legacySessionsDir(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform, userHome = os.homedir()): string {
   if (platform === 'darwin') return path.posix.join(userHome, 'Library', 'Application Support', 'BaoCut', 'Sessions');
   if (platform === 'win32') return path.win32.join(env.LOCALAPPDATA || path.win32.join(userHome, 'AppData', 'Local'), 'BaoCut', 'Sessions');
   return path.posix.join(env.XDG_DATA_HOME || path.posix.join(userHome, '.local', 'share'), 'BaoCut', 'Sessions');
+}
+
+function samePath(a: string, b: string, platform: NodeJS.Platform): boolean {
+  const ra = path.resolve(a);
+  const rb = path.resolve(b);
+  return platform === 'win32' ? ra.toLowerCase() === rb.toLowerCase() : ra === rb;
 }

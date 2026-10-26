@@ -30,6 +30,7 @@ export const fr: ExportMessages = {
   noEstimate: "Estimations de durée et taille indisponibles dans cette version",
   place: "Emplacement",
   defaultPlace: "exports/ du projet",
+  savePlace: "Emplacement d’enregistrement par défaut",
   sourcePlace: (dir) => `Dossier de la vidéo d’origine · ${dir}`,
   pickPlace: "Choisir un emplacement",
   resetPlace: "Utiliser l’emplacement par défaut",

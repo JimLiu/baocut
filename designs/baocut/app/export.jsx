@@ -480,7 +480,7 @@
                   <div className="xsum__row"><span>将导出</span><b>{parts.concat(loud.on ? ['响度 ' + window.BC_LOUD.fmtDb(loud.lufs) + ' LUFS'] : []).join(' · ')}</b></div>
                   {files.map((f) => <div key={f} className="xsum__row"><span>文件</span><b className="t-mono">{f}</b></div>)}
                   {coverFile ? <div className="xsum__row"><span>封面</span><b className="t-mono">{coverFile}</b></div> : null}
-                  <div className="xsum__row"><span>位置</span><b>{X.exportPlace(proj.src, window.BC_SURFACE.exportNextToSource)}</b></div>
+                  <div className="xsum__row"><span>位置</span><b>{X.exportPlace(proj.src, window.BC_SURFACE.exportNextToSource, !proj.dir)}</b></div>
                   <div className="xsum__row"><span>预计</span><b>{span.empty ? '—' : (rest ? X.fmtEta(rest.totalMs) + ' · 在 ' + via.name + ' 上' : est.eta) + ' · 约 ' + est.size}</b></div>
                 </div>
                 </div>

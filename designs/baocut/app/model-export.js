@@ -517,10 +517,13 @@
   }
 
   /** 成片没选位置时导到哪（product-design §8.3）：原视频所在的文件夹；原视频不是本机文件（链接），或表面拿不到本机路径
-   *  （`nextToSource` 为 false，Web）时放项目的 exports/。 */
-  function exportPlace(src, nextToSource) {
+   *  （`nextToSource` 为 false，Web）时放项目的 exports/。不属于项目的会话里的视频（`inSession`）在桌面端放默认保存位置
+   *  （设置里的，默认系统的下载文件夹，architecture §3.10）：会话的工作目录不是用户挑的地方；Web 拿不到那里的文件，照旧 exports/。 */
+  function exportPlace(src, nextToSource, inSession) {
     const p = src && src.path;
-    if (nextToSource === false || !p || /^[a-z]+:\/\//i.test(p) || p.lastIndexOf('/') < 0) return '项目下的 exports/';
+    if (nextToSource === false || !p || /^[a-z]+:\/\//i.test(p) || p.lastIndexOf('/') < 0) {
+      return inSession && nextToSource !== false ? '默认保存位置' : '项目下的 exports/';
+    }
     return '原视频所在的文件夹 · ' + (p.slice(0, p.lastIndexOf('/')) || '/');
   }
 
