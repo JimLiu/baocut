@@ -706,7 +706,7 @@
     });
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
-    const base = o.alpha ?? 1;
+    const base = ctx.globalAlpha * (o.alpha ?? 1);   // multiplies like K.text, so an outer fade takes the words with it
     rows.forEach((row, r) => {
       const rw = row.length ? row[row.length - 1].x + row[row.length - 1].ww : 0;
       const ox = o.align === 'center' ? o.x + (o.maxW - rw) / 2 : o.x;
@@ -744,6 +744,8 @@
         await Promise.all([
           ...[...imgs.values()].map(im => im.decode().catch(() => console.warn('image failed', im.src))),
           ...fams.map(f => document.fonts.load(`40px ${f}`, opts.sample || '中Aa1')),
+          // every @font-face in the bundle, so a family used by name (not through a role in S.fonts) is ready on frame 0 too
+          ...[...document.fonts].map(f => f.load().catch(() => console.warn('font failed', f.family))),
         ]);
         if (opts.setup) opts.setup(ctx);
         window.__baocutPickRegions = [];

@@ -3,7 +3,7 @@
 // 给场景里要逐词点亮的原声对出词时间：clips.json 里带 words: true 的片段（多半是只有声音的原声，见 overlay.mjs）。
 //   node tools/quotes.mjs [clip-id ...] [--fresh] [--config <配置>]      不给 id 时做全部带 words 的片段
 // 每个片段：
-//   1. ffmpeg 从原片切出 from–to 这一段（16 kHz 单声道 wav），放在 <work>/quotes/<id>.wav；
+//   1. ffmpeg 从原片切出 from–to 这一段（16 kHz 单声道 wav，响度标准化到 -20 LUFS），放在 <work>/quotes/<id>.wav；
 //   2. bc transcribe 转写，拿到词级时间（已有 <work>/quotes/<id>.words.json 时不重转，--fresh 强制重转）；
 //   3. said（原话全文，照录音一字不差地写，标点照写）按词拆开（中文、日文按字，标点跟着前一个字），
 //      用编辑距离把字对到转写上（同 align.mjs），没对上的按前后插值；没给 said 时用转写的原文，并把它打出来，校对后写回 said；
@@ -58,7 +58,9 @@ function transcribe(c) {
   const source = c.source || cl.source;
   if (!source || !fs.existsSync(source)) throw new Error(`${c.id}: source ${source} not found`);
   const wav = `${DIR}/${c.id}.wav`;
-  execFileSync('ffmpeg', ['-y', '-v', 'error', '-ss', String(c.from), '-t', String(c.to - c.from), '-i', source, '-vn', '-ac', '1', '-ar', '16000', cfg.abs(wav)]);
+  // 安静的老录音（-40 LUFS 上下）整段会被转写的语音检测当成没有人声：切的时候先把这一段提到讲话的响度；
+  // loudnorm 只改增益，词时间仍在原片的时钟上（实测前后错开 0 ms）
+  execFileSync('ffmpeg', ['-y', '-v', 'error', '-ss', String(c.from), '-t', String(c.to - c.from), '-i', source, '-vn', '-af', 'loudnorm=I=-20:TP=-2:LRA=11', '-ac', '1', '-ar', '16000', cfg.abs(wav)]);
   const language = c.language || cfg.footage?.subs?.language || 'en';
   const r = bc(['transcribe', '--file', wav, '--no-video', '--out-dir', DIR, '--language', language, '--provider', cfg.asr.provider, '--model', cfg.asr.model, ...cfg.asr.args]);
   const ji = bc(['jobs', 'inspect', r.job.pipeline.summary.transcribeJobId]), art = (ji.result || ji.outputs || {}).artifactId;

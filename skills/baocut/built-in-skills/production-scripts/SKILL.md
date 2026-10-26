@@ -1,7 +1,7 @@
 ---
 name: production-scripts
 description: 有命令行环境、旁白按段配、画面按段上时间线的片子（讲解、解说混剪、旁白片、歌词视频……）要跑脚本时用：配音、对齐字时间、把场景代码打成代码包、按段摆上时间线并处理变长变短的波纹、按稿子建字幕、剪实拍与水印叠上去或垫在底下、量画面占比。脚本是一条省事的路，不规定片子的形态；形态和它不合时用 baocut CLI 自己写。只是加一段动效图形或配一句旁白时不用。
-version: 1.6.0
+version: 1.7.0
 ---
 
 # 制作脚本
@@ -30,7 +30,7 @@ version: 1.6.0
 
 ## 2. 按顺序跑
 
-1. 把本 skill 的 `scripts/` 整个拷进工程（例如 `<工程>/tools/`）：能直接读到文件时拷目录，读不到时用 `skills_read` 读本 skill 的 `scripts/` 下每个文件原样写进去。脚本都 import 同目录的 `lib.mjs`，要拷全；`*.example.json` 是配置样例。依赖 Node 18 以上与 baocut CLI；切段转写、留白压停顿、量原声响度要本机有 ffmpeg。
+1. 把本 skill 的 `scripts/` 整个拷进工程（例如 `<工程>/tools/`）：能直接读到文件时拷目录，读不到时用 `skills_read` 读本 skill 的 `scripts/` 下每个文件原样写进去。脚本都 import 同目录的 `lib.mjs`，要拷全；`*.example.json` 是配置样例。依赖 Node 18 以上与 baocut CLI；切段转写、留白压停顿、量原声响度、拉平老录音要本机有 ffmpeg。
    要画代码场景时，本 skill 的 `scene-kit/` 可以拷进工程的 `shared/` 当起点（读不到文件时用 `skills_read` 读本 skill 的 `scene-kit/` 下的文件）。它在浏览器里跑，不和 `scripts/` 放在一起。`scene-kit.js` 只有机制、没有配色：颜色与字体由场景调用 `K.style()` 给，拷过去照这期的需要改、删掉不用的；它读 `build.mjs`、`quotes.mjs`、`sources.mjs` 写进 `window.TIMING` 的数据（`lines[].chars`、`clips`、`words`、`credits`）。`geo110.js` 是 Natural Earth 1:110m 的陆地轮廓（公有领域）。
 2. 照 `scripts/explainer.example.json` 在工程根目录写配置（脚本从当前目录往上找它，也可以 `--config <文件>`），有实拍时照 `scripts/clips.example.json` 写 `clips.json`。
 3. 按顺序跑，每个脚本都能重跑，做完、没变化的段跳过：
@@ -41,6 +41,7 @@ version: 1.6.0
 | 对齐 | `align.mjs <id …>` | 转写后用编辑距离把字时间对到稿子原文，打印语速、停顿与读错 |
 | 留白与压停顿 | `gaps.mjs [id …]` | 有 `gap` 片段或给了 `voice.maxPause` 时：在旁白里插静音给原声让位、把过长的句间停顿压短 |
 | 字体、原声、出处 | `fonts.mjs`、`quotes.mjs`、`envelope.mjs`、`sources.mjs` | 用到时在打包前跑：裁字体子集（缺省去掉会让字宽对不上的 `locl`）；给 `words: true` 的原声片段对出逐词时间；把录音量成波形条写进 `shared/`；查出处表漏了什么并写 `sources.csv` |
+| 老录音 | `level.mjs` | 用到时：把忽大忽小的老录音拉平（不改时间），量降噪、滤波带来的时间差；修录音的整套做法在 `history-video` |
 | 打包 | `build.mjs [id …]` | 打成代码包，时长 = 对齐出的时长 + `hold`，对到整帧；这一段的片段时间、画中画框、原声逐词与出处行写进 `TIMING` |
 | 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs --live` | `--dry` 不连 Runtime 只打印；`--live` 把代码包放上去、先不烘焙，编辑器的实时层现画（`footage.layer` 为 `under` 时眼下画不出来，见 `pipeline.md` 第 3 节） |
 | 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏；不逐字高亮，要 KTV（念过的部分颜色变深）时配置 `sungColor`，颜色从这期色板取 |

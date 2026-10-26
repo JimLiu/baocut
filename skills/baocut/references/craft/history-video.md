@@ -76,27 +76,29 @@
 - 事实带出处，不评价立场，不煽情，不替当事人说没说过的话；引用原话照录音。
 - 专名第一次写全称，之后用简称；外文人名、地名第一次出现时给原文。
 - 配音：音色照 `BRAND.md`；没有时按 `narration` 选，全片一个音色。语速与字数按 `narration` 第 1 节估。
+- 稿子就是字幕：年份、数字写阿拉伯数字，配完第一段先听 TTS 读得对不对，读错的才改写法。
 
 ## 6. 做
 
 正片在前，片头在后：正片定了，片头才知道交到哪里。
 
-- **正片**：已有字幕视频时先复制一份（新版在副本里做）；没有时照 `subtitle-workflow` 做：转写、按讲稿校对、翻译、双语字幕、分章（`video-chapters`）。
-- **片头**用 `production-scripts` 的脚本（读 [`references/craft/production-scripts.md`](production-scripts.md)）：配置里写 `prepend`（带一章 `chapter`，例如「背景」），片头按段配音、对齐、写场景代码打包；`assemble.mjs` 在第 0 帧腾出整个片头，正片的画面、声音、字幕与章节一起后移（`--dry` 先打印这一步）。两件事要先想好：正片里写成文字的章节序号（`01`）因为多了一章会都加一，要保留原序号就换成每章一段的静态文字；片头的原声引用按响度量过，正片录音沿用旧音量，两边差几个分贝时调正片录音片段的音量，切过去才不会突然变小。字幕不逐字高亮，用 KTV：念到哪里，哪里的颜色变深，颜色跟这期配色走。片头旁白字幕在配置的 `captions.style` 里给 `fontColor`（没念到）与 `sungColor`（念过），正片字幕的样式文档用同样的 `patchDocument` 改（`wordAnimation` 换成 none、`textMotion.karaoke.color` 取正片底色上的强调色，写法见 `motion-graphics` 的 audio-backdrop 参考第 4 节「字幕的念到效果」），两边一个手法。
+- **正片**：已有字幕视频时先复制一份，新版在副本里做。先用 `baocut export <旧版> --kind portable --format baocut --dir <目录>` 打成便携包（素材全在包里，旧版的素材有多大，包就有多大），再用 `baocut videos import-package <包> --name <新名>` 打开成新视频。没有字幕视频时照 `subtitle-workflow` 做：转写、按讲稿校对、翻译、双语字幕、分章（`video-chapters`）。
+- **老录音先修**：录音比片头旁白低 10 dB 以上、底噪听得见、讲者与提问的人忽大忽小时，不等用户提，先在文件上降噪、拉平、提响，再换进视频；开头的空白剪到一秒左右，片头说完「下面是完整录音」就该有声音。混音里的音量上限 4 倍，拉不上来，还会把底噪一起放大。做法、参数，以及处理后要量的时间差：读 [老录音：修复、拉平、剪开头的空白](history-video/references/old-recordings.md)。
+- **片头**用 `production-scripts` 的脚本（读 [`references/craft/production-scripts.md`](production-scripts.md)）：配置里写 `prepend`（带一章 `chapter`，例如「背景」），片头按段配音、对齐、写场景代码打包；`assemble.mjs` 在第 0 帧腾出整个片头，正片的画面、声音、字幕与章节一起后移（`--dry` 先打印这一步）。两件事要先想好：正片里写成文字的章节序号（`01`）因为多了一章会都加一，要保留原序号就换成每章一段的静态文字；片头的原声引用按响度量过，正片录音沿用旧音量，两边差几个分贝时调正片录音片段的音量，切过去才不会突然变小；调到上限还差，就照上一条修录音。正片的角落水印从正片起点开始，片头上没有：`BRAND.md` 要角标时给片头另放一条，颜色按片头的底色选；片头最后一拍换了底色，就分成两段，各用各的颜色。字幕不逐字高亮，用 KTV：念到哪里，哪里的颜色变深，颜色跟这期配色走。片头旁白字幕在配置的 `captions.style` 里给 `fontColor`（没念到）与 `sungColor`（念过），正片字幕的样式文档用同样的 `patchDocument` 改（`wordAnimation` 换成 none、`textMotion.karaoke.color` 取正片底色上的强调色，写法见 `motion-graphics` 的 audio-backdrop 参考第 4 节「字幕的念到效果」），两边一个手法。
 - **原声引用**：`clips.json` 里只有声音的片段：`asset` 写正片录音的素材 ID，`after` 把它放在段尾、`hold` 留出它的长度，`words: true` 与 `said`（原话）、`text`（译文）；`quotes.mjs` 对出逐词时间，`build.mjs` 写进这一段的 `TIMING.clips`，场景照它点亮每个词。
 - **新闻片与照片**：视频片段照 `clips.json` 放成铺满或画中画，画中画框的位置在 `TIMING.clips[].box`，场景在框下画底板、框旁写说明。
 - **出处**：`sources.json` 一份；`sources.mjs` 查漏、写 `sources.csv`；画面上的出处行从 `TIMING.credits` 取，不在场景里另写一遍。
-- **片尾与声明**：旧版片尾卡与发布文案里的总说明（配图的许可、AI 用在哪里）是按旧版的材料写的。片头加了 CC BY 照片、AI 图或 AI 旁白，就把片尾、说明与发布文案的声明一起改到和 `sources.json` 对得上。片尾卡是截图做的，就改它的 HTML 重截，用 `replaceItemAsset` 原地换图。
+- **片尾与声明**：旧版片尾卡与发布文案里的总说明（配图的许可、AI 用在哪里）是按旧版的材料写的。片头加了 CC BY 照片、AI 图或 AI 旁白，就把片尾、说明与发布文案的声明一起改到和 `sources.json` 对得上。片尾卡是截图做的，就改它的 HTML，再用 `baocut compositions preview <视频> --path <片尾卡目录> --at 0` 截成图，用 `replaceItemAsset` 原地换图。
 - **字体**：`fonts.mjs` 按稿子与场景里的字裁子集；定稿后改字会让引用这些字体的段全部重烘，改用已有的字更省。
 - 代码画面的规则在 `video-production` 的代码场景细则（单个画布、每帧清屏、不读回像素、不用 `filter` 与 `letterSpacing`）。这类片子最常撞上的是照片上叠了好几层半透明层、中文字体排年份，细则第 2.1 节写了怎么避开，烘焙才走得了指令。场景的骨架与地图数据读 [`references/craft/production-scripts.md`](production-scripts.md)，拷它的 `scene-kit/`（[片头的表现手法](history-video/references/forms.md) 第 3 节）。
 
 ## 7. 审片、烘焙、导出、交付
 
-- 片头 `assemble.mjs --live` 摆上去后，`baocut web review --video <videoId>` 把审片页开在宿主的浏览器里（本机装的字体审片页也能用，和导出一致），整条交给用户。**用户说可以之前不烘焙、不导出**；改哪段只重做哪段，再请用户刷新。
+- 片头 `assemble.mjs --live` 摆上去后，`baocut web review --video <videoId>` 把审片页开在宿主的浏览器里（本机装的字体审片页也能用，和导出一致），整条交给用户。`baocut --help` 把 `web` 列在本机管理命令下，但 `web review` 只开审片页、不改设置，照常跑。**用户说可以之前不烘焙、不导出**；改哪段只重做哪段，再请用户刷新。
 - 烘焙先用 `assemble.mjs --bake ops` 试：指令烘焙几秒一段；画不出的段列出来，按代码场景细则改，改不了的（照片滤镜多的）不带 `--bake ops` 退回逐帧截图，1080p 每秒两三帧，先告诉用户要等多久。
-- 导出成片（`--purpose deliverable`），抽几帧核对出处行、字、水印与片尾卡；字幕导出成片语言（片头旁白加正片译文）与原话语言两份：片头每段旁白各是一份字幕文档，用 `production-scripts` 的 `srt.mjs` 逐份导出、按语言合并。
+- 导出成片（`--purpose deliverable`），抽几帧核对出处行、字、水印与片尾卡。成片写在 `--dir` 给的目录里；那块盘空间不够时导出以 `EXPORT_INSUFFICIENT_SPACE` 拒绝，就导到空间够的盘上，再拷进交付目录。字幕导出成片语言（片头旁白加正片译文）与原话语言两份：片头每段旁白各是一份字幕文档，用 `production-scripts` 的 `srt.mjs` 逐份导出、按语言合并。一行的宽度照旧版字幕给 `--max-chars`。
 - 烘焙中换下来的旧代码包与替身没有引用了，交付前用 `assets prune` 列出，确认都是自己换下来的再用 `removeAssets` 删掉记录；用户导入的素材不动。
-- 交付物（`BRAND.md` 有清单就照它）：成片、字幕文件、`sources.csv`、说明（原声出处、字幕与译文怎么来的、AI 用在哪里）、讲稿原文、译稿、片头解说稿、发布文案（`titles-and-description`，章节时间按成片的章节）。
+- 交付物（`BRAND.md` 有清单就照它）：成片、字幕文件、`sources.csv`、说明（原声出处、字幕与译文怎么来的、AI 用在哪里）、讲稿原文、译稿、片头解说稿、发布文案（`titles-and-description`，章节时间按成片的章节）。片头解说稿里的画面备注（`@` 行）按场景代码或导出的帧重写：做的过程中画面一改再改，稿子里的备注常常没跟上。
 - 报告写明：哪些段退回了截图烘焙、哪些事实与译文没经人工核对、没做的检查。
 
 ## 8. 从一句话到简报
@@ -111,4 +113,5 @@
 
 - [从一句话到简报](history-video/references/brief.md)
 - [片头的表现手法](history-video/references/forms.md)
+- [老录音：修复、拉平、剪开头的空白](history-video/references/old-recordings.md)
 - [找材料、判断许可、记出处](history-video/references/sources.md)
