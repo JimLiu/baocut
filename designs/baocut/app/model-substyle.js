@@ -227,7 +227,7 @@
        倒鸭子接管时这两段都让位给它那一段（§9 末段），换回普通字幕走画廊。 */
     if (track && track.kinetic) return ['kinetic', 'highlight'];
     /* 模板样式（caption-editor-redesign §9.3）：场景只能调整，不能逐项改——整页换成「调整」，
-       关键词、换一版与构成都在那一页里。位置照常（写进 `adjust.placement`）。 */
+       关键词、换一版、构成、位置（写进 `adjust.placement`）与页脚都在那一页里。 */
     if (track && track.scene) return ['adjust'];
     /* 描边与阴影两段合成「涂装」（§9.2）：一份涂装栈里描边、阴影各可叠三层，再加字身填充与发光；
        分页只对有词级时间的轨有意义（按词数分页）。 */
@@ -276,6 +276,8 @@
     }
     // 画面上叠着原文与译文两行时，每一条轨的页上都有「双语」那一段（上下次序，第 152 轮）
     const bi = stackOrder(st) ? ['bilingual'] : [];
+    /* 模板样式的位置、页脚（还原 / 存到品牌库）都在调整页里（§9.3），这里不再给一份 */
+    if (t.scene) return list.concat(bi).concat(['display']);
     return list.concat(t.kinetic ? [] : ['position']).concat(bi).concat(['display', 'saveFoot']);
   }
 

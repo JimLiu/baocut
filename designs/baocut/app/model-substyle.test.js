@@ -157,12 +157,12 @@ test('描边与阴影合成涂装一段；分页只长在有词级时间的轨�
     .reduce((a, p) => a.concat(p.keys), [])).indexOf(k) >= 0, k));
 });
 
-test('模板样式只有调整页 ＋ 位置，不分页签；场景与调整层不进 cue 覆盖表', () => {
+test('模板样式只有调整页（位置与页脚在页里），不分页签；场景与调整层不进 cue 覆盖表', () => {
   const st = {tracks: [T('zh', 'source', {scene: {pack: 'demo', id: 'a', rev: 1}, adjust: {}}), T('en', 'translation')]};
   const list = S.sections(st, 'zh');
-  assert.deepEqual(list.filter((k) => !['saveFoot', 'bilingual', 'display'].includes(k)), ['adjust', 'position']);
+  assert.deepEqual(list.filter((k) => !['bilingual', 'display'].includes(k)), ['adjust']);
   assert.equal(S.pages(list), null);
-  ['scene', 'adjust'].forEach((k) => assert.ok(S.CUE_KEYS.indexOf(k) < 0, k));
+  ['scene', 'adjust', 'origin', 'presentation'].forEach((k) => assert.ok(S.CUE_KEYS.indexOf(k) < 0, k));
   assert.equal(Object.keys(S.setCueStyle(st, CUE, 'zh', {adjust: {fontScale: 2}, size: 40})[CUE].zh).join(), 'size');
   assert.ok(has(S.sections(st, 'en'), 'surface'), '同一份文档里的另一条轨照常是组合样式');
 });

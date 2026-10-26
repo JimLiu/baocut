@@ -79,6 +79,9 @@
       "app/model-captionsurface.js",
       "app/model-subpresets-rich.js",
       "app/model-captionstyle.js",
+      "app/model-sceneadjust.js",
+      "app/model-stylepack.js",
+      "app/model-stylepack-demo.js",
       "app/model-sublibrary.js",
       "app/model-color.js",
       "app/model-fonts.js",
@@ -337,6 +340,7 @@
       "app/panel-subactive.jsx",
       "app/panel-submotion.jsx",
       "app/panel-subsurface.jsx",
+      "app/panel-subadjust.jsx",
       "app/panel-subprops.jsx",
       "app/subtitle-tm.jsx",
       "app/panel-translate.jsx",
@@ -502,9 +506,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=566e03ad2509",
-    "css": "generated/app.css?v=dfcc9c0a6557",
-    "bytes": 4747344
+    "js": "generated/app.js?v=e23ef3472343",
+    "css": "generated/app.css?v=ab5850c9f4b1",
+    "bytes": 4776414
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -567,6 +571,9 @@
       "app/model-captionsurface.js",
       "app/model-subpresets-rich.js",
       "app/model-captionstyle.js",
+      "app/model-sceneadjust.js",
+      "app/model-stylepack.js",
+      "app/model-stylepack-demo.js",
       "app/model-sublibrary.js",
       "app/model-color.js",
       "app/model-fonts.js",
@@ -697,6 +704,7 @@
       "app/panel-subactive.jsx",
       "app/panel-submotion.jsx",
       "app/panel-subsurface.jsx",
+      "app/panel-subadjust.jsx",
       "app/panel-subprops.jsx",
       "app/subtitle-tm.jsx",
       "app/panel-translate.jsx",
@@ -771,9 +779,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=aa60a2ec7101",
-    "css": "generated/web.css?v=134d8a53ef19",
-    "bytes": 2837097
+    "js": "generated/web.js?v=1c3c0022abb0",
+    "css": "generated/web.css?v=7a9918b98520",
+    "bytes": 2866206
   },
   "components": {
     "file": "Components.html",

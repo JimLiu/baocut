@@ -45,3 +45,17 @@
 .subsurf__tx.is-on { box-shadow: inset 0 0 0 2px var(--blue-800); }
 .subsurf__tx > i { display: block; width: 100%; height: 100%; border-radius: 6px; background-size: cover; }
 .subsurf__rows { flex: 1 1 auto; }
+
+/* ---------- 模板样式的调整页（panel-subadjust.jsx，caption-editor-redesign §9.3） ---------- */
+.subadj__src { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 12px 12px 4px; }
+.subadj__k { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.subadj__pk { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--gray-600); }
+.subadj__new { padding: 0 6px; border-radius: 8px; font-size: 11px; line-height: 18px; color: var(--blue-900); background: var(--blue-100); }
+.subadj__anim { flex: none; padding: 0 6px; border-radius: 8px; font-size: 10px; line-height: 16px; color: var(--gray-700); background: var(--gray-100); }
+.subadj__font + .subadj__font { margin-top: 8px; }
+.subadj__fp { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.subadj__off { font-size: 11px; color: var(--gray-600); }
+.subadj__seed { display: flex; align-items: center; gap: 8px; }
+.subadj__n { font-size: 12px; color: var(--gray-700); }
+.subadj__list { min-width: 0; font-size: 12px; color: var(--gray-800); text-align: right; }
+.subadj__parts .hint { margin-top: 4px; }

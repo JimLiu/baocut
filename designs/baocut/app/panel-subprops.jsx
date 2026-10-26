@@ -50,7 +50,9 @@
        播放头一走，这一档指的就是新的那一条：作用域跟着画面上选中的
        那条字幕走，不是钉在某一条上。 */
     const cue = ctx.curCue;
-    const oneCue = ctx.subScope === 'cue' && !!cue && !!w;
+    /* 模板样式不进 cue 级覆盖表（caption-editor-redesign §11）：轨上是模板时这一页没有「仅这一条」 */
+    const scene = !!(track && track.scene);
+    const oneCue = ctx.subScope === 'cue' && !!cue && !!w && !scene;
     const cueId = oneCue ? cue.id : null;
     const ln = w ? S.line(st, w, cueId) : null;
     /* 落笔的分流就这一行：整条轨写 `tracks`，仅这一条写覆盖表。白名单在纯层
@@ -263,6 +265,10 @@
         }
         /* 「文字描边」「文字阴影」两张卡 2026-10-26 并成涂装栈一段（caption-editor-redesign §9.2），
            在 panel-subsurface.jsx：描边与阴影各三层、字身渐变与纹理、发光。 */
+        /* 模板样式（§9.3）：整页是调整段，在 panel-subadjust.jsx，只读场景摘要 */
+        case 'adjust':
+          return <window.SubAdjustSection key={k} ctx={ctx} track={track} cue={cue} first={first}
+            pop={pop} tg={tg} setPop={setPop} />;
         case 'surface':
           return <window.SubSurfaceSection key={k} ln={ln} set={set} first={first} aside={aside}
             action={revert('surface', '文字效果')} pop={pop} tg={tg} setPop={setPop} />;
@@ -472,7 +478,7 @@
             ))}
           </div>
         ) : null}
-        <window.SubScopeBar ctx={ctx} trackId={w} />
+        {scene ? null : <window.SubScopeBar ctx={ctx} trackId={w} />}
         {/* 三页（§9.2）：外观 / 动画 / 排版，段落归属在 `BC_SUB.PAGES`。动态排版与模板样式的段
             不分页（`pages` 回 null），照原来一条滚动流排。 */}
         {pages ? (

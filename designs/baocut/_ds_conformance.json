@@ -692,6 +692,62 @@
     },
     "app/model-subpresets-rich.test.js": {
       "#FFE14D": "caption art fixture — expected video-frame colours of the rich built-in caption styles"
+    },
+    "app/model-stylepack-demo.js": {
+      "#1A0B2E": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFFFFF": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFD23F": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FF4D8D": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#000000": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#2B2B2B": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FF3B30": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFE600": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#1E1E1E": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFC93C": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#7BE495": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#7FC8FF": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FF8FB1": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFF4D6": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#E9DCC0": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#3DF5A4": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#F5F5F5": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#2B1A00": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFF8E1": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFF3C4": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#E8B64A": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#9C6A12": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FF2BD6": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#7DF9FF": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFB13D": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#2A1300": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself",
+      "#FFF1D6": "caption art — fill, stroke, shadow, glow, plate, active-word and seed-palette colours of the two generic demo style packs, painted into the video frame (caption-editor-redesign §7); a template's colours are the template itself"
+    },
+    "app/model-sceneadjust.js": {
+      "#FFFFFF": "caption art — default colours the scene sketch falls back to when a template leaves one out (caption-editor-redesign §5–§6); painted into the video frame, not an S2 surface",
+      "#000000": "caption art — default colours the scene sketch falls back to when a template leaves one out (caption-editor-redesign §5–§6); painted into the video frame, not an S2 surface"
+    },
+    "app/model-sceneadjust.test.js": {
+      "#FF2BD6": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#000000": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#FFFFFF": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#FFD23F": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#FF4D8D": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#FFE600": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#00FFAA": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#FF0000": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#00FF00": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#3344FF": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#111111": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#222222": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#123456": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#333333": "caption art fixture — template and adjusted colours of the scene adjust model",
+      "#AABBCC": "caption art fixture — template and adjusted colours of the scene adjust model"
+    },
+    "app/model-stylepack.test.js": {
+      "#000000": "caption art fixture — template colours of the style pack model",
+      "#FFFFFF": "caption art fixture — template colours of the style pack model",
+      "#FFE14D": "caption art fixture — template colours of the style pack model",
+      "#FF0000": "caption art fixture — template colours of the style pack model"
     }
   }
 }

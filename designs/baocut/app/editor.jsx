@@ -943,6 +943,9 @@
       const tracks = S.tracks(s).map((t) => {
         if (!ids.has(t.id)) return t;
         const isSrc = src && t.id === src.id;
+        const tpl = p.template && window.BC_PACK ? window.BC_PACK.byCard(p.id) : null;
+        /* 样式包里的模板（caption-editor-redesign §7「套用 = 冻结」）：场景、来源与画法键整份落到轨上 */
+        if (tpl) return window.BC_PACK.applyToTrack(t, tpl, {role: isSrc ? 'source' : 'translation', preset: p.id});
         /* 动效字幕自带涂装（`effectiveDefaults`，见 model-motioncaption.js），
            所以落的是它自己那一份，不是画廊那 31 份里借一份——借来的那份会让属性页
            读到一套字体色号、画面上却是另一套。 */
@@ -951,6 +954,9 @@
         // 译文轨不带 activeColor / wordAnim——词级时间戳只有源语言轨有
         if (!isSrc) delete paint.activeColor;
         const out = Object.assign({}, t, paint, {preset: p.id});
+        /* 离开模板样式：场景、来源与调整层一起清掉，字号倍率退回去，模板点亮的关键词外观关掉
+           （词标签留在 `presentation` 里，换回带关键词的样式时还在） */
+        if (t.scene) Object.assign(out, window.BC_PACK.leaveTemplate(t, out));
         /* 分层涂装（caption-editor-redesign §4）：旧卡没有栈，上一张卡留下的栈要清掉，
            否则 `paintCss` 看见栈就照栈画，换了卡画面不变 */
         out.layers = paint.layers || null;
@@ -997,7 +1003,7 @@
       } else {
         /* 套别的卡把 Shorts 落的宽度清掉（回到通栏）；锚线与字号是几何，用户可能已经调过，留着 */
         for (let n = 0; n < tracks.length; n++) {
-          if (ids.has(tracks[n].id) && tracks[n].width) { const t = Object.assign({}, tracks[n]); delete t.width; tracks[n] = t; }
+          if (ids.has(tracks[n].id) && tracks[n].width && !tracks[n].scene) { const t = Object.assign({}, tracks[n]); delete t.width; tracks[n] = t; }
         }
       }
       /* 「谁在上」不在这里落了（第 108 轮）：画面上原本就有两条时以**它们自己的
