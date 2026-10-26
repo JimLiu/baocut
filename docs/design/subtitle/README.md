@@ -52,6 +52,7 @@
 | [`bcut-subtitle-agent-workflow.md`](bcut-subtitle-agent-workflow.md) | 字幕 Agent 阶段编排、对齐策略、worker 与续跑经验（内部开发资料，不复制回 `skills/`） |
 | [`bcut-glossary-design.md`](bcut-glossary-design.md) | 术语库：跨项目专名表，分转录术语表与翻译术语表，按命中编译进 `ai/context.md`；转录选表与自定义提示词（2026-09-20 原型先行，产品规格 [§15.10](../product/product-design/15-glossary.md)） |
 | [`caption-style-model-design.md`](caption-style-model-design.md) | **字幕样式模型**：七个独立维度（字体 / 涂装 / 落位 / 当前词 / 动效 / 强调词 / 排版模式）组合出样式，预设只是取值；每份预设自带当前词样式，KTV 扫色是当前词的一种模式，倒鸭子是排版模式；新正文到 Studio 样式的编译表（提案，原型先行 2026-10-09） |
+| [`caption-editor-redesign.md`](caption-editor-redesign.md) | **字幕编辑器重设计**：样式库（来源、效果标签、搜索、适配提示）、模板样式的调整层 `adjust` 与核心场景摘要、样式包的安装与冻结、组合样式 v2 的分层外观（渐变 / 纹理 / 多层描边与阴影 / 发光）、内置样式扩到 103 份（提案，原型先行 2026-10-25） |
 | [`dynamic-caption-format-design.md`](dynamic-caption-format-design.md) | **动态字幕格式升级（v3，共享核心基础执行档已实现，UI 待实施）**：参数化文字场景、单元选择器、语义时钟、关键帧与纯函数表达式、布局和材质、共享渲染与验收 |
 | [`bcut-daoyazi-caption-design.md`](bcut-daoyazi-caption-design.md) | 「倒鸭子」跨句动态排版字幕：`CaptionSequencePlan` 复用 `MotionProgram`、`wordAnimation.caption.seed` + `options.daoyazi`（核心与 App v2 已落地 2026-09-17） |
 | [`bcut-daoyazi-caption-style.example.json`](bcut-daoyazi-caption-style.example.json) | 上一篇的示例载荷 |

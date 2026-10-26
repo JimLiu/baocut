@@ -1640,7 +1640,7 @@
        `activeColor` 是这份 look 下当前词用什么颜色，它必须由 look 一起给，不能留一个
        全局默认——黄底药丸配黄色当前词等于没有当前词。
        色值是导出画面的渲染色，不是 S2 表面，按文件登记在 `_ds_conformance.json`。 */
-    looks: Object.assign({}, window.BC_DS.LOOKS, window.BC_VS.LOOKS, window.BC_SD ? window.BC_SD.LOOKS : {}),
+    looks: Object.assign({}, window.BC_DS.LOOKS, window.BC_VS.LOOKS, window.BC_SD ? window.BC_SD.LOOKS : {}, window.BC_RP ? window.BC_RP.LOOKS : {}),
 
     /* 目录。`form` 是形态：'orig' 只画原文一行（归字幕 Tab）、'bi' 双语两行、
        'trans' 只画译文一行（后两者归翻译 Tab）。
@@ -1669,7 +1669,9 @@
       [{id: 'daoyazi', name: '倒鸭子', cat: 'kinetic', form: 'orig', look: 'casper', anim: 'none', kinetic: true}],
       window.BC_DS.cards('bi'), window.BC_VS.cards('bi'),
       window.BC_DS.cards('trans'), window.BC_VS.cards('trans'),
-      window.BC_SD ? window.BC_SD.cards('orig').concat(window.BC_SD.cards('bi'), window.BC_SD.cards('trans')) : [])),
+      window.BC_SD ? window.BC_SD.cards('orig').concat(window.BC_SD.cards('bi'), window.BC_SD.cards('trans')) : [],
+      /* 60 份分层外观的新预设（caption-editor-redesign §10，model-subpresets-rich.js），三种形态各一份 */
+      window.BC_RP ? window.BC_RP.cards('orig').concat(window.BC_RP.cards('bi'), window.BC_RP.cards('trans')) : [])),
 
     /* 倒鸭子的演示实例记录：几个主角词，让画廊套上去第一眼就看得见「独占一块、字号 1.5 倍」。
        下标按 `BC_WA.split` 的演示切词（g2 = 「朋友。」，g5 = 「问题」，g6 = 「上传」）。 */

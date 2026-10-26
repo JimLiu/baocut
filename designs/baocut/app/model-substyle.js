@@ -226,10 +226,29 @@
        动效（入场 / 退场 / 循环）是整条的事，译文轨也有，只是没有「念到时」那一档。
        倒鸭子接管时这两段都让位给它那一段（§9 末段），换回普通字幕走画廊。 */
     if (track && track.kinetic) return ['kinetic', 'highlight'];
-    const list = ['text', 'outline', 'shadow', 'background'];
-    if (hasWordTiming(track)) list.push('activeWord', 'motion', 'highlight');
+    /* 模板样式（caption-editor-redesign §9.3）：场景只能调整，不能逐项改——整页换成「调整」，
+       关键词、换一版与构成都在那一页里。位置照常（写进 `adjust.placement`）。 */
+    if (track && track.scene) return ['adjust'];
+    /* 描边与阴影两段合成「涂装」（§9.2）：一份涂装栈里描边、阴影各可叠三层，再加字身填充与发光；
+       分页只对有词级时间的轨有意义（按词数分页）。 */
+    const list = ['text', 'surface', 'background'];
+    if (hasWordTiming(track)) list.push('activeWord', 'motion', 'pagination', 'highlight');
     else if (track) list.push('motion');
     return list;
+  }
+
+  /** 组合样式属性页的三页（§9.2）：外观 / 动画 / 排版。段的门控仍是 `sections()`，这里只把段分到页上；
+   *  倒鸭子与模板样式的页是一整页（`null`），不分页签。空页不出。 */
+  const PAGES = [
+    {k: 'look', name: '外观', keys: ['text', 'ratioNote', 'surface', 'background']},
+    {k: 'anim', name: '动画', keys: ['activeWord', 'motion']},
+    {k: 'layout', name: '排版', keys: ['pagination', 'highlight', 'position', 'bilingual', 'display']},
+  ];
+  function pages(keys) {
+    const list = keys || [];
+    if (list.indexOf('adjust') >= 0 || list.indexOf('kinetic') >= 0) return null;
+    return PAGES.map((p) => ({k: p.k, name: p.name, keys: p.keys.filter((k) => list.indexOf(k) >= 0)}))
+      .filter((p) => p.keys.length);
   }
 
   /** 段的顺序与门控。返回段键数组，视图按键渲染。
@@ -283,12 +302,15 @@
     'font', 'size', 'color', 'bold', 'italic', 'align', 'upper', 'lh', 'spacing',
     'outline', 'outlineW', 'outlineColor',
     'shadow', 'shDist', 'shBlur', 'shAngle', 'shColor',
+    // 涂装栈（caption-editor-redesign §4）；上面那几件是它第一层的镜像，旧读者仍读得到
+    'layers',
     'plate', 'bg', 'opacity', 'corners',
     // 词级那三件 ＋ 强调词（第 102.1 轮）。`caption` 也在里面：动画页选任意一格都会
     // 顺手把配方撤掉，那一笔要能落在覆盖表上，否则在这一档里选动效等于没选。
     'wordAnim', 'caption', 'activeColor', 'highlight', 'textMotion', 'wordBackground', 'nativeStyle',
     // 新正文的两个维度（caption-style-model-design §3.4 / §3.5），上面那几件由它们派生
     'activeWord', 'motion',
+    'pagination',
     'y', 'valign', 'x', 'width',
   ];
   /** 段 → 它管着哪几个键。`clearSection` 与段头上那个计数读同一份，所以「这一段有
@@ -296,8 +318,8 @@
    *  （有测试钉着）——漏一个键，那个键就改得了却退不回去。 */
   const SECTION_KEYS = {
     text: ['font', 'size', 'color', 'bold', 'italic', 'align', 'upper', 'lh', 'spacing'],
-    outline: ['outline', 'outlineW', 'outlineColor'],
-    shadow: ['shadow', 'shDist', 'shBlur', 'shAngle', 'shColor'],
+    // 描边与阴影两段合成「涂装」（§9.2），v1 镜像键与栈归同一段，清掉时一起退
+    surface: ['outline', 'outlineW', 'outlineColor', 'shadow', 'shDist', 'shBlur', 'shAngle', 'shColor', 'layers'],
     background: ['plate', 'bg', 'opacity', 'corners'],
     /* 「字幕动画」一段拆成两段（caption-style-model-design §11）：当前词管念到的词长什么样，
        动效管整条怎么进出。派生键各归其源：`activeColor` / `wordBackground` 跟当前词走，
@@ -305,6 +327,7 @@
     activeWord: ['activeWord', 'activeColor', 'wordBackground'],
     motion: ['motion', 'wordAnim', 'caption', 'textMotion', 'nativeStyle'],
     highlight: ['highlight'],
+    pagination: ['pagination'],
     position: ['y', 'valign', 'x', 'width'],
   };
 
@@ -592,7 +615,7 @@
     FORMS, BI_SCALE,
     tracks, byId, source, translations, hasWordTiming, label,
     place, addTrack, addSourcePaired, removeTrack, shelveTrack, replaceTrack, putBackMode,
-    writable, scopes, memberSections, sections,
+    writable, scopes, memberSections, sections, PAGES, pages,
     CUE_KEYS, SECTION_KEYS,
     cueStyles, cueOverride, isDetached, overriddenKeys, sectionOverrides,
     setCueStyle, detachCue, clearCue, clearSection, cueAt, detachedCueIds,

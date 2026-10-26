@@ -35,6 +35,7 @@
   function SubProps({ctx, scope, setScope, onBack, onAnim, onGallery, remembered, backLabel = '字幕'}) {
     const app = useApp();
     const [pop, setPop] = useState(null);
+    const [page, setTab] = useState('look');
     const tg = (k) => setPop(pop === k ? null : k);
     const st = ctx.subStyle;
     const list = S.tracks(st);
@@ -260,38 +261,14 @@
             </>
           ));
         }
-        case 'outline':
-          return card(k, '文字描边', !!ln.outline, (v) => set({outline: v}), (
-            <>
-              <ValueRow label="粗细" value={ln.outlineW} min={0} max={40} onChange={(v) => set({outlineW: v})} />
-              {/* 描边色第 89.3 轮换成与背景行同一颗 `ColorField`（用户裁决）：此前是五颗
-                  快捷色方块，理由是「设计稿上描边只有这五颗」——但同一张卡里、上下相邻
-                  的两行「颜色」长成两个控件，而且五颗之外的描边色在这里无路可走。 */}
-              <PRow label="颜色">
-                <ColorField value={ln.outlineColor} scope={aside} open={pop === 'outline'}
-                  onToggle={() => tg('outline')}
-                  onPick={(c, live) => { set({outlineColor: c}); if (!live) setPop(null); }} inline />
-              </PRow>
-            </>
-          ));
-        case 'shadow':
-          /* 阴影色第 102 轮补上。`trackDefaults.shColor`（`rgba(0,0,0,0.85)`）一直在文档里，
-             属性页却没有挂点——那是原型自己漏了一格。少这一格的代价是浅底视频上的字幕只能用黑影，
-             而「白底上打一层白影当外发光」正是描边之外的另一种做法。 */
-          return card(k, '文字阴影', !!ln.shadow, (v) => set({shadow: v}), (
-            <>
-              <ValueRow label="模糊" value={ln.shBlur} min={0} max={100} onChange={(v) => set({shBlur: v})} />
-              <PRow label="颜色">
-                <ColorField value={ln.shColor} scope={aside} open={pop === 'shadow'}
-                  onToggle={() => tg('shadow')}
-                  onPick={(c, live) => { set({shColor: c}); if (!live) setPop(null); }} inline />
-              </PRow>
-              <BCDisclosure className="subprops__details" title={<> 距离与角度 </>}>
-                <ValueRow label="距离" value={ln.shDist} min={0} max={100} onChange={(v) => set({shDist: v})} />
-                <ValueRow label="角度" value={ln.shAngle} min={0} max={360} unit="°" onChange={(v) => set({shAngle: v})} />
-              </BCDisclosure>
-            </>
-          ));
+        /* 「文字描边」「文字阴影」两张卡 2026-10-26 并成涂装栈一段（caption-editor-redesign §9.2），
+           在 panel-subsurface.jsx：描边与阴影各三层、字身渐变与纹理、发光。 */
+        case 'surface':
+          return <window.SubSurfaceSection key={k} ln={ln} set={set} first={first} aside={aside}
+            action={revert('surface', '文字效果')} pop={pop} tg={tg} setPop={setPop} />;
+        case 'pagination':
+          return <window.SubPaginationSection key={k} ln={ln} set={set} first={first} aside={aside}
+            action={revert('pagination', '分页')} />;
         /* 「字幕动画」那一行（十九格里挑一格）2026-10-09 拆成两段（caption-style-model-design §9）：
            「当前词」（panel-subactive.jsx）与「动效」（panel-submotion.jsx）。动态排版的轨
            不出这两段——倒鸭子那一段取代它们（段的门控在 model-substyle.js）。 */
@@ -464,6 +441,9 @@
     const keys = S.sections(st, scope, cueId);
     const foot = keys.indexOf('saveFoot') >= 0;
     const body = keys.filter((x) => x !== 'saveFoot');
+    const pages = S.pages(body);
+    const tab = pages && pages.some((pg) => pg.k === page) ? page : pages ? pages[0].k : null;
+    const R = window.RSP;
 
     /* 把这一条轨从画面上拿下来。**不是删数据**——那门语言的 cue 与词级时间戳仍在
        文稿里，时间轴行头与语言入口都能把它放回来。它此前住在「整组」那一档的轨列表里；
@@ -475,6 +455,8 @@
       const fallback = ops.drop(w);
       if (fallback) setScope(fallback);
     };
+
+    const dropBtn = <BCAction className="danger" onClick={drop}><Ic n="trash" className="ic--16" />从画面上拿下这条字幕</BCAction>;
 
     return (
       <>
@@ -491,10 +473,28 @@
           </div>
         ) : null}
         <window.SubScopeBar ctx={ctx} trackId={w} />
-        <div className="pscroll bc-scroll subprops">
-          {['text', 'ratioNote', 'outline', 'shadow', 'background', 'activeWord', 'motion', 'kinetic', 'highlight', 'position', 'bilingual', 'display'].filter((k) => body.includes(k)).map((k, i) => sec(k, i === 0))}
-          <BCAction className="danger" onClick={drop}><Ic n="trash" className="ic--16" />从画面上拿下这条字幕</BCAction>
-        </div>
+        {/* 三页（§9.2）：外观 / 动画 / 排版，段落归属在 `BC_SUB.PAGES`。动态排版与模板样式的段
+            不分页（`pages` 回 null），照原来一条滚动流排。 */}
+        {pages ? (
+          <R.Tabs aria-label="字幕属性" selectedKey={tab} onSelectionChange={(k) => setTab(String(k))} UNSAFE_className="subprops__tabs">
+            <R.TabList aria-label="字幕属性">{pages.map((pg) => <R.Tab key={pg.k} id={pg.k}>{pg.name}</R.Tab>)}</R.TabList>
+            {pages.map((pg) => (
+              <R.TabPanel key={pg.k} id={pg.k} UNSAFE_className="subprops__panel">
+                {tab === pg.k ? (
+                  <div className="pscroll bc-scroll subprops">
+                    {pg.keys.map((k, i) => sec(k, i === 0))}
+                    {pg.k === 'layout' ? dropBtn : null}
+                  </div>
+                ) : null}
+              </R.TabPanel>
+            ))}
+          </R.Tabs>
+        ) : (
+          <div className="pscroll bc-scroll subprops">
+            {['text', 'adjust', 'kinetic', 'highlight', 'position', 'bilingual', 'display'].filter((k) => body.includes(k)).map((k, i) => sec(k, i === 0))}
+            {dropBtn}
+          </div>
+        )}
         {foot ? sec('saveFoot') : null}
       </>
     );

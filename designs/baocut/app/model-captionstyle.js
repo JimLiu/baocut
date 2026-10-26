@@ -29,11 +29,19 @@
    `_ds_conformance.json`。这一层不碰 DOM，`node --test` 直接 require。 */
 (function () {
   const SCHEMA = 'baocut.caption-style/1';
+  /* 组合样式 v2（caption-editor-redesign §4）：涂装栈、三种新当前词、六种新动效、分页。
+     原有 43 份仍写 /1；新增 60 份（`BC_RP`）写 /2。打开 /1 时机械升级（`BC_SURF.fromPaint`）。 */
+  const SCHEMA2 = 'baocut.caption-style/2';
 
   /* ---------- 分类（§7）：只按气质分 ---------- */
   const CATEGORIES = [
     {k: 'basic', name: '基础', note: '新建项目与竖屏发布的默认'},
     {k: 'social', name: '社交'},
+    // 下面四个是 caption-editor-redesign §10 新加的分区（内置样式扩到 103 份）
+    {k: 'neon', name: '霓虹', note: '发光与灯管'},
+    {k: 'cinema', name: '电影', note: '片名、片尾与宽银幕'},
+    {k: 'cute', name: '可爱', note: '圆体、双层描边与弹跳'},
+    {k: 'art', name: '艺术', note: '纸张、油墨、渐变与多行排版'},
     {k: 'business', name: '商务'},
     {k: 'retro', name: '复古'},
     {k: 'motion', name: '动效', note: '以入场为主的设计'},
@@ -49,6 +57,10 @@
     {k: 'lift', name: '上抬'},
     {k: 'underline', name: '下划线'},
     {k: 'sweep', name: '扫色'},
+    // v2 新加三种（caption-editor-redesign §4）：弹性超调放大、横向拉伸、当前词发光
+    {k: 'pop', name: '弹出'},
+    {k: 'stretch', name: '拉伸'},
+    {k: 'glow', name: '发光'},
   ];
   const SPOKEN = [{k: 'keep', name: '不变'}, {k: 'tint', name: '染色'}, {k: 'dim', name: '变淡'}];
   const UNSPOKEN = [{k: 'keep', name: '不变'}, {k: 'dim', name: '变淡'}, {k: 'hidden', name: '不画'}];
@@ -88,6 +100,12 @@
       E('flip', '翻页', 'spoken', 'word', 0.4),
       E('stomp', '跺脚', 'spoken', 'word', 0.36),
       E('stack', '堆叠', 'spoken', 'word', 0.3),
+      // v2 新加五种入场（caption-editor-redesign §4）
+      E('elastic-pop', '弹性弹出', 'spoken', 'word', 0.42),
+      E('line-slide', '逐行滑入', 'enter', 'line', 0.4, 0.12),
+      E('feather', '羽化显现', 'enter', 'grapheme', 0.36, 0.03),
+      E('char-stagger', '逐字错峰', 'enter', 'grapheme', 0.28, 0.035),
+      E('typewriter-cursor', '打字机光标', 'enter', 'grapheme', 0.14, 0.05),
     ],
     out: [
       E('fade-down', '淡出下移', 'enter', 'cue', 0.22),
@@ -101,6 +119,7 @@
       E('wave', '波浪', 'enter', 'grapheme', 0.96, 0.03),
       E('shimmer', '闪烁', 'enter', 'cue', 1.6),
       E('swing', '摇摆', 'enter', 'word', 1.2, 0.08),
+      E('slow-push', '整页慢推', 'enter', 'cue', 4),
     ],
   };
   const STAGES = [{k: 'in', name: '入场'}, {k: 'out', name: '退场'}, {k: 'loop', name: '循环'}];
@@ -245,6 +264,8 @@
       const w = L.wordBackground;
       surface.wordBox = {color: w.color, padding: [w.paddingXEm, w.paddingYEm], radius: w.radiusEm};
     }
+    // v2 的涂装栈原样带着；上面的 stroke / shadow 是它镜像出的第一层，给只认 /1 的读者
+    if (L.layers) surface.layers = L.layers;
     const legacy = {stack: L.stack, weight: weight, bold: !!L.bold, mono: !!L.mono,
       shDist: L.shDist, shAngle: L.shAngle, shBlur: L.shBlur, shColor: L.shColor, plate: L.plate, bg: L.bg, pad: L.pad, corners: L.corners};
     return {typography, surface, legacy};
@@ -286,14 +307,35 @@
       out.shDist = G.shDist == null ? 12 : G.shDist; out.shAngle = G.shAngle == null ? 90 : G.shAngle;
       out.shBlur = G.shBlur == null ? 24 : G.shBlur; out.shColor = G.shColor || '#000000cc';
     }
+    out.layers = S.layers || null;
     return out;
   }
 
+  /* ---------- 分页（caption-editor-redesign §4 `layout.pagination`） ---------- */
+  const PAGE_MAX = 8;
+  /** 规范一份分页：没有每页词数 = 自动（null）；`rows` 加起来必须等于每页词数，否则丢掉。 */
+  function normPagination(pg) {
+    const n = pg && Math.round(+pg.wordsPerPage);
+    if (!(n >= 1)) return null;
+    const per = Math.min(PAGE_MAX, n);
+    const rows = pg.rows && pg.rows.length > 1 && pg.rows.every((k) => k >= 1)
+      && pg.rows.reduce((a, k) => a + k, 0) === per ? pg.rows.slice() : null;
+    return {wordsPerPage: per, rows};
+  }
+  /** 每页 `n` 个词能怎么分行：一行，或上下两行的每种拆法（上多在前）。 */
+  function rowPatterns(n) {
+    const out = [null];
+    for (let top = n - 1; top >= 1; top--) out.push([top, n - top]);
+    return out;
+  }
+  const rowsLabel = (rows) => (rows ? '上' + rows[0] + '下' + rows[1] : '一行');
+
   /* ---------- 编译：新正文 → 原型轨键（§8 的原型版） ---------- */
-  const WORD_KEYS = ['activeWord', 'motion', 'wordAnim', 'activeColor', 'textMotion', 'wordBackground'];
+  /* `pagination`（v2 落位的分页）跟着词级那几件走：它只在有词级时间的源语言轨上有意义。 */
+  const WORD_KEYS = ['activeWord', 'motion', 'wordAnim', 'activeColor', 'textMotion', 'wordBackground', 'pagination'];
   const PAINT_KEYS = ['font', 'stack', 'weight', 'bold', 'italic', 'color', 'align', 'lh', 'spacing', 'upper', 'mono',
     'bg', 'opacity', 'corners', 'pad', 'plate', 'outline', 'outlineColor', 'outlineW',
-    'shadow', 'shDist', 'shAngle', 'shBlur', 'shColor'];
+    'shadow', 'shDist', 'shAngle', 'shBlur', 'shColor', 'layers'];
 
   /** 译文 / 没有词级时间的轨：当前词恒 none，念到时触发的入场改成出现时（没有「念到」可言）。 */
   function forRole(body, ctx) {
@@ -345,6 +387,9 @@
     out.wordBackground = wb ? {color: wb.color, activeColor: aw.mode === 'box' && aw.box ? aw.box.color : wb.color,
       paddingXEm: wb.padding[0], paddingYEm: wb.padding[1], radiusEm: wb.radius} : null;
     out.textMotion = textMotionOf(aw, role.motion);
+    const pg = body.layout && body.layout.pagination;
+    out.pagination = pg && pg.wordsPerPage && (c.role || 'source') === 'source' && c.hasWordTiming !== false
+      ? {wordsPerPage: pg.wordsPerPage, rows: pg.rows || null} : null;
     if (c.highlight || body.emphasis) {
       const em = body.emphasis || {};
       out.highlight = Object.assign({on: false, marks: {}}, c.highlight || {},
@@ -377,11 +422,12 @@
     if (t.wordBackground && t.wordBackground.activeColor && aw.mode === 'none' && !t.activeWord) {
       aw = normActive({mode: 'box', box: {color: t.wordBackground.activeColor, radius: t.wordBackground.radiusEm, padding: [0.2, 0.08]}});
     }
-    const body = {schema: SCHEMA, typography: base.typography, surface: base.surface,
+    const body = {schema: t.layers ? SCHEMA2 : SCHEMA, typography: base.typography, surface: base.surface,
       layout: {mode: t.kinetic ? 'sequence' : 'line', anchor: t.valign === 'top' ? 'top' : t.valign === 'center' ? 'center' : 'bottom',
         y: t.y == null ? 0.86 : t.y / 100, width: t.width == null ? 0.8 : t.width / 100, maxLines: 2},
       activeWord: aw, legacy: base.legacy};
     if (hasMotion(motion)) body.motion = motion;
+    if (t.pagination) body.layout.pagination = t.pagination;
     if (t.kinetic) body.layout.sequence = t.kinetic;
     if (t.highlight) {
       const h = t.highlight;
@@ -453,6 +499,13 @@
     if (extra && extra.marker) b.layoutMarker = extra.marker;
     return b;
   }
+  /** 扩充表那一行的 `{in: [预设, 覆盖], out, loop}` → motion（缺的键由预设默认补齐）。 */
+  function motionOfRow(m) {
+    if (!m) return null;
+    const out = {};
+    STAGES.forEach(({k}) => { if (m[k]) out[k] = effect(k, m[k][0], m[k][1]); });
+    return hasMotion(out) ? out : null;
+  }
   /** TextMotion 的 in/out/loop → motion（trigger: enter）。 */
   function motionOfTextMotion(tm) {
     if (!tm) return null;
@@ -499,6 +552,15 @@
       dz.look = 'casper';
       out.push(dz);
     }
+    /* 扩充的 60 份（caption-editor-redesign §10，`BC_RP`）：组合样式 v2，排在原有 43 份后面 */
+    if (W.BC_RP) {
+      W.BC_RP.ROWS.forEach((r) => {
+        const b = body(r.k, r.name, r.cat, W.BC_RP.LOOKS[r.k], r.aw, motionOfRow(r.motion), {layout: r.layout});
+        b.schema = SCHEMA2;
+        if (r.emphasis) b.emphasis = r.emphasis;
+        out.push(b);
+      });
+    }
     cache = out;
     return out;
   }
@@ -511,7 +573,18 @@
     const p = byKey(family(card.id));
     if (!p) return card;
     const role = forRole(p, {role: card.form === 'trans' ? 'translation' : 'source'});
-    return Object.assign({}, card, {cat: p.category, activeWord: role.activeWord, motion: role.motion});
+    return Object.assign({}, card, {cat: p.category, activeWord: role.activeWord, motion: role.motion,
+      emphasis: p.emphasis || null, pagination: card.form === 'trans' ? null : (p.layout && p.layout.pagination) || null});
+  }
+
+  /** 效果标签（caption-editor-redesign §8）。/2 的涂装栈挂在 `surface.layers` 上，与底板、
+   *  逐词底块合成一份给 `BC_SURF.tags` 读；没装上分层外观模型时没有标签。 */
+  function tagsOf(p) {
+    const SURF = window.BC_SURF;
+    if (!SURF || !p) return [];
+    const sf = p.surface || {};
+    const surface = sf.layers ? Object.assign({}, sf.layers, {plate: sf.plate, wordBox: sf.wordBox}) : sf;
+    return SURF.tags(Object.assign({}, p, {surface}));
   }
 
   /** 画廊陈列：一份预设一张卡（`screen` 形态），**不按家族别名折叠**，顺序同 `presets()`。 */
@@ -524,7 +597,8 @@
     return presets().filter((p) => byFam[p.key]).map((p) => {
       const c = byFam[p.key];
       return Object.assign({}, c, {id: 'v-' + p.key, form: 'screen', look2: c.look2 || c.look, name: p.name,
-        cat: p.category, activeWord: p.activeWord, motion: p.motion || null});
+        cat: p.category, activeWord: p.activeWord, motion: p.motion || null,
+        emphasis: p.emphasis || null, pagination: (p.layout && p.layout.pagination) || null, tags: tagsOf(p), schema: p.schema});
     });
   }
 
@@ -550,9 +624,10 @@
     return Math.max(0, Math.min(count, Math.floor(progress * count + 1e-9)));
   }
 
-  window.BC_CS = {SCHEMA, CATEGORIES, ACTIVE_MODES, SPOKEN, UNSPOKEN, ACTIVE_DEFAULTS, MOTION_PRESETS, STAGES, UNITS, TRIGGERS,
+  window.BC_CS = {SCHEMA, SCHEMA2, CATEGORIES, ACTIVE_MODES, SPOKEN, UNSPOKEN, ACTIVE_DEFAULTS, MOTION_PRESETS, STAGES, UNITS, TRIGGERS,
     CELLS, CELL_KEYS, WORD_KEYS, PAINT_KEYS,
     modeName, normActive, motionPreset, effect, hasMotion, inkOn,
     fromAnim, toAnim, fromLook, paintOf, forRole, toTrack, fromTrack, patchWord, moves,
-    presets, byKey, family, annotate, galleryCards, badge, wordProgress, sweptGraphemes};
+    presets, byKey, family, annotate, galleryCards, tagsOf, badge, wordProgress, sweptGraphemes,
+    PAGE_MAX, normPagination, rowPatterns, rowsLabel};
 })();

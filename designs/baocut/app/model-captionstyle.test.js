@@ -12,14 +12,14 @@ require('./model-subtitle-designs.js');
 require('./model-captionstyle.js');
 const CS = window.BC_CS;
 
-test('分类按 §7 的顺序：基础 / 社交 / 商务 / 复古 / 动效 / 动态排版', () => {
-  assert.deepEqual(CS.CATEGORIES.map((c) => c.k), ['basic', 'social', 'business', 'retro', 'motion', 'kinetic']);
-  assert.deepEqual(CS.CATEGORIES.map((c) => c.name), ['基础', '社交', '商务', '复古', '动效', '动态排版']);
+test('分类按 §7 的顺序，社交后面插入 caption-editor-redesign §10 的四个新分区', () => {
+  assert.deepEqual(CS.CATEGORIES.map((c) => c.k), ['basic', 'social', 'neon', 'cinema', 'cute', 'art', 'business', 'retro', 'motion', 'kinetic']);
+  assert.deepEqual(CS.CATEGORIES.map((c) => c.name), ['基础', '社交', '霓虹', '电影', '可爱', '艺术', '商务', '复古', '动效', '动态排版']);
 });
 
-test('当前词七种模式与两根小轴', () => {
-  assert.deepEqual(CS.ACTIVE_MODES.map((m) => m.k), ['none', 'color', 'box', 'scale', 'lift', 'underline', 'sweep']);
-  assert.deepEqual(CS.ACTIVE_MODES.map((m) => m.name), ['无', '变色', '底块', '放大', '上抬', '下划线', '扫色']);
+test('当前词七种模式 ＋ v2 三种，与两根小轴', () => {
+  assert.deepEqual(CS.ACTIVE_MODES.map((m) => m.k), ['none', 'color', 'box', 'scale', 'lift', 'underline', 'sweep', 'pop', 'stretch', 'glow']);
+  assert.deepEqual(CS.ACTIVE_MODES.map((m) => m.name), ['无', '变色', '底块', '放大', '上抬', '下划线', '扫色', '弹出', '拉伸', '发光']);
   assert.deepEqual(CS.SPOKEN.map((m) => m.k), ['keep', 'tint', 'dim']);
   assert.deepEqual(CS.UNSPOKEN.map((m) => m.k), ['keep', 'dim', 'hidden']);
 });
@@ -33,9 +33,10 @@ test('动效预设三栏都带默认触发与单位', () => {
       assert.ok(p.durationSeconds > 0, p.k);
     });
   });
-  // §3.5 列出的名字一个不少
-  const want = {in: 'typewriter fade-up rise cascade pop blur-in slide-mask wave-in drop-in float-in-top float-in-bottom scale-in impact flip stomp stack',
-    out: 'fade-down sink pop-out blur-out typewriter-erase', loop: 'pulse wave shimmer swing'};
+  // §3.5 列出的名字一个不少，后面跟 caption-editor-redesign §4 新加的六种
+  const want = {in: 'typewriter fade-up rise cascade pop blur-in slide-mask wave-in drop-in float-in-top float-in-bottom scale-in impact flip stomp stack'
+    + ' elastic-pop line-slide feather char-stagger typewriter-cursor',
+    out: 'fade-down sink pop-out blur-out typewriter-erase', loop: 'pulse wave shimmer swing slow-push'};
   Object.keys(want).forEach((s) => assert.deepEqual(CS.MOTION_PRESETS[s].map((p) => p.k), want[s].split(' ')));
 });
 
@@ -212,4 +213,16 @@ test('扫色进度：词内按时间线性推进，按词时整词瞬间换色',
   assert.equal(CS.sweptGraphemes(0.5, 4, 'grapheme'), 2);
   assert.equal(CS.sweptGraphemes(0.01, 4, 'word'), 4);
   assert.equal(CS.sweptGraphemes(0, 4, 'word'), 0);
+});
+
+test('分页：规范化与逐行拆法', () => {
+  assert.equal(CS.normPagination(null), null);
+  assert.equal(CS.normPagination({wordsPerPage: 0}), null, '0 = 自动');
+  assert.deepEqual(CS.normPagination({wordsPerPage: 3, rows: [2, 1]}), {wordsPerPage: 3, rows: [2, 1]});
+  assert.deepEqual(CS.normPagination({wordsPerPage: 4, rows: [2, 1]}), {wordsPerPage: 4, rows: null}, '加起来不等于每页词数就丢掉');
+  assert.deepEqual(CS.normPagination({wordsPerPage: 20}), {wordsPerPage: CS.PAGE_MAX, rows: null});
+  assert.deepEqual(CS.rowPatterns(3), [null, [2, 1], [1, 2]]);
+  assert.deepEqual(CS.rowPatterns(1), [null]);
+  assert.equal(CS.rowsLabel([2, 1]), '上2下1');
+  assert.equal(CS.rowsLabel(null), '一行');
 });

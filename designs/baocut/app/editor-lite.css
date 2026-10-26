@@ -10,6 +10,7 @@
 .lt__canvas > .stage { flex: 1 1 auto; }
 .lt__player { flex: none; padding: 8px 16px 12px; background: var(--gray-25); border-top: 2px solid var(--gray-100); }
 .lt__side { flex: none; width: 360px; min-width: 0; display: flex; flex-direction: column; min-height: 0; background: var(--gray-25); border-left: 2px solid var(--gray-100); }
+.lt__side--wide { width: 560px; }   /* 字幕样式库的「加宽」（caption-editor-redesign §9.1） */
 
 /* 标记工具条与标记层在 stage-markup.css（mk-）；标注时右下角的水印让开 */
 .lt.is-annotating .lt-ov--mark { display: none; }

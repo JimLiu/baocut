@@ -142,6 +142,31 @@ test('当前词与强调词只跟着源语言轨走——译文轨就是少这�
   ['zh', 'en'].forEach((id) => assert.ok(has(S.sections(bi(), id), 'motion'), id + ' 轨应有动效段'));
 });
 
+test('描边与阴影合成涂装一段；分页只长在有词级时间的轨上；属性页分外观 / 动画 / 排版三页', () => {
+  ['outline', 'shadow'].forEach((k) => assert.ok(!has(S.sections(bi(), 'zh'), k), k + ' 已并进涂装'));
+  assert.ok(has(S.sections(bi(), 'zh'), 'surface') && has(S.sections(bi(), 'en'), 'surface'));
+  assert.ok(has(S.sections(bi(), 'zh'), 'pagination'));
+  assert.ok(!has(S.sections(bi(), 'en'), 'pagination'), '译文轨没有词级时间，按词分页无从谈起');
+  const pg = S.pages(S.sections(bi(), 'zh'));
+  assert.deepEqual(pg.map((p) => p.k), ['look', 'anim', 'layout']);
+  assert.deepEqual(pg[0].keys, ['text', 'surface', 'background']);
+  assert.deepEqual(pg[2].keys, ['pagination', 'highlight', 'position', 'bilingual', 'display']);
+  // 每一段都落在某一页上，否则分了页它就看不见
+  const shown = pg.reduce((a, p) => a.concat(p.keys), []);
+  S.sections(bi(), 'en').filter((k) => k !== 'saveFoot').forEach((k) => assert.ok(shown.concat(S.pages(S.sections(bi(), 'en'))
+    .reduce((a, p) => a.concat(p.keys), [])).indexOf(k) >= 0, k));
+});
+
+test('模板样式只有调整页 ＋ 位置，不分页签；场景与调整层不进 cue 覆盖表', () => {
+  const st = {tracks: [T('zh', 'source', {scene: {pack: 'demo', id: 'a', rev: 1}, adjust: {}}), T('en', 'translation')]};
+  const list = S.sections(st, 'zh');
+  assert.deepEqual(list.filter((k) => !['saveFoot', 'bilingual', 'display'].includes(k)), ['adjust', 'position']);
+  assert.equal(S.pages(list), null);
+  ['scene', 'adjust'].forEach((k) => assert.ok(S.CUE_KEYS.indexOf(k) < 0, k));
+  assert.equal(Object.keys(S.setCueStyle(st, CUE, 'zh', {adjust: {fontScale: 2}, size: 40})[CUE].zh).join(), 'size');
+  assert.ok(has(S.sections(st, 'en'), 'surface'), '同一份文档里的另一条轨照常是组合样式');
+});
+
 test('可写轨永远是一条轨——没有「谁也不写」这一档', () => {
   assert.equal(S.writable(mono(), 'zh'), 'zh');
   assert.equal(S.writable(bi(), 'en'), 'en');
@@ -606,10 +631,10 @@ test('逐段退回跟随只抹这一段的键；空段是空操作，不生成�
   const st = Object.assign({}, st0,
     {cueStyles: S.setCueStyle(st0, CUE, 'zh', {size: 64, outlineW: 20, y: 40})});
   assert.deepEqual(S.sectionOverrides(st, CUE, 'zh', 'text'), ['size']);
-  assert.deepEqual(S.sectionOverrides(st, CUE, 'zh', 'outline'), ['outlineW']);
+  assert.deepEqual(S.sectionOverrides(st, CUE, 'zh', 'surface'), ['outlineW']);
   const cleared = S.clearSection(st, CUE, 'zh', 'text');
   assert.deepEqual(Object.keys(cleared[CUE].zh).sort(), ['outlineW', 'y']);
-  assert.equal(S.clearSection(st, CUE, 'zh', 'shadow'), S.cueStyles(st), '空段返回原表');
+  assert.equal(S.clearSection(st, CUE, 'zh', 'pagination'), S.cueStyles(st), '空段返回原表');
 });
 
 test('回到跟随把这一条整条抹掉，抹到没有 cue 就不留空壳', () => {

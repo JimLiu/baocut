@@ -279,7 +279,7 @@
               const word = window.subWordOfTrack(ln, isSrc);
               const line = word && !cap ? (
                 <div className={cx('subline', ln.mono && 't-mono')} style={window.paintCss(ln, fzl)}>
-                  <window.WordLine text={displayText} aw={word.aw} motion={word.motion} wordBox={word.wordBox}
+                  <window.WordLine text={displayText} aw={word.aw} motion={word.motion} wordBox={word.wordBox} page={word.page}
                     cur={isSrc ? wcur : -1} cycle={beatCycle} still={window.subReduced}
                     clock={subPreviewing ? null : {t: playT - cue.start, dur: cue.end - cue.start}}
                     next={isSrc && nextCue ? window.BC_SUB_PREFS.displayText(nextCue.text, doc.punct !== false) : null}

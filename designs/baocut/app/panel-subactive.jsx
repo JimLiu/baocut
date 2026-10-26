@@ -22,6 +22,10 @@
     if (k === 'lift') return {mode: k, color, lift: a.lift || 0.22};
     if (k === 'scale') return {mode: k, color, scale: a.scale && a.scale > 1 ? a.scale : 1.15};
     if (k === 'sweep') return {mode: k, color, sweep: a.sweep || {unit: 'grapheme', guide: false, nextLine: false}};
+    // 弹出 / 拉伸 / 发光（caption-editor-redesign §4）
+    if (k === 'pop') return {mode: k, color, scale: a.scale && a.scale > 1 ? a.scale : 1.22, durationSeconds: 0.22};
+    if (k === 'stretch') return {mode: k, color, scale: a.scale && a.scale > 1 ? a.scale : 1.25};
+    if (k === 'glow') return {mode: k, color, glow: a.glow || {color, radius: 0.4}};
     if (k === 'none') return {mode: k};
     return {mode: k, color};
   }

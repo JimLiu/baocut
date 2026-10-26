@@ -1,0 +1,47 @@
+/* 字幕样式库与属性页三页（caption-editor-redesign §9.1 / §9.2）——
+   panel-sublibrary.jsx（`sublib__`）、panel-subsurface.jsx（`subsurf__`）、panel-subprops.jsx 的页签（`subprops__tabs`）。 */
+
+/* ---------- 样式库：筛选那一块 ---------- */
+.sublib__bar { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 4px; }
+.sublib__search { width: 100%; }
+.sublib__row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sublib__row > .seg { flex: 1 1 auto; min-width: 0; overflow-x: auto; }
+.sublib__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+/* 效果标签一排横滚：十几个标签在 360px 的面板里换行会占掉半屏，加宽后能看见更多 */
+.sublib__chips--tags { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+.sublib__chips--tags > * { flex: none; }
+.sublib__fitk { font-size: 12px; color: var(--gray-800); }
+.sublib__count { margin-left: auto; font-size: 11px; color: var(--gray-600); white-space: nowrap; }
+.sublib__clear { padding: 0; font-size: 11px; color: var(--blue-900); }
+.sublib__none { padding: 24px 4px; font-size: 12px; color: var(--gray-600); text-align: center; }
+
+/* ---------- 样式库：卡 ---------- */
+/* 列数跟着面板宽走：默认宽两列，「加宽」后三到四列 */
+.sublib__grid { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
+.sublib__card.is-off { opacity: 0.6; }
+.sublib__card.is-off .scard__b { cursor: not-allowed; }
+.sublib__pk { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--gray-600); }
+.sublib__fit { padding: 0 8px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 14px; color: var(--orange-900); }
+
+/* ---------- 属性页三页 ---------- */
+.subprops__tabs { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0; padding: 0 12px; }
+.subprops__panel { margin-top: 0; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; margin-inline: -12px; }
+
+/* ---------- 文字效果（涂装栈） ---------- */
+.subsurf__gh { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px; font-weight: 700; color: var(--gray-900); }
+.subsurf__gn { flex: 1 1 auto; font-size: 11px; font-weight: 400; color: var(--gray-500); }
+.subsurf__add { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; font-size: 11px; font-weight: 500; color: var(--blue-900); }
+.subsurf__max { font-size: 11px; color: var(--gray-500); }
+.subsurf__layer { margin-top: 6px; border-radius: 8px; background: var(--gray-50); }
+.subsurf__layer.is-open { box-shadow: inset 0 0 0 1px var(--gray-200); }
+.subsurf__lh { display: flex; align-items: center; gap: 2px; padding-right: 4px; }
+.subsurf__lb { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 8px; height: 32px; padding: 0 8px; }
+.subsurf__sw { flex: none; width: 16px; height: 16px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--gray-300); }
+.subsurf__ln { flex: none; font-size: 12px; font-weight: 500; color: var(--gray-900); }
+.subsurf__ls { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--gray-600); text-align: left; }
+.subsurf__lbd { padding: 0 8px 8px; }
+.subsurf__tex { display: flex; flex-wrap: wrap; gap: 6px; }
+.subsurf__tx { width: 32px; height: 32px; padding: 2px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--gray-300); }
+.subsurf__tx.is-on { box-shadow: inset 0 0 0 2px var(--blue-800); }
+.subsurf__tx > i { display: block; width: 100%; height: 100%; border-radius: 6px; background-size: cover; }
+.subsurf__rows { flex: 1 1 auto; }

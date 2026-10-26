@@ -1,12 +1,24 @@
 /* 两轴字幕（当前词 ＋ 动效）的画法与关键帧——app/sub-wordline.jsx 用。
    这里只动 transform / opacity / filter / clip-path；颜色全部由内联样式与 `--aw-c` 给，
    这份表里不写任何色值（导出画面的色值只在登记过的模型文件里）。
-   `--mo-k` 是强弱（intensity，0–1.5），`--mo-r` 是倾斜那一档的附加旋转。 */
+   `--mo-k` 是强弱（intensity，0–1.5），`--mo-r` 是倾斜那一档的附加旋转。
+
+   分层涂装（caption-editor-redesign §4）：行容器上的 `--tx-*` 由 `BC_SURF.cssOf` 给，
+   这里只在最内层的文字（`.aw-t`）上读出来——渐变 / 纹理是 `background-clip: text`，
+   描边链、阴影与发光是 `filter`。变量没给时这几条都是空操作。 */
+.aw-t {
+  background-image: var(--tx-fill, none);
+  background-size: var(--tx-size, 100% 100%);
+  -webkit-background-clip: var(--tx-clip, border-box);
+  background-clip: var(--tx-clip, border-box);
+  -webkit-text-fill-color: var(--tx-tfc, currentColor);
+  filter: var(--tx-filter);
+}
 
 .aw-a {
   display: inline-block;
   position: relative;
-  transition-property: color, background-color, transform, opacity;
+  transition-property: color, background-color, transform, opacity, filter;
   transition-timing-function: ease-out;
 }
 .aw-w,
@@ -36,7 +48,8 @@
   margin-top: 0.2em;
 }
 
-@keyframes bc-aw-ink { to { color: var(--aw-c); } }
+/* 扫到的字换色，同时撤掉渐变填充（`--tx-*` 在关键帧里是离散切换） */
+@keyframes bc-aw-ink { to { color: var(--aw-c); --tx-fill: none; --tx-clip: border-box; --tx-tfc: var(--aw-c); } }
 @keyframes bc-aw-guide { from { left: 0; } to { left: 100%; } }
 
 /* ---- 入场 ---- */
@@ -77,6 +90,26 @@
   60% { opacity: 1; transform: scale(1.04, 0.94); }
 }
 @keyframes bc-mo-stack { from { opacity: 0; transform: translateY(calc(0.4em * var(--mo-k, 1))) scale(0.8); } }
+/* 新增五种入场（caption-editor-redesign §4） */
+@keyframes bc-mo-elastic-pop {
+  from { opacity: 0; transform: scale(calc(1 - 0.7 * var(--mo-k, 1))); }
+  40% { opacity: 1; transform: scale(calc(1 + 0.2 * var(--mo-k, 1))); }
+  62% { transform: scale(calc(1 - 0.08 * var(--mo-k, 1))); }
+  80% { transform: scale(calc(1 + 0.03 * var(--mo-k, 1))); }
+}
+@keyframes bc-mo-line-slide { from { opacity: 0; transform: translateX(calc(-0.9em * var(--mo-k, 1))); } }
+@keyframes bc-mo-feather {
+  from { opacity: 0; filter: blur(calc(0.2em * var(--mo-k, 1))); transform: translateY(calc(0.12em * var(--mo-k, 1))); }
+}
+@keyframes bc-mo-char-stagger {
+  from { opacity: 0; transform: translateY(calc(0.4em * var(--mo-k, 1))) scale(0.86); }
+}
+/* 打字机光标：字逐个出现（step-end），光标是 `.aw-g` 后面那一竖，颜色跟字色走 */
+@keyframes bc-mo-typewriter-cursor {
+  from { opacity: 0; }
+  30% { opacity: 1; box-shadow: 0.08em 0 0 0 currentColor; }
+  to { opacity: 1; box-shadow: none; }
+}
 
 /* ---- 退场（只写终点，起点就是落位） ---- */
 @keyframes bc-mo-out-fade-down { to { opacity: 0; transform: translateY(calc(0.5em * var(--mo-k, 1))); } }
@@ -89,6 +122,11 @@
 @keyframes bc-mo-loop-pulse { 50% { transform: scale(calc(1 + 0.06 * var(--mo-k, 1))); } }
 @keyframes bc-mo-loop-wave { 50% { transform: translateY(calc(-0.25em * var(--mo-k, 1))); } }
 @keyframes bc-mo-loop-shimmer { 50% { opacity: calc(1 - 0.35 * var(--mo-k, 1)); } }
+/* 整页慢推：一直缓缓放大（循环时长就是一页的时长） */
+@keyframes bc-mo-loop-slow-push {
+  from { transform: scale(1); }
+  to { transform: scale(calc(1 + 0.08 * var(--mo-k, 1))); }
+}
 @keyframes bc-mo-loop-swing {
   25% { transform: rotate(calc(4deg * var(--mo-k, 1))); }
   75% { transform: rotate(calc(-4deg * var(--mo-k, 1))); }

@@ -951,6 +951,9 @@
         // 译文轨不带 activeColor / wordAnim——词级时间戳只有源语言轨有
         if (!isSrc) delete paint.activeColor;
         const out = Object.assign({}, t, paint, {preset: p.id});
+        /* 分层涂装（caption-editor-redesign §4）：旧卡没有栈，上一张卡留下的栈要清掉，
+           否则 `paintCss` 看见栈就照栈画，换了卡画面不变 */
+        out.layers = paint.layers || null;
         out.textMotion = paint.textMotion || null;
         out.wordBackground = paint.wordBackground || null;
         out.nativeStyle = paint.nativeStyle || null;
@@ -972,10 +975,13 @@
           const w = CS.toTrack(body, {role});
           CS.WORD_KEYS.forEach((k) => { if (k !== 'activeColor') out[k] = w[k]; });
           if (isSrc && w.activeColor) out.activeColor = w.activeColor;
+          /* 带强调词外观的样式（关键词放大 / 发光，§10）：外观照正文落、强调打开，用户点过的词留着 */
+          if (isSrc && body.emphasis) out.highlight = Object.assign({}, w.highlight, {on: true, marks: (t.highlight && t.highlight.marks) || {}});
         } else {
           const w = window.subWordOf(p, role, paint);
           out.activeWord = w.aw;
           out.motion = w.motion;
+          out.pagination = w.page || null;
         }
         return out;
       });

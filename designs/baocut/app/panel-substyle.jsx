@@ -6,7 +6,7 @@
 
    这一轮拆成两页：
 
-     Style 子页 = **样式画廊**（本文件）
+     Style 子页 = **样式画廊**（2026-10-26 起是样式库，panel-sublibrary.jsx；缩略图仍在本文件）
         分类分区、每格一张缩略图，一眼看得出套上去是什么样
      ↓ 点缩略图上的铅笔，或在画布上点一条字幕
      字幕属性页 = panel-subprops.jsx
@@ -97,7 +97,11 @@
       st.padding = padOf(p, fz);
       st.borderRadius = radiusOf(p, fz);
     }
-    if (p.outline) {
+    /* 分层涂装（caption-editor-redesign §4）：有 `layers` 就只画栈，不再读 v1 那几个镜像键——
+       它们是给旧读者的第一层副本，两边都画就是同一道描边画两遍。填充与滤镜由 `--tx-*` 变量
+       传到词与字的最内层（`.aw-t`，app/subtitle-active.css）。 */
+    if (p.layers && window.BC_SURF) Object.assign(st, window.BC_SURF.cssOf(p.layers, p.color, fz));
+    else if (p.outline) {
       /* 描边画在字的**后面**。`-webkit-text-stroke` 默认是「居中 ＋ 盖在填充之上」，
          于是一条 `size: .18` 的描边（Boba / Slay / Komika 那一档）会从两侧各啃掉
          半个笔宽——13px 的缩略图上那正好是整个字干，卡片糊成一团黑。描边应当是
@@ -106,7 +110,7 @@
       st.WebkitTextStroke = Math.max(0.5, +(fz * 0.05 * ((p.outlineW || 8) / 8)).toFixed(2)) + 'px ' + p.outlineColor;
       st.paintOrder = 'stroke fill';
     }
-    if (p.shadow) {
+    if (p.shadow && !(p.layers && window.BC_SURF)) {
       const c = p.shColor || 'rgba(0,0,0,0.85)';
       const a = ((p.shAngle == null ? 90 : p.shAngle) * Math.PI) / 180;
       const d = (p.shDist == null ? 12 : p.shDist) / 100 * fz;
@@ -184,7 +188,7 @@
      最显眼的那一行都该是同一门语言。同一个画廊里所有卡片写同一对语言，才比得出
      样式的差别——一张写中文、一张写英文，比的就成了语言。至于那一对是固定的
      （字幕 Tab 的样式样张）还是项目自己的语言对（翻译 Tab，第 74 轮），由
-     `SubGallery` 决定，这里不挑。 */
+     样式库（`SubLibrary`，panel-sublibrary.jsx）决定，这里不挑。 */
   /* 动效字幕那一区的格子比通用格子高一档（`.sthumb--cap`，120px），画布字号跟着提一档。
      14 在字号阶梯上（13 不在），提上去之后各份之间由 `layout.size` 决定的相对大小
      一格没变——整条链是 `fz × layout.size / SIZE_REF`，等比。 */
@@ -193,7 +197,9 @@
   /** `rows` 给的时候（第 151 轮画廊与入口卡）直接照它画——`[role, look, lang]` 每行一条，
    *  由 `BC_SUB.screenRows` 按画面上现有的轨算出来；没给才按卡的形态画样张（品牌库
    *  存卡那一格的样张仍走这条路）。 */
-  function SubThumb({p, fz = 13, langs, flip, rows: given}) {
+  /** `texts`（样式库，§9.1）按角色给这一格要写的字（`{orig, trans}`），没给就用样张；
+   *  `idle` 是卡不在可视区：节拍器不走、入场不跑，一千张卡时只有看得见的那几张在动。 */
+  function SubThumb({p, fz = 13, langs, flip, rows: given, texts, idle}) {
     const L = langs || {};
     /* `p.look` 恒是**原文行**的 look（逐词动画长在它身上，`applyPreset` 也是这么落的），
        `p.look2` 是译文行的。默认叠法把译文放在上面，所以双语卡上第一行读的是 look2；
@@ -205,12 +211,13 @@
         : [['trans', p.look2 || p.look, L.main], ['orig', p.look, L.sub]])
       : p.form === 'trans' ? [['trans', p.look, L.main]] : [['orig', p.look, L.main]];
     const srcRow = rows.find((r) => r[0] === 'orig');
-    const n = srcRow ? WA.split(sampleOf(srcRow[2], 'thumb')).length : 0;
+    const textOf = (role, lang) => (texts && texts[role]) || sampleOf(lang, 'thumb');
+    const n = srcRow ? WA.split(textOf('orig', srcRow[2])).length : 0;
     /* 两轴（当前词 ＋ 动效，2026-10-09）：每一行按角色取——目录卡读 `BC_CS` 的正文，品牌库旧卡
        按 `anim` 查十九格表。源语言行带当前词，译文行只带「出现时」那几段动效（没有词级时间戳）。 */
     const words = rows.map((r) => window.subWordOf(p, r[0] === 'orig' ? 'source' : 'translation', lookPaint(r[1])));
     /* 动效字幕**永远在动**：一次一词 / 逐词堆叠本身就是它的动画，不跑节拍器那一区会全是静帧。 */
-    const {cur, cycle} = window.useSubCycle(Math.max(n, 1), p.caption ? true : words.some(window.subWordMoves));
+    const {cur, cycle} = window.useSubCycle(Math.max(n, 1), !idle && (p.caption ? true : words.some(window.subWordMoves)));
     /* 动效字幕走**第二条渲染路径**：配方自带涂装、排版与四档时间通道，画在 canvas 上，
        所以这里既不画 look 也不画行叠——整格交给 `CaptionCanvas`（app/subcaption.jsx）。
        时钟是它自己的循环时间线（与本文件的节拍器同 epoch），所以不用把 `cur` 传下去。 */
@@ -227,8 +234,8 @@
     if (p.caption && srcRow) {
       return (
         <span className="sthumb sthumb--cap">
-          <window.CaptionCanvas presetK={p.caption} text={sampleOf(srcRow[2], 'thumb')}
-            loop fz={CAP_FZ} still={REDUCED} />
+          <window.CaptionCanvas presetK={p.caption} text={textOf('orig', srcRow[2])}
+            loop fz={CAP_FZ} still={REDUCED || idle} />
         </span>
       );
     }
@@ -242,8 +249,9 @@
              外层只画 `block` 那一档；不传的话白板样式在画廊里等于没画。 */
           return (
             <span key={role + i} className={cx('sthumb__l', isMono(look) && 't-mono')} style={paintCss(paint, rowFz)}>
-              <WordLine text={sampleOf(lang, 'thumb')} aw={w.aw} motion={w.motion} wordBox={w.wordBox}
-                cur={role === 'orig' ? cur : -1} cycle={cycle} still={REDUCED} plate={plateCss(paint, rowFz)} />
+              <WordLine text={textOf(role, lang)} aw={w.aw} motion={w.motion} wordBox={w.wordBox} page={w.page}
+                highlight={role === 'orig' ? demoMark(w, textOf(role, lang)) : null} cueId="thumb"
+                cur={role === 'orig' ? cur : -1} cycle={cycle} still={REDUCED || idle} plate={plateCss(paint, rowFz)} />
             </span>
           );
         })}
@@ -252,7 +260,16 @@
   }
 
   /** 两轴三件铺成 `WordLine` 的 props；旧轨（没有 `activeWord`）给空，走旧路。 */
-  const wordProps = (w) => (w ? {aw: w.aw, motion: w.motion, wordBox: w.wordBox} : {});
+  const wordProps = (w) => (w ? {aw: w.aw, motion: w.motion, wordBox: w.wordBox, page: w.page} : {});
+  /** 样张上的强调词：带强调外观的卡把样张最后一个词点亮，缩略图才看得出「关键词」那一档。 */
+  function demoMark(w, text) {
+    const e = w && w.emphasis;
+    if (!e) return null;
+    const list = WA.split(text);
+    const i = list.length - 1;
+    return {on: true, color: e.color, font: e.fontFamily || null, bold: e.bold !== false, italic: !!e.italic,
+      scale: Math.round((e.scale || 1) * 100), marks: {thumb: [{text: list[i], index: i}]}};
+  }
 
   /* ---------- 预览条 ----------
      属性页顶部那一条。画的是**这几条轨长什么样**：按 timeline 的行序排、当下在编辑的
@@ -312,143 +329,7 @@
     );
   }
 
-  /* ---------- 样式画廊 ---------- */
-
-  function GalleryCard({p, on, rows, peek, onPick, onEdit}) {
-    return (
-      <div className={cx('scard', on && 'is-on')}>
-        <BCAction className="scard__b" onClick={onPick} {...peek}>
-          <SubThumb p={p} rows={rows} />
-          {/* 角标说的是当前词那一轴（变色 / 扫色 / 逐词显现…）：缩略图在动，角标给它一个名字 */}
-          <span className="scard__badge">{window.BC_CS.badge(window.subWordOf(p, 'source', lookPaint(p.look)).aw)}</span>
-          {on ? <i className="scard__tick"><Ic n="check" className="ic--14" /></i> : null}
-        </BCAction>
-        <div className="scard__f">
-          <span className="scard__n" title={p.name}>{p.name}</span>
-          <IconBtn icon="edit" size="xs" tip="编辑这份样式" onClick={onEdit} />
-        </div>
-      </div>
-    );
-  }
-
-  /* 画廊是**推进来的一页**（第 151 轮）：自己的页头（回 Tab 主页）、页头下一条
-     「画面上」轨条、然后才是卡片。两个 Tab 看到的是**同一份**画廊——一份涂装一张卡，
-     缩略图画的是用户画面上现有的那几条轨（`BC_SUB.screenRows`），套上去落在每一条轨上
-     （`applyTargets` 的 `screen` 形态）。此前按形态分 Tab 陈列的那套（字幕 Tab 只画一行、
-     翻译 Tab 画两行 / 只画译文）是「样式卡声明轨集」的遗迹，第 108 轮卡不动轨集之后，
-     缩略图与画面对不上就成了用户试错的根源——见 model-substyle.js 的说明。 */
-  function SubGallery({ctx, ops, editId, onBack, onEdit, backLabel}) {
-    const app = useApp();
-    const st = ctx.subStyle;
-    /* 「套到」（第 152 轮）：默认**全部**（一张卡落在画面上的每一条轨，第 151 轮的规矩）；
-       指到一条轨时只给它上妆，缩略图也只重画那一行、其余行画轨上现在的样子——用户看到的
-       就是点下去之后画面会变成的样子，不必套完再撤。作用域是页面自己的一格 state，不写进
-       选中（选中是编辑对象，套样式的落点是另一件事；两者绑死会让「点译文 chip」顺带把画廊
-       缩成只改译文，而那不是用户点 chip 时的意思）。 */
-    const [scope, setScope] = React.useState('all');
-    const vis = S.tracks(st).filter((t) => !t.hidden);
-    const scopeId = scope !== 'all' && vis.some((t) => t.id === scope) ? scope : null;
-    const scopeT = scopeId ? S.byId(st, scopeId) : null;
-
-    /* toast 只说**这一次给哪几条上了妆**（第 108 轮）：轨集没被动过，再报一遍
-       「画面上现在是哪几条」等于把一句与这次操作无关的话说成结果。
-       撤销仍是**真回滚**（第 106 轮）：套样式是用户按下去的一次编辑，撤销就得把涂装、
-       勾在哪张卡上（`preset`）、cue 级覆盖一起退回操作前那一份。`st` 是这一帧渲染
-       读到的 `ctx.subStyle`，也就是点下去之前那一份——直接扣住它当快照。 */
-    const apply = (p) => {
-      const before = st;
-      const r = ctx.applyPreset(p, scopeId);
-      const names = r.painted.map((t) => t.name).join(' + ');
-      const others = vis.filter((t) => t.id !== scopeId).map((t) => t.name).join('、');
-      // 指到一条轨时把「别的没动」说出来：这正是作用域存在的理由，不说用户会去画面上确认一遍
-      const msg = scopeT
-        ? '已给 ' + scopeT.name + ' 换上「' + p.name + '」' + (others ? ' · ' + others + '没动' : '')
-        : '已套用「' + p.name + '」· 已给 ' + names + ' 换上这份样式';
-      app.toast(msg, 'positive',
-        {label: '撤销', undo: true, run: () => { ctx.restoreSubStyle(before); app.toast('已撤销套用'); }});
-    };
-
-    /* 第一区是**我的品牌库**：自己存过的样式比内置目录更常用。品牌库里存的卡带旧形态
-       （`bi` / `orig` / `trans`），陈列与套用时一律按 `screen` 走——它们本来就只是一份涂装。
-       画廊里没有「存到品牌库」——存是编辑完之后的动作，入口在属性页页脚那一条。 */
-    const brand = D.brand.subStyles.map((b) => Object.assign({anim: 'none'}, b, {form: 'screen', look2: b.look2 || b.look}));
-    /* 陈列（2026-10-09，caption-style-model-design §7）：一份预设一张卡，按 `BC_CS.CATEGORIES` 分区，
-       不再按家族别名折叠——同一族的两份 Studio 设计当前词不同，折掉就看不见那一份了。 */
-    const catalog = React.useMemo(() => window.BC_CS.galleryCards(D.subtitle.catalog), []);
-    const groups = S.gallery(catalog, D.subtitle.cats, ['screen']);
-    const rowsOf = (p) => S.screenRows(st, p, D.subtitle.specimen.main, scopeId);
-    /* 勾在哪张卡上：全部 → 画面上每一条轨都勾在它上才算（`currentCard`）；指到一条轨 →
-       看那条轨自己勾的（`presetOf`）。混搭时「全部」那一档没有勾，入口卡印两个名字。 */
-    const onCard = (p) => scopeT
-      ? S.family(S.presetOf(st, scopeT)) === S.family(p.id)
-      : !!S.currentCard(st, [p], true);
-
-    /* 悬停即预览：鼠标停在一张卡上，画面里立刻是套上去的样子；移开就回来（§13.2）。
-       预览与真的套上去走**同一段代码**（`ctx.stagePreset`）——预览要是自己算一遍，
-       松开鼠标那一刻画面就会跳，而那一跳正好发生在用户判断「是不是我要的」的时候。 */
-    const card = (p) => (
-      <GalleryCard key={p.id} p={p} on={onCard(p)} rows={rowsOf(p)}
-        peek={window.peekProps(ctx, 'sub', (d) => ctx.stagePreset(d, p, scopeId).doc)}
-        onPick={() => apply(p)} onEdit={() => { apply(p); onEdit(); }} />
-    );
-
-    const body = !ctx.subsOn
-      ? (
-        <div className="subhid">
-          <Ic n="captions" className="ic--16" />
-          <span className="grow">字幕已隐藏 · 画面上不显示</span>
-          <Btn variant="secondary" size="s" onClick={() => ctx.setSubsOn(true)}>显示</Btn>
-        </div>
-      )
-      : (
-        <div className="pscroll bc-scroll" onMouseLeave={() => ctx.setPeek(null)}>
-          <SecHead first aside={brand.length ? '跨视频共享' : null}>
-            {brand.length ? '我的品牌库' : null}
-          </SecHead>
-          {brand.length
-            ? <div className="sgrid">{brand.map(card)}</div>
-            : (
-              <div className="signpost">
-                品牌库还是空的。在属性页调好一份样式，页脚的「存到品牌库」会把它存在这里，
-                下一部视频也用得上。
-              </div>
-            )}
-
-          {groups.map((g) => (
-            <React.Fragment key={g.cat.k}>
-              <SecHead aside={g.cat.note || null}>
-                {g.cat.name}{g.cat.ai ? <span className="aitag">✦</span> : null}
-              </SecHead>
-              <div className="sgrid">{g.items.map(card)}</div>
-            </React.Fragment>
-          ))}
-
-          <div className="hint">
-            每张卡画的都是你画面上现在这几条字幕。套一张只换涂装，不会多一条、也不会少一条——
-            想加一条或拿下一条，用上面的轨条或时间轴的字幕行头。
-            {vis.length > 1 ? '「套到」指到一条时只换那一条，别的一根线都不动。' : null}
-          </div>
-        </div>
-      );
-
-    return (
-      <>
-        <window.PanelHead title="字幕样式" onBack={onBack} backTip={`返回${backLabel}`} />
-        <div className="substrip--page">
-          <window.SubTrackStrip ctx={ctx} ops={ops} editId={editId} />
-          {/* 「套到」只在画面上有两条以上时出现：一条轨没有「只给谁」的问题 */}
-          {vis.length > 1 && ctx.subsOn ? (
-            <div className="subscope-row">
-              <span className="substrip__k">套到</span>
-              <Segmented size="s" value={scopeId || 'all'} onChange={setScope}
-                items={[{k: 'all', label: '全部'}].concat(vis.map((t) => ({k: t.id, label: S.label(t)})))} />
-            </div>
-          ) : null}
-        </div>
-        {body}
-      </>
-    );
-  }
+  /* 样式画廊 2026-10-26 换成样式库（caption-editor-redesign §9.1），在 panel-sublibrary.jsx。 */
 
   /* ---------- 样式那一支的三级栈 ----------
      画廊 → 字幕属性页 → 动画页，三页都是从 Tab 主页**推进来的**（第 151 轮起画廊也是，
@@ -457,7 +338,7 @@
 
      栈的位置存在 `ctx.paneView` 而不是局部 state，因为**画布上点一条字幕**要能
      把面板直接推到属性页那一层（见 stage.jsx）。作用域跟着选中的轨走。 */
-  function SubStyleTab({ctx, ops, editId, backLabel}) {
+  function SubStyleTab({ctx, ops, editId, backLabel, widen}) {
     const st = ctx.subStyle;
     /* 套「仅译文」样式时要知道落在哪一条译轨上——那件事发生在编辑器的写路径里，
        拿不到面板的 props，所以这里把当下的编辑对象挂到编辑器的一格上。 */
@@ -486,9 +367,9 @@
       return <window.SubProps ctx={ctx} scope={scope} setScope={setScope} remembered={remembered} backLabel={backLabel}
         onBack={() => go('home')} onAnim={() => go('anim')} onGallery={() => go('gallery')} />;
     }
-    return <SubGallery ctx={ctx} ops={ops} editId={editId} backLabel={backLabel}
+    return <window.SubLibrary ctx={ctx} ops={ops} editId={editId} backLabel={backLabel} widen={widen}
       onBack={() => go('home')} onEdit={() => go('props')} />;
   }
 
-  Object.assign(window, {SubStyleTab, SubGallery, SubThumb, SubPreview, sampleOf, paintCss, plateCss, withAlpha, lookCss, lookPaint, isMono});
+  Object.assign(window, {SubStyleTab, SubThumb, SubPreview, sampleOf, paintCss, plateCss, withAlpha, lookCss, lookPaint, isMono});
 })();

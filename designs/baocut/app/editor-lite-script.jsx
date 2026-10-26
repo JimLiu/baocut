@@ -121,6 +121,7 @@
   /** 字幕样式：时间线视图字幕面板的同一套样式页。页的栈（画廊 / 属性 / 动画）记在这里，不写编辑器的 paneView——
       那一格是时间线视图右栏推进到哪一层，两边各推各的，切过去不会把对方的面板也带进样式页。 */
   function CaptionStyle({ctx, view, setView, backLabel}) {
+    const app = useApp();
     const st = ctx.subStyle;
     const SUB = window.BC_SUB;
     const src = SUB.source(st) || SUB.tracks(st)[0] || {};
@@ -128,8 +129,10 @@
     const editId = SUB.byId(st, selId) ? selId : src.id;
     const ops = window.useSubTrackOps(ctx, editId);
     const local = {...ctx, paneView: view, setPaneView: v => setView(v && /^sub(gallery|props|anim)$/.test(v) ? v : null)};
+    // 样式库的「加宽」在这里拉的是侧栏（editor-lite.jsx 的 `lt__side--wide`），不是时间线视图的右面板
+    const widen = {wide: app.prefs.liteSideWide === true, setWide: v => app.setPref('liteSideWide', v)};
     return <div className="pview">
-      <window.SubStyleTab ctx={local} ops={ops} editId={editId} backLabel={backLabel} />
+      <window.SubStyleTab ctx={local} ops={ops} editId={editId} backLabel={backLabel} widen={widen} />
       {ops.dialog}
     </div>;
   }
