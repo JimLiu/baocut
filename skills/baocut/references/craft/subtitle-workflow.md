@@ -63,6 +63,8 @@
 - 译文字幕：documentId 给译文文档。
 - 双语字幕：给译文文档并带 `bilingual: true`。
 
+用户要改位置、字色或念到的词的效果（不高亮、换色、KTV 扫色）时，建层时带 `style`，建好的用 `baocut edits apply` 的 `setCaptionStyle` 改，键见 BaoCut 的字幕页。
+
 同一份文档每调用一次就多建一层，不覆盖。调用前先 `baocut videos inspect` 看这份文档是不是已经有字幕层：有了就不重复建（转写时建的原文层已经跟着润色改了字，照用；双语时 `baocut captions create` 也沿用它，不再建原文层）；用户要重做时先说明会多出一层，问清是否删掉旧的。回执给出 transactionId 和字幕条数，说给用户。
 
 ## 8. 导出
