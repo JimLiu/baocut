@@ -334,7 +334,12 @@ impl ScenePlan {
         // Render the adjusted scene; the frozen template and its provenance stay in the document.
         let adjust_diagnostics = if style.adjust.is_some() || style.origin.is_some() {
             let Adjusted { scene, diagnostics } = style.resolved()?;
-            style = SceneStyle { scene: SceneSource::Inline { value: scene }, adjust: None, origin: None, ..style };
+            style = SceneStyle {
+                scene: SceneSource::Inline { value: scene },
+                adjust: None,
+                origin: None,
+                ..style
+            };
             diagnostics
         } else {
             vec![]
@@ -943,14 +948,24 @@ fn bind_words(
             if w.text.is_empty() {
                 continue;
             }
-            let offset = content[at..].find(&w.text).ok_or_else(|| {
-                anyhow::anyhow!(
-                    "CAPTION_SCENE_INVALID: word {} does not map to cue text",
-                    w.id
-                )
-            })?;
+            // Transcribed words may carry a leading space that the cue text drops at its start
+            // (video format spec §3.8); match as written first, then without surrounding whitespace.
+            let trimmed = w.text.trim();
+            let (offset, len) = match content[at..].find(&w.text) {
+                Some(offset) => (offset, w.text.len()),
+                None => content[at..]
+                    .find(trimmed)
+                    .filter(|_| !trimmed.is_empty())
+                    .map(|offset| (offset, trimmed.len()))
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "CAPTION_SCENE_INVALID: word {} does not map to cue text",
+                            w.id
+                        )
+                    })?,
+            };
             let a = at + offset;
-            let b = a + w.text.len();
+            let b = a + len;
             if !w.start.is_finite() || !w.end.is_finite() || w.end < w.start {
                 bail!("CAPTION_SCENE_INVALID: word time");
             }
@@ -3745,6 +3760,46 @@ mod ink_tests {
         assert_eq!(
             quota_paint_start(horizontal, &(0..horizontal.len())),
             horizontal.find('x').unwrap()
+        );
+    }
+
+    #[test]
+    fn transcribed_words_with_a_leading_space_map_to_the_cue_text() {
+        let (_, _, mut cue, _) = input("Every can. Up", 1.0);
+        let word = |id: &str, text: &str, start: f64| SceneWord {
+            id: id.into(),
+            text: text.into(),
+            start,
+            end: start + 0.4,
+        };
+        // The cue text drops the first word's leading space; the others match as written.
+        cue.words = vec![
+            word("a", " Every", 0.0),
+            word("b", " can.", 0.5),
+            word("c", " Up", 1.0),
+        ];
+        let words = bind_words(
+            &cue,
+            "Every can. Up",
+            TimingPolicy::RequireWordTiming,
+            false,
+        )
+        .unwrap();
+        let bytes: Vec<_> = words
+            .iter()
+            .map(|w| (w.id.as_str(), w.bytes.clone()))
+            .collect();
+        assert_eq!(bytes, [("a", 0..5), ("b", 5..10), ("c", 10..13)]);
+        // A word the text does not contain still fails.
+        cue.words = vec![word("x", " Nope", 0.0)];
+        assert!(
+            bind_words(
+                &cue,
+                "Every can. Up",
+                TimingPolicy::RequireWordTiming,
+                false
+            )
+            .is_err()
         );
     }
 }
