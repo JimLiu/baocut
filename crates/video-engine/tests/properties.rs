@@ -406,6 +406,61 @@ fn caption_style_documents_are_switched_by_reference() {
 }
 
 #[test]
+fn caption_presentation_is_replaced_whole_and_validated() {
+    let Fixture {
+        mut video, caption, text, ..
+    } = fixture();
+    let presentation = json!({ "wordTags": { "w1": ["keyword"] }, "seed": "00000000000000a1" });
+    apply(
+        &mut video,
+        "cmd_presentation",
+        vec![json!({ "type": "setCaptionPresentation", "itemId": caption, "presentation": presentation })],
+    )
+    .unwrap();
+    let TimelineItem::Caption(c) = item(&video, &caption) else {
+        panic!()
+    };
+    let p = c.presentation.as_ref().unwrap();
+    assert_eq!(p.word_tags["w1"], vec!["keyword".to_string()]);
+    assert_eq!(p.seed, "00000000000000a1");
+
+    // 整份替换：没写的键回到缺省；空的与 null 一样去掉。
+    apply(
+        &mut video,
+        "cmd_presentation_seed",
+        vec![json!({ "type": "setCaptionPresentation", "itemId": caption, "presentation": { "seed": "0000000000000002" } })],
+    )
+    .unwrap();
+    let TimelineItem::Caption(c) = item(&video, &caption) else {
+        panic!()
+    };
+    assert!(c.presentation.as_ref().unwrap().word_tags.is_empty());
+    apply(
+        &mut video,
+        "cmd_presentation_empty",
+        vec![json!({ "type": "setCaptionPresentation", "itemId": caption, "presentation": {} })],
+    )
+    .unwrap();
+    let TimelineItem::Caption(c) = item(&video, &caption) else {
+        panic!()
+    };
+    assert!(c.presentation.is_none());
+
+    let before = video.revision();
+    for (n, op) in [
+        json!({ "type": "setCaptionPresentation", "itemId": caption, "presentation": { "seed": "xyz" } }),
+        json!({ "type": "setCaptionPresentation", "itemId": caption, "presentation": { "unknown": 1 } }),
+        json!({ "type": "setCaptionPresentation", "itemId": text, "presentation": null }),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert!(apply(&mut video, &format!("cmd_presentation_bad_{n}"), vec![op]).is_err(), "case {n}");
+    }
+    assert_eq!(video.revision(), before);
+}
+
+#[test]
 fn boxed_caption_styles_only_take_catalogue_animations() {
     let Fixture { mut video, .. } = fixture();
     let boxed = |preset: Value| {

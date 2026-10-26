@@ -458,6 +458,14 @@ pub enum EditOperation {
         item_id: Id,
         style_document: DocumentTarget,
     },
+    /// 整份替换字幕实例的 `presentation`（实例参数、cue 覆盖、词标签与 seed，视频格式规范 §5.6）；`null` 或空的去掉。
+    SetCaptionPresentation {
+        #[serde(default)]
+        sequence_id: Option<Id>,
+        item_id: Id,
+        #[serde(default)]
+        presentation: Option<video_model::CaptionPresentation>,
+    },
     /// 改序列：名字、画布尺寸、画布底色（`#RRGGBB`）。几何按画幅的百分比保存（§3.5），改尺寸时实例跟着画布走，不用改写。
     /// 编辑帧率另有 `changeSequenceFrameRate`（视频格式规范 §2.12），不在这里。
     UpdateSequence {
@@ -1357,6 +1365,25 @@ pub fn apply_operation(state: &mut VideoState, index: usize, op: &EditOperation,
             match editable_item(state, sequence_id.as_deref(), item_id)? {
                 TimelineItem::Caption(c) => {
                     c.style_document_id = Some(document_id);
+                    Ok(())
+                }
+                _ => Err(not_applicable(item_id, msg!("engine.notCaptionItem", "is not a caption clip"))),
+            }
+        }
+        EditOperation::SetCaptionPresentation {
+            sequence_id,
+            item_id,
+            presentation,
+        } => {
+            if let Some(problem) = presentation
+                .as_ref()
+                .and_then(|p| video_model::caption_style::presentation_problems(p).into_iter().next())
+            {
+                return Err(ErrorBody::invalid_operation(problem).entities([item_id.clone()]));
+            }
+            match editable_item(state, sequence_id.as_deref(), item_id)? {
+                TimelineItem::Caption(c) => {
+                    c.presentation = presentation.clone().filter(|p| *p != video_model::CaptionPresentation::default());
                     Ok(())
                 }
                 _ => Err(not_applicable(item_id, msg!("engine.notCaptionItem", "is not a caption clip"))),

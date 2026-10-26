@@ -299,7 +299,9 @@ fn operation_label(op: &EditOperation) -> Text {
         EditOperation::ReplaceCodeBundle { .. } => msg!("engine.labelReplaceCodeComposition", "Replace code composition"),
         EditOperation::SetAudioMix { .. } => msg!("engine.labelAdjustAudio", "Adjust audio"),
         EditOperation::SetSpeed { .. } => msg!("engine.labelChangeSpeed", "Change speed"),
-        EditOperation::SetCaptionStyle { .. } => msg!("engine.labelChangeCaptionStyle", "Change subtitle style"),
+        EditOperation::SetCaptionStyle { .. } | EditOperation::SetCaptionPresentation { .. } => {
+            msg!("engine.labelChangeCaptionStyle", "Change subtitle style")
+        }
         EditOperation::UpdateSequence { .. } => msg!("engine.labelEditVideoSettings", "Edit video settings"),
         EditOperation::SetTransition { .. } => msg!("engine.labelSetTransition", "Set transition"),
         EditOperation::RemoveTransition { .. } => msg!("engine.labelDeleteTransition", "Delete transition"),

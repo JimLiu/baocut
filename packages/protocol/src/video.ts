@@ -1593,6 +1593,8 @@ export type EditOperation =
   | { type: 'setSpeed'; sequenceId?: Id; itemId: Id; rate: Rate }
   /** 字幕实例换一份字幕样式文档（`kind` 为 `caption-style`）。 */
   | { type: 'setCaptionStyle'; sequenceId?: Id; itemId: Id; styleDocument: { documentId: Id } | { ref: string } }
+  /** 整份替换字幕实例的 `presentation`（实例参数、cue 覆盖、词标签与 seed）；`null` 或空的去掉。 */
+  | { type: 'setCaptionPresentation'; sequenceId?: Id; itemId: Id; presentation: CaptionPresentation | null }
   /** 序列的名字、画布尺寸（像素）与底色（`#RRGGBB`）。位置按画幅的百分比保存，改尺寸时实例跟着画布走。 */
   | {
       type: 'updateSequence';

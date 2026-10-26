@@ -288,7 +288,7 @@ type EditOperation = { type: string; [field: string]: JsonValue };
 | 样式 | `setText` `setTransform` `setStyle` `setProps` `setAnimation` `setKeyframes` `setAudioMix` | 属性校验的结果与改变的范围 |
 | 转场与效果 | `setTransition` `removeTransition` `setEffects` | 被连带删掉的转场与原因、随实例变短的单侧转场 |
 | 章节与闪避 | `setChapters` `upsertChapter` `removeChapter` `setDucking` `removeDucking` | 新建或改动的章节与规则 |
-| 字幕 | `correctWords` `updateTranslation` `pinCaptionBreak` `setCaptionStyle` | 新的文档版本、失效的依赖 |
+| 字幕 | `correctWords` `updateTranslation` `pinCaptionBreak` `setCaptionStyle` `setCaptionPresentation` | 新的文档版本、失效的依赖；`setCaptionPresentation` 整份替换字幕实例的 `presentation`（视频格式规范 §5.6），`null` 或空的去掉 |
 | 口播 | `addCuts` `restoreCut` `proposeCuts` `acceptCutSuggestions` | 安全切点、映射与审阅记录；随剪口删掉的实例、放不回去的剪口 |
 | 代码 | `publishBundle` `setCodeParameters` `replaceCodeBundle` `bakeCodeItem` | 代码包版本、兼容性与缓存影响 |
 | 配音 | `setDubbingScript` `attachVoiceResult` `chooseLanguageVariant` | 真实时长、对齐、待处理的单元 |

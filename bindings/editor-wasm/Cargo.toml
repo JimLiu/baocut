@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 audio-dsp.workspace = true
+caption-scene.workspace = true
 editor-semantics.workspace = true
 motion.workspace = true
 render-graph.workspace = true

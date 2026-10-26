@@ -10,6 +10,12 @@ pub struct SceneStyle {
     pub scene: SceneSource,
     #[serde(default)]
     pub parameters: BTreeMap<String, Value>,
+    /// User adjustments applied before validation and compilation; the scene stays as frozen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adjust: Option<crate::SceneAdjust>,
+    /// Template provenance for restore and update hints; never read by rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<crate::StyleOrigin>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]

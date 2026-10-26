@@ -1,9 +1,11 @@
 //! Dynamic caption contracts shared by persistence, native rendering and WASM.
 //! No filesystem, system clock, UI or platform dependencies.
+mod adjust;
 mod expression;
 mod model;
 mod paint_style;
 mod validate;
+pub use adjust::*;
 pub use expression::*;
 pub use model::*;
 pub use paint_style::*;

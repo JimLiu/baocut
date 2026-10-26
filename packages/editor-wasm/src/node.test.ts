@@ -8,6 +8,7 @@ import {
   applySpeakers,
   audioAnalysis,
   audioSheet,
+  captionSceneSummary,
   editorWasmAvailable,
   locateEditorWasm,
   sfxRecipes,
@@ -268,5 +269,19 @@ describe.skipIf(!built)('editor-wasm audio（Node）', () => {
     expect(sfxRender({ recipe: 'blip', seed: 1 })).toEqual(wav);
     expect(() => sfxRender({ recipe: 'laser' })).toThrow(expect.objectContaining({ code: 'SFX_UNKNOWN_RECIPE' }));
     expect(sfxRecipes().map((r) => r.name)).toContain('whoosh');
+  });
+});
+
+describe.skipIf(!built)('editor-wasm 模板字幕摘要（Node）', () => {
+  it('读正文里的调整，换色后报出目标色；别的样式拒绝', () => {
+    const fixture = new URL('../../../crates/caption-scene/tests/fixtures/word-pop.json', import.meta.url);
+    const body = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+    body.adjust = { fontScale: 1.5, colors: [{ from: '#FFFFFF', to: '#FF3366' }] };
+    const summary = captionSceneSummary(body);
+    expect(summary.colors).toContainEqual(expect.objectContaining({ value: '#FFFFFFFF', to: '#FF3366FF', uses: ['text'] }));
+    expect(summary.fonts[0]).toMatchObject({ key: 'Noto Sans SC', weight: 700, tunedSpacing: false });
+    expect(summary.adjustable).toEqual({ colors: true, fonts: true, fontScale: true, placement: ['x', 'y', 'width'] });
+    expect(summary.needsWordTiming).toBe(true);
+    expect(() => captionSceneSummary({ schema: 'baocut.caption-style/1' })).toThrow(expect.objectContaining({ code: 'INVALID_STYLE' }));
   });
 });

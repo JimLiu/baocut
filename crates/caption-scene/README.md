@@ -7,6 +7,7 @@
 - 可运行样式：[word-pop.json](tests/fixtures/word-pop.json)、[image-paint.json](tests/fixtures/image-paint.json)。
 - 验证入口：`parse_style`、`validate_presentation`；动态值入口：`infer`、`evaluate`、`sample_value`。
 - 渲染入口：`subtitle_render::scene::ScenePlan`；由 `frame-render` 的新样式分支接入预览与导出。
+- 模板调整与摘要：`apply_adjust` / `SceneStyle::resolved` 把正文的 `adjust`（换色、换字体、字号倍率、版面常量）应用到场景，`ScenePlan::compile` 先做这一步；`describe` 给编辑器场景摘要（颜色及用途、字体、词标签、效果标签、可调项）。回归见 [adjust.rs](tests/adjust.rs)，像素一致性见 `subtitle-render/tests/scene_adjust.rs`。
 
 `cargo test --locked -p caption-scene` 验证类型、单位、函数调用、关键帧、循环与数值语义。实际像素测试在 `subtitle-render/tests/scene.rs`，跨 native/WASM 夹具在 `frame-render/tests/fixtures/parity.json`。
 

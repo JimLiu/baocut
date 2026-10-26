@@ -351,6 +351,56 @@ export interface CaptionSceneStyleBody {
   schema: 'baocut.caption-scene-style/1';
   scene: { kind: 'inline'; value: CaptionScene };
   parameters?: Record<string, CaptionParameterValue>;
+  /** User changes applied to the scene before validation and compilation; the scene stays as frozen. */
+  adjust?: CaptionSceneAdjust | null;
+  /** Template provenance for restore and update hints; rendering never reads it. */
+  origin?: CaptionStyleOrigin | null;
+}
+/** Template adjustments. Restoring the template deletes `adjust`. */
+export interface CaptionSceneAdjust {
+  /** At most 256, unique by normalized `from`. Every literal colour equal to `from` (compared as `#RRGGBBAA`)
+   * becomes `to`; a `#RRGGBB` target keeps the replaced colour's alpha. Parameter defaults are not swapped. */
+  colors?: { from: string; to: string }[];
+  /** At most 64, unique by `from` (a summary font key). Swapping drops the exact font face and re-lays out text. */
+  fonts?: { from: string; to: { family: string; weight?: number; italic?: boolean } }[];
+  /** Multiplies every text and label font size; 0.5..2. */
+  fontScale?: number;
+  /** Constant layout centre x / y (0..1) and width (0.01..1) as fractions of the canvas width / height.
+   * Keys the scene computes from parameters or bindings are ignored with CAPTION_ADJUST_UNSUPPORTED. */
+  placement?: { x?: number; y?: number; width?: number };
+}
+export interface CaptionStyleOrigin {
+  pack?: { id: string; version: string } | null;
+  /** `revision` is a positive integer. */
+  template: { id: string; revision: number };
+  /** Lowercase SHA-256 of the scene before any adjustment. */
+  sceneSha256: string;
+}
+export type CaptionSummaryColorUse =
+  | 'text' | 'stroke' | 'shadow' | 'glow' | 'active' | 'read' | 'unread' | 'keyword' | 'plate' | 'word-box' | 'material';
+export type CaptionSummaryLayerKind =
+  | 'fill' | 'stroke' | 'shadow' | 'inner-shadow' | 'glow' | 'image' | 'plate' | 'box' | 'material';
+export type CaptionSummaryTier = 'glyph-motion' | 'text-paint' | 'texture-effects' | 'derived-decoration';
+/** What the editor may offer for a template scene, computed by caption-scene from the unadjusted scene.
+ * With an adjust, colour and font entries also carry the adjusted value `to`. */
+export interface CaptionSceneSummary {
+  /** In order of first use; `value` is `#RRGGBBAA`. */
+  colors: { value: string; to?: string; uses: CaptionSummaryColorUse[]; animated: boolean }[];
+  /** `key` is the font family the scene names; `tunedSpacing` means the template tuned letter spacing for it. */
+  fonts: { key: string; family: string; weight: number; italic: boolean; tunedSpacing: boolean;
+    to?: { family: string; weight?: number; italic?: boolean } }[];
+  /** Word tags the scene reads, such as `keyword`; the editor writes them to `presentation.wordTags`. */
+  wordTags: string[];
+  /** Visible effect tags. */
+  behaviors: string[];
+  tiers: CaptionSummaryTier[];
+  needsWordTiming: boolean;
+  /** The result changes with `presentation.seed`. */
+  seeded: boolean;
+  pagination: { mode: 'auto' | 'fixed'; wordsPerPage?: number };
+  /** `nodeId` is empty for scene-wide materials. */
+  layers: { nodeId: string; kind: CaptionSummaryLayerKind; detail?: string }[];
+  adjustable: { colors: boolean; fonts: boolean; fontScale: boolean; placement: ('x' | 'y' | 'width')[] };
 }
 /** Explicit UTF-8 half-open ranges in the unchanged cue display text.
  * Requires caption-word-text-projection/1; source word IDs and clocks are retained.

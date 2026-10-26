@@ -1884,7 +1884,28 @@ interface CaptionStyleBody {
 
 `caption-style` 支持 `baocut.caption-scene-style/1`：`scene: { kind: 'inline', value: CaptionScene }` 加可选 `parameters`。场景使用 `schema: 'baocut.caption-scene/1'` 和 `evaluationVersion: 1`。完整 DTO 见 [`packages/protocol/src/caption-scene.ts`](../../packages/protocol/src/caption-scene.ts)，严格解析及语义验证由 [`caption-scene`](../../crates/caption-scene/README.md) 统一执行，模板预检和帧求值不各写一套语义。可运行的正文见 [word-pop.json](../../crates/caption-scene/tests/fixtures/word-pop.json)。
 
-`CaptionItem.presentation` 可保存实例参数、`cueOverrides`（cueId 及可选 occurrenceId）、`wordTags`（wordId 到标签数组）和 16 位十六进制 `seed`。seed 省略时固定为零。参数合并次序为模板默认值、样式参数、实例参数、cue 覆盖、匹配 occurrence 的覆盖；未知参数、错误类型和越界值拒绝。样式与内容仍由各自文档拥有，实际词时间只从有效词流取得；新场景保留源词组，旧样式继续既有拆字路径。
+**模板调整与来源。** 正文可再带两个可选键：
+
+- `adjust`：用户对模板的调整，形状见 `CaptionSceneAdjust`。场景本身保持冻结时的样子，校验与编译之前由 `caption-scene` 的同一个纯函数把调整应用到场景上，所以各端画出同一帧。
+  - `colors`：最多 256 项，按规范化后的 `from` 去重。场景里每个等于 `from` 的颜色字面量（统一比较 `#RRGGBBAA`）都换成 `to`；`to` 只写 `#RRGGBB` 时保留原色的透明度。参数默认值不换，留给 `parameters`。
+  - `fonts`：最多 64 项，按 `from`（场景用的字体族）去重。换字体时丢掉精确字形（`fontSource`）并重新排版；可选 `weight`、`italic`。
+  - `fontScale`：0.5–2，乘到所有文字与标签的字号上，表达式包成 `mul`。
+  - `placement`：版面中心 `x` / `y`（0–1）与 `width`（0.01–1），按画布宽 / 高的比例写成常量。场景用参数或绑定算出来的键不覆盖，帧计划带 `CAPTION_ADJUST_UNSUPPORTED` 诊断，路径是 `adjust.placement.<键>`。
+  - 调整后的场景必须仍是合法场景，否则整份正文拒绝。空调整等同于没有调整；「还原」就是删掉 `adjust`。
+- `origin`：模板的来源，形状见 `CaptionStyleOrigin`，包括可选的样式包 `{id, version}`、模板 `{id, revision}`（正整数）和调整前场景的小写 SHA-256。还原、勾选态与「有新版本」提示读它，渲染不读。
+
+编辑器不读表达式树，只读 `caption-scene` 给出的场景摘要（`CaptionSceneSummary`）。摘要包含：
+
+- 按首次用途排序的颜色，标明用途与是否在动画里；
+- 字体，以及模板是否为这款字体调过字距；
+- 场景读取的词标签；
+- 效果标签与分级；
+- 是否需要逐词时间、是否随 `seed` 变化；
+- 分页方式；
+- 效果层；
+- 哪些项可调，`placement` 列出可覆盖的键。
+
+`CaptionItem.presentation` 可保存实例参数、`cueOverrides`（cueId 及可选 occurrenceId）、`wordTags`（wordId 到标签数组）和 16 位十六进制 `seed`。seed 省略时固定为零。已有实例用编辑操作 `setCaptionPresentation` 整份替换它，`null` 或空的去掉；模板调整页的「关键词」写 `wordTags`，「换一版」写 `seed`。参数合并次序为模板默认值、样式参数、实例参数、cue 覆盖、匹配 occurrence 的覆盖；未知参数、错误类型和越界值拒绝。样式与内容仍由各自文档拥有，实际词时间只从有效词流取得；新场景保留源词组，旧样式继续既有拆字路径。
 
 **实例词显示范围。** 场景声明 `caption-word-text-projection/1` 后，`cueOverrides` 项可增加 `wordTextProjection`：
 

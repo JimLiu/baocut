@@ -123,6 +123,16 @@ pub fn validate_style(style: &SceneStyle) -> Result<()> {
     }
     validate_scene(style.scene())?;
     parameters(style.scene(), &[&style.parameters])?;
+    if let Some(origin) = &style.origin {
+        validate_origin(origin)?;
+    }
+    if let Some(adjust) = style.adjust.as_ref().filter(|a| !a.is_empty()) {
+        // The adjusted scene must hold the same contracts (an alpha swap can break opaque-stop rules).
+        let adjusted = apply_adjust(style.scene(), adjust)?;
+        validate_scene(&adjusted.scene)?;
+    } else if let Some(adjust) = &style.adjust {
+        validate_adjust(adjust)?;
+    }
     Ok(())
 }
 /// Elements in one list parameter, and across all resolved list parameters.

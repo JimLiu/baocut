@@ -5,11 +5,16 @@
  * - 引擎校验用的取值区间与缺省值（效果、闪避、音量、关键帧、动画）：界面的数字框按它们封顶；
  * - 已有转写的识别说话人（架构设计 §6.6）：声纹区分的结果做成提案、确认后应用（字幕与翻译核心的说话人应用）；
  * - 来源自带章节（架构设计 §3.5、§7.9）：平台的 `chapters[]`、简介里的时间戳大纲或显式大纲，吸附到转写的段落、句子起点；
- * - 模板层（视频格式规范 §3.17）：目录、新建一层、定义与实例互换、画幅锁与字幕避让、版面框几何与命中。
+ * - 模板层（视频格式规范 §3.17）：目录、新建一层、定义与实例互换、画幅锁与字幕避让、版面框几何与命中；
+ * - 模板字幕样式的场景摘要（视频格式规范 §5.6「模板调整与来源」）：调整页、样式库的效果标签与适配判定只读它。
  *
  * 实例化是同步的（WASM 不到 1 MB，浏览器主线程同步编译的上限是 8 MB），所以调用方可以在渲染里直接调。
  * 载入字节的方式按环境分开：`node.ts` 从文件读，`browser.ts` 由 Vite 内联；两边导出同一组函数。
  */
+
+import type { CaptionSceneSummary } from '@baocut/protocol';
+
+export type { CaptionSceneSummary };
 
 export const SENTENCE_DERIVATION = 'speech-doc/sentences';
 
@@ -508,6 +513,7 @@ interface Exports {
   bc_template_ratio_equivalent(ptr: number, len: number): number;
   bc_template_box(ptr: number, len: number): number;
   bc_template_hit(ptr: number, len: number): number;
+  bc_caption_scene_summary(ptr: number, len: number): number;
   bc_output_ptr(): number;
   bc_output_len(): number;
 }
@@ -677,6 +683,14 @@ export class EditorSemantics {
     return this.call('bc_template_hit', { doc, x, y });
   }
 
+  /**
+   * 模板字幕样式（`baocut.caption-scene-style/1`）的场景摘要：颜色及用途、字体、词标签、效果标签、可调项；正文带 `adjust` 时
+   * 颜色与字体条目另带调整后的 `to`。不是合法的场景样式时抛 `EditorWasmError`（`INVALID_STYLE`）。
+   */
+  captionSceneSummary(body: unknown): CaptionSceneSummary {
+    return this.call('bc_caption_scene_summary', { body });
+  }
+
   private ranges: EngineRanges | undefined;
   private presets: ElementPresets | undefined;
 
@@ -739,5 +753,6 @@ export function semanticsApi(get: () => EditorSemantics) {
     templateRatioEquivalent: (left: string | null, right: string | null): boolean => get().templateRatioEquivalent(left, right),
     templateBox: (input: TemplateBoxOp): TemplateBoxValue => get().templateBox(input),
     templateHit: (doc: TemplateDocLike, x: number, y: number): string | null => get().templateHit(doc, x, y),
+    captionSceneSummary: (body: unknown): CaptionSceneSummary => get().captionSceneSummary(body),
   };
 }

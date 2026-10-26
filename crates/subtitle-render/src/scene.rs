@@ -331,6 +331,14 @@ impl ScenePlan {
         instance_id: String,
     ) -> Result<Self> {
         validate_style(&style)?;
+        // Render the adjusted scene; the frozen template and its provenance stay in the document.
+        let adjust_diagnostics = if style.adjust.is_some() || style.origin.is_some() {
+            let Adjusted { scene, diagnostics } = style.resolved()?;
+            style = SceneStyle { scene: SceneSource::Inline { value: scene }, adjust: None, origin: None, ..style };
+            diagnostics
+        } else {
+            vec![]
+        };
         validate_presentation(&presentation, Some(style.scene()))?;
         if size.0 == 0 || size.1 == 0 || u64::from(size.0) * u64::from(size.1) > 16_777_216 {
             bail!("CAPTION_BUDGET_EXCEEDED: canvas");
@@ -341,7 +349,7 @@ impl ScenePlan {
         font_source::bind(&mut style, &mut text)?;
         let mut p = Self {
             text,
-            diagnostics: vec![],
+            diagnostics: adjust_diagnostics,
             style,
             presentation,
             cues,

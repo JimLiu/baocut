@@ -133,7 +133,8 @@ interface CaptionStyleOrigin {
 - **换色按值，覆盖全部字面量位置**：节点 `style.fill`、涂装层、`paintStyleBindings`、`stateStyles`、动画关键帧与表达式里的颜色常量、材质参数。比较前把颜色规范成 `#RRGGBBAA`；`to` 没写透明度时保留原色的透明度。参数默认值里的颜色不换（参数用 `parameters` 改）。
 - **换字体**重新整形与排版；字号、行框按新字体的度量重算。模板为某款字体调过的手工字距不跟着换，摘要（§6）对「字距调过」的模板给出提示，界面在换字体时说明。
 - **`fontScale`** 乘到所有文字与装饰标签节点的字号（含字号绑定的结果），排版重算；以 em 表达的涂装宽度随字号走，以画布比例表达的长度不变。
-- **`placement`** 只覆盖 `layout.x / y / width` 中的常量；某一项由参数或表达式决定时，这一项报 `CAPTION_ADJUST_UNSUPPORTED`，其余照常生效。
+- **`placement`** 只覆盖 `layout.x / y / width` 中的常量；某一项由参数或表达式决定时，这一项不生效，帧计划带一条 `CAPTION_ADJUST_UNSUPPORTED` 诊断（路径 `adjust.placement.<键>`），其余照常生效。摘要的 `adjustable.placement` 事先列出可覆盖的键。
+- **上限与校验**：换色最多 256 项、换字体最多 64 项，各自按 `from` 去重；调整后的场景必须仍是合法场景（例如扩张涂装的渐变色标要求不透明，把它换成半透明会被拒绝）。
 - 调整层不改变求值版本与能力集合；同一份正文在三个表面与导出得到同一帧。
 - **时间倍率**（整体加快或放慢动画）暂不提供，见 §14。
 
@@ -141,12 +142,12 @@ interface CaptionStyleOrigin {
 
 ## 6. 场景摘要
 
-核心提供 `describeCaptionScene(scene, adjust?) → CaptionSceneSummary`，Runtime 与预览 WASM 都暴露它。界面的调整页、画廊的效果标签与适配判定只读它：
+核心提供 `describe(scene, adjust?) → CaptionSceneSummary`（`caption-scene` crate），Runtime 与界面用的 WASM 都暴露它。界面的调整页、画廊的效果标签与适配判定只读它。形状以 [`packages/protocol/src/caption-scene.ts`](../../../packages/protocol/src/caption-scene.ts) 的 `CaptionSceneSummary` 为准，要点：
 
 ```ts
 interface CaptionSceneSummary {
-  colors: { value: string; uses: ColorUse[]; animated: boolean; area: number }[];  // area：在样张上的覆盖占比，用于排序
-  fonts: { key: string; family: string; weight: number; italic: boolean; scripts: string[]; tunedSpacing: boolean }[];
+  colors: { value: string; to?: string; uses: ColorUse[]; animated: boolean }[];  // 按首次用途排序
+  fonts: { key: string; family: string; weight: number; italic: boolean; tunedSpacing: boolean; to?: FontTarget }[];
   wordTags: string[];                     // 选择器读取的词标签，如 'keyword'
   behaviors: EffectTag[];                 // §8
   tiers: ('glyph-motion' | 'text-paint' | 'texture-effects' | 'derived-decoration')[];
@@ -154,13 +155,15 @@ interface CaptionSceneSummary {
   seeded: boolean;                        // 结果随 presentation.seed 变化
   pagination: { mode: 'auto' | 'fixed'; wordsPerPage?: number };
   layers: { nodeId: string; kind: 'fill' | 'stroke' | 'shadow' | 'inner-shadow' | 'glow' | 'plate' | 'box' | 'image' | 'material'; detail?: string }[];
-  adjustable: { colors: boolean; fonts: boolean; placement: boolean; fontScale: boolean };
+  adjustable: { colors: boolean; fonts: boolean; fontScale: boolean; placement: ('x' | 'y' | 'width')[] };
 }
 type ColorUse = 'text' | 'stroke' | 'shadow' | 'glow' | 'plate' | 'word-box' | 'active' | 'read' | 'unread' | 'keyword' | 'material';
 ```
 
-- `uses` 从颜色出现的位置推出：字身填充是 `text`，扩张涂装是 `stroke`，带偏移的涂装是 `shadow`，`stateStyles.active` 与按 active 过滤的绑定是 `active`，按词标签过滤的绑定是 `keyword`，以此类推。同一颜色可以有多个用途。
-- `scripts` 是字体覆盖的文字系统（ISO 15924），用于判定「字体不含这门语言的字」。
+- `uses` 从颜色出现的位置推出：字身填充是 `text`，扩张涂装是 `stroke`，带偏移的涂装是 `shadow`，`stateStyles.active` 与按 active 过滤的绑定是 `active`，按词标签过滤的绑定里的字身颜色是 `keyword`（同一绑定里的描边、阴影仍按涂装算），以此类推。同一颜色可以有多个用途。只有文字与标签节点的文字样式参与，其他节点的默认文字样式不算。
+- 颜色按首次用途排序，不按样张上的覆盖面积：面积要先渲染一帧，摘要只读场景。
+- 字体覆盖的文字系统（判定「字体不含这门语言的字」）由界面查字体库，不在摘要里：场景只写字体族名，覆盖范围是字体文件的事实。
+- `adjustable.placement` 列出可覆盖的版面键；不在里面的键由参数或绑定算出，调整页显示为「由模板参数决定」。
 - 传了 `adjust` 时，颜色与字体条目照旧以模板原值为键，另带调整后的值 `to`；调整页的色块与字体行直接读 `to`，不必自己再套一遍调整。
 - 摘要是派生数据，按场景摘要缓存，不落盘。
 
@@ -312,7 +315,8 @@ type LocalizedText = string | Record<string, string>;   // 语言标签 → 文�
 ## 13. 与现有规格、原型的差异
 
 - [字幕样式模型 §7](caption-style-model-design.md#7-预设与分类)写「内置预设按现状整理，不新增」，本文新增 60 份与四个分区；§8 的编译目标从 Studio 改为场景。
-- [视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)：`CaptionSceneStyleBody` 增加 `adjust` 与 `origin`，新增诊断 `CAPTION_ADJUST_UNSUPPORTED`；落地时同步规范。
+- [视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)：`CaptionSceneStyleBody` 增加 `adjust` 与 `origin`，新增诊断 `CAPTION_ADJUST_UNSUPPORTED`，已同步到规范「模板调整与来源」。
+- §6 的摘要比初稿少了颜色的覆盖面积 `area` 与字体的文字系统 `scripts`，`adjustable.placement` 从布尔值改成可覆盖键的列表，原因写在 §6。
 - 产品设计 §5.9「字幕属性」：样式列表改为样式库（来源、效果标签、搜索、加宽）；模板样式的调整不作为下次的偏好。落地时同步产品设计。
 - 品牌库：模板样式存引用而不是正文。
 - 原型（`designs/baocut`）是近似画法，不是真渲染：描边用四向 `drop-shadow` 链（方形膨胀）、内阴影是字身顶部一道渐变、纹理是 CSS 渐变代替随附 PNG。涂装栈存在轨的 `layers` 键，同时写回 v1 的字色、第一层描边、第一层阴影，旧读者照读。真实三端走核心场景渲染，以帧为准。

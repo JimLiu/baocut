@@ -1,7 +1,7 @@
 import { expect, expectTypeOf, test } from 'vitest';
 import type {
   CaptionClock, CaptionClockTail, CaptionExpression, CaptionIsolationRule, CaptionTagRuns, CaptionPatternSelect, CaptionImageSequenceResource, CaptionLayerSource, CaptionMaterial,
-  CaptionParameterValue, CaptionPresentation, CaptionRenderLayer, CaptionScene, CaptionSceneNode, CaptionSceneStyleBody,
+  CaptionParameterValue, CaptionPresentation, CaptionRenderLayer, CaptionScene, CaptionSceneNode, CaptionSceneStyleBody, CaptionSceneSummary,
   CaptionSpeechPhaseReadPath, CaptionWordState,
   CaptionPaintMask, CaptionPaintLayer,
   CaptionGlyphDistanceBand, CaptionGlyphDistanceCoverage, CaptionGlyphDistanceAa,
@@ -355,4 +355,20 @@ test('layout sampling clock carries a typed expression without changing legacy D
   const clock: Clock = { time: { op: 'literal', type: 'time', value: 0.25 } };
   expect(JSON.parse(JSON.stringify(clock))).toEqual({ time: { op: 'literal', type: 'time', value: 0.25 } });
   expect(fixture.scene.value.layout).not.toHaveProperty('clock');
+});
+
+test('template adjustments and provenance use the Rust field names', () => {
+  const adjusted = {
+    ...fixture,
+    adjust: {
+      colors: [{ from: '#000000CC', to: '#3355FF' }],
+      fonts: [{ from: 'Display Sans', to: { family: 'Serif Two', weight: 600 } }],
+      fontScale: 1.25,
+      placement: { x: 0.5, y: 0.82, width: 0.8 },
+    },
+    origin: { pack: { id: 'demo', version: '1.0.0' }, template: { id: 'outline', revision: 2 }, sceneSha256: 'b'.repeat(64) },
+  } satisfies CaptionSceneStyleBody;
+  expect(Object.keys(adjusted.adjust)).toEqual(['colors', 'fonts', 'fontScale', 'placement']);
+  expectTypeOf<NonNullable<CaptionSceneSummary['adjustable']>['placement']>().toEqualTypeOf<('x' | 'y' | 'width')[]>();
+  expectTypeOf<CaptionSceneSummary['pagination']['mode']>().toEqualTypeOf<'auto' | 'fixed'>();
 });

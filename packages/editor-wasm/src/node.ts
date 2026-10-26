@@ -83,4 +83,5 @@ export const {
   templateRatioEquivalent,
   templateBox,
   templateHit,
+  captionSceneSummary,
 } = semanticsApi(editorSemantics);
