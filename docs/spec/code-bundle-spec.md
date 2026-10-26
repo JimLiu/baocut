@@ -501,7 +501,11 @@ interface BakeRecord {
 ```
 
 - 烘焙按实例所在序列或导出的帧率取帧：第 k 帧的局部时间是 `t = k / fps`，不按包的 `intrinsic.fps`（§5.4）。`compositions_import` 新放置的实例在根序列上，用根序列的帧率；`replace` 用被替换实例所在序列的帧率。
-- **编码**。输出 QuickTime `.mov`：`output.alpha` 为 true 时用 ProRes 4444（`yuva444p10le`），否则用 ProRes 422 HQ（`yuv422p10le`）。编码器是 ffmpeg 的 `prores_ks`；指令烘焙在 macOS 上能用 `prores_videotoolbox` 时用它（硬件编码，产物的配置与像素格式相同），`BakeRecord.encoding.codec` 记实际的编码器。烘焙结果作为普通的视频素材导入，`hasAlpha` 如实记录。
+- **编码**。输出 QuickTime `.mov`，`BakeRecord.encoding.codec` 记实际的编码器：
+  - `output.alpha` 为 true 时用 PNG 编码（ffmpeg 的 `png`，`rgba`），逐帧无损存直通 RGBA。各平台的 ffmpeg 都有这个编码器，Windows 与 Web 的 Runtime 走同一条路；只有 ffmpeg 缺 `png` 时退回 ProRes 4444（`yuva444p10le`）。
+  - 否则用 ProRes 422 HQ（`yuv422p10le`），编码器是 `prores_ks`；指令烘焙在 macOS 上能用 `prores_videotoolbox` 时用它（硬件编码，产物的配置与像素格式相同）。
+  - 带 alpha 的替身只经 ffmpeg 解码：导出对可能带透明的素材本来就不走平台原生解码（原生解码把 alpha 压成 255），预览的播放副本也由 ffmpeg 转（架构设计 §4.5）。macOS 的系统解码器（AVFoundation，QuickTime Player、Final Cut Pro 用的就是它）不认 PNG 编码的 MOV；工程导出把这个文件交给别的剪辑软件时，对方能否读取以对方的支持为准。
+  - 烘焙结果作为普通的视频素材导入，`hasAlpha` 如实记录（`rgba` 与 `yuva*` 都判为带透明）。
 - **渲染器**（§7.1–§7.3）。`compositions_import` 的 `bake` 选渲染器：`auto`（缺省）先走指令烘焙，走不通时整段回退到像素烘焙；`ops` 只走指令，走不通就失败；`pixels` 只走像素。
 - **记录位置**。`BakeRecord` 记在烘焙素材的来源里：`provenance` 为 `{ origin: 'composition-bake', source: BakeRecord }`（视频格式规范 §4.5）。合成实例上还没有对应的字段（§3.1、§9）。首版的 `bakedAssetRef` 与 `sourceBundleRef` 先写代码包清单的 `bundleId/revision`：素材 ID 要等导入事务的回执才知道（§9）。
 - 新建的合成实例用 `prerender` 指向烘焙素材，导出走已有的预渲染替身路径（视频格式规范 §3.7）。替身何时过期见 §7.4。
@@ -630,7 +634,7 @@ HyperFrames 合同进入第一期，是 2026-10-07 用户开始实现任务时�
 | `CompositionContext`（§4.1） | 本规范补全 | 绘制目标的形式；素材解析的接口；是否提供音频上下文 |
 | 合成实例的字段（§3.1） | `audioRoute`、`qualityPolicy`、`bake` 未纳入 | 声部模式与质量政策的取值；Bake 记录是否从烘焙素材的来源（§7）移到实例上，与预渲染替身如何衔接（替身何时过期已定，§7.4） |
 | 包的目录布局（§2.5） | 部分已定 | 已定：首版固定 `bundle.manifest.json`、`files.manifest.json`、`verification.json` 三个文件名。待定：其余文件名是否强制；文件名固定之后 `source.filesManifest` 是否还需要 |
-| `BakeRecord`（§7） | 已定 | 首版编码为 QuickTime `.mov`，带 alpha 用 ProRes 4444，否则 ProRes 422 HQ；记录放在烘焙素材的 `provenance` 里（§7）。是否进入实例字段见上面「合成实例的字段」 |
+| `BakeRecord`（§7） | 已定 | 首版编码为 QuickTime `.mov`，带 alpha 用无损 PNG，否则 ProRes 422 HQ；记录放在烘焙素材的 `provenance` 里（§7）。是否进入实例字段见上面「合成实例的字段」 |
 | 参数 Schema 的约定（§3.2） | 只有原则 | 支持的 JSON Schema 子集；界面控件的映射；影响时长的标记方式 |
 | `runtime.contract` 的命名与版本 | 已定 | 格式 `<合同名>/<主版本>`，不兼容的变化提升主版本，`adapterContractVersion` 取同一个值（§2.2）；第一期同时提供 `baocut/1` 与 `hyperframes/1` |
 | `contentHash` 的覆盖范围（§2.2） | 部分已定 | 已定：`files.manifest.json` 不计入 `entries`（计入则不能列出自己的摘要）。待定：清单的 `contentHash` 与目录素材的树摘要（视频格式规范 §4.3）算法不同，是否统一或写明两者的关系 |

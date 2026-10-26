@@ -4,7 +4,7 @@
 
 ## 1. 问题
 
-整镜由代码画的讲解片，每段都是 `baocut/1` 的 Canvas 代码包，导入时要烘焙成 ProRes。像素烘焙每帧经过 seek → 等 paint → `capturePage` → PNG → base64 → JSON 行 → ffmpeg `image2pipe`，约 0.37 秒一帧（M2，1080×1920，2.7 帧/秒），一部 8 段、9000 多帧的片要烘焙近一小时。时间几乎都在 Electron 主进程的截图与 PNG 编码上，页面画一帧本身很快。
+整镜由代码画的讲解片，每段都是 `baocut/1` 的 Canvas 代码包，导入时要烘焙成视频替身。像素烘焙每帧经过 seek → 等 paint → `capturePage` → PNG → base64 → JSON 行 → ffmpeg `image2pipe`，约 0.37 秒一帧（M2，1080×1920，2.7 帧/秒），一部 8 段、9000 多帧的片要烘焙近一小时。时间几乎都在 Electron 主进程的截图与 PNG 编码上，页面画一帧本身很快。
 
 下游（导出、编辑器预览、项目导出）只读预渲染 `.mov`，换渲染器不必改下游。
 
@@ -13,7 +13,7 @@
 1. **录制**（`packages/code-runtime/src/canvas-recorder.ts`）：在离屏宿主里包装 `CanvasRenderingContext2D.prototype`，照常调用原方法，同时把主画布上的调用记成指令。状态直接读真实 context，只自己跟踪路径与裁剪栈；每帧带上延续下来的路径与裁剪（`init`），各帧可以并行转换。录制不等 rAF、不截图，一次宿主调用录 30 帧。
 2. **对拍**：同一会话里照常截 5 帧样本，Worker 先光栅这几帧用 `imgcmp` 比较，通过才整段光栅。
 3. **转换与光栅**（`crates/render-raster/src/canvas2d/`，`export-worker canvas-bake`）：录制按帧转成 `FrameOps`，多线程 tiny-skia 光栅，RGBA 按帧序直接写进 Worker 启动的 ffmpeg，不经过 Node。
-4. **编码**：macOS 能用 `prores_videotoolbox` 时用硬件编码（1080×1920 HQ 约 243 帧/秒，`prores_ks` 约 45 帧/秒），否则 `prores_ks`；产物的配置与像素格式与像素烘焙相同。Windows 与 Linux 走 `prores_ks`，Worker 的子进程隐藏控制台。
+4. **编码**：带 alpha 时编成 PNG（无损，所有平台同一个编码器）；不透明时 ProRes 422 HQ，macOS 能用 `prores_videotoolbox` 时用硬件编码（1080×1920 HQ 约 243 帧/秒，`prores_ks` 约 45 帧/秒），否则 `prores_ks`。产物的编码与像素格式与像素烘焙相同。Worker 的子进程隐藏控制台。
 5. **回退**：录制里有不支持的调用、样本对不上、没有 Worker 或 Worker 失败时整段回退像素烘焙，原因写进结果的 `bake.fallback`。不按帧混用两种渲染器：同一段里画面的细微差别会在切换处闪一下。
 6. **工作目录**：录制与预渲染放在视频所在卷的 `blobs/.staging/` 下（导入时同卷复制），不占系统盘。
 
@@ -23,6 +23,7 @@
 - **字形平滑**：macOS CoreText 让 Chromium 的文字比 tiny-skia 粗约 7%，文字边缘的逐像素偏差能到 200 以上。不追这个差别：对拍用 4× 降采样 SSIM、平坦区偏差与过渡带占比，不用逐像素最大偏差。
 - **渐变**：两圆径向渐变的一般情况逐像素解二次方程生成位图并跨帧缓存；同心与 `r0 = 0` 直接用 tiny-skia。Chromium 的渐变带抖动，平坦区阈值放到 4/255。
 - **投影**用局部窗口，不开整幅层（1080×1920 一层 8 MB）。
+- **带 alpha 的替身用 PNG，不用 ProRes 4444、VP9 或 HEVC**。ProRes 4444 不看画面内容按固定码率出片，大片透明的字幕条也是 50–60 Mbps（1632×340 一段 21 分钟的替身 9.8 GB）；`prores_ks` 把质量压到最低（`-q:v 31`）也只小一半。VP9 与 HEVC 带 alpha 都只有 4:2:0：小 50–80 倍，但细彩线边缘的颜色被旁边的深色面板糊掉，预乘后单通道偏差到 68/255（HEVC 112），调码率不动，与指令烘焙对拍的精度不相称。QuickTime Animation（`qtrle`）只存变化的行，字幕条小近 10 倍，但满幅动画比 ProRes 还大。PNG 逐帧无损，体积只随画面复杂度变：字幕条小 6.8 倍，满幅的动态渐变小 5 倍。代价是 macOS 系统解码器不认（导出与播放副本都走 ffmpeg，不受影响），PNG 编码比 VideoToolbox 的 ProRes 略慢（见 §4.1）。
 
 ## 4. 实测（s02：730 帧，1080×1920，30 帧/秒，不透明；M2 8 核）
 
@@ -36,6 +37,22 @@
 画面：均匀取的 20 帧与 Chromium 截图相比，SSIM 0.989–0.995，4× 降采样 SSIM ≥ 0.9957，平坦区最大偏差 ≤ 3，过渡带占比 ≤ 1.05%。两份成片逐帧比较（ffmpeg，含两边的编码损失）：730 帧 SSIM 最低 0.9942、平均 0.9965，PSNR 最低 36.7 dB、平均 40.5 dB。
 
 没有在 Windows 实机上验证。
+
+### 4.1 带 alpha 的替身（2026-10-26，M2 8 核）
+
+合成的字幕条代码包：1632×340，60 秒 1800 帧，带 alpha，大半幅透明，指令烘焙。
+
+| 编码 | 体积 | 码率 | 烘焙用时 |
+| --- | --- | --- | --- |
+| ProRes 4444（`prores_videotoolbox`） | 386.6 MB | 约 51 Mbps | 19–39 s |
+| PNG（`rgba`） | 56.7 MB | 约 7.6 Mbps | 13–21 s |
+
+- 用时波动大，两种编码处在同一量级。
+- PNG 解出的 1800 帧与光栅逐帧相同（framemd5）。
+- 满幅、逐帧变化的 alpha 渐变（1632×340，10 秒）上，PNG 比 ProRes 小 5 倍。
+- 单测编码器，输入为 1080×1920 带 alpha 的测试画面：
+  - PNG 约 87 帧/秒；
+  - VideoToolbox ProRes 4444 约 104 帧/秒，体积是 PNG 的 9.7 倍。
 
 ## 5. 第二期
 

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -42,6 +43,21 @@ function probe(file: string) {
   return JSON.parse(result.stdout).streams[0];
 }
 
+/** 解出每帧直通 RGBA 的 sha256（与指令烘焙的 `frameHashes` 同口径）。 */
+function decodedFrameHashes(file: string): string[] {
+  const { width, height } = probe(file);
+  const result = spawnSync(ffmpeg, ['-v', 'error', '-i', file, '-f', 'rawvideo', '-pix_fmt', 'rgba', 'pipe:1'], {
+    maxBuffer: 1 << 30,
+  });
+  expect(result.status, String(result.stderr)).toBe(0);
+  const size = width * height * 4;
+  const hashes: string[] = [];
+  for (let offset = 0; offset + size <= result.stdout.length; offset += size) {
+    hashes.push(crypto.createHash('sha256').update(result.stdout.subarray(offset, offset + size)).digest('hex'));
+  }
+  return hashes;
+}
+
 describe('sampleFrames', () => {
   it('均匀取样，含首尾、去重', () => {
     expect(sampleFrames(730, 5)).toEqual([0, 182, 365, 547, 729]);
@@ -64,7 +80,7 @@ describe.skipIf(!resolveElectronBinary() || !hasFfmpeg)('bakeComposition', { tim
     for (const dir of tmpDirs) fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it('hyperframes-basic 烘焙成带 alpha 的 ProRes 4444', async () => {
+  it('hyperframes-basic 带 alpha 时烘焙成无损 PNG 的 MOV', async () => {
     const bundle = await inspectBundle(path.join(fixtures, 'hyperframes-basic'), { manifest: { alpha: true } });
     tmpDirs.push(bundle.root);
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-bake-test-'));
@@ -86,7 +102,7 @@ describe.skipIf(!resolveElectronBinary() || !hasFfmpeg)('bakeComposition', { tim
         file: outputFile,
         frames: 60,
         durationSeconds: 2,
-        encoding: { container: 'mov', codec: 'prores_ks', pixelFormat: 'yuva444p10le', alpha: true, fps: { num: 30, den: 1 }, frames: 60 },
+        encoding: { container: 'mov', codec: 'png', pixelFormat: 'rgba', alpha: true, fps: { num: 30, den: 1 }, frames: 60 },
       });
       expect(result.frameHashes).toHaveLength(60);
       expect(new Set(result.frameHashes).size).toBeGreaterThan(50);
@@ -95,11 +111,15 @@ describe.skipIf(!resolveElectronBinary() || !hasFfmpeg)('bakeComposition', { tim
     } finally {
       await host.close();
     }
-    const stream = probe(outputFile);
-    expect(stream).toMatchObject({ codec_name: 'prores', width: 1280, height: 720, r_frame_rate: '30/1' });
-    // 编码输入是 yuva444p10le；ProRes 4444 解码端报告 yuva444p12le。导入端只看 `yuva` 前缀判定透明。
-    expect(stream.pix_fmt).toMatch(/^yuva444p1[02]le$/);
-    expect(Number(stream.nb_read_frames)).toBe(60);
+    // 导入端按 `pix_fmt` 判定透明：`rgba` 算带透明。
+    expect(probe(outputFile)).toMatchObject({
+      codec_name: 'png',
+      pix_fmt: 'rgba',
+      width: 1280,
+      height: 720,
+      r_frame_rate: '30/1',
+      nb_read_frames: '60',
+    });
   });
 
   it('中止信号 → 停止并拒绝', async () => {
@@ -173,7 +193,7 @@ describe.skipIf(!resolveElectronBinary() || !hasFfmpeg || !worker)('bakeComposit
     });
   });
 
-  it('带 alpha 时编成 ProRes 4444', async () => {
+  it('带 alpha 时编成无损 PNG，解出的 RGBA 与光栅逐帧相同', async () => {
     const bundle = await inspectBundle(path.join(fixtures, 'baocut-canvas'), { manifest: { contract: 'baocut/1', alpha: true } });
     tmpDirs.push(bundle.root);
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-bake-test-'));
@@ -192,17 +212,17 @@ describe.skipIf(!resolveElectronBinary() || !hasFfmpeg || !worker)('bakeComposit
       expect(result).toMatchObject({
         frames: 15,
         bake: { renderer: 'drawop-cpu' },
-        encoding: { pixelFormat: 'yuva444p10le', alpha: true },
+        encoding: { codec: 'png', pixelFormat: 'rgba', alpha: true },
       });
+      // 无损：解码出的每帧直通 RGBA 与 Worker 光栅出的帧摘要相同。
+      expect(decodedFrameHashes(outputFile)).toEqual(result.frameHashes);
     } finally {
       await host.close();
     }
-    const stream = probe(outputFile);
-    expect(stream).toMatchObject({ codec_name: 'prores', nb_read_frames: '15', r_frame_rate: '15/1' });
-    expect(stream.pix_fmt).toMatch(/^yuva444p1[02]le$/);
+    expect(probe(outputFile)).toMatchObject({ codec_name: 'png', pix_fmt: 'rgba', nb_read_frames: '15', r_frame_rate: '15/1' });
   });
 
-  it('WebGL 画面录不了：auto 回退像素，带 alpha 编成 ProRes 4444', async () => {
+  it('WebGL 画面录不了：auto 回退像素，带 alpha 编成 PNG', async () => {
     const bundle = await inspectBundle(path.join(fixtures, 'baocut-webgl'), { manifest: { contract: 'baocut/1', alpha: true } });
     tmpDirs.push(bundle.root);
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-bake-test-'));
@@ -214,9 +234,7 @@ describe.skipIf(!resolveElectronBinary() || !hasFfmpeg || !worker)('bakeComposit
       expect(result.bake).toMatchObject({ renderer: 'browser-pixels', fallback: { reason: expect.stringContaining('recording') } });
       expect(result.frames).toBe(30);
       expect(new Set(result.frameHashes).size).toBeGreaterThan(25);
-      const stream = probe(outputFile);
-      expect(stream).toMatchObject({ codec_name: 'prores', width: 640, height: 360 });
-      expect(stream.pix_fmt).toMatch(/^yuva444p1[02]le$/);
+      expect(probe(outputFile)).toMatchObject({ codec_name: 'png', pix_fmt: 'rgba', width: 640, height: 360 });
     } finally {
       await host.close();
     }

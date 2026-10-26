@@ -771,7 +771,7 @@ BaoCut 工具经 Codex 的 MCP 调用会等审批，Codex 默认 60 秒就放弃
 
 ### 4.5 控制通道与媒体通道分离
 
-WebM 与 QuickTime（包括代码动画烘焙的 ProRes MOV）播放通过 `media.playback { url, playable? }` 取播放地址：`url` 必须是当前媒体通道已签发、未过期的受限句柄，不能用本机路径或其他来源的 URL。`playable` 是客户端按 `canPlayType` 测出的、能原生解码的 WebM 编码（`vp8`、`vp9`、`av1`、`opus`、`vorbis`）；Runtime 用 ffprobe 探测源文件首条画面与声音的编码、像素格式、透明标记与时长（按源身份记住），WebM 的编码都在其中时直接回原句柄。QuickTime 始终准备副本；探测失败时明确失败，不把可能带 alpha 的 MOV 当成不透明素材。探测与转换只放行本地文件及源容器的解复用器（WebM 用 Matroska，QuickTime 用 MOV）。
+WebM 与 QuickTime（包括代码动画烘焙的 MOV：ProRes 或带 alpha 的 PNG 编码）播放通过 `media.playback { url, playable? }` 取播放地址：`url` 必须是当前媒体通道已签发、未过期的受限句柄，不能用本机路径或其他来源的 URL。`playable` 是客户端按 `canPlayType` 测出的、能原生解码的 WebM 编码（`vp8`、`vp9`、`av1`、`opus`、`vorbis`）；Runtime 用 ffprobe 探测源文件首条画面与声音的编码、像素格式、透明标记与时长（按源身份记住），WebM 的编码都在其中时直接回原句柄。QuickTime 始终准备副本；探测失败时明确失败，不把可能带 alpha 的 MOV 当成不透明素材。探测与转换只放行本地文件及源容器的解复用器（WebM 用 Matroska，QuickTime 用 MOV）。
 
 兼容副本在 `<home>/cache/media/playback/` 按源真实路径、大小、纳秒 mtime、容器与编码配方修订缓存：不透明画面用 H.264/yuv420p + AAC MP4；带 alpha 的画面用 VP9/yuva420p + Opus WebM，保留透明和半透明合成效果，不能退化为不透明 H.264。转换带 alpha 的 VP8/VP9 WebM 时强制使用 libvpx 解码。最长边不超过 1280，保持比例与源时间，音轨存在时保留；无声视频和纯音频 WebM 同样支持。后台单槽编码、重复申请合并、校验可解码后原子发布；源变化重建，失败不发布半成品，Runtime 关闭时停止子进程。缓存只用于播放，项目素材、下载与导出仍引用原文件。
 

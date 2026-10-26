@@ -8,14 +8,14 @@ import type { InspectedBundle } from './bundle-inspect.ts';
 import { frameTicketAt, type CompositionHost } from './composition-host.ts';
 
 /**
- * 烘焙（代码包规范 §7）：把代码画面按输出帧率逐帧画成 QuickTime（ProRes）。两种渲染器：
+ * 烘焙（代码包规范 §7）：把代码画面按输出帧率逐帧画成 QuickTime `.mov`。两种渲染器：
  *
  * - **指令**（`drawop-cpu`，§7.2）：页面里录下主画布的 Canvas 2D 调用（`canvas-recorder.ts`），写成录制文件；取几帧样本用 Chromium
  *   照常截 PNG；Render Worker 的 `canvas-bake` 把录制转成 DrawOp、多线程光栅、对拍样本，再直接编码（macOS 有 VideoToolbox 时硬件编码）。
  * - **像素**（`browser-pixels`，§7.1）：逐帧截 PNG，经 ffmpeg 的 `image2pipe` 编码。
  *
  * `auto`（缺省）先走指令，录制里有不支持的东西、样本对不上或没有 Worker 时整段回退到像素，原因记进 `bake.fallback`。
- * 带 alpha 时编成 4444（`yuva444p10le`，导入端按 `pix_fmt` 以 `yuva` 开头判定有透明），不透明时 422 HQ（`yuv422p10le`）。
+ * 带 alpha 时编成无损 PNG（`rgba`，比 ProRes 4444 小 5–7 倍；导入端按 `pix_fmt` 判定有透明），不透明时 ProRes 422 HQ（`yuv422p10le`）。
  * 第 k 帧的局部时间是 `k × den / num` 秒。
  */
 
@@ -318,9 +318,8 @@ async function bakePixels(
   plan: Plan,
 ): Promise<Omit<BakeResult, 'bake'>> {
   const { fps, alpha, total } = plan;
-  const codec = 'prores_ks';
-  const pixelFormat = alpha ? 'yuva444p10le' : 'yuv422p10le';
-  const profile = alpha ? '4444' : '3';
+  const codec = alpha ? 'png' : 'prores_ks';
+  const pixelFormat = alpha ? 'rgba' : 'yuv422p10le';
   options.signal?.throwIfAborted();
 
   const session = await host.open(bundle);
@@ -342,8 +341,7 @@ async function bakePixels(
       '-an',
       '-c:v',
       codec,
-      '-profile:v',
-      profile,
+      ...(alpha ? [] : ['-profile:v', '3']),
       '-pix_fmt',
       pixelFormat,
       '-movflags',

@@ -1,7 +1,8 @@
 //! `export-worker canvas-bake <input.json>`：代码包烘焙的指令路线（代码包规范 §7.2）。
 //!
 //! 代码包宿主录好的 Canvas 2D 指令（NDJSON，`render_raster::canvas2d`）在这里转成 DrawOp、多线程光栅，再按帧序
-//! 把 RGBA 写进 ffmpeg 编成 ProRes（macOS 有 VideoToolbox 时用硬件编码，否则 `prores_ks`）。依次是：
+//! 把 RGBA 写进 ffmpeg 编码：带 alpha 时编成 PNG（无损，装进 QuickTime），不透明时编成 ProRes 422 HQ（macOS 有
+//! VideoToolbox 时用硬件编码，否则 `prores_ks`）。依次是：
 //!
 //! 1. **对拍**：`verify.samples` 里的帧与 Chromium 截的 PNG 比较，超出阈值以 `CANVAS_OPS_MISMATCH` 失败；
 //! 2. **检查**：所有帧先转换一遍（不光栅），录制里有转换不了的东西以 `CANVAS_OPS_UNSUPPORTED` 失败；
@@ -35,6 +36,7 @@ enum EncoderChoice {
     Auto,
     ProresVideotoolbox,
     ProresKs,
+    Png,
 }
 
 #[derive(Debug, Deserialize)]
@@ -134,24 +136,35 @@ fn frame_json(recording: &Recording, frame: usize) -> Result<&str, Failure> {
 /// 选编码器并给出 ffmpeg 的编码参数：`(编码器, -profile:v, 送进编码器的像素格式, 产物的像素格式)`。
 struct Encoding {
     codec: &'static str,
-    profile: &'static str,
+    /// `-profile:v`；PNG 没有。
+    profile: Option<&'static str>,
     input_format: &'static str,
-    /// 记进回执的像素格式（与逐帧截图路线一致，导入端按 `yuva` 前缀判定透明）。
+    /// 记进回执的像素格式（与逐帧截图路线一致；导入端认 `rgba`、`yuva*` 为带透明）。
     pixel_format: &'static str,
 }
 
 fn encoding_for(codec: EncoderChoice, alpha: bool) -> Encoding {
+    if codec == EncoderChoice::Png {
+        // 无损：直通 RGBA 原样存下，比 ProRes 4444 小 5–7 倍（代码包规范 §7）。
+        let format = if alpha { "rgba" } else { "rgb24" };
+        return Encoding {
+            codec: "png",
+            profile: None,
+            input_format: format,
+            pixel_format: format,
+        };
+    }
     let pixel_format = if alpha { "yuva444p10le" } else { "yuv422p10le" };
     match codec {
         EncoderChoice::ProresVideotoolbox => Encoding {
             codec: "prores_videotoolbox",
-            profile: if alpha { "4444" } else { "hq" },
+            profile: Some(if alpha { "4444" } else { "hq" }),
             input_format: if alpha { "ayuv64le" } else { "p210le" },
             pixel_format,
         },
         _ => Encoding {
             codec: "prores_ks",
-            profile: if alpha { "4444" } else { "3" },
+            profile: Some(if alpha { "4444" } else { "3" }),
             input_format: pixel_format,
             pixel_format,
         },
@@ -181,7 +194,7 @@ fn videotoolbox_works(ffmpeg: &Path, alpha: bool) -> bool {
         "-c:v",
         encoding.codec,
         "-profile:v",
-        encoding.profile,
+        encoding.profile.unwrap_or_default(),
         "-pix_fmt",
         encoding.input_format,
         "-f",
@@ -199,6 +212,7 @@ fn has_encoder(ffmpeg: &Path, name: &str) -> bool {
     })
 }
 
+/// 带 alpha 时缺省编成 PNG（无损，体积远小于 ProRes 4444）；不透明时 ProRes 422 HQ，能用 VideoToolbox 就用。
 fn pick_encoder(ffmpeg: &Path, wanted: EncoderChoice, alpha: bool) -> Result<Encoding, Failure> {
     let missing = |name: &str| {
         failure(
@@ -208,6 +222,10 @@ fn pick_encoder(ffmpeg: &Path, wanted: EncoderChoice, alpha: bool) -> Result<Enc
         )
     };
     match wanted {
+        EncoderChoice::Png if has_encoder(ffmpeg, "png") => Ok(encoding_for(EncoderChoice::Png, alpha)),
+        EncoderChoice::Png => Err(missing("png")),
+        // 没编进 png 的 ffmpeg 极少见，退回 ProRes 4444 仍能出片。
+        EncoderChoice::Auto if alpha && has_encoder(ffmpeg, "png") => Ok(encoding_for(EncoderChoice::Png, alpha)),
         EncoderChoice::ProresVideotoolbox if videotoolbox_works(ffmpeg, alpha) => {
             Ok(encoding_for(EncoderChoice::ProresVideotoolbox, alpha))
         }
@@ -245,16 +263,9 @@ impl Ffmpeg {
             .arg(&size)
             .arg("-framerate")
             .arg(&rate)
-            .args([
-                "-i",
-                "pipe:0",
-                "-an",
-                "-c:v",
-                encoding.codec,
-                "-profile:v",
-                encoding.profile,
-                "-pix_fmt",
-            ])
+            .args(["-i", "pipe:0", "-an", "-c:v", encoding.codec])
+            .args(encoding.profile.map(|profile| ["-profile:v", profile]).into_iter().flatten())
+            .arg("-pix_fmt")
             .arg(encoding.input_format)
             .args(["-movflags", "+faststart"])
             .arg(output)
@@ -686,17 +697,33 @@ mod tests {
         let ks = encoding_for(EncoderChoice::ProresKs, false);
         assert_eq!(
             (ks.codec, ks.profile, ks.input_format, ks.pixel_format),
-            ("prores_ks", "3", "yuv422p10le", "yuv422p10le")
+            ("prores_ks", Some("3"), "yuv422p10le", "yuv422p10le")
         );
         let ks = encoding_for(EncoderChoice::ProresKs, true);
-        assert_eq!((ks.profile, ks.pixel_format), ("4444", "yuva444p10le"));
+        assert_eq!((ks.profile, ks.pixel_format), (Some("4444"), "yuva444p10le"));
         let vt = encoding_for(EncoderChoice::ProresVideotoolbox, false);
         assert_eq!(
             (vt.codec, vt.profile, vt.pixel_format),
-            ("prores_videotoolbox", "hq", "yuv422p10le")
+            ("prores_videotoolbox", Some("hq"), "yuv422p10le")
         );
         let vt = encoding_for(EncoderChoice::ProresVideotoolbox, true);
-        assert_eq!((vt.profile, vt.input_format, vt.pixel_format), ("4444", "ayuv64le", "yuva444p10le"));
+        assert_eq!((vt.profile, vt.input_format, vt.pixel_format), (Some("4444"), "ayuv64le", "yuva444p10le"));
+        let png = encoding_for(EncoderChoice::Png, true);
+        assert_eq!((png.codec, png.profile, png.input_format, png.pixel_format), ("png", None, "rgba", "rgba"));
+        assert_eq!(encoding_for(EncoderChoice::Png, false).pixel_format, "rgb24");
+    }
+
+    /// 带 alpha 的缺省是 PNG：本机 ffmpeg 有 png 编码器时才跑。
+    #[test]
+    fn alpha_defaults_to_png() {
+        let ffmpeg = PathBuf::from("ffmpeg");
+        if !has_encoder(&ffmpeg, "png") {
+            return;
+        }
+        assert_eq!(pick_encoder(&ffmpeg, EncoderChoice::Auto, true).ok().map(|e| e.codec), Some("png"));
+        let opaque = pick_encoder(&ffmpeg, EncoderChoice::Auto, false).ok().map(|e| e.codec);
+        assert!(matches!(opaque, Some("prores_videotoolbox" | "prores_ks")), "{opaque:?}");
+        assert_eq!(pick_encoder(&ffmpeg, EncoderChoice::ProresKs, true).ok().map(|e| e.codec), Some("prores_ks"));
     }
 
     #[test]
@@ -707,5 +734,7 @@ mod tests {
         assert!(serde_json::from_value::<Input>(json!({ "root": "/b", "recording": "/r", "bogus": 1 })).is_err());
         let input: Input = serde_json::from_value(json!({ "root": "/b", "recording": "/r", "encoder": "prores_ks" })).unwrap();
         assert_eq!(input.encoder, EncoderChoice::ProresKs);
+        let input: Input = serde_json::from_value(json!({ "root": "/b", "recording": "/r", "encoder": "png" })).unwrap();
+        assert_eq!(input.encoder, EncoderChoice::Png);
     }
 }

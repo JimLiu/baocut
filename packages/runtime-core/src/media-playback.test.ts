@@ -12,7 +12,13 @@ const ffprobe = process.env.BAOCUT_FFPROBE || 'ffprobe';
 const tools = (() => { try { execFileSync(ffmpeg, ['-version'], { stdio: 'ignore' }); execFileSync(ffprobe, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
 
 describe.skipIf(!tools)('media playback compatibility', () => {
-  it.each([false, true])('prepares baked ProRes (alpha=%s), preserving transparency, timing, audio and original bytes', async (alpha) => {
+  // Code-bundle bakes: opaque ProRes 422 HQ, alpha PNG (current), alpha ProRes 4444 (bakes made before PNG).
+  const bakes = [
+    { name: 'ProRes 422 HQ', alpha: false, video: ['-c:v', 'prores_ks', '-profile:v', '3', '-pix_fmt', 'yuv422p10le'] },
+    { name: 'PNG', alpha: true, video: ['-c:v', 'png', '-pix_fmt', 'rgba'] },
+    { name: 'ProRes 4444', alpha: true, video: ['-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le'] },
+  ];
+  it.each(bakes)('prepares a baked $name MOV, preserving transparency, timing, audio and original bytes', async ({ alpha, video }) => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-prores-playback-'));
     const tool = (command: string) => async () => ({ command, env: process.env });
     const analysis = new MediaAnalysis({ cacheDir: path.join(root, 'cache'), log: silentLogger, ffmpeg: tool(ffmpeg), ffprobe: tool(ffprobe) });
@@ -24,8 +30,7 @@ describe.skipIf(!tools)('media playback compatibility', () => {
         '-v', 'error', '-y', '-f', 'lavfi', '-i',
         "nullsrc=size=162x90:rate=10:duration=1,format=rgba,geq=r='if(lt(T,0.5),255,0)':g=0:b='if(lt(T,0.5),0,255)':a='if(lt(X,W/2),0,128)'",
         '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1',
-        '-c:v', 'prores_ks', '-profile:v', alpha ? '4444' : '3', '-pix_fmt', alpha ? 'yuva444p10le' : 'yuv422p10le',
-        '-threads', '2', '-c:a', 'pcm_s16le', source,
+        ...video, '-threads', '2', '-c:a', 'pcm_s16le', source,
       ], { stdio: 'pipe' });
       const before = await fs.readFile(source);
       const raw = await registry.issue(root, source);

@@ -440,6 +440,50 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
     expect(video(videoId).revision).toBe(revision);
   }, 120_000);
 
+  // 代码合成带 alpha 的替身（代码包规范 §7）是 PNG 编码的 MOV，此前是 ProRes 4444：同一份画面编成两种，各自单独导出。
+  // 两份成片逐像素相差在编码误差以内；叠在黑底上，透明处是黑、半透明处按 alpha 减半、细线的颜色不被旁边糊掉（4:4:4）。
+  it('带 alpha 的 PNG MOV 替身按透明度叠加，成片与 ProRes 4444 替身相同', async () => {
+    const overlay =
+      "nullsrc=size=320x180:rate=30:duration=1,format=rgba,geq=r='if(between(Y,60,63),255,0)':g=0:b='if(between(Y,60,63),0,255)'" +
+      ":a='if(lt(X,80),0,if(lt(X,160),128,if(lt(X,240),255*(X-160)/80,255)))'";
+    const encodings: Record<string, string[]> = {
+      png: ['-c:v', 'png', '-pix_fmt', 'rgba'],
+      prores: ['-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le'],
+    };
+    const frames: Record<string, Buffer> = {};
+    for (const [name, codec] of Object.entries(encodings)) {
+      const baked = path.join(project.path, 'media', `baked-${name}.mov`);
+      await fs.mkdir(path.dirname(baked), { recursive: true });
+      execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', overlay, ...codec, baked]);
+      const videoId = await newVideo(`替身 ${name}`);
+      const { sequenceId } = video(videoId);
+      await edit(videoId, [
+        { type: 'importAsset', path: baked, ref: 'o' },
+        { type: 'addItem', sequenceId, asset: { ref: 'o' }, at: at(0), alignment: 'nearest-frame' },
+      ]);
+      const asset = Object.values(runtime.videos.mirror(videoId)!.video.assets).find((a) => a.name.startsWith(`baked-${name}`))!;
+      expect(asset.revisions[asset.currentRevision]!.video?.hasAlpha).toBe(true);
+      const job = await exportOnce({ videoId, settings: { kind: 'video', format: 'mp4', range: { start: 0, end: 1 }, crf: 1 } });
+      frames[name] = frameAt(job.result!.outputs![0]!.path!, 15, 30, 320, 180);
+    }
+    const png = frames.png!;
+    let worst = 0;
+    for (let i = 0; i < png.length; i++) worst = Math.max(worst, Math.abs(png[i]! - frames.prores![i]!));
+    expect(worst, '两种替身的成片逐像素最大差').toBeLessThanOrEqual(6);
+    const near = (x: number, y: number, want: [number, number, number], tol = 12) => {
+      const rgb = pixel(png, 320, x, y);
+      expect(
+        rgb.every((c, i) => Math.abs(c - want[i]!) <= tol),
+        `(${x}, ${y}) ${rgb} ≈ ${want}`,
+      ).toBe(true);
+    };
+    near(40, 120, [0, 0, 0]);
+    near(120, 120, [0, 0, 128]);
+    near(200, 120, [0, 0, 127], 16);
+    near(280, 120, [0, 0, 255]);
+    near(280, 61, [255, 0, 0], 40);
+  }, 120_000);
+
   // 两次导出：单跑约 7 秒，整套测试一起跑时机器忙，留出余量。
   it('视频 + 图片 + 交叉淡化 + 声音：MP4，流、帧数、颜色与声音都对（A11）', async () => {
     const { videoId } = await cutVideo();

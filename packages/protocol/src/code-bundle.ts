@@ -171,7 +171,7 @@ export interface BakeRecord {
   outputProfileHash: string;
   bakedAt: string;
   status: 'current' | 'stale';
-  /** 烘焙输出的编码（ProRes 封进 QuickTime：带 alpha 时 4444，不透明时 422 HQ；编码器是 `prores_videotoolbox` 或 `prores_ks`）。 */
+  /** 烘焙输出的编码（封进 QuickTime：带 alpha 时无损 PNG `rgba`，不透明时 ProRes 422 HQ，编码器是 `prores_videotoolbox` 或 `prores_ks`）。 */
   encoding: { container: 'mov'; codec: string; pixelFormat: string; alpha: boolean; fps: Rate; frames: number };
 }
 
