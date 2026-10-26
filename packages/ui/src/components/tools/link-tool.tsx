@@ -1,4 +1,4 @@
-import { Picker, PickerItem, Switch } from '@react-spectrum/s2';
+import { Picker, PickerItem, Switch, Text } from '@react-spectrum/s2';
 import { cookieSummary } from '../../model/link-cookies.ts';
 import { downloadDirLabel } from '../../model/link-import.ts';
 import { urlValid } from '../../model/new-flow.ts';
@@ -8,6 +8,7 @@ import { useCookieBrowserChoice } from '../../state/cookie-browsers-store.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { S } from '../shell-copy.ts';
 import { changeDownloadDir, DownloaderSummary, useDownloaderTool } from '../start/downloader-card.tsx';
 import { LinkSource } from '../start/flow-media.tsx';
 import { GrantCard, ToolFrame } from './tool-run-view.tsx';
@@ -34,7 +35,7 @@ export function LinkTool() {
   useRefreshWhenReady(downloader.ready);
   const cookies = useCookieBrowserChoice(true);
   const cookieBrowsers = cookies.list;
-  const projectId = draft.transcribe && projects.some((p) => p.id === draft.projectId) ? draft.projectId : null;
+  const projectId = draft.transcribe && projects.some((p) => p.id === draft.projectId && !p.missing) ? draft.projectId : null;
   const params = {
     url: draft.url.trim(), transcribe: draft.transcribe,
     ...(projectId ? { projectId } : {}),
@@ -69,9 +70,13 @@ export function LinkTool() {
       <Switch isSelected={draft.transcribe} onChange={(transcribe) => patch({ transcribe })}>{LINK_TOOL_COPY.transcribe}</Switch>
       {draft.transcribe ? <>
         <span className={detail}>{LINK_TOOL_COPY.transcribeNote}</span>
-        <Picker label={LINK_TOOL_COPY.project} selectedKey={projectId ?? 'none'} onSelectionChange={(key) => patch({ projectId: key === 'none' ? null : String(key) })}>
+        <Picker label={LINK_TOOL_COPY.project} selectedKey={projectId ?? 'none'} disabledKeys={projects.filter((p) => p.missing).map((p) => p.id)}
+          onSelectionChange={(key) => patch({ projectId: key === 'none' ? null : String(key) })}>
           <PickerItem id="none">{LINK_TOOL_COPY.noProject}</PickerItem>
-          {projects.map((p) => <PickerItem key={p.id} id={p.id}>{p.name}</PickerItem>)}
+          {projects.map((p) => <PickerItem key={p.id} id={p.id} textValue={p.name}>
+            <Text slot="label">{p.name}</Text>
+            {p.missing ? <Text slot="description">{S.sidebarRows.folderMissing}</Text> : null}
+          </PickerItem>)}
         </Picker>
         {projectId ? <span className={detail}>{LINK_TOOL_COPY.projectNote}</span> : null}
       </> : null}

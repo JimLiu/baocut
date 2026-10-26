@@ -100,6 +100,7 @@ import { useNarrow } from '../use-narrow.ts';
 import { useNow } from '../use-now.ts';
 import { SpaceVideoInfo } from '../video-info-dialog.tsx';
 import { SPACE_COPY as COPY } from './space-copy.ts';
+import { S } from '../shell-copy.ts';
 import { SpaceDialogs, type SpaceDialogState } from './space-dialogs.tsx';
 import { KIND_ICON, SpaceGrid, SpaceTable, type EntryAction } from './space-list.tsx';
 import { SpaceSearchHits } from './space-search-hits.tsx';
@@ -874,7 +875,8 @@ function NewMenu({ projectId, onImport }: { projectId: Id | null; onImport: () =
   const projects = useDirectory((s) => s.projects);
   const connected = useConnection((s) => s.state.status === 'connected');
   const open = useProject(projectId);
-  const owner = open && !open.archived ? open : undefined;
+  // 目录不在了的项目建不了视频：当作没筛项目，在子菜单里选别的项目。
+  const owner = open && !open.archived && !open.missing ? open : undefined;
   // 空视频直接建（16:9）并打开（原型 page-space.jsx `newProject({entry: 'blank', dir})`）；视频、音频文件到那个项目的起始页挂成素材，
   // 在输入框里说怎么处理（加字幕、音频转视频、翻译…）。图片照旧直接建视频放上时间线。
   const createBlank = (projectId: Id) => createBlankVideo(runtime, projectId, '16:9');
@@ -924,7 +926,7 @@ function NewMenu({ projectId, onImport }: { projectId: Id | null; onImport: () =
         </MenuItem>
         <Menu
           aria-label={COPY.whichProjectFor(label)}
-          disabledKeys={choices.length ? [] : ['none']}
+          disabledKeys={choices.length ? choices.filter((p) => p.missing).map((p) => p.id) : ['none']}
           onAction={(key) => key !== 'none' && void run(String(key))}>
           <MenuSection>
             <MenuHeader>
@@ -934,6 +936,7 @@ function NewMenu({ projectId, onImport }: { projectId: Id | null; onImport: () =
               choices.map((p) => (
                 <MenuItem key={p.id} id={p.id} textValue={p.name}>
                   <Text slot="label">{p.name}</Text>
+                  {p.missing ? <Text slot="description">{S.sidebarRows.folderMissing}</Text> : null}
                 </MenuItem>
               ))
             ) : (

@@ -135,10 +135,11 @@ export const useVideoTools = create<VideoToolsState>()((set) => ({
   patch: (tool, patch) => set((s) => ({ [tool]: { ...s[tool], ...patch } }) as Partial<VideoToolsState>),
 }));
 
-/** 新建视频放进哪个项目的缺省：上次用的还在就用它，否则第一个。 */
-export function defaultProject(projects: readonly { id: Id }[], last: Id | null): Id | null {
-  if (last && projects.some((p) => p.id === last)) return last;
-  return projects[0]?.id ?? null;
+/** 新建视频放进哪个项目的缺省：上次用的还在就用它，否则第一个；目录不在了的项目不算。 */
+export function defaultProject(projects: readonly { id: Id; missing?: true }[], last: Id | null): Id | null {
+  const usable = projects.filter((p) => !p.missing);
+  if (last && usable.some((p) => p.id === last)) return last;
+  return usable[0]?.id ?? null;
 }
 
 interface Ask {

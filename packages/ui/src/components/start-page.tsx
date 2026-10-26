@@ -89,9 +89,9 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
   const pickable = projects.filter((p) => !p.archived).sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
   // 旁边的编辑器开着项目里的视频时，新会话建在那个项目里，智能体才能读写这个视频（§1.5）。
   const videoProjectId = useVideo((s) => s.video?.ref?.source.projectId ?? null);
-  // 路由没带项目时用托盘上次选的（记在这台电脑上，还在、没归档才算；产品设计 §3.2.1），否则不用项目。
+  // 路由没带项目时用托盘上次选的（记在这台电脑上，还在、没归档、目录还在才算；产品设计 §3.2.1），否则不用项目。
   const lastProject = useHomeMemory((s) => s.project);
-  const remembered = lastProject && pickable.some((p) => p.id === lastProject) ? lastProject : null;
+  const remembered = lastProject && pickable.some((p) => p.id === lastProject && !p.missing) ? lastProject : null;
   const projectId = routeProjectId ?? videoProjectId ?? remembered;
   const project = useProject(projectId);
   // 「转录并翻译」上次填的目标语言：快捷开始沿用它，没有时那句话留待填项。

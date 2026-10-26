@@ -18,6 +18,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { importSummary, REFERENCE_KIND_LABEL } from '../../model/space-actions.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { NameDialog } from '../name-dialog.tsx';
+import { S } from '../shell-copy.ts';
 import { SPACE_COPY as COPY } from './space-copy.ts';
 
 const body = style({ display: 'flex', flexDirection: 'column', gap: 12 });
@@ -53,7 +54,7 @@ export function SpaceDialogs({
 }: {
   dialog: SpaceDialogState | null;
   /** 可以导入到的项目（没有归档的）。 */
-  projects: readonly { id: Id; name: string; path: string }[];
+  projects: readonly { id: Id; name: string; path: string; missing?: true }[];
   defaultProjectId: Id | null;
   onClose: () => void;
   onRename: (entry: SpaceEntry, name: string | null) => Promise<void>;
@@ -159,16 +160,18 @@ function ImportDialog({
   defaultProjectId,
   onClose,
 }: {
-  projects: readonly { id: Id; name: string; path: string }[];
+  projects: readonly { id: Id; name: string; path: string; missing?: true }[];
   defaultProjectId: Id | null;
   onClose: () => void;
 }) {
   const runtime = useRuntime();
+  // 目录不在了的项目导不进去：列出来但不能选，缺省也跳过它。
+  const usable = projects.filter((p) => !p.missing);
   const [target, setTarget] = useState<Id | null>(
-    defaultProjectId && projects.some((p) => p.id === defaultProjectId) ? defaultProjectId : (projects[0]?.id ?? null),
+    defaultProjectId && usable.some((p) => p.id === defaultProjectId) ? defaultProjectId : (usable[0]?.id ?? null),
   );
   const [busy, setBusy] = useState(false);
-  const project = projects.find((p) => p.id === target) ?? null;
+  const project = usable.find((p) => p.id === target) ?? null;
 
   const pick = async () => {
     if (!project || busy) return;
@@ -205,10 +208,12 @@ function ImportDialog({
                   <Picker
                     label={COPY.importProject}
                     value={target}
+                    disabledKeys={projects.filter((p) => p.missing).map((p) => p.id)}
                     onChange={(key) => key !== null && setTarget(String(key))}>
                     {projects.map((p) => (
                       <PickerItem key={p.id} id={p.id} textValue={p.name}>
-                        {p.name}
+                        <Text slot="label">{p.name}</Text>
+                        {p.missing ? <Text slot="description">{S.sidebarRows.folderMissing}</Text> : null}
                       </PickerItem>
                     ))}
                   </Picker>

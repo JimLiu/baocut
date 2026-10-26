@@ -109,7 +109,7 @@ export function TranscribeTool() {
 
   useRefreshWhenReady(downloader.ready);
 
-  const projectId = draft.projectId && projects.some((p) => p.id === draft.projectId) ? draft.projectId : defaultProject(projects, lastProject);
+  const projectId = draft.projectId && projects.some((p) => p.id === draft.projectId && !p.missing) ? draft.projectId : defaultProject(projects, lastProject);
   const project = projects.find((p) => p.id === projectId) ?? null;
   const entryId = draft.source === 'space' ? pick(rows, draft.entryId) : null;
   const row = entryId ? (rows.find((r) => r.entryId === entryId) ?? null) : null;

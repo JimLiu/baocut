@@ -96,12 +96,13 @@ describe('一处位置', () => {
 });
 
 describe('安装到目录的候选', () => {
-  it('没归档的项目，最近在用的在前；已经装过的不再列', () => {
+  it('没归档、目录还在的项目，最近在用的在前；已经装过的不再列', () => {
     const projects = [
       project('old', '/w/old', '2026-09-01T00:00:00Z'),
       project('new', '/w/new/', '2026-10-01T00:00:00Z'),
       project('gone', '/w/gone', '2026-10-10T00:00:00Z', true),
       project('done', '/w/done', '2026-10-12T00:00:00Z'),
+      { ...project('moved', '/w/moved', '2026-10-20T00:00:00Z'), missing: true as const },
     ];
     expect(projectChoices(projects, ['/w/done']).map((p) => p.id)).toEqual(['new', 'old']);
     expect(projectAt(projects, '/w/new')?.id).toBe('new');

@@ -71,12 +71,14 @@ export function locationAction(location: AgentSkillLocation): 'install' | 'updat
 }
 
 /**
- * 「安装到目录」里列的 BaoCut 项目：没归档的，最近在用的在前；第一个就是默认勾上的「当前项目」。
+ * 「安装到目录」里列的 BaoCut 项目：没归档、目录还在的，最近在用的在前；第一个就是默认勾上的「当前项目」。
  * 已经装过的文件夹不在这里（它们在下面的分组里，可以从分组菜单补装）。
  */
 export function projectChoices(projects: readonly Project[], installedDirs: readonly string[]): Project[] {
   const taken = new Set(installedDirs.map(trimSlash));
-  return projects.filter((p) => !p.archived && !taken.has(trimSlash(p.path))).sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
+  return projects
+    .filter((p) => !p.archived && !p.missing && !taken.has(trimSlash(p.path)))
+    .sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
 }
 
 export function trimSlash(p: string): string {

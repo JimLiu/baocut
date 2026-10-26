@@ -358,9 +358,12 @@
   function SpaceImport({open, dir, onClose}) {
     const app = useApp();
     const R = window.RSP;
-    const [target, setTarget] = useState(dir || (app.dirs[0] && app.dirs[0].id));
-    useEffect(() => { if (open) setTarget(dir || (app.dirs[0] && app.dirs[0].id)); }, [open]);
-    const d = app.dirById(target);
+    /* 目录不在了的项目导不进去：列着但不能选，缺省也跳过它 */
+    const usable = app.dirs.filter((x) => !x.missing);
+    const pick0 = () => (dir && usable.some((x) => x.id === dir) ? dir : usable[0] && usable[0].id);
+    const [target, setTarget] = useState(pick0);
+    useEffect(() => { if (open) setTarget(pick0()); }, [open]);
+    const d = usable.find((x) => x.id === target) || null;
     const take = (files, close) => {
       const recs = app.importAssets(files, target);
       const skipped = Array.from(files || []).length - recs.length;
@@ -377,8 +380,9 @@
                 <R.Heading slot="title">导入素材</R.Heading>
                 <R.Content>
                   <div className="spv">
-                    <R.Picker label="导入到项目" selectedKey={target} onSelectionChange={(k) => setTarget(String(k))}>
-                      {app.dirs.map((x) => <R.PickerItem key={x.id} id={x.id} textValue={x.name}>{x.name}</R.PickerItem>)}
+                    <R.Picker label="导入到项目" selectedKey={target} onSelectionChange={(k) => setTarget(String(k))} disabledKeys={app.dirs.filter((x) => x.missing).map((x) => x.id)}>
+                      {app.dirs.map((x) => <R.PickerItem key={x.id} id={x.id} textValue={x.name}><R.Text slot="label">{x.name}</R.Text>
+                        {x.missing && <R.Text slot="description">目录不在了</R.Text>}</R.PickerItem>)}
                     </R.Picker>
                     <p className="spv__hint">文件会拷进 <span className="spv__path">{d ? d.path : ''}素材/</span>，原文件不动。图片、音频、字幕、文档都行；视频请用「从文件新建视频」。</p>
                   </div>

@@ -54,9 +54,11 @@
         <R.Switch isSelected={st.transcribe} onChange={(transcribe) => set({transcribe})}>下载后转录</R.Switch>
         {st.transcribe && <>
           <span className="t-detail-xs">使用默认语音识别模型，自动检测语言，保存 TXT 文稿和 SRT 字幕。转录失败时已下载的视频仍保留。</span>
-          <R.Picker label="转录结果放到项目（可选）" selectedKey={st.dir || 'none'} onSelectionChange={(dir) => set({dir: dir === 'none' ? null : dir})} UNSAFE_className="tool-llm__field">
+          <R.Picker label="转录结果放到项目（可选）" selectedKey={st.dir || 'none'} onSelectionChange={(dir) => set({dir: dir === 'none' ? null : dir})}
+            disabledKeys={app.dirs.filter((d) => d.missing).map((d) => d.id)} UNSAFE_className="tool-llm__field">
             <R.PickerItem id="none">不放到项目</R.PickerItem>
-            {app.dirs.map((d) => <R.PickerItem key={d.id} id={d.id}>{d.name}</R.PickerItem>)}
+            {app.dirs.map((d) => <R.PickerItem key={d.id} id={d.id} textValue={d.name}><R.Text slot="label">{d.name}</R.Text>
+              {d.missing && <R.Text slot="description">目录不在了</R.Text>}</R.PickerItem>)}
           </R.Picker>
           {st.dir && <span className="t-detail-xs">仅关联项目，文件仍保存在上方指定的目录。</span>}
         </>}

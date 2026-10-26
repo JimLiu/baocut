@@ -26,6 +26,7 @@ import { createBrandFromSkill, getBrand, writeBrand } from '../../runtime/skill-
 import { useBrands } from '../../state/brands-store.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { S } from '../shell-copy.ts';
 import { openHome } from '../start/open-home.ts';
 import { useSkillsLoader } from '../use-skills.ts';
 import { BRAND_COPY, DETAIL_COPY } from './skills-copy.ts';
@@ -175,12 +176,15 @@ function BrandCreateBody({ preset, onClose }: { preset: Id | null; onClose(): vo
   const projects = useDirectory((s) => s.projects).filter((p) => !p.archived);
   const method = useBrandMethod();
   const has = (id: Id) => brands.some((b) => b.projectId === id);
-  const taken = [GLOBAL_BRAND_ID, ...projects.map((p) => p.id)].filter(has);
-  const first = preset ?? [GLOBAL_BRAND_ID, ...projects.map((p) => p.id)].find((id) => !has(id)) ?? null;
+  // 已有 BRAND.md 的、目录不在了的项目都列着但不能选。
+  const gone = (id: Id) => projects.some((p) => p.id === id && p.missing);
+  const blocked = (id: Id) => has(id) || gone(id);
+  const taken = [GLOBAL_BRAND_ID, ...projects.map((p) => p.id)].filter(blocked);
+  const first = preset ?? [GLOBAL_BRAND_ID, ...projects.map((p) => p.id)].find((id) => !blocked(id)) ?? null;
   const [targetId, setTargetId] = useState<Id | null>(first);
   const project = targetId && !isGlobalId(targetId) ? (projects.find((p) => p.id === targetId) ?? null) : null;
   const target: BrandTarget | null =
-    targetId === null || has(targetId)
+    targetId === null || blocked(targetId)
       ? null
       : isGlobalId(targetId)
         ? { id: GLOBAL_BRAND_ID, name: BRAND_COPY.globalName, path: '', global: true }
@@ -220,7 +224,7 @@ function BrandCreateBody({ preset, onClose }: { preset: Id | null; onClose(): vo
                       <PickerItem key={p.id} id={p.id} textValue={p.name}>
                         <Folder />
                         <Text slot="label">{p.name}</Text>
-                        <Text slot="description">{has(p.id) ? BRAND_COPY.exists : brandFilePath(p.path)}</Text>
+                        <Text slot="description">{has(p.id) ? BRAND_COPY.exists : p.missing ? S.sidebarRows.folderMissing : brandFilePath(p.path)}</Text>
                       </PickerItem>
                     ))}
                   </PickerSection>

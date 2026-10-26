@@ -111,7 +111,8 @@
       <R.Heading level={1} UNSAFE_className="hhd__title" title={title}>{title}</R.Heading>
       {sess && ['running', 'waiting'].includes(sess.status) ? <span className="hhd__status" role="status">
         {sess.status === 'running' ? '进行中' : '待允许'}</span> : null}
-      <R.ActionMenu aria-label="会话操作" isQuiet onAction={onAction}>
+      {/* 项目目录不在了：要用目录的几项变灰（同侧栏项目菜单），记录照常能看 */}
+      <R.ActionMenu aria-label="会话操作" isQuiet onAction={onAction} disabledKeys={d && d.missing ? ['new', 'space', 'brand', 'reveal'] : []}>
         <R.MenuItem id="new" textValue="新建会话"><R.Icons.Add /><R.Text>{d ? '在此项目中新建会话' : '新建会话'}</R.Text></R.MenuItem>
         {sess ? <R.MenuItem id="pin" textValue={sess.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{sess.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem> : null}
         {d ? <R.MenuItem id="space" textValue={`在 Space 中查看 ${d.name}`}><R.Icons.Asset /><R.Text>{d.name}</R.Text></R.MenuItem> : null}

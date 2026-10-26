@@ -68,6 +68,9 @@ const titleStyle = style({
   whiteSpace: 'nowrap',
 });
 const statusText = style({ flexShrink: 0, font: 'ui-xs', color: 'gray-600' });
+
+/** 项目目录不在了时变灰的菜单项：都要用到项目目录（同侧栏项目菜单的 NEEDS_FOLDER）。 */
+const NEEDS_FOLDER = ['new', 'space', 'brand', 'reveal'];
 /** 会话进行中 / 等待批准的状态词（按界面语言）；窄窗口的会话标签也用它（workspace-tabs.tsx）。 */
 export const STATUS_WORD: { readonly running: string; readonly waiting: string } = live(() => ({
   running: S.conversationHeader.running,
@@ -122,7 +125,8 @@ export function ConversationHeader({
         <ActionButton isQuiet aria-label={S.conversationHeader.actions}>
           <More />
         </ActionButton>
-        <Menu aria-label={S.conversationHeader.actions} onAction={onAction}>
+        {/* 项目目录不在了：要用目录的几项变灰（和侧栏项目菜单一致），记录照常能看、能改名、能删。 */}
+        <Menu aria-label={S.conversationHeader.actions} onAction={onAction} disabledKeys={project?.missing ? NEEDS_FOLDER : []}>
           <MenuSection>
             <MenuItem id="new" textValue={project ? S.common.newSessionInProject : S.common.newSession}>
               <Add />

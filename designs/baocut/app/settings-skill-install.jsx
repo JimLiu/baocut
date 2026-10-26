@@ -71,7 +71,7 @@
   function DirInstallDialog({open, mode, onClose}) {
     const app = useApp();
     const ver = D.app.skillVersion;
-    const dirs = app.dirs || [];
+    const dirs = (app.dirs || []).filter((d) => !d.missing);   // 目录不在了的项目装不进去，不列
     const cur = M.currentDir(dirs);
     const projects = cur ? [cur, ...dirs.filter((d) => d !== cur)] : dirs;
     const [extra, setExtra] = useState([]);            // 用户加进来的文件夹路径

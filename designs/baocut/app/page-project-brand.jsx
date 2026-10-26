@@ -176,10 +176,12 @@
     const m = useMethod();
     const hasGlobal = PB.hasBrand(app.projectBrands, PB.GLOBAL);
     const dirs = (app.dirs || []).filter((d) => !d.archived);
-    const first = preset || (!hasGlobal ? PB.GLOBAL : (dirs.find((d) => !PB.hasBrand(app.projectBrands, d.id)) || {}).id);
+    /* 已经有 BRAND.md 的、目录不在了的项目列着但不能选 */
+    const blocked = (d) => PB.hasBrand(app.projectBrands, d.id) || !!d.missing;
+    const first = preset || (!hasGlobal ? PB.GLOBAL : (dirs.find((d) => !blocked(d)) || {}).id);
     const [target, setTarget] = useState(first || null);
-    const dir = PB.isGlobal(target) ? PB.globalDir() : dirs.find((d) => d.id === target) || null;
-    const taken = [...(hasGlobal ? [PB.GLOBAL] : []), ...dirs.filter((d) => PB.hasBrand(app.projectBrands, d.id)).map((d) => d.id)];
+    const dir = PB.isGlobal(target) ? PB.globalDir() : dirs.find((d) => d.id === target && !d.missing) || null;
+    const taken = [...(hasGlobal ? [PB.GLOBAL] : []), ...dirs.filter(blocked).map((d) => d.id)];
     const go = () => { onClose(); act.create(dir, m.how, m.skill); };
     return <Dialog open title="新建品牌" width={560} onClose={onClose}
       footer={<><Btn onClick={onClose}>取消</Btn><Btn variant="accent" disabled={!dir || !m.ready} onClick={go}>{ctaOf(m.how)}</Btn></>}>
@@ -191,7 +193,7 @@
           </R.PickerSection>
           <R.PickerSection><R.Header>项目</R.Header>
             {dirs.map((d) => <R.PickerItem key={d.id} id={d.id} textValue={d.name}><R.Icons.Folder /><R.Text slot="label">{d.name}</R.Text>
-              <R.Text slot="description">{PB.hasBrand(app.projectBrands, d.id) ? '已经有了' : `只在这个项目里用 · ${d.path}${PB.FILE}`}</R.Text></R.PickerItem>)}
+              <R.Text slot="description">{PB.hasBrand(app.projectBrands, d.id) ? '已经有了' : d.missing ? '目录不在了' : `只在这个项目里用 · ${d.path}${PB.FILE}`}</R.Text></R.PickerItem>)}
           </R.PickerSection>
         </R.Picker>
         {dir ? <p className="skp-block__hint">{PB.isGlobal(dir) ? '全局品牌用在所有会话里；某个项目要不一样，再给那个项目单独建一份，它优先。'
