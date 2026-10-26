@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const es: CaptionSceneMessages = {
+  heading: "Estilo de plantilla",
+  note: "Una plantilla es una escena completa, así que solo se pueden ajustar los ajustes de abajo. Para editarlo todo, cambia a un estilo integrado.",
+
+  colors: "Colores",
+  colorsAside: "Una muestra cambia ese color en toda la plantilla",
+  uses: {
+    text: "Texto",
+    stroke: "Contorno",
+    shadow: "Sombra",
+    glow: "Brillo",
+    active: "Palabra actual",
+    read: "Dichas",
+    unread: "Siguientes",
+    keyword: "Palabra clave",
+    plate: "Fondo",
+    "word-box": "Recuadro por palabra",
+    material: "Material",
+  },
+  animated: "Animado",
+  colorAria: (uses: string) => `Color de la plantilla · ${uses}`,
+
+  fonts: "Fuentes",
+  fontsAside: "Cambiar la fuente vuelve a maquetar el texto",
+  fontRow: (n: number) => (n === 1 ? "Fuente principal" : `Fuente ${n}`),
+  tunedSpacing: "La plantilla ajustó el espaciado entre letras para su fuente original. El espaciado se mantiene al cambiar de fuente, así que el texto puede verse apretado o suelto.",
+
+  size: "Tamaño",
+  sizeAside: "El texto y las decoraciones se escalan juntos",
+  fontScale: "Escala",
+
+  position: "Posición",
+  positionAside: "Proporción del encuadre",
+  places: { y: "Vertical", x: "Horizontal", width: "Ancho" },
+  computed: "Lo fija la plantilla; no se puede cambiar aquí",
+
+  keywords: "Palabras clave",
+  keywordsAside: "Elige palabras; se aplica a esta capa de subtítulos",
+  keywordsAria: "Palabras clave de este subtítulo",
+  noCue: "Primero mueve el cabezal de reproducción sobre un subtítulo.",
+  noWords: "Este subtítulo no tiene datos por palabra, así que no se pueden marcar palabras clave.",
+  keywordsNote: "La plantilla lee la etiqueta de palabra clave de estas palabras y decide cómo destacarlas. Las palabras nunca se eligen automáticamente.",
+
+  variant: "Versión",
+  variantAside: "Cambia las partes aleatorias de la plantilla",
+  nextVariant: "Otra versión",
+  variantN: (n: number) => `Versión ${n}`,
+
+  makeup: "Composición",
+  makeupAside: "Solo lectura",
+  layers: "Capas",
+  layerKinds: {
+    fill: "Relleno",
+    stroke: "Contorno",
+    shadow: "Sombra",
+    "inner-shadow": "Sombra interior",
+    glow: "Brillo",
+    plate: "Fondo",
+    box: "Recuadro por palabra",
+    image: "Textura",
+    material: "Material",
+  },
+  tiers: "Niveles",
+  tierKinds: {
+    "glyph-motion": "Movimiento de glifos",
+    "text-paint": "Pintura del texto",
+    "texture-effects": "Texturas y efectos",
+    "derived-decoration": "Decoraciones",
+  },
+  wordTiming: "Tiempos por palabra",
+  needed: "Necesarios",
+  notNeeded: "No necesarios",
+  listSeparator: " · ",
+
+  adjusted: "Ajustado",
+  asTemplate: "Como la plantilla",
+  restore: "Restaurar",
+  restored: "Se restauró la plantilla original",
+  unavailable: "Los ajustes de la plantilla no están disponibles ahora.",
+  galleryReplaces: "Este subtítulo usa un estilo de plantilla. Elegir un estilo integrado reemplaza la plantilla y sus ajustes.",
+};

@@ -16,6 +16,8 @@ import { CaptionActiveSection, type WordSectionProps } from './inspector-caption
 import { CaptionMotionSection } from './inspector-caption-motion.tsx';
 import { CaptionSequenceSection } from './inspector-caption-sequence.tsx';
 import { lineBody } from '../../model/caption-presets.ts';
+import { isSceneStyle } from '../../model/caption-scene-style.ts';
+import { CaptionScenePage } from './inspector-caption-scene.tsx';
 import { hasPanels } from '../../model/panels.ts';
 import { CAPTION_STYLE_COPY as S } from './subtitle-copy.ts';
 import { useCaptionStyle } from './use-caption-style.ts';
@@ -95,6 +97,21 @@ export function CaptionPage(
     return (
       <>
         <Note>{IC.loadingCaptionStyle}</Note>
+        <Tail {...props} />
+      </>
+    );
+  // 模板样式（一整份场景）：属性页换成只开放几样调整的那一页（字幕编辑器重设计 §9.3）。
+  if (record && isSceneStyle(body))
+    return (
+      <>
+        {videoId && chip ? (
+          <div className={actions}>
+            <Button variant="secondary" size="S" onPress={() => (onOpenStyles ? onOpenStyles(chip.key) : openCaptionStyles(chip.key))}>
+              {S.open}
+            </Button>
+          </div>
+        ) : null}
+        <CaptionScenePage {...props} record={record} body={body} chip={chip} />
         <Tail {...props} />
       </>
     );

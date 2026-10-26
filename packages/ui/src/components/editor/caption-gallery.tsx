@@ -19,12 +19,14 @@ import {
   type CaptionPreset,
   type PresetScope,
 } from '../../model/caption-presets.ts';
+import { dropPresentations, isSceneStyle } from '../../model/caption-scene-style.ts';
 import { captionGroups, groupOf, onScreen, type CaptionChip } from '../../model/caption-tracks.ts';
 import { DEFAULT_CAPTION_STYLE, captionStyleRoot } from '../../model/property-values.ts';
 import { asObject, type Json, type LineKind } from '../../render/text-style.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { CAPTION_PANEL_COPY as P } from './caption-panel-copy.ts';
+import { CAPTION_SCENE_COPY as T } from './caption-scene-copy.ts';
 import { CaptionThumb } from './caption-thumb.tsx';
 import { draftedBody, dropStaleDraft } from './draft-documents.ts';
 import { useEditorActions } from './editor-context.tsx';
@@ -222,7 +224,10 @@ export function CaptionGallery({
   useEffect(() => {
     if (record) dropStaleDraft(record.id, record.currentRevision, loaded);
   }, [record, loaded]);
-  const root = body === undefined ? null : captionStyleRoot(body);
+  // 模板样式（一整份场景）：内置样式整份换掉它（连同调整），画廊按缺省样式起算，哪张卡都不是「当前」。
+  const template = isSceneStyle(body);
+  const base = template ? DEFAULT_CAPTION_STYLE : body;
+  const root = base === undefined ? null : captionStyleRoot(base);
   // 同组别的段各有一份样式时（纪录片每段素材一份）一起套：画廊画的是这一份，写的是整组，一笔撤销。
   const layers = useMemo(() => captionGroups(sequence, chips, documents), [sequence, chips, documents]);
   const siblings = useMemo(() => {
@@ -234,7 +239,7 @@ export function CaptionGallery({
 
   // 「套到」：这份样式管两种行时才出；作用域是这一页自己的，不写进选中（原型第 152 轮）。
   const [picked, setPicked] = useState<PresetScope>('all');
-  const scope: PresetScope = picked !== 'all' && target.kinds.includes(picked) ? picked : 'all';
+  const scope: PresetScope = !template && picked !== 'all' && target.kinds.includes(picked) ? picked : 'all';
   const showing = onScreen(chips);
   /** 「套到」与提示里一种行的名字：用轨条上那一组的名字（几段并成一组时不是某一段的名字）。 */
   const labelOf = (kind: LineKind) => {
@@ -244,31 +249,41 @@ export function CaptionGallery({
   const groups = useMemo(() => presetGroups(), []);
   const previews = useMemo(() => {
     const out = new Map<string, Json>();
-    if (body === undefined || !root) return out;
-    for (const group of groups) for (const preset of group.presets) out.set(preset.id, asObject(applyPreset(body, preset, scope).style));
+    if (base === undefined || !root) return out;
+    for (const group of groups) for (const preset of group.presets) out.set(preset.id, asObject(applyPreset(base, preset, scope).style));
     return out;
-  }, [body, root, groups, scope]);
+  }, [base, root, groups, scope]);
   const kindsKey = target.kinds.join(',');
   const kinds = useMemo(() => (kindsKey ? (kindsKey.split(',') as LineKind[]) : []), [kindsKey]);
-  const onCard = (preset: CaptionPreset) => !!root && presetOn(root, preset, scope === 'all' ? kinds : [scope]);
-  const changedCard = (preset: CaptionPreset) => !!root && presetModified(root, preset, scope === 'all' ? kinds : [scope]);
+  const onCard = (preset: CaptionPreset) => !template && !!root && presetOn(root, preset, scope === 'all' ? kinds : [scope]);
+  const changedCard = (preset: CaptionPreset) => !template && !!root && presetModified(root, preset, scope === 'all' ? kinds : [scope]);
 
   const current = chips.find((c) => c.key === selected && c.state !== 'shelved') ?? showing[0] ?? null;
   const disabled = !editable || !root || siblingBodies.some((sibling) => sibling === undefined);
 
   const pick = async (preset: CaptionPreset): Promise<boolean> => {
-    if (disabled || body === undefined) return false;
-    const next = applyPreset(body, preset, scope);
+    if (disabled || base === undefined) return false;
+    const next = applyPreset(base, preset, scope);
     if (record) useEditor.getState().setDocumentDraft({ documentId: record.id, baseRevision: record.currentRevision, body: next });
     const together = siblings.map(
-      (sibling, i): EditOperation => ({ type: 'putDocument', documentId: sibling.id, kind: sibling.kind, body: applyPreset(siblingBodies[i], preset, scope) }),
+      (sibling, i): EditOperation => ({
+        type: 'putDocument',
+        documentId: sibling.id,
+        kind: sibling.kind,
+        body: applyPreset(isSceneStyle(siblingBodies[i]) ? DEFAULT_CAPTION_STYLE : siblingBodies[i], preset, scope),
+      }),
     );
-    const receipt = await apply([...captionStyleOperations(sequence, record, next), ...together], EditLabel.applySubtitleStyle());
+    // 换掉的模板上的关键词与 seed 一并去掉，不然新样式画不出来。
+    const replaced = new Set(siblings.filter((_, i) => isSceneStyle(siblingBodies[i])).map((s) => s.id));
+    if (template && record) replaced.add(record.id);
+    const dropped = dropPresentations(sequence, replaced);
+    const receipt = await apply([...captionStyleOperations(sequence, record, next), ...together, ...dropped], EditLabel.applySubtitleStyle());
     if (!receipt) {
       useEditor.getState().clearDrafts();
       return false;
     }
-    useCaptionPreferences.getState().remember(root!, asObject(next.style));
+    // 换掉模板不是改样式，不记进新字幕选项（模板没有可比的根样式）。
+    if (!template) useCaptionPreferences.getState().remember(root!, asObject(next.style));
     const others = kinds.filter((kind) => kind !== scope).map(labelOf);
     const message =
       scope === 'all'
@@ -301,7 +316,7 @@ export function CaptionGallery({
     <>
       <PanelHead title={S.title} back={{ label: backLabel ?? S.back, onPress: onBack }} />
       {children}
-      {kinds.length > 1 && root ? (
+      {kinds.length > 1 && root && !template ? (
         <div className={scopeRow}>
           <span className={scopeLabel}>{S.scope}</span>
           <Seg<PresetScope>
@@ -321,6 +336,7 @@ export function CaptionGallery({
         ) : (
           <>
             {!editable ? <Note>{S.readOnly}</Note> : null}
+            {template ? <Note>{T.galleryReplaces}</Note> : null}
             {groups.map((group, index) => (
               <Fragment key={group.key}>
                 <SecHead first={index === 0}>{group.label}</SecHead>

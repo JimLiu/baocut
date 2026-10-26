@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const de: CaptionSceneMessages = {
+  heading: "Vorlagenstil",
+  note: "Eine Vorlage ist eine vollständige Szene, daher lassen sich nur die Einstellungen unten anpassen. Um alles zu bearbeiten, wechsle zu einem integrierten Stil.",
+
+  colors: "Farben",
+  colorsAside: "Ein Farbfeld ändert diese Farbe in der ganzen Vorlage",
+  uses: {
+    text: "Text",
+    stroke: "Kontur",
+    shadow: "Schatten",
+    glow: "Glühen",
+    active: "Aktuelles Wort",
+    read: "Gesprochen",
+    unread: "Kommend",
+    keyword: "Schlüsselwort",
+    plate: "Hintergrund",
+    "word-box": "Wortkasten",
+    material: "Material",
+  },
+  animated: "Animiert",
+  colorAria: (uses: string) => `Vorlagenfarbe · ${uses}`,
+
+  fonts: "Schriften",
+  fontsAside: "Eine andere Schrift setzt den Text neu",
+  fontRow: (n: number) => (n === 1 ? "Hauptschrift" : `Schrift ${n}`),
+  tunedSpacing: "Die Vorlage hat den Zeichenabstand für ihre ursprüngliche Schrift eingestellt. Er bleibt beim Schriftwechsel erhalten, der Text kann also eng oder locker wirken.",
+
+  size: "Größe",
+  sizeAside: "Text und Dekorationen skalieren gemeinsam",
+  fontScale: "Skalierung",
+
+  position: "Position",
+  positionAside: "Anteil am Bild",
+  places: { y: "Vertikal", x: "Horizontal", width: "Breite" },
+  computed: "Von der Vorlage festgelegt; hier nicht änderbar",
+
+  keywords: "Schlüsselwörter",
+  keywordsAside: "Wörter auswählen; gilt für diese Untertitelebene",
+  keywordsAria: "Schlüsselwörter in diesem Untertitel",
+  noCue: "Setze den Abspielkopf zuerst auf einen Untertitel.",
+  noWords: "Dieser Untertitel hat keine Wortdaten, daher lassen sich keine Schlüsselwörter markieren.",
+  keywordsNote: "Die Vorlage liest die Schlüsselwort-Markierung dieser Wörter und entscheidet, wie sie hervorgehoben werden. Wörter werden nie automatisch gewählt.",
+
+  variant: "Variante",
+  variantAside: "Mischt die zufälligen Teile der Vorlage neu",
+  nextVariant: "Neue Variante",
+  variantN: (n: number) => `Variante ${n}`,
+
+  makeup: "Aufbau",
+  makeupAside: "Schreibgeschützt",
+  layers: "Ebenen",
+  layerKinds: {
+    fill: "Füllung",
+    stroke: "Kontur",
+    shadow: "Schatten",
+    "inner-shadow": "Innerer Schatten",
+    glow: "Glühen",
+    plate: "Hintergrund",
+    box: "Wortkasten",
+    image: "Textur",
+    material: "Material",
+  },
+  tiers: "Stufen",
+  tierKinds: {
+    "glyph-motion": "Glyphenbewegung",
+    "text-paint": "Textfarbe",
+    "texture-effects": "Texturen und Effekte",
+    "derived-decoration": "Dekorationen",
+  },
+  wordTiming: "Wort-Timing",
+  needed: "Nötig",
+  notNeeded: "Nicht nötig",
+  listSeparator: " · ",
+
+  adjusted: "Angepasst",
+  asTemplate: "Wie die Vorlage",
+  restore: "Zurücksetzen",
+  restored: "Vorlage im Original wiederhergestellt",
+  unavailable: "Die Vorlagenanpassung ist gerade nicht verfügbar.",
+  galleryReplaces: "Dieser Untertitel nutzt einen Vorlagenstil. Ein integrierter Stil ersetzt die Vorlage samt ihren Anpassungen.",
+};

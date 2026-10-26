@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const vi: CaptionSceneMessages = {
+  heading: "Phong cách mẫu",
+  note: "Mẫu là một cảnh hoàn chỉnh nên chỉ chỉnh được các mục bên dưới. Muốn sửa mọi thiết lập, hãy chuyển sang một phong cách có sẵn.",
+
+  colors: "Màu",
+  colorsAside: "Một ô màu đổi màu đó trên toàn mẫu",
+  uses: {
+    text: "Chữ",
+    stroke: "Viền",
+    shadow: "Bóng",
+    glow: "Phát sáng",
+    active: "Từ hiện tại",
+    read: "Đã đọc",
+    unread: "Sắp đọc",
+    keyword: "Từ khóa",
+    plate: "Nền",
+    "word-box": "Khung từng từ",
+    material: "Chất liệu",
+  },
+  animated: "Có hoạt ảnh",
+  colorAria: (uses: string) => `Màu của mẫu · ${uses}`,
+
+  fonts: "Phông chữ",
+  fontsAside: "Đổi phông sẽ dàn lại chữ",
+  fontRow: (n: number) => (n === 1 ? "Phông chính" : `Phông ${n}`),
+  tunedSpacing: "Mẫu đã chỉnh khoảng cách chữ cho phông gốc. Khi đổi phông, khoảng cách vẫn giữ nguyên nên chữ có thể trông chật hoặc thưa.",
+
+  size: "Kích thước",
+  sizeAside: "Chữ và trang trí cùng co giãn",
+  fontScale: "Tỉ lệ",
+
+  position: "Vị trí",
+  positionAside: "Tỉ lệ so với khung hình",
+  places: { y: "Dọc", x: "Ngang", width: "Chiều rộng" },
+  computed: "Do mẫu quyết định; không đổi được ở đây",
+
+  keywords: "Từ khóa",
+  keywordsAside: "Chọn từ; áp dụng cho lớp phụ đề này",
+  keywordsAria: "Từ khóa trong phụ đề này",
+  noCue: "Trước tiên hãy đưa đầu phát lên một phụ đề.",
+  noWords: "Phụ đề này không có dữ liệu từng từ nên không đánh dấu được từ khóa.",
+  keywordsNote: "Mẫu đọc nhãn từ khóa trên các từ này và tự quyết định cách nhấn mạnh. Từ không bao giờ được chọn tự động.",
+
+  variant: "Phiên bản",
+  variantAside: "Xáo lại các phần ngẫu nhiên của mẫu",
+  nextVariant: "Bản khác",
+  variantN: (n: number) => `Bản ${n}`,
+
+  makeup: "Cấu tạo",
+  makeupAside: "Chỉ đọc",
+  layers: "Lớp",
+  layerKinds: {
+    fill: "Tô màu",
+    stroke: "Viền",
+    shadow: "Bóng",
+    "inner-shadow": "Bóng trong",
+    glow: "Phát sáng",
+    plate: "Nền",
+    box: "Khung từng từ",
+    image: "Kết cấu",
+    material: "Chất liệu",
+  },
+  tiers: "Cấp",
+  tierKinds: {
+    "glyph-motion": "Chuyển động ký tự",
+    "text-paint": "Tô chữ",
+    "texture-effects": "Kết cấu và hiệu ứng",
+    "derived-decoration": "Trang trí",
+  },
+  wordTiming: "Thời gian từng từ",
+  needed: "Cần",
+  notNeeded: "Không cần",
+  listSeparator: " · ",
+
+  adjusted: "Đã chỉnh",
+  asTemplate: "Như mẫu",
+  restore: "Khôi phục",
+  restored: "Đã khôi phục mẫu như ban đầu",
+  unavailable: "Hiện chưa chỉnh được mẫu.",
+  galleryReplaces: "Phụ đề này dùng phong cách mẫu. Chọn một phong cách có sẵn sẽ thay cả mẫu lẫn các chỉnh sửa của nó.",
+};

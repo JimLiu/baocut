@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const tr: CaptionSceneMessages = {
+  heading: "Şablon stili",
+  note: "Şablon tek parça bir sahnedir; bu yüzden yalnızca aşağıdaki ayarlar değiştirilebilir. Her şeyi düzenlemek için yerleşik bir stile geçin.",
+
+  colors: "Renkler",
+  colorsAside: "Bir renk örneği o rengi şablonun her yerinde değiştirir",
+  uses: {
+    text: "Metin",
+    stroke: "Kontur",
+    shadow: "Gölge",
+    glow: "Parıltı",
+    active: "Geçerli sözcük",
+    read: "Söylenen",
+    unread: "Sıradaki",
+    keyword: "Anahtar sözcük",
+    plate: "Arka plan",
+    "word-box": "Sözcük kutusu",
+    material: "Malzeme",
+  },
+  animated: "Animasyonlu",
+  colorAria: (uses: string) => `Şablon rengi · ${uses}`,
+
+  fonts: "Yazı tipleri",
+  fontsAside: "Yazı tipini değiştirmek metni yeniden dizer",
+  fontRow: (n: number) => (n === 1 ? "Ana yazı tipi" : `Yazı tipi ${n}`),
+  tunedSpacing: "Şablon harf aralığını özgün yazı tipine göre ayarlamış. Yazı tipi değişince aralık aynı kalır; metin sıkışık ya da seyrek görünebilir.",
+
+  size: "Boyut",
+  sizeAside: "Metin ve süslemeler birlikte ölçeklenir",
+  fontScale: "Ölçek",
+
+  position: "Pozisyon",
+  positionAside: "Karenin oranı",
+  places: { y: "Dikey", x: "Yatay", width: "Genişlik" },
+  computed: "Şablon belirler; burada değiştirilemez",
+
+  keywords: "Anahtar sözcükler",
+  keywordsAside: "Sözcük seçin; bu altyazı katmanına uygulanır",
+  keywordsAria: "Bu altyazıdaki anahtar sözcükler",
+  noCue: "Önce oynatma kafasını bir altyazının üzerine getirin.",
+  noWords: "Bu altyazıda sözcük verisi yok, bu yüzden anahtar sözcük işaretlenemez.",
+  keywordsNote: "Şablon bu sözcüklerdeki anahtar sözcük etiketini okur ve nasıl vurgulanacağına kendisi karar verir. Sözcükler hiçbir zaman otomatik seçilmez.",
+
+  variant: "Sürüm",
+  variantAside: "Şablonun rastgele kısımlarını yeniden karıştırır",
+  nextVariant: "Başka sürüm",
+  variantN: (n: number) => `Sürüm ${n}`,
+
+  makeup: "Yapı",
+  makeupAside: "Salt okunur",
+  layers: "Katmanlar",
+  layerKinds: {
+    fill: "Dolgu",
+    stroke: "Kontur",
+    shadow: "Gölge",
+    "inner-shadow": "İç gölge",
+    glow: "Parıltı",
+    plate: "Arka plan",
+    box: "Sözcük kutusu",
+    image: "Doku",
+    material: "Malzeme",
+  },
+  tiers: "Düzeyler",
+  tierKinds: {
+    "glyph-motion": "Glif hareketi",
+    "text-paint": "Metin boyası",
+    "texture-effects": "Dokular ve efektler",
+    "derived-decoration": "Süslemeler",
+  },
+  wordTiming: "Sözcük zamanlaması",
+  needed: "Gerekli",
+  notNeeded: "Gerekmez",
+  listSeparator: " · ",
+
+  adjusted: "Ayarlandı",
+  asTemplate: "Şablondaki gibi",
+  restore: "Geri al",
+  restored: "Şablon özgün hâline döndürüldü",
+  unavailable: "Şablon ayarları şu anda kullanılamıyor.",
+  galleryReplaces: "Bu altyazı bir şablon stili kullanıyor. Yerleşik bir stil seçmek şablonu ayarlarıyla birlikte değiştirir.",
+};

@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const ptBR: CaptionSceneMessages = {
+  heading: "Estilo de modelo",
+  note: "Um modelo é uma cena completa, então só os ajustes abaixo podem ser alterados. Para editar tudo, troque para um estilo integrado.",
+
+  colors: "Cores",
+  colorsAside: "Uma amostra muda essa cor em todo o modelo",
+  uses: {
+    text: "Texto",
+    stroke: "Contorno",
+    shadow: "Sombra",
+    glow: "Brilho",
+    active: "Palavra atual",
+    read: "Ditas",
+    unread: "Próximas",
+    keyword: "Palavra-chave",
+    plate: "Fundo",
+    "word-box": "Caixa por palavra",
+    material: "Material",
+  },
+  animated: "Animada",
+  colorAria: (uses: string) => `Cor do modelo · ${uses}`,
+
+  fonts: "Fontes",
+  fontsAside: "Trocar a fonte refaz o layout do texto",
+  fontRow: (n: number) => (n === 1 ? "Fonte principal" : `Fonte ${n}`),
+  tunedSpacing: "O modelo ajustou o espaçamento entre letras para a fonte original. O espaçamento continua ao trocar a fonte, então o texto pode ficar apertado ou solto.",
+
+  size: "Tamanho",
+  sizeAside: "Texto e decorações mudam de escala juntos",
+  fontScale: "Escala",
+
+  position: "Posição",
+  positionAside: "Proporção do quadro",
+  places: { y: "Vertical", x: "Horizontal", width: "Largura" },
+  computed: "Definido pelo modelo; não dá para mudar aqui",
+
+  keywords: "Palavras-chave",
+  keywordsAside: "Escolha palavras; vale para esta camada de legendas",
+  keywordsAria: "Palavras-chave desta legenda",
+  noCue: "Primeiro mova o indicador de reprodução para uma legenda.",
+  noWords: "Esta legenda não tem dados por palavra, então não dá para marcar palavras-chave.",
+  keywordsNote: "O modelo lê a etiqueta de palavra-chave dessas palavras e decide como destacá-las. As palavras nunca são escolhidas automaticamente.",
+
+  variant: "Versão",
+  variantAside: "Troca as partes aleatórias do modelo",
+  nextVariant: "Outra versão",
+  variantN: (n: number) => `Versão ${n}`,
+
+  makeup: "Composição",
+  makeupAside: "Somente leitura",
+  layers: "Camadas",
+  layerKinds: {
+    fill: "Preenchimento",
+    stroke: "Contorno",
+    shadow: "Sombra",
+    "inner-shadow": "Sombra interna",
+    glow: "Brilho",
+    plate: "Fundo",
+    box: "Caixa por palavra",
+    image: "Textura",
+    material: "Material",
+  },
+  tiers: "Níveis",
+  tierKinds: {
+    "glyph-motion": "Movimento dos glifos",
+    "text-paint": "Pintura do texto",
+    "texture-effects": "Texturas e efeitos",
+    "derived-decoration": "Decorações",
+  },
+  wordTiming: "Tempo por palavra",
+  needed: "Necessário",
+  notNeeded: "Não necessário",
+  listSeparator: " · ",
+
+  adjusted: "Ajustado",
+  asTemplate: "Como o modelo",
+  restore: "Restaurar",
+  restored: "Modelo restaurado como era",
+  unavailable: "Os ajustes do modelo não estão disponíveis agora.",
+  galleryReplaces: "Esta legenda usa um estilo de modelo. Escolher um estilo integrado substitui o modelo e os ajustes dele.",
+};

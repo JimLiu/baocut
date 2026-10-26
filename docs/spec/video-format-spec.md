@@ -1903,9 +1903,10 @@ interface CaptionStyleBody {
 - 是否需要逐词时间、是否随 `seed` 变化；
 - 分页方式；
 - 效果层；
-- 哪些项可调，`placement` 列出可覆盖的键。
+- 哪些项可调，`placement` 列出可覆盖的键；
+- 版面现在的位置：可覆盖的键套上调整后的值，按画布宽（`x`、`width`）或高（`y`）的比例给出。按像素或另一条边写的长度，要调用方给出画布尺寸才能换算。
 
-`CaptionItem.presentation` 可保存实例参数、`cueOverrides`（cueId 及可选 occurrenceId）、`wordTags`（wordId 到标签数组）和 16 位十六进制 `seed`。seed 省略时固定为零。已有实例用编辑操作 `setCaptionPresentation` 整份替换它，`null` 或空的去掉；模板调整页的「关键词」写 `wordTags`，「换一版」写 `seed`。参数合并次序为模板默认值、样式参数、实例参数、cue 覆盖、匹配 occurrence 的覆盖；未知参数、错误类型和越界值拒绝。样式与内容仍由各自文档拥有，实际词时间只从有效词流取得；新场景保留源词组，旧样式继续既有拆字路径。
+`CaptionItem.presentation` 可保存实例参数、`cueOverrides`（cueId 及可选 occurrenceId）、`wordTags`（wordId 到标签数组，词 ID 与 §3.8「句子的词」同一套；多字的 CJK 词拆成 `<词 ID>~<k>` 画时，写在整个词上的标签落到它拆出来的每个字上，字自己写了的不动）和 16 位十六进制 `seed`。seed 省略时固定为零。已有实例用编辑操作 `setCaptionPresentation` 整份替换它，`null` 或空的去掉；模板调整页的「关键词」写 `wordTags`，「换一版」写 `seed`。`presentation` 只对模板样式起作用：实例的样式不是 `caption-scene-style/1` 时带着它画不出来（`CAPTION_SCENE_INVALID`，路径 `presentation`），所以用内置样式整份换掉模板的那一笔要同时去掉挂在它上面的实例的 `presentation`。参数合并次序为模板默认值、样式参数、实例参数、cue 覆盖、匹配 occurrence 的覆盖；未知参数、错误类型和越界值拒绝。样式与内容仍由各自文档拥有，实际词时间只从有效词流取得；新场景保留源词组，旧样式继续既有拆字路径。
 
 **实例词显示范围。** 场景声明 `caption-word-text-projection/1` 后，`cueOverrides` 项可增加 `wordTextProjection`：
 

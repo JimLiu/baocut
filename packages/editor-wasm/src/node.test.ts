@@ -282,6 +282,9 @@ describe.skipIf(!built)('editor-wasm 模板字幕摘要（Node）', () => {
     expect(summary.fonts[0]).toMatchObject({ key: 'Noto Sans SC', weight: 700, tunedSpacing: false });
     expect(summary.adjustable).toEqual({ colors: true, fonts: true, fontScale: true, placement: ['x', 'y', 'width'] });
     expect(summary.needsWordTiming).toBe(true);
+    // 夹具的版面按像素写：没有画布时报不出位置，给了画布换算成比例。
+    expect(summary.placement).toEqual({});
+    expect(captionSceneSummary(body, { width: 160, height: 90 }).placement).toEqual({ x: 0.5, y: 0.5, width: 0.875 });
     expect(() => captionSceneSummary({ schema: 'baocut.caption-style/1' })).toThrow(expect.objectContaining({ code: 'INVALID_STYLE' }));
   });
 });

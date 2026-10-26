@@ -401,6 +401,9 @@ export interface CaptionSceneSummary {
   /** `nodeId` is empty for scene-wide materials. */
   layers: { nodeId: string; kind: CaptionSummaryLayerKind; detail?: string }[];
   adjustable: { colors: boolean; fonts: boolean; fontScale: boolean; placement: ('x' | 'y' | 'width')[] };
+  /** Current centre `x` / `y` and wrap `width` (adjust applied) as fractions of canvas width (`x`, `width`) or height (`y`);
+   * missing for computed keys, and for pixel lengths when the summary had no canvas. */
+  placement: { x?: number; y?: number; width?: number };
 }
 /** Explicit UTF-8 half-open ranges in the unchanged cue display text.
  * Requires caption-word-text-projection/1; source word IDs and clocks are retained.

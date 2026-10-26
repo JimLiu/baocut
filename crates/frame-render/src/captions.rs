@@ -331,6 +331,22 @@ fn split_emphasis(style: &mut Value, cues: &[Value]) {
     }
 }
 
+/// 模板字幕的词标签（`presentation.wordTags`）同样按词 ID 写：写在整个词上的标签落到它拆出来的每个字上（字自己写了的不动）。
+fn split_word_tags(presentation: &mut caption_scene::Presentation, cues: &[subtitle_render::scene::SceneCue]) {
+    if presentation.word_tags.is_empty() {
+        return;
+    }
+    for word in cues.iter().flat_map(|cue| &cue.words) {
+        let Some((parent, _)) = word.id.rsplit_once('~') else { continue };
+        if presentation.word_tags.contains_key(&word.id) {
+            continue;
+        }
+        if let Some(tags) = presentation.word_tags.get(parent).cloned() {
+            presentation.word_tags.insert(word.id.clone(), tags);
+        }
+    }
+}
+
 /// 字幕文档的行种类是不是译文。
 pub fn is_translation(document: &FrozenDocument) -> bool {
     document.line_kind.as_deref() == Some("translation")
@@ -645,11 +661,11 @@ impl CaptionPlan {
         fps: f64,
         text: TextEngine,
         fonts_loaded: usize,
-        presentation: caption_scene::Presentation,
+        mut presentation: caption_scene::Presentation,
         instance_id: String,
     ) -> Result<Self> {
         if let CaptionStyle::Scene(style) = style {
-            let cues = members
+            let cues: Vec<subtitle_render::scene::SceneCue> = members
                 .iter()
                 .flat_map(|(doc, track)| {
                     track.cues.iter().map(move |c| subtitle_render::scene::SceneCue {
@@ -673,6 +689,7 @@ impl CaptionPlan {
                     })
                 })
                 .collect();
+            split_word_tags(&mut presentation, &cues);
             let scene = subtitle_render::scene::ScenePlan::compile(style.clone(), presentation, cues, size, text, instance_id)?;
             return Ok(Self {
                 legacy: None,
@@ -983,5 +1000,33 @@ mod tests {
             .map(|entry| entry.catalog_id)
             .collect();
         assert_eq!(kernel, video_model::caption_style::WORD_ANIMATION_IDS);
+    }
+
+    #[test]
+    fn whole_word_tags_reach_the_split_characters() {
+        use subtitle_render::scene::{SceneCue, SceneWord};
+        let word = |id: &str| SceneWord {
+            id: id.into(),
+            text: "字".into(),
+            start: 0.0,
+            end: 1.0,
+        };
+        let cues = vec![SceneCue {
+            id: "c".into(),
+            document_id: "d".into(),
+            text: "关键词好".into(),
+            start: 0.0,
+            end: 1.0,
+            words: vec![word("w1"), word("w1~1"), word("w1~2"), word("w2"), word("w2~1")],
+        }];
+        let mut presentation = caption_scene::Presentation::default();
+        presentation.word_tags.insert("w1".into(), vec!["keyword".into()]);
+        presentation.word_tags.insert("w2~1".into(), vec!["own".into()]);
+        split_word_tags(&mut presentation, &cues);
+        let tags = |id: &str| presentation.word_tags.get(id).cloned().unwrap_or_default();
+        assert_eq!(tags("w1~1"), vec!["keyword".to_string()]);
+        assert_eq!(tags("w1~2"), vec!["keyword".to_string()]);
+        assert!(tags("w2").is_empty());
+        assert_eq!(tags("w2~1"), vec!["own".to_string()]);
     }
 }

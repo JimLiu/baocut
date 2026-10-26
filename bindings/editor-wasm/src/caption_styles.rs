@@ -8,16 +8,26 @@ use serde::Deserialize;
 struct SummaryInput {
     /// A `baocut.caption-scene-style/1` body; its `adjust` fills the summary's `to` values.
     body: serde_json::Value,
+    /// Canvas `{width, height}` in pixels, so `placement` can report lengths written in pixels.
+    #[serde(default)]
+    canvas: Option<Canvas>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Canvas {
+    width: u32,
+    height: u32,
 }
 
-/// `{ body }` → `CaptionSceneSummary`. A body that is not a valid scene style is `INVALID_STYLE`.
+/// `{ body, canvas? }` → `CaptionSceneSummary`. A body that is not a valid scene style is `INVALID_STYLE`.
 pub fn caption_scene_summary(input: &[u8]) -> Result<String, EntryError> {
     let input: SummaryInput = serde_json::from_slice(input).map_err(invalid_input)?;
     let style = caption_scene::parse_style(&input.body).map_err(|error| EntryError {
         code: "INVALID_STYLE",
         message: error.to_string(),
     })?;
-    let summary = caption_scene::describe(style.scene(), style.adjust.as_ref());
+    let canvas = input.canvas.map(|c| (c.width, c.height));
+    let summary = caption_scene::describe(style.scene(), style.adjust.as_ref(), canvas);
     Ok(serde_json::to_string(&summary).expect("summary serializes"))
 }
 
@@ -30,9 +40,11 @@ mod tests {
         let mut body: serde_json::Value =
             serde_json::from_str(include_str!("../../../crates/caption-scene/tests/fixtures/word-pop.json")).unwrap();
         body["adjust"] = serde_json::json!({ "fontScale": 1.5 });
-        let input = serde_json::to_vec(&serde_json::json!({ "body": body })).unwrap();
+        let input = serde_json::to_vec(&serde_json::json!({ "body": body, "canvas": { "width": 160, "height": 90 } })).unwrap();
         let summary: serde_json::Value = serde_json::from_str(&caption_scene_summary(&input).unwrap()).unwrap();
         assert!(summary["colors"].is_array() && summary["adjustable"]["fontScale"] == true);
+        // The fixture writes its layout in pixels.
+        assert_eq!(summary["placement"], serde_json::json!({ "x": 0.5, "y": 0.5, "width": 0.875 }));
 
         let studio =
             serde_json::to_vec(&serde_json::json!({ "body": { "schema": "baocut.legacy-studio-style/0.1", "style": {} } })).unwrap();

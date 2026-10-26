@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const zhHans: CaptionSceneMessages = {
+  heading: "模板样式",
+  note: "模板是一整份场景，里面的结构属性页表达不了，所以只开放下面这几样调整。要逐项改，换一份内置样式。",
+
+  colors: "颜色",
+  colorsAside: "改一个色块，模板里同一种颜色一起换",
+  uses: {
+    text: "字色",
+    stroke: "描边",
+    shadow: "阴影",
+    glow: "发光",
+    active: "当前词",
+    read: "念过",
+    unread: "未念",
+    keyword: "关键词",
+    plate: "底板",
+    "word-box": "逐词底块",
+    material: "材质",
+  },
+  animated: "动画中",
+  colorAria: (uses: string) => `模板颜色 · ${uses}`,
+
+  fonts: "字体",
+  fontsAside: "换字体会重新排版",
+  fontRow: (n: number) => (n === 1 ? "正文" : `第 ${n} 款`),
+  tunedSpacing: "这款字体的字距是模板作者手工调过的，换了字体不跟着换，字可能挤或散。",
+
+  size: "大小",
+  sizeAside: "文字与装饰一起缩放",
+  fontScale: "字号倍率",
+
+  position: "位置",
+  positionAside: "画面宽高的比例",
+  places: { y: "上下位置", x: "水平位置", width: "宽度" },
+  computed: "由模板参数决定，这里调不了",
+
+  keywords: "关键词",
+  keywordsAside: "手动点词，只作用于这一层字幕",
+  keywordsAria: "这条字幕里的关键词",
+  noCue: "先将播放头移到一条字幕上。",
+  noWords: "这条字幕没有逐词信息，标不了关键词。",
+  keywordsNote: "模板读这些词的「关键词」标签，怎么强调由模板决定；不自动挑词。",
+
+  variant: "换一版",
+  variantAside: "模板里随机的部分换一组",
+  nextVariant: "换一版",
+  variantN: (n: number) => `第 ${n} 版`,
+
+  makeup: "构成",
+  makeupAside: "只读",
+  layers: "效果层",
+  layerKinds: {
+    fill: "填充",
+    stroke: "描边",
+    shadow: "阴影",
+    "inner-shadow": "内阴影",
+    glow: "发光",
+    plate: "底板",
+    box: "逐词底块",
+    image: "纹理",
+    material: "材质",
+  },
+  tiers: "分级",
+  tierKinds: {
+    "glyph-motion": "字形动画",
+    "text-paint": "文字涂装",
+    "texture-effects": "纹理与特效",
+    "derived-decoration": "派生装饰",
+  },
+  wordTiming: "逐词时间",
+  needed: "需要",
+  notNeeded: "不需要",
+  listSeparator: " · ",
+
+  adjusted: "已调整",
+  asTemplate: "模板原样",
+  restore: "还原",
+  restored: "已还原成模板原样",
+  unavailable: "模板调整暂时用不了。",
+  galleryReplaces: "这条字幕用的是模板样式。选一份内置样式会整份换掉模板，连同对它的调整。",
+};

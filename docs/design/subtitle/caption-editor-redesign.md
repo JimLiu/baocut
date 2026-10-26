@@ -156,6 +156,7 @@ interface CaptionSceneSummary {
   pagination: { mode: 'auto' | 'fixed'; wordsPerPage?: number };
   layers: { nodeId: string; kind: 'fill' | 'stroke' | 'shadow' | 'inner-shadow' | 'glow' | 'plate' | 'box' | 'image' | 'material'; detail?: string }[];
   adjustable: { colors: boolean; fonts: boolean; fontScale: boolean; placement: ('x' | 'y' | 'width')[] };
+  placement: { x?: number; y?: number; width?: number };   // 现在的位置，画布比例
 }
 type ColorUse = 'text' | 'stroke' | 'shadow' | 'glow' | 'plate' | 'word-box' | 'active' | 'read' | 'unread' | 'keyword' | 'material';
 ```
@@ -164,6 +165,7 @@ type ColorUse = 'text' | 'stroke' | 'shadow' | 'glow' | 'plate' | 'word-box' | '
 - 颜色按首次用途排序，不按样张上的覆盖面积：面积要先渲染一帧，摘要只读场景。
 - 字体覆盖的文字系统（判定「字体不含这门语言的字」）由界面查字体库，不在摘要里：场景只写字体族名，覆盖范围是字体文件的事实。
 - `adjustable.placement` 列出可覆盖的版面键；不在里面的键由参数或绑定算出，调整页显示为「由模板参数决定」。
+- `placement` 是位置段滑杆的起点：可覆盖的键套上调整后的值，换算成画布宽 / 高的比例。导入的模板常把 `y` 按画布宽写，或者直接写像素，所以 `describe` 可以带画布尺寸；不带时这几项报不出来。
 - 传了 `adjust` 时，颜色与字体条目照旧以模板原值为键，另带调整后的值 `to`；调整页的色块与字体行直接读 `to`，不必自己再套一遍调整。
 - 摘要是派生数据，按场景摘要缓存，不落盘。
 
@@ -296,6 +298,8 @@ type LocalizedText = string | Record<string, string>;   // 语言标签 → 文�
 | 关键词标签、seed | 字幕实例 `presentation` | 关键词按词，天然逐条 | 否 | 否 |
 
 模板样式不进 cue 级覆盖表：场景按页、跨词求值，单条覆盖会让同一页里前后两条长得不一样。需要某一条不一样时，用作用域「仅这一条」换成组合样式。
+
+用内置样式整份换掉模板时，同一笔里去掉这层字幕实例的 `presentation`（关键词、seed），一步撤销都回来。原型留着关键词标签，但现在的内置样式还不是场景，实例带着 `presentation` 画不出来（[视频格式 §5.6](../../spec/video-format-spec.md#56-layoutprofile样式与导出)）。等内置样式编译成场景（§12 第 2 步）、新预设读关键词以后，再改成留着关键词。
 
 ## 12. 落地顺序与验收
 

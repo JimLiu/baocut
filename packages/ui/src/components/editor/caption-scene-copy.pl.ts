@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const pl: CaptionSceneMessages = {
+  heading: "Styl szablonu",
+  note: "Szablon to jedna pełna scena, więc można dostosować tylko ustawienia poniżej. Aby edytować wszystko, przełącz na styl wbudowany.",
+
+  colors: "Kolory",
+  colorsAside: "Próbka zmienia ten kolor w całym szablonie",
+  uses: {
+    text: "Tekst",
+    stroke: "Obrys",
+    shadow: "Cień",
+    glow: "Blask",
+    active: "Bieżące słowo",
+    read: "Wypowiedziane",
+    unread: "Kolejne",
+    keyword: "Słowo kluczowe",
+    plate: "Tło",
+    "word-box": "Ramka słowa",
+    material: "Materiał",
+  },
+  animated: "Animowany",
+  colorAria: (uses: string) => `Kolor szablonu · ${uses}`,
+
+  fonts: "Czcionki",
+  fontsAside: "Zmiana czcionki układa tekst od nowa",
+  fontRow: (n: number) => (n === 1 ? "Czcionka główna" : `Czcionka ${n}`),
+  tunedSpacing: "Szablon dopasował odstępy między literami do swojej pierwotnej czcionki. Po zmianie czcionki odstępy zostają, więc tekst może wyglądać ciasno lub luźno.",
+
+  size: "Rozmiar",
+  sizeAside: "Tekst i ozdoby skalują się razem",
+  fontScale: "Skala",
+
+  position: "Pozycja",
+  positionAside: "Część kadru",
+  places: { y: "Pionowo", x: "Poziomo", width: "Szerokość" },
+  computed: "Ustala szablon; tu nie można zmienić",
+
+  keywords: "Słowa kluczowe",
+  keywordsAside: "Wybierz słowa; dotyczy tej warstwy napisów",
+  keywordsAria: "Słowa kluczowe w tym napisie",
+  noCue: "Najpierw ustaw głowicę odtwarzania na napisie.",
+  noWords: "Ten napis nie ma danych o słowach, więc nie można oznaczyć słów kluczowych.",
+  keywordsNote: "Szablon czyta znacznik słowa kluczowego tych słów i sam decyduje, jak je wyróżnić. Słowa nigdy nie są wybierane automatycznie.",
+
+  variant: "Wersja",
+  variantAside: "Losuje od nowa przypadkowe części szablonu",
+  nextVariant: "Inna wersja",
+  variantN: (n: number) => `Wersja ${n}`,
+
+  makeup: "Budowa",
+  makeupAside: "Tylko do odczytu",
+  layers: "Warstwy",
+  layerKinds: {
+    fill: "Wypełnienie",
+    stroke: "Obrys",
+    shadow: "Cień",
+    "inner-shadow": "Cień wewnętrzny",
+    glow: "Blask",
+    plate: "Tło",
+    box: "Ramka słowa",
+    image: "Tekstura",
+    material: "Materiał",
+  },
+  tiers: "Poziomy",
+  tierKinds: {
+    "glyph-motion": "Ruch glifów",
+    "text-paint": "Malowanie tekstu",
+    "texture-effects": "Tekstury i efekty",
+    "derived-decoration": "Ozdoby",
+  },
+  wordTiming: "Czas słów",
+  needed: "Potrzebny",
+  notNeeded: "Niepotrzebny",
+  listSeparator: " · ",
+
+  adjusted: "Dostosowano",
+  asTemplate: "Jak w szablonie",
+  restore: "Przywróć",
+  restored: "Przywrócono szablon do pierwotnej postaci",
+  unavailable: "Dostosowanie szablonu jest teraz niedostępne.",
+  galleryReplaces: "Ten napis używa stylu szablonu. Wybranie stylu wbudowanego zastąpi szablon razem z jego ustawieniami.",
+};

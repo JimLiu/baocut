@@ -70,7 +70,7 @@ fn template_fixture_is_valid() {
 #[test]
 fn summary_lists_colours_by_use_and_skips_parameter_defaults() {
     let style = parse_style(&template()).unwrap();
-    let summary = describe(style.scene(), None);
+    let summary = describe(style.scene(), None, None);
     let colors: Vec<(&str, Vec<&str>)> = summary.colors.iter().map(|c| (c.value.as_str(), c.uses.clone())).collect();
     assert_eq!(
         colors,
@@ -123,7 +123,7 @@ fn colour_swap_replaces_every_literal_and_keeps_alpha() {
     assert_eq!(scene.pointer("/parameters/0/default"), Some(&json!("#FFFFFF")));
     assert!(rendered.adjust.is_none() && rendered.origin.is_none());
     // The summary keys by the template value and carries the adjusted value.
-    let summary = describe(style.scene(), style.adjust.as_ref());
+    let summary = describe(style.scene(), style.adjust.as_ref(), None);
     let stroke = summary.colors.iter().find(|c| c.value == "#000000CC").unwrap();
     assert_eq!(stroke.to.as_deref(), Some("#3355FFCC"));
 }
@@ -147,7 +147,7 @@ fn font_swap_replaces_family_and_drops_the_exact_face() {
     assert_eq!(text.font_family, "Serif Two");
     assert_eq!(text.font_weight, 600);
     assert!(text.font_source.is_none());
-    let summary = describe(style.scene(), style.adjust.as_ref());
+    let summary = describe(style.scene(), style.adjust.as_ref(), None);
     assert_eq!(summary.fonts[0].to.as_ref().map(|t| t.family.as_str()), Some("Serif Two"));
 }
 
@@ -186,7 +186,23 @@ fn placement_overrides_constants_and_reports_computed_keys() {
     assert_eq!(adjusted.diagnostics.len(), 1);
     assert_eq!(adjusted.diagnostics[0].code, ADJUST_UNSUPPORTED);
     assert_eq!(adjusted.diagnostics[0].path, "adjust.placement.y");
-    assert_eq!(describe(style.scene(), None).adjustable.placement, vec!["x", "width"]);
+    assert_eq!(describe(style.scene(), None, None).adjustable.placement, vec!["x", "width"]);
+    // The summary reports the adjusted value, the template's own value, and nothing for computed keys.
+    let placement = describe(style.scene(), style.adjust.as_ref(), None).placement;
+    assert_eq!((placement.x, placement.y, placement.width), (Some(0.4), None, Some(0.8)));
+}
+
+#[test]
+fn summary_placement_converts_other_bases_with_the_canvas() {
+    let mut body = template();
+    body["scene"]["value"]["layout"]["y"] = json!({"value": 0.8, "basis": "canvasWidth"});
+    body["scene"]["value"]["layout"]["x"] = json!({"value": 360, "basis": "absolute", "offset": 36});
+    let style = parse_style(&body).unwrap();
+    let without = describe(style.scene(), None, None).placement;
+    assert_eq!((without.x, without.y, without.width), (None, None, Some(0.8)));
+    let with_canvas = describe(style.scene(), None, Some((720, 1280))).placement;
+    assert_eq!(with_canvas.x, Some(396.0 / 720.0));
+    assert_eq!(with_canvas.y, Some(0.8 * 720.0 / 1280.0));
 }
 
 #[test]
@@ -229,7 +245,7 @@ fn styles_without_adjust_serialize_unchanged() {
 #[test]
 fn summary_serializes_with_the_protocol_field_names() {
     let style = parse_style(&template()).unwrap();
-    let value = serde_json::to_value(describe(style.scene(), None)).unwrap();
+    let value = serde_json::to_value(describe(style.scene(), None, None)).unwrap();
     let keys: Vec<&str> = value.as_object().unwrap().keys().map(String::as_str).collect();
     for key in [
         "colors",
@@ -242,6 +258,7 @@ fn summary_serializes_with_the_protocol_field_names() {
         "pagination",
         "layers",
         "adjustable",
+        "placement",
     ] {
         assert!(keys.contains(&key), "{key} in {keys:?}");
     }
@@ -250,4 +267,5 @@ fn summary_serializes_with_the_protocol_field_names() {
     assert_eq!(value.pointer("/layers/0/nodeId"), Some(&json!("caption")));
     assert_eq!(value.pointer("/adjustable/fontScale"), Some(&json!(true)));
     assert_eq!(value.pointer("/adjustable/placement"), Some(&json!(["x", "y", "width"])));
+    assert_eq!(value.pointer("/placement"), Some(&json!({"x": 0.5, "y": 0.8, "width": 0.8})));
 }

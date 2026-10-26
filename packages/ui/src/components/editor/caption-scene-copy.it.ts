@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const it: CaptionSceneMessages = {
+  heading: "Stile modello",
+  note: "Un modello è una scena completa, quindi si possono regolare solo le impostazioni qui sotto. Per modificare tutto, passa a uno stile integrato.",
+
+  colors: "Colori",
+  colorsAside: "Un campione cambia quel colore in tutto il modello",
+  uses: {
+    text: "Testo",
+    stroke: "Contorno",
+    shadow: "Ombra",
+    glow: "Bagliore",
+    active: "Parola attiva",
+    read: "Pronunciate",
+    unread: "Successive",
+    keyword: "Parola chiave",
+    plate: "Sfondo",
+    "word-box": "Riquadro per parola",
+    material: "Materiale",
+  },
+  animated: "Animato",
+  colorAria: (uses: string) => `Colore del modello · ${uses}`,
+
+  fonts: "Font",
+  fontsAside: "Cambiare font reimpagina il testo",
+  fontRow: (n: number) => (n === 1 ? "Font principale" : `Font ${n}`),
+  tunedSpacing: "Il modello ha regolato la spaziatura tra le lettere per il font originale. La spaziatura resta quando cambi font, quindi il testo può sembrare stretto o largo.",
+
+  size: "Dimensione",
+  sizeAside: "Testo e decorazioni si ridimensionano insieme",
+  fontScale: "Scala",
+
+  position: "Posizione",
+  positionAside: "Parte dell’inquadratura",
+  places: { y: "Verticale", x: "Orizzontale", width: "Larghezza" },
+  computed: "Stabilito dal modello; non modificabile qui",
+
+  keywords: "Parole chiave",
+  keywordsAside: "Scegli le parole; vale per questo livello di sottotitoli",
+  keywordsAria: "Parole chiave di questo sottotitolo",
+  noCue: "Sposta prima la testina di riproduzione su un sottotitolo.",
+  noWords: "Questo sottotitolo non ha dati per parola, quindi non si possono segnare parole chiave.",
+  keywordsNote: "Il modello legge l’etichetta parola chiave di queste parole e decide come evidenziarle. Le parole non vengono mai scelte automaticamente.",
+
+  variant: "Versione",
+  variantAside: "Rimescola le parti casuali del modello",
+  nextVariant: "Altra versione",
+  variantN: (n: number) => `Versione ${n}`,
+
+  makeup: "Composizione",
+  makeupAside: "Sola lettura",
+  layers: "Livelli",
+  layerKinds: {
+    fill: "Riempimento",
+    stroke: "Contorno",
+    shadow: "Ombra",
+    "inner-shadow": "Ombra interna",
+    glow: "Bagliore",
+    plate: "Sfondo",
+    box: "Riquadro per parola",
+    image: "Texture",
+    material: "Materiale",
+  },
+  tiers: "Livelli di resa",
+  tierKinds: {
+    "glyph-motion": "Movimento dei glifi",
+    "text-paint": "Pittura del testo",
+    "texture-effects": "Texture ed effetti",
+    "derived-decoration": "Decorazioni",
+  },
+  wordTiming: "Tempi per parola",
+  needed: "Necessari",
+  notNeeded: "Non necessari",
+  listSeparator: " · ",
+
+  adjusted: "Regolato",
+  asTemplate: "Come il modello",
+  restore: "Ripristina",
+  restored: "Modello ripristinato com’era",
+  unavailable: "Le regolazioni del modello non sono disponibili al momento.",
+  galleryReplaces: "Questo sottotitolo usa uno stile modello. Scegliere uno stile integrato sostituisce il modello e le sue regolazioni.",
+};

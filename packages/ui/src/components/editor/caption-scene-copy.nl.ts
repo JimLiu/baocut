@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const nl: CaptionSceneMessages = {
+  heading: "Sjabloonstijl",
+  note: "Een sjabloon is één volledige scène, dus alleen de instellingen hieronder zijn aan te passen. Wissel naar een ingebouwde stijl om alles te bewerken.",
+
+  colors: "Kleuren",
+  colorsAside: "Een staal verandert die kleur in het hele sjabloon",
+  uses: {
+    text: "Tekst",
+    stroke: "Contour",
+    shadow: "Schaduw",
+    glow: "Gloed",
+    active: "Huidig woord",
+    read: "Uitgesproken",
+    unread: "Komend",
+    keyword: "Trefwoord",
+    plate: "Achtergrond",
+    "word-box": "Woordvlak",
+    material: "Materiaal",
+  },
+  animated: "Geanimeerd",
+  colorAria: (uses: string) => `Sjabloonkleur · ${uses}`,
+
+  fonts: "Lettertypen",
+  fontsAside: "Een ander lettertype zet de tekst opnieuw",
+  fontRow: (n: number) => (n === 1 ? "Hoofdlettertype" : `Lettertype ${n}`),
+  tunedSpacing: "Het sjabloon heeft de letterafstand afgestemd op het oorspronkelijke lettertype. Die afstand blijft bij een ander lettertype, dus tekst kan krap of ruim ogen.",
+
+  size: "Grootte",
+  sizeAside: "Tekst en decoraties schalen samen",
+  fontScale: "Schaal",
+
+  position: "Positie",
+  positionAside: "Deel van het beeld",
+  places: { y: "Verticaal", x: "Horizontaal", width: "Breedte" },
+  computed: "Bepaald door het sjabloon; hier niet te wijzigen",
+
+  keywords: "Trefwoorden",
+  keywordsAside: "Kies woorden; geldt voor deze ondertitellaag",
+  keywordsAria: "Trefwoorden in deze ondertitel",
+  noCue: "Zet de afspeelkop eerst op een ondertitel.",
+  noWords: "Deze ondertitel heeft geen woordgegevens, dus trefwoorden markeren kan niet.",
+  keywordsNote: "Het sjabloon leest het trefwoordlabel van deze woorden en bepaalt hoe ze worden benadrukt. Woorden worden nooit automatisch gekozen.",
+
+  variant: "Versie",
+  variantAside: "Husselt de willekeurige delen van het sjabloon",
+  nextVariant: "Andere versie",
+  variantN: (n: number) => `Versie ${n}`,
+
+  makeup: "Opbouw",
+  makeupAside: "Alleen-lezen",
+  layers: "Lagen",
+  layerKinds: {
+    fill: "Vulling",
+    stroke: "Contour",
+    shadow: "Schaduw",
+    "inner-shadow": "Binnenschaduw",
+    glow: "Gloed",
+    plate: "Achtergrond",
+    box: "Woordvlak",
+    image: "Textuur",
+    material: "Materiaal",
+  },
+  tiers: "Niveaus",
+  tierKinds: {
+    "glyph-motion": "Glyfbeweging",
+    "text-paint": "Tekstverf",
+    "texture-effects": "Texturen en effecten",
+    "derived-decoration": "Decoraties",
+  },
+  wordTiming: "Woordtiming",
+  needed: "Nodig",
+  notNeeded: "Niet nodig",
+  listSeparator: " · ",
+
+  adjusted: "Aangepast",
+  asTemplate: "Zoals het sjabloon",
+  restore: "Herstellen",
+  restored: "Sjabloon hersteld zoals het was",
+  unavailable: "Sjabloon aanpassen is nu niet beschikbaar.",
+  galleryReplaces: "Deze ondertitel gebruikt een sjabloonstijl. Een ingebouwde stijl kiezen vervangt het sjabloon en de aanpassingen.",
+};

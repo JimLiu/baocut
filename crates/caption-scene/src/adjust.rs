@@ -8,7 +8,7 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const ADJUST_UNSUPPORTED: &str = "CAPTION_ADJUST_UNSUPPORTED";
 pub const MIN_FONT_SCALE: f64 = 0.5;
@@ -456,6 +456,8 @@ pub struct SceneSummary {
     pub pagination: SummaryPagination,
     pub layers: Vec<SummaryLayer>,
     pub adjustable: Adjustable,
+    /// Where the block sits now (with `adjust` applied), as fractions of the canvas axis.
+    pub placement: SummaryPlacement,
 }
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -494,6 +496,18 @@ pub struct SummaryLayer {
     pub kind: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+}
+/// The current centre `x` / `y` and wrap `width` of a placeable key, as fractions of canvas width
+/// (`x`, `width`) or height (`y`). Missing for keys the template computes, and for keys whose length
+/// needs the canvas size when none was given.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct SummaryPlacement {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub x: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub y: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<f64>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -737,7 +751,9 @@ fn walk(value: &Value, f: &mut dyn FnMut(&Map<String, Value>)) {
     }
 }
 
-pub fn describe(scene: &Scene, adjust: Option<&SceneAdjust>) -> SceneSummary {
+/// The editor summary of a template scene. `canvas` (width, height in pixels) lets `placement`
+/// report lengths written in pixels or against the other axis.
+pub fn describe(scene: &Scene, adjust: Option<&SceneAdjust>, canvas: Option<(u32, u32)>) -> SceneSummary {
     let root = scene_json(scene);
     // Colours, in use order.
     let mut colors: Vec<SummaryColor> = vec![];
@@ -940,6 +956,7 @@ pub fn describe(scene: &Scene, adjust: Option<&SceneAdjust>) -> SceneSummary {
         tiers.push("derived-decoration");
     }
     let placement = placeable(scene);
+    let current = current_placement(scene, &placement, adjust.and_then(|a| a.placement.as_ref()), canvas);
     SceneSummary {
         adjustable: Adjustable {
             colors: !colors.is_empty(),
@@ -947,6 +964,7 @@ pub fn describe(scene: &Scene, adjust: Option<&SceneAdjust>) -> SceneSummary {
             font_scale: text_nodes > 0,
             placement,
         },
+        placement: current,
         colors,
         fonts,
         word_tags: tags.into_iter().collect(),
@@ -1008,6 +1026,33 @@ fn reads_seed(root: &Value) -> bool {
         }
     });
     hit
+}
+fn current_placement(scene: &Scene, open: &[&str], adjust: Option<&Placement>, canvas: Option<(u32, u32)>) -> SummaryPlacement {
+    let fraction = |key: &str, length: &Length, set: Option<f64>| -> Option<f64> {
+        if !open.contains(&key) {
+            return None;
+        }
+        if set.is_some() {
+            return set;
+        }
+        let natural = if key == "y" {
+            LengthBasis::CanvasHeight
+        } else {
+            LengthBasis::CanvasWidth
+        };
+        if length.basis == natural && length.offset == 0.0 {
+            return Some(length.value);
+        }
+        let (w, h) = canvas.filter(|&(w, h)| w > 0 && h > 0)?;
+        let axis = if key == "y" { h } else { w } as f64;
+        let px = length.resolve(w, h, &BTreeMap::new()).ok()?;
+        Some(px / axis)
+    };
+    SummaryPlacement {
+        x: fraction("x", &scene.layout.x, adjust.and_then(|p| p.x)),
+        y: fraction("y", &scene.layout.y, adjust.and_then(|p| p.y)),
+        width: fraction("width", &scene.layout.width, adjust.and_then(|p| p.width)),
+    }
 }
 fn summary_pagination(p: &Pagination) -> SummaryPagination {
     let fixed = p.word_page_pattern.is_some()

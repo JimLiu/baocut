@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const zhHant: CaptionSceneMessages = {
+  heading: "範本樣式",
+  note: "範本是一整份場景，屬性頁無法表達其中的結構，所以只開放下面這幾項調整。要逐項修改，請換一份內建樣式。",
+
+  colors: "顏色",
+  colorsAside: "改一個色塊，範本裡同一種顏色一起換",
+  uses: {
+    text: "字色",
+    stroke: "描邊",
+    shadow: "陰影",
+    glow: "發光",
+    active: "目前詞",
+    read: "唸過",
+    unread: "未唸",
+    keyword: "關鍵詞",
+    plate: "底板",
+    "word-box": "逐詞底塊",
+    material: "材質",
+  },
+  animated: "動畫中",
+  colorAria: (uses: string) => `範本顏色 · ${uses}`,
+
+  fonts: "字型",
+  fontsAside: "換字型會重新排版",
+  fontRow: (n: number) => (n === 1 ? "正文" : `第 ${n} 款`),
+  tunedSpacing: "這款字型的字距是範本作者手動調過的，換了字型不會跟著換，字可能擠或散。",
+
+  size: "大小",
+  sizeAside: "文字與裝飾一起縮放",
+  fontScale: "大小倍率",
+
+  position: "位置",
+  positionAside: "畫面寬高的比例",
+  places: { y: "上下位置", x: "水平位置", width: "寬度" },
+  computed: "由範本參數決定，這裡無法調整",
+
+  keywords: "關鍵詞",
+  keywordsAside: "手動點詞，只作用於這一層字幕",
+  keywordsAria: "這條字幕裡的關鍵詞",
+  noCue: "先將播放頭移到一條字幕上。",
+  noWords: "這條字幕沒有逐詞資訊，無法標記關鍵詞。",
+  keywordsNote: "範本讀取這些詞的「關鍵詞」標籤，怎麼強調由範本決定；不會自動挑詞。",
+
+  variant: "換一版",
+  variantAside: "範本裡隨機的部分換一組",
+  nextVariant: "換一版",
+  variantN: (n: number) => `第 ${n} 版`,
+
+  makeup: "構成",
+  makeupAside: "唯讀",
+  layers: "效果層",
+  layerKinds: {
+    fill: "填充",
+    stroke: "描邊",
+    shadow: "陰影",
+    "inner-shadow": "內陰影",
+    glow: "發光",
+    plate: "底板",
+    box: "逐詞底塊",
+    image: "紋理",
+    material: "材質",
+  },
+  tiers: "分級",
+  tierKinds: {
+    "glyph-motion": "字形動畫",
+    "text-paint": "文字塗裝",
+    "texture-effects": "紋理與特效",
+    "derived-decoration": "衍生裝飾",
+  },
+  wordTiming: "逐詞時間",
+  needed: "需要",
+  notNeeded: "不需要",
+  listSeparator: " · ",
+
+  adjusted: "已調整",
+  asTemplate: "範本原樣",
+  restore: "還原",
+  restored: "已還原成範本原樣",
+  unavailable: "範本調整暫時無法使用。",
+  galleryReplaces: "這條字幕用的是範本樣式。選一份內建樣式會整份換掉範本，連同對它的調整。",
+};

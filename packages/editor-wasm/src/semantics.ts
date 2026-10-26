@@ -685,10 +685,11 @@ export class EditorSemantics {
 
   /**
    * 模板字幕样式（`baocut.caption-scene-style/1`）的场景摘要：颜色及用途、字体、词标签、效果标签、可调项；正文带 `adjust` 时
-   * 颜色与字体条目另带调整后的 `to`。不是合法的场景样式时抛 `EditorWasmError`（`INVALID_STYLE`）。
+   * 颜色与字体条目另带调整后的 `to`。给了画布（像素）时，`placement` 也能换算以像素或另一条边写的版面。
+   * 不是合法的场景样式时抛 `EditorWasmError`（`INVALID_STYLE`）。
    */
-  captionSceneSummary(body: unknown): CaptionSceneSummary {
-    return this.call('bc_caption_scene_summary', { body });
+  captionSceneSummary(body: unknown, canvas?: { width: number; height: number }): CaptionSceneSummary {
+    return this.call('bc_caption_scene_summary', canvas ? { body, canvas: { width: canvas.width, height: canvas.height } } : { body });
   }
 
   private ranges: EngineRanges | undefined;
@@ -753,6 +754,7 @@ export function semanticsApi(get: () => EditorSemantics) {
     templateRatioEquivalent: (left: string | null, right: string | null): boolean => get().templateRatioEquivalent(left, right),
     templateBox: (input: TemplateBoxOp): TemplateBoxValue => get().templateBox(input),
     templateHit: (doc: TemplateDocLike, x: number, y: number): string | null => get().templateHit(doc, x, y),
-    captionSceneSummary: (body: unknown): CaptionSceneSummary => get().captionSceneSummary(body),
+    captionSceneSummary: (body: unknown, canvas?: { width: number; height: number }): CaptionSceneSummary =>
+      get().captionSceneSummary(body, canvas),
   };
 }

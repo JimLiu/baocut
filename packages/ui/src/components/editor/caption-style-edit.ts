@@ -1,4 +1,4 @@
-import type { DocumentRecord, EditOperation, Localized, Sequence, TransactionReceipt } from '@baocut/protocol';
+import type { CaptionSceneStyleBody, DocumentRecord, EditOperation, Localized, Sequence, TransactionReceipt } from '@baocut/protocol';
 import { withCaptionStyle } from '../../model/caption-lines.ts';
 import { captionStyleOperations } from '../../model/caption-presets.ts';
 import type { Json, LineKind } from '../../render/text-style.ts';
@@ -38,4 +38,24 @@ export function saveCaptionStyle(
     if (!receipt) useEditor.getState().clearDrafts();
     else if (before) useCaptionPreferences.getState().remember(before, style, singleLine);
   });
+}
+
+/**
+ * 模板样式（`caption-scene-style`）的一笔调整：同样拖动中叠草稿、松手写新版本，但不记进新字幕选项——模板调整只属于这份
+ * 模板（字幕编辑器重设计 §11）。模板样式总是一份已有的文档，没有「新建」这条路。失败时丢掉草稿，结果交回给调用方（撤销提示）。
+ */
+export function previewSceneStyle(record: DocumentRecord, body: CaptionSceneStyleBody): void {
+  useEditor.getState().setDocumentDraft({ documentId: record.id, baseRevision: record.currentRevision, body });
+}
+
+export async function saveSceneStyle(
+  apply: (operations: EditOperation[], label?: Localized) => Promise<TransactionReceipt | null>,
+  record: DocumentRecord,
+  body: CaptionSceneStyleBody,
+  label: Localized,
+): Promise<TransactionReceipt | null> {
+  previewSceneStyle(record, body);
+  const receipt = await apply([{ type: 'putDocument', documentId: record.id, kind: record.kind, body }], label);
+  if (!receipt) useEditor.getState().clearDrafts();
+  return receipt;
 }

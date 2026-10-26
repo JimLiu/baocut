@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const ja: CaptionSceneMessages = {
+  heading: "テンプレートスタイル",
+  note: "テンプレートはひとまとまりのシーンなので、調整できるのは下の項目だけです。すべての設定を編集するには、組み込みスタイルに切り替えてください。",
+
+  colors: "色",
+  colorsAside: "色見本を変えると、その色がテンプレート全体で変わります",
+  uses: {
+    text: "文字",
+    stroke: "線",
+    shadow: "シャドウ",
+    glow: "グロー",
+    active: "現在の語",
+    read: "読み終えた語",
+    unread: "まだ読まない語",
+    keyword: "キーワード",
+    plate: "背景",
+    "word-box": "語ごとのボックス",
+    material: "マテリアル",
+  },
+  animated: "アニメーション中",
+  colorAria: (uses: string) => `テンプレートの色 · ${uses}`,
+
+  fonts: "フォント",
+  fontsAside: "フォントを変えるとレイアウトし直します",
+  fontRow: (n: number) => (n === 1 ? "本文" : `フォント ${n}`),
+  tunedSpacing: "このテンプレートは元のフォントに合わせて字間を調整しています。フォントを変えても字間はそのままなので、詰まったり空いたりすることがあります。",
+
+  size: "サイズ",
+  sizeAside: "文字と装飾が一緒に拡大縮小します",
+  fontScale: "倍率",
+
+  position: "位置",
+  positionAside: "画面に対する割合",
+  places: { y: "縦位置", x: "横位置", width: "幅" },
+  computed: "テンプレートが決めるため、ここでは変更できません",
+
+  keywords: "キーワード",
+  keywordsAside: "語を選びます。この字幕レイヤーだけに適用",
+  keywordsAria: "この字幕のキーワード",
+  noCue: "まず再生ヘッドを字幕の上に移動してください。",
+  noWords: "この字幕には語ごとの情報がないため、キーワードを付けられません。",
+  keywordsNote: "テンプレートはこれらの語のキーワードタグを読み、強調の仕方はテンプレートが決めます。語が自動で選ばれることはありません。",
+
+  variant: "別案",
+  variantAside: "テンプレートのランダムな部分を入れ替えます",
+  nextVariant: "別案にする",
+  variantN: (n: number) => `案 ${n}`,
+
+  makeup: "構成",
+  makeupAside: "読み取り専用",
+  layers: "レイヤー",
+  layerKinds: {
+    fill: "塗り",
+    stroke: "線",
+    shadow: "シャドウ",
+    "inner-shadow": "内側シャドウ",
+    glow: "グロー",
+    plate: "背景",
+    box: "語ごとのボックス",
+    image: "テクスチャ",
+    material: "マテリアル",
+  },
+  tiers: "階層",
+  tierKinds: {
+    "glyph-motion": "字形アニメーション",
+    "text-paint": "文字の塗り",
+    "texture-effects": "テクスチャと効果",
+    "derived-decoration": "装飾",
+  },
+  wordTiming: "語ごとのタイミング",
+  needed: "必要",
+  notNeeded: "不要",
+  listSeparator: " · ",
+
+  adjusted: "調整済み",
+  asTemplate: "テンプレートのまま",
+  restore: "元に戻す",
+  restored: "テンプレートを元の状態に戻しました",
+  unavailable: "テンプレートの調整は現在利用できません。",
+  galleryReplaces: "この字幕はテンプレートスタイルを使っています。組み込みスタイルを選ぶと、テンプレートとその調整がまとめて置き換わります。",
+};

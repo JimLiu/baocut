@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const fr: CaptionSceneMessages = {
+  heading: "Style de modèle",
+  note: "Un modèle est une scène complète : seuls les réglages ci-dessous sont ajustables. Pour tout modifier, passez à un style intégré.",
+
+  colors: "Couleurs",
+  colorsAside: "Une pastille change cette couleur dans tout le modèle",
+  uses: {
+    text: "Texte",
+    stroke: "Contour",
+    shadow: "Ombre",
+    glow: "Lueur",
+    active: "Mot actif",
+    read: "Prononcés",
+    unread: "À venir",
+    keyword: "Mot-clé",
+    plate: "Fond",
+    "word-box": "Encadré par mot",
+    material: "Matière",
+  },
+  animated: "Animé",
+  colorAria: (uses: string) => `Couleur du modèle · ${uses}`,
+
+  fonts: "Polices",
+  fontsAside: "Changer de police remet le texte en page",
+  fontRow: (n: number) => (n === 1 ? "Police principale" : `Police ${n}`),
+  tunedSpacing: "Le modèle a réglé l’espacement des lettres pour sa police d’origine. L’espacement reste quand la police change : le texte peut sembler serré ou lâche.",
+
+  size: "Taille",
+  sizeAside: "Le texte et les décorations changent d’échelle ensemble",
+  fontScale: "Échelle",
+
+  position: "Position",
+  positionAside: "Part du cadre",
+  places: { y: "Vertical", x: "Horizontal", width: "Largeur" },
+  computed: "Fixé par le modèle ; non modifiable ici",
+
+  keywords: "Mots-clés",
+  keywordsAside: "Choisissez des mots ; s’applique à ce calque de sous-titres",
+  keywordsAria: "Mots-clés de ce sous-titre",
+  noCue: "Placez d’abord la tête de lecture sur un sous-titre.",
+  noWords: "Ce sous-titre n’a pas de données par mot : impossible d’y marquer des mots-clés.",
+  keywordsNote: "Le modèle lit l’étiquette mot-clé de ces mots et décide comment les mettre en valeur. Les mots ne sont jamais choisis automatiquement.",
+
+  variant: "Version",
+  variantAside: "Renouvelle les parties aléatoires du modèle",
+  nextVariant: "Autre version",
+  variantN: (n: number) => `Version ${n}`,
+
+  makeup: "Composition",
+  makeupAside: "Lecture seule",
+  layers: "Calques",
+  layerKinds: {
+    fill: "Remplissage",
+    stroke: "Contour",
+    shadow: "Ombre",
+    "inner-shadow": "Ombre intérieure",
+    glow: "Lueur",
+    plate: "Fond",
+    box: "Encadré par mot",
+    image: "Texture",
+    material: "Matière",
+  },
+  tiers: "Niveaux",
+  tierKinds: {
+    "glyph-motion": "Animation des glyphes",
+    "text-paint": "Peinture du texte",
+    "texture-effects": "Textures et effets",
+    "derived-decoration": "Décorations",
+  },
+  wordTiming: "Minutage par mot",
+  needed: "Requis",
+  notNeeded: "Non requis",
+  listSeparator: " · ",
+
+  adjusted: "Ajusté",
+  asTemplate: "Tel que le modèle",
+  restore: "Rétablir",
+  restored: "Modèle rétabli tel quel",
+  unavailable: "Les réglages du modèle ne sont pas disponibles pour le moment.",
+  galleryReplaces: "Ce sous-titre utilise un style de modèle. Choisir un style intégré remplace le modèle et ses réglages.",
+};

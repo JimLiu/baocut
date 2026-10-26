@@ -1,0 +1,83 @@
+import type { CaptionSceneMessages } from './caption-scene-copy.ts';
+
+export const ko: CaptionSceneMessages = {
+  heading: "템플릿 스타일",
+  note: "템플릿은 하나의 장면이라 아래 항목만 조정할 수 있습니다. 모든 설정을 편집하려면 기본 제공 스타일로 바꾸세요.",
+
+  colors: "색상",
+  colorsAside: "색상 견본을 바꾸면 템플릿 전체에서 그 색이 바뀝니다",
+  uses: {
+    text: "텍스트",
+    stroke: "윤곽선",
+    shadow: "그림자",
+    glow: "광채",
+    active: "현재 단어",
+    read: "읽은 단어",
+    unread: "아직 읽지 않은 단어",
+    keyword: "키워드",
+    plate: "배경",
+    "word-box": "단어 박스",
+    material: "재질",
+  },
+  animated: "애니메이션 중",
+  colorAria: (uses: string) => `템플릿 색상 · ${uses}`,
+
+  fonts: "글꼴",
+  fontsAside: "글꼴을 바꾸면 다시 배치합니다",
+  fontRow: (n: number) => (n === 1 ? "본문" : `글꼴 ${n}`),
+  tunedSpacing: "이 템플릿은 원래 글꼴에 맞춰 자간을 조정했습니다. 글꼴을 바꿔도 자간은 그대로라 글자가 빽빽하거나 성글어 보일 수 있습니다.",
+
+  size: "크기",
+  sizeAside: "텍스트와 장식이 함께 확대·축소됩니다",
+  fontScale: "배율",
+
+  position: "위치",
+  positionAside: "화면 대비 비율",
+  places: { y: "세로", x: "가로", width: "너비" },
+  computed: "템플릿이 정하므로 여기서 바꿀 수 없습니다",
+
+  keywords: "키워드",
+  keywordsAside: "단어를 고릅니다. 이 자막 레이어에만 적용",
+  keywordsAria: "이 자막의 키워드",
+  noCue: "먼저 재생 헤드를 자막 위로 옮기세요.",
+  noWords: "이 자막에는 단어별 정보가 없어 키워드를 표시할 수 없습니다.",
+  keywordsNote: "템플릿이 이 단어들의 키워드 태그를 읽고 강조 방식을 정합니다. 단어를 자동으로 고르지 않습니다.",
+
+  variant: "다른 버전",
+  variantAside: "템플릿의 무작위 부분을 바꿉니다",
+  nextVariant: "다른 버전",
+  variantN: (n: number) => `버전 ${n}`,
+
+  makeup: "구성",
+  makeupAside: "읽기 전용",
+  layers: "레이어",
+  layerKinds: {
+    fill: "채우기",
+    stroke: "윤곽선",
+    shadow: "그림자",
+    "inner-shadow": "안쪽 그림자",
+    glow: "광채",
+    plate: "배경",
+    box: "단어 박스",
+    image: "텍스처",
+    material: "재질",
+  },
+  tiers: "등급",
+  tierKinds: {
+    "glyph-motion": "글리프 애니메이션",
+    "text-paint": "텍스트 칠",
+    "texture-effects": "텍스처와 효과",
+    "derived-decoration": "장식",
+  },
+  wordTiming: "단어별 타이밍",
+  needed: "필요",
+  notNeeded: "필요 없음",
+  listSeparator: " · ",
+
+  adjusted: "조정됨",
+  asTemplate: "템플릿 그대로",
+  restore: "되돌리기",
+  restored: "템플릿을 원래대로 되돌렸습니다",
+  unavailable: "지금은 템플릿 조정을 사용할 수 없습니다.",
+  galleryReplaces: "이 자막은 템플릿 스타일을 쓰고 있습니다. 기본 제공 스타일을 고르면 템플릿과 그 조정이 통째로 바뀝니다.",
+};

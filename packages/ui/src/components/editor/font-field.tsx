@@ -94,30 +94,32 @@ const quietText = style({ maxWidth: 112, overflow: 'hidden', textOverflow: 'elli
 interface FontFieldProps {
   /** 文字样式里原样的 `fontFamily`（可能没有、可能是旧别名）。 */
   value: unknown;
+  /** 行标签；缺省是「字体」（模板样式一份里有几款字体，按「正文」「第 2 款」分行）。 */
+  label?: string;
   isDisabled?: boolean;
   onChange(family: string): void;
 }
 
 /** 属性页的「字体」一行：点开在下面展开一张表，选中即收起。 */
-export function FontField({ value, isDisabled = false, onChange }: FontFieldProps) {
+export function FontField({ value, label = FC.font, isDisabled = false, onChange }: FontFieldProps) {
   const web = useRuntime().host.platform === 'web';
   const font = currentFont(value);
   const [open, setOpen] = useState(false);
   if (web) {
     return (
-      <PRow label={FC.font}>
-        <FixedFontPicker font={font} isDisabled={isDisabled} onChange={onChange} />
+      <PRow label={label}>
+        <FixedFontPicker font={font} isDisabled={isDisabled} onChange={onChange} label={label} />
       </PRow>
     );
   }
   return (
     <>
-      <PRow label={FC.font}>
+      <PRow label={label}>
         <RACButton
           className={field}
           isDisabled={isDisabled}
           aria-expanded={open}
-          aria-label={FC.fontValue(FC.font, fontLabel(font))}
+          aria-label={FC.fontValue(label, fontLabel(font))}
           onPress={() => setOpen(!open)}>
           <span className={fieldText}>{fontLabel(font)}</span>
           <span className={fieldIcon}>
