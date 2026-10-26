@@ -365,6 +365,7 @@ Streamable HTTP、回环监听、按客户端发令牌、`Host` 与 `Origin` 检
 | `text` | 管理桶（给人用） | Agent 自己是文本模型 |
 | `chat`、`approvals`、`grants`、`tasks` | 管理桶 | 这些是 BaoCut 自己的智能体的事 |
 | `templates` | 管理桶 | 模板是给 BaoCut 智能体的简报，外部 Agent 用 skill |
+| `projects git-status|git-init|git-allow|remove` | 管理桶 | `remove` 从 BaoCut 移除项目：删掉登记与它的会话，目录不动（架构设计 §5.1）；是用户的整理，Agent 先征得同意 |
 | `settings`、`services`、`share`、`nodes`、`web` | 管理桶 | `web open [--video <videoId>]` 例外：它是外部 Agent 进网页版编辑器的门，只在本机开服务、给一次性链接，不改视频与设置，说明书允许 Agent 不先问就用（§8.8，`catalog/web.md`）；改端口的 `services configure web` 等仍要先问 |
 | `status` | 元命令，扩成 §4.5 的样子 | |
 | 旧写法 `--bundle`、`--node`、`--autonomy` | 撤 | 不考虑兼容 |

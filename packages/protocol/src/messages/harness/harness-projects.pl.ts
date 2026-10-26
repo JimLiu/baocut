@@ -12,4 +12,6 @@ export const pl: HarnessProjectsMessages = {
   markerNotWritable: (p) => `Folder projektu jest niezapisywalny, więc nie można zapisać znacznika projektu .bcut/project.json: ${p.dir}`,
   markerWriteFailed: (p) => `Nie udało się zapisać znacznika projektu: ${p.error}`,
   sessionVideosOpen: (p) => `Wideo w tej sesji są nadal otwarte: ${p.names}. Zamknij je i spróbuj ponownie`,
+  projectFolderMissing: (p) => `Folderu projektu już nie ma: ${p.dir}. Przywróć go na miejsce, otwórz z nowej lokalizacji lub usuń projekt z BaoCut`,
+  projectVideosOpen: (p) => `Wideo w tym projekcie są nadal otwarte: ${p.names}. Zamknij je i spróbuj ponownie`,
 };

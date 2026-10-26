@@ -58,12 +58,15 @@
   /** 新建的视频放进哪个项目：默认上一次用的那个 */
   function ToolProjectPicker({value, onChange}) {
     const app = useApp();
-    return <R.Picker label="放进哪个项目" selectedKey={value} onSelectionChange={onChange} UNSAFE_className="tool-llm__field">
+    return <R.Picker label="放进哪个项目" selectedKey={value} onSelectionChange={onChange} disabledKeys={app.dirs.filter((d) => d.missing).map((d) => d.id)} UNSAFE_className="tool-llm__field">
       {app.dirs.map((d) => <R.PickerItem key={d.id} id={d.id}>{d.name}</R.PickerItem>)}
     </R.Picker>;
   }
   /** 项目选择的缺省：上次用的项目还在就用它，否则第一个 */
-  const defaultDir = (app, last) => (last && app.dirs.some((d) => d.id === last) ? last : (app.dirs[0] || {}).id || null);
+  const defaultDir = (app, last) => {
+    const ok = app.dirs.filter((d) => !d.missing);
+    return last && ok.some((d) => d.id === last) ? last : (ok[0] || {}).id || null;
+  };
 
   /** 选一份媒体文件（文件输入 + 示例素材）；`onPick(name)`。`accept`：工具目录声明的扩展名（缺省收视频与音频） */
   function MediaPick({label, onPick}) {

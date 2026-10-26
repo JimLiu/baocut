@@ -89,6 +89,12 @@ const en = {
     noProjects: 'No projects yet. Create one or open an existing folder; the agent works there.',
     renameProjectTitle: 'Rename project',
     renameProjectHint: 'Only changes the name shown in BaoCut; the folder name stays the same.',
+    removeProjectTitle: (name: string) => `Remove “${name}” from BaoCut?`,
+    removeProjectBody: (count: number) =>
+      `${count === 0 ? '' : count === 1 ? 'Its session will be deleted, and a running task is stopped first. ' : `Its ${count} sessions will be deleted, and running tasks are stopped first. `}The folder and the videos and files in it stay on disk. Open the folder again to bring the project back.`,
+    removeProjectConfirm: 'Remove',
+    removeProjectFailed: (message: string) => `Couldn’t remove the project: ${message}`,
+    removedProject: (name: string) => `Removed “${name}” from BaoCut`,
     toggleSection: (collapsed: boolean, label: string) => `${collapsed ? 'Expand' : 'Collapse'} ${label}`,
     organizeLabel: 'Organize projects and sessions',
     sidebarSettings: 'Sidebar settings',
@@ -108,6 +114,9 @@ const en = {
     projectActions: (name: string) => `Actions for project “${name}”`,
     showInSpace: 'Show in Space',
     newHere: 'New session here',
+    removeProject: 'Remove from BaoCut…',
+    folderMissing: 'Folder not found',
+    folderMissingHint: 'The folder isn’t there anymore. Put it back, open it from its new location, or remove the project.',
   },
   settingsPage: {
     general: 'General',

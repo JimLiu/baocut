@@ -89,6 +89,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '列出你能用的 BaoCut 项目。',
       '每个项目：projectId、名字、目录（对外服务不给）与其中的视频数（数得出来时）。videos_create 的 project 参数用这里的 projectId（终端里用目录）。',
+      '带 missing: true 的项目目录已经不在了（被删掉、移走，或所在的卷没有接上），不能在里面新建视频：告诉用户，请用户把目录放回原处，或在 BaoCut 里把项目移除。',
       '会话里只有这个会话所属的项目（不属于项目的会话没有，它的视频在它自己的工作目录里）；对外服务只列访问范围之内的视频所属的项目。',
     ].join('\n'),
     annotations: { readOnlyHint: true },

@@ -1301,6 +1301,8 @@ export class SpaceCatalog {
       this.#scheduleRecompute();
     } else if (event.type === 'conversation.removed') {
       this.#removeSource(`conv:${event.conversationId}`);
+    } else if (event.type === 'project.removed') {
+      this.#removeSource(`project:${event.projectId}`);
     }
   }
 

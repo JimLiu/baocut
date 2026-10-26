@@ -11,6 +11,9 @@ export const es: ProjectsMessages = {
   baocut projects git-allow [<proyecto>] [--yes]
                                    Muestra los filtros e include de la configuración local del repositorio y luego
                                    los permite: solo entonces BaoCut ejecuta comandos de git que los ejecutan
+  baocut projects remove <proyecto> [--yes]
+                                   Quita el proyecto de BaoCut: se eliminan sus sesiones; la carpeta y sus
+                                   archivos se quedan en el disco (abre la carpeta de nuevo para recuperarlo)
   <proyecto> es un ID, nombre o carpeta de proyecto; sin él, el proyecto que contiene la carpeta actual`,
   noProject: (cwd) => `Ningún proyecto contiene ${cwd}. Indica un ID, nombre o carpeta de proyecto (baocut projects list)`,
   unknownProject: (text) => `No existe el proyecto: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const es: ProjectsMessages = {
   notTtyAllow: 'No estás en una terminal: revisa las entradas con baocut projects git-status y vuelve a ejecutar con --yes',
   notAllowed: 'No permitido: las confirmaciones de BaoCut siguen en pausa en este repositorio',
   allowed: 'Permitido: BaoCut vuelve a confirmar en este repositorio',
+  removeHead: (name, id, dir) => `Proyecto ${name} (${id}): ${dir}`,
+  removeMissing: 'La carpeta ya no está',
+  removeEffect: (count) => `Al quitarlo se eliminan sus ${count} sesiones. La carpeta y sus vídeos y archivos se quedan en el disco`,
+  removePrompt: '¿Quitar este proyecto de BaoCut? [y/N] ',
+  notTtyRemove: 'No estás en una terminal: revisa el proyecto con baocut projects list y vuelve a ejecutar con --yes',
+  notRemoved: 'No se quitó',
+  removed: (name, count) => `Se quitó ${name} de BaoCut y se eliminaron ${count} sesiones. La carpeta no se tocó: ábrela de nuevo (o ejecuta baocut projects create <carpeta>) para recuperar el proyecto`,
 };

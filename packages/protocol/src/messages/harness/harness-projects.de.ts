@@ -15,4 +15,6 @@ export const de: HarnessProjectsMessages = {
     `Der Projektordner ist nicht beschreibbar. Die Projektmarkierung .bcut/project.json konnte daher nicht geschrieben werden: ${p.dir}`,
   markerWriteFailed: (p: { error: string }) => `Projektmarkierung konnte nicht geschrieben werden: ${p.error}`,
   sessionVideosOpen: (p) => `Videos in dieser Sitzung sind noch geöffnet: ${p.names}. Schließen und dann erneut versuchen`,
+  projectFolderMissing: (p) => `Der Projektordner ist nicht mehr vorhanden: ${p.dir}. Legen Sie ihn zurück, öffnen Sie ihn am neuen Ort oder entfernen Sie das Projekt aus BaoCut`,
+  projectVideosOpen: (p) => `Videos in diesem Projekt sind noch geöffnet: ${p.names}. Schließen und dann erneut versuchen`,
 };

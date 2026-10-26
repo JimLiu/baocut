@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Conversation, Project } from '@baocut/protocol';
 import {
   ActionButton,
+  AlertDialog,
+  DialogContainer,
   Menu,
   MenuItem,
   MenuTrigger,
@@ -43,7 +45,11 @@ const empty = style({ font: 'ui-sm', color: 'gray-600', paddingX: 8, marginTop: 
 /** S2 的 SideNav 默认撑满父级高度；下面还有空列表提示，按内容高度排，滚动交给外层。 */
 const nav = style({ height: 'auto' });
 
-type DialogState = { kind: 'new-project' } | { kind: 'rename-project'; project: Project } | null;
+type DialogState =
+  | { kind: 'new-project' }
+  | { kind: 'rename-project'; project: Project }
+  | { kind: 'remove-project'; project: Project }
+  | null;
 type SectionKey = 'pinned' | 'projects' | 'recent';
 
 /**
@@ -114,6 +120,25 @@ export function HomeSidebar() {
     else if (key === 'brand') go({ tab: 'skills', brand: project.id });
     else if (key === 'reveal') void runtime.host.revealPath(project.path);
     else if (key === 'settings') useProjectSettings.getState().open(project.id);
+    else if (key === 'remove') setDialog({ kind: 'remove-project', project });
+  };
+
+  // 从 BaoCut 移除项目（产品设计 §3.1）：目录不动，它的会话一起删。停在这个项目的页面上时回到 Home。
+  const removeProject = async (project: Project) => {
+    const members = new Set(conversations.filter((c) => c.projectId === project.id).map((c) => c.id));
+    try {
+      await runtime.removeProject(project.id);
+    } catch (error) {
+      ToastQueue.negative(S.sidebar.removeProjectFailed((error as Error).message), { timeout: 5000 });
+      return;
+    }
+    const current = useShell.getState().route;
+    const onIt =
+      (current.tab === 'home' && (current.projectId === project.id || (current.conversationId !== null && members.has(current.conversationId)))) ||
+      (current.tab === 'space' && current.projectId === project.id) ||
+      (current.tab === 'skills' && current.brand === project.id);
+    if (onIt) go(HOME);
+    ToastQueue.neutral(S.sidebar.removedProject(project.name), { timeout: 5000 });
   };
 
   const actions: ConversationRowActions = {
@@ -247,6 +272,18 @@ export function HomeSidebar() {
           }}
         />
       ) : null}
+      <DialogContainer onDismiss={() => setDialog(null)}>
+        {dialog?.kind === 'remove-project' ? (
+          <AlertDialog
+            variant="destructive"
+            title={S.sidebar.removeProjectTitle(dialog.project.name)}
+            primaryActionLabel={S.sidebar.removeProjectConfirm}
+            cancelLabel={S.common.cancel}
+            onPrimaryAction={() => void removeProject(dialog.project)}>
+            {S.sidebar.removeProjectBody(conversations.filter((c) => c.projectId === dialog.project.id).length)}
+          </AlertDialog>
+        ) : null}
+      </DialogContainer>
     </PageSidebar>
   );
 }

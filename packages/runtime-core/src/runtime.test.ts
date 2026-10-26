@@ -616,6 +616,18 @@ describe('Runtime（假 Driver）', () => {
     expect(bad.code).toBe('invalid-request');
     const missing = await rejection(client.request('projects.update', { projectId: 'proj_nope', pinned: true }));
     expect(missing.code).toBe('not-found');
+
+    // 从 BaoCut 移除：登记与会话没了，目录还在；列表现查目录在不在。
+    await fs.rm(second.project.path, { recursive: true });
+    const listed = await client.request('projects.list', {});
+    expect(listed.projects.find((p) => p.id === second.project.id)?.missing).toBe(true);
+    const removed = await client.request('projects.remove', { projectId: first.project.id });
+    expect(removed).toEqual({ removed: true, conversations: 1 });
+    expect(await fs.stat(first.project.path).then((s) => s.isDirectory())).toBe(true);
+    const after = await client.request('projects.list', {});
+    expect(after.projects.map((p) => p.id)).not.toContain(first.project.id);
+    expect(runtime.harness.directorySnapshot().conversations.map((c) => c.id)).not.toContain(conversation.id);
+    expect((await rejection(client.request('projects.remove', { projectId: first.project.id }))).code).toBe('not-found');
   });
 
   it('Space：列出项目里的媒体文件，标记可改，媒体地址支持 Range', async () => {

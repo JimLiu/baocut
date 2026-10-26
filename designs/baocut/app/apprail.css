@@ -78,6 +78,8 @@
 .hs-sess__status--failed { color: var(--red-900); }
 .hs-sess__status--review { color: var(--purple-900); }
 .hs-sess__status--unread { color: var(--green-900); }
+/* 目录不在了的项目：标题右侧的橙色三角，同「等批准」一样是要你处理，不是出错 */
+.hs-sess__status--missing { color: var(--orange-900); }
 .hs-sess__status > [slot="icon"] svg { width: 16px; height: 16px; --iconPrimary: currentColor; }
 .hs-sess__light { gap: 0; align-items: center; }
 .hs-sess__light > [data-rsp-slot="text"] { display: none; }

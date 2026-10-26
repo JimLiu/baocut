@@ -73,9 +73,31 @@
     );
   }
 
-  /** 一个项目：文件夹行（名 + 状态汇总 / 路径）+ 它的会话；行尾 ⋯ 是项目菜单（§3.1）。 */
+  /* 目录不在了时用不了的项目菜单项（它们都要读写这个目录）；置顶与移除只动登记，照常可用。 */
+  const NEEDS_FOLDER = ['new', 'space', 'brand', 'reveal', 'settings'];
+
+  /** 从 BaoCut 移除项目（§3.1）：先确认；目录不动，会话一起删。停在这个项目的页面上时回到 Home。 */
+  function confirmRemoveDir(app, d, sessionCount) {
+    app.confirm({
+      title: `从 BaoCut 移除「${d.name}」？`,
+      body: `${sessionCount ? `它的 ${sessionCount} 个会话会一起删除，正在运行的任务先停下。` : ''}目录与里面的视频、文件都留在磁盘上，再打开这个目录就能把项目找回来。`,
+      tone: 'negative', confirmLabel: '移除',
+      run: () => {
+        const r = app.route;
+        const inDir = (r.r === 'agent' && (r.dir === d.id || (r.id && AP.dirOf(app.sessionById(r.id), app.projects) === d.id)))
+          || (r.r === 'projects' && r.id === d.id) || (r.r === 'skills' && r.dir === d.id);
+        if (app.removeDir(d.id) == null) return;
+        if (inDir) app.go({r: 'home'});
+        app.toast(`已从 BaoCut 移除「${d.name}」`);
+      },
+    });
+  }
+
+  /** 一个项目：文件夹行（名 + 状态汇总 / 路径）+ 它的会话；行尾 ⋯ 是项目菜单（§3.1）。
+      目录不在了（missing）：标题右侧带橙色三角，要用目录的菜单项变灰，空项目的「在这里新建会话」换成提示；已有会话照常能打开看记录。 */
   function projectItem(R, app, p, key, open) {
     const d = p.dir;
+    const missing = !!d.missing;
     const sum = AP.summaryText(p.summary);
     const Icon = open ? R.Icons.FolderOpen : R.Icons.Folder;
     const newHref = IA.hrefFor({r: 'agent', dir: d.id});
@@ -86,31 +108,49 @@
       else if (k === 'brand') app.go({r: 'skills', dir: d.id});
       else if (k === 'reveal') app.toast(`已在文件夹中显示 ${d.path}（演示）`);
       else if (k === 'settings') app.openProjectSettings(d.id);
+      else if (k === 'remove') confirmRemoveDir(app, d, p.sessions.length);
     };
     const hasBrand = window.BC_PROJECT_BRAND.hasBrand(app.projectBrands, d.id);
+    const detail = missing ? `${d.name} · 目录不在了 · ${d.path}\n把它放回原处、从新位置打开，或从 BaoCut 移除这个项目` : `${d.name} · ${sum || ""} · ${d.path}`;
     return (
       <R.SideNavItem key={key} id={key} textValue={d.name} hasChildItems data-project-row="">
         <R.SideNavItemContent>
           <Icon />
           <R.Text>
-            <span className="hs-proj" title={`${d.name} · ${sum || ""} · ${d.path}`}>
-              <span className="hs-proj__t">{d.name}</span>
-              <span className="hs-proj__sub">{sum || `${p.movies.length ? p.movies.length + ' 部视频 · ' : ''}${d.path}`}</span>
-            </span>
+            {missing
+              ? <span className="hs-sess" title={detail}>
+                  <span className="hs-sess__t">{d.name}</span>
+                  <span className="hs-sess__status hs-sess__status--missing" role="img" aria-label="目录不在了"><R.Icons.AlertTriangle /></span>
+                </span>
+              : <span className="hs-proj" title={detail}>
+                  <span className="hs-proj__t">{d.name}</span>
+                  <span className="hs-proj__sub">{sum || `${p.movies.length ? p.movies.length + ' 部视频 · ' : ''}${d.path}`}</span>
+                </span>}
           </R.Text>
-          <R.ActionMenu aria-label={`项目「${d.name}」的操作`} data-project-menu="" isQuiet size="S" onAction={onAction}>
-            <R.MenuItem id="new" textValue="新建会话"><R.Icons.Add /><R.Text>在这个项目里新建会话</R.Text></R.MenuItem>
-            <R.MenuItem id="pin" textValue={d.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{d.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem>
-            <R.MenuItem id="space" textValue="在 Space 中显示"><R.Icons.Asset /><R.Text>在 Space 中显示</R.Text></R.MenuItem>
-            <R.MenuItem id="brand" textValue="品牌（BRAND.md）"><R.Icons.Bookmark /><R.Text slot="label">品牌（BRAND.md）</R.Text>
-              <R.Text slot="description">{hasBrand ? '这个项目的会话自动参考' : '还没有，新建一份'}</R.Text></R.MenuItem>
-            <R.MenuItem id="reveal" textValue="在文件夹中显示"><R.Icons.OpenIn /><R.Text>在文件夹中显示</R.Text></R.MenuItem>
-            <R.MenuItem id="settings" textValue="项目设置"><R.Icons.Settings /><R.Text>项目设置…</R.Text></R.MenuItem>
+          <R.ActionMenu aria-label={`项目「${d.name}」的操作`} data-project-menu="" isQuiet size="S" disabledKeys={missing ? NEEDS_FOLDER : []} onAction={onAction}>
+            <R.MenuSection>
+              <R.MenuItem id="new" textValue="新建会话"><R.Icons.Add /><R.Text>在这个项目里新建会话</R.Text></R.MenuItem>
+              <R.MenuItem id="pin" textValue={d.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{d.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem>
+              <R.MenuItem id="space" textValue="在 Space 中显示"><R.Icons.Asset /><R.Text>在 Space 中显示</R.Text></R.MenuItem>
+              <R.MenuItem id="brand" textValue="品牌（BRAND.md）"><R.Icons.Bookmark /><R.Text slot="label">品牌（BRAND.md）</R.Text>
+                <R.Text slot="description">{hasBrand ? '这个项目的会话自动参考' : '还没有，新建一份'}</R.Text></R.MenuItem>
+              <R.MenuItem id="reveal" textValue="在文件夹中显示"><R.Icons.OpenIn /><R.Text>在文件夹中显示</R.Text></R.MenuItem>
+              <R.MenuItem id="settings" textValue="项目设置"><R.Icons.Settings /><R.Text>项目设置…</R.Text></R.MenuItem>
+            </R.MenuSection>
+            <R.MenuSection>
+              <R.MenuItem id="remove" textValue="从 BaoCut 移除"><R.Icons.Delete /><R.Text>从 BaoCut 移除…</R.Text></R.MenuItem>
+            </R.MenuSection>
           </R.ActionMenu>
         </R.SideNavItemContent>
         {p.sessions.map((s) => sessionItem(R, app, s, `${key}/${s.id}`))}
-        {p.sessions.length ? null : (
-          <R.SideNavItem id={`${key}/new`} textValue="在这里新建会话" href={newHref}>
+        {p.sessions.length ? null : missing ? (
+          <R.SideNavItem key="missing" id={`${key}/missing`} textValue="目录不在了">
+            <R.SideNavItemContent>
+              <R.Text><span className="hs-row__new" title="把它放回原处、从新位置打开，或从 BaoCut 移除这个项目">目录不在了</span></R.Text>
+            </R.SideNavItemContent>
+          </R.SideNavItem>
+        ) : (
+          <R.SideNavItem key="new" id={`${key}/new`} textValue="在这里新建会话" href={newHref}>
             <R.SideNavItemContent>
               <R.SideNavItemLink href={newHref}><R.Text><span className="hs-row__new">在这里新建会话</span></R.Text></R.SideNavItemLink>
             </R.SideNavItemContent>

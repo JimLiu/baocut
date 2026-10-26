@@ -52,6 +52,8 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   'projects.open',
   'projects.create',
   'projects.update',
+  // 从 BaoCut 移除项目：只删登记与它的会话（同 `conversations.delete`），不碰目录里的文件。
+  'projects.remove',
   // 项目文件浏览与新建（架构设计 §11.2「项目文件浏览」）：只在项目目录（或无项目会话的工作目录）里，按真实路径判断、不越出根目录；
   // 文件内容走 `media.*` 的受控句柄；新建是独占创建、不覆盖（§12.8）。
   'projects.files.list',

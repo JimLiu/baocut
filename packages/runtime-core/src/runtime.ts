@@ -11,7 +11,7 @@ import {
   createCustomAcpDriver,
   resolveLoginShellPath,
 } from '@baocut/agent-drivers';
-import { DriverRegistry, Harness, engineProtections, type AgentDriver, type Logger } from '@baocut/harness';
+import { DriverRegistry, Harness, engineProtections, projectMissingError, type AgentDriver, type Logger } from '@baocut/harness';
 import {
   BUILTIN_DRIVER_IDS,
   PROTOCOL_VERSION,
@@ -528,6 +528,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         .listProjects()
         .find((p) => p.id === projectId);
       if (!project) throw new RpcError('not-found', RcRuntime.projectNotFound());
+      // 目录不在了（架构设计 §5.1）：不在那里新建视频、下载，不悄悄重建出一个空目录。
+      if (project.missing) throw projectMissingError(project);
       return project.path;
     };
     // 会话的来源（与智能体的 `videos_create` 同样的放置，AgentScope.source）：属于项目时是项目目录与项目范围，否则是工作目录。

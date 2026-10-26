@@ -374,7 +374,11 @@ export function createHandlers({
       'agents.runSetup': (p) => setup.run(p),
       'agents.cancelSetup': (p) => setup.cancel(p.runId),
       'agents.openTerminal': (p) => setup.openTerminal(p),
-      'projects.list': () => ({ projects: harness.listProjects() }),
+      'projects.list': async () => {
+        // 列表现查一遍目录在不在（`Project.missing`，架构设计 §5.1）：终端与刚换回来的窗口不用等下一次定时检查。
+        await harness.refreshProjectPresence();
+        return { projects: harness.listProjects() };
+      },
       'projects.open': async (p) => {
         const project = await harness.openProject(p.path);
         // 副本里的视频在后台换标识（架构设计 §5.1）；打开视频时引擎还会再认领一次，这一步失败不影响打开项目。
@@ -383,6 +387,7 @@ export function createHandlers({
       },
       'projects.create': async (p) => ({ project: await harness.createProject(p) }),
       'projects.update': async (p) => ({ project: await harness.updateProject(p) }),
+      'projects.remove': (p) => harness.removeProject(p.projectId),
       'projects.files.list': (p) => listProjectFiles(filesRoot(p.conversationId), p),
       'projects.files.create': (p) => {
         const { root, scope } = fileScope(p);

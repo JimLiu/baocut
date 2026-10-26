@@ -82,6 +82,8 @@ export interface DirectorySnapshot {
 
 export type DirectoryEvent =
   | { type: 'project.upsert'; project: Project }
+  /** 项目从登记里移除（`projects.remove`）：它的会话已经各自发过 `conversation.removed`。 */
+  | { type: 'project.removed'; projectId: Id }
   | { type: 'conversation.upsert'; conversation: Conversation }
   | { type: 'conversation.removed'; conversationId: Id };
 

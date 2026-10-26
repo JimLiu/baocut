@@ -106,6 +106,14 @@ describe('applyDirectoryEvent', () => {
     expect(renamed.conversations[0]!.title).toBe('改名');
     expect(applyDirectoryEvent(renamed, { type: 'conversation.removed', conversationId: 'conv_1' }).conversations).toEqual([]);
   });
+
+  it('项目 upsert（带 missing）与移除', () => {
+    const project = { id: 'proj_1', name: '片子', path: '/p', createdAt: 't', lastActiveAt: 't', pinned: false, archived: false };
+    const added = applyDirectoryEvent({ projects: [], conversations: [] }, { type: 'project.upsert', project });
+    const missing = applyDirectoryEvent(added, { type: 'project.upsert', project: { ...project, missing: true } });
+    expect(missing.projects).toEqual([{ ...project, missing: true }]);
+    expect(applyDirectoryEvent(missing, { type: 'project.removed', projectId: 'proj_1' }).projects).toEqual([]);
+  });
 });
 
 describe('applyJobsEvent', () => {

@@ -313,6 +313,8 @@ export interface ScopedProject {
   name: string;
   path?: string;
   videoCount?: number;
+  /** 目录此刻不在（`Project.missing`，架构设计 §5.1）：不能在里面新建视频。只在为 true 时出现。 */
+  missing?: true;
 }
 
 /** 已登记项目 → `projects_list` 的一项。 */
@@ -322,6 +324,7 @@ export function scopedProject(project: Project, extra: { path?: boolean; videoCo
     name: project.name,
     ...(extra.path === false ? {} : { path: project.path }),
     ...(extra.videoCount !== undefined ? { videoCount: extra.videoCount } : {}),
+    ...(project.missing ? { missing: true as const } : {}),
   };
 }
 

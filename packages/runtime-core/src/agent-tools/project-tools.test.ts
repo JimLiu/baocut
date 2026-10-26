@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RpcError } from '@baocut/protocol';
 import { ProjectTools } from './project-tools.ts';
-import type { ToolConfirmation, ToolPrincipal, ToolScope } from './tool-scope.ts';
+import { scopedProject, type ToolConfirmation, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 
 /** `projects_list` 一个项目都没有时：各个面的 next 给出各自能走的路（终端的情形不必起 Runtime）。 */
 describe('projects_list 的空列表', () => {
@@ -32,6 +32,23 @@ describe('projects_list 的空列表', () => {
     expect(next).toContain('不属于任何项目');
     expect(next).toContain('工作目录');
     expect(next).toContain('projects_adopt_session');
+  });
+});
+
+/** 目录不在了的项目（`Project.missing`）在 `projects_list` 里带 `missing: true`，目录在的不带这个字段。 */
+describe('projects_list 的缺失目录', () => {
+  it('scopedProject 带上 missing，只在为 true 时出现', async () => {
+    const base = { name: '片子', path: '/p', createdAt: 't', lastActiveAt: 't', pinned: false, archived: false };
+    const scope = {
+      authorize: (principal: ToolPrincipal) => ({ principal, submitter: { kind: 'connection', id: 'c' } }),
+      listProjects: async () => [scopedProject({ ...base, id: 'proj_1', missing: true }), scopedProject({ ...base, id: 'proj_2' })],
+    } as unknown as ToolScope;
+    const tools = new ProjectTools({ harness: {} as never, videos: {} as never, git: {} as never, scope });
+    const { projects } = (await tools.dispatch('projects_list', {}, { kind: 'local', cwd: '/tmp', projectDir: null } as unknown as ToolPrincipal)) as {
+      projects: Array<Record<string, unknown>>;
+    };
+    expect(projects[0]).toMatchObject({ projectId: 'proj_1', missing: true });
+    expect(projects[1]).not.toHaveProperty('missing');
   });
 });
 

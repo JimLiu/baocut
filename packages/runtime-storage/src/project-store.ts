@@ -47,6 +47,16 @@ export class ProjectStore {
 
   put(project: Project): Promise<void> {
     this.#projects.set(project.id, project);
+    return this.#save();
+  }
+
+  /** 从登记里删掉一个项目（`projects.remove`）。不认得的 id 什么也不做。 */
+  delete(id: Id): Promise<void> {
+    if (!this.#projects.delete(id)) return this.#saving;
+    return this.#save();
+  }
+
+  #save(): Promise<void> {
     const snapshot: ProjectsFile = { schemaVersion: 1, projects: this.list() };
     this.#saving = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     return this.#saving;

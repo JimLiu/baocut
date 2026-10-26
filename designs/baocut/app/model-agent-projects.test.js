@@ -375,3 +375,13 @@ test('已归档会话页：按项目分组、不属于项目的放最后，组�
   assert.deepStrictEqual(P.archivedView({dirs, movies, sessions: ss}, {dir: 'none'}).groups.map((g) => g.key), ['none']);
   assert.strictEqual(P.archivedView({dirs, movies, sessions}).total, 0);
 });
+
+test('从 BaoCut 移除项目：去掉登记，列出要删的会话（含经视频归属的）与跟着目录走的视频', () => {
+  const r = P.removeDir(dirs, movies, sessions, 'd2');
+  assert.deepEqual(r.dirs.map((d) => d.id), ['d1', 'd3']);
+  assert.deepEqual(r.sessionIds.sort(), ['c', 'd']);
+  assert.deepEqual(r.movieIds, ['m3']);
+  const none = P.removeDir(dirs, movies, sessions, 'nope');
+  assert.strictEqual(none.dirs, dirs);
+  assert.deepEqual([none.sessionIds, none.movieIds], [[], []]);
+});

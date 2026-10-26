@@ -15,7 +15,7 @@
   const BRANDS_KEY = window.BC_SURFACE.storageKey('bc-project-brands-v1');
 
   function useAppIA(base) {
-    const {route, nav, go, projects, sessions, sessionById, patchSession, dock, setDock, archiveProject, tasks, projPct} = base;
+    const {route, nav, go, projects, sessions, sessionById, patchSession, deleteSessions, deleteProject, dock, setDock, archiveProject, tasks, projPct} = base;
 
     /* ---- 项目（目录） ---- */
     const [dirs, setDirs] = useState(() => (D.agentProjects || []).map((d) => ({...d})));
@@ -38,6 +38,16 @@
       if (r && r.added) setDirs((ds) => [r.dir].concat(ds));
       return r;
     }, [dirs]);
+    /* 从 BaoCut 移除项目（§3.1）：删登记与它的会话，目录不动；视频跟着目录走，不再列出（AP.removeDir）。
+       返回删掉的会话数；不认得这个项目时是 null。 */
+    const removeDir = useCallback((id) => {
+      const r = AP.removeDir(dirs, projects, sessions, id);
+      if (r.dirs === dirs) return null;
+      setDirs(r.dirs);
+      if (r.sessionIds.length) deleteSessions(r.sessionIds);
+      r.movieIds.forEach((mid) => deleteProject(mid));
+      return r.sessionIds.length;
+    }, [dirs, projects, sessions, deleteSessions, deleteProject]);
     /* 项目根目录的 BRAND.md（model-project-brand.js）：只有 App 有项目，所以放这里；只把用户动过的差量存进本地 */
     const [projectBrands, setProjectBrandsRaw] = useState(() => {
       let saved = null;
@@ -130,7 +140,8 @@
     /* ---- Space ---- */
     const [spaceMarks, setSpaceMarks] = useState({fav: {}, trash: {}});
     const [spaceExtra, setSpaceExtra] = useState([]);
-    const outputs = useMemo(() => (D.spaceOutputs || []).concat(spaceExtra), [spaceExtra]);
+    /* 移除了的项目，它目录里的产物也不在 Space 里列出 */
+    const outputs = useMemo(() => (D.spaceOutputs || []).concat(spaceExtra).filter((o) => !o.dir || dirs.some((d) => d.id === o.dir)), [spaceExtra, dirs]);
     const pctOf = useCallback((it) => {
       if (it.kind === 'movie') { const p = projects.find((x) => x.id === it.id); return p ? projPct(p) : null; }
       const t = it.task ? tasks.find((x) => x.id === it.task) : null;
@@ -251,7 +262,7 @@
     return {
       handoverToAgent, spaceFocus, openSpaceEntry, takeSpaceFocus, legacyAsk, setLegacyAsk, legacyHost, setLegacyHost, legacyDrive, setLegacyDrive,
       legacySettingsAvailable, legacySettingsOpen, setLegacySettingsOpen, onboarding, launchOnboarding, closeOnboarding,
-      dirs, dirById, toggleDirPin, toggleSessionPin, dirOfSession, moviesOf, createDir, openDir, projectBrands, setProjectBrands,
+      dirs, dirById, toggleDirPin, toggleSessionPin, dirOfSession, moviesOf, createDir, openDir, removeDir, projectBrands, setProjectBrands,
       openMovie, openTool, closeMovie, railGo, markRead, newProject, createProject,
       spaceItems, toggleFav, setTrashed, saveVersion, importAssets, createHtmlPage, registerToolOutput, createMovieFromOutput,
     };

@@ -11,6 +11,9 @@ export const ko: ProjectsMessages = {
   baocut projects git-allow [<프로젝트>] [--yes]
                                    저장소 로컬 설정의 필터와 include를 보여 준 뒤 허용합니다. 허용하기 전에는
                                    BaoCut이 그것들을 실행하는 git 명령을 실행하지 않습니다
+  baocut projects remove <프로젝트> [--yes]
+                                   BaoCut에서 프로젝트 제거: 세션은 삭제되고 폴더와 파일은 디스크에 남습니다
+                                   (폴더를 다시 열면 프로젝트가 돌아옵니다)
   <프로젝트>는 프로젝트 ID, 이름 또는 폴더이며, 생략하면 현재 폴더를 포함하는 프로젝트`,
   noProject: (cwd) => `${cwd}을(를) 포함하는 프로젝트가 없습니다. 프로젝트 ID, 이름 또는 폴더를 지정하세요 (baocut projects list)`,
   unknownProject: (text) => `프로젝트를 찾을 수 없습니다: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const ko: ProjectsMessages = {
   notTtyAllow: '터미널이 아닙니다: baocut projects git-status로 항목을 확인한 뒤 --yes를 붙여 다시 실행하세요',
   notAllowed: '허용하지 않음: 이 저장소에서 BaoCut의 커밋은 계속 일시 중지됩니다',
   allowed: '허용함: BaoCut이 이 저장소에 다시 커밋합니다',
+  removeHead: (name, id, dir) => `프로젝트 ${name} (${id}): ${dir}`,
+  removeMissing: '폴더가 더 이상 없습니다',
+  removeEffect: (count) => `제거하면 이 프로젝트의 세션 ${count}개가 삭제됩니다. 폴더와 영상, 파일은 디스크에 남습니다`,
+  removePrompt: '이 프로젝트를 BaoCut에서 제거할까요? [y/N] ',
+  notTtyRemove: '터미널이 아닙니다: baocut projects list로 프로젝트를 확인한 다음 --yes를 붙여 다시 실행하세요',
+  notRemoved: '제거하지 않았습니다',
+  removed: (name, count) => `BaoCut에서 ${name}을(를) 제거하고 세션 ${count}개를 삭제했습니다. 폴더는 그대로입니다: 다시 열면(또는 baocut projects create <폴더> 실행) 프로젝트가 돌아옵니다`,
 };

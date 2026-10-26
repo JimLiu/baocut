@@ -240,6 +240,23 @@
     return {dir: {id, name, path, mtime: 0}, added: true};
   }
 
+  /**
+   * 从 BaoCut 移除一个项目（product-design §3.1「从 BaoCut 移除」）：只动 BaoCut 的登记——目录与里面的视频、文件留在磁盘上，
+   * 挂在它下面的会话一起删（会话记录在数据目录里，不在项目目录里）。视频与 Space 条目跟着目录走，不再列出；
+   * 之后再打开这个目录，项目与视频回来，会话不回来。
+   * @returns {{dirs, sessionIds: string[], movieIds: string[]}}  不认得这个项目时原样返回、两个列表为空
+   */
+  function removeDir(dirs, movies, sessions, dirId) {
+    const list = dirs || [];
+    if (!list.some((d) => d.id === dirId)) return {dirs: list, sessionIds: [], movieIds: []};
+    const mv = byId(movies);
+    return {
+      dirs: list.filter((d) => d.id !== dirId),
+      sessionIds: (sessions || []).filter((s) => dirOf(s, mv) === dirId).map((s) => s.id),
+      movieIds: (movies || []).filter((m) => m.dir === dirId).map((m) => m.id),
+    };
+  }
+
   /** 同一个项目的会话（编辑器抽屉的切换菜单）；视频不在任何项目里时退回只看这部视频的。 */
   function sessionsOfMovieProject(movieId, movies, sessions) {
     const map = Array.isArray(movies) ? byId(movies) : movies;
@@ -358,6 +375,6 @@
   root.BC_AGENT_PROJECTS = {
     sessionArtifacts, artifactList, STATUS, ORDER, sessionStatus, statusInfo, dirOf, moviePath, summarize, summaryText, byRecent, activity,
     tree, sidebarView, archivedView, attention, search, sessionForMovie, fitsMovie, sessionsOfMovieProject,
-    DIR_ROOT, NEW_DIR_NAME, DEMO_OPEN_DIR, dirCreationError, matchDirs, dirPath, uniqueDirName, newDir, openDir,
+    DIR_ROOT, NEW_DIR_NAME, DEMO_OPEN_DIR, dirCreationError, matchDirs, dirPath, uniqueDirName, newDir, openDir, removeDir,
   };
 })();

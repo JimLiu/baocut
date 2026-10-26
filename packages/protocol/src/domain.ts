@@ -32,6 +32,11 @@ export interface Project {
   pinned: boolean;
   /** 归档只影响列表显示（产品设计 §3.1）。 */
   archived: boolean;
+  /**
+   * 登记的目录此刻不在（被删掉、移走，或所在的卷没有接上）：Runtime 按需检查、不落盘，只在为 true 时出现（架构设计 §5.1）。
+   * 这时不能在项目里新建会话或发消息；从 BaoCut 移除它（`projects.remove`），或把目录放回原处、从新位置打开。
+   */
+  missing?: true;
 }
 
 /** 会话的活动状态，侧栏徽标由它汇总（架构设计 §11.3）。 */

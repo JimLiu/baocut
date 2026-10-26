@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RpcError } from '@baocut/protocol';
+import { RpcError, type DirectoryEvent } from '@baocut/protocol';
 import { HarnessProjects as HP } from '@baocut/protocol/messages/harness';
 import {
   ConversationStore,
@@ -627,6 +627,140 @@ describe('无项目会话绑定项目', () => {
     }
     await fs.writeFile(file, lines.map((line) => JSON.stringify(line)).join('\n') + '\n');
   }
+});
+
+/** 从 BaoCut 移除项目（`projects.remove`）与登记的目录不在了（`Project.missing`），架构设计 §5.1。 */
+describe('移除项目与缺失的目录', () => {
+  const exists = (p: string) =>
+    fs.stat(p).then(
+      () => true,
+      () => false,
+    );
+
+  function directoryEvents(): DirectoryEvent[] {
+    const events: DirectoryEvent[] = [];
+    harness.subscribe('directory', undefined, (e) => events.push(e.event as DirectoryEvent));
+    return events;
+  }
+
+  it('移除：删掉登记与它的会话，目录与里面的文件、标记都留着；再打开按标记认回同一个 id，会话不回来', async () => {
+    const work = await mkdir('要移除的');
+    await fs.writeFile(path.join(work, 'notes.md'), '# 笔记');
+    const project = await harness.openProject(work);
+    const a = await harness.createConversation({ projectId: project.id });
+    const b = await harness.createConversation({ projectId: project.id });
+    const other = await harness.createConversation({ projectId: (await harness.openProject(await mkdir('别的'))).id });
+    const events = directoryEvents();
+
+    expect(await harness.removeProject(project.id)).toEqual({ removed: true, conversations: 2 });
+    expect(harness.listProjects().map((p) => p.id)).not.toContain(project.id);
+    expect(harness.directorySnapshot().conversations.map((c) => c.id)).toEqual([other.id]);
+    expect(() => harness.getConversation(a.id)).toThrow();
+    // 会话先各自 removed，最后项目 removed。
+    expect(events.map((e) => e.type)).toEqual(['conversation.removed', 'conversation.removed', 'project.removed']);
+    expect(events.at(-1)).toEqual({ type: 'project.removed', projectId: project.id });
+    expect(events.slice(0, 2).map((e) => (e as { conversationId: string }).conversationId).sort()).toEqual([a.id, b.id].sort());
+    expect(await fs.readFile(path.join(work, 'notes.md'), 'utf8')).toBe('# 笔记');
+    expect(await markerId(work)).toBe(project.id);
+
+    // 落盘：重启后也没有它。
+    await harness.shutdown();
+    harness = await open();
+    expect(harness.listProjects().map((p) => p.id)).not.toContain(project.id);
+    const again = await harness.openProject(work);
+    expect(again.id).toBe(project.id);
+    expect(harness.directorySnapshot().conversations.filter((c) => c.projectId === project.id)).toEqual([]);
+
+    expect((await rejection(harness.removeProject('proj_nope'))).code).toBe('not-found');
+  });
+
+  it('项目里的视频还开着：拒绝移除（VIDEO_IN_USE），登记与会话都不动；关掉之后照常移除', async () => {
+    await harness.shutdown();
+    let busy: string[] = [];
+    const idleClosed: string[] = [];
+    harness = await Harness.open({
+      home,
+      conversations: new ConversationStore(home.conversationsDir),
+      projects: new ProjectStore(home.projectsFile),
+      drivers: new DriverRegistry(),
+      log: silentLogger,
+      openVideoDirs: () => busy,
+      closeIdleVideos: async (dir) => void idleClosed.push(dir),
+    });
+    const work = await mkdir('开着视频的');
+    const project = await harness.openProject(work);
+    const conversation = await harness.createConversation({ projectId: project.id });
+    busy = [path.join(work, 'videos', '样片')];
+
+    const refused = await rejection(harness.removeProject(project.id));
+    expect(refused.code).toBe('conflict');
+    expect(refused.details).toMatchObject({ code: 'VIDEO_IN_USE', videos: ['videos/样片'] });
+    expect(idleClosed).toEqual([work]);
+    expect(harness.listProjects().map((p) => p.id)).toContain(project.id);
+    expect(harness.getConversation(conversation.id).conversation.projectId).toBe(project.id);
+
+    busy = [];
+    expect(await harness.removeProject(project.id)).toEqual({ removed: true, conversations: 1 });
+  });
+
+  it('目录不在了：标出 missing，不在里面新建会话、发消息，也不重建目录；照样能移除', async () => {
+    const work = await mkdir('会被删掉的');
+    const project = await harness.openProject(work);
+    const conversation = await harness.createConversation({ projectId: project.id });
+    const events = directoryEvents();
+    await fs.rm(work, { recursive: true });
+
+    await harness.refreshProjectPresence();
+    expect(harness.listProjects().find((p) => p.id === project.id)).toMatchObject({ id: project.id, missing: true });
+    expect(harness.directorySnapshot().projects.find((p) => p.id === project.id)?.missing).toBe(true);
+    expect(events).toEqual([{ type: 'project.upsert', project: { ...project, missing: true } }]);
+    // 没变化不再推送。
+    await harness.refreshProjectPresence();
+    expect(events).toHaveLength(1);
+
+    const create = await rejection(harness.createConversation({ projectId: project.id }));
+    expect(create.code).toBe('not-found');
+    expect(create.details).toMatchObject({ code: 'PROJECT_DIR_MISSING', projectId: project.id, path: work });
+    expect(await exists(work)).toBe(false);
+    const send = await rejection(harness.send({ conversationId: conversation.id, text: '继续', commandId: 'cmd_missing' }));
+    expect(send.details).toMatchObject({ code: 'PROJECT_DIR_MISSING' });
+    expect(harness.getConversation(conversation.id).items).toEqual([]);
+    expect(await exists(work)).toBe(false);
+
+    // 不落盘：登记里没有 missing。
+    await harness.shutdown();
+    const registry = JSON.parse(await fs.readFile(home.projectsFile, 'utf8')) as { projects: Record<string, unknown>[] };
+    expect(registry.projects.find((p) => p.id === project.id)).not.toHaveProperty('missing');
+    // 启动时就查：一开始就是 missing。
+    harness = await open();
+    expect(harness.listProjects().find((p) => p.id === project.id)?.missing).toBe(true);
+
+    expect(await harness.removeProject(project.id)).toEqual({ removed: true, conversations: 1 });
+    expect(harness.listProjects().map((p) => p.id)).not.toContain(project.id);
+    expect(await exists(work)).toBe(false);
+  });
+
+  it('目录回来了（放回原处，或从新位置打开）：不再是 missing', async () => {
+    const work = await mkdir('临时拿走的');
+    const project = await harness.openProject(work);
+    const aside = path.join(dir, '放在别处');
+    await fs.rename(work, aside);
+    await harness.refreshProjectPresence();
+    expect(harness.listProjects()[0]?.missing).toBe(true);
+
+    await fs.rename(aside, work);
+    await harness.refreshProjectPresence();
+    expect(harness.listProjects()[0]).not.toHaveProperty('missing');
+    expect(await harness.createConversation({ projectId: project.id })).toMatchObject({ projectId: project.id, cwd: work });
+
+    // 移走后从新位置打开：按标记认回，路径更新，不再缺失。
+    await fs.rename(work, aside);
+    await harness.refreshProjectPresence();
+    const moved = await harness.openProject(aside);
+    expect(moved).toMatchObject({ id: project.id, path: aside });
+    expect(moved).not.toHaveProperty('missing');
+    expect(harness.listProjects()[0]).not.toHaveProperty('missing');
+  });
 });
 
 describe('幻灯片回执', () => {

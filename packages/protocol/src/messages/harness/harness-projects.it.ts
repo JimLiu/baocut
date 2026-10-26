@@ -12,4 +12,6 @@ export const it: HarnessProjectsMessages = {
   markerNotWritable: (p) => `La cartella del progetto non è scrivibile, quindi non è stato possibile scrivere il marcatore .bcut/project.json: ${p.dir}`,
   markerWriteFailed: (p) => `Impossibile scrivere il marcatore del progetto: ${p.error}`,
   sessionVideosOpen: (p) => `Alcuni video di questa sessione sono ancora aperti: ${p.names}. Chiudili e riprova`,
+  projectFolderMissing: (p) => `La cartella del progetto non c'è più: ${p.dir}. Rimettila al suo posto, aprila dalla nuova posizione o rimuovi il progetto da BaoCut`,
+  projectVideosOpen: (p) => `Alcuni video di questo progetto sono ancora aperti: ${p.names}. Chiudili e riprova`,
 };

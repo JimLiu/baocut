@@ -10,6 +10,9 @@ export const zhHans: ProjectsMessages = {
                                    也不在别的仓库里面）
   baocut projects git-allow [<项目>] [--yes]
                                    列出仓库本地配置里的过滤器与 include，再允许它们：之后 BaoCut 才运行会执行它们的 git 命令
+  baocut projects remove <项目> [--yes]
+                                   从 BaoCut 移除项目：删除它的会话，目录与里面的文件留在磁盘上
+                                   （再打开这个目录就能把项目找回来）
   <项目> 是项目 ID、名字或目录；不给时用包含当前目录的项目`,
   noProject: (cwd) => `没有包含 ${cwd} 的项目。请给出项目 ID、名字或目录（baocut projects list）`,
   unknownProject: (text) => `没有这个项目：${text}（baocut projects list）`,
@@ -39,4 +42,11 @@ export const zhHans: ProjectsMessages = {
   notTtyAllow: '不在终端里：先用 baocut projects git-status 查看条目，再加 --yes 重新运行',
   notAllowed: '没有允许：BaoCut 在这个仓库的代为提交保持暂停',
   allowed: '已允许：BaoCut 恢复在这个仓库代为提交',
+  removeHead: (name, id, dir) => `项目 ${name}（${id}）：${dir}`,
+  removeMissing: '目录已经不在了',
+  removeEffect: (count) => `移除会删除它的 ${count} 个会话；目录与里面的视频、文件都留在磁盘上`,
+  removePrompt: '从 BaoCut 移除这个项目吗？[y/N] ',
+  notTtyRemove: '不在终端里：先用 baocut projects list 确认项目，再加 --yes 重新运行',
+  notRemoved: '没有移除',
+  removed: (name, count) => `已从 BaoCut 移除 ${name}，删除了 ${count} 个会话。目录没有动：再打开它（或运行 baocut projects create <目录>）就能把项目找回来`,
 };

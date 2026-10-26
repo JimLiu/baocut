@@ -33,6 +33,11 @@ const en = {
   markerWriteFailed: (p: { error: string }) => `Couldn't write the project marker: ${p.error}`,
   /** 无项目会话放进项目、删会话之前：它工作目录里的视频还开着（别的窗口、任务或连接），不能搬（架构设计 §3.10）。`names` 是视频目录名。 */
   sessionVideosOpen: (p: { names: string }) => `Some videos in this session are still open: ${p.names}. Close them, then try again`,
+  /** 项目登记的目录此刻不在（被删掉、移走，或所在的卷没有接上）：不在它里面新建会话、发消息，也不悄悄重建目录（架构设计 §5.1）。 */
+  projectFolderMissing: (p: { dir: string }) =>
+    `The project folder isn't there anymore: ${p.dir}. Put it back, open it from where it is now, or remove the project from BaoCut`,
+  /** 从 BaoCut 移除项目之前：项目里的视频还开着（别的窗口、任务或连接）。`names` 是相对项目目录的路径。 */
+  projectVideosOpen: (p: { names: string }) => `Some videos in this project are still open: ${p.names}. Close them, then try again`,
 };
 
 export type HarnessProjectsMessages = typeof en;

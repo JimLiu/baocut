@@ -11,6 +11,9 @@ export const vi: ProjectsMessages = {
   baocut projects git-allow [<dự án>] [--yes]
                                    Hiện các bộ lọc và include trong cấu hình cục bộ của kho rồi cho phép chúng:
                                    chỉ sau đó BaoCut mới chạy các lệnh git thực thi chúng
+  baocut projects remove <dự án> [--yes]
+                                   Gỡ dự án khỏi BaoCut: các phiên bị xóa, thư mục và tệp vẫn nằm trên đĩa
+                                   (mở lại thư mục để lấy lại dự án)
   <dự án> là ID, tên hoặc thư mục của dự án; nếu không có, dùng dự án chứa thư mục hiện tại`,
   noProject: (cwd) => `Không có dự án nào chứa ${cwd}. Hãy cho ID, tên hoặc thư mục của dự án (baocut projects list)`,
   unknownProject: (text) => `Không tìm thấy dự án: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const vi: ProjectsMessages = {
   notTtyAllow: 'Không ở trong terminal: xem các mục bằng baocut projects git-status rồi chạy lại với --yes',
   notAllowed: 'Chưa cho phép: BaoCut vẫn tạm dừng commit trong kho này',
   allowed: 'Đã cho phép: BaoCut commit lại vào kho này',
+  removeHead: (name, id, dir) => `Dự án ${name} (${id}): ${dir}`,
+  removeMissing: 'Thư mục không còn ở đó',
+  removeEffect: (count) => `Gỡ dự án sẽ xóa ${count} phiên trong đó. Thư mục cùng video và tệp vẫn nằm trên đĩa`,
+  removePrompt: 'Gỡ dự án này khỏi BaoCut? [y/N] ',
+  notTtyRemove: 'Không ở trong terminal: kiểm tra dự án bằng baocut projects list rồi chạy lại với --yes',
+  notRemoved: 'Chưa gỡ',
+  removed: (name, count) => `Đã gỡ ${name} khỏi BaoCut và xóa ${count} phiên. Thư mục không bị động đến: mở lại (hoặc chạy baocut projects create <thư mục>) để lấy lại dự án`,
 };

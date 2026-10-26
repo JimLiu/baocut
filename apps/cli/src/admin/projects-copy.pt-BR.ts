@@ -11,6 +11,9 @@ export const ptBR: ProjectsMessages = {
   baocut projects git-allow [<projeto>] [--yes]
                                    Mostra os filtros e include da configuração local do repositório e depois os
                                    permite: só então o BaoCut executa comandos do git que os executam
+  baocut projects remove <projeto> [--yes]
+                                   Remove o projeto do BaoCut: as sessões são excluídas; a pasta e os arquivos
+                                   ficam no disco (abra a pasta de novo para trazer o projeto de volta)
   <projeto> é um ID, nome ou pasta de projeto; sem ele, o projeto que contém a pasta atual`,
   noProject: (cwd) => `Nenhum projeto contém ${cwd}. Informe um ID, nome ou pasta de projeto (baocut projects list)`,
   unknownProject: (text) => `Projeto não encontrado: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const ptBR: ProjectsMessages = {
   notTtyAllow: 'Fora de um terminal: revise as entradas com baocut projects git-status e execute de novo com --yes',
   notAllowed: 'Não permitido: os commits do BaoCut continuam pausados neste repositório',
   allowed: 'Permitido: o BaoCut volta a fazer commit neste repositório',
+  removeHead: (name, id, dir) => `Projeto ${name} (${id}): ${dir}`,
+  removeMissing: 'A pasta não está mais lá',
+  removeEffect: (count) => `Remover exclui as ${count} sessões dele. A pasta e seus vídeos e arquivos ficam no disco`,
+  removePrompt: 'Remover este projeto do BaoCut? [y/N] ',
+  notTtyRemove: 'Fora de um terminal: confira o projeto com baocut projects list e execute de novo com --yes',
+  notRemoved: 'Não removido',
+  removed: (name, count) => `${name} foi removido do BaoCut e ${count} sessões foram excluídas. A pasta não foi alterada: abra-a de novo (ou execute baocut projects create <pasta>) para trazer o projeto de volta`,
 };

@@ -15,4 +15,6 @@ export const fr: HarnessProjectsMessages = {
     `Le dossier du projet n’est pas accessible en écriture ; impossible d’écrire .bcut/project.json : ${p.dir}`,
   markerWriteFailed: (p: { error: string }) => `Impossible d’écrire le marqueur de projet : ${p.error}`,
   sessionVideosOpen: (p) => `Des vidéos de cette session sont encore ouvertes : ${p.names}. Fermez-les, puis réessayez`,
+  projectFolderMissing: (p) => `Le dossier du projet n’est plus là : ${p.dir}. Remettez-le en place, ouvrez-le depuis son nouvel emplacement ou retirez le projet de BaoCut`,
+  projectVideosOpen: (p) => `Des vidéos de ce projet sont encore ouvertes : ${p.names}. Fermez-les, puis réessayez`,
 };

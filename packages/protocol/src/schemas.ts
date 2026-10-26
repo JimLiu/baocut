@@ -965,6 +965,7 @@ export const methodParamSchemas = {
     pinned: z.boolean().optional(),
     archived: z.boolean().optional(),
   }),
+  'projects.remove': z.object({ projectId: id }).strict(),
   'projects.files.list': z
     .object({
       conversationId: id,

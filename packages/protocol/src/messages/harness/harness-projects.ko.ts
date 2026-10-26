@@ -14,4 +14,6 @@ export const ko: HarnessProjectsMessages = {
     `프로젝트 폴더에 쓸 수 없어 프로젝트 표시 파일 .bcut/project.json을 쓰지 못했습니다: ${p.dir}`,
   markerWriteFailed: (p) => `프로젝트 표시 파일을 쓰지 못했습니다: ${p.error}`,
   sessionVideosOpen: (p) => `이 세션의 영상이 아직 열려 있습니다: ${p.names}. 닫은 다음 다시 시도하세요`,
+  projectFolderMissing: (p) => `프로젝트 폴더가 더 이상 없습니다: ${p.dir}. 원래 위치로 되돌리거나, 새 위치에서 열거나, BaoCut에서 이 프로젝트를 제거하세요`,
+  projectVideosOpen: (p) => `이 프로젝트의 영상이 아직 열려 있습니다: ${p.names}. 닫은 다음 다시 시도하세요`,
 };

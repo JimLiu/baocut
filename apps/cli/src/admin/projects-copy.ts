@@ -26,6 +26,9 @@ const en = {
   baocut projects git-allow [<project>] [--yes]
                                    Show the local filters and includes in the repository's config, then allow
                                    them: BaoCut runs git commands that execute them only after that
+  baocut projects remove <project> [--yes]
+                                   Remove the project from BaoCut: its sessions are deleted; the folder and
+                                   its files stay on disk (open the folder again to bring the project back)
   <project> is a project ID, name or folder; without it, the project that contains the current folder`,
   noProject: (cwd: string) => `No project contains ${cwd}. Pass a project ID, name or folder (baocut projects list)`,
   unknownProject: (text: string) => `No such project: ${text} (baocut projects list)`,
@@ -55,6 +58,15 @@ const en = {
   notTtyAllow: 'Not in a terminal: review the entries with baocut projects git-status, then rerun with --yes',
   notAllowed: "Not allowed: BaoCut's git commits stay paused for this repository",
   allowed: 'Allowed: BaoCut commits to this repository again',
+  removeHead: (name: string, id: string, dir: string) => `Project ${name} (${id}): ${dir}`,
+  removeMissing: 'The folder is no longer there',
+  removeEffect: (count: number) =>
+    `Removing it deletes the ${count} ${count === 1 ? 'session' : 'sessions'} in it. The folder and its videos and files stay on disk`,
+  removePrompt: 'Remove this project from BaoCut? [y/N] ',
+  notTtyRemove: 'Not in a terminal: check the project with baocut projects list, then rerun with --yes',
+  notRemoved: 'Not removed',
+  removed: (name: string, count: number) =>
+    `Removed ${name} from BaoCut and deleted ${count} ${count === 1 ? 'session' : 'sessions'}. The folder is untouched: open it again (or run baocut projects create <folder>) to bring the project back`,
 };
 
 export type ProjectsMessages = typeof en;

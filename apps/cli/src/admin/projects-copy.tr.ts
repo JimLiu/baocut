@@ -11,6 +11,9 @@ export const tr: ProjectsMessages = {
   baocut projects git-allow [<proje>] [--yes]
                                    Deponun yerel yapılandırmasındaki filtreleri ve include'ları gösterir, sonra onlara
                                    izin verir: BaoCut onları çalıştıran git komutlarını ancak bundan sonra çalıştırır
+  baocut projects remove <proje> [--yes]
+                                   Projeyi BaoCut'tan kaldırır: oturumları silinir; klasör ve dosyaları diskte kalır
+                                   (projeyi geri getirmek için klasörü yeniden açın)
   <proje> bir proje kimliği, adı ya da klasörüdür; verilmezse geçerli klasörü içeren proje`,
   noProject: (cwd) => `${cwd} klasörünü içeren proje yok. Bir proje kimliği, adı ya da klasörü verin (baocut projects list)`,
   unknownProject: (text) => `Proje bulunamadı: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const tr: ProjectsMessages = {
   notTtyAllow: 'Terminalde değil: girdileri baocut projects git-status ile gözden geçirin, sonra --yes ile yeniden çalıştırın',
   notAllowed: "İzin verilmedi: BaoCut'ın bu depodaki commit'leri duraklatılmış kalıyor",
   allowed: 'İzin verildi: BaoCut bu depoya yeniden commit yapıyor',
+  removeHead: (name, id, dir) => `Proje ${name} (${id}): ${dir}`,
+  removeMissing: 'Klasör artık yok',
+  removeEffect: (count) => `Kaldırmak içindeki ${count} oturumu siler. Klasör, videoları ve dosyalarıyla diskte kalır`,
+  removePrompt: "Bu proje BaoCut'tan kaldırılsın mı? [y/N] ",
+  notTtyRemove: 'Terminalde değil: projeyi baocut projects list ile kontrol edin, sonra --yes ile yeniden çalıştırın',
+  notRemoved: 'Kaldırılmadı',
+  removed: (name, count) => `${name} BaoCut'tan kaldırıldı ve ${count} oturum silindi. Klasöre dokunulmadı: projeyi geri getirmek için yeniden açın (veya baocut projects create <klasör> çalıştırın)`,
 };

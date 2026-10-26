@@ -12,4 +12,6 @@ export const ptBR: HarnessProjectsMessages = {
   markerNotWritable: (p) => `Não é possível gravar na pasta do projeto, então não foi possível gravar o marcador .bcut/project.json: ${p.dir}`,
   markerWriteFailed: (p) => `Não foi possível gravar o marcador do projeto: ${p.error}`,
   sessionVideosOpen: (p) => `Alguns vídeos desta sessão ainda estão abertos: ${p.names}. Feche-os e tente de novo`,
+  projectFolderMissing: (p) => `A pasta do projeto não está mais lá: ${p.dir}. Coloque-a de volta, abra-a no novo local ou remova o projeto do BaoCut`,
+  projectVideosOpen: (p) => `Alguns vídeos deste projeto ainda estão abertos: ${p.names}. Feche-os e tente de novo`,
 };

@@ -5,6 +5,7 @@ import {
   ActionButtonGroup,
   ActionMenu,
   MenuItem,
+  MenuSection,
   ProgressCircle,
   SideNavItem,
   SideNavItemContent,
@@ -20,6 +21,7 @@ import ClockPending from '@react-spectrum/s2/icons/ClockPending';
 import Asset from '@react-spectrum/s2/icons/Asset';
 import Brand from '@react-spectrum/s2/icons/Brand';
 import Comment from '@react-spectrum/s2/icons/Comment';
+import Delete from '@react-spectrum/s2/icons/Delete';
 import Edit from '@react-spectrum/s2/icons/Edit';
 import Folder from '@react-spectrum/s2/icons/Folder';
 import FolderOpen from '@react-spectrum/s2/icons/FolderOpen';
@@ -41,6 +43,14 @@ const fit = style({ minWidth: 0 });
 const line = style({ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: 'full' });
 const lineTitle = style({ flexGrow: 1, flexBasis: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 const newHere = style({ color: 'gray-600' });
+/** 目录不在了：行尾一个橙色三角，与会话「等批准」同色系，表示要用户处理而不是出错。 */
+const missingTail = style({
+  display: 'flex',
+  alignItems: 'center',
+  flexShrink: 0,
+  color: 'orange-900',
+  '--iconPrimary': { type: 'fill', value: 'currentColor' },
+});
 const tail = style({
   display: 'flex',
   alignItems: 'center',
@@ -125,8 +135,13 @@ export function conversationItem(
   );
 }
 
+/** 目录不在了时用不了的项目菜单项：它们都要读写这个目录。置顶、重命名与移除只动登记，照常可用。 */
+const NEEDS_FOLDER = ['new', 'space', 'brand', 'reveal', 'settings'];
+
 /**
  * 一个项目：单行文件夹行 + 它的会话；状态汇总与路径在悬停说明里。行尾的项目菜单与展开钮悬停或聚焦时才出现。
+ * 目录不在了（`missing`，架构设计 §5.1）：行尾带提示三角，要用目录的菜单项变灰，空项目的「在这里新建会话」换成提示；
+ * 已有会话照常列出、可以打开看记录。
  */
 export function ProjectItem({
   id,
@@ -142,55 +157,81 @@ export function ProjectItem({
   conversationRow: (conversation: Conversation, key: string) => ReactElement;
 }) {
   const { project } = row;
+  const missing = project.missing === true;
   const newHref = hrefFor({ tab: 'home', conversationId: null, projectId: project.id });
-  const detail = [project.name, row.summary, shortenPath(project.path)].filter(Boolean).join(' · ');
+  const detail = [project.name, missing ? S.sidebarRows.folderMissing : row.summary, shortenPath(project.path)].filter(Boolean).join(' · ');
   return (
     <SideNavItem id={id} textValue={project.name} hasChildItems data-bc-expandable="">
       <SideNavItemContent>
         {open ? <FolderOpen /> : <Folder />}
         <Text styles={fit}>
-          <span className={line} title={detail}>
+          <span className={line} title={missing ? `${detail}\n${S.sidebarRows.folderMissingHint}` : detail}>
             <span className={lineTitle}>{project.name}</span>
+            {missing ? (
+              <span className={missingTail} role="img" aria-label={S.sidebarRows.folderMissing}>
+                <AlertTriangle styles={tailIcon} />
+              </span>
+            ) : null}
           </span>
         </Text>
         <ActionMenu
           aria-label={S.sidebarRows.projectActions(project.name)}
           isQuiet
           size="S"
+          disabledKeys={missing ? NEEDS_FOLDER : undefined}
           onAction={(key) => onAction(String(key))}>
-          <MenuItem id="new" textValue={S.common.newSessionInProject}>
-            <Add />
-            <Text>{S.common.newSessionInProject}</Text>
-          </MenuItem>
-          <MenuItem id="pin" textValue={project.pinned ? S.common.unpin : S.common.pin}>
-            {project.pinned ? <PinOff /> : <PinOn />}
-            <Text>{project.pinned ? S.common.unpin : S.common.pin}</Text>
-          </MenuItem>
-          <MenuItem id="rename" textValue={S.common.rename}>
-            <Edit />
-            <Text>{S.common.renameEllipsis}</Text>
-          </MenuItem>
-          <MenuItem id="space" textValue={S.sidebarRows.showInSpace}>
-            <Asset />
-            <Text>{S.sidebarRows.showInSpace}</Text>
-          </MenuItem>
-          <MenuItem id="brand" textValue={PROJECT_MENU_COPY.brand}>
-            <Brand />
-            <Text>{PROJECT_MENU_COPY.brand}</Text>
-          </MenuItem>
-          <MenuItem id="reveal" textValue={revealLabel()}>
-            <OpenIn />
-            <Text>{revealLabel()}</Text>
-          </MenuItem>
-          <MenuItem id="settings" textValue={PROJECT_SETTINGS_COPY.menuItem}>
-            <Settings />
-            <Text>{PROJECT_SETTINGS_COPY.menuItem}</Text>
-          </MenuItem>
+          <MenuSection>
+            <MenuItem id="new" textValue={S.common.newSessionInProject}>
+              <Add />
+              <Text>{S.common.newSessionInProject}</Text>
+            </MenuItem>
+            <MenuItem id="pin" textValue={project.pinned ? S.common.unpin : S.common.pin}>
+              {project.pinned ? <PinOff /> : <PinOn />}
+              <Text>{project.pinned ? S.common.unpin : S.common.pin}</Text>
+            </MenuItem>
+            <MenuItem id="rename" textValue={S.common.rename}>
+              <Edit />
+              <Text>{S.common.renameEllipsis}</Text>
+            </MenuItem>
+            <MenuItem id="space" textValue={S.sidebarRows.showInSpace}>
+              <Asset />
+              <Text>{S.sidebarRows.showInSpace}</Text>
+            </MenuItem>
+            <MenuItem id="brand" textValue={PROJECT_MENU_COPY.brand}>
+              <Brand />
+              <Text>{PROJECT_MENU_COPY.brand}</Text>
+            </MenuItem>
+            <MenuItem id="reveal" textValue={revealLabel()}>
+              <OpenIn />
+              <Text>{revealLabel()}</Text>
+            </MenuItem>
+            <MenuItem id="settings" textValue={PROJECT_SETTINGS_COPY.menuItem}>
+              <Settings />
+              <Text>{PROJECT_SETTINGS_COPY.menuItem}</Text>
+            </MenuItem>
+          </MenuSection>
+          <MenuSection>
+            <MenuItem id="remove" textValue={S.sidebarRows.removeProject}>
+              <Delete />
+              <Text>{S.sidebarRows.removeProject}</Text>
+            </MenuItem>
+          </MenuSection>
         </ActionMenu>
       </SideNavItemContent>
       {row.conversations.map((conversation) => conversationRow(conversation, `${id}/${conversation.id}`))}
-      {row.conversations.length ? null : (
-        <SideNavItem id={`${id}/new`} textValue={S.sidebarRows.newHere} href={newHref} data-bc-row="">
+      {/* 两个分支各带 key：目录在与不在之间切换时换一个条目，集合不允许同一个条目改 id。 */}
+      {row.conversations.length ? null : missing ? (
+        <SideNavItem key="missing" id={`${id}/missing`} textValue={S.sidebarRows.folderMissing} data-bc-row="">
+          <SideNavItemContent>
+            <Text styles={fit}>
+              <span className={line} title={S.sidebarRows.folderMissingHint}>
+                <span className={`${lineTitle} ${newHere}`}>{S.sidebarRows.folderMissing}</span>
+              </span>
+            </Text>
+          </SideNavItemContent>
+        </SideNavItem>
+      ) : (
+        <SideNavItem key="new" id={`${id}/new`} textValue={S.sidebarRows.newHere} href={newHref} data-bc-row="">
           <SideNavItemContent>
             <SideNavItemLink>
               <Text>

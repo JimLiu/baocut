@@ -110,11 +110,18 @@ export function ProjectPicker({
                 <SearchField aria-label={HOME_COPY.searchProjects} placeholder={HOME_COPY.searchProjects} autoFocus />
                 {shown.length ? (
                   <div className={projectList}>
-                    <Menu aria-label={S.sidebar.projects} selectionMode="single" selectedKeys={selected} onAction={(key) => choose(String(key))}>
+                    <Menu
+                      aria-label={S.sidebar.projects}
+                      selectionMode="single"
+                      selectedKeys={selected}
+                      disabledKeys={shown.filter((p) => p.missing).map((p) => p.id)}
+                      onAction={(key) => choose(String(key))}>
                       {shown.map((p) => (
                         <MenuItem key={p.id} id={p.id} textValue={p.name}>
                           <Folder />
                           <Text slot="label">{p.name}</Text>
+                          {/* 目录不在了的项目建不了会话（架构设计 §5.1），列着但不能选。 */}
+                          {p.missing ? <Text slot="description">{S.sidebarRows.folderMissing}</Text> : null}
                         </MenuItem>
                       ))}
                     </Menu>

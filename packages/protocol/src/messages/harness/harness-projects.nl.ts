@@ -15,4 +15,6 @@ export const nl: HarnessProjectsMessages = {
     `De projectmap is niet schrijfbaar, dus de projectmarkering .bcut/project.json kan niet worden geschreven: ${p.dir}`,
   markerWriteFailed: (p: { error: string }) => `Kan de projectmarkering niet schrijven: ${p.error}`,
   sessionVideosOpen: (p) => `Video's in deze sessie zijn nog geopend: ${p.names}. Sluit ze en probeer het opnieuw`,
+  projectFolderMissing: (p) => `De projectmap is er niet meer: ${p.dir}. Zet de map terug, open hem vanaf de nieuwe locatie of verwijder het project uit BaoCut`,
+  projectVideosOpen: (p) => `Video's in dit project zijn nog geopend: ${p.names}. Sluit ze en probeer het opnieuw`,
 };

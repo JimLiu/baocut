@@ -14,4 +14,6 @@ export const ja: HarnessProjectsMessages = {
     `プロジェクトフォルダに書き込めないため、プロジェクトマーカー .bcut/project.json を書き込めませんでした：${p.dir}`,
   markerWriteFailed: (p) => `プロジェクトマーカーを書き込めませんでした：${p.error}`,
   sessionVideosOpen: (p) => `このセッションの動画がまだ開いています：${p.names}。閉じてからもう一度お試しください`,
+  projectFolderMissing: (p) => `プロジェクトフォルダが見つかりません：${p.dir}。元の場所に戻すか、新しい場所から開くか、BaoCut からこのプロジェクトを削除してください`,
+  projectVideosOpen: (p) => `このプロジェクトの動画がまだ開いています：${p.names}。閉じてからもう一度お試しください`,
 };

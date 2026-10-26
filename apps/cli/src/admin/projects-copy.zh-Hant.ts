@@ -10,6 +10,9 @@ export const zhHant: ProjectsMessages = {
                                    也不在別的儲存庫裡面）
   baocut projects git-allow [<專案>] [--yes]
                                    列出儲存庫本機設定裡的篩選器與 include，再允許它們：之後 BaoCut 才執行會執行它們的 git 命令
+  baocut projects remove <專案> [--yes]
+                                   從 BaoCut 移除專案：刪除它的對話，資料夾與裡面的檔案留在磁碟上
+                                   （再開啟這個資料夾就能把專案找回來）
   <專案> 是專案 ID、名稱或資料夾；不給時用包含目前資料夾的專案`,
   noProject: (cwd) => `沒有包含 ${cwd} 的專案。請給出專案 ID、名稱或資料夾（baocut projects list）`,
   unknownProject: (text) => `沒有這個專案：${text}（baocut projects list）`,
@@ -39,4 +42,11 @@ export const zhHant: ProjectsMessages = {
   notTtyAllow: '不在終端機裡：先用 baocut projects git-status 查看項目，再加 --yes 重新執行',
   notAllowed: '沒有允許：BaoCut 在這個儲存庫的代為提交保持暫停',
   allowed: '已允許：BaoCut 恢復在這個儲存庫代為提交',
+  removeHead: (name, id, dir) => `專案 ${name}（${id}）：${dir}`,
+  removeMissing: '資料夾已經不在了',
+  removeEffect: (count) => `移除會刪除它的 ${count} 個對話；資料夾與裡面的影片、檔案都留在磁碟上`,
+  removePrompt: '要從 BaoCut 移除這個專案嗎？[y/N] ',
+  notTtyRemove: '不在終端機裡：先用 baocut projects list 確認專案，再加上 --yes 重新執行',
+  notRemoved: '沒有移除',
+  removed: (name, count) => `已從 BaoCut 移除 ${name}，刪除了 ${count} 個對話。資料夾沒有變動：再開啟它（或執行 baocut projects create <資料夾>）就能把專案找回來`,
 };

@@ -11,6 +11,9 @@ export const de: ProjectsMessages = {
   baocut projects git-allow [<Projekt>] [--yes]
                                    Zeigt die Filter und Includes in der lokalen Konfiguration des Repositorys und erlaubt
                                    sie dann: erst danach führt BaoCut Git-Befehle aus, die sie ausführen
+  baocut projects remove <Projekt> [--yes]
+                                   Entfernt das Projekt aus BaoCut: Die Sitzungen werden gelöscht, der Ordner und
+                                   seine Dateien bleiben auf der Festplatte (Ordner erneut öffnen, um es zurückzuholen)
   <Projekt> ist eine Projekt-ID, ein Name oder ein Ordner; ohne Angabe das Projekt, das den aktuellen Ordner enthält`,
   noProject: (cwd) => `Kein Projekt enthält ${cwd}. Gib eine Projekt-ID, einen Namen oder einen Ordner an (baocut projects list)`,
   unknownProject: (text) => `Projekt nicht gefunden: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const de: ProjectsMessages = {
   notTtyAllow: 'Nicht in einem Terminal: prüfe die Einträge mit baocut projects git-status und führe den Befehl dann mit --yes erneut aus',
   notAllowed: 'Nicht erlaubt: BaoCuts Commits bleiben für dieses Repository pausiert',
   allowed: 'Erlaubt: BaoCut committet wieder in dieses Repository',
+  removeHead: (name, id, dir) => `Projekt ${name} (${id}): ${dir}`,
+  removeMissing: 'Der Ordner ist nicht mehr vorhanden',
+  removeEffect: (count) => `Beim Entfernen werden die ${count} Sitzung(en) darin gelöscht. Der Ordner mit Videos und Dateien bleibt auf der Festplatte`,
+  removePrompt: 'Dieses Projekt aus BaoCut entfernen? [y/N] ',
+  notTtyRemove: 'Kein Terminal: Projekt mit baocut projects list prüfen und dann mit --yes erneut ausführen',
+  notRemoved: 'Nicht entfernt',
+  removed: (name, count) => `${name} wurde aus BaoCut entfernt, ${count} Sitzung(en) gelöscht. Der Ordner ist unverändert: Öffnen Sie ihn erneut (oder führen Sie baocut projects create <Ordner> aus), um das Projekt zurückzuholen`,
 };

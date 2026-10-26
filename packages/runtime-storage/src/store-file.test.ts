@@ -275,3 +275,18 @@ describe('GrantStore（授权账本不能静默丢）', () => {
     expect(store.list({ includeEnded: true })).toEqual([]);
   });
 });
+
+describe('ProjectStore.delete', () => {
+  it('删掉的项目不在列表里、落盘；不认得的 id 什么也不做', async () => {
+    const project = (id: string) => ({ id, name: id, path: `/tmp/${id}`, createdAt: 't', lastActiveAt: 't', pinned: false, archived: false });
+    const store = new ProjectStore(file);
+    await store.load();
+    await store.put(project('p1'));
+    await store.put(project('p2'));
+    await store.delete('p1');
+    await store.delete('p_nope');
+    expect(store.list().map((p) => p.id)).toEqual(['p2']);
+    const reloaded = new ProjectStore(file);
+    expect((await reloaded.load()).map((p) => p.id)).toEqual(['p2']);
+  });
+});

@@ -153,8 +153,10 @@
               <R.SearchField aria-label="搜索项目" placeholder="搜索项目" autoFocus />
               {shown.length > 0
                 ? <div className="home-project-menu__list">
-                    <R.Menu aria-label="项目" selectionMode="single" selectedKeys={picked} onAction={key => choose(String(key))}>
-                      {shown.map(d => <R.MenuItem key={d.id} id={d.id} textValue={d.name}><R.Icons.Folder /><R.Text>{d.name}</R.Text></R.MenuItem>)}
+                    <R.Menu aria-label="项目" selectionMode="single" selectedKeys={picked} disabledKeys={shown.filter(d => d.missing).map(d => d.id)} onAction={key => choose(String(key))}>
+                      {/* 目录不在了的项目建不了会话：列着、不能选 */}
+                      {shown.map(d => <R.MenuItem key={d.id} id={d.id} textValue={d.name}><R.Icons.Folder /><R.Text slot="label">{d.name}</R.Text>
+                        {d.missing && <R.Text slot="description">目录不在了</R.Text>}</R.MenuItem>)}
                     </R.Menu>
                   </div>
                 : <p className="home-project-menu__empty">没有匹配的项目</p>}

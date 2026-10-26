@@ -11,6 +11,9 @@ export const ja: ProjectsMessages = {
   baocut projects git-allow [<プロジェクト>] [--yes]
                                    リポジトリのローカル設定にあるフィルターと include を表示してから許可します。
                                    許可するまで BaoCut はそれらを実行する git コマンドを実行しません
+  baocut projects remove <プロジェクト> [--yes]
+                                   BaoCut からプロジェクトを削除：セッションは削除され、フォルダとファイルはディスクに残ります
+                                   （フォルダをもう一度開くとプロジェクトが戻ります）
   <プロジェクト> はプロジェクト ID、名前、フォルダ。省略すると現在のフォルダを含むプロジェクト`,
   noProject: (cwd) => `${cwd} を含むプロジェクトはありません。プロジェクト ID、名前、フォルダを指定してください（baocut projects list）`,
   unknownProject: (text) => `プロジェクトが見つかりません：${text}（baocut projects list）`,
@@ -40,4 +43,11 @@ export const ja: ProjectsMessages = {
   notTtyAllow: 'ターミナルではありません：baocut projects git-status で項目を確認してから --yes を付けて再実行してください',
   notAllowed: '許可しませんでした：このリポジトリでの BaoCut のコミットは一時停止のままです',
   allowed: '許可しました：BaoCut はこのリポジトリへのコミットを再開します',
+  removeHead: (name, id, dir) => `プロジェクト ${name}（${id}）：${dir}`,
+  removeMissing: 'フォルダが見つかりません',
+  removeEffect: (count) => `削除すると、このプロジェクトの ${count} 件のセッションも削除されます。フォルダと動画・ファイルはディスクに残ります`,
+  removePrompt: 'このプロジェクトを BaoCut から削除しますか？ [y/N] ',
+  notTtyRemove: 'ターミナルではありません：baocut projects list でプロジェクトを確認してから、--yes を付けて再実行してください',
+  notRemoved: '削除しませんでした',
+  removed: (name, count) => `${name} を BaoCut から削除し、${count} 件のセッションを削除しました。フォルダはそのままです：もう一度開く（または baocut projects create <フォルダ> を実行する）とプロジェクトが戻ります`,
 };

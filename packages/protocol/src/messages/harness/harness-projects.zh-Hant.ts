@@ -12,4 +12,6 @@ export const zhHant: HarnessProjectsMessages = {
   markerNotWritable: (p) => `專案資料夾無法寫入，因此無法寫入專案標記 .bcut/project.json：${p.dir}`,
   markerWriteFailed: (p) => `無法寫入專案標記：${p.error}`,
   sessionVideosOpen: (p) => `這個對話裡的影片還開著：${p.names}。請先關閉再試一次`,
+  projectFolderMissing: (p) => `專案資料夾不在了：${p.dir}。請把它放回原處、從新位置開啟，或從 BaoCut 移除這個專案`,
+  projectVideosOpen: (p) => `這個專案裡的影片還開著：${p.names}。請先關閉再試一次`,
 };

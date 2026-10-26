@@ -33,6 +33,8 @@ export function applyDirectoryEvent(state: DirectorySnapshot, event: DirectoryEv
   switch (event.type) {
     case 'project.upsert':
       return { ...state, projects: upsertBy(state.projects, event.project, (p) => p.id) };
+    case 'project.removed':
+      return { ...state, projects: state.projects.filter((p) => p.id !== event.projectId) };
     case 'conversation.upsert':
       return { ...state, conversations: upsertBy(state.conversations, event.conversation, (c) => c.id) };
     case 'conversation.removed':

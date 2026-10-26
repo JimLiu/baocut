@@ -199,7 +199,14 @@ export function ProjectPicker({ value, onChange }: { value: Id | null; onChange:
   const projects = useDirectory((s) => s.projects);
   if (!projects.length) return <span className={detail}>{PROJECT_COPY.noneBody}</span>;
   return (
-    <Picker label={PROJECT_COPY.label} items={projects} selectedKey={value} styles={field} onSelectionChange={(key) => key !== null && onChange(String(key))}>
+    <Picker
+      label={PROJECT_COPY.label}
+      items={projects}
+      selectedKey={value}
+      // 目录不在了的项目放不进新视频（架构设计 §5.1）。
+      disabledKeys={projects.filter((p) => p.missing).map((p) => p.id)}
+      styles={field}
+      onSelectionChange={(key) => key !== null && onChange(String(key))}>
       {(p) => <PickerItem id={p.id}>{p.name}</PickerItem>}
     </Picker>
   );

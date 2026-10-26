@@ -11,6 +11,9 @@ export const ru: ProjectsMessages = {
   baocut projects git-allow [<проект>] [--yes]
                                    Показать фильтры и include в локальной конфигурации репозитория и разрешить их:
                                    только после этого BaoCut запускает команды git, которые их выполняют
+  baocut projects remove <проект> [--yes]
+                                   Удалить проект из BaoCut: его сессии удаляются, папка и файлы остаются на диске
+                                   (откройте папку снова, чтобы вернуть проект)
   <проект> — ID, имя или папка проекта; без него — проект, содержащий текущую папку`,
   noProject: (cwd) => `Ни один проект не содержит ${cwd}. Укажите ID, имя или папку проекта (baocut projects list)`,
   unknownProject: (text) => `Проект не найден: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const ru: ProjectsMessages = {
   notTtyAllow: 'Не в терминале: проверьте записи командой baocut projects git-status, затем запустите снова с --yes',
   notAllowed: 'Не разрешено: коммиты BaoCut в этом репозитории остаются приостановленными',
   allowed: 'Разрешено: BaoCut снова делает коммиты в этом репозитории',
+  removeHead: (name, id, dir) => `Проект ${name} (${id}): ${dir}`,
+  removeMissing: 'Папки больше нет',
+  removeEffect: (count) => `При удалении будут удалены его сессии (${count}). Папка с видео и файлами останется на диске`,
+  removePrompt: 'Удалить этот проект из BaoCut? [y/N] ',
+  notTtyRemove: 'Не в терминале: проверьте проект через baocut projects list и запустите снова с --yes',
+  notRemoved: 'Не удалено',
+  removed: (name, count) => `Проект ${name} удалён из BaoCut, удалено сессий: ${count}. Папка не тронута: откройте её снова (или выполните baocut projects create <папка>), чтобы вернуть проект`,
 };

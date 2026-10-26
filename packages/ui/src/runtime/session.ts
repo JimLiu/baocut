@@ -349,6 +349,11 @@ export class RuntimeSession {
     return project;
   }
 
+  /** 从 BaoCut 移除项目：删登记与它的会话，目录不动（架构设计 §5.1）。返回删掉的会话数。 */
+  async removeProject(projectId: Id): Promise<{ removed: true; conversations: number }> {
+    return this.client.request('projects.remove', { projectId });
+  }
+
   async updateConversation(
     conversationId: Id,
     patch: {

@@ -11,6 +11,9 @@ export const pl: ProjectsMessages = {
   baocut projects git-allow [<projekt>] [--yes]
                                    Pokazuje filtry i include z lokalnej konfiguracji repozytorium, a potem je zezwala:
                                    dopiero wtedy BaoCut uruchamia polecenia git, które je wykonują
+  baocut projects remove <projekt> [--yes]
+                                   Usuwa projekt z BaoCut: jego sesje są usuwane, folder i pliki zostają na dysku
+                                   (otwórz folder ponownie, aby przywrócić projekt)
   <projekt> to ID, nazwa lub folder projektu; bez niego projekt zawierający bieżący folder`,
   noProject: (cwd) => `Żaden projekt nie zawiera ${cwd}. Podaj ID, nazwę lub folder projektu (baocut projects list)`,
   unknownProject: (text) => `Nie znaleziono projektu: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const pl: ProjectsMessages = {
   notTtyAllow: 'To nie jest terminal: sprawdź wpisy poleceniem baocut projects git-status, a potem uruchom ponownie z --yes',
   notAllowed: 'Nie zezwolono: commity BaoCut w tym repozytorium pozostają wstrzymane',
   allowed: 'Zezwolono: BaoCut znowu tworzy commity w tym repozytorium',
+  removeHead: (name, id, dir) => `Projekt ${name} (${id}): ${dir}`,
+  removeMissing: 'Folderu już nie ma',
+  removeEffect: (count) => `Usunięcie skasuje jego sesje (${count}). Folder z wideo i plikami zostaje na dysku`,
+  removePrompt: 'Usunąć ten projekt z BaoCut? [y/N] ',
+  notTtyRemove: 'Nie w terminalu: sprawdź projekt przez baocut projects list, a potem uruchom ponownie z --yes',
+  notRemoved: 'Nie usunięto',
+  removed: (name, count) => `Usunięto ${name} z BaoCut i skasowano sesje (${count}). Folder pozostał bez zmian: otwórz go ponownie (lub uruchom baocut projects create <folder>), aby przywrócić projekt`,
 };

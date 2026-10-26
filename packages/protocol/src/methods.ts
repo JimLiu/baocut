@@ -341,6 +341,12 @@ export interface RpcMethods {
     params: { projectId: Id; name?: string; pinned?: boolean; archived?: boolean };
     result: { project: Project };
   };
+  /**
+   * 从 BaoCut 移除项目（架构设计 §5.1）：删掉登记与它的会话（运行中的任务先停下），目录与里面的视频、素材、文件都留在磁盘上。
+   * 之后从原目录再打开（`projects.open`），按标记认回同一个 `projectId`，会话不回来。项目里还有视频被别处开着时以 `conflict`
+   * 拒绝（`details.code: 'VIDEO_IN_USE'`，`details.videos` 是相对项目目录的路径），什么都不动。`conversations` 是一并删除的会话数。
+   */
+  'projects.remove': { params: { projectId: Id }; result: { removed: true; conversations: number } };
   // git 桥（版本记录设计 §5、架构设计 §5.12）
   /**
    * 项目的 git 状态：在不在仓库里、能不能提交、暂停的原因（`locked`、`repo-state`、`local-config`）与这次运行期间最后一次提交或失败。

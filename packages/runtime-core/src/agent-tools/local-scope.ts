@@ -220,8 +220,9 @@ export class LocalScope implements ToolScope<LocalAccess> {
     return this.#deps.jobs.list();
   }
 
-  /** `projects_list`：全部已登记项目，视频数按 Space 里登记的视频（首次扫描完成之后）。 */
+  /** `projects_list`：全部已登记项目，视频数按 Space 里登记的视频（首次扫描完成之后）；目录在不在现查一遍。 */
   async listProjects(): Promise<ScopedProject[]> {
+    await this.#deps.harness.refreshProjectPresence();
     const space = this.#deps.space();
     await space.ready;
     const counts = new Map<Id, number>();

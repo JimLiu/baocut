@@ -7,6 +7,7 @@ export { AgentManager, DriverRegistry } from './agent-manager.ts';
 export {
   Harness,
   driverApprovalRisk,
+  projectMissingError,
   withEditorContext,
   withSpaceReferences,
   withSlideAnnotations,

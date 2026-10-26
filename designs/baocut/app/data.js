@@ -550,6 +550,8 @@
     {id: 'd6', name: '素材实验', path: '~/BaoCut/素材实验/', mtime: 0},
     {id: 'd7', name: '年度回顾', path: '~/BaoCut/年度回顾/', mtime: 11520},
     {id: 'd8', name: '产品手册动画', path: '~/BaoCut/产品手册动画/', mtime: 35},
+    /* 目录被挪走或删掉了的项目（product-design §3.1）：Runtime 查不到目录时标 missing，侧栏带提示、只能移除或等目录回来 */
+    {id: 'd9', name: '去年的素材', path: '~/Movies/去年的素材/', mtime: 20160, missing: true},
   ];
 
   /* Space 里除视频之外的条目（§4.2）：成片 / 图片 / 音频 / 字幕 / 文档 / 模板。Space 本身不存东西，

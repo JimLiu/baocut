@@ -11,6 +11,9 @@ export const nl: ProjectsMessages = {
   baocut projects git-allow [<project>] [--yes]
                                    Toont de filters en includes in de lokale configuratie van de repository en staat
                                    ze daarna toe: pas dan voert BaoCut git-opdrachten uit die ze uitvoeren
+  baocut projects remove <project> [--yes]
+                                   Verwijdert het project uit BaoCut: de sessies worden verwijderd; de map en
+                                   de bestanden blijven op schijf (open de map opnieuw om het terug te halen)
   <project> is een project-ID, naam of map; zonder, het project dat de huidige map bevat`,
   noProject: (cwd) => `Geen project bevat ${cwd}. Geef een project-ID, naam of map op (baocut projects list)`,
   unknownProject: (text) => `Project niet gevonden: ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const nl: ProjectsMessages = {
   notTtyAllow: 'Niet in een terminal: bekijk de items met baocut projects git-status en voer het daarna opnieuw uit met --yes',
   notAllowed: 'Niet toegestaan: de commits van BaoCut blijven gepauzeerd voor deze repository',
   allowed: 'Toegestaan: BaoCut commit weer in deze repository',
+  removeHead: (name, id, dir) => `Project ${name} (${id}): ${dir}`,
+  removeMissing: 'De map is er niet meer',
+  removeEffect: (count) => `Verwijderen wist de ${count} sessie(s) erin. De map met video's en bestanden blijft op schijf`,
+  removePrompt: 'Dit project uit BaoCut verwijderen? [y/N] ',
+  notTtyRemove: 'Niet in een terminal: controleer het project met baocut projects list en voer het opnieuw uit met --yes',
+  notRemoved: 'Niet verwijderd',
+  removed: (name, count) => `${name} is uit BaoCut verwijderd en ${count} sessie(s) zijn gewist. De map is ongewijzigd: open hem opnieuw (of voer baocut projects create <map> uit) om het project terug te halen`,
 };

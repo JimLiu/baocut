@@ -11,6 +11,9 @@ export const fr: ProjectsMessages = {
   baocut projects git-allow [<projet>] [--yes]
                                    Affiche les filtres et include de la configuration locale du dépôt, puis les
                                    autorise : BaoCut n'exécute qu'ensuite les commandes git qui les exécutent
+  baocut projects remove <projet> [--yes]
+                                   Retire le projet de BaoCut : ses sessions sont supprimées ; le dossier et ses
+                                   fichiers restent sur le disque (rouvrez le dossier pour retrouver le projet)
   <projet> est un ID, un nom ou un dossier de projet ; sans lui, le projet qui contient le dossier actuel`,
   noProject: (cwd) => `Aucun projet ne contient ${cwd}. Indiquez un ID, un nom ou un dossier de projet (baocut projects list)`,
   unknownProject: (text) => `Projet introuvable : ${text} (baocut projects list)`,
@@ -40,4 +43,11 @@ export const fr: ProjectsMessages = {
   notTtyAllow: 'Pas dans un terminal : vérifiez les entrées avec baocut projects git-status, puis relancez avec --yes',
   notAllowed: 'Non autorisé : les commits de BaoCut restent en pause pour ce dépôt',
   allowed: 'Autorisé : BaoCut refait des commits dans ce dépôt',
+  removeHead: (name, id, dir) => `Projet ${name} (${id}) : ${dir}`,
+  removeMissing: 'Le dossier n’est plus là',
+  removeEffect: (count) => `Le retirer supprime ses ${count} session(s). Le dossier, ses vidéos et ses fichiers restent sur le disque`,
+  removePrompt: 'Retirer ce projet de BaoCut ? [y/N] ',
+  notTtyRemove: 'Pas dans un terminal : vérifiez le projet avec baocut projects list, puis relancez avec --yes',
+  notRemoved: 'Non retiré',
+  removed: (name, count) => `${name} a été retiré de BaoCut et ${count} session(s) supprimée(s). Le dossier n’a pas été modifié : rouvrez-le (ou lancez baocut projects create <dossier>) pour retrouver le projet`,
 };

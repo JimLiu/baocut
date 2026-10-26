@@ -183,6 +183,8 @@ const STALE_RECHECK_MS = 60_000;
 const BIND_INTENT_FILE = '.baocut-binding.json';
 /** 搬进项目时因为视频开着留下的工作目录，隔多久再搬一次。 */
 const FOLD_RETRY_MS = 30_000;
+/** 隔多久查一次登记的项目目录还在不在（`Project.missing`，架构设计 §5.1）。`projects.list`、新建会话时另外现查。 */
+const PROJECT_PRESENCE_MS = 30_000;
 /**
  * 运行中出现这些错误，说明这个 Driver 的探测结果可能过时了（刚退出登录、卸载、升级了 CLI、模型表变了）：
  * 后台强制重新探测它（§3.11）。不直接改写缓存里的状态：探测是唯一的事实来源。
@@ -273,6 +275,9 @@ export class Harness {
   readonly #rebound = new Map<Id, string>();
   /** 搬进项目时因为视频开着没搬完的工作目录 → 下次再搬的计时器（视频关掉后搬走，§3.10）。 */
   readonly #foldRetries = new Map<string, ReturnType<typeof setTimeout>>();
+  /** 登记的目录此刻不在的项目（`Project.missing`，架构设计 §5.1）：按需检查，只在内存里。 */
+  readonly #missing = new Set<Id>();
+  #presenceTimer: ReturnType<typeof setInterval> | null = null;
   readonly #openVideoDirs: () => readonly string[];
   readonly #closeIdleVideos: (dir: string) => Promise<void>;
   readonly #directory: TopicLog<DirectorySnapshot, DirectoryEvent>;
@@ -321,6 +326,10 @@ export class Harness {
     await options.projects.load();
     for (const record of await options.conversations.load()) harness.#adopt(record);
     harness.#recover();
+    // 目录被删掉、移走或所在的卷没接上的项目，界面一开始就看得到；之后定时再查，目录回来或消失都推送。
+    await harness.refreshProjectPresence();
+    harness.#presenceTimer = setInterval(() => void harness.refreshProjectPresence().catch(() => {}), PROJECT_PRESENCE_MS);
+    harness.#presenceTimer.unref?.();
     // 界面先看到上次的结果，后台把每个 Driver 重新探测一遍，各自完成各自推送。
     void options.drivers.refresh(undefined, { reason: 'startup' });
     return harness;
@@ -330,7 +339,7 @@ export class Harness {
 
   directorySnapshot(): DirectorySnapshot {
     return {
-      projects: this.#projects.list(),
+      projects: this.listProjects(),
       conversations: [...this.#states.values()].map((s) => s.conversation),
     };
   }
@@ -358,8 +367,38 @@ export class Harness {
 
   // ---- 项目 ----
 
+  /** 登记的项目，目录此刻不在的带 `missing`（按上次检查）。 */
   listProjects(): Project[] {
-    return this.#projects.list();
+    return this.#projects.list().map((project) => this.#withPresence(project));
+  }
+
+  #withPresence(project: Project): Project {
+    return this.#missing.has(project.id) ? { ...project, missing: true } : project;
+  }
+
+  /**
+   * 重新检查每个登记的项目目录在不在（架构设计 §5.1），有变化的推送 `project.upsert`。只看目录本身：不在、不是目录算缺失；
+   * 没有权限等别的错误不算（目录多半还在）。不建目录，也不改登记。
+   */
+  async refreshProjectPresence(): Promise<void> {
+    const projects = this.#projects.list();
+    const present = await Promise.all(projects.map((project) => folderPresent(project.path)));
+    projects.forEach((project, i) => this.#notePresence(project.id, present[i]!));
+  }
+
+  /** 记下一个项目的目录在不在；有变化且项目还在登记里时推送。 */
+  #notePresence(projectId: Id, present: boolean): void {
+    if (present ? !this.#missing.delete(projectId) : this.#missing.has(projectId)) return;
+    if (!present) this.#missing.add(projectId);
+    const project = this.#projects.get(projectId);
+    if (project && !this.#closing) this.#directory.publish({ type: 'project.upsert', project: this.#withPresence(project) });
+  }
+
+  /** 在项目里新建会话、发消息之前：现查目录还在，不在时拒绝（`PROJECT_DIR_MISSING`），不悄悄重建出一个空目录。 */
+  async #assertProjectPresent(project: Project): Promise<void> {
+    const present = await folderPresent(project.path);
+    this.#notePresence(project.id, present);
+    if (!present) throw projectMissingError(project);
   }
 
   /**
@@ -411,7 +450,8 @@ export class Harness {
       await this.#writeMarker(real, id, existing?.createdAt ?? now);
       project = existing ? { ...existing, lastActiveAt: now, archived: false } : newProject(id, real, now, now);
     }
-    // 重新打开一个归档的项目，等于把它拿回列表。
+    // 重新打开一个归档的项目，等于把它拿回列表。目录就在这里：不再算缺失（移走后从新位置打开也是）。
+    this.#missing.delete(project.id);
     await this.#projects.put(project);
     this.#directory.publish({ type: 'project.upsert', project });
     if (moved) this.#rebaseConversations(project);
@@ -629,6 +669,7 @@ export class Harness {
     if ('projectId' in into) {
       const project = this.#projects.get(into.projectId);
       if (!project) throw new RpcError('not-found', HP.projectNotFound({ id: into.projectId }));
+      await this.#assertProjectPresent(project);
       return project;
     }
     const known = await fs.realpath(into.dir).then(
@@ -896,8 +937,42 @@ export class Harness {
       ...(params.archived !== undefined ? { archived: params.archived } : {}),
     };
     await this.#projects.put(project);
-    this.#directory.publish({ type: 'project.upsert', project });
-    return project;
+    const shown = this.#withPresence(project);
+    this.#directory.publish({ type: 'project.upsert', project: shown });
+    return shown;
+  }
+
+  /**
+   * 从 BaoCut 移除项目（架构设计 §5.1）：删掉它的会话（运行中的任务先停下，同 `deleteConversation`）与登记，目录里的文件都不动。
+   * 目录还在、里面有视频被别处开着时拒绝（`VIDEO_IN_USE`），什么都不删；目录不在了照样能移除。之后从原目录再打开按标记认回同一个 id。
+   */
+  async removeProject(projectId: Id): Promise<{ removed: true; conversations: number }> {
+    const project = this.#projects.get(projectId);
+    if (!project) throw new RpcError('not-found', HP.projectNotFound({ id: projectId }));
+    const members = [...this.#states.values()].filter((state) => state.conversation.projectId === projectId);
+    // 先放掉闲着的原生会话：会话的智能体自己开着的视频由此放下，不算别处开着。运行中的回合留给下面的删会话去停。
+    await this.#releaseIdle(members);
+    const real = await fs.realpath(project.path).catch(() => null);
+    if (real) {
+      await this.#closeIdleVideos(real).catch(() => {});
+      const open = this.#openVideoDirs().filter((dir) => isInside(real, dir));
+      if (open.length) {
+        const names = open.map((dir) => path.relative(real, dir).split(path.sep).join('/'));
+        throw new RpcError('conflict', HP.projectVideosOpen({ names: names.join(', ') }), { code: 'VIDEO_IN_USE', videos: names });
+      }
+    }
+    // 先删会话、后删登记：会话回合中绑定留下的工作目录还能按登记的项目收拾（目录不在时留给下次启动）。
+    let conversations = 0;
+    for (const state of members) {
+      if (!this.#states.has(state.id)) continue;
+      await this.deleteConversation(state.id);
+      conversations++;
+    }
+    await this.#projects.delete(projectId);
+    this.#missing.delete(projectId);
+    this.#directory.publish({ type: 'project.removed', projectId });
+    this.#log.info('Project removed from BaoCut; its folder is untouched', { projectId, conversations, folderPresent: real !== null });
+    return { removed: true, conversations };
   }
 
   // ---- 会话 ----
@@ -934,6 +1009,7 @@ export class Harness {
     }
     const project = projectId ? this.#projects.get(projectId) : null;
     if (projectId && !project) throw new RpcError('not-found', HP.projectNotFound({ id: projectId }));
+    if (project) await this.#assertProjectPresent(project);
     // 会话创建时冻结 Driver、模型与强度（§3.11）。没指定 Driver 时用偏好设置里的默认（见 `#defaultDriverId`）：
     // 用户设的默认没有注册时拒绝；没设过时优先用缓存里已就绪的 Agent。显式指定的必须已注册。
     const driverId = params.driverId ?? this.#defaultDriverId();
@@ -1245,6 +1321,7 @@ export class Harness {
     const done = this.#commands.get(key);
     if (done) return { taskId: done };
     this.#checkCanSend(params.conversationId);
+    this.#checkProjectNotMissing(this.#require(params.conversationId).conversation);
     this.#checkDriverUsable(this.#require(params.conversationId).conversation.driverId);
     // 访问模式在切换之前先查（§3.12）：没有逐次审批通道的 Driver 只能 fullAccess，不合的整次拒绝，不改会话的模式。
     const requestedMode = params.accessMode ?? params.autonomy;
@@ -1439,6 +1516,16 @@ export class Harness {
       if (described) return described;
     }
     return (isBuiltinDriverId(driverId) ? BUILTIN_DRIVER_NAME[driverId] : null) ?? driverId;
+  }
+
+  /**
+   * 会话所属项目的目录上次检查时不在：拒绝发送（`PROJECT_DIR_MISSING`）。同步检查，任务仍在同步部分建好；检查之后才消失的
+   * 在回合开始时（`#startRun`）发现。
+   */
+  #checkProjectNotMissing(conversation: Conversation): void {
+    if (!conversation.projectId || !this.#missing.has(conversation.projectId)) return;
+    const project = this.#projects.get(conversation.projectId);
+    if (project) throw projectMissingError(project);
   }
 
   #checkCanSend(conversationId: Id): void {
@@ -2335,6 +2422,8 @@ export class Harness {
   /** 正常停止（架构设计 §2.4）：停止接纳 → 屏障 → 中断 → 持久化 → 关闭原生会话。 */
   async shutdown(): Promise<void> {
     this.#closing = true;
+    if (this.#presenceTimer) clearInterval(this.#presenceTimer);
+    this.#presenceTimer = null;
     const active = [...this.#runs.entries()];
     for (const [conversationId, run] of active) {
       const state = this.#states.get(conversationId);
@@ -2444,6 +2533,8 @@ export class Harness {
 
   async #startRun(state: ConversationState, run: ActiveRun, input: AgentInput): Promise<void> {
     try {
+      const project = state.conversation.projectId ? this.#projects.get(state.conversation.projectId) : undefined;
+      if (project) await this.#assertProjectPresent(project);
       const session = await this.#agents.ensure({
         conversationId: state.id,
         driverId: state.conversation.driverId,
@@ -2824,6 +2915,25 @@ function newProject(id: Id, dir: string, createdAt: string, now: string): Projec
 async function sameDirectory(a: string, b: string): Promise<boolean> {
   const [x, y] = await Promise.all([fs.stat(a).catch(() => null), fs.stat(b).catch(() => null)]);
   return !!x && !!y && x.dev === y.dev && x.ino === y.ino;
+}
+
+/** 项目目录在不在：不在（`ENOENT`）或不是目录算不在；没有权限等别的错误算在（目录多半还在，交给真正用它的地方报错）。 */
+async function folderPresent(dir: string): Promise<boolean> {
+  try {
+    return (await fs.stat(dir)).isDirectory();
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code !== 'ENOENT' && code !== 'ENOTDIR';
+  }
+}
+
+/** 项目目录不在了（`PROJECT_DIR_MISSING`）：在里面新建会话、发消息、新建视频之前拒绝。 */
+export function projectMissingError(project: Pick<Project, 'id' | 'path'>): RpcError {
+  return new RpcError('not-found', HP.projectFolderMissing({ dir: project.path }), {
+    code: 'PROJECT_DIR_MISSING',
+    projectId: project.id,
+    path: project.path,
+  });
 }
 
 /** 写项目标记失败：只读卷与没有权限给出明确的错误，其他照实报告。 */
