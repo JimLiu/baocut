@@ -141,7 +141,8 @@ function align(id, lines) {
     // 句首句尾的时间各有约 0.1 秒的误差，短句的语速被它放大：容差取 15% 与 0.3 秒 / 句长中较大的那个，两秒以内的短句不至于句句都标
     const gap = i ? l.start - out[i - 1].end : l.start, dev = rates[i] / med - 1, tol = Math.max(0.15, 0.3 / Math.max(0.1, l.end - l.start));
     const flag = (Math.abs(dev) > tol ? ' RATE' : '') + (gap > 0.8 ? ' GAP' : '');
-    if (flag.includes('RATE')) flagged++;
+    // 带数字的句子（年份、数目）一个数字串只算一个单位、却要念好几个音节，语速本来就偏离中位数：不算进“对齐塌了”的提示
+    if (flag.includes('RATE') && !/\p{N}/u.test(l.text)) flagged++;
     console.log(`${String(i).padStart(2)} ${l.start.toFixed(2)}–${l.end.toFixed(2)} gap ${gap.toFixed(2)} ${rates[i].toFixed(2)}${flag}  ${l.text.slice(0, 40)}`);
   });
   if (extra.length) console.log('  extra in audio:', extra.reverse().map(([a, s]) => `${a.c}@${a.s.toFixed(1)}${s ? '(after ' + s.c + ' L' + s.li + ')' : ''}`).join(' '));

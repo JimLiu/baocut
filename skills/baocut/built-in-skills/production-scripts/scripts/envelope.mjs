@@ -2,8 +2,10 @@
 // i18n-ignore-file: 给智能体拷走用的独立脚本，日志与报错写英文
 // 把一段录音量成一排条（RMS 包络），写成场景能直接读的 JS，给 scene-kit 的 K.bars() 画：
 //   node tools/envelope.mjs <录音> --out shared/speech-wave.js [--var SPEECH_WAVE] [--bars 240] [--from 秒] [--to 秒]
-// 输出：window.<var> = { dur, bars: [0..1, …] }。dur 是量的这段的秒数，bars 按 95 分位归一（最响的几条夹到 1），
-// 开头的爆音不会把其余的压扁。不读配置、不连 Runtime，只要本机有 ffmpeg。
+// 输出：window.<var> = { off, dur, bars: [0..1, …] }。off 是这排条从录音的第几秒起（--from，缺省 0），dur 是量的这段的秒数，
+// bars 按 95 分位归一（最响的几条夹到 1），
+// 开头的爆音不会把其余的压扁。视频里的录音剪掉了开头（报幕、空白）时带 --from 剪掉的秒数，声波才和视频里放的那段对得上；
+// 场景拿录音的秒数（例如原声片段的 from / to）标位置时先减去 off。不读配置、不连 Runtime，只要本机有 ffmpeg。
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -31,7 +33,7 @@ for (let b = 0; b < n; b++) {
 }
 const top = [...rms].sort((a, b) => a - b)[Math.min(n - 1, Math.floor(n * 0.95))] || 1;
 const bars = rms.map(v => +Math.min(1, v / top).toFixed(3));
-const dur = +(total / RATE).toFixed(2);
+const dur = +(total / RATE).toFixed(2), off = flags.from != null ? +flags.from : 0;
 fs.mkdirSync(path.dirname(path.resolve(flags.out)), { recursive: true });
-fs.writeFileSync(flags.out, `// envelope of ${path.basename(file)} (${dur} s), ${n} RMS bars; drawn with K.bars()\nwindow.${name} = ${JSON.stringify({ dur, bars })};\n`);
-console.log(`${flags.out}: window.${name}, ${n} bars over ${dur} s`);
+fs.writeFileSync(flags.out, `// envelope of ${path.basename(file)} from ${off} s (${dur} s), ${n} RMS bars; drawn with K.bars(), which takes recording seconds and subtracts off itself\nwindow.${name} = ${JSON.stringify({ off, dur, bars })};\n`);
+console.log(`${flags.out}: window.${name}, ${n} bars over ${dur} s from ${off} s`);

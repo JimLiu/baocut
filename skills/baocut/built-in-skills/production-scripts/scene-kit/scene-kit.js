@@ -300,12 +300,13 @@
     ctx.restore();
     return box;
   }
-  // a recording drawn as bars: env = { dur, bars: [0..1, ...] } (production-scripts envelope.mjs writes one into shared/).
+  // a recording drawn as bars: env = { off, dur, bars: [0..1, ...] } (production-scripts envelope.mjs writes one into shared/;
+  // off = the recording second the bars start at, when the video's recording had its lead-in cut).
   // k (0..1) draws it left to right; o.hot = [[from, to], ...] recording seconds drawn in the accent colour;
   // o.head (recording seconds) puts a playhead on it; o.color / o.hotColor / o.headColor override the style.
   function bars(ctx, env, x, y, w, h, k = 1, o = {}) {
     if (!env || !env.bars?.length || k <= 0) return;
-    const n = env.bars.length, bw = w / n, hot = o.hot || [];
+    const n = env.bars.length, bw = w / n, off = env.off || 0, hot = (o.hot || []).map(([p, q]) => [p - off, q - off]);
     ctx.save();
     ctx.globalAlpha *= o.alpha ?? 1;
     for (let i = 0; i < n * k; i++) {
@@ -316,7 +317,7 @@
     }
     if (o.head != null) {
       ctx.fillStyle = o.headColor || S.ink;
-      ctx.fillRect(Math.round(x + (w * o.head) / env.dur) - 1, Math.round(y - 10), 2, Math.round(h + 20));
+      ctx.fillRect(Math.round(x + (w * (o.head - off)) / env.dur) - 1, Math.round(y - 10), 2, Math.round(h + 20));
     }
     ctx.restore();
   }

@@ -18,7 +18,7 @@
     { "id": "s06-photo", "seg": "s06", "line": 0, "head": true, "from": 0, "to": 5, "source": "/path/to/press-photo.jpg", "label": "<photo credit>",
       "focus": [1.2, 10, 0], "note": "a still photo: from / to only set the length; focus zooms 1.2x and keeps the left part in frame; head starts it at the segment start, before line 0 is spoken" },
     { "id": "s06-voice", "seg": "s06", "after": true, "offset": 0.4, "audio": true, "video": false, "asset": "asset_0123456789abcdef", "from": 774.4, "to": 781.2,
-      "source": "/path/to/speech-recording.mp3", "words": true, "said": "<the original words, as spoken>", "text": "<the same words in the video language>",
-      "note": "sound only: the speaker's own voice 0.4 s after the last line, in the segment's hold; asset reuses the recording already in the video; quotes.mjs times each word and the scene lights them from TIMING.clips" }
+      "source": "/path/to/speech-recording.mp3", "words": true, "language": "<the speaker's language, BCP 47, e.g. en-US>", "said": "<the original words, as spoken>", "text": "<the same words in the video language>",
+      "note": "sound only: the speaker's own voice 0.4 s after the last line, in the segment's hold; asset reuses the recording already in the video; quotes.mjs times each word (transcribing in language, else footage.subs.language, else the narration language) and the scene lights them from TIMING.clips" }
   ]
 }

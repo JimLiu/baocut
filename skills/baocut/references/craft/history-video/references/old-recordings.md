@@ -12,6 +12,7 @@
 - 混音里的音量帮不上：片段音量上限 4 倍（+12 dB），-39 LUFS 提 12 dB 还是听不清，底噪也一起放大。修在文件上做，混音音量留在 1 附近。
 - 底噪：找一段只有噪声的地方（开头的空白、两段话之间）听一听，是嗡声（50 或 60 Hz 及其倍频，看录音的国家与年代）、嘶声，还是两者都有。
 - 忽大忽小：主讲、主持、问答各听一段，差得多就要拉平（第 3 节）。
+- 反过来也要修：录音比旁白响 5 dB 以上、波形顶平（削过波），或者转录时已经滤掉了高频。这种录音不往上提，改往下压，链也不一样，见第 4.1 节。
 
 原件不动，在副本上做。中间文件用 32 位浮点 wav，44.1 kHz 单声道每小时约 0.64 GB 一份，放在空间够的盘上，做完列给用户再清。先切两分钟的样（含主讲、问答和最安静的一段）试参数，听过再跑全片。
 
@@ -61,6 +62,29 @@ ffmpeg -i stage2.wav -af "$F" -c:a flac -compression_level 8 restored.flac
 - 结果：张爱玲那盘从 -39.0 LUFS 提到 -24.7 LUFS，真峰值 -1.9 dBFS。导出时带 `--loudness`，整片再统一到平台的响度。
 - 做一段对比样（原声与修过的交替放），自己听过再换进视频。最后用 `--lag` 对原录音再量一次，应该还是 0。
 
+## 4.1 另一种录音：太响、削过波、高频早就没了
+
+胡适 1958 年那盘（网上的 m4a，从合辑唱片转出来）和张爱玲那盘正相反：整体 -12 LUFS，比旁白响 8 dB；峰值顶在 0 dBFS，削过波；3 kHz 以上的声音比整体低 37 dB，转录时就滤掉了；两个声道不一样。修法照第 2–4 节的顺序，改这几处：
+
+- **只取好的那个声道**：两个声道各听一段、各量一次，选干净的那个（`pan=mono|c0=c0` 取左声道），不混成单声道。
+- **先 `adeclip`**：削波修补放在最前面，在降噪和滤波之前。
+- **不加低通**：高频本来就没有了，再切只会更闷。先量：`ffmpeg -i <录音> -af "highpass=f=3000:p=2,highpass=f=3000:p=2,astats=measure_overall=RMS_level:measure_perchannel=none" -f null -` 读出的 RMS 比不加高通时低 30 dB 以上，就是没有高频了。
+- **降噪轻一点**：`afftdn` 用 `nr=8:nf=-50`。转录时已经处理过的录音，再强就发虚。
+- **开头没有空白时，把噪声样本接在最前面**：从讲话中间的停顿里切一两秒只有噪声的，接在整段前面让 `afftdn` 先学，处理完再按样本的采样数切掉。
+- **往下压**：拉平之后压 1.5 dB，2:1 的压缩，同样的限幅。
+
+```bash
+NS=83790   # 噪声样本 281.8–283.7 秒，1.9 秒 × 44100
+HUM="bandreject=f=60:t=q:w=10,bandreject=f=120:t=q:w=20,bandreject=f=240:t=q:w=20,bandreject=f=360:t=q:w=20"
+CHAIN="highpass=f=70:p=2,highpass=f=70:p=2,$HUM,asendcmd=c='0.05 afftdn@dn sn start; 1.85 afftdn@dn sn stop',afftdn@dn=nr=8:nf=-50:nl=none,equalizer=f=2500:t=q:w=1:g=3"
+ffmpeg -i <原录音> -filter_complex "[0:a]pan=mono|c0=c0,adeclip,asplit=2[a][b];[a]atrim=start=281.8:end=283.7,asetpts=PTS-STARTPTS[n];[b]asetpts=PTS-STARTPTS[f];[n][f]concat=n=2:v=0:a=1,$CHAIN,atrim=start_sample=$NS,asetpts=PTS-STARTPTS[o]" -map "[o]" -c:a pcm_f32le stage1.wav
+# 量时间差（这盘晚了 1097 个采样），挪回去，再 level.mjs 拉平（它打印 -2 到 +5.9 dB）
+F="volume=-1.5dB,acompressor=threshold=0.35:ratio=2:attack=3:release=120:knee=4:detection=peak:makeup=1,alimiter=limit=0.794:attack=5:release=80:level=disabled:latency=1,aresample=osf=s16:dither_method=triangular"
+ffmpeg -i stage2.wav -af "$F" -c:a flac -compression_level 8 restored.flac
+```
+
+结果：-12 LUFS 降到 -17.5 LUFS，响度范围 6.4 LU，峰值 -1.9 dBFS；讲话中间停顿里的底噪从 -47 dB 降到 -59 dB，120 Hz 的嗡声从 -62 dB 降到 -84 dB。和原录音的时间差在 ±1 个采样以内。
+
 ## 5. 换进视频
 
 1. `baocut assets import <videoId> --path restored.flac --storage managed --name <名字>`。
@@ -78,6 +102,8 @@ ffmpeg -i stage2.wav -af "$F" -c:a flac -compression_level 8 restored.flac
   - 引擎剪的时候不挪章节，所以对剪掉的这一段之后的每一章各做一次 `upsertChapter`，`at` 写原来的帧数减去剪掉的帧数。
 - 范围从正片起点之后开始，别碰片头最后一拍和正片第一帧的封面。剪之前先列出这一段各轨上有什么（`videos inspect`），确认只有空白。
 - 剪完查一遍写死了正片总长的地方：声波底图上印的总时长（例如「TOTAL 01:12:46」）、片尾卡、说明与发布文案里的时长。时间码和声波按时间线画，会自己对上；印在图上的字不会，要重做那张图，用 `replaceItemAsset` 换进去，再烘焙导出。张爱玲那期漏了底图上这一处，成片里写的总长比实际多 8 秒。
+- 合辑、唱片的报幕与介绍（「某某演讲选萃」的片头、主持人的旁白）不是这场讲话，和空白一样算开头。用户同意后照这一节剪，在说明与发布文案里写清剪了几秒、剪掉的是什么。
+- 剪掉开头后，声波底图要重画：`envelope.mjs` 带 `--from <剪掉的秒数>`，声波才和视频里放的那段对得上（`production-scripts` 的 `pipeline.md`「录音波形」）。
 - 正片的内容只在用户同意后剪（`SKILL.md` 第 2 节）。用户说了要剪开头的空白，就只剪空白。
 
 ## 7. 写进说明与发布文案

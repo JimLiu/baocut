@@ -9,7 +9,8 @@
 //      用编辑距离把字对到转写上（同 align.mjs），没对上的按前后插值；没给 said 时用转写的原文，并把它打出来，校对后写回 said；
 //   4. 写 quotes.json：{ <id>: { said, text?, words: [{ t, s, e }] } }，s / e 是原片里的秒数，text 是成片语言的译文（clips.json 里的 text）。
 // build.mjs 把它换成相对段首的秒数写进这一段的 TIMING.clips[].words，场景按 t ≥ s 点亮第几个词。
-// 片段字段：words: true、said、text、language（原话的语言，缺省 footage.subs.language，再缺省 en）。
+// 片段字段：words: true、said、text、language（原话的语言，BCP 47；缺省 footage.subs.language，再缺省配置的 language，
+// 也就是旁白的语言：原话和旁白不是一种语言、又没有双语字幕设定时一定要写，否则按旁白的语言转写，对出来的词全错）。
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { loadConfig, parseArgs, makeBc, readJson, writeJson, isCjk, isSpoken } from './lib.mjs';
@@ -61,7 +62,8 @@ function transcribe(c) {
   // 安静的老录音（-40 LUFS 上下）整段会被转写的语音检测当成没有人声：切的时候先把这一段提到讲话的响度；
   // loudnorm 只改增益，词时间仍在原片的时钟上（实测前后错开 0 ms）
   execFileSync('ffmpeg', ['-y', '-v', 'error', '-ss', String(c.from), '-t', String(c.to - c.from), '-i', source, '-vn', '-af', 'loudnorm=I=-20:TP=-2:LRA=11', '-ac', '1', '-ar', '16000', cfg.abs(wav)]);
-  const language = c.language || cfg.footage?.subs?.language || 'en';
+  const language = c.language || cfg.footage?.subs?.language || cfg.language;
+  console.log(`${c.id}: transcribing as ${language}${c.language ? '' : ' (no language on the clip; set it if the speaker uses another language)'}`);
   const r = bc(['transcribe', '--file', wav, '--no-video', '--out-dir', DIR, '--language', language, '--provider', cfg.asr.provider, '--model', cfg.asr.model, ...cfg.asr.args]);
   const ji = bc(['jobs', 'inspect', r.job.pipeline.summary.transcribeJobId]), art = (ji.result || ji.outputs || {}).artifactId;
   bc(['artifacts', 'save', '--artifact-id', art, '--path', words, '--overwrite']);
