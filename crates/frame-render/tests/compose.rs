@@ -30,6 +30,50 @@ fn background_is_the_sequence_colour() {
 }
 
 #[test]
+fn assets_with_alpha_get_no_backdrop_under_fullscreen_contain() {
+    // 全屏 + contain 的 `bg` 铺满画布、画在素材下面（§3.5）；素材记着带透明（`hasAlpha`）时不铺，透明像素与留边露出
+    // 下层与画布背景，同合成替身。不透明的素材照旧铺 `bg`。
+    let red = |items, assets| {
+        video(
+            items,
+            assets,
+            json!({ "canvas": { "width": W, "height": H, "workingSpace": "srgb", "background": "#FF0000" } }),
+        )
+    };
+    let contain = json!({ "mode": "fullscreen", "fit": "contain" });
+    let alpha = red(vec![image("a", 0, 0, 30, contain.clone())], vec![image_asset("a_a", W, H)]);
+    let mut media = Media::default().with("a", halves(W, H, [0, 0, 255, 0], [0, 0, 255, 128]));
+    let frame = render(&alpha, 0.0, &mut media);
+    near(px(&frame, 2, 2), RED, 0);
+    near(px(&frame, W - 2, 2), [127, 0, 128, 255], 1);
+    // 窄的带透明素材：左右留边也露出画布背景，`bg` 写了颜色也不铺。
+    let narrow = red(
+        vec![image(
+            "a",
+            0,
+            0,
+            30,
+            json!({ "mode": "fullscreen", "fit": "contain", "bg": "#00FF00" }),
+        )],
+        vec![image_asset("a_a", H, H)],
+    );
+    let frame = render(&narrow, 0.0, &mut Media::default().with("a", solid(H, H, BLUE)));
+    near(px(&frame, 2, H / 2), RED, 0);
+    near(px(&frame, W / 2, H / 2), BLUE, 0);
+    // 不透明的视频照旧：黑色缺省，写了颜色按颜色。
+    for (bg, bar) in [(None, BLACK), (Some("#00FF00"), GREEN)] {
+        let mut body = contain.clone();
+        if let Some(bg) = bg {
+            body["bg"] = json!(bg);
+        }
+        let opaque = red(vec![video_item("v", "a_v", 0, 30, body)], vec![video_asset("a_v", H, H)]);
+        let frame = render(&opaque, 0.0, &mut Media::default().with("v", solid(H, H, BLUE)));
+        near(px(&frame, 2, H / 2), bar, 0);
+        near(px(&frame, W / 2, H / 2), BLUE, 0);
+    }
+}
+
+#[test]
 fn an_exchanged_canvas_never_shows_through_the_next_frame() {
     // 导出把画好的帧整块交给编码队列、换回一块旧缓冲当下一帧的画布（`exchange_frame`）：下一帧照样从铺底画起。
     // 整幅不透明的层直接接管帧，半透明的层、画中画与空序列先铺底；换回来的是什么都不影响结果。

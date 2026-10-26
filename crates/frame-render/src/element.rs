@@ -18,11 +18,12 @@ pub fn source_id(item_id: &str) -> String {
 }
 
 /// 画面实例换成内核的元素；音频与字幕没有。`bindings` 是序列上指向这个实例的关键帧绑定，读不懂的绑定当作没有
-/// （引擎写入时已校验）。
+/// （引擎写入时已校验）。`alpha` 是这一层画的素材版本记着带透明（`video.hasAlpha`）。
 pub fn visual_element<'a>(
     item: &TimelineItem,
     fps: f64,
     bindings: impl IntoIterator<Item = &'a AnimationBinding>,
+    alpha: bool,
 ) -> Option<TimelineVisualElement> {
     let span = item.span()?;
     let place = item.place()?;
@@ -58,9 +59,10 @@ pub fn visual_element<'a>(
         fit,
         focal: None,
         zoom: 1.0,
-        // 合成替身没有底：全屏 + contain 的留边与透明像素都露出下层（视频格式规范 §3.7）。
+        // 合成替身与带透明的素材没有底：全屏 + contain 的留边与透明像素都露出下层（视频格式规范 §3.5、§3.7）。
         bg: match item {
             TimelineItem::Composition(_) => None,
+            _ if alpha => None,
             _ => Some(media.map_or(Background::Black, |m| m.bg())),
         },
         text: None,

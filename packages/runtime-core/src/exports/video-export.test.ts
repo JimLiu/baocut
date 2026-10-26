@@ -484,6 +484,44 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
     near(280, 61, [255, 0, 0], 40);
   }, 120_000);
 
+  // 带透明的素材在全屏 + contain 时不铺 `bg`（视频格式规范 §3.5）：透明处露出画布背景，半透明处按 alpha 与它混合。
+  // PNG MOV 与静态 PNG 两条解码路径各导出一次。
+  it('带 alpha 的视频与图片叠在红色画布背景上，透明处露出红色', async () => {
+    const overlay =
+      "nullsrc=size=320x180:rate=30:duration=1,format=rgba,geq=r=0:g=0:b=255" +
+      ":a='if(lt(X,80),0,if(lt(X,160),128,255))'";
+    const sources: Record<string, string[]> = {
+      'alpha.mov': ['-c:v', 'png', '-pix_fmt', 'rgba'],
+      'alpha.png': ['-frames:v', '1', '-pix_fmt', 'rgba'],
+    };
+    for (const [name, codec] of Object.entries(sources)) {
+      const file = path.join(project.path, 'media', name);
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', overlay, ...codec, file]);
+      const videoId = await newVideo(`红底 ${name}`);
+      const { sequenceId } = video(videoId);
+      await edit(videoId, [
+        { type: 'updateSequence', sequenceId, background: '#FF0000' },
+        { type: 'importAsset', path: file, ref: 'o' },
+        { type: 'addItem', sequenceId, asset: { ref: 'o' }, at: at(0), alignment: 'nearest-frame' },
+      ]);
+      const asset = Object.values(runtime.videos.mirror(videoId)!.video.assets).find((a) => a.name.startsWith('alpha'))!;
+      expect(asset.revisions[asset.currentRevision]!.video?.hasAlpha, name).toBe(true);
+      const job = await exportOnce({ videoId, settings: { kind: 'video', format: 'mp4', range: { start: 0, end: 1 }, crf: 1 } });
+      const frame = frameAt(job.result!.outputs![0]!.path!, 15, 30, 320, 180);
+      const near = (x: number, want: [number, number, number], tol = 12) => {
+        const rgb = pixel(frame, 320, x, 120);
+        expect(
+          rgb.every((c, i) => Math.abs(c - want[i]!) <= tol),
+          `${name} (${x}, 120) ${rgb} ≈ ${want}`,
+        ).toBe(true);
+      };
+      near(40, [255, 0, 0]);
+      near(120, [127, 0, 128]);
+      near(280, [0, 0, 255]);
+    }
+  }, 120_000);
+
   // 两次导出：单跑约 7 秒，整套测试一起跑时机器忙，留出余量。
   it('视频 + 图片 + 交叉淡化 + 声音：MP4，流、帧数、颜色与声音都对（A11）', async () => {
     const { videoId } = await cutVideo();

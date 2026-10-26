@@ -675,7 +675,7 @@ impl FrameRenderer {
             .animation_bindings
             .iter()
             .filter(|b| b.target_id == layer.item_id);
-        let Some(mut element) = visual_element(item, context.fps, bindings) else {
+        let Some(mut element) = visual_element(item, context.fps, bindings, context.has_alpha(layer.asset.as_ref())) else {
             return Ok(None);
         };
         // 章节文字的字由帧计划按这一帧求好（render-graph），这里照用，不再自己求。
@@ -1670,6 +1670,13 @@ impl SequenceContext<'_> {
         let asset = asset?;
         let revision = self.assets.get(&asset.id)?.revisions.get(&asset.revision)?;
         animated_image_format(&revision.media_type)
+    }
+
+    /// 素材版本记着带透明（`video.hasAlpha`）。
+    fn has_alpha(&self, asset: Option<&VersionRef>) -> bool {
+        asset
+            .and_then(|asset| self.assets.get(&asset.id)?.revisions.get(&asset.revision)?.video.as_ref())
+            .is_some_and(|video| video.has_alpha)
     }
 
     fn media_type_is(&self, asset: Option<&VersionRef>, media_type: &str) -> bool {
