@@ -212,7 +212,7 @@ interface Sweep {
 
 - 每个词有 `[start, end]`，扫色进度在词内按时间线性推进（`unit: 'grapheme'` 时按字符数等分词内时间；`unit: 'word'` 时整词在 `start` 瞬间换色）。扫过的部分是 `activeWord.color`，没扫到的是 `surface.color`；词之间的空隙保持上一个词扫满的状态。
 - 没有词级时间的轨不扫（编译成 `none`），不按句时长伪造进度。
-- 内核已落地：`textMotion.karaoke {color, guide, nextLine}`，`karaoke_sung(t)` 给出扫到第几个词的小数位置（`crates/motion/src/text_motion.rs`）。`unit: 'grapheme'` 对应现状，`unit: 'word'` 待实现（§10）。
+- 内核已落地：`textMotion.karaoke {color, guide, nextLine, unit}`，`karaoke_sung(t)` 给出扫到第几个词的小数位置（`crates/motion/src/text_motion.rs`），`unit: 'word'` 时整词在 `start` 换色。智能体经 `setCaptionStyle` 的 `textMotion.karaoke` 写同一处（视频格式规范 §5.6「智能体写当前词」）。
 - 它与 `motion.in` 正交：「逐词落入 + 扫色」是合法组合；与 `spoken: 'tint'` 互斥（扫色本身就是染过）。
 
 ## 6. 倒鸭子：`layout.mode = 'sequence'`
@@ -300,7 +300,7 @@ interface SequenceOptions {
 | `layout.speakerLabel`（字幕块上方的说话人名字） | `speakerLabel {on, scale, color}` | Studio 键已落地（视频格式规范 §3.8「说话人」）；维度模型与编辑器面板待落地 |
 | `activeWord.mode color / scale / lift / underline`, `spoken`, `unspoken` | `wordAnimation {animationId, animationName, spoken, active, unspoken}`（目录格 + 三态覆盖） | 已落地 |
 | `activeWord.scale` 叠加、`durationSeconds` | `textMotion.emphasis {color, scale, durationSeconds}` | 已落地 |
-| `activeWord.mode sweep` | `textMotion.karaoke {color, guide, nextLine}` | `grapheme` 已落地；`word` 待落地 |
+| `activeWord.mode sweep` | `textMotion.karaoke {color, guide, nextLine, unit}` | 已落地 |
 | `motion.in/out/loop`（`trigger: enter`） | `textMotion.in/out/loop` | 已落地（预设名一一对应） |
 | `motion.in`（`trigger: spoken`） | 逐词动画目录对应格（§4 表）；目录没有的组合待落地 | 部分 |
 | `emphasis` | 原型 `highlight {color, font, bold, italic, scale}`；内核只对配方读 `captionEmphasis` 的颜色 | 待落地（普通字幕的强调词外观） |

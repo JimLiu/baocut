@@ -14,6 +14,9 @@ import { OperationShapeError } from './video-digest.ts';
  *
  * 双语的原文、译文两行共用这一份样式；一行要不同时写进它的覆盖 `origStyle` / `transStyle`，与编辑器字幕属性页的
  * 「原文 | 译文」和在画面上单独拖一行写的是同一处。
+ *
+ * 当前词效果只收两个键的子集：`wordAnimation` 选逐词动画目录里的 none 或 colourHighlight，`textMotion` 只收 KTV 扫色
+ * `karaoke`。补丁里只写格子和颜色，展开成整份载荷、与别的当前词表示互斥，由 `setActiveWord` 处理。
  */
 
 type Json = Record<string, unknown>;
@@ -45,6 +48,55 @@ const textOutline = z
 const dropShadow = z.strictObject({ on: z.boolean().describe('投影开关') }).describe('投影；默认样式开着');
 const background = z.boolean().describe('底板开关；默认关');
 const backgroundColor = color.describe('底板颜色，默认 #000000B3');
+
+/**
+ * 当前词效果（视频格式规范 §5.6「当前词」）：逐词动画目录里能选的两格，展开成内核与编辑器写的整份载荷
+ * （`crates/subtitle-render/src/word_animation_catalog.rs` 的 `word_animation_payload`）。
+ */
+const WORD_ANIMATION_CELLS = {
+  none: { animationId: 'none', animationName: 'None' },
+  colourHighlight: { animationId: 'magic-wbw', animationName: 'Color' },
+} as const;
+/** 内核 `Color` 一格的缺省当前词色；样式里原来不是这一格、补丁也没给颜色时用它。 */
+const HIGHLIGHT_COLOR = '#FFD43B';
+/** 走 `textMotion` 时当前词变色写成 `emphasis`（编辑器字幕属性页的 `compileWord` 同值）。 */
+const EMPHASIS_SECONDS = 0.16;
+const KARAOKE_KEYS = ['color', 'unit', 'guide', 'nextLine'] as const;
+
+const wordAnimation = z
+  .strictObject({
+    catalogId: z
+      .enum(['none', 'colourHighlight'])
+      .describe('none 不高亮当前词；colourHighlight 当前词换成 active.color（默认样式就是这一格，青绿 #18E1D6）'),
+    active: z
+      .strictObject({ color: color.describe('当前词的颜色') })
+      .optional()
+      .describe('只用于 colourHighlight；不给时沿用样式里原来的当前词色'),
+  })
+  .refine((cell) => cell.catalogId === 'colourHighlight' || cell.active === undefined, {
+    message: 'active 只用于 colourHighlight',
+  })
+  .describe('当前词效果（逐词动画目录的一格）：只在带词时间的字幕上起作用；写它时去掉样式里的 KTV 扫色');
+
+const karaoke = z
+  .strictObject({
+    color: color.describe('念过部分的颜色；没念到的部分是 fontColor'),
+    unit: z
+      .enum(['grapheme', 'word'])
+      .optional()
+      .describe('grapheme（缺省）在每个词的时间里一个字一个字扫过去；word 念到一个词就整词变色'),
+    guide: z.boolean().optional().describe('true 时扫色的边界上方跟着一个跳动的小圆点；缺省 false'),
+    nextLine: z.boolean().optional().describe('true 时排成两行歌词：下一句在正在念的一句下面预告；缺省 false'),
+  })
+  .describe('KTV 扫色：念到哪里，哪里从 fontColor 变成 color；没给的字段沿用样式里原来的扫色');
+
+const textMotion = z
+  .strictObject({
+    karaoke: karaoke.nullable().describe('KTV 扫色；null 去掉扫色'),
+  })
+  .describe(
+    '分层文字动效里的 KTV 扫色（样式文档的 textMotion.karaoke），只改这一项，原有的入场、出场与循环保留。开扫色时当前词效果换成 none。只有带词时间的字幕会扫色，双语的译文行借同时段原文的词时间一起扫',
+  );
 
 /**
  * 双语时原文、译文一行自己的样式（样式文档的 `origStyle` / `transStyle`，视频格式规范 §5.6）：盖在两行共用的样式上，
@@ -137,8 +189,14 @@ export const captionStylePatch = z
       .nullable()
       .optional()
       .describe('双语时译文那一行自己的样式，写法同 origStyle'),
+    wordAnimation: wordAnimation.optional(),
+    textMotion: textMotion.optional(),
   })
-  .refine((patch) => Object.keys(patch).length > 0, { message: '至少给一个样式字段' });
+  .refine((patch) => Object.keys(patch).length > 0, { message: '至少给一个样式字段' })
+  .refine((patch) => !(patch.textMotion?.karaoke && patch.wordAnimation?.catalogId === 'colourHighlight'), {
+    message: 'KTV 扫色开着时当前词就是扫色：wordAnimation 不能同时给 colourHighlight',
+    path: ['wordAnimation'],
+  });
 
 export type CaptionStylePatch = z.infer<typeof captionStylePatch>;
 
@@ -179,11 +237,12 @@ export function isStudioStyle(body: unknown): body is Json & { style: Json } {
 export function patchStudioStyle(body: unknown, patch: CaptionStylePatch): Json | null {
   if (!isStudioStyle(body)) return null;
   const style: Json = { ...body.style };
-  const { origStyle, transStyle, ...root } = patch;
+  const { origStyle, transStyle, wordAnimation, textMotion, ...root } = patch;
   for (const [key, value] of Object.entries(root)) {
     if (value === undefined) continue;
     style[key] = NESTED.has(key) ? { ...objectOr(style[key]), ...(value as Json) } : value;
   }
+  setActiveWord(style, wordAnimation, textMotion);
   // 渲染时 bold 把字重抬到至少 700：字重与粗体一起写，与编辑器属性页的同步规则相同。
   if (root.fontWeight !== undefined) style.bold = root.fontWeight >= 700;
   const shared = LINE_APPEARANCE.filter((key) => (key === 'bold' ? root.fontWeight : (root as Json)[key]) !== undefined);
@@ -207,6 +266,53 @@ export function patchStudioStyle(body: unknown, patch: CaptionStylePatch): Json 
     else delete style[lineKey];
   }
   return { ...body, style };
+}
+
+/**
+ * 写当前词效果（就地改 `style`）。当前词只有一种画法，与编辑器字幕属性页的「当前词」相同（`packages/ui/src/model/caption-style-body.ts`
+ * 的 `compileWord`）：换一种时另外几种表示一起去掉。
+ *
+ * - KTV 扫色写 `textMotion.karaoke`，`wordAnimation` 换成 none。
+ * - 选目录的一格时去掉 `textMotion.karaoke` 与 `emphasis`。样式里还有入场、出场或循环时内核走分层文字动效、不读
+ *   `wordAnimation`，变色另写成 `textMotion.emphasis`。
+ * - `textMotion` 只剩 `version` 时整个去掉，内核回到按 `wordAnimation` 画。
+ */
+function setActiveWord(style: Json, cell: CaptionStylePatch['wordAnimation'], motionPatch: CaptionStylePatch['textMotion']): void {
+  if (!cell && !motionPatch) return;
+  const motion: Json = isObject(style.textMotion) ? { ...style.textMotion } : {};
+  const sweep = motionPatch?.karaoke;
+  // 只去掉扫色（karaoke: null）时别的当前词效果不动；换成扫色或目录的一格时 emphasis 跟着换。
+  if (cell || sweep) delete motion.emphasis;
+  if (sweep) {
+    const prior = objectOr(motion.karaoke);
+    const merged: Json = {};
+    for (const key of KARAOKE_KEYS) {
+      const value = sweep[key] ?? prior[key];
+      if (value !== undefined) merged[key] = value;
+    }
+    motion.karaoke = merged;
+  } else delete motion.karaoke;
+  const chosen = cell ?? (sweep ? { catalogId: 'none' as const } : undefined);
+  if (chosen) {
+    const prior = objectOr(style.wordAnimation ?? style.anim);
+    const priorColor = prior.catalogId === 'colourHighlight' || prior.animationName === 'Color' ? objectOr(prior.active).color : undefined;
+    const highlight =
+      chosen.catalogId === 'colourHighlight' ? (chosen.active?.color ?? (typeof priorColor === 'string' ? priorColor : HIGHLIGHT_COLOR)) : null;
+    style.wordAnimation = {
+      ...WORD_ANIMATION_CELLS[chosen.catalogId],
+      catalogId: chosen.catalogId,
+      spoken: {},
+      active: highlight ? { color: highlight } : {},
+      unspoken: {},
+    };
+    // 旧键：`anim` 在 `wordAnimation` 缺席时才读，`karaokeColor` 是没有逐词动画时的当前词色。
+    delete style.anim;
+    delete style.karaokeColor;
+    const layered = Object.keys(motion).some((key) => key !== 'version' && key !== 'emphasis');
+    if (highlight && layered) motion.emphasis = { color: highlight, scale: 1, durationSeconds: EMPHASIS_SECONDS };
+  }
+  if (Object.keys(motion).some((key) => key !== 'version')) style.textMotion = { ...motion, version: motion.version ?? 1 };
+  else delete style.textMotion;
 }
 
 /** 没有样式文档的字幕按默认预设画；新建一份时以它为底，画法只差补丁里的几项。 */

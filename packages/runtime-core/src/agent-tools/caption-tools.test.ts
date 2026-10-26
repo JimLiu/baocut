@@ -551,6 +551,61 @@ describe.skipIf(!ready)('建字幕层工具（真实引擎）', () => {
     expect(captionItems(translated.body.documentId).map((i) => i.styleDocumentId)).toEqual([shared]);
   });
 
+  it('当前词效果：captions_create 一步建出不高亮的字幕层；setCaptionStyle 开 KTV 扫色、换回变色', async () => {
+    const session = await send('auto');
+    const created = await tool(session, 'captions_create', {
+      video: videoPath,
+      documentId: speechId,
+      style: { y: 78, wordAnimation: { catalogId: 'none' } },
+    });
+    expect(created.isError).toBe(false);
+    const styleId = created.body.styleDocumentId as Id;
+    const readStyle = async () => (await tool(session, 'documents_read', { video: videoPath, documentId: styleId })).body.body.style;
+    expect((await readStyle()).wordAnimation).toMatchObject({ catalogId: 'none', animationName: 'None', active: {} });
+
+    const revision = () => tool(session, 'videos_inspect', { video: videoPath }).then((r) => r.body.revision as string);
+    const itemId = created.body.itemIds[0] as Id;
+    const sung = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: 'KTV 扫色',
+      operations: [{ type: 'setCaptionStyle', itemId, style: { fontColor: '#8A8F98', textMotion: { karaoke: { color: '#1F2328' } } } }],
+    });
+    expect(sung.isError).toBe(false);
+    expect(await readStyle()).toMatchObject({
+      y: 78,
+      fontColor: '#8A8F98',
+      textMotion: { version: 1, karaoke: { color: '#1F2328' } },
+      wordAnimation: { catalogId: 'none' },
+    });
+
+    const color = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: '当前词换色',
+      operations: [{ type: 'setCaptionStyle', itemId, style: { wordAnimation: { catalogId: 'colourHighlight', active: { color: '#F2B544' } } } }],
+    });
+    expect(color.isError).toBe(false);
+    const back = await readStyle();
+    expect(back.wordAnimation).toMatchObject({ catalogId: 'colourHighlight', active: { color: '#F2B544' } });
+    expect(back).not.toHaveProperty('textMotion');
+
+    const clash = await tool(session, 'edits_apply', {
+      video: videoPath,
+      expectedRevision: await revision(),
+      label: '矛盾的当前词',
+      operations: [
+        {
+          type: 'setCaptionStyle',
+          itemId,
+          style: { wordAnimation: { catalogId: 'colourHighlight' }, textMotion: { karaoke: { color: '#1F2328' } } },
+        },
+      ],
+    });
+    expect(clash.body.error).toMatchObject({ code: 'INVALID_OPERATION', operationIndex: 0 });
+    expect(clash.body.error.message).toContain('style.wordAnimation');
+  });
+
   it('不能建字幕层的文档与素材不在时间线上：明确的错误码，视频不变', async () => {
     const session = await send('auto');
     const inspected = await tool(session, 'videos_inspect', { video: videoPath });

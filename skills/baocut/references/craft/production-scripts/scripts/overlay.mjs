@@ -44,7 +44,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipTimes, allItems, cropFraction, focalOf, mediaTime, isAudioOnly, NO_WORD_ANIMATION } from './lib.mjs';
+import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipTimes, allItems, cropFraction, focalOf, mediaTime, isAudioOnly } from './lib.mjs';
 
 const cfg = loadConfig();
 const { ids, flags } = parseArgs(process.argv);
@@ -386,8 +386,9 @@ for (const [file, list] of bitesBySource()) {
   const trFile = path.join(work, `${name}.translation.json`);
   writeJson(trFile, { schema: 'baocut.translation/2', language: cfg.language, sourceBasis: basis.sourceBasis, units });
   const tr = bc(['documents', 'put', V, '--kind', 'translation', '--name', `${cfg.names.footage} ${name} (${cfg.language})`, '--language', cfg.language, '--source-document', speechDoc, '--body', '@' + trFile]);
+  // 词时间是按各条起止摊开的，不逐字高亮（默认样式会把念到的词染成青色）
   const style = { y: fo.subs.y, verticalAlign: 'bottom', speakerLabel: { on: true, scale: fo.subs.speaker.scale, color: fo.subs.speaker.color },
-    ...(fo.subs.fontSize ? { fontSize: fo.subs.fontSize } : {}), ...(fo.subs.font ? { fontFamily: fo.subs.font } : {}) };
+    ...(fo.subs.fontSize ? { fontSize: fo.subs.fontSize } : {}), ...(fo.subs.font ? { fontFamily: fo.subs.font } : {}), wordAnimation: { catalogId: 'none' } };
   // 先给原话单建一层原文字幕（带自己的样式）：转写没有原文层时，双语会配上画面上已有的旁白字幕、改掉旁白的样式
   const orig = bc(['captions', 'create', V, '--document-id', speechDoc, '--style', JSON.stringify(style)]);
   if (!orig.styleDocumentId) throw new Error(`captions for ${speechDoc}: no style document in receipt`);
@@ -395,11 +396,8 @@ for (const [file, list] of bitesBySource()) {
   if (cap.pairedOriginal?.documentId !== orig.documentId || cap.styleDocumentId !== orig.styleDocumentId) {
     throw new Error(`bilingual captions for ${name} paired with ${cap.pairedOriginal?.documentId}, not the sound-bite layer ${orig.documentId}`);
   }
-  // 原声字幕跟着原话走：显示的提前与拖尾都收短，不越过片段。词时间是按各条起止摊开的，不逐字高亮（默认样式会染青色）
-  apply(`${cfg.names.footage} ${name} caption timing`, [{ type: 'patchDocument', documentId: orig.styleDocumentId, changes: [
-    { path: ['style', 'displayTiming'], value: { leadIn: 0, tail: 0.1 } },
-    { path: ['style', 'wordAnimation'], value: NO_WORD_ANIMATION },
-  ] }]);
+  // 原声字幕跟着原话走：显示的提前与拖尾都收短，不越过片段（displayTiming 不是 setCaptionStyle 的键，用 patchDocument 写）
+  apply(`${cfg.names.footage} ${name} caption timing`, [{ type: 'patchDocument', documentId: orig.styleDocumentId, changes: [{ path: ['style', 'displayTiming'], value: { leadIn: 0, tail: 0.1 } }] }]);
   log.bites[file] = { hash: subsHash(list), speechDoc, translationDoc: tr.documentId, styleDocumentId: orig.styleDocumentId, itemIds: [...(cap.itemIds || []), ...(orig.itemIds || [])] };
   save();
   console.log('sound-bite captions', name, `${list.length} subs, ${units.length} sentences`, log.bites[file].itemIds.join(' '));

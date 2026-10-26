@@ -123,6 +123,89 @@ describe('字幕样式补丁', () => {
     expect(followed.transStyle).toEqual(body.style.transStyle);
   });
 
+  it('当前词：none 与 colourHighlight 展开成目录格的整份载荷；不给颜色时沿用原来的当前词色；旧键 anim 一起去掉', () => {
+    const none = freshCaptionStyle({ wordAnimation: { catalogId: 'none' } }).style as Record<string, unknown>;
+    expect(none.wordAnimation).toEqual({ animationId: 'none', animationName: 'None', catalogId: 'none', spoken: {}, active: {}, unspoken: {} });
+    expect(none).not.toHaveProperty('textMotion');
+
+    const accent = freshCaptionStyle({ wordAnimation: { catalogId: 'colourHighlight', active: { color: '#F2B544' } } }).style as Record<string, unknown>;
+    expect(accent.wordAnimation).toEqual({
+      animationId: 'magic-wbw',
+      animationName: 'Color',
+      catalogId: 'colourHighlight',
+      spoken: {},
+      active: { color: '#F2B544' },
+      unspoken: {},
+    });
+    // 默认样式是青绿的那一格：只给格子时颜色照旧；原来不是这一格时取内核的缺省色。
+    expect((freshCaptionStyle({ wordAnimation: { catalogId: 'colourHighlight' } }).style as Record<string, any>).wordAnimation.active).toEqual({
+      color: '#18E1D6',
+    });
+    const legacy = { schema: 'baocut.legacy-studio-style/0.1', style: { anim: { animationName: 'Reveal' }, karaokeColor: '#FF0000' } };
+    const fromLegacy = patchStudioStyle(legacy, { wordAnimation: { catalogId: 'colourHighlight' } })!.style as Record<string, any>;
+    expect(fromLegacy.wordAnimation.active).toEqual({ color: '#FFD43B' });
+    expect(fromLegacy).not.toHaveProperty('anim');
+    expect(fromLegacy).not.toHaveProperty('karaokeColor');
+  });
+
+  it('KTV 扫色：写进 textMotion.karaoke、当前词换成 none；原有的入场与出场留着，没给的扫色字段沿用；null 去掉扫色', () => {
+    const fresh = freshCaptionStyle({ fontColor: '#8A8F98', textMotion: { karaoke: { color: '#1F2328' } } }).style as Record<string, any>;
+    expect(fresh.textMotion).toEqual({ version: 1, karaoke: { color: '#1F2328' } });
+    expect(fresh.wordAnimation.catalogId).toBe('none');
+    expect(fresh.fontColor).toBe('#8A8F98');
+
+    const entrance = { preset: 'fade-up', unit: 'cue', durationSeconds: 0.3, staggerSeconds: 0, intensity: 1, easing: 'easeOutQuad' };
+    const body = {
+      schema: 'baocut.legacy-studio-style/0.1',
+      style: {
+        wordAnimation: { animationId: 'magic-wbw', animationName: 'Color', catalogId: 'colourHighlight', spoken: {}, active: { color: '#18E1D6' }, unspoken: {} },
+        textMotion: { version: 1, in: entrance, emphasis: { color: '#18E1D6', scale: 1, durationSeconds: 0.16 }, karaoke: { color: '#000000', guide: true } },
+      },
+    };
+    const sung = patchStudioStyle(body, { textMotion: { karaoke: { color: '#FFB000', unit: 'word' } } })!.style as Record<string, any>;
+    expect(sung.textMotion).toEqual({ version: 1, in: entrance, karaoke: { color: '#FFB000', unit: 'word', guide: true } });
+    expect(sung.wordAnimation.catalogId).toBe('none');
+    // 当前词与 none 一起给也行；同一笔里再给 colourHighlight 是矛盾的。
+    expect(captionStylePatch.safeParse({ wordAnimation: { catalogId: 'none' }, textMotion: { karaoke: { color: '#FFB000' } } }).success).toBe(true);
+    expect(
+      captionStylePatch.safeParse({ wordAnimation: { catalogId: 'colourHighlight' }, textMotion: { karaoke: { color: '#FFB000' } } }).success,
+    ).toBe(false);
+
+    const off = patchStudioStyle({ schema: body.schema, style: sung }, { textMotion: { karaoke: null } })!.style as Record<string, any>;
+    expect(off.textMotion).toEqual({ version: 1, in: entrance });
+    expect(off.wordAnimation.catalogId).toBe('none');
+    const bare = patchStudioStyle({ schema: body.schema, style: fresh }, { textMotion: { karaoke: null } })!.style as Record<string, unknown>;
+    expect(bare).not.toHaveProperty('textMotion');
+  });
+
+  it('换回目录的一格时去掉扫色；还有入场、出场时变色同时写成 textMotion.emphasis（内核那时不读 wordAnimation）', () => {
+    const entrance = { preset: 'pop', unit: 'word', durationSeconds: 0.2, staggerSeconds: 0.04, intensity: 1, easing: 'easeOutBack' };
+    const style = { textMotion: { version: 1, in: entrance, karaoke: { color: '#FFB000' } }, wordAnimation: { catalogId: 'none', animationName: 'None' } };
+    const body = { schema: 'baocut.legacy-studio-style/0.1', style };
+    const color = patchStudioStyle(body, { wordAnimation: { catalogId: 'colourHighlight', active: { color: '#F2B544' } } })!.style as Record<string, any>;
+    expect(color.textMotion).toEqual({ version: 1, in: entrance, emphasis: { color: '#F2B544', scale: 1, durationSeconds: 0.16 } });
+    expect(color.wordAnimation.active).toEqual({ color: '#F2B544' });
+    const none = patchStudioStyle(body, { wordAnimation: { catalogId: 'none' } })!.style as Record<string, any>;
+    expect(none.textMotion).toEqual({ version: 1, in: entrance });
+    // 只有扫色的 textMotion：换回一格时整个去掉，内核回到按 wordAnimation 画。
+    const only = patchStudioStyle({ ...body, style: { textMotion: { version: 1, karaoke: { color: '#FFB000' } } } }, { wordAnimation: { catalogId: 'colourHighlight' } })!
+      .style as Record<string, unknown>;
+    expect(only).not.toHaveProperty('textMotion');
+  });
+
+  it('当前词与扫色的 schema：只收目录里的两格、扫色字段与颜色写法', () => {
+    const ok = (patch: unknown) => captionStylePatch.safeParse(patch).success;
+    expect(ok({ wordAnimation: { catalogId: 'flipClock' } })).toBe(false);
+    expect(ok({ wordAnimation: { catalogId: 'none', active: { color: '#FFFFFF' } } })).toBe(false);
+    expect(ok({ wordAnimation: { catalogId: 'colourHighlight', active: { color: 'cyan' } } })).toBe(false);
+    expect(ok({ wordAnimation: { catalogId: 'colourHighlight', active: { color: '#00FFAA', opacity: 1 } } })).toBe(false);
+    expect(ok({ textMotion: { karaoke: { color: '#FFB000', unit: 'grapheme', guide: true, nextLine: false } } })).toBe(true);
+    expect(ok({ textMotion: { karaoke: { unit: 'word' } } })).toBe(false);
+    expect(ok({ textMotion: { karaoke: { color: '#FFB000', unit: 'letter' } } })).toBe(false);
+    expect(ok({ textMotion: { in: { preset: 'pop' } } })).toBe(false);
+    expect(ok({ textMotion: {} })).toBe(false);
+  });
+
   it('说话人名字：只改给出的字段，缩放比例越界拒绝', () => {
     const body = { schema: 'baocut.legacy-studio-style/0.1', style: { speakerLabel: { on: true, scale: 0.6 } } };
     const patch = captionStylePatch.parse({ speakerLabel: { on: true, color: '#FFCC00' } });

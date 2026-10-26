@@ -14,16 +14,17 @@
 // 下一句开口的距离（各少一帧）。配置 captions.displayTiming 可以另给 { leadIn, tail }，同样会被收短。
 // 配置 captions.style 给旁白字幕的摆放与外观（Studio 样式的键：y、verticalAlign、x、width、fontSize 等，竖版要给，
 // 默认的 y 86 落在平台控件区里）。找视频里旁白的字幕样式文档（overlay.json 里原声字幕的样式不算；没有就以默认样式加上
-// style 建一份），只把和配置不同的键 patchDocument 写进去（都一样时不动），再把各段字幕挂到这份样式上；用的样式记在
-// captions.json 的 _style，各段记 style（重建的字幕是默认样式，记录里 style 不是这份的挂一遍）。
-// 旁白字幕不做逐字高亮：引擎的默认样式会把念到的字染成青色，所以什么都不给也要建样式文档，把 wordAnimation 换成 none。
+// style 建一份），把各段字幕挂到这份样式上，再只把和配置不同的键用 setCaptionStyle 写进去（都一样时不动）；显示时长
+// displayTiming 不是 setCaptionStyle 的键，用 patchDocument 写。用的样式记在 captions.json 的 _style，各段记 style
+// （重建的字幕是默认样式，记录里 style 不是这份的挂一遍）。
+// 旁白字幕不做逐字高亮：引擎的默认样式会把念到的字染成青色，所以什么都不给也要建样式文档，写 wordAnimation none。
 // 要 KTV 时给 captions.style.sungColor（#RRGGBB）：念过的部分从字色（fontColor，没念到的颜色）渐变成 sungColor，
-// 写在样式文档的 textMotion.karaoke.color 上。两个颜色都从这期的色板取：浅底上 fontColor 取浅一档、sungColor 取墨色；
-// 深底上 fontColor 取暗一点的中间调、sungColor 取更亮或更暖的强调色。wordAnimation 与 textMotion 都不是 setCaptionStyle
-// 的键，建好文档后用 patchDocument 改；textMotion 里原有的入场、出场保留。
+// 写成 setCaptionStyle 的 textMotion.karaoke.color（Runtime 同时把当前词换成 none，textMotion 里原有的入场、出场保留）。
+// 两个颜色都从这期的色板取：浅底上 fontColor 取浅一档、sungColor 取墨色；深底上 fontColor 取暗一点的中间调、
+// sungColor 取更亮或更暖的强调色。
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems, NO_WORD_ANIMATION } from './lib.mjs';
+import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems } from './lib.mjs';
 
 const OPEN = /[“‘（《「『〈【([{¿¡]/u;
 const WORD = c => /[\p{L}\p{N}]/u.test(c) && !isCjk(c);
@@ -86,7 +87,7 @@ export function timingLimits(cfg) {
   return lim;
 }
 
-// 旁白字幕能配的样式键：setCaptionStyle 的 style 认的键，加上 sungColor（KTV 念过部分的颜色，只能 patchDocument 写）；
+// 旁白字幕能配的样式键：setCaptionStyle 的 style 认的键，加上 sungColor（KTV 念过部分的颜色，写成 textMotion.karaoke）；
 // 描边、投影只比、只改给出的字段
 const STYLE_KEYS = ['y', 'verticalAlign', 'x', 'width', 'fontSize', 'fontWeight', 'fontFamily', 'fontColor', 'textOutline', 'dropShadow', 'background', 'backgroundColor', 'sungColor'];
 const NESTED = new Set(['textOutline', 'dropShadow']);
@@ -104,26 +105,26 @@ export function styleOf(cfg) {
   return s;
 }
 
-// 样式文档的 style 和配置不同的键，写成 patchDocument 的 changes；都一样时为空。
-// wordAnimation 总是换成 none；给了 sungColor 时 textMotion 并上 karaoke，没给时去掉 karaoke（入场、出场等别的键不动）
+// 当前词效果的 setCaptionStyle 键：不逐字高亮；给了 sungColor 时开 KTV 扫色（Runtime 把当前词一起换成 none）
+export function activeWordPatch(want) {
+  return want?.sungColor ? { textMotion: { karaoke: { color: want.sungColor } } } : { wordAnimation: { catalogId: 'none' } };
+}
+
+// 样式文档的 style 和配置不同的键，写成 setCaptionStyle 的 style 补丁；都一样时为空对象。描边、投影只给配置里的字段，
+// setCaptionStyle 只改给出的字段。当前词：没给 sungColor 时要是 none 且没有扫色，给了时要是这个颜色的扫色
 export function styleChanges(cur, want) {
-  const out = Object.entries(want).flatMap(([k, v]) => {
-    if (k === 'sungColor') return [];
+  const out = {};
+  for (const [k, v] of Object.entries(want)) {
+    if (k === 'sungColor') continue;
     if (NESTED.has(k) && isObj(v)) {
       const base = isObj(cur?.[k]) ? cur[k] : {};
-      return Object.entries(v).every(([kk, vv]) => base[kk] === vv) ? [] : [{ path: ['style', k], value: { ...base, ...v } }];
-    }
-    return cur?.[k] === v ? [] : [{ path: ['style', k], value: v }];
-  });
-  if (!isObj(cur?.wordAnimation) || cur.wordAnimation.catalogId !== 'none') out.push({ path: ['style', 'wordAnimation'], value: NO_WORD_ANIMATION });
-  const tm = isObj(cur?.textMotion) ? cur.textMotion : null;
-  if (want.sungColor) {
-    if (tm?.karaoke?.color !== want.sungColor) out.push({ path: ['style', 'textMotion'], value: { ...tm, version: 1, karaoke: { ...tm?.karaoke, color: want.sungColor } } });
-  } else if (tm?.karaoke) {
-    const { karaoke: _k, ...rest } = tm;
-    out.push({ path: ['style', 'textMotion'], value: { ...rest, version: 1 } });
+      if (!Object.entries(v).every(([kk, vv]) => base[kk] === vv)) out[k] = v;
+    } else if (cur?.[k] !== v) out[k] = v;
   }
-  return out;
+  const tm = isObj(cur?.textMotion) ? cur.textMotion : {};
+  const none = isObj(cur?.wordAnimation) && cur.wordAnimation.catalogId === 'none';
+  const settled = none && !tm.emphasis && (want.sungColor ? tm.karaoke?.color === want.sungColor : !tm.karaoke);
+  return settled ? out : { ...out, ...activeWordPatch(want) };
 }
 
 export function applyTiming(cfg, bc, caps) {
@@ -145,30 +146,31 @@ export function applyTiming(cfg, bc, caps) {
   let doc = styles.find(d => d.id === caps._style?.documentId)?.id ?? (styles.length === 1 ? styles[0].id : null);
   if (!doc && styles.length) throw new Error(`video has ${styles.length} caption styles (${styles.map(d => d.id).join(', ')}); put the narration one in captions.json as _style.documentId`);
   if (!doc) {
-    // 以默认样式加上配置的 style 建一份（没给 style 时 y 86 就是默认），序列上还没有样式的字幕一起挂上；
-    // 默认样式的逐字高亮下面 patchDocument 换成 none
-    const { sungColor: _sung, ...first } = style ?? {};   // sungColor 不是 setCaptionStyle 的键，下面 patchDocument 补上
-    const r = apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: Object.keys(first).length ? first : { y: 86 } }]);
+    // 以默认样式加上配置的 style 与当前词效果建一份，序列上还没有样式的字幕一起挂上
+    const { sungColor: _sung, ...first } = style ?? {};
+    const r = apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: { ...first, ...activeWordPatch(style) } }]);
     doc = r.createdIds?.find(x => x.startsWith('doc_'));
     if (!doc) throw new Error(`no style document in receipt: ${JSON.stringify(r).slice(0, 400)}`);
     for (const id of segs) caps[id].style = doc;
     console.log('caption style', doc, 'created', JSON.stringify(style ?? {}));
   }
-  const cur = bc(['documents', 'read', cfg.video, '--document-id', doc]).body?.style ?? {};
-  const t = cur.displayTiming ?? {};
-  const changes = [
-    ...(t.leadIn !== want.leadIn || t.tail !== want.tail ? [{ path: ['style', 'displayTiming'], value: { ...t, ...want } }] : []),
-    ...styleChanges(cur, style ?? {}),
-  ];
-  if (changes.length) {
-    apply('Caption style for narration', [{ type: 'patchDocument', documentId: doc, changes }]);
-    console.log('caption style', doc, changes.map(c => `${c.path[1]} ${JSON.stringify(c.value)}`).join(', '));
-  }
+  // 先把各段挂上这份样式：下面的 setCaptionStyle 合进字幕实例自己的样式文档，没挂上的会另建一份
   const loose = segs.filter(id => caps[id].style !== doc);
   if (loose.length) {
     apply(`Attach caption style ${loose.join(' ')}`, loose.flatMap(id => caps[id].items.map(itemId => ({ type: 'setCaptionStyle', itemId, styleDocumentId: doc }))));
     for (const id of loose) caps[id].style = doc;
     console.log(loose.join(' '), 'captions use style', doc);
+  }
+  const cur = bc(['documents', 'read', cfg.video, '--document-id', doc]).body?.style ?? {};
+  const patch = styleChanges(cur, style ?? {});
+  if (Object.keys(patch).length) {
+    apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: patch }]);
+    console.log('caption style', doc, JSON.stringify(patch));
+  }
+  const t = cur.displayTiming ?? {};
+  if (t.leadIn !== want.leadIn || t.tail !== want.tail) {
+    apply('Caption timing for narration', [{ type: 'patchDocument', documentId: doc, changes: [{ path: ['style', 'displayTiming'], value: { ...t, ...want } }] }]);
+    console.log('caption timing', doc, JSON.stringify(want));
   }
   caps._style = { documentId: doc, displayTiming: want, ...(style ? { style } : {}) };
 }

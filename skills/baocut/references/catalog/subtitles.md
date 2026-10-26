@@ -114,6 +114,8 @@ description: 文稿与字幕的机制：转录、按已有正文（歌词、讲�
 | `panelSeam` | 开始在分屏画面上的一句，整块的中线落在离 `y` 最近的两格接缝上，到这一句结束不动；`false` 照 `y` 摆 | 开 |
 | `order`、`gap` | 双语两行的上下次序（`trans` 译文在上，`orig` 原文在上）；两行的距离（540 短边下的像素，0–40） | `trans`、6 |
 | `origStyle`、`transStyle` | 双语里原文、译文一行自己的样式，只写要与共用样式不同的键：`fontSize`（写了就不跟比例）、`fontWeight`、`fontFamily`、`fontColor`、`lineHeight`、`letterSpacing`、`textOutline`、`dropShadow`、`background`、`backgroundColor`；`x`、`y` 一起给时这一行离开两行的堆栈单独摆（`x` 是它的中心，行内的 `verticalAlign` 说哪条边落在 `y` 上），另一行留在根上的 `y`；`null` 去掉这一行的全部覆盖 | 无 |
+| `wordAnimation` | 当前词效果，只在带词时间的字幕上起作用：`{"catalogId": "none"}` 不高亮；`{"catalogId": "colourHighlight", "active": {"color": "#F2B544"}}` 念到的词换成这个颜色（不给 `active` 时沿用原来的颜色）。写它时去掉 KTV 扫色 | `colourHighlight`，青绿 `#18E1D6` |
+| `textMotion` | 只收 KTV 扫色 `{"karaoke": {"color": …}}`：念到哪里，哪里从 `fontColor` 变成 `color`；`unit: "word"` 整词变色，`guide: true` 边界上跳一个小圆点。开扫色时当前词换成 none，原有的入场、出场保留；`{"karaoke": null}` 去掉扫色。双语的译文行借原文的词时间一起扫 | 无 |
 
 不给 {{arg:style}} 时块的中线在画面高度 86% 处；竖版（9:16）这里落在平台的标题与按钮区，要往上挪：底边放在 78%（1080×1920 上约 y 1500，两行时顶边约 y 1360）写 `{"y": 78, "verticalAlign": "bottom"}`。建好后再改用 {{tool:edits_apply}} 的 `setCaptionStyle`：`itemId` 给字幕实例，`style` 同样的键，合进这层的样式文档。双语的原文与译文共用这份样式：根上的键两行一起变，根上改字号、字色这类外观时两行覆盖里的同名键一起去掉；只改一行写进它的 `origStyle` / `transStyle`，例如原文做成灰色小字 `{"origStyle": {"fontColor": "#9A9A9A", "fontSize": 16}}`。换成视频里另一份样式给 `styleDocumentId`；品牌库的字幕样式先照 {{tool:library_show}} 的正文 `putDocument` 一份（kind `caption-style`），再用 `styleDocument: {"ref": …}` 挂上。
 
