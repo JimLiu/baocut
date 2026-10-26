@@ -1,7 +1,7 @@
 ---
 name: production-scripts
 description: 有命令行环境、旁白按段配、画面按段上时间线的片子（讲解、解说混剪、旁白片、歌词视频……）要跑脚本时用：配音、对齐字时间、把场景代码打成代码包、按段摆上时间线并处理变长变短的波纹、按稿子建字幕、剪实拍与水印叠上去或垫在底下、量画面占比。脚本是一条省事的路，不规定片子的形态；形态和它不合时用 baocut CLI 自己写。只是加一段动效图形或配一句旁白时不用。
-version: 1.5.0
+version: 1.6.0
 ---
 
 # 制作脚本
@@ -43,7 +43,7 @@ version: 1.5.0
 | 字体、原声、出处 | `fonts.mjs`、`quotes.mjs`、`envelope.mjs`、`sources.mjs` | 用到时在打包前跑：裁字体子集（缺省去掉会让字宽对不上的 `locl`）；给 `words: true` 的原声片段对出逐词时间；把录音量成波形条写进 `shared/`；查出处表漏了什么并写 `sources.csv` |
 | 打包 | `build.mjs [id …]` | 打成代码包，时长 = 对齐出的时长 + `hold`，对到整帧；这一段的片段时间、画中画框、原声逐词与出处行写进 `TIMING` |
 | 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs --live` | `--dry` 不连 Runtime 只打印；`--live` 把代码包放上去、先不烘焙，编辑器的实时层现画（`footage.layer` 为 `under` 时眼下画不出来，见 `pipeline.md` 第 3 节） |
-| 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏 |
+| 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏；不逐字高亮，要 KTV（念过的部分颜色变深）时配置 `sungColor`，颜色从这期色板取 |
 | 实拍与水印 | `overlay.mjs --dry`，再 `--place` | 每个原片链接导入一次，每个镜头一个视频片段（原片区间、裁剪、取景、原声音量与淡变都是片段字段，响度按实测换成音量），转场是时间线转场；来源标签是标签轨上的文字片段，原声字幕是单独样式的双语字幕层（带说话人）；`footage.layer` 为 `under` 时实拍轨挪到代码包轨下面当底 |
 | 给用户看 | `baocut web review --video <videoId>` | 在宿主的浏览器面板里打开链接、整条给用户（见 baocut 说明书 web 页「请用户审片」）；用户说可以之前不烘焙、不导出；改了哪段照第 3 节重做，再 `assemble.mjs --live`，请用户刷新 |
 | 定稿烘焙 | `assemble.mjs --bake ops`，再 `assemble.mjs`（不带 `--live`） | 用户说可以之后：live 的段原地换成烘焙过的包。先 `--bake ops` 只走指令（几秒一段），画不出的段列出原因、视频不动；改不了的再不带它退回截图。之后再导出 |

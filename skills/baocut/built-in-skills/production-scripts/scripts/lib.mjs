@@ -115,6 +115,9 @@ export function allItems(bc, video, fromSeconds = 0) {
   }
 }
 
+// 字幕不逐字高亮：样式根上 wordAnimation 的 none 一格（界面「无」）。引擎的默认样式会把念到的字染成青色
+export const NO_WORD_ANIMATION = { animationId: 'none', animationName: 'None', catalogId: 'none', spoken: {}, active: {}, unspoken: {} };
+
 export const readJson = (file, fallback) => (fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : fallback);
 export const writeJson = (file, value) => {
   fs.mkdirSync(path.dirname(file), { recursive: true });

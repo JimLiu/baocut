@@ -24,7 +24,7 @@
   "asr": { "provider": "google", "model": "gemini-3.5-transcribe", "chunkSeconds": 0 },
   "names": { "narration": "Narration", "footage": "Footage", "watermark": "Watermark", "quote": "Original voice" },
   "bundle": { "pick": ["img"], "keep": ["img/seal.svg"], "exclude": ["fonts/glyphs.txt"], "module": false, "fonts": {}, "alpha": false },
-  "captions": { "style": { "y": 86, "fontSize": 28, "activeColor": "#E8B04B" } },
+  "captions": { "style": { "y": 86, "fontSize": 28, "fontColor": "#B9B1A3", "sungColor": "#F4E6C8" } },
   "preview": { "caption": { "y": 86, "verticalAlign": "center", "fontSize": 28, "width": 80 } },
   "footage": {
     "clips": "clips.json",

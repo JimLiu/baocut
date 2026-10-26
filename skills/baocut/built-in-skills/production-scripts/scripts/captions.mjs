@@ -13,15 +13,17 @@
 // 片段开头烧进去的字幕上，所以建好后按留白收短：tail 不超过任一留白里旁白结尾到片段开始的距离，leadIn 不超过片段结尾到
 // 下一句开口的距离（各少一帧）。配置 captions.displayTiming 可以另给 { leadIn, tail }，同样会被收短。
 // 配置 captions.style 给旁白字幕的摆放与外观（Studio 样式的键：y、verticalAlign、x、width、fontSize 等，竖版要给，
-// 默认的 y 86 落在平台控件区里）。给了 style，或时长和默认不同时：找视频里旁白的字幕样式文档（overlay.json 里原声字幕的
-// 样式不算；没有就以默认样式加上 style 建一份），只把和配置不同的键 patchDocument 写进去（都一样时不动），再把各段字幕挂到
-// 这份样式上；用的样式记在 captions.json 的 _style，各段记 style（重建的字幕是默认样式，记录里 style 不是这份的挂一遍）。
-// 默认样式念到的字变青色（#18E1D6）：配色不同的片子给 captions.style.activeColor（#RRGGBB）换成这期的强调色，
-// 写在样式文档的 wordAnimation.active.color 上（setCaptionStyle 不收这个键，建好文档后用 patchDocument 改）。
-// 什么都不给时不建样式文档，字幕按默认样式画。
+// 默认的 y 86 落在平台控件区里）。找视频里旁白的字幕样式文档（overlay.json 里原声字幕的样式不算；没有就以默认样式加上
+// style 建一份），只把和配置不同的键 patchDocument 写进去（都一样时不动），再把各段字幕挂到这份样式上；用的样式记在
+// captions.json 的 _style，各段记 style（重建的字幕是默认样式，记录里 style 不是这份的挂一遍）。
+// 旁白字幕不做逐字高亮：引擎的默认样式会把念到的字染成青色，所以什么都不给也要建样式文档，把 wordAnimation 换成 none。
+// 要 KTV 时给 captions.style.sungColor（#RRGGBB）：念过的部分从字色（fontColor，没念到的颜色）渐变成 sungColor，
+// 写在样式文档的 textMotion.karaoke.color 上。两个颜色都从这期的色板取：浅底上 fontColor 取浅一档、sungColor 取墨色；
+// 深底上 fontColor 取暗一点的中间调、sungColor 取更亮或更暖的强调色。wordAnimation 与 textMotion 都不是 setCaptionStyle
+// 的键，建好文档后用 patchDocument 改；textMotion 里原有的入场、出场保留。
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems } from './lib.mjs';
+import { loadConfig, parseArgs, listFlag, makeBc, readJson, writeJson, isCjk, textHash, allItems, NO_WORD_ANIMATION } from './lib.mjs';
 
 const OPEN = /[“‘（《「『〈【([{¿¡]/u;
 const WORD = c => /[\p{L}\p{N}]/u.test(c) && !isCjk(c);
@@ -84,9 +86,9 @@ export function timingLimits(cfg) {
   return lim;
 }
 
-// 旁白字幕能配的样式键：setCaptionStyle 的 style 认的键，加上 activeColor（念到的字的颜色，只能 patchDocument 写）；
+// 旁白字幕能配的样式键：setCaptionStyle 的 style 认的键，加上 sungColor（KTV 念过部分的颜色，只能 patchDocument 写）；
 // 描边、投影只比、只改给出的字段
-const STYLE_KEYS = ['y', 'verticalAlign', 'x', 'width', 'fontSize', 'fontWeight', 'fontFamily', 'fontColor', 'textOutline', 'dropShadow', 'background', 'backgroundColor', 'activeColor'];
+const STYLE_KEYS = ['y', 'verticalAlign', 'x', 'width', 'fontSize', 'fontWeight', 'fontFamily', 'fontColor', 'textOutline', 'dropShadow', 'background', 'backgroundColor', 'sungColor'];
 const NESTED = new Set(['textOutline', 'dropShadow']);
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
 
@@ -95,26 +97,33 @@ export function styleOf(cfg) {
   const s = cfg.captions?.style;
   if (s == null) return null;
   if (!isObj(s) || !Object.keys(s).length) throw new Error(`captions.style: give an object with some of ${STYLE_KEYS.join(', ')}`);
+  if ('activeColor' in s) throw new Error('captions.style.activeColor is gone: narration captions no longer highlight the current word; give sungColor for a KTV sweep (the sung part turns from fontColor to sungColor)');
   const bad = Object.keys(s).filter(k => !STYLE_KEYS.includes(k));
   if (bad.length) throw new Error(`captions.style: unknown key ${bad.join(', ')}; use ${STYLE_KEYS.join(', ')}`);
-  if ('activeColor' in s && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s.activeColor)) throw new Error(`captions.style.activeColor: give #RRGGBB or #RRGGBBAA, not ${JSON.stringify(s.activeColor)}`);
+  if ('sungColor' in s && !/^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s.sungColor)) throw new Error(`captions.style.sungColor: give #RRGGBB or #RRGGBBAA, not ${JSON.stringify(s.sungColor)}`);
   return s;
 }
 
-// 样式文档的 style 和配置不同的键，写成 patchDocument 的 changes；都一样时为空
+// 样式文档的 style 和配置不同的键，写成 patchDocument 的 changes；都一样时为空。
+// wordAnimation 总是换成 none；给了 sungColor 时 textMotion 并上 karaoke，没给时去掉 karaoke（入场、出场等别的键不动）
 export function styleChanges(cur, want) {
-  return Object.entries(want).flatMap(([k, v]) => {
-    if (k === 'activeColor') {
-      const anim = isObj(cur?.wordAnimation) ? cur.wordAnimation : {};
-      const active = isObj(anim.active) ? anim.active : {};
-      return active.color === v ? [] : [{ path: ['style', 'wordAnimation'], value: { ...anim, active: { ...active, color: v } } }];
-    }
+  const out = Object.entries(want).flatMap(([k, v]) => {
+    if (k === 'sungColor') return [];
     if (NESTED.has(k) && isObj(v)) {
       const base = isObj(cur?.[k]) ? cur[k] : {};
       return Object.entries(v).every(([kk, vv]) => base[kk] === vv) ? [] : [{ path: ['style', k], value: { ...base, ...v } }];
     }
     return cur?.[k] === v ? [] : [{ path: ['style', k], value: v }];
   });
+  if (!isObj(cur?.wordAnimation) || cur.wordAnimation.catalogId !== 'none') out.push({ path: ['style', 'wordAnimation'], value: NO_WORD_ANIMATION });
+  const tm = isObj(cur?.textMotion) ? cur.textMotion : null;
+  if (want.sungColor) {
+    if (tm?.karaoke?.color !== want.sungColor) out.push({ path: ['style', 'textMotion'], value: { ...tm, version: 1, karaoke: { ...tm?.karaoke, color: want.sungColor } } });
+  } else if (tm?.karaoke) {
+    const { karaoke: _k, ...rest } = tm;
+    out.push({ path: ['style', 'textMotion'], value: { ...rest, version: 1 } });
+  }
+  return out;
 }
 
 export function applyTiming(cfg, bc, caps) {
@@ -134,11 +143,11 @@ export function applyTiming(cfg, bc, caps) {
   const foreign = new Set(allItems(bc, cfg.video).items.filter(it => it.type === 'caption' && !ours.has(it.id) && it.styleDocumentId).map(it => it.styleDocumentId));
   const styles = (head().documents || []).filter(d => d.kind === 'caption-style' && !bites.has(d.id) && !foreign.has(d.id));
   let doc = styles.find(d => d.id === caps._style?.documentId)?.id ?? (styles.length === 1 ? styles[0].id : null);
-  if (!doc && !style && want.leadIn === TIMING.leadIn && want.tail === TIMING.tail) return;   // 默认样式、默认时长，不用样式文档
   if (!doc && styles.length) throw new Error(`video has ${styles.length} caption styles (${styles.map(d => d.id).join(', ')}); put the narration one in captions.json as _style.documentId`);
   if (!doc) {
-    // 以默认样式加上配置的 style 建一份（没给 style 时 y 86 就是默认），序列上还没有样式的字幕一起挂上
-    const { activeColor: _active, ...first } = style ?? {};   // activeColor 不是 setCaptionStyle 的键，下面 patchDocument 补上
+    // 以默认样式加上配置的 style 建一份（没给 style 时 y 86 就是默认），序列上还没有样式的字幕一起挂上；
+    // 默认样式的逐字高亮下面 patchDocument 换成 none
+    const { sungColor: _sung, ...first } = style ?? {};   // sungColor 不是 setCaptionStyle 的键，下面 patchDocument 补上
     const r = apply('Caption style for narration', [{ type: 'setCaptionStyle', itemId: caps[segs[0]].items[0], style: Object.keys(first).length ? first : { y: 86 } }]);
     doc = r.createdIds?.find(x => x.startsWith('doc_'));
     if (!doc) throw new Error(`no style document in receipt: ${JSON.stringify(r).slice(0, 400)}`);
@@ -149,7 +158,7 @@ export function applyTiming(cfg, bc, caps) {
   const t = cur.displayTiming ?? {};
   const changes = [
     ...(t.leadIn !== want.leadIn || t.tail !== want.tail ? [{ path: ['style', 'displayTiming'], value: { ...t, ...want } }] : []),
-    ...(style ? styleChanges(cur, style) : []),
+    ...styleChanges(cur, style ?? {}),
   ];
   if (changes.length) {
     apply('Caption style for narration', [{ type: 'patchDocument', documentId: doc, changes }]);

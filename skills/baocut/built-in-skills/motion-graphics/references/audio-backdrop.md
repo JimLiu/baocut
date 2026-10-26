@@ -61,7 +61,7 @@
 | 背景与标题 | 方案的底色、文字色与强调色 |
 | 内置声波 | `mainColor`（已播放）取强调色或高亮的文字色；`secondaryColor`（未播放）取底色与文字色之间的中间调，与底色有对比但不抢眼。款式默认仍是 `audio_envelope`。`audio_envelope` 框下方有一条进度线与 `mm:ss` 读数；版面另有计时，或声波收得很窄、读数小到看不清时，写 `visualizer.readout: false`，只留细柱与中线。已放好的声波没有改属性的操作：同一笔 `deleteItems`，再按原 `span`、`place` 带上新属性 `insertItems` |
 | 字幕 | 深底用浅色字（可以是暖白、冷白），描边关掉或很细，靠柔投影。浅底用文字色深字，关掉描边与投影。照片、花纹等杂底开底板，`backgroundColor` 取底色加透明度。字幕字与背后底色的对比至少 4.5:1。字幕做主文时，字跟版面走：`fontFamily` 写系统字体名（如 `Songti SC`），`fontWeight` 400 上下，`lineHeight` 1.3–1.6，`punct: false` 留住标点 |
-| 字幕的当前词高亮 | 缺省是青绿色，`setCaptionStyle` 改不到。用 edits_apply 的 `patchDocument` 改字幕样式文档（字幕实例的 `styleDocumentId`；还没有时先 `setCaptionStyle` 一次，回执的 `createdIds` 里就是它），路径 `["style","wordAnimation","active","color"]`，取强调色；强调色在这片底上不够深时，取它深一档或直接取字幕字色。逐词动画只在有词时间的原文字幕上看得出；译文字幕按句对齐，整句一起出现。主文想要「念到才出现」时，用原文字幕加 `reveal`（unspoken 透明）；译文做主文就整句换 |
+| 字幕的念到效果 | 默认不逐字高亮：引擎的缺省样式把当前词染成青绿色，`setCaptionStyle` 改不到，要用 edits_apply 的 `patchDocument` 改字幕样式文档（字幕实例的 `styleDocumentId`；还没有时先 `setCaptionStyle` 一次，回执的 `createdIds` 里就是它），路径 `["style","wordAnimation"]` 写 none 一格（`{"animationId":"none","animationName":"None","catalogId":"none","spoken":{},"active":{},"unspoken":{}}`）。要 KTV（念到哪里，哪里的颜色变深）时再写 `["style","textMotion"]`：`{"version":1,"karaoke":{"color":念过的颜色}}`，已有 `textMotion` 时把 `karaoke` 并进去；没念到的颜色是 `fontColor`。两个颜色都从这一期的色板取：浅底上浅灰到墨色，深底上暗一点的中间调到更亮或更暖的强调色。只有带词时间的字幕会扫色；双语的译文行也跟着扫，进度按整句摊开 |
 | 配图说明、章节、计时 | 文字实例，与背景同一套字与色：标题用正文那一族，说明与出处小一号，用中间调或等宽字 |
 
 字幕换字体后，导出一小段预览确认字形生效：系统里没有这一族时会换成别的字。

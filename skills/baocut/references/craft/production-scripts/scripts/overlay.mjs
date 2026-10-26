@@ -44,7 +44,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipTimes, allItems, cropFraction, focalOf, mediaTime, isAudioOnly } from './lib.mjs';
+import { loadConfig, parseArgs, makeBc, readJson, writeJson, layout, atOf, cueTime, clipTimes, allItems, cropFraction, focalOf, mediaTime, isAudioOnly, NO_WORD_ANIMATION } from './lib.mjs';
 
 const cfg = loadConfig();
 const { ids, flags } = parseArgs(process.argv);
@@ -395,8 +395,11 @@ for (const [file, list] of bitesBySource()) {
   if (cap.pairedOriginal?.documentId !== orig.documentId || cap.styleDocumentId !== orig.styleDocumentId) {
     throw new Error(`bilingual captions for ${name} paired with ${cap.pairedOriginal?.documentId}, not the sound-bite layer ${orig.documentId}`);
   }
-  // 原声字幕跟着原话走：显示的提前与拖尾都收短，不越过片段
-  apply(`${cfg.names.footage} ${name} caption timing`, [{ type: 'patchDocument', documentId: orig.styleDocumentId, changes: [{ path: ['style', 'displayTiming'], value: { leadIn: 0, tail: 0.1 } }] }]);
+  // 原声字幕跟着原话走：显示的提前与拖尾都收短，不越过片段。词时间是按各条起止摊开的，不逐字高亮（默认样式会染青色）
+  apply(`${cfg.names.footage} ${name} caption timing`, [{ type: 'patchDocument', documentId: orig.styleDocumentId, changes: [
+    { path: ['style', 'displayTiming'], value: { leadIn: 0, tail: 0.1 } },
+    { path: ['style', 'wordAnimation'], value: NO_WORD_ANIMATION },
+  ] }]);
   log.bites[file] = { hash: subsHash(list), speechDoc, translationDoc: tr.documentId, styleDocumentId: orig.styleDocumentId, itemIds: [...(cap.itemIds || []), ...(orig.itemIds || [])] };
   save();
   console.log('sound-bite captions', name, `${list.length} subs, ${units.length} sentences`, log.bites[file].itemIds.join(' '));

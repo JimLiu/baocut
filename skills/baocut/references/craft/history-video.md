@@ -82,7 +82,7 @@
 正片在前，片头在后：正片定了，片头才知道交到哪里。
 
 - **正片**：已有字幕视频时先复制一份（新版在副本里做）；没有时照 `subtitle-workflow` 做：转写、按讲稿校对、翻译、双语字幕、分章（`video-chapters`）。
-- **片头**用 `production-scripts` 的脚本（读 [`references/craft/production-scripts.md`](production-scripts.md)）：配置里写 `prepend`（带一章 `chapter`，例如「背景」），片头按段配音、对齐、写场景代码打包；`assemble.mjs` 在第 0 帧腾出整个片头，正片的画面、声音、字幕与章节一起后移（`--dry` 先打印这一步）。两件事要先想好：正片里写成文字的章节序号（`01`）因为多了一章会都加一，要保留原序号就换成每章一段的静态文字；片头的原声引用按响度量过，正片录音沿用旧音量，两边差几个分贝时调正片录音片段的音量，切过去才不会突然变小。片头旁白字幕的样式跟这期配色走（配置的 `captions.style`）：默认念到的字是青色，用 `activeColor` 换成这期的强调色，或者和正片字幕的高亮一致。
+- **片头**用 `production-scripts` 的脚本（读 [`references/craft/production-scripts.md`](production-scripts.md)）：配置里写 `prepend`（带一章 `chapter`，例如「背景」），片头按段配音、对齐、写场景代码打包；`assemble.mjs` 在第 0 帧腾出整个片头，正片的画面、声音、字幕与章节一起后移（`--dry` 先打印这一步）。两件事要先想好：正片里写成文字的章节序号（`01`）因为多了一章会都加一，要保留原序号就换成每章一段的静态文字；片头的原声引用按响度量过，正片录音沿用旧音量，两边差几个分贝时调正片录音片段的音量，切过去才不会突然变小。字幕不逐字高亮，用 KTV：念到哪里，哪里的颜色变深，颜色跟这期配色走。片头旁白字幕在配置的 `captions.style` 里给 `fontColor`（没念到）与 `sungColor`（念过），正片字幕的样式文档用同样的 `patchDocument` 改（`wordAnimation` 换成 none、`textMotion.karaoke.color` 取正片底色上的强调色，写法见 `motion-graphics` 的 audio-backdrop 参考第 4 节「字幕的念到效果」），两边一个手法。
 - **原声引用**：`clips.json` 里只有声音的片段：`asset` 写正片录音的素材 ID，`after` 把它放在段尾、`hold` 留出它的长度，`words: true` 与 `said`（原话）、`text`（译文）；`quotes.mjs` 对出逐词时间，`build.mjs` 写进这一段的 `TIMING.clips`，场景照它点亮每个词。
 - **新闻片与照片**：视频片段照 `clips.json` 放成铺满或画中画，画中画框的位置在 `TIMING.clips[].box`，场景在框下画底板、框旁写说明。
 - **出处**：`sources.json` 一份；`sources.mjs` 查漏、写 `sources.csv`；画面上的出处行从 `TIMING.credits` 取，不在场景里另写一遍。
