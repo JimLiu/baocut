@@ -18,6 +18,7 @@ const DEFAULTS = {
   script: { path: 'script.md', notePrefixes: ['@', '（', '(', '>', '<!--'] },
   fixedLines: {},
   hold: {},
+  continues: {},
   tail: 0.35,
   voice: { format: 'wav', attach: false },
   asr: { provider: 'google', model: 'gemini-3.5-transcribe', chunkSeconds: 0, args: [] },
@@ -50,6 +51,7 @@ export function loadConfig(argv = process.argv) {
   if (!(cfg.fps > 0)) bad.push('fps');
   if (!(cfg.canvas.width > 0 && cfg.canvas.height > 0)) bad.push('canvas.width / canvas.height');
   if (new Set(cfg.order || []).size !== (cfg.order || []).length) bad.push('order has duplicate ids');
+  for (const [id, prev] of Object.entries(cfg.continues)) if (!(cfg.order.indexOf(prev) >= 0 && cfg.order.indexOf(prev) < cfg.order.indexOf(id))) bad.push(`continues.${id} (${prev} must come before ${id} in order)`);
   if (bad.length) throw new Error(`${file}: missing or invalid ${bad.join(', ')}`);
   cfg.estimateRate ??= /^(zh|ja|yue)\b/i.test(cfg.language) ? 4.5 : 2.7;
   return cfg;
@@ -123,6 +125,10 @@ export const writeJson = (file, value) => {
 
 // 旁白稿：「## <id> 标题」开一段（id 要在 order 里），别的一、二级标题或 --- 结束这一段；
 // 段内每个非空行是一句旁白，notePrefixes 开头的行与三级以下标题是备注。fixedLines 里的段（固定开场、结尾）不从稿子读。
+// 单独一行 `@beat` 或 `@beat 0.6`（秒）是停一拍：不念、不进备注（不管 notePrefixes 怎么配），由 scriptBeats 记下。
+export const BEAT_DEFAULT = 0.6;
+const BEAT_LINE = /^@beat(?:\s+(\d+(?:\.\d+)?))?\s*$/i;
+
 export function scriptLines(cfg) {
   const md = fs.readFileSync(cfg.abs(cfg.script.path), 'utf8');
   const ids = new Set(cfg.order), out = {};
@@ -132,10 +138,30 @@ export function scriptLines(cfg) {
     const h = line.match(/^#{1,2}\s+(\S+)/);
     if (h) { cur = ids.has(h[1]) ? h[1] : null; if (cur) out[cur] = []; continue; }
     if (/^-{3,}$/.test(line)) { cur = null; continue; }
-    if (!cur || !line || line.startsWith('#') || cfg.script.notePrefixes.some(p => line.startsWith(p))) continue;
+    if (!cur || !line || line.startsWith('#') || BEAT_LINE.test(line) || cfg.script.notePrefixes.some(p => line.startsWith(p))) continue;
     out[cur].push(line);
   }
   for (const [id, lines] of Object.entries(cfg.fixedLines)) out[id] = lines;
+  return out;
+}
+
+// 每段的停一拍：{ 段 id: { 句号: 秒 } }，句号是 `@beat` 下面那一句（从 0 数），拍子落在它和上一句之间；
+// 写在第一句之前或最后一句之后的也照记，由 gaps.mjs 报出来（段尾要多停用 hold）。
+export function scriptBeats(cfg) {
+  const md = fs.readFileSync(cfg.abs(cfg.script.path), 'utf8');
+  const ids = new Set(cfg.order), out = {};
+  let cur = null, n = 0;
+  for (const raw of md.split('\n')) {
+    const line = raw.trim();
+    const h = line.match(/^#{1,2}\s+(\S+)/);
+    if (h) { cur = ids.has(h[1]) ? h[1] : null; n = 0; continue; }
+    if (/^-{3,}$/.test(line)) { cur = null; continue; }
+    if (!cur || !line || line.startsWith('#')) continue;
+    const b = line.match(BEAT_LINE);
+    if (b) { (out[cur] ||= {})[n] = b[1] ? +b[1] : BEAT_DEFAULT; continue; }
+    if (!cfg.script.notePrefixes.some(p => line.startsWith(p))) n++;
+  }
+  for (const id of Object.keys(cfg.fixedLines)) delete out[id];
   return out;
 }
 
@@ -151,7 +177,7 @@ export function scriptNotes(cfg) {
     const h = line.match(/^#{1,2}\s+(\S+)/);
     if (h) { cur = ids.has(h[1]) ? h[1] : null; continue; }
     if (/^-{3,}$/.test(line)) { cur = null; continue; }
-    if (!cur || !cfg.script.notePrefixes.some(p => line.startsWith(p))) continue;
+    if (!cur || BEAT_LINE.test(line) || !cfg.script.notePrefixes.some(p => line.startsWith(p))) continue;
     (out[cur] ||= []).push(line.replace(/^(<!--|[@>]|[（(])\s*/, '').replace(/\s*(-->|[）)])$/, ''));
   }
   return Object.fromEntries(Object.entries(out).map(([id, l]) => [id, l.join(' ')]));

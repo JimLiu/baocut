@@ -23,6 +23,8 @@
 //     片段越过包的结尾时报 warn（段尾的原声要放进 hold）。timing 还是估的、或片段的起点算不出来（还没跑 gaps.mjs）时不写 clips。
 //   TIMING.credits：{ 文件名: 出处 }，场景源码用引号提到的文件与这一段片段的原片，在 sources.json 里有 credit 的（sources.mjs 管这份表）。
 //   这些字符串也查字形。
+//   TIMING.ambient：只给 continues 里的段（{ 段: 它接着演的前一段 }，同一个场景跨包接着演）。值 = 前一段的 ambient + 从前一段到这一段之前
+//     各段的时长，场景的环境动画（闪烁、自转、漂浮）用 (TIMING.ambient || 0) + t，接缝处不跳回 0。打一段时，接着它演的段一起重打。
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -183,6 +185,22 @@ function clipsOf(id, timing, dur) {
   });
 }
 
+// 接着演的段的环境时间偏移：前面那几段的时长取这一轮刚打的，没打的读已有包的 data-duration
+const durs = new Map();
+function bundleDur(id) {
+  if (durs.has(id)) return durs.get(id);
+  const f = cfg.abs(cfg.dirs.bundles, id, 'index.html');
+  const m = fs.existsSync(f) && fs.readFileSync(f, 'utf8').match(/data-duration="([\d.]+)"/);
+  if (!m) throw new Error(`continues: ${id} has no bundle yet; build it first`);
+  return +m[1];
+}
+function ambientOf(id) {
+  const prev = cfg.continues[id];
+  if (!prev) return 0;
+  const span = cfg.order.slice(cfg.order.indexOf(prev), cfg.order.indexOf(id));
+  return round(ambientOf(prev) + span.reduce((s, x) => s + bundleDur(x), 0));
+}
+
 function build(id, all) {
   const scene = cfg.abs(cfg.dirs.scenes, id + '.js');
   if (!fs.existsSync(scene)) throw new Error('missing ' + scene);
@@ -210,7 +228,8 @@ function build(id, all) {
   // 出处：场景提到的文件与这一段片段的原片
   const credits = {};
   for (const k of [...literals].map(x => path.basename(x)).concat((clips || []).map(c => path.basename(clipsFile.clips.find(x => x.id === c.id).source || clipsFile.source || '')))) if (creditOf.has(k)) credits[k] = creditOf.get(k);
-  const extra = { ...(clips ? { clips } : {}), ...(Object.keys(credits).length ? { credits } : {}) };
+  const ambient = cfg.continues[id] ? ambientOf(id) : null;
+  const extra = { ...(clips ? { clips } : {}), ...(Object.keys(credits).length ? { credits } : {}), ...(ambient !== null ? { ambient } : {}) };
   // 查字形的源码：场景本身，加上拷进包的 shared/ 顶层 .js 与 bundle.scripts 列的脚本（子目录里的库不查，字符串多半不上画布），和写进 TIMING 的出处与原话
   const checked = copied.filter(rel => rel.endsWith('.js') && (!rel.includes('/') || scripts.includes(rel)));
   checkGlyphs(id, [src, ...checked.map(rel => fs.readFileSync(path.join(SHARED, rel), 'utf8')), JSON.stringify(extra)]);
@@ -226,8 +245,22 @@ function build(id, all) {
 <body><div id="root" data-composition-id="${cfg.compositionId}" data-width="${W}" data-height="${H}" data-fps="${cfg.fps}" data-duration="${dur}" data-alpha="${alpha}"></div>
 ${tags}</body></html>
 `);
-  return { id, dur, frames: Math.round(dur * cfg.fps), estimated: !!timing.estimated };
+  return { id, dur, frames: Math.round(dur * cfg.fps), estimated: !!timing.estimated, ...(ambient !== null ? { ambient } : {}) };
 }
 
 const all = scriptLines(cfg);
-for (const id of ids.length ? ids : cfg.order) console.log(JSON.stringify(build(id, all)));
+const want = new Set(ids.length ? ids : cfg.order);
+// 接着演的段跟着它前面那几段一起重打：前面任何一段的时长变了，它的 ambient 就变了
+for (let grew = true; grew;) {
+  grew = false;
+  for (const [id, prev] of Object.entries(cfg.continues)) {
+    if (want.has(id) || !cfg.order.slice(cfg.order.indexOf(prev), cfg.order.indexOf(id)).some(x => want.has(x))) continue;
+    want.add(id);
+    grew = true;
+  }
+}
+for (const id of [...cfg.order.filter(x => want.has(x)), ...[...want].filter(x => !cfg.order.includes(x))]) {
+  const r = build(id, all);
+  durs.set(id, r.dur);
+  console.log(JSON.stringify(r));
+}

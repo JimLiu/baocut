@@ -8,6 +8,11 @@
 //   K.img('house.jpg')          // at the top level of the scene, so initialize() waits for it
 //   K.scene((ctx, t) => { K.clear(ctx); ... })   // t = seconds from the start of this segment
 //
+// Motion feel: K.cam(t, keys) + K.lens(ctx, c) is one 2D camera for the whole frame (eased in-out, zoom in log space);
+// K.spring(t, t0) is a damped spring for pops and landings; K.ambient(t) is the clock for twinkle, spin and bob,
+// carried across segments that production.json lists in continues. Story state (which step, which reading) stays a
+// function of t (or of a story clock you derive from t), so a replay or rewind of the story never rewinds the stars.
+//
 // Timing comes from window.TIMING (build.mjs): lines[i].chars are per-character start times,
 // clips[] are this segment's clips (at/end in segment seconds, box in canvas px, words[{t,s,e}] in segment seconds),
 // credits{file: line} are the on-screen source lines from sources.json.
@@ -49,9 +54,47 @@
   const out = (t, a, b) => ease.out(prog(t, a, b));
   // fade in over [a, b], out over [c, d]
   const win = (t, a, b, c = Infinity, d = Infinity) => Math.min(ease.sine(prog(t, a, b)), 1 - ease.sine(prog(t, c, d)));
+  // zoom or scale between a and b in log space: the same ratio every second, so a push-in from 1 to 8 does not seem to brake
+  const zlerp = (a, b, k) => Math.exp(lerp(Math.log(a), Math.log(b), k));
+  // damped spring from 0 to 1 that fires at t0 (seconds): 0 before t0, overshoots, settles on 1.
+  // zeta 0.42-0.5 with omega 12-16 rad/s (about 2-2.5 Hz) overshoots ~20% and settles in 0.5-0.7 s; raise zeta toward 0.7 for a calmer land.
+  // It passes 1 on purpose: test "has it appeared" with t >= t0, not with the value.
+  function spring(t, t0, o = {}) {
+    const x = t - t0;
+    if (!(x > 0)) return 0;
+    const z = o.zeta ?? 0.45, w = o.omega ?? 14;
+    if (z >= 1) return 1 - Math.exp(-w * x) * (1 + w * x);
+    const wd = w * Math.sqrt(1 - z * z);
+    return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + (z * w / wd) * Math.sin(wd * x));
+  }
+  // 2D camera keys [{ t, x, y, zoom, rot?, from? }]: (x, y) is the canvas point at the centre of the screen.
+  // Between keys it eases in-out (cubic) from `from` (default the previous key's t) to t; zoom moves in log space.
+  // Put each key's t on the spoken word (at()), so the camera settles as the word lands.
+  function cam(t, keys) {
+    if (t <= keys[0].t) return keys[0];
+    for (let i = 1; i < keys.length; i++) {
+      const a = keys[i - 1], b = keys[i];
+      if (t <= b.t) {
+        const k = ease.io(prog(t, b.from ?? a.t, b.t));
+        return { x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), zoom: zlerp(a.zoom ?? 1, b.zoom ?? 1, k), rot: lerp(a.rot || 0, b.rot || 0, k) };
+      }
+    }
+    return keys[keys.length - 1];
+  }
+  // draw the world through camera c from here on (world units = canvas px at zoom 1); reset(ctx) before screen-space text
+  function lens(ctx, c) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(c.zoom ?? 1, c.zoom ?? 1);
+    if (c.rot) ctx.rotate(c.rot);
+    ctx.translate(-c.x, -c.y);
+  }
 
   // ---------- timing ----------
   const TM = () => window.TIMING || { lines: [], dur: 0 };
+  // environment clock (twinkle, spin, bob, drifting particles): continues from the previous segment when production.json
+  // lists this one in continues, so the motion does not jump back to 0 at the seam
+  const ambient = t => (TM().ambient || 0) + t;
   const line = i => TM().lines[i];
   // when the k-th character of `sub` in narration line i is spoken ('end' = its last character)
   function at(i, sub, k = 0) {
@@ -633,7 +676,7 @@
       if (t <= b.t) {
         const k = ease.io(prog(t, b.from ?? a.t, b.t));
         return {
-          lon: lerp(a.lon, b.lon, k), lat: lerp(a.lat, b.lat, k), span: Math.exp(lerp(Math.log(a.span), Math.log(b.span), k)),
+          lon: lerp(a.lon, b.lon, k), lat: lerp(a.lat, b.lat, k), span: zlerp(a.span, b.span, k),
           dx: lerp(a.dx || 0, b.dx || 0, k), dy: lerp(a.dy || 0, b.dy || 0, k),
         };
       }
@@ -760,8 +803,8 @@
   }
 
   window.K = {
-    W, H, S, style, clamp, lerp, prog, ease, io, out, win,
-    at, line, lastEnd, dur, clips, clip, clipWin, credit,
+    W, H, S, style, clamp, lerp, prog, ease, io, out, win, zlerp, spring, cam, lens,
+    at, line, lastEnd, dur, ambient, clips, clip, clipWin, credit,
     img, aspect, reset, clear, wash, vignette, edge, shade, grain,
     cover, full, print, slip, bars, loupe,
     font, measure, text, typeOn, wrap, tag, aiTag, creditLine,
