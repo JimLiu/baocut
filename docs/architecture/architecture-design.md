@@ -2138,7 +2138,7 @@ Runtime 启动时把上次没有结算的预留按 `conservative` 结算（上�
 
 **固定流程（Pipeline）**是步骤固定、不需要模型做规划的多步工作。它是 Runtime 里的一段确定性的编排，执行主体是 `system:pipeline`，不创建 AgentSession：
 
-- 一个流程是一个父 Job（`kind: 'pipeline'`），每一步是它的子 Job（`kind: 'pipeline-step'`，带 `parentJobId`），各有自己的冻结输入、产物与失败状态。父 Job 的 `submitter` 是发起它的连接或服务，子 Job 记 `submitter: { kind: 'pipeline', id: <父 Job> }`。父 Job 的进度按步骤报告，阶段与调用计数跟着在跑的那一步。参数在提交时校验并冻结，执行与重试都只读这一份。
+- 一个流程是一个父 Job（`kind: 'pipeline'`），每一步是它的子 Job（`kind: 'pipeline-step'`，带 `parentJobId`），各有自己的冻结输入、产物与失败状态。父 Job 的 `submitter` 是发起它的连接或服务，子 Job 记 `submitter: { kind: 'pipeline', id: <父 Job> }`。父 Job 的进度按步骤报告，阶段与调用计数跟着在跑的那一步。提交转写 Job 的步骤（转录、从链接导入）跟着那个 Job：它在跑时的阶段与进度（识别的秒数、对齐的段数）记在这一步的子 Job 上，父 Job 的阶段随之变，进度仍是步骤数；同一阶段里按整百分比变化才转一次。参数在提交时校验并冻结，执行与重试都只读这一份。
 - **子 Job 折叠**。`jobs.list` 默认只列父 Job，步骤折叠在父 Job 的 `pipeline.steps` 里（每一步的状态、最近一次的子 Job、执行次数与产出）；`children: true` 时一并列出子 Job。`jobs` 主题推送全部记录，由客户端决定怎样折叠。
 - **记录保留**。任务账本只保留 200 条终结的顶层 Job，按结束时间从旧到新淘汰；子 Job 不计数，随父 Job 一起保留与淘汰，没有结束的 Job 与它的子 Job 不淘汰，等对账的（`needs-reconciliation`）在用户用 `jobs.reconcile` 决定之前也不淘汰、不占名额，正在 `jobs.reconcile` 的 Job 也不淘汰。只按条数，不按时间：账本因此有上限，后台任务页的「最近 30 天」只是显示的规则（产品设计 §6.1），不删记录。还能挽回的两类 Job 另外保留、不占 200 条的名额：还能重试的流程（失败、取消或中断）最新的 50 条；结果还能 `jobs.reconcile apply` 的 Job（失败或取消、有视频与结果、最近一次应用是 `stale-input`、`rejected` 或 `cancelled`，§7.5）最新的 50 条。更旧的按普通 Job 淘汰，淘汰之后不能再重试、不能再应用；应用成功或重试完成之后就是普通的终结记录，不再另外保留。被淘汰的 Job 与随它删掉的子 Job 的应用记录一并删掉，`jobs` 主题发 `job.removed { jobIds }`（含子 Job），客户端从任务副本里删掉这些记录，不必等重新订阅（命令与协议规范 §10.4）。
 - 步骤可以带条件（不满足时记为 `skipped`，例如可选的人声分离），一步也可以派生多个子 Job（例如逐句合成），步骤的形状因此能容纳翻译配音与从链接导入。

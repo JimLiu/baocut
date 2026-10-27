@@ -5,7 +5,7 @@ import type { GeneratedOutput } from '@baocut/protocol';
 import { JobsDownloadTranscript } from '@baocut/protocol/messages/jobs/download-transcript.ts';
 import { asLocalized } from '../job-text.ts';
 import { PipelineStepError, type PipelineStepContext } from './pipeline.ts';
-import type { PipelineTranscriber } from './video-create.ts';
+import { followTranscribe, type PipelineTranscriber } from './video-create.ts';
 
 /**
  * 文件的转录（架构设计 §7.9）：认回这次运行提交过的转写，重试发布不重复识别。
@@ -42,6 +42,7 @@ export async function downloadTranscript(
   const { jobId } = previous ?? await jobs.submitFile(submit, { kind: 'pipeline', id: parentJobId });
   const abort = () => { void jobs.cancel(jobId).catch(() => {}); };
   signal.addEventListener('abort', abort, { once: true });
+  const unfollow = followTranscribe(jobs, jobId, context.progress);
   try {
     if (signal.aborted) abort();
     const state = await jobs.settled(jobId);
@@ -54,7 +55,7 @@ export async function downloadTranscript(
         { cause: error?.details, jobId },
       );
     }
-  } finally { signal.removeEventListener('abort', abort); }
+  } finally { unfollow(); signal.removeEventListener('abort', abort); }
   const artifactId = jobs.inspect(jobId).result?.artifactId;
   const bytes = artifactId ? await artifacts.read(artifactId) : null;
   if (!bytes) throw new PipelineStepError('TRANSCRIBE_RESULT_MISSING', JobsDownloadTranscript.resultMissing(), { jobId });

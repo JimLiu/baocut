@@ -703,6 +703,10 @@ function pipelineTranscriber(jobs: JobManager, services: ModelServices): Pipelin
     cancel: (jobId) => jobs.cancel(jobId),
     inspect: (jobId) => jobs.inspect(jobId),
     list: () => jobs.list(),
+    watch: (jobId, listener) =>
+      jobs.onChange((job) => {
+        if (job.jobId === jobId) listener(job);
+      }),
   };
 }
 

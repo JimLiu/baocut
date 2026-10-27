@@ -5,7 +5,7 @@ import type { Id, JobRecord, JobState, JobSubmitter, PipelineCreateScope, Sequen
 import type { VideoPlace } from '../application-ledger.ts';
 import { JobsVideoCreate } from '@baocut/protocol/messages/jobs/video-create.ts';
 import { asLocalized } from '../job-text.ts';
-import { PipelineStepError, type PipelineStepContext } from './pipeline.ts';
+import { PipelineStepError, type PipelineStepContext, type ProgressReporter } from './pipeline.ts';
 import type { PipelineVideos } from './translate.ts';
 import type { PipelineTargets, VideoLease } from './video-target.ts';
 
@@ -126,6 +126,30 @@ export interface PipelineTranscriber {
   inspect(jobId: Id): JobRecord;
   /** Job Ledger 里的任务（重试时找这次运行提交过的转写）；没有时每次都重新提交。 */
   list?(): JobRecord[];
+  /** 跟着一个任务的变化（返回取消跟随的函数）；没有时流程只显示「转写中」，看不到转写的阶段与进度。 */
+  watch?(jobId: Id, listener: (job: JobRecord) => void): () => void;
+}
+
+/**
+ * 把转写 Job 的阶段与进度转给这一步（`report`）：父任务的阶段跟着它，进度仍按步骤计（§7.9），步骤的子任务带着
+ * 转写的进度（识别的秒数、对齐的段数）。只转在跑时的；同一阶段里按整百分比（没有总量时按完成数）变了才转，
+ * 免得 Worker 的每个进度事件都多出两条任务事件。返回停止跟随的函数。
+ */
+export function followTranscribe(jobs: PipelineTranscriber, jobId: Id, report: ProgressReporter): () => void {
+  if (!jobs.watch) return () => {};
+  let last = '';
+  const forward = (job: JobRecord) => {
+    if (job.state !== 'running') return;
+    const progress = job.progress;
+    const mark = progress && progress.total ? Math.floor((progress.done / progress.total) * 100) : (progress?.done ?? '');
+    const key = `${job.phase}|${progress?.unit ?? ''}|${mark}`;
+    if (key === last) return;
+    last = key;
+    report(progress ? { ...progress } : null, job.phase);
+  };
+  const stop = jobs.watch(jobId, forward);
+  forward(jobs.inspect(jobId));
+  return stop;
 }
 
 /**
@@ -159,6 +183,7 @@ export async function transcribeInVideo(
     : await jobs.submit({ ...request, commandId }, { kind: 'pipeline', id: parentJobId });
   const onAbort = () => void jobs.cancel(jobId).catch(() => {});
   signal.addEventListener('abort', onAbort, { once: true });
+  const unfollow = followTranscribe(jobs, jobId, context.progress);
   try {
     const state = await jobs.settled(jobId);
     signal.throwIfAborted();
@@ -171,6 +196,7 @@ export async function transcribeInVideo(
       );
     }
   } finally {
+    unfollow();
     signal.removeEventListener('abort', onAbort);
   }
   const record = jobs.inspect(jobId);

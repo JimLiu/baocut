@@ -270,6 +270,8 @@ class FakeTranscriber implements PipelineTranscriber {
   list(): JobRecord[] {
     return this.records;
   }
+
+  watch?: (jobId: Id, listener: (job: JobRecord) => void) => () => void;
 }
 
 /** 假目标：占位时真的建空目录；新建时在目录里放一个 `video.db` 标记，已经有标记时认回（数一下各几次）。 */
@@ -645,6 +647,47 @@ describe('转录流程', () => {
     await runner.retry(jobId);
     await finished(jobId);
     expect(transcriber.submitted.map((s) => s.commandId)).toEqual([`${jobId}:transcribe`, `${jobId}:transcribe:2`]);
+  });
+
+  it('转写的阶段与进度转给这一步：步骤的子任务带着对齐的段数，父任务的阶段跟着、进度仍按步骤', async () => {
+    videos.add('vid_1', [{ assetId: 'asset_a' }]);
+    transcriber.outcome = 'running';
+    let finish!: (state: JobState) => void;
+    let reached!: () => void;
+    const transcribing = new Promise<void>((resolve) => (reached = resolve));
+    transcriber.settled = () =>
+      new Promise<JobState>((resolve) => {
+        finish = resolve;
+        reached();
+      });
+    let listener: ((job: JobRecord) => void) | null = null;
+    transcriber.watch = (_id, next) => {
+      listener = next;
+      return () => (listener = null);
+    };
+    const { jobId } = await start({ videoId: 'vid_1', captions: false });
+    await transcribing;
+    const events: JobRecord[] = [];
+    jobs.onChange((job) => events.push(job));
+    const record = transcriber.inspect('job_t1');
+    const report = (patch: Partial<JobRecord>) => {
+      Object.assign(record, patch);
+      listener!(structuredClone(record));
+    };
+    report({ phase: 'aligning', progress: { done: 333, total: 496, unit: 'segments' } });
+    // 同一个整百分比（67%）里的变化不再转。
+    report({ phase: 'aligning', progress: { done: 334, total: 496, unit: 'segments' } });
+    const step = jobs.inspect(jobs.inspect(jobId).pipeline!.steps.find((s) => s.name === 'transcribe')!.jobId!);
+    expect(step).toMatchObject({ phase: 'aligning', progress: { done: 333, total: 496, unit: 'segments' } });
+    expect(jobs.inspect(jobId)).toMatchObject({ phase: 'aligning', progress: { done: 2, total: 4, unit: 'steps' } });
+    expect(events.filter((e) => e.jobId === jobId)).toHaveLength(1);
+
+    videos.putSpeech('vid_1', 'doc_job_t1', 'job_t1', 'asset_a');
+    Object.assign(record, { state: 'completed', result: { documentId: 'doc_job_t1', artifactId: 'art_job_t1' } });
+    finish('completed');
+    expect(await finished(jobId)).toMatchObject({ state: 'completed' });
+    // 步骤结束之后不再跟着。
+    expect(listener).toBeNull();
   });
 
   it('取消：在跑的转写 Job 一并取消，停在转写这一步，视频不变；重试时换一个命令重新提交', async () => {
