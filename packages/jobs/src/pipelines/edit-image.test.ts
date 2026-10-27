@@ -126,6 +126,7 @@ describe.skipIf(!hasFfmpeg)('图片编辑（真实 ffmpeg，假的图像模型�
   let runner: PipelineRunner;
   let calls: Array<{ image: string; prompt: string; width: number; height: number; providerId: string; modelId: string; send: { width: number; height: number; center: Rgb } }>;
   let editable: boolean;
+  let leases: Array<{ label: string; holder: string | null; queue: string | null }>;
 
   /** 假的图像模型：记下收到的图（尺寸与中心像素）与提示词，回一张 300×200 的纯绿图（尺寸与工作区不同，流程要缩放回去）。 */
   const editor: ImageEditor = {
@@ -133,7 +134,10 @@ describe.skipIf(!hasFfmpeg)('图片编辑（真实 ffmpeg，假的图像模型�
       if (!editable) throw new RpcError('invalid-request', 'no edit', { code: 'IMAGE_EDIT_UNSUPPORTED' });
       return { providerId: target.provider ?? 'fake', modelId: target.model ?? 'fake-edit' };
     },
+    resources: ({ providerId, modelId }) =>
+      providerId === 'local' ? { demand: { scratchDisk: 1 }, holder: { id: `worker:${modelId}`, demand: { memory: 1 } }, queue: { key: modelId, concurrency: 1 } } : null,
     async edit(request) {
+      leases.push(...jobs.resources.snapshot().leases.map(({ label, holder, queue }) => ({ label, holder, queue })));
       const sent = pixels(request.image);
       calls.push({ ...request, send: { width: sent.width, height: sent.height, center: sent.at(sent.width >> 1, sent.height >> 1) } });
       const file = path.join(request.staging, `model-${calls.length}.png`);
@@ -147,6 +151,7 @@ describe.skipIf(!hasFfmpeg)('图片编辑（真实 ffmpeg，假的图像模型�
     dir = await fs.mkdtemp(path.join(os.tmpdir(), "baocut edit-O'Neil,["));
     await fs.mkdir(path.join(dir, 'in'));
     calls = [];
+    leases = [];
     editable = true;
     jobs = testJobManager(path.join(dir, 'home'));
     await jobs.open();
@@ -228,6 +233,16 @@ describe.skipIf(!hasFfmpeg)('图片编辑（真实 ffmpeg，假的图像模型�
     expect(out.at(700, 300)).toEqual(GRAY);
     expect(out.at(1050, 790)).toEqual(GRAY);
     expect(out.at(100, 100)).toEqual(GRAY);
+  });
+
+  it('本机模型改图：这一步先占模型包的 Worker、排它的执行队列；在线模型不经资源调度', async () => {
+    const a = await input('local.png', 800, 600);
+    const mask = { strokes: [{ radius: 30, points: [[400, 300]] as [number, number][] }] };
+    expect(await run('remove-object', { inputs: [a], mask, provider: 'local', model: 'bundle-edit' })).toMatchObject({ state: 'completed' });
+    expect(leases).toEqual([{ label: 'remove-object:edit', holder: 'worker:bundle-edit', queue: 'bundle-edit' }]);
+    leases = [];
+    expect(await run('remove-object', { inputs: [a], mask, provider: 'acme', model: 'edit-1' })).toMatchObject({ state: 'completed' });
+    expect(leases).toEqual([]);
   });
 
   it('重绘把提示词带给模型；送去的图长边超过上限时缩小', async () => {

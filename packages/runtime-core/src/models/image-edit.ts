@@ -1,11 +1,12 @@
 import path from 'node:path';
-import { PipelineStepError, type ImageEditor } from '@baocut/jobs';
+import { PipelineStepError, localImageResources, type ImageEditor } from '@baocut/jobs';
 import {
   ProviderFailure,
   freezeImageInput,
   imageParameters,
   localImageSeed,
   type GenerationSelection,
+  type ModelCatalog,
   type ModelServices,
 } from '@baocut/models';
 import { CAPABILITY_DATA_KINDS, RpcError, estimateCallCost, refOf, type GrantDataKind, type ImageModelInfo, type Localized } from '@baocut/protocol';
@@ -19,14 +20,16 @@ import type { GrantService } from '../grants/grant-service.ts';
  * - 启动时选定 Provider 与模型（§6.2）；模型要能按提示词改图（`referenceImages.edit`），否则 `IMAGE_EDIT_UNSUPPORTED`；
  * - 每次调用冻结一张输入图（流程写在 staging 里的那一块），按模型支持的尺寸里比例最接近的一个出一张，格式优先 PNG；
  * - 在线 Provider 每次调用预留一次授权与预算、结束时结算，外发的数据种类同生成图片；本机与节点的 Provider 不经授权；
+ * - 本机模型包：改图这一步先经资源调度占它的 Model Worker（与生成任务同一个 holder、同样的峰值加一张输入图），并与它的其他任务
+ *   排同一个执行队列（同 `LocalSource.queue`：一次一个），不和别的本机任务同时把模型拉进内存；
  * - Provider 的失败换成步骤的错误码（同生成任务）。
  */
 
 /** 改图外发的数据：同生成图片。 */
 export const IMAGE_EDIT_DATA_KINDS: GrantDataKind[] = [...CAPABILITY_DATA_KINDS.generateImage];
 
-export function imageEditor(options: { services: ModelServices; grants: GrantService }): ImageEditor {
-  const { services, grants } = options;
+export function imageEditor(options: { services: ModelServices; grants: GrantService; catalog: ModelCatalog }): ImageEditor {
+  const { services, grants, catalog } = options;
   const select = async (provider?: string, model?: string) => {
     const selection = await services.selectGeneration('generateImage', {
       ...(provider !== undefined ? { provider } : {}),
@@ -46,6 +49,14 @@ export function imageEditor(options: { services: ModelServices; grants: GrantSer
     async prepare(target) {
       const selection = await select(target.provider, target.model);
       return { providerId: selection.providerId, modelId: selection.modelId };
+    },
+
+    resources({ providerId, modelId }) {
+      if (providerId !== 'local') return null;
+      return {
+        ...localImageResources(modelId, catalog.imagePeak(modelId), catalog.imageEditBytes(modelId, 1)),
+        queue: { key: modelId, concurrency: 1 },
+      };
     },
 
     async edit(request) {

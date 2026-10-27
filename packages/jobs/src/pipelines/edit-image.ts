@@ -37,7 +37,7 @@ import {
   type Rect,
 } from './image-mask.ts';
 import { ParamReader, invalid } from './params.ts';
-import { PipelineStepError, type PipelineDefinition, type PipelineStepContext } from './pipeline.ts';
+import { PipelineStepError, type PipelineDefinition, type PipelineStepContext, type StepResources } from './pipeline.ts';
 import { ensureSaveDirectory, ensureSaveDirectoryForStep } from './save-location.ts';
 import { publishFile } from './transcode.ts';
 
@@ -92,6 +92,8 @@ const PROMPT_MAX = 2000;
 export interface ImageEditor {
   /** 启动（与重试）时：选定 Provider 与模型；模型不能按提示词改图时抛 `RpcError('invalid-request')`（`IMAGE_EDIT_UNSUPPORTED`）。 */
   prepare(target: { provider?: string; model?: string }): Promise<{ providerId: string; modelId: string }>;
+  /** 改图这一步的峰值需求与执行队列：本机模型包要先占它的 Model Worker、与它的其他任务排队；在线与节点的 null。 */
+  resources?(target: { providerId: string; modelId: string }): StepResources | null;
   /** 改一张图，输出写在 `staging` 里；`width`×`height` 是想要的比例（模型按自己支持的尺寸出图，流程再缩放回去）。 */
   edit(request: {
     providerId: string;
@@ -347,6 +349,8 @@ export function editImagePipeline(op: EditImageOp, deps: EditImageDeps): Pipelin
       {
         name: 'edit',
         label: () => J.stepEdit(),
+        resources: (params) =>
+          params.method === 'model' && params.provider && params.model ? (deps.editor?.resources?.({ providerId: params.provider, modelId: params.model }) ?? null) : null,
         run: (context) => edit(op, deps, context),
         reusable: async (output) => {
           for (const { file } of (output as EditOutput).files) if (!(await fs.stat(file).catch(() => null))) return false;

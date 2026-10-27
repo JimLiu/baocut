@@ -134,6 +134,7 @@ export {
   type PipelineDefinition,
   type PipelinePlan,
   type PipelineStep,
+  type StepResources,
   type PipelineStepContext,
   type StepOutput,
   type StepOutputs,

@@ -392,7 +392,7 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
         withPipelineGrants(
           editImagePipeline(op, {
             ffmpeg: options.ffmpeg,
-            editor: imageEditor({ services, grants }),
+            editor: imageEditor({ services, grants, catalog }),
             ...(options.saveDirectory ? { saveDirectory: options.saveDirectory } : {}),
           }),
           grants,

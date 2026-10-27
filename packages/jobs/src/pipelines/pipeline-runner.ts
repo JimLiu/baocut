@@ -565,7 +565,8 @@ export class PipelineRunner {
    * 这台机器永远放不下时这一步以 `RESOURCE_ADMISSION_UNSATISFIABLE` 失败。
    */
   async #admit(run: ActiveRun, child: HostedJob, step: PipelineStep<unknown>, outputs: StepOutputs): Promise<ResourceLease | null> {
-    if (!step.resources) return null;
+    const resources = step.resources?.(run.params, outputs) ?? null;
+    if (!resources) return null;
     const onWait = (wait: JobWait | null) => {
       for (const job of [child, run.parent]) {
         const record = job.record();
@@ -575,7 +576,7 @@ export class PipelineRunner {
     };
     try {
       return await this.#jobs.resources.acquire(
-        { owner: child.jobId, label: `${run.def.name}:${step.name}`, ...step.resources(run.params, outputs) },
+        { owner: child.jobId, label: `${run.def.name}:${step.name}`, ...resources },
         { signal: run.abort.signal, onWait },
       );
     } catch (error) {
