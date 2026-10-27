@@ -235,14 +235,17 @@
 
   /**
    * 在线面板的候选（`V` 是 BC_VENDORS）：目录里有这种能力的全部 API 提供方加声明了它的自建端点，P1 与智能体不列，
-   * 已连接的在前（capCatalog 的顺序）。[{id, vendor, ready, added, state, model}]，`model` 是连上后默认用的那只。
+   * 已连接的在前（capCatalog 的顺序）。[{id, vendor, ready, added, state, model}]，`model` 是连上后默认用的那只：
+   * 这种能力现在的默认值 `current` 已经指向这家时保留那只（引导不改用户在能力页选好的模型），否则用 defaultModel。
    */
-  function onlineChoices(stepK, V, settings, accounts, now) {
+  function onlineChoices(stepK, V, settings, accounts, now, current) {
     const cap = cloudCap(stepK);
     if (!cap || !V) return [];
-    return V.capCatalog(cap, settings, accounts, now).map((r) => ({
-      id: r.id, vendor: r.vendor, ready: r.ready, added: r.added, state: r.state, model: defaultModel(r.models),
-    }));
+    const m = /^cloud:([^/]+)\/(.+)$/.exec(String(current || ''));
+    return V.capCatalog(cap, settings, accounts, now).map((r) => {
+      const kept = m && m[1] === r.id ? (r.models || []).find((x) => x.id === m[2]) : null;
+      return {id: r.id, vendor: r.vendor, ready: r.ready, added: r.added, state: r.state, model: kept || defaultModel(r.models)};
+    });
   }
 
   /** 打开在线面板时选中哪家：这种能力现在的默认值指向的那家（还连着才算）；否则第一家连着的；都没连时不选 */

@@ -200,8 +200,8 @@
     const toggle = (id) => setCur(cur.indexOf(id) >= 0 ? cur.filter((x) => x !== id) : cur.concat([id]));
     const pctOf = (id) => (app.modelDl && id in app.modelDl ? app.modelDl[id] : -1);
     // 在线服务：这一步的候选、显示哪一面、选中哪家（model-onboarding.js「在线服务」）
-    const online = OB.onlineChoices(k, window.BC_VENDORS, app.providerSettings, app.providerAccounts, Date.now());
     const curDefault = {asr: app.cloudAsrDefault, tts: app.cloudTtsDefault, image: app.cloudImageDefault}[k];
+    const online = OB.onlineChoices(k, window.BC_VENDORS, app.providerSettings, app.providerAccounts, Date.now(), curDefault);
     const mode = OB.cloudCap(k) ? (modes[k] || OB.defaultMode(k, {
       local: list.length,
       localReady: list.some((c) => LM.ready(c.m, comps, on) || pctOf(c.m.id) >= 0),

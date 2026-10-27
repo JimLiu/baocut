@@ -1,4 +1,4 @@
-import { useState, type ComponentType, type MouseEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ComponentRef, type ComponentType, type MouseEvent, type ReactNode } from 'react';
 import { intlLocale, type DriverId, type DriverInfo, type ModelBundleStatus } from '@baocut/protocol';
 import {
   ActionButton,
@@ -35,14 +35,19 @@ import {
   bundleProgress,
   cardState,
   combineStatus,
+  defaultMode,
   downloadPlan,
   initialPicks,
+  initialProvider,
   installPercent,
   isLastStep,
   isModelStep,
   isPartial,
   modelPrimary,
   onboardingRecord,
+  onlineCapability,
+  onlineChoices,
+  onlinePrimary,
   planLine,
   planSize,
   stepChoices,
@@ -52,6 +57,7 @@ import {
   type DownloadPlan,
   type ModelChoice,
   type ModelStep,
+  type StepMode,
 } from '../../model/onboarding.ts';
 import { M } from '../../model/onboarding-copy.ts';
 import { M as SEM } from '../../model/semantic-copy.ts';
@@ -69,6 +75,8 @@ import { MusicIcon } from '../music-icon.tsx';
 import { BatchInstallDialog } from '../models/batch-install-dialog.tsx';
 import { CARD_COPY } from '../settings/agent-card-copy.ts';
 import { agentBadge, agentOverview } from '../settings/agent-setup.ts';
+import { ModeSwitch, OnlineFace, type OnlineStep } from './onboarding-online.tsx';
+import { card, cardBody, cardCell, cardDesc, cardHead, cardName, cards, grow, hint, installed, note } from './onboarding-styles.ts';
 
 // 原型 onboarding.css：步骤条（.steps）、状态一句话（.onb-status）、多选卡（.onb-model）、在哪儿用（.onb-where）、底部那一行（.onb-bg）。
 const stepsBar = style({ display: 'flex', gap: 4, marginTop: 0, marginBottom: 16, marginX: 0, padding: 0, listStyleType: 'none' });
@@ -88,17 +96,6 @@ const stepItem = style({
   truncate: true,
 });
 const lead = style({ margin: 0, font: 'body', color: 'gray-800' });
-const note = style({
-  display: 'flex',
-  alignItems: 'center',
-  flexWrap: 'wrap',
-  gap: 4,
-  marginTop: 12,
-  marginBottom: 0,
-  font: 'ui-sm',
-  color: 'gray-600',
-  '--iconPrimary': { type: 'fill', value: 'currentColor' },
-});
 const callout = style({
   display: 'flex',
   alignItems: 'start',
@@ -114,39 +111,8 @@ const calloutIcon = style({ display: 'flex', flexShrink: 0, marginTop: 2 });
 const calloutText = style({ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 });
 const calloutTitle = style({ font: 'ui', fontWeight: 'bold', color: 'gray-900' });
 const calloutBody = style({ margin: 0, font: 'ui-sm', color: 'gray-800', overflowWrap: 'anywhere' });
-const cards = style({ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 });
-const card = style({
-  display: 'flex',
-  alignItems: 'start',
-  gap: 4,
-  paddingStart: 8,
-  paddingEnd: 12,
-  paddingY: 4,
-  borderRadius: 'lg',
-  borderWidth: 1,
-  borderStyle: 'solid',
-  borderColor: { default: 'gray-200', isOn: 'blue-800' },
-  backgroundColor: { default: 'gray-50', isOn: 'blue-100' },
-  transition: 'default',
-});
-const cardBody = style({ display: 'flex', flexDirection: 'column', gap: 2, flexGrow: 1, minWidth: 0, paddingY: 4 });
-// 勾选框与图标各占一列、和名字那一行等高居中，下面的说明就与名字对齐（原型 onboarding.css 的 onb-agent）。
-const cardCell = style({ display: 'flex', alignItems: 'center', flexShrink: 0, height: 24, marginTop: 4, marginEnd: { default: 0, isIcon: 4 } });
-const cardHead = style({ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, minHeight: 24 });
-const cardName = style({ font: 'ui', fontWeight: 'bold', color: 'gray-900', minWidth: 0, overflowWrap: 'anywhere' });
 const cardIcon = style({ display: 'flex', flexShrink: 0, color: 'gray-700', '--iconPrimary': { type: 'fill', value: 'currentColor' } });
-const grow = style({ flexGrow: 1 });
-const cardDesc = style({ font: 'ui-sm', color: { default: 'gray-700', isPlan: 'gray-800' }, overflowWrap: 'anywhere' });
 const trailText = style({ font: 'ui-sm', color: 'gray-600', whiteSpace: 'nowrap' });
-const installed = style({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 4,
-  font: 'ui-sm',
-  fontWeight: 'bold',
-  color: 'positive-900',
-  '--iconPrimary': { type: 'fill', value: 'currentColor' },
-});
 const progressRow = style({ display: 'inline-flex', alignItems: 'center', gap: 8, width: 160 });
 const progressBar = style({ flexGrow: 1, minWidth: 0 });
 const pctText = style({ font: 'code-xs', color: 'gray-600' });
@@ -168,6 +134,8 @@ const NO_PLAN: DownloadPlan = { bundles: [], parts: [], bytes: 0 };
 /**
  * 首次启动引导的对话框（设计稿 onboarding.jsx；纯层在 model/onboarding.ts）。顶上是步骤条，六步：连接 Agent → 语音识别 →
  * 语音合成 → 语义搜索 → 图像生成 → 音乐生成，每一步都是多选列表。
+ * - 语音识别、语音合成、图像生成三步还有「在线服务」一面（onboarding-online.tsx）：给一家 API 提供方填密钥，主按钮把这种能力的
+ *   默认模型设成它；显示在线服务那一面时不下载本机这边勾上的。
  * - 要下载的先过同一个下载确认框（BatchInstallDialog：来源、存放位置、许可），确认后每只模型成为一条后台任务，立刻翻到下一步，
  *   不等下完。确认框打开时引导先收起，取消就回到这一步（不叠两个对话框）。
  * - Agent 勾上要装的交给 OnboardingHost 排队安装；装好的勾选框就是 设置 › Agent 提供方 里那个启用开关，改了立刻生效。
@@ -185,6 +153,7 @@ export function OnboardingDialog({
   const go = useShell((s) => s.go);
   const finish = useOnboarding((s) => s.finish);
   const bundles = useModels((s) => s.bundles);
+  const view = useModels((s) => s.capabilities);
   const jobs = useJobs((s) => s.jobs);
   const runs = useAgentSetup((s) => s.runs);
   const drivers = useConnection((s) => s.drivers);
@@ -196,7 +165,16 @@ export function OnboardingDialog({
   const [agentPicks, setAgentPicks] = useState<DriverId[]>([]);
   const [started, setStarted] = useState<string[]>([]);
   const [confirm, setConfirm] = useState<{ bundles: ModelBundleStatus[]; name: string } | null>(null);
+  const [modes, setModes] = useState<Partial<Record<ModelStep, StepMode>>>({});
+  const [provPicks, setProvPicks] = useState<Partial<Record<ModelStep, string>>>({});
+  const [using, setUsing] = useState(false);
+  const body = useRef<ComponentRef<typeof Content>>(null);
   const step = ONBOARDING_STEPS[index] ?? 'agent';
+  // 换一步回到顶上（在线服务一面的表单可能把上一步撑长了）。
+  useLayoutEffect(() => {
+    const el = body.current?.UNSAFE_getDOMNode();
+    if (el) el.scrollTop = 0;
+  }, [index]);
 
   // ---- 后台在跑的：这次引导里开始的下载与 Agent 安装 ----
   const sem = packageView(bundles.filter((b) => b.capability === 'embed'));
@@ -271,7 +249,22 @@ export function OnboardingDialog({
       : isModelStep(step)
         ? downloadPlan(choices.filter((c) => cur.includes(c.bundle.bundleId)).map((c) => c.bundle))
         : NO_PLAN;
-  const primary = step === 'agent' ? agentPrimary(toInstall.length) : modelPrimary(step, plan);
+  // 在线服务：有这种能力的提供方；本机一只都跑不了时没有切换，直接是在线服务（defaultMode）。
+  const capability = onlineCapability(step);
+  const online = isModelStep(step) ? onlineChoices(view, step, Date.now()) : [];
+  const mode: StepMode =
+    isModelStep(step) && online.length
+      ? (modes[step] ??
+        defaultMode(step, {
+          local: choices.length,
+          localReady: choices.some((c) => cardState(c.bundle) !== 'available'),
+          onlineReady: online.some((c) => c.ready),
+        }))
+      : 'local';
+  const provPick = isModelStep(step) ? (provPicks[step] ?? initialProvider(online, capability ? (view?.[capability].default ?? null) : null)) : null;
+  const pickRow = online.find((c) => c.provider.providerId === provPick) ?? null;
+  const primary =
+    step === 'agent' ? agentPrimary(toInstall.length) : mode === 'online' ? onlinePrimary(step, pickRow) : modelPrimary(step, plan);
 
   const download = () => {
     const list = plan.bundles;
@@ -287,7 +280,29 @@ export function OnboardingDialog({
     setAgentPicks([]);
     next();
   };
-  const onPrimary = () => (primary.kind === 'download' ? download() : primary.kind === 'install' ? installAgents() : next());
+  // 用选中的那家：把这种能力的默认模型设成它（onlineChoices 已挑好哪只），设上了才往下走。
+  const adoptOnline = async () => {
+    const model = pickRow?.model;
+    if (!capability || !pickRow || !model) return next();
+    setUsing(true);
+    try {
+      await runtime.setModelDefault(capability, pickRow.provider.providerId, model.modelId);
+    } catch (error) {
+      ToastQueue.negative(M.online.useFailed((error as Error).message), { timeout: 5000 });
+      return;
+    } finally {
+      setUsing(false);
+    }
+    next();
+  };
+  const onPrimary = () =>
+    primary.kind === 'download'
+      ? download()
+      : primary.kind === 'install'
+        ? installAgents()
+        : primary.kind === 'use'
+          ? void adoptOnline()
+          : next();
 
   if (confirm) {
     return (
@@ -308,7 +323,7 @@ export function OnboardingDialog({
     <DialogContainer onDismiss={() => close('skipped')}>
       <Dialog size="L" aria-label={M.dialogLabel}>
         <Heading slot="title">{M.title[step]}</Heading>
-        <Content>
+        <Content ref={body}>
           <ol className={stepsBar} aria-label={M.stepsLabel}>
             {ONBOARDING_STEPS.map((k, i) => (
               <li key={k} className={stepItem({ isDone: i < index, isCurrent: i === index })} aria-current={i === index ? 'step' : undefined}>
@@ -325,6 +340,7 @@ export function OnboardingDialog({
                 <Unsupported />
               ) : (
                 <>
+                  <p className={hint}>{M.localHint.semantic}</p>
                   <div className={cards}>
                     <PickCard
                       label={SEM.settings.packageName}
@@ -354,26 +370,37 @@ export function OnboardingDialog({
           ) : isModelStep(step) ? (
             <>
               <p className={lead}>{M.lead[step]}</p>
-              {choices.length ? (
-                <div className={cards} role="group" aria-label={M.title[step]}>
-                  {choices.map((c) => (
-                    <ModelCard
-                      key={c.bundle.bundleId}
-                      choice={c}
-                      bundles={bundles}
-                      selected={cur.includes(c.bundle.bundleId)}
-                      onToggle={(on) =>
-                        setPicks((p) => ({ ...p, [step]: on ? [...cur, c.bundle.bundleId] : cur.filter((id) => id !== c.bundle.bundleId) }))
-                      }
-                    />
-                  ))}
-                </div>
+              {online.length && choices.length ? <ModeSwitch mode={mode} onChange={(m) => setModes((x) => ({ ...x, [step]: m }))} /> : null}
+              {mode === 'online' ? (
+                <OnlineFace
+                  step={step as OnlineStep}
+                  choices={online}
+                  pick={provPick}
+                  only={!choices.length}
+                  onPick={(id) => setProvPicks((x) => ({ ...x, [step]: id }))}
+                />
+              ) : choices.length ? (
+                <>
+                  <p className={hint}>{M.localHint[step]}</p>
+                  <div className={cards} role="group" aria-label={M.title[step]}>
+                    {choices.map((c) => (
+                      <ModelCard
+                        key={c.bundle.bundleId}
+                        choice={c}
+                        bundles={bundles}
+                        selected={cur.includes(c.bundle.bundleId)}
+                        onToggle={(on) =>
+                          setPicks((p) => ({ ...p, [step]: on ? [...cur, c.bundle.bundleId] : cur.filter((id) => id !== c.bundle.bundleId) }))
+                        }
+                      />
+                    ))}
+                  </div>
+                </>
               ) : (
                 <Unsupported />
               )}
-              {step !== 'asr' && choices.length ? <Where step={step} /> : null}
-              {choices.length ? <p className={note}>{M.bgNote}</p> : null}
-              {step === 'asr' ? <p className={note}>{M.asrAlt}</p> : null}
+              {step !== 'asr' && (choices.length || mode === 'online') ? <Where step={step} /> : null}
+              {mode === 'local' && choices.length ? <p className={note}>{M.bgNote}</p> : null}
             </>
           ) : null}
         </Content>
@@ -396,7 +423,7 @@ export function OnboardingDialog({
               {M.skip}
             </Button>
           ) : null}
-          <Button variant="accent" autoFocus onPress={onPrimary}>
+          <Button variant="accent" autoFocus isPending={using} onPress={onPrimary}>
             {primary.label}
           </Button>
         </ButtonGroup>

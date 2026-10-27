@@ -34,20 +34,20 @@ const en = {
   },
   title: {
     agent: 'Welcome to BaoCut',
-    asr: 'Download speech recognition models',
-    tts: 'Download speech synthesis models',
+    asr: 'Set up speech recognition',
+    tts: 'Set up speech synthesis',
     semantic: 'Install semantic search',
-    image: 'Download image generation models',
+    image: 'Set up image generation',
     music: 'Download music generation models',
   },
   lead: {
     agent:
       'Describe the video you want, and an Agent transcribes, adds subtitles, translates, makes voice-overs and edits for you. BaoCut uses the Agents on this computer (such as Claude Code or Codex) with your own account, at no extra charge.',
-    asr: 'Transcribing, adding subtitles and editing talking-head videos all start by turning speech into text. The models run on this computer and work offline.',
-    tts: 'Speech synthesis models read text aloud, clone a voice from a recording and make voice-overs for translated videos. Pick one or two to start; download others later in Settings › Speech synthesis.',
+    asr: 'Transcribing, adding subtitles and editing talking-head videos all start by turning speech into text.',
+    tts: 'Speech synthesis reads text aloud, clones a voice from a recording and makes voice-overs for translated videos.',
     semantic:
       'Find what was said and shown by meaning: Space search, picking material by topic, matching footage and translation memory all use it. Once it’s installed, your existing videos are indexed in the background.',
-    image: 'Generate images from a sentence on this computer, for covers and illustrations. The models are large and generating is slow.',
+    image: 'Generate images from a sentence, for covers and illustrations.',
     music:
       'Generate background music and songs from a style or lyrics on this computer, ready to add to a video’s music track. Generating is slow: about a few minutes for 30 seconds.',
   },
@@ -62,6 +62,14 @@ const en = {
       title: 'Use it in Tools › Generate music',
       body: 'Choose a style and write lyrics. The music is saved to Space and can be added to your videos.',
     },
+  },
+  /** 本机模型那一面开头一句（有在线服务的三步）；只有本机模型的两步写明没有在线服务。 */
+  localHint: {
+    asr: 'Downloaded to this computer. Works offline, at no extra charge.',
+    tts: 'Downloaded to this computer, at no extra charge. Pick one or two to start; download others later in Settings › Speech synthesis.',
+    image: 'Downloaded to this computer, at no extra charge. The models are large, and generating on this computer is slow.',
+    semantic: 'Runs only on this computer. There’s no online service for it.',
+    music: 'Local models only. There’s no online service for it.',
   },
   /** 转录候选下面那一句：区分说话人的方式。`pack` 是「说话人区分」模型包的名字（Runtime 给的）。 */
   diarizes: 'Tells speakers apart while transcribing',
@@ -83,9 +91,34 @@ const en = {
   downloading: (name: string) => `Downloading ${name}`,
   inBackground: 'Downloading in the background',
   bgNote: 'Before downloading, you’ll see where it comes from and where it’s saved. It starts only after you confirm and runs in the background, so you don’t have to wait.',
-  asrAlt: 'Don’t want to download? You can also add cloud speech recognition later in Settings › API providers.',
   unsupported: 'This computer can’t run these models. You can skip this step.',
   semanticParts: (text: string, multimodal: string) => `${text} + ${multimodal}`,
+  /** 在线服务那一面（语音识别、语音合成、图像生成三步）。 */
+  online: {
+    switchLabel: 'Use local models or an online service',
+    local: 'Local models',
+    online: 'Online services',
+    /** 开头一句：不下载、按调用量付费，以及会发给提供方什么。 */
+    hint: {
+      asr: 'Nothing to download and no space used on this computer. You use your own API key with the provider and pay per use; the audio you transcribe is sent to it.',
+      tts: 'Nothing to download and no space used on this computer. You use your own API key with the provider and pay per use; the text to read, plus the reference recording when you clone a voice, is sent to it.',
+      image:
+        'Nothing to download and no space used on this computer. You use your own API key with the provider and pay per use; your descriptions and reference images are sent to it.',
+    },
+    /** 本机一只都跑不了、没有切换时，在开头一句前面加的。 */
+    onlyOnline: (hint: string) => `This computer can’t run local models of this kind, but you can use an online service. ${hint}`,
+    listLabel: 'Which online service to use',
+    connectedModel: (model: string) => `Connected · Uses ${model} by default`,
+    /** 没连的那一家：这一把密钥能用于哪些能力（`caps` 是「Text / ASR / TTS」这样的短名）。 */
+    oneKey: (caps: string) => `One key for ${caps}`,
+    pasteKey: 'Paste an API key to use it',
+    /** `host` 显示成去官网的链接，放在句中合适的位置。 */
+    noKey: (host: string) => `No key yet? Create one at ${host} and paste it here.`,
+    note: 'One key works for all of this provider’s capabilities. Manage accounts and keys in Settings › API providers, and change the default model on each capability page.',
+    use: (name: string, last: boolean) => `Use ${name} and ${last ? 'finish' : 'continue'}`,
+    enableFailed: (reason: string) => `The key was saved, but this provider couldn’t be turned on: ${reason}`,
+    useFailed: (reason: string) => `Couldn’t set the default model: ${reason}`,
+  },
 
   agentListLabel: 'Agents on this computer',
   agentChecking: 'Checking for Agents on this computer…',

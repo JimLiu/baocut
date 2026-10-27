@@ -249,6 +249,16 @@ test('在线候选：目录里有这种能力的提供方，连着的在前，P1
   assert.equal(OB.defaultModel([]), null);
 });
 
+test('在线候选：能力默认值已经指向这家时保留那只模型，指向别家或模型不在目录里时用这家的默认', () => {
+  const settings = {openai: {enabled: true}};
+  const accounts = {openai: key('sk-…a3f9')};
+  const model = (current) => OB.onlineChoices('asr', V, settings, accounts, NOW, current).find((r) => r.id === 'openai').model.id;
+  assert.equal(model('cloud:openai/gpt-4o-mini-transcribe'), 'gpt-4o-mini-transcribe');
+  assert.equal(model('cloud:openai/gone-model'), 'gpt-4o-transcribe');
+  assert.equal(model('cloud:google/gemini-3.5-transcribe'), 'gpt-4o-transcribe');
+  assert.equal(model(''), 'gpt-4o-transcribe');
+});
+
 test('打开在线面板时选中哪家：现在的默认值指向且还连着的那家，否则第一家连着的，都没连不选', () => {
   const list = [{id: 'openai', ready: true}, {id: 'google', ready: true}, {id: 'elevenlabs', ready: false}];
   assert.equal(OB.initialProvider(list, 'cloud:google/gemini-3.5-transcribe'), 'google');

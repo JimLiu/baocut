@@ -255,7 +255,7 @@ const acctEdit = style({ display: 'flex', flexDirection: 'column', gap: 8, width
 const rowButtons = style({ display: 'flex', alignItems: 'center', gap: 8 });
 const acctSide = style({ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 });
 const acctFoot = style({ display: 'flex', flexDirection: 'column', gap: 8, paddingX: 16, paddingY: 12 });
-const addForm = style({ display: 'flex', flexDirection: 'column', gap: 12, paddingX: 16, paddingY: 12, borderTopWidth: 0 });
+const addForm = style({ display: 'flex', flexDirection: 'column', gap: 12, paddingX: { default: 16, isCompact: 0 }, paddingY: 12, borderTopWidth: 0 });
 const addGrid = style({ containerType: 'inline-size' });
 const addFields = style({ display: 'grid', gridTemplateColumns: { default: '1fr', '@container (min-width: 480px)': '1fr 1fr' }, gap: 12 });
 const regionRow = style({ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 });
@@ -476,8 +476,21 @@ function AccountRow({
   );
 }
 
-/** 添加账号：名称、密钥、[地区]、折叠的「端点（高级）」。不过验证时不保存，原因写在按钮上面。 */
-function AddAccountForm({ provider, onCancel, onSaved }: { provider: ApiProvider; onCancel: () => void; onSaved: () => void }) {
+/**
+ * 添加账号：名称、密钥、[地区]、折叠的「端点（高级）」。不过验证时不保存，原因写在按钮上面。
+ * 首次启动引导的在线服务卡片里也用它（`compact`：不要名称、不留边距；没有 `onCancel` 时不给「取消」）。
+ */
+export function AddAccountForm({
+  provider,
+  compact = false,
+  onCancel,
+  onSaved,
+}: {
+  provider: ApiProvider;
+  compact?: boolean;
+  onCancel?: () => void;
+  onSaved: () => void;
+}) {
   const runtime = useRuntime();
   const copy = PROVIDER_DETAIL_COPY;
   const regions = provider.vendor.regions ?? [];
@@ -517,28 +530,38 @@ function AddAccountForm({ provider, onCancel, onSaved }: { provider: ApiProvider
     }
   };
 
+  const keyField = (
+    <TextField
+      size="S"
+      type="password"
+      aria-label={copy.key}
+      placeholder={copy.keyPlaceholder}
+      value={key}
+      autoFocus
+      onChange={(next) => {
+        setKey(next);
+        setFailure(null);
+      }}
+      onKeyDown={(event) => {
+        // 只拦回车；其余照常冒上去（带 onKeyDown 的 React Aria 输入框默认不冒泡，引导里 Esc 要能退出引导）。
+        if (event.key === 'Enter') void verify();
+        else event.continuePropagation();
+      }}
+    />
+  );
+
   return (
-    <div className={addForm} role="group" aria-label={copy.addAccount}>
-      <div className={addGrid}>
-        <div className={addFields}>
-          <TextField size="S" aria-label={copy.label} placeholder={copy.labelPlaceholderNew} value={label} onChange={setLabel} />
-          <TextField
-            size="S"
-            type="password"
-            aria-label={copy.key}
-            placeholder={copy.keyPlaceholder}
-            value={key}
-            autoFocus
-            onChange={(next) => {
-              setKey(next);
-              setFailure(null);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void verify();
-            }}
-          />
+    <div className={addForm({ isCompact: compact })} role="group" aria-label={copy.addAccount}>
+      {compact ? (
+        keyField
+      ) : (
+        <div className={addGrid}>
+          <div className={addFields}>
+            <TextField size="S" aria-label={copy.label} placeholder={copy.labelPlaceholderNew} value={label} onChange={setLabel} />
+            {keyField}
+          </div>
         </div>
-      </div>
+      )}
       {regions.length ? (
         <div className={regionRow}>
           <span className={regionText}>{`${copy.region} · ${copy.regionDesc}`}</span>
@@ -580,9 +603,11 @@ function AddAccountForm({ provider, onCancel, onSaved }: { provider: ApiProvider
         <Button variant="accent" size="S" isDisabled={!key.trim() || bad} isPending={busy} onPress={() => void verify()}>
           {copy.verify}
         </Button>
-        <Button variant="secondary" size="S" isDisabled={busy} onPress={onCancel}>
-          {copy.cancel}
-        </Button>
+        {onCancel ? (
+          <Button variant="secondary" size="S" isDisabled={busy} onPress={onCancel}>
+            {copy.cancel}
+          </Button>
+        ) : null}
       </div>
     </div>
   );

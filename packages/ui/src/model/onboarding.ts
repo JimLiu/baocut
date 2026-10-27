@@ -7,9 +7,15 @@ import {
   type Id,
   type JobRecord,
   type ModelBundleStatus,
+  type ModelCapabilitiesView,
   type ModelCapability,
+  type ModelInfoBase,
+  type ModelRef,
+  type OnlineCapability,
 } from '@baocut/protocol';
+import { CAP_SHORT, PROVIDER_STATE_COPY } from '../components/models/providers-copy.ts';
 import { agentProblem, groupDrivers, installPlan, loginCommandOf, type InstallChoice } from '../components/settings/agent-setup.ts';
+import { capabilityGroups, type ApiProvider } from './api-providers.ts';
 import { installProgressView, latestBundleJob } from './models-install.ts';
 import { bundleCategory, bundleName, hasOwnFiles, isBundleInstalled, sharedComponents } from './models-local.ts';
 import { M as LOCAL } from './models-local-copy.ts';
@@ -22,7 +28,8 @@ import { fmtSize } from './task-facts.ts';
  *
  * 第一次打开桌面应用时弹一次（从没有引导的旧版升级上来的也弹一次）。六步：连接 Agent → 语音识别 → 语音合成 → 语义搜索 →
  * 图像生成 → 音乐生成。每一步都是多选列表：Agent 勾上就启用或在后台安装，模型勾上就下载；模型每一步默认至少勾一只
- * （这一类已经装了或正在下的算勾上）。每一步都能跳过，「退出引导」与 Esc 随时退出；任何一种关掉都记下，以后不再弹。
+ * （这一类已经装了或正在下的算勾上）。语音识别、语音合成、图像生成另有「在线服务」一面（GitHub issue 100）：选一家
+ * API 提供方、粘贴密钥，不下载（见下面「在线服务」一节）。每一步都能跳过，「退出引导」与 Esc 随时退出；任何一种关掉都记下，以后不再弹。
  * Web 不弹：浏览器里不能安装本机模型与 Agent（`models.install*`、`agents.runSetup` 不在 Web 白名单里）。
  */
 
@@ -222,8 +229,11 @@ export function planSize(plan: Pick<DownloadPlan, 'bytes'>): string | null {
 // ---- 主按钮 ----
 
 export interface Primary {
-  /** `download` 先过下载确认框，`install` 在后台安装勾上的 Agent，`next` 往下走（最后一步是完成）。 */
-  kind: 'download' | 'install' | 'next';
+  /**
+   * `download` 先过下载确认框，`install` 在后台安装勾上的 Agent，`use` 把这种能力的默认模型设成选中的在线服务再往下走，
+   * `next` 往下走（最后一步是完成）。
+   */
+  kind: 'download' | 'install' | 'use' | 'next';
   label: string;
 }
 
@@ -237,6 +247,79 @@ export function modelPrimary(step: OnboardingStep, plan: Pick<DownloadPlan, 'bun
 /** Agent 一步：勾了要装的就「后台安装 2 个并继续」，否则往下走。 */
 export function agentPrimary(installs: number): Primary {
   return installs ? { kind: 'install', label: M.install(installs) } : { kind: 'next', label: M.next };
+}
+
+// ---- 在线服务 ----
+//
+// 有 API 提供方的那几步（语音识别、语音合成、图像生成）顶上一个「本机模型 | 在线服务」切换；语义搜索与音乐生成只有本机模型。
+// 在线服务是单选：选一家、粘贴它的 API 密钥（与 设置 › API 提供方 同一个「验证并保存」），按「用 X 并继续」把这种能力的
+// 默认模型设成这家的（语音识别的「自动」是本机模型、语音合成没有自动，不设的话连上也用不上，产品设计 §7.6「每种能力一个默认模型」）。
+
+const STEP_ONLINE: Partial<Record<OnboardingStep, OnlineCapability>> = {
+  asr: 'transcribe',
+  tts: 'synthesizeSpeech',
+  image: 'generateImage',
+};
+
+/** 这一步对应的 API 提供方能力；只有本机模型的步是 null。 */
+export function onlineCapability(step: OnboardingStep): OnlineCapability | null {
+  return STEP_ONLINE[step] ?? null;
+}
+
+export type StepMode = 'local' | 'online';
+
+/**
+ * 打开这一步时显示哪一面：本机一只都跑不了 → 在线；本机已经装好或正在下 → 本机；已经连着一家有这种能力的 → 在线；
+ * 其余 → 本机（不花钱、不联网）。`local` 是本机候选几只，`localReady` 是有没有装好或正在下的。
+ */
+export function defaultMode(step: OnboardingStep, o: { local: number; localReady: boolean; onlineReady: boolean }): StepMode {
+  if (!onlineCapability(step)) return 'local';
+  if (!o.local) return 'online';
+  if (o.localReady) return 'local';
+  return o.onlineReady ? 'online' : 'local';
+}
+
+export interface OnlineChoice {
+  provider: ApiProvider;
+  /** 已连接（能用，含首选账号上次出过错的）。 */
+  ready: boolean;
+  /** 「用 X 并继续」设成默认的那只；这家在这种能力下没有能用的模型时 null。 */
+  model: ModelInfoBase | null;
+}
+
+/**
+ * 在线服务的候选：能力页「API 提供方」一节同样的那些与顺序（已连接的在前，`capabilityGroups`）。默认用哪只：这种能力的
+ * 默认值已经指向这家时保留原来的模型，否则用这家标了默认的，没标的取第一只；报告不可用的不选。
+ */
+export function onlineChoices(view: ModelCapabilitiesView | null, step: OnboardingStep, now: number): OnlineChoice[] {
+  const capability = onlineCapability(step);
+  if (!capability || !view) return [];
+  const current = view[capability].default;
+  return capabilityGroups(view, capability, now).map(({ provider, ready, models }) => {
+    const usable = models.filter((m) => m.available !== false);
+    const kept = current?.providerId === provider.providerId ? usable.find((m) => m.modelId === current.modelId) : undefined;
+    return { provider, ready, model: kept ?? usable.find((m) => m.default) ?? usable[0] ?? null };
+  });
+}
+
+/** 打开在线服务时选中哪家：这种能力现在的默认值指向的那家（还连着才算）；否则第一家连着的；都没连时不选。 */
+export function initialProvider(choices: readonly OnlineChoice[], current: ModelRef | null): string | null {
+  const ready = choices.filter((c) => c.ready);
+  return (ready.find((c) => c.provider.providerId === current?.providerId) ?? ready[0])?.provider.providerId ?? null;
+}
+
+/** 卡片下面那一句：连着的写默认用哪只；没连的写这一把密钥能用于哪些能力（一把密钥对全部能力生效）。 */
+export function onlineLine(choice: OnlineChoice): string {
+  if (choice.ready) return choice.model ? M.online.connectedModel(choice.model.modelId) : PROVIDER_STATE_COPY.ok;
+  const caps = choice.provider.capabilities.map((c) => CAP_SHORT[c]);
+  return caps.length > 1 ? M.online.oneKey(caps.join(' / ')) : M.online.pasteKey;
+}
+
+/** 在线服务那一面的主按钮：选中的那家连着、有模型可设 →「用 OpenAI 并继续」；否则往下走。 */
+export function onlinePrimary(step: OnboardingStep, pick: OnlineChoice | null): Primary {
+  const last = isLastStep(step);
+  if (pick?.ready && pick.model) return { kind: 'use', label: M.online.use(pick.provider.label, last) };
+  return { kind: 'next', label: last ? M.finish : M.next };
 }
 
 // ---- Agent 一步 ----

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { DriverInfo, JobRecord, ModelBundleStatus, ModelComponentStatus } from '@baocut/protocol';
+import type {
+  DriverInfo,
+  JobRecord,
+  ModelBundleStatus,
+  ModelCapabilitiesView,
+  ModelComponentStatus,
+  ModelInfoBase,
+  ProviderCapabilityView,
+  ProviderConfigView,
+} from '@baocut/protocol';
 import {
   agentJobStatus,
   agentLine,
@@ -9,17 +18,24 @@ import {
   bundleProgress,
   cardState,
   combineStatus,
+  defaultMode,
   downloadPlan,
   initialPicks,
+  initialProvider,
   isLastStep,
   modelPrimary,
   onboardingRecord,
+  onlineCapability,
+  onlineChoices,
+  onlineLine,
+  onlinePrimary,
   parseOnboardingRecord,
   planLine,
   setupProgress,
   shouldShowOnboarding,
   stepChoices,
 } from './onboarding.ts';
+import { transcribeModel } from './models-test-fixtures.ts';
 
 const MB = 1024 * 1024;
 
@@ -264,5 +280,94 @@ describe('后台在跑的那一行', () => {
         { name: 'Codex CLI', pct: null, status: 'done', agent: true },
       ]),
     ).toBe('后台下载和安装 · 2 个已完成');
+  });
+});
+
+describe('在线服务', () => {
+  const NOW = Date.parse('2026-10-26T08:00:00.000Z');
+  const on: ProviderConfigView = {
+    enabled: true,
+    enabledAt: '2026-10-01T00:00:00.000Z',
+    credential: 'set',
+    accounts: [
+      { accountId: 'main', label: null, masked: 'sk-…abcd', enabled: true, addedAt: '2026-10-01T00:00:00.000Z', credential: 'set', status: { state: 'ok' } },
+    ],
+  };
+  const off: ProviderConfigView = { enabled: false, enabledAt: null, credential: 'missing', accounts: [] };
+  const entry = <T extends ModelInfoBase>(providerId: string, label: string, config: ProviderConfigView, models: T[]): ProviderCapabilityView<T> => ({
+    providerId,
+    kind: 'online',
+    label,
+    config,
+    models,
+    available: config.credential === 'set',
+    vendor: { kind: 'vendor' },
+  });
+  /** OpenAI 连着（两只识别模型，标了默认的是第二只）；Gemini、ElevenLabs 没添加。 */
+  function view(defaultRef: { providerId: string; modelId: string } | null = null): ModelCapabilitiesView {
+    const none = { default: null, effective: null, providers: [] };
+    return {
+      transcribe: {
+        default: defaultRef,
+        effective: null,
+        providers: [
+          { providerId: 'local', kind: 'local', label: '本机', config: null, models: [], available: true },
+          entry('google', 'Google Gemini', off, [transcribeModel('gemini-3.5-transcribe')]),
+          entry('openai', 'OpenAI', on, [transcribeModel('whisper-1'), transcribeModel('gpt-4o-transcribe', { default: true })]),
+        ],
+      },
+      synthesizeSpeech: { default: null, effective: null, providers: [entry('openai', 'OpenAI', on, []), entry('elevenlabs', 'ElevenLabs', off, [])] },
+      generateImage: none,
+      generateText: { default: null, effective: null, providers: [entry('google', 'Google Gemini', off, [])] },
+      separateAudio: none,
+      generateMusic: none,
+    };
+  }
+
+  it('只有语音识别、语音合成、图像生成有在线服务', () => {
+    expect(onlineCapability('asr')).toBe('transcribe');
+    expect(onlineCapability('tts')).toBe('synthesizeSpeech');
+    expect(onlineCapability('image')).toBe('generateImage');
+    expect(onlineCapability('semantic')).toBeNull();
+    expect(onlineCapability('music')).toBeNull();
+  });
+
+  it('默认显示哪一面：跑不了本机 → 在线；本机装好或在下 → 本机；连着一家 → 在线；其余 → 本机', () => {
+    expect(defaultMode('asr', { local: 0, localReady: false, onlineReady: false })).toBe('online');
+    expect(defaultMode('asr', { local: 2, localReady: true, onlineReady: true })).toBe('local');
+    expect(defaultMode('asr', { local: 2, localReady: false, onlineReady: true })).toBe('online');
+    expect(defaultMode('asr', { local: 2, localReady: false, onlineReady: false })).toBe('local');
+    expect(defaultMode('music', { local: 0, localReady: false, onlineReady: true })).toBe('local');
+  });
+
+  it('候选：连着的在前；默认用标了默认的那只，默认值已经指向这家时保留原来的', () => {
+    const list = onlineChoices(view(), 'asr', NOW);
+    expect(list.map((c) => [c.provider.providerId, c.ready])).toEqual([
+      ['openai', true],
+      ['google', false],
+    ]);
+    expect(list[0]!.model?.modelId).toBe('gpt-4o-transcribe');
+    expect(onlineChoices(view({ providerId: 'openai', modelId: 'whisper-1' }), 'asr', NOW)[0]!.model?.modelId).toBe('whisper-1');
+    expect(onlineChoices(view(), 'semantic', NOW)).toEqual([]);
+    expect(onlineChoices(null, 'asr', NOW)).toEqual([]);
+  });
+
+  it('选中哪家：默认值指向的那家（还连着），否则第一家连着的，都没连时不选', () => {
+    const list = onlineChoices(view(), 'asr', NOW);
+    expect(initialProvider(list, null)).toBe('openai');
+    expect(initialProvider(list, { providerId: 'google', modelId: 'gemini-3.5-transcribe' })).toBe('openai');
+    expect(initialProvider(list.filter((c) => !c.ready), null)).toBeNull();
+  });
+
+  it('卡片下面一句与主按钮', () => {
+    const [openai, google] = onlineChoices(view(), 'asr', NOW);
+    expect(onlineLine(openai!)).toBe('已连接 · 默认用 gpt-4o-transcribe');
+    expect(onlineLine(google!)).toBe('一把密钥用于 文本 / 识别');
+    const [, eleven] = onlineChoices(view(), 'tts', NOW);
+    expect(onlineLine(eleven!)).toBe('粘贴 API 密钥就能用');
+    expect(onlinePrimary('asr', openai!)).toEqual({ kind: 'use', label: '用 OpenAI 并继续' });
+    expect(onlinePrimary('image', { ...openai!, model: null })).toEqual({ kind: 'next', label: '下一步' });
+    expect(onlinePrimary('asr', google!).kind).toBe('next');
+    expect(onlinePrimary('asr', null).kind).toBe('next');
   });
 });
