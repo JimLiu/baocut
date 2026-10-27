@@ -827,6 +827,35 @@ fn caption_font_notes_stand_on_every_frame() {
 }
 
 #[test]
+fn caption_styles_naming_a_missing_system_cjk_sans_stay_quiet_but_still_ask_for_it() {
+    // 旧版样式写死 "PingFang SC"：没有苹方的机器（Windows、Linux、浏览器会话）上续到内置黑体，不报缺字体；
+    // 族与 face 照样登记，macOS 的宿主照样去本机要苹方（第一句还没出现时也要）。
+    let documents = |family: &str| {
+        vec![
+            caption_doc("orig", "sequence", &[(0.0, 2.0, "字幕 AB")], "original"),
+            style_doc(
+                "style",
+                studio(json!({ "fontSize": 90, "fontFamily": family, "fontWeight": 500, "anim": { "name": "None" },
+                               "displayTiming": { "leadIn": 0, "tail": 0 } })),
+            ),
+        ]
+    };
+    let video = video(vec![caption("a", "orig", Some("style"), 60, &[])], vec![], json!({}));
+    let mut quiet = renderer(false, Documents::new(documents("PingFang SC")));
+    let pingfang = render_with(&mut quiet, &video, 0.5, &mut Media::default());
+    assert!(quiet.warnings().is_empty(), "{:?}", quiet.warnings());
+    assert_eq!(quiet.missing_fonts(), vec!["PingFang SC".to_string()]);
+    assert!(
+        quiet.used_faces().contains(&("PingFang SC".to_string(), 500, false)),
+        "{:?}",
+        quiet.used_faces()
+    );
+    // 画出来就是内置黑体：与点名 Noto Sans SC 的同一份样式逐像素相同（预览与导出用的是同一套随内核字体）。
+    let mut bundled = renderer(false, Documents::new(documents("Noto Sans SC")));
+    assert_eq!(pingfang, render_with(&mut bundled, &video, 0.5, &mut Media::default()));
+}
+
+#[test]
 fn caption_fonts_are_asked_for_before_any_line_is_on_screen() {
     // 第一句 10 秒才出现：0.5 秒时还没排过字，缺字体的提示已经在报，宿主也要能按 face 去本机找这个族，不能等到有字幕行。
     let documents = vec![

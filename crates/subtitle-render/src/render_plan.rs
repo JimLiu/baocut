@@ -1325,7 +1325,8 @@ impl OverlayRenderPlan {
                 continue;
             }
             text.note_font_face(family, weight, italic);
-            if !families.contains(&family) {
+            // 系统自带的中文黑体缺席时续到内置黑体，不报（face 照样记下，宿主照样去本机找）。
+            if !families.contains(&family) && !render_raster::fonts::is_system_cjk_sans(family) {
                 families.push(family);
             }
         }

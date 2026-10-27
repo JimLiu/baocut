@@ -944,6 +944,47 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
     await expect(client.request('fonts.resolve', { faces: [] })).rejects.toThrow();
   });
 
+  it('旧版字幕样式写死 "PingFang SC"、本机没有苹方：照内置黑体画，不报缺字体；快照里记着找过、没找到', async () => {
+    // 本机字体库是空的临时目录：模拟 Windows、Linux 这类没有苹方的机器。
+    const fonts = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-fonts-'));
+    const previous = process.env.BAOCUT_FONT_DIRS;
+    process.env.BAOCUT_FONT_DIRS = fonts;
+    onTestFinished(async () => {
+      if (previous === undefined) delete process.env.BAOCUT_FONT_DIRS;
+      else process.env.BAOCUT_FONT_DIRS = previous;
+      await fs.rm(fonts, { recursive: true, force: true });
+    });
+    const videoId = await newVideo('苹方');
+    const { sequenceId } = video(videoId);
+    const caption = { schema: 'baocut.caption/1', clock: 'sequence', timescale: 1000, cues: [{ id: 'c1', start: 0, end: 2000, text: '字幕 AB' }] };
+    await edit(videoId, [
+      { type: 'putDocument', ref: 'cap', kind: 'caption', name: '字幕', language: 'zh', body: caption },
+      {
+        type: 'putDocument',
+        ref: 'style',
+        kind: 'caption-style',
+        name: '字幕样式',
+        body: { schema: 'baocut.legacy-studio-style/0.1', style: { fontFamily: 'PingFang SC' } },
+      },
+      { type: 'addTrack', kind: 'subtitle', ref: 'subs' },
+      {
+        type: 'insertItems',
+        sequenceId,
+        items: [{ type: 'caption', trackRef: 'subs', documentRef: 'cap', span: { fromFrame: 0, durationFrames: 60 } }],
+      },
+    ]);
+    const itemId = video(videoId).items.find((i) => i.type === 'caption')!.id;
+    const styleId = Object.values(runtime.videos.mirror(videoId)!.video.documents).find((d) => d.kind === 'caption-style')!.id;
+    await edit(videoId, [{ type: 'setCaptionStyle', sequenceId, itemId, styleDocument: { documentId: styleId } }]);
+
+    const job = await exportOnce({ videoId, settings: { kind: 'video', format: 'mp4', range: { start: 0, end: 0.5 } } });
+    expect((job.warnings ?? []).filter((w) => (w.detail ?? '').includes('PingFang'))).toEqual([]);
+    // 照样向本机要过苹方（有它的机器上就冻结本机的 face 来画），这里没找到，记的是回退。
+    const snapshot = JSON.parse((await runtime.models.jobs.artifacts.read(job.export!.snapshotArtifactId))!.toString('utf8')) as ExportSnapshot;
+    expect(snapshot.fonts?.length).toBeGreaterThan(0);
+    expect(snapshot.fonts).toEqual(snapshot.fonts!.map((f) => ({ ...f, family: 'PingFang SC', fallback: 'not-found' })));
+  });
+
   it('按需下载的字体：目录里有、本机没有的族在导出任务里下载、冻结、画进成片；关了自动下载时照回退字体画并说明原因', async () => {
     // 本机字体库是空的临时目录；字体服务是本机的假服务，给的是探针字体 ColrProbe（字体目录是注入的，只有它一个族）。
     const systemFonts = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-fonts-'));

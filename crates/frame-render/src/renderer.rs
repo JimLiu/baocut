@@ -358,7 +358,10 @@ impl FrameRenderer {
         }
         let families: Vec<String> = families.iter().cloned().collect();
         for family in families {
-            self.warn(RENDER_NOTE, item_note(item_id, missing_font_note(&family)));
+            // 系统自带的中文黑体（苹方这类）缺席时排字续到内置黑体，不报；照样记进缺的族，宿主照样去本机字体里找。
+            if !render_raster::fonts::is_system_cjk_sans(&family) {
+                self.warn(RENDER_NOTE, item_note(item_id, missing_font_note(&family)));
+            }
             self.missing_fonts.insert(family);
         }
     }

@@ -320,6 +320,28 @@ const CJK_FALLBACKS: &[&str] = &[
     "WenQuanYi Micro Hei",
 ];
 
+/// 各平台自带的中文黑体：[`CJK_FALLBACKS`] 里内置字体之后的那几款黑体（宋体不算）。
+///
+/// 样式点名其中一款（常见的是写死的 `"PingFang SC"`），这台机器又没有时，排字照回退链续到内置的
+/// [`BUNDLED_CJK_FAMILY`]——同是黑体，预览与导出落到同一款，所以**不报缺字体**。只是不报：这个族照样记进缺的族与
+/// face 记录，宿主照样去本机字体里找（macOS 上点名苹方就用本机苹方）。这些字体随系统授权，不能随应用分发。
+const SYSTEM_CJK_SANS: &[&str] = &[
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Heiti SC",
+    "Microsoft YaHei",
+    "SimHei",
+    "Noto Sans CJK SC",
+    "Source Han Sans SC",
+    "WenQuanYi Micro Hei",
+];
+
+/// `family` 是不是系统自带的中文黑体（[`SYSTEM_CJK_SANS`]，不分大小写）：缺这个族时静默落到内置黑体、不报缺字体。
+pub fn is_system_cjk_sans(family: &str) -> bool {
+    let family = family.trim();
+    SYSTEM_CJK_SANS.iter().any(|name| name.eq_ignore_ascii_case(family))
+}
+
 fn family_in_db(db: &fontdb::Database, family: &str) -> bool {
     db.query(&fontdb::Query {
         families: &[Family::Name(family)],
@@ -2358,6 +2380,21 @@ mod tests {
 
     fn nominal(engine: &mut TextEngine, text: &str, family: &str, size: f64) -> ShapedLine {
         engine.shape_spaced_with_shaping(text, family, size, 400, false, 0., GlyphShaping::Nominal)
+    }
+
+    #[test]
+    fn system_cjk_sans_families_are_the_sans_part_of_the_fallback_chain() {
+        // 不报缺字体的前提是排字照回退链续到内置黑体：每一款都得在链上、排在内置字体之后。
+        for family in SYSTEM_CJK_SANS {
+            let at = CJK_FALLBACKS.iter().position(|name| name == family);
+            assert!(at.is_some_and(|at| at > 0), "{family}");
+        }
+        assert_eq!(CJK_FALLBACKS[0], BUNDLED_CJK_FAMILY);
+        assert!(is_system_cjk_sans("PingFang SC"));
+        assert!(is_system_cjk_sans(" pingfang sc "));
+        assert!(!is_system_cjk_sans("Songti SC"), "宋体换成黑体看得出来，照报");
+        assert!(!is_system_cjk_sans(BUNDLED_CJK_FAMILY));
+        assert!(!is_system_cjk_sans(""));
     }
 
     #[test]

@@ -229,6 +229,30 @@ describe.skipIf(!built)('帧计划器（WASM）', () => {
     expect(loads).toBe(1);
   });
 
+  it('写死系统中文黑体（苹方）而没有时：不报缺字体，照样报缺的族与 face，宿主照样去本机要', async () => {
+    const { planner, video } = await setup();
+    planner.addFonts(planner.fontFiles().map((name) => new Uint8Array(readFileSync(`${fonts}${name}`))));
+    const sequence = video.sequences[video.rootSequenceId]!;
+    const title = {
+      id: 'item_title',
+      trackId: 'trk_g1',
+      enabled: true,
+      locked: false,
+      paintOrder: 9,
+      followPolicy: { kind: 'sequence-fixed' },
+      type: 'text',
+      span: { fromFrame: 0, durationFrames: 60 },
+      place: { x: 50, y: 50, w: 60 },
+      text: '苹方 A',
+      style: { fontSize: 60, fontFamily: 'PingFang SC', fontWeight: 500 },
+    };
+    planner.setVideo({ sequence: { ...sequence, items: [...sequence.items, title] } as never, assets: video.assets });
+    const frame = planner.render(1, 160, 90);
+    expect(frame.warnings.filter((w) => w.detail.includes('PingFang'))).toEqual([]);
+    expect(frame.fonts).toEqual(['PingFang SC']);
+    expect(frame.faces).toContainEqual({ family: 'PingFang SC', weight: 500, italic: false });
+  });
+
   it('文字框由内核量：与画字同一批字体，没注入字体时量不了', async () => {
     const { planner } = await setup();
     const style = { fontSize: 24, fontWeight: 'bold', lineHeight: 1.2, backgroundColor: '#000000CC', backgroundPadding: 14 };

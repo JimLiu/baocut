@@ -1368,6 +1368,45 @@ fn text_in_a_missing_family_is_reported_on_every_frame_until_its_font_arrives() 
     assert_eq!(loaded, render_with(&mut full, &video, 0.5, &mut Media::default()));
 }
 
+/// 写死系统中文黑体（苹方）的文字：这台机器没有时不报缺字体，画出来就是内置黑体（与点名 Noto Sans SC 逐像素相同）；
+/// 这个族照样记进缺的族与 face 记录，宿主照样去本机找（macOS 上换成本机苹方）。
+#[test]
+fn a_missing_system_cjk_sans_falls_back_to_the_bundled_sans_without_a_note() {
+    let titled = |family: &str| {
+        video(
+            vec![item(
+                "title",
+                0,
+                30,
+                json!({
+                    "type": "text", "text": "苹方 Ab", "style": { "fontSize": 60, "color": "#FFFFFF", "fontFamily": family, "fontWeight": 600 },
+                    "place": { "x": 50, "y": 50, "w": 90 }
+                }),
+            )],
+            vec![],
+            json!({}),
+        )
+    };
+    let mut quiet = renderer(false, frame_render::Documents::default());
+    let pingfang = render_with(&mut quiet, &titled("PingFang SC"), 0.5, &mut Media::default());
+    assert!(quiet.warnings().is_empty(), "{:?}", quiet.warnings());
+    assert_eq!(quiet.missing_fonts(), vec!["PingFang SC".to_string()]);
+    assert!(
+        quiet.used_faces().contains(&("PingFang SC".to_string(), 600, false)),
+        "{:?}",
+        quiet.used_faces()
+    );
+    let mut bundled = renderer(false, frame_render::Documents::default());
+    assert_eq!(
+        pingfang,
+        render_with(&mut bundled, &titled("Noto Sans SC"), 0.5, &mut Media::default())
+    );
+    // 不是系统黑体的族照报（例如点名宋体：换成黑体是看得出的替换）。
+    let mut songti = renderer(false, frame_render::Documents::default());
+    render_with(&mut songti, &titled("Songti SC"), 0.5, &mut Media::default());
+    assert_eq!(songti.warnings().len(), 1, "{:?}", songti.warnings());
+}
+
 #[test]
 fn bundled_families_are_not_reported_missing() {
     let mut renderer = renderer(false, frame_render::Documents::default());
