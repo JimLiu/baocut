@@ -1,0 +1,41 @@
+{
+  "title": "Video da una registrazione storica",
+  "summary": "Presenta chi parla e la sua epoca, poi la registrazione completa sottotitolata.",
+  "description": "Trasforma una registrazione storica, un discorso, un’intervista, una trasmissione o un filmato d’archivio in un video che il pubblico segue fino in fondo. I primi minuti mostrano, con foto, giornali, mappe e spezzoni d’epoca, chi parlava, cosa affrontava e perché quel discorso contava; poi la registrazione completa, con sottotitoli originali e tradotti, in capitoli. Anzitutto, fonti e licenze.",
+  "brief": "Trasforma {{registrazione o filmato}} in un video storico: prima presenta in pochi minuti {{oratore e occasione}}, poi riproduci la registrazione completa, con sottotitoli in {{lingua dei sottotitoli}}.",
+  "fields": [
+    {
+      "label": "registrazione o filmato",
+      "hint": "Il file allegato, un link o la segnatura d’archivio, e la durata indicativa",
+      "example": "questa registrazione di un discorso radiofonico"
+    },
+    {
+      "label": "oratore e occasione",
+      "hint": "Chi, in che anno, dove e davanti a chi; se non lo sai, scrivi «cercalo tu»",
+      "example": "una scrittrice intervistata alla radio negli anni Cinquanta"
+    },
+    {
+      "label": "lingua dei sottotitoli",
+      "hint": "Lingua dei sottotitoli; se il discorso è in un’altra lingua, compaiono entrambe"
+    }
+  ],
+  "tags": [
+    "storia",
+    "discorso",
+    "audio originale",
+    "archivio",
+    "sottotitoli bilingui"
+  ],
+  "cover": {
+    "kicker": "VOCE"
+  },
+  "preview": {
+    "beats": [
+      "Il primo fotogramma è una copertina con persona e occasione",
+      "Pochi minuti su persona, situazione e posta in gioco",
+      "Foto, giornali e mappe d’epoca seguono la narrazione",
+      "Registrazione completa, sottotitoli originali e tradotti",
+      "Capitoli, e in chiusura fonti e licenze"
+    ]
+  }
+}

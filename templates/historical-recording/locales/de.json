@@ -1,0 +1,41 @@
+{
+  "title": "Historischer Originalton",
+  "summary": "Erst Person und Zeit erklären, dann der ganze Originalton mit Untertiteln.",
+  "description": "Aus einer historischen Aufnahme, Rede, Radiosendung oder einem Archivfilm wird ein Video, bei dem Zuschauer dranbleiben. Die ersten Minuten zeigen mit Fotos, Zeitungen, Karten und Tonausschnitten der Zeit, wer sprach, in welcher Lage und warum die Rede zählte. Danach läuft der ganze Originalton mit Untertiteln in Original und Übersetzung, in Kapiteln. Quellen und Lizenzen werden zuerst geklärt.",
+  "brief": "Machen Sie aus {{Aufnahme}} ein Geschichtsvideo. Erklären Sie zuerst in wenigen Minuten, wer spricht und zu welchem Anlass: {{Person und Anlass}}. Dann folgt der vollständige Originalton. Untertitel: {{Untertitelsprache}}.",
+  "fields": [
+    {
+      "label": "Aufnahme",
+      "hint": "Angehängte Datei, Link oder Archivsignatur, dazu die ungefähre Länge",
+      "example": "dieser Aufnahme einer Radioansprache"
+    },
+    {
+      "label": "Person und Anlass",
+      "hint": "Wer, welches Jahr, wo, vor wem; wenn unklar: „recherchieren Sie selbst“",
+      "example": "ein Schriftsteller im Radiointerview der 1950er-Jahre"
+    },
+    {
+      "label": "Untertitelsprache",
+      "hint": "Sprache der Untertitel; spricht die Aufnahme eine andere, erscheinen beide"
+    }
+  ],
+  "tags": [
+    "Geschichte",
+    "Rede",
+    "Originalton",
+    "Archiv",
+    "zweisprachige Untertitel"
+  ],
+  "cover": {
+    "kicker": "O-TON"
+  },
+  "preview": {
+    "beats": [
+      "Das erste Bild ist ein Titel mit Person und Anlass",
+      "Wenige Minuten zu Person, Lage und Gewicht der Rede",
+      "Fotos, Zeitungen und Karten der Zeit folgen dem Sprechertext",
+      "Voller Originalton, untertitelt in Original und Übersetzung",
+      "Kapitel, am Ende Quellen und Lizenzen"
+    ]
+  }
+}

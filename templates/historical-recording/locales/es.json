@@ -1,0 +1,41 @@
+{
+  "title": "Vídeo de una grabación histórica",
+  "summary": "Presenta a quien habla y su época; luego, la grabación completa con subtítulos.",
+  "description": "Convierte una grabación histórica, un discurso, una entrevista, una emisión o imágenes de archivo en un vídeo que el público siga hasta el final. Los primeros minutos muestran, con fotos, prensa, mapas y extractos de época, quién hablaba, qué afrontaba y por qué importaban sus palabras; luego, la grabación completa con subtítulos originales y traducidos, en capítulos. Primero, fuentes y licencias.",
+  "brief": "Convierte {{grabación o imágenes}} en un vídeo de historia: primero presenta en pocos minutos {{orador y ocasión}}, luego reproduce la grabación completa, con subtítulos en {{idioma de los subtítulos}}.",
+  "fields": [
+    {
+      "label": "grabación o imágenes",
+      "hint": "Archivo adjunto, enlace o signatura de archivo, y su duración aproximada",
+      "example": "esta grabación de un discurso radiofónico"
+    },
+    {
+      "label": "orador y ocasión",
+      "hint": "Quién, en qué año, dónde y ante quién; si no lo sabes, escribe «búscalo tú»",
+      "example": "una escritora entrevistada en la radio en los años cincuenta"
+    },
+    {
+      "label": "idioma de los subtítulos",
+      "hint": "Idioma de los subtítulos; si el discurso está en otro, se muestran ambos"
+    }
+  ],
+  "tags": [
+    "historia",
+    "discurso",
+    "audio original",
+    "archivo",
+    "subtítulos bilingües"
+  ],
+  "cover": {
+    "kicker": "VOZ"
+  },
+  "preview": {
+    "beats": [
+      "Primer fotograma: portada con la persona y la ocasión",
+      "Quién era, qué vivía y por qué importa, en pocos minutos",
+      "Fotos, prensa y mapas de la época se mueven con la narración",
+      "La grabación completa con subtítulos originales y traducidos",
+      "Capítulos, y al final las fuentes y las licencias"
+    ]
+  }
+}

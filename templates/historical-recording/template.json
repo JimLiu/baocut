@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "id": "historical-recording",
+  "version": "1.0.0",
+  "kind": "scene",
+  "title": "历史原声视频",
+  "summary": "先用几分钟讲清人物与时代，再放完整的原声，配字幕、分章节。",
+  "description": "把你手上的一段历史录音、演讲、访谈、广播或档案影像做成观众听得进去的成片：开头几分钟用当时的照片、报刊、地图与原声片段讲清这个人、那时的处境和这次讲话为什么要紧，然后放完整的原声，配原文与译文字幕、分好章节。出处与许可先查清，讲法按手上的材料定。",
+  "language": "zh-CN",
+  "category": "explainer",
+  "ratio": "16:9",
+  "durationSeconds": 600,
+  "brief": "把{{录音或影像}}做成一条历史视频：先用几分钟讲清{{讲话的人与场合}}，再放完整的原声，字幕用{{字幕语言}}。",
+  "fields": [
+    {
+      "label": "录音或影像",
+      "hint": "附上的文件、链接或馆藏目录号，大概多长",
+      "example": "这段广播讲话录音"
+    },
+    {
+      "label": "讲话的人与场合",
+      "hint": "谁、哪一年、在哪里、对谁讲；不清楚可以写「你来查」",
+      "example": "一位作家 1950 年代在电台的访谈"
+    },
+    {
+      "label": "字幕语言",
+      "hint": "成片字幕用的语言；和原话不同时出原文与译文双语字幕"
+    }
+  ],
+  "author": "BaoCut",
+  "source": "official",
+  "license": "LicenseRef-BaoCut-Community-1.0",
+  "tags": [
+    "历史",
+    "演讲",
+    "原声",
+    "档案",
+    "双语字幕"
+  ],
+  "skills": [
+    "video-production",
+    "history-video",
+    "subtitle-workflow"
+  ],
+  "cover": {
+    "tone": "brown",
+    "figure": "bars",
+    "kicker": "原声"
+  },
+  "preview": {
+    "beats": [
+      "第一帧就是人物与场合的封面",
+      "几分钟讲清人物、处境与这次讲话的分量",
+      "当时的照片、报刊与地图跟着旁白动",
+      "完整的原声，配原文与译文字幕",
+      "分好章节，片尾列出处与许可"
+    ]
+  }
+}

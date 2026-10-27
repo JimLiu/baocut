@@ -1,0 +1,41 @@
+{
+  "title": "Video van een historische opname",
+  "summary": "Schets eerst persoon en tijd, laat dan de hele opname horen met ondertitels.",
+  "description": "Maak van een historische opname, toespraak, interview, uitzending of archiefbeeld een video waar kijkers bij blijven. De eerste minuten laten met foto’s, kranten, kaarten en fragmenten uit die tijd zien wie er sprak, in welke situatie die persoon zat en waarom het ertoe deed; daarna volgt de volledige opname met originele en vertaalde ondertitels, in hoofdstukken. Bronnen en licenties komen eerst.",
+  "brief": "Maak van {{opname}} een geschiedenisvideo: leg eerst in een paar minuten de achtergrond uit van {{spreker en gelegenheid}} en laat dan de volledige opname horen. Ondertitels: {{ondertiteltaal}}.",
+  "fields": [
+    {
+      "label": "opname",
+      "hint": "Bijgevoegd bestand, link of archiefnummer, en hoe lang ongeveer",
+      "example": "deze opname van een radiotoespraak"
+    },
+    {
+      "label": "spreker en gelegenheid",
+      "hint": "Wie, welk jaar, waar en voor wie; weet je het niet, schrijf ‘zoek jij het uit’",
+      "example": "een radio-interview met een schrijver uit de jaren 50"
+    },
+    {
+      "label": "ondertiteltaal",
+      "hint": "Taal van de ondertitels; bij een andere taal in de opname staan beide in beeld"
+    }
+  ],
+  "tags": [
+    "geschiedenis",
+    "toespraak",
+    "origineel geluid",
+    "archief",
+    "tweetalige ondertitels"
+  ],
+  "cover": {
+    "kicker": "STEM"
+  },
+  "preview": {
+    "beats": [
+      "Het eerste beeld is een omslag met persoon en gelegenheid",
+      "Een paar minuten over de persoon, de situatie en het belang",
+      "Foto’s, kranten en kaarten van toen volgen de voice-over",
+      "De volledige opname met originele en vertaalde ondertitels",
+      "Hoofdstukken, met bronnen en licenties aan het eind"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Vidéo d’enregistrement historique",
+  "summary": "Présentez l’orateur et son époque, puis l’enregistrement complet sous-titré.",
+  "description": "Transformez un enregistrement historique, un discours, une interview, une émission ou des images d’archives en une vidéo qu’on regarde jusqu’au bout. Les premières minutes montrent, avec photos, journaux, cartes et extraits d’époque, qui parlait, ce qu’il vivait et l’enjeu de sa parole ; puis l’enregistrement complet, sous-titres originaux et traduits, en chapitres. Sources et licences d’abord.",
+  "brief": "Transformez {{enregistrement ou images}} en vidéo d’histoire : présentez d’abord en quelques minutes {{orateur et contexte}}, puis diffusez l’enregistrement complet, sous-titré en {{langue des sous-titres}}.",
+  "fields": [
+    {
+      "label": "enregistrement ou images",
+      "hint": "Le fichier joint, un lien ou une cote d’archive, et sa durée approximative",
+      "example": "cet enregistrement d’une allocution radiodiffusée"
+    },
+    {
+      "label": "orateur et contexte",
+      "hint": "Qui, en quelle année, où et devant qui ; sinon, écrivez « à vous de chercher »",
+      "example": "une écrivaine interviewée à la radio dans les années 1950"
+    },
+    {
+      "label": "langue des sous-titres",
+      "hint": "Langue des sous-titres ; si l’original diffère, les deux langues s’affichent"
+    }
+  ],
+  "tags": [
+    "histoire",
+    "discours",
+    "son d’origine",
+    "archives",
+    "sous-titres bilingues"
+  ],
+  "cover": {
+    "kicker": "VOIX"
+  },
+  "preview": {
+    "beats": [
+      "Dès la première image, la personne et les circonstances",
+      "Quelques minutes sur la personne, sa situation, les enjeux",
+      "Photos, journaux et cartes d’époque suivent la narration",
+      "L’enregistrement complet, sous-titres originaux et traduits",
+      "Des chapitres, puis sources et licences au générique"
+    ]
+  }
+}

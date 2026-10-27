@@ -1,0 +1,41 @@
+{
+  "title": "Historical recording video",
+  "summary": "Explain the person and the times, then play the full recording with subtitles.",
+  "description": "Turn a historical recording, speech, interview, broadcast or archival footage into a video viewers will stay with. The first few minutes use photos, newspapers, maps and clips from the time to show who the speaker was, what they faced and why the talk mattered; then the full recording plays with original and translated subtitles, in chapters. Sources and licenses come first.",
+  "brief": "Turn {{recording or footage}} into a history video: first explain {{speaker and occasion}} in a few minutes, then play the full recording, with subtitles in {{subtitle language}}.",
+  "fields": [
+    {
+      "label": "recording or footage",
+      "hint": "The attached file, a link or an archive catalog number, and its rough length",
+      "example": "this recorded radio address"
+    },
+    {
+      "label": "speaker and occasion",
+      "hint": "Who, what year, where and to whom; if unsure, write \"look it up\"",
+      "example": "a writer's radio interview from the 1950s"
+    },
+    {
+      "label": "subtitle language",
+      "hint": "Subtitle language; if the speech is in another language, both are shown"
+    }
+  ],
+  "tags": [
+    "history",
+    "speech",
+    "original audio",
+    "archive",
+    "bilingual subtitles"
+  ],
+  "cover": {
+    "kicker": "VOICE"
+  },
+  "preview": {
+    "beats": [
+      "The first frame is a cover naming the person and occasion",
+      "A few minutes on the person, the situation and the stakes",
+      "Photos, papers and maps of the time move with the narration",
+      "The full recording with original and translated subtitles",
+      "Chapters, with sources and licenses listed at the end"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Film z historycznym nagraniem",
+  "summary": "Najpierw przedstaw postać i epokę, potem puść całe nagranie z napisami.",
+  "description": "Zrób z historycznego nagrania, przemówienia, wywiadu, audycji lub materiału archiwalnego film, przy którym widzowie zostaną. Pierwsze minuty pokazują na zdjęciach, gazetach, mapach i fragmentach z epoki, kim był mówca, w jakiej był sytuacji i czemu to wystąpienie było ważne; potem leci całe nagranie z napisami w oryginale i tłumaczeniu, z podziałem na rozdziały. Najpierw źródła i licencje.",
+  "brief": "Oto nagranie: {{nagranie}}. Zrób z niego film historyczny: najpierw w kilka minut przedstaw {{mówca i okoliczności}}, potem puść całe nagranie. Napisy: {{język napisów}}.",
+  "fields": [
+    {
+      "label": "nagranie",
+      "hint": "Załączony plik, link lub sygnatura archiwalna i z grubsza jak długie",
+      "example": "to przemówienie radiowe"
+    },
+    {
+      "label": "mówca i okoliczności",
+      "hint": "Kto, który rok, gdzie i do kogo; jeśli nie wiesz, wpisz „sprawdź sam”",
+      "example": "pisarza w wywiadzie radiowym z lat pięćdziesiątych"
+    },
+    {
+      "label": "język napisów",
+      "hint": "Język napisów w filmie; gdy mowa jest w innym języku, napisy będą dwujęzyczne"
+    }
+  ],
+  "tags": [
+    "historia",
+    "przemówienie",
+    "oryginalne nagranie",
+    "archiwum",
+    "napisy dwujęzyczne"
+  ],
+  "cover": {
+    "kicker": "GŁOS"
+  },
+  "preview": {
+    "beats": [
+      "Pierwsza klatka to okładka z postacią i okolicznościami",
+      "Kilka minut o postaci, sytuacji i wadze wystąpienia",
+      "Zdjęcia, gazety i mapy z epoki ożywają w rytm narracji",
+      "Całe nagranie z napisami w oryginale i tłumaczeniu",
+      "Rozdziały, a na końcu źródła i licencje"
+    ]
+  }
+}

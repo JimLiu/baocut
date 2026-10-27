@@ -1,0 +1,41 @@
+{
+  "title": "Tarihi ses kaydı videosu",
+  "summary": "Önce kişiyi ve dönemi anlatın, sonra kaydın tamamını altyazılı oynatın.",
+  "description": "Tarihi bir kaydı, konuşmayı, röportajı, yayını ya da arşiv görüntüsünü izleyicinin bırakmadığı bir videoya dönüştürün. İlk dakikalarda dönemin fotoğrafları, gazeteleri, haritaları ve ses kesitleriyle konuşanın kim olduğu, ne durumda olduğu ve konuşmanın neden önemli olduğu anlatılır; ardından kaydın tamamı özgün ve çeviri altyazılarla, bölümler hâlinde gelir. Önce kaynaklar ve lisanslar netleşir.",
+  "brief": "Kayıt: {{kayıt}}. Bundan bir tarih videosu yapın: önce birkaç dakikada arka planı anlatın ({{konuşan kişi ve ortam}}), sonra kaydın tamamını oynatın. Altyazı: {{altyazı dili}}.",
+  "fields": [
+    {
+      "label": "kayıt",
+      "hint": "Eklediğiniz dosya, bağlantı ya da arşiv numarası; yaklaşık ne kadar uzun",
+      "example": "bir radyo konuşmasının kaydı"
+    },
+    {
+      "label": "konuşan kişi ve ortam",
+      "hint": "Kim, hangi yıl, nerede, kime; bilmiyorsanız “siz araştırın” yazın",
+      "example": "1950'lerde radyoda röportaj veren bir yazar"
+    },
+    {
+      "label": "altyazı dili",
+      "hint": "Videonun altyazı dili; konuşmanın dili farklıysa çift dilli altyazı verilir"
+    }
+  ],
+  "tags": [
+    "tarih",
+    "konuşma",
+    "özgün ses",
+    "arşiv",
+    "çift dilli altyazı"
+  ],
+  "cover": {
+    "kicker": "ÖZGÜN SES"
+  },
+  "preview": {
+    "beats": [
+      "İlk kare, kişiyi ve ortamı gösteren bir kapak",
+      "Birkaç dakikada kişi, durum ve konuşmanın önemi",
+      "Dönemin fotoğraf, gazete ve haritaları dış sesle canlanır",
+      "Kaydın tamamı, özgün ve çeviri altyazılarla",
+      "Bölümler; sonda kaynaklar ve lisanslar"
+    ]
+  }
+}

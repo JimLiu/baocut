@@ -78,7 +78,7 @@ test('起始页网格摆最近用过的八个，两类混排、分类分散；�
 });
 
 test('筛选与分页：类型、分类、来源、搜索词可以叠加，页码越界收回有效范围', () => {
-  assert.equal(T.find('', {kind: 'scene', source: 'official'}).length, 12);
+  assert.equal(T.find('', {kind: 'scene', source: 'official'}).length, 13);
   assert.equal(T.find('', {kind: 'example', source: 'official'}).length, 12);
   assert.ok(T.find('', {kind: 'example'}).every(T.isExample));
   assert.ok(T.find('', {source: 'community'}).every((t) => t.source === 'community'));

@@ -1,0 +1,41 @@
+{
+  "title": "Vídeo de gravação histórica",
+  "summary": "Apresente quem fala e a época, depois a gravação completa com legendas.",
+  "description": "Transforme uma gravação histórica, um discurso, uma entrevista, uma transmissão ou imagens de arquivo em um vídeo que o público acompanhe até o fim. Os primeiros minutos usam fotos, jornais, mapas e trechos da época para mostrar quem falava, o que enfrentava e por que a fala importou; depois, a gravação completa, com legendas originais e traduzidas, em capítulos. Fontes e licenças vêm primeiro.",
+  "brief": "Transforme {{gravação ou imagens}} em um vídeo de história: primeiro apresente em poucos minutos {{orador e ocasião}}, depois exiba a gravação completa, com legendas em {{idioma das legendas}}.",
+  "fields": [
+    {
+      "label": "gravação ou imagens",
+      "hint": "Arquivo anexado, link ou número de catálogo do acervo, e a duração aproximada",
+      "example": "esta gravação de um pronunciamento no rádio"
+    },
+    {
+      "label": "orador e ocasião",
+      "hint": "Quem, em que ano, onde e para quem; se não souber, escreva “você pesquisa”",
+      "example": "uma escritora entrevistada no rádio nos anos 1950"
+    },
+    {
+      "label": "idioma das legendas",
+      "hint": "Idioma das legendas; se a fala estiver em outro idioma, as duas aparecem"
+    }
+  ],
+  "tags": [
+    "história",
+    "discurso",
+    "áudio original",
+    "arquivo",
+    "legendas bilíngues"
+  ],
+  "cover": {
+    "kicker": "VOZ"
+  },
+  "preview": {
+    "beats": [
+      "O primeiro quadro é uma capa com a pessoa e a ocasião",
+      "Poucos minutos sobre quem falou e o que estava em jogo",
+      "Fotos, jornais e mapas da época se movem com a narração",
+      "A gravação completa com legendas originais e traduzidas",
+      "Capítulos, com fontes e licenças listadas no final"
+    ]
+  }
+}

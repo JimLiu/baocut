@@ -1,0 +1,41 @@
+{
+  "title": "Video ghi âm lịch sử",
+  "summary": "Kể về con người và thời đại, rồi phát trọn bản ghi gốc có phụ đề, chia chương.",
+  "description": "Biến một bản ghi âm, bài diễn văn, cuộc phỏng vấn, buổi phát thanh hay phim tư liệu lịch sử thành video khán giả muốn nghe đến cùng. Vài phút đầu dùng ảnh, báo chí, bản đồ và trích đoạn của thời đó để cho biết người nói là ai, ở hoàn cảnh nào và vì sao lần nói này quan trọng; sau đó phát trọn bản ghi gốc với phụ đề nguyên văn và bản dịch, chia chương. Nguồn và giấy phép được kiểm tra trước.",
+  "brief": "Biến {{bản ghi hoặc thước phim}} thành một video lịch sử: trước tiên dành vài phút giới thiệu {{người nói và bối cảnh}}, rồi phát trọn bản ghi gốc, phụ đề bằng {{ngôn ngữ phụ đề}}.",
+  "fields": [
+    {
+      "label": "bản ghi hoặc thước phim",
+      "hint": "Tệp đính kèm, link hoặc số hiệu lưu trữ, dài khoảng bao lâu",
+      "example": "bản ghi âm bài nói trên đài phát thanh này"
+    },
+    {
+      "label": "người nói và bối cảnh",
+      "hint": "Ai, năm nào, ở đâu, nói với ai; nếu không rõ, ghi “bạn tự tra”",
+      "example": "cuộc phỏng vấn một nhà văn trên đài phát thanh thập niên 1950"
+    },
+    {
+      "label": "ngôn ngữ phụ đề",
+      "hint": "Ngôn ngữ phụ đề của video; nếu khác ngôn ngữ gốc thì hiện phụ đề song ngữ"
+    }
+  ],
+  "tags": [
+    "lịch sử",
+    "diễn văn",
+    "âm thanh gốc",
+    "tư liệu lưu trữ",
+    "phụ đề song ngữ"
+  ],
+  "cover": {
+    "kicker": "GIỌNG NÓI GỐC"
+  },
+  "preview": {
+    "beats": [
+      "Khung hình đầu là ảnh bìa về người nói và bối cảnh",
+      "Vài phút về con người, hoàn cảnh và sức nặng của lần nói",
+      "Ảnh, báo và bản đồ thời đó chuyển động theo lời dẫn",
+      "Trọn bản ghi gốc, có phụ đề nguyên văn và bản dịch",
+      "Chia chương, cuối video ghi nguồn và giấy phép"
+    ]
+  }
+}
