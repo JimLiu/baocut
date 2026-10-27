@@ -44,6 +44,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 做封面、封面大字 | 标题与封面文案候选，挑定后按画幅生成封面图，导入为候选素材 | [media](references/catalog/media.md) | {{skill:cover-and-title}} |
 | 下载这个链接 | 新建视频并导入；用户明说只要文件才只下载 | [media](references/catalog/media.md) | — |
 | 压缩、转码、合并、提取音频 | 文件到文件，不建视频，原文件不动 | [media](references/catalog/media.md) | — |
+| 放大图片、去水印、去掉物体、重画一块、扩图 | 文件到文件，输出新的 PNG，原图不动 | [media](references/catalog/media.md) | — |
 | 截几帧、看看画面 | 按时刻取帧成图片再看 | [media](references/catalog/media.md) | — |
 | 生成图片、配图、画插图 | 先看图片生成能用哪个服务，再按图要去的地方生成：进视频的导入为候选素材，给文章、幻灯片的存进工作目录 | [media](references/catalog/media.md) | 所在任务的 craft（封面、B-roll、旁白成片、成片分镜、文章与幻灯片配图） |
 <!-- surface: cli -->
@@ -165,7 +166,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 
 - 单步的事直接做：用户只要一件小事（导出一个 srt、截三帧、改一个标题）就只做那件，不套整条流程。
 - 用户消息里形如「[目标语言]」的方括号项，是快速开始或模板留给用户填、用户没有填的待填项：动手前先问清，不自己猜一个，也不原样抄进产物。
-- 有固定流程的事（转录、下载、翻译配音、转码、导出）用一级动词（{{tool:transcribe}}、{{tool:download}}、{{tool:dub}}、{{tool:transcode}}、{{tool:export}}）一步提交整条流程，不自己拆成几步。
+- 有固定流程的事（转录、下载、翻译配音、转码、修图、导出）用一级动词（{{tool:transcribe}}、{{tool:download}}、{{tool:dub}}、{{tool:transcode}}、{{tool:upscale}}、{{tool:retouch}}、{{tool:export}}）一步提交整条流程，不自己拆成几步。
 - 多步的任务你是导演：先写出计划（交付物、步骤、每步用哪个工具或 craft），按步骤做，每步读完结果再走下一步。
 - 写操作与占 GPU 的任务（转写、合成、音乐生成、导出成片）都由你自己下，一台机器上一次一个；子代理只交文件与结论，不让它们改视频或提交任务。
 - 跨回合接着做时，先读视频的当前状态（{{tool:videos_inspect}}），从已经做到的那一步接着做，不重复已完成的步骤。

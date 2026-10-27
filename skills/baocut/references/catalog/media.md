@@ -1,14 +1,15 @@
 ---
-description: 媒体的机制：从链接下载、检索与下载网上素材、转码与合并、取帧看画面、导入素材（链接还是复制）、新建视频、打开便携包、生成图片（含成套的角色姿势与场景底图），以及看一条视频的证据阶梯。下载、导入、取帧或生成图片之前读。
+description: 媒体的机制：从链接下载、检索与下载网上素材、转码与合并、放大与修改图片（去水印、去物体、重绘、扩图）、取帧看画面、导入素材（链接还是复制）、新建视频、打开便携包、生成图片（含成套的角色姿势与场景底图），以及看一条视频的证据阶梯。下载、导入、取帧、修图或生成图片之前读。
 ---
 
-# 媒体：下载、网上素材、转码、取帧、素材与新建视频
+# 媒体：下载、网上素材、转码、修图、取帧、素材与新建视频
 
 ## 何时用
 
 - 用户给了视频页面的链接，要下载、导入或在它上面做事。
 - 片子要真实的地点、事件、人物或产品画面，用户素材不够：主动检索网上素材。
 - 本机文件要压缩、转码、按顺序合并、提取音轨（文件到文件，不建视频）。
+- 本机图片要放大、去水印、去掉物体、重画一块或往外扩（文件到文件）。
 - 要看画面：构图、镜头分布、字幕会不会挡住内容、剪点前后是什么。
 - 要新建一个空视频、把素材导入视频并放上时间线、打开便携包（`.baocut` 文件）。
 - 要生成图片放进视频。
@@ -27,6 +28,7 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 <!-- /surface -->
 - 已有视频先 {{tool:videos_list}} / {{tool:videos_inspect}}：素材是不是已经导入过、有没有转写，已有的接着用，不重复导入。
 - 生成图片先 {{tool:models_capabilities}}（能力 `generateImage`）看有没有可用的模型、尺寸与张数的范围。
+- 修图用模型补时要能按提示词改图的模型（`referenceImages.edit` 为 true）；放大要 Real-ESRGAN，第一次用时下载（见「放大与修改图片」）。
 
 ## 命令与例子
 
@@ -81,6 +83,43 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 | 按顺序合并成一个 | {{arg:files}} 按要的顺序排，{{arg:merge}} |
 | 逐个取出音轨 | {{arg:extractAudio}}（能流复制时不重新编码） |
 | 指定输出目录 | {{arg:outDir}}；不给时是下载目录 |
+
+### 放大与修改图片
+
+{{tool:upscale}} 与 {{tool:retouch}} 只吃本机的图片文件（PNG、JPEG、WebP），每张输出一个新的 PNG，原图不动，不建视频：
+
+| 要做的事 | 调用 |
+| --- | --- |
+| 放大（超分辨率，补出细节，不是拉伸） | {{tool:upscale}}，{{arg:files}}；{{arg:scale}} 2、3、4（默认 4，输出边长不超过 16384）；{{arg:model}} `photo`（照片、截图，默认）或 `anime`（动画、插画、线稿） |
+| 去水印、角标、字幕条 | {{tool:retouch}}，{{arg:op}} `watermark` + {{arg:mask}}；可以一次几张，选区按第一张记、按比例用于每一张 |
+| 去掉画面里的物体 | {{tool:retouch}}，{{arg:op}} `erase` + {{arg:mask}} |
+| 把一块重画成别的 | {{tool:retouch}}，{{arg:op}} `repaint` + {{arg:mask}} + {{arg:prompt}}（选区改成什么） |
+| 把画面往外扩（改比例） | {{tool:retouch}}，{{arg:op}} `expand` + {{arg:expand}}：`ratio`（如 `16:9`，只往缺的方向加）与 `anchor`（原图放在哪，默认 `center`），或四边各加多少像素的 `margins`；每边至多 4096。{{arg:prompt}} 可选，写新增的部分画什么 |
+| 指定输出目录 | {{arg:outDir}}；不给时是保存位置（默认下载文件夹） |
+
+**选区按原图像素**：左上角为原点；`boxes` 是框 `{x, y, width, height}`（水印、角标、字幕条），`strokes` 是笔画 `{radius, points: [[x, y], …]}`（不规则的物体：半径要盖住边缘，边缘多涂一点更自然），两者取并集。先读出图片的像素宽高（有 shell 时用 `file`、`sips -g pixelWidth -g pixelHeight` 或 `ffprobe`），能看图时再看要改的东西在哪：看到的图常被缩小过，估出的位置按真实宽高换算回原图像素再给，框比目标四周宽出几像素。选区占画面超过六成会被拒绝（那该用 {{tool:image}} 重新生成）。
+
+<!-- surface: cli -->
+`--mask` 给 JSON：
+
+```bash
+baocut retouch shot.png --op watermark --mask '{"boxes":[{"x":1500,"y":980,"width":380,"height":80}]}'
+```
+<!-- /surface -->
+
+**两种补法**（{{arg:method}}）：
+
+- `fill`：本机 ffmpeg 按四周的像素填，几秒钟，不用模型、不外发；适合简单背景上的小块文字与角标。`watermark` 默认用它，`erase` 也可以用。
+- `model`：把选区周围的一块（扩图是整张新画布）交给能按提示词改图的图像模型，回来后只贴回选区，选区外的像素不变；适合大块物体与复杂背景。`erase` 默认用它，`repaint` 与 `expand` 只有它。云端模型每次调用经授权与预算；本机模型一张要几分钟，和别的本机任务排同一个队。
+- 不给 {{arg:model}} 时用生图的默认模型，它不能改图时自动换第一个能改图的；回执里的 `provider`、`model` 是实际用的。要指定时先 {{tool:models_capabilities}}（{{arg:capability}} `generateImage`）找 `referenceImages.edit` 为 true 的模型。一个能改图的都没有时以 `IMAGE_EDIT_UNSUPPORTED` 拒绝：小块的去水印、去物体改用 `fill`，否则照 `remedy` 请用户装一个，不拿不能改图的模型硬试。
+
+**放大先要 Real-ESRGAN**：它是 BaoCut 管理的外部工具，第一次用时下载（约 50 MB，来自它在 GitHub 的发布页）。没装时 {{tool:upscale}} 只提交安装，返回 `installJobId`（`jobId` 为 null）：等它 `completed` 再调用一次。
+<!-- surface: cli -->
+终端里不再询问就会下载：第一次放大前先告诉用户要下载它。
+<!-- /surface -->
+<!-- surface: agent -->
+下载前会请用户确认（写明来源、版本、大小与许可）。
+<!-- /surface -->
 
 ### 取帧看画面
 
@@ -202,6 +241,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 - 链接导入的素材：{{tool:videos_inspect}} 的 `assets[].source` 是来源元数据：`platform`、`webpageUrl`、`uploader`（发布者）、`uploadDate`、`title`、`description`（最多 1200 字符，被截断时 `descriptionTruncated` 为 true）、`chapters`（作者的章节 `[{ at, title }]`，平台给的或从简介的时间戳大纲解析出的，没有时 `[]`）。它是背景参考，不是文稿内容：润色时人名与术语的写法只在说话人明显在说它时照改，说话人实名时只在它唯一指明某一位时算证据（见 [subtitles](subtitles.md)）；作者章节用 {{tool:chapters_adopt}} 写进视频（见 [editing](editing.md)）。
 - {{tool:videos_inspect}} 的 `brief`：写过视频速览时有，`markdown` 是正文（时间链接已换成完整的 `/videos/<videoId>?t=<秒>`），`language` 是正文的语言；没写过时没有这一项。章节（`chapters`）每章带 `href`，写速览的要点时照抄。
 - {{tool:transcode}}：`outputs` 的 `path`（`pipeline.summary.files`）是输出文件，把位置告诉用户。
+- {{tool:upscale}} / {{tool:retouch}}：`outputs` 的 `path` 是新的 PNG（`<原名>-upscaled-<倍数>x`、`-erased`、`-no-watermark`、`-repainted`、`-expanded`），同时记进 Space 的图片；`pipeline.summary.images` 是每张的尺寸（修图另有选区占比 `coverage`），`warnings` 是提醒（如扩得太多线条可能对不齐）。看一眼结果（补得自然、没有糊块与重影）再把位置告诉用户；要放进视频用 {{tool:assets_import}} 的 {{arg:path}}。
 - {{tool:videos_frames}}：`frames` 每帧有 `at`、`file`、`width`、`height`、`faces` 与取自哪个片段（`item`）、哪个素材（`asset`）。读 `file` 这张图片。`faces` 是 `[{x, y, w, h, score}]`：框的左上角与宽高，按帧的宽高归一化到 0–1，`score` 0–1，按 score 从高到低；顶层 `detector` 是 `yunet`，检测器不可用时为 null（`faces` 都是空数组）。`file` 为 null 的帧没有 `faces`。
 - {{tool:videos_shots}}：`cuts` 每处有 `at`（新镜头第一帧的秒）、`score`（`edit` 为 null）与 `kind`；`shots` 每个有 `start`、`end` 与 `sampleAt`。按说话人切时没有 `cuts`：`shots` 每段另有 `speaker` 与 `face`（`faces` 的下标，分屏段两项都是 null），另有 `faces [{box, speaker}]`（各取样里的中位脸框，从左到右）、`speakers [{id, name, face, probes, contrast}]` 与 `confidence`。
 - {{tool:assets_import}}：回执里有 `assetId`、`itemId`（没放上时间线时为 null）与新版本。
@@ -247,6 +287,10 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 | `ASSET_MISSING` | 链接的原文件被移动或删除：请用户放回原处或给新位置 |
 | `INPUT_TOO_LONG` | 图片提示词超长：缩短后重提 |
 | `CAPABILITY_NOT_CONFIGURED` | 没有可用的图片模型：见 [models](models.md) |
+| `IMAGE_EDIT_MASK_EMPTY`、`IMAGE_EDIT_MASK_TOO_LARGE` | 选区不在图上，或占了六成以上：按 `details` 里图的 `width`、`height` 改坐标；要大改整张图就用 {{tool:image}} 重新生成 |
+| `IMAGE_EDIT_UNSUPPORTED` | 选的模型不能按提示词改图，或一个能改图的都没有：见「放大与修改图片」的两种补法 |
+| `IMAGE_EDIT_TOO_LARGE`、`UPSCALE_OUTPUT_TOO_LARGE` | 扩图每边超过 4096，或放大后超过 16384 像素：少扩一些、给小一点的 {{arg:scale}} |
+| `TOOL_UNAVAILABLE`、`TOOL_MANIFEST_INCOMPLETE` | Real-ESRGAN 用不了或这个平台下载不到：照 `remedy` 转告用户 |
 <!-- surface: agent -->
 | `DECK_NOT_FOUND`、`NOT_A_DECK` | 路径不是 deck 目录（没有 `deck.json`，或它不是幻灯片的索引）：核对路径 |
 | `SLIDES_COMPILER_UNAVAILABLE` | 这台机器上的 BaoCut 没带幻灯片编辑器：deck 文件照样写好，告诉用户没法校验、也没法在 BaoCut 里打开，不要自己找编译器 |
@@ -255,10 +299,10 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 <!-- /surface -->
 
 <!-- surface: cli -->
-不要自己运行 yt-dlp 或 ffmpeg 来绕过这些错误。
+不要自己运行 yt-dlp、ffmpeg 或放大程序来绕过这些错误。
 <!-- /surface -->
 <!-- surface: agent -->
-不要用 shell 自己运行下载程序或 ffmpeg 来绕过这些错误。
+不要用 shell 自己运行下载程序、ffmpeg 或放大程序来绕过这些错误。
 <!-- /surface -->
 
 ## 下一步
@@ -270,5 +314,5 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 ## 验收
 
 - 视频是新建的还是用户原来的，名字与位置说清楚；没有重复建视频、重复导入素材。
-- 转码、合并的输出文件真实存在（取结果里的 `path`），原文件没动。
+- 转码、合并、放大与修图的输出文件真实存在（取结果里的 `path`），原文件没动；修过的图看过一眼，没看的在交付时说没看过。
 - 只按真正取到并看过的帧下视觉判断；帧不含字幕与叠加元素这一点写进交付报告。

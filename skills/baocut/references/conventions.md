@@ -78,7 +78,7 @@ Ctrl-C 先取消正在等的任务，第二次直接退出（130）。
 
 ## 6. 等任务结束
 
-一级动词（{{tool:transcribe}}、{{tool:translate}}、{{tool:dub}}、{{tool:download}}、{{tool:export}}、{{tool:transcode}}、{{tool:speak}}、{{tool:image}}）以及 {{tool:jobs_retry}}、{{tool:models_install}}、{{tool:models_test}} 返回任务（`jobId`）。`state` 为 `completed` 才算完成，结果在 `outputs`（文件的 `path`、`documentId`、`assetId`、`artifactId`）与流程的 `pipeline.summary` 里。
+一级动词（{{tool:transcribe}}、{{tool:translate}}、{{tool:dub}}、{{tool:download}}、{{tool:export}}、{{tool:transcode}}、{{tool:speak}}、{{tool:image}}、{{tool:upscale}}、{{tool:retouch}}）以及 {{tool:jobs_retry}}、{{tool:models_install}}、{{tool:models_test}} 返回任务（`jobId`）。`state` 为 `completed` 才算完成，结果在 `outputs`（文件的 `path`、`documentId`、`assetId`、`artifactId`）与流程的 `pipeline.summary` 里。
 
 <!-- surface: cli -->
 - **默认等。** 返回任务的命令默认阻塞到终态，退出码按终态给，结果里直接带 `outputs` 与终态的任务记录 `job`（顶层 `state` 也是终态）。`baocut jobs wait <jobId>` 同样等到终态。
