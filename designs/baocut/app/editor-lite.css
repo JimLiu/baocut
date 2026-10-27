@@ -1,7 +1,7 @@
 /* 轻量编辑器（editor-lite.jsx；docs/design/lite-editor §3）。前缀 lt-。
    画面区沿用舞台的底色（gray-100），底下是与时间线视图同一条的舞台工具条（.stagebar，ui.css）；播放条与侧栏是 sheet（gray-25）；边界只画 2px gray-100 的一根线，不叠圆角与底色。 */
 .lt { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; }
-/* 顶栏上的 轻量 / 时间线 切换与「默认打开」菜单（shell.jsx 的 MovieViewSwitch） */
+/* 顶栏上的 审片 / 时间线 切换（shell.jsx 的 MovieViewSwitch；「默认打开」在视频名菜单里） */
 .moviebar__view { display: flex; align-items: center; gap: 2px; flex: none; }
 .lt__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .lt__stage { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; background: var(--gray-100); }

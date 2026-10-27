@@ -34,7 +34,19 @@
       : <div className={cls}>{body}</div>;
   }
 
-  function TaskPill({list, projectId}) {
+  /* 进度环（compact）：视频栏用的紧凑形态，一颗 32px 的环，不写字。环画表头那一条的进度（没有进度时转圈），
+     多于一条时右上角标总条数；任务名、阶段与取消都在悬停卡里。 */
+  const RING_C = 2 * Math.PI * 7;
+  function Ring({pct}) {
+    const indet = pct == null;
+    return <svg className={cx('tring__svg', indet && 'is-indet')} viewBox="0 0 20 20" aria-hidden="true">
+      <circle className="tring__track" cx="10" cy="10" r="7" />
+      <circle className="tring__bar" cx="10" cy="10" r="7" strokeDasharray={RING_C}
+        strokeDashoffset={indet ? RING_C * 0.7 : RING_C * (1 - Math.max(0, Math.min(100, pct)) / 100)} />
+    </svg>;
+  }
+
+  function TaskPill({list, projectId, compact = false}) {
     const app = useApp();
     const [open, setOpen] = useState(false);
     const timer = useRef(0);
@@ -53,9 +65,19 @@
     const goTask = (t) => { setOpen(false); app.go({r: 'task', id: t.id}); };
     const goAll = () => { setOpen(false); app.go({r: 'tasks'}); };
     const cancel = (t) => (t.origin === 'url' ? app.cancelImport(t.id) : app.cancelTask(t));
+    const ringLabel = pill.more ? `${list.length} 个后台任务 · ${pill.label}` : `后台任务 · ${pill.label}`;
+    const canCancel = live && !pill.more && head.cancellable;
     return (
       <span className="tpillw" onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}>
-        <span className={cx('tpill', !live && 'tpill--static')} data-testid="titlebar-task-pill">
+        {compact ? (live
+          ? <BCAction className="tring" aria-label={ringLabel} data-testid="titlebar-task-pill"
+              onClick={() => (pill.more ? goAll() : goTask(head))}>
+              <Ring pct={head.pct} />{pill.more ? <span className="tring__n">{list.length}</span> : null}
+            </BCAction>
+          : <span className="tring tring--static" role="img" aria-label={ringLabel} data-testid="titlebar-task-pill">
+              <Ring pct={head.pct} />{pill.more ? <span className="tring__n">{list.length}</span> : null}
+            </span>) : null}
+        {compact ? null : <span className={cx('tpill', !live && 'tpill--static')} data-testid="titlebar-task-pill">
           {/* Web 用 span 而不是 disabled 的 button：禁用控件在部分浏览器里收不到 hover，卡片就弹不出来 */}
           {live
             ? <BCAction className="tpill__go" onClick={() => (pill.more ? goAll() : goTask(head))}>{face}</BCAction>
@@ -65,9 +87,9 @@
             ? <BCAction className="tpill__x" title={window.BC_EXPORT.cancelCopy(head.kind).confirmLabel}
                 onClick={() => cancel(head)}><Ic n="close" className="ic--14" /></BCAction>
             : null}
-        </span>
+        </span>}
         {open ? (
-          <Popover open={open} onClose={() => setOpen(false)} align="right" className={cx('tpcard', card.multi && 'tpcard--multi')}>
+          <Popover open={open} onClose={() => setOpen(false)} align="right" nonModal className={cx('tpcard', card.multi && 'tpcard--multi')}>
             {card.multi ? (
               <div className="tpcard__head">
                 <span>{card.title}</span>
@@ -80,6 +102,11 @@
             {card.overflow
               ? <div className="tpcard__more">还有 {card.overflow} 个任务{live ? ' · 在后台任务里看全部' : ''}</div>
               : null}
+            {/* 进度环上没有 ×：单条可取消时，取消放在卡片里 */}
+            {compact && canCancel ? <div className="tpcard__acts">
+              <window.RSP.Button size="S" variant="secondary" onPress={() => { setOpen(false); cancel(head); }}>
+                {window.BC_EXPORT.cancelCopy(head.kind).confirmLabel}</window.RSP.Button>
+            </div> : null}
           </Popover>
         ) : null}
       </span>

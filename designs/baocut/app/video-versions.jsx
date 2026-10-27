@@ -68,7 +68,9 @@
 
   /* ---------- 视频栏的入口 ---------- */
 
-  function VersionsButton({editor}) {
+  /** 版本记录的控制器：状态、外部改动的导入（对话框关着也要跑）与对话框本身。
+      入口由调用方画：`children({open, tip, conflict})`。视频栏把它挂在视频名菜单里（shell.jsx 的 MovieTitle）。 */
+  function VersionsControl({editor, children}) {
     const app = useApp();
     const movie = app.projects.find((p) => p.id === editor.projectId) || {id: editor.projectId, title: editor.title};
     const [st, put, latest] = useVersions(movie);
@@ -92,14 +94,9 @@
       }, IMPORT_MS);
       return () => clearTimeout(t);
     }, [importing, movie.id]);
-    const tip = VV.buttonTip(st);
+    const ctl = {open: () => setOpen(true), tip: VV.buttonTip(st), conflict: !!(st.inProject && st.state === 'conflict')};
     return <>
-      <Tip label={tip}>
-        <R.ActionButton isQuiet aria-label={tip} onPress={() => setOpen(true)} UNSAFE_className="vh-entry">
-          <R.Icons.History />
-          {st.inProject && st.state === 'conflict' ? <R.NotificationBadge size="S" UNSAFE_className="vh-entry__alert" /> : null}
-        </R.ActionButton>
-      </Tip>
+      {children(ctl)}
       {open ? <VideoVersionsDialog movie={movie} imported={imported} onClose={() => { setOpen(false); setImported(null); }} /> : null}
     </>;
   }
@@ -466,5 +463,5 @@
     </BCModal>;
   }
 
-  Object.assign(window, {VideoVersionsButton: VersionsButton, VideoVersionsDialog, VideoVersionsStrip: VersionsStrip, loadVideoVersions: load});
+  Object.assign(window, {VideoVersionsControl: VersionsControl, VideoVersionsDialog, VideoVersionsStrip: VersionsStrip, loadVideoVersions: load});
 })();
