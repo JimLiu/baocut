@@ -38,7 +38,7 @@
         <span className="onb-model__desc">{OB.onlineLine(r, V())}</span>
         {on && !r.ready ? (
           // 单选组拿方向键切换选项：表单里的方向键留给输入框；单选组带插槽的 TextContext 也在这里清掉（按钮文字不带插槽）
-          <div className="onb-prov__form" onKeyDown={(e) => e.stopPropagation()}>
+          <div className="onb-prov__form" onKeyDown={(e) => { if (/^Arrow/.test(e.key)) e.stopPropagation(); }}>
             <S.AriaTextContext.Provider value={null}>
               {v.site ? (
                 <p className="t-detail-xs onb-prov__site">还没有密钥？到 <a href={v.site} target="_blank" rel="noreferrer">{V().hostOf(v.site)}</a> 创建一把，复制过来。</p>
