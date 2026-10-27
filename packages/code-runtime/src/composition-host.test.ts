@@ -106,6 +106,23 @@ describe.skipIf(!electron)('CompositionHost（Electron 离屏）', { timeout: 12
     }
   });
 
+  it('画面与之前取过的帧无关：打开后的第一帧与重取相同，定格帧不论先取过哪一帧都相同', async () => {
+    const bundle = await inspect('hyperframes-fade-in', { manifest: { alpha: true } });
+    const session = await host.open(bundle);
+    try {
+      const sha = async (seconds: number) => (await session.frame(at(bundle, seconds))).receipt.sha256;
+      const first = await sha(1);
+      expect(await sha(1)).toBe(first);
+      const settled = await sha(1.5);
+      for (const before of [0.5, 0, 0.8, 1]) {
+        await sha(before);
+        expect(await sha(1.5)).toBe(settled);
+      }
+    } finally {
+      await session.dispose();
+    }
+  });
+
   it('精确的帧序号票据：localTime = k × den / num', async () => {
     const bundle = await inspect('hyperframes-basic');
     const session = await host.open(bundle);

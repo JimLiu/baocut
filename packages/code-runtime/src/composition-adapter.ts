@@ -12,8 +12,10 @@
  *   `renderAt(time, params)` 收到微秒时间基的 `MediaTime`（`ticks = round(秒 × 10⁶)`）与空参数对象 `{}`；
  *   它兑现成数字时当作实际采样的秒数，否则采样时间就是目标时间。
  *
- * 每次 seek 之后等两次 `requestAnimationFrame`，让 DOM 提交后再截图（§8.4：这只是候选的等待策略）。
- * `seek(秒, false)` 只给录制用（`canvas-recorder.ts`）：`renderAt` 兑现后立即返回，不等提交——录的是调用，不截图。
+ * 每次要截图的 seek 之前先空一帧：把 `<html>` 的透明度压到 0、等两次 `requestAnimationFrame`，再还原。上一次画到屏上的分数透明度与变换
+ * 会留在合成器里，同一时刻的像素按之前取过哪帧差一两级，`determinism` 检查因此误判；空一帧之后同一时刻总是同一张图。
+ * seek 之后再等两次 `requestAnimationFrame`，让 DOM 提交后再截图（§8.4：这只是候选的等待策略）。
+ * `seek(秒, false)` 只给录制用（`canvas-recorder.ts`）：不空帧，`renderAt` 兑现后立即返回，不等提交——录的是调用，不截图。
  */
 
 /** `ready` 兑现的页面信息。页面没给的字段为 null，由宿主用清单补。 */
@@ -48,6 +50,16 @@ export const COMPOSITION_ADAPTER_SCRIPT = String.raw`(() => {
   const fail = (code, message) => Object.assign(new Error(message), { code });
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const twoFrames = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  // Commit one empty frame so raster state left by the previous picture cannot leak into the next one.
+  const blankFrame = async () => {
+    const style = document.documentElement.style;
+    const value = style.getPropertyValue('opacity');
+    const priority = style.getPropertyPriority('opacity');
+    style.setProperty('opacity', '0', 'important');
+    await twoFrames();
+    if (value) style.setProperty('opacity', value, priority);
+    else style.removeProperty('opacity');
+  };
   const guard = async (fn) => {
     try {
       return { ok: true, value: await fn() };
@@ -151,6 +163,7 @@ export const COMPOSITION_ADAPTER_SCRIPT = String.raw`(() => {
 
   const seekHyperframes = async (seconds) => {
     const { tl, duration, ownDuration } = state;
+    await blankFrame();
     const clamped = seconds > duration;
     let target = Math.min(Math.max(seconds, 0), duration);
     // 时间线比 data-duration 短：越过时间线末尾的部分是 hold。
@@ -170,6 +183,7 @@ export const COMPOSITION_ADAPTER_SCRIPT = String.raw`(() => {
     const clamped = seconds > duration;
     const target = Math.min(Math.max(seconds, 0), duration);
     const mediaTime = { ticks: String(Math.round(target * 1000000)), timescale: 1000000 };
+    if (settle) await blankFrame();
     const returned = await comp.renderAt(mediaTime, {});
     if (settle) await twoFrames();
     const sampled = typeof returned === 'number' && Number.isFinite(returned) ? returned : target;

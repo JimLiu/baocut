@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+  body { font-family: Arial, Helvetica, sans-serif; }
+  #root { position: relative; width: 1280px; height: 720px; color: #15181d; }
+  #panel { position: absolute; left: 80px; top: 420px; width: 640px; height: 180px; border-radius: 24px; background: #f6f3eb; }
+  #badge { position: absolute; left: 112px; top: 462px; width: 96px; height: 96px; border-radius: 28px; background: #ff6a3d; }
+  .line { position: absolute; left: 240px; margin: 0; white-space: nowrap; }
+  #name { top: 446px; font-size: 48px; font-weight: 700; }
+  #role { top: 510px; font-size: 26px; color: #4a4d52; }
+  #tag { top: 552px; padding: 4px 12px; border-radius: 8px; font-size: 16px; font-weight: 700; letter-spacing: 0.12em; color: #ff6a3d; background: #fbe3da; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-width="1280" data-height="720" data-fps="30" data-duration="2">
+  <div id="panel"></div>
+  <div id="badge"></div>
+  <p class="line" id="name">Jamie Sample</p>
+  <p class="line" id="role">Lead Product Designer</p>
+  <p class="line" id="tag" style="visibility: visible">INDEPENDENT STUDIO</p>
+</div>
+<script>
+  // Each element slides and fades in, then holds still from 1.2 s: the settled frames must not depend on what was rendered before.
+  var DURATION = 2;
+  function progress(time, start, end) {
+    var p = Math.min(Math.max((time - start) / (end - start), 0), 1);
+    return 1 - Math.pow(1 - p, 3);
+  }
+  function place(id, p, extra) {
+    var el = document.getElementById(id);
+    el.style.transform = 'translateX(' + ((1 - p) * -60) + 'px)' + (extra || '');
+    el.style.opacity = String(p);
+  }
+  function renderScene(time) {
+    place('panel', progress(time, 0, 0.5));
+    place('name', progress(time, 0.2, 0.7));
+    place('role', progress(time, 0.4, 0.9));
+    place('tag', progress(time, 0.6, 1.1));
+    var badge = progress(time, 0.7, 1.2);
+    place('badge', badge, ' scale(' + (0.3 + 0.7 * badge) + ') rotate(' + ((1 - badge) * -20) + 'deg)');
+  }
+  function SeekableTimeline(duration, render) {
+    this._duration = duration;
+    this._time = 0;
+    this._render = render;
+    render(0);
+  }
+  SeekableTimeline.prototype.duration = function () { return this._duration; };
+  SeekableTimeline.prototype.seek = function (t) {
+    this._time = Math.min(Math.max(Number(t) || 0, 0), this._duration);
+    this._render(this._time);
+    return this;
+  };
+  SeekableTimeline.prototype.time = function () { return this._time; };
+  SeekableTimeline.prototype.pause = function () { return this; };
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines.main = new SeekableTimeline(DURATION, renderScene);
+</script>
+</body>
+</html>
