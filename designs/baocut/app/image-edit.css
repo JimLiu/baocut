@@ -7,13 +7,11 @@
 .ie__facts dd { margin: 0; min-width: 0; color: var(--gray-800); }
 .ie__margins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
 
-/* 锚点：3×3 的小格，选中的一格实心 */
-.ie__anchors { display: grid; grid-template-columns: repeat(3, 20px); grid-template-rows: repeat(3, 20px); gap: 4px; }
-.ie__anchor { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: var(--gray-200); cursor: pointer;
-  transition: background 150ms cubic-bezier(0.45, 0, 0.4, 1); }
-.ie__anchor:hover { background: var(--gray-300); }
-.ie__anchor:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
-.ie__anchor.is-on { background: var(--blue-900); }
+/* 锚点：RSP.RadioGroup 的九个单选按 3×3 排（S2 的选项容器是第一层 div） */
+.ie__anchors > div { display: grid; grid-template-columns: repeat(3, max-content); gap: 4px 8px; }
+/* S2 让每个单选跨整行、用 subgrid 对齐文字列；这里没有文字，改成各占一格 */
+.ie__anchors > div > div { grid-column: auto; display: flex; }
+.ie__anchors > div > div > label { display: flex; }
 
 /* 画布：图按比例放进一个最高 480px 的台面；叠在上面的 SVG 用原图像素做 viewBox */
 .iecv { display: flex; flex-direction: column; gap: 8px; min-width: 0; }

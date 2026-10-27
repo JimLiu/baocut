@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import type { EditImageMethod, JobRecord, UpscaleImageModel, UpscaleImageScale } from '@baocut/protocol';
+import type { EditImageAnchor, EditImageMethod, JobRecord, UpscaleImageModel, UpscaleImageScale } from '@baocut/protocol';
 import { ActionButton, Button, DropZone, NumberField, ProgressBar, SegmentedControl, SegmentedControlItem, Slider, Text, ToastQueue } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import Close from '@react-spectrum/s2/icons/Close';
@@ -7,7 +7,7 @@ import ImageIcon from '@react-spectrum/s2/icons/Image';
 import Undo from '@react-spectrum/s2/icons/Undo';
 import Upload from '@react-spectrum/s2/icons/Upload';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import type { DropItem } from 'react-aria-components';
+import { Radio, RadioGroup, type DropItem } from 'react-aria-components';
 import { M } from '../../model/tools-image-edit-copy.ts';
 import {
   BOX_PRESETS,
@@ -59,7 +59,9 @@ import { useEntryThumbnail } from '../use-entry-thumbnail.ts';
 import { BarStatus, detail, detailGrow, Gate, HeaderChip, hintText, RecordCard, recordHead, recordIcon, recordRow, recordText, recordTitle, Row, Section, SectionLink, SideFoot, SideHead, submitOnModEnter, ToolPage, ToolTextArea, Workbench } from './tool-parts.tsx';
 import { ModelRow, SaveDirRow } from './tool-frame.tsx';
 import { ToolOutputRow, useJobOutputs } from './tool-outputs.tsx';
-import { FRAME_COPY, IMAGE_COPY, RECORD_COPY } from './tools-copy.ts';
+import { FORM_COPY, FRAME_COPY, IMAGE_COPY, RECORD_COPY } from './tools-copy.ts';
+import { GrantCard } from './tool-run-view.tsx';
+import { useImageEditStart } from './use-image-edit-start.ts';
 import { SpacePicker } from './tool-video-picker.tsx';
 import { useCancelJob } from './use-tool-records.ts';
 import { useEsrgan, type EsrganState } from './use-esrgan.ts';
@@ -95,18 +97,25 @@ const placed = style({ position: 'absolute', outlineStyle: 'solid', outlineWidth
 const bar = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, minHeight: 32 });
 const mono = style({ font: 'code-xs', color: 'gray-700' });
 const chips = style({ display: 'flex', flexWrap: 'wrap', gap: 8 });
-const anchors = style({ display: 'grid', gridTemplateColumns: 'repeat(3, 20px)', gap: 4 });
+const anchors = style({ display: 'grid', gridTemplateColumns: 'repeat(3, 16px)', gap: 8 });
+// 九个单选（同 S2 Radio 的圆点，没有文字：名字在 aria-label 里）按 3×3 排；S2 RadioGroup 的选项容器不能改成网格，所以用 RAC。
 const anchor = style({
-  width: 20,
-  height: 20,
-  padding: 0,
-  borderWidth: 0,
-  borderRadius: 'sm',
-  backgroundColor: { default: 'gray-200', isHovered: 'gray-300', isSelected: 'blue-900' },
+  display: 'flex',
+  borderRadius: 'full',
   outlineStyle: { default: 'none', isFocusVisible: 'solid' },
   outlineColor: 'focus-ring',
   outlineWidth: 2,
   outlineOffset: 2,
+});
+const anchorDot = style({
+  boxSizing: 'border-box',
+  width: 16,
+  height: 16,
+  borderRadius: 'full',
+  borderStyle: 'solid',
+  borderWidth: { default: 2, isSelected: '[5px]' },
+  borderColor: { default: 'gray-800', isHovered: 'gray-900', isSelected: 'gray-900' },
+  backgroundColor: 'gray-25',
 });
 const peekRow = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: 12 });
 const peekItem = style({ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 160, margin: 0 });
@@ -188,7 +197,6 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
   const esrganChecking = op === 'upscale' && esrgan.state === 'checking';
   const shownBlock = op === 'upscale' && esrgan.state !== 'ready' ? null : block;
   const [tried, setTried] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [fromSpace, setFromSpace] = useState(false);
   const entries = useSpace((s) => s.entries);
 
@@ -220,35 +228,42 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
     if (loaded.length) setSources(o.batch ? [...draft.sources, ...loaded].slice(0, 50) : loaded.slice(0, 1));
   };
 
+  const outDir = saveTarget(tools.saveDirectory, draft.outDir) ?? null;
+  // 表单的样子：改了，在等的授权请求就作废。
+  const formKey = JSON.stringify([op, form, srcs.map((s) => s.input), sel, engine?.key ?? null, outDir]);
+  const starter = useImageEditStart(formKey, {
+    started: () => {
+      ToastQueue.positive(M.submitted, { timeout: 3000 });
+      setTried(false);
+    },
+    failed: (e) => ToastQueue.negative(M.submitFailed(rejectionText(e)), { timeout: 8000 }),
+  });
+
   const submit = () => {
     setTried(true);
-    if (shownBlock || esrganChecking || submitting) return;
+    if (shownBlock || esrganChecking || starter.busy || starter.asking) return;
     if (problems.length) {
       ToastQueue.neutral(problems[0]!, { timeout: 4000 });
       return;
     }
-    const outDir = saveTarget(tools.saveDirectory, draft.outDir) ?? null;
-    const request =
+    starter.start(
       op === 'upscale'
-        ? runtime.startPipeline(IMAGE_EDIT_PIPELINES.upscale, { ...upscaleRequest(form, srcs, outDir) })
-        : runtime.startPipeline(IMAGE_EDIT_PIPELINES[op], { ...editRequest(op, form, srcs, sel, engine, outDir) });
-    setSubmitting(true);
-    request
-      .then(
-        () => {
-          ToastQueue.positive(M.submitted, { timeout: 3000 });
-          setTried(false);
-        },
-        (e: unknown) => ToastQueue.negative(M.submitFailed(rejectionText(e)), { timeout: 8000 }),
-      )
-      .finally(() => setSubmitting(false));
+        ? { pipeline: IMAGE_EDIT_PIPELINES.upscale, params: { ...upscaleRequest(form, srcs, outDir) } }
+        : { pipeline: IMAGE_EDIT_PIPELINES[op], params: { ...editRequest(op, form, srcs, sel, engine, outDir) } },
+    );
   };
 
-  const status = shownBlock ? { text: shownBlock, bad: true } : problems.length ? { text: problems[0]!, bad: tried } : { text: statusText(op, form, srcs), bad: false };
+  const status = shownBlock
+    ? { text: shownBlock, bad: true }
+    : problems.length
+      ? { text: problems[0]!, bad: tried }
+      : starter.asking
+        ? { text: FORM_COPY.needGrant, bad: false }
+        : { text: statusText(op, form, srcs), bad: false };
   const barNode = (
     <>
       <BarStatus text={status.text} bad={status.bad} />
-      <Button variant="accent" isDisabled={!!shownBlock || esrganChecking} isPending={submitting} onPress={submit}>
+      <Button variant="accent" isDisabled={!!shownBlock || esrganChecking || !!starter.asking} isPending={starter.busy} onPress={submit}>
         <ImageIcon />
         <Text>{M.verb[op]}</Text>
       </Button>
@@ -316,6 +331,7 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
         <MethodOptions op={op} form={form} setForm={setForm} models={models} engine={engine} onSettings={() => go({ tab: 'models', category: 'image' })} />
       ) : null}
       <SaveDirRow saveDirectory={tools.saveDirectory} override={draft.outDir} onChange={(outDir) => patch({ outDir })} note={M.saveNote} />
+      {starter.asking ? <GrantCard items={starter.asking} onAgree={starter.agree} busy={starter.busy} /> : null}
     </>
   );
 
@@ -725,19 +741,13 @@ function ExpandOptions({ form, setForm, src }: { form: ImageEditForm; setForm: (
         </div>
       ) : (
         <Row label={M.anchorTitle}>
-          <div className={anchors} role="radiogroup" aria-label={M.anchorTitle}>
+          <RadioGroup aria-label={M.anchorTitle} value={form.anchor} onChange={(v) => setForm({ anchor: v as EditImageAnchor })} className={anchors}>
             {EXPAND_ANCHORS.map((a) => (
-              <button
-                key={a}
-                type="button"
-                role="radio"
-                aria-checked={form.anchor === a}
-                aria-label={M.anchor[a]}
-                className={anchor({ isSelected: form.anchor === a })}
-                onClick={() => setForm({ anchor: a })}
-              />
+              <Radio key={a} value={a} aria-label={M.anchor[a]} className={(rp) => anchor(rp)}>
+                {({ isSelected, isHovered }) => <span className={anchorDot({ isSelected, isHovered })} aria-hidden />}
+              </Radio>
             ))}
-          </div>
+          </RadioGroup>
           <span className={detailGrow}>{M.anchorNote}</span>
         </Row>
       )}

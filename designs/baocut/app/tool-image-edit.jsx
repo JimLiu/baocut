@@ -265,10 +265,9 @@
         ))}
       </div> : <div className="vw__row">
         <span className="vw__lab">原图放在</span>
-        <div className="ie__anchors" role="radiogroup" aria-label="原图放在哪">
-          {E.ANCHORS.map((a) => <BCAction key={a} type="button" role="radio" aria-checked={f.anchor === a} aria-label={E.ANCHOR_LABEL[a]}
-            className={cx('ie__anchor', f.anchor === a && 'is-on')} onClick={() => set({anchor: a})} />)}
-        </div>
+        <window.RSP.RadioGroup aria-label="原图放在哪" value={f.anchor} onChange={(a) => set({anchor: a})} UNSAFE_className="ie__anchors">
+          {E.ANCHORS.map((a) => <window.RSP.Radio key={a} value={a} aria-label={E.ANCHOR_LABEL[a]} />)}
+        </window.RSP.RadioGroup>
         <span className="t-detail-xs">只往缺的方向加，不裁原图</span>
       </div>}
       {plan && plan.staged ? <div className="hint hint--warn">一边扩出超过原图一倍：建筑线条、地平线容易接不上。可以先扩一半，看了结果再扩一次。</div> : null}
