@@ -11,12 +11,13 @@
 //! 5. `aligned`：长行的强制对齐，一行一条（行号在识别或合并之后的行里、不重复）；`words` 为 null 表示对齐器没给出词。
 //!    对齐器报错的行不记，续跑时再试一次，所以行号不一定递增。
 //!
-//! 读到撕裂的末行（崩溃时常见）、乱序、重复或阶段跳跃就停在那里，之后的截掉。检查点只省时间，从不决定结果：读写出错只在 stderr
-//! 记一句，这次不再写，任务照常进行。
+//! 读到撕裂的末行（崩溃时常见）、乱序、重复或阶段跳跃就停在那里，之后的截掉。同一时间只有一个 Worker 写一份检查点：打开时取得
+//! 独占的文件锁，别的 Worker 正拿着它（同一份输入同时用两个 MOSS 模型包识别、Runtime 被杀之后旧的 Worker 还没退出）就这次不用。
+//! 检查点只省时间，从不决定结果：读写出错只在 stderr 记一句，这次不再写，任务照常进行。
 
 use std::collections::BTreeMap;
-use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
+use std::fs::{File, OpenOptions, TryLockError};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -196,7 +197,7 @@ enum Stage {
     Aligned,
 }
 
-/// 打开的检查点文件：只追加；写出错之后不再写。
+/// 打开的检查点文件：持有独占锁，只在末尾追加；写出错之后不再写（同时放开锁）。
 pub struct Checkpoint {
     path: PathBuf,
     file: Option<File>,
@@ -211,8 +212,8 @@ pub struct Checkpoint {
 }
 
 impl Checkpoint {
-    /// 打开 `path`：头与 `key` 相符时读回有效的前缀并截掉之后的部分，否则整份重写成只有头的文件。打不开或写不进去时
-    /// 返回 `None`，这次不用检查点。
+    /// 打开 `path`：头与 `key` 相符时读回有效的前缀并截掉之后的部分，否则整份重写成只有头的文件。打不开、写不进去或别的
+    /// Worker 正拿着它时返回 `None`，这次不用检查点。
     pub fn open(path: &Path, key: &str, params: &JobRunParams, bundle: &VerifiedBundle) -> Option<(Self, Restored)> {
         match Self::try_open(path, key, params, bundle) {
             Ok(opened) => Some(opened),
@@ -224,15 +225,16 @@ impl Checkpoint {
     }
 
     fn try_open(path: &Path, key: &str, params: &JobRunParams, bundle: &VerifiedBundle) -> std::io::Result<(Self, Restored)> {
-        let mut bytes = Vec::new();
-        match File::open(path) {
-            Ok(mut file) => {
-                file.read_to_end(&mut bytes)?;
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error),
+        // 读写都走这一个句柄：Windows 的文件锁是强制的，别的句柄读不了锁住的文件；也不用追加模式，Windows 上追加模式的
+        // 句柄截不短文件（`set_len` 要写数据的权限）。写之前定位到末尾（`write`）。
+        let mut file = OpenOptions::new().read(true).write(true).create(true).truncate(false).open(path)?;
+        match file.try_lock() {
+            Ok(()) => {}
+            Err(TryLockError::WouldBlock) => return Err(std::io::Error::other("another worker is using it")),
+            Err(TryLockError::Error(error)) => return Err(error),
         }
-        let file = OpenOptions::new().create(true).append(true).open(path)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
         let mut checkpoint = Self {
             path: path.to_owned(),
             file: Some(file),
@@ -449,9 +451,10 @@ impl Checkpoint {
             .ok_or_else(|| std::io::Error::other("the checkpoint is closed"))?;
         let mut line = serde_json::to_vec(record).map_err(std::io::Error::other)?;
         line.push(b'\n');
+        file.seek(SeekFrom::End(0))?;
         file.write_all(&line)?;
         file.sync_data()?;
-        file.metadata().map(|metadata| metadata.len())
+        file.stream_position()
     }
 
     fn truncate(&mut self, length: u64) -> std::io::Result<()> {
@@ -464,11 +467,21 @@ impl Checkpoint {
     }
 
     fn fail(&mut self, detail: &str) {
-        if self.file.take().is_some() {
+        if let Some(file) = self.file.take() {
+            let _ = file.unlock();
             eprintln!(
                 "[model-worker] stopped writing the transcription checkpoint {}: {detail}",
                 self.path.display()
             );
+        }
+    }
+}
+
+impl Drop for Checkpoint {
+    /// 先显式解锁再关闭：锁挂在打开的文件描述上，同一进程里正在起的子进程手里的副本会让它多留一会儿（同视频目录的写锁）。
+    fn drop(&mut self) {
+        if let Some(file) = &self.file {
+            let _ = file.unlock();
         }
     }
 }

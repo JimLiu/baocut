@@ -1429,6 +1429,41 @@ fn a_checkpoint_from_other_parameters_or_models_is_discarded_and_everything_runs
     assert_eq!(run_with(&other_bundle, &other_options, "schema"), (1, 3));
 }
 
+/// 别的 Worker 正拿着同一份检查点（同一份输入同时用两个模型包识别、Runtime 被杀后旧的 Worker 还没退出）：这一次不用它、
+/// 整个重跑，也不动它，不会把两边的工作交错写进一个文件；放开之后照常续用。
+#[test]
+fn a_checkpoint_another_worker_holds_is_left_alone() {
+    let fixture = Fixture::with_moss_helpers();
+    let wav = fixture.wav("three.wav", &[(18.0, 0.3)]);
+    let options = json!({ "language": { "mode": "prefer", "tag": null }, "diarize": true });
+    let checkpoint = fixture.dir.path().join("input.jsonl");
+    let run = |name: &str| {
+        let mut model = three_row_model(FakeAligner::hello_world());
+        let staging = fixture.staging(name);
+        let params = with_checkpoint(params(&wav, &staging, options.clone(), None), &checkpoint);
+        let result = transcribe::run(
+            &mut model,
+            &fixture.bundle,
+            &params,
+            &AtomicBool::new(false),
+            &mut Events::default(),
+        )
+        .unwrap();
+        assert_eq!(result.outcome, JobOutcome::Completed);
+        (model.calls.len(), model.aligner.unwrap().calls.len())
+    };
+    assert_eq!(run("first"), (1, 3));
+    let saved = std::fs::read(&checkpoint).unwrap();
+
+    let holder = std::fs::OpenOptions::new().read(true).write(true).open(&checkpoint).unwrap();
+    holder.try_lock().unwrap();
+    assert_eq!(run("held"), (1, 3));
+    drop(holder);
+    assert_eq!(std::fs::read(&checkpoint).unwrap(), saved);
+
+    assert_eq!(run("released"), (0, 0));
+}
+
 fn phases(events: &Events) -> Vec<&str> {
     events
         .named("job.phase")
