@@ -29,6 +29,7 @@ import {
   type JobRecord,
   type JobState,
   type JobSubmitter,
+  type JobTiming,
   type JobWarning,
   type JobLiveSegment,
   type JobsSnapshot,
@@ -78,6 +79,7 @@ import {
   type TextParameters,
   type TextResult,
   type TickRange,
+  type TranscribeAttempt,
   type TranscribeProvider,
   type TranscribeSelection,
   type TranscribeSink,
@@ -447,6 +449,8 @@ interface Entry extends StoredJob {
   } | null;
   /** 排队中的准入请求（准入或终结时为 null）。 */
   ticket: ResourceTicket | null;
+  /** 这次进入排队的时刻（`Date.now()`）：准入时算转写的 `timing.queueMs`。 */
+  queuedAt: number;
   controller: AbortController | null;
   cancelRequested: boolean;
   /** 请求取消的时间（取消的三件事实，§7.4）。 */
@@ -1460,6 +1464,7 @@ export class JobManager {
     };
     if (this.#closing) return announce();
     const record = entry.record;
+    entry.queuedAt = Date.now();
     entry.ticket = this.#resources.request(this.#resourceRequest(entry), {
       admit: (lease) => {
         announce();
@@ -1518,6 +1523,7 @@ export class JobManager {
     entry.ticket = null;
     if (this.#closing || entry.record.state !== 'queued') return lease.release();
     delete entry.record.wait;
+    if (isTranscribeSpec(entry.spec)) entry.record.timing = { queueMs: Math.max(0, Date.now() - entry.queuedAt) };
     const run: Promise<void> = this.#execute(entry)
       .catch((error: unknown) => {
         if (error instanceof SimulatedCrash) return this.#crash(entry);
@@ -1808,6 +1814,7 @@ export class JobManager {
       }
     }
     delete record.cancellation;
+    delete record.timing;
     Object.assign(record, {
       state: 'queued',
       phase: 'queued',
@@ -1929,6 +1936,8 @@ export class JobManager {
       if (refused) return this.#finish(entry, 'failed', { error: refused });
       const now = nowIso();
       Object.assign(record, { state: 'running', phase: 'starting', progress: null, error: null, startedAt: record.startedAt ?? now });
+      // 崩溃后的重试不重新排队：排队沿用准入时的，加载与各阶段按这一次重新记。
+      if (record.timing) record.timing = { queueMs: record.timing.queueMs };
       // 每次尝试从头写结果（staging 清空，不接着上一次的 segments.jsonl），实时段落也从序号 0 重来；做完的识别与对齐在检查点里。
       entry.liveSegments = [];
       this.#changed(entry, true);
@@ -1973,6 +1982,7 @@ export class JobManager {
         if (attempt.outcome === 'cancelled' || entry.cancelRequested || this.#closing)
           return this.#stopped(entry, attempt.outcome === 'cancelled');
         entry.workerVersion ??= attempt.workerVersion;
+        if (record.timing) record.timing = { ...record.timing, ...attemptTiming(attempt) };
         return await this.#complete(entry, attempt.output, staging, attempt.runGeneration ?? record.attempt);
       } catch (error) {
         entry.controller = null;
@@ -2901,6 +2911,7 @@ export class JobManager {
       executor,
       controller: null,
       ticket: null,
+      queuedAt: Date.now(),
       cancelRequested: false,
       cancelRequestedAt: null,
       leased: false,
@@ -2930,6 +2941,17 @@ function liveSegment(segment: { start: number; end: number; text: string }, time
 /** 需求超过机器容量的任务错误（命令与协议规范 §11.3）。 */
 function exceededError(error: ResourceExceedsCapacity): JobError {
   return jobError(error.code, errorText(error), { dimensions: error.dimensions });
+}
+
+/** Provider 报告的加载与 Worker 各阶段耗时（`JobRecord.timing`）：只取有限、非负的数，没报告的不写。 */
+function attemptTiming(attempt: Extract<TranscribeAttempt, { outcome: 'completed' }>): Omit<Partial<JobTiming>, 'queueMs'> {
+  const stats: Record<string, unknown> = { loadMs: attempt.loadMs, ...attempt.stats };
+  const timing: Omit<Partial<JobTiming>, 'queueMs'> = {};
+  for (const key of ['loadMs', 'decodeMs', 'vadMs', 'asrMs', 'diarizeMs', 'alignMs', 'speechSeconds'] as const) {
+    const value = stats[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) timing[key] = value;
+  }
+  return timing;
 }
 
 function isTranscribeSpec(spec: StoredJob['spec']): spec is TranscribeInputSpec {

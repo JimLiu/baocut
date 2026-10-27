@@ -694,7 +694,7 @@ function fakePng(width: number, height: number, flat: boolean): Buffer {
 }
 
 function stats(speechSeconds: number) {
-  return { decodeMs: 1, vadMs: 1, asrMs: 1, alignMs: 0, speechSeconds };
+  return { decodeMs: 1, vadMs: 1, asrMs: 1, diarizeMs: 0, alignMs: 0, speechSeconds };
 }
 
 async function embed(id: number, params: Record<string, unknown>): Promise<void> {

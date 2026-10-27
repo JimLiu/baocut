@@ -438,6 +438,39 @@ describe('JobManager（假 Model Worker）', () => {
     expect(lastSpeech().speakers).toEqual([]);
   });
 
+  it('阶段耗时：准入时记排队，完成时补上加载与 Worker 各阶段；落账，重启后仍在', async () => {
+    await start();
+    // 同一个模型包一次一个任务：第二个排在第一个（加载要 1 秒）后面，轮到它时模型已经加载好。
+    const first = await submit('fake@cpu#slow-load');
+    const second = await submit('fake@cpu#slow-load', { hint: 'second' });
+    await manager.settled(second.jobId);
+    const a = manager.inspect(first.jobId);
+    const b = manager.inspect(second.jobId);
+    expect(a.state).toBe('completed');
+    expect(b.state).toBe('completed');
+    expect(a.timing).toEqual({
+      queueMs: expect.any(Number),
+      loadMs: expect.any(Number),
+      decodeMs: 1,
+      vadMs: 1,
+      asrMs: 1,
+      diarizeMs: 0,
+      alignMs: 0,
+      speechSeconds: expect.any(Number),
+    });
+    expect(a.timing!.loadMs).toBeGreaterThanOrEqual(900);
+    expect(b.timing!.loadMs).toBeLessThan(500);
+    expect(b.timing!.queueMs).toBeGreaterThanOrEqual(900);
+    // 开始执行时就有排队，之后的阶段在完成时补上。
+    const running = events.find((e) => e.jobId === first.jobId && e.state === 'running')!;
+    expect(running.timing).toEqual({ queueMs: a.timing!.queueMs });
+
+    await manager.shutdown();
+    await start();
+    expect(manager.inspect(first.jobId).timing).toEqual(a.timing);
+    expect(manager.inspect(second.jobId).timing).toEqual(b.timing);
+  });
+
   it('模型不收识别提示：照常转写，提示不交给模型，任务从排队到结束都带 hint-ignored 提醒', async () => {
     await start();
     const { jobId } = await submit('fake-moss@cpu', { hint: '人名：山田', diarize: false });
@@ -540,6 +573,9 @@ describe('JobManager（假 Model Worker）', () => {
     expect(states).toEqual(['queued', 'running', 'interrupted', 'running', 'completed']);
     const interrupted = events.find((e) => e.state === 'interrupted')!;
     expect(interrupted).toMatchObject({ attempt: 1, error: { code: 'MODEL_WORKER_CRASHED' } });
+    // 重试不重新排队：排队沿用第一次的，加载（新起的进程）与各阶段是第二次尝试的。
+    const firstRun = events.find((e) => e.state === 'running')!;
+    expect(job.timing).toMatchObject({ queueMs: firstRun.timing!.queueMs, loadMs: expect.any(Number), asrMs: 1 });
   });
 
   it('转写检查点：崩溃重试拿到同一份按输入 hash 的检查点，完成后删除；失败的留给下次，7 天没用上的启动时删除', async () => {
@@ -770,6 +806,8 @@ describe('JobManager（假 Model Worker）', () => {
     await start();
     expect(manager.inspect('job_running')).toMatchObject({ state: 'interrupted', error: { code: 'JOB_INTERRUPTED' } });
     expect(manager.inspect('job_done').state).toBe('completed');
+    // 之前的记录没有阶段耗时，照常读。
+    expect(manager.inspect('job_done').timing).toBeUndefined();
     for (const name of ['job_running', 'job_done', 'job_unknown']) expect(await exists(stagingOf(name))).toBe(false);
     expect(await exists(legacy)).toBe(false);
     expect(await exists(`${legacy}.migrated`)).toBe(true);

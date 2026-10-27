@@ -121,9 +121,13 @@ interface ActiveJob {
   route(event: WorkerEventParams): void;
 }
 
-/** 一次 `job.run`：Worker 以 `cancelled` 返回或在途被取消，或者完成（输出已核对不为空）。 */
+/**
+ * 一次 `job.run`：Worker 以 `cancelled` 返回或在途被取消，或者完成（输出已核对不为空）。`loadMs` 是等到 Worker 启动并加载好
+ * 模型包用的毫秒数，已经加载好时接近 0。
+ */
 type RunOutcome<R, O = JobOutput> =
-  { outcome: 'cancelled'; workerVersion: string | null } | { outcome: 'completed'; result: R; output: O; workerVersion: string };
+  | { outcome: 'cancelled'; workerVersion: string | null }
+  | { outcome: 'completed'; result: R; output: O; workerVersion: string; loadMs: number };
 
 /** 本地人声分离的一次调用（`job.run` 的 `separate`，Model Worker 协议规范 §2.5.4）。 */
 export interface LocalSeparateRun {
@@ -289,7 +293,8 @@ export class LocalTranscribeProvider implements TranscribeProvider {
       signal,
     );
     if (outcome.outcome === 'cancelled') return outcome;
-    return { outcome: 'completed', output: outcome.output, workerVersion: outcome.workerVersion };
+    const { output, workerVersion, loadMs, result } = outcome;
+    return { outcome: 'completed', output, workerVersion, loadMs, stats: result.stats };
   }
 
   /**
@@ -616,6 +621,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
     slot.job = { jobId: spec.jobId, route: spec.route };
 
     let loaded: Loaded;
+    const loadStarted = Date.now();
     try {
       const acquiring = this.#acquire(slot, spec.loading);
       const raced = await raceAbort(acquiring, signal);
@@ -633,6 +639,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
       this.#release(slot);
       throw error;
     }
+    const loadMs = Date.now() - loadStarted;
 
     const { worker, hello } = loaded;
     if (spec.expectedWorkerVersion && hello.workerVersion !== spec.expectedWorkerVersion) {
@@ -666,7 +673,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
       if (result.outcome === 'cancelled') return { outcome: 'cancelled', workerVersion: hello.workerVersion };
       const output = outputOf(result);
       if (!output) throw new ProviderFailure('protocol', L.noOutput());
-      return { outcome: 'completed', result, output, workerVersion: hello.workerVersion };
+      return { outcome: 'completed', result, output, workerVersion: hello.workerVersion, loadMs };
     } catch (error) {
       if (error instanceof ProviderFailure) throw error;
       if (killedForCancel || (signal.aborted && error instanceof WorkerExitedError)) {

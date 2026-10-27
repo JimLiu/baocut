@@ -527,7 +527,7 @@ impl Runner<'_> {
                 }
             }
         };
-        self.stats.asr_ms += started.elapsed().as_millis() as u64;
+        self.stats.diarize_ms = started.elapsed().as_millis() as u64;
         if let Some(snapshot) = model.memory() {
             self.sink.memory(snapshot);
         }
@@ -711,7 +711,7 @@ impl Runner<'_> {
                     merge
                 }
             };
-            self.stats.asr_ms += started.elapsed().as_millis() as u64;
+            self.stats.diarize_ms = started.elapsed().as_millis() as u64;
             let chunks = speaker_ranges.iter().map(|range| range.chunk).collect::<HashSet<_>>().len();
             match merge {
                 SpeakerMerge::Merged { units, embedded, speakers } => {

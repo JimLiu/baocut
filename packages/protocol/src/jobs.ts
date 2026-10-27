@@ -481,6 +481,35 @@ export interface JobRecord {
    * 固定流程里声明了需求的步骤在准入之前也有（子任务与父任务上都记着）。
    */
   wait?: JobWait;
+  /** 转写（`kind: 'transcribe'`）各阶段的耗时：开始执行时记下排队，完成时补上加载与识别各阶段。之前的记录没有。 */
+  timing?: JobTiming;
+}
+
+/**
+ * 转写任务各阶段的耗时（`JobRecord.timing`，架构设计 §7.2），毫秒：判断批量转写卡在排队、加载还是识别的哪一步。
+ * 只记最近一次尝试；重新排队（`pipelines.retry`、`jobs.reconcile retry`）时清掉，准入时重新记。MOSS 从检查点接着做的尝试
+ * 只计这一次实际做的，检查点里已经做完的阶段接近 0。
+ */
+export interface JobTiming {
+  /**
+   * 进入这次排队到准入。Worker 崩溃后的自动重试不重新排队，沿用这一次的；Runtime 重启后重新排队的从重新入队算，
+   * 不含停机的时间。
+   */
+  queueMs: number;
+  /** 启动 Model Worker 并加载模型包；模型包已经加载好时接近 0。本机 Provider 完成时才有。 */
+  loadMs?: number;
+  /**
+   * 以下是 Model Worker 报告的（Model Worker 协议规范 §2.5.1），本机 Provider 完成时才有：解码、VAD（自己切段的模型没有这一步，
+   * 为 0）、识别、说话人区分（含按需加载说话人模型；更早的 Worker 不单独报告，算在 `asrMs` 里，这时没有这一项）与对齐
+   * （含按需加载对齐器）。
+   */
+  decodeMs?: number;
+  vadMs?: number;
+  asrMs?: number;
+  diarizeMs?: number;
+  alignMs?: number;
+  /** 识别出的语音总时长（秒），与 `asrMs` 一起算识别的速度。 */
+  speechSeconds?: number;
 }
 
 /** 智能体自己翻译的范围（`JobRecord.translation`）。 */

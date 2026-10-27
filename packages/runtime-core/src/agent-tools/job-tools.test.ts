@@ -110,3 +110,38 @@ describe('任务参数里的本机路径', () => {
     expect(JSON.stringify(digest)).not.toContain(ref);
   });
 });
+
+describe('转写的阶段耗时', () => {
+  const inspect = (record: JobRecord) => {
+    const deps = { jobs: {}, pipelines: {}, scope: { authorize: () => ({}), visibleJob: async () => record } } as unknown as JobToolsDeps;
+    const agent = { kind: 'agent', conversationId: 'conv_1' } as unknown as ToolPrincipal;
+    return new JobTools(deps).dispatch('jobs_inspect', { jobId: 'job_1' }, agent) as Promise<Record<string, unknown>>;
+  };
+  const transcribe = (extra: Partial<JobRecord>) =>
+    ({
+      jobId: 'job_1',
+      kind: 'transcribe',
+      state: 'completed',
+      attempt: 1,
+      videoId: 'mov_1',
+      submitter: { kind: 'connection', id: 'conn_1' },
+      warnings: [],
+      result: { documentId: 'doc_1', artifactId: 'sha256:ab' },
+      ...extra,
+    }) as unknown as JobRecord;
+
+  it('有 timing 时原样给出；之前的记录没有时不出现', async () => {
+    const timing = {
+      queueMs: 1200,
+      loadMs: 8000,
+      decodeMs: 900,
+      vadMs: 0,
+      asrMs: 61000,
+      diarizeMs: 4000,
+      alignMs: 7000,
+      speechSeconds: 3600,
+    };
+    expect((await inspect(transcribe({ timing }))).timing).toEqual(timing);
+    expect(await inspect(transcribe({}))).not.toHaveProperty('timing');
+  });
+});

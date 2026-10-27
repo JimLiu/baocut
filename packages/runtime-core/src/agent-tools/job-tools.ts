@@ -500,6 +500,8 @@ function digestJob(record: JobRecord) {
       : {}),
     // 排队时在等什么（§7.6、§7.7）：同一队列的并发，或机器上的资源。
     ...(record.wait ? { waiting: { reason: record.wait.reason, detail: record.wait.detail, since: record.wait.since } } : {}),
+    // 转写各阶段的耗时（§7.2）：排队、加载与 Worker 报告的各阶段，判断批量转写卡在哪里。
+    ...(record.timing ? { timing: record.timing } : {}),
     ...(record.result
       ? record.kind === 'transcribe'
         ? { result: { documentId: record.result.documentId, artifactId: record.result.artifactId } }

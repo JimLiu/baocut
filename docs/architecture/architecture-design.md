@@ -1647,7 +1647,7 @@ candle 读与 MLX 相同的量化权重，加载时反量化：CPU 上算 f32，
 4. 识别：逐段送入 ASR 模型。语言由任务参数决定：**断言**（用户指定，模型不得更改）或**偏好**（自动检测，结果带检测到的语言）。自动检测在第一段识别出文字的段上定下任务的语言：优先用模型自报的语言名，其次按累计的文本推断；识别结果为空的段不算，模型在这样的段上自报的语言不采信。定下之后推送一次 `job.language`，结果的 `language` 也是它；但它不强加给之后的段，每段仍由模型自己判断（v2 把它锁给之后的段：Whisper 在给定的语言下会把另一种语言翻译过来，中英混说的素材整段变成一种语言）。对齐与估计词时间用模型在这一段上自报的语言，报不出时用任务的语言。代价是很短、含糊的段可能被单独判错语言。一段之内先说一种语言、不停顿接着说另一种时，两个识别模型都只按一种语言解码，可能丢掉另一种（模型的局限，v2 相同）。本地模型都不给语言的置信度，`confidence` 为 null。
 5. 强制对齐：ASR 本身给不出可信的词时间时用对齐器补齐（逐段，在这段的音频上对齐识别出的文本，词标 `aligned`）；模型包没有对齐器时，词按字符长度在段内插值并标 `estimated`；某一段对齐出错或对不出词时这一段同样退回估计，并带 `alignment-failed` 警告，任务不失败。
 6. 单调修正：词时间在段内单调、不越段、不超过媒体时长；被修正的词保留原来的 `timingQuality` 并附警告。
-7. 说话人：要说话人（`diarize`）时，识别与对齐完成之后在整段音频上跑说话人区分（`diarizing` 阶段，进度单位 `steps`）：Pyannote segmentation-3.0 按 10 秒窗、5 秒步长逐帧判断窗内最多 3 个本地说话人，每个本地说话人用 WeSpeaker 提取声纹，带约束的凝聚聚类（合并阈值 0.715）合成全局说话人，再投影到词上（逐词按重叠打分，连续发言段内按时长加权投票统一，够长的插话保留自己的说话人；段取词的说话时长最多的那个）。`speakerId` 按首次出现编号 `spk-1`、`spk-2`……，同一 Job 内稳定，跨 Job 不承诺一致；`job.segment` 与 `segments.jsonl` 里的段还没有说话人。算法、阈值与测试从 v2 原样移植，Pyannote 有 MLX 与 candle 两份（MLX、Core ML 后端用 MLX 的，candle、GGML 后端用 candle 的）。模型包没有 `segmentation` 与 `speaker` 组件（没装「说话人区分」模型包，§6.3），或者加载、推理出错时不区分，带 `diarization-unavailable` 警告，转写照常发布（v2 是让整个任务失败）。说话人区分的耗时计入 `asrMs`。
+7. 说话人：要说话人（`diarize`）时，识别与对齐完成之后在整段音频上跑说话人区分（`diarizing` 阶段，进度单位 `steps`）：Pyannote segmentation-3.0 按 10 秒窗、5 秒步长逐帧判断窗内最多 3 个本地说话人，每个本地说话人用 WeSpeaker 提取声纹，带约束的凝聚聚类（合并阈值 0.715）合成全局说话人，再投影到词上（逐词按重叠打分，连续发言段内按时长加权投票统一，够长的插话保留自己的说话人；段取词的说话时长最多的那个）。`speakerId` 按首次出现编号 `spk-1`、`spk-2`……，同一 Job 内稳定，跨 Job 不承诺一致；`job.segment` 与 `segments.jsonl` 里的段还没有说话人。算法、阈值与测试从 v2 原样移植，Pyannote 有 MLX 与 candle 两份（MLX、Core ML 后端用 MLX 的，candle、GGML 后端用 candle 的）。模型包没有 `segmentation` 与 `speaker` 组件（没装「说话人区分」模型包，§6.3），或者加载、推理出错时不区分，带 `diarization-unavailable` 警告，转写照常发布（v2 是让整个任务失败）。说话人区分的耗时（含加载两个模型）记在 Worker 结果的 `stats.diarizeMs`，不计入 `asrMs`。
 
 Worker 内部用 f32 秒计算，输出一律换算为声明 `timescale` 的整数 tick；秒与 tick 的边界只在 Worker 内。
 
@@ -1867,6 +1867,8 @@ interface ApplicationRecord {
 应用记录的权威是 `<home>/store/applications.jsonl`（应用账本，与任务账本分开）；任务记录里的 `applications` 是它的投影，任务从账本里淘汰时它的应用一并删除。`JobSpec` 里的 `taskId` 没有实现。`runId` 与 `runGeneration` 只用于引擎侧的停止屏障（§7.4），不进任务记录，由 Runtime 在提交时算出：Task 与 Run 实现之前，任务自己就是它的执行，`runId` 是任务 ID，`runGeneration` 是任务的 `attempt`；固定流程的步骤用父任务的。
 
 生成任务的输入是文本或提示词本身：`contentHash` 是它的 sha256，`inputHash` 是能力、Provider、模型与冻结参数的规范 JSON 的 sha256。相同的输入摘要不复用已有的结果（生成不保证可复现，再生成就是要一个新的结果）；同一个 `commandId` 的重复提交返回同一个任务。
+
+**转写的阶段耗时**。转写任务（`kind: 'transcribe'`）的记录带 `timing`（`JobTiming`，毫秒），用来判断批量转写卡在哪一步：准入时记下 `queueMs`（这次进入排队到准入），本机 Provider 完成时补上 `loadMs`（等 Model Worker 启动并加载好模型包；已经加载好时接近 0）与 Worker 报告的 `decodeMs`、`vadMs`、`asrMs`、`diarizeMs`、`alignMs`、`speechSeconds`（Model Worker 协议规范 §2.5.1）。随记录落进任务账本，重启后仍在；之前的记录没有这个字段，照常读。只记最近一次尝试：Worker 崩溃后的自动重试不重新排队，`queueMs` 沿用，其余按这一次重新记；重新排队（`pipelines.retry`、`jobs.reconcile retry`）时清掉，准入时重新记；Runtime 重启后重新排队的从重新入队算，不含停机的时间。MOSS 从检查点接着做的尝试只计这一次实际做的，检查点里已经做完的阶段接近 0（§6.6「取消与续跑」）。远端节点与在线 Provider 只有 `queueMs`。校验、发布与应用的耗时不单列，是 `endedAt − startedAt` 减去以上各项的余量。
 
 **`commandId` 去重跨重启**。提交时带的 `commandId` 随任务记进任务账本：Runtime 重启之后用同一个 `commandId` 重发（`pipelines.start`、直接提交的转写与生成、导出、安装之类），仍返回原来的任务，即使它已经是 `interrupted` 或 `failed`，要不要重试由调用方按状态决定（`pipelines.retry`、`jobs.reconcile retry`），不另建一个。去重只在任务留在账本里的期间成立，任务被淘汰（§7.9「记录保留」）之后同一个 `commandId` 会建新任务。同一个 `commandId` 换了参数不报冲突，返回原来的任务。
 

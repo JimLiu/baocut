@@ -240,6 +240,8 @@ pub struct JobStats {
     pub decode_ms: u64,
     pub vad_ms: u64,
     pub asr_ms: u64,
+    /// 说话人区分（流水线的 Pyannote + WeSpeaker、MOSS 的跨块合并），含按需加载这些模型的时间；不计入 `asr_ms`。
+    pub diarize_ms: u64,
     pub align_ms: u64,
     pub speech_seconds: f64,
 }
@@ -693,6 +695,23 @@ mod tests {
         assert!(
             serde_json::from_value::<TranscribeOptions>(json!({"language": {"mode": "prefer", "tag": null}, "diarize": false, "x": 1}))
                 .is_err()
+        );
+    }
+
+    /// 与 TS 侧 `JobRunResult.stats`（packages/models/src/worker-contract.ts）同名的字段：说话人区分单独计时。
+    #[test]
+    fn transcribe_stats_report_diarization_separately() {
+        let stats = JobStats {
+            decode_ms: 1,
+            vad_ms: 2,
+            asr_ms: 3,
+            diarize_ms: 4,
+            align_ms: 5,
+            speech_seconds: 6.5,
+        };
+        assert_eq!(
+            serde_json::to_value(stats).unwrap(),
+            json!({ "decodeMs": 1, "vadMs": 2, "asrMs": 3, "diarizeMs": 4, "alignMs": 5, "speechSeconds": 6.5 })
         );
     }
 

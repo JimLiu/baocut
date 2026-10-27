@@ -294,11 +294,24 @@ export interface JobOutput {
   byteLength: number;
 }
 
+/**
+ * 识别与对齐各阶段的耗时（§2.5.1）：`diarizeMs` 是说话人区分（含按需加载说话人模型），不计入 `asrMs`；没有它的旧 Worker
+ * 把说话人区分算在 `asrMs` 里。
+ */
+export interface TranscribeRunStats {
+  decodeMs: number;
+  vadMs: number;
+  asrMs: number;
+  diarizeMs?: number;
+  alignMs: number;
+  speechSeconds: number;
+}
+
 export interface JobRunResult {
   outcome: 'completed' | 'cancelled';
   output: JobOutput | null;
   segmentsFile: string | null;
-  stats: { decodeMs: number; vadMs: number; asrMs: number; alignMs: number; speechSeconds: number };
+  stats: TranscribeRunStats;
 }
 
 /** `job.run`（`separate`）的结果：`stems` 是 staging 里的 `vocals.wav` 与 `background.wav`（背景是鼓、贝斯与其他之和），取消时为 null。 */

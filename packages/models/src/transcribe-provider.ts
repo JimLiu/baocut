@@ -1,4 +1,12 @@
-import type { AsrWarning, JobInput, JobOutput, Segment, TranscribeJobPhase, TranscribeOptions } from './worker-contract.ts';
+import type {
+  AsrWarning,
+  JobInput,
+  JobOutput,
+  Segment,
+  TranscribeJobPhase,
+  TranscribeOptions,
+  TranscribeRunStats,
+} from './worker-contract.ts';
 import type { MessageRef } from '@baocut/protocol';
 import { modelTextRef, type ModelText } from './model-text.ts';
 
@@ -57,6 +65,10 @@ export type TranscribeAttempt =
        * 回填的是节点自己的尝试序号（节点上 Worker 崩溃重试后为 2），由 Provider 按节点报告的任务记录给出。
        */
       runGeneration?: number;
+      /** 启动 Worker 并加载模型包用的毫秒数（已经加载好时接近 0）；本地 Provider 才给。 */
+      loadMs?: number;
+      /** Worker 报告的各阶段耗时（`job.run` 的 `stats`）；本地 Provider 才给。 */
+      stats?: TranscribeRunStats;
     }
   | {
       outcome: 'cancelled';
