@@ -62,7 +62,7 @@ summary 写清动作、对象及关键结果，不使用 `update`、`fix some is
 
 | 改动范围 | 检查入口与范围 |
 | --- | --- |
-| TypeScript / React | `npm run typecheck`；`npm test -- <测试文件>` 跑受影响测试，跨模块影响难以收窄时跑 `npm test` |
+| TypeScript / React | `npm run typecheck`；`npm test -- <测试文件>` 跑受影响测试，跨模块影响难以收窄时跑 `npm test`。测试分两个 vitest 项目：源码里有 `startRuntime(` 或 `CompositionHost` 的文件（会再拉起 engine-host、模型 worker、ffmpeg 与 Electron）归 `process`，等 `unit` 跑完后至多两个并发跑，新写的这类测试自动归入；`--project unit` 或 `--project process` 只跑一组 |
 | Rust | `cargo fmt --all -- --check`；`cargo test --locked -p <受影响 crate>`，跨 crate 时覆盖相关消费者，广泛改动再跑 `cargo test --locked --workspace` |
 | Rust ↔ WASM | `npm run build:wasm`，并验证实际消费方；仅宿主 Rust 测试通过不足以证明 WASM 可构建、可加载 |
 | Electron 装配或打包 | `npm run build`（本检出有从 `apps/desktop/out` 运行的应用时构建会拒绝，不在这里构建，见 [§5.1](#51-依赖与生成物)）；渲染进程的资源加载（字体、WASM、`base`）、Electron 版本、fuse 或打包配置有变化时跑 `npm run check:file-fonts`（会先构建）；Runtime 按路径读的随应用分发的数据（`packages/models/assets` 等）、主进程的构建入口或打包配置有变化时跑 `npm run check:model-assets`（会先构建；用 Electron 的 Node 运行产物里的自检入口，原地与模拟打包各核对一遍每个文件都解析得到）；用 `npm run dev` 或 `npm start` 检查受影响流程，按任务选择开发态或打包后的运行方式；改了开发态的进程监管（`apps/desktop/tools/dev-runner.mjs`、`dev-process-group.mjs`）时跑 `node --test apps/desktop/tools/dev-process-group.test.mjs`，并在终端里按 Ctrl+C、关掉终端各停一次，确认 electron-vite、Electron 与 Runtime 都退出 |
