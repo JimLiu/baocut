@@ -14,30 +14,27 @@ body{font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "
 .copy{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 svg{overflow:visible}
 /* slot:layout */
-/* 横竖共用：面板、徽标与三行文案 */
+/* 横竖共用：面板、徽标与两行文案（名字 64 px，职务 46 px：拉丁字母「要读的」下限 46，上一级大 1.3 倍以上） */
 .lt-panel{position:absolute;inset:0;border-radius:24px;background:var(--panel);box-shadow:0 22px 56px color-mix(in srgb, var(--ink) 26%, transparent)}
 .lt-panel::before{content:"";position:absolute;left:0;top:22px;bottom:22px;width:8px;border-radius:0 6px 6px 0;background:var(--accent)}
-.lt-badge{position:absolute;left:36px;top:47px;width:96px;height:96px;border-radius:28px;background:var(--accent);display:flex;align-items:center;justify-content:center}
+.lt-badge{position:absolute;left:36px;top:52px;width:96px;height:96px;border-radius:28px;background:var(--accent);display:flex;align-items:center;justify-content:center}
 .lt-badge svg{width:48px;height:48px;fill:var(--panel)}
-.lt-text{position:absolute;left:164px;right:40px;top:30px}
+.lt-text{position:absolute;left:164px;right:40px;top:32px}
 .lt-name,.lt-role{display:block;margin:0;white-space:nowrap}
-.lt-name{font-size:52px;font-weight:800;line-height:1.12;letter-spacing:-0.01em}
-.lt-role{margin-top:4px;font-size:27px;font-weight:500;line-height:1.3;color:color-mix(in srgb, var(--ink) 72%, transparent)}
-.lt-org{display:inline-block;margin:10px 0 0;padding:4px 12px;border-radius:8px;white-space:nowrap;font-size:17px;font-weight:700;letter-spacing:0.12em;color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent)}
+.lt-name{font-size:64px;font-weight:800;line-height:1.12;letter-spacing:-0.01em}
+.lt-role{margin-top:4px;font-size:46px;font-weight:500;line-height:1.3;color:color-mix(in srgb, var(--ink) 72%, transparent)}
 /* 9:16：贴左右安全边，底部让出评论区 */
-.lt{position:absolute;left:60px;right:60px;bottom:300px;height:190px}
+.lt{position:absolute;left:60px;right:60px;bottom:300px;height:200px}
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="4" data-fps="30" data-aspect-ratio="9:16" data-structure="panel + badge + name + role + organization" data-layout="lower-safe left aligned panel" data-motion="    // 面板从画外滑入，三行文案错峰 0.2 s，徽标最后弹出
+<div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="4" data-fps="30" data-aspect-ratio="9:16" data-structure="panel + badge + name + role" data-layout="lower-safe left aligned panel" data-motion="    // 面板从画外滑入，两行文案错峰 0.2 s，徽标最后弹出
     const panel = easeOut(range(time, 0.03, 0.63));
     apply('lt-panel', { x: (1 - panel) * -460, opacity: panel });
     const name = easeOut(range(time, 0.25, 0.82));
     apply('lt-name', { x: (1 - name) * -60, opacity: name });
     const role = easeOut(range(time, 0.45, 1.02));
     apply('lt-role', { x: (1 - role) * -60, opacity: role });
-    const org = easeOut(range(time, 0.65, 1.22));
-    apply('lt-org', { x: (1 - org) * -60, opacity: org });
     const badge = range(time, 0.9, 1.45);
     const pop = backOut(badge);
     apply('lt-badge', { scale: 0.3 + 0.7 * pop, rotate: (1 - pop) * -20, opacity: badge * 3 });
@@ -50,7 +47,6 @@ svg{overflow:visible}
   <div class="lt-text">
     <p class="copy lt-name" id="lt-name" data-copy-primary>Jamie Sample</p>
     <p class="copy lt-role" id="lt-role" data-copy-secondary>Lead Product Designer</p>
-    <p class="copy lt-org" id="lt-org">INDEPENDENT STUDIO</p>
   </div>
 </div>
 </section>
@@ -116,15 +112,13 @@ svg{overflow:visible}
   function renderScene(time) {
     const exit = 1 - easeInOut(range(time, DURATION - 0.62, DURATION - 0.05)); scene.style.opacity = String(exit);
     /* slot:motion */
-    // 面板从画外滑入，三行文案错峰 0.2 s，徽标最后弹出
+    // 面板从画外滑入，两行文案错峰 0.2 s，徽标最后弹出
     const panel = easeOut(range(time, 0.03, 0.63));
     apply('lt-panel', { x: (1 - panel) * -460, opacity: panel });
     const name = easeOut(range(time, 0.25, 0.82));
     apply('lt-name', { x: (1 - name) * -60, opacity: name });
     const role = easeOut(range(time, 0.45, 1.02));
     apply('lt-role', { x: (1 - role) * -60, opacity: role });
-    const org = easeOut(range(time, 0.65, 1.22));
-    apply('lt-org', { x: (1 - org) * -60, opacity: org });
     const badge = range(time, 0.9, 1.45);
     const pop = backOut(badge);
     apply('lt-badge', { scale: 0.3 + 0.7 * pop, rotate: (1 - pop) * -20, opacity: badge * 3 });

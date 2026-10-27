@@ -14,15 +14,15 @@ body{font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "
 .copy{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 svg{overflow:visible}
 /* slot:layout */
-/* 横竖共用：卡片、数字行、下划线与结论 */
-.bn{position:absolute;padding:52px 60px 56px;border-radius:32px;background:var(--panel);box-shadow:0 22px 56px color-mix(in srgb, var(--ink) 26%, transparent);transform-origin:left center}
+/* 横竖共用：卡片、数字行、下划线与结论。亮的强调色只在 --ink 底上写字（在 --panel 上不到 3:1），所以卡片用深底 */
+.bn{position:absolute;padding:52px 60px 56px;border-radius:32px;background:var(--ink);color:var(--panel);box-shadow:0 22px 56px color-mix(in srgb, var(--ink) 26%, transparent);transform-origin:left center}
 .bn-row{display:flex;align-items:baseline;white-space:nowrap}
 .bn-value{font-weight:800;line-height:0.92;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
 .bn-unit{display:inline-block;margin-left:10px;font-weight:800;line-height:0.92;color:var(--accent);transform-origin:left bottom}
 .bn-rule{height:12px;margin:30px 0 28px;border-radius:6px;background:var(--accent);transform-origin:left center}
 .bn-takeaway,.bn-label{display:block;margin:0;white-space:nowrap}
-.bn-takeaway{font-size:40px;font-weight:750;line-height:1.2}
-.bn-label{margin-top:10px;font-size:21px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:color-mix(in srgb, var(--ink) 58%, transparent)}
+.bn-takeaway{font-size:60px;font-weight:750;line-height:1.2}
+.bn-label{margin-top:8px;font-size:46px;font-weight:500;line-height:1.3;color:color-mix(in srgb, var(--panel) 72%, transparent)}
 /* 9:16：卡片撑满左右安全边，放在上半屏 */
 .bn{left:60px;right:60px;top:560px}
 .bn-value{font-size:220px}
@@ -47,7 +47,7 @@ svg{overflow:visible}
   <div class="bn-row"><span class="bn-value" id="bn-value">86.4</span><span class="bn-unit" id="bn-unit">%</span></div>
   <div class="bn-rule" id="bn-rule"></div>
   <div class="bn-words" id="bn-words">
-    <p class="copy bn-takeaway" id="bn-takeaway" data-copy-primary>Of clips exported on the first try</p>
+    <p class="copy bn-takeaway" id="bn-takeaway" data-copy-primary>Exported on the first try</p>
     <p class="copy bn-label" id="bn-label" data-copy-secondary>Last 30 days</p>
   </div>
 </div>
