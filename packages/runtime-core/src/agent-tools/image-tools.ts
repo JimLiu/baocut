@@ -160,8 +160,7 @@ export class ImageTools implements ToolSet {
         ? upscale(this.#deps, args as Args, principal)
         : name === 'retouch'
           ? imageEdit(this.#deps, args as EditArgs, principal)
-          : // i18n-ignore: 给模型的工具说明、错误与下一步
-            Promise.reject(new ToolError('UNKNOWN_TOOL', `没有这个工具：${name}`));
+          : Promise.reject(new ToolError('UNKNOWN_TOOL', `Unknown tool: ${name}`));
     return run.catch((error: unknown) => {
       throw toolErrorOf(error);
     });
@@ -172,8 +171,7 @@ async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipa
   const { tools, pipelines, scope } = deps;
   const access = scope.authorize(principal, true);
   if (access.principal.kind === 'service') {
-    // i18n-ignore: 给模型的工具说明、错误与下一步
-    throw new ToolError('INVALID_ARGUMENTS', '对外服务不能放大本机的图片：请用户在 BaoCut 里用图片超分工具');
+    throw new ToolError('INVALID_ARGUMENTS', 'External services cannot upscale images on this computer. Ask the user to use the Upscale image tool in BaoCut.');
   }
   const base = scope.fileBase(access);
   const inputs = args.files.map((file) => resolveUserPath(file, base));
@@ -183,23 +181,19 @@ async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipa
     return { jobId: null, installJobId: status.installJobId, tool: toolView(status), next: installNext };
   }
   if (status.state === 'unavailable' || (status.state !== 'installed' && !status.installable)) {
-    // i18n-ignore-start: 给模型的工具说明、错误与下一步
-    throw new ToolError('TOOL_UNAVAILABLE', `${status.label} 现在不能用：${status.reason ?? '没有可用的版本'}`, {
+    throw new ToolError('TOOL_UNAVAILABLE', `${status.label} is not available: ${status.reason ?? 'no usable version'}`, {
       tool: status.name,
       state: status.state,
-      remedy: status.remedy ?? `请用户在 BaoCut 的外部工具设置里安装或指定 ${status.label} 的路径`,
+      remedy: status.remedy ?? `Ask the user to install ${status.label} or set its path in BaoCut's external tool settings.`,
     });
-    // i18n-ignore-end
   }
   if (status.state !== 'installed') {
     const offer = status.offer;
     if (!offer || offer.blockedReason || !offer.url) {
-      // i18n-ignore-start: 给模型的工具说明、错误与下一步
-      throw new ToolError('TOOL_MANIFEST_INCOMPLETE', `不能下载 ${status.label}：${offer?.blockedReason ?? '这个平台没有可用的版本'}`, {
+      throw new ToolError('TOOL_MANIFEST_INCOMPLETE', `${status.label} cannot be downloaded: ${offer?.blockedReason ?? 'no release for this platform'}`, {
         tool: status.name,
-        remedy: `请用户自己安装 ${status.label}，再在 BaoCut 的外部工具设置里指定路径`,
+        remedy: `Ask the user to install ${status.label} themselves, then set its path in BaoCut's external tool settings.`,
       });
-      // i18n-ignore-end
     }
     const approval = await scope.confirm(access, {
       tool: 'external_tools_install',
@@ -250,11 +244,9 @@ async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipa
     jobId,
     installJobId: null,
     ...approvalField(approval),
-    // i18n-ignore-start: 给模型的工具说明、错误与下一步
-    next: `放大已提交（${inputs.length} 张，${scale}×，${model}），PNG 存到 ${outDir ?? '保存位置'}${
-      inputs.length === 1 ? `（${path.parse(inputs[0]!).name}-upscaled-${scale}x.png）` : ''
-    }。用 jobs_wait 等它结束；state 为 completed 时 outputs 的 path 是放大后的图片，把位置告诉用户。`,
-    // i18n-ignore-end
+    next: `Upscale submitted (${inputs.length} ${inputs.length === 1 ? 'image' : 'images'}, ${scale}×, ${model}); PNGs go to ${outDir ?? 'the save location'}${
+      inputs.length === 1 ? ` (${path.parse(inputs[0]!).name}-upscaled-${scale}x.png)` : ''
+    }. Wait with jobs_wait; when state is completed, outputs[].path is the upscaled image. Tell the user where it is.`,
   };
 }
 
@@ -264,8 +256,7 @@ async function imageEdit(deps: ImageToolsDeps, args: EditArgs, principal: ToolPr
   const { pipelines, scope } = deps;
   const access = scope.authorize(principal, true);
   if (access.principal.kind === 'service') {
-    // i18n-ignore: 给模型的工具说明、错误与下一步
-    throw new ToolError('INVALID_ARGUMENTS', '对外服务不能修改本机的图片：请用户在 BaoCut 里用图片工具');
+    throw new ToolError('INVALID_ARGUMENTS', 'External services cannot edit images on this computer. Ask the user to use the image tools in BaoCut.');
   }
   const base = scope.fileBase(access);
   const inputs = args.files.map((file) => resolveUserPath(file, base));
@@ -299,15 +290,12 @@ async function imageEdit(deps: ImageToolsDeps, args: EditArgs, principal: ToolPr
   return {
     jobId,
     ...approvalField(approval),
-    // i18n-ignore: 给模型的工具说明、错误与下一步
-    next: `已提交（${pipeline}，${inputs.length} 张，${method}），PNG 存到 ${outDir ?? '保存位置'}。用 jobs_wait 等它结束；state 为 completed 时 outputs 的 path 是新图片，把位置告诉用户，请用户看一眼结果。`,
+    next: `Submitted (${pipeline}, ${inputs.length} ${inputs.length === 1 ? 'image' : 'images'}, ${method}); PNGs go to ${outDir ?? 'the save location'}. Wait with jobs_wait; when state is completed, outputs[].path is the new image. Tell the user where it is and ask them to check the result.`,
   };
 }
 
-// i18n-ignore-start: 给模型的工具说明、错误与下一步
 const installNext =
-  'Real-ESRGAN 正在安装：用 jobs_wait 等 installJobId 对应的任务，state 为 completed 之后再调用一次 upscale；失败时 error.details.remedy 说明怎么补救。';
-// i18n-ignore-end
+  'Real-ESRGAN is being installed. Wait for installJobId with jobs_wait; once its state is completed, call upscale again. If it fails, error.details.remedy says how to fix it.';
 
 function toolView(status: ExternalToolStatus) {
   return { name: status.name, state: status.state, version: status.version, source: status.source };
