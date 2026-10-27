@@ -57,7 +57,7 @@ test('条目 → 收它的工具（Space 查看器「用工具处理…」）', 
   assert.equal(S.toolsFor(items[5]).find((t) => t.id === 'text').attach, true);
   assert.deepEqual(ids(items[0], {movie: movies[0]}), ['transcribe', 'translate', 'dub']);
   assert.match(S.toolsFor(items[1], {movie: movies[1]}).find((t) => t.id === 'dub').reason, /还没有文稿/);
-  assert.deepEqual(ids(items[7]), [], '图片没有收它的工具');
+  assert.deepEqual(ids(items[7]), ['upscale', 'erase', 'watermark', 'repaint', 'expand'], '图片交给五个图片工具（2026-10-27）');
   assert.deepEqual(S.toolsFor(items[6]), [], '回收站里的不处理');
 });
 

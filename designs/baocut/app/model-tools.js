@@ -29,6 +29,8 @@
   const ARTIFACTS = {audio: '音频', image: '图片', doc: '文档', final: '视频文件', subtitle: '字幕'};
   const MEDIA_ACCEPT = ['.mp4', '.mov', '.mkv', '.webm', '.mp3', '.wav', '.m4a', '.aac', '.flac'];
   const VIDEO_ACCEPT = ['.mp4', '.mov', '.mkv', '.webm', '.avi'];
+  const IMAGE_ACCEPT = ['.png', '.jpg', '.jpeg', '.webp'];
+  const IMAGE_INPUTS = [{kind: 'file', output: 'artifact', accept: IMAGE_ACCEPT}, {kind: 'space', kinds: ['image'], output: 'artifact'}];
   const GROUPS = [
     {k: 'speech', label: '语音与字幕', desc: '转录、翻译字幕与配音、把文字念出来。结果是文档、字幕与音频条目；选 Space 里可编辑的视频时写进它。', tools: [
       {id: 'transcribe', name: '转录', icon: 'Transcript', navIcon: 'Transcript', output: 'artifact', artifact: 'doc', artifacts: ['doc', 'subtitle'],
@@ -47,13 +49,24 @@
        desc: '把文字或 Space 里的文档、字幕念出来；可选预设音色、克隆一段录音或描述一个声音',
        inputs: [{kind: 'text', output: 'artifact'}, {kind: 'space', kinds: ['doc', 'subtitle'], output: 'artifact'}]},
     ]},
-    {k: 'text-image', label: '文字与图片', desc: '直接调用文本模型与图像模型。结果是文档与图片条目。', tools: [
+    {k: 'text-image', label: '文字与图片', desc: '直接调用文本模型与图像模型，放大与修补图片。结果是文档与图片条目。', tools: [
       {id: 'text', name: '文本生成', icon: 'text', navIcon: 'Text', output: 'artifact', artifact: 'doc',
        desc: '输入要求，直接调用文本模型生成文案、脚本或摘要；可以附上 Space 里的文档或字幕作为材料',
        inputs: [{kind: 'text', output: 'artifact'}, {kind: 'space', kinds: ['doc', 'subtitle'], attach: true, output: 'artifact'}]},
       {id: 'image', name: '生成图片', icon: 'image', navIcon: 'Image', output: 'artifact', artifact: 'image',
        desc: '写一句描述，用云端或本机图像模型画一张图；可带参考图、选画幅与张数',
        inputs: [{kind: 'text', output: 'artifact'}]},
+      /* 图片处理（2026-10-27，model-image-edit.js）：放大 / 去除物体 / 去水印 / 重绘 / 扩图共用一页（tool-image-edit.jsx），文件到文件 */
+      {id: 'upscale', name: '放大图片', icon: 'ZoomIn', navIcon: 'ZoomIn', output: 'artifact', artifact: 'image',
+       desc: '用本机的 Real-ESRGAN 把图片放大 2–4 倍，补出细节，不是简单拉伸', inputs: IMAGE_INPUTS},
+      {id: 'erase', name: '去除物体', icon: 'MagicWand', navIcon: 'MagicWand', output: 'artifact', artifact: 'image',
+       desc: '涂掉画面里不要的人或物，按周围的画面补上', inputs: IMAGE_INPUTS},
+      {id: 'watermark', name: '去水印', icon: 'Images', navIcon: 'Images', output: 'artifact', artifact: 'image',
+       desc: '框出水印、角标或字幕条；同一位置可以一次处理多张图', inputs: IMAGE_INPUTS},
+      {id: 'repaint', name: '重绘局部', icon: 'Draw', navIcon: 'Draw', output: 'artifact', artifact: 'image',
+       desc: '涂出一块区域，写一句改成什么，只改这一块', inputs: IMAGE_INPUTS},
+      {id: 'expand', name: '扩展画面', icon: 'AspectRatio', navIcon: 'AspectRatio', output: 'artifact', artifact: 'image',
+       desc: '把画面往外扩到新的比例，新增的部分接着原图画出来', inputs: IMAGE_INPUTS},
     ]},
     /* 音乐（2026-10-11 YuE2 技术方案）：自成一组，与 Runtime 工具目录的 category 'music' 对齐 */
     {k: 'music', label: '音乐', desc: '在本机生成配乐与歌曲，不联网。结果是音频条目，可以直接加到视频的音乐轨。', tools: [

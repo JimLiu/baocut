@@ -144,6 +144,7 @@
       "app/model-mcp-tools.js",
       "app/model-music.js",
       "app/model-tools.js",
+      "app/model-image-edit.js",
       "app/model-tool-targets.js",
       "app/model-tool-runs.js",
       "app/model-tool-update.js",
@@ -261,6 +262,8 @@
       "app/tool-video-compress.jsx",
       "app/tool-video-extract.jsx",
       "app/tool-video-merge.jsx",
+      "app/image-edit-canvas.jsx",
+      "app/tool-image-edit.jsx",
       "app/settings-models-dir.jsx",
       "app/settings-model-check.jsx",
       "app/download-sources.jsx",
@@ -475,6 +478,7 @@
       "app/services.css",
       "app/tools.css",
       "app/image-gen.css",
+      "app/image-edit.css",
       "app/panel-aitools-write.css",
       "app/panel-aitools-semantic.css",
       "app/panel-aitools.css",
@@ -507,9 +511,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=c5d04f85735e",
-    "css": "generated/app.css?v=2699c99a557b",
-    "bytes": 4783137
+    "js": "generated/app.js?v=c9b6058d363a",
+    "css": "generated/app.css?v=a8a008153898",
+    "bytes": 4821475
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -780,9 +784,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=f46597174b75",
+    "js": "generated/web.js?v=d29c9da7c3ec",
     "css": "generated/web.css?v=7a9918b98520",
-    "bytes": 2866267
+    "bytes": 2868011
   },
   "components": {
     "file": "Components.html",
