@@ -151,6 +151,13 @@ export {
   type UpscaleTool,
 } from './pipelines/upscale-image.ts';
 export { parseImageHeader, readImageHeader, type ImageHeader } from './pipelines/image-header.ts';
+export {
+  EDIT_IMAGE_PIPELINES,
+  editImagePipeline,
+  type EditImageDeps,
+  type EditImagePipelineName,
+  type ImageEditor,
+} from './pipelines/edit-image.ts';
 export { TRANSLATE_PIPELINE, translatePipeline, type PipelineVideos, type TranslateDeps } from './pipelines/translate.ts';
 export type { TranslationMemory, TranslationMemoryLookup } from './pipelines/translation-memory.ts';
 export {

@@ -421,6 +421,11 @@ export function pipelineNext(name: string, summary: Record<string, unknown> | nu
             }）${linkImportCaptionsNext(summary.captions)}`
           : ''
       }。`;
+    case 'remove-object':
+    case 'remove-watermark':
+    case 'repaint-image':
+    case 'expand-image':
+      return '图片编辑完成：outputs 的 path（pipeline.summary.files）是改好的 PNG，原图不动；summary.warnings 有提醒时一并告诉用户。把位置告诉用户，请用户看一眼结果；不满意时可以调整选区或换 method 再来一次。';
     default:
       return null;
   }

@@ -90,3 +90,33 @@ describe('upscale', () => {
     expect(started).toEqual([]);
   });
 });
+
+describe('image_edit', () => {
+  it('按 image_edit（command）确认，摘要写明工具、张数、执行者与目录；路径按工作目录解析后启动对应的流程', async () => {
+    const { tools, started, confirmed } = harness('missing');
+    const mask = { boxes: [{ x: 10, y: 20, width: 30, height: 40 }] };
+    const result = (await tools.dispatch('image_edit', { op: 'watermark', files: ['a.png', 'b.png'], mask }, agent)) as Record<string, unknown>;
+    expect(result).toMatchObject({ jobId: 'job_1' });
+    expect(started).toEqual([{ pipeline: 'remove-watermark', params: { inputs: ['/work/conv_1/a.png', '/work/conv_1/b.png'], mask } }]);
+    expect(confirmed[0]!.tool).toBe('image_edit');
+    expect(toolRisk(confirmed[0]!)).toBe('command');
+    expect(confirmed[0]!.summary).toContain('ffmpeg');
+    expect(confirmed[0]!.summary).toContain('/Users/me/Downloads');
+  });
+
+  it('扩图带新画布、提示词与模型；摘要写模型', async () => {
+    const { tools, started, confirmed } = harness('installed');
+    await tools.dispatch('image_edit', { op: 'expand', files: ['/p.jpg'], expand: { ratio: '16:9' }, prompt: 'sky', provider: 'openai', model: 'gpt-image-1', outDir: '/out' }, agent);
+    expect(started[0]).toEqual({
+      pipeline: 'expand-image',
+      params: { inputs: ['/p.jpg'], expand: { ratio: '16:9' }, prompt: 'sky', provider: 'openai', model: 'gpt-image-1', outDir: '/out' },
+    });
+    expect(confirmed[0]!.summary).toContain('gpt-image-1');
+  });
+
+  it('对外服务拒绝', async () => {
+    const { tools, started } = harness('installed');
+    await expect(tools.dispatch('image_edit', { op: 'erase', files: ['/a.png'], mask: { boxes: [] } }, service)).rejects.toBeInstanceOf(ToolError);
+    expect(started).toEqual([]);
+  });
+});

@@ -7,6 +7,7 @@ import {
   TRANSCRIBE_PIPELINE,
   TRANSLATE_SUBTITLES_PIPELINE,
   UPSCALE_IMAGE_PIPELINE,
+  EDIT_IMAGE_PIPELINES,
   decodeSubtitleBytes,
   subtitleFormatOf,
   subtitleText,
@@ -53,7 +54,7 @@ function entryIdOf(value: unknown): Id | null {
 }
 
 /**
- * `pipelines.start` 的参数里换掉 Space 条目：`transcribe` 的 `file`、`transcode` 与 `upscale-image` 的 `inputs[]`、
+ * `pipelines.start` 的参数里换掉 Space 条目：`transcribe` 的 `file`、`transcode`、`upscale-image` 与图片编辑的 `inputs[]`、
  * `translate-subtitles` 的 `input`。别的流程与别的字段原样返回；不是 `{ entryId }` 的值留给流程自己的参数检查。
  */
 export function resolvePipelineEntryInputs(
@@ -75,6 +76,10 @@ export function resolvePipelineEntryInputs(
     case UPSCALE_IMAGE_PIPELINE:
       return Array.isArray(params.inputs) ? { ...params, inputs: params.inputs.map((input) => file(input, IMAGE_ENTRY_KINDS)) } : params;
     default:
+      // 图片编辑的四个流程同超分：`inputs[]` 里可以是图片条目。
+      if (Object.values<string>(EDIT_IMAGE_PIPELINES).includes(pipeline) && Array.isArray(params.inputs)) {
+        return { ...params, inputs: params.inputs.map((input) => file(input, IMAGE_ENTRY_KINDS)) };
+      }
       return params;
   }
 }

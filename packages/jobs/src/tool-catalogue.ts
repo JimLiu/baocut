@@ -1,5 +1,7 @@
 import type { ToolDefinition } from '@baocut/protocol';
+import { JobsEditImage as E } from '@baocut/protocol/messages/jobs/edit-image.ts';
 import { JobsToolCatalogue as T } from '@baocut/protocol/messages/jobs/tool-catalogue.ts';
+import { EDIT_IMAGE_PIPELINES } from './pipelines/edit-image.ts';
 import { DUB_PIPELINE } from './pipelines/dub.ts';
 import { LINK_IMPORT_PIPELINE } from './pipelines/link-import.ts';
 import { TRANSCODE_PIPELINE } from './pipelines/transcode.ts';
@@ -164,6 +166,92 @@ export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
     externalTools: [REALESRGAN],
     // 照片模型的 2、3 倍要 ffmpeg 缩小；动画模型与 4 倍用不到它。
     optionalExternalTools: [FFMPEG],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: EDIT_IMAGE_PIPELINES.erase,
+    get label() {
+      return E.eraseLabel().text;
+    },
+    get description() {
+      return E.eraseDescription().text;
+    },
+    category: 'text-image',
+    // 一张本机图片或 Space 里的图片条目，结果写到保存位置。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: EDIT_IMAGE_PIPELINES.erase },
+    capabilities: [],
+    // AI 修补要能改图的图像模型；快速填充只用 ffmpeg。
+    optionalCapabilities: ['generateImage'],
+    // 选区、贴回与快速填充都由 ffmpeg 做。
+    externalTools: [FFMPEG],
+    optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: EDIT_IMAGE_PIPELINES.watermark,
+    get label() {
+      return E.watermarkLabel().text;
+    },
+    get description() {
+      return E.watermarkDescription().text;
+    },
+    category: 'text-image',
+    // 一张或几张图片（同一组框用于每一张）。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: EDIT_IMAGE_PIPELINES.watermark },
+    capabilities: [],
+    // AI 修补要能改图的图像模型；快速填充只用 ffmpeg。
+    optionalCapabilities: ['generateImage'],
+    // 选区、贴回与快速填充都由 ffmpeg 做。
+    externalTools: [FFMPEG],
+    optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: EDIT_IMAGE_PIPELINES.repaint,
+    get label() {
+      return E.repaintLabel().text;
+    },
+    get description() {
+      return E.repaintDescription().text;
+    },
+    category: 'text-image',
+    // 一张图片；要写改成什么。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: EDIT_IMAGE_PIPELINES.repaint },
+    capabilities: ['generateImage'],
+    optionalCapabilities: [],
+    // 选区、贴回与快速填充都由 ffmpeg 做。
+    externalTools: [FFMPEG],
+    optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: EDIT_IMAGE_PIPELINES.expand,
+    get label() {
+      return E.expandLabel().text;
+    },
+    get description() {
+      return E.expandDescription().text;
+    },
+    category: 'text-image',
+    // 一张图片；新画布按比例或四边的像素。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: EDIT_IMAGE_PIPELINES.expand },
+    capabilities: ['generateImage'],
+    optionalCapabilities: [],
+    // 选区、贴回与快速填充都由 ffmpeg 做。
+    externalTools: [FFMPEG],
+    optionalExternalTools: [],
     network: 'none',
     candidates: null,
   },

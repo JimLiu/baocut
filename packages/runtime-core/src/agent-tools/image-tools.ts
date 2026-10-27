@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { z } from 'zod';
-import { UPSCALE_IMAGE_PIPELINE, UPSCALE_WEIGHTS, type PipelineRunner } from '@baocut/jobs';
-import { UPSCALE_IMAGE_MODELS, type ExternalToolStatus } from '@baocut/protocol';
+import { EDIT_IMAGE_PIPELINES, UPSCALE_IMAGE_PIPELINE, UPSCALE_WEIGHTS, type PipelineRunner } from '@baocut/jobs';
+import { EDIT_IMAGE_ANCHORS, EDIT_IMAGE_METHODS, EDIT_IMAGE_OPS, UPSCALE_IMAGE_MODELS, type ExternalToolStatus } from '@baocut/protocol';
+import { JobsEditImage } from '@baocut/protocol/messages/jobs/edit-image.ts';
 import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { ExternalToolService } from '../external-tools/external-tool-service.ts';
 import { REALESRGAN } from '../external-tools/tool-manifests.ts';
@@ -19,6 +20,9 @@ import { commandIdArg } from './video-tools.ts';
  * - Real-ESRGAN 已安装：按 `upscale`（`command`）确认，之后启动流程。它不读网络、不读用户数据之外的东西，不要单独的使用同意。
  * - 没有安装：按 `external_tools_install`（`high`）确认，说明里写明来源、版本、大小与许可；用户同意即提交安装任务，返回安装任务号。
  *   装好之后智能体再调用一次。
+ *
+ * `image_edit` 去除物体、去水印、重绘局部与扩展画面（`remove-object` 等四个流程）：快速填充只用本机 ffmpeg；AI 修补把选区周围的
+ * 一块（扩图是整张新画布）交给能改图的图像模型，授权与预算同生成图片。按 `image_edit`（`command`）确认后启动流程。
  *
  * 对外服务不能用：路径是本机的，安装第三方程序由用户在 BaoCut 里决定。
  */
@@ -55,11 +59,55 @@ const schemas = {
       .describe('可选。输出目录（不存在时创建）；不给时是保存位置（设置 downloads.directory，默认系统的下载文件夹）'),
     commandId: commandIdArg.optional().describe('可选。重试同一次提交时带上同一个值，不会重复创建任务'),
   }),
+  image_edit: z.strictObject({
+    op: z
+      .enum(EDIT_IMAGE_OPS)
+      .describe('erase：去除物体；watermark：去水印、角标、字幕条（可以一次几张）；repaint：把选区重画成 prompt 写的样子；expand：把画面往外扩'),
+    files: z
+      .array(z.string().min(1).max(4000))
+      .min(1)
+      .max(50)
+      .describe('图片（PNG、JPEG、WebP），相对路径按工作目录，~/ 是主目录。只有 watermark 收多张（同一组框按比例用于每一张）'),
+    mask: z
+      .strictObject({
+        boxes: z
+          .array(z.strictObject({ x: z.number().min(0), y: z.number().min(0), width: z.number().min(0), height: z.number().min(0) }))
+          .max(100)
+          .optional(),
+        strokes: z
+          .array(z.strictObject({ radius: z.number().min(1), points: z.array(z.tuple([z.number().min(0), z.number().min(0)])).min(1).max(10000) }))
+          .max(500)
+          .optional(),
+      })
+      .optional()
+      .describe('选区，原图像素（左上角为原点；批量时按第一张）：框与笔画的并集。erase、watermark、repaint 必填，expand 不收。选区占画面超过六成会被拒绝'),
+    method: z
+      .enum(EDIT_IMAGE_METHODS)
+      .optional()
+      .describe('可选。fill：本机 ffmpeg 按四周像素填充，几秒钟、不用模型，适合小块文字与角标（watermark 默认）；model：能改图的图像模型重画，适合大块物体与复杂背景（erase 默认；repaint、expand 只有它）'),
+    prompt: z.string().min(1).max(2000).optional().describe('repaint 必填（选区改成什么）；expand 可选（新增的部分画什么）；别的不收'),
+    expand: z
+      .strictObject({
+        ratio: z.string().max(12).optional().describe('W:H，如 16:9；只往缺的方向加，不裁原图'),
+        anchor: z.enum(EDIT_IMAGE_ANCHORS).optional().describe('原图放在新画布的哪里，默认 center'),
+        margins: z
+          .strictObject({ left: z.number().int().min(0), top: z.number().int().min(0), right: z.number().int().min(0), bottom: z.number().int().min(0) })
+          .optional()
+          .describe('四边各加多少像素；与 ratio 二选一'),
+      })
+      .optional()
+      .describe('expand 必填：新画布。每边至多 4096 像素'),
+    provider: z.string().min(1).max(200).optional().describe('可选。model 补法的生图 Provider；不给时用生图的默认'),
+    model: z.string().min(1).max(200).optional().describe('可选。model 补法用的模型，要能按提示词改图（models_list 里 referenceImages.edit 为 true）'),
+    outDir: z.string().min(1).max(4000).optional().describe('可选。输出目录（不存在时创建）；不给时是保存位置'),
+    commandId: commandIdArg.optional().describe('可选。重试同一次提交时带上同一个值，不会重复创建任务'),
+  }),
 };
 
 type Args = z.infer<(typeof schemas)['upscale']>;
+type EditArgs = z.infer<(typeof schemas)['image_edit']>;
 
-const DEFINITIONS: Record<'upscale', ToolInfo> = {
+const DEFINITIONS: Record<'upscale' | 'image_edit', ToolInfo> = {
   upscale: {
     title: '放大图片',
     description: [
@@ -77,6 +125,23 @@ const DEFINITIONS: Record<'upscale', ToolInfo> = {
     surfaces: ['agent', 'cli'],
     positional: 'files',
   },
+  image_edit: {
+    title: '修改图片',
+    description: [
+      '去除物体（erase）、去水印（watermark）、重绘局部（repaint）或扩展画面（expand）。文件到文件：每张输出一个 <原名>-erased / -no-watermark / -repainted / -expanded.png，不动原图。',
+      '选区用原图像素：先看图（尺寸、要改的东西在哪）再给 mask。框住水印、角标、字幕条用 boxes；不规则的物体用 strokes（半径够盖住边缘，边缘多涂一点更自然）。',
+      'method fill 不用模型，在这台电脑上几秒钟做完；model 把选区周围的一块（扩图是整张新画布）发给图像模型，回来后只贴回选区，选区外的像素不变。',
+      '会按访问模式向用户确认。立即返回 jobId；用 jobs_wait 等它结束，state 为 completed 时 outputs 的 path 是新图片。失败时 error.code 是 IMAGE_EDIT_MASK_TOO_LARGE、IMAGE_EDIT_UNSUPPORTED（模型不能改图）、MODEL_OUTPUT_INVALID 等。',
+    ].join('\n'),
+    annotations: { destructiveHint: false, idempotentHint: true },
+    effect: 'job',
+    examples: [
+      { title: '去掉右下角的水印', args: { op: 'watermark', files: ['shots/a.png'], mask: { boxes: [{ x: 1500, y: 980, width: 380, height: 80 }] } } },
+      { title: '把天空扩成 16:9', args: { op: 'expand', files: ['photo.jpg'], expand: { ratio: '16:9', anchor: 'bottom' }, prompt: '晴朗的天空' } },
+    ],
+    surfaces: ['agent', 'cli'],
+    positional: 'files',
+  },
 };
 // i18n-ignore-end
 
@@ -90,9 +155,14 @@ export class ImageTools implements ToolSet {
   }
 
   dispatch(name: string, args: unknown, principal: ToolPrincipal): Promise<unknown> {
-    // i18n-ignore: 给模型的工具说明、错误与下一步
-    if (name !== 'upscale') return Promise.reject(new ToolError('UNKNOWN_TOOL', `没有这个工具：${name}`));
-    return upscale(this.#deps, args as Args, principal).catch((error: unknown) => {
+    const run =
+      name === 'upscale'
+        ? upscale(this.#deps, args as Args, principal)
+        : name === 'image_edit'
+          ? imageEdit(this.#deps, args as EditArgs, principal)
+          : // i18n-ignore: 给模型的工具说明、错误与下一步
+            Promise.reject(new ToolError('UNKNOWN_TOOL', `没有这个工具：${name}`));
+    return run.catch((error: unknown) => {
       throw toolErrorOf(error);
     });
   }
@@ -185,6 +255,52 @@ async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipa
       inputs.length === 1 ? `（${path.parse(inputs[0]!).name}-upscaled-${scale}x.png）` : ''
     }。用 jobs_wait 等它结束；state 为 completed 时 outputs 的 path 是放大后的图片，把位置告诉用户。`,
     // i18n-ignore-end
+  };
+}
+
+const EDIT_LABELS = { erase: JobsEditImage.eraseLabel, watermark: JobsEditImage.watermarkLabel, repaint: JobsEditImage.repaintLabel, expand: JobsEditImage.expandLabel };
+
+async function imageEdit(deps: ImageToolsDeps, args: EditArgs, principal: ToolPrincipal) {
+  const { pipelines, scope } = deps;
+  const access = scope.authorize(principal, true);
+  if (access.principal.kind === 'service') {
+    // i18n-ignore: 给模型的工具说明、错误与下一步
+    throw new ToolError('INVALID_ARGUMENTS', '对外服务不能修改本机的图片：请用户在 BaoCut 里用图片工具');
+  }
+  const base = scope.fileBase(access);
+  const inputs = args.files.map((file) => resolveUserPath(file, base));
+  const outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, base) : undefined;
+  const method = args.method ?? (args.op === 'watermark' ? 'fill' : 'model');
+  const executor = method === 'fill' ? 'ffmpeg' : (args.model ?? args.provider ?? RcAgentTools.imageEditDefaultModel().text);
+  const approval = await scope.confirm(access, {
+    tool: 'image_edit',
+    ...confirmSummary(
+      RcAgentTools.imageEditSummary({ tool: EDIT_LABELS[args.op]().text, count: inputs.length, executor, dir: outDir ?? deps.saveDirectory() }),
+    ),
+  });
+  const pipeline = EDIT_IMAGE_PIPELINES[args.op];
+  const { jobId } = await pipelines.start(
+    {
+      pipeline,
+      params: {
+        inputs,
+        ...(args.mask ? { mask: args.mask } : {}),
+        ...(args.method ? { method: args.method } : {}),
+        ...(args.prompt !== undefined ? { prompt: args.prompt } : {}),
+        ...(args.expand ? { expand: args.expand } : {}),
+        ...(args.provider !== undefined ? { provider: args.provider } : {}),
+        ...(args.model !== undefined ? { model: args.model } : {}),
+        ...(outDir !== undefined ? { outDir } : {}),
+      },
+      ...(args.commandId ? { commandId: scope.commandId(access, args.commandId) } : {}),
+    },
+    access.submitter,
+  );
+  return {
+    jobId,
+    ...approvalField(approval),
+    // i18n-ignore: 给模型的工具说明、错误与下一步
+    next: `已提交（${pipeline}，${inputs.length} 张，${method}），PNG 存到 ${outDir ?? '保存位置'}。用 jobs_wait 等它结束；state 为 completed 时 outputs 的 path 是新图片，把位置告诉用户，请用户看一眼结果。`,
   };
 }
 

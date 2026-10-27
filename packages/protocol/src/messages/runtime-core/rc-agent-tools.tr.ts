@@ -40,4 +40,6 @@ instructionsNotSet: 'Oturum yönergeleri ayarlanmadı: Runtime birleştirme sır
   shotsFacesUnavailable: 'Yüz algılama kullanılamıyor',
   installUpscalerSummary: (p) => `Görüntüleri büyütmek için ${p.url} adresinden ${p.tool} ${p.version} (${p.size}, ${p.license}) yükle`,
   upscaleSummary: (p) => `Görüntüleri (${p.count}) Real-ESRGAN (${p.weights}) ile ${p.scale}× büyüt ve PNG'leri ${p.dir} konumuna kaydet`,
+  imageEditSummary: (p) => `${p.tool}: görüntüleri (${p.count}) ${p.executor} ile işle ve PNG'leri ${p.dir} konumuna kaydet`,
+  imageEditDefaultModel: 'varsayılan görüntü modeli',
 };

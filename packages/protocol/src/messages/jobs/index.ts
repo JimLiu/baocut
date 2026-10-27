@@ -4,6 +4,7 @@ import './common.ts';
 import './download-transcript.ts';
 import './dub-separator.ts';
 import './dub.ts';
+import './edit-image.ts';
 import './entry-input.ts';
 import './ffmpeg.ts';
 import './generated-import.ts';

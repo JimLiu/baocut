@@ -168,4 +168,6 @@ export const ja: RcAgentToolsMessages = {
   shotsFacesUnavailable: '顔検出を利用できません',
   installUpscalerSummary: (p) => `画像を拡大するため、${p.url} から ${p.tool} ${p.version}（${p.size}、${p.license}）をインストール`,
   upscaleSummary: (p) => `Real-ESRGAN（${p.weights}）で画像（${p.count} 枚）を ${p.scale} 倍に拡大し、PNG を ${p.dir} に保存`,
+  imageEditSummary: (p) => `${p.tool}：画像（${p.count} 枚）を ${p.executor} で処理し、PNG を ${p.dir} に保存`,
+  imageEditDefaultModel: '既定の画像モデル',
 };

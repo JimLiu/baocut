@@ -214,4 +214,6 @@ export const it: RcAgentToolsMessages = {
   shotsFacesUnavailable: 'Il rilevamento dei volti non è disponibile',
   installUpscalerSummary: (p) => `Installa ${p.tool} ${p.version} (${p.size}, ${p.license}) da ${p.url} per ingrandire le immagini`,
   upscaleSummary: (p) => `Ingrandire immagini (${p.count}) ${p.scale}× con Real-ESRGAN (${p.weights}) e salvare i PNG in ${p.dir}`,
+  imageEditSummary: (p) => `${p.tool}: elaborare immagini (${p.count}) con ${p.executor} e salvare i PNG in ${p.dir}`,
+  imageEditDefaultModel: 'il modello di immagini predefinito',
 };

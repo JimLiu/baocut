@@ -255,6 +255,8 @@ const en = {
   shotsFacesUnavailable: 'Face detection isn’t available',
   installUpscalerSummary: (p: { tool: string; version: string; size: string; license: string; url: string }) => `Install ${p.tool} ${p.version} (${p.size}, ${p.license}) from ${p.url} to upscale images`,
   upscaleSummary: (p: { count: number; scale: number; weights: string; dir: string }) => `Upscale images (${p.count}) ${p.scale}× with Real-ESRGAN (${p.weights}) and save PNGs to ${p.dir}`,
+  imageEditSummary: (p: { tool: string; count: number; executor: string; dir: string }) => `${p.tool}: images (${p.count}) with ${p.executor}, save PNGs to ${p.dir}`,
+  imageEditDefaultModel: 'the default image model',
 };
 
 export type RcAgentToolsMessages = typeof en;

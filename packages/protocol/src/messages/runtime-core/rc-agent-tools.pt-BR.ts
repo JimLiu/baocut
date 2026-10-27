@@ -189,4 +189,6 @@ export const ptBR: RcAgentToolsMessages = {
   shotsFacesUnavailable: 'A detecção de rostos não está disponível',
   installUpscalerSummary: (p) => `Instalar ${p.tool} ${p.version} (${p.size}, ${p.license}) de ${p.url} para ampliar imagens`,
   upscaleSummary: (p) => `Ampliar imagens (${p.count}) ${p.scale}× com o Real-ESRGAN (${p.weights}) e salvar os PNG em ${p.dir}`,
+  imageEditSummary: (p) => `${p.tool}: processar imagens (${p.count}) com ${p.executor} e salvar os PNG em ${p.dir}`,
+  imageEditDefaultModel: 'o modelo de imagem padrão',
 };

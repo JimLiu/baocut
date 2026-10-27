@@ -144,4 +144,6 @@ export const ru: RcAgentToolsMessages = {
   shotsFacesUnavailable: 'Распознавание лиц недоступно',
   installUpscalerSummary: (p) => `Установить ${p.tool} ${p.version} (${p.size}, ${p.license}) с ${p.url} для увеличения изображений`,
   upscaleSummary: (p) => `Увеличить изображения (${p.count}) в ${p.scale}× с Real-ESRGAN (${p.weights}) и сохранить PNG в ${p.dir}`,
+  imageEditSummary: (p) => `${p.tool}: обработать изображения (${p.count}) с ${p.executor} и сохранить PNG в ${p.dir}`,
+  imageEditDefaultModel: 'моделью изображений по умолчанию',
 };

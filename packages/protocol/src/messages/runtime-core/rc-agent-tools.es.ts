@@ -81,4 +81,6 @@ export const es: RcAgentToolsMessages = {
   shotsFacesUnavailable: 'La detección de caras no está disponible',
   installUpscalerSummary: (p) => `Instalar ${p.tool} ${p.version} (${p.size}, ${p.license}) desde ${p.url} para ampliar imágenes`,
   upscaleSummary: (p) => `Ampliar imágenes (${p.count}) ${p.scale}× con Real-ESRGAN (${p.weights}) y guardar los PNG en ${p.dir}`,
+  imageEditSummary: (p) => `${p.tool}: procesar imágenes (${p.count}) con ${p.executor} y guardar los PNG en ${p.dir}`,
+  imageEditDefaultModel: 'el modelo de imagen predeterminado',
 };

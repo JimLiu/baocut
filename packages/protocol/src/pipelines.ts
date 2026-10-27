@@ -223,6 +223,81 @@ export interface UpscaleImageSummary {
   warnings: string[];
 }
 
+/** 图片编辑的四个流程（架构设计 §7.9）：去除物体、去水印、重绘局部、扩展画面。 */
+export type EditImageOp = 'erase' | 'watermark' | 'repaint' | 'expand';
+export const EDIT_IMAGE_OPS: readonly EditImageOp[] = ['erase', 'watermark', 'repaint', 'expand'];
+/** 补法：`fill` 是本机 ffmpeg 按四周像素填充（不用模型）；`model` 是能改图的图像模型（`referenceImages.edit`）。 */
+export type EditImageMethod = 'fill' | 'model';
+export const EDIT_IMAGE_METHODS: readonly EditImageMethod[] = ['fill', 'model'];
+/** 扩图时原图放在新画布的哪里。 */
+export type EditImageAnchor = 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right';
+export const EDIT_IMAGE_ANCHORS: readonly EditImageAnchor[] = ['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'];
+
+/**
+ * 选区（原图像素，左上角为原点）：框与笔画（以 `radius` 为半径沿折线涂抹）的并集。批量去水印时按第一张图记，别的图按宽高的
+ * 比例换算到自己的尺寸。
+ */
+export interface EditImageMask {
+  boxes?: Array<{ x: number; y: number; width: number; height: number }>;
+  strokes?: Array<{ radius: number; points: Array<[number, number]> }>;
+}
+
+/**
+ * 扩图的新画布：给 `ratio`（`W:H`，只往缺的方向加、按 `anchor` 放原图，不裁原图）或 `margins`（四边各加多少像素）之一。
+ */
+export interface EditImageExpand {
+  ratio?: string;
+  anchor?: EditImageAnchor;
+  margins?: { left: number; top: number; right: number; bottom: number };
+}
+
+/**
+ * 图片编辑（`remove-object`、`remove-watermark`、`repaint-image`、`expand-image`，架构设计 §7.9）：文件到文件，输出 PNG，不建视频、
+ * 不动原文件。`model` 补法只把选区周围的一块（至少 512 像素见方，扩图是整张新画布）送给图像模型，回来后只贴回选区（边缘羽化），
+ * 选区之外的像素保持原样；扩图贴回的是新增的部分，原图原样保留。
+ */
+export interface EditImageParams {
+  /** 输入图片的绝对路径（PNG、JPEG、WebP）。去水印 1 到 50 张，别的流程 1 张。 */
+  inputs: string[];
+  /** 选区；扩图不收，别的流程必须给。 */
+  mask?: EditImageMask;
+  /** 补法：去除物体默认 `model`，去水印默认 `fill`；重绘与扩图只有 `model`。 */
+  method?: EditImageMethod;
+  /** 重绘必须写改成什么；扩图可选（新增的部分画什么）；去除与去水印不收。 */
+  prompt?: string;
+  /** 扩图的新画布；扩图必须给。 */
+  expand?: EditImageExpand;
+  /** `model` 补法用的图像模型（同 `models.generateImage` 的 `provider` / `model`）；不给时用生图的默认模型。模型要能按提示词改图。 */
+  provider?: string;
+  model?: string;
+  /** 输出目录，规则同 `TranscodeParams.outDir`。 */
+  outDir?: string;
+}
+
+/** 图片编辑完成时父任务的 `pipeline.summary`。 */
+export interface EditImageSummary {
+  op: EditImageOp;
+  method: EditImageMethod;
+  /** 执行器：ffmpeg 的版本；`model` 补法另记 Provider 与模型。 */
+  executor: { tool: 'ffmpeg'; version: string; providerId: string | null; modelId: string | null };
+  /** 每张图：源文件、源尺寸、输出尺寸、选区在画面里的占比（扩图是新增部分的占比）、送去修补的那一块（`fill` 时 null）与输出文件。 */
+  images: Array<{
+    source: string;
+    width: number;
+    height: number;
+    outWidth: number;
+    outHeight: number;
+    coverage: number;
+    region: { x: number; y: number; width: number; height: number } | null;
+    file: string;
+  }>;
+  files: string[];
+  warnings: string[];
+}
+
+/** `pipelines.start` 提交图片编辑时的参数：`inputs` 的每一项可以是 Space 里的图片条目，规则同 `TranscodeStartParams`。 */
+export type EditImageStartParams = Omit<EditImageParams, 'inputs'> & { inputs: Array<string | SpaceEntryInput> };
+
 /** 翻译完成时父任务的 `pipeline.summary`。 */
 export interface TranslateSummary {
   videoId: Id;

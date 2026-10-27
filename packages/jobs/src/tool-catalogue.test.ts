@@ -19,6 +19,10 @@ describe('工具目录', () => {
       'generate-text',
       'generate-image',
       'upscale-image',
+      'remove-object',
+      'remove-watermark',
+      'repaint-image',
+      'expand-image',
       'generate-music',
       'link-import',
       'compress-video',
@@ -41,6 +45,20 @@ describe('工具目录', () => {
       // 接受视频输入的工具才有候选规则。
       expect(tool.candidates !== null).toBe(tool.inputs.includes('video'));
     }
+  });
+
+  it('图片编辑的四个工具各对应一个流程：都要 ffmpeg；去除与去水印的图像模型是可选的（快速填充不用）', () => {
+    for (const id of ['remove-object', 'remove-watermark', 'repaint-image', 'expand-image']) {
+      expect(toolDefinition(id)).toMatchObject({
+        execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: id },
+        inputs: ['file'],
+        results: ['artifact'],
+        externalTools: ['ffmpeg'],
+        network: 'none',
+      });
+    }
+    expect(toolDefinition('remove-object')).toMatchObject({ capabilities: [], optionalCapabilities: ['generateImage'] });
+    expect(toolDefinition('expand-image')).toMatchObject({ capabilities: ['generateImage'], optionalCapabilities: [] });
   });
 
   it('每个工具对应一个流程或一种直接任务，依赖照实声明', () => {
@@ -123,7 +141,7 @@ describe('工具目录', () => {
     const groups = Object.fromEntries(TOOL_CATEGORIES.map((c) => [c, TOOL_CATALOGUE.filter((t) => t.category === c).map((t) => t.id)]));
     expect(groups).toEqual({
       speech: ['transcribe', 'translate-subtitles', 'dub', 'synthesize-speech'],
-      'text-image': ['generate-text', 'generate-image', 'upscale-image'],
+      'text-image': ['generate-text', 'generate-image', 'upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image'],
       music: ['generate-music'],
       'video-file': ['link-import', 'compress-video', 'merge-video', 'extract-audio'],
     });

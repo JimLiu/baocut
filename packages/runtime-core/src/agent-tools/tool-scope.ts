@@ -171,6 +171,7 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   speak: 'command',
   image: 'command',
   upscale: 'command',
+  image_edit: 'command',
   // 下载模型（§6.3）：先给出大小，按访问模式决定要不要问。
   models_install: 'command',
   space_list: 'read',
