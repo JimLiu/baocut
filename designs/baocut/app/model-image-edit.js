@@ -12,7 +12,7 @@
   /* ---------- 五个工具 ---------- */
   const OPS = [
     {id: 'upscale', name: '放大图片', label: '放大', icon: 'ZoomIn', verb: '放大图片',
-      desc: '用本机的 Real-ESRGAN 把图片放大 2–4 倍，补出细节，不是简单拉伸', select: null, prompt: 'none', methods: ['esrgan']},
+      desc: '用本机的 Real-ESRGAN 把图片放大 2–4 倍，补出细节，不是简单拉伸', select: null, prompt: 'none', methods: ['esrgan'], batch: true},
     {id: 'erase', name: '去除物体', label: '去除物体', icon: 'MagicWand', verb: '去除',
       desc: '涂掉画面里不要的人或物，按周围的画面补上', select: 'brush', prompt: 'none', methods: ['model', 'fill']},
     {id: 'watermark', name: '去水印', label: '去水印', icon: 'Images', verb: '去水印',
@@ -39,10 +39,12 @@
   const upscaleModel = (k) => UPSCALE_MODELS.find((m) => m.k === k) || UPSCALE_MODELS[0];
   /** 照片模型的 2、3 倍要先放大 4 倍再缩（ffmpeg Lanczos） */
   const needsResize = (model, scale) => upscaleModel(model).native.indexOf(scale) < 0;
-  function upscaleSize(src, scale) {
+  /** 放大后的尺寸；照片模型的 2、3 倍中间要先放大 4 倍，所以上限按中间那一步查 */
+  function upscaleSize(src, scale, model) {
     const width = src.width * scale;
     const height = src.height * scale;
-    return {width, height, tooLarge: width > MAX_SIDE || height > MAX_SIDE};
+    const peak = model && needsResize(model, scale) ? 4 : scale;
+    return {width, height, tooLarge: src.width * peak > MAX_SIDE || src.height * peak > MAX_SIDE};
   }
 
   /* ---------- 选区：涂抹（brush）与框选（box） ----------
@@ -88,6 +90,32 @@
     const x = clamp(Math.round(box.x + box.w / 2 - w / 2), w, src.width);
     const y = clamp(Math.round(box.y + box.h / 2 - h / 2), h, src.height);
     return {x, y, w, h, full: w === src.width && h === src.height};
+  }
+
+  /** 批量去水印：框按原图像素记在第一张上，别的图按比例换算到它自己的尺寸（同一个相对位置） */
+  function scaleSelection(sel, from, to) {
+    if (!sel || (from.width === to.width && from.height === to.height)) return sel;
+    const kx = to.width / from.width, ky = to.height / from.height;
+    return {strokes: (sel.strokes || []).map((s) => ({r: Math.round(s.r * Math.min(kx, ky)), pts: s.pts.map((p) => [Math.round(p[0] * kx), Math.round(p[1] * ky)])})),
+      boxes: (sel.boxes || []).map((b) => ({x: Math.round(b.x * kx), y: Math.round(b.y * ky), w: Math.round(b.w * kx), h: Math.round(b.h * ky)}))};
+  }
+  /** 比例和第一张不同的图（差 2% 以上）：框换算过去可能偏，提示看一眼预览 */
+  const ratioDiffers = (a, b) => Math.abs(a.width / a.height - b.width / b.height) / (a.width / a.height) > 0.02;
+  /** 去水印的常见位置（也是不用指针时的选法）：四角的角标与底部字幕条，按画面的比例 */
+  const BOX_PRESETS = [
+    {k: 'br', label: '右下角', box: (w, h) => ({x: Math.round(w * 0.76), y: Math.round(h * 0.88), w: Math.round(w * 0.22), h: Math.round(h * 0.1)})},
+    {k: 'bl', label: '左下角', box: (w, h) => ({x: Math.round(w * 0.02), y: Math.round(h * 0.88), w: Math.round(w * 0.22), h: Math.round(h * 0.1)})},
+    {k: 'tr', label: '右上角', box: (w, h) => ({x: Math.round(w * 0.76), y: Math.round(h * 0.02), w: Math.round(w * 0.22), h: Math.round(h * 0.1)})},
+    {k: 'tl', label: '左上角', box: (w, h) => ({x: Math.round(w * 0.02), y: Math.round(h * 0.02), w: Math.round(w * 0.22), h: Math.round(h * 0.1)})},
+    {k: 'sub', label: '底部字幕条', box: (w, h) => ({x: 0, y: Math.round(h * 0.82), w, h: Math.round(h * 0.14)})},
+  ];
+  const ANCHOR_LABEL = {'top-left': '左上', top: '上方居中', 'top-right': '右上', left: '左侧居中', center: '正中', right: '右侧居中',
+    'bottom-left': '左下', bottom: '下方居中', 'bottom-right': '右下'};
+  /** 一张图会不会整张发出去：工作区盖满整张图（小图、选区很大）时 */
+  function sendsWhole(op, sel, src) {
+    if (op === 'expand') return true;
+    const st = selectionStats(sel, src);
+    return !!st && workArea(st.box, src).full;
   }
 
   /* ---------- 扩图 ---------- */
@@ -137,9 +165,11 @@
   }
 
   /* ---------- 表单 ---------- */
-  function blank(op) {
+  /** `editReady`：有没有能改图的模型就绪；没有时能快速填充的工具缺省快速填充 */
+  function blank(op, editReady) {
     const o = opById(op);
-    return {op, method: o.methods[0], scale: 4, model: 'photo', prompt: '', brush: 48, ratio: '16:9', anchor: 'center',
+    const method = editReady === false && o.methods.indexOf('fill') >= 0 ? 'fill' : o.methods[0];
+    return {op, method, scale: 4, model: 'photo', prompt: '', brush: 48, ratio: '16:9', anchor: 'center',
       margins: {left: 25, right: 25, top: 0, bottom: 0}, engine: null, seed: '', sameForAll: true};
   }
   /** 开始前的检查：第一条不过就是导航栏上的那句话；`bad` 时按钮按下只提示 */
@@ -149,8 +179,10 @@
     if (!src) return [o.batch ? '先选一张或几张图片' : '先选一张图片'];
     const out = [];
     if (f.op === 'upscale') {
-      const big = srcs.find((s) => upscaleSize(s, f.scale).tooLarge);
-      if (big) out.push(`${big.name} 放大 ${f.scale} 倍后超过 ${MAX_SIDE} 像素，换小一点的倍数`);
+      const big = srcs.find((s) => upscaleSize(s, f.scale, f.model).tooLarge);
+      if (big) out.push(needsResize(f.model, f.scale)
+        ? `${big.name} 要先放大 4 倍，超过 ${MAX_SIDE} 像素：换动画模型，或先把图缩小`
+        : `${big.name} 放大 ${f.scale} 倍后超过 ${MAX_SIDE} 像素，换小一点的倍数`);
       if (ctx && ctx.esrgan !== 'ready') out.push('第一次放大前要下载 Real-ESRGAN（约 49 MB）');
     }
     if (o.select && !selectionStats(sel, src)) out.push(o.select === 'box' ? '先在图上框出水印' : `先在图上涂出要${f.op === 'repaint' ? '重绘' : '去掉'}的地方`);
@@ -161,7 +193,7 @@
       if (p.same) out.push('目标比例和原图一样，换一个比例或按边扩');
       else if (p.tooLarge) out.push(`扩完超过 ${EXPAND_MAX_SIDE} 像素：先把原图缩小，或少扩一点`);
     }
-    if (f.method === 'model' && ctx && !ctx.engineReady) out.push('先选一个能改图的图像模型');
+    if (f.method === 'model' && ctx && ctx.modelReason) out.push(ctx.modelReason);
     return out;
   }
   /** 导航栏上的状态行：问题优先，否则说这一次会得到什么 */
@@ -188,7 +220,7 @@
   }
 
   const api = {OPS, opById, METHODS, MAX_SIDE, UPSCALE_MODELS, SCALES, upscaleModel, needsResize, upscaleSize,
-    GRID, selectionStats, workArea, ROI_MIN, RATIOS, ANCHORS, EXPAND_MAX_SIDE, expandPlan, outputName, blank, problems, statusLine, jobMeta};
+    GRID, selectionStats, workArea, scaleSelection, ratioDiffers, BOX_PRESETS, ANCHOR_LABEL, sendsWhole, ROI_MIN, RATIOS, ANCHORS, EXPAND_MAX_SIDE, expandPlan, outputName, blank, problems, statusLine, jobMeta};
   if (typeof window !== 'undefined') Object.assign(window, {BC_IMAGE_EDIT: api});
   if (typeof module !== 'undefined') module.exports = api;
 })();

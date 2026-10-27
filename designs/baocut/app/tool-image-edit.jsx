@@ -14,7 +14,7 @@
 
   /* ---------- 模块级状态：离开这一页任务照样跑完，草稿还在 ---------- */
   const store = {list: [], seq: 0, timer: null, subs: new Set(), drafts: {srcs: [], forms: {}, sels: {}},
-    esrgan: 'missing', installPct: 0, outcome: 'ok'};
+    esrgan: 'missing', installPct: 0, installTimer: null, installFail: false, outcome: 'ok'};
   const emit = () => store.subs.forEach((fn) => fn());
   const patch = (id, p) => { store.list = store.list.map((r) => (r.id === id ? Object.assign({}, r, p) : r)); emit(); };
   function useStore() {
@@ -40,10 +40,11 @@
       store.seq += 1;
       const name = E.outputName(form.op, src.name, form, taken);
       taken.push(name);
-      const up = form.op === 'upscale' ? E.upscaleSize(src, form.scale) : null;
+      const up = form.op === 'upscale' ? E.upscaleSize(src, form.scale, form.model) : null;
       const plan = form.op === 'expand' ? E.expandPlan(src, form) : null;
       const out = up || plan || {width: src.width, height: src.height};
-      store.list = [{id: `ie-${store.seq}`, status: 'queued', pct: 0, name, form: Object.assign({}, form), source: src, sel,
+      // 批量去水印：框按第一张记，别的图按比例换算到自己的尺寸
+      store.list = [{id: `ie-${store.seq}`, status: 'queued', pct: 0, name, form: Object.assign({}, form), source: src, sel: E.scaleSelection(sel, batch[0], src),
         out: {width: out.width, height: out.height}, index: i + 1, batch: batch.length, saveDir, engine: engineLabel}].concat(store.list);
     });
     emit();
@@ -171,12 +172,16 @@
       store.esrgan = 'installing';
       store.installPct = 0;
       emit();
-      const t = setInterval(() => {
+      clearInterval(store.installTimer);
+      store.installTimer = setInterval(() => {
         store.installPct = Math.min(100, store.installPct + 10);
-        if (store.installPct >= 100) { clearInterval(t); store.esrgan = 'ready'; app.toast('Real-ESRGAN 已就绪 · v0.2.5.0', 'positive'); }
+        // 演示挡位「下载失败」：到一半时按校验不过失败
+        if (store.installFail && store.installPct >= 50) { clearInterval(store.installTimer); store.esrgan = 'failed'; store.installFail = false; emit(); return; }
+        if (store.installPct >= 100) { clearInterval(store.installTimer); store.esrgan = 'ready'; app.toast('Real-ESRGAN 已就绪 · v0.2.5.0', 'positive'); }
         emit();
       }, 150);
     };
+    const stop = () => { clearInterval(store.installTimer); store.esrgan = 'missing'; emit(); };
     return <section className="vw__sec ie__tool">
       <div className="vw__sechd"><b className="grow">放大要用 Real-ESRGAN</b><Chip>第一次使用</Chip></div>
       <span className="t-detail">开源的超分辨率程序，在这台电脑的显卡上运行，不联网、不上传图片。BaoCut 下载一份放在自己的工具目录里，不改系统里的东西，以后在设置 › 外部工具里可以删除。</span>
@@ -186,9 +191,10 @@
         <dt>许可</dt><dd>BSD-3-Clause</dd>
         <dt>来源</dt><dd className="t-mono t-truncate">github.com/xinntao/Real-ESRGAN/releases</dd>
       </dl>
+      {s.esrgan === 'failed' ? <div className="hint hint--warn">下载的文件和记录的 SHA-256 对不上，已经删掉，没有安装。可能是网络中途断了或被替换：再下一次，或在设置 › 外部工具里换下载镜像。</div> : null}
       {s.esrgan === 'installing'
-        ? <div className="row"><span className="t-detail-xs grow">下载并校验中…</span><Progress value={s.installPct} thin /></div>
-        : <div className="row"><Btn variant="accent" size="s" icon="download" onClick={install}>下载并安装</Btn><span className="t-detail-xs">下载后按 SHA-256 校验</span></div>}
+        ? <div className="row"><span className="t-detail-xs grow">下载并校验中… {s.installPct}%</span><Progress value={s.installPct} thin /><Btn variant="quiet" size="s" onClick={stop}>取消</Btn></div>
+        : <div className="row"><Btn variant="accent" size="s" icon="download" onClick={install}>{s.esrgan === 'failed' ? '重新下载' : '下载并安装'}</Btn><span className="t-detail-xs">下载后按 SHA-256 校验</span></div>}
     </section>;
   }
 
@@ -203,7 +209,7 @@
       <div className="vw__row">
         <span className="vw__lab">倍数</span>
         <Segmented size="s" value={String(f.scale)} onChange={(k) => set({scale: Number(k)})} items={E.SCALES.map((k) => ({k: String(k), label: `${k}×`}))} />
-        {src ? <span className="t-detail-xs">{E.upscaleSize(src, f.scale).width}×{E.upscaleSize(src, f.scale).height}</span> : null}
+        {src ? <span className="t-detail-xs">{E.upscaleSize(src, f.scale, f.model).width}×{E.upscaleSize(src, f.scale, f.model).height}</span> : null}
       </div>
       <span className="t-detail-xs vw__indent">{E.needsResize(f.model, f.scale)
         ? `照片模型先放大 4 倍，再缩到 ${f.scale} 倍（Lanczos），细节比直接拉伸多。`
@@ -260,12 +266,12 @@
       </div> : <div className="vw__row">
         <span className="vw__lab">原图放在</span>
         <div className="ie__anchors" role="radiogroup" aria-label="原图放在哪">
-          {E.ANCHORS.map((a) => <BCAction key={a} type="button" role="radio" aria-checked={f.anchor === a} aria-label={a}
+          {E.ANCHORS.map((a) => <BCAction key={a} type="button" role="radio" aria-checked={f.anchor === a} aria-label={E.ANCHOR_LABEL[a]}
             className={cx('ie__anchor', f.anchor === a && 'is-on')} onClick={() => set({anchor: a})} />)}
         </div>
         <span className="t-detail-xs">只往缺的方向加，不裁原图</span>
       </div>}
-      {plan && plan.staged ? <span className="t-detail-xs vw__err">一边扩出超过原图一倍：建筑线条、地平线容易接不上。可以先扩一半，看了结果再扩一次。</span> : null}
+      {plan && plan.staged ? <div className="hint hint--warn">一边扩出超过原图一倍：建筑线条、地平线容易接不上。可以先扩一半，看了结果再扩一次。</div> : null}
     </section>;
   }
 
@@ -293,6 +299,8 @@
         <code className="vfail__ev t-mono">{r.fail.evidence}</code>
         <div className="vrec__acts">
           <Btn variant="accent" size="s" icon="refresh" onClick={() => { patch(r.id, {status: 'queued', pct: 0, fail: null}); pump(app); }}>再试一次</Btn>
+          {r.form.method === 'model' && r.form.op !== 'upscale' ? <Btn variant="secondary" size="s"
+            onClick={() => app.go({r: 'tools', id: r.form.op})}>换个模型</Btn> : null}
           <span className="t-detail-xs t-mono">{r.fail.code}</span>
         </div>
       </div> : null}
@@ -321,11 +329,13 @@
     const engines = window.useImageEngines(app);
     const models = editModels(engines);
     const [srcs, setSrcsState] = useState(store.drafts.srcs);
-    const [f, setF] = useState(() => store.drafts.forms[op] || E.blank(op));
+    const [f, setF] = useState(() => store.drafts.forms[op] || E.blank(op, models.some((m) => m.ok)));
     const [sel, setSelState] = useState(() => store.drafts.sels[op] || {strokes: [], boxes: []});
     const [tried, setTried] = useState(false);
     const goRef = useRef(null);
     const set = (p) => setF((cur) => { const next = Object.assign({}, cur, p); store.drafts.forms[op] = next; return next; });
+    // 单张的工具（去除、重绘、扩图）只取第一张；从批量工具切过来时多出来的留在草稿里，切回去还在
+    const mine = E.opById(op).batch ? srcs : srcs.slice(0, 1);
     const setSrcs = (list) => { store.drafts.srcs = list; setSrcsState(list); setSelState({strokes: [], boxes: []}); store.drafts.sels[op] = null; };
     const setSel = (next) => { store.drafts.sels[op] = next; setSelState(next); };
     // 模型缺省取第一只就绪的
@@ -333,15 +343,17 @@
     window.BC_TOOL_FRAME.useToolPreset(op, (p) => {
       if (p.params && p.params.form) { setF(Object.assign(E.blank(op), p.params.form)); if (p.params.src) setSrcs([p.params.src]); }
       else if (p.entry) setSrcs([fromEntry(p.entry)]);
+      if (p.retryOf) app.toast(`上次没做完：${p.retryOf.error || '失败'}。设置已带回来，改一下再试。`);
     });
     const model = models.find((m) => m.id === f.engine) || null;
-    const ctx = {esrgan: s.esrgan, engineReady: !!(model && model.ok), taken: (app.spaceItems || []).map((x) => x.name)};
-    const status = E.statusLine(f, srcs, sel, ctx, tried);
-    const errs = E.problems(f, srcs, sel, ctx);
+    const ctx = {esrgan: s.esrgan, taken: (app.spaceItems || []).map((x) => x.name),
+      modelReason: f.method === 'model' ? window.BC_TOOL_FRAME.modelReason(models, f.engine, '能改图的图像模型') : null};
+    const status = E.statusLine(f, mine, sel, ctx, tried);
+    const errs = E.problems(f, mine, sel, ctx);
     const go = () => {
       setTried(true);
       if (errs.length) { app.toast(errs[0]); return; }
-      enqueue(app, f, srcs, sel, save.dir, f.op === 'upscale' ? 'Real-ESRGAN' : f.method === 'model' && model ? model.label : null);
+      enqueue(app, f, mine, sel, save.dir, f.op === 'upscale' ? 'Real-ESRGAN' : f.method === 'model' && model ? model.label : null);
       setTried(false);
     };
     goRef.current = go;
@@ -351,13 +363,16 @@
       return () => window.removeEventListener('keydown', key);
     }, []);
     const local = op === 'upscale' || f.method === 'fill' || (model && model.local);
+    const chip = local ? '在这台电脑上处理 · 不上传'
+      : !model ? '要选一个图像模型'
+      : mine[0] && E.sendsWhole(op, sel, mine[0]) ? '整张图会发给云端模型' : '选区附近的一块会发给云端模型';
     const bar = <>
       <span className={cx('t-detail pagenav__note', status.bad && 'vw__err')} title={status.text}>{status.text}</span>
       <span className="t-detail-xs t-mono pagenav__hint">⌘↵</span>
       <Btn variant="accent" icon="image" onClick={go}>{o.verb}</Btn>
     </>;
     return (
-      <window.Page wide title={o.name} bar={bar} actions={<Chip icon={local ? 'lock' : 'web'}>{local ? '在这台电脑上处理 · 不上传' : op === 'expand' ? '原图会发给云端模型' : '选区附近的一块会发给云端模型'}</Chip>}>
+      <window.Page wide title={o.name} bar={bar} actions={<Chip icon={local ? 'lock' : 'web'}>{chip}</Chip>}>
         <div className="vw">
           <div className="vw__main">
             <R.SegmentedControl aria-label="图片工具" selectedKey={op} onSelectionChange={(id) => { if (id !== op) app.go({r: 'tools', id}); }}>
@@ -365,10 +380,10 @@
             </R.SegmentedControl>
             <span className="t-detail ie__lede">{o.desc}。</span>
             {op === 'upscale' ? <EsrganCard /> : null}
-            <Sources op={op} srcs={srcs} setSrcs={setSrcs} />
-            {srcs[0] ? <section className="vw__sec"><window.ImageEditCanvas op={op} src={srcs[0]} sel={sel} setSel={setSel} form={f} set={set} /></section> : null}
-            {op === 'upscale' ? <UpscaleOptions f={f} set={set} src={srcs[0]} /> : null}
-            {op === 'expand' ? <ExpandOptions f={f} set={set} src={srcs[0]} /> : null}
+            <Sources op={op} srcs={mine} setSrcs={setSrcs} />
+            {mine[0] ? <section className="vw__sec"><window.ImageEditCanvas op={op} src={mine[0]} sel={sel} setSel={setSel} form={f} set={set} others={mine.slice(1)} /></section> : null}
+            {op === 'upscale' ? <UpscaleOptions f={f} set={set} src={mine[0]} /> : null}
+            {op === 'expand' ? <ExpandOptions f={f} set={set} src={mine[0]} /> : null}
             {op !== 'upscale' ? <MethodOptions op={op} f={f} set={set} models={models} /> : null}
             <window.ToolSaveDirRow save={save} note="每张结果是保存位置里的一个 PNG、Space 里的一个图片条目；原图不动，重名时加序号。" />
             <BCDisclosure className="import-demo" title={<> 原型演示场景 </>}>
@@ -378,6 +393,13 @@
                   <BCSelect aria-label="Real-ESRGAN 演示状态" value={s.esrgan === 'ready' ? 'ready' : 'missing'} onChange={(e) => { store.esrgan = e.target.value; emit(); }}>
                     <option value="missing">还没下载</option>
                     <option value="ready">已就绪 · v0.2.5.0</option>
+                  </BCSelect>
+                </label>
+                <label>
+                  下载 Real-ESRGAN
+                  <BCSelect aria-label="下载演示挡位" value={s.installFail ? 'fail' : 'ok'} onChange={(e) => { store.installFail = e.target.value === 'fail'; emit(); }}>
+                    <option value="ok">校验通过</option>
+                    <option value="fail">校验不过</option>
                   </BCSelect>
                 </label>
                 <label>

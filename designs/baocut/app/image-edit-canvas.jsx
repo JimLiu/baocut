@@ -11,7 +11,9 @@
 
   /** 台面里图的大小：按比例，宽不超过台面、高不超过 456px（台面 480 减内边距） */
   const FRAME_MAX_H = 456;
-  const fit = (w, h) => ({aspectRatio: `${w} / ${h}`, width: `min(100%, ${Math.round((FRAME_MAX_H * w) / h)}px)`});
+  const fit = (w, h, maxH = FRAME_MAX_H) => ({aspectRatio: `${w} / ${h}`, width: `min(100%, ${Math.round((maxH * w) / h)}px)`});
+  /** 放大只是看一眼原图，不在上面操作：台面矮一些 */
+  const PEEK_MAX_H = 200;
 
   /** 原图：本机文件显示真图，Space 条目显示示意块 */
   function Picture({src}) {
@@ -72,9 +74,34 @@
         role="img" aria-label={mode === 'brush' ? '在图上涂抹选区' : '在图上拖框'}>
         {(sel.strokes || []).map((s, i) => <path key={i} className="iecv__stroke" d={path(s)} strokeWidth={s.r * 2} />)}
         {(sel.boxes || []).map((b, i) => <rect key={i} className="iecv__box" x={b.x} y={b.y} width={b.w} height={b.h} />)}
-        {mode === 'brush' && hover ? <circle className="iecv__cursor" cx={hover[0]} cy={hover[1]} r={brush} /> : null}
+        {mode === 'brush' && hover ? <>
+          {/* 深浅两圈：亮图与暗图上都看得见笔刷边 */}
+          <circle className="iecv__cursor iecv__cursor--dark" cx={hover[0]} cy={hover[1]} r={brush} />
+          <circle className="iecv__cursor" cx={hover[0]} cy={hover[1]} r={brush} />
+        </> : null}
       </svg>
     );
+  }
+
+  /** 批量去水印：第 2 张起按比例换算后的框，小图预览，比例不同的标出来 */
+  function BatchPeek({first, others, sel}) {
+    if (!others.length || !(sel.boxes || []).length) return null;
+    const shown = others.slice(0, 4);
+    return <div className="iecv__peek">
+      {shown.map((o, i) => {
+        const s = E.scaleSelection(sel, first, o);
+        return <figure key={i} className="iecv__peekitem">
+          <div className="iecv__frame" style={fit(o.width, o.height, 72)}>
+            <Picture src={o} />
+            <svg className="iecv__sel is-static" viewBox={`0 0 ${o.width} ${o.height}`} preserveAspectRatio="none" aria-hidden="true">
+              {s.boxes.map((b, j) => <rect key={j} className="iecv__box" x={b.x} y={b.y} width={b.w} height={b.h} />)}
+            </svg>
+          </div>
+          <figcaption className="t-detail-xs t-truncate">{o.name}{E.ratioDiffers(first, o) ? ' · 比例不同，框可能偏' : ''}</figcaption>
+        </figure>;
+      })}
+      {others.length > shown.length ? <span className="t-detail-xs">还有 {others.length - shown.length} 张</span> : null}
+    </div>;
   }
 
   /** 扩图的新画布：棋盘格是新增的部分，原图按锚点放 */
@@ -92,7 +119,7 @@
   }
 
   /** 画布：按工具决定是只看、涂抹、框选还是扩图预览；下面一行是工具条与尺寸 */
-  function EditCanvas({op, src, sel, setSel, form, set}) {
+  function EditCanvas({op, src, sel, setSel, form, set, others = []}) {
     const o = E.opById(op);
     const stats = o.select ? E.selectionStats(sel, src) : null;
     const plan = op === 'expand' ? E.expandPlan(src, form) : null;
@@ -102,11 +129,13 @@
     };
     const count = o.select === 'brush' ? (sel.strokes || []).length : (sel.boxes || []).length;
     const roi = stats && form.method === 'model' ? E.workArea(stats.box, src) : null;
+    const up = op === 'upscale' ? E.upscaleSize(src, form.scale, form.model) : null;
+    const addPreset = (p) => setSel({...sel, boxes: (sel.boxes || []).concat([p.box(src.width, src.height)])});
     return (
       <div className="iecv">
-        <div className="iecv__stage">
+        <div className={cx('iecv__stage', up && 'iecv__stage--peek')}>
           {plan && !plan.same ? <ExpandStage src={src} plan={plan} /> : (
-            <div className="iecv__frame" style={fit(src.width, src.height)}>
+            <div className="iecv__frame" style={fit(src.width, src.height, up ? PEEK_MAX_H : FRAME_MAX_H)}>
               <Picture src={src} />
               {o.select ? <SelectionLayer src={src} mode={o.select} sel={sel} setSel={setSel} brush={form.brush} /> : null}
             </div>
@@ -114,7 +143,7 @@
         </div>
         <div className="iecv__bar">
           <span className="t-detail-xs t-mono">{src.width}×{src.height}</span>
-          {op === 'upscale' ? <span className="t-detail-xs">→ {E.upscaleSize(src, form.scale).width}×{E.upscaleSize(src, form.scale).height}</span> : null}
+          {up ? <span className="t-detail-xs">→ {up.width}×{up.height}</span> : null}
           {plan && !plan.same ? <span className="t-detail-xs">→ {plan.width}×{plan.height}</span> : null}
           {o.select === 'brush' ? (
             <span className="iecv__brush">
@@ -132,7 +161,11 @@
         </div>
         {o.select && !count ? <span className="t-detail-xs iecv__hint">{o.select === 'brush'
           ? `按住拖动，把要${op === 'repaint' ? '重绘' : '去掉'}的地方涂满；边缘多涂一点更自然。`
-          : '在水印上拖一个框；有几处就框几处。'}</span> : null}
+          : '在水印上拖一个框；有几处就框几处。也可以点下面的常见位置。'}</span> : null}
+        {o.select === 'box' ? <div className="vw__chips" role="group" aria-label="常见的水印位置">
+          {E.BOX_PRESETS.map((p) => <Chip key={p.k} pill icon="plus" onClick={() => addPreset(p)}>{p.label}</Chip>)}
+        </div> : null}
+        {o.select === 'box' ? <BatchPeek first={src} others={others} sel={sel} /> : null}
       </div>
     );
   }

@@ -34,6 +34,12 @@
 .iecv__stroke { fill: none; stroke: var(--blue-900); stroke-opacity: 0.45; stroke-linecap: round; stroke-linejoin: round; }
 .iecv__box { fill: var(--blue-900); fill-opacity: 0.25; stroke: var(--blue-900); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .iecv__cursor { fill: none; stroke: var(--gray-25); stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+.iecv__cursor--dark { stroke: var(--gray-900); stroke-width: 4; }
+.iecv__sel.is-static { pointer-events: none; }
+.iecv__stage--peek { min-height: 0; }
+/* 批量去水印：后面几张的框，小图一排 */
+.iecv__peek { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.iecv__peekitem { display: flex; flex-direction: column; gap: 4px; max-width: 160px; margin: 0; }
 .iecv__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 32px; }
 .iecv__brush { display: inline-flex; align-items: center; gap: 8px; }
 .iecv__brush > :nth-child(2) { width: 120px; }
