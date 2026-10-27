@@ -28,7 +28,7 @@
 
 ## 2. 按顺序跑
 
-1. 把本 skill 的 `scripts/` 整个拷进工程（例如 `<工程>/tools/`）：能直接读到文件时拷目录，读不到时读 `scripts/` 下每个文件原样写进去。脚本都 import 同目录的 `lib.mjs`，要拷全；`*.example.json` 是配置样例。依赖 Node 18 以上与 baocut CLI；切段转写、留白压停顿、量原声响度、拉平老录音要本机有 ffmpeg。
+1. 把本 skill 的 `scripts/` 整个拷进工程（例如 `<工程>/tools/`）：能直接读到文件时拷目录，读不到时读 `scripts/` 下每个文件原样写进去。脚本都 import 同目录的 `lib.mjs`，要拷全；`*.example.json` 是配置样例。依赖 Node 18 以上与 baocut CLI；切段转写、留白压停顿、量原声响度、拉平老录音、拼小屏样张要本机有 ffmpeg。
    要画代码场景时，本 skill 的 `scene-kit/` 可以拷进工程的 `shared/` 当起点（读不到文件时读 `scene-kit/` 下的文件）。它在浏览器里跑，不和 `scripts/` 放在一起。`scene-kit.js` 只有机制、没有配色：颜色与字体由场景调用 `K.style()` 给，拷过去照这期的需要改、删掉不用的；它读 `build.mjs`、`quotes.mjs`、`sources.mjs` 写进 `window.TIMING` 的数据（`lines[].chars`、`clips`、`words`、`credits`、`ambient`），另有相机、对数缩放、阻尼弹簧与环境时钟（`K.cam`、`K.lens`、`K.zlerp`、`K.spring`、`K.ambient`），默认手感见 `video-production` 代码场景细则第 4.1 节。`geo110.js` 是 Natural Earth 1:110m 的陆地轮廓（公有领域）。
 2. 照 [`scripts/explainer.example.json`](production-scripts/scripts/explainer.example.json) 在工程根目录写配置（脚本从当前目录往上找它，也可以 `--config <文件>`），有实拍时照 [`scripts/clips.example.json`](production-scripts/scripts/clips.example.json) 写 `clips.json`。
 3. 按顺序跑，每个脚本都能重跑，做完、没变化的段跳过：
@@ -40,6 +40,7 @@
 | 留白与压停顿 | `gaps.mjs [id …]` | 有 `gap` 片段、稿子里有 `@beat` 或给了 `voice.maxPause` 时：在旁白里插静音给原声让位、把过长的句间停顿压短、把揭晓前那一拍留足 |
 | 字体、原声、出处 | `fonts.mjs`、`quotes.mjs`、`envelope.mjs`、`sources.mjs` | 用到时在打包前跑：裁字体子集（缺省去掉会让字宽对不上的 `locl`）；给 `words: true` 的原声片段对出逐词时间；把录音量成波形条写进 `shared/`；查出处表漏了什么并写 `sources.csv` |
 | 老录音 | `level.mjs` | 用到时：把忽大忽小的老录音拉平（不改时间），量降噪、滤波带来的时间差；修录音的整套做法在 `history-video` |
+| 看得清没有 | `legibility.mjs --bg <底色> 名=<色> …`；`--frames <图或视频> --at <秒,…>` | 不读配置、不连 Runtime：算色板里每个颜色在每个底色上的对比度（`@0.6` 先叠再算）；从视频几个时刻取帧缩到三分之一拼成一张，看要读的字认不认得出、几级分不分得出轻重。下限在 `video-production` 画面设计细则的第 4.1 节（读 [`references/craft/video-production.md`](video-production.md)，再按它「画面设计」一条读） |
 | 打包 | `build.mjs [id …]` | 打成代码包，时长 = 对齐出的时长 + `hold`，对到整帧；这一段的片段时间、画中画框、原声逐词与出处行写进 `TIMING`；配置里 `continues` 写了接着前一段演的段，再写上环境时钟的偏移（`TIMING.ambient`），打包前一段时它们一起重打 |
 | 排时间线 | `assemble.mjs --dry`，再 `assemble.mjs --live` | `--dry` 不连 Runtime 只打印；`--live` 把代码包放上去、先不烘焙，编辑器的实时层现画（`footage.layer` 为 `under` 时眼下画不出来，见 `pipeline.md` 第 3 节） |
 | 字幕 | `captions.mjs --dry`，再 `captions.mjs` | 用稿子原文加对齐时间建字幕层，专名照稿子上屏；不逐字高亮，要 KTV（念过的部分颜色变深）时配置 `sungColor`，颜色从这期色板取 |
@@ -83,6 +84,7 @@
 - [`scripts/explainer.example.json`](production-scripts/scripts/explainer.example.json)
 - [`scripts/fonts.mjs`](production-scripts/scripts/fonts.mjs)
 - [`scripts/gaps.mjs`](production-scripts/scripts/gaps.mjs)
+- [`scripts/legibility.mjs`](production-scripts/scripts/legibility.mjs)
 - [`scripts/level.mjs`](production-scripts/scripts/level.mjs)
 - [`scripts/lib.mjs`](production-scripts/scripts/lib.mjs)
 - [`scripts/overlay.mjs`](production-scripts/scripts/overlay.mjs)
