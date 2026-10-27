@@ -5,6 +5,8 @@
      要先处理的（登录过期、版本过旧、跑不起来）与只有官方脚本的不给勾，处理与安装说明在设置里。
    - 语音识别、语音合成、图像生成、音乐生成：多选（2026-10-16 用户要求），默认至少勾一只；写清这次要下多少、连带哪些组件，
      以及在工具里哪儿用。已装好的、正在下的显示成勾上、不能改。
+     语音识别、语音合成、图像生成另有「在线服务」一面（GitHub issue 100，onboarding-online.jsx）：选一家 API 提供方、粘贴密钥，
+     不下载；按「用 X 并继续」把这种能力的默认模型设成它。显示在线服务那一面时，本机那一面勾的不下载。
    - 语义搜索：一个包（文字模型 + 多模态模型 + 运行时）。
    要下载的都先过同一个下载确认框（download-dialog.jsx：来源、存放位置、许可；不许商用的模型把许可写在框里、确认按钮写
    「我知道了，下载 …」，与实现的 BatchInstallDialog 同一套）；确认后每只模型成为一条后台任务，引导立刻翻到下一步，不等下完。
@@ -14,7 +16,7 @@
    每一步都可以「跳过」；左下角「退出引导」与 Esc 随时退出（不用右上角的 ×：S2 的可关闭对话框会藏掉 ButtonGroup，同 space-viewer.jsx）。
    任何一种关掉都写一条记录（偏好 `onboarding`），以后启动不再弹。 */
 (function () {
-  const {useState} = React;
+  const {useState, useRef, useLayoutEffect} = React;
   const S = window.RSP;
   const OB = window.BC_ONBOARDING;
   const LM = window.BC_LOCALMODELS;
@@ -25,18 +27,26 @@
   /* 每一步的标题与开头一句 */
   const HEAD = {
     agent: '欢迎使用 BaoCut',
-    asr: '下载语音识别模型',
-    tts: '下载语音合成模型',
+    asr: '设置语音识别',
+    tts: '设置语音合成',
     semantic: '安装语义搜索',
-    image: '下载图像生成模型',
+    image: '设置图像生成',
     music: '下载音乐生成模型',
   };
   const LEAD = {
-    asr: '转录、加字幕和剪口播，都要先把说的话转成文字。模型装在这台电脑上，不联网也能用。',
-    tts: '语音合成模型能把文字念出来、用一段录音克隆声音，也能给视频翻译配音。挑一两只先下，其余以后在 设置 › 语音合成 里下。',
+    asr: '转录、加字幕和剪口播，都要先把说的话转成文字。',
+    tts: '语音合成能把文字念出来、用一段录音克隆声音，也能给视频翻译配音。',
     semantic: '按意思找讲话内容和画面：Space 搜索、写作按主题选材、配画面、翻译记忆都用它。装好后在后台给已有的视频建索引。',
-    image: '在本机按一句话生成图片，做封面、配图都行。模型很大，生成也慢。',
+    image: '按一句话生成图片，做封面、配图都行。',
     music: '在本机按风格或歌词生成配乐和歌曲，结果可以直接加到视频的音乐轨。生成很慢，30 秒约要几分钟。',
+  };
+  /* 本机模型那一面开头一句（有在线服务的三步）；只有本机模型的两步说明没有在线服务 */
+  const LOCAL_HINT = {
+    asr: '下到这台电脑上，不联网也能用，不另外花钱。',
+    tts: '下到这台电脑上，不另外花钱。挑一两只先下，其余以后在 设置 › 语音合成 里下。',
+    image: '下到这台电脑上，不另外花钱。模型很大，在本机生成也慢。',
+    semantic: '只在这台电脑上运行，没有在线服务。',
+    music: '只有本机模型，没有在线服务。',
   };
   /* 下好之后在哪儿用（只写工具页里有入口的那几类） */
   const WHERE = {
@@ -174,16 +184,31 @@
     const [agentPicks, setAgentPicks] = useState([]); // Agent 一步勾上、等按「后台安装」的那几家（没装的默认不勾：要用的是自己的订阅）
     const [picks, setPicks] = useState({});   // 每一步的勾选：第一次翻到时按默认值起，之后记住
     const [semPick, setSemPick] = useState(true);
+    const [modes, setModes] = useState({});   // 每一步显示本机模型还是在线服务（只记用户切过的；没切按 OB.defaultMode）
+    const [provPicks, setProvPicks] = useState({}); // 在线服务每一步选中的提供方（没选过按 OB.initialProvider）
     const speakers = {};
     ((D.models || {}).local || []).forEach((m) => { speakers[m.id] = m.speakers; });
     const on = OB.installTable(models, comps, app.modelInstalled, fresh, got);
     const k = OB.STEPS[step].k;
+    // 每一步从头看起：各步共用对话框正文这一个滚动容器，不清会停在上一步滚到的位置
+    const body = useRef(null);
+    useLayoutEffect(() => { const el = body.current && body.current.UNSAFE_getDOMNode(); if (el) el.scrollTop = 0; }, [step]);
     const s = OB.stepOf(k);
     const list = OB.choices(k, models, speakers);
     const cur = picks[k] || OB.initialPicks(k, list, comps, on);
     const setCur = (ids) => setPicks((p) => ({...p, [k]: ids}));
     const toggle = (id) => setCur(cur.indexOf(id) >= 0 ? cur.filter((x) => x !== id) : cur.concat([id]));
     const pctOf = (id) => (app.modelDl && id in app.modelDl ? app.modelDl[id] : -1);
+    // 在线服务：这一步的候选、显示哪一面、选中哪家（model-onboarding.js「在线服务」）
+    const online = OB.onlineChoices(k, window.BC_VENDORS, app.providerSettings, app.providerAccounts, Date.now());
+    const curDefault = {asr: app.cloudAsrDefault, tts: app.cloudTtsDefault, image: app.cloudImageDefault}[k];
+    const mode = OB.cloudCap(k) ? (modes[k] || OB.defaultMode(k, {
+      local: list.length,
+      localReady: list.some((c) => LM.ready(c.m, comps, on) || pctOf(c.m.id) >= 0),
+      onlineReady: online.some((r) => r.ready),
+    })) : 'local';
+    const provPick = k in provPicks ? provPicks[k] : OB.initialProvider(online, curDefault);
+    const provRow = online.find((r) => r.id === provPick) || null;
     const ov = AS.overview(app.harnessList, app.harness && app.harness.id);
     const taskOf = (q) => (app.tasks || []).find((t) => t.id === q.tid);
     const agentRows = OB.agentRows(app.harnessList, AS);
@@ -209,7 +234,8 @@
     // 这一步要下什么：勾上的、还没装好、也不在下的
     const want = list.filter((c) => cur.indexOf(c.m.id) >= 0 && pctOf(c.m.id) < 0 && !LM.ready(c.m, comps, on)).map((c) => c.m);
     const plan = k === 'semantic' ? (semPick ? semNeed : {parts: [], total: 0}) : OB.plan(want, comps, on);
-    const primary = k === 'agent' ? OB.agentPrimary(toInstall.length) : OB.primary(k, plan);
+    const primary = k === 'agent' ? OB.agentPrimary(toInstall.length)
+      : mode === 'online' ? OB.onlinePrimary(k, provRow) : OB.primary(k, plan);
 
     const close = (how, started) => {
       const extra = started || [];
@@ -243,6 +269,14 @@
           next([pkg.id]);
         },
       });
+    };
+    /* 用选中的在线服务：这种能力的默认模型设成它（与各能力页「默认模型」同一个值），往下走 */
+    const useOnline = () => {
+      if (provRow && provRow.model) {
+        const value = OB.defaultValue(provRow.id, provRow.model.id);
+        ({asr: app.setCloudAsrDefault, tts: app.setCloudTtsDefault, image: app.setCloudImageDefault})[k](value);
+      }
+      next();
     };
     const installAgents = () => {
       enqueueAgents(app, toInstall);
@@ -295,7 +329,7 @@
       <S.DialogContainer onDismiss={() => close('esc')}>
         <S.Dialog size="L" aria-label="欢迎使用 BaoCut">
           <S.Heading slot="title">{HEAD[k]}</S.Heading>
-          <S.Content>
+          <S.Content ref={body}>
             <Steps items={OB.STEPS} cur={step} label="引导步骤" className="onb-steps" />
 
             {k === 'agent' ? <AgentStep app={app} ov={ov} rows={agentRows} picks={agentPicks} onPick={pickAgent} jobStatus={agentStatus} /> : null}
@@ -303,11 +337,17 @@
             {s.cat ? (
               <div className="onb-pick">
                 <p className="onb-lead">{LEAD[k]}</p>
-                {!list.length ? unsupported(s.label)
-                  : <div className="onb-models" role="group" aria-label={HEAD[k]}><div>{cards}</div></div>}
-                {WHERE[k] && list.length ? <Where w={WHERE[k]} /> : null}
-                {list.length ? <p className="onb-note">{BG_NOTE}</p> : null}
-                {k === 'asr' ? <p className="onb-note onb-alt">不想下载？也可以以后在 设置 › API 提供方 里添加云端识别。</p> : null}
+                {OB.cloudCap(k) && list.length ? <window.OnbModeSwitch mode={mode} onChange={(m) => setModes((x) => ({...x, [k]: m}))} /> : null}
+                {mode === 'online' ? (
+                  <window.OnbOnline app={app} stepK={k} list={online} pick={provPick} only={!list.length}
+                    onPick={(id) => setProvPicks((x) => ({...x, [k]: id}))} />
+                ) : <>
+                  {list.length ? <p className="onb-hint">{LOCAL_HINT[k]}</p> : null}
+                  {!list.length ? unsupported(s.label)
+                    : <div className="onb-models" role="group" aria-label={HEAD[k]}><div>{cards}</div></div>}
+                </>}
+                {WHERE[k] && (list.length || mode === 'online') ? <Where w={WHERE[k]} /> : null}
+                {mode === 'local' && list.length ? <p className="onb-note">{BG_NOTE}</p> : null}
               </div>
             ) : null}
 
@@ -315,6 +355,7 @@
               <div className="onb-pick">
                 <p className="onb-lead">{LEAD.semantic}</p>
                 {semUnsupported ? unsupported('语义搜索') : <>
+                  <p className="onb-hint">{LOCAL_HINT.semantic}</p>
                   <div className="onb-models"><div>
                     <div className={cx('onb-model', semPick && !semInstalled && !semQueued && 'is-on', (semInstalled || semQueued) && 'is-fixed')}
                       onClick={(e) => { if (!semInstalled && !semQueued && !e.target.closest('label')) setSemPick(!semPick); }}>
@@ -345,7 +386,8 @@
           <S.ButtonGroup>
             {primary.kind !== 'next' ? <Btn variant="secondary" onClick={() => next()}>跳过</Btn> : null}
             <Btn variant="accent" autoFocus
-              onClick={() => (primary.kind === 'download' ? download() : primary.kind === 'install' ? installAgents() : next())}>{primary.label}</Btn>
+              onClick={() => (primary.kind === 'download' ? download() : primary.kind === 'install' ? installAgents()
+                : primary.kind === 'use' ? useOnline() : next())}>{primary.label}</Btn>
           </S.ButtonGroup>
         </S.Dialog>
       </S.DialogContainer>
@@ -365,7 +407,7 @@
     const launch = (fresh) => { if (onLaunch) onLaunch(); app.launchOnboarding(fresh); };
     return (
       <div className="tweaks__sec">
-        <div className="tweaks__lb">首次启动引导<em>第一次启动弹一次（老用户升级到这一版也弹一次），走完或退出都记下、不再弹。「模拟」先清掉记录（全新安装还把本机模型与语义搜索改成没装）；地址带 ?onboarding=1 或 =installed 也能模拟，但有记录时不弹。当前记录：{OB.recordText(app.prefs.onboarding)}</em></div>
+        <div className="tweaks__lb">首次启动引导<em>第一次启动弹一次（老用户升级到这一版也弹一次），走完或退出都记下、不再弹。「模拟」先清掉记录（全新安装还把本机模型与语义搜索改成没装、清空 API 提供方）；地址带 ?onboarding=1 或 =installed 也能模拟，但有记录时不弹。当前记录：{OB.recordText(app.prefs.onboarding)}</em></div>
         <div className="tweaks__rad">
           <BCAction className="tweaks__opt" onClick={() => launch(true)}>模拟 · 全新安装</BCAction>
           <BCAction className="tweaks__opt" onClick={() => launch(false)}>模拟 · 老用户升级</BCAction>

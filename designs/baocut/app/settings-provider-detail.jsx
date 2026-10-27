@@ -74,8 +74,9 @@
     </div>;
   }
 
-  /* 字段顺序：名称、密钥、[地区]、折叠的「端点（高级）」。baseFor(region) = 这个地区不填端点时用的地址，做端点的占位符 */
-  function AddAccountForm({vendor, settings, baseFor, onCancel, onSaved}) {
+  /* 字段顺序：名称、密钥、[地区]、折叠的「端点（高级）」。baseFor(region) = 这个地区不填端点时用的地址，做端点的占位符。
+     首次启动引导的在线服务（onboarding-online.jsx）也用它：`compact` 不要名称（第一个账号，不必起名），没有 onCancel 时不画「取消」 */
+  function AddAccountForm({vendor, settings, baseFor, onCancel, onSaved, compact}) {
     const [label, setLabel] = useState('');
     const [key, setKey] = useState('');
     const [region, setRegion] = useState((settings && settings.region) || 'global');
@@ -96,9 +97,9 @@
       }, 900);
     };
     return <div className="acct-add" role="group" aria-label="添加账号">
-      <div className="acct-add__grid">
-        <Field aria-label="名称（可选）" placeholder="名称（可选），例如 团队" value={label} onChange={(e) => setLabel(e.target.value)} />
-        <Field aria-label="密钥" type="password" placeholder="粘贴密钥" value={key} onChange={(e) => { setKey(e.target.value); setErr(''); }} />
+      <div className={cx('acct-add__grid', compact && 'is-compact')}>
+        {compact ? null : <Field aria-label="名称（可选）" placeholder="名称（可选），例如 团队" value={label} onChange={(e) => setLabel(e.target.value)} />}
+        <Field aria-label={compact ? `${vendor.name} 的 API 密钥` : '密钥'} type="password" placeholder="粘贴密钥" value={key} onChange={(e) => { setKey(e.target.value); setErr(''); }} />
       </div>
       {vendor.regions ? <div className="row gap8"><span className="t-detail grow">地区 · 国际站与中国站的密钥不通用</span>
         <Segmented size="s" value={region} onChange={setRegion} items={vendor.regions.map((r) => ({k: r.k, label: r.label}))} /></div> : null}
@@ -114,7 +115,7 @@
       <p className="t-detail-xs">演示字段，请勿输入真实密钥。保存后只显示掩码，任何地方都不再显示原文。</p>
       <div className="row gap8">
         <Btn variant="accent" size="s" disabled={!key.trim() || bad || busy} onClick={verify}>{busy ? '正在验证…' : '验证并保存'}</Btn>
-        <Btn variant="secondary" size="s" disabled={busy} onClick={onCancel}>取消</Btn>
+        {onCancel ? <Btn variant="secondary" size="s" disabled={busy} onClick={onCancel}>取消</Btn> : null}
         <span className="grow" />
         <span className="t-detail-xs">原型验证结果</span>
         <Segmented size="s" value={scenario} onChange={(x) => !busy && setScenario(x)}
@@ -312,5 +313,5 @@
     </div>;
   }
 
-  Object.assign(window, {ProviderDetail});
+  Object.assign(window, {ProviderDetail, ProviderAddAccountForm: AddAccountForm});
 })();

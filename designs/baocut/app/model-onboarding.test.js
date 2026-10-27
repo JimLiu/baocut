@@ -210,3 +210,63 @@ test('底部那一行：只有一件在跑时写名字与百分比（Agent 没�
   assert.equal(OB.bgLine([{name: 'Codex', pct: null, status: 'running', agent: true}, {name: 'A', pct: 20, status: 'running'}]),
     '后台在下载和安装 2 个');
 });
+
+/* ---------- 在线服务（GitHub issue 100） ---------- */
+require('./model-cloud-tts.js');
+require('./model-cloud-image.js');
+require('./model-vendors.js');
+const V = global.window.BC_VENDORS;
+const NOW = Date.parse('2026-10-26T08:00:00Z');
+const key = (masked) => [{accountId: 'main', masked, enabled: true, status: {state: 'ok'}}];
+
+test('只有语音识别、语音合成、图像生成三步有在线服务；语义搜索与音乐生成只有本机', () => {
+  assert.deepEqual(OB.STEPS.map((s) => OB.cloudCap(s.k)), [null, 'transcribe', 'tts', null, 'image', null]);
+  assert.equal(OB.defaultMode('music', {local: 0}), 'local');
+  assert.equal(OB.defaultMode('semantic', {local: 1, onlineReady: true}), 'local');
+});
+
+test('默认显示哪一面：本机跑不了→在线；本机已装好或在下→本机；连着一家→在线；其余→本机', () => {
+  assert.equal(OB.defaultMode('asr', {local: 0, localReady: false, onlineReady: false}), 'online');
+  assert.equal(OB.defaultMode('asr', {local: 2, localReady: true, onlineReady: true}), 'local');
+  assert.equal(OB.defaultMode('tts', {local: 3, localReady: false, onlineReady: true}), 'online');
+  assert.equal(OB.defaultMode('image', {local: 2, localReady: false, onlineReady: false}), 'local');
+});
+
+test('在线候选：目录里有这种能力的提供方，连着的在前，P1 与智能体不列；连上后默认用第一只不是上一代的模型', () => {
+  const settings = {google: {enabled: true}};
+  const accounts = {google: key('AIz…9f2a')};
+  const asr = OB.onlineChoices('asr', V, settings, accounts, NOW);
+  assert.equal(asr[0].id, 'google');
+  assert.equal(asr[0].ready, true);
+  assert.equal(asr[0].model.id, 'gemini-3.5-transcribe');
+  assert.ok(asr.some((r) => r.id === 'openai' && !r.ready && !r.added));
+  // Groq 与硅基流动的识别在目录里标 P1，不列
+  assert.ok(!asr.some((r) => r.id === 'groq' || r.id === 'siliconflow'));
+  const image = OB.onlineChoices('image', V, {}, {}, NOW);
+  assert.ok(!image.some((r) => r.vendor.kind === 'agent'));
+  assert.deepEqual(OB.onlineChoices('music', V, {}, {}, NOW), []);
+  assert.equal(OB.defaultModel([{id: 'old', prev: true}, {id: 'new'}]).id, 'new');
+  assert.equal(OB.defaultModel([]), null);
+});
+
+test('打开在线面板时选中哪家：现在的默认值指向且还连着的那家，否则第一家连着的，都没连不选', () => {
+  const list = [{id: 'openai', ready: true}, {id: 'google', ready: true}, {id: 'elevenlabs', ready: false}];
+  assert.equal(OB.initialProvider(list, 'cloud:google/gemini-3.5-transcribe'), 'google');
+  assert.equal(OB.initialProvider(list, 'cloud:elevenlabs/scribe_v2'), 'openai');
+  assert.equal(OB.initialProvider(list, ''), 'openai');
+  assert.equal(OB.initialProvider([{id: 'openai', ready: false}], ''), null);
+  assert.equal(OB.defaultValue('openai', 'gpt-4o-transcribe'), 'cloud:openai/gpt-4o-transcribe');
+  assert.equal(OB.providerOfDefault('cloud:openai/gpt-4o-transcribe'), 'openai');
+  assert.equal(OB.providerOfDefault('qwen3-asr-0.6b'), null);
+});
+
+test('在线候选下面那一句与主按钮：连着的写默认模型、按钮是「用 X 并继续」；没连的写一把密钥用于哪些能力', () => {
+  const list = OB.onlineChoices('tts', V, {openai: {enabled: true}}, {openai: key('sk-…a3f9')}, NOW);
+  const openai = list.find((r) => r.id === 'openai');
+  assert.match(OB.onlineLine(openai, V), /^已连接 · 默认用 /);
+  assert.equal(OB.onlineLine(list.find((r) => r.id === 'google'), V), '一把密钥用于 文本 / 识别 / 合成 / 生图');
+  assert.equal(OB.onlineLine(list.find((r) => r.id === 'volcengine-speech'), V), '粘贴 API 密钥就能用');
+  assert.deepEqual(OB.onlinePrimary('tts', openai), {kind: 'use', label: '用 OpenAI 并继续'});
+  assert.deepEqual(OB.onlinePrimary('tts', list.find((r) => r.id === 'google')), {kind: 'next', label: '下一步'});
+  assert.deepEqual(OB.onlinePrimary('tts', null), {kind: 'next', label: '下一步'});
+});

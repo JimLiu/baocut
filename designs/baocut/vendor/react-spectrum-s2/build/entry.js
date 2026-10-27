@@ -73,6 +73,9 @@ export {UNSAFE_PortalProvider} from 'react-aria/PortalProvider';
 // 舞台工具条的音量杆（stage.jsx）：不写数字的细杆 + 由调用方开合的 S2 提示，与 packages/ui 的 stage-bar.tsx 同一种做法。
 export {Slider as AriaSlider, SliderTrack, SliderThumb} from 'react-aria-components/Slider';
 export {TooltipContext, TooltipTriggerStateContext} from 'react-aria-components/Tooltip';
+// 单选组给后代的 TextContext 带插槽（description / errorMessage），不带插槽的 S2 Text（按钮、切换钮的文字）在里面会报错；
+// 卡片里放表单时（onboarding-online.jsx）用它在表单外层清掉。
+export {TextContext as AriaTextContext} from 'react-aria-components/Text';
 export {StatusLight} from '@react-spectrum/s2/StatusLight';
 export {SubmenuTrigger} from '@react-spectrum/s2/ActionMenu';
 export {Switch} from '@react-spectrum/s2/Switch';

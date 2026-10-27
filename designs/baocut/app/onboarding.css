@@ -7,7 +7,9 @@
   margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: var(--gray-600);
 }
 .onb-note .ic--14 { flex: none; color: var(--gray-600); }
-.onb-alt { margin-top: 4px; gap: 4px; }
+/* 有在线服务的三步：「本机模型 | 在线服务」切换与它下面那一句（随所选的一面换） */
+.onb-mode { margin-top: 12px; }
+.onb-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
 
 /* 连接 Agent：状态一句话（同 设置 › Agent 顶上的概览，配色收敛成两档）+ 每家一行（与模型卡同一种多选卡） */
 .onb-status {
@@ -56,3 +58,10 @@
 .onb-foot { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .onb-bg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
 .onb-bg .ic--14 { flex: none; color: var(--gray-600); }
+
+/* 在线服务：单选卡（与模型卡同一套 .onb-model，RSP.RadioGroup 包着）；选中而没连的卡里展开添加账号 */
+.onb-provs { margin-top: 12px; }
+.onb-provs > div:last-child { display: flex; flex-direction: column; gap: 8px; }
+.onb-prov__nm { display: inline-flex; align-items: center; gap: 8px; }
+.onb-prov__form { padding-left: 28px; cursor: default; }
+.onb-prov__site { margin: 8px 0 0; color: var(--gray-700); }

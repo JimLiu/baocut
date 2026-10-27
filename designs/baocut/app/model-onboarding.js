@@ -6,11 +6,13 @@
    每一步都不是必须的：有「跳过」，「退出引导」与 Esc 随时退出整个引导。任何一种关掉都记下，以后启动不再弹，也没有再打开的入口。
    下载照旧先过同一个下载确认框（download-dialog.jsx）；确认后下载成为一条后台任务，引导立刻翻到下一步，不等下完。
    勾上要装的几家 Agent 按顺序一家一家装（product-design §7.6；Homebrew 同一时间只能跑一个），装 Agent 没有百分比。
+   语音识别、语音合成、图像生成三步另有「在线服务」一面（GitHub issue 100）：选一家 API 提供方、粘贴密钥，不下载（见下面「在线服务」一节）。
    人声分离、视觉分析不进引导：体积小，用到的地方会先提出下载。
    Web 入口不加载：浏览器里不能安装本地模型（product-design §7.6「本地模型由用户安装」），也不连本机的 Agent。
 
    这一层只算：步骤表、要不要弹、落成什么记录、Agent 每一行能不能勾与勾上意味着什么、每一步的候选与默认勾选、
-   这次要下多少（经 BC_LOCALMODELS，与下载确认框同一张安装表）、主按钮怎么写、后台在下的那一行。不碰 DOM。 */
+   这次要下多少（经 BC_LOCALMODELS，与下载确认框同一张安装表）、主按钮怎么写、后台在下的那一行，
+   以及在线服务那一面的默认显示、候选（经 BC_VENDORS）、默认模型与主按钮。不碰 DOM。 */
 (function () {
   const LM = () => window.BC_LOCALMODELS;
 
@@ -199,6 +201,71 @@
     return n ? {kind: 'install', label: `后台安装 ${n} 个并继续`} : {kind: 'next', label: '下一步'};
   }
 
+  /* ---------- 在线服务（GitHub issue 100：引导里也能直接配置在线服务，不必把模型都下到本机） ----------
+     有 API 提供方的那几步（语音识别、语音合成、图像生成）顶上一个「本机模型 | 在线服务」切换；语义搜索与音乐生成只有本机模型。
+     在线服务是单选：选一家、粘贴它的 API 密钥（与 设置 › API 提供方 同一个「验证并保存」），按「用 X 并继续」把这种能力的
+     默认模型设成这家的（语音识别的「自动」是本机的出厂默认、语音合成没有自动，不设的话连上也用不上，product-design §7.6
+     「每种能力一个默认模型」）。一把密钥对这家的全部能力生效：某一步连上 OpenAI，后面有同一能力的步默认翻到「在线服务」。 */
+  const CLOUD_CAP = {asr: 'transcribe', tts: 'tts', image: 'image'};
+  /** 这一步对应的 API 提供方能力（BC_VENDORS.CAPS）；只有本机模型的步是 null */
+  const cloudCap = (stepK) => CLOUD_CAP[stepK] || null;
+  /** 在线服务把什么发给提供方（在线面板开头那句如实说明） */
+  const SENDS = {asr: '要转写的音频', tts: '要念的文字（克隆声音时还有参考录音）', image: '描述与参考图'};
+
+  /**
+   * 打开这一步时显示哪一面：本机一只都跑不了 → 在线；本机已经装好或正在下 → 本机；已经连着一家有这种能力的 → 在线；
+   * 其余 → 本机（不花钱、不联网，原来的默认）。`o`：{local: 候选只数, localReady: 有没有装好或在下的, onlineReady: 有没有连着的}
+   */
+  function defaultMode(stepK, o) {
+    if (!cloudCap(stepK)) return 'local';
+    if (!o.local) return 'online';
+    if (o.localReady) return 'local';
+    return o.onlineReady ? 'online' : 'local';
+  }
+
+  /** 一家这种能力默认用哪只模型：目录里第一只不是上一代的 */
+  const defaultModel = (models) => ((models || []).find((x) => !x.prev) || (models || [])[0] || null);
+  /** 能力默认值的写法（同 设置 › 各能力页）：'cloud:<提供方>/<模型>' */
+  const defaultValue = (pid, mid) => `cloud:${pid}/${mid}`;
+  /** 从默认值里读出提供方 id；不是云端的（空串、本机模型）给 null */
+  function providerOfDefault(value) {
+    const m = /^cloud:([^/]+)\//.exec(String(value || ''));
+    return m ? m[1] : null;
+  }
+
+  /**
+   * 在线面板的候选（`V` 是 BC_VENDORS）：目录里有这种能力的全部 API 提供方加声明了它的自建端点，P1 与智能体不列，
+   * 已连接的在前（capCatalog 的顺序）。[{id, vendor, ready, added, state, model}]，`model` 是连上后默认用的那只。
+   */
+  function onlineChoices(stepK, V, settings, accounts, now) {
+    const cap = cloudCap(stepK);
+    if (!cap || !V) return [];
+    return V.capCatalog(cap, settings, accounts, now).map((r) => ({
+      id: r.id, vendor: r.vendor, ready: r.ready, added: r.added, state: r.state, model: defaultModel(r.models),
+    }));
+  }
+
+  /** 打开在线面板时选中哪家：这种能力现在的默认值指向的那家（还连着才算）；否则第一家连着的；都没连时不选 */
+  function initialProvider(list, current) {
+    const ready = (list || []).filter((r) => r.ready);
+    const cur = providerOfDefault(current);
+    return (ready.find((r) => r.id === cur) || ready[0] || {id: null}).id;
+  }
+
+  /** 候选下面那一句：连着的写默认用哪只模型；没连的写这一把密钥还能用在哪些能力（一把密钥对全部能力生效） */
+  function onlineLine(r, V) {
+    if (r.ready) return r.model ? `已连接 · 默认用 ${r.model.id}` : '已连接';
+    const caps = V.capsOf(r.vendor).map((c) => V.CAP_SHORT[c]);
+    return caps.length > 1 ? `一把密钥用于 ${caps.join(' / ')}` : '粘贴 API 密钥就能用';
+  }
+
+  /** 在线面板的主按钮：选中的那家连着 →「用 OpenAI 并继续」（设成这种能力的默认模型）；否则往下走 */
+  function onlinePrimary(stepK, pick) {
+    const last = isLast(stepK);
+    if (pick && pick.ready) return {kind: 'use', label: `用 ${pick.vendor.name} 并${last ? '完成' : '继续'}`};
+    return {kind: 'next', label: last ? '完成' : '下一步'};
+  }
+
   /**
    * 对话框底部那一行（和按钮挤一排，要短）：这次引导里开始的下载与 Agent 安装，只有一件在跑时写名字与百分比
    * （Agent 安装给不出进度，`pct` 是 null，只写名字），几件同时在跑只写个数（各自的进度在后台任务里），跑完的、没成的只计数。
@@ -227,7 +294,8 @@
 
   const api = {STEPS, RECOMMENDED, TTS_HIGHLIGHTS, BUNDLED, stepOf, isLast, decided, shouldShow, demoLaunch, demoFresh,
     record, recordText, choices, nonCommercial, installTable, freshInstalled, initialPicks, plan, planLine, pkgPlan, primary,
-    agentRows, agentLine, agentJobStatus, agentPrimary, bgLine};
+    agentRows, agentLine, agentJobStatus, agentPrimary, bgLine,
+    SENDS, cloudCap, defaultMode, defaultModel, defaultValue, providerOfDefault, onlineChoices, initialProvider, onlineLine, onlinePrimary};
   if (typeof window !== 'undefined') window.BC_ONBOARDING = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

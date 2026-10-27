@@ -71,6 +71,7 @@
 .pdet-accts__add { padding: 12px 0 8px; }
 .acct-add { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; }
 .acct-add__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.acct-add__grid.is-compact { grid-template-columns: 1fr; }
 /* 添加账号里折叠的「端点（高级）」与账号行的编辑态（名称 + 端点地址） */
 .acct-add__eprow { display: flex; flex-direction: column; gap: 4px; padding-block: 4px; }
 .acct-add__eprow p { margin: 0; }
