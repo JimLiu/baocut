@@ -53,6 +53,30 @@ const custom = () => provider('custom:box', 'online', [model('whisper-1', { decl
 const node = (unavailable?: ProviderUnavailableReason) =>
   provider('node:studio', 'node', [model('asr-small', { default: true })], unavailable);
 
+const img = (modelId: string, extra: Partial<ImageModelInfo> = {}): ImageModelInfo => ({
+  modelId,
+  label: modelId,
+  sizes: [],
+  aspectRatios: [],
+  defaultSize: null,
+  maxCount: 1,
+  maxPromptChars: 1000,
+  formats: ['png'],
+  defaultFormat: 'png',
+  referenceImages: null,
+  img2img: null,
+  acceptsSeed: false,
+  cost: 'unknown',
+  ...extra,
+});
+const imgProvider = (providerId: string, kind: ProviderView['kind'], models: ImageModelInfo[], available = true): ProviderView => ({
+  providerId,
+  kind,
+  label: providerId,
+  config: null,
+  capabilities: { generateImage: { models, available, ...(available ? {} : { unavailableReason: 'not-configured' as const }) } },
+});
+
 const select = (input: Partial<SelectionInput<'transcribe'>>) =>
   selectModel({ capability: 'transcribe', userDefault: null, providers: [local(), openai()], ...input });
 const cnc = (reason: string, action: string, providerId?: string) => ({
@@ -216,29 +240,6 @@ describe('selectModel', () => {
   });
 
   it('生图的出厂默认按顺序取第一个可用的：订阅登录的 Codex → 本机（Turbo 在前）→ OpenAI → Google → 其余在线', () => {
-    const img = (modelId: string, extra: Partial<ImageModelInfo> = {}): ImageModelInfo => ({
-      modelId,
-      label: modelId,
-      sizes: [],
-      aspectRatios: [],
-      defaultSize: null,
-      maxCount: 1,
-      maxPromptChars: 1000,
-      formats: ['png'],
-      defaultFormat: 'png',
-      referenceImages: null,
-      img2img: null,
-      acceptsSeed: false,
-      cost: 'unknown',
-      ...extra,
-    });
-    const imgProvider = (providerId: string, kind: ProviderView['kind'], models: ImageModelInfo[], available = true): ProviderView => ({
-      providerId,
-      kind,
-      label: providerId,
-      config: null,
-      capabilities: { generateImage: { models, available, ...(available ? {} : { unavailableReason: 'not-configured' as const }) } },
-    });
     const codex = (cost: ImageModelInfo['cost'] = 'subscription', available = true) =>
       imgProvider('agent:codex', 'agent', [img('image-gen', { default: true, cost })], available);
     const localImg = (installed = true) =>
@@ -276,6 +277,42 @@ describe('selectModel', () => {
     expect(() => selectModel({ capability: 'generateImage', userDefault: null, providers: [localImg(false), oa(false), codex('unknown')] })).toThrow(
       expect.objectContaining({ details: expect.objectContaining({ capability: 'generateImage', reason: 'no-default' }) }),
     );
+  });
+
+  it('accepts（改图只用能改图的）：默认不接受时按出厂顺序换第一个接受的；给了 Provider 时在它里面换；都没有时照常选；显式的模型不换', () => {
+    const edit = { max: 1, edit: true, maxBytesEach: null, maxBytesTotal: null };
+    const codex = () => imgProvider('agent:codex', 'agent', [img('image-gen', { default: true, cost: 'subscription' })]);
+    const localImg = (installed = true) =>
+      imgProvider('local', 'local', [
+        img('qwen-image-2.1-turbo@mlx-8bit', { default: true, cost: 'free-local' }),
+        img('qwen-image-2.1@mlx-4bit', {
+          cost: 'free-local',
+          referenceImages: edit,
+          ...(installed ? {} : { available: false, unavailableReason: 'not-installed' as const }),
+        }),
+      ]);
+    const oa = () => imgProvider('openai', 'online', [img('gpt-image-1-mini', { default: true }), img('gpt-image-2', { referenceImages: edit })]);
+    const google = () => imgProvider('google', 'online', [img('gemini-3.1-flash-image', { default: true })]);
+    const accepts = (m: ImageModelInfo) => !!m.referenceImages?.edit;
+    const pick = (input: Partial<SelectionInput<'generateImage'>>) => {
+      const choice = selectModel({ capability: 'generateImage', userDefault: null, providers: [codex(), localImg(), oa(), google()], accepts, ...input });
+      return `${choice.providerId}/${choice.modelId}:${choice.source}`;
+    };
+
+    // 出厂顺序里的 Codex 不能改图：本机能改图的模型包在前，Provider 的默认模型不能改图时用它能改图的那个。
+    expect(pick({})).toBe('local/qwen-image-2.1@mlx-4bit:factory-default');
+    expect(pick({ providers: [codex(), localImg(false), oa(), google()] })).toBe('openai/gpt-image-2:factory-default');
+    // 用户默认值能改图时用它，不能时同样换。
+    expect(pick({ userDefault: { providerId: 'openai', modelId: 'gpt-image-2' } })).toBe('openai/gpt-image-2:user-default');
+    expect(pick({ userDefault: { providerId: 'google', modelId: 'gemini-3.1-flash-image' } })).toBe('local/qwen-image-2.1@mlx-4bit:factory-default');
+    // 只给 Provider：在它里面换；它没有能改图的时照常选它的默认，由调用方拒绝。
+    expect(pick({ provider: 'openai' })).toBe('openai/gpt-image-2:explicit');
+    expect(pick({ provider: 'google' })).toBe('google/gemini-3.1-flash-image:explicit');
+    // 哪里都没有能改图的：照常选出厂默认。显式的模型不换。
+    expect(pick({ providers: [codex(), localImg(false), google()] })).toBe('agent:codex/image-gen:factory-default');
+    expect(pick({ model: 'gpt-image-1-mini' })).toBe('openai/gpt-image-1-mini:explicit');
+    // 不给 accepts 时与原来一样。
+    expect(selectModel({ capability: 'generateImage', userDefault: null, providers: [codex(), localImg(), oa()] }).providerId).toBe('agent:codex');
   });
 
   it('checkTranscribeOptions：模型不支持断言的语言时 invalid-request；不收提示不在这里拒绝', () => {

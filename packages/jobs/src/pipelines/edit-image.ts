@@ -257,7 +257,7 @@ export function editImagePipeline(op: EditImageOp, deps: EditImageDeps): Pipelin
       const method = raw.method ?? OPS[op].methods[0]!;
       for (const file of raw.inputs) {
         const planned = await planInput(op, method, file, raw);
-        if (planned.problem) throw new RpcError('invalid-request', planned.problem.message, { code: planned.problem.code, file });
+        if (planned.problem) throw new RpcError('invalid-request', planned.problem.message, { code: planned.problem.code, file, ...planned.problem.details });
       }
       const outDir = raw.outDir ?? deps.saveDirectory?.();
       if (outDir !== undefined) await ensureSaveDirectory(outDir);
@@ -297,7 +297,7 @@ export function editImagePipeline(op: EditImageOp, deps: EditImageDeps): Pipelin
           const images: ImagePlan[] = [];
           for (const file of params.inputs) {
             const planned = await planInput(op, params.method, file, params);
-            if (planned.problem) throw new PipelineStepError(planned.problem.code, planned.problem.message, { file });
+            if (planned.problem) throw new PipelineStepError(planned.problem.code, planned.problem.message, { file, ...planned.problem.details });
             images.push(planned.plan);
             progress({ done: images.length, total: params.inputs.length, unit: 'units' });
           }
@@ -532,7 +532,10 @@ function parseExpand(value: unknown): EditImageExpand {
 
 /* ---------- 每张图的计划 ---------- */
 
-type Planned = { plan: ImagePlan; problem?: undefined } | { plan?: undefined; problem: { code: string; message: Localized } };
+/** `details` 跟着错误出去：选区的问题带上图（转正后）的像素宽高，调用方按它改坐标。 */
+type Planned =
+  | { plan: ImagePlan; problem?: undefined }
+  | { plan?: undefined; problem: { code: string; message: Localized; details?: { width: number; height: number } } };
 
 /** 读文件头，换算选区或算新画布，按覆盖率与大小检查。启动时与读取这一步各算一次（之间文件可能变了）。 */
 async function planInput(op: EditImageOp, method: EditImageMethod, file: string, params: EditImageParams): Promise<Planned> {
@@ -555,12 +558,14 @@ async function planInput(op: EditImageOp, method: EditImageMethod, file: string,
   const first = params.inputs[0] === file ? header : await readImageHeader(params.inputs[0]!).then((h) => (h ? upright(h) : null), () => null);
   const mask = first ? scaleMask(params.mask!, first, header) : params.mask!;
   const stats = maskStats(rasterizeMask(mask, header.width, header.height), header.width, header.height);
-  if (!stats) return { problem: { code: 'IMAGE_EDIT_MASK_EMPTY', message: J.maskEmpty({ name }) } };
+  const size = { width: header.width, height: header.height };
+  if (!stats) return { problem: { code: 'IMAGE_EDIT_MASK_EMPTY', message: J.maskEmpty({ name }), details: size } };
   if (stats.coverage > MAX_MASK_COVERAGE) {
     return {
       problem: {
         code: 'IMAGE_EDIT_MASK_TOO_LARGE',
         message: J.maskTooLarge({ name, percent: Math.round(stats.coverage * 100), max: Math.round(MAX_MASK_COVERAGE * 100) }),
+        details: size,
       },
     };
   }

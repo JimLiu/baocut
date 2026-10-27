@@ -7,6 +7,7 @@ import {
   type CapabilityView,
   type ConfigureProviderRequest,
   type ModelCapabilitiesView,
+  type ModelInfoByCapability,
   type ModelRef,
   type ModelServiceCapability,
   type ProviderCapabilityView,
@@ -320,9 +321,14 @@ export class ModelServices {
 
   /**
    * 提交时选择生成能力的 Provider 与模型（§6.2）。生图有固定的出厂顺序，其余生成能力没有出厂默认：不显式指定、没有
-   * 用户默认值、出厂顺序里也没有可用的时抛 `CAPABILITY_NOT_CONFIGURED`（`reason: 'no-default'`）。
+   * 用户默认值、出厂顺序里也没有可用的时抛 `CAPABILITY_NOT_CONFIGURED`（`reason: 'no-default'`）。`accepts` 见
+   * `SelectionInput.accepts`（改图只用能改图的模型）。
    */
-  async selectGeneration<C extends GenerationCapability>(capability: C, target: GenerationTarget): Promise<GenerationSelection<C>> {
+  async selectGeneration<C extends GenerationCapability>(
+    capability: C,
+    target: GenerationTarget,
+    accepts?: (model: ModelInfoByCapability[C]) => boolean,
+  ): Promise<GenerationSelection<C>> {
     const provider = target.provider !== undefined ? this.#resolve(target.provider).id : undefined;
     const providers = await this.#list('select');
     const choice = selectModel({
@@ -331,6 +337,7 @@ export class ModelServices {
       ...(target.model !== undefined ? { model: target.model } : {}),
       userDefault: this.store.getDefault(capability),
       providers,
+      ...(accepts ? { accepts } : {}),
     });
     const source = this.#owner(choice.providerId)!;
     if (capability === 'generateText') {

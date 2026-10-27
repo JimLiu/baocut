@@ -17,7 +17,8 @@ import type { GrantService } from '../grants/grant-service.ts';
  * 图片编辑的 AI 修补（架构设计 §7.9）：流程在进程内调用生成图片的 Provider（同配音的逐句合成），所以选择、参数检查、输入图冻结
  * 与授权都在这里：
  *
- * - 启动时选定 Provider 与模型（§6.2）；模型要能按提示词改图（`referenceImages.edit`），否则 `IMAGE_EDIT_UNSUPPORTED`；
+ * - 启动时选定 Provider 与模型（§6.2）；模型要能按提示词改图（`referenceImages.edit`），否则 `IMAGE_EDIT_UNSUPPORTED`。没指定
+ *   模型时只在能改图的里选：生图的默认不能改图就按出厂顺序换第一个能的（只给 Provider 时在它里面换），都不能时照样拒绝；
  * - 每次调用冻结一张输入图（流程写在 staging 里的那一块），按模型支持的尺寸里比例最接近的一个出一张，格式优先 PNG；
  * - 在线 Provider 每次调用预留一次授权与预算、结束时结算，外发的数据种类同生成图片；本机与节点的 Provider 不经授权；
  * - 本机模型包：改图这一步先经资源调度占它的 Model Worker（与生成任务同一个 holder、同样的峰值加一张输入图），并与它的其他任务
@@ -31,10 +32,15 @@ export const IMAGE_EDIT_DATA_KINDS: GrantDataKind[] = [...CAPABILITY_DATA_KINDS.
 export function imageEditor(options: { services: ModelServices; grants: GrantService; catalog: ModelCatalog }): ImageEditor {
   const { services, grants, catalog } = options;
   const select = async (provider?: string, model?: string) => {
-    const selection = await services.selectGeneration('generateImage', {
-      ...(provider !== undefined ? { provider } : {}),
-      ...(model !== undefined ? { model } : {}),
-    });
+    // 没指定模型时只考虑能改图的（同界面的模型菜单）：默认的生图模型不能改图就按出厂顺序换一个能的。
+    const selection = await services.selectGeneration(
+      'generateImage',
+      {
+        ...(provider !== undefined ? { provider } : {}),
+        ...(model !== undefined ? { model } : {}),
+      },
+      (candidate) => !!candidate.referenceImages?.edit,
+    );
     if (!selection.model.referenceImages?.edit) {
       throw new RpcError('invalid-request', J.editUnsupported({ modelId: selection.modelId }), {
         code: 'IMAGE_EDIT_UNSUPPORTED',

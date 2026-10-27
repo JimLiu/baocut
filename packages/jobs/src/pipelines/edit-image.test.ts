@@ -298,7 +298,7 @@ describe.skipIf(!hasFfmpeg)('图片编辑（真实 ffmpeg，假的图像模型�
     const a = await input('a.png', 100, 100);
     const start = (pipeline: string, params: Record<string, unknown>) => runner.start({ pipeline, params }, { kind: 'connection', id: 'c' });
     await expect(start('remove-object', { inputs: [a], mask: { boxes: [{ x: 0, y: 0, width: 90, height: 90 }] } })).rejects.toMatchObject({ details: { code: 'IMAGE_EDIT_MASK_TOO_LARGE' } });
-    await expect(start('remove-object', { inputs: [a], mask: { boxes: [{ x: 200, y: 200, width: 9, height: 9 }] } })).rejects.toMatchObject({ details: { code: 'IMAGE_EDIT_MASK_EMPTY' } });
+    await expect(start('remove-object', { inputs: [a], mask: { boxes: [{ x: 200, y: 200, width: 9, height: 9 }] } })).rejects.toMatchObject({ details: { code: 'IMAGE_EDIT_MASK_EMPTY', width: 100, height: 100 } });
     await expect(start('expand-image', { inputs: [a], expand: { ratio: '1:1' } })).rejects.toMatchObject({ details: { code: 'IMAGE_EDIT_NOTHING_TO_DO' } });
     await expect(start('expand-image', { inputs: [a], expand: { margins: { left: 5000, top: 0, right: 0, bottom: 0 } } })).rejects.toMatchObject({ details: { code: 'IMAGE_EDIT_TOO_LARGE' } });
     const text = path.join(dir, 'in', 'note.png');

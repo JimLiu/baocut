@@ -6,6 +6,7 @@ import {
   type CapabilityNotConfiguredDetails,
   type Localized,
   type CapabilityNotConfiguredReason,
+  type ImageModelInfo,
   type ModelInfoBase,
   type ModelInfoByCapability,
   type ModelRef,
@@ -32,6 +33,9 @@ import type { ModelText } from './model-text.ts';
  *    `generateMusic` 与 `generateText` 没有出厂默认（即使将来 `local` 提供这些能力），要用户显式指定或设默认值；
  * 4. 都没有：`CAPABILITY_NOT_CONFIGURED`，`reason: 'no-default'`。
  *
+ * 调用方给了 `accepts`（只用得上一部分模型，如改图）且没有显式的模型时，第 1–3 条选到它不接受的模型就换第一个接受的：给了
+ * Provider 时在它里面找，否则按生图的出厂顺序；都没有接受的时照常选，由调用方拒绝。
+ *
  * 选中的 Provider 或模型不可用时直接以 `CAPABILITY_NOT_CONFIGURED` 拒绝，不往下一条落，也不换 Provider。
  * 不认识的 Provider 或模型（显式给出的）是 `not-found`：那是标识错了，不是没有配置。
  *
@@ -57,6 +61,11 @@ export interface SelectionInput<C extends ModelServiceCapability> {
   model?: string;
   userDefault: ModelRef | null;
   providers: ProviderView[];
+  /**
+   * 调用方只用得上一部分模型时（改图要 `referenceImages.edit`）：没有显式的 `model` 时，用户默认值或出厂默认不接受就换第一个
+   * 接受的——给了 `provider` 时在它里面找，否则按出厂顺序（只有生图有）。哪里都没有接受的时照常选，由调用方拒绝。
+   */
+  accepts?(model: ModelInfoByCapability[C]): boolean;
 }
 
 const CAPABILITY_LABEL_BUILDERS: Record<ModelServiceCapability, () => Localized> = {
@@ -110,13 +119,19 @@ function imageFactoryRank(view: ProviderView, model: ModelInfoBase): number | nu
   return 2 + (i < 0 ? IMAGE_ONLINE_ORDER.length : i);
 }
 
-/** 生图的出厂默认：按 `imageFactoryRank` 取第一个可用的 Provider 与它可用的默认模型；同档按视图顺序。都不可用时 null。 */
-function imageFactoryDefault(providers: readonly ProviderView[]): { view: ProviderView; modelId: string } | null {
+/**
+ * 生图的出厂默认：按 `imageFactoryRank` 取第一个可用的 Provider 与它可用的默认模型；同档按视图顺序。都不可用时 null。给了
+ * `accepts` 时只看它接受的模型（Provider 的默认模型不接受时用它接受的第一个）。
+ */
+function imageFactoryDefault(
+  providers: readonly ProviderView[],
+  accepts?: (model: ImageModelInfo) => boolean,
+): { view: ProviderView; modelId: string } | null {
   let best: { view: ProviderView; modelId: string; rank: number } | null = null;
   for (const view of providers) {
     const cap = capabilityOf(view, 'generateImage');
     if (!cap?.available) continue;
-    const usable = cap.models.filter((m) => m.available !== false);
+    const usable = cap.models.filter((m) => m.available !== false && (!accepts || accepts(m)));
     const model = usable.find((m) => m.default) ?? usable[0];
     if (!model) continue;
     const rank = imageFactoryRank(view, model);
@@ -128,6 +143,11 @@ function imageFactoryDefault(providers: readonly ProviderView[]): { view: Provid
 export function selectModel<C extends ModelServiceCapability>(input: SelectionInput<C>): ModelChoice<C> {
   const { capability } = input;
   const byId = new Map(input.providers.map((p) => [p.providerId, p]));
+
+  if (input.accepts && input.model === undefined) {
+    const accepted = acceptedImplicit(input, input.accepts, byId);
+    if (accepted) return check(input, accepted.view, accepted.modelId, accepted.source);
+  }
 
   if (input.provider !== undefined) {
     const view = byId.get(input.provider);
@@ -215,6 +235,34 @@ function capabilityOf<C extends ModelServiceCapability>(
 function defaultModelOf<M extends ModelInfoBase>(capability: ProviderCapability<M> | undefined): M | undefined {
   if (!capability) return undefined;
   return capability.models.find((m) => m.default) ?? capability.models[0];
+}
+
+/**
+ * 没有显式模型时 `accepts` 接受的选择（见 `SelectionInput.accepts`）；照常选出的就是接受的、或哪里都没有接受的时 null（照常选）。
+ * 给了 Provider：它的模型里依次看用户默认值的模型、默认模型、其余可用的。没给：用户默认值接受时 null，否则按生图的出厂顺序。
+ */
+function acceptedImplicit<C extends ModelServiceCapability>(
+  input: SelectionInput<C>,
+  accepts: (model: ModelInfoByCapability[C]) => boolean,
+  byId: ReadonlyMap<string, ProviderView>,
+): { view: ProviderView; modelId: string; source: SelectionSource } | null {
+  if (input.provider !== undefined) {
+    const view = byId.get(input.provider);
+    const cap = view && capabilityOf(view, input.capability);
+    if (!view || !cap?.available) return null;
+    const preferred = input.userDefault?.providerId === input.provider ? input.userDefault.modelId : defaultModelOf(cap)?.modelId;
+    const usable = cap.models.filter((m) => m.available !== false && accepts(m));
+    const model = usable.find((m) => m.modelId === preferred) ?? usable.find((m) => m.default) ?? usable[0];
+    return model ? { view, modelId: model.modelId, source: 'explicit' } : null;
+  }
+  if (input.userDefault) {
+    const view = byId.get(input.userDefault.providerId);
+    const model = view && capabilityOf(view, input.capability)?.models.find((m) => m.modelId === input.userDefault!.modelId);
+    if (!model || accepts(model)) return null;
+  }
+  if (input.capability !== 'generateImage') return null;
+  const auto = imageFactoryDefault(input.providers, accepts as unknown as (model: ImageModelInfo) => boolean);
+  return auto && { ...auto, source: 'factory-default' };
 }
 
 /** 不显式指定时的 Provider：用户默认值的，或出厂默认（`local` 可用时）。 */

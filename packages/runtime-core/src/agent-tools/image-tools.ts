@@ -1,7 +1,14 @@
 import path from 'node:path';
 import { z } from 'zod';
 import { EDIT_IMAGE_PIPELINES, UPSCALE_IMAGE_PIPELINE, UPSCALE_WEIGHTS, type PipelineRunner } from '@baocut/jobs';
-import { EDIT_IMAGE_ANCHORS, EDIT_IMAGE_METHODS, EDIT_IMAGE_OPS, UPSCALE_IMAGE_MODELS, type ExternalToolStatus } from '@baocut/protocol';
+import {
+  EDIT_IMAGE_ANCHORS,
+  EDIT_IMAGE_METHODS,
+  EDIT_IMAGE_OPS,
+  RpcError,
+  UPSCALE_IMAGE_MODELS,
+  type ExternalToolStatus,
+} from '@baocut/protocol';
 import { JobsEditImage } from '@baocut/protocol/messages/jobs/edit-image.ts';
 import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { ExternalToolService } from '../external-tools/external-tool-service.ts';
@@ -32,6 +39,11 @@ export interface ImageToolsDeps {
   pipelines: PipelineRunner;
   /** 不给 `outDir` 时的保存位置（与流程一样）；只用来写进确认的摘要。 */
   saveDirectory: () => string;
+  /**
+   * AI 修补用哪个模型（同流程启动时的选择：没指定模型时只在能改图的里选）。确认前先选定，确认卡写出真正要用的模型、流程
+   * 用同一个；选不出时同步拒绝。不给时（目录生成）不选，确认卡写「生图的默认模型」。
+   */
+  editModel?: (target: { provider?: string; model?: string }) => Promise<{ providerId: string; modelId: string }>;
   scope: ToolScope;
 }
 
@@ -97,8 +109,18 @@ const schemas = {
       })
       .optional()
       .describe('expand 必填：新画布。每边至多 4096 像素'),
-    provider: z.string().min(1).max(200).optional().describe('可选。model 补法的生图 Provider；不给时用生图的默认'),
-    model: z.string().min(1).max(200).optional().describe('可选。model 补法用的模型，要能按提示词改图（models_list 里 referenceImages.edit 为 true）'),
+    provider: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe('可选。model 补法的生图 Provider；不给时用生图的默认，它不能改图时自动换第一个能改图的（本机 › OpenAI…）'),
+    model: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe('可选。model 补法用的模型，要能按提示词改图（models_capabilities 的 generateImage 里 referenceImages.edit 为 true）'),
     outDir: z.string().min(1).max(4000).optional().describe('可选。输出目录（不存在时创建）；不给时是保存位置'),
     commandId: commandIdArg.optional().describe('可选。重试同一次提交时带上同一个值，不会重复创建任务'),
   }),
@@ -131,6 +153,7 @@ const DEFINITIONS: Record<'upscale' | 'retouch', ToolInfo> = {
       '去除物体（erase）、去水印（watermark）、重绘局部（repaint）或扩展画面（expand）。文件到文件：每张输出一个 <原名>-erased / -no-watermark / -repainted / -expanded.png，不动原图。',
       '选区用原图像素：先看图（尺寸、要改的东西在哪）再给 mask。框住水印、角标、字幕条用 boxes；不规则的物体用 strokes（半径够盖住边缘，边缘多涂一点更自然）。',
       'method fill 不用模型，在这台电脑上几秒钟做完；model 把选区周围的一块（扩图是整张新画布）发给图像模型，回来后只贴回选区，选区外的像素不变。',
+      '不指定 model 时用生图的默认模型；它不能改图时自动换第一个能改图的，返回的 model 是实际用的。没有能改图的模型时以 IMAGE_EDIT_UNSUPPORTED 拒绝，按 remedy 改用 fill 或请用户装一个。',
       '会按访问模式向用户确认。立即返回 jobId；用 jobs_wait 等它结束，state 为 completed 时 outputs 的 path 是新图片。失败时 error.code 是 IMAGE_EDIT_MASK_TOO_LARGE、IMAGE_EDIT_UNSUPPORTED（模型不能改图）、MODEL_OUTPUT_INVALID 等。',
     ].join('\n'),
     annotations: { destructiveHint: false, idempotentHint: true },
@@ -262,7 +285,13 @@ async function imageEdit(deps: ImageToolsDeps, args: EditArgs, principal: ToolPr
   const inputs = args.files.map((file) => resolveUserPath(file, base));
   const outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, base) : undefined;
   const method = args.method ?? (args.op === 'watermark' ? 'fill' : 'model');
-  const executor = method === 'fill' ? 'ffmpeg' : (args.model ?? args.provider ?? RcAgentTools.imageEditDefaultModel().text);
+  const target = method === 'model' && deps.editModel ? await editTarget(deps.editModel, args) : null;
+  const executor =
+    method === 'fill'
+      ? 'ffmpeg'
+      : target
+        ? `${target.providerId}/${target.modelId}`
+        : (args.model ?? args.provider ?? RcAgentTools.imageEditDefaultModel().text);
   const approval = await scope.confirm(access, {
     tool: 'retouch',
     ...confirmSummary(
@@ -279,8 +308,12 @@ async function imageEdit(deps: ImageToolsDeps, args: EditArgs, principal: ToolPr
         ...(args.method ? { method: args.method } : {}),
         ...(args.prompt !== undefined ? { prompt: args.prompt } : {}),
         ...(args.expand ? { expand: args.expand } : {}),
-        ...(args.provider !== undefined ? { provider: args.provider } : {}),
-        ...(args.model !== undefined ? { model: args.model } : {}),
+        ...(target
+          ? { provider: target.providerId, model: target.modelId }
+          : {
+              ...(args.provider !== undefined ? { provider: args.provider } : {}),
+              ...(args.model !== undefined ? { model: args.model } : {}),
+            }),
         ...(outDir !== undefined ? { outDir } : {}),
       },
       ...(args.commandId ? { commandId: scope.commandId(access, args.commandId) } : {}),
@@ -289,10 +322,36 @@ async function imageEdit(deps: ImageToolsDeps, args: EditArgs, principal: ToolPr
   );
   return {
     jobId,
+    ...(target ? { provider: target.providerId, model: target.modelId } : {}),
     ...approvalField(approval),
-    next: `Submitted (${pipeline}, ${inputs.length} ${inputs.length === 1 ? 'image' : 'images'}, ${method}); PNGs go to ${outDir ?? 'the save location'}. Wait with jobs_wait; when state is completed, outputs[].path is the new image. Tell the user where it is and ask them to check the result.`,
+    next: `Submitted (${pipeline}, ${inputs.length} ${inputs.length === 1 ? 'image' : 'images'}, ${target ? `${target.providerId}/${target.modelId}` : method}); PNGs go to ${outDir ?? 'the save location'}. Wait with jobs_wait; when state is completed, outputs[].path is the new image. Tell the user where it is and ask them to check the result.`,
   };
 }
+
+/**
+ * AI 修补的模型：没指定模型、哪里都没有能改图的时，换成带下一步的错误（快速填充，或请用户装一个能改图的模型）。
+ */
+async function editTarget(resolve: NonNullable<ImageToolsDeps['editModel']>, args: EditArgs) {
+  try {
+    return await resolve({
+      ...(args.provider !== undefined ? { provider: args.provider } : {}),
+      ...(args.model !== undefined ? { model: args.model } : {}),
+    });
+  } catch (error) {
+    const details = error instanceof RpcError && isRecord(error.details) ? error.details : null;
+    if (details?.code !== 'IMAGE_EDIT_UNSUPPORTED' || args.model !== undefined) throw error;
+    const { code, ...rest } = details;
+    const where = args.provider !== undefined ? `${args.provider} has` : 'There is';
+    const setUp =
+      'Ask the user to set up an edit-capable image model: install a local Qwen-Image bundle (models_install) or connect OpenAI in Settings › Models; models_capabilities lists models whose referenceImages.edit is true.';
+    throw new ToolError(String(code), `${where} no ready image model that can edit an image by prompt (the default, ${String(rest.modelId)}, can't).`, {
+      ...rest,
+      remedy: args.op === 'erase' || args.op === 'watermark' ? `Use method fill for small marks on a plain background, or: ${setUp}` : setUp,
+    });
+  }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 const installNext =
   'Real-ESRGAN is being installed. Wait for installJobId with jobs_wait; once its state is completed, call upscale again. If it fails, error.details.remedy says how to fix it.';

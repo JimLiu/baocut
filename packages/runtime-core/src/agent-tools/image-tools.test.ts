@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RpcError } from '@baocut/protocol';
 import { ImageTools, type ImageToolsDeps } from './image-tools.ts';
 import { ToolError } from './tool-catalog.ts';
 import { toolRisk, type ToolConfirmation, type ToolPrincipal } from './tool-scope.ts';
@@ -11,7 +12,7 @@ import { toolRisk, type ToolConfirmation, type ToolPrincipal } from './tool-scop
 const agent = { kind: 'agent', conversationId: 'conv_1' } as unknown as ToolPrincipal;
 const service = { kind: 'service', serviceId: 'mcp', clientId: 'cli_1', clientName: '剪辑助手' } as unknown as ToolPrincipal;
 
-function harness(state: 'installed' | 'missing') {
+function harness(state: 'installed' | 'missing', extra: Partial<ImageToolsDeps> = {}) {
   const started: Array<{ pipeline: string; params: Record<string, unknown> }> = [];
   const confirmed: ToolConfirmation[] = [];
   const installs: unknown[] = [];
@@ -47,6 +48,7 @@ function harness(state: 'installed' | 'missing') {
       commandId: (_access: unknown, id: string) => id,
       fileBase: () => '/work/conv_1',
     },
+    ...extra,
   } as unknown as ImageToolsDeps;
   return { tools: new ImageTools(deps), started, confirmed, installs };
 }
@@ -112,6 +114,42 @@ describe('retouch', () => {
       params: { inputs: ['/p.jpg'], expand: { ratio: '16:9' }, prompt: 'sky', provider: 'openai', model: 'gpt-image-1', outDir: '/out' },
     });
     expect(confirmed[0]!.summary).toContain('gpt-image-1');
+  });
+
+  it('AI 修补：确认前选定模型（没指定时由选择规则换成能改图的），摘要、流程与结果都用它；快速填充不选模型', async () => {
+    const targets: unknown[] = [];
+    const editModel = async (target: unknown) => (targets.push(target), { providerId: 'local', modelId: 'qwen-image-2.1@mlx-4bit' });
+    const { tools, started, confirmed } = harness('installed', { editModel });
+    const mask = { boxes: [{ x: 1, y: 2, width: 3, height: 4 }] };
+    const result = (await tools.dispatch('retouch', { op: 'erase', files: ['/a.png'], mask }, agent)) as Record<string, unknown>;
+    expect(targets).toEqual([{}]);
+    expect(confirmed[0]!.summary).toContain('local/qwen-image-2.1@mlx-4bit');
+    expect(started[0]!.params).toMatchObject({ provider: 'local', model: 'qwen-image-2.1@mlx-4bit' });
+    expect(result).toMatchObject({ jobId: 'job_1', provider: 'local', model: 'qwen-image-2.1@mlx-4bit' });
+
+    await tools.dispatch('retouch', { op: 'erase', files: ['/a.png'], mask, method: 'fill' }, agent);
+    expect(targets).toHaveLength(1);
+    expect(started[1]!.params).not.toHaveProperty('model');
+  });
+
+  it('没有能改图的模型：没指定模型时同步拒绝并给下一步（能快速填充的先提它），不确认、不启动；指定了的照原错误拒绝', async () => {
+    const unsupported = (modelId: string) =>
+      new RpcError('invalid-request', `${modelId} can't edit an image by prompt.`, { code: 'IMAGE_EDIT_UNSUPPORTED', providerId: 'agent:codex', modelId });
+    const { tools, started, confirmed } = harness('installed', {
+      editModel: async (target) => {
+        throw unsupported(target.model ?? 'image-gen');
+      },
+    });
+    const mask = { boxes: [{ x: 1, y: 2, width: 3, height: 4 }] };
+    const erase = tools.dispatch('retouch', { op: 'erase', files: ['/a.png'], mask }, agent);
+    await expect(erase).rejects.toMatchObject({ code: 'IMAGE_EDIT_UNSUPPORTED', extra: { modelId: 'image-gen', remedy: expect.stringContaining('method fill') } });
+    const repaint = tools.dispatch('retouch', { op: 'repaint', files: ['/a.png'], mask, prompt: 'grass' }, agent);
+    await expect(repaint).rejects.toMatchObject({ extra: { remedy: expect.not.stringContaining('method fill') } });
+    const explicit = tools.dispatch('retouch', { op: 'erase', files: ['/a.png'], mask, model: 'gemini-x' }, agent);
+    await expect(explicit).rejects.toMatchObject({ code: 'IMAGE_EDIT_UNSUPPORTED', extra: { modelId: 'gemini-x' } });
+    await expect(explicit).rejects.not.toHaveProperty('extra.remedy');
+    expect(confirmed).toEqual([]);
+    expect(started).toEqual([]);
   });
 
   it('对外服务拒绝', async () => {

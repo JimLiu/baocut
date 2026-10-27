@@ -80,6 +80,7 @@ import { MediaAnalysis } from './media-analysis.ts';
 import { createFaceDetector } from './face-detection.ts';
 import { LibraryService } from './library/library-service.ts';
 import { VoiceCloneService } from './library/voice-clone-service.ts';
+import { imageEditor } from './models/image-edit.ts';
 import { openModelJobs, type ModelJobs, type ModelJobsOptions } from './models/model-jobs.ts';
 import { createTranslationMemory } from './models/translation-memory.ts';
 import { ModelInstallTools } from './agent-tools/model-install-tools.ts';
@@ -920,11 +921,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         }),
         // 程序化音效与音频分析（Agent 面设计 §4.3）：音效导入与 assets_import 同级；分析只读，解码用同一个 ffmpeg。
         new AudioTools({ videos, scope: toolScope, ffmpeg: compositionFfmpeg }),
-        // 图片超分（§7.9）：Real-ESRGAN 是受管的外部工具，没有安装时按安装确认。
+        // 图片超分与修改（§7.9）：Real-ESRGAN 是受管的外部工具，没有安装时按安装确认；AI 修补确认前先按流程的规则选定模型。
         new ImageTools({
           tools: externalTools,
           pipelines: models.pipelines,
           saveDirectory: () => resolveSaveDirectory({ settings: settings.store.get('downloads.directory') ?? null }),
+          editModel: imageEditor({ services: models.services, grants: models.grants, catalog: models.catalog }).prepare,
           scope: toolScope,
         }),
         // 会话里的幻灯片（docs/design/slides §7.2）：校验与导入素材；编译器与 deck 的存储来自幻灯片服务。
