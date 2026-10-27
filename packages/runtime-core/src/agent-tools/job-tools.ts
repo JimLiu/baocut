@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RpcError, type Id, type JobRecord, type JobState } from '@baocut/protocol';
+import { RpcError, type Id, type JobRecord, type JobState, type PipelineStepState } from '@baocut/protocol';
 import { withoutInputPaths } from '@baocut/models';
 import {
   DUB_PIPELINE,
@@ -83,6 +83,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '查看一个任务的状态、进度与结果。',
       '状态（queued、running、completed、failed、cancelled、interrupted）、阶段与进度、冻结的 Provider、模型与参数、错误与补救；完成时给出每个输出（artifactId、媒体事实、导入视频得到的 assetId，转写是 documentId）。',
+      '耗时：转写带 timing（排队、加载与识别各阶段的毫秒数）；固定流程的每一步带 durationMs，转写那一步另带转写的 timing。',
       '只读，不会触发新的计算。可以看你在这个会话里提交的任务，以及工作目录里已打开的视频上的任务。',
     ].join('\n'),
     annotations: { readOnlyHint: true },
@@ -214,7 +215,18 @@ export class JobTools implements ToolSet {
   async #inspect(args: Args<'jobs_inspect'>, principal: ToolPrincipal) {
     const { scope } = this.#deps;
     const access = scope.authorize(principal, false);
-    return digestJob(await scope.visibleJob(args.jobId, access));
+    const record = await scope.visibleJob(args.jobId, access);
+    if (!record.pipeline) return digestJob(record);
+    // 固定流程：每一步的子任务与这一步提交的任务（转写）用来算各步的耗时；看不到的不给。
+    const related = new Map<Id, JobRecord>();
+    for (const step of record.pipeline.steps) {
+      for (const jobId of [step.jobId, submittedJob(step)]) {
+        if (!jobId || related.has(jobId)) continue;
+        const found = await scope.visibleJob(jobId, access).catch(() => null);
+        if (found) related.set(jobId, found);
+      }
+    }
+    return digestJob(record, related);
   }
 
   async #cancel(args: Args<'jobs_cancel'>, principal: ToolPrincipal) {
@@ -421,8 +433,8 @@ function linkImportCaptionsNext(captions: unknown): string {
   return '，要字幕层时用 captions_create';
 }
 
-/** 任务记录给模型看的版本：冻结的选择与参数、错误与下一步、每个输出。 */
-function digestJob(record: JobRecord) {
+/** 任务记录给模型看的版本：冻结的选择与参数、错误与下一步、每个输出；固定流程的各步按 `related` 里的子任务带上耗时。 */
+function digestJob(record: JobRecord, related: ReadonlyMap<Id, JobRecord> = new Map()) {
   // 输入图与参考录音的本机路径不给模型看（架构设计 §6.1）。
   const frozen = record.generation ? withoutInputPaths(record.generation) : undefined;
   const generation = frozen
@@ -491,7 +503,7 @@ function digestJob(record: JobRecord) {
       ? {
           pipeline: {
             name: record.pipeline.name,
-            steps: record.pipeline.steps.map((step) => ({ name: step.name, status: step.status })),
+            steps: record.pipeline.steps.map((step) => ({ name: step.name, status: step.status, ...stepTiming(step, related) })),
             stoppedAt: record.pipeline.stoppedAt,
             summary: record.pipeline.summary,
             ...(record.pipeline.name === LINK_IMPORT_PIPELINE ? { cookieBrowsers: frozenCookieBrowsers(record.pipeline.params) } : {}),
@@ -510,6 +522,27 @@ function digestJob(record: JobRecord) {
           : { outputs: outputs ?? [] }
       : {}),
     next: nextFor(record),
+  };
+}
+
+/** 这一步提交的任务（转写那一步的 `output.jobId`）；没有时 null。 */
+function submittedJob(step: PipelineStepState): Id | null {
+  const jobId = step.output?.jobId;
+  return typeof jobId === 'string' ? jobId : null;
+}
+
+/**
+ * 一步的耗时（§7.2）：`durationMs` 是这一步的子任务从开始到结束，这一步提交的转写另带它的 `timing`（排队、加载与各阶段）。
+ * 还没结束、跳过的或看不到的不给。
+ */
+function stepTiming(step: PipelineStepState, related: ReadonlyMap<Id, JobRecord>) {
+  const child = step.jobId ? related.get(step.jobId) : undefined;
+  const durationMs = child?.startedAt && child.endedAt ? Date.parse(child.endedAt) - Date.parse(child.startedAt) : NaN;
+  const submitted = submittedJob(step);
+  const timing = submitted ? related.get(submitted)?.timing : undefined;
+  return {
+    ...(Number.isFinite(durationMs) && durationMs >= 0 ? { durationMs } : {}),
+    ...(timing ? { timing } : {}),
   };
 }
 

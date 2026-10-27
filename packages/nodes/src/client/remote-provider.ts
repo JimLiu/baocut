@@ -11,6 +11,7 @@ import {
 } from '@baocut/models';
 import {
   NODE_ERROR,
+  type JobTiming,
   type NodeHealth,
   type NodeJob,
   type NodeJobRequest,
@@ -204,7 +205,12 @@ export class RemoteNodeProvider implements TranscribeProvider {
     this.#log.info('Remote job created', { jobId: run.jobId, node: nodeId, remoteJobId: created.jobId });
 
     // 3. 上传（媒体的原始文件，流式）
-    if (created.state === 'awaiting-input') await this.#upload(attempt, run.input.file, stat.size, signal);
+    let uploadMs: number | undefined;
+    if (created.state === 'awaiting-input') {
+      const uploadStarted = Date.now();
+      await this.#upload(attempt, run.input.file, stat.size, signal);
+      uploadMs = Date.now() - uploadStarted;
+    }
 
     // 4. 跟事件流到终态
     const final = await this.#follow(attempt, sink, signal);
@@ -237,6 +243,7 @@ export class RemoteNodeProvider implements TranscribeProvider {
       workerVersion: await workerVersionOf(dest),
       // 节点上 Worker 崩溃重试过时，结果回填的是节点的尝试序号。
       runGeneration: final.attempt,
+      timing: nodeAttemptTiming(final.timing, uploadMs),
     };
   }
 
@@ -438,6 +445,15 @@ function rejected(reason: RemoteNodeRejectReason, node: string, message: string,
 
 function lost(reason: RemoteNodeLostReason, node: string, message: string, extra: Record<string, unknown> = {}): ProviderFailure {
   return new ProviderFailure('node-lost', message, { reason, node, ...extra });
+}
+
+/**
+ * 这次尝试在远端的耗时：上传是这边量的，其余是节点记的，节点上的排队记为 `nodeQueueMs`（这边的排队 JobManager 自己记）。
+ * 较旧的节点不报告时只有上传。
+ */
+function nodeAttemptTiming(node: JobTiming | undefined, uploadMs: number | undefined): Omit<JobTiming, 'queueMs'> {
+  const { queueMs, ...rest } = node ?? {};
+  return { ...rest, ...(queueMs !== undefined ? { nodeQueueMs: queueMs } : {}), ...(uploadMs !== undefined ? { uploadMs } : {}) };
 }
 
 /** 结果里的 Worker 版本（读不出来时给一个占位，JobManager 的校验会指出结果本身的问题）。 */

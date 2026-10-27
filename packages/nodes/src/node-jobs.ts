@@ -507,6 +507,8 @@ export class NodeJobs {
       attempt: record.attempt,
       error: remoteError(record.error),
       output: state === 'completed' ? entry.output : null,
+      // 阶段耗时只有数，没有本机路径：原样给发起端。
+      ...(record.timing ? { timing: { ...record.timing } } : {}),
     };
     if (state === 'completed' && !entry.output) {
       next.state = 'failed';

@@ -113,9 +113,12 @@ interface NodeJob {
   attempt: number;
   error: { code: string; message: string; details?: unknown } | null;
   output: { sha256: string; byteLength: number } | null;    // completed 时给出；sha256 是小写十六进制
+  timing?: JobTiming;                 // 节点上这个任务的阶段耗时，见下
   lastSeq: number;
 }
 ```
+
+`timing` 同命令协议规范 `jobs` 主题的 `JobTiming`（毫秒）：开始执行后有 `queueMs`（在节点上从进入 `queued` 到开始执行），完成时另有 `loadMs` 与 Worker 报告的各阶段。只有数，不含节点上的路径。较旧的节点不给这个字段，发起端照常处理；发起端把它并进自己的转写记录，`queueMs` 记为 `nodeQueueMs`，另加自己量的 `uploadMs`（架构设计 §7.2）。
 
 ### 5.2 上传媒体
 

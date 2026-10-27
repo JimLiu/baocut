@@ -2943,12 +2943,28 @@ function exceededError(error: ResourceExceedsCapacity): JobError {
   return jobError(error.code, errorText(error), { dimensions: error.dimensions });
 }
 
-/** Provider 报告的加载与 Worker 各阶段耗时（`JobRecord.timing`）：只取有限、非负的数，没报告的不写。 */
-function attemptTiming(attempt: Extract<TranscribeAttempt, { outcome: 'completed' }>): Omit<Partial<JobTiming>, 'queueMs'> {
-  const stats: Record<string, unknown> = { loadMs: attempt.loadMs, ...attempt.stats };
-  const timing: Omit<Partial<JobTiming>, 'queueMs'> = {};
-  for (const key of ['loadMs', 'decodeMs', 'vadMs', 'asrMs', 'diarizeMs', 'alignMs', 'speechSeconds'] as const) {
-    const value = stats[key];
+/** `JobTiming` 里由 Provider 报告的各项，按记录里的顺序。 */
+const ATTEMPT_TIMING_KEYS = [
+  'uploadMs',
+  'nodeQueueMs',
+  'loadMs',
+  'decodeMs',
+  'vadMs',
+  'asrMs',
+  'diarizeMs',
+  'alignMs',
+  'speechSeconds',
+] as const;
+
+/**
+ * Provider 报告的这次尝试的耗时（`JobRecord.timing`）：只取认得的、有限非负的数，没报告的不写。远端节点报来的也走这里，
+ * 不可信的数不进记录。
+ */
+function attemptTiming(attempt: Extract<TranscribeAttempt, { outcome: 'completed' }>): Omit<JobTiming, 'queueMs'> {
+  const reported: Record<string, unknown> = { ...attempt.timing };
+  const timing: Omit<JobTiming, 'queueMs'> = {};
+  for (const key of ATTEMPT_TIMING_KEYS) {
+    const value = reported[key];
     if (typeof value === 'number' && Number.isFinite(value) && value >= 0) timing[key] = value;
   }
   return timing;

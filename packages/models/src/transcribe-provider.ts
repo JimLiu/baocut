@@ -1,13 +1,5 @@
-import type {
-  AsrWarning,
-  JobInput,
-  JobOutput,
-  Segment,
-  TranscribeJobPhase,
-  TranscribeOptions,
-  TranscribeRunStats,
-} from './worker-contract.ts';
-import type { MessageRef } from '@baocut/protocol';
+import type { AsrWarning, JobInput, JobOutput, Segment, TranscribeJobPhase, TranscribeOptions } from './worker-contract.ts';
+import type { JobTiming, MessageRef } from '@baocut/protocol';
 import { modelTextRef, type ModelText } from './model-text.ts';
 
 /**
@@ -65,10 +57,11 @@ export type TranscribeAttempt =
        * 回填的是节点自己的尝试序号（节点上 Worker 崩溃重试后为 2），由 Provider 按节点报告的任务记录给出。
        */
       runGeneration?: number;
-      /** 启动 Worker 并加载模型包用的毫秒数（已经加载好时接近 0）；本地 Provider 才给。 */
-      loadMs?: number;
-      /** Worker 报告的各阶段耗时（`job.run` 的 `stats`）；本地 Provider 才给。 */
-      stats?: TranscribeRunStats;
+      /**
+       * 这次尝试的耗时（`JobRecord.timing` 里排队之外的各项，排队由 JobManager 自己记）：本机 Provider 给加载与 Worker 的
+       * `stats`，远端节点 Provider 给上传与节点记的各项。不可信的数由 JobManager 筛掉。
+       */
+      timing?: Omit<JobTiming, 'queueMs'>;
     }
   | {
       outcome: 'cancelled';

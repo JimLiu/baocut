@@ -496,12 +496,16 @@ export interface JobTiming {
    * 不含停机的时间。
    */
   queueMs: number;
-  /** 启动 Model Worker 并加载模型包；模型包已经加载好时接近 0。本机 Provider 完成时才有。 */
+  /** 远端节点：把媒体传到节点（这次尝试传了才有；节点上已经有这份媒体时没有）。 */
+  uploadMs?: number;
+  /** 远端节点：在节点上排队到开始执行（节点自己记的 `queueMs`；节点版本较旧时没有）。 */
+  nodeQueueMs?: number;
+  /** 启动 Model Worker 并加载模型包；模型包已经加载好时接近 0。本机与远端节点 Provider 完成时才有（远端时是节点上的）。 */
   loadMs?: number;
   /**
-   * 以下是 Model Worker 报告的（Model Worker 协议规范 §2.5.1），本机 Provider 完成时才有：解码、VAD（自己切段的模型没有这一步，
-   * 为 0）、识别、说话人区分（含按需加载说话人模型；更早的 Worker 不单独报告，算在 `asrMs` 里，这时没有这一项）与对齐
-   * （含按需加载对齐器）。
+   * 以下是 Model Worker 报告的（Model Worker 协议规范 §2.5.1），本机与远端节点 Provider 完成时才有（远端时是节点上的，节点版本
+   * 较旧时没有）：解码、VAD（自己切段的模型没有这一步，为 0）、识别、说话人区分（含按需加载说话人模型；更早的 Worker 不单独
+   * 报告，算在 `asrMs` 里，这时没有这一项）与对齐（含按需加载对齐器）。
    */
   decodeMs?: number;
   vadMs?: number;

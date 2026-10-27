@@ -144,4 +144,57 @@ describe('转写的阶段耗时', () => {
     expect((await inspect(transcribe({ timing }))).timing).toEqual(timing);
     expect(await inspect(transcribe({}))).not.toHaveProperty('timing');
   });
+
+  it('固定流程：每一步带子任务的耗时，转写那一步带转写的 timing；跳过的、没结束的与看不到的不给', async () => {
+    const timing = { queueMs: 2, loadMs: 3813, decodeMs: 22, vadMs: 0, asrMs: 18361, diarizeMs: 455, alignMs: 0, speechSeconds: 36.97 };
+    const step = (name: string, status: string, jobId: string | null, output: Record<string, unknown> | null = null) =>
+      ({ name, label: name, status, jobId, attempts: jobId ? 1 : 0, output });
+    const pipeline = {
+      jobId: 'job_p',
+      kind: 'pipeline',
+      state: 'running',
+      attempt: 1,
+      videoId: 'mov_1',
+      submitter: { kind: 'connection', id: 'conn_1' },
+      warnings: [],
+      pipeline: {
+        name: 'transcribe',
+        params: {},
+        current: 3,
+        stoppedAt: null,
+        summary: null,
+        steps: [
+          step('target', 'skipped', null),
+          step('create', 'completed', 'job_s1'),
+          step('transcribe', 'completed', 'job_s2', { jobId: 'job_t', documentId: 'doc_1' }),
+          step('captions', 'running', 'job_s3'),
+          step('hidden', 'completed', 'job_other'),
+        ],
+      },
+    } as unknown as JobRecord;
+    const records: Record<string, Partial<JobRecord>> = {
+      job_p: pipeline,
+      job_s1: { startedAt: '2026-10-27T03:06:27.888Z', endedAt: '2026-10-27T03:06:28.190Z' },
+      job_s2: { startedAt: '2026-10-27T03:06:28.195Z', endedAt: '2026-10-27T03:06:51.145Z' },
+      job_s3: { startedAt: '2026-10-27T03:06:51.148Z', endedAt: null },
+      job_t: { timing },
+    };
+    const visibleJob = async (jobId: string) => {
+      const found = records[jobId];
+      if (!found) throw new Error(`JOB_NOT_FOUND ${jobId}`);
+      return found;
+    };
+    const deps = { jobs: {}, pipelines: {}, scope: { authorize: () => ({}), visibleJob } } as unknown as JobToolsDeps;
+    const agent = { kind: 'agent', conversationId: 'conv_1' } as unknown as ToolPrincipal;
+    const result = (await new JobTools(deps).dispatch('jobs_inspect', { jobId: 'job_p' }, agent)) as {
+      pipeline: { steps: unknown[] };
+    };
+    expect(result.pipeline.steps).toEqual([
+      { name: 'target', status: 'skipped' },
+      { name: 'create', status: 'completed', durationMs: 302 },
+      { name: 'transcribe', status: 'completed', durationMs: 22950, timing },
+      { name: 'captions', status: 'running' },
+      { name: 'hidden', status: 'completed' },
+    ]);
+  });
 });

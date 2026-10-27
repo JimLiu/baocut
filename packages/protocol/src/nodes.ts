@@ -1,3 +1,4 @@
+import type { JobTiming } from './jobs.ts';
 import type { MessageRef } from './message-ref.ts';
 
 /**
@@ -109,6 +110,8 @@ export interface NodeJob {
   error: { code: string; message: string; details?: unknown } | null;
   /** completed 时给出；sha256 是小写十六进制。 */
   output: { sha256: string; byteLength: number } | null;
+  /** 节点上这个任务的阶段耗时（同 `JobRecord.timing`）：开始执行后有排队，完成时有加载与各阶段。较旧的节点不给。 */
+  timing?: JobTiming;
   lastSeq: number;
 }
 

@@ -294,7 +294,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
     );
     if (outcome.outcome === 'cancelled') return outcome;
     const { output, workerVersion, loadMs, result } = outcome;
-    return { outcome: 'completed', output, workerVersion, loadMs, stats: result.stats };
+    return { outcome: 'completed', output, workerVersion, timing: { loadMs, ...result.stats } };
   }
 
   /**

@@ -152,6 +152,18 @@ describe('RemoteNodeProvider', () => {
     expect(seen.events).toEqual(expect.arrayContaining(['loading', 'decoding', 'transcribing', 'finalizing']));
     expect(seen.progress.length).toBeGreaterThan(0);
     expect(seen.languages).toEqual(['en']);
+    // 阶段耗时：上传是这边量的；节点上的排队记为 nodeQueueMs，加载与各阶段是节点上的（假 Worker 的 stats）。
+    expect(attempt.timing).toEqual({
+      uploadMs: expect.any(Number),
+      nodeQueueMs: expect.any(Number),
+      loadMs: expect.any(Number),
+      decodeMs: 1,
+      vadMs: 1,
+      asrMs: 1,
+      diarizeMs: 0,
+      alignMs: 0,
+      speechSeconds: expect.any(Number),
+    });
     // 删除：节点上已经没有任务记录。
     const listed = node.manager.list().filter((j) => j.submitter.kind === 'node');
     expect(listed).toHaveLength(1);
