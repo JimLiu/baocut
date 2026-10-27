@@ -28,7 +28,7 @@ describe('工具目录', () => {
       ['video-file', '视频文件'],
     ]);
     expect(TOOL_GROUPS[0]!.tools.map((t) => t.id)).toEqual(['transcribe', 'translate-subtitles', 'dub', 'synthesize-speech']);
-    expect(TOOL_GROUPS[1]!.tools.map((t) => t.id)).toEqual(['generate-text', 'generate-image']);
+    expect(TOOL_GROUPS[1]!.tools.map((t) => t.id)).toEqual(['generate-text', 'generate-image', 'upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image']);
     expect(TOOL_GROUPS[2]!.tools.map((t) => t.id)).toEqual(['generate-music']);
     expect(TOOL_GROUPS[3]!.tools.map((t) => t.id)).toEqual(['link-import', 'compress-video', 'merge-video', 'extract-audio']);
     expect(TOOL_GROUPS.every((g) => g.desc.length > 0)).toBe(true);

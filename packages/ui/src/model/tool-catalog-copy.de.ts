@@ -38,6 +38,11 @@ export const de: ToolCatalogMessages = {
       name: "Bild erzeugen",
       desc: "Ein Bild beschreiben und mit einem Cloud- oder lokalen Bildmodell zeichnen lassen; Referenzbilder, Seitenverhältnis und Anzahl sind optional",
     },
+    'upscale-image': { name: 'Bild vergrößern', desc: 'Bilder mit Real-ESRGAN auf diesem Computer 2–4× vergrößern – mit ergänzten Details statt bloßem Strecken' },
+    'remove-object': { name: 'Objekt entfernen', desc: 'Unerwünschte Personen oder Dinge übermalen; der Bereich wird aus der Umgebung aufgefüllt' },
+    'remove-watermark': { name: 'Wasserzeichen entfernen', desc: 'Wasserzeichen, Logo oder Untertitelleiste markieren; Bilder mit derselben Position lassen sich in einem Durchgang bearbeiten' },
+    'repaint-image': { name: 'Bereich neu malen', desc: 'Einen Bereich übermalen und angeben, was daraus werden soll; nur dieser Bereich ändert sich' },
+    'expand-image': { name: 'Bild erweitern', desc: 'Das Bild auf ein neues Seitenverhältnis erweitern; die neuen Ränder setzen das Original fort' },
     'generate-music': { name: 'Musik erzeugen', desc: 'Stil und optional einen Songtext angeben und mit einem lokalen Musikmodell einen Song oder ein Instrumentalstück komponieren; Dauer und Seed sind optional' },
     'link-import': {
       name: "Video herunterladen",

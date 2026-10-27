@@ -93,7 +93,7 @@ describe('条目 → 收它的工具', () => {
     expect(toolsForEntry(entry('a', { kind: 'audio' }))).toEqual(['transcribe', 'extract-audio']);
     expect(toolsForEntry(entry('a', { kind: 'subtitle' }))).toEqual(['translate-subtitles', 'synthesize-speech', 'generate-text']);
     expect(toolsForEntry(entry('a', { kind: 'video' }))).toEqual(['transcribe', 'translate-subtitles', 'dub']);
-    expect(toolsForEntry(entry('a', { kind: 'image' }))).toEqual([]);
+    expect(toolsForEntry(entry('a', { kind: 'image' }))).toEqual(['upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image']);
     expect(toolsForEntry(entry('a', { kind: 'export' }, '2026-09-01T00:00:00.000Z'))).toEqual([]);
   });
 });

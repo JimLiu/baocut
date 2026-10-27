@@ -29,6 +29,11 @@ export const zhHant: ToolCatalogMessages = {
       desc: '描述你的需求，直接呼叫文字模型生成文案、腳本或摘要；可以附上 Space 中的文件或字幕作為參考資料',
     },
     'generate-image': { name: '生成圖片', desc: '描述一個畫面，用雲端或本機影像模型畫出來；參考圖、長寬比和張數皆可選' },
+    'upscale-image': { name: '放大圖片', desc: '用本機的 Real-ESRGAN 把圖片放大 2–4 倍，補出細節，不是單純拉伸' },
+    'remove-object': { name: '去除物體', desc: '塗掉畫面裡不要的人或物，依周圍的畫面補上' },
+    'remove-watermark': { name: '去浮水印', desc: '框出浮水印、角標或字幕條；同一位置可以一次處理多張圖' },
+    'repaint-image': { name: '重繪局部', desc: '塗出一塊區域，寫一句改成什麼，只改這一塊' },
+    'expand-image': { name: '擴展畫面', desc: '把畫面往外擴到新的比例，新增的部分接著原圖畫出來' },
     'generate-music': { name: '生成音樂', desc: '寫下風格與可選的歌詞，用本機音樂模型生成歌曲或純音樂；時長與種子可選' },
     'link-import': {
       name: '下載影片',

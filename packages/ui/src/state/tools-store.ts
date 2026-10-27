@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Id } from '@baocut/protocol';
 import { BLANK_IMAGE, type ImageDraft } from '../model/tools-image.ts';
+import { BLANK_IMAGE_EDIT, type ImageEditDraft } from '../model/tools-image-edit.ts';
 import { BLANK_MUSIC, type MusicDraft } from '../model/tools-music.ts';
 import { hideJob } from '../model/tools-records.ts';
 import { BLANK_TEXT, type TextDraft } from '../model/tools-text.ts';
@@ -31,6 +32,8 @@ export interface ToolsStore {
   retried: Id[];
   tts: TtsDraft;
   image: ImageDraft;
+  /** 图片处理五个工具的草稿：来源图、选区与输出目录只留在这次运行里，各工具的表单记住。 */
+  imageEdit: ImageEditDraft;
   music: MusicDraft;
   text: TextDraft;
   transcribe: TranscribeDraft;
@@ -42,6 +45,7 @@ export interface ToolsStore {
   markRetried(jobId: Id): void;
   patchTts(patch: Partial<TtsDraft>): void;
   patchImage(patch: Partial<ImageDraft>): void;
+  patchImageEdit(patch: Partial<ImageEditDraft>): void;
   patchMusic(patch: Partial<MusicDraft>): void;
   patchText(patch: Partial<TextDraft>): void;
   patchTranscribe(patch: Partial<TranscribeDraft>): void;
@@ -57,6 +61,7 @@ export const useTools = create<ToolsStore>()(
       retried: [],
       tts: BLANK_TTS,
       image: BLANK_IMAGE,
+      imageEdit: BLANK_IMAGE_EDIT,
       music: BLANK_MUSIC,
       text: BLANK_TEXT,
       transcribe: BLANK_TRANSCRIBE,
@@ -67,6 +72,7 @@ export const useTools = create<ToolsStore>()(
       markRetried: (jobId) => set((s) => (s.retried.includes(jobId) ? s : { retried: [...s.retried, jobId] })),
       patchTts: (patch) => set((s) => ({ tts: { ...s.tts, ...patch } })),
       patchImage: (patch) => set((s) => ({ image: { ...s.image, ...patch } })),
+      patchImageEdit: (patch) => set((s) => ({ imageEdit: { ...s.imageEdit, ...patch } })),
       patchMusic: (patch) => set((s) => ({ music: { ...s.music, ...patch } })),
       patchText: (patch) => set((s) => ({ text: { ...s.text, ...patch } })),
       patchTranscribe: (patch) => set((s) => ({ transcribe: { ...s.transcribe, ...patch } })),
@@ -83,6 +89,7 @@ export const useTools = create<ToolsStore>()(
         hidden: s.hidden,
         tts: s.tts,
         image: s.image,
+        imageEdit: { ...BLANK_IMAGE_EDIT, forms: s.imageEdit.forms },
         music: s.music,
         text: s.text,
         transcribe: { ...s.transcribe, path: null },
@@ -92,12 +99,13 @@ export const useTools = create<ToolsStore>()(
       }),
       // 字段以后加了，旧草稿缺的那几项用空表单补上。
       merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<Pick<ToolsStore, 'hidden' | 'tts' | 'image' | 'music' | 'text' | 'transcribe' | 'compress' | 'merge' | 'extract'>>;
+        const p = (persisted ?? {}) as Partial<Pick<ToolsStore, 'hidden' | 'tts' | 'image' | 'imageEdit' | 'music' | 'text' | 'transcribe' | 'compress' | 'merge' | 'extract'>>;
         return {
           ...current,
           hidden: Array.isArray(p.hidden) ? p.hidden : current.hidden,
           tts: { ...BLANK_TTS, ...p.tts },
           image: { ...BLANK_IMAGE, ...p.image },
+          imageEdit: { ...BLANK_IMAGE_EDIT, forms: p.imageEdit?.forms ?? {} },
           music: { ...BLANK_MUSIC, ...p.music },
           text: { ...BLANK_TEXT, ...p.text },
           transcribe: { ...BLANK_TRANSCRIBE, ...p.transcribe, path: null },
