@@ -21,8 +21,8 @@ import { commandIdArg } from './video-tools.ts';
  * - 没有安装：按 `external_tools_install`（`high`）确认，说明里写明来源、版本、大小与许可；用户同意即提交安装任务，返回安装任务号。
  *   装好之后智能体再调用一次。
  *
- * `image_edit` 去除物体、去水印、重绘局部与扩展画面（`remove-object` 等四个流程）：快速填充只用本机 ffmpeg；AI 修补把选区周围的
- * 一块（扩图是整张新画布）交给能改图的图像模型，授权与预算同生成图片。按 `image_edit`（`command`）确认后启动流程。
+ * `retouch` 去除物体、去水印、重绘局部与扩展画面（`remove-object` 等四个流程）：快速填充只用本机 ffmpeg；AI 修补把选区周围的
+ * 一块（扩图是整张新画布）交给能改图的图像模型，授权与预算同生成图片。按 `retouch`（`command`）确认后启动流程。
  *
  * 对外服务不能用：路径是本机的，安装第三方程序由用户在 BaoCut 里决定。
  */
@@ -59,7 +59,7 @@ const schemas = {
       .describe('可选。输出目录（不存在时创建）；不给时是保存位置（设置 downloads.directory，默认系统的下载文件夹）'),
     commandId: commandIdArg.optional().describe('可选。重试同一次提交时带上同一个值，不会重复创建任务'),
   }),
-  image_edit: z.strictObject({
+  retouch: z.strictObject({
     op: z
       .enum(EDIT_IMAGE_OPS)
       .describe('erase：去除物体；watermark：去水印、角标、字幕条（可以一次几张）；repaint：把选区重画成 prompt 写的样子；expand：把画面往外扩'),
@@ -105,9 +105,9 @@ const schemas = {
 };
 
 type Args = z.infer<(typeof schemas)['upscale']>;
-type EditArgs = z.infer<(typeof schemas)['image_edit']>;
+type EditArgs = z.infer<(typeof schemas)['retouch']>;
 
-const DEFINITIONS: Record<'upscale' | 'image_edit', ToolInfo> = {
+const DEFINITIONS: Record<'upscale' | 'retouch', ToolInfo> = {
   upscale: {
     title: '放大图片',
     description: [
@@ -125,7 +125,7 @@ const DEFINITIONS: Record<'upscale' | 'image_edit', ToolInfo> = {
     surfaces: ['agent', 'cli'],
     positional: 'files',
   },
-  image_edit: {
+  retouch: {
     title: '修改图片',
     description: [
       '去除物体（erase）、去水印（watermark）、重绘局部（repaint）或扩展画面（expand）。文件到文件：每张输出一个 <原名>-erased / -no-watermark / -repainted / -expanded.png，不动原图。',
@@ -158,7 +158,7 @@ export class ImageTools implements ToolSet {
     const run =
       name === 'upscale'
         ? upscale(this.#deps, args as Args, principal)
-        : name === 'image_edit'
+        : name === 'retouch'
           ? imageEdit(this.#deps, args as EditArgs, principal)
           : // i18n-ignore: 给模型的工具说明、错误与下一步
             Promise.reject(new ToolError('UNKNOWN_TOOL', `没有这个工具：${name}`));
@@ -273,7 +273,7 @@ async function imageEdit(deps: ImageToolsDeps, args: EditArgs, principal: ToolPr
   const method = args.method ?? (args.op === 'watermark' ? 'fill' : 'model');
   const executor = method === 'fill' ? 'ffmpeg' : (args.model ?? args.provider ?? RcAgentTools.imageEditDefaultModel().text);
   const approval = await scope.confirm(access, {
-    tool: 'image_edit',
+    tool: 'retouch',
     ...confirmSummary(
       RcAgentTools.imageEditSummary({ tool: EDIT_LABELS[args.op]().text, count: inputs.length, executor, dir: outDir ?? deps.saveDirectory() }),
     ),

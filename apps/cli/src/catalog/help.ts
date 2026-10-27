@@ -10,7 +10,7 @@ import { flagSpecs, kebab, soleTextField, type FlagSpec } from './flags.ts';
  */
 
 /** 一屏帮助里流程与名词组的顺序（目录里新增的排在后面）。 */
-const FLOW_ORDER = ['transcribe', 'translate', 'dub', 'download', 'export', 'transcode', 'speak', 'image', 'music'];
+const FLOW_ORDER = ['transcribe', 'translate', 'dub', 'download', 'export', 'transcode', 'speak', 'image', 'upscale', 'retouch', 'music'];
 const NOUN_ORDER = [
   'videos',
   'documents',
