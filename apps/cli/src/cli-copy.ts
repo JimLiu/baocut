@@ -45,6 +45,7 @@ const en = {
   helpRepeatable: 'repeatable',
   helpPositionalNote: (positional: string, flag: string) =>
     `${positional} can be given as the positional argument or as ${flag}, not both.`,
+  helpJobsWaitCli: 'In the CLI, `jobs wait` waits until the job ends, with no 50-second limit; after `--timeout <s>` it stops waiting with WAIT_TIMEOUT and the job keeps running.',
   helpExamples: 'Examples',
   helpCommonFlags: 'Common flags',
 

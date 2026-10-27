@@ -27,6 +27,7 @@ export const fr: CliMessages = {
   helpRepeatable: "répétable",
   helpPositionalNote: (positional: string, flag: string) =>
     `${positional} peut être indiqué comme argument positionnel ou via ${flag}, pas les deux.`,
+  helpJobsWaitCli: 'Dans la CLI, `jobs wait` attend la fin du traitement, sans limite de 50 secondes ; après `--timeout <s>`, l’attente s’arrête avec WAIT_TIMEOUT et le traitement continue.',
   helpExamples: "Exemples",
   helpCommonFlags: "Options communes",
 

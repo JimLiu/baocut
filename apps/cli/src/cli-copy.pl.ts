@@ -24,6 +24,7 @@ export const pl: CliMessages = {
   helpRequired: "wymagane",
   helpRepeatable: "powtarzalne",
   helpPositionalNote: (positional, flag) => `${positional} można podać pozycyjnie lub jako ${flag}, tylko jedno.`,
+  helpJobsWaitCli: 'W CLI `jobs wait` czeka do zakończenia operacji, bez limitu 50 sekund; po `--timeout <s>` oczekiwanie kończy się kodem WAIT_TIMEOUT, a operacja nadal działa.',
   helpExamples: "Przykłady",
   helpCommonFlags: "Wspólne flagi",
 

@@ -24,6 +24,7 @@ export const zhHant: CliMessages = {
   helpRequired: '必填',
   helpRepeatable: '可重複',
   helpPositionalNote: (positional, flag) => `${positional} 可以用位置引數或 ${flag} 指定，兩者擇一。`,
+  helpJobsWaitCli: 'CLI 中的 `jobs wait` 會一直等到作業結束，不受 50 秒限制；`--timeout <s>` 到時以 WAIT_TIMEOUT 停止等待，作業會繼續執行。',
   helpExamples: '範例',
   helpCommonFlags: '通用旗標',
 

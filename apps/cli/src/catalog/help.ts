@@ -137,6 +137,8 @@ export function renderCommandHelp(command: CatalogCommand, names: readonly strin
   if (positional) usage.push(positional.required ? `<${positional.field}>` : `[<${positional.field}>]`);
   if (specs.some((spec) => spec !== positional)) usage.push(M.helpFlagsPlaceholder);
   const out = [usage.join(' '), '', `${tool.title} — ${M.effectLabel(effectText(tool.effect))}`, '', render(tool.description.trim()), ''];
+  // 说明是给模型的 `jobs_wait`（最多 50 秒、超时再调）；CLI 的 `jobs wait` 走默认等待（run.ts），一直等到终态。
+  if (tool.name === 'jobs_wait') out.push(M.helpJobsWaitCli, '');
 
   out.push(M.helpParameters);
   if (specs.length === 0) out.push(`  ${M.helpNoParameters}`);

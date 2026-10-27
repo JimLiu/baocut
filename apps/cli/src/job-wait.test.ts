@@ -34,6 +34,32 @@ describe('waitForJob（Agent 面设计 §5.4）', () => {
     expect(fake.subscribed).toBe(false);
   });
 
+  it('固定流程：进度带上正在执行的那一步的子任务（它的事件先到，父任务的事件到时从镜像里取）', async () => {
+    const fake = new FakeClient();
+    const watcher = watchJobs(fake.client);
+    const stream = new PassThrough();
+    let out = '';
+    stream.on('data', (chunk) => (out += String(chunk)));
+    const waiting = waitForJob(fake.client, 'job_p', watcher, { progress: new ProgressReporter('jsonl', stream) });
+    const run = (current: number | null) => ({
+      name: 'transcribe',
+      params: {},
+      steps: [{ name: 'transcribe', label: '转写', status: 'running' as const, jobId: 'job_s', attempts: 1, output: null }],
+      current,
+      stoppedAt: null,
+      summary: null,
+    });
+    fake.snapshot([]);
+    await tick();
+    fake.emit(jobRecord({ jobId: 'job_s', kind: 'pipeline-step', phase: 'aligning', progress: { done: 333, total: 496, unit: 'segments' } }));
+    fake.emit(jobRecord({ jobId: 'job_p', phase: 'aligning', progress: { done: 0, total: 1, unit: 'steps' }, pipeline: run(0) }));
+    fake.emit(jobRecord({ jobId: 'job_p', state: 'completed', phase: 'done', progress: { done: 1, total: 1, unit: 'steps' }, pipeline: run(null) }));
+    await expect(waiting).resolves.toMatchObject({ kind: 'finished' });
+    const events = out.trim().split('\n').map((line) => JSON.parse(line));
+    expect(events[0]).toMatchObject({ jobId: 'job_p', stage: 'aligning', step: { jobId: 'job_s', done: 333, total: 496, unit: 'segments' } });
+    expect(events[1]).not.toHaveProperty('step');
+  });
+
   it('minAttempt：之前那次尝试的终态不算（jobs retry 沿用同一个 jobId）', async () => {
     const fake = new FakeClient();
     const watcher = watchJobs(fake.client);

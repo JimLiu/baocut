@@ -25,6 +25,7 @@ export const ko: CliMessages = {
   helpRequired: '필수',
   helpRepeatable: '반복 가능',
   helpPositionalNote: (positional, flag) => `${positional}은(는) 위치 인수 또는 ${flag} 중 하나로만 지정할 수 있습니다.`,
+  helpJobsWaitCli: 'CLI의 `jobs wait`는 처리가 끝날 때까지 기다리며 50초 제한이 없습니다. `--timeout <s>`이 지나면 WAIT_TIMEOUT으로 기다림을 멈추고 처리는 계속 실행됩니다.',
   helpExamples: '예시',
   helpCommonFlags: '공통 플래그',
 

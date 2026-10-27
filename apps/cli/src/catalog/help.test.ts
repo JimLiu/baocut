@@ -138,6 +138,8 @@ describe('帮助', () => {
     const wait = renderCommandHelp(tree.nouns.get('jobs')!.get('wait')!);
     expect(wait).toContain('--timeout <s>');
     expect(wait).not.toContain('--no-wait');
+    // 说明是给模型的「最多 50 秒」；CLI 另写一句它一直等到终态。
+    expect(wait).toContain('CLI 里的 `jobs wait` 一直等到任务结束，不受 50 秒的限制');
     // 工具自己有 project 字段时，--project 只在参数里出现一次。
     const create = renderCommandHelp(tree.nouns.get('videos')!.get('create')!);
     expect(create.match(/--project/g)).toHaveLength(1);

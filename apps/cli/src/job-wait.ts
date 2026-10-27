@@ -56,6 +56,16 @@ export function isFinished(job: JobRecord): boolean {
   );
 }
 
+/**
+ * 固定流程正在执行的那一步的子任务（`pipeline.steps[current].jobId`）：步骤先于父任务更新，父任务的事件到时镜像里已是
+ * 它最新的阶段与进度。别的任务、两步之间时 null。
+ */
+export function activeStep(job: JobRecord, records: ReadonlyMap<string, JobRecord>): JobRecord | null {
+  const run = job.pipeline;
+  const id = run && run.current !== null ? run.steps[run.current]?.jobId : null;
+  return id ? (records.get(id) ?? null) : null;
+}
+
 export interface WaitOptions {
   progress: ProgressReporter;
   /** 秒；到时不取消任务，结果是 `timeout`。 */
@@ -90,7 +100,7 @@ export function waitForJob(client: BaoCutClient, jobId: string, watcher: JobWatc
     const onJob = (job: JobRecord) => {
       if (job.jobId !== jobId || settled || job.attempt < (options.minAttempt ?? 1)) return;
       latest = job;
-      progress.update(job);
+      progress.update(job, activeStep(job, watcher.records));
       options.onUpdate?.(job);
       if (!isFinished(job)) return;
       progress.done(job);

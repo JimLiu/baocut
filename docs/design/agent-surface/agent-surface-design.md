@@ -238,7 +238,7 @@ export --video V --kind subtitles --format srt --bilingual
 - 成功：薄信封 `{ ok: true, result, next? }`，`result` 就是工具的结果对象（与 MCP 工具结果的 JSON 相同）；`next` 是建议的下一条命令（例如 `transcribe` 之后给 `captions create` 或 `export`）。
 - 失败：`{ ok: false, error: { code, message, retryability?, recovery?, remedy?, next? } }`，与 `ToolCatalog.errorBody` 完全相同。`code` 是封闭的错误码（命令协议 §11），`next` 用 CLI 的写法（`baocut models install …`），MCP 面上同一条 `next` 写成工具名——两种写法由共用层按主体渲染，不手写两份。
 - `CAPABILITY_NOT_CONFIGURED` 的 `remedy.settingsHref` 提供对应能力的设置路径；Agent 按 `next` 用它写出可点击的设置链接，不猜地址。
-- 进度到 stderr：`--progress jsonl` 时每行一个事件（`progress` / `artifact` / `warning` / `done`，带 `jobId`、`stage`、`pct`；有进度时 `progress` 另带 `done`、`total`、`unit`，本机生图按去噪步报进度时再带 `remainingSec`，命令协议 §4.1），默认按 TTY 给人读的一行刷新（按步的进度写 `3/8` 并接剩余时间）。MCP 的 `jobs_inspect` 透传同一个 `progress`。
+- 进度到 stderr：`--progress jsonl` 时每行一个事件（`progress` / `artifact` / `warning` / `done`，带 `jobId`、`stage`、`pct`；有进度时 `progress` 另带 `done`、`total`、`unit`，本机生图按去噪步报进度时再带 `remainingSec`，命令协议 §4.1；固定流程的 `pct` 与 `done` 数的是步骤，正在执行的那一步的子 Job 在跑、有进度时另带 `step: { jobId, stage, pct, done, total, unit }`，例如转写对齐到第几段），默认按 TTY 给人读的一行刷新（按步的进度写 `3/8` 并接剩余时间；固定流程先写完成了几步，再接这一步的阶段与进度，如 `2/4 · aligning 67% (333/496 segments)`，按秒的写成时钟）。`help jobs wait` 的说明来自给模型的 `jobs_wait`（最多 50 秒），CLI 的 `jobs wait` 不受这个限制，一直等到终态，帮助里另有一句说明。MCP 的 `jobs_inspect` 透传同一个 `progress`。
 
 ### 5.2 退出码
 

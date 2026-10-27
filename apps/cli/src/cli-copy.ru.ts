@@ -24,6 +24,7 @@ export const ru: CliMessages = {
   helpRequired: "обязательно",
   helpRepeatable: "можно повторять",
   helpPositionalNote: (positional, flag) => `${positional} можно указать позиционно или как ${flag}, только одно.`,
+  helpJobsWaitCli: 'В CLI `jobs wait` ждёт до завершения задания, без ограничения в 50 секунд; после `--timeout <s>` ожидание прекращается с WAIT_TIMEOUT, а задание продолжает работу.',
   helpExamples: "Примеры",
   helpCommonFlags: "Общие параметры",
 

@@ -25,6 +25,7 @@ export const ja: CliMessages = {
   helpRequired: '必須',
   helpRepeatable: '複数指定可',
   helpPositionalNote: (positional, flag) => `${positional} は位置引数または ${flag} のどちらか一方で指定できます。`,
+  helpJobsWaitCli: 'CLI の `jobs wait` はジョブが終わるまで待ち、50 秒の上限はありません。`--timeout <s>` を過ぎると WAIT_TIMEOUT で待機をやめ、ジョブは実行を続けます。',
   helpExamples: '例',
   helpCommonFlags: '共通フラグ',
 
