@@ -119,12 +119,14 @@ import { LegacyUpgrade } from './legacy-upgrade.ts';
 import { RuntimeActivity, type IdleExitOptions } from './runtime-activity.ts';
 import { ExternalToolService, toolsDownloadEndpoint, type ExternalToolServiceOptions } from './external-tools/external-tool-service.ts';
 import { linkImportDefinition, pruneLinkSources } from './external-tools/link-import-wiring.ts';
+import { upscaleImageDefinition } from './external-tools/upscale-image-wiring.ts';
 import { resolveDownloadsDirectory, resolveSaveDirectory } from './external-tools/downloads-directory.ts';
 import { entryPlace } from './videos/pipeline-targets.ts';
 import { FlowTools } from './agent-tools/flow-tools.ts';
 import { LinkImportTools } from './agent-tools/link-import-tools.ts';
 import { OpenMediaTools } from './agent-tools/open-media-tools.ts';
 import { AudioTools } from './agent-tools/audio-tools.ts';
+import { ImageTools } from './agent-tools/image-tools.ts';
 import { DownloadTools } from './agent-tools/download-tools.ts';
 import { SpeechSentenceTools } from './agent-tools/speech-sentence-tools.ts';
 import { MemoryCitationRegistry } from './ai-tools/citation-registry.ts';
@@ -639,6 +641,14 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           },
           context,
         ),
+        upscaleImageDefinition({
+          tools: () => {
+            if (!externalToolsRef) throw new Error(RcRuntime.externalToolsNotReady().text);
+            return externalToolsRef;
+          },
+          ffmpeg: async () => ({ command: process.env.BAOCUT_FFMPEG || 'ffmpeg', env: await toolEnv() }),
+          saveDirectory: () => resolveSaveDirectory({ settings: settingsStore?.get('downloads.directory') ?? null }),
+        }),
         aiToolDefinition(
           {
             videos,
@@ -910,6 +920,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         }),
         // 程序化音效与音频分析（Agent 面设计 §4.3）：音效导入与 assets_import 同级；分析只读，解码用同一个 ffmpeg。
         new AudioTools({ videos, scope: toolScope, ffmpeg: compositionFfmpeg }),
+        // 图片超分（§7.9）：Real-ESRGAN 是受管的外部工具，没有安装时按安装确认。
+        new ImageTools({
+          tools: externalTools,
+          pipelines: models.pipelines,
+          saveDirectory: () => resolveSaveDirectory({ settings: settings.store.get('downloads.directory') ?? null }),
+          scope: toolScope,
+        }),
         // 会话里的幻灯片（docs/design/slides §7.2）：校验与导入素材；编译器与 deck 的存储来自幻灯片服务。
         new SlidesTools({ scope: toolScope, slides }),
         // 会话里的设计稿（docs/design/canvas §7.2）：结构校验与导入素材；设计稿的存储来自同一个编辑器服务。

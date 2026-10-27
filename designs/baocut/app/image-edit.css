@@ -1,0 +1,44 @@
+/* 工具 › 图片处理（tool-image-edit.jsx、image-edit-canvas.jsx，2026-10-27）——只在 App 入口加载。
+   结构类沿用 tools.css 的 vw__* / vcard / vsrc / vrec，这里只放画布、选区、扩图预览、锚点格与工具卡的事实表。 */
+.ie__lede { margin-top: -4px; }
+.ie__srcs { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow: auto; }
+.ie__facts { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 4px 12px; margin: 0; }
+.ie__facts dt { color: var(--gray-600); }
+.ie__facts dd { margin: 0; min-width: 0; color: var(--gray-800); }
+.ie__margins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
+
+/* 锚点：RSP.RadioGroup 的九个单选按 3×3 排（S2 的选项容器是第一层 div） */
+.ie__anchors > div { display: grid; grid-template-columns: repeat(3, max-content); gap: 4px 8px; }
+/* S2 让每个单选跨整行、用 subgrid 对齐文字列；这里没有文字，改成各占一格 */
+.ie__anchors > div > div { grid-column: auto; display: flex; }
+.ie__anchors > div > div > label { display: flex; }
+
+/* 画布：图按比例放进一个最高 480px 的台面；叠在上面的 SVG 用原图像素做 viewBox */
+.iecv { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.iecv__stage { display: grid; place-items: center; min-height: 240px; max-height: 480px; padding: 12px; border-radius: 8px; background: var(--gray-100); overflow: hidden; }
+.iecv__frame { position: relative; max-width: 100%; }
+.iecv__frame--expand { box-shadow: inset 0 0 0 1px var(--gray-400); }
+.iecv__img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; }
+/* Space 条目的示意块：交互原型不读条目的真文件 */
+.iecv__art { display: grid; place-items: end start; padding: 8px; background: linear-gradient(135deg, var(--blue-400), var(--seafoam-400) 55%, var(--orange-400)); color: var(--gray-900); }
+.iecv__placed { position: absolute; box-shadow: 0 0 0 2px var(--blue-900); }
+.iecv__add { position: absolute; padding: 0 6px; border-radius: 9999px; background: var(--gray-25); color: var(--gray-800); }
+.iecv__add--left { left: 4px; top: 50%; transform: translateY(-50%); }
+.iecv__add--right { right: 4px; top: 50%; transform: translateY(-50%); }
+.iecv__add--top { top: 4px; left: 50%; transform: translateX(-50%); }
+.iecv__add--bottom { bottom: 4px; left: 50%; transform: translateX(-50%); }
+.iecv__sel { position: absolute; inset: 0; width: 100%; height: 100%; cursor: none; touch-action: none; }
+.iecv__sel.is-box { cursor: crosshair; }
+.iecv__stroke { fill: none; stroke: var(--blue-900); stroke-opacity: 0.45; stroke-linecap: round; stroke-linejoin: round; }
+.iecv__box { fill: var(--blue-900); fill-opacity: 0.25; stroke: var(--blue-900); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.iecv__cursor { fill: none; stroke: var(--gray-25); stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+.iecv__cursor--dark { stroke: var(--gray-900); stroke-width: 4; }
+.iecv__sel.is-static { pointer-events: none; }
+.iecv__stage--peek { min-height: 0; }
+/* 批量去水印：后面几张的框，小图一排 */
+.iecv__peek { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.iecv__peekitem { display: flex; flex-direction: column; gap: 4px; max-width: 160px; margin: 0; }
+.iecv__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 32px; }
+.iecv__brush { display: inline-flex; align-items: center; gap: 8px; }
+.iecv__brush > :nth-child(2) { width: 120px; }
+.iecv__hint { color: var(--gray-700); }

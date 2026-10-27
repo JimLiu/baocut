@@ -88,7 +88,18 @@ const TERMINAL = new Set<JobState>(['completed', 'failed', 'cancelled', 'interru
  * 派生 Space 条目、留进产物记录。`downloads-save` 是智能体用 `downloads_save` 交出的文件（§3.5）：不经 Job Ledger，
  * 直接写进产物记录，派生方式相同。
  */
-export const FILE_PIPELINES: ReadonlySet<string> = new Set(['transcode', 'translate-subtitles', 'link-import', 'downloads-save']);
+export const FILE_PIPELINES: ReadonlySet<string> = new Set([
+  'transcode',
+  'translate-subtitles',
+  'link-import',
+  'downloads-save',
+  // 图片处理（§7.9）：放大、去除物体、去水印、重绘局部、扩展画面，结果是保存位置里的 PNG。
+  'upscale-image',
+  'remove-object',
+  'remove-watermark',
+  'repaint-image',
+  'expand-image',
+]);
 
 /**
  * 文件到文件的流程的任务。转录只在只给文件时（结果有发布的文件）算：给了视频的转录写进视频，不留产物条目。

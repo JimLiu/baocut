@@ -14,6 +14,7 @@ import {
   PIPELINE_ACTOR_ID,
   PipelineRunner,
   dubPipeline,
+  editImagePipeline,
   speakersPipeline,
   localDubSeparator,
   resolveSpeechWorkerCommand,
@@ -82,6 +83,7 @@ import { GrantService } from '../grants/grant-service.ts';
 import { grantedTextGenerator, withPipelineGrants } from '../grants/pipeline-grants.ts';
 import type { TextPlanResult } from '../exports/export-plan.ts';
 import { DUB_DATA_KINDS, dubSpeech, withDubGrantGuidance } from './dub-speech.ts';
+import { IMAGE_EDIT_DATA_KINDS, imageEditor } from './image-edit.ts';
 import { pipelineTargets, placeLocation, videoPlace, type PipelineTargetsOptions } from '../videos/pipeline-targets.ts';
 import { RcModels } from '@baocut/protocol/messages/runtime-core';
 import { toolsDownloadEndpoint } from '../external-tools/external-tool-service.ts';
@@ -383,6 +385,23 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
         }),
         grants,
         TRANSLATE_DATA_KINDS,
+      ),
+      // 图片编辑（去除物体、去水印、重绘、扩图）：快速填充只用本机 ffmpeg，不外发；AI 修补每次调用经授权与预算（同生成图片），
+      // 启动前先判断。
+      ...(['erase', 'watermark', 'repaint', 'expand'] as const).map((op) =>
+        withPipelineGrants(
+          editImagePipeline(op, {
+            ffmpeg: options.ffmpeg,
+            editor: imageEditor({ services, grants, catalog }),
+            ...(options.saveDirectory ? { saveDirectory: options.saveDirectory } : {}),
+          }),
+          grants,
+          IMAGE_EDIT_DATA_KINDS,
+          (plan) =>
+            plan.params.method === 'model'
+              ? [{ capability: 'generateImage' as const, providerId: plan.providerId, modelId: plan.modelId, dataKinds: IMAGE_EDIT_DATA_KINDS }]
+              : [],
+        ),
       ),
       // 翻译配音：缺译文时的翻译与逐句合成各自经授权与预算；启动前两种外发都要判断。被拒时补上配音的下一步指引。
       withDubGrantGuidance(

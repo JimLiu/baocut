@@ -1,5 +1,6 @@
-import { setLocale } from '@baocut/protocol';
+import { LOCALES, setLocale } from '@baocut/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { adminBucket } from '../admin/index.ts';
 import { CliError } from '../envelope.ts';
 import { buildTree, commandOf, needsConfirmation, renderToolNames, summaryOf } from './command-tree.ts';
 import { extractGlobals, parseToolArgs } from './flags.ts';
@@ -30,6 +31,15 @@ describe('帮助', () => {
     for (const line of lines.slice(2)) expect(displayWidth(line)).toBeLessThanOrEqual(120);
     expect(text).toContain('help <command>');
     expect(text).toContain('spec [<name>]');
+  });
+
+  // 真实的管理桶占后半屏好几行，各语言「更多」的宽度也不一样；cli-e2e 在没有引擎的 CI 上跳过，这里按目录快照核对。
+  it.each(LOCALES)('带上真实的管理桶也不超过 40 行、不超过 100 列（%s）', (locale) => {
+    vi.stubEnv('BAOCUT_LOCALE', locale);
+    setLocale(locale);
+    const lines = renderMainHelp(snapshot.tools, adminBucket.entries).split('\n');
+    expect(lines.length).toBeLessThanOrEqual(HELP_MAX_LINES);
+    for (const line of lines.slice(2)) expect(displayWidth(line), line).toBeLessThanOrEqual(100);
   });
 
   it('名词组的动词一行排不下时整个略去、以 … 收尾，不折行；help <名词> 仍列全部', () => {

@@ -70,7 +70,7 @@ describe('用工具处理条目', () => {
   it('列收这种条目的工具；回收站、生成中、失败与找不到文件的不列', () => {
     expect(toolsForEntry(entry()).map((t) => t.id)).toEqual(['translate-subtitles', 'synthesize-speech', 'generate-text']);
     expect(toolsForEntry(entry({ kind: 'audio' })).map((t) => t.id)).toEqual(['transcribe', 'extract-audio']);
-    expect(toolsForEntry(entry({ kind: 'image' }))).toEqual([]);
+    expect(toolsForEntry(entry({ kind: 'image' })).map((t) => t.id)).toEqual(['upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image']);
     expect(toolsForEntry(entry({}, '2026-10-02T00:00:00.000Z'))).toEqual([]);
     for (const status of ['generating', 'failed', 'missing'] as const) expect(toolsForEntry(entry({ status }))).toEqual([]);
   });

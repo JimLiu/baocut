@@ -34,4 +34,7 @@ export const fr: RcExternalToolsMessages = {
   pipAdmin: (p) => `${p.label} est installé dans ${p.dir}, qui nécessite les droits administrateur pour être modifié ; BaoCut ne les demande pas à votre place. Mettez-le à jour selon sa méthode d’installation.`, pythonLauncherMissing: 'L’interpréteur Python indiqué par ce programme d’entrée n’existe plus.',
   pipAdminWin: (p) => `${p.label} est installé dans ${p.dir}, qui nécessite les droits administrateur pour être modifié ; BaoCut ne les demande pas à votre place. Ouvrez un terminal en tant qu’administrateur et exécutez cette commande.`,
   standaloneAdmin: (p) => `${p.dir}, où se trouve ${p.label}, nécessite les droits administrateur pour être modifié ; BaoCut ne les demande pas à votre place.`, standaloneAdminWin: (p) => `${p.dir}, où se trouve ${p.label}, nécessite les droits administrateur pour être modifié ; BaoCut ne les demande pas à votre place. Ouvrez un terminal en tant qu’administrateur et exécutez cette commande.`,
+  realesrganLicense: 'MIT (l’exécutable ncnn) ; modèles Real-ESRGAN sous BSD-3-Clause ; compilé avec ncnn (BSD-3-Clause)',
+  realesrganPurpose: 'Agrandir une image : agrandit les images de 2 à 4× avec Real-ESRGAN sur le GPU de cet ordinateur',
+  realesrganMissingRemedy: 'Téléchargez-le avec externalTools.install (baocut external-tools install realesrgan-ncnn-vulkan), ou décompressez vous-même la version officielle (gardez le dossier models à côté de l’exécutable) et indiquez son chemin avec externalTools.setPath',
 };

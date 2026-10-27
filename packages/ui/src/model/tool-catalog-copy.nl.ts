@@ -38,6 +38,11 @@ export const nl: ToolCatalogMessages = {
       name: "Afbeelding genereren",
       desc: "Beschrijf een afbeelding en teken die met een cloudmodel of lokaal afbeeldingsmodel; referentieafbeeldingen, beeldverhouding en aantal zijn optioneel",
     },
+    'upscale-image': { name: 'Afbeelding vergroten', desc: 'Vergroot afbeeldingen 2–4× met Real-ESRGAN op deze computer, met aangevulde details in plaats van alleen uitrekken' },
+    'remove-object': { name: 'Object verwijderen', desc: 'Schilder over mensen of dingen die je niet wilt, en het gebied wordt aangevuld vanuit de omgeving' },
+    'remove-watermark': { name: 'Watermerk verwijderen', desc: 'Omkader een watermerk, logo of ondertitelbalk; afbeeldingen met het op dezelfde plek kunnen in één keer' },
+    'repaint-image': { name: 'Gebied opnieuw tekenen', desc: 'Schilder een gebied en zeg wat het moet worden; alleen dat gebied verandert' },
+    'expand-image': { name: 'Afbeelding uitbreiden', desc: 'Breid het beeld uit naar een nieuwe beeldverhouding; de toegevoegde randen zetten het origineel voort' },
     'generate-music': { name: 'Muziek genereren', desc: 'Beschrijf een stijl en optioneel een songtekst en componeer een liedje of instrumentaal nummer met een lokaal muziekmodel; duur en seed zijn optioneel' },
     'link-import': {
       name: "Video downloaden",

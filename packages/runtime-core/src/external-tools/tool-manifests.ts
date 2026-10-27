@@ -22,10 +22,10 @@ export interface ToolAsset {
   /** sha256（小写十六进制）；未知时 null，不能安装。 */
   sha256: string | null;
   /**
-   * 发布文件是压缩包时的格式：核对之后只解开包根目录里的普通文件到 `tools/<工具>/<版本>/`（`skip` 里的不解开），可执行文件是其中的
-   * `command`。没有时发布文件本身就是可执行文件。
+   * 发布文件是压缩包时的格式：核对之后只解开包根目录里的普通文件到 `tools/<工具>/<版本>/`（`skip` 里的不解开；`dirs` 里的子目录
+   * 连同其中直接的文件一并解开，例如可执行文件旁边的模型），可执行文件是其中的 `command`。没有时发布文件本身就是可执行文件。
    */
-  archive?: { format: 'tar.gz' | 'zip'; skip: readonly string[] };
+  archive?: { format: 'tar.gz' | 'zip'; skip: readonly string[]; dirs?: readonly string[] };
 }
 
 export interface ToolRelease {
@@ -49,8 +49,13 @@ export interface ToolManifest {
   command: string;
   /** 探测参数：打印版本。 */
   versionArgs: readonly string[];
-  /** 从探测输出里取版本号。 */
-  parseVersion(output: string): string | null;
+  /**
+   * 从探测输出里取版本号。`known` 是探测的那一份已知的版本（受管副本是它的发布版本），没有时 null：不打印版本号的工具
+   * （Real-ESRGAN）据此报告版本。
+   */
+  parseVersion(output: string, known: string | null): string | null;
+  /** 除 0 以外也算探测成功的退出码：只能打印用法、打印完以非零退出的工具（Real-ESRGAN 的 `-h`）。 */
+  probeExitCodes?: readonly number[];
   /** 低于它报告为「需要更新」；null 表示不检查。 */
   minVersion: string | null;
   /** 用之前要不要先得到用户同意（会联网下载第三方内容的工具要）。 */
@@ -61,6 +66,8 @@ export interface ToolManifest {
   envVar?: string;
   /** 用到它的任务种类：这些任务没结束时不删除受管副本（`TOOL_IN_USE`）。 */
   usedByJobKinds?: readonly string[];
+  /** 用到它的流程：这些流程没结束时同样不删除受管副本。 */
+  usedByPipelines?: readonly string[];
   /** 按原安装方式更新系统里的那一份（`externalTools.update`）；没有时不提供更新。 */
   update?: ToolUpdateRecipe;
   /** 缺失时的补救（按 Runtime 所在的平台给）。 */
@@ -75,6 +82,7 @@ export interface ToolManifest {
 export const YT_DLP = 'yt-dlp';
 export const FFMPEG = 'ffmpeg';
 export const GIT = 'git';
+export const REALESRGAN = 'realesrgan-ncnn-vulkan';
 
 /**
  * yt-dlp 的发布：版本取自这台开发机上 Homebrew 安装的稳定版（Changelog 与 `yt_dlp/version.py` 都是 2026.07.04），没有对照
@@ -98,6 +106,50 @@ const YT_DLP_RELEASE: ToolRelease = {
     return RcExternalTools.ytDlpLicense().text;
   },
   homepage: 'https://github.com/yt-dlp/yt-dlp',
+};
+
+/**
+ * Real-ESRGAN 的 ncnn 版（图片超分，架构设计 §7.9）：xinntao/Real-ESRGAN 发布页 v0.2.5.0 的便携包（20220424 构建），可执行文件
+ * 与 `models/`（realesrgan-x4plus、realesrgan-x4plus-anime、realesr-animevideov3 的 x2/x3/x4）在同一个包里，只解开这两样；
+ * Windows 包另带 OpenMP 运行库 `vcomp140.dll`。macOS 包是 x86_64 + arm64 的通用二进制，ncnn 经 MoltenVK 跑 Metal，两种 Mac
+ * 共用一份。没有 ARM64 的 Windows 与 Linux 包。大小与 sha256 是 2026-10-27 按这个版本下载后在本机计算的（没有执行过里面的程序）。
+ */
+const REALESRGAN_DEMO_FILES = ['input.jpg', 'input2.jpg', 'onepiece_demo.mp4', 'vcomp140d.dll'];
+const realesrganArchive = (readme: string): ToolAsset['archive'] => ({
+  format: 'zip',
+  skip: [...REALESRGAN_DEMO_FILES, readme],
+  dirs: ['models'],
+});
+const REALESRGAN_MAC: ToolAsset = {
+  fileName: 'realesrgan-ncnn-vulkan-20220424-macos.zip',
+  size: 51817124,
+  sha256: 'e0ad05580abfeb25f8d8fb55aaf7bedf552c375b5b4d9bd3c8d59764d2cc333a',
+  archive: realesrganArchive('README_macos.md'),
+};
+const REALESRGAN_RELEASE: ToolRelease = {
+  version: 'v0.2.5.0',
+  assets: {
+    'darwin-arm64': REALESRGAN_MAC,
+    'darwin-x64': REALESRGAN_MAC,
+    'linux-x64': {
+      fileName: 'realesrgan-ncnn-vulkan-20220424-ubuntu.zip',
+      size: 46931474,
+      sha256: 'e5aa6eb131234b87c0c51f82b89390f5e3e642b7b70f2b9bbe95b6a285a40c96',
+      archive: realesrganArchive('README_ubuntu.md'),
+    },
+    'win32-x64': {
+      fileName: 'realesrgan-ncnn-vulkan-20220424-windows.zip',
+      size: 45474481,
+      sha256: 'abc02804e17982a3be33675e4d471e91ea374e65b70167abc09e31acb412802d',
+      archive: realesrganArchive('README_windows.md'),
+    },
+  },
+  officialUrl: 'https://github.com/xinntao/Real-ESRGAN/releases/download/{version}/{file}',
+  estimatedBytes: 52 * 1024 * 1024,
+  get license() {
+    return RcExternalTools.realesrganLicense().text;
+  },
+  homepage: 'https://github.com/xinntao/Real-ESRGAN',
 };
 
 export const BUILTIN_TOOL_MANIFESTS: readonly ToolManifest[] = [
@@ -165,6 +217,27 @@ export const BUILTIN_TOOL_MANIFESTS: readonly ToolManifest[] = [
     usable: macosGitUsable,
     get missingRemedy() {
       return gitMissingRemedy();
+    },
+  },
+  // 图片超分（§7.9）：只在本机推理，不联网，用之前不另要同意（下载照常要同意）。
+  {
+    name: REALESRGAN,
+    label: 'Real-ESRGAN',
+    get purpose() {
+      return RcExternalTools.realesrganPurpose();
+    },
+    command: REALESRGAN,
+    // 没有打印版本的参数：`-h` 打印用法后以 -1 退出（POSIX 上是 255，Windows 上是 0xFFFFFFFF），用法里有程序名就算能运行。
+    // 版本号不在输出里：受管副本报告它的发布版本，别处的报告 `unknown`。
+    versionArgs: ['-h'],
+    probeExitCodes: [255, -1, 4294967295],
+    parseVersion: (output, known) => (/realesrgan-ncnn-vulkan/.test(output) ? (known ?? 'unknown') : null),
+    minVersion: null,
+    consentRequired: false,
+    release: REALESRGAN_RELEASE,
+    usedByPipelines: ['upscale-image'],
+    get missingRemedy() {
+      return RcExternalTools.realesrganMissingRemedy();
     },
   },
 ];

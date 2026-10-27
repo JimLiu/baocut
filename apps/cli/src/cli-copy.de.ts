@@ -12,7 +12,7 @@ export const de: CliMessages = {
   helpMore: "Mehr",
   helpMoreHelp: "Parameter, Wirkung und Beispiele",
   helpMoreSpec: "maschinenlesbarer Katalog (JSON)",
-  helpMoreStatus: "aktuell verfügbare Funktionen dieses Computers",
+  helpMoreStatus: "was dieser Computer gerade kann",
   helpGlobalFlags: "--json --project <dir> --yes --max-bytes <n> --result-file <file> --no-start",
   helpJobFlags: "Aufträge: --no-wait --timeout <s> --progress jsonl",
   helpAdminVerbs: "Lokale Verwaltung",

@@ -10,7 +10,7 @@ import { TRANSLATE_SUBTITLES_PIPELINE } from './pipelines/translate-subtitles.ts
 /** 工具目录的静态注册表（架构设计 §7.9）：首批工具、声明完整、ID 稳定。 */
 
 describe('工具目录', () => {
-  it('十个工具按组排列，ID 唯一且是小写连字符', () => {
+  it('工具按组排列，ID 唯一且是小写连字符', () => {
     expect(TOOL_CATALOGUE.map((t) => t.id)).toEqual([
       'transcribe',
       'translate-subtitles',
@@ -18,6 +18,11 @@ describe('工具目录', () => {
       'synthesize-speech',
       'generate-text',
       'generate-image',
+      'upscale-image',
+      'remove-object',
+      'remove-watermark',
+      'repaint-image',
+      'expand-image',
       'generate-music',
       'link-import',
       'compress-video',
@@ -40,6 +45,20 @@ describe('工具目录', () => {
       // 接受视频输入的工具才有候选规则。
       expect(tool.candidates !== null).toBe(tool.inputs.includes('video'));
     }
+  });
+
+  it('图片编辑的四个工具各对应一个流程：都要 ffmpeg；去除与去水印的图像模型是可选的（快速填充不用）', () => {
+    for (const id of ['remove-object', 'remove-watermark', 'repaint-image', 'expand-image']) {
+      expect(toolDefinition(id)).toMatchObject({
+        execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: id },
+        inputs: ['file'],
+        results: ['artifact'],
+        externalTools: ['ffmpeg'],
+        network: 'none',
+      });
+    }
+    expect(toolDefinition('remove-object')).toMatchObject({ capabilities: [], optionalCapabilities: ['generateImage'] });
+    expect(toolDefinition('expand-image')).toMatchObject({ capabilities: ['generateImage'], optionalCapabilities: [] });
   });
 
   it('每个工具对应一个流程或一种直接任务，依赖照实声明', () => {
@@ -122,7 +141,7 @@ describe('工具目录', () => {
     const groups = Object.fromEntries(TOOL_CATEGORIES.map((c) => [c, TOOL_CATALOGUE.filter((t) => t.category === c).map((t) => t.id)]));
     expect(groups).toEqual({
       speech: ['transcribe', 'translate-subtitles', 'dub', 'synthesize-speech'],
-      'text-image': ['generate-text', 'generate-image'],
+      'text-image': ['generate-text', 'generate-image', 'upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image'],
       music: ['generate-music'],
       'video-file': ['link-import', 'compress-video', 'merge-video', 'extract-audio'],
     });

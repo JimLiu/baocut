@@ -12,6 +12,8 @@ import { createGunzip, inflateRawSync } from 'node:zlib';
  * - `skip` 里的文件（同包的其他工具）不解开。
  * - 给了 `root`（包里的一个目录，`/` 分隔、不带首尾斜杠）时，「根目录」换成这个目录：只解开直接位于它之下的普通文件（LiteRT-LM 的
  *   动态库在 xcframework 的 `CLiteRTLM_mac.xcframework/macos-arm64_x86_64/` 里）。
+ * - 给了 `dirs`（根目录下的子目录名）时，这些子目录里直接的普通文件也解开，放进 `dest` 下的同名子目录（Real-ESRGAN 的权重在
+ *   可执行文件旁边的 `models/` 里）；只认一层，更深的照旧略过。`skip` 按相对根目录的名字（`models/x.bin`）比较。
  * - tar 按流解开，不整包读进内存；保留可执行位（没有的按 0644）。zip 读中央目录，只支持「不压缩」与 deflate，不支持 ZIP64 与加密。
  */
 
@@ -20,6 +22,8 @@ export interface ToolArchiveSpec {
   skip: readonly string[];
   /** 当作根目录的包内目录（`/` 分隔、不带首尾斜杠）；没有时是包的根目录。 */
   root?: string;
+  /** 一并解开的子目录（根目录下的目录名，只认一层）。 */
+  dirs?: readonly string[];
 }
 
 export class ToolArchiveError extends Error {
@@ -29,27 +33,47 @@ export class ToolArchiveError extends Error {
   }
 }
 
-/** 把 `archive` 根目录里的普通文件解开到 `dest`（已存在的空目录）；返回解开的文件名。 */
+/** 把 `archive` 根目录（与 `dirs` 里的子目录）里的普通文件解开到 `dest`（已存在的空目录）；返回解开的文件名（子目录里的带 `目录/` 前缀）。 */
 export async function extractToolArchive(archive: string, spec: ToolArchiveSpec, dest: string, signal?: AbortSignal): Promise<string[]> {
   const skip = new Set(spec.skip);
-  const names =
-    spec.format === 'zip' ? await extractZip(archive, dest, skip, spec.root, signal) : await extractTarGz(archive, dest, skip, spec.root, signal);
+  const entry = (raw: string) => rootEntryName(raw, spec.root, spec.dirs);
+  const names = spec.format === 'zip' ? await extractZip(archive, dest, skip, entry, signal) : await extractTarGz(archive, dest, skip, entry, signal);
   if (names.length === 0) throw new ToolArchiveError('archive has no files at its root');
   return names;
 }
 
-/** 包里的名字 → 根目录（给了 `root` 时是这个包内目录）里的文件名；不在根目录、或名字不安全时 null。 */
-export function rootEntryName(raw: string, root?: string): string | null {
+/**
+ * 包里的名字 → 根目录（给了 `root` 时是这个包内目录）里的文件名；`dirs` 里的子目录下直接的文件是 `目录/文件名`。不在根目录或
+ * 这些子目录里、或名字不安全时 null。
+ */
+export function rootEntryName(raw: string, root?: string, dirs: readonly string[] = []): string | null {
   let name = raw.replace(/^(\.\/)+/, '');
   if (root) {
     const prefix = `${root.replace(/^\/+|\/+$/g, '')}/`;
     if (!name.startsWith(prefix)) return null;
     name = name.slice(prefix.length);
   }
+  const slash = name.indexOf('/');
+  if (slash > 0 && dirs.includes(name.slice(0, slash))) {
+    const file = safeName(name.slice(slash + 1));
+    return file === null ? null : `${name.slice(0, slash)}/${file}`;
+  }
+  return safeName(name);
+}
+
+/** 一层的文件名：不能为空、不能带分隔符、盘符或 NUL，也不是 AppleDouble 文件。 */
+function safeName(name: string): string | null {
   if (!name || name === '.' || name === '..') return null;
   if (name.includes('/') || name.includes('\\') || name.includes('\0') || /^[a-zA-Z]:/.test(name)) return null;
   if (name.startsWith('._')) return null;
   return name;
+}
+
+/** 写一个解开的文件之前：在子目录里时先建出子目录。 */
+async function prepareTarget(dest: string, name: string): Promise<string> {
+  const file = path.join(dest, name);
+  if (name.includes('/')) await fs.mkdir(path.dirname(file), { recursive: true });
+  return file;
 }
 
 // ---- tar ----
@@ -90,7 +114,13 @@ function paxPath(data: Buffer): string | null {
   return found;
 }
 
-async function extractTarGz(archive: string, dest: string, skip: Set<string>, root: string | undefined, signal?: AbortSignal): Promise<string[]> {
+async function extractTarGz(
+  archive: string,
+  dest: string,
+  skip: Set<string>,
+  entryName: (raw: string) => string | null,
+  signal?: AbortSignal,
+): Promise<string[]> {
   const extracted: string[] = [];
   let buffer: Buffer = Buffer.alloc(0);
   /** 正在读的那一项：剩余的数据字节、补齐到块边界的字节、写到哪里（null 表示丢弃）或收集到内存（扩展头）。 */
@@ -147,11 +177,11 @@ async function extractTarGz(archive: string, dest: string, skip: Set<string>, ro
         const prefix = tarString(header, 345, 155);
         const raw = nextName ?? (prefix ? `${prefix}/${tarString(header, 0, 100)}` : tarString(header, 0, 100));
         nextName = null;
-        const name = type === '0' || type === '\0' ? rootEntryName(raw, root) : null;
+        const name = type === '0' || type === '\0' ? entryName(raw) : null;
         let handle: fs.FileHandle | null = null;
         if (name && !skip.has(name)) {
           const mode = tarNumber(header, 100, 8) & 0o111 ? 0o755 : 0o644;
-          handle = await fs.open(path.join(dest, name), 'wx', mode);
+          handle = await fs.open(await prepareTarget(dest, name), 'wx', mode);
           extracted.push(name);
         }
         entry = { remaining: size, padding, handle, collect: null, kind: type };
@@ -178,7 +208,13 @@ const EOCD = 0x06054b50;
 const CENTRAL = 0x02014b50;
 const LOCAL = 0x04034b50;
 
-async function extractZip(archive: string, dest: string, skip: Set<string>, root: string | undefined, signal?: AbortSignal): Promise<string[]> {
+async function extractZip(
+  archive: string,
+  dest: string,
+  skip: Set<string>,
+  entryName: (raw: string) => string | null,
+  signal?: AbortSignal,
+): Promise<string[]> {
   const data = await fs.readFile(archive);
   let eocd = -1;
   for (let i = data.length - 22; i >= Math.max(0, data.length - 22 - 0xffff); i--) {
@@ -209,7 +245,7 @@ async function extractZip(archive: string, dest: string, skip: Set<string>, root
     const unixMode = external >>> 16;
     // 目录项、链接（Unix 的 S_IFLNK）不解开。
     if (raw.endsWith('/') || (unixMode & 0o170000) === 0o120000) continue;
-    const name = rootEntryName(raw, root);
+    const name = entryName(raw);
     if (!name || skip.has(name)) continue;
     if (flags & 0x1) throw new ToolArchiveError(`encrypted entry: ${name}`);
     if (data.readUInt32LE(local) !== LOCAL) throw new ToolArchiveError(`broken zip entry: ${name}`);
@@ -221,7 +257,7 @@ async function extractZip(archive: string, dest: string, skip: Set<string>, root
     else throw new ToolArchiveError(`unsupported zip compression ${method}: ${name}`);
     if (content.length !== size) throw new ToolArchiveError(`zip entry size mismatch: ${name}`);
     const mode = unixMode & 0o111 || /\.exe$/i.test(name) ? 0o755 : 0o644;
-    await fs.writeFile(path.join(dest, name), content, { flag: 'wx', mode });
+    await fs.writeFile(await prepareTarget(dest, name), content, { flag: 'wx', mode });
     extracted.push(name);
   }
   return extracted;

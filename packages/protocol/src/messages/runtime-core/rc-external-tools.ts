@@ -137,6 +137,9 @@ const en = {
     `${p.dir}, where this ${p.label} is, needs administrator rights to change; BaoCut doesn't elevate for you.`,
   standaloneAdminWin: (p: { label: string; dir: string }) =>
     `${p.dir}, where this ${p.label} is, needs administrator rights to change; BaoCut doesn't elevate for you. Open a terminal as administrator and run this command.`,
+  realesrganLicense: 'MIT (the ncnn executable); Real-ESRGAN models BSD-3-Clause; built with ncnn (BSD-3-Clause)',
+  realesrganPurpose: "Upscale image: enlarges images 2–4× with Real-ESRGAN on this computer's GPU",
+  realesrganMissingRemedy: 'Download it with externalTools.install (baocut external-tools install realesrgan-ncnn-vulkan), or unpack the official release yourself (keep the models folder next to the executable) and set its path with externalTools.setPath',
 };
 
 export type RcExternalToolsMessages = typeof en;

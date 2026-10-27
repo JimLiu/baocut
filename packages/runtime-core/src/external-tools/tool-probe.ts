@@ -80,12 +80,16 @@ export async function isExecutableFile(file: string): Promise<boolean> {
 
 export type ProbeOutcome = { ok: true; output: string } | { ok: false; reason: Localized };
 
-/** 执行 `file args…`，返回标准输出（不够时连同标准错误）。非零退出、超时、启动失败都是 `ok: false` 并说明原因。 */
+/**
+ * 执行 `file args…`，返回标准输出（不够时连同标准错误）。非零退出（`okExitCodes` 里的除外）、超时、启动失败都是 `ok: false`
+ * 并说明原因。
+ */
 export async function runVersionProbe(
   file: string,
   args: readonly string[],
   env: NodeJS.ProcessEnv,
   timeoutMs: number = PROBE_TIMEOUT_MS,
+  okExitCodes: readonly number[] = [],
 ): Promise<ProbeOutcome> {
   return await new Promise<ProbeOutcome>((resolve) => {
     let child: ReturnType<typeof spawn>;
@@ -118,7 +122,7 @@ export async function runVersionProbe(
     });
     child.on('error', (error: NodeJS.ErrnoException) => finish({ ok: false, reason: RcExternalTools.probeCannotStartCode({ code: error.code ?? error.message }) }));
     child.on('close', (code, signal) => {
-      if (code === 0) finish({ ok: true, output: output || errors });
+      if (code === 0 || (code !== null && okExitCodes.includes(code))) finish({ ok: true, output: output || errors });
       else
         finish({
           ok: false,

@@ -21,6 +21,11 @@ export const TOOL_IDS = [
   'synthesize-speech',
   'generate-text',
   'generate-image',
+  'upscale-image',
+  'remove-object',
+  'remove-watermark',
+  'repaint-image',
+  'expand-image',
   'generate-music',
   'link-import',
   'compress-video',
@@ -40,7 +45,22 @@ export type VideoToolId = (typeof VIDEO_TOOL_IDS)[number];
 export const FILE_VIDEO_TOOL_IDS = ['compress-video', 'merge-video', 'extract-audio'] as const;
 export type FileVideoToolId = (typeof FILE_VIDEO_TOOL_IDS)[number];
 
-export type ToolIcon = 'transcript' | 'translate' | 'microphone' | 'import' | 'wave' | 'image' | 'music' | 'text' | 'film' | 'layers';
+export type ToolIcon =
+  | 'transcript'
+  | 'translate'
+  | 'microphone'
+  | 'import'
+  | 'wave'
+  | 'image'
+  | 'music'
+  | 'text'
+  | 'film'
+  | 'layers'
+  | 'zoom'
+  | 'wand'
+  | 'images'
+  | 'draw'
+  | 'aspect';
 export type ToolGroupKey = ToolCategory;
 export type ToolOutput = 'video' | 'artifact';
 export type ToolArtifact = 'audio' | 'image' | 'doc' | 'final' | 'subtitle';
@@ -194,7 +214,26 @@ const TEXT_IMAGE_TOOLS: readonly ToolDecl[] = [
     artifacts: ['image'],
     inputs: [{ kind: 'text', output: 'artifact' }],
   }),
+  // 图片处理（设计稿 model-image-edit.js）：五个工具共用一页，文件到文件，收本机图片或 Space 里的图片条目。
+  imageTool('upscale-image', 'zoom'),
+  imageTool('remove-object', 'wand'),
+  imageTool('remove-watermark', 'images'),
+  imageTool('repaint-image', 'draw'),
+  imageTool('expand-image', 'aspect'),
 ];
+
+function imageTool(id: ToolId, icon: ToolIcon): ToolDecl {
+  return tool({
+    id,
+    icon,
+    output: 'artifact',
+    artifacts: ['image'],
+    inputs: [
+      { kind: 'file', output: 'artifact' },
+      { kind: 'space', kinds: ['image'], output: 'artifact' },
+    ],
+  });
+}
 
 const MUSIC_TOOLS: readonly ToolDecl[] = [
   tool({

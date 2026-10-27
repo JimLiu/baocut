@@ -156,6 +156,8 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `transcode` | 文件到文件：压缩、按顺序合并、提取音轨（不建视频）；只有本机文件这一种输入，不在 MCP 面 | `files`、`merge`、`extract-audio`、`codec`、`max-height`、`crf`、`out-dir` |
 | `speak` | 合成语音 | `text` / `text-file`、`voice`、`provider`、`model`、`video`（导入为候选素材）、`out` |
 | `image` | 生成图片 | `prompt`、`size`、`count`、`provider`、`model`、`video`、`out` |
+| `upscale` | 放大图片（Real-ESRGAN，本机；`upscale-image` 流程） | `files`（1–50 张 PNG、JPEG、WebP）、`scale`（2、3、4，默认 4）、`model`（`photo` 默认、`anime`）、`out-dir`（默认保存位置）。Real-ESRGAN 没有安装时按 `external_tools_install`（`high`）确认、只提交安装；对外服务不收 |
+| `retouch` | 去除物体、去水印、重绘局部、扩展画面（`remove-object` 等四个流程） | `op`（`erase`、`watermark`、`repaint`、`expand`）、`files`（去水印 1–50 张，别的 1 张）、`mask`（原图像素的 `boxes` / `strokes`；扩图不收）、`method`（`fill` 本机 ffmpeg、`model` 能改图的图像模型）、`prompt`（重绘必填、扩图可选）、`expand`（`ratio` + `anchor` 或 `margins`）、`provider` / `model`、`out-dir`。按 `retouch`（`command`）确认；对外服务不收 |
 | `music` | 生成音乐（歌曲或配乐）：只有本机的音乐模型包（含 audio.cpp 引擎组件），很慢 | `mode`（`song` / `instrumental`）、`style`、`lyrics`（只在 `song`）、`target-duration-sec`、`max-duration-sec`、`planning`、`seed`、`provider`、`model`、`video`、`out` |
 
 `text`（调一次文本模型）不进 Agent 面：Agent 自己就是文本模型。它留在 CLI 给人用（§7）。

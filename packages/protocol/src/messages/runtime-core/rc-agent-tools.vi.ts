@@ -37,4 +37,8 @@ instructionsNotSet: 'Chưa đặt hướng dẫn phiên: thứ tự lắp ráp R
   shotsNotSingleCamera: 'Phần lớn khung hình lấy mẫu không có cùng 2–4 khuôn mặt, nên đây không phải một máy quay toàn cảnh duy nhất',
   shotsSpeakersUnmatched: 'Không xác định được khuôn mặt nào trên hình là của người nói nào',
   shotsFacesUnavailable: 'Không dùng được tính năng phát hiện khuôn mặt',
+  installUpscalerSummary: (p) => `Cài ${p.tool} ${p.version} (${p.size}, ${p.license}) từ ${p.url} để phóng to ảnh`,
+  upscaleSummary: (p) => `Phóng to ảnh (${p.count}) ${p.scale}× bằng Real-ESRGAN (${p.weights}) và lưu PNG vào ${p.dir}`,
+  imageEditSummary: (p) => `${p.tool}: xử lý ảnh (${p.count}) bằng ${p.executor} và lưu PNG vào ${p.dir}`,
+  imageEditDefaultModel: 'mô hình ảnh mặc định',
 };

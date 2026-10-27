@@ -35,6 +35,11 @@ export const ko: ToolCatalogMessages = {
       name: '이미지 생성',
       desc: '그림을 설명하면 클라우드 또는 로컬 이미지 모델로 그립니다. 참조 이미지, 화면 비율, 개수는 선택 사항입니다',
     },
+    'upscale-image': { name: '이미지 확대', desc: '이 컴퓨터의 Real-ESRGAN으로 이미지를 2–4배 확대하고, 단순히 늘리지 않고 디테일을 채웁니다' },
+    'remove-object': { name: '개체 지우기', desc: '원하지 않는 사람이나 사물을 칠하면 주변 화면으로 그 부분을 채웁니다' },
+    'remove-watermark': { name: '워터마크 제거', desc: '워터마크, 로고, 자막 바를 박스로 지정합니다. 같은 위치에 있는 이미지는 한 번에 처리할 수 있습니다' },
+    'repaint-image': { name: '부분 다시 그리기', desc: '영역을 칠하고 무엇으로 바꿀지 적으면 그 영역만 바뀝니다' },
+    'expand-image': { name: '이미지 확장', desc: '그림을 새 화면비로 넓히고, 늘어난 가장자리를 원본에 이어서 그립니다' },
     'generate-music': { name: '음악 생성', desc: '스타일과 선택적 가사를 적고 로컬 음악 모델로 노래 또는 연주곡을 생성합니다. 길이와 시드는 선택 사항' },
     'link-import': {
       name: '영상 다운로드',

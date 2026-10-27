@@ -253,6 +253,10 @@ const en = {
   shotsNotSingleCamera: 'Most sampled frames don’t show the same 2–4 faces, so this isn’t a single wide camera',
   shotsSpeakersUnmatched: 'Couldn’t tell which face on screen belongs to any of the speakers',
   shotsFacesUnavailable: 'Face detection isn’t available',
+  installUpscalerSummary: (p: { tool: string; version: string; size: string; license: string; url: string }) => `Install ${p.tool} ${p.version} (${p.size}, ${p.license}) from ${p.url} to upscale images`,
+  upscaleSummary: (p: { count: number; scale: number; weights: string; dir: string }) => `Upscale images (${p.count}) ${p.scale}× with Real-ESRGAN (${p.weights}) and save PNGs to ${p.dir}`,
+  imageEditSummary: (p: { tool: string; count: number; executor: string; dir: string }) => `${p.tool}: images (${p.count}) with ${p.executor}, save PNGs to ${p.dir}`,
+  imageEditDefaultModel: 'the default image model',
 };
 
 export type RcAgentToolsMessages = typeof en;

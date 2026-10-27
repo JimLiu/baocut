@@ -114,4 +114,7 @@ export const ptBR: RcExternalToolsMessages = {
     `${p.dir}, onde está ${p.label}, exige administrador para alterar; o BaoCut não eleva privilégios.`,
   standaloneAdminWin: (p: { label: string; dir: string }) =>
     `${p.dir}, onde está ${p.label}, exige administrador para alterar; o BaoCut não eleva privilégios. Abra um terminal como administrador e execute este comando.`,
+  realesrganLicense: 'MIT (o executável ncnn); modelos do Real-ESRGAN BSD-3-Clause; compilado com ncnn (BSD-3-Clause)',
+  realesrganPurpose: 'Ampliar imagem: amplia imagens de 2 a 4× com o Real-ESRGAN na GPU deste computador',
+  realesrganMissingRemedy: 'Baixe com externalTools.install (baocut external-tools install realesrgan-ncnn-vulkan) ou descompacte você mesmo a versão oficial (deixe a pasta models ao lado do executável) e defina o caminho com externalTools.setPath',
 };

@@ -78,7 +78,7 @@ const WEB_DENY = [
   /^app\/store-shorts-cut/,
   /^app\/panel-tts/, /^app\/glossary-tool/, /^app\/agent-/, /^app\/page-/, /^app\/settings-/, /^app\/tool-/, /^app\/tools\.css/,
   /^app\/services\.css/, /^app\/new-/, /^app\/newproject-flow/, /^app\/import-flow/, /^app\/import-panel/, /^app\/help-center/,
-  /^app\/main\.jsx/, /^app\/voice-picker/, /^app\/model-openai-api/, /^app\/panel-image-gen/, /^app\/image-gen/, /^app\/model-writing/,
+  /^app\/main\.jsx/, /^app\/voice-picker/, /^app\/model-openai-api/, /^app\/panel-image-gen/, /^app\/image-gen/, /^app\/image-edit/, /^app\/model-image-edit/, /^app\/model-writing/,
   /^app\/model-settings-nav/, /^app\/model-settings-link/, /^app\/model-app-update/, /^app\/model-models-dir/, /^app\/model-local-check/,
   /* App rail / Home / Space（2026-10-01）：只属于 App 外壳，且全部用 react-spectrum */
   /^app\/apprail/, /^app\/home-/, /^app\/space/, /^app\/model-home/, /^app\/model-space(?!-search\.js)/, /^app\/model-app-ia/,

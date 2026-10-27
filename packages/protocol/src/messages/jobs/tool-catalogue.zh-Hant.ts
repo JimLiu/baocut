@@ -26,4 +26,6 @@ export const zhHant: JobsToolCatalogueMessages = {
   extractAudioLabel: '擷取音訊',
   extractAudioDescription:
     '從影片或音訊檔案中取出音軌：編碼可放進常見容器的直接複製，其餘重新編碼為 AAC；檔案對檔案，不建立影片，輸出不會覆寫現有檔案。',
+  upscaleImageLabel: '圖片超解析',
+  upscaleImageDescription: '用本機的 Real-ESRGAN 把圖片放大 2–4 倍（照片或動畫模型）。檔案到檔案：輸出 PNG 到儲存位置，不動原圖。',
 };

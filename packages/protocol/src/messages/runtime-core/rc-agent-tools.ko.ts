@@ -160,4 +160,8 @@ export const ko: RcAgentToolsMessages = {
   shotsNotSingleCamera: '샘플 프레임 대부분에 같은 2~4개의 얼굴이 보이지 않아 고정된 와이드 카메라 한 대가 아닙니다',
   shotsSpeakersUnmatched: '어느 화자가 화면의 어느 얼굴인지 알아낼 수 없습니다',
   shotsFacesUnavailable: '얼굴 감지를 사용할 수 없습니다',
+  installUpscalerSummary: (p) => `이미지를 확대하기 위해 ${p.url}에서 ${p.tool} ${p.version}(${p.size}, ${p.license}) 설치`,
+  upscaleSummary: (p) => `Real-ESRGAN(${p.weights})으로 이미지(${p.count}개)를 ${p.scale}배 확대하고 PNG를 ${p.dir}에 저장`,
+  imageEditSummary: (p) => `${p.tool}: 이미지(${p.count}개)를 ${p.executor}(으)로 처리하고 PNG를 ${p.dir}에 저장`,
+  imageEditDefaultModel: '기본 이미지 모델',
 };

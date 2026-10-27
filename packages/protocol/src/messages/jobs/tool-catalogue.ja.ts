@@ -32,4 +32,6 @@ export const ja: JobsToolCatalogueMessages = {
   extractAudioLabel: '音声を抽出',
   extractAudioDescription:
     '動画または音声ファイルから音声トラックを取り出します。一般的なコンテナに収まるコーデックはそのままコピーし、それ以外は AAC に再エンコードします。ファイルからファイルへの処理で、動画は作成せず、生成物で既存のファイルを上書きしません。',
+  upscaleImageLabel: '画像の高解像度化',
+  upscaleImageDescription: 'このコンピュータの Real-ESRGAN で画像を 2〜4 倍に拡大します（写真またはアニメのモデル）。ファイルからファイルへ：PNG を保存先に出力し、元の画像は変更しません。',
 };

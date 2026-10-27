@@ -1,11 +1,14 @@
 import type { ToolDefinition } from '@baocut/protocol';
+import { JobsEditImage as E } from '@baocut/protocol/messages/jobs/edit-image.ts';
 import { JobsToolCatalogue as T } from '@baocut/protocol/messages/jobs/tool-catalogue.ts';
+import { EDIT_IMAGE_PIPELINES } from './pipelines/edit-image.ts';
 import { DUB_PIPELINE } from './pipelines/dub.ts';
 import { LINK_IMPORT_PIPELINE } from './pipelines/link-import.ts';
 import { TRANSCODE_PIPELINE } from './pipelines/transcode.ts';
 import { TRANSCRIBE_PIPELINE } from './pipelines/transcribe.ts';
 import { TRANSLATE_PIPELINE } from './pipelines/translate.ts';
 import { TRANSLATE_SUBTITLES_PIPELINE } from './pipelines/translate-subtitles.ts';
+import { UPSCALE_IMAGE_PIPELINE } from './pipelines/upscale-image.ts';
 
 /**
  * 工具目录的静态注册表（架构设计 §7.9；产品设计 §2.7）。纯数据，不依赖 Runtime：此刻能不能用由 Runtime 按能力配置、
@@ -18,6 +21,7 @@ export { TRANSCRIBE_PIPELINE };
 /** 下载工具与 ffmpeg 在受管外部工具登记表里的名字（§12.9）。 */
 const YT_DLP = 'yt-dlp';
 const FFMPEG = 'ffmpeg';
+const REALESRGAN = 'realesrgan-ncnn-vulkan';
 
 /** 名字与说明是 getter：读的时候按当前语言生成（目录在模块加载时就构造，不能在那时取文字）。 */
 export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
@@ -140,6 +144,113 @@ export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
     capabilities: ['generateImage'],
     optionalCapabilities: [],
     externalTools: [],
+    optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: 'upscale-image',
+    get label() {
+      return T.upscaleImageLabel().text;
+    },
+    get description() {
+      return T.upscaleImageDescription().text;
+    },
+    category: 'text-image',
+    // 本机的图片文件或 Space 里的图片条目（经 `file` 提交 `{ entryId }`），结果写到保存位置。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: UPSCALE_IMAGE_PIPELINE },
+    capabilities: [],
+    optionalCapabilities: [],
+    externalTools: [REALESRGAN],
+    // 照片模型的 2、3 倍要 ffmpeg 缩小；动画模型与 4 倍用不到它。
+    optionalExternalTools: [FFMPEG],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: EDIT_IMAGE_PIPELINES.erase,
+    get label() {
+      return E.eraseLabel().text;
+    },
+    get description() {
+      return E.eraseDescription().text;
+    },
+    category: 'text-image',
+    // 一张本机图片或 Space 里的图片条目，结果写到保存位置。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: EDIT_IMAGE_PIPELINES.erase },
+    capabilities: [],
+    // AI 修补要能改图的图像模型；快速填充只用 ffmpeg。
+    optionalCapabilities: ['generateImage'],
+    // 选区、贴回与快速填充都由 ffmpeg 做。
+    externalTools: [FFMPEG],
+    optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: EDIT_IMAGE_PIPELINES.watermark,
+    get label() {
+      return E.watermarkLabel().text;
+    },
+    get description() {
+      return E.watermarkDescription().text;
+    },
+    category: 'text-image',
+    // 一张或几张图片（同一组框用于每一张）。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: EDIT_IMAGE_PIPELINES.watermark },
+    capabilities: [],
+    // AI 修补要能改图的图像模型；快速填充只用 ffmpeg。
+    optionalCapabilities: ['generateImage'],
+    // 选区、贴回与快速填充都由 ffmpeg 做。
+    externalTools: [FFMPEG],
+    optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: EDIT_IMAGE_PIPELINES.repaint,
+    get label() {
+      return E.repaintLabel().text;
+    },
+    get description() {
+      return E.repaintDescription().text;
+    },
+    category: 'text-image',
+    // 一张图片；要写改成什么。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: EDIT_IMAGE_PIPELINES.repaint },
+    capabilities: ['generateImage'],
+    optionalCapabilities: [],
+    // 选区、贴回与快速填充都由 ffmpeg 做。
+    externalTools: [FFMPEG],
+    optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: EDIT_IMAGE_PIPELINES.expand,
+    get label() {
+      return E.expandLabel().text;
+    },
+    get description() {
+      return E.expandDescription().text;
+    },
+    category: 'text-image',
+    // 一张图片；新画布按比例或四边的像素。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: EDIT_IMAGE_PIPELINES.expand },
+    capabilities: ['generateImage'],
+    optionalCapabilities: [],
+    // 选区、贴回与快速填充都由 ffmpeg 做。
+    externalTools: [FFMPEG],
     optionalExternalTools: [],
     network: 'none',
     candidates: null,

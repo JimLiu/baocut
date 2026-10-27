@@ -160,4 +160,8 @@ export const zhHant: RcAgentToolsMessages = {
   shotsNotSingleCamera: '取樣的畫面裡多數不是同樣 2–4 張臉，不是單一全景機位',
   shotsSpeakersUnmatched: '認不出哪位說話人是畫面裡的哪張臉',
   shotsFacesUnavailable: '人臉偵測無法使用',
+  installUpscalerSummary: (p) => `從 ${p.url} 安裝 ${p.tool} ${p.version}（${p.size}，${p.license}），用來放大圖片`,
+  upscaleSummary: (p) => `用 Real-ESRGAN（${p.weights}）把圖片（${p.count} 張）放大 ${p.scale} 倍，PNG 存到 ${p.dir}`,
+  imageEditSummary: (p) => `${p.tool}：圖片（${p.count} 張）用 ${p.executor} 處理，PNG 存到 ${p.dir}`,
+  imageEditDefaultModel: '生圖的預設模型',
 };

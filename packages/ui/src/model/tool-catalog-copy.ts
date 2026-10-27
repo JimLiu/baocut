@@ -56,6 +56,11 @@ const en = {
       name: 'Generate image',
       desc: 'Describe a picture and draw it with a cloud or local image model; reference images, aspect ratio and count are optional',
     },
+    'upscale-image': { name: 'Upscale image', desc: 'Enlarge images 2–4× with Real-ESRGAN on this computer, filling in detail instead of just stretching' },
+    'remove-object': { name: 'Remove object', desc: 'Paint over people or things you don’t want, and the area is filled in from its surroundings' },
+    'remove-watermark': { name: 'Remove watermark', desc: 'Box a watermark, logo or caption bar; images with it in the same place can be done in one go' },
+    'repaint-image': { name: 'Repaint area', desc: 'Paint an area and say what it should become; only that area changes' },
+    'expand-image': { name: 'Expand image', desc: 'Extend the picture to a new aspect ratio; the added edges continue the original' },
     'generate-music': { name: 'Generate music', desc: 'Write a style and optional lyrics and compose a song or instrumental track with a local music model; duration and seed are optional' },
     'link-import': {
       name: 'Download video',

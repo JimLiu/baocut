@@ -38,7 +38,8 @@ import { remedyOf, taskFailure } from '../localized.ts';
  *   下载中的文件在 `<home>/tools/.staging/`（取消时保留，下次续传）。
  * - 下载是一个任务（`kind: 'toolInstall'`）：提交前查严格离线、清单与同意，任务里下载、核对 sha256 与大小、设可执行位、
  *   原子地改名发布，再执行一次 `--version` 确认能运行。清单把发布文件登记为压缩包（`archive`）时，核对之后先解开到 staging
- *   目录（只取包根目录的普通文件，`@baocut/models` 的 `extractToolArchive`），整个目录改名发布；内置的工具目前都是单个文件。
+ *   目录（只取包根目录的普通文件与登记的子目录，`@baocut/models` 的 `extractToolArchive`），整个目录改名发布；yt-dlp 是单个文件，
+ *   Real-ESRGAN 是压缩包（可执行文件与 `models/`）。
  *   （音乐生成的 audio.cpp 引擎不是受管外部工具，是音乐模型包的组件，随模型包安装，见架构设计 §6.3。）
  * - 系统里自己装的那一份按原安装方式更新（`tool-update-plan.ts` 判断办法）：也是一个任务（`kind: 'toolUpdate'`），提交前
  *   要调用方交回用户确认过的那条命令；任务里不经 shell 执行，输出逐段写进任务记录的 `command`，结束后重新探测。
@@ -222,8 +223,8 @@ export class ExternalToolService {
           tool: manifest.name,
         });
       }
-      const probe = await runVersionProbe(params.path, manifest.versionArgs, await this.#options.env());
-      const version = probe.ok ? manifest.parseVersion(probe.output) : null;
+      const probe = await runVersionProbe(params.path, manifest.versionArgs, await this.#options.env(), undefined, manifest.probeExitCodes);
+      const version = probe.ok ? manifest.parseVersion(probe.output, null) : null;
       if (!probe.ok || !version) {
         throw new RpcError(
           'invalid-request',
@@ -425,7 +426,7 @@ export class ExternalToolService {
     const lookup = (command: string, accept?: (file: string) => Promise<boolean>) =>
       findOnPath(command, env.PATH ?? '', platform, envValue(env, 'PATHEXT') ?? null, accept);
     const problem = async (file: string) => (manifest.usable ? await manifest.usable(file, platform) : null);
-    const candidates: Array<{ file: string | null; source: ExternalToolSource; strict: boolean; label: string | Localized }> = [];
+    const candidates: Array<{ file: string | null; source: ExternalToolSource; strict: boolean; label: string | Localized; known?: string }> = [];
     const fromEnv = manifest.envVar ? this.#overrides[manifest.envVar] : undefined;
     if (fromEnv) {
       const file = path.isAbsolute(fromEnv) ? fromEnv : await lookup(fromEnv);
@@ -434,7 +435,9 @@ export class ExternalToolService {
     if (record.userPath) candidates.push({ file: record.userPath, source: 'user', strict: true, label: RcExternalTools.sourceUserPath() });
     if (record.managed) {
       const file = this.#managedFile(manifest, record.managed.version);
-      if (await isExecutableFile(file)) candidates.push({ file, source: 'managed', strict: true, label: RcExternalTools.sourceManaged() });
+      if (await isExecutableFile(file)) {
+        candidates.push({ file, source: 'managed', strict: true, label: RcExternalTools.sourceManaged(), known: record.managed.version });
+      }
     }
     candidates.push({ file: await lookup(manifest.command, async (file) => (await problem(file)) === null), source: 'system', strict: false, label: 'PATH' });
     let status: ExternalToolStatus = { ...base, state: 'missing', ...said(RcExternalTools.commandNotFound({ command: manifest.command }), manifest.missingRemedy) };
@@ -480,8 +483,8 @@ export class ExternalToolService {
         status = { ...base, state: 'unavailable', path: candidate.file, source: candidate.source, ...said(unusable, manifest.missingRemedy) };
         break;
       }
-      const probe = await runVersionProbe(candidate.file, manifest.versionArgs, env);
-      const version = probe.ok ? manifest.parseVersion(probe.output) : null;
+      const probe = await runVersionProbe(candidate.file, manifest.versionArgs, env, undefined, manifest.probeExitCodes);
+      const version = probe.ok ? manifest.parseVersion(probe.output, candidate.known ?? null) : null;
       if (!probe.ok || !version) {
         status = {
           ...base,
@@ -637,6 +640,8 @@ export class ExternalToolService {
       await fs.mkdir(path.dirname(dir), { recursive: true });
       await fs.rename(unpacked, dir);
       await fs.rm(part, { force: true });
+      // 上游的 ZIP 常不带 Unix 权限位（Windows 上打的包）：登记的可执行文件解开后是 0644，补上执行权限再试跑。
+      await fs.chmod(final, 0o755);
     } else {
       await fs.chmod(part, 0o755);
       await fs.rm(dir, { recursive: true, force: true });
@@ -644,8 +649,8 @@ export class ExternalToolService {
       await fs.rename(part, final);
     }
     run.phase('validating', null);
-    const probe = await runVersionProbe(final, manifest.versionArgs, await this.#options.env());
-    const actual = probe.ok ? manifest.parseVersion(probe.output) : null;
+    const probe = await runVersionProbe(final, manifest.versionArgs, await this.#options.env(), undefined, manifest.probeExitCodes);
+    const actual = probe.ok ? manifest.parseVersion(probe.output, version) : null;
     if (!probe.ok || !actual) {
       await fs.rm(dir, { recursive: true, force: true });
       throw taskFailure('TOOL_UNAVAILABLE', RcExternalTools.downloadedCannotRun({ label: manifest.label, reason: probe.ok ? RcExternalTools.noVersion() : probe.reason }), {
@@ -821,6 +826,7 @@ export class ExternalToolService {
   /** 正在安装或更新它、或正在用它的流程。 */
   #busyJobs(name: string): string[] {
     const usedBy = this.#manifests.get(name)?.usedByJobKinds ?? [];
+    const usedByPipelines = this.#manifests.get(name)?.usedByPipelines ?? [];
     return this.#options.jobs
       .list()
       .filter(
@@ -829,7 +835,8 @@ export class ExternalToolService {
           ((j.kind === 'toolInstall' && j.providerId === name) ||
             (j.kind === 'toolUpdate' && j.providerId === name) ||
             usedBy.includes(j.kind) ||
-            (j.kind === 'pipeline' && (TOOL_INSTALL_PIPELINE_USERS as readonly string[]).includes(j.pipeline?.name ?? ''))),
+            (j.kind === 'pipeline' &&
+              ((TOOL_INSTALL_PIPELINE_USERS as readonly string[]).includes(j.pipeline?.name ?? '') || usedByPipelines.includes(j.pipeline?.name ?? '')))),
       )
       .map((j) => j.jobId);
   }

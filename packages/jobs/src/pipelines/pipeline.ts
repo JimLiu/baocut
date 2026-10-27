@@ -2,6 +2,7 @@ import type { FrozenLibraryEntry, Id, JobCallCounts, JobPhase, JobProgress, JobR
 import type { ArtifactStore } from '../artifact-store.ts';
 import { LocalizedError, type JobText, type LazyText } from '../job-text.ts';
 import type { TaskResources } from '../job-manager.ts';
+import type { ResourceRequest } from '../resource-scheduler.ts';
 import type { PipelineTargetSupport, VideoLease } from './video-target.ts';
 
 /**
@@ -60,6 +61,9 @@ export interface PipelineStepContext<P> {
   hold(lease: VideoLease): void;
 }
 
+/** 步骤的峰值需求：任务的那几项，加可选的执行队列。 */
+export type StepResources = TaskResources & Pick<ResourceRequest, 'queue'>;
+
 export interface PipelineStep<P> {
   name: string;
   /** 给人看的步骤名：目录条目（`() => J.stepX()`，在用的时候按当前语言生成）或字符串。 */
@@ -69,9 +73,10 @@ export interface PipelineStep<P> {
   run(context: PipelineStepContext<P>): Promise<StepResult>;
   /**
    * 这一步的峰值需求（架构设计 §7.7，估计在 `resource-profiles.ts`）：给了时先经资源调度准入再执行，子任务上记着在等什么；
-   * 这一步结束（含取消、失败）后归还。不给时直接执行（只调用在线服务、只写小文件的步骤）。
+   * 这一步结束（含取消、失败）后归还。不给（或返回 null）时直接执行（只调用在线服务、只写小文件的步骤）。
+   * 带 `queue` 时还与同一个执行队列的任务排队（例如本机模型包一次一个任务）。
    */
-  resources?: (params: P, outputs: StepOutputs) => TaskResources;
+  resources?: (params: P, outputs: StepOutputs) => StepResources | null;
   /** 重试时之前完成的产出是否还能用（例如 staging 里的文件还在）；不能用时从这一步重新执行。没有时一律能用。 */
   reusable?: (output: StepOutput, context: { params: P; staging: string; artifacts: ArtifactStore }) => Promise<boolean>;
   /**

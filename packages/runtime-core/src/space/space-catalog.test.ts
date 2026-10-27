@@ -1585,6 +1585,42 @@ describe('Space 目录', () => {
     expect(projectOf(byName(catalog, 'cover.png'))).toBe('assigned-project');
     expect(byName(catalog, 'clip.zh-CN.srt')).toMatchObject({ ref: { artifactId: 'sha256:in' }, origin });
   });
+  it('图片处理的五个流程：保存位置里的 PNG 成为图片条目，带流程名；Ledger 修剪之后照样在', async () => {
+    const names = ['upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image'];
+    for (const [i, name] of names.entries()) {
+      const file = path.join(otherDir, `${name}.png`);
+      await fs.writeFile(file, 'png');
+      const artifactId = `sha256:img${i}`;
+      jobs.put(
+        job({
+          kind: 'pipeline',
+          state: 'completed',
+          providerId: 'ffmpeg',
+          modelId: 'removelogo@8',
+          pipeline: { name, steps: [] } as never,
+          result: {
+            documentId: null,
+            artifactId,
+            outputs: [{ artifactId, mediaType: 'image/png', byteLength: 3, assetId: null, media: { kind: 'image', width: 2, height: 2 }, path: file } as never],
+          },
+        }),
+      );
+    }
+    const file = path.join(tmp, 'store', 'space-artifacts.json');
+    const artifacts = new SpaceArtifactStore(file);
+    await artifacts.load();
+    const first = await open(undefined, artifacts);
+    for (const [i, name] of names.entries()) {
+      expect(first.catalog.get(`sha256:img${i}`), name).toMatchObject({ kind: 'image', fileName: `${name}.png`, status: 'published', origin: { source: 'generated', capability: name } });
+    }
+    await first.catalog.close();
+    jobs.records = [];
+    const reloaded = new SpaceArtifactStore(file);
+    await reloaded.load();
+    const { catalog } = await open(undefined, reloaded);
+    for (const [i] of names.entries()) expect(catalog.get(`sha256:img${i}`)).toMatchObject({ kind: 'image', status: 'published' });
+  });
+
   it('downloads_save 交出的文件：登记为交付物，来源目录之外单独成条、带会话与流程名，不带服务商；重启之后照样在', async () => {
     const downloads = path.join(tmp, 'Downloads');
     await fs.mkdir(downloads);

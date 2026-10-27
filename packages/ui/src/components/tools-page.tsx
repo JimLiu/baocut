@@ -1,6 +1,7 @@
 import { toolById, type ToolId } from '../model/tool-catalog.ts';
 import { plannedReason } from '../model/tools-gallery.ts';
 import { DubTool } from './tools/dub-tool.tsx';
+import { ImageEditTool } from './tools/image-edit-tool.tsx';
 import { ImageTool } from './tools/image-tool.tsx';
 import { MusicTool } from './tools/music-tool.tsx';
 import { LinkTool } from './tools/link-tool.tsx';
@@ -34,6 +35,12 @@ export function ToolsPage({ tool }: { tool?: ToolId }) {
       return <TtsTool />;
     case 'generate-image':
       return <ImageTool />;
+    case 'upscale-image':
+    case 'remove-object':
+    case 'remove-watermark':
+    case 'repaint-image':
+    case 'expand-image':
+      return <ImageEditTool tool={info.id} />;
     case 'generate-music':
       return <MusicTool />;
     case 'generate-text':

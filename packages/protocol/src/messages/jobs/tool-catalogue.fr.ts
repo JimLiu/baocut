@@ -32,4 +32,6 @@ export const fr: JobsToolCatalogueMessages = {
   extractAudioLabel: "Extraire l’audio",
   extractAudioDescription:
     "Extrait la piste audio d’un fichier vidéo ou audio. Les codecs compatibles avec un conteneur courant sont copiés tels quels ; les autres sont réencodés en AAC. Fichier vers fichier, sans création de vidéo ni écrasement de fichiers existants.",
+  upscaleImageLabel: 'Agrandir une image',
+  upscaleImageDescription: 'Agrandit les images de 2 à 4× sur cet ordinateur avec Real-ESRGAN (modèle photo ou animation). De fichier à fichier : sortie PNG dans l’emplacement d’enregistrement, sans toucher aux originaux.',
 };
