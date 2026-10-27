@@ -185,6 +185,10 @@ describe.skipIf(!engine)('固定流程（真实引擎 + 假供应商）', () => 
       ['transcode', ['probe', 'encode', 'verify', 'publish']],
       ['translate', ['target', 'freeze-source', 'translate', 'assemble', 'write', 'captions']],
       ['translate-subtitles', ['read', 'translate', 'check', 'publish']],
+      ['remove-object', ['probe', 'mask', 'edit', 'verify', 'publish']],
+      ['remove-watermark', ['probe', 'mask', 'edit', 'verify', 'publish']],
+      ['repaint-image', ['probe', 'mask', 'edit', 'verify', 'publish']],
+      ['expand-image', ['probe', 'mask', 'edit', 'verify', 'publish']],
       [
         'dub',
         ['target', 'freeze-source', 'translate', 'assemble', 'write', 'check-translation', 'separate', 'synthesize', 'align', 'apply'],
@@ -192,6 +196,7 @@ describe.skipIf(!engine)('固定流程（真实引擎 + 假供应商）', () => 
       ['transcribe', ['target', 'create', 'transcribe', 'captions']],
       ['speakers', ['diarize', 'propose']],
       ['link-import', ['target', 'resolve', 'download', 'verify', 'publish', 'create', 'import', 'transcribe', 'captions']],
+      ['upscale-image', ['probe', 'upscale', 'verify', 'publish']],
       ['ai-tool', ['context', 'generate', 'apply']],
     ]);
     // 视频由 videoId 或 target 给出：videoId 不再必填。

@@ -143,6 +143,17 @@ async function loadLocal(runtime: ReturnType<typeof useRuntime>, path: string): 
   }
 }
 
+/** 读一张 Space 里的图片：经媒体通道按条目拿地址，按真像素量尺寸；读不出时 null。 */
+async function loadEntry(runtime: ReturnType<typeof useRuntime>, entryId: string): Promise<Omit<ImageSource, 'name'> | null> {
+  try {
+    const handle = await runtime.resolveMedia({ entryId });
+    const size = await naturalSize(handle.url);
+    return size ? { input: `space:${entryId}`, url: handle.url, ...size } : null;
+  } catch {
+    return null;
+  }
+}
+
 function naturalSize(url: string): Promise<{ width: number; height: number } | null> {
   return new Promise((done) => {
     const img = new Image();
@@ -172,6 +183,10 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
   // 换了来源图：选区按原图像素记，各工具的都清掉。
   const setSources = (list: ImageSource[]) => patch({ sources: list, selections: {} });
   const esrgan = useEsrgan(op === 'upscale' && runtime.host.platform !== 'web');
+  // Real-ESRGAN 没装（或还在查）时 `tools.list` 也说放大不能用，那条原因的补救是写给 Agent 的；这一页有自己的下载卡（原型的
+  // EsrganCard），页头与提交跟着下载卡说，不再叠一张「暂时不能用」。
+  const esrganChecking = op === 'upscale' && esrgan.state === 'checking';
+  const shownBlock = op === 'upscale' && esrgan.state !== 'ready' ? null : block;
   const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fromSpace, setFromSpace] = useState(false);
@@ -191,11 +206,9 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
   const fromEntry = async (entryId: string): Promise<ImageSource | null> => {
     const entry = entries.find((e) => e.id === entryId);
     if (!entry) return null;
-    const path = entry.file?.path;
-    if (path) {
-      const loaded = await loadLocal(runtime, path);
-      if (loaded) return { ...loaded, input: `space:${entry.id}`, name: entry.name };
-    }
+    // 按条目读（Web 也能读）：来源目录里扫描到的图没有 `file`，也没有记下宽高。
+    const loaded = await loadEntry(runtime, entry.id);
+    if (loaded) return { ...loaded, name: entry.name };
     const width = entry.media?.width;
     const height = entry.media?.height;
     return width && height ? { input: `space:${entry.id}`, name: entry.name, width, height, url: null } : null;
@@ -209,7 +222,7 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
 
   const submit = () => {
     setTried(true);
-    if (block || submitting) return;
+    if (shownBlock || esrganChecking || submitting) return;
     if (problems.length) {
       ToastQueue.neutral(problems[0]!, { timeout: 4000 });
       return;
@@ -231,11 +244,11 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
       .finally(() => setSubmitting(false));
   };
 
-  const status = block ? { text: block, bad: true } : problems.length ? { text: problems[0]!, bad: tried } : { text: statusText(op, form, srcs), bad: false };
+  const status = shownBlock ? { text: shownBlock, bad: true } : problems.length ? { text: problems[0]!, bad: tried } : { text: statusText(op, form, srcs), bad: false };
   const barNode = (
     <>
       <BarStatus text={status.text} bad={status.bad} />
-      <Button variant="accent" isDisabled={!!block} isPending={submitting} onPress={submit}>
+      <Button variant="accent" isDisabled={!!shownBlock || esrganChecking} isPending={submitting} onPress={submit}>
         <ImageIcon />
         <Text>{M.verb[op]}</Text>
       </Button>
@@ -257,7 +270,7 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
         ))}
       </SegmentedControl>
       <p className={lede}>{M.lede[op]}</p>
-      {block ? <Gate title={M.unavailable} body={block} /> : null}
+      {shownBlock ? <Gate title={M.unavailable} body={shownBlock} /> : null}
       {op === 'upscale' ? <EsrganGate esrgan={esrgan} /> : null}
 
       <Section

@@ -61,10 +61,9 @@ export function renderMainHelp(tools: readonly CatalogTool[], admin: readonly Ad
   out.push(...wrap(adminWords, '  ', WIDTH));
 
   out.push(M.helpMore);
-  out.push(`  ${'help <command>'.padEnd(18)}${M.helpMoreHelp}`);
-  out.push(`  ${'spec [<name>]'.padEnd(18)}${M.helpMoreSpec}`);
-  out.push(`  ${'status'.padEnd(18)}${M.helpMoreStatus}`);
-  out.push(`  ${'runtime ensure|status|stop · version'}`);
+  // 同管理桶按宽度排，不一项一行：一屏有行数上限（§5.7）。给人看的两项在前、给程序的两项在后，各语言都排成两行。
+  const moreWords = [`help <command>  ${M.helpMoreHelp}`, `status  ${M.helpMoreStatus}`, `spec [<name>]  ${M.helpMoreSpec}`, 'runtime ensure|status|stop · version'];
+  out.push(...wrap(moreWords, '   ', WIDTH));
   out.push(`  ${M.helpGlobalFlags}`, `  ${M.helpJobFlags}`);
   return out.join('\n');
 }
