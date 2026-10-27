@@ -37,6 +37,5 @@ export const pl: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `Wynik modelu obrazu dla ${p.name} nie jest czytelnym obrazem`,
   outputMissing: (p: { name: string }) => `Nie zapisano wyniku dla ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `Wynik dla ${p.name} ma ${p.actual}; oczekiwano ${p.expected}`,
-  exifOrientation: (p: { name: string }) => `${p.name} ma znacznik orientacji EXIF; zaznaczenie jest odczytywane na zapisanych pikselach, które nie są obrócone do właściwej pozycji`,
   expandStaged: (p: { name: string }) => `${p.name} rozszerzono z jednej strony o więcej niż jego własny rozmiar; linie i horyzont mogą do siebie nie pasować. Rozszerzanie w dwóch mniejszych krokach zwykle wygląda lepiej.`,
 };

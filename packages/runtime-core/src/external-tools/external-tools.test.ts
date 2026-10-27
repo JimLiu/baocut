@@ -5,6 +5,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { crc32 } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BaoCutClient } from '@baocut/client';
 import { writeFakeYtDlp, type FakeYtDlp } from '@baocut/jobs';
@@ -75,6 +76,45 @@ async function startFakeSource(file: Buffer, fileName: string): Promise<FakeSour
     },
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
+}
+
+/** 只有「不压缩」条目的 ZIP，外部属性按 Windows 上打的包写（0x20 = 归档位，没有 Unix 权限位），同上游 Real-ESRGAN 的包。 */
+function windowsZip(entries: Array<{ name: string; data: Buffer }>): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const { name, data } of entries) {
+    const file = Buffer.from(name, 'utf8');
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(file.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4); // made by: MS-DOS
+    central.writeUInt16LE(20, 6);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(file.length, 28);
+    central.writeUInt32LE(0x20, 38);
+    central.writeUInt32LE(offset, 42);
+    locals.push(local, file, data);
+    centrals.push(central, file);
+    offset += 30 + file.length + data.length;
+  }
+  const dir = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(dir.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, dir, end]);
 }
 
 interface Side {
@@ -314,6 +354,54 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
       source: 'user',
     });
     expect((await s.client.request('externalTools.setPath', { name: 'yt-dlp', path: null })).tool.state).toBe('missing');
+  });
+
+  it('压缩包里的可执行文件没有 Unix 权限位（Windows 上打的 ZIP）：解开后补上执行权限，试跑通过', async () => {
+    const s = side!;
+    const archive = windowsZip([
+      { name: 'yt-dlp', data: await fs.readFile(s.fake.command) },
+      { name: 'README.md', data: Buffer.from('demo') },
+    ]);
+    const fileName = 'yt-dlp_test.zip';
+    const source = await startFakeSource(archive, fileName);
+    try {
+      const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === YT_DLP)!;
+      const service = new ExternalToolService({
+        toolsDir: path.join(s.dir, 'zip-tools'),
+        storeFile: path.join(s.dir, 'zip-store', 'external-tools.json'),
+        jobs: s.runtime.models.jobs,
+        log: s.runtime.log,
+        env: async () => ({ PATH: s.emptyPath }),
+        settings: () => ({ downloadEndpoint: null, offlineStrict: false }),
+        overrides: { BAOCUT_TOOLS_ENDPOINT: source.endpoint },
+        download: { backoffMs: () => 5, retries: 1 },
+        manifests: [
+          {
+            ...builtin,
+            release: {
+              ...builtin.release!,
+              version: VERSION,
+              assets: {
+                [platformKey()]: {
+                  fileName,
+                  size: archive.length,
+                  sha256: createHash('sha256').update(archive).digest('hex'),
+                  archive: { format: 'zip', skip: ['README.md'] },
+                },
+              },
+            },
+          },
+        ],
+      });
+      const { jobId } = await service.install({ name: YT_DLP, consent: true }, { kind: 'connection', id: 'conn_x' });
+      await s.runtime.models.jobs.settled(jobId);
+      expect(s.runtime.models.jobs.inspect(jobId).state).toBe('completed');
+      const status = await service.status(YT_DLP);
+      expect(status).toMatchObject({ state: 'installed', source: 'managed' });
+      expect((await fs.stat(status.path!)).mode & 0o111).not.toBe(0);
+    } finally {
+      await source.close();
+    }
   });
 
   it('内置清单没有可信的 sha256：同意了也不下载；PATH 只有空目录时找不到系统里的 yt-dlp', async () => {

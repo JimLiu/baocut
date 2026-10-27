@@ -155,7 +155,10 @@ export function expandPlan(image: { width: number; height: number }, expand: Edi
   return { width, height, x: Math.round(((width - image.width) * col) / 2), y: Math.round(((height - image.height) * row) / 2) };
 }
 
-/** 扩图的遮罩：新增的部分 255，原图那一块 0；原图四边向里让出 `inset` 像素（贴回时与新画的部分羽化相接）。 */
+/**
+ * 扩图的遮罩：新增的部分 255，原图那一块 0；原图四边向里让出 `inset` 像素，羽化的过渡落在原图里，新增部分贴着原图的边上也是
+ * 满的新画面。原图之后整块盖回（流程的贴回），所以让出的那一圈不会改到原图。
+ */
 export function expandMask(plan: ExpandPlan, image: { width: number; height: number }, inset: number): Uint8Array {
   const out = new Uint8Array(plan.width * plan.height).fill(255);
   // 只在新增了的那几边让出：贴着画布边的一边原样保留。

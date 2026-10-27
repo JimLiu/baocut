@@ -37,6 +37,5 @@ export const nl: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `Het resultaat van het beeldmodel voor ${p.name} is geen leesbare afbeelding`,
   outputMissing: (p: { name: string }) => `Er is geen uitvoer geschreven voor ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `De uitvoer van ${p.name} is ${p.actual}; verwacht was ${p.expected}`,
-  exifOrientation: (p: { name: string }) => `${p.name} heeft een EXIF-oriëntatietag; de selectie wordt gelezen op de opgeslagen pixels, die niet rechtop zijn gedraaid`,
   expandStaged: (p: { name: string }) => `${p.name} is aan één kant met meer dan de eigen grootte uitgebreid; lijnen en horizonten sluiten mogelijk niet op elkaar aan. In twee kleinere stappen uitbreiden ziet er meestal beter uit.`,
 };

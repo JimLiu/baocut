@@ -37,6 +37,5 @@ export const ru: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `Результат модели изображений для ${p.name} не является читаемым изображением`,
   outputMissing: (p: { name: string }) => `Для ${p.name} результат не записан`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `Результат для ${p.name} — ${p.actual}; ожидалось ${p.expected}`,
-  exifOrientation: (p: { name: string }) => `У ${p.name} есть тег ориентации EXIF; выделение применяется к сохранённым пикселям, которые не повёрнуты в правильное положение`,
   expandStaged: (p: { name: string }) => `${p.name} расширено с одной стороны больше чем на собственный размер; линии и горизонт могут не совпасть. Обычно лучше расширять в два меньших шага.`,
 };

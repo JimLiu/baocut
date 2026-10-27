@@ -37,6 +37,5 @@ export const tr: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `Görüntü modelinin ${p.name} için sonucu okunabilir bir görüntü değil`,
   outputMissing: (p: { name: string }) => `${p.name} için çıktı yazılmadı`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `${p.name} çıktısı ${p.actual}; beklenen ${p.expected}`,
-  exifOrientation: (p: { name: string }) => `${p.name} bir EXIF yönlendirme etiketine sahip; seçim, düz çevrilmemiş olan kayıtlı piksellere göre okunur`,
   expandStaged: (p: { name: string }) => `${p.name} bir kenarda kendi boyutundan fazla genişletildi; çizgiler ve ufuk çizgisi hizalanmayabilir. İki küçük adımda genişletmek genellikle daha iyi görünür.`,
 };

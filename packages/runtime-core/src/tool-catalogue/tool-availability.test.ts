@@ -52,7 +52,7 @@ function deps(
       asked.push(capability);
       return options.missing?.includes(capability) ? notConfigured(capability) : null;
     },
-    externalTools: async () => options.tools ?? [external('ffmpeg'), external('yt-dlp')],
+    externalTools: async () => options.tools ?? [external('ffmpeg'), external('yt-dlp'), external('realesrgan-ncnn-vulkan')],
     offlineStrict: () => options.offline ?? false,
   };
 }

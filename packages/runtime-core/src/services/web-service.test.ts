@@ -830,6 +830,11 @@ describe('Web 服务', () => {
       'synthesize-speech',
       'generate-text',
       'generate-image',
+      'upscale-image',
+      'remove-object',
+      'remove-watermark',
+      'repaint-image',
+      'expand-image',
       'generate-music',
       'link-import',
       'compress-video',
@@ -837,7 +842,8 @@ describe('Web 服务', () => {
       'extract-audio',
     ]);
     // 固定流程（pipelines.start）不对浏览器开放；直接任务（models.*）在默认集合里。
-    for (const id of ['transcribe', 'translate-subtitles', 'dub', 'link-import', 'compress-video', 'merge-video', 'extract-audio']) {
+    const pipelineTools = ['transcribe', 'translate-subtitles', 'dub', 'upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image'];
+    for (const id of [...pipelineTools, 'link-import', 'compress-video', 'merge-video', 'extract-audio']) {
       expect(byId(id), id).toMatchObject({ available: false });
       expect(byId(id).problems, id).toContainEqual(expect.objectContaining({ code: 'WEB_METHOD_NOT_ALLOWED' }));
     }

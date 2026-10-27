@@ -37,6 +37,5 @@ export const ja: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `画像モデルが返した ${p.name} の結果は読み込める画像ではありません`,
   outputMissing: (p: { name: string }) => `${p.name} の出力が書き出されませんでした`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `${p.name} の出力は ${p.actual} ですが、${p.expected} のはずです`,
-  exifOrientation: (p: { name: string }) => `${p.name} には EXIF の向きタグがあります。選択範囲は保存されたピクセルどおりに読み取られ、正しい向きには回転されません`,
   expandStaged: (p: { name: string }) => `${p.name} は片側で元のサイズ以上に拡張されたため、線や水平線がずれることがあります。2 回に分けて少しずつ拡張すると、たいていきれいに仕上がります。`,
 };

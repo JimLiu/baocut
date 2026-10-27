@@ -37,6 +37,5 @@ export const zhHans: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `图像模型为 ${p.name} 返回的结果不是读得出的图片`,
   outputMissing: (p: { name: string }) => `${p.name} 没有写出输出`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `${p.name} 的输出是 ${p.actual}，应为 ${p.expected}`,
-  exifOrientation: (p: { name: string }) => `${p.name} 带 EXIF 方向标记；选区按存储的像素读取，没有转正`,
   expandStaged: (p: { name: string }) => `${p.name} 有一边扩展的尺寸超过了原图本身，线条和地平线可能对不齐。分两次、每次少扩一些，效果通常更好。`,
 };

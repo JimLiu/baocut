@@ -411,7 +411,6 @@ export function editImagePipeline(op: EditImageOp, deps: EditImageDeps): Pipelin
       for (const [i, file] of params.inputs.entries()) {
         const plan = images[i]!;
         const name = path.basename(file);
-        if ((plan.orientation ?? 1) !== 1) warnings.push(J.exifOrientation({ name }).text);
         if (plan.expand && staged(plan, plan.expand)) warnings.push(J.expandStaged({ name }).text);
       }
       const summary: EditImageSummary = {
@@ -549,7 +548,7 @@ async function planInput(op: EditImageOp, method: EditImageMethod, file: string,
     };
   }
   // 批量去水印：选区按第一张记，换算到这张的尺寸。
-  const first = params.inputs[0] === file ? header : await readImageHeader(params.inputs[0]!).catch(() => null);
+  const first = params.inputs[0] === file ? header : await readImageHeader(params.inputs[0]!).then((h) => (h ? upright(h) : null), () => null);
   const mask = first ? scaleMask(params.mask!, first, header) : params.mask!;
   const stats = maskStats(rasterizeMask(mask, header.width, header.height), header.width, header.height);
   if (!stats) return { problem: { code: 'IMAGE_EDIT_MASK_EMPTY', message: J.maskEmpty({ name }) } };
@@ -577,7 +576,16 @@ async function planInput(op: EditImageOp, method: EditImageMethod, file: string,
 async function inspectInput(file: string): Promise<ImageHeader | Localized> {
   const stat = await fs.stat(file).catch(() => null);
   if (!stat?.isFile()) return J.inputNotFound({ file });
-  return (await readImageHeader(file).catch(() => null)) ?? J.inputUnsupported({ name: path.basename(file) });
+  const header = await readImageHeader(file).catch(() => null);
+  return header ? upright(header) : J.inputUnsupported({ name: path.basename(file) });
+}
+
+/**
+ * 按 EXIF 方向转正之后的尺寸：界面（浏览器）与 ffmpeg 都把带方向标记的 JPEG 转正了再显示、解码，选区也是在转正的画面上画的，
+ * 所以计划、遮罩与输出都按转正的尺寸算；结果是转正的 PNG（不再带方向标记）。方向 5–8 宽高互换。
+ */
+export function upright(header: ImageHeader): ImageHeader {
+  return (header.orientation ?? 1) >= 5 ? { ...header, width: header.height, height: header.width } : header;
 }
 
 const isHeader = (value: ImageHeader | Localized): value is ImageHeader => 'mediaType' in value;
@@ -706,7 +714,8 @@ async function edit(
       if (!(await readImageHeader(result.file).catch(() => null))) {
         throw new PipelineStepError('MODEL_OUTPUT_INVALID', J.modelOutputUnreadable({ name: path.basename(input) }), { file: input });
       }
-      await composite(run, base, result.file, blend, region, out);
+      // 扩图：羽化只为新画的部分与原图相接；最后把原图原样盖回它的位置，原图的每个像素都不变。
+      await composite(run, base, result.file, blend, region, out, plan.expand ? { file: input, x: plan.expand.x, y: plan.expand.y } : null);
     }
     files.push({ file: out, source: input });
     progress({ done: n, total, unit: 'units' });
@@ -714,7 +723,10 @@ async function edit(
   return { output: { files, version } };
 }
 
-/** 贴回：`patch` 缩放到 `area` 的大小，经羽化的遮罩（`blend`，与 `area` 同样大）叠在 `base` 的 `area` 上，输出与 `base` 同样大。 */
+/**
+ * 贴回：`patch` 缩放到 `area` 的大小，经羽化的遮罩（`blend`，与 `area` 同样大）叠在 `base` 的 `area` 上，输出与 `base` 同样大。
+ * `keep`：最后把这张图原样盖在 (x, y)（扩图的原图）。
+ */
 async function composite(
   run: (inputs: string[], graph: string, out: string) => Promise<void>,
   base: string,
@@ -722,11 +734,13 @@ async function composite(
   blend: string,
   area: Rect,
   out: string,
+  keep: { file: string; x: number; y: number } | null = null,
 ): Promise<void> {
+  const blended = `[1:v]scale=${area.width}:${area.height}:flags=lanczos,format=rgba[p];[2:v]format=gray,gblur=sigma=${FEATHER_SIGMA}[m];` +
+    `[p][m]alphamerge[pm];[0:v]format=rgba[b];[b][pm]overlay=x=${area.x}:y=${area.y}:format=auto`;
   await run(
-    [base, patch, blend],
-    `[1:v]scale=${area.width}:${area.height}:flags=lanczos,format=rgba[p];[2:v]format=gray,gblur=sigma=${FEATHER_SIGMA}[m];` +
-      `[p][m]alphamerge[pm];[0:v]format=rgba[b];[b][pm]overlay=x=${area.x}:y=${area.y}:format=auto,format=rgba[o]`,
+    keep ? [base, patch, blend, keep.file] : [base, patch, blend],
+    keep ? `${blended}[t];[3:v]format=rgba[k];[t][k]overlay=x=${keep.x}:y=${keep.y}:format=auto,format=rgba[o]` : `${blended},format=rgba[o]`,
     out,
   );
 }

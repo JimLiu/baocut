@@ -52,7 +52,6 @@ const en = {
   modelOutputUnreadable: (p: { name: string }) => `The image model's result for ${p.name} isn't a readable image`,
   outputMissing: (p: { name: string }) => `No output was written for ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `The output of ${p.name} is ${p.actual}; expected ${p.expected}`,
-  exifOrientation: (p: { name: string }) => `${p.name} has an EXIF orientation tag; the selection is read on the stored pixels, which aren't rotated upright`,
   expandStaged: (p: { name: string }) => `${p.name} was extended by more than its own size on one side; lines and horizons may not line up. Expanding in two smaller steps usually looks better.`,
 };
 

@@ -37,6 +37,5 @@ export const ko: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `이미지 모델이 ${p.name}에 대해 반환한 결과는 읽을 수 있는 이미지가 아닙니다`,
   outputMissing: (p: { name: string }) => `${p.name}의 출력이 기록되지 않았습니다`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `${p.name}의 출력은 ${p.actual}이지만 ${p.expected}이어야 합니다`,
-  exifOrientation: (p: { name: string }) => `${p.name}에 EXIF 방향 태그가 있습니다. 선택 영역은 저장된 픽셀 그대로 읽히며 바로 세워지지 않습니다`,
   expandStaged: (p: { name: string }) => `${p.name}이(가) 한쪽에서 원래 크기보다 더 많이 확장되어 선과 수평선이 맞지 않을 수 있습니다. 두 번에 나눠 조금씩 확장하면 대개 더 자연스럽습니다.`,
 };

@@ -37,6 +37,5 @@ export const es: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `El resultado del modelo de imagen para ${p.name} no es una imagen legible`,
   outputMissing: (p: { name: string }) => `No se escribió ninguna salida para ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `La salida de ${p.name} es ${p.actual}; se esperaba ${p.expected}`,
-  exifOrientation: (p: { name: string }) => `${p.name} tiene una etiqueta de orientación EXIF; la selección se lee sobre los píxeles almacenados, que no están girados a la posición correcta`,
   expandStaged: (p: { name: string }) => `${p.name} se amplió por un lado más que su propio tamaño; puede que las líneas y el horizonte no encajen. Ampliar en dos pasos más pequeños suele quedar mejor.`,
 };

@@ -640,6 +640,8 @@ export class ExternalToolService {
       await fs.mkdir(path.dirname(dir), { recursive: true });
       await fs.rename(unpacked, dir);
       await fs.rm(part, { force: true });
+      // 上游的 ZIP 常不带 Unix 权限位（Windows 上打的包）：登记的可执行文件解开后是 0644，补上执行权限再试跑。
+      await fs.chmod(final, 0o755);
     } else {
       await fs.chmod(part, 0o755);
       await fs.rm(dir, { recursive: true, force: true });

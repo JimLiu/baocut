@@ -255,8 +255,28 @@ describe.skipIf(!hasFfmpeg)('图片编辑（真实 ffmpeg，假的图像模型�
     expect(near(calls[0]!.send.center, [255, 255, 255], 0)).toBe(true);
     const out = pixels(summary.files[0]!);
     expect(near(out.at(80, 10), GREEN)).toBe(true);
-    expect(out.at(80, 120)).toEqual([255, 255, 255]);
-    expect(out.at(5, 155)).toEqual([255, 255, 255]);
+    // 原图那一块（160×90，贴底）连边上的像素都不变。
+    for (let y = 70; y < 160; y++) for (let x = 0; x < 160; x++) expect(out.at(x, y), `${x},${y}`).toEqual([255, 255, 255]);
+    expect(near(out.at(80, 69), GREEN)).toBe(true);
+  });
+
+  it('带 EXIF 方向的 JPEG：选区按转正的画面（同界面里看到的），结果是转正的 PNG', async () => {
+    const stored = path.join(dir, 'in', 'stored.jpg');
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=gray:s=160x90', '-frames:v', '1', stored]);
+    // 方向 6（顺时针转 90°）：存储 160×90，转正后 90×160。
+    const tiff = Buffer.from([0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 0, 0]);
+    const app1 = Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), tiff]);
+    const head = Buffer.from([0xff, 0xe1, (app1.length + 2) >> 8, (app1.length + 2) & 0xff]);
+    const jpeg = await fs.readFile(stored);
+    const oriented = path.join(dir, 'in', 'oriented.jpg');
+    await fs.writeFile(oriented, Buffer.concat([jpeg.subarray(0, 2), head, app1, jpeg.subarray(2)]));
+    const record = await run('remove-watermark', { inputs: [oriented], mask: { boxes: [{ x: 30, y: 120, width: 30, height: 20 }] } });
+    expect(record, JSON.stringify(record.error)).toMatchObject({ state: 'completed' });
+    const summary = record.pipeline!.summary as unknown as EditImageSummary;
+    expect(summary.images[0]).toMatchObject({ outWidth: 90, outHeight: 160 });
+    expect(summary.warnings ?? []).toEqual([]);
+    const out = pixels(summary.files[0]!);
+    expect([out.width, out.height]).toEqual([90, 160]);
   });
 
   it('启动时拒绝：选区太大、在图外、比例本来就一样、扩得太大、模型不能改图、不是图片；都不建任务', async () => {

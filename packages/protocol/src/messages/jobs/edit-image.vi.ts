@@ -37,6 +37,5 @@ export const vi: JobsEditImageMessages = {
   modelOutputUnreadable: (p: { name: string }) => `Kết quả của mô hình ảnh cho ${p.name} không phải ảnh đọc được`,
   outputMissing: (p: { name: string }) => `Không có đầu ra nào được ghi cho ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `Đầu ra của ${p.name} là ${p.actual}; dự kiến ${p.expected}`,
-  exifOrientation: (p: { name: string }) => `${p.name} có thẻ hướng EXIF; vùng chọn được đọc trên các điểm ảnh đã lưu, vốn không được xoay thẳng`,
   expandStaged: (p: { name: string }) => `${p.name} đã được mở rộng ở một cạnh nhiều hơn kích thước của chính nó; các đường thẳng và đường chân trời có thể không khớp. Mở rộng làm hai bước nhỏ hơn thường đẹp hơn.`,
 };
