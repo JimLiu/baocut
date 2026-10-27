@@ -585,7 +585,8 @@ export class JobManager {
       this.#project(job);
       const spec = job.spec;
       const input = isTranscribeSpec(spec) ? { ...NO_INPUT, track: spec.track, hint: spec.hint, range: spec.range } : NO_INPUT;
-      const entry = this.#entry(job, input, null, { kind: 'video' }, null);
+      // 记下的 `commandId` 一并恢复：重启之后同一个命令重发仍认回这个任务，不另建一个（§7.2）。
+      const entry = this.#entry(job, input, job.commandId ?? null, { kind: 'video' }, null);
       // 等恢复的任务还没有终结：`settled` 要等它真正结束。
       this.#entries.set(job.record.jobId, entry);
       if (entry.stagingParent && isTerminal(entry.record.state)) {
@@ -2779,10 +2780,11 @@ export class JobManager {
 
   #save(strict = false): Promise<void> {
     if (this.#crashed) return Promise.resolve();
-    const jobs = [...this.#entries.values()].map(({ record, spec, workerVersion, videoPlace, remoteTaskId, publishing, stagingParent }) => ({
+    const jobs = [...this.#entries.values()].map(({ record, spec, workerVersion, commandId, videoPlace, remoteTaskId, publishing, stagingParent }) => ({
       record,
       spec,
       workerVersion,
+      ...(commandId ? { commandId } : {}),
       ...(stagingParent ? { stagingParent } : {}),
       ...(videoPlace ? { videoPlace } : {}),
       ...(remoteTaskId ? { remoteTaskId } : {}),

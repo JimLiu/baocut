@@ -228,7 +228,7 @@ describe('不经模型的任务（JobManager.submitTask）', () => {
     expect(ran).toBe(false);
   });
 
-  it('Runtime 停止时运行中的任务标为 interrupted，重启后不续跑、不当成转写任务', async () => {
+  it('Runtime 停止时运行中的任务标为 interrupted，重启后不续跑、不当成转写任务；同一个 commandId 仍认回它', async () => {
     let started!: () => void;
     const running = new Promise<void>((resolve) => (started = resolve));
     const { jobId } = manager.submitTask(
@@ -238,6 +238,7 @@ describe('不经模型的任务（JobManager.submitTask）', () => {
             run.signal.addEventListener('abort', () => reject(new Error('aborted')));
             started();
           }),
+        { commandId: 'cmd_run' },
       ),
       submitter,
     );
@@ -246,5 +247,21 @@ describe('不经模型的任务（JobManager.submitTask）', () => {
     expect(manager.inspect(jobId).state).toBe('interrupted');
     manager = await open();
     expect(manager.inspect(jobId)).toMatchObject({ kind: 'export', state: 'interrupted', error: { code: 'JOB_INTERRUPTED' } });
+    // 重发的命令拿回原来的任务（由调用方决定重试），不另建一个、不执行。
+    expect(manager.jobForCommand('cmd_run')).toBe(jobId);
+    let ran = false;
+    const again = manager.submitTask(
+      submission(
+        async () => {
+          ran = true;
+          return { documentId: null, artifactId: 'sha256:again' };
+        },
+        { commandId: 'cmd_run' },
+      ),
+      submitter,
+    );
+    expect(again.jobId).toBe(jobId);
+    expect(manager.list().filter((job) => job.kind === 'export')).toHaveLength(1);
+    expect(ran).toBe(false);
   });
 });

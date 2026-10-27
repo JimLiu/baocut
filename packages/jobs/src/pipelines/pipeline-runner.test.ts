@@ -364,7 +364,7 @@ describe('PipelineRunner', () => {
 
   it('Runtime 停止时流程与正在执行的那一步标为中断，重启后可以从那一步重试', async () => {
     control.hold('b');
-    const { jobId } = await start();
+    const { jobId } = await start('v', 'cmd_restart');
     await control.reached;
     await jobs.shutdown();
     await runner.idle();
@@ -380,6 +380,11 @@ describe('PipelineRunner', () => {
     await open();
     const reopened = jobs.inspect(jobId);
     expect(reopened.state).toBe('interrupted');
+    // 重启之后重发同一个启动命令：认回原来的流程，不另建一个、不执行任何一步。
+    const count = jobs.list().length;
+    expect(await start('v', 'cmd_restart')).toEqual({ jobId });
+    expect(jobs.list()).toHaveLength(count);
+    expect(control.runs).toEqual([]);
     await runner.retry(jobId);
     expect((await finished(jobId)).state).toBe('completed');
     expect(control.runs).toEqual(['b', 'c']);

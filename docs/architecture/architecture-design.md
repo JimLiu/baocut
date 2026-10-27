@@ -1868,6 +1868,8 @@ interface ApplicationRecord {
 
 生成任务的输入是文本或提示词本身：`contentHash` 是它的 sha256，`inputHash` 是能力、Provider、模型与冻结参数的规范 JSON 的 sha256。相同的输入摘要不复用已有的结果（生成不保证可复现，再生成就是要一个新的结果）；同一个 `commandId` 的重复提交返回同一个任务。
 
+**`commandId` 去重跨重启**。提交时带的 `commandId` 随任务记进任务账本：Runtime 重启之后用同一个 `commandId` 重发（`pipelines.start`、直接提交的转写与生成、导出、安装之类），仍返回原来的任务，即使它已经是 `interrupted` 或 `failed`，要不要重试由调用方按状态决定（`pipelines.retry`、`jobs.reconcile retry`），不另建一个。去重只在任务留在账本里的期间成立，任务被淘汰（§7.9「记录保留」）之后同一个 `commandId` 会建新任务。同一个 `commandId` 换了参数不报冲突，返回原来的任务。
+
 长调用立即返回 `jobId`。异步完成的通知进入持久化的 inbox，按事件去重；检查 Task 未停止、授权与预算仍然成立之后，才能唤醒后续的 Agent Turn。
 
 ### 7.3 从产物到视频的可恢复闭环

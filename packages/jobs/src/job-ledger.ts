@@ -1,4 +1,4 @@
-import type { JobRecord, JobWarning } from '@baocut/protocol';
+import type { Id, JobRecord, JobWarning } from '@baocut/protocol';
 import type { VideoPlace } from './application-ledger.ts';
 import type { GenerationInputSpec, TaskInputSpec, TranscribeInputSpec } from './input-hash.ts';
 import { RecordJournal, type LedgerOptions } from './record-journal.ts';
@@ -18,6 +18,11 @@ export interface StoredJob {
   spec: TranscribeInputSpec | GenerationInputSpec | TaskInputSpec | HostedJobSpec;
   /** 第一次尝试的 Worker 版本：重试必须相同（架构设计 §6.5）。 */
   workerVersion: string | null;
+  /**
+   * 提交时带的 `commandId`：重启之后用同一个 `commandId` 重发仍认回这个任务（任务留在账本里的期间，§7.2）。
+   * 没带的、以及这个字段之前的旧账本没有。
+   */
+  commandId?: Id | null;
   /** 导出的目标目录；临时目录是该目录下仅属于此任务的隐藏子目录。 */
   stagingParent?: string;
   /** 提交时视频的位置：重启后重新排队要先按它打开视频（§7.5）。没有视频时没有。 */
