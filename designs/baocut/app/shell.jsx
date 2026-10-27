@@ -73,31 +73,60 @@
     );
   }
 
-  /* 视频栏（product-design §5.1）：三段——左边视频名与状态、正中「审片 / 时间线」、右边任务 · 版本记录 · 导出。
-     视频名本身是菜单入口：详情、重命名、在 Space / 文件夹中显示、默认打开哪种视图都收在这里，
-     栏上不再单放 ⓘ、⌄ 与 ···。保存状态跟在元数据后面，与视频名读作一组。 */
+  /* 视频栏（product-design §5.1）：左边视频名与状态、中间「审片 / 时间线」、右边任务进度环 · 导出。
+     视频名本身是菜单入口：详情、重命名、版本记录、在 Space / 文件夹中显示、默认打开哪种视图都收在这里，
+     栏上不再单放 ⓘ、⌄、··· 与版本记录按钮。保存状态跟在元数据后面，与视频名读作一组。
+     视频名可能很长：它优先占宽度，放不下才截断，截断时悬停看全名。 */
   function MovieTitle({editor}) {
+    return <window.VideoVersionsControl editor={editor}>{versions => <MovieTitleBody editor={editor} versions={versions} />}</window.VideoVersionsControl>;
+  }
+
+  function MovieTitleBody({editor, versions}) {
     const app = useApp();
     const R = window.RSP;
     const [renaming, setRenaming] = useState(false);
+    const [cut, setCut] = useState(false);
+    /* 只在真被截断时给全名提示：短名字再悬停出一遍同样的字是噪音。栏宽或名字一变就量，悬停前已经知道 */
+    const boxRef = useRef(null);
+    useLayoutEffect(() => {
+      const box = boxRef.current;
+      if (!box) return undefined;
+      const measure = () => {
+        const el = box.querySelector('.moviebar__name [data-rsp-slot="text"]');
+        setCut(!!el && el.scrollWidth > el.clientWidth);
+      };
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(box);
+      return () => ro.disconnect();
+    }, [editor.title]);
     const proj = app.projById ? app.projById(editor.projectId) : null;
     const dflt = app.prefs.editorViewDefault || 'kind';
     const onAction = (k) => {
       if (k === 'info') app.openProjectInfo(editor.projectId, editor.infoExtras || []);
       else if (k === 'rename') setRenaming(true);
+      else if (k === 'versions') versions.open();
       else if (k === 'space') app.go({r: 'projects', id: proj && proj.dir});
       else if (k === 'reveal') app.toast(`已在文件夹中显示「${editor.title}」（演示）`);
     };
     const meta = [editor.meta, editor.saveLabel].filter(Boolean).join(' · ');
-    return <div className="moviebar__title">
+    return <div className="moviebar__title" ref={boxRef}>
       <R.MenuTrigger>
-        <R.ActionButton isQuiet UNSAFE_className="moviebar__name">
-          <R.Text>{editor.title}</R.Text><R.Icons.ChevronDown />
-        </R.ActionButton>
+        <R.TooltipTrigger isDisabled={!cut} placement="bottom start">
+          <R.ActionButton isQuiet UNSAFE_className="moviebar__name">
+            <R.Text>{editor.title}</R.Text><R.Icons.ChevronDown />
+            {/* 快照两边都改过：原来画在版本记录按钮上的圆点（product-design §5.1）随入口搬到视频名上 */}
+            {versions.conflict ? <R.NotificationBadge size="S" UNSAFE_className="moviebar__alert" /> : null}
+          </R.ActionButton>
+          <R.Tooltip>{editor.title}</R.Tooltip>
+        </R.TooltipTrigger>
         <R.Menu aria-label="视频操作" onAction={k => onAction(String(k))}>
           <R.MenuSection>
             <R.MenuItem id="info" textValue="视频详情"><R.Icons.InfoCircle /><R.Text slot="label">视频详情</R.Text></R.MenuItem>
             {app.patchProject ? <R.MenuItem id="rename" textValue="重命名"><R.Icons.Edit /><R.Text slot="label">重命名…</R.Text></R.MenuItem> : null}
+            {/* 版本记录（视频格式规范 §9、版本记录设计 §6）：悬停说明里的修订号与状态写在描述里 */}
+            <R.MenuItem id="versions" textValue="版本记录"><R.Icons.History /><R.Text slot="label">版本记录…</R.Text>
+              <R.Text slot="description">{versions.tip.replace(/^版本记录 · /, '')}</R.Text></R.MenuItem>
           </R.MenuSection>
           {SURF.pages || SURF.reveal ? <R.MenuSection>
             {SURF.pages && proj && proj.dir ? <R.MenuItem id="space" textValue="在 Space 中显示"><R.Icons.Asset /><R.Text slot="label">在 Space 中显示</R.Text></R.MenuItem> : null}
@@ -166,7 +195,7 @@
     </div>;
   }
 
-  /* 右段：任务（有才出现）· 版本记录（只有图标，§5.1）· 导出。Web 标题栏把视图切换也放在这一组里（withView）。 */
+  /* 右段：任务进度环（有才出现）· 导出。版本记录在视频名菜单里。Web 标题栏把视图切换也放在这一组里（withView）。 */
   function MovieActions({editor, withView = true}) {
     const app = useApp();
     const projectId = editor.projectId;
@@ -174,9 +203,7 @@
     const tasks = window.BC_TASKPILL.pillList(app.tasks, {projectId, mineOnly: true});
     return <>
       {withView && editor.liteAvailable && editor.setView ? <MovieViewSwitch editor={editor} /> : null}
-      {SURF.tasks ? <window.TaskPill list={tasks} projectId={projectId} /> : null}
-      {/* 版本记录（视频格式规范 §9、版本记录设计 §6）：按钮在导出左边，对话框在 video-versions.jsx */}
-      <window.VideoVersionsButton editor={editor} />
+      {SURF.tasks ? <window.TaskPill list={tasks} projectId={projectId} compact /> : null}
       {/* 审片页（SURF.exportVideo 为 false）不导出：成片交给出链接的那个 Agent */}
       {SURF.exportVideo ? <div className="moviebar__export">
         {exporting

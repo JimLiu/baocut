@@ -736,6 +736,18 @@ body { font-size: 14px; }
 .tpcard__state { flex: none; font-size: 12px; color: var(--gray-700); font-variant-numeric: tabular-nums; }
 .tpcard__sub, .tpcard__meta { font-size: 12px; color: var(--gray-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tpcard__meta { font-size: 11px; color: var(--gray-600); }
+/* 视频栏的进度环（task-pill.jsx 的 compact）：32px 安静按钮，环 20px；轨道 gray-200，进度 accent */
+.tring { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 9999px; color: var(--blue-900); cursor: pointer; transition: background-color 150ms cubic-bezier(0.45,0,0.4,1); }
+.tring:hover { background: var(--gray-100); }
+.tring--static { cursor: default; }
+.tring--static:hover { background: transparent; }
+.tring__svg { width: 20px; height: 20px; transform: rotate(-90deg); }
+.tring__svg.is-indet { animation: bc-spin 900ms linear infinite; }
+.tring__track, .tring__bar { fill: none; stroke-width: 3; }
+.tring__track { stroke: var(--gray-200); }
+.tring__bar { stroke: currentColor; stroke-linecap: round; transition: stroke-dashoffset 150ms cubic-bezier(0.45,0,0.4,1); }
+.tring__n { position: absolute; top: 0; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 9999px; background: var(--blue-900); color: var(--gray-25); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.tpcard__acts { display: flex; justify-content: flex-end; padding-top: 8px; }
 .tpcard__more { padding: 8px 8px 4px; font-size: 12px; color: var(--gray-600); border-top: 1px solid var(--gray-200); margin-top: 4px; }
 /* 顶栏「导出」按钮的忙态（第 120 轮）：同项目在导出时按钮自己变成进度 */
 .btn--busy { font-variant-numeric: tabular-nums; }
@@ -3422,17 +3434,20 @@ html.is-col-resize, html.is-col-resize * { cursor: col-resize !important; }
 .imgen__params dd { margin: 0; color: var(--gray-900); overflow-wrap: anywhere; }
 
 /* 视频操作属于编辑区，窗口标题只保留应用导航（product-design §5.1）。 */
-/* 三段：左「视频名 ⌄ / 元数据 · 已保存」、正中「审片 | 时间线」、右「任务 · 版本记录 · 导出 | ×」。
-   左右两段等宽，中段才真正居中；放不下时（下面的容器查询）中段改为跟在左段后面。 */
-.moviebar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; column-gap: 16px; padding: 8px 16px; min-height: 64px; flex: none; border-bottom: 2px solid var(--gray-100); }
-.moviebar__title { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
-/* 视频名是菜单入口：安静按钮，字号同页面标题；文字左缘与下面的元数据对齐（抵掉按钮的内边距） */
-.moviebar__name { max-width: calc(100% + 8px); margin-left: -8px; font-size: 16px; font-weight: 700;
+/* 视频名优先占宽度（minmax(0, max-content)），「审片 | 时间线」居中在视频名与右段之间的空里，右段是任务进度环与导出。
+   名字短时切换几乎在正中；名字长时切换往右让，两边空白都收到 16px 后视频名才开始截断。 */
+.moviebar { display: grid; grid-template-columns: minmax(0, max-content) minmax(16px, 1fr) auto minmax(16px, 1fr) auto;
+  grid-template-areas: "title . mid . acts"; align-items: center; padding: 8px 16px; min-height: 64px; flex: none; border-bottom: 2px solid var(--gray-100); }
+.moviebar__title { grid-area: title; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+/* 视频名是菜单入口：安静按钮，字号同页面标题；抵掉按钮的 12px 左内边距，让文字左缘与下面的元数据对齐 */
+.moviebar__name { position: relative; max-width: calc(100% + 12px); margin-left: -12px; font-size: 16px; font-weight: 700;
   grid-template-areas: "text icon"; grid-template-columns: minmax(0, auto) auto; }
 .moviebar__name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* S2 给按钮里的徽标定了靠起始边的位置（原本贴着图标）；视频名把图标挪到了后面，徽标跟去右上角 */
+.moviebar__alert { position: absolute; inset: 4px 4px auto auto; transform: none; background-color: var(--red-900); }
 .moviebar__title .tmeta { max-width: 100%; }
-.moviebar__mid { display: flex; justify-content: center; }
-.moviebar__actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.moviebar__mid { grid-area: mid; display: flex; justify-content: center; }
+.moviebar__actions { grid-area: acts; display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
 .moviebar__sep { flex: none; width: 2px; height: 24px; background: var(--gray-100); }
 .moviebar__export { position: relative; flex: none; }
 

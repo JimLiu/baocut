@@ -81,9 +81,6 @@
 .vh-save__p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
 .vh-save__acts { display: flex; justify-content: flex-end; gap: 8px; }
 
-.vh-entry { position: relative; }
-.vh-entry__alert { position: absolute; top: 4px; right: 4px; background-color: var(--red-900); }
-
 /* 编辑器顶部的快照冲突（版本记录设计 §6）：与字体、子视频那两条同一个位置与尺寸，危险色；窄时按钮折到第二行 */
 .vh-strip { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 36px; margin: 10px 12px 0; padding: 6px 6px 6px 12px; border-radius: 8px; background: var(--red-100); color: var(--red-1100); font-size: 12px; }
 .vh-strip > svg { flex: none; color: var(--red-900); }
