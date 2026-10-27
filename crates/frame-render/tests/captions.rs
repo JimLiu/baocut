@@ -827,6 +827,38 @@ fn caption_font_notes_stand_on_every_frame() {
 }
 
 #[test]
+fn caption_fonts_are_asked_for_before_any_line_is_on_screen() {
+    // 第一句 10 秒才出现：0.5 秒时还没排过字，缺字体的提示已经在报，宿主也要能按 face 去本机找这个族，不能等到有字幕行。
+    let documents = vec![
+        caption_doc("orig", "sequence", &[(10.0, 12.0, "AB")], "original"),
+        caption_doc("trans", "sequence", &[(10.0, 12.0, "一二")], "translation"),
+        style_doc(
+            "style",
+            studio(json!({ "fontFamily": "Nowhere Sans", "fontWeight": 700, "anim": { "name": "None" },
+                           "displayTiming": { "leadIn": 0, "tail": 0 } })),
+        ),
+    ];
+    let items = vec![
+        caption("a", "orig", Some("style"), 600, &[]),
+        caption("b", "trans", Some("style"), 600, &[]),
+    ];
+    let video = video(items, vec![], json!({}));
+    let mut renderer = renderer(false, Documents::new(documents));
+    render_with(&mut renderer, &video, 0.5, &mut Media::default());
+    let notes: Vec<&str> = renderer.warnings().iter().map(|w| w.detail.as_str()).collect();
+    assert_eq!(
+        notes,
+        vec!["a: Font \"Nowhere Sans\" isn’t in the font library; using Noto Sans SC instead"]
+    );
+    assert_eq!(renderer.missing_fonts(), vec!["Nowhere Sans".to_string()]);
+    assert!(
+        renderer.used_faces().contains(&("Nowhere Sans".to_string(), 700, false)),
+        "{:?}",
+        renderer.used_faces()
+    );
+}
+
+#[test]
 fn preview_hits_follow_rendered_bilingual_lines_and_clear_between_frames() {
     let docs = vec![
         caption_doc("orig", "sequence", &[(1.0, 2.0, "Original")], "original"),

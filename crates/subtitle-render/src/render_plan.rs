@@ -1145,7 +1145,7 @@ impl OverlayRenderPlan {
         mode_override: Option<&str>,
         includes: OverlayIncludes,
         fonts_loaded: usize,
-        text: TextEngine,
+        mut text: TextEngine,
     ) -> Result<Self> {
         let style = document.get("style").cloned().unwrap_or(Value::Null);
         text_design::validate_motion_tree(&style).map_err(|error| anyhow!(error))?;
@@ -1292,38 +1292,44 @@ impl OverlayRenderPlan {
         let designed_caption = track_designed || override_looks().any(|look| look.designed);
         let word_box_animated =
             track_word_box_animated || override_looks().any(|look| look.word_box_animated);
-        let mut families = vec![
-            original_style.font_name.as_str(),
-            translation_style.font_name.as_str(),
-        ];
+        // 样式点了名的 face（族名、字重、是否斜体）：缺的族报提示，同时按 face 记进排版引擎（缺的族与 face 记录），
+        // 宿主不必等到有字幕行在画面上就能去本机字体里找（例如停在开头、第一句还没出现时）。
+        fn line_face(style: &LineStyle) -> (&str, u16, bool) {
+            (style.font_name.as_str(), style.font_weight, style.shaped_italic)
+        }
+        let mut faces = vec![line_face(&original_style), line_face(&translation_style)];
         // `emphasisLook.fontFamily` 只落在强调词上，缺字体同样要报。
         for style in [&original_style, &translation_style] {
-            if let Some(family) = style
-                .emphasis
-                .as_deref()
-                .and_then(|look| look.font_name.as_deref())
-                && !families.contains(&family)
+            if let Some(look) = style.emphasis.as_deref()
+                && let Some(family) = look.font_name.as_deref()
             {
-                families.push(family);
+                let weight = if look.bold == Some(true) {
+                    style.font_weight.max(700)
+                } else {
+                    style.font_weight
+                };
+                faces.push((family, weight, style.shaped_italic));
             }
         }
-        let mut override_families = cue_original
+        let mut override_faces = cue_original
             .values()
             .chain(cue_translation.values())
-            .map(|entry| entry.style.font_name.as_str())
+            .map(|entry| line_face(&entry.style))
             .collect::<Vec<_>>();
-        override_families.sort_unstable();
-        override_families.dedup();
-        for family in override_families {
+        override_faces.sort_unstable();
+        faces.extend(override_faces);
+        faces.dedup();
+        let mut families: Vec<&str> = Vec::new();
+        for &(family, weight, italic) in &faces {
+            if text.has_family(family) {
+                continue;
+            }
+            text.note_font_face(family, weight, italic);
             if !families.contains(&family) {
                 families.push(family);
             }
         }
-        let warnings = families
-            .into_iter()
-            .filter(|family| !text.has_family(family))
-            .map(|family| missing_font_warning(family))
-            .collect();
+        let warnings = families.into_iter().map(missing_font_warning).collect();
         // `--no-*` 不改文档，却决定画哪些元素，必须自成一段进缓存键。画质档不参与：
         // 它只改码率，不改任何一个像素。
         let definition_key = format!(
