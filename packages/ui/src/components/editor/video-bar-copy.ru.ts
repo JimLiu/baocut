@@ -2,7 +2,6 @@ import type { VideoBarMessages } from './video-bar-copy.ts';
 
 export const ru: VideoBarMessages = {
   closeToSpace: "Закрыть видео · вернуться в Space",
-  closeToHome: "Закрыть видео · вернуться в Home",
   untitled: "Видео",
   rename: "Переименовать видео",
   details: "Сведения о видео",

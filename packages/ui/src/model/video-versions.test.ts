@@ -5,6 +5,7 @@ import {
   actorLabel,
   blockedText,
   buttonTip,
+  entryHint,
   fileChange,
   fileLabel,
   isImportChange,
@@ -113,6 +114,9 @@ describe('video versions', () => {
     expect(buttonTip(true, { state: 'missing' })).toBe('版本记录 · 还没有版本 · 还没有快照');
     expect(buttonTip(false, null)).toBe('版本记录 · 这部视频不在项目里');
     expect(buttonTip(true, { state: 'synced', latestVersion: 14 }, '327')).toBe('版本记录 · 修订 327 · 最新是版本 14');
+    expect(entryHint(true, { state: 'synced', latestVersion: 14 }, '327')).toBe('修订 327 · 最新是版本 14');
+    expect(entryHint(false, null, '12')).toBe('修订 12 · 这部视频不在项目里');
+    expect(entryHint(true, null)).toBe('');
     expect(buttonTip(false, null, '12')).toBe('版本记录 · 修订 12 · 这部视频不在项目里');
   });
 

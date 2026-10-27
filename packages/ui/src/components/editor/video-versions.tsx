@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { VideoVersionList, VideoVersionText } from '@baocut/protocol';
 import {
   ActionButton,
@@ -12,7 +12,6 @@ import {
   Heading,
   IllustratedMessage,
   InlineAlert,
-  NotificationBadge,
   Popover,
   ProgressCircle,
   StatusLight,
@@ -38,6 +37,7 @@ import { agoLabel } from '../../model/format.ts';
 import {
   actorsText,
   buttonTip,
+  entryHint,
   momentText,
   snapshotState,
   versionError,
@@ -60,8 +60,9 @@ import { VersionDetail } from './video-versions-detail.tsx';
 import { VIDEO_VERSIONS_COPY as C } from './video-versions-copy.ts';
 
 /**
- * 视频的版本记录（视频格式规范 §9、版本记录设计 §6、产品设计 §5.1；原型 video-versions.jsx / video-versions.css）：视频栏右侧
- * 唯一的历史入口按钮（当前修订号写在提示里），和它打开的对话框——左边是这部视频的版本（新的在前），右边是选中版本的详情、动作与 diff（video-versions-detail.tsx）。
+ * 视频的版本记录（视频格式规范 §9、版本记录设计 §6、产品设计 §5.1；原型 video-versions.jsx / video-versions.css）：版本状态的控制器
+ * （入口由调用方画，视频栏把它放在视频名菜单里，当前修订号写在菜单项的说明里），和它打开的对话框——左边是这部视频的版本（新的在前），
+ * 右边是选中版本的详情、动作与 diff（video-versions-detail.tsx）。
  * 规则与显示名在 model/video-versions.ts，快照冲突的选择与外部改动的导入在 video-versions-conflict.tsx。
  * 版本变化没有推送：入口在修订号变了之后、快照该写下的时候再问一次状态，回到窗口时（外面可能 git pull 过）也问一次；
  * 对话框打开时读一次，每次操作后再读，快照正在写入或正在导入时每隔几秒读一次。状态记在视频的 `versionStatus`，
@@ -72,7 +73,21 @@ import { VIDEO_VERSIONS_COPY as C } from './video-versions-copy.ts';
 const STATUS_DELAY = 11_500;
 const PENDING_POLL = 3_000;
 
-export function VersionsButton({ video }: { video: OpenVideo }) {
+/** 视频栏画入口要的三样：打开对话框、说明（修订、最新版本与快照状态）、快照两边都改过时入口上加圆点。 */
+export interface VersionsEntry {
+  open: () => void;
+  /** 整句说明，带「版本记录」标题。 */
+  tip: string;
+  /** 不带标题的说明，写在菜单项下面。 */
+  hint: string;
+  conflict: boolean;
+}
+
+/**
+ * 版本记录的控制器：读状态的时机、外部改动的提示与对话框本身都在这里，入口由 `children` 画。对话框挂在入口之外——
+ * 视频栏的入口是菜单项，菜单一关就卸载。
+ */
+export function VersionsControl({ video, children }: { video: OpenVideo; children: (entry: VersionsEntry) => ReactNode }) {
   const runtime = useRuntime();
   const inProject = Boolean(video.ref?.source.projectId);
   const revision = video.state?.video.revision ?? null;
@@ -108,16 +123,11 @@ export function VersionsButton({ video }: { video: OpenVideo }) {
 
   useImportNotice(inProject);
 
-  const tip = buttonTip(inProject, inProject ? status : null, revision);
+  const shown = inProject ? status : null;
+  const entry = { open: show, tip: buttonTip(inProject, shown, revision), hint: entryHint(inProject, shown, revision), conflict: inProject && status?.state === 'conflict' };
   return (
     <>
-      <TooltipTrigger>
-        <ActionButton isQuiet aria-label={tip} onPress={show}>
-          <History />
-          {inProject && status?.state === 'conflict' ? <NotificationBadge /> : null}
-        </ActionButton>
-        <Tooltip>{tip}</Tooltip>
-      </TooltipTrigger>
+      {children(entry)}
       {/* DialogContainer 关闭后仍留着上一个子元素（为了退场动画）；按打开次数换 key，每次打开重新读。 */}
       <DialogContainer onDismiss={hide}>{open ? <VideoVersionsDialog key={session} video={video} onClose={hide} /> : null}</DialogContainer>
     </>

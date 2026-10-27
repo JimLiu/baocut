@@ -7,14 +7,14 @@ import type { RuntimeSession } from '../../runtime/session.ts';
 import { useVideo, type OpenVideo } from '../../state/video-store.ts';
 import { EditorContext, type EditorActions } from './editor-context.tsx';
 import { useVersionsDialog } from './video-versions-conflict.tsx';
-import { VersionsButton } from './video-versions.tsx';
+import { VersionsControl, type VersionsEntry } from './video-versions.tsx';
 
 let container: HTMLDivElement;
 let root: Root;
 let history: ReturnType<typeof vi.fn>;
 let undo: ReturnType<typeof vi.fn>;
 
-/** 不在项目里的视频：没有版本，按钮仍在（提示里有当前修订），打开说明为什么没有版本。 */
+/** 不在项目里的视频：没有版本，入口仍在（说明里有当前修订），打开说明为什么没有版本。 */
 function video(status: OpenVideo['status']): OpenVideo {
   return {
     target: {} as OpenVideo['target'],
@@ -38,10 +38,14 @@ async function mount(status: OpenVideo['status'] = 'ready') {
   const actions = { seek: vi.fn(), apply: vi.fn(), undo } as unknown as EditorActions;
   await act(() =>
     root.render(
-      createElement(RuntimeContext.Provider, { value: runtime }, createElement(EditorContext.Provider, { value: actions }, createElement(VersionsButton, { video: open }))),
+      createElement(RuntimeContext.Provider, { value: runtime }, createElement(EditorContext.Provider, { value: actions }, createElement(VersionsControl, { video: open, children: entry }))),
     ),
   );
 }
+
+/** 视频栏把入口画成视频名菜单里的一项；这里用一颗普通按钮代替，aria-label 是说明、点它打开。 */
+const entry = ({ open, tip, conflict }: VersionsEntry) =>
+  createElement('button', { type: 'button', 'aria-label': tip, 'data-conflict': conflict, onClick: open });
 
 const button = (name: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === name || b.getAttribute('aria-label') === name);
@@ -63,12 +67,13 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe('视频栏只有一个历史入口：版本记录按钮', () => {
+describe('视频栏只有一个历史入口：视频名菜单里的版本记录', () => {
   it('提示写当前修订；对话框只有版本，不再列撤销历史', async () => {
     await mount();
-    const entry = button('版本记录 · 修订 12 · 这部视频不在项目里');
-    expect(entry).toBeDefined();
-    await act(async () => entry!.click());
+    const item = button('版本记录 · 修订 12 · 这部视频不在项目里');
+    expect(item).toBeDefined();
+    expect(item!.dataset.conflict).toBe('false');
+    await act(async () => item!.click());
     const text = document.body.textContent ?? '';
     expect(text).toContain('只有项目里的视频才有版本记录');
     expect(document.querySelector('[role="radiogroup"]')).toBeNull();

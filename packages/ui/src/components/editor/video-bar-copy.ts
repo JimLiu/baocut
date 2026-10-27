@@ -17,7 +17,6 @@ import { vi } from './video-bar-copy.vi.ts';
 /** 视频栏（名称、保存状态与视频操作）的文案。译文在 `video-bar-copy.zh-Hans.ts`。 */
 const en = {
   closeToSpace: 'Close video · back to Space',
-  closeToHome: 'Close video · back to Home',
   untitled: 'Video',
   rename: 'Rename video',
   details: 'Video details',

@@ -195,16 +195,23 @@ export function snapshotState(status: StatusLike): { label: string; tone: Snapsh
   return { label: C.stateSynced, tone: 'positive', desc: C.stateSyncedDesc };
 }
 
-/** 视频栏版本记录按钮的提示：当前修订，最新是第几版，快照不是已同步时带上状态（视频栏只有这一个历史入口，产品设计 §5.1）。 */
-export function buttonTip(inProject: boolean, status: (StatusLike & { latestVersion?: number }) | null, revision: string | null = null): string {
-  const head = revision === null ? [C.title] : [C.title, C.tipRevision(revision)];
-  if (!inProject) return [...head, C.tipOutside].join(' · ');
-  const parts = head;
+/**
+ * 版本记录入口的说明：当前修订，最新是第几版，快照不是已同步时带上状态（视频栏只有这一个历史入口，产品设计 §5.1）。
+ * 视频栏把入口放在视频名菜单里，这段写在菜单项「版本记录」下面，所以不带标题。
+ */
+export function entryHint(inProject: boolean, status: (StatusLike & { latestVersion?: number }) | null, revision: string | null = null): string {
+  const parts = revision === null ? [] : [C.tipRevision(revision)];
+  if (!inProject) return [...parts, C.tipOutside].join(' · ');
   if (status) {
     parts.push(status.latestVersion ? C.tipLatest(status.latestVersion) : C.tipNone);
     if (status.state !== 'synced') parts.push(snapshotState(status).label);
   }
   return parts.join(' · ');
+}
+
+/** 带标题的整句说明（「版本记录 · 修订 N · …」），给入口的无障碍名字用。 */
+export function buttonTip(inProject: boolean, status: (StatusLike & { latestVersion?: number }) | null, revision: string | null = null): string {
+  return [C.title, entryHint(inProject, status, revision)].filter(Boolean).join(' · ');
 }
 
 /** 自动导入外部改动的操作者（§9.8）：Runtime 发现快照被外部改过、导入成一笔「外部变更」时用它，用户选「用磁盘上的」也是它。 */

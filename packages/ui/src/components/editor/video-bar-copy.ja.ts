@@ -2,7 +2,6 @@ import type { VideoBarMessages } from './video-bar-copy.ts';
 
 export const ja: VideoBarMessages = {
   closeToSpace: '動画を閉じる · Space に戻る',
-  closeToHome: '動画を閉じる · Home に戻る',
   untitled: '動画',
   rename: '動画の名前を変更',
   details: '動画の詳細',

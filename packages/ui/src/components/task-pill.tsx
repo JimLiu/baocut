@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import type { Id } from '@baocut/protocol';
-import { ProgressBar, ProgressCircle } from '@react-spectrum/s2';
-import Close from '@react-spectrum/s2/icons/Close';
-import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { Button, ProgressBar, ProgressCircle } from '@react-spectrum/s2';
+import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
 import { TASK_PILL_COPY } from '../copy.ts';
 import { pillCard, pillFace, pillList, type PillCardRow } from '../model/task-pill.ts';
@@ -15,47 +14,41 @@ import { useNow } from './use-now.ts';
 const OPEN_MS = 250;
 const CLOSE_MS = 150;
 
-/** 原型 ui.css `.tpillw` `.tpill` `.tpill__go` `.tpill__x` `.tpill__more`。 */
+/** 原型 ui.css `.tpillw` `.tring` `.tring__n`：32px 的安静圆钮，环 16px，多条时右上角标总条数。 */
 const wrap = style({ position: 'relative', display: 'inline-flex' });
-const pill = style({
-  display: 'inline-flex',
-  alignItems: 'center',
-  height: 24,
-  paddingEnd: 2,
-  borderRadius: 'full',
-  backgroundColor: 'blue-200',
-  color: 'blue-1000',
-});
 const focusRing = {
   outlineStyle: { default: 'none', isFocusVisible: 'solid' },
   outlineColor: 'focus-ring',
   outlineWidth: 2,
 } as const;
-const go = style({
-  display: 'inline-flex',
+const ring = style({
+  position: 'relative',
+  display: 'flex',
   alignItems: 'center',
-  gap: '[6px]',
-  height: 24,
+  justifyContent: 'center',
+  flexShrink: 0,
+  size: 32,
   margin: 0,
-  paddingY: 0,
-  paddingStart: '[10px]',
-  paddingEnd: 8,
+  padding: 0,
   borderWidth: 0,
   borderRadius: 'full',
-  font: 'ui-sm',
-  fontWeight: 'medium',
-  color: 'blue-1000',
-  whiteSpace: 'nowrap',
-  backgroundColor: { default: 'transparent', isHovered: 'blue-300' },
+  backgroundColor: { default: 'transparent', isHovered: 'gray-100' },
+  transition: 'colors',
   cursor: 'default',
   ...focusRing,
 });
-const spinner = style({ display: 'flex' });
-const more = style({
-  display: 'inline-flex',
+const ringArt = style({ display: 'flex' });
+const count = style({
+  position: 'absolute',
+  top: 0,
+  insetEnd: 0,
+  display: 'flex',
   alignItems: 'center',
+  justifyContent: 'center',
+  boxSizing: 'border-box',
+  minWidth: 16,
   height: 16,
-  paddingX: '[6px]',
+  paddingX: 4,
   borderRadius: 'full',
   backgroundColor: 'blue-900',
   // `font` 简写会连带设 `color: 'body'`，写在它后面才不被盖掉。
@@ -63,27 +56,7 @@ const more = style({
   color: 'gray-25',
   fontWeight: 'bold',
 });
-const close = style({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  flexShrink: 0,
-  width: { default: 0, isShown: 20 },
-  height: 20,
-  margin: 0,
-  padding: 0,
-  borderWidth: 0,
-  borderRadius: 'full',
-  overflow: 'hidden',
-  opacity: { default: 0, isShown: 1 },
-  transition: 'all',
-  color: 'blue-1000',
-  backgroundColor: { default: 'transparent', isHovered: 'blue-300' },
-  cursor: 'default',
-  '--iconPrimary': { type: 'fill', value: 'currentColor' },
-  ...focusRing,
-});
-const closeIcon = iconStyle({ size: 'XS' });
+const cardActs = style({ display: 'flex', justifyContent: 'end', paddingTop: 8 });
 
 /** 原型 `.tpcard`：右对齐弹在胶囊下面；多条时外边距收紧、每行自带内边距。 */
 const card = style({
@@ -212,16 +185,15 @@ function CardRow({ r, multi, onOpen }: { r: PillCardRow; multi: boolean; onOpen:
 }
 
 /**
- * 视频栏的任务胶囊（原型 task-pill.jsx、shell.jsx `MovieActions`）：只报这个视频的后台任务，念表头那一条，
- * 其余是「+N」；停上去弹卡。只有一条时点胶囊去它的详情、悬停露出 × 取消或停止；多条时点胶囊去任务页，× 不出现
- * （不知道要取消哪一条），卡里每行点进各自的详情。没有任务时不画。
+ * 视频栏的任务进度环（原型 task-pill.jsx 的 compact、shell.jsx `MovieActions`）：只报这个视频的后台任务，不写字——环画表头那一条的
+ * 进度（没有进度时转圈），多于一条时右上角标总条数；停上去弹卡，任务名、阶段与取消都在卡里。只有一条时点环去它的详情，卡底给取消或停止；
+ * 多条时点环去任务页，卡里不给取消（不知道要取消哪一条），每行点进各自的详情。没有任务时不画。
  */
 export function TaskPill({ videoId }: { videoId: Id | null }) {
   const { rows } = useTaskRows();
   const goTo = useShell((s) => s.go);
   const act = useTaskAction();
   const [open, setOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   const list = pillList(rows, { videoId, mineOnly: true });
@@ -266,28 +238,26 @@ export function TaskPill({ videoId }: { videoId: Id | null }) {
       onBlur={onBlur}
       onKeyDown={onKeyDown}
     >
-      <span className={pill} data-testid="video-bar-task-pill" onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}>
-        <RACButton className={go} onPress={() => (face.more ? goAll() : goTask(head.id))}>
-          <span className={spinner} aria-hidden="true">
-            <ProgressCircle size="S" isIndeterminate aria-label={face.label} />
+      <RACButton
+        className={ring}
+        data-testid="video-bar-task-pill"
+        aria-label={face.more ? `${TASK_PILL_COPY.count(face.more + 1)} · ${face.label}` : face.label}
+        onPress={() => (face.more ? goAll() : goTask(head.id))}
+      >
+        <span className={ringArt} aria-hidden="true">
+          <ProgressCircle
+            size="S"
+            aria-label={face.label}
+            isIndeterminate={head.pct == null}
+            value={head.pct ?? undefined}
+          />
+        </span>
+        {face.more ? (
+          <span className={count} style={tabular} aria-hidden="true">
+            {face.more + 1}
           </span>
-          <span style={tabular}>{face.label}</span>
-          {face.more ? (
-            <span className={more} style={tabular}>
-              +{face.more}
-            </span>
-          ) : null}
-        </RACButton>
-        {!face.more && head.action ? (
-          <RACButton
-            className={(state) => close({ ...state, isShown: hovered || state.isFocusVisible })}
-            aria-label={actionTitle(head.action, head.kind)}
-            onPress={() => act(head.action!)}
-          >
-            <Close styles={closeIcon} data-bc-icons="own" />
-          </RACButton>
         ) : null}
-      </span>
+      </RACButton>
       {view ? (
         <div className={card({ isMulti: view.multi })} role="group" aria-label={view.title ?? head.title}>
           {view.multi ? (
@@ -302,6 +272,20 @@ export function TaskPill({ videoId }: { videoId: Id | null }) {
             <CardRow key={r.id} r={r} multi={view.multi} onOpen={() => goTask(r.id)} />
           ))}
           {view.overflow ? <div className={overflowLine}>{TASK_PILL_COPY.more(view.overflow)}</div> : null}
+          {!view.multi && head.action ? (
+            <div className={cardActs}>
+              <Button
+                size="S"
+                variant="secondary"
+                onPress={() => {
+                  shut();
+                  act(head.action!);
+                }}
+              >
+                {actionTitle(head.action, head.kind)}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </span>
