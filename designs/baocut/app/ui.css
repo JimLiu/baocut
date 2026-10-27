@@ -3422,13 +3422,22 @@ html.is-col-resize, html.is-col-resize * { cursor: col-resize !important; }
 .imgen__params dd { margin: 0; color: var(--gray-900); overflow-wrap: anywhere; }
 
 /* 视频操作属于编辑区，窗口标题只保留应用导航（product-design §5.1）。 */
-.moviebar { display: flex; align-items: center; gap: 12px; padding: 8px 16px; min-height: 64px; flex: none; border-bottom: 2px solid var(--gray-100); }
-.moviebar__title { flex: 1; min-width: 0; overflow: hidden; }
-.moviebar__title .ttitle { max-width: 100%; }
-.moviebar__actions { display: flex; align-items: center; gap: 8px; flex: none; }
+/* 三段：左「视频名 ⌄ / 元数据 · 已保存」、正中「审片 | 时间线」、右「任务 · 版本记录 · 导出 | ×」。
+   左右两段等宽，中段才真正居中；放不下时（下面的容器查询）中段改为跟在左段后面。 */
+.moviebar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; column-gap: 16px; padding: 8px 16px; min-height: 64px; flex: none; border-bottom: 2px solid var(--gray-100); }
+.moviebar__title { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+/* 视频名是菜单入口：安静按钮，字号同页面标题；文字左缘与下面的元数据对齐（抵掉按钮的内边距） */
+.moviebar__name { max-width: calc(100% + 8px); margin-left: -8px; font-size: 16px; font-weight: 700;
+  grid-template-areas: "text icon"; grid-template-columns: minmax(0, auto) auto; }
+.moviebar__name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.moviebar__title .tmeta { max-width: 100%; }
+.moviebar__mid { display: flex; justify-content: center; }
+.moviebar__actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.moviebar__sep { flex: none; width: 2px; height: 24px; background: var(--gray-100); }
 .moviebar__export { position: relative; flex: none; }
 
-.tbar--web .moviebar__title { padding-left: 12px; }
+/* Web 没有视频栏，视频名与操作直接放在窗口标题栏里：视频名占满剩余宽度，把操作推到右边 */
+.tbar--web .moviebar__title { flex: 1; padding-left: 12px; }
 
 /* Media source Tabs (product-design §5.1): match the content's 12px inset. */
 .media-source-tabs { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 0; }

@@ -218,7 +218,7 @@
   function WorkspaceViewControls() { return window.ShellViewControls ? <window.ShellViewControls /> : null; }
 
   function WorkspaceMovieFrame({editor, children}) {
-    return <><window.Moviebar editor={editor} />{children}</>;
+    return <><window.Moviebar editor={editor} tabbed />{children}</>;
   }
 
   // Activity keeps edit history, selection and drafts while suspending effects and

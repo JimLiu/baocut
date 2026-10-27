@@ -807,6 +807,8 @@
       view, setView, liteAvailable,
       title: proj.title,
       meta: '',
+      /* 保存状态（product-design §5.1「视频栏：视频名、保存与任务状态」）：原型没有写盘过程，常显已保存 */
+      saveLabel: '已保存', saveTip: '改动已存进视频文件夹',
       onExport: () => setExportOpen((v) => !v),
     };
 

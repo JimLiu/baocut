@@ -224,10 +224,13 @@
 .movie-quickchat .acomp { padding: 12px 16px 8px; }
 /* S2 始终生成 disclaimer 段落；此宿主没有脚注，空段落不占底部留白。 */
 .movie-quickchat .bc-ai-prompt > div > p:empty { display: none; }
+/* 视频栏放不下三段居中时：中段跟在视频名后面；再窄，视频名独占一行 */
+@container movie (max-width: 880px) {
+  .moviebar { grid-template-columns: minmax(0, 1fr) auto auto; }
+}
 @container movie (max-width: 600px) {
-  .moviebar { padding: 8px; gap: 8px; flex-wrap: wrap; }
-  .moviebar__title { flex-basis: 100%; }
-  .moviebar__actions { margin-left: auto; }
+  .moviebar { grid-template-columns: auto minmax(0, 1fr); padding: 8px; gap: 8px; }
+  .moviebar__title { grid-column: 1 / -1; }
 }
 @media (max-width: 1000px) {
   .movie-workspace:has(.movie-conversation) { flex-direction: column; overflow-y: auto; }
