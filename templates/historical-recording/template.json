@@ -55,5 +55,42 @@
       "完整的原声，配原文与译文字幕",
       "分好章节，片尾列出处与许可"
     ]
+  },
+  "verification": {
+    "date": "2026-10-27",
+    "version": "1.0.0",
+    "engine": "codex",
+    "input": "挂上本模板发送，第一轮用户消息原文：\n把项目目录 media/ 下的 Ich_bin_ein_Berliner_Speech_1963-06-26.ogv（约 9 分钟的演讲影像；来源 https://commons.wikimedia.org/wiki/File:Ich_bin_ein_Berliner_Speech_(June_26,_1963)_John_Fitzgerald_Kennedy_trimmed.theora.ogv ，美国空军电视台拍摄、Miller Center 剪辑，公有领域）做成一条历史视频：先用几分钟讲清美国总统肯尼迪 1963 年 6 月 26 日在西柏林对市民的这次演讲，再放完整的原声，字幕用中文。\n\n信息已给全，请直接按默认开始制作，不用再确认。\n\n（测试环境说明：这台机器的语音合成只有本机模型，没有配置配乐、音效与视频生成，遇到没有配置的能力请跳过，并在最后说明跳过了什么。如果现有编辑操作做不出需要的画面，可以直接渲染成视频文件再导入时间线，不用再问。）\n\n第二轮（看完审片版后在同一会话里追加）原文：\n看了审片版，背景的讲法、版面和片尾都可以。有两处要改：\n1. 正片字幕现在只有中文。原话是英语夹德语，和字幕语言不同，正片要出双语字幕：每条上面是原话（英语或德语），下面是中文译文；原文可以比中文小一级，但缩小看也要读得清。双语字幕文件也一起交付。\n2. 片尾最后一行「完整资料与许可见项目 sources.csv」观众看不到项目文件，改成直接写出主要出处，或者删掉这一行。\n改好后不用再等我确认，直接烘焙并导出 1080p 的 MP4 成片，导出完成后检查成片，再交付成片、字幕文件与出处表。",
+    "materials": [
+      {
+        "title": "Ich bin ein Berliner Speech (June 26, 1963) John Fitzgerald Kennedy trimmed.theora.ogv",
+        "url": "https://commons.wikimedia.org/wiki/File:Ich_bin_ein_Berliner_Speech_(June_26,_1963)_John_Fitzgerald_Kennedy_trimmed.theora.ogv",
+        "license": "Public-Domain",
+        "note": "完整原声与片头节选，美国空军电视台拍摄"
+      },
+      {
+        "title": "President John F. Kennedy at Rudolph Wilde Platz in Berlin, Germany JFKWHP-ST-C230-37-63.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:President_John_F._Kennedy_at_Rudolph_Wilde_Platz_in_Berlin,_Germany_JFKWHP-ST-C230-37-63.jpg",
+        "license": "Public-Domain",
+        "note": "背景：演讲现场"
+      },
+      {
+        "title": "Kennedy at the Brandenburg Gate.jpg",
+        "url": "https://commons.wikimedia.org/wiki/File:Kennedy_at_the_Brandenburg_Gate.jpg",
+        "license": "Public-Domain",
+        "note": "背景：柏林墙"
+      }
+    ],
+    "capabilities": [
+      "generateMusic",
+      "generateSoundEffect",
+      "generateVideo"
+    ],
+    "outcome": "partial",
+    "output": {
+      "ratio": "16:9",
+      "durationSeconds": 697
+    },
+    "notes": "确认：简报给全时没有提问，开工前复述简报（16:9、背景 2–3 分钟、总长约 11–12 分钟、审片后再导出）。读了 history-video 等技能，用讲稿、美国国务院史料与德国历史博物馆等来源互证，转写原声并逐句译成中文，本机语音合成配背景旁白 2 分 9 秒；背景是代码画的分区示意、两张公有领域白宫照片与原片节选，片尾列出处、许可与 AI 译文声明，另交付存疑表与出处表。第一轮按模板停在审片前，没有导出。问题：第一轮正片只有中文字幕，没按模板与技能出原文与译文双语字幕；第二轮点名后改成原文在上、中文在下并导出，但画面上原文与中文是两条断句不同的字幕，同一时刻常对不上（逐句双语 SRT 是对的），原文行贴着阅读带上沿；背景一张字卡仍写「中文字幕」。双语要人工指出才做到，记 partial。成片比默认的 600 秒长，因为原声完整放了约 9 分钟，符合「时长跟着原声走」。缩小到 1/3 看，字幕、章节与图说都读得清。环境：从源码起的隔离 Runtime，转写与语音合成用本机模型，没有配乐、音效与视频生成，模型 gpt-6.1-sol。BaoCut 不收 OGV，智能体先转成 MP4 再导入；带 Adobe RGB 色彩配置的照片过不了快速烘焙的校验，转成 sRGB 后通过。没有人工听审旁白。片中是真实人物，不放预览与封面。模板改动：无，一次运行不改模板。"
   }
 }
