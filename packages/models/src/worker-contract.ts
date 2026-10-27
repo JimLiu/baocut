@@ -116,6 +116,11 @@ export interface WorkerHello {
    */
   imageFamilies: ModelFamily[];
   /**
+   * 带上 `job.run` 的 `checkpoint` 时会读写转写检查点的能力（§2.1、§2.5.1）。缺省即不支持（旧的 Worker 没有这个字段，
+   * 也不认 `checkpoint`）。
+   */
+  checkpoints?: ModelCapability[];
+  /**
    * 文本嵌入（`embed.run`，§2.5.6）：这个构建编进了 LiteRT-LM 后端时才有，同时 `capabilities` 含 `embed`。缺省即不支持
    * （旧的 Worker 没有这个字段）。
    */
@@ -180,6 +185,11 @@ export interface TranscribeRunParams {
   options: TranscribeOptions;
   staging: string;
   outputContract: typeof ASR_RESULT_SCHEMA;
+  /**
+   * 转写检查点文件的绝对路径（§2.5.1、§5）：自分段识别读回其中有效的工作接着做，做完一份追加一条。只发给 `checkpoints`
+   * 含 `transcribe` 的 Worker；省略时不用检查点。
+   */
+  checkpoint?: string;
 }
 
 /** 合成结果在 staging 里的文件名（audio.cpp 服务的输出，`LocalSpeechProvider`）。 */

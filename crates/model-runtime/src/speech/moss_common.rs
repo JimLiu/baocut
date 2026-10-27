@@ -18,7 +18,7 @@ use serde_json::Value;
 
 use super::language::{MOSS_LANGUAGES, canonical_code};
 use super::moss_parse::{MossGenerationPlan, MossOutputParser, MossOutputSegment, adapt_output, preview_segment};
-use super::{SegmentedTranscription, SegmentingCallbacks, SegmentingCancelled};
+use super::{ChunkProgress, SegmentedTranscription, SegmentingCallbacks, SegmentingCancelled};
 
 mod repetition;
 use repetition::RepetitionGuard;
@@ -383,6 +383,9 @@ struct Piece<'a> {
 /// [`MossGenerationPlan::MIN_TOKENS`] 的预算，每秒可用的 token 翻倍，上下文也变了。
 /// 半块短于 [`MIN_RETRY_PIECE_SECONDS`] 还不行，就收下已经写出的段落（剪掉尾部的
 /// 循环重复），在 `warnings` 里写明哪一段可能缺字，而不是让前面几个小时的结果作废。
+///
+/// 每个初始分块（连同为它重切出来的子块）全部收下之后交给 `callbacks.on_chunk` 一条 [`ChunkProgress`]；
+/// `callbacks.resume` 给了上次收下的初始分块时，与这次的分块计划逐块对得上就原样放回、从下一块接着生成（架构设计 §6.6）。
 pub(crate) fn transcribe_chunks<'a, G>(
     audio: &'a [f32],
     chunks: &[AudioChunk<'a>],
@@ -401,10 +404,36 @@ where
     let mut covered = 0.0_f64;
     let mut preview_floor = 0.0_f64;
     let mut previewed = 0.0_f64;
+    let resume = callbacks.resume;
+    let resumed = match resume_matches(resume, chunks) {
+        true => resume.len(),
+        false => {
+            eprintln!("[model-worker] the checkpointed chunks do not match this chunk plan; transcribing from the start");
+            0
+        }
+    };
+    for done in &resume[..resumed] {
+        result.rows.extend(done.rows.iter().cloned());
+        result.speaker_ranges.extend(done.speaker_ranges.iter().cloned());
+        result.warnings.extend(done.warnings.iter().cloned());
+        result.generation_tokens += done.generation_tokens;
+        texts.extend(done.texts.iter().cloned());
+        next_cluster = done.next_cluster;
+        accepted_pieces = done.accepted_pieces;
+        covered = done.covered;
+        previewed = done.previewed;
+        preview_floor = done.preview_floor;
+    }
+    if resumed > 0
+        && let Some(callback) = callbacks.on_progress.as_deref_mut()
+    {
+        callback(covered, total_duration);
+    }
     // 后进先出：重切出来的两半压回栈顶，先于后面的块处理，时间顺序不乱。
     let mut pending = chunks
         .iter()
         .enumerate()
+        .skip(resumed)
         .rev()
         .map(|(index, chunk)| Piece {
             samples: chunk.samples,
@@ -412,7 +441,12 @@ where
             planned: Some(index),
         })
         .collect::<Vec<_>>();
+    // 正在处理的初始分块，以及它开始时结果里各项的长度：收下它的最后一个子块时据此切出这一块的记录。
+    let mut current = ChunkMarks::at(resumed, &result, texts.len());
     while let Some(piece) = pending.pop() {
+        if let Some(index) = piece.planned {
+            current = ChunkMarks::at(index, &result, texts.len());
+        }
         if callbacks.cancelled() {
             return Err(anyhow::Error::from(SegmentingCancelled));
         }
@@ -510,9 +544,61 @@ where
         if !shifted_text.is_empty() {
             texts.push(shifted_text);
         }
+        // 栈顶不再是这一块切出来的子块：这个初始分块收完了。
+        if pending.last().is_none_or(|next| next.planned.is_some())
+            && let Some(callback) = callbacks.on_chunk.as_deref_mut()
+            && let Some(chunk) = chunks.get(current.index)
+        {
+            callback(&ChunkProgress {
+                index: current.index,
+                offset_seconds: chunk.offset_seconds,
+                samples: chunk.samples.len(),
+                rows: result.rows[current.rows..].to_vec(),
+                speaker_ranges: result.speaker_ranges[current.speaker_ranges..].to_vec(),
+                texts: texts[current.texts..].to_vec(),
+                warnings: result.warnings[current.warnings..].to_vec(),
+                generation_tokens: result.generation_tokens - current.generation_tokens,
+                next_cluster,
+                accepted_pieces,
+                covered,
+                previewed,
+                preview_floor,
+            });
+        }
     }
     result.text = texts.join("\n");
     Ok(result)
+}
+
+/// 一个初始分块开始时结果里各项的长度。
+struct ChunkMarks {
+    index: usize,
+    rows: usize,
+    speaker_ranges: usize,
+    texts: usize,
+    warnings: usize,
+    generation_tokens: usize,
+}
+
+impl ChunkMarks {
+    fn at(index: usize, result: &MossTranscription, texts: usize) -> Self {
+        Self {
+            index,
+            rows: result.rows.len(),
+            speaker_ranges: result.speaker_ranges.len(),
+            texts,
+            warnings: result.warnings.len(),
+            generation_tokens: result.generation_tokens,
+        }
+    }
+}
+
+/// 上次收下的初始分块是不是这次分块计划的一个前缀：序号从 0 连续，起点与样本数逐块相同。
+fn resume_matches(resume: &[ChunkProgress], chunks: &[AudioChunk<'_>]) -> bool {
+    resume.len() <= chunks.len()
+        && resume.iter().zip(chunks).enumerate().all(|(index, (done, chunk))| {
+            done.index == index && done.samples == chunk.samples.len() && done.offset_seconds.to_bits() == chunk.offset_seconds.to_bits()
+        })
 }
 
 /// 生成失败的输出里，尾部往往是同几句话换着时间戳反复出现。收下部分结果前
@@ -682,6 +768,7 @@ mod tests {
                 on_progress: Some(&mut on_progress),
                 on_segment: Some(&mut on_segment),
                 should_cancel: None,
+                ..MossCallbacks::default()
             },
         );
 
@@ -723,6 +810,7 @@ mod tests {
                 on_progress: None,
                 on_segment: Some(&mut on_segment),
                 should_cancel: None,
+                ..MossCallbacks::default()
             },
         );
         assert_eq!(live.len(), 1, "zero-duration segments must not flood the preview");
@@ -761,6 +849,7 @@ mod tests {
                 on_progress: None,
                 on_segment: Some(&mut on_segment),
                 should_cancel: None,
+                ..MossCallbacks::default()
             },
             |request, stream| {
                 let duration = seconds(request.samples);
@@ -1003,11 +1092,108 @@ mod tests {
                 on_progress: None,
                 on_segment: None,
                 should_cancel: Some(&mut cancel),
+                ..MossCallbacks::default()
             },
             |_, _| unreachable!("取消后不应再生成"),
         )
         .unwrap_err();
         assert!(error.downcast_ref::<SegmentingCancelled>().is_some());
+    }
+
+    /// 三个初始分块（100 s、162 s、100 s）：中间那块用满预算只写到 40 s，切成两半重跑，其余一次写到结尾。`crash_at`
+    /// 是哪个初始分块开跑时生成失败（Worker 崩溃）。返回结果、`on_chunk` 收到的记录与每次生成的 `planned`。
+    fn run_three_chunks(
+        resume: &[ChunkProgress],
+        crash_at: Option<usize>,
+    ) -> (Result<MossTranscription>, Vec<ChunkProgress>, Vec<Option<usize>>) {
+        let audio = vec![0.1_f32; SAMPLE_RATE * 362];
+        let chunks = vec![
+            AudioChunk {
+                samples: &audio[..SAMPLE_RATE * 100],
+                offset_seconds: 0.0,
+            },
+            AudioChunk {
+                samples: &audio[SAMPLE_RATE * 100..SAMPLE_RATE * 262],
+                offset_seconds: 100.0,
+            },
+            AudioChunk {
+                samples: &audio[SAMPLE_RATE * 262..],
+                offset_seconds: 262.0,
+            },
+        ];
+        let mut records = Vec::new();
+        let mut calls = Vec::new();
+        let mut on_chunk = |chunk: &ChunkProgress| records.push(chunk.clone());
+        let result = transcribe_chunks(
+            &audio,
+            &chunks,
+            MossGenerationPlan::CHUNK_DURATION,
+            &mut MossCallbacks {
+                resume,
+                on_chunk: Some(&mut on_chunk),
+                ..MossCallbacks::default()
+            },
+            |request, stream| {
+                calls.push(request.planned);
+                if crash_at.is_some() && request.planned == crash_at {
+                    anyhow::bail!("the worker crashed");
+                }
+                let duration = seconds(request.samples);
+                let exhausted = duration > 150.0;
+                let output = match exhausted {
+                    true => raw(&[(0.0, 20.0, "one"), (20.0, 40.0, "two")]),
+                    false => raw(&[(0.0, duration / 2.0, "head"), (duration / 2.0, duration - 1.0, "tail")]),
+                };
+                stream.observe(&MossOutputParser::parse(&output));
+                Ok(ChunkGeneration {
+                    text: output,
+                    token_count: if exhausted { request.max_tokens } else { 900 },
+                    stop_reason: if exhausted {
+                        GenerationStopReason::TokenLimit
+                    } else {
+                        GenerationStopReason::Eos
+                    },
+                })
+            },
+        );
+        (result, records, calls)
+    }
+
+    #[test]
+    fn resumed_chunks_are_not_generated_again_and_the_result_matches_one_run() {
+        let (whole, whole_records, whole_calls) = run_three_chunks(&[], None);
+        let whole = whole.unwrap();
+        assert_eq!(whole_calls, vec![Some(0), Some(1), None, None, Some(2)]);
+        // 一个初始分块一条记录，重切出来的子块并进它所属的那块。
+        assert_eq!(whole_records.iter().map(|record| record.index).collect::<Vec<_>>(), vec![0, 1, 2]);
+        assert_eq!(whole_records[1].accepted_pieces, 3);
+        assert_eq!(whole_records[1].rows.len(), 4);
+
+        let (crashed, records, _) = run_three_chunks(&[], Some(2));
+        assert!(crashed.is_err());
+        assert_eq!(records, whole_records[..2]);
+
+        // 记录过一遍 JSON 再读回来（检查点就是这样存的），逐值不变。
+        let records: Vec<ChunkProgress> = serde_json::from_str(&serde_json::to_string(&records).unwrap()).unwrap();
+        let (resumed, more, calls) = run_three_chunks(&records, None);
+        let resumed = resumed.unwrap();
+        assert_eq!(calls, vec![Some(2)], "only the chunk that was not finished runs again");
+        assert_eq!(more, whole_records[2..]);
+        assert_eq!(resumed.rows, whole.rows);
+        assert_eq!(resumed.speaker_ranges, whole.speaker_ranges);
+        assert_eq!(resumed.text, whole.text);
+        assert_eq!(resumed.warnings, whole.warnings);
+        assert_eq!(resumed.generation_tokens, whole.generation_tokens);
+    }
+
+    #[test]
+    fn checkpointed_chunks_from_another_chunk_plan_are_ignored() {
+        let (_, mut records, _) = run_three_chunks(&[], Some(2));
+        records[1].offset_seconds = 101.0;
+        let (resumed, _, calls) = run_three_chunks(&records, None);
+        let (whole, _, whole_calls) = run_three_chunks(&[], None);
+        assert_eq!(calls, whole_calls);
+        assert_eq!(resumed.unwrap().rows, whole.unwrap().rows);
     }
 
     #[test]

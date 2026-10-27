@@ -93,6 +93,11 @@ pub struct SegmentingCallbacks<'a> {
     pub on_segment: Option<&'a mut dyn FnMut(&LiveSegment)>,
     /// 返回 true 表示请求中止。
     pub should_cancel: Option<&'a mut dyn FnMut() -> bool>,
+    /// 续跑（转写检查点，架构设计 §6.6）：上次已经收下的初始分块，序号从 0 连续。与这次的分块计划逐块对得上才跳过它们，
+    /// 对不上就整个不用、从头生成。
+    pub resume: &'a [ChunkProgress],
+    /// 一个初始分块（连同为它重切出来的子块）全部收下之后调用一次，给出写检查点用的记录。
+    pub on_chunk: Option<&'a mut dyn FnMut(&ChunkProgress)>,
 }
 
 impl SegmentingCallbacks<'_> {
@@ -103,6 +108,29 @@ impl SegmentingCallbacks<'_> {
     pub fn cancelled(&mut self) -> bool {
         self.should_cancel.as_deref_mut().is_some_and(|callback| callback())
     }
+}
+
+/// 自己切段的识别器收下的一个初始分块：这一块（连同为它重切出来的子块）给结果添上的行、说话人区间、渲染出的文本与提示，
+/// 以及收下它之后分块循环的状态。时间是相对送入音频起点的秒；说话人区间的 `cluster` 与 `chunk` 已是全局编号。续跑时把这些
+/// 原样放回结果、状态原样恢复，结果与一次跑完的逐值相同。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChunkProgress {
+    /// 在初始分块计划里的序号。
+    pub index: usize,
+    /// 这一块在分块计划里的起点（秒）与样本数：续跑时据此核对分块计划没变。
+    pub offset_seconds: f64,
+    pub samples: usize,
+    pub rows: Vec<RowIn>,
+    pub speaker_ranges: Vec<SpeakerRange>,
+    pub texts: Vec<String>,
+    pub warnings: Vec<String>,
+    pub generation_tokens: usize,
+    pub next_cluster: usize,
+    pub accepted_pieces: usize,
+    pub covered: f64,
+    pub previewed: f64,
+    pub preview_floor: f64,
 }
 
 /// 取消时的错误载荷，调用方可用 anyhow 的 `downcast_ref` 识别。

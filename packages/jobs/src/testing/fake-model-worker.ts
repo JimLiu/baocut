@@ -28,6 +28,9 @@
  * `transcribeFamilies` 可以收窄。`record` 给出时，每次 `job.run` 的参数追加一行到那个文件。本地语音合成不在合同里（第 2 版起
  * 由内置的 audio.cpp 引擎执行）：`capability: 'synthesize'` 的 `job.run` 与真的 Worker 一样是 `INVALID_PARAMS`。
  *
+ * 转写检查点：`checkpoints` 默认随 `transcribe` 声明 `['transcribe']`；`job.run` 带了 `checkpoint` 时开跑前往那个文件追加一行
+ * `{ "runGeneration": n }`（不读它）。
+ *
  * 人声分离（`capability: 'separate'`）：`capabilities` 含 `separate` 时报告它，`separateFamilies` 默认 `['htdemucs-ft']`。
  * 分离按 `options.sampleRate`（null 为 44100）写 16-bit 立体声 `vocals.wav`（440 Hz）与 `background.wav`（110 Hz，
  * 比人声低 12 dB），长度是控制文件的 `separateSeconds`，没有时输入是 WAV 就取它的时长，否则 1 秒；4 步进度；输入不存在时
@@ -75,6 +78,7 @@ interface Control {
   transcript?: string;
   capabilities?: string[];
   transcribeFamilies?: string[];
+  checkpoints?: string[];
   separateFamilies?: string[];
   separateSeconds?: number;
   imageFamilies?: string[];
@@ -182,6 +186,7 @@ async function handle(request: Request): Promise<void> {
         transcribeFamilies: (control().capabilities ?? ['transcribe']).includes('transcribe')
           ? (control().transcribeFamilies ?? TRANSCRIBE_FAMILIES)
           : [],
+        checkpoints: control().checkpoints ?? ((control().capabilities ?? ['transcribe']).includes('transcribe') ? ['transcribe'] : []),
         separateFamilies: (control().capabilities ?? []).includes('separate') ? (control().separateFamilies ?? SEPARATE_FAMILIES) : [],
         imageFamilies: (control().capabilities ?? []).includes('image') ? (control().imageFamilies ?? IMAGE_FAMILIES) : [],
         ...((control().capabilities ?? []).includes('embed')
@@ -293,6 +298,8 @@ async function run(id: number, params: Record<string, unknown>): Promise<void> {
     if (runError === 'WORKER_PANIC') process.exit(101);
     return;
   }
+
+  if (typeof params.checkpoint === 'string') fs.appendFileSync(params.checkpoint, `${JSON.stringify({ runGeneration })}\n`);
 
   const timescale = options.timescale;
   const segmentsFile = path.join(staging, 'segments.jsonl');

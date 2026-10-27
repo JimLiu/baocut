@@ -45,6 +45,8 @@ fn hello_reports_version_backends_and_capabilities() {
     if !transcribe.is_empty() {
         expected.push("transcribe");
     }
+    // 能转写就读写转写检查点（`job.run` 的 `checkpoint`）。
+    assert_eq!(hello["checkpoints"], json!(expected));
     // 对齐器接在 MLX 与 candle 上：Apple Silicon 的构建与带 candle 的构建声明 `align`。
     if cfg!(any(
         all(target_os = "macos", target_arch = "aarch64", feature = "backend-mlx"),

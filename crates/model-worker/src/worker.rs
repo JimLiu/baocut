@@ -464,8 +464,11 @@ impl Worker {
         let transcribe_families = backend::transcribe_families();
         let image_families = image::available_families();
         let mut capabilities = Vec::new();
+        // `checkpoints`：带上 `job.run` 的 `checkpoint` 时会读写检查点的能力（§2.1、§2.5.1）。
+        let mut checkpoints = Vec::new();
         if !transcribe_families.is_empty() {
             capabilities.push("transcribe");
+            checkpoints.push("transcribe");
         }
         // `align` 要模型包带上可选的 `aligner` 组件；这里只声明这个构建接上了对齐器（§2.5.1）。
         if backend::aligner_available() {
@@ -494,6 +497,7 @@ impl Worker {
             "pid": std::process::id(),
             "backends": backend::statuses(),
             "capabilities": capabilities,
+            "checkpoints": checkpoints,
             "transcribeFamilies": transcribe_families,
             "separateFamilies": separate_families,
             "imageFamilies": image_families,

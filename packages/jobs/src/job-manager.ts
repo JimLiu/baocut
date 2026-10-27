@@ -465,6 +465,10 @@ interface Entry extends StoredJob {
 
 /** 已配对节点的 `providerId` 前缀：`node:<nodeId>`。 */
 const NODE_PREFIX = 'node:';
+/** 转写检查点在 staging 下的目录（架构设计 §6.6「取消与续跑」）：`<输入 hash>.jsonl`，跨尝试、跨任务、跨 Runtime 重启。 */
+const CHECKPOINTS_DIR = 'checkpoints';
+/** 这么久没有用上的转写检查点在 `open()` 时删除。 */
+const CHECKPOINT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 /** 在线 Provider 的拒绝：适配器给出的错误码，认不出的归为 `PROVIDER_REJECTED`。 */
 const PROVIDER_REJECTION_CODES = new Set(['PROVIDER_AUTH_FAILED', 'PROVIDER_QUOTA_EXCEEDED', 'PROVIDER_REJECTED', 'INPUT_TOO_LONG']);
 /** 生成输出的格式 → 媒体类型与产物扩展名。 */
@@ -601,6 +605,12 @@ export class JobManager {
       const entry = this.#entries.get(name);
       if (entry && !isTerminal(entry.record.state)) continue;
       await fs.rm(path.join(jobsStaging, name), { recursive: true, force: true });
+    }
+    const checkpoints = path.join(this.#options.paths.stagingDir, CHECKPOINTS_DIR);
+    for (const name of await fs.readdir(checkpoints).catch(() => [] as string[])) {
+      const file = path.join(checkpoints, name);
+      const stat = await fs.stat(file).catch(() => null);
+      if (stat && Date.now() - stat.mtimeMs > CHECKPOINT_MAX_AGE_MS) await fs.rm(file, { recursive: true, force: true }).catch(() => {});
     }
     if (counts.interrupted > 0) this.#log.warn('Unfinished tasks from last run marked interrupted', { count: counts.interrupted });
     if (counts.reconcile > 0) this.#log.warn('Outgoing calls from last run have unknown results; awaiting reconciliation', { count: counts.reconcile });
@@ -1911,12 +1921,15 @@ export class JobManager {
     const provider = entry.executor?.transcriber;
     if (!provider) return this.#finish(entry, 'failed', { error: jobError('MODEL_LOAD_FAILED', J.providerUnavailable()) });
     const staging = this.#stagingOf(record.jobId);
+    // 检查点不在 staging 里：崩溃重试、`pipelines.retry` 与重启后的重跑都从同一份输入做完的地方接着做（§6.6）。
+    const checkpoint = this.#checkpointOf(entry);
+    if (checkpoint) await fs.mkdir(path.dirname(checkpoint), { recursive: true }).catch(() => {});
     for (;;) {
       const refused = await this.#grantStart(entry);
       if (refused) return this.#finish(entry, 'failed', { error: refused });
       const now = nowIso();
       Object.assign(record, { state: 'running', phase: 'starting', progress: null, error: null, startedAt: record.startedAt ?? now });
-      // 每次尝试从头识别（staging 清空，不接着上一次的 segments.jsonl），实时段落也从序号 0 重来。
+      // 每次尝试从头写结果（staging 清空，不接着上一次的 segments.jsonl），实时段落也从序号 0 重来；做完的识别与对齐在检查点里。
       entry.liveSegments = [];
       this.#changed(entry, true);
       await fs.rm(staging, { recursive: true, force: true });
@@ -1950,6 +1963,7 @@ export class JobManager {
             ...(entry.workerVersion ? { expectedWorkerVersion: entry.workerVersion } : {}),
             ...(entry.input.mediaType ? { mediaType: entry.input.mediaType } : {}),
             ...(record.providerId.startsWith(NODE_PREFIX) ? { node: record.providerId.slice(NODE_PREFIX.length) } : {}),
+            ...(checkpoint ? { checkpoint } : {}),
           },
           this.#sink(entry),
           controller.signal,
@@ -2688,6 +2702,8 @@ export class JobManager {
     await fs.rm(this.#stagingOf(record.jobId), { recursive: true, force: true }).catch((error) => {
       this.#log.warn('Failed to remove task staging folder; cleanup will retry on restart', { jobId: record.jobId, error: String(error) });
     });
+    // 结果收下了，或不合合同（检查点里的工作不能再用）：检查点删掉。失败与取消的留给下一次重试。
+    if (state === 'completed' || patch.error?.code === 'MODEL_OUTPUT_INVALID') await this.#dropCheckpoint(entry);
     if (entry.leased) {
       entry.leased = false;
       if (record.videoId) this.#videos.release(record.videoId);
@@ -2843,6 +2859,26 @@ export class JobManager {
   #byCommand(commandId: Id): Id | null {
     for (const entry of this.#entries.values()) if (entry.commandId === commandId) return entry.record.jobId;
     return null;
+  }
+
+  /** 本地识别的转写检查点（§6.6「取消与续跑」）：按输入 hash 存。在线 Provider 与远端节点没有。 */
+  #checkpointOf(entry: Entry): string | null {
+    if (!isTranscribeSpec(entry.spec) || entry.record.providerId !== 'local') return null;
+    const hex = entry.record.inputHash.replace(/^sha256:/, '');
+    if (!/^[0-9a-f]{64}$/.test(hex)) return null;
+    return path.join(this.#options.paths.stagingDir, CHECKPOINTS_DIR, `${hex}.jsonl`);
+  }
+
+  /** 删掉这个任务的转写检查点；同一份输入还有别的任务没结束时留给它。 */
+  async #dropCheckpoint(entry: Entry): Promise<void> {
+    const checkpoint = this.#checkpointOf(entry);
+    if (!checkpoint) return;
+    for (const other of this.#entries.values()) {
+      if (other !== entry && !isTerminal(other.record.state) && this.#checkpointOf(other) === checkpoint) return;
+    }
+    await fs.rm(checkpoint, { force: true }).catch((error) => {
+      this.#log.warn('Failed to remove transcription checkpoint', { jobId: entry.record.jobId, error: String(error) });
+    });
   }
 
   #stagingOf(jobId: Id): string {

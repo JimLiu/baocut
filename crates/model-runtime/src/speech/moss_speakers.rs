@@ -6,6 +6,8 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use serde::{Deserialize, Serialize};
+
 use super::speaker_cluster::{DEFAULT_MERGE_THRESHOLD, SpeakerUnit, merge_speaker_units_capped};
 use super::{RowIn, SpeakerEmbedding, SpeakerRange};
 use crate::SAMPLE_RATE;
@@ -15,8 +17,9 @@ pub const SPEAKER_UNIT_MAX_SECONDS: f64 = 30.0;
 /// 少于这么多样本（0.5 秒）的单元不求嵌入，独占一个说话人。
 pub const SPEAKER_UNIT_MIN_SAMPLES: usize = 8_000;
 
-/// 一次合并的结果（给调用方决定要不要报警告、记 provenance）。
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// 一次合并的结果（给调用方决定要不要报警告、记 provenance）。转写检查点按 `outcome` 记下它（架构设计 §6.6）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "kebab-case")]
 pub enum SpeakerMerge {
     /// 没有说话人区间，无事可做。
     Nothing,

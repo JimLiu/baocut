@@ -143,6 +143,10 @@ pub struct JobRunParams {
     pub options: Value,
     pub staging: String,
     pub output_contract: String,
+    /// 转写检查点文件的绝对路径（§2.5.1、架构设计 §6.6）：自分段识别（MOSS）读回其中有效的工作接着做，做完一份追加一条。
+    /// 其他模型与 `align` 不用它。省略时不用检查点。
+    #[serde(default)]
+    pub checkpoint: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

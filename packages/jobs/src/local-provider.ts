@@ -161,6 +161,8 @@ interface RunSpec {
   loading(): void;
   expectedWorkerVersion?: string | undefined;
   params: JobRunParams;
+  /** 转写检查点（`TranscribeRun.checkpoint`）：Worker 的 `checkpoints` 含这个能力时才并进 `params`。 */
+  checkpoint?: string | undefined;
   /** `INPUT_UNREADABLE` 时的说明（识别的素材、合成的参考录音）；函数时按 Worker 的 `details` 定（生图的第几张输入图）。 */
   inputLabel: JobText | ((details: unknown) => JobText);
   /** `INPUT_UNREADABLE` 时并进 `details` 的内容（内置音色的录音读不出来时带 `code: 'APP_FILE_MISSING'`）。 */
@@ -281,6 +283,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
           staging: run.staging,
           outputContract: ASR_RESULT_SCHEMA,
         },
+        checkpoint: run.checkpoint,
         inputLabel: L.assetUnreadable(),
       },
       signal,
@@ -653,8 +656,13 @@ export class LocalTranscribeProvider implements TranscribeProvider {
       }, this.#cancelGraceMs);
     };
     signal.addEventListener('abort', onAbort, { once: true });
+    // 旧的 Worker 不认 `checkpoint`（参数多一个字段即 `INVALID_PARAMS`）：没声明的不发。
+    const params =
+      spec.checkpoint && hello.checkpoints?.includes(spec.params.capability)
+        ? { ...spec.params, checkpoint: spec.checkpoint }
+        : spec.params;
     try {
-      const result = await worker.request<R>('job.run', spec.params);
+      const result = await worker.request<R>('job.run', params);
       if (result.outcome === 'cancelled') return { outcome: 'cancelled', workerVersion: hello.workerVersion };
       const output = outputOf(result);
       if (!output) throw new ProviderFailure('protocol', L.noOutput());

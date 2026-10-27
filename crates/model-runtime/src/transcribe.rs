@@ -20,6 +20,7 @@ use crate::asr_result::{
 use crate::audio::{self, DecodeError, DecodeRange, DecodeRequest, PcmFile};
 use crate::backend::{LoadedModel, RunMode, speech_timing_enabled};
 use crate::bundle::{VerifiedBundle, VerifiedFiles};
+use crate::checkpoint::{self, Checkpoint, Restored};
 use crate::protocol::{
     AlignOptions, Capability, ErrorBody, HINT_MAX_CHARS, JobOutcome, JobRunParams, JobRunResult, JobStats, LanguageRequest, MemorySnapshot,
     OUTPUT_CONTRACT, TranscribeOptions, codes, parse_params,
@@ -33,8 +34,8 @@ use crate::speech::speaker_projection::project_speaker_clusters;
 use crate::speech::text_prep::is_han_ideograph;
 use crate::speech::vad_stream::{self, SpanScan};
 use crate::speech::{
-    AlignedWord, RecognitionRequest, SegmentedTranscription, SegmentingCallbacks, SegmentingCancelled, SpeakerRange, SpeechRecognizer,
-    StreamingVad, WordIn, autolang, language, word_timing,
+    AlignedWord, ChunkProgress, RecognitionRequest, SegmentedTranscription, SegmentingCallbacks, SegmentingCancelled, SpeakerRange,
+    SpeechRecognizer, StreamingVad, WordIn, autolang, language, word_timing,
 };
 use crate::ticks::{seconds_to_ticks, ticks_to_seconds};
 use crate::{SAMPLE_RATE, WORKER_VERSION};
@@ -175,6 +176,9 @@ fn prepare<'a>(params: &'a JobRunParams, family: &str, aligner_loaded: bool) -> 
     }
     if !Path::new(&params.input.file).is_absolute() {
         return Err(ErrorBody::invalid_params("input.file must be an absolute path"));
+    }
+    if params.checkpoint.as_deref().is_some_and(|path| !Path::new(path).is_absolute()) {
+        return Err(ErrorBody::invalid_params("checkpoint must be an absolute path"));
     }
     let (offset, requested_length) = match params.input.range {
         None => (0.0, None),
@@ -571,6 +575,9 @@ impl Runner<'_> {
     /// `diarize` 时才带上说话人，并用模型包的说话人模型把各块的局部说话人合并成全局的（v2 同款）；模型包带了对齐器时，
     /// 没有词时间、长于 5 秒的行在行窗口内强制对齐（词标 `aligned`），其余按字符数估计。没有 VAD 一步；只在断言时送
     /// 语言；模型没有提示通道，带了 `hint` 时报 `hint-ignored`。
+    ///
+    /// 带了 `checkpoint` 时每收下一个初始分块、识别完成、说话人合并完成、每对齐完一行各记一条，下次同一份输入从检查点里
+    /// 做完的地方接着做（架构设计 §6.6「取消与续跑」）。
     fn run_self_segmenting(
         &mut self,
         model: &mut dyn LoadedModel,
@@ -582,44 +589,77 @@ impl Runner<'_> {
         if self.job.options.hint.as_deref().is_some_and(|hint| !hint.trim().is_empty()) {
             self.warn(Warning::new(WarningCode::HintIgnored).detail("this model has no recognition hint channel; the hint was not used"));
         }
+        let (mut checkpoint, mut restored) = match self.job.params.checkpoint.as_deref() {
+            Some(path) => {
+                let key = checkpoint::key(self.job.params, &self.job.options, self.bundle, samples);
+                match Checkpoint::open(Path::new(path), &key, self.job.params, self.bundle) {
+                    Some((checkpoint, restored)) => (Some(checkpoint), restored),
+                    None => (None, Restored::default()),
+                }
+            }
+            None => (None, Restored::default()),
+        };
         self.phase("transcribing");
         let started = Instant::now();
         let asserted = self.job.asserted_code.clone();
-        let transcription = {
-            let RunMode::SelfSegmenting(recognizer) = model.run_mode() else {
-                return Err(not_a_pipeline());
-            };
-            let cancel = self.cancel;
-            let job_id = self.job.params.job_id.clone();
-            let sink = &mut *self.sink;
-            let mut on_progress = |covered: f64, total: f64| {
-                sink.event(
-                    "job.progress",
-                    json!({ "jobId": job_id, "phase": "transcribing", "done": covered, "total": total, "unit": "seconds" }),
-                );
-            };
-            let mut should_cancel = || cancel.load(Ordering::SeqCst);
-            let mut callbacks = SegmentingCallbacks {
-                on_progress: Some(&mut on_progress),
-                on_segment: None,
-                should_cancel: Some(&mut should_cancel),
-            };
-            recognizer.transcribe(samples, asserted.as_deref(), &mut callbacks)
-        };
-        self.stats.asr_ms = started.elapsed().as_millis() as u64;
-        let SegmentedTranscription {
-            mut rows,
-            mut speaker_ranges,
-            warnings,
-            ..
-        } = match transcription {
-            Ok(transcription) => transcription,
-            Err(error) if error.downcast_ref::<SegmentingCancelled>().is_some() => return Ok(self.cancelled_result(segments_path)),
-            Err(error) => {
-                eprintln!("[model-worker] recognition failed: {error:#}");
-                return Err(ErrorBody::new(codes::INFERENCE_FAILED, "speech recognition failed"));
+        let (mut rows, mut speaker_ranges, warnings) = match restored.transcribed.take() {
+            // 识别上次已经做完：不再加载、调用识别器。
+            Some(done) => {
+                let params = json!({
+                    "jobId": self.job_id(), "phase": "transcribing", "done": decoded_seconds, "total": decoded_seconds, "unit": "seconds"
+                });
+                self.sink.event("job.progress", params);
+                (done.rows, done.speaker_ranges, done.warnings)
+            }
+            None => {
+                let transcription = {
+                    let RunMode::SelfSegmenting(recognizer) = model.run_mode() else {
+                        return Err(not_a_pipeline());
+                    };
+                    let cancel = self.cancel;
+                    let job_id = self.job.params.job_id.clone();
+                    let sink = &mut *self.sink;
+                    let mut on_progress = |covered: f64, total: f64| {
+                        sink.event(
+                            "job.progress",
+                            json!({ "jobId": job_id, "phase": "transcribing", "done": covered, "total": total, "unit": "seconds" }),
+                        );
+                    };
+                    let mut should_cancel = || cancel.load(Ordering::SeqCst);
+                    let mut on_chunk = |chunk: &ChunkProgress| {
+                        if let Some(checkpoint) = checkpoint.as_mut() {
+                            checkpoint.chunk(chunk);
+                        }
+                    };
+                    let mut callbacks = SegmentingCallbacks {
+                        on_progress: Some(&mut on_progress),
+                        on_segment: None,
+                        should_cancel: Some(&mut should_cancel),
+                        resume: &restored.chunks,
+                        on_chunk: Some(&mut on_chunk),
+                    };
+                    recognizer.transcribe(samples, asserted.as_deref(), &mut callbacks)
+                };
+                let SegmentedTranscription {
+                    rows,
+                    speaker_ranges,
+                    warnings,
+                    ..
+                } = match transcription {
+                    Ok(transcription) => transcription,
+                    Err(error) if error.downcast_ref::<SegmentingCancelled>().is_some() => return Ok(self.cancelled_result(segments_path)),
+                    Err(error) => {
+                        eprintln!("[model-worker] recognition failed: {error:#}");
+                        return Err(ErrorBody::new(codes::INFERENCE_FAILED, "speech recognition failed"));
+                    }
+                };
+                if let Some(checkpoint) = checkpoint.as_mut() {
+                    checkpoint.transcribed(&rows, &speaker_ranges, &warnings);
+                }
+                (rows, speaker_ranges, warnings)
             }
         };
+        self.stats.asr_ms = started.elapsed().as_millis() as u64;
         if self.cancelled() {
             return Ok(self.cancelled_result(segments_path));
         }
@@ -647,14 +687,30 @@ impl Runner<'_> {
         if diarize && !speaker_ranges.is_empty() {
             self.phase("diarizing");
             let started = Instant::now();
-            let merge = moss_speakers::merge_moss_speakers(
-                &mut rows,
-                &mut speaker_ranges,
-                samples,
-                model.speaker_embedder(),
-                moss_speakers::speaker_merge_threshold(),
-                None,
-            );
+            let merge = match restored.speakers.take() {
+                // 上次已经合并过：不再加载说话人模型。
+                Some(done) => {
+                    rows = done.rows;
+                    speaker_ranges = done.speaker_ranges;
+                    done.merge
+                }
+                None => {
+                    let merge = moss_speakers::merge_moss_speakers(
+                        &mut rows,
+                        &mut speaker_ranges,
+                        samples,
+                        model.speaker_embedder(),
+                        moss_speakers::speaker_merge_threshold(),
+                        None,
+                    );
+                    // 之前对齐过的行是在没有合并的行上做的：不用，检查点里也截掉。
+                    restored.aligned.clear();
+                    if let Some(checkpoint) = checkpoint.as_mut() {
+                        checkpoint.speakers(&rows, &speaker_ranges, &merge);
+                    }
+                    merge
+                }
+            };
             self.stats.asr_ms += started.elapsed().as_millis() as u64;
             let chunks = speaker_ranges.iter().map(|range| range.chunk).collect::<HashSet<_>>().len();
             match merge {
@@ -687,20 +743,26 @@ impl Runner<'_> {
             let started = Instant::now();
             // 没被断言的语言不拿去当对齐器的语言（素材不是那个语言时对齐器按错的语言切词）：用按全文猜的。
             let language = asserted.clone().or_else(|| guessed.clone()).unwrap_or_else(|| "en".to_owned());
-            match model.aligner() {
-                Some(aligner) => {
+            // refine_word_timings 跳过样本窗为空的行，不为它们调用对齐器：按同一条件算出第 n 次调用对应的行。
+            let called: Vec<usize> = targets
+                .iter()
+                .copied()
+                .filter(|&index| {
+                    let row = &rows[index];
+                    let lower = ((row.start * f64::from(SAMPLE_RATE)) as usize).min(samples.len());
+                    let upper = ((row.end * f64::from(SAMPLE_RATE)) as usize).min(samples.len());
+                    upper > lower
+                })
+                .collect();
+            // 要对齐的行检查点里都有：不再加载对齐器。
+            let all_restored = called.iter().all(|index| restored.aligned.contains_key(index));
+            let mut aligner = match all_restored {
+                true => None,
+                false => model.aligner(),
+            };
+            match all_restored || aligner.is_some() {
+                true => {
                     self.aligner_loaded = true;
-                    // refine_word_timings 跳过样本窗为空的行，不为它们调用对齐器：按同一条件算出第 n 次调用对应的行。
-                    let called: Vec<usize> = targets
-                        .iter()
-                        .copied()
-                        .filter(|&index| {
-                            let row = &rows[index];
-                            let lower = ((row.start * f64::from(SAMPLE_RATE)) as usize).min(samples.len());
-                            let upper = ((row.end * f64::from(SAMPLE_RATE)) as usize).min(samples.len());
-                            upper > lower
-                        })
-                        .collect();
                     let mut attempt = 0;
                     let cancel = self.cancel;
                     let job_id = self.job.params.job_id.clone();
@@ -717,14 +779,31 @@ impl Runner<'_> {
                             if cancel.load(Ordering::SeqCst) {
                                 return Ok(Vec::new());
                             }
-                            match aligner.align_long(audio, text, Some(language)) {
-                                Ok(words) if !words.is_empty() => Ok(words),
-                                Ok(_) => {
-                                    alignment_failures.extend(row);
-                                    Ok(Vec::new())
+                            let words = match row.and_then(|row| restored.aligned.get(&row)) {
+                                Some(done) => done.clone(),
+                                None => {
+                                    let Some(aligner) = aligner.as_deref_mut() else {
+                                        return Ok(Vec::new());
+                                    };
+                                    // 对齐器报错的行不记进检查点：续跑时再试一次。
+                                    match aligner.align_long(audio, text, Some(language)) {
+                                        Ok(words) => {
+                                            let words = (!words.is_empty()).then_some(words);
+                                            if let (Some(row), Some(checkpoint)) = (row, checkpoint.as_mut()) {
+                                                checkpoint.aligned(row, words.as_deref());
+                                            }
+                                            words
+                                        }
+                                        Err(error) => {
+                                            eprintln!("[model-worker] forced alignment failed: {error:#}");
+                                            None
+                                        }
+                                    }
                                 }
-                                Err(error) => {
-                                    eprintln!("[model-worker] forced alignment failed: {error:#}");
+                            };
+                            match words {
+                                Some(words) => Ok(words),
+                                None => {
                                     alignment_failures.extend(row);
                                     Ok(Vec::new())
                                 }
@@ -745,7 +824,7 @@ impl Runner<'_> {
                         rows = refined;
                     }
                 }
-                None => {
+                false => {
                     self.warn(
                         Warning::new(WarningCode::AlignmentFailed)
                             .detail("the forced aligner could not be loaded; word timings are estimated"),

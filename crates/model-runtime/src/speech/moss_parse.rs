@@ -1,5 +1,7 @@
 //! MOSS 输出 `[start][Sxx]text[end]` 的增量解析、生成预算与结果适配。移植自 v2 `bcut-speech-core`。
 
+use serde::{Deserialize, Serialize};
+
 use super::{LiveSegment, RowIn};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -371,7 +373,7 @@ impl MossGenerationPlan {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpeakerRange {
     pub start: f64,
     pub end: f64,

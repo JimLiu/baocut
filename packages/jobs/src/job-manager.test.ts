@@ -542,6 +542,46 @@ describe('JobManager（假 Model Worker）', () => {
     expect(interrupted).toMatchObject({ attempt: 1, error: { code: 'MODEL_WORKER_CRASHED' } });
   });
 
+  it('转写检查点：崩溃重试拿到同一份按输入 hash 的检查点，完成后删除；失败的留给下次，7 天没用上的启动时删除', async () => {
+    const recordFile = path.join(dir, 'runs.jsonl');
+    const checkpointOf = (job: JobRecord) => path.join(paths.stagingDir, 'checkpoints', `${job.inputHash.replace(/^sha256:/, '')}.jsonl`);
+    await start({ control: { record: recordFile } });
+    const job = await run('fake@cpu#crash-once');
+    expect(job).toMatchObject({ state: 'completed', attempt: 2 });
+    const runs = (await fs.readFile(recordFile, 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { runGeneration: number; checkpoint?: string });
+    expect(runs.map((params) => [params.runGeneration, params.checkpoint])).toEqual([
+      [1, checkpointOf(job)],
+      [2, checkpointOf(job)],
+    ]);
+    expect(await exists(checkpointOf(job))).toBe(false);
+
+    // 两次尝试都崩溃：失败，检查点留着（每次尝试各写了一行）。
+    const failed = await run('fake@cpu#crash-on-run');
+    expect(failed).toMatchObject({ state: 'failed', attempt: 2 });
+    expect((await fs.readFile(checkpointOf(failed), 'utf8')).trim().split('\n')).toHaveLength(2);
+
+    // 重启：7 天内的留着，更久没用上的删除。
+    await manager.shutdown();
+    await start();
+    expect(await exists(checkpointOf(failed))).toBe(true);
+    const stale = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    await fs.utimes(checkpointOf(failed), stale, stale);
+    await manager.shutdown();
+    await start();
+    expect(await exists(checkpointOf(failed))).toBe(false);
+  });
+
+  it('Worker 没声明 checkpoints（旧版）：job.run 不带 checkpoint', async () => {
+    const recordFile = path.join(dir, 'runs.jsonl');
+    await start({ control: { record: recordFile, checkpoints: [] } });
+    expect(await run()).toMatchObject({ state: 'completed' });
+    const params = JSON.parse((await fs.readFile(recordFile, 'utf8')).trim()) as Record<string, unknown>;
+    expect(params).not.toHaveProperty('checkpoint');
+  });
+
   it('反复崩溃：两次尝试后 MODEL_WORKER_CRASHED；默认 5 分钟内第 3 次崩溃停用模型包，enable 恢复', async () => {
     // 默认的上限与窗口：计的是崩溃次数，不是任务数——第一个任务自动重试一次，占两次。
     await start();

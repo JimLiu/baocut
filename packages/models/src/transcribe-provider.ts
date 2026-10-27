@@ -29,6 +29,11 @@ export interface TranscribeRun {
   mediaType?: string;
   /** 远端节点 Provider 的目标节点（`nodeId`）；不给时取 `providerId` 的 `node:<nodeId>`。本地 Provider 没有。 */
   node?: string;
+  /**
+   * 转写检查点文件（绝对路径，架构设计 §6.6「取消与续跑」）：同一份输入的上一次尝试做完的工作。只给本地 Provider；
+   * Worker 不支持时不发。
+   */
+  checkpoint?: string;
 }
 
 /** Provider 回报的事实。JobManager 据此更新 `jobs` 主题。 */

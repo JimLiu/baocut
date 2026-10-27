@@ -68,11 +68,17 @@ enum AlignerScript {
 struct FakeAligner {
     script: AlignerScript,
     calls: Vec<(usize, String, Option<String>)>,
+    /// 已经调用过这么多次之后的下一次 panic（模拟 Worker 在对齐中途崩溃）。
+    crash_after: Option<usize>,
 }
 
 impl FakeAligner {
     fn new(script: AlignerScript) -> Self {
-        Self { script, calls: Vec::new() }
+        Self {
+            script,
+            calls: Vec::new(),
+            crash_after: None,
+        }
     }
 
     fn hello_world() -> Self {
@@ -82,6 +88,9 @@ impl FakeAligner {
 
 impl ForcedAlignment for FakeAligner {
     fn align(&mut self, audio: &[f32], text: &str, language: Option<&str>) -> Result<Vec<AlignedWord>> {
+        if self.crash_after == Some(self.calls.len()) {
+            panic!("the worker crashed while aligning");
+        }
         self.calls.push((audio.len(), text.to_owned(), language.map(str::to_owned)));
         match &self.script {
             AlignerScript::Words(words) => Ok(words
@@ -1247,6 +1256,177 @@ fn self_segmenting_models_keep_chunk_labels_with_a_warning_when_speakers_cannot_
             .all(|word| word.timing_quality != TimingQuality::Aligned)
     );
     assert_eq!(model.finished, 1);
+}
+
+/// 三块各一行、每行都长于 5 秒且没有词时间（块内标签都是 `S01`）：MOSS 的行与说话人区间。
+fn three_long_rows() -> (Vec<RowIn>, Vec<SpeakerRange>) {
+    let texts = ["Hello world one.", "Hello world two.", "Hello world three."];
+    let rows = texts
+        .iter()
+        .enumerate()
+        .map(|(index, text)| row(index as f64 * 6.0, index as f64 * 6.0 + 5.5, text, Some("S01")))
+        .collect();
+    let ranges = (0..texts.len())
+        .map(|index| SpeakerRange {
+            start: index as f64 * 6.0,
+            end: index as f64 * 6.0 + 5.5,
+            cluster: index,
+            chunk: index,
+        })
+        .collect();
+    (rows, ranges)
+}
+
+/// 识别出 [`three_long_rows`]、说话人模型把第一块与第三块认成同一个人的 MOSS 假模型。
+fn three_row_model(aligner: FakeAligner) -> SegmentingModel {
+    let (rows, ranges) = three_long_rows();
+    let mut model = SegmentingModel::new(rows);
+    model.speaker_ranges = ranges;
+    model.aligner = Some(aligner);
+    model.embedder = Some(ScriptedEmbedder {
+        vectors: VecDeque::from([vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 0.0]]),
+        calls: Vec::new(),
+    });
+    model
+}
+
+fn with_checkpoint(mut params: JobRunParams, checkpoint: &Path) -> JobRunParams {
+    params.checkpoint = Some(checkpoint.to_string_lossy().into_owned());
+    params
+}
+
+fn checkpoint_records(checkpoint: &Path) -> Vec<String> {
+    std::fs::read_to_string(checkpoint)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap()["type"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[test]
+fn a_transcription_interrupted_while_aligning_resumes_from_the_checkpoint_and_matches_one_run() {
+    let fixture = Fixture::with_moss_helpers();
+    let wav = fixture.wav("three.wav", &[(18.0, 0.3)]);
+    let options = json!({ "language": { "mode": "prefer", "tag": null }, "diarize": true });
+
+    // 一次跑完（不带检查点）：基准。
+    let mut model = three_row_model(FakeAligner::hello_world());
+    let staging = fixture.staging("whole");
+    let whole = transcribe::run(
+        &mut model,
+        &fixture.bundle,
+        &params(&wav, &staging, options.clone(), None),
+        &AtomicBool::new(false),
+        &mut Events::default(),
+    )
+    .unwrap();
+    assert_eq!(model.aligner.as_ref().unwrap().calls.len(), 3);
+    assert_eq!(model.embedder.as_ref().unwrap().calls.len(), 3);
+    let expected = std::fs::read(&whole.output.as_ref().unwrap().path).unwrap();
+
+    // 对齐完第一行后 Worker 崩溃：检查点里有识别、合并与那一行。
+    let checkpoint = fixture.dir.path().join("checkpoints").join("input.jsonl");
+    std::fs::create_dir_all(checkpoint.parent().unwrap()).unwrap();
+    let mut aligner = FakeAligner::hello_world();
+    aligner.crash_after = Some(1);
+    let mut model = three_row_model(aligner);
+    let staging = fixture.staging("crashed");
+    let crashed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        transcribe::run(
+            &mut model,
+            &fixture.bundle,
+            &with_checkpoint(params(&wav, &staging, options.clone(), None), &checkpoint),
+            &AtomicBool::new(false),
+            &mut Events::default(),
+        )
+    }));
+    assert!(crashed.is_err());
+    assert_eq!(model.aligner.as_ref().unwrap().calls.len(), 1);
+    assert_eq!(checkpoint_records(&checkpoint), ["header", "transcribed", "speakers", "aligned"]);
+    // 崩溃时常见的撕裂末行：读的时候丢掉。
+    let mut torn = std::fs::OpenOptions::new().append(true).open(&checkpoint).unwrap();
+    std::io::Write::write_all(&mut torn, br#"{"type":"aligned","row":1,"wor"#).unwrap();
+    drop(torn);
+
+    // 新的 Worker、新的暂存目录接着跑：不再识别、不再算说话人嵌入，只对齐剩下的两行。
+    let mut model = three_row_model(FakeAligner::hello_world());
+    let mut events = Events::default();
+    let staging = fixture.staging("resumed");
+    let resumed = transcribe::run(
+        &mut model,
+        &fixture.bundle,
+        &with_checkpoint(params(&wav, &staging, options.clone(), None), &checkpoint),
+        &AtomicBool::new(false),
+        &mut events,
+    )
+    .unwrap();
+    assert!(model.calls.is_empty(), "the recognizer must not run again");
+    assert!(
+        model.embedder.as_ref().unwrap().calls.is_empty(),
+        "speakers must not be merged again"
+    );
+    let texts: Vec<_> = model.aligner.as_ref().unwrap().calls.iter().map(|call| call.1.as_str()).collect();
+    assert_eq!(texts, ["Hello world two.", "Hello world three."]);
+    assert_eq!(phases(&events), ["decoding", "transcribing", "diarizing", "aligning", "finalizing"]);
+    assert_eq!(std::fs::read(&resumed.output.as_ref().unwrap().path).unwrap(), expected);
+    assert_eq!(
+        checkpoint_records(&checkpoint),
+        ["header", "transcribed", "speakers", "aligned", "aligned", "aligned"]
+    );
+
+    // 检查点已经完整：再跑一遍什么模型都不用调。
+    let mut model = three_row_model(FakeAligner::hello_world());
+    let staging = fixture.staging("replayed");
+    let replayed = transcribe::run(
+        &mut model,
+        &fixture.bundle,
+        &with_checkpoint(params(&wav, &staging, options, None), &checkpoint),
+        &AtomicBool::new(false),
+        &mut Events::default(),
+    )
+    .unwrap();
+    assert!(model.calls.is_empty() && model.aligner.as_ref().unwrap().calls.is_empty());
+    assert_eq!(std::fs::read(&replayed.output.as_ref().unwrap().path).unwrap(), expected);
+}
+
+#[test]
+fn a_checkpoint_from_other_parameters_or_models_is_discarded_and_everything_runs_again() {
+    let fixture = Fixture::with_moss_helpers();
+    let wav = fixture.wav("three.wav", &[(18.0, 0.3)]);
+    let options = json!({ "language": { "mode": "prefer", "tag": null }, "diarize": true });
+    let checkpoint = fixture.dir.path().join("input.jsonl");
+    let run_with = |bundle: &VerifiedBundle, options: &Value, name: &str| {
+        let mut model = three_row_model(FakeAligner::hello_world());
+        let staging = fixture.staging(name);
+        let params = with_checkpoint(params(&wav, &staging, options.clone(), None), &checkpoint);
+        let result = transcribe::run(&mut model, bundle, &params, &AtomicBool::new(false), &mut Events::default()).unwrap();
+        assert_eq!(result.outcome, JobOutcome::Completed);
+        (model.calls.len(), model.aligner.unwrap().calls.len())
+    };
+    assert_eq!(run_with(&fixture.bundle, &options, "first"), (1, 3));
+    assert_eq!(run_with(&fixture.bundle, &options, "same"), (0, 0));
+
+    // 参数变了（timescale 影响结果的 tick）：整份作废、从头跑，检查点换成这一次的。
+    let mut other_options = options.clone();
+    other_options["timescale"] = json!(48_000);
+    assert_eq!(run_with(&fixture.bundle, &other_options, "timescale"), (1, 3));
+    assert_eq!(run_with(&fixture.bundle, &other_options, "timescale-again"), (0, 0));
+
+    // 识别模型换了版本、模型包换了：同样从头跑。
+    let mut revised = fixture.bundle.clone();
+    revised.asr.as_mut().unwrap().revision = "asr-rev-2".into();
+    assert_eq!(run_with(&revised, &other_options, "revision"), (1, 3));
+    let mut other_bundle = revised.clone();
+    other_bundle.bundle_id = "fake@other".into();
+    assert_eq!(run_with(&other_bundle, &other_options, "bundle"), (1, 3));
+
+    // 不认识的内容（格式换了、文件坏了）：同样从头跑。
+    std::fs::write(
+        &checkpoint,
+        b"{\"type\":\"header\",\"schema\":\"baocut.transcribe-checkpoint/0\"}\n",
+    )
+    .unwrap();
+    assert_eq!(run_with(&other_bundle, &other_options, "schema"), (1, 3));
 }
 
 fn phases(events: &Events) -> Vec<&str> {

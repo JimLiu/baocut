@@ -14,6 +14,7 @@ pub mod asr_result;
 pub mod audio;
 pub mod backend;
 pub mod bundle;
+pub mod checkpoint;
 pub mod diarize;
 pub mod embed;
 pub mod gpu_env;

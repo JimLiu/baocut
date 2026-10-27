@@ -56,7 +56,8 @@ realfft = "3.5.0"
 # candle 后端按需读 safetensors 分片（不整份读进内存）。
 safetensors = { version = "0.8", optional = true }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+# `float_roundtrip`：十进制读成 f64 必须正确舍入：转写检查点里的秒数读回来要与写进去的逐位相同（架构设计 §6.6）。
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 sha2 = "0.11.0"
 unicode-general-category = "1.1"
 # Qwen-Image 分词器的 NFC 规范化。

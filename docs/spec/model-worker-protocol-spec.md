@@ -54,6 +54,7 @@ result: {
   transcribeFamilies: string[];     // 能加载的识别模型 family（§4.1 `asr` 组件的 family）；没有时为 []
   separateFamilies: string[];       // 能加载的分离模型 family（§4.1 `separator` 组件的 family）；没有时为 []
   imageFamilies: string[];          // 能加载的文生图模型 family（§4.1 `image` 组件的 family）；没有时为 []
+  checkpoints: Array<'transcribe'>; // 带上 `job.run` 的 `checkpoint` 时读写检查点的能力（§2.5.1、§5）；旧的 Worker 没有这个字段
   embeddingCapabilities?: {         // 只在 `capabilities` 含 `embed` 时出现（§2.5.6）
     families: string[];             // 能加载的 `embedding` family（§4.5）
     outputSizes: number[];          // `embed.run` 接受的 `outputSize`：[128, 256, 512, 768]
@@ -123,6 +124,7 @@ params: {
   options: TranscribeOptions | AlignOptions;
   staging: string;                    // 绝对路径；Worker 只能写这个目录
   outputContract: 'baocut.asr-result/v1';
+  checkpoint?: string;                // 转写检查点文件的绝对路径（§5）；只发给 `checkpoints` 含 `transcribe` 的 Worker
 }
 
 interface TranscribeOptions {
@@ -151,6 +153,8 @@ result: {
 `hint` 超过 1200 字符是 `INVALID_PARAMS`；在这之内 Worker 不改写调用方的文字，交给模型的方式按 `asr` 的 family 不同（与 v2 相同）：`qwen3-asr` 整段放进系统上下文；`whisper-coreml` 按 BPE 编码后接在 `<|startofprev|>` 之后作前置提示，最多占解码器 KV 缓存的一半（减去任务前缀），超出时从前面截、留最靠近音频的那一截——large-v3 约 220 个 token，large-v3-turbo 约 108 个；`whisper-mlx` 同样作前置提示，预算按每个 30 秒窗「提示 + 生成」共 224 个 token 的一半算，两个模型都约 108 个；`whisper-ggml` 作 whisper.cpp 的 initial prompt（去掉内嵌的 NUL），每个语音段解码前都重新放入（同一段内的后续 30 秒窗把它与已解出的文字一起滚动作前文），超出文本上下文的一半（224 个 token）时由 whisper.cpp 留最靠近音频的那一截；`moss-transcribe-diarize` 不交给模型，报 `hint-ignored`。流水线自动识别语言（`prefer`）时，在第一段识别出文字的段上定下任务的语言（`job.language` 与结果的 `language`）：优先用模型自报的语言名，其次按累计的文本推断；识别结果为空的段不算，模型在这样的段上自报的语言不采信。只有断言的语言交给模型；定下的语言不强加给之后的段，每段都由模型自己判断，对齐器与词时间估计用模型在这一段上自报的语言，报不出时用任务的语言（架构设计 §6.6 第 4 步）。本地模型都不给语言的置信度，`job.language` 与结果里的 `confidence` 为 null。
 
 识别有两种执行方式，由 `asr` 的 family 决定。**流水线**（`qwen3-asr`、`whisper-mlx`、`whisper-coreml`、`whisper-ggml`）：先用 VAD 切出语音段，再逐段识别。三种 Whisper 把 `hint` 作为前置提示交给解码器；它们只出句级文本。模型包带了对齐器（几个模型族共用同一只 `qwen3-forced-aligner`）时，每段识别出的文本在这段的音频上强制对齐，词时间标 `aligned`（provenance 的 `models.aligner` 点名它），词的起点展开为严格递增，起止塌成一点的词补到一个对齐格（0.08 秒，至多到下一个词的起点或段尾）；对齐出错或对不出词时这一段退回按字符长度估计（`estimated`），并带 `alignment-failed` 警告（`segmentId` 指向这一段），任务不失败。没有对齐器时词时间一律按字符长度估计。`diarize: true` 时，模型包带了 `segmentation` 组件（`pyannote-segmentation`，与 `speaker` 的 `wespeaker` 一起来自「说话人区分」模型包，架构设计 §6.3）就在识别与对齐完成之后进 `diarizing` 阶段（`job.progress` 的 `unit` 是 `steps`）：Pyannote 分段按 10 秒窗、5 秒步长在整段音频上判断每个窗里最多 3 个本地说话人，WeSpeaker 给每个本地说话人提取声纹，带约束的凝聚聚类（合并阈值 0.715）合成全局说话人，再把说话人区间投影到词上（架构设计 §6.6 第 7 步）。词的 `speakerId` 是投影到它的说话人，段的 `speakerId` 是段内词的说话时长最多的那个；说话人按时间上第一次出现记为 `spk-1`、`spk-2`……（`label` 为 null），没分到词的说话人排在后面。provenance 的 `models.segmentation` 与 `models.speaker` 点名两个模型。没有 `speaker` 时按窗的重叠串联本地说话人（退化的路径，区分得差）。两个模型在第一次要说话人时才加载、任务结束即卸下，识别模型留着（与 v2 相同）；耗时计入 `stats.asrMs`。模型包没有 `segmentation`、两个模型加载不了或推理出错时不区分，报 `diarization-unavailable`（`detail` 说明是哪种），转写照常完成。`job.segment` 与 `segmentsFile` 在区分之前写出：段的 `speakerId` 为 null，词不带 `speakerId`，说话人只在结果里。`diarize: false` 时不输出说话人。**自分段**（`moss-transcribe-diarize`）：整段音频一次交给模型，模型自己分块生成、切段并给出块内的说话人，没有 VAD 阶段，`stats.vadMs` 为 0；阶段依次是 `decoding`、`transcribing`，要说话人时 `diarizing`，有要对齐的行时 `aligning`，最后 `finalizing`。语言只在断言时交给模型；没断言时识别完按全文猜一次，猜出来就推送一次 `job.language` 并以 `detected` 作为结果的语言（`confidence` 为 null），猜不出是 `unknown`。模型没有提示通道，`hint` 非空时不交给模型并报 `hint-ignored`。某一块生成到上限或陷入重复、又切不开时保留已识别的部分，报 `segment-incomplete`（`detail` 说明是哪一块）。`diarize: true` 时，模型包带了说话人模型（`wespeaker`）就用各块说话人的声纹嵌入把块内标签合并成全局说话人（provenance 的 `models.speaker` 点名它）；没有说话人模型或行与说话人区间对不上、而模型分了不止一块时保留块内标签，报 `diarization-unavailable`（同名标签在不同块里可能不是同一个人）。说话人按出现顺序记为 `spk-1`、`spk-2`……（`label` 为 null）；`diarize: false` 时不输出说话人。模型包带了对齐器时，长于 5 秒且没有词时间的行在行的音频窗口内强制对齐（语言取断言的或按全文猜出的语言，都没有时按 `en`），词标 `aligned`；对不出时这一行退回估计并带 `alignment-failed`（`segmentId` 指向它），对齐器加载不了时报一条不带 `segmentId` 的 `alignment-failed`。provenance 的 `models.aligner` 只在这个任务真用到对齐器时填写。其余行的词时间按字符长度估计（`estimated`）。分段按时间排序、截到输入范围内、去掉重叠：与前一行部分重叠的在重叠区中点分开；整个落在前一行里的（多人同时说话时的插话）按原时长从包住它的那行的尾巴上分出来（几行插话合起来至多分走那行的一半，超出时按比例缩短），排在那行之后，词跟着平移，带 `timing-adjusted`（`segmentId` 指向它）。对齐器与说话人模型用到时才加载、任务结束即卸下，两者不同时常驻；系统内存吃紧时先卸下 MOSS 再加载它们，下一个任务重新加载 MOSS。MOSS 没有预热，`model.load` 的 `warmupMs` 为 0；`capability: 'align'` 在带对齐器的 MOSS 模型包上同样可用（对齐器按需加载）。
+
+**检查点**（`checkpoint`）：只有自分段识别用它，流水线模型与 `align` 忽略。Worker 读回文件里与这一次相符的工作接着做，每做完一份追加一条（格式与有效性见 §5）：已收下的初始分块不再生成；识别已经做完时不加载、不调用识别模型，`transcribing` 的进度一次报到总长；跨块合并已经做完时不加载说话人模型；要对齐的行都对齐过时不加载对齐器。provenance 照样点名做那份工作的模型，`runGeneration` 相同时 `result.json` 与一次跑完的逐字节相同。不是绝对路径是 `INVALID_PARAMS`；读写出错时 Worker 在 stderr 记一句、这一次不再写，任务照常进行。
 
 **对齐**（`capability: 'align'`）：解码选定音轨（与范围），不跑 VAD 与识别，把 `text` 整段强制对齐到音频上（长音频由对齐器自己分块）。词按停顿（> 0.8 秒）、句末标点与段长（> 30 秒）分段，与在线 Provider 只给词时同一规则；段的文本由词重新拼出（不带空格书写的文字之间不加空格），零时长的段补到一个对齐格（0.08 秒），起点越过音频末尾的词丢弃。阶段依次是 `decoding`、`aligning`、`finalizing`；`stats.vadMs` 与 `asrMs` 为 0，耗时记在 `alignMs`。对齐出错是 `INFERENCE_FAILED`——这里没有可退回的估计。结果的语言来源是 `asserted`，词时间都是 `aligned`。
 
@@ -527,7 +531,9 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
 ## 5. 任务与 staging 目录
 
 - Runtime 为每个任务创建 `<runtime-home>/staging/jobs/<jobId>/` 并传入 `staging`。Worker 的所有中间文件与输出都写在这里，文件名固定：识别是 `audio.f32`（可选，解码缓存）、`segments.jsonl`、`result.json`；生图是 `image.png`；本地语音合成与音乐不经 Worker，它们的 `speech.wav` 与 `music.wav` 由 Runtime 与 audio.cpp 引擎写进同样的 staging（§4.4、§5.1）；分离是 `vocals.wav` 与 `background.wav`（§2.5.4）；说话人区分是 `speakers.json`（§2.5.5）。
-- `segments.jsonl` 是 append-only，每行一个 `Segment`（§6），按 `start` 递增写入；每行写完后 flush。首行是头：`{ "header": true, "jobId", "contentHash", "bundleId", "workerVersion", "timescale" }`。Runtime 续跑（P1）时校验头与已有行再决定从哪一段开始。
+- `segments.jsonl` 是 append-only，每行一个 `Segment`（§6），按 `start` 递增写入；每行写完后 flush。首行是头：`{ "header": true, "jobId", "contentHash", "bundleId", "workerVersion", "timescale" }`。流水线模型按段续跑（P1）没有做，每次尝试从头写这个文件；自分段识别的续跑用下面的检查点。
+- 转写检查点不在任务目录里：Runtime 按输入 hash 给本机转写任务一个文件（`<runtime-home>/staging/checkpoints/<输入 hash 的十六进制>.jsonl`），经 `checkpoint` 传入（§2.5.1），跨尝试、跨任务与 Runtime 重启都是同一个。它是 append-only 的 JSONL，每行写完 `fsync`。首行是头 `{ "type": "header", "schema": "baocut.transcribe-checkpoint/1", "key", "workerVersion", "bundleId", "contentHash" }`，之后依次是：`chunk`，MOSS 收下的一个初始分块（`index` 从 0 连续；连同为它重切的子块，带这一块的行、说话人区间、渲染的文本、提示与分块循环的状态）；`transcribed`，识别完成（全部的行、说话人区间与提示），之后不再读 `chunk`；`speakers`，要说话人且有区间时，跨块合并之后的行、区间与合并的结局（`outcome`）；`aligned`，一行一条（`row` 是识别或合并之后的行号，不重复；`words` 是对齐器给的词，相对行起点的秒，null 表示对齐器没给出词；对齐器报错的行不记，续跑时再试）。秒数写成十进制、读回逐位相同（f32 存成 f64）。
+- `key` 是这些的 sha256：检查点的格式版本；Worker 版本与可执行文件的大小、修改时间；模型包 ID、后端、设备与 `asr`、`vad`、`aligner`、`speaker`、`segmentation` 的 family 与 revision；`contentHash`、`track`、`range`，以及解码出来的样本数与样本（小端 f32）的 sha256；能力、`language`、`diarize`、`hint`、`timescale`；MOSS 的分块时长（`BCUT_MOSS_CHUNK_SECONDS`）与跨块说话人合并的阈值。`jobId` 与 `runGeneration` 不在内。头不符或认不出就整份重写成只有新头的文件，从头跑；读到撕裂的末行、乱序、重复或阶段跳跃就停在那里，截掉之后的部分；`chunk` 的起点与样本数与这一次的分块计划逐块对不上时不用它们，从头识别。Worker 不删除检查点：Runtime 在结果收下或不合合同时删除，失败与取消的留给下一次重试，7 天没用上的在启动时删除。
 - `result.json` 在任务完成时一次性写入临时文件再重命名，内容为 §6 的对象。`job.run` 的 `output.sha256` 是该文件 bytes 的摘要。
 - Worker 不删除 staging 目录；清理属于 Runtime。
 
