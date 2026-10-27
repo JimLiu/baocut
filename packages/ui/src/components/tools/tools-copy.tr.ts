@@ -13,7 +13,6 @@ export const tr: ToolsMessages = {
     open: (name) => `${name} adlı aracı aç`,
   },
   page: {
-    back: "Araçlar",
     hotkey: '⌘↵',
   },
   planned: {
@@ -285,10 +284,6 @@ export const tr: ToolsMessages = {
     compressTitle: "Videoyu sıkıştır",
     mergeTitle: "Videoları birleştir",
     extractTitle: "Sesi çıkar",
-    switchLabel: "Video dosyası araçları",
-    switchCompress: "Sıkıştır",
-    switchMerge: "Birleştir",
-    switchExtract: "Sesi çıkar",
     extractLede: "Görüntüyü kaldırıp ses izini tutun: AAC, MP3, Opus ve FLAC değiştirilmeden .m4a, .mp3, .ogg ve .flac içine kopyalanır; diğerleri AAC (.m4a) olarak yeniden kodlanır. Seçtiğiniz her dosya için ayrı kopya oluşturulur; özgün dosyalar aynı kalır.",
     extractSubmit: "Sesi çıkar",
     filesExtract: "Video veya ses dosyaları",

@@ -9,8 +9,6 @@ export const ru: ToolsImageEditMessages = {
     repaint: 'Перерисовать область',
     expand: 'Расширить изображение',
   },
-  switchItem: { upscale: 'Увеличение', erase: 'Удаление объекта', watermark: 'Водяной знак', repaint: 'Перерисовка', expand: 'Расширение' },
-  switchLabel: 'Инструмент для изображений',
   verb: { upscale: 'Увеличить', erase: 'Удалить', watermark: 'Удалить водяной знак', repaint: 'Перерисовать', expand: 'Расширить' },
   lede: {
     upscale: 'Увеличивайте изображения в 2–4× с помощью Real-ESRGAN на этом компьютере — с дорисовкой деталей, а не простым растягиванием.',

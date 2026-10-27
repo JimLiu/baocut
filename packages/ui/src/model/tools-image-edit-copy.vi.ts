@@ -8,8 +8,6 @@ export const vi: ToolsImageEditMessages = {
     repaint: 'Vẽ lại vùng',
     expand: 'Mở rộng hình ảnh',
   },
-  switchItem: { upscale: 'Phóng to', erase: 'Xóa vật thể', watermark: 'Hình mờ', repaint: 'Vẽ lại', expand: 'Mở rộng' },
-  switchLabel: 'Công cụ hình ảnh',
   verb: { upscale: 'Phóng to', erase: 'Xóa', watermark: 'Xóa hình mờ', repaint: 'Vẽ lại', expand: 'Mở rộng' },
   lede: {
     upscale: 'Phóng to hình ảnh 2–4× bằng Real-ESRGAN trên máy tính này, bổ sung chi tiết thay vì chỉ kéo giãn.',

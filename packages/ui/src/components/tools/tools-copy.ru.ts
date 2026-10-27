@@ -14,7 +14,6 @@ export const ru: ToolsMessages = {
     open: (name: string) => `Открыть ${name}`,
   },
   page: {
-    back: "Инструменты",
     hotkey: "⌘↵",
   },
   planned: {
@@ -291,10 +290,6 @@ export const ru: ToolsMessages = {
     compressTitle: "Сжать видео",
     mergeTitle: "Объединить видео",
     extractTitle: "Извлечь аудио",
-    switchLabel: "Инструменты видеофайлов",
-    switchCompress: "Сжать",
-    switchMerge: "Объединить",
-    switchExtract: "Извлечь аудио",
     extractLede: "Убирает изображение и сохраняет аудиодорожку: AAC, MP3, Opus и FLAC копируются без изменений в .m4a, .mp3, .ogg и .flac; остальное перекодируется в AAC (.m4a). Для каждого файла создаётся копия; оригиналы не меняются.",
     extractSubmit: "Извлечь аудио",
     filesExtract: "Видео- или аудиофайлы",

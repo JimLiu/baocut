@@ -16,7 +16,6 @@ export const de: ToolsMessages = {
   },
 
   page: {
-    back: "Werkzeuge",
     hotkey: "⌘↵",
   },
 
@@ -334,10 +333,6 @@ export const de: ToolsMessages = {
     mergeTitle: "Videos zusammenführen",
     extractTitle: "Audio extrahieren",
 
-    switchLabel: "Videodatei-Werkzeuge",
-    switchCompress: "Komprimieren",
-    switchMerge: "Zusammenfügen",
-    switchExtract: "Audio extrahieren",
     extractLede:
       "Bild entfernen und Audiospur behalten: AAC, MP3, Opus und FLAC werden unverändert nach .m4a, .mp3, .ogg und .flac kopiert; andere Formate nach AAC (.m4a) neu codiert. Jede Datei erhält eine eigene Kopie; Originale bleiben unverändert.",
     extractSubmit: "Audio extrahieren",

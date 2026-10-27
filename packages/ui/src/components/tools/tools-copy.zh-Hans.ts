@@ -13,7 +13,6 @@ export const zhHans: ToolsMessages = {
     open: (name: string) => `打开${name}`,
   },
   page: {
-    back: '工具',
     hotkey: '⌘↵',
   },
   planned: {
@@ -287,10 +286,6 @@ export const zhHans: ToolsMessages = {
     compressTitle: '压缩视频',
     mergeTitle: '合并视频',
     extractTitle: '提取音频',
-    switchLabel: '视频文件工具',
-    switchCompress: '压缩',
-    switchMerge: '合并',
-    switchExtract: '提取音频',
     extractLede: '去掉画面，只留音轨：AAC、MP3、Opus、FLAC 原样复制进 .m4a、.mp3、.ogg、.flac，其余重新编码为 AAC（.m4a）。选几个文件就各取一份，原文件不动。',
     extractSubmit: '提取音频',
     filesExtract: '视频或音频文件',

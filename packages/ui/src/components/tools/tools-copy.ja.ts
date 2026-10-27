@@ -13,7 +13,6 @@ export const ja: ToolsMessages = {
     open: (name: string) => `「${name}」を開く`,
   },
   page: {
-    back: 'ツール',
     hotkey: '⌘↵',
   },
   planned: {
@@ -298,10 +297,6 @@ export const ja: ToolsMessages = {
     compressTitle: '動画を圧縮',
     mergeTitle: '動画を結合',
     extractTitle: '音声を抽出',
-    switchLabel: '動画ファイルツール',
-    switchCompress: '圧縮',
-    switchMerge: '結合',
-    switchExtract: '音声を抽出',
     extractLede:
       '映像を除いて音声トラックだけを残します。AAC、MP3、Opus、FLAC はそのまま .m4a、.mp3、.ogg、.flac にコピーし、それ以外は AAC（.m4a）に再エンコードします。選んだファイルごとに 1 つずつ作成し、元のファイルは変更しません。',
     extractSubmit: '音声を抽出',

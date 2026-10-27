@@ -17,7 +17,7 @@
   function record(item) {
     return {id: item.id, name: item.name, file: item.name, kind: kind(item) === 'image' ? 'image' : 'doc',
       contentKind: kind(item), previewSrc: item.url, text: item.text, bytes: item.bytes,
-      previewTooLarge: item.previewTooLarge, attachment: true};
+      previewTooLarge: item.previewTooLarge, attachment: true, source: item.source};
   }
   function mime(item) {
     const type = kind(item);

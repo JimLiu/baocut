@@ -8,8 +8,6 @@ export const tr: ToolsImageEditMessages = {
     repaint: 'Alanı yeniden çiz',
     expand: 'Görseli genişlet',
   },
-  switchItem: { upscale: 'Büyüt', erase: 'Nesne kaldır', watermark: 'Filigran', repaint: 'Yeniden çiz', expand: 'Genişlet' },
-  switchLabel: 'Görsel aracı',
   verb: { upscale: 'Büyüt', erase: 'Kaldır', watermark: 'Filigranı kaldır', repaint: 'Yeniden çiz', expand: 'Genişlet' },
   lede: {
     upscale: 'Görselleri bu bilgisayarda Real-ESRGAN ile 2–4× büyütün; yalnızca germek yerine ayrıntı eklenir.',

@@ -1,7 +1,8 @@
 /* 工具 › 图片处理（2026-10-27，原型先行；规则在 model-image-edit.js，画布在 image-edit-canvas.jsx）。
-   放大 / 去除物体 / 去水印 / 重绘 / 扩图共用一页：页顶 SegmentedControl 切换（同视频文件工具），左栏是来源 → 画布 → 选项 →
+   放大 / 去除物体 / 去水印 / 重绘 / 扩图共用一页：五个工具各是侧栏里的一行，页内不再切换（2026-10-27），左栏是来源 → 画布 → 选项 →
    保存位置，右栏是任务队列（五个工具共用，本机一次跑一条）。都是文件到文件：结果是保存位置里的一个 PNG、Space 里的一个图片条目，
    不动原图。选区与表单离开这一页还在（模块级草稿），换一个工具时来源图跟着走、选区不跟（各工具的选区意思不同）。
+   页上的图（来源、画布、结果）都能点开全窗口图片查看器；查看器表头的「用工具处理」把那张图带进任一图片工具（openWith）。
    - 放大：Real-ESRGAN 是受管外部工具，第一次用之前在这一页下载（显示来源、版本、大小与许可，用户点了才下）；
    - 去除物体、去水印：快速填充（本机 ffmpeg，不用模型）或 AI 修补（能改图的图像模型；只送选区周围的一块，回来只贴回选区）；
    - 重绘：AI 修补加一句「改成什么」；扩图：选比例与原图位置，新增的部分由图像模型画。
@@ -9,7 +10,6 @@
 (function () {
   const {useState, useEffect, useRef} = React;
   const E = window.BC_IMAGE_EDIT;
-  const R = window.RSP;
   const ACCEPT = '.png,.jpg,.jpeg,.webp';
 
   /* ---------- 模块级状态：离开这一页任务照样跑完，草稿还在 ---------- */
@@ -109,13 +109,46 @@
       img.src = url;
     });
   }
-  /** Space 里的图片条目 → 源描述（按条目记的分辨率，没有时按 1600×1000） */
+  /** Space 里的图片条目 → 源描述（按条目记的分辨率，没有时按 1600×1000）；有演示图的条目带上它 */
   function fromEntry(entry) {
     const res = String(entry.res || '').split(/[×x]/).map(Number);
-    return {name: entry.name, url: null, width: res[0] || 1600, height: res[1] || 1000, bytes: entry.bytes || 0, entry: entry.id};
+    return {name: entry.name, url: entry.previewSrc || null, width: res[0] || 1600, height: res[1] || 1000, bytes: entry.bytes || 0, entry: entry.id};
   }
 
-  function Sources({op, srcs, setSrcs}) {
+  /* ---------- 看大图 ---------- */
+  /** 没有真文件的 Space 条目与结果：查看器里画一张同尺寸的示意图（颜色取画布示意块的 token，交互原型不读条目的真文件） */
+  const arts = new Map();
+  function artUrl(src) {
+    const key = `${src.name}:${src.width}x${src.height}`;
+    if (arts.has(key)) return arts.get(key);
+    const w = Math.min(960, src.width), h = Math.max(1, Math.round((w * src.height) / src.width));
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const g = cv.getContext('2d'), css = getComputedStyle(document.documentElement);
+    const grad = g.createLinearGradient(0, 0, w, h);
+    ['--blue-400', '--seafoam-400', '--orange-400'].forEach((t, i) => grad.addColorStop(i / 2, css.getPropertyValue(t).trim()));
+    g.fillStyle = grad; g.fillRect(0, 0, w, h);
+    const url = cv.toDataURL('image/png');
+    arts.set(key, url);
+    return url;
+  }
+  /** 一张图在查看器里的样子（附件形：name + url）；`source` 跟着走，查看器里「用工具处理」原样带进工具页 */
+  const viewerItem = (src, id) => ({id, name: src.name, url: src.url || artUrl(src), mime: 'image/png', source: src});
+  /** 结果的源描述：交互演示不落真文件，查看器里用原图（或它的示意图）代替；带上 Space 条目，接着处理时标成来自 Space */
+  const resultSource = (r) => ({name: r.name, url: r.source.url || null, width: r.out.width, height: r.out.height, bytes: 0, entry: r.entry ? r.entry.id : null});
+
+  /**
+   * 查看器表头「用工具处理 › 某个图片工具」（media-preview-image-chrome.jsx）：把正在看的那张图带进工具页，输入已经选好。
+   * `file` 是查看器里的记录：工具页自己的图带着 `source`；Space 条目与会话里的图按条目记的分辨率（没有就用查看器量到的 `size`）。
+   */
+  function openWith(app, op, file, size) {
+    const entry = !file.attachment ? (app.spaceItems || []).find((x) => x.id === file.id) || null : null;
+    const src = file.source || (entry ? Object.assign(fromEntry(entry), {url: entry.previewSrc || file.previewSrc || null})
+      : {name: file.name, url: file.previewSrc || null, width: size.width, height: size.height, bytes: file.bytes || 0});
+    app.openToolWith(op, {params: {src}});
+  }
+
+  function Sources({op, srcs, setSrcs, onView}) {
     const app = useApp();
     const input = useRef(null);
     const [space, setSpace] = useState(false);
@@ -145,7 +178,9 @@
       <div className="ie__srcs">
         {srcs.map((s, i) => (
           <div key={i} className={cx('vsrc', i === 0 && srcs.length > 1 && 'is-first')}>
-            <span className="vsrc__ic"><Ic n="image" className="ic--22" /></span>
+            <BCAction className="ie__thumb" aria-label={`查看大图：${s.name}`} onClick={() => onView(i)}>
+              <img src={s.url || artUrl(s)} alt="" draggable={false} />
+            </BCAction>
             <span className="vsrc__txt">
               <b className="t-title-sm t-truncate">{s.name}</b>
               <span className="t-detail-xs">{s.width}×{s.height}{s.entry ? ' · Space' : ''}{i === 0 && srcs.length > 1 ? ' · 在下面的画布上设置' : ''}</span>
@@ -275,7 +310,7 @@
   }
 
   /* ---------- 任务队列 ---------- */
-  function JobCard({r}) {
+  function JobCard({r, onView}) {
     const app = useApp();
     const o = E.opById(r.form.op);
     const state = {done: '刚刚', running: r.phase || '进行中', queued: '排队中', canceled: '已取消', error: '失败'}[r.status];
@@ -291,6 +326,10 @@
         <Progress value={r.pct} thin />
       </div> : null}
       {r.status === 'queued' ? <div className="row"><span className="t-detail-xs grow">本机一次跑一条</span><Btn variant="quiet" size="s" onClick={() => cancel(app, r)}>取消</Btn></div> : null}
+      {r.status === 'done' && r.entry ? <BCAction className="ie__result" aria-label={`查看大图：${r.name}`} onClick={() => onView(r.id)}
+        style={{aspectRatio: `${r.out.width} / ${r.out.height}`}}>
+        <img src={r.source.url || artUrl(resultSource(r))} alt="" draggable={false} />
+      </BCAction> : null}
       {r.status === 'done' && r.entry ? <window.ToolOutputRow entry={r.entry} fromTool={r.form.op} compact /> : null}
       {r.status === 'error' ? <div className="vfail">
         <b className="t-title-sm">{r.fail.title}</b>
@@ -305,15 +344,20 @@
       </div> : null}
     </div>;
   }
-  function JobList() {
+  function JobList({onView}) {
     const s = useStore();
     const busy = s.list.filter((r) => r.status === 'running' || r.status === 'queued').length;
+    // 点一张结果看大图：做完的几张一起进查看器，可以左右切换
+    const view = (id) => {
+      const done = s.list.filter((r) => r.status === 'done' && r.entry);
+      onView(done.map((r) => viewerItem(resultSource(r), r.entry.id)), done.findIndex((r) => r.id === id));
+    };
     return <aside className="vw__side">
       <div className="vw__sidehd">
         <span className="t-title-sm grow">任务队列</span>
         {busy ? <Chip tone="accent">{busy} 条进行中</Chip> : <span className="t-detail-xs">{s.list.length} 条</span>}
       </div>
-      {s.list.length ? s.list.map((r) => <JobCard key={r.id} r={r} />)
+      {s.list.length ? s.list.map((r) => <JobCard key={r.id} r={r} onView={view} />)
         : <Empty icon="tasks" title="还没有处理过">选好图片、按下按钮，进度会出现在这里。</Empty>}
       <div className="t-detail-xs vw__sidefoot">每张结果是保存位置里的一个 PNG、Space 里的一个图片条目，原图不动；重名时加序号。五个图片工具共用一条队列，本机一次跑一条。交互演示不落真文件。</div>
     </aside>;
@@ -331,6 +375,9 @@
     const [f, setF] = useState(() => store.drafts.forms[op] || E.blank(op, models.some((m) => m.ok)));
     const [sel, setSelState] = useState(() => store.drafts.sels[op] || {strokes: [], boxes: []});
     const [tried, setTried] = useState(false);
+    // 正在看大图的一组图与从哪一张看起；查看器是会话里同一个全窗口图片查看器（media-preview-attachment.jsx）
+    const [viewing, setViewing] = useState(null);
+    const viewSources = (i) => setViewing({items: mine.map((x, j) => viewerItem(x, `ie-src:${j}:${x.name}`)), index: i});
     const goRef = useRef(null);
     const set = (p) => setF((cur) => { const next = Object.assign({}, cur, p); store.drafts.forms[op] = next; return next; });
     // 单张的工具（去除、重绘、扩图）只取第一张；从批量工具切过来时多出来的留在草稿里，切回去还在
@@ -339,8 +386,10 @@
     const setSel = (next) => { store.drafts.sels[op] = next; setSelState(next); };
     // 模型缺省取第一只就绪的
     useEffect(() => { if (!f.engine || !models.some((m) => m.id === f.engine)) { const m = models.find((x) => x.ok) || models[0]; if (m) set({engine: m.id}); } }, [models.length]);
+    // 预设：任务记录的「再做一次」带表单与原图；查看器的「用工具处理」只带原图（`params.src`）；Space 的「用工具处理…」带条目
     window.BC_TOOL_FRAME.useToolPreset(op, (p) => {
-      if (p.params && p.params.form) { setF(Object.assign(E.blank(op), p.params.form)); if (p.params.src) setSrcs([p.params.src]); }
+      if (p.params && p.params.form) setF(Object.assign(E.blank(op), p.params.form));
+      if (p.params && p.params.src) setSrcs([p.params.src]);
       else if (p.entry) setSrcs([fromEntry(p.entry)]);
       if (p.retryOf) app.toast(`上次没做完：${p.retryOf.error || '失败'}。设置已带回来，改一下再试。`);
     });
@@ -374,13 +423,11 @@
       <window.Page wide title={o.name} bar={bar} actions={<Chip icon={local ? 'lock' : 'web'}>{chip}</Chip>}>
         <div className="vw">
           <div className="vw__main">
-            <R.SegmentedControl aria-label="图片工具" selectedKey={op} onSelectionChange={(id) => { if (id !== op) app.go({r: 'tools', id}); }}>
-              {E.OPS.map((x) => <R.SegmentedControlItem key={x.id} id={x.id}>{x.label}</R.SegmentedControlItem>)}
-            </R.SegmentedControl>
             <span className="t-detail ie__lede">{o.desc}。</span>
             {op === 'upscale' ? <EsrganCard /> : null}
-            <Sources op={op} srcs={mine} setSrcs={setSrcs} />
-            {mine[0] ? <section className="vw__sec"><window.ImageEditCanvas op={op} src={mine[0]} sel={sel} setSel={setSel} form={f} set={set} others={mine.slice(1)} /></section> : null}
+            <Sources op={op} srcs={mine} setSrcs={setSrcs} onView={viewSources} />
+            {mine[0] ? <section className="vw__sec"><window.ImageEditCanvas op={op} src={mine[0]} sel={sel} setSel={setSel} form={f} set={set} others={mine.slice(1)}
+              onView={() => viewSources(0)} /></section> : null}
             {op === 'upscale' ? <UpscaleOptions f={f} set={set} src={mine[0]} /> : null}
             {op === 'expand' ? <ExpandOptions f={f} set={set} src={mine[0]} /> : null}
             {op !== 'upscale' ? <MethodOptions op={op} f={f} set={set} models={models} /> : null}
@@ -411,11 +458,13 @@
               </div>
             </BCDisclosure>
           </div>
-          <JobList />
+          <JobList onView={(items, index) => setViewing({items, index})} />
         </div>
+        {viewing && window.MediaAttachmentPreview ? <window.MediaAttachmentPreview item={viewing.items[viewing.index] || viewing.items[0]} items={viewing.items}
+          onClose={() => setViewing(null)} /> : null}
       </window.Page>
     );
   }
 
-  Object.assign(window, {ImageEditPage, BC_IMAGE_EDIT_QUEUE: {store}});
+  Object.assign(window, {ImageEditPage, BC_IMAGE_EDIT_QUEUE: {store, openWith}});
 })();

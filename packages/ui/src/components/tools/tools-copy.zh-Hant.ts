@@ -13,7 +13,6 @@ export const zhHant: ToolsMessages = {
     open: (name: string) => `開啟${name}`,
   },
   page: {
-    back: '工具',
     hotkey: '⌘↵',
   },
   planned: {
@@ -291,10 +290,6 @@ export const zhHant: ToolsMessages = {
     compressTitle: '壓縮影片',
     mergeTitle: '合併影片',
     extractTitle: '擷取音訊',
-    switchLabel: '影片檔案工具',
-    switchCompress: '壓縮',
-    switchMerge: '合併',
-    switchExtract: '擷取音訊',
     extractLede:
       '去掉畫面、保留音軌：AAC、MP3、Opus、FLAC 會原樣複製成 .m4a、.mp3、.ogg、.flac，其他格式則重新編碼為 AAC（.m4a）。選了幾個檔案就各自產出一份，原始檔案不變。',
     extractSubmit: '擷取音訊',

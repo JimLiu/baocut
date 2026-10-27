@@ -16,7 +16,6 @@ export const fr: ToolsMessages = {
   },
 
   page: {
-    back: "Outils",
     hotkey: "⌘↵",
   },
 
@@ -334,10 +333,6 @@ export const fr: ToolsMessages = {
     mergeTitle: "Fusionner des vidéos",
     extractTitle: "Extraire l’audio",
 
-    switchLabel: "Outils de fichiers vidéo",
-    switchCompress: "Compresser",
-    switchMerge: "Fusionner",
-    switchExtract: "Extraire l’audio",
     extractLede:
       "Retire l’image et conserve l’audio : AAC, MP3, Opus et FLAC copiés tels quels dans .m4a, .mp3, .ogg et .flac ; autres réencodés en AAC (.m4a). Une copie par fichier, originaux inchangés.",
     extractSubmit: "Extraire l’audio",

@@ -3,6 +3,7 @@
    - 去除物体、重绘：在图上涂抹（笔画半径按原图像素），可撤销一笔、清空；
    - 去水印：在图上拖框，可以框几处；批量时同一组框用于每一张（框按原图像素记，尺寸不同的图按比例换算）；
    - 扩图：新画布上按锚点放原图，新增的部分是棋盘格，四边标出加了多少像素。
+   - 看大图：工具条上的「查看大图」打开全窗口图片查看器；不在图上操作的工具（放大、扩图）直接点图也行。
    坐标一律是原图像素：叠在图上的 SVG 用原图尺寸做 viewBox，指针位置按显示框换算。本机文件真读像素尺寸；Space 里的条目按它记的分辨率，
    画面是示意块（交互原型不读条目的真文件）。 */
 (function () {
@@ -105,12 +106,13 @@
   }
 
   /** 扩图的新画布：棋盘格是新增的部分，原图按锚点放 */
-  function ExpandStage({src, plan}) {
+  function ExpandStage({src, plan, onView}) {
     const pct = (n, of) => `${(n / of) * 100}%`;
     return (
       <div className="iecv__frame iecv__frame--expand checker" style={fit(plan.width, plan.height)}>
         <div className="iecv__placed" style={{left: pct(plan.x, plan.width), top: pct(plan.y, plan.height), width: pct(src.width, plan.width), height: pct(src.height, plan.height)}}>
           <Picture src={src} />
+          {onView ? <ViewHit name={src.name} onView={onView} /> : null}
         </div>
         {['left', 'top', 'right', 'bottom'].map((side) => plan.added[side] > 0
           ? <span key={side} className={`iecv__add iecv__add--${side} t-detail-xs t-mono`}>+{plan.added[side]}</span> : null)}
@@ -118,8 +120,13 @@
     );
   }
 
+  /** 不在图上操作时整张图是一个「看大图」的按钮 */
+  function ViewHit({name, onView}) {
+    return <BCAction className="iecv__view" aria-label={`查看大图：${name}`} onClick={onView} />;
+  }
+
   /** 画布：按工具决定是只看、涂抹、框选还是扩图预览；下面一行是工具条与尺寸 */
-  function EditCanvas({op, src, sel, setSel, form, set, others = []}) {
+  function EditCanvas({op, src, sel, setSel, form, set, others = [], onView}) {
     const o = E.opById(op);
     const stats = o.select ? E.selectionStats(sel, src) : null;
     const plan = op === 'expand' ? E.expandPlan(src, form) : null;
@@ -134,10 +141,11 @@
     return (
       <div className="iecv">
         <div className={cx('iecv__stage', up && 'iecv__stage--peek')}>
-          {plan && !plan.same ? <ExpandStage src={src} plan={plan} /> : (
+          {plan && !plan.same ? <ExpandStage src={src} plan={plan} onView={onView} /> : (
             <div className="iecv__frame" style={fit(src.width, src.height, up ? PEEK_MAX_H : FRAME_MAX_H)}>
               <Picture src={src} />
-              {o.select ? <SelectionLayer src={src} mode={o.select} sel={sel} setSel={setSel} brush={form.brush} /> : null}
+              {o.select ? <SelectionLayer src={src} mode={o.select} sel={sel} setSel={setSel} brush={form.brush} />
+                : onView ? <ViewHit name={src.name} onView={onView} /> : null}
             </div>
           )}
         </div>
@@ -158,6 +166,7 @@
             <Btn size="s" variant="quiet" icon="undo" disabled={!count} onClick={undo}>{o.select === 'brush' ? '撤销一笔' : '去掉上一个框'}</Btn>
             <Btn size="s" variant="quiet" disabled={!count} onClick={() => setSel({strokes: [], boxes: []})}>清空</Btn>
           </> : null}
+          {onView ? <Btn size="s" variant="quiet" icon="zoomin" onClick={onView}>查看大图</Btn> : null}
         </div>
         {o.select && !count ? <span className="t-detail-xs iecv__hint">{o.select === 'brush'
           ? `按住拖动，把要${op === 'repaint' ? '重绘' : '去掉'}的地方涂满；边缘多涂一点更自然。`

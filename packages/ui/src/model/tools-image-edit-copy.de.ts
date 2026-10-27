@@ -8,8 +8,6 @@ export const de: ToolsImageEditMessages = {
     repaint: 'Bereich neu malen',
     expand: 'Bild erweitern',
   },
-  switchItem: { upscale: 'Vergrößern', erase: 'Objekt entfernen', watermark: 'Wasserzeichen', repaint: 'Neu malen', expand: 'Erweitern' },
-  switchLabel: 'Bildwerkzeug',
   verb: { upscale: 'Vergrößern', erase: 'Entfernen', watermark: 'Wasserzeichen entfernen', repaint: 'Neu malen', expand: 'Erweitern' },
   lede: {
     upscale: 'Bilder mit Real-ESRGAN auf diesem Computer 2–4× vergrößern – mit ergänzten Details statt bloßem Strecken.',

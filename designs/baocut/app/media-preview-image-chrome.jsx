@@ -40,15 +40,31 @@
   function MediaTip({label, placement = 'bottom', children}) {
     return <R.TooltipTrigger placement={placement}>{children}<R.Tooltip>{label}</R.Tooltip></R.TooltipTrigger>;
   }
-  function MediaImageHeader({file, view, setView, zoom, scale, setZoom, onClose, onOpenTab, onCopy, gif, onPanorama}) {
+  /* 「用工具处理」：把正在看的图带进一个图片工具（放大、去除物体、去水印、重绘、扩图），工具页里这张图已经选好。
+     与 Space 查看框的「用工具处理…」同一个意思（product-design §4.5）；去工具页是 App 外壳页面，按 BC_SURFACE.pages 收。GIF 不收。 */
+  function MediaImageToolMenu({onTool}) {
+    const E = window.BC_IMAGE_EDIT;
+    return <R.MenuTrigger align="end">
+      <R.ActionButton isQuiet><R.Icons.Tools /><R.Text>用工具处理</R.Text></R.ActionButton>
+      <R.Menu aria-label="用工具处理这张图片" onAction={key => onTool(String(key))}>
+        {E.OPS.map(o => {
+          const Icon = R.Icons[o.icon] || R.Icons.Image;
+          return <R.MenuItem key={o.id} id={o.id} textValue={o.name}><Icon /><R.Text slot="label">{o.name}</R.Text></R.MenuItem>;
+        })}
+      </R.Menu>
+    </R.MenuTrigger>;
+  }
+  function MediaImageHeader({file, view, setView, zoom, scale, setZoom, onClose, onOpenTab, onCopy, gif, onPanorama, onTool}) {
     const app = useApp();
     const zooms = [...new Set([...M.ZOOM, ...(zoom !== 'fit' ? [Number(zoom)] : [])])].sort((a, b) => a - b);
+    const tools = onTool && !gif && window.BC_SURFACE.pages && window.BC_IMAGE_EDIT && window.BC_IMAGE_EDIT_QUEUE;
     return <header className="media-image-header">
       <R.SegmentedControl aria-label="视图" selectedKey={view} onSelectionChange={key => setView(String(key))}>
         <R.SegmentedControlItem id="focused"><R.Icons.Image /><R.Text>图片</R.Text></R.SegmentedControlItem>
         <R.SegmentedControlItem id="canvas" isDisabled={gif}><R.Icons.ViewGrid /><R.Text>画布</R.Text></R.SegmentedControlItem>
       </R.SegmentedControl>
       <span className="media-image-header__name" title={file.name}>{file.name}</span>
+      {tools && <MediaImageToolMenu onTool={onTool} />}
       <R.Picker aria-label="缩放" isQuiet align="end" value={String(zoom)} onChange={key => key != null && setZoom(String(key))}
         renderValue={() => `${Math.round(scale * 100)}%`}>
         <R.PickerItem id="fit">适合窗口</R.PickerItem>

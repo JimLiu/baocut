@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import {
   ActionButton,
   MenuTrigger,
@@ -42,6 +42,7 @@ export function ImageChrome({
   onCopy,
   onPanorama,
   onDefaultOpen,
+  tools,
 }: {
   name: string;
   gif?: boolean;
@@ -56,6 +57,8 @@ export function ImageChrome({
   onDownload: () => void;
   onCopy: () => void;
   onPanorama: () => void;
+  /** 名字右边的「用工具处理…」（`ImageToolMenu`）；没有就不画。 */
+  tools?: ReactNode;
 }) {
   const zooms = [...new Set([...IMAGE_ZOOMS, ...(zoom === 'fit' ? [] : [Number(zoom)])])].sort((a, b) => a - b);
   return (
@@ -73,6 +76,7 @@ export function ImageChrome({
       <span className={`bc-image-name ${mediaHeaderTitle}`} title={name}>
         {name}
       </span>
+      {tools}
       <Picker
         aria-label={M.zoom}
         isQuiet

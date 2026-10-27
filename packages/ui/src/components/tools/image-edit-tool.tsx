@@ -1,13 +1,27 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { EditImageAnchor, EditImageMethod, JobRecord, UpscaleImageModel, UpscaleImageScale } from '@baocut/protocol';
-import { ActionButton, Button, DropZone, NumberField, ProgressBar, SegmentedControl, SegmentedControlItem, Slider, Text, ToastQueue } from '@react-spectrum/s2';
+import {
+  ActionButton,
+  Button,
+  DropZone,
+  NumberField,
+  ProgressBar,
+  SegmentedControl,
+  SegmentedControlItem,
+  Slider,
+  Text,
+  ToastQueue,
+  Tooltip,
+  TooltipTrigger,
+} from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import Close from '@react-spectrum/s2/icons/Close';
 import ImageIcon from '@react-spectrum/s2/icons/Image';
 import Undo from '@react-spectrum/s2/icons/Undo';
 import Upload from '@react-spectrum/s2/icons/Upload';
+import ZoomIn from '@react-spectrum/s2/icons/ZoomIn';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { Radio, RadioGroup, type DropItem } from 'react-aria-components';
+import { Button as RACButton, Radio, RadioGroup, type DropItem } from 'react-aria-components';
 import { M } from '../../model/tools-image-edit-copy.ts';
 import {
   BOX_PRESETS,
@@ -40,6 +54,7 @@ import {
   type Selection,
 } from '../../model/tools-image-edit.ts';
 import { imageModelOptions, type ImageOption } from '../../model/tools-image.ts';
+import type { ImageCandidate } from '../../model/image-preview.ts';
 import { formatBytes } from '../../model/space.ts';
 import { jobPercent } from '../../model/task-list.ts';
 import { EmptyCard } from '../models/model-parts.tsx';
@@ -52,6 +67,7 @@ import { useRuntime } from '../../runtime/context.tsx';
 import { useJobs } from '../../state/jobs-store.ts';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { ImageLightbox } from '../media/image-lightbox.tsx';
 import { useSpace } from '../../state/space-store.ts';
 import { useTools } from '../../state/tools-store.ts';
 import { useNow } from '../use-now.ts';
@@ -62,6 +78,7 @@ import { ToolOutputRow, useJobOutputs } from './tool-outputs.tsx';
 import { FORM_COPY, FRAME_COPY, IMAGE_COPY, RECORD_COPY } from './tools-copy.ts';
 import { GrantCard } from './tool-run-view.tsx';
 import { useImageEditStart } from './use-image-edit-start.ts';
+import { loadEntry, loadLocal } from './image-edit-sources.ts';
 import { SpacePicker } from './tool-video-picker.tsx';
 import { useCancelJob } from './use-tool-records.ts';
 import { useEsrgan, type EsrganState } from './use-esrgan.ts';
@@ -69,8 +86,9 @@ import { blockOf, useToolStatus } from './use-tool-status.ts';
 import { usePreset } from './video-tool-parts.tsx';
 
 /*
- * 设计稿 tool-image-edit.jsx 与 image-edit-canvas.jsx：放大 / 去除物体 / 去水印 / 重绘 / 扩图共用一页，页顶切换（换路由，各自保留
- * 工具 ID）。左边来源 → 画布（涂抹、拖框或扩图预览）→ 选项 → 保存位置，右边是这五个工具的处理记录（`jobs` 主题里这几条流程的任务）。
+ * 设计稿 tool-image-edit.jsx 与 image-edit-canvas.jsx：放大 / 去除物体 / 去水印 / 重绘 / 扩图共用一页，由左边侧栏切换（各自保留
+ * 工具 ID，页里不再有切换条）。左边来源 → 画布（涂抹、拖框或扩图预览）→ 选项 → 保存位置，右边是这五个工具的处理记录（`jobs` 主题里
+ * 这几条流程的任务）。来源小图与画布都能点开图片查看器，查看器表头的「用工具处理…」把这张图带进别的工具。
  * 提交走 Runtime 的固定流程：放大是 `upscale-image`（Real-ESRGAN，受管外部工具，第一次用之前在这一页下载），别的是 `remove-object`
  * 等四个流程（ffmpeg 快速填充，或能改图的图像模型）。选区与扩图的规则在 model/tools-image-edit.ts。
  */
@@ -82,6 +100,40 @@ const PEEK_MAX_H = 200;
 const lede = style({ margin: 0, font: 'ui-sm', color: 'gray-700' });
 const sources = style({ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 240, overflow: 'auto' });
 const source = style({ display: 'flex', alignItems: 'center', gap: 8, padding: 8, borderRadius: 'default', backgroundColor: 'gray-25', borderWidth: 1, borderStyle: 'solid', borderColor: 'gray-200', minWidth: 0 });
+const thumbButton = style({
+  display: 'grid',
+  placeItems: 'center',
+  flexShrink: 0,
+  width: 40,
+  height: 40,
+  padding: 0,
+  borderWidth: 0,
+  borderRadius: 'sm',
+  overflow: 'hidden',
+  backgroundColor: 'gray-100',
+  color: 'gray-700',
+  cursor: 'zoom-in',
+  outlineStyle: { default: 'none', isFocusVisible: 'solid' },
+  outlineWidth: 2,
+  outlineOffset: 2,
+  outlineColor: 'focus-ring',
+});
+const thumbImage = style({ display: 'block', width: 'full', height: 'full', objectFit: 'cover' });
+// 不涂不框的工具（放大、扩图）整张图都是「点开大图」。
+const viewHit = style({
+  position: 'absolute',
+  inset: 0,
+  width: 'full',
+  height: 'full',
+  padding: 0,
+  borderWidth: 0,
+  backgroundColor: 'transparent',
+  cursor: 'zoom-in',
+  outlineStyle: { default: 'none', isFocusVisible: 'solid' },
+  outlineWidth: 2,
+  outlineOffset: -2,
+  outlineColor: 'focus-ring',
+});
 const sourceText = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 });
 const sourceName = style({ font: 'ui-sm', fontWeight: 'bold', color: 'gray-900', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 const dropZone = style({ width: 'full' });
@@ -141,35 +193,10 @@ function useSourceUrl(src: ImageSource): string | null {
   return src.url ?? (thumbnail?.kind === 'image' ? thumbnail.url : null);
 }
 
-/** 读一张本机图片：经媒体通道拿地址，按真像素量尺寸；读不出时 null。 */
-async function loadLocal(runtime: ReturnType<typeof useRuntime>, path: string): Promise<ImageSource | null> {
-  try {
-    const handle = await runtime.resolveMedia({ localPath: path });
-    const size = await naturalSize(handle.url);
-    return size ? { input: path, name: fileName(path), url: handle.url, ...size } : null;
-  } catch {
-    return null;
-  }
-}
-
-/** 读一张 Space 里的图片：经媒体通道按条目拿地址，按真像素量尺寸；读不出时 null。 */
-async function loadEntry(runtime: ReturnType<typeof useRuntime>, entryId: string): Promise<Omit<ImageSource, 'name'> | null> {
-  try {
-    const handle = await runtime.resolveMedia({ entryId });
-    const size = await naturalSize(handle.url);
-    return size ? { input: `space:${entryId}`, url: handle.url, ...size } : null;
-  } catch {
-    return null;
-  }
-}
-
-function naturalSize(url: string): Promise<{ width: number; height: number } | null> {
-  return new Promise((done) => {
-    const img = new Image();
-    img.onload = () => done(img.naturalWidth && img.naturalHeight ? { width: img.naturalWidth, height: img.naturalHeight } : null);
-    img.onerror = () => done(null);
-    img.src = url;
-  });
+/** 来源图在查看器里的样子：Space 的按条目，本机的按路径。 */
+function candidateOf(s: ImageSource): ImageCandidate {
+  const entryId = entryIdOfInput(s.input);
+  return { target: entryId ? { entryId } : { localPath: s.input }, name: s.name };
 }
 
 function ImageEditPage({ op }: { op: ImageEditToolId }) {
@@ -198,6 +225,7 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
   const shownBlock = op === 'upscale' && esrgan.state !== 'ready' ? null : block;
   const [tried, setTried] = useState(false);
   const [fromSpace, setFromSpace] = useState(false);
+  const [viewing, setViewing] = useState<number | null>(null);
   const entries = useSpace((s) => s.entries);
 
   const engine = findOption(models, form.engine) ?? models.find((m) => m.usable) ?? models[0] ?? null;
@@ -208,7 +236,8 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
 
   usePreset(o.toolId, (entryId) => {
     const entry = entries.find((e) => e.id === entryId);
-    if (entry) void fromEntry(entry.id).then((s) => s && setSources(o.batch ? [...draft.sources, s] : [s]));
+    // 同一张图再带进来（查看器里又选了这个工具）不重复加。
+    if (entry) void fromEntry(entry.id).then((s) => s && setSources(o.batch ? [...draft.sources.filter((x) => x.input !== s.input), s] : [s]));
   });
 
   const fromEntry = async (entryId: string): Promise<ImageSource | null> => {
@@ -272,18 +301,6 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
 
   const main = (
     <>
-      <SegmentedControl
-        aria-label={M.switchLabel}
-        selectedKey={o.toolId}
-        onSelectionChange={(key) => {
-          if (key !== o.toolId) go({ tab: 'tools', tool: key as ToolId });
-        }}>
-        {IMAGE_EDIT_OPS.map((x) => (
-          <SegmentedControlItem key={x.id} id={x.toolId}>
-            {M.switchItem[x.id]}
-          </SegmentedControlItem>
-        ))}
-      </SegmentedControl>
       <p className={lede}>{M.lede[op]}</p>
       {shownBlock ? <Gate title={M.unavailable} body={shownBlock} /> : null}
       {op === 'upscale' ? <EsrganGate esrgan={esrgan} /> : null}
@@ -295,7 +312,7 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
           <div className={sources}>
             {srcs.map((s, i) => (
               <div key={`${s.input}-${i}`} className={source}>
-                <ImageIcon />
+                <SourceThumb src={s} onView={() => setViewing(i)} />
                 <span className={sourceText}>
                   <span className={sourceName}>{s.name}</span>
                   <span className={detail}>{`${s.width}×${s.height}${entryIdOfInput(s.input) ? ' · Space' : ''}${i === 0 && srcs.length > 1 ? ` · ${M.firstOnCanvas}` : ''}`}</span>
@@ -321,7 +338,7 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
 
       {src ? (
         <Section label={M.canvasLabel}>
-          <EditCanvas op={op} src={src} others={srcs.slice(1)} sel={sel} setSel={setSel} form={form} setForm={setForm} />
+          <EditCanvas op={op} src={src} others={srcs.slice(1)} sel={sel} setSel={setSel} form={form} setForm={setForm} onView={() => setViewing(0)} />
         </Section>
       ) : null}
 
@@ -338,6 +355,9 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
   return (
     <ToolPage title={M.title[op]} bar={barNode} chip={<HeaderChip text={chip} tone={local ? 'neutral' : 'notice'} />}>
       <Workbench main={main} side={<ImageEditSide />} sideLabel={M.side} onKeyDown={submitOnModEnter(submit)} />
+      {viewing !== null && srcs[viewing] ? (
+        <ImageLightbox files={srcs.map(candidateOf)} initial={candidateOf(srcs[viewing])} onClose={() => setViewing(null)} />
+      ) : null}
     </ToolPage>
   );
 }
@@ -398,6 +418,16 @@ function ImageDrop({ compact, batch, onPaths }: { compact: boolean; batch: boole
         </Button>
       </div>
     </DropZone>
+  );
+}
+
+/** 来源行的小图：点开图片查看器。 */
+function SourceThumb({ src, onView }: { src: ImageSource; onView: () => void }) {
+  const url = useSourceUrl(src);
+  return (
+    <RACButton className={thumbButton} aria-label={IMAGE_COPY.zoom(src.name)} onPress={onView}>
+      {url ? <img className={thumbImage} src={url} alt="" draggable={false} /> : <ImageIcon />}
+    </RACButton>
   );
 }
 
@@ -528,6 +558,7 @@ function EditCanvas({
   setSel,
   form,
   setForm,
+  onView,
 }: {
   op: ImageEditToolId;
   src: ImageSource;
@@ -536,6 +567,7 @@ function EditCanvas({
   setSel: (s: Selection) => void;
   form: ImageEditForm;
   setForm: (p: Partial<ImageEditForm>) => void;
+  onView: () => void;
 }) {
   const o = imageEditOp(op);
   const stats = o.select ? selectionStats(sel, src) : null;
@@ -552,16 +584,27 @@ function EditCanvas({
           <div className={checker} style={fit(plan.width, plan.height)}>
             <div className={placed} style={{ left: pct(plan.x, plan.width), top: pct(plan.y, plan.height), width: pct(src.width, plan.width), height: pct(src.height, plan.height) }}>
               <Picture src={src} />
+              <RACButton className={viewHit} aria-label={IMAGE_COPY.zoom(src.name)} onPress={onView} />
             </div>
           </div>
         ) : (
           <div className={frame} style={fit(src.width, src.height, up ? PEEK_MAX_H : FRAME_MAX_H)}>
             <Picture src={src} />
-            {o.select ? <SelectionLayer src={src} mode={o.select} sel={sel} setSel={setSel} brush={form.brush} /> : null}
+            {o.select ? (
+              <SelectionLayer src={src} mode={o.select} sel={sel} setSel={setSel} brush={form.brush} />
+            ) : (
+              <RACButton className={viewHit} aria-label={IMAGE_COPY.zoom(src.name)} onPress={onView} />
+            )}
           </div>
         )}
       </div>
       <div className={bar}>
+        <TooltipTrigger>
+          <ActionButton isQuiet size="S" aria-label={IMAGE_COPY.zoom(src.name)} onPress={onView}>
+            <ZoomIn />
+          </ActionButton>
+          <Tooltip>{IMAGE_COPY.zoom(src.name)}</Tooltip>
+        </TooltipTrigger>
         <span className={mono}>{`${src.width}×${src.height}`}</span>
         {up ? <span className={detail}>{`→ ${up.width}×${up.height}`}</span> : null}
         {plan && !plan.same ? <span className={detail}>{`→ ${plan.width}×${plan.height} · ${M.added(plan.added)}`}</span> : null}

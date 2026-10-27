@@ -42,3 +42,9 @@
 .iecv__brush { display: inline-flex; align-items: center; gap: 8px; }
 .iecv__brush > :nth-child(2) { width: 120px; }
 .iecv__hint { color: var(--gray-700); }
+
+/* 看大图（2026-10-27）：来源行的缩略图、结果卡的缩略图与画布上不涂抹时的整张图都能点开全窗口图片查看器 */
+.ie__thumb { display: block; flex: none; width: 40px; height: 40px; padding: 0; border-radius: 8px; overflow: hidden; background: var(--gray-100); cursor: zoom-in; }
+.ie__thumb > img, .ie__result > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ie__result { display: block; width: 100%; max-height: 200px; padding: 0; border-radius: 8px; overflow: hidden; background: var(--gray-100); cursor: zoom-in; }
+.iecv__view { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; background: transparent; cursor: zoom-in; }

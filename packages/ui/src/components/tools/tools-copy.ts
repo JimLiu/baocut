@@ -36,7 +36,6 @@ const en = {
   },
 
   page: {
-    back: 'Tools',
     hotkey: '⌘↵',
   },
 
@@ -360,11 +359,6 @@ const en = {
     compressTitle: 'Compress video',
     mergeTitle: 'Merge videos',
     extractTitle: 'Extract audio',
-    /** 页顶切换（设计稿 tool-video.jsx `ACTIONS`）：三个工具共用一页，切换就是换路由。 */
-    switchLabel: 'Video file tools',
-    switchCompress: 'Compress',
-    switchMerge: 'Merge',
-    switchExtract: 'Extract audio',
     extractLede:
       'Drop the picture and keep the audio track: AAC, MP3, Opus and FLAC are copied as-is into .m4a, .mp3, .ogg and .flac; anything else is re-encoded to AAC (.m4a). Each file you pick gets its own copy; the originals are untouched.',
     extractSubmit: 'Extract audio',

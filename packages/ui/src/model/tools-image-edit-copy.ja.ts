@@ -8,8 +8,6 @@ export const ja: ToolsImageEditMessages = {
     repaint: '部分を描き直す',
     expand: '画像を拡張',
   },
-  switchItem: { upscale: '拡大', erase: 'オブジェクト消去', watermark: '透かし', repaint: '描き直し', expand: '拡張' },
-  switchLabel: '画像ツール',
   verb: { upscale: '拡大', erase: '消去', watermark: '透かしを除去', repaint: '描き直す', expand: '拡張' },
   lede: {
     upscale: 'このコンピューターの Real-ESRGAN で画像を 2–4 倍に拡大します。単に引き伸ばすのではなく、細部を補います。',

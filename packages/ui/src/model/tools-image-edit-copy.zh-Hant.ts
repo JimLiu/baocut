@@ -8,8 +8,6 @@ export const zhHant: ToolsImageEditMessages = {
     repaint: '重繪局部',
     expand: '擴展畫面',
   },
-  switchItem: { upscale: '放大', erase: '去除物體', watermark: '去浮水印', repaint: '重繪', expand: '擴圖' },
-  switchLabel: '圖片工具',
   verb: { upscale: '放大圖片', erase: '去除', watermark: '去浮水印', repaint: '重繪', expand: '擴圖' },
   lede: {
     upscale: '用本機的 Real-ESRGAN 把圖片放大 2–4 倍，補出細節，不是單純拉伸。',

@@ -8,8 +8,6 @@ export const nl: ToolsImageEditMessages = {
     repaint: 'Gebied opnieuw tekenen',
     expand: 'Afbeelding uitbreiden',
   },
-  switchItem: { upscale: 'Vergroten', erase: 'Object verwijderen', watermark: 'Watermerk', repaint: 'Opnieuw tekenen', expand: 'Uitbreiden' },
-  switchLabel: 'Afbeeldingstool',
   verb: { upscale: 'Vergroten', erase: 'Verwijderen', watermark: 'Watermerk verwijderen', repaint: 'Opnieuw tekenen', expand: 'Uitbreiden' },
   lede: {
     upscale: 'Vergroot afbeeldingen 2–4× met Real-ESRGAN op deze computer, met aangevulde details in plaats van alleen uitrekken.',

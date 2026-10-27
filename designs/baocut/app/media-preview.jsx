@@ -316,6 +316,7 @@
         <window.MediaImageHeader file={file} view={view} setView={view => update({view})} zoom={zoom} scale={scale}
           setZoom={key => key === 'fit' ? update({zoom: 'fit'}) : around(Number(key))} onClose={onClose} onOpenTab={onOpenTab}
           gif={gif.isGif} onPanorama={() => setPanorama(true)}
+          onTool={op => { onClose?.(); window.BC_IMAGE_EDIT_QUEUE.openWith(app, op, file, natural); }}
           onCopy={() => window.copyMediaImage(display.previewSrc).then(() => app.toast('图片已复制。')).catch(e => app.toast(e.message, 'negative'))} />
         {view === 'canvas' && !gif.isGif && (
           <div className="media-preview__toolbar">

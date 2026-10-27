@@ -32,7 +32,6 @@ import {
 import type { FileVideoToolId } from '../../model/tool-catalog.ts';
 import { saveTarget } from '../../model/tool-frame.ts';
 import { useRuntime } from '../../runtime/context.tsx';
-import { useShell } from '../../state/shell-store.ts';
 import { useTools } from '../../state/tools-store.ts';
 import { BarStatus, detail, detailGrow, Gate, HeaderChip, hintText, Row, Section, SectionLink, submitOnModEnter, ToolPage, Workbench } from './tool-parts.tsx';
 import { FORM_COPY, TRANSCODE_COPY } from './tools-copy.ts';
@@ -44,7 +43,7 @@ import { usePreset, useRerun } from './video-tool-parts.tsx';
 
 /*
  * 设计稿 tool-video.jsx `VideoToolShell`、tool-video-compress.jsx、tool-video-merge.jsx 与 tool-video-extract.jsx：压缩、合并、
- * 提取音频共用一页，页顶切换（切换就是换路由，各自保留工具 ID 与草稿）；左边选文件与设置，右边「处理记录」。
+ * 提取音频共用一页，由左边侧栏切换（各自保留工具 ID 与草稿，页里不再有切换条）；左边选文件与设置，右边「处理记录」。
  * 提交走 Runtime 的 `transcode` 固定流程（`pipelines.start`）：读取输入 → 编码 → 校验输出 → 发布到保存位置（「更改…」只改这一次）。
  * Runtime 做不到的设计稿选项（帧率、硬件编码、去掉音轨、按目标体积、合并时强制流复制或重新编码）不画，
  * 偏差见提交说明。
@@ -107,23 +106,6 @@ const ACTIONS: Record<TranscodeAction, { tool: FileVideoToolId; text: () => Acti
     }),
   },
 };
-
-/** 页顶的切换：压缩 / 合并 / 提取音频，切换就是换路由。 */
-function ActionSwitch({ action }: { action: TranscodeAction }) {
-  const go = useShell((s) => s.go);
-  return (
-    <SegmentedControl
-      aria-label={TRANSCODE_COPY.switchLabel}
-      selectedKey={ACTIONS[action].tool}
-      onSelectionChange={(key) => {
-        if (key !== ACTIONS[action].tool) go({ tab: 'tools', tool: key as FileVideoToolId });
-      }}>
-      <SegmentedControlItem id="compress-video">{TRANSCODE_COPY.switchCompress}</SegmentedControlItem>
-      <SegmentedControlItem id="merge-video">{TRANSCODE_COPY.switchMerge}</SegmentedControlItem>
-      <SegmentedControlItem id="extract-audio">{TRANSCODE_COPY.switchExtract}</SegmentedControlItem>
-    </SegmentedControl>
-  );
-}
 
 /** 页头那行现状：`tools.list` 说不能用（Web 上的原因也在这里）、ffmpeg 的检测、提交前的问题，或者选了几个文件与设置。 */
 function barLine(
@@ -247,7 +229,6 @@ function TranscodeTool({ action }: { action: TranscodeAction }) {
 
   const main = (
     <>
-      <ActionSwitch action={action} />
       <p className={lede}>{meta.lede}</p>
       {block ? <Gate title={TRANSCODE_COPY.unavailable} body={block} /> : web ? null : <FfmpegGate state={ffmpeg.state} recheck={ffmpeg.recheck} />}
       {files}

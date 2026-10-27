@@ -8,8 +8,6 @@ export const ko: ToolsImageEditMessages = {
     repaint: '부분 다시 그리기',
     expand: '이미지 확장',
   },
-  switchItem: { upscale: '확대', erase: '개체 지우기', watermark: '워터마크', repaint: '다시 그리기', expand: '확장' },
-  switchLabel: '이미지 도구',
   verb: { upscale: '확대', erase: '지우기', watermark: '워터마크 제거', repaint: '다시 그리기', expand: '확장' },
   lede: {
     upscale: '이 컴퓨터의 Real-ESRGAN으로 이미지를 2–4배 확대합니다. 단순히 늘리지 않고 디테일을 채웁니다.',

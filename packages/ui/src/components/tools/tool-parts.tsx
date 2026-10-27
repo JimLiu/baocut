@@ -1,35 +1,23 @@
 import type { KeyboardEvent, ReactNode, Ref } from 'react';
 import { ActionButton, Badge, Content, Heading, InlineAlert, Text } from '@react-spectrum/s2';
-import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { TextArea as RacTextArea, TextField as RacTextField } from 'react-aria-components';
-import { useShell } from '../../state/shell-store.ts';
 import { UtilityPage } from '../utility-page.tsx';
 import { PAGE_COPY } from './tools-copy.ts';
 
 /*
  * 工具工作台共用的版式（设计稿 tools.css `.ttsw*`）：左边表单的几节、右边吸住的记录栏，窄时上下叠放；
- * 子页顶上「← 工具」，标题右边是那行现状、⌘↵ 与主按钮（设计稿放在吸顶的导航栏里，这里放在页头）。
+ * 标题与它右边那行现状、⌘↵ 与主按钮同在吸顶的页头里（设计稿 shell.jsx `Page` 的 bar），不随内容滚走。工具由侧栏切换，
+ * 不再有「← 工具」的返回。
  */
 
-const back = style({ alignSelf: 'start', marginBottom: 12, marginStart: -8 });
 const actions = style({ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 1 });
-const chipRow = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: -12, marginBottom: 24 });
+const chipRow = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 });
 
-/** 工具子页：返回总览、标题、页头右边一组控件、标题下一枚「走谁的服务」的标签。 */
+/** 工具子页：标题、页头右边一组控件（有就吸顶）、标题下一枚「走谁的服务」的标签。 */
 export function ToolPage({ title, bar, chip, children }: { title: string; bar?: ReactNode; chip?: ReactNode; children: ReactNode }) {
-  const go = useShell((s) => s.go);
   return (
-    <UtilityPage
-      kind="tools"
-      title={title}
-      actions={bar ? <div className={actions}>{bar}</div> : undefined}
-      before={
-        <ActionButton isQuiet size="S" styles={back} onPress={() => go({ tab: 'tools' })}>
-          <ChevronLeft />
-          <Text>{PAGE_COPY.back}</Text>
-        </ActionButton>
-      }>
+    <UtilityPage kind="tools" title={title} sticky={!!bar} actions={bar ? <div className={actions}>{bar}</div> : undefined}>
       {chip ? <div className={chipRow}>{chip}</div> : null}
       {children}
     </UtilityPage>
@@ -84,7 +72,8 @@ const benchGrid = style({
 const benchMain = style({ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 });
 const benchSide = style({
   position: { default: 'sticky', '@container (max-width: 760px)': 'static' },
-  top: 0,
+  // 从吸顶页头下面开始吸住（UtilityPage 写的 --bc-page-bar），不钻到页头底下
+  top: '[calc(var(--bc-page-bar, 0px) + 8px)]',
   display: 'flex',
   flexDirection: 'column',
   gap: 8,

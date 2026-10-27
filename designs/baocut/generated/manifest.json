@@ -511,9 +511,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=0df312fd7243",
-    "css": "generated/app.css?v=c52145ea54cd",
-    "bytes": 4831440
+    "js": "generated/app.js?v=fc85a8738a41",
+    "css": "generated/app.css?v=5e0a6939440d",
+    "bytes": 4833912
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -784,9 +784,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=0c6d14d9096f",
+    "js": "generated/web.js?v=aae2e8ffff08",
     "css": "generated/web.css?v=122f6fa89fe5",
-    "bytes": 2872819
+    "bytes": 2872835
   },
   "components": {
     "file": "Components.html",
@@ -811,8 +811,8 @@
       "vendor/react-spectrum-s2/react-spectrum-s2-font.css",
       "app/spectrum.css"
     ],
-    "js": "generated/components.js?v=5761213db807",
+    "js": "generated/components.js?v=043c7f5cb7fd",
     "css": "generated/components.css?v=6e1c18fe512d",
-    "bytes": 114487
+    "bytes": 114503
   }
 }

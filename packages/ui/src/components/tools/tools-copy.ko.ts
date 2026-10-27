@@ -13,7 +13,6 @@ export const ko: ToolsMessages = {
     open: (name: string) => `${name} 열기`,
   },
   page: {
-    back: '도구',
     hotkey: '⌘↵',
   },
   planned: {
@@ -304,10 +303,6 @@ export const ko: ToolsMessages = {
     compressTitle: '영상 압축',
     mergeTitle: '영상 합치기',
     extractTitle: '오디오 추출',
-    switchLabel: '영상 파일 도구',
-    switchCompress: '압축',
-    switchMerge: '합치기',
-    switchExtract: '오디오 추출',
     extractLede:
       '화면은 버리고 오디오 트랙만 남깁니다. AAC, MP3, Opus, FLAC는 그대로 .m4a, .mp3, .ogg, .flac로 복사되고, 그 밖의 형식은 AAC(.m4a)로 다시 인코딩합니다. 선택한 파일마다 결과가 따로 만들어지며 원본은 그대로 둡니다.',
     extractSubmit: '오디오 추출',

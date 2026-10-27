@@ -4,6 +4,7 @@ import { ActionButton, Button, Text, ToastQueue } from '@react-spectrum/s2';
 import FileText from '@react-spectrum/s2/icons/FileText';
 import Folder from '@react-spectrum/s2/icons/Folder';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { Button as RACButton } from 'react-aria-components';
 import { mergeDraft } from '../../model/ai-tools-handoff.ts';
 import { entryPath, videoTargetOf } from '../../model/space.ts';
 import { placeKindOf, videoNameOf } from '../../model/space-actions.ts';
@@ -15,9 +16,10 @@ import { useDirectory } from '../../state/directory-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { showInSpace } from '../../state/space-focus-store.ts';
 import { useSpace } from '../../state/space-store.ts';
+import { ImageLightbox } from '../media/image-lightbox.tsx';
 import { EntryThumb } from '../space/space-list.tsx';
 import { detail } from './tool-parts.tsx';
-import { OUTPUT_COPY } from './tools-copy.ts';
+import { IMAGE_COPY, OUTPUT_COPY } from './tools-copy.ts';
 import { ProjectPicker } from './tool-run-view.tsx';
 import { useVideoTools } from './use-video-tools.ts';
 
@@ -103,6 +105,19 @@ const sub = style({ font: 'ui-xs', color: 'gray-700', overflowWrap: 'anywhere' }
 const acts = style({ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 });
 const nextRow = style({ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 });
 const nextLabel = style({ font: 'ui-xs', color: 'gray-700' });
+const thumbButton = style({
+  display: 'block',
+  flexShrink: 0,
+  padding: 0,
+  borderWidth: 0,
+  borderRadius: 'sm',
+  backgroundColor: 'transparent',
+  cursor: 'zoom-in',
+  outlineStyle: { default: 'none', isFocusVisible: 'solid' },
+  outlineWidth: 2,
+  outlineOffset: 2,
+  outlineColor: 'focus-ring',
+});
 const pickBox = style({ display: 'flex', flexDirection: 'column', gap: 8, width: 'full' });
 
 /** 「以此新建视频」：音频、图片、视频文件选一个项目后直接成为新视频的素材；文稿与字幕写明为什么不行。 */
@@ -159,6 +174,9 @@ export function ToolOutputRow({ entry, fromTool, compact = false }: { entry: Spa
   const rest = nexts.filter((n) => n.id !== 'open-movie');
   const path = movie ? null : actions.pathOf(entry);
   const pending = entry.status === 'generating';
+  // 做好的图片点小图就在图片查看器里看大图（查看器表头还能接着「用工具处理…」）。
+  const viewable = entry.kind === 'image' && !pending && entry.status !== 'missing' && entry.status !== 'failed';
+  const [viewing, setViewing] = useState(false);
   const btn = (n: FollowUp) =>
     n.id === 'new-movie' ? (
       <NewMovieFrom key={n.id} entry={entry} label={n.label} />
@@ -170,7 +188,13 @@ export function ToolOutputRow({ entry, fromTool, compact = false }: { entry: Spa
   return (
     <div className={row({ isCompact: compact })}>
       <div className={head}>
-        <EntryThumb entry={entry} small />
+        {viewable ? (
+          <RACButton className={thumbButton} aria-label={IMAGE_COPY.zoom(entry.name)} onPress={() => setViewing(true)}>
+            <EntryThumb entry={entry} small />
+          </RACButton>
+        ) : (
+          <EntryThumb entry={entry} small />
+        )}
         <span className={text}>
           <span className={name} title={entry.name}>
             {entry.name}
@@ -205,6 +229,13 @@ export function ToolOutputRow({ entry, fromTool, compact = false }: { entry: Spa
           <span className={nextLabel}>{OUTPUT_COPY.nextLabel}</span>
           {rest.map(btn)}
         </div>
+      ) : null}
+      {viewing ? (
+        <ImageLightbox
+          files={[{ target: { entryId: entry.id }, name: entry.name }]}
+          initial={{ target: { entryId: entry.id }, name: entry.name }}
+          onClose={() => setViewing(false)}
+        />
       ) : null}
     </div>
   );

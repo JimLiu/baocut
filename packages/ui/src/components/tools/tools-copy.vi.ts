@@ -13,7 +13,6 @@ export const vi: ToolsMessages = {
     open: (name) => `Mở ${name}`,
   },
   page: {
-    back: "Công cụ",
     hotkey: '⌘↵',
   },
   planned: {
@@ -285,10 +284,6 @@ export const vi: ToolsMessages = {
     compressTitle: "Nén video",
     mergeTitle: "Ghép video",
     extractTitle: "Trích âm thanh",
-    switchLabel: "Công cụ tệp video",
-    switchCompress: "Nén",
-    switchMerge: "Bắt đầu ghép",
-    switchExtract: "Trích âm thanh",
     extractLede: "Bỏ hình và giữ rãnh âm thanh: AAC, MP3, Opus, FLAC được sao chép nguyên vào .m4a, .mp3, .ogg, .flac; các loại khác mã hóa lại thành AAC (.m4a). Mỗi tệp được chọn có bản sao riêng; tệp gốc giữ nguyên.",
     extractSubmit: "Trích âm thanh",
     filesExtract: "Tệp video hoặc âm thanh",

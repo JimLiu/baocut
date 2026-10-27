@@ -27,6 +27,7 @@ import { COMPOSER_MENU, AGENT_PICKER } from '../copy.ts';
 import { addImageRequest, addImageBatch } from '../state/image-request.ts';
 
 import { ImageChrome, ImageTools, ImageRail, ImageDock } from './media/image-chrome.tsx';
+import { ImageToolMenu } from './media/image-tool-menu.tsx';
 import { ImageMarkup } from './media/image-markup.tsx';
 import { ImagePanorama } from './media/image-panorama.tsx';
 import { useImageZoom } from './media/use-image-zoom.ts';
@@ -373,6 +374,11 @@ export function ImagePreview({
         onDownload={() => save.media(handle.url, fileName)}
         onCopy={() => void copyPreviewImage(displayUrl).catch(() => ToastQueue.negative(M.unavailable))}
         onPanorama={() => setPanorama(true)}
+        tools={
+          isGif ? null : (
+            <ImageToolMenu entry={entry ?? null} path={'localPath' in target ? target.localPath : null} name={fileName} onLeave={onClose} />
+          )
+        }
       />
       {isGif && (
         <GifControls

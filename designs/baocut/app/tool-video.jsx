@@ -1,6 +1,6 @@
 /* 工具 › 视频文件工具的共享层 —— §17.5（2026-09-16）；2026-10-06 按 product-design §2.7「视频文件」组改成一页三个动作。
    压缩 / 合并 / 提取音频共用：ffmpeg 卡（检测 / 安装 / 升级）、任务队列（本机一次跑一条，每条落一条不属于任何项目的后台任务）、
-   页面外壳（VideoToolShell：页顶 SegmentedControl 切三个动作、保存位置一行、演示挡位、右栏队列）、从 Space 里选视频文件。
+   页面外壳（VideoToolShell：保存位置一行、演示挡位、右栏队列；三个动作由侧栏切换，2026-10-27 去掉页内切换）、从 Space 里选视频文件。
    各页：压缩 tool-video-compress.jsx、合并 tool-video-merge.jsx、提取音频 tool-video-extract.jsx；任务卡 tool-video-jobs.jsx。
    完成的结果注册进 Space（压缩 / 合并是视频文件条目，提取音频是音频条目），文件在保存位置；
    任务记录带 toolId、params、outputs 与 saveDir（字段形状见 model-tool-runs.js 头注释）。
@@ -292,7 +292,6 @@
   }
 
   /* ---------- 页面外壳：三个动作共用一页 ---------- */
-  const ACTIONS = [{id: 'compress', label: '压缩'}, {id: 'merge', label: '合并'}, {id: 'extract', label: '提取音频'}];
   /** ffmpeg 还没准备好时导航栏上说什么（三页同一句） */
   function ffmpegGate(st) {
     if (st.stage === 'ready' || st.stage === 'update') return null;
@@ -309,20 +308,15 @@
     }, []);
   }
   /**
-   * 视频文件工具的一页：页顶切换三个动作（S2 SegmentedControl，切换就是换路由）、ffmpeg 卡、表单、保存位置、演示挡位，右栏是共用队列。
+   * 视频文件工具的一页：ffmpeg 卡、表单、保存位置、演示挡位，右栏是共用队列。三个动作各是侧栏里的一行，页内不再切换（2026-10-27）。
    * @param {{tool: 'compress'|'merge'|'extract', title: string, bar: any, s: object, save: object, onReuse: Function, onFix: Function, children: any}} props
    */
-  function VideoToolShell({tool, title, bar, s, save, onReuse, onFix, children}) {
-    const app = useApp();
-    const R = window.RSP;
+  function VideoToolShell({title, bar, s, save, onReuse, onFix, children}) {
     const st = V.ffmpegState(s.env);
     return (
       <window.Page wide title={title} bar={bar} actions={<Chip icon="lock">在这台电脑上处理 · 不上传</Chip>}>
         <div className="vw">
           <div className="vw__main">
-            <R.SegmentedControl aria-label="视频文件工具" selectedKey={tool} onSelectionChange={(id) => { if (id !== tool) app.go({r: 'tools', id}); }}>
-              {ACTIONS.map((a) => <R.SegmentedControlItem key={a.id} id={a.id}>{a.label}</R.SegmentedControlItem>)}
-            </R.SegmentedControl>
             {st.stage === 'ready' ? null : <FfmpegCard st={st} s={s} />}
             {children}
             <window.ToolSaveDirRow save={save} />

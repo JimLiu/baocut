@@ -27,8 +27,6 @@ const en = {
     repaint: 'Repaint area',
     expand: 'Expand image',
   } satisfies Record<Tool, string>,
-  switchItem: { upscale: 'Upscale', erase: 'Remove object', watermark: 'Watermark', repaint: 'Repaint', expand: 'Expand' } satisfies Record<Tool, string>,
-  switchLabel: 'Image tool',
   verb: { upscale: 'Upscale', erase: 'Remove', watermark: 'Remove watermark', repaint: 'Repaint', expand: 'Expand' } satisfies Record<Tool, string>,
   lede: {
     upscale: 'Enlarge images 2–4× with Real-ESRGAN on this computer, filling in detail instead of just stretching.',

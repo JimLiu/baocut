@@ -16,7 +16,6 @@ export const ptBR: ToolsMessages = {
   },
 
   page: {
-    back: "Ferramentas",
     hotkey: "⌘↵",
   },
 
@@ -334,10 +333,6 @@ export const ptBR: ToolsMessages = {
     mergeTitle: "Juntar vídeos",
     extractTitle: "Extrair áudio",
 
-    switchLabel: "Ferramentas de arquivos de vídeo",
-    switchCompress: "Compactar",
-    switchMerge: "Unir",
-    switchExtract: "Extrair áudio",
     extractLede:
       "Retira imagem e mantém áudio: AAC, MP3, Opus, FLAC copiados a .m4a, .mp3, .ogg, .flac; outros reencodificados em AAC (.m4a). Uma cópia por arquivo, originais intactos.",
     extractSubmit: "Extrair áudio",

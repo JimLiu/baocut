@@ -8,8 +8,6 @@ export const ptBR: ToolsImageEditMessages = {
     repaint: 'Redesenhar área',
     expand: 'Expandir imagem',
   },
-  switchItem: { upscale: 'Ampliar', erase: 'Remover objeto', watermark: 'Marca d’água', repaint: 'Redesenhar', expand: 'Expandir' },
-  switchLabel: 'Ferramenta de imagem',
   verb: { upscale: 'Ampliar', erase: 'Remover', watermark: 'Remover marca d’água', repaint: 'Redesenhar', expand: 'Expandir' },
   lede: {
     upscale: 'Amplie imagens de 2 a 4× com o Real-ESRGAN neste computador, preenchendo detalhes em vez de só esticar.',
