@@ -15,7 +15,7 @@ import { CANVAS_RECORDER_SCRIPT } from './canvas-recorder.ts';
  * 经 JSON 行协议打开会话、按票据取帧。
  *
  * 一个宿主进程可以开多个会话（每个会话一个窗口、一个隔离分区）；同一会话的取帧在宿主里串行。
- * 帧是 `capturePage()` 的 PNG；`receipt.sha256` 是 PNG bytes 的摘要——同一个 Electron 版本里 PNG 编码是确定的，
+ * 帧是 DevTools `Page.captureScreenshot` 的 PNG；`receipt.sha256` 是 PNG bytes 的摘要——同一个 Electron 版本里 PNG 编码是确定的，
  * 所以同一画面得到同一摘要（换 Electron 版本后摘要可能整体变化，不能跨版本比对）。
  */
 
@@ -50,8 +50,8 @@ export interface RenderedFrame {
   transparentPixels: number;
   /** 0 < alpha < 255 的像素数。 */
   translucentPixels: number;
-  /** 截图方式：恒为 `capturePage`（`paint` 事件的图像实测可能是旧帧，只用来等一次重绘）。 */
-  captureMode: 'paint' | 'capturePage';
+  /** 截图方式：恒为 `screenshot`（DevTools 截图会等 seek 之后的那一帧；`capturePage()` 与 `paint` 事件的图像实测可能是旧帧）。 */
+  captureMode: 'screenshot';
 }
 
 /** 录制资源（宿主已把 `file:` URL 改成包内相对路径；落在包外时 `path` 为 null，同时 `unsupported` 有原因）。 */
@@ -191,8 +191,7 @@ interface FrameResult {
   sampledSeconds: number;
   targetSeconds: number;
   clamped: boolean;
-  captureMode: 'paint' | 'capturePage';
-  paintObserved: boolean;
+  captureMode: 'screenshot';
   transparentPixels: number;
   translucentPixels: number;
   blockedRequests: string[];

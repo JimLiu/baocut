@@ -281,7 +281,7 @@ interface CompositionContext {
 
 - 用局部时间直接求出对象的状态，再渲染场景。
 - 动画片段可以通过 `AnimationMixer.setTime` 驱动。但这不等于所有的物理、粒子和异步资源都天然可以随机访问；带状态的部分要么改写成时间的纯函数，要么声明 `sequential`。
-- **WebGL**（Three.js、原生 WebGL、p5 的 `WEBGL` 模式）在离屏宿主里可用：宿主开着 GPU 合成（macOS 上是 ANGLE Metal），只把 Canvas 2D 与页面光栅留在 CPU；关掉硬件加速后 Chromium 连软件 WebGL 也不给。宿主截的是合成后的页面（`capturePage`），不回读画布：实测（three r170，macOS）不开 `preserveDrawingBuffer`、不调 `gl.finish()` 的变体与开了的逐帧摘要相同；仍建议开 `preserveDrawingBuffer: true` 并在 `renderAt` 画完调 `gl.finish()`，别的平台与 Chromium 版本没有测过。WebGL 画面只能走像素烘焙（§7.1；录制器报 `canvas-not-2d`，`auto` 回退、`ops` 失败），640×360 约 23 帧/秒；不同机器的 GPU 光栅可能有细微差别，帧摘要只在同一台机器上可比。库文件与模型随包带着：`three.module.js` 等放 `vendor/`（原样通过静态扫描：库里的 URL 都在注释里，仅剩的 XHTML 命名空间不算（§6.1）），`gltf` `glb` `bin` `hdr` `ktx2` 在扩展名白名单里（§6.1）。`WebGLRenderer({ canvas, alpha: true })` 画到根元素里的画布，`setPixelRatio(1)`、`setSize(宽, 高, false)` 让画布像素尺寸等于固有尺寸；透明输出 `setClearColor(0x000000, 0)`，验证的 alpha 检查通过。
+- **WebGL**（Three.js、原生 WebGL、p5 的 `WEBGL` 模式）在离屏宿主里可用：宿主开着 GPU 合成（macOS 上是 ANGLE Metal），只把 Canvas 2D 与页面光栅留在 CPU；关掉硬件加速后 Chromium 连软件 WebGL 也不给。宿主截的是合成后的页面（DevTools `Page.captureScreenshot`），不回读画布：实测（three r170，macOS）不开 `preserveDrawingBuffer`、不调 `gl.finish()` 的变体与开了的逐帧摘要相同；仍建议开 `preserveDrawingBuffer: true` 并在 `renderAt` 画完调 `gl.finish()`，别的平台与 Chromium 版本没有测过。WebGL 画面只能走像素烘焙（§7.1；录制器报 `canvas-not-2d`，`auto` 回退、`ops` 失败），640×360 约 23 帧/秒；不同机器的 GPU 光栅可能有细微差别，帧摘要只在同一台机器上可比。库文件与模型随包带着：`three.module.js` 等放 `vendor/`（原样通过静态扫描：库里的 URL 都在注释里，仅剩的 XHTML 命名空间不算（§6.1）），`gltf` `glb` `bin` `hdr` `ktx2` 在扩展名白名单里（§6.1）。`WebGLRenderer({ canvas, alpha: true })` 画到根元素里的画布，`setPixelRatio(1)`、`setSize(宽, 高, false)` 让画布像素尺寸等于固有尺寸；透明输出 `setClearColor(0x000000, 0)`，验证的 alpha 检查通过。
 
 ### 4.5 Canvas 与透明
 

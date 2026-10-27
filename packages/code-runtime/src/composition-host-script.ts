@@ -7,11 +7,12 @@
  * - 启动后（`app.whenReady()` 之后）连接父进程的 socket；通道关闭即退出。不用顶层 await：ready 要等脚本求值结束才发。
  * - `open`：每个会话一个非持久分区、一个隐藏的离屏窗口；拦截根目录以外的 `file:` 与一切 `data:` / `blob:` / `about:` /
  *   `devtools:` 以外的请求（事件 `networkBlocked`），拒绝全部权限请求与导航、弹窗。
- * - `frame`：同一会话串行；seek（Adapter 先空一帧，见 `composition-adapter.ts`）→ 回读校验 → `invalidate()` 等一次 `paint`（最多 500 ms）→ `capturePage()` 截图，
- *   再等一次 `paint` 截一次，直到相邻两次截图逐像素相同（最多 4 次）：Electron 44.9 在 `paint` 之后的截图仍可能是 seek 之前的画面，新表面的头一帧必然如此，
- *   负载高时任何一帧都可能。离屏窗口的帧率设到 240：Adapter 每次 seek 要等四个动画帧，60 帧时光这一项就要 60 多 ms。
+ * - `frame`：同一会话串行；seek（Adapter 先空一帧，见 `composition-adapter.ts`）→ 回读校验 → 经 DevTools 的 `Page.captureScreenshot` 截图。
+ *   它让渲染进程强制重绘一帧、等这一帧交出之后才复制画面，所以截到的一定是 seek 之后的画面；`capturePage()` 只复制当前已交出的那帧，
+ *   Electron 44.9 里新表面的头一帧必然、负载高时任何一帧都可能还是 seek 之前的画面，`invalidate()` 加等 `paint` 也等不到渲染进程。
+ *   离屏窗口的帧率设到 240：Adapter 每次 seek 要等四个动画帧，60 帧时光这一项就要 60 多 ms。
  *   回读容差是采样帧率下的半帧：帧率取请求里的 `fps`（取帧票据的），没有时取 `open` 的 `fps`（包的 intrinsic）。
- *   不直接用 `paint` 事件带来的图像：实测它可能是上一次提交的旧帧，`capturePage()` 才稳定反映 seek 后的画面。
+ *   不用 `paint` 事件带来的图像：实测它同样可能是上一次提交的旧帧。
  * - `open` 带 `record: true` 时，在 `ready()` 之前再注入 `CANVAS_RECORDER_SCRIPT`（要赶在 `initialize` 构造 `FontFace` 与离屏画布之前）。
  * - `record`：同一会话串行；一批时刻交给 `__baocutRecorder.record`，逐帧做同样的回读校验，再把资源的 `file:` URL 改写成包内相对路径
  *   （`/` 分隔；落在包外的判为不支持）。
@@ -26,7 +27,7 @@ export const RECORDER_PLACEHOLDER = '/*__BAOCUT_RECORDER_SOURCE__*/null';
 
 // i18n-ignore-start: 子进程脚本源码，不是给人看的文字
 export const COMPOSITION_HOST_SCRIPT = String.raw`'use strict';
-const { app, BrowserWindow, session } = require('electron');
+const { app, BrowserWindow, nativeImage, session } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
@@ -35,8 +36,6 @@ const { fileURLToPath } = require('url');
 
 const ADAPTER_SOURCE = /*__BAOCUT_ADAPTER_SOURCE__*/null;
 const RECORDER_SOURCE = /*__BAOCUT_RECORDER_SOURCE__*/null;
-const PAINT_WAIT_MS = 500;
-const CAPTURE_ATTEMPTS = 4;
 
 // GPU 合成留着，WebGL（Three.js、p5 的 WEBGL 模式）才有：关掉硬件加速后 Chromium 在 macOS 上连 SwiftShader 也不给
 // （enable-unsafe-swiftshader、use-angle=swiftshader 实测都拿不到 WebGL）。Canvas 2D 与页面光栅仍留在 CPU，
@@ -170,8 +169,8 @@ async function open(p) {
   state.win = win;
   sessions.set(id, state);
   const wc = win.webContents;
-  // Every frame waits for several animation frames and paints (blank frame,
-  // settle, repeated capture); 240 Hz keeps those waits short.
+  // Every frame waits for four animation frames (blank frame, then settle);
+  // 240 Hz keeps those waits short.
   wc.setFrameRate(240);
   wc.setWindowOpenHandler(() => ({ action: 'deny' }));
   wc.on('will-navigate', (event) => event.preventDefault());
@@ -194,6 +193,8 @@ async function open(p) {
   });
 
   try {
+    // Frames are captured through the DevTools protocol (see renderFrame).
+    wc.debugger.attach('1.3');
     await guarded(state, win.loadFile(entryPath));
     await guarded(state, wc.executeJavaScript(ADAPTER_SOURCE, true));
     if (state.recording) await guarded(state, wc.executeJavaScript(RECORDER_SOURCE, true));
@@ -209,21 +210,6 @@ async function open(p) {
     destroy(state);
     throw error;
   }
-}
-
-function nextPaint(wc) {
-  return new Promise((resolve) => {
-    const onPaint = () => {
-      clearTimeout(timer);
-      resolve(true);
-    };
-    const timer = setTimeout(() => {
-      wc.removeListener('paint', onPaint);
-      resolve(false);
-    }, PAINT_WAIT_MS);
-    wc.once('paint', onPaint);
-    wc.invalidate();
-  });
 }
 
 /** 与 @baocut/protocol 的 seekToleranceSeconds 相同：采样帧率下的半帧，1 / (2 × fps)。 */
@@ -244,21 +230,12 @@ async function renderFrame(state, p) {
   if (!(Math.abs(seek.sampledSeconds - seek.targetSeconds) <= tolerance)) {
     throw fail('COMPOSITION_SEEK_MISMATCH', 'Seek to ' + seconds + ' s sampled ' + seek.sampledSeconds + ' s (target ' + seek.targetSeconds + ' s)', seek);
   }
-  // Electron 44.9 can return the picture from before the seek even after the
-  // paint event (always on a new surface, sometimes under load): the page is
-  // still after a seek, so capture until two consecutive pictures agree.
-  let painted = await nextPaint(wc);
-  let image = await guarded(state, wc.capturePage());
-  let bitmap = image.toBitmap();
-  for (let attempt = 1; attempt < CAPTURE_ATTEMPTS; attempt++) {
-    painted = (await nextPaint(wc)) || painted;
-    const next = await guarded(state, wc.capturePage());
-    const nextBitmap = next.toBitmap();
-    const stable = nextBitmap.equals(bitmap);
-    image = next;
-    bitmap = nextBitmap;
-    if (stable) break;
-  }
+  // Page.captureScreenshot forces a redraw and copies the frame it produces, so
+  // the picture always includes the seek; capturePage() copies whatever frame
+  // was presented last, which can still be the one from before the seek.
+  const shot = await guarded(state, wc.debugger.sendCommand('Page.captureScreenshot', { format: 'png', fromSurface: true }));
+  const image = nativeImage.createFromBuffer(Buffer.from(shot.data, 'base64'));
+  const bitmap = image.toBitmap();
   const size = image.getSize();
   if (size.width !== state.width || size.height !== state.height) {
     throw fail('COMPOSITION_INTRINSIC_MISMATCH', 'Captured ' + size.width + 'x' + size.height + ', expected ' + state.width + 'x' + state.height, size);
@@ -273,14 +250,13 @@ async function renderFrame(state, p) {
     }
   }
   return {
-    png: image.toPNG().toString('base64'),
+    png: shot.data,
     width: size.width,
     height: size.height,
     sampledSeconds: seek.sampledSeconds,
     targetSeconds: seek.targetSeconds,
     clamped: seek.clamped,
-    captureMode: 'capturePage',
-    paintObserved: painted,
+    captureMode: 'screenshot',
     transparentPixels,
     translucentPixels,
     blockedRequests: state.blocked.slice(),

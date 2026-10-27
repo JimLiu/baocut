@@ -2391,7 +2391,7 @@ interface FrameTicket {
 
 **末尾行为**必须显式选择：取可用帧、hold，或报告越界。默认不把超出源码时长的请求自动当作成功的 hold。允许的时间误差来自精确的视频与素材 timebase 及所选的采样策略，不使用一个固定的容差常数；高帧率场景必须验证末帧以及相邻帧可以区分。
 
-**第一期的子集**（`packages/code-runtime`）。`FrameTicket` 只有 `requestId`、`bundleRef`、`compositionId`、`localTime`、`frameIndex`、`fps`、`width`、`height`、`parametersHash`、`quality`；`FrameReceipt` 带回实际采样与请求的秒数、是否被夹到时长上，以及帧 bytes 的 sha256。每次要截图的 seek 之前，Adapter 先把 `<html>` 的透明度压到 0 空一帧（等两个动画帧）再还原：上一张画面里的分数透明度与变换会在合成器里留下状态，让同一时刻的像素随之前取过的帧差一两级；空一帧后同一时刻总是同一张图。捕获在 Adapter 等两个动画帧之外，还在 `invalidate()` 之后等待离屏窗口的 `paint` 事件，然后用 `capturePage` 取帧（`paint` 事件自带的图像可能滞后一帧，不直接用）；Electron 44.9 在 `paint` 之后的 `capturePage` 仍可能返回 seek 之前的画面（新表面的头一帧必然如此，负载高时任何一帧都可能），所以再等一次 `paint` 截一次，直到相邻两次截图逐像素相同（最多 4 次）。离屏窗口的帧率设为 240，抵消多等的动画帧与重截；这仍是上文所说的候选等待策略，对 Export-Exact 的限制不变。同一会话的取帧请求串行执行；采样帧用 sha256 比较，作为确定性的证据。`hyperframes/1` 的末尾行为与 seek 回读容差见代码包规范 §4.7：容差是采样帧率下的半帧，帧率取取帧票据的 `fps`（没有票据时取包的 `intrinsic.fps`），不是固定常数。
+**第一期的子集**（`packages/code-runtime`）。`FrameTicket` 只有 `requestId`、`bundleRef`、`compositionId`、`localTime`、`frameIndex`、`fps`、`width`、`height`、`parametersHash`、`quality`；`FrameReceipt` 带回实际采样与请求的秒数、是否被夹到时长上，以及帧 bytes 的 sha256。每次要截图的 seek 之前，Adapter 先把 `<html>` 的透明度压到 0 空一帧（等两个动画帧）再还原：上一张画面里的分数透明度与变换会在合成器里留下状态，让同一时刻的像素随之前取过的帧差一两级；空一帧后同一时刻总是同一张图。Adapter 等两个动画帧之后，宿主经 DevTools 协议的 `Page.captureScreenshot` 取帧：它让渲染进程强制重绘一帧、等这一帧交出后才复制，截到的一定是 seek 之后的画面。不用 `capturePage`：它只复制最后交出的那帧，Electron 44.9 里新表面的头一帧必然、负载高时任何一帧都可能还是 seek 之前的画面，`invalidate()` 加等 `paint` 事件也等不到渲染进程；`paint` 事件自带的图像同样可能滞后一帧。离屏窗口的帧率设为 240，抵消空帧与等提交多出的动画帧；这仍是上文所说的候选等待策略，对 Export-Exact 的限制不变。同一会话的取帧请求串行执行；采样帧用 sha256 比较，作为确定性的证据。`hyperframes/1` 的末尾行为与 seek 回读容差见代码包规范 §4.7：容差是采样帧率下的半帧，帧率取取帧票据的 `fps`（没有票据时取包的 `intrinsic.fps`），不是固定常数。
 
 ### 8.5 混合帧率与精确局部时间
 

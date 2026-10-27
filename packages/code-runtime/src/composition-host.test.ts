@@ -94,7 +94,7 @@ describe.skipIf(!electron)('CompositionHost（Electron 离屏）', { timeout: 12
       expect(a.receipt).toMatchObject({ width: 1280, height: 720, pixelFormat: 'png', alphaMode: 'straight', clampedToDuration: false });
       expect(a.receipt.sampledSeconds).toBeCloseTo(0.5, 6);
       expect(a.png.subarray(1, 4).toString('latin1')).toBe('PNG');
-      expect(a.captureMode).toBe('capturePage');
+      expect(a.captureMode).toBe('screenshot');
       // 透明窗口：盒子之外是透明的。
       expect(a.transparentPixels).toBeGreaterThan(1280 * 720 * 0.9);
       const past = await session.frame(at(bundle, 2.5));
