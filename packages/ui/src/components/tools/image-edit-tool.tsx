@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import type { EditImageMethod, ExternalToolStatus, JobRecord, UpscaleImageModel, UpscaleImageScale } from '@baocut/protocol';
+import type { EditImageMethod, JobRecord, UpscaleImageModel, UpscaleImageScale } from '@baocut/protocol';
 import { ActionButton, Button, DropZone, NumberField, ProgressBar, SegmentedControl, SegmentedControlItem, Slider, Text, ToastQueue } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import Close from '@react-spectrum/s2/icons/Close';
@@ -62,6 +62,7 @@ import { ToolOutputRow, useJobOutputs } from './tool-outputs.tsx';
 import { FRAME_COPY, IMAGE_COPY, RECORD_COPY } from './tools-copy.ts';
 import { SpacePicker } from './tool-video-picker.tsx';
 import { useCancelJob } from './use-tool-records.ts';
+import { useEsrgan, type EsrganState } from './use-esrgan.ts';
 import { blockOf, useToolStatus } from './use-tool-status.ts';
 import { usePreset } from './video-tool-parts.tsx';
 
@@ -72,7 +73,6 @@ import { usePreset } from './video-tool-parts.tsx';
  * 等四个流程（ffmpeg 快速填充，或能改图的图像模型）。选区与扩图的规则在 model/tools-image-edit.ts。
  */
 
-const REALESRGAN = 'realesrgan-ncnn-vulkan';
 /** 台面里图的最高显示高度（CSS 像素）；放大只看一眼原图，矮一些。 */
 const FRAME_MAX_H = 456;
 const PEEK_MAX_H = 200;
@@ -569,48 +569,6 @@ function EditCanvas({
 }
 
 /* ---------- 选项 ---------- */
-
-type EsrganState = { state: 'ready' | 'missing' | 'checking'; tool: ExternalToolStatus | null; recheck: () => void; installing: boolean; install: () => void };
-
-/** Real-ESRGAN（受管外部工具）：检测装没装；没装时这一页给下载卡（来源、版本、大小、许可），点了才下。 */
-function useEsrgan(enabled: boolean): EsrganState {
-  const runtime = useRuntime();
-  const [tool, setTool] = useState<ExternalToolStatus | null>(null);
-  const [checking, setChecking] = useState(enabled);
-  const [installing, setInstalling] = useState(false);
-  const jobs = useJobs((s) => s.jobs);
-  const recheck = () => {
-    setChecking(true);
-    runtime.detectExternalTool(REALESRGAN).then(
-      (t) => setTool(t),
-      () => setTool(null),
-    ).finally(() => setChecking(false));
-  };
-  useEffect(() => {
-    if (enabled) recheck();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
-  // 安装任务结束后再查一次。
-  const installJob = tool?.installJobId ? jobs.find((j) => j.jobId === tool.installJobId) : null;
-  const installDone = installJob ? installJob.endedAt !== null : false;
-  useEffect(() => {
-    if (installDone) recheck();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installDone]);
-  const install = () => {
-    setInstalling(true);
-    runtime.installExternalTool(REALESRGAN).then(
-      (result) => {
-        setTool(result.tool);
-        ToastQueue.neutral(M.esrganInstalling, { timeout: 3000 });
-      },
-      (e: unknown) => ToastQueue.negative(M.esrganInstallFailed(rejectionText(e)), { timeout: 8000 }),
-    ).finally(() => setInstalling(false));
-  };
-  if (!enabled) return { state: 'ready', tool: null, recheck, installing, install };
-  const state = checking ? 'checking' : tool?.state === 'installed' ? 'ready' : 'missing';
-  return { state, tool, recheck, installing: installing || !!tool?.installJobId, install };
-}
 
 function EsrganGate({ esrgan }: { esrgan: EsrganState }) {
   if (esrgan.state !== 'missing') return null;
