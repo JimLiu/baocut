@@ -19,11 +19,15 @@ use model_runtime::speech::{
 use model_runtime::transcribe::{self, JobSink};
 use serde_json::{Value, json};
 
-/// 样本绝对值就是语音概率。
-struct AmplitudeVad;
+/// 样本绝对值就是语音概率；数一数收到的块（检查点续跑时 VAD 不该再跑）。
+#[derive(Default)]
+struct AmplitudeVad {
+    chunks: usize,
+}
 
 impl StreamingVad for AmplitudeVad {
     fn process_chunk(&mut self, samples: &[f32]) -> Result<f32> {
+        self.chunks += 1;
         Ok(samples.iter().fold(0.0_f32, |max, value| max.max(value.abs())))
     }
 
@@ -38,10 +42,15 @@ struct ScriptedRecognizer {
     language_names: VecDeque<Option<&'static str>>,
     requests: Vec<(usize, Option<String>, Option<String>)>,
     cancel_on_first_call: Option<Arc<AtomicBool>>,
+    /// 已经识别过这么多段之后的下一次 panic（模拟 Worker 在识别中途崩溃）。
+    crash_after: Option<usize>,
 }
 
 impl SpeechRecognizer for ScriptedRecognizer {
     fn recognize(&mut self, audio: &[f32], request: &RecognitionRequest<'_>) -> Result<Recognition> {
+        if self.crash_after == Some(self.requests.len()) {
+            panic!("the worker crashed while recognizing");
+        }
         self.requests
             .push((audio.len(), request.language.map(str::to_owned), request.context.map(str::to_owned)));
         if let Some(cancel) = self.cancel_on_first_call.take() {
@@ -107,11 +116,13 @@ impl ForcedAlignment for FakeAligner {
     }
 }
 
-/// 假的说话人区分：给出预设的区间（相对解码起点的秒）、报错或报取消；记下收到的样本数与选项，报一次进度。
+/// 假的说话人区分：给出预设的区间（相对解码起点的秒）、报错、报取消或 panic（模拟 Worker 在说话人区分中途崩溃）；
+/// 记下收到的样本数与选项，报一次进度。
 enum DiarizerScript {
     Segments(Vec<(f64, f64, usize)>),
     Fail,
     Cancel,
+    Crash,
 }
 
 struct FakeDiarizer {
@@ -137,6 +148,7 @@ impl SpeakerDiarization for FakeDiarizer {
                 .collect()),
             DiarizerScript::Fail => Err(anyhow::anyhow!("pyannote exploded")),
             DiarizerScript::Cancel => Err(PyannoteCancelled.into()),
+            DiarizerScript::Crash => panic!("the worker crashed while diarizing"),
         }
     }
 }
@@ -154,13 +166,14 @@ struct FakeModel {
 impl FakeModel {
     fn new(texts: &[&'static str]) -> Self {
         Self {
-            vad: AmplitudeVad,
+            vad: AmplitudeVad::default(),
             asr: ScriptedRecognizer {
                 texts: texts.iter().copied().collect(),
                 language_name: Some("English"),
                 language_names: VecDeque::new(),
                 requests: Vec::new(),
                 cancel_on_first_call: None,
+                crash_after: None,
             },
             aligner: None,
             diarizer_installed: false,
@@ -1458,6 +1471,314 @@ fn a_checkpoint_another_worker_holds_is_left_alone() {
     let holder = std::fs::OpenOptions::new().read(true).write(true).open(&checkpoint).unwrap();
     holder.try_lock().unwrap();
     assert_eq!(run("held"), (1, 3));
+    drop(holder);
+    assert_eq!(std::fs::read(&checkpoint).unwrap(), saved);
+
+    assert_eq!(run("released"), (0, 0));
+}
+
+/// 四段语音：1–3、4–5、6–7.5、8.5–9.7 秒（文件时间）。
+const FOUR_PHRASES: &[(f64, f32)] = &[
+    (1.0, 0.0),
+    (2.0, 0.9),
+    (1.0, 0.0),
+    (1.0, 0.9),
+    (1.0, 0.0),
+    (1.5, 0.9),
+    (1.0, 0.0),
+    (1.2, 0.9),
+    (1.0, 0.0),
+];
+const FOUR_TEXTS: [&str; 4] = ["One two.", "Three four.", "Five six.", "Seven eight."];
+
+/// 两个说话人轮流说 [`FOUR_PHRASES`] 的四段。
+fn four_speaker_turns() -> DiarizerScript {
+    DiarizerScript::Segments(vec![(0.8, 3.3, 1), (3.8, 5.2, 0), (5.8, 7.7, 1), (8.3, 9.9, 0)])
+}
+
+/// 带对齐器与说话人区分的流水线假模型，依次识别出 `texts`（续跑时只给还要识别的段）。
+fn pipeline_model(texts: &[&'static str], aligner: FakeAligner, diarizer: DiarizerScript) -> FakeModel {
+    FakeModel {
+        aligner: Some(aligner),
+        ..FakeModel::with_diarizer(texts, diarizer)
+    }
+}
+
+/// Qwen3-ASR + Silero VAD + 对齐器 + 说话人区分。
+fn pipeline_fixture() -> Fixture {
+    Fixture::build("qwen3-asr", Some("silero-vad"), true, true, true)
+}
+
+fn diarize_auto() -> Value {
+    json!({ "language": { "mode": "prefer", "tag": null }, "diarize": true, "timescale": 1_000_000 })
+}
+
+/// 在新的暂存目录 `name` 里跑一次（带上 `checkpoint` 时续用它），返回 `result.json` 与 `segments.jsonl` 的字节。
+fn pipeline_output(
+    fixture: &Fixture,
+    model: &mut FakeModel,
+    wav: &Path,
+    name: &str,
+    checkpoint: Option<&Path>,
+    events: &mut Events,
+) -> (Vec<u8>, Vec<u8>) {
+    let staging = fixture.staging(name);
+    let mut params = params(wav, &staging, diarize_auto(), None);
+    if let Some(checkpoint) = checkpoint {
+        params = with_checkpoint(params, checkpoint);
+    }
+    let result = transcribe::run(model, &fixture.bundle, &params, &AtomicBool::new(false), events).unwrap();
+    assert_eq!(result.outcome, JobOutcome::Completed);
+    (
+        std::fs::read(&result.output.as_ref().unwrap().path).unwrap(),
+        std::fs::read(result.segments_file.as_ref().unwrap()).unwrap(),
+    )
+}
+
+/// 同 [`pipeline_output`]，但这一次 Worker 中途崩溃（某个假模型 panic）。
+fn pipeline_crash(fixture: &Fixture, model: &mut FakeModel, wav: &Path, name: &str, checkpoint: &Path) {
+    let crashed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pipeline_output(fixture, model, wav, name, Some(checkpoint), &mut Events::default())
+    }));
+    assert!(crashed.is_err());
+}
+
+/// 一次跑完（不带检查点）的基准：结果的字节，以及识别器与对齐器依次收到的请求。
+fn pipeline_baseline(
+    fixture: &Fixture,
+    wav: &Path,
+) -> (
+    (Vec<u8>, Vec<u8>),
+    Vec<(usize, Option<String>, Option<String>)>,
+    Vec<(usize, String, Option<String>)>,
+) {
+    let mut model = pipeline_model(&FOUR_TEXTS, FakeAligner::hello_world(), four_speaker_turns());
+    let mut events = Events::default();
+    let output = pipeline_output(fixture, &mut model, wav, "whole", None, &mut events);
+    assert_eq!(phases(&events), ["decoding", "vad", "transcribing", "diarizing", "finalizing"]);
+    assert_eq!(model.asr.requests.len(), 4);
+    assert_eq!(model.diarizer.as_ref().unwrap().calls.len(), 1);
+    let asr = serde_json::from_slice::<AsrResult>(&output.0).unwrap();
+    assert_eq!(asr.segments.len(), 4);
+    assert_eq!(asr.speakers.len(), 2);
+    assert!(asr.warnings.is_empty(), "{:?}", asr.warnings);
+    (output, model.asr.requests, model.aligner.unwrap().calls)
+}
+
+/// 流水线模型（§6.6「取消与续跑」）：识别到一半崩溃后，新的 Worker 不再跑 VAD，只识别、对齐剩下的段，结果与流出的段都与
+/// 一次跑完的逐字节相同；检查点完整时再跑一遍什么模型都不用调，说话人区分也不加载。
+#[test]
+fn a_pipeline_transcription_interrupted_while_recognizing_resumes_from_the_checkpoint_and_matches_one_run() {
+    let fixture = pipeline_fixture();
+    let wav = fixture.wav("four.wav", FOUR_PHRASES);
+    let (expected, requests, alignments) = pipeline_baseline(&fixture, &wav);
+
+    // 识别完两段后 Worker 崩溃：检查点里有切段与这两段的识别、对齐。
+    let checkpoint = fixture.dir.path().join("checkpoints").join("input.jsonl");
+    std::fs::create_dir_all(checkpoint.parent().unwrap()).unwrap();
+    let mut model = pipeline_model(&FOUR_TEXTS, FakeAligner::hello_world(), four_speaker_turns());
+    model.asr.crash_after = Some(2);
+    pipeline_crash(&fixture, &mut model, &wav, "crashed", &checkpoint);
+    assert_eq!(
+        checkpoint_records(&checkpoint),
+        ["header", "vad", "recognized", "span-aligned", "recognized", "span-aligned"]
+    );
+    // 崩溃时常见的撕裂末行：读的时候丢掉。
+    let mut torn = std::fs::OpenOptions::new().append(true).open(&checkpoint).unwrap();
+    std::io::Write::write_all(&mut torn, br#"{"type":"recognized","span":2,"te"#).unwrap();
+    drop(torn);
+
+    // 新的 Worker、新的暂存目录接着跑。
+    let mut model = pipeline_model(&FOUR_TEXTS[2..], FakeAligner::hello_world(), four_speaker_turns());
+    let mut events = Events::default();
+    let resumed = pipeline_output(&fixture, &mut model, &wav, "resumed", Some(&checkpoint), &mut events);
+    assert_eq!(model.vad.chunks, 0, "VAD must not run again");
+    assert_eq!(model.asr.requests, requests[2..]);
+    assert_eq!(model.aligner.as_ref().unwrap().calls, alignments[2..]);
+    assert_eq!(model.diarizer.as_ref().unwrap().calls.len(), 1);
+    assert_eq!(phases(&events), ["decoding", "vad", "transcribing", "diarizing", "finalizing"]);
+    assert_eq!(resumed, expected);
+    assert_eq!(
+        checkpoint_records(&checkpoint),
+        [
+            "header",
+            "vad",
+            "recognized",
+            "span-aligned",
+            "recognized",
+            "span-aligned",
+            "recognized",
+            "span-aligned",
+            "recognized",
+            "span-aligned",
+            "diarized"
+        ]
+    );
+
+    // 检查点已经完整：再跑一遍什么模型都不用调。
+    let mut model = pipeline_model(&[], FakeAligner::hello_world(), four_speaker_turns());
+    let replayed = pipeline_output(&fixture, &mut model, &wav, "replayed", Some(&checkpoint), &mut Events::default());
+    assert_eq!(model.vad.chunks, 0);
+    assert!(model.asr.requests.is_empty() && model.aligner.as_ref().unwrap().calls.is_empty());
+    assert!(model.diarizer.as_ref().unwrap().calls.is_empty(), "diarization must not run again");
+    assert_eq!(replayed, expected);
+}
+
+/// 对齐或说话人区分到一半崩溃：续跑时识别过的段不再识别，从没做完的那一步接着做。对齐器报错的段不记，续跑时再对齐一次，
+/// 这样的记录可以在 `diarized` 之后。
+#[test]
+fn a_pipeline_transcription_interrupted_while_aligning_or_diarizing_resumes_where_it_stopped() {
+    let fixture = pipeline_fixture();
+    let wav = fixture.wav("four.wav", FOUR_PHRASES);
+    let (expected, requests, alignments) = pipeline_baseline(&fixture, &wav);
+
+    // 对齐第二段时崩溃：第二段已经识别过了。
+    let checkpoint = fixture.dir.path().join("aligning.jsonl");
+    let mut aligner = FakeAligner::hello_world();
+    aligner.crash_after = Some(1);
+    let mut model = pipeline_model(&FOUR_TEXTS, aligner, four_speaker_turns());
+    pipeline_crash(&fixture, &mut model, &wav, "aligning-crashed", &checkpoint);
+    assert_eq!(
+        checkpoint_records(&checkpoint),
+        ["header", "vad", "recognized", "span-aligned", "recognized"]
+    );
+    let mut model = pipeline_model(&FOUR_TEXTS[2..], FakeAligner::hello_world(), four_speaker_turns());
+    let resumed = pipeline_output(
+        &fixture,
+        &mut model,
+        &wav,
+        "aligning-resumed",
+        Some(&checkpoint),
+        &mut Events::default(),
+    );
+    assert_eq!(model.asr.requests, requests[2..]);
+    assert_eq!(model.aligner.as_ref().unwrap().calls, alignments[1..]);
+    assert_eq!(resumed, expected);
+
+    // 说话人区分时崩溃：识别与对齐都在检查点里，续跑时只跑说话人区分。
+    let checkpoint = fixture.dir.path().join("diarizing.jsonl");
+    let mut model = pipeline_model(&FOUR_TEXTS, FakeAligner::hello_world(), DiarizerScript::Crash);
+    pipeline_crash(&fixture, &mut model, &wav, "diarizing-crashed", &checkpoint);
+    assert_eq!(checkpoint_records(&checkpoint).len(), 2 + 2 * 4);
+    let mut model = pipeline_model(&[], FakeAligner::hello_world(), four_speaker_turns());
+    let resumed = pipeline_output(
+        &fixture,
+        &mut model,
+        &wav,
+        "diarizing-resumed",
+        Some(&checkpoint),
+        &mut Events::default(),
+    );
+    assert_eq!(model.vad.chunks, 0);
+    assert!(model.asr.requests.is_empty() && model.aligner.as_ref().unwrap().calls.is_empty());
+    assert_eq!(model.diarizer.as_ref().unwrap().calls.len(), 1);
+    assert_eq!(resumed, expected);
+
+    // 对齐器每段都报错：任务照常完成（词按估计），检查点里没有对齐的记录。
+    let checkpoint = fixture.dir.path().join("failing.jsonl");
+    let mut model = pipeline_model(&FOUR_TEXTS, FakeAligner::new(AlignerScript::Fail), four_speaker_turns());
+    let (failed, _) = pipeline_output(&fixture, &mut model, &wav, "failing", Some(&checkpoint), &mut Events::default());
+    let asr = serde_json::from_slice::<AsrResult>(&failed).unwrap();
+    assert_eq!(asr.warnings.len(), 4);
+    assert!(asr.warnings.iter().all(|warning| warning.code == WarningCode::AlignmentFailed));
+    assert_eq!(
+        checkpoint_records(&checkpoint),
+        ["header", "vad", "recognized", "recognized", "recognized", "recognized", "diarized"]
+    );
+    // 下一次（检查点还在：比如 Runtime 没来得及收下结果）每段再对齐一次，这次对上了。
+    let mut model = pipeline_model(&[], FakeAligner::hello_world(), four_speaker_turns());
+    let retried = pipeline_output(
+        &fixture,
+        &mut model,
+        &wav,
+        "failing-retried",
+        Some(&checkpoint),
+        &mut Events::default(),
+    );
+    assert!(model.asr.requests.is_empty() && model.diarizer.as_ref().unwrap().calls.is_empty());
+    assert_eq!(model.aligner.as_ref().unwrap().calls, alignments);
+    assert_eq!(retried, expected);
+    let records = checkpoint_records(&checkpoint);
+    assert_eq!(
+        records[6..],
+        ["diarized", "span-aligned", "span-aligned", "span-aligned", "span-aligned"]
+    );
+    let mut model = pipeline_model(&[], FakeAligner::hello_world(), four_speaker_turns());
+    let replayed = pipeline_output(
+        &fixture,
+        &mut model,
+        &wav,
+        "failing-replayed",
+        Some(&checkpoint),
+        &mut Events::default(),
+    );
+    assert!(model.aligner.as_ref().unwrap().calls.is_empty());
+    assert_eq!(replayed, expected);
+}
+
+#[test]
+fn a_pipeline_checkpoint_from_other_parameters_or_models_is_discarded_and_everything_runs_again() {
+    let fixture = pipeline_fixture();
+    let wav = fixture.wav("four.wav", FOUR_PHRASES);
+    let checkpoint = fixture.dir.path().join("input.jsonl");
+    // (VAD 跑了没有, 识别的段数, 对齐的段数)
+    let run_with = |bundle: &VerifiedBundle, options: &Value, name: &str| {
+        let mut model = pipeline_model(&FOUR_TEXTS, FakeAligner::hello_world(), four_speaker_turns());
+        let staging = fixture.staging(name);
+        let params = with_checkpoint(params(&wav, &staging, options.clone(), None), &checkpoint);
+        let result = transcribe::run(&mut model, bundle, &params, &AtomicBool::new(false), &mut Events::default()).unwrap();
+        assert_eq!(result.outcome, JobOutcome::Completed);
+        (model.vad.chunks > 0, model.asr.requests.len(), model.aligner.unwrap().calls.len())
+    };
+    let options = diarize_auto();
+    assert_eq!(run_with(&fixture.bundle, &options, "first"), (true, 4, 4));
+    assert_eq!(run_with(&fixture.bundle, &options, "same"), (false, 0, 0));
+
+    // 头相符、记录却是自分段的（不该出现）：停在那里，之后的截掉，从头跑。
+    let header = std::fs::read_to_string(&checkpoint).unwrap().lines().next().unwrap().to_owned();
+    std::fs::write(
+        &checkpoint,
+        format!("{header}\n{{\"type\":\"transcribed\",\"rows\":[],\"speakerRanges\":[],\"warnings\":[]}}\n"),
+    )
+    .unwrap();
+    assert_eq!(run_with(&fixture.bundle, &options, "foreign"), (true, 4, 4));
+    assert_eq!(checkpoint_records(&checkpoint)[..3], ["header", "vad", "recognized"]);
+
+    // 提示变了（影响识别）、语言换成断言：整份作废、从头跑，检查点换成这一次的。
+    let mut hinted = options.clone();
+    hinted["hint"] = json!("Speakers: Ada, Grace");
+    assert_eq!(run_with(&fixture.bundle, &hinted, "hint"), (true, 4, 4));
+    assert_eq!(run_with(&fixture.bundle, &hinted, "hint-again"), (false, 0, 0));
+    let mut asserted = hinted.clone();
+    asserted["language"] = json!({ "mode": "assert", "tag": "en" });
+    assert_eq!(run_with(&fixture.bundle, &asserted, "asserted"), (true, 4, 4));
+
+    // VAD、对齐器换了版本：同样从头跑。
+    let mut revised = fixture.bundle.clone();
+    revised.vad.as_mut().unwrap().revision = "vad-rev-2".into();
+    assert_eq!(run_with(&revised, &asserted, "vad"), (true, 4, 4));
+    assert_eq!(run_with(&revised, &asserted, "vad-again"), (false, 0, 0));
+    revised.aligner.as_mut().unwrap().revision = "aligner-rev-2".into();
+    assert_eq!(run_with(&revised, &asserted, "aligner"), (true, 4, 4));
+}
+
+/// 别的 Worker 正拿着同一份检查点：流水线同样不用它、不动它，放开之后照常续用。
+#[test]
+fn a_pipeline_checkpoint_another_worker_holds_is_left_alone() {
+    let fixture = pipeline_fixture();
+    let wav = fixture.wav("four.wav", FOUR_PHRASES);
+    let checkpoint = fixture.dir.path().join("input.jsonl");
+    let run = |name: &str| {
+        let mut model = pipeline_model(&FOUR_TEXTS, FakeAligner::hello_world(), four_speaker_turns());
+        pipeline_output(&fixture, &mut model, &wav, name, Some(&checkpoint), &mut Events::default());
+        (model.asr.requests.len(), model.diarizer.unwrap().calls.len())
+    };
+    assert_eq!(run("first"), (4, 1));
+    let saved = std::fs::read(&checkpoint).unwrap();
+
+    let holder = std::fs::OpenOptions::new().read(true).write(true).open(&checkpoint).unwrap();
+    holder.try_lock().unwrap();
+    assert_eq!(run("held"), (4, 1));
     drop(holder);
     assert_eq!(std::fs::read(&checkpoint).unwrap(), saved);
 

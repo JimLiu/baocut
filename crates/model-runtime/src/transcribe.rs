@@ -2,6 +2,7 @@
 //! 带了说话人区分时，整段音频跑一遍 Pyannote + WeSpeaker、把说话人投影到词（同 v2：识别完成之后）→ 组装并自检
 //! `baocut.asr-result/v1`。自己切段的模型（[`RunMode::SelfSegmenting`]）没有 VAD 一步：整段音频交给它，它给出的行就是段。
 //! `capability: 'align'` 走同一个出口：解码 → 用对齐器给已知文本对时间 → 按停顿、句末标点与段长分段（协议规范 §2.5.1）。
+//! 带了 `checkpoint` 的转写两种跑法都从检查点里做完的地方接着做（[`crate::checkpoint`]，架构设计 §6.6「取消与续跑」）。
 //!
 //! 内部一律用 f64 秒（相对解码起点），只在写出段与结果时加上 range 起点、换算成整数 tick（架构设计 §6.6）。
 //! 取消在分段边界生效：解码的每次读、VAD 的每个 60 秒块、每个识别段之前各检查一次。
@@ -27,7 +28,7 @@ use crate::protocol::{
 };
 use crate::speech::moss_common::INCOMPLETE_WARNING_PREFIX;
 use crate::speech::moss_speakers::{self, SpeakerMerge};
-use crate::speech::pyannote_common::{DEFAULT_MERGE_THRESHOLD, PyannoteCallbacks, PyannoteCancelled, PyannoteOptions};
+use crate::speech::pyannote_common::{DEFAULT_MERGE_THRESHOLD, DiarizedSegment, PyannoteCallbacks, PyannoteCancelled, PyannoteOptions};
 use crate::speech::refine::{self, ALIGNER_GRID_SECONDS, enforce_strict_word_times};
 use crate::speech::segmenter::{self, SpeechSpan};
 use crate::speech::speaker_projection::project_speaker_clusters;
@@ -353,32 +354,47 @@ impl Runner<'_> {
             return self.run_self_segmenting(model, samples, decoded_seconds, &mut segments_file, &segments_path);
         }
 
+        let (mut checkpoint, mut restored) = self.open_checkpoint(samples, checkpoint::Mode::Pipeline);
+
         // ---- VAD ----
         self.phase("vad");
-        let started = Instant::now();
-        let scan = {
-            let Some((vad, _)) = pipeline(model) else {
-                return Err(not_a_pipeline());
-            };
-            let job_id = self.job.params.job_id.clone();
-            let sink = &mut *self.sink;
-            vad_stream::speech_spans(samples, SAMPLE_RATE, vad, &|| cancel.load(Ordering::SeqCst), &mut |fraction| {
-                sink.event(
-                    "job.progress",
-                    json!({
-                        "jobId": job_id, "phase": "vad", "done": fraction * decoded_seconds,
-                        "total": decoded_seconds, "unit": "seconds"
-                    }),
-                );
-            })
-        };
-        self.stats.vad_ms = started.elapsed().as_millis() as u64;
-        let spans = match scan {
-            Ok(SpanScan::Spans(spans)) => spans,
-            Ok(SpanScan::Cancelled) => return Ok(self.cancelled_result(&segments_path)),
-            Err(error) => {
-                eprintln!("[model-worker] VAD failed: {error:#}");
-                return Err(ErrorBody::new(codes::INFERENCE_FAILED, "voice activity detection failed"));
+        let spans = match restored.spans.take() {
+            // 上次已经切好段：不再跑 VAD。
+            Some(spans) => {
+                self.progress("vad", decoded_seconds, Some(decoded_seconds), "seconds");
+                spans
+            }
+            None => {
+                let started = Instant::now();
+                let scan = {
+                    let Some((vad, _)) = pipeline(model) else {
+                        return Err(not_a_pipeline());
+                    };
+                    let job_id = self.job.params.job_id.clone();
+                    let sink = &mut *self.sink;
+                    vad_stream::speech_spans(samples, SAMPLE_RATE, vad, &|| cancel.load(Ordering::SeqCst), &mut |fraction| {
+                        sink.event(
+                            "job.progress",
+                            json!({
+                                "jobId": job_id, "phase": "vad", "done": fraction * decoded_seconds,
+                                "total": decoded_seconds, "unit": "seconds"
+                            }),
+                        );
+                    })
+                };
+                self.stats.vad_ms = started.elapsed().as_millis() as u64;
+                let spans = match scan {
+                    Ok(SpanScan::Spans(spans)) => spans,
+                    Ok(SpanScan::Cancelled) => return Ok(self.cancelled_result(&segments_path)),
+                    Err(error) => {
+                        eprintln!("[model-worker] VAD failed: {error:#}");
+                        return Err(ErrorBody::new(codes::INFERENCE_FAILED, "voice activity detection failed"));
+                    }
+                };
+                if let Some(checkpoint) = checkpoint.as_mut() {
+                    checkpoint.vad(&spans);
+                }
+                spans
             }
         };
         self.stats.speech_seconds = spans.iter().map(|span| span.duration()).sum();
@@ -407,35 +423,53 @@ impl Runner<'_> {
             let lower = ((asr_span.start * f64::from(SAMPLE_RATE)) as usize).min(samples.len());
             let upper = ((asr_span.end * f64::from(SAMPLE_RATE)) as usize).min(samples.len());
             if upper > lower {
-                // 只有断言的语言交给模型；自动识别时每段都让模型自己判断，不把先定下的语言强加给之后的段
-                // （Whisper 在给定的语言下会把别的语言翻译过来，中英混说的素材整段变成一种语言）。
-                let request = RecognitionRequest {
-                    language: self.job.asserted_code.as_deref(),
-                    context: hint.as_deref(),
+                let recognition = match restored.recognized.remove(&index) {
+                    // 这一段上次已经识别过。
+                    Some(done) => done,
+                    None => {
+                        // 只有断言的语言交给模型；自动识别时每段都让模型自己判断，不把先定下的语言强加给之后的段
+                        // （Whisper 在给定的语言下会把别的语言翻译过来，中英混说的素材整段变成一种语言）。
+                        let request = RecognitionRequest {
+                            language: self.job.asserted_code.as_deref(),
+                            context: hint.as_deref(),
+                        };
+                        let recognition = {
+                            let Some((_, recognizer)) = pipeline(model) else {
+                                return Err(not_a_pipeline());
+                            };
+                            recognizer.recognize(&samples[lower..upper], &request)
+                        }
+                        .map_err(|error| {
+                            eprintln!("[model-worker] recognition failed: {error:#}");
+                            ErrorBody::new(codes::INFERENCE_FAILED, "speech recognition failed")
+                        })?;
+                        if let Some(checkpoint) = checkpoint.as_mut() {
+                            checkpoint.recognized(index, &recognition);
+                        }
+                        recognition
+                    }
                 };
-                let recognition = {
-                    let Some((_, recognizer)) = pipeline(model) else {
-                        return Err(not_a_pipeline());
-                    };
-                    recognizer.recognize(&samples[lower..upper], &request)
-                }
-                .map_err(|error| {
-                    eprintln!("[model-worker] recognition failed: {error:#}");
-                    ErrorBody::new(codes::INFERENCE_FAILED, "speech recognition failed")
-                })?;
                 self.observe_language(&mut language, recognition.language_name.as_deref(), &recognition.text);
                 let segment_language = self.segment_language(&language, recognition.language_name.as_deref());
                 let text = recognition.text.trim();
-                let alignment = match text.is_empty() {
-                    true => Alignment::Unavailable,
-                    false => self.align_span(
-                        model,
-                        &samples[lower..upper],
-                        text,
-                        *asr_span,
-                        *output_span,
-                        segment_language.as_deref(),
-                    ),
+                let aligned = match text.is_empty() {
+                    true => None,
+                    false => match restored.span_aligned.remove(&index) {
+                        // 这一段上次已经对齐过。
+                        Some(words) => Some(Ok(words)),
+                        None => {
+                            let aligned = self.align_span(model, &samples[lower..upper], text, segment_language.as_deref());
+                            // 对齐器报错的段不记进检查点：续跑时再试一次。
+                            if let (Some(Ok(words)), Some(checkpoint)) = (&aligned, checkpoint.as_mut()) {
+                                checkpoint.span_aligned(index, words);
+                            }
+                            aligned
+                        }
+                    },
+                };
+                let alignment = match aligned {
+                    None => Alignment::Unavailable,
+                    Some(aligned) => span_alignment(aligned, *asr_span, *output_span),
                 };
                 let (aligned, alignment_failure) = match alignment {
                     Alignment::Unavailable => (None, None),
@@ -475,7 +509,8 @@ impl Runner<'_> {
         if self.job.options.diarize
             && model.has_diarizer()
             && !segments.is_empty()
-            && let Diarization::Cancelled = self.diarize_segments(model, samples, &mut segments)
+            && let Diarization::Cancelled =
+                self.diarize_segments(model, samples, &mut segments, restored.diarized.take(), checkpoint.as_mut())
         {
             return Ok(self.cancelled_result(&segments_path));
         }
@@ -495,36 +530,52 @@ impl Runner<'_> {
     ///
     /// 已经流出去的 `job.segment` 与 `segments.jsonl` 不带说话人：说话人只在 `result.json` 里（协议规范 §2.5.1）。
     /// 模型加载失败或推理出错时报 `diarization-unavailable`、保留不带说话人的转录（一次完成的识别不因说话人区分作废）。
-    fn diarize_segments(&mut self, model: &mut dyn LoadedModel, samples: &[f32], segments: &mut [Segment]) -> Diarization {
+    ///
+    /// `restored` 是检查点里上次区分出的区间：有就不加载、不调用说话人区分；没有时区分成功后记进 `checkpoint`。
+    fn diarize_segments(
+        &mut self,
+        model: &mut dyn LoadedModel,
+        samples: &[f32],
+        segments: &mut [Segment],
+        restored: Option<Vec<DiarizedSegment>>,
+        checkpoint: Option<&mut Checkpoint>,
+    ) -> Diarization {
         if self.cancelled() {
             return Diarization::Cancelled;
         }
         self.phase("diarizing");
         let started = Instant::now();
-        let ranges = {
-            let cancel = self.cancel;
-            let job_id = self.job.params.job_id.clone();
-            let sink = &mut *self.sink;
-            match model.diarizer() {
-                None => Err(None),
-                Some(diarizer) => {
-                    let mut on_progress = |done: f64, total: f64| {
-                        sink.event(
-                            "job.progress",
-                            json!({ "jobId": job_id, "phase": "diarizing", "done": done, "total": total, "unit": "steps" }),
-                        );
-                    };
-                    let mut should_cancel = || cancel.load(Ordering::SeqCst);
-                    let options = PyannoteOptions {
-                        max_speakers: None,
-                        clustering_threshold: DEFAULT_MERGE_THRESHOLD.clamp(0.01, 1.99),
-                    };
-                    let mut callbacks = PyannoteCallbacks {
-                        on_progress: Some(&mut on_progress),
-                        should_cancel: Some(&mut should_cancel),
-                    };
-                    diarizer.diarize(samples, &options, &mut callbacks).map_err(Some)
+        let ranges = match restored {
+            Some(done) => Ok(done),
+            None => {
+                let cancel = self.cancel;
+                let job_id = self.job.params.job_id.clone();
+                let sink = &mut *self.sink;
+                let ranges = match model.diarizer() {
+                    None => Err(None),
+                    Some(diarizer) => {
+                        let mut on_progress = |done: f64, total: f64| {
+                            sink.event(
+                                "job.progress",
+                                json!({ "jobId": job_id, "phase": "diarizing", "done": done, "total": total, "unit": "steps" }),
+                            );
+                        };
+                        let mut should_cancel = || cancel.load(Ordering::SeqCst);
+                        let options = PyannoteOptions {
+                            max_speakers: None,
+                            clustering_threshold: DEFAULT_MERGE_THRESHOLD.clamp(0.01, 1.99),
+                        };
+                        let mut callbacks = PyannoteCallbacks {
+                            on_progress: Some(&mut on_progress),
+                            should_cancel: Some(&mut should_cancel),
+                        };
+                        diarizer.diarize(samples, &options, &mut callbacks).map_err(Some)
+                    }
+                };
+                if let (Ok(ranges), Some(checkpoint)) = (&ranges, checkpoint) {
+                    checkpoint.diarized(ranges);
                 }
+                ranges
             }
         };
         self.stats.diarize_ms = started.elapsed().as_millis() as u64;
@@ -589,16 +640,7 @@ impl Runner<'_> {
         if self.job.options.hint.as_deref().is_some_and(|hint| !hint.trim().is_empty()) {
             self.warn(Warning::new(WarningCode::HintIgnored).detail("this model has no recognition hint channel; the hint was not used"));
         }
-        let (mut checkpoint, mut restored) = match self.job.params.checkpoint.as_deref() {
-            Some(path) => {
-                let key = checkpoint::key(self.job.params, &self.job.options, self.bundle, samples);
-                match Checkpoint::open(Path::new(path), &key, self.job.params, self.bundle) {
-                    Some((checkpoint, restored)) => (Some(checkpoint), restored),
-                    None => (None, Restored::default()),
-                }
-            }
-            None => (None, Restored::default()),
-        };
+        let (mut checkpoint, mut restored) = self.open_checkpoint(samples, checkpoint::Mode::SelfSegmenting);
         self.phase("transcribing");
         let started = Instant::now();
         let asserted = self.job.asserted_code.clone();
@@ -928,6 +970,19 @@ impl Runner<'_> {
         self.finish(outcome, segments, Some(language_result), decoded_seconds, segments_path, true)
     }
 
+    /// 带了 `checkpoint` 时打开它，读回与这一次相符的工作（架构设计 §6.6「取消与续跑」）。没带、打不开或别的 Worker
+    /// 正拿着时什么都没读回，这次不用检查点。
+    fn open_checkpoint(&self, samples: &[f32], mode: checkpoint::Mode) -> (Option<Checkpoint>, Restored) {
+        let Some(path) = self.job.params.checkpoint.as_deref() else {
+            return (None, Restored::default());
+        };
+        let key = checkpoint::key(self.job.params, &self.job.options, self.bundle, samples);
+        match Checkpoint::open(Path::new(path), &key, mode, self.job.params, self.bundle) {
+            Some((checkpoint, restored)) => (Some(checkpoint), restored),
+            None => (None, Restored::default()),
+        }
+    }
+
     /// 自动识别：优先用模型自报的语言名，其次按累计文本推断；识别出来就定为任务的语言并推送一次 `job.language`
     /// （之后的段仍由模型自己判断语言）。空文本的片段不算：模型在没听出话的片段上照样自报一个语言（常是英语），
     /// 不能拿它定。
@@ -1061,36 +1116,20 @@ impl Runner<'_> {
         self.finish(outcome, segments, None, decoded_seconds, segments_path, true)
     }
 
-    /// 流水线第 5 步：模型带了对齐器时，给一个识别段的文本对齐词时间。`audio` 是补过边的识别区间
-    /// （`asr_span`）的样本；词展开为严格递增并收进写出的区间（`output_span`）。出错或没给出词时退回估计（架构设计 §6.6）。
+    /// 流水线第 5 步：模型带了对齐器时，给一个识别段的文本对齐词时间。`audio` 是补过边的识别区间的样本，给出的词相对
+    /// 它的起点；整理成段里的词见 [`span_alignment`]。模型包没有对齐器时是 `None`。
     fn align_span(
         &mut self,
         model: &mut dyn LoadedModel,
         audio: &[f32],
         text: &str,
-        asr_span: SpeechSpan,
-        output_span: SpeechSpan,
         language: Option<&str>,
-    ) -> Alignment {
-        let Some(aligner) = model.aligner() else {
-            return Alignment::Unavailable;
-        };
+    ) -> Option<anyhow::Result<Vec<AlignedWord>>> {
+        let aligner = model.aligner()?;
         let started = Instant::now();
         let aligned = aligner.align(audio, text, language.or(Some("en")));
         self.stats.align_ms += started.elapsed().as_millis() as u64;
-        let aligned = match aligned {
-            Ok(aligned) => aligned,
-            Err(error) => {
-                eprintln!("[model-worker] forced alignment failed: {error:#}");
-                return Alignment::Failed("forced alignment failed; word timings are estimated");
-            }
-        };
-        let mut words = decode_relative_words(aligned, asr_span.start);
-        if words.is_empty() {
-            return Alignment::Failed("the forced aligner returned no words; word timings are estimated");
-        }
-        enforce_strict_word_times(&mut words, output_span.start, output_span.end);
-        Alignment::Aligned(words)
+        Some(aligned)
     }
 
     /// 一段文本 → 段：tick 化、词时间、单调修正。`aligned` 是对齐过的词（相对解码起点的秒，标 `aligned`）；
@@ -1316,6 +1355,24 @@ fn assign_speakers(segments: &mut [Segment], ranges: &[SpeakerRange], offset: f6
             label: None,
         })
         .collect()
+}
+
+/// 对齐器给一个识别段的词（相对补过边的识别区间 `asr_span` 起点的秒）→ 段里的词：展开为严格递增并收进写出的区间
+/// （`output_span`）。出错或没给出词时退回估计（架构设计 §6.6）。
+fn span_alignment(aligned: anyhow::Result<Vec<AlignedWord>>, asr_span: SpeechSpan, output_span: SpeechSpan) -> Alignment {
+    let aligned = match aligned {
+        Ok(aligned) => aligned,
+        Err(error) => {
+            eprintln!("[model-worker] forced alignment failed: {error:#}");
+            return Alignment::Failed("forced alignment failed; word timings are estimated");
+        }
+    };
+    let mut words = decode_relative_words(aligned, asr_span.start);
+    if words.is_empty() {
+        return Alignment::Failed("the forced aligner returned no words; word timings are estimated");
+    }
+    enforce_strict_word_times(&mut words, output_span.start, output_span.end);
+    Alignment::Aligned(words)
 }
 
 /// 跑法在一个任务里变了：后端的实现有错。

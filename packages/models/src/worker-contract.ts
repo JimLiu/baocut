@@ -186,7 +186,7 @@ export interface TranscribeRunParams {
   staging: string;
   outputContract: typeof ASR_RESULT_SCHEMA;
   /**
-   * 转写检查点文件的绝对路径（§2.5.1、§5）：自分段识别读回其中有效的工作接着做，做完一份追加一条。只发给 `checkpoints`
+   * 转写检查点文件的绝对路径（§2.5.1、§5）：本机识别读回其中有效的工作接着做，做完一份追加一条。只发给 `checkpoints`
    * 含 `transcribe` 的 Worker；省略时不用检查点。
    */
   checkpoint?: string;

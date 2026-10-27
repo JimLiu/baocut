@@ -487,7 +487,7 @@ export interface JobRecord {
 
 /**
  * 转写任务各阶段的耗时（`JobRecord.timing`，架构设计 §7.2），毫秒：判断批量转写卡在排队、加载还是识别的哪一步。
- * 只记最近一次尝试；重新排队（`pipelines.retry`、`jobs.reconcile retry`）时清掉，准入时重新记。MOSS 从检查点接着做的尝试
+ * 只记最近一次尝试；重新排队（`pipelines.retry`、`jobs.reconcile retry`）时清掉，准入时重新记。从检查点接着做的尝试
  * 只计这一次实际做的，检查点里已经做完的阶段接近 0。
  */
 export interface JobTiming {
