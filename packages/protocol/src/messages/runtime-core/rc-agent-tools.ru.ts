@@ -142,4 +142,6 @@ export const ru: RcAgentToolsMessages = {
   shotsNotSingleCamera: 'На большинстве выбранных кадров нет одних и тех же 2–4 лиц, значит это не одна общая камера',
   shotsSpeakersUnmatched: 'Не удалось понять, какое лицо в кадре принадлежит кому-либо из говорящих',
   shotsFacesUnavailable: 'Распознавание лиц недоступно',
+  installUpscalerSummary: (p) => `Установить ${p.tool} ${p.version} (${p.size}, ${p.license}) с ${p.url} для увеличения изображений`,
+  upscaleSummary: (p) => `Увеличить изображения (${p.count}) в ${p.scale}× с Real-ESRGAN (${p.weights}) и сохранить PNG в ${p.dir}`,
 };

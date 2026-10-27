@@ -166,4 +166,6 @@ export const ja: RcAgentToolsMessages = {
   shotsNotSingleCamera: 'サンプルしたフレームの多くで同じ 2〜4 人の顔が写っていないため、固定の引きカメラ 1 台ではありません',
   shotsSpeakersUnmatched: 'どの話者が画面のどの顔なのか判別できませんでした',
   shotsFacesUnavailable: '顔検出を利用できません',
+  installUpscalerSummary: (p) => `画像を拡大するため、${p.url} から ${p.tool} ${p.version}（${p.size}、${p.license}）をインストール`,
+  upscaleSummary: (p) => `Real-ESRGAN（${p.weights}）で画像（${p.count} 枚）を ${p.scale} 倍に拡大し、PNG を ${p.dir} に保存`,
 };

@@ -114,4 +114,7 @@ export const de: RcExternalToolsMessages = {
     `${p.dir}; dort liegt ${p.label} und Änderungen benötigen Administratorrechte. BaoCut erhöht die Rechte nicht für Sie.`,
   standaloneAdminWin: (p: { label: string; dir: string }) =>
     `${p.dir}; dort liegt ${p.label} und Änderungen benötigen Administratorrechte. BaoCut erhöht die Rechte nicht für Sie. Terminal als Administrator öffnen und diesen Befehl ausführen.`,
+  realesrganLicense: 'MIT (die ncnn-Programmdatei); Real-ESRGAN-Modelle BSD-3-Clause; gebaut mit ncnn (BSD-3-Clause)',
+  realesrganPurpose: 'Bild hochskalieren: vergrößert Bilder mit Real-ESRGAN auf der GPU dieses Computers um das 2- bis 4-Fache',
+  realesrganMissingRemedy: 'Mit externalTools.install (baocut external-tools install realesrgan-ncnn-vulkan) herunterladen, oder das offizielle Release selbst entpacken (den Ordner models neben der Programmdatei lassen) und den Pfad mit externalTools.setPath festlegen',
 };

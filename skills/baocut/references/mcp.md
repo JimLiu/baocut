@@ -82,7 +82,7 @@ MCP 工具 `<名词>_<动词>` 就是 CLI 的 `baocut <名词> <动词>`，参�
 | `videos_version_diff` | `baocut videos version-diff` | query |
 | `videos_versions` | `baocut videos versions` | query |
 
-只在 CLI 里、MCP 上没有的：`baocut artifacts save`、`baocut edits assemble`、`baocut models install`、`baocut models test`、`baocut projects create`、`baocut projects git-commit`、`baocut space index-build`、`baocut space index-status`、`baocut space related-videos`、`baocut space resolve-search-hit`、`baocut space search-v2`、`baocut speech glossary-candidates`、`baocut speech relevant`、`baocut speech retakes`、`baocut speech sentences`、`baocut speech topic-boundaries`、`baocut transcode`、`baocut videos delete`、`baocut videos import-package`、`baocut videos match-frames`。
+只在 CLI 里、MCP 上没有的：`baocut artifacts save`、`baocut edits assemble`、`baocut models install`、`baocut models test`、`baocut projects create`、`baocut projects git-commit`、`baocut space index-build`、`baocut space index-status`、`baocut space related-videos`、`baocut space resolve-search-hit`、`baocut space search-v2`、`baocut speech glossary-candidates`、`baocut speech relevant`、`baocut speech retakes`、`baocut speech sentences`、`baocut speech topic-boundaries`、`baocut transcode`、`baocut upscale`、`baocut videos delete`、`baocut videos import-package`、`baocut videos match-frames`。
 <!-- /generated -->
 
 ## 3. 等任务：`jobs_wait` 要循环

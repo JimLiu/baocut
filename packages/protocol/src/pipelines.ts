@@ -187,6 +187,42 @@ export interface TranscodeSummary {
   files: string[];
 }
 
+/** 图片超分的模型：`photo` 是照片与写实画面（realesrgan-x4plus），`anime` 是动画、插画与线稿（realesr-animevideov3）。 */
+export type UpscaleImageModel = 'photo' | 'anime';
+export const UPSCALE_IMAGE_MODELS: readonly UpscaleImageModel[] = ['photo', 'anime'];
+/** 放大倍数。 */
+export type UpscaleImageScale = 2 | 3 | 4;
+export const UPSCALE_IMAGE_SCALES: readonly UpscaleImageScale[] = [2, 3, 4];
+
+/**
+ * 图片超分（`upscale-image`，架构设计 §7.9）：文件到文件，用本机的 Real-ESRGAN（受管外部工具 `realesrgan-ncnn-vulkan`）把
+ * 每张图放大 `scale` 倍，输出 PNG，不建视频、不动原文件。`photo` 的模型只有原生 4 倍：2、3 倍是先放大 4 倍再由 ffmpeg 用
+ * Lanczos 缩到目标尺寸（算力仍按 4 倍算），这时要有 ffmpeg；`anime` 有原生的 2、3、4 倍。
+ */
+export interface UpscaleImageParams {
+  /** 输入图片的绝对路径（PNG、JPEG、WebP，按文件头判断），1 到 50 张。 */
+  inputs: string[];
+  /** 放大倍数，默认 4。 */
+  scale?: UpscaleImageScale;
+  /** 模型，默认 `photo`。 */
+  model?: UpscaleImageModel;
+  /** 输出目录，规则同 `TranscodeParams.outDir`。文件名是 `<源文件名>-upscaled-<倍数>x.png`，重名时加序号。 */
+  outDir?: string;
+}
+
+/** 图片超分完成时父任务的 `pipeline.summary`。 */
+export interface UpscaleImageSummary {
+  model: UpscaleImageModel;
+  scale: UpscaleImageScale;
+  /** 执行器：Real-ESRGAN 的版本与它用的权重名；缩小时另记 ffmpeg 的版本。 */
+  executor: { tool: 'realesrgan-ncnn-vulkan'; version: string; weights: string; resize: { tool: 'ffmpeg'; version: string } | null };
+  /** 每张图：源文件、源尺寸与输出尺寸、输出文件的绝对路径（与 `result.outputs` 一一对应）。 */
+  images: Array<{ source: string; width: number; height: number; outWidth: number; outHeight: number; file: string }>;
+  files: string[];
+  /** 给人看的提醒（按当前语言生成）：例如源图带 EXIF 方向标记、输出按像素原样放大没有转正。 */
+  warnings: string[];
+}
+
 /** 翻译完成时父任务的 `pipeline.summary`。 */
 export interface TranslateSummary {
   videoId: Id;
@@ -302,6 +338,9 @@ export interface SpaceEntryInput {
  * 换成文件路径后冻结，冻结的 `params` 里只有路径。
  */
 export type TranscodeStartParams = Omit<TranscodeParams, 'inputs'> & { inputs: Array<string | SpaceEntryInput> };
+
+/** `pipelines.start` 提交 `upscale-image` 时的参数：`inputs` 的每一项可以是 Space 里的图片条目，规则同 `TranscodeStartParams`。 */
+export type UpscaleImageStartParams = Omit<UpscaleImageParams, 'inputs'> & { inputs: Array<string | SpaceEntryInput> };
 
 /** `pipelines.start` 提交 `translate-subtitles` 时的参数：`input` 可以是 Space 里的字幕条目（.srt、.vtt），规则同上。 */
 export type TranslateSubtitlesStartParams = Omit<TranslateSubtitlesParams, 'input'> & { input: string | SpaceEntryInput };

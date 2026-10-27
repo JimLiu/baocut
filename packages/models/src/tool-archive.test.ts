@@ -209,6 +209,38 @@ describe('extractToolArchive', () => {
     expect(await extractToolArchive(tarArchive, { format: 'tar.gz', skip: [], root: 'pkg/lib' }, tarDest)).toEqual(['liblitert.so']);
   });
 
+  it('dirs：根目录下指定子目录里直接的文件也解开（Real-ESRGAN 的 models/），更深的、别的子目录照旧略过', async () => {
+    expect(rootEntryName('models/x4.bin', undefined, ['models'])).toBe('models/x4.bin');
+    expect(rootEntryName('./models/x4.param', undefined, ['models'])).toBe('models/x4.param');
+    for (const raw of ['models/deep/x.bin', 'models/../evil', 'models/._x', 'other/x.bin', 'models/']) {
+      expect(rootEntryName(raw, undefined, ['models'])).toBeNull();
+    }
+    expect(rootEntryName('models/x4.bin')).toBeNull();
+    const archive = path.join(dir, 'esr.zip');
+    await fs.writeFile(
+      archive,
+      zip([
+        { name: 'realesrgan-ncnn-vulkan', body: 'exe', unixMode: 0o100755 },
+        { name: 'input.jpg', body: 'demo' },
+        { name: 'models/', unixMode: 0o040755 },
+        { name: 'models/realesrgan-x4plus.bin', body: 'w'.repeat(64), deflate: true },
+        { name: 'models/realesrgan-x4plus.param', body: 'p' },
+        { name: 'models/nested/skip.bin', body: 'no' },
+        { name: 'docs/readme.md', body: 'no' },
+      ]),
+    );
+    const names = await extractToolArchive(archive, { format: 'zip', skip: ['input.jpg', 'models/realesrgan-x4plus.param'], dirs: ['models'] }, dest);
+    expect(names).toEqual(['realesrgan-ncnn-vulkan', 'models/realesrgan-x4plus.bin']);
+    expect(await fs.readFile(path.join(dest, 'models', 'realesrgan-x4plus.bin'), 'utf8')).toBe('w'.repeat(64));
+    expect((await fs.stat(path.join(dest, 'realesrgan-ncnn-vulkan'))).mode & 0o111).not.toBe(0);
+    const tarArchive = path.join(dir, 'esr.tar.gz');
+    await fs.writeFile(tarArchive, tarGz([{ name: './tool', body: 't', mode: 0o755 }, { name: './models/a.bin', body: 'a' }]));
+    const tarDest = path.join(dir, 'esr-tar');
+    await fs.mkdir(tarDest);
+    expect(await extractToolArchive(tarArchive, { format: 'tar.gz', skip: [], dirs: ['models'] }, tarDest)).toEqual(['tool', 'models/a.bin']);
+    expect(await fs.readFile(path.join(tarDest, 'models', 'a.bin'), 'utf8')).toBe('a');
+  });
+
   it('zip：不是 zip、或根目录没有文件时报错', async () => {
     await fs.writeFile(path.join(dir, 'n.zip'), 'not a zip at all, definitely not');
     await expect(extractToolArchive(path.join(dir, 'n.zip'), { format: 'zip', skip: [] }, dest)).rejects.toBeInstanceOf(ToolArchiveError);

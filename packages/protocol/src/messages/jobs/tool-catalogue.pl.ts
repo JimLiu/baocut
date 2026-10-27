@@ -26,4 +26,6 @@ export const pl: JobsToolCatalogueMessages = {
   extractAudioLabel: "Wyodrębnij audio",
   extractAudioDescription:
     "Wyodrębnij ścieżkę audio z pliku wideo lub audio. Kodeki zgodne z popularnym kontenerem są kopiowane bez zmian; inne kodowane ponownie do AAC. Plik do pliku, bez tworzenia wideo i nadpisywania istniejących plików.",
+  upscaleImageLabel: 'Powiększanie obrazu',
+  upscaleImageDescription: 'Powiększa obrazy 2–4× na tym komputerze za pomocą Real-ESRGAN (model do zdjęć lub anime). Z pliku do pliku: wynik w PNG trafia do miejsca zapisu, oryginały pozostają nietknięte.',
 };

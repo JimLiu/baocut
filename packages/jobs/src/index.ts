@@ -70,6 +70,7 @@ export {
   modelWorkerDemand,
   modelWorkerHolder,
   transcodeDemand,
+  upscaleImageDemand,
   videoExportDemand,
 } from './resource-profiles.ts';
 export { isJobError, type JobAdmission, type JobAdmissionRequest, type JobGrantHint } from './job-admission.ts';
@@ -140,6 +141,16 @@ export {
 } from './pipelines/pipeline.ts';
 export { PIPELINE_ACTOR_ID, PipelineRunner, jobErrorOf, type PipelineRunnerOptions } from './pipelines/pipeline-runner.ts';
 export { TRANSCODE_PIPELINE, transcodePipeline, type TranscodeDeps } from './pipelines/transcode.ts';
+export {
+  MAX_OUTPUT_SIDE as UPSCALE_MAX_OUTPUT_SIDE,
+  UPSCALE_IMAGE_PIPELINE,
+  UPSCALE_WEIGHTS,
+  needsResize as upscaleNeedsResize,
+  upscaleImagePipeline,
+  type UpscaleImageDeps,
+  type UpscaleTool,
+} from './pipelines/upscale-image.ts';
+export { parseImageHeader, readImageHeader, type ImageHeader } from './pipelines/image-header.ts';
 export { TRANSLATE_PIPELINE, translatePipeline, type PipelineVideos, type TranslateDeps } from './pipelines/translate.ts';
 export type { TranslationMemory, TranslationMemoryLookup } from './pipelines/translation-memory.ts';
 export {

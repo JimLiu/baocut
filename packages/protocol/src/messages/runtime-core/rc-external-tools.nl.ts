@@ -114,4 +114,7 @@ export const nl: RcExternalToolsMessages = {
     `${p.dir}; daar staat ${p.label} en wijzigen vereist beheerdersrechten. BaoCut verhoogt die niet voor je.`,
   standaloneAdminWin: (p: { label: string; dir: string }) =>
     `${p.dir}; daar staat ${p.label} en wijzigen vereist beheerdersrechten. BaoCut verhoogt die niet voor je. Open een terminal als beheerder en voer deze opdracht uit.`,
+  realesrganLicense: 'MIT (het ncnn-programma); Real-ESRGAN-modellen BSD-3-Clause; gebouwd met ncnn (BSD-3-Clause)',
+  realesrganPurpose: 'Afbeelding opschalen: vergroot afbeeldingen 2–4× met Real-ESRGAN op de GPU van deze computer',
+  realesrganMissingRemedy: 'Download het met externalTools.install (baocut external-tools install realesrgan-ncnn-vulkan), of pak de officiële release zelf uit (laat de map models naast het programma staan) en stel het pad in met externalTools.setPath',
 };

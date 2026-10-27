@@ -6,6 +6,7 @@ import {
   isTerminal,
   LINK_IMPORT_PIPELINE,
   TRANSCODE_PIPELINE,
+  UPSCALE_IMAGE_PIPELINE,
   TRANSCRIBE_PIPELINE,
   TRANSLATE_PIPELINE,
   TRANSLATE_SUBTITLES_PIPELINE,
@@ -402,6 +403,8 @@ export function pipelineNext(name: string, summary: Record<string, unknown> | nu
       return '配音完成：配音放在新的配音轨上（pipeline.summary.trackId），summary.translation 是用的译文，summary.units 说明放上了几句、几句没有合成及原因。把结果告诉用户；要成片时用 export。';
     case TRANSCODE_PIPELINE:
       return '转码完成：outputs 的 path（pipeline.summary.files）是输出的文件，原文件不动。把位置告诉用户。';
+    case UPSCALE_IMAGE_PIPELINE:
+      return '超分完成：outputs 的 path（pipeline.summary.files）是放大后的 PNG，原图不动；summary.warnings 有提醒时一并告诉用户。把位置告诉用户；要放进视频时用 assets_import 导入。';
     case LINK_IMPORT_PIPELINE:
       // 只下载的从链接导入：文件已经写好（outputs 的 path），文稿与字幕同样。
       if (videoId === null) {

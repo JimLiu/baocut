@@ -97,4 +97,7 @@ export const ru: RcExternalToolsMessages = {
   pipAdminWin: (p) => `Эта ${p.label} установлен в ${p.dir}, изменение требует администратора; BaoCut не повышает права. Откройте терминал администратором и выполните.`,
   standaloneAdmin: (p) => `${p.dir}, где находится ${p.label}, требует администратора; BaoCut не повышает права.`,
   standaloneAdminWin: (p) => `${p.dir}, где находится ${p.label}, требует администратора; BaoCut не повышает права. Откройте терминал администратором и выполните.`,
+  realesrganLicense: 'MIT (исполняемый файл ncnn); модели Real-ESRGAN — BSD-3-Clause; собран на ncnn (BSD-3-Clause)',
+  realesrganPurpose: 'Увеличение изображения: увеличивает изображения в 2–4 раза с Real-ESRGAN на GPU этого компьютера',
+  realesrganMissingRemedy: 'Скачайте его через externalTools.install (baocut external-tools install realesrgan-ncnn-vulkan) или распакуйте официальный релиз сами (папка models должна лежать рядом с исполняемым файлом) и укажите путь через externalTools.setPath',
 };

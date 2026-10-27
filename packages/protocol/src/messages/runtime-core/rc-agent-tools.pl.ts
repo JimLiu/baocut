@@ -141,4 +141,6 @@ export const pl: RcAgentToolsMessages = {
   shotsNotSingleCamera: 'Na większości próbkowanych klatek nie widać tych samych 2–4 twarzy, więc to nie jest jedna kamera w planie ogólnym',
   shotsSpeakersUnmatched: 'Nie udało się ustalić, która twarz w kadrze należy do któregokolwiek z mówców',
   shotsFacesUnavailable: 'Wykrywanie twarzy jest niedostępne',
+  installUpscalerSummary: (p) => `Zainstaluj ${p.tool} ${p.version} (${p.size}, ${p.license}) z ${p.url}, aby powiększać obrazy`,
+  upscaleSummary: (p) => `Powiększ obrazy (${p.count}) ${p.scale}× za pomocą Real-ESRGAN (${p.weights}) i zapisz pliki PNG w ${p.dir}`,
 };

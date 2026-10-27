@@ -10,7 +10,7 @@ import { TRANSLATE_SUBTITLES_PIPELINE } from './pipelines/translate-subtitles.ts
 /** 工具目录的静态注册表（架构设计 §7.9）：首批工具、声明完整、ID 稳定。 */
 
 describe('工具目录', () => {
-  it('十个工具按组排列，ID 唯一且是小写连字符', () => {
+  it('工具按组排列，ID 唯一且是小写连字符', () => {
     expect(TOOL_CATALOGUE.map((t) => t.id)).toEqual([
       'transcribe',
       'translate-subtitles',
@@ -18,6 +18,7 @@ describe('工具目录', () => {
       'synthesize-speech',
       'generate-text',
       'generate-image',
+      'upscale-image',
       'generate-music',
       'link-import',
       'compress-video',
@@ -122,7 +123,7 @@ describe('工具目录', () => {
     const groups = Object.fromEntries(TOOL_CATEGORIES.map((c) => [c, TOOL_CATALOGUE.filter((t) => t.category === c).map((t) => t.id)]));
     expect(groups).toEqual({
       speech: ['transcribe', 'translate-subtitles', 'dub', 'synthesize-speech'],
-      'text-image': ['generate-text', 'generate-image'],
+      'text-image': ['generate-text', 'generate-image', 'upscale-image'],
       music: ['generate-music'],
       'video-file': ['link-import', 'compress-video', 'merge-video', 'extract-audio'],
     });

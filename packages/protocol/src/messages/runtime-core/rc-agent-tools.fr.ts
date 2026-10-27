@@ -94,4 +94,6 @@ export const fr: RcAgentToolsMessages = {
   shotsNotSingleCamera: 'La plupart des images échantillonnées ne montrent pas les mêmes 2 à 4 visages : ce n’est pas une seule caméra en plan large',
   shotsSpeakersUnmatched: 'Impossible de savoir quel visage à l’écran correspond à l’un des interlocuteurs',
   shotsFacesUnavailable: 'La détection de visages n’est pas disponible',
+  installUpscalerSummary: (p) => `Installer ${p.tool} ${p.version} (${p.size}, ${p.license}) depuis ${p.url} pour agrandir des images`,
+  upscaleSummary: (p) => `Agrandir des images (${p.count}) ${p.scale}× avec Real-ESRGAN (${p.weights}) et enregistrer les PNG dans ${p.dir}`,
 };

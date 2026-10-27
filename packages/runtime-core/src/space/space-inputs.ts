@@ -6,6 +6,7 @@ import {
   TRANSCODE_PIPELINE,
   TRANSCRIBE_PIPELINE,
   TRANSLATE_SUBTITLES_PIPELINE,
+  UPSCALE_IMAGE_PIPELINE,
   decodeSubtitleBytes,
   subtitleFormatOf,
   subtitleText,
@@ -52,8 +53,8 @@ function entryIdOf(value: unknown): Id | null {
 }
 
 /**
- * `pipelines.start` 的参数里换掉 Space 条目：`transcribe` 的 `file`、`transcode` 的 `inputs[]`、`translate-subtitles`
- * 的 `input`。别的流程与别的字段原样返回；不是 `{ entryId }` 的值留给流程自己的参数检查。
+ * `pipelines.start` 的参数里换掉 Space 条目：`transcribe` 的 `file`、`transcode` 与 `upscale-image` 的 `inputs[]`、
+ * `translate-subtitles` 的 `input`。别的流程与别的字段原样返回；不是 `{ entryId }` 的值留给流程自己的参数检查。
  */
 export function resolvePipelineEntryInputs(
   space: SpaceFileResolver,
@@ -71,6 +72,8 @@ export function resolvePipelineEntryInputs(
       return Array.isArray(params.inputs) ? { ...params, inputs: params.inputs.map((input) => file(input, MEDIA_ENTRY_KINDS)) } : params;
     case TRANSLATE_SUBTITLES_PIPELINE:
       return 'input' in params ? { ...params, input: file(params.input, SUBTITLE_ENTRY_KINDS) } : params;
+    case UPSCALE_IMAGE_PIPELINE:
+      return Array.isArray(params.inputs) ? { ...params, inputs: params.inputs.map((input) => file(input, IMAGE_ENTRY_KINDS)) } : params;
     default:
       return params;
   }

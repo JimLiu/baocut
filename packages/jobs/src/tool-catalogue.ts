@@ -6,6 +6,7 @@ import { TRANSCODE_PIPELINE } from './pipelines/transcode.ts';
 import { TRANSCRIBE_PIPELINE } from './pipelines/transcribe.ts';
 import { TRANSLATE_PIPELINE } from './pipelines/translate.ts';
 import { TRANSLATE_SUBTITLES_PIPELINE } from './pipelines/translate-subtitles.ts';
+import { UPSCALE_IMAGE_PIPELINE } from './pipelines/upscale-image.ts';
 
 /**
  * 工具目录的静态注册表（架构设计 §7.9；产品设计 §2.7）。纯数据，不依赖 Runtime：此刻能不能用由 Runtime 按能力配置、
@@ -18,6 +19,7 @@ export { TRANSCRIBE_PIPELINE };
 /** 下载工具与 ffmpeg 在受管外部工具登记表里的名字（§12.9）。 */
 const YT_DLP = 'yt-dlp';
 const FFMPEG = 'ffmpeg';
+const REALESRGAN = 'realesrgan-ncnn-vulkan';
 
 /** 名字与说明是 getter：读的时候按当前语言生成（目录在模块加载时就构造，不能在那时取文字）。 */
 export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
@@ -141,6 +143,27 @@ export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
     optionalCapabilities: [],
     externalTools: [],
     optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  {
+    id: 'upscale-image',
+    get label() {
+      return T.upscaleImageLabel().text;
+    },
+    get description() {
+      return T.upscaleImageDescription().text;
+    },
+    category: 'text-image',
+    // 本机的图片文件或 Space 里的图片条目（经 `file` 提交 `{ entryId }`），结果写到保存位置。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: UPSCALE_IMAGE_PIPELINE },
+    capabilities: [],
+    optionalCapabilities: [],
+    externalTools: [REALESRGAN],
+    // 照片模型的 2、3 倍要 ffmpeg 缩小；动画模型与 4 倍用不到它。
+    optionalExternalTools: [FFMPEG],
     network: 'none',
     candidates: null,
   },

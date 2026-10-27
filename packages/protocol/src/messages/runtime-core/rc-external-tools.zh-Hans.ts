@@ -99,4 +99,7 @@ export const zhHans: RcExternalToolsMessages = {
   pipAdminWin: (p) => `这份 ${p.label} 装在 ${p.dir}，要管理员权限才能改写，BaoCut 不替你提权；${WIN_ADMIN}`,
   standaloneAdmin: (p) => `这份 ${p.label} 所在的 ${p.dir} 要管理员权限才能改写，BaoCut 不替你提权。`,
   standaloneAdminWin: (p) => `这份 ${p.label} 所在的 ${p.dir} 要管理员权限才能改写，BaoCut 不替你提权。${WIN_ADMIN}`,
+  realesrganLicense: 'MIT（ncnn 可执行文件）；Real-ESRGAN 模型为 BSD-3-Clause；基于 ncnn（BSD-3-Clause）',
+  realesrganPurpose: '图片超分：用 Real-ESRGAN 在本机显卡上把图片放大 2–4 倍',
+  realesrganMissingRemedy: '用 externalTools.install（baocut external-tools install realesrgan-ncnn-vulkan）下载，或自己解开官方发布包（models 文件夹留在可执行文件旁边）后用 externalTools.setPath 指定路径',
 };

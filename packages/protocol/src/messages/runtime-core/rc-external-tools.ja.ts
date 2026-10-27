@@ -118,4 +118,7 @@ export const ja: RcExternalToolsMessages = {
     `この ${p.label} がある ${p.dir} の変更には管理者権限が必要です。BaoCut は権限を昇格しません。`,
   standaloneAdminWin: (p) =>
     `この ${p.label} がある ${p.dir} の変更には管理者権限が必要です。BaoCut は権限を昇格しません。${WIN_ADMIN}`,
+  realesrganLicense: 'MIT（ncnn 実行ファイル）。Real-ESRGAN モデルは BSD-3-Clause。ncnn（BSD-3-Clause）でビルド',
+  realesrganPurpose: '画像の高解像度化：Real-ESRGAN でこのコンピュータの GPU を使い画像を 2〜4 倍に拡大',
+  realesrganMissingRemedy: 'externalTools.install（baocut external-tools install realesrgan-ncnn-vulkan）でダウンロードするか、公式リリースを自分で展開し（models フォルダは実行ファイルの隣に置く）、externalTools.setPath でパスを指定してください',
 };

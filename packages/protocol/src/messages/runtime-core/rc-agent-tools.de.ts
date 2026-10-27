@@ -190,4 +190,6 @@ export const de: RcAgentToolsMessages = {
   shotsNotSingleCamera: 'Die meisten Stichprobenbilder zeigen nicht dieselben 2–4 Gesichter, es ist also keine einzelne Totale',
   shotsSpeakersUnmatched: 'Es ließ sich keinem Sprecher ein Gesicht im Bild zuordnen',
   shotsFacesUnavailable: 'Gesichtserkennung ist nicht verfügbar',
+  installUpscalerSummary: (p) => `${p.tool} ${p.version} (${p.size}, ${p.license}) von ${p.url} installieren, um Bilder hochzuskalieren`,
+  upscaleSummary: (p) => `Bilder (${p.count}) mit Real-ESRGAN (${p.weights}) ${p.scale}× hochskalieren und PNGs in ${p.dir} speichern`,
 };

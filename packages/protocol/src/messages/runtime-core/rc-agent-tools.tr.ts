@@ -38,4 +38,6 @@ instructionsNotSet: 'Oturum yönergeleri ayarlanmadı: Runtime birleştirme sır
   shotsNotSingleCamera: 'Örneklenen karelerin çoğunda aynı 2–4 yüz görünmüyor, yani bu tek bir geniş açı kamera değil',
   shotsSpeakersUnmatched: 'Konuşmacılardan hiçbirinin ekrandaki hangi yüz olduğu anlaşılamadı',
   shotsFacesUnavailable: 'Yüz algılama kullanılamıyor',
+  installUpscalerSummary: (p) => `Görüntüleri büyütmek için ${p.url} adresinden ${p.tool} ${p.version} (${p.size}, ${p.license}) yükle`,
+  upscaleSummary: (p) => `Görüntüleri (${p.count}) Real-ESRGAN (${p.weights}) ile ${p.scale}× büyüt ve PNG'leri ${p.dir} konumuna kaydet`,
 };

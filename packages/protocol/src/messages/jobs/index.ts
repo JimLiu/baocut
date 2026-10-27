@@ -31,6 +31,7 @@ import './translate.ts';
 import './translation-batches.ts';
 import './translation-document.ts';
 import './translation-glossary.ts';
+import './upscale-image.ts';
 import './video-create.ts';
 import './video-target.ts';
 import './yt-dlp.ts';

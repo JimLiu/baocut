@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { envValue, findOnPath, pathExtensions, windowsScriptKind } from './tool-probe.ts';
+import { REALESRGAN, BUILTIN_TOOL_MANIFESTS } from './tool-manifests.ts';
+import { envValue, findOnPath, pathExtensions, runVersionProbe, windowsScriptKind } from './tool-probe.ts';
 
 /** 在 PATH 里找工具：Windows 的 PATHEXT 用注入的平台在临时目录里核对（目录分隔仍按本机），不执行任何文件。 */
 
@@ -63,5 +64,25 @@ describe('在 PATH 里找工具', () => {
     expect(windowsScriptKind('C:\\bin\\yt-dlp.BAT')).toBe('batch');
     expect(windowsScriptKind('C:\\bin\\yt-dlp.ps1')).toBe('other');
     expect(windowsScriptKind('C:\\bin\\yt-dlp')).toBe('other');
+  });
+});
+
+describe('版本探测', () => {
+  // 只打印用法、以非零退出的工具（Real-ESRGAN 的 -h）：列出的退出码算成功，其余仍是失败。
+  const usage = ['-e', "process.stderr.write('Usage: realesrgan-ncnn-vulkan -i infile -o outfile [options]...\\n'); process.exit(255)"];
+
+  it('退出码在 okExitCodes 里时算成功，输出取标准错误；不在时失败并带上最后一行', async () => {
+    const ok = await runVersionProbe(process.execPath, usage, process.env, 10_000, [255]);
+    expect(ok).toMatchObject({ ok: true, output: expect.stringContaining('realesrgan-ncnn-vulkan') });
+    const failed = await runVersionProbe(process.execPath, usage, process.env, 10_000);
+    expect(failed.ok).toBe(false);
+  });
+
+  it('Real-ESRGAN 的清单：认出用法输出，版本取受管副本记下的发布版本（用户指定的路径是 unknown）', () => {
+    const manifest = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === REALESRGAN)!;
+    expect(manifest.probeExitCodes).toContain(255);
+    expect(manifest.parseVersion('Usage: realesrgan-ncnn-vulkan -i infile', 'v0.2.5.0')).toBe('v0.2.5.0');
+    expect(manifest.parseVersion('Usage: realesrgan-ncnn-vulkan -i infile', null)).toBe('unknown');
+    expect(manifest.parseVersion('ffmpeg version 7.1', 'v0.2.5.0')).toBeNull();
   });
 });
