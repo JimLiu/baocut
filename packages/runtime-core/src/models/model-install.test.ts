@@ -898,6 +898,34 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     },
   );
 
+  it('添加 audio.cpp 模型：目录里的包加进列表等下载；本机文件原地引用、加完就装好，移出列表发 bundle.removed、不删文件', async () => {
+    side = await startSide(source, free);
+    const addable = await side.client.request('models.addable', {});
+    expect(addable.families.some((f) => f.group === 'tts' && f.packages.some((p) => p.state === null))).toBe(true);
+    const { bundleId: catalogId } = await side.client.request('models.add', { source: 'catalog', packageId: 'yue2_main_bf16' });
+    await until(() => side!.models()?.bundles.find((b) => b.bundleId === catalogId));
+    expect(side.models()!.bundles.find((b) => b.bundleId === catalogId)).toMatchObject({ state: 'not-installed', added: { kind: 'catalog' } });
+    const { plan } = await side.client.request('models.install', { bundleId: catalogId });
+    expect(plan.components[0]).toMatchObject({ repo: 'audio-cpp-added/yue2_main_bf16', action: 'download' });
+
+    const gguf = path.join(side.dir, 'outside', 'mine.gguf');
+    await fs.mkdir(path.dirname(gguf), { recursive: true });
+    await fs.writeFile(gguf, Buffer.concat([Buffer.from('GGUF'), Buffer.alloc(100)]));
+    const { bundleId, bundle } = await side.client.request('models.add', { source: 'local-file', family: 'qwen3_tts', path: gguf, label: '我的声音' });
+    expect(bundle).toMatchObject({ state: 'installed', label: '我的声音', added: { kind: 'local-file', source: gguf } });
+    await until(() => side!.models()?.bundles.some((b) => b.bundleId === bundleId));
+    const list = JSON.parse(await fs.readFile(path.join(side.home.root, 'store', 'added-models.json'), 'utf8'));
+    expect(list.entries.map((e: { kind: string }) => e.kind)).toEqual(['catalog', 'local-file']);
+
+    await expect(side.client.request('models.unlist', { bundleId: TRANSCRIBE_BUNDLE })).rejects.toMatchObject({ code: 'invalid-request' });
+    await side.client.request('models.unlist', { bundleId });
+    await until(() => side!.modelEvents.some((e) => e.type === 'bundle.removed' && e.bundleId === bundleId));
+    expect(side.models()!.bundles.some((b) => b.bundleId === bundleId)).toBe(false);
+    expect((await fs.stat(gguf)).size).toBe(104);
+    await side.client.request('models.unlist', { bundleId: catalogId });
+    await until(() => !side!.models()?.bundles.some((b) => b.bundleId === catalogId));
+  });
+
   it('暂停后丢弃：cancelInstall 带 discard 删掉暂存区', async () => {
     side = await startSide(source, free);
     source.throttle(8 * 1024, 20);

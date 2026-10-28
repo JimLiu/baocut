@@ -249,6 +249,9 @@ describe('applyModelsEvent', () => {
     expect(state.bundles[0]!.state).toBe('not-installed');
     const added = applyModelsEvent(updated, { type: 'bundle.updated', bundle: { ...bundle, bundleId: 'b2' } });
     expect(added.bundles.map((b) => b.bundleId)).toEqual(['b1', 'b2']);
+    const removed = applyModelsEvent(added, { type: 'bundle.removed', bundleId: 'b1' });
+    expect(removed.bundles.map((b) => b.bundleId)).toEqual(['b2']);
+    expect(added.bundles).toHaveLength(2);
   });
 });
 

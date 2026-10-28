@@ -235,6 +235,11 @@ export class ModelCatalog {
     return this.#platformKey;
   }
 
+  /** 添加的模型包的仓库清单。 */
+  get addedManifests(): readonly RepoManifestSpec[] {
+    return [...this.#addedManifests.values()];
+  }
+
   /** 内置的仓库清单加上添加的模型包的清单：安装器与大小估计据此找组件要下载的文件。 */
   get manifests(): readonly RepoManifestSpec[] {
     return this.#addedManifests.size === 0 ? this.#manifests : [...this.#manifests, ...this.#addedManifests.values()];

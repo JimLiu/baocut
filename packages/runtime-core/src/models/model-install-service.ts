@@ -340,6 +340,7 @@ export class ModelInstallService {
    * （还装着时 `MODEL_INSTALLED`），正在下载时 `MODEL_IN_USE`，暂停留下的暂存区一并删掉。
    */
   async unlist(bundleId: string): Promise<{ bundleId: string }> {
+    this.#definition(bundleId);
     const info = this.#catalog.addedInfo(bundleId);
     if (info?.kind === 'local-file') await this.remove(bundleId);
     else if (info) {

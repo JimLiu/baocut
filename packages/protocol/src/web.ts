@@ -32,7 +32,8 @@ export const WEB_REVIEW_SESSION_TTL_MS = 7 * 24 * 60 * 60_000;
  * 固定流程（`pipelines.*`）不在其中：文件转码的输入与 `outDir` 是任意的绝对路径，不受项目目录约束；要开放得先给它
  * 加上与 `exports.create` 同样的路径约束。名字没在这里的方法，浏览器一律调不了。
  *
- * 本地模型包的安装管理（`models.install`、`models.repair`、`models.cancelInstall`、`models.remove`、`models.test`）也不在其中：
+ * 本地模型包的安装管理（`models.install`、`models.repair`、`models.cancelInstall`、`models.remove`、`models.test`，以及添加 audio.cpp
+ * 模型的 `models.addable`、`models.add`、`models.unlist`）也不在其中：
  * 安装与修复让这台机器从网络下载几百 MB 并写入模型目录，删除会让本机的转写不可用，属于这台机器的管理，与模型服务的配置
  * 一样只在桌面界面与 CLI 里做。浏览器能在 `models.list` 与 `models` 主题里看到状态与进度；`jobs.cancel` 能停下一个安装任务
  * （等同暂停，暂存区保留）。模型目录（`models.getDir`、`models.inspectDir`、`models.setDir`）同理不开放：更改要搬动几 GB 的文件、

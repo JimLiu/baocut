@@ -137,7 +137,8 @@ export class ModelInstaller {
   }
 
   #manifests(): readonly RepoManifestSpec[] {
-    return this.#manifestOverride ?? this.#catalog.manifests;
+    // 测试换掉的内置清单之外，添加的模型包的清单总是从模型目录来。
+    return this.#manifestOverride ? [...this.#manifestOverride, ...this.#catalog.addedManifests] : this.#catalog.manifests;
   }
 
   async plan(

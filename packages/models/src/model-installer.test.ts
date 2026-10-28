@@ -9,6 +9,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BundleDefinition, ComponentRelease } from './bundle-registry.ts';
 import { readInstallRecord } from './install-record.ts';
+import { localFileBundle, repoFileBundle } from './audio-cpp-catalog.ts';
 import { ModelCatalog } from './model-catalog.ts';
 import { DownloadError } from './model-downloader.ts';
 import { ModelInstaller, type InstallProgress } from './model-installer.ts';
@@ -827,6 +828,39 @@ describe('ModelInstaller 发布页组件', () => {
     expect(await fs.stat(libDir).catch(() => null)).toBeNull();
     expect(await fs.stat(path.join(root, '.bcut-tools', 'testlib')).catch(() => null)).toBeNull();
     expect(await catalog.status('embed-b@litert-lm')).toMatchObject({ state: 'not-installed' });
+  });
+
+  it('添加的 GGUF：从上游仓库按添加时的提交下载，放在自己的目录里；原地引用的文件不下载、删除也不碰', async () => {
+    const voice: SyntheticRepo = { repo: 'me/voices', revision: 'e'.repeat(40), files: { 'q/v-q8.gguf': syntheticBytes(30_000, 9) } };
+    serveRepo(source, voice);
+    const catalog = new ModelCatalog({ root, ...mac, engineAvailable: () => true });
+    const content = voice.files['q/v-q8.gguf']!;
+    const sha256 = crypto.createHash('sha256').update(content).digest('hex');
+    const added = repoFileBundle({ family: 'qwen3_tts', repo: voice.repo, revision: voice.revision, path: 'q/v-q8.gguf', size: content.length, sha256, label: 'v' }, 'custom-abc@audio-cpp')!;
+    catalog.register(added);
+    const installer = new ModelInstaller({ catalog, endpoint: () => source.endpoint, freeBytes: async () => 10 * 1024 ** 3, backoffMs: () => 5 });
+    const detail = await installer.plan('custom-abc@audio-cpp');
+    expect(detail.plan.components).toMatchObject([{ repo: 'audio-cpp-added/custom-abc', revision: voice.revision, action: 'download', files: ['q/v-q8.gguf'] }]);
+    await installer.install(detail, { signal: new AbortController().signal });
+    expect(source.requests.filter((r) => r.method === 'GET').every((r) => r.repo === voice.repo && r.revision === voice.revision)).toBe(true);
+    expect(await fs.readFile(path.join(root, 'audio-cpp-added', 'custom-abc', 'q', 'v-q8.gguf'))).toEqual(content);
+    expect(await catalog.status('custom-abc@audio-cpp')).toMatchObject({ state: 'installed' });
+
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-inplace-'));
+    try {
+      const file = path.join(outside, 'mine.gguf');
+      await fs.writeFile(file, Buffer.concat([Buffer.from('GGUF'), syntheticBytes(100, 4)]));
+      catalog.register(localFileBundle({ family: 'qwen3_tts', path: file, size: 104, label: 'mine' }, 'custom-local@audio-cpp')!);
+      expect((await installer.plan('custom-local@audio-cpp')).plan.upToDate).toBe(true);
+      await installer.remove('custom-local@audio-cpp');
+      await installer.discard('custom-local@audio-cpp');
+      expect((await fs.stat(file)).size).toBe(104);
+      expect(await catalog.status('custom-local@audio-cpp')).toMatchObject({ state: 'installed' });
+      await fs.rm(file);
+      await expect(installer.plan('custom-local@audio-cpp')).rejects.toMatchObject({ code: 'MODEL_MANIFEST_INCOMPLETE' });
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
   });
 });
 
