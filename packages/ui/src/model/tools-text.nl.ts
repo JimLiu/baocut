@@ -12,6 +12,8 @@ export const nl: ToolsTextMessages = {
   effort: (label: string) => `Denkintensiteit · ${label} (standaard ingesteld op de pagina Modellen)`,
   auto: "Automatisch",
   headerChip: (provider: string) => `Online · ${provider} · gefactureerd per token`,
+  agentChip: (provider: string) => `Online · ${provider} · gebruikt je abonnement`,
+  agentPaidChip: (provider: string) => `Online · ${provider} · geen abonnement · kosten voor dat account`,
 
   fileStem: "Gegenereerde tekst",
   chars: (n: string) => `${n} tekens`,

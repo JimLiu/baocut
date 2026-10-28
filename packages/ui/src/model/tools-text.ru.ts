@@ -11,6 +11,8 @@ export const ru: ToolsTextMessages = {
   effort: (label) => `Уровень рассуждений · ${label} (по умолчанию задаётся на странице «Модели»)`,
   auto: "Авто",
   headerChip: (provider) => `Онлайн · ${provider} · оплата по токенам`,
+  agentChip: (provider) => `Онлайн · ${provider} · по вашей подписке`,
+  agentPaidChip: (provider) => `Онлайн · ${provider} · не по подписке · оплата с этого аккаунта`,
   fileStem: "Созданный текст",
   chars: (n) => `${n} символов`,
   outputTokens: (n) => `${n} выходных токенов`,

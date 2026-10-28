@@ -11,6 +11,8 @@ effortFixed: 'Mức suy luận · không thể điều chỉnh cho mô hình nà
 effort: (label) => `Mức suy luận · ${label} (mặc định đặt trên trang Mô hình)`,
 auto: 'Tự động',
 headerChip: (provider) => `Trực tuyến · ${provider} · tính phí theo token`,
+agentChip: (provider) => `Trực tuyến · ${provider} · dùng gói đăng ký của bạn`,
+agentPaidChip: (provider) => `Trực tuyến · ${provider} · không phải gói đăng ký · tính phí vào tài khoản đó`,
 fileStem: 'Văn bản đã tạo',
 chars: (n) => `${n} ký tự`,
 outputTokens: (n) => `${n} token đầu ra`,

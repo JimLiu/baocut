@@ -11,6 +11,8 @@ export const zhHant: ToolsTextMessages = {
   effort: (label) => `推理強度 · ${label}（在模型頁面設定的預設值）`,
   auto: '自動',
   headerChip: (provider) => `線上 · ${provider} · 依 token 計費`,
+  agentChip: (provider) => `線上 · ${provider} · 使用你的訂閱`,
+  agentPaidChip: (provider) => `線上 · ${provider} · 不是訂閱登入 · 費用不在訂閱內`,
   fileStem: '生成的文字',
   chars: (n) => `${n} 字`,
   outputTokens: (n) => `輸出 ${n} 個 token`,

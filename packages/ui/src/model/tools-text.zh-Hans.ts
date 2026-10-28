@@ -11,6 +11,8 @@ export const zhHans: ToolsTextMessages = {
   effort: (label) => `推理强度 · ${label}（模型页设的默认）`,
   auto: '自动',
   headerChip: (provider) => `联网 · ${provider} · 按 token 计费`,
+  agentChip: (provider) => `联网 · ${provider} · 用你的订阅`,
+  agentPaidChip: (provider) => `联网 · ${provider} · 不是订阅登录 · 费用不在订阅里`,
   fileStem: '生成文本',
   chars: (n) => `${n} 字`,
   outputTokens: (n) => `输出 ${n} token`,

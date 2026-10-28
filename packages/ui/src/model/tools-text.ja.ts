@@ -11,6 +11,8 @@ export const ja: ToolsTextMessages = {
   effort: (label) => `推論強度 · ${label}（モデルページで設定した既定値）`,
   auto: '自動',
   headerChip: (provider) => `オンライン · ${provider} · トークン単位で課金`,
+  agentChip: (provider) => `オンライン · ${provider} · ご利用中のサブスクリプション`,
+  agentPaidChip: (provider) => `オンライン · ${provider} · サブスクリプション以外でサインイン · 費用はサブスクリプション外`,
   fileStem: '生成テキスト',
   chars: (n) => `${n} 文字`,
   outputTokens: (n) => `出力 ${n} トークン`,

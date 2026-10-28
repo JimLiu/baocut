@@ -11,6 +11,8 @@ export const ko: ToolsTextMessages = {
   effort: (label) => `추론 강도 · ${label}(기본값은 모델 페이지에서 설정)`,
   auto: '자동',
   headerChip: (provider) => `온라인 · ${provider} · 토큰 과금`,
+  agentChip: (provider) => `온라인 · ${provider} · 내 구독 사용`,
+  agentPaidChip: (provider) => `온라인 · ${provider} · 구독 로그인 아님 · 구독 외 요금`,
   fileStem: '생성된 텍스트',
   chars: (n) => `${n}자`,
   outputTokens: (n) => `출력 토큰 ${n}개`,

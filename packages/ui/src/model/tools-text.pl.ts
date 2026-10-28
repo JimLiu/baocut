@@ -11,6 +11,8 @@ export const pl: ToolsTextMessages = {
   effort: (label) => `Intensywność rozumowania · ${label} (domyślna wartość na stronie „Modele”)`,
   auto: "Automatyczny",
   headerChip: (provider) => `Online · ${provider} · opłata za tokeny`,
+  agentChip: (provider) => `Online · ${provider} · korzysta z Twojej subskrypcji`,
+  agentPaidChip: (provider) => `Online · ${provider} · bez subskrypcji · opłaty na tym koncie`,
   fileStem: "Wygenerowany tekst",
   chars: (n) => `${n} znaków`,
   outputTokens: (n) => `${n} tokenów wyjściowych`,

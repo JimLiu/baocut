@@ -69,6 +69,9 @@ describe('校验与请求', () => {
     expect(textStatus(draft, options[0]!, true)).toEqual({ text: emptyInput(), bad: true });
     expect(textHeaderChip(options[0]!)).toBe('联网 · OpenAI · 按 token 计费');
     expect(textHeaderChip(null)).toBeNull();
+    // 智能体用订阅，不按 token 计费；用 API key 登录时费用不在订阅里。
+    expect(textHeaderChip({ provider: 'Codex', agent: true })).toBe('联网 · Codex · 用你的订阅');
+    expect(textHeaderChip({ provider: 'Codex', agent: true, caution: '用 API key 登录' })).toBe('联网 · Codex · 不是订阅登录 · 费用不在订阅里');
   });
 });
 

@@ -41,6 +41,8 @@ const en = {
   effort: (label: string) => `Reasoning effort · ${label} (default set on the Models page)`,
   auto: 'Auto',
   headerChip: (provider: string) => `Online · ${provider} · billed by token`,
+  agentChip: (provider: string) => `Online · ${provider} · uses your subscription`,
+  agentPaidChip: (provider: string) => `Online · ${provider} · not a subscription sign-in · billed to that account`,
   /** 下载的文件名开头。 */
   fileStem: 'Generated text',
   chars: (n: string) => `${n} characters`,
@@ -143,9 +145,14 @@ export function textEffortLine(parameters: Pick<TextCapabilityParameters, 'effor
   return M.effort(parameters.effort ? EFFORT_LABEL[parameters.effort] : M.auto);
 }
 
-/** 页头那枚标签：走谁的服务。文本按 token 计费（设计稿 settings-cloud.jsx 的说法）。 */
-export function textHeaderChip(option: Pick<TextOption, 'provider'> | null): string | null {
-  return option ? M.headerChip(option.provider) : null;
+/**
+ * 页头那枚标签：走谁的服务。API 文本按 token 计费（设计稿 settings-cloud.jsx 的说法）；智能体用订阅，不是订阅登录时
+ * 如实说费用不在订阅里（同生图的 `imageHeaderChip`）。
+ */
+export function textHeaderChip(option: Pick<TextOption, 'provider' | 'agent' | 'caution'> | null): string | null {
+  if (!option) return null;
+  if (option.agent) return option.caution ? M.agentPaidChip(option.provider) : M.agentChip(option.provider);
+  return M.headerChip(option.provider);
 }
 
 // ---- 记录 ----

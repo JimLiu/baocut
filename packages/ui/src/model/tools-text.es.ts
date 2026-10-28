@@ -7,7 +7,7 @@ export const es: ToolsTextMessages = {
   connectFirst: (provider: string) => `Primero conecta ${provider}`,
   effortFixed: 'Esfuerzo de razonamiento · no se puede ajustar en este modelo',
   effort: (label: string) => `Esfuerzo de razonamiento · ${label} (valor predeterminado en la página Modelos)`,
-  auto: 'Automático', headerChip: (provider: string) => `En línea · ${provider} · facturado por token`,
+  auto: 'Automático', headerChip: (provider: string) => `En línea · ${provider} · facturado por token`, agentChip: (provider: string) => `En línea · ${provider} · usa tu suscripción`, agentPaidChip: (provider: string) => `En línea · ${provider} · sin suscripción · se cobra a esa cuenta`,
   fileStem: 'Texto generado', chars: (n: string) => `${n} caracteres`,
   outputTokens: (n: string) => `${n} tokens de salida`,
   truncated: 'Se alcanzó el límite de salida; el resto se recortó',

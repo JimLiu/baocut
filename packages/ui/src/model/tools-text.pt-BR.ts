@@ -11,6 +11,8 @@ export const ptBR: ToolsTextMessages = {
   effort: (label) => `Esforço de raciocínio · ${label} (padrão definido na página Modelos)`,
   auto: "Automático",
   headerChip: (provider) => `Online · ${provider} · cobrado por token`,
+  agentChip: (provider) => `Online · ${provider} · usa sua assinatura`,
+  agentPaidChip: (provider) => `Online · ${provider} · sem assinatura · cobrado nessa conta`,
   fileStem: "Texto gerado",
   chars: (n) => `${n} caracteres`,
   outputTokens: (n) => `Tokens de saída: ${n}`,

@@ -12,6 +12,8 @@ export const de: ToolsTextMessages = {
   effort: (label: string) => `Denkaufwand · ${label} (Standard auf der Seite „Modelle“ festgelegt)`,
   auto: "Automatisch",
   headerChip: (provider: string) => `Online · ${provider} · pro Token abgerechnet`,
+  agentChip: (provider: string) => `Online · ${provider} · nutzt Ihr Abo`,
+  agentPaidChip: (provider: string) => `Online · ${provider} · keine Abo-Anmeldung · wird diesem Konto berechnet`,
 
   fileStem: "Erzeugter Text",
   chars: (n: string) => `${n} Zeichen`,

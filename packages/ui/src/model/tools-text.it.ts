@@ -11,6 +11,8 @@ export const it: ToolsTextMessages = {
   effort: (label) => `Intensità di ragionamento · ${label} (predefinito impostato nella pagina Modelli)`,
   auto: "Automatico",
   headerChip: (provider) => `Online · ${provider} · addebito per token`,
+  agentChip: (provider) => `Online · ${provider} · usa il tuo abbonamento`,
+  agentPaidChip: (provider) => `Online · ${provider} · senza abbonamento · addebitato su quell’account`,
   fileStem: "Testo generato",
   chars: (n) => `${n} caratteri`,
   outputTokens: (n) => `Token di output: ${n}`,
