@@ -1,6 +1,6 @@
 /* 设置 › 本地模型 › 添加模型（issue 113）：内置引擎 audio.cpp 支持的模型都能加进列表。
    一块按组、可搜索的目录（BC_AUDIOCPP_CATALOG）：每一族一行，选精度后「添加」；加进来的行与内置的一样下载、试听、删除。
-   语音合成与音乐生成两组能添加；语音识别、音源分离与其余任务归「暂时用不上」，写清为什么，不给按钮。
+   语音合成、音乐生成与音源分离三组能添加；语音识别与其余任务归「暂时用不上」，写清为什么，不给按钮。
    第四段「自己指定文件」：Hugging Face 上的一个 .gguf，或这台电脑上的一个 .gguf（原地引用，不复制），选它按哪一族跑。
    加进来的都没经过 BaoCut 逐只验证（与「添加更多 Agent」同一个承诺），效果以试听与检查为准。
    分组、说法、记录与合并的规则在 model-audiocpp.js。 */
@@ -100,7 +100,7 @@
         </div>
       )}
       <R.Picker label="按哪一族跑" size="M" selectedKey={form.fam} onSelectionChange={(k) => set('fam')(String(k))}
-        description={fam ? `${fam.cap === 'music' ? '音乐生成' : '语音合成'} · ${A.traitsLine(fam) || fam.name}。audio.cpp 按族读这个文件，选错了检查会报错。` : 'audio.cpp 按族决定怎么读这个文件。'}
+        description={fam ? `${A.TASK_LABEL[fam.cap]} · ${A.traitsLine(fam) || fam.name}。audio.cpp 按族读这个文件，选错了检查会报错。` : 'audio.cpp 按族决定怎么读这个文件。'}
         isInvalid={tried && !fam} errorMessage="选一族" UNSAFE_className="acadd__field">
         {fams.map((f) => <R.PickerItem key={f.f} id={f.f} textValue={f.name}>{f.name}</R.PickerItem>)}
       </R.Picker>
@@ -118,13 +118,16 @@
     return p.ok ? {kind: 'custom', fam: form.fam, src: 'hf', repo: p.repo, revision: p.revision, path: p.path, name: form.name.trim(), mb: DEMO_HF_MB} : null;
   }
 
+  /* 自己指定文件时先选好的族：跟着打开它的能力页 */
+  const CUSTOM_FAM = {tts: 'qwen3_tts', music: 'yue2', sep: 'htdemucs'};
+
   /**
-   * 添加模型对话框。`cat` 是打开它的能力页（tts / music），决定先看哪一组；`onAdd(entry)` 由设置页落记录并接着下载。
+   * 添加模型对话框。`cat` 是打开它的能力页（tts / music / sep），决定先看哪一组与自己指定时默认按哪一族；`onAdd(entry)` 由设置页落记录并接着下载。
    */
   function AddModelDialog({cat, models, onClose, onAdd}) {
-    const [group, setGroup] = useState(cat === 'music' ? 'music' : 'tts');
+    const [group, setGroup] = useState(A.GROUPS.some((g) => g.k === cat) ? cat : 'tts');
     const [q, setQ] = useState('');
-    const [form, setForm] = useState({src: 'hf', url: '', path: '', fam: cat === 'music' ? 'yue2' : 'qwen3_tts', name: ''});
+    const [form, setForm] = useState({src: 'hf', url: '', path: '', fam: CUSTOM_FAM[cat] || CUSTOM_FAM.tts, name: ''});
     const [tried, setTried] = useState(false);
     const custom = group === 'custom';
     const rows = useMemo(() => (custom ? [] : A.search(CAT.families, models, q, group)), [group, q, models.length, custom]);
@@ -164,12 +167,14 @@
     </Dialog>;
   }
 
-  /** 能力页（语音合成、音乐生成）上的入口一行 */
+  /** 能力页（语音合成、音乐生成、音源分离）上的入口一行 */
   function AddModelEntry({cat, onOpen}) {
     const Row = window.ShellRow;
     const n = A.moreCount(CAT.families, cat);
     return <Row label="添加更多模型"
-      desc={`内置之外，audio.cpp 还支持 ${n} 种${cat === 'music' ? '音乐生成' : '语音合成'}模型，内置的也有别的精度；也能指定一个 GGUF 文件。`}>
+      desc={cat === 'sep'
+        ? `内置之外，audio.cpp 还有 ${n} 种人声 / 背景分离模型能用；也能指定一个 GGUF 文件。`
+        : `内置之外，audio.cpp 还支持 ${n} 种${A.TASK_LABEL[cat]}模型，内置的也有别的精度；也能指定一个 GGUF 文件。`}>
       <Btn size="s" variant="secondary" icon="plus" onClick={onOpen}>添加模型…</Btn>
     </Row>;
   }

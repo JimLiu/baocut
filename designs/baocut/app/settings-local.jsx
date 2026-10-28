@@ -421,7 +421,7 @@
     };
     /* 添加模型（settings-add-model.jsx）：落记录，关掉对话框；本机文件原地引用、加完就装好，仓库里的接着弹下载确认 */
     const [adding, setAdding] = useState(false);
-    const canAdd = cat === 'tts' || cat === 'music';
+    const canAdd = cat === 'tts' || cat === 'music' || cat === 'sep';
     const addModel = (entry) => {
       const m = app.addModelEntry(entry);
       setAdding(false);

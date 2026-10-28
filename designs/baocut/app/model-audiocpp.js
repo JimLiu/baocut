@@ -1,6 +1,9 @@
 /* 设置 › 本地模型 › 添加模型（issue 113）的纯模型：audio.cpp 支持的模型都能按需加进列表，加进来以后与内置的模型一样
    下载、删除、试听。目录数据在 `BC_AUDIOCPP_CATALOG`（model-audiocpp-catalog.js）。不碰 React、不碰 DOM。
-   - 分组按 BaoCut 能拿它做什么：语音合成、音乐生成两组能添加；语音识别、音源分离与其余任务归「暂时用不上」，写原因，不给添加。
+   - 分组按 BaoCut 能拿它做什么：语音合成、音乐生成、音源分离三组能添加；语音识别与其余任务归「暂时用不上」，写原因，不给添加。
+     音源分离只开人声 / 背景两轨能直接接上翻译配音、速度也能用的族（`SEP_OPEN`）；其余分离族按族写原因。
+     依据：2026-10-28 在 M4 上的 audio.cpp 实测——分离见 `SEP_OPEN` 处的注释；识别比现在的 MLX 慢 1.2–1.8 倍，
+     没有 Whisper 与说话人区分，MOSS 一次吃下整段音频（10 分钟要约 14 GB），所以转录不换。
    - 添加的东西记在偏好 `addedModels`（按表面分键持久化）：目录里的包记 `{kind: 'catalog', pkg}`，
      自己指定的 GGUF 记 `{kind: 'custom', fam, src, repo, revision, path, name, mb}`。启动时 `sync` 把它们并进
      设置页的模型表（data.js `setModels`）与组件表（`setComponents`）；同族配件（YuE2 的 VAE、AuK 的 Qwen 与 VAE）
@@ -12,9 +15,16 @@
   const GROUPS = [
     {k: 'tts', label: '语音合成'},
     {k: 'music', label: '音乐生成'},
+    {k: 'sep', label: '音源分离'},
     {k: 'idle', label: '暂时用不上'},
   ];
-  const groupOf = (fam) => (fam.cap === 'tts' || fam.cap === 'music' ? fam.cap : 'idle');
+  /* 能添加的分离族。80 秒人声叠音乐的样本上（内置 HTDemucs-FT 走 MLX：36 秒，人声 / 背景 SDR 17.8 / 14.3 dB）：
+     HTDemucs 单模型 17 秒、17.6 / 14.4 dB；Mel-Band RoFormer 72 秒、20.9 / 17.9 dB。
+     BS-RoFormer 21.4 / 18.4 dB 但要 300 秒，许可也不明；6 轨版没测，配音只要两轨；MossFormer2、TF-GridNet 是拆开几个人的说话声。 */
+  const SEP_OPEN = {htdemucs: '人声 / 背景分离 · 单模型，比内置的 HTDemucs-FT 轻、快',
+    mel_band_roformer: '人声 / 背景分离 · 分得更干净，也更慢'};
+  const groupOf = (fam) => (fam.cap === 'tts' || fam.cap === 'music' ? fam.cap
+    : fam.cap === 'sep' && SEP_OPEN[fam.f] ? 'sep' : 'idle');
 
   const TASK_LABEL = {
     asr: '语音识别', vad: '人声检测', wake_word: '唤醒词', classify: '声音分类', align: '文字对时间', diar: '说话人区分',
@@ -23,8 +33,10 @@
   };
   /** 「暂时用不上」那一句：为什么这一族在 BaoCut 里还没地方用 */
   function idleReason(fam) {
-    if (fam.cap === 'asr') return '转录要逐字时间与说话人区分，用的是 BaoCut 自己的识别模型，还没接 audio.cpp';
-    if (fam.cap === 'sep') return '翻译配音的人声分离用 BaoCut 自己的分离模型，还没接 audio.cpp';
+    if (fam.cap === 'asr') return '转录照旧用 BaoCut 自己的识别模型：audio.cpp 上的识别更慢，也没有说话人区分';
+    if (fam.f === 'bs_roformer') return '分得最干净，但比实时慢近 4 倍，许可也不明；先用 Mel-Band RoFormer';
+    if (fam.f === 'htdemucs_6stems') return '拆成 6 轨；翻译配音只要人声与背景两轨，用 HTDemucs';
+    if (fam.cap === 'sep') return '把几个人的说话声拆开，不是人声与背景分离；BaoCut 还没有用到';
     const tasks = (fam.tasks || []).map((t) => TASK_LABEL[t] || t);
     return (tasks.length ? tasks.join('、') + ' · ' : '') + 'BaoCut 还没有用到它的功能';
   }
@@ -54,6 +66,8 @@
 
   /** 特点一句：能怎么出声（与内置模型行的说法一致） */
   function traitsLine(fam) {
+    // 分离不分语言，只写分成什么、跟内置的比
+    if (fam.cap === 'sep') return SEP_OPEN[fam.f] || '';
     const t = fam.traits || {};
     const out = [];
     if (t.clone) out.push('克隆');
@@ -141,7 +155,7 @@
     'not-hf': '认不出这个地址：贴 Hugging Face 上那个文件的网页地址，或写成 用户/仓库/文件.gguf',
     'not-gguf': '只能加 .gguf 文件；整套多文件的模型请从上面的列表里加',
   };
-  /** 自己指定的文件放哪一族：只列能添加（语音合成、音乐生成）的族 */
+  /** 自己指定的文件放哪一族：只列能添加（语音合成、音乐生成、音源分离）的族 */
   const customFamilies = (families) => (families || []).filter((f) => groupOf(f) !== 'idle');
   const baseName = (p) => String(p).split(/[\\/]/).pop().replace(/\.gguf$/i, '');
 

@@ -8,10 +8,10 @@ const A = window.BC_AUDIOCPP;
 const C = window.BC_AUDIOCPP_CATALOG;
 const fam = (f) => C.families.find((x) => x.f === f);
 
-test('目录：每一族有分组，能添加的两组都有包，配件不单列', () => {
+test('目录：每一族有分组，能添加的三组都有包，配件不单列', () => {
   assert.ok(C.families.length >= 100);
   const groups = new Set(C.families.map(A.groupOf));
-  assert.deepEqual([...groups].sort(), ['idle', 'music', 'tts']);
+  assert.deepEqual([...groups].sort(), ['idle', 'music', 'sep', 'tts']);
   const yue = fam('yue2');
   assert.ok(A.pkgsOf(yue).every((p) => !p.part));
   assert.equal(A.defaultPkg(yue).builtin, 'yue2-3b');
@@ -25,8 +25,27 @@ test('分组与原因：识别、分离、其余任务各有一句', () => {
   const asr = C.families.find((f) => f.cap === 'asr');
   assert.equal(A.groupOf(asr), 'idle');
   assert.match(A.idleReason(asr), /识别模型/);
+  C.families.filter((f) => f.cap === 'asr').forEach((f) => assert.equal(A.groupOf(f), 'idle', f.f));
   const other = C.families.find((f) => f.cap === 'other' && f.tasks.length);
   assert.match(A.idleReason(other), /还没有用到/);
+});
+
+test('音源分离：只开人声 / 背景两轨、速度能用的两族，其余分离族各写原因', () => {
+  const seps = C.families.filter((f) => f.cap === 'sep');
+  assert.deepEqual(seps.filter((f) => A.groupOf(f) === 'sep').map((f) => f.f).sort(), ['htdemucs', 'mel_band_roformer']);
+  const idle = seps.filter((f) => A.groupOf(f) === 'idle');
+  assert.deepEqual(idle.map((f) => f.f).sort(), ['bs_roformer', 'htdemucs_6stems', 'mossformer2', 'tf_gridnet']);
+  assert.match(A.idleReason(fam('bs_roformer')), /慢/);
+  assert.match(A.idleReason(fam('htdemucs_6stems')), /两轨/);
+  assert.match(A.idleReason(fam('mossformer2')), /说话声/);
+  assert.equal(A.familyState(fam('htdemucs'), []), 'open');
+  assert.equal(A.familyState(fam('bs_roformer'), []), 'idle');
+  // 行落在分离页；特点一句不写语言
+  const row = A.rowOf(fam('mel_band_roformer'), A.defaultPkg(fam('mel_band_roformer')));
+  assert.equal(row.cat, 'sep');
+  assert.match(row.note, /^人声 \/ 背景分离 · .* · Q8_0$/);
+  assert.equal(A.moreCount(C.families, 'sep'), 2);
+  assert.deepEqual(A.customFamilies(C.families).filter((f) => f.cap === 'sep').map((f) => f.f).sort(), ['htdemucs', 'mel_band_roformer']);
 });
 
 test('特点与语言一句', () => {
