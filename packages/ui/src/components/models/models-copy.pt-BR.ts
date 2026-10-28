@@ -212,7 +212,7 @@ export const ptBR: ModelsMessages = {
   codexCard: {
     title: "Codex CLI",
     on: "Ativado · assinatura Codex, sem chave · uma imagem por vez · tamanho ignorado · 5–10× mais lento",
-    onText: 'Ativado · assinatura Codex, sem chave · uma solicitação por vez · sem ajuste de esforço de raciocínio · mais lento que uma API',
+    onText: 'Ativado · assinatura Codex, sem chave · uma solicitação por vez · modelo e esforço de raciocínio escolhidos ao usar · mais lento que uma API',
     off: 'Desativado · ative para escolher em imagens e texto, e como padrão',
     missing: "Codex não encontrado · instale e entre no Codex CLI antes de desenhar.",
     switchLabel: 'Usar Codex para imagens e texto',

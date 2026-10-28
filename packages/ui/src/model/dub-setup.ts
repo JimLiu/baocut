@@ -17,7 +17,7 @@ import {
 import { languageName } from './caption-tracks.ts';
 import { recipientName } from './data-grants.ts';
 import { langName } from './tools-models.ts';
-import { sameLanguage, TARGET_LANGUAGES } from './translate-setup.ts';
+import { sameLanguage, TARGET_LANGUAGES, type TextModelChoice } from './translate-setup.ts';
 import { speechSentences } from './translation-doc.ts';
 import { zhHans } from './dub-setup.zh-Hans.ts';
 import { zhHant } from './dub-setup.zh-Hant.ts';
@@ -154,8 +154,8 @@ export interface DubSetup {
   voiceModel: { providerId: string; modelId: string } | null;
   /** 没有绑定音色的说话人用的音色；null 时用模型的默认音色。 */
   voice: string | null;
-  /** 先翻译时用的文本模型；null 时用文本生成的默认值。 */
-  textModel: { providerId: string; modelId: string } | null;
+  /** 先翻译时用的文本模型；null 时用文本生成的默认值。`effort` 只有智能体选过时才有。 */
+  textModel: TextModelChoice | null;
   style: string;
   originalAudio: DubOriginalAudio;
   duckDb: number;
@@ -186,6 +186,7 @@ export function dubParams(setup: DubSetup): DubParams {
     targetLanguage: setup.targetLanguage,
     ...(style ? { style } : {}),
     ...(setup.textModel ? { textProvider: setup.textModel.providerId, textModel: setup.textModel.modelId } : {}),
+    ...(setup.textModel?.effort ? { textEffort: setup.textModel.effort } : {}),
   };
 }
 

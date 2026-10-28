@@ -185,7 +185,7 @@ export const pl: ModelsMessages = {
   codexCard: {
     title: "Codex CLI",
     on: "Włączone · abonament Codex, bez klucza · jeden obraz naraz · ignoruje rozmiar · 5–10× wolniej",
-    onText: 'Włączone · abonament Codex, bez klucza · jedno żądanie naraz · bez ustawienia intensywności rozumowania · wolniej niż API',
+    onText: 'Włączone · abonament Codex, bez klucza · jedno żądanie naraz · model i intensywność rozumowania wybierasz przy użyciu · wolniej niż API',
     off: 'Wyłączone · włącz, aby wybierać przy generowaniu obrazów i tekstu oraz jako domyślny model',
     missing: "Nie znaleziono Codex · zainstaluj Codex CLI i zaloguj się przed rysowaniem.",
     switchLabel: 'Codex do obrazów i tekstu',

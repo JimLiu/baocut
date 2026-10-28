@@ -195,7 +195,7 @@ export const zhHant: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: '已開啟 · 使用你的 Codex 訂閱，不需要金鑰 · 一次一張 · 忽略尺寸 · 慢 5–10 倍',
-    onText: '已開啟 · 使用你的 Codex 訂閱，不需要金鑰 · 一次一個請求 · 無法設定推理強度 · 比 API 慢',
+    onText: '已開啟 · 使用你的 Codex 訂閱，不需要金鑰 · 一次一個請求 · 使用時選擇模型與推理強度 · 比 API 慢',
     off: '已關閉 · 開啟後即可在生成圖片、生成文字中選擇它，並在這裡設為預設模型',
     missing: '找不到 Codex · 用它繪圖前，請先安裝並登入 Codex CLI。',
     switchLabel: '用 Codex 繪圖和寫文字',

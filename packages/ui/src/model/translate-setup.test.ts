@@ -144,5 +144,9 @@ describe('pipelines.start 的参数', () => {
       provider: 'openai',
       model: 'gpt-5',
     });
+    // 智能体在菜单里选过推理强度时一起传。
+    expect(
+      translateParams({ videoId: 'v', speechDocumentId: 'speech', targetLanguage: 'ja', style: '', model: { providerId: 'agent:codex', modelId: 'gpt-5.5', effort: 'high' } }),
+    ).toMatchObject({ provider: 'agent:codex', model: 'gpt-5.5', effort: 'high' });
   });
 });

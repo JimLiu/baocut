@@ -48,6 +48,7 @@ export function ModelRow<M>({
   disableUnusable,
   localGate = false,
   local = true,
+  picker,
   children,
 }: {
   /** 这一节的标题；一页有两只模型（翻译配音的文本模型与配音引擎）时各写各的。 */
@@ -63,6 +64,8 @@ export function ModelRow<M>({
   localGate?: boolean;
   /** 这种能力有没有本机模型（空态那句据此说要不要「安装一个本机模型」）。 */
   local?: boolean;
+  /** 代替平铺 Picker 的下拉（文本模型的两级菜单，`TextModelPicker`）。 */
+  picker?: ReactNode;
   children?: ReactNode;
 }) {
   const warning = localGate && selected?.local ? null : modelWarning(selected);
@@ -70,7 +73,15 @@ export function ModelRow<M>({
     <Section title={title} aside={<SectionLink onPress={onSettings}>{manage}</SectionLink>}>
       {options.length ? (
         <>
-          <ModelLine label={noun} options={options} selected={selected} onSelect={onSelect} factsOf={factsOf} disableUnusable={disableUnusable} />
+          <ModelLine
+            label={noun}
+            options={options}
+            selected={selected}
+            onSelect={onSelect}
+            factsOf={factsOf}
+            disableUnusable={disableUnusable}
+            picker={picker}
+          />
           {warning ? <SettingsLine text={warning} warn onSettings={onSettings} /> : null}
           {children}
         </>

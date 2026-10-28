@@ -12,8 +12,10 @@ import { Button as RACButton } from 'react-aria-components';
 import { retranslatePrompt, TOOL_SKILL } from '../../model/ai-tools.ts';
 import { currentConversation } from '../../model/ai-tools-handoff.ts';
 import { gateGuide, homeGate } from '../../model/home-brief.ts';
+import { requestEffort, textPickLabel } from '../../model/text-model-choice.ts';
 import { translateModelOptions } from '../../model/tool-runs.ts';
-import { findOption, initialModelKey, optionName, parseModelKey, withoutCaution } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, parseModelKey, withoutCaution } from '../../model/tools-models.ts';
+import type { TextModelChoice } from '../../model/translate-setup.ts';
 import { isStale, type PairRow, type PairStats } from '../../model/translation-doc.ts';
 import { targetKey } from '../../model/workspace.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -89,9 +91,9 @@ const termsText = style({ flexGrow: 1, minWidth: 0, font: 'ui-xs', color: 'gray-
  * （文本生成的默认值，不能用时第一只能用的；翻译要结构化输出）。这里没有菜单，上次选的用不了时不拿它去碰壁。
  * 能力还没读到、或一只能用的都没有时 `ref` 为 null，由 Runtime 用默认值或以「没有配置」拒绝（问题卡给去处）。
  */
-export function useRetranslateModel(): { ref: { providerId: string; modelId: string } | null; name: string | null } {
+export function useRetranslateModel(): { ref: TextModelChoice | null; name: string | null } {
   const view = useModels((s) => s.capabilities);
-  const [saved] = useRememberedTextModel('editor-translate');
+  const { key: saved, effort } = useRememberedTextModel('editor-translate');
   return useMemo(() => {
     const options = view ? translateModelOptions(view) : [];
     const remembered = findOption(options, saved);
@@ -99,8 +101,13 @@ export function useRetranslateModel(): { ref: { providerId: string; modelId: str
       ? remembered
       : findOption(options, initialModelKey(options, null, view?.generateText.effective ?? null, withoutCaution));
     const ref = option?.usable ? parseModelKey(option.key) : null;
-    return { ref: ref ? { providerId: ref.providerId, modelId: ref.modelId } : null, name: option?.usable ? optionName(option) : null };
-  }, [view, saved]);
+    // 推理强度只跟着上次选的那只（回落到别的模型时用它自己的默认）；API 模型不给（`requestEffort`）。
+    const applied = option === remembered ? effort : null;
+    return {
+      ref: ref ? { providerId: ref.providerId, modelId: ref.modelId, ...requestEffort(option, applied) } : null,
+      name: option?.usable ? textPickLabel(option, applied) : null,
+    };
+  }, [view, saved, effort]);
 }
 
 /**

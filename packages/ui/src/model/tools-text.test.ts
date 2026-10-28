@@ -37,18 +37,22 @@ describe('校验与请求', () => {
     expect(textCounter({ input: 'a'.repeat(16_001) })).toEqual({ text: '16,001 / 16,000 字符', over: true });
   });
 
-  it('请求是一条 user 消息，指名服务商与模型；推理强度与输出上限不给', () => {
-    expect(textRequest({ input: ' 写一段旁白 ' }, { providerId: 'openai', modelId: 'gpt-5-mini' })).toEqual({
+  it('请求是一条 user 消息，指名服务商与模型；输出上限不给，推理强度只给智能体选过的那档', () => {
+    const openai = { providerId: 'openai', modelId: 'gpt-5-mini', info: textModel('gpt-5-mini', { efforts: ['low', 'high'] }) };
+    expect(textRequest({ input: ' 写一段旁白 ', effort: 'high' }, openai)).toEqual({
       messages: [{ role: 'user', content: '写一段旁白' }],
       provider: 'openai',
       model: 'gpt-5-mini',
     });
-    expect(textRequest({ input: '总结要点' }, { providerId: 'openai', modelId: 'gpt-5-mini' }, { entryId: 'ent_doc' })).toEqual({
+    expect(textRequest({ input: '总结要点' }, openai, { entryId: 'ent_doc' })).toEqual({
       messages: [{ role: 'user', content: '总结要点' }],
       provider: 'openai',
       model: 'gpt-5-mini',
       material: { entryId: 'ent_doc' },
     });
+    const codex = { providerId: 'agent:codex', modelId: 'gpt-5.5', agent: true, info: textModel('gpt-5.5', { efforts: ['low', 'high'] }) };
+    expect(textRequest({ input: '总结要点', effort: 'high' }, codex)).toMatchObject({ provider: 'agent:codex', model: 'gpt-5.5', effort: 'high' });
+    expect(textRequest({ input: '总结要点', effort: null }, codex)).not.toHaveProperty('effort');
   });
 
   it('主按钮旁的现状：门、问题、这次用谁', () => {
@@ -121,8 +125,12 @@ describe('记录', () => {
     expect(textSpaceEntry([entry('sha256:t1')], textJob())).toBeNull();
   });
 
-  it('带回左边：要求与模型', () => {
-    expect(againTextDraft(done)).toEqual({ input: '写一段城市漫游旁白', model: 'openai/gpt-5-mini' });
+  it('带回左边：要求与模型，智能体再带推理强度', () => {
+    expect(againTextDraft(done)).toEqual({ input: '写一段城市漫游旁白', model: 'openai/gpt-5-mini', effort: null });
+    // 智能体交回当初请求的推理强度。
+    const agentJob = textJob({ ...done, providerId: 'agent:codex', modelId: 'gpt-5.5' });
+    agentJob.generation = { ...done.generation!, requestedEffort: 'high' } as typeof done.generation;
+    expect(againTextDraft(agentJob)).toMatchObject({ model: 'agent:codex/gpt-5.5', effort: 'high' });
     expect(againTextDraft(textJob({ generation: undefined }))).toBeNull();
   });
 

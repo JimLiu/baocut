@@ -161,6 +161,20 @@ describe('范围里的段数与流程参数', () => {
       model: 'gpt-5-mini',
       uiLanguage: 'zh-Hans',
     });
+    // 智能体在菜单里选过推理强度时一起传（Runtime 按模型换档）。
+    expect(
+      directParams({
+        videoId: 'vid',
+        tool: 'summary',
+        prompt: 'Summarize',
+        range: null,
+        documentId: null,
+        attachments: [],
+        skills: [],
+        model: { providerId: 'agent:codex', modelId: 'gpt-5.5', effort: 'high' },
+        uiLanguage: 'en',
+      }),
+    ).toMatchObject({ provider: 'agent:codex', model: 'gpt-5.5', effort: 'high' });
     expect(
       directParams({ videoId: 'vid', tool: 'chapters', prompt: 'x', range: { start: 1, end: 2 }, documentId: null, attachments: [], skills: [], model: null, uiLanguage: 'en' }),
     ).toEqual({ videoId: 'vid', tool: 'chapters', prompt: 'x', uiLanguage: 'en' });

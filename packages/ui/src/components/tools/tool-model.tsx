@@ -66,6 +66,7 @@ export function ModelLine<M>({
   onSelect,
   factsOf,
   disableUnusable = false,
+  picker,
 }: {
   label: string;
   options: readonly ToolModelOption<M>[];
@@ -74,37 +75,41 @@ export function ModelLine<M>({
   factsOf: (option: ToolModelOption<M>) => string;
   /** 没连上的不让选（设计稿 image-gen.jsx 的菜单）；语音照引擎卡片的样子，选了再给门卡。本机模型没装好也能选，选了给下载卡。 */
   disableUnusable?: boolean;
+  /** 宿主自己画的下拉，代替平铺的 Picker（文本模型的两级菜单，原型 tool-frame.jsx `ToolModelRow` 的 `picker`）；状态与能力照旧。 */
+  picker?: ReactNode;
 }) {
   const disabled = disableUnusable ? options.filter((o) => !o.usable && !o.local && o.key !== selected?.key).map((o) => o.key) : [];
   return (
     <div className={line}>
-      <Picker
-        aria-label={label}
-        size="S"
-        menuWidth={320}
-        selectedKey={selected?.key ?? null}
-        disabledKeys={disabled}
-        onSelectionChange={(key) => {
-          const next = options.find((o) => o.key === key);
-          if (next && next.key !== selected?.key) onSelect(next);
-        }}>
-        {groups(options, GATE_COPY.localGroup).map((g) => (
-          <PickerSection key={g.providerId} id={`provider:${g.providerId}`}>
-            <Header>
-              <Heading>{g.provider}</Heading>
-            </Header>
-            {g.items.map((o) => {
-              const text = itemText(o);
-              return (
-                <PickerItem key={o.key} id={o.key} textValue={`${o.provider} · ${text.label}`}>
-                  <Text slot="label">{text.label}</Text>
-                  {text.description ? <Text slot="description">{text.description}</Text> : null}
-                </PickerItem>
-              );
-            })}
-          </PickerSection>
-        ))}
-      </Picker>
+      {picker ?? (
+        <Picker
+          aria-label={label}
+          size="S"
+          menuWidth={320}
+          selectedKey={selected?.key ?? null}
+          disabledKeys={disabled}
+          onSelectionChange={(key) => {
+            const next = options.find((o) => o.key === key);
+            if (next && next.key !== selected?.key) onSelect(next);
+          }}>
+          {groups(options, GATE_COPY.localGroup).map((g) => (
+            <PickerSection key={g.providerId} id={`provider:${g.providerId}`}>
+              <Header>
+                <Heading>{g.provider}</Heading>
+              </Header>
+              {g.items.map((o) => {
+                const text = itemText(o);
+                return (
+                  <PickerItem key={o.key} id={o.key} textValue={`${o.provider} · ${text.label}`}>
+                    <Text slot="label">{text.label}</Text>
+                    {text.description ? <Text slot="description">{text.description}</Text> : null}
+                  </PickerItem>
+                );
+              })}
+            </PickerSection>
+          ))}
+        </Picker>
+      )}
       {selected ? (
         <span className={state({ isOk: selected.usable })}>
           {selected.usable ? <Checkmark aria-hidden /> : null}

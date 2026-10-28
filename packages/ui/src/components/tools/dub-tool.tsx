@@ -14,6 +14,7 @@ import {
   translationOptions,
   type TranslationOption,
 } from '../../model/tool-targets.ts';
+import { sentEffort } from '../../model/text-model-choice.ts';
 import { modelReason } from '../../model/tool-frame.ts';
 import { cloudModelOptions, findOption, languagesShort, speaks } from '../../model/tools-models.ts';
 import { useModels } from '../../state/models-store.ts';
@@ -75,8 +76,8 @@ export function DubTool() {
   const engines = useMemo(() => (view ? cloudModelOptions(view, 'synthesizeSpeech') : []), [view]);
   const engine = findOption(engines, view ? dubEngineKey(engines, draft.engine, view.synthesizeSpeech.effective ?? null, lang) : null);
   const engineSpeaks = !engine || !lang || speaks(engine.info.languages, lang);
-  const [savedModel, rememberModel] = useRememberedTextModel('dub-tool');
-  const text = useTextModel(savedModel);
+  const remembered = useRememberedTextModel('dub-tool');
+  const text = useTextModel(remembered.key);
 
   const params = entryId
     ? dubParams({
@@ -86,7 +87,13 @@ export function DubTool() {
         documentId: doc?.documentId ?? null,
         originalAudio: draft.original,
         ...(engine?.usable ? { provider: engine.providerId, model: engine.modelId } : {}),
-        ...(!chosen && text.option?.usable ? { textProvider: text.option.providerId, textModel: text.option.modelId } : {}),
+        ...(!chosen && text.option?.usable
+          ? {
+              textProvider: text.option.providerId,
+              textModel: text.option.modelId,
+              textEffort: sentEffort(text.option, remembered.effort),
+            }
+          : {}),
       })
     : null;
   const request = params ? toolRequest(status.byId.get('dub'), 'video', params) : null;
@@ -157,7 +164,7 @@ export function DubTool() {
           ) : null}
         </Section>
       ) : null}
-      {row && !chosen ? <TextModelField options={text.options} option={text.option} onChange={rememberModel} /> : null}
+      {row && !chosen ? <TextModelField options={text.options} option={text.option} effort={remembered.effort} onChange={remembered.remember} /> : null}
       <ModelRow
         title={DUB_COPY.engine}
         noun={DUB_COPY.engine}

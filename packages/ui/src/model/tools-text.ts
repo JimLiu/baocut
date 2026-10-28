@@ -1,15 +1,18 @@
 import {
+  AGENT_PROVIDER_PREFIX,
   defineMessages,
   intlLocale,
   type GenerateTextRequest,
   type JobRecord,
   type SpaceEntry,
   type TextCapabilityParameters,
+  type TextEffort,
   type TextJobResult,
   type TextModelInfo,
 } from '@baocut/protocol';
 import { EFFORT_LABEL } from './models-text.ts';
-import { codePoints, modelKeyOf, type ToolModelOption } from './tools-models.ts';
+import { requestEffort } from './text-model-choice.ts';
+import { codePoints, modelKeyOf, optionName, type ToolModelOption } from './tools-models.ts';
 import { zhHans } from './tools-text.zh-Hans.ts';
 import { zhHant } from './tools-text.zh-Hant.ts';
 import { ja } from './tools-text.ja.ts';
@@ -79,9 +82,11 @@ export interface TextDraft {
   input: string;
   /** `providerId/modelId`；null 为还没选。 */
   model: string | null;
+  /** 智能体的推理强度（两级菜单里选的）；null = 模型自己的默认。API 模型不用它。 */
+  effort: TextEffort | null;
 }
 
-export const BLANK_TEXT: TextDraft = { input: '', model: null };
+export const BLANK_TEXT: TextDraft = { input: '', model: null, effort: null };
 
 // ---- 校验与请求 ----
 
@@ -99,18 +104,20 @@ export function textCounter(draft: Pick<TextDraft, 'input'>): { text: string; ov
 }
 
 /**
- * `models.generateText` 的参数：一条 user 消息，指名服务商与模型；推理强度、输出上限都不给（用模型页的默认与模型的上限）。
+ * `models.generateText` 的参数：一条 user 消息，指名服务商与模型；输出上限不给（用模型的上限）。推理强度只给智能体在菜单里选过的那档
+ * （`requestEffort`），API 模型用模型页的默认。
  * 附了 Space 条目（`material`）时 Runtime 把它的文字接在这条消息后面（架构设计 §7.9「Space 条目作输入」）；生成要求照样要写。
  */
 export function textRequest(
-  draft: Pick<TextDraft, 'input'>,
-  option: Pick<TextOption, 'providerId' | 'modelId'>,
+  draft: Pick<TextDraft, 'input'> & Partial<Pick<TextDraft, 'effort'>>,
+  option: Pick<TextOption, 'providerId' | 'modelId' | 'agent' | 'info'>,
   material: { entryId: string } | null = null,
 ): Omit<GenerateTextRequest, 'commandId'> {
   return {
     messages: [{ role: 'user', content: draft.input.trim() }],
     provider: option.providerId,
     model: option.modelId,
+    ...requestEffort(option, draft.effort ?? null),
     ...(material ? { material: { entryId: material.entryId } } : {}),
   };
 }
@@ -122,14 +129,14 @@ export function textStatus(draft: Pick<TextDraft, 'input'>, option: TextOption |
   const empty = emptyInput();
   const problem = textProblems(draft).find((p) => tried || p !== empty);
   if (problem) return { text: problem, bad: true };
-  return { text: `${option.provider} · ${option.modelId}`, bad: false };
+  return { text: `${option.provider} · ${optionName(option)}`, bad: false };
 }
 
 // ---- 模型 ----
 
 /**
- * 推理强度那一句：工具页不单独选，用模型页设的默认（`models.setCapabilityParameters`）；模型不能调时照实说。
- * 默认那一档这只模型没有时 Runtime 换成最接近的一档，结果里会注明。
+ * 推理强度那一句（API 模型）：工具页不单独选，用模型页设的默认（`models.setCapabilityParameters`）；模型不能调时照实说。
+ * 默认那一档这只模型没有时 Runtime 换成最接近的一档，结果里会注明。智能体的推理强度在两级菜单里选，不用这一句。
  */
 export function textEffortLine(parameters: Pick<TextCapabilityParameters, 'effort'>, info: Pick<TextModelInfo, 'efforts'>): string {
   if (!info.efforts.length) return M.effortFixed;
@@ -200,7 +207,9 @@ export function textFacts(job: Pick<JobRecord, 'warnings' | 'result'>): string {
 export function againTextDraft(job: JobRecord): Partial<TextDraft> | null {
   const g = generationOf(job);
   if (!g) return null;
-  return { input: textPrompt(job), model: modelKeyOf(job.providerId, job.modelId) };
+  // 智能体交回当初请求的那一档（`requestedEffort`）；API 模型的推理强度用模型页的默认，不记。
+  const effort = job.providerId.startsWith(AGENT_PROVIDER_PREFIX) ? g.requestedEffort : null;
+  return { input: textPrompt(job), model: modelKeyOf(job.providerId, job.modelId), effort };
 }
 
 /**

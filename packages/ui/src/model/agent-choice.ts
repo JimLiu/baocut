@@ -301,7 +301,7 @@ export interface EffortRow {
 }
 
 /** 这个模型的推理强度（原型 data.js `efforts` 的下拉）。模型自己的默认那一行标「默认」。空表 = 不分强度。 */
-export function effortRows(model: DriverModel | undefined): EffortRow[] {
+export function effortRows(model: Pick<DriverModel, 'efforts' | 'defaultEffort'> | undefined): EffortRow[] {
   if (!model) return [];
   return model.efforts.map((effort) => {
     const sub = [EFFORT_COPY[effort.id]?.sub ?? null, effort.id === model.defaultEffort ? AGENT_PICKER.defaultMark : null]

@@ -212,7 +212,7 @@ export const fr: ModelsMessages = {
   codexCard: {
     title: "Codex CLI",
     on: "Activé · abonnement Codex, sans clé · une image à la fois · taille ignorée · 5–10× plus lent",
-    onText: 'Activé · abonnement Codex, sans clé · une requête à la fois · pas de réglage de l’effort de raisonnement · plus lent qu’une API',
+    onText: 'Activé · abonnement Codex, sans clé · une requête à la fois · modèle et effort de raisonnement choisis à l’usage · plus lent qu’une API',
     off: 'Désactivé · activez pour le choisir pour les images et le texte, et comme défaut ici',
     missing: "Codex introuvable · installez Codex CLI et connectez-vous avant de dessiner.",
     switchLabel: 'Utiliser Codex pour les images et le texte',

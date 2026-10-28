@@ -201,7 +201,7 @@ export const ko: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: '켜짐 · Codex 구독 사용, 키 필요 없음 · 한 번에 1장 · 크기 무시 · 5–10배 느림',
-    onText: '켜짐 · Codex 구독 사용, 키 필요 없음 · 한 번에 요청 1개 · 추론 강도 설정 불가 · API보다 느림',
+    onText: '켜짐 · Codex 구독 사용, 키 필요 없음 · 한 번에 요청 1개 · 사용할 때 모델과 추론 강도 선택 · API보다 느림',
     off: '꺼짐 · 켜면 이미지 생성, 텍스트 생성과 여기의 기본 모델에서 고를 수 있습니다',
     missing: 'Codex를 찾을 수 없습니다 · 그리려면 먼저 Codex CLI를 설치하고 로그인하세요.',
     switchLabel: 'Codex로 그리기와 글쓰기',

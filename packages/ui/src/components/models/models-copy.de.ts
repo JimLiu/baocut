@@ -211,7 +211,7 @@ export const de: ModelsMessages = {
   codexCard: {
     title: "Codex CLI",
     on: "Ein · verwendet Ihr Codex-Abonnement, ohne Schlüssel · ein Bild gleichzeitig · ignoriert Größe · 5–10× langsamer",
-    onText: 'Ein · verwendet Ihr Codex-Abonnement, ohne Schlüssel · eine Anfrage gleichzeitig · keine Einstellung der Denkintensität · langsamer als eine API',
+    onText: 'Ein · verwendet Ihr Codex-Abonnement, ohne Schlüssel · eine Anfrage gleichzeitig · Modell und Denkintensität bei der Nutzung wählen · langsamer als eine API',
     off: 'Aus · einschalten, um es für Bild- und Texterzeugung und hier als Standardmodell auszuwählen',
     missing: "Codex nicht gefunden · Codex CLI vor dem Zeichnen installieren und anmelden.",
     switchLabel: 'Codex für Bilder und Text nutzen',

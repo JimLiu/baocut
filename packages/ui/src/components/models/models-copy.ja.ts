@@ -199,7 +199,7 @@ export const ja: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: 'オン · お使いの Codex のサブスクリプションを使用、キー不要 · 一度に 1 枚 · サイズは無視 · 5–10 倍遅い',
-    onText: 'オン · お使いの Codex のサブスクリプションを使用、キー不要 · 一度に 1 リクエスト · 推論の強さは設定不可 · API より遅い',
+    onText: 'オン · お使いの Codex のサブスクリプションを使用、キー不要 · 一度に 1 リクエスト · 使うときにモデルと推論の強さを選択 · API より遅い',
     off: 'オフ · オンにすると、画像生成・テキスト生成とここでの既定モデルで選べるようになります',
     missing: 'Codex が見つかりません · Codex で描くには、先に Codex CLI をインストールしてサインインしてください。',
     switchLabel: 'Codex で描画とテキスト生成',

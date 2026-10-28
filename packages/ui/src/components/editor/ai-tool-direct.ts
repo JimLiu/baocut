@@ -1,6 +1,7 @@
 import { AI_TOOL_APPLY_KINDS, AI_TOOL_KINDS, type AiToolKind, type AiToolParams, type AiToolSelection, type DocumentRecord, type Id } from '@baocut/protocol';
 import type { AgentToolId } from '../../model/ai-tools.ts';
 import { languageName } from '../../model/caption-tracks.ts';
+import type { TextModelChoice } from '../../model/translate-setup.ts';
 import { isStale, needsTranslation, type PairRow } from '../../model/translation-doc.ts';
 import { S } from '../shell-copy.ts';
 import { AI_TOOLS_COPY as C } from './ai-tools-copy.ts';
@@ -132,7 +133,8 @@ export function directParams(o: {
   documentId: Id | null;
   attachments: readonly Id[];
   skills: readonly string[];
-  model: { providerId: string; modelId: string } | null;
+  /** `effort` 只有智能体在菜单里选过时才有（API 模型用模型页的默认）。 */
+  model: TextModelChoice | null;
   /** 界面语言（`getLocale()`）。 */
   uiLanguage: string;
   /** 写作类工具按主题选材（与范围互斥：给了就不发范围）。 */
@@ -155,6 +157,7 @@ export function directParams(o: {
     ...(o.attachments.length ? { attachments: [...o.attachments] } : {}),
     ...(o.skills.length ? { skills: o.skills.map((id) => ({ id })) } : {}),
     ...(o.model ? { provider: o.model.providerId, model: o.model.modelId } : {}),
+    ...(o.model?.effort ? { effort: o.model.effort } : {}),
     uiLanguage: o.uiLanguage,
   };
 }

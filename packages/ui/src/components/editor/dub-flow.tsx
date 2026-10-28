@@ -50,6 +50,7 @@ import {
 import { downloadView, inlineInstallMode, separationDownload } from '../../model/models-install.ts';
 import { bundleName } from '../../model/models-local.ts';
 import { textModelLine } from '../../model/models-text.ts';
+import { requestEffort } from '../../model/text-model-choice.ts';
 import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, textModelOptions, usableFirst, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import { speechModelLine } from '../../model/tools-tts.ts';
 import { existingTranslations } from '../../model/translate-setup.ts';
@@ -62,6 +63,7 @@ import { useRememberedTextModel } from '../../state/text-model-memory-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { useVoices } from '../../state/voices-store.ts';
 import { InstallDialog } from '../models/install-dialog.tsx';
+import { TextModelPicker } from '../text-model-picker.tsx';
 import { ModelGate, ModelLine } from '../tools/tool-model.tsx';
 import { SectionLink } from '../tools/tool-parts.tsx';
 import { GATE_COPY } from '../tools/tools-copy.ts';
@@ -253,8 +255,9 @@ function DubSetupPage({
 
   // ---- 翻译 ----
   const textModels = useMemo(() => (view ? translateModelOptions(textModelOptions(view)) : []), [view]);
-  const [textModelKey, setTextModelKey] = useRememberedTextModel('editor-dub');
-  const textModel = findOption(textModels, initialModelKey(textModels, textModelKey, view?.generateText.effective ?? null, withoutCaution));
+  const rememberedText = useRememberedTextModel('editor-dub');
+  const textModel = findOption(textModels, initialModelKey(textModels, rememberedText.key, view?.generateText.effective ?? null, withoutCaution));
+  const setTextModelKey = (key: string) => rememberedText.remember({ key, effort: null });
   const textReady = !!textModel?.usable;
   const toLlm = () => go({ tab: 'models', category: 'llm' });
   const textSection = useRef<HTMLDivElement>(null);
@@ -327,7 +330,7 @@ function DubSetupPage({
       targetLanguage: language.language,
       voiceModel: voiceKey ? { providerId: voiceKey.providerId, modelId: voiceKey.modelId } : null,
       voice: paramVoice,
-      textModel: textKey ? { providerId: textKey.providerId, modelId: textKey.modelId } : null,
+      textModel: textKey ? { providerId: textKey.providerId, modelId: textKey.modelId, ...requestEffort(textModel, rememberedText.effort) } : null,
       style: styleHint,
       originalAudio,
       duckDb,
@@ -564,6 +567,16 @@ function DubSetupPage({
                   disableUnusable
                   onSelect={(o) => setTextModelKey(o.key)}
                   factsOf={(o) => textModelLine(o.info)}
+                  picker={
+                    <TextModelPicker
+                      label={C.textModelPicker}
+                      options={textModels}
+                      selected={textModel}
+                      effort={rememberedText.effort}
+                      onChange={rememberedText.remember}
+                      onSettings={toLlm}
+                    />
+                  }
                 />
                 <ModelGate selected={textModel} options={textModels} body={GATE_COPY.textBody} onConnect={toLlm} onSwitch={(o) => setTextModelKey(o.key)} />
               </>

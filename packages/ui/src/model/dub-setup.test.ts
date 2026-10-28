@@ -119,6 +119,12 @@ describe('dubParams', () => {
     expect(dubParams({ ...setup, separateBackground: true })).toMatchObject({ originalAudio: 'duck', separateBackground: true });
   });
 
+  it('先翻译用智能体时带它的推理强度（textEffort）；用已有译文时不带', () => {
+    const agent = { ...setup, textModel: { providerId: 'agent:codex', modelId: 'gpt-5.5', effort: 'low' as const } };
+    expect(dubParams(agent)).toMatchObject({ textProvider: 'agent:codex', textModel: 'gpt-5.5', textEffort: 'low' });
+    expect(dubParams({ ...agent, translationId: 't-en' })).not.toHaveProperty('textEffort');
+  });
+
   it('默认模型时不传 provider/model；duckDb 夹在 1–60', () => {
     const params = dubParams({ ...setup, voiceModel: null, textModel: null, style: '', duckDb: 99 });
     expect(params).toEqual({ videoId: 'v1', originalAudio: 'duck', duckDb: 60, documentId: 'speech', targetLanguage: 'en' });

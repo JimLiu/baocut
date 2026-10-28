@@ -24,6 +24,7 @@ import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { useTools } from '../../state/tools-store.ts';
 import { EmptyCard, PageStatus } from '../models/model-parts.tsx';
+import { TextModelPicker } from '../text-model-picker.tsx';
 import { useNow } from '../use-now.ts';
 import { TextRecord } from './text-record.tsx';
 import { ModelRow, SaveDirRow } from './tool-frame.tsx';
@@ -186,9 +187,20 @@ export function TextTool() {
         options={options}
         selected={option}
         disableUnusable
-        onSelect={(o) => patch({ model: o.key })}
-        factsOf={(o) => textModelLine(o.info)}>
-        {option?.usable ? <p className={hintText}>{textEffortLine(textParameters(view), option.info)}</p> : null}
+        onSelect={(o) => patch({ model: o.key, effort: null })}
+        factsOf={(o) => textModelLine(o.info)}
+        picker={
+          <TextModelPicker
+            label={FRAME_COPY.textNoun}
+            options={options}
+            selected={option}
+            effort={draft.effort}
+            onChange={(pick) => patch({ model: pick.key, effort: pick.effort })}
+            onSettings={toSettings}
+          />
+        }>
+        {/* 智能体的推理强度在菜单里选；API 模型用模型页的默认，这里说一句。 */}
+        {option?.usable && !option.agent ? <p className={hintText}>{textEffortLine(textParameters(view), option.info)}</p> : null}
       </ModelRow>
       <SaveDirRow saveDirectory={saveDirectory} override={saveOverride} onChange={setSaveOverride} />
     </>

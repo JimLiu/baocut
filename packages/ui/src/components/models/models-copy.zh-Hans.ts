@@ -184,7 +184,7 @@ export const zhHans: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: '已开启 · 用你的 Codex 订阅，不用密钥 · 一次一张 · 忽略尺寸 · 慢 5–10 倍',
-    onText: '已开启 · 用你的 Codex 订阅，不用密钥 · 一次一个请求 · 不能设推理强度 · 比 API 慢',
+    onText: '已开启 · 用你的 Codex 订阅，不用密钥 · 一次一个请求 · 用的时候选模型与推理强度 · 比 API 慢',
     off: '已关闭 · 打开后可在生成图片、生成文字与这里的默认模型里选它',
     missing: '没有找到 Codex · 画图要先装好 Codex CLI 并登录。',
     switchLabel: '用 Codex 画图和写文字',

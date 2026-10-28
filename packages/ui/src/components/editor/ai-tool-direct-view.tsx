@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AiToolKind, CitationParagraph, Id, JobRecord, TextModelInfo } from '@baocut/protocol';
+import type { AiToolKind, CitationParagraph, Id, JobRecord, TextEffort, TextModelInfo } from '@baocut/protocol';
 import {
   ActionButton,
   Button,
   Content,
-  Header,
   Heading,
   InlineAlert,
-  Picker,
-  PickerItem,
-  PickerSection,
   ProgressBar,
   Text,
   ToastQueue,
@@ -19,13 +15,16 @@ import Copy from '@react-spectrum/s2/icons/Copy';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { translateModelOptions } from '../../model/tool-runs.ts';
 import { citedMarkdown, type CopyMode } from '../../model/writing-cites.ts';
-import { findOption, initialModelKey, optionName, parseModelKey, textModelOptions, usableFirst, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
+import { requestEffort, textPickLabel, type TextPick } from '../../model/text-model-choice.ts';
+import { findOption, initialModelKey, parseModelKey, textModelOptions, usableFirst, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
+import type { TextModelChoice } from '../../model/translate-setup.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useAiToolRunner } from '../../state/ai-tool-runner-store.ts';
 import { isJobLive, useJobs } from '../../state/jobs-store.ts';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { GATE_COPY } from '../tools/tools-copy.ts';
+import { TextModelPicker } from '../text-model-picker.tsx';
 import { ModelGate } from '../tools/tool-model.tsx';
 import { needsStructuredOutput } from './ai-tool-direct.ts';
 import {
@@ -107,12 +106,16 @@ export function useBindAiToolRun(): void {
 export interface DirectModel {
   options: ToolModelOption<TextModelInfo>[];
   selected: ToolModelOption<TextModelInfo> | null;
+  /** 智能体的推理强度（菜单里选的）；null = 模型自己的默认。 */
+  effort: TextEffort | null;
   select(option: ToolModelOption<TextModelInfo>): void;
+  /** 两级菜单里选了模型或推理强度。 */
+  pick(pick: TextPick): void;
   /** 菜单与提示里写的名字。 */
   name: string | null;
   ready: boolean;
   local: boolean;
-  ref: { providerId: string; modelId: string } | null;
+  ref: TextModelChoice | null;
 }
 
 /**
@@ -123,6 +126,7 @@ export interface DirectModel {
 export function useDirectModel(tool: AiToolKind | 'stale'): DirectModel {
   const view = useModels((s) => s.capabilities);
   const saved = useAiToolRunner((s) => s.models[tool] ?? null);
+  const effort = useAiToolRunner((s) => s.efforts[tool] ?? null);
   const setModel = useAiToolRunner((s) => s.setModel);
   const structured = tool !== 'stale' && needsStructuredOutput(tool);
   const options = useMemo(
@@ -143,57 +147,35 @@ export function useDirectModel(tool: AiToolKind | 'stale'): DirectModel {
   return {
     options,
     selected,
-    select: (option) => setModel(tool, option.key),
-    name: selected ? optionName(selected) : null,
+    effort,
+    select: (option) => setModel(tool, { key: option.key, effort: null }),
+    pick: (pick) => setModel(tool, pick),
+    name: selected ? textPickLabel(selected, effort) : null,
     ready: !!selected?.usable,
     local: !!selected?.local,
-    ref: ref ? { providerId: ref.providerId, modelId: ref.modelId } : null,
+    ref: ref ? { providerId: ref.providerId, modelId: ref.modelId, ...requestEffort(selected, effort) } : null,
   };
 }
 
-function providerGroups(options: readonly ToolModelOption<TextModelInfo>[]) {
-  const out: { providerId: string; provider: string; items: ToolModelOption<TextModelInfo>[] }[] = [];
-  for (const o of options) {
-    const g = out.find((x) => x.providerId === o.providerId);
-    if (g) g.items.push(o);
-    else out.push({ providerId: o.providerId, provider: o.local ? GATE_COPY.localGroup : o.provider, items: [o] });
-  }
-  return out;
-}
-
-/** 提示词框底栏右边的文本模型选择（原型 tool-prompt.jsx `ToolModelPick`）：按服务商分组，不能用的写原因。 */
+/**
+ * 提示词框底栏右边的文本模型选择（原型 tool-setup.jsx `ModelPick`、tool-prompt.jsx `ToolModelPick`）：先选提供方、再选模型的
+ * 两级菜单，智能体再选推理强度（`TextModelPicker`）；不能用的写原因。
+ */
 export function DirectModelPicker({ model }: { model: DirectModel }) {
+  const go = useShell((s) => s.go);
   if (!model.options.length) {
     return <span className={note}>{C.modelNone}</span>;
   }
   return (
-    <Picker
-      aria-label={C.modelPicker}
-      size="S"
+    <TextModelPicker
+      label={C.modelPicker}
+      options={model.options}
+      selected={model.selected}
+      effort={model.effort}
+      onChange={model.pick}
+      onSettings={() => go({ tab: 'models', category: 'llm' })}
       isQuiet
-      menuWidth={320}
-      selectedKey={model.selected?.key ?? null}
-      onSelectionChange={(key) => {
-        const next = model.options.find((o) => o.key === key);
-        if (next) model.select(next);
-      }}>
-      {providerGroups(model.options).map((g) => (
-        <PickerSection key={g.providerId} id={`provider:${g.providerId}`}>
-          <Header>
-            <Heading>{g.provider}</Heading>
-          </Header>
-          {g.items.map((o) => {
-            const label = optionName(o);
-            return (
-              <PickerItem key={o.key} id={o.key} textValue={`${o.provider} · ${label}`}>
-                <Text slot="label">{label}</Text>
-                {o.why || o.caution ? <Text slot="description">{o.why ?? o.caution}</Text> : null}
-              </PickerItem>
-            );
-          })}
-        </PickerSection>
-      ))}
-    </Picker>
+    />
   );
 }
 

@@ -233,7 +233,7 @@ const en = {
   codexCard: {
     title: 'Codex CLI',
     on: 'On · uses your Codex subscription, no key needed · one image at a time · ignores size · 5–10× slower',
-    onText: 'On · uses your Codex subscription, no key needed · one request at a time · no reasoning effort setting · slower than an API',
+    onText: 'On · uses your Codex subscription, no key needed · one request at a time · choose the model and reasoning effort where you use it · slower than an API',
     off: 'Off · turn it on to choose Codex for image and text generation, and as the default model here',
     missing: 'Codex not found · install and sign in to Codex CLI before drawing with it.',
     switchLabel: 'Use Codex for images and text',

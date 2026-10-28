@@ -184,7 +184,7 @@ export const tr: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: "Açık · Codex aboneliğinizi kullanır, anahtar gerekmez · her seferinde bir görsel · boyutu yok sayar · 5–10 kat yavaş",
-    onText: 'Açık · Codex aboneliğinizi kullanır, anahtar gerekmez · her seferinde bir istek · akıl yürütme düzeyi ayarlanamaz · API’den yavaş',
+    onText: 'Açık · Codex aboneliğinizi kullanır, anahtar gerekmez · her seferinde bir istek · model ve akıl yürütme düzeyi kullanırken seçilir · API’den yavaş',
     off: 'Kapalı · görsel ve metin oluşturmada ve buradaki varsayılan modelde seçebilmek için açın',
     missing: "Codex bulunamadı · görsel oluşturmak için önce Codex CLI yükleyin ve oturum açın.",
     switchLabel: 'Görsel ve metin için Codex',

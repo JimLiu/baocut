@@ -15,6 +15,7 @@ import {
   type ModelRef,
   type PipelineStepState,
   type SpeechModelInfo,
+  type TextEffort,
   type TextModelInfo,
   type ToolInputKind,
   type ToolStatus,
@@ -480,6 +481,8 @@ export function translateVideoParams(o: {
   bilingual: boolean;
   provider?: string;
   model?: string;
+  /** 智能体的推理强度（API 模型不给，用模型页的默认）。 */
+  effort?: TextEffort;
 }) {
   return {
     target: { entryId: o.entryId },
@@ -488,6 +491,7 @@ export function translateVideoParams(o: {
     ...(o.bilingual ? { bilingual: true } : {}),
     ...(o.provider ? { provider: o.provider } : {}),
     ...(o.model ? { model: o.model } : {}),
+    ...(o.effort ? { effort: o.effort } : {}),
   };
 }
 
@@ -499,6 +503,7 @@ export function translateFileParams(o: {
   bilingual: boolean;
   provider?: string;
   model?: string;
+  effort?: TextEffort;
   /** 这次的保存位置；不给时 Runtime 写到它的保存位置。 */
   outDir?: string;
 }) {
@@ -508,6 +513,7 @@ export function translateFileParams(o: {
     ...(o.bilingual ? { bilingual: true } : {}),
     ...(o.provider ? { provider: o.provider } : {}),
     ...(o.model ? { model: o.model } : {}),
+    ...(o.effort ? { effort: o.effort } : {}),
     ...(o.outDir ? { outDir: o.outDir } : {}),
   };
 }
@@ -516,7 +522,7 @@ export type OriginalAudio = 'duck' | 'mute' | 'keep';
 
 /**
  * 翻译配音：选了已有的译文时给 `translationId`（与它的来源文稿），否则给目标语言与翻译用的文本模型（`textProvider` /
- * `textModel`）先翻译。`provider` / `model` 是语音合成；音色不给（用模型的默认音色，说话人绑定的照旧）。
+ * `textModel`，智能体再给 `textEffort`）先翻译。`provider` / `model` 是语音合成；音色不给（用模型的默认音色，说话人绑定的照旧）。
  */
 export function dubParams(o: {
   entryId: Id;
@@ -529,6 +535,7 @@ export function dubParams(o: {
   model?: string;
   textProvider?: string;
   textModel?: string;
+  textEffort?: TextEffort;
 }) {
   return {
     target: { entryId: o.entryId },
@@ -539,6 +546,7 @@ export function dubParams(o: {
           ...(o.documentId ? { documentId: o.documentId } : {}),
           ...(o.textProvider ? { textProvider: o.textProvider } : {}),
           ...(o.textModel ? { textModel: o.textModel } : {}),
+          ...(o.textEffort ? { textEffort: o.textEffort } : {}),
         }),
     originalAudio: o.originalAudio,
     ...(o.provider ? { provider: o.provider } : {}),

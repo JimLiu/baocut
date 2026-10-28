@@ -1,4 +1,4 @@
-import { defineMessages, languageMatches, MAX_SELECTED_GLOSSARIES, type DocumentRecord, type GlossaryEntry, type Id, type TranslateParams, type TranslationGlossary } from '@baocut/protocol';
+import { defineMessages, languageMatches, MAX_SELECTED_GLOSSARIES, type DocumentRecord, type GlossaryEntry, type Id, type TextEffort, type TranslateParams, type TranslationGlossary } from '@baocut/protocol';
 import { languageName } from './caption-tracks.ts';
 import { langName } from './tools-models.ts';
 import { zhHans } from './translate-setup.zh-Hans.ts';
@@ -189,7 +189,14 @@ export interface TranslateSetup {
   /** 风格提示；空的不传。 */
   style: string;
   /** 选中的文本模型；null 时用文本生成的默认值。 */
-  model: { providerId: string; modelId: string } | null;
+  model: TextModelChoice | null;
+}
+
+/** 选中的文本模型；`effort` 只有智能体在菜单里选过时才有（API 模型用模型页的默认）。 */
+export interface TextModelChoice {
+  providerId: string;
+  modelId: string;
+  effort?: TextEffort;
 }
 
 /**
@@ -204,5 +211,6 @@ export function translateParams(setup: TranslateSetup): TranslateParams {
     targetLanguage: setup.targetLanguage,
     ...(style ? { style } : {}),
     ...(setup.model ? { provider: setup.model.providerId, model: setup.model.modelId } : {}),
+    ...(setup.model?.effort ? { effort: setup.model.effort } : {}),
   };
 }

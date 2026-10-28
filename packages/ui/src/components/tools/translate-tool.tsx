@@ -11,6 +11,7 @@ import { modelReason, saveTarget } from '../../model/tool-frame.ts';
 import { inputKindOf } from '../../model/tool-space-input.ts';
 import { findOption, initialModelKey, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import { baseName } from '../../model/tools-transcribe.ts';
+import { requestEffort } from '../../model/text-model-choice.ts';
 import { sameLanguage } from '../../model/translate-setup.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useModels } from '../../state/models-store.ts';
@@ -94,11 +95,13 @@ export function TranslateTool() {
   const input = space ? (picked ? inputKindOf('translate-subtitles', picked.kind) : 'video') : 'file';
   const doc = sourceDocument(row, draft.documentId);
   const { languages, lang, has } = useTargets(row, doc, video, draft.lang);
-  const [savedModel, rememberModel] = useRememberedTextModel('translate-tool');
-  const text = useTextModel(savedModel);
+  const remembered = useRememberedTextModel('translate-tool');
+  const text = useTextModel(remembered.key);
   // 字幕文件的结果写到保存位置；「更改…」只改这一次（写进视频时没有这一行）。
   const [saveOverride, setSaveOverride] = useState<string | null>(null);
-  const model = text.option?.usable ? { provider: text.option.providerId, model: text.option.modelId } : {};
+  const model = text.option?.usable
+    ? { provider: text.option.providerId, model: text.option.modelId, ...requestEffort(text.option, remembered.effort) }
+    : {};
 
   const outDir = saveTarget(status.saveDirectory, saveOverride);
   const file = subtitleEntry ? { entryId: subtitleEntry.entryId } : !space ? draft.file : null;
@@ -172,7 +175,7 @@ export function TranslateTool() {
         ) : null}
       </Section>
       {dup ? <DuplicateAlert title={DUPLICATE_TITLE['translate-subtitles']} body={dup} /> : null}
-      <TextModelField options={text.options} option={text.option} onChange={rememberModel} />
+      <TextModelField options={text.options} option={text.option} effort={remembered.effort} onChange={remembered.remember} />
       {video ? null : <SaveDirRow saveDirectory={status.saveDirectory} override={saveOverride} onChange={setSaveOverride} />}
       {starter.asking ? <GrantCard items={starter.asking} onAgree={starter.agree} busy={starter.busy} hint={TRANSLATE_COPY.grantHint} /> : null}
     </ToolFrame>

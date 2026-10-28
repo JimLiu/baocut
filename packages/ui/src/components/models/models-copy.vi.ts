@@ -184,7 +184,7 @@ export const vi: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: "Đã bật · dùng gói đăng ký Codex, không cần khóa · mỗi lần một ảnh · bỏ qua kích thước · chậm hơn 5–10 lần",
-    onText: 'Đã bật · dùng gói đăng ký Codex, không cần khóa · mỗi lần một yêu cầu · không chỉnh được mức suy luận · chậm hơn API',
+    onText: 'Đã bật · dùng gói đăng ký Codex, không cần khóa · mỗi lần một yêu cầu · chọn mô hình và mức suy luận khi dùng · chậm hơn API',
     off: 'Đã tắt · bật để chọn khi tạo ảnh, tạo văn bản và làm mô hình mặc định tại đây',
     missing: "Không tìm thấy Codex · cài và đăng nhập Codex CLI trước khi tạo ảnh.",
     switchLabel: 'Dùng Codex để vẽ và viết',

@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
-import type { Id, JobRecord, TextModelInfo } from '@baocut/protocol';
+import type { Id, JobRecord, TextEffort, TextModelInfo } from '@baocut/protocol';
 import { Button, Content, Heading, InlineAlert } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { textModelLine } from '../../model/models-text.ts';
+import type { TextPick } from '../../model/text-model-choice.ts';
 import { isVideoTool, type ToolId } from '../../model/tool-catalog.ts';
 import type { Rerun } from '../../model/tool-rerun.ts';
 import type { ToolModelOption } from '../../model/tools-models.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useJobs } from '../../state/jobs-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { TextModelPicker } from '../text-model-picker.tsx';
 import { ModelRow } from './tool-frame.tsx';
 import { BarStatus } from './tool-parts.tsx';
 import { FORM_COPY, FRAME_COPY, TRANSLATE_COPY } from './tools-copy.ts';
@@ -51,28 +53,37 @@ export function DuplicateAlert({ title, body }: { title: string; body: string })
   );
 }
 
-/** 文本模型一块（翻译字幕、先翻译再配音）：统一的「模型」一行，在线服务的模型；不能用的列着、写原因，给「去设置」。 */
+/**
+ * 文本模型一块（翻译字幕、先翻译再配音）：统一的「模型」一行，先选提供方、再选模型的两级菜单（智能体再选推理强度，
+ * `TextModelPicker`）；不能用的列着、写原因，给「去设置」。
+ */
 export function TextModelField({
   options,
   option,
+  effort,
   onChange,
 }: {
   options: readonly ToolModelOption<TextModelInfo>[];
   option: ToolModelOption<TextModelInfo> | null;
-  onChange: (key: string) => void;
+  effort: TextEffort | null;
+  onChange: (pick: TextPick) => void;
 }) {
   const go = useShell((s) => s.go);
+  const toSettings = () => go({ tab: 'models', category: 'llm' });
   return (
     <ModelRow
       title={TRANSLATE_COPY.model}
       noun={FRAME_COPY.textNoun}
       manage={TRANSLATE_COPY.manageModels}
       local={false}
-      onSettings={() => go({ tab: 'models', category: 'llm' })}
+      onSettings={toSettings}
       options={options}
       selected={option}
-      onSelect={(o) => onChange(o.key)}
+      onSelect={(o) => onChange({ key: o.key, effort: null })}
       factsOf={(o) => textModelLine(o.info)}
+      picker={
+        <TextModelPicker label={FRAME_COPY.textNoun} options={options} selected={option} effort={effort} onChange={onChange} onSettings={toSettings} />
+      }
     />
   );
 }

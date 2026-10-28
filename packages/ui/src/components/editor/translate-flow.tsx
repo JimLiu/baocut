@@ -17,6 +17,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { languageName } from '../../model/caption-tracks.ts';
 import { guessLanguage } from '../../model/cue-edit.ts';
 import { textModelLine } from '../../model/models-text.ts';
+import { requestEffort } from '../../model/text-model-choice.ts';
 import { findOption, initialModelKey, langName, parseModelKey, textModelOptions, usableFirst, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import {
   defaultTarget,
@@ -33,6 +34,7 @@ import { useTranslationGlossaries, useVideoSelection } from './use-translation-g
 import { M as SEMANTIC_COPY } from '../../model/semantic-copy.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { SemanticNote } from '../semantic-note.tsx';
+import { TextModelPicker } from '../text-model-picker.tsx';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useRememberedTextModel } from '../../state/text-model-memory-store.ts';
@@ -123,8 +125,9 @@ export function TranslateFlow({
 
   const view = useModels((s) => s.capabilities);
   const options = useMemo(() => (view ? translateModelOptions(textModelOptions(view)) : []), [view]);
-  const [modelKey, setModelKey] = useRememberedTextModel('editor-translate');
-  const option = findOption(options, initialModelKey(options, modelKey, view?.generateText.effective ?? null, withoutCaution));
+  const remembered = useRememberedTextModel('editor-translate');
+  const option = findOption(options, initialModelKey(options, remembered.key, view?.generateText.effective ?? null, withoutCaution));
+  const setModelKey = (key: string) => remembered.remember({ key, effort: null });
   const ready = !!option?.usable;
   const toModels = () => go({ tab: 'models', category: 'llm' });
   const modelSection = useRef<HTMLDivElement>(null);
@@ -165,7 +168,7 @@ export function TranslateFlow({
       speechDocumentId: speech.id,
       targetLanguage: target,
       style: styleHint,
-      model: model ? { providerId: model.providerId, modelId: model.modelId } : null,
+      model: model ? { providerId: model.providerId, modelId: model.modelId, ...requestEffort(option, remembered.effort) } : null,
       bilingual,
     });
     setSubmitting(false);
@@ -237,6 +240,16 @@ export function TranslateFlow({
               disableUnusable
               onSelect={(o) => setModelKey(o.key)}
               factsOf={(o) => textModelLine(o.info)}
+              picker={
+                <TextModelPicker
+                  label={C.modelPicker}
+                  options={options}
+                  selected={option}
+                  effort={remembered.effort}
+                  onChange={remembered.remember}
+                  onSettings={toModels}
+                />
+              }
             />
             <ModelGate selected={option} options={options} body={GATE_COPY.textBody} onConnect={toModels} onSwitch={(o) => setModelKey(o.key)} />
           </>

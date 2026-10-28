@@ -22,7 +22,7 @@ import { captionChips, languageName } from '../../model/caption-tracks.ts';
 import { rootSequence } from '../../model/editor.ts';
 import { readSpeechWords, speechCaptionBody, type SpeechWords } from '../../model/speech-cues.ts';
 import { jobRemedy, rejectionRemedy, type Remedy } from '../../model/task-facts.ts';
-import { translateParams, type TranslateSetup } from '../../model/translate-setup.ts';
+import { translateParams, type TextModelChoice, type TranslateSetup } from '../../model/translate-setup.ts';
 import { retryNote, translationOf } from '../../model/translate-progress.ts';
 import { derivedFrom, pairedOriginal, retextCaption, translationCaptionOperations, translationCues } from '../../model/translation-cues.ts';
 import {
@@ -280,7 +280,7 @@ export async function startRefresh(o: {
   sentences?: readonly Id[];
   /** 要重译的句数。 */
   count: number;
-  model: { providerId: string; modelId: string } | null;
+  model: TextModelChoice | null;
 }): Promise<boolean> {
   const bound = deps;
   const { videoId, record } = o;
@@ -295,6 +295,7 @@ export async function startRefresh(o: {
       translationId: record.id,
       ...(o.sentences ? { sentences: [...o.sentences] } : {}),
       ...(o.model ? { provider: o.model.providerId, model: o.model.modelId } : {}),
+      ...(o.model?.effort ? { effort: o.model.effort } : {}),
     });
     useTranslateRun.setState((s) => (s.refreshes[record.id] ? { refreshes: { ...s.refreshes, [record.id]: { ...run, jobId } } } : {}));
     settle(useJobs.getState().jobs);

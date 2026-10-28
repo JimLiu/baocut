@@ -30,6 +30,7 @@ import {
   transcriptEditedOf,
   transcriptSwitchOf,
   translateModelOptions,
+  translateFileParams,
   translateVideoParams,
   withAsset,
   type ToolStartSession,
@@ -377,6 +378,17 @@ describe('提交参数', () => {
       originalAudio: 'duck',
     });
     expect(dubParams({ entryId: 'e', translation: null, targetLanguage: 'ja', originalAudio: 'mute' })).toMatchObject({ targetLanguage: 'ja' });
+    // 智能体的推理强度：翻译给 `effort`，先翻译再配音给 `textEffort`（用已有译文时不带）。
+    expect(translateVideoParams({ entryId: 'e', targetLanguage: 'en', bilingual: false, provider: 'agent:codex', model: 'gpt-5.5', effort: 'high' })).toMatchObject({
+      provider: 'agent:codex',
+      model: 'gpt-5.5',
+      effort: 'high',
+    });
+    expect(translateFileParams({ input: 'a.srt', targetLanguage: 'en', bilingual: false, effort: 'low' })).toMatchObject({ effort: 'low' });
+    expect(dubParams({ entryId: 'e', translation: null, targetLanguage: 'ja', originalAudio: 'mute', textEffort: 'low' })).toMatchObject({ textEffort: 'low' });
+    expect(dubParams({ entryId: 'e', translation: { id: 't', documentId: 'd' }, targetLanguage: 'en', originalAudio: 'duck', textEffort: 'low' })).not.toHaveProperty(
+      'textEffort',
+    );
     // 先翻译：带来源文稿与翻译用的文本模型；选了已有译文时不带。
     expect(
       dubParams({
