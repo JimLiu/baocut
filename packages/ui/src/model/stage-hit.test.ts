@@ -57,6 +57,18 @@ describe('点选', () => {
     expect(hitAt(layers, at, { skip: (id) => id === 'main', boxes, contains: poseContains })).toBe('pip');
   });
 
+  it('文字层按渲染器排出来的块框，不按高等于宽的层矩阵；没有块框时退回层矩阵', () => {
+    // 一段两行的字：布局框 400 见方，排出来只有 400×120，下面那张图在布局框里、块框外。
+    const stack = [layer('pic', 'image', placed(500, 600, 300, 100)), layer('title', 'text', placed(500, 500, 400, 400))];
+    const textHits = [{ itemId: 'title', cx: 500, cy: 500, w: 400, h: 120, rotation: 0 }];
+    expect(hitAt(stack, { x: 500, y: 600 })).toBe('title');
+    expect(hitAt(stack, { x: 500, y: 600 }, { textHits })).toBe('pic');
+    expect(hitAt(stack, { x: 500, y: 520 }, { textHits })).toBe('title');
+    expect(hitAt(stack, { x: 500, y: 380 }, { textHits })).toBeNull();
+    // 别的文字的块框不算这一件的。
+    expect(hitAt(stack, { x: 500, y: 380 }, { textHits: [{ ...textHits[0]!, itemId: 'other' }] })).toBe('title');
+  });
+
   it('这一帧画面上的实例：自下而上、不重复、不含字幕', () => {
     expect(visibleItems([...layers, layer('pip', 'video', placed(0, 0, 1, 1))])).toEqual(['main', 'pip', 'logo']);
   });

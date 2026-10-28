@@ -47,7 +47,7 @@ import {
   type Modifiers,
   type StageEnv,
 } from '../../model/stage-gesture.ts';
-import { hitAt, isMainVideo, marqueeHits, marqueeSelection, visibleItems } from '../../model/stage-hit.ts';
+import { hitAt, isMainVideo, marqueeHits, marqueeSelection, textHitsOf, visibleItems } from '../../model/stage-hit.ts';
 import { stageLayers } from '../../render/frame-plan.ts';
 import {
   DEAD_ZONE,
@@ -333,6 +333,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const boxes = new Map(picked.filter((item) => !isFramed(item)).map((item) => [item.id, poseFor(item)]));
     return hitAt(stageLayers(engine.plan), p, {
       captionHits: engine.captionHits,
+      textHits: engine.textHits,
       skip: (id) => isMain(id) && !selected.has(id),
       boxes,
       contains: poseContains,
@@ -592,7 +593,10 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const rect = { x: corner.x, y: corner.y, w: r.w * scale, h: (r.h * seq.canvas.height) / p.frame.height };
     const candidates = visible.flatMap((id) => {
       const item = byId.get(id);
-      return item && isPlaced(item) && !isMainVideo(item, seq) ? [{ id, rect: aabbOf(poseOf(item, seq.canvas, assets)) }] : [];
+      if (!item || !isPlaced(item) || isMainVideo(item, seq)) return [];
+      // 文字按排出来的块框参与框选（布局框高等于宽，会框到上下别的东西）。
+      const blocks = item.type === 'text' ? textHitsOf(engine.textHits, id) : [];
+      return [{ id, rect: boundsOf(blocks.map(aabbOf)) ?? aabbOf(poseOf(item, seq.canvas, assets)) }];
     });
     // 字幕按画出来的行框参与框选（一件字幕这一帧可能有几行，合成一个框）。
     const captions = [...new Set(engine.captionHits.map((hit) => hit.itemId))].flatMap((id) => {
@@ -632,7 +636,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
     const additive = event.shiftKey || event.metaKey || event.ctrlKey;
     const hit = hitTest(p);
     // 没选中的主视频不挡点选；按在它上面、不动就松手，才选中它（原型：主视频只能点选）。
-    const under = hit ?? hitAt(stageLayers(engine.plan), p, { captionHits: engine.captionHits });
+    const under = hit ?? hitAt(stageLayers(engine.plan), p, { captionHits: engine.captionHits, textHits: engine.textHits });
 
     if (playing) {
       // 原型 stage.jsx：播放中按下画面只暂停，这一下的点击吞掉，不改选中、不起手势。

@@ -136,6 +136,19 @@ struct DrawnLayer {
     geom: Option<BoxGeom>,
 }
 
+/// 渲染器排出来的文字实例块框（序列画布像素），绕块中心旋转；与 [`CaptionHit`] 同一套口径。
+/// 舞台点选与标记的选择元素按它命中、画框，不拿布局框（文字的布局框高等于宽）。
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextHit {
+    pub item_id: String,
+    pub cx: f64,
+    pub cy: f64,
+    pub w: f64,
+    pub h: f64,
+    pub rotation: f64,
+}
+
 pub struct FrameRenderer {
     options: RenderOptions,
     documents: Documents,
@@ -160,6 +173,8 @@ pub struct FrameRenderer {
     panel_seams: HashMap<(String, String, Option<String>), Option<PanelSeams>>,
     collect_caption_hits: bool,
     caption_hits: Vec<CaptionHit>,
+    /// 这一帧画出来的文字实例块框（与字幕命中一起收）。
+    text_hits: Vec<TextHit>,
     /// 画帧时字幕层真正光栅了几张（[`Self::caption_rasters`]）。
     caption_rasters: u64,
     templates: TemplateScenes,
@@ -222,6 +237,7 @@ impl FrameRenderer {
             panel_seams: HashMap::new(),
             collect_caption_hits: false,
             caption_hits: Vec::new(),
+            text_hits: Vec::new(),
             caption_rasters: 0,
             templates: TemplateScenes::default(),
             lotties: HashMap::new(),
@@ -468,13 +484,18 @@ impl FrameRenderer {
         &self.missing_spectra
     }
 
-    /// 预览需要字幕拾取；导出默认不求交互几何。
+    /// 预览需要字幕与文字的拾取；导出默认不求交互几何。
     pub fn set_collect_caption_hits(&mut self, on: bool) {
         self.collect_caption_hits = on;
     }
 
     pub fn caption_hits(&self) -> &[CaptionHit] {
         &self.caption_hits
+    }
+
+    /// 这一帧画出来的文字实例块框（[`Self::set_collect_caption_hits`] 打开时才收），按画的先后。
+    pub fn text_hits(&self) -> &[TextHit] {
+        &self.text_hits
     }
 
     /// 这台渲染器画帧时字幕层一共真正光栅了几张（缓存命中不算；字体变了、计划重编之后接着累计）。字幕只在画面变了时
@@ -494,6 +515,7 @@ impl FrameRenderer {
             .get(&plan.sequence_id)
             .ok_or_else(|| RenderError::new("INVALID_PARAMS", format!("序列 {} 不在了", plan.sequence_id)))?;
         self.caption_hits.clear();
+        self.text_hits.clear();
         // 背景色读不懂时保持黑色。
         let [r, g, b, a] = hex_rgba(&plan.canvas.background).unwrap_or([0, 0, 0, 255]);
         let alpha = (f64::from(a) / 255.0 * plan.canvas.background_alpha.clamp(0.0, 1.0)) as f32;
@@ -803,6 +825,7 @@ impl FrameRenderer {
         let duration = context.duration;
         let fps = context.fps;
         let viz = self.viz.get(&element.id).and_then(|entry| entry.track.clone());
+        let collect = self.collect_caption_hits;
         let plan = self.element_plan(context)?;
         plan.duration = duration;
         plan.fps = fps;
@@ -817,7 +840,9 @@ impl FrameRenderer {
         }
         plan.elements = vec![element.clone()];
         plan.text.take_missing_families();
+        plan.set_collect_text_boxes(collect);
         let rendered = plan.render_drawop_overlay_frame(eval, None).map_err(RenderError::render);
+        let boxes = plan.take_text_boxes();
         plan.elements.clear();
         // 画完就放掉源画面与画好的中间层（内核的动态资源表本来留到下一次画才清）：宿主拿回缓冲（解码器换帧）时只剩它那一份。
         plan.media.injected.clear();
@@ -828,6 +853,18 @@ impl FrameRenderer {
             self.warn(RENDER_NOTE, item_note(item_id, note));
         }
         self.note_missing_fonts(item_id, missing);
+        // 统一回序列画布像素（与字幕命中相同）：预览质量、设备像素比与缩放不改变拾取位置。
+        let canvas = &context.sequence.header.canvas;
+        let kx = f64::from(canvas.width) / f64::from(size.0);
+        let ky = f64::from(canvas.height) / f64::from(size.1);
+        self.text_hits.extend(boxes.into_iter().map(|b| TextHit {
+            item_id: item_id.to_owned(),
+            cx: b.cx * kx,
+            cy: b.cy * ky,
+            w: b.w * kx,
+            h: b.h * ky,
+            rotation: b.rotation,
+        }));
         let rendered = rendered?;
         Pixmap::from_vec(
             rendered.rgba,

@@ -776,6 +776,9 @@ pub struct OverlayRenderPlan {
     /// 媒体元素用完注入的源画面就从 `media.injected` 里拿走（见
     /// [`OverlayRenderPlan::set_consume_injected_sources`]）。
     pub consume_injected_sources: bool,
+    /// 文字元素这一帧排出来的块框（输出像素），给拾取用；`None` = 不收（导出）。
+    /// 见 [`OverlayRenderPlan::set_collect_text_boxes`]。
+    pub text_boxes: Option<Vec<crate::TextElementBox>>,
     /// 分层文字动画（`textMotion` / `wordBackground`）的逐条编译期量，与
     /// [`Self::cues`] / [`Self::translations`] 下标一一对应；`None` = 这一条的
     /// 最终样式（整条轨叠逐条覆盖）不带新动画。是否走 CPU 光栅按帧看这里，

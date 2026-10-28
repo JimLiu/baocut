@@ -190,6 +190,36 @@ describe('选择元素', () => {
     expect(M.normalizedRect({ x: 100, y: 100, w: 200, h: 100 }, canvas)).toEqual({ x: 0.052, y: 0.093, w: 0.104, h: 0.093 });
   });
 
+  it('文字的框是排出来的块框；章节文字用画出来的字；没名字的素材用素材名', () => {
+    const items = [
+      { id: 'main', type: 'video', trackId: 'v1' },
+      { id: 'chapter', type: 'text', trackId: 'v2', name: '当前章节', chapter: { field: 'title' } },
+      { id: 'still', type: 'image', trackId: 'v2', assetRef: { id: 'a_still', revision: 'r1' } },
+    ];
+    const seq = { ...sequence, items } as unknown as Sequence;
+    const chapterLayer = { ...layer('chapter', 'text', [400, 0, 0, 400, 0, 0]), content: { text: ' 第一章 ', style: {} } } as VisualLayer;
+    const stack = [layer('main', 'video', [1920, 0, 0, 1080, 0, 0]), layer('still', 'image', [400, 0, 0, 400, 0, 600]), chapterLayer];
+    const box = { cx: 200, cy: 200, w: 400, h: 400, rotation: 0 };
+    const pick = (x: number, y: number) =>
+      M.pickElement({
+        point: { x, y },
+        canvas,
+        captionHits: [],
+        textHits: [{ itemId: 'chapter', cx: 200, cy: 100, w: 300, h: 80, rotation: 0 }],
+        layers: stack,
+        sequence: seq,
+        poseOf: () => box,
+        assetName: (item) => (item.id === 'still' ? '底版' : undefined),
+      });
+    expect(pick(200, 100)).toEqual({
+      rect: { x: 50, y: 60, w: 300, h: 80 },
+      element: { kind: 'element', id: 'chapter', text: '第一章' },
+    });
+    // 布局框里、块框外：不算这段字。
+    expect(pick(200, 300)).toBeNull();
+    expect(pick(200, 700)?.element).toEqual({ kind: 'element', id: 'still', text: '底版' });
+  });
+
   it('命中实时合成层那件才再问 iframe；问到的节点记成 html（尺寸是节点的 CSS 像素，框裁在画布内）', () => {
     const live = M.pickElement({ point: { x: 200, y: 150 }, canvas, captionHits: [], layers, sequence, poseOf });
     expect(M.wantsLivePick(live, 'logo')).toBe(true);

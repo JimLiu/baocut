@@ -544,6 +544,7 @@ pub fn render_with_output(
             "skipped": renderer.skipped(),
             "spectra": spectra,
             "captionHits": renderer.caption_hits(),
+            "textHits": renderer.text_hits(),
             "fonts": renderer.missing_fonts(),
             "faces": renderer
                 .used_faces()

@@ -19,10 +19,10 @@ import {
   type VideoAnnotationTextStyle,
   type VideoAnnotationWidth,
 } from '@baocut/protocol';
-import type { VisualLayer } from '../render/frame-plan.ts';
-import type { CaptionHit } from '../render/render-planner.ts';
+import type { TextLayer, VisualLayer } from '../render/frame-plan.ts';
+import type { CaptionHit, TextHit } from '../render/render-planner.ts';
 import { liteLineAt, liteSegmentAt, type LiteSegment } from './lite-segments.ts';
-import { captionHitAt, hitAt, isMainVideo } from './stage-hit.ts';
+import { captionHitAt, hitAt, isMainVideo, textHitsOf } from './stage-hit.ts';
 import { aabbOf, boundsOf, type Pose, type Rect } from './stage-pose.ts';
 import { safeFileStem } from './export-settings.ts';
 import {
@@ -362,7 +362,8 @@ export interface MarkupPick {
 /**
  * 画布上某一点（画布像素）点中了什么（lite-editor §4.1「元素是什么」）：先找字幕行（`captionHits`，同一句的几行并成一个框，
  * 记 `{kind: 'caption', id: '<字幕实例>:<句>', text}`），再找画面元素（帧计划里从上往下第一件盖住这个点的，铺满画面的主视频不算；
- * 记 `{kind: 'element', id, text}`，框是 `poseOf` 给的布局框的外包盒，裁在画布内）。
+ * 记 `{kind: 'element', id, text}`，框裁在画布内：文字是渲染器排出来的块框（`textHits`），没有时与其它元素一样是 `poseOf` 给的布局框的外包盒）。
+ * `text` 依次取这一帧画出来的字（章节文字、计数器是求出来的）、实例的文字、实例名、素材名，都没有时省略。
  * 命中的是实时合成层那件（`wantsLivePick`）时，标记层再经实时合成层问 iframe 里最内层的节点（`htmlPick`，lite-editor §11 第 12 条），
  * 问到了用它，问不到退回这里的元素命中；这里是同步的那一半。
  */
@@ -374,6 +375,10 @@ export function pickElement(input: {
   sequence: Sequence;
   /** 实例的布局框（画布像素）；没有布局框的（音频、字幕）给 null。 */
   poseOf: (item: SequenceItem) => Pose | null;
+  /** 文字层排出来的块框（画布像素）。 */
+  textHits?: readonly TextHit[];
+  /** 实例画的素材的名字（没有名字的图片、视频、贴纸拿它当说法）。 */
+  assetName?: (item: SequenceItem) => string | undefined;
   /** 字幕那一句的文字；正文还没取到时 undefined。 */
   cueText?: (hit: CaptionHit) => string | undefined;
 }): MarkupPick | null {
@@ -389,6 +394,7 @@ export function pickElement(input: {
   const byId = new Map(sequence.items.map((item) => [item.id, item]));
   const id = hitAt(layers, point, {
     captionHits: [],
+    textHits: input.textHits,
     skip: (itemId) => {
       const item = byId.get(itemId);
       return !item || isMainVideo(item, sequence);
@@ -397,8 +403,12 @@ export function pickElement(input: {
   const item = id ? byId.get(id) : undefined;
   const pose = item ? input.poseOf(item) : null;
   if (!item || !pose) return null;
-  const text = (item.type === 'text' ? item.text : undefined)?.trim() || item.name?.trim();
-  return { rect: clip(aabbOf(pose)), element: { kind: 'element', id: item.id, ...(text ? { text } : {}) } };
+  const blocks = item.type === 'text' ? textHitsOf(input.textHits, item.id) : [];
+  const rect = boundsOf(blocks.map(aabbOf)) ?? aabbOf(pose);
+  const shown = layers.find((layer): layer is TextLayer => layer.kind === 'text' && layer.itemId === item.id)?.content?.text;
+  const text =
+    shown?.trim() || (item.type === 'text' ? item.text : undefined)?.trim() || item.name?.trim() || input.assetName?.(item)?.trim();
+  return { rect: clip(rect), element: { kind: 'element', id: item.id, ...(text ? { text } : {}) } };
 }
 
 function clipRect(r: Rect, canvas: { width: number; height: number }): Rect {

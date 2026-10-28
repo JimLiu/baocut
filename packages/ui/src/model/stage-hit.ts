@@ -1,5 +1,5 @@
 import type { Id, Sequence, SequenceItem } from '@baocut/protocol';
-import type { CaptionHit } from '../render/render-planner.ts';
+import type { CaptionHit, TextHit } from '../render/render-planner.ts';
 import type { VisualLayer } from '../render/frame-plan.ts';
 import { poseContains, rectsCross, type Point, type Pose, type Rect } from './stage-pose.ts';
 
@@ -7,7 +7,8 @@ import { poseContains, rectsCross, type Point, type Pose, type Rect } from './st
  * 舞台命中（原型 stage-marquee.jsx、旧版 stage-hit.logic）：点落在哪一件上、框选框住了哪几件。
  *
  * 点选按帧计划算：每一层的 `matrix` 把单位正方形映到画布像素，求逆就知道点在不在这一层上；按合成顺序从上往下，
- * 第一件盖住这个点的赢。字幕用光栅同源的行框，不能拿整张画布当命中范围。看不见的东西不能被点中，所以只认这一帧计划里有的层。
+ * 第一件盖住这个点的赢。字幕用光栅同源的行框，不能拿整张画布当命中范围。文字层有渲染器排出来的块框（`textHits`）时按块框，
+ * 不按层矩阵：文字的布局框高等于宽，一段两行的字会盖住上下好大一片别的东西。看不见的东西不能被点中，所以只认这一帧计划里有的层。
  */
 
 type Matrix = VisualLayer['matrix'];
@@ -32,6 +33,8 @@ export interface HitOptions {
   /** 这一件不参与点选（例如没选中的主视频）。 */
   skip?: (itemId: Id) => boolean;
   captionHits?: readonly CaptionHit[];
+  /** 文字层排出来的块框；某一件没有（平铺、这一帧还没画出来）时按它的层矩阵。 */
+  textHits?: readonly TextHit[];
   /**
    * 已选中那几件的布局框：选中框整块都算它（「适应」的视频，画面只占框的一部分，框里的黑边也该能拖）。
    */
@@ -50,11 +53,17 @@ export function hitAt(layers: readonly VisualLayer[], p: Point, options: HitOpti
       continue;
     }
     if (options.skip?.(layer.itemId)) continue;
-    if (layerContains(layer, p)) return layer.itemId;
+    const blocks = layer.kind === 'text' ? textHitsOf(options.textHits, layer.itemId) : [];
+    if (blocks.length ? blocks.some((hit) => poseContains(hit, p)) : layerContains(layer, p)) return layer.itemId;
     const box = options.boxes?.get(layer.itemId);
     if (box && options.contains?.(box, p)) return layer.itemId;
   }
   return null;
+}
+
+/** 这一件文字排出来的块框（两侧转场时可能有两块）。 */
+export function textHitsOf(hits: readonly TextHit[] | undefined, itemId: Id): TextHit[] {
+  return hits?.filter((hit) => hit.itemId === itemId && hit.w > 0 && hit.h > 0) ?? [];
 }
 
 /** 同一字幕组里从最后画的行往前找；没有真实几何时不抢占底层视频。 */

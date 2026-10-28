@@ -538,9 +538,14 @@ export function MarkupLayer({
           point: toCanvas(p),
           canvas,
           captionHits: engine.captionHits,
+          textHits: engine.textHits,
           layers: stageLayers(engine.plan),
           sequence,
           poseOf: (item: SequenceItem) => (isPlaced(item) ? stagePose(item, canvas, assets) : null),
+          assetName: (item: SequenceItem) => {
+            const ref = item.type === 'composition' ? item.source.assetRef : 'assetRef' in item ? item.assetRef : undefined;
+            return ref ? assets[ref.id]?.name : undefined;
+          },
           cueText,
         })
       : null;

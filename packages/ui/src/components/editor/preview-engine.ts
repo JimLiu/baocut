@@ -29,6 +29,7 @@ import {
   type RenderPlanner,
   type RenderedFrame,
   type SpeechTranscript,
+  type TextHit,
 } from '../../render/render-planner.ts';
 import { EDITOR_COPY as E } from './editor-copy.ts';
 import { liveCandidates, preloadSet, type LiveCandidate } from '../../model/live-composition.ts';
@@ -226,6 +227,7 @@ export class PreviewEngine {
   readonly #slotOf = new Map<Id, MediaKey>();
   #plan: FramePlan | null = null;
   #captionHits: readonly CaptionHit[] = [];
+  #textHits: readonly TextHit[] = [];
   readonly #captionListeners = new Set<(hits: readonly CaptionHit[]) => void>();
   readonly #planListeners = new Set<(plan: FramePlan) => void>();
   #context: CanvasRenderingContext2D | null = null;
@@ -738,6 +740,11 @@ export class PreviewEngine {
     return this.#captionHits;
   }
 
+  /** 这一帧画出来的文字实例块框（舞台点选与标记的选择元素用）；还没画出这一帧时是空的。 */
+  get textHits(): readonly TextHit[] {
+    return this.#textHits;
+  }
+
   onCaptionHits(listener: (hits: readonly CaptionHit[]) => void): () => void {
     this.#captionListeners.add(listener);
     listener(this.#captionHits);
@@ -952,8 +959,10 @@ export class PreviewEngine {
       return;
     }
     this.#setStatus(this.#ready());
-    if (this.#plan?.sequenceId !== plan.sequenceId || this.#plan?.sequenceRevision !== plan.sequenceRevision || this.#plan?.frame !== plan.frame)
+    if (this.#plan?.sequenceId !== plan.sequenceId || this.#plan?.sequenceRevision !== plan.sequenceRevision || this.#plan?.frame !== plan.frame) {
       this.#setCaptionHits([]);
+      this.#textHits = [];
+    }
     this.#plan = plan;
     this.#planTime = this.#time;
     for (const listener of this.#planListeners) listener(plan);
@@ -1331,6 +1340,7 @@ export class PreviewEngine {
     }
     // 临时字幕不是视频里的实例：不给点选；内核对它的提示（跳过、警告）与还在取的层一样不报（记进 `pending`）。
     this.#setCaptionHits((rendered.captionHits ?? []).filter((hit) => hit.itemId !== LIVE_CAPTION_ITEM_ID));
+    this.#textHits = rendered.textHits ?? [];
     pending.add(LIVE_CAPTION_ITEM_ID);
     this.#painted = { revision: plan.sequenceRevision, frame: plan.frame };
     // 实时合成层的帧是 Interactive 档（动效视频设计 §4.3）：底下是 iframe 实时画的，不是导出的那一帧。

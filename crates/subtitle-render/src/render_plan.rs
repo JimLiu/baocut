@@ -638,6 +638,52 @@ fn line_background_rects(layout: &LineLayout, center_x: f64, top: f64) -> Vec<Su
     rects
 }
 
+/// 文字元素一处排出来的块框：`(center_x, center_y)` 是 `place` 钉住的点（缩放与旋转都绕它），
+/// 块按 `vertical_align` 挂在它上下，见 [`TextElementBox`]。
+fn text_element_box(
+    element: &TimelineVisualElement,
+    layout: &LineLayout,
+    center: (f64, f64),
+    scale: (f64, f64),
+    rotation: f64,
+) -> TextElementBox {
+    let (center_x, center_y) = center;
+    let pad_v = layout.style.background_pad_v;
+    let top = anchor_block(
+        center_y,
+        layout.height + pad_v * 2.0,
+        element.vertical_align.unwrap_or(VerticalAlign::Center),
+    ) + pad_v;
+    let (left, upper, right, lower) = if layout.style.background_on {
+        line_background_rects(layout, center_x, top).iter().fold(
+            (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY),
+            |(l, u, r, d), rect| {
+                (
+                    l.min(rect.x),
+                    u.min(rect.y),
+                    r.max(rect.x + rect.width),
+                    d.max(rect.y + rect.height),
+                )
+            },
+        )
+    } else {
+        let left = line_start_x(layout, layout.width, center_x);
+        (left, top, left + layout.width, top + layout.height)
+    };
+    let (scale_x, scale_y) = scale;
+    let dx = ((left + right) / 2.0 - center_x) * scale_x;
+    let dy = ((upper + lower) / 2.0 - center_y) * scale_y;
+    let (sin, cos) = rotation.to_radians().sin_cos();
+    TextElementBox {
+        element_id: element.id.clone(),
+        cx: center_x + dx * cos - dy * sin,
+        cy: center_y + dx * sin + dy * cos,
+        w: (right - left).max(0.0) * scale_x.abs(),
+        h: (lower - upper).max(0.0) * scale_y.abs(),
+        rotation,
+    }
+}
+
 fn draw_line_background(
     pixmap: &mut Pixmap,
     layout: &LineLayout,
@@ -1462,6 +1508,7 @@ impl OverlayRenderPlan {
             sequence,
             dynamic_asset_names: DynamicAssetNames::default(),
             consume_injected_sources: false,
+            text_boxes: None,
         })
     }
 
@@ -2546,6 +2593,30 @@ impl OverlayRenderPlan {
     /// 计划不再留着源画面，宿主也不留时它就是独占的，要改像素时不必复制。像素不变。
     pub fn set_consume_injected_sources(&mut self, consume: bool) {
         self.consume_injected_sources = consume;
+    }
+
+    /// 收不收文字元素排出来的块框（[`TextElementBox`]），给舞台拾取用；收的时候每画一次文字元素记一条，
+    /// 由宿主 [`Self::take_text_boxes`] 取走。平铺的文字（整幅铺满）与看不见的不记，宿主按布局框退回。像素不变。
+    pub fn set_collect_text_boxes(&mut self, on: bool) {
+        self.text_boxes = on.then(Vec::new);
+    }
+
+    /// 取走到现在记下的文字块框（不收时为空）。
+    pub fn take_text_boxes(&mut self) -> Vec<TextElementBox> {
+        self.text_boxes.as_mut().map(std::mem::take).unwrap_or_default()
+    }
+
+    fn record_text_box(
+        &mut self,
+        element: &TimelineVisualElement,
+        layout: &LineLayout,
+        center: (f64, f64),
+        scale: (f64, f64),
+        rotation: f64,
+    ) {
+        if let Some(boxes) = self.text_boxes.as_mut() {
+            boxes.push(text_element_box(element, layout, center, scale, rotation));
+        }
     }
 
     /// 还回一块用完的画布（与计划同尺寸，内容不要紧）：下一次画 overlay 画在它上面，不再新建、清零一整幅
@@ -4488,6 +4559,16 @@ impl OverlayRenderPlan {
                 },
             ))];
         }
+        // 走到这里才记：上面任何一步退回 CPU 光栅，`render_text_element` 会自己记一次。
+        if tile.is_none() && opacity > 0.0 {
+            self.record_text_box(
+                element,
+                &layout,
+                (x, y),
+                (scale * pose.scale_x, scale_y * pose.scale_y),
+                rotation,
+            );
+        }
         Ok(nodes)
     }
 
@@ -5106,6 +5187,15 @@ impl OverlayRenderPlan {
         } else {
             vec![(x, y, rotation)]
         };
+        if tile.is_none() && opacity > 0.0 {
+            self.record_text_box(
+                element,
+                &layout,
+                (x, y),
+                (scale * pose.scale_x, scale_y * pose.scale_y),
+                rotation,
+            );
+        }
         for (center_x, center_y, rotation) in centers {
             let transform = group_transform(
                 center_x,
@@ -8697,6 +8787,20 @@ pub struct SubtitleLayoutLine {
     pub w: f64,
     pub h: f64,
     pub detached: bool,
+}
+
+/// 文字元素这一帧排出来的块框（输出像素），见 [`OverlayRenderPlan::set_collect_text_boxes`]。
+///
+/// 与画字同一份排版与姿态：宽是最宽一行，高是各行合起来（开了底板时含底板留白），`(cx, cy)` 是块的中心，
+/// `rotation`（度）绕块中心转。字形的描边、阴影与效果溢出不算。
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextElementBox {
+    pub element_id: String,
+    pub cx: f64,
+    pub cy: f64,
+    pub w: f64,
+    pub h: f64,
+    pub rotation: f64,
 }
 
 /// 几何侧车的一帧，见 [`OverlayRenderPlan::subtitle_layout`]。

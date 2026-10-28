@@ -4,6 +4,7 @@
 mod common;
 
 use common::*;
+use frame_render::{Documents, FrameRenderer, RenderOptions};
 use serde_json::{Value, json};
 
 fn matrix_bounds(m: [f64; 6]) -> (f64, f64, f64, f64) {
@@ -157,6 +158,67 @@ fn text_is_drawn_with_its_opacity() {
     assert!(painted(&frame) > 100, "文字要画出来");
     let brightest = frame.chunks_exact(4).map(|p| p[0]).max().unwrap();
     assert!((120..=136).contains(&brightest), "半透明的白字最亮 ≈ 128，实际 {brightest}");
+}
+
+/// 文字的拾取框是排出来的那一块（宽是最宽一行，高是几行合起来），不是高等于宽的布局框；
+/// `verticalAlign` 把块挂在 `place.y` 哪一边，框跟着走；预览画得比画布大小不同时仍是序列画布像素。
+#[test]
+fn text_hits_follow_the_typeset_block() {
+    let text = |valign: Option<&str>| {
+        let mut body = json!({
+            "type": "text", "text": "HHHH HHHH", "style": { "fontSize": 60, "color": "#FFFFFF" },
+            "place": { "x": 50, "y": 40, "w": 30 }
+        });
+        if let Some(valign) = valign {
+            body["verticalAlign"] = json!(valign);
+        }
+        video(vec![item("title", 0, 30, body)], vec![], json!({}))
+    };
+    let hits = |video: &video_model::VideoSnapshot, scale: u32| {
+        let mut renderer = FrameRenderer::new(
+            RenderOptions { width: W * scale, height: H * scale, skip_unsupported: false, captions: true },
+            Documents::default(),
+            fonts(),
+        )
+        .unwrap();
+        renderer.set_collect_caption_hits(true);
+        let frame = render_with(&mut renderer, video, 0.5, &mut Media::default());
+        (frame, renderer.text_hits().to_vec())
+    };
+
+    let centred = text(None);
+    let (frame, found) = hits(&centred, 1);
+    assert_eq!(found.len(), 1, "{found:?}");
+    let hit = &found[0];
+    assert_eq!(hit.item_id, "title");
+    assert_eq!(hit.rotation, 0.0);
+    // 折成两行：块比布局框（160 × 30% = 48 见方）矮得多，中心仍在 place 钉住的点上。
+    assert!(hit.w > 0.0 && hit.w <= 48.0 + 1e-6, "{hit:?}");
+    assert!(hit.h > 0.0 && hit.h < 40.0, "{hit:?}");
+    assert!((hit.cx - 80.0).abs() < 1e-6 && (hit.cy - 36.0).abs() < 1e-6, "{hit:?}");
+    // 画出来的字落在框里。
+    let (x0, y0, x1, y1) = painted_bounds(&frame).unwrap();
+    let (left, top) = (hit.cx - hit.w / 2.0, hit.cy - hit.h / 2.0);
+    assert!(f64::from(x0) >= left - 1.0 && f64::from(x1 + 1) <= left + hit.w + 1.0, "{x0}..{x1} vs {hit:?}");
+    assert!(f64::from(y0) >= top - 1.0 && f64::from(y1 + 1) <= top + hit.h + 1.0, "{y0}..{y1} vs {hit:?}");
+
+    // 顶边钉在 place.y：块往下长（字形从压线处再进底板的上留白开始），框跟着下移。
+    let (_, found) = hits(&text(Some("top")), 1);
+    let top_hit = &found[0];
+    let glyph_top = top_hit.cy - top_hit.h / 2.0;
+    assert!((36.0 - 1e-6..36.0 + 4.0).contains(&glyph_top), "{top_hit:?}");
+    assert!((top_hit.h - hit.h).abs() < 1e-6);
+
+    // 输出放大一倍：命中仍按序列画布像素报。
+    let (_, found) = hits(&centred, 2);
+    let double = &found[0];
+    assert!((double.cx - hit.cx).abs() < 0.5 && (double.cy - hit.cy).abs() < 0.5, "{double:?} vs {hit:?}");
+    assert!((double.h - hit.h).abs() < 2.0, "{double:?} vs {hit:?}");
+
+    // 不收几何（导出）时不报。
+    let mut renderer = renderer(false, Documents::default());
+    render_with(&mut renderer, &centred, 0.5, &mut Media::default());
+    assert!(renderer.text_hits().is_empty());
 }
 
 /// 画中画红图（16×9）摆在画布中间、宽 50%：框 80×45，左上角 (40, 22.5)。

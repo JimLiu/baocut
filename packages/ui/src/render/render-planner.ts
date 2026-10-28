@@ -98,6 +98,19 @@ export interface CaptionHit {
   panelSeam?: boolean;
 }
 
+/**
+ * 渲染器排出来的文字实例块框（序列画布像素，绕块中心旋转）：宽是最宽一行，高是几行合起来（开了底板含底板留白）。
+ * 文字的布局框高等于宽，点选和画框要用这个；平铺的文字没有。
+ */
+export interface TextHit {
+  itemId: Id;
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+  rotation: number;
+}
+
 /** 一帧画完：这一刻的计划，与画的时候报出来的东西。画面经 `frame()` 取。 */
 export interface RenderedFrame {
   /** Present for explicitly requested independent associated/emissive components. */
@@ -114,6 +127,7 @@ export interface RenderedFrame {
    */
   faces?: FontFaceQuery[];
   captionHits?: CaptionHit[];
+  textHits?: TextHit[];
 }
 
 /** 一次送进 WASM 的样本数（10 秒）：算频谱时 WASM 里只留一个窗口，不放整段声音。 */
