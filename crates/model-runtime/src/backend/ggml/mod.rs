@@ -10,9 +10,9 @@
 //!
 //! 设备选择：`BAOCUT_GPU=off` 强制 CPU；否则取 ggml 枚举到的第一个 GPU 设备（与
 //! whisper.cpp 的 `gpu_device = 0` 是同一台），前提是 ggml 能在它上面算 Whisper 的
-//! 核心算子（[`GgmlDevice::runs_whisper`]）。算不了的 GPU 当作没有：whisper.cpp 照样
+//! 核心算子（[`GgmlDevice::runs_whisper`]；Vulkan 不核对）。算不了的 GPU 当作没有：whisper.cpp 照样
 //! 把权重放进显存，每次计算再整份拷回 CPU 去算，比纯 CPU 还慢（Radeon Pro 560X
-//! 这类只有 Metal 2 的显卡实测慢一倍，issue #109）。没有可用的 GPU 就 CPU 并打印
+//! 这类只支持到 Metal 2 的显卡实测慢一倍，issue #109）。没有可用的 GPU 就 CPU 并打印
 //! 一次可见的回退提示（与 candle CUDA 的回退提示同形——没有任何报错、只是慢一个
 //! 数量级的静默退化最难定位）。ggml 的 registry 先登记 CUDA、后登记 Vulkan，所以
 //! 两个都编进来时 NVIDIA 机器上选到的是 CUDA；没有 NVIDIA 驱动时 CUDA 后端报 0 个
@@ -56,7 +56,8 @@ pub struct GgmlDevice {
     /// 是否 GPU（独显或核显）。
     pub is_gpu: bool,
     /// ggml 能否在这台设备上算 Whisper 的核心算子（[`runs_whisper_ops`]）。CPU 恒为 true；Metal 只在 Metal 3 家族的
-    /// 显卡上做矩阵乘、归一化与 softmax，只有 Metal 2 的显卡（如 Polaris 一代的 Radeon Pro 560X）为 false。
+    /// 显卡上做矩阵乘、归一化与 softmax，只支持到 Metal 2 的显卡（如 Polaris 一代的 Radeon Pro 560X）为 false；
+    /// Vulkan 不核对（[`probes_whisper_ops`]），恒为 true。
     pub runs_whisper: bool,
 }
 
@@ -134,20 +135,29 @@ pub fn devices() -> Vec<GgmlDevice> {
             } else {
                 c_string(sys::ggml_backend_reg_name(reg))
             };
+            let runs_whisper = !is_gpu || !probes_whisper_ops(&backend) || runs_whisper_ops(device);
             out.push(GgmlDevice {
                 backend,
                 description: c_string(sys::ggml_backend_dev_description(device)),
                 is_gpu,
-                runs_whisper: !is_gpu || runs_whisper_ops(device),
+                runs_whisper,
             });
         }
     }
     out
 }
 
+/// 哪些 GPU 后端在枚举时核对 Whisper 的算子：Metal 与 CUDA 的 `supports_op` 只读注册时就备好的设备属性。Vulkan 的
+/// `supports_op` 第一次调用就创建逻辑设备、登记着色器，会把这笔开销挪进 `worker.hello`（Windows 的握手期限 5 秒），
+/// 不核对，沿用第一个 GPU。
+fn probes_whisper_ops(backend: &str) -> bool {
+    backend != "Vulkan"
+}
+
 /// 问 ggml 这台设备能不能自己算 Whisper 的核心算子：编码器形状（`n_state` 1280 × 1500 帧）的矩阵乘、层归一化与 softmax。
 /// 矩阵乘的权重取登记的模型包用到的类型：Q8_0（large-v3 Turbo）、Q5_0（large-v3），以及 F16（注意力的 K / V）；
-/// 登记别的量化时加进来。占位张量不分配内存，`supports_op` 只看设备能力与张量的类型、形状，不碰显存、不编译内核。
+/// 登记别的量化时加进来。占位张量不分配内存；Metal 与 CUDA 的 `supports_op` 只看设备属性与张量的类型、形状，不碰显存、
+/// 不编译内核（[`probes_whisper_ops`]）。
 ///
 /// # Safety
 ///
@@ -528,8 +538,16 @@ mod tests {
         assert_eq!(chosen, devices[1]);
         assert_eq!(chosen.protocol_label(), DEVICE_CPU);
 
-        let devices = vec![weak_gpu("Vulkan", "AMD Radeon RX 580"), gpu("Vulkan", "Intel UHD 630"), cpu()];
+        let devices = vec![weak_gpu("CUDA", "NVIDIA GeForce GTX 750"), gpu("Vulkan", "Intel UHD 630"), cpu()];
         assert_eq!(choose_device(&devices, false), devices[2]);
+    }
+
+    /// 只有 Vulkan 不在枚举时核对算子：它的 `supports_op` 会初始化逻辑设备。
+    #[test]
+    fn only_vulkan_skips_the_op_probe() {
+        assert!(probes_whisper_ops("Metal"));
+        assert!(probes_whisper_ops("CUDA"));
+        assert!(!probes_whisper_ops("Vulkan"));
     }
 
     #[test]
@@ -538,9 +556,9 @@ mod tests {
         assert!(metal.contains("Metal GPU \"AMD Radeon Pro 560X\""), "{metal}");
         assert!(metal.contains("Metal 3"), "{metal}");
         assert!(metal.contains("runs on the CPU"), "{metal}");
-        let vulkan = unsupported_gpu_warning(&weak_gpu("Vulkan", "AMD Radeon RX 580"));
-        assert!(vulkan.contains("Vulkan GPU \"AMD Radeon RX 580\""), "{vulkan}");
-        assert!(!vulkan.contains("Metal"), "{vulkan}");
+        let cuda = unsupported_gpu_warning(&weak_gpu("CUDA", "NVIDIA GeForce GTX 750"));
+        assert!(cuda.contains("CUDA GPU \"NVIDIA GeForce GTX 750\""), "{cuda}");
+        assert!(!cuda.contains("Metal"), "{cuda}");
     }
 
     /// 协议标签只看是不是 GPU 与后端注册名：别的 GPU 后端取小写注册名；不是 GPU 的设备（含 BLAS 这类加速器）都是 `cpu`。
