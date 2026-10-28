@@ -158,6 +158,8 @@
       "app/model-tool-semantic.js",
       "app/model-dub.js",
       "app/model-local-models.js",
+      "app/model-audiocpp-catalog.js",
+      "app/model-audiocpp.js",
       "app/model-onboarding.js",
       "app/model-download-sources.js",
       "app/model-local-check.js",
@@ -269,6 +271,7 @@
       "app/settings-model-check.jsx",
       "app/download-sources.jsx",
       "app/download-dialog.jsx",
+      "app/settings-add-model.jsx",
       "app/settings-local.jsx",
       "app/vendor-icon.jsx",
       "app/settings-probe-dialog.jsx",
@@ -512,9 +515,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=d6b00ecb8b14",
-    "css": "generated/app.css?v=5e0a6939440d",
-    "bytes": 4862295
+    "js": "generated/app.js?v=715b09372530",
+    "css": "generated/app.css?v=13ba77bdbe13",
+    "bytes": 4973496
   },
   "web": {
     "file": "BaoCutWeb.html",

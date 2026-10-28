@@ -130,3 +130,25 @@
 .lmtry__txt .lmchk__todo { margin-inline-start: 0; color: var(--gray-800); }
 .ttst__fail { margin-left: 56px; }
 .imgen__probe > .lmtry { margin-bottom: 4px; }
+
+/* 添加模型（issue 113，settings-add-model.jsx）：分组 + 可搜索目录，与「添加更多 Agent」同一种列表 */
+.acadd__lede { margin: 0 0 16px; color: var(--gray-700); font-size: 12px; line-height: 1.6; }
+.acadd__seg { margin-bottom: 16px; }
+.acadd { padding: 0; overflow: hidden; }
+.acadd__search { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--gray-200); }
+.acadd__search .acadd__sf { flex: 1; min-width: 0; }
+.acadd__count { flex: none; color: var(--gray-600); font-size: 11px; }
+.acadd__list { list-style: none; margin: 0; padding: 0; max-height: 400px; overflow: auto; }
+.acadd__row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.acadd__row + .acadd__row { border-top: 1px solid var(--gray-200); }
+.acadd__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.acadd__name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acadd__act { flex: none; display: flex; align-items: center; gap: 8px; }
+.acadd__picker { width: 200px; }
+.acadd__state { color: var(--gray-600); }
+.acadd__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 20px; }
+.acadd__form { display: flex; flex-direction: column; gap: 16px; }
+.acadd__field { width: 100%; }
+.acadd__mono input { font-family: var(--mono); }
+.acadd__pickfile { display: flex; align-items: flex-end; gap: 8px; }
+.acadd__pickfile .acadd__field { flex: 1; min-width: 0; }

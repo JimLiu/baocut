@@ -71,6 +71,8 @@
     const licenses = ms.filter((m) => !on[m.id]).map((m) => ({name: m.name, lic: licOf(m.id), cat: m.cat})).filter((x) => x.lic);
     openDownload({
       name: ms.map((m) => m.name).join('、'), parts, on, licenses,
+      // 添加的 audio.cpp 模型（issue 113）：校验值是添加时从仓库的文件列表记下的，不是随应用内置的
+      added: ms.some((m) => m.added),
       licenseUse: licenses.length && window.ttsLicenseUse ? window.ttsLicenseUse(licenses[0].cat) : null,
       run,
     });
@@ -218,7 +220,7 @@
             ) : plan.groups.map((g) => <Group key={g.k} g={g} srcOf={srcOf} />)}
             <p className="t-detail-xs dldlg__note">
               {plan.groups.filter((g) => g.need).length > 1 ? '几个部分依次下载，下好一个存一个；哪一部分没下成，补齐时只下那一部分。' : ''}
-              {ask.perPart ? '每项可分别选择来源，仅用于本次下载。' : '在这里换来源，以后的下载也用它。'}每个文件都按内置的校验值核对。
+              {ask.perPart ? '每项可分别选择来源，仅用于本次下载。' : '在这里换来源，以后的下载也用它。'}{ask.added ? '每个文件都按添加时记下的校验值核对。' : '每个文件都按内置的校验值核对。'}
               <BCAction className="tsetup__lnk dldlg__lnk" onClick={manage}>管理下载来源…</BCAction>
             </p>
             {lic ? (

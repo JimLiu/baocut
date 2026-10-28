@@ -8,7 +8,9 @@
    收进展开区；装好后点「试听」展开试听面板，选好再点「生成试听」（`TtsQuickTest`）。
    音乐生成行（2026-10-11）与语音合成同一种「试听」展开面板（MusicQuickTest）。
    「检查」与「试听 / 试画」是两件事（2026-10-05，BC_LOCALCHECK）：试用是行上的主操作，检查在 ⋯ 里紧挨「修复…」，
-   没有试用的能力在行上另有一个安静的「检查」；健康只写在行上那一条状态里（ModelCheckLine）。 */
+   没有试用的能力在行上另有一个安静的「检查」；健康只写在行上那一条状态里（ModelCheckLine）。
+   添加模型（issue 113，settings-add-model.jsx）：语音合成与音乐生成页底下「添加模型…」，audio.cpp 支持的都能加；
+   加进来的行标「已添加」，详情里多一行「来源」；没装时行上给「从列表移除」，装着时删除也一起移出列表。 */
 (function () {
   const {useState, useEffect, useRef} = React;
   const D = window.BC_DATA;
@@ -16,6 +18,7 @@
   const TTS = window.BC_TTS;
   const CK = window.BC_LOCALCHECK;
   const MD = window.BC_MODELSDIR;
+  const AC = window.BC_AUDIOCPP;
   const mb = LM.mb;
 
   /* 组件 / 权重的一行状态：✓ 已装 或 ⚠ 缺 · 体积 */
@@ -59,7 +62,7 @@
   }
 
   /* away：权重下载时放在了模型目录之外的文件夹（下载确认框的「存放位置」），没有时 null */
-  function ModelRow({row, cat, on, comps, dflt, pct, fail, away, onDownload, onRemove, onWork}) {
+  function ModelRow({row, cat, on, comps, dflt, pct, fail, away, onDownload, onRemove, onUnlist, onWork}) {
     const app = useApp();
     const {m, own, common} = row;
     const cmap = {};
@@ -154,6 +157,8 @@
               {dflt ? <Chip tone="accent">默认</Chip> : null}
               {half ? <Chip tone="notice">缺 {lack.map((x) => x.name).join('、')}</Chip> : null}
               {lic ? <Chip tone="notice">仅限非商用</Chip> : null}
+              {m.added ? <Chip>已添加</Chip> : null}
+              {m.added && AC.licenseFlag(m.license) === 'check' ? <Chip tone="notice">商用待核实</Chip> : null}
             </span>
             {brief ? (
               <>
@@ -179,6 +184,7 @@
               ) : null}
               {half ? <Btn variant="accent" size="s" onClick={download}>补齐 {mb(LM.needSize(m, comps, on))}</Btn> : null}
               {!on[m.id] ? <Btn variant="secondary" size="s" icon="download" onClick={download}>下载 {mb(LM.needSize(m, comps, on))}</Btn> : null}
+              {!on[m.id] && m.added ? <IconBtn icon="trash" size="s" tip="从列表移除" onClick={() => onUnlist(m)} /> : null}
               {on[m.id] ? (
                 <>
                   <div className="lmrow__more">
@@ -253,11 +259,21 @@
                 <span className="t-detail-xs grow">{paceLangs.map((l) => TTS.paceLine(TTS.paceFor(app.ttsPace, m.id, l), l)).join(' · ')}</span>
               </div>
             ) : null}
+            {/* 来源：添加的模型写它来自 audio.cpp 目录还是自己指定、按哪一族跑、上游标的成熟度 */}
+            {m.added ? (
+              <div className="lmrow__dl">
+                <span className="t-detail-xs lmrow__dt">来源</span>
+                <span className="t-detail-xs grow">
+                  {m.added === 'custom' ? '自己指定的文件' : 'audio.cpp 模型目录'} · 按 {m.familyName} 跑
+                  {AC.statusLabel({status: m.status}) ? ` · 上游标「${AC.statusLabel({status: m.status})}」` : ''} · 没经过 BaoCut 逐只验证
+                </span>
+              </div>
+            ) : null}
             {/* 下载地址：权重的仓库；只有这只模型用的组件来源不同时各加一行（来自 GitHub 发布页的组件写版本；audio.cpp 引擎随应用内置，不在这里） */}
             <div className="lmrow__dl">
               <span className="t-detail-xs lmrow__dt">下载地址</span>
               <div className="grow">
-                <div className="t-mono t-detail-xs lmrow__repo">{m.repo}</div>
+                <div className="t-mono t-detail-xs lmrow__repo">{m.repo}{m.file ? ' · ' + m.file : m.nfiles > 1 ? ` · ${m.nfiles} 个文件` : ''}{m.revision && m.revision !== 'main' ? ' @ ' + m.revision : ''}</div>
                 {own.filter((c) => (c.release || c.repo) !== m.repo).map((c) => (
                   <div key={c.id} className="t-detail-xs">
                     {c.name} · <span className="t-mono lmrow__repo">{c.release ? 'GitHub 发布 ' + c.release : c.repo}</span>
@@ -372,14 +388,35 @@
       const r = LM.removal(m, models, comps, on);
       app.confirm({
         title: `删除「${m.name}」？`,
-        body: LM.removalBody(m, models, comps, on),
+        body: [LM.removalBody(m, models, comps, on), AC.removalNote(m)].filter(Boolean).join(' '),
         tone: 'negative', confirmLabel: '删除',
         run: () => {
           setOn((t) => LM.applyRemove(t, m, models, comps));
           app.setModelInstalled(m.id, false);
+          if (m.added) app.removeAddedModel(m.id);
           app.toast(`已删除 · 腾出 ${mb(r.frees)}`, 'positive');
         },
       });
+    };
+    // 添加的模型还没下载：从列表移除不用确认，盘上没有东西
+    const unlist = (m) => {
+      app.removeAddedModel(m.id);
+      app.toast(`已从列表移除「${m.name}」`);
+    };
+    /* 添加模型（settings-add-model.jsx）：落记录，关掉对话框；本机文件加完就装好，仓库里的接着弹下载确认 */
+    const [adding, setAdding] = useState(false);
+    const canAdd = cat === 'tts' || cat === 'music';
+    const addModel = (entry) => {
+      const m = app.addModelEntry(entry);
+      setAdding(false);
+      if (!m) return;
+      if (m.installed) {
+        setOn((t) => LM.applyInstall(t, m));
+        app.toast(`已添加「${m.name}」· 已复制进模型目录`, 'positive');
+        return;
+      }
+      app.toast(`已添加「${m.name}」`, 'positive');
+      askDownload(m);
     };
     // 公共组件的「下载」= 补齐用到它的一只已装模型（compAction 挑的），同一个下载确认框写清这次下哪几件、装好的不动
     const getComp = ({target: m}) => askDownload(m);
@@ -413,9 +450,11 @@
           {group.rows.length ? <div className="lmlist">
             {group.rows.map((row) => <ModelRow key={row.m.id} row={row} cat={cat} on={on} comps={comps}
               dflt={row.m.id === view.checked && LM.ready(row.m, comps, on)} pct={dl[row.m.id] ?? -1}
-              fail={failOf(row.m.id)} away={awayOf(row.m.id)} onDownload={askDownload} onRemove={remove} onWork={onWork} />)}
+              fail={failOf(row.m.id)} away={awayOf(row.m.id)} onDownload={askDownload} onRemove={remove} onUnlist={unlist} onWork={onWork} />)}
           </div> : <p className="t-detail">{group.id === 'installed' ? '还没有安装模型，从下面选择一个下载。' : '这一类的模型已全部安装。'}</p>}
         </section>)}
+        {canAdd ? <window.AddModelEntry cat={cat} onOpen={() => setAdding(true)} /> : null}
+        {adding ? <window.AddModelDialog cat={cat} models={models} onClose={() => setAdding(false)} onAdd={addModel} /> : null}
         {lay.shared.length > 0 && <ModelDisclosure label="公共组件"
           summary={catalog.repair.length ? `${catalog.repair.length} 个组件待补全` : `${lay.shared.length} 个共享组件`}
           expanded={sharedExpanded} onToggle={() => setSharedOpen(!sharedExpanded)}>

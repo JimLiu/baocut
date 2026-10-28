@@ -13,6 +13,9 @@
   const SP = window.BC_SPACE;
   const PB = window.BC_PROJECT_BRAND;
   const BRANDS_KEY = window.BC_SURFACE.storageKey('bc-project-brands-v1');
+  const AC = window.BC_AUDIOCPP;
+  const AC_FAMILIES = window.BC_AUDIOCPP_CATALOG.families;
+  const ADDED_KEY = window.BC_SURFACE.storageKey('bc-added-models-v1');
 
   function useAppIA(base) {
     const {route, nav, go, projects, sessions, sessionById, patchSession, deleteSessions, deleteProject, dock, setDock, archiveProject, tasks, projPct} = base;
@@ -59,6 +62,42 @@
       try { localStorage.setItem(BRANDS_KEY, JSON.stringify(PB.snapshot(D.projectBrands, next))); } catch (e) {}
       return next;
     }), []);
+
+    /* ---- 添加的 audio.cpp 模型（issue 113，model-audiocpp.js）----
+       记录存进本地；启动时与每次改动后并进设置页的模型表与组件表（D.setModels / setComponents，就地改），
+       下载、删除、试听都走原来那一套。本机文件加进来就算装好；从仓库加的要下载。 */
+    const [addedModels, setAddedModelsRaw] = useState(() => {
+      let saved = [];
+      try { saved = JSON.parse(localStorage.getItem(ADDED_KEY)) || []; } catch (e) {}
+      AC.sync(D.setModels, D.setComponents, AC_FAMILIES, saved);
+      return saved;
+    });
+    const setAddedModels = useCallback((fn) => setAddedModelsRaw((cur) => {
+      const next = typeof fn === 'function' ? fn(cur) : fn;
+      AC.sync(D.setModels, D.setComponents, AC_FAMILIES, next);
+      try { localStorage.setItem(ADDED_KEY, JSON.stringify(next)); } catch (e) {}
+      return next;
+    }), []);
+    useLayoutEffect(() => {
+      addedModels.forEach((e) => {
+        const r = AC.materialize(AC_FAMILIES, e);
+        if (r && r.row.installed) base.setModelInstalled(r.row.id, true);
+      });
+    }, []);
+    /** 加一条记录，返回设置页的那一行（目录里找不到时 null） */
+    const addModelEntry = useCallback((e) => {
+      const r = AC.materialize(AC_FAMILIES, e);
+      if (!r) return null;
+      AC.sync(D.setModels, D.setComponents, AC_FAMILIES, AC.addEntry(addedModels, e));
+      setAddedModels((es) => AC.addEntry(es, e));
+      if (r.row.installed) base.setModelInstalled(r.row.id, true);
+      return D.setModels.find((m) => m.id === r.row.id) || r.row;
+    }, [addedModels, setAddedModels, base.setModelInstalled]);
+    /** 从列表里拿掉一只添加的模型（权重另由调用方删） */
+    const removeAddedModel = useCallback((id) => {
+      setAddedModels((es) => AC.removeEntry(es, AC_FAMILIES, id));
+      base.setModelInstalled(id, false);
+    }, [setAddedModels, base.setModelInstalled]);
 
     /* ---- 打开 / 关闭视频 ----
        `sid` 给了 = 从这条会话打开一个预览标签：会话留在左侧，Agent 的写入目标保持不变。
@@ -266,6 +305,7 @@
       handoverToAgent, spaceFocus, openSpaceEntry, takeSpaceFocus, legacyAsk, setLegacyAsk, legacyHost, setLegacyHost, legacyDrive, setLegacyDrive,
       legacySettingsAvailable, legacySettingsOpen, setLegacySettingsOpen, onboarding, launchOnboarding, closeOnboarding,
       dirs, dirById, toggleDirPin, toggleSessionPin, dirOfSession, moviesOf, createDir, openDir, removeDir, projectBrands, setProjectBrands,
+      addedModels, addModelEntry, removeAddedModel,
       openMovie, openTool, closeMovie, railGo, markRead, newProject, createProject,
       spaceItems, toggleFav, setTrashed, saveVersion, importAssets, createHtmlPage, registerToolOutput, createMovieFromOutput,
     };
