@@ -545,6 +545,7 @@ pub fn render_with_output(
             "spectra": spectra,
             "captionHits": renderer.caption_hits(),
             "textHits": renderer.text_hits(),
+            "textHeights": renderer.text_heights(),
             "fonts": renderer.missing_fonts(),
             "faces": renderer
                 .used_faces()

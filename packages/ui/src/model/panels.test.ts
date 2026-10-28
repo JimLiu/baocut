@@ -99,7 +99,7 @@ describe('分屏的片段在画布上', () => {
     expect(frame.poses[0]).toEqual(g.member.start);
     expect(frame.panels![0]).toEqual(item.panels[0]);
     expect(frame.panels![1]!.focalPoint.x).toBeGreaterThan(0.75);
-    const patch = gesturePatch(item, frame.poses[0]!, 1, canvas, assets, undefined, frame.panels);
+    const patch = gesturePatch({ item }, frame.poses[0]!, 1, canvas, assets, undefined, frame.panels);
     expect(patch).toEqual({ panels: frame.panels });
     expect((patchItem(item, patch) as PanelledVideo).panels).toEqual(frame.panels);
     expect(panelsOperations('s1', item, frame.panels!)).toEqual([

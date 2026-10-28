@@ -27,7 +27,7 @@ pub use census::{FALLBACK_FAMILY, FontUsage, font_census, font_usage, font_usage
 pub use documents::{Documents, FrozenDocument};
 pub use render_raster::fonts::FaceUse;
 pub use renderer::{
-    APNG_MEDIA_TYPE, FrameRenderer, GIF_MEDIA_TYPE, LayerMedia, RenderError, RenderOptions, RenderWarning, SVG_MEDIA_TYPE, TextHit,
+    APNG_MEDIA_TYPE, FrameRenderer, GIF_MEDIA_TYPE, LayerMedia, RenderError, RenderOptions, RenderWarning, SVG_MEDIA_TYPE, TextHeight, TextHit,
     animated_image_format,
 };
 pub use spectrum::SpeakerActivity;

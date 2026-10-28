@@ -149,6 +149,15 @@ pub struct TextHit {
     pub rotation: f64,
 }
 
+/// 文字实例排出来的高（序列画布像素）：按 `verticalAlign` 挂在钉点上的那一块，没乘 `scale`、`scaleY` 与动画，
+/// 是格式规范 §3.5 文字框的自然高。舞台拿它推选中框（`render_graph::item_box::TextFacts`），看不见的这一帧也报。
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextHeight {
+    pub item_id: String,
+    pub height: f64,
+}
+
 pub struct FrameRenderer {
     options: RenderOptions,
     documents: Documents,
@@ -175,6 +184,8 @@ pub struct FrameRenderer {
     caption_hits: Vec<CaptionHit>,
     /// 这一帧画出来的文字实例块框（与字幕命中一起收）。
     text_hits: Vec<TextHit>,
+    /// 这一帧画到的文字实例排出来的高（与字幕命中一起收）。
+    text_heights: Vec<TextHeight>,
     /// 画帧时字幕层真正光栅了几张（[`Self::caption_rasters`]）。
     caption_rasters: u64,
     templates: TemplateScenes,
@@ -238,6 +249,7 @@ impl FrameRenderer {
             collect_caption_hits: false,
             caption_hits: Vec::new(),
             text_hits: Vec::new(),
+            text_heights: Vec::new(),
             caption_rasters: 0,
             templates: TemplateScenes::default(),
             lotties: HashMap::new(),
@@ -498,6 +510,11 @@ impl FrameRenderer {
         &self.text_hits
     }
 
+    /// 这一帧画到的文字实例排出来的高（[`Self::set_collect_caption_hits`] 打开时才收），按画的先后。
+    pub fn text_heights(&self) -> &[TextHeight] {
+        &self.text_heights
+    }
+
     /// 这台渲染器画帧时字幕层一共真正光栅了几张（缓存命中不算；字体变了、计划重编之后接着累计）。字幕只在画面变了时
     /// 才该重画：导出把它与帧数一起报出来，比帧数还多或接近帧数而字幕并不逐帧动，说明缓存键过细。
     pub fn caption_rasters(&self) -> u64 {
@@ -516,6 +533,7 @@ impl FrameRenderer {
             .ok_or_else(|| RenderError::new("INVALID_PARAMS", format!("序列 {} 不在了", plan.sequence_id)))?;
         self.caption_hits.clear();
         self.text_hits.clear();
+        self.text_heights.clear();
         // 背景色读不懂时保持黑色。
         let [r, g, b, a] = hex_rgba(&plan.canvas.background).unwrap_or([0, 0, 0, 255]);
         let alpha = (f64::from(a) / 255.0 * plan.canvas.background_alpha.clamp(0.0, 1.0)) as f32;
@@ -857,14 +875,22 @@ impl FrameRenderer {
         let canvas = &context.sequence.header.canvas;
         let kx = f64::from(canvas.width) / f64::from(size.0);
         let ky = f64::from(canvas.height) / f64::from(size.1);
-        self.text_hits.extend(boxes.into_iter().map(|b| TextHit {
-            item_id: item_id.to_owned(),
-            cx: b.cx * kx,
-            cy: b.cy * ky,
-            w: b.w * kx,
-            h: b.h * ky,
-            rotation: b.rotation,
-        }));
+        for b in boxes {
+            self.text_heights.push(TextHeight {
+                item_id: item_id.to_owned(),
+                height: b.natural_height * ky,
+            });
+            if b.visible {
+                self.text_hits.push(TextHit {
+                    item_id: item_id.to_owned(),
+                    cx: b.cx * kx,
+                    cy: b.cy * ky,
+                    w: b.w * kx,
+                    h: b.h * ky,
+                    rotation: b.rotation,
+                });
+            }
+        }
         let rendered = rendered?;
         Pixmap::from_vec(
             rendered.rgba,

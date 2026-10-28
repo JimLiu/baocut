@@ -56,6 +56,13 @@ export interface StageItem {
   shape?: object;
   sticker?: object;
   crop?: object;
+  /** 文字的纵向钉点（`TextItem.verticalAlign`）。 */
+  verticalAlign?: string;
+  /**
+   * 文字排出来的高（画布像素，没乘 `scale` 与 `scaleY`）：不是文档字段，由宿主拿渲染器量的值填（预览随帧报 `textHeights`）；
+   * 没有时文字的框按框宽兜底成正方。
+   */
+  textHeight?: number;
 }
 
 /** 实例引用的素材（合成是预渲染）里推框要看的部分：种类与那个版本的视频信息。 */

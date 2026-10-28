@@ -89,7 +89,7 @@ describe('按原片取景', () => {
     expect(twice.framing).toEqual({ crop: null, focalPoint: { x: 0.3, y: 0.5, zoom: 3 } });
     expect(twice.hit).toBeNull();
     // 草稿只叠取景，盒按它现算。
-    expect(gesturePatch(item, twice.poses[0]!, 1, canvas, assets, twice.framing)).toEqual({ framing: twice.framing });
+    expect(gesturePatch({ item }, twice.poses[0]!, 1, canvas, assets, twice.framing)).toEqual({ framing: twice.framing });
     const patched = patchItem(item, { framing: twice.framing }) as FramedVideo;
     expect(framedPose(patched, canvas, assets)!.w).toBeCloseTo(3413.33 * 3, 0);
     // 缩到比铺满还小：停在 1（不写 zoom），说「最小是铺满」。
@@ -242,7 +242,7 @@ describe('铺满画布、没有取景点的媒体', () => {
     const member = memberOf(item, canvas, assets);
     expect(member.start).toEqual(stagePose(item, canvas, assets));
     const moved = { ...member.start, cx: member.start.cx - 300 };
-    const patch = gesturePatch(item, moved, 1, canvas, assets);
+    const patch = gesturePatch(member, moved, 1, canvas, assets);
     expect(patch.mode).toBe('pip');
     expect(patchItem(item, patch)).toMatchObject({ mode: 'pip' });
     expect(gestureOperations('s1', [member], [moved], 1, canvas)).toEqual(placeOperations('s1', item, moved, canvas, assets));

@@ -18,6 +18,7 @@ import {
   guidesFor,
   moveLimits,
   sizeRange,
+  textHeightOf,
   type Assets,
   type CanvasSize,
   type Guide,
@@ -35,12 +36,16 @@ import {
  * 全是序列画布像素；屏幕上的阈值由调用方给出「一个屏幕像素合多少画布像素」（`pxScale`）。
  */
 
-/** 参与手势的一件：实例、起手时的盒、移动限位，以及推盒用的素材表（媒体的框高按源的宽高比）。 */
+/**
+ * 参与手势的一件：实例、起手时的盒、移动限位，以及推盒用的素材表（媒体的框高按源的宽高比）。文字另冻住起手时渲染器量的
+ * 排版高（`textHeight`）：拖动中的草稿帧会改掉量到的值，盒换回 `place` 要按起手推盒的那一份。
+ */
 export interface Member {
   item: PlacedItem;
   start: Pose;
   limits: Limits;
   assets?: Assets;
+  textHeight?: number;
 }
 
 export type Gesture =
@@ -85,7 +90,22 @@ export interface GestureFrame {
 /** 起手的盒是选中框那一个（`stagePose`）：铺满画布的媒体从画面上那一幅起手，换成画中画时画面不动。 */
 export function memberOf(item: PlacedItem, canvas: CanvasSize, assets?: Assets): Member {
   const start = stagePose(item, canvas, assets);
-  return { item, start, limits: moveLimits(item, start, canvas), ...(assets ? { assets } : {}) };
+  const textHeight = item.type === 'text' ? textHeightOf(item.id, canvas) : undefined;
+  return {
+    item,
+    start,
+    limits: moveLimits(item, start, canvas),
+    ...(assets ? { assets } : {}),
+    ...(textHeight !== undefined ? { textHeight } : {}),
+  };
+}
+
+/**
+ * 换回 `place` 用的排版高：起手的那一份乘等比倍率。等比缩放时字号跟着乘，同样的折行排出来高也乘这么多；不乘的话
+ * 字号放大一倍，`scaleY` 也会再放大一倍。
+ */
+function scaledTextHeight(member: Pick<Member, 'textHeight'>, factor: number): number | undefined {
+  return member.textHeight === undefined ? undefined : member.textHeight * factor;
 }
 
 export function membersOf(gesture: Gesture): Member[] {
@@ -169,9 +189,12 @@ export function scaledFontSize(item: PlacedItem, factor: number): number | null 
   return Math.min(400, Math.max(1, round1(size * factor)));
 }
 
-/** 拖动中叠给预览与属性页的草稿；按原片取景只叠取景，分屏只叠格子，铺满画布的媒体挪动了就叠成画中画（`placeChange`）。 */
+/**
+ * 拖动中叠给预览与属性页的草稿；按原片取景只叠取景，分屏只叠格子，铺满画布的媒体挪动了就叠成画中画（`placeChange`）。
+ * 文字按成员冻住的排版高换回 `place`。
+ */
 export function gesturePatch(
-  item: PlacedItem,
+  member: Pick<Member, 'item' | 'textHeight'>,
   pose: Pose,
   factor: number,
   canvas: CanvasSize,
@@ -181,8 +204,9 @@ export function gesturePatch(
 ): ItemPatch {
   if (framing) return { framing };
   if (panels) return { panels };
+  const { item } = member;
   const fontSize = scaledFontSize(item, factor);
-  const { mode, place } = placeChange(item, pose, canvas, assets);
+  const { mode, place } = placeChange(item, pose, canvas, assets, scaledTextHeight(member, factor));
   return {
     ...(mode ? { mode } : {}),
     place,
@@ -202,10 +226,11 @@ export function gestureOperations(
   canvas: CanvasSize,
 ): EditOperation[] {
   const operations: EditOperation[] = [];
-  members.forEach(({ item, assets }, i) => {
+  members.forEach((member, i) => {
+    const { item, assets } = member;
     const pose = poses[i];
     if (!pose) return;
-    const { mode, place } = placeChange(item, pose, canvas, assets);
+    const { mode, place } = placeChange(item, pose, canvas, assets, scaledTextHeight(member, factor));
     if (mode) operations.push({ type: 'setStyle', sequenceId, itemId: item.id, mode });
     if (Object.keys(place).length) operations.push({ type: 'setTransform', sequenceId, itemId: item.id, ...place });
     const fontSize = scaledFontSize(item, factor);

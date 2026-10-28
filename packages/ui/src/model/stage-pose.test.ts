@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   aabbOf,
   cornerScale,
@@ -6,12 +6,14 @@ import {
   dragMove,
   dragRotation,
   edgeResize,
+  forgetTextHeights,
   groupScale,
   groupShift,
   guidesFor,
   handlesFor,
   marqueeRect,
   moveLimits,
+  noteTextHeights,
   nudgeDelta,
   oppositeCorner,
   pivotOf,
@@ -26,6 +28,7 @@ import {
   smallHandles,
   snapMove,
   snapRotation,
+  textHeightOf,
   type Assets,
   type PlacedItem,
   type Pose,
@@ -52,6 +55,8 @@ const tallRef = { id: 'tall', revision: 1 };
 const applied = (it: PlacedItem, fields: Record<string, unknown>) => ({ ...it, place: { ...it.place, ...fields } }) as PlacedItem;
 
 describe('place ↔ 盒', () => {
+  afterEach(forgetTextHeights);
+
   it('铺满画布的视频：盒就是整块画布，只能转', () => {
     const video = placed({ type: 'video', mode: 'fullscreen', place: { x: 10, w: 50, rot: 30 } });
     expect(poseOf(video, canvas)).toEqual({ cx: 960, cy: 540, w: 1920, h: 1080, rotation: 30 });
@@ -113,7 +118,7 @@ describe('place ↔ 盒', () => {
     expect(poseOf(cropped, canvas, assets).h).toBeCloseTo(512);
   });
 
-  it('文字左右拉边：只改框宽，高写进 scaleY；换回来高不变（取三位小数之内）', () => {
+  it('还没量到排版高的文字：框按框宽兜底成正方，左右拉边时高写进 scaleY；换回来高不变（取三位小数之内）', () => {
     const text = placed({ type: 'text', text: '标题', place: { x: 50, y: 50, w: 20 } });
     const pose = poseOf(text, canvas);
     expect(pose).toEqual({ cx: 960, cy: 540, w: 384, h: 384, rotation: 0 });
@@ -122,6 +127,23 @@ describe('place ↔ 盒', () => {
     const back = poseOf(applied(text, wider), canvas);
     expect(back.w).toBeCloseTo(576);
     expect(back.h).toBeCloseTo(384, 0);
+  });
+
+  it('量到排版高的文字：框高跟排版走，挂在 verticalAlign 钉住的那一处；左右拉边只改框宽', () => {
+    expect(noteTextHeights([{ itemId: 't', height: 90 }], canvas)).toBe(true);
+    expect(noteTextHeights([{ itemId: 't', height: 90 }], canvas)).toBe(false);
+    // 画布换了，量过的不算数。
+    expect(textHeightOf('t', { width: 1080, height: 1920 })).toBeUndefined();
+    const text = placed({ id: 't', type: 'text', text: '两行的摘要', place: { x: 50, y: 50, w: 20 } });
+    const pose = poseOf(text, canvas);
+    expect(pose).toEqual({ cx: 960, cy: 540, w: 384, h: 90, rotation: 0 });
+    expect(placeFields(text, { ...pose, w: 576 }, canvas)).toEqual({ w: 30 });
+    // 上下拉边才写 scaleY。
+    expect(placeFields(text, { ...pose, h: 135 }, canvas)).toEqual({ scaleY: 1.5 });
+    // 顶边压在 place.y：框往下长。
+    const top = placed({ id: 't', type: 'text', text: '两行的摘要', verticalAlign: 'top', place: { x: 50, y: 50, w: 20 } });
+    expect(poseOf(top, canvas)).toEqual({ cx: 960, cy: 585, w: 384, h: 90, rotation: 0 });
+    expect(placeFields(top, poseOf(top, canvas), canvas)).toEqual({});
   });
 
   it('各种类的缺省：声波贴底铺满，进度条 80% × 5%；角度绕回 ±180', () => {

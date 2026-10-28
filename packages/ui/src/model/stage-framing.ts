@@ -192,14 +192,20 @@ const BOX_FIELDS = ['x', 'y', 'w', 'scaleY'] as const;
  * 就像其它素材一样自由摆放（产品设计 §5.10）：换成画中画，框就是给的盒，起手的盒是画面上那一幅，所以切换那一下画面不动；
  * 只转了角度的照旧铺满。其余照 `placeFields`。
  */
-export function placeChange(item: PlacedItem, pose: Pose, canvas: CanvasSize, assets: Assets | undefined): PlaceChange {
+export function placeChange(
+  item: PlacedItem,
+  pose: Pose,
+  canvas: CanvasSize,
+  assets: Assets | undefined,
+  textHeight?: number,
+): PlaceChange {
   if (fillsCanvas(item)) {
     const pip = { ...item, mode: 'pip' } as PlacedItem;
     const place = placeFields(pip, pose, canvas, assets);
     const still = placeFields(pip, stagePose(item, canvas, assets), canvas, assets);
     if (BOX_FIELDS.some((key) => place[key] !== still[key])) return { mode: 'pip', place };
   }
-  return { place: placeFields(item, pose, canvas, assets) };
+  return { place: placeFields(item, pose, canvas, assets, textHeight) };
 }
 
 /** `placeChange` 的操作：先换模式、再写 `place`，一笔事务；什么都没变是空表。 */

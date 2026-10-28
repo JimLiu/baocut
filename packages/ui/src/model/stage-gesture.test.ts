@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { Place } from '@baocut/protocol';
 import { gestureOperations, gesturePatch, memberOf, nudgeOperations, resetRotation, scaledFontSize, stepGesture } from './stage-gesture.ts';
-import { aabbOf, boundsOf, pivotOf, type PlacedItem } from './stage-pose.ts';
+import { aabbOf, boundsOf, forgetTextHeights, noteTextHeights, pivotOf, type PlacedItem } from './stage-pose.ts';
 
 const canvas = { width: 1920, height: 1080 };
 const env = { canvas, others: [], pxScale: 2 };
@@ -13,6 +13,8 @@ const text = (patch: Partial<Place> = {}, style: Record<string, unknown> = { fon
 const image = (id: string, patch: Partial<Place> = {}) => ({ id, type: 'image', mode: 'pip', place: box(patch) }) as unknown as PlacedItem;
 
 describe('单件手势', () => {
+  afterEach(forgetTextHeights);
+
   it('移动：吸到画布中线；⌥ 不吸', () => {
     const member = memberOf(image('a'), canvas);
     const g = { kind: 'move' as const, member, p0: { x: 480, y: 270 } };
@@ -39,7 +41,7 @@ describe('单件手势', () => {
     const g = { kind: 'corner' as const, member, handle: 'se' as const, p0: { x: 576, y: 366 } };
     const frame = stepGesture(g, { x: 672, y: 462 }, free, env);
     expect(frame.factor).toBeCloseTo(1.5);
-    const patch = gesturePatch(item, frame.poses[0]!, frame.factor, canvas);
+    const patch = gesturePatch(member, frame.poses[0]!, frame.factor, canvas);
     expect(patch.style).toMatchObject({ fontSize: 60 });
     const ops = gestureOperations('s', [member], frame.poses, frame.factor, canvas);
     expect(ops.map((op) => op.type)).toEqual(['setTransform', 'setStyle']);
@@ -48,12 +50,38 @@ describe('单件手势', () => {
     expect(patch.place).toEqual({ x: 27.5, y: 29.4, w: 15 });
   });
 
-  it('改边：文字的右边只改框宽（高写进 scaleY），不动字号', () => {
+  it('改边：没量到排版高的文字，右边只改框宽（正方的高写进 scaleY），不动字号', () => {
     const member = memberOf(text(), canvas);
     const g = { kind: 'edge' as const, member, handle: 'e' as const, p0: { x: 576, y: 270 } };
     const frame = stepGesture(g, { x: 626, y: 300 }, free, env);
     const ops = gestureOperations('s', [member], frame.poses, frame.factor, canvas);
     expect(ops).toEqual([{ type: 'setTransform', sequenceId: 's', itemId: 't', x: 26.3, w: 12.6, scaleY: 0.794 }]);
+  });
+
+  it('量到排版高的文字：拉右边只写位置与框宽；按起手冻住的高换算，拖动中量到的新高不影响提交', () => {
+    noteTextHeights([{ itemId: 't', height: 60 }], canvas);
+    const member = memberOf(text(), canvas);
+    expect(member).toMatchObject({ textHeight: 60, start: { cx: 480, cy: 270, w: 192, h: 60 } });
+    const g = { kind: 'edge' as const, member, handle: 'e' as const, p0: { x: 576, y: 270 } };
+    const frame = stepGesture(g, { x: 626, y: 300 }, free, env);
+    // 草稿帧把框拉宽后折成一行：量到的高变矮。
+    noteTextHeights([{ itemId: 't', height: 30 }], canvas);
+    expect(gesturePatch(member, frame.poses[0]!, frame.factor, canvas).place).toEqual({ x: 26.3, w: 12.6 });
+    expect(gestureOperations('s', [member], frame.poses, frame.factor, canvas)).toEqual([
+      { type: 'setTransform', sequenceId: 's', itemId: 't', x: 26.3, w: 12.6 },
+    ]);
+  });
+
+  it('量到排版高的文字四角等比：字号跟着放大，排版高也乘倍率，不写 scaleY', () => {
+    noteTextHeights([{ itemId: 't', height: 60 }], canvas);
+    const member = memberOf(text(), canvas);
+    const g = { kind: 'corner' as const, member, handle: 'se' as const, p0: { x: 576, y: 300 } };
+    const frame = stepGesture(g, { x: 672, y: 330 }, free, env);
+    expect(frame.factor).toBeGreaterThan(1);
+    const ops = gestureOperations('s', [member], frame.poses, frame.factor, canvas);
+    expect(ops.map((op) => op.type)).toEqual(['setTransform', 'setStyle']);
+    expect(ops[0]).not.toHaveProperty('scaleY');
+    expect(gesturePatch(member, frame.poses[0]!, frame.factor, canvas).place).not.toHaveProperty('scaleY');
   });
 
   it('没动过：不出操作', () => {

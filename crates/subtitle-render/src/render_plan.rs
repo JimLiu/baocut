@@ -681,6 +681,8 @@ fn text_element_box(
         w: (right - left).max(0.0) * scale_x.abs(),
         h: (lower - upper).max(0.0) * scale_y.abs(),
         rotation,
+        natural_height: layout.height + pad_v * 2.0,
+        visible: true,
     }
 }
 
@@ -2596,7 +2598,8 @@ impl OverlayRenderPlan {
     }
 
     /// 收不收文字元素排出来的块框（[`TextElementBox`]），给舞台拾取用；收的时候每画一次文字元素记一条，
-    /// 由宿主 [`Self::take_text_boxes`] 取走。平铺的文字（整幅铺满）与看不见的不记，宿主按布局框退回。像素不变。
+    /// 由宿主 [`Self::take_text_boxes`] 取走。平铺的文字（整幅铺满）不记，宿主按布局框退回；看不见的照记，标
+    /// `visible: false`（不给命中，自然高照样能用）。像素不变。
     pub fn set_collect_text_boxes(&mut self, on: bool) {
         self.text_boxes = on.then(Vec::new);
     }
@@ -2613,9 +2616,13 @@ impl OverlayRenderPlan {
         center: (f64, f64),
         scale: (f64, f64),
         rotation: f64,
+        visible: bool,
     ) {
         if let Some(boxes) = self.text_boxes.as_mut() {
-            boxes.push(text_element_box(element, layout, center, scale, rotation));
+            boxes.push(TextElementBox {
+                visible,
+                ..text_element_box(element, layout, center, scale, rotation)
+            });
         }
     }
 
@@ -4560,13 +4567,14 @@ impl OverlayRenderPlan {
             ))];
         }
         // 走到这里才记：上面任何一步退回 CPU 光栅，`render_text_element` 会自己记一次。
-        if tile.is_none() && opacity > 0.0 {
+        if tile.is_none() {
             self.record_text_box(
                 element,
                 &layout,
                 (x, y),
                 (scale * pose.scale_x, scale_y * pose.scale_y),
                 rotation,
+                opacity > 0.0,
             );
         }
         Ok(nodes)
@@ -5187,13 +5195,14 @@ impl OverlayRenderPlan {
         } else {
             vec![(x, y, rotation)]
         };
-        if tile.is_none() && opacity > 0.0 {
+        if tile.is_none() {
             self.record_text_box(
                 element,
                 &layout,
                 (x, y),
                 (scale * pose.scale_x, scale_y * pose.scale_y),
                 rotation,
+                opacity > 0.0,
             );
         }
         for (center_x, center_y, rotation) in centers {
@@ -8801,6 +8810,11 @@ pub struct TextElementBox {
     pub w: f64,
     pub h: f64,
     pub rotation: f64,
+    /// 按 `verticalAlign` 挂在钉点上的那一块（各行加上下内边距）有多高：没乘 `scale`、`scaleY` 与动画，
+    /// 是格式规范 §3.5 文字框的「自然高」（`render_graph::item_box::TextFacts`）。
+    pub natural_height: f64,
+    /// 这一帧看得见（不透明度大于 0）；看不见的不给命中，自然高照样报。
+    pub visible: bool,
 }
 
 /// 几何侧车的一帧，见 [`OverlayRenderPlan::subtitle_layout`]。

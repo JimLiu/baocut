@@ -1,5 +1,6 @@
 import { stageBox, stagePlace, type StageAsset, type StageItem } from '@baocut/editor-wasm';
 import { isVisualItem, type AssetRecord, type Id, type Place, type SequenceItem, type VisualItem } from '@baocut/protocol';
+import type { TextHeight } from '../render/render-planner.ts';
 import { round1, wrapRotation } from './geometry-panel.ts';
 
 /**
@@ -7,8 +8,9 @@ import { round1, wrapRotation } from './geometry-panel.ts';
  * 吸附与参考线、多选的整体平移与缩放、方向键微调。
  *
  * 坐标一律是序列画布像素、左上原点。盒子用中心表示（`Pose`）。落盘的是元素模型的 `place`（画幅百分比：框中心、
- * 框宽；高由种类推出，`scaleY` 再乘一次高），与盒互换只在 `poseOf` / `placeFields` 两处，两处都调 Rust 帧计划的那一份
- * （`render-graph` 的 `item_box` / `place_from_box`，经 `editor-wasm`）。这里只剩手势本身：把手、吸附、限位、多选与键盘。
+ * 框宽；高由种类推出，`scaleY` 再乘一次高；文字的高是渲染器排出来的，见 `noteTextHeights`），与盒互换只在 `poseOf` /
+ * `placeFields` 两处，两处都调 Rust 帧计划的那一份（`render-graph` 的 `item_box` / `place_from_box`，经 `editor-wasm`）。
+ * 这里只剩手势本身：把手、吸附、限位、多选与键盘。
  * 原型的阈值量的是画面像素（6px 吸附、2px 死区……），调用方按显示比例换成画布像素再传进来。
  */
 
@@ -125,15 +127,55 @@ export function resizeCursor(handle: Handle, rotation: number): string {
   return `${CURSOR_ORDER[(CURSOR_ORDER.indexOf(handle) + step) % 8]}-resize`;
 }
 
+// ---- 文字排出来的高 ----
+
+/**
+ * 渲染器量出来的文字排版高（预览每帧随画面报 `textHeights`），按实例记最近一次。文字的框高由排版决定（格式规范 §3.5），
+ * 推框的 `editor-wasm` 不排版，拿这里的值；还没画到的文字框按框宽兜底成正方。排版跟着画布走，画布尺寸对不上的不算数。
+ */
+const TEXT_HEIGHTS = new Map<Id, { height: number; width: number; canvasHeight: number }>();
+
+/** 记下这一帧量到的高；有变化时为 true（舞台据此重画选中框）。 */
+export function noteTextHeights(heights: readonly TextHeight[], canvas: CanvasSize): boolean {
+  let changed = false;
+  for (const { itemId, height } of heights) {
+    if (!(height > 0)) continue;
+    const known = TEXT_HEIGHTS.get(itemId);
+    if (known && known.height === height && known.width === canvas.width && known.canvasHeight === canvas.height) continue;
+    TEXT_HEIGHTS.set(itemId, { height, width: canvas.width, canvasHeight: canvas.height });
+    changed = true;
+  }
+  return changed;
+}
+
+/** 这件文字最近一次量到的排版高（画布像素，没乘 `scale`、`scaleY`）；没量到或画布换了时 undefined。 */
+export function textHeightOf(itemId: Id, canvas: CanvasSize): number | undefined {
+  const known = TEXT_HEIGHTS.get(itemId);
+  return known && known.width === canvas.width && known.canvasHeight === canvas.height ? known.height : undefined;
+}
+
+/** 忘掉量过的高（测试用）。 */
+export function forgetTextHeights(): void {
+  TEXT_HEIGHTS.clear();
+}
+
 // ---- place ↔ 盒 ----
 
-/** 推框要看的那几样（`editor-wasm` 只读这些）：种类、`place`、`mode`、图形与贴纸的属性、裁剪。 */
-function stageItem(item: PlacedItem): StageItem {
+/**
+ * 推框要看的那几样（`editor-wasm` 只读这些）：种类、`place`、`mode`、图形与贴纸的属性、裁剪；文字另有纵向钉点与排出来的高
+ * （`textHeight` 给了用它，否则查 `textHeightOf`）。
+ */
+function stageItem(item: PlacedItem, canvas: CanvasSize, textHeight?: number): StageItem {
   const out: StageItem = { type: item.type, place: item.place };
   if ('mode' in item && item.mode !== undefined) out.mode = item.mode;
   if (item.type === 'shape') out.shape = item.shape;
   if (item.type === 'sticker') out.sticker = item.sticker;
   if ((item.type === 'video' || item.type === 'image') && item.crop) out.crop = item.crop;
+  if (item.type === 'text') {
+    if (item.verticalAlign) out.verticalAlign = item.verticalAlign;
+    const height = textHeight ?? textHeightOf(item.id, canvas);
+    if (height !== undefined) out.textHeight = height;
+  }
   return out;
 }
 
@@ -150,16 +192,17 @@ const sizeOf = (canvas: CanvasSize): CanvasSize => ({ width: canvas.width, heigh
 
 /**
  * `place` → 盒：帧计划画层用的同一个框（`render-graph` 的 `item_box`，经 `editor-wasm` 同步调）。媒体的框高按 `assets` 里
- * 源的显示宽高比（含裁剪），查不到时按画布的；贴纸与占位框的素材是图片或视频时按媒体摆。
+ * 源的显示宽高比（含裁剪），查不到时按画布的；贴纸与占位框的素材是图片或视频时按媒体摆；文字按渲染器量的排版高，
+ * 挂在 `verticalAlign` 钉住的那一处（没量到时正方）。
  */
 export function poseOf(item: PlacedItem, canvas: CanvasSize, assets?: Assets): Pose {
-  const { cx, cy, w, h, rotation } = stageBox(stageItem(item), sizeOf(canvas), stageAsset(item, assets));
+  const { cx, cy, w, h, rotation } = stageBox(stageItem(item, canvas), sizeOf(canvas), stageAsset(item, assets));
   return { cx, cy, w, h, rotation };
 }
 
 /** 能不能改位置与大小：铺满画布的实例的框不看 `place`，只能转。 */
 export function posable(item: PlacedItem, canvas: CanvasSize, assets?: Assets): boolean {
-  return !stageBox(stageItem(item), sizeOf(canvas), stageAsset(item, assets)).fullscreen;
+  return !stageBox(stageItem(item, canvas), sizeOf(canvas), stageAsset(item, assets)).fullscreen;
 }
 
 /** `setTransform` 写进 `place` 的那几个字段。 */
@@ -167,12 +210,14 @@ export type PlaceFields = Partial<Pick<Place, 'x' | 'y' | 'w' | 'scaleY' | 'rot'
 
 /**
  * 盒 → `place`（`poseOf` 的反函数，同在 `render-graph`）：只给出取整后和此刻不同的字段（什么都没变是空对象）。`scale` 不动，
- * 框宽折成 `w`；框高写进 `scaleY`（高 ÷ 按落盘的宽推出的自然高）。百分比与角度取一位小数、`scaleY` 取三位；铺满画布的只写角度。
+ * 框宽折成 `w`；框高写进 `scaleY`（高 ÷ 按落盘的宽推出的自然高；文字是 ÷ 排出来的高，只拖宽不改 `scaleY`）。百分比与角度
+ * 取一位小数、`scaleY` 取三位；铺满画布的只写角度。`textHeight` 是推出 `pose` 时用的那份排版高（手势起手冻住的），
+ * 不给时查 `textHeightOf`。
  */
-export function placeFields(item: PlacedItem, pose: Pose, canvas: CanvasSize, assets?: Assets): PlaceFields {
+export function placeFields(item: PlacedItem, pose: Pose, canvas: CanvasSize, assets?: Assets, textHeight?: number): PlaceFields {
   const { cx, cy, w, h, rotation } = pose;
   if (![cx, cy, w, h, rotation].every(Number.isFinite)) return {};
-  return stagePlace(stageItem(item), { cx, cy, w, h, rotation }, sizeOf(canvas), stageAsset(item, assets));
+  return stagePlace(stageItem(item, canvas, textHeight), { cx, cy, w, h, rotation }, sizeOf(canvas), stageAsset(item, assets));
 }
 
 /** 旋转的枢轴：框的中心（元素模型绕中心转）。 */

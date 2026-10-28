@@ -14,6 +14,7 @@ import { durationSeconds, videoSlots } from '../../model/editor.ts';
 import { LIVE_CAPTION_ITEM_ID, liveCaptionCues, liveCaptionDocuments, withLiveCaption, type LiveCue } from '../../model/live-caption.ts';
 import { captionView, type CaptionMode } from '../../model/player.ts';
 import { withoutMusic } from '../../model/stage-layers.ts';
+import { noteTextHeights } from '../../model/stage-pose.ts';
 import type { AssetDecoder, AssetSource } from '../../render/asset-source.ts';
 import { SPECTRUM_MAX_BYTES, spectrumDecoder } from '../../render/audio-spectrum.ts';
 import { isMediaLayer, type AudioVoice, type FramePlan, type LiveLayer, type MediaLayer, type VisualLayer } from '../../render/frame-plan.ts';
@@ -229,6 +230,7 @@ export class PreviewEngine {
   #captionHits: readonly CaptionHit[] = [];
   #textHits: readonly TextHit[] = [];
   readonly #captionListeners = new Set<(hits: readonly CaptionHit[]) => void>();
+  readonly #textHeightListeners = new Set<() => void>();
   readonly #planListeners = new Set<(plan: FramePlan) => void>();
   #context: CanvasRenderingContext2D | null = null;
   #scale = 1;
@@ -749,6 +751,12 @@ export class PreviewEngine {
     this.#captionListeners.add(listener);
     listener(this.#captionHits);
     return () => this.#captionListeners.delete(listener);
+  }
+
+  /** 渲染器量到的文字排版高有变化时通知（舞台的选中框按它定高，见 `noteTextHeights`）。 */
+  onTextHeights(listener: () => void): () => void {
+    this.#textHeightListeners.add(listener);
+    return () => this.#textHeightListeners.delete(listener);
   }
 
   #setCaptionHits(hits: readonly CaptionHit[]): void {
@@ -1341,6 +1349,7 @@ export class PreviewEngine {
     // 临时字幕不是视频里的实例：不给点选；内核对它的提示（跳过、警告）与还在取的层一样不报（记进 `pending`）。
     this.#setCaptionHits((rendered.captionHits ?? []).filter((hit) => hit.itemId !== LIVE_CAPTION_ITEM_ID));
     this.#textHits = rendered.textHits ?? [];
+    if (noteTextHeights(rendered.textHeights ?? [], plan.canvas)) for (const listener of this.#textHeightListeners) listener();
     pending.add(LIVE_CAPTION_ITEM_ID);
     this.#painted = { revision: plan.sequenceRevision, frame: plan.frame };
     // 实时合成层的帧是 Interactive 档（动效视频设计 §4.3）：底下是 iframe 实时画的，不是导出的那一帧。

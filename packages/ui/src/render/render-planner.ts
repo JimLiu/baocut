@@ -111,6 +111,15 @@ export interface TextHit {
   rotation: number;
 }
 
+/**
+ * 渲染器排出来的文字实例的高（序列画布像素）：按 `verticalAlign` 挂在钉点上的那一块（各行加上下内边距），没乘 `scale`、
+ * `scaleY` 与动画。文字的框高由排版决定（格式规范 §3.5），舞台推选中框用它（`noteTextHeights`）；这一帧看不见的也报。
+ */
+export interface TextHeight {
+  itemId: Id;
+  height: number;
+}
+
 /** 一帧画完：这一刻的计划，与画的时候报出来的东西。画面经 `frame()` 取。 */
 export interface RenderedFrame {
   /** Present for explicitly requested independent associated/emissive components. */
@@ -128,6 +137,7 @@ export interface RenderedFrame {
   faces?: FontFaceQuery[];
   captionHits?: CaptionHit[];
   textHits?: TextHit[];
+  textHeights?: TextHeight[];
 }
 
 /** 一次送进 WASM 的样本数（10 秒）：算频谱时 WASM 里只留一个窗口，不放整段声音。 */

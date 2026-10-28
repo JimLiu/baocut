@@ -35,6 +35,30 @@ fn moving_a_box_writes_only_the_changed_fields() {
     assert_eq!(call(stage_place, request), json!({ "x": 25.0, "w": 10.0, "rot": 10.0 }));
 }
 
+/// 文字带上渲染器量的排版高时框高跟排版走，按 `verticalAlign` 挂在钉点上；只拖宽不写 `scaleY`。没带时仍是正方。
+#[test]
+fn text_takes_the_measured_typeset_height() {
+    let item = |height: Option<f64>| {
+        let mut item = json!({ "type": "text", "text": "两行的摘要", "verticalAlign": "top", "place": { "x": 50, "y": 50, "w": 20 } });
+        if let Some(height) = height {
+            item["textHeight"] = json!(height);
+        }
+        item
+    };
+    let b = call(stage_box, json!({ "item": item(Some(90.0)), "canvas": CANVAS() }));
+    assert_eq!(
+        (b["cx"].as_f64(), b["cy"].as_f64(), b["w"].as_f64(), b["h"].as_f64()),
+        (Some(960.0), Some(585.0), Some(384.0), Some(90.0))
+    );
+    let wider = json!({ "cx": 960, "cy": 585, "w": 576, "h": 90, "rotation": 0 });
+    assert_eq!(
+        call(stage_place, json!({ "item": item(Some(90.0)), "canvas": CANVAS(), "pose": wider })),
+        json!({ "w": 30.0 })
+    );
+    let square = call(stage_box, json!({ "item": item(None), "canvas": CANVAS() }));
+    assert_eq!((square["cy"].as_f64(), square["h"].as_f64()), (Some(540.0), Some(384.0)));
+}
+
 #[test]
 fn kind_defaults_and_unreadable_input() {
     assert_eq!(

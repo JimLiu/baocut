@@ -60,6 +60,59 @@ pub struct ItemGeometry<'a> {
     pub crop: Option<&'a Crop>,
     /// 没有引用或素材表里查不到时为 `None`。
     pub asset: Option<AssetFacts>,
+    /// 文字的纵向钉点与排出来的高；别的种类为 `None`。
+    pub text: Option<TextFacts>,
+}
+
+/// 文字的框高由排版决定（格式规范 §3.5）。几何这一层不排版：高由能排版的宿主量好交进来（预览随帧报，见
+/// `frame_render::TextHeight`），没量到时框照旧按框宽兜底成正方。
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct TextFacts {
+    /// 文字块（含上下内边距，渲染器按它挂块）排出来的高，画布像素，没乘 `scale` 与 `scaleY`；`None` = 还没量到。
+    pub height: Option<f64>,
+    /// `place.y` 钉住块的哪一处（`TextItem.verticalAlign`）。
+    pub anchor: TextAnchor,
+}
+
+/// `TextItem.verticalAlign`：只认 `top` / `center` / `bottom`，其余按 `center`（与渲染器同一份白名单）。
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TextAnchor {
+    Top,
+    #[default]
+    Center,
+    Bottom,
+}
+
+impl TextAnchor {
+    pub fn parse(value: Option<&str>) -> TextAnchor {
+        match value {
+            Some("top") => TextAnchor::Top,
+            Some("bottom") => TextAnchor::Bottom,
+            _ => TextAnchor::Center,
+        }
+    }
+
+    /// 块中心在钉点下方多远，按块高计。
+    fn drop(self) -> f64 {
+        match self {
+            TextAnchor::Top => 0.5,
+            TextAnchor::Center => 0.0,
+            TextAnchor::Bottom => -0.5,
+        }
+    }
+}
+
+impl TextFacts {
+    /// 量到了的排版高与钉点；没量到（或量出来不是正数）时为 `None`。
+    fn typeset(self) -> Option<(f64, TextAnchor)> {
+        self.height.filter(|h| h.is_finite() && *h > 0.0).map(|h| (h, self.anchor))
+    }
+}
+
+/// 钉点往块中心挪 `drop`（未旋转时朝下），绕钉点转 `rotation` 度（渲染器绕钉点转文字）。
+fn hang((x, y): (f64, f64), drop: f64, rotation: f64) -> (f64, f64) {
+    let (sin, cos) = rotation.to_radians().sin_cos();
+    (x - drop * sin, y + drop * cos)
 }
 
 /// 时间线实例的推框输入；音频与字幕没有框。
@@ -73,6 +126,7 @@ pub fn item_geometry<'a>(item: &'a TimelineItem, assets: &BTreeMap<Id, AssetReco
         sticker: None,
         crop: None,
         asset: None,
+        text: None,
     };
     Some(match item {
         TimelineItem::Video(v) => ItemGeometry {
@@ -87,7 +141,14 @@ pub fn item_geometry<'a>(item: &'a TimelineItem, assets: &BTreeMap<Id, AssetReco
             asset: facts(Some(&i.asset_ref)),
             ..base(VisualKind::Image, &i.place)
         },
-        TimelineItem::Text(t) => base(VisualKind::Text, &t.place),
+        // 帧计划这一层不排版：高没量到，框照旧是正方（命中与画框按渲染器报的块框，见 `frame_render::TextHit`）。
+        TimelineItem::Text(t) => ItemGeometry {
+            text: Some(TextFacts {
+                height: None,
+                anchor: TextAnchor::parse(t.vertical_align.as_deref()),
+            }),
+            ..base(VisualKind::Text, &t.place)
+        },
         TimelineItem::Shape(s) => ItemGeometry {
             shape: Some(&s.shape),
             ..base(VisualKind::Shape, &s.place)
@@ -215,8 +276,19 @@ pub fn item_box(item: &ItemGeometry<'_>, canvas: (f64, f64)) -> ItemBox {
 pub(crate) fn pixel_box(item: &ItemGeometry<'_>, canvas: (f64, f64)) -> (PixelBox, bool) {
     match frame_of(item) {
         Frame::Media { kind, fullscreen, natural } => (media_pixel_box(kind, fullscreen, item.place, natural, canvas), fullscreen),
-        Frame::Static { kind, geometry } => (element_box(kind, geometry, item.place, canvas), false),
+        Frame::Static { kind, geometry } => {
+            let square = element_box(kind, geometry, item.place, canvas);
+            (item.text.and_then(TextFacts::typeset).map_or(square, |typeset| text_box(square, item.place, typeset)), false)
+        }
     }
+}
+
+/// 量到排版高的文字：宽照旧（`w`% 的换行宽乘 `scale`），高是排出来的块乘 `scale`、`scaleY`；块按 `verticalAlign` 挂在
+/// `place` 钉住的那一点（正方框的中心）上，绕那一点转。
+fn text_box(square: PixelBox, place: &Place, (natural, anchor): (f64, TextAnchor)) -> PixelBox {
+    let height = natural * place.scale.unwrap_or(1.0) * place.scale_y.unwrap_or(1.0);
+    let (cx, cy) = hang((square.cx, square.cy), height * anchor.drop(), square.rotation);
+    PixelBox { cx, cy, height, ..square }
 }
 
 /// 种类的缺省落位：`place` 一个字段都不写时框落在哪（中心 `x`、`y`，画幅百分比；宽 `w`，宽度基准的百分比）。
@@ -231,6 +303,7 @@ pub fn place_defaults(kind: VisualKind) -> Place {
         sticker: None,
         crop: None,
         asset: None,
+        text: None,
     };
     let (w, y) = match frame_of(&item) {
         Frame::Media { kind, .. } => (media_default_w(kind), 50.0),
@@ -317,8 +390,13 @@ pub fn place_from_box(item: &ItemGeometry<'_>, pose: BoxPose, canvas: (f64, f64)
         }
     };
     let scale = place.scale.unwrap_or(1.0);
-    let x = pose.cx / width * 100.0;
-    let y = pose.cy / height * 100.0;
+    // 量到排版高的文字：框中心是挂着的块的中心，先退回钉点。
+    let typeset = item.text.and_then(TextFacts::typeset);
+    let (ax, ay) = typeset.map_or((pose.cx, pose.cy), |(_, anchor)| {
+        hang((pose.cx, pose.cy), -pose.height * anchor.drop(), pose.rotation)
+    });
+    let x = ax / width * 100.0;
+    let y = ay / height * 100.0;
     let w = pose.width / (basis * scale) * 100.0;
     if differs(x, place.x.unwrap_or(DEFAULT_ELEMENT_X), 10.0) {
         out.x = Some(round_to(x, 10.0));
@@ -329,15 +407,21 @@ pub fn place_from_box(item: &ItemGeometry<'_>, pose: BoxPose, canvas: (f64, f64)
     if differs(w, place.w.unwrap_or(default_w), 10.0) {
         out.w = Some(round_to(w, 10.0));
     }
-    // 自然高按落盘的那个宽推：同一个函数换回来的框高与这里的一致。
-    let stored = Place {
-        w: out.w.or(place.w),
-        scale_y: None,
-        ..place.clone()
+    // 自然高按落盘的那个宽推：同一个函数换回来的框高与这里的一致。文字的排版高是量出来的，不跟着框宽变：
+    // 只拖宽时 `scaleY` 不动，新的宽由渲染器重新折行。
+    let natural = match typeset {
+        Some((natural, _)) => natural * scale,
+        None => {
+            let stored = Place {
+                w: out.w.or(place.w),
+                scale_y: None,
+                ..place.clone()
+            };
+            pixel_box(&ItemGeometry { place: &stored, ..*item }, canvas).0.height
+        }
     };
-    let (natural, _) = pixel_box(&ItemGeometry { place: &stored, ..*item }, canvas);
-    let scale_y = pose.height / natural.height;
-    if natural.height > 0.0 && scale_y.is_finite() && differs(scale_y, place.scale_y.unwrap_or(1.0), 1000.0) {
+    let scale_y = pose.height / natural;
+    if natural > 0.0 && scale_y.is_finite() && differs(scale_y, place.scale_y.unwrap_or(1.0), 1000.0) {
         out.scale_y = Some(round_to(scale_y, 1000.0));
     }
     out
@@ -397,6 +481,14 @@ mod tests {
             sticker: None,
             crop: None,
             asset: None,
+            text: None,
+        }
+    }
+
+    fn typeset<'a>(place: &'a Place, height: Option<f64>, anchor: TextAnchor) -> ItemGeometry<'a> {
+        ItemGeometry {
+            text: Some(TextFacts { height, anchor }),
+            ..geometry(VisualKind::Text, place)
         }
     }
 
@@ -589,6 +681,66 @@ mod tests {
             place_from_box(&text, wider, CANVAS),
             change(None, None, Some(30.0), Some(0.667), None)
         );
+    }
+
+    /// 量到排版高的文字：宽照旧，高是排出来的块乘 `scale`、`scaleY`，按 `verticalAlign` 挂在钉点上、绕钉点转；
+    /// 写回时只拖宽不动 `scaleY`（新宽由渲染器重新折行），拖高才写，中心退回钉点再写 `x`、`y`。
+    #[test]
+    fn typeset_text_hangs_from_its_anchor() {
+        let place = Place {
+            x: Some(50.0),
+            y: Some(50.0),
+            w: Some(20.0),
+            scale: Some(2.0),
+            ..Place::default()
+        };
+        let centred = typeset(&place, Some(60.0), TextAnchor::Center);
+        let b = item_box(&centred, CANVAS);
+        assert_eq!((b.cx, b.cy, b.width, b.height), (960.0, 540.0, 768.0, 120.0));
+        assert_eq!(place_from_box(&centred, pose(b), CANVAS), PlaceChange::default());
+        let wider = BoxPose { width: 1152.0, ..pose(b) };
+        assert_eq!(place_from_box(&centred, wider, CANVAS), change(None, None, Some(30.0), None, None));
+        let taller = BoxPose { height: 180.0, ..pose(b) };
+        assert_eq!(place_from_box(&centred, taller, CANVAS), change(None, None, None, Some(1.5), None));
+
+        // 顶边钉在 `y`：块往下长；拖底边加高，顶边不动，钉点也不动。
+        let top = typeset(&place, Some(60.0), TextAnchor::Top);
+        let b = item_box(&top, CANVAS);
+        assert_eq!((b.cx, b.cy, b.height), (960.0, 600.0, 120.0));
+        assert_eq!(place_from_box(&top, pose(b), CANVAS), PlaceChange::default());
+        let stretched = BoxPose {
+            cy: 630.0,
+            height: 180.0,
+            ..pose(b)
+        };
+        assert_eq!(place_from_box(&top, stretched, CANVAS), change(None, None, None, Some(1.5), None));
+        let b = item_box(&typeset(&place, Some(60.0), TextAnchor::Bottom), CANVAS);
+        assert_eq!((b.cx, b.cy), (960.0, 480.0));
+
+        // 绕钉点转：顶边钉住、转 90° 的块落在钉点左边；绕框中心转回 0°，钉点跟着挪。
+        let turned_place = Place {
+            rot: Some(90.0),
+            ..place.clone()
+        };
+        let turned = typeset(&turned_place, Some(60.0), TextAnchor::Top);
+        let b = item_box(&turned, CANVAS);
+        assert!((b.cx - 900.0).abs() < 1e-9 && (b.cy - 540.0).abs() < 1e-9 && b.rotation == 90.0, "{b:?}");
+        assert_eq!(place_from_box(&turned, pose(b), CANVAS), PlaceChange::default());
+        let upright = BoxPose { rotation: 0.0, ..pose(b) };
+        assert_eq!(
+            place_from_box(&turned, upright, CANVAS),
+            change(Some(46.9), Some(44.4), None, None, Some(0.0))
+        );
+
+        // 没量到时与正方的兜底一模一样（钉点不参与）。
+        let unmeasured = typeset(&place, None, TextAnchor::Top);
+        let square = geometry(VisualKind::Text, &place);
+        assert_eq!(item_box(&unmeasured, CANVAS), item_box(&square, CANVAS));
+        let wider = BoxPose {
+            width: 1152.0,
+            ..pose(item_box(&square, CANVAS))
+        };
+        assert_eq!(place_from_box(&unmeasured, wider, CANVAS), place_from_box(&square, wider, CANVAS));
     }
 
     #[test]

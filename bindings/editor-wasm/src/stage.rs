@@ -5,7 +5,8 @@
 
 use editor_semantics::Rate;
 use render_graph::item_box::{
-    AssetFacts, BoxPose, ItemBox, ItemGeometry, PlaceChange, VisualKind, display_dims, item_box, place_defaults, place_from_box,
+    AssetFacts, BoxPose, ItemBox, ItemGeometry, PlaceChange, TextAnchor, TextFacts, VisualKind, display_dims, item_box, place_defaults,
+    place_from_box,
 };
 use serde::{Deserialize, Serialize};
 use video_model::{AssetKind, Crop, Place, ShapeProps, StickerProps, VisualMode};
@@ -27,6 +28,13 @@ struct ItemInput {
     sticker: Option<StickerInput>,
     #[serde(default)]
     crop: Option<Crop>,
+    /// 文字的纵向钉点（`TextItem.verticalAlign`）。
+    #[serde(default)]
+    vertical_align: Option<String>,
+    /// 文字排出来的高（画布像素，没乘 `scale` 与 `scaleY`）：不是文档字段，由宿主拿渲染器量的值填（预览随帧报
+    /// `textHeights`）；没有时文字的框按框宽兜底成正方。
+    #[serde(default)]
+    text_height: Option<f64>,
 }
 
 /// 图形与贴纸只有一个字段参与框：图形的 `h`（画幅高 %），贴纸的 `templateId`（`box` 的高是宽的 0.62）。
@@ -147,6 +155,10 @@ fn geometry<'a>(item: &'a ItemInput, props: &'a Props, asset: Option<&AssetInput
                 .video
                 .as_ref()
                 .and_then(|v| display_dims(v.display_width, v.display_height, v.pixel_aspect_ratio)),
+        }),
+        text: (item.kind == VisualKind::Text).then(|| TextFacts {
+            height: item.text_height,
+            anchor: TextAnchor::parse(item.vertical_align.as_deref()),
         }),
     }
 }

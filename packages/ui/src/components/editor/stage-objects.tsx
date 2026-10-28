@@ -219,6 +219,9 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
   const visible = useVisibleItems(engine);
   const [captionHits, setCaptionHits] = useState<readonly CaptionHit[]>([]);
   useEffect(() => engine.onCaptionHits(setCaptionHits), [engine]);
+  // 文字的选中框高按渲染器量的排版高（`stagePose` 查它）：量到新的就重画一次框。
+  const [, setTextHeights] = useState(0);
+  useEffect(() => engine.onTextHeights(() => setTextHeights((n) => n + 1)), [engine]);
   const rootRef = useRef<HTMLDivElement>(null);
   const spaceRef = useRef<HTMLDivElement>(null);
   const press = useRef<Press | null>(null);
@@ -367,7 +370,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
         members.map((m, i) => ({
           itemId: m.item.id,
           revision: seq.revision,
-          patch: gesturePatch(m.item, result.poses[i]!, result.factor, seq.canvas, assets),
+          patch: gesturePatch(m, result.poses[i]!, result.factor, seq.canvas, assets),
         })),
       );
       setOverride({ poses: new Map(members.map((m, i) => [m.item.id, result.poses[i]!])), until: null });
@@ -376,7 +379,7 @@ export function StageObjects({ sequence, frame }: { sequence: Sequence; frame: F
       useEditor.getState().setDraft({
         itemId: m.item.id,
         revision: seq.revision,
-        patch: gesturePatch(m.item, result.poses[0]!, result.factor, seq.canvas, assets, result.framing, result.panels),
+        patch: gesturePatch(m, result.poses[0]!, result.factor, seq.canvas, assets, result.framing, result.panels),
       });
     }
     setGuides(live ? result.guides : []);

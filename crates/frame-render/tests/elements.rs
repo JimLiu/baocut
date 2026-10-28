@@ -162,19 +162,21 @@ fn text_is_drawn_with_its_opacity() {
 
 /// 文字的拾取框是排出来的那一块（宽是最宽一行，高是几行合起来），不是高等于宽的布局框；
 /// `verticalAlign` 把块挂在 `place.y` 哪一边，框跟着走；预览画得比画布大小不同时仍是序列画布像素。
+/// 同时报排出来的高（挂块用的那一块：各行加上下内边距），不随 `scale` 与看不看得见变。
 #[test]
 fn text_hits_follow_the_typeset_block() {
-    let text = |valign: Option<&str>| {
+    let text_with = |valign: Option<&str>, place: Value| {
         let mut body = json!({
             "type": "text", "text": "HHHH HHHH", "style": { "fontSize": 60, "color": "#FFFFFF" },
-            "place": { "x": 50, "y": 40, "w": 30 }
+            "place": place
         });
         if let Some(valign) = valign {
             body["verticalAlign"] = json!(valign);
         }
         video(vec![item("title", 0, 30, body)], vec![], json!({}))
     };
-    let hits = |video: &video_model::VideoSnapshot, scale: u32| {
+    let text = |valign: Option<&str>| text_with(valign, json!({ "x": 50, "y": 40, "w": 30 }));
+    let hits_at = |video: &video_model::VideoSnapshot, scale: u32, seconds: f64| {
         let mut renderer = FrameRenderer::new(
             RenderOptions { width: W * scale, height: H * scale, skip_unsupported: false, captions: true },
             Documents::default(),
@@ -182,12 +184,13 @@ fn text_hits_follow_the_typeset_block() {
         )
         .unwrap();
         renderer.set_collect_caption_hits(true);
-        let frame = render_with(&mut renderer, video, 0.5, &mut Media::default());
-        (frame, renderer.text_hits().to_vec())
+        let frame = render_with(&mut renderer, video, seconds, &mut Media::default());
+        (frame, renderer.text_hits().to_vec(), renderer.text_heights().to_vec())
     };
+    let hits = |video: &video_model::VideoSnapshot, scale: u32| hits_at(video, scale, 0.5);
 
     let centred = text(None);
-    let (frame, found) = hits(&centred, 1);
+    let (frame, found, heights) = hits(&centred, 1);
     assert_eq!(found.len(), 1, "{found:?}");
     let hit = &found[0];
     assert_eq!(hit.item_id, "title");
@@ -203,22 +206,50 @@ fn text_hits_follow_the_typeset_block() {
     assert!(f64::from(y0) >= top - 1.0 && f64::from(y1 + 1) <= top + hit.h + 1.0, "{y0}..{y1} vs {hit:?}");
 
     // 顶边钉在 place.y：块往下长（字形从压线处再进底板的上留白开始），框跟着下移。
-    let (_, found) = hits(&text(Some("top")), 1);
+    let (_, found, _) = hits(&text(Some("top")), 1);
     let top_hit = &found[0];
     let glyph_top = top_hit.cy - top_hit.h / 2.0;
     assert!((36.0 - 1e-6..36.0 + 4.0).contains(&glyph_top), "{top_hit:?}");
     assert!((top_hit.h - hit.h).abs() < 1e-6);
 
-    // 输出放大一倍：命中仍按序列画布像素报。
-    let (_, found) = hits(&centred, 2);
+    // 排出来的高 = 字形块 + 上下各一份留白（挂块按它挂，顶边压线时字形从留白之下开始）。
+    assert_eq!(heights.len(), 1, "{heights:?}");
+    assert_eq!(heights[0].item_id, "title");
+    let pad_v = glyph_top - 36.0;
+    assert!((heights[0].height - (hit.h + 2.0 * pad_v)).abs() < 1e-6, "{heights:?} vs {hit:?}, pad {pad_v}");
+    // 放大一倍画：块框跟着变大，排出来的高不变（`scale` 在框里乘）。
+    let (_, found, scaled) = hits(&text_with(None, json!({ "x": 50, "y": 40, "w": 30, "scale": 2 })), 1);
+    assert!((found[0].h - 2.0 * hit.h).abs() < 1e-6, "{found:?}");
+    assert!((scaled[0].height - heights[0].height).abs() < 1e-6, "{scaled:?}");
+    // 这一帧看不见（淡入的第一帧）：不给命中，高照样报。`place.opacity` 为 0 的整件不进帧计划，渲染器见不到它。
+    let fading = video(
+        vec![item(
+            "title",
+            0,
+            30,
+            json!({
+                "type": "text", "text": "HHHH HHHH", "style": { "fontSize": 60, "color": "#FFFFFF" },
+                "place": { "x": 50, "y": 40, "w": 30 }, "animate": { "enter": { "preset": "fade", "dur": 1.0 } }
+            }),
+        )],
+        vec![],
+        json!({}),
+    );
+    let (_, found, hidden) = hits_at(&fading, 1, 0.0);
+    assert!(found.is_empty(), "{found:?}");
+    assert!((hidden[0].height - heights[0].height).abs() < 1e-6, "{hidden:?}");
+
+    // 输出放大一倍：命中与排出来的高仍按序列画布像素报。
+    let (_, found, double_heights) = hits(&centred, 2);
     let double = &found[0];
     assert!((double.cx - hit.cx).abs() < 0.5 && (double.cy - hit.cy).abs() < 0.5, "{double:?} vs {hit:?}");
     assert!((double.h - hit.h).abs() < 2.0, "{double:?} vs {hit:?}");
+    assert!((double_heights[0].height - heights[0].height).abs() < 2.0, "{double_heights:?} vs {heights:?}");
 
     // 不收几何（导出）时不报。
     let mut renderer = renderer(false, Documents::default());
     render_with(&mut renderer, &centred, 0.5, &mut Media::default());
-    assert!(renderer.text_hits().is_empty());
+    assert!(renderer.text_hits().is_empty() && renderer.text_heights().is_empty());
 }
 
 /// 画中画红图（16×9）摆在画布中间、宽 50%：框 80×45，左上角 (40, 22.5)。
