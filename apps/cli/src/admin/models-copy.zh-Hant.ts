@@ -44,6 +44,16 @@ export const zhHant: ModelsMessages = {
                                    供應商回報的金額與費用未知的部分分開列出，不換算幣別；依供應商、能力、模型與帳號細分
   baocut models default <capability> <providerId|none> [modelId]
                                    設定或清除某項能力（${MODEL_SERVICE_CAPABILITIES.join('、')}）的預設供應商與模型
+  baocut models addable [--all]    列出內建 audio.cpp 引擎能加入模型清單的模型：每個套件的 ID、精度、下載大小、授權，以及是否已內建或已新增；
+                                   --all 一併列出 BaoCut 暫時用不到的模型族與原因
+  baocut models add <packageId>    新增清單裡的一個套件（新增時不下載：之後用 baocut models install <bundleId>）。
+                                   新增的模型沒有經過 BaoCut 逐一驗證，可用 baocut models test 檢查
+  baocut models add --family <family> --hf <address> [--label <name>]
+                                   新增 Hugging Face 上自行指定的 .gguf 檔案（網頁位址，或 owner/repo/路徑.gguf），按指定的模型族執行
+                                   （models addable 列出能自行指定檔案的族）
+  baocut models add --family <family> --file <path> [--label <name>]
+                                   新增這台電腦上的 .gguf 檔案：原地引用（不複製、不改動），新增後即可使用
+  baocut models unlist <bundleId>  把新增的模型移出清單（下載過的先用 baocut models remove 刪除，它會一併移出清單；原地引用的檔案不動）
   baocut models remove <bundleId|providerId>
                                    刪除本機模型套件（其他模型套件使用中的共用元件會保留；有任務正在使用時會拒絕）；
                                    或移除線上供應商：自訂端點（custom:<name>）會整個刪除；目錄中的供應商會停用，
@@ -186,6 +196,35 @@ export const zhHant: ModelsMessages = {
   usageAccounts:
     '用法：baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>',
   usageDir: '用法：baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]',
+  usageAdd: '用法：baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
+  usageUnlist: '用法：baocut models unlist <bundleId>',
+  addableHeader: (engine) => `內建 audio.cpp 引擎（${engine}）能加入模型清單的模型`,
+  addableIdleGroup: '暫時用不到',
+  licenseNonCommercial: '僅限非商業用途',
+  licenseUnverified: '商業用途待確認',
+  packageRecommended: '推薦',
+  packageParts: (parts) => `含 ${parts.join('、')}`,
+  packageBuiltin: (bundleId) => `已內建：${bundleId}`,
+  packageAdded: (bundleId) => `已新增：${bundleId}`,
+  idleReasons: {
+    recognize: '轉錄仍使用 BaoCut 自己的辨識模型：audio.cpp 上的辨識較慢，也沒有說話者區分',
+    'separate-slow': '分得最乾淨，但慢得多，授權也不明；請先用 Mel-Band RoFormer',
+    'separate-stems': '拆成 6 軌；翻譯配音只需要人聲與背景兩軌，請用 HTDemucs',
+    'separate-speakers': '把幾個人的說話聲拆開，不是人聲與背景分離；BaoCut 還沒有用到',
+    other: 'BaoCut 尚未用到這項功能',
+    'music-request': '這個音樂模型的請求方式與 YuE2 不同，BaoCut 尚未支援',
+    'engine-route': '引擎只在 BaoCut 尚未用到的功能上提供這個模型',
+  },
+  idleHidden: (count) => `暫時用不到的還有 ${count} 族（baocut models addable --all 列出它們與原因）`,
+  customFamilies: (families) => `能自行指定 .gguf 檔案的族（--family）：${families.join('、')}`,
+  addedBundle: (bundleId) => `已把 ${bundleId} 加入模型清單`,
+  addedInstallHint: (bundleId) => `下載：baocut models install ${bundleId}`,
+  addedInPlace: '原地引用這個檔案，不複製，已經可以使用',
+  addedDefaultHint: (capability, bundleId) => `設為預設：baocut models default ${capability} local ${bundleId}`,
+  addSourceConflict: '套件 ID、--hf 與 --file 只能給一個',
+  addNeedsFamily: '--hf 與 --file 需要搭配 --family：baocut models addable 列出能自行指定檔案的族',
+  unlisted: (bundleId) => `已把 ${bundleId} 移出模型清單`,
+  removedUnlisted: '這是新增的模型，已一併移出模型清單',
   cancelledDiscarded: '已停止並刪除已下載的部分',
   cancelledKept: '已停止（已下載的部分會保留，再次執行 install 即可續傳）',
   unknownCapability: (capability, choices) => `未知的能力：${capability}（應為 ${choices.join('、')} 其中之一）`,

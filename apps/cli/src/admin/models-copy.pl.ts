@@ -57,6 +57,18 @@ export const pl: ModelsMessages = {
                                    i konta
   baocut models default <capability> <providerId|none> [modelId]
                                    Ustaw lub usuń domyślnego dostawcę i model dla funkcji (${MODEL_SERVICE_CAPABILITIES.join(", ")})
+  baocut models addable [--all]    Pokaż modele, które wbudowany silnik audio.cpp może dodać do listy: ID, precyzję, rozmiar pobierania i licencję
+                                   każdego pakietu oraz czy jest wbudowany lub już dodany; z --all także rodziny, których BaoCut jeszcze nie używa,
+                                   z powodem
+  baocut models add <packageId>    Dodaj pakiet z tej listy (bez pobierania: potem uruchom baocut models install <bundleId>).
+                                   BaoCut nie testuje dodanych modeli pojedynczo; sprawdź je przez baocut models test
+  baocut models add --family <family> --hf <address> [--label <name>]
+                                   Dodaj własny plik .gguf z Hugging Face (adres strony lub owner/repo/ścieżka.gguf), uruchamiany jako podana
+                                   rodzina (models addable pokazuje rodziny, które przyjmują własny plik)
+  baocut models add --family <family> --file <path> [--label <name>]
+                                   Dodaj plik .gguf z tego komputera: używany na miejscu (bez kopiowania i zmian), gotowy od razu
+  baocut models unlist <bundleId>  Usuń dodany model z listy (pobrany najpierw usuń przez baocut models remove, które też usuwa go z listy;
+                                   plik używany na miejscu zostaje, gdzie jest)
   baocut models remove <bundleId|providerId>
                                    Usuń lokalny pakiet modeli (wspólne składniki innych pakietów zostają; odmowa,
                                    gdy zadanie go używa); lub usuń dostawcę online: własny endpoint custom:<name>
@@ -287,4 +299,33 @@ export const pl: ModelsMessages = {
   structuredOutput: "ustrukturyzowane wyjście",
   subscription: "w abonamencie, limit nieznany",
   modelName: (id, label) => `${id} (${label})`,
+  usageAdd: 'Użycie: baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
+  usageUnlist: 'Użycie: baocut models unlist <bundleId>',
+  addableHeader: (engine) => `Modele, które wbudowany silnik audio.cpp (${engine}) może dodać do listy modeli`,
+  addableIdleGroup: 'Jeszcze nie do użycia',
+  licenseNonCommercial: 'tylko niekomercyjnie',
+  licenseUnverified: 'użycie komercyjne niepotwierdzone',
+  packageRecommended: 'zalecany',
+  packageParts: (parts) => `z ${parts.join(', ')}`,
+  packageBuiltin: (bundleId) => `wbudowany: ${bundleId}`,
+  packageAdded: (bundleId) => `dodany: ${bundleId}`,
+  idleReasons: {
+    recognize: 'Transkrypcja nadal korzysta z własnych modeli rozpoznawania BaoCut: rozpoznawanie w audio.cpp jest wolniejsze i nie rozróżnia mówców',
+    'separate-slow': 'Rozdziela najczyściej, ale jest znacznie wolniejszy, a licencja jest niejasna; na razie użyj Mel-Band RoFormer',
+    'separate-stems': 'Dzieli dźwięk na 6 ścieżek; lektor potrzebuje tylko głosu i tła, więc użyj HTDemucs',
+    'separate-speakers': 'Rozdziela głosy kilku osób, a nie głos od tła; BaoCut jeszcze tego nie używa',
+    other: 'BaoCut jeszcze z tego nie korzysta',
+    'music-request': 'Ten model muzyczny przyjmuje inne żądania niż YuE2, a BaoCut jeszcze ich nie obsługuje',
+    'engine-route': 'Silnik udostępnia ten model tylko do zadań, z których BaoCut jeszcze nie korzysta',
+  },
+  idleHidden: (count) => `Jeszcze nie do użycia: kolejne ${count} (baocut models addable --all pokazuje je z powodem)`,
+  customFamilies: (families) => `Rodziny, które przyjmują własny plik .gguf (--family): ${families.join(', ')}`,
+  addedBundle: (bundleId) => `Dodano ${bundleId} do listy modeli`,
+  addedInstallHint: (bundleId) => `Pobierz: baocut models install ${bundleId}`,
+  addedInPlace: 'Plik jest używany na miejscu, bez kopiowania, i model jest gotowy',
+  addedDefaultHint: (capability, bundleId) => `Ustaw jako domyślny: baocut models default ${capability} local ${bundleId}`,
+  addSourceConflict: 'Podaj tylko jedno: ID pakietu, --hf lub --file',
+  addNeedsFamily: '--hf i --file wymagają --family: baocut models addable pokazuje rodziny, które przyjmują własny plik',
+  unlisted: (bundleId) => `Usunięto ${bundleId} z listy modeli`,
+  removedUnlisted: 'To był dodany model, więc usunięto go też z listy modeli',
 };

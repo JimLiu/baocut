@@ -257,6 +257,43 @@ describe.skipIf(!engine || !ffmpeg)('CLI 子进程（真实 Runtime）', () => {
     expect(usage.code).toBe(0);
     expect(usage.stdout).toContain('baocut settings');
   }, 60_000);
+
+  it('管理桶 models addable / add / unlist：目录里的包加进模型列表再移出；参数不对退出码 4', async () => {
+    const addable = await run(['models', 'addable']);
+    expect(addable.code, addable.stdout + addable.stderr).toBe(0);
+    const htdemucs = addable.json.result.families.find((f: { family: string }) => f.family === 'htdemucs');
+    expect(htdemucs.group).toBe('sep');
+    expect(addable.json.result.custom).toContain('htdemucs');
+
+    for (const args of [
+      ['models', 'add'],
+      ['models', 'add', '--file', 'model.gguf'],
+      ['models', 'add', 'htdemucs_q8_0', '--hf', 'owner/repo/model.gguf', '--family', 'htdemucs'],
+      ['models', 'unlist'],
+    ]) {
+      const ran = await run(args);
+      expect(ran.code, args.join(' ')).toBe(4);
+      expect(ran.json.error.code).toBe('INVALID_ARGUMENTS');
+    }
+
+    const added = await run(['models', 'add', 'htdemucs_q8_0']);
+    expect(added.code, added.stdout + added.stderr).toBe(0);
+    expect(added.json.result.bundleId).toBe('htdemucs-q8-0@audio-cpp');
+    expect(added.json.result.bundle).toMatchObject({ capability: 'separate', state: 'not-installed', added: { kind: 'catalog' } });
+    const again = await run(['models', 'addable']);
+    const pkg = again.json.result.families
+      .find((f: { family: string }) => f.family === 'htdemucs')
+      .packages.find((p: { id: string }) => p.id === 'htdemucs_q8_0');
+    expect(pkg.state).toBe('added');
+
+    const builtin = await run(['models', 'add', 'yue2_main_q8_0']);
+    expect(builtin.code).not.toBe(0);
+    expect(builtin.json.error.code).toBe('MODEL_ADD_REFUSED');
+
+    const unlisted = await run(['models', 'unlist', 'htdemucs-q8-0@audio-cpp']);
+    expect(unlisted.code, unlisted.stdout + unlisted.stderr).toBe(0);
+    expect(unlisted.json.result).toEqual({ bundleId: 'htdemucs-q8-0@audio-cpp' });
+  }, 60_000);
 });
 
 describe('runtime ensure / stop（隔离 BAOCUT_HOME，从仓库入口拉起）', () => {

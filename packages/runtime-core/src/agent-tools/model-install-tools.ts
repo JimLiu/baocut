@@ -66,6 +66,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
       { title: '下载指定的模型包', args: { bundleId: 'qwen3-asr-0.6b@mlx-4bit' } },
     ],
     surfaces: ['agent', 'cli'],
+    positional: 'bundleId',
   },
   models_list: {
     title: '列出本地模型包',

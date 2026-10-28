@@ -2,6 +2,7 @@ import {
   MODEL_SERVICE_CAPABILITIES,
   USAGE_PERIODS,
   defineMessages,
+  type AudioCppIdleReason,
   type ModelBundleStatus,
   type ModelServiceCapability,
   type ProviderUnavailableReason,
@@ -82,6 +83,18 @@ const en = {
                                    and account
   baocut models default <capability> <providerId|none> [modelId]
                                    Set or clear the default provider and model for a capability (${MODEL_SERVICE_CAPABILITIES.join(', ')})
+  baocut models addable [--all]    List the models the built-in audio.cpp engine can add to the model list: each package's ID,
+                                   precision, download size, license, and whether it's built in or already added; --all also
+                                   lists the families BaoCut can't use yet, with the reason
+  baocut models add <packageId>    Add a package from that list (it isn't downloaded yet: then run baocut models install <bundleId>).
+                                   Added models aren't tested by BaoCut one by one; check one with baocut models test
+  baocut models add --family <family> --hf <address> [--label <name>]
+                                   Add a .gguf file of your own from Hugging Face (its web address, or owner/repo/path.gguf), run
+                                   as the given family (models addable lists the families that take your own file)
+  baocut models add --family <family> --file <path> [--label <name>]
+                                   Add a .gguf file on this computer: used where it is (not copied or changed), ready once added
+  baocut models unlist <bundleId>  Remove an added model from the list (delete its download first with baocut models remove,
+                                   which also unlists an added model; a file used in place stays where it is)
   baocut models remove <bundleId|providerId>
                                    Delete a local model bundle (shared components other bundles use are kept; refused while a
                                    task is using it); or remove an online provider: a custom endpoint (custom:<name>) is deleted
@@ -231,6 +244,35 @@ const en = {
   usageAccounts:
     'Usage: baocut models accounts <providerId> | add <providerId> [--label <name>] [--region <region>] [--verify] | remove <providerId> <account> | use <providerId> <account>',
   usageDir: 'Usage: baocut models dir [--set <path> [--move|--switch] | --reset [--move|--switch]]',
+  usageAdd: 'Usage: baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
+  usageUnlist: 'Usage: baocut models unlist <bundleId>',
+  addableHeader: (engine: string) => `Models the built-in audio.cpp engine (${engine}) can add to the model list`,
+  addableIdleGroup: "Can't be used yet",
+  licenseNonCommercial: 'non-commercial only',
+  licenseUnverified: 'commercial use unverified',
+  packageRecommended: 'recommended',
+  packageParts: (parts: readonly string[]) => `with ${parts.join(', ')}`,
+  packageBuiltin: (bundleId: string) => `built in: ${bundleId}`,
+  packageAdded: (bundleId: string) => `added: ${bundleId}`,
+  idleReasons: {
+    recognize: "Transcription keeps using BaoCut's own recognition models: recognition on audio.cpp is slower and has no speaker labels",
+    'separate-slow': 'Separates most cleanly but is much slower, and its license is unclear; use Mel-Band RoFormer for now',
+    'separate-stems': 'Splits audio into 6 stems; voice-overs only need vocals and background, so use HTDemucs',
+    'separate-speakers': "Separates several people's voices, not vocals from background; BaoCut doesn't use this yet",
+    other: "BaoCut doesn't use this yet",
+    'music-request': "This music model takes different requests from YuE2, which BaoCut doesn't support yet",
+    'engine-route': "The engine serves this model only for tasks BaoCut doesn't use yet",
+  } satisfies Record<AudioCppIdleReason, string>,
+  idleHidden: (count: number) => `Can't be used yet: ${count} more (baocut models addable --all lists them with the reason)`,
+  customFamilies: (families: readonly string[]) => `Families that take your own .gguf file (--family): ${families.join(', ')}`,
+  addedBundle: (bundleId: string) => `Added ${bundleId} to the model list`,
+  addedInstallHint: (bundleId: string) => `Download it: baocut models install ${bundleId}`,
+  addedInPlace: "It uses the file where it is, without copying it, and it's ready to use",
+  addedDefaultHint: (capability: string, bundleId: string) => `Make it the default: baocut models default ${capability} local ${bundleId}`,
+  addSourceConflict: 'Give one of a package ID, --hf, or --file',
+  addNeedsFamily: '--hf and --file need --family: baocut models addable lists the families that take your own file',
+  unlisted: (bundleId: string) => `Removed ${bundleId} from the model list`,
+  removedUnlisted: 'It was an added model, so it was also removed from the model list',
   cancelledDiscarded: 'Stopped and deleted the downloaded part',
   cancelledKept: 'Stopped (the downloaded part is kept; run install again to resume)',
   unknownCapability: (capability: string, choices: readonly string[]) => `Unknown capability: ${capability} (one of ${choices.join(', ')})`,

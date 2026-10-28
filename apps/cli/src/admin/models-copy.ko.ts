@@ -52,6 +52,17 @@ export const ko: ModelsMessages = {
                                    통화는 환산하지 않습니다. 공급자, 기능, 모델, 계정별로 나눠 보여 줍니다
   baocut models default <기능> <providerId|none> [modelId]
                                    기능(${MODEL_SERVICE_CAPABILITIES.join(', ')})의 기본 공급자와 모델을 설정하거나 지웁니다
+  baocut models addable [--all]    내장 audio.cpp 엔진이 모델 목록에 추가할 수 있는 모델 표시: 패키지별 ID, 정밀도, 다운로드 크기, 라이선스,
+                                   내장 또는 추가 여부. --all이면 BaoCut에서 아직 쓸 수 없는 모델군도 이유와 함께 표시
+  baocut models add <packageId>    목록의 패키지 추가(추가할 때는 다운로드하지 않음: 이어서 baocut models install <bundleId>).
+                                   추가한 모델은 BaoCut이 하나하나 검증하지 않았어요. baocut models test로 점검하세요
+  baocut models add --family <family> --hf <address> [--label <name>]
+                                   Hugging Face에서 직접 지정한 .gguf 파일 추가(웹 주소 또는 owner/repo/경로.gguf), 지정한 모델군으로 실행
+                                   (직접 지정한 파일을 쓸 수 있는 모델군은 models addable에 표시)
+  baocut models add --family <family> --file <path> [--label <name>]
+                                   이 컴퓨터의 .gguf 파일 추가: 제자리에서 참조(복사하거나 바꾸지 않음)하며 추가하면 바로 쓸 수 있음
+  baocut models unlist <bundleId>  추가한 모델을 목록에서 빼기(다운로드했다면 먼저 baocut models remove로 삭제. remove는 목록에서도 뺌.
+                                   제자리에서 참조한 파일은 그대로 둠)
   baocut models remove <bundleId|providerId>
                                    로컬 모델 번들을 삭제합니다(다른 번들이 쓰는 공유 구성 요소는 남기며, 작업이
                                    사용 중이면 거부). 또는 온라인 공급자를 제거합니다: 사용자 지정 엔드포인트(custom:<이름>)는
@@ -197,6 +208,35 @@ export const ko: ModelsMessages = {
   usageAccounts:
     '사용법: baocut models accounts <providerId> | add <providerId> [--label <이름>] [--region <리전>] [--verify] | remove <providerId> <계정> | use <providerId> <계정>',
   usageDir: '사용법: baocut models dir [--set <경로> [--move|--switch] | --reset [--move|--switch]]',
+  usageAdd: '사용법: baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
+  usageUnlist: '사용법: baocut models unlist <bundleId>',
+  addableHeader: (engine) => `내장 audio.cpp 엔진(${engine})이 모델 목록에 추가할 수 있는 모델`,
+  addableIdleGroup: '아직 사용 불가',
+  licenseNonCommercial: '비상업적 용도 전용',
+  licenseUnverified: '상업적 사용 미확인',
+  packageRecommended: '권장',
+  packageParts: (parts) => `${parts.join(', ')} 포함`,
+  packageBuiltin: (bundleId) => `내장: ${bundleId}`,
+  packageAdded: (bundleId) => `추가됨: ${bundleId}`,
+  idleReasons: {
+    recognize: '전사에는 계속 BaoCut 자체 인식 모델을 써요. audio.cpp의 인식은 더 느리고 화자 구분이 없어요',
+    'separate-slow': '가장 깔끔하게 분리하지만 훨씬 느리고 라이선스도 불분명해요. 우선 Mel-Band RoFormer를 쓰세요',
+    'separate-stems': '6개 트랙으로 나눠요. 번역 더빙에는 보컬과 배경 두 트랙만 필요하니 HTDemucs를 쓰세요',
+    'separate-speakers': '여러 사람의 말소리를 나누는 모델로, 보컬과 배경 분리가 아니에요. BaoCut에서는 아직 쓰지 않아요',
+    other: 'BaoCut에서 아직 사용하지 않음',
+    'music-request': '이 음악 모델은 YuE2와 다른 요청을 받기 때문에 BaoCut이 아직 지원하지 않아요',
+    'engine-route': '엔진은 BaoCut이 아직 사용하지 않는 작업에서만 이 모델을 제공해요',
+  },
+  idleHidden: (count) => `아직 쓸 수 없는 모델군 ${count}개가 더 있어요(baocut models addable --all로 이유와 함께 표시)`,
+  customFamilies: (families) => `직접 지정한 .gguf 파일을 쓸 수 있는 모델군(--family): ${families.join(', ')}`,
+  addedBundle: (bundleId) => `${bundleId}을(를) 모델 목록에 추가했어요`,
+  addedInstallHint: (bundleId) => `다운로드: baocut models install ${bundleId}`,
+  addedInPlace: '파일을 복사하지 않고 제자리에서 참조해요. 바로 쓸 수 있어요',
+  addedDefaultHint: (capability, bundleId) => `기본값으로 설정: baocut models default ${capability} local ${bundleId}`,
+  addSourceConflict: '패키지 ID, --hf, --file 중 하나만 지정하세요',
+  addNeedsFamily: '--hf와 --file에는 --family가 필요해요. 직접 지정한 파일을 쓸 수 있는 모델군은 baocut models addable에 표시돼요',
+  unlisted: (bundleId) => `${bundleId}을(를) 모델 목록에서 뺐어요`,
+  removedUnlisted: '추가한 모델이라 모델 목록에서도 뺐어요',
   cancelledDiscarded: '중지하고 다운로드한 부분을 삭제했습니다',
   cancelledKept: '중지했습니다(다운로드한 부분은 보관되며 다시 install하면 이어서 받음)',
   unknownCapability: (capability, choices) => `알 수 없는 기능: ${capability}(${choices.join(', ')} 중 하나)`,

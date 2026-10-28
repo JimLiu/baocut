@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLocale } from '@baocut/protocol';
 import type {
+  AudioCppAddableFamily,
   ModelBundleStatus,
   ModelInstallPlan,
   ModelSelfTestResult,
@@ -11,6 +12,9 @@ import type {
 } from '@baocut/protocol';
 import {
   accountOrderWithFirst,
+  addParams,
+  formatAddable,
+  formatAdded,
   findAccount,
   formatAccountLines,
   formatMoney,
@@ -389,5 +393,107 @@ describe('英文', () => {
     expect(formatInstallPlan(plan({ upToDate: true }), 'install')).toEqual(['qwen3-asr-0.6b@mlx-4bit is already installed; nothing to download']);
     expect(formatByteProgress(512, null)).toBe('512 B received (total size unknown)');
     expect(USAGE_PERIOD_LABELS['7d']).toBe('Last 7 days');
+  });
+});
+
+describe('添加 audio.cpp 模型（models addable|add|unlist）', () => {
+  beforeEach(() => {
+    vi.stubEnv('BAOCUT_LOCALE', 'en');
+    setLocale('en');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    setLocale('zh-Hans');
+  });
+
+  const license = { name: 'MIT', url: 'https://example.com', commercialUse: true, summary: '' };
+  const family = (patch: Partial<AudioCppAddableFamily>): AudioCppAddableFamily => ({
+    family: 'htdemucs',
+    name: 'HTDemucs',
+    group: 'sep',
+    tasks: ['sep'],
+    status: 'stable',
+    languages: [],
+    traits: {},
+    license,
+    packages: [],
+    ...patch,
+  });
+  const addable = {
+    engine: 'v0.9.2',
+    custom: ['qwen3_tts', 'htdemucs'],
+    families: [
+      family({
+        packages: [
+          { id: 'htdemucs_q8_0', name: 'HTDemucs Q8_0', precision: 'Q8_0', bytes: 50 * 1024 * 1024, parts: [], default: true, bundleId: 'htdemucs-q8-0@audio-cpp', state: null },
+          { id: 'htdemucs_f16', name: 'HTDemucs F16', precision: 'F16', bytes: 90 * 1024 * 1024, parts: [], bundleId: 'htdemucs-f16@audio-cpp', state: 'added' },
+        ],
+      }),
+      family({
+        family: 'yue2',
+        name: 'YuE2',
+        group: 'music',
+        status: null,
+        license: { ...license, commercialUse: null },
+        packages: [{ id: 'yue2_main_q8_0', name: 'YuE2', precision: 'Q8_0', bytes: 4 * 1024 ** 3, parts: ['VAE'], bundleId: 'yue2-3b@audio-cpp-q8', state: 'builtin' }],
+      }),
+      family({ family: 'bs_roformer', name: 'BS-RoFormer', group: 'idle', idle: 'separate-slow', license: { ...license, commercialUse: false } }),
+      family({ family: 'codec', name: 'Codec', group: 'idle', idle: 'other', tasks: ['codec'] }),
+    ],
+  };
+
+  it('按能力分组列出族与包；暂时用不上的默认只给个数，--all 才带原因列出', () => {
+    const lines = formatAddable(addable);
+    expect(lines[0]).toBe('Models the built-in audio.cpp engine (v0.9.2) can add to the model list');
+    expect(lines.indexOf('Music generation')).toBeLessThan(lines.indexOf('Voice separation'));
+    expect(lines).toContain('  HTDemucs  (htdemucs · stable)');
+    expect(lines).toContain('    htdemucs_q8_0  Q8_0  50.0 MB  recommended');
+    expect(lines).toContain('    htdemucs_f16  F16  90.0 MB  added: htdemucs-f16@audio-cpp');
+    expect(lines).toContain('  YuE2  (yue2 · commercial use unverified)');
+    expect(lines).toContain('    yue2_main_q8_0  Q8_0  4.0 GB  with VAE  built in: yue2-3b@audio-cpp-q8');
+    expect(lines).toContain("Can't be used yet: 2 more (baocut models addable --all lists them with the reason)");
+    expect(lines.join('\n')).not.toContain('BS-RoFormer');
+    expect(lines.at(-1)).toBe('Families that take your own .gguf file (--family): qwen3_tts, htdemucs');
+
+    const all = formatAddable(addable, true);
+    expect(all).toContain("Can't be used yet");
+    expect(all).toContain('  BS-RoFormer  (bs_roformer · stable · non-commercial only)');
+    expect(all).toContain('    Separates most cleanly but is much slower, and its license is unclear; use Mel-Band RoFormer for now');
+    expect(all).toContain("    codec · BaoCut doesn't use this yet");
+  });
+
+  it('add 的参数：包 ID、--hf 或 --file 三选一，自己指定的文件要 --family', () => {
+    expect(addParams('htdemucs_q8_0', {})).toEqual({ source: 'catalog', packageId: 'htdemucs_q8_0' });
+    expect(addParams(undefined, { family: 'htdemucs', hf: 'o/r/m.gguf', label: 'Mine' })).toEqual({
+      source: 'repo-file',
+      family: 'htdemucs',
+      address: 'o/r/m.gguf',
+      label: 'Mine',
+    });
+    expect(addParams(undefined, { family: 'htdemucs', file: '/tmp/m.gguf' })).toEqual({ source: 'local-file', family: 'htdemucs', path: '/tmp/m.gguf' });
+    expect(() => addParams(undefined, {})).toThrow(/^Usage: baocut models add/);
+    expect(() => addParams('x', { hf: 'o/r/m.gguf' })).toThrow('Give one of a package ID, --hf, or --file');
+    expect(() => addParams(undefined, { hf: 'o/r/m.gguf', file: '/m.gguf', family: 'htdemucs' })).toThrow('Give one of a package ID, --hf, or --file');
+    expect(() => addParams(undefined, { file: '/m.gguf' })).toThrow(/^--hf and --file need --family/);
+    expect(() => addParams('x', { family: 'htdemucs' })).toThrow(/^Usage: baocut models add/);
+  });
+
+  it('加好之后：没装的提示下载，原地引用的说明不复制；都给设为默认的命令', () => {
+    const sep: ModelBundleStatus = {
+      ...base,
+      bundleId: 'htdemucs-q8-0@audio-cpp',
+      capability: 'separate',
+      backend: 'audio-cpp',
+      state: 'not-installed',
+      added: { kind: 'catalog', family: 'htdemucs', familyName: 'HTDemucs', source: 'htdemucs_q8_0' },
+    };
+    const lines = formatAdded(sep);
+    expect(lines[0]).toBe('Added htdemucs-q8-0@audio-cpp to the model list');
+    expect(lines).toContain('Download it: baocut models install htdemucs-q8-0@audio-cpp');
+    expect(lines.at(-1)).toBe('Make it the default: baocut models default separateAudio local htdemucs-q8-0@audio-cpp');
+
+    const local = formatAdded({ ...sep, state: 'installed', added: { ...sep.added!, kind: 'local-file', source: '/m.gguf' } });
+    expect(local).toContain("It uses the file where it is, without copying it, and it's ready to use");
+    expect(local.join('\n')).not.toContain('baocut models install');
   });
 });

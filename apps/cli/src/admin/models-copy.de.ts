@@ -60,6 +60,19 @@ export const de: ModelsMessages = {
                                    und Konto
   baocut models default <capability> <providerId|none> [modelId]
                                    Standardanbieter und -modell für eine Funktion festlegen oder löschen (${MODEL_SERVICE_CAPABILITIES.join(", ")})
+  baocut models addable [--all]    Modelle anzeigen, die die integrierte audio.cpp-Engine zur Modellliste hinzufügen kann: ID, Genauigkeit,
+                                   Downloadgröße und Lizenz jedes Pakets und ob es integriert oder schon hinzugefügt ist; --all zeigt auch die
+                                   Familien, die BaoCut noch nicht nutzen kann, mit Grund
+  baocut models add <packageId>    Ein Paket aus dieser Liste hinzufügen (noch ohne Download: danach baocut models install <bundleId>).
+                                   Hinzugefügte Modelle prüft BaoCut nicht einzeln; prüfen Sie sie mit baocut models test
+  baocut models add --family <family> --hf <address> [--label <name>]
+                                   Eine eigene .gguf-Datei von Hugging Face hinzufügen (Webadresse oder owner/repo/pfad.gguf), ausgeführt als die
+                                   angegebene Familie (models addable zeigt die Familien, die eigene Dateien annehmen)
+  baocut models add --family <family> --file <path> [--label <name>]
+                                   Eine .gguf-Datei auf diesem Computer hinzufügen: wird an Ort und Stelle genutzt (nicht kopiert oder geändert)
+                                   und ist sofort bereit
+  baocut models unlist <bundleId>  Ein hinzugefügtes Modell aus der Liste entfernen (Heruntergeladenes zuerst mit baocut models remove löschen, das
+                                   es auch aus der Liste entfernt; eine an Ort und Stelle genutzte Datei bleibt, wo sie ist)
   baocut models remove <bundleId|providerId>
                                    Lokales Modellpaket löschen (von anderen Paketen verwendete Komponenten bleiben erhalten; abgelehnt,
                                    solange eine Aufgabe es verwendet); oder Online-Anbieter entfernen: Eigene Endpunkte (custom:<name>)
@@ -303,4 +316,33 @@ export const de: ModelsMessages = {
   structuredOutput: "strukturierte Ausgabe",
   subscription: "im Abonnement enthalten, Kontingent unbekannt",
   modelName: (id: string, label: string) => `${id} (${label})`,
+  usageAdd: 'Verwendung: baocut models add <packageId> | --family <family> (--hf <address> | --file <path>) [--label <name>]',
+  usageUnlist: 'Verwendung: baocut models unlist <bundleId>',
+  addableHeader: (engine) => `Modelle, die die integrierte audio.cpp-Engine (${engine}) zur Modellliste hinzufügen kann`,
+  addableIdleGroup: 'Noch nicht nutzbar',
+  licenseNonCommercial: 'nur nichtkommerziell',
+  licenseUnverified: 'kommerzielle Nutzung ungeprüft',
+  packageRecommended: 'empfohlen',
+  packageParts: (parts) => `mit ${parts.join(', ')}`,
+  packageBuiltin: (bundleId) => `integriert: ${bundleId}`,
+  packageAdded: (bundleId) => `hinzugefügt: ${bundleId}`,
+  idleReasons: {
+    recognize: 'Die Transkription nutzt weiterhin die eigenen Erkennungsmodelle von BaoCut: Die Erkennung mit audio.cpp ist langsamer und ordnet keine Sprecher zu',
+    'separate-slow': 'Trennt am saubersten, ist aber deutlich langsamer und die Lizenz ist unklar; verwenden Sie vorerst Mel-Band RoFormer',
+    'separate-stems': 'Teilt das Audio in 6 Spuren; Vertonungen brauchen nur Stimme und Hintergrund, verwenden Sie daher HTDemucs',
+    'separate-speakers': 'Trennt die Stimmen mehrerer Personen, nicht Stimme und Hintergrund; BaoCut nutzt das noch nicht',
+    other: 'BaoCut nutzt das noch nicht',
+    'music-request': 'Dieses Musikmodell erwartet andere Anfragen als YuE2, die BaoCut noch nicht unterstützt',
+    'engine-route': 'Die Engine stellt dieses Modell nur für Aufgaben bereit, die BaoCut noch nicht nutzt',
+  },
+  idleHidden: (count) => `Noch nicht nutzbar: ${count} weitere (baocut models addable --all zeigt sie mit Grund)`,
+  customFamilies: (families) => `Familien, die eine eigene .gguf-Datei annehmen (--family): ${families.join(', ')}`,
+  addedBundle: (bundleId) => `${bundleId} zur Modellliste hinzugefügt`,
+  addedInstallHint: (bundleId) => `Herunterladen: baocut models install ${bundleId}`,
+  addedInPlace: 'Die Datei wird an Ort und Stelle genutzt, ohne Kopie, und ist sofort bereit',
+  addedDefaultHint: (capability, bundleId) => `Als Standard festlegen: baocut models default ${capability} local ${bundleId}`,
+  addSourceConflict: 'Geben Sie nur eines an: eine Paket-ID, --hf oder --file',
+  addNeedsFamily: '--hf und --file brauchen --family: baocut models addable zeigt die Familien, die eigene Dateien annehmen',
+  unlisted: (bundleId) => `${bundleId} aus der Modellliste entfernt`,
+  removedUnlisted: 'Es war ein hinzugefügtes Modell und wurde auch aus der Modellliste entfernt',
 };

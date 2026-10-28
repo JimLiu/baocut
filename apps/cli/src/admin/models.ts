@@ -24,6 +24,9 @@ import { defineNoun, readStdin, type AdminRun, type AdminValues } from './contex
 import { M } from './models-copy.ts';
 import {
   accountOrderWithFirst,
+  addParams,
+  formatAddable,
+  formatAdded,
   dirMode,
   dirProblem,
   findAccount,
@@ -62,18 +65,22 @@ const OPTIONS = {
   region: { type: 'string' },
   period: { type: 'string' },
   provider: { type: 'string' },
+  all: { type: 'boolean' },
+  family: { type: 'string' },
+  hf: { type: 'string' },
+  file: { type: 'string' },
 } as const;
 
 type Ctx = AdminRun<AdminValues<typeof OPTIONS>>;
 
 /**
- * 管理桶 `baocut models configure|accounts|usage|default|remove|refresh|parameters|dir|cancel|repair`（架构设计 §6）：
- * 凭据、默认值与本机模型目录只由用户改。能力查询、模型包的列出、安装与检查在 Agent 面（`models capabilities|list|install|test`）。
+ * 管理桶 `baocut models configure|accounts|usage|default|remove|refresh|parameters|dir|cancel|repair|addable|add|unlist`（架构设计 §6）：
+ * 凭据、默认值、本机模型目录与模型列表里添加的 audio.cpp 模型只由用户改。能力查询、模型包的列出、安装与检查在 Agent 面（`models capabilities|list|install|test`）。
  */
 export const models = defineNoun({
   name: 'models',
   partial: true,
-  verbs: ['configure', 'accounts', 'usage', 'default', 'remove', 'refresh', 'parameters', 'dir', 'cancel', 'repair'],
+  verbs: ['configure', 'accounts', 'usage', 'default', 'remove', 'refresh', 'parameters', 'dir', 'cancel', 'repair', 'addable', 'add', 'unlist'],
   get usage() {
     return M.help;
   },
@@ -100,6 +107,29 @@ export const models = defineNoun({
       }
       case 'configure':
         return configure(ctx, rest[0]);
+      case 'addable': {
+        const result = await client.request('models.addable', {});
+        return ctx.done(result, formatAddable(result, values.all));
+      }
+      case 'add': {
+        if (rest.length > 1) throw ctx.usageError(M.usageAdd);
+        const params = ctx.parse(() =>
+          addParams(rest[0], {
+            family: values.family,
+            hf: values.hf,
+            file: values.file !== undefined ? ctx.resolve(values.file) : undefined,
+            label: values.label,
+          }),
+        );
+        const result = await client.request('models.add', params);
+        return ctx.done(result, formatAdded(result.bundle));
+      }
+      case 'unlist': {
+        const [bundleId] = rest;
+        if (!bundleId || rest.length > 1) throw ctx.usageError(M.usageUnlist);
+        const result = await client.request('models.unlist', { bundleId });
+        return ctx.done(result, [M.unlisted(bundleId)]);
+      }
       case 'default': {
         const [capability, providerId, modelId] = rest;
         if (!capability || !providerId) throw ctx.usageError(M.usageDefault);
@@ -132,6 +162,11 @@ export const models = defineNoun({
           ]);
         }
         const result = await client.request('models.remove', { bundleId: id });
+        // 添加的模型删掉文件后一并移出列表，与桌面界面相同（产品设计 §7.6）。
+        if (result.bundle.added) {
+          await client.request('models.unlist', { bundleId: id });
+          return ctx.done({ ...result, unlisted: true }, [...formatRemoveResult(result), M.removedUnlisted]);
+        }
         return ctx.done(result, formatRemoveResult(result));
       }
       case 'refresh': {

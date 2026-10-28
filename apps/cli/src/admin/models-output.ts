@@ -5,10 +5,14 @@ import {
   modelCheckCode,
   modelCheckRepair,
   RpcError,
+  type AudioCppAddableFamily,
   type JobRecord,
+  type ModelAddParams,
   type ModelBundleStatus,
   type ModelInstallPlan,
   type ModelRemoveResult,
+  type ModelServiceCapability,
+  type RpcMethods,
   type ModelsDirInfo,
   type ModelsDirInspection,
   type ModelsDirMode,
@@ -327,5 +331,96 @@ export function formatUsageReport(report: UsageReport, period: UsagePeriod, prov
     lines.push(title);
     for (const row of rows) lines.push(formatRow(row, totals.calls));
   }
+  return lines;
+}
+
+// ---- 添加 audio.cpp 模型（`models addable|add|unlist`，架构设计 §6.3「添加 audio.cpp 模型」） ----
+
+/** 能添加的分组与它对应的服务能力（分组的名字用能力的名字）。 */
+const ADDABLE_GROUPS = [
+  ['tts', 'synthesizeSpeech'],
+  ['music', 'generateMusic'],
+  ['sep', 'separateAudio'],
+] as const satisfies ReadonlyArray<readonly [AudioCppAddableFamily['group'], ModelServiceCapability]>;
+
+/** 模型包的能力对应哪个服务能力的默认值（`models default <能力> local <bundleId>`）；没有对应的是 null。 */
+const SERVICE_OF_BUNDLE: Partial<Record<ModelBundleStatus['capability'], ModelServiceCapability>> = {
+  transcribe: 'transcribe',
+  synthesize: 'synthesizeSpeech',
+  separate: 'separateAudio',
+  music: 'generateMusic',
+  image: 'generateImage',
+};
+
+/**
+ * `baocut models addable`：按语音合成、音乐生成、人声分离分组，每族一行（名字、族 ID、成熟度、许可），每个包一行（包 ID、精度、
+ * 下载大小、推荐、内置或已添加时的模型包 ID）。暂时用不上的族只在 `--all` 时列出，带原因；最后是能自己指定文件的族。
+ */
+export function formatAddable(result: RpcMethods['models.addable']['result'], all = false): string[] {
+  const lines = [M.addableHeader(result.engine)];
+  const family = (f: AudioCppAddableFamily) => {
+    const marks = [f.family, ...(f.status ? [f.status] : [])];
+    if (f.license.commercialUse === false) marks.push(M.licenseNonCommercial);
+    else if (f.license.commercialUse === null) marks.push(M.licenseUnverified);
+    return `  ${f.name}  (${marks.join(' · ')})`;
+  };
+  for (const [group, capability] of ADDABLE_GROUPS) {
+    const families = result.families.filter((f) => f.group === group);
+    if (families.length === 0) continue;
+    lines.push('', M.capabilityLabels[capability]);
+    for (const f of families) {
+      lines.push(family(f));
+      for (const p of f.packages) {
+        const marks = [p.precision ?? '-', formatBytes(p.bytes)];
+        if (p.parts.length > 0) marks.push(M.packageParts(p.parts));
+        if (p.default) marks.push(M.packageRecommended);
+        if (p.state === 'builtin') marks.push(M.packageBuiltin(p.bundleId));
+        if (p.state === 'added') marks.push(M.packageAdded(p.bundleId));
+        lines.push(`    ${p.id}  ${marks.join('  ')}`);
+      }
+    }
+  }
+  const idle = result.families.filter((f) => f.group === 'idle');
+  if (all && idle.length > 0) {
+    lines.push('', M.addableIdleGroup);
+    for (const f of idle) {
+      const reason = f.idle ? M.idleReasons[f.idle] : M.idleReasons.other;
+      const tasks = f.idle === 'other' && f.tasks.length > 0 ? `${f.tasks.join(', ')} · ` : '';
+      lines.push(family(f), `    ${tasks}${reason}`);
+    }
+  } else if (idle.length > 0) {
+    lines.push('', M.idleHidden(idle.length));
+  }
+  if (result.custom.length > 0) lines.push(M.customFamilies(result.custom));
+  return lines;
+}
+
+/**
+ * `baocut models add` 的参数：一个包 ID（目录），或 `--family` 加 `--hf <地址>` / `--file <路径>` 之一（自己指定的文件）。
+ * 本机路径已按当前目录解析成绝对路径。参数不对时抛出给人看的说明。
+ */
+export function addParams(
+  packageId: string | undefined,
+  flags: { family?: string; hf?: string; file?: string; label?: string },
+): ModelAddParams {
+  const sources = [packageId, flags.hf, flags.file].filter((v) => v !== undefined);
+  if (sources.length !== 1) throw new Error(sources.length === 0 ? M.usageAdd : M.addSourceConflict);
+  if (packageId !== undefined) {
+    if (flags.family !== undefined || flags.label !== undefined) throw new Error(M.usageAdd);
+    return { source: 'catalog', packageId };
+  }
+  if (!flags.family) throw new Error(M.addNeedsFamily);
+  const label = flags.label !== undefined ? { label: flags.label } : {};
+  if (flags.hf !== undefined) return { source: 'repo-file', family: flags.family, address: flags.hf, ...label };
+  return { source: 'local-file', family: flags.family, path: flags.file!, ...label };
+}
+
+/** 加好之后：模型包的几行，加上下一步（没装的先下载；装好的可以设为默认）。 */
+export function formatAdded(bundle: ModelBundleStatus): string[] {
+  const lines = [M.addedBundle(bundle.bundleId), ...formatBundleLines(bundle)];
+  if (bundle.added?.kind === 'local-file') lines.push(M.addedInPlace);
+  if (bundle.state === 'not-installed') lines.push(M.addedInstallHint(bundle.bundleId));
+  const service = SERVICE_OF_BUNDLE[bundle.capability];
+  if (service) lines.push(M.addedDefaultHint(service, bundle.bundleId));
   return lines;
 }
