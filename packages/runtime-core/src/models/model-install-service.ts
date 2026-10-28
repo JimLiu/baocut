@@ -18,6 +18,8 @@ import {
 } from '@baocut/jobs';
 import {
   APP_FILE_MISSING,
+  AddedModels,
+  ModelAddError,
   DEFAULT_TIMESCALE,
   DownloadError,
   IMAGE_SELF_TEST,
@@ -75,6 +77,7 @@ import {
   type ModelInstallBatchParams,
   type ModelInstallBatchResult,
   type ModelRemoveResult,
+  type ModelAddParams,
   type ModelSelfTestResult,
 } from '@baocut/protocol';
 import { RcModels } from '@baocut/protocol/messages/runtime-core';
@@ -124,12 +127,16 @@ export interface ModelInstallServiceOptions {
   selfTestSample?: SelfTestSample;
   /** 模型包变化之后重算能力视图。 */
   refresh: () => void;
+  /** 用户添加的模型包（Runtime 在建好模型目录后就读记录登记，见 `openModelJobs`）；不给时只在内存里。 */
+  added?: AddedModels;
   /** 删除模型包之后清掉没有出厂默认的能力里指向它的默认值（§6.8）。 */
   clearDefaults?: (bundleId: string) => Promise<unknown>;
 }
 
 export class ModelInstallService {
   readonly installer: ModelInstaller;
+  /** 用户添加的 audio.cpp 模型包（§6.3）。 */
+  readonly added: AddedModels;
   readonly #options: ModelInstallServiceOptions;
   readonly #catalog: ModelCatalog;
   readonly #jobs: JobManager;
@@ -142,6 +149,9 @@ export class ModelInstallService {
     this.#jobs = options.jobs;
     this.#log = options.log.child('model-install');
     this.#sample = options.selfTestSample ?? TRANSCRIBE_SELF_TEST;
+    this.added =
+      options.added ??
+      new AddedModels({ file: null, catalog: options.catalog, endpoint: () => this.#endpoint(), ...(options.installer?.fetch ? { fetch: options.installer.fetch } : {}) });
     this.installer = new ModelInstaller({
       ...(options.toolsEndpoint ? { toolsEndpoint: options.toolsEndpoint } : {}),
       ...options.installer,
@@ -315,6 +325,33 @@ export class ModelInstallService {
     await this.#options.clearDefaults?.(bundleId);
     this.#options.refresh();
     return { removed, kept, bundle: (await this.#catalog.status(bundleId))! };
+  }
+
+  /** 添加一个 audio.cpp 模型包（§6.3）：只登记、不下载；原地引用的本机文件加完就装好。 */
+  async add(params: ModelAddParams): Promise<{ bundleId: string; bundle: ModelBundleStatus }> {
+    const bundleId = await rpcOf(this.added.add(params));
+    this.#log.info('Model package added', { bundleId, source: params.source });
+    this.#options.refresh();
+    return { bundleId, bundle: (await this.#catalog.status(bundleId))! };
+  }
+
+  /**
+   * 把添加的模型包移出列表（§6.3）。原地引用的本机文件：按删除的规则先卸载（在用时 `MODEL_IN_USE`），不碰文件；下载的：要先删除
+   * （还装着时 `MODEL_INSTALLED`），正在下载时 `MODEL_IN_USE`，暂停留下的暂存区一并删掉。
+   */
+  async unlist(bundleId: string): Promise<{ bundleId: string }> {
+    const info = this.#catalog.addedInfo(bundleId);
+    if (info?.kind === 'local-file') await this.remove(bundleId);
+    else if (info) {
+      const active = this.#activeInstall(bundleId);
+      if (active) throw new RpcError('conflict', RcModels.bundleInUse(), { code: 'MODEL_IN_USE', bundleId, jobIds: [active.jobId] });
+      await this.installer.discard(bundleId);
+    }
+    await rpcOf(this.added.unlist(bundleId));
+    this.#log.info('Model package unlisted', { bundleId, kind: info?.kind });
+    await this.#options.clearDefaults?.(bundleId);
+    this.#options.refresh();
+    return { bundleId };
   }
 
   /**
@@ -1010,4 +1047,14 @@ export function checkFacts(details: Record<string, unknown>): string[] {
 function rank(key: string): number {
   const i = FACT_ORDER.indexOf(key);
   return i < 0 ? FACT_ORDER.length : i;
+}
+
+/** 添加与移出列表的错误换成 RPC 错误：参数本身不行 `invalid-request`，下载来源读不到或此刻不能移出 `conflict`；`details.code` 区分。 */
+async function rpcOf<T>(work: Promise<T>): Promise<T> {
+  try {
+    return await work;
+  } catch (error) {
+    if (!(error instanceof ModelAddError)) throw error;
+    throw new RpcError(error.kind === 'refused' ? 'invalid-request' : 'conflict', error.message, { code: error.code }, error.ref);
+  }
 }

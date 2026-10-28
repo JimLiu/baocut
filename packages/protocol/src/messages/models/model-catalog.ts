@@ -31,6 +31,8 @@ const en = {
   notInstalled: (p: { repo: string }) => `Model ${p.repo} is not installed`,
   noFilesInSubdir: (p: { subdir: string }) => `The model has no files under ${p.subdir}/`,
   engineMissing: 'The built-in audio.cpp engine was not found: this computer has no build of it, or the app installation is incomplete',
+  localFileMissing: (p: { file: string }) => `The file ${p.file} is gone from where it was added`,
+  localFileChanged: (p: { file: string }) => `The file ${p.file} has changed size since it was added`,
 };
 
 export type ModelsModelCatalogMessages = typeof en;

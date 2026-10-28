@@ -143,6 +143,7 @@ export {
   type VerifyResult,
   type WorkerFootprint,
 } from './model-catalog.ts';
+export { AddedModels, ModelAddError, ADDED_MODELS_FORMAT, type AddedModelsOptions } from './added-models.ts';
 export {
   ProviderFailure,
   type ProviderFailureKind,

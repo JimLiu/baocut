@@ -1432,6 +1432,13 @@ export const methodParamSchemas = {
     .strict(),
   'models.cancelInstall': z.object({ bundleId, discard: z.boolean().optional() }).strict(),
   'models.remove': z.object({ bundleId }).strict(),
+  'models.addable': empty,
+  'models.add': z.discriminatedUnion('source', [
+    z.object({ source: z.literal('catalog'), packageId: z.string().min(1).max(128) }).strict(),
+    z.object({ source: z.literal('repo-file'), family: z.string().min(1).max(64), address: z.string().trim().min(1).max(2048), label: z.string().trim().min(1).max(120).optional() }).strict(),
+    z.object({ source: z.literal('local-file'), family: z.string().min(1).max(64), path: absolutePath, label: z.string().trim().min(1).max(120).optional() }).strict(),
+  ]),
+  'models.unlist': z.object({ bundleId }).strict(),
   'models.repair': z.object({ bundleId, confirmBytes: z.number().int().min(0).optional(), commandId: id.optional() }).strict(),
   'models.test': z.object({ bundleId, commandId: id.optional() }).strict(),
   'models.getDir': empty,

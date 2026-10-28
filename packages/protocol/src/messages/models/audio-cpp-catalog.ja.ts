@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const ja: ModelsAudioCppCatalogMessages = {
+  noLicense: 'ライセンス未記載',
+  licenseMissing: 'audio.cpp のライセンス表にこのモデルがありません。商用利用の前にライセンスを確認してください',
+  licenseCommercial: (p: { name: string }) => `${p.name}：audio.cpp のライセンス表では商用利用可`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}：audio.cpp のライセンス表では非商用のみ`,
+  licenseConditional: (p: { name: string }) => `${p.name}：商用利用には条件があります。商用利用の前にライセンスを読んでください`,
+  licenseUnclear: (p: { name: string }) => `${p.name}：商用利用の可否がはっきりしません。商用利用の前にライセンスを確認してください`,
+  licenseCustom: '自分で指定したファイルのため、ライセンスは不明です。商用利用の前に確認してください',
+  customLicenseName: 'ライセンス不明',
+  unknownPackage: (p: { id: string }) => `audio.cpp のモデル目録に ${p.id} というパッケージはありません`,
+  builtinPackage: (p: { id: string }) => `${p.id} はすでに内蔵されています。モデル一覧からインストールしてください`,
+  idleFamily: (p: { family: string }) => `BaoCut はまだ ${p.family} モデルを使えません`,
+  noCustomFamily: (p: { family: string }) => `自分で指定したファイルは ${p.family} として追加できません。GGUF ファイル 1 つで動く音声合成モデルだけが対象です`,
+  notHfAddress: 'この住所を認識できません。Hugging Face 上のファイルのページ URL を貼るか、owner/repo/file.gguf の形で書いてください',
+  notGguf: '追加できるのは .gguf ファイルだけです。複数ファイルのモデルは一覧から追加してください',
+  notLfs: (p: { file: string }) => `${p.file} は Git LFS で保存されていないため、チェックサムを読み取れません。自分でダウンロードし、このコンピュータのファイルとして追加してください`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo} に ${p.file} というファイルはありません`,
+  unreachable: (p: { repo: string; detail: string }) => `ダウンロード元から ${p.repo} を読み取れませんでした（${p.detail}）`,
+  localUnreadable: 'このファイルを読み取れません。移動されたか、通常のファイルではない可能性があります',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} は内蔵のため、一覧から外せません`,
+  stillInstalled: '先にダウンロードしたモデルを削除してから、一覧から外してください',
+  installing: 'モデルをダウンロード中です。先にダウンロードを止めてください',
+};

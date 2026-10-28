@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const vi: ModelsAudioCppCatalogMessages = {
+  noLicense: 'Chưa ghi giấy phép',
+  licenseMissing: 'Bảng giấy phép của audio.cpp không có mô hình này; hãy kiểm tra giấy phép trước khi dùng thương mại',
+  licenseCommercial: (p: { name: string }) => `${p.name}: được dùng thương mại, theo bảng giấy phép của audio.cpp`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}: chỉ dùng phi thương mại, theo bảng giấy phép của audio.cpp`,
+  licenseConditional: (p: { name: string }) => `${p.name}: dùng thương mại có điều kiện; hãy đọc giấy phép trước khi dùng thương mại`,
+  licenseUnclear: (p: { name: string }) => `${p.name}: chưa rõ có được dùng thương mại không; hãy kiểm tra giấy phép trước khi dùng thương mại`,
+  licenseCustom: 'Bạn tự chọn tệp này nên chưa rõ giấy phép; hãy kiểm tra trước khi dùng thương mại',
+  customLicenseName: 'Chưa rõ giấy phép',
+  unknownPackage: (p: { id: string }) => `Danh mục mô hình của audio.cpp không có gói ${p.id}`,
+  builtinPackage: (p: { id: string }) => `${p.id} đã có sẵn; hãy cài từ danh sách mô hình`,
+  idleFamily: (p: { family: string }) => `BaoCut chưa dùng được mô hình ${p.family}`,
+  noCustomFamily: (p: { family: string }) => `Không thể thêm tệp của bạn dưới dạng ${p.family}: chỉ mô hình tổng hợp giọng nói chạy từ một tệp GGUF mới được`,
+  notHfAddress: 'Không phải địa chỉ tệp Hugging Face: hãy dán địa chỉ web của tệp, hoặc viết owner/repo/file.gguf',
+  notGguf: 'Chỉ thêm được tệp .gguf; mô hình nhiều tệp hãy thêm từ danh sách',
+  notLfs: (p: { file: string }) => `${p.file} không lưu bằng Git LFS nên không đọc được mã kiểm tra; hãy tự tải về rồi thêm dưới dạng tệp trên máy này`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo} không có tệp ${p.file}`,
+  unreachable: (p: { repo: string; detail: string }) => `Không đọc được ${p.repo} từ nguồn tải (${p.detail})`,
+  localUnreadable: 'Không đọc được tệp này: có thể tệp đã bị di chuyển, hoặc không phải tệp thông thường',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} có sẵn nên không thể bỏ khỏi danh sách`,
+  stillInstalled: 'Hãy xóa mô hình đã tải trước, rồi mới bỏ khỏi danh sách',
+  installing: 'Mô hình đang tải; hãy dừng tải trước',
+};

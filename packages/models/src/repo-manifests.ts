@@ -656,12 +656,17 @@ export function repoManifestFor(
  * 按 `platformKey` 这个平台的压缩包大小算，这个平台没有压缩包时 null。
  */
 export function weightBytes(
-  sources: ReadonlyArray<{ repo: string; revision: string; release?: ComponentRelease }>,
+  sources: ReadonlyArray<{ repo: string; revision: string; release?: ComponentRelease; local?: { size: number } }>,
   manifests: readonly RepoManifestSpec[] = REPO_MANIFESTS,
   platformKey: string = hostPlatformKey(),
 ): number | null {
   let total = 0;
   for (const source of sources) {
+    // 原地引用的本机文件：添加时记下的大小。
+    if (source.local) {
+      total += source.local.size;
+      continue;
+    }
     if (source.release) {
       const asset = releaseAsset(source.release, platformKey);
       if (!asset) return null;

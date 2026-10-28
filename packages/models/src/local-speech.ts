@@ -304,7 +304,7 @@ export function audioCppSpeechRequestOf(
   const options: Record<string, string | number | boolean> = {};
   const instructions = parameters.instructions?.trim() || null;
   let input = rendered.text;
-  if (instructions && family === 'voxcpm2') input = `(${instructions})${input}`;
+  if (instructions && (family === 'voxcpm2' || engine.instructionsAs === 'prefix')) input = `(${instructions})${input}`;
   else if (instructions) options.instruct = instructions;
 
   const language = engineLanguage(parameters.language, engine.languages);
@@ -331,6 +331,13 @@ export function audioCppSpeechRequestOf(
   if (parameters.cfg !== undefined) options.guidance_scale = parameters.cfg;
   if (parameters.steps !== undefined) options.num_inference_steps = parameters.steps;
   if (parameters.seed !== null) body.seed = parameters.seed;
+  // 添加的模型：只发上游规格列出的参数（引擎遇到不认得的参数会报错），参考原文同理。内置模型族的写法（上面按族名的分支）对同一族
+  // 的添加模型照样适用：引擎是同一个。
+  if (engine.options) {
+    const known = new Set(engine.options);
+    for (const key of Object.keys(options)) if (!known.has(key)) delete options[key];
+    if (body.reference_text !== undefined && !known.has('reference_text')) delete body.reference_text;
+  }
   return { body, dropped: rendered.dropped };
 }
 

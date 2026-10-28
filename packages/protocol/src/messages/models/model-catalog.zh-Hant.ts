@@ -16,4 +16,6 @@ export const zhHant: ModelsModelCatalogMessages = {
   notInstalled: (p: { repo: string }) => `模型 ${p.repo} 尚未安裝`,
   noFilesInSubdir: (p: { subdir: string }) => `模型的 ${p.subdir}/ 下沒有檔案`,
   engineMissing: '找不到內建的 audio.cpp 引擎：這台電腦沒有它的版本，或應用程式安裝不完整',
+  localFileMissing: (p: { file: string }) => `新增時引用的檔案 ${p.file} 不在原處了`,
+  localFileChanged: (p: { file: string }) => `檔案 ${p.file} 的大小與新增時不同了`,
 };

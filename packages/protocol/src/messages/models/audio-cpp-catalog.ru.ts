@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const ru: ModelsAudioCppCatalogMessages = {
+  noLicense: 'Лицензия не указана',
+  licenseMissing: 'В таблице лицензий audio.cpp этой модели нет; проверьте лицензию перед коммерческим использованием',
+  licenseCommercial: (p: { name: string }) => `${p.name}: коммерческое использование разрешено, по таблице лицензий audio.cpp`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}: только некоммерческое использование, по таблице лицензий audio.cpp`,
+  licenseConditional: (p: { name: string }) => `${p.name}: коммерческое использование с условиями; прочитайте лицензию перед коммерческим использованием`,
+  licenseUnclear: (p: { name: string }) => `${p.name}: неясно, разрешено ли коммерческое использование; проверьте лицензию перед коммерческим использованием`,
+  licenseCustom: 'Этот файл вы выбрали сами, его лицензия неизвестна; проверьте её перед коммерческим использованием',
+  customLicenseName: 'Лицензия неизвестна',
+  unknownPackage: (p: { id: string }) => `В каталоге моделей audio.cpp нет пакета ${p.id}`,
+  builtinPackage: (p: { id: string }) => `${p.id} уже встроен; установите его из списка моделей`,
+  idleFamily: (p: { family: string }) => `BaoCut пока не может использовать модели ${p.family}`,
+  noCustomFamily: (p: { family: string }) => `Собственный файл нельзя добавить как ${p.family}: подходят только модели синтеза речи из одного файла GGUF`,
+  notHfAddress: 'Это не адрес файла на Hugging Face: вставьте веб-адрес файла или напишите owner/repo/file.gguf',
+  notGguf: 'Добавлять можно только файлы .gguf; модели из нескольких файлов добавляйте из списка',
+  notLfs: (p: { file: string }) => `${p.file} хранится не в Git LFS, контрольную сумму прочитать нельзя; скачайте файл сами и добавьте его как файл на этом компьютере`,
+  fileNotFound: (p: { file: string; repo: string }) => `В ${p.repo} нет файла ${p.file}`,
+  unreachable: (p: { repo: string; detail: string }) => `Не удалось прочитать ${p.repo} из источника загрузки (${p.detail})`,
+  localUnreadable: 'Не удаётся прочитать файл: возможно, его переместили или это не обычный файл',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} встроен, его нельзя убрать из списка`,
+  stillInstalled: 'Сначала удалите загруженную модель, затем уберите её из списка',
+  installing: 'Модель загружается; сначала остановите загрузку',
+};

@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const tr: ModelsAudioCppCatalogMessages = {
+  noLicense: 'Lisans belirtilmemiş',
+  licenseMissing: 'audio.cpp lisans tablosunda bu model yok; ticari kullanımdan önce lisansını kontrol edin',
+  licenseCommercial: (p: { name: string }) => `${p.name}: audio.cpp lisans tablosuna göre ticari kullanıma izin var`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}: audio.cpp lisans tablosuna göre yalnızca ticari olmayan kullanım`,
+  licenseConditional: (p: { name: string }) => `${p.name}: ticari kullanım koşullara bağlı; ticari kullanımdan önce lisansı okuyun`,
+  licenseUnclear: (p: { name: string }) => `${p.name}: ticari kullanıma izin verilip verilmediği belirsiz; ticari kullanımdan önce lisansı kontrol edin`,
+  licenseCustom: 'Bu dosyayı kendiniz seçtiniz, lisansı bilinmiyor; ticari kullanımdan önce kontrol edin',
+  customLicenseName: 'Lisans bilinmiyor',
+  unknownPackage: (p: { id: string }) => `audio.cpp model kataloğunda ${p.id} paketi yok`,
+  builtinPackage: (p: { id: string }) => `${p.id} zaten yerleşik; model listesinden yükleyin`,
+  idleFamily: (p: { family: string }) => `BaoCut henüz ${p.family} modellerini kullanamıyor`,
+  noCustomFamily: (p: { family: string }) => `Kendi dosyanız ${p.family} olarak eklenemez: yalnızca tek bir GGUF dosyasıyla çalışan konuşma modelleri eklenebilir`,
+  notHfAddress: 'Bu bir Hugging Face dosya adresi değil: dosyanın web adresini yapıştırın ya da owner/repo/file.gguf yazın',
+  notGguf: 'Yalnızca .gguf dosyaları eklenebilir; çok dosyalı modelleri listeden ekleyin',
+  notLfs: (p: { file: string }) => `${p.file} Git LFS ile saklanmıyor, sağlama toplamı okunamıyor; kendiniz indirip bu bilgisayardaki dosya olarak ekleyin`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo} içinde ${p.file} dosyası yok`,
+  unreachable: (p: { repo: string; detail: string }) => `${p.repo} indirme kaynağından okunamadı (${p.detail})`,
+  localUnreadable: 'Bu dosya okunamıyor: taşınmış olabilir ya da normal bir dosya değil',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} yerleşik olduğu için listeden çıkarılamaz`,
+  stillInstalled: 'Önce indirilen modeli silin, sonra listeden çıkarın',
+  installing: 'Model indiriliyor; önce indirmeyi durdurun',
+};

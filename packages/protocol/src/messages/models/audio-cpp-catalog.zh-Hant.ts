@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const zhHant: ModelsAudioCppCatalogMessages = {
+  noLicense: '未標授權',
+  licenseMissing: 'audio.cpp 的授權表裡沒有這個模型，商用前請先核實它的授權',
+  licenseCommercial: (p: { name: string }) => `${p.name}：依 audio.cpp 的授權表，可以商用`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}：依 audio.cpp 的授權表，只限非商業用途`,
+  licenseConditional: (p: { name: string }) => `${p.name}：商用有附加條件，商用前請先讀授權`,
+  licenseUnclear: (p: { name: string }) => `${p.name}：能否商用沒有寫清楚，商用前請先核實授權`,
+  licenseCustom: '這是你自己指定的檔案，授權不明，商用前請先核實',
+  customLicenseName: '授權不明',
+  unknownPackage: (p: { id: string }) => `audio.cpp 的模型目錄裡沒有 ${p.id} 這個套件`,
+  builtinPackage: (p: { id: string }) => `${p.id} 已經內建，在模型列表裡安裝即可`,
+  idleFamily: (p: { family: string }) => `BaoCut 暫時用不上 ${p.family} 模型`,
+  noCustomFamily: (p: { family: string }) => `自己指定的檔案不能按 ${p.family} 新增：只有用一個 GGUF 檔案就能跑的語音合成模型可以`,
+  notHfAddress: '認不出這個地址：貼上 Hugging Face 上那個檔案的網頁地址，或寫成 使用者/儲存庫/檔案.gguf',
+  notGguf: '只能加 .gguf 檔案；整套多檔案的模型請從列表裡加',
+  notLfs: (p: { file: string }) => `${p.file} 沒有用 Git LFS 存放，讀不到校驗值；請自行下載後按「這台電腦上的檔案」新增`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo} 裡沒有 ${p.file} 這個檔案`,
+  unreachable: (p: { repo: string; detail: string }) => `從下載來源讀不到 ${p.repo}（${p.detail}）`,
+  localUnreadable: '讀不到這個檔案：它可能被移走了，或者不是一般檔案',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} 是內建的，不能移出列表`,
+  stillInstalled: '先刪除下載的模型，再移出列表',
+  installing: '模型正在下載，請先停止下載',
+};

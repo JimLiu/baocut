@@ -5,4 +5,5 @@ export const vi: ModelsModelInstallerMessages = {
   noManifest: (p: { repo: string; revision: string }) => `Không có bản kê có sẵn cho ${p.repo}@${p.revision}`,
   untrustedManifest: (p: { repo: string }) => `Bản kê có sẵn của ${p.repo} thiếu sha256 đáng tin cậy`,
   noBundle: (p: { bundleId: string }) => `Không có gói mô hình này: ${p.bundleId}`,
+  localFileGone: (p: { file: string }) => `Tệp ${p.file} không còn ở chỗ lúc thêm; hãy thêm lại từ vị trí mới`,
 };

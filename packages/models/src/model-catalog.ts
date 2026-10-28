@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type {
+  ModelAddedInfo,
   ModelBackend,
   ModelBundleReason,
   ModelBundleState,
@@ -30,6 +31,7 @@ import { stagedBytes } from './model-staging.ts';
 import { modelDetail, type ModelText } from './model-text.ts';
 import { hostPlatformKey, releaseAsset, releaseDir, releaseStagedBytes } from './release-component.ts';
 import { REPO_MANIFESTS, repoManifestFor, weightBytes, type RepoManifestSpec } from './repo-manifests.ts';
+import type { AddedBundle } from './audio-cpp-catalog.ts';
 import type { BundleComponent, ModelBundle, ModelFiles } from './worker-contract.ts';
 
 /**
@@ -51,6 +53,10 @@ import type { BundleComponent, ModelBundle, ModelFiles } from './worker-contract
  *
  * audio.cpp 模型包（`backend: 'audio-cpp'`，本地语音合成与音乐）不经 Model Worker，由随应用分发的 audio.cpp 引擎执行：找不到引擎
  * （`engineAvailable` 为 false：这个平台没有内置引擎，或开发时还没下载）时已安装的模型包是 `error` / `unsupported`。
+ *
+ * 添加的 audio.cpp 模型（`register` / `unregister`，架构设计 §6.3「添加 audio.cpp 模型」）随时登记与撤下，带自己的仓库清单
+ * （`manifests` 与安装器共用）。原地引用的本机文件（`BundleComponentSource.local`）没有清单：文件存在、大小与添加时一致就算装好，
+ * 组件目录是文件所在的文件夹，校验只核对大小。
  */
 
 export const MANIFEST_FILE = '.bcut-manifest.json';
@@ -192,6 +198,9 @@ export class ModelCatalog {
   readonly #install = new Map<string, ModelInstallProgress>();
   readonly #listeners = new Set<(bundleId: string) => void>();
   readonly #manifests: readonly RepoManifestSpec[];
+  /** 添加的模型包的仓库清单（`register` 登记），按 `repo@revision`。 */
+  readonly #addedManifests = new Map<string, RepoManifestSpec>();
+  readonly #addedInfo = new Map<string, ModelAddedInfo>();
   readonly #locations: ModelLocations;
   /** Worker 握手报告的设备（按后端，首选的在前）：candle 模型包据此报告并使用 `cuda` 或 `cpu`，GGML 的 `cuda` / `vulkan` 或 `cpu`。 */
   readonly #workerDevices = new Map<ModelBackend, string>();
@@ -226,13 +235,53 @@ export class ModelCatalog {
     return this.#platformKey;
   }
 
+  /** 内置的仓库清单加上添加的模型包的清单：安装器与大小估计据此找组件要下载的文件。 */
+  get manifests(): readonly RepoManifestSpec[] {
+    return this.#addedManifests.size === 0 ? this.#manifests : [...this.#manifests, ...this.#addedManifests.values()];
+  }
+
+  /**
+   * 登记一个添加的模型包（启动时从添加记录读出，或 `models.add` 刚加的）。同 ID 的已登记时换掉。调用方随后刷新能力视图。
+   */
+  register(added: AddedBundle): void {
+    this.#bundles.set(added.definition.bundleId, added.definition);
+    this.#addedInfo.set(added.definition.bundleId, added.info);
+    if (added.manifest) this.#addedManifests.set(`${added.manifest.repo}@${added.manifest.revision}`, added.manifest);
+    this.changed(added.definition.bundleId);
+  }
+
+  /** 撤下一个添加的模型包：清掉它的运行、停用、校验与安装进度的记录，通知监听者（`status` 从此返回 null）。 */
+  unregister(bundleId: string): void {
+    const def = this.#bundles.get(bundleId);
+    if (!def || !this.#addedInfo.has(bundleId)) return;
+    this.#bundles.delete(bundleId);
+    this.#addedInfo.delete(bundleId);
+    for (const [, source] of componentsOf(def)) {
+      const key = `${source.repo}@${source.revision}`;
+      if (![...this.#bundles.values()].some((b) => componentsOf(b).some(([, s]) => `${s.repo}@${s.revision}` === key))) {
+        this.#addedManifests.delete(key);
+      }
+    }
+    this.#runtime.delete(bundleId);
+    this.#blocked.delete(bundleId);
+    this.#verified.delete(bundleId);
+    this.#install.delete(bundleId);
+    this.changed(bundleId);
+  }
+
+  /** 添加的模型包从哪里加的；内置的模型包 null。 */
+  addedInfo(bundleId: string): ModelAddedInfo | null {
+    return this.#addedInfo.get(bundleId) ?? null;
+  }
+
   /** 发布页组件在这台主机上的压缩包；不是发布页组件、或这个平台没有压缩包时 null。 */
   releaseAsset(source: Pick<BundleComponentSource, 'release'>): ComponentReleaseAsset | null {
     return source.release ? releaseAsset(source.release, this.#platformKey) : null;
   }
 
   /** 组件的目录：模型仓库是 `<root>/<owner>/<repo>/`，发布页组件是 `<toolsDir>/<名字>/<版本>/`。 */
-  componentDir(source: Pick<BundleComponentSource, 'repo' | 'release'>): string {
+  componentDir(source: Pick<BundleComponentSource, 'repo' | 'release' | 'local'>): string {
+    if (source.local) return path.dirname(source.local.path);
     return source.release ? releaseDir(this.toolsDir, source.release) : this.repoDir(source.repo);
   }
 
@@ -322,7 +371,7 @@ export class ModelCatalog {
   /**
    * 一个组件（仓库与版本）在磁盘上齐不齐：清单、版本、每个文件存在且大小相符。发布页组件还要这个平台有压缩包。
    */
-  async componentInstalled(source: Pick<BundleComponentSource, 'repo' | 'revision' | 'release'>): Promise<boolean> {
+  async componentInstalled(source: Pick<BundleComponentSource, 'repo' | 'revision' | 'release' | 'local'>): Promise<boolean> {
     return (await this.#checkComponent(source)).ok;
   }
 
@@ -379,7 +428,7 @@ export class ModelCatalog {
     const def = this.#bundles.get(bundleId);
     if (!def || (def.capability !== 'transcribe' && def.capability !== 'separate' && def.capability !== 'diarize')) return null;
     const sources = (await this.#workerComponents(def)).map(([, source]) => source);
-    const bytes = weightBytes(sources, this.#manifests);
+    const bytes = weightBytes(sources, this.manifests);
     return bytes !== null && def.capability === 'separate' ? bytes * SEPARATE_LOADED_WEIGHT_FACTOR : bytes;
   }
 
@@ -395,13 +444,13 @@ export class ModelCatalog {
     const def = this.#bundles.get(bundleId);
     if (def?.capability === 'embed') {
       // LiteRT-LM 在 CPU 上：模型文件与 C 库映射进内存，加上推理的工作区，计在内存。
-      const bytes = weightBytes(requiredSources(def), this.#manifests, this.#platformKey);
+      const bytes = weightBytes(requiredSources(def), this.manifests, this.#platformKey);
       if (bytes === null) return null;
       const vision = def.embedding?.vision ? EMBEDDING_VISION_OVERHEAD_BYTES : 0;
       return { bytes: bytes + EMBEDDING_WORKER_OVERHEAD_BYTES + vision, pool: 'memory' };
     }
     if (def?.capability === 'synthesize') {
-      const weights = weightBytes(requiredSources(def), this.#manifests, this.#platformKey);
+      const weights = weightBytes(requiredSources(def), this.manifests, this.#platformKey);
       const bytes = def.speech?.residentBytes ?? (weights === null ? null : Math.ceil(weights * SPEECH_LOADED_WEIGHT_FACTOR));
       return bytes === null ? null : { bytes, pool: this.#unifiedMemory() ? 'gpuMemory' : 'memory' };
     }
@@ -410,20 +459,20 @@ export class ModelCatalog {
     const sources = (await this.#workerComponents(def)).map(([, source]) => source);
     if (def.backend === 'ggml') {
       const [asr, rest] = [sources.filter((s) => s.family === 'whisper-ggml'), sources.filter((s) => s.family !== 'whisper-ggml')];
-      const whisper = weightBytes(asr, this.#manifests);
+      const whisper = weightBytes(asr, this.manifests);
       const candle = this.#candleBytes('cpu', rest);
       if (whisper === null || candle === null) return null;
       return { bytes: whisper + candle, pool: this.#device(def) !== 'cpu' ? 'gpuMemory' : 'memory' };
     }
     if (def.backend !== 'candle') {
-      const bytes = weightBytes(sources, this.#manifests);
+      const bytes = weightBytes(sources, this.manifests);
       if (bytes === null) return null;
       return { bytes: def.capability === 'separate' ? bytes * SEPARATE_LOADED_WEIGHT_FACTOR : bytes, pool: 'gpuMemory' };
     }
     const device = this.#device(def);
     const pool = device === 'cuda' ? 'gpuMemory' : 'memory';
     if (def.capability === 'separate') {
-      const bytes = weightBytes(sources, this.#manifests);
+      const bytes = weightBytes(sources, this.manifests);
       return bytes === null ? null : { bytes: bytes * SEPARATE_LOADED_WEIGHT_FACTOR, pool };
     }
     const bytes = this.#candleBytes(device, sources);
@@ -434,7 +483,7 @@ export class ModelCatalog {
   #candleBytes(device: string, sources: readonly BundleComponentSource[]): number | null {
     const components: Parameters<typeof candleResidentBytes>[1][number][] = [];
     for (const source of sources) {
-      const bytes = weightBytes([source], this.#manifests);
+      const bytes = weightBytes([source], this.manifests);
       if (bytes === null) return null;
       components.push({
         bytes,
@@ -520,7 +569,8 @@ export class ModelCatalog {
       device: this.#device(def),
       ...(def.label ? { label: def.label } : {}),
       ...(def.license ? { license: def.license } : {}),
-      estimatedBytes: weightBytes(requiredSources(def), this.#manifests, this.#platformKey),
+      estimatedBytes: weightBytes(requiredSources(def), this.manifests, this.#platformKey),
+      ...(this.#addedInfo.has(bundleId) ? { added: { ...this.#addedInfo.get(bundleId)! } } : {}),
     };
     const checks = await Promise.all(
       componentsOf(def).map(async ([name, source]) => ({ name, source, check: await this.#checkComponent(source) })),
@@ -530,11 +580,12 @@ export class ModelCatalog {
       repo: source.repo,
       revision: source.revision,
       ...(source.release ? { origin: 'github-release' as const } : {}),
+      ...(source.local ? { origin: 'local-file' as const, file: source.local.path } : {}),
       state: check.ok ? 'installed' : 'missing',
       bytes: check.ok ? (check.bytes ?? 0) : null,
-      estimatedBytes: weightBytes([source], this.#manifests, this.#platformKey),
+      estimatedBytes: weightBytes([source], this.manifests, this.#platformKey),
       sharedWith: this.#sharers(bundleId, source),
-      ...(!source.release && this.locationOf(source.repo) ? { location: this.locationOf(source.repo)! } : {}),
+      ...(!source.release && !source.local && this.locationOf(source.repo) ? { location: this.locationOf(source.repo)! } : {}),
       ...(source.optional ? { optional: true } : {}),
       ...(source.license ? { license: source.license } : {}),
     }));
@@ -595,6 +646,12 @@ export class ModelCatalog {
     // 没装好的可选组件不交给 Worker；装好了的「说话人区分」模型包的组件一并交给它。
     for (const [name, source] of await this.#workerComponents(def)) {
       const dir = this.componentDir(source);
+      if (source.local) {
+        // 原地引用的本机文件：没有清单与摘要，交出文件夹与这一个文件（audio.cpp 引擎直接读，不经 Worker 的摘要核对）。
+        if (!(await this.#checkComponent(source)).ok) throw new Error(M.notInstalled({ repo: path.basename(source.local.path) }).text);
+        components[name] = { family: source.family, revision: source.revision, dir, files: [{ path: path.basename(source.local.path), sha256: '', byteLength: source.local.size }] };
+        continue;
+      }
       const manifest = await readManifest(dir);
       if (!manifest || manifest.revision !== source.revision) throw new Error(M.notInstalled({ repo: source.repo }).text);
       const files: ModelFiles['files'] = manifest.files.map((f) => ({ path: f.path, sha256: f.sha256, byteLength: f.size }));
@@ -622,6 +679,14 @@ export class ModelCatalog {
     const problems: VerifyResult['problems'] = [];
     for (const [, source] of componentsOf(def)) {
       const dir = this.componentDir(source);
+      if (source.local) {
+        // 原地引用的本机文件：添加时没有算摘要（几 GB 的文件），只核对还在、大小没变。
+        const stat = await fs.stat(source.local.path).catch(() => null);
+        const file = path.basename(source.local.path);
+        if (!stat?.isFile()) problems.push({ repo: source.repo, path: file, problem: 'missing' });
+        else if (stat.size !== source.local.size) problems.push({ repo: source.repo, path: file, problem: 'size-mismatch' });
+        continue;
+      }
       const manifest = await readManifest(dir);
       // 没装的可选组件不算问题。
       if (source.optional && manifest?.revision !== source.revision) continue;
@@ -673,7 +738,14 @@ export class ModelCatalog {
     this.changed(bundleId);
   }
 
-  async #checkComponent(source: Pick<BundleComponentSource, 'repo' | 'revision' | 'release'>): Promise<DiskCheck> {
+  async #checkComponent(source: Pick<BundleComponentSource, 'repo' | 'revision' | 'release' | 'local'>): Promise<DiskCheck> {
+    if (source.local) {
+      const file = path.basename(source.local.path);
+      const stat = await fs.stat(source.local.path).catch(() => null);
+      if (!stat?.isFile()) return { ok: false, reason: 'missing-file', detail: M.localFileMissing({ file }) };
+      if (stat.size !== source.local.size) return { ok: false, reason: 'size-mismatch', detail: M.localFileChanged({ file }) };
+      return { ok: true, bytes: stat.size };
+    }
     if (source.release && !this.releaseAsset(source)) {
       return { ok: false, reason: 'unsupported', detail: E.runtimeNoBuild({ platform: this.#platformKey }) };
     }
@@ -699,7 +771,7 @@ export class ModelCatalog {
   /** 同样用到这个组件（同一仓库与版本）的其他模型包。 */
   #sharers(bundleId: string, source: BundleComponentSource): string[] {
     return [...this.#bundles.values()]
-      .filter((b) => b.bundleId !== bundleId && componentsOf(b).some(([, s]) => s.repo === source.repo && s.revision === source.revision))
+      .filter((b) => !source.local && b.bundleId !== bundleId && componentsOf(b).some(([, s]) => s.repo === source.repo && s.revision === source.revision))
       .map((b) => b.bundleId);
   }
 
@@ -708,6 +780,7 @@ export class ModelCatalog {
     let received = 0;
     let total: number | null = 0;
     for (const source of sources) {
+      if (source.local) continue;
       if (source.release) {
         const asset = this.releaseAsset(source);
         if (asset) received += await releaseStagedBytes(this.toolsDir, source.release, asset);
@@ -715,7 +788,7 @@ export class ModelCatalog {
         continue;
       }
       received += await stagedBytes(this.repoRoot(source.repo), source.repo, source.revision);
-      const spec = repoManifestFor(source.repo, source.revision, this.#manifests);
+      const spec = repoManifestFor(source.repo, source.revision, this.manifests);
       const sizes = spec?.files.map((f) => f.size) ?? [null];
       total = total === null || sizes.some((size) => size === null) ? null : total + sizes.reduce<number>((a, b) => a + (b ?? 0), 0);
     }

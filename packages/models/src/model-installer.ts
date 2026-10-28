@@ -19,7 +19,7 @@ import {
   releaseStagingDir,
   releaseUrl,
 } from './release-component.ts';
-import { REPO_MANIFESTS, repoManifestFor, type RepoManifestSpec } from './repo-manifests.ts';
+import { repoManifestFor, type RepoManifestSpec } from './repo-manifests.ts';
 import { extractToolArchive } from './tool-archive.ts';
 
 /**
@@ -119,20 +119,25 @@ export interface InstallOutcome {
 export class ModelInstaller {
   readonly #catalog: ModelCatalog;
   readonly #options: ModelInstallerOptions;
-  readonly #manifests: readonly RepoManifestSpec[];
+  /** 换掉的仓库清单（测试用）；没给时用模型目录的（内置的加上添加的模型包的，`ModelCatalog.manifests`）。 */
+  readonly #manifestOverride: readonly RepoManifestSpec[] | null;
   readonly #freeBytes: (dir: string) => Promise<number | null>;
   readonly #fetch: typeof fetch;
 
   constructor(options: ModelInstallerOptions) {
     this.#catalog = options.catalog;
     this.#options = options;
-    this.#manifests = options.manifests ?? REPO_MANIFESTS;
+    this.#manifestOverride = options.manifests ?? null;
     this.#freeBytes = options.freeBytes ?? diskFreeBytes;
     this.#fetch = options.fetch ?? fetch;
   }
 
   get root(): string {
     return this.#catalog.root;
+  }
+
+  #manifests(): readonly RepoManifestSpec[] {
+    return this.#manifestOverride ?? this.#catalog.manifests;
   }
 
   async plan(
@@ -148,7 +153,7 @@ export class ModelInstaller {
     // 暂停在某处的下载在原处续传：第一个这样的仓库决定整个计划放哪里。
     let fixed: string | null = null;
     for (const [, source] of componentsOf(def)) {
-      if (source.release || fixed) continue;
+      if (source.release || source.local || fixed) continue;
       const at = this.#catalog.repoRoot(source.repo);
       if (!repair && (await stagedBytes(at, source.repo, source.revision)) > 0 && !(await this.#catalog.componentInstalled(source))) fixed = at;
     }
@@ -161,7 +166,9 @@ export class ModelInstaller {
         ? options.endpoints[key]! : source.release ? toolsEndpoint : endpoint;
       endpoints[key] = selected;
       components.push({
-        ...(source.release
+        ...(source.local
+          ? await this.#planLocal(component, source)
+          : source.release
           ? await this.#planRelease(component, source, repair, selected)
           : await this.#planComponent(component, source, repair, selected ?? endpoint, await this.#rootFor(source, repair, target))),
         endpoint: selected,
@@ -310,6 +317,8 @@ export class ModelInstaller {
     const removed: string[] = [];
     const kept: Array<{ repo: string; usedBy: string[] }> = [];
     for (const [, source] of componentsOf(def)) {
+      // 原地引用的本机文件不是 BaoCut 下载的，删除模型包从不动它（只从列表移除，见 `models.unlist`）。
+      if (source.local) continue;
       const holders = await this.#holders(bundleId, source, record.bundles);
       if (holders.length > 0) {
         kept.push({ repo: source.repo, usedBy: holders });
@@ -339,7 +348,7 @@ export class ModelInstaller {
   async discard(bundleId: string, busy: (source: BundleComponentSource) => boolean = () => false): Promise<void> {
     const def = this.#definition(bundleId);
     for (const [, source] of componentsOf(def)) {
-      if (busy(source)) continue;
+      if (busy(source) || source.local) continue;
       await this.#discardStaging(source);
       // 还没发布就丢掉了：位置记录跟着清掉，下次下载重新选。
       if (!source.release && !(await this.#catalog.componentInstalled(source))) await this.#catalog.setLocation(source.repo, null);
@@ -355,7 +364,18 @@ export class ModelInstaller {
     this.#catalog.changed(bundleId);
   }
 
+  /**
+   * 原地引用的本机文件：没有可下载的来源，装好了就不动（修复也不动），文件不在或变了时拒绝，要重新添加（架构设计 §6.3）。
+   */
+  async #planLocal(component: string, source: BundleComponentSource): Promise<PlannedComponent> {
+    if (!(await this.#catalog.componentInstalled(source))) {
+      throw new DownloadError('MODEL_MANIFEST_INCOMPLETE', M.localFileGone({ file: path.basename(source.local!.path) }), { repo: source.repo });
+    }
+    return { component, source, action: 'keep', fetch: [], reuse: [], files: [], staged: 0, bytes: 0, estimatedBytes: 0 };
+  }
+
   async #discardStaging(source: BundleComponentSource): Promise<void> {
+    if (source.local) return;
     if (source.release) await discardReleaseStaging(this.#catalog.toolsDir, source.release);
     else await discardStaging(this.#catalog.repoRoot(source.repo), source.repo, source.revision);
   }
@@ -495,7 +515,7 @@ export class ModelInstaller {
       root,
     });
     if (!repair && (await this.#catalog.componentInstalled(source))) return keep();
-    const spec = repoManifestFor(source.repo, source.revision, this.#manifests);
+    const spec = repoManifestFor(source.repo, source.revision, this.#manifests());
     if (!spec) {
       throw new DownloadError('MODEL_MANIFEST_INCOMPLETE', M.noManifest({ repo: source.repo, revision: source.revision.slice(0, 7) }), {
         repo: source.repo,
@@ -567,7 +587,7 @@ export class ModelInstaller {
 
   /** 下载来源的仓库：清单的 `sourceRepo`，没写时就是登记的 `repo`。 */
   #sourceRepo(source: BundleComponentSource): string {
-    return repoManifestFor(source.repo, source.revision, this.#manifests)?.sourceRepo ?? source.repo;
+    return repoManifestFor(source.repo, source.revision, this.#manifests())?.sourceRepo ?? source.repo;
   }
 
   /** 下载失败时记进 `details` 的那一部分：组件名、仓库、来源种类与实际连的基址（不覆盖下载器已经写的键）。 */

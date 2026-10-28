@@ -117,7 +117,7 @@ export function applyJobsEvent(state: JobsSnapshot, event: JobsEvent): JobsSnaps
   }
 }
 
-/** 模型：能力视图整个替换；一个模型包的新状态按 `bundleId` 替换（没有时追加）。 */
+/** 模型：能力视图整个替换；一个模型包的新状态按 `bundleId` 替换（没有时追加），移出列表的去掉。 */
 export function applyModelsEvent(state: ModelsSnapshot, event: ModelsEvent): ModelsSnapshot {
   switch (event.type) {
     case 'capabilities.updated':
@@ -129,6 +129,8 @@ export function applyModelsEvent(state: ModelsSnapshot, event: ModelsEvent): Mod
       bundles[index] = event.bundle;
       return { ...state, bundles };
     }
+    case 'bundle.removed':
+      return { ...state, bundles: state.bundles.filter((b) => b.bundleId !== event.bundleId) };
   }
 }
 

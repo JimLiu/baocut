@@ -32,6 +32,7 @@
     "build:engine": "node tools/build-engine.mjs",
     "build:wasm": "node tools/build-wasm.mjs",
     "build:audiocpp": "node --experimental-strip-types tools/fetch-audiocpp.ts",
+    "build:audiocpp-catalog": "node --experimental-strip-types tools/audio-cpp-catalog.ts",
     "build:web": "npm run build --workspace=@baocut/web",
     "build:slides-editor": "npm run build --workspace=@baocut/slides-editor",
     "build:design-editor": "npm run build --workspace=@baocut/design-editor",

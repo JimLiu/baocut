@@ -20,6 +20,7 @@ const en = {
   noManifest: (p: { repo: string; revision: string }) => `There is no built-in manifest for ${p.repo}@${p.revision}`,
   untrustedManifest: (p: { repo: string }) => `The built-in manifest for ${p.repo} lacks a trusted sha256`,
   noBundle: (p: { bundleId: string }) => `No such model bundle: ${p.bundleId}`,
+  localFileGone: (p: { file: string }) => `The file ${p.file} is no longer where it was added; add it again from its new place`,
 };
 
 export type ModelsModelInstallerMessages = typeof en;

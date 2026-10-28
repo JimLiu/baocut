@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const pl: ModelsAudioCppCatalogMessages = {
+  noLicense: 'Brak podanej licencji',
+  licenseMissing: 'Tabela licencji audio.cpp nie obejmuje tego modelu; sprawdź licencję przed użyciem komercyjnym',
+  licenseCommercial: (p: { name: string }) => `${p.name}: użycie komercyjne dozwolone, według tabeli licencji audio.cpp`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}: tylko użycie niekomercyjne, według tabeli licencji audio.cpp`,
+  licenseConditional: (p: { name: string }) => `${p.name}: użycie komercyjne ma warunki; przeczytaj licencję przed użyciem komercyjnym`,
+  licenseUnclear: (p: { name: string }) => `${p.name}: nie wiadomo, czy użycie komercyjne jest dozwolone; sprawdź licencję przed użyciem komercyjnym`,
+  licenseCustom: 'Ten plik wybrano ręcznie, więc licencja jest nieznana; sprawdź ją przed użyciem komercyjnym',
+  customLicenseName: 'Licencja nieznana',
+  unknownPackage: (p: { id: string }) => `Katalog modeli audio.cpp nie zawiera pakietu ${p.id}`,
+  builtinPackage: (p: { id: string }) => `${p.id} jest już wbudowany; zainstaluj go z listy modeli`,
+  idleFamily: (p: { family: string }) => `BaoCut nie obsługuje jeszcze modeli ${p.family}`,
+  noCustomFamily: (p: { family: string }) => `Własnego pliku nie można dodać jako ${p.family}: tylko modele syntezy mowy działające z jednego pliku GGUF`,
+  notHfAddress: 'To nie jest adres pliku Hugging Face: wklej adres strony pliku albo wpisz owner/repo/file.gguf',
+  notGguf: 'Można dodać tylko pliki .gguf; modele z wielu plików dodaj z listy',
+  notLfs: (p: { file: string }) => `${p.file} nie jest przechowywany w Git LFS, więc nie da się odczytać sumy kontrolnej; pobierz go samodzielnie i dodaj jako plik z tego komputera`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo} nie zawiera pliku ${p.file}`,
+  unreachable: (p: { repo: string; detail: string }) => `Nie udało się odczytać ${p.repo} ze źródła pobierania (${p.detail})`,
+  localUnreadable: 'Nie można odczytać tego pliku: mógł zostać przeniesiony albo nie jest zwykłym plikiem',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} jest wbudowany, więc nie można go usunąć z listy`,
+  stillInstalled: 'Najpierw usuń pobrany model, a potem usuń go z listy',
+  installing: 'Model jest pobierany; najpierw zatrzymaj pobieranie',
+};

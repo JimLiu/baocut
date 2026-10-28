@@ -5,4 +5,5 @@ export const ja: ModelsModelInstallerMessages = {
   noManifest: (p: { repo: string; revision: string }) => `${p.repo}@${p.revision} の内蔵マニフェストがありません`,
   untrustedManifest: (p: { repo: string }) => `${p.repo} の内蔵マニフェストには信頼できる sha256 がありません`,
   noBundle: (p: { bundleId: string }) => `そのモデルバンドルはありません：${p.bundleId}`,
+  localFileGone: (p: { file: string }) => `ファイル ${p.file} が追加時の場所にありません。新しい場所から追加し直してください`,
 };

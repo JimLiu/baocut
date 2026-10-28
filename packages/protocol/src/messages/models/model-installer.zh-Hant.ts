@@ -5,4 +5,5 @@ export const zhHant: ModelsModelInstallerMessages = {
   noManifest: (p: { repo: string; revision: string }) => `沒有 ${p.repo}@${p.revision} 的內建資訊清單`,
   untrustedManifest: (p: { repo: string }) => `${p.repo} 的內建資訊清單缺少可信的 sha256`,
   noBundle: (p: { bundleId: string }) => `沒有這個模型套件：${p.bundleId}`,
+  localFileGone: (p: { file: string }) => `檔案 ${p.file} 不在新增時的位置了，請從新位置重新新增`,
 };

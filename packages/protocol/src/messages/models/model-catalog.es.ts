@@ -4,4 +4,6 @@ export const es: ModelsModelCatalogMessages = {
  incomplete: (p) => `Faltan componentes: ${p.names}. Instalar descarga solo los componentes que faltan`, workerMissing: 'No se encontró Model Worker (model-worker)', noManifest: (p) => `${p.repo} no tiene manifiesto`, wrongRevision: (p) => `La versión de ${p.repo} no es ${p.revision}`,
  missingFile: (p) => `Falta ${p.file} en ${p.repo}`, sizeMismatch: (p) => `El tamaño de ${p.file} en ${p.repo} no coincide`, noBundle: (p) => `No existe ese paquete de modelos: ${p.bundleId}`, moving: 'La carpeta de modelos se está moviendo', notInstalled: (p) => `El modelo ${p.repo} no está instalado`, noFilesInSubdir: (p) => `El modelo no tiene archivos en ${p.subdir}/`,
   engineMissing: 'No se encontró el motor audio.cpp integrado: no hay versión para este equipo o la instalación de la aplicación está incompleta',
+  localFileMissing: (p: { file: string }) => `El archivo ${p.file} ya no está donde se añadió`,
+  localFileChanged: (p: { file: string }) => `El archivo ${p.file} cambió de tamaño desde que se añadió`,
 };

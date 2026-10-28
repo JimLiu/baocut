@@ -32,7 +32,7 @@ const YUE2_LICENSE: ModelLicense = {
 /** 引擎的语义 token 帧率：YuE2 每秒 25 个语义 token（上游 `semantic_max_tokens` 的换算依据）。 */
 export const YUE2_SEMANTIC_TOKENS_PER_SEC = 25;
 
-const YUE2_3B_Q8: BundleDefinition = {
+export const YUE2_3B_Q8: BundleDefinition = {
   bundleId: 'yue2-3b@audio-cpp-q8',
   capability: 'music',
   backend: 'audio-cpp',

@@ -85,6 +85,8 @@ import type {
   ModelInstallBatchParams,
   ModelInstallBatchResult,
   ModelRemoveResult,
+  ModelAddParams,
+  AudioCppAddableFamily,
   ModelRef,
   ModelsDirChangeResult,
   ModelsDirInfo,
@@ -971,6 +973,25 @@ export interface RpcMethods {
    * 或 Worker 正在加载、执行）时 `conflict`（`MODEL_IN_USE`，`details.jobIds`）；空闲时先卸载 Worker。
    */
   'models.remove': { params: { bundleId: string }; result: ModelRemoveResult };
+  /**
+   * 能添加的 audio.cpp 模型（架构设计 §6.3）：随应用的 audio.cpp 模型目录里每一族的分组、暂时用不上的原因、特点、许可与能加的包，
+   * 包按模型列表标「已内置」「已添加」。`custom` 是自己指定文件时能选的模型族。
+   */
+  'models.addable': { params: Record<string, never>; result: { engine: string; families: AudioCppAddableFamily[]; custom: string[] } };
+  /**
+   * 添加一个 audio.cpp 模型包，加进模型列表（不下载；下载走 `models.install`）。`catalog`：目录里的一个包；`repo-file`：Hugging
+   * Face 上的一个 GGUF（`address` 是文件网址或 `<owner>/<repo>/<路径>`），Runtime 从下载来源读出提交、大小与 sha256，不是 LFS 文件
+   * 时拒绝；`local-file`：这台电脑上的一个 GGUF，原地引用、不复制，加完就装好。同一个包或文件加过时返回已有的模型包。
+   * 不认识的包、内置的包、暂时用不上的族、不能自己指定文件的族、不是 GGUF 或读不到的文件 `invalid-request`（`MODEL_ADD_REFUSED`）；
+   * 下载来源读不到 `conflict`（`MODEL_ADD_UNREACHABLE`）。
+   */
+  'models.add': { params: ModelAddParams; result: { bundleId: string; bundle: ModelBundleStatus } };
+  /**
+   * 把添加的模型包移出列表。下载的模型要先 `models.remove`（还装着时 `conflict`，`MODEL_INSTALLED`）；原地引用的本机文件直接移出，
+   * 不删文件（在用时同 `models.remove` 是 `conflict`，`MODEL_IN_USE`）。正在安装时 `conflict`（`MODEL_IN_USE`）；
+   * 内置的模型包 `invalid-request`（`MODEL_ADD_REFUSED`）。移出后发 `bundle.removed`。
+   */
+  'models.unlist': { params: { bundleId: string }; result: { bundleId: string } };
   /**
    * 修复一个模型包：逐个文件校验 sha256，只重新下载缺失或损坏的文件。两步确认与 `models.install` 相同（计划里的字节数
    * 要在校验之后才知道，第一步会把文件读一遍）。

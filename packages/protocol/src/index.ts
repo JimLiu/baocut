@@ -4,6 +4,7 @@ export * from './events.ts';
 export * from './methods.ts';
 export * from './video.ts';
 export * from './models.ts';
+export * from './hf-address.ts';
 export * from './jobs.ts';
 export * from './resources.ts';
 export * from './grants.ts';

@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const de: ModelsAudioCppCatalogMessages = {
+  noLicense: 'Keine Lizenz angegeben',
+  licenseMissing: 'Die Lizenztabelle von audio.cpp führt dieses Modell nicht; prüfe die Lizenz vor kommerzieller Nutzung',
+  licenseCommercial: (p: { name: string }) => `${p.name}: kommerzielle Nutzung erlaubt, laut Lizenztabelle von audio.cpp`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}: nur nichtkommerzielle Nutzung, laut Lizenztabelle von audio.cpp`,
+  licenseConditional: (p: { name: string }) => `${p.name}: kommerzielle Nutzung nur unter Bedingungen; lies die Lizenz vor kommerzieller Nutzung`,
+  licenseUnclear: (p: { name: string }) => `${p.name}: unklar, ob kommerzielle Nutzung erlaubt ist; prüfe die Lizenz vor kommerzieller Nutzung`,
+  licenseCustom: 'Du hast diese Datei selbst gewählt, ihre Lizenz ist unbekannt; prüfe sie vor kommerzieller Nutzung',
+  customLicenseName: 'Lizenz unbekannt',
+  unknownPackage: (p: { id: string }) => `Der Modellkatalog von audio.cpp enthält kein Paket ${p.id}`,
+  builtinPackage: (p: { id: string }) => `${p.id} ist bereits integriert; installiere es aus der Modellliste`,
+  idleFamily: (p: { family: string }) => `BaoCut kann ${p.family}-Modelle noch nicht verwenden`,
+  noCustomFamily: (p: { family: string }) => `Eine eigene Datei kann nicht als ${p.family} hinzugefügt werden: nur Sprachmodelle, die aus einer einzigen GGUF-Datei laufen`,
+  notHfAddress: 'Keine Hugging-Face-Dateiadresse: füge die Webadresse der Datei ein oder schreibe owner/repo/file.gguf',
+  notGguf: 'Nur .gguf-Dateien können hinzugefügt werden; Modelle aus mehreren Dateien fügst du aus der Liste hinzu',
+  notLfs: (p: { file: string }) => `${p.file} liegt nicht in Git LFS, daher ist keine Prüfsumme lesbar; lade die Datei selbst herunter und füge sie als Datei auf diesem Computer hinzu`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo} enthält keine Datei ${p.file}`,
+  unreachable: (p: { repo: string; detail: string }) => `${p.repo} konnte nicht von der Downloadquelle gelesen werden (${p.detail})`,
+  localUnreadable: 'Diese Datei ist nicht lesbar: Sie wurde vielleicht verschoben oder ist keine normale Datei',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} ist integriert und kann nicht aus der Liste entfernt werden`,
+  stillInstalled: 'Lösche zuerst das heruntergeladene Modell und entferne es dann aus der Liste',
+  installing: 'Das Modell wird heruntergeladen; stoppe zuerst den Download',
+};

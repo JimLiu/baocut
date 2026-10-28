@@ -17,4 +17,6 @@ export const ja: ModelsModelCatalogMessages = {
   notInstalled: (p: { repo: string }) => `モデル ${p.repo} はインストールされていません`,
   noFilesInSubdir: (p: { subdir: string }) => `モデルの ${p.subdir}/ にファイルがありません`,
   engineMissing: '内蔵の audio.cpp エンジンが見つかりません。このコンピューター向けのビルドがないか、アプリのインストールが不完全です',
+  localFileMissing: (p: { file: string }) => `追加時に参照したファイル ${p.file} が元の場所にありません`,
+  localFileChanged: (p: { file: string }) => `ファイル ${p.file} のサイズが追加時と変わっています`,
 };

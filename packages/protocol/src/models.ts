@@ -75,6 +75,23 @@ export interface ModelBundleStatus {
   install?: ModelInstallProgress;
   /** 最近一次检查（`models.test`）的结果。 */
   selfTest?: ModelSelfTestResult;
+  /** 用户添加的模型包（`models.add`）才有：从哪里加的。内置的模型包没有这一项，不能移出列表。 */
+  added?: ModelAddedInfo;
+}
+
+/**
+ * 用户添加的 audio.cpp 模型包的来源（架构设计 §6.3）。`catalog`：audio.cpp 模型目录里的一个包，按目录下载；`repo-file`：
+ * Hugging Face 上自己指定的一个 GGUF，按添加时读出的提交与 sha256 下载；`local-file`：这台电脑上的一个 GGUF，原地引用、不复制，
+ * 删除时只移出列表、不删文件。
+ */
+export interface ModelAddedInfo {
+  kind: 'catalog' | 'repo-file' | 'local-file';
+  /** audio.cpp 模型族（`qwen3_tts`、`yue2`……）。 */
+  family: string;
+  /** 模型族给人看的名字。 */
+  familyName: string;
+  /** `catalog`：目录里的包 ID；`repo-file`：`<owner>/<repo>/<文件路径>`；`local-file`：文件的绝对路径（Runtime 所在主机）。 */
+  source: string;
 }
 
 /**
@@ -91,9 +108,12 @@ export interface ModelComponentStatus {
   revision: string;
   /**
    * 组件从哪里下载：没有这一项是模型仓库（Hugging Face 或设置的镜像）；`github-release` 是 GitHub 发布页的预编译包（按主机平台选，
-   * 可由工具下载镜像替换），装在 Runtime Home 的 `tools/` 下而不是模型目录里。
+   * 可由工具下载镜像替换），装在 Runtime Home 的 `tools/` 下而不是模型目录里；`local-file` 是添加时原地引用的本机文件，不下载、
+   * 不复制，文件还在且大小不变就算装好。
    */
-  origin?: 'github-release';
+  origin?: 'github-release' | 'local-file';
+  /** `origin: 'local-file'`：原地引用的文件的绝对路径（Runtime 所在主机）。 */
+  file?: string;
   /** `installed`：清单与文件齐全；`missing`：没装或不完整（缺文件、大小不符、版本不对）。 */
   state: 'installed' | 'missing';
   /**
@@ -110,7 +130,7 @@ export interface ModelComponentStatus {
   sharedWith: string[];
   /**
    * 放在模型目录以外时，存放它的文件夹（其下是 `<owner>/<repo>/`）：下载时选了别的文件夹（`models.install` 的 `dir`）。在模型目录里、
-   * 或是发布页组件时没有这一项。这些组件不随模型目录移动。
+   * 或是发布页组件、原地引用的文件时没有这一项。这些组件不随模型目录移动。
    */
   location?: string;
   /** 可选的组件（对齐器、说话人模型）：安装与修复照样下载，缺它时模型包仍算装好、照常可用。 */
@@ -545,7 +565,8 @@ export type SpeechVoiceDescription =
 export interface ModelLicense {
   name: string;
   url: string;
-  commercialUse: boolean;
+  /** `false` 只许非商业用途；`null` 商用与否待核实（许可写了条件、没写清楚，或是自己指定的文件）。 */
+  commercialUse: boolean | null;
   /** 一句给人看的说明。 */
   summary: string;
 }
@@ -1130,4 +1151,58 @@ export interface ModelsSnapshot {
  * 厂商名、模型包名与许可说明换成新语言。
  */
 export type ModelsEvent =
-  { type: 'capabilities.updated'; capabilities: ModelCapabilitiesView } | { type: 'bundle.updated'; bundle: ModelBundleStatus };
+  | { type: 'capabilities.updated'; capabilities: ModelCapabilitiesView }
+  | { type: 'bundle.updated'; bundle: ModelBundleStatus }
+  /** 添加的模型包移出了列表（`models.unlist`）：客户端从模型包表里去掉它。 */
+  | { type: 'bundle.removed'; bundleId: string };
+
+/**
+ * audio.cpp 的模型族在 BaoCut 里暂时用不上的原因：`recognize` 识别模型（转写走内置的识别模型）；`separate` 音源分离模型；`other`
+ * 别的任务（编解码、对齐……）；`music-request` 音乐模型的请求与 YuE2 不同，还没有接；`engine-route` 引擎只在合成以外的路由上服务它。
+ */
+export type AudioCppIdleReason = 'recognize' | 'separate' | 'other' | 'music-request' | 'engine-route';
+
+/** `models.add` 的参数。`label` 是自己指定文件时列表里显示的名字，不给时用文件名。 */
+export type ModelAddParams =
+  | { source: 'catalog'; packageId: string }
+  | { source: 'repo-file'; family: string; address: string; label?: string }
+  | { source: 'local-file'; family: string; path: string; label?: string };
+
+/** 添加对话框里一族的一个包（`models.addable`）。 */
+export interface AudioCppAddablePackage {
+  /** 目录里的包 ID（`models.add` 的 `packageId`）。 */
+  id: string;
+  name: string;
+  /** 精度（`Q8_0`、`BF16`……）；上游没写时 null。 */
+  precision: string | null;
+  /** 下载大小（字节），含一起下的配件。 */
+  bytes: number;
+  /** 一起下的配件（YuE2 的 VAE……）的名字。 */
+  parts: string[];
+  /** 上游推荐的那个精度。 */
+  default?: boolean;
+  /** 加进来（或内置）后的模型包 ID。 */
+  bundleId: string;
+  /** `builtin`：内置的就是这个包；`added`：已经加过；null：能添加。 */
+  state: 'builtin' | 'added' | null;
+}
+
+/** 添加对话框里的一个 audio.cpp 模型族（`models.addable`）。 */
+export interface AudioCppAddableFamily {
+  family: string;
+  name: string;
+  /** `tts` 合成、`music` 音乐；`idle` 暂时用不上（看 `idle`）。 */
+  group: 'tts' | 'music' | 'idle';
+  idle?: AudioCppIdleReason;
+  /** 上游规格列的任务（`tts`、`clone`、`design`……）。 */
+  tasks: string[];
+  /** 上游标的成熟度（`stable`、`experimental`……）；没标时 null。 */
+  status: string | null;
+  /** 上游规格列的语言（语言 ID，或「auto」「50+ languages」这样的说法）。 */
+  languages: string[];
+  /** 特点：能不能克隆、按描述造声、写风格与情绪、写歌词、纯音乐，内置几个说话人。 */
+  traits: { clone?: boolean; design?: boolean; voices?: number; style?: boolean; emotion?: boolean; lyrics?: boolean; instrumental?: boolean };
+  license: ModelLicense;
+  /** 能添加的包（暂时用不上的族是空的）；配件不单列。 */
+  packages: AudioCppAddablePackage[];
+}

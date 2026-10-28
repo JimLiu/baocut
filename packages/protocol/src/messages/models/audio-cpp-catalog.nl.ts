@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const nl: ModelsAudioCppCatalogMessages = {
+  noLicense: 'Geen licentie vermeld',
+  licenseMissing: 'De licentietabel van audio.cpp vermeldt dit model niet; controleer de licentie vóór commercieel gebruik',
+  licenseCommercial: (p: { name: string }) => `${p.name}: commercieel gebruik toegestaan, volgens de licentietabel van audio.cpp`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}: alleen niet-commercieel gebruik, volgens de licentietabel van audio.cpp`,
+  licenseConditional: (p: { name: string }) => `${p.name}: commercieel gebruik kent voorwaarden; lees de licentie vóór commercieel gebruik`,
+  licenseUnclear: (p: { name: string }) => `${p.name}: onduidelijk of commercieel gebruik is toegestaan; controleer de licentie vóór commercieel gebruik`,
+  licenseCustom: 'Je hebt dit bestand zelf gekozen, de licentie is onbekend; controleer die vóór commercieel gebruik',
+  customLicenseName: 'Licentie onbekend',
+  unknownPackage: (p: { id: string }) => `De modelcatalogus van audio.cpp heeft geen pakket ${p.id}`,
+  builtinPackage: (p: { id: string }) => `${p.id} is al ingebouwd; installeer het vanuit de modellenlijst`,
+  idleFamily: (p: { family: string }) => `BaoCut kan ${p.family}-modellen nog niet gebruiken`,
+  noCustomFamily: (p: { family: string }) => `Een eigen bestand kan niet als ${p.family} worden toegevoegd: alleen spraakmodellen die uit één GGUF-bestand draaien`,
+  notHfAddress: 'Geen Hugging Face-bestandsadres: plak het webadres van het bestand of schrijf owner/repo/file.gguf',
+  notGguf: 'Alleen .gguf-bestanden kunnen worden toegevoegd; voeg modellen met meerdere bestanden toe vanuit de lijst',
+  notLfs: (p: { file: string }) => `${p.file} staat niet in Git LFS, dus de controlesom is niet te lezen; download het zelf en voeg het toe als bestand op deze computer`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo} bevat geen bestand ${p.file}`,
+  unreachable: (p: { repo: string; detail: string }) => `${p.repo} kon niet worden gelezen van de downloadbron (${p.detail})`,
+  localUnreadable: 'Dat bestand is niet te lezen: het is misschien verplaatst, of het is geen gewoon bestand',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} is ingebouwd en kan niet uit de lijst worden gehaald`,
+  stillInstalled: 'Verwijder eerst het gedownloade model en haal het daarna uit de lijst',
+  installing: 'Het model wordt gedownload; stop eerst de download',
+};

@@ -40,6 +40,7 @@ import {
   type TranslationMemory,
 } from '@baocut/jobs';
 import {
+  AddedModels,
   AUDIO_CPP_BACKEND_ENV,
   AUDIO_CPP_CLI_ENV,
   AUDIO_CPP_COMMAND,
@@ -50,6 +51,7 @@ import {
   ModelServiceStore,
   ModelServices,
   UsageLedger,
+  resolveModelsEndpoint,
   type BundleDefinition,
   type ProviderSource,
 } from '@baocut/models';
@@ -250,6 +252,13 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     locationsFile: path.join(home.root, 'store', 'model-locations.json'),
     ...(manifests ? { manifests } : {}),
     ...(testBundles ? { bundles: testBundles } : {}),
+  });
+  // 用户添加的 audio.cpp 模型包（§6.3）：记在 Runtime Home 里，建好模型目录就登记，第一次给出模型列表与能力视图时已经在里面。
+  const added = new AddedModels({
+    file: path.join(home.root, 'store', 'added-models.json'),
+    catalog,
+    endpoint: () => resolveModelsEndpoint(modelInstall.env ?? process.env, (options.installSettings?.() ?? { downloadEndpoint: null }).downloadEndpoint).endpoint,
+    ...(modelInstall.installer?.fetch ? { fetch: modelInstall.installer.fetch } : {}),
   });
   // 资源调度（§7.6、§7.7）：Model Worker 的进程与所有任务共用一个。
   const resources = new ResourceScheduler({
@@ -514,7 +523,11 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     bundleChain = bundleChain.then(async () => {
       pendingBundles.delete(bundleId);
       const status = await catalog.status(bundleId).catch(() => null);
-      if (!status) return;
+      if (!status) {
+        // 添加的模型包移出了列表（`models.unlist`）。
+        if (!catalog.definition(bundleId) && bundles.delete(bundleId)) modelsTopic.publish({ type: 'bundle.removed', bundleId });
+        return;
+      }
       bundles.set(bundleId, status);
       modelsTopic.publish({ type: 'bundle.updated', bundle: status });
     });
@@ -543,6 +556,7 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     ...modelInstall,
     refresh: () => void services.refresh().catch(() => {}),
     clearDefaults: (bundleId) => services.clearLocalDefaults(bundleId),
+    added,
   });
   const dir = new ModelsDirService({
     defaultDir: defaultModelsDir,

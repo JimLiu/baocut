@@ -601,6 +601,10 @@ export function createHandlers({
       'models.repair': (p, principal) => models.installs.install(p, { kind: 'connection', id: principal.connectionId }, { repair: true }),
       'models.cancelInstall': (p) => models.installs.cancelInstall(p),
       'models.remove': (p) => models.installs.remove(p.bundleId),
+      // 添加 audio.cpp 模型（§6.3）：登记进模型列表，下载照常走 `models.install`；只给桌面界面与 CLI（不在 Web 白名单里）。
+      'models.addable': () => models.installs.added.addable(),
+      'models.add': (p) => models.installs.add(p),
+      'models.unlist': (p) => models.installs.unlist(p.bundleId),
       'models.test': (p, principal) => models.installs.test(p, { kind: 'connection', id: principal.connectionId }),
       // 模型目录（§6.3）：含本机路径，只给桌面界面与 CLI（不在 Web 白名单里，MCP 也不提供）。
       'models.getDir': () => models.dir.getDir(),

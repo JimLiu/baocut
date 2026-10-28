@@ -17,4 +17,6 @@ export const ko: ModelsModelCatalogMessages = {
   notInstalled: (p: { repo: string }) => `${p.repo} 모델이 설치되어 있지 않습니다`,
   noFilesInSubdir: (p: { subdir: string }) => `모델의 ${p.subdir}/ 아래에 파일이 없습니다`,
   engineMissing: '내장 audio.cpp 엔진을 찾을 수 없습니다. 이 컴퓨터용 빌드가 없거나 앱 설치가 완전하지 않습니다',
+  localFileMissing: (p: { file: string }) => `추가할 때 참조한 파일 ${p.file}이(가) 원래 위치에 없습니다`,
+  localFileChanged: (p: { file: string }) => `파일 ${p.file}의 크기가 추가할 때와 달라졌습니다`,
 };

@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const fr: ModelsAudioCppCatalogMessages = {
+  noLicense: 'Licence non indiquée',
+  licenseMissing: "La table des licences d'audio.cpp ne mentionne pas ce modèle ; vérifiez sa licence avant tout usage commercial",
+  licenseCommercial: (p: { name: string }) => `${p.name} : usage commercial autorisé, selon la table des licences d'audio.cpp`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name} : usage non commercial uniquement, selon la table des licences d'audio.cpp`,
+  licenseConditional: (p: { name: string }) => `${p.name} : l’usage commercial est soumis à conditions ; lisez la licence avant tout usage commercial`,
+  licenseUnclear: (p: { name: string }) => `${p.name} : on ne sait pas clairement si l'usage commercial est autorisé ; vérifiez la licence avant tout usage commercial`,
+  licenseCustom: 'Vous avez choisi ce fichier vous-même ; sa licence est inconnue, vérifiez-la avant tout usage commercial',
+  customLicenseName: 'Licence inconnue',
+  unknownPackage: (p: { id: string }) => `Le catalogue de modèles d'audio.cpp ne contient pas le paquet ${p.id}`,
+  builtinPackage: (p: { id: string }) => `${p.id} est déjà intégré ; installez-le depuis la liste des modèles`,
+  idleFamily: (p: { family: string }) => `BaoCut ne peut pas encore utiliser les modèles ${p.family}`,
+  noCustomFamily: (p: { family: string }) => `Un fichier personnel ne peut pas être ajouté comme ${p.family} : seuls les modèles de synthèse vocale qui tiennent dans un seul fichier GGUF le peuvent`,
+  notHfAddress: "Ce n'est pas une adresse de fichier Hugging Face : collez l'adresse web du fichier ou écrivez owner/repo/file.gguf",
+  notGguf: 'Seuls les fichiers .gguf peuvent être ajoutés ; ajoutez les modèles à plusieurs fichiers depuis la liste',
+  notLfs: (p: { file: string }) => `${p.file} n'est pas stocké avec Git LFS, sa somme de contrôle est illisible ; téléchargez-le vous-même et ajoutez-le comme fichier de cet ordinateur`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo} ne contient pas le fichier ${p.file}`,
+  unreachable: (p: { repo: string; detail: string }) => `Impossible de lire ${p.repo} depuis la source de téléchargement (${p.detail})`,
+  localUnreadable: "Impossible de lire ce fichier : il a peut-être été déplacé, ou ce n'est pas un fichier ordinaire",
+  notAdded: (p: { bundleId: string }) => `${p.bundleId} est intégré, il ne peut pas être retiré de la liste`,
+  stillInstalled: "Supprimez d'abord le modèle téléchargé, puis retirez-le de la liste",
+  installing: "Le modèle est en cours de téléchargement ; arrêtez d'abord le téléchargement",
+};

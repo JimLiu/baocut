@@ -1,0 +1,25 @@
+import type { ModelsAudioCppCatalogMessages } from './audio-cpp-catalog.ts';
+
+export const ko: ModelsAudioCppCatalogMessages = {
+  noLicense: '라이선스 표기 없음',
+  licenseMissing: 'audio.cpp 라이선스 표에 이 모델이 없습니다. 상업적으로 사용하기 전에 라이선스를 확인하세요',
+  licenseCommercial: (p: { name: string }) => `${p.name}: audio.cpp 라이선스 표 기준 상업적 사용 가능`,
+  licenseNonCommercial: (p: { name: string }) => `${p.name}: audio.cpp 라이선스 표 기준 비상업적 용도만 가능`,
+  licenseConditional: (p: { name: string }) => `${p.name}: 상업적 사용에 조건이 있습니다. 상업적으로 사용하기 전에 라이선스를 읽으세요`,
+  licenseUnclear: (p: { name: string }) => `${p.name}: 상업적 사용 가능 여부가 명확하지 않습니다. 상업적으로 사용하기 전에 라이선스를 확인하세요`,
+  licenseCustom: '직접 지정한 파일이라 라이선스를 알 수 없습니다. 상업적으로 사용하기 전에 확인하세요',
+  customLicenseName: '라이선스 불명',
+  unknownPackage: (p: { id: string }) => `audio.cpp 모델 목록에 ${p.id} 패키지가 없습니다`,
+  builtinPackage: (p: { id: string }) => `${p.id}은(는) 이미 내장되어 있습니다. 모델 목록에서 설치하세요`,
+  idleFamily: (p: { family: string }) => `BaoCut은 아직 ${p.family} 모델을 사용할 수 없습니다`,
+  noCustomFamily: (p: { family: string }) => `직접 지정한 파일은 ${p.family}(으)로 추가할 수 없습니다. GGUF 파일 하나로 실행되는 음성 합성 모델만 가능합니다`,
+  notHfAddress: '주소를 인식할 수 없습니다. Hugging Face 파일의 웹 주소를 붙여 넣거나 owner/repo/file.gguf 형식으로 입력하세요',
+  notGguf: '.gguf 파일만 추가할 수 있습니다. 여러 파일로 된 모델은 목록에서 추가하세요',
+  notLfs: (p: { file: string }) => `${p.file}은(는) Git LFS로 저장되어 있지 않아 체크섬을 읽을 수 없습니다. 직접 내려받은 뒤 이 컴퓨터의 파일로 추가하세요`,
+  fileNotFound: (p: { file: string; repo: string }) => `${p.repo}에 ${p.file} 파일이 없습니다`,
+  unreachable: (p: { repo: string; detail: string }) => `다운로드 소스에서 ${p.repo}을(를) 읽지 못했습니다(${p.detail})`,
+  localUnreadable: '이 파일을 읽을 수 없습니다. 이동되었거나 일반 파일이 아닐 수 있습니다',
+  notAdded: (p: { bundleId: string }) => `${p.bundleId}은(는) 내장 모델이라 목록에서 뺄 수 없습니다`,
+  stillInstalled: '먼저 내려받은 모델을 삭제한 다음 목록에서 빼세요',
+  installing: '모델을 내려받는 중입니다. 먼저 다운로드를 멈추세요',
+};

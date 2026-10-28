@@ -56,6 +56,12 @@ export interface BundleComponentSource {
    * `repo` 与 `revision` 仍要填（合成的 `<owner>/<repo>` 与上游标签），持有者、共用与安装记录照旧按 `repo@revision` 算。
    */
   release?: ComponentRelease;
+  /**
+   * 原地引用的本机文件（添加 audio.cpp 模型时选的这台电脑上的 GGUF，架构设计 §6.3）：不下载、不复制，直接读这个文件。存在且大小与
+   * 添加时一致就算装好；组件的目录是文件所在的文件夹。不计进模型目录占用，不随模型目录移动，删除时只从列表移除、不动文件。
+   * `repo` 照样填一个合成的名字（持有者与安装记录按它算），`revision` 是 `local`。
+   */
+  local?: { path: string; size: number };
 }
 
 /** GitHub 发布页上一个平台的压缩包（`BundleComponentSource.release`）。 */
@@ -255,8 +261,11 @@ export interface SpeechBundleProfile {
   slow: boolean;
 }
 
-/** audio.cpp 的模型族（服务配置的 `family`），请求按它换算（`audioCppSpeechRequestOf`）。 */
-export type AudioCppSpeechFamily = 'qwen3_tts' | 'index_tts2' | 'omnivoice' | 'voxcpm2' | 'fish_audio';
+/**
+ * audio.cpp 的模型族（服务配置的 `family`），请求按它换算（`audioCppSpeechRequestOf`）。内置的五族有专门的写法；添加的模型是任意
+ * 一族，只按规格列出的参数（`SpeechEngineModel.options`）发。
+ */
+export type AudioCppSpeechFamily = 'qwen3_tts' | 'index_tts2' | 'omnivoice' | 'voxcpm2' | 'fish_audio' | (string & {});
 
 /** 一个合成模型包交给 audio.cpp 服务的模型。 */
 export interface SpeechEngineModel {
@@ -266,7 +275,10 @@ export interface SpeechEngineModel {
    * 克隆要走 `clon`。不给时是 `tts`。
    */
   task?: 'tts' | 'clon';
-  /** GGUF 文件（相对 `tts` 组件的目录）：权重、分词器与模型规格都在里面。 */
+  /**
+   * GGUF 文件（相对 `tts` 组件的目录）：权重、分词器与模型规格都在里面。添加的多文件模型给的是包的根目录（相对组件目录，空串是
+   * 组件目录本身）。
+   */
   file: string;
   /**
    * 长文按句切块时每块的字符上限（引擎的 `text_chunk_size`）；不给时用引擎自己的默认（OmniVoice 按时长自动切）。IndexTTS2
@@ -278,6 +290,12 @@ export interface SpeechEngineModel {
    * 不认得的语言会报错）。不给时模型没有语言参数，一律不给。
    */
   languages?: readonly string[];
+  /**
+   * 引擎认得的请求参数（上游规格的 `options.request`）：给了时只发这里列出的（添加的模型）；不给时按内置模型族的写法发。
+   */
+  options?: readonly string[];
+  /** 风格说明怎么交给引擎：`prefix` 是接在正文前（`(说明)正文`，VoxCPM 一类）；不给时内置的 VoxCPM2 接在正文前，其余给 `instruct`。 */
+  instructionsAs?: 'prefix';
 }
 
 /** Apple Silicon 上的默认转写模型包（MOSS Transcribe）。按平台取默认用 `defaultTranscribeBundle`。 */

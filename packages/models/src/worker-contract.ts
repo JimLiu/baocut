@@ -37,6 +37,11 @@ export type ModelFamily =
   | 'htdemucs-ft'
   // 本地文生图（§4.2）：Qwen-Image-2.1（文本编码器、DiT、VAE 与分词表同在一个 `image` 组件里）。
   | 'qwen-image'
+  /**
+   * 添加的 audio.cpp 模型（`tts` 或 `music` 组件，架构设计 §6.3「添加 audio.cpp 模型」）：任意一个 audio.cpp 模型族的 GGUF，族名在
+   * 模型包的合成或音乐特性里。由 audio.cpp 引擎执行，不交给 Model Worker。
+   */
+  | 'audio-cpp-gguf'
   /** 本地音乐生成（§4.4）：YuE2 的 GGUF 权重（主模型、VAE 与分词表同在一个 `music` 组件里），由 audio.cpp 引擎执行，不交给 Model Worker。 */
   | 'yue2'
   /**

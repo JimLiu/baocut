@@ -5,4 +5,5 @@ export const tr: ModelsModelInstallerMessages = {
   noManifest: (p: { repo: string; revision: string }) => `${p.repo}@${p.revision} için yerleşik bildirim yok`,
   untrustedManifest: (p: { repo: string }) => `${p.repo} için yerleşik bildirimde güvenilir sha256 yok`,
   noBundle: (p: { bundleId: string }) => `Böyle bir model paketi yok: ${p.bundleId}`,
+  localFileGone: (p: { file: string }) => `${p.file} dosyası eklendiği yerde değil; yeni konumundan yeniden ekleyin`,
 };

@@ -1,5 +1,6 @@
 /** `packages/models` 给人看的文字（message-ref.ts）。每个区域一个 `<区域>.ts` 与它的译文 `<区域>.zh-Hans.ts`，在这里 import 登记。 */
 import './asr-result.ts';
+import './audio-cpp-catalog.ts';
 import './bundle-registry.ts';
 import './download-source.ts';
 import './embedding.ts';
