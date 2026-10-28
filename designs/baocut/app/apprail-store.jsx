@@ -16,6 +16,15 @@
   const AC = window.BC_AUDIOCPP;
   const AC_FAMILIES = window.BC_AUDIOCPP_CATALOG.families;
   const ADDED_KEY = window.BC_SURFACE.storageKey('bc-added-models-v1');
+  /* 添加的模型在模块载入时就并进模型表：共享 store 的安装表按 D.setModels 的 `installed` 起步，
+     得赶在它之前，本机文件加进来的那几只重开后才仍是已安装 */
+  const ADDED_AT_LOAD = (() => {
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(ADDED_KEY)) || []; } catch (e) {}
+    if (!Array.isArray(saved)) saved = [];
+    AC.sync(D.setModels, D.setComponents, AC_FAMILIES, saved);
+    return saved;
+  })();
 
   function useAppIA(base) {
     const {route, nav, go, projects, sessions, sessionById, patchSession, deleteSessions, deleteProject, dock, setDock, archiveProject, tasks, projPct} = base;
@@ -66,24 +75,13 @@
     /* ---- 添加的 audio.cpp 模型（issue 113，model-audiocpp.js）----
        记录存进本地；启动时与每次改动后并进设置页的模型表与组件表（D.setModels / setComponents，就地改），
        下载、删除、试听都走原来那一套。本机文件加进来就算装好；从仓库加的要下载。 */
-    const [addedModels, setAddedModelsRaw] = useState(() => {
-      let saved = [];
-      try { saved = JSON.parse(localStorage.getItem(ADDED_KEY)) || []; } catch (e) {}
-      AC.sync(D.setModels, D.setComponents, AC_FAMILIES, saved);
-      return saved;
-    });
+    const [addedModels, setAddedModelsRaw] = useState(ADDED_AT_LOAD);
     const setAddedModels = useCallback((fn) => setAddedModelsRaw((cur) => {
       const next = typeof fn === 'function' ? fn(cur) : fn;
       AC.sync(D.setModels, D.setComponents, AC_FAMILIES, next);
       try { localStorage.setItem(ADDED_KEY, JSON.stringify(next)); } catch (e) {}
       return next;
     }), []);
-    useLayoutEffect(() => {
-      addedModels.forEach((e) => {
-        const r = AC.materialize(AC_FAMILIES, e);
-        if (r && r.row.installed) base.setModelInstalled(r.row.id, true);
-      });
-    }, []);
     /** 加一条记录，返回设置页的那一行（目录里找不到时 null） */
     const addModelEntry = useCallback((e) => {
       const r = AC.materialize(AC_FAMILIES, e);
