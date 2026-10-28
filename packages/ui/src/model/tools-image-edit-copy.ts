@@ -1,5 +1,6 @@
 import { defineMessages } from '@baocut/protocol';
-import type { EditImageAnchor } from '@baocut/protocol';
+import type { EditImageAnchor, UpscaleImageDenoise, UpscaleImageModel } from '@baocut/protocol';
+import type { UpscaleGroup } from './tools-image-edit.ts';
 import { zhHans } from './tools-image-edit-copy.zh-Hans.ts';
 import { zhHant } from './tools-image-edit-copy.zh-Hant.ts';
 import { ja } from './tools-image-edit-copy.ja.ts';
@@ -29,7 +30,7 @@ const en = {
   } satisfies Record<Tool, string>,
   verb: { upscale: 'Upscale', erase: 'Remove', watermark: 'Remove watermark', repaint: 'Repaint', expand: 'Expand' } satisfies Record<Tool, string>,
   lede: {
-    upscale: 'Enlarge images 2–4× with Real-ESRGAN on this computer, filling in detail instead of just stretching.',
+    upscale: 'Enlarge images 2–4× on this computer with Real-ESRGAN or waifu2x, or have an image model redraw them larger.',
     erase: 'Paint over people or things you don’t want, and the area is filled in from its surroundings.',
     watermark: 'Box a watermark, logo or caption bar; images with it in the same place can be done in one go.',
     repaint: 'Paint an area and say what it should become; only that area changes.',
@@ -95,33 +96,64 @@ const en = {
   expandSame: 'The image already has this shape · pick another ratio or add margins',
   expandTooLarge: (max: number) => `The new canvas would be over ${max} px on a side`,
   upscaleTooLarge: (name: string, scale: number, max: number) => `${name} would be over ${max} px on a side at ${scale}×`,
-  upscaleTooLargePeak: (name: string, max: number) => `${name} is too large · the photo model first enlarges 4×, which would be over ${max} px`,
+  upscaleTooLargePeak: (name: string, peak: number, max: number) => `${name} is too large · this model first enlarges ${peak}×, which would be over ${max} px`,
   noEditModel: 'No image model that can edit pictures · add one in Models',
+  noUpscaleModel: 'No image model that takes reference images · add one in Models',
+  guidanceTooLong: (max: number) => `Keep the extra guidance to ${max} characters or fewer`,
   modelUnusable: (label: string) => `${label} can’t be used right now`,
   // 隐私标签
   chipLocal: 'On this computer · offline',
   chipRegion: 'Online · only the area around the selection is sent',
   chipWhole: 'Online · the whole image is sent',
-  // Real-ESRGAN
-  esrganMissing: 'Download Real-ESRGAN first',
-  esrganTitle: 'Real-ESRGAN is needed',
-  esrganBody: 'Upscaling runs Real-ESRGAN on this computer’s GPU. It’s downloaded once and works offline after that.',
-  esrganFacts: (version: string, license: string, size: string | null) => [version, license, size].filter(Boolean).join(' · '),
-  esrganInstall: 'Download',
-  esrganInstalling: 'Downloading Real-ESRGAN…',
-  esrganInstallFailed: (reason: string) => `Couldn’t download Real-ESRGAN · ${reason}`,
+  // 放大要用的受管工具（执行的程序与权重包；名字用 Runtime 给的 `label`）
+  toolMissing: (label: string) => `Download ${label} first`,
+  toolTitle: (label: string) => `This model needs ${label}`,
+  toolBody: {
+    'realesrgan-ncnn-vulkan': 'An open-source upscaler that runs on this computer’s GPU. It works offline and never uploads images.',
+    'waifu2x-ncnn-vulkan': 'An open-source upscaler for anime-style pictures that can also remove noise. It runs on this computer’s GPU, offline.',
+    'upscayl-models': 'Five sets of weights collected by the open-source Upscayl project. They’re only model files, run by Real-ESRGAN.',
+  } as Record<string, string>,
+  toolKeep: 'It’s downloaded once into BaoCut’s own tools folder and works offline after that; nothing else on this computer changes.',
+  toolFacts: (version: string, license: string, size: string | null) => [version, license, size].filter(Boolean).join(' · '),
+  toolInstall: 'Download',
+  toolInstalling: (label: string) => `Downloading ${label}…`,
+  toolInstallFailed: (label: string, reason: string) => `Couldn’t download ${label} · ${reason}`,
   recheck: 'Check again',
   // 放大
   upscaleTitle: 'Upscale',
-  upscaleKind: 'Picture type',
-  photo: 'Photo',
-  photoSub: 'Camera shots, screenshots, realistic images',
-  anime: 'Anime and illustration',
-  animeSub: 'Line art, flat colors, cleaner edges',
+  upscaleModelTitle: 'Model',
+  upscaleGroup: { realesrgan: 'Real-ESRGAN', upscayl: 'Upscayl weights · run by Real-ESRGAN', waifu2x: 'waifu2x', other: 'Other ways' } satisfies Record<UpscaleGroup, string>,
+  upscaleModel: {
+    photo: { name: 'Photo', sub: 'Camera shots, screenshots, realistic images' },
+    anime: { name: 'Anime (fast)', sub: 'Anime frames and flat colors; native 2, 3 and 4×, the fastest' },
+    illustration: { name: 'Anime illustration', sub: 'Anime-style illustrations and line art; sharper than Anime (fast)' },
+    'upscayl-lite': { name: 'Upscayl Lite', sub: 'General and light; runs on computers with little GPU memory' },
+    'high-fidelity': { name: 'High Fidelity', sub: 'Keeps texture and detail; good for photos' },
+    remacri: { name: 'Remacri', sub: 'Natural detail without over-smoothing; good for photos' },
+    'ultramix-balanced': { name: 'UltraMix Balanced', sub: 'Between sharp and smooth' },
+    ultrasharp: { name: 'UltraSharp', sub: 'Very sharp; noise in the image gets sharpened too' },
+    waifu2x: { name: 'waifu2x', sub: 'Anime illustrations; the best of the three, and the slowest' },
+    'waifu2x-anime': { name: 'waifu2x anime style', sub: 'Anime illustrations; faster than the one above' },
+    'waifu2x-photo': { name: 'waifu2x photo', sub: 'Photos; also removes noise and JPEG blocks' },
+    lanczos: { name: 'Smooth (Lanczos)', sub: 'Interpolation only, no added detail; nothing to download, a few seconds' },
+    generative: { name: 'AI redraw', sub: 'An image model redraws a larger copy; details and text may change' },
+  } satisfies Record<UpscaleImageModel, { name: string; sub: string }>,
+  licenseTag: { nc: 'Not for commercial use', unstated: 'License not stated' },
+  licenseNc: (spdx: string) => `These weights are licensed ${spdx}: upscaled results can’t be used commercially`,
+  licenseUnstated: 'The authors of these weights haven’t stated a license: check before using the results commercially',
   scale: 'Scale',
-  resizeNote: (scale: number) => `The photo model works at 4×; ${scale}× is made by enlarging 4× and scaling down`,
-  nativeNote: 'Runs at this scale directly',
-  upscaleCaveat: 'Upscaling adds plausible detail; it can’t recover text or faces that aren’t there',
+  denoise: 'Noise reduction',
+  denoiseLevel: { '-1': 'Off', 0: 'Light', 1: 'Medium', 2: 'Strong', 3: 'Strongest' } satisfies Record<UpscaleImageDenoise, string>,
+  denoiseNote: 'Noise reduction also removes JPEG blocks; higher levels are cleaner but can smooth away detail too.',
+  resizeNote: (peak: number, scale: number) => `This model works at ${peak}×: it enlarges ${peak}× and then scales down to ${scale}× (Lanczos), keeping more detail than stretching.`,
+  nativeNote: 'The model works at this scale directly.',
+  upscaleCaveat: 'Upscaling guesses at detail: text and screenshots can get strokes that weren’t there.',
+  lanczosNote: 'ffmpeg enlarges with Lanczos interpolation: no detail is added; it’s only smoother than stretching.',
+  generativeNote: 'The whole image goes to the image model, redrawn at the closest size it offers and scaled to the target size. Text, faces and small details may differ from the original.',
+  generativeModelNote: 'Only models that take reference images and output set pixel sizes are listed.',
+  generativeCloudNote: 'Online models get the whole image, billed at the provider’s price; the provider may keep a copy.',
+  guidanceTitle: 'Extra guidance',
+  guidancePlaceholder: 'e.g. a watercolor; keep the paper texture and leave any text as it is',
   // 补法、提示词与模型
   methodTitle: 'Method',
   method: {

@@ -13,7 +13,7 @@ export const it: ToolCatalogMessages = {
     'synthesize-speech': { name: 'Genera voce', desc: 'Leggi ad alta voce testo oppure documenti e sottotitoli nello Space; usa una voce preset, clona una registrazione o descrivi una voce' },
     'generate-text': { name: 'Genera testo', desc: 'Descrivi cosa ti serve e chiama direttamente un modello di testo per testi, sceneggiature o riepiloghi; puoi allegare documenti o sottotitoli nello Space come materiale' },
     'generate-image': { name: 'Genera immagine', desc: 'Descrivi un’immagine e disegnala con un modello di immagini cloud o locale; immagini di riferimento, rapporto d’aspetto e quantità sono facoltativi' },
-    'upscale-image': { name: 'Ingrandisci immagine', desc: 'Ingrandisci le immagini da 2 a 4× con Real-ESRGAN su questo computer, aggiungendo dettagli invece di limitarti a stirarle' },
+    'upscale-image': { name: 'Ingrandisci immagine', desc: 'Ingrandisci le immagini da 2 a 4× su questo computer con Real-ESRGAN, waifu2x o pesi Upscayl, oppure falle ridisegnare più grandi da un modello di immagini' },
     'remove-object': { name: 'Rimuovi oggetto', desc: 'Dipingi sopra persone o cose indesiderate e l’area viene riempita a partire da ciò che la circonda' },
     'remove-watermark': { name: 'Rimuovi filigrana', desc: 'Riquadra una filigrana, un logo o una barra dei sottotitoli; le immagini che la hanno nello stesso punto si elaborano in un colpo solo' },
     'repaint-image': { name: 'Ridisegna area', desc: 'Dipingi un’area e indica cosa deve diventare; cambia solo quell’area' },

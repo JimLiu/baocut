@@ -22,7 +22,42 @@ describe('图片处理', () => {
     expect(upscaleSize({ width: 3000, height: 2000 }, 4, 'photo')).toEqual({ width: 12000, height: 8000, tooLarge: false });
     expect(upscaleSize({ width: 5000, height: 2000 }, 2, 'photo').tooLarge).toBe(true);
     expect(upscaleSize({ width: 5000, height: 2000 }, 2, 'anime').tooLarge).toBe(false);
-    expect(upscaleRequest(blankForm('upscale'), [src('/a.png'), src('space:e1')], null)).toEqual({ inputs: ['/a.png', { entryId: 'e1' }], scale: 4, model: 'photo' });
+    expect(upscaleRequest(blankForm('upscale'), [src('/a.png'), src('space:e1')], null, null)).toEqual({ inputs: ['/a.png', { entryId: 'e1' }], scale: 4, model: 'photo' });
+  });
+
+  it('放大：只提交这个模型收的参数，换模型前填的值不带上', () => {
+    const engine = { providerId: 'google', modelId: 'gemini-3-pro-image' };
+    const filled = { ...blankForm('upscale'), denoise: 2 as const, prompt: ' keep the paper ' };
+    expect(upscaleRequest({ ...filled, model: 'remacri' }, [src('/a.png')], engine, '/out')).toEqual({
+      inputs: ['/a.png'],
+      scale: 4,
+      model: 'remacri',
+      outDir: '/out',
+    });
+    expect(upscaleRequest({ ...filled, model: 'waifu2x-photo', scale: 2 }, [src('/a.png')], engine, null)).toEqual({ inputs: ['/a.png'], scale: 2, model: 'waifu2x-photo', denoise: 2 });
+    expect(upscaleRequest({ ...filled, model: 'generative' }, [src('/a.png')], engine, null)).toEqual({
+      inputs: ['/a.png'],
+      scale: 4,
+      model: 'generative',
+      provider: 'google',
+      imageModel: 'gemini-3-pro-image',
+      prompt: 'keep the paper',
+    });
+    // 中间先放大 4 倍的模型按 4 倍查上限；waifu2x 原生 2 倍，3、4 倍也按 4 倍查。
+    expect(upscaleSize({ width: 5000, height: 2000 }, 2, 'remacri').tooLarge).toBe(true);
+    expect(upscaleSize({ width: 5000, height: 2000 }, 2, 'waifu2x').tooLarge).toBe(false);
+    expect(upscaleSize({ width: 5000, height: 2000 }, 2, 'lanczos').tooLarge).toBe(false);
+  });
+
+  it('放大的问题：缺的工具、生成式放大的模型与补充说明长度', () => {
+    const empty = { boxes: [], strokes: [] };
+    const form = blankForm('upscale');
+    const ok = { upscaleTool: null, modelReason: 'no model' };
+    expect(imageEditProblems('upscale', form, [src('/a.png')], empty, ok)).toEqual([]);
+    expect(imageEditProblems('upscale', form, [src('/a.png')], empty, { ...ok, upscaleTool: 'Upscayl weights' })).toHaveLength(1);
+    expect(imageEditProblems('upscale', { ...form, model: 'generative' }, [src('/a.png')], empty, ok)).toEqual(['no model']);
+    const long = { ...form, model: 'generative' as const, prompt: 'x'.repeat(1001) };
+    expect(imageEditProblems('upscale', long, [src('/a.png')], empty, { ...ok, modelReason: null })).toHaveLength(1);
   });
 
   it('选区：外框与覆盖率按格子算；工作区每边至少 512、不出界，盖满整张时整张发出去', () => {
@@ -47,7 +82,7 @@ describe('图片处理', () => {
 
   it('表单检查：先选图；选区、提示词、模型不能用的原因各说一句', () => {
     const empty = { boxes: [], strokes: [] };
-    const ctx = { esrgan: 'ready' as const, modelReason: null };
+    const ctx = { upscaleTool: null, modelReason: null };
     expect(imageEditProblems('erase', blankForm('erase'), [], empty, ctx)).toHaveLength(1);
     expect(imageEditProblems('erase', blankForm('erase'), [src('/a.png')], empty, ctx)).toHaveLength(1);
     const sel = { boxes: [], strokes: [{ radius: 20, points: [[100, 100] as [number, number]] }] };

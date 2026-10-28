@@ -12,7 +12,7 @@ transcribe: { name: 'Chép lời', desc: 'Chuyển tệp video hoặc âm thanh 
  'synthesize-speech': { name: 'Tạo giọng nói', desc: 'Đọc văn bản hoặc tài liệu và phụ đề trong Space; dùng giọng thiết lập sẵn, nhân bản bản ghi âm hoặc mô tả giọng' },
  'generate-text': { name: 'Tạo văn bản', desc: 'Mô tả nhu cầu rồi gọi trực tiếp mô hình văn bản để tạo nội dung, kịch bản hoặc tóm tắt; có thể đính kèm tài liệu hoặc phụ đề trong Space làm tư liệu' },
  'generate-image': { name: 'Tạo hình ảnh', desc: 'Mô tả hình ảnh rồi vẽ bằng mô hình hình ảnh đám mây hoặc cục bộ; hình tham chiếu, tỷ lệ khung hình và số lượng là tùy chọn' },
- 'upscale-image': { name: 'Phóng to hình ảnh', desc: 'Phóng to hình ảnh 2–4× bằng Real-ESRGAN trên máy tính này, bổ sung chi tiết thay vì chỉ kéo giãn' },
+ 'upscale-image': { name: 'Phóng to hình ảnh', desc: 'Phóng to hình ảnh 2–4× trên máy tính này bằng Real-ESRGAN, waifu2x hoặc trọng số Upscayl, hoặc để một mô hình hình ảnh vẽ lại ảnh lớn hơn' },
  'remove-object': { name: 'Xóa vật thể', desc: 'Tô lên người hoặc vật bạn không muốn, vùng đó sẽ được lấp đầy dựa trên xung quanh' },
  'remove-watermark': { name: 'Xóa hình mờ', desc: 'Khoanh hình mờ, logo hoặc dải phụ đề; các hình có nó ở cùng vị trí có thể xử lý một lần' },
  'repaint-image': { name: 'Vẽ lại vùng', desc: 'Tô một vùng và nói nó nên trở thành gì; chỉ vùng đó thay đổi' },

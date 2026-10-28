@@ -33,5 +33,5 @@ export const de: JobsToolCatalogueMessages = {
   extractAudioDescription:
     "Extrahiert die Audiospur einer Video- oder Audiodatei. Codecs für gängige Container werden unverändert kopiert; andere werden in AAC neu codiert. Datei zu Datei, ohne ein Video zu erstellen. Ergebnisse überschreiben keine vorhandenen Dateien.",
   upscaleImageLabel: 'Bild hochskalieren',
-  upscaleImageDescription: 'Vergrößert Bilder auf diesem Computer mit Real-ESRGAN um das 2- bis 4-Fache (Foto- oder Anime-Modell). Datei zu Datei: Ausgabe als PNG am Speicherort, die Originale bleiben unverändert.',
+  upscaleImageDescription: 'Vergrößert Bilder auf diesem Computer um das 2- bis 4-Fache (Real-ESRGAN, waifu2x, Upscayl-Gewichte oder Lanczos) oder lässt sie von einem Bildmodell größer neu zeichnen. Datei zu Datei: Ausgabe als PNG am Speicherort, die Originale bleiben unverändert.',
 };

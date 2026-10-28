@@ -39,7 +39,7 @@ export const ptBR: ToolCatalogMessages = {
       name: "Gerar imagem",
       desc: "Descreva imagem para nuvem ou local; referências, proporção e quantidade opcionais",
     },
-    'upscale-image': { name: 'Ampliar imagem', desc: 'Amplie imagens de 2 a 4× com o Real-ESRGAN neste computador, preenchendo detalhes em vez de só esticar' },
+    'upscale-image': { name: 'Ampliar imagem', desc: 'Amplie imagens de 2 a 4× neste computador com o Real-ESRGAN, o waifu2x ou pesos do Upscayl, ou peça a um modelo de imagem que as redesenhe maiores' },
     'remove-object': { name: 'Remover objeto', desc: 'Pinte sobre pessoas ou coisas que você não quer, e a área é preenchida a partir do entorno' },
     'remove-watermark': { name: 'Remover marca d’água', desc: 'Marque com uma caixa uma marca d’água, logotipo ou faixa de legenda; imagens com ela no mesmo lugar podem ser feitas de uma vez' },
     'repaint-image': { name: 'Redesenhar área', desc: 'Pinte uma área e diga o que ela deve virar; só essa área muda' },

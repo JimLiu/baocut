@@ -27,5 +27,5 @@ export const zhHans: JobsToolCatalogueMessages = {
   extractAudioDescription:
     '从视频或音频文件里取出音轨：编码放得进常见容器的直接复制，其余重新编码为 AAC；文件到文件，不建视频，输出不覆盖已有的文件。',
   upscaleImageLabel: '图片超分',
-  upscaleImageDescription: '用本机的 Real-ESRGAN 把图片放大 2–4 倍（照片或动画模型）。文件到文件：输出 PNG 到保存位置，不动原图。',
+  upscaleImageDescription: '用本机的 Real-ESRGAN、waifu2x、Upscayl 权重或 Lanczos 把图片放大 2–4 倍，或交给图像模型重画一张大的。文件到文件：输出 PNG 到保存位置，不动原图。',
 };

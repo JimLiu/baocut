@@ -11,5 +11,5 @@ export const es: JobsToolCatalogueMessages = {
  mergeVideoLabel: 'Unir vídeos', mergeVideoDescription: 'Une varios archivos de vídeo en uno, en orden: de archivo a archivo, sin crear un vídeo, y los resultados no sobrescriben archivos existentes.',
  extractAudioLabel: 'Extraer audio', extractAudioDescription: 'Extrae la pista de audio de un archivo de vídeo o audio. Los códecs compatibles con un contenedor habitual se copian tal cual; los demás se recodifican a AAC. De archivo a archivo, sin crear un vídeo, y los resultados no sobrescriben archivos existentes.',
   upscaleImageLabel: 'Ampliar imagen',
-  upscaleImageDescription: 'Amplía imágenes 2–4× en este ordenador con Real-ESRGAN (modelo de foto o de animación). De archivo a archivo: la salida es PNG en la ubicación de guardado y los originales no se tocan.',
+  upscaleImageDescription: 'Amplía imágenes 2–4× en este ordenador (Real-ESRGAN, waifu2x, pesos de Upscayl o Lanczos) o hace que un modelo de imagen las redibuje más grandes. De archivo a archivo: la salida es PNG en la ubicación de guardado y los originales no se tocan.',
 };

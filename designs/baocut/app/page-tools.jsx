@@ -47,7 +47,8 @@
       extract: ffmpeg,
       image: T.imageStatus(window.useImageEngines(app).filter(e => e.family !== 'agent')),
       music: T.musicStatus(D.setModels, app.modelInstalled),
-      upscale: window.BC_IMAGE_EDIT_QUEUE.store.esrgan === 'ready' ? {text: 'Real-ESRGAN 就绪 · v0.2.5.0', on: true} : {text: '第一次使用前要下载 Real-ESRGAN（49 MB）', on: false},
+      // 放大不再必须先下载：平滑放大与 AI 重画不用下载，本机超分的程序在工具页按选的模型下载，卡片上不写现状（同实现）
+      upscale: null,
       link: app.downloader ? {text: app.downloader.state === 'ready' ? `下载工具就绪 · yt-dlp ${app.downloader.version}` : '第一次使用前要准备下载工具', on: app.downloader.state === 'ready'} : null,
     };
     return (

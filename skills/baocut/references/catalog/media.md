@@ -28,7 +28,7 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 <!-- /surface -->
 - 已有视频先 {{tool:videos_list}} / {{tool:videos_inspect}}：素材是不是已经导入过、有没有转写，已有的接着用，不重复导入。
 - 生成图片先 {{tool:models_capabilities}}（能力 `generateImage`）看有没有可用的模型、尺寸与张数的范围。
-- 修图用模型补时要能按提示词改图的模型（`referenceImages.edit` 为 true）；放大要 Real-ESRGAN，第一次用时下载（见「放大与修改图片」）。
+- 修图用模型补时要能按提示词改图的模型（`referenceImages.edit` 为 true）；本机放大要 Real-ESRGAN、waifu2x 或 Upscayl 的权重，第一次用到时下载（见「放大与修改图片」）。
 
 ## 命令与例子
 
@@ -90,7 +90,7 @@ description: 媒体的机制：从链接下载、检索与下载网上素材、�
 
 | 要做的事 | 调用 |
 | --- | --- |
-| 放大（超分辨率，补出细节，不是拉伸） | {{tool:upscale}}，{{arg:files}}；{{arg:scale}} 2、3、4（默认 4，输出边长不超过 16384）；{{arg:model}} `photo`（照片、截图，默认）或 `anime`（动画、插画、线稿） |
+| 放大（超分辨率，补出细节，不是拉伸） | {{tool:upscale}}，{{arg:files}}；{{arg:scale}} 2、3、4（默认 4，输出边长不超过 16384）；{{arg:model}} 按画面选（见下面的「放大选模型」），默认 `photo` |
 | 去水印、角标、字幕条 | {{tool:retouch}}，{{arg:op}} `watermark` + {{arg:mask}}；可以一次几张，选区按第一张记、按比例用于每一张 |
 | 去掉画面里的物体 | {{tool:retouch}}，{{arg:op}} `erase` + {{arg:mask}} |
 | 把一块重画成别的 | {{tool:retouch}}，{{arg:op}} `repaint` + {{arg:mask}} + {{arg:prompt}}（选区改成什么） |
@@ -113,7 +113,15 @@ baocut retouch shot.png --op watermark --mask '{"boxes":[{"x":1500,"y":980,"widt
 - `model`：把选区周围的一块（扩图是整张新画布）交给能按提示词改图的图像模型，回来后只贴回选区，选区外的像素不变；适合大块物体与复杂背景。`erase` 默认用它，`repaint` 与 `expand` 只有它。云端模型每次调用经授权与预算；本机模型一张要几分钟，和别的本机任务排同一个队。
 - 不给 {{arg:model}} 时用生图的默认模型，它不能改图时自动换第一个能改图的；回执里的 `provider`、`model` 是实际用的。要指定时先 {{tool:models_capabilities}}（{{arg:capability}} `generateImage`）找 `referenceImages.edit` 为 true 的模型。一个能改图的都没有时以 `IMAGE_EDIT_UNSUPPORTED` 拒绝：小块的去水印、去物体改用 `fill`，否则照 `remedy` 请用户装一个，不拿不能改图的模型硬试。
 
-**放大先要 Real-ESRGAN**：它是 BaoCut 管理的外部工具，第一次用时下载（约 50 MB，来自它在 GitHub 的发布页）。没装时 {{tool:upscale}} 只提交安装，返回 `installJobId`（`jobId` 为 null）：等它 `completed` 再调用一次。
+**放大选模型**（{{arg:model}}，默认 `photo`）：
+
+- 照片、截图 `photo`；动画、视频截图 `anime`；插画、线稿 `illustration`。这三种用 Real-ESRGAN 自带的权重。
+- 要别的观感时用 Upscayl 的权重：`upscayl-lite` 快、`high-fidelity` 保真、`remacri` 锐利的写实、`ultramix-balanced` 均衡、`ultrasharp` 最锐利。`remacri` 与 `ultrasharp` 不可商用，用户要商用时别选。
+- 有 JPEG 噪点时用 waifu2x 并给 {{arg:denoise}}（-1 不降噪，0 默认，3 最强）：`waifu2x` 插画、`waifu2x-anime` 动画、`waifu2x-photo` 照片。别的模型不收 {{arg:denoise}}。
+- `lanczos` 只是插值：不用模型，也不补细节。
+- `generative` 把图发给生图模型重画：联网、计费，会改动细节与文字。只在用户要「AI 重画」或本机效果不够时用。可以给 {{arg:provider}}、{{arg:imageModel}} 与 {{arg:prompt}}（画面里是什么、要保留的文字），别的模型不收这三个。
+
+**本机放大先要装工具**：Real-ESRGAN（约 50 MB）、waifu2x（约 40 MB）与 Upscayl 权重包（约 130 MB，由 Real-ESRGAN 执行）都是 BaoCut 管理的外部工具，第一次用到时从 GitHub 下载；`lanczos` 与 `generative` 不用装。缺工具时 {{tool:upscale}} 只提交一个安装，返回 `installJobId`（`jobId` 为 null）：等它 `completed` 再调用一次。Upscayl 的权重还要 Real-ESRGAN，所以可能要装两次。
 <!-- surface: cli -->
 终端里不再询问就会下载：第一次放大前先告诉用户要下载它。
 <!-- /surface -->
@@ -290,7 +298,8 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 | `IMAGE_EDIT_MASK_EMPTY`、`IMAGE_EDIT_MASK_TOO_LARGE` | 选区不在图上，或占了六成以上：按 `details` 里图的 `width`、`height` 改坐标；要大改整张图就用 {{tool:image}} 重新生成 |
 | `IMAGE_EDIT_UNSUPPORTED` | 选的模型不能按提示词改图，或一个能改图的都没有：见「放大与修改图片」的两种补法 |
 | `IMAGE_EDIT_TOO_LARGE`、`UPSCALE_OUTPUT_TOO_LARGE` | 扩图每边超过 4096，或放大后超过 16384 像素：少扩一些、给小一点的 {{arg:scale}} |
-| `TOOL_UNAVAILABLE`、`TOOL_MANIFEST_INCOMPLETE` | Real-ESRGAN 用不了或这个平台下载不到：照 `remedy` 转告用户 |
+| `TOOL_UNAVAILABLE`、`TOOL_MANIFEST_INCOMPLETE` | 放大要的工具（Real-ESRGAN、waifu2x、Upscayl 权重）用不了，或这个平台下载不到：照 `remedy` 转告用户 |
+| `UPSCALE_MODEL_UNSUPPORTED`、`UPSCALE_MODEL_TOO_SMALL` | `generative` 选的生图模型不收参考图、不列尺寸，或出图比源图还小：换一个收参考图的模型（{{tool:models_capabilities}} 的 `generateImage`），或改用本机的模型 |
 <!-- surface: agent -->
 | `DECK_NOT_FOUND`、`NOT_A_DECK` | 路径不是 deck 目录（没有 `deck.json`，或它不是幻灯片的索引）：核对路径 |
 | `SLIDES_COMPILER_UNAVAILABLE` | 这台机器上的 BaoCut 没带幻灯片编辑器：deck 文件照样写好，告诉用户没法校验、也没法在 BaoCut 里打开，不要自己找编译器 |

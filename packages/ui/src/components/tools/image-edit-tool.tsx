@@ -1,10 +1,26 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import type { EditImageAnchor, EditImageMethod, JobRecord, UpscaleImageModel, UpscaleImageScale } from '@baocut/protocol';
+import {
+  UPSCALE_IMAGE_DENOISE_LEVELS,
+  UPSCALE_IMAGE_MODEL_SPECS,
+  upscaleImageTools,
+  upscalePeakScale,
+  type EditImageAnchor,
+  type EditImageMethod,
+  type JobRecord,
+  type UpscaleImageDenoise,
+  type UpscaleImageModel,
+  type UpscaleImageScale,
+} from '@baocut/protocol';
 import {
   ActionButton,
   Button,
   DropZone,
+  Header,
+  Heading,
   NumberField,
+  Picker,
+  PickerItem,
+  PickerSection,
   ProgressBar,
   SegmentedControl,
   SegmentedControlItem,
@@ -30,6 +46,7 @@ import {
   EXPAND_RATIOS,
   IMAGE_EDIT_OPS,
   IMAGE_EDIT_PIPELINES,
+  UPSCALE_GROUPS,
   UPSCALE_SCALES,
   blankForm,
   editRequest,
@@ -44,6 +61,9 @@ import {
   selectionStats,
   sendsWhole,
   sourcesFor,
+  upscalableImageModel,
+  upscaleLicense,
+  upscaleManagedTools,
   upscaleRequest,
   upscaleSize,
   workArea,
@@ -56,6 +76,7 @@ import {
 import { imageModelOptions, type ImageOption } from '../../model/tools-image.ts';
 import type { ImageCandidate } from '../../model/image-preview.ts';
 import { formatBytes } from '../../model/space.ts';
+import { problemText } from '../../model/tools-gallery.ts';
 import { jobPercent } from '../../model/task-list.ts';
 import { EmptyCard } from '../models/model-parts.tsx';
 import { findOption } from '../../model/tools-models.ts';
@@ -81,7 +102,7 @@ import { useImageEditStart } from './use-image-edit-start.ts';
 import { loadEntry, loadLocal } from './image-edit-sources.ts';
 import { SpacePicker } from './tool-video-picker.tsx';
 import { useCancelJob } from './use-tool-records.ts';
-import { useEsrgan, type EsrganState } from './use-esrgan.ts';
+import { useManagedTools, type ManagedToolsState } from './use-managed-tools.ts';
 import { blockOf, useToolStatus } from './use-tool-status.ts';
 import { usePreset } from './video-tool-parts.tsx';
 
@@ -89,8 +110,9 @@ import { usePreset } from './video-tool-parts.tsx';
  * 设计稿 tool-image-edit.jsx 与 image-edit-canvas.jsx：放大 / 去除物体 / 去水印 / 重绘 / 扩图共用一页，由左边侧栏切换（各自保留
  * 工具 ID，页里不再有切换条）。左边来源 → 画布（涂抹、拖框或扩图预览）→ 选项 → 保存位置，右边是这五个工具的处理记录（`jobs` 主题里
  * 这几条流程的任务）。来源小图与画布都能点开图片查看器，查看器表头的「用工具处理…」把这张图带进别的工具。
- * 提交走 Runtime 的固定流程：放大是 `upscale-image`（Real-ESRGAN，受管外部工具，第一次用之前在这一页下载），别的是 `remove-object`
- * 等四个流程（ffmpeg 快速填充，或能改图的图像模型）。选区与扩图的规则在 model/tools-image-edit.ts。
+ * 提交走 Runtime 的固定流程：放大是 `upscale-image`（按选的模型用 Real-ESRGAN、waifu2x 这些受管外部工具——第一次用之前在这一页
+ * 下载——或 ffmpeg 插值、收参考图的图像模型），别的是 `remove-object` 等四个流程（ffmpeg 快速填充，或能改图的图像模型）。
+ * 选区与扩图的规则在 model/tools-image-edit.ts。
  */
 
 /** 台面里图的最高显示高度（CSS 像素）；放大只看一眼原图，矮一些。 */
@@ -208,7 +230,11 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
   const tools = useToolStatus();
   const block = blockOf(tools, o.toolId, 'file');
   const view = useModels((s) => s.capabilities);
-  const models = useMemo(() => (view ? imageModelOptions(view).filter((m) => m.info.referenceImages?.edit) : []), [view]);
+  // 放大（AI 重画）列收参考图、给像素尺寸的模型，别的工具列能按提示词改图的。
+  const models = useMemo(
+    () => (view ? imageModelOptions(view).filter((m) => (op === 'upscale' ? upscalableImageModel(m.info) : m.info.referenceImages?.edit)) : []),
+    [view, op],
+  );
   const editReady = models.some((m) => m.usable);
   const form: ImageEditForm = draft.forms[op] ?? blankForm(op, editReady);
   const sel: Selection = draft.selections[op] ?? EMPTY_SELECTION;
@@ -218,21 +244,39 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
   const setSel = (next: Selection) => patch({ selections: { ...draft.selections, [op]: next } });
   // 换了来源图：选区按原图像素记，各工具的都清掉。
   const setSources = (list: ImageSource[]) => patch({ sources: list, selections: {} });
-  const esrgan = useEsrgan(op === 'upscale' && runtime.host.platform !== 'web');
-  // Real-ESRGAN 没装（或还在查）时 `tools.list` 也说放大不能用，那条原因的补救是写给 Agent 的；这一页有自己的下载卡（原型的
-  // EsrganCard），页头与提交跟着下载卡说，不再叠一张「暂时不能用」。
-  const esrganChecking = op === 'upscale' && esrgan.state === 'checking';
-  const shownBlock = op === 'upscale' && esrgan.state !== 'ready' ? null : block;
+  const web = runtime.host.platform === 'web';
+  // 选的放大模型要下载的程序与权重：这一页有自己的下载卡（原型的 ToolCard），页头与提交跟着它说。浏览器里不开放
+  // `externalTools.*`，不查也不下载，缺的看 `tools.list` 的限制。
+  const managed = useManagedTools(op === 'upscale' ? upscaleManagedTools(form.model) : [], op === 'upscale' && !web);
+  const toolsChecking = managed.state === 'checking';
+  // 这个模型要、下载卡又管不了的工具（ffmpeg；浏览器里是全部）没装：`tools.list` 的限制挡住提交。
+  const toolLimit =
+    op === 'upscale'
+      ? tools.byId
+          .get(o.toolId)
+          ?.limitations.find(
+            (l) => l.tool && upscaleImageTools(form.model, form.scale).includes(l.tool) && (web || !upscaleManagedTools(form.model).includes(l.tool)),
+          )
+      : undefined;
+  const shownBlock = block || (toolLimit ? problemText(toolLimit, true) : block);
   const [tried, setTried] = useState(false);
   const [fromSpace, setFromSpace] = useState(false);
   const [viewing, setViewing] = useState<number | null>(null);
   const entries = useSpace((s) => s.entries);
 
   const engine = findOption(models, form.engine) ?? models.find((m) => m.usable) ?? models[0] ?? null;
-  const modelReason = !models.some((m) => m.usable) ? M.noEditModel : engine && !engine.usable ? (engine.why ?? M.modelUnusable(engine.label)) : null;
-  const problems = imageEditProblems(op, form, srcs, sel, { esrgan: esrgan.state, modelReason });
-  const local = op === 'upscale' || form.method === 'fill' || !!engine?.local;
-  const chip = local ? M.chipLocal : src && sendsWhole(op, sel, src) ? M.chipWhole : M.chipRegion;
+  const modelReason = !models.some((m) => m.usable)
+    ? op === 'upscale'
+      ? M.noUpscaleModel
+      : M.noEditModel
+    : engine && !engine.usable
+      ? (engine.why ?? M.modelUnusable(engine.label))
+      : null;
+  const upscaleTool = managed.state === 'missing' ? (managed.tool?.label ?? managed.missing) : null;
+  const problems = imageEditProblems(op, form, srcs, sel, { upscaleTool, modelReason });
+  const generative = op === 'upscale' && UPSCALE_IMAGE_MODEL_SPECS[form.model].engine === 'generative';
+  const local = op === 'upscale' ? !generative || !!engine?.local : form.method === 'fill' || !!engine?.local;
+  const chip = local ? M.chipLocal : generative || (src && sendsWhole(op, sel, src)) ? M.chipWhole : M.chipRegion;
 
   usePreset(o.toolId, (entryId) => {
     const entry = entries.find((e) => e.id === entryId);
@@ -270,14 +314,14 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
 
   const submit = () => {
     setTried(true);
-    if (shownBlock || esrganChecking || starter.busy || starter.asking) return;
+    if (shownBlock || toolsChecking || starter.busy || starter.asking) return;
     if (problems.length) {
       ToastQueue.neutral(problems[0]!, { timeout: 4000 });
       return;
     }
     starter.start(
       op === 'upscale'
-        ? { pipeline: IMAGE_EDIT_PIPELINES.upscale, params: { ...upscaleRequest(form, srcs, outDir) } }
+        ? { pipeline: IMAGE_EDIT_PIPELINES.upscale, params: { ...upscaleRequest(form, srcs, generative ? engine : null, outDir) } }
         : { pipeline: IMAGE_EDIT_PIPELINES[op], params: { ...editRequest(op, form, srcs, sel, engine, outDir) } },
     );
   };
@@ -292,7 +336,7 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
   const barNode = (
     <>
       <BarStatus text={status.text} bad={status.bad} />
-      <Button variant="accent" isDisabled={!!shownBlock || esrganChecking || !!starter.asking} isPending={starter.busy} onPress={submit}>
+      <Button variant="accent" isDisabled={!!shownBlock || toolsChecking || !!starter.asking} isPending={starter.busy} onPress={submit}>
         <ImageIcon />
         <Text>{M.verb[op]}</Text>
       </Button>
@@ -303,7 +347,7 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
     <>
       <p className={lede}>{M.lede[op]}</p>
       {shownBlock ? <Gate title={M.unavailable} body={shownBlock} /> : null}
-      {op === 'upscale' ? <EsrganGate esrgan={esrgan} /> : null}
+      {op === 'upscale' ? <ToolGate managed={managed} /> : null}
 
       <Section
         title={o.batch ? M.imagesTitle : M.imageTitle}
@@ -342,7 +386,9 @@ function ImageEditPage({ op }: { op: ImageEditToolId }) {
         </Section>
       ) : null}
 
-      {op === 'upscale' ? <UpscaleOptions form={form} setForm={setForm} src={src} /> : null}
+      {op === 'upscale' ? (
+        <UpscaleOptions form={form} setForm={setForm} src={src} models={models} engine={engine} onSettings={() => go({ tab: 'models', category: 'image' })} />
+      ) : null}
       {op === 'expand' ? <ExpandOptions form={form} setForm={setForm} src={src} /> : null}
       {op !== 'upscale' ? (
         <MethodOptions op={op} form={form} setForm={setForm} models={models} engine={engine} onSettings={() => go({ tab: 'models', category: 'image' })} />
@@ -368,7 +414,7 @@ function statusText(op: ImageEditToolId, form: ImageEditForm, srcs: readonly Ima
   const count = srcs.length > 1 ? `${M.images(srcs.length)} · ` : '';
   if (op === 'upscale') {
     const s = upscaleSize(src, form.scale, form.model);
-    return `${count}${s.width}×${s.height}`;
+    return `${count}${M.upscaleModel[form.model].name} · ${s.width}×${s.height}`;
   }
   if (op === 'expand') {
     const p = expandPlan(src, form);
@@ -642,27 +688,30 @@ function EditCanvas({
 
 /* ---------- 选项 ---------- */
 
-function EsrganGate({ esrgan }: { esrgan: EsrganState }) {
-  if (esrgan.state !== 'missing') return null;
-  const offer = esrgan.tool?.offer;
-  const facts = offer ? M.esrganFacts(offer.version, offer.license, ((b) => (b == null ? null : formatBytes(b)))(offer.sizeBytes ?? offer.estimatedBytes ?? null)) : null;
+/** 选的模型要、还没装好的第一个受管工具的下载卡（执行的程序在前、权重包在后，一次装一个）；都装好时不显示。 */
+function ToolGate({ managed }: { managed: ManagedToolsState }) {
+  if (managed.state !== 'missing' || !managed.missing) return null;
+  const label = managed.tool?.label ?? managed.missing;
+  const offer = managed.tool?.offer;
+  const facts = offer ? M.toolFacts(offer.version, offer.license, ((b) => (b == null ? null : formatBytes(b)))(offer.sizeBytes ?? offer.estimatedBytes ?? null)) : null;
+  const body = M.toolBody[managed.missing];
   return (
     <Gate
-      title={M.esrganTitle}
+      title={M.toolTitle(label)}
       body={
         <>
-          <p className={hintText}>{M.esrganBody}</p>
+          <p className={hintText}>{body ? `${body} ${M.toolKeep}` : M.toolKeep}</p>
           {facts ? <p className={hintText}>{facts}</p> : null}
           {offer?.url ? <p className={mono}>{offer.url}</p> : null}
-          {esrgan.tool?.reason ? <p className={warn}>{esrgan.tool.reason}</p> : null}
+          {managed.tool?.reason ? <p className={warn}>{managed.tool.reason}</p> : null}
         </>
       }
       actions={
         <>
-          <Button variant="accent" size="S" isPending={esrgan.installing} isDisabled={!offer || !!offer.blockedReason} onPress={esrgan.install}>
-            {M.esrganInstall}
+          <Button variant="accent" size="S" isPending={managed.installing} isDisabled={!offer || !!offer.blockedReason} onPress={managed.install}>
+            {M.toolInstall}
           </Button>
-          <Button variant="secondary" size="S" onPress={esrgan.recheck}>
+          <Button variant="secondary" size="S" onPress={managed.recheck}>
             {M.recheck}
           </Button>
         </>
@@ -671,27 +720,113 @@ function EsrganGate({ esrgan }: { esrgan: EsrganState }) {
   );
 }
 
-function UpscaleOptions({ form, setForm, src }: { form: ImageEditForm; setForm: (p: Partial<ImageEditForm>) => void; src: ImageSource | null }) {
+/** 菜单里一行的说明：用途，权重不能商用或没写许可时接上提醒。 */
+function upscaleModelSub(model: UpscaleImageModel): string {
+  const license = upscaleLicense(model);
+  return [M.upscaleModel[model].sub, license ? M.licenseTag[license.kind] : null].filter(Boolean).join(' · ');
+}
+
+/** 选项下面那句：按引擎说这一次怎么放大。 */
+function upscaleNote(form: ImageEditForm): string {
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[form.model];
+  if (spec.engine === 'lanczos') return M.lanczosNote;
+  if (spec.engine === 'generative') return M.generativeNote;
+  return `${needsResize(form.model, form.scale) ? M.resizeNote(upscalePeakScale(form.model, form.scale), form.scale) : M.nativeNote} ${M.upscaleCaveat}`;
+}
+
+function UpscaleOptions({
+  form,
+  setForm,
+  src,
+  models,
+  engine,
+  onSettings,
+}: {
+  form: ImageEditForm;
+  setForm: (p: Partial<ImageEditForm>) => void;
+  src: ImageSource | null;
+  models: readonly ImageOption[];
+  engine: ImageOption | null;
+  onSettings: () => void;
+}) {
   const size = src ? upscaleSize(src, form.scale, form.model) : null;
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[form.model];
+  const license = upscaleLicense(form.model);
   return (
-    <Section title={M.upscaleTitle}>
-      <Row label={M.upscaleKind}>
-        <SegmentedControl aria-label={M.upscaleKind} selectedKey={form.model} onSelectionChange={(k) => setForm({ model: k as UpscaleImageModel })}>
-          <SegmentedControlItem id="photo">{M.photo}</SegmentedControlItem>
-          <SegmentedControlItem id="anime">{M.anime}</SegmentedControlItem>
-        </SegmentedControl>
-        <span className={detailGrow}>{form.model === 'photo' ? M.photoSub : M.animeSub}</span>
-      </Row>
-      <Row label={M.scale}>
-        <SegmentedControl aria-label={M.scale} selectedKey={String(form.scale)} onSelectionChange={(k) => setForm({ scale: Number(k) as UpscaleImageScale })}>
-          {UPSCALE_SCALES.map((s) => (
-            <SegmentedControlItem key={s} id={String(s)}>{`${s}×`}</SegmentedControlItem>
+    <>
+      <Section title={M.upscaleTitle}>
+        <Picker
+          label={M.upscaleModelTitle}
+          menuWidth={360}
+          selectedKey={form.model}
+          onSelectionChange={(k) => {
+            if (k !== null) setForm({ model: k as UpscaleImageModel });
+          }}>
+          {UPSCALE_GROUPS.map((g) => (
+            <PickerSection key={g.id} id={`group:${g.id}`}>
+              <Header>
+                <Heading>{M.upscaleGroup[g.id]}</Heading>
+              </Header>
+              {g.models.map((k) => (
+                <PickerItem key={k} id={k} textValue={M.upscaleModel[k].name}>
+                  <Text slot="label">{M.upscaleModel[k].name}</Text>
+                  <Text slot="description">{upscaleModelSub(k)}</Text>
+                </PickerItem>
+              ))}
+            </PickerSection>
           ))}
-        </SegmentedControl>
-        {size ? <span className={detailGrow}>{`${size.width}×${size.height}`}</span> : null}
-      </Row>
-      <p className={hintText}>{`${needsResize(form.model, form.scale) ? M.resizeNote(form.scale) : M.nativeNote} ${M.upscaleCaveat}`}</p>
-    </Section>
+        </Picker>
+        <p className={hintText}>
+          {M.upscaleModel[form.model].sub}
+          {spec.weights ? (
+            <>
+              {' · '}
+              <span className={mono}>{spec.weights}</span>
+            </>
+          ) : null}
+        </p>
+        {license ? <p className={warn}>{license.kind === 'nc' ? M.licenseNc(license.spdx) : M.licenseUnstated}</p> : null}
+        <Row label={M.scale}>
+          <SegmentedControl aria-label={M.scale} selectedKey={String(form.scale)} onSelectionChange={(k) => setForm({ scale: Number(k) as UpscaleImageScale })}>
+            {UPSCALE_SCALES.map((s) => (
+              <SegmentedControlItem key={s} id={String(s)}>{`${s}×`}</SegmentedControlItem>
+            ))}
+          </SegmentedControl>
+          {size ? <span className={detailGrow}>{`${size.width}×${size.height}`}</span> : null}
+        </Row>
+        {spec.denoise ? (
+          <Row label={M.denoise}>
+            <SegmentedControl aria-label={M.denoise} selectedKey={String(form.denoise)} onSelectionChange={(k) => setForm({ denoise: Number(k) as UpscaleImageDenoise })}>
+              {UPSCALE_IMAGE_DENOISE_LEVELS.map((l) => (
+                <SegmentedControlItem key={l} id={String(l)}>
+                  {M.denoiseLevel[l]}
+                </SegmentedControlItem>
+              ))}
+            </SegmentedControl>
+          </Row>
+        ) : null}
+        {spec.denoise ? <p className={hintText}>{M.denoiseNote}</p> : null}
+        <p className={hintText}>{upscaleNote(form)}</p>
+      </Section>
+      {spec.engine === 'generative' ? (
+        <>
+          <ModelRow
+            noun={M.modelNoun}
+            manage={IMAGE_COPY.manage}
+            onSettings={onSettings}
+            options={models}
+            selected={engine}
+            disableUnusable
+            onSelect={(m) => setForm({ engine: m.key })}
+            factsOf={(m) => (m.local ? M.localModel : M.cloudModel)}>
+            <p className={hintText}>{`${M.generativeModelNote} ${engine?.local ? M.localNote : M.generativeCloudNote}`}</p>
+          </ModelRow>
+          <Section title={M.guidanceTitle} aside={<span className={detail}>{M.optional}</span>}>
+            <ToolTextArea label={M.guidanceTitle} value={form.prompt} onChange={(prompt) => setForm({ prompt })} placeholder={M.guidancePlaceholder} compact />
+          </Section>
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -836,9 +971,11 @@ function ImageEditRecord({ job, now }: { job: JobRecord; now: number }) {
   const outputs = useJobOutputs([job.jobId]);
   const cancel = useCancelJob();
   const hide = useTools((s) => s.hide);
-  const params = (job.pipeline?.params ?? {}) as { inputs?: unknown[] };
+  const params = (job.pipeline?.params ?? {}) as { inputs?: unknown[]; model?: unknown };
   const first = params.inputs?.[0];
   const name = typeof first === 'string' ? fileName(first) : M.title[tool];
+  // 放大接上用的模型（参数是 Runtime 记下的，名字不认识就不写）。
+  const upscaleModel = tool === 'upscale' && typeof params.model === 'string' && Object.hasOwn(M.upscaleModel, params.model) ? M.upscaleModel[params.model as UpscaleImageModel].name : null;
   const running = job.endedAt === null;
   const failed = didNotFinish(job);
   return (
@@ -850,7 +987,9 @@ function ImageEditRecord({ job, now }: { job: JobRecord; now: number }) {
         <span className={recordTitle}>{name}</span>
         <span className={detail}>{stateLabel(job, now)}</span>
       </div>
-      <span className={recordText({ isOff: true })}>{`${M.title[tool]}${(params.inputs?.length ?? 0) > 1 ? ` · ${M.images(params.inputs!.length)}` : ''}`}</span>
+      <span className={recordText({ isOff: true })}>
+        {[M.title[tool], upscaleModel, (params.inputs?.length ?? 0) > 1 ? M.images(params.inputs!.length) : null].filter(Boolean).join(' · ')}
+      </span>
       {running ? (
         <div className={recordRow}>
           <ProgressBar aria-label={M.progress} styles={progress} size="S" isIndeterminate={jobPercent(job) === null} value={jobPercent(job) ?? undefined} />

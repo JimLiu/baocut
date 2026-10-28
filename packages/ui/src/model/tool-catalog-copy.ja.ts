@@ -38,7 +38,7 @@ export const ja: ToolCatalogMessages = {
       name: '画像を生成',
       desc: '画像を説明すると、クラウドまたはローカルの画像モデルで描きます。参照画像、アスペクト比、枚数は任意です',
     },
-    'upscale-image': { name: '画像を拡大', desc: 'このコンピューターの Real-ESRGAN で画像を 2–4 倍に拡大し、引き伸ばすだけでなく細部を補います' },
+    'upscale-image': { name: '画像を拡大', desc: 'このコンピューターの Real-ESRGAN、waifu2x、Upscayl の重みで画像を 2–4 倍に拡大するか、画像モデルに大きく描き直させます' },
     'remove-object': { name: 'オブジェクトを消去', desc: '不要な人や物を塗りつぶすと、その部分が周囲から補われます' },
     'remove-watermark': { name: '透かしを除去', desc: '透かし、ロゴ、字幕バーを囲みます。同じ位置にある画像はまとめて処理できます' },
     'repaint-image': { name: '部分を描き直す', desc: '範囲を塗って何に変えるかを書くと、その範囲だけが変わります' },

@@ -48,7 +48,7 @@ const en = {
   extractAudioDescription:
     "Take the audio track out of a video or audio file. Codecs that fit a common container are copied as is; others are re-encoded to AAC. File to file, no video is created, and outputs don't overwrite existing files.",
   upscaleImageLabel: 'Upscale image',
-  upscaleImageDescription: "Enlarge images 2–4× on this computer with Real-ESRGAN (photo or anime model). File to file: output is PNG in the save location, and the originals aren't touched.",
+  upscaleImageDescription: "Enlarge images 2–4× on this computer (Real-ESRGAN, waifu2x, Upscayl weights or Lanczos) or have an image model redraw them larger. File to file: output is PNG in the save location, and the originals aren't touched.",
 };
 
 export type JobsToolCatalogueMessages = typeof en;

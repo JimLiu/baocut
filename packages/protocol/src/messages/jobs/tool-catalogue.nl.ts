@@ -33,5 +33,5 @@ export const nl: JobsToolCatalogueMessages = {
   extractAudioDescription:
     "Haalt het audiospoor uit een video- of audiobestand. Codecs die in een gangbare container passen worden ongewijzigd gekopieerd; andere worden opnieuw gecodeerd naar AAC. Bestand naar bestand, zonder een video te maken. De uitvoer overschrijft geen bestaande bestanden.",
   upscaleImageLabel: 'Afbeelding opschalen',
-  upscaleImageDescription: 'Vergroot afbeeldingen 2–4× op deze computer met Real-ESRGAN (foto- of animemodel). Bestand naar bestand: uitvoer is PNG in de opslaglocatie en de originelen blijven onaangeroerd.',
+  upscaleImageDescription: 'Vergroot afbeeldingen 2–4× op deze computer (Real-ESRGAN, waifu2x, Upscayl-gewichten of Lanczos) of laat een afbeeldingsmodel ze groter opnieuw tekenen. Bestand naar bestand: uitvoer is PNG in de opslaglocatie en de originelen blijven onaangeroerd.',
 };

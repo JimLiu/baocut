@@ -38,7 +38,7 @@ export const de: ToolCatalogMessages = {
       name: "Bild erzeugen",
       desc: "Ein Bild beschreiben und mit einem Cloud- oder lokalen Bildmodell zeichnen lassen; Referenzbilder, Seitenverhältnis und Anzahl sind optional",
     },
-    'upscale-image': { name: 'Bild vergrößern', desc: 'Bilder mit Real-ESRGAN auf diesem Computer 2–4× vergrößern – mit ergänzten Details statt bloßem Strecken' },
+    'upscale-image': { name: 'Bild vergrößern', desc: 'Bilder auf diesem Computer mit Real-ESRGAN, waifu2x oder Upscayl-Gewichten 2–4× vergrößern oder von einem Bildmodell größer neu zeichnen lassen' },
     'remove-object': { name: 'Objekt entfernen', desc: 'Unerwünschte Personen oder Dinge übermalen; der Bereich wird aus der Umgebung aufgefüllt' },
     'remove-watermark': { name: 'Wasserzeichen entfernen', desc: 'Wasserzeichen, Logo oder Untertitelleiste markieren; Bilder mit derselben Position lassen sich in einem Durchgang bearbeiten' },
     'repaint-image': { name: 'Bereich neu malen', desc: 'Einen Bereich übermalen und angeben, was daraus werden soll; nur dieser Bereich ändert sich' },

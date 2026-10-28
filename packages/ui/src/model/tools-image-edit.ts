@@ -1,4 +1,6 @@
 import {
+  UPSCALE_IMAGE_MODEL_SPECS,
+  UPSCALE_IMAGE_PROMPT_MAX,
   upscaleNeedsResize,
   upscalePeakScale,
   type EditImageAnchor,
@@ -6,6 +8,8 @@ import {
   type EditImageMethod,
   type EditImageOp,
   type EditImageStartParams,
+  type ImageModelInfo,
+  type UpscaleImageDenoise,
   type UpscaleImageModel,
   type UpscaleImageScale,
   type UpscaleImageStartParams,
@@ -15,7 +19,8 @@ import { entryIdOfInput } from './tools-transcode.ts';
 import { M } from './tools-image-edit-copy.ts';
 
 /**
- * 图片处理的五个工具（设计稿 model-image-edit.js `BC_IMAGE_EDIT`；架构设计 §7.9）：放大（`upscale-image`，Real-ESRGAN）、去除物体、
+ * 图片处理的五个工具（设计稿 model-image-edit.js `BC_IMAGE_EDIT`；架构设计 §7.9）：放大（`upscale-image`，Real-ESRGAN、waifu2x、
+ * Lanczos 插值或图像模型重画）、去除物体、
  * 去水印、重绘局部、扩展画面（`remove-object` 等四个流程，ffmpeg 快速填充或能改图的图像模型）共用一页，页顶切换。都是文件到文件：
  * 输入是本机图片或 Space 里的图片条目，结果是保存位置里的 PNG，不动原图。这里只算：工具表、选区（笔画与框 → 覆盖率与外框 →
  * 送去修补的一块）、扩图的几何、表单检查与提交参数。坐标一律是原图像素。
@@ -76,6 +81,33 @@ export function needsResize(model: UpscaleImageModel, scale: UpscaleImageScale):
 export function upscaleSize(src: { width: number; height: number }, scale: UpscaleImageScale, model: UpscaleImageModel) {
   const peak = upscalePeakScale(model, scale);
   return { width: src.width * scale, height: src.height * scale, tooLarge: src.width * peak > UPSCALE_MAX_SIDE || src.height * peak > UPSCALE_MAX_SIDE };
+}
+
+/** 放大模型菜单的四节（设计稿 `UPSCALE_GROUPS`）：Real-ESRGAN 自带的、Upscayl 权重（Real-ESRGAN 运行）、waifu2x、其他方式。 */
+export type UpscaleGroup = 'realesrgan' | 'upscayl' | 'waifu2x' | 'other';
+export const UPSCALE_GROUPS: ReadonlyArray<{ id: UpscaleGroup; models: readonly UpscaleImageModel[] }> = [
+  { id: 'realesrgan', models: ['photo', 'anime', 'illustration'] },
+  { id: 'upscayl', models: ['upscayl-lite', 'high-fidelity', 'remacri', 'ultramix-balanced', 'ultrasharp'] },
+  { id: 'waifu2x', models: ['waifu2x', 'waifu2x-anime', 'waifu2x-photo'] },
+  { id: 'other', models: ['lanczos', 'generative'] },
+];
+
+/** 这个模型要下载的受管工具：执行的程序在前，权重包在后（一次装一个）。插值与生成式放大没有。 */
+export function upscaleManagedTools(model: UpscaleImageModel): string[] {
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[model];
+  return [spec.tool, spec.pack].filter((name): name is NonNullable<typeof name> => name !== null);
+}
+
+/** 权重的许可提醒：不能商用（`nc`，带 SPDX）或作者没写（`unstated`）；能商用、没有权重时 null。 */
+export function upscaleLicense(model: UpscaleImageModel): { kind: 'nc'; spdx: string } | { kind: 'unstated' } | null {
+  const license = UPSCALE_IMAGE_MODEL_SPECS[model].license;
+  if (!license || license.commercialUse === true) return null;
+  return license.commercialUse === false ? { kind: 'nc', spdx: license.spdx ?? '' } : { kind: 'unstated' };
+}
+
+/** 生成式放大能用的图像模型（同 Runtime 的 `imageUpscaler`）：收参考图、列出了像素尺寸；不必能按提示词改图。 */
+export function upscalableImageModel(info: Pick<ImageModelInfo, 'referenceImages' | 'sizes'>): boolean {
+  return !!info.referenceImages && info.sizes.some((size) => /^\d+x\d+$/.test(size));
 }
 
 /* ---------- 选区 ---------- */
@@ -263,13 +295,16 @@ export interface ImageEditForm {
   method: EditImageMethod;
   scale: UpscaleImageScale;
   model: UpscaleImageModel;
+  /** waifu2x 的去噪级别（别的模型不提交）。 */
+  denoise: UpscaleImageDenoise;
+  /** 重绘、扩图的提示词；生成式放大的补充说明。 */
   prompt: string;
   /** 笔刷半径（原图像素）。 */
   brush: number;
   ratio: ExpandRatio;
   anchor: EditImageAnchor;
   margins: ExpandMargins;
-  /** 选的图像模型（`ToolModelOption.key`）；null 时按出厂顺序挑。 */
+  /** 选的图像模型（`ToolModelOption.key`；放大时是生成式放大的模型）；null 时按出厂顺序挑。 */
   engine: string | null;
 }
 
@@ -287,7 +322,18 @@ export const BLANK_IMAGE_EDIT: ImageEditDraft = { sources: [], forms: {}, select
 export function blankForm(op: ImageEditTool, editReady = true): ImageEditForm {
   const o = imageEditOp(op);
   const method: EditImageMethod = !editReady && o.methods.includes('fill') ? 'fill' : (o.methods[0] ?? 'fill');
-  return { method, scale: 4, model: 'photo', prompt: '', brush: 48, ratio: '16:9', anchor: 'center', margins: { left: 25, top: 0, right: 25, bottom: 0 }, engine: null };
+  return {
+    method,
+    scale: 4,
+    model: 'photo',
+    denoise: 0,
+    prompt: '',
+    brush: 48,
+    ratio: '16:9',
+    anchor: 'center',
+    margins: { left: 25, top: 0, right: 25, bottom: 0 },
+    engine: null,
+  };
 }
 
 /** 这一页这个工具用的来源：单张的工具只取第一张。 */
@@ -296,14 +342,15 @@ export function sourcesFor(op: ImageEditTool, sources: readonly ImageSource[]): 
 }
 
 /**
- * 提交前的问题（第一条是页头那句话）。`esrgan` 是 Real-ESRGAN 现在能不能用；`modelReason` 是选的图像模型不能用的原因。
+ * 提交前的问题（第一条是页头那句话）。`upscaleTool` 是放大的模型要用、还没装好的受管工具的名字；`modelReason` 是选的图像模型
+ * 不能用的原因（AI 修补与生成式放大）。
  */
 export function imageEditProblems(
   op: ImageEditTool,
   form: ImageEditForm,
   sources: readonly ImageSource[],
   sel: Selection,
-  ctx: { esrgan: 'ready' | 'missing' | 'checking'; modelReason: string | null },
+  ctx: { upscaleTool: string | null; modelReason: string | null },
 ): string[] {
   const o = imageEditOp(op);
   const src = sources[0];
@@ -311,8 +358,13 @@ export function imageEditProblems(
   const out: string[] = [];
   if (op === 'upscale') {
     const big = sources.find((s) => upscaleSize(s, form.scale, form.model).tooLarge);
-    if (big) out.push(needsResize(form.model, form.scale) ? M.upscaleTooLargePeak(big.name, UPSCALE_MAX_SIDE) : M.upscaleTooLarge(big.name, form.scale, UPSCALE_MAX_SIDE));
-    if (ctx.esrgan === 'missing') out.push(M.esrganMissing);
+    const peak = upscalePeakScale(form.model, form.scale);
+    if (big) out.push(peak !== form.scale ? M.upscaleTooLargePeak(big.name, peak, UPSCALE_MAX_SIDE) : M.upscaleTooLarge(big.name, form.scale, UPSCALE_MAX_SIDE));
+    if (ctx.upscaleTool) out.push(M.toolMissing(ctx.upscaleTool));
+    if (UPSCALE_IMAGE_MODEL_SPECS[form.model].engine === 'generative') {
+      if (ctx.modelReason) out.push(ctx.modelReason);
+      if (form.prompt.trim().length > UPSCALE_IMAGE_PROMPT_MAX) out.push(M.guidanceTooLong(UPSCALE_IMAGE_PROMPT_MAX));
+    }
   }
   const stats = o.select ? selectionStats(sel, src) : null;
   if (o.select && !stats) out.push(o.select === 'box' ? M.markWatermark : op === 'repaint' ? M.paintRepaint : M.paintErase);
@@ -332,9 +384,28 @@ const inputOf = (input: string) => {
   return entryId ? { entryId } : input;
 };
 
-/** 放大的提交参数（`upscale-image`）。 */
-export function upscaleRequest(form: ImageEditForm, sources: readonly ImageSource[], outDir: string | null): UpscaleImageStartParams {
-  return { inputs: sources.map((s) => inputOf(s.input)), scale: form.scale, model: form.model, ...(outDir ? { outDir } : {}) };
+/**
+ * 放大的提交参数（`upscale-image`）：只带这个模型收的参数——去噪只给 waifu2x，Provider、模型与补充说明只给生成式放大（表单里
+ * 换模型前填的值留着，换回来还在，但不提交，流程会拒绝）。
+ */
+export function upscaleRequest(
+  form: ImageEditForm,
+  sources: readonly ImageSource[],
+  engine: { providerId: string; modelId: string } | null,
+  outDir: string | null,
+): UpscaleImageStartParams {
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[form.model];
+  const generative = spec.engine === 'generative';
+  const prompt = form.prompt.trim();
+  return {
+    inputs: sources.map((s) => inputOf(s.input)),
+    scale: form.scale,
+    model: form.model,
+    ...(spec.denoise ? { denoise: form.denoise } : {}),
+    ...(generative && engine ? { provider: engine.providerId, imageModel: engine.modelId } : {}),
+    ...(generative && prompt ? { prompt } : {}),
+    ...(outDir ? { outDir } : {}),
+  };
 }
 
 /**

@@ -20,18 +20,60 @@ test('五个工具：放大、去除物体、去水印、重绘、扩图；选�
   assert.deepEqual(E.OPS.filter((o) => o.batch).map((o) => o.id), ['upscale', 'watermark']);
 });
 
-test('放大：照片模型 2、3 倍要缩，动画模型都是原生；超过 16384 拒绝', () => {
+test('放大：照片模型 2、3 倍要缩，动画（快）都是原生，waifu2x 的 3 倍先放大 4 倍；插值与 AI 重画不缩；超过 16384 拒绝', () => {
   assert.deepEqual(E.SCALES.map((s) => E.needsResize('photo', s)), [true, true, false]);
   assert.deepEqual(E.SCALES.map((s) => E.needsResize('anime', s)), [false, false, false]);
+  assert.deepEqual(E.SCALES.map((s) => E.needsResize('waifu2x', s)), [false, true, false]);
+  assert.deepEqual(E.SCALES.map((s) => E.peakScale('waifu2x', s)), [2, 4, 4]);
+  assert.deepEqual(E.SCALES.map((s) => E.needsResize('lanczos', s) || E.needsResize('generative', s)), [false, false, false]);
   assert.deepEqual(E.upscaleSize(src, 4), {width: 4800, height: 3200, tooLarge: false});
   assert.equal(E.upscaleSize({width: 5000, height: 10}, 4).tooLarge, true);
   // 照片模型 2 倍要先出 4 倍的中间图：中间图超过 16384 也拒绝；动画模型原生 2 倍不受影响
   assert.equal(E.upscaleSize({width: 5000, height: 10}, 2, 'photo').tooLarge, true);
   assert.equal(E.upscaleSize({width: 5000, height: 10}, 2, 'anime').tooLarge, false);
+  const ready = {tools: {'realesrgan-ncnn-vulkan': 'ready', 'waifu2x-ncnn-vulkan': 'ready', 'upscayl-models': 'ready'}};
   const f = Object.assign(E.blank('upscale'), {scale: 4});
-  assert.match(E.problems(f, [{name: 'big.png', width: 5000, height: 10}], null, {esrgan: 'ready'})[0], /超过 16384/);
-  assert.match(E.problems(f, [src], null, {esrgan: 'missing'})[0], /Real-ESRGAN/);
-  assert.deepEqual(E.problems(f, [src], null, {esrgan: 'ready'}), []);
+  assert.match(E.problems(f, [{name: 'big.png', width: 5000, height: 10}], null, ready)[0], /超过 16384/);
+  assert.match(E.problems(Object.assign({}, f, {scale: 3, model: 'waifu2x'}), [{name: 'big.png', width: 4500, height: 10}], null, ready)[0], /先放大 4 倍/);
+  assert.match(E.problems(f, [src], null, {tools: {}})[0], /Real-ESRGAN/);
+  assert.deepEqual(E.problems(f, [src], null, ready), []);
+});
+
+test('放大：每个模型要下载的工具一次一个，Upscayl 的先要 Real-ESRGAN 再要权重包；Lanczos 与 AI 重画不用下载', () => {
+  assert.deepEqual(E.upscaleTools('photo'), ['realesrgan-ncnn-vulkan']);
+  assert.deepEqual(E.upscaleTools('remacri'), ['realesrgan-ncnn-vulkan', 'upscayl-models']);
+  assert.deepEqual(E.upscaleTools('waifu2x-photo'), ['waifu2x-ncnn-vulkan']);
+  assert.deepEqual(E.upscaleTools('lanczos'), []);
+  assert.deepEqual(E.upscaleTools('generative'), []);
+  const f = Object.assign(E.blank('upscale'), {model: 'remacri'});
+  assert.match(E.problems(f, [src], null, {tools: {'realesrgan-ncnn-vulkan': 'ready'}})[0], /Upscayl 权重/);
+  // 分组里每个模型都在，每个模型都有组
+  assert.deepEqual(E.UPSCALE_MODELS.filter((m) => !E.UPSCALE_GROUPS.some((g) => g.k === m.group)), []);
+  assert.equal(E.UPSCALE_MODELS.length, 13);
+});
+
+test('放大：许可提醒只给不能商用与作者没写的权重', () => {
+  assert.equal(E.licenseNote('photo'), null);
+  assert.equal(E.licenseNote('high-fidelity'), null);
+  assert.match(E.licenseNote('remacri'), /不能商用/);
+  assert.match(E.licenseNote('ultramix-balanced'), /没写许可/);
+  assert.equal(E.licenseNote('lanczos'), null);
+  assert.deepEqual(['ultrasharp', 'upscayl-lite', 'waifu2x'].map(E.licenseTag), ['不可商用', '许可未注明', null]);
+});
+
+test('放大的提交参数只带这个模型收的：换了模型，旧的去噪、模型与补充说明不带', () => {
+  const srcs = [{path: '/p/a.png', name: 'a.png', width: 10, height: 10}];
+  const engine = {provider: 'google', model: 'gemini-3-pro-image'};
+  // waifu2x 设了去噪 2、又写过补充说明，换到 remacri：都不带
+  const waifu = Object.assign(E.blank('upscale'), {model: 'waifu2x-anime', denoise: 2, prompt: '保留文字'});
+  assert.deepEqual(E.upscaleRequest(waifu, srcs, engine), {inputs: ['/p/a.png'], scale: 4, model: 'waifu2x-anime', denoise: 2});
+  assert.deepEqual(E.upscaleRequest(Object.assign({}, waifu, {model: 'remacri'}), srcs, engine), {inputs: ['/p/a.png'], scale: 4, model: 'remacri'});
+  assert.deepEqual(E.upscaleRequest(Object.assign({}, waifu, {model: 'generative'}), srcs, engine),
+    {inputs: ['/p/a.png'], scale: 4, model: 'generative', provider: 'google', imageModel: 'gemini-3-pro-image', prompt: '保留文字'});
+  // AI 重画：要有能用的模型，补充说明不超过 1000 字
+  const gen = Object.assign(E.blank('upscale'), {model: 'generative'});
+  assert.match(E.problems(gen, srcs, null, {tools: {}, modelReason: '还没有收参考图的图像模型'})[0], /参考图/);
+  assert.match(E.problems(Object.assign({}, gen, {prompt: 'x'.repeat(1001)}), srcs, null, {tools: {}})[0], /1000/);
 });
 
 test('选区：笔画与框按格子算覆盖率与外框；AI 修补的工作区留上下文、至少 512、不出界', () => {
@@ -82,7 +124,7 @@ test('输出名字：<源名>-<动作>.png，重名加序号，不覆盖', () =>
   assert.equal(E.outputName('upscale', 'beach.jpg', {scale: 2}), 'beach-upscaled-2x.png');
   assert.equal(E.outputName('watermark', 'a.png', {}, ['a-no-watermark.png', 'a-no-watermark-2.png']), 'a-no-watermark-3.png');
   assert.equal(E.outputName('expand', 'a.webp', {}), 'a-expanded.png');
-  const s = E.statusLine(Object.assign(E.blank('upscale'), {scale: 2}), [src], null, {esrgan: 'ready'}, false);
+  const s = E.statusLine(Object.assign(E.blank('upscale'), {scale: 2}), [src], null, {tools: {'realesrgan-ncnn-vulkan': 'ready'}}, false);
   assert.deepEqual(s, {bad: false, text: '2400×1600 · beach-upscaled-2x.png'});
   assert.deepEqual(E.statusLine(E.blank('erase'), [], null, {}, false), {bad: false, text: '先选一张图片'});
 });

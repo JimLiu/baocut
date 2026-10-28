@@ -56,7 +56,7 @@ const en = {
       name: 'Generate image',
       desc: 'Describe a picture and draw it with a cloud or local image model; reference images, aspect ratio and count are optional',
     },
-    'upscale-image': { name: 'Upscale image', desc: 'Enlarge images 2–4× with Real-ESRGAN on this computer, filling in detail instead of just stretching' },
+    'upscale-image': { name: 'Upscale image', desc: 'Enlarge images 2–4× on this computer with Real-ESRGAN, waifu2x or Upscayl weights, or have an image model redraw them larger' },
     'remove-object': { name: 'Remove object', desc: 'Paint over people or things you don’t want, and the area is filled in from its surroundings' },
     'remove-watermark': { name: 'Remove watermark', desc: 'Box a watermark, logo or caption bar; images with it in the same place can be done in one go' },
     'repaint-image': { name: 'Repaint area', desc: 'Paint an area and say what it should become; only that area changes' },

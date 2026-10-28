@@ -20,7 +20,7 @@ export const zhHans: ToolCatalogMessages = {
     'synthesize-speech': { name: '生成语音', desc: '把文字或 Space 里的文档、字幕念出来；可选预设音色、克隆一段录音或描述一个声音' },
     'generate-text': { name: '文本生成', desc: '输入要求，直接调用文本模型生成文案、脚本或摘要；可以附上 Space 里的文档或字幕作为材料' },
     'generate-image': { name: '生成图片', desc: '写一句描述，用云端或本机图像模型画一张图；可带参考图、选画幅与张数' },
-    'upscale-image': { name: '放大图片', desc: '用本机的 Real-ESRGAN 把图片放大 2–4 倍，补出细节，不是简单拉伸' },
+    'upscale-image': { name: '放大图片', desc: '用本机的 Real-ESRGAN、waifu2x 或 Upscayl 权重把图片放大 2–4 倍，也可以让图像模型重画一张大的' },
     'remove-object': { name: '去除物体', desc: '涂掉画面里不要的人或物，按周围的画面补上' },
     'remove-watermark': { name: '去水印', desc: '框出水印、角标或字幕条；同一位置可以一次处理多张图' },
     'repaint-image': { name: '重绘局部', desc: '涂出一块区域，写一句改成什么，只改这一块' },

@@ -33,5 +33,5 @@ export const ko: JobsToolCatalogueMessages = {
   extractAudioDescription:
     '영상이나 오디오 파일에서 오디오 트랙을 꺼냅니다. 일반적인 컨테이너에 맞는 코덱은 그대로 복사하고, 나머지는 AAC로 다시 인코딩합니다. 파일에서 파일로 처리하며 영상은 만들지 않고, 결과물이 기존 파일을 덮어쓰지 않습니다.',
   upscaleImageLabel: '이미지 업스케일',
-  upscaleImageDescription: '이 컴퓨터의 Real-ESRGAN으로 이미지를 2–4배 확대합니다(사진 또는 애니메이션 모델). 파일에서 파일로: PNG를 저장 위치에 출력하며 원본은 건드리지 않습니다.',
+  upscaleImageDescription: '이 컴퓨터의 Real-ESRGAN, waifu2x, Upscayl 가중치 또는 Lanczos로 이미지를 2–4배 확대하거나, 이미지 모델이 크게 다시 그리게 합니다. 파일에서 파일로: PNG를 저장 위치에 출력하며 원본은 건드리지 않습니다.',
 };

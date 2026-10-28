@@ -20,7 +20,7 @@ export const pl: ToolCatalogMessages = {
     'synthesize-speech': { name: "Generuj mowę", desc: "Odczytaj na głos tekst, dokumenty i napisy Space; użyj gotowego głosu, sklonuj nagranie lub opisz głos" },
     'generate-text': { name: "Generuj tekst", desc: "Opisz potrzebę i wywołaj bezpośrednio model tekstowy dla tekstów, scenariuszy lub podsumowań; dokumenty i napisy Space można załączyć jako materiały" },
     'generate-image': { name: "Generuj obraz", desc: "Opisz obraz i narysuj modelem w chmurze lub lokalnym; obrazy referencyjne, proporcje i liczba są opcjonalne" },
-    'upscale-image': { name: "Powiększ obraz", desc: "Powiększaj obrazy 2–4× za pomocą Real-ESRGAN na tym komputerze, z uzupełnianiem szczegółów zamiast zwykłego rozciągania" },
+    'upscale-image': { name: "Powiększ obraz", desc: "Powiększaj obrazy 2–4× na tym komputerze za pomocą Real-ESRGAN, waifu2x lub wag Upscayl albo poproś model obrazów, by narysował je od nowa w większym rozmiarze" },
     'remove-object': { name: "Usuń obiekt", desc: "Zamaluj niechciane osoby lub rzeczy, a obszar zostanie uzupełniony na podstawie otoczenia" },
     'remove-watermark': { name: "Usuń znak wodny", desc: "Zaznacz ramką znak wodny, logo lub pasek napisów; obrazy z nim w tym samym miejscu można przetworzyć za jednym razem" },
     'repaint-image': { name: "Przemaluj obszar", desc: "Zamaluj obszar i napisz, czym ma się stać; zmieni się tylko ten obszar" },

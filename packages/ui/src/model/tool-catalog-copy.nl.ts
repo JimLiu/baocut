@@ -38,7 +38,7 @@ export const nl: ToolCatalogMessages = {
       name: "Afbeelding genereren",
       desc: "Beschrijf een afbeelding en teken die met een cloudmodel of lokaal afbeeldingsmodel; referentieafbeeldingen, beeldverhouding en aantal zijn optioneel",
     },
-    'upscale-image': { name: 'Afbeelding vergroten', desc: 'Vergroot afbeeldingen 2–4× met Real-ESRGAN op deze computer, met aangevulde details in plaats van alleen uitrekken' },
+    'upscale-image': { name: 'Afbeelding vergroten', desc: 'Vergroot afbeeldingen 2–4× op deze computer met Real-ESRGAN, waifu2x of Upscayl-gewichten, of laat een afbeeldingsmodel ze groter opnieuw tekenen' },
     'remove-object': { name: 'Object verwijderen', desc: 'Schilder over mensen of dingen die je niet wilt, en het gebied wordt aangevuld vanuit de omgeving' },
     'remove-watermark': { name: 'Watermerk verwijderen', desc: 'Omkader een watermerk, logo of ondertitelbalk; afbeeldingen met het op dezelfde plek kunnen in één keer' },
     'repaint-image': { name: 'Gebied opnieuw tekenen', desc: 'Schilder een gebied en zeg wat het moet worden; alleen dat gebied verandert' },

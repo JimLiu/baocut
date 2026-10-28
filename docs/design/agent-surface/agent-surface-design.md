@@ -156,7 +156,7 @@ CLI 不区分「人敲的」与「Agent 敲的」。要让 Agent 宿主的权限
 | `transcode` | 文件到文件：压缩、按顺序合并、提取音轨（不建视频）；只有本机文件这一种输入，不在 MCP 面 | `files`、`merge`、`extract-audio`、`codec`、`max-height`、`crf`、`out-dir` |
 | `speak` | 合成语音 | `text` / `text-file`、`voice`、`provider`、`model`、`video`（导入为候选素材）、`out` |
 | `image` | 生成图片 | `prompt`、`size`、`count`、`provider`、`model`、`video`、`out` |
-| `upscale` | 放大图片（Real-ESRGAN，本机；`upscale-image` 流程） | `files`（1–50 张 PNG、JPEG、WebP）、`scale`（2、3、4，默认 4）、`model`（`photo` 默认、`anime`）、`out-dir`（默认保存位置）。Real-ESRGAN 没有安装时按 `external_tools_install`（`high`）确认、只提交安装；对外服务不收 |
+| `upscale` | 放大图片（`upscale-image` 流程：本机的 Real-ESRGAN、Upscayl 权重、waifu2x、Lanczos，或交给生图模型重画） | `files`（1–50 张 PNG、JPEG、WebP）、`scale`（2、3、4，默认 4）、`model`（13 种，`photo` 默认，见架构设计 §7.9）、`denoise`（只有 waifu2x 的模型收）、`provider`、`image-model`、`prompt`（只有 `generative` 收）、`out-dir`（默认保存位置）。给了所选引擎不收的参数时在确认之前拒绝；所选模型要的工具或权重包没有安装时按 `external_tools_install`（`high`）确认、一次只提交一个安装；`generative` 先选定生图模型再确认，确认卡写出它，外发的授权与预算同 `image`；对外服务不收 |
 | `retouch` | 去除物体、去水印、重绘局部、扩展画面（`remove-object` 等四个流程） | `op`（`erase`、`watermark`、`repaint`、`expand`）、`files`（去水印 1–50 张，别的 1 张）、`mask`（原图像素的 `boxes` / `strokes`；扩图不收）、`method`（`fill` 本机 ffmpeg、`model` 能改图的图像模型）、`prompt`（重绘必填、扩图可选）、`expand`（`ratio` + `anchor` 或 `margins`）、`provider` / `model`（不给模型时用生图的默认，它不能改图就换第一个能改图的）、`out-dir`。`model` 补法在确认前选定模型，确认与结果写出实际用的；没有能改图的模型时同步拒绝，补救是快速填充或请用户装一个。按 `retouch`（`command`）确认；对外服务不收 |
 | `music` | 生成音乐（歌曲或配乐）：只有本机的音乐模型包（含 audio.cpp 引擎组件），很慢 | `mode`（`song` / `instrumental`）、`style`、`lyrics`（只在 `song`）、`target-duration-sec`、`max-duration-sec`、`planning`、`seed`、`provider`、`model`、`video`、`out` |
 

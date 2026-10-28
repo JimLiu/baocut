@@ -12,7 +12,7 @@ transcribe: { name: 'Yazıya dök', desc: 'Video veya ses dosyasını döküme v
  'synthesize-speech': { name: 'Konuşma oluştur', desc: 'Metni veya Space içindeki belge ve altyazıları sesli okur; ön ayarlı ses kullanın, kaydı klonlayın veya sesi tarif edin' },
  'generate-text': { name: 'Metin oluştur', desc: 'İhtiyacınızı tarif edip metin, senaryo veya özet için doğrudan metin modeli çağırın; Space içindeki belge veya altyazıları kaynak olarak ekleyebilirsiniz' },
  'generate-image': { name: 'Görsel oluştur', desc: 'Görseli tarif edip bulut veya yerel görsel modeliyle çizin; referans görselleri, en boy oranı ve sayı isteğe bağlıdır' },
- 'upscale-image': { name: 'Görseli büyüt', desc: 'Görselleri bu bilgisayarda Real-ESRGAN ile 2–4× büyütün; yalnızca germek yerine ayrıntı eklenir' },
+ 'upscale-image': { name: 'Görseli büyüt', desc: 'Görselleri bu bilgisayarda Real-ESRGAN, waifu2x veya Upscayl ağırlıklarıyla 2–4× büyütün ya da bir görsel modeline daha büyük olarak yeniden çizdirin' },
  'remove-object': { name: 'Nesne kaldır', desc: 'İstemediğiniz kişi veya nesnelerin üzerini boyayın; alan çevresine göre doldurulur' },
  'remove-watermark': { name: 'Filigranı kaldır', desc: 'Bir filigranı, logoyu veya altyazı şeridini kutuya alın; aynı yerde olan görseller tek seferde işlenebilir' },
  'repaint-image': { name: 'Alanı yeniden çiz', desc: 'Bir alanı boyayın ve neye dönüşmesi gerektiğini yazın; yalnızca o alan değişir' },

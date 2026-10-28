@@ -58,7 +58,7 @@
        inputs: [{kind: 'text', output: 'artifact'}]},
       /* 图片处理（2026-10-27，model-image-edit.js）：放大 / 去除物体 / 去水印 / 重绘 / 扩图共用一页（tool-image-edit.jsx），文件到文件 */
       {id: 'upscale', name: '放大图片', icon: 'ZoomIn', navIcon: 'ZoomIn', output: 'artifact', artifact: 'image',
-       desc: '用本机的 Real-ESRGAN 把图片放大 2–4 倍，补出细节，不是简单拉伸', inputs: IMAGE_INPUTS},
+       desc: '用本机的 Real-ESRGAN、waifu2x 或 Upscayl 权重把图片放大 2–4 倍，也可以让图像模型重画一张大的', inputs: IMAGE_INPUTS},
       {id: 'erase', name: '去除物体', icon: 'MagicWand', navIcon: 'MagicWand', output: 'artifact', artifact: 'image',
        desc: '涂掉画面里不要的人或物，按周围的画面补上', inputs: IMAGE_INPUTS},
       {id: 'watermark', name: '去水印', icon: 'Images', navIcon: 'Images', output: 'artifact', artifact: 'image',

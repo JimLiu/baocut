@@ -17,5 +17,5 @@ export const it: JobsToolCatalogueMessages = {
   mergeVideoLabel: 'Unisci video', mergeVideoDescription: 'Unisci diversi file video in uno solo, in ordine: da file a file, non viene creato alcun video e i risultati non sovrascrivono i file esistenti.',
   extractAudioLabel: 'Estrai audio', extractAudioDescription: 'Estrai la traccia audio da un file video o audio. I codec compatibili con un contenitore comune vengono copiati senza modifiche; gli altri vengono ricodificati in AAC. Da file a file, non viene creato alcun video e i risultati non sovrascrivono i file esistenti.',
   upscaleImageLabel: 'Ingrandisci immagine',
-  upscaleImageDescription: 'Ingrandisce le immagini da 2 a 4× su questo computer con Real-ESRGAN (modello foto o anime). Da file a file: l’output è PNG nella posizione di salvataggio e gli originali non vengono toccati.',
+  upscaleImageDescription: 'Ingrandisce le immagini da 2 a 4× su questo computer (Real-ESRGAN, waifu2x, pesi Upscayl o Lanczos) oppure le fa ridisegnare più grandi da un modello di immagini. Da file a file: l’output è PNG nella posizione di salvataggio e gli originali non vengono toccati.',
 };
