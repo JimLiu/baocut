@@ -8,8 +8,11 @@
 //! 没有在实机上跑过（未实测）。`whisper-ggml-metal` 编 macOS Metal 后端，已用 AMD Radeon Pro 5500M
 //! 与 Whisper large-v3 Turbo q8_0 实测；Intel Worker 禁用 ggml 的并发 Metal 调度以避免独显上的计算错误。
 //!
-//! 设备选择只有一条规则：`BAOCUT_GPU=off` 强制 CPU；否则取 ggml 枚举到的第一
-//! 个 GPU 设备（与 whisper.cpp 的 `gpu_device = 0` 是同一台），没有就 CPU 并打印
+//! 设备选择：`BAOCUT_GPU=off` 强制 CPU；否则取 ggml 枚举到的第一个 GPU 设备（与
+//! whisper.cpp 的 `gpu_device = 0` 是同一台），前提是 ggml 能在它上面算 Whisper 的
+//! 核心算子（[`GgmlDevice::runs_whisper`]）。算不了的 GPU 当作没有：whisper.cpp 照样
+//! 把权重放进显存，每次计算再整份拷回 CPU 去算，比纯 CPU 还慢（Radeon Pro 560X
+//! 这类只有 Metal 2 的显卡实测慢一倍，issue #109）。没有可用的 GPU 就 CPU 并打印
 //! 一次可见的回退提示（与 candle CUDA 的回退提示同形——没有任何报错、只是慢一个
 //! 数量级的静默退化最难定位）。ggml 的 registry 先登记 CUDA、后登记 Vulkan，所以
 //! 两个都编进来时 NVIDIA 机器上选到的是 CUDA；没有 NVIDIA 驱动时 CUDA 后端报 0 个
@@ -52,6 +55,9 @@ pub struct GgmlDevice {
     pub description: String,
     /// 是否 GPU（独显或核显）。
     pub is_gpu: bool,
+    /// ggml 能否在这台设备上算 Whisper 的核心算子（[`runs_whisper_ops`]）。CPU 恒为 true；Metal 只在 Metal 3 家族的
+    /// 显卡上做矩阵乘、归一化与 softmax，只有 Metal 2 的显卡（如 Polaris 一代的 Radeon Pro 560X）为 false。
+    pub runs_whisper: bool,
 }
 
 impl GgmlDevice {
@@ -60,6 +66,7 @@ impl GgmlDevice {
             backend: "CPU".to_owned(),
             description: "cpu".to_owned(),
             is_gpu: false,
+            runs_whisper: true,
         }
     }
 
@@ -131,10 +138,52 @@ pub fn devices() -> Vec<GgmlDevice> {
                 backend,
                 description: c_string(sys::ggml_backend_dev_description(device)),
                 is_gpu,
+                runs_whisper: !is_gpu || runs_whisper_ops(device),
             });
         }
     }
     out
+}
+
+/// 问 ggml 这台设备能不能自己算 Whisper 的核心算子：编码器形状（`n_state` 1280 × 1500 帧）的矩阵乘、层归一化与 softmax。
+/// 矩阵乘的权重取登记的模型包用到的类型：Q8_0（large-v3 Turbo）、Q5_0（large-v3），以及 F16（注意力的 K / V）；
+/// 登记别的量化时加进来。占位张量不分配内存，`supports_op` 只看设备能力与张量的类型、形状，不碰显存、不编译内核。
+///
+/// # Safety
+///
+/// `device` 是 ggml registry 里的设备。
+unsafe fn runs_whisper_ops(device: whisper_rs::whisper_rs_sys::ggml_backend_dev_t) -> bool {
+    use whisper_rs::whisper_rs_sys as sys;
+    const STATE: i64 = 1280;
+    const FRAMES: i64 = 1500;
+    let weights = [
+        sys::ggml_type_GGML_TYPE_Q8_0,
+        sys::ggml_type_GGML_TYPE_Q5_0,
+        sys::ggml_type_GGML_TYPE_F16,
+    ];
+    // SAFETY: no_alloc 的上下文只放张量头（9 个，留足余量），用完即释放；张量指针不出这个函数。
+    unsafe {
+        let ctx = sys::ggml_init(sys::ggml_init_params {
+            mem_size: 16 * sys::ggml_tensor_overhead(),
+            mem_buffer: std::ptr::null_mut(),
+            no_alloc: true,
+        });
+        if ctx.is_null() {
+            return false;
+        }
+        let activations = sys::ggml_new_tensor_2d(ctx, sys::ggml_type_GGML_TYPE_F32, STATE, FRAMES);
+        let mut ops = vec![sys::ggml_norm(ctx, activations, 1e-5), sys::ggml_soft_max(ctx, activations)];
+        for weight in weights {
+            ops.push(sys::ggml_mul_mat(
+                ctx,
+                sys::ggml_new_tensor_2d(ctx, weight, STATE, STATE),
+                activations,
+            ));
+        }
+        let supported = ops.iter().all(|op| sys::ggml_backend_dev_supports_op(device, *op));
+        sys::ggml_free(ctx);
+        supported
+    }
 }
 
 unsafe fn c_string(ptr: *const std::os::raw::c_char) -> String {
@@ -146,9 +195,13 @@ unsafe fn c_string(ptr: *const std::os::raw::c_char) -> String {
     }
 }
 
-/// 纯函数版的设备选择：给定枚举结果与开关，得出实际用哪台。
+/// 纯函数版的设备选择：给定枚举结果与开关，得出实际用哪台。只看第一个 GPU（whisper.cpp 用的那台）：它算不了 Whisper 的
+/// 核心算子时用 CPU，不另挑后面的 GPU。
 pub fn choose_device(devices: &[GgmlDevice], gpu_disabled: bool) -> GgmlDevice {
-    if !gpu_disabled && let Some(gpu) = devices.iter().find(|d| d.is_gpu) {
+    if !gpu_disabled
+        && let Some(gpu) = devices.iter().find(|d| d.is_gpu)
+        && gpu.runs_whisper
+    {
         return gpu.clone();
     }
     devices.iter().find(|d| !d.is_gpu).cloned().unwrap_or_else(GgmlDevice::cpu_fallback)
@@ -167,19 +220,35 @@ pub fn gpu_backends_built() -> &'static [&'static str] {
     BUILT
 }
 
-/// 本次运行 Whisper 会用的设备。编进了 GPU 后端（CUDA 或 Vulkan）却没枚举到 GPU 时打印一次告警，点名编进来的后端。
+/// 本次运行 Whisper 会用的设备。编进了 GPU 后端却用不上 GPU 时打印一次告警：没枚举到 GPU 时点名编进来的后端，
+/// 枚举到的 GPU 算不了 Whisper 时点名那台 GPU。
 pub fn default_device() -> GgmlDevice {
-    let disabled = gpu_disabled_by_env();
-    if disabled {
+    if gpu_disabled_by_env() {
         return GgmlDevice::cpu_fallback();
     }
-    let device = choose_device(&devices(), false);
+    let devices = devices();
+    let device = choose_device(&devices, false);
     let built = gpu_backends_built();
-    if !built.is_empty() && !device.is_gpu && !disabled {
+    if !built.is_empty() && !device.is_gpu {
         static WARNED: Once = Once::new();
-        WARNED.call_once(|| eprintln!("{}", no_gpu_warning(built)));
+        WARNED.call_once(|| match devices.iter().find(|d| d.is_gpu) {
+            Some(gpu) => eprintln!("{}", unsupported_gpu_warning(gpu)),
+            None => eprintln!("{}", no_gpu_warning(built)),
+        });
     }
     device
+}
+
+/// 枚举到的 GPU 算不了 Whisper 的核心算子时的提示：点名那台 GPU；Metal 另说明要 Metal 3 家族的显卡。
+fn unsupported_gpu_warning(gpu: &GgmlDevice) -> String {
+    let requirement = match gpu.protocol_label().as_str() {
+        DEVICE_METAL => " (ggml's Metal backend needs a Metal 3 GPU for them)",
+        _ => "",
+    };
+    format!(
+        "[model-worker] ggml cannot run Whisper's matrix multiplication, normalization and softmax on the {} GPU \"{}\"{requirement}, Whisper runs on the CPU",
+        gpu.backend, gpu.description
+    )
 }
 
 /// 编进了 GPU 后端却没有可用 GPU 时的提示：点名编进来的后端，各带一句常见原因。
@@ -211,6 +280,8 @@ pub struct WhisperRuntime {
     pub gpu_backends_built: &'static [&'static str],
     /// 是否枚举到了至少一台 GPU（不受 `BAOCUT_GPU` 影响）。
     pub gpu_available: bool,
+    /// 第一个 GPU 能否算 Whisper 的核心算子（[`GgmlDevice::runs_whisper`]；没有 GPU 时为 false，不受 `BAOCUT_GPU` 影响）。
+    pub gpu_runs_whisper: bool,
     /// `BAOCUT_GPU` 是否显式关闭了 GPU。
     pub gpu_disabled: bool,
 }
@@ -219,11 +290,13 @@ pub fn runtime_probe() -> WhisperRuntime {
     let devices = devices();
     let disabled = gpu_disabled_by_env();
     let chosen = choose_device(&devices, disabled);
+    let first_gpu = devices.iter().find(|d| d.is_gpu);
     WhisperRuntime {
         backend: chosen.label(),
         device: chosen.description,
         gpu_backends_built: gpu_backends_built(),
-        gpu_available: devices.iter().any(|d| d.is_gpu),
+        gpu_available: first_gpu.is_some(),
+        gpu_runs_whisper: first_gpu.is_some_and(|d| d.runs_whisper),
         gpu_disabled: disabled,
     }
 }
@@ -304,7 +377,8 @@ impl Backend for GgmlBackend {
 }
 
 /// 模型包的设备：`cpu` 总能跑（不碰 GPU）；`cuda` / `vulkan` / `metal` 要求本进程选中的 GPU（`worker.hello` 报的首选设备）正是它——
-/// 编进了对应的后端、枚举到了设备、`BAOCUT_GPU` 没关。同时编进 CUDA 与 Vulkan、选中 CUDA 的进程同样不收 `vulkan`。
+/// 编进了对应的后端、枚举到了设备、设备算得了 Whisper 的核心算子、`BAOCUT_GPU` 没关。同时编进 CUDA 与 Vulkan、选中 CUDA 的进程
+/// 同样不收 `vulkan`。
 fn check_device(bundle: &VerifiedBundle) -> Result<GgmlDevice, ErrorBody> {
     let unsupported = |message: String| {
         ErrorBody::new(codes::MODEL_UNSUPPORTED, message)
@@ -325,7 +399,9 @@ fn check_device(bundle: &VerifiedBundle) -> Result<GgmlDevice, ErrorBody> {
                 Err(unsupported(format!("no {requested} device is available")))
             }
         }
-        _ => Err(unsupported("the ggml backend runs on the cpu, cuda or vulkan device".to_owned())),
+        _ => Err(unsupported(
+            "the ggml backend runs on the cpu, cuda, vulkan or metal device".to_owned(),
+        )),
     }
 }
 
@@ -386,6 +462,15 @@ mod tests {
             backend: backend.into(),
             description: name.into(),
             is_gpu: true,
+            runs_whisper: true,
+        }
+    }
+
+    /// ggml 枚举得到、却算不了 Whisper 核心算子的 GPU（如只有 Metal 2 的 Polaris 显卡）。
+    fn weak_gpu(backend: &str, name: &str) -> GgmlDevice {
+        GgmlDevice {
+            runs_whisper: false,
+            ..gpu(backend, name)
         }
     }
 
@@ -394,6 +479,7 @@ mod tests {
             backend: "CPU".into(),
             description: "Apple M2".into(),
             is_gpu: false,
+            runs_whisper: true,
         }
     }
 
@@ -433,6 +519,30 @@ mod tests {
         assert_eq!(chosen.protocol_label(), DEVICE_VULKAN);
     }
 
+    /// 第一个 GPU 算不了 Whisper 的核心算子时用 CPU：ggml 会把它的权重放进显存再拷回 CPU 去算，比纯 CPU 慢（issue #109）。
+    /// 也不改用后面的 GPU——whisper.cpp 只用第一个。
+    #[test]
+    fn skips_a_gpu_that_cannot_run_whisper() {
+        let devices = vec![weak_gpu("Metal", "AMD Radeon Pro 560X"), cpu()];
+        let chosen = choose_device(&devices, false);
+        assert_eq!(chosen, devices[1]);
+        assert_eq!(chosen.protocol_label(), DEVICE_CPU);
+
+        let devices = vec![weak_gpu("Vulkan", "AMD Radeon RX 580"), gpu("Vulkan", "Intel UHD 630"), cpu()];
+        assert_eq!(choose_device(&devices, false), devices[2]);
+    }
+
+    #[test]
+    fn unsupported_gpu_warning_names_the_gpu() {
+        let metal = unsupported_gpu_warning(&weak_gpu("Metal", "AMD Radeon Pro 560X"));
+        assert!(metal.contains("Metal GPU \"AMD Radeon Pro 560X\""), "{metal}");
+        assert!(metal.contains("Metal 3"), "{metal}");
+        assert!(metal.contains("runs on the CPU"), "{metal}");
+        let vulkan = unsupported_gpu_warning(&weak_gpu("Vulkan", "AMD Radeon RX 580"));
+        assert!(vulkan.contains("Vulkan GPU \"AMD Radeon RX 580\""), "{vulkan}");
+        assert!(!vulkan.contains("Metal"), "{vulkan}");
+    }
+
     /// 协议标签只看是不是 GPU 与后端注册名：别的 GPU 后端取小写注册名；不是 GPU 的设备（含 BLAS 这类加速器）都是 `cpu`。
     #[test]
     fn protocol_label_maps_backend_names() {
@@ -443,6 +553,7 @@ mod tests {
             backend: "BLAS".into(),
             description: "Accelerate".into(),
             is_gpu: false,
+            runs_whisper: true,
         };
         assert_eq!(blas.protocol_label(), DEVICE_CPU);
         assert_eq!(cpu().protocol_label(), DEVICE_CPU);
@@ -487,9 +598,21 @@ mod tests {
         // 真实 registry：静态链接的 CPU 后端总在；GPU 视机器而定。
         let devices = devices();
         assert!(devices.iter().any(|d| !d.is_gpu), "{devices:?}");
+        assert!(devices.iter().filter(|d| !d.is_gpu).all(|d| d.runs_whisper), "{devices:?}");
         let probe = runtime_probe();
         assert!(probe.backend.starts_with("ggml-"));
         assert_eq!(probe.gpu_backends_built, gpu_backends_built());
+        assert!(probe.gpu_available || !probe.gpu_runs_whisper, "{probe:?}");
+    }
+
+    /// 真实的算子探测：Apple Silicon 都是 Metal 3（Apple7 起）家族，Metal 设备必须算得了 Whisper。
+    #[cfg(all(feature = "whisper-ggml-metal", target_os = "macos", target_arch = "aarch64"))]
+    #[test]
+    fn apple_silicon_metal_runs_whisper() {
+        let devices = devices();
+        let metal = devices.iter().find(|d| d.is_gpu && d.protocol_label() == DEVICE_METAL);
+        let metal = metal.unwrap_or_else(|| panic!("no Metal GPU in {devices:?}"));
+        assert!(metal.runs_whisper, "{metal:?}");
     }
 
     #[test]

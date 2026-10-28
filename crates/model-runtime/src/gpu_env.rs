@@ -1,5 +1,5 @@
-//! `BAOCUT_GPU` 开关（从 v2 的 `BCUT_GPU` 移植）：一个环境变量约束全部非 Apple 的 GPU 推理线（candle CUDA，以及
-//! Whisper 的 ggml CUDA / Vulkan 线），以及 macOS 上 LiteRT-LM 文本嵌入的 GPU。
+//! `BAOCUT_GPU` 开关（从 v2 的 `BCUT_GPU` 移植）：一个环境变量约束全部非 MLX / Core ML 的 GPU 推理线（candle CUDA，
+//! Whisper 的 ggml CUDA / Vulkan / Metal 线——Metal 是 Intel Mac 的 AMD 显卡），以及 macOS 上 LiteRT-LM 文本嵌入的 GPU。
 //!
 //! 驱动异常时用户需要一个不改构建就能强制 CPU 的逃生口；各条 GPU 线共用一个名字，文档只需解释一次。
 
