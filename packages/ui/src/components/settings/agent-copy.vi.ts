@@ -137,7 +137,7 @@ export const vi: AgentMessages = {
   },
 
   /**
-   * 「用 Codex 画图」那一行（settings-agent-provider.jsx:103-119）。设计稿说打开后「图片 Tab、工具页与 bcut image 里多一只
+   * 「用 Codex 画图和写文字」那一行（settings-agent-provider.jsx 的 CodexImageRow；同一个开关也管文本生成，§6.9）。设计稿说打开后「图片 Tab、工具页与 bcut image 里多一只
    * 「Codex 画图」」；现在出现它的地方是 `bcut image` 与会话里 Agent 的生图工具，菜单里的名字是 Provider 自己的「Codex」，照实写。
    */
   codexImage: {
