@@ -16,7 +16,7 @@ import { startRuntime, type RunningRuntime } from '../runtime.ts';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
 import { ExternalToolService } from './external-tool-service.ts';
 import { TOOL_DOWNLOAD_REMEDIES } from './tool-download.ts';
-import { BUILTIN_TOOL_MANIFESTS, YT_DLP, platformKey, type ToolManifest } from './tool-manifests.ts';
+import { BUILTIN_TOOL_MANIFESTS, UPSCAYL_MODELS, YT_DLP, platformKey, toolOffer, type ToolManifest } from './tool-manifests.ts';
 
 /**
  * 受管外部工具与从链接导入经网关端到端（架构设计 §12.9、§7.9）：
@@ -401,6 +401,93 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
       expect((await fs.stat(status.path!)).mode & 0o111).not.toBe(0);
     } finally {
       await source.close();
+    }
+  });
+
+  it('数据包（Upscayl 的权重）：逐个文件下载、已下完的不重下；探测只看文件，指定目录要文件齐、路径带 models', async () => {
+    const s = side!;
+    const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === UPSCAYL_MODELS)!;
+    // 内置清单：大小之和就是估计的大小；来源是文件所在的目录，各文件另列地址与摘要。
+    const shipped = toolOffer(builtin, null, 'win32-arm64')!;
+    expect(shipped).toMatchObject({ fileName: null, sha256: null, blockedReason: null, sizeBytes: builtin.release!.estimatedBytes });
+    expect(shipped.url).toMatch(/\/resources\/models\/$/);
+    expect(shipped.files).toHaveLength(10);
+    const files = { 'a-4x.bin': Buffer.from('weights-a'), 'a-4x.param': Buffer.from('param-a') };
+    const requests: string[] = [];
+    const server = http.createServer((request, response) => {
+      requests.push(request.url ?? '');
+      const name = (request.url ?? '').split('/').at(-1)! as keyof typeof files;
+      if (!request.url?.startsWith(`/mirror/${UPSCAYL_MODELS}/test1/`) || !files[name]) return void response.writeHead(404).end();
+      response.writeHead(200, { 'Content-Length': String(files[name].length) }).end(files[name]);
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const toolsDir = path.join(s.dir, 'pack-tools');
+      const manifest: ToolManifest = {
+        ...builtin,
+        release: {
+          ...builtin.release!,
+          version: 'test1',
+          pack: {
+            dir: 'models',
+            files: Object.entries(files).map(([fileName, data]) => ({
+              fileName,
+              size: data.length,
+              sha256: createHash('sha256').update(data).digest('hex'),
+            })),
+          },
+        },
+      };
+      const service = new ExternalToolService({
+        toolsDir,
+        storeFile: path.join(s.dir, 'pack-store', 'external-tools.json'),
+        jobs: s.runtime.models.jobs,
+        log: s.runtime.log,
+        env: async () => ({ PATH: s.emptyPath }),
+        settings: () => ({ downloadEndpoint: null, offlineStrict: false }),
+        overrides: { BAOCUT_TOOLS_ENDPOINT: `http://127.0.0.1:${(server.address() as AddressInfo).port}/mirror` },
+        download: { backoffMs: () => 5, retries: 1 },
+        manifests: [manifest],
+      });
+      expect(await service.status(UPSCAYL_MODELS)).toMatchObject({ state: 'missing', installable: true });
+      // 上次取消时已经下完、核对过的文件留在 staging 目录里：这次不再请求它。
+      const staging = path.join(toolsDir, '.staging', `${UPSCAYL_MODELS}-test1.part.dir`);
+      await fs.mkdir(staging, { recursive: true });
+      await fs.writeFile(path.join(staging, 'a-4x.bin'), files['a-4x.bin']);
+      const { jobId } = await service.install({ name: UPSCAYL_MODELS, consent: true }, { kind: 'connection', id: 'conn_x' });
+      await s.runtime.models.jobs.settled(jobId);
+      expect(s.runtime.models.jobs.inspect(jobId).state).toBe('completed');
+      expect(requests).toEqual([`/mirror/${UPSCAYL_MODELS}/test1/a-4x.param`]);
+      const installed = await service.status(UPSCAYL_MODELS);
+      expect(installed).toMatchObject({
+        state: 'installed',
+        source: 'managed',
+        version: 'test1',
+        path: path.join(toolsDir, UPSCAYL_MODELS, 'test1', 'models'),
+      });
+      expect(await fs.readFile(path.join(installed.path!, 'a-4x.param'), 'utf8')).toBe('param-a');
+      expect(await fs.stat(staging).catch(() => null)).toBeNull();
+      // 受管副本里的文件被改坏（大小不对）：报告不可用。
+      await fs.writeFile(path.join(installed.path!, 'a-4x.bin'), 'x');
+      expect(await service.status(UPSCAYL_MODELS)).toMatchObject({ state: 'unavailable', source: 'managed' });
+      // 指定目录：缺文件的、路径里没有 models 的都拒绝；齐了的就用它。
+      const partial = path.join(s.dir, 'upscayl', 'models');
+      await fs.mkdir(partial, { recursive: true });
+      await fs.writeFile(path.join(partial, 'a-4x.bin'), 'other build');
+      await expect(service.setPath({ name: UPSCAYL_MODELS, path: partial })).rejects.toMatchObject({
+        details: { code: 'TOOL_UNAVAILABLE', missing: ['a-4x.param'] },
+      });
+      const unnamed = path.join(s.dir, 'weights');
+      await fs.mkdir(unnamed);
+      for (const name of Object.keys(files)) await fs.writeFile(path.join(unnamed, name), 'w');
+      await expect(service.setPath({ name: UPSCAYL_MODELS, path: unnamed })).rejects.toMatchObject({
+        details: { code: 'TOOL_UNAVAILABLE' },
+      });
+      await fs.writeFile(path.join(partial, 'a-4x.param'), 'other build');
+      const { tool: chosen } = await service.setPath({ name: UPSCAYL_MODELS, path: partial });
+      expect(chosen).toMatchObject({ state: 'installed', source: 'user', path: partial, version: 'unknown' });
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
 

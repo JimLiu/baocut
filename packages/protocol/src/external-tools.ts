@@ -41,21 +41,31 @@ export interface ExternalToolConsent {
 /** 下载一个工具之前要告诉用户的事：来源、版本、大小与许可。 */
 export interface ExternalToolOffer {
   version: string;
-  /** 这台机器的平台要下载的文件；平台没有可用的文件时为 null。 */
+  /** 这台机器的平台要下载的文件；平台没有可用的文件、或是数据包（`files`）时为 null。 */
   fileName: string | null;
-  /** 下载地址（默认来源或镜像）；平台没有可用的文件时为 null。 */
+  /** 下载地址（默认来源或镜像）；平台没有可用的文件时为 null。数据包是这些文件所在的目录。 */
   url: string | null;
-  /** 清单里的字节数；未知时为 null。 */
+  /** 清单里的字节数；未知时为 null。数据包是各文件之和。 */
   sizeBytes: number | null;
   /** 估计的字节数（大小未知时给人看）。 */
   estimatedBytes: number;
-  /** 清单里的 sha256；未知时为 null（此时不能下载）。 */
+  /** 清单里的 sha256；未知时为 null（此时不能下载）。数据包为 null，各文件的摘要在 `files` 里。 */
   sha256: string | null;
+  /** 数据包（只有数据、不分平台的一组文件，例如 Upscayl 的超分权重）的各个文件；普通工具没有。 */
+  files?: ExternalToolOfferFile[];
   license: string;
   homepage: string;
   /** 不能下载的原因（清单不全、平台不支持）；能下载时为 null。 */
   blockedReason: string | null;
   blockedReasonRef?: MessageRef;
+}
+
+/** 数据包里要下载的一个文件（`ExternalToolOffer.files`）。 */
+export interface ExternalToolOfferFile {
+  fileName: string;
+  url: string;
+  sizeBytes: number;
+  sha256: string;
 }
 
 /**

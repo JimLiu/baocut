@@ -140,6 +140,16 @@ const en = {
   realesrganLicense: 'MIT (the ncnn executable); Real-ESRGAN models BSD-3-Clause; built with ncnn (BSD-3-Clause)',
   realesrganPurpose: "Upscale image: enlarges images 2–4× with Real-ESRGAN on this computer's GPU",
   realesrganMissingRemedy: 'Download it with externalTools.install (baocut external-tools install realesrgan-ncnn-vulkan), or unpack the official release yourself (keep the models folder next to the executable) and set its path with externalTools.setPath',
+  waifu2xLicense: `MIT (waifu2x-ncnn-vulkan and its models); built with ncnn (BSD-3-Clause)`,
+  waifu2xPurpose: `Upscale image: enlarges anime-style art and photos 2–4× with waifu2x on this computer's GPU, with optional noise reduction`,
+  waifu2xMissingRemedy: `Download it with externalTools.install (baocut external-tools install waifu2x-ncnn-vulkan), or unpack the official release yourself (keep the models-* folders next to the executable) and set its path with externalTools.setPath`,
+  upscaylModelsLabel: `Upscayl models`,
+  upscaylModelsPurpose: `Upscale image: five more upscaling models from Upscayl (Lite, High Fidelity, Remacri, UltraMix Balanced, UltraSharp), run by Real-ESRGAN on this computer`,
+  upscaylModelsLicense: `Weights from the Upscayl repository (AGPL-3.0). UltraSharp and Remacri are CC BY-NC-SA 4.0 (no commercial use); High Fidelity is CC BY 4.0; UltraMix Balanced and Upscayl Lite state no license of their own`,
+  upscaylModelsMissingRemedy: `Download them with externalTools.install (baocut external-tools install upscayl-models), or set the models folder of an installed Upscayl with externalTools.setPath`,
+  packDirIncomplete: (p: { path: string; files: string }) => `${p.path} is missing ${p.files}`,
+  packFilesMissing: (p: { where: string; files: string }) => `${p.where} is missing ${p.files}`,
+  packDirNeedsModels: `Real-ESRGAN only accepts a weights folder whose path contains “models”`,
 };
 
 export type RcExternalToolsMessages = typeof en;

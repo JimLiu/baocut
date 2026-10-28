@@ -22,7 +22,16 @@ import {
 import { ToolArchiveError, extractToolArchive } from '@baocut/models';
 import { readJsonOrQuarantine, writeJsonAtomic } from '@baocut/runtime-storage';
 import { ToolDownloadError, downloadToolFile, type ToolDownloadOptions } from './tool-download.ts';
-import { BUILTIN_TOOL_MANIFESTS, compareVersions, platformKey, toolOffer, type ToolAsset, type ToolManifest } from './tool-manifests.ts';
+import {
+  BUILTIN_TOOL_MANIFESTS,
+  compareVersions,
+  platformKey,
+  toolDownloadUrl,
+  toolOffer,
+  type ToolAsset,
+  type ToolDataPack,
+  type ToolManifest,
+} from './tool-manifests.ts';
 import { envValue, findOnPath, isExecutableFile, runVersionProbe, windowsScriptKind } from './tool-probe.ts';
 import { CommandOutput, runCommand } from './tool-command.ts';
 import { exitCodeText, toolUpdatePlan, updateSucceeded } from './tool-update-plan.ts';
@@ -39,7 +48,10 @@ import { remedyOf, taskFailure } from '../localized.ts';
  * - 下载是一个任务（`kind: 'toolInstall'`）：提交前查严格离线、清单与同意，任务里下载、核对 sha256 与大小、设可执行位、
  *   原子地改名发布，再执行一次 `--version` 确认能运行。清单把发布文件登记为压缩包（`archive`）时，核对之后先解开到 staging
  *   目录（只取包根目录的普通文件与登记的子目录，`@baocut/models` 的 `extractToolArchive`），整个目录改名发布；yt-dlp 是单个文件，
- *   Real-ESRGAN 是压缩包（可执行文件与 `models/`）。
+ *   Real-ESRGAN 与 waifu2x 是压缩包（可执行文件与模型目录）。
+ * - 数据包（`release.pack`，Upscayl 的超分权重）没有可执行文件：探测只看用户指定的目录或受管副本里文件齐不齐（受管副本另核对
+ *   大小），不执行、不在 PATH 里找；下载时逐个文件下进 staging 里的目录（核对过的改成正式文件名，取消后再装时不重下），齐了再
+ *   整个目录改名发布。
  *   （音乐生成的 audio.cpp 引擎不是受管外部工具，是音乐模型包的组件，随模型包安装，见架构设计 §6.3。）
  * - 系统里自己装的那一份按原安装方式更新（`tool-update-plan.ts` 判断办法）：也是一个任务（`kind: 'toolUpdate'`），提交前
  *   要调用方交回用户确认过的那条命令；任务里不经 shell 执行，输出逐段写进任务记录的 `command`，结束后重新探测。
@@ -213,7 +225,20 @@ export class ExternalToolService {
 
   async setPath(params: { name: string; path: string | null }): Promise<{ tool: ExternalToolStatus }> {
     const manifest = this.#managedManifest(params.name);
-    if (params.path !== null) {
+    const pack = manifest.release?.pack;
+    if (params.path !== null && pack) {
+      // 数据包：指定的是放着这些文件的目录。
+      const missing = await missingPackFiles(params.path, pack, false);
+      if (missing.length > 0) {
+        throw new RpcError('invalid-request', RcExternalTools.packDirIncomplete({ path: params.path, files: fileList(missing) }), {
+          code: 'TOOL_UNAVAILABLE',
+          tool: manifest.name,
+          missing,
+        });
+      }
+      const unusable = manifest.usable ? await manifest.usable(params.path, this.#platform.split('-')[0] as NodeJS.Platform) : null;
+      if (unusable) throw new RpcError('invalid-request', unusable, { code: 'TOOL_UNAVAILABLE', tool: manifest.name });
+    } else if (params.path !== null) {
       if (!(await isExecutableFile(params.path))) {
         throw new RpcError('invalid-request', RcExternalTools.notExecutable({ path: params.path }), { code: 'TOOL_UNAVAILABLE', tool: manifest.name });
       }
@@ -286,8 +311,9 @@ export class ExternalToolService {
     if (this.#options.settings().offlineStrict) {
       throw new RpcError('conflict', RcExternalTools.offlineStrictNoDownload(), { code: 'OFFLINE_STRICT', tool: manifest.name });
     }
-    const asset = manifest.release.assets[this.#platform];
-    if (!asset || asset.sha256 === null || offer.url === null) {
+    const pack = manifest.release.pack;
+    const asset = pack ? null : manifest.release.assets[this.#platform];
+    if (!pack && (!asset || asset.sha256 === null || offer.url === null)) {
       throw new RpcError('conflict', RcExternalTools.cannotDownload({ label: manifest.label, reason: withRef(offer.blockedReason ?? '', offer.blockedReasonRef) }), {
         code: 'TOOL_MANIFEST_INCOMPLETE',
         tool: manifest.name,
@@ -296,11 +322,19 @@ export class ExternalToolService {
       });
     }
     await this.consent({ name: manifest.name, grant: true, via: params.via ?? 'app' });
-    const spec = { task: 'toolInstall' as const, tool: manifest.name, version: manifest.release.version, sha256: asset.sha256 };
+    const sha256 = pack ? packDigest(pack) : asset!.sha256!;
+    const spec = { task: 'toolInstall' as const, tool: manifest.name, version: manifest.release.version, sha256 };
     const hash = `sha256:${sha256Hex(canonicalJson(spec))}`;
-    const url = offer.url;
-    const expected = { size: asset.size, sha256: asset.sha256, fileName: asset.fileName, archive: asset.archive ?? null };
     const version = manifest.release.version;
+    const install = pack
+      ? (run: TaskRun) => this.#runPackInstall(run, manifest, version, pack, sha256)
+      : (run: TaskRun) =>
+          this.#runInstall(run, manifest, version, offer.url!, {
+            size: asset!.size,
+            sha256,
+            fileName: asset!.fileName,
+            archive: asset!.archive ?? null,
+          });
     const { jobId } = this.#options.jobs.submitTask(
       {
         kind: 'toolInstall',
@@ -312,7 +346,7 @@ export class ExternalToolService {
         modelId: version,
         ...(params.commandId ? { commandId: params.commandId } : {}),
         queue: INSTALL_QUEUE,
-        run: (run) => this.#runInstall(run, manifest, version, url, expected),
+        run: install,
       },
       submitter,
     );
@@ -420,9 +454,14 @@ export class ExternalToolService {
   async #detectOne(name: string): Promise<ExternalToolStatus> {
     const manifest = this.#manifest(name);
     const record = await this.#record(name);
-    const env = await this.#options.env();
     const base = this.#baseStatus(manifest, record);
     const platform = this.#platform.split('-')[0] as NodeJS.Platform;
+    if (manifest.release?.pack) {
+      const status = await this.#detectPack(manifest, manifest.release.pack, record, base, platform);
+      this.#status.set(name, status);
+      return status;
+    }
+    const env = await this.#options.env();
     const lookup = (command: string, accept?: (file: string) => Promise<boolean>) =>
       findOnPath(command, env.PATH ?? '', platform, envValue(env, 'PATHEXT') ?? null, accept);
     const problem = async (file: string) => (manifest.usable ? await manifest.usable(file, platform) : null);
@@ -521,6 +560,44 @@ export class ExternalToolService {
     return status;
   }
 
+  /** 数据包：用户指定的目录（文件要齐）优先，其次受管副本（文件要齐、大小要对）。不执行，也不在 PATH 里找。 */
+  async #detectPack(
+    manifest: ToolManifest,
+    pack: ToolDataPack,
+    record: ToolRecord,
+    base: ExternalToolStatus,
+    platform: NodeJS.Platform,
+  ): Promise<ExternalToolStatus> {
+    const managed = record.managed;
+    const candidate = record.userPath
+      ? { dir: record.userPath, source: 'user' as const, label: RcExternalTools.sourceUserPath(), version: 'unknown', exact: false }
+      : managed
+        ? {
+            dir: this.#managedFile(manifest, managed.version),
+            source: 'managed' as const,
+            label: RcExternalTools.sourceManaged(),
+            version: managed.version,
+            exact: true,
+          }
+        : null;
+    if (!candidate) {
+      return { ...base, state: 'missing', ...said(RcExternalTools.toolNotInstalled({ label: manifest.label }), manifest.missingRemedy) };
+    }
+    const located = { path: candidate.dir, source: candidate.source };
+    const missing = await missingPackFiles(candidate.dir, pack, candidate.exact);
+    if (missing.length > 0) {
+      return {
+        ...base,
+        state: 'unavailable',
+        ...located,
+        ...said(RcExternalTools.packFilesMissing({ where: candidate.label, files: fileList(missing) }), manifest.missingRemedy),
+      };
+    }
+    const unusable = manifest.usable ? await manifest.usable(candidate.dir, platform) : null;
+    if (unusable) return { ...base, state: 'unavailable', ...located, ...said(unusable, manifest.missingRemedy) };
+    return { ...base, state: 'installed', ...located, version: candidate.version };
+  }
+
   #baseStatus(manifest: ToolManifest, record: ToolRecord): ExternalToolStatus {
     return {
       name: manifest.name,
@@ -601,17 +678,7 @@ export class ExternalToolService {
         this.#options.download,
       );
     } catch (error) {
-      if (run.signal.aborted) throw error;
-      if (error instanceof ToolDownloadError) {
-        this.#options.log.warn('External tool download failed', { tool: manifest.name, code: error.code });
-        throw Object.assign(new TaskFailure(error.code, error.message, { ...error.details, remedy: error.remedy, remedyRef: error.remedyRef }), {
-          messageRef: error.messageRef,
-        });
-      }
-      if ((error as NodeJS.ErrnoException).code === 'ENOSPC') {
-        throw taskFailure('TOOL_DOWNLOAD_NO_SPACE', RcExternalTools.diskFull(), {});
-      }
-      throw error;
+      throw this.#downloadFailure(error, manifest, run.signal);
     }
     run.phase('publishing', null);
     const final = this.#managedFile(manifest, version);
@@ -657,26 +724,109 @@ export class ExternalToolService {
         tool: manifest.name,
       });
     }
+    return this.#recordInstall(run, manifest, version, expected.sha256, {
+      reportedVersion: actual,
+      fileName: expected.fileName,
+      sha256: expected.sha256,
+      ...(expected.archive ? { files } : {}),
+    });
+  }
+
+  /**
+   * 数据包的安装：逐个文件下载到 staging 里的目录，核对过的改成正式文件名（取消后再装时已下完的不重下），齐了再整个目录改名发布、
+   * 按清单核对一遍。
+   */
+  async #runPackInstall(
+    run: TaskRun,
+    manifest: ToolManifest,
+    version: string,
+    pack: ToolDataPack,
+    digest: string,
+  ): Promise<NonNullable<JobRecord['result']>> {
+    const release = manifest.release!;
+    const endpoint = this.#endpoint();
+    const staging = `${this.#stagingFile(manifest)}.dir`;
+    await fs.mkdir(staging, { recursive: true });
+    const total = pack.files.reduce((sum, file) => sum + file.size, 0);
+    let done = 0;
+    let last = 0;
+    run.phase('downloading', { done: 0, total, unit: 'bytes' });
+    for (const file of pack.files) {
+      const target = path.join(staging, file.fileName);
+      if ((await fileSize(target)) === file.size) {
+        done += file.size;
+        continue;
+      }
+      const part = `${target}.part`;
+      try {
+        await downloadToolFile(
+          toolDownloadUrl(manifest, release, file, endpoint),
+          part,
+          file,
+          {
+            signal: run.signal,
+            onBytes: (received) => {
+              const now = Date.now();
+              if (now - last < PROGRESS_INTERVAL_MS) return;
+              last = now;
+              run.phase('downloading', { done: done + received, total, unit: 'bytes' });
+            },
+          },
+          this.#options.download,
+        );
+      } catch (error) {
+        throw this.#downloadFailure(error, manifest, run.signal);
+      }
+      await fs.rename(part, target);
+      done += file.size;
+    }
+    run.phase('publishing', null);
+    const final = this.#managedFile(manifest, version);
+    await fs.rm(path.dirname(final), { recursive: true, force: true });
+    await fs.mkdir(path.dirname(final), { recursive: true });
+    await fs.rename(staging, final);
+    run.phase('validating', null);
+    const missing = await missingPackFiles(final, pack, true);
+    if (missing.length > 0) {
+      await fs.rm(path.dirname(final), { recursive: true, force: true });
+      const reason = RcExternalTools.packFilesMissing({ where: RcExternalTools.sourceManaged(), files: fileList(missing) });
+      throw taskFailure('TOOL_DOWNLOAD_INTEGRITY', reason, { tool: manifest.name, ...remedyOf(RcExternalTools.remedyIntegrity()) });
+    }
+    return this.#recordInstall(run, manifest, version, digest, {
+      files: pack.files.map((file) => ({ fileName: file.fileName, size: file.size, sha256: file.sha256 })),
+    });
+  }
+
+  /** 下载失败换成任务的失败（取消照原样抛出）。 */
+  #downloadFailure(error: unknown, manifest: ToolManifest, signal: AbortSignal): unknown {
+    if (signal.aborted) return error;
+    if (error instanceof ToolDownloadError) {
+      this.#options.log.warn('External tool download failed', { tool: manifest.name, code: error.code });
+      return Object.assign(new TaskFailure(error.code, error.message, { ...error.details, remedy: error.remedy, remedyRef: error.remedyRef }), {
+        messageRef: error.messageRef,
+      });
+    }
+    if ((error as NodeJS.ErrnoException).code === 'ENOSPC') return taskFailure('TOOL_DOWNLOAD_NO_SPACE', RcExternalTools.diskFull(), {});
+    return error;
+  }
+
+  /** 装好之后：登记受管副本、删掉旧版本、重新探测，安装记录写成结果产物。 */
+  async #recordInstall(
+    run: TaskRun,
+    manifest: ToolManifest,
+    version: string,
+    sha256: string,
+    facts: Record<string, unknown>,
+  ): Promise<NonNullable<JobRecord['result']>> {
     const installedAt = nowIso();
-    await this.#update(manifest.name, (record) => ({ ...record, managed: { version, sha256: expected.sha256, installedAt } }));
+    await this.#update(manifest.name, (record) => ({ ...record, managed: { version, sha256, installedAt } }));
     // 旧版本的受管副本：新的装好之后删掉。
     for (const entry of await fs.readdir(path.join(this.#options.toolsDir, manifest.name)).catch(() => [] as string[])) {
       if (entry !== version) await fs.rm(path.join(this.#options.toolsDir, manifest.name, entry), { recursive: true, force: true });
     }
     await this.#detectOne(manifest.name);
     const { artifactId } = await this.#options.jobs.artifacts.put(
-      Buffer.from(
-        canonicalJson({
-          schema: 'baocut.tool-install/1',
-          tool: manifest.name,
-          version,
-          reportedVersion: actual,
-          fileName: expected.fileName,
-          sha256: expected.sha256,
-          ...(expected.archive ? { files } : {}),
-          installedAt,
-        }),
-      ),
+      Buffer.from(canonicalJson({ schema: 'baocut.tool-install/1', tool: manifest.name, version, ...facts, installedAt })),
       'json',
     );
     this.#options.log.info('External tool installed', { tool: manifest.name, version, jobId: run.jobId });
@@ -802,7 +952,9 @@ export class ExternalToolService {
     return manifest;
   }
 
+  /** 受管副本里可执行文件的路径；数据包是放文件的目录。 */
   #managedFile(manifest: ToolManifest, version: string): string {
+    if (manifest.release?.pack) return path.join(this.#options.toolsDir, manifest.name, version, manifest.release.pack.dir);
     const exe = this.#platform.startsWith('win32') ? `${manifest.command}.exe` : manifest.command;
     return path.join(this.#options.toolsDir, manifest.name, version, exe);
   }
@@ -892,4 +1044,28 @@ export function toolsDownloadEndpoint(overrides: NodeJS.ProcessEnv, setting: str
     });
   }
   return value;
+}
+
+/** 数据包在 `dir` 里缺的文件（`exact` 时大小不对的也算缺）。 */
+async function missingPackFiles(dir: string, pack: ToolDataPack, exact: boolean): Promise<string[]> {
+  const missing: string[] = [];
+  for (const file of pack.files) {
+    const stat = await fs.stat(path.join(dir, file.fileName)).catch(() => null);
+    if (!stat?.isFile() || (exact && stat.size !== file.size)) missing.push(file.fileName);
+  }
+  return missing;
+}
+
+/** 数据包的身份：各文件的名字、大小与摘要。 */
+function packDigest(pack: ToolDataPack): string {
+  return sha256Hex(canonicalJson(pack.files.map((file) => ({ fileName: file.fileName, size: file.size, sha256: file.sha256 }))));
+}
+
+/** 给人看的文件清单：太多时只列前几个。 */
+function fileList(files: readonly string[]): string {
+  return files.length > 4 ? `${files.slice(0, 4).join(', ')} … (+${files.length - 4})` : files.join(', ');
+}
+
+async function fileSize(file: string): Promise<number> {
+  return (await fs.stat(file).catch(() => null))?.size ?? -1;
 }
