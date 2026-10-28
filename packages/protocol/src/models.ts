@@ -90,7 +90,7 @@ export interface ModelAddedInfo {
   family: string;
   /** 模型族给人看的名字。 */
   familyName: string;
-  /** `catalog`：目录里的包 ID；`repo-file`：`<owner>/<repo>/<文件路径>`；`local-file`：文件的绝对路径（Runtime 所在主机）。 */
+  /** `catalog`：目录里的包 ID；`repo-file`：`<owner>/<repo>/<文件路径>`；`local-file`：文件的绝对路径（Runtime 所在主机；Web 服务里只给文件名）。 */
   source: string;
 }
 
@@ -112,7 +112,7 @@ export interface ModelComponentStatus {
    * 不复制，文件还在且大小不变就算装好。
    */
   origin?: 'github-release' | 'local-file';
-  /** `origin: 'local-file'`：原地引用的文件的绝对路径（Runtime 所在主机）。 */
+  /** `origin: 'local-file'`：原地引用的文件的绝对路径（Runtime 所在主机；Web 服务里只给文件名）。 */
   file?: string;
   /** `installed`：清单与文件齐全；`missing`：没装或不完整（缺文件、大小不符、版本不对）。 */
   state: 'installed' | 'missing';

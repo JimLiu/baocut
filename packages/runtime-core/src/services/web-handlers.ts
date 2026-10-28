@@ -7,8 +7,12 @@ import {
   webTopicAllowed,
   refOf,
   type Localized,
+  type ModelBundleStatus,
+  type ModelsEvent,
+  type ModelsSnapshot,
   type RpcMethod,
   type RpcParams,
+  type SequencedEvent,
   type ToolProblem,
   type ToolStatus,
   type WebServiceAccess,
@@ -29,6 +33,7 @@ import type { VideoService } from '../videos/video-service.ts';
  *   `exports.create` 的目标目录同样要在这个目录里，且不能是视频目录或 `.bcut`（不给时是项目的 `exports/`）。
  *   `space.import` 的文件按真实路径必须在项目目录里；`videos.importPackage` 的便携包按真实路径必须在新视频的来源目录
  *   （项目目录，或不属于项目的会话的工作目录）里。导出便携包与工程同样走 `exports.create` 的目标目录约束。
+ * - **不给本机模型文件的路径**：`models.list` 与 `models` 主题里原地引用的模型文件（添加的 audio.cpp 模型）只留文件名。
  * - **审计**：写入类的调用记一条最近的请求（方法、目标视频与结果），不记参数正文。
  */
 
@@ -145,6 +150,13 @@ export function webHandlers(base: RpcHandlers, deps: WebHandlerDeps): RpcHandler
     return importPackage({ ...p, path: await confinePackage(deps, p) }, principal);
   };
 
+  // 原地引用的本机模型文件（添加的 audio.cpp 模型，§6.3）：浏览器只看到文件名，不给 Runtime 所在主机的绝对路径。
+  const listModels = base.methods['models.list'];
+  methods['models.list'] = async (params, principal) => {
+    const result = await listModels(params as RpcParams<'models.list'>, principal);
+    return { ...result, bundles: result.bundles.map(webBundle) };
+  };
+
   for (const [name, handler] of Object.entries(methods)) {
     if (READ.has(name)) continue;
     methods[name] = async (params, principal) => {
@@ -159,7 +171,37 @@ export function webHandlers(base: RpcHandlers, deps: WebHandlerDeps): RpcHandler
       }
     };
   }
-  return { methods: methods as unknown as RpcHandlers['methods'], subscribe: base.subscribe };
+  const subscribe: RpcHandlers['subscribe'] = (topic, afterSeq, listener) => {
+    if (topic !== 'models') return base.subscribe(topic, afterSeq, listener);
+    const sub = base.subscribe(topic, afterSeq, (event) => listener(webModelsEvent(event as SequencedEvent<ModelsEvent>)));
+    const r = sub.result;
+    const result =
+      r.mode === 'snapshot'
+        ? { ...r, snapshot: webModelsSnapshot(r.snapshot as ModelsSnapshot) }
+        : { ...r, events: r.events.map((e) => webModelsEvent(e as SequencedEvent<ModelsEvent>)) };
+    return { ...sub, result };
+  };
+  return { methods: methods as unknown as RpcHandlers['methods'], subscribe };
+}
+
+/** 模型包状态里原地引用的本机文件只留文件名（`added.source` 与组件的 `file`）；别的模型包原样。 */
+export function webBundle(bundle: ModelBundleStatus): ModelBundleStatus {
+  const local = bundle.added?.kind === 'local-file' || bundle.components?.some((c) => c.file !== undefined);
+  if (!local) return bundle;
+  return {
+    ...bundle,
+    ...(bundle.added ? { added: bundle.added.kind === 'local-file' ? { ...bundle.added, source: path.basename(bundle.added.source) } : bundle.added } : {}),
+    ...(bundle.components ? { components: bundle.components.map((c) => (c.file === undefined ? c : { ...c, file: path.basename(c.file) })) } : {}),
+  };
+}
+
+function webModelsSnapshot(snapshot: ModelsSnapshot): ModelsSnapshot {
+  return { ...snapshot, bundles: snapshot.bundles.map(webBundle) };
+}
+
+function webModelsEvent(event: SequencedEvent<ModelsEvent>): SequencedEvent<ModelsEvent> {
+  const e = event.event;
+  return e.type === 'bundle.updated' ? { ...event, event: { ...e, bundle: webBundle(e.bundle) } } : event;
 }
 
 function saveLocationProblem(): ToolProblem {
