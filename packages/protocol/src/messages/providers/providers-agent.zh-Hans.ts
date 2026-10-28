@@ -21,9 +21,9 @@ export const zhHans: ProvidersAgentMessages = {
   unknownError: '未知错误',
   processExited: '进程退出',
   turnNotStarted: (p) => `回合没有开始：${p.error}`,
-  codexTextModel: "Codex 文本生成（模型由 Codex 与账号决定）",
+  codexTextModel: "Agent 默认模型",
   codexTextNotes:
-    "用本机已登录的 Codex 账号生成文字：同一时间只跑一个请求，每次开一个新的 Codex 会话，比 API 慢。推理强度、temperature、seed 与输出长度不能指定。用的是订阅额度，剩余额度未知。启用即同意把提示词（包括其中的逐字稿等内容）发给 Codex 的账号。",
+    "用本机已登录的 Codex 账号生成文字：同一时间只跑一个请求，每次开一个新的 Codex 会话，比 API 慢。temperature、seed 与输出长度不能指定。用的是订阅额度，剩余额度未知。启用即同意把提示词（包括其中的逐字稿等内容）发给 Codex 的账号。",
   codexTextNotesApiKey:
-    "Codex 用 API key 等非 ChatGPT 订阅方式登录：费用记在那个账号上、不在订阅里。同一时间只跑一个请求；推理强度、temperature、seed 与输出长度不能指定。",
+    "Codex 用 API key 等非 ChatGPT 订阅方式登录：费用记在那个账号上、不在订阅里。同一时间只跑一个请求；temperature、seed 与输出长度不能指定。",
 };

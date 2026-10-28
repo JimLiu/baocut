@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises';
-import { RpcError, type GlossaryEntry, type Id, type JobCallCounts, type TranslateSummary } from '@baocut/protocol';
+import { RpcError, type GlossaryEntry, type Id, type JobCallCounts, type TextEffort, type TranslateSummary } from '@baocut/protocol';
 import { TextGenerationError, type TextGenerator } from '@baocut/models';
 import type { ArtifactStore } from '../artifact-store.ts';
 import { JobsTranslationBatches as J } from '@baocut/protocol/messages/jobs/translation-batches.ts';
@@ -157,6 +157,8 @@ export interface BatchTranslationInput {
   style?: string;
   provider: string;
   model: string;
+  /** 用户选的推理强度；不给时用模型页的默认（智能体用模型自己的默认）。 */
+  effort?: TextEffort;
   batchSize: number;
   terms: PromptTerm[];
 }
@@ -236,6 +238,7 @@ export async function translateInBatches(
             responseFormat: { type: 'json', schema: translationSchema(ids), name: 'translations' },
             provider: input.provider,
             model: input.model,
+            ...(input.effort ? { effort: input.effort } : {}),
           },
           { signal: local.signal },
         );

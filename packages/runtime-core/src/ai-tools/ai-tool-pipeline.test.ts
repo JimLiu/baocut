@@ -279,7 +279,13 @@ describe('ai-tool 流程', () => {
   }
 
   it('只给结果的工具：一次正文调用，skill 作为系统提示词，附件只带文本，不写视频', async () => {
-    const record = await run({ tool: 'summary', skills: [{ id: 'video-summary' }, { id: 'mine' }], attachments: ['att_txt', 'att_img'], uiLanguage: 'zh-Hans' });
+    const record = await run({
+      tool: 'summary',
+      skills: [{ id: 'video-summary' }, { id: 'mine' }],
+      attachments: ['att_txt', 'att_img'],
+      uiLanguage: 'zh-Hans',
+      effort: 'high',
+    });
     expect(record.state).toBe('completed');
     expect(record.pipeline!.steps.map((s) => [s.name, s.status])).toEqual([
       ['context', 'completed'],
@@ -288,6 +294,8 @@ describe('ai-tool 流程', () => {
     ]);
     expect(requests).toHaveLength(1);
     expect(requests[0]!.responseFormat).toEqual({ type: 'text' });
+    // 选了推理强度时随模型一起交给文本生成。
+    expect(requests[0]).toMatchObject({ provider: 'fake', model: 'writer', effort: 'high' });
     expect(requests[0]!.messages[0]!.content).toContain('<skill id="video-summary">BODY</skill>\n<skill id="mine">BODY</skill>');
     expect(requests[0]!.messages[0]!.content).toContain("The user's interface language is zh-Hans.");
     expect(requests[0]!.messages[1]!.content).toContain('<transcript>\n## Intro');

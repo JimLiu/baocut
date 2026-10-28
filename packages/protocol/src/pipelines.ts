@@ -1,4 +1,5 @@
 import type { Id } from './domain.ts';
+import type { TextEffort } from './models.ts';
 import type { CitationsFile, SemanticEffectiveMode, SemanticReason } from './semantic.ts';
 
 /**
@@ -106,6 +107,8 @@ export interface TranslateParams {
   /** 文本模型；不给时用文本生成的默认值（架构设计 §6.2）。 */
   provider?: string;
   model?: string;
+  /** 推理强度（同 `GenerateTextRequest.effort`）；不给时用模型页的默认，智能体用模型自己的默认（架构设计 §6.4）。 */
+  effort?: TextEffort;
   /** 每批的句数，默认 20。 */
   batchSize?: number;
   /**
@@ -791,9 +794,10 @@ export interface DubParams {
   /** 语音合成的 Provider 与模型；不给时用语音合成的默认值（架构设计 §6.2）。 */
   provider?: string;
   model?: string;
-  /** 缺译文时翻译用的文本模型、风格提示、术语表与批大小（同 `translate`）。 */
+  /** 缺译文时翻译用的文本模型、推理强度、风格提示、术语表与批大小（同 `translate`）。 */
   textProvider?: string;
   textModel?: string;
+  textEffort?: TextEffort;
   style?: string;
   glossary?: GlossaryEntry[];
   glossaries?: { id: Id; version?: number }[];
@@ -950,6 +954,8 @@ export interface TranslateSubtitlesParams {
   glossaries?: { id: Id; version?: number }[];
   provider?: string;
   model?: string;
+  /** 推理强度（同 `TranslateParams.effort`）。 */
+  effort?: TextEffort;
   /** 每批的条数，默认 20。 */
   batchSize?: number;
   /** 输出格式；不给时与输入相同。 */
@@ -1087,6 +1093,8 @@ export interface AiToolParams {
   /** 文本模型；不给时用文本生成的默认值（架构设计 §6.2）。 */
   provider?: string;
   model?: string;
+  /** 推理强度（同 `TranslateParams.effort`）。 */
+  effort?: TextEffort;
   /** 用户的界面语言（BCP 47，如 `zh-Hans`、`en`），写进系统提示词；不给时不写。 */
   uiLanguage?: string;
   /**

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import {
   AI_TOOL_APPLY_KINDS,
+  TEXT_EFFORTS,
   AI_TOOL_PIPELINE,
   AI_TOOL_SECTION_CHUNKS,
   AI_TOOL_SECTION_CITE_PREFIX,
@@ -212,6 +213,7 @@ const PARAMS_SCHEMA = {
     skills: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] }, description: '作为系统提示词的 skill，按顺序' },
     provider: { type: 'string', description: '文本模型的 Provider；不给时用默认值' },
     model: { type: 'string' },
+    effort: { type: 'string', enum: [...TEXT_EFFORTS], description: '推理强度；不给时用模型页的默认，智能体用模型自己的默认' },
     uiLanguage: { type: 'string', description: '用户的界面语言（BCP 47，如 zh-Hans、en），写进系统提示词' },
     selection: {
       type: 'object',
@@ -725,7 +727,7 @@ async function generate(deps: AiToolDeps, context: PipelineStepContext<FrozenAiT
     attachments: inputs.attachments,
     ...(params.uiLanguage ? { uiLanguage: params.uiLanguage } : {}),
   };
-  const target = { provider: params.provider, model: params.model };
+  const target = { provider: params.provider, model: params.model, ...(params.effort ? { effort: params.effort } : {}) };
   const schema = outputSchema(params.tool);
 
   if (params.tool === 'polish') {

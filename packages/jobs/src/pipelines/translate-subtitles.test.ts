@@ -22,7 +22,7 @@ const MODEL: TextModelInfo = {
   default: true,
   contextTokens: 100_000,
   maxOutputTokens: 4000,
-  efforts: [],
+  efforts: ['low', 'medium', 'high'],
   defaultEffort: null,
   structuredOutput: true,
   acceptsTemperature: false,
@@ -86,6 +86,7 @@ describe('字幕文件翻译的参数', () => {
       { input: '/a/b.srt', targetLanguage: 'zh', bilingual: 'yes' },
       { input: '/a/b.srt', targetLanguage: 'zh', outDir: 'out' },
       { input: '/a/b.srt', targetLanguage: 'zh', format: 'ass' },
+      { input: '/a/b.srt', targetLanguage: 'zh', effort: 'max' },
       { input: { entryId: 'ent_1' }, targetLanguage: 'zh' },
     ]) {
       expect(() => parseTranslateSubtitlesParams(bad)).toThrow(expect.objectContaining({ code: 'invalid-request' }));
@@ -163,7 +164,7 @@ describe('字幕文件的翻译流程', () => {
 
   it('逐批翻译：条数、序号与时间行不变，空条原样保留；写在保存位置，不覆盖已有的文件', async () => {
     const input = await write('movie.srt', srt(25));
-    const record = await translate({ input });
+    const record = await translate({ input, effort: 'low' });
     expect(record).toMatchObject({ state: 'completed', providerId: 'fake', modelId: 'writer', videoId: null });
     expect(record.pipeline!.steps.map((s) => [s.name, s.status])).toEqual([
       ['read', 'completed'],
@@ -173,6 +174,8 @@ describe('字幕文件的翻译流程', () => {
     ]);
     // 24 条有文本，每批 20 条：两次调用；第二批带前文。
     expect(text.runs).toHaveLength(2);
+    // 选了推理强度时每批都带上。
+    expect(text.runs.map((r) => r.parameters.effort)).toEqual(['low', 'low']);
     expect(text.runs[1]!.parameters.messages[1]!.content).toContain('"Hello number 20."');
     // 多行接成一句、去掉斜体再送模型。
     expect(text.runs[0]!.parameters.messages[1]!.content).toContain('"Second line continues"');

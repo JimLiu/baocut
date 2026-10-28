@@ -408,7 +408,9 @@ export class ModelServices {
         M.cannotGenerateText({ provider: choice.label }),
       );
     }
-    return { ...choice, text, defaults: this.store.textParameters() };
+    // 模型页的推理强度默认只管在线与本机的文本模型：智能体的强度在选模型的地方选（产品设计 §7.6），请求没给时用模型自己的默认。
+    const defaults = this.store.textParameters();
+    return { ...choice, text, defaults: choice.kind === 'agent' ? { ...defaults, effort: null } : defaults };
   }
 
   /** 一个 `providerId` 的执行者（本地文件任务等不经选择的路径用）。 */

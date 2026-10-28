@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   RpcError,
+  TEXT_EFFORTS,
   type DubOriginalAudio,
   type DubParams,
   type DubSummary,
@@ -229,6 +230,7 @@ const PARAMS_SCHEMA = {
     model: { type: 'string' },
     textProvider: { type: 'string', description: '缺译文时翻译用的文本模型 Provider' },
     textModel: { type: 'string' },
+    textEffort: { type: 'string', enum: [...TEXT_EFFORTS], description: '缺译文时翻译用的推理强度' },
     style: { type: 'string', maxLength: 500 },
     glossary: {
       type: 'array',
@@ -271,6 +273,7 @@ const KEYS = [
   'model',
   'textProvider',
   'textModel',
+  'textEffort',
   'style',
   'glossary',
   'glossaries',
@@ -291,6 +294,7 @@ const REGROUP_EXCLUSIVE = [
   'model',
   'textProvider',
   'textModel',
+  'textEffort',
   'style',
   'glossary',
   'glossaries',
@@ -326,6 +330,7 @@ export function parseDubParams(raw: Record<string, unknown>): DubParams {
     ['glossaries', 'glossaries'],
     ['textProvider', 'provider'],
     ['textModel', 'model'],
+    ['textEffort', 'effort'],
     ['batchSize', 'batchSize'],
   ] as const) {
     if (raw[from] !== undefined) translateRaw[to] = raw[from];
@@ -333,7 +338,12 @@ export function parseDubParams(raw: Record<string, unknown>): DubParams {
   const t = parseTranslateParams(translateRaw);
   if (
     translationId !== undefined &&
-    (t.style !== undefined || t.glossary !== undefined || t.glossaries !== undefined || t.provider !== undefined || t.model !== undefined)
+    (t.style !== undefined ||
+      t.glossary !== undefined ||
+      t.glossaries !== undefined ||
+      t.provider !== undefined ||
+      t.model !== undefined ||
+      t.effort !== undefined)
   ) {
     throw new RpcError('invalid-request', J.translationIdNoTranslate());
   }
@@ -354,6 +364,7 @@ export function parseDubParams(raw: Record<string, unknown>): DubParams {
     ...(model !== undefined ? { model } : {}),
     ...(t.provider !== undefined ? { textProvider: t.provider } : {}),
     ...(t.model !== undefined ? { textModel: t.model } : {}),
+    ...(t.effort !== undefined ? { textEffort: t.effort } : {}),
     ...(t.style !== undefined ? { style: t.style } : {}),
     ...(t.glossary !== undefined ? { glossary: t.glossary } : {}),
     ...(t.glossaries !== undefined ? { glossaries: t.glossaries } : {}),
@@ -750,6 +761,7 @@ async function freeze(
         ...(params.glossaries !== undefined ? { glossaries: params.glossaries } : {}),
         ...(params.textProvider !== undefined ? { provider: params.textProvider } : {}),
         ...(params.textModel !== undefined ? { model: params.textModel } : {}),
+        ...(params.textEffort !== undefined ? { effort: params.textEffort } : {}),
         ...(params.batchSize !== undefined ? { batchSize: params.batchSize } : {}),
       },
       { retry: false, ...(options.submitter ? { submitter: options.submitter } : {}) },

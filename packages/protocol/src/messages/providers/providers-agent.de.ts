@@ -20,9 +20,9 @@ export const de: ProvidersAgentMessages = {
   unknownError: "Unbekannter Fehler",
   processExited: "Der Prozess wurde beendet",
   turnNotStarted: (p: { error: string }) => `Die Runde wurde nicht gestartet: ${p.error}`,
-  codexTextModel: "Codex-Texterzeugung (Modell von Codex und Ihrem Konto ausgewählt)",
+  codexTextModel: "Agent-Standardmodell",
   codexTextNotes:
-    "Schreibt mit dem auf diesem Computer angemeldeten Codex-Konto: eine Anfrage gleichzeitig, jede in einer neuen Codex-Sitzung, daher langsamer als eine API. Denkaufwand, Temperatur, Seed und Ausgabelänge sind nicht einstellbar. Verwendet Ihr Abonnementkontingent; das verbleibende Kontingent ist unbekannt. Aktivieren bedeutet Zustimmung zum Senden von Prompts, einschließlich darin enthaltener Transkripte, an Ihr Codex-Konto.",
+    "Schreibt mit dem auf diesem Computer angemeldeten Codex-Konto: eine Anfrage gleichzeitig, jede in einer neuen Codex-Sitzung, daher langsamer als eine API. Temperatur, Seed und Ausgabelänge sind nicht einstellbar. Verwendet Ihr Abonnementkontingent; das verbleibende Kontingent ist unbekannt. Aktivieren bedeutet Zustimmung zum Senden von Prompts, einschließlich darin enthaltener Transkripte, an Ihr Codex-Konto.",
   codexTextNotesApiKey:
-    "Codex ist mit einem API-Schlüssel oder einer anderen Methode als ChatGPT angemeldet, daher gehen Kosten an dieses Konto statt an ein Abo. Eine Anfrage gleichzeitig; Denkaufwand, Temperatur, Seed und Ausgabelänge sind nicht einstellbar.",
+    "Codex ist mit einem API-Schlüssel oder einer anderen Methode als ChatGPT angemeldet, daher gehen Kosten an dieses Konto statt an ein Abo. Eine Anfrage gleichzeitig; Temperatur, Seed und Ausgabelänge sind nicht einstellbar.",
 };

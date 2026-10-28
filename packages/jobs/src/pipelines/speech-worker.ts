@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RpcError, type Id, type JobCallCounts, type TextModelInfo, type TranslateAlignFusion } from '@baocut/protocol';
+import { RpcError, type Id, type JobCallCounts, type TextEffort, type TextModelInfo, type TranslateAlignFusion } from '@baocut/protocol';
 import { TextCallCancelled, TextGenerationError, type TextGenerateRequest, type TextGenerator } from '@baocut/models';
 import {
   JsonLineWorker,
@@ -124,6 +124,8 @@ export interface SpeechTranslateOptions {
   text: Pick<TextGenerator, 'generate'>;
   provider: string;
   model: string;
+  /** 用户选的推理强度；不给时用模型页的默认（智能体用模型自己的默认）。 */
+  effort?: TextEffort;
   /** 冻结的模型的限制：输出上限按它夹，不接受温度时不带温度。 */
   modelInfo: Pick<TextModelInfo, 'maxOutputTokens' | 'acceptsTemperature'>;
   signal: AbortSignal;
@@ -302,6 +304,7 @@ async function answer(options: SpeechTranslateOptions, params: LlmRequestParams,
     ],
     provider: options.provider,
     model: options.model,
+    ...(options.effort ? { effort: options.effort } : {}),
     ...(params.maxOutputTokens !== null ? { maxOutputTokens: Math.min(params.maxOutputTokens, options.modelInfo.maxOutputTokens) } : {}),
     ...(params.temperature !== null && options.modelInfo.acceptsTemperature ? { temperature: params.temperature } : {}),
   };

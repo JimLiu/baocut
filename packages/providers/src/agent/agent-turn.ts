@@ -35,18 +35,28 @@ export interface AgentTurnOutcome {
   declined: number;
 }
 
-/** 开一个受限的专用会话（§6.9）：只写工作目录，不给 MCP 服务，模型与强度用 Agent 自己的默认。 */
+/** 受限会话的模型与推理强度（原生 id）；null 不传，用 Agent 自己的默认（CLI 配置里的模型、模型自己的默认强度）。 */
+export interface AgentModelSettings {
+  model: string | null;
+  effort: string | null;
+}
+
+/** 生图不指定模型与强度。 */
+export const AGENT_DEFAULT_SETTINGS: AgentModelSettings = { model: null, effort: null };
+
+/** 开一个受限的专用会话（§6.9）：只写工作目录，不给 MCP 服务；模型与强度按 `settings`，不给时用 Agent 自己的默认。 */
 export function openConfinedSession(
   ready: Extract<AgentReadiness, { ok: true }>,
   cwd: string,
   developerInstructions: string,
+  settings: AgentModelSettings = AGENT_DEFAULT_SETTINGS,
 ): Promise<AgentSession> {
   return ready.driver.createSession({
     cwd,
     // 受限会话（confinement）的策略固定，访问模式不起作用。
     accessMode: 'fullAccess',
-    model: null,
-    effort: null,
+    model: settings.model,
+    effort: settings.effort,
     executable: ready.executable ?? null,
     resume: null,
     developerInstructions,
@@ -54,8 +64,17 @@ export function openConfinedSession(
   });
 }
 
-/** 发一个回合，等它结束、失败、会话退出、超时或取消。取消与超时时请求中断（会话随后由调用方关闭）。 */
-export async function runAgentTurn(session: AgentSession, text: string, signal: AbortSignal, timeoutMs: number): Promise<AgentTurnOutcome> {
+/**
+ * 发一个回合，等它结束、失败、会话退出、超时或取消。取消与超时时请求中断（会话随后由调用方关闭）。
+ * `settings` 与开会话时的相同（回合上再带一次，免得原生侧回到默认）。
+ */
+export async function runAgentTurn(
+  session: AgentSession,
+  text: string,
+  signal: AbortSignal,
+  timeoutMs: number,
+  settings: AgentModelSettings = AGENT_DEFAULT_SETTINGS,
+): Promise<AgentTurnOutcome> {
   const replies: string[] = [];
   const errors: string[] = [];
   let declined = 0;
@@ -93,7 +112,7 @@ export async function runAgentTurn(session: AgentSession, text: string, signal: 
   try {
     if (signal.aborted) return { result: { kind: 'cancelled' }, replies, declined };
     try {
-      turnId = (await session.startTurn({ text }, { accessMode: 'fullAccess', model: null, effort: null })).turnId;
+      turnId = (await session.startTurn({ text }, { accessMode: 'fullAccess', model: settings.model, effort: settings.effort })).turnId;
     } catch (error) {
       settle({ kind: 'exited', message: PA.turnNotStarted({ error: messageOf(error) }).text });
     }

@@ -25,6 +25,7 @@ export const aiToolParamsSchema = z
     skills: skillSendListSchema.optional(),
     provider: z.string().min(1).max(128).optional(),
     model: z.string().min(1).max(256).optional(),
+    effort: z.enum(['minimal', 'low', 'medium', 'high']).optional(),
     uiLanguage: languageTag.optional(),
     selection: z
       .object({

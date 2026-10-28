@@ -37,7 +37,7 @@ const MODEL: TextModelInfo = {
   default: true,
   contextTokens: 100_000,
   maxOutputTokens: 4000,
-  efforts: [],
+  efforts: ['low', 'medium', 'high'],
   defaultEffort: null,
   structuredOutput: true,
   acceptsTemperature: false,
@@ -191,8 +191,10 @@ describe('拼接、提示词与批的核对（字幕文件的翻译用）', () =
     });
     expect(parseTranslateParams({ videoId: 'v', targetLanguage: 'en', memory: false })).toMatchObject({ memory: false });
     expect(parseTranslateParams({ videoId: 'v', targetLanguage: 'en', alignFusion: 'lines' })).toMatchObject({ alignFusion: 'lines' });
+    expect(parseTranslateParams({ videoId: 'v', targetLanguage: 'en', effort: 'high' })).toMatchObject({ effort: 'high' });
     for (const bad of [
       { videoId: 'v', targetLanguage: 'en', alignFusion: 'table' },
+      { videoId: 'v', targetLanguage: 'en', effort: 'max' },
       { videoId: 'v', targetLanguage: 'english!' },
       { videoId: 'v', targetLanguage: 'en', glossary: [{ source: 'a' }] },
       { targetLanguage: 'en' },
@@ -483,7 +485,7 @@ describe.skipIf(!command || !wasm)('翻译流程（真的 Speech Worker，假的
   const written = (index = 0) => videos.applied[index]!.operations[0] as Extract<EditOperation, { type: 'putDocument' }>;
 
   it('在 Speech Worker 里翻译，组装成合格的 §5.3 译文文档，与原文逐句对应（同一套句子与指纹），以新文档写入视频', async () => {
-    const record = await translate({ style: '口语', glossary: [{ source: 'Hello', target: '你好' }] });
+    const record = await translate({ style: '口语', glossary: [{ source: 'Hello', target: '你好' }], effort: 'high' });
     expect(record.state, JSON.stringify(record.error)).toBe('completed');
     expect(record).toMatchObject({ providerId: 'fake', modelId: 'writer', videoId: 'vid_1' });
     // 流程参数默认不建字幕层：最后一步 captions 跳过。
@@ -493,6 +495,9 @@ describe.skipIf(!command || !wasm)('翻译流程（真的 Speech Worker，假的
     // 每次调用都显式用冻结的模型；术语表与风格进系统消息。
     expect(text.runs.length).toBeGreaterThan(0);
     expect(text.runs.every((r) => r.providerId === 'fake' && r.modelId === 'writer')).toBe(true);
+    // 选了推理强度时每次调用都带上（冻结在流程参数里）。
+    expect(record.pipeline!.params).toMatchObject({ effort: 'high' });
+    expect(text.runs.every((r) => r.parameters.effort === 'high')).toBe(true);
     const system = text.runs.find((r) => r.parameters.messages[0]!.role === 'system')!.parameters.messages[0]!.content;
     expect(system).toContain('Hello → 你好');
     expect(JSON.stringify(text.runs.map((r) => r.parameters.messages))).toContain('口语');

@@ -26,11 +26,18 @@ describe('翻译配音的参数', () => {
     expect(() => parseDubParams({ videoId: 'vid_1', targetLanguage: 'en', duckDb: 0 })).toThrow(/duckDb/);
     expect(() => parseDubParams({ videoId: 'vid_1', targetLanguage: 'en', separateBackground: 'yes' })).toThrow(/separateBackground/);
     expect(() => parseDubParams({ videoId: 'vid_1', targetLanguage: 'en', nope: 1 })).toThrow();
+    // 翻译用的推理强度按 `translate` 的规则校验，原名交回。
+    expect(parseDubParams({ videoId: 'vid_1', targetLanguage: 'en', textModel: 'gpt-x', textEffort: 'high' })).toMatchObject({
+      textModel: 'gpt-x',
+      textEffort: 'high',
+    });
+    expect(() => parseDubParams({ videoId: 'vid_1', targetLanguage: 'en', textEffort: 'max' })).toThrow();
   });
 
   it('给了已有的译文时不翻译：翻译用的参数不适用', () => {
     expect(() => parseDubParams({ videoId: 'vid_1', translationId: 'doc_t', style: '口语' })).toThrow(/不翻译/);
     expect(() => parseDubParams({ videoId: 'vid_1', translationId: 'doc_t', textModel: 'gpt-x' })).toThrow(/不翻译/);
+    expect(() => parseDubParams({ videoId: 'vid_1', translationId: 'doc_t', textEffort: 'low' })).toThrow(/不翻译/);
   });
 });
 
@@ -62,6 +69,7 @@ describe('句级重配的参数（regroup）', () => {
       ['model', 'm'],
       ['textProvider', 'openai'],
       ['textModel', 'gpt-x'],
+      ['textEffort', 'low'],
       ['style', '口语'],
       ['glossary', [{ source: 'a', target: 'b' }]],
       ['glossaries', [{ id: 'g1' }]],

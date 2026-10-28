@@ -35,11 +35,11 @@ const en = {
   unknownError: 'Unknown error',
   processExited: 'The process exited',
   turnNotStarted: (p: { error: string }) => `The turn didn't start: ${p.error}`,
-  codexTextModel: 'Codex text generation (model chosen by Codex and your account)',
+  codexTextModel: 'Agent’s default model',
   codexTextNotes:
-    "Writes with the Codex account signed in on this computer: one request at a time, each in a fresh Codex session, so it's slower than an API. Reasoning effort, temperature, seed and output length can't be set. It uses your subscription quota; the remaining quota is unknown. Turning it on means agreeing to send prompts, including any transcript text in them, to your Codex account.",
+    "Writes with the Codex account signed in on this computer: one request at a time, each in a fresh Codex session, so it's slower than an API. Temperature, seed and output length can't be set. It uses your subscription quota; the remaining quota is unknown. Turning it on means agreeing to send prompts, including any transcript text in them, to your Codex account.",
   codexTextNotesApiKey:
-    "Codex is signed in with an API key or another non-ChatGPT method, so any cost goes to that account, not a subscription. One request at a time; reasoning effort, temperature, seed and output length can't be set.",
+    "Codex is signed in with an API key or another non-ChatGPT method, so any cost goes to that account, not a subscription. One request at a time; temperature, seed and output length can't be set.",
 };
 
 export type ProvidersAgentMessages = typeof en;

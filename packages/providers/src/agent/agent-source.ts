@@ -16,8 +16,10 @@ import {
   AGENT_PROVIDER_PREFIX,
   refOf,
   RpcError,
+  TEXT_EFFORTS,
   type ConfigureProviderRequest,
   type DriverId,
+  type DriverModel,
   type DriverProbe,
   type ImageModelInfo,
   type Localized,
@@ -26,11 +28,12 @@ import {
   type ProviderConfigView,
   type ProviderUnavailableReason,
   type ProviderView,
+  type TextEffort,
   type TextModelInfo,
 } from '@baocut/protocol';
 import { usageErrorOf, type CallReporter } from '../usage-reporter.ts';
 import { AgentImageGenerator } from './agent-image-generator.ts';
-import { AgentTextGenerator } from './agent-text-generator.ts';
+import { AGENT_TEXT_DEFAULT_MODEL, AgentTextGenerator } from './agent-text-generator.ts';
 import type { AgentReadiness } from './agent-turn.ts';
 import { ProvidersAgent as PA, ProvidersConfig as PC } from '@baocut/protocol/messages/providers';
 
@@ -85,7 +88,10 @@ interface AgentProviderDefinition {
     turnText: (prompt: string) => string;
     outputName: string;
   };
-  /** 文本生成：任务说明在 `AgentTextGenerator` 里（与 Agent 无关）。 */
+  /**
+   * 文本生成：任务说明在 `AgentTextGenerator` 里（与 Agent 无关）。`model` 是「Agent 默认模型」（不传模型）；探测到的模型表
+   * 跟在它后面，每只一条，特性与它相同、推理强度按模型表（`textModelsOf`）。
+   */
   text: {
     model: TextModelInfo;
     paidNotes: () => string;
@@ -139,7 +145,7 @@ const CODEX: AgentProviderDefinition = {
   },
   text: {
     model: {
-      modelId: 'text-gen',
+      modelId: AGENT_TEXT_DEFAULT_MODEL,
       get label() {
         return PA.codexTextModel().text;
       },
@@ -184,6 +190,7 @@ function unavailable(reason: ProviderUnavailableReason, detail: Localized): Avai
  * - 配置只有开关：Codex 生图默认启用，已保存的开关优先；没有密钥、端点与模型声明（用的是智能体运行时自己的登录）。
  * - 账号不是订阅（Codex 用 API key 等登录）时照样可用，模型描述的 `cost` 为 `unknown` 并换上对应的说明；生图的出厂默认跳过它
  *   （§6.2）。文本生成没有出厂默认，只在用户选了它时用。
+ * - 生图只有一只模型；文本生成是「Agent 默认模型」加上探测到的模型表（`textModelsOf`），可以按模型与推理强度选。
  * - 探测：`probe` 总是问 Driver（Driver 注册表短时缓存）；`select` 与 `view` 在用户启用了它时问 Driver，没启用时用
  *   最近一次的结果，一次也没探测过就只报告没有启用——不为没启用的 Provider 去启动外部命令。
  * - 生图每个 Provider 一个队列，同时只运行 1 个任务；文本生成的并发上限也是 1（`textConcurrency`），与生图各排各的。
@@ -223,8 +230,8 @@ export class AgentProviderSource implements ProviderSource {
     if (!definition || !this.#driver(definition)) return null;
     const { availability, info } = await this.#availability(providerId, definition, mode);
     const paid = availability.available && info !== null && !definition.subscribed(info);
-    const capabilityOf = <M extends ImageModelInfo | TextModelInfo>(model: M, paidNotes: () => string): ProviderCapability<M> => ({
-      models: [paid ? { ...model, cost: 'unknown', notes: paidNotes() } : { ...model }],
+    const capabilityOf = <M extends ImageModelInfo | TextModelInfo>(models: M[], paidNotes: () => string): ProviderCapability<M> => ({
+      models: models.map((model) => (paid ? { ...model, cost: 'unknown', notes: paidNotes() } : { ...model })),
       available: availability.available,
       ...(availability.available
         ? {}
@@ -241,8 +248,8 @@ export class AgentProviderSource implements ProviderSource {
       vendor: { kind: 'agent', icon: 'codex' },
       config: agentConfigView(this.#options.store.configView(providerId)),
       capabilities: {
-        generateImage: capabilityOf(definition.image.model, definition.image.paidNotes),
-        generateText: capabilityOf(definition.text.model, definition.text.paidNotes),
+        generateImage: capabilityOf([definition.image.model], definition.image.paidNotes),
+        generateText: capabilityOf(textModelsOf(definition.text.model, info), definition.text.paidNotes),
       },
     };
   }
@@ -385,6 +392,26 @@ export class AgentProviderSource implements ProviderSource {
       subscribed: definition.subscribed(info!),
     };
   }
+}
+
+/**
+ * 文本生成的模型（§6.9）：「Agent 默认模型」打头，再是探测到的模型表（没探测过只有前者）。模型 id 是 Agent 的原生 id，名字照模型表。
+ * 推理强度取模型表里 `TextEffort` 认得的那几档（Codex 的原生 id 与它同名，`none`、`xhigh` 这类不列）；「Agent 默认模型」按
+ * 不传模型时 Agent 会用的那只（CLI 配置里的，不在模型表里时用模型表标的默认）。
+ */
+export function textModelsOf(base: TextModelInfo, info: DriverProbe | null): TextModelInfo[] {
+  const models = info?.models ?? [];
+  const configured = models.find((m) => m.id === info?.configModel) ?? models.find((m) => m.isDefault);
+  return [
+    { ...base, ...effortsOf(configured) },
+    ...models.map((m) => ({ ...base, modelId: m.id, label: m.label, default: false, ...effortsOf(m) })),
+  ];
+}
+
+function effortsOf(model: DriverModel | undefined): Pick<TextModelInfo, 'efforts' | 'defaultEffort'> {
+  const efforts = TEXT_EFFORTS.filter((e) => model?.efforts.some((x) => x.id === e));
+  const fallback = model?.defaultEffort as TextEffort | null | undefined;
+  return { efforts, defaultEffort: fallback && efforts.includes(fallback) ? fallback : null };
 }
 
 /** Driver 状态 + 版本 + 开关 → 可用性（顺序见类注释）。 */

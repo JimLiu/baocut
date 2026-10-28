@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   RpcError,
+  TEXT_EFFORTS,
   type DocumentRecord,
   type EditOperation,
   type Id,
@@ -167,6 +168,7 @@ const PARAMS_SCHEMA = {
     glossaries: GLOSSARIES_SCHEMA,
     provider: { type: 'string', description: '文本模型的 Provider；不给时用默认值' },
     model: { type: 'string' },
+    effort: { type: 'string', enum: [...TEXT_EFFORTS], description: '推理强度；不给时用模型页的默认，智能体用模型自己的默认' },
     batchSize: {
       type: 'integer',
       minimum: 1,
@@ -474,6 +476,7 @@ export function parseTranslateParams(raw: Record<string, unknown>): TranslatePar
     'glossaries',
     'provider',
     'model',
+    'effort',
     'batchSize',
     'captions',
     'captionStyle',
@@ -492,6 +495,7 @@ export function parseTranslateParams(raw: Record<string, unknown>): TranslatePar
   const style = optional('style', 500);
   const provider = optional('provider', 128);
   const model = optional('model', 256);
+  const effort = reader.oneOf('effort', TEXT_EFFORTS);
   const batchSize = reader.int('batchSize', 1, 100);
   const flag = (key: 'captions' | 'bilingual' | 'memory') => {
     const value = raw[key];
@@ -523,6 +527,7 @@ export function parseTranslateParams(raw: Record<string, unknown>): TranslatePar
     ...(glossaries !== undefined ? { glossaries } : {}),
     ...(provider !== undefined ? { provider } : {}),
     ...(model !== undefined ? { model } : {}),
+    ...(effort !== undefined ? { effort } : {}),
     ...(batchSize !== undefined ? { batchSize } : {}),
     ...(captions !== undefined ? { captions } : {}),
     ...(captionStyle !== undefined ? { captionStyle } : {}),
@@ -762,6 +767,7 @@ async function translateWithWorker(deps: TranslateDeps, context: PipelineStepCon
     text: deps.text,
     provider: params.provider,
     model: params.model,
+    ...(params.effort ? { effort: params.effort } : {}),
     modelInfo: selection.model,
     signal,
     progress,

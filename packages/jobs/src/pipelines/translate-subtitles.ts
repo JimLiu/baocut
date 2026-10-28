@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
   RpcError,
+  TEXT_EFFORTS,
   type GeneratedOutput,
   type Id,
   type TextModelInfo,
@@ -110,6 +111,7 @@ const PARAMS_SCHEMA = {
     glossaries: GLOSSARIES_SCHEMA,
     provider: { type: 'string', description: '文本模型的 Provider；不给时用默认值' },
     model: { type: 'string' },
+    effort: { type: 'string', enum: [...TEXT_EFFORTS], description: '推理强度；不给时用模型页的默认，智能体用模型自己的默认' },
     batchSize: { type: 'integer', minimum: 1, maximum: 100, default: DEFAULT_BATCH },
     format: { type: 'string', enum: ['srt', 'vtt'], description: '输出格式；不给时与输入相同' },
     bilingual: { type: 'boolean', default: false, description: '双语：每条原文在上、译文在下' },
@@ -321,6 +323,7 @@ export function parseTranslateSubtitlesParams(raw: Record<string, unknown>): Tra
     'glossaries',
     'provider',
     'model',
+    'effort',
     'batchSize',
     'format',
     'bilingual',
@@ -340,6 +343,7 @@ export function parseTranslateSubtitlesParams(raw: Record<string, unknown>): Tra
   const style = optional('style', 500);
   const provider = optional('provider', 128);
   const model = optional('model', 256);
+  const effort = reader.oneOf('effort', TEXT_EFFORTS);
   const batchSize = reader.int('batchSize', 1, 100);
   const format = reader.oneOf('format', ['srt', 'vtt'] as const);
   const bilingual = raw.bilingual;
@@ -355,6 +359,7 @@ export function parseTranslateSubtitlesParams(raw: Record<string, unknown>): Tra
     ...(glossaries !== undefined ? { glossaries } : {}),
     ...(provider !== undefined ? { provider } : {}),
     ...(model !== undefined ? { model } : {}),
+    ...(effort !== undefined ? { effort } : {}),
     ...(batchSize !== undefined ? { batchSize } : {}),
     ...(format !== undefined ? { format } : {}),
     ...(bilingual !== undefined ? { bilingual } : {}),
@@ -423,6 +428,7 @@ async function translateCues(
       ...(params.style !== undefined ? { style: params.style } : {}),
       provider: params.provider,
       model: params.model,
+      ...(params.effort ? { effort: params.effort } : {}),
       batchSize: params.batchSize,
       terms,
     },

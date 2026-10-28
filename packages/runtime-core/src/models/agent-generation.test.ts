@@ -559,23 +559,32 @@ describe('智能体文本 Provider（假 codex）', () => {
     await stopSide(side);
   });
 
-  it('如实描述：推理强度、temperature、seed 不可调，接受结构化输出，订阅内额度未知；没有出厂默认', async () => {
+  it('如实描述：「Agent 默认模型」加上模型表（隐藏的不列），推理强度按模型表，temperature、seed 不可调，接受结构化输出，订阅内额度未知；没有出厂默认', async () => {
     const { capabilities } = await side.client.request('models.capabilities', {});
     const entry = capabilities.generateText.providers.find((p) => p.providerId === PROVIDER)!;
     expect(entry).toMatchObject({ kind: 'agent', label: 'Codex', available: true, config: { enabled: true, credential: 'none' } });
-    const [model] = entry.models as TextModelInfo[];
+    const models = entry.models as TextModelInfo[];
+    expect(models.map((m) => [m.modelId, m.default])).toEqual([
+      ['text-gen', true],
+      ['fake-sol', false],
+      ['fake-luna', false],
+    ]);
+    const [model, sol] = models;
     expect(model).toMatchObject({
       modelId: 'text-gen',
       default: true,
-      efforts: [],
-      defaultEffort: null,
+      // 不传模型时 Codex 用模型表标的默认（fake-sol），强度照它。
+      efforts: ['low', 'medium', 'high'],
+      defaultEffort: 'medium',
       structuredOutput: true,
       acceptsTemperature: false,
       acceptsSeed: false,
       cost: 'subscription',
     });
+    expect(sol).toMatchObject({ label: 'FAKE-SOL', efforts: ['low', 'medium', 'high'], defaultEffort: 'medium', structuredOutput: true });
     expect(model!.notes).toMatch(/同一时间只跑一个请求/);
     expect(model!.notes).toMatch(/逐字稿/);
+    expect(model!.notes).not.toMatch(/推理强度/);
     // 文本生成没有出厂默认（§6.2）：可用的 Codex 也不会被自动选上。
     expect(capabilities.generateText.effective).toBeNull();
     const error = await rejection(side.client.request('models.generateText', { messages: [{ role: 'user', content: 'hi' }] }));
@@ -600,7 +609,7 @@ describe('智能体文本 Provider（假 codex）', () => {
       state: 'completed',
       providerId: PROVIDER,
       modelId: 'text-gen',
-      generation: { capability: 'generateText', requestedEffort: 'high', effort: null },
+      generation: { capability: 'generateText', requestedEffort: 'high', effort: 'high' },
       result: { text: { mediaType: 'text/plain', preview: 'Bonjour tout le monde.', finishReason: 'stop', usage: null } },
     });
     expect(await readArtifact(side, job.result!.artifactId!)).toBe('Bonjour tout le monde.');
@@ -614,11 +623,42 @@ describe('智能体文本 Provider（假 codex）', () => {
     expect(start!.params.developerInstructions).toContain('Translate into French.');
     const turns = side.fake.requests('turn/start');
     expect(turns).toHaveLength(1);
+    // 「Agent 默认模型」不传模型；推理强度照请求下发。
+    expect(start!.params.model).toBeUndefined();
+    expect(turns[0]!.params).toMatchObject({ effort: 'high' });
+    expect(turns[0]!.params.model).toBeUndefined();
     expect(JSON.stringify(turns[0]!.params.input)).toContain('Hello everyone.');
     expect(JSON.stringify(turns[0]!.params.input)).not.toContain('Translate into French.');
     // 会话关闭，工作目录删掉。
     await until(() => side.fake.log().some((e) => e.kind === 'exit'));
     expect(await fs.stat(cwd).catch(() => null)).toBeNull();
+  });
+
+  it('选了模型表里的模型与强度：模型与强度原样交给 Codex；模型页的推理强度默认不管智能体', async () => {
+    side.fake.scenario({ turn: { reply: 'ok' } });
+    let job = await settled(
+      side,
+      (
+        await side.client.request('models.generateText', {
+          messages: [{ role: 'user', content: 'hi' }],
+          provider: PROVIDER,
+          model: 'fake-luna',
+          effort: 'low',
+        })
+      ).jobId,
+    );
+    expect(job).toMatchObject({ state: 'completed', modelId: 'fake-luna', generation: { requestedEffort: 'low', effort: 'low' } });
+    expect(side.fake.requests('thread/start').at(-1)!.params).toMatchObject({ model: 'fake-luna' });
+    expect(side.fake.requests('turn/start').at(-1)!.params).toMatchObject({ model: 'fake-luna', effort: 'low' });
+
+    // 模型页设的默认强度只给 API 模型用：没给强度的智能体请求不下发强度，用模型自己的默认。
+    await side.client.request('models.setCapabilityParameters', { capability: 'generateText', effort: 'high' });
+    job = await settled(
+      side,
+      (await side.client.request('models.generateText', { messages: [{ role: 'user', content: 'hi' }], provider: PROVIDER, model: 'fake-sol' })).jobId,
+    );
+    expect(job).toMatchObject({ state: 'completed', modelId: 'fake-sol', generation: { requestedEffort: null, effort: null } });
+    expect(side.fake.requests('turn/start').at(-1)!.params.effort).toBeUndefined();
   });
 
   it('不接受的参数在提交时拒绝：temperature 与 seed', async () => {

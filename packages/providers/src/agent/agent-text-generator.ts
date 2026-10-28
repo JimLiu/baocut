@@ -3,7 +3,15 @@ import path from 'node:path';
 import type { AgentSession } from '@baocut/harness';
 import { ProviderFailure, TextCallCancelled, type TextProvider, type TextReply, type TextRun } from '@baocut/models';
 import type { CallReporter } from '../usage-reporter.ts';
-import { messageOf, openConfinedSession, runAgentTurn, turnFailure, type AgentReadiness, type AgentTurnOutcome } from './agent-turn.ts';
+import {
+  messageOf,
+  openConfinedSession,
+  runAgentTurn,
+  turnFailure,
+  type AgentModelSettings,
+  type AgentReadiness,
+  type AgentTurnOutcome,
+} from './agent-turn.ts';
 import { ProvidersAgent as PA } from '@baocut/protocol/messages/providers';
 
 export interface AgentTextGeneratorOptions {
@@ -18,6 +26,9 @@ export interface AgentTextGeneratorOptions {
   /** 会话开起来之后的调用结束时的报告（用量账本，§6.10；没有账号，订阅登录时费用记为订阅内）。 */
   report?: CallReporter;
 }
+
+/** 「Agent 默认模型」的模型 id：不传模型，按 Agent 自己的配置选（Codex 读 `~/.codex/config.toml`）。其余模型 id 是 Agent 模型表里的原生 id。 */
+export const AGENT_TEXT_DEFAULT_MODEL = 'text-gen';
 
 /** 交给原生会话的开发者指令（模型读的，用英文）。调用方的 system 消息接在后面。 */
 const INSTRUCTIONS = [
@@ -34,8 +45,10 @@ const INSTRUCTIONS = [
  *   只写这个目录（`confinement: 'cwd-write-only'`），会话请求的审批一律拒绝。
  * - 只发一个回合：调用方的 system 消息接在开发者指令后面；其余消息是回合的输入（只有一条 user 消息时原样放进去，多条时
  *   按角色标出）。结构化输出把 JSON Schema 写进指令，由 `finishText` 校验（Agent 不接受 schema 参数）。
+ * - 模型与推理强度：`AGENT_TEXT_DEFAULT_MODEL` 不传模型，别的模型 id 原样交给 Agent；推理强度是冻结参数里换档后的那一档
+ *   （`parameters.effort`，原生 id 与 `TextEffort` 同名），null 不传、用模型自己的默认。
  * - 输出是智能体最后一条文字回复；结构化输出时去掉包住整段的 Markdown 代码围栏。结束原因总是 `stop`，没有 token 用量。
- *   推理强度、temperature、seed 与输出上限都不下发（模型描述如实声明，§6.4 的参数检查在提交时拒绝或注明）。
+ *   temperature、seed 与输出上限都不下发（模型描述如实声明，§6.4 的参数检查在提交时拒绝或注明）。
  * - 不重试，不换 Provider。并发上限 1（`AgentProviderSource.textConcurrency`）。
  */
 export class AgentTextGenerator implements TextProvider {
@@ -74,12 +87,13 @@ export class AgentTextGenerator implements TextProvider {
     subscribed = ready.subscribed;
     if (signal.aborted) throw new TextCallCancelled();
 
+    const settings = settingsOf(run);
     const cwd = await this.#workDir();
     try {
       startedAt = Date.now();
       let session: AgentSession;
       try {
-        session = await openConfinedSession(ready, cwd, instructionsOf(run));
+        session = await openConfinedSession(ready, cwd, instructionsOf(run), settings);
       } catch (error) {
         if (signal.aborted) throw new TextCallCancelled();
         const failure = new ProviderFailure('unavailable-remote', PA.sessionNotStarted({ label, error: messageOf(error) }).text, { providerId });
@@ -88,7 +102,7 @@ export class AgentTextGenerator implements TextProvider {
       }
       let outcome: AgentTurnOutcome;
       try {
-        outcome = await runAgentTurn(session, turnTextOf(run), signal, turnTimeoutMs);
+        outcome = await runAgentTurn(session, turnTextOf(run), signal, turnTimeoutMs, settings);
       } finally {
         await session.close().catch(() => {});
       }
@@ -120,6 +134,11 @@ export class AgentTextGenerator implements TextProvider {
     await fs.mkdir(root, { recursive: true, mode: 0o700 });
     return fs.mkdtemp(path.join(root, 'call-'));
   }
+}
+
+/** 这次调用交给 Agent 的模型与推理强度。 */
+function settingsOf(run: TextRun): AgentModelSettings {
+  return { model: run.modelId === AGENT_TEXT_DEFAULT_MODEL ? null : run.modelId, effort: run.parameters.effort };
 }
 
 /** 开发者指令：固定的任务说明 + 结构化输出的 schema + 调用方的 system 消息。 */
