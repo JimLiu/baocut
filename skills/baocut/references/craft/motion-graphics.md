@@ -60,7 +60,7 @@
 
 **结构槽**：先写元素清单，一个图形 2–6 个可动元素。每个元素一个角色（mark、headline、label、card、rail、node、badge、chip、note…），用 `id` 命名；主文案标 `data-copy-primary`、次文案标 `data-copy-secondary`，文字容器加 `class="copy"`。常用组合：`mark + headline + tagline`（品牌）、`name + role + org`（下横栏）、`value + unit + takeaway`（数据）、`label + track + state`（进度）、`headline + items[3–4] + active`（列表）、`anchor + line + label`（标注）。
 
-**布局槽**：选一个位置族（lower-safe、centered、top-rail、side-rail、split、grid、cluster、radial、corner、full-frame-transparent），写绝对定位的像素值。安全区：16:9 左右 ≥ 70 px、上下 ≥ 100 px；9:16 左右 ≥ 60 px、上 ≥ 180 px、下 ≥ 230 px（避开评论与操作栏）。字号按角色定下限（1080 高的画面，竖版按 1080 宽）：此刻在说的（关键词字幕）≥ 48 px，要读的（名字、职务、标题、标签、结论句、图表上的字）≥ 40 px，只供查证的（出处、计时）≥ 28 px，不放更小的字；拉丁字母同一级约大 1.15 倍（英文的要读的 ≥ 46 px）。一个图形的字分两三级，相邻两级字号差 ≥ 1.3 倍，再加字重或颜色里的一样；最下一级守下限，往上推。放不下就删辅助文字、换短文案或加宽容器，不把字缩到下限以下。文案容器一定要有 `max-width`，长文案靠省略号而不是溢出。竖版只改这一段：横向 grid 改纵向，卡片宽 ≈ 画布宽 − 2×边距，文字块顶对齐。
+**布局槽**：选一个位置族（lower-safe、centered、top-rail、side-rail、split、grid、cluster、radial、corner、full-frame-transparent），写绝对定位的像素值。安全区：16:9 左右 ≥ 70 px、上下 ≥ 100 px；9:16 左右 ≥ 60 px、上 ≥ 180 px、下 ≥ 230 px（避开评论与操作栏）。字号按角色定下限（1080 高的画面，竖版按 1080 宽）：此刻在说的（关键词字幕）≥ 48 px，要读的（名字、职务、标题、标签、结论句、图表上的字）≥ 40 px，只供查证的（出处、计时）≥ 28 px，不放更小的字；拉丁字母同一级约大 1.15 倍（英文的要读的 ≥ 46 px）。一个图形的字分两三级，相邻两级字号差 ≥ 1.3 倍，再加字重或颜色里的一样；最下一级守下限，往上推到分得开就停：一个图形只有一处大字，字放大了内边距与行距跟着放大。放不下就删辅助文字、换短文案或加宽容器，不把字缩到下限以下。文案容器一定要有 `max-width`，长文案靠省略号而不是溢出。竖版只改这一段：横向 grid 改纵向，卡片宽 ≈ 画布宽 − 2×边距，文字块顶对齐。
 
 **动效槽**：每个元素一个时间窗 `range(time, start, end)` 配一个缓动与 1–2 个属性：位移配 easeOut，弹出配 backOut，描线与出场配 easeInOut。写法固定为 `prop: (1 - p) * 幅度`、`scale: 起点 + (1 - 起点) * p`、`opacity: p`。幅度：元素级位移 30–120 px，画外面板 340–560 px，rotate ≤ 25°，弹出的 scale 起点 0.2–0.45，容器 settle 的起点 0.75–0.95。同一元素不同时 slide 又 pop。
 
