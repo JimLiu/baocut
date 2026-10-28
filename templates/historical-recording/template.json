@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "id": "historical-recording",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kind": "scene",
   "title": "历史原声视频",
   "summary": "先用几分钟讲清人物与时代，再放完整的原声，配字幕、分章节。",

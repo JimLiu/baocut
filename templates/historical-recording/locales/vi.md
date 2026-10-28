@@ -14,7 +14,7 @@ Trước tiên dùng `skills_read` để đọc `history-video` và làm theo. N
 
 - Bằng chứng đi trước: ưu tiên ảnh, phim thời sự, trang báo, bản đồ của thời đó và chính giọng nói của người trong cuộc; ghi lại nguồn và giấy phép của từng thứ, thứ gì giấy phép không rõ thì không dùng. Ảnh tạo sinh chỉ dùng cho hình minh họa không có người thật, và phải ghi rõ trên hình.
 - Phần bối cảnh không phải trình chiếu slide: mỗi câu lời dẫn đi với một chuyển động trên hình (ảnh từ từ phóng to, đường kẻ chạy trên bản đồ, tít báo hiện ra từng dòng, chữ của câu trích sáng lên từng chữ một). Cách kể và khung xương hình ảnh do tư liệu có sức nặng nhất trong tay quyết định.
-- Chữ phải dễ đọc và rõ thứ bậc: trong khán giả có người cận thị và người lão thị, còn phần chính kéo dài hàng chục phút. Cỡ chữ và độ tương phản của phụ đề, tiêu đề và tóm tắt chương, chú thích ảnh, phần ghi nguồn làm theo yêu cầu của `history-video`; làm xong thì thu nhỏ khung hình để xem lại.
+- Chữ phải dễ đọc, rõ thứ bậc và cũng phải đẹp: trong khán giả có người cận thị và người lão thị, còn phần chính kéo dài hàng chục phút; nhưng khi phóng to chữ thì cũng phải thiết kế lại bố cục, không phóng to mọi thứ rồi lấp kín màn hình. Cỡ chữ, độ tương phản và thứ bậc của phụ đề, tiêu đề và tóm tắt chương, chú thích ảnh, phần ghi nguồn làm theo yêu cầu của `history-video`; làm xong thì tự kiểm tra theo hướng dẫn ở đó: thu nhỏ khung hình để xem lại, rồi xem ở kích thước gốc khung hình dày đặc nhất và một khung hình lúc bản ghi gốc ngừng nói.
 - Sửa bản ghi cũ trước: khi tiếng ồn nền rõ, âm lượng lúc to lúc nhỏ, hoặc nhỏ hơn lời dẫn nhiều, hãy sửa trên tệp trước rồi mới đưa vào video. Xử lý nhẹ tay, sửa xong phải nghe lại.
 
 ## Lưu ý
