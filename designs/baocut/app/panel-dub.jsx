@@ -79,7 +79,7 @@
         ref: null, separate: prev ? prev.bed !== false : true, fit: (prev && prev.fit) || 'compress',
         original: prev ? prev.original : 'mute', review: !prev,
         readings: true,                                 // 合成前标注多音字（只对要注音的语言有意义）
-        llm: (D.transModels.find((m) => m.dflt) || D.transModels[0]).id,   // 翻译与整理译文用的云端模型
+        llm: null, llmEffort: null,                     // 翻译与整理译文用的文本模型（null：同工具页的挑法）与智能体的推理强度
         style: (prev && prev.style) || '', emotion: (prev && prev.emotion) || 'follow',
       };
     });
@@ -139,7 +139,7 @@
     const problem = DUB.startProblem(r, {count: cues.length, langName});
     const step = DUB.stepLine(r, {count: cues.length, speakers: spIds.length, langName, ln, needTranslate, locked});
     const cta = DUB.ctaLabel({locked, count: cues.length, ln, langName, needTranslate, review: r.review, download: !!missing.list.length});
-    const llm = D.transModels.find((m) => m.id === r.llm) || D.transModels[0];
+    const llm = window.ToolTextModel(app, r.llm, r.llmEffort) || D.transModels[0];
     const wantReadings = RD.needsReadings(r.lang) && r.readings !== false;
     const llmNeeded = needTranslate || r.review || wantReadings;
     const separate = locked ? false : r.separate;

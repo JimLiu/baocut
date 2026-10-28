@@ -29,7 +29,7 @@
   /* 智能体 Codex 在图像生成、文本生成两页的叫法与说明（同一个开关） */
   const CODEX_ITEM = {
     image: {label: 'Codex 画图', desc: '用你的 Codex 订阅 · 一次一张 · 慢 5–10 倍', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一张 · 忽略尺寸 · 慢 5–10 倍'},
-    text: {label: 'Codex 写文字', desc: '用你的 Codex 订阅 · 一次一个请求 · 比 API 慢', caution: '用 API key 登录 · 费用不在订阅里', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一个请求 · 不能设推理强度 · 比 API 慢'},
+    text: {label: 'Codex 写文字', desc: '用你的 Codex 订阅 · 一次一个请求 · 比 API 慢', caution: '用 API key 登录 · 费用不在订阅里', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一个请求 · 用的时候选模型与推理强度 · 比 API 慢'},
   };
   const codexId = (cap) => (cap === 'image' ? IM().CODEX_ID : window.BC_LLM_TOOLS.CODEX_TEXT_ID);
   /* Codex 已装时这一页的智能体状态（图像生成与文本生成才有） */

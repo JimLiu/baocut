@@ -9,23 +9,29 @@
   const D = window.BC_DATA;
   const AG = window.BC_AGENT;
 
-  /* 云端 LLM 下拉（放行卡用）：与新建向导 / 翻译面板同一份 provider 列表（D.transModels）。
-     没连 key 的不置灰（置灰是死胡同）——照常可选，sub 上写清「未连接 key」，
-     选中后由摘要行提示去云端设置连上。 */
-  function ModelPick({value, onChange, size}) {
-    const [pop, setPop] = useState(false);
-    const cur = D.transModels.find((m) => m.id === value) || D.transModels.find((m) => m.dflt) || D.transModels[0];
-    return (
-      <Picker size={size || 's'} value={cur.name + ' · ' + cur.provider} open={pop} popWidth={264}
-        onClick={() => setPop((v) => !v)} onClose={() => setPop(false)}>
-        <Menu>
-          {D.transModels.map((m) => (
-            <MenuItem key={m.id} label={m.name} sub={m.note ? `${m.provider} · ${m.note}` : m.provider} on={m.id === cur.id}
-              onClick={() => { onChange(m); setPop(false); }} />
-          ))}
-        </Menu>
-      </Picker>
-    );
+  /* 文本模型下拉（放行卡、提示词框、重译与配音的「翻译用的模型」）：与工具页同一份清单、同一只两级菜单
+     （text-model-picker.jsx，2026-10-28 用户要求：先选提供方再选模型，Agent 还选推理强度）。
+     没连接的那家在第一级写明，点了去设置；选中的不能用时由摘要行提示去处。 */
+  const L = () => window.BC_LLM_TOOLS;
+  /** 编辑器里用的样子：`name` 写进摘要句与提示（智能体是「Codex · 模型 · 强度」），`note` 是没连上的原因。 */
+  const editorModel = (m, effort) => Object.assign({}, m, {
+    name: m.agent ? L().pickLabel(m, effort) : m.name, effort: m.agent ? effort || null : null,
+    note: m.ready ? (m.agent ? m.caution || '用你的 Codex 订阅' : null) : m.agent ? m.why : '未连接 key',
+  });
+  /** 文本模型清单，换成编辑器的样子；`effort` 是这一处记的推理强度（只给智能体）。 */
+  const editorModels = (app, effort) => window.BC_TEXT_CATALOG(app).map((m) => editorModel(m, effort));
+  /** 没选过时用哪只：同工具页（BC_LLM_TOOLS.initial）。 */
+  const editorDefault = (app, value, effort) => {
+    const m = L().initial(window.BC_TEXT_CATALOG(app), value, app.cloudLlmDefault);
+    return m ? editorModel(m, effort) : null;
+  };
+  function ModelPick({value, effort, onChange, size}) {
+    const app = useApp();
+    const list = window.BC_TEXT_CATALOG(app);
+    const cur = L().initial(list, value, app.cloudLlmDefault);
+    return <window.TextModelPicker list={list} value={cur ? cur.id : null} effort={effort} size={size} popWidth={300}
+      settings={{r: 'settings', sec: 'providers'}}
+      onChange={(p) => { const m = list.find((x) => x.id === p.model); if (m) onChange(editorModel(m, p.effort)); }} />;
   }
 
   /* 「用」下拉（2026-09-20 改成两页）：第 186 轮把 Agent 组做成两级之后，一屏仍是「Agent 组在上、
@@ -43,7 +49,11 @@
     const grp = groups.find((g) => g.kind === curTab) || groups[0];
     const agents = groups[0].items;
     const sel = value && value.kind === 'agent' ? {harness: value.harness, model: value.model} : {};
+    /* 「直接调模型」页也是两级（2026-10-28）：第一级每家提供方一行，第二级它的模型；lv.level 是 harness id 或提供方 id */
+    const textList = grp.kind === 'api' ? window.BC_TEXT_CATALOG(app) : [];
+    const apiValue = value && value.kind === 'api' ? value.model : null;
     const cur = lv.level ? app.harnessList.find((x) => x.id === lv.level) : null;
+    const textLevel = !cur && lv.level && textList.some((m) => m.providerId === lv.level) ? lv.level : null;
     const close = () => { lv.close(); setTab(null); };
     const toggle = () => { setTab(null); lv.toggle(); };
     const goAgentSettings = () => { close(); app.go({r: 'settings', sec: 'agent'}); };
@@ -59,6 +69,12 @@
         onClick={toggle} onClose={close}>
         {cur ? (
           <AgentModelLevel h={cur} sel={sel} onBack={() => lv.setLevel(null)} onPick={(id) => pickAgent(cur, id)} />
+        ) : textLevel ? (
+          <window.TextModelLevel list={textList} providerId={textLevel} value={apiValue} effort={value && value.effort} onBack={() => lv.setLevel(null)}
+            onPick={(model, effort) => {
+              const it = grp.items.find((i) => i.model === model) || {k: `api:${model}`, kind: 'api', model};
+              onChange(Object.assign({}, it, {effort})); close();
+            }} />
         ) : (
           <>
             <div className="rpick__tabs">
@@ -76,12 +92,15 @@
                       <MenuItem icon="agent" label="还没有可用的编码 Agent" sub="连接 Claude Code 或 Codex CLI · 设置 › Agent" onClick={goAgentSettings} />
                     </Menu>
               ) : (
-                <Menu>
-                  {grp.items.length ? grp.items.map((it) => (
-                    <MenuItem key={it.k} label={it.label} sub={it.sub} on={!!value && it.k === value.k}
-                      onClick={() => { onChange(it); close(); }} />
-                  )) : <MenuItem icon="sparkle" label="还没有可用的模型" sub="连接一个 API 提供方的 key · 设置 › 模型 › API 提供方" onClick={goCloudSettings} />}
-                </Menu>
+                grp.kind === 'api' && textList.length
+                  ? <window.TextProviderLevel list={textList} value={apiValue} noHead onEnter={lv.setLevel}
+                      onSettings={(r) => (r && r.agent ? goAgentSettings() : goCloudSettings())} />
+                  : <Menu>
+                      {grp.items.length ? grp.items.map((it) => (
+                        <MenuItem key={it.k} label={it.label} sub={it.sub} on={!!value && it.k === value.k}
+                          onClick={() => { onChange(it); close(); }} />
+                      )) : <MenuItem icon="sparkle" label="还没有可用的模型" sub="连接一个 API 提供方的 key · 设置 › 模型 › API 提供方" onClick={goCloudSettings} />}
+                    </Menu>
               )}
             </div>
             <MenuRule />
@@ -129,7 +148,11 @@
   function useRunner(step, tool) {
     const app = useApp();
     const local = step && !step.llm ? {label: step.engine || '本机模型', sub: '不出本机'} : null;
-    const groups = AG.runnerOptions({harnesses: app.harnessList, models: D.transModels, local});
+    /* 智能体文本模型的推理强度按工具记（`prefs.textEffortBy`，没带 `tool` 的记在 `*`），模型本身记在「用」的那一份里 */
+    const effKey = tool || '*';
+    const efforts = app.prefs.textEffortBy || {};
+    const models = editorModels(app, efforts[effKey]);
+    const groups = AG.runnerOptions({harnesses: app.harnessList, models, local});
     /* 第 196 轮：带 `tool` 的页有自己的记忆与偏好（STEP.prefer），没带的仍是全局那份。 */
     const raw = tool
       ? AG.preferredRunner(groups, {own: app.runnerBy[tool], prefer: step && step.prefer, global: app.runner})
@@ -140,11 +163,12 @@
     const agent = {harness: app.harness ? app.harness.id : null,
       model: app.harness ? window.BC_AGENT_SETUP.defaultModel(app.harness, app.prefs.agentModels) : null};
     const cur = AG.syncAgent(raw, groups, agent);
-    const apiModel = cur && cur.kind === 'api' ? D.transModels.find((m) => m.id === cur.model) : null;
-    return {groups, cur, apiModel, agent: cur && cur.kind === 'agent',
+    const apiModel = cur && cur.kind === 'api' ? models.find((m) => m.id === cur.model) || null : null;
+    return {groups, cur, apiModel, effort: efforts[effKey] || null, agent: cur && cur.kind === 'agent',
       pick: (it) => {
         // 反方向：在这只下拉里选定编码 Agent，chip 跟着挪过去。
         if (it.kind === 'agent') app.setAgentDefault(it.harness, it.model);
+        if (it.kind === 'api' && 'effort' in it) app.setPref('textEffortBy', Object.assign({}, efforts, {[effKey]: it.effort || null}));
         return tool ? app.setRunnerFor(tool, it.k) : app.setRunner(it.k);
       }};
   }
@@ -167,7 +191,7 @@
     const rn = runner && runner.cur;
     const mdl = runner
       ? runner.apiModel
-      : (step.llm ? (model || D.transModels.find((m) => m.dflt) || D.transModels[0]) : null);
+      : (step.llm ? (model || editorDefault(app, null, null)) : null);
     const sum = summaryOf(plan, mdl, sc, {agent: rn && rn.kind === 'agent' ? rn.label : null, pre});
     // 没就绪的那一项选中后，行尾给去处：Agent 去 Settings › Agent，模型去连 key
     const fix = rn && !rn.ready
@@ -187,7 +211,7 @@
             {runner
               ? <RunnerPick groups={runner.groups} value={rn} onChange={runner.pick} />
               : step.llm
-                ? <ModelPick value={mdl.id} onChange={(m) => onModel && onModel(m)} />
+                ? <ModelPick value={mdl ? mdl.id : null} effort={mdl ? mdl.effort : null} onChange={(m) => onModel && onModel(m)} />
                 : <span className="t-body-sm">{step.engine || '本机模型'}<span className="t-detail-xs"> · 不出本机</span></span>}
             {fix ? <BCAction className="tsetup__lnk" onClick={() => app.go(fix.route)}>{fix.label}</BCAction> : null}
           </div>}
@@ -225,5 +249,5 @@
     );
   }
 
-  Object.assign(window, {ToolSetup, ToolOption, AgentHandoff, ToolModelPick: ModelPick, toolSummary: summaryOf, useToolRunner: useRunner, ToolRunnerPick: RunnerPick});
+  Object.assign(window, {ToolSetup, ToolOption, AgentHandoff, ToolModelPick: ModelPick, ToolTextModel: editorDefault, toolSummary: summaryOf, useToolRunner: useRunner, ToolRunnerPick: RunnerPick});
 })();

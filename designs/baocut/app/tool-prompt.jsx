@@ -134,8 +134,8 @@
               <span className="spacer" />
               {agent
                 ? <window.ProviderModelPicker sel={{harness: curH, model: curM, effort}} compact={narrow} onChange={pickAgent} />
-                : <window.ToolModelPick value={model ? model.id : (D.transModels[0] || {}).id}
-                    onChange={(m) => runner.pick({k: `api:${m.id}`, kind: 'api', model: m.id})} />}
+                : <window.ToolModelPick value={model ? model.id : null} effort={runner.effort}
+                    onChange={(m) => runner.pick({k: `api:${m.id}`, kind: 'api', model: m.id, effort: m.effort})} />}
             </>} />
         </div>
         {noSkill ? (

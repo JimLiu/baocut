@@ -152,7 +152,7 @@
         <div className="aitp__hd">
           <span className="t-detail-xs">文本模型</span>
           <span className="spacer" />
-          <window.ToolModelPick value={model ? model.id : null} onChange={(m) => runner.pick({k: `api:${m.id}`, kind: 'api', model: m.id})} />
+          <window.ToolModelPick value={model ? model.id : null} effort={runner.effort} onChange={(m) => runner.pick({k: `api:${m.id}`, kind: 'api', model: m.id, effort: m.effort})} />
         </div>
         <div className="aitp__ctx">
           <Ic n="info" className="ic--14" />

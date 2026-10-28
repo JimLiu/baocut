@@ -209,6 +209,7 @@
       "app/task-pill.jsx",
       "app/shell.jsx",
       "app/agent-picker.jsx",
+      "app/text-model-picker.jsx",
       "app/tool-setup.jsx",
       "app/tool-prompt.jsx",
       "app/page-projects.jsx",
@@ -511,9 +512,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=6c1b495cfb44",
+    "js": "generated/app.js?v=d6b00ecb8b14",
     "css": "generated/app.css?v=5e0a6939440d",
-    "bytes": 4855772
+    "bytes": 4862295
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -784,9 +785,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=0fa871870b84",
+    "js": "generated/web.js?v=75a5cbb57707",
     "css": "generated/web.css?v=122f6fa89fe5",
-    "bytes": 2873386
+    "bytes": 2873529
   },
   "components": {
     "file": "Components.html",

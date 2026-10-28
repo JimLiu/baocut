@@ -20,10 +20,12 @@
     L.request('text', req, model); // The eventual model adapter receives only this fixed request.
     const id = 'llm-' + (++jobs.seq);
     const title = '文本生成';
-    const params = {input: form.input, model: form.model || model.id, entry: material ? {id: material.id, name: material.name, kind: material.kind} : null};
-    const taskId = app.addTask({kind: 'write', tool: 'text', toolId: 'text', params, title, project: null, sub: model.name + (material ? ` · 附 ${material.name}` : ''),
+    const effort = model.agent ? form.effort || null : null;
+    const modelName = L.pickLabel(model, effort);
+    const params = {input: form.input, model: form.model || model.id, effort, entry: material ? {id: material.id, name: material.name, kind: material.kind} : null};
+    const taskId = app.addTask({kind: 'write', tool: 'text', toolId: 'text', params, title, project: null, sub: modelName + (material ? ` · 附 ${material.name}` : ''),
       phase: '等待模型返回', cancellable: false, ...window.BC_TOOL_RUNS.outputsPatch([], saveDir)});
-    const record = {id, title, model: model.id, modelName: model.name, taskId, status: 'running', material: material ? material.name : null, saveDir};
+    const record = {id, title, model: model.id, modelName, taskId, status: 'running', material: material ? material.name : null, saveDir};
     jobs.list = [record, ...jobs.list]; emit();
     // The browser prototype has no model transport; explicitly marked example output.
     jobs.timers.set(id, setTimeout(() => {
@@ -52,7 +54,7 @@
     const app = useApp();
     const save = window.BC_TOOL_FRAME.useSaveDir();
     const TM = window.BC_TEXT_MODEL;
-    const [form, setForm] = useState(() => jobs.drafts.text || {input: '', model: null, material: null, picking: false});
+    const [form, setForm] = useState(() => jobs.drafts.text || {input: '', model: null, effort: null, material: null, picking: false});
     const [records, setRecords] = useState(jobs.list);
     const [error, setError] = useState('');
     const set = p => { setForm(s => ({...s, ...p})); setError(''); };
@@ -60,7 +62,7 @@
     useEffect(() => { jobs.listeners.add(setRecords); return () => jobs.listeners.delete(setRecords); }, []);
     /* 「接着用工具」/ Space 查看器带来的文档或字幕：附成材料 */
     window.BC_TOOL_FRAME.useToolPreset('text', (p) => {
-      if (p.params) set({input: p.params.input || '', model: p.params.model || null, material: p.entry, picking: false});
+      if (p.params) set({input: p.params.input || '', model: p.params.model || null, effort: p.params.effort || null, material: p.entry, picking: false});
       else if (p.input) set({material: p.entry, picking: false});
     });
     const material = form.material;
@@ -88,7 +90,7 @@
               : form.picking ? <window.ToolSpacePicker tool="text" attach value={null} onChange={(e) => set({material: e, picking: false})} label="附上一份文档或字幕" />
               : <span className="t-detail-xs">可选。附上的文档或字幕全文随要求发给模型，不改动原条目。</span>}
           </div>
-          <TM.TextModelField tm={tm} onChange={model => set({model})} what={material ? '要求和材料' : '要求'} />
+          <TM.TextModelField tm={tm} onChange={set} what={material ? '要求和材料' : '要求'} />
           <window.ToolSaveDirRow save={save} />
           {error && <p role="alert" className="ttsw__err">{error}</p>}
           <p className="t-detail-xs">交互原型：演示一次模型请求及结果保存，尚未调用模型 API。</p>

@@ -39,5 +39,16 @@
     const src = `assets/vendors/${icon.file}.svg`;
     return icon.mono ? <MonoGlyph {...rest} src={src} /> : <ColorGlyph {...rest} src={src} />;
   }
-  Object.assign(window, {VendorIcon, AgentIcon});
+  /** API 提供方的图标做成 S2 图标，放进菜单行的图标槽（文本模型两级菜单的第一级，text-model-picker.jsx）。 */
+  function VendorGlyph({id, name: label, ...rest}) {
+    const v = V().byId(id);
+    const icon = v && v.icon;
+    if (!icon) {
+      const name = String(label || (v && v.name) || String(id || '').replace(/^custom:/, '')).trim();
+      return <LetterGlyph {...rest} letter={(name[0] || '?').toUpperCase()} />;
+    }
+    const src = `assets/vendors/${icon.file || id}.svg`;
+    return icon.mono ? <MonoGlyph {...rest} src={src} /> : <ColorGlyph {...rest} src={src} />;
+  }
+  Object.assign(window, {VendorIcon, AgentIcon, VendorGlyph});
 })();

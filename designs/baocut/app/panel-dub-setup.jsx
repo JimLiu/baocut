@@ -329,9 +329,9 @@
               <>
                 <window.SecHead>翻译与整理译文</window.SecHead>
                 <window.PRow label="用">
-                  <ModelPick value={r.llm} onChange={(m) => set({llm: m.id})} />
+                  <ModelPick value={r.llm} effort={r.llmEffort} onChange={(m) => set({llm: m.id, llmEffort: m.effort})} />
                 </window.PRow>
-                <div className="hint hint--tight">{[needTranslate ? '翻译字幕' : '', r.review ? 'AI 缩写译文' : '', wantReadings ? '多音字校对' : ''].filter(Boolean).join('、')}走这只云端模型；{d.nodeOn ? `合成在 ${d.nodeName} 上跑。` : '合成全程在本机。'}</div>
+                <div className="hint hint--tight">{[needTranslate ? '翻译字幕' : '', r.review ? 'AI 缩写译文' : '', wantReadings ? '多音字校对' : ''].filter(Boolean).join('、')}走这只文本模型；{d.nodeOn ? `合成在 ${d.nodeName} 上跑。` : '合成全程在本机。'}</div>
               </>
             ) : null}
           </>

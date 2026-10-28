@@ -50,8 +50,9 @@
    * 模型行。`models`：[{id, label, local: boolean, agent?: boolean, why?: string, ok: boolean}]，本机、云端与智能体（Codex，
    * 不能用时 `why` 写原因）放在同一张单子里；
    * 没有一只能用时给「去设置」，开始按钮用 `modelReason` 说明原因。
+   * `picker`：宿主自己画的下拉，代替平铺的 Picker（文本模型是先选提供方、再选模型的两级菜单，text-model-picker.jsx）。
    */
-  function ToolModelRow({label, models, value, onChange, settings, children}) {
+  function ToolModelRow({label, models, value, onChange, settings, picker, children}) {
     const app = useApp();
     const usable = models.filter((m) => m.ok);
     const cur = models.find((m) => m.id === value) || null;
@@ -59,7 +60,7 @@
     return <div className="ttsw__sec">
       <div className="ttsw__sechd"><b className="grow">{label}</b>
         <Btn size="s" variant="quiet" onClick={goSettings}>{usable.length ? '管理模型…' : '去设置'}</Btn></div>
-      {usable.length ? <R.Picker aria-label={label} selectedKey={value} onSelectionChange={onChange} UNSAFE_className="tool-llm__field">
+      {usable.length && picker ? picker : usable.length ? <R.Picker aria-label={label} selectedKey={value} onSelectionChange={onChange} UNSAFE_className="tool-llm__field">
         {models.map((m) => <R.PickerItem key={m.id} id={m.id}>{`${m.local ? '本机' : m.agent ? '智能体' : '云端'} · ${m.label}${m.ok ? '' : m.agent ? ` · ${m.why || '不可用'}` : m.local ? ' · 未安装' : ' · 未连接'}`}</R.PickerItem>)}
       </R.Picker> : <span className="t-detail">还没有可用的{label.replace(/^用哪个/, '')}：在设置里安装一个本机模型，或连接一家云端服务。</span>}
       {cur && !cur.ok && usable.length ? <span className="t-detail-xs tframe__warn">{cur.local ? `${cur.label} 还没安装，换一只已装的，或去设置下载` : cur.agent ? `${cur.label}：${cur.why || '不可用'}，换一只能用的，或去设置 › Agent` : `${cur.label} 还没连接，换一只能用的，或去设置连接`}</span> : null}

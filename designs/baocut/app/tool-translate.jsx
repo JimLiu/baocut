@@ -2,7 +2,8 @@
    视频：新增一份译文与目标语言的字幕层，可以双语显示，原文不动；同一种语言已有译文时新增一份、不覆盖。
    字幕条目与字幕文件：结果是保存位置里译好的字幕文件、Space 里的一个字幕条目，时间码不变，原文件不动。
    页面按统一骨架排（tool-frame.jsx）：输入 → 模型 → 选项 → 保存位置 → 开始；写进视频时不显示保存位置。
-   文本模型是 API 提供方的在线服务，或者设置 › Agent 打开了「用 Codex 画图和写文字」时的 Codex（智能体，排在最后）：
+   文本模型是 API 提供方的在线服务，或者设置 › Agent 打开了「用 Codex 画图和写文字」时的 Codex（智能体）：
+   先选提供方、再选它的模型（两级菜单，text-model-picker.jsx），智能体还选推理强度；
    没同意过的，开始前在这一页说明要发什么、发给谁（当场授权）。 */
 (function () {
   const {useState, useEffect, useRef} = React;
@@ -14,23 +15,25 @@
   const drafts = {st: null};
   const CHARS = () => D.cues.reduce((n, c) => n + c.text.length, 0);
 
-  /** 文本模型一块：模型、连接状态；返回选中的模型与要发的数据 */
+  /** 文本模型一块：模型、推理强度（只有智能体有）、连接状态；返回选中的模型与要发的数据。
+      `form.model` 是模型 key，`form.effort` 是智能体的推理强度，选了就跟着这一页的草稿记住。 */
   function useTextModel(app, form, chars) {
-    const codexH = (app.harnessList || []).find((h) => h.id === 'codex') || null;
-    const codex = codexH && codexH.found ? window.BC_CLOUD_IMAGE.codexReady(codexH, app.codexImageGen) : null;
-    const catalog = L.models(app.cloudCatalog, app.cloudSaved, codex);
-    /* 没选过时：默认模型（能用时），再是第一只能用、不用提醒的（API key 登录的 Codex 不自动选） */
-    const id = form.model || (catalog.find((m) => m.id === app.cloudLlmDefault && m.ready) || catalog.find((m) => m.ready && !m.caution) || catalog[0] || {}).id;
-    const model = catalog.find((m) => m.id === id) || null;
+    const catalog = window.BC_TEXT_CATALOG(app);
+    const model = L.initial(catalog, form.model, app.cloudLlmDefault);
+    const effort = model && model.agent ? form.effort || null : null;
     const need = model ? RUNS.need({recipient: model.provider, data: 'transcript', chars}) : null;
-    return {catalog, id, model, need, name: model ? (model.agent ? `${model.name} · 用你的 Codex 订阅` : `${model.provider} · ${model.name} · 在线`) : ''};
+    return {catalog, id: model ? model.id : null, model, effort, need,
+      name: model ? (model.agent ? `${L.pickLabel(model, effort)} · 用你的 Codex 订阅` : `${model.provider} · ${model.name} · 在线`) : ''};
   }
-  /** 文本模型清单（API 提供方的在线服务，加上智能体 Codex），给模型行（tool-frame.jsx） */
-  const textModels = (tm) => tm.catalog.map((m) => ({id: m.id, label: m.agent ? m.name : `${m.provider} · ${m.name}`, local: false, agent: !!m.agent, why: m.why || null, ok: !!m.ready}));
-  /** 文本模型一行：没有连接的模型时给「去设置」；`what`：会发出去的内容 */
+  /** 文本模型清单（API 提供方的在线服务，加上智能体 Codex），给模型行（tool-frame.jsx）判断有没有能用的、选中的为什么不能用 */
+  const textModels = (tm) => tm.catalog.map((m) => ({id: m.id, label: `${m.provider} · ${m.name}`, local: false, agent: !!m.agent, why: m.why || null, ok: !!m.ready}));
+  /** 文本模型一行：先选提供方、再选模型的两级菜单（text-model-picker.jsx）；没有连接的模型时给「去设置」；
+      `onChange({model, effort})`；`what`：会发出去的内容 */
   function TextModelField({tm, onChange, what = '文稿文字'}) {
     const m = tm.model;
-    return <window.ToolModelRow label="用哪个文本模型" models={textModels(tm)} value={tm.id || null} onChange={onChange} settings={{r: 'settings', sec: 'cloud', tab: 'llm'}}>
+    const settings = {r: 'settings', sec: 'cloud', tab: 'llm'};
+    return <window.ToolModelRow label="用哪个文本模型" models={textModels(tm)} value={tm.id || null} onChange={(model) => onChange({model, effort: null})} settings={settings}
+      picker={<window.TextModelPicker list={tm.catalog} value={tm.id} effort={tm.effort} onChange={onChange} settings={settings} />}>
       {m && m.ready ? <span className="t-detail-xs">{m.agent ? `${what}会发到你在这台电脑上登录的 Codex 账号${m.caution ? ` · ${m.caution}` : ' · 一次一个请求，比 API 慢'}` : `${m.provider} · ${what}会发到这家服务`}</span> : null}
     </window.ToolModelRow>;
   }
@@ -66,7 +69,7 @@
     const s = window.useToolRuns();
     const save = window.BC_TOOL_FRAME.useSaveDir();
     const SI = window.BC_TOOL_SPACE_INPUT;
-    const [st, setSt] = useState(() => Object.assign({source: 'space', entry: null, lang: null, bilingual: true, model: null, input: '', file: ''}, drafts.st || {}));
+    const [st, setSt] = useState(() => Object.assign({source: 'space', entry: null, lang: null, bilingual: true, model: null, effort: null, input: '', file: ''}, drafts.st || {}));
     const set = (patch) => setSt((x) => Object.assign({}, x, patch));
     /* 「接着用工具」/ Space 查看器带来的条目，或编辑器路由带来的视频 */
     window.BC_TOOL_FRAME.useToolPreset('translate', (p) => {
@@ -100,8 +103,8 @@
       : !st.input.trim() ? '先导入或粘贴字幕' : parsed.error || null) || textModelReason(tm);
     const pending = RUNS.grantNeeds([tm.need], s.granted);
     const spec = () => (video
-      ? window.BC_TOOL_SPECS.translateVideo(app, {movie: movie.id, lang, bilingual: st.bilingual, model: tm.id, modelName: tm.name, from})
-      : window.BC_TOOL_SPECS.translateFile(app, {file: st.file, entry, input: text, lang, model: tm.id, modelName: tm.name, saveDir: save.dir}));
+      ? window.BC_TOOL_SPECS.translateVideo(app, {movie: movie.id, lang, bilingual: st.bilingual, model: tm.id, effort: tm.effort, modelName: tm.name, from})
+      : window.BC_TOOL_SPECS.translateFile(app, {file: st.file, entry, input: text, lang, model: tm.id, effort: tm.effort, modelName: tm.name, saveDir: save.dir}));
     const go = () => window.BC_TOOL_RUNNER.start(app, spec());
     const agree = () => { window.BC_TOOL_RUNNER.grant(pending.map((n) => n.key)); go(); };
     const dup = movie ? TT.duplicateNote('translate', movie, {lang}) : null;
@@ -114,7 +117,7 @@
           note={entryWhy || (video ? (from ? `从${TT.langLabel(from.lang)}文稿翻译，写进这部视频` : null) : parsed && !parsed.error ? `${parsed.cues.length} 条字幕` : null)} />
         : <window.ToolSpacePicker tool="translate" value={null} onChange={(e) => set({entry: e})} />)}
       {st.source === 'file' && <SubtitleFileField form={st} set={set} />}
-      <TextModelField tm={tm} onChange={(model) => set({model})} what={video ? '文稿文字' : '字幕文字'} />
+      <TextModelField tm={tm} onChange={set} what={video ? '文稿文字' : '字幕文字'} />
       <div className="ttsw__sec">
         <div className="ttsw__sechd"><b className="grow">翻译成</b></div>
         <LanguageCombobox value={lang} only={video ? only : null} marks={marks} onChange={(l) => set({lang: l})} />

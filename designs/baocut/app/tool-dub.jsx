@@ -29,7 +29,7 @@
     const app = useApp();
     const s = window.useToolRuns();
     const TM = window.BC_TEXT_MODEL;
-    const [st, setSt] = useState(() => Object.assign({movie: null, pick: null, lang: 'en', engine: null, original: 'duck', model: null}, drafts.st || {}));
+    const [st, setSt] = useState(() => Object.assign({movie: null, pick: null, lang: 'en', engine: null, original: 'duck', model: null, effort: null}, drafts.st || {}));
     const set = (patch) => setSt((x) => Object.assign({}, x, patch));
     const want = app.route.movie || null;
     useEffect(() => {
@@ -63,7 +63,7 @@
       : chosen ? null : !lang || lang === src ? '先选要翻译成哪种语言' : TM.textModelReason(tm);
     const ready = !reason;
     const go = () => window.BC_TOOL_RUNNER.start(app, window.BC_TOOL_SPECS.dub(app, {movie: st.movie, translation: chosen, lang, engine: engine.id,
-      engineName: engine.name, original: st.original, model: tm.id}));
+      engineName: engine.name, original: st.original, model: tm.id, effort: tm.effort}));
     const agree = () => { window.BC_TOOL_RUNNER.grant(pending.map((n) => n.key)); go(); };
     const dup = movie ? TT.duplicateNote('dub', movie, {lang}) : null;
     const engineModels = engines.map((e) => ({id: e.id, label: e.name.replace(/ · 在线$/, ''), local: !e.cloud, ok: e.ready}));
@@ -81,7 +81,7 @@
           <LanguageCombobox value={lang} only={TT.targetLangs(window.BC_LANGUAGES.translate, movie).map((l) => l.code)} onChange={(l) => set({lang: l})} />
         </>}
       </div>}
-      {movie && src && !chosen && <TM.TextModelField tm={tm} onChange={(model) => set({model})} />}
+      {movie && src && !chosen && <TM.TextModelField tm={tm} onChange={set} />}
       <window.ToolModelRow label="用哪个配音引擎" models={engineModels} value={engine.id} onChange={(id) => set({engine: id})} settings={{r: 'models', sec: 'local', tab: 'tts'}}>
         <span className="t-detail-xs">{engine.line}</span>
         {engine.ready && !speaks && <span className="t-detail-xs tframe__warn">{engine.name} 不会念{TT.langLabel(lang)}，换一只会念的引擎。</span>}

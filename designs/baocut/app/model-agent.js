@@ -658,9 +658,11 @@
         label: `${h.name} · ${m.name}`, mname: m.name, msub: m.dflt ? '默认' : null, ready: !!h.found, sub,
       }));
     });
+    /* 「直接调模型」与工具页同一份文本模型清单（text-model-picker.jsx `BC_TEXT_CATALOG`，2026-10-28）：带 `providerId` 的按家
+       分两级（先选提供方再选模型），`ready` 给了就听它（Codex 写文字不能用的原因不是「未连接 key」）。 */
     const apis = (opt.models || []).map((m) => ({
-      k: `api:${m.id}`, kind: 'api', model: m.id,
-      label: `${m.name} · ${m.provider}`, ready: !m.note || m.note !== '未连接 key',
+      k: `api:${m.id}`, kind: 'api', model: m.id, providerId: m.providerId || null, effort: m.effort || null,
+      label: m.agent ? m.name : `${m.name} · ${m.provider}`, ready: typeof m.ready === 'boolean' ? m.ready : !m.note || m.note !== '未连接 key',
       sub: m.note || 'API key',
     }));
     /* 能用的在前（2026-10-28 用户要求：配好的 Agent 与模型排前面），同一状态里保持原来的顺序；Agent 按家整组移动。 */
@@ -680,14 +682,15 @@
   }
 
   /** 弹层顶部那枚两段开关的段（2026-09-20）：`count` 是这一组有几个可选对象——Agent 数的是**家**
-      （每家一行，模型在第二级），不是 家 × 模型；本机那一组只有一项，不标数。`on` 是当前选中项所在的组；
+      （每家一行，模型在第二级），不是 家 × 模型；「直接调模型」带 `providerId` 时同样数家（2026-10-28 也分两级）；
+      本机那一组只有一项，不标数。`on` 是当前选中项所在的组；
       什么都没选时落在第一组。 */
   function runnerTabs(groups, cur) {
     const curKind = cur && cur.kind ? cur.kind : null;
     return (groups || []).map((g, i) => {
       const count = g.kind === 'agent'
         ? new Set(g.items.map((it) => it.harness)).size
-        : g.kind === 'local' ? null : g.items.length;
+        : g.kind === 'local' ? null : new Set(g.items.map((it) => it.providerId || it.k)).size;
       return {k: g.kind, label: g.tab, count, desc: g.desc, on: curKind ? curKind === g.kind : i === 0};
     });
   }
