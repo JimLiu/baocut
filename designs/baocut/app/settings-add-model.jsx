@@ -1,7 +1,7 @@
 /* 设置 › 本地模型 › 添加模型（issue 113）：内置引擎 audio.cpp 支持的模型都能加进列表。
    一块按组、可搜索的目录（BC_AUDIOCPP_CATALOG）：每一族一行，选精度后「添加」；加进来的行与内置的一样下载、试听、删除。
    语音合成与音乐生成两组能添加；语音识别、音源分离与其余任务归「暂时用不上」，写清为什么，不给按钮。
-   第四段「自己指定文件」：Hugging Face 上的一个 .gguf，或这台电脑上的一个 .gguf（复制进模型目录），选它按哪一族跑。
+   第四段「自己指定文件」：Hugging Face 上的一个 .gguf，或这台电脑上的一个 .gguf（原地引用，不复制），选它按哪一族跑。
    加进来的都没经过 BaoCut 逐只验证（与「添加更多 Agent」同一个承诺），效果以试听与检查为准。
    分组、说法、记录与合并的规则在 model-audiocpp.js。 */
 (function () {
@@ -94,7 +94,7 @@
       ) : (
         <div className="acadd__pickfile">
           <R.TextField label="文件" isReadOnly value={form.path} placeholder="还没选" UNSAFE_className="acadd__field acadd__mono"
-            description="复制进模型目录，原文件不动；加完就算装好。"
+            description="原地引用：直接读这个文件，不复制、不改它；加完就算装好。移动或删掉它之后要重新添加。"
             isInvalid={tried && !form.path} errorMessage="先选一个 .gguf 文件" />
           <Btn size="s" variant="secondary" onClick={() => setForm((f) => ({...f, path: DEMO_LOCAL.path}))}>选择文件…</Btn>
         </div>

@@ -122,7 +122,7 @@ test('认 Hugging Face 文件地址', () => {
   assert.equal(A.parseHfFile('me/repo/model.safetensors').code, 'not-gguf');
 });
 
-test('自己指定：仓库文件要下载，本机文件加完就装好；只列能添加的族', () => {
+test('自己指定：仓库文件要下载，本机文件原地引用、加完就装好；只列能添加的族', () => {
   const q = fam('qwen3_tts');
   const hf = A.customRow(q, {src: 'hf', repo: 'me/repo', path: 'x/my-voice-q8.gguf', mb: 1200.4});
   assert.equal(hf.name, 'my-voice-q8');
@@ -132,6 +132,14 @@ test('自己指定：仓库文件要下载，本机文件加完就装好；只�
   const local = A.customRow(q, {src: 'local', path: '/Users/me/Downloads/v.gguf', mb: 10, name: '我的声音'});
   assert.equal(local.installed, true);
   assert.equal(local.name, '我的声音');
+  // 原地引用：记下原路径，不当成模型目录里的下载
+  assert.equal(local.inPlace, true);
+  assert.equal(local.path, '/Users/me/Downloads/v.gguf');
+  assert.equal(local.file, null);
+  assert.equal(hf.inPlace, false);
+  const rm = A.inPlaceRemoval(local);
+  assert.match(rm.body, /\/Users\/me\/Downloads\/v\.gguf/);
+  assert.match(rm.body, /不会删/);
   assert.ok(A.customFamilies(C.families).every((f) => A.groupOf(f) !== 'idle'));
 });
 

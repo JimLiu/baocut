@@ -100,7 +100,7 @@
     const setOn = (next) => setAllOn(MD.keepIds(next, allOn, away));
     const awayNote = MD.elsewhereNote(MD.elsewhere(models, allOn, places, eff.path));
     const installed = MD.installedIn(models, on);
-    const used = LM.disk(models, comps, MD.withoutBundled(on));
+    const used = LM.disk(models.filter((m) => !m.inPlace), comps, MD.withoutBundled(on));
     const free = MD.freeOf(eff.path);
     const names = (kind) => Object.keys(work).filter((id) => work[id] === kind).map((id) => (models.find((m) => m.id === id) || {}).name || id);
     const block = eff.locked ? null : MD.blocker(app.tasks, {downloading: names('downloading'), testing: names('testing')});
@@ -110,7 +110,8 @@
       const before = installed.length;
       const ids = MD.installedAfter(mode, installed.map((m) => m.id), folder);
       let next = {};
-      models.forEach((m) => { next[m.id] = MD.BUNDLED.indexOf(m.id) >= 0 ? !!on[m.id] : false; });
+      // 附带的模型和原地引用的本机文件不在模型目录里，换目录不影响它们
+      models.forEach((m) => { next[m.id] = MD.BUNDLED.indexOf(m.id) >= 0 || m.inPlace ? !!on[m.id] : false; });
       comps.forEach((c) => { next[c.id] = false; });
       ids.forEach((id) => { const m = models.find((x) => x.id === id); if (m) next = LM.applyInstall(next, m); });
       models.forEach((m) => { if (!!next[m.id] !== !!on[m.id]) app.setModelInstalled(m.id, !!next[m.id]); });

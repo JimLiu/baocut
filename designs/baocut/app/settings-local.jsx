@@ -168,6 +168,7 @@
             ) : <span className="t-detail-xs">{m.note ? m.note + ' · ' : ''}{mb(m.size)}</span>}
             {lic ? <span className="t-detail-xs">{window.ttsLicenseBrief(lic)}</span> : null}
             {away ? <span className="t-detail-xs lmrow__away" title={away}>存放在 {MD.shorten(away, 44)} · 不在模型目录</span> : null}
+            {m.inPlace ? <span className="t-detail-xs lmrow__away" title={m.path}>原地引用 {MD.shorten(m.path, 44)} · 不在模型目录，没复制</span> : null}
           </span>
           {pct >= 0 ? <div className="lmrow__pg"><Progress value={pct} /></div> : (
             <>
@@ -193,11 +194,12 @@
                       <Menu>
                         {checkable ? <MenuItem icon={CK.CHECK_ICON} label={CK.LABEL.checkFull} disabled={!ready || checkBusy}
                           onClick={() => { setPop(false); runCheck(); }} /> : null}
-                        <MenuItem icon="download" label={CK.LABEL.repair} sub={CK.LABEL.repairSub} disabled={checkBusy}
-                          onClick={() => { setPop(false); repair(); }} />
-                        <MenuRule />
-                        <MenuItem icon="copy" label="复制下载地址" sub="按当前生效的源拼"
-                          onClick={() => { setPop(false); app.toast('已复制下载地址'); }} />
+                        {/* 原地引用的本机文件不是下载来的：没有「重新下载」和下载地址 */}
+                        {m.inPlace ? null : <MenuItem icon="download" label={CK.LABEL.repair} sub={CK.LABEL.repairSub} disabled={checkBusy}
+                          onClick={() => { setPop(false); repair(); }} />}
+                        {m.inPlace ? null : <MenuRule />}
+                        {m.inPlace ? null : <MenuItem icon="copy" label="复制下载地址" sub="按当前生效的源拼"
+                          onClick={() => { setPop(false); app.toast('已复制下载地址'); }} />}
                         <MenuItem icon="folder" label="复制本地路径"
                           onClick={() => { setPop(false); app.toast('已复制路径'); }} />
                         <MenuItem icon="link" label="在文件夹中显示"
@@ -205,7 +207,7 @@
                       </Menu>
                     </Popover>
                   </div>
-                  <IconBtn icon="trash" size="s" tip="删除" onClick={() => onRemove(m)} />
+                  <IconBtn icon="trash" size="s" tip={m.inPlace ? '从列表移除' : '删除'} onClick={() => onRemove(m)} />
                 </>
               ) : null}
             </>
@@ -271,7 +273,7 @@
             ) : null}
             {/* 下载地址：权重的仓库；只有这只模型用的组件来源不同时各加一行（来自 GitHub 发布页的组件写版本；audio.cpp 引擎随应用内置，不在这里） */}
             <div className="lmrow__dl">
-              <span className="t-detail-xs lmrow__dt">下载地址</span>
+              <span className="t-detail-xs lmrow__dt">{m.inPlace ? '文件位置' : '下载地址'}</span>
               <div className="grow">
                 <div className="t-mono t-detail-xs lmrow__repo">{m.repo}{m.file ? ' · ' + m.file : m.nfiles > 1 ? ` · ${m.nfiles} 个文件` : ''}{m.revision && m.revision !== 'main' ? ' @ ' + m.revision : ''}</div>
                 {own.filter((c) => (c.release || c.repo) !== m.repo).map((c) => (
@@ -385,6 +387,20 @@
     const dirNow = window.modelsDirNow(app).path;
     const awayOf = (id) => (on[id] && places[id] && places[id] !== dirNow ? places[id] : null);
     const remove = (m) => {
+      // 原地引用的本机文件：只从列表移除，原文件不动
+      if (m.inPlace) {
+        const t = AC.inPlaceRemoval(m);
+        app.confirm({
+          title: t.title, body: t.body, confirmLabel: t.confirm,
+          run: () => {
+            setOn((x) => LM.applyRemove(x, m, models, comps));
+            app.setModelInstalled(m.id, false);
+            app.removeAddedModel(m.id);
+            app.toast(t.toast, 'positive');
+          },
+        });
+        return;
+      }
       const r = LM.removal(m, models, comps, on);
       app.confirm({
         title: `删除「${m.name}」？`,
@@ -403,7 +419,7 @@
       app.removeAddedModel(m.id);
       app.toast(`已从列表移除「${m.name}」`);
     };
-    /* 添加模型（settings-add-model.jsx）：落记录，关掉对话框；本机文件加完就装好，仓库里的接着弹下载确认 */
+    /* 添加模型（settings-add-model.jsx）：落记录，关掉对话框；本机文件原地引用、加完就装好，仓库里的接着弹下载确认 */
     const [adding, setAdding] = useState(false);
     const canAdd = cat === 'tts' || cat === 'music';
     const addModel = (entry) => {
@@ -412,7 +428,7 @@
       if (!m) return;
       if (m.installed) {
         setOn((t) => LM.applyInstall(t, m));
-        app.toast(`已添加「${m.name}」· 已复制进模型目录`, 'positive');
+        app.toast(`已添加「${m.name}」· 直接用原文件，没复制`, 'positive');
         return;
       }
       app.toast(`已添加「${m.name}」`, 'positive');

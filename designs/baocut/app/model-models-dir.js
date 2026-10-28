@@ -28,8 +28,8 @@
 
   /* 随安装包附带的小模型（data.js 里「人物定位」）不在模型目录里，不计入已用空间与模型数 */
   const BUNDLED = ['vision-person'];
-  /** 模型目录里已装的模型：`on` 是 BC_LOCALMODELS 的安装表 */
-  const installedIn = (models, on) => (models || []).filter((m) => on[m.id] && BUNDLED.indexOf(m.id) < 0);
+  /** 模型目录里已装的模型：`on` 是 BC_LOCALMODELS 的安装表；原地引用的本机文件（`inPlace`，settings-add-model.jsx）不在目录里 */
+  const installedIn = (models, on) => (models || []).filter((m) => on[m.id] && BUNDLED.indexOf(m.id) < 0 && !m.inPlace);
 
   /** 去掉附带模型的安装表，给 BC_LOCALMODELS.disk 算目录里的已用空间 */
   const withoutBundled = (on) => { const t = Object.assign({}, on); BUNDLED.forEach((id) => { t[id] = false; }); return t; };

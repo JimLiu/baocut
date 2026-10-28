@@ -145,13 +145,14 @@
   const customFamilies = (families) => (families || []).filter((f) => groupOf(f) !== 'idle');
   const baseName = (p) => String(p).split(/[\\/]/).pop().replace(/\.gguf$/i, '');
 
-  /** 自己指定的文件 → 设置页的一行。src 'hf'：从仓库下载；'local'：从这台电脑复制进模型目录，加完就装好 */
+  /** 自己指定的文件 → 设置页的一行。src 'hf'：从仓库下载；'local'：原地引用这台电脑上的文件（不复制进模型目录），加完就装好。
+   *  inPlace 的行不算模型目录里的东西：换目录不搬它，删除只从列表移除、原文件不动 */
   function customRow(fam, e) {
     const local = e.src === 'local';
     const key = local ? 'local/' + e.path : e.repo + '/' + e.path;
     return {
-      id: CUSTOM + key, name: e.name || baseName(e.path), cat: fam.cap, size: Math.round(e.mb || 0), installed: local,
-      note: `自己指定 · 按 ${fam.name} 跑`, repo: local ? e.path : e.repo, file: e.path, revision: local ? null : (e.revision || 'main'),
+      id: CUSTOM + key, name: e.name || baseName(e.path), cat: fam.cap, size: Math.round(e.mb || 0), installed: local, inPlace: local, path: local ? e.path : null,
+      note: `自己指定 · 按 ${fam.name} 跑`, repo: local ? e.path : e.repo, file: local ? null : e.path, revision: local ? null : (e.revision || 'main'),
       uses: [], license: local
         ? {name: '未知', url: '', commercialUse: null, summary: '这台电脑上的文件，许可请按它的来源自己核实'}
         : {name: '见仓库说明', url: 'https://huggingface.co/' + e.repo, commercialUse: null, summary: '自己指定的仓库，许可请看仓库说明'},
@@ -231,12 +232,19 @@
 
   /** 删除确认补一句：添加的模型删掉权重后要不要从列表里一起拿掉——添加的行没装时 ⋯ 里给「从列表移除」 */
   const removalNote = (m) => (m && m.added ? '它是你添加的模型，删除后也从列表里移除；要再用就重新添加。' : '');
+  /** 原地引用的文件「删除」= 从列表移除：盘上什么都不动 */
+  const inPlaceRemoval = (m) => ({
+    title: `从列表移除「${m.name}」？`,
+    body: `文件留在 ${m.path}，BaoCut 不再用它，也不会删它；要再用就重新添加。`,
+    confirm: '移除',
+    toast: `已从列表移除「${m.name}」· 原文件没动`,
+  });
 
   window.BC_AUDIOCPP = {
     PREFIX, CUSTOM, GROUPS, groupOf, TASK_LABEL, idleReason, statusLabel, langLine, traitsLine, licenseOf, licenseFlag,
     pkgsOf, defaultPkg, partsOf, sizeOf, idOf, precLabel, pkgName, stateOf, compOf, rowOf,
     parseHfFile, PARSE_TEXT, customFamilies, customRow, baseName,
     entryKey, findPkg, materialize, addEntry, removeEntry, sync,
-    familyState, search, countOf, moreCount, removalNote,
+    familyState, search, countOf, moreCount, removalNote, inPlaceRemoval,
   };
 })();

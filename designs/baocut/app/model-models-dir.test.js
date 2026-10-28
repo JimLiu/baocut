@@ -108,6 +108,11 @@ test('随包附带的模型不计入目录里的数量与空间', () => {
   assert.strictEqual(LM.disk(m2, comps, X.withoutBundled(on)), 680 + 938);
 });
 
+test('原地引用的本机文件不算模型目录里的模型', () => {
+  const ref = {id: 'audiocpp-custom:local/~/v.gguf', size: 900, inPlace: true};
+  assert.deepStrictEqual(X.installedIn(models.concat(ref), {a: true, [ref.id]: true}).map((m) => m.id), ['a']);
+});
+
 test('环境变量锁定的说明点名变量', () => {
   assert.match(X.sourceNote('env'), /BAOCUT_MODELS_DIR/);
   assert.strictEqual(X.sourceNote('default'), '');
