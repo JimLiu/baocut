@@ -61,7 +61,7 @@ export function hitAt(layers: readonly VisualLayer[], p: Point, options: HitOpti
   return null;
 }
 
-/** 这一件文字排出来的块框（两侧转场时可能有两块）。 */
+/** 这一件文字这一帧排出来的块框（画了几次就有几块；平铺或还没画出来时为空）。 */
 export function textHitsOf(hits: readonly TextHit[] | undefined, itemId: Id): TextHit[] {
   return hits?.filter((hit) => hit.itemId === itemId && hit.w > 0 && hit.h > 0) ?? [];
 }
