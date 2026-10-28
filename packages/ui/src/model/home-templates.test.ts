@@ -65,9 +65,9 @@ function summary(patch: Partial<TemplateManifest>, extra: Partial<Omit<TemplateS
 const catalog = templateCatalogOf(BUILTIN);
 
 describe('目录换成界面用的形状', () => {
-  it('内置的 24 个：12 个场景模板、12 个作品示例，按 id 排', () => {
-    expect(catalog).toHaveLength(24);
-    expect(findTemplates(catalog, '', { kind: 'scene' })).toHaveLength(12);
+  it('内置的 25 个：13 个场景模板、12 个作品示例，按 id 排', () => {
+    expect(catalog).toHaveLength(25);
+    expect(findTemplates(catalog, '', { kind: 'scene' })).toHaveLength(13);
     expect(findTemplates(catalog, '', { kind: 'example' })).toHaveLength(12);
     const ids = catalog.map((t) => t.id);
     expect(ids).toEqual([...ids].sort());
@@ -184,9 +184,9 @@ describe('模板库的筛选', () => {
 
   it('分页：页码越界收回有效范围，空列表也算一页', () => {
     const first = pageOf(catalog, 1);
-    expect([first.items.length, first.page, first.pages, first.total]).toEqual([TEMPLATES_PER_PAGE, 1, 3, 24]);
+    expect([first.items.length, first.page, first.pages, first.total]).toEqual([TEMPLATES_PER_PAGE, 1, 3, 25]);
     expect(pageOf(catalog, 99).page).toBe(3);
-    expect(pageOf(catalog, 99).items).toHaveLength(24 - 2 * TEMPLATES_PER_PAGE);
+    expect(pageOf(catalog, 99).items).toHaveLength(25 - 2 * TEMPLATES_PER_PAGE);
     expect(pageOf([], 3)).toEqual({ items: [], page: 1, pages: 1, total: 0 });
   });
 });
