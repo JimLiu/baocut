@@ -212,6 +212,13 @@ fn text_hits_follow_the_typeset_block() {
     assert!((36.0 - 1e-6..36.0 + 4.0).contains(&glyph_top), "{top_hit:?}");
     assert!((top_hit.h - hit.h).abs() < 1e-6);
 
+    // 转 90°（顺时针）：块绕钉点转，原来朝下长的块转到钉点左边（舞台的框照这个挂，见 `render_graph::item_box`）。
+    let (_, found, _) = hits(&text_with(Some("top"), json!({ "x": 50, "y": 40, "w": 30, "rot": 90 })), 1);
+    let turned = &found[0];
+    let drop = glyph_top - 36.0 + top_hit.h / 2.0;
+    assert!((turned.cx - (80.0 - drop)).abs() < 0.5 && (turned.cy - 36.0).abs() < 0.5, "{turned:?}, drop {drop}");
+    assert_eq!(turned.rotation, 90.0);
+
     // 排出来的高 = 字形块 + 上下各一份留白（挂块按它挂，顶边压线时字形从留白之下开始）。
     assert_eq!(heights.len(), 1, "{heights:?}");
     assert_eq!(heights[0].item_id, "title");

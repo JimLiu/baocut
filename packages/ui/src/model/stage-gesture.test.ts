@@ -72,6 +72,21 @@ describe('单件手势', () => {
     ]);
   });
 
+  it('量到排版高、顶边对齐的文字绕框中心转：钉点跟着挪，写回位置与角度', () => {
+    noteTextHeights([{ itemId: 't', height: 60 }], canvas);
+    const item = { ...text(), verticalAlign: 'top' } as PlacedItem;
+    const member = memberOf(item, canvas);
+    const pivot = pivotOf(item, canvas);
+    expect(pivot).toEqual({ x: 480, y: 300 });
+    const g = { kind: 'rotate' as const, member, pivot, p0: { x: 480, y: 200 } };
+    const { poses } = stepGesture(g, { x: 580, y: 300 }, free, env);
+    expect(poses[0]).toMatchObject({ cx: 480, cy: 300, rotation: 90 });
+    // 块绕钉点画：钉点退回到框中心右边半个框高处（转 90° 后「朝下」指向左）。
+    expect(gestureOperations('s', [member], poses, 1, canvas)).toEqual([
+      { type: 'setTransform', sequenceId: 's', itemId: 't', x: 26.6, y: 27.8, rot: 90 },
+    ]);
+  });
+
   it('量到排版高的文字四角等比：字号跟着放大，排版高也乘倍率，不写 scaleY', () => {
     noteTextHeights([{ itemId: 't', height: 60 }], canvas);
     const member = memberOf(text(), canvas);
