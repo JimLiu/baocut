@@ -476,7 +476,7 @@ mod tests {
         }
     }
 
-    /// ggml 枚举得到、却算不了 Whisper 核心算子的 GPU（如只有 Metal 2 的 Polaris 显卡）。
+    /// ggml 枚举得到、却算不了 Whisper 核心算子的 GPU（如只支持到 Metal 2 的 Polaris 显卡）。
     fn weak_gpu(backend: &str, name: &str) -> GgmlDevice {
         GgmlDevice {
             runs_whisper: false,
