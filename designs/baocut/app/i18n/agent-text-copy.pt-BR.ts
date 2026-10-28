@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const ptBR: AgentTextMessages = {
+  method: "Método de geração",
+  api: "API de modelo",
+  agent: "Agent conectado",
+  pending: "Protótipo aguardando confirmação: a geração de texto por Agent ainda não está conectada. Apenas interações e resultados são simulados; nenhum Agent ou API é chamado.",
+  agentLabel: "Qual Agent usar",
+  manageAgent: "Gerenciar Agents…",
+  defaultModel: "Modelo padrão do Agent",
+  connectedDefault: "Conectado · modelo padrão do Agent",
+  accountNote: "Usa a conta conectada e o modelo padrão deste Agent sem outra chave de API. Limites e cobranças dependem da conta; não há garantia de gratuidade.",
+  dataNote: "A solicitação e o material vão para o serviço da conta do Agent selecionado. A proposta gera texto uma única vez, sem ler arquivos do projeto, usar ferramentas de edição nem alterar o material original.",
+  candidates: "Candidatos iniciais: Codex CLI e Claude Code. A integração real e cada plataforma exigem validação separada.",
+  outputNote: "Exemplo de protótipo · sem chamadas a Agent ou API",
+  chooseAgent: "Escolha Codex CLI ou Claude Code",
+  missing: "Não instalado",
+  disabled: "Desativado",
+  signedOut: "Desconectado",
+  unknownLogin: "Estado de login desconhecido",
+  needsAttention: "Requer atenção",
+  lede: "Descreva o texto e, se quiser, anexe um documento ou legendas do Space. O resultado é um documento no local de destino e um item do Space.",
+  requestMaterial: "a solicitação e o material",
+  request: "a solicitação",
+  attached: (name) => ` · Anexo: ${name}`,
+  tooLong: (total, max) => `A solicitação e o material somam ${total.toLocaleString(intlLocale())} caracteres, acima do limite de ${max.toLocaleString(intlLocale())}.`,
+  agentModel: (name) => `${name} · ${"Modelo padrão do Agent"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

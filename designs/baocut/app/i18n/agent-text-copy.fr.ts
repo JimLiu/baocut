@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const fr: AgentTextMessages = {
+  method: "Mode de génération",
+  api: "API de modèle",
+  agent: "Agent connecté",
+  pending: "Prototype en attente de confirmation : la génération de texte par Agent n’est pas connectée. Seuls les interactions et résultats sont simulés ; aucun Agent ni API n’est appelé.",
+  agentLabel: "Quel Agent utiliser",
+  manageAgent: "Gérer les Agents…",
+  defaultModel: "Modèle par défaut de l’Agent",
+  connectedDefault: "Connecté · modèle par défaut de l’Agent",
+  accountNote: "Utilise le compte connecté et le modèle par défaut de cet Agent, sans clé API supplémentaire. Quotas et frais dépendent du compte ; la gratuité n’est pas garantie.",
+  dataNote: "La demande et le contenu sont transmis au service du compte Agent choisi. L’appel proposé génère uniquement du texte une fois, sans lire les fichiers du projet, utiliser les outils de montage ni modifier le contenu source.",
+  candidates: "Premiers candidats : Codex CLI et Claude Code. L’intégration réelle et chaque plateforme restent à valider séparément.",
+  outputNote: "Exemple de prototype · aucun appel Agent ou API",
+  chooseAgent: "Choisir Codex CLI ou Claude Code",
+  missing: "Non installé",
+  disabled: "Désactivé",
+  signedOut: "Déconnecté",
+  unknownLogin: "État de connexion inconnu",
+  needsAttention: "Vérification nécessaire",
+  lede: "Décrivez le texte souhaité et joignez éventuellement un document ou des sous-titres Space. Le résultat est un document dans le dossier choisi et un élément Space.",
+  requestMaterial: "la demande et le contenu",
+  request: "la demande",
+  attached: (name) => ` · Pièce jointe : ${name}`,
+  tooLong: (total, max) => `La demande et le contenu totalisent ${total.toLocaleString(intlLocale())} caractères, au-delà de la limite de ${max.toLocaleString(intlLocale())}.`,
+  agentModel: (name) => `${name} · ${"Modèle par défaut de l’Agent"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

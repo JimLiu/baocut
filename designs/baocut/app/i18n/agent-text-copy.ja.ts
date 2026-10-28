@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const ja: AgentTextMessages = {
+  method: "生成方法",
+  api: "モデル API",
+  agent: "ログイン済み Agent",
+  pending: "確認待ちのプロトタイプです。Agent によるテキスト生成は未接続で、操作と結果のみを再現します。Agent や API は呼び出しません。",
+  agentLabel: "使用する Agent",
+  manageAgent: "Agent を管理…",
+  defaultModel: "Agent の既定モデル",
+  connectedDefault: "接続済み · Agent の既定モデル",
+  accountNote: "Agent のログイン済みアカウントと既定モデルを使います。追加の API キーは不要です。利用枠と料金はアカウントに依存し、無料とは限りません。",
+  dataNote: "要求と資料は選択した Agent アカウントのサービスに送られます。提案する呼び出しは一度のテキスト生成のみで、プロジェクトファイルの読み取り、編集ツールの使用、元資料の変更は行いません。",
+  candidates: "最初の候補は Codex CLI と Claude Code です。実際の接続と各プラットフォームの対応は個別に検証が必要です。",
+  outputNote: "プロトタイプの例 · Agent や API の呼び出しなし",
+  chooseAgent: "Codex CLI または Claude Code を選択",
+  missing: "未インストール",
+  disabled: "無効",
+  signedOut: "未ログイン",
+  unknownLogin: "ログイン状態が不明",
+  needsAttention: "確認が必要",
+  lede: "生成する文章の要求を書き、必要なら Space の文書や字幕を添付します。結果は保存先の文書となり、Space にも表示されます。",
+  requestMaterial: "要求と資料",
+  request: "要求",
+  attached: (name) => ` · 添付: ${name}`,
+  tooLong: (total, max) => `要求と資料は合計 ${total.toLocaleString(intlLocale())} 文字で、上限の ${max.toLocaleString(intlLocale())} 文字を超えています。`,
+  agentModel: (name) => `${name} · ${"Agent の既定モデル"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

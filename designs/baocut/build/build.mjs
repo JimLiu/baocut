@@ -42,10 +42,11 @@ export async function build() {
   const media = ['lottie-web/build/player/lottie.min.js', 'jszip/dist/jszip.min.js']
     .map(file => read('node_modules/' + file)).join('\n;\n');
   const mediaURL = emit('generated/media.js', media);
-  /* npm 包按入口打进编译后的 JS（不另开 <script>）：入口模板里写 <script data-npm="名字"></script>，
-     只有声明了它的入口带上这份 IIFE。markdown-it 只给 App 的 Agent 消息流用，Web 入口不声明。 */
+  /* npm 包与需要 import 的 App 文案桥接按入口预打包：模板里写 <script data-npm="名字"></script>，
+     只有声明了它的入口带上这份 IIFE。markdown-it 与 Agent 文案都只在 App 使用，Web 入口不声明。 */
   const NPM = {
     'markdown-it': "import markdownit from 'markdown-it'; window.BC_MARKDOWN_IT = markdownit;",
+    'agent-text-copy': "import './app/i18n/agent-text-bridge.ts';",
   };
   const npmCode = {};
   for (const [name, contents] of Object.entries(NPM)) {

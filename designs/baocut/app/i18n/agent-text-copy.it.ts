@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const it: AgentTextMessages = {
+  method: "Metodo di generazione",
+  api: "API del modello",
+  agent: "Agent con accesso effettuato",
+  pending: "Prototipo in attesa di conferma: la generazione di testo con Agent non è collegata. Simula solo interazioni e risultati; non chiama alcun Agent o API.",
+  agentLabel: "Quale Agent usare",
+  manageAgent: "Gestisci Agents…",
+  defaultModel: "Modello predefinito dell’Agent",
+  connectedDefault: "Connesso · modello predefinito dell’Agent",
+  accountNote: "Usa l’account e il modello predefinito dell’Agent senza un’altra chiave API. Quote e costi dipendono dall’account; la gratuità non è garantita.",
+  dataNote: "La richiesta e il materiale vengono inviati al servizio dell’account Agent scelto. La proposta genera testo una sola volta, senza leggere file del progetto, usare strumenti di montaggio o modificare il materiale originale.",
+  candidates: "Candidati iniziali: Codex CLI e Claude Code. L’integrazione reale e ogni piattaforma richiedono verifiche separate.",
+  outputNote: "Esempio di prototipo · nessuna chiamata Agent o API",
+  chooseAgent: "Scegli Codex CLI o Claude Code",
+  missing: "Non installato",
+  disabled: "Disattivato",
+  signedOut: "Accesso non effettuato",
+  unknownLogin: "Stato di accesso sconosciuto",
+  needsAttention: "Verifica necessaria",
+  lede: "Descrivi il testo e allega, se vuoi, un documento o sottotitoli di Space. Il risultato è un documento nella destinazione scelta e un elemento Space.",
+  requestMaterial: "la richiesta e il materiale",
+  request: "la richiesta",
+  attached: (name) => ` · Allegato: ${name}`,
+  tooLong: (total, max) => `La richiesta e il materiale contengono ${total.toLocaleString(intlLocale())} caratteri, oltre il limite di ${max.toLocaleString(intlLocale())}.`,
+  agentModel: (name) => `${name} · ${"Modello predefinito dell’Agent"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const ru: AgentTextMessages = {
+  method: "Способ генерации",
+  api: "API модели",
+  agent: "Agent с выполненным входом",
+  pending: "Прототип ожидает подтверждения: генерация текста через Agent ещё не подключена. Моделируются только действия и результаты; Agent и API не вызываются.",
+  agentLabel: "Какой Agent использовать",
+  manageAgent: "Управление Agents…",
+  defaultModel: "Модель Agent по умолчанию",
+  connectedDefault: "Подключён · модель Agent по умолчанию",
+  accountNote: "Используется учётная запись и модель Agent по умолчанию без дополнительного ключа API. Лимиты и оплата зависят от учётной записи; бесплатность не гарантируется.",
+  dataNote: "Запрос и материалы передаются сервису выбранной учётной записи Agent. Предложенный вызов только один раз создаёт текст, не читая файлы проекта, не используя инструменты монтажа и не изменяя исходные материалы.",
+  candidates: "Первые кандидаты: Codex CLI и Claude Code. Реальная интеграция и каждая платформа требуют отдельной проверки.",
+  outputNote: "Пример прототипа · Agent и API не вызывались",
+  chooseAgent: "Выберите Codex CLI или Claude Code",
+  missing: "Не установлен",
+  disabled: "Отключён",
+  signedOut: "Вход не выполнен",
+  unknownLogin: "Статус входа неизвестен",
+  needsAttention: "Требуется проверка",
+  lede: "Опишите нужный текст и при необходимости приложите документ или субтитры Space. Результат — документ в папке сохранения и элемент Space.",
+  requestMaterial: "запрос и материалы",
+  request: "запрос",
+  attached: (name) => ` · Приложено: ${name}`,
+  tooLong: (total, max) => `Запрос и материалы содержат ${total.toLocaleString(intlLocale())} символов, что превышает лимит ${max.toLocaleString(intlLocale())}.`,
+  agentModel: (name) => `${name} · ${"Модель Agent по умолчанию"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

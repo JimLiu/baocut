@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const vi: AgentTextMessages = {
+  method: "Cách tạo",
+  api: "API mô hình",
+  agent: "Agent đã đăng nhập",
+  pending: "Nguyên mẫu chờ xác nhận: chức năng tạo văn bản bằng Agent chưa được kết nối. Chỉ mô phỏng thao tác và kết quả; không gọi Agent hay API.",
+  agentLabel: "Dùng Agent nào",
+  manageAgent: "Quản lý Agents…",
+  defaultModel: "Mô hình mặc định của Agent",
+  connectedDefault: "Đã kết nối · mô hình mặc định của Agent",
+  accountNote: "Dùng tài khoản đã đăng nhập và mô hình mặc định của Agent, không cần thêm khóa API. Hạn mức và phí phụ thuộc vào tài khoản; không bảo đảm miễn phí.",
+  dataNote: "Yêu cầu và tài liệu được gửi tới dịch vụ của tài khoản Agent đã chọn. Lời gọi đề xuất chỉ tạo văn bản một lần, không đọc tệp dự án, dùng công cụ biên tập hay sửa tài liệu gốc.",
+  candidates: "Các ứng viên đầu tiên là Codex CLI và Claude Code. Tích hợp thực và từng nền tảng cần được kiểm chứng riêng.",
+  outputNote: "Ví dụ nguyên mẫu · không gọi Agent hay API",
+  chooseAgent: "Chọn Codex CLI hoặc Claude Code",
+  missing: "Chưa cài đặt",
+  disabled: "Đã tắt",
+  signedOut: "Chưa đăng nhập",
+  unknownLogin: "Chưa rõ trạng thái đăng nhập",
+  needsAttention: "Cần kiểm tra",
+  lede: "Mô tả văn bản cần tạo và có thể đính kèm tài liệu hoặc phụ đề từ Space. Kết quả là một tài liệu ở vị trí lưu và một mục trong Space.",
+  requestMaterial: "yêu cầu và tài liệu",
+  request: "yêu cầu",
+  attached: (name) => ` · Đính kèm: ${name}`,
+  tooLong: (total, max) => `Yêu cầu và tài liệu có tổng ${total.toLocaleString(intlLocale())} ký tự, vượt giới hạn ${max.toLocaleString(intlLocale())} ký tự.`,
+  agentModel: (name) => `${name} · ${"Mô hình mặc định của Agent"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

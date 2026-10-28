@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const de: AgentTextMessages = {
+  method: "Erzeugungsmethode",
+  api: "Modell-API",
+  agent: "Angemeldeter Agent",
+  pending: "Prototyp zur Bestätigung: Die Texterzeugung mit Agent ist noch nicht angebunden. Nur Bedienung und Ergebnisse werden simuliert; kein Agent und keine API werden aufgerufen.",
+  agentLabel: "Welcher Agent",
+  manageAgent: "Agents verwalten…",
+  defaultModel: "Standardmodell des Agents",
+  connectedDefault: "Verbunden · Standardmodell des Agents",
+  accountNote: "Verwendet das angemeldete Konto und Standardmodell dieses Agents ohne zusätzlichen API-Schlüssel. Kontingente und Gebühren hängen vom Konto ab; kostenlos ist es nicht garantiert.",
+  dataNote: "Anfrage und Material gehen an den Dienst des gewählten Agent-Kontos. Der vorgeschlagene Aufruf erzeugt einmal Text, ohne Projektdateien zu lesen, Schnittwerkzeuge zu verwenden oder das Ausgangsmaterial zu ändern.",
+  candidates: "Erste Kandidaten: Codex CLI und Claude Code. Die echte Anbindung und jede Plattform müssen separat geprüft werden.",
+  outputNote: "Prototypbeispiel · kein Agent- oder API-Aufruf",
+  chooseAgent: "Codex CLI oder Claude Code auswählen",
+  missing: "Nicht installiert",
+  disabled: "Deaktiviert",
+  signedOut: "Abgemeldet",
+  unknownLogin: "Anmeldestatus unbekannt",
+  needsAttention: "Prüfung erforderlich",
+  lede: "Beschreibe den gewünschten Text und füge bei Bedarf ein Space-Dokument oder Untertitel hinzu. Das Ergebnis ist ein Dokument am Speicherort und ein Space-Eintrag.",
+  requestMaterial: "Anfrage und Material",
+  request: "die Anfrage",
+  attached: (name) => ` · Anhang: ${name}`,
+  tooLong: (total, max) => `Anfrage und Material umfassen ${total.toLocaleString(intlLocale())} Zeichen und überschreiten das Limit von ${max.toLocaleString(intlLocale())}.`,
+  agentModel: (name) => `${name} · ${"Standardmodell des Agents"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

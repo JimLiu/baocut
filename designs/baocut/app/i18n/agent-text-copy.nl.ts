@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const nl: AgentTextMessages = {
+  method: "Generatiemethode",
+  api: "Model-API",
+  agent: "Aangemelde Agent",
+  pending: "Prototype wacht op bevestiging: tekstgeneratie via Agent is niet aangesloten. Alleen interactie en resultaten worden gesimuleerd; er wordt geen Agent of API aangeroepen.",
+  agentLabel: "Welke Agent",
+  manageAgent: "Agents beheren…",
+  defaultModel: "Standaardmodel van Agent",
+  connectedDefault: "Verbonden · standaardmodel van Agent",
+  accountNote: "Gebruikt het aangemelde account en standaardmodel van deze Agent zonder extra API-sleutel. Limieten en kosten hangen af van het account; gratis gebruik is niet gegarandeerd.",
+  dataNote: "De opdracht en het materiaal gaan naar de dienst van het gekozen Agent-account. De voorgestelde aanroep genereert eenmaal tekst, zonder projectbestanden te lezen, montagetools te gebruiken of bronmateriaal te wijzigen.",
+  candidates: "Eerste kandidaten: Codex CLI en Claude Code. Echte integratie en elke platformversie moeten apart worden getest.",
+  outputNote: "Prototypevoorbeeld · geen Agent- of API-aanroep",
+  chooseAgent: "Kies Codex CLI of Claude Code",
+  missing: "Niet geïnstalleerd",
+  disabled: "Uitgeschakeld",
+  signedOut: "Afgemeld",
+  unknownLogin: "Aanmeldstatus onbekend",
+  needsAttention: "Controle nodig",
+  lede: "Beschrijf de gewenste tekst en voeg eventueel een Space-document of ondertitels toe. Het resultaat is een document op de opslaglocatie en een Space-item.",
+  requestMaterial: "de opdracht en het materiaal",
+  request: "de opdracht",
+  attached: (name) => ` · Bijlage: ${name}`,
+  tooLong: (total, max) => `De opdracht en het materiaal bevatten ${total.toLocaleString(intlLocale())} tekens, meer dan de limiet van ${max.toLocaleString(intlLocale())}.`,
+  agentModel: (name) => `${name} · ${"Standaardmodel van Agent"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

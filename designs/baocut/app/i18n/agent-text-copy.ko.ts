@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const ko: AgentTextMessages = {
+  method: "생성 방식",
+  api: "모델 API",
+  agent: "로그인한 Agent",
+  pending: "확인 대기 중인 프로토타입입니다. Agent 텍스트 생성은 연결되지 않았으며 상호작용과 결과만 시뮬레이션합니다. Agent나 API를 호출하지 않습니다.",
+  agentLabel: "사용할 Agent",
+  manageAgent: "Agent 관리…",
+  defaultModel: "Agent 기본 모델",
+  connectedDefault: "연결됨 · Agent 기본 모델",
+  accountNote: "Agent에 로그인한 계정과 기본 모델을 사용하며 별도 API 키가 필요하지 않습니다. 한도와 요금은 계정에 따라 달라지며 무료를 보장하지 않습니다.",
+  dataNote: "요청과 자료는 선택한 Agent 계정의 서비스로 전송됩니다. 제안하는 호출은 한 번의 텍스트 생성만 수행하며 프로젝트 파일 읽기, 편집 도구 사용, 원본 변경은 하지 않습니다.",
+  candidates: "초기 후보는 Codex CLI와 Claude Code입니다. 실제 연결과 플랫폼 지원은 각각 검증해야 합니다.",
+  outputNote: "프로토타입 예시 · Agent 또는 API 호출 없음",
+  chooseAgent: "Codex CLI 또는 Claude Code 선택",
+  missing: "설치되지 않음",
+  disabled: "비활성화됨",
+  signedOut: "로그아웃됨",
+  unknownLogin: "로그인 상태 알 수 없음",
+  needsAttention: "확인 필요",
+  lede: "생성할 텍스트를 설명하고 필요하면 Space 문서나 자막을 첨부하세요. 결과는 저장 위치의 문서이며 Space 항목으로도 표시됩니다.",
+  requestMaterial: "요청과 자료",
+  request: "요청",
+  attached: (name) => ` · 첨부: ${name}`,
+  tooLong: (total, max) => `요청과 자료가 총 ${total.toLocaleString(intlLocale())}자로 한도 ${max.toLocaleString(intlLocale())}자를 초과합니다.`,
+  agentModel: (name) => `${name} · ${"Agent 기본 모델"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

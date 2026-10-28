@@ -36,6 +36,20 @@ test('Agent text proposal rejects unavailable Drivers without falling back to a 
   for (const input of ['', 'x'.repeat(16001)]) assert.throws(() => L.textRequest({execution:'agent',agent:'codex',input}, null, [ready]));
   assert.throws(() => L.textRequest({execution:'agent',agent:'unknown',input:'hello'}, null, [ready]));
 });
+test('the initially displayed Agent stays selected after logout, disable, removal or returning from settings', () => {
+  const claude = {id:'claude',name:'Claude Code',found:true,loggedIn:true,enabled:true};
+  const codex = {id:'codex',name:'Codex CLI',found:true,loggedIn:true,enabled:true};
+  const draft = L.textDraft({input:'hello',execution:'agent'}, [claude,codex]);
+  assert.equal(draft.agent,'claude');
+  for (const next of [[{...claude,loggedIn:false},codex],[{...claude,enabled:false},codex],[codex]]) {
+    const resumed = L.textDraft(draft,next);
+    assert.equal(resumed.agent,'claude');
+    assert.throws(() => L.textRequest(resumed,null,next));
+  }
+  assert.equal(L.textDraft({agent:null,input:'hello'},[claude,codex]).agent,null);
+  assert.equal(L.textDraft({agent:'codex',input:'hello'},[claude,codex]).agent,'codex');
+  assert.equal(L.textRequest({...draft,agent:'codex'},null,[claude,codex]).driverId,'codex');
+});
 test('SRT、VTT 保留毫秒、多行正文和时间窗，可统一导出 SRT', () => {
   const srt = L.parseSubtitles('\uFEFF' + L.SAMPLE.replace(/\n/g,'\r\n'));
   assert.equal(srt.error, ''); assert.equal(srt.cues[1].end, 6.5);

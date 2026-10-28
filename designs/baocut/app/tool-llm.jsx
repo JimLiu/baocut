@@ -18,6 +18,7 @@
   const promptOf = (form, material) => (material ? `${form.input.trim()}\n\n[材料：${material.name}]\n${SI.textOf(material)}` : form.input);
 
   function start(app, form, model, material, saveDir) {
+    const C = window.BC_AGENT_TEXT_COPY.forLanguage(app.uiLang);
     const req = {...form, input: promptOf(form, material)};
     L.textRequest(req, model, app.harnessList); // Mock validation only; neither source starts a real invocation.
     const id = 'llm-' + (++jobs.seq);
@@ -27,7 +28,7 @@
       entry: material ? {id: material.id, name: material.name, kind: material.kind} : null};
     const taskId = app.addTask({kind: 'write', tool: 'text', toolId: 'text', params, title, project: null, sub: model.name + (material ? ` · 附 ${material.name}` : ''),
       phase: '等待模型返回', cancellable: false, ...window.BC_TOOL_RUNS.outputsPatch([], saveDir)});
-    const record = {id, title, model: model.id, modelName: model.name, taskId, status: 'running', material: material ? material.name : null, saveDir};
+    const record = {id, title, model: model.id, modelName: model.name, execution: form.execution || 'api', taskId, status: 'running', material: material ? material.name : null, saveDir};
     jobs.list = [record, ...jobs.list]; emit();
     // The browser prototype has no model transport; explicitly marked example output.
     jobs.timers.set(id, setTimeout(() => {
@@ -36,7 +37,7 @@
         const result = L.demo('text', req);
         const name = window.BC_TOOL_FRAME.savedName(app, material ? `${material.name.replace(/\.[^.]+$/, '')}-改写` : '文本生成', '.md');
         const output = app.registerToolOutput('doc', {...result, id, name, file: `${saveDir}/${name}`, model: model.id, toolId: 'text', task: taskId, params,
-          lines: result.lines || result.text.split('\n').length, note: '交互原型示例 · 未启动 Agent 或调用 API', demo: true});
+          lines: result.lines || result.text.split('\n').length, note: C.outputNote, demo: true});
         patch(id, {status: 'done', output});
         app.patchTask(taskId, {status: 'done', outcome: 'done', phase: null, pct: 100, ...window.BC_TOOL_RUNS.outputsPatch([output], saveDir)});
         app.toast(`${name} 已保存到 ${window.BC_SAVE_DIR.label(saveDir)}`, 'positive');
@@ -54,9 +55,10 @@
 
   function LlmToolPage() {
     const app = useApp();
+    const C = window.BC_AGENT_TEXT_COPY.forLanguage(app.uiLang);
     const save = window.BC_TOOL_FRAME.useSaveDir();
     const TM = window.BC_TEXT_MODEL;
-    const [form, setForm] = useState(() => jobs.drafts.text || {input: '', model: null, material: null, picking: false});
+    const [form, setForm] = useState(() => L.textDraft(jobs.drafts.text || {input: '', model: null, material: null, picking: false}, app.harnessList));
     const [records, setRecords] = useState(jobs.list);
     const [error, setError] = useState('');
     const set = p => { setForm(s => ({...s, ...p})); setError(''); };
@@ -64,33 +66,34 @@
     useEffect(() => { jobs.listeners.add(setRecords); return () => jobs.listeners.delete(setRecords); }, []);
     /* 「接着用工具」/ Space 查看器带来的文档或字幕：附成材料 */
     window.BC_TOOL_FRAME.useToolPreset('text', (p) => {
-      if (p.params) set({input: p.params.input || '', model: p.params.model || null, execution: p.params.execution || 'api', agent: p.params.agent || null, material: p.entry, picking: false});
+      if (p.params) set({input: p.params.input || '', model: p.params.model || null, execution: p.params.execution || 'api',
+        ...(p.params.execution === 'agent' ? {agent: p.params.agent || null} : {}), material: p.entry, picking: false});
       else if (p.input) set({material: p.entry, picking: false});
     });
     const material = form.material;
     const total = promptOf(form, material).length;
     const tm = TM.useTextModel(app, form, total);
     const agents = L.textAgents(app.harnessList);
-    const selectedAgent = form.agent ? agents.find(h => h.id === form.agent) || null : agents.find(h => h.ready) || agents[0] || null;
+    const selectedAgent = agents.find(h => h.id === form.agent) || null;
     const agentMode = form.execution === 'agent';
-    const chosen = agentMode ? selectedAgent && {id: `agent/${selectedAgent.id}`, name: `${selectedAgent.name} · Agent 默认模型`, ready: selectedAgent.ready} : tm.model;
+    const chosen = agentMode ? selectedAgent && {id: `agent/${selectedAgent.id}`, name: selectedAgent.name, ready: selectedAgent.ready} : tm.model;
     const busy = records.some(r => r.status === 'running');
     const reason = busy ? '上一次还在等模型返回' : !form.input.trim() ? '先写下生成要求'
-      : total > MAX ? `要求和材料一共 ${total.toLocaleString()} 字符，超过一次 ${MAX.toLocaleString()} 字符的上限`
-      : agentMode ? (!selectedAgent ? '先连接 Codex CLI 或 Claude Code' : !selectedAgent.ready ? `${selectedAgent.name} · ${selectedAgent.reason}` : '') : TM.textModelReason(tm);
+      : total > MAX ? C.tooLong(total, MAX)
+      : agentMode ? (!selectedAgent ? C.chooseAgent : !selectedAgent.ready ? C.unavailable(selectedAgent.name, C[selectedAgent.reason]) : '') : TM.textModelReason(tm);
     const run = () => { if (reason) return; try { start(app, {...form, agent: selectedAgent?.id}, chosen, material, save.dir); setError(''); } catch (e) { setError(e.message); } };
     const sample = () => set({input: '写一段 30 秒的城市漫游视频旁白，语气自然，突出街道、咖啡馆和黄昏。'});
     return <window.Page wide title="文本生成" bar={<window.ToolStartBar reason={reason}>
       <Btn variant="accent" disabled={!!reason} onClick={run}>{busy ? '处理中…' : '生成文本'}</Btn></window.ToolStartBar>}>
       <div className="ttsw">
         <div className="ttsw__main tool-llm__form">
-          <p className="t-detail">写下要求，可以附一份 Space 里的文档或字幕当材料。结果是一份文档，保存在下面的位置，也是 Space 里的一个条目。</p>
+          <p className="t-detail">{C.lede}</p>
           <div className="ttsw__sec">
-            <b>生成方式</b>
-            <R.RadioGroup aria-label="生成方式" value={agentMode ? 'agent' : 'api'} onChange={execution => set({execution})} orientation="horizontal">
-              <R.Radio value="api">模型 API</R.Radio><R.Radio value="agent">已登录 Agent</R.Radio>
+            <b>{C.method}</b>
+            <R.RadioGroup aria-label={C.method} value={agentMode ? 'agent' : 'api'} onChange={execution => set({execution})} orientation="horizontal">
+              <R.Radio value="api">{C.api}</R.Radio><R.Radio value="agent">{C.agent}</R.Radio>
             </R.RadioGroup>
-            <span className="t-detail-xs">待确认原型：Agent 文本生成尚未接入。这里仅模拟交互与结果，不会启动 Agent 或调用 API。</span>
+            <span className="t-detail-xs">{C.pending}</span>
           </div>
           <div className="ttsw__sec">
             <div className="ttsw__sechd"><b className="grow">生成要求</b><Btn size="s" variant="quiet" onClick={sample}>填入示例</Btn></div>
@@ -105,20 +108,20 @@
               : <span className="t-detail-xs">可选。附上的文档或字幕全文随要求发给模型，不改动原条目。</span>}
           </div>
           {agentMode ? <div className="ttsw__sec">
-            <div className="ttsw__sechd"><b className="grow">用哪个 Agent</b><Btn size="s" variant="quiet" onClick={() => app.go({r: 'settings', sec: 'agent'})}>管理 Agent…</Btn></div>
-            <R.Picker aria-label="用哪个 Agent" selectedKey={selectedAgent?.id || null} onSelectionChange={agent => set({agent: String(agent)})}>
-              {agents.map(h => <R.PickerItem key={h.id} id={h.id} textValue={h.name}><R.Text>{h.name}</R.Text><R.Text slot="description">{h.ready ? '已连接 · Agent 默认模型' : h.reason}</R.Text></R.PickerItem>)}
+            <div className="ttsw__sechd"><b className="grow">{C.agentLabel}</b><Btn size="s" variant="quiet" onClick={() => app.go({r: 'settings', sec: 'agent'})}>{C.manageAgent}</Btn></div>
+            <R.Picker aria-label={C.agentLabel} selectedKey={selectedAgent?.id || null} onSelectionChange={agent => set({agent: String(agent)})}>
+              {agents.map(h => <R.PickerItem key={h.id} id={h.id} textValue={h.name}><R.Text>{h.name}</R.Text><R.Text slot="description">{h.ready ? C.connectedDefault : C[h.reason]}</R.Text></R.PickerItem>)}
             </R.Picker>
-            <span className="t-detail-xs">使用这个 Agent 已登录的账号和默认模型，无需再填 API key。额度与费用按该账号计算，不保证免费。</span>
-            <span className="t-detail-xs">要求和材料会发给所选 Agent 账号的服务方。拟只完成一次文本生成，不读取项目文件、不调用剪辑工具，也不改动原材料。</span>
-          </div> : <TM.TextModelField tm={tm} onChange={model => set({model})} what={material ? '要求和材料' : '要求'} />}
+            <span className="t-detail-xs">{C.accountNote}</span>
+            <span className="t-detail-xs">{C.dataNote}</span>
+          </div> : <TM.TextModelField tm={tm} onChange={model => set({model})} what={material ? C.requestMaterial : C.request} />}
           <window.ToolSaveDirRow save={save} />
           {error && <p role="alert" className="ttsw__err">{error}</p>}
-          <p className="t-detail-xs">原型首批候选为 Codex CLI 与 Claude Code；真实接入与平台支持须分别验证。</p>
+          <p className="t-detail-xs">{C.candidates}</p>
         </div>
         <aside className="ttsw__side"><div className="ttsw__sidehd"><b className="grow">生成记录</b></div>
           {records.map(r => <article className="ttsrec" key={r.id}>
-            <b>{r.output?.name || r.title}</b><span className="t-detail-xs">{r.modelName}{r.material ? ` · 附 ${r.material}` : ''}</span>
+            <b>{r.output?.name || r.title}</b><span className="t-detail-xs">{r.execution === 'agent' ? C.agentModel(r.modelName) : r.modelName}{r.material ? C.attached(r.material) : ''}</span>
             {r.status === 'running' ? <div className="row gap8"><R.ProgressCircle aria-label="等待模型返回" isIndeterminate size="S" /><span className="grow">等待模型返回…</span><Btn size="s" variant="quiet" onClick={() => cancel(app, r)}>取消</Btn></div>
               : r.status === 'done' ? <><pre className="tool-llm__result">{r.output.text}</pre>
                 <div className="row gap8"><Btn size="s" variant="quiet" icon="copy" onClick={() => { copyToClipboard(r.output.text); app.toast('已复制'); }}>复制</Btn></div>

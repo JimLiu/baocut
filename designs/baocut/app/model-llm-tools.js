@@ -53,10 +53,16 @@
   function textAgents(harnesses) {
     return (harnesses || []).filter(h => h.id === 'codex' || h.id === 'claude').map(h => {
       const ready = !!h.found && h.enabled !== false && h.loggedIn === true && !h.blocked && !h.runError;
-      const reason = !h.found ? '未安装' : h.enabled === false ? '已停用' : h.loggedIn !== true ? (h.loggedIn === false ? '未登录' : '登录状态未知')
-        : h.blocked || h.runError ? '需要排查' : '';
+      const reason = !h.found ? 'missing' : h.enabled === false ? 'disabled' : h.loggedIn !== true ? (h.loggedIn === false ? 'signedOut' : 'unknownLogin')
+        : h.blocked || h.runError ? 'needsAttention' : null;
       return {id: h.id, name: h.name, ready, reason};
     });
+  }
+  /** Freeze the displayed initial account into the tool draft, including an explicit empty selection. */
+  function textDraft(saved, harnesses) {
+    if (Object.prototype.hasOwnProperty.call(saved, 'agent')) return {...saved};
+    const agents = textAgents(harnesses);
+    return {...saved, agent: (agents.find(h => h.ready) || agents[0])?.id || null};
   }
   /** A mock request for the proposed text-tool entry only; API translation and the global text default are unchanged. */
   function textRequest(form, model, harnesses) {
@@ -87,7 +93,7 @@
     }));
     return {text: srt(cues), cues, lines: cues.length, dur: Math.max(...cues.map(c => c.end)), lang: form.lang};
   }
-  const api = {SAMPLE, models, parseSubtitles, srt, request, textAgents, textRequest, translatedCues, demo};
+  const api = {SAMPLE, models, parseSubtitles, srt, request, textAgents, textDraft, textRequest, translatedCues, demo};
   if (typeof window !== 'undefined') window.BC_LLM_TOOLS = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

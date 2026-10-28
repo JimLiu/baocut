@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const zhHans: AgentTextMessages = {
+  method: "生成方式",
+  api: "模型 API",
+  agent: "已登录 Agent",
+  pending: "待确认原型：Agent 文本生成尚未接入。这里只模拟交互与结果，不会启动 Agent 或调用 API。",
+  agentLabel: "用哪个 Agent",
+  manageAgent: "管理 Agent…",
+  defaultModel: "Agent 默认模型",
+  connectedDefault: "已连接 · Agent 默认模型",
+  accountNote: "使用这个 Agent 已登录的账号和默认模型，无需再填 API key。额度与费用按该账号计算，不保证免费。",
+  dataNote: "要求和材料会发给所选 Agent 账号的服务方。拟只完成一次文本生成，不读取项目文件、不调用剪辑工具，也不改动原材料。",
+  candidates: "原型首批候选为 Codex CLI 与 Claude Code；真实接入与平台支持须分别验证。",
+  outputNote: "交互原型示例 · 未启动 Agent 或调用 API",
+  chooseAgent: "请选择 Codex CLI 或 Claude Code",
+  missing: "未安装",
+  disabled: "已停用",
+  signedOut: "未登录",
+  unknownLogin: "登录状态未知",
+  needsAttention: "需要排查",
+  lede: "写下要求，可以附一份 Space 里的文档或字幕当材料。结果是一份文档，保存在下面的位置，也是 Space 里的一个条目。",
+  requestMaterial: "要求和材料",
+  request: "要求",
+  attached: (name) => ` · 附 ${name}`,
+  tooLong: (total, max) => `要求和材料一共 ${total.toLocaleString(intlLocale())} 字符，超过一次 ${max.toLocaleString(intlLocale())} 字符的上限`,
+  agentModel: (name) => `${name} · ${"Agent 默认模型"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

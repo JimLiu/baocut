@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const tr: AgentTextMessages = {
+  method: "Üretim yöntemi",
+  api: "Model API",
+  agent: "Oturum açmış Agent",
+  pending: "Onay bekleyen prototip: Agent ile metin üretimi bağlı değil. Yalnızca etkileşim ve sonuçlar simüle edilir; Agent veya API çağrılmaz.",
+  agentLabel: "Hangi Agent",
+  manageAgent: "Agents yönet…",
+  defaultModel: "Agent varsayılan modeli",
+  connectedDefault: "Bağlı · Agent varsayılan modeli",
+  accountNote: "Ek API anahtarı olmadan Agent’ın oturum açmış hesabını ve varsayılan modelini kullanır. Kotalar ve ücretler hesaba bağlıdır; ücretsiz olduğu garanti edilmez.",
+  dataNote: "İstek ve materyal, seçilen Agent hesabının hizmetine gönderilir. Önerilen çağrı yalnızca bir kez metin üretir; proje dosyalarını okumaz, düzenleme araçlarını kullanmaz veya kaynak materyali değiştirmez.",
+  candidates: "İlk adaylar Codex CLI ve Claude Code’dur. Gerçek entegrasyon ve her platform ayrı doğrulanmalıdır.",
+  outputNote: "Prototip örneği · Agent veya API çağrılmadı",
+  chooseAgent: "Codex CLI veya Claude Code seçin",
+  missing: "Yüklü değil",
+  disabled: "Devre dışı",
+  signedOut: "Oturum kapalı",
+  unknownLogin: "Oturum durumu bilinmiyor",
+  needsAttention: "İnceleme gerekiyor",
+  lede: "İstediğiniz metni açıklayın ve isteğe bağlı olarak Space belgesi veya altyazı ekleyin. Sonuç, kayıt konumundaki bir belge ve Space öğesidir.",
+  requestMaterial: "istek ve materyal",
+  request: "istek",
+  attached: (name) => ` · Ek: ${name}`,
+  tooLong: (total, max) => `İstek ve materyal toplam ${total.toLocaleString(intlLocale())} karakter; ${max.toLocaleString(intlLocale())} karakter sınırı aşılıyor.`,
+  agentModel: (name) => `${name} · ${"Agent varsayılan modeli"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};

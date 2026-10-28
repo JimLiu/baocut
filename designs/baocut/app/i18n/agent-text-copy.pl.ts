@@ -1,0 +1,30 @@
+import { intlLocale } from '../../../../packages/protocol/src/i18n.ts';
+import type { AgentTextMessages } from './agent-text-copy.ts';
+
+export const pl: AgentTextMessages = {
+  method: "Sposób generowania",
+  api: "API modelu",
+  agent: "Zalogowany Agent",
+  pending: "Prototyp oczekuje na potwierdzenie: generowanie tekstu przez Agent nie jest połączone. Symuluje tylko interakcje i wyniki; nie wywołuje Agent ani API.",
+  agentLabel: "Który Agent",
+  manageAgent: "Zarządzaj Agents…",
+  defaultModel: "Domyślny model Agent",
+  connectedDefault: "Połączono · domyślny model Agent",
+  accountNote: "Używa zalogowanego konta i domyślnego modelu Agent bez dodatkowego klucza API. Limity i opłaty zależą od konta; bezpłatność nie jest gwarantowana.",
+  dataNote: "Żądanie i materiał trafiają do usługi wybranego konta Agent. Proponowane wywołanie jednorazowo generuje tekst bez czytania plików projektu, używania narzędzi montażu i zmieniania materiału źródłowego.",
+  candidates: "Pierwsi kandydaci: Codex CLI i Claude Code. Rzeczywiste połączenie i każda platforma wymagają osobnej weryfikacji.",
+  outputNote: "Przykład prototypu · bez wywołania Agent lub API",
+  chooseAgent: "Wybierz Codex CLI lub Claude Code",
+  missing: "Nie zainstalowano",
+  disabled: "Wyłączono",
+  signedOut: "Wylogowano",
+  unknownLogin: "Nieznany stan logowania",
+  needsAttention: "Wymaga sprawdzenia",
+  lede: "Opisz tekst i opcjonalnie dołącz dokument lub napisy ze Space. Wynikiem jest dokument w miejscu zapisu oraz element Space.",
+  requestMaterial: "żądanie i materiał",
+  request: "żądanie",
+  attached: (name) => ` · Załącznik: ${name}`,
+  tooLong: (total, max) => `Żądanie i materiał mają ${total.toLocaleString(intlLocale())} znaków, przekraczając limit ${max.toLocaleString(intlLocale())}.`,
+  agentModel: (name) => `${name} · ${"Domyślny model Agent"}`,
+  unavailable: (name, reason) => `${name} · ${reason}`,
+};
