@@ -64,6 +64,29 @@ export function draftSelection(driver: DriverInfo | null, choice: AgentChoice | 
   };
 }
 
+/** 新会话建好后要记成默认的改动：哪个 Agent 改成默认、它的默认模型改成什么；没变的为 null。 */
+export interface AgentDefaultPatch {
+  driverId: DriverId | null;
+  model: { driverId: DriverId; defaultModel: string | null } | null;
+}
+
+/**
+ * 把这次建会话时选过的 Agent 与模型记成新会话的默认（原型 page-new.jsx `setSelPatch` → `setAgentDefault`：输入框底栏的 chip
+ * 与新会话的默认是同一份，产品设计 §7.6「记住上次选的」）。只算选过的、和现在不一样的；没选的字段不动，强度不记（换了模型时
+ * Runtime 把默认强度清回模型默认）。草稿没写 Agent 时说的是现在的默认 Agent；列表里找不到的不写。
+ */
+export function agentDefaultPatch(drivers: readonly DriverInfo[] | null, choice: AgentChoice | undefined): AgentDefaultPatch {
+  const none: AgentDefaultPatch = { driverId: null, model: null };
+  if (!choice || !drivers) return none;
+  const driver = choice.driverId ? drivers.find((d) => d.id === choice.driverId) : drivers.find((d) => d.isDefault);
+  if (!driver) return none;
+  const model = 'model' in choice ? (choice.model ?? null) : undefined;
+  return {
+    driverId: driver.isDefault ? null : driver.id,
+    model: model !== undefined && model !== driver.defaultModel ? { driverId: driver.id, defaultModel: model } : null,
+  };
+}
+
 /** 草稿上叠一次改动。换了 Agent，原来的模型与强度不再适用，只留这次给的。 */
 export function applyAgentChange(choice: AgentChoice | undefined, current: DriverId | null, change: AgentChange): AgentChoice {
   if (change.driverId !== current) {
@@ -194,6 +217,7 @@ export interface ProviderRow {
 
 /**
  * 第一级：每个 Agent 一行（原型 `providerRows`）。能用的写当前模型与账号；用不了的写原因，点了去设置。
+ * 能用的排在前面，同一状态里保持注册表的顺序（产品设计 §7.6：配好的 Agent 排前面）。
  * `lockedTo`：会话有任务后 Agent 固定，其他 Agent 的行标出原因、不能选。
  * 「更多」四家与用户添加的没检测到时不列（`listedInPicker`）；当前选着的那个照列，免得收起时的字样找不到行。
  */
@@ -203,7 +227,7 @@ export function providerRows(
   model: string | null,
   lockedTo: DriverId | null,
 ): ProviderRow[] {
-  return drivers
+  const rows = drivers
     .filter((driver) => driver.id === selected || listedInPicker(driver))
     .map((driver) => {
       const isSelected = driver.id === selected;
@@ -216,6 +240,7 @@ export function providerRows(
           : DRIVER_STATE_REASON[driver.state];
       return { id: driver.id, name: driver.name, sub, state: providerState(driver.state), ready, locked, selected: isSelected };
     });
+  return [...rows.filter((r) => r.ready), ...rows.filter((r) => !r.ready)];
 }
 
 export interface ModelRow {

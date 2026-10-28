@@ -11,6 +11,7 @@ import {
   type ModelCapabilitiesView,
   type ProviderView,
 } from '@baocut/protocol';
+import { agentDefaultPatch, type AgentChoice } from '../model/agent-choice.ts';
 import { useAgentSetup } from '../state/agent-setup-store.ts';
 import { useConnection } from '../state/connection-store.ts';
 import { useModels } from '../state/models-store.ts';
@@ -46,6 +47,16 @@ export function configureAgent(
 
 export function setDefaultAgent(session: RuntimeSession, driverId: DriverId): Promise<AgentsView> {
   return apply(session.client.request('agents.setDefault', { driverId }));
+}
+
+/**
+ * 新会话建好后，把草稿上选过的 Agent 与模型记成新会话的默认（`agentDefaultPatch`；与设置 › Agent 的默认是同一份）。
+ * Agent 列表取连接镜像里的；没变的不写。调用方不等它，失败不提示（会话已经建好了）。
+ */
+export async function rememberAgentChoice(session: RuntimeSession, choice: AgentChoice | undefined): Promise<void> {
+  const patch = agentDefaultPatch(useConnection.getState().drivers, choice);
+  if (patch.model) await configureAgent(session, patch.model.driverId, { defaultModel: patch.model.defaultModel });
+  if (patch.driverId) await setDefaultAgent(session, patch.driverId);
 }
 
 /**

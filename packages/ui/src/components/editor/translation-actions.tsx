@@ -21,6 +21,7 @@ import { useConnection } from '../../state/connection-store.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useModels } from '../../state/models-store.ts';
 import { routeVideo, useShell } from '../../state/shell-store.ts';
+import { useRememberedTextModel } from '../../state/text-model-memory-store.ts';
 import { useVideo } from '../../state/video-store.ts';
 import { handToAgent } from './ai-tools-handoff.ts';
 import { TRANSLATE_COPY as C } from './translate-copy.ts';
@@ -84,17 +85,22 @@ const termsTime = style({ flexShrink: 0 });
 const termsText = style({ flexGrow: 1, minWidth: 0, font: 'ui-xs', color: 'gray-800', overflowWrap: 'anywhere' });
 
 /**
- * 直接重译用哪只文本模型：同翻译设置页的缺省（文本生成的默认值，不能用时第一只能用的；翻译要结构化输出）。
+ * 直接重译用哪只文本模型：编辑器翻译流程上次选的（`editor-translate`）此刻能用就用它，否则同翻译设置页的缺省
+ * （文本生成的默认值，不能用时第一只能用的；翻译要结构化输出）。这里没有菜单，上次选的用不了时不拿它去碰壁。
  * 能力还没读到、或一只能用的都没有时 `ref` 为 null，由 Runtime 用默认值或以「没有配置」拒绝（问题卡给去处）。
  */
 export function useRetranslateModel(): { ref: { providerId: string; modelId: string } | null; name: string | null } {
   const view = useModels((s) => s.capabilities);
+  const [saved] = useRememberedTextModel('editor-translate');
   return useMemo(() => {
     const options = view ? translateModelOptions(view) : [];
-    const option = findOption(options, initialModelKey(options, null, view?.generateText.effective ?? null, withoutCaution));
+    const remembered = findOption(options, saved);
+    const option = remembered?.usable
+      ? remembered
+      : findOption(options, initialModelKey(options, null, view?.generateText.effective ?? null, withoutCaution));
     const ref = option?.usable ? parseModelKey(option.key) : null;
     return { ref: ref ? { providerId: ref.providerId, modelId: ref.modelId } : null, name: option?.usable ? optionName(option) : null };
-  }, [view]);
+  }, [view, saved]);
 }
 
 /**

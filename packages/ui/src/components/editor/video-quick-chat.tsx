@@ -12,7 +12,7 @@ import { sessionStatus } from '../../model/sidebar.ts';
 import { sentVideoAnnotations, videoAnnotationFrames } from '../../model/video-annotations.ts';
 import { VIDEO_NOTES } from '../../model/video-annotations-copy.ts';
 import { targetKey } from '../../model/workspace.ts';
-import { setDefaultAccessMode } from '../../runtime/agent-commands.ts';
+import { rememberAgentChoice, setDefaultAccessMode } from '../../runtime/agent-commands.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { defaultDriver, useConnection } from '../../state/connection-store.ts';
 import { useConversationMeta } from '../../state/directory-store.ts';
@@ -194,7 +194,7 @@ export function VideoQuickChat() {
     const message = text || (videoNotes.length ? VIDEO_NOTES.message : '');
     let conversationId: Id | null = null;
     try {
-      // 只传草稿上选过的；没选的由 Runtime 按偏好给。选过的访问模式同时记成新会话的默认。
+      // 只传草稿上选过的；没选的由 Runtime 按偏好给。选过的访问模式、Agent 与模型同时记成新会话的默认。
       const conversation = await runtime.createConversation(projectId, {
         ...(owner && ownerKnown ? { folderOf: owner } : {}),
         ...(draftMode ? { accessMode: draftMode } : {}),
@@ -204,6 +204,7 @@ export function VideoQuickChat() {
       });
       conversationId = conversation.id;
       if (draftMode && draftMode !== defaultMode) void setDefaultAccessMode(runtime, draftMode).catch(() => {});
+      void rememberAgentChoice(runtime, choice).catch(() => {});
       const shell = useShell.getState();
       shell.setDraftAccessMode(draftKey, null);
       shell.setDraftAgent(draftKey, null);

@@ -1,7 +1,7 @@
 /* 能力页（product-design §7.6）：每种能力一页，本机模型与 API 提供方的模型在同一页，不分本地 / 云端两个 Tab。从上到下：
    ① 默认模型——一个选择器，放在页顶，本机、API 提供方与智能体的模型都在里面，按这种能力的自动顺序分组（图像生成：能画的
       Codex › 本机 › API 提供方；2026-10-12 用户裁决，之后新增的同时有本机与云端模型的能力照此办理；文本生成没有自动顺序，
-      智能体「Codex 写文字」排在 API 提供方后面），不可用的项置灰并写明原因；
+      能用的在前：已连接的 API 提供方 › 能用的「Codex 写文字」› 没连接的），不可用的项置灰并写明原因；
       工具页、编辑器、命令行与 Agent 不指定模型时都用它。第一项清掉默认：转录与图像生成是「自动」（写明此刻用谁），合成是「未设置」；
    ② 这种能力的参数（并发；文本生成另有推理强度）；
    ③ 本机模型（settings-local.jsx 的目录、安装、检查与试用，默认行交给 ①）；
@@ -88,11 +88,18 @@
       return `${g ? g.vendor.name : pid} · ${rest.join('/')}${g && g.ready ? '' : '（不可用）'}`;
     })();
     const pick = (v) => { writeDefault(app, cap, cat, v); setOpen(false); };
-    /* 智能体一组：图像生成能画时排在最前（自动顺序的第一位），画不了时排最后、置灰写原因；文本生成没有自动顺序，总在最后。
-       API key 登录时能选，写提醒 */
+    /* 智能体一组：图像生成能画时排在最前（自动顺序的第一位）；文本生成能写时排在已连接的提供方之后、没连接的之前
+       （能用的在前，2026-10-28）；不能用时都排最后、置灰写原因。API key 登录时能选，写提醒 */
     const codexGroup = codex ? <><MenuRule /><MenuHead>智能体</MenuHead>
       <MenuItem label={item.label} sub={codex.ready ? (codex.caution ? (item.caution || codex.caution) : item.desc) : codex.why} disabled={!codex.ready && cur !== codexId(cap)}
         check={cur === codexId(cap)} onClick={() => pick(codexId(cap))} /></> : null;
+    /* 一家 API 提供方一组（`groups` 已按已连接在前排好，model-vendors.js `list`） */
+    const vendorGroup = (g) => <React.Fragment key={g.vendor.id}>
+      <MenuRule /><MenuHead>{g.vendor.name}</MenuHead>
+      {g.ready ? g.models.map((m) => { const v = `cloud:${g.vendor.id}/${m.id}`;
+        return <MenuItem key={m.id} label={m.id} sub={[m.desc, g.state.k === 'warn' ? `首选账号 ${g.state.label}` : ''].filter(Boolean).join(' · ') || undefined} check={cur === v} onClick={() => pick(v)} />; })
+        : <MenuItem label={g.why} sub="在 API 提供方页添加账号或启用后可选" disabled />}
+    </React.Fragment>;
     const autoOk = AUTO_LABEL[cap] || (cat && LM().hasAuto(cat));
     const desc = cap === 'text' ? '润色、翻译、生成章节时用它。' : cat ? LM().DEFAULT_DESC[cat] : '';
     return <window.ShellRow label="默认模型" desc={`${desc} 不可用的项置灰并写明原因。`}>
@@ -103,13 +110,10 @@
           {local.length ? <><MenuRule /><MenuHead>本机</MenuHead></> : null}
           {local.map((m) => <MenuItem key={m.id} label={m.name} disabled={!ready(m)} sub={ready(m) ? '在这台电脑上运行 · 不联网' : '未安装 · 在下面的本机模型里下载'}
             check={cur === 'local:' + m.id} onClick={() => pick('local:' + m.id)} />)}
-          {groups.map((g) => <React.Fragment key={g.vendor.id}>
-            <MenuRule /><MenuHead>{g.vendor.name}</MenuHead>
-            {g.ready ? g.models.map((m) => { const v = `cloud:${g.vendor.id}/${m.id}`;
-              return <MenuItem key={m.id} label={m.id} sub={[m.desc, g.state.k === 'warn' ? `首选账号 ${g.state.label}` : ''].filter(Boolean).join(' · ') || undefined} check={cur === v} onClick={() => pick(v)} />; })
-              : <MenuItem label={g.why} sub="在 API 提供方页添加账号或启用后可选" disabled />}
-          </React.Fragment>)}
-          {codex && (cap !== 'image' || !codex.ready) ? codexGroup : null}
+          {groups.filter((g) => g.ready).map(vendorGroup)}
+          {cap !== 'image' && codex && codex.ready ? codexGroup : null}
+          {groups.filter((g) => !g.ready).map(vendorGroup)}
+          {codex && !codex.ready ? codexGroup : null}
           {!groups.length && !local.length && !codex ? <><MenuRule /><MenuItem label="还没有能用的模型" sub="先在 API 提供方页添加一家" disabled /></> : null}
         </Menu>
       </Picker>

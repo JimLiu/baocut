@@ -17,7 +17,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { languageName } from '../../model/caption-tracks.ts';
 import { guessLanguage } from '../../model/cue-edit.ts';
 import { textModelLine } from '../../model/models-text.ts';
-import { findOption, initialModelKey, langName, parseModelKey, textModelOptions, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, langName, parseModelKey, textModelOptions, usableFirst, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import {
   defaultTarget,
   existingTranslations,
@@ -35,6 +35,7 @@ import { useSetting } from '../../state/settings-store.ts';
 import { SemanticNote } from '../semantic-note.tsx';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { useRememberedTextModel } from '../../state/text-model-memory-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { ModelGate, ModelLine } from '../tools/tool-model.tsx';
 import { SectionLink } from '../tools/tool-parts.tsx';
@@ -72,9 +73,9 @@ const alertActions = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginTo
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** 文本模型：翻译要结构化输出，不支持的那只列着但标明用不了（Runtime 也会拒）。 */
+/** 文本模型：翻译要结构化输出，不支持的那只列着但标明用不了（Runtime 也会拒）；能用的在前。 */
 function translateModelOptions(options: ToolModelOption<TextModelInfo>[]): ToolModelOption<TextModelInfo>[] {
-  return options.map((o) => (o.usable && o.info.structuredOutput === false ? { ...o, usable: false, why: C.noStructured } : o));
+  return usableFirst(options.map((o) => (o.usable && o.info.structuredOutput === false ? { ...o, usable: false, why: C.noStructured } : o)));
 }
 
 /**
@@ -122,7 +123,7 @@ export function TranslateFlow({
 
   const view = useModels((s) => s.capabilities);
   const options = useMemo(() => (view ? translateModelOptions(textModelOptions(view)) : []), [view]);
-  const [modelKey, setModelKey] = useState<string | null>(null);
+  const [modelKey, setModelKey] = useRememberedTextModel('editor-translate');
   const option = findOption(options, initialModelKey(options, modelKey, view?.generateText.effective ?? null, withoutCaution));
   const ready = !!option?.usable;
   const toModels = () => go({ tab: 'models', category: 'llm' });

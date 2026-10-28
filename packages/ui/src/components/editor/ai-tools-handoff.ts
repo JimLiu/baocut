@@ -15,7 +15,7 @@ import { mergeDraft, planHandoff } from '../../model/ai-tools-handoff.ts';
 import { sendFailureMessage } from '../../model/agent-skills.ts';
 import { enqueueMessage } from '../../model/message-queue.ts';
 import { targetKey, workspaceKey } from '../../model/workspace.ts';
-import { setDefaultAccessMode } from '../../runtime/agent-commands.ts';
+import { rememberAgentChoice, setDefaultAccessMode } from '../../runtime/agent-commands.ts';
 import { drainQueue } from '../../runtime/message-queue-runner.ts';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { captureEditorContext } from '../../state/agent-context.ts';
@@ -136,8 +136,9 @@ export async function handToAgent(runtime: RuntimeSession, request: HandoffReque
     try {
       const folderOf = plan.projectId === null ? { folderOf: plan.folderOf } : {};
       conversationId = (await runtime.createConversation(plan.projectId, { ...create, ...folderOf })).id;
-      // 选过的访问模式同时记成新会话的默认（同悬浮会话）。
+      // 选过的访问模式、Agent 与模型同时记成新会话的默认（同悬浮会话）。
       if (create?.accessMode) void setDefaultAccessMode(runtime, create.accessMode).catch(() => {});
+      if (create) void rememberAgentChoice(runtime, create).catch(() => {});
     } catch (error) {
       ToastQueue.negative(C.createFailed(error instanceof Error ? error.message : String(error)), { timeout: 5000 });
       return null;

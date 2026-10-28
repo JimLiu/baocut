@@ -1728,7 +1728,7 @@ Worker 内部用 f32 秒计算，输出一律换算为声明 `timescale` 的整�
   - **输出**：智能体最后一条文字回复。结构化输出把 JSON Schema 写进开发者指令（Agent 不收 schema 参数），去掉包住整段回复的 Markdown 代码围栏，之后与在线 Provider 一样校验（§6.4）：不是 JSON 或不合 schema 是 `MODEL_OUTPUT_INVALID`（`reason: 'schema'`）；纯文本的空回复是 `MODEL_OUTPUT_INVALID`（`empty`）。结束原因总是 `stop`，没有 token 用量。失败的映射与生图相同：回合超时（同样 10 分钟）或会话退出是 `PROVIDER_UNAVAILABLE`，回合失败或被中断是 `PROVIDER_REJECTED`，执行前复核不通过是 `MODEL_LOAD_FAILED`。不重试，不换 Provider。
   - **描述**：一个模型（`text-gen`，实际的模型由智能体运行时与账号决定），`efforts` 为空，不接受 `temperature` 与 `seed`，`structuredOutput` 为 true；上下文与输出上限按 Codex 常用模型的量级给（40 万与 12.8 万 token），只用于提交时的粗查；推理强度、temperature、seed 与输出上限都不下发，§6.4 的参数检查照模型描述拒绝或注明。费用状态与 `notes` 按登录方式取，与生图相同。
   - **并发**：同一时间只进行 1 个调用，任务与进程内调用合计，不管能力参数的 `concurrency` 设成多少（§6.8）。每次调用开一个新会话，比在线 API 慢得多；翻译这类逐批的工作照样能用，只是慢。
-  - **选择**：没有出厂默认（`generateText` 本来就没有，§6.2），只在用户显式选择或设为默认时用；以 API key 等方式登录时同样可以选，费用记为 `unknown`。界面的自动挑选（选不到默认值时取第一个能用的）跳过这种情况。
+  - **选择**：没有出厂默认（`generateText` 本来就没有，§6.2），只在用户显式选择或设为默认时用；以 API key 等方式登录时同样可以选，费用记为 `unknown`。界面的自动挑选（选不到默认值时取第一个能用的）跳过这种情况。界面菜单按「能用的在前」排：能用时排在已连接的 API 提供方之后、没连接的之前（产品设计 §7.6）。
 - 其他能力与其他 Driver（例如 Claude Code）按同一模式加入，各自经过验证后开放。
 
 ### 6.10 用量账本

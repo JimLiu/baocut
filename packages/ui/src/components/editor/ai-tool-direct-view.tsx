@@ -19,7 +19,7 @@ import Copy from '@react-spectrum/s2/icons/Copy';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { translateModelOptions } from '../../model/tool-runs.ts';
 import { citedMarkdown, type CopyMode } from '../../model/writing-cites.ts';
-import { findOption, initialModelKey, modelOptions, optionName, parseModelKey, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, optionName, parseModelKey, textModelOptions, usableFirst, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useAiToolRunner } from '../../state/ai-tool-runner-store.ts';
 import { isJobLive, useJobs } from '../../state/jobs-store.ts';
@@ -131,8 +131,10 @@ export function useDirectModel(tool: AiToolKind | 'stale'): DirectModel {
         ? []
         : tool === 'stale'
           ? translateModelOptions(view)
-          : modelOptions(view, 'generateText').map((o) =>
-              structured && o.usable && o.info.structuredOutput === false ? { ...o, usable: false, why: C.modelNoStructured } : o,
+          : usableFirst(
+              textModelOptions(view).map((o) =>
+                structured && o.usable && o.info.structuredOutput === false ? { ...o, usable: false, why: C.modelNoStructured } : o,
+              ),
             ),
     [view, tool, structured],
   );

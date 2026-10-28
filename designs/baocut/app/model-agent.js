@@ -658,18 +658,21 @@
         label: `${h.name} · ${m.name}`, mname: m.name, msub: m.dflt ? '默认' : null, ready: !!h.found, sub,
       }));
     });
+    const apis = (opt.models || []).map((m) => ({
+      k: `api:${m.id}`, kind: 'api', model: m.id,
+      label: `${m.name} · ${m.provider}`, ready: !m.note || m.note !== '未连接 key',
+      sub: m.note || 'API key',
+    }));
+    /* 能用的在前（2026-10-28 用户要求：配好的 Agent 与模型排前面），同一状态里保持原来的顺序；Agent 按家整组移动。 */
+    const readyFirst = (items) => [...items.filter((it) => it.ready), ...items.filter((it) => !it.ready)];
     const second = opt.local
       ? [{k: 'local', kind: 'local', label: opt.local.label || '本机模型', ready: true, sub: opt.local.sub || '不出本机'}]
-      : (opt.models || []).map((m) => ({
-          k: `api:${m.id}`, kind: 'api', model: m.id,
-          label: `${m.name} · ${m.provider}`, ready: !m.note || m.note !== '未连接 key',
-          sub: m.note || 'API key',
-        }));
+      : readyFirst(apis);
     /* 2026-09-20：两组各带 kind / tab / desc——「用」下拉不再把两组上下摞成一长条，而是弹层顶部一枚
        两段开关（tab 是段上的字，desc 是段下那一行说明），一次只看一组。装了五六家 Agent 时，
        「直接调模型」不会再被推到看不见的地方。`group` 仍是旧的一行组头，App 侧与测试沿用。 */
     return [
-      {kind: 'agent', tab: '交给 Agent', desc: '本机，用你的订阅，写入前会问你', group: 'Agent · 本机，用你的订阅，写入前会问你', items: agents},
+      {kind: 'agent', tab: '交给 Agent', desc: '本机，用你的订阅，写入前会问你', group: 'Agent · 本机，用你的订阅，写入前会问你', items: readyFirst(agents)},
       opt.local
         ? {kind: 'local', tab: '直接跑', desc: '本机模型 · 不出本机', group: '直接跑 · 本机模型', items: second}
         : {kind: 'api', tab: '直接调模型', desc: 'API key · 不用对话，直接出结果', group: '直接调模型 · API key', items: second},
@@ -849,7 +852,7 @@
     };
   }
 
-  /** 两级下拉的第一级：每家 provider 一行，状态决定副文案与点了去哪。 */
+  /** 两级下拉的第一级：每家 provider 一行，状态决定副文案与点了去哪。能用的（ready）排在前面，同一状态里保持注册表顺序。 */
   function providerState(h) {
     if (!h || !h.found) return 'missing';
     if (h.enabled === false) return 'off';
@@ -857,7 +860,7 @@
   }
   function providerRows(list, sel) {
     const s = sel || {};
-    return (list || []).filter(listed).map((h) => {
+    const rows = (list || []).filter(listed).map((h) => {
       const state = providerState(h);
       const on = state === 'ready' && s.harness === h.id;
       const shown = on ? (s.activeModel || s.model) : null;
@@ -869,6 +872,7 @@
           : state === 'off' ? '已在设置里停用' : state === 'attention' ? '需要处理 · 去设置排查' : (h.install ? `未安装 · ${h.install}` : '未安装'),
       };
     });
+    return [...rows.filter((r) => r.state === 'ready'), ...rows.filter((r) => r.state !== 'ready')];
   }
   /** 第二级：这一家的模型表——「Agent 默认模型」在前；当前选中却不在目录里的模型也要露出来。
       `gate` = model-agent-setup.js::defaultModelGate(h) 的结果（2026-09-29）：CLI 配置里的默认模型这一版不认得时，

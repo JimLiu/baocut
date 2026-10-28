@@ -23,7 +23,7 @@ import { templateOf, type HomeTemplate } from '../model/home-templates.ts';
 import { slotLabels } from '../model/prompt-slots.ts';
 import { recentVideos, videoTargetOf } from '../model/space.ts';
 import { workspaceKey } from '../model/workspace.ts';
-import { setDefaultAccessMode } from '../runtime/agent-commands.ts';
+import { rememberAgentChoice, setDefaultAccessMode } from '../runtime/agent-commands.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { templatePrompt } from '../runtime/template-commands.ts';
 import { defaultDriver, useConnection } from '../state/connection-store.ts';
@@ -352,6 +352,7 @@ export function StartPage({ projectId: routeProjectId }: { projectId: string | n
               });
               conversationId = conversation.id;
               if (draftMode && draftMode !== defaultMode) void setDefaultAccessMode(runtime, draftMode).catch(() => {});
+              void rememberAgentChoice(runtime, choice).catch(() => {});
               useShell.getState().setDraftAccessMode(draftKey, null);
               useShell.getState().setDraftAgent(draftKey, null);
               useStartBrief.getState().clear(draftKey);

@@ -5,15 +5,16 @@
   const CODEX_TEXT_ID = 'agent:codex/text-gen';
   /** API key 登录时写文字的提醒（画图那句说「可能画不了」，写文字只有费用一条）。 */
   const CODEX_TEXT_CAUTION = '用 API key 登录 · 费用不在订阅里';
-  /** 文本模型清单：API 提供方的在前；`codex`（BC_CLOUD_IMAGE.codexReady 的结果，没装 Codex 时 null）给了就在最后加一只 Codex。
-      Codex 不能用时照样列出、写原因；API key 登录时能用但带 `caution`，开页不自动选它。 */
+  /** 文本模型清单：能用的在前（2026-10-28 用户要求：配好的排前面），同一状态里 API 提供方在前、Codex 在后——
+      Codex 能用时排在已连接的提供方之后、没连接的之前。`codex`（BC_CLOUD_IMAGE.codexReady 的结果，没装 Codex 时 null）
+      给了才列 Codex；不能用时照样列出、写原因；API key 登录时能用但带 `caution`，开页不自动选它。 */
   function models(catalog, saved, codex) {
     const cloud = (catalog || []).flatMap(p => (p.models || []).filter(m => m.kind === 'llm').map(m => ({
       id: p.id + '/' + m.id, name: m.id, provider: p.name, ready: (saved || []).includes(p.id),
     })));
-    if (!codex) return cloud;
-    return cloud.concat([{id: CODEX_TEXT_ID, name: 'Codex 写文字', provider: 'Codex', ready: !!codex.ready, agent: true,
-      why: codex.ready ? null : codex.why, caution: codex.caution ? CODEX_TEXT_CAUTION : null}]);
+    const all = codex ? cloud.concat([{id: CODEX_TEXT_ID, name: 'Codex 写文字', provider: 'Codex', ready: !!codex.ready, agent: true,
+      why: codex.ready ? null : codex.why, caution: codex.caution ? CODEX_TEXT_CAUTION : null}]) : cloud;
+    return [...all.filter(m => m.ready), ...all.filter(m => !m.ready)];
   }
   function parseSubtitles(text) {
     const raw = String(text || '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim();

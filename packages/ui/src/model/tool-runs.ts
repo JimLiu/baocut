@@ -24,7 +24,7 @@ import { recipientName } from './data-grants.ts';
 import { usedCookieText } from './link-cookies.ts';
 import type { ToolId, ToolTargetKey, VideoToolId } from './tool-catalog.ts';
 import { langLabel } from './tool-targets.ts';
-import { modelKeyOf, speaks, textModelOptions, type ToolModelOption } from './tools-models.ts';
+import { modelKeyOf, speaks, textModelOptions, usableFirst, type ToolModelOption } from './tools-models.ts';
 import { M } from './tool-runs-copy.ts';
 import { transcribeJobOf } from './transcribe-speakers.ts';
 import { jobErrorText } from './localized-text.ts';
@@ -546,10 +546,10 @@ export function dubParams(o: {
   };
 }
 
-/** 翻译要结构化输出：不支持的那只列着但用不了（同字幕面板与首页固定流程的翻译）。API 提供方的在前，智能体（Codex）在后。 */
+/** 翻译要结构化输出：不支持的那只列着但用不了（同字幕面板与首页固定流程的翻译）。能用的在前，排法同 `textModelOptions`。 */
 export function translateModelOptions(view: ModelCapabilitiesView): ToolModelOption<TextModelInfo>[] {
-  return textModelOptions(view).map((o) =>
-    o.usable && o.info.structuredOutput === false ? { ...o, usable: false, why: M.noStructuredOutput } : o,
+  return usableFirst(
+    textModelOptions(view).map((o) => (o.usable && o.info.structuredOutput === false ? { ...o, usable: false, why: M.noStructuredOutput } : o)),
   );
 }
 

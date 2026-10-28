@@ -21,6 +21,8 @@ import {
   parseSeed,
   providerName,
   speaks,
+  usableFirst,
+  type ToolModelOption,
 } from './tools-models.ts';
 
 describe('工具页的模型选项', () => {
@@ -72,16 +74,24 @@ function withCodexText(view: ModelCapabilitiesView, available = true, subscribed
 }
 
 describe('文本生成的智能体（Codex）', () => {
-  it('排在 API 提供方后面，名字用模型的名字；不能用时写原因', () => {
+  it('能用的在前：排在已连接的提供方后面、没连接的前面，名字用模型的名字；不能用时排最后、写原因', () => {
     const options = textModelOptions(withCodexText(textView()));
-    expect(options.map((o) => o.key)).toEqual(['openai/gpt-5-mini', 'openai/gpt-4.1', 'google/gemini-2.5-flash', 'agent:codex/text-gen']);
-    const codex = options.at(-1)!;
+    // textView 里只有 OpenAI 连着，Google 没连接。
+    expect(options.map((o) => o.key)).toEqual(['openai/gpt-5-mini', 'openai/gpt-4.1', 'agent:codex/text-gen', 'google/gemini-2.5-flash']);
+    const codex = options[2]!;
     expect([codex.agent, codex.usable, optionName(codex)]).toEqual([true, true, 'Codex 写文字']);
     expect(optionName(options[0]!)).toBe('gpt-5-mini');
     expect(modelOptions(withCodexText(textView()), 'generateText').at(-1)!.key).toBe('agent:codex/text-gen');
 
-    const off = textModelOptions(withCodexText(textView(), false)).at(-1)!;
+    const offList = textModelOptions(withCodexText(textView(), false));
+    expect(offList.map((o) => o.key)).toEqual(['openai/gpt-5-mini', 'openai/gpt-4.1', 'google/gemini-2.5-flash', 'agent:codex/text-gen']);
+    const off = offList.at(-1)!;
     expect([off.usable, off.why]).toEqual([false, '没有打开「用 Codex 画图和写文字」']);
+  });
+
+  it('usableFirst：能用的在前，同一状态里保持原来的顺序', () => {
+    const o = (key: string, usable: boolean) => ({ key, usable }) as ToolModelOption<unknown>;
+    expect(usableFirst([o('a', false), o('b', true), o('c', false), o('d', true)]).map((x) => x.key)).toEqual(['b', 'd', 'a', 'c']);
   });
 
   it('开页回落：只有 Codex 能用时选它；API key 登录（带提醒）时不自动选，用户点名或设成默认时照用', () => {
@@ -91,7 +101,8 @@ describe('文本生成的智能体（Codex）', () => {
 
     const keyed = withCodexText(textView(), true, false);
     const options = textModelOptions(keyed);
-    expect(options.at(-1)!.caution).toBe('用 API key 登录 · 费用不在订阅里');
+    expect(findOption(options, 'agent:codex/text-gen')!.caution).toBe('用 API key 登录 · 费用不在订阅里');
+    // OpenAI 那两只拿掉后，只剩带提醒的 Codex 与没连接的 Google：不自动选 Codex，回落到池里的第一只。
     expect(initialModelKey(options.slice(2), null, null, withoutCaution)).toBe('google/gemini-2.5-flash');
     expect(initialModelKey(options, null, { providerId: 'agent:codex', modelId: 'text-gen' }, withoutCaution)).toBe('agent:codex/text-gen');
   });

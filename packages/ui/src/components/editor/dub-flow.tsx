@@ -50,7 +50,7 @@ import {
 import { downloadView, inlineInstallMode, separationDownload } from '../../model/models-install.ts';
 import { bundleName } from '../../model/models-local.ts';
 import { textModelLine } from '../../model/models-text.ts';
-import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, textModelOptions, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
+import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, textModelOptions, usableFirst, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import { speechModelLine } from '../../model/tools-tts.ts';
 import { existingTranslations } from '../../model/translate-setup.ts';
 import { isStale, pairRows, readTranslation, speechSentences } from '../../model/translation-doc.ts';
@@ -58,6 +58,7 @@ import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useModels } from '../../state/models-store.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { useRememberedTextModel } from '../../state/text-model-memory-store.ts';
 import { canEdit, useVideo } from '../../state/video-store.ts';
 import { useVoices } from '../../state/voices-store.ts';
 import { InstallDialog } from '../models/install-dialog.tsx';
@@ -129,9 +130,9 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 const dubToast: DubDeps['toast'] = (kind, message, undo) =>
   ToastQueue[kind](message, undo ? { timeout: 5000, actionLabel: E.undo, onAction: undo, shouldCloseOnAction: true } : { timeout: 5000 });
 
-/** 文本模型：翻译要结构化输出，不支持的那只列着但标明用不了（Runtime 也会拒；同翻译设置页）。 */
+/** 文本模型：翻译要结构化输出，不支持的那只列着但标明用不了（Runtime 也会拒；同翻译设置页）；能用的在前。 */
 function translateModelOptions(options: ToolModelOption<TextModelInfo>[]): ToolModelOption<TextModelInfo>[] {
-  return options.map((o) => (o.usable && o.info.structuredOutput === false ? { ...o, usable: false, why: C.noStructured } : o));
+  return usableFirst(options.map((o) => (o.usable && o.info.structuredOutput === false ? { ...o, usable: false, why: C.noStructured } : o)));
 }
 
 /** 已有译文里过期的句数（标了过期或原句改过）：Runtime 不合成它们。还在算、或不是 `/2` 的译文时 null。 */
@@ -252,7 +253,7 @@ function DubSetupPage({
 
   // ---- 翻译 ----
   const textModels = useMemo(() => (view ? translateModelOptions(textModelOptions(view)) : []), [view]);
-  const [textModelKey, setTextModelKey] = useState<string | null>(null);
+  const [textModelKey, setTextModelKey] = useRememberedTextModel('editor-dub');
   const textModel = findOption(textModels, initialModelKey(textModels, textModelKey, view?.generateText.effective ?? null, withoutCaution));
   const textReady = !!textModel?.usable;
   const toLlm = () => go({ tab: 'models', category: 'llm' });

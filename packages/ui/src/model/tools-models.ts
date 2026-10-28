@@ -197,11 +197,20 @@ export function modelOptions<C extends OnlineCapability>(view: ModelCapabilities
 }
 
 /**
- * 翻译、配音翻译这类只用文本生成的地方的菜单：API 提供方的模型在前，智能体（Codex 写文字，§6.9）在后。文本生成没有出厂默认，
+ * 文本生成的菜单（文本、翻译、配音翻译、编辑器里直接调模型）：能用的在前（`usableFirst`），同一状态里 API 提供方在前、
+ * 智能体（Codex 写文字，§6.9）在后——Codex 能用时排在已连接的提供方之后、没连接的之前。文本生成没有出厂默认，
  * Codex 只在用户选它、或把它设成默认时用；开页的回落用 `withoutCaution` 跳过 API key 登录的 Codex。
  */
 export function textModelOptions(view: ModelCapabilitiesView): ToolModelOption<TextModelInfo>[] {
-  return [...cloudModelOptions(view, 'generateText'), ...agentModelOptions(view, 'generateText')];
+  return usableFirst([...cloudModelOptions(view, 'generateText'), ...agentModelOptions(view, 'generateText')]);
+}
+
+/**
+ * 能用的排在前面，同一状态里保持原来的顺序（产品设计 §7.6：配好的模型与 Agent 排前面）。菜单按服务商分组时，一家的
+ * 模型仍在同一组里（`ModelLine` 按第一次出现的位置分组）。改了 `usable` 的（比如要结构化输出）要在改完之后再排。
+ */
+export function usableFirst<M>(options: readonly ToolModelOption<M>[]): ToolModelOption<M>[] {
+  return [...options.filter((o) => o.usable), ...options.filter((o) => !o.usable)];
 }
 
 /** `initialModelKey` 的回落条件：跳过要提醒的（API key 登录的 Codex，设计稿 model-cloud-image.js `preferred`、tool-translate.jsx `useTextModel`）。 */

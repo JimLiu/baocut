@@ -17,6 +17,7 @@ import {
 import { modelReason } from '../../model/tool-frame.ts';
 import { cloudModelOptions, findOption, languagesShort, speaks } from '../../model/tools-models.ts';
 import { useModels } from '../../state/models-store.ts';
+import { useRememberedTextModel } from '../../state/text-model-memory-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { ModelRow } from './tool-frame.tsx';
 import { GrantCard, ToolFrame } from './tool-run-view.tsx';
@@ -74,7 +75,8 @@ export function DubTool() {
   const engines = useMemo(() => (view ? cloudModelOptions(view, 'synthesizeSpeech') : []), [view]);
   const engine = findOption(engines, view ? dubEngineKey(engines, draft.engine, view.synthesizeSpeech.effective ?? null, lang) : null);
   const engineSpeaks = !engine || !lang || speaks(engine.info.languages, lang);
-  const text = useTextModel(draft.textModel);
+  const [savedModel, rememberModel] = useRememberedTextModel('dub-tool');
+  const text = useTextModel(savedModel);
 
   const params = entryId
     ? dubParams({
@@ -155,7 +157,7 @@ export function DubTool() {
           ) : null}
         </Section>
       ) : null}
-      {row && !chosen ? <TextModelField options={text.options} option={text.option} onChange={(model) => patch({ textModel: model })} /> : null}
+      {row && !chosen ? <TextModelField options={text.options} option={text.option} onChange={rememberModel} /> : null}
       <ModelRow
         title={DUB_COPY.engine}
         noun={DUB_COPY.engine}

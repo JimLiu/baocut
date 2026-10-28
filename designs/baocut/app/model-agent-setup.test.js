@@ -170,7 +170,7 @@ test('完整 provider 表：检测到的在前 + 常驻的直接列，「更多�
   assert.deepEqual([g.total, g.found], [4, 2]);
   assert.equal(S.moreSummary([cursor]), 'Cursor CLI');
   assert.equal(S.moreSummary([cursor, pi, codex, claude]), 'Cursor CLI、Pi、Codex CLI 等');
-  assert.deepEqual(AG.providerRows([claude, codex, cursor, pi].map(mark), {}).map((r) => r.id), ['claude', 'codex', 'pi']);
+  assert.deepEqual(AG.providerRows([claude, codex, cursor, pi].map(mark), {}).map((r) => r.id), ['claude', 'pi', 'codex'], '能用的在前');
   const agents = AG.runnerOptions({harnesses: [claude, cursor, pi].map(mark), models: []})[0].items.map((o) => o.harness);
   assert.equal(agents.includes('cursor'), false);
   assert.equal(agents.includes('pi'), true);

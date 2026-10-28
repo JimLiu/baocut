@@ -26,7 +26,8 @@ import { RUN_COPY } from './tools-copy.ts';
 
 /**
  * 视频工具页的本机状态（不持久化）：每个工具正在看哪一次运行、这台电脑提交时记下的名字（摘要里只有 ID）、
- * 「接着做」带过去的视频，以及各页填到一半的表单（离开再回来还在）。转录用哪个语音模型存在 tools-store（持久化）。
+ * 「接着做」带过去的视频，以及各页填到一半的表单（离开再回来还在）。转录用哪个语音模型存在 tools-store（持久化），
+ * 翻译与配音用哪只文本模型存在 text-model-memory-store（持久化）。
  */
 
 /** 来源：本机文件、Space（媒体条目或可编辑的视频）、链接。 */
@@ -57,8 +58,6 @@ export interface TranslateDraft {
   file: string | null;
   lang: string | null;
   bilingual: boolean;
-  /** 文本模型（`providerId/modelId`）；没选时用生效的默认值。 */
-  model: string | null;
 }
 
 export interface DubDraft {
@@ -69,8 +68,6 @@ export interface DubDraft {
   original: OriginalAudio;
   /** 配音引擎（语音合成模型，`providerId/modelId`）；没选时用生效的默认值。 */
   engine: string | null;
-  /** 先翻译时用的文本模型。 */
-  textModel: string | null;
 }
 
 export interface LinkDraft {
@@ -119,8 +116,8 @@ interface VideoToolsState extends Drafts {
 
 export const useVideoTools = create<VideoToolsState>()((set) => ({
   transcribe: { source: 'file', path: null, url: '', entryId: null, projectId: null, target: 'none', dest: null, retry: null },
-  'translate-subtitles': { source: 'space', entryId: null, documentId: null, file: null, lang: null, bilingual: true, model: null },
-  dub: { entryId: null, translation: null, lang: null, original: 'duck', engine: null, textModel: null },
+  'translate-subtitles': { source: 'space', entryId: null, documentId: null, file: null, lang: null, bilingual: true },
+  dub: { entryId: null, translation: null, lang: null, original: 'duck', engine: null },
   'link-import': { url: '', target: 'none', entryId: null, projectId: null, transcribe: false },
   views: {},
   meta: {},

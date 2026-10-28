@@ -3,6 +3,7 @@ import type { DriverInfo, DriverModel } from '@baocut/protocol';
 import { BUILTIN_DRIVER_IDS } from '@baocut/protocol';
 import {
   AGENT_ICON_FILES,
+  agentDefaultPatch,
   agentIcon,
   applyAgentChange,
   compactHarnessLabel,
@@ -163,6 +164,40 @@ describe('Agent 行', () => {
     ];
     expect(providerRows(list, 'claude', null, null).map((r) => r.id)).toEqual(['claude', 'auggie', 'copilot']);
     expect(providerRows(list, 'goose', null, null).map((r) => r.id)).toEqual(['claude', 'goose', 'auggie', 'copilot']);
+  });
+
+  it('能用的排在前面，同一状态里保持注册表的顺序', () => {
+    const list = [
+      driver({ state: 'signed-out' }),
+      driver({ id: 'codex', name: 'Codex CLI', state: 'not-installed' }),
+      driver({ id: 'opencode', name: 'OpenCode' }),
+      driver({ id: 'cursor', name: 'Cursor CLI' }),
+    ];
+    expect(providerRows(list, null, null, null).map((r) => r.id)).toEqual(['opencode', 'cursor', 'claude', 'codex']);
+  });
+});
+
+describe('记成新会话的默认', () => {
+  const list = () => [driver(), driver({ id: 'codex', name: 'Codex CLI', isDefault: false, defaultModel: 'gpt-5' })];
+
+  it('选了另一个 Agent：改默认 Agent；选了和它现在默认不同的模型（包括「Agent 默认模型」）：改它的默认模型', () => {
+    expect(agentDefaultPatch(list(), { driverId: 'codex' })).toEqual({ driverId: 'codex', model: null });
+    expect(agentDefaultPatch(list(), { driverId: 'codex', model: 'gpt-5-mini' })).toEqual({
+      driverId: 'codex',
+      model: { driverId: 'codex', defaultModel: 'gpt-5-mini' },
+    });
+    expect(agentDefaultPatch(list(), { driverId: 'claude', model: null })).toEqual({ driverId: null, model: { driverId: 'claude', defaultModel: null } });
+    // 草稿没写 Agent 时说的是现在的默认 Agent。
+    expect(agentDefaultPatch(list(), { model: 'opus' })).toEqual({ driverId: null, model: { driverId: 'claude', defaultModel: 'opus' } });
+  });
+
+  it('没选过、没变、只改了强度、Agent 不在列表里或列表还没读到：什么都不写', () => {
+    const none = { driverId: null, model: null };
+    expect(agentDefaultPatch(list(), undefined)).toEqual(none);
+    expect(agentDefaultPatch(list(), { driverId: 'claude', model: 'sonnet' })).toEqual(none);
+    expect(agentDefaultPatch(list(), { driverId: 'claude', effort: 'high' })).toEqual(none);
+    expect(agentDefaultPatch(list(), { driverId: 'gemini', model: 'x' })).toEqual(none);
+    expect(agentDefaultPatch(null, { driverId: 'codex' })).toEqual(none);
   });
 });
 

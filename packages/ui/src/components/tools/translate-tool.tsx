@@ -14,6 +14,7 @@ import { baseName } from '../../model/tools-transcribe.ts';
 import { sameLanguage } from '../../model/translate-setup.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useModels } from '../../state/models-store.ts';
+import { useRememberedTextModel } from '../../state/text-model-memory-store.ts';
 import { SaveDirRow } from './tool-frame.tsx';
 import { GrantCard, ToolFrame, ToolSourceSwitch } from './tool-run-view.tsx';
 import { detail, Section, submitOnModEnter } from './tool-parts.tsx';
@@ -43,7 +44,7 @@ const dropPath = style({ font: 'code-xs', color: 'gray-600', overflowWrap: 'anyw
 const buttons = style({ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 });
 const field = style({ width: 'full' });
 
-/** 翻译用哪只文本模型：选过的还在就用它，否则生效的默认值（能用时）、第一只能用的。 */
+/** 翻译用哪只文本模型：上次选的（按位置记住，`text-model-memory-store`）还在就用它，否则生效的默认值（能用时）、第一只能用的。 */
 export function useTextModel(saved: string | null): {
   ready: boolean;
   options: ToolModelOption<TextModelInfo>[];
@@ -93,7 +94,8 @@ export function TranslateTool() {
   const input = space ? (picked ? inputKindOf('translate-subtitles', picked.kind) : 'video') : 'file';
   const doc = sourceDocument(row, draft.documentId);
   const { languages, lang, has } = useTargets(row, doc, video, draft.lang);
-  const text = useTextModel(draft.model);
+  const [savedModel, rememberModel] = useRememberedTextModel('translate-tool');
+  const text = useTextModel(savedModel);
   // 字幕文件的结果写到保存位置；「更改…」只改这一次（写进视频时没有这一行）。
   const [saveOverride, setSaveOverride] = useState<string | null>(null);
   const model = text.option?.usable ? { provider: text.option.providerId, model: text.option.modelId } : {};
@@ -170,7 +172,7 @@ export function TranslateTool() {
         ) : null}
       </Section>
       {dup ? <DuplicateAlert title={DUPLICATE_TITLE['translate-subtitles']} body={dup} /> : null}
-      <TextModelField options={text.options} option={text.option} onChange={(model) => patch({ model })} />
+      <TextModelField options={text.options} option={text.option} onChange={rememberModel} />
       {video ? null : <SaveDirRow saveDirectory={status.saveDirectory} override={saveOverride} onChange={setSaveOverride} />}
       {starter.asking ? <GrantCard items={starter.asking} onAgree={starter.agree} busy={starter.busy} hint={TRANSLATE_COPY.grantHint} /> : null}
     </ToolFrame>
