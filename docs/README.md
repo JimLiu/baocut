@@ -30,6 +30,7 @@ BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用�
 | [`design/canvas/`](design/canvas/README.md) | **会话里的设计稿**：智能体在会话里做设计稿（画板）与设计系统、功能区的编辑器、标注作为附件发回会话；目录页指向这些行为在产品、架构、协议文档与运行时包里的位置 |
 | [`design/docs/`](design/docs/README.md) | **会话里的协作文档**：智能体用 `docs_*` 工具写文档、功能区的文档编辑器（标签页、富文本、表格、评论）、评论与请求发回会话；存储与 door 协议、Runtime 路由、skill 与工具、标注协议 |
 | [`design/embedding/`](design/embedding/README.md) | **本地语义能力（方案稿）**：EmbeddingGemma 2 的检索集成方案，以及用同一套本地索引改善写作选材与出处、章节、术语、翻译记忆、重录候选与智能体取材的产品与技术设计 |
+| [`design/agent-text/`](design/agent-text/README.md) | **文本工具复用已登录 Agent（待确认原型）**：在模型 API 与一次 Agent 文本生成之间选择；真实接入、隔离与账号用量合同尚未实施 |
 | [`design/motion-video/`](design/motion-video/README.md) | **章节化代码动画片（方案稿）**：HTML / JS + Canvas 或 HyperFrames 的讲解片与 MV 进 AI 编辑器：章节表与按章重做、旁白与配乐按角色分轨、代码包在播放器里实时播放、章节页看改脚本、后台烘焙与导出；从 baoyu-design 的做法借鉴什么 |
 | [`design/lite-editor/`](design/lite-editor/README.md) | **轻量编辑器（方案稿）**：同一编辑器的另一种视图，给看一遍、指出哪里要改的人：画面 + 按段分格的播放条 + 当前段的脚本与逐句侧栏；段统一场景与章节；按轨道生成的图层开关；画面上的标记带段落落点发给会话；顶栏与时间线视图切换，共用一份状态；默认打开规则与偏好 |
 | [`design/version-history/`](design/version-history/README.md) | **视频的版本记录（一期、二期已实现；三期方案待确认）**：不依赖 git，每部视频保存最新快照与最近 10 个版本的 diff，按版本回滚；版本边界与动作清单、保留与清理、重建与外部改动导入；有 git 时快照随时可提交 |

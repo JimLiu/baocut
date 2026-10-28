@@ -19,6 +19,23 @@ test('固定请求只包含模型与消息，不创建 Agent 或工具调用循�
   assert.deepEqual(Object.keys(tr), ['model','messages']);
   assert.equal(JSON.parse(tr.messages[1].content).length, 2);
 });
+test('Agent text proposal needs no API model and freezes only the selected Driver and text', () => {
+  const harnesses = [{id:'claude',name:'Claude Code',found:true,loggedIn:true,enabled:true}, {id:'other',name:'Other',found:true}];
+  assert.deepEqual(L.textRequest({execution:'agent',agent:'claude',input:' Summarize this '}, null, harnesses),
+    {source:'agent',driverId:'claude',model:null,messages:[{role:'user',content:'Summarize this'}]});
+  assert.deepEqual(L.textAgents(harnesses).map(h => h.id), ['claude']);
+  assert.deepEqual(L.textRequest({execution:'api',input:'hello'}, {id:'p/text',ready:true}, harnesses), L.request('text',{input:'hello'},{id:'p/text',ready:true}));
+});
+test('Agent text proposal rejects unavailable Drivers without falling back to a paid API', () => {
+  const ready = {id:'codex',name:'Codex CLI',found:true,loggedIn:true,enabled:true};
+  for (const change of [{found:false},{enabled:false},{loggedIn:false},{loggedIn:undefined},{blocked:true},{runError:'exited'}]) {
+    const harnesses = [{...ready,...change}];
+    assert.equal(L.textAgents(harnesses)[0].ready,false);
+    assert.throws(() => L.textRequest({execution:'agent',agent:'codex',input:'hello'}, {id:'p/paid',ready:true}, harnesses));
+  }
+  for (const input of ['', 'x'.repeat(16001)]) assert.throws(() => L.textRequest({execution:'agent',agent:'codex',input}, null, [ready]));
+  assert.throws(() => L.textRequest({execution:'agent',agent:'unknown',input:'hello'}, null, [ready]));
+});
 test('SRT、VTT 保留毫秒、多行正文和时间窗，可统一导出 SRT', () => {
   const srt = L.parseSubtitles('\uFEFF' + L.SAMPLE.replace(/\n/g,'\r\n'));
   assert.equal(srt.error, ''); assert.equal(srt.cues[1].end, 6.5);

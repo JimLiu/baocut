@@ -49,6 +49,25 @@
     return {model: model.id, messages: [{role: 'system', content: `将字幕正文翻译为${form.lang}。保持每条字幕的 id、数量与顺序，不修改时间码。返回包含 id 和 text 的 JSON 数组。`},
       {role: 'user', content: JSON.stringify(parsed.cues.map(c => ({id: c.id, text: c.text})))}]};
   }
+  /** Issue #111 proposal only: two candidate Drivers, using their configured default model. No transport or account access. */
+  function textAgents(harnesses) {
+    return (harnesses || []).filter(h => h.id === 'codex' || h.id === 'claude').map(h => {
+      const ready = !!h.found && h.enabled !== false && h.loggedIn === true && !h.blocked && !h.runError;
+      const reason = !h.found ? '未安装' : h.enabled === false ? '已停用' : h.loggedIn !== true ? (h.loggedIn === false ? '未登录' : '登录状态未知')
+        : h.blocked || h.runError ? '需要排查' : '';
+      return {id: h.id, name: h.name, ready, reason};
+    });
+  }
+  /** A mock request for the proposed text-tool entry only; API translation and the global text default are unchanged. */
+  function textRequest(form, model, harnesses) {
+    if (form.execution !== 'agent') return request('text', form, model);
+    const agent = textAgents(harnesses).find(h => h.id === form.agent);
+    if (!agent?.ready) throw new Error('The selected Agent is not ready');
+    const input = String(form.input || '').trim();
+    if (!input) throw new Error('Give a text generation request');
+    if (String(form.input).length > 16000) throw new Error('The request exceeds 16,000 characters');
+    return {source: 'agent', driverId: agent.id, model: null, messages: [{role: 'user', content: input}]};
+  }
   /** 只接受逐条对应的模型结果，防止漏句、重复或越界覆盖时间码。 */
   function translatedCues(cues, rows) {
     if (!Array.isArray(rows) || rows.length !== cues.length) throw new Error('模型返回的字幕数量不匹配');
@@ -68,7 +87,7 @@
     }));
     return {text: srt(cues), cues, lines: cues.length, dur: Math.max(...cues.map(c => c.end)), lang: form.lang};
   }
-  const api = {SAMPLE, models, parseSubtitles, srt, request, translatedCues, demo};
+  const api = {SAMPLE, models, parseSubtitles, srt, request, textAgents, textRequest, translatedCues, demo};
   if (typeof window !== 'undefined') window.BC_LLM_TOOLS = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();
