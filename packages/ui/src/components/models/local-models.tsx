@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { localizeText, type ImageModelInfo, type JobRecord, type ModelBundleStatus, type ModelComponentStatus, type MusicModelInfo, type SpeechModelInfo } from '@baocut/protocol';
+import {
+  localizeText,
+  type ImageModelInfo,
+  type JobRecord,
+  type ModelAddParams,
+  type ModelBundleStatus,
+  type ModelComponentStatus,
+  type MusicModelInfo,
+  type SpeechModelInfo,
+} from '@baocut/protocol';
 import {
   ActionButton,
   AlertDialog,
@@ -19,6 +28,7 @@ import {
   Tooltip,
   TooltipTrigger,
 } from '@react-spectrum/s2';
+import AddIcon from '@react-spectrum/s2/icons/Add';
 import AlertTriangleIcon from '@react-spectrum/s2/icons/AlertTriangle';
 import CheckmarkCircleIcon from '@react-spectrum/s2/icons/CheckmarkCircle';
 import ChevronDownIcon from '@react-spectrum/s2/icons/ChevronDown';
@@ -84,6 +94,9 @@ import { useModels } from '../../state/models-store.ts';
 import { useMusicQuick } from '../../state/music-quick-store.ts';
 import { useTtsQuick } from '../../state/tts-quick-store.ts';
 import { useVoiceHandoff } from '../../state/voice-handoff-store.ts';
+import { addedChips, addedSource, inPlaceFile, moreCount, removeFlow } from '../../model/models-added.ts';
+import { M as ADDED } from '../../model/models-added-copy.ts';
+import { AddModelDialog, useAddable } from './add-model-dialog.tsx';
 import { ImageTryDialog } from './image-try-dialog.tsx';
 import { InstallDialog } from './install-dialog.tsx';
 import { removeBundle, stopInstall, type InstallMode } from './local-model-actions.ts';
@@ -145,7 +158,8 @@ const webNote = style({ marginTop: 0, marginBottom: 16, font: 'ui-sm', color: 'g
 const okIcon = iconStyle({ size: 'S', color: 'positive' });
 const missIcon = iconStyle({ size: 'S', color: 'notice' });
 
-type Confirm = { kind: 'remove' | 'discard'; bundle: ModelBundleStatus };
+/** `unlist-in-place`：原地引用的本机文件只移出列表、不删文件（设计稿 model-audiocpp.js `inPlaceRemoval`）。 */
+type Confirm = { kind: 'remove' | 'discard' | 'unlist-in-place'; bundle: ModelBundleStatus };
 /** 打开着的下载 / 补齐 / 修复对话框；`note` 是从公共组件那一行借模型补齐时换上的那一句。 */
 type Install = { bundle: ModelBundleStatus; mode: InstallMode; note?: string };
 /** 浏览器里：检查状态与试用的提示里不给「修复」「重新检查」。 */
@@ -186,6 +200,10 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
   const [busy, setBusy] = useState<string | null>(null);
   const [install, setInstall] = useState<Install | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  // 添加 audio.cpp 模型（设计稿 settings-add-model.jsx）：语音合成与音乐生成的页上有入口；浏览器里管不了安装，不读目录。
+  const canAdd = kind === 'synthesize' || kind === 'music';
+  const [adding, setAdding] = useState(false);
+  const addable = useAddable(canAdd && !web && connected);
   // 公共组件区：没动过时有待补全的就展开（设计稿 settings-local.jsx `sharedExpanded`）。
   const [sharedOpen, setSharedOpen] = useState<boolean | null>(null);
   // 下载中的行不换组（`localGroups` 的 `placed`）：每次画完记下它们这一次在哪一组。
@@ -250,14 +268,44 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
       if (action === 'discard') {
         await stopInstall(runtime, bundle.bundleId, true);
         ToastQueue.neutral(INSTALL.discarded(bundleName(bundle)), { timeout: 3000 });
+      } else if (action === 'unlist-in-place') {
+        await runtime.unlistModel(bundle.bundleId);
+        ToastQueue.positive(ADDED.unlistedInPlaceToast(bundleName(bundle)), { timeout: 4000 });
       } else {
         const result = await removeBundle(runtime, bundle.bundleId);
+        // 添加的模型删掉文件后一并移出列表（设计稿 model-audiocpp.js `removalNote`）。
+        if (bundle.added) await runtime.unlistModel(bundle.bundleId);
         ToastQueue.positive(removedToast(bundleName(bundle), result), { timeout: 4000 });
       }
     } catch (err) {
       const text = problemText(rpcProblem(err));
-      ToastQueue.negative(action === 'discard' ? INSTALL.stopFailed(text) : INSTALL.removeFailed(text), { timeout: 8000 });
+      ToastQueue.negative(
+        action === 'discard' ? INSTALL.stopFailed(text) : action === 'unlist-in-place' ? ADDED.unlistFailed(text) : INSTALL.removeFailed(text),
+        { timeout: 8000 },
+      );
     }
+  };
+
+  // 添加的、还没下载的：盘上没有它的东西，直接移出列表、不用确认。
+  const unlist = async (bundle: ModelBundleStatus) => {
+    try {
+      await runtime.unlistModel(bundle.bundleId);
+      ToastQueue.neutral(ADDED.unlistedToast(bundleName(bundle)), { timeout: 3000 });
+    } catch (err) {
+      ToastQueue.negative(ADDED.unlistFailed(problemText(rpcProblem(err))), { timeout: 8000 });
+    }
+  };
+
+  // 加好了：本机文件原地引用、加完就装好；目录里的包与仓库里的文件接着弹下载确认（设计稿 settings-local.jsx `addModel`）。
+  const added = (bundle: ModelBundleStatus, params: ModelAddParams) => {
+    setAdding(false);
+    addable.reload();
+    if (params.source === 'local-file') {
+      ToastQueue.positive(ADDED.addedInPlaceToast(bundleName(bundle)), { timeout: 4000 });
+      return;
+    }
+    ToastQueue.positive(ADDED.addedToast(bundleName(bundle)), { timeout: 3000 });
+    setInstall({ bundle, mode: 'install' });
   };
 
   // 默认模型那张卡只在人声分离与音乐生成画（其余能力的默认在页顶 capability-default.tsx）；音乐没有「自动选择」。
@@ -293,6 +341,7 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
       onReenable={() => void reenable(bundle.bundleId)}
       onInstall={(mode) => setInstall({ bundle, mode })}
       onConfirm={(what) => setConfirm({ kind: what, bundle })}
+      onUnlist={() => void unlist(bundle)}
     />
   );
 
@@ -354,6 +403,36 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
         )}
       </section>
 
+      {canAdd ? (
+        <Card label={ADDED.entryLabel}>
+          <SettingRow
+            label={ADDED.entryLabel}
+            desc={addable.data ? ADDED.entryDesc(moreCount(addable.data.families, kind === 'music' ? 'music' : 'tts'), kind === 'music') : undefined}>
+            <Button
+              variant="secondary"
+              size="S"
+              isDisabled={web}
+              onPress={() => {
+                addable.reload();
+                setAdding(true);
+              }}>
+              <AddIcon />
+              <Text>{ADDED.entryButton}</Text>
+            </Button>
+          </SettingRow>
+        </Card>
+      ) : null}
+
+      {adding ? (
+        <AddModelDialog
+          group={kind === 'music' ? 'music' : 'tts'}
+          addable={addable.data}
+          loadError={addable.error}
+          onClose={() => setAdding(false)}
+          onAdded={added}
+        />
+      ) : null}
+
       {shared.length ? (
         <Disclosure isQuiet size="S" styles={fold} isExpanded={sharedOpen ?? repair > 0} onExpandedChange={setSharedOpen}>
           <DisclosureTitle>
@@ -395,16 +474,29 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
 
       <DialogContainer onDismiss={() => setConfirm(null)}>
         {confirm ? (
-          <AlertDialog
-            variant="destructive"
-            title={
-              confirm.kind === 'remove' ? INSTALL.removeTitle(bundleName(confirm.bundle)) : INSTALL.discardTitle(bundleName(confirm.bundle))
-            }
-            primaryActionLabel={confirm.kind === 'remove' ? INSTALL.removeConfirm : INSTALL.discard}
-            cancelLabel={INSTALL.cancel}
-            onPrimaryAction={() => void confirmed(confirm)}>
-            {confirm.kind === 'remove' ? removalBody(removalEstimate(confirm.bundle, bundles)) : INSTALL.discardBody}
-          </AlertDialog>
+          confirm.kind === 'unlist-in-place' ? (
+            <AlertDialog
+              variant="confirmation"
+              title={ADDED.unlistTitle(bundleName(confirm.bundle))}
+              primaryActionLabel={ADDED.unlistConfirm}
+              cancelLabel={INSTALL.cancel}
+              onPrimaryAction={() => void confirmed(confirm)}>
+              {ADDED.unlistInPlaceBody(inPlaceFile(confirm.bundle) ?? '')}
+            </AlertDialog>
+          ) : (
+            <AlertDialog
+              variant="destructive"
+              title={
+                confirm.kind === 'remove' ? INSTALL.removeTitle(bundleName(confirm.bundle)) : INSTALL.discardTitle(bundleName(confirm.bundle))
+              }
+              primaryActionLabel={confirm.kind === 'remove' ? INSTALL.removeConfirm : INSTALL.discard}
+              cancelLabel={INSTALL.cancel}
+              onPrimaryAction={() => void confirmed(confirm)}>
+              {confirm.kind === 'remove'
+                ? [removalBody(removalEstimate(confirm.bundle, bundles)), confirm.bundle.added ? ADDED.removeAddedNote : null].filter(Boolean).join(' ')
+                : INSTALL.discardBody}
+            </AlertDialog>
+          )
         ) : null}
       </DialogContainer>
     </>
@@ -539,6 +631,7 @@ function BundleRow({
   onReenable,
   onInstall,
   onConfirm,
+  onUnlist,
 }: {
   bundle: ModelBundleStatus;
   name: string;
@@ -560,6 +653,8 @@ function BundleRow({
   onReenable: () => void;
   onInstall: (mode: InstallMode) => void;
   onConfirm: (kind: Confirm['kind']) => void;
+  /** 添加的、还没下载的模型：直接移出列表。 */
+  onUnlist: () => void;
 }) {
   const runtime = useRuntime();
   const [open, setOpen] = useState(false);
@@ -569,7 +664,10 @@ function BundleRow({
   const check = useBundleCheck(bundle, kind, jobs, ownFiles);
   // 浏览器里管不了安装（见 LocalModels）：下面的按钮置灰，检查状态与试用的提示里不给修复与重新检查；取消检查（`jobs.cancel`）照常。
   const web = runtime.host.platform === 'web';
-  const can = web ? NO_CHECK : check.can;
+  // 原地引用的本机文件不是下载来的：没有「修复」（设计稿 settings-local.jsx `m.inPlace`）。
+  const inPlace = inPlaceFile(bundle);
+  const can = web ? NO_CHECK : inPlace ? { ...check.can, repair: false } : check.can;
+  const flow = removeFlow(bundle, ownFiles);
   // 缺组件的（设计稿 settings-local.jsx 的 `half`）自动展开详情，看得到缺的是哪几件、各多大。
   const half = missingParts(bundle, ownFiles).length > 0;
   useEffect(() => {
@@ -688,8 +786,9 @@ function BundleRow({
   }
   // 「说话人区分」没有检查：⋯ 里只有修复（设计稿 settings-local.jsx）。
   const checkable = hasCheck(bundle);
-  if (actions.repair || check.can.recheck) {
-    const disabled = [...(checkBusy || !check.can.recheck ? ['check'] : []), ...(checkBusy || !check.can.repair ? ['repair'] : [])];
+  const canRepair = actions.repair && !inPlace;
+  if (canRepair || check.can.recheck) {
+    const disabled = [...(checkBusy || !check.can.recheck ? ['check'] : []), ...(checkBusy || !can.repair ? ['repair'] : [])];
     buttons.push(
       <MenuTrigger key="more">
         <ActionButton isQuiet size="S" isDisabled={web} aria-label={INSTALL.more(name)}>
@@ -705,20 +804,38 @@ function BundleRow({
               <Text slot="label">{CHECK_LABEL.checkFull}</Text>
             </MenuItem>
           ) : null}
-          <MenuItem id="repair" textValue={CHECK_LABEL.repair}>
-            <DownloadIcon />
-            <Text slot="label">{CHECK_LABEL.repair}</Text>
-            <Text slot="description">{CHECK_LABEL.repairSub}</Text>
-          </MenuItem>
+          {canRepair ? (
+            <MenuItem id="repair" textValue={CHECK_LABEL.repair}>
+              <DownloadIcon />
+              <Text slot="label">{CHECK_LABEL.repair}</Text>
+              <Text slot="description">{CHECK_LABEL.repairSub}</Text>
+            </MenuItem>
+          ) : null}
         </Menu>
       </MenuTrigger>,
     );
   }
-  if (actions.remove) {
+  // 删除（设计稿 settings-local.jsx）：添加的模型删完一并移出列表；原地引用的本机文件只移出列表（确认框写明文件留在哪）；
+  // 添加了还没下载的直接移出列表。
+  if (flow === 'remove' || flow === 'remove-unlist') {
     buttons.push(
       <ActionButton key="remove" isQuiet size="S" isDisabled={web} aria-label={`${LOCAL_COPY.remove} ${name}`} onPress={() => onConfirm('remove')}>
         <DeleteIcon />
       </ActionButton>,
+    );
+  } else if (flow === 'unlist-in-place' || flow === 'unlist') {
+    buttons.push(
+      <TooltipTrigger key="unlist" placement="top" delay={300}>
+        <ActionButton
+          isQuiet
+          size="S"
+          isDisabled={web}
+          aria-label={`${ADDED.unlist} ${name}`}
+          onPress={() => (flow === 'unlist' ? onUnlist() : onConfirm('unlist-in-place'))}>
+          <DeleteIcon />
+        </ActionButton>
+        <Tooltip>{ADDED.unlist}</Tooltip>
+      </TooltipTrigger>,
     );
   }
 
@@ -726,12 +843,14 @@ function BundleRow({
   const size = speech ? installedBytes(bundle) : null;
   const weights = bundle.license ?? model?.local?.license ?? music?.local?.license ?? null;
   const license = kind !== 'transcribe' ? weights : null;
-  const restricted = license && !license.commercialUse ? license : null;
+  // 不可商用与商用待核实（添加的 audio.cpp 模型）的都写一行许可提要。
+  const restricted = license && license.commercialUse !== true ? license : null;
   // 详情的「许可」一行：所有类都列权重的许可，再加上与它不同或要署名的组件（设计稿 settings-local.jsx `lics`）。
   const licenses = licenseLines(bundle, weights);
   const engine = model ? familyDesc(model) : null;
   // 下载时放在了模型目录以外（下载确认框的「存放位置」）：写明在哪，更改模型目录时它不跟着走。
   const storedAt = storedAtText(bundle);
+  const source = addedSource(bundle);
 
   return (
     <div className={modelRow} id={speech ? quickAnchor(id) : undefined}>
@@ -747,7 +866,9 @@ function BundleRow({
         <div className={modelMain}>
           <div className={modelName}>
             <span className={modelId}>{name}</span>
-            <Chips chips={kind !== 'transcribe' ? ttsChips(bundle, isDefault, ownFiles) : bundleChips(bundle, isDefault, ownFiles)} />
+            <Chips
+              chips={[...(kind !== 'transcribe' ? ttsChips(bundle, isDefault, ownFiles) : bundleChips(bundle, isDefault, ownFiles)), ...addedChips(bundle)]}
+            />
           </div>
           {brief ? <div className={modelSummary}>{brief.summary}</div> : null}
           <div className={modelFacts}>
@@ -758,6 +879,11 @@ function BundleRow({
           {storedAt ? (
             <div className={modelFacts} title={bundleLocation(bundle) ?? undefined}>
               {storedAt}
+            </div>
+          ) : null}
+          {inPlace ? (
+            <div className={modelFacts} title={inPlace}>
+              {ADDED.inPlace(inPlace)}
             </div>
           ) : null}
         </div>
@@ -831,6 +957,12 @@ function BundleRow({
             <li className={detailLine}>
               <span className={detailKey}>{TTS.engine}</span>
               <span>{engine}</span>
+            </li>
+          ) : null}
+          {source ? (
+            <li className={detailLine}>
+              <span className={detailKey}>{ADDED.sourceKey}</span>
+              <span className={detailLink}>{source}</span>
             </li>
           ) : null}
           {licenses.map((line) => (

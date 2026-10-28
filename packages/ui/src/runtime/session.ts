@@ -968,6 +968,22 @@ export class RuntimeSession {
     return this.client.request('models.remove', { bundleId });
   }
 
+  /** audio.cpp 能添加的模型族（添加对话框的列表）与自己指定文件时能选的族（架构设计 §6.3）。 */
+  async listAddableModels(): Promise<import('@baocut/protocol').RpcMethods['models.addable']['result']> {
+    return this.client.request('models.addable', {});
+  }
+
+  /** 把 audio.cpp 目录里的一个包、Hugging Face 上的一个 GGUF 或这台电脑上的一个 GGUF 加进模型列表；本机文件原地引用、加完就装好。 */
+  async addModel(params: import('@baocut/protocol').ModelAddParams): Promise<import('@baocut/protocol').ModelBundleStatus> {
+    const { bundle } = await this.client.request('models.add', params);
+    return bundle;
+  }
+
+  /** 把添加的模型移出列表：下载的文件要先删掉（否则 `MODEL_INSTALLED`）；原地引用的本机文件不动。 */
+  async unlistModel(bundleId: string): Promise<void> {
+    await this.client.request('models.unlist', { bundleId });
+  }
+
   /** 检查：固定样本走一遍完整流程，返回任务 ID；结论记在模型包的 `selfTest` 上。 */
   async testModelBundle(bundleId: string): Promise<Id> {
     const { jobId } = await this.client.request('models.test', { bundleId, commandId: newId('cmd') });

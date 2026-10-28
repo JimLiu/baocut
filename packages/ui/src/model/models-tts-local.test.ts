@@ -1,3 +1,4 @@
+import type { SpeechModelInfo } from '@baocut/protocol';
 import { describe, expect, it } from 'vitest';
 import { localDefaultChoice, localDefaultPicker } from './models-local.ts';
 import { bundle, fixtureView } from './models-test-fixtures.ts';
@@ -75,6 +76,16 @@ describe('ttsBrief', () => {
     });
     expect(ttsBrief(VOXCPM2).facts).toEqual(['内置音色 / 克隆', '风格指令', '语言不限', '48 kHz']);
     expect(ttsBrief({ ...QWEN_BASE, languages: ['zh', 'en'] }).facts[1]).toBe('中 / 英');
+  });
+
+  it('添加的模型：没有内置音色时按说话人写；按自由描述造声的不写「挑性别、年龄、音高」', () => {
+    const speakers = QWEN_CUSTOM.voices;
+    expect(ttsBrief({ ...QWEN_BASE, voices: speakers, voiceModes: ['preset', 'clone', 'describe'] })).toMatchObject({
+      summary: '9 个预设音色，选一个就能念',
+      facts: ['内置音色 / 克隆 / 描述', '中 / 英 / 日 / 韩 等 10 种语言', '24 kHz'],
+    });
+    const free = { ...QWEN_BASE, voiceModes: ['preset', 'clone', 'describe'] as SpeechModelInfo['voiceModes'] };
+    expect(ttsBrief({ ...free, local: { ...free.local!, voiceDescription: { kind: 'free' } } }).summary).toBe('八只内置音色，或用一段录音克隆声音');
   });
 
   it('情绪控制这一版带不了：IndexTTS 行上不写「情绪可调」', () => {

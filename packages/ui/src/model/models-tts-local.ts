@@ -52,14 +52,17 @@ export function ttsBrief(model: SpeechModelInfo): TtsBrief {
   const describe = model.voiceModes.includes('describe');
   let summary: string;
   let mode: string;
+  // 简介按预设从哪来写：内置音色（随应用的参考录音）或模型自带的说话人。添加的模型可能是说话人加克隆、描述，这时照说话人写，
+  // 方式一句照旧列全；「挑性别、年龄、音高」只说按封闭词表描述的模型（OmniVoice）。
+  const vocabulary = local?.voiceDescription?.kind === 'vocabulary';
   if (kind === 'clone' && describe) {
-    summary = M.summaryCloneDescribe(builtins, !!local?.maxDurationSec);
+    summary = builtins === 0 ? M.summaryPreset(speakers, style) : vocabulary ? M.summaryCloneDescribe(builtins, !!local?.maxDurationSec) : M.summaryClone(builtins, style);
     mode = M.modeCloneDescribe;
   } else if (kind === 'clone') {
-    summary = M.summaryClone(builtins, style);
+    summary = builtins === 0 ? M.summaryPreset(speakers, style) : M.summaryClone(builtins, style);
     mode = M.modeClone;
   } else if (kind === 'describe') {
-    summary = M.summaryDescribe(builtins);
+    summary = builtins === 0 ? M.summaryPreset(speakers, style) : M.summaryDescribe(builtins);
     mode = M.modeDescribe;
   } else {
     summary = M.summaryPreset(speakers, style);
@@ -80,9 +83,9 @@ export function installedBytes(bundle: Pick<ModelBundleStatus, 'components'>): n
   return comps.reduce((sum, c) => sum + (c.bytes ?? 0), 0);
 }
 
-/** 只许非商业用途的许可（行上标「仅限非商用」，下载前要让人看到）；可商用的给 null。 */
+/** 只许非商业用途的许可（行上标「仅限非商用」，下载前要让人看到）；可商用与商用待核实（`commercialUse: null`）的给 null。 */
 export function nonCommercial(license: ModelLicense | undefined | null): ModelLicense | null {
-  return license && !license.commercialUse ? license : null;
+  return license && license.commercialUse === false ? license : null;
 }
 
 /** 许可地址里的上游主（huggingface.co/k2-fsa/OmniVoice → k2-fsa），找不到就写许可名。 */
@@ -95,8 +98,10 @@ export function licenseOwner(license: Pick<ModelLicense, 'url' | 'name'>): strin
   }
 }
 
-/** 许可提要一行（设计稿 `ttsLicenseBrief`）：「CC-BY-NC-4.0 · 只许非商业用途 · 商用要向 k2-fsa 另行申请」。 */
+/** 许可提要一行（设计稿 `ttsLicenseBrief`）：「CC-BY-NC-4.0 · 只许非商业用途 · 商用要向 k2-fsa 另行申请」；商用待核实的写许可名与提要。 */
 export function licenseBrief(license: ModelLicense): string {
+  // 商用待核实（添加的 audio.cpp 模型，许可表写「有条件」「不明」）：Runtime 给的提要已经写清楚，照它写。
+  if (license.commercialUse === null) return `${license.name} · ${license.summary}`;
   return license.commercialUse ? M.licenseCommercial(license.name) : M.licenseNonCommercial(license.name, licenseOwner(license));
 }
 

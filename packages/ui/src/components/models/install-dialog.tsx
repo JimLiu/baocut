@@ -5,7 +5,9 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { DOWNLOAD_SOURCE_COPY as SRC, endpointKey, kindTitle } from '../../model/download-source.ts';
 import { CHECK_LABEL } from '../../model/model-check-copy.ts';
 import { installFolderView, installPlanView, problemText, rpcProblem } from '../../model/models-install.ts';
-import { licenseBrief, nonCommercial } from '../../model/models-tts-local.ts';
+import { licenseFlag } from '../../model/models-added.ts';
+import { M as ADDED } from '../../model/models-added-copy.ts';
+import { licenseBrief } from '../../model/models-tts-local.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
@@ -147,7 +149,8 @@ export function InstallDialog({
   };
 
   const size = view?.amount ?? '';
-  const restricted = mode === 'install' ? nonCommercial(license) : null;
+  // 下载前要让人看到的许可：只许非商用的，与商用待核实的（添加的 audio.cpp 模型，许可表写「有条件」「不明」）。
+  const restricted = mode === 'install' && licenseFlag(license) ? license : null;
   return (
     <DialogContainer onDismiss={onClose}>
       <Dialog size="M">
@@ -233,7 +236,7 @@ export function InstallDialog({
                           </p>
                           <p className={text}>{licenseBrief(restricted)}</p>
                           <p className={fine}>{restricted.url}</p>
-                          <p className={text}>{licenseUse}</p>
+                          <p className={text}>{restricted.commercialUse === null ? ADDED.licenseCheckUse : licenseUse}</p>
                         </div>
                       ) : null}
                     </>

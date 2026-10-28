@@ -102,7 +102,9 @@ export function componentDesc(component: string): string | null {
  * 组件从哪里下载（详情里组件那一行）：GitHub 发布页的（embedding 模型包的 LiteRT-LM C 库）写「GitHub 发布 <仓库> <标签>」，标签原样；
  * 模型仓库的写 `<仓库>@<提交前 7 位>`。
  */
-export function componentSource(c: Pick<ModelComponentStatus, 'repo' | 'revision' | 'origin'>): string {
+export function componentSource(c: Pick<ModelComponentStatus, 'repo' | 'revision' | 'origin' | 'file'>): string {
+  // 原地引用的本机文件（添加的 audio.cpp 模型）：写文件在哪，没有仓库与版本。
+  if (c.origin === 'local-file') return c.file ?? c.repo;
   return c.origin === 'github-release' ? M.githubRelease(c.repo, c.revision) : `${c.repo}@${c.revision.slice(0, 7)}`;
 }
 
