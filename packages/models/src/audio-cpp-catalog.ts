@@ -6,6 +6,7 @@ import { AUDIO_CPP_RELEASE } from './audio-cpp-engine.ts';
 import type { BundleDefinition, MusicBundleProfile, SpeechBundleProfile } from './bundle-registry.ts';
 import { AUDIO_CPP_CATALOG_DATA } from './audio-cpp-catalog.data.ts';
 import { YUE2_3B_Q8 } from './music-bundles.ts';
+import { SPEECH_BUNDLES } from './speech-bundles.ts';
 import type { RepoManifestSpec } from './repo-manifests.ts';
 
 /**
@@ -257,8 +258,9 @@ export function catalogBundle(packageId: string): AddedBundle | null {
     // 一个文件的包交给引擎那个文件；多个文件的（权重、分词表、声音、配件……）交给包的根目录，引擎在里面按自己的布局找（上游的
     // 服务配置示例就是给目录）。
     const file = files.length === 1 ? files[0]!.path : pkg.root;
+    const sibling = family.packages.find((p) => p.root === pkg.root && builtinSpeech(p.id) !== null);
     return {
-      definition: speechDefinition(catalogBundleId(pkg.id), label, license, family, source, file, manifest.estimatedBytes),
+      definition: speechDefinition(catalogBundleId(pkg.id), label, license, family, source, file, manifest.estimatedBytes, sibling?.id ?? null),
       manifest,
       info: { kind: 'catalog', family: family.family, familyName: family.name, source: pkg.id },
     };
@@ -277,6 +279,7 @@ function speechDefinition(
   source: AddedSource,
   file: string,
   bytes: number,
+  variant: string | null,
 ): BundleDefinition {
   return {
     bundleId,
@@ -286,8 +289,56 @@ function speechDefinition(
     components: { tts: source },
     label,
     license,
-    speech: genericSpeechProfile(family, file, bytes),
+    speech: (variant !== null ? variantProfile(variant, family, file, bytes) : null) ?? genericSpeechProfile(family, file, bytes),
   };
+}
+
+/** 内置合成模型包的特性，按上游包 ID；不是内置的给 null。 */
+function builtinSpeech(packageId: string): SpeechBundleProfile | null {
+  const bundleId = BUILTIN_PACKAGES[packageId];
+  return (bundleId && SPEECH_BUNDLES.find((d) => d.bundleId === bundleId)?.speech) || null;
+}
+
+/**
+ * 同一个模型（上游同一个根目录，或本机文件认出的那一个）已经内置时，用内置那只的特性，只换权重文件：上游按族列请求参数与声音，
+ * 一族里的几个模型（Qwen3-TTS 的 Base、CustomVoice、VoiceDesign）合在一起，按族配的特性会给 Base 配上 CustomVoice 的说话人。
+ * 比内置的权重大一半以上（BF16、原始精度）时标慢。
+ */
+function variantProfile(packageId: string, family: AudioCppCatalogFamily, file: string, bytes: number): SpeechBundleProfile | null {
+  const builtin = builtinSpeech(packageId);
+  if (!builtin || builtin.engine.family !== family.family) return null;
+  const builtinBytes = family.packages.find((p) => p.id === packageId)?.files.reduce((sum, f) => sum + f.size, 0) ?? bytes;
+  return { ...builtin, engine: { ...builtin.engine, file }, slow: builtin.slow || bytes > builtinBytes * 1.5 };
+}
+
+/** Qwen3-TTS 文件里上游 `config.json` 的 `tts_model_type` → 同一种的内置包。 */
+const QWEN3_TTS_VARIANTS: Readonly<Record<string, string>> = {
+  base: 'qwen3_tts_1_7b_base_q8_0',
+  custom_voice: 'qwen3_tts_1_7b_customvoice_q8_0',
+  voice_design: 'qwen3_tts_1_7b_voicedesign_q8_0',
+};
+
+/**
+ * 本机 GGUF 是哪一只内置模型的别的精度（添加时读文件头，`gguf-header.ts`）：`general.name` 加 `-GGUF` 是某个内置包的根目录时
+ * 就是它；Qwen3-TTS 另看打包进文件的 `config.json` 的 `tts_model_type`。认不出时 null，按族配通用的特性。
+ */
+export function localVariant(familyId: string, header: { name: string | null; config: string | null }): string | null {
+  const family = catalogFamily(familyId);
+  if (!family) return null;
+  if (header.name) {
+    const root = `${header.name}-GGUF`;
+    const hit = family.packages.find((p) => p.root === root && builtinSpeech(p.id) !== null);
+    if (hit) return hit.id;
+  }
+  if (family.family === 'qwen3_tts' && header.config) {
+    try {
+      const type = (JSON.parse(header.config) as { tts_model_type?: unknown }).tts_model_type;
+      if (typeof type === 'string' && QWEN3_TTS_VARIANTS[type]) return QWEN3_TTS_VARIANTS[type]!;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 /** 加载后约慢于实时的大模型：界面提示耗时。没有逐个实测，按存储大小划线（内置的 1.7B Q8 约 2 GB，标的是慢）。 */
@@ -399,10 +450,24 @@ export function repoFileBundle(entry: RepoFileEntry, bundleId: string): AddedBun
   };
   const source = { family: 'audio-cpp-gguf' as const, repo, revision: entry.revision };
   return {
-    definition: speechDefinition(bundleId, entry.label, customLicense(), family, source, entry.path, entry.size),
+    definition: speechDefinition(bundleId, entry.label, customLicense(), family, source, entry.path, entry.size, repoFileVariant(entry)),
     manifest,
     info: { kind: 'repo-file', family: family.family, familyName: family.name, source: `${entry.repo}/${entry.path}` },
   };
+}
+
+/**
+ * Hugging Face 上的文件是哪一只内置模型的别的精度：添加时还没下载、读不到文件头，只看它所在的目录或仓库名是不是某个内置包的
+ * 根目录（上游的 `audio-cpp/audio.cpp-gguf` 与常见的转换仓库都按 `<模型名>-GGUF` 命名）。
+ */
+function repoFileVariant(entry: Pick<RepoFileEntry, 'family' | 'repo' | 'path'>): string | null {
+  for (const dir of [path.posix.basename(path.posix.dirname(entry.path)), entry.repo.split('/').pop() ?? '']) {
+    if (dir.endsWith('-GGUF')) {
+      const variant = localVariant(entry.family, { name: dir.slice(0, -'-GGUF'.length), config: null });
+      if (variant) return variant;
+    }
+  }
+  return null;
 }
 
 /** 这台电脑上的一个 GGUF：原地引用，不复制。 */
@@ -412,6 +477,8 @@ export interface LocalFileEntry {
   path: string;
   size: number;
   label: string;
+  /** 添加时从文件头认出的内置模型（`localVariant`）；认不出时没有。 */
+  variant?: string;
 }
 
 export function localFileBundle(entry: LocalFileEntry, bundleId: string): AddedBundle | null {
@@ -424,7 +491,7 @@ export function localFileBundle(entry: LocalFileEntry, bundleId: string): AddedB
     local: { path: entry.path, size: entry.size },
   };
   return {
-    definition: speechDefinition(bundleId, entry.label, customLicense(), family, source, path.basename(entry.path), entry.size),
+    definition: speechDefinition(bundleId, entry.label, customLicense(), family, source, path.basename(entry.path), entry.size, entry.variant ?? null),
     manifest: null,
     info: { kind: 'local-file', family: family.family, familyName: family.name, source: entry.path },
   };

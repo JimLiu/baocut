@@ -13,11 +13,13 @@ import {
   customFamilies,
   idleReason,
   localFileBundle,
+  localVariant,
   packageFamily,
   repoFileBundle,
   type AddedBundle,
 } from './audio-cpp-catalog.ts';
 import { DEFAULT_MODELS_ENDPOINT, isModelScopeEndpoint } from './download-source.ts';
+import { readGgufHeader } from './gguf-header.ts';
 import type { ModelCatalog } from './model-catalog.ts';
 
 /**
@@ -32,7 +34,7 @@ export const ADDED_MODELS_FORMAT = 1;
 type Entry =
   | { kind: 'catalog'; packageId: string; addedAt: string }
   | { kind: 'repo-file'; bundleId: string; family: string; repo: string; revision: string; path: string; size: number; sha256: string; label: string; addedAt: string }
-  | { kind: 'local-file'; bundleId: string; family: string; path: string; size: number; label: string; addedAt: string };
+  | { kind: 'local-file'; bundleId: string; family: string; path: string; size: number; label: string; addedAt: string; variant?: string };
 
 /** 添加失败：`refused` 是参数本身不行（不认识、内置、用不上、不是 GGUF）；`unreachable` 是下载来源读不到；`conflict` 是此刻不能移出。 */
 export class ModelAddError extends Error {
@@ -170,6 +172,7 @@ export class AddedModels {
     const abs = path.resolve(file);
     if (!/\.gguf$/i.test(abs)) throw refused(M.notGguf());
     let size: number;
+    let variant: string | null = null;
     try {
       const stat = await fs.stat(abs);
       if (!stat.isFile()) throw new Error('not a file');
@@ -179,6 +182,12 @@ export class AddedModels {
         const head = Buffer.alloc(4);
         await handle.read(head, 0, 4, 0);
         if (!head.equals(GGUF_MAGIC)) throw refused(M.notGguf());
+        // 认出是哪一只内置模型的别的精度（读不懂文件头时按族配通用的特性，不拒绝）。
+        const header = await readGgufHeader(handle).catch(() => null);
+        if (header) {
+          const config = await header.embedded('config.json').catch(() => null);
+          variant = localVariant(family, { name: header.name, config: config?.toString('utf8') ?? null });
+        }
       } finally {
         await handle.close();
       }
@@ -187,7 +196,16 @@ export class AddedModels {
       throw refused(M.localUnreadable());
     }
     const bundleId = customBundleId(`local-file:${family}:${abs}`);
-    const entry: Entry = { kind: 'local-file', bundleId, family, path: abs, size, label: label?.trim() || baseName(abs), addedAt: this.#now() };
+    const entry: Entry = {
+      kind: 'local-file',
+      bundleId,
+      family,
+      path: abs,
+      size,
+      label: label?.trim() || baseName(abs),
+      addedAt: this.#now(),
+      ...(variant ? { variant } : {}),
+    };
     return this.#commit(entry, bundleOf(entry)!);
   }
 
@@ -262,7 +280,10 @@ function bundleOf(entry: Entry): AddedBundle | null {
   if (entry.kind === 'repo-file') {
     return repoFileBundle({ family: entry.family, repo: entry.repo, revision: entry.revision, path: entry.path, size: entry.size, sha256: entry.sha256, label: entry.label }, entry.bundleId);
   }
-  return localFileBundle({ family: entry.family, path: entry.path, size: entry.size, label: entry.label }, entry.bundleId);
+  return localFileBundle(
+    { family: entry.family, path: entry.path, size: entry.size, label: entry.label, ...(entry.variant ? { variant: entry.variant } : {}) },
+    entry.bundleId,
+  );
 }
 
 function baseName(file: string): string {
@@ -275,6 +296,13 @@ function isEntry(value: unknown): value is Entry {
   const str = (k: string) => typeof e[k] === 'string' && (e[k] as string).length > 0;
   if (e.kind === 'catalog') return str('packageId');
   if (e.kind === 'repo-file') return ['bundleId', 'family', 'repo', 'revision', 'path', 'sha256', 'label'].every(str) && typeof e.size === 'number';
-  if (e.kind === 'local-file') return ['bundleId', 'family', 'path', 'label'].every(str) && typeof e.size === 'number' && path.isAbsolute(e.path as string);
+  if (e.kind === 'local-file') {
+    return (
+      ['bundleId', 'family', 'path', 'label'].every(str) &&
+      typeof e.size === 'number' &&
+      path.isAbsolute(e.path as string) &&
+      (e.variant === undefined || str('variant'))
+    );
+  }
   return false;
 }

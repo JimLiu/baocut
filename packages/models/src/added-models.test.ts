@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AddedModels, ModelAddError } from './added-models.ts';
 import { ModelCatalog } from './model-catalog.ts';
+import { ggufBytes } from './testing/gguf-bytes.ts';
 
 const COMMIT = 'c'.repeat(40);
 const SHA = 'd'.repeat(64);
@@ -80,6 +81,8 @@ describe('AddedModels', () => {
     expect(status.license?.commercialUse).toBeNull();
     expect(status.components).toMatchObject([{ origin: 'local-file', file: gguf, state: 'installed', bytes: 64 }]);
     expect(await added.add({ source: 'local-file', family: 'qwen3_tts', path: gguf, label: 'again' })).toBe(id);
+    // 读不懂的文件头不拒绝，按族配通用的特性。
+    expect(JSON.parse(await fs.readFile(file, 'utf8')).entries[0].variant).toBeUndefined();
 
     await fs.appendFile(gguf, 'x');
     expect((await catalog.status(id))!.state).toBe('not-installed');
@@ -88,6 +91,28 @@ describe('AddedModels', () => {
     expect(await catalog.status(id)).toBeNull();
     expect((await fs.stat(gguf)).size).toBe(65);
     expect(JSON.parse(await fs.readFile(file, 'utf8')).entries).toEqual([]);
+  });
+
+  it('本机文件：从文件头认出是哪一只内置模型，记下来，按它的特性登记', async () => {
+    const gguf = path.join(root, 'base-bf16.gguf');
+    const config = '{"tts_model_type":"base"}';
+    await fs.writeFile(
+      gguf,
+      ggufBytes([
+        ['general.name', 'root'],
+        ['audiocpp.embedded_files.names', { strings: ['config.json'] }],
+        ['audiocpp.embedded_files.offsets', { u64: [0, config.length] }],
+        ['audiocpp.embedded_files.data', { bytes: Buffer.from(config) }],
+      ]),
+    );
+    const catalog = catalogOf();
+    const id = await open(catalog).add({ source: 'local-file', family: 'qwen3_tts', path: gguf });
+    expect(JSON.parse(await fs.readFile(file, 'utf8')).entries[0]).toMatchObject({ bundleId: id, variant: 'qwen3_tts_1_7b_base_q8_0' });
+    expect(catalog.definition(id)!.speech).toMatchObject({ presets: 'builtin-reference', engine: { file: 'base-bf16.gguf' } });
+    // 重启后按记下的登记。
+    const again = catalogOf();
+    open(again);
+    expect(again.definition(id)!.speech!.presets).toBe('builtin-reference');
   });
 
   it('本机文件：不是 GGUF 的拒绝', async () => {

@@ -8,6 +8,7 @@ import {
   genericSpeechProfile,
   idleReason,
   localFileBundle,
+  localVariant,
   repoFileBundle,
 } from './audio-cpp-catalog.ts';
 import { BUNDLES } from './bundle-registry.ts';
@@ -102,6 +103,40 @@ describe('audio.cpp 模型目录', () => {
     expect(local.definition.components.tts).toMatchObject({ revision: 'local', local: { path: '/a/b/v.gguf', size: 9 } });
     expect(local.definition.speech!.engine.file).toBe('v.gguf');
     expect(localFileBundle({ family: 'yue2', path: '/a.gguf', size: 1, label: 'a' }, 'custom-3@audio-cpp')).toBeNull();
+  });
+
+  it('内置模型的别的精度用内置那只的特性，只换权重文件：Qwen3-TTS Base 不带 CustomVoice 的说话人', () => {
+    const speech = (id: string) => catalogBundle(id)!.definition.speech!;
+    const base = speech('qwen3_tts_1_7b_base_bf16');
+    expect(base.presets).toBe('builtin-reference');
+    expect(base.speakers).toBeUndefined();
+    expect(base.voiceModes).toEqual(['preset', 'clone']);
+    expect(base.engine.file).toBe('Qwen3-TTS-12Hz-1.7B-Base-GGUF/qwen3-tts-12hz-1.7b-base-bf16.gguf');
+    expect(base.engine.options).toBeUndefined();
+    expect(base.slow).toBe(true);
+    const custom = speech('qwen3_tts_1_7b_customvoice_bf16');
+    expect(custom.presets).toBe('model');
+    expect(custom.speakers).toHaveLength(9);
+    expect(speech('qwen3_tts_1_7b_voicedesign_bf16').voiceModes).toContain('describe');
+    expect(speech('qwen3_tts_0_6b_base_bf16').presets).toBe('builtin-reference');
+    // 没有内置同门的包照旧按族配。
+    const other = addable.find(({ family, pkg }) => family.group === 'tts' && !family.packages.some((p) => p.state === 'builtin') && pkg)!;
+    expect(catalogBundle(other.pkg.id)!.definition.speech!.engine.options).toBeDefined();
+  });
+
+  it('自己指定的文件认出是哪一只内置模型：文件头的名字、Qwen3-TTS 的 tts_model_type、仓库里的目录名', () => {
+    expect(localVariant('qwen3_tts', { name: 'Qwen3-TTS-12Hz-0.6B-Base', config: null })).toBe('qwen3_tts_0_6b_base_q8_0');
+    expect(localVariant('qwen3_tts', { name: 'root', config: '{"tts_model_type":"custom_voice"}' })).toBe('qwen3_tts_1_7b_customvoice_q8_0');
+    expect(localVariant('qwen3_tts', { name: 'root', config: '{broken' })).toBeNull();
+    expect(localVariant('index_tts2', { name: 'IndexTTS2.5', config: null })).toBe('index_tts2_5_q8_0');
+    expect(localVariant('qwen3_tts', { name: 'IndexTTS2.5', config: null })).toBeNull();
+    const local = localFileBundle({ family: 'qwen3_tts', path: '/a/v.gguf', size: 9, label: 'v', variant: 'qwen3_tts_1_7b_base_q8_0' }, 'custom-4@audio-cpp')!;
+    expect(local.definition.speech).toMatchObject({ presets: 'builtin-reference', engine: { file: 'v.gguf' } });
+    const repo = (p: string, r = 'me/voice') =>
+      repoFileBundle({ family: 'qwen3_tts', repo: r, revision: 'a'.repeat(40), path: p, size: 9, sha256: 'b'.repeat(64), label: 'v' }, 'custom-5@audio-cpp')!.definition.speech!;
+    expect(repo('Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/x.gguf').presets).toBe('model');
+    expect(repo('x.gguf', 'me/Qwen3-TTS-12Hz-1.7B-Base-GGUF').presets).toBe('builtin-reference');
+    expect(repo('x.gguf').engine.options).toBeDefined();
   });
 
   it('添加的模型只发规格列出的请求参数：规格没有的语速、风格说明不发', () => {

@@ -503,6 +503,16 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
 
 **耗时提示**。本地 Provider 描述合成模型时问 `LocalSpeechProvider.backend()` 服务会用的后端（给了 `BAOCUT_AUDIOCPP_BACKEND` 就是它，否则与起服务时同一个、按路径缓存的 `--version` 结果；找不到引擎时不知道，null）。是 `cpu` 时每个合成模型的描述带 `notes`（与文生图同一个字段，按生成时的语言存文本）：在本机的 CPU 上合成、比用显卡慢得多，后面接这个模型包在 CPU 上的实测速度，没有实测的只说还没有实测，不按参数量推算。别的后端与不知道时不带。实测（2026-10-15，Apple M4，10 核、16 GB，服务 8 线程）：OmniVoice Q8 的耗时在 Metal 上约为音频长度的 1.35 倍，强制 `cpu` 时 8.8–9.2 倍（测时 load average 4.9–12；更忙时 10.8–14 倍），进程常驻 1.3–1.7 GB；别的模型族在 CPU 上未实测。架构设计 §6.5。
 
+#### 添加的模型
+
+用户从引擎的模型列表或自己指定的 GGUF 添加的模型包（架构设计 §6.3「添加 audio.cpp 模型」）走同一个引擎、同一套服务与命令行，差别只在登记：
+
+- **来源**。组件的来源族是 `audio-cpp-gguf`：从列表或 Hugging Face 添加的，下载与核对照 §4.2，清单是添加时从上游读出的文件、大小与 sha256；本机文件原地引用：组件的仓库名是 `audio-cpp-added/<模型包 ID 中 @ 之前的部分>`（只作标识，模型目录里没有这个目录），`origin: 'local-file'`，`file` 是那个绝对路径，引擎直接读它；不下载、不修复，文件不在或大小变了时组件是 `missing`，要重新添加。
+- **哪一份特性**。上游一个模型族常常包含几个变体（如 `qwen3_tts` 包含 Base、CustomVoice 与 VoiceDesign，规格里的说话人只属于 CustomVoice），所以按「哪个内置模型包」认，不按族认：列表里的包与某个内置包同一个上游仓库（`root`）时沿用那个内置包的特性，只换模型文件；Hugging Face 的文件按所在目录或仓库名（`…-GGUF`）认；本机文件读 GGUF 文件头，`general.name` 加 `-GGUF` 对上内置包的仓库时沿用它，Qwen3-TTS 再按文件里打包的 `config.json` 的 `tts_model_type`（`base`、`custom_voice`、`voice_design`）认变体，认出的变体记在添加记录里（`variant`）。文件比那个内置包大一半以上时标为慢。认不出的才用下面的通用特性。
+- **合成**。认不出变体的按上游规格配一份通用的特性（`packages/models/src/audio-cpp-catalog.ts` 的 `genericSpeechProfile`）：声音方式、说话人、语言、语速按规格写的取；规格只有「auto」「50+ languages」之类说法时语言不限，不发 `language`。请求只发规格列出的参数（`engine.options`），其余（含 `reference_text`）在发出前去掉，引擎遇到不认得的参数会报错；风格说明按引擎的写法交给 `instruct` 或接在正文前（`instructionsAs: 'prefix'`）。采样率以引擎输出的 WAV 头为准。
+- **音乐**。只有 `yue2` 族别的精度：请求同内置的 YuE2，主模型与 VAE 换成这个包的文件，峰值按主模型大小的差换算。
+- **检查与资源**同内置的合成、音乐模型包（§4.3 与上面两节）。
+
 ### 4.5 文本嵌入模型包与 LiteRT-LM
 
 本机语义检索（EmbeddingGemma 2 检索集成方案 v0.1）的模型包是 `embed` 能力、`litert-lm` backend，登记在 `@baocut/models` 的 `embedding-bundles.ts`。登记的设备 `cpu` 是向量的数值类别（FP32），进 `encoderProfileId`；实际设备按 §2.1 交 Worker 的首选设备（macOS 上 `metal`），见下文「加载」：
