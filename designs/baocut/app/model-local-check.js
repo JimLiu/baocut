@@ -108,6 +108,14 @@
     }),
   };
   const PROBLEM_KEYS = Object.keys(PROBLEMS);
+  /* 随应用附带的模型（BC_MODELSDIR.BUNDLED，例如人物定位）不是下载来的：文件坏了或结果不对，修复帮不上，要重装 BaoCut。
+     不是原型开关的一项，由 finish 按 `bundled` 从「模型文件损坏」「结果不对」换过来。 */
+  const bundledDamaged = (m) => ({
+    key: 'bundledDamaged', head: '检查没通过', fix: 'reinstall', code: 'APP_RESOURCE_CORRUPT',
+    text: `BaoCut 自带的「${m.name || m.id}」模型文件损坏了`,
+    todo: '重新安装 BaoCut 可以解决，已下载的模型不受影响。',
+    detail: [`${m.id} 随应用附带，校验不符`],
+  });
   /** 状态行与试用面板的主动作：修复帮得上给「修复…」。 */
   function fixAction(p) {
     if (p.fix === 'repair') return {k: 'repair', label: LABEL.repair, primary: true};
@@ -134,10 +142,12 @@
     {k: 'toolMissing', label: '没有 ffmpeg（语音合成）'},
   ];
 
-  /** 跑完一次检查后的状态。`demo` 是原型开关的值；`at` 是毫秒时间戳。 */
-  function finish(demo, m, cat, at) {
+  /** 跑完一次检查后的状态。`demo` 是原型开关的值；`at` 是毫秒时间戳；`opt.bundled`：随应用附带的模型，
+   *  文件损坏、结果不对都按应用自己的文件坏了说（修复帮不上，要重装）。 */
+  function finish(demo, m, cat, at, opt) {
     if (!demo || demo === 'pass' || !PROBLEMS[demo]) return {phase: 'passed', at};
     if (demo === 'toolMissing' && !NEEDS_FFMPEG.includes(cat)) return {phase: 'passed', at};
+    if (opt && opt.bundled && (demo === 'modelDamaged' || demo === 'wrongOutput')) return {phase: 'failed', at, problem: bundledDamaged(m || {})};
     return {phase: 'failed', at, problem: problem(demo, m, cat)};
   }
 

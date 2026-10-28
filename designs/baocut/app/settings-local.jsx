@@ -101,6 +101,8 @@
     const lics = LM.licenseLines(m, comps);
     // 说话人区分包自己不跑任务，没有检查：行上与 ⋯ 里都不给（修复照常）
     const checkable = !m.pack;
+    // 随应用附带（BC_MODELSDIR.BUNDLED，人物定位）：不在模型目录、不是下载来的，没有删除、修复与下载地址；坏了要重装 BaoCut
+    const bundled = MD.BUNDLED.indexOf(m.id) >= 0;
 
     // 下载进度在 store（app.modelDl，后台任务跟着它走）；公共组件那一行借这只模型补齐时显示同一个进度
     // 下载与补齐都先过下载确认框（download-dialog.jsx）：大小、来源（可就地换），确认后才下
@@ -120,7 +122,7 @@
         p += 6;
         if (p < 100) { setCheck({phase: 'checking', pct: p}); return; }
         clearInterval(ckTimer.current);
-        setCheck(CK.finish(demo, m, cat, Date.now()));
+        setCheck(CK.finish(demo, m, cat, Date.now(), {bundled}));
       }, 120);
     };
     const repair = () => app.confirm({
@@ -158,6 +160,7 @@
               {half ? <Chip tone="notice">缺 {lack.map((x) => x.name).join('、')}</Chip> : null}
               {lic ? <Chip tone="notice">仅限非商用</Chip> : null}
               {m.added ? <Chip>已添加</Chip> : null}
+              {bundled ? <Chip>内置</Chip> : null}
               {m.added && AC.licenseFlag(m.license) === 'check' ? <Chip tone="notice">商用待核实</Chip> : null}
             </span>
             {brief ? (
@@ -169,6 +172,7 @@
             {lic ? <span className="t-detail-xs">{window.ttsLicenseBrief(lic)}</span> : null}
             {away ? <span className="t-detail-xs lmrow__away" title={away}>存放在 {MD.shorten(away, 44)} · 不在模型目录</span> : null}
             {m.inPlace ? <span className="t-detail-xs lmrow__away" title={m.path}>原地引用 {MD.shorten(m.path, 44)} · 不在模型目录，没复制</span> : null}
+            {bundled ? <span className="t-detail-xs lmrow__away">随 BaoCut 附带 · 不在模型目录，随应用更新</span> : null}
           </span>
           {pct >= 0 ? <div className="lmrow__pg"><Progress value={pct} /></div> : (
             <>
@@ -194,11 +198,11 @@
                       <Menu>
                         {checkable ? <MenuItem icon={CK.CHECK_ICON} label={CK.LABEL.checkFull} disabled={!ready || checkBusy}
                           onClick={() => { setPop(false); runCheck(); }} /> : null}
-                        {/* 原地引用的本机文件不是下载来的：没有「重新下载」和下载地址 */}
-                        {m.inPlace ? null : <MenuItem icon="download" label={CK.LABEL.repair} sub={CK.LABEL.repairSub} disabled={checkBusy}
+                        {/* 原地引用的本机文件与随应用附带的模型都不是下载来的：没有「重新下载」和下载地址 */}
+                        {m.inPlace || bundled ? null : <MenuItem icon="download" label={CK.LABEL.repair} sub={CK.LABEL.repairSub} disabled={checkBusy}
                           onClick={() => { setPop(false); repair(); }} />}
-                        {m.inPlace ? null : <MenuRule />}
-                        {m.inPlace ? null : <MenuItem icon="copy" label="复制下载地址" sub="按当前生效的源拼"
+                        {m.inPlace || bundled ? null : <MenuRule />}
+                        {m.inPlace || bundled ? null : <MenuItem icon="copy" label="复制下载地址" sub="按当前生效的源拼"
                           onClick={() => { setPop(false); app.toast('已复制下载地址'); }} />}
                         <MenuItem icon="folder" label="复制本地路径"
                           onClick={() => { setPop(false); app.toast('已复制路径'); }} />
@@ -207,7 +211,7 @@
                       </Menu>
                     </Popover>
                   </div>
-                  <IconBtn icon="trash" size="s" tip={m.inPlace ? '从列表移除' : '删除'} onClick={() => onRemove(m)} />
+                  {bundled ? null : <IconBtn icon="trash" size="s" tip={m.inPlace ? '从列表移除' : '删除'} onClick={() => onRemove(m)} />}
                 </>
               ) : null}
             </>
@@ -273,9 +277,10 @@
             ) : null}
             {/* 下载地址：权重的仓库；只有这只模型用的组件来源不同时各加一行（来自 GitHub 发布页的组件写版本；audio.cpp 引擎随应用内置，不在这里） */}
             <div className="lmrow__dl">
-              <span className="t-detail-xs lmrow__dt">{m.inPlace ? '文件位置' : '下载地址'}</span>
+              <span className="t-detail-xs lmrow__dt">{m.inPlace ? '文件位置' : bundled ? '来源' : '下载地址'}</span>
               <div className="grow">
-                <div className="t-mono t-detail-xs lmrow__repo">{m.repo}{m.file ? ' · ' + m.file : m.nfiles > 1 ? ` · ${m.nfiles} 个文件` : ''}{m.revision && m.revision !== 'main' ? ' @ ' + m.revision : ''}</div>
+                {bundled ? <div className="t-detail-xs">随 BaoCut 附带 · 上游 <span className="t-mono lmrow__repo">{m.repo}</span></div> : null}
+                {bundled ? null : <div className="t-mono t-detail-xs lmrow__repo">{m.repo}{m.file ? ' · ' + m.file : m.nfiles > 1 ? ` · ${m.nfiles} 个文件` : ''}{m.revision && m.revision !== 'main' ? ' @ ' + m.revision : ''}</div>}
                 {own.filter((c) => (c.release || c.repo) !== m.repo).map((c) => (
                   <div key={c.id} className="t-detail-xs">
                     {c.name} · <span className="t-mono lmrow__repo">{c.release ? 'GitHub 发布 ' + c.release : c.repo}</span>

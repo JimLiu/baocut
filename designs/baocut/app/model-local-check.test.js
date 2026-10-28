@@ -124,6 +124,21 @@ test('原型开关：录音读不出只在用了自己的录音时成立', () =>
   assert.deepEqual(C.CHECK_DEMOS.map((d) => d.k), ['pass'].concat(C.PROBLEM_KEYS));
 });
 
+test('随应用附带的模型：文件坏了或结果不对，不给「修复…」，让人重装 BaoCut；别的原因照常', () => {
+  const person = {id: 'vision-person', name: '人物定位', repo: 'opencv/opencv_zoo', size: 6.4};
+  ['modelDamaged', 'wrongOutput'].forEach((k) => {
+    const st = C.finish(k, person, 'vision', NOW, {bundled: true});
+    assert.equal(st.problem.key, 'bundledDamaged', k);
+    const v = C.lineView(st, 'vision', NOW);
+    assert.match(v.text, /BaoCut 自带的「人物定位」/, k);
+    assert.match(v.todo, /重新安装 BaoCut/, k);
+    assert.deepEqual(v.actions.map((a) => a.k), ['recheck', 'details'], k);
+  });
+  assert.equal(C.finish('noMemory', person, 'vision', NOW, {bundled: true}).problem.key, 'noMemory');
+  assert.equal(C.finish('modelDamaged', person, 'vision', NOW).problem.key, 'modelDamaged', '没标 bundled 照旧');
+  assert.equal(C.finish('pass', person, 'vision', NOW, {bundled: true}).phase, 'passed');
+});
+
 test('音乐模型：检查与试听同一套说法，没有引擎专属的问题或动作（引擎是模型包的组件）', () => {
   const music = {id: 'yue2-3b', size: 4608};
   assert.deepEqual(C.PROBLEM_KEYS.filter((k) => /engine/i.test(k)), []);
