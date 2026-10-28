@@ -81,11 +81,7 @@
         "note": "背景：柏林墙"
       }
     ],
-    "capabilities": [
-      "generateMusic",
-      "generateSoundEffect",
-      "generateVideo"
-    ],
+    "capabilities": [],
     "outcome": "partial",
     "output": {
       "ratio": "16:9",
