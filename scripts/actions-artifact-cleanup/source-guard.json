@@ -1,0 +1,30 @@
+{
+  ".github/workflows/desktop-windows-publish.yml": [
+    "ed1deb0455a3d536eaf51a7220abf9051f6cbe7f"
+  ],
+  ".github/workflows/tests.yml": [
+    "fab9401d4d9fe2cd338158faf805ca17d1232fdc"
+  ],
+  ".github/workflows/desktop-macos.yml": [
+    "4c307870f08f92d4b70fd868d7eb3bae7c0b0c46"
+  ],
+  ".github/workflows/desktop-release.yml": [
+    "927d2978f69b5a23ec140f22050085ff02a1ba34"
+  ],
+  ".github/workflows/desktop-windows.yml": [
+    "9ae539ab06e89c45201abbb7fbd053391a577197"
+  ],
+  ".github/workflows/desktop-macos-build.yml": [
+    "7b8aec8f858828905db18588377bbae43755528c",
+    "9929a168023eb593932b355b051fc0e1e1c7e928"
+  ],
+  "apps/desktop/tools/macos-release.mjs": [
+    "17caa280287321428d6582d00ddbd9ea6500c079"
+  ],
+  "apps/desktop/tools/windows-release.mjs": [
+    "852a2f260743ad0dc620450decc5031883cb694e"
+  ],
+  "apps/desktop/tools/desktop-release-rules.mjs": [
+    "9900882a1d59926534bc899a26a85c40572ed328"
+  ]
+}

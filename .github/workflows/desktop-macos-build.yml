@@ -90,5 +90,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: baocut-desktop-macos-arm64
+          # Keep retry inputs for 14 days; cleanup separately enforces a 7-day rollback window.
+          retention-days: 14
           path: ${{ runner.temp }}/mac-release-public/*
           if-no-files-found: error
