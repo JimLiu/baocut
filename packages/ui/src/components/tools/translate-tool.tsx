@@ -9,7 +9,7 @@ import { toolRequest, translateFileParams, translateModelOptions, translateVideo
 import { defaultTargetLang, DUPLICATE_TITLE, duplicateNote, langLabel, pick, sourceDocument, targetLangs, type PickerRow } from '../../model/tool-targets.ts';
 import { modelReason, saveTarget } from '../../model/tool-frame.ts';
 import { inputKindOf } from '../../model/tool-space-input.ts';
-import { findOption, initialModelKey, type ToolModelOption } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import { baseName } from '../../model/tools-transcribe.ts';
 import { sameLanguage } from '../../model/translate-setup.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -53,7 +53,7 @@ export function useTextModel(saved: string | null): {
   return useMemo(() => {
     if (!view) return { ready: false, options: [], option: null };
     const options = translateModelOptions(view);
-    return { ready: true, options, option: findOption(options, initialModelKey(options, saved, view.generateText.effective ?? null)) };
+    return { ready: true, options, option: findOption(options, initialModelKey(options, saved, view.generateText.effective ?? null, withoutCaution)) };
   }, [view, saved]);
 }
 

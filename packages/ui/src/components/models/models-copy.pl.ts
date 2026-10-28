@@ -78,7 +78,7 @@ export const pl: ModelsMessages = {
       synthesizeSpeech: "Przyjmuje tekst i zwraca mowę. Dostępne przy generowaniu mowy i lektora; online i płatne, zwykle za znak.",
       generateImage:
         "Przyjmuje prompt i zwraca obraz. Dostępne przy generowaniu obrazów; online, płatne za obraz. Codex CLI też rysuje bez klucza, korzystając z abonamentu Codex. Przełącznik jest na pierwszej karcie dostawców poniżej.",
-      generateText: "Przyjmuje instrukcje tekstowe i zwraca tekst. Używane do tłumaczenia napisów, tłumaczonego lektora i Narzędzia › Generuj tekst; online, płatne za token.",
+      generateText: 'Przyjmuje instrukcje tekstowe i zwraca tekst. Używane do tłumaczenia napisów, tłumaczonego lektora i Narzędzia › Generuj tekst; online, płatne za token. Codex CLI też potrafi pisać: bez klucza, korzysta z Twojej subskrypcji Codex. Przełącznik jest na karcie Codex pod listą dostawców.',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: "Domyślny model mowy w chmurze",
@@ -105,6 +105,8 @@ export const pl: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Obrazy",
     codexItemDesc: "Abonament Codex · jeden obraz naraz · 5–10× wolniej",
+    codexTextItem: 'Codex CLI · Tekst',
+    codexTextItemDesc: 'Abonament Codex · jedno żądanie naraz · wolniej niż API',
     unavailable: "Niedostępne",
     pickerEmpty: { image: "Połącz dostawcę lub włącz obrazy Codex, aby wybrać", other: "Podłącz dostawcę, aby wybrać" },
     defaultSet: "Zmieniono model domyślny",
@@ -183,9 +185,10 @@ export const pl: ModelsMessages = {
   codexCard: {
     title: "Codex CLI",
     on: "Włączone · abonament Codex, bez klucza · jeden obraz naraz · ignoruje rozmiar · 5–10× wolniej",
-    off: "Wyłączone · włącz, aby wybierać przy generowaniu obrazów i jako domyślny model",
+    onText: 'Włączone · abonament Codex, bez klucza · jedno żądanie naraz · bez ustawienia intensywności rozumowania · wolniej niż API',
+    off: 'Wyłączone · włącz, aby wybierać przy generowaniu obrazów i tekstu oraz jako domyślny model',
     missing: "Nie znaleziono Codex · zainstaluj Codex CLI i zaloguj się przed rysowaniem.",
-    switchLabel: "Rysuj z Codex",
+    switchLabel: 'Codex do obrazów i tekstu',
     toggleFailed: (enabled: boolean, message: string) => `Nie udało się ${enabled ? "wł." : "wył."} obrazy Codex: ${message}`,
   },
   key: {

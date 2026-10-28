@@ -312,7 +312,17 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
       }),
       ...(options.remote ? [options.remote] : []),
       online,
-      ...(options.agents ? [new AgentProviderSource({ ...options.agentProviders, store, drivers: options.agents, usage })] : []),
+      ...(options.agents
+        ? [
+            new AgentProviderSource({
+              textWorkRoot: path.join(home.stagingDir, 'agent-text'),
+              ...options.agentProviders,
+              store,
+              drivers: options.agents,
+              usage,
+            }),
+          ]
+        : []),
     ],
   });
   // 授权账本先于任务账本打开：任务账本对账时要结算上次没结束的预留。

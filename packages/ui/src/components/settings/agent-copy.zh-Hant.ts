@@ -121,8 +121,8 @@ export const zhHant: AgentMessages = {
   },
 
   codexImage: {
-    title: '用 Codex 繪圖',
-    body: '不需要金鑰，使用你的 Codex 訂閱；一次一張、忽略尺寸與品質；比 API 慢 5–10 倍。開啟後它排在圖片生成自動選擇的第一位：工具頁、bcut image 與 Agent 都會使用它，除非你在模型 › 圖像生成中另外設定了預設模型。Codex 以 API key 而不是 ChatGPT 登入時可能無法生成，也不會被自動選中。',
+    title: '用 Codex 繪圖和寫文字',
+    body: '不需要金鑰，使用你的 Codex 訂閱；一次一張、忽略尺寸與品質；比 API 慢 5–10 倍。開啟後它排在圖片生成自動選擇的第一位：工具頁、bcut image 與 Agent 都會使用它，除非你在模型 › 圖像生成中另外設定了預設模型。Codex 以 API key 而不是 ChatGPT 登入時可能無法生成，也不會被自動選中。同一個開關也讓 Codex 寫文字：一次一個請求、比 API 慢，只在你從文字模型選單中選它，或在模型 › 文字生成中把它設為預設時使用。',
     checking: '正在檢查這台電腦上的 Codex 能否繪圖…',
     on: '已開啟',
     period: '。',
@@ -132,10 +132,10 @@ export const zhHant: AgentMessages = {
     notInstalled: '找不到 Codex · 繪圖前請先安裝 Codex CLI 並登入。',
     unavailable: (detail: string | null) =>
       detail ? `Codex 目前無法繪圖 · ${detail}` : 'Codex 目前無法繪圖 · 按一下「重新檢查」再試一次。',
-    turnedOn: '已開啟「用 Codex 繪圖」 · 影像生成的模型選單中已加入 Codex',
-    turnedOff: '已關閉「用 Codex 繪圖」',
+    turnedOn: '已開啟「用 Codex 繪圖和寫文字」 · 影像生成與文字生成的模型選單中已加入 Codex',
+    turnedOff: '已關閉「用 Codex 繪圖和寫文字」',
     toggleFailed: (enabled: boolean, message: string) =>
-      enabled ? `無法開啟「用 Codex 繪圖」：${message}` : `無法關閉「用 Codex 繪圖」：${message}`,
+      enabled ? `無法開啟「用 Codex 繪圖和寫文字」：${message}` : `無法關閉「用 Codex 繪圖和寫文字」：${message}`,
   },
 
   faq: [

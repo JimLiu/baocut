@@ -46,8 +46,10 @@ export interface ProviderSource {
   transcriber(providerId: string): TranscribeProvider | null;
   /** 执行 `synthesizeSpeech` / `generateImage` 的实现；这个 Provider 不提供这种能力时 null。没有生成能力的来源可以不实现。 */
   generator?(providerId: string, capability: GenerationCapability): GenerationProvider | null;
-  /** 执行 `generateText` 的实现（任务与进程内调用共用）；这个 Provider 不提供时 null。只有在线来源实现。 */
+  /** 执行 `generateText` 的实现（任务与进程内调用共用）；这个 Provider 不提供时 null。在线来源与智能体来源实现。 */
   textProvider?(providerId: string): TextProvider | null;
+  /** 这个 Provider 的文本调用并发上限：比能力参数的 `concurrency` 小时取它（智能体是 1）。不实现时只看能力参数。 */
+  textConcurrency?(providerId: string): number;
   queue(providerId: string, modelId: string): ProviderQueue;
   /** 所有转写执行者：停止时关闭，重新启用模型包时通知。 */
   executors(): TranscribeProvider[];

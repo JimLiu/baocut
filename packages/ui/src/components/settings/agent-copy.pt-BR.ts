@@ -137,8 +137,8 @@ export const ptBR: AgentMessages = {
 
 
   codexImage: {
-    title: "Desenhar com Codex",
-    body: 'Não precisa de chave; usa sua assinatura do Codex. Uma imagem por vez, ignora tamanho e qualidade e é 5–10× mais lento que a API. Ativado, ele vem primeiro na escolha automática para gerar imagens: a página da ferramenta, o bcut image e os Agents o usam, a menos que você defina outro modelo padrão em Modelos › Geração de imagens. Se o Codex estiver conectado com uma chave de API em vez do ChatGPT, pode não gerar imagens e não é escolhido automaticamente.',
+    title: 'Usar Codex para imagens e texto',
+    body: 'Não precisa de chave; usa sua assinatura do Codex. Uma imagem por vez, ignora tamanho e qualidade e é 5–10× mais lento que a API. Ativado, ele vem primeiro na escolha automática para gerar imagens: a página da ferramenta, o bcut image e os Agents o usam, a menos que você defina outro modelo padrão em Modelos › Geração de imagens. Se o Codex estiver conectado com uma chave de API em vez do ChatGPT, pode não gerar imagens e não é escolhido automaticamente. O mesmo botão também deixa o Codex escrever texto: uma solicitação por vez, mais lento que uma API, e só é usado quando você o escolhe em um menu de modelos de texto ou o define como padrão em Modelos › Geração de texto.',
     checking: "Verificando se Codex local desenha…",
     on: "Ativado",
 
@@ -149,10 +149,10 @@ export const ptBR: AgentMessages = {
     notInstalled: "Codex ausente · instale CLI e entre antes de desenhar.",
     unavailable: (detail: string | null) =>
       detail ? `Codex não pode desenhar agora · ${detail}` : "Codex não pode desenhar · clique “Verificar novamente”.",
-    turnedOn: "Desenhar com Codex ativado · agora no menu de modelos de imagem",
-    turnedOff: "Desenhar com Codex desativado",
+    turnedOn: 'Codex para imagens e texto ativado · agora nos menus de modelos de imagem e de texto',
+    turnedOff: 'Codex para imagens e texto desativado',
     toggleFailed: (enabled: boolean, message: string) =>
-      enabled ? `Não foi possível ativar Desenhar com Codex: ${message}` : `Não foi possível desativar Desenhar com Codex: ${message}`,
+      enabled ? `Não foi possível ativar Codex para imagens e texto: ${message}` : `Não foi possível desativar Codex para imagens e texto: ${message}`,
   },
 
 

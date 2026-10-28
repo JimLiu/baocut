@@ -153,12 +153,13 @@ const en = {
   },
 
   /**
-   * 「用 Codex 画图」那一行（settings-agent-provider.jsx:103-119）。打开后它排在生图出厂顺序的第一位（架构设计 §6.2，2026-10-12
-   * 用户裁决）：工具页、`bcut image` 与会话里 Agent 不指定模型时用它；菜单里的名字是 Provider 自己的「Codex」。
+   * 「用 Codex 画图和写文字」那一行（settings-agent-provider.jsx 的 CodexImageRow）。打开后它排在生图出厂顺序的第一位（架构设计
+   * §6.2，2026-10-12 用户裁决）：工具页、`bcut image` 与会话里 Agent 不指定模型时用它；菜单里的名字是 Provider 自己的「Codex」。
+   * 同一个开关也管文本生成（§6.9）：文本生成没有出厂默认，只在用户选它或把它设成默认时用。
    */
   codexImage: {
-    title: 'Draw with Codex',
-    body: "No key needed; uses your Codex subscription. One image at a time, ignores size and quality, and 5–10× slower than the API. Once on, it comes first in the automatic choice for image generation: the tool page, bcut image and Agents use it unless you set another default model under Models › Image generation. If Codex is signed in with an API key instead of ChatGPT, drawing may not work and it isn't picked automatically.",
+    title: 'Use Codex for images and text',
+    body: "No key needed; uses your Codex subscription. One image at a time, ignores size and quality, and 5–10× slower than the API. Once on, it comes first in the automatic choice for image generation: the tool page, bcut image and Agents use it unless you set another default model under Models › Image generation. If Codex is signed in with an API key instead of ChatGPT, drawing may not work and it isn't picked automatically. The same switch lets Codex write text too: one request at a time, slower than an API, and used only when you choose it in a text model menu or set it as the default under Models › Text generation.",
     checking: 'Checking whether Codex on this computer can draw…',
     on: 'On',
     /** 补在 Provider 给的原因后面的句号（原因已经以句号结尾就不补）。 */
@@ -169,10 +170,10 @@ const en = {
     notInstalled: "Codex wasn't found · Install Codex CLI and sign in before drawing.",
     unavailable: (detail: string | null) =>
       detail ? `Codex can't draw right now · ${detail}` : "Codex can't draw right now · Click “Check again” to try again.",
-    turnedOn: 'Turned on Draw with Codex · Codex is now in the image generation model menu',
-    turnedOff: 'Turned off Draw with Codex',
+    turnedOn: 'Turned on Codex for images and text · Codex is now in the image and text generation model menus',
+    turnedOff: 'Turned off Codex for images and text',
     toggleFailed: (enabled: boolean, message: string) =>
-      enabled ? `Couldn't turn on Draw with Codex: ${message}` : `Couldn't turn off Draw with Codex: ${message}`,
+      enabled ? `Couldn't turn on Codex for images and text: ${message}` : `Couldn't turn off Codex for images and text: ${message}`,
   },
 
   /** 常见问题（page-settings-agent.jsx:142-157）。`link` 是答案下面那颗按钮。 */

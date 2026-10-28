@@ -1,3 +1,5 @@
+import path from 'node:path';
+import os from 'node:os';
 import type { AgentDriver } from '@baocut/harness';
 import type {
   DescribeMode,
@@ -6,6 +8,7 @@ import type {
   ModelServiceStore,
   ProviderQueue,
   ProviderSource,
+  TextProvider,
   TranscribeProvider,
   UsageLedger,
 } from '@baocut/models';
@@ -23,9 +26,12 @@ import {
   type ProviderConfigView,
   type ProviderUnavailableReason,
   type ProviderView,
+  type TextModelInfo,
 } from '@baocut/protocol';
-import { usageErrorOf } from '../usage-reporter.ts';
-import { AgentImageGenerator, type AgentReadiness } from './agent-image-generator.ts';
+import { usageErrorOf, type CallReporter } from '../usage-reporter.ts';
+import { AgentImageGenerator } from './agent-image-generator.ts';
+import { AgentTextGenerator } from './agent-text-generator.ts';
+import type { AgentReadiness } from './agent-turn.ts';
 import { ProvidersAgent as PA, ProvidersConfig as PC } from '@baocut/protocol/messages/providers';
 
 /** 智能体 Provider 的配置视图：只有开关与启用时间，不用密钥（`credential: 'none'`），没有账号（§6.8）。 */
@@ -54,11 +60,13 @@ export interface AgentSourceOptions {
   probeMaxAgeMs?: number;
   /** 一次生成的期限（毫秒，默认 10 分钟）。 */
   turnTimeoutMs?: number;
+  /** 文本生成的会话工作目录放在这里（每个 Provider 一个子目录，每次调用一个新的空目录）；默认系统临时目录下的 `baocut-agent-text`。 */
+  textWorkRoot?: string;
   /** 用量账本（§6.10）：智能体 Provider 的调用同样记录，`accountId` 为 null；订阅登录时费用记为订阅内，否则未知。 */
   usage?: UsageLedger;
 }
 
-/** 一个智能体 Provider 的定义。首版只有 `agent:codex` 的 `generateImage`。 */
+/** 一个智能体 Provider 的定义。首版只有 `agent:codex`：`generateImage` 与 `generateText`。 */
 interface AgentProviderDefinition {
   driverId: DriverId;
   label: string;
@@ -66,15 +74,22 @@ interface AgentProviderDefinition {
   minVersion: string;
   /**
    * 探测到的账号是不是订阅（Codex 是 ChatGPT 登录）。不是时 Provider 照样可用，但模型描述的 `cost` 为 `unknown`、`notes` 换成
-   * `paidNotes`，出厂默认跳过它（§6.2、§6.9）。
+   * 各能力的 `paidNotes`，生图的出厂默认跳过它（§6.2、§6.9）。
    */
   subscribed: (info: DriverProbe) => boolean;
-  paidNotes: () => string;
   upgradeHint: Localized;
-  model: ImageModelInfo;
-  instructions: string;
-  turnText: (prompt: string) => string;
-  outputName: string;
+  image: {
+    model: ImageModelInfo;
+    paidNotes: () => string;
+    instructions: string;
+    turnText: (prompt: string) => string;
+    outputName: string;
+  };
+  /** 文本生成：任务说明在 `AgentTextGenerator` 里（与 Agent 无关）。 */
+  text: {
+    model: TextModelInfo;
+    paidNotes: () => string;
+  };
 }
 
 const CODEX_OUTPUT = 'output.png';
@@ -85,41 +100,65 @@ const CODEX: AgentProviderDefinition = {
   minVersion: '0.158.0',
   // Driver 的账号描述带着引用：`driversCodex.chatgptAccount` 是 ChatGPT 登录（codex-binary.ts `codexAccount`）。
   subscribed: (info) => info.accountRef?.key === 'driversCodex.chatgptAccount',
-  paidNotes: () => PA.codexImageNotesApiKey().text,
   get upgradeHint() {
     return PA.codexUpgradeHint();
   },
-  model: {
-    modelId: 'image-gen',
-    get label() {
-      return PA.codexImageModel().text;
+  image: {
+    model: {
+      modelId: 'image-gen',
+      get label() {
+        return PA.codexImageModel().text;
+      },
+      default: true,
+      sizes: [],
+      aspectRatios: [],
+      defaultSize: null,
+      maxCount: 1,
+      maxPromptChars: 4000,
+      formats: ['png'],
+      defaultFormat: 'png',
+      referenceImages: null,
+      img2img: null,
+      acceptsSeed: false,
+      cost: 'subscription',
+      get notes() {
+        return PA.codexImageNotes().text;
+      },
     },
-    default: true,
-    sizes: [],
-    aspectRatios: [],
-    defaultSize: null,
-    maxCount: 1,
-    maxPromptChars: 4000,
-    formats: ['png'],
-    defaultFormat: 'png',
-    referenceImages: null,
-    img2img: null,
-    acceptsSeed: false,
-    cost: 'subscription',
-    get notes() {
-      return PA.codexImageNotes().text;
-    },
+    paidNotes: () => PA.codexImageNotesApiKey().text,
+    instructions: [
+      'You are running as a non-interactive image generation backend. Nobody reads your reply and nobody can approve anything.',
+      'Task: generate exactly one image for the prompt in the user message, using your built-in image generation tool.',
+      'Do not draw the image with code, do not download images from the internet, and do not ask questions.',
+      `Save the generated image as a PNG file named ${CODEX_OUTPUT} in the current working directory. If the tool saved it elsewhere, copy it to ./${CODEX_OUTPUT}.`,
+      'Do not create, modify or delete any other file, and do not touch anything outside the current working directory.',
+      `If you cannot generate the image, do not write ${CODEX_OUTPUT}; reply with one sentence saying why.`,
+    ].join('\n'),
+    turnText: (prompt) => `Image prompt (use it as given):\n${prompt}`,
+    outputName: CODEX_OUTPUT,
   },
-  instructions: [
-    'You are running as a non-interactive image generation backend. Nobody reads your reply and nobody can approve anything.',
-    'Task: generate exactly one image for the prompt in the user message, using your built-in image generation tool.',
-    'Do not draw the image with code, do not download images from the internet, and do not ask questions.',
-    `Save the generated image as a PNG file named ${CODEX_OUTPUT} in the current working directory. If the tool saved it elsewhere, copy it to ./${CODEX_OUTPUT}.`,
-    'Do not create, modify or delete any other file, and do not touch anything outside the current working directory.',
-    `If you cannot generate the image, do not write ${CODEX_OUTPUT}; reply with one sentence saying why.`,
-  ].join('\n'),
-  turnText: (prompt) => `Image prompt (use it as given):\n${prompt}`,
-  outputName: CODEX_OUTPUT,
+  text: {
+    model: {
+      modelId: 'text-gen',
+      get label() {
+        return PA.codexTextModel().text;
+      },
+      default: true,
+      // 实际的模型由 Codex 与账号决定：上下文与输出上限按 Codex 常用模型的量级给，只用于提交时的粗查。
+      contextTokens: 400_000,
+      maxOutputTokens: 128_000,
+      efforts: [],
+      defaultEffort: null,
+      structuredOutput: true,
+      acceptsTemperature: false,
+      acceptsSeed: false,
+      cost: 'subscription',
+      get notes() {
+        return PA.codexTextNotes().text;
+      },
+    },
+    paidNotes: () => PA.codexTextNotesApiKey().text,
+  },
 };
 
 const DEFINITIONS: Record<string, AgentProviderDefinition> = { [`${AGENT_PROVIDER_PREFIX}codex`]: CODEX };
@@ -137,21 +176,23 @@ function unavailable(reason: ProviderUnavailableReason, detail: Localized): Avai
 }
 
 /**
- * 智能体 Provider 来源（架构设计 §6.9）：本机已安装并登录的智能体运行时，经它的 Driver 作为一个图片 Provider。
- * 首版只有 `agent:codex`（`generateImage`），只在注册了 Codex Driver 时列出。
+ * 智能体 Provider 来源（架构设计 §6.9）：本机已安装并登录的智能体运行时，经它的 Driver 作为图片与文本 Provider。
+ * 首版只有 `agent:codex`（`generateImage`、`generateText`），只在注册了 Codex Driver 时列出。两种能力共用一个开关与可用性。
  *
  * - 可用性按顺序：Driver 没有安装（`not-installed`）、没有登录（`signed-out`）、别的不可用（`unsupported`）、版本低于
  *   最低版本（`outdated`）、用户没有启用（`not-configured`）。前三样的说明来自 Driver 的探测。
  * - 配置只有开关：Codex 生图默认启用，已保存的开关优先；没有密钥、端点与模型声明（用的是智能体运行时自己的登录）。
- * - 账号不是订阅（Codex 用 API key 等登录）时照样可用，模型描述的 `cost` 为 `unknown` 并说明可能画不了；出厂默认跳过它（§6.2）。
+ * - 账号不是订阅（Codex 用 API key 等登录）时照样可用，模型描述的 `cost` 为 `unknown` 并换上对应的说明；生图的出厂默认跳过它
+ *   （§6.2）。文本生成没有出厂默认，只在用户选了它时用。
  * - 探测：`probe` 总是问 Driver（Driver 注册表短时缓存）；`select` 与 `view` 在用户启用了它时问 Driver，没启用时用
  *   最近一次的结果，一次也没探测过就只报告没有启用——不为没启用的 Provider 去启动外部命令。
- * - 每个 Provider 一个队列，同时只运行 1 个任务。
+ * - 生图每个 Provider 一个队列，同时只运行 1 个任务；文本生成的并发上限也是 1（`textConcurrency`），与生图各排各的。
  */
 export class AgentProviderSource implements ProviderSource {
   readonly kind = 'agent' as const;
   readonly #options: AgentSourceOptions;
   readonly #generators = new Map<string, AgentImageGenerator>();
+  readonly #texts = new Map<string, AgentTextGenerator>();
   /** 最近一次探测到的 Driver 状态。 */
   readonly #lastInfo = new Map<DriverId, DriverProbe>();
 
@@ -181,10 +222,9 @@ export class AgentProviderSource implements ProviderSource {
     const definition = DEFINITIONS[providerId];
     if (!definition || !this.#driver(definition)) return null;
     const { availability, info } = await this.#availability(providerId, definition, mode);
-    const model: ImageModelInfo = { ...definition.model };
-    if (availability.available && info && !definition.subscribed(info)) Object.assign(model, { cost: 'unknown', notes: definition.paidNotes() });
-    const capability: ProviderCapability<ImageModelInfo> = {
-      models: [model],
+    const paid = availability.available && info !== null && !definition.subscribed(info);
+    const capabilityOf = <M extends ImageModelInfo | TextModelInfo>(model: M, paidNotes: () => string): ProviderCapability<M> => ({
+      models: [paid ? { ...model, cost: 'unknown', notes: paidNotes() } : { ...model }],
       available: availability.available,
       ...(availability.available
         ? {}
@@ -193,14 +233,17 @@ export class AgentProviderSource implements ProviderSource {
             detail: availability.detail,
             ...(availability.detailRef ? { detailRef: availability.detailRef } : {}),
           }),
-    };
+    });
     return {
       providerId,
       kind: 'agent',
       label: definition.label,
       vendor: { kind: 'agent', icon: 'codex' },
       config: agentConfigView(this.#options.store.configView(providerId)),
-      capabilities: { generateImage: capability },
+      capabilities: {
+        generateImage: capabilityOf(definition.image.model, definition.image.paidNotes),
+        generateText: capabilityOf(definition.text.model, definition.text.paidNotes),
+      },
     };
   }
 
@@ -218,30 +261,33 @@ export class AgentProviderSource implements ProviderSource {
         label: definition.label,
         // 执行时再确认一次：排队期间被停用、退出登录或卸载的，不再开会话。
         ready: () => this.#readiness(providerId, definition),
-        instructions: definition.instructions,
-        turnText: definition.turnText,
-        outputName: definition.outputName,
+        instructions: definition.image.instructions,
+        turnText: definition.image.turnText,
+        outputName: definition.image.outputName,
         turnTimeoutMs: this.#options.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS,
-        report: (report) => {
-          void this.#options.usage?.append({
-            at: new Date().toISOString(),
-            providerId,
-            accountId: null,
-            capability: report.capability,
-            modelId: report.modelId,
-            source: report.source,
-            ...(report.ref ? { ref: report.ref } : {}),
-            units: report.units,
-            cost: report.cost ?? { kind: 'unknown' },
-            durationMs: Math.max(0, Date.now() - report.startedAt),
-            status: report.error === undefined ? 'ok' : 'error',
-            ...(report.error !== undefined ? { error: usageErrorOf(report.error) } : {}),
-          });
-        },
+        report: this.#reporter(providerId),
       });
       this.#generators.set(providerId, generator);
     }
     return generator;
+  }
+
+  textProvider(providerId: string): TextProvider | null {
+    const definition = DEFINITIONS[providerId];
+    if (!definition || !this.#driver(definition)) return null;
+    let text = this.#texts.get(providerId);
+    if (!text) {
+      text = new AgentTextGenerator({
+        providerId,
+        label: definition.label,
+        ready: () => this.#readiness(providerId, definition),
+        workRoot: path.join(this.#options.textWorkRoot ?? path.join(os.tmpdir(), 'baocut-agent-text'), definition.driverId),
+        turnTimeoutMs: this.#options.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS,
+        report: this.#reporter(providerId),
+      });
+      this.#texts.set(providerId, text);
+    }
+    return text;
   }
 
   generators(): GenerationProvider[] {
@@ -253,11 +299,16 @@ export class AgentProviderSource implements ProviderSource {
     return { key: providerId, concurrency: 1 };
   }
 
+  /** 文本生成同样一次一个（任务与进程内调用合计），不管能力参数的 `concurrency` 设成多少。 */
+  textConcurrency(_providerId: string): number {
+    return 1;
+  }
+
   executors(): TranscribeProvider[] {
     return [];
   }
 
-  /** 只接受开关。启用即同意把提示词（与参考图）发给这个智能体运行时登录的账号。 */
+  /** 只接受开关。启用即同意把提示词（与参考图、文本生成的消息）发给这个智能体运行时登录的账号。 */
   async configure(request: ConfigureProviderRequest): Promise<void> {
     const id = request.providerId;
     const definition = DEFINITIONS[id];
@@ -271,6 +322,26 @@ export class AgentProviderSource implements ProviderSource {
   }
 
   // ---- 内部 ----
+
+  /** 调用结束时写一条用量记录（§6.10）：没有账号；订阅登录时费用记为订阅内，否则未知。 */
+  #reporter(providerId: string): CallReporter {
+    return (report) => {
+      void this.#options.usage?.append({
+        at: new Date().toISOString(),
+        providerId,
+        accountId: null,
+        capability: report.capability,
+        modelId: report.modelId,
+        source: report.source,
+        ...(report.ref ? { ref: report.ref } : {}),
+        units: report.units,
+        cost: report.cost ?? { kind: 'unknown' },
+        durationMs: Math.max(0, Date.now() - report.startedAt),
+        status: report.error === undefined ? 'ok' : 'error',
+        ...(report.error !== undefined ? { error: usageErrorOf(report.error) } : {}),
+      });
+    };
+  }
 
   #driver(definition: AgentProviderDefinition): AgentDriver | null {
     try {

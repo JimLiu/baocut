@@ -136,7 +136,8 @@ export function CapabilityProviders({ view, capability }: { view: ModelCapabilit
   const connected = useConnection((s) => s.state.status === 'connected');
   const go = useShell((s) => s.go);
   const configure = useConfigureProvider();
-  const codex = useCodexImage(capability === 'generateImage');
+  const codexCapability = capability === 'generateImage' || capability === 'generateText' ? capability : null;
+  const codex = useCodexImage(!!codexCapability, codexCapability ?? undefined);
   const probes = useProbeRuns();
   const [probe, setProbe] = useState<ProbeTarget | null>(null);
   const [query, setQuery] = useState('');
@@ -289,7 +290,9 @@ export function CapabilityProviders({ view, capability }: { view: ModelCapabilit
           </div>
         </div>
       )}
-      {capability === 'generateImage' ? <CodexImageCard codex={codex} isDefault={defaultRef?.providerId === CODEX_IMAGE_PROVIDER} /> : null}
+      {codexCapability ? (
+        <CodexImageCard codex={codex} capability={codexCapability} isDefault={defaultRef?.providerId === CODEX_IMAGE_PROVIDER} />
+      ) : null}
       {probe ? (
         <ProbeDialog
           capability={probe.capability}

@@ -253,6 +253,24 @@ describe('默认模型菜单', () => {
     expect(picker.sections.at(-1)!.items[0]).toMatchObject({ label: 'Codex CLI · 画图（不可用）', description: 'Codex 还没有登录' });
   });
 
+  it('文本档：Codex 能写时最后多一项（模型 text-gen）；画不了也写不了时不列，也不算能选', () => {
+    const view = fixtureView();
+    const copy = { ...COPY, codex: 'Codex CLI · 文字' };
+    let picker = cloudDefaultPicker(view, 'generateText', { ready: true, why: null }, copy);
+    expect(picker.sections.at(-1)!.items).toEqual([{ key: 'agent:codex/text-gen', label: 'Codex CLI · 文字', description: '用你的 Codex 订阅' }]);
+
+    view.generateText.providers = [];
+    picker = cloudDefaultPicker(view, 'generateText', { ready: true, why: null }, copy);
+    expect(picker.empty).toBe(false);
+    picker = cloudDefaultPicker(view, 'generateText', { ready: false, why: 'Codex 还没有登录' }, copy);
+    expect(picker.empty).toBe(true);
+    expect(picker.sections.some((s) => s.items.some((i) => i.key === 'agent:codex/text-gen'))).toBe(false);
+
+    // 语音合成没有 Codex：给了状态也不列。
+    picker = cloudDefaultPicker(fixtureView(), 'synthesizeSpeech', { ready: true, why: null }, COPY);
+    expect(picker.sections.some((s) => s.items.some((i) => i.key.startsWith('agent:')))).toBe(false);
+  });
+
   it('默认指向不可用的服务商（如删掉的自建）时照样列出、勾着，不替用户清', () => {
     const view = fixtureView();
     view.synthesizeSpeech.default = { providerId: 'custom:gone', modelId: 'tts-9' };

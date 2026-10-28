@@ -21,4 +21,9 @@ export const zhHant: ProvidersAgentMessages = {
   unknownError: '未知錯誤',
   processExited: '行程已結束',
   turnNotStarted: (p) => `這一輪沒有開始：${p.error}`,
+  codexTextModel: "Codex 文字生成（模型由 Codex 和你的帳號決定）",
+  codexTextNotes:
+    "使用這台電腦上已登入的 Codex 帳號生成文字：一次只執行一個請求，每次開一個新的 Codex 工作階段，比 API 慢。無法指定推理強度、temperature、seed 和輸出長度。會使用你的訂閱額度，剩餘額度不明。開啟即表示同意將提示詞（包括其中的逐字稿等內容）傳送到你的 Codex 帳號。",
+  codexTextNotesApiKey:
+    "Codex 以 API key 等非 ChatGPT 訂閱方式登入：費用記在該帳號上、不在訂閱內。一次只執行一個請求；推理強度、temperature、seed 與輸出長度不能指定。",
 };

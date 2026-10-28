@@ -116,8 +116,8 @@ export const tr: AgentMessages = {
   },
 
   codexImage: {
-    title: "Codex ile görsel oluştur",
-    body: 'Anahtar gerekmez; Codex aboneliğinizi kullanır. Tek seferde bir görsel, boyut ve kaliteyi yok sayar, API’den 5–10 kat yavaştır. Açıldığında görsel oluşturmanın otomatik seçiminde ilk sıradadır: Modeller › Görsel oluşturma altında başka bir varsayılan model ayarlamadıkça araç sayfası, bcut image ve Agent’lar bunu kullanır. Codex’e ChatGPT yerine API anahtarıyla giriş yapıldıysa çizim çalışmayabilir ve otomatik seçilmez.',
+    title: 'Görsel ve metin için Codex',
+    body: 'Anahtar gerekmez; Codex aboneliğinizi kullanır. Tek seferde bir görsel, boyut ve kaliteyi yok sayar, API’den 5–10 kat yavaştır. Açıldığında görsel oluşturmanın otomatik seçiminde ilk sıradadır: Modeller › Görsel oluşturma altında başka bir varsayılan model ayarlamadıkça araç sayfası, bcut image ve Agent’lar bunu kullanır. Codex’e ChatGPT yerine API anahtarıyla giriş yapıldıysa çizim çalışmayabilir ve otomatik seçilmez. Aynı anahtar Codex’in metin yazmasını da sağlar: tek seferde bir istek, bir API’den yavaş; yalnızca bir metin modeli menüsünde seçtiğinizde veya Modeller › Metin oluşturma altında varsayılan yaptığınızda kullanılır.',
     checking: "Bu bilgisayardaki Codex ile görsel oluşturulabildiği denetleniyor…",
     on: "Açık",
     period: '.',
@@ -126,9 +126,9 @@ export const tr: AgentMessages = {
     signedOut: "Codex henüz oturum açmadı · görsel oluşturma Codex hesabınızı kullanır; açmadan önce oturum açın.",
     notInstalled: "Codex bulunamadı · görsel oluşturmadan önce Codex CLI yükleyin ve oturum açın.",
     unavailable: (detail) => detail ? `Codex şu anda görsel oluşturamıyor · ${detail}` : 'Codex şu anda görsel oluşturamıyor · yeniden denemek için “Yeniden denetle” düğmesine tıklayın.',
-    turnedOn: "Codex ile görsel oluştur açıldı · Codex artık görsel oluşturma model menüsünde",
-    turnedOff: "Codex ile görsel oluştur kapatıldı",
-    toggleFailed: (enabled,message) => `Codex ile görsel oluştur ${enabled ? 'açılamadı' : 'kapatılamadı'}: ${message}`,
+    turnedOn: 'Görsel ve metin için Codex açıldı · Codex artık görsel ve metin oluşturma model menülerinde',
+    turnedOff: 'Görsel ve metin için Codex kapatıldı',
+    toggleFailed: (enabled,message) => `Görsel ve metin için Codex ${enabled ? 'açılamadı' : 'kapatılamadı'}: ${message}`,
   },
 
   faq: [

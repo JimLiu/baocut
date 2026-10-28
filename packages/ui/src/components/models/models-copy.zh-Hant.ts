@@ -76,7 +76,7 @@ export const zhHant: ModelsMessages = {
       synthesizeSpeech: '接收文字並傳回語音。生成語音與配音時可以使用；需連上網路並計費，通常按字元計費。',
       generateImage:
         '接收提示詞並傳回圖片。生成圖片時可以使用；需連上網路並按張計費。Codex CLI 也能繪圖：不需要金鑰，使用你的 Codex 訂閱。它的開關在下方供應商清單的第一張卡片上。',
-      generateText: '接收文字指令並傳回生成的文字。用於字幕翻譯、翻譯配音與「工具 › 文字生成」；需連上網路並依 token 計費。',
+      generateText: '接收文字指令並傳回生成的文字。用於字幕翻譯、翻譯配音與「工具 › 文字生成」；需連上網路並依 token 計費。Codex CLI 也能寫：不需要金鑰，使用你的 Codex 訂閱；開關在服務商清單下方的 Codex 卡片上。',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: '預設雲端語音模型',
@@ -108,6 +108,8 @@ export const zhHant: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · 圖片',
     codexItemDesc: '使用你的 Codex 訂閱 · 一次一張 · 慢 5–10 倍',
+    codexTextItem: 'Codex CLI · 文字',
+    codexTextItemDesc: '使用你的 Codex 訂閱 · 一次一個請求 · 比 API 慢',
     unavailable: '無法使用',
     pickerEmpty: { image: '連接供應商或開啟 Codex 圖片後即可選擇', other: '連接供應商後即可選擇' },
     defaultSet: '已變更預設模型',
@@ -193,9 +195,10 @@ export const zhHant: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: '已開啟 · 使用你的 Codex 訂閱，不需要金鑰 · 一次一張 · 忽略尺寸 · 慢 5–10 倍',
-    off: '已關閉 · 開啟後即可在生成圖片中選擇它，並在這裡設為預設模型',
+    onText: '已開啟 · 使用你的 Codex 訂閱，不需要金鑰 · 一次一個請求 · 無法設定推理強度 · 比 API 慢',
+    off: '已關閉 · 開啟後即可在生成圖片、生成文字中選擇它，並在這裡設為預設模型',
     missing: '找不到 Codex · 用它繪圖前，請先安裝並登入 Codex CLI。',
-    switchLabel: '用 Codex 繪圖',
+    switchLabel: '用 Codex 繪圖和寫文字',
     toggleFailed: (enabled: boolean, message: string) => `無法${enabled ? '開啟' : '關閉'} Codex 圖片：${message}`,
   },
   key: {

@@ -168,7 +168,7 @@
     if (e.family === 'agent') {
       return <div className="aicard aicard--warn">
         <b>Codex 画图还不能用 · {e.why}</b>
-        <span>不用密钥，用你装好并登录的 Codex（≥ {IM.CODEX_MIN_VER}）；在设置 › Agent 的 Codex 卡上打开「用 Codex 画图」。</span>
+        <span>不用密钥，用你装好并登录的 Codex（≥ {IM.CODEX_MIN_VER}）；在设置 › Agent 的 Codex 卡上打开「用 Codex 画图和写文字」。</span>
         <div className="row gap8" style={{marginTop: 4}}>
           <Btn variant="accent" size="s" onClick={() => app.go({r: 'settings', sec: 'agent'})}>去设置 › Agent</Btn>{altBtn}
         </div>

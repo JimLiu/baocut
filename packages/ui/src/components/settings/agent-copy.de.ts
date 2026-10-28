@@ -137,8 +137,8 @@ export const de: AgentMessages = {
 
 
   codexImage: {
-    title: "Mit Codex zeichnen",
-    body: 'Kein Schlüssel nötig; nutzt Ihr Codex-Abo. Ein Bild pro Durchgang, Größe und Qualität werden ignoriert, 5–10× langsamer als die API. Eingeschaltet steht es bei der automatischen Auswahl für Bilderzeugung an erster Stelle: Werkzeugseite, bcut image und Agents nutzen es, sofern Sie unter Modelle › Bilderzeugung kein anderes Standardmodell festlegen. Ist Codex mit einem API-Schlüssel statt mit ChatGPT angemeldet, klappt das Zeichnen evtl. nicht und es wird nicht automatisch gewählt.',
+    title: 'Codex für Bilder und Text nutzen',
+    body: 'Kein Schlüssel nötig; nutzt Ihr Codex-Abo. Ein Bild pro Durchgang, Größe und Qualität werden ignoriert, 5–10× langsamer als die API. Eingeschaltet steht es bei der automatischen Auswahl für Bilderzeugung an erster Stelle: Werkzeugseite, bcut image und Agents nutzen es, sofern Sie unter Modelle › Bilderzeugung kein anderes Standardmodell festlegen. Ist Codex mit einem API-Schlüssel statt mit ChatGPT angemeldet, klappt das Zeichnen evtl. nicht und es wird nicht automatisch gewählt. Derselbe Schalter lässt Codex auch Text schreiben: eine Anfrage nach der anderen, langsamer als eine API, und nur genutzt, wenn Sie es in einem Textmodell-Menü wählen oder unter Modelle › Texterzeugung als Standard festlegen.',
     checking: "Codex-Zeichenfähigkeit dieses Computers wird geprüft…",
     on: "An",
 
@@ -149,10 +149,10 @@ export const de: AgentMessages = {
     notInstalled: "Codex nicht gefunden · vor dem Zeichnen Codex CLI installieren und anmelden.",
     unavailable: (detail: string | null) =>
       detail ? `Codex kann derzeit nicht zeichnen · ${detail}` : "Codex kann derzeit nicht zeichnen · auf „Erneut prüfen“ klicken.",
-    turnedOn: "Mit Codex zeichnen aktiviert · Codex erscheint jetzt im Bilderzeugungsmodell-Menü",
-    turnedOff: "Mit Codex zeichnen deaktiviert",
+    turnedOn: 'Codex für Bilder und Text aktiviert · Codex erscheint jetzt in den Modellmenüs für Bild- und Texterzeugung',
+    turnedOff: 'Codex für Bilder und Text deaktiviert',
     toggleFailed: (enabled: boolean, message: string) =>
-      enabled ? `Mit Codex zeichnen konnte nicht aktiviert werden: ${message}` : `Mit Codex zeichnen konnte nicht deaktiviert werden: ${message}`,
+      enabled ? `Codex für Bilder und Text konnte nicht aktiviert werden: ${message}` : `Codex für Bilder und Text konnte nicht deaktiviert werden: ${message}`,
   },
 
 

@@ -50,7 +50,7 @@ import {
 import { downloadView, inlineInstallMode, separationDownload } from '../../model/models-install.ts';
 import { bundleName } from '../../model/models-local.ts';
 import { textModelLine } from '../../model/models-text.ts';
-import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, type ToolModelOption } from '../../model/tools-models.ts';
+import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, textModelOptions, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import { speechModelLine } from '../../model/tools-tts.ts';
 import { existingTranslations } from '../../model/translate-setup.ts';
 import { isStale, pairRows, readTranslation, speechSentences } from '../../model/translation-doc.ts';
@@ -251,9 +251,9 @@ function DubSetupPage({
   const paramVoice = voiceChoice?.key === 'custom' ? customVoice.trim() || null : (voiceChoice?.voice ?? null);
 
   // ---- 翻译 ----
-  const textModels = useMemo(() => (view ? translateModelOptions(cloudModelOptions(view, 'generateText')) : []), [view]);
+  const textModels = useMemo(() => (view ? translateModelOptions(textModelOptions(view)) : []), [view]);
   const [textModelKey, setTextModelKey] = useState<string | null>(null);
-  const textModel = findOption(textModels, initialModelKey(textModels, textModelKey, view?.generateText.effective ?? null));
+  const textModel = findOption(textModels, initialModelKey(textModels, textModelKey, view?.generateText.effective ?? null, withoutCaution));
   const textReady = !!textModel?.usable;
   const toLlm = () => go({ tab: 'models', category: 'llm' });
   const textSection = useRef<HTMLDivElement>(null);

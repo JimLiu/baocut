@@ -8,6 +8,17 @@ test('文本工具只列文本模型，并从共用服务商连接状态判定�
   assert.deepEqual(list, [{id:'p/text',name:'text',provider:'服务商',ready:true}]);
   assert.equal(L.models([{id:'p',models:[{id:'text',kind:'llm'}]}], [])[0].ready, false);
 });
+test('Codex 写文字排在 API 提供方后面；没装时不列，不能用时写原因，API key 登录时带提醒', () => {
+  const cat = [{id:'p',name:'服务商',models:[{id:'text',kind:'llm'}]}];
+  assert.equal(L.models(cat, ['p'], null).length, 1);
+  const on = L.models(cat, ['p'], {ready:true, why:null, caution:null});
+  assert.deepEqual(on.map(m => m.id), ['p/text', L.CODEX_TEXT_ID]);
+  assert.equal(on[1].agent, true);
+  const off = L.models(cat, ['p'], {ready:false, why:'Codex 需要登录'})[1];
+  assert.equal(off.ready, false);
+  assert.equal(off.why, 'Codex 需要登录');
+  assert.equal(L.models(cat, [], {ready:true, why:null, caution:'用 API key 登录 · 可能画不了'})[1].caution, L.CODEX_TEXT_CAUTION);
+});
 test('固定请求只包含模型与消息，不创建 Agent 或工具调用循环', () => {
   const model = {id:'p/text',ready:true};
   const r = L.request('text', {input:' 写一段开场白 '}, model);

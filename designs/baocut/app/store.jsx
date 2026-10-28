@@ -196,7 +196,7 @@
     const [cloudCustom, setCloudCustom] = useState([]);
     const [cloudTtsDefault, setCloudTtsDefault] = useState('');
     /* 图像生成（2026-09-25 图像生成设计稿 §2）：默认云端 / 本地生图模型（'' = 每次选择；2026-09-27 起可以显式设成 Codex，隐式回落仍不落到它），
-       设置 › Agent 的「用 Codex 画图」开关。已连上的 API 提供方沿用 cloudSaved（同一把密钥给 STT / LLM / TTS / 图像共用）。 */
+       设置 › Agent 的「用 Codex 画图和写文字」开关（文本生成的 Codex 也看它）。已连上的 API 提供方沿用 cloudSaved（同一把密钥给 STT / LLM / TTS / 图像共用）。 */
     const [cloudImageDefault, setCloudImageDefault] = useState('');
     const [codexImageGen, setCodexImageGen] = useState(true);
     const modelInstalled = useCallback((id) => {

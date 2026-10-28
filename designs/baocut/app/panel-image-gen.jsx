@@ -50,7 +50,7 @@
             <div className="mact">
               <div className="aicard aicard--warn">
                 <b>还没有能画图的模型</b>
-                <span>连一家 API 提供方（设置 › 模型 › API 提供方）、下载 Qwen-Image-2.1 或 Turbo（设置 › 模型 › 图像生成）或在设置 › Agent 打开「用 Codex 画图」，三条路任选其一。</span>
+                <span>连一家 API 提供方（设置 › 模型 › API 提供方）、下载 Qwen-Image-2.1 或 Turbo（设置 › 模型 › 图像生成）或在设置 › Agent 打开「用 Codex 画图和写文字」，三条路任选其一。</span>
                 <div className="row gap8" style={{marginTop: 4}}>
                   <Btn variant="accent" size="s" onClick={() => app.go({r: 'settings', sec: 'cloud', tab: 'image'})}>连接 API 提供方</Btn>
                   <Btn variant="secondary" size="s" icon="download" onClick={() => app.go({r: 'settings', sec: 'local', tab: 'image'})}>下载本地模型</Btn>

@@ -78,7 +78,7 @@ export const ja: ModelsMessages = {
       generateImage:
         'プロンプトを受け取り、画像を返します。画像の生成で使えます。オンラインで 1 枚ごとに課金されます。Codex CLI でも描けます。キーは不要で、お使いの Codex のサブスクリプションを使います。スイッチは下のプロバイダ一覧の最初のカードにあります。',
       generateText:
-        'テキストの指示を受け取り、生成したテキストを返します。字幕の翻訳、翻訳吹き替え、ツール › テキスト生成 で使われます。オンラインでトークン単位で課金されます。',
+        'テキストの指示を受け取り、生成したテキストを返します。字幕の翻訳、翻訳吹き替え、ツール › テキスト生成 で使われます。オンラインでトークン単位で課金されます。Codex CLI でも書けます。キー不要で Codex のサブスクリプションを使います。スイッチはプロバイダー一覧の下の Codex カードにあります。',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: '既定のクラウド音声モデル',
@@ -111,6 +111,8 @@ export const ja: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · 画像',
     codexItemDesc: 'お使いの Codex のサブスクリプションを使用 · 一度に 1 枚 · 5–10 倍遅い',
+    codexTextItem: 'Codex CLI · テキスト',
+    codexTextItemDesc: 'お使いの Codex のサブスクリプションを使用 · 一度に 1 リクエスト · API より遅い',
     unavailable: '利用不可',
     pickerEmpty: { image: 'プロバイダを接続するか、Codex の画像生成をオンにすると選べます', other: 'プロバイダを接続すると選べます' },
     defaultSet: '既定モデルを変更しました',
@@ -197,9 +199,10 @@ export const ja: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: 'オン · お使いの Codex のサブスクリプションを使用、キー不要 · 一度に 1 枚 · サイズは無視 · 5–10 倍遅い',
-    off: 'オフ · オンにすると、画像生成とここでの既定モデルで選べるようになります',
+    onText: 'オン · お使いの Codex のサブスクリプションを使用、キー不要 · 一度に 1 リクエスト · 推論の強さは設定不可 · API より遅い',
+    off: 'オフ · オンにすると、画像生成・テキスト生成とここでの既定モデルで選べるようになります',
     missing: 'Codex が見つかりません · Codex で描くには、先に Codex CLI をインストールしてサインインしてください。',
-    switchLabel: 'Codex で描く',
+    switchLabel: 'Codex で描画とテキスト生成',
     toggleFailed: (enabled: boolean, message: string) => `Codex の画像生成を${enabled ? 'オン' : 'オフ'}にできませんでした：${message}`,
   },
   key: {

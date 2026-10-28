@@ -103,7 +103,7 @@ const en = {
       generateImage:
         'Takes a prompt and returns an image. Available when generating images; online and billed per image. Codex CLI can draw too: no key needed, it uses your Codex subscription. Its switch is on the first card in the provider list below.',
       generateText:
-        'Takes text instructions and returns generated text. Used for subtitle translation, translated voice-overs and Tools › Text generation; online and billed per token.',
+        'Takes text instructions and returns generated text. Used for subtitle translation, translated voice-overs and Tools › Text generation; online and billed per token. Codex CLI can write too: no key needed, it uses your Codex subscription. Its switch is on the Codex card below the provider list.',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: 'Default cloud speech model',
@@ -137,6 +137,8 @@ const en = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · Images',
     codexItemDesc: 'Uses your Codex subscription · one image at a time · 5–10× slower',
+    codexTextItem: 'Codex CLI · Text',
+    codexTextItemDesc: 'Uses your Codex subscription · one request at a time · slower than an API',
     unavailable: 'Unavailable',
     pickerEmpty: { image: 'Connect a provider or turn on Codex images to choose', other: 'Connect a provider to choose' },
     defaultSet: 'Default model changed',
@@ -231,9 +233,10 @@ const en = {
   codexCard: {
     title: 'Codex CLI',
     on: 'On · uses your Codex subscription, no key needed · one image at a time · ignores size · 5–10× slower',
-    off: 'Off · turn it on to choose it in image generation and as the default model here',
+    onText: 'On · uses your Codex subscription, no key needed · one request at a time · no reasoning effort setting · slower than an API',
+    off: 'Off · turn it on to choose Codex for image and text generation, and as the default model here',
     missing: 'Codex not found · install and sign in to Codex CLI before drawing with it.',
-    switchLabel: 'Draw with Codex',
+    switchLabel: 'Use Codex for images and text',
     toggleFailed: (enabled: boolean, message: string) => `Couldn't turn ${enabled ? 'on' : 'off'} Codex images: ${message}`,
   },
   key: {

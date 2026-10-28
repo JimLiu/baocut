@@ -123,8 +123,8 @@ export const ja: AgentMessages = {
   },
 
   codexImage: {
-    title: 'Codex で描画',
-    body: 'キー不要で、Codex のサブスクリプションを使います。1 回に 1 枚、サイズと品質は無視され、API より 5〜10 倍遅くなります。オンにすると画像生成の自動選択で最優先になり、ツールページ、bcut image、Agent はこれを使います（モデル › 画像生成で別のデフォルトを設定した場合を除く）。Codex に ChatGPT ではなく API キーでサインインしている場合は生成できないことがあり、自動では選ばれません。',
+    title: 'Codex で描画とテキスト生成',
+    body: 'キー不要で、Codex のサブスクリプションを使います。1 回に 1 枚、サイズと品質は無視され、API より 5〜10 倍遅くなります。オンにすると画像生成の自動選択で最優先になり、ツールページ、bcut image、Agent はこれを使います（モデル › 画像生成で別のデフォルトを設定した場合を除く）。Codex に ChatGPT ではなく API キーでサインインしている場合は生成できないことがあり、自動では選ばれません。同じスイッチで Codex にテキストも書かせられます。1 回に 1 リクエストで API より遅く、テキストモデルのメニューで選んだときか、モデル › テキスト生成でデフォルトに設定したときだけ使われます。',
     checking: 'このコンピュータの Codex で描画できるか確認中…',
     on: 'オン',
     period: '。',
@@ -134,10 +134,10 @@ export const ja: AgentMessages = {
     notInstalled: 'Codex が見つかりません · 描画するには Codex CLI をインストールしてサインインしてください。',
     unavailable: (detail: string | null) =>
       detail ? `Codex は現在描画できません · ${detail}` : 'Codex は現在描画できません · 「再確認」をクリックしてもう一度お試しください。',
-    turnedOn: '「Codex で描画」をオンにしました · 画像生成のモデルメニューに Codex が追加されました',
-    turnedOff: '「Codex で描画」をオフにしました',
+    turnedOn: '「Codex で描画とテキスト生成」をオンにしました · 画像生成とテキスト生成のモデルメニューに Codex が追加されました',
+    turnedOff: '「Codex で描画とテキスト生成」をオフにしました',
     toggleFailed: (enabled: boolean, message: string) =>
-      enabled ? `「Codex で描画」をオンにできませんでした：${message}` : `「Codex で描画」をオフにできませんでした：${message}`,
+      enabled ? `「Codex で描画とテキスト生成」をオンにできませんでした：${message}` : `「Codex で描画とテキスト生成」をオフにできませんでした：${message}`,
   },
 
   faq: [

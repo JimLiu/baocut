@@ -44,7 +44,8 @@ import { buildUsageReport } from './usage-report.ts';
  * - 配置、默认值变化后重算视图（不联网），与上一次不同时通知 `onChange`；
  * - `selectTranscribe()` / `selectGeneration()` 在提交时确定 Provider 与模型（`select` 取法，不联网），交出执行者与队列；
  * - `generateText` 的任务与进程内调用（`textGenerator()`）共用一个 `TextRunner`：每个 Provider 的并发上限取能力参数
- *   `concurrency`，任务的队列也按它排（队列键 `<providerId>:generateText`，不与同一个 Provider 的语音、图片任务抢名额）。
+ *   `concurrency`（来源给了更小的上限时取它，智能体是 1），任务的队列也按它排（队列键 `<providerId>:generateText`，不与同一个
+ *   Provider 的语音、图片任务抢名额）。
  */
 
 export interface ModelServicesOptions {
@@ -104,7 +105,7 @@ export class ModelServices {
     this.store.onAccountChange(() => void this.refresh().catch(() => {}));
     this.#view = emptyView();
     this.#viewKey = JSON.stringify(this.#view);
-    this.#textRunner = new TextRunner({ concurrency: () => this.store.textParameters().concurrency });
+    this.#textRunner = new TextRunner({ concurrency: (providerId) => this.#textConcurrency(providerId) });
   }
 
   /** `models.capabilities`：探测节点（每个至多 2 秒，并行），更新缓存的视图。 */
@@ -350,7 +351,7 @@ export class ModelServices {
       return {
         ...choice,
         generator,
-        queue: { key: `${choice.providerId}:generateText`, concurrency: text.defaults.concurrency },
+        queue: { key: `${choice.providerId}:generateText`, concurrency: this.#textConcurrency(choice.providerId) },
         textDefaults: text.defaults,
       };
     }
@@ -426,6 +427,13 @@ export class ModelServices {
   }
 
   // ---- 内部 ----
+
+  /** 一个 Provider 同时进行的文本调用数：能力参数的 `concurrency`，来源给了更小的上限（智能体）时取它。 */
+  #textConcurrency(providerId: string): number {
+    const cap = this.#owner(providerId)?.textConcurrency?.(providerId);
+    const configured = this.store.textParameters().concurrency;
+    return cap === undefined ? configured : Math.min(configured, cap);
+  }
 
   #owner(providerId: string): ProviderSource | undefined {
     return this.#sources.find((s) => s.owns(providerId));

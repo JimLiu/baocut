@@ -8,6 +8,7 @@ import {
   type ModelRef,
   type ModelServiceCapability,
   type OnlineCapability,
+  type TextModelInfo,
 } from '@baocut/protocol';
 import { cloudProviders, defaultKey, parseDefaultKey } from './models-cloud.ts';
 import { zhHans } from './tools-models.zh-Hans.ts';
@@ -60,9 +61,9 @@ export interface ToolModelOption<M> {
   info: M;
   /** 本机模型（设计稿 image-gen.jsx 的「本机 · 不联网」一组）：没装好也能选，选中时页面给下载卡。 */
   local?: boolean;
-  /** 智能体 Provider 的模型（Codex 画图，设计稿 image-gen.jsx 的「智能体」一组）。 */
+  /** 智能体 Provider 的模型（Codex 画图与写文字，设计稿 image-gen.jsx 的「智能体」一组、tool-translate.jsx `textModels`）。 */
   agent?: boolean;
-  /** 能用但要提醒的一句（Codex 不是以 ChatGPT 订阅登录：可能画不了、费用不在订阅里）；出厂顺序与开页的回落都跳过它。 */
+  /** 能用但要提醒的一句（Codex 不是以 ChatGPT 订阅登录：费用不在订阅里，画图可能画不了）；出厂顺序与开页的回落都跳过它。 */
   caution?: string;
   /** 云端语音合成：这家能克隆音色（Runtime 报的 `voiceClone`），我的声音建了克隆就能在这里用。 */
   voiceClone?: { requiresConsentClip: boolean };
@@ -105,7 +106,7 @@ export function cloudModelOptions<C extends OnlineCapability>(
 }
 
 /**
- * 智能体 Provider（`kind: 'agent'`，如 Codex 画图）的模型：Runtime 注册了才有（架构设计 §6.9）。没打开、没装、没登录时照样列出，
+ * 智能体 Provider（`kind: 'agent'`，如 Codex 画图、Codex 写文字）的模型：Runtime 注册了才有（架构设计 §6.9）。没打开、没装、没登录时照样列出，
  * 写 Runtime 给的原因；能用但不是订阅（`cost` 不是 `subscription`）时带 `caution`（模型的 `notes`）。
  */
 export function agentModelOptions<C extends ModelServiceCapability>(
@@ -190,9 +191,27 @@ export function installedAlternative<M>(options: readonly ToolModelOption<M>[], 
   return options.find((o) => o.local && o.usable && o.key !== selected?.key) ?? null;
 }
 
-/** 「模型」一行的菜单：这种能力已配置的云端模型在前、本机模型在后。 */
+/** 「模型」一行的菜单：这种能力已配置的云端模型在前，然后是本机模型，智能体（文本生成的 Codex）在最后。 */
 export function modelOptions<C extends OnlineCapability>(view: ModelCapabilitiesView, capability: C): ToolModelOption<ModelInfoByCapability[C]>[] {
-  return [...cloudModelOptions(view, capability), ...localModelOptions(view, capability)];
+  return [...cloudModelOptions(view, capability), ...localModelOptions(view, capability), ...agentModelOptions(view, capability)];
+}
+
+/**
+ * 翻译、配音翻译这类只用文本生成的地方的菜单：API 提供方的模型在前，智能体（Codex 写文字，§6.9）在后。文本生成没有出厂默认，
+ * Codex 只在用户选它、或把它设成默认时用；开页的回落用 `withoutCaution` 跳过 API key 登录的 Codex。
+ */
+export function textModelOptions(view: ModelCapabilitiesView): ToolModelOption<TextModelInfo>[] {
+  return [...cloudModelOptions(view, 'generateText'), ...agentModelOptions(view, 'generateText')];
+}
+
+/** `initialModelKey` 的回落条件：跳过要提醒的（API key 登录的 Codex，设计稿 model-cloud-image.js `preferred`、tool-translate.jsx `useTextModel`）。 */
+export function withoutCaution<M>(option: ToolModelOption<M>): boolean {
+  return !option.caution;
+}
+
+/** 菜单与状态里这只模型的叫法：云端写模型 ID，本机与智能体写模型的名字。 */
+export function optionName<M>(option: ToolModelOption<M>): string {
+  return option.local || option.agent ? option.label : option.modelId;
 }
 
 /**

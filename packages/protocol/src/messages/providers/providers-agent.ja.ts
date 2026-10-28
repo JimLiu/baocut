@@ -22,4 +22,9 @@ export const ja: ProvidersAgentMessages = {
   unknownError: '不明なエラー',
   processExited: 'プロセスが終了しました',
   turnNotStarted: (p) => `ターンを開始できませんでした：${p.error}`,
+  codexTextModel: "Codex のテキスト生成（モデルは Codex とお使いのアカウントが決定）",
+  codexTextNotes:
+    "このコンピュータでサインイン済みの Codex アカウントで文章を生成します。同時に実行できるのは 1 リクエストのみで、毎回新しい Codex セッションを開くため API より時間がかかります。推論の強さ、temperature、seed、出力の長さは指定できません。サブスクリプションの利用枠を使い、残りの枠は不明です。オンにすると、プロンプト（含まれる書き起こしなども含む）を Codex アカウントに送信することに同意したことになります。",
+  codexTextNotesApiKey:
+    "Codex は API キーなど ChatGPT サブスクリプション以外の方法でサインインしています。費用はサブスクリプションではなくそのアカウントに請求されます。同時に 1 リクエストのみ。推論の強さ、temperature、seed、出力の長さは指定できません。",
 };

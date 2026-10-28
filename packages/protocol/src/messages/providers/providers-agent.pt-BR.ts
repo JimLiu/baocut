@@ -18,4 +18,9 @@ export const ptBR: ProvidersAgentMessages = {
   noImageReply: (p) => `${p.label} não gerou imagem: ${p.reply}`,
   unknownError: 'Erro desconhecido', processExited: 'O processo saiu',
   turnNotStarted: (p) => `O turno não iniciou: ${p.error}`,
+  codexTextModel: "Geração de texto do Codex (modelo escolhido pelo Codex e pela sua conta)",
+  codexTextNotes:
+    "Escreve com a conta do Codex conectada neste computador: uma solicitação por vez, cada uma em uma nova sessão do Codex, por isso é mais lento que uma API. Não é possível definir esforço de raciocínio, temperatura, seed nem tamanho da saída. Usa a cota da sua assinatura; a cota restante é desconhecida. Ativar significa concordar em enviar os prompts, incluindo o texto de transcrição neles, para a sua conta do Codex.",
+  codexTextNotesApiKey:
+    "O Codex está conectado com uma chave de API ou outro método que não é o ChatGPT, então qualquer custo vai para essa conta, não para uma assinatura. Uma solicitação por vez; não é possível definir esforço de raciocínio, temperatura, seed nem tamanho da saída.",
 };

@@ -20,4 +20,9 @@ export const pl: ProvidersAgentMessages = {
   unknownError: "Nieznany błąd",
   processExited: "Proces zakończył działanie",
   turnNotStarted: (p) => `Tura nie rozpoczęła się: ${p.error}`,
+  codexTextModel: "Generowanie tekstu w Codex (model wybierany przez Codex i Twoje konto)",
+  codexTextNotes:
+    "Pisze przy użyciu konta Codex zalogowanego na tym komputerze: jedno żądanie naraz, każde w nowej sesji Codex, więc wolniej niż przez API. Nie można ustawić wysiłku rozumowania, temperatury, seeda ani długości odpowiedzi. Korzysta z limitu subskrypcji; pozostały limit jest nieznany. Włączenie oznacza zgodę na wysyłanie promptów, w tym zawartych w nich transkrypcji, na Twoje konto Codex.",
+  codexTextNotesApiKey:
+    "Codex jest zalogowany kluczem API lub inną metodą niż ChatGPT, więc ewentualne koszty trafiają na to konto, a nie do subskrypcji. Jedno żądanie naraz; nie można ustawić wysiłku rozumowania, temperatury, seeda ani długości odpowiedzi.",
 };

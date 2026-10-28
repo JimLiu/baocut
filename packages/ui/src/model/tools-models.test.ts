@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fixtureView, withLocalSpeech } from './models-test-fixtures.ts';
+import type { ModelCapabilitiesView } from '@baocut/protocol';
+import { fixtureView, textModel, textView, withLocalSpeech } from './models-test-fixtures.ts';
 import {
   localModelOptions,
   localNotDownloaded,
@@ -10,6 +11,9 @@ import {
   findOption,
   initialModelKey,
   installedAlternative,
+  optionName,
+  textModelOptions,
+  withoutCaution,
   langName,
   languageOptions,
   languagesShort,
@@ -48,6 +52,48 @@ describe('工具页的模型选项', () => {
     expect(initialModelKey([], null, null)).toBeNull();
     expect(findOption(options, 'custom:tts-box/tts-1')?.modelId).toBe('tts-1');
     expect(parseModelKey('custom:tts-box/models/tts-1')).toEqual({ providerId: 'custom:tts-box', modelId: 'models/tts-1' });
+  });
+});
+
+/** 文本生成多一只 Codex（`agent:codex/text-gen`，架构设计 §6.9）：能不能用、是不是订阅登录由参数给。 */
+function withCodexText(view: ModelCapabilitiesView, available = true, subscribed = true): ModelCapabilitiesView {
+  const cost = subscribed ? ('subscription' as const) : ('unknown' as const);
+  const notes = subscribed ? '用你的 Codex 订阅' : '用 API key 登录 · 费用不在订阅里';
+  view.generateText.providers.push({
+    providerId: 'agent:codex',
+    kind: 'agent',
+    label: 'Codex',
+    config: { enabled: available } as never,
+    models: [textModel('text-gen', { label: 'Codex 写文字', efforts: [], defaultEffort: null, cost, notes })],
+    available,
+    ...(available ? {} : { unavailableReason: 'disabled' as never, detail: '没有打开「用 Codex 画图和写文字」' }),
+  });
+  return view;
+}
+
+describe('文本生成的智能体（Codex）', () => {
+  it('排在 API 提供方后面，名字用模型的名字；不能用时写原因', () => {
+    const options = textModelOptions(withCodexText(textView()));
+    expect(options.map((o) => o.key)).toEqual(['openai/gpt-5-mini', 'openai/gpt-4.1', 'google/gemini-2.5-flash', 'agent:codex/text-gen']);
+    const codex = options.at(-1)!;
+    expect([codex.agent, codex.usable, optionName(codex)]).toEqual([true, true, 'Codex 写文字']);
+    expect(optionName(options[0]!)).toBe('gpt-5-mini');
+    expect(modelOptions(withCodexText(textView()), 'generateText').at(-1)!.key).toBe('agent:codex/text-gen');
+
+    const off = textModelOptions(withCodexText(textView(), false)).at(-1)!;
+    expect([off.usable, off.why]).toEqual([false, '没有打开「用 Codex 画图和写文字」']);
+  });
+
+  it('开页回落：只有 Codex 能用时选它；API key 登录（带提醒）时不自动选，用户点名或设成默认时照用', () => {
+    const view = withCodexText(textView());
+    view.generateText.providers = view.generateText.providers.filter((p) => p.providerId === 'agent:codex');
+    expect(initialModelKey(textModelOptions(view), null, null, withoutCaution)).toBe('agent:codex/text-gen');
+
+    const keyed = withCodexText(textView(), true, false);
+    const options = textModelOptions(keyed);
+    expect(options.at(-1)!.caution).toBe('用 API key 登录 · 费用不在订阅里');
+    expect(initialModelKey(options.slice(2), null, null, withoutCaution)).toBe('google/gemini-2.5-flash');
+    expect(initialModelKey(options, null, { providerId: 'agent:codex', modelId: 'text-gen' }, withoutCaution)).toBe('agent:codex/text-gen');
   });
 });
 

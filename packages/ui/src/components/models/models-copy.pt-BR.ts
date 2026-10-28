@@ -84,7 +84,7 @@ export const ptBR: ModelsMessages = {
       generateImage:
         "Recebe prompt e retorna imagem, on-line e cobrado por imagem. Codex CLI também desenha sem chave, usando assinatura; opção na primeira ficha abaixo.",
       generateText:
-        "Recebe instruções e retorna texto. Usado em tradução, dublagem e Ferramentas › Geração de texto; on-line, cobrado por token.",
+        'Recebe instruções e retorna texto. Usado em tradução, dublagem e Ferramentas › Geração de texto; on-line, cobrado por token. O Codex CLI também escreve: sem chave, usa sua assinatura do Codex. O botão fica no cartão do Codex abaixo da lista de provedores.',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: "Modelo de fala em nuvem padrão",
@@ -118,6 +118,8 @@ export const ptBR: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Imagens",
     codexItemDesc: "Usa assinatura Codex · uma imagem por vez · 5–10× mais lento",
+    codexTextItem: 'Codex CLI · Texto',
+    codexTextItemDesc: 'Usa assinatura Codex · uma solicitação por vez · mais lento que uma API',
     unavailable: "Indisponível",
     pickerEmpty: { image: "Conecte provedor ou ative imagens Codex para escolher", other: "Conecte um provedor para escolher" },
     defaultSet: "Modelo padrão alterado",
@@ -210,9 +212,10 @@ export const ptBR: ModelsMessages = {
   codexCard: {
     title: "Codex CLI",
     on: "Ativado · assinatura Codex, sem chave · uma imagem por vez · tamanho ignorado · 5–10× mais lento",
-    off: "Desativado · ative para escolher em imagens e como padrão",
+    onText: 'Ativado · assinatura Codex, sem chave · uma solicitação por vez · sem ajuste de esforço de raciocínio · mais lento que uma API',
+    off: 'Desativado · ative para escolher em imagens e texto, e como padrão',
     missing: "Codex não encontrado · instale e entre no Codex CLI antes de desenhar.",
-    switchLabel: "Desenhar com Codex",
+    switchLabel: 'Usar Codex para imagens e texto',
     toggleFailed: (enabled: boolean, message: string) => `Não foi possível ${enabled ? "on" : "off"} imagens Codex: ${message}`,
   },
   key: {

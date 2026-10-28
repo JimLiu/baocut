@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CodexDriver } from '@baocut/agent-drivers';
 import { createFakeCodex, type FakeCodex, type FakeCodexScenario } from '@baocut/agent-drivers/testing';
 import { BaoCutClient, applyJobsEvent } from '@baocut/client';
+import { TextGenerationError } from '@baocut/models';
 import { corruptPngFixture, pngFixture } from '@baocut/providers/testing';
 import {
   RpcError,
@@ -14,13 +15,14 @@ import {
   type ImageModelInfo,
   type JobRecord,
   type JobsSnapshot,
+  type TextModelInfo,
 } from '@baocut/protocol';
 import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
 import { startRuntime, type RunningRuntime } from '../runtime.ts';
 
 /**
- * 智能体作为图片 Provider（`agent:codex`，架构设计 §6.9）经网关端到端：Codex Driver 对着假 codex（`@baocut/agent-drivers/testing`，
+ * 智能体作为图片与文本 Provider（`agent:codex`，架构设计 §6.9）经网关端到端：Codex Driver 对着假 codex（`@baocut/agent-drivers/testing`，
  * 一个 node 脚本，按场景把真实的小 PNG 写进会话的工作目录），JobManager → ffprobe 解码校验 → 产物；给了视频时经真实引擎
  * 导入为候选素材。从不启动本机真实的 codex，不联网，不读任何账号文件。
  */
@@ -128,11 +130,12 @@ describe('智能体图片 Provider：列出、可用性与配置（不需要 ffp
     side = undefined;
   });
 
-  it('如实描述：一次一张、只有 PNG、尺寸与 seed 不可指定、订阅内额度未知；只出现在 generateImage', async () => {
+  it('如实描述：一次一张、只有 PNG、尺寸与 seed 不可指定、订阅内额度未知；只出现在 generateImage 与 generateText', async () => {
     side = await startSide();
     const { capabilities } = await side.client.request('models.capabilities', {});
     expect(capabilities.transcribe.providers.some((p) => p.providerId === PROVIDER)).toBe(false);
     expect(capabilities.synthesizeSpeech.providers.some((p) => p.providerId === PROVIDER)).toBe(false);
+    expect(capabilities.generateText.providers.some((p) => p.providerId === PROVIDER)).toBe(true);
     const entry = capabilities.generateImage.providers.find((p) => p.providerId === PROVIDER)!;
     expect(entry).toMatchObject({
       kind: 'agent',
@@ -537,5 +540,172 @@ describe.skipIf(!ffprobe || !engine)('智能体图片导入视频（真实引擎
       source: { jobId, capability: 'generateImage', providerId: PROVIDER, modelId: 'image-gen' },
     });
     expect(JSON.stringify(video.sequences)).toBe(JSON.stringify(before.sequences));
+  });
+});
+
+async function readArtifact(side: Side, artifactId: string): Promise<string> {
+  const handle = await side.client.request('artifacts.openHandle', { artifactId });
+  return (await fetch(handle.url)).text();
+}
+
+describe('智能体文本 Provider（假 codex）', () => {
+  let side: Side;
+
+  beforeEach(async () => {
+    side = await startSide({ turn: { reply: 'Hello from Codex.' } });
+  });
+
+  afterEach(async () => {
+    await stopSide(side);
+  });
+
+  it('如实描述：推理强度、temperature、seed 不可调，接受结构化输出，订阅内额度未知；没有出厂默认', async () => {
+    const { capabilities } = await side.client.request('models.capabilities', {});
+    const entry = capabilities.generateText.providers.find((p) => p.providerId === PROVIDER)!;
+    expect(entry).toMatchObject({ kind: 'agent', label: 'Codex', available: true, config: { enabled: true, credential: 'none' } });
+    const [model] = entry.models as TextModelInfo[];
+    expect(model).toMatchObject({
+      modelId: 'text-gen',
+      default: true,
+      efforts: [],
+      defaultEffort: null,
+      structuredOutput: true,
+      acceptsTemperature: false,
+      acceptsSeed: false,
+      cost: 'subscription',
+    });
+    expect(model!.notes).toMatch(/同一时间只跑一个请求/);
+    expect(model!.notes).toMatch(/逐字稿/);
+    // 文本生成没有出厂默认（§6.2）：可用的 Codex 也不会被自动选上。
+    expect(capabilities.generateText.effective).toBeNull();
+    const error = await rejection(side.client.request('models.generateText', { messages: [{ role: 'user', content: 'hi' }] }));
+    expect(error.details).toMatchObject({ code: 'CAPABILITY_NOT_CONFIGURED', reason: 'no-default' });
+    // 启用时默认授权覆盖的数据种类随能力变宽：文本生成还用于翻译文稿（§6.8）。
+    const [grant] = (await side.client.request('grants.list', { recipient: PROVIDER })).grants;
+    expect(grant!.dataKinds).toEqual(expect.arrayContaining(['document', 'transcript']));
+  });
+
+  it('任务：一个专用会话（新建的空工作目录、只写它、没有 MCP 服务），system 消息进开发者指令，最后一条回复是产物', async () => {
+    side.fake.scenario({ turn: { reply: 'Bonjour tout le monde.' } });
+    const { jobId } = await side.client.request('models.generateText', {
+      messages: [
+        { role: 'system', content: 'Translate into French.' },
+        { role: 'user', content: 'Hello everyone.' },
+      ],
+      provider: PROVIDER,
+      effort: 'high',
+    });
+    const job = await settled(side, jobId);
+    expect(job).toMatchObject({
+      state: 'completed',
+      providerId: PROVIDER,
+      modelId: 'text-gen',
+      generation: { capability: 'generateText', requestedEffort: 'high', effort: null },
+      result: { text: { mediaType: 'text/plain', preview: 'Bonjour tout le monde.', finishReason: 'stop', usage: null } },
+    });
+    expect(await readArtifact(side, job.result!.artifactId!)).toBe('Bonjour tout le monde.');
+
+    const [start] = side.fake.requests('thread/start');
+    const cwd = start!.params.cwd as string;
+    expect(path.dirname(cwd)).toBe(path.join(side.home.stagingDir, 'agent-text', 'codex'));
+    expect(start!.params).toMatchObject({ approvalPolicy: 'never', sandbox: 'workspace-write' });
+    expect(JSON.stringify(start!.params)).not.toContain('mcp_servers');
+    expect(start!.params.developerInstructions).toMatch(/text generation backend/);
+    expect(start!.params.developerInstructions).toContain('Translate into French.');
+    const turns = side.fake.requests('turn/start');
+    expect(turns).toHaveLength(1);
+    expect(JSON.stringify(turns[0]!.params.input)).toContain('Hello everyone.');
+    expect(JSON.stringify(turns[0]!.params.input)).not.toContain('Translate into French.');
+    // 会话关闭，工作目录删掉。
+    await until(() => side.fake.log().some((e) => e.kind === 'exit'));
+    expect(await fs.stat(cwd).catch(() => null)).toBeNull();
+  });
+
+  it('不接受的参数在提交时拒绝：temperature 与 seed', async () => {
+    for (const extra of [{ temperature: 0.2 }, { seed: 7 }]) {
+      const error = await rejection(
+        side.client.request('models.generateText', { messages: [{ role: 'user', content: 'hi' }], provider: PROVIDER, ...extra }),
+      );
+      expect(error.code, JSON.stringify(extra)).toBe('invalid-request');
+    }
+    expect(sessions(side.fake)).toHaveLength(0);
+  });
+
+  it('结构化输出：schema 写进指令，去掉代码围栏后按 schema 校验；不合 schema 时 MODEL_OUTPUT_INVALID', async () => {
+    const schema = { type: 'object', properties: { title: { type: 'string' } }, required: ['title'] };
+    const submit = () =>
+      side.client.request('models.generateText', {
+        messages: [{ role: 'user', content: 'title please' }],
+        responseFormat: { type: 'json', schema, name: 'title' },
+        provider: PROVIDER,
+      });
+    side.fake.scenario({ turn: { reply: '```json\n{"title":"Hi"}\n```' } });
+    let job = await settled(side, (await submit()).jobId);
+    expect(job).toMatchObject({ state: 'completed', result: { text: { mediaType: 'application/json' } } });
+    expect(JSON.parse(await readArtifact(side, job.result!.artifactId!))).toEqual({ title: 'Hi' });
+    expect(side.fake.requests('thread/start')[0]!.params.developerInstructions).toContain('"required":["title"]');
+
+    side.fake.scenario({ turn: { reply: '{"title":5}' } });
+    job = await settled(side, (await submit()).jobId);
+    expect(job).toMatchObject({ state: 'failed', error: { code: 'MODEL_OUTPUT_INVALID', details: { reason: 'schema' } } });
+  });
+
+  it('进程内调用：多轮消息按角色标出；失败按封闭的错误码；一次只跑一个会话；用量记为订阅内', async () => {
+    const generator = side.runtime.models.services.textGenerator();
+    const result = await generator.generate({
+      messages: [
+        { role: 'user', content: 'First question' },
+        { role: 'assistant', content: 'First answer' },
+        { role: 'user', content: 'Second question' },
+      ],
+      provider: PROVIDER,
+    });
+    expect(result).toMatchObject({ providerId: PROVIDER, modelId: 'text-gen', text: 'Hello from Codex.', finishReason: 'stop' });
+    const input = JSON.stringify(side.fake.requests('turn/start')[0]!.params.input);
+    expect(input).toContain('<assistant>');
+    expect(input).toContain('Second question');
+
+    side.fake.scenario({ turn: { status: 'failed', error: 'usage limit reached' } });
+    const failed = await generator.generate({ messages: [{ role: 'user', content: 'x' }], provider: PROVIDER }).catch((e: unknown) => e);
+    expect(failed).toBeInstanceOf(TextGenerationError);
+    expect(failed).toMatchObject({ code: 'PROVIDER_REJECTED', details: { providerId: PROVIDER, reason: 'turn-failed' } });
+
+    side.fake.scenario({ turn: { reply: '' } });
+    const empty = await generator.generate({ messages: [{ role: 'user', content: 'x' }], provider: PROVIDER }).catch((e: unknown) => e);
+    expect(empty).toMatchObject({ code: 'MODEL_OUTPUT_INVALID', details: { reason: 'empty' } });
+
+    // 并发上限 1：能力参数设成 8 也一样，第二个会话在第一个关闭之后才启动。
+    await side.client.request('models.setCapabilityParameters', { capability: 'generateText', concurrency: 8 });
+    side.fake.scenario({ turn: { delayMs: 300, reply: 'ok' } });
+    const before = sessions(side.fake).length;
+    await Promise.all([
+      generator.generate({ messages: [{ role: 'user', content: 'one' }], provider: PROVIDER }),
+      generator.generate({ messages: [{ role: 'user', content: 'two' }], provider: PROVIDER }),
+    ]);
+    const log = side.fake.log();
+    const starts = log.filter((e) => e.kind === 'start').slice(before);
+    expect(starts).toHaveLength(2);
+    const firstExit = log.find((e) => e.kind === 'exit' && e.pid === starts[0]!.pid)!;
+    expect(firstExit.t).toBeLessThanOrEqual(starts[1]!.t);
+    expect(generator.stats()[PROVIDER]).toEqual({ calls: 5, retries: 0, failures: 2 });
+
+    const usage = await until(async () => {
+      const report = await side.client.request('models.usage', { period: 'today', providerId: PROVIDER });
+      return report.totals.calls >= 5 && report;
+    });
+    // 每次开了会话的调用都记一条；失败且没有用量的不计费用（§6.10）。
+    expect(usage.totals.calls).toBe(5);
+    expect(usage.totals.cost).toMatchObject({ unknownCalls: 0, subscriptionCalls: 4 });
+    expect(usage.byProvider).toMatchObject([{ key: PROVIDER, costKind: 'subscription' }]);
+  });
+
+  it('取消进行中的任务：中断回合并关闭会话，任务以 cancelled 结束', async () => {
+    side.fake.scenario({ turn: { status: 'hang' } });
+    const { jobId } = await side.client.request('models.generateText', { messages: [{ role: 'user', content: 'slow' }], provider: PROVIDER });
+    await until(() => side.fake.requests('turn/start').length === 1);
+    await side.client.request('jobs.cancel', { jobId });
+    expect(await settled(side, jobId)).toMatchObject({ state: 'cancelled', result: null });
+    expect(side.fake.requests('turn/interrupt')).toHaveLength(1);
+    await until(() => side.fake.log().some((e) => e.kind === 'exit'));
   });
 });

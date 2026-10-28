@@ -20,4 +20,9 @@ export const nl: ProvidersAgentMessages = {
   unknownError: "Onbekende fout",
   processExited: "Het proces is afgesloten",
   turnNotStarted: (p: { error: string }) => `De beurt is niet gestart: ${p.error}`,
+  codexTextModel: "Codex-tekstgeneratie (model gekozen door Codex en je account)",
+  codexTextNotes:
+    "Schrijft met het Codex-account dat op deze computer is aangemeld: één verzoek tegelijk, elk in een nieuwe Codex-sessie, dus trager dan een API. Redeneerinspanning, temperatuur, seed en uitvoerlengte zijn niet in te stellen. Gebruikt je abonnementstegoed; het resterende tegoed is onbekend. Inschakelen betekent dat je akkoord gaat met het verzenden van prompts, inclusief de transcriptietekst erin, naar je Codex-account.",
+  codexTextNotesApiKey:
+    "Codex is aangemeld met een API-sleutel of een andere methode dan ChatGPT, dus eventuele kosten gaan naar dat account, niet naar een abonnement. Eén verzoek tegelijk; redeneerinspanning, temperatuur, seed en uitvoerlengte zijn niet in te stellen.",
 };

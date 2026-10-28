@@ -18,16 +18,22 @@ import {
 } from '../settings/codex-image.ts';
 import { CODEX_CARD_COPY, CLOUD_COPY, MODELS_PAGE_COPY } from './models-copy.ts';
 
+/** 有 Codex 一张卡、默认菜单里有 Codex 一项的能力（架构设计 §6.9）。 */
+export type CodexCapability = 'generateImage' | 'generateText';
+
 /**
- * 「用 Codex 画图」在模型页的两处：图像生成云端页服务商列表的第一张卡（设计稿 settings-cloud.jsx:278-298），
- * 与默认模型菜单里的「Codex CLI · 画图」。开关、能不能打开、原因都复用设置 › Agent 那一行（A2-e）的纯函数与命令，
- * 不另起一份；进页时同样探测一次（Codex 重新检测、升级、登录之后再探测）。
+ * 「用 Codex 画图和写文字」在模型页的两处：图像生成与文本生成页服务商列表后面的一张卡（设计稿 settings-capability.jsx ④），
+ * 与默认模型菜单里的「Codex CLI · 画图」「Codex CLI · 文字」。开关、能不能打开、原因都复用设置 › Agent 那一行（A2-e）的纯函数与命令，
+ * 不另起一份；进页时同样探测一次（Codex 重新检测、升级、登录之后再探测）。`capability` 只决定提醒（`caution`）取哪种能力的模型说明。
  */
-export function useCodexImage(active: boolean): { connected: boolean; state: CodexImageRowState | null; registered: boolean } {
+export function useCodexImage(
+  active: boolean,
+  capability: CodexCapability = 'generateImage',
+): { connected: boolean; state: CodexImageRowState | null; registered: boolean } {
   const runtime = useRuntime();
   const connected = useConnection((s) => s.state.status === 'connected');
   const driver = useConnection((s) => s.drivers?.find((d) => d.id === 'codex') ?? null);
-  const provider = useModels((s) => codexImageProvider(s.capabilities));
+  const provider = useModels((s) => codexImageProvider(s.capabilities, capability));
   const [probe, setProbe] = useState<CodexImageProbe>('pending');
   const installed = !!driver && driver.state !== 'not-installed';
   const probeKey = driver ? `${driver.state}|${driver.version ?? ''}|${driver.checkedAt ?? ''}` : '';
@@ -76,10 +82,19 @@ const body = style({ marginTop: 2, marginBottom: 0, font: 'ui-xs', color: 'gray-
 const controls = style({ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 });
 
 /**
- * 图像生成云端页服务商列表的第一张：能开时给开关，不能开（没装、没登录、太旧）时给「去设置 › Agent」。关掉开关不清默认值。
- * 浏览器里开关置灰（`models.configure` 不在 Web 白名单里），页头的说明已经写了原因。
+ * 图像生成与文本生成页服务商列表后面的一张：能开时给开关，不能开（没装、没登录、太旧）时给「去设置 › Agent」。关掉开关不清默认值。
+ * 两页的开关是同一个（画图和写文字一起开关），说明按这一页的能力写。浏览器里开关置灰（`models.configure` 不在 Web 白名单里），
+ * 页头的说明已经写了原因。
  */
-export function CodexImageCard({ codex, isDefault }: { codex: ReturnType<typeof useCodexImage>; isDefault: boolean }) {
+export function CodexImageCard({
+  codex,
+  isDefault,
+  capability = 'generateImage',
+}: {
+  codex: ReturnType<typeof useCodexImage>;
+  isDefault: boolean;
+  capability?: CodexCapability;
+}) {
   const runtime = useRuntime();
   const web = runtime.host.platform === 'web';
   const go = useShell((s) => s.go);
@@ -91,7 +106,7 @@ export function CodexImageCard({ codex, isDefault }: { codex: ReturnType<typeof 
   const desc = !state
     ? CODEX_CARD_COPY.missing
     : state.ready
-      ? (state.caution ?? CODEX_CARD_COPY.on)
+      ? (state.caution ?? (capability === 'generateText' ? CODEX_CARD_COPY.onText : CODEX_CARD_COPY.on))
       : state.checking
         ? CODEX_IMAGE_COPY.checking
         : (state.why ?? CODEX_CARD_COPY.off);

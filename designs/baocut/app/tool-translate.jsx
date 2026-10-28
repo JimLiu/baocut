@@ -2,7 +2,8 @@
    视频：新增一份译文与目标语言的字幕层，可以双语显示，原文不动；同一种语言已有译文时新增一份、不覆盖。
    字幕条目与字幕文件：结果是保存位置里译好的字幕文件、Space 里的一个字幕条目，时间码不变，原文件不动。
    页面按统一骨架排（tool-frame.jsx）：输入 → 模型 → 选项 → 保存位置 → 开始；写进视频时不显示保存位置。
-   文本模型都是在线服务：没同意过的，开始前在这一页说明要发什么、发给谁（当场授权）。 */
+   文本模型是 API 提供方的在线服务，或者设置 › Agent 打开了「用 Codex 画图和写文字」时的 Codex（智能体，排在最后）：
+   没同意过的，开始前在这一页说明要发什么、发给谁（当场授权）。 */
 (function () {
   const {useState, useEffect, useRef} = React;
   const R = window.RSP;
@@ -15,18 +16,22 @@
 
   /** 文本模型一块：模型、连接状态；返回选中的模型与要发的数据 */
   function useTextModel(app, form, chars) {
-    const catalog = L.models(app.cloudCatalog, app.cloudSaved);
-    const id = form.model || (catalog.find((m) => m.id === app.cloudLlmDefault && m.ready) || catalog.find((m) => m.ready) || catalog[0] || {}).id;
+    const codexH = (app.harnessList || []).find((h) => h.id === 'codex') || null;
+    const codex = codexH && codexH.found ? window.BC_CLOUD_IMAGE.codexReady(codexH, app.codexImageGen) : null;
+    const catalog = L.models(app.cloudCatalog, app.cloudSaved, codex);
+    /* 没选过时：默认模型（能用时），再是第一只能用、不用提醒的（API key 登录的 Codex 不自动选） */
+    const id = form.model || (catalog.find((m) => m.id === app.cloudLlmDefault && m.ready) || catalog.find((m) => m.ready && !m.caution) || catalog[0] || {}).id;
     const model = catalog.find((m) => m.id === id) || null;
     const need = model ? RUNS.need({recipient: model.provider, data: 'transcript', chars}) : null;
-    return {catalog, id, model, need, name: model ? `${model.provider} · ${model.name} · 在线` : ''};
+    return {catalog, id, model, need, name: model ? (model.agent ? `${model.name} · 用你的 Codex 订阅` : `${model.provider} · ${model.name} · 在线`) : ''};
   }
-  /** 文本模型清单（都是在线服务），给模型行（tool-frame.jsx） */
-  const textModels = (tm) => tm.catalog.map((m) => ({id: m.id, label: `${m.provider} · ${m.name}`, local: false, ok: !!m.ready}));
+  /** 文本模型清单（API 提供方的在线服务，加上智能体 Codex），给模型行（tool-frame.jsx） */
+  const textModels = (tm) => tm.catalog.map((m) => ({id: m.id, label: m.agent ? m.name : `${m.provider} · ${m.name}`, local: false, agent: !!m.agent, why: m.why || null, ok: !!m.ready}));
   /** 文本模型一行：没有连接的模型时给「去设置」；`what`：会发出去的内容 */
   function TextModelField({tm, onChange, what = '文稿文字'}) {
+    const m = tm.model;
     return <window.ToolModelRow label="用哪个文本模型" models={textModels(tm)} value={tm.id || null} onChange={onChange} settings={{r: 'settings', sec: 'cloud', tab: 'llm'}}>
-      {tm.model && tm.model.ready ? <span className="t-detail-xs">{`${tm.model.provider} · ${what}会发到这家服务`}</span> : null}
+      {m && m.ready ? <span className="t-detail-xs">{m.agent ? `${what}会发到你在这台电脑上登录的 Codex 账号${m.caution ? ` · ${m.caution}` : ' · 一次一个请求，比 API 慢'}` : `${m.provider} · ${what}会发到这家服务`}</span> : null}
     </window.ToolModelRow>;
   }
   const textModelReason = (tm) => window.BC_TOOL_FRAME.modelReason(textModels(tm), tm.id, '文本模型');

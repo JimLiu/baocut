@@ -80,6 +80,7 @@ export {
 } from './volcengine/volcengine-speech.ts';
 export { AgentProviderSource, type AgentDrivers, type AgentSourceOptions } from './agent/agent-source.ts';
 export { AgentImageGenerator, type AgentImageGeneratorOptions, type AgentReadiness } from './agent/agent-image-generator.ts';
+export { AgentTextGenerator, type AgentTextGeneratorOptions } from './agent/agent-text-generator.ts';
 export { AnthropicTextAdapter, ANTHROPIC_DEFAULT_BASE_URL, classifyAnthropic, parseAnthropicMessage } from './anthropic/anthropic-text.ts';
 export { VendorTextAdapter, type VendorTextOptions } from './openai-compatible/vendor-text.ts';
 export { COMPAT_VENDOR_IDS, COMPAT_VENDORS, type CompatVendor, type CompatVendorId } from './vendor-catalog.ts';

@@ -121,8 +121,8 @@ export const zhHans: AgentMessages = {
   },
 
   codexImage: {
-    title: '用 Codex 画图',
-    body: '不用密钥，用你的 Codex 订阅；一次一张、忽略尺寸与质量；比 API 慢 5–10 倍。打开后它排在图片生成自动选择的第一位：工具页、bcut image 与 Agent 都会用它，除非你在模型 › 图像生成里另设了默认模型。Codex 用 API key 而不是 ChatGPT 登录时可能画不了，也不会被自动选中。',
+    title: '用 Codex 画图和写文字',
+    body: '不用密钥，用你的 Codex 订阅；一次一张、忽略尺寸与质量；比 API 慢 5–10 倍。打开后它排在图片生成自动选择的第一位：工具页、bcut image 与 Agent 都会用它，除非你在模型 › 图像生成里另设了默认模型。Codex 用 API key 而不是 ChatGPT 登录时可能画不了，也不会被自动选中。同一个开关也让 Codex 写文字：一次一个请求、比 API 慢，只在你从文本模型菜单里选它、或在模型 › 文本生成里把它设成默认时用。',
     checking: '正在检查这台电脑上的 Codex 能不能画图…',
     on: '已打开',
     period: '。',
@@ -131,9 +131,9 @@ export const zhHans: AgentMessages = {
     signedOut: 'Codex 还没有登录 · 画图用的是你的 Codex 账号，登录之后才能打开。',
     notInstalled: '没有找到 Codex · 画图要先装好 Codex CLI 并登录。',
     unavailable: (detail: string | null) => (detail ? `Codex 现在画不了图 · ${detail}` : 'Codex 现在画不了图 · 点「重新检测」再试一次。'),
-    turnedOn: '已打开 Codex 画图 · 图片生成的模型菜单里多了 Codex',
-    turnedOff: '已关闭 Codex 画图',
-    toggleFailed: (enabled: boolean, message: string) => `${enabled ? '没能打开' : '没能关闭'} Codex 画图：${message}`,
+    turnedOn: '已打开 Codex 画图和写文字 · 图片生成与文本生成的模型菜单里多了 Codex',
+    turnedOff: '已关闭 Codex 画图和写文字',
+    toggleFailed: (enabled: boolean, message: string) => `${enabled ? '没能打开' : '没能关闭'} Codex 画图和写文字：${message}`,
   },
 
   faq: [

@@ -22,4 +22,9 @@ export const ko: ProvidersAgentMessages = {
   unknownError: '알 수 없는 오류',
   processExited: '프로세스가 종료되었습니다',
   turnNotStarted: (p) => `턴이 시작되지 않았습니다: ${p.error}`,
+  codexTextModel: "Codex 텍스트 생성(모델은 Codex와 계정에 따라 결정됨)",
+  codexTextNotes:
+    "이 컴퓨터에 로그인된 Codex 계정으로 글을 생성합니다. 한 번에 요청 하나씩 처리하고 매번 새 Codex 세션을 열기 때문에 API보다 느립니다. 추론 강도, temperature, seed, 출력 길이는 지정할 수 없습니다. 구독 할당량을 사용하며 남은 할당량은 알 수 없습니다. 켜면 프롬프트(그 안의 전사본 등 포함)를 Codex 계정으로 보내는 데 동의하는 것입니다.",
+  codexTextNotesApiKey:
+    "Codex가 API 키 등 ChatGPT 구독이 아닌 방식으로 로그인되어 있습니다. 비용은 구독이 아니라 그 계정에 청구됩니다. 한 번에 요청 하나씩, 추론 강도, temperature, seed, 출력 길이는 지정할 수 없습니다.",
 };

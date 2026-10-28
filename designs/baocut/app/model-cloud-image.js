@@ -186,14 +186,14 @@
   }
   /** 不是以 ChatGPT 订阅登录（`codex login status` 说用的是 API key）时的提醒（2026-10-12 用户裁决）。 */
   const CODEX_API_KEY_CAUTION = '用 API key 登录 · 可能画不了，费用不在订阅里';
-  /** Codex 画图就绪与否：探测到 ∧ 登录 ∧ 版本 ≥ 0.130 ∧ 用户开了开关。`why` 是没就绪时的一句。
+  /** Codex 画图（也是写文字，同一个开关）就绪与否：探测到 ∧ 登录 ∧ 版本 ≥ 0.130 ∧ 用户开了开关。`why` 是没就绪时的一句。
       能画但不是 ChatGPT 订阅登录（`h.auth` 不是 'chatgpt'）时仍算就绪，另带 `caution`：可以手动选，自动顺序跳过它。 */
   function codexReady(h, on) {
     if (!h || !h.found) return {ready: false, why: '未安装 Codex', problem: 'missing'};
     if (h.runError) return {ready: false, why: 'Codex 无法运行', problem: 'error'};
     if (compareVer(h.ver, CODEX_MIN_VER) < 0) return {ready: false, why: `Codex ${h.ver} 太旧 · 画图至少要 ${CODEX_MIN_VER}`, problem: 'outdated'};
     if (h.loggedIn === false) return {ready: false, why: 'Codex 需要登录', problem: 'login'};
-    if (!on) return {ready: false, why: '「用 Codex 画图」还没打开', problem: 'off'};
+    if (!on) return {ready: false, why: '「用 Codex 画图和写文字」还没打开', problem: 'off'};
     if (h.auth && h.auth !== 'chatgpt') return {ready: true, why: null, problem: null, caution: CODEX_API_KEY_CAUTION};
     return {ready: true, why: null, problem: null, caution: null};
   }

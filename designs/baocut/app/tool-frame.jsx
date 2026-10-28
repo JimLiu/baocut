@@ -47,7 +47,8 @@
   }
 
   /**
-   * 模型行。`models`：[{id, label, local: boolean, ok: boolean}]，本机与云端放在同一张单子里；
+   * 模型行。`models`：[{id, label, local: boolean, agent?: boolean, why?: string, ok: boolean}]，本机、云端与智能体（Codex，
+   * 不能用时 `why` 写原因）放在同一张单子里；
    * 没有一只能用时给「去设置」，开始按钮用 `modelReason` 说明原因。
    */
   function ToolModelRow({label, models, value, onChange, settings, children}) {
@@ -59,9 +60,9 @@
       <div className="ttsw__sechd"><b className="grow">{label}</b>
         <Btn size="s" variant="quiet" onClick={goSettings}>{usable.length ? '管理模型…' : '去设置'}</Btn></div>
       {usable.length ? <R.Picker aria-label={label} selectedKey={value} onSelectionChange={onChange} UNSAFE_className="tool-llm__field">
-        {models.map((m) => <R.PickerItem key={m.id} id={m.id}>{`${m.local ? '本机' : '云端'} · ${m.label}${m.ok ? '' : m.local ? ' · 未安装' : ' · 未连接'}`}</R.PickerItem>)}
+        {models.map((m) => <R.PickerItem key={m.id} id={m.id}>{`${m.local ? '本机' : m.agent ? '智能体' : '云端'} · ${m.label}${m.ok ? '' : m.agent ? ` · ${m.why || '不可用'}` : m.local ? ' · 未安装' : ' · 未连接'}`}</R.PickerItem>)}
       </R.Picker> : <span className="t-detail">还没有可用的{label.replace(/^用哪个/, '')}：在设置里安装一个本机模型，或连接一家云端服务。</span>}
-      {cur && !cur.ok && usable.length ? <span className="t-detail-xs tframe__warn">{cur.local ? `${cur.label} 还没安装，换一只已装的，或去设置下载` : `${cur.label} 还没连接，换一只能用的，或去设置连接`}</span> : null}
+      {cur && !cur.ok && usable.length ? <span className="t-detail-xs tframe__warn">{cur.local ? `${cur.label} 还没安装，换一只已装的，或去设置下载` : cur.agent ? `${cur.label}：${cur.why || '不可用'}，换一只能用的，或去设置 › Agent` : `${cur.label} 还没连接，换一只能用的，或去设置连接`}</span> : null}
       {children}
     </div>;
   }
@@ -70,7 +71,7 @@
     const cur = models.find((m) => m.id === value);
     if (!models.some((m) => m.ok)) return `还没有可用的${label}，先去设置`;
     if (!cur) return `先选一个${label}`;
-    if (!cur.ok) return cur.local ? `${cur.label} 还没安装` : `${cur.label} 还没连接`;
+    if (!cur.ok) return cur.local ? `${cur.label} 还没安装` : cur.agent ? `${cur.label}：${cur.why || '不可用'}` : `${cur.label} 还没连接`;
     return null;
   }
 

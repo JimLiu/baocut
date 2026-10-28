@@ -77,7 +77,7 @@ export const tr: ModelsMessages = {
       synthesizeSpeech: "Metin alır ve konuşma döndürür. Konuşma oluşturma ve dublajda kullanılabilir; çevrimiçidir ve genellikle karakter başına ücretlendirilir.",
       generateImage:
         "İstem alır ve görsel döndürür. Görsel oluştururken kullanılabilir; çevrimiçidir ve görsel başına ücretlendirilir. Codex CLI de görsel oluşturabilir: anahtar gerekmez, Codex aboneliğinizi kullanır. Anahtarı aşağıdaki sağlayıcı listesinin ilk kartındadır.",
-      generateText: "Metin talimatlarını alır ve oluşturulan metni döndürür. Altyazı çevirisi, çeviri dublajı ve Araçlar › Metin oluşturma için kullanılır; çevrimiçidir ve token başına ücretlendirilir.",
+      generateText: 'Metin talimatlarını alır ve oluşturulan metni döndürür. Altyazı çevirisi, çeviri dublajı ve Araçlar › Metin oluşturma için kullanılır; çevrimiçidir ve token başına ücretlendirilir. Codex CLI de yazabilir: anahtar gerekmez, Codex aboneliğinizi kullanır. Anahtarı sağlayıcı listesinin altındaki Codex kartındadır.',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: "Varsayılan bulut konuşma modeli",
@@ -104,6 +104,8 @@ export const tr: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Görseller",
     codexItemDesc: "Codex aboneliğinizi kullanır · her seferinde bir görsel · 5–10 kat yavaş",
+    codexTextItem: 'Codex CLI · Metin',
+    codexTextItemDesc: 'Codex aboneliğinizi kullanır · her seferinde bir istek · API’den yavaş',
     unavailable: "Kullanılamıyor",
     pickerEmpty: { image: "Seçim yapmak için sağlayıcı bağlayın veya Codex görsellerini açın", other: "Seçmek için bir sağlayıcı bağlayın" },
     defaultSet: "Varsayılan model değiştirildi",
@@ -182,9 +184,10 @@ export const tr: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: "Açık · Codex aboneliğinizi kullanır, anahtar gerekmez · her seferinde bir görsel · boyutu yok sayar · 5–10 kat yavaş",
-    off: "Kapalı · görsel oluşturmada ve buradaki varsayılan modelde seçebilmek için açın",
+    onText: 'Açık · Codex aboneliğinizi kullanır, anahtar gerekmez · her seferinde bir istek · akıl yürütme düzeyi ayarlanamaz · API’den yavaş',
+    off: 'Kapalı · görsel ve metin oluşturmada ve buradaki varsayılan modelde seçebilmek için açın',
     missing: "Codex bulunamadı · görsel oluşturmak için önce Codex CLI yükleyin ve oturum açın.",
-    switchLabel: "Codex ile görsel oluştur",
+    switchLabel: 'Görsel ve metin için Codex',
     toggleFailed: (enabled,message) => `Codex görselleri ${enabled ? 'açılamadı' : 'kapatılamadı'}: ${message}`,
   },
   key: {

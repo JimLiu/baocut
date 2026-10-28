@@ -14,7 +14,7 @@ import { pl } from './providers-agent.pl.ts';
 import { tr } from './providers-agent.tr.ts';
 import { vi } from './providers-agent.vi.ts';
 
-/** 用本机 Agent 生成图片的 Provider（`agent:codex`）的说明与错误（`packages/providers`）。`label` 是 Agent 的名字。 */
+/** 用本机 Agent 生成图片与文字的 Provider（`agent:codex`）的说明与错误（`packages/providers`）。`label` 是 Agent 的名字。 */
 const en = {
   codexUpgradeHint: 'Update the Codex CLI (for example, npm install -g @openai/codex@latest), then check again',
   codexImageModel: 'Codex image generation (model chosen by Codex and your account)',
@@ -35,6 +35,11 @@ const en = {
   unknownError: 'Unknown error',
   processExited: 'The process exited',
   turnNotStarted: (p: { error: string }) => `The turn didn't start: ${p.error}`,
+  codexTextModel: 'Codex text generation (model chosen by Codex and your account)',
+  codexTextNotes:
+    "Writes with the Codex account signed in on this computer: one request at a time, each in a fresh Codex session, so it's slower than an API. Reasoning effort, temperature, seed and output length can't be set. It uses your subscription quota; the remaining quota is unknown. Turning it on means agreeing to send prompts, including any transcript text in them, to your Codex account.",
+  codexTextNotesApiKey:
+    "Codex is signed in with an API key or another non-ChatGPT method, so any cost goes to that account, not a subscription. One request at a time; reasoning effort, temperature, seed and output length can't be set.",
 };
 
 export type ProvidersAgentMessages = typeof en;

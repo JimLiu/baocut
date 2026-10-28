@@ -84,7 +84,7 @@ export const fr: ModelsMessages = {
       generateImage:
         "Reçoit un prompt et renvoie une image. En ligne, facturé par image. Codex CLI peut aussi dessiner sans clé sur votre abonnement ; interrupteur sur la première carte ci-dessous.",
       generateText:
-        "Reçoit des instructions et renvoie du texte. Pour traductions, doublages traduits et Outils › Génération de texte ; en ligne, facturé au token.",
+        'Reçoit des instructions et renvoie du texte. Pour traductions, doublages traduits et Outils › Génération de texte ; en ligne, facturé au token. Codex CLI peut aussi écrire : aucune clé requise, il utilise votre abonnement Codex. Son interrupteur est sur la carte Codex sous la liste des fournisseurs.',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: "Modèle vocal cloud par défaut",
@@ -118,6 +118,8 @@ export const fr: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Images",
     codexItemDesc: "Votre abonnement Codex · une image à la fois · 5–10× plus lent",
+    codexTextItem: 'Codex CLI · Texte',
+    codexTextItemDesc: 'Votre abonnement Codex · une requête à la fois · plus lent qu’une API',
     unavailable: "Indisponible",
     pickerEmpty: { image: "Connectez un fournisseur ou activez les images Codex pour choisir", other: "Connectez un fournisseur pour choisir" },
     defaultSet: "Modèle par défaut modifié",
@@ -210,9 +212,10 @@ export const fr: ModelsMessages = {
   codexCard: {
     title: "Codex CLI",
     on: "Activé · abonnement Codex, sans clé · une image à la fois · taille ignorée · 5–10× plus lent",
-    off: "Désactivé · activez pour le choisir en génération et comme défaut ici",
+    onText: 'Activé · abonnement Codex, sans clé · une requête à la fois · pas de réglage de l’effort de raisonnement · plus lent qu’une API',
+    off: 'Désactivé · activez pour le choisir pour les images et le texte, et comme défaut ici',
     missing: "Codex introuvable · installez Codex CLI et connectez-vous avant de dessiner.",
-    switchLabel: "Dessiner avec Codex",
+    switchLabel: 'Utiliser Codex pour les images et le texte',
     toggleFailed: (enabled: boolean, message: string) => `Impossible de ${enabled ? "activé" : "désactivé"} les images Codex : ${message}`,
   },
   key: {

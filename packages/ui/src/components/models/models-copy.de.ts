@@ -83,7 +83,7 @@ export const de: ModelsMessages = {
       generateImage:
         "Nimmt einen Prompt und liefert ein Bild. Für Bilderzeugung verfügbar; online und pro Bild abgerechnet. Codex CLI kann ebenfalls zeichnen: ohne Schlüssel, mit Ihrem Codex-Abonnement. Der Schalter steht auf der ersten Karte der Anbieterliste unten.",
       generateText:
-        "Nimmt Textanweisungen und liefert erzeugten Text. Für Untertitelübersetzung, übersetzte Vertonung und Werkzeuge › Texterzeugung; online und pro Token abgerechnet.",
+        'Nimmt Textanweisungen und liefert erzeugten Text. Für Untertitelübersetzung, übersetzte Vertonung und Werkzeuge › Texterzeugung; online und pro Token abgerechnet. Codex CLI kann auch schreiben: kein Schlüssel nötig, es nutzt Ihr Codex-Abo. Der Schalter ist auf der Codex-Karte unter der Anbieterliste.',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: "Standard-Cloud-Sprachmodell",
@@ -117,6 +117,8 @@ export const de: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Bilder",
     codexItemDesc: "Verwendet Ihr Codex-Abonnement · ein Bild gleichzeitig · 5–10× langsamer",
+    codexTextItem: 'Codex CLI · Text',
+    codexTextItemDesc: 'Verwendet Ihr Codex-Abonnement · eine Anfrage gleichzeitig · langsamer als eine API',
     unavailable: "Nicht verfügbar",
     pickerEmpty: { image: "Anbieter verbinden oder Codex-Bilder einschalten, um auszuwählen", other: "Zum Auswählen einen Anbieter verbinden" },
     defaultSet: "Standardmodell geändert",
@@ -209,9 +211,10 @@ export const de: ModelsMessages = {
   codexCard: {
     title: "Codex CLI",
     on: "Ein · verwendet Ihr Codex-Abonnement, ohne Schlüssel · ein Bild gleichzeitig · ignoriert Größe · 5–10× langsamer",
-    off: "Aus · einschalten, um es für Bilderzeugung und hier als Standardmodell auszuwählen",
+    onText: 'Ein · verwendet Ihr Codex-Abonnement, ohne Schlüssel · eine Anfrage gleichzeitig · keine Einstellung der Denkintensität · langsamer als eine API',
+    off: 'Aus · einschalten, um es für Bild- und Texterzeugung und hier als Standardmodell auszuwählen',
     missing: "Codex nicht gefunden · Codex CLI vor dem Zeichnen installieren und anmelden.",
-    switchLabel: "Mit Codex zeichnen",
+    switchLabel: 'Codex für Bilder und Text nutzen',
     toggleFailed: (enabled: boolean, message: string) => `Umschalten fehlgeschlagen: ${enabled ? "ein" : "aus"} für Codex-Bilder: ${message}`,
   },
   key: {

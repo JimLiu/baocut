@@ -466,9 +466,9 @@ export interface DefaultSection {
 }
 
 export interface CodexDefaultState {
-  /** `agent:codex` 此刻能画。 */
+  /** `agent:codex` 此刻能用（画图或写文字，同一个开关）。 */
   ready: boolean;
-  /** 不能画时的一句原因。 */
+  /** 不能用时的一句原因。 */
   why: string | null;
 }
 
@@ -491,9 +491,12 @@ function refLabel(view: ModelCapabilitiesView, capability: OnlineCapability, ref
   return `${provider?.label ?? ref.providerId} · ${ref.modelId}`;
 }
 
+/** 智能体 Codex 在图像生成与文本生成里各自的模型（架构设计 §6.9；同一个开关）。 */
+const CODEX_MODELS: Partial<Record<OnlineCapability, string>> = { generateImage: 'image-gen', generateText: 'text-gen' };
+
 /**
- * 云端页的默认模型菜单：第一项是「不设默认」，然后每家能用的在线服务商一组；图像档在 Codex 能画、或它已是默认时
- * 多一项「Codex CLI · 画图」。当前默认指向的服务商不可用时照样列出来、勾着、写「不可用」——Runtime 保留它，这里不替用户清。
+ * 云端页的默认模型菜单：第一项是「不设默认」，然后每家能用的在线服务商一组；图像生成与文本生成在 Codex 能用、或它已是默认时
+ * 最后多一项「Codex CLI · 画图」「Codex CLI · 文字」。当前默认指向的服务商不可用时照样列出来、勾着、写「不可用」——Runtime 保留它，这里不替用户清。
  *
  * 每种能力只有一个默认值，本地页与云端页共用。语音识别的默认是本机或节点的模型时，云端页勾「用本地模型」，再选它不动默认。
  * 其余能力没有出厂默认：默认是本机或节点的模型时单列一项、勾着它（写明在本地模型页设的），「每次选择」才是真的清掉默认。
@@ -524,8 +527,9 @@ export function cloudDefaultPicker(
     sections.push({ key: p.providerId, title: p.label, items });
   }
   const empty = sections.length === 1;
-  if (capability === 'generateImage' && codex) {
-    const codexKey = defaultKey({ providerId: `${AGENT_PROVIDER_PREFIX}codex`, modelId: 'image-gen' });
+  const codexModel = CODEX_MODELS[capability];
+  if (codexModel && codex) {
+    const codexKey = defaultKey({ providerId: `${AGENT_PROVIDER_PREFIX}codex`, modelId: codexModel });
     const isDefault = selectedKey === codexKey;
     if (codex.ready || isDefault) {
       sections.push({
@@ -544,5 +548,5 @@ export function cloudDefaultPicker(
   if (!listedCurrent && current) {
     sections.push({ key: 'current', items: [{ key: selectedKey, label: M.unavailableItem(refLabel(view, capability, current), copy.unavailable) }] });
   }
-  return { selectedKey, sections, empty: empty && !(capability === 'generateImage' && codex?.ready) };
+  return { selectedKey, sections, empty: empty && !(codexModel && codex?.ready) };
 }

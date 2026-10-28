@@ -141,8 +141,8 @@ export const vi: AgentMessages = {
    * 「Codex 画图」」；现在出现它的地方是 `bcut image` 与会话里 Agent 的生图工具，菜单里的名字是 Provider 自己的「Codex」，照实写。
    */
   codexImage: {
-    title: "Vẽ bằng Codex",
-    body: 'Không cần khóa; dùng gói đăng ký Codex của bạn. Mỗi lần một ảnh, bỏ qua kích thước và chất lượng, chậm hơn API 5–10 lần. Khi bật, nó đứng đầu trong lựa chọn tự động để tạo ảnh: trang công cụ, bcut image và Agent sẽ dùng nó, trừ khi bạn đặt mô hình mặc định khác trong Mô hình › Tạo ảnh. Nếu Codex đăng nhập bằng khóa API thay vì ChatGPT, có thể không vẽ được và sẽ không được chọn tự động.',
+    title: 'Dùng Codex để vẽ và viết',
+    body: 'Không cần khóa; dùng gói đăng ký Codex của bạn. Mỗi lần một ảnh, bỏ qua kích thước và chất lượng, chậm hơn API 5–10 lần. Khi bật, nó đứng đầu trong lựa chọn tự động để tạo ảnh: trang công cụ, bcut image và Agent sẽ dùng nó, trừ khi bạn đặt mô hình mặc định khác trong Mô hình › Tạo ảnh. Nếu Codex đăng nhập bằng khóa API thay vì ChatGPT, có thể không vẽ được và sẽ không được chọn tự động. Cùng công tắc này cũng cho Codex viết văn bản: mỗi lần một yêu cầu, chậm hơn API, và chỉ được dùng khi bạn chọn nó trong menu mô hình văn bản hoặc đặt làm mặc định trong Mô hình › Tạo văn bản.',
     checking: "Đang kiểm tra Codex trên máy tính này có thể vẽ không…",
     on: "Bật",
     /** 补在 Provider 给的原因后面的句号（原因已经以句号结尾就不补）。 */
@@ -153,10 +153,10 @@ export const vi: AgentMessages = {
     notInstalled: "Không tìm thấy Codex · Cài Codex CLI và đăng nhập trước khi vẽ.",
     unavailable: (detail: string | null) =>
       detail ? `Hiện Codex không thể vẽ · ${detail}` : "Hiện Codex không thể vẽ · Nhấp “Kiểm tra lại” để thử lại.",
-    turnedOn: "Đã bật Vẽ bằng Codex · Codex hiện có trong menu mô hình tạo ảnh",
-    turnedOff: "Đã tắt Vẽ bằng Codex",
+    turnedOn: 'Đã bật Codex để vẽ và viết · Codex hiện có trong menu mô hình tạo ảnh và tạo văn bản',
+    turnedOff: 'Đã tắt Codex để vẽ và viết',
     toggleFailed: (enabled: boolean, message: string) =>
-      enabled ? `Không bật Vẽ bằng Codex được: ${message}` : `Không tắt Vẽ bằng Codex được: ${message}`,
+      enabled ? `Không bật Codex để vẽ và viết được: ${message}` : `Không tắt Codex để vẽ và viết được: ${message}`,
   },
 
   /** 常见问题（page-settings-agent.jsx:142-157）。`link` 是答案下面那颗按钮。 */

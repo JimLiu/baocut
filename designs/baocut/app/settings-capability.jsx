@@ -1,10 +1,12 @@
 /* 能力页（product-design §7.6）：每种能力一页，本机模型与 API 提供方的模型在同一页，不分本地 / 云端两个 Tab。从上到下：
    ① 默认模型——一个选择器，放在页顶，本机、API 提供方与智能体的模型都在里面，按这种能力的自动顺序分组（图像生成：能画的
-      Codex › 本机 › API 提供方；2026-10-12 用户裁决，之后新增的同时有本机与云端模型的能力照此办理），不可用的项置灰并写明原因；
+      Codex › 本机 › API 提供方；2026-10-12 用户裁决，之后新增的同时有本机与云端模型的能力照此办理；文本生成没有自动顺序，
+      智能体「Codex 写文字」排在 API 提供方后面），不可用的项置灰并写明原因；
       工具页、编辑器、命令行与 Agent 不指定模型时都用它。第一项清掉默认：转录与图像生成是「自动」（写明此刻用谁），合成是「未设置」；
    ② 这种能力的参数（并发；文本生成另有推理强度）；
    ③ 本机模型（settings-local.jsx 的目录、安装、检查与试用，默认行交给 ①）；
    ④ API 提供方：目录里有这种能力的全部提供方（BC_VENDORS.capCatalog，含没添加的与自建端点），一家一组，带图标；
+      图像生成与文本生成在末尾多一张 Codex 卡：开关是设置 › Agent 的「用 Codex 画图和写文字」，两页共用；
       顶部始终有搜索框；组可折叠，默认已连接的展开、其余收起，有查询词时命中的展开。已连接的组每行可以测试、显示默认标记；
       没连上的组表头给「配置」（与添加 sheet 的选卡同一路径：没添加先添加，再进详情并展开「添加账号」），展开后只读列模型。
       「管理 API 提供方」去 API 提供方页。默认模型选择器 ① 仍只列已添加的提供方。
@@ -24,10 +26,22 @@
     image: {max: 4, desc: '批量生图时同一家同时发出的请求上限（1–4）。遇到限速就调低。'},
   };
   const AUTO_LABEL = {transcribe: '自动选择', text: '自动选择', image: '自动'};
+  /* 智能体 Codex 在图像生成、文本生成两页的叫法与说明（同一个开关） */
+  const CODEX_ITEM = {
+    image: {label: 'Codex 画图', desc: '用你的 Codex 订阅 · 一次一张 · 慢 5–10 倍', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一张 · 忽略尺寸 · 慢 5–10 倍'},
+    text: {label: 'Codex 写文字', desc: '用你的 Codex 订阅 · 一次一个请求 · 比 API 慢', caution: '用 API key 登录 · 费用不在订阅里', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一个请求 · 不能设推理强度 · 比 API 慢'},
+  };
+  const codexId = (cap) => (cap === 'image' ? IM().CODEX_ID : window.BC_LLM_TOOLS.CODEX_TEXT_ID);
+  /* Codex 已装时这一页的智能体状态（图像生成与文本生成才有） */
+  function codexOf(app, cap) {
+    if (!CODEX_ITEM[cap]) return null;
+    const h = (app.harnessList || []).find((x) => x.id === 'codex') || null;
+    return {h, ...IM().codexReady(h, app.codexImageGen)};
+  }
 
   /* 当前默认：API 提供方的优先（四种能力各一个存法），否则本机 */
   function readDefault(app, cap, cat) {
-    const cloud = cap === 'text' ? (app.cloudLlmDefault ? 'cloud:' + app.cloudLlmDefault : '')
+    const cloud = cap === 'text' ? (app.cloudLlmDefault ? (app.cloudLlmDefault.indexOf('agent:') === 0 ? app.cloudLlmDefault : 'cloud:' + app.cloudLlmDefault) : '')
       : cap === 'transcribe' ? app.cloudAsrDefault : cap === 'tts' ? app.cloudTtsDefault : app.cloudImageDefault;
     if (cloud) return cloud;
     const local = cat ? (app.prefs.localModelDefaults || {})[cat] : null;
@@ -37,7 +51,7 @@
   function writeDefault(app, cap, cat, v) {
     const cloud = v.indexOf('cloud:') === 0 || v.indexOf('agent:') === 0 ? v : '';
     const local = v.indexOf('local:') === 0 ? v.slice(6) : null;
-    if (cap === 'text') app.setCloudLlmDefault(cloud ? cloud.slice(6) : '');
+    if (cap === 'text') app.setCloudLlmDefault(cloud.indexOf('cloud:') === 0 ? cloud.slice(6) : cloud);
     if (cap === 'transcribe') app.setCloudAsrDefault(cloud);
     if (cap === 'tts') app.setCloudTtsDefault(cloud);
     if (cap === 'image') app.setCloudImageDefault(cloud);
@@ -55,8 +69,8 @@
     const local = cat ? models.filter((m) => LM().catOf(m) === cat && !m.pack && m.supported !== false) : [];
     const ready = (m) => app.modelInstalled(m.id) && LM().ready(m, comps, on);
     const groups = V().choices(cap, app.providerSettings, app.providerAccounts, now);
-    const codexH = (app.harnessList || []).find((h) => h.id === 'codex') || null;
-    const codex = cap === 'image' ? IM().codexReady(codexH, app.codexImageGen) : null;
+    const codex = codexOf(app, cap);
+    const item = CODEX_ITEM[cap];
     /* 图像生成的「自动」此刻落到谁：与工具页开页同一个顺序（model-cloud-image.js `preferred`） */
     const engines = window.useImageEngines(app);
     const autoUses = (() => {
@@ -68,23 +82,24 @@
     const label = (() => {
       if (!cur) return autoText || AUTO_LABEL[cap] || (cat && LM().hasAuto(cat) ? '自动选择' : '未设置');
       if (cur.indexOf('local:') === 0) { const m = local.find((x) => x.id === cur.slice(6)); return m ? m.name : cur.slice(6); }
-      if (cur.indexOf('agent:') === 0) return `Codex 画图${codex && codex.ready ? '' : '（不可用）'}`;
+      if (cur.indexOf('agent:') === 0) return `${item ? item.label : 'Codex'}${codex && codex.ready ? '' : '（不可用）'}`;
       const [pid, ...rest] = cur.slice(6).split('/');
       const g = groups.find((x) => x.vendor.id === pid);
       return `${g ? g.vendor.name : pid} · ${rest.join('/')}${g && g.ready ? '' : '（不可用）'}`;
     })();
     const pick = (v) => { writeDefault(app, cap, cat, v); setOpen(false); };
-    /* 智能体一组：能画时排在最前（自动顺序的第一位），画不了时排最后、置灰写原因；API key 登录时能选，写提醒 */
+    /* 智能体一组：图像生成能画时排在最前（自动顺序的第一位），画不了时排最后、置灰写原因；文本生成没有自动顺序，总在最后。
+       API key 登录时能选，写提醒 */
     const codexGroup = codex ? <><MenuRule /><MenuHead>智能体</MenuHead>
-      <MenuItem label="Codex 画图" sub={codex.ready ? (codex.caution || '用你的 Codex 订阅 · 一次一张 · 慢 5–10 倍') : codex.why} disabled={!codex.ready && cur !== IM().CODEX_ID}
-        check={cur === IM().CODEX_ID} onClick={() => pick(IM().CODEX_ID)} /></> : null;
+      <MenuItem label={item.label} sub={codex.ready ? (codex.caution ? (item.caution || codex.caution) : item.desc) : codex.why} disabled={!codex.ready && cur !== codexId(cap)}
+        check={cur === codexId(cap)} onClick={() => pick(codexId(cap))} /></> : null;
     const autoOk = AUTO_LABEL[cap] || (cat && LM().hasAuto(cat));
     const desc = cap === 'text' ? '润色、翻译、生成章节时用它。' : cat ? LM().DEFAULT_DESC[cat] : '';
     return <window.ShellRow label="默认模型" desc={`${desc} 不可用的项置灰并写明原因。`}>
       <Picker size="s" value={label} open={open} popAlign="right" popWidth={320} onClick={() => setOpen(!open)} onClose={() => setOpen(false)}>
         <Menu>
           {autoOk ? <MenuItem label={autoText || AUTO_LABEL[cap] || '自动选择'} sub={cap === 'image' ? '按顺序取第一个能用的：Codex › 本机 › OpenAI › Gemini › 其他' : cap === 'text' ? '按任务挑一个能用的模型' : '按这台电脑与任务挑'} check={!cur} onClick={() => pick('')} /> : null}
-          {codex && codex.ready ? codexGroup : null}
+          {cap === 'image' && codex && codex.ready ? codexGroup : null}
           {local.length ? <><MenuRule /><MenuHead>本机</MenuHead></> : null}
           {local.map((m) => <MenuItem key={m.id} label={m.name} disabled={!ready(m)} sub={ready(m) ? '在这台电脑上运行 · 不联网' : '未安装 · 在下面的本机模型里下载'}
             check={cur === 'local:' + m.id} onClick={() => pick('local:' + m.id)} />)}
@@ -94,7 +109,7 @@
               return <MenuItem key={m.id} label={m.id} sub={[m.desc, g.state.k === 'warn' ? `首选账号 ${g.state.label}` : ''].filter(Boolean).join(' · ') || undefined} check={cur === v} onClick={() => pick(v)} />; })
               : <MenuItem label={g.why} sub="在 API 提供方页添加账号或启用后可选" disabled />}
           </React.Fragment>)}
-          {codex && !codex.ready ? codexGroup : null}
+          {codex && (cap !== 'image' || !codex.ready) ? codexGroup : null}
           {!groups.length && !local.length && !codex ? <><MenuRule /><MenuItem label="还没有能用的模型" sub="先在 API 提供方页添加一家" disabled /></> : null}
         </Menu>
       </Picker>
@@ -124,8 +139,7 @@
     const [toggled, setToggled] = useState({});   // 用户手动翻过的组；换查询词时清空，回到默认的开合
     const rows = V().capCatalog(cap, app.providerSettings, app.providerAccounts, Date.now(), q);
     const cur = readDefault(app, cap, null);
-    const codexH = (app.harnessList || []).find((h) => h.id === 'codex') || null;
-    const codex = cap === 'image' ? IM().codexReady(codexH, app.codexImageGen) : null;
+    const codex = codexOf(app, cap);
     const goProviders = (add) => app.go(Object.assign({r: 'settings', sec: 'providers'}, add ? {from: 'add'} : {}));
     /* 与添加 sheet 的 pick 同一路径：没添加的先添加，再进详情并直接展开「添加账号」 */
     const configure = (id) => {
@@ -188,8 +202,8 @@
         <Btn size="s" variant="secondary" icon="plus" onClick={() => goProviders(true)}>添加 API 提供方</Btn>
       </div>}
       {codex ? <div className="setpage__card capm__agent">
-        <window.ShellRow label="Codex 画图" desc={codex.ready ? '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一张 · 忽略尺寸 · 慢 5–10 倍' : `智能体 · ${codex.why}`}>
-          {IM().codexCanEnable(codexH) ? <Switch on={!!app.codexImageGen} ariaLabel="用 Codex 画图" onChange={(v) => app.setCodexImageGen(v)} />
+        <window.ShellRow label={CODEX_ITEM[cap].label} desc={codex.ready ? `${CODEX_ITEM[cap].card} · 这个开关同时管画图和写文字` : `智能体 · ${codex.why}`}>
+          {IM().codexCanEnable(codex.h) ? <Switch on={!!app.codexImageGen} ariaLabel="用 Codex 画图和写文字" onChange={(v) => app.setCodexImageGen(v)} />
             : <Btn size="s" variant="quiet" onClick={() => app.go({r: 'settings', sec: 'agent'})}>去设置 › Agent</Btn>}
         </window.ShellRow>
       </div> : null}

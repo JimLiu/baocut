@@ -1,17 +1,30 @@
-import { AGENT_PROVIDER_PREFIX, localizeText, type DriverInfo, type ModelCapabilitiesView, type ProviderCapabilityView } from '@baocut/protocol';
+import {
+  AGENT_PROVIDER_PREFIX,
+  localizeText,
+  type DriverInfo,
+  type ModelCapabilitiesView,
+  type OnlineCapability,
+  type ProviderCapabilityView,
+} from '@baocut/protocol';
 import { CODEX_IMAGE_COPY } from './agent-copy.ts';
 
 /**
- * 「用 Codex 画图」（设计稿 settings-agent-provider.jsx 的 CodexImageRow）：Codex 卡头下面一行开关。
- * 后端是图片生成的智能体 Provider `agent:codex`（架构设计 §6.9）：开关走 `models.configure`，状态读 `models` 主题的
- * 能力视图。这里只把视图折成这一行要显示的东西，不在界面里写死最低版本——不够新时原因取 Provider 自己给的 `detail`。
+ * 「用 Codex 画图和写文字」（设计稿 settings-agent-provider.jsx 的 CodexImageRow）：Codex 卡头下面一行开关。
+ * 后端是智能体 Provider `agent:codex`（架构设计 §6.9），图片生成与文本生成共用它的启用开关：开关走 `models.configure`，状态读
+ * `models` 主题的能力视图。这里只把视图折成这一行要显示的东西，不在界面里写死最低版本——不够新时原因取 Provider 自己给的 `detail`。
  */
 
 export const CODEX_IMAGE_PROVIDER = `${AGENT_PROVIDER_PREFIX}codex`;
 
-/** 能力视图里图片生成的 `agent:codex`；Runtime 没注册它时为 null（这一行就不显示）。 */
-export function codexImageProvider(view: ModelCapabilitiesView | null): ProviderCapabilityView | null {
-  return view?.generateImage.providers.find((p) => p.providerId === CODEX_IMAGE_PROVIDER) ?? null;
+/**
+ * 能力视图里图片生成（或 `capability` 给的文本生成）的 `agent:codex`；Runtime 没注册它时为 null（这一行就不显示）。
+ * 能不能用两种能力一样；`caution` 取这种能力的模型说明。
+ */
+export function codexImageProvider(
+  view: ModelCapabilitiesView | null,
+  capability: Extract<OnlineCapability, 'generateImage' | 'generateText'> = 'generateImage',
+): ProviderCapabilityView | null {
+  return view?.[capability].providers.find((p) => p.providerId === CODEX_IMAGE_PROVIDER) ?? null;
 }
 
 /**

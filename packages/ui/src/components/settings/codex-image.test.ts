@@ -87,6 +87,6 @@ describe('codexImageRow', () => {
 describe('codexImageToast', () => {
   it('打开与关闭各一句', () => {
     expect(codexImageToast(true)).toContain('已打开 Codex 画图');
-    expect(codexImageToast(false)).toBe('已关闭 Codex 画图');
+    expect(codexImageToast(false)).toBe('已关闭 Codex 画图和写文字');
   });
 });

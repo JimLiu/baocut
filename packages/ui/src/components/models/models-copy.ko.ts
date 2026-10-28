@@ -79,7 +79,7 @@ export const ko: ModelsMessages = {
       generateImage:
         '프롬프트를 받아 이미지를 돌려줍니다. 이미지 생성에서 고를 수 있으며, 온라인 유료이고 이미지 장수 기준으로 요금이 부과됩니다. Codex CLI로도 그릴 수 있습니다. 키 없이 Codex 구독을 사용하며, 스위치는 아래 공급자 목록의 첫 번째 카드에 있습니다.',
       generateText:
-        '텍스트 지시를 받아 생성한 텍스트를 돌려줍니다. 자막 번역, 번역 더빙, 도구 › 텍스트 생성에 쓰이며, 온라인 유료이고 토큰 기준으로 요금이 부과됩니다.',
+        '텍스트 지시를 받아 생성한 텍스트를 돌려줍니다. 자막 번역, 번역 더빙, 도구 › 텍스트 생성에 쓰이며, 온라인 유료이고 토큰 기준으로 요금이 부과됩니다. Codex CLI도 쓸 수 있습니다. 키 없이 Codex 구독을 사용하며, 스위치는 제공업체 목록 아래 Codex 카드에 있습니다.',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: '기본 클라우드 음성 모델',
@@ -112,6 +112,8 @@ export const ko: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · 이미지',
     codexItemDesc: 'Codex 구독 사용 · 한 번에 1장 · 5–10배 느림',
+    codexTextItem: 'Codex CLI · 텍스트',
+    codexTextItemDesc: 'Codex 구독 사용 · 한 번에 요청 1개 · API보다 느림',
     unavailable: '사용할 수 없음',
     pickerEmpty: { image: '공급자를 연결하거나 Codex 이미지를 켜면 고를 수 있습니다', other: '공급자를 연결하면 고를 수 있습니다' },
     defaultSet: '기본 모델을 바꿨습니다',
@@ -199,9 +201,10 @@ export const ko: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: '켜짐 · Codex 구독 사용, 키 필요 없음 · 한 번에 1장 · 크기 무시 · 5–10배 느림',
-    off: '꺼짐 · 켜면 이미지 생성과 여기의 기본 모델에서 고를 수 있습니다',
+    onText: '켜짐 · Codex 구독 사용, 키 필요 없음 · 한 번에 요청 1개 · 추론 강도 설정 불가 · API보다 느림',
+    off: '꺼짐 · 켜면 이미지 생성, 텍스트 생성과 여기의 기본 모델에서 고를 수 있습니다',
     missing: 'Codex를 찾을 수 없습니다 · 그리려면 먼저 Codex CLI를 설치하고 로그인하세요.',
-    switchLabel: 'Codex로 그리기',
+    switchLabel: 'Codex로 그리기와 글쓰기',
     toggleFailed: (enabled: boolean, message: string) => `Codex 이미지를 ${enabled ? '켜지' : '끄지'} 못했습니다: ${message}`,
   },
   key: {

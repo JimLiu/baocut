@@ -122,8 +122,8 @@ export const ko: AgentMessages = {
   },
 
   codexImage: {
-    title: 'Codex로 그리기',
-    body: '키 없이 Codex 구독을 사용합니다. 한 번에 한 장, 크기와 품질은 무시되며 API보다 5–10배 느립니다. 켜면 이미지 생성 자동 선택에서 가장 먼저 쓰입니다. 모델 › 이미지 생성에서 다른 기본 모델을 지정하지 않으면 도구 페이지, bcut image, Agent가 이것을 사용합니다. Codex가 ChatGPT가 아닌 API 키로 로그인되어 있으면 생성되지 않을 수 있고 자동으로 선택되지 않습니다.',
+    title: 'Codex로 그리기와 글쓰기',
+    body: '키 없이 Codex 구독을 사용합니다. 한 번에 한 장, 크기와 품질은 무시되며 API보다 5–10배 느립니다. 켜면 이미지 생성 자동 선택에서 가장 먼저 쓰입니다. 모델 › 이미지 생성에서 다른 기본 모델을 지정하지 않으면 도구 페이지, bcut image, Agent가 이것을 사용합니다. Codex가 ChatGPT가 아닌 API 키로 로그인되어 있으면 생성되지 않을 수 있고 자동으로 선택되지 않습니다. 같은 스위치로 Codex가 텍스트도 씁니다. 한 번에 요청 하나씩 처리하고 API보다 느리며, 텍스트 모델 메뉴에서 고르거나 모델 › 텍스트 생성에서 기본값으로 지정했을 때만 쓰입니다.',
     checking: '이 컴퓨터의 Codex가 그림을 그릴 수 있는지 확인 중…',
     on: '켜짐',
     period: '.',
@@ -133,10 +133,10 @@ export const ko: AgentMessages = {
     notInstalled: 'Codex를 찾지 못했습니다 · 그리려면 Codex CLI를 설치하고 로그인하세요.',
     unavailable: (detail: string | null) =>
       detail ? `지금은 Codex로 그릴 수 없습니다 · ${detail}` : '지금은 Codex로 그릴 수 없습니다 · “다시 확인”을 클릭해 다시 시도하세요.',
-    turnedOn: 'Codex로 그리기를 켰습니다 · 이제 이미지 생성 모델 메뉴에 Codex가 있습니다',
-    turnedOff: 'Codex로 그리기를 껐습니다',
+    turnedOn: 'Codex로 그리기와 글쓰기를 켰습니다 · 이제 이미지 생성과 텍스트 생성 모델 메뉴에 Codex가 있습니다',
+    turnedOff: 'Codex로 그리기와 글쓰기를 껐습니다',
     toggleFailed: (enabled: boolean, message: string) =>
-      enabled ? `Codex로 그리기를 켜지 못했습니다: ${message}` : `Codex로 그리기를 끄지 못했습니다: ${message}`,
+      enabled ? `Codex로 그리기와 글쓰기를 켜지 못했습니다: ${message}` : `Codex로 그리기와 글쓰기를 끄지 못했습니다: ${message}`,
   },
 
   faq: [

@@ -77,7 +77,7 @@ export const zhHans: ModelsMessages = {
       synthesizeSpeech: '接收文字，返回语音。生成语音与配音时可选；联网计费，多数按字符。',
       generateImage:
         '接收提示词，返回图片。生成图片时可选，联网按张计费。Codex CLI 也能画：不用密钥，用你的 Codex 订阅，开关在下面服务商列表的第一张卡上。',
-      generateText: '接收文字指令，返回生成文本。字幕翻译、翻译配音与工具 › 文本生成用它；联网按 token 计费。',
+      generateText: '接收文字指令，返回生成文本。字幕翻译、翻译配音与工具 › 文本生成用它；联网按 token 计费。Codex CLI 也能写：不用密钥，用你的 Codex 订阅；开关在服务商列表下面的 Codex 卡上。',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: '默认云端语音模型',
@@ -104,6 +104,8 @@ export const zhHans: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · 画图',
     codexItemDesc: '用你的 Codex 订阅 · 一次一张 · 慢 5–10 倍',
+    codexTextItem: 'Codex CLI · 文字',
+    codexTextItemDesc: '用你的 Codex 订阅 · 一次一个请求 · 比 API 慢',
     unavailable: '不可用',
     pickerEmpty: { image: '连接服务商或打开 Codex 画图后可选', other: '连接服务商后可选' },
     defaultSet: '已改默认模型',
@@ -182,9 +184,10 @@ export const zhHans: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: '已开启 · 用你的 Codex 订阅，不用密钥 · 一次一张 · 忽略尺寸 · 慢 5–10 倍',
-    off: '已关闭 · 打开后可在生成图片与这里的默认模型里选它',
+    onText: '已开启 · 用你的 Codex 订阅，不用密钥 · 一次一个请求 · 不能设推理强度 · 比 API 慢',
+    off: '已关闭 · 打开后可在生成图片、生成文字与这里的默认模型里选它',
     missing: '没有找到 Codex · 画图要先装好 Codex CLI 并登录。',
-    switchLabel: '用 Codex 画图',
+    switchLabel: '用 Codex 画图和写文字',
     toggleFailed: (enabled: boolean, message: string) => `${enabled ? '没能打开' : '没能关闭'} Codex 画图：${message}`,
   },
   key: {

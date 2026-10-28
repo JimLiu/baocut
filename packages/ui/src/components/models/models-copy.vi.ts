@@ -77,7 +77,7 @@ export const vi: ModelsMessages = {
       synthesizeSpeech: "Nhận văn bản và trả về lời nói. Có thể dùng khi tạo giọng nói và lồng tiếng; kết nối mạng và tính phí, thường theo ký tự.",
       generateImage:
         "Nhận câu lệnh và trả về ảnh. Có thể dùng khi tạo ảnh; kết nối mạng và tính phí theo ảnh. Codex CLI cũng có thể tạo ảnh: không cần khóa, dùng gói đăng ký Codex của bạn. Công tắc nằm ở thẻ đầu trong danh sách nhà cung cấp bên dưới.",
-      generateText: "Nhận chỉ dẫn văn bản và trả về văn bản được tạo. Dùng cho dịch phụ đề, lồng tiếng bản dịch và Công cụ › Tạo văn bản; kết nối mạng và tính phí theo token.",
+      generateText: 'Nhận chỉ dẫn văn bản và trả về văn bản được tạo. Dùng cho dịch phụ đề, lồng tiếng bản dịch và Công cụ › Tạo văn bản; kết nối mạng và tính phí theo token. Codex CLI cũng viết được: không cần khóa, dùng gói đăng ký Codex của bạn. Công tắc nằm trên thẻ Codex bên dưới danh sách nhà cung cấp.',
     } satisfies Record<OnlineCapability, string>,
     defaultLabel: {
       transcribe: "Mô hình giọng nói đám mây mặc định",
@@ -104,6 +104,8 @@ export const vi: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Ảnh",
     codexItemDesc: "Dùng gói đăng ký Codex của bạn · mỗi lần một ảnh · chậm hơn 5–10 lần",
+    codexTextItem: 'Codex CLI · Văn bản',
+    codexTextItemDesc: 'Dùng gói đăng ký Codex của bạn · mỗi lần một yêu cầu · chậm hơn API',
     unavailable: "Không khả dụng",
     pickerEmpty: { image: "Kết nối nhà cung cấp hoặc bật tạo ảnh Codex để chọn", other: "Kết nối nhà cung cấp để chọn" },
     defaultSet: "Đã đổi mô hình mặc định",
@@ -182,9 +184,10 @@ export const vi: ModelsMessages = {
   codexCard: {
     title: 'Codex CLI',
     on: "Đã bật · dùng gói đăng ký Codex, không cần khóa · mỗi lần một ảnh · bỏ qua kích thước · chậm hơn 5–10 lần",
-    off: "Đã tắt · bật để chọn khi tạo ảnh và làm mô hình mặc định tại đây",
+    onText: 'Đã bật · dùng gói đăng ký Codex, không cần khóa · mỗi lần một yêu cầu · không chỉnh được mức suy luận · chậm hơn API',
+    off: 'Đã tắt · bật để chọn khi tạo ảnh, tạo văn bản và làm mô hình mặc định tại đây',
     missing: "Không tìm thấy Codex · cài và đăng nhập Codex CLI trước khi tạo ảnh.",
-    switchLabel: "Tạo ảnh bằng Codex",
+    switchLabel: 'Dùng Codex để vẽ và viết',
     toggleFailed: (enabled,message) => `Không thể ${enabled ? 'bật' : 'tắt'} tạo ảnh Codex: ${message}`,
   },
   key: {

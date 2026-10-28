@@ -13,7 +13,7 @@ import { retranslatePrompt, TOOL_SKILL } from '../../model/ai-tools.ts';
 import { currentConversation } from '../../model/ai-tools-handoff.ts';
 import { gateGuide, homeGate } from '../../model/home-brief.ts';
 import { translateModelOptions } from '../../model/tool-runs.ts';
-import { findOption, initialModelKey, parseModelKey } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, optionName, parseModelKey, withoutCaution } from '../../model/tools-models.ts';
 import { isStale, type PairRow, type PairStats } from '../../model/translation-doc.ts';
 import { targetKey } from '../../model/workspace.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -91,9 +91,9 @@ export function useRetranslateModel(): { ref: { providerId: string; modelId: str
   const view = useModels((s) => s.capabilities);
   return useMemo(() => {
     const options = view ? translateModelOptions(view) : [];
-    const option = findOption(options, initialModelKey(options, null, view?.generateText.effective ?? null));
+    const option = findOption(options, initialModelKey(options, null, view?.generateText.effective ?? null, withoutCaution));
     const ref = option?.usable ? parseModelKey(option.key) : null;
-    return { ref: ref ? { providerId: ref.providerId, modelId: ref.modelId } : null, name: option?.usable ? option.modelId : null };
+    return { ref: ref ? { providerId: ref.providerId, modelId: ref.modelId } : null, name: option?.usable ? optionName(option) : null };
   }, [view]);
 }
 

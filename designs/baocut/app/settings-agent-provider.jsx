@@ -125,13 +125,13 @@
     return <div className={cx('agp-imagegen', on && 'is-on')}>
       <Ic n="image" className="ic--16 agp-imagegen__ic" />
       <div className="grow">
-        <div className="row gap8"><b>用 Codex 画图</b>{on ? <Chip tone="positive">已打开</Chip> : null}</div>
+        <div className="row gap8"><b>用 Codex 画图和写文字</b>{on ? <Chip tone="positive">已打开</Chip> : null}</div>
         <p>{can ? (on && st.caution ? `${st.caution}。想默认用别的，去设置 › 模型 › 图像生成选默认模型。`
-          : '不用密钥，用你的 Codex 订阅；一次一张、忽略尺寸与质量；比 API 慢 5–10 倍。打开后它排在图像生成自动顺序的第一位（图片 Tab、工具页、bcut image 与 Agent 没指定模型时先用它）；想默认用别的，去设置 › 模型 › 图像生成选默认模型。')
-          : `${st.why} · 画图至少要 Codex ${IM.CODEX_MIN_VER} 并登录。`}</p>
+          : '不用密钥，用你的 Codex 订阅；比 API 慢。画图一次一张、忽略尺寸与质量，慢 5–10 倍；打开后它排在图像生成自动顺序的第一位（图片 Tab、工具页、bcut image 与 Agent 没指定模型时先用它），想默认用别的，去设置 › 模型 › 图像生成选默认模型。写文字一次一个请求，不会自动选它：在文本生成的模型菜单里选，或在设置 › 模型 › 文本生成设成默认。')
+          : `${st.why} · 至少要 Codex ${IM.CODEX_MIN_VER} 并登录。`}</p>
       </div>
-      <Switch on={on} disabled={!can} ariaLabel="用 Codex 画图"
-        onChange={(v) => { app.setCodexImageGen(v); app.toast(v ? '已打开 Codex 画图 · 模型菜单里多了一只「Codex 画图」' : '已关闭 Codex 画图'); }} />
+      <Switch on={on} disabled={!can} ariaLabel="用 Codex 画图和写文字"
+        onChange={(v) => { app.setCodexImageGen(v); app.toast(v ? '已打开 Codex 画图和写文字 · 图像与文本的模型菜单里多了 Codex' : '已关闭 Codex 画图和写文字'); }} />
     </div>;
   }
 
@@ -235,7 +235,9 @@
       {/* Codex 画图（2026-09-25 图像生成设计稿 §2.2）：不用密钥、用它的图像生成工具；只在找到 + 登录 + 版本 ≥ 0.130 时能打开。
           打开后图片 Tab / 工具页 / bcut image 的模型菜单里多一只「Codex 画图」。2026-10-12 用户裁决（推翻 09-27「隐式回落不落到它」）：
           默认打开，用 ChatGPT 订阅登录时它排在图像生成自动顺序第一位（Codex › 本机 › OpenAI › Gemini › 其他）；用 API key 登录时
-          可能画不了、费用不在订阅里，自动跳过它、写提醒，用户点名时照用。云端页的 Codex CLI 卡读写的是同一个开关（codexImageGen）。 */}
+          可能画不了、费用不在订阅里，自动跳过它、写提醒，用户点名时照用。云端页的 Codex CLI 卡读写的是同一个开关（codexImageGen）。
+          2026-10-28（issue #111）：同一个开关也管文本生成的「Codex 写文字」，一次一个请求；文本生成没有自动顺序，只在用户选它
+          或把它设成默认时用。 */}
       {h.id === 'codex' && h.found ? <CodexImageRow h={h} /> : null}
 
       {problem ? <div className={cx('agp-problem', problem.kind === 'login' ? 'is-notice' : 'is-negative')} role="alert">

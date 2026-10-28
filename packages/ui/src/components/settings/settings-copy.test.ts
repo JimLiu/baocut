@@ -33,7 +33,7 @@ describe('settings copy', () => {
     expect(CARD_COPY.modelsOf('Codex', 3)).toBe('Codex models · 3');
     expect(CARD_COPY.version('1.2.0')).toBe('Version · v1.2.0');
     expect(CODEX_IMAGE_COPY.on).toBe('On');
-    expect(codexImageToast(false)).toBe('Turned off Draw with Codex');
+    expect(codexImageToast(false)).toBe('Turned off Codex for images and text');
     expect(codexImageRow(outdated('Needs Codex 0.40'), codex, 'done')?.why).toBe('Needs Codex 0.40.');
     expect(GRANTS_COPY.revokeTitle('OpenAI')).toBe('Revoke “OpenAI”?');
     expect(RESOURCE_COPY.limitOf('Memory', RESOURCE_COPY.unit.cpuThreads)).toBe('Memory limit (threads)');
@@ -53,7 +53,7 @@ describe('settings copy', () => {
     expect(CARD_COPY.versionDesc('2.0', null, '请用当初安装它的那种方式升级。')).toBe(
       '可以升级到 2.0。升级只更新这个命令行工具，不影响你的账号和它自己的设置。请用当初安装它的那种方式升级。',
     );
-    expect(CODEX_IMAGE_COPY.toggleFailed(true, 'x')).toBe('没能打开 Codex 画图：x');
+    expect(CODEX_IMAGE_COPY.toggleFailed(true, 'x')).toBe('没能打开 Codex 画图和写文字：x');
     expect(codexImageRow(outdated(), codex, 'done')?.why).toBe('Codex 的版本太旧 · 升级 Codex CLI 之后再打开。');
     expect(RESOURCE_COPY.queued(null, '2 GB')).toBe('排队 · 等待开始 · 需要 2 GB');
     expect(FONT_COPY.facts('400 · 700', '1 MB', 'OFL', '3 天前')).toBe('字重 400 · 700 · 1 MB · OFL · 3 天前下载');

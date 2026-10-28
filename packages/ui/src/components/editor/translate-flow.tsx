@@ -17,7 +17,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { languageName } from '../../model/caption-tracks.ts';
 import { guessLanguage } from '../../model/cue-edit.ts';
 import { textModelLine } from '../../model/models-text.ts';
-import { cloudModelOptions, findOption, initialModelKey, langName, parseModelKey, type ToolModelOption } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, langName, parseModelKey, textModelOptions, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import {
   defaultTarget,
   existingTranslations,
@@ -121,9 +121,9 @@ export function TranslateFlow({
   const target = targets.find((o) => o.tag === targetPick && !o.disabled)?.tag ?? defaultTarget(targets, sourceLanguage);
 
   const view = useModels((s) => s.capabilities);
-  const options = useMemo(() => (view ? translateModelOptions(cloudModelOptions(view, 'generateText')) : []), [view]);
+  const options = useMemo(() => (view ? translateModelOptions(textModelOptions(view)) : []), [view]);
   const [modelKey, setModelKey] = useState<string | null>(null);
-  const option = findOption(options, initialModelKey(options, modelKey, view?.generateText.effective ?? null));
+  const option = findOption(options, initialModelKey(options, modelKey, view?.generateText.effective ?? null, withoutCaution));
   const ready = !!option?.usable;
   const toModels = () => go({ tab: 'models', category: 'llm' });
   const modelSection = useRef<HTMLDivElement>(null);

@@ -34,10 +34,10 @@ const title = style({ font: 'ui-sm', fontWeight: 'bold', color: 'gray-900' });
 const body = style({ marginTop: 2, marginBottom: 0, font: 'ui-sm', color: 'gray-700' });
 
 /**
- * 「用 Codex 画图」（设计稿 settings-agent-provider.jsx:103-119）：挂在 Codex 卡头下面，只在 Codex 已找到时出现。
- * 开关是图片生成的智能体 Provider `agent:codex`（`models.configure`）；能不能打开看模型服务的视图——
+ * 「用 Codex 画图和写文字」（设计稿 settings-agent-provider.jsx 的 CodexImageRow）：挂在 Codex 卡头下面，只在 Codex 已找到时出现。
+ * 开关是智能体 Provider `agent:codex` 的启用（`models.configure`），图片生成与文本生成共用；能不能打开看模型服务的视图——
  * 这一行出现时探测一次（Codex 重新检测、升级、登录之后再探测一次），没探测过之前开关先不让拨。
- * 打开后它排在生图出厂顺序的第一位（架构设计 §6.2）；用 API key 而不是 ChatGPT 登录时 Runtime 不自动选它，行上照 Provider 给的说明写。浏览器里开关置灰（`models.configure` 不在 Web 白名单里）。
+ * 打开后它排在生图出厂顺序的第一位（架构设计 §6.2），文本生成不自动选它（§6.9）；用 API key 而不是 ChatGPT 登录时 Runtime 不自动选它，行上照 Provider 给的说明写。浏览器里开关置灰（`models.configure` 不在 Web 白名单里）。
  */
 export function CodexImageRow({ driver, connected }: { driver: DriverInfo; connected: boolean }) {
   const runtime = useRuntime();

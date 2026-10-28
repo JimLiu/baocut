@@ -7,7 +7,7 @@ import { textModelLine, textParameters } from '../../model/models-text.ts';
 import { listedRecords } from '../../model/tools-records.ts';
 import { entryReason } from '../../model/tool-space-input.ts';
 import { modelReason, saveTarget, withSaveDir } from '../../model/tool-frame.ts';
-import { findOption, initialModelKey, modelOptions } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, modelOptions, withoutCaution } from '../../model/tools-models.ts';
 import {
   againTextDraft,
   textSample,
@@ -86,7 +86,7 @@ export function TextTool() {
   const needEntry = attach && !material;
 
   const options = useMemo(() => (view ? modelOptions(view, 'generateText') : []), [view]);
-  const option = findOption(options, initialModelKey(options, draft.model, view?.generateText.effective ?? null));
+  const option = findOption(options, initialModelKey(options, draft.model, view?.generateText.effective ?? null, withoutCaution));
   const reason = view ? modelReason(options, option, FRAME_COPY.textNoun) : null;
   const base = reason ? { text: reason, bad: true } : textStatus(draft, option, tried);
   const status = !base.bad && needEntry ? { text: FORM_COPY.needEntry, bad: tried } : base;

@@ -1,10 +1,19 @@
 /* 独立工具入口沿用 product-design §2.1；LLM 分类与固定模型请求按本次需求扩展，不创建 Agent 会话。 */
 (function () {
   const SAMPLE = '1\n00:00:00,000 --> 00:00:03,000\n欢迎来到今天的分享。\n\n2\n00:00:03,000 --> 00:00:06,500\n让我们从一个简单的想法开始。';
-  function models(catalog, saved) {
-    return (catalog || []).flatMap(p => (p.models || []).filter(m => m.kind === 'llm').map(m => ({
+  /** 智能体写文字（架构设计 §6.9 的 `agent:codex` 文本模型）：与 Codex 画图共用设置 › Agent 的同一个开关。 */
+  const CODEX_TEXT_ID = 'agent:codex/text-gen';
+  /** API key 登录时写文字的提醒（画图那句说「可能画不了」，写文字只有费用一条）。 */
+  const CODEX_TEXT_CAUTION = '用 API key 登录 · 费用不在订阅里';
+  /** 文本模型清单：API 提供方的在前；`codex`（BC_CLOUD_IMAGE.codexReady 的结果，没装 Codex 时 null）给了就在最后加一只 Codex。
+      Codex 不能用时照样列出、写原因；API key 登录时能用但带 `caution`，开页不自动选它。 */
+  function models(catalog, saved, codex) {
+    const cloud = (catalog || []).flatMap(p => (p.models || []).filter(m => m.kind === 'llm').map(m => ({
       id: p.id + '/' + m.id, name: m.id, provider: p.name, ready: (saved || []).includes(p.id),
     })));
+    if (!codex) return cloud;
+    return cloud.concat([{id: CODEX_TEXT_ID, name: 'Codex 写文字', provider: 'Codex', ready: !!codex.ready, agent: true,
+      why: codex.ready ? null : codex.why, caution: codex.caution ? CODEX_TEXT_CAUTION : null}]);
   }
   function parseSubtitles(text) {
     const raw = String(text || '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim();
@@ -68,7 +77,7 @@
     }));
     return {text: srt(cues), cues, lines: cues.length, dur: Math.max(...cues.map(c => c.end)), lang: form.lang};
   }
-  const api = {SAMPLE, models, parseSubtitles, srt, request, translatedCues, demo};
+  const api = {SAMPLE, CODEX_TEXT_ID, CODEX_TEXT_CAUTION, models, parseSubtitles, srt, request, translatedCues, demo};
   if (typeof window !== 'undefined') window.BC_LLM_TOOLS = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

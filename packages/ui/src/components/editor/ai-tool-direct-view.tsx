@@ -19,7 +19,7 @@ import Copy from '@react-spectrum/s2/icons/Copy';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { translateModelOptions } from '../../model/tool-runs.ts';
 import { citedMarkdown, type CopyMode } from '../../model/writing-cites.ts';
-import { findOption, initialModelKey, modelOptions, parseModelKey, type ToolModelOption } from '../../model/tools-models.ts';
+import { findOption, initialModelKey, modelOptions, optionName, parseModelKey, withoutCaution, type ToolModelOption } from '../../model/tools-models.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useAiToolRunner } from '../../state/ai-tool-runner-store.ts';
 import { isJobLive, useJobs } from '../../state/jobs-store.ts';
@@ -136,13 +136,13 @@ export function useDirectModel(tool: AiToolKind | 'stale'): DirectModel {
             ),
     [view, tool, structured],
   );
-  const selected = findOption(options, initialModelKey(options, saved, view?.generateText.effective ?? null));
+  const selected = findOption(options, initialModelKey(options, saved, view?.generateText.effective ?? null, withoutCaution));
   const ref = selected ? parseModelKey(selected.key) : null;
   return {
     options,
     selected,
     select: (option) => setModel(tool, option.key),
-    name: selected ? (selected.local ? selected.label : selected.modelId) : null,
+    name: selected ? optionName(selected) : null,
     ready: !!selected?.usable,
     local: !!selected?.local,
     ref: ref ? { providerId: ref.providerId, modelId: ref.modelId } : null,
@@ -181,11 +181,11 @@ export function DirectModelPicker({ model }: { model: DirectModel }) {
             <Heading>{g.provider}</Heading>
           </Header>
           {g.items.map((o) => {
-            const label = o.local ? o.label : o.modelId;
+            const label = optionName(o);
             return (
               <PickerItem key={o.key} id={o.key} textValue={`${o.provider} · ${label}`}>
                 <Text slot="label">{label}</Text>
-                {o.why ? <Text slot="description">{o.why}</Text> : null}
+                {o.why || o.caution ? <Text slot="description">{o.why ?? o.caution}</Text> : null}
               </PickerItem>
             );
           })}

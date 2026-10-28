@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { AgentDriver, AgentSession } from '@baocut/harness';
+import type { AgentSession } from '@baocut/harness';
 import {
   ProviderFailure,
   type GenerationAttempt,
@@ -10,23 +10,12 @@ import {
   type GenerationRun,
   type GenerationSink,
 } from '@baocut/models';
-import type { ProviderUnavailableReason } from '@baocut/protocol';
 import { IMAGE_MEDIA } from '../adapter.ts';
 import type { CallReporter } from '../usage-reporter.ts';
+import { excerpt, messageOf, openConfinedSession, runAgentTurn, turnFailure, type AgentReadiness, type AgentTurnOutcome } from './agent-turn.ts';
 import { ProvidersAgent as PA } from '@baocut/protocol/messages/providers';
 
-/** 执行前的复核：启用了、Driver 可用、版本够。 */
-export type AgentReadiness =
-  | {
-      ok: true;
-      driver: AgentDriver;
-      version: string;
-      /** 用户手动指定的可执行文件；null 由 Driver 自己找。 */
-      executable?: string | null;
-      /** 这次探测到的账号是不是订阅（Codex 是 ChatGPT 登录）：是时用量记为订阅内（§6.9、§6.10）。 */
-      subscribed: boolean;
-    }
-  | { ok: false; reason: ProviderUnavailableReason; message: string };
+export type { AgentReadiness } from './agent-turn.ts';
 
 export interface AgentImageGeneratorOptions {
   providerId: string;
@@ -45,19 +34,9 @@ export interface AgentImageGeneratorOptions {
   report?: CallReporter;
 }
 
-/** 错误说明里带上的回复摘录（不是输出，只帮用户看懂为什么没有图）。 */
-const REPLY_EXCERPT = 300;
 /** 在工作目录里找图片时最多往下几层。 */
 const MAX_DEPTH = 3;
 const IMAGE_EXTENSION = /\.(png|jpe?g|webp|gif)$/i;
-
-type TurnResult =
-  | { kind: 'completed' }
-  | { kind: 'failed'; message: string }
-  | { kind: 'interrupted' }
-  | { kind: 'exited'; message: string }
-  | { kind: 'timeout' }
-  | { kind: 'cancelled' };
 
 /**
  * 智能体作为图片 Provider 的执行者（架构设计 §6.9）。一次 `generate` 是一个专用的原生会话：
@@ -153,53 +132,23 @@ export class AgentImageGenerator implements GenerationProvider {
     sink.generating();
     let session: AgentSession;
     try {
-      session = await ready.driver.createSession({
-        cwd: run.staging,
-        // 受限会话（confinement）的策略固定，访问模式不起作用；模型与强度用 Agent 自己的默认。
-        accessMode: 'fullAccess',
-        model: null,
-        effort: null,
-        executable: ready.executable ?? null,
-        resume: null,
-        developerInstructions: this.#options.instructions,
-        confinement: 'cwd-write-only',
-      });
+      session = await openConfinedSession(ready, run.staging, this.#options.instructions);
     } catch (error) {
       if (signal.aborted) return { outcome: 'cancelled' };
       throw new ProviderFailure('unavailable-remote', PA.sessionNotStarted({ label, error: messageOf(error) }).text, { providerId });
     }
 
-    let replies: string[] = [];
-    let declined = 0;
-    let result: TurnResult;
+    let outcome: AgentTurnOutcome;
     try {
-      ({ result, replies, declined } = await this.#turn(session, this.#options.turnText(parameters.prompt), signal));
+      outcome = await runAgentTurn(session, this.#options.turnText(parameters.prompt), signal, this.#options.turnTimeoutMs);
     } finally {
       await session.close().catch(() => {});
     }
-
+    const { result, replies, declined } = outcome;
+    if (result.kind === 'cancelled') return { outcome: 'cancelled' };
+    const failure = turnFailure(result, { label, providerId, declined, timeoutMs: this.#options.turnTimeoutMs });
+    if (failure) throw failure;
     const facts = { providerId, ...(declined > 0 ? { declinedApprovals: declined } : {}) };
-    switch (result.kind) {
-      case 'cancelled':
-        return { outcome: 'cancelled' };
-      case 'timeout':
-        throw new ProviderFailure(
-          'unavailable-remote',
-          PA.timedOut({ label, minutes: Math.round(this.#options.turnTimeoutMs / 60_000) }).text,
-          { ...facts, reason: 'timeout' },
-        );
-      case 'exited':
-        throw new ProviderFailure('unavailable-remote', PA.exited({ label, message: result.message }).text, { ...facts, reason: 'exited' });
-      case 'failed':
-      case 'interrupted':
-        throw new ProviderFailure('rejected', PA.notCompleted({ label, reason: result.kind === 'failed' ? result.message : PA.turnInterrupted() }).text, {
-          code: 'PROVIDER_REJECTED',
-          ...facts,
-          reason: result.kind === 'failed' ? 'turn-failed' : 'turn-interrupted',
-        });
-      case 'completed':
-        break;
-    }
 
     const images = await collectImages(run.staging);
     if (images.length === 0) {
@@ -216,63 +165,6 @@ export class AgentImageGenerator implements GenerationProvider {
     for (const relative of chosen) outputs.push(await describeOutput(run.staging, relative, IMAGE_MEDIA.png.mediaType));
     sink.progress(outputs.length, parameters.count);
     return { outcome: 'completed', outputs, workerVersion: `${providerId} ${ready.version}` };
-  }
-
-  /** 发一个回合，等它结束、失败、会话退出、超时或取消。取消与超时时请求中断（会话随后关闭）。 */
-  async #turn(
-    session: AgentSession,
-    text: string,
-    signal: AbortSignal,
-  ): Promise<{ result: TurnResult; replies: string[]; declined: number }> {
-    const replies: string[] = [];
-    const errors: string[] = [];
-    let declined = 0;
-    let settle!: (result: TurnResult) => void;
-    const done = new Promise<TurnResult>((resolve) => (settle = resolve));
-    const unsubscribe = session.subscribe((event) => {
-      switch (event.type) {
-        case 'item.completed':
-          if (event.item.kind === 'agent-message' && event.item.text.trim()) replies.push(event.item.text.trim());
-          return;
-        case 'approval.requested':
-          // 没有人来批：越界的动作一律拒绝。
-          declined++;
-          void session.respondToApproval(event.approvalId, { decision: 'decline' }).catch(() => {});
-          return;
-        case 'session.error':
-          if (!event.willRetry) errors.push(event.message);
-          return;
-        case 'turn.completed':
-          if (event.outcome === 'completed') settle({ kind: 'completed' });
-          else if (event.outcome === 'interrupted') settle({ kind: 'interrupted' });
-          else settle({ kind: 'failed', message: event.error ?? errors.at(-1) ?? PA.unknownError().text });
-          return;
-        case 'session.exited':
-          settle({ kind: 'exited', message: event.error ?? errors.at(-1) ?? PA.processExited().text });
-          return;
-        default:
-          return;
-      }
-    });
-    const onAbort = () => settle({ kind: 'cancelled' });
-    signal.addEventListener('abort', onAbort, { once: true });
-    const timer = setTimeout(() => settle({ kind: 'timeout' }), this.#options.turnTimeoutMs);
-    let turnId: string | null = null;
-    try {
-      if (signal.aborted) return { result: { kind: 'cancelled' }, replies, declined };
-      try {
-        turnId = (await session.startTurn({ text }, { accessMode: 'fullAccess', model: null, effort: null })).turnId;
-      } catch (error) {
-        settle({ kind: 'exited', message: PA.turnNotStarted({ error: messageOf(error) }).text });
-      }
-      const result = await done;
-      if ((result.kind === 'cancelled' || result.kind === 'timeout') && turnId) await session.interrupt(turnId).catch(() => {});
-      return { result, replies, declined };
-    } finally {
-      clearTimeout(timer);
-      signal.removeEventListener('abort', onAbort);
-      unsubscribe();
-    }
   }
 }
 
@@ -317,13 +209,4 @@ async function looksLikeImage(file: string): Promise<boolean> {
 async function describeOutput(staging: string, relative: string, mediaType: string): Promise<GenerationOutputFile> {
   const bytes = await fs.readFile(path.join(staging, relative));
   return { path: relative, sha256: crypto.createHash('sha256').update(bytes).digest('hex'), byteLength: bytes.length, mediaType };
-}
-
-function excerpt(text: string): string {
-  const chars = [...text.trim()];
-  return chars.length > REPLY_EXCERPT ? `${chars.slice(0, REPLY_EXCERPT).join('')}…` : chars.join('');
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

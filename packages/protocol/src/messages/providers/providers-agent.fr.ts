@@ -8,4 +8,9 @@ export const fr: ProvidersAgentMessages = {
   imagesOnly: (p) => `${p.label} peut uniquement générer des images`, onePngOnly: (p) => `${p.label} génère un PNG à la fois et n’accepte ni taille ni graine`, unavailable: (p) => `${p.label} est indisponible : ${p.message}`, sessionNotStarted: (p) => `La session de ${p.label} n’a pas démarré : ${p.error}`,
   timedOut: (p) => `${p.label} n’a pas terminé en ${p.minutes} minutes et a été interrompu`, exited: (p) => `${p.label} s’est arrêté de façon inattendue : ${p.message}`, notCompleted: (p) => `${p.label} n’a pas terminé cette génération : ${p.reason}`,
   turnInterrupted: 'le tour a été interrompu', noImage: (p) => `${p.label} n’a pas généré d’image`, noImageReply: (p) => `${p.label} n’a pas généré d’image : ${p.reply}`, unknownError: 'Erreur inconnue', processExited: 'Le processus s’est arrêté', turnNotStarted: (p) => `Le tour n’a pas démarré : ${p.error}`,
+  codexTextModel: "Génération de texte Codex (modèle choisi par Codex et votre compte)",
+  codexTextNotes:
+    "Rédige avec le compte Codex connecté sur cet ordinateur : une requête à la fois, chacune dans une nouvelle session Codex, donc plus lentement qu’une API. L’effort de raisonnement, la température, la graine et la longueur de sortie ne peuvent pas être définis. Votre quota d’abonnement est utilisé ; le quota restant est inconnu. L’activer signifie accepter d’envoyer les prompts, y compris le texte de transcription qu’ils contiennent, à votre compte Codex.",
+  codexTextNotesApiKey:
+    "Codex est connecté avec une clé d’API ou une autre méthode que ChatGPT : le coût est facturé à ce compte, pas à un abonnement. Une requête à la fois ; l’effort de raisonnement, la température, la graine et la longueur de sortie ne peuvent pas être définis.",
 };
