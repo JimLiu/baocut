@@ -2395,7 +2395,7 @@ export class Harness {
 
   /**
    * 新会话起手用的模型（§3.11）：这个 Agent 偏好里设过的 > 默认 Agent 的偏好设置 `agent.defaultModel` > 推荐模型
-   * （`recommendedDriverModel`，2026-09-29 用户裁决：Claude Code 用 Sonnet、Codex 用 `-sol`，不让 CLI 配置里的贵模型当默认）。
+   * （`recommendedDriverModel`：Claude Code 用 Sonnet、Codex 用 `-terra`（比 `-sol` 旧一代时仍用 `-sol`），不让 CLI 配置里的贵模型当默认）。
    * `AGENT_DEFAULT_MODEL` 是用户明确选了「Agent 默认模型」，返回 null（不传模型，按 CLI 配置）。设过的模型不在模型表里时
    * 原样返回，由 `#checkModel` 换成推荐模型；`DriverInfo.defaultModel` 原样给出，设置页才能把它标成「已不在模型表里」。
    */

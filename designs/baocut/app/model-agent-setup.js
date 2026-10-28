@@ -129,15 +129,29 @@
     max: {label: '最强', sub: '更慢，更耗订阅额度；一般用不上'},
     fast: {label: '最快', sub: '适合改几句字幕这类小改动'},
   };
-  /* 推荐模型（2026-09-29 用户裁决）：Claude Code 取 Sonnet 系列、Codex CLI 取 Sol 系列——按这一版 CLI 自己的模型表次序，
-     取第一个 Sonnet / 第一个 `-sol`。所以认得 gpt-6-sol 的新版推荐 gpt-6-sol，旧版推荐 gpt-5.6-sol。
+  /* 推荐模型：Claude Code 取 Sonnet 系列（2026-09-29 用户裁决）、Codex CLI 取 Terra 系列（2026-10-27 用户裁决，此前是 Sol）——
+     按这一版 CLI 自己的模型表次序，取第一个 Sonnet / 第一个 `-terra`。第一个 `-terra` 比第一个 `-sol` 旧一代时仍取那个 `-sol`：
+     还没有 gpt-6.1-terra 的 CLI 表里有 gpt-5.6-terra，推荐的是 gpt-6.1-sol；更旧、连 Terra 都没有的推荐第一个 `-sol`。
      「没设过」= 推荐模型；只有用户明确选了「交给 Agent 自己决定」/「Agent 默认模型」才不传模型、按 CLI 配置走。
      其余几家不变：模型表里标了 balanced 的 → CLI 标的默认 → 第一个。 */
-  const FAMILY = {claude: (m) => /sonnet/i.test(m.id), codex: (m) => /-sol$/i.test(m.id)};
+  const gen = (id) => { const g = /(\d+(?:\.\d+)*)-[a-z]+$/i.exec(id); return g ? g[1].split('.').map(Number) : null; };
+  const notOlder = (a, b) => {
+    const x = gen(a), y = gen(b);
+    if (!x || !y) return true;
+    for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; }
+    return true;
+  };
+  const FAMILY = {
+    claude: (ms) => ms.find((m) => /sonnet/i.test(m.id)),
+    codex: (ms) => {
+      const terra = ms.find((m) => /-terra$/i.test(m.id)), sol = ms.find((m) => /-sol$/i.test(m.id));
+      return terra && (!sol || notOlder(terra.id, sol.id)) ? terra : sol;
+    },
+  };
   const recommended = (h) => {
     const ms = (h && h.models) || [];
     const fam = h && FAMILY[h.id];
-    return (fam && ms.find(fam)) || ms.find((m) => m.tier === 'balanced') || ms.find((m) => m.dflt) || ms[0] || null;
+    return (fam && fam(ms)) || ms.find((m) => m.tier === 'balanced') || ms.find((m) => m.dflt) || ms[0] || null;
   };
   function defaultModel(h, prefMap) {
     const v = (prefMap || {})[h && h.id];

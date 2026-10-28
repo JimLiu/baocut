@@ -20,7 +20,7 @@ import { Harness } from './harness.ts';
 import { silentLogger } from './logger.ts';
 
 /**
- * 新会话的默认模型（架构设计 §3.11，2026-09-29 用户裁决）：没设过时用推荐模型——Claude Code 的 Sonnet、Codex 的 `-sol`，
+ * 新会话的默认模型（架构设计 §3.11，2026-09-29 与 2026-10-27 用户裁决）：没设过时用推荐模型——Claude Code 的 Sonnet、Codex 的 `-terra`，
  * 不按 CLI 配置落到最贵的模型上；只有明确选了「Agent 默认模型」才不传模型。Driver 是假的，模型表照两家 CLI 的次序摆。
  */
 
@@ -42,10 +42,11 @@ const CLAUDE_MODELS = [
   model('sonnet', { tier: 'balanced' }),
   model('haiku', { tier: 'fast' }),
 ];
-/** Codex 的表：新版的 `-sol` 在前，默认标在最强的那一档上。 */
+/** Codex 的表：`-sol` 排在同代的 `-terra` 前面，默认标在最强的那一档上。 */
 const CODEX_MODELS = [
-  model('gpt-6-astra', { tier: 'max', isDefault: true }),
   model('gpt-6-sol', { tier: 'balanced' }),
+  model('gpt-6-astra', { tier: 'max', isDefault: true }),
+  model('gpt-6-terra', { tier: 'balanced' }),
   model('gpt-5.6-sol', { tier: 'balanced' }),
 ];
 
@@ -182,12 +183,12 @@ describe('新会话的默认模型', () => {
     expect((await h.createConversation({})).driverId).toBe('qwen');
   });
 
-  it('没设过：Claude Code 用 Sonnet、Codex 用第一个 -sol，界面读到的默认就是它', async () => {
+  it('没设过：Claude Code 用 Sonnet、Codex 用第一个 -terra，界面读到的默认就是它', async () => {
     const h = await open([claude(), codex()]);
     expect(defaultOf(h, 'claude')).toBe('sonnet');
-    expect(defaultOf(h, 'codex')).toBe('gpt-6-sol');
+    expect(defaultOf(h, 'codex')).toBe('gpt-6-terra');
     expect((await h.createConversation({ driverId: 'claude' })).model).toBe('sonnet');
-    expect((await h.createConversation({})).model).toBe('gpt-6-sol');
+    expect((await h.createConversation({})).model).toBe('gpt-6-terra');
   });
 
   it('其余几家：第一个 balanced，再是 Agent 标的默认，再是第一个；模型表为空时不传模型', async () => {
@@ -236,7 +237,7 @@ describe('新会话的默认模型', () => {
       }),
     );
     const h = await open([claude(), codex()]);
-    expect(defaultOf(h, 'codex')).toBe('gpt-6-sol');
+    expect(defaultOf(h, 'codex')).toBe('gpt-6-terra');
     expect(defaultOf(h, 'claude')).toBe('claude-gone');
     expect((await h.createConversation({ driverId: 'claude' })).model).toBe('sonnet');
   });
@@ -257,7 +258,7 @@ describe('新会话的默认模型', () => {
     const h = await open([claude(), codex()]);
     const conversation = await h.createConversation({ driverId: 'claude' });
     expect(conversation.model).toBe('sonnet');
-    expect((await h.updateConversation({ conversationId: conversation.id, driverId: 'codex' })).model).toBe('gpt-6-sol');
+    expect((await h.updateConversation({ conversationId: conversation.id, driverId: 'codex' })).model).toBe('gpt-6-terra');
   });
 
   it('建会话时给的只读检索范围记在会话上，更新成 null 去掉；不给时没有', async () => {

@@ -100,6 +100,7 @@ describe('OpenAI 文本（Chat Completions）', () => {
     const models = new OpenAiTextAdapter().models(config('x', null));
     expect(models.find((m) => m.default)?.modelId).toBe('gpt-6.1-sol');
     expect(models.find((m) => m.modelId === 'gpt-6.1-sol')!.efforts).toEqual(['low', 'medium', 'high']);
+    expect(models.find((m) => m.modelId === 'gpt-6.1-terra')!.efforts).toEqual(['low', 'medium', 'high']);
     expect(models.every((m) => m.structuredOutput && !m.acceptsTemperature && !m.acceptsSeed)).toBe(true);
   });
 
@@ -659,7 +660,7 @@ describe('OnlineProviderSource 的文本能力与刷新', () => {
       await source.configure({ providerId: 'openai', enabled: true, credential: OPENAI_KEY });
       await source.refresh('openai');
       let models = (await source.describe('openai', 'view'))!.capabilities.generateText!.models;
-      expect(models.filter((m) => m.available === false)).toHaveLength(2);
+      expect(models.filter((m) => m.available === false).map((m) => m.modelId)).toEqual(['gpt-6.1-terra', 'gpt-6-astra', 'gpt-6-luna']);
       fail = true;
       expect(await source.refresh('openai')).toMatchObject({ ok: false });
       models = (await source.describe('openai', 'view'))!.capabilities.generateText!.models;

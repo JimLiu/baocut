@@ -281,17 +281,19 @@ test('modelRows：拦住时「Agent 默认模型」行的副文案直说要升�
   assert.equal(AG.modelRows(codex, {harness: 'codex', model: null})[0].sub, '按 CLI 配置选择');
 });
 
-test('推荐模型按系列取：Claude 第一个 Sonnet、Codex 第一个 -sol（按 CLI 自己的次序）；其余几家不变', () => {
-  const newer = {...codex, ver: '0.159.0', configModelKnown: true,
-    models: [{id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', dflt: true}, {id: 'gpt-6-sol', name: 'GPT-6 Sol'}, {id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol'}, {id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', tier: 'fast'}]};
-  assert.equal(S.defaultModel(newer, {}), 'gpt-6.1-sol');
+test('推荐模型按系列取：Claude 第一个 Sonnet、Codex 第一个 -terra，比第一个 -sol 旧一代时取 -sol（按 CLI 自己的次序）；其余几家不变', () => {
+  const newer = {...codex, ver: '0.164.0', configModelKnown: true,
+    models: [{id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', dflt: true}, {id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra'}, {id: 'gpt-6-sol', name: 'GPT-6 Sol'}, {id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol'}, {id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra'}, {id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', tier: 'fast'}]};
+  assert.equal(S.defaultModel(newer, {}), 'gpt-6.1-terra');
+  const noNewTerra = {...newer, models: newer.models.filter((m) => m.id !== 'gpt-6.1-terra')};
+  assert.equal(S.defaultModel(noNewTerra, {}), 'gpt-6.1-sol');
   assert.equal(S.defaultModel(codex, {}), 'gpt-5.6-sol');
   assert.equal(S.defaultModel({...claude, models: [{id: 'opus', name: 'Opus', tier: 'max'}, {id: 'sonnet', name: 'Sonnet'}]}, {}), 'sonnet');
   // 没设过 = 推荐；只有明确选了「交给 Agent 自己决定」才是 null（不传模型）
   assert.equal(S.defaultModel(newer, {codex: 'auto'}), null);
   // 「推荐」只挂在推荐的那一个上
-  assert.deepEqual(S.modelChoices(newer, {}).filter((c) => c.tag === '推荐').map((c) => c.id), ['gpt-6.1-sol']);
-  assert.equal(S.modelLabel(newer, {}), 'GPT-6.1 Sol · 推荐');
+  assert.deepEqual(S.modelChoices(newer, {}).filter((c) => c.tag === '推荐').map((c) => c.id), ['gpt-6.1-terra']);
+  assert.equal(S.modelLabel(newer, {}), 'GPT-6.1 Terra · 推荐');
   const pi = {id: 'pi', models: [{id: 'x', name: 'X'}, {id: 'y', name: 'Y', tier: 'balanced'}]};
   assert.equal(S.recommended(pi).id, 'y');
 });

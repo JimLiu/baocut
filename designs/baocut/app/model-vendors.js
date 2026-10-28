@@ -32,7 +32,7 @@
     {id: 'openai', name: 'OpenAI', kind: 'vendor', caps: ['text', 'transcribe', 'tts', 'image'], p1: [], beyond: [],
      base: 'https://api.openai.com/v1', auth: 'Bearer', site: 'https://platform.openai.com', icon: {mono: true}, balance: false,
      models: {
-       text: [m('gpt-6.1-sol', '均衡'), m('gpt-6-astra', '旗舰'), m('gpt-6-luna', '更快 · 更便宜')],
+       text: [m('gpt-6.1-sol', '均衡'), m('gpt-6.1-terra', '快 · 省'), m('gpt-6-astra', '旗舰'), m('gpt-6-luna', '更快 · 更便宜')],
        transcribe: [m('gpt-4o-transcribe', '质量最好'), m('gpt-4o-mini-transcribe', '更便宜'), m('whisper-1', '上一代', {prev: true})],
      }},
     {id: 'anthropic', name: 'Anthropic', kind: 'vendor', caps: ['text'], p1: [], beyond: [],

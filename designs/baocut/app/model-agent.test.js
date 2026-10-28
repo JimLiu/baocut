@@ -133,7 +133,7 @@ test('harnessLabel：默认委托 Agent；目录缺席不能掩盖指定模型',
 
 test('compactModelLabel：窄的时候只留级别名；认不出的原样返回（与 packages/ui agent-choice.ts 同一套用例）', () => {
   const cases = [['Sonnet 5.5', 'Sonnet'], ['Claude Opus 5.5', 'Opus'], ['Claude Sonnet 5', 'Sonnet'], ['GPT-5.6 Sol', 'Sol'],
-    ['GPT-6.1 Sol', 'Sol'], ['GPT-6.1-Sol', 'Sol'], ['GPT-6-Astra', 'Astra'], ['GPT-5.5', 'GPT'], ['GPT-5.6 Luna', 'Luna'], ['Fable 5.1 [1m]', 'Fable'], ['Opus 4.6 (1M context)', 'Opus'],
+    ['GPT-6.1 Sol', 'Sol'], ['GPT-6.1-Sol', 'Sol'], ['GPT-6.1 Terra', 'Terra'], ['GPT-6-Astra', 'Astra'], ['GPT-5.5', 'GPT'], ['GPT-5.6 Luna', 'Luna'], ['Fable 5.1 [1m]', 'Fable'], ['Opus 4.6 (1M context)', 'Opus'],
     ['Gemini 3 Flash', 'Flash'], ['Grok 4.5', 'Grok'], ['Kimi K3', 'Kimi'], ['Opus', 'Opus'], ['Auto', 'Auto']];
   for (const [label, short] of cases) assert.equal(A.compactModelLabel(label), short, label);
   for (const label of ['gpt-6.1-sol', 'claude-sonnet-5-20260101', 'Use the default model (currently Opus 5.5)', 'corp-sonnet-proxy', 'A B C D E', '5.5']) {

@@ -2335,7 +2335,7 @@
       /* 2026-09-29：configModel = BaoCut 不传模型时 CLI 自己的配置会选哪个（codex 读 `~/.codex/config.toml` 的 model）；
          configModelKnown = 这一版 CLI 的完整模型表（含隐藏模型）里有没有它，内核算好送来。演示场景「默认模型需升级」
          把本机版本压回 0.153.0、模型表换成还没有 gpt-6-sol 的旧表，重现那次事故。
-         新版目录含 GPT-6.1 Sol，按 CLI 自己的次序取第一个 `-sol` 推荐（见 model-agent-setup.js::recommended）。 */
+         新版目录含 GPT-6.1 Terra，按 CLI 自己的次序取第一个 `-terra` 推荐（见 model-agent-setup.js::recommended）。 */
       {id: 'codex', name: 'Codex CLI', cmd: 'codex', found: false, ver: '0.159.0', minVer: '0.120.0', latest: '0.159.0',
        runtimeModel: 'gpt-6.1-sol', configModel: 'gpt-6.1-sol', configModelKnown: true,
        bin: '/opt/homebrew/bin/codex', realBin: '/opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js', loggedIn: true, auth: 'chatgpt', runError: null,
@@ -2345,7 +2345,7 @@
          {k: 'npm', label: 'npm', needs: 'Node.js', cmd: 'npm install -g @openai/codex', upgrade: 'npm install -g @openai/codex@latest'},
        ],
        account: 'ChatGPT Plus / Pro 订阅', plan: 'ChatGPT Plus 或 Pro 订阅', enabled: false,
-       models: [{id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', dflt: true, tier: 'balanced'}, {id: 'gpt-6-astra', name: 'GPT-6 Astra', tier: 'max'}, {id: 'gpt-6-luna', name: 'GPT-6 Luna', tier: 'fast'}, {id: 'gpt-6-sol', name: 'GPT-6 Sol'}]},
+       models: [{id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', dflt: true, tier: 'balanced'}, {id: 'gpt-6-astra', name: 'GPT-6 Astra', tier: 'max'}, {id: 'gpt-6.1-terra', name: 'GPT-6.1 Terra', tier: 'balanced'}, {id: 'gpt-6-luna', name: 'GPT-6 Luna', tier: 'fast'}, {id: 'gpt-6-sol', name: 'GPT-6 Sol'}]},
       ...MAIN_PRESETS,
       ...MORE_HARNESSES,
     ],

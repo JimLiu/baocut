@@ -60,16 +60,17 @@ describe('Codex 模型表', () => {
     });
   });
 
-  it('inferTier：家族后缀优先，其次看说明，推不出来为 null', () => {
+  it('inferTier：家族后缀优先（-sol 与 -terra 是 balanced），其次看说明，推不出来为 null', () => {
     expect(inferTier('gpt-6-astra', null)).toBe('max');
     expect(inferTier('gpt-6-sol', null)).toBe('balanced');
+    expect(inferTier('gpt-6.1-terra', 'GPT-6.1 Terra Codex model.')).toBe('balanced');
     expect(inferTier('gpt-5.6-luna', null)).toBe('fast');
     expect(inferTier('gpt-5-mini', null)).toBe('fast');
     expect(inferTier('gpt-5.5', 'Frontier model for the most demanding work.')).toBe('max');
     expect(inferTier('gpt-x', 'Fastest option for quick edits.')).toBe('fast');
     expect(inferTier('gpt-x', 'An everyday model.')).toBe('balanced');
     expect(inferTier('gpt-5.5', 'Older model.')).toBeNull();
-    expect(inferTier('gpt-5.6-terra', null)).toBeNull();
+    expect(inferTier('gpt-5.6-terra', null)).toBe('balanced');
   });
 
   it('toCatalog：隐藏模型不进 models，但进 all；没有 id 的条目丢掉', () => {

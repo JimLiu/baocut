@@ -826,21 +826,47 @@ export function cleanExecutablePath(raw: string | null | undefined): string | nu
  */
 export const AGENT_DEFAULT_MODEL = '__agent-default__';
 
-/** 各家的推荐系列（2026-09-29 用户裁决）：Claude Code 取 Sonnet，Codex 取 `-sol` 结尾的那一档，免得默认落到最贵的模型上。 */
-const RECOMMENDED_FAMILY: Partial<Record<DriverId, (model: DriverModel) => boolean>> = {
-  claude: (m) => /sonnet/i.test(m.id),
-  codex: (m) => /-sol$/i.test(m.id),
+/** 型号名末尾家族前的版本号：`gpt-6.1-terra` → [6, 1]；读不出为 null。 */
+function modelGeneration(id: string): number[] | null {
+  const match = /(\d+(?:\.\d+)*)-[a-z]+$/i.exec(id);
+  return match ? match[1]!.split('.').map(Number) : null;
+}
+
+/** a 的版本不比 b 旧；有一边读不出版本时算不旧。 */
+function notOlder(a: string, b: string): boolean {
+  const x = modelGeneration(a);
+  const y = modelGeneration(b);
+  if (!x || !y) return true;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0);
+    if (d !== 0) return d > 0;
+  }
+  return true;
+}
+
+/**
+ * 各家的推荐系列，免得默认落到最贵的模型上。Claude Code 取第一个 Sonnet（2026-09-29 用户裁决）。
+ * Codex 取第一个 `-terra`（2026-10-27 用户裁决，此前是 `-sol`），但它比第一个 `-sol` 旧一代时仍取 `-sol`：
+ * 没有 gpt-6.1-terra 的旧 CLI 表里还有 gpt-5.6-terra，不能让它压过 gpt-6.1-sol。
+ */
+const RECOMMENDED_FAMILY: Partial<Record<DriverId, (models: readonly DriverModel[]) => DriverModel | undefined>> = {
+  claude: (models) => models.find((m) => /sonnet/i.test(m.id)),
+  codex: (models) => {
+    const terra = models.find((m) => /-terra$/i.test(m.id));
+    const sol = models.find((m) => /-sol$/i.test(m.id));
+    return terra && (!sol || notOlder(terra.id, sol.id)) ? terra : sol;
+  },
 };
 
 /**
  * 推荐模型：没设过默认模型的新会话用它（设计稿 model-agent-setup.js `recommended`）。按这一版 CLI 自己的模型表次序取：
- * Claude Code 第一个 Sonnet、Codex 第一个 `-sol`；其余几家（以及这两家表里没有这一系列时）取第一个标了 `balanced` 的，
- * 再不然是 Agent 标的默认，再不然是第一个。模型表为空时为 null（不传模型）。
+ * Claude Code 第一个 Sonnet；Codex 第一个 `-terra`，它比第一个 `-sol` 旧时取那个 `-sol`；其余几家（以及这两家表里
+ * 没有这些系列时）取第一个标了 `balanced` 的，再不然是 Agent 标的默认，再不然是第一个。模型表为空时为 null（不传模型）。
  */
 export function recommendedDriverModel(driverId: DriverId, models: readonly DriverModel[]): DriverModel | null {
   const family = RECOMMENDED_FAMILY[driverId];
   return (
-    (family && models.find(family)) || models.find((m) => m.tier === 'balanced') || models.find((m) => m.isDefault) || models[0] || null
+    (family && family(models)) || models.find((m) => m.tier === 'balanced') || models.find((m) => m.isDefault) || models[0] || null
   );
 }
 

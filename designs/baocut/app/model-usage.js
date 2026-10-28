@@ -12,6 +12,7 @@
      text：每百万 token；transcribe：每分钟；tts：每千字符；image：每张（没写的从图像生成的价目表读 price.normal，美元） */
   const PRICES = {
     'openai/gpt-6.1-sol': {currency: 'USD', inputPerMTok: 2.5, outputPerMTok: 10},
+    'openai/gpt-6.1-terra': {currency: 'USD', inputPerMTok: 1, outputPerMTok: 5},
     'openai/gpt-6-luna': {currency: 'USD', inputPerMTok: 0.4, outputPerMTok: 1.6},
     'openai/gpt-4o-transcribe': {currency: 'USD', audioPerMinute: 0.006},
     'openai/gpt-4o-mini-transcribe': {currency: 'USD', audioPerMinute: 0.003},

@@ -95,12 +95,13 @@ export function toDriverModel(m: CodexModel): DriverModel {
 }
 
 /**
- * 按名字与说明推断定位。名字的家族后缀优先（`-sol` 主力、`-astra` 最强、`-luna` 最快，对照 0.159.0 的目录），
- * 其次看说明里的说法；都推不出来为 null。界面只给推荐的那一个标「推荐」，所以 balanced 标得宽一些无妨。
+ * 按名字与说明推断定位。名字的家族后缀优先（`-sol` 与 `-terra` 主力、`-astra` 最强、`-luna` 最快，对照 0.164.0 的目录；
+ * 那一版 gpt-6.1-terra 的说明推不出定位，gpt-5.6-terra 说自己是 balanced），其次看说明里的说法；都推不出来为 null。
+ * 界面只给推荐的那一个标「推荐」，所以 balanced 标得宽一些无妨。
  */
 export function inferTier(id: string, description: string | null): ModelTier | null {
   const name = id.toLowerCase();
-  if (/-sol\b/.test(name)) return 'balanced';
+  if (/-sol\b|-terra\b/.test(name)) return 'balanced';
   if (/-astra\b/.test(name)) return 'max';
   if (/-luna\b|-mini\b|-nano\b/.test(name)) return 'fast';
   const text = (description ?? '').toLowerCase();
