@@ -1878,6 +1878,23 @@ fn alignment_failures_fall_back_to_estimated_words_with_a_warning() {
     }
 }
 
+/// 识别文本把破折号连写（qwen3-asr 的英文常见 `innovative—it's`）：结果里是两个词，段文字保持原样。
+#[test]
+fn unspaced_em_dashes_do_not_glue_words() {
+    let fixture = Fixture::new();
+    let wav = fixture.wav("two.wav", TWO_PHRASES);
+    let staging = fixture.staging("dash");
+    let mut model = FakeModel::new(&["Ralph is an innovative—it's sharp.", "The world—and more."]);
+    let mut events = Events::default();
+    let result = run(&fixture, &mut model, &params(&wav, &staging, prefer_auto(), None), &mut events).unwrap();
+    let asr = read_result(&result);
+    asr_result::validate(&asr, None).unwrap();
+    let texts = |index: usize| asr.segments[index].words.iter().map(|word| word.text.as_str()).collect::<Vec<_>>();
+    assert_eq!(texts(0), ["Ralph", "is", "an", "innovative—", "it's", "sharp."]);
+    assert_eq!(texts(1), ["The", "world—", "and", "more."]);
+    assert_eq!(asr.segments[0].text, "Ralph is an innovative—it's sharp.");
+}
+
 #[test]
 fn align_segments_known_text_by_pauses_and_sentence_ends() {
     let fixture = Fixture::with_aligner();

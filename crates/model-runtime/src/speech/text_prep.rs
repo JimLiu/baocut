@@ -5,7 +5,8 @@
 //! 修改：BaoCut 以 Rust 实现相关算法，并适配本项目的后端、模型包与转写接口；原有上游来源说明保留。
 //! 原始许可全文：`crates/model-runtime/licenses/speech-swift.txt`；来源范围见根目录 `THIRD_PARTY_NOTICES.md`。
 //!
-//! 识别文本 → 词。空格分词的语言按空白切，中间的汉字逐字成词；日、韩、泰等无空格语言走 ICU 分词。
+//! 识别文本 → 词。空格分词的语言按空白切、再在两侧都有字母数字的破折号之后切开，中间的汉字逐字成词；
+//! 日、韩、泰等无空格语言走 ICU 分词。
 //! 每个词保留原样的 `surface`（含贴在后面的标点）和只留字母数字的 `cleaned`。
 //!
 //! 强制对齐的输入布局（[`prepare_for_alignment`]、[`alignment_input`]）移植自 v2 `bcut-speech-core`，供对齐批次接入。
@@ -144,7 +145,7 @@ fn native_tokenize_pairs(text: &str) -> Vec<WordPair> {
 
 pub fn tokenize_space_language_pairs(text: &str) -> Vec<WordPair> {
     let mut pairs: Vec<WordPair> = Vec::new();
-    for segment in text.split_whitespace() {
+    for segment in text.split_whitespace().flat_map(split_at_dashes) {
         let previous_count = pairs.len();
         append_space_segment(segment, &mut pairs);
         if pairs.len() == previous_count
@@ -154,6 +155,39 @@ pub fn tokenize_space_language_pairs(text: &str) -> Vec<WordPair> {
         }
     }
     pairs
+}
+
+/// 破折号两侧不留空格时（识别器常写成 `innovative—it's`），按空白切会把两个词并成一个，对齐器只给它一对时间。
+/// 在破折号之后切开，破折号留在左边的词上（与 `word — word` 里孤立的破折号贴到前一个词上一致）。
+/// 只认破折号（U+2014、U+2015）：连字符是复合词（`well-tuned`），短破折号常是范围（`2019–2021`），都不切。
+/// 只在两边都有字母数字时切，`—it's`、`innovative—` 原样留着。
+fn split_at_dashes(segment: &str) -> impl Iterator<Item = &str> {
+    let mut rest = segment;
+    std::iter::from_fn(move || {
+        if rest.is_empty() {
+            return None;
+        }
+        let mut cut = rest.len();
+        let mut seen_kept = false;
+        let mut characters = rest.char_indices().peekable();
+        while let Some((_, character)) = characters.next() {
+            seen_kept |= is_kept_scalar(character);
+            if !matches!(character, '\u{2014}' | '\u{2015}') || !seen_kept {
+                continue;
+            }
+            while let Some((_, '\u{2014}' | '\u{2015}')) = characters.peek() {
+                characters.next();
+            }
+            let after = characters.peek().map_or(rest.len(), |(index, _)| *index);
+            if rest[after..].chars().any(is_kept_scalar) {
+                cut = after;
+                break;
+            }
+        }
+        let (piece, tail) = rest.split_at(cut);
+        rest = tail;
+        Some(piece)
+    })
 }
 
 fn append_space_segment(segment: &str, pairs: &mut Vec<WordPair>) {
@@ -295,6 +329,41 @@ mod tests {
         assert_eq!(pairs[0].cleaned, "Testing");
         // 孤立的标点贴到前一个词上。
         assert_eq!(surfaces(&split_into_word_pairs("yes - no", None)), ["yes-", "no"]);
+    }
+
+    /// 真实样本（qwen3-asr-0.6b，英文讲座）：识别文本把破折号连写，按空白切会得到 `innovative—it's` 一个词，
+    /// 对齐器拿到的是 `innovativeit's`。
+    #[test]
+    fn unspaced_em_dashes_separate_words() {
+        let pairs = split_into_word_pairs("an innovative—it's a set point—right, the world—and", Some("en"));
+        assert_eq!(
+            surfaces(&pairs),
+            ["an", "innovative—", "it's", "a", "set", "point—", "right,", "the", "world—", "and"]
+        );
+        assert_eq!(pairs[1].cleaned, "innovative");
+        assert_eq!(pairs[2].cleaned, "it's");
+        // 有空格的破折号本来就这样切；首尾的破折号、连续的破折号不产生空词。
+        assert_eq!(
+            surfaces(&split_into_word_pairs("set point — right", None)),
+            ["set", "point—", "right"]
+        );
+        assert_eq!(surfaces(&split_into_word_pairs("—so wait—", None)), ["—so", "wait—"]);
+        assert_eq!(surfaces(&split_into_word_pairs("yes——no―maybe", None)), ["yes——", "no―", "maybe"]);
+        // 连字符、短破折号与点号不切。
+        assert_eq!(
+            surfaces(&split_into_word_pairs("well-tuned 2019–2021 Next.js", Some("en"))),
+            ["well-tuned", "2019–2021", "Next.js"]
+        );
+        // 汉字段照旧逐字成词。
+        assert_eq!(surfaces(&split_into_word_pairs("GPU—渲染", None)), ["GPU—", "渲", "染"]);
+    }
+
+    #[test]
+    fn alignment_gives_each_dash_joined_word_its_own_slots() {
+        let tokenizer = Qwen3Tokenizer::from_tokens([(1, "a".into()), (2, "b".into())].into());
+        let text = prepare_for_alignment("a—b", &tokenizer, "English");
+        assert_eq!(text.words, vec!["a—", "b"]);
+        assert_eq!(text.token_ids, vec![1, 151705, 151705, 2, 151705, 151705]);
     }
 
     #[test]
