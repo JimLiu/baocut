@@ -28,6 +28,8 @@ const en = {
   audioCppSpawnFailed: (p: { reason: string }) => `Couldn't start the audio.cpp engine: ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `The audio.cpp engine exited with ${p.code}: ${p.tail}`,
   musicNoOutput: 'The audio.cpp engine finished without writing a WAV file',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} isn't an audio.cpp separation model package`,
+  separateNoStem: (p: { stem: string }) => `The audio.cpp engine finished without writing the ${p.stem} track`,
   audioCppNotReady: (p: { seconds: number }) => `The audio.cpp engine wasn't ready within ${p.seconds} s`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `The audio.cpp engine couldn't run this request (HTTP ${p.status}): ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `The audio.cpp engine returned audio that isn't a usable WAV: ${p.problem}`,

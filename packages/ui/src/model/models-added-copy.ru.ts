@@ -5,7 +5,9 @@ const languages = (n: number) => pluralForm('ru', n, { one: `${n} язык`, few
 
 export const ru: ModelsAddedMessages = {
   entryLabel: 'Добавить другие модели',
-  entryDesc: (n: number, music: boolean) => {
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') => {
+    if (group === 'sep') return `Помимо встроенной, в audio.cpp есть ещё ${pluralForm('ru', n, { one: `${n} модель`, few: `${n} модели`, many: `${n} моделей`, other: `${n} модели` })} для отделения голоса от фона. Можно также добавить собственный файл GGUF.`;
+    const music = group === 'music';
     const kind = music ? 'генерации музыки' : 'синтеза речи';
     const models = pluralForm('ru', n, { one: `${n} модель`, few: `${n} модели`, many: `${n} моделей`, other: `${n} модели` });
     return `Помимо встроенных, audio.cpp поддерживает ещё ${models} ${kind}, а также другие варианты точности встроенных. Можно также добавить собственный файл GGUF.`;
@@ -18,7 +20,7 @@ export const ru: ModelsAddedMessages = {
   loading: 'Загрузка списка моделей audio.cpp…',
   loadFailed: (text: string) => `Не удалось загрузить список моделей: ${text}`,
   groupsLabel: 'Группы моделей',
-  groups: { tts: 'Речь', music: 'Музыка', idle: 'Пока не используются', custom: 'Свой файл' },
+  groups: { tts: 'Речь', music: 'Музыка', sep: 'Разделение', idle: 'Пока не используются', custom: 'Свой файл' },
   searchLabel: 'Поиск моделей audio.cpp',
   searchPlaceholder: 'Поиск по названию, языку или возможности',
   countFound: (n: number) => `Найдено: ${n}`,
@@ -83,10 +85,16 @@ export const ru: ModelsAddedMessages = {
   },
   idle: {
     recognize: 'Для транскрипции по-прежнему используются собственные модели распознавания BaoCut: распознавание в audio.cpp медленнее и не различает говорящих',
-    separate: 'Разделение источников в audio.cpp пока не подключено к BaoCut',
+    'separate-slow': 'Разделяет чище всех, но намного медленнее, а лицензия неясна; пока используйте Mel-Band RoFormer',
+    'separate-stems': 'Делит звук на 6 дорожек; для дубляжа нужны только голос и фон, поэтому используйте HTDemucs',
+    'separate-speakers': 'Разделяет голоса нескольких людей, а не голос и фон; BaoCut пока это не использует',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut пока это не использует` : 'BaoCut пока это не использует'),
     'music-request': 'Эта музыкальная модель принимает другие запросы, чем YuE2, и BaoCut их пока не поддерживает',
     'engine-route': 'Движок предоставляет эту модель только для задач, которые BaoCut пока не использует',
+  },
+  sepTraits: {
+    htdemucs: 'Голос и фон · одна модель, меньше встроенной HTDemucs-FT',
+    mel_band_roformer: 'Голос и фон · разделяет чище встроенной модели',
   },
 
   sourceLabel: 'Где находится файл?',

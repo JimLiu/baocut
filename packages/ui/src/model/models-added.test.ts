@@ -76,6 +76,23 @@ describe('添加模型对话框的列表', () => {
     expect(moreCount(all, 'tts')).toBe(3);
   });
 
+  it('音源分离：能加的两族写分成什么、不写语言与速度；其余分离族按族写原因；入口数这一组', () => {
+    const sep = (family: string, over: Partial<AudioCppAddableFamily> = {}) =>
+      fam({ family, group: 'sep', tasks: ['sep'], languages: ['language_agnostic'], ...over });
+    const htdemucs = sep('htdemucs');
+    const mel = sep('mel_band_roformer');
+    expect(traitsLine(htdemucs)).toBe('人声 / 背景分离 · 单模型，比内置的 HTDemucs-FT 小');
+    expect(traitsLine(mel)).toBe('人声 / 背景分离 · 比内置的分得更干净');
+    expect(traitsLine(sep('unknown_sep'))).toBe('');
+    expect(idleText(sep('bs_roformer', { group: 'idle', idle: 'separate-slow' }))).toMatch(/Mel-Band RoFormer/);
+    expect(idleText(sep('htdemucs_6stems', { group: 'idle', idle: 'separate-stems' }))).toMatch(/HTDemucs/);
+    expect(idleText(sep('mossformer2', { group: 'idle', idle: 'separate-speakers' }))).toMatch(/说话声/);
+    const all = [htdemucs, mel, sep('bs_roformer', { group: 'idle', idle: 'separate-slow' }), fam({ family: 'qwen3_tts' })];
+    expect(searchFamilies(all, '', 'sep').map((f) => f.family)).toEqual(['htdemucs', 'mel_band_roformer']);
+    expect(searchFamilies(all, '干净', 'sep').map((f) => f.family)).toEqual(['mel_band_roformer']);
+    expect(moreCount(all, 'sep')).toBe(2);
+  });
+
   it('先选第一个还能加的包；精度相同的选项写包名', () => {
     const base = fam({ family: 'q' }).packages[0]!;
     const f = fam({

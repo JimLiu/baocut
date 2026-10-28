@@ -2,8 +2,10 @@ import type { ModelsAddedMessages } from './models-added-copy.ts';
 
 export const ko: ModelsAddedMessages = {
   entryLabel: '모델 더 추가',
-  entryDesc: (n: number, music: boolean) =>
-    `내장 모델 외에도 audio.cpp는 ${music ? '음악 생성' : '음성 합성'} 모델 ${n}개와 내장 모델의 다른 정밀도를 지원해요. 직접 가진 GGUF 파일을 추가할 수도 있어요.`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `내장 모델 외에도 audio.cpp에는 보컬 / 배경 분리 모델이 ${n}개 더 있어요. 직접 가진 GGUF 파일을 추가할 수도 있어요.`
+      : `내장 모델 외에도 audio.cpp는 ${group === 'music' ? '음악 생성' : '음성 합성'} 모델 ${n}개와 내장 모델의 다른 정밀도를 지원해요. 직접 가진 GGUF 파일을 추가할 수도 있어요.`,
   entryButton: '모델 추가…',
 
   title: 'audio.cpp 모델 추가',
@@ -12,7 +14,7 @@ export const ko: ModelsAddedMessages = {
   loading: 'audio.cpp 모델 목록을 불러오는 중…',
   loadFailed: (text: string) => `모델 목록을 불러오지 못했습니다: ${text}`,
   groupsLabel: '모델 그룹',
-  groups: { tts: '음성 합성', music: '음악 생성', idle: '아직 사용 불가', custom: '내 파일' },
+  groups: { tts: '음성 합성', music: '음악 생성', sep: '음원 분리', idle: '아직 사용 불가', custom: '내 파일' },
   searchLabel: 'audio.cpp 모델 검색',
   searchPlaceholder: '이름, 언어 또는 특징으로 검색',
   countFound: (n: number) => `${n}개 찾음`,
@@ -75,10 +77,16 @@ export const ko: ModelsAddedMessages = {
   },
   idle: {
     recognize: '전사에는 계속 BaoCut 자체 인식 모델을 써요. audio.cpp의 인식은 더 느리고 화자 구분이 없어요',
-    separate: 'audio.cpp의 음원 분리는 아직 BaoCut에 연결되지 않았어요',
+    'separate-slow': '가장 깔끔하게 분리하지만 훨씬 느리고 라이선스도 불분명해요. 우선 Mel-Band RoFormer를 쓰세요',
+    'separate-stems': '6개 트랙으로 나눠요. 번역 더빙에는 보컬과 배경 두 트랙만 필요하니 HTDemucs를 쓰세요',
+    'separate-speakers': '여러 사람의 말소리를 나누는 모델로, 보컬과 배경 분리가 아니에요. BaoCut에서는 아직 쓰지 않아요',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut에서 아직 사용하지 않음` : 'BaoCut에서 아직 사용하지 않음'),
     'music-request': '이 음악 모델은 YuE2와 다른 요청을 받기 때문에 BaoCut이 아직 지원하지 않아요',
     'engine-route': '엔진은 BaoCut이 아직 사용하지 않는 작업에서만 이 모델을 제공해요',
+  },
+  sepTraits: {
+    htdemucs: '보컬 / 배경 분리 · 단일 모델로, 내장 HTDemucs-FT보다 작아요',
+    mel_band_roformer: '보컬 / 배경 분리 · 내장 모델보다 깔끔하게 분리해요',
   },
 
   sourceLabel: '파일은 어디에 있나요?',

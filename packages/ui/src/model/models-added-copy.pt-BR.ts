@@ -2,8 +2,10 @@ import type { ModelsAddedMessages } from './models-added-copy.ts';
 
 export const ptBR: ModelsAddedMessages = {
   entryLabel: 'Adicionar mais modelos',
-  entryDesc: (n: number, music: boolean) =>
-    `Além dos integrados, o audio.cpp oferece suporte a mais ${n} ${music ? (n === 1 ? 'modelo de música' : 'modelos de música') : n === 1 ? 'modelo de voz' : 'modelos de voz'} e a outras precisões dos integrados. Você também pode adicionar um arquivo GGUF próprio.`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `Além do integrado, o audio.cpp tem mais ${n} ${n === 1 ? 'modelo' : 'modelos'} para separar voz e fundo. Você também pode adicionar um arquivo GGUF próprio.`
+      : `Além dos integrados, o audio.cpp oferece suporte a mais ${n} ${group === 'music' ? (n === 1 ? 'modelo de música' : 'modelos de música') : n === 1 ? 'modelo de voz' : 'modelos de voz'} e a outras precisões dos integrados. Você também pode adicionar um arquivo GGUF próprio.`,
   entryButton: 'Adicionar modelo…',
 
   title: 'Adicionar modelos do audio.cpp',
@@ -12,7 +14,7 @@ export const ptBR: ModelsAddedMessages = {
   loading: 'Carregando a lista de modelos do audio.cpp…',
   loadFailed: (text: string) => `Não foi possível carregar a lista de modelos: ${text}`,
   groupsLabel: 'Grupos de modelos',
-  groups: { tts: 'Voz', music: 'Música', idle: 'Ainda não utilizáveis', custom: 'Seu próprio arquivo' },
+  groups: { tts: 'Voz', music: 'Música', sep: 'Separação', idle: 'Ainda não utilizáveis', custom: 'Seu próprio arquivo' },
   searchLabel: 'Pesquisar modelos do audio.cpp',
   searchPlaceholder: 'Pesquisar por nome, idioma ou recurso',
   countFound: (n: number) => (n === 1 ? '1 encontrado' : `${n} encontrados`),
@@ -75,10 +77,16 @@ export const ptBR: ModelsAddedMessages = {
   },
   idle: {
     recognize: 'A transcrição continua usando os modelos de reconhecimento do próprio BaoCut: o reconhecimento no audio.cpp é mais lento e não identifica falantes',
-    separate: 'A separação de fontes do audio.cpp ainda não está conectada ao BaoCut',
+    'separate-slow': 'Separa com mais limpeza, mas é muito mais lento e a licença não está clara; use o Mel-Band RoFormer por enquanto',
+    'separate-stems': 'Divide o áudio em 6 faixas; a dublagem só precisa de voz e fundo, então use o HTDemucs',
+    'separate-speakers': 'Separa as vozes de várias pessoas, não a voz do fundo; o BaoCut ainda não usa isso',
     other: (tasks: string) => (tasks ? `${tasks} · o BaoCut ainda não usa isso` : 'O BaoCut ainda não usa isso'),
     'music-request': 'Este modelo de música recebe solicitações diferentes das do YuE2, que o BaoCut ainda não suporta',
     'engine-route': 'O mecanismo só oferece este modelo para tarefas que o BaoCut ainda não usa',
+  },
+  sepTraits: {
+    htdemucs: 'Voz e fundo · um único modelo, menor que o HTDemucs-FT integrado',
+    mel_band_roformer: 'Voz e fundo · separa com mais limpeza que o integrado',
   },
 
   sourceLabel: 'Onde está o arquivo?',

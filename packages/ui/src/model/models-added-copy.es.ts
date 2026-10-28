@@ -2,8 +2,10 @@ import type { ModelsAddedMessages } from './models-added-copy.ts';
 
 export const es: ModelsAddedMessages = {
   entryLabel: 'Añadir más modelos',
-  entryDesc: (n: number, music: boolean) =>
-    `Además de los integrados, audio.cpp admite ${n} ${music ? (n === 1 ? 'modelo de música' : 'modelos de música') : n === 1 ? 'modelo de voz' : 'modelos de voz'} más, y otras precisiones de los integrados. También puedes añadir un archivo GGUF propio.`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `Además del integrado, audio.cpp tiene ${n} ${n === 1 ? 'modelo' : 'modelos'} más para separar voz y fondo. También puedes añadir un archivo GGUF propio.`
+      : `Además de los integrados, audio.cpp admite ${n} ${group === 'music' ? (n === 1 ? 'modelo de música' : 'modelos de música') : n === 1 ? 'modelo de voz' : 'modelos de voz'} más, y otras precisiones de los integrados. También puedes añadir un archivo GGUF propio.`,
   entryButton: 'Añadir modelo…',
 
   title: 'Añadir modelos de audio.cpp',
@@ -12,7 +14,7 @@ export const es: ModelsAddedMessages = {
   loading: 'Cargando la lista de modelos de audio.cpp…',
   loadFailed: (text: string) => `No se pudo cargar la lista de modelos: ${text}`,
   groupsLabel: 'Grupos de modelos',
-  groups: { tts: 'Voz', music: 'Música', idle: 'Aún no utilizables', custom: 'Tu propio archivo' },
+  groups: { tts: 'Voz', music: 'Música', sep: 'Separación', idle: 'Aún no utilizables', custom: 'Tu propio archivo' },
   searchLabel: 'Buscar modelos de audio.cpp',
   searchPlaceholder: 'Buscar por nombre, idioma o función',
   countFound: (n: number) => (n === 1 ? '1 encontrado' : `${n} encontrados`),
@@ -75,10 +77,16 @@ export const es: ModelsAddedMessages = {
   },
   idle: {
     recognize: 'La transcripción sigue usando los modelos de reconocimiento propios de BaoCut: el reconocimiento en audio.cpp es más lento y no tiene etiquetas de hablante',
-    separate: 'La separación de fuentes de audio.cpp aún no está conectada a BaoCut',
+    'separate-slow': 'Separa con la mayor limpieza, pero es mucho más lento y su licencia no está clara; usa Mel-Band RoFormer por ahora',
+    'separate-stems': 'Divide el audio en 6 pistas; el doblaje solo necesita voz y fondo, así que usa HTDemucs',
+    'separate-speakers': 'Separa las voces de varias personas, no la voz del fondo; BaoCut aún no lo usa',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut aún no lo usa` : 'BaoCut aún no lo usa'),
     'music-request': 'Este modelo de música acepta solicitudes distintas de las de YuE2, que BaoCut aún no admite',
     'engine-route': 'El motor ofrece este modelo solo para tareas que BaoCut aún no usa',
+  },
+  sepTraits: {
+    htdemucs: 'Voz y fondo · un solo modelo, más pequeño que el HTDemucs-FT integrado',
+    mel_band_roformer: 'Voz y fondo · separa con más limpieza que el integrado',
   },
 
   sourceLabel: '¿Dónde está el archivo?',

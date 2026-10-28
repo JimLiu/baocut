@@ -54,10 +54,12 @@ export async function writeFakeYtDlp(dir: string, options: { version?: string; n
 
 /** 假的 `audiocpp_server` 脚本（`fake-audiocpp-server.ts`）的绝对路径。 */
 export const FAKE_AUDIOCPP_SERVER = fileURLToPath(new URL('./fake-audiocpp-server.ts', import.meta.url));
+/** 假的 audio.cpp 命令行引擎（`fake-audiocpp-cli.ts`，只跑人声与背景分离）的绝对路径。 */
+export const FAKE_AUDIOCPP_CLI = fileURLToPath(new URL('./fake-audiocpp-cli.ts', import.meta.url));
 
-/** 假 audio.cpp 服务收到的一次启动或一次合成请求（`fake-audiocpp-server.ts` 记下的一行）。 */
+/** 假 audio.cpp 服务收到的一次启动或一次合成请求（`fake-audiocpp-server.ts` 记下的一行），或命令行引擎的一次分离（`sep`）。 */
 export interface FakeAudioCppRecord {
-  kind: 'start' | 'request';
+  kind: 'start' | 'request' | 'sep';
   pid: number;
   args?: string[];
   config?: { port: number; host: string; models: Array<Record<string, unknown>> } & Record<string, unknown>;
@@ -73,10 +75,16 @@ export interface FakeAudioCppControl {
   slowMs?: number;
   silent?: boolean;
   notWav?: boolean;
+  /** 命令行引擎分离时不写这一轨（如 `bass`）。 */
+  sepSkip?: string;
+  /** 命令行引擎分离时以错误退出，这是错误文字。 */
+  sepFail?: string;
+  /** 命令行引擎分离时挂起，直到被结束。 */
+  sepHang?: boolean;
 }
 
 export interface FakeAudioCpp {
-  /** 给 `BAOCUT_AUDIOCPP_CLI` 的路径（`<dir>/audiocpp_cli`）：服务取它同目录的 `audiocpp_server`，合成用不到命令行引擎本身（它只认 `--version`）。 */
+  /** 给 `BAOCUT_AUDIOCPP_CLI` 的路径（`<dir>/audiocpp_cli`）：服务取它同目录的 `audiocpp_server`；命令行引擎本身只认 `--version` 与 `--task sep`。 */
   cli: string;
   /** 改故障控制。 */
   control(value: FakeAudioCppControl): Promise<void>;
@@ -102,13 +110,13 @@ export async function writeFakeAudioCpp(dir: string): Promise<FakeAudioCpp> {
     '',
   ];
   await fs.writeFile(path.join(dir, 'audiocpp_server'), lines.join('\n'), { mode: 0o755 });
-  // 命令行引擎只用来让 Runtime 找到这个目录：认得 `--version`，别的调用失败。
+  // 命令行引擎：让 Runtime 找到这个目录（`--version`），并跑 audio.cpp 的人声与背景分离（`--task sep`）；别的调用失败。
   const cli = path.join(dir, 'audiocpp_cli');
   const cliLines = [
     '#!/bin/sh',
-    `if [ "$1" = "--version" ]; then echo 'audio.cpp 0.9.2'; exit 0; fi`,
-    `echo 'fake audiocpp_cli does not run models' >&2`,
-    'exit 2',
+    `export FAKE_AUDIOCPP_CONTROL=${quote(controlFile)}`,
+    `export FAKE_AUDIOCPP_RECORD=${quote(recordFile)}`,
+    `exec ${quote(process.execPath)} ${quote(FAKE_AUDIOCPP_CLI)} "$@"`,
     '',
   ];
   await fs.writeFile(cli, cliLines.join('\n'), { mode: 0o755 });

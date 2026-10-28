@@ -14,6 +14,8 @@ export const fr: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `Impossible de démarrer le moteur audio.cpp : ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `Le moteur audio.cpp s’est terminé avec ${p.code} : ${p.tail}`,
   musicNoOutput: 'Le moteur audio.cpp s’est terminé sans écrire de fichier WAV',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} n’est pas un paquet de modèle de séparation audio.cpp`,
+  separateNoStem: (p: { stem: string }) => `Le moteur audio.cpp s’est terminé sans écrire la piste ${p.stem}`,
   audioCppNotReady: (p: { seconds: number }) => `Le moteur audio.cpp n’était pas prêt au bout de ${p.seconds} s`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `Le moteur audio.cpp n’a pas pu exécuter cette requête (HTTP ${p.status}) : ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `Le moteur audio.cpp a renvoyé un audio qui n’est pas un WAV exploitable : ${p.problem}`,

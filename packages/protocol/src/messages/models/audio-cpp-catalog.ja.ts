@@ -12,7 +12,7 @@ export const ja: ModelsAudioCppCatalogMessages = {
   unknownPackage: (p: { id: string }) => `audio.cpp のモデル目録に ${p.id} というパッケージはありません`,
   builtinPackage: (p: { id: string }) => `${p.id} はすでに内蔵されています。モデル一覧からインストールしてください`,
   idleFamily: (p: { family: string }) => `BaoCut はまだ ${p.family} モデルを使えません`,
-  noCustomFamily: (p: { family: string }) => `自分で指定したファイルは ${p.family} として追加できません。GGUF ファイル 1 つで動く音声合成モデルだけが対象です`,
+  noCustomFamily: (p: { family: string }) => `自分で指定したファイルは ${p.family} として追加できません。GGUF ファイル 1 つで動く音声合成モデルと、声 / 背景の分離モデルだけが対象です`,
   notHfAddress: 'この住所を認識できません。Hugging Face 上のファイルのページ URL を貼るか、owner/repo/file.gguf の形で書いてください',
   notGguf: '追加できるのは .gguf ファイルだけです。複数ファイルのモデルは一覧から追加してください',
   notLfs: (p: { file: string }) => `${p.file} は Git LFS で保存されていないため、チェックサムを読み取れません。自分でダウンロードし、このコンピュータのファイルとして追加してください`,

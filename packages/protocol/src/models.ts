@@ -1157,10 +1157,20 @@ export type ModelsEvent =
   | { type: 'bundle.removed'; bundleId: string };
 
 /**
- * audio.cpp 的模型族在 BaoCut 里暂时用不上的原因：`recognize` 识别模型（转写走内置的识别模型）；`separate` 音源分离模型；`other`
- * 别的任务（编解码、对齐……）；`music-request` 音乐模型的请求与 YuE2 不同，还没有接；`engine-route` 引擎只在合成以外的路由上服务它。
+ * audio.cpp 的模型族在 BaoCut 里暂时用不上的原因：`recognize` 识别模型（转写照旧走内置的识别模型：audio.cpp 上的识别更慢，也没有
+ * 说话人区分）；分离模型里只开人声 / 背景两轨、速度能用的族，其余的是 `separate-slow`（分得干净但比实时慢许多、许可也不明，
+ * BS-RoFormer）、`separate-stems`（拆成更多轨，翻译配音只要两轨）、`separate-speakers`（拆开几个人的说话声，不是人声与背景）；
+ * `other` 别的任务（编解码、对齐……）；`music-request` 音乐模型的请求与 YuE2 不同，还没有接；`engine-route` 引擎只在合成以外的
+ * 路由上服务它。
  */
-export type AudioCppIdleReason = 'recognize' | 'separate' | 'other' | 'music-request' | 'engine-route';
+export type AudioCppIdleReason =
+  | 'recognize'
+  | 'separate-slow'
+  | 'separate-stems'
+  | 'separate-speakers'
+  | 'other'
+  | 'music-request'
+  | 'engine-route';
 
 /** `models.add` 的参数。`label` 是自己指定文件时列表里显示的名字，不给时用文件名。 */
 export type ModelAddParams =
@@ -1191,8 +1201,8 @@ export interface AudioCppAddablePackage {
 export interface AudioCppAddableFamily {
   family: string;
   name: string;
-  /** `tts` 合成、`music` 音乐；`idle` 暂时用不上（看 `idle`）。 */
-  group: 'tts' | 'music' | 'idle';
+  /** `tts` 合成、`music` 音乐、`sep` 人声 / 背景分离；`idle` 暂时用不上（看 `idle`）。 */
+  group: 'tts' | 'music' | 'sep' | 'idle';
   idle?: AudioCppIdleReason;
   /** 上游规格列的任务（`tts`、`clone`、`design`……）。 */
   tasks: string[];

@@ -17,6 +17,7 @@ import {
 import { killProcessTree } from '@baocut/process-host';
 import { ModelsModelCatalog as MC } from '@baocut/protocol/messages/models/model-catalog.ts';
 import { JobsLocalProvider as L } from '@baocut/protocol/messages/jobs/local-provider.ts';
+import { audioCppExitFailure, runAudioCppEngine } from './audio-cpp-process.ts';
 import { jobWarning } from './job-text.ts';
 import { silentLog, type JobsLogger } from './jobs-logger.ts';
 
@@ -50,8 +51,6 @@ export interface LocalMusicProviderOptions {
 
 /** WAV 时长达到上限的这个比例就算撞上限。 */
 const TRUNCATED_RATIO = 0.98;
-/** stderr 留给失败说明的尾巴长度。 */
-const STDERR_TAIL = 2000;
 
 export class LocalMusicProvider implements GenerationProvider {
   readonly id = 'local';
@@ -113,14 +112,20 @@ export class LocalMusicProvider implements GenerationProvider {
     });
 
     sink.generating();
-    const exit = await this.#runEngine(engine, plan.args, run, signal);
+    const exit = await runAudioCppEngine({
+      spawn: this.#spawn,
+      engine,
+      args: plan.args,
+      cwd: run.staging,
+      env: await this.#env(),
+      signal,
+      cancelGraceMs: this.#cancelGraceMs,
+      active: this.#active,
+      log: this.#log,
+      jobId: run.jobId,
+    });
     if (exit.cancelled) return { outcome: 'cancelled' };
-    if (exit.code !== 0) {
-      throw new ProviderFailure('crashed', L.audioCppExited({ code: exit.code === null ? String(exit.signal) : String(exit.code), tail: exit.tail }), {
-        exitCode: exit.code,
-        signal: exit.signal,
-      });
-    }
+    if (exit.code !== 0) throw audioCppExitFailure(exit);
     const output = await this.#findOutput(run.staging, plan.output);
     if (output === null) throw new ProviderFailure('protocol', L.musicNoOutput(), { tail: exit.tail });
     const bytes = await fs.readFile(output);
@@ -139,60 +144,6 @@ export class LocalMusicProvider implements GenerationProvider {
   async close(): Promise<void> {
     this.#closed = true;
     for (const child of this.#active) killProcessTree(child, 'SIGTERM');
-  }
-
-  /** 引擎的进程：等它退出；信号中止时结束整个进程组并等它退出。 */
-  #runEngine(
-    engine: string,
-    args: string[],
-    run: GenerationRun,
-    signal: AbortSignal,
-  ): Promise<{ cancelled: boolean; code: number | null; signal: NodeJS.Signals | null; tail: string }> {
-    return new Promise(async (resolve, reject) => {
-      let child: ChildProcess;
-      try {
-        child = this.#spawn(engine, args, {
-          cwd: run.staging,
-          env: await this.#env(),
-          stdio: ['ignore', 'pipe', 'pipe'],
-          detached: process.platform !== 'win32',
-          windowsHide: true,
-        });
-      } catch (error) {
-        reject(new ProviderFailure('unavailable', L.audioCppSpawnFailed({ reason: String(error) })));
-        return;
-      }
-      this.#active.add(child);
-      let tail = '';
-      const collect = (chunk: Buffer) => {
-        tail = (tail + chunk.toString('utf8')).slice(-STDERR_TAIL);
-      };
-      child.stderr?.on('data', collect);
-      child.stdout?.on('data', collect);
-      let cancelled = false;
-      let killTimer: NodeJS.Timeout | null = null;
-      const onAbort = () => {
-        cancelled = true;
-        killProcessTree(child, 'SIGTERM');
-        killTimer = setTimeout(() => killProcessTree(child, 'SIGKILL'), this.#cancelGraceMs);
-      };
-      if (signal.aborted) onAbort();
-      else signal.addEventListener('abort', onAbort, { once: true });
-      const done = () => {
-        signal.removeEventListener('abort', onAbort);
-        if (killTimer) clearTimeout(killTimer);
-        this.#active.delete(child);
-      };
-      child.once('error', (error) => {
-        done();
-        reject(new ProviderFailure('unavailable', L.audioCppSpawnFailed({ reason: error.message })));
-      });
-      child.once('exit', (code, sig) => {
-        done();
-        if (!cancelled && code !== 0) this.#log.warn('audio.cpp engine failed', { jobId: run.jobId, code, signal: sig, tail });
-        resolve({ cancelled, code, signal: sig, tail: tail.trim() });
-      });
-    });
   }
 
   /** 约定的输出文件；引擎按自己的规则改了名时退回 staging 里任意一个 WAV。 */

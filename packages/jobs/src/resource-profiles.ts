@@ -121,14 +121,29 @@ export function localTranscribeResources(
 
 /**
  * 本地分离（翻译配音的分离一步）：这一步自己的量，加上（还没有进程时）分离模型包的 Model Worker，按它加载后的常驻量
- * （`ModelCatalog.workerWeightBytes`，已按文件的两倍算）估计；分离只有 MLX 的模型包，常驻量计在 GPU 内存。不知道用哪个模型包时
- * （旧的冻结参数）只算这一步自己的。
+ * （`ModelCatalog.workerWeightBytes`，已按文件的两倍算）估计；内置的分离模型包是 MLX 的，常驻量计在 GPU 内存。不知道用哪个
+ * 模型包时（旧的冻结参数）只算这一步自己的。
+ *
+ * 添加的 audio.cpp 分离模型包（`peak` 不为 null，`ModelCatalog.separationPeak`）每次分离起一个引擎进程、不常驻，与本地音乐
+ * 生成一样没有 holder：引擎的峰值直接计入这一步（Apple Silicon 计 GPU 内存，别的平台计内存）。
  */
 export function localSeparateResources(
   bundleId: string | null,
   weightBytes: number | null,
+  peak: WorkerFootprint | null = null,
 ): { demand: ResourceDemand; holder?: { id: string; demand: ResourceDemand } } {
   if (bundleId === null) return { demand: LOCAL_SEPARATE_DEMAND };
+  if (peak) {
+    return {
+      demand: {
+        ...LOCAL_SEPARATE_DEMAND,
+        cpuThreads: MODEL_WORKER_DEMAND.cpuThreads,
+        ...(peak.pool === 'memory'
+          ? { memory: LOCAL_SEPARATE_DEMAND.memory! + peak.bytes }
+          : { gpuMemory: peak.bytes }),
+      },
+    };
+  }
   const footprint: WorkerFootprint | null = weightBytes === null ? null : { bytes: weightBytes, pool: 'gpuMemory' };
   return { demand: LOCAL_SEPARATE_DEMAND, holder: { id: modelWorkerHolder(bundleId), demand: modelWorkerDemand(footprint) } };
 }

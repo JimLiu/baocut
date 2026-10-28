@@ -23,6 +23,12 @@ export {
 export { LocalEmbeddingProvider, type LocalEmbeddingProviderOptions } from './local-embedding-provider.ts';
 export { LocalMusicProvider, type LocalMusicProviderOptions } from './local-music-provider.ts';
 export {
+  LocalAudioCppSeparator,
+  routeLocalSeparation,
+  type LocalAudioCppSeparatorOptions,
+  type LocalSeparator,
+} from './local-audio-cpp-separator.ts';
+export {
   LocalSpeechProvider,
   type LocalSpeechProviderOptions,
   type SpeechFfmpeg,
@@ -286,6 +292,7 @@ export { checkLink, isPrivateAddress, redactUrl, redactUrlsInText, type HostLook
 /** 测试用的假 Model Worker 脚本的绝对路径（`node <path>` 运行）。 */
 export const FAKE_MODEL_WORKER = fileURLToPath(new URL('./testing/fake-model-worker.ts', import.meta.url));
 export {
+  FAKE_AUDIOCPP_CLI,
   FAKE_AUDIOCPP_SERVER,
   FAKE_YT_DLP,
   writeFakeAudioCpp,

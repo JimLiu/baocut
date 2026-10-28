@@ -19,10 +19,12 @@ import { vi } from './models-added-copy.vi.ts';
  * 以及添加进来的模型在行上的标签、来源与移出列表。英文是键与类型的来源，译文在 `models-added-copy.<语言>.ts`。
  */
 const en = {
-  /** 能力页（语音合成、音乐生成）上的入口一行。`n`：内置之外还能加的模型族数。 */
+  /** 能力页（语音合成、音乐生成、人声分离）上的入口一行。`n`：内置之外还能加的模型族数。 */
   entryLabel: 'Add more models',
-  entryDesc: (n: number, music: boolean) =>
-    `Besides the built-in ones, audio.cpp supports ${n} more ${music ? (n === 1 ? 'music model' : 'music models') : n === 1 ? 'speech model' : 'speech models'}, and other precisions of the built-in ones. You can also add a GGUF file of your own.`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `Besides the built-in one, audio.cpp has ${n} more vocal and background separation ${n === 1 ? 'model' : 'models'} you can use. You can also add a GGUF file of your own.`
+      : `Besides the built-in ones, audio.cpp supports ${n} more ${group === 'music' ? (n === 1 ? 'music model' : 'music models') : n === 1 ? 'speech model' : 'speech models'}, and other precisions of the built-in ones. You can also add a GGUF file of your own.`,
   entryButton: 'Add model…',
 
   title: 'Add audio.cpp models',
@@ -32,7 +34,7 @@ const en = {
   loading: 'Loading the audio.cpp model list…',
   loadFailed: (text: string) => `Couldn’t load the model list: ${text}`,
   groupsLabel: 'Model groups',
-  groups: { tts: 'Speech', music: 'Music', idle: 'Not usable yet', custom: 'Your own file' },
+  groups: { tts: 'Speech', music: 'Music', sep: 'Separation', idle: 'Not usable yet', custom: 'Your own file' },
   searchLabel: 'Search audio.cpp models',
   searchPlaceholder: 'Search by name, language or feature',
   countFound: (n: number) => (n === 1 ? '1 found' : `${n} found`),
@@ -101,11 +103,18 @@ const en = {
   /** 「暂时用不上」那一句：为什么这一族在 BaoCut 里还没地方用。 */
   idle: {
     recognize: 'Transcription keeps using BaoCut’s own recognition models: recognition on audio.cpp is slower and has no speaker labels',
-    separate: 'Source separation on audio.cpp isn’t connected to BaoCut yet',
+    'separate-slow': 'Separates most cleanly but is much slower, and its license is unclear; use Mel-Band RoFormer for now',
+    'separate-stems': 'Splits audio into 6 stems; voice-overs only need vocals and background, so use HTDemucs',
+    'separate-speakers': 'Separates several people’s voices, not vocals from background; BaoCut doesn’t use this yet',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut doesn’t use this yet` : 'BaoCut doesn’t use this yet'),
     'music-request': 'This music model takes different requests from YuE2, which BaoCut doesn’t support yet',
     'engine-route': 'The engine serves this model only for tasks BaoCut doesn’t use yet',
   },
+  /** 能添加的分离族那一句：分成什么、跟内置的比；不写速度（各平台差得多）。 */
+  sepTraits: {
+    htdemucs: 'Vocals and background · a single model, smaller than the built-in HTDemucs-FT',
+    mel_band_roformer: 'Vocals and background · cleaner separation than the built-in model',
+  } as Record<string, string>,
 
   /** 「自己指定文件」 */
   sourceLabel: 'Where is the file?',

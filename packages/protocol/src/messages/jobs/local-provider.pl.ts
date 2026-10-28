@@ -13,6 +13,8 @@ export const pl: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `Nie można uruchomić silnika audio.cpp: ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `Silnik audio.cpp zakończył się z ${p.code}: ${p.tail}`,
   musicNoOutput: 'Silnik audio.cpp zakończył pracę bez zapisania pliku WAV',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} nie jest pakietem modelu separacji audio.cpp`,
+  separateNoStem: (p: { stem: string }) => `Silnik audio.cpp zakończył pracę bez zapisania ścieżki ${p.stem}`,
   audioCppNotReady: (p: { seconds: number }) => `Silnik audio.cpp nie był gotowy w ciągu ${p.seconds} s`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `Silnik audio.cpp nie mógł wykonać tego żądania (HTTP ${p.status}): ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `Silnik audio.cpp zwrócił dźwięk, który nie jest użytecznym plikiem WAV: ${p.problem}`,

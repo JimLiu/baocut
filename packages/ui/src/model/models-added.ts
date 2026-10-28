@@ -7,7 +7,9 @@ import { M as TTS } from './models-tts-local-copy.ts';
  * 对话框里的分组、搜索、族的说法、自己指定文件的表单，以及添加进来的模型在行上怎么删、怎么移出列表。
  */
 
-export type AddGroup = 'tts' | 'music' | 'idle';
+export type AddGroup = 'tts' | 'music' | 'sep' | 'idle';
+/** 能添加的组：能力页上有入口、对话框先看的那一组。 */
+export type AddableGroup = Exclude<AddGroup, 'idle'>;
 export type AddTab = AddGroup | 'custom';
 
 /** 上游标的成熟度 → 标签；`supported`（或没标）不标。 */
@@ -54,8 +56,12 @@ export function languagesLine(languages: readonly string[]): string {
   return names.length > 5 ? M.languages.more(names.slice(0, 4), names.length) : names.join(' / ');
 }
 
-/** 特点一句（设计稿 `traitsLine`）：能怎么出声，再加语言。 */
-export function traitsLine(family: Pick<AudioCppAddableFamily, 'traits' | 'languages'>): string {
+/**
+ * 特点一句（设计稿 `traitsLine`）：能怎么出声，再加语言。分离不分语言：能添加的分离族写分成什么、跟内置的比（`M.sepTraits`），
+ * 不写速度（各平台差得多）。
+ */
+export function traitsLine(family: Pick<AudioCppAddableFamily, 'traits' | 'languages'> & Partial<Pick<AudioCppAddableFamily, 'group' | 'family'>>): string {
+  if (family.group === 'sep') return M.sepTraits[family.family ?? ''] ?? '';
   const t = family.traits;
   const out: string[] = [];
   if (t.clone) out.push(M.traits.clone);
@@ -80,8 +86,10 @@ export function idleText(family: Pick<AudioCppAddableFamily, 'idle' | 'tasks'>):
   switch (family.idle) {
     case 'recognize':
       return M.idle.recognize;
-    case 'separate':
-      return M.idle.separate;
+    case 'separate-slow':
+    case 'separate-stems':
+    case 'separate-speakers':
+      return M.idle[family.idle];
     case 'music-request':
       return M.idle['music-request'];
     case 'engine-route':
@@ -126,7 +134,7 @@ export function groupCount(families: readonly AudioCppAddableFamily[], group: Ad
 }
 
 /** 能力页入口那一句：这一组里内置之外还能加的族数（内置的族也还有别的精度，那一句另说）。 */
-export function moreCount(families: readonly AudioCppAddableFamily[], group: 'tts' | 'music'): number {
+export function moreCount(families: readonly AudioCppAddableFamily[], group: AddableGroup): number {
   return families.filter((f) => f.group === group && f.packages.length && !f.packages.some((p) => p.state === 'builtin')).length;
 }
 

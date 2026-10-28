@@ -2,8 +2,10 @@ import type { ModelsAddedMessages } from './models-added-copy.ts';
 
 export const tr: ModelsAddedMessages = {
   entryLabel: 'Daha fazla model ekle',
-  entryDesc: (n: number, music: boolean) =>
-    `audio.cpp, yerleşik olanların yanı sıra ${n} ${music ? 'müzik' : 'konuşma'} modelini daha ve yerleşik olanların başka hassasiyetlerini destekler. Kendi GGUF dosyanızı da ekleyebilirsiniz.`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `audio.cpp’de yerleşik olanın yanı sıra ses ve arka planı ayıran ${n} model daha var. Kendi GGUF dosyanızı da ekleyebilirsiniz.`
+      : `audio.cpp, yerleşik olanların yanı sıra ${n} ${group === 'music' ? 'müzik' : 'konuşma'} modelini daha ve yerleşik olanların başka hassasiyetlerini destekler. Kendi GGUF dosyanızı da ekleyebilirsiniz.`,
   entryButton: 'Model ekle…',
 
   title: 'audio.cpp modelleri ekle',
@@ -12,7 +14,7 @@ export const tr: ModelsAddedMessages = {
   loading: 'audio.cpp model listesi yükleniyor…',
   loadFailed: (text: string) => `Model listesi yüklenemedi: ${text}`,
   groupsLabel: 'Model grupları',
-  groups: { tts: 'Konuşma', music: 'Müzik', idle: 'Henüz kullanılamaz', custom: 'Kendi dosyanız' },
+  groups: { tts: 'Konuşma', music: 'Müzik', sep: 'Ayırma', idle: 'Henüz kullanılamaz', custom: 'Kendi dosyanız' },
   searchLabel: 'audio.cpp modellerinde ara',
   searchPlaceholder: 'Ada, dile veya özelliğe göre ara',
   countFound: (n: number) => `${n} sonuç`,
@@ -75,10 +77,16 @@ export const tr: ModelsAddedMessages = {
   },
   idle: {
     recognize: 'Döküm almak için BaoCut’ın kendi tanıma modelleri kullanılmaya devam eder: audio.cpp üzerinde tanıma daha yavaştır ve konuşmacı etiketi yoktur',
-    separate: 'audio.cpp üzerindeki kaynak ayırma henüz BaoCut’a bağlanmadı',
+    'separate-slow': 'En temiz ayırır ama çok daha yavaştır ve lisansı belirsizdir; şimdilik Mel-Band RoFormer kullanın',
+    'separate-stems': 'Sesi 6 parçaya ayırır; dublaj yalnızca ses ve arka plan ister, bu yüzden HTDemucs kullanın',
+    'separate-speakers': 'Birkaç kişinin konuşmasını ayırır, sesi arka plandan ayırmaz; BaoCut bunu henüz kullanmıyor',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut bunu henüz kullanmıyor` : 'BaoCut bunu henüz kullanmıyor'),
     'music-request': 'Bu müzik modeli YuE2’den farklı istekler alır ve BaoCut bunları henüz desteklemiyor',
     'engine-route': 'Motor bu modeli yalnızca BaoCut’ın henüz kullanmadığı görevler için sunar',
+  },
+  sepTraits: {
+    htdemucs: 'Ses ve arka plan · tek model, yerleşik HTDemucs-FT’den küçük',
+    mel_band_roformer: 'Ses ve arka plan · yerleşik modelden daha temiz ayırır',
   },
 
   sourceLabel: 'Dosya nerede?',

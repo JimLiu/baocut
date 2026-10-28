@@ -5,7 +5,9 @@ const languages = (n: number) => pluralForm('pl', n, { one: `${n} język`, few: 
 
 export const pl: ModelsAddedMessages = {
   entryLabel: 'Dodaj więcej modeli',
-  entryDesc: (n: number, music: boolean) => {
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') => {
+    if (group === 'sep') return `Oprócz wbudowanego audio.cpp ma jeszcze ${pluralForm('pl', n, { one: `${n} model`, few: `${n} modele`, many: `${n} modeli`, other: `${n} modelu` })} do oddzielania głosu od tła. Możesz też dodać własny plik GGUF.`;
+    const music = group === 'music';
     const kind = music ? 'muzyki' : 'mowy';
     const models = pluralForm('pl', n, { one: `${n} model`, few: `${n} modele`, many: `${n} modeli`, other: `${n} modelu` });
     return `Oprócz wbudowanych audio.cpp obsługuje jeszcze ${models} ${kind} oraz inne precyzje modeli wbudowanych. Możesz też dodać własny plik GGUF.`;
@@ -18,7 +20,7 @@ export const pl: ModelsAddedMessages = {
   loading: 'Wczytywanie listy modeli audio.cpp…',
   loadFailed: (text: string) => `Nie udało się wczytać listy modeli: ${text}`,
   groupsLabel: 'Grupy modeli',
-  groups: { tts: 'Mowa', music: 'Muzyka', idle: 'Jeszcze nieużywane', custom: 'Własny plik' },
+  groups: { tts: 'Mowa', music: 'Muzyka', sep: 'Separacja', idle: 'Jeszcze nieużywane', custom: 'Własny plik' },
   searchLabel: 'Szukaj modeli audio.cpp',
   searchPlaceholder: 'Szukaj po nazwie, języku lub funkcji',
   countFound: (n: number) => `Znaleziono: ${n}`,
@@ -83,10 +85,16 @@ export const pl: ModelsAddedMessages = {
   },
   idle: {
     recognize: 'Transkrypcja nadal korzysta z własnych modeli rozpoznawania BaoCut: rozpoznawanie w audio.cpp jest wolniejsze i nie rozróżnia mówców',
-    separate: 'Separacja źródeł w audio.cpp nie jest jeszcze podłączona do BaoCut',
+    'separate-slow': 'Rozdziela najczyściej, ale jest znacznie wolniejszy, a licencja jest niejasna; na razie użyj Mel-Band RoFormer',
+    'separate-stems': 'Dzieli dźwięk na 6 ścieżek; lektor potrzebuje tylko głosu i tła, więc użyj HTDemucs',
+    'separate-speakers': 'Rozdziela głosy kilku osób, a nie głos od tła; BaoCut jeszcze tego nie używa',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut jeszcze z tego nie korzysta` : 'BaoCut jeszcze z tego nie korzysta'),
     'music-request': 'Ten model muzyczny przyjmuje inne żądania niż YuE2, a BaoCut jeszcze ich nie obsługuje',
     'engine-route': 'Silnik udostępnia ten model tylko do zadań, z których BaoCut jeszcze nie korzysta',
+  },
+  sepTraits: {
+    htdemucs: 'Głos i tło · jeden model, mniejszy niż wbudowany HTDemucs-FT',
+    mel_band_roformer: 'Głos i tło · rozdziela czyściej niż model wbudowany',
   },
 
   sourceLabel: 'Gdzie jest plik?',

@@ -20,6 +20,7 @@ export {
   type EmbeddingVisionProfile,
   type ImageBundleProfile,
   type MusicBundleProfile,
+  type SeparationBundleProfile,
   type SpeechBundleProfile,
   type SpeechEngineModel,
   type AudioCppSpeechFamily,

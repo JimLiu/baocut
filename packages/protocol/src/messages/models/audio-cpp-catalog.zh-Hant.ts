@@ -12,7 +12,7 @@ export const zhHant: ModelsAudioCppCatalogMessages = {
   unknownPackage: (p: { id: string }) => `audio.cpp 的模型目錄裡沒有 ${p.id} 這個套件`,
   builtinPackage: (p: { id: string }) => `${p.id} 已經內建，在模型列表裡安裝即可`,
   idleFamily: (p: { family: string }) => `BaoCut 暫時用不上 ${p.family} 模型`,
-  noCustomFamily: (p: { family: string }) => `自己指定的檔案不能按 ${p.family} 新增：只有用一個 GGUF 檔案就能跑的語音合成模型可以`,
+  noCustomFamily: (p: { family: string }) => `自己指定的檔案不能按 ${p.family} 新增：只有用一個 GGUF 檔案就能跑的語音合成與人聲 / 背景分離模型可以`,
   notHfAddress: '認不出這個地址：貼上 Hugging Face 上那個檔案的網頁地址，或寫成 使用者/儲存庫/檔案.gguf',
   notGguf: '只能加 .gguf 檔案；整套多檔案的模型請從列表裡加',
   notLfs: (p: { file: string }) => `${p.file} 沒有用 Git LFS 存放，讀不到校驗值；請自行下載後按「這台電腦上的檔案」新增`,

@@ -14,6 +14,8 @@ export const ptBR: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `Não foi possível iniciar o motor audio.cpp: ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `O motor audio.cpp terminou com ${p.code}: ${p.tail}`,
   musicNoOutput: 'O motor audio.cpp terminou sem gravar um arquivo WAV',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} não é um pacote de modelo de separação do audio.cpp`,
+  separateNoStem: (p: { stem: string }) => `O motor audio.cpp terminou sem gravar a faixa ${p.stem}`,
   audioCppNotReady: (p: { seconds: number }) => `O motor audio.cpp não ficou pronto em ${p.seconds} s`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `O motor audio.cpp não conseguiu executar esta solicitação (HTTP ${p.status}): ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `O motor audio.cpp retornou um áudio que não é um WAV utilizável: ${p.problem}`,

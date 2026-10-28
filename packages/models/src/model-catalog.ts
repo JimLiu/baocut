@@ -432,6 +432,8 @@ export class ModelCatalog {
   async workerWeightBytes(bundleId: string): Promise<number | null> {
     const def = this.#bundles.get(bundleId);
     if (!def || (def.capability !== 'transcribe' && def.capability !== 'separate' && def.capability !== 'diarize')) return null;
+    // audio.cpp 的分离模型包不经 Model Worker（每次一个引擎进程，峰值见 `separationPeak`）。
+    if (def.separation) return null;
     const sources = (await this.#workerComponents(def)).map(([, source]) => source);
     const bytes = weightBytes(sources, this.manifests);
     return bytes !== null && def.capability === 'separate' ? bytes * SEPARATE_LOADED_WEIGHT_FACTOR : bytes;
@@ -460,7 +462,7 @@ export class ModelCatalog {
       return bytes === null ? null : { bytes, pool: this.#unifiedMemory() ? 'gpuMemory' : 'memory' };
     }
     const local = def?.capability === 'transcribe' || def?.capability === 'separate' || def?.capability === 'diarize';
-    if (!def || !local) return null;
+    if (!def || !local || def.separation) return null;
     const sources = (await this.#workerComponents(def)).map(([, source]) => source);
     if (def.backend === 'ggml') {
       const [asr, rest] = [sources.filter((s) => s.family === 'whisper-ggml'), sources.filter((s) => s.family !== 'whisper-ggml')];
@@ -529,6 +531,16 @@ export class ModelCatalog {
     const def = this.#bundles.get(bundleId);
     if (!def?.music) return null;
     return { bytes: def.music.peakBytes, pool: this.#unifiedMemory() ? 'gpuMemory' : 'memory' };
+  }
+
+  /**
+   * audio.cpp 分离模型包的引擎进程峰值、在哪个池里：按模型包登记的估计峰值（`separation.peakBytes`），池与音乐相同（`musicPeak`）。
+   * 不是 audio.cpp 的分离模型包（内置的 HTDemucs-FT 走 Model Worker，见 `workerFootprint`）时 null。
+   */
+  separationPeak(bundleId: string): WorkerFootprint | null {
+    const def = this.#bundles.get(bundleId);
+    if (!def?.separation) return null;
+    return { bytes: def.separation.peakBytes, pool: this.#unifiedMemory() ? 'gpuMemory' : 'memory' };
   }
 
   /** Apple Silicon 的统一内存：audio.cpp 引擎（Metal）的占用计在 GPU 内存；别的平台不知道引擎用 GPU 还是 CPU，保守地计在内存。 */

@@ -12,7 +12,7 @@ export const de: ModelsAudioCppCatalogMessages = {
   unknownPackage: (p: { id: string }) => `Der Modellkatalog von audio.cpp enthält kein Paket ${p.id}`,
   builtinPackage: (p: { id: string }) => `${p.id} ist bereits integriert; installiere es aus der Modellliste`,
   idleFamily: (p: { family: string }) => `BaoCut kann ${p.family}-Modelle noch nicht verwenden`,
-  noCustomFamily: (p: { family: string }) => `Eine eigene Datei kann nicht als ${p.family} hinzugefügt werden: nur Sprachmodelle, die aus einer einzigen GGUF-Datei laufen`,
+  noCustomFamily: (p: { family: string }) => `Eine eigene Datei kann nicht als ${p.family} hinzugefügt werden: nur Modelle für Sprachsynthese und Trennung von Stimme / Hintergrund, die aus einer einzigen GGUF-Datei laufen`,
   notHfAddress: 'Keine Hugging-Face-Dateiadresse: füge die Webadresse der Datei ein oder schreibe owner/repo/file.gguf',
   notGguf: 'Nur .gguf-Dateien können hinzugefügt werden; Modelle aus mehreren Dateien fügst du aus der Liste hinzu',
   notLfs: (p: { file: string }) => `${p.file} liegt nicht in Git LFS, daher ist keine Prüfsumme lesbar; lade die Datei selbst herunter und füge sie als Datei auf diesem Computer hinzu`,

@@ -2,8 +2,10 @@ import type { ModelsAddedMessages } from './models-added-copy.ts';
 
 export const ja: ModelsAddedMessages = {
   entryLabel: 'モデルをさらに追加',
-  entryDesc: (n: number, music: boolean) =>
-    `内蔵モデルのほかに、audio.cpp は${music ? '音楽生成' : '音声合成'}モデルをさらに ${n} 種類サポートしています。内蔵モデルの別の精度もあります。自分の GGUF ファイルを追加することもできます。`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `内蔵モデルのほかに、audio.cpp にはボーカル / 背景分離モデルがさらに ${n} 種類あります。自分の GGUF ファイルを追加することもできます。`
+      : `内蔵モデルのほかに、audio.cpp は${group === 'music' ? '音楽生成' : '音声合成'}モデルをさらに ${n} 種類サポートしています。内蔵モデルの別の精度もあります。自分の GGUF ファイルを追加することもできます。`,
   entryButton: 'モデルを追加…',
 
   title: 'audio.cpp モデルを追加',
@@ -12,7 +14,7 @@ export const ja: ModelsAddedMessages = {
   loading: 'audio.cpp のモデル一覧を読み込み中…',
   loadFailed: (text: string) => `モデル一覧を読み込めませんでした：${text}`,
   groupsLabel: 'モデルのグループ',
-  groups: { tts: '音声合成', music: '音楽生成', idle: 'まだ使えない', custom: '自分のファイル' },
+  groups: { tts: '音声合成', music: '音楽生成', sep: '音源分離', idle: 'まだ使えない', custom: '自分のファイル' },
   searchLabel: 'audio.cpp モデルを検索',
   searchPlaceholder: '名前、言語、特徴で検索',
   countFound: (n: number) => `${n} 件`,
@@ -75,10 +77,16 @@ export const ja: ModelsAddedMessages = {
   },
   idle: {
     recognize: '文字起こしには引き続き BaoCut 独自の認識モデルを使います。audio.cpp での認識は遅く、話者の区別もありません',
-    separate: 'audio.cpp の音源分離はまだ BaoCut に接続されていません',
+    'separate-slow': '最もきれいに分離できますが、かなり遅く、ライセンスも不明です。まずは Mel-Band RoFormer を使ってください',
+    'separate-stems': '6 トラックに分けます。翻訳吹き替えに必要なのはボーカルと背景の 2 トラックなので、HTDemucs を使ってください',
+    'separate-speakers': '複数の人の話し声を分けるもので、ボーカルと背景の分離ではありません。BaoCut ではまだ使っていません',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut ではまだ使いません` : 'BaoCut ではまだ使いません'),
     'music-request': 'この音楽モデルは YuE2 とは異なるリクエストを受け付けるため、BaoCut はまだ対応していません',
     'engine-route': 'エンジンがこのモデルを提供するのは、BaoCut がまだ使っていない機能だけです',
+  },
+  sepTraits: {
+    htdemucs: 'ボーカル / 背景分離 · 単一モデルで、内蔵の HTDemucs-FT より小さい',
+    mel_band_roformer: 'ボーカル / 背景分離 · 内蔵モデルよりきれいに分離',
   },
 
   sourceLabel: 'ファイルの場所',

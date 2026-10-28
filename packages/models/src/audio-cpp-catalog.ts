@@ -3,7 +3,7 @@ import { ModelsAudioCppCatalog as M } from '@baocut/protocol/messages/models/aud
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { AUDIO_CPP_RELEASE } from './audio-cpp-engine.ts';
-import type { BundleDefinition, MusicBundleProfile, SpeechBundleProfile } from './bundle-registry.ts';
+import type { BundleDefinition, MusicBundleProfile, SeparationBundleProfile, SpeechBundleProfile } from './bundle-registry.ts';
 import { AUDIO_CPP_CATALOG_DATA } from './audio-cpp-catalog.data.ts';
 import { YUE2_3B_Q8 } from './music-bundles.ts';
 import { SPEECH_BUNDLES } from './speech-bundles.ts';
@@ -18,10 +18,13 @@ import type { RepoManifestSpec } from './repo-manifests.ts';
  *
  * - 语音合成（`tts`）：引擎在 `tts` 路由上服务的模型族都能加，请求按规格列出的参数换算（`genericSpeechProfile`）；
  * - 音乐生成（`music`）：只有 YuE2（BaoCut 的音乐请求就是它的形状），别的音乐模型族的请求另有形状，列为暂时用不上；
- * - 识别、分离与其余任务：列出来、写清为什么用不上，不能添加。
+ * - 音源分离（`sep`）：只开分成人声与背景、能直接接上翻译配音、速度也能用的两族（`SEP_FAMILIES`：HTDemucs、Mel-Band RoFormer），
+ *   每次分离起一个引擎进程，不经 Model Worker；别的分离族按族写原因；
+ * - 识别与其余任务：列出来、写清为什么用不上，不能添加。
  *
- * 一个包加进来是一个模型包，只有一个组件（`tts` 或 `music`），装在模型目录的 `audio-cpp-added/<包 ID>/`，从包的上游仓库下载；包要
- * 的同族配件（YuE2 的 VAE、AuK 的 Qwen 与 VAE）一并列进这个组件：引擎只认相对模型根的路径，配件得和主模型在同一个目录里。
+ * 一个包加进来是一个模型包，只有一个组件（`tts`、`music` 或 `separator`），装在模型目录的 `audio-cpp-added/<包 ID>/`，从包的上游
+ * 仓库下载；包要的同族配件（YuE2 的 VAE、AuK 的 Qwen 与 VAE）一并列进这个组件：引擎只认相对模型根的路径，配件得和主模型在同一个
+ * 目录里。
  */
 
 /** 生成的目录数据的形状（`tools/audio-cpp-catalog.ts` 写出）。 */
@@ -80,6 +83,21 @@ const PART_KINDS: Readonly<Record<string, readonly string[]>> = { auk: ['qwen', 
 /** 能用的音乐模型族：BaoCut 的音乐请求（风格、歌词、编排、时长）是 YuE2 的形状。 */
 const MUSIC_FAMILIES: ReadonlySet<string> = new Set(['yue2']);
 
+/**
+ * 能添加的分离模型族：分成人声与背景两路（HTDemucs 的背景是鼓、贝斯与其他之和），与内置的 HTDemucs-FT 一样直接接上翻译配音。
+ * 依据 2026-10-28 在 M4 16 GB 上的实测（80 秒人声叠音乐，人声 / 背景 SDR；内置 HTDemucs-FT 走 MLX：36 秒、17.8 / 14.3 dB）：
+ * HTDemucs Q8 17 秒、17.6 / 14.4 dB；Mel-Band RoFormer Q8 72 秒、20.9 / 17.9 dB。BS-RoFormer 21.4 / 18.4 dB 但要 300 秒、许可也不明；
+ * 6 轨版配音用不上多出来的轨；MossFormer2、TF-GridNet 拆的是几个人的说话声。只是一段样本、一台机器，速度别写进界面文字。
+ *
+ * `peakBytes` 是引擎进程的峰值，按十分钟的输入估计：同一台机器 Metal 上 640 秒输入实测 HTDemucs 2.7 GB（128 秒）、Mel-Band
+ * RoFormer 2.4 GB（488 秒），10 秒输入约 0.46 GB。引擎整段读入、各轨整段写出，峰值随时长增长（约每分钟 0.2 GB），更长的素材
+ * 会超过这个估计。
+ */
+const SEP_FAMILIES: Readonly<Record<string, Omit<SeparationBundleProfile, 'family' | 'file'>>> = {
+  htdemucs: { vocals: ['vocals'], background: ['drums', 'bass', 'other'], peakBytes: 3 * 1024 ** 3 },
+  mel_band_roformer: { vocals: ['vocals'], background: ['instrumental'], peakBytes: 3 * 1024 ** 3 },
+};
+
 /** 添加的模型包放在模型目录的这个「所有者」下：`<root>/audio-cpp-added/<名字>/`。 */
 export const ADDED_REPO_OWNER = 'audio-cpp-added';
 
@@ -116,7 +134,12 @@ export function partsOf(family: AudioCppCatalogFamily, pkg: AudioCppCatalogPacka
 /** 模型族在 BaoCut 里能不能加、为什么不能。 */
 export function idleReason(family: AudioCppCatalogFamily): AudioCppIdleReason | null {
   if (family.group === 'asr') return 'recognize';
-  if (family.group === 'sep') return 'separate';
+  if (family.group === 'sep') {
+    if (SEP_FAMILIES[family.family]) return null;
+    if (family.family === 'bs_roformer') return 'separate-slow';
+    if (family.family === 'htdemucs_6stems') return 'separate-stems';
+    return 'separate-speakers';
+  }
   if (family.group === 'other') return 'other';
   if (family.group === 'music') return MUSIC_FAMILIES.has(family.family) ? null : 'music-request';
   // 合成走引擎的 `tts` 路由；只在别的路由上服务的（MOSS VoiceGen 只有 `vdes`）暂时接不上。
@@ -198,7 +221,7 @@ export function addableFamilies(present: ReadonlySet<string>): AudioCppAddableFa
     return {
       family: family.family,
       name: family.name,
-      group: idle === null ? (family.group as 'tts' | 'music') : 'idle',
+      group: idle === null ? (family.group as 'tts' | 'music' | 'sep') : 'idle',
       ...(idle ? { idle } : {}),
       tasks: [...family.tasks],
       status: family.status,
@@ -236,6 +259,12 @@ export function catalogBundle(packageId: string): AddedBundle | null {
     const label = pkg.name.replace(/\s+GGUF$/i, '');
     const license = catalogLicense(family);
     const source = { family: 'audio-cpp-gguf' as const, repo, revision: pkg.revision };
+    const info: ModelAddedInfo = { kind: 'catalog', family: family.family, familyName: family.name, source: pkg.id };
+    if (family.group === 'sep') {
+      const main = pkg.files.find((f) => f.path.endsWith('.gguf'));
+      if (!main) return null;
+      return { definition: separateDefinition(catalogBundleId(pkg.id), label, license, family, source, main.path), manifest, info };
+    }
     if (family.group === 'music') {
       const main = pkg.files.find((f) => f.path.endsWith('.gguf'));
       const vae = partsOf(family, pkg)[0]?.files.find((f) => f.path.endsWith('.gguf'));
@@ -252,7 +281,7 @@ export function catalogBundle(packageId: string): AddedBundle | null {
           music: yue2Profile(main, vae),
         },
         manifest,
-        info: { kind: 'catalog', family: family.family, familyName: family.name, source: pkg.id },
+        info,
       };
     }
     // 一个文件的包交给引擎那个文件；多个文件的（权重、分词表、声音、配件……）交给包的根目录，引擎在里面按自己的布局找（上游的
@@ -262,14 +291,50 @@ export function catalogBundle(packageId: string): AddedBundle | null {
     return {
       definition: speechDefinition(catalogBundleId(pkg.id), label, license, family, source, file, manifest.estimatedBytes, sibling?.id ?? null),
       manifest,
-      info: { kind: 'catalog', family: family.family, familyName: family.name, source: pkg.id },
+      info,
     };
   }
   return null;
 }
 
-/** 添加的模型包的组件来源（`tts` 或 `music`）。 */
+/** 添加的模型包的组件来源（`tts`、`music` 或 `separator`）。 */
 type AddedSource = BundleDefinition['components']['tts'] & object;
+
+/** 分离模型包：一个 `separator` 组件，由 audio.cpp 引擎每次起一个进程跑（`separation`），不交给 Model Worker。 */
+function separateDefinition(
+  bundleId: string,
+  label: string,
+  license: ModelLicense,
+  family: AudioCppCatalogFamily,
+  source: AddedSource,
+  file: string,
+): BundleDefinition {
+  return {
+    bundleId,
+    capability: 'separate',
+    backend: 'audio-cpp',
+    device: 'auto',
+    components: { separator: source },
+    label,
+    license,
+    separation: { family: family.family, file, ...SEP_FAMILIES[family.family]! },
+  };
+}
+
+/** 自己指定的文件的模型包：按它的族是合成还是分离。 */
+function customDefinition(
+  bundleId: string,
+  label: string,
+  family: AudioCppCatalogFamily,
+  source: AddedSource,
+  file: string,
+  bytes: number,
+  variant: string | null,
+): BundleDefinition {
+  return family.group === 'sep'
+    ? separateDefinition(bundleId, label, customLicense(), family, source, file)
+    : speechDefinition(bundleId, label, customLicense(), family, source, file, bytes, variant);
+}
 
 function speechDefinition(
   bundleId: string,
@@ -413,9 +478,11 @@ function yue2Profile(main: { path: string; size: number }, vae: { path: string; 
   };
 }
 
-/** 自己指定的文件能按哪些族跑：能添加的合成模型族（一个 GGUF 文件就是整套权重；音乐要配 VAE，不收单个文件）。 */
+/**
+ * 自己指定的文件能按哪些族跑：能添加的合成与分离模型族（一个 GGUF 文件就是整套权重；音乐要配 VAE，不收单个文件）。
+ */
 export function customFamilies(): AudioCppCatalogFamily[] {
-  return families.filter((f) => f.group === 'tts' && idleReason(f) === null);
+  return families.filter((f) => (f.group === 'tts' || f.group === 'sep') && idleReason(f) === null);
 }
 
 /** Hugging Face 上的一个 GGUF：添加时从下载来源读出的提交、大小与 sha256。 */
@@ -450,7 +517,7 @@ export function repoFileBundle(entry: RepoFileEntry, bundleId: string): AddedBun
   };
   const source = { family: 'audio-cpp-gguf' as const, repo, revision: entry.revision };
   return {
-    definition: speechDefinition(bundleId, entry.label, customLicense(), family, source, entry.path, entry.size, repoFileVariant(entry)),
+    definition: customDefinition(bundleId, entry.label, family, source, entry.path, entry.size, repoFileVariant(entry)),
     manifest,
     info: { kind: 'repo-file', family: family.family, familyName: family.name, source: `${entry.repo}/${entry.path}` },
   };
@@ -491,7 +558,7 @@ export function localFileBundle(entry: LocalFileEntry, bundleId: string): AddedB
     local: { path: entry.path, size: entry.size },
   };
   return {
-    definition: speechDefinition(bundleId, entry.label, customLicense(), family, source, path.basename(entry.path), entry.size, entry.variant ?? null),
+    definition: customDefinition(bundleId, entry.label, family, source, path.basename(entry.path), entry.size, entry.variant ?? null),
     manifest: null,
     info: { kind: 'local-file', family: family.family, familyName: family.name, source: entry.path },
   };

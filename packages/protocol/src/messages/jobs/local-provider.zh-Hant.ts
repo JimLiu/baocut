@@ -13,6 +13,8 @@ export const zhHant: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `啟動 audio.cpp 引擎失敗：${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `audio.cpp 引擎以 ${p.code} 結束：${p.tail}`,
   musicNoOutput: 'audio.cpp 引擎結束了，但沒有寫出 WAV 檔案',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} 不是 audio.cpp 的分離模型包`,
+  separateNoStem: (p: { stem: string }) => `audio.cpp 引擎結束了，但沒有寫出 ${p.stem} 這一軌`,
   audioCppNotReady: (p: { seconds: number }) => `audio.cpp 引擎在 ${p.seconds} 秒內沒有就緒`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `audio.cpp 引擎沒能執行這次請求（HTTP ${p.status}）：${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `audio.cpp 引擎傳回的音訊不是可用的 WAV：${p.problem}`,

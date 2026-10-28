@@ -12,7 +12,7 @@ export const nl: ModelsAudioCppCatalogMessages = {
   unknownPackage: (p: { id: string }) => `De modelcatalogus van audio.cpp heeft geen pakket ${p.id}`,
   builtinPackage: (p: { id: string }) => `${p.id} is al ingebouwd; installeer het vanuit de modellenlijst`,
   idleFamily: (p: { family: string }) => `BaoCut kan ${p.family}-modellen nog niet gebruiken`,
-  noCustomFamily: (p: { family: string }) => `Een eigen bestand kan niet als ${p.family} worden toegevoegd: alleen spraakmodellen die uit één GGUF-bestand draaien`,
+  noCustomFamily: (p: { family: string }) => `Een eigen bestand kan niet als ${p.family} worden toegevoegd: alleen modellen voor spraaksynthese en scheiding van stem / achtergrond die uit één GGUF-bestand draaien`,
   notHfAddress: 'Geen Hugging Face-bestandsadres: plak het webadres van het bestand of schrijf owner/repo/file.gguf',
   notGguf: 'Alleen .gguf-bestanden kunnen worden toegevoegd; voeg modellen met meerdere bestanden toe vanuit de lijst',
   notLfs: (p: { file: string }) => `${p.file} staat niet in Git LFS, dus de controlesom is niet te lezen; download het zelf en voeg het toe als bestand op deze computer`,

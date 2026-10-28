@@ -7,11 +7,13 @@ import {
   isTerminal,
   localImageResources,
   localMusicResources,
+  localSeparateResources,
   localTranscribeResources,
   modelDownloadDemand,
   sha256Hex,
   type JobManager,
   type LocalMusicProvider,
+  type LocalSeparator,
   type LocalSpeechProvider,
   type LocalTranscribeProvider,
   type TaskRun,
@@ -111,6 +113,8 @@ export interface ModelInstallServiceOptions {
   speech: LocalSpeechProvider;
   /** 本地音乐生成的 Provider（audio.cpp 引擎）；音乐模型包的检查经它。 */
   music: LocalMusicProvider;
+  /** 本机分离（Model Worker 与 audio.cpp 引擎按模型包分派，`routeLocalSeparation`）；分离模型包的检查经它。不给时经 `provider`。 */
+  separator?: LocalSeparator;
   jobs: JobManager;
   log: Logger;
   /** 设置里的下载来源与严格离线。 */
@@ -391,13 +395,16 @@ export class ModelInstallService {
       if (hex === null) throw appFileMissing(selfTestSampleLabel(), this.#sample.asset, sampleFile);
       contentHash = `sha256:${hex}`;
     }
-    // 识别、分离与 candle 的合成按装好的组件估计 Model Worker 加载后的常驻量；MLX 的合成是 null（固定的需求）；文生图按模型包登记的实测峰值。
+    // 识别、分离与 candle 的合成按装好的组件估计 Model Worker 加载后的常驻量；MLX 的合成是 null（固定的需求）；文生图、音乐与
+    // audio.cpp 的分离按模型包登记的实测峰值。
     const resources =
       def.capability === 'image'
         ? localImageResources(params.bundleId, this.#catalog.imagePeak(params.bundleId))
         : def.capability === 'music'
           ? localMusicResources(params.bundleId, this.#catalog.musicPeak(params.bundleId))
-          : localTranscribeResources(params.bundleId, await this.#catalog.workerFootprint(params.bundleId));
+          : def.separation
+            ? localSeparateResources(params.bundleId, null, this.#catalog.separationPeak(params.bundleId))
+            : localTranscribeResources(params.bundleId, await this.#catalog.workerFootprint(params.bundleId));
     const spec = { task: 'modelTest' as const, bundleId: params.bundleId };
     return this.#jobs.submitTask(
       {
@@ -578,7 +585,7 @@ export class ModelInstallService {
     run.phase('loading');
     let attempt;
     try {
-      attempt = await this.#options.provider.separate(
+      attempt = await (this.#options.separator ?? this.#options.provider).separate(
         { bundleId, jobId: run.jobId, input: { file: sampleFile, contentHash, track: 0 }, sampleRate: null, staging },
         run.signal,
         (done, total) => run.phase('generating', { done, total, unit: 'steps' }),

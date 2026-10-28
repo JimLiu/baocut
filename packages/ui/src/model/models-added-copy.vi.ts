@@ -2,8 +2,10 @@ import type { ModelsAddedMessages } from './models-added-copy.ts';
 
 export const vi: ModelsAddedMessages = {
   entryLabel: 'Thêm mô hình khác',
-  entryDesc: (n: number, music: boolean) =>
-    `Ngoài các mô hình có sẵn, audio.cpp còn hỗ trợ thêm ${n} mô hình ${music ? 'tạo nhạc' : 'giọng nói'} và các độ chính xác khác của mô hình có sẵn. Bạn cũng có thể thêm tệp GGUF của riêng mình.`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `Ngoài mô hình có sẵn, audio.cpp còn có thêm ${n} mô hình tách giọng và nền. Bạn cũng có thể thêm tệp GGUF của riêng mình.`
+      : `Ngoài các mô hình có sẵn, audio.cpp còn hỗ trợ thêm ${n} mô hình ${group === 'music' ? 'tạo nhạc' : 'giọng nói'} và các độ chính xác khác của mô hình có sẵn. Bạn cũng có thể thêm tệp GGUF của riêng mình.`,
   entryButton: 'Thêm mô hình…',
 
   title: 'Thêm mô hình audio.cpp',
@@ -12,7 +14,7 @@ export const vi: ModelsAddedMessages = {
   loading: 'Đang tải danh sách mô hình audio.cpp…',
   loadFailed: (text: string) => `Không tải được danh sách mô hình: ${text}`,
   groupsLabel: 'Nhóm mô hình',
-  groups: { tts: 'Giọng nói', music: 'Âm nhạc', idle: 'Chưa dùng được', custom: 'Tệp của bạn' },
+  groups: { tts: 'Giọng nói', music: 'Âm nhạc', sep: 'Tách âm', idle: 'Chưa dùng được', custom: 'Tệp của bạn' },
   searchLabel: 'Tìm mô hình audio.cpp',
   searchPlaceholder: 'Tìm theo tên, ngôn ngữ hoặc tính năng',
   countFound: (n: number) => `Tìm thấy ${n}`,
@@ -75,10 +77,16 @@ export const vi: ModelsAddedMessages = {
   },
   idle: {
     recognize: 'Phiên âm vẫn dùng mô hình nhận dạng riêng của BaoCut: nhận dạng trên audio.cpp chậm hơn và không phân biệt người nói',
-    separate: 'Tách nguồn âm trên audio.cpp chưa được kết nối với BaoCut',
+    'separate-slow': 'Tách sạch nhất nhưng chậm hơn nhiều và giấy phép chưa rõ; tạm thời hãy dùng Mel-Band RoFormer',
+    'separate-stems': 'Tách âm thanh thành 6 rãnh; lồng tiếng chỉ cần giọng và nền, nên hãy dùng HTDemucs',
+    'separate-speakers': 'Tách giọng nói của nhiều người, không phải tách giọng khỏi nền; BaoCut chưa dùng đến',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut chưa dùng đến` : 'BaoCut chưa dùng đến'),
     'music-request': 'Mô hình nhạc này nhận yêu cầu khác với YuE2, BaoCut chưa hỗ trợ',
     'engine-route': 'Công cụ chỉ cung cấp mô hình này cho những tác vụ BaoCut chưa dùng đến',
+  },
+  sepTraits: {
+    htdemucs: 'Giọng và nền · một mô hình, nhỏ hơn HTDemucs-FT có sẵn',
+    mel_band_roformer: 'Giọng và nền · tách sạch hơn mô hình có sẵn',
   },
 
   sourceLabel: 'Tệp ở đâu?',

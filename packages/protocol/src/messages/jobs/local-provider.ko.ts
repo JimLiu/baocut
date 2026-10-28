@@ -13,6 +13,8 @@ export const ko: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `audio.cpp 엔진을 시작할 수 없습니다: ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `audio.cpp 엔진이 ${p.code}(으)로 종료되었습니다: ${p.tail}`,
   musicNoOutput: 'audio.cpp 엔진이 WAV 파일을 쓰지 않고 종료되었습니다',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId}은(는) audio.cpp 분리 모델 패키지가 아닙니다`,
+  separateNoStem: (p: { stem: string }) => `audio.cpp 엔진이 ${p.stem} 트랙을 쓰지 않고 종료되었습니다`,
   audioCppNotReady: (p: { seconds: number }) => `audio.cpp 엔진이 ${p.seconds}초 안에 준비되지 않았습니다`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `audio.cpp 엔진이 이 요청을 실행하지 못했습니다(HTTP ${p.status}): ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `audio.cpp 엔진이 반환한 오디오가 사용할 수 있는 WAV가 아닙니다: ${p.problem}`,

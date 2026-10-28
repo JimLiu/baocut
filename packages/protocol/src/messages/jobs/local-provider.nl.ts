@@ -14,6 +14,8 @@ export const nl: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `De audio.cpp-engine kon niet worden gestart: ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `De audio.cpp-engine is gestopt met ${p.code}: ${p.tail}`,
   musicNoOutput: 'De audio.cpp-engine is gestopt zonder een WAV-bestand te schrijven',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} is geen audio.cpp-scheidingsmodelpakket`,
+  separateNoStem: (p: { stem: string }) => `De audio.cpp-engine is gestopt zonder het spoor ${p.stem} te schrijven`,
   audioCppNotReady: (p: { seconds: number }) => `De audio.cpp-engine was niet binnen ${p.seconds} s gereed`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `De audio.cpp-engine kon dit verzoek niet uitvoeren (HTTP ${p.status}): ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `De audio.cpp-engine gaf audio terug die geen bruikbaar WAV-bestand is: ${p.problem}`,

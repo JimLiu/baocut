@@ -2,8 +2,10 @@ import type { ModelsAddedMessages } from './models-added-copy.ts';
 
 export const nl: ModelsAddedMessages = {
   entryLabel: 'Meer modellen toevoegen',
-  entryDesc: (n: number, music: boolean) =>
-    `Naast de ingebouwde ondersteunt audio.cpp nog ${n} ${music ? (n === 1 ? 'muziekmodel' : 'muziekmodellen') : n === 1 ? 'spraakmodel' : 'spraakmodellen'}, en andere precisies van de ingebouwde. Je kunt ook een eigen GGUF-bestand toevoegen.`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `Naast het ingebouwde model heeft audio.cpp nog ${n} ${n === 1 ? 'model' : 'modellen'} om stem en achtergrond te scheiden. Je kunt ook een eigen GGUF-bestand toevoegen.`
+      : `Naast de ingebouwde ondersteunt audio.cpp nog ${n} ${group === 'music' ? (n === 1 ? 'muziekmodel' : 'muziekmodellen') : n === 1 ? 'spraakmodel' : 'spraakmodellen'}, en andere precisies van de ingebouwde. Je kunt ook een eigen GGUF-bestand toevoegen.`,
   entryButton: 'Model toevoegen…',
 
   title: 'audio.cpp-modellen toevoegen',
@@ -12,7 +14,7 @@ export const nl: ModelsAddedMessages = {
   loading: 'audio.cpp-modellenlijst laden…',
   loadFailed: (text: string) => `Kan de modellenlijst niet laden: ${text}`,
   groupsLabel: 'Modelgroepen',
-  groups: { tts: 'Spraak', music: 'Muziek', idle: 'Nog niet bruikbaar', custom: 'Eigen bestand' },
+  groups: { tts: 'Spraak', music: 'Muziek', sep: 'Scheiding', idle: 'Nog niet bruikbaar', custom: 'Eigen bestand' },
   searchLabel: 'audio.cpp-modellen zoeken',
   searchPlaceholder: 'Zoeken op naam, taal of functie',
   countFound: (n: number) => (n === 1 ? '1 gevonden' : `${n} gevonden`),
@@ -75,10 +77,16 @@ export const nl: ModelsAddedMessages = {
   },
   idle: {
     recognize: 'Transcriptie blijft de eigen herkenningsmodellen van BaoCut gebruiken: herkenning met audio.cpp is trager en heeft geen sprekerlabels',
-    separate: 'Bronscheiding met audio.cpp is nog niet aan BaoCut gekoppeld',
+    'separate-slow': 'Scheidt het schoonst, maar is veel trager en de licentie is onduidelijk; gebruik voorlopig Mel-Band RoFormer',
+    'separate-stems': 'Splitst audio in 6 sporen; nasynchroniseren heeft alleen stem en achtergrond nodig, dus gebruik HTDemucs',
+    'separate-speakers': 'Scheidt de stemmen van meerdere mensen, niet stem van achtergrond; BaoCut gebruikt dit nog niet',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut gebruikt dit nog niet` : 'BaoCut gebruikt dit nog niet'),
     'music-request': 'Dit muziekmodel verwacht andere verzoeken dan YuE2, en die ondersteunt BaoCut nog niet',
     'engine-route': 'De engine biedt dit model alleen aan voor taken die BaoCut nog niet gebruikt',
+  },
+  sepTraits: {
+    htdemucs: 'Stem en achtergrond · één model, kleiner dan het ingebouwde HTDemucs-FT',
+    mel_band_roformer: 'Stem en achtergrond · scheidt schoner dan het ingebouwde model',
   },
 
   sourceLabel: 'Waar staat het bestand?',

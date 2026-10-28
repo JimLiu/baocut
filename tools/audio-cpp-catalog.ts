@@ -225,7 +225,7 @@ async function main(): Promise<void> {
     const request = new Map((spec.options?.request ?? []).map((o) => [o.name, o]));
     const group = groupOf(spec);
     const packages = [];
-    if (group === 'tts' || group === 'music') {
+    if (group === 'tts' || group === 'music' || group === 'sep') {
       for (const pkg of spec.packages ?? []) {
         const dl = pkg.download ?? spec.package_defaults?.download ?? {};
         if (pkg.format !== 'gguf' || dl.kind !== 'huggingface_snapshot' || !dl.repo || dl.gated) {

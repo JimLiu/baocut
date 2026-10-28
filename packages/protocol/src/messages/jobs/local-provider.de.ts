@@ -14,6 +14,8 @@ export const de: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `Die audio.cpp-Engine konnte nicht gestartet werden: ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `Die audio.cpp-Engine wurde mit ${p.code} beendet: ${p.tail}`,
   musicNoOutput: 'Die audio.cpp-Engine wurde beendet, ohne eine WAV-Datei zu schreiben',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} ist kein audio.cpp-Trennungsmodellpaket`,
+  separateNoStem: (p: { stem: string }) => `Die audio.cpp-Engine wurde beendet, ohne die Spur ${p.stem} zu schreiben`,
   audioCppNotReady: (p: { seconds: number }) => `Die audio.cpp-Engine war nach ${p.seconds} s nicht bereit`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `Die audio.cpp-Engine konnte diese Anfrage nicht ausführen (HTTP ${p.status}): ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `Die audio.cpp-Engine hat Audio zurückgegeben, das keine verwendbare WAV-Datei ist: ${p.problem}`,

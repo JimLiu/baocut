@@ -12,7 +12,7 @@ export const vi: ModelsAudioCppCatalogMessages = {
   unknownPackage: (p: { id: string }) => `Danh mục mô hình của audio.cpp không có gói ${p.id}`,
   builtinPackage: (p: { id: string }) => `${p.id} đã có sẵn; hãy cài từ danh sách mô hình`,
   idleFamily: (p: { family: string }) => `BaoCut chưa dùng được mô hình ${p.family}`,
-  noCustomFamily: (p: { family: string }) => `Không thể thêm tệp của bạn dưới dạng ${p.family}: chỉ mô hình tổng hợp giọng nói chạy từ một tệp GGUF mới được`,
+  noCustomFamily: (p: { family: string }) => `Không thể thêm tệp của bạn dưới dạng ${p.family}: chỉ mô hình tổng hợp giọng nói và tách giọng / nền chạy từ một tệp GGUF mới được`,
   notHfAddress: 'Không phải địa chỉ tệp Hugging Face: hãy dán địa chỉ web của tệp, hoặc viết owner/repo/file.gguf',
   notGguf: 'Chỉ thêm được tệp .gguf; mô hình nhiều tệp hãy thêm từ danh sách',
   notLfs: (p: { file: string }) => `${p.file} không lưu bằng Git LFS nên không đọc được mã kiểm tra; hãy tự tải về rồi thêm dưới dạng tệp trên máy này`,

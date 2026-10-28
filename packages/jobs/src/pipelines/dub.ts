@@ -23,6 +23,7 @@ import {
 import { JobsDub as J } from '@baocut/protocol/messages/jobs/dub.ts';
 import { JobsParams } from '@baocut/protocol/messages/jobs/params.ts';
 import { parseLibraryVoice } from '@baocut/runtime-storage/library';
+import type { WorkerFootprint } from '@baocut/models';
 import type { ArtifactExtension, ArtifactStore } from '../artifact-store.ts';
 import { canonicalJson, sha256Hex } from '../input-hash.ts';
 import { errorText, jobWarning, joinList, type LazyText } from '../job-text.ts';
@@ -135,6 +136,8 @@ export interface DubSeparator {
   readonly modelId: string;
   /** Model Worker 要加载的权重（字节，`ModelCatalog.workerWeightBytes`），估计它的内存需求用；不知道时 null。 */
   readonly workerWeightBytes: number | null;
+  /** 不经 Model Worker、每次分离起一个进程的（audio.cpp）：进程的峰值（`ModelCatalog.separationPeak`）；别的没有。 */
+  readonly processPeak?: WorkerFootprint | null;
   /** 把 `file` 分成人声与背景两个文件，写在 `staging` 里。 */
   separate(request: {
     file: string;
@@ -207,6 +210,8 @@ export interface FrozenDubParams {
   separatorModel?: string | null;
   /** 分离的 Model Worker 要加载的权重（字节），这一步的资源估计用；不知道时 null。 */
   separatorWeightBytes?: number | null;
+  /** 分离每次起一个进程时（audio.cpp）它的峰值，这一步的资源估计用；经 Model Worker 的与旧的冻结参数没有。 */
+  separatorPeak?: WorkerFootprint | null;
   /** 句级重配：只合成这一组里的这几句，写回这一组（见 `DubRegroup`）。 */
   regroup?: FrozenDubRegroup;
 }
@@ -602,8 +607,10 @@ export function dubPipeline(deps: DubDeps): PipelineDefinition<FrozenDubParams, 
         name: 'separate',
         label: () => J.stepSeparate(),
         when: (params) => params.separatorId !== null,
-        // 本机分离：Worker 进程按模型包估计（同一个模型包的任务共用），这一步自己的是解出的音频与两路输出。
-        resources: (params) => localSeparateResources(params.separatorModel ?? null, params.separatorWeightBytes ?? null),
+        // 本机分离：Worker 进程按模型包估计（同一个模型包的任务共用），这一步自己的是解出的音频与两路输出；audio.cpp 的引擎
+        // 进程只在这一步里活着，峰值计入这一步。
+        resources: (params) =>
+          localSeparateResources(params.separatorModel ?? null, params.separatorWeightBytes ?? null, params.separatorPeak ?? null),
         run: (context) => separate(deps, context),
         reusable: async (output, { params, artifacts }) => {
           const o = output as SeparateOutput;
@@ -796,6 +803,7 @@ async function freeze(
     separatorId: separator?.providerId ?? null,
     separatorModel: separator?.modelId ?? null,
     separatorWeightBytes: separator?.workerWeightBytes ?? null,
+    ...(separator?.processPeak ? { separatorPeak: separator.processPeak } : {}),
   };
   return { frozen, library };
 }

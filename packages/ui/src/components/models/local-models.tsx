@@ -94,7 +94,7 @@ import { useModels } from '../../state/models-store.ts';
 import { useMusicQuick } from '../../state/music-quick-store.ts';
 import { useTtsQuick } from '../../state/tts-quick-store.ts';
 import { useVoiceHandoff } from '../../state/voice-handoff-store.ts';
-import { addedChips, addedSource, inPlaceFile, moreCount, removeFlow } from '../../model/models-added.ts';
+import { addedChips, addedSource, inPlaceFile, moreCount, removeFlow, type AddableGroup } from '../../model/models-added.ts';
 import { M as ADDED } from '../../model/models-added-copy.ts';
 import { AddModelDialog, useAddable } from './add-model-dialog.tsx';
 import { ImageTryDialog } from './image-try-dialog.tsx';
@@ -200,8 +200,9 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
   const [busy, setBusy] = useState<string | null>(null);
   const [install, setInstall] = useState<Install | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-  // 添加 audio.cpp 模型（设计稿 settings-add-model.jsx）：语音合成与音乐生成的页上有入口；浏览器里管不了安装，不读目录。
-  const canAdd = kind === 'synthesize' || kind === 'music';
+  // 添加 audio.cpp 模型（设计稿 settings-add-model.jsx）：语音合成、音乐生成与人声分离的页上有入口；浏览器里管不了安装，不读目录。
+  const addGroup: AddableGroup | null = kind === 'synthesize' ? 'tts' : kind === 'music' ? 'music' : kind === 'separate' ? 'sep' : null;
+  const canAdd = addGroup !== null;
   const [adding, setAdding] = useState(false);
   const addable = useAddable(canAdd && !web && connected);
   // 公共组件区：没动过时有待补全的就展开（设计稿 settings-local.jsx `sharedExpanded`）。
@@ -403,11 +404,11 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
         )}
       </section>
 
-      {canAdd ? (
+      {addGroup ? (
         <Card label={ADDED.entryLabel}>
           <SettingRow
             label={ADDED.entryLabel}
-            desc={addable.data ? ADDED.entryDesc(moreCount(addable.data.families, kind === 'music' ? 'music' : 'tts'), kind === 'music') : undefined}>
+            desc={addable.data ? ADDED.entryDesc(moreCount(addable.data.families, addGroup), addGroup) : undefined}>
             <Button
               variant="secondary"
               size="S"
@@ -423,9 +424,9 @@ function LocalPage({ category, kind }: { category: ModelCategory; kind: LocalDef
         </Card>
       ) : null}
 
-      {adding ? (
+      {adding && addGroup ? (
         <AddModelDialog
-          group={kind === 'music' ? 'music' : 'tts'}
+          group={addGroup}
           addable={addable.data}
           loadError={addable.error}
           onClose={() => setAdding(false)}

@@ -19,10 +19,23 @@ const families = addableFamilies(new Set());
 const addable = families.flatMap((f) => f.packages.filter((p) => p.state === null).map((p) => ({ family: f, pkg: p })));
 
 describe('audio.cpp 模型目录', () => {
-  it('分组：合成与 YuE2 能加，别的音乐模型、识别、分离与其余任务暂时用不上，各有原因', () => {
+  it('分组：合成、YuE2 与两种人声 / 背景分离能加，别的音乐模型、识别、分离与其余任务暂时用不上，各有原因', () => {
     expect(families.filter((f) => f.group === 'music').map((f) => f.family)).toEqual(['yue2']);
+    expect(families.filter((f) => f.group === 'sep').map((f) => f.family).sort()).toEqual(['htdemucs', 'mel_band_roformer']);
     const reasons = new Set(families.filter((f) => f.group === 'idle').map((f) => f.idle));
-    expect([...reasons].sort()).toEqual(['engine-route', 'music-request', 'other', 'recognize', 'separate']);
+    expect([...reasons].sort()).toEqual([
+      'engine-route',
+      'music-request',
+      'other',
+      'recognize',
+      'separate-slow',
+      'separate-speakers',
+      'separate-stems',
+    ]);
+    expect(idleReason(catalogFamily('bs_roformer')!)).toBe('separate-slow');
+    expect(idleReason(catalogFamily('htdemucs_6stems')!)).toBe('separate-stems');
+    expect(idleReason(catalogFamily('mossformer2')!)).toBe('separate-speakers');
+    expect(idleReason(catalogFamily('tf_gridnet')!)).toBe('separate-speakers');
     expect(idleReason(catalogFamily('moss_voicegen')!)).toBe('engine-route');
     expect(families.filter((f) => f.group === 'idle').every((f) => f.packages.length === 0)).toBe(true);
     expect(families.filter((f) => f.group === 'tts').length).toBeGreaterThan(40);
@@ -64,8 +77,24 @@ describe('audio.cpp 模型目录', () => {
     expect(bundle.manifest!.files.map((f) => f.path)).toContain(bundle.definition.music!.files.vae);
   });
 
+  it('分离的包：交给引擎那个 GGUF，人声与背景按族对上引擎写出的各轨，不经 Model Worker', () => {
+    const sep = addable.filter(({ family }) => family.group === 'sep');
+    expect(sep.length).toBeGreaterThanOrEqual(2);
+    for (const { family, pkg } of sep) {
+      const { definition, manifest } = catalogBundle(pkg.id)!;
+      expect(definition).toMatchObject({ capability: 'separate', backend: 'audio-cpp' });
+      expect(Object.keys(definition.components)).toEqual(['separator']);
+      expect(manifest!.files.map((f) => f.path)).toContain(definition.separation!.file);
+      expect(definition.separation!.file).toMatch(/\.gguf$/);
+      expect(definition.separation!.family).toBe(family.family);
+      expect(definition.separation!.vocals).toEqual(['vocals']);
+      expect(definition.separation!.background).toEqual(family.family === 'htdemucs' ? ['drums', 'bass', 'other'] : ['instrumental']);
+      expect(definition.separation!.peakBytes).toBeGreaterThan(0);
+    }
+  });
+
   it('一个文件的包交给引擎那个文件，多个文件的交给包的根目录', () => {
-    const one = addable.find(({ pkg }) => catalogBundle(pkg.id)!.manifest!.files.length === 1)!;
+    const one = addable.find(({ family, pkg }) => family.group === 'tts' && catalogBundle(pkg.id)!.manifest!.files.length === 1)!;
     const single = catalogBundle(one.pkg.id)!;
     expect(single.definition.speech!.engine.file).toBe(single.manifest!.files[0]!.path);
     const multi = catalogBundle('pocket_tts_german_q8_0') ?? null;
@@ -92,8 +121,13 @@ describe('audio.cpp 模型目录', () => {
     }
   });
 
-  it('自己指定的文件只能按能加的合成模型族加，许可待核实', () => {
-    expect(customFamilies().every((f) => f.group === 'tts' && idleReason(f) === null)).toBe(true);
+  it('自己指定的文件只能按能加的合成与分离模型族加，许可待核实', () => {
+    expect(customFamilies().every((f) => (f.group === 'tts' || f.group === 'sep') && idleReason(f) === null)).toBe(true);
+    expect(customFamilies().filter((f) => f.group === 'sep').map((f) => f.family).sort()).toEqual(['htdemucs', 'mel_band_roformer']);
+    const sep = localFileBundle({ family: 'mel_band_roformer', path: '/a/b/m.gguf', size: 9, label: 'm' }, 'custom-4@audio-cpp')!;
+    expect(sep.definition).toMatchObject({ capability: 'separate', separation: { family: 'mel_band_roformer', file: 'm.gguf', background: ['instrumental'] } });
+    expect(sep.definition.components.separator).toMatchObject({ revision: 'local', local: { path: '/a/b/m.gguf', size: 9 } });
+    expect(localFileBundle({ family: 'bs_roformer', path: '/a.gguf', size: 1, label: 'a' }, 'custom-5@audio-cpp')).toBeNull();
     const repo = repoFileBundle({ family: 'qwen3_tts', repo: 'me/voice', revision: 'a'.repeat(40), path: 'v.gguf', size: 9, sha256: 'b'.repeat(64), label: 'v' }, 'custom-1@audio-cpp')!;
     expect(repo.definition.license!.commercialUse).toBeNull();
     expect(repo.manifest).toMatchObject({ sourceRepo: 'me/voice', files: [{ path: 'v.gguf', size: 9 }] });

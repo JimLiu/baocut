@@ -5,6 +5,7 @@ import { TopicLog, type Logger } from '@baocut/harness';
 import { findBundledTool } from '@baocut/process-host';
 import {
   JobManager,
+  LocalAudioCppSeparator,
   LocalEmbeddingProvider,
   LocalMusicProvider,
   LocalSpeechProvider,
@@ -17,6 +18,7 @@ import {
   editImagePipeline,
   speakersPipeline,
   localDubSeparator,
+  routeLocalSeparation,
   resolveSpeechWorkerCommand,
   ffprobeMediaProbe,
   transcodePipeline,
@@ -290,6 +292,18 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     backend: process.env[AUDIO_CPP_BACKEND_ENV] || null,
     log,
   });
+  // 本机分离（§6.1）：添加的 audio.cpp 分离模型包每次分离起一个引擎进程（与音乐相同），别的经 Model Worker；按模型包分派。
+  const separator = routeLocalSeparation(
+    provider,
+    new LocalAudioCppSeparator({
+      catalog,
+      engine: audioCppEngine,
+      env: options.env,
+      ffmpeg: options.ffmpeg,
+      backend: process.env[AUDIO_CPP_BACKEND_ENV] || null,
+      log,
+    }),
+  );
   // 本地语音合成（§6.1）：audio.cpp 引擎的常驻服务，每个用到的模型包一个，与 Model Worker 共用模型包在调度里的 holder。
   const speech = new LocalSpeechProvider({
     catalog,
@@ -451,7 +465,15 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
               if (choice.providerId !== 'local') return null;
               const bundleId = choice.modelId;
               const workerWeightBytes = await catalog.workerWeightBytes(bundleId);
-              return localDubSeparator({ provider, bundleId, workerWeightBytes, ffmpeg: options.ffmpeg, ffprobe: options.ffprobe });
+              const processPeak = catalog.separationPeak(bundleId);
+              return localDubSeparator({
+                provider: separator,
+                bundleId,
+                workerWeightBytes,
+                processPeak,
+                ffmpeg: options.ffmpeg,
+                ffprobe: options.ffprobe,
+              });
             },
             ffmpeg: options.ffmpeg,
             ffprobe: options.ffprobe,
@@ -548,6 +570,7 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     provider,
     speech,
     music,
+    separator,
     jobs,
     log,
     settings: options.installSettings ?? (() => ({ downloadEndpoint: null, offlineStrict: false })),

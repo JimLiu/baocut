@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { ProviderFailure, sha256File } from '@baocut/models';
+import { ProviderFailure, sha256File, type WorkerFootprint } from '@baocut/models';
 import { JobsDubSeparator as J } from '@baocut/protocol/messages/jobs/dub-separator.ts';
 import type { LocalSeparateOutcome, LocalSeparateRun } from '../local-provider.ts';
 import type { DubSeparator } from './dub.ts';
@@ -19,13 +19,16 @@ export interface LocalDubSeparatorOptions {
   bundleId: string;
   /** 它的 Model Worker 要加载的权重（字节）；不知道时 null。 */
   workerWeightBytes?: number | null;
+  /** audio.cpp 的分离模型包（每次分离起一个引擎进程）：进程的峰值；经 Model Worker 的没有。 */
+  processPeak?: WorkerFootprint | null;
   ffmpeg: MediaToolResolver;
   ffprobe: MediaToolResolver;
 }
 
 /**
  * 翻译配音的人声与背景分离（架构设计 §6.1 `separateAudio`、§7.9）由本机的分离模型包执行：素材的第一条音轨整段交给
- * Model Worker（`job.run` 的 `separate`），输出的采样率取输入音轨的。Worker 按音轨的长度写输出，容器时长（ffprobe 的
+ * Model Worker（`job.run` 的 `separate`），添加的 audio.cpp 分离模型包交给内置引擎（`LocalAudioCppSeparator`），输出的采样率
+ * 取输入音轨的。Worker 按音轨的长度写输出，容器时长（ffprobe 的
  * `format.duration`，`stemProblems` 拿它比）与音轨差出容差时，两路输出都用 ffmpeg 补静音或截到容器时长。
  */
 export function localDubSeparator(options: LocalDubSeparatorOptions): DubSeparator {
@@ -34,6 +37,7 @@ export function localDubSeparator(options: LocalDubSeparatorOptions): DubSeparat
     providerId: 'local',
     modelId: bundleId,
     workerWeightBytes: options.workerWeightBytes ?? null,
+    ...(options.processPeak ? { processPeak: options.processPeak } : {}),
     async separate({ file, staging, jobId, signal }) {
       const input = await probeMedia(ffprobe, file, signal);
       if (!input.audio) throw new PipelineStepError('INPUT_UNREADABLE', J.noAudio(), { file });

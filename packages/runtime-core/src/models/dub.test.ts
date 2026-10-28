@@ -4,7 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BaoCutClient, applyJobsEvent } from '@baocut/client';
-import { DUB_EXTENSION, DUBBING_PLAN_SCHEMA, FAKE_MODEL_WORKER, fakeSpeechAnswer, resolveSpeechWorkerCommand } from '@baocut/jobs';
+import {
+  DUB_EXTENSION,
+  DUBBING_PLAN_SCHEMA,
+  FAKE_MODEL_WORKER,
+  fakeSpeechAnswer,
+  resolveSpeechWorkerCommand,
+  writeFakeAudioCpp,
+  type FakeAudioCpp,
+} from '@baocut/jobs';
 import { BUNDLES, MODELS_ENDPOINT_ENV } from '@baocut/models';
 import { serveRepo, startFakeModelSource, syntheticBytes, syntheticManifest, type FakeModelSource } from '@baocut/models/testing';
 import {
@@ -178,6 +186,7 @@ interface Side {
   runtime: RunningRuntime;
   client: BaoCutClient;
   received: unknown[];
+  audioCpp: FakeAudioCpp;
   jobs(): JobsSnapshot | null;
 }
 
@@ -203,6 +212,8 @@ describe.skipIf(!engine || !speechWorker || !ffmpeg)('翻译配音（真实引�
     // 假 Model Worker 只做人声分离；分离模型包只在要它的测试里从假模型来源装（装进临时 Home 的模型目录）。
     const control = path.join(dir, 'fake-worker-control.json');
     await fs.writeFile(control, JSON.stringify({ capabilities: ['separate'] }));
+    // 假的 audio.cpp 命令行引擎：添加的 audio.cpp 分离模型包经它分离。
+    const audioCpp = await writeFakeAudioCpp(path.join(dir, 'audiocpp'));
     const runtime = await startRuntime({
       home,
       drivers: () => [],
@@ -210,6 +221,7 @@ describe.skipIf(!engine || !speechWorker || !ffmpeg)('翻译配音（真实引�
       engineHost: engine,
       videoGraceMs: 100,
       modelWorker: { command: process.execPath, args: [FAKE_MODEL_WORKER, '--control', control] },
+      externalTools: { env: async () => process.env, overrides: { BAOCUT_AUDIOCPP_CLI: audioCpp.cli } },
       jobIdleMs: 60_000,
       modelInstall: {
         env: { [MODELS_ENDPOINT_ENV]: models.endpoint },
@@ -237,7 +249,7 @@ describe.skipIf(!engine || !speechWorker || !ffmpeg)('翻译配音（真实引�
       },
     });
     await until(() => jobs);
-    side = { dir, home, runtime, client, received, jobs: () => jobs };
+    side = { dir, home, runtime, client, received, audioCpp, jobs: () => jobs };
     await client.request('models.configure', { providerId: 'openai', enabled: true, credential: OPENAI_KEY });
     await client.request('models.setDefault', { capability: 'generateText', providerId: 'openai' });
     await client.request('models.configure', { providerId: 'elevenlabs', enabled: true, credential: ELEVENLABS_KEY });
@@ -998,6 +1010,33 @@ describe.skipIf(!engine || !speechWorker || !ffmpeg)('翻译配音（真实引�
       expect(undone.tracks.map((t) => t.name)).toEqual(before.tracks.map((t) => t.name));
       expect(undone.items).toEqual(before.items);
       expect(undone.ducking ?? []).toEqual([]);
+    },
+  );
+
+  it.skipIf(process.platform === 'win32')(
+    '添加的 audio.cpp 分离模型（本机的 Mel-Band RoFormer GGUF）设为默认：配音的分离经内置引擎，背景是伴奏一轨',
+    async () => {
+      const { videoId, sequenceId, projectId, relPath } = await videoWithSpeech();
+      const gguf = path.join(side.dir, 'outside', 'mel.gguf');
+      await fs.mkdir(path.dirname(gguf), { recursive: true });
+      await fs.writeFile(gguf, Buffer.concat([Buffer.from('GGUF'), Buffer.alloc(100)]));
+      const { bundleId, bundle } = await side.client.request('models.add', { source: 'local-file', family: 'mel_band_roformer', path: gguf, label: 'Mel' });
+      expect(bundle).toMatchObject({ capability: 'separate', state: 'installed' });
+      await side.client.request('models.setDefault', { capability: 'separateAudio', providerId: 'local', modelId: bundleId });
+      const capability = (await side.client.request('models.capabilities', {})).capabilities.separateAudio;
+      expect(capability.effective).toMatchObject({ providerId: 'local', modelId: bundleId });
+      await grantTranscript();
+      const { jobId } = await side.client.request('pipelines.start', {
+        pipeline: 'dub',
+        params: { videoId, targetLanguage: 'en', voice: VOICE, originalAudio: 'mute', separateBackground: true },
+      });
+      const job = await settled(jobId);
+      expect(job.state, JSON.stringify(job.error)).toBe('completed');
+      expect((job.pipeline!.summary as unknown as DubSummary).separation).toBe('completed');
+      const [run] = await side.audioCpp.recorded('sep');
+      expect(run!.args).toEqual(expect.arrayContaining(['--task', 'sep', '--family', 'mel_band_roformer', '--model', gguf]));
+      const sequence = (await read(projectId, relPath)).sequences[sequenceId]!;
+      expect(sequence.tracks.map((t) => t.name)).toEqual(expect.arrayContaining(['配音（en）', '背景声（en）']));
     },
   );
 

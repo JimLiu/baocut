@@ -13,6 +13,8 @@ export const ru: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `Не удалось запустить движок audio.cpp: ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `Движок audio.cpp завершился с ${p.code}: ${p.tail}`,
   musicNoOutput: 'Движок audio.cpp завершился, не записав WAV-файл',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} — не пакет модели разделения audio.cpp`,
+  separateNoStem: (p: { stem: string }) => `Движок audio.cpp завершился, не записав дорожку ${p.stem}`,
   audioCppNotReady: (p: { seconds: number }) => `Движок audio.cpp не был готов в течение ${p.seconds} с`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `Движок audio.cpp не смог выполнить этот запрос (HTTP ${p.status}): ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `Движок audio.cpp вернул аудио, которое не является пригодным WAV: ${p.problem}`,

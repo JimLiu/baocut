@@ -39,6 +39,7 @@ import {
   tasksLine,
   traitsLine,
   type AddGroup,
+  type AddableGroup,
   type AddTab,
   type CustomForm,
   type CustomProblem,
@@ -80,8 +81,8 @@ const full = style({ width: 'full' });
 const fileRow = style({ display: 'flex', alignItems: 'end', gap: 8 });
 const fileField = style({ flexGrow: 1 });
 
-/** 自己指定文件时先选好的族（设计稿 `CUSTOM_FAM`）；目录里没有时不预选。 */
-const DEFAULT_CUSTOM_FAMILY = 'qwen3_tts';
+/** 自己指定文件时先选好的族，跟着打开它的能力页（设计稿 `CUSTOM_FAM`）；目录里没有时不预选。 */
+const DEFAULT_CUSTOM_FAMILY: Record<AddableGroup, string> = { tts: 'qwen3_tts', music: 'yue2', sep: 'htdemucs' };
 
 /** 读 `models.addable`：打开对话框与能力页的入口一行都用；`enabled` 为 false（浏览器）时不读。 */
 export function useAddable(enabled: boolean): { data: Addable | null; error: string | null; reload: () => void } {
@@ -112,7 +113,7 @@ export function useAddable(enabled: boolean): { data: Addable | null; error: str
 /**
  * 添加 audio.cpp 模型（设计稿 settings-add-model.jsx；架构设计 §6.3）。按组、可搜索的目录：每一族一行，选精度后「添加」；
  * 「暂时用不上」的写原因、不给按钮；「自己指定文件」加 Hugging Face 上或这台电脑上的一个 .gguf（本机文件原地引用、不复制）。
- * `group`：打开它的能力页（语音合成 / 音乐生成），决定先看哪一组。加好后 `onAdded` 交回新的模型包，由页面关掉对话框、接着下载。
+ * `group`：打开它的能力页（语音合成 / 音乐生成 / 人声分离），决定先看哪一组与自己指定文件时先选哪一族。加好后 `onAdded` 交回新的模型包，由页面关掉对话框、接着下载。
  */
 export function AddModelDialog({
   group: initial,
@@ -121,7 +122,7 @@ export function AddModelDialog({
   onClose,
   onAdded,
 }: {
-  group: AddGroup;
+  group: AddableGroup;
   addable: Addable | null;
   loadError: string | null;
   onClose: () => void;
@@ -141,7 +142,8 @@ export function AddModelDialog({
   }, [addable, families]);
   const [form, setForm] = useState<CustomForm>({ source: 'repo-file', address: '', path: '', family: null, label: '' });
   const [tried, setTried] = useState(false);
-  const family = form.family ?? (customFamilies.some((f) => f.family === DEFAULT_CUSTOM_FAMILY) ? DEFAULT_CUSTOM_FAMILY : null);
+  const preset = DEFAULT_CUSTOM_FAMILY[initial];
+  const family = form.family ?? (customFamilies.some((f) => f.family === preset) ? preset : null);
   const filled = { ...form, family };
   const problems: CustomProblem[] = tried ? (customParams(filled).ok ? [] : (customParams(filled) as { problems: CustomProblem[] }).problems) : [];
 
@@ -183,7 +185,7 @@ export function AddModelDialog({
             <Content>
               <p className={lede}>{M.lede(addable?.engine ?? 'audio.cpp')}</p>
               <SegmentedControl aria-label={M.groupsLabel} selectedKey={tab} onSelectionChange={(key) => setTab(key as AddTab)}>
-                {(['tts', 'music', 'idle'] as const).map((g) => (
+                {(['tts', 'music', 'sep', 'idle'] as const).map((g) => (
                   <SegmentedControlItem key={g} id={g}>
                     {addable ? `${M.groups[g]} ${groupCount(families, g)}` : M.groups[g]}
                   </SegmentedControlItem>
@@ -242,7 +244,7 @@ export function AddModelDialog({
                     label={M.familyLabel}
                     selectedKey={family}
                     onSelectionChange={(key) => setForm((f) => ({ ...f, family: key === null ? null : String(key) }))}
-                    description={chosen ? M.familyHelp([tasksLine(['tts']), traitsLine(chosen) || chosen.name].join(' · ')) : M.familyHelpNone}
+                    description={chosen ? M.familyHelp([chosen.group === 'idle' ? tasksLine(chosen.tasks) : M.groups[chosen.group], traitsLine(chosen) || chosen.name].join(' · ')) : M.familyHelpNone}
                     isInvalid={problems.includes('family')}
                     errorMessage={M.familyRequired}
                     styles={full}>

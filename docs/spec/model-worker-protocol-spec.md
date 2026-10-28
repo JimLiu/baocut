@@ -427,9 +427,9 @@ interface ModelFiles {
 
 通过时记下时长、采样率与人声比背景高多少 dB，人声 WAV 作为产物留存；不通过记下原因（`MODEL_OUTPUT_WRONG`）。
 
-### 4.4 audio.cpp 引擎：音乐生成与语音合成
+### 4.4 audio.cpp 引擎：音乐生成、人声分离与语音合成
 
-`audio-cpp` backend 的模型包**不交给 Model Worker**，由随应用内置的 audio.cpp 引擎（上游 [0xShug0/audio.cpp](https://github.com/0xShug0/audio.cpp)）执行：音乐生成（`generateMusic`，架构设计 §6.1）每个任务起一个命令行进程 `audiocpp_cli`，语音合成（`synthesizeSpeech`）每个用到的模型包一个常驻服务进程 `audiocpp_server`。两者是同一份构建，直接读模型包目录里的 GGUF，没有 `model.load` 与 `job.cancel`。模型包只有权重：安装、清单与校验照 §4.1–4.2（`.bcut-manifest.json`、只下载清单列出的文件）。
+`audio-cpp` backend 的模型包**不交给 Model Worker**，由随应用内置的 audio.cpp 引擎（上游 [0xShug0/audio.cpp](https://github.com/0xShug0/audio.cpp)）执行：音乐生成（`generateMusic`，架构设计 §6.1）与添加的人声分离模型包（`separateAudio`）每次起一个命令行进程 `audiocpp_cli`，语音合成（`synthesizeSpeech`）每个用到的模型包一个常驻服务进程 `audiocpp_server`。两者是同一份构建，直接读模型包目录里的 GGUF，没有 `model.load` 与 `job.cancel`。模型包只有权重：安装、清单与校验照 §4.1–4.2（`.bcut-manifest.json`、只下载清单列出的文件）。
 
 **引擎**。随应用分发，不另外下载，也不是受管外部工具：上游预编译包的版本、各平台的文件名、大小与 sha256 登记在 `@baocut/models` 的 `audio-cpp-engine.ts`（目前 0.9.2-drama3-base-small），打包时取目标平台的包、核对后原样放进 `<resources>/bin/audiocpp/`（`audiocpp_cli`、`audiocpp_server`、上游 `LICENSE`，Windows 另有 MSVC 运行库 DLL）。各平台：macOS arm64 / x64 是 Metal 版（静态链接，只依赖系统框架）；Windows x64 与 Linux x64 是 Vulkan portable 版，Windows 的 `cpu` 安装包与 Linux 的 CPU 构建用 CPU portable 版。Vulkan 版启动时要系统里有 Vulkan 加载器（显卡驱动带的 `vulkan-1.dll` / `libvulkan.so.1`），没有时进程起不来。Linux arm64 与 Windows arm64 上游没有发布。开发时引擎在 cargo 产物目录的 `audiocpp/`，由 `npm run build:audiocpp` 按同一份登记下载、核对、解开（`npm run setup` 包含它）。
 
@@ -466,6 +466,27 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
 **结果**。退出码 0 且 staging 里有 `music.wav` 才算成功（引擎按自己的规则改了名时取 staging 里第一个 `.wav` 并改名为 `music.wav`）。找不到引擎（见上）或进程起不来是 `unavailable`（任务错误 `MODEL_LOAD_FAILED`），非零退出是 `crashed`（`MODEL_WORKER_CRASHED`，附 stderr 尾巴），退出了却没有 WAV 是 `protocol`（`MODEL_OUTPUT_INVALID`）；命令与协议规范 §11.3。输出合同是 `baocut.music-wav/v1`（§5.1）；WAV 的时长达到 `maxDurationSec` 的 98% 时视为撞上限，任务带 `output-truncated` 警告，照样完成。`workerVersion` 记为 `audiocpp_cli@<可执行文件名>`。
 
 **资源**。没有常驻进程与 holder：每个任务按模型包登记的估计峰值（YuE2 Q8 加 F16 VAE 约 10 GiB，`peakEstimated`，上游在一块 32 GB 的 NVIDIA 卡上实测约 8.9 GB 后留的余量）直接计入任务，Apple Silicon 计 GPU 内存、别的平台计内存，另加 256 MiB 的 staging（五分钟 44.1 kHz 立体声 WAV 约 50 MiB 加日志）；架构设计 §7.7。
+
+#### 人声与背景分离
+
+用户添加的 audio.cpp 分离模型包（架构设计 §6.3「添加 audio.cpp 模型」：HTDemucs、Mel-Band RoFormer 两族，目录里的包或自己指定的一个 GGUF）是 `separate` 能力、`backend: 'audio-cpp'`，只有一个 `separator` 组件，定义带 `separation`（引擎的模型族、GGUF 相对组件目录的路径、哪几轨相加成人声与背景、估计峰值）。它与内置的 MLX 分离模型包交出同一个结果（§2.5.4 的 `separate`：staging 里的 16 位 PCM 立体声 `vocals.wav` 与 `background.wav`，结果的形状相同），翻译配音的分离一步与模型检查（§4.3）按模型包分派，不分来源。每次分离：
+
+1. ffmpeg 把输入的第 `track` 条音轨解成 44.1 kHz 立体声 32 位浮点 WAV（引擎不重采样，别的采样率直接报错；单声道复制成两路，多声道混成两路），放在 staging 的 `audio-cpp/` 里；
+2. 起一个 `audiocpp_cli`，`cwd` 是 `audio-cpp/`，取消与失败的报法同音乐生成：
+
+   ```text
+   audiocpp_cli --task sep --family <htdemucs | mel_band_roformer> --model <组件目录>/<GGUF>
+     --threads <n> --audio <解出的 WAV> --out-dir <audio-cpp/stems>
+     --out-format float32 --metrics
+     [--backend <metal | cuda | vulkan | cpu>]
+   ```
+
+   引擎把每一轨写成 `<轨名>.wav`（32 位浮点、44.1 kHz、与输入等长）：HTDemucs 是 `vocals`、`drums`、`bass`、`other`，Mel-Band RoFormer 是 `vocals`、`instrumental`；
+3. ffmpeg 把登记的几轨相加（`amix`，不归一化）：人声是 `vocals`，背景是 HTDemucs 的鼓、贝斯、其他之和或 Mel-Band RoFormer 的 `instrumental`；换算到请求的 `sampleRate`（null 时 44.1 kHz），写成 staging 的 `vocals.wav` 与 `background.wav`（换成 16 位时裁到 [−1, 1]），然后删掉 `audio-cpp/`。
+
+**结果**。读不了输入是 `input-unreadable`，找不到引擎或进程起不来是 `unavailable`，非零退出是 `crashed`，退出码 0 却缺登记的某一轨是 `protocol`；合成两路失败是 `output-unwritable`。结果的 `audio` 取人声 WAV 的头，`stats` 是解码、分离与合成两路各自的毫秒数；`workerVersion` 记为 `audiocpp_cli@<可执行文件名>`。引擎不报告进度。
+
+**资源**。没有常驻进程与 holder：引擎进程只在分离这一步里活着，按模型包登记的估计峰值（两族都是 3 GiB）计入这一步（Apple Silicon 计 GPU 内存，别的平台计内存），另加这一步自己的内存与 staging；架构设计 §7.7。引擎整段读入、各轨整段写出，峰值随素材时长增长：同一台 M4 Metal 上 640 秒输入实测 HTDemucs 2.7 GB、Mel-Band RoFormer 2.4 GB，10 秒输入约 0.46 GB；更长的素材会超过估计。
 
 #### 语音合成
 

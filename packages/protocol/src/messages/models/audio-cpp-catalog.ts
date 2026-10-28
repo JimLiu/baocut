@@ -27,7 +27,7 @@ const en = {
   unknownPackage: (p: { id: string }) => `audio.cpp's model catalog has no package ${p.id}`,
   builtinPackage: (p: { id: string }) => `${p.id} is already built in; install it from the model list`,
   idleFamily: (p: { family: string }) => `BaoCut can't use ${p.family} models yet`,
-  noCustomFamily: (p: { family: string }) => `A file of your own can't be added as ${p.family}: only speech models that run from a single GGUF file can`,
+  noCustomFamily: (p: { family: string }) => `A file of your own can't be added as ${p.family}: only speech synthesis and vocal / background separation models that run from a single GGUF file can`,
   notHfAddress: 'Not a Hugging Face file address: paste the web address of the file, or write owner/repo/file.gguf',
   notGguf: 'Only .gguf files can be added; add multi-file models from the list',
   notLfs: (p: { file: string }) => `${p.file} isn't stored with Git LFS, so its checksum can't be read; download it yourself and add it as a file on this computer`,

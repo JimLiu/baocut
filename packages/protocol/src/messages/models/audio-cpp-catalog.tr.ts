@@ -12,7 +12,7 @@ export const tr: ModelsAudioCppCatalogMessages = {
   unknownPackage: (p: { id: string }) => `audio.cpp model kataloğunda ${p.id} paketi yok`,
   builtinPackage: (p: { id: string }) => `${p.id} zaten yerleşik; model listesinden yükleyin`,
   idleFamily: (p: { family: string }) => `BaoCut henüz ${p.family} modellerini kullanamıyor`,
-  noCustomFamily: (p: { family: string }) => `Kendi dosyanız ${p.family} olarak eklenemez: yalnızca tek bir GGUF dosyasıyla çalışan konuşma modelleri eklenebilir`,
+  noCustomFamily: (p: { family: string }) => `Kendi dosyanız ${p.family} olarak eklenemez: yalnızca tek bir GGUF dosyasıyla çalışan konuşma sentezi ve ses / arka plan ayırma modelleri eklenebilir`,
   notHfAddress: 'Bu bir Hugging Face dosya adresi değil: dosyanın web adresini yapıştırın ya da owner/repo/file.gguf yazın',
   notGguf: 'Yalnızca .gguf dosyaları eklenebilir; çok dosyalı modelleri listeden ekleyin',
   notLfs: (p: { file: string }) => `${p.file} Git LFS ile saklanmıyor, sağlama toplamı okunamıyor; kendiniz indirip bu bilgisayardaki dosya olarak ekleyin`,

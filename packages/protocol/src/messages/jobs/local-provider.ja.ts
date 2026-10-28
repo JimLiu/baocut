@@ -13,6 +13,8 @@ export const ja: JobsLocalProviderMessages = {
   audioCppSpawnFailed: (p: { reason: string }) => `audio.cpp エンジンを起動できません: ${p.reason}`,
   audioCppExited: (p: { code: string; tail: string }) => `audio.cpp エンジンが ${p.code} で終了しました: ${p.tail}`,
   musicNoOutput: 'audio.cpp エンジンは終了しましたが WAV ファイルを書き出しませんでした',
+  separateNotAudioCpp: (p: { bundleId: string }) => `${p.bundleId} は audio.cpp の分離モデルパッケージではありません`,
+  separateNoStem: (p: { stem: string }) => `audio.cpp エンジンは終了しましたが ${p.stem} トラックを書き出しませんでした`,
   audioCppNotReady: (p: { seconds: number }) => `audio.cpp エンジンが ${p.seconds} 秒以内に準備できませんでした`,
   audioCppRequestFailed: (p: { status: number; message: string }) => `audio.cpp エンジンがこのリクエストを実行できませんでした（HTTP ${p.status}）: ${p.message}`,
   audioCppBadOutput: (p: { problem: string }) => `audio.cpp エンジンが返した音声は使える WAV ではありません: ${p.problem}`,

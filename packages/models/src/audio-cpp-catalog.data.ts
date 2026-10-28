@@ -947,7 +947,24 @@ export const AUDIO_CPP_CATALOG_DATA: AudioCppCatalogData = {
    "request": {
     "options": []
    },
-   "packages": []
+   "packages": [
+    {
+     "id": "bs_roformer_q8_0",
+     "name": "BS-RoFormer ep368 Q8_0 GGUF",
+     "precision": "q8_0",
+     "default": true,
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "BS-RoFormer-ep368-GGUF",
+     "files": [
+      {
+       "path": "BS-RoFormer-ep368-GGUF/bs-roformer-ep368-q8_0.gguf",
+       "size": 172533760,
+       "sha256": "c3d3fc0ebf20a21f6dec38df66f919c892efed680dd006de367ec462611200bc"
+      }
+     ]
+    }
+   ]
   },
   {
    "family": "builtin_audio_utils",
@@ -3121,7 +3138,39 @@ export const AUDIO_CPP_CATALOG_DATA: AudioCppCatalogData = {
    "request": {
     "options": []
    },
-   "packages": []
+   "packages": [
+    {
+     "id": "htdemucs_6stems_q8_0",
+     "name": "HTDemucs 6-stem Q8_0 GGUF",
+     "precision": "q8_0",
+     "default": true,
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "HTDemucs-6stems-GGUF",
+     "files": [
+      {
+       "path": "HTDemucs-6stems-GGUF/htdemucs-6stems-q8_0.gguf",
+       "size": 42477600,
+       "sha256": "71f3d65681a25c28fbf6278fee579f810312eae47d3b26eb04bcd77c77934c0d"
+      }
+     ]
+    },
+    {
+     "id": "htdemucs_6stems_f16",
+     "name": "HTDemucs 6-stem F16 GGUF",
+     "precision": "f16",
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "HTDemucs-6stems-GGUF",
+     "files": [
+      {
+       "path": "HTDemucs-6stems-GGUF/htdemucs-6stems-f16.gguf",
+       "size": 54919200,
+       "sha256": "1db9bd58af6995d8caab209c99f5a284212e5bd0654fbfd7e50ce1d5ac140ba9"
+      }
+     ]
+    }
+   ]
   },
   {
    "family": "htdemucs",
@@ -3152,7 +3201,39 @@ export const AUDIO_CPP_CATALOG_DATA: AudioCppCatalogData = {
    "request": {
     "options": []
    },
-   "packages": []
+   "packages": [
+    {
+     "id": "htdemucs_q8_0",
+     "name": "HTDemucs Q8_0 GGUF",
+     "precision": "q8_0",
+     "default": true,
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "HTDemucs-GGUF",
+     "files": [
+      {
+       "path": "HTDemucs-GGUF/htdemucs-q8_0.gguf",
+       "size": 61940768,
+       "sha256": "b0f532ac6e5f373aeb11fa0df73253251e133832d9c8b9942dc58f50bc5b4388"
+      }
+     ]
+    },
+    {
+     "id": "htdemucs_f16",
+     "name": "HTDemucs F16 GGUF",
+     "precision": "f16",
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "HTDemucs-GGUF",
+     "files": [
+      {
+       "path": "HTDemucs-GGUF/htdemucs-f16.gguf",
+       "size": 84059168,
+       "sha256": "f8c54ba35df95aafea7881eac214b58ec18a73cbcb6ff5a90f4b762631a286b6"
+      }
+     ]
+    }
+   ]
   },
   {
    "family": "hviske_asr_v6",
@@ -4846,7 +4927,39 @@ export const AUDIO_CPP_CATALOG_DATA: AudioCppCatalogData = {
    "request": {
     "options": []
    },
-   "packages": []
+   "packages": [
+    {
+     "id": "mel_band_roformer_q8_0",
+     "name": "Mel-Band RoFormer Q8_0 GGUF",
+     "precision": "q8_0",
+     "default": true,
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "Mel-Band-RoFormer-GGUF",
+     "files": [
+      {
+       "path": "Mel-Band-RoFormer-GGUF/mel-band-roformer-q8_0.gguf",
+       "size": 251748928,
+       "sha256": "2dd898ceb0e3812c18d6125dcd60174d35d3da22c94add76b029fbb21fc238fd"
+      }
+     ]
+    },
+    {
+     "id": "mel_band_roformer_f16",
+     "name": "Mel-Band RoFormer F16 GGUF",
+     "precision": "f16",
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "Mel-Band-RoFormer-GGUF",
+     "files": [
+      {
+       "path": "Mel-Band-RoFormer-GGUF/mel-band-roformer-f16.gguf",
+       "size": 456514816,
+       "sha256": "cbdf174dc716615dcd304678f67fc1d2ac6286fbc647e72837b5a6d447a07add"
+      }
+     ]
+    }
+   ]
   },
   {
    "family": "micro_wake_word",
@@ -6226,7 +6339,39 @@ export const AUDIO_CPP_CATALOG_DATA: AudioCppCatalogData = {
      "normalize_output"
     ]
    },
-   "packages": []
+   "packages": [
+    {
+     "id": "mossformer2_ss_16k_f32",
+     "name": "MossFormer2 SS 16K F32",
+     "precision": "f32",
+     "default": true,
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "MossFormer2-GGUF",
+     "files": [
+      {
+       "path": "MossFormer2-GGUF/mossformer2-ss-16k-f32.gguf",
+       "size": 223123620,
+       "sha256": "a8cd233d4763834202506dea277760add06e4d057dd98de637286c0e01d91c54"
+      }
+     ]
+    },
+    {
+     "id": "mossformer2_ss_16k_f16",
+     "name": "MossFormer2 SS 16K F16",
+     "precision": "f16",
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "MossFormer2-GGUF",
+     "files": [
+      {
+       "path": "MossFormer2-GGUF/mossformer2-ss-16k-f16.gguf",
+       "size": 112087204,
+       "sha256": "44f36996d5d86583d13670b0d7284d069df48e432f7f2262275a6676d815feb5"
+      }
+     ]
+    }
+   ]
   },
   {
    "family": "muscriptor",
@@ -9362,7 +9507,24 @@ export const AUDIO_CPP_CATALOG_DATA: AudioCppCatalogData = {
      "normalize_output"
     ]
    },
-   "packages": []
+   "packages": [
+    {
+     "id": "tf_gridnet_wsj0_2mix_f32",
+     "name": "TF-GridNet WSJ0-2mix F32",
+     "precision": "f32",
+     "default": true,
+     "repo": "audio-cpp/audio.cpp-gguf",
+     "revision": "874fcb41ececda20bcbc0782d6b4ea7f7d069ea8",
+     "root": "TF-GridNet-GGUF",
+     "files": [
+      {
+       "path": "TF-GridNet-GGUF/tf-gridnet-wsj0-2mix-f32.gguf",
+       "size": 32792096,
+       "sha256": "924f217010be282f01f3cbd31e74286fb8225fe6ce82441b67241130d33bf4de"
+      }
+     ]
+    }
+   ]
   },
   {
    "family": "tone_color_vc",

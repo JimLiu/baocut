@@ -110,6 +110,11 @@ export interface BundleDefinition {
   image?: ImageBundleProfile;
   /** `music` 模型包的特性：`local` Provider 据此描述 `generateMusic` 模型、在提交时检查请求、资源调度据此计引擎进程的峰值。 */
   music?: MusicBundleProfile;
+  /**
+   * audio.cpp 的分离模型包（`capability: 'separate'`、`backend: 'audio-cpp'`，添加的 HTDemucs 与 Mel-Band RoFormer）怎么跑：
+   * 不经 Model Worker，每次分离起一个引擎进程（架构设计 §6.3）。内置的 HTDemucs-FT 走 Model Worker，没有这一项。
+   */
+  separation?: SeparationBundleProfile;
   /** `embed` 模型包的特性：本机 embedding Provider 据此定向量配置与身份（EmbeddingGemma 2 检索集成方案 v0.1 §4.2、§5）。 */
   embedding?: EmbeddingBundleProfile;
   /**
@@ -117,6 +122,24 @@ export interface BundleDefinition {
    * （`segmentation` 与 `speaker`），转写要说话人时识别完成后区分。没装时不带，要说话人只报 `diarization-unavailable`。
    */
   diarization?: string;
+}
+
+/**
+ * audio.cpp 分离模型包的跑法（`BundleDefinition.separation`）：引擎读 44.1 kHz 的 WAV（不重采样，别的采样率直接报错），每一轨写一个
+ * 32 位浮点 WAV（`<轨名>.wav`）；`vocals` 与 `background` 列出哪几轨相加成人声与背景（HTDemucs 的背景是鼓、贝斯与其他之和）。
+ */
+export interface SeparationBundleProfile {
+  /** audio.cpp 的模型族（`--family`）。 */
+  family: string;
+  /** 交给引擎的 GGUF（`--model`），相对 `separator` 组件的目录。 */
+  file: string;
+  vocals: readonly string[];
+  background: readonly string[];
+  /**
+   * 引擎进程的峰值内存（字节，按十分钟的输入实测后取整留余量）：资源调度按它计这一次分离（没有常驻进程，不占 holder）。
+   * 引擎把整段音频与每一轨都放在内存里，输入更长时还会再涨。
+   */
+  peakBytes: number;
 }
 
 /** 一个本地生图模型包能做什么（架构设计 §6.1、§6.3）。一次一张、只出 PNG、接受 seed。 */

@@ -2,8 +2,10 @@ import type { ModelsAddedMessages } from './models-added-copy.ts';
 
 export const zhHans: ModelsAddedMessages = {
   entryLabel: '添加更多模型',
-  entryDesc: (n: number, music: boolean) =>
-    `内置之外，audio.cpp 还支持 ${n} 种${music ? '音乐生成' : '语音合成'}模型，内置的也有别的精度；也能指定一个 GGUF 文件。`,
+  entryDesc: (n: number, group: 'tts' | 'music' | 'sep') =>
+    group === 'sep'
+      ? `内置之外，audio.cpp 还有 ${n} 种人声 / 背景分离模型能用；也能指定一个 GGUF 文件。`
+      : `内置之外，audio.cpp 还支持 ${n} 种${group === 'music' ? '音乐生成' : '语音合成'}模型，内置的也有别的精度；也能指定一个 GGUF 文件。`,
   entryButton: '添加模型…',
 
   title: '添加 audio.cpp 模型',
@@ -12,7 +14,7 @@ export const zhHans: ModelsAddedMessages = {
   loading: '正在读取 audio.cpp 模型列表…',
   loadFailed: (text: string) => `没读到模型列表：${text}`,
   groupsLabel: '模型分组',
-  groups: { tts: '语音合成', music: '音乐生成', idle: '暂时用不上', custom: '自己指定文件' },
+  groups: { tts: '语音合成', music: '音乐生成', sep: '音源分离', idle: '暂时用不上', custom: '自己指定文件' },
   searchLabel: '搜索 audio.cpp 模型',
   searchPlaceholder: '搜索名字、语言或特点',
   countFound: (n: number) => `找到 ${n} 个`,
@@ -75,10 +77,16 @@ export const zhHans: ModelsAddedMessages = {
   },
   idle: {
     recognize: '转录照旧用 BaoCut 自己的识别模型：audio.cpp 上的识别更慢，也没有说话人区分',
-    separate: 'audio.cpp 上的音源分离还没接进 BaoCut',
+    'separate-slow': '分得最干净，但慢得多，许可也不明；先用 Mel-Band RoFormer',
+    'separate-stems': '拆成 6 轨；翻译配音只要人声与背景两轨，用 HTDemucs',
+    'separate-speakers': '把几个人的说话声拆开，不是人声与背景分离；BaoCut 还没有用到',
     other: (tasks: string) => (tasks ? `${tasks} · BaoCut 还没有用到它的功能` : 'BaoCut 还没有用到它的功能'),
     'music-request': '这只音乐模型的请求与 YuE2 不同，BaoCut 还没有接',
     'engine-route': '引擎只在 BaoCut 还没用到的功能上提供它',
+  },
+  sepTraits: {
+    htdemucs: '人声 / 背景分离 · 单模型，比内置的 HTDemucs-FT 小',
+    mel_band_roformer: '人声 / 背景分离 · 比内置的分得更干净',
   },
 
   sourceLabel: '文件在哪儿',

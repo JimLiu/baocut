@@ -926,6 +926,25 @@ describe('模型安装（假模型来源 + 假 Model Worker）', () => {
     await until(() => !side!.models()?.bundles.some((b) => b.bundleId === catalogId));
   });
 
+  it.skipIf(process.platform === 'win32')(
+    '添加的 audio.cpp 分离模型（本机的 HTDemucs GGUF）：模型检查经内置引擎分离样本，鼓、贝斯、其他相加成背景，不起 Model Worker',
+    async () => {
+      side = await startSide(source, free);
+      const addable = await side.client.request('models.addable', {});
+      expect(addable.families.filter((f) => f.group === 'sep').map((f) => f.family).sort()).toEqual(['htdemucs', 'mel_band_roformer']);
+      const gguf = path.join(side.dir, 'outside', 'htdemucs.gguf');
+      await fs.mkdir(path.dirname(gguf), { recursive: true });
+      await fs.writeFile(gguf, Buffer.concat([Buffer.from('GGUF'), Buffer.alloc(100)]));
+      const { bundleId } = await side.client.request('models.add', { source: 'local-file', family: 'htdemucs', path: gguf, label: 'HTDemucs' });
+      const { jobId } = await side.client.request('models.test', { bundleId });
+      const job = await until(() => terminal(jobOf(side!, jobId)));
+      expect(job.state, JSON.stringify(job.error)).toBe('completed');
+      const [run] = await side.audioCpp.recorded('sep');
+      expect(run!.args).toEqual(expect.arrayContaining(['--task', 'sep', '--family', 'htdemucs', '--model', gguf, '--out-format', 'float32']));
+      expect(side.models()!.bundles.find((b) => b.bundleId === bundleId)).toMatchObject({ capability: 'separate', state: 'installed' });
+    },
+  );
+
   it('暂停后丢弃：cancelInstall 带 discard 删掉暂存区', async () => {
     side = await startSide(source, free);
     source.throttle(8 * 1024, 20);
