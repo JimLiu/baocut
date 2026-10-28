@@ -22,6 +22,8 @@ export { TRANSCRIBE_PIPELINE };
 const YT_DLP = 'yt-dlp';
 const FFMPEG = 'ffmpeg';
 const REALESRGAN = 'realesrgan-ncnn-vulkan';
+const WAIFU2X = 'waifu2x-ncnn-vulkan';
+const UPSCAYL_MODELS = 'upscayl-models';
 
 /** 名字与说明是 getter：读的时候按当前语言生成（目录在模块加载时就构造，不能在那时取文字）。 */
 export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
@@ -162,10 +164,11 @@ export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
     results: ['artifact'],
     execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: UPSCALE_IMAGE_PIPELINE },
     capabilities: [],
-    optionalCapabilities: [],
-    externalTools: [REALESRGAN],
-    // 照片模型的 2、3 倍要 ffmpeg 缩小；动画模型与 4 倍用不到它。
-    optionalExternalTools: [FFMPEG],
+    // 生成式放大用生图模型；本机的引擎各自要它的外部工具（Real-ESRGAN、waifu2x、Upscayl 权重包），插值与缩放要 ffmpeg。
+    // 哪个都不是一定要的：缺了的在 `limitations` 里说明，提交时按选的模型拒绝。
+    optionalCapabilities: ['generateImage'],
+    externalTools: [],
+    optionalExternalTools: [REALESRGAN, WAIFU2X, UPSCAYL_MODELS, FFMPEG],
     network: 'none',
     candidates: null,
   },

@@ -191,7 +191,8 @@ export const de: RcAgentToolsMessages = {
   shotsSpeakersUnmatched: 'Es ließ sich keinem Sprecher ein Gesicht im Bild zuordnen',
   shotsFacesUnavailable: 'Gesichtserkennung ist nicht verfügbar',
   installUpscalerSummary: (p) => `${p.tool} ${p.version} (${p.size}, ${p.license}) von ${p.url} installieren, um Bilder hochzuskalieren`,
-  upscaleSummary: (p) => `Bilder (${p.count}) mit Real-ESRGAN (${p.weights}) ${p.scale}× hochskalieren und PNGs in ${p.dir} speichern`,
+  upscaleSummary: (p) => `Bilder (${p.count}) mit ${p.executor} ${p.scale}× hochskalieren und PNGs in ${p.dir} speichern`,
   imageEditSummary: (p) => `${p.tool}: Bilder (${p.count}) mit ${p.executor} bearbeiten und PNGs in ${p.dir} speichern`,
   imageEditDefaultModel: 'dem Standard-Bildmodell',
+  upscaleGenerativeSummary: (p) => `Bilder (${p.count}) an ${p.model} senden, ${p.scale}× größer neu zeichnen lassen und PNGs in ${p.dir} speichern`,
 };

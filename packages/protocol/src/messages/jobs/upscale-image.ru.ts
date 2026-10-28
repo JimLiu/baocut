@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const ru: JobsUpscaleImageMessages = {
   label: 'Увеличение изображения',
-  description: 'Увеличивает изображения в 2–4 раза с Real-ESRGAN на этом компьютере: из файла в файл, результат в PNG, существующие файлы не перезаписываются.',
+  description: 'Увеличивает изображения в 2–4 раза на этом компьютере (Real-ESRGAN, веса Upscayl, waifu2x или Lanczos) или перерисовывает их моделью изображений: из файла в файл, результат в PNG, существующие файлы не перезаписываются.',
   stepProbe: 'Чтение изображений',
   stepUpscale: 'Увеличение',
   stepVerify: 'Проверка результата',
@@ -10,9 +10,17 @@ export const ru: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `Не удаётся найти входное изображение ${p.file}`,
   inputUnsupported: (p: { name: string }) => `${p.name} — не читаемое изображение PNG, JPEG или WebP`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} получится ${p.width}×${p.height}; каждая сторона может быть не больше ${p.max} пикселей. Выберите меньший масштаб.`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN не смог увеличить ${p.name}: ${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool} не удалось увеличить ${p.name}: ${p.detail}`,
   outputMissing: (p: { name: string }) => `Для ${p.name} результат не записан`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `Результат для ${p.name} — ${p.actual}; ожидалось ${p.expected}`,
   exifOrientation: (p: { name: string }) => `У ${p.name} есть тег ориентации EXIF; результат увеличен попиксельно и не повёрнут`,
-  toolNotFound: (p: { code: string }) => `Не удаётся запустить Real-ESRGAN (${p.code})`,
+  toolNotFound: (p: { tool: string; code: string }) => `Не удаётся запустить ${p.tool} (${p.code})`,
+  denoiseUnsupported: (p: { model: string }) => `Модель ${p.model} не умеет шумоподавление; denoise принимают только модели waifu2x`,
+  generativeOnly: (p: { model: string }) => `Это принимает только модель generative, ${p.model} — нет`,
+  generativeUnavailable: 'Генеративное увеличение здесь недоступно',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} не принимает референсное изображение, поэтому не может увеличивать. Выберите модель, принимающую входные изображения.`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} не сообщает размеры результата, поэтому вывод нельзя спланировать. Выберите другую модель.`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} рисует не больше ${p.size}, так что ${p.name} не увеличится. Выберите локальный движок или модель с бо́льшими размерами.`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}: модель нарисовала его в ${p.size}; остальное увеличение — интерполяция Lanczos`,
+  generativeRedraws: 'Генеративное увеличение перерисовывает изображение: детали, текст и лица могут отличаться от оригинала',
 };

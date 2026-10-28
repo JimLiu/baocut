@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const ptBR: JobsUpscaleImageMessages = {
   label: 'Ampliar imagem',
-  description: 'Amplia imagens de 2 a 4× com o Real-ESRGAN neste computador: de arquivo para arquivo, a saída é PNG e não sobrescreve arquivos existentes.',
+  description: 'Amplia imagens de 2 a 4× neste computador (Real-ESRGAN, pesos do Upscayl, waifu2x ou Lanczos) ou as redesenha com um modelo de imagem: de arquivo para arquivo, a saída é PNG e não sobrescreve arquivos existentes.',
   stepProbe: 'Ler imagens',
   stepUpscale: 'Ampliar',
   stepVerify: 'Verificar a saída',
@@ -10,9 +10,17 @@ export const ptBR: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `Não foi possível encontrar a imagem de entrada ${p.file}`,
   inputUnsupported: (p: { name: string }) => `${p.name} não é uma imagem PNG, JPEG ou WebP legível`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} ficaria com ${p.width}×${p.height}; cada lado pode ter no máximo ${p.max} pixels. Escolha uma escala menor.`,
-  upscaleFailed: (p: { name: string; detail: string }) => `O Real-ESRGAN não conseguiu ampliar ${p.name}: ${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool} não conseguiu ampliar ${p.name}: ${p.detail}`,
   outputMissing: (p: { name: string }) => `Nenhuma saída foi gravada para ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `A saída de ${p.name} é ${p.actual}; o esperado era ${p.expected}`,
   exifOrientation: (p: { name: string }) => `${p.name} tem uma marca de orientação EXIF; a saída é ampliada pixel a pixel e não é endireitada`,
-  toolNotFound: (p: { code: string }) => `Não foi possível iniciar o Real-ESRGAN (${p.code})`,
+  toolNotFound: (p: { tool: string; code: string }) => `Não é possível iniciar ${p.tool} (${p.code})`,
+  denoiseUnsupported: (p: { model: string }) => `O modelo ${p.model} não reduz ruído; só os modelos do waifu2x aceitam denoise`,
+  generativeOnly: (p: { model: string }) => `Só o modelo generative aceita isto; ${p.model} não`,
+  generativeUnavailable: 'A ampliação generativa não está disponível aqui',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} não aceita imagem de referência, então não pode ampliar. Escolha um modelo que aceite imagens de entrada.`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} não informa seus tamanhos de saída, então não dá para planejar a saída. Escolha outro modelo.`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} desenha no máximo em ${p.size}, o que não ampliaria ${p.name}. Escolha um mecanismo local ou um modelo com tamanhos maiores.`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}: o modelo desenhou em ${p.size}; o restante da ampliação é interpolação Lanczos`,
+  generativeRedraws: 'A ampliação generativa redesenha a imagem: detalhes, texto e rostos podem diferir do original',
 };

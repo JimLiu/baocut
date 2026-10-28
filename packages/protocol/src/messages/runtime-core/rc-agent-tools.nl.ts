@@ -190,7 +190,8 @@ export const nl: RcAgentToolsMessages = {
   shotsSpeakersUnmatched: 'Kon bij geen enkele spreker vaststellen welk gezicht in beeld van hem is',
   shotsFacesUnavailable: 'Gezichtsherkenning is niet beschikbaar',
   installUpscalerSummary: (p) => `${p.tool} ${p.version} (${p.size}, ${p.license}) installeren vanaf ${p.url} om afbeeldingen op te schalen`,
-  upscaleSummary: (p) => `Afbeeldingen (${p.count}) ${p.scale}× opschalen met Real-ESRGAN (${p.weights}) en PNG's opslaan in ${p.dir}`,
+  upscaleSummary: (p) => `Afbeeldingen (${p.count}) ${p.scale}× opschalen met ${p.executor} en PNG's opslaan in ${p.dir}`,
   imageEditSummary: (p) => `${p.tool}: afbeeldingen (${p.count}) bewerken met ${p.executor} en PNG's opslaan in ${p.dir}`,
   imageEditDefaultModel: 'het standaard-beeldmodel',
+  upscaleGenerativeSummary: (p) => `Afbeeldingen (${p.count}) naar ${p.model} sturen om ze ${p.scale}× groter opnieuw te tekenen en PNG's opslaan in ${p.dir}`,
 };

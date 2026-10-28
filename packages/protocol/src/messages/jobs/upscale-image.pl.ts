@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const pl: JobsUpscaleImageMessages = {
   label: 'Powiększanie obrazu',
-  description: 'Powiększa obrazy 2–4× za pomocą Real-ESRGAN na tym komputerze: z pliku do pliku, wynik w PNG, bez nadpisywania istniejących plików.',
+  description: 'Powiększa obrazy 2–4× na tym komputerze (Real-ESRGAN, wagi Upscayl, waifu2x lub Lanczos) albo rysuje je od nowa modelem obrazu: z pliku do pliku, wynik w PNG, istniejące pliki nie są nadpisywane.',
   stepProbe: 'Odczyt obrazów',
   stepUpscale: 'Powiększanie',
   stepVerify: 'Sprawdzenie wyniku',
@@ -10,9 +10,17 @@ export const pl: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `Nie znaleziono obrazu wejściowego ${p.file}`,
   inputUnsupported: (p: { name: string }) => `${p.name} nie jest czytelnym obrazem PNG, JPEG ani WebP`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} miałby wymiary ${p.width}×${p.height}; każdy bok może mieć najwyżej ${p.max} pikseli. Wybierz mniejszą skalę.`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN nie mógł powiększyć ${p.name}: ${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool} nie zdołał powiększyć ${p.name}: ${p.detail}`,
   outputMissing: (p: { name: string }) => `Nie zapisano wyniku dla ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `Wynik dla ${p.name} ma ${p.actual}; oczekiwano ${p.expected}`,
   exifOrientation: (p: { name: string }) => `${p.name} ma znacznik orientacji EXIF; wynik jest powiększony piksel w piksel i nie jest obrócony`,
-  toolNotFound: (p: { code: string }) => `Nie można uruchomić Real-ESRGAN (${p.code})`,
+  toolNotFound: (p: { tool: string; code: string }) => `Nie można uruchomić ${p.tool} (${p.code})`,
+  denoiseUnsupported: (p: { model: string }) => `Model ${p.model} nie odszumia; denoise przyjmują tylko modele waifu2x`,
+  generativeOnly: (p: { model: string }) => `Przyjmuje to tylko model generative, ${p.model} nie`,
+  generativeUnavailable: 'Generatywne powiększanie nie jest tu dostępne',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} nie przyjmuje obrazu referencyjnego, więc nie może powiększać. Wybierz model, który przyjmuje obrazy wejściowe.`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} nie podaje rozmiarów wyniku, więc nie da się zaplanować wyjścia. Wybierz inny model.`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} rysuje najwyżej w ${p.size}, co nie powiększy ${p.name}. Wybierz silnik lokalny albo model z większymi rozmiarami.`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}: model narysował go w ${p.size}; reszta powiększenia to interpolacja Lanczos`,
+  generativeRedraws: 'Generatywne powiększanie rysuje obraz od nowa: szczegóły, tekst i twarze mogą się różnić od oryginału',
 };

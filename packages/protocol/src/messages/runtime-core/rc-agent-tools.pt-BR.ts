@@ -188,7 +188,8 @@ export const ptBR: RcAgentToolsMessages = {
   shotsSpeakersUnmatched: 'Não foi possível saber qual rosto na imagem é de algum dos falantes',
   shotsFacesUnavailable: 'A detecção de rostos não está disponível',
   installUpscalerSummary: (p) => `Instalar ${p.tool} ${p.version} (${p.size}, ${p.license}) de ${p.url} para ampliar imagens`,
-  upscaleSummary: (p) => `Ampliar imagens (${p.count}) ${p.scale}× com o Real-ESRGAN (${p.weights}) e salvar os PNG em ${p.dir}`,
+  upscaleSummary: (p) => `Ampliar imagens (${p.count}) ${p.scale}× com ${p.executor} e salvar os PNG em ${p.dir}`,
   imageEditSummary: (p) => `${p.tool}: processar imagens (${p.count}) com ${p.executor} e salvar os PNG em ${p.dir}`,
   imageEditDefaultModel: 'o modelo de imagem padrão',
+  upscaleGenerativeSummary: (p) => `Enviar imagens (${p.count}) ao ${p.model} para redesenhá-las ${p.scale}× maiores e salvar os PNG em ${p.dir}`,
 };

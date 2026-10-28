@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const nl: JobsUpscaleImageMessages = {
   label: 'Afbeelding opschalen',
-  description: 'Vergroot afbeeldingen 2–4× met Real-ESRGAN op deze computer: bestand naar bestand, uitvoer is PNG en bestaande bestanden worden niet overschreven.',
+  description: 'Vergroot afbeeldingen 2–4× op deze computer (Real-ESRGAN, Upscayl-gewichten, waifu2x of Lanczos) of laat ze opnieuw tekenen door een beeldmodel: bestand naar bestand, uitvoer is PNG en bestaande bestanden worden niet overschreven.',
   stepProbe: 'Afbeeldingen lezen',
   stepUpscale: 'Opschalen',
   stepVerify: 'Uitvoer controleren',
@@ -10,9 +10,17 @@ export const nl: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `Invoerafbeelding ${p.file} niet gevonden`,
   inputUnsupported: (p: { name: string }) => `${p.name} is geen leesbare PNG-, JPEG- of WebP-afbeelding`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} zou ${p.width}×${p.height} worden; elke zijde mag hoogstens ${p.max} pixels zijn. Kies een kleinere schaal.`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN kon ${p.name} niet opschalen: ${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool} kon ${p.name} niet vergroten: ${p.detail}`,
   outputMissing: (p: { name: string }) => `Er is geen uitvoer geschreven voor ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `De uitvoer van ${p.name} is ${p.actual}; verwacht was ${p.expected}`,
   exifOrientation: (p: { name: string }) => `${p.name} heeft een EXIF-oriëntatietag; de uitvoer wordt pixel voor pixel vergroot en niet rechtgezet`,
-  toolNotFound: (p: { code: string }) => `Real-ESRGAN kan niet starten (${p.code})`,
+  toolNotFound: (p: { tool: string; code: string }) => `Kan ${p.tool} niet starten (${p.code})`,
+  denoiseUnsupported: (p: { model: string }) => `Het model ${p.model} kan geen ruis verwijderen; alleen de waifu2x-modellen accepteren denoise`,
+  generativeOnly: (p: { model: string }) => `Alleen het model generative accepteert dit; ${p.model} niet`,
+  generativeUnavailable: 'Generatief vergroten is hier niet beschikbaar',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} accepteert geen referentieafbeelding en kan dus niet vergroten. Kies een model dat invoerafbeeldingen accepteert.`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} vermeldt geen uitvoerformaten, dus de uitvoer kan niet worden gepland. Kies een ander model.`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} tekent hooguit op ${p.size}, waarmee ${p.name} niet groter wordt. Kies een lokale engine of een model met grotere formaten.`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}: het model tekende het op ${p.size}; de rest van de vergroting is Lanczos-interpolatie`,
+  generativeRedraws: 'Generatief vergroten tekent de afbeelding opnieuw: details, tekst en gezichten kunnen afwijken van het origineel',
 };

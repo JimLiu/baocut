@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const zhHans: JobsUpscaleImageMessages = {
   label: '图片超分',
-  description: '用本机的 Real-ESRGAN 把图片放大 2–4 倍：文件到文件，输出 PNG，不覆盖已有的文件。',
+  description: '用本机的 Real-ESRGAN、Upscayl 权重、waifu2x 或 Lanczos 把图片放大 2–4 倍，或交给图像模型重画：文件到文件，输出 PNG，不覆盖已有的文件。',
   stepProbe: '读取图片',
   stepUpscale: '放大',
   stepVerify: '校验输出',
@@ -10,9 +10,17 @@ export const zhHans: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `找不到输入图片 ${p.file}`,
   inputUnsupported: (p: { name: string }) => `${p.name} 不是读得出的 PNG、JPEG 或 WebP 图片`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} 放大后是 ${p.width}×${p.height}，每边至多 ${p.max} 像素。请选小一点的倍数。`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN 没能放大 ${p.name}：${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool} 没能放大 ${p.name}：${p.detail}`,
   outputMissing: (p: { name: string }) => `${p.name} 没有写出输出`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `${p.name} 的输出是 ${p.actual}，应为 ${p.expected}`,
   exifOrientation: (p: { name: string }) => `${p.name} 带 EXIF 方向标记；输出按像素原样放大，没有转正`,
-  toolNotFound: (p: { code: string }) => `启动不了 Real-ESRGAN（${p.code}）`,
+  toolNotFound: (p: { tool: string; code: string }) => `启动不了 ${p.tool}（${p.code}）`,
+  denoiseUnsupported: (p: { model: string }) => `${p.model} 模型不能降噪；只有 waifu2x 的模型收 denoise`,
+  generativeOnly: (p: { model: string }) => `只有 generative 模型收这一项，${p.model} 不收`,
+  generativeUnavailable: '这里用不了生成式放大',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} 不收参考图，没法用来放大。请选一个收输入图的模型。`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} 没有列出出图的尺寸，没法安排输出。请换一个模型。`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} 最大只能出 ${p.size}，放不大 ${p.name}。请换本机引擎，或尺寸更大的模型。`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}：模型按 ${p.size} 出图，其余的放大是 Lanczos 插值`,
+  generativeRedraws: '生成式放大是重画：细节、文字和人脸可能与原图不同',
 };

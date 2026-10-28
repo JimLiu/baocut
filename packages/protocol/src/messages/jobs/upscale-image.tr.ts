@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const tr: JobsUpscaleImageMessages = {
   label: 'Görüntü büyütme',
-  description: 'Bu bilgisayardaki Real-ESRGAN ile görüntüleri 2–4 kat büyütür: dosyadan dosyaya, çıktı PNG olur ve mevcut dosyaların üzerine yazılmaz.',
+  description: 'Görüntüleri bu bilgisayarda 2–4 kat büyütür (Real-ESRGAN, Upscayl ağırlıkları, waifu2x veya Lanczos) ya da bir görüntü modeline yeniden çizdirir: dosyadan dosyaya, çıktı PNG’dir ve mevcut dosyaların üzerine yazılmaz.',
   stepProbe: 'Görüntüleri oku',
   stepUpscale: 'Büyüt',
   stepVerify: 'Çıktıyı doğrula',
@@ -10,9 +10,17 @@ export const tr: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `Girdi görüntüsü ${p.file} bulunamadı`,
   inputUnsupported: (p: { name: string }) => `${p.name} okunabilir bir PNG, JPEG veya WebP görüntüsü değil`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} büyütüldüğünde ${p.width}×${p.height} olur; her kenar en fazla ${p.max} piksel olabilir. Daha küçük bir ölçek seçin.`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN ${p.name} görüntüsünü büyütemedi: ${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool}, ${p.name} dosyasını büyütemedi: ${p.detail}`,
   outputMissing: (p: { name: string }) => `${p.name} için çıktı yazılmadı`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `${p.name} çıktısı ${p.actual}; beklenen ${p.expected}`,
   exifOrientation: (p: { name: string }) => `${p.name} bir EXIF yön etiketi içeriyor; çıktı piksel piksel büyütülür ve döndürülmez`,
-  toolNotFound: (p: { code: string }) => `Real-ESRGAN başlatılamıyor (${p.code})`,
+  toolNotFound: (p: { tool: string; code: string }) => `${p.tool} başlatılamıyor (${p.code})`,
+  denoiseUnsupported: (p: { model: string }) => `${p.model} modeli gürültü azaltamaz; denoise yalnızca waifu2x modellerinde kullanılabilir`,
+  generativeOnly: (p: { model: string }) => `Bunu yalnızca generative modeli kabul eder; ${p.model} kabul etmez`,
+  generativeUnavailable: 'Üretken büyütme burada kullanılamıyor',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} referans görüntü kabul etmediği için büyütme yapamaz. Girdi görüntüsü kabul eden bir model seçin.`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} çıktı boyutlarını belirtmediği için çıktı planlanamıyor. Başka bir model seçin.`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} en fazla ${p.size} boyutunda çizebilir; bu, ${p.name} dosyasını büyütmez. Yerel bir motor veya daha büyük boyutlu bir model seçin.`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}: model bunu ${p.size} boyutunda çizdi; büyütmenin geri kalanı Lanczos ara değerlemesidir`,
+  generativeRedraws: 'Üretken büyütme görüntüyü yeniden çizer: ayrıntılar, metin ve yüzler orijinalden farklı olabilir',
 };

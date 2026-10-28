@@ -39,7 +39,8 @@ instructionsNotSet: 'Oturum yönergeleri ayarlanmadı: Runtime birleştirme sır
   shotsSpeakersUnmatched: 'Konuşmacılardan hiçbirinin ekrandaki hangi yüz olduğu anlaşılamadı',
   shotsFacesUnavailable: 'Yüz algılama kullanılamıyor',
   installUpscalerSummary: (p) => `Görüntüleri büyütmek için ${p.url} adresinden ${p.tool} ${p.version} (${p.size}, ${p.license}) yükle`,
-  upscaleSummary: (p) => `Görüntüleri (${p.count}) Real-ESRGAN (${p.weights}) ile ${p.scale}× büyüt ve PNG'leri ${p.dir} konumuna kaydet`,
+  upscaleSummary: (p) => `Görüntüleri (${p.count}) ${p.executor} ile ${p.scale}× büyüt ve PNG'leri ${p.dir} konumuna kaydet`,
   imageEditSummary: (p) => `${p.tool}: görüntüleri (${p.count}) ${p.executor} ile işle ve PNG'leri ${p.dir} konumuna kaydet`,
   imageEditDefaultModel: 'varsayılan görüntü modeli',
+  upscaleGenerativeSummary: (p) => `Görüntüleri (${p.count}) ${p.scale}× daha büyük yeniden çizmesi için ${p.model} modeline gönder ve PNG'leri ${p.dir} konumuna kaydet`,
 };

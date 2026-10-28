@@ -145,9 +145,9 @@ export { TRANSCODE_PIPELINE, transcodePipeline, type TranscodeDeps } from './pip
 export {
   MAX_OUTPUT_SIDE as UPSCALE_MAX_OUTPUT_SIDE,
   UPSCALE_IMAGE_PIPELINE,
-  UPSCALE_WEIGHTS,
-  needsResize as upscaleNeedsResize,
   upscaleImagePipeline,
+  upscaleModelSize,
+  type ImageUpscaler,
   type UpscaleImageDeps,
   type UpscaleTool,
 } from './pipelines/upscale-image.ts';

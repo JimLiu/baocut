@@ -181,14 +181,14 @@ export function transcodeDemand(inputBytes: number): ResourceDemand {
 }
 
 /**
- * 图片超分（Real-ESRGAN 的 ncnn 版，§7.9）：分块推理，显存按块算，ncnn 自己按显存选块大小；内存要装下整张输出（RGBA）与
- * 输入、编码 PNG 的缓冲，按输出像素 × 4 字节 × 3 估计，至少 1 GiB；GPU 内存 2 GiB。staging 按输出像素 × 4 字节 × 2（4 倍的
- * 中间图与缩小后的结果）加余量。
+ * 图片超分（Real-ESRGAN、waifu2x 的 ncnn 版，§7.9）：分块推理，显存按块算，ncnn 自己按显存选块大小；内存要装下整张输出（RGBA）与
+ * 输入、编码 PNG 的缓冲，按输出像素 × 4 字节 × 3 估计，至少 1 GiB；GPU 内存 2 GiB。staging 按输出像素 × 4 字节 × 2（原生倍数的
+ * 中间图与缩小后的结果）加余量。`gpu` 为 false 时（ffmpeg 的 Lanczos 插值、生成式放大的补边与缩放）不占 GPU 内存。
  */
-export function upscaleImageDemand(outputPixels: number): ResourceDemand {
+export function upscaleImageDemand(outputPixels: number, gpu = true): ResourceDemand {
   return {
     memory: Math.max(1 * GiB, Math.round(outputPixels * 4 * 3)),
-    gpuMemory: 2 * GiB,
+    ...(gpu ? { gpuMemory: 2 * GiB } : {}),
     cpuThreads: 2,
     scratchDisk: Math.round(outputPixels * 4 * 2 + STAGING_SLACK),
   };

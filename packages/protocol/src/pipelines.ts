@@ -187,17 +187,132 @@ export interface TranscodeSummary {
   files: string[];
 }
 
-/** 图片超分的模型：`photo` 是照片与写实画面（realesrgan-x4plus），`anime` 是动画、插画与线稿（realesr-animevideov3）。 */
-export type UpscaleImageModel = 'photo' | 'anime';
-export const UPSCALE_IMAGE_MODELS: readonly UpscaleImageModel[] = ['photo', 'anime'];
+/**
+ * 图片超分的引擎（架构设计 §7.9「图片超分」）：
+ * - `realesrgan`：受管外部工具 Real-ESRGAN（`realesrgan-ncnn-vulkan`），用它自带的权重或另装的 Upscayl 权重包（`upscayl-models`）；
+ * - `waifu2x`：受管外部工具 waifu2x（`waifu2x-ncnn-vulkan`），原生 2 倍（4 倍是两遍），能同时降噪；
+ * - `lanczos`：ffmpeg 的 Lanczos 插值，不用模型、不下载，只是把像素放大，不补细节；
+ * - `generative`：能收参考图的生图模型按高分辨率重画（要联网，经授权与预算），会补出原图没有的细节，也可能改动内容。
+ */
+export type UpscaleImageEngine = 'realesrgan' | 'waifu2x' | 'lanczos' | 'generative';
+
+/**
+ * 图片超分的模型（`UPSCALE_IMAGE_MODEL_SPECS` 是每种的引擎、权重与许可）：
+ * - Real-ESRGAN 自带：`photo` 照片与写实画面（realesrgan-x4plus），`anime` 动画、视频截图（realesr-animevideov3），
+ *   `illustration` 插画与线稿（realesrgan-x4plus-anime）；
+ * - Upscayl 权重包：`upscayl-lite`（快）、`high-fidelity`（保真）、`remacri`（锐利的写实）、`ultramix-balanced`（均衡）、
+ *   `ultrasharp`（最锐利）；
+ * - waifu2x：`waifu2x`（CUnet，插画）、`waifu2x-anime`（UpConv7，动画风格）、`waifu2x-photo`（UpConv7，照片）；
+ * - `lanczos`：插值放大；`generative`：生图模型重画。
+ */
+export type UpscaleImageModel =
+  | 'photo'
+  | 'anime'
+  | 'illustration'
+  | 'upscayl-lite'
+  | 'high-fidelity'
+  | 'remacri'
+  | 'ultramix-balanced'
+  | 'ultrasharp'
+  | 'waifu2x'
+  | 'waifu2x-anime'
+  | 'waifu2x-photo'
+  | 'lanczos'
+  | 'generative';
 /** 放大倍数。 */
 export type UpscaleImageScale = 2 | 3 | 4;
 export const UPSCALE_IMAGE_SCALES: readonly UpscaleImageScale[] = [2, 3, 4];
 
+/** 一种超分模型的静态描述（界面、智能体工具与流程共用这一张表）。 */
+export interface UpscaleImageModelSpec {
+  engine: UpscaleImageEngine;
+  /** 执行它的受管外部工具；`lanczos` 与 `generative` 只用 ffmpeg，null。 */
+  tool: 'realesrgan-ncnn-vulkan' | 'waifu2x-ncnn-vulkan' | null;
+  /** 另装的权重包（受管的数据包，§12.9）；工具自带权重时 null。 */
+  pack: 'upscayl-models' | null;
+  /** 权重名：Real-ESRGAN 是 `-n` 的名字（`realesr-animevideov3` 由工具按倍数补上 `-x2` 之类的后缀），waifu2x 是模型目录；没有权重时 null。 */
+  weights: string | null;
+  /**
+   * 原生倍数：工具直接出这些倍数；别的倍数先放大到比它大的最小原生倍数，再由 ffmpeg 用 Lanczos 缩到目标尺寸（要有 ffmpeg）。
+   * `lanczos` 是全部倍数；`generative` 是空的（按模型的尺寸出图，再由 ffmpeg 缩放到目标尺寸）。
+   */
+  native: readonly UpscaleImageScale[];
+  /** 能不能同时降噪（`UpscaleImageParams.denoise`）。 */
+  denoise: boolean;
+  /**
+   * 权重的许可：`spdx` 是许可的 SPDX 标识，null 是来源没有声明；`commercialUse` 为 false 时不能商用，null 是没有声明。
+   * 没有权重（`lanczos`）或由服务商的条款决定（`generative`）时整个是 null。
+   */
+  license: { spdx: string | null; commercialUse: boolean | null } | null;
+}
+
+const REALESRGAN_TOOL = 'realesrgan-ncnn-vulkan';
+const WAIFU2X_TOOL = 'waifu2x-ncnn-vulkan';
+const BSD3 = { spdx: 'BSD-3-Clause', commercialUse: true };
+const MIT = { spdx: 'MIT', commercialUse: true };
+const NON_COMMERCIAL = { spdx: 'CC-BY-NC-SA-4.0', commercialUse: false };
+const UNSTATED = { spdx: null, commercialUse: null };
+const esrgan = (weights: string, native: readonly UpscaleImageScale[], license: UpscaleImageModelSpec['license']): UpscaleImageModelSpec => ({
+  engine: 'realesrgan',
+  tool: REALESRGAN_TOOL,
+  pack: null,
+  weights,
+  native,
+  denoise: false,
+  license,
+});
+const upscayl = (weights: string, license: UpscaleImageModelSpec['license']): UpscaleImageModelSpec => ({
+  ...esrgan(weights, [4], license),
+  pack: 'upscayl-models',
+});
+const waifu2x = (weights: string): UpscaleImageModelSpec => ({ engine: 'waifu2x', tool: WAIFU2X_TOOL, pack: null, weights, native: [2, 4], denoise: true, license: MIT });
+
+/** 每种超分模型的引擎、权重与许可；键的顺序是界面里的顺序（按引擎分组）。 */
+export const UPSCALE_IMAGE_MODEL_SPECS: Readonly<Record<UpscaleImageModel, UpscaleImageModelSpec>> = {
+  photo: esrgan('realesrgan-x4plus', [4], BSD3),
+  anime: esrgan('realesr-animevideov3', [2, 3, 4], BSD3),
+  illustration: esrgan('realesrgan-x4plus-anime', [4], BSD3),
+  'upscayl-lite': upscayl('upscayl-lite-4x', UNSTATED),
+  'high-fidelity': upscayl('high-fidelity-4x', { spdx: 'CC-BY-4.0', commercialUse: true }),
+  remacri: upscayl('remacri-4x', NON_COMMERCIAL),
+  'ultramix-balanced': upscayl('ultramix-balanced-4x', UNSTATED),
+  ultrasharp: upscayl('ultrasharp-4x', NON_COMMERCIAL),
+  waifu2x: waifu2x('models-cunet'),
+  'waifu2x-anime': waifu2x('models-upconv_7_anime_style_art_rgb'),
+  'waifu2x-photo': waifu2x('models-upconv_7_photo'),
+  lanczos: { engine: 'lanczos', tool: null, pack: null, weights: null, native: [2, 3, 4], denoise: false, license: null },
+  generative: { engine: 'generative', tool: null, pack: null, weights: null, native: [], denoise: false, license: null },
+};
+export const UPSCALE_IMAGE_MODELS = Object.keys(UPSCALE_IMAGE_MODEL_SPECS) as readonly UpscaleImageModel[];
+
+/** 降噪强度：-1 不降噪，0 到 3 越来越强（waifu2x 的 `-n`）。 */
+export type UpscaleImageDenoise = -1 | 0 | 1 | 2 | 3;
+export const UPSCALE_IMAGE_DENOISE_LEVELS: readonly UpscaleImageDenoise[] = [-1, 0, 1, 2, 3];
+/** 生成式放大时附加提示词的上限（按 Unicode 码点计）。 */
+export const UPSCALE_IMAGE_PROMPT_MAX = 1000;
+
+/** 这次放大要不要 ffmpeg 缩放：模型没有原生的这个倍数（`generative` 总要，`lanczos` 本身就是 ffmpeg）。 */
+export function upscaleNeedsResize(model: UpscaleImageModel, scale: UpscaleImageScale): boolean {
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[model];
+  return spec.engine !== 'lanczos' && !spec.native.includes(scale);
+}
+
+/** 本机工具实际放大的倍数：原生支持的就是它，否则比它大的最小原生倍数（之后缩小）；`lanczos` 与 `generative` 是 `scale`。 */
+export function upscalePeakScale(model: UpscaleImageModel, scale: UpscaleImageScale): UpscaleImageScale {
+  return UPSCALE_IMAGE_MODEL_SPECS[model].native.find((n) => n >= scale) ?? scale;
+}
+
+/** 这次放大要的外部工具（受管工具名，去重、按执行顺序）：执行的工具、权重包，要缩放或本身就是插值时还有 ffmpeg。 */
+export function upscaleImageTools(model: UpscaleImageModel, scale: UpscaleImageScale): string[] {
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[model];
+  const ffmpeg = spec.engine === 'lanczos' || spec.engine === 'generative' || upscaleNeedsResize(model, scale);
+  return [spec.tool, spec.pack, ffmpeg ? 'ffmpeg' : null].filter((name): name is string => name !== null);
+}
+
 /**
- * 图片超分（`upscale-image`，架构设计 §7.9）：文件到文件，用本机的 Real-ESRGAN（受管外部工具 `realesrgan-ncnn-vulkan`）把
- * 每张图放大 `scale` 倍，输出 PNG，不建视频、不动原文件。`photo` 的模型只有原生 4 倍：2、3 倍是先放大 4 倍再由 ffmpeg 用
- * Lanczos 缩到目标尺寸（算力仍按 4 倍算），这时要有 ffmpeg；`anime` 有原生的 2、3、4 倍。
+ * 图片超分（`upscale-image`，架构设计 §7.9）：文件到文件，把每张图放大 `scale` 倍，输出 PNG，不建视频、不动原文件。引擎与
+ * 模型见 `UpscaleImageModel`；模型没有原生的这个倍数时先放大到比它大的原生倍数，再由 ffmpeg 用 Lanczos 缩到目标尺寸（算力按
+ * 原生倍数算），这时要有 ffmpeg。`generative` 按模型支持的尺寸出图：比例不同时先在四周补黑边、出图后裁掉，再缩放到目标尺寸。
  */
 export interface UpscaleImageParams {
   /** 输入图片的绝对路径（PNG、JPEG、WebP，按文件头判断），1 到 50 张。 */
@@ -206,6 +321,13 @@ export interface UpscaleImageParams {
   scale?: UpscaleImageScale;
   /** 模型，默认 `photo`。 */
   model?: UpscaleImageModel;
+  /** 降噪强度，只有能降噪的模型（waifu2x）收，默认 0；别的模型给了是 `invalid-request`。 */
+  denoise?: UpscaleImageDenoise;
+  /** `generative`：生图的 Provider 与模型（`imageModel` 是模型 ID）；不给时按默认值选能收参考图的模型。别的模型不收。 */
+  provider?: string;
+  imageModel?: string;
+  /** `generative`：附加在内置提示词后面的说明（至多 `UPSCALE_IMAGE_PROMPT_MAX` 个字符）。别的模型不收。 */
+  prompt?: string;
   /** 输出目录，规则同 `TranscodeParams.outDir`。文件名是 `<源文件名>-upscaled-<倍数>x.png`，重名时加序号。 */
   outDir?: string;
 }
@@ -214,10 +336,25 @@ export interface UpscaleImageParams {
 export interface UpscaleImageSummary {
   model: UpscaleImageModel;
   scale: UpscaleImageScale;
-  /** 执行器：Real-ESRGAN 的版本与它用的权重名；缩小时另记 ffmpeg 的版本。 */
-  executor: { tool: 'realesrgan-ncnn-vulkan'; version: string; weights: string; resize: { tool: 'ffmpeg'; version: string } | null };
-  /** 每张图：源文件、源尺寸与输出尺寸、输出文件的绝对路径（与 `result.outputs` 一一对应）。 */
-  images: Array<{ source: string; width: number; height: number; outWidth: number; outHeight: number; file: string }>;
+  /**
+   * 执行器：引擎、执行的外部工具与版本（`generative` 时 null）、权重名与降噪强度（没有时 null）、Upscayl 权重包的版本、
+   * 缩放用的 ffmpeg 的版本（不缩放时 null）；`generative` 时另记 Provider 与模型。
+   */
+  executor: {
+    engine: UpscaleImageEngine;
+    tool: string | null;
+    version: string | null;
+    weights: string | null;
+    denoise: UpscaleImageDenoise | null;
+    pack: { tool: 'upscayl-models'; version: string } | null;
+    resize: { tool: 'ffmpeg'; version: string } | null;
+    model: { providerId: string; modelId: string } | null;
+  };
+  /**
+   * 每张图：源文件、源尺寸与输出尺寸、输出文件的绝对路径（与 `result.outputs` 一一对应）；`generative` 时 `modelSize` 是
+   * 请求模型出图的尺寸（`WIDTHxHEIGHT`），其余是 null。
+   */
+  images: Array<{ source: string; width: number; height: number; outWidth: number; outHeight: number; file: string; modelSize: string | null }>;
   files: string[];
   /** 给人看的提醒（按当前语言生成）：例如源图带 EXIF 方向标记、输出按像素原样放大没有转正。 */
   warnings: string[];

@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const ko: JobsUpscaleImageMessages = {
   label: '이미지 업스케일',
-  description: '이 컴퓨터의 Real-ESRGAN으로 이미지를 2–4배 확대합니다. 파일에서 파일로, 출력은 PNG이며 기존 파일을 덮어쓰지 않습니다.',
+  description: '이 컴퓨터의 Real-ESRGAN, Upscayl 가중치, waifu2x 또는 Lanczos로 이미지를 2–4배 확대하거나 이미지 모델로 다시 그립니다. 파일에서 파일로, 출력은 PNG이며 기존 파일을 덮어쓰지 않습니다.',
   stepProbe: '이미지 읽기',
   stepUpscale: '확대',
   stepVerify: '출력 검증',
@@ -10,9 +10,17 @@ export const ko: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `입력 이미지 ${p.file}을(를) 찾을 수 없습니다`,
   inputUnsupported: (p: { name: string }) => `${p.name}은(는) 읽을 수 있는 PNG, JPEG, WebP 이미지가 아닙니다`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name}은(는) 확대하면 ${p.width}×${p.height}이 됩니다. 각 변은 최대 ${p.max}픽셀입니다. 더 작은 배율을 선택하세요.`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN이 ${p.name}을(를) 확대하지 못했습니다: ${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool}이(가) ${p.name}을(를) 확대하지 못했습니다: ${p.detail}`,
   outputMissing: (p: { name: string }) => `${p.name}의 출력이 기록되지 않았습니다`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `${p.name}의 출력은 ${p.actual}이지만 ${p.expected}이어야 합니다`,
   exifOrientation: (p: { name: string }) => `${p.name}에 EXIF 방향 태그가 있습니다. 출력은 픽셀 그대로 확대되며 바로 세워지지 않습니다`,
-  toolNotFound: (p: { code: string }) => `Real-ESRGAN을 시작할 수 없습니다(${p.code})`,
+  toolNotFound: (p: { tool: string; code: string }) => `${p.tool}을(를) 시작할 수 없습니다(${p.code})`,
+  denoiseUnsupported: (p: { model: string }) => `${p.model} 모델은 노이즈를 제거할 수 없습니다. denoise는 waifu2x 모델만 받습니다`,
+  generativeOnly: (p: { model: string }) => `이 항목은 generative 모델만 받으며 ${p.model}은(는) 받지 않습니다`,
+  generativeUnavailable: '여기서는 생성형 확대를 사용할 수 없습니다',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId}은(는) 참조 이미지를 받지 않아 확대에 쓸 수 없습니다. 입력 이미지를 받는 모델을 고르세요.`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId}은(는) 출력 크기를 밝히지 않아 출력을 계획할 수 없습니다. 다른 모델을 고르세요.`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId}의 최대 출력은 ${p.size}라서 ${p.name}을(를) 확대할 수 없습니다. 로컬 엔진이나 더 큰 크기를 내는 모델을 고르세요.`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}: 모델은 ${p.size}로 그렸고 나머지 확대는 Lanczos 보간입니다`,
+  generativeRedraws: '생성형 확대는 다시 그리는 것이라 세부, 글자, 얼굴이 원본과 다를 수 있습니다',
 };

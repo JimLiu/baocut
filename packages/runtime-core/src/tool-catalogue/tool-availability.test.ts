@@ -52,7 +52,8 @@ function deps(
       asked.push(capability);
       return options.missing?.includes(capability) ? notConfigured(capability) : null;
     },
-    externalTools: async () => options.tools ?? [external('ffmpeg'), external('yt-dlp'), external('realesrgan-ncnn-vulkan')],
+    externalTools: async () =>
+      options.tools ?? ['ffmpeg', 'yt-dlp', 'realesrgan-ncnn-vulkan', 'waifu2x-ncnn-vulkan', 'upscayl-models'].map((name) => external(name)),
     offlineStrict: () => options.offline ?? false,
   };
 }

@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const ja: JobsUpscaleImageMessages = {
   label: '画像の高解像度化',
-  description: 'このコンピュータの Real-ESRGAN で画像を 2〜4 倍に拡大します。ファイルからファイルへ、出力は PNG で、既存のファイルは上書きしません。',
+  description: 'このコンピュータの Real-ESRGAN、Upscayl の重み、waifu2x、Lanczos で画像を 2〜4 倍に拡大するか、画像モデルで描き直します。ファイルからファイルへ、出力は PNG で、既存のファイルは上書きしません。',
   stepProbe: '画像を読み込む',
   stepUpscale: '拡大',
   stepVerify: '出力を検証',
@@ -10,9 +10,17 @@ export const ja: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `入力画像 ${p.file} が見つかりません`,
   inputUnsupported: (p: { name: string }) => `${p.name} は読み込める PNG、JPEG、WebP 画像ではありません`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} は拡大すると ${p.width}×${p.height} になります。各辺は最大 ${p.max} ピクセルです。倍率を小さくしてください。`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN で ${p.name} を拡大できませんでした：${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool} で ${p.name} を拡大できませんでした：${p.detail}`,
   outputMissing: (p: { name: string }) => `${p.name} の出力が書き出されませんでした`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `${p.name} の出力は ${p.actual} ですが、${p.expected} のはずです`,
   exifOrientation: (p: { name: string }) => `${p.name} には EXIF の向きタグがあります。出力はピクセルどおりに拡大され、正しい向きには回転されません`,
-  toolNotFound: (p: { code: string }) => `Real-ESRGAN を起動できません（${p.code}）`,
+  toolNotFound: (p: { tool: string; code: string }) => `${p.tool} を起動できません（${p.code}）`,
+  denoiseUnsupported: (p: { model: string }) => `${p.model} モデルはノイズ除去できません。denoise を受け付けるのは waifu2x のモデルだけです`,
+  generativeOnly: (p: { model: string }) => `これを受け付けるのは generative モデルだけで、${p.model} は受け付けません`,
+  generativeUnavailable: 'ここでは生成 AI による拡大を使えません',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} は参照画像を受け付けないため拡大に使えません。入力画像を受け付けるモデルを選んでください。`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} は出力サイズを示していないため、出力を計画できません。別のモデルを選んでください。`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} の最大出力は ${p.size} で、${p.name} を拡大できません。ローカルのエンジンか、より大きなサイズを出せるモデルを選んでください。`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}：モデルは ${p.size} で描画し、残りの拡大は Lanczos 補間です`,
+  generativeRedraws: '生成 AI による拡大は描き直しです。細部、文字、顔が元の画像と異なることがあります',
 };

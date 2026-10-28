@@ -81,6 +81,7 @@ import { createFaceDetector } from './face-detection.ts';
 import { LibraryService } from './library/library-service.ts';
 import { VoiceCloneService } from './library/voice-clone-service.ts';
 import { imageEditor } from './models/image-edit.ts';
+import { imageUpscaler } from './models/image-upscale.ts';
 import { openModelJobs, type ModelJobs, type ModelJobsOptions } from './models/model-jobs.ts';
 import { createTranslationMemory } from './models/translation-memory.ts';
 import { ModelInstallTools } from './agent-tools/model-install-tools.ts';
@@ -648,6 +649,10 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
             return externalToolsRef;
           },
           ffmpeg: async () => ({ command: process.env.BAOCUT_FFMPEG || 'ffmpeg', env: await toolEnv() }),
+          generative: {
+            upscaler: imageUpscaler({ services: context.services, grants: context.grants, catalog: context.catalog }),
+            grants: context.grants,
+          },
           saveDirectory: () => resolveSaveDirectory({ settings: settingsStore?.get('downloads.directory') ?? null }),
         }),
         aiToolDefinition(
@@ -927,6 +932,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           pipelines: models.pipelines,
           saveDirectory: () => resolveSaveDirectory({ settings: settings.store.get('downloads.directory') ?? null }),
           editModel: imageEditor({ services: models.services, grants: models.grants, catalog: models.catalog }).prepare,
+          upscaleModel: imageUpscaler({ services: models.services, grants: models.grants, catalog: models.catalog }).prepare,
           scope: toolScope,
         }),
         // 会话里的幻灯片（docs/design/slides §7.2）：校验与导入素材；编译器与 deck 的存储来自幻灯片服务。

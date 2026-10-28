@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const de: JobsUpscaleImageMessages = {
   label: 'Bild hochskalieren',
-  description: 'Vergrößert Bilder mit Real-ESRGAN auf diesem Computer um das 2- bis 4-Fache: Datei zu Datei, Ausgabe als PNG, vorhandene Dateien werden nicht überschrieben.',
+  description: 'Vergrößert Bilder auf diesem Computer um das 2- bis 4-Fache (Real-ESRGAN, Upscayl-Gewichte, waifu2x oder Lanczos) oder lässt sie von einem Bildmodell neu zeichnen: Datei zu Datei, Ausgabe als PNG, vorhandene Dateien werden nicht überschrieben.',
   stepProbe: 'Bilder lesen',
   stepUpscale: 'Hochskalieren',
   stepVerify: 'Ausgabe prüfen',
@@ -10,9 +10,17 @@ export const de: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `Eingabebild ${p.file} nicht gefunden`,
   inputUnsupported: (p: { name: string }) => `${p.name} ist kein lesbares PNG-, JPEG- oder WebP-Bild`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} hätte danach ${p.width}×${p.height}; jede Seite darf höchstens ${p.max} Pixel haben. Wähle einen kleineren Faktor.`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN konnte ${p.name} nicht hochskalieren: ${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool} konnte ${p.name} nicht vergrößern: ${p.detail}`,
   outputMissing: (p: { name: string }) => `Für ${p.name} wurde keine Ausgabe geschrieben`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `Die Ausgabe von ${p.name} ist ${p.actual}; erwartet war ${p.expected}`,
   exifOrientation: (p: { name: string }) => `${p.name} hat ein EXIF-Ausrichtungs-Tag; die Ausgabe wird pixelgenau vergrößert und nicht aufgerichtet`,
-  toolNotFound: (p: { code: string }) => `Real-ESRGAN kann nicht gestartet werden (${p.code})`,
+  toolNotFound: (p: { tool: string; code: string }) => `${p.tool} lässt sich nicht starten (${p.code})`,
+  denoiseUnsupported: (p: { model: string }) => `Das Modell ${p.model} kann nicht entrauschen; nur die waifu2x-Modelle nehmen denoise an`,
+  generativeOnly: (p: { model: string }) => `Nur das Modell generative nimmt das an, ${p.model} nicht`,
+  generativeUnavailable: 'Generatives Vergrößern ist hier nicht verfügbar',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} nimmt kein Referenzbild an und kann daher nicht vergrößern. Wählen Sie ein Modell, das Eingabebilder annimmt.`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} nennt keine Ausgabegrößen, daher lässt sich die Ausgabe nicht planen. Wählen Sie ein anderes Modell.`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} zeichnet höchstens in ${p.size}; damit würde ${p.name} nicht größer. Wählen Sie eine lokale Engine oder ein Modell mit größeren Formaten.`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}: Das Modell hat es in ${p.size} gezeichnet; der Rest der Vergrößerung ist Lanczos-Interpolation`,
+  generativeRedraws: 'Generatives Vergrößern zeichnet das Bild neu: Details, Text und Gesichter können vom Original abweichen',
 };

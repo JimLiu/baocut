@@ -254,9 +254,10 @@ const en = {
   shotsSpeakersUnmatched: 'Couldn’t tell which face on screen belongs to any of the speakers',
   shotsFacesUnavailable: 'Face detection isn’t available',
   installUpscalerSummary: (p: { tool: string; version: string; size: string; license: string; url: string }) => `Install ${p.tool} ${p.version} (${p.size}, ${p.license}) from ${p.url} to upscale images`,
-  upscaleSummary: (p: { count: number; scale: number; weights: string; dir: string }) => `Upscale images (${p.count}) ${p.scale}× with Real-ESRGAN (${p.weights}) and save PNGs to ${p.dir}`,
+  upscaleSummary: (p: { count: number; scale: number; executor: string; dir: string }) => `Upscale images (${p.count}) ${p.scale}× with ${p.executor} and save PNGs to ${p.dir}`,
   imageEditSummary: (p: { tool: string; count: number; executor: string; dir: string }) => `${p.tool}: images (${p.count}) with ${p.executor}, save PNGs to ${p.dir}`,
   imageEditDefaultModel: 'the default image model',
+  upscaleGenerativeSummary: (p: { count: number; scale: number; model: string; dir: string }) => `Send images (${p.count}) to ${p.model} to redraw them ${p.scale}× larger, and save PNGs to ${p.dir}`,
 };
 
 export type RcAgentToolsMessages = typeof en;

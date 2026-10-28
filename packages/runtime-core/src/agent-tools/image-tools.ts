@@ -1,32 +1,36 @@
 import path from 'node:path';
 import { z } from 'zod';
-import { EDIT_IMAGE_PIPELINES, UPSCALE_IMAGE_PIPELINE, UPSCALE_WEIGHTS, type PipelineRunner } from '@baocut/jobs';
+import { EDIT_IMAGE_PIPELINES, UPSCALE_IMAGE_PIPELINE, type PipelineRunner } from '@baocut/jobs';
 import {
   EDIT_IMAGE_ANCHORS,
   EDIT_IMAGE_METHODS,
   EDIT_IMAGE_OPS,
   RpcError,
+  UPSCALE_IMAGE_MODEL_SPECS,
   UPSCALE_IMAGE_MODELS,
+  UPSCALE_IMAGE_PROMPT_MAX,
   type ExternalToolStatus,
+  type UpscaleImageModel,
 } from '@baocut/protocol';
 import { JobsEditImage } from '@baocut/protocol/messages/jobs/edit-image.ts';
 import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { ExternalToolService } from '../external-tools/external-tool-service.ts';
-import { REALESRGAN } from '../external-tools/tool-manifests.ts';
 import { toolErrorOf } from './link-import-tools.ts';
 import { formatBytes } from './model-install-tools.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
-import { approvalField, confirmSummary, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { resolveUserPath } from './video-digest.ts';
 import { commandIdArg } from './video-tools.ts';
 
 /**
- * 图片的本机处理（架构设计 §7.9、§12.9）：`upscale` 用 Real-ESRGAN（受管的外部工具）把图片放大，启动 `upscale-image` 流程。
- * 文件到文件：输出 PNG 到 `outDir`（不给时是保存位置），不动原图。
+ * 图片的本机处理（架构设计 §7.9、§12.9）：`upscale` 把图片放大，启动 `upscale-image` 流程。引擎按模型定：Real-ESRGAN（自带权重
+ * 或 Upscayl 权重包）、waifu2x 是受管的外部工具，`lanczos` 只用 ffmpeg，`generative` 交给收参考图的生图模型重画。文件到文件：
+ * 输出 PNG 到 `outDir`（不给时是保存位置），不动原图。
  *
- * - Real-ESRGAN 已安装：按 `upscale`（`command`）确认，之后启动流程。它不读网络、不读用户数据之外的东西，不要单独的使用同意。
- * - 没有安装：按 `external_tools_install`（`high`）确认，说明里写明来源、版本、大小与许可；用户同意即提交安装任务，返回安装任务号。
- *   装好之后智能体再调用一次。
+ * - 要的工具都装好了：按 `upscale`（`command`）确认，之后启动流程。本机工具不读网络、不读用户数据之外的东西，不要单独的使用同意；
+ *   `generative` 先选定模型（同流程），确认卡写出它，外发的授权与预算同生成图片。
+ * - 执行的工具或权重包没有安装：按 `external_tools_install`（`high`）确认，说明里写明来源、版本、大小与许可；用户同意即提交安装
+ *   任务，返回安装任务号（一次装一个）。装好之后智能体再调用一次。
  *
  * `retouch` 去除物体、去水印、重绘局部与扩展画面（`remove-object` 等四个流程）：快速填充只用本机 ffmpeg；AI 修补把选区周围的
  * 一块（扩图是整张新画布）交给能改图的图像模型，授权与预算同生成图片。按 `retouch`（`command`）确认后启动流程。
@@ -44,6 +48,8 @@ export interface ImageToolsDeps {
    * 用同一个；选不出时同步拒绝。不给时（目录生成）不选，确认卡写「生图的默认模型」。
    */
   editModel?: (target: { provider?: string; model?: string }) => Promise<{ providerId: string; modelId: string }>;
+  /** 生成式放大用哪个模型（同流程启动时的选择：只在收参考图、列出尺寸的里选）；确认前先选定。不给时不选。 */
+  upscaleModel?: (target: { provider?: string; model?: string }) => Promise<{ providerId: string; modelId: string }>;
   scope: ToolScope;
 }
 
@@ -62,7 +68,28 @@ const schemas = {
     model: z
       .enum(UPSCALE_IMAGE_MODELS)
       .optional()
-      .describe('可选。photo（照片、实拍、截图，默认）或 anime（动画、插画、线稿：边缘更干净）'),
+      .describe(
+        '可选，默认 photo。Real-ESRGAN：photo 照片、实拍、截图；anime 动画、视频截图；illustration 插画、线稿。Upscayl 权重（第一次用时要装权重包）：' +
+          'upscayl-lite 快；high-fidelity 保真；remacri 锐利的写实（不可商用）；ultramix-balanced 均衡；ultrasharp 最锐利（不可商用）。waifu2x（可降噪）：' +
+          'waifu2x 插画；waifu2x-anime 动画；waifu2x-photo 照片。lanczos 插值，不用模型、不补细节。generative 把图发给生图模型重画（联网、计费，可能改动细节与文字）',
+      ),
+    denoise: z
+      .union([z.literal(-1), z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
+      .optional()
+      .describe('可选。降噪强度，-1 不降噪、0 默认、3 最强；只有 waifu2x 的模型收，适合有 JPEG 噪点的图'),
+    provider: z.string().min(1).max(200).optional().describe('可选，只有 generative 收。生图的 Provider；不给时用生图的默认（它不收参考图时换第一个收的）'),
+    imageModel: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe('可选，只有 generative 收。生图模型的 ID，要收参考图并列出尺寸（models_capabilities 的 generateImage 里 referenceImages 不为 null）'),
+    prompt: z
+      .string()
+      .min(1)
+      .max(UPSCALE_IMAGE_PROMPT_MAX)
+      .optional()
+      .describe('可选，只有 generative 收。附加的说明：画面里是什么、要保留的文字'),
     outDir: z
       .string()
       .min(1)
@@ -133,16 +160,18 @@ const DEFINITIONS: Record<'upscale' | 'retouch', ToolInfo> = {
   upscale: {
     title: '放大图片',
     description: [
-      '用本机的 Real-ESRGAN 把图片放大 2–4 倍（超分辨率，补出细节，不是简单拉伸）。文件到文件：每张输出一个 <原名>-upscaled-<倍数>x.png，不动原图。',
-      '照片、截图用 model photo（默认）；动画、插画、线稿用 anime。2× 与 3× 的照片是先放大 4 倍再缩到目标尺寸。',
-      '会按访问模式向用户确认；Real-ESRGAN 没有安装时会请用户同意下载它（显示来源、版本、大小与许可），这次只提交安装并返回 installJobId：用 jobs_wait 等它 completed，再调用一次本工具。',
-      '立即返回 jobId。用 jobs_wait 等它结束；state 为 completed 时 outputs 里是放大后的 PNG（path），要放进视频时用 assets_import 导入。失败时 error.code 是 UPSCALE_FAILED、UPSCALE_OUTPUT_TOO_LARGE、INPUT_UNREADABLE 等；不要自己运行放大程序绕过。',
+      '把图片放大 2–4 倍（超分辨率，补出细节，不是简单拉伸）。文件到文件：每张输出一个 <原名>-upscaled-<倍数>x.png，不动原图。',
+      '默认在本机用 Real-ESRGAN：照片、截图用 model photo（默认）；动画、视频截图用 anime；插画、线稿用 illustration。要别的风格时换 Upscayl 的权重或 waifu2x（有 JPEG 噪点时加 denoise）；lanczos 不用模型。没有原生倍数时先放大到原生倍数再缩到目标尺寸。',
+      'generative 把图发给生图模型重画：细节最多，但会改动内容，只在用户要「AI 重画」或本机效果不够时用；remacri、ultrasharp 的权重不可商用，用户要商用时别选。',
+      '会按访问模式向用户确认；选的模型要的工具或权重包没有安装时会请用户同意下载（显示来源、版本、大小与许可），这次只提交安装并返回 installJobId：用 jobs_wait 等它 completed，再调用一次本工具。',
+      '立即返回 jobId。用 jobs_wait 等它结束；state 为 completed 时 outputs 里是放大后的 PNG（path），要放进视频时用 assets_import 导入。失败时 error.code 是 UPSCALE_FAILED、UPSCALE_OUTPUT_TOO_LARGE、UPSCALE_MODEL_TOO_SMALL、INPUT_UNREADABLE 等；不要自己运行放大程序绕过。',
     ].join('\n'),
     annotations: { destructiveHint: false, idempotentHint: true },
     effect: 'job',
     examples: [
       { title: '把截图放大 2 倍', args: { files: ['shots/cover.png'], scale: 2 } },
-      { title: '把插画放大 4 倍，存到指定文件夹', args: { files: ['art/a.jpg', 'art/b.jpg'], model: 'anime', outDir: '~/Pictures/upscaled' } },
+      { title: '把插画放大 4 倍，存到指定文件夹', args: { files: ['art/a.jpg', 'art/b.jpg'], model: 'illustration', outDir: '~/Pictures/upscaled' } },
+      { title: '给有噪点的动画截图降噪并放大 2 倍', args: { files: ['frames/ep1.jpg'], model: 'waifu2x-anime', scale: 2, denoise: 2 } },
     ],
     surfaces: ['agent', 'cli'],
     positional: 'files',
@@ -191,7 +220,7 @@ export class ImageTools implements ToolSet {
 }
 
 async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipal) {
-  const { tools, pipelines, scope } = deps;
+  const { pipelines, scope } = deps;
   const access = scope.authorize(principal, true);
   if (access.principal.kind === 'service') {
     throw new ToolError('INVALID_ARGUMENTS', 'External services cannot upscale images on this computer. Ask the user to use the Upscale image tool in BaoCut.');
@@ -199,66 +228,57 @@ async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipa
   const base = scope.fileBase(access);
   const inputs = args.files.map((file) => resolveUserPath(file, base));
   const outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, base) : undefined;
-  const status = await tools.status(REALESRGAN);
-  if (status.installJobId) {
-    return { jobId: null, installJobId: status.installJobId, tool: toolView(status), next: installNext };
-  }
-  if (status.state === 'unavailable' || (status.state !== 'installed' && !status.installable)) {
-    throw new ToolError('TOOL_UNAVAILABLE', `${status.label} is not available: ${status.reason ?? 'no usable version'}`, {
-      tool: status.name,
-      state: status.state,
-      remedy: status.remedy ?? `Ask the user to install ${status.label} or set its path in BaoCut's external tool settings.`,
-    });
-  }
-  if (status.state !== 'installed') {
-    const offer = status.offer;
-    if (!offer || offer.blockedReason || !offer.url) {
-      throw new ToolError('TOOL_MANIFEST_INCOMPLETE', `${status.label} cannot be downloaded: ${offer?.blockedReason ?? 'no release for this platform'}`, {
-        tool: status.name,
-        remedy: `Ask the user to install ${status.label} themselves, then set its path in BaoCut's external tool settings.`,
-      });
-    }
-    const approval = await scope.confirm(access, {
-      tool: 'external_tools_install',
-      ...confirmSummary(
-        RcAgentTools.installUpscalerSummary({
-          tool: status.label,
-          version: offer.version,
-          size: formatBytes(offer.sizeBytes ?? offer.estimatedBytes),
-          license: offer.license,
-          url: offer.url,
-        }),
-      ),
-      risk: 'high',
-    });
-    const installed = await tools.install(
-      {
-        name: status.name,
-        consent: true,
-        via: 'agent-approval',
-        ...(args.commandId ? { commandId: scope.commandId(access, `${args.commandId}-install`) } : {}),
-      },
-      access.submitter,
-    );
-    return { jobId: null, installJobId: installed.jobId, tool: toolView(installed.tool), ...approvalField(approval), next: installNext };
-  }
   const scale = args.scale ?? 4;
   const model = args.model ?? 'photo';
-  const approval = await scope.confirm(access, {
-    tool: 'upscale',
-    ...confirmSummary(
-      RcAgentTools.upscaleSummary({
-        count: inputs.length,
-        scale,
-        weights: UPSCALE_WEIGHTS[model].weights,
-        dir: outDir ?? deps.saveDirectory(),
-      }),
-    ),
-  });
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[model];
+  // 确认之前先挡住这个模型不收的参数，免得用户同意了再失败。
+  if (args.denoise !== undefined && !spec.denoise) {
+    throw new ToolError('INVALID_ARGUMENTS', `The ${model} model can't denoise; denoise only works with waifu2x, waifu2x-anime and waifu2x-photo.`);
+  }
+  const extra = (['provider', 'imageModel', 'prompt'] as const).filter((key) => args[key] !== undefined);
+  if (spec.engine !== 'generative' && extra.length) {
+    throw new ToolError('INVALID_ARGUMENTS', `${extra.join(', ')} only apply to model generative; ${model} runs on this computer.`);
+  }
+  // 本机的引擎：执行的工具与权重包没装好时先按安装确认（一次装一个，装好之后智能体再调用一次）。
+  for (const name of [spec.tool, spec.pack]) {
+    const pending = name ? await installStep(deps, access, args, name) : null;
+    if (pending) return pending;
+  }
+  const target =
+    spec.engine === 'generative' && deps.upscaleModel
+      ? await deps.upscaleModel({
+          ...(args.provider !== undefined ? { provider: args.provider } : {}),
+          ...(args.imageModel !== undefined ? { model: args.imageModel } : {}),
+        })
+      : null;
+  const dir = outDir ?? deps.saveDirectory();
+  const summary =
+    spec.engine === 'generative'
+      ? RcAgentTools.upscaleGenerativeSummary({
+          count: inputs.length,
+          scale,
+          model: target ? `${target.providerId}/${target.modelId}` : (args.imageModel ?? args.provider ?? RcAgentTools.imageEditDefaultModel().text),
+          dir,
+        })
+      : RcAgentTools.upscaleSummary({ count: inputs.length, scale, executor: executorLabel(model), dir });
+  const approval = await scope.confirm(access, { tool: 'upscale', ...confirmSummary(summary) });
   const { jobId } = await pipelines.start(
     {
       pipeline: UPSCALE_IMAGE_PIPELINE,
-      params: { inputs, scale, model, ...(outDir !== undefined ? { outDir } : {}) },
+      params: {
+        inputs,
+        scale,
+        model,
+        ...(args.denoise !== undefined ? { denoise: args.denoise } : {}),
+        ...(target
+          ? { provider: target.providerId, imageModel: target.modelId }
+          : {
+              ...(args.provider !== undefined ? { provider: args.provider } : {}),
+              ...(args.imageModel !== undefined ? { imageModel: args.imageModel } : {}),
+            }),
+        ...(args.prompt !== undefined ? { prompt: args.prompt } : {}),
+        ...(outDir !== undefined ? { outDir } : {}),
+      },
       ...(args.commandId ? { commandId: scope.commandId(access, args.commandId) } : {}),
     },
     access.submitter,
@@ -266,11 +286,72 @@ async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipa
   return {
     jobId,
     installJobId: null,
+    ...(target ? { provider: target.providerId, imageModel: target.modelId } : {}),
     ...approvalField(approval),
-    next: `Upscale submitted (${inputs.length} ${inputs.length === 1 ? 'image' : 'images'}, ${scale}×, ${model}); PNGs go to ${outDir ?? 'the save location'}${
+    next: `Upscale submitted (${inputs.length} ${inputs.length === 1 ? 'image' : 'images'}, ${scale}×, ${target ? `${model}, ${target.providerId}/${target.modelId}` : model}); PNGs go to ${outDir ?? 'the save location'}${
       inputs.length === 1 ? ` (${path.parse(inputs[0]!).name}-upscaled-${scale}x.png)` : ''
-    }. Wait with jobs_wait; when state is completed, outputs[].path is the upscaled image. Tell the user where it is.`,
+    }. Wait with jobs_wait; when state is completed, outputs[].path is the upscaled image. Tell the user where it is${
+      spec.engine === 'generative' ? ' and ask them to check it: a generative upscale may change details and text' : ''
+    }.`,
   };
+}
+
+/** 确认卡与回复里的执行器：工具名与权重（产品名与模型名，不翻译）。 */
+function executorLabel(model: UpscaleImageModel): string {
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[model];
+  if (spec.engine === 'waifu2x') return `waifu2x (${spec.weights})`;
+  if (spec.engine === 'realesrgan') return `Real-ESRGAN (${spec.weights}${spec.pack ? ', Upscayl' : ''})`;
+  return 'Lanczos (ffmpeg)';
+}
+
+/**
+ * 一个要用的受管工具（或权重包）：装好了时 null；正在装时返回那个安装任务；没装时按 `external_tools_install`（`high`）确认、提交
+ * 安装并返回安装任务号；装不了时报错（带补救）。
+ */
+async function installStep(deps: ImageToolsDeps, access: ToolAccess, args: Args, name: string) {
+  const { tools, scope } = deps;
+  const status = await tools.status(name);
+  if (status.state === 'installed' && !status.installJobId) return null;
+  if (status.installJobId) {
+    return { jobId: null, installJobId: status.installJobId, tool: toolView(status), next: installNext(status.label) };
+  }
+  if (status.state === 'unavailable' || !status.installable) {
+    throw new ToolError('TOOL_UNAVAILABLE', `${status.label} is not available: ${status.reason ?? 'no usable version'}`, {
+      tool: status.name,
+      state: status.state,
+      remedy: status.remedy ?? `Ask the user to install ${status.label} or set its path in BaoCut's external tool settings.`,
+    });
+  }
+  const offer = status.offer;
+  if (!offer || offer.blockedReason || !offer.url) {
+    throw new ToolError('TOOL_MANIFEST_INCOMPLETE', `${status.label} cannot be downloaded: ${offer?.blockedReason ?? 'no release for this platform'}`, {
+      tool: status.name,
+      remedy: `Ask the user to install ${status.label} themselves, then set its path in BaoCut's external tool settings.`,
+    });
+  }
+  const approval = await scope.confirm(access, {
+    tool: 'external_tools_install',
+    ...confirmSummary(
+      RcAgentTools.installUpscalerSummary({
+        tool: status.label,
+        version: offer.version,
+        size: formatBytes(offer.sizeBytes ?? offer.estimatedBytes),
+        license: offer.license,
+        url: offer.url,
+      }),
+    ),
+    risk: 'high',
+  });
+  const installed = await tools.install(
+    {
+      name: status.name,
+      consent: true,
+      via: 'agent-approval',
+      ...(args.commandId ? { commandId: scope.commandId(access, `${args.commandId}-install-${name}`) } : {}),
+    },
+    access.submitter,
+  );
+  return { jobId: null, installJobId: installed.jobId, tool: toolView(installed.tool), ...approvalField(approval), next: installNext(status.label) };
 }
 
 const EDIT_LABELS = { erase: JobsEditImage.eraseLabel, watermark: JobsEditImage.watermarkLabel, repaint: JobsEditImage.repaintLabel, expand: JobsEditImage.expandLabel };
@@ -353,8 +434,8 @@ async function editTarget(resolve: NonNullable<ImageToolsDeps['editModel']>, arg
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
-const installNext =
-  'Real-ESRGAN is being installed. Wait for installJobId with jobs_wait; once its state is completed, call upscale again. If it fails, error.details.remedy says how to fix it.';
+const installNext = (label: string) =>
+  `${label} is being installed. Wait for installJobId with jobs_wait; once its state is completed, call upscale again. If it fails, error.details.remedy says how to fix it.`;
 
 function toolView(status: ExternalToolStatus) {
   return { name: status.name, state: status.state, version: status.version, source: status.source };

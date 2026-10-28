@@ -6,9 +6,16 @@ import path from 'node:path';
 import { killProcessTree, type SpawnProcess } from '@baocut/process-host';
 import {
   RpcError,
+  UPSCALE_IMAGE_DENOISE_LEVELS,
+  UPSCALE_IMAGE_MODEL_SPECS,
   UPSCALE_IMAGE_MODELS,
+  UPSCALE_IMAGE_PROMPT_MAX,
+  upscaleNeedsResize,
+  upscalePeakScale,
   type GeneratedOutput,
+  type Id,
   type Localized,
+  type UpscaleImageDenoise,
   type UpscaleImageModel,
   type UpscaleImageParams,
   type UpscaleImageScale,
@@ -22,20 +29,24 @@ import { fileInputSchema, rejectUnresolvedEntry } from './entry-input.ts';
 import { ffmpegVersion, runFfmpeg, type MediaToolResolver } from './ffmpeg.ts';
 import { readImageHeader, type ImageHeader } from './image-header.ts';
 import { ParamReader, invalid } from './params.ts';
-import { PipelineStepError, type PipelineDefinition, type PipelineStepContext } from './pipeline.ts';
+import { PipelineStepError, type PipelineDefinition, type PipelineStepContext, type StepResources } from './pipeline.ts';
 import { ensureSaveDirectory, ensureSaveDirectoryForStep } from './save-location.ts';
 import { publishFile } from './transcode.ts';
 
 /**
- * 图片超分（架构设计 §7.9；技术方案 §4.1）：文件到文件，不建视频，由受管外部工具 Real-ESRGAN（ncnn 版，`realesrgan-ncnn-vulkan`）
- * 在本机 GPU 上执行（Vulkan；macOS 经 MoltenVK 跑 Metal）。
+ * 图片超分（架构设计 §7.9；技术方案 §4.1）：文件到文件，不建视频。引擎按模型定（`UPSCALE_IMAGE_MODEL_SPECS`）：受管外部工具
+ * Real-ESRGAN（自带权重或 Upscayl 权重包）与 waifu2x 在本机 GPU 上执行（ncnn 版，Vulkan；macOS 经 MoltenVK 跑 Metal）；`lanczos`
+ * 是 ffmpeg 的插值；`generative` 由能收参考图的生图模型按高分辨率重画（在进程内调用 Provider，经授权与预算，同图片编辑）。
  *
- * 步骤：读取（文件头里的格式、尺寸与 EXIF 方向；输出每边不超过 `MAX_OUTPUT_SIDE`）→ 放大（每张图起一次工具，写进 staging；
- * `photo` 的 2、3 倍先放大 4 倍再由 ffmpeg 用 Lanczos 缩到目标尺寸）→ 校验（输出是 PNG，尺寸正好是源尺寸乘倍数）→ 发布
- * （`<源文件名>-upscaled-<倍数>x.png`，不覆盖已有的文件）。
+ * 步骤：读取（文件头里的格式、尺寸与 EXIF 方向；输出每边不超过 `MAX_OUTPUT_SIDE`；`generative` 按模型的尺寸表定每张图出图的
+ * 尺寸）→ 放大（每张图起一次工具或调一次模型，写进 staging；没有原生倍数时先放大到原生倍数再由 ffmpeg 用 Lanczos 缩到目标尺寸）
+ * → 校验（输出是 PNG，尺寸正好是源尺寸乘倍数）→ 发布（`<源文件名>-upscaled-<倍数>x.png`，不覆盖已有的文件）。
  *
- * - 工具按块推理并拼回（ncnn 按显存自选块大小），透明通道由它另行放大；EXIF 方向不转正（像素原样放大），带方向标记的源图在摘要里提醒。
- * - 超分是更高分辨率的估计，不能找回压缩或失焦丢掉的真实细节；文字、界面截图可能被「画」出不存在的笔画。
+ * - 本机工具按块推理并拼回（ncnn 按显存自选块大小），透明通道由它另行放大；EXIF 方向不转正（像素原样放大），带方向标记的源图在摘要里提醒。
+ * - 超分是更高分辨率的估计，不能找回压缩或失焦丢掉的真实细节；文字、界面截图可能被「画」出不存在的笔画。生成式放大改动更大，
+ *   摘要里总是提醒。
+ * - 生成式放大：选比例最接近的尺寸里像素刚够目标的一档（都不够时最大的一档），出图比源图还小时拒绝（`UPSCALE_MODEL_TOO_SMALL`）。
+ *   比例不同时先在四周补黑边到模型的比例，出图后按同样的比例裁掉，再缩放到目标尺寸；出图不够目标尺寸的部分是插值，摘要里提醒。
  */
 
 export const UPSCALE_IMAGE_PIPELINE = 'upscale-image';
@@ -43,31 +54,60 @@ export const UPSCALE_IMAGE_PIPELINE = 'upscale-image';
 /** 输出每边的上限（像素）：再大 PNG 编码与查看都不现实，也超出常见图片软件的上限。 */
 export const MAX_OUTPUT_SIDE = 16384;
 
-/** 两种模型对应的权重与它原生支持的倍数（ncnn 发布包 `models/` 里的名字）。 */
-export const UPSCALE_WEIGHTS: Readonly<Record<UpscaleImageModel, { weights: string; native: readonly UpscaleImageScale[] }>> = {
-  photo: { weights: 'realesrgan-x4plus', native: [4] },
-  anime: { weights: 'realesr-animevideov3', native: [2, 3, 4] },
-};
+/** 受管外部工具的名字（§12.9）：执行的工具、Upscayl 权重包。 */
+const REALESRGAN = 'realesrgan-ncnn-vulkan';
+const WAIFU2X = 'waifu2x-ncnn-vulkan';
+const UPSCAYL_MODELS = 'upscayl-models';
+
+/** 生成式放大给模型的提示词（给模型看的，英文）；用户的说明接在后面。 */
+const GENERATIVE_PROMPT =
+  'Upscale this image to a higher resolution. Reproduce it faithfully: keep the composition, framing, colours, lighting, text and every ' +
+  'object exactly where they are, and only add fine detail and sharpness consistent with the original. Do not add, remove, move or restyle anything.';
+const GENERATIVE_PADDED = 'The solid black bands along the edges are padding: keep them solid black and do not draw into them.';
 
 const KILL_GRACE_MS = 2000;
 const STDERR_TAIL = 4000;
 
-/** 解析好、能用的 Real-ESRGAN：可执行文件与版本（受管副本是发布版本）。 */
+/** 解析好、能用的外部工具：可执行文件与版本（受管副本是发布版本）。Upscayl 权重包的 `command` 是它的目录（含 `models`）。 */
 export interface UpscaleTool {
   command: string;
   version: string;
   /** 用解释器运行脚本时的固定参数（测试的假工具）；不经 shell。 */
   args?: readonly string[];
   env?: NodeJS.ProcessEnv;
-  /** 权重目录；不给时是可执行文件旁边的 `models/`（发布包的布局）。 */
+  /** 权重目录：Real-ESRGAN 不给时是可执行文件旁边的 `models/`，waifu2x 不给时是可执行文件所在的目录（放各个 `models-*`）。 */
   modelsDir?: string;
 }
 
+/** 生成式放大的执行者（Runtime 里接生图的 Provider）。 */
+export interface ImageUpscaler {
+  /**
+   * 启动（与重试）时：选定 Provider 与模型，给出模型支持的尺寸（`WIDTHxHEIGHT`）。模型不收参考图或不列尺寸时抛
+   * `RpcError('invalid-request')`（`UPSCALE_MODEL_UNSUPPORTED`）。
+   */
+  prepare(target: { provider?: string; model?: string }): Promise<{ providerId: string; modelId: string; sizes: readonly string[] }>;
+  /** 放大这一步的峰值需求与执行队列：本机模型包要先占它的 Model Worker；在线与节点的 null。 */
+  resources?(target: { providerId: string; modelId: string }): StepResources | null;
+  /** 按 `size` 重画一张图（`image` 作参考图），输出写在 `staging` 里。 */
+  upscale(request: {
+    providerId: string;
+    modelId: string;
+    image: string;
+    prompt: string;
+    size: string;
+    jobId: Id;
+    staging: string;
+    signal: AbortSignal;
+  }): Promise<{ file: string }>;
+}
+
 export interface UpscaleImageDeps {
-  /** 解析工具：没装、不能运行时抛 `RpcError('conflict')`（`TOOL_NOT_INSTALLED` 等，带补救）。 */
-  tool: () => Promise<UpscaleTool>;
-  /** `photo` 的 2、3 倍缩小用。 */
+  /** 解析受管外部工具（按工具名）：没装、不能运行时抛 `RpcError('conflict')`（`TOOL_NOT_INSTALLED` 等，带补救）。 */
+  tool: (name: string) => Promise<UpscaleTool>;
+  /** 缩放、Lanczos 插值与生成式放大的补边、裁切用。 */
   ffmpeg: MediaToolResolver;
+  /** `generative` 的执行者；没有接线时不收 `generative`。 */
+  upscaler?: ImageUpscaler;
   /** 不给 `outDir` 时的保存位置（§7.9「保存位置」）；没有接线时写在源文件旁边。 */
   saveDirectory?: () => string;
   /** 同 `TranscodeDeps.hardLink`。 */
@@ -76,7 +116,7 @@ export interface UpscaleImageDeps {
   platform?: NodeJS.Platform;
 }
 
-/** 冻结的参数：默认值已经补上。 */
+/** 冻结的参数：默认值已经补上；能降噪的模型补上 `denoise`，`generative` 补上选定的 Provider 与模型。 */
 export interface FrozenUpscaleImageParams extends UpscaleImageParams {
   scale: UpscaleImageScale;
   model: UpscaleImageModel;
@@ -95,10 +135,17 @@ const PARAMS_SCHEMA = {
     scale: { type: 'integer', enum: [2, 3, 4], default: 4, description: '放大倍数' },
     model: {
       type: 'string',
-      enum: ['photo', 'anime'],
+      enum: [...UPSCALE_IMAGE_MODELS],
       default: 'photo',
-      description: 'photo：照片与写实画面（realesrgan-x4plus，2、3 倍要 ffmpeg 缩小）；anime：动画、插画与线稿（realesr-animevideov3）',
+      description:
+        'Real-ESRGAN：photo 照片与写实、anime 动画与视频截图、illustration 插画与线稿；Upscayl 权重包（要另装）：upscayl-lite 快、' +
+        'high-fidelity 保真、remacri 锐利写实（不可商用）、ultramix-balanced 均衡、ultrasharp 最锐利（不可商用）；waifu2x：waifu2x 插画、' +
+        'waifu2x-anime 动画、waifu2x-photo 照片（可降噪）；lanczos 插值，不用模型；generative 用生图模型重画（联网，可能改动内容）',
     },
+    denoise: { type: 'integer', enum: [...UPSCALE_IMAGE_DENOISE_LEVELS], default: 0, description: '降噪强度，-1 不降噪、3 最强；只有 waifu2x 的模型收' },
+    provider: { type: 'string', description: 'generative：生图的 Provider；不给时按默认值选能收参考图的模型' },
+    imageModel: { type: 'string', description: 'generative：生图模型的 ID' },
+    prompt: { type: 'string', maxLength: UPSCALE_IMAGE_PROMPT_MAX, description: 'generative：附加的说明（例如画面里是什么、要保留的文字）' },
     outDir: { type: 'string', description: '输出目录的绝对路径（不存在时创建）；不给时是保存位置（设置 downloads.directory，默认主机的下载文件夹）' },
     // i18n-ignore-end
   },
@@ -106,29 +153,52 @@ const PARAMS_SCHEMA = {
   additionalProperties: false,
 };
 
+/** 一张图的计划。`generative` 时另有出图的尺寸、补边后的尺寸与补边的偏移（不补边时与源图相同、偏移为 0）。 */
+interface ImagePlan {
+  width: number;
+  height: number;
+  orientation: number | null;
+  model: { size: string; width: number; height: number; padWidth: number; padHeight: number; x: number; y: number } | null;
+}
+
 interface ProbeOutput extends Record<string, unknown> {
-  images: Array<{ width: number; height: number; orientation: number | null }>;
+  images: ImagePlan[];
   stats: Array<{ size: number; mtimeMs: number }>;
 }
 
 interface UpscaleOutput extends Record<string, unknown> {
   files: Array<{ file: string; source: string; width: number; height: number }>;
-  version: string;
-  resize: { tool: 'ffmpeg'; version: string } | null;
+  executor: UpscaleImageSummary['executor'];
 }
 
 interface PublishOutput extends Record<string, unknown> {
   outputs: GeneratedOutput[];
 }
 
-/** 这次要不要 ffmpeg 缩小：模型没有原生的这个倍数。 */
-export function needsResize(model: UpscaleImageModel, scale: UpscaleImageScale): boolean {
-  return !UPSCALE_WEIGHTS[model].native.includes(scale);
+/**
+ * 生成式放大的出图尺寸：`sizes` 里比例与源图最接近的几档（相差不到 0.5%）中，像素刚够目标（源尺寸乘倍数）的最小一档，都不够时
+ * 最大的一档。没有能解析的尺寸时 null。
+ */
+export function upscaleModelSize(sizes: readonly string[], width: number, height: number, scale: number): { size: string; width: number; height: number } | null {
+  const parsed = sizes.flatMap((size) => {
+    const match = /^(\d+)x(\d+)$/.exec(size);
+    return match ? [{ size, width: Number(match[1]), height: Number(match[2]) }] : [];
+  });
+  if (!parsed.length) return null;
+  const target = Math.log(width / height);
+  const diff = (s: { width: number; height: number }) => Math.abs(Math.log(s.width / s.height) - target);
+  const best = Math.min(...parsed.map(diff));
+  const near = parsed.filter((s) => diff(s) <= best + 0.005).sort((a, b) => a.width * a.height - b.width * b.height);
+  const want = width * scale * height * scale;
+  return near.find((s) => s.width * s.height >= want) ?? near.at(-1)!;
 }
 
-/** 交给工具的倍数：原生支持的就是它，否则 4 倍（之后缩小）。 */
-function nativeScale(model: UpscaleImageModel, scale: UpscaleImageScale): UpscaleImageScale {
-  return needsResize(model, scale) ? 4 : scale;
+/** 补边到模型的比例：比源图宽时补左右，高时补上下，居中；补完的尺寸与源图左上角的偏移。 */
+function padPlan(width: number, height: number, model: { width: number; height: number }) {
+  const ratio = model.width / model.height;
+  const padWidth = ratio > width / height ? Math.max(width, Math.round(height * ratio)) : width;
+  const padHeight = ratio > width / height ? height : Math.max(height, Math.round(width / ratio));
+  return { padWidth, padHeight, x: Math.floor((padWidth - width) / 2), y: Math.floor((padHeight - height) / 2) };
 }
 
 export function upscaleImagePipeline(deps: UpscaleImageDeps): PipelineDefinition<FrozenUpscaleImageParams> {
@@ -139,30 +209,46 @@ export function upscaleImagePipeline(deps: UpscaleImageDeps): PipelineDefinition
     paramsSchema: PARAMS_SCHEMA,
     parse: parseUpscaleImageParams,
     async prepare(params) {
+      const spec = UPSCALE_IMAGE_MODEL_SPECS[params.model];
+      // 生成式放大先选定模型：每张图出图的尺寸由它的尺寸表定。
+      let chosen: Awaited<ReturnType<ImageUpscaler['prepare']>> | null = null;
+      if (spec.engine === 'generative') {
+        if (!deps.upscaler) throw new RpcError('invalid-request', J.generativeUnavailable(), { code: 'UPSCALE_MODEL_UNSUPPORTED' });
+        chosen = await deps.upscaler.prepare({
+          ...(params.provider !== undefined ? { provider: params.provider } : {}),
+          ...(params.imageModel !== undefined ? { model: params.imageModel } : {}),
+        });
+      }
       for (const file of params.inputs) {
-        const header = await inspectInput(file);
-        if (!isHeader(header)) throw new RpcError('invalid-request', header, { code: 'INPUT_UNREADABLE', file });
-        const problem = sizeProblem(file, header, params.scale);
-        if (problem) throw new RpcError('invalid-request', problem, { code: 'UPSCALE_OUTPUT_TOO_LARGE', file });
+        const planned = await planInput(file, params, chosen);
+        if (!isPlan(planned)) throw new RpcError('invalid-request', planned.message, { code: planned.code, file });
       }
       const outDir = params.outDir ?? deps.saveDirectory?.();
       if (outDir !== undefined) await ensureSaveDirectory(outDir);
-      // 工具与（要缩小时的）ffmpeg 在启动时就要能用：缺了直接拒绝并给补救，不建任务。
-      const tool = await deps.tool();
-      if (needsResize(params.model, params.scale)) await ffmpegOrReject(deps.ffmpeg);
+      // 工具、权重包与（要缩放、插值时的）ffmpeg 在启动时就要能用：缺了直接拒绝并给补救，不建任务。
+      let executor: { providerId: string; modelId: string };
+      if (chosen) executor = { providerId: chosen.providerId, modelId: chosen.modelId };
+      else if (spec.tool) {
+        const tool = await deps.tool(spec.tool);
+        const pack = spec.pack ? await deps.tool(spec.pack) : null;
+        executor = { providerId: spec.tool, modelId: `${spec.weights}@${(pack ?? tool).version}` };
+      } else executor = { providerId: 'ffmpeg', modelId: `lanczos@${await ffmpegOrReject(deps.ffmpeg)}` };
+      if (spec.engine !== 'lanczos' && usesFfmpeg(params)) await ffmpegOrReject(deps.ffmpeg);
       const stats = await Promise.all(params.inputs.map((f) => fs.stat(f)));
+      const frozen: FrozenUpscaleImageParams = {
+        ...params,
+        ...(chosen ? { provider: chosen.providerId, imageModel: chosen.modelId } : {}),
+        ...(outDir !== undefined ? { outDir } : {}),
+      };
       const identity = {
         inputs: params.inputs.map((file, i) => ({ file, size: stats[i]!.size, mtimeMs: stats[i]!.mtimeMs })),
         scale: params.scale,
         model: params.model,
+        denoise: params.denoise ?? null,
+        prompt: params.prompt ?? null,
+        executor,
       };
-      return {
-        params: outDir !== undefined ? { ...params, outDir } : params,
-        providerId: 'realesrgan-ncnn-vulkan',
-        modelId: `${UPSCALE_WEIGHTS[params.model].weights}@${tool.version}`,
-        videoId: null,
-        contentHash: `sha256:${sha256Hex(canonicalJson(identity))}`,
-      };
+      return { params: frozen, ...executor, videoId: null, contentHash: `sha256:${sha256Hex(canonicalJson(identity))}` };
     },
     steps: [
       {
@@ -170,13 +256,12 @@ export function upscaleImagePipeline(deps: UpscaleImageDeps): PipelineDefinition
         label: () => J.stepProbe(),
         run: async ({ params, progress }) => {
           progress({ done: 0, total: params.inputs.length, unit: 'units' }, 'probing');
-          const images: ProbeOutput['images'] = [];
+          const chosen = UPSCALE_IMAGE_MODEL_SPECS[params.model].engine === 'generative' ? await generativeTarget(deps, params) : null;
+          const images: ImagePlan[] = [];
           for (const file of params.inputs) {
-            const header = await inspectInput(file);
-            if (!isHeader(header)) throw new PipelineStepError('INPUT_UNREADABLE', header, { file });
-            const problem = sizeProblem(file, header, params.scale);
-            if (problem) throw new PipelineStepError('UPSCALE_OUTPUT_TOO_LARGE', problem, { file });
-            images.push({ width: header.width, height: header.height, orientation: header.orientation });
+            const planned = await planInput(file, params, chosen);
+            if (!isPlan(planned)) throw new PipelineStepError(planned.code, planned.message, { file });
+            images.push(planned);
             progress({ done: images.length, total: params.inputs.length, unit: 'units' });
           }
           const stats = await Promise.all(params.inputs.map((f) => fs.stat(f)));
@@ -196,9 +281,13 @@ export function upscaleImagePipeline(deps: UpscaleImageDeps): PipelineDefinition
         name: 'upscale',
         label: () => J.stepUpscale(),
         resources: (params, outputs) => {
+          const spec = UPSCALE_IMAGE_MODEL_SPECS[params.model];
+          if (spec.engine === 'generative') {
+            return params.provider && params.imageModel ? (deps.upscaler?.resources?.({ providerId: params.provider, modelId: params.imageModel }) ?? null) : null;
+          }
           const largest = Math.max(...(outputs.probe as ProbeOutput).images.map((i) => i.width * i.height));
-          const factor = nativeScale(params.model, params.scale);
-          return { demand: upscaleImageDemand(largest * factor * factor) };
+          const factor = upscalePeakScale(params.model, params.scale);
+          return { demand: upscaleImageDemand(largest * factor * factor, spec.engine !== 'lanczos') };
         },
         run: (context) => upscale(deps, context),
         reusable: async (output) => {
@@ -260,13 +349,22 @@ export function upscaleImagePipeline(deps: UpscaleImageDeps): PipelineDefinition
       const probed = outputs.probe as ProbeOutput;
       const upscaled = outputs.upscale as UpscaleOutput;
       const published = (outputs.publish as PublishOutput).outputs;
-      const warnings = params.inputs.flatMap((file, i) =>
-        (probed.images[i]?.orientation ?? 1) !== 1 ? [J.exifOrientation({ name: path.basename(file) }).text] : [],
-      );
+      const warnings = params.inputs.flatMap((file, i) => {
+        const name = path.basename(file);
+        const image = probed.images[i];
+        const out: string[] = [];
+        if ((image?.orientation ?? 1) !== 1) out.push(J.exifOrientation({ name }).text);
+        // 出图里源图那一块不够目标尺寸：差的部分是插值。
+        if (image?.model && Math.round((image.model.width * image.width) / image.model.padWidth) < image.width * params.scale) {
+          out.push(J.generativeInterpolated({ name, size: image.model.size.replace('x', '×') }).text);
+        }
+        return out;
+      });
+      if (UPSCALE_IMAGE_MODEL_SPECS[params.model].engine === 'generative') warnings.unshift(J.generativeRedraws().text);
       const summary: UpscaleImageSummary = {
         model: params.model,
         scale: params.scale,
-        executor: { tool: 'realesrgan-ncnn-vulkan', version: upscaled.version, weights: UPSCALE_WEIGHTS[params.model].weights, resize: upscaled.resize },
+        executor: upscaled.executor,
         images: upscaled.files.map((item, i) => ({
           source: item.source,
           width: item.width,
@@ -274,6 +372,7 @@ export function upscaleImagePipeline(deps: UpscaleImageDeps): PipelineDefinition
           outWidth: item.width * params.scale,
           outHeight: item.height * params.scale,
           file: published[i]!.path!,
+          modelSize: probed.images[i]?.model?.size ?? null,
         })),
         files: published.map((o) => o.path!),
         warnings,
@@ -284,7 +383,7 @@ export function upscaleImagePipeline(deps: UpscaleImageDeps): PipelineDefinition
 }
 
 export function parseUpscaleImageParams(raw: Record<string, unknown>): FrozenUpscaleImageParams {
-  const reader = new ParamReader(raw, ['inputs', 'scale', 'model', 'outDir']);
+  const reader = new ParamReader(raw, ['inputs', 'scale', 'model', 'denoise', 'provider', 'imageModel', 'prompt', 'outDir']);
   const inputs = reader.array('inputs', { min: 1, max: 50 })!;
   for (const input of inputs) {
     rejectUnresolvedEntry('inputs', input);
@@ -292,10 +391,75 @@ export function parseUpscaleImageParams(raw: Record<string, unknown>): FrozenUps
   }
   const scale = (reader.int('scale', 2, 4) ?? 4) as UpscaleImageScale;
   const model = reader.oneOf('model', UPSCALE_IMAGE_MODELS) ?? 'photo';
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[model];
+  const denoise = reader.int('denoise', -1, 3) as UpscaleImageDenoise | undefined;
+  if (denoise !== undefined && !spec.denoise) throw invalid('denoise', J.denoiseUnsupported({ model }));
+  const generative = {
+    provider: reader.string('provider', { optional: true, max: 200 }),
+    imageModel: reader.string('imageModel', { optional: true, max: 200 }),
+    prompt: reader.string('prompt', { optional: true, max: UPSCALE_IMAGE_PROMPT_MAX }),
+  };
+  if (spec.engine !== 'generative') {
+    for (const [key, value] of Object.entries(generative)) if (value !== undefined) throw invalid(key, J.generativeOnly({ model }));
+  }
   const outDir = reader.string('outDir', { optional: true, max: 4096 });
   if (outDir !== undefined && !path.isAbsolute(outDir)) throw invalid('outDir', JobsParams.mustBeAbsolutePath());
-  return { inputs: inputs as string[], scale, model, ...(outDir !== undefined ? { outDir } : {}) };
+  return {
+    inputs: inputs as string[],
+    scale,
+    model,
+    ...(spec.denoise ? { denoise: denoise ?? 0 } : {}),
+    ...Object.fromEntries(Object.entries(generative).filter(([, value]) => value !== undefined)),
+    ...(outDir !== undefined ? { outDir } : {}),
+  };
 }
+
+/** 这次要不要 ffmpeg：插值、生成式放大的补边与缩放，或模型没有原生的这个倍数。 */
+function usesFfmpeg(params: FrozenUpscaleImageParams): boolean {
+  const engine = UPSCALE_IMAGE_MODEL_SPECS[params.model].engine;
+  return engine === 'lanczos' || engine === 'generative' || upscaleNeedsResize(params.model, params.scale);
+}
+
+/** 执行时重新选定冻结的 Provider 与模型（拿它的尺寸表）。 */
+async function generativeTarget(deps: UpscaleImageDeps, params: FrozenUpscaleImageParams) {
+  if (!deps.upscaler) throw new PipelineStepError('UPSCALE_MODEL_UNSUPPORTED', J.generativeUnavailable());
+  try {
+    return await deps.upscaler.prepare({
+      ...(params.provider !== undefined ? { provider: params.provider } : {}),
+      ...(params.imageModel !== undefined ? { model: params.imageModel } : {}),
+    });
+  } catch (error) {
+    if (error instanceof RpcError) {
+      const details = (error.details ?? {}) as Record<string, unknown>;
+      throw new PipelineStepError(typeof details.code === 'string' ? details.code : 'UPSCALE_MODEL_UNSUPPORTED', error.message, details);
+    }
+    throw error;
+  }
+}
+
+/** 读一张输入、定它的计划；读不出、放大后超出上限、生成式放大出图不比源图大时给出错误码与说明。 */
+async function planInput(
+  file: string,
+  params: FrozenUpscaleImageParams,
+  chosen: { modelId: string; sizes: readonly string[] } | null,
+): Promise<ImagePlan | { code: string; message: Localized }> {
+  const header = await inspectInput(file);
+  if (!isHeader(header)) return { code: 'INPUT_UNREADABLE', message: header };
+  const problem = sizeProblem(file, header, params.scale);
+  if (problem) return { code: 'UPSCALE_OUTPUT_TOO_LARGE', message: problem };
+  const base = { width: header.width, height: header.height, orientation: header.orientation, model: null };
+  if (!chosen) return base;
+  const size = upscaleModelSize(chosen.sizes, header.width, header.height, params.scale);
+  if (!size) return { code: 'UPSCALE_MODEL_UNSUPPORTED', message: J.modelNoSizes({ modelId: chosen.modelId }) };
+  const pad = padPlan(header.width, header.height, size);
+  // 出图里源图那一块的宽度不比源图大：重画也没有放大。
+  if (Math.round((size.width * header.width) / pad.padWidth) <= header.width) {
+    return { code: 'UPSCALE_MODEL_TOO_SMALL', message: J.modelTooSmall({ name: path.basename(file), modelId: chosen.modelId, size: size.size.replace('x', '×') }) };
+  }
+  return { ...base, model: { ...size, ...pad } };
+}
+
+const isPlan = (value: ImagePlan | { code: string; message: Localized }): value is ImagePlan => 'width' in value;
 
 /** 读一张输入的文件头；不在、读不出或不是 PNG、JPEG、WebP 时给出说明。 */
 async function inspectInput(file: string): Promise<ImageHeader | Localized> {
@@ -314,7 +478,7 @@ function sizeProblem(file: string, header: ImageHeader, scale: UpscaleImageScale
   return J.outputTooLarge({ name: path.basename(file), width, height, max: MAX_OUTPUT_SIDE });
 }
 
-/** ffmpeg 不能用时以 `conflict` 拒绝启动（同文件转码），带补救。 */
+/** ffmpeg 不能用时以 `conflict` 拒绝启动（同文件转码），带补救；能用时给出版本。 */
 async function ffmpegOrReject(ffmpeg: MediaToolResolver): Promise<string> {
   try {
     return await ffmpegVersion(ffmpeg);
@@ -327,46 +491,131 @@ async function ffmpegOrReject(ffmpeg: MediaToolResolver): Promise<string> {
   }
 }
 
+/** 用 ffmpeg 出一张 PNG：`filters` 是滤镜链。 */
+async function ffmpegPng(ffmpeg: MediaToolResolver, input: string, output: string, filters: string, signal: AbortSignal): Promise<void> {
+  await fs.rm(output, { force: true });
+  await runFfmpeg(ffmpeg, ['-hide_banner', '-v', 'error', '-i', `file:${input}`, '-vf', filters, '-frames:v', '1', '-update', '1', '-y', `file:${output}`], { signal });
+}
+
 async function upscale(deps: UpscaleImageDeps, context: PipelineStepContext<FrozenUpscaleImageParams>): Promise<{ output: UpscaleOutput }> {
-  const { params, outputs, signal, staging, progress } = context;
+  const { params, outputs, signal, staging, progress, jobId } = context;
   const probed = outputs.probe as ProbeOutput;
-  const tool = await deps.tool();
-  const resize = needsResize(params.model, params.scale) ? { tool: 'ffmpeg' as const, version: await ffmpegVersion(deps.ffmpeg) } : null;
-  const factor = nativeScale(params.model, params.scale);
-  const modelsDir = tool.modelsDir ?? path.join(path.dirname(tool.command), 'models');
+  const spec = UPSCALE_IMAGE_MODEL_SPECS[params.model];
+  const ffmpeg = usesFfmpeg(params) ? await ffmpegVersion(deps.ffmpeg) : null;
+  const tool = spec.tool ? await deps.tool(spec.tool) : null;
+  const pack = spec.pack ? await deps.tool(spec.pack) : null;
+  const resize = ffmpeg && spec.engine !== 'lanczos' ? { tool: 'ffmpeg' as const, version: ffmpeg } : null;
+  const executor: UpscaleImageSummary['executor'] = {
+    engine: spec.engine,
+    tool: spec.tool ?? (spec.engine === 'lanczos' ? 'ffmpeg' : null),
+    version: tool?.version ?? (spec.engine === 'lanczos' ? ffmpeg : null),
+    weights: spec.weights,
+    denoise: spec.denoise ? (params.denoise ?? 0) : null,
+    pack: pack ? { tool: UPSCAYL_MODELS, version: pack.version } : null,
+    resize,
+    model: spec.engine === 'generative' ? { providerId: params.provider!, modelId: params.imageModel! } : null,
+  };
+  const factor = upscalePeakScale(params.model, params.scale);
   const total = params.inputs.length;
   const files: UpscaleOutput['files'] = [];
   progress({ done: 0, total, unit: 'units' }, 'generating');
   for (const [index, input] of params.inputs.entries()) {
-    const { width, height } = probed.images[index]!;
+    const plan = probed.images[index]!;
+    const { width, height } = plan;
     const name = path.basename(input);
-    const raw = path.join(staging, `upscaled-${index + 1}${resize ? '-x4' : ''}.png`);
     const out = path.join(staging, `upscaled-${index + 1}.png`);
-    await fs.rm(raw, { force: true });
-    const args = ['-i', input, '-o', raw, '-n', UPSCALE_WEIGHTS[params.model].weights, '-s', String(factor), '-m', modelsDir, '-f', 'png'];
-    const run = await runTool(tool, args, signal, deps);
-    if (run.code !== 0) {
+    const target = `${width * params.scale}:${height * params.scale}`;
+    if (spec.engine === 'lanczos') {
+      await ffmpegPng(deps.ffmpeg, input, out, `scale=${target}:flags=lanczos`, signal);
+    } else if (spec.engine === 'generative') {
+      await generate(deps, { input, out, plan, index, target, params, jobId, staging, signal });
+    } else {
+      const raw = path.join(staging, `upscaled-${index + 1}${resize ? `-x${factor}` : ''}.png`);
       await fs.rm(raw, { force: true });
-      const detail = lastLine(run.stderr) || `exit ${run.code}`;
-      throw new PipelineStepError('UPSCALE_FAILED', J.upscaleFailed({ name, detail }), { file: input, exitCode: run.code, stderr: run.stderr.trim().slice(-1000) });
-    }
-    if (!(await fs.stat(raw).catch(() => null))) {
-      throw new PipelineStepError('UPSCALE_FAILED', J.outputMissing({ name }), { file: input, stderr: run.stderr.trim().slice(-1000) });
-    }
-    if (resize) {
-      const target = `${width * params.scale}:${height * params.scale}`;
-      await fs.rm(out, { force: true });
-      await runFfmpeg(
-        deps.ffmpeg,
-        ['-hide_banner', '-v', 'error', '-i', `file:${raw}`, '-vf', `scale=${target}:flags=lanczos`, '-frames:v', '1', '-update', '1', '-y', `file:${out}`],
-        { signal },
-      );
-      await fs.rm(raw, { force: true });
+      const args =
+        spec.engine === 'waifu2x'
+          ? ['-i', input, '-o', raw, '-n', String(params.denoise ?? 0), '-s', String(factor), '-m', path.join(tool!.modelsDir ?? path.dirname(tool!.command), spec.weights!), '-f', 'png']
+          : ['-i', input, '-o', raw, '-n', spec.weights!, '-s', String(factor), '-m', pack?.command ?? tool!.modelsDir ?? path.join(path.dirname(tool!.command), 'models'), '-f', 'png'];
+      const run = await runTool(spec.tool!, tool!, args, signal, deps);
+      if (run.code !== 0) {
+        await fs.rm(raw, { force: true });
+        const detail = lastLine(run.stderr) || `exit ${run.code}`;
+        throw new PipelineStepError('UPSCALE_FAILED', J.upscaleFailed({ tool: toolLabel(spec.tool!), name, detail }), {
+          file: input,
+          exitCode: run.code,
+          stderr: run.stderr.trim().slice(-1000),
+        });
+      }
+      if (!(await fs.stat(raw).catch(() => null))) {
+        throw new PipelineStepError('UPSCALE_FAILED', J.outputMissing({ name }), { file: input, stderr: run.stderr.trim().slice(-1000) });
+      }
+      if (resize) {
+        await ffmpegPng(deps.ffmpeg, raw, out, `scale=${target}:flags=lanczos`, signal);
+        await fs.rm(raw, { force: true });
+      }
     }
     files.push({ file: out, source: input, width, height });
     progress({ done: index + 1, total, unit: 'units' });
   }
-  return { output: { files, version: tool.version, resize } };
+  return { output: { files, executor } };
+}
+
+/** 生成式放大一张图：要补边时先补到模型的比例，模型出图之后裁回源图那一块，再缩放到目标尺寸。 */
+async function generate(
+  deps: UpscaleImageDeps,
+  job: {
+    input: string;
+    out: string;
+    plan: ImagePlan;
+    index: number;
+    target: string;
+    params: FrozenUpscaleImageParams;
+    jobId: Id;
+    staging: string;
+    signal: AbortSignal;
+  },
+): Promise<void> {
+  const { plan, params, signal } = job;
+  const model = plan.model!;
+  const padded = model.padWidth !== plan.width || model.padHeight !== plan.height;
+  let image = job.input;
+  if (padded) {
+    image = path.join(job.staging, `padded-${job.index + 1}.png`);
+    await ffmpegPng(deps.ffmpeg, job.input, image, `pad=${model.padWidth}:${model.padHeight}:${model.x}:${model.y}:color=black`, signal);
+  }
+  const prompt = [GENERATIVE_PROMPT, padded ? GENERATIVE_PADDED : null, params.prompt?.trim() ? `Additional guidance: ${params.prompt.trim()}` : null]
+    .filter(Boolean)
+    .join('\n\n');
+  const generated = await deps.upscaler!.upscale({
+    providerId: params.provider!,
+    modelId: params.imageModel!,
+    image,
+    prompt,
+    size: model.size,
+    jobId: job.jobId,
+    staging: job.staging,
+    signal,
+  });
+  // 按实际出图的尺寸裁：模型不一定正好按请求的尺寸出图。
+  const header = await readImageHeader(generated.file).catch(() => null);
+  if (!header) throw new PipelineStepError('MODEL_OUTPUT_INVALID', J.outputMissing({ name: path.basename(job.input) }), { file: job.input });
+  const crop = padded
+    ? (() => {
+        const cw = Math.max(1, Math.round((header.width * plan.width) / model.padWidth));
+        const ch = Math.max(1, Math.round((header.height * plan.height) / model.padHeight));
+        const cx = Math.min(header.width - cw, Math.round((model.x * header.width) / model.padWidth));
+        const cy = Math.min(header.height - ch, Math.round((model.y * header.height) / model.padHeight));
+        return `crop=${cw}:${ch}:${cx}:${cy},`;
+      })()
+    : '';
+  await ffmpegPng(deps.ffmpeg, generated.file, job.out, `${crop}scale=${job.target}:flags=lanczos`, signal);
+  await fs.rm(generated.file, { force: true });
+  if (padded) await fs.rm(image, { force: true });
+}
+
+/** 工具给人看的名字（错误信息里用）。 */
+function toolLabel(name: string): string {
+  return name === WAIFU2X ? 'waifu2x' : name === REALESRGAN ? 'Real-ESRGAN' : name;
 }
 
 function lastLine(text: string): string {
@@ -382,6 +631,7 @@ function lastLine(text: string): string {
 
 /** 起一次工具，等它退出。中止时结束整棵进程树（先 SIGTERM，宽限之后 SIGKILL），等它退出再抛。 */
 async function runTool(
+  name: string,
   tool: UpscaleTool,
   args: string[],
   signal: AbortSignal,
@@ -412,7 +662,7 @@ async function runTool(
     child.on('error', (error: NodeJS.ErrnoException) => {
       signal.removeEventListener('abort', onAbort);
       if (error.code === 'ENOENT' || error.code === 'EACCES') {
-        reject(new PipelineStepError('TOOL_NOT_INSTALLED', J.toolNotFound({ code: error.code }), { tool: 'realesrgan-ncnn-vulkan' }));
+        reject(new PipelineStepError('TOOL_NOT_INSTALLED', J.toolNotFound({ tool: toolLabel(name), code: error.code }), { tool: name }));
       } else reject(error);
     });
     child.on('close', (code) => {

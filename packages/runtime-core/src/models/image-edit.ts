@@ -1,15 +1,16 @@
 import path from 'node:path';
-import { PipelineStepError, localImageResources, type ImageEditor } from '@baocut/jobs';
+import { PipelineStepError, localImageResources, type ImageEditor, type StepResources } from '@baocut/jobs';
 import {
   ProviderFailure,
   freezeImageInput,
   imageParameters,
   localImageSeed,
   type GenerationSelection,
+  type ImageParameters,
   type ModelCatalog,
   type ModelServices,
 } from '@baocut/models';
-import { CAPABILITY_DATA_KINDS, RpcError, estimateCallCost, refOf, type GrantDataKind, type ImageModelInfo, type Localized } from '@baocut/protocol';
+import { CAPABILITY_DATA_KINDS, RpcError, estimateCallCost, refOf, type GrantDataKind, type Id, type ImageModelInfo, type Localized } from '@baocut/protocol';
 import { JobsEditImage as J } from '@baocut/protocol/messages/jobs/edit-image.ts';
 import type { GrantService } from '../grants/grant-service.ts';
 
@@ -57,17 +58,11 @@ export function imageEditor(options: { services: ModelServices; grants: GrantSer
       return { providerId: selection.providerId, modelId: selection.modelId };
     },
 
-    resources({ providerId, modelId }) {
-      if (providerId !== 'local') return null;
-      return {
-        ...localImageResources(modelId, catalog.imagePeak(modelId), catalog.imageEditBytes(modelId, 1)),
-        queue: { key: modelId, concurrency: 1 },
-      };
-    },
+    resources: (target) => imageCallResources(catalog, target),
 
     async edit(request) {
       let selection: GenerationSelection<'generateImage'>;
-      let parameters;
+      let parameters: ImageParameters;
       try {
         selection = await select(request.providerId, request.modelId);
         const model = selection.model;
@@ -89,53 +84,75 @@ export function imageEditor(options: { services: ModelServices; grants: GrantSer
       } catch (error) {
         throw stepError(error, request.providerId);
       }
-      let settle: ((outcome: { state: 'completed' | 'failed' }) => void) | null = null;
-      if (selection.kind !== 'local' && selection.kind !== 'node') {
-        grants.ensureDefault(selection.providerId, selection.label, 'generateImage');
-        try {
-          settle = await grants.begin({
-            recipient: selection.providerId,
-            dataKinds: IMAGE_EDIT_DATA_KINDS,
-            videoId: null,
-            taskId: null,
-            estimate: estimateCallCost(selection.model.price, { count: 1 }),
-            label: selection.label,
-            jobId: request.jobId,
-          });
-        } catch (error) {
-          throw stepError(error, request.providerId);
-        }
-      }
-      try {
-        const attempt = await selection.generator.generate(
-          {
-            jobId: request.jobId,
-            attempt: 1,
-            providerId: selection.providerId,
-            modelId: selection.modelId,
-            parameters,
-            staging: request.staging,
-          },
-          { generating: () => {}, progress: () => {} },
-          request.signal,
-        );
-        if (attempt.outcome === 'cancelled') throw request.signal.reason ?? new DOMException('aborted', 'AbortError');
-        const output = attempt.outputs[0];
-        if (attempt.outputs.length !== 1 || !output) throw localizedStepError('MODEL_OUTPUT_INVALID', J.modelOutputCount({ count: attempt.outputs.length }));
-        const file = path.resolve(request.staging, output.path);
-        const relative = path.relative(request.staging, file);
-        if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
-          throw localizedStepError('MODEL_OUTPUT_INVALID', J.modelOutputOutsideStaging());
-        }
-        settle?.({ state: 'completed' });
-        return { file };
-      } catch (error) {
-        settle?.({ state: 'failed' });
-        if (request.signal.aborted) throw error;
-        throw stepError(error, request.providerId);
-      }
+      return await runImageCall(grants, selection, parameters, request);
     },
   };
+}
+
+/** 一次带一张输入图的调用的峰值需求：本机模型包占它的 Model Worker、与它的其他任务排同一个队列；在线与节点的 null。 */
+export function imageCallResources(catalog: ModelCatalog, { providerId, modelId }: { providerId: string; modelId: string }): StepResources | null {
+  if (providerId !== 'local') return null;
+  return {
+    ...localImageResources(modelId, catalog.imagePeak(modelId), catalog.imageEditBytes(modelId, 1)),
+    queue: { key: modelId, concurrency: 1 },
+  };
+}
+
+/**
+ * 调一次生图模型、出一张图（改图与生成式放大共用）：在线 Provider 先预留一次授权与预算、结束时结算（外发的数据种类同生成图片），
+ * 本机与节点的不经授权；输出要正好一张、在 staging 里。Provider 的失败换成步骤的错误。
+ */
+export async function runImageCall(
+  grants: GrantService,
+  selection: GenerationSelection<'generateImage'>,
+  parameters: ImageParameters,
+  request: { providerId: string; jobId: Id; staging: string; signal: AbortSignal },
+): Promise<{ file: string }> {
+  let settle: ((outcome: { state: 'completed' | 'failed' }) => void) | null = null;
+  if (selection.kind !== 'local' && selection.kind !== 'node') {
+    grants.ensureDefault(selection.providerId, selection.label, 'generateImage');
+    try {
+      settle = await grants.begin({
+        recipient: selection.providerId,
+        dataKinds: IMAGE_EDIT_DATA_KINDS,
+        videoId: null,
+        taskId: null,
+        estimate: estimateCallCost(selection.model.price, { count: 1 }),
+        label: selection.label,
+        jobId: request.jobId,
+      });
+    } catch (error) {
+      throw stepError(error, request.providerId);
+    }
+  }
+  try {
+    const attempt = await selection.generator.generate(
+      {
+        jobId: request.jobId,
+        attempt: 1,
+        providerId: selection.providerId,
+        modelId: selection.modelId,
+        parameters,
+        staging: request.staging,
+      },
+      { generating: () => {}, progress: () => {} },
+      request.signal,
+    );
+    if (attempt.outcome === 'cancelled') throw request.signal.reason ?? new DOMException('aborted', 'AbortError');
+    const output = attempt.outputs[0];
+    if (attempt.outputs.length !== 1 || !output) throw localizedStepError('MODEL_OUTPUT_INVALID', J.modelOutputCount({ count: attempt.outputs.length }));
+    const file = path.resolve(request.staging, output.path);
+    const relative = path.relative(request.staging, file);
+    if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw localizedStepError('MODEL_OUTPUT_INVALID', J.modelOutputOutsideStaging());
+    }
+    settle?.({ state: 'completed' });
+    return { file };
+  } catch (error) {
+    settle?.({ state: 'failed' });
+    if (request.signal.aborted) throw error;
+    throw stepError(error, request.providerId);
+  }
 }
 
 /**
@@ -157,12 +174,12 @@ export function closestSize(model: Pick<ImageModelInfo, 'sizes'>, width: number,
   return best?.size ?? null;
 }
 
-function localizedStepError(code: string, message: Localized): PipelineStepError {
+export function localizedStepError(code: string, message: Localized): PipelineStepError {
   return Object.assign(new PipelineStepError(code, message.text), { messageRef: refOf(message) });
 }
 
 /** Provider 的失败与提交时的拒绝换成步骤的错误（错误码同生成任务）。 */
-function stepError(error: unknown, providerId: string): unknown {
+export function stepError(error: unknown, providerId: string): unknown {
   if (error instanceof PipelineStepError) return error;
   if (error instanceof ProviderFailure) {
     const { code, ...details } = error.details;

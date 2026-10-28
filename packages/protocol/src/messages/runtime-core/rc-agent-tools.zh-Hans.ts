@@ -157,7 +157,8 @@ export const zhHans: RcAgentToolsMessages = {
   shotsSpeakersUnmatched: '认不出哪个说话人是画面里的哪张脸',
   shotsFacesUnavailable: '人脸检测不可用',
   installUpscalerSummary: (p) => `从 ${p.url} 安装 ${p.tool} ${p.version}（${p.size}，${p.license}），用来放大图片`,
-  upscaleSummary: (p) => `用 Real-ESRGAN（${p.weights}）把图片（${p.count} 张）放大 ${p.scale} 倍，PNG 存到 ${p.dir}`,
+  upscaleSummary: (p) => `用 ${p.executor} 把图片（${p.count} 张）放大 ${p.scale} 倍，PNG 存到 ${p.dir}`,
   imageEditSummary: (p) => `${p.tool}：图片（${p.count} 张）用 ${p.executor} 处理，PNG 存到 ${p.dir}`,
   imageEditDefaultModel: '生图的默认模型',
+  upscaleGenerativeSummary: (p) => `把图片（${p.count} 张）发给 ${p.model} 按 ${p.scale} 倍重画，PNG 存到 ${p.dir}`,
 };

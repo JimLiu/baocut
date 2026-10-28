@@ -38,7 +38,8 @@ instructionsNotSet: 'Chưa đặt hướng dẫn phiên: thứ tự lắp ráp R
   shotsSpeakersUnmatched: 'Không xác định được khuôn mặt nào trên hình là của người nói nào',
   shotsFacesUnavailable: 'Không dùng được tính năng phát hiện khuôn mặt',
   installUpscalerSummary: (p) => `Cài ${p.tool} ${p.version} (${p.size}, ${p.license}) từ ${p.url} để phóng to ảnh`,
-  upscaleSummary: (p) => `Phóng to ảnh (${p.count}) ${p.scale}× bằng Real-ESRGAN (${p.weights}) và lưu PNG vào ${p.dir}`,
+  upscaleSummary: (p) => `Phóng to ảnh (${p.count}) ${p.scale}× bằng ${p.executor} và lưu PNG vào ${p.dir}`,
   imageEditSummary: (p) => `${p.tool}: xử lý ảnh (${p.count}) bằng ${p.executor} và lưu PNG vào ${p.dir}`,
   imageEditDefaultModel: 'mô hình ảnh mặc định',
+  upscaleGenerativeSummary: (p) => `Gửi ảnh (${p.count}) cho ${p.model} vẽ lại lớn gấp ${p.scale} lần và lưu PNG vào ${p.dir}`,
 };

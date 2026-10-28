@@ -211,6 +211,8 @@ export interface ModelJobsOptions {
 
 export interface ExtraPipelineContext {
   grants: GrantService;
+  /** 本机模型包的目录（生图模型的峰值需求，同图片编辑）。 */
+  catalog: ModelCatalog;
   jobs: JobManager;
   videos: CaptionVideos & MediaVideos;
   /** 流程里的转写（复用 `models.transcribe` 的提交）。 */
@@ -465,6 +467,7 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
       }),
       ...(options.extraPipelines?.({
         grants,
+        catalog,
         jobs,
         videos: pipelineVideos(videos, guard),
         transcriber,

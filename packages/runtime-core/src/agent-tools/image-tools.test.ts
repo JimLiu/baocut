@@ -5,31 +5,38 @@ import { ToolError } from './tool-catalog.ts';
 import { toolRisk, type ToolConfirmation, type ToolPrincipal } from './tool-scope.ts';
 
 /**
- * `upscale`：已安装时按 `upscale`（`command`）确认并启动流程，路径按工作目录解析；没有安装时按安装确认、只提交安装；
- * 对外服务拒绝。工具服务、流程与范围都是假的。
+ * `upscale`：已安装时按 `upscale`（`command`）确认并启动流程，路径按工作目录解析；没有安装时按安装确认、只提交安装（执行的
+ * 工具与权重包一次装一个）；模型不收的参数在确认前拒绝；生成式放大先选定模型再确认；对外服务拒绝。工具服务、流程与范围都是假的。
  */
 
 const agent = { kind: 'agent', conversationId: 'conv_1' } as unknown as ToolPrincipal;
 const service = { kind: 'service', serviceId: 'mcp', clientId: 'cli_1', clientName: '剪辑助手' } as unknown as ToolPrincipal;
 
-function harness(state: 'installed' | 'missing', extra: Partial<ImageToolsDeps> = {}) {
+/** `state` 给一个时所有工具都是它；按工具名给时没列出的算已安装。 */
+function harness(state: 'installed' | 'missing' | Record<string, 'installed' | 'missing'>, extra: Partial<ImageToolsDeps> = {}) {
+  const stateOf = (name: string) => (typeof state === 'string' ? state : (state[name] ?? 'installed'));
+  const statuses: string[] = [];
   const started: Array<{ pipeline: string; params: Record<string, unknown> }> = [];
   const confirmed: ToolConfirmation[] = [];
   const installs: unknown[] = [];
   const offer = { version: 'v0.2.5.0', sizeBytes: 51817124, estimatedBytes: 51817124, license: 'BSD-3-Clause', url: 'https://github.com/x/y.zip' };
   const deps = {
     tools: {
-      status: async () => ({
-        name: 'realesrgan-ncnn-vulkan',
-        label: 'Real-ESRGAN',
-        state: state === 'installed' ? 'installed' : 'missing',
-        installable: true,
-        version: state === 'installed' ? 'v0.2.5.0' : null,
-        offer: state === 'installed' ? null : offer,
-      }),
-      install: async (request: unknown) => {
+      status: async (name: string) => {
+        statuses.push(name);
+        const installed = stateOf(name) === 'installed';
+        return {
+          name,
+          label: name === 'realesrgan-ncnn-vulkan' ? 'Real-ESRGAN' : name,
+          state: installed ? 'installed' : 'missing',
+          installable: true,
+          version: installed ? 'v0.2.5.0' : null,
+          offer: installed ? null : offer,
+        };
+      },
+      install: async (request: { name: string }) => {
         installs.push(request);
-        return { jobId: 'job_install', tool: { name: 'realesrgan-ncnn-vulkan', state: 'installing', version: null, source: null } };
+        return { jobId: 'job_install', tool: { name: request.name, state: 'installing', version: null, source: null } };
       },
     },
     pipelines: {
@@ -50,7 +57,7 @@ function harness(state: 'installed' | 'missing', extra: Partial<ImageToolsDeps> 
     },
     ...extra,
   } as unknown as ImageToolsDeps;
-  return { tools: new ImageTools(deps), started, confirmed, installs };
+  return { tools: new ImageTools(deps), started, confirmed, installs, statuses };
 }
 
 describe('upscale', () => {
@@ -84,6 +91,66 @@ describe('upscale', () => {
     expect(confirmed[0]!.summary).toContain('https://github.com/x/y.zip');
     expect(installs).toEqual([{ name: 'realesrgan-ncnn-vulkan', consent: true, via: 'agent-approval' }]);
     expect(started).toEqual([]);
+  });
+
+  it('waifu2x 带去噪：查 waifu2x，摘要写权重目录，去噪级别进流程参数', async () => {
+    const { tools, started, confirmed, statuses } = harness('installed');
+    await tools.dispatch('upscale', { files: ['a.png'], scale: 2, model: 'waifu2x-anime', denoise: 2 }, agent);
+    expect(statuses).toEqual(['waifu2x-ncnn-vulkan']);
+    expect(started[0]!.params).toEqual({ inputs: ['/work/conv_1/a.png'], scale: 2, model: 'waifu2x-anime', denoise: 2 });
+    expect(confirmed[0]!.summary).toContain('waifu2x (models-upconv_7_anime_style_art_rgb)');
+  });
+
+  it('模型不收的参数在确认之前拒绝：Real-ESRGAN 去噪、本机模型带提示词', async () => {
+    const { tools, started, confirmed } = harness('installed');
+    await expect(tools.dispatch('upscale', { files: ['a.png'], model: 'photo', denoise: 1 }, agent)).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' });
+    await expect(tools.dispatch('upscale', { files: ['a.png'], model: 'remacri', prompt: 'sharper' }, agent)).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENTS',
+    });
+    expect(confirmed).toEqual([]);
+    expect(started).toEqual([]);
+  });
+
+  it('Upscayl 权重：Real-ESRGAN 装好、权重包没装时只装权重包，安装的 commandId 带包名', async () => {
+    const { tools, started, confirmed, installs } = harness({ 'upscayl-models': 'missing' });
+    const result = (await tools.dispatch('upscale', { files: ['a.png'], model: 'remacri', commandId: 'c1' }, agent)) as Record<string, unknown>;
+    expect(result).toMatchObject({ jobId: null, installJobId: 'job_install' });
+    expect(confirmed.map((c) => c.tool)).toEqual(['external_tools_install']);
+    expect(installs).toEqual([{ name: 'upscayl-models', consent: true, via: 'agent-approval', commandId: 'c1-install-upscayl-models' }]);
+    expect(started).toEqual([]);
+  });
+
+  it('Lanczos 不查受管工具，直接确认并启动', async () => {
+    const { tools, started, confirmed, statuses } = harness('missing');
+    await tools.dispatch('upscale', { files: ['a.png'], scale: 3, model: 'lanczos' }, agent);
+    expect(statuses).toEqual([]);
+    expect(confirmed[0]!.summary).toContain('Lanczos (ffmpeg)');
+    expect(started[0]!.params).toEqual({ inputs: ['/work/conv_1/a.png'], scale: 3, model: 'lanczos' });
+  });
+
+  it('生成式放大：先选定模型，摘要写模型，流程参数带选定的 Provider、模型与提示词', async () => {
+    const targets: unknown[] = [];
+    const upscaleModel = async (target: unknown) => {
+      targets.push(target);
+      return { providerId: 'google', modelId: 'gemini-3-pro-image' };
+    };
+    const { tools, started, confirmed, statuses } = harness('missing', { upscaleModel });
+    const result = (await tools.dispatch('upscale', { files: ['a.png'], model: 'generative', provider: 'google', prompt: 'keep the text' }, agent)) as Record<
+      string,
+      unknown
+    >;
+    expect(statuses).toEqual([]);
+    expect(targets).toEqual([{ provider: 'google' }]);
+    expect(confirmed[0]!.summary).toContain('google/gemini-3-pro-image');
+    expect(started[0]!.params).toEqual({
+      inputs: ['/work/conv_1/a.png'],
+      scale: 4,
+      model: 'generative',
+      provider: 'google',
+      imageModel: 'gemini-3-pro-image',
+      prompt: 'keep the text',
+    });
+    expect(result).toMatchObject({ provider: 'google', imageModel: 'gemini-3-pro-image' });
   });
 
   it('对外服务拒绝', async () => {

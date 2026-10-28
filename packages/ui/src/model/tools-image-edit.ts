@@ -1,4 +1,15 @@
-import type { EditImageAnchor, EditImageMask, EditImageMethod, EditImageOp, EditImageStartParams, UpscaleImageModel, UpscaleImageScale, UpscaleImageStartParams } from '@baocut/protocol';
+import {
+  upscaleNeedsResize,
+  upscalePeakScale,
+  type EditImageAnchor,
+  type EditImageMask,
+  type EditImageMethod,
+  type EditImageOp,
+  type EditImageStartParams,
+  type UpscaleImageModel,
+  type UpscaleImageScale,
+  type UpscaleImageStartParams,
+} from '@baocut/protocol';
 import type { ToolId } from './tool-catalog.ts';
 import { entryIdOfInput } from './tools-transcode.ts';
 import { M } from './tools-image-edit-copy.ts';
@@ -55,16 +66,15 @@ export interface ImageSource {
 
 export const UPSCALE_MAX_SIDE = 16384;
 export const UPSCALE_SCALES: readonly UpscaleImageScale[] = [2, 3, 4];
-const NATIVE: Record<UpscaleImageModel, readonly UpscaleImageScale[]> = { photo: [4], anime: [2, 3, 4] };
 
-/** 照片模型的 2、3 倍要先放大 4 倍再缩（ffmpeg Lanczos）。 */
+/** 模型没有这个倍数时要先放大到它有的倍数再缩（ffmpeg Lanczos）。 */
 export function needsResize(model: UpscaleImageModel, scale: UpscaleImageScale): boolean {
-  return !NATIVE[model].includes(scale);
+  return upscaleNeedsResize(model, scale);
 }
 
-/** 放大后的尺寸；照片模型的 2、3 倍中间要先放大 4 倍，上限按中间那一步查。 */
+/** 放大后的尺寸；中间要先放大到模型有的倍数时，上限按中间那一步查。 */
 export function upscaleSize(src: { width: number; height: number }, scale: UpscaleImageScale, model: UpscaleImageModel) {
-  const peak = needsResize(model, scale) ? 4 : scale;
+  const peak = upscalePeakScale(model, scale);
   return { width: src.width * scale, height: src.height * scale, tooLarge: src.width * peak > UPSCALE_MAX_SIDE || src.height * peak > UPSCALE_MAX_SIDE };
 }
 

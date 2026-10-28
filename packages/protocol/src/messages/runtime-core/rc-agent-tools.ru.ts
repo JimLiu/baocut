@@ -143,7 +143,8 @@ export const ru: RcAgentToolsMessages = {
   shotsSpeakersUnmatched: 'Не удалось понять, какое лицо в кадре принадлежит кому-либо из говорящих',
   shotsFacesUnavailable: 'Распознавание лиц недоступно',
   installUpscalerSummary: (p) => `Установить ${p.tool} ${p.version} (${p.size}, ${p.license}) с ${p.url} для увеличения изображений`,
-  upscaleSummary: (p) => `Увеличить изображения (${p.count}) в ${p.scale}× с Real-ESRGAN (${p.weights}) и сохранить PNG в ${p.dir}`,
+  upscaleSummary: (p) => `Увеличить изображения (${p.count}) в ${p.scale}× с ${p.executor} и сохранить PNG в ${p.dir}`,
   imageEditSummary: (p) => `${p.tool}: обработать изображения (${p.count}) с ${p.executor} и сохранить PNG в ${p.dir}`,
   imageEditDefaultModel: 'моделью изображений по умолчанию',
+  upscaleGenerativeSummary: (p) => `Отправить изображения (${p.count}) в ${p.model}, чтобы перерисовать их в ${p.scale}× крупнее, и сохранить PNG в ${p.dir}`,
 };

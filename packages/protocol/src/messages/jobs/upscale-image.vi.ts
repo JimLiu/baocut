@@ -2,7 +2,7 @@ import type { JobsUpscaleImageMessages } from './upscale-image.ts';
 
 export const vi: JobsUpscaleImageMessages = {
   label: 'Phóng to ảnh',
-  description: 'Phóng to ảnh 2–4 lần bằng Real-ESRGAN trên máy này: từ tệp sang tệp, đầu ra là PNG và không ghi đè tệp có sẵn.',
+  description: 'Phóng to ảnh 2–4 lần trên máy này (Real-ESRGAN, trọng số Upscayl, waifu2x hoặc Lanczos) hoặc để mô hình ảnh vẽ lại: từ tệp sang tệp, đầu ra là PNG và không ghi đè tệp có sẵn.',
   stepProbe: 'Đọc ảnh',
   stepUpscale: 'Phóng to',
   stepVerify: 'Kiểm tra đầu ra',
@@ -10,9 +10,17 @@ export const vi: JobsUpscaleImageMessages = {
   inputNotFound: (p: { file: string }) => `Không tìm thấy ảnh đầu vào ${p.file}`,
   inputUnsupported: (p: { name: string }) => `${p.name} không phải ảnh PNG, JPEG hoặc WebP đọc được`,
   outputTooLarge: (p: { name: string; width: number; height: number; max: number }) => `${p.name} sau khi phóng to sẽ là ${p.width}×${p.height}; mỗi cạnh tối đa ${p.max} điểm ảnh. Hãy chọn tỉ lệ nhỏ hơn.`,
-  upscaleFailed: (p: { name: string; detail: string }) => `Real-ESRGAN không phóng to được ${p.name}: ${p.detail}`,
+  upscaleFailed: (p: { tool: string; name: string; detail: string }) => `${p.tool} không phóng to được ${p.name}: ${p.detail}`,
   outputMissing: (p: { name: string }) => `Không có đầu ra nào được ghi cho ${p.name}`,
   outputSizeMismatch: (p: { name: string; actual: string; expected: string }) => `Đầu ra của ${p.name} là ${p.actual}; dự kiến ${p.expected}`,
   exifOrientation: (p: { name: string }) => `${p.name} có thẻ hướng EXIF; đầu ra được phóng to theo đúng điểm ảnh và không được xoay thẳng`,
-  toolNotFound: (p: { code: string }) => `Không khởi động được Real-ESRGAN (${p.code})`,
+  toolNotFound: (p: { tool: string; code: string }) => `Không khởi động được ${p.tool} (${p.code})`,
+  denoiseUnsupported: (p: { model: string }) => `Mô hình ${p.model} không khử nhiễu được; chỉ các mô hình waifu2x nhận denoise`,
+  generativeOnly: (p: { model: string }) => `Chỉ mô hình generative nhận mục này; ${p.model} thì không`,
+  generativeUnavailable: 'Không dùng được phóng to bằng mô hình tạo sinh ở đây',
+  modelNoReferences: (p: { modelId: string }) => `${p.modelId} không nhận ảnh tham chiếu nên không phóng to được. Hãy chọn mô hình nhận ảnh đầu vào.`,
+  modelNoSizes: (p: { modelId: string }) => `${p.modelId} không cho biết kích thước đầu ra nên không lên kế hoạch được. Hãy chọn mô hình khác.`,
+  modelTooSmall: (p: { name: string; modelId: string; size: string }) => `${p.modelId} chỉ vẽ tối đa ${p.size}, không phóng to được ${p.name}. Hãy chọn công cụ trên máy hoặc mô hình có kích thước lớn hơn.`,
+  generativeInterpolated: (p: { name: string; size: string }) => `${p.name}: mô hình vẽ ở ${p.size}; phần phóng to còn lại là nội suy Lanczos`,
+  generativeRedraws: 'Phóng to bằng mô hình tạo sinh là vẽ lại: chi tiết, chữ và khuôn mặt có thể khác ảnh gốc',
 };
