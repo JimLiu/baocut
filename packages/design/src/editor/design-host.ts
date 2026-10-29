@@ -9,7 +9,7 @@
  *   assets           platform/image-upload.ts（粘贴、拖入的图片与字体，返回 /_blob/<id>）
  *   comments         comments/host-controller.ts（customAnchors：运行时算锚点，宿主弹批注框）
  *   chat             canvas/claude-handoff.tsx（「交给智能体」的提示放进会话的输入框）
- *   downloads        export/downloads.tsx 的 saveThroughHost（导出的文件交给父窗口保存，downloads-bridge.ts；页面单独打开时不提供）
+ *   downloads        export/downloads.tsx 的 saveThroughHost（导出的文件交给父窗口保存；页面单独打开时交给浏览器下载，downloads-bridge.ts）
  * 不提供（运行时都有兜底，见 packages/design-runtime/README.md）：
  *   use       按名字异步取能力；没有时 platform/host-capabilities.ts 直接读上面的字段，不等待
  *   sample    快速编辑要宿主代为调用模型（fast-edit/sampling-capability.ts）；功能开关里快速编辑也是关的

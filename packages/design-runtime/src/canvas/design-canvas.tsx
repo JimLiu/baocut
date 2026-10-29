@@ -15905,7 +15905,10 @@ export function installCanvasDesignCanvas(
         },
         onLapse: (): Dynamic =>
           showToast(
-            "No artboard was chosen in time, so the export was cancelled. Open Share to export again.",
+            // BaoCut: on a page opened on its own the export starts from the toolbar's Export button, not Share.
+            "No artboard was chosen in time, so the export was cancelled. Open " +
+              (window.parent === window ? "Export" : "Share") +
+              " to export again.",
           ),
         onStage: runtime.reportExportDeliveryEvent,
         homeFocus: (): Dynamic =>
@@ -16101,7 +16104,10 @@ export function installCanvasDesignCanvas(
       runtime.reactChromeTheme.useCallback)((): Dynamic => {
         value491() &&
           showToast(
-            "Leaving that view cancelled the export. Open Share to export again.",
+            // BaoCut: see onLapse above.
+            "Leaving that view cancelled the export. Open " +
+              (window.parent === window ? "Export" : "Share") +
+              " to export again.",
           );
       }, [value491, showToast]);
     (0, runtime.reactChromeTheme.useEffect)((): Dynamic => {
@@ -18092,42 +18098,71 @@ export function installCanvasDesignCanvas(
               : value512(input),
         [value512, value518, value523],
       );
-    (0, runtime.useExportFormats)(
-      value480
-        ? null
-        : [
-            {
-              format: "html",
-              produce: value511,
-            },
-            {
-              format: "pdf",
-              produce: value517,
-              interactive: value92 && value497,
-              disabled: value484.length === 0,
-            },
-            ...(value92
-              ? [
-                  {
-                    format: "png",
-                    produce: value522,
-                    interactive: value497,
-                    bundle: value497,
-                    disabled:
-                      value484.length === 0 ||
-                      (value347 !== null &&
-                        !value484.some(
-                          (input?: Dynamic): Dynamic =>
-                            input.file === value347.file,
-                        )),
-                  },
-                ]
-              : []),
-          ],
-      {
-        onResult: value524,
-      },
-    );
+    // BaoCut: the formats sit in a variable so the toolbar Export button (standalone page, next to Play) lists the
+    // same ones the host would.
+    let baocutExportFormats: Dynamic = value480
+      ? null
+      : [
+          {
+            format: "html",
+            produce: value511,
+          },
+          {
+            format: "pdf",
+            produce: value517,
+            interactive: value92 && value497,
+            disabled: value484.length === 0,
+          },
+          ...(value92
+            ? [
+                {
+                  format: "png",
+                  produce: value522,
+                  interactive: value497,
+                  bundle: value497,
+                  disabled:
+                    value484.length === 0 ||
+                    (value347 !== null &&
+                      !value484.some(
+                        (input?: Dynamic): Dynamic =>
+                          input.file === value347.file,
+                      )),
+                },
+              ]
+            : []),
+        ];
+    (0, runtime.useExportFormats)(baocutExportFormats, {
+      onResult: value524,
+    });
+    // BaoCut: a page opened on its own (no BaoCut window around it, e.g. the claude-design skill's local server) has no
+    // host menu to export the whole design from, so the toolbar gets an Export button that sends the request the host
+    // would. baocutToolbarExports counts that button's requests until they finish (picking artboards included), for its
+    // spinner; value476 covers the exports that start elsewhere.
+    let baocutStandalonePage: Dynamic =
+        typeof window !== "undefined" && window.parent === window,
+      [baocutToolbarExports, setBaocutToolbarExports]: Dynamic = (0,
+      runtime.reactChromeTheme.useState)(0),
+      baocutStartToolbarExport: Dynamic = (entry?: Dynamic): Dynamic => {
+        let interactive: Dynamic = entry.interactive === true;
+        setBaocutToolbarExports((input?: Dynamic): Dynamic => input + 1);
+        Promise.resolve(
+          (0, runtime.receiveExportRequest)(
+            entry.format,
+            // the frame bridge accepts 16–64 of [A-Za-z0-9_-]
+            "baocut-toolbar-" +
+              Date.now().toString(36) +
+              Math.random().toString(36).slice(2, 8),
+            interactive,
+            undefined,
+            entry.bundle === true,
+            interactive
+              ? runtime.interactiveExportWindowMs
+              : runtime.noninteractiveExportWindowMs,
+          ),
+        ).finally((): Dynamic =>
+          setBaocutToolbarExports((input?: Dynamic): Dynamic => input - 1),
+        );
+      };
     let [value525, value526]: Dynamic = (0, runtime.npm_useLocalStorage_QP)(
         runtime.DcEditorModeKey,
         null,
@@ -20721,6 +20756,56 @@ export function installCanvasDesignCanvas(
             </runtime.SessionStripPopover>
           </span>
         ),
+      // BaoCut: the standalone page's Export button (see baocutStartToolbarExport). The items are the registered
+      // formats; PDF and PNG first ask which artboards (the picker bar) when there is more than one.
+      baocutExportButton: Dynamic =
+        value347 || flag || !baocutStandalonePage ? null : (
+          <span data-view-control={""} className={"contents"}>
+            {baocutToolbarExports > 0 || value476 ? (
+              <runtime.Button
+                iconOnly={true}
+                variant={"ghost"}
+                icon={"Download"}
+                busy={true}
+                busyLabel={"Exporting"}
+                aria-label={"Exporting"}
+                data-testid={"dc-export"}
+                className={"shrink-0"}
+              />
+            ) : (
+              <runtime.SessionStripPopover
+                icon={"Download"}
+                label={"Export"}
+                iconOnly={true}
+                tip={"Export the design"}
+                disabled={baocutExportFormats === null}
+                disabledTip={runtime.DownloadsArenTAvailableToYouForMessage}
+                align={"end"}
+                data-testid={"dc-export"}
+              >
+                {(0, runtime.renderMenuItems)(
+                  (baocutExportFormats ?? []).map(
+                    (entry?: Dynamic): Dynamic => ({
+                      label: entry.format.toUpperCase(),
+                      description:
+                        entry.format === "html"
+                          ? "Standalone web page"
+                          : entry.format === "pdf"
+                            ? "Document for printing and sharing"
+                            : "Image",
+                      disabled: entry.disabled === true,
+                      disabledReason:
+                        entry.disabled === true
+                          ? pageHasNoArtboardsMessage
+                          : undefined,
+                      onSelect: (): Dynamic => baocutStartToolbarExport(entry),
+                    }),
+                  ),
+                )}
+              </runtime.SessionStripPopover>
+            )}
+          </span>
+        ),
       value643: Dynamic = value347 ? (
         <runtime.jsx_Gn.Fragment>
           {null}
@@ -20944,6 +21029,7 @@ export function installCanvasDesignCanvas(
                           />
                         )}
                         {value642}
+                        {baocutExportButton}
                       </runtime.jsx_Gn.Fragment>
                     )
                   }

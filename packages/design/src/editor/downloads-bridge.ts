@@ -5,6 +5,9 @@
  * 父窗口交给浏览器下载或弹存储对话框，回 `editor:save-file-result`。`declined`（用户取消了）与 `failed` 都拒绝，
  * 错误带 `code`：运行时把 `declined` 当作用户取消，别的当作宿主没能保存（单个画板的导出退回 iframe 里的浏览器下载）。
  * 不设超时：存储对话框可以一直开着。
+ *
+ * 页面单独打开（不在 BaoCut 的 iframe 里，例如 claude-design skill 的本地服务）时没有父窗口可交，用 createBrowserDownloads：
+ * 文件直接交给浏览器下载，`save` 随即兑现，运行时按已保存处理（整份导出由此能存下，PDF 的字体说明等也照常提示）。
  */
 import type { SaveFileOutcome } from '@baocut/slides/editor-messages';
 import type { ParentLink } from '@baocut/slides/editor';
@@ -56,6 +59,25 @@ export function createDownloadsBridge(link: ParentLink, newId: () => string = ()
     dispose() {
       stop();
       for (const settle of [...pending.values()]) settle('failed');
+    },
+  };
+}
+
+/** 页面单独打开时的 `downloads`：用一个临时的 `<a download>` 交给浏览器下载。 */
+export function createBrowserDownloads(win: Window & typeof globalThis = window): HostDownloadsCapability {
+  return {
+    save: async ({ filename, data }) => {
+      const blob = data instanceof win.Blob ? data : new win.Blob([data]);
+      const url = win.URL.createObjectURL(blob);
+      const anchor = win.document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.style.display = 'none';
+      win.document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      // 浏览器开始下载后才能撤销，留足时间
+      win.setTimeout(() => win.URL.revokeObjectURL(url), 60_000);
     },
   };
 }
