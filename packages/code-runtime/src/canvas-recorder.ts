@@ -14,7 +14,7 @@
  * - 文字在这里归一成「左对齐 + alphabetic 基线」：对齐用 `measureText().width`，基线偏移用两种基线下 `fontBoundingBoxAscent` 之差。
  * - 判为不支持时记下第一条原因，`record` 照常返回，由宿主整段回退到像素烘焙。
  *
- * `record(seconds[])` 逐个时刻调 `__baocutAdapter.seek(秒, false)`（不等 rAF），返回
+ * `record(seconds[])` 逐个时刻调 `__baocutAdapter.seek(秒, 'record')`（不等 rAF），返回
  * `{ frames: [{ i, s, init?, ops, states, grads, pats }], resources: [新出现的资源], header, unsupported }`。指令格式见规范 §7.2。
  */
 
@@ -780,7 +780,7 @@ export const CANVAS_RECORDER_SCRIPT = String.raw`(() => {
           }
           let seek;
           try {
-            seek = await window.__baocutAdapter.seek(s, false);
+            seek = await window.__baocutAdapter.seek(s, 'record');
           } finally {
             const done = frame;
             frame = null;

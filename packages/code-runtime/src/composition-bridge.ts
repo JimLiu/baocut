@@ -306,7 +306,8 @@ export const COMPOSITION_BRIDGE_SCRIPT = String.raw`(() => {
     const adapter = window.__baocutAdapter;
     if (!adapter) return { ok: false, code: 'COMPOSITION_SCRIPT_ERROR', message: 'The composition adapter is not installed' };
     if (message.kind === 'ready') return adapter.ready(message.contract, message.compositionId || rootCompositionId(), message.timeoutMs, message.context);
-    if (message.kind === 'seek') return adapter.seek(message.seconds, true);
+    // 实时层播放时每个视频帧都 seek：不空帧（'live'），否则页面每帧之间整页透明，播放时闪。
+    if (message.kind === 'seek') return adapter.seek(message.seconds, 'live');
     if (message.kind === 'dispose') return adapter.dispose();
     return { ok: false, code: 'COMPOSITION_SCRIPT_ERROR', message: 'Unknown bridge request ' + String(message.kind) };
   };
