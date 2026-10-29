@@ -175,6 +175,21 @@ test('noise-displace material carries a domain, static noise scale and four unif
   expectTypeOf<Extract<CaptionMaterial, { kind: 'noise-displace' }>['noiseScale']>().toEqualTypeOf<[number, number]>();
 });
 
+test('gradient-noise-displace material keeps the lattice static and the page placement dynamic', () => {
+  const constant = (value: number) => ({ kind: 'constant', value }) as const;
+  const material = {
+    kind: 'gradient-noise-displace', id: 'ripple', contextNodeId: 'text', domain, uvY: 'up',
+    field: {
+      complexity: 2.1, cycle: 300, subImpact: 0.7, subScale: 56, subRotation: 0, subOffset: [0, 0], rotation: 0,
+      scale: constant(0.8), offset: [constant(0.05), constant(0.05)], evolution: constant(0),
+    },
+    brightness: constant(0), contrast: constant(0.016), range: constant(0.3),
+  } satisfies CaptionMaterial;
+  expect(material.field.cycle).toBe(300);
+  expectTypeOf<Extract<CaptionMaterial, { kind: 'gradient-noise-displace' }>['field']['subOffset']>().toEqualTypeOf<[number, number]>();
+  expectTypeOf<Extract<CaptionMaterial, { kind: 'gradient-noise-displace' }>['uvY']>().toEqualTypeOf<'up' | 'down'>();
+});
+
 test('scan-warp material groups the noise warp, stripe and scanline uniforms', () => {
   const constant = (value: number) => ({ kind: 'constant', value }) as const;
   const material = {

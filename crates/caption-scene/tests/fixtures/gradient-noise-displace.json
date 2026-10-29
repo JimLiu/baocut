@@ -1,0 +1,154 @@
+{
+  "schema": "baocut.caption-scene-style/1",
+  "scene": {
+    "kind": "inline",
+    "value": {
+      "schema": "baocut.caption-scene/1",
+      "evaluationVersion": 1,
+      "requiredCapabilities": [
+        "caption-scene/1",
+        "caption-expressions/1",
+        "caption-gradient-noise-displace/1"
+      ],
+      "parameters": [],
+      "layout": {
+        "width": {
+          "value": 140,
+          "basis": "absolute"
+        },
+        "x": {
+          "value": 80,
+          "basis": "absolute"
+        },
+        "y": {
+          "value": 45,
+          "basis": "absolute"
+        },
+        "maxLines": 2,
+        "pagination": {
+          "maxUnitsPerPage": 2
+        }
+      },
+      "speechState": {
+        "gapPolicy": "hold-previous",
+        "tailPolicy": "hold-last",
+        "timingPolicy": "estimated"
+      },
+      "nodes": [
+        {
+          "id": "caption",
+          "type": "text",
+          "style": {
+            "fontSize": {
+              "value": 16,
+              "basis": "absolute"
+            },
+            "fill": "#FFFFFF"
+          }
+        }
+      ],
+      "selectors": [],
+      "animations": [],
+      "materials": [
+        {
+          "kind": "gradient-noise-displace",
+          "id": "ripple",
+          "contextNodeId": "caption",
+          "domain": {
+            "x": {
+              "kind": "constant",
+              "value": 30
+            },
+            "y": {
+              "kind": "constant",
+              "value": 10
+            },
+            "width": {
+              "kind": "constant",
+              "value": 100
+            },
+            "height": {
+              "kind": "constant",
+              "value": 70
+            }
+          },
+          "uvY": "up",
+          "field": {
+            "complexity": 2.1,
+            "cycle": 300,
+            "subImpact": 0.7,
+            "subScale": 56,
+            "subRotation": 0,
+            "subOffset": [
+              0,
+              0
+            ],
+            "rotation": 0,
+            "scale": {
+              "kind": "constant",
+              "value": 0.8
+            },
+            "offset": [
+              {
+                "kind": "keyframes",
+                "clock": {
+                  "unit": "page",
+                  "origin": "start",
+                  "duration": {
+                    "kind": "unit-span"
+                  }
+                },
+                "keys": [
+                  {
+                    "at": 0,
+                    "value": 0
+                  },
+                  {
+                    "at": 1,
+                    "value": 0.2
+                  }
+                ]
+              },
+              {
+                "kind": "keyframes",
+                "clock": {
+                  "unit": "page",
+                  "origin": "start",
+                  "duration": {
+                    "kind": "unit-span"
+                  }
+                },
+                "keys": [
+                  {
+                    "at": 0,
+                    "value": 0
+                  },
+                  {
+                    "at": 1,
+                    "value": 0.2
+                  }
+                ]
+              }
+            ],
+            "evolution": {
+              "kind": "constant",
+              "value": 0
+            }
+          },
+          "brightness": {
+            "kind": "constant",
+            "value": 0
+          },
+          "contrast": {
+            "kind": "constant",
+            "value": 0.016
+          },
+          "range": {
+            "kind": "constant",
+            "value": 0.3
+          }
+        }
+      ]
+    }
+  }
+}

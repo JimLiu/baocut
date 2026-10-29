@@ -76,6 +76,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-soft-band/1",
     "caption-noise-palette-mix/1",
     "caption-noise-displace/1",
+    "caption-gradient-noise-displace/1",
     "caption-scan-warp/1",
     "caption-radial-warp/1",
     "caption-angular-sample-blend/1",
@@ -1340,6 +1341,54 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
                 validate_component_uniform(s, brightness, -16.0, 16.0)?;
                 validate_component_uniform(s, contrast, 0.0, 1000.0)?;
                 validate_component_uniform(s, strength, -16.0, 16.0)?;
+                for (value, low) in [
+                    (&domain.x, -1_000_000.0),
+                    (&domain.y, -1_000_000.0),
+                    (&domain.width, 0.001),
+                    (&domain.height, 0.001),
+                ] {
+                    validate_value("width", value, s, UnitKind::Page)?;
+                    if let DynamicValue::Constant { value } = value {
+                        let n = typed_value(ValueType::Length, value)?.number()?;
+                        if !n.is_finite() || !(low..=1_000_000.0).contains(&n) {
+                            return Err(invalid(id, "material domain requires finite lengths and positive dimensions"));
+                        }
+                    }
+                }
+                id
+            }
+            CaptionMaterial::GradientNoiseDisplace {
+                id,
+                context_node_id,
+                domain,
+                field,
+                brightness,
+                contrast,
+                range,
+                ..
+            } => {
+                validate_component_context(s, &nodes, id, context_node_id, "caption-gradient-noise-displace/1", 1.0)?;
+                for (value, low, high) in [
+                    (field.complexity, 1.0, 10.0),
+                    (field.cycle, 2.0, 100_000.0),
+                    (field.sub_impact, 0.0, 1.0),
+                    (field.sub_scale, 1.0, 10_000.0),
+                    (field.sub_rotation, -360.0, 360.0),
+                    (field.sub_offset[0], -100_000.0, 100_000.0),
+                    (field.sub_offset[1], -100_000.0, 100_000.0),
+                    (field.rotation, -360.0, 360.0),
+                ] {
+                    if !value.is_finite() || !(low..=high).contains(&value) {
+                        return Err(invalid(id, "gradient noise displacement static parameters outside finite bounds"));
+                    }
+                }
+                validate_component_uniform(s, &field.scale, 0.001, 1000.0)?;
+                for value in [&field.offset[0], &field.offset[1], &field.evolution] {
+                    validate_component_uniform(s, value, -100_000.0, 100_000.0)?;
+                }
+                validate_component_uniform(s, brightness, -16.0, 16.0)?;
+                validate_component_uniform(s, contrast, 0.0, 1000.0)?;
+                validate_component_uniform(s, range, -16.0, 16.0)?;
                 for (value, low) in [
                     (&domain.x, -1_000_000.0),
                     (&domain.y, -1_000_000.0),

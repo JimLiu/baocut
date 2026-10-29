@@ -46,7 +46,7 @@ fn random(p: [f32; 2], evolution: f32, seed: f32, cycle: f32) -> [f32; 2] {
     let (a, b) = (at(e0), at(e1));
     std::array::from_fn(|i| mix(a[i], b[i], fract(e)) * 2.0 - 1.0)
 }
-fn rotate(mut uv: [f32; 2], angle: f32, scale: [f32; 2]) -> [f32; 2] {
+pub(super) fn rotate(mut uv: [f32; 2], angle: f32, scale: [f32; 2]) -> [f32; 2] {
     // The vertical aspect adjustment precedes subtraction of the pivot.
     uv[1] *= scale[1] / scale[0];
     uv[0] -= 0.5;
@@ -57,7 +57,7 @@ fn rotate(mut uv: [f32; 2], angle: f32, scale: [f32; 2]) -> [f32; 2] {
         (s * uv[0] + c * uv[1] + 0.5) * scale[0] / scale[1],
     ]
 }
-fn interpolation(uv: [f32; 2], u: &Uniforms, noise: &GradientSmearNoise, seed: f32) -> f32 {
+fn interpolation(uv: [f32; 2], u: &Uniforms, noise: &GradientSmearNoise, seed: f32, soft: bool) -> f32 {
     let p = std::array::from_fn::<_, 2, _>(|i| uv[i] * (50.0 * u.rect_scale[i]) / 100.0);
     let f = p.map(fract);
     let cell = p.map(libm::floorf);
@@ -71,17 +71,30 @@ fn interpolation(uv: [f32; 2], u: &Uniforms, noise: &GradientSmearNoise, seed: f
         );
         n[0] * (f[0] - x) + n[1] * (f[1] - y)
     };
-    mix(
+    let raw = mix(
         mix(sample(0.0, 0.0), sample(1.0, 0.0), smooth[0]),
         mix(sample(0.0, 1.0), sample(1.0, 1.0), smooth[0]),
         smooth[1],
-    ) * 0.5
-        + 0.5
+    );
+    // `soft` compresses the lattice value as `2 / (1 + exp(-3 v)) - 1` before the unit remap.
+    let raw = if soft {
+        2.0 / (1.0 + libm::expf(-3.0 * raw)) - 1.0
+    } else {
+        raw
+    };
+    raw * 0.5 + 0.5
 }
 /// Fractal gradient noise in [0, 1]; also the displacement field of `scan_warp`.
-pub(super) fn gradient(mut uv: [f32; 2], u: &Uniforms, n: &GradientSmearNoise, seed: f32) -> f32 {
+pub(super) fn gradient(uv: [f32; 2], u: &Uniforms, n: &GradientSmearNoise, seed: f32) -> f32 {
+    fractal(uv, u, n, seed, false)
+}
+/// The same octave sum with every octave compressed by the soft lattice remap.
+pub(super) fn gradient_soft(uv: [f32; 2], u: &Uniforms, n: &GradientSmearNoise, seed: f32) -> f32 {
+    fractal(uv, u, n, seed, true)
+}
+fn fractal(mut uv: [f32; 2], u: &Uniforms, n: &GradientSmearNoise, seed: f32, soft: bool) -> f32 {
     let complexity = n.complexity as f32;
-    let mut sum = interpolation(uv, u, n, seed);
+    let mut sum = interpolation(uv, u, n, seed, soft);
     let mut total = 1.0;
     let mut weight = n.sub_impact as f32;
     let step = |p: [f32; 2]| {
@@ -93,12 +106,12 @@ pub(super) fn gradient(mut uv: [f32; 2], u: &Uniforms, n: &GradientSmearNoise, s
             break;
         }
         uv = step(uv);
-        sum += interpolation(uv, u, n, seed) * weight;
+        sum += interpolation(uv, u, n, seed, soft) * weight;
         total += weight;
         weight *= n.sub_impact as f32;
     }
     uv = step(uv);
-    sum += interpolation(uv, u, n, seed) * weight * fract(complexity);
+    sum += interpolation(uv, u, n, seed, soft) * weight * fract(complexity);
     total += weight * fract(complexity);
     (sum / total).clamp(0.0, 1.0)
 }

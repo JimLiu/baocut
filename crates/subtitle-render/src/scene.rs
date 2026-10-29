@@ -10,6 +10,7 @@ mod font_line_box;
 mod font_shaping;
 mod font_source;
 mod glyph_envelope;
+mod gradient_noise_displace;
 mod gradient_smear;
 mod image_paint;
 #[cfg(test)]

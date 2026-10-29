@@ -1585,6 +1585,19 @@ pub enum CaptionMaterial {
         contrast: DynamicValue,
         strength: DynamicValue,
     },
+    /// Two fractal gradient-noise fields move the sample point of the page domain along both axes.
+    GradientNoiseDisplace {
+        id: String,
+        #[serde(rename = "contextNodeId")]
+        context_node_id: String,
+        domain: MaterialDomain,
+        #[serde(rename = "uvY")]
+        uv_y: MaterialUvY,
+        field: GradientNoiseDisplaceField,
+        brightness: DynamicValue,
+        contrast: DynamicValue,
+        range: DynamicValue,
+    },
     /// One resampling of the page domain: evolving noise warp, a scanning stripe that
     /// stretches the content sideways, then scanline shimmer and a global gain.
     ScanWarp {
@@ -1845,6 +1858,29 @@ pub struct ScanWarpField {
     pub strength: [DynamicValue; 2],
     #[serde(default)]
     pub swap_axes: bool,
+}
+
+/// Noise field of `gradient-noise-displace`: static lattice shape plus the page-driven placement.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct GradientNoiseDisplaceField {
+    pub complexity: f64,
+    /// Number of distinct lattice generations before the evolution index wraps.
+    pub cycle: f64,
+    pub sub_impact: f64,
+    /// Percent; each octave samples the previous one at `100 / subScale` times the frequency.
+    pub sub_scale: f64,
+    /// Degrees turned per octave.
+    pub sub_rotation: f64,
+    /// Shift per octave in pixels of a domain scaled to a 720-pixel shorter side.
+    pub sub_offset: [f64; 2],
+    /// Degrees; turns the shifted coordinate about its midpoint with the aspect of the domain.
+    pub rotation: f64,
+    /// Zoom divisor of the noise coordinate; also gates the displacement amount.
+    pub scale: DynamicValue,
+    /// Domain-fraction translation subtracted before rotating and scaling.
+    pub offset: [DynamicValue; 2],
+    pub evolution: DynamicValue,
 }
 
 /// Which side of the stripe centre the stretch applies to, along material y.

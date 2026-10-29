@@ -452,6 +452,18 @@ export interface CaptionScanWarpStripe {
   amount: CaptionDynamicValue;
   side: 'above' | 'below';
 }
+export interface CaptionGradientNoiseDisplaceField {
+  complexity: number;
+  cycle: number;
+  subImpact: number;
+  subScale: number;
+  subRotation: number;
+  subOffset: [number, number];
+  rotation: number;
+  scale: CaptionDynamicValue;
+  offset: [CaptionDynamicValue, CaptionDynamicValue];
+  evolution: CaptionDynamicValue;
+}
 export type CaptionMaterial =
   | { kind: 'blur'; id: string; radius: CaptionDynamicValue; passes?: number }
   | { kind: 'wave-displace'; id: string; amplitude: CaptionDynamicValue; wavelength: CaptionDynamicValue; phase: CaptionDynamicValue; axis: 'x' | 'y'; contextNodeId?: string }
@@ -459,6 +471,8 @@ export type CaptionMaterial =
   | { kind: 'noise-palette-mix'; id: string; contextNodeId: string; paletteResourceId: string; palettePosition: CaptionDynamicValue; phase: CaptionDynamicValue; domain: { x: CaptionDynamicValue; y: CaptionDynamicValue; width: CaptionDynamicValue; height: CaptionDynamicValue } }
   /** caption-noise-displace/1: CPU raster only; the GPU material plan rejects it. */
   | { kind: 'noise-displace'; id: string; contextNodeId: string; domain: CaptionMaterialDomain; noiseScale: [number, number]; phase: CaptionDynamicValue; brightness: CaptionDynamicValue; contrast: CaptionDynamicValue; strength: CaptionDynamicValue }
+  /** caption-gradient-noise-displace/1: CPU raster only; the GPU material plan rejects it. */
+  | { kind: 'gradient-noise-displace'; id: string; contextNodeId: string; domain: CaptionMaterialDomain; uvY: 'up' | 'down'; field: CaptionGradientNoiseDisplaceField; brightness: CaptionDynamicValue; contrast: CaptionDynamicValue; range: CaptionDynamicValue }
   /** caption-scan-warp/1: CPU raster only; the GPU material plan rejects it. */
   | { kind: 'scan-warp'; id: string; contextNodeId: string; domain: CaptionMaterialDomain; uvY: 'up' | 'down'; warp: CaptionScanWarpField; stripe: CaptionScanWarpStripe; scanlines: { amount: CaptionDynamicValue; pitch: number; phase: CaptionDynamicValue }; gain: CaptionDynamicValue }
   /** caption-radial-warp/1: CPU raster only; the GPU material plan rejects it. */

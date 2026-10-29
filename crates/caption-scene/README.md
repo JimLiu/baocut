@@ -113,6 +113,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-noise-displace/1` 的 `noise-displace` 在唯一文字节点页上下文与显式 domain 内，以固定 v1 空间噪声 `n0=noise(uv*noiseScale, phase)` 求 `n=(n0+brightness-0.5)*contrast*10+0.5`、`d=(n-0.5)*strength*width/height`，把 `uv+(d,d)` 处的输入做预乘双线性采样，画面外透明、domain 外清零；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [noise-displace.json](tests/fixtures/noise-displace.json)。
 
+`caption-gradient-noise-displace/1` 的 `gradient-noise-displace` 在唯一文字节点页上下文与显式 domain 内，用两路软映射分形梯度噪声（seed 3.11 与 10.71，格点步长按短边 720 铺设）分别移动采样点的 x 与 y，再做预乘双线性取样；`field` 的格点形状为静态量，`scale`、`offset` 与 `evolution` 可随页或时间求值，`brightness`、`contrast`、`range` 的范围见规格。domain 外清零、画布外透明；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [gradient-noise-displace.json](tests/fixtures/gradient-noise-displace.json)。
+
 `caption-scan-warp/1` 的 `scan-warp` 在唯一文字节点页上下文与显式 domain 内一次完成三件事（场景里按页重复的 shape / image 底板和文字一起被重采样，第二个文字节点不允许）：用 gradient-smear 的分形梯度噪声核取两路场（seed 1 与 3）移动采样点；按以像素给出的核心半高、衰减与门限，在条纹内围绕 domain 中心列横向拉伸；再乘扫描线明暗与整体增益。`warp`、`stripe`、`scanlines` 与 `gain` 的范围见规格，domain 外清零、画布外透明；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [scan-warp.json](tests/fixtures/scan-warp.json)。
 
 `caption-radial-warp/1` 的 `radial-warp` 在同一类上下文（唯一文字节点，底板可随文字一起处理）与显式 domain 内做一次径向重采样：目标像素的采样点沿 domain 中心向外按 `1+strength·|p|²` 缩放，再平移 `shift`（domain 分数）；`strength` 限 ±4、`shift` 两分量限 ±4，domain 外清零，采样点落到 domain 外的像素透明；仅 CPU 执行，GPU 材质计划显式返回不支持。示例见 [radial-warp.json](tests/fixtures/radial-warp.json)。

@@ -79,6 +79,7 @@ fn padding(materials: &[CaptionMaterial]) -> u32 {
             | CaptionMaterial::AffineOver { .. }
             | CaptionMaterial::NoisePaletteMix { .. }
             | CaptionMaterial::NoiseDisplace { .. }
+            | CaptionMaterial::GradientNoiseDisplace { .. }
             | CaptionMaterial::ScanWarp { .. }
             | CaptionMaterial::RadialWarp { .. }
             | CaptionMaterial::GaussianAxis { .. }
@@ -1024,6 +1025,88 @@ impl ScenePlan {
                         contrast,
                         strength,
                     },
+                )?;
+                Ok((out, hits))
+            }
+            CaptionMaterial::GradientNoiseDisplace {
+                id,
+                context_node_id,
+                domain,
+                uv_y,
+                field,
+                brightness,
+                contrast,
+                range,
+            } => {
+                let (source, hits) = self.material_prefix(
+                    ci,
+                    t,
+                    materials,
+                    source_spec,
+                    prefix - 1,
+                    pad,
+                    size,
+                    budget,
+                    work,
+                )?;
+                let Some(mut context) =
+                    self.material_page_context(ci, t, context_node_id, budget)?
+                else {
+                    let mut source = source;
+                    source.data_mut().fill(0);
+                    return Ok((source, vec![]));
+                };
+                context.stable_key.push_str(&format!("|material|{id}"));
+                let scene = self.style.scene();
+                // A zoom without a keyframe value is neutral, not zero.
+                let scale = component_uniform(&field.scale, scene, &context, t, budget, 1.0, 0.001, 1000.0)?;
+                let mut uniform = |value, low, high| {
+                    component_uniform(value, scene, &context, t, budget, 0.0, low, high)
+                };
+                let offset = [
+                    uniform(&field.offset[0], -100_000.0, 100_000.0)?,
+                    uniform(&field.offset[1], -100_000.0, 100_000.0)?,
+                ];
+                let evolution = uniform(&field.evolution, -100_000.0, 100_000.0)?;
+                let brightness = uniform(brightness, -16.0, 16.0)?;
+                let contrast = uniform(contrast, 0.0, 1000.0)?;
+                let range = uniform(range, -16.0, 16.0)?;
+                let mut rect = [0.0; 4];
+                for (index, value) in [&domain.x, &domain.y, &domain.width, &domain.height]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let Some(value) =
+                        sample_value(value, ValueType::Length, scene, &context, t, budget)?
+                    else {
+                        let mut source = source;
+                        source.data_mut().fill(0);
+                        return Ok((source, vec![]));
+                    };
+                    rect[index] = value.number()?;
+                }
+                work.spend(size.0, size.1)?;
+                let out = super::gradient_noise_displace::apply(
+                    &source,
+                    pad,
+                    &super::gradient_noise_displace::GradientNoiseDisplace {
+                        domain: rect,
+                        uv_y: *uv_y,
+                        complexity: field.complexity,
+                        cycle: field.cycle,
+                        sub_impact: field.sub_impact,
+                        sub_scale: field.sub_scale,
+                        sub_rotation: field.sub_rotation,
+                        sub_offset: field.sub_offset,
+                        rotation: field.rotation,
+                        scale,
+                        offset,
+                        evolution,
+                        brightness,
+                        contrast,
+                        range,
+                    },
+                    |count| work.samples(count),
                 )?;
                 Ok((out, hits))
             }
