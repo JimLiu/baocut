@@ -231,6 +231,8 @@ style.lineBox 可显式选择真实字形 face 的字体上下包络，带独立
 
 另一种常见做法正好相反：固定行永远不续行，而是把每页各行缩放到同样宽，形成「每行一样宽」的块状字幕，短行字大、长行字小。`caption-fixed-line-fit/1` 的 `fixedLineFit` 把它写成显式规则：按基础字号量出各行宽，每行放大到最宽行；末行太短时只放大有限倍数，避免一个词的末行大得突兀；行距随页内最大缩放收紧。缩放只取决于本页文字的测量结果，所以放在核心排版里，而不是用逐单元字号绑定表达——后者读不到行宽，会形成依赖环。
 
+还有一类滚动字幕：每页只有一行，新行出现后旧行不立刻消失，而是留在原位，直到它的槽位被后来的行占用，所以屏幕上同时叠着两三行。`caption-line-slots/1` 的 `lineSlots: {count, pitch}` 把它写成显式规则：页序号 k 对 count 取余得到行槽，槽位 0 在最上方；页的显示窗口从它自己的开始延到第 k+count 页开始，没有这一页就延到最后一页结束，所以任何时刻最多 count 行同时可见。槽间距是这一行行盒高度的倍数，换字号或字体时槽距跟着变，不需要另写位移表达式。它不是 `pageWindow` 的扩展：`pageWindow` 只在相邻词之间重新分配间隙，并要求页窗口互不重叠，行槽在它排布完之后才延长窗口，重叠只在这里产生。滞留的旧行也不跨过 `pageWindow` 判定的静默间隙，那段时间什么都不画。渲染时所有可见页的单元拼成同一棵单元序列，仍然只有一个 Cue 单元，页序号、行序号等全局上下文与不用行槽时一致；因为多页同时可见，它要求每页恰好一行，并与其他会改变页成员或行数的分页字段互斥。
+
 分页由模板声明的分页程序决定，程序只在准备阶段运行，输出稳定的 page/line 成员。候选模式按能力分别列出：
 
 | 模式 | 说明 | 状态 |
@@ -242,6 +244,7 @@ style.lineBox 可显式选择真实字形 face 的字体上下包络，带独立
 | `tailWordRule` | 未填满末页只剩一个尾词时并入前一行 | 已生效（`caption-word-line-tail-join/1`） |
 | `remainingWordPagePlans` | 按剩余词数查表决定下一页的行计划 | 已生效（`caption-remaining-word-page-plan/1`） |
 | `fixedLineOverflow` / `fixedLineFit` | 固定行超宽时续行，或把一页各行缩放到同宽 | 已生效（`caption-fixed-line-wrap/1`、`caption-fixed-line-fit/1`） |
+| `lineSlots` | 单行页滚动叠放在 2–4 个行槽上：第 k 页占槽位 k mod count，窗口延到第 k+count 页开始 | 已生效（`caption-line-slots/1`；限每页一行的 `wordLinePattern`，可与 `isolation`、`pageTags`、`pageWindow` 同用，与其他分页字段互斥） |
 | `patternSelect` | 从候选模式集合中按 cue 词数区间或实例 seed 选取一个模式；选择结果冻结进实例数据并进入诊断 | 已生效（`caption-pattern-select/1`；准备阶段由冻结的词数或实例 seed 与 cue id 确定，不写回实例，以 `CAPTION_PATTERN_SELECTED` 报告） |
 | 关键词隔离 | 在候选页构造前，为带 `isolation` 标签的词插入硬边界：`line` 独占一行，`page` 独占一页 | 已生效（`caption-keyword-isolation/1`；限固定词行模式，不与 `lastPageRule` 同用） |
 | 标签段隔离 | 按词是否带标签把词分成连续同状态段，只在状态变化处断开：`line` 显示行不跨段，`page` 页不跨段且页配额逐段重数 | 已生效（`caption-tag-run-isolation/1`；限按宽度换行的默认分页，折行规则在冻结布局、逐采样布局和单元字号重排中相同） |
@@ -715,7 +718,7 @@ flowchart TD
 | 场景与表达式 | `caption-scene/1`、`caption-expressions/1`、`caption-function-dag/1`、`caption-unit-animation/1`、`caption-permutation/1`、`caption-bezier-expression/1`、`caption-exponential-expression/1`、`caption-rounding-expression/1`、`caption-modular-expression/1`、`caption-power-expression/1`、`caption-list-pick/1`、`caption-clock-tail/1` | 场景正文、typed AST、无环纯函数、按单元动画、置换、easing、指数、取整、取模、幂、列表参数取值与关键帧时钟尾端策略 | §3、§6.1、§7、§8 |
 | 装饰 | `caption-bound-label/1` | Repeat 直接子节点的固定单行装饰，复用源单元时钟与几何 | §3、§9.2 |
 | 字体 | `caption-font-line-box/1`、`caption-font-source/1`、`caption-font-hinting/1`、`caption-font-shaping/1`、`caption-text-transform/1` | 行框包络、按摘要绑定 face、hinting/shaping 选项、显示变换 | §4.1、§5、§5.4 |
-| 布局 | `caption-word-line-layout/1`、`caption-text-line-layout/1`、`caption-pattern-select/1`、`caption-keyword-isolation/1`、`caption-tag-run-isolation/1`、`caption-scalar-cluster-layout/1`、`caption-layout-per-sample/1`、`caption-page-window/1`、`caption-unit-font-size/1`、`caption-unit-font-style/1` | 固定词行/字行分页、按词数或 seed 选择分页模式、关键词隔离与标签段隔离、字符计数组、逐采样重排、显示窗口、按单元字号与字体样式 | §4.3、§5.2、§5.3、§5.4、§6.3 |
+| 布局 | `caption-word-line-layout/1`、`caption-text-line-layout/1`、`caption-pattern-select/1`、`caption-keyword-isolation/1`、`caption-tag-run-isolation/1`、`caption-line-slots/1`、`caption-scalar-cluster-layout/1`、`caption-layout-per-sample/1`、`caption-page-window/1`、`caption-unit-font-size/1`、`caption-unit-font-style/1` | 固定词行/字行分页、按词数或 seed 选择分页模式、关键词隔离与标签段隔离、单行页滚动行槽、字符计数组、逐采样重排、显示窗口、按单元字号与字体样式 | §4.3、§5.2、§5.3、§5.4、§6.3 |
 | 只读上下文 | `caption-text-context/1`、`caption-unit-context/1`、`caption-cue-unit-context/1`、`caption-cue-word-context/1`、`caption-speech-phase/1`、`caption-first-page-context/1`、`caption-ink-context/1`、`caption-glyph-envelope/1`、`caption-page-envelope/1` | 全文/页内字素序号、页与行时钟、全 cue 词行序号、首次词与下一词边界、cue 朗读阶段与词区间布尔、固定第一页成员、字形墨迹框、按词与整页包络 | §6.2、§8.1、§9.2 |
 | 涂装 | `caption-paint-stack/1`、`caption-paint-effects/1`、`caption-paint-coverage/1`、`caption-gradient-space/1`、`caption-gradient-glyph/1`、`caption-image-png/1`、`caption-image-paint/1`、`caption-image-phase-float32/1`、`caption-image-sequence/1` | 有序涂装项、效果外扩、覆盖率重映射、渐变域与空间、图片涂装与相位、图片序列 | §9.1、§9.3 |
 | 材质 | `caption-blur/1`、`caption-gaussian-axis/1`、`caption-gaussian-uv/1`、`caption-gaussian-spacing-ramp/1`、`caption-gaussian-sampling/1`、`caption-glow-cascade/1`、`caption-glow-linear/1`、`caption-glow-tint/1`、`caption-glow-color-matrix/1`、`caption-feedback/1`、`caption-feedback-mean/1`、`caption-wave-displace/1`、`caption-wave-context/1`、`caption-noise-displace/1`、`caption-scan-warp/1`、`caption-radial-warp/1`、`caption-soft-band/1`、`caption-noise-palette-mix/1`、`caption-noisy-sweep/1`、`caption-angular-sample-blend/1`、`caption-affine-sample-blend/1`、`caption-affine-over/1`、`caption-gradient-smear/1`、`caption-render-layers/1`、`caption-layer-add/1` | 模糊与高斯族、辉光族、有界历史采样与等权平均、正弦与噪声位移、遮罩、噪声与扫光、采样混合、仿射前景/背景、独立渲染层与加法混合 | §9.3、§9.4 |

@@ -300,6 +300,7 @@ fn shape_page(
     rows: Vec<Range<usize>>,
     node: &Node,
     cfg: &Layout,
+    page_index: usize,
     size: (u32, u32),
     params: &BTreeMap<String, Evaluated>,
     budget: &mut Budget,
@@ -348,6 +349,14 @@ fn shape_page(
         rows.iter().map(|(_, _, _, height, _)| height).sum()
     } else {
         rows.len() as f64 * (fs * node.style.line_height)
+    };
+    // Line slots (single-row pages) move the page's centre by its slot offset.
+    let y = match rows.first() {
+        Some(row) => match line_slots::shift(cfg, page_index, row.3)? {
+            Some(shift) => y + shift,
+            None => y,
+        },
+        None => y,
     };
     let mut next_y = y - height / 2.0;
     let mut lines = Vec::new();
@@ -445,7 +454,7 @@ pub(super) fn prepare(
         pattern_choice = plan.choice;
         planned
     };
-    for rows in page_groups {
+    for (page_index, rows) in page_groups.into_iter().enumerate() {
         let first = rows.first().unwrap().start;
         let last = rows.last().unwrap().end;
         // Row/page breaks precede the next word. Non-whitespace separators
@@ -469,6 +478,7 @@ pub(super) fn prepare(
             ranges,
             node,
             cfg,
+            page_index,
             size,
             params,
             &mut Budget::default(),
@@ -508,11 +518,19 @@ pub(super) fn prepare(
     if let Some(window) = &cfg.page_window {
         page_window::apply(&mut pages, &words, content, window)?;
     }
+    let mut hidden = Vec::new();
+    if let Some(slots) = &cfg.pagination.line_slots {
+        line_slots::extend_windows(&mut pages, slots.count);
+        if let Some(window) = &cfg.page_window {
+            hidden = page_window::hidden_spans(&words, content, window)?;
+        }
+    }
     Ok(TextLayout {
         pages,
         words,
         content: content.into(),
         pattern_choice,
+        hidden,
     })
 }
 
@@ -526,12 +544,18 @@ pub(super) fn reflow(
     params: &BTreeMap<String, Evaluated>,
     budget: &mut Budget,
 ) -> Result<Page> {
+    let page_index = base
+        .pages
+        .iter()
+        .position(|candidate| candidate.source_range == page.source_range)
+        .unwrap_or(0);
     let mut lines = shape_page(
         text,
         &base.content,
         page_rows(&page.lines),
         node,
         cfg,
+        page_index,
         size,
         params,
         budget,

@@ -81,6 +81,8 @@ cargo run --locked -p subtitle-render --no-default-features --features wasm-safe
 
 `caption-word-line-tail-join/1` 开放 `pagination.tailWordRule: 'join-previous-line'`：固定词行模式下，未填满的末页若最后一行只有一个词，该词并入前一行（可以是上一页的最后一行）；与 `lastPageRule` 互斥。见 [word-line-tail-join.json](tests/fixtures/word-line-tail-join.json)。
 
+`caption-line-slots/1` 开放 `pagination.lineSlots: { count, pitch }`：每页一行的 `wordLinePattern`（内层数组各一项）按页序 k 落在行槽 `k mod count`（count 为 2–4，槽位 0 在最上），位置按 `pitch` × 该行行盒高度偏移，窗口延到第 k+count 页开始，同时最多 count 行可见。可与 `isolation`、`pageTags`、`pageWindow` 同用（`pageWindow` 判定的间隙什么都不画，包括滞留的旧行），与其他分页字段互斥。见 [line-slots.json](tests/fixtures/line-slots.json)。
+
 `caption-remaining-word-page-plan/1` 开放 `pagination.remainingWordPagePlans`：按还没分页的词数查表，第 i 项是剩余 i 个词时下一页的行词数，超过表长用最后一项；第 i 项最多 i 个词，页总是取满。行成员按固定词行冻结，与其他分页字段互斥。见 [remaining-word-page-plan.json](tests/fixtures/remaining-word-page-plan.json)。
 
 `caption-fixed-line-wrap/1` 开放 `pagination.fixedLineOverflow: 'wrap'`：固定行比行宽宽时在行内按宽度续到下一显示行，行、页成员和时间不变；line 单元按显示行计，与 `fontSizeBindings`、`fontStyleBindings`、`pageWindow` 互斥。见 [fixed-line-wrap.json](tests/fixtures/fixed-line-wrap.json)。

@@ -277,6 +277,10 @@ pub struct Pagination {
     /// `caption-pattern-select/1`: per-cue choice among fixed word line patterns.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pattern_select: Option<PatternSelect>,
+    /// `caption-line-slots/1`: single-row pages that stay visible until `count` pages later and
+    /// sit on `count` stacked rows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_slots: Option<LineSlots>,
     /// `caption-keyword-isolation/1`: hard row/page boundaries around tagged words.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub isolation: Vec<IsolationRule>,
@@ -398,6 +402,16 @@ impl Pagination {
             || self.pattern_select.is_some()
     }
 }
+/// Rolling single-row pages. Page `k` (the global line index, 0-based) sits in slot
+/// `k mod count`, slot 0 topmost, and its window ends where page `k + count` starts (or at the
+/// end of the last page). `pitch` is the distance between neighbouring slots as a multiple of
+/// the single line's line-box height.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LineSlots {
+    pub count: usize,
+    pub pitch: f64,
+}
 /// What happens to a lone word on the last row of an incomplete final page.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -429,6 +443,7 @@ impl Default for Pagination {
             fixed_line_fit: None,
             page_tags: None,
             pattern_select: None,
+            line_slots: None,
             isolation: vec![],
             tag_runs: None,
         }

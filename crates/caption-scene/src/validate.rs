@@ -25,6 +25,7 @@ pub const CAPABILITIES: &[&str] = &[
     "caption-line-neighbor-context/1",
     "caption-line-unit-quota/1",
     "caption-word-line-tail-join/1",
+    "caption-line-slots/1",
     "caption-remaining-word-page-plan/1",
     "caption-fixed-line-wrap/1",
     "caption-fixed-line-fit/1",
@@ -569,6 +570,54 @@ fn validate_tail_word_rule(scene: &Scene) -> Result<()> {
     }
     Ok(())
 }
+/// `caption-line-slots/1`: every page is one row, so the page index is the global line index and
+/// the slot is `index mod count`. Isolation, page tags and a page window only add boundaries,
+/// labels and timing to those pages; every other page or row plan field would change the row
+/// structure and is rejected.
+fn validate_line_slots(scene: &Scene) -> Result<()> {
+    let pagination = &scene.layout.pagination;
+    let Some(slots) = &pagination.line_slots else {
+        return Ok(());
+    };
+    let path = "pagination.lineSlots";
+    if !scene.required_capabilities.iter().any(|cap| cap == "caption-line-slots/1") {
+        return Err(Diagnostic::new(
+            "CAPTION_CAPABILITY_UNAVAILABLE",
+            path,
+            "caption-line-slots/1 must be declared",
+        ));
+    }
+    if !(2..=4).contains(&slots.count) {
+        return Err(invalid(path, "count must be an integer from 2 to 4"));
+    }
+    if !slots.pitch.is_finite() || slots.pitch <= 0.0 {
+        return Err(invalid(path, "pitch must be finite and positive"));
+    }
+    let Some(pattern) = &pagination.word_line_pattern else {
+        return Err(invalid(path, "wordLinePattern required"));
+    };
+    if pattern.iter().any(|rows| rows.len() != 1) {
+        return Err(invalid(path, "every wordLinePattern page must have exactly one row"));
+    }
+    if pagination.max_units_per_page.is_some()
+        || pagination.max_units_per_line.is_some()
+        || pagination.word_page_pattern.is_some()
+        || pagination.text_line_pattern.is_some()
+        || pagination.last_page_rule.is_some()
+        || pagination.tail_word_rule.is_some()
+        || pagination.remaining_word_page_plans.is_some()
+        || pagination.fixed_line_overflow.is_some()
+        || pagination.fixed_line_fit.is_some()
+        || pagination.pattern_select.is_some()
+        || pagination.tag_runs.is_some()
+    {
+        return Err(invalid(
+            path,
+            "exclusive with every page and row plan field except wordLinePattern, isolation and pageTags",
+        ));
+    }
+    Ok(())
+}
 /// `caption-page-tag/1`: an integer per word-line pattern page that expressions read as
 /// `unit.pageTag`; tags cycle with the pattern, so the lists have equal lengths.
 fn validate_page_tags(scene: &Scene) -> Result<()> {
@@ -837,6 +886,7 @@ pub fn validate_scene(s: &Scene) -> Result<()> {
     {
         return Err(invalid("layout", "invalid page/line limit"));
     }
+    validate_line_slots(s)?;
     validate_word_page_pattern(s)?;
     validate_text_line_pattern(s)?;
     validate_word_line_pattern(s)?;

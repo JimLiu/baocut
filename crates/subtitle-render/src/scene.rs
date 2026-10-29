@@ -19,6 +19,7 @@ mod layout_clock;
 mod line_box;
 mod line_neighbor;
 mod line_quota;
+mod line_slots;
 mod mask_paint;
 mod material_plan;
 mod materials;
@@ -197,6 +198,8 @@ struct TextLayout {
     content: String,
     /// Frozen `patternSelect` choice; None without that program.
     pattern_choice: Option<word_line_layout::PatternChoice>,
+    /// Gaps between packed word spans of a page window that rolling line slots leave empty.
+    hidden: Vec<(f64, f64)>,
 }
 /// Instance inputs of preparation-time pagination programs.
 struct Preparation<'a> {
@@ -823,108 +826,142 @@ fn resolved_units(
     let mut units = BTreeMap::new();
     for ((idx, id), l) in layouts.iter().filter(|((idx, _), _)| *idx == ci) {
         let _ = idx;
-        if let Some(pi) = l
-            .pages
-            .iter()
-            .enumerate()
-            .find(|(index, page)| {
-                page_window::contains(scene.layout.page_window.as_ref(), page, *index, seconds)
-            })
-            .map(|(index, _)| index)
-        {
-            let global = cue_unit_context::enabled(scene);
-            let sampled_text_layout;
-            let resolved = if relayout_needed {
-                let node =
-                    sampled_layout::find_text(&scene.nodes, id).expect("validated text node");
-                let mut relayout = l.clone();
-                let reflow_all = global && !scene.layout.pagination.has_fixed_lines();
-                for page_index in 0..l.pages.len() {
-                    if page_index != pi && !reflow_all {
-                        continue;
-                    }
-                    relayout.pages[page_index] = if unit_font_size::applies(scene, id) {
-                        unit_font_size::reflow(
-                            text,
-                            l,
-                            page_index,
-                            cue,
-                            node,
-                            scene,
-                            seconds,
-                            size,
-                            params,
-                            presentation,
-                            instance,
-                            budget,
-                            false,
-                        )?
-                    } else {
-                        sampled_layout::reflow(
-                            text,
-                            l,
-                            &l.pages[page_index],
-                            node,
-                            &scene.layout,
-                            size,
-                            params,
-                            budget,
-                        )?
-                    };
-                }
-                sampled_text_layout = relayout;
-                &sampled_text_layout
-            } else {
-                l
-            };
-            let mut resolved_units = units_for(
+        // One page, except under `caption-line-slots/1`, where every page whose window holds the
+        // time is shown, in page order.
+        let active = line_slots::active_pages(scene, l, seconds);
+        let mut resolved_units = Vec::new();
+        for (position, pi) in active.iter().copied().enumerate() {
+            let mut shown = page_units(
+                text,
+                l,
+                id,
+                pi,
                 cue,
-                resolved,
-                &resolved.pages[pi],
+                scene,
+                relayout_needed,
                 seconds,
-                &scene.speech_state,
+                params,
                 presentation,
-            );
-            if let Some(reference) = &l.pages[pi].reference_geometry {
-                reference.bind(&mut resolved_units, budget)?;
+                instance,
+                size,
+                budget,
+            )?;
+            if position > 0 {
+                // The cue unit is the node's single root; later pages only add their own units.
+                shown.remove(0);
             }
-            if page_envelope::enabled(scene) {
-                let node =
-                    sampled_layout::find_text(&scene.nodes, id).expect("validated text node");
-                page_envelope::bind(
-                    &mut resolved_units,
-                    &resolved.pages[pi],
-                    text,
-                    &node.style,
-                    budget,
-                )?;
-            }
-            if glyph_envelope::enabled(scene) {
-                glyph_envelope::bind(&mut resolved_units, &resolved.pages[pi], budget)?;
-            }
-            if page_line_context::enabled(scene) {
-                page_line_context::bind(
-                    &mut resolved_units,
-                    &resolved.pages[pi],
-                    &resolved.content,
-                    budget,
-                )?;
-            }
-            if global {
-                cue_unit_context::bind(
-                    scene,
-                    id,
-                    resolved,
-                    pi,
-                    &mut resolved_units,
-                    presentation,
-                    budget,
-                )?;
-            }
+            resolved_units.extend(shown);
+        }
+        if !active.is_empty() {
             units.insert(id.clone(), resolved_units);
         }
     }
     Ok(units)
+}
+/// Units of page `pi` of one text node with every unit binder applied.
+fn page_units(
+    text: &mut TextEngine,
+    l: &TextLayout,
+    id: &str,
+    pi: usize,
+    cue: &SceneCue,
+    scene: &Scene,
+    relayout_needed: bool,
+    seconds: f64,
+    params: &BTreeMap<String, Evaluated>,
+    presentation: &Presentation,
+    instance: &str,
+    size: (u32, u32),
+    budget: &mut Budget,
+) -> Result<Vec<(Unit, Option<Line>)>> {
+    let global = cue_unit_context::enabled(scene);
+    let sampled_text_layout;
+    let resolved = if relayout_needed {
+        let node = sampled_layout::find_text(&scene.nodes, id).expect("validated text node");
+        let mut relayout = l.clone();
+        let reflow_all = global && !scene.layout.pagination.has_fixed_lines();
+        for page_index in 0..l.pages.len() {
+            if page_index != pi && !reflow_all {
+                continue;
+            }
+            relayout.pages[page_index] = if unit_font_size::applies(scene, id) {
+                unit_font_size::reflow(
+                    text,
+                    l,
+                    page_index,
+                    cue,
+                    node,
+                    scene,
+                    seconds,
+                    size,
+                    params,
+                    presentation,
+                    instance,
+                    budget,
+                    false,
+                )?
+            } else {
+                sampled_layout::reflow(
+                    text,
+                    l,
+                    &l.pages[page_index],
+                    node,
+                    &scene.layout,
+                    size,
+                    params,
+                    budget,
+                )?
+            };
+        }
+        sampled_text_layout = relayout;
+        &sampled_text_layout
+    } else {
+        l
+    };
+    let mut resolved_units = units_for(
+        cue,
+        resolved,
+        &resolved.pages[pi],
+        seconds,
+        &scene.speech_state,
+        presentation,
+    );
+    if let Some(reference) = &l.pages[pi].reference_geometry {
+        reference.bind(&mut resolved_units, budget)?;
+    }
+    if page_envelope::enabled(scene) {
+        let node = sampled_layout::find_text(&scene.nodes, id).expect("validated text node");
+        page_envelope::bind(
+            &mut resolved_units,
+            &resolved.pages[pi],
+            text,
+            &node.style,
+            budget,
+        )?;
+    }
+    if glyph_envelope::enabled(scene) {
+        glyph_envelope::bind(&mut resolved_units, &resolved.pages[pi], budget)?;
+    }
+    if page_line_context::enabled(scene) {
+        page_line_context::bind(
+            &mut resolved_units,
+            &resolved.pages[pi],
+            &resolved.content,
+            budget,
+        )?;
+    }
+    if global {
+        cue_unit_context::bind(
+            scene,
+            id,
+            resolved,
+            pi,
+            &mut resolved_units,
+            presentation,
+            budget,
+        )?;
+    }
+    Ok(resolved_units)
 }
 
 fn text_nodes(nodes: &[Node], out: &mut Vec<Node>) {
@@ -1325,6 +1362,7 @@ fn prepare_with(
         words,
         content: content.into(),
         pattern_choice: None,
+        hidden: Vec::new(),
     })
 }
 
@@ -2318,9 +2356,12 @@ fn draw_nodes(
                         .find(|(u, _)| u.kind == UnitKind::Page)
                         .unwrap();
                     let pp = pose(n, &page.0, r, budget)?;
+                    let node_t = t;
                     let t = t.pre_concat(matrix(&pp, page.0.bounds));
                     let phase_style = paint_style_bindings::phase_style(r.scene, n);
-                    let (scalar_map, page_scalar_origin) = if image_paint::uses_phase(&phase_style)
+                    // Under `caption-line-slots/1` several pages are shown together; each keeps
+                    // its own scalar origin. A single page evaluates exactly as before.
+                    let (scalar_map, page_scalar_origins) = if image_paint::uses_phase(&phase_style)
                     {
                         let source = match &n.text {
                             Some(TextBinding::Static { text }) => text.as_str(),
@@ -2328,20 +2369,52 @@ fn draw_nodes(
                         };
                         let content = n.style.text_transform.apply(source);
                         let map = image_paint::scalar_map(&phase_style, content.as_ref(), budget)?;
-                        let origin = if paint_style_bindings::uses_page_phase(r.scene, n) {
-                            budget.spend()?;
-                            if page.0.page_source_start == content.len() {
-                                map.as_ref().map_or(0, Vec::len)
+                        let mut origins = Vec::new();
+                        for (shown, _) in units.iter().filter(|(u, _)| u.kind == UnitKind::Page) {
+                            origins.push(if paint_style_bindings::uses_page_phase(r.scene, n) {
+                                budget.spend()?;
+                                if shown.page_source_start == content.len() {
+                                    map.as_ref().map_or(0, Vec::len)
+                                } else {
+                                    image_paint::scalar_index(&map, shown.page_source_start)?
+                                }
                             } else {
-                                image_paint::scalar_index(&map, page.0.page_source_start)?
-                            }
-                        } else {
-                            0
-                        };
-                        (map, origin)
+                                0
+                            });
+                        }
+                        (map, origins)
                     } else {
-                        (None, 0)
+                        (None, Vec::new())
                     };
+                    // Pose, transform, scalar origin and bounds of every shown page, in page order.
+                    let mut shown_pages = Vec::new();
+                    for (index, (shown, _)) in units
+                        .iter()
+                        .filter(|(u, _)| u.kind == UnitKind::Page)
+                        .enumerate()
+                    {
+                        let origin = page_scalar_origins.get(index).copied().unwrap_or(0);
+                        if index == 0 {
+                            shown_pages.push((pp.clone(), t, origin, shown.bounds));
+                        } else {
+                            let extra = pose(n, shown, r, budget)?;
+                            let extra_t = node_t.pre_concat(matrix(&extra, shown.bounds));
+                            shown_pages.push((extra, extra_t, origin, shown.bounds));
+                        }
+                    }
+                    // Page of every line unit: the number of Page units before it, minus one.
+                    let mut pages_seen = 0usize;
+                    let line_pages = units
+                        .iter()
+                        .filter_map(|(u, _)| match u.kind {
+                            UnitKind::Page => {
+                                pages_seen += 1;
+                                None
+                            }
+                            UnitKind::Line => Some(pages_seen - 1),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>();
                     let mut glyphs = Vec::new();
                     let bound_paints = paint_style_bindings::applies(r.scene, n);
                     let mut paint_choices = Vec::new();
@@ -2349,7 +2422,14 @@ fn draw_nodes(
                     let mut property_choices = Vec::new();
                     let mut property_stacks = Vec::new();
                     let mut property_units = BTreeMap::<usize, usize>::new();
-                    for (lineunit, line) in units.iter().filter(|(u, _)| u.kind == UnitKind::Line) {
+                    for ((lineunit, line), page_no) in units
+                        .iter()
+                        .filter(|(u, _)| u.kind == UnitKind::Line)
+                        .zip(&line_pages)
+                    {
+                        let (pp, t, page_scalar_origin, page_bounds) = &shown_pages[*page_no];
+                        let (t, page_scalar_origin, page_bounds) =
+                            (*t, *page_scalar_origin, *page_bounds);
                         let line = line.as_ref().unwrap();
                         let lp = pose(n, lineunit, r, budget)?;
                         let lt = t.pre_concat(matrix(&lp, lineunit.bounds));
@@ -2460,7 +2540,7 @@ fn draw_nodes(
                                 page_scalar_origin,
                                 origin,
                                 paint_bounds: line.bounds,
-                                page_bounds: page.0.bounds,
+                                page_bounds,
                                 paint_origin: (line.bounds.x + glyph.x, line.baseline + glyph.y),
                             });
                         }

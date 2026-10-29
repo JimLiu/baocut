@@ -97,6 +97,13 @@ test('page tags label each word line pattern page', () => {
   expect(JSON.parse(JSON.stringify(pagination))).toEqual(pagination);
 });
 
+test('line slots stack single-row word line pages', () => {
+  type Pagination = NonNullable<CaptionScene['layout']['pagination']>;
+  expectTypeOf<NonNullable<Pagination['lineSlots']>>().toEqualTypeOf<{ count: number; pitch: number }>();
+  const pagination: Pagination = { wordLinePattern: [[3]], lineSlots: { count: 2, pitch: 1.4 }, pageTags: [1, 2] };
+  expect(JSON.parse(JSON.stringify(pagination))).toEqual(pagination);
+});
+
 test('list parameters and pick keep the Rust JSON shape', () => {
   const scene = {
     schema: 'baocut.caption-scene/1', evaluationVersion: 1,

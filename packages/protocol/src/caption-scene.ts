@@ -324,6 +324,12 @@ export interface CaptionScene {
       /** One integer of 0..65535 per wordLinePattern page, read as unit.pageTag; page p reads entry p mod the
        * pattern length. Requires caption-page-tag/1. */
       pageTags?: number[] | null;
+      /** Rolling single-row pages on count stacked rows (2..4): page k, the global line index, sits in slot k mod count
+       * with slot 0 on top, and stays visible until page k + count starts (or the last page ends). pitch is the distance
+       * between neighbouring slots as a multiple of the line-box height. Needs wordLinePattern with one-entry inner
+       * arrays; isolation, pageTags and layout.pageWindow may combine, the other word page and row plans are
+       * exclusive. Requires caption-line-slots/1. */
+      lineSlots?: { count: number; pitch: number } | null;
       /** caption-pattern-select/1; exclusive with wordLinePattern, textLinePattern, maxUnitsPerPage, lastPageRule
        * and the other word page and row plans above. */
       patternSelect?: CaptionPatternSelect | null;

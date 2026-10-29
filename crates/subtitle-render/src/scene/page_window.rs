@@ -13,6 +13,35 @@ pub(super) fn contains(config: Option<&PageWindow>, page: &Page, index: usize, t
         _ => time >= page.start && time < page.end,
     }
 }
+/// Gaps between consecutive packed word spans: the time a page window leaves between one
+/// word's packed end and the next word's packed start. Empty when the allocation leaves no gap.
+pub(super) fn hidden_spans(
+    words: &[Word],
+    content: &str,
+    config: &PageWindow,
+) -> Result<Vec<(f64, f64)>> {
+    let packed = packed_spans(words, content, config)?;
+    Ok(packed
+        .windows(2)
+        .filter(|pair| pair[0].1 < pair[1].0)
+        .map(|pair| (pair[0].1, pair[1].0))
+        .collect())
+}
+/// Whether `time` lies in one of `spans`, with the boundary ownership of `contains`: the earlier
+/// word's packed end belongs to the shown side (end-inclusive) or the gap (end-exclusive).
+pub(super) fn hidden(config: Option<&PageWindow>, spans: &[(f64, f64)], time: f64) -> bool {
+    let inclusive = matches!(
+        config.map(|window| window.boundary),
+        Some(PageWindowBoundary::FirstStartInclusiveEndInclusive)
+    );
+    spans.iter().any(|&(from, to)| {
+        if inclusive {
+            time > from && time <= to
+        } else {
+            time >= from && time < to
+        }
+    })
+}
 fn packed_spans(words: &[Word], content: &str, config: &PageWindow) -> Result<Vec<(f64, f64)>> {
     let mut original = Vec::with_capacity(words.len());
     for word in words {

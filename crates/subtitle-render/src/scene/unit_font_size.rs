@@ -598,6 +598,14 @@ pub(super) fn reflow(
     }
     let x = cfg.x.resolve(size.0, size.1, params)?;
     let y = cfg.y.resolve(size.0, size.1, params)?;
+    // Line slots (single-row pages) move the page's centre by its slot offset.
+    let y = match rows.first() {
+        Some(row) => match line_slots::shift(cfg, page_index, row.2)? {
+            Some(shift) => y + shift,
+            None => y,
+        },
+        None => y,
+    };
     let mut top = y - height / 2.0;
     let mut lines = Vec::with_capacity(rows.len());
     for (bytes, shape, row_height, max_size) in rows {
