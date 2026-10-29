@@ -1,13 +1,13 @@
-audio.cpp 0.9.2-drama3-base-small — license and third-party notices
+audio.cpp 0.9.3 — license and third-party notices
 ==================================================
 
-BaoCut distributes the audio.cpp engine (https://github.com/0xShug0/audio.cpp, tag v0.9.2-drama3-base-small) unmodified: the upstream
+BaoCut distributes the audio.cpp engine (https://github.com/0xShug0/audio.cpp, tag v0.9.3) unmodified: the upstream
 release binaries `audiocpp_cli` and `audiocpp_server` (and, on Windows, the Microsoft Visual C++ runtime DLLs that the
 upstream archive ships next to them) are placed in `<resources>/bin/audiocpp/` together with the upstream `LICENSE`.
 The source code is available from the upstream repository at the tag above.
 
 This file reproduces the audio.cpp license and the licenses of the third-party components that the upstream build
-links into the binaries, as found under `external/` in the upstream repository at v0.9.2-drama3-base-small. The tokenizer code under
+links into the binaries, as found under `external/` in the upstream repository at v0.9.3. The tokenizer code under
 `external/llama_tokenizer/` comes from llama.cpp and is covered by the MIT license of the ggml authors reproduced in
 the ggml section.
 

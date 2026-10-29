@@ -19,7 +19,7 @@ interface Control {
 
 const args = process.argv.slice(2);
 if (args.includes('--version')) {
-  fs.writeSync(1, 'audio.cpp 0.9.2\n');
+  fs.writeSync(1, 'audio.cpp 0.9.3\n');
   process.exit(0);
 }
 const flag = (name: string): string | null => {

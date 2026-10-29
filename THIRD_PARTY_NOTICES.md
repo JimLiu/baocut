@@ -332,7 +332,7 @@ BaoCut 的 Qwen3-ASR、Whisper、强制对齐、Silero VAD，以及 HTDemucs 人
 
 ## audio.cpp
 
-- 来源：[audio.cpp](https://github.com/0xShug0/audio.cpp)，版本 0.9.2-drama3-base-small（标签 `v0.9.2-drama3-base-small`）
+- 来源：[audio.cpp](https://github.com/0xShug0/audio.cpp)，版本 0.9.3（标签 `v0.9.3`）
 - 版权：Copyright 2026 ShugoAI LLC
 - 许可：Apache License, Version 2.0；[audio.cpp 与第三方组件的许可原文](packages/models/licenses/audio.cpp.txt)收录上游 `LICENSE` 与下列组件的完整许可条款。
 

@@ -19,7 +19,7 @@ import type { ComponentRelease, ComponentReleaseAsset } from './bundle-registry.
  * - Linux arm64、Windows arm64：上游没有发布，这样的主机上本地合成与音乐不可用，只能自己构建后用 `BAOCUT_AUDIOCPP_CLI` 指定。
  *
  * 不随引擎分发：`model_specs/`（模型包的 GGUF 自带规格）、eSpeak-ng 与 MeCab（引擎运行时按需 `dlopen`，这里用到的模型族都不需要）。
- * 大小与 sha256 取自 2026-10-22 上游 Releases API 给出的 `digest`；macOS arm64 的包在本机下载后重新算过，一致。
+ * 大小与 sha256 取自 2026-10-28 上游 Releases API 给出的 `digest`；macOS arm64 的包在本机下载后重新算过，一致。
  * 许可：上游 `LICENSE` 是 Apache-2.0（Copyright 2026 ShugoAI LLC），静态链接的第三方组件见 `THIRD_PARTY_NOTICES.md` 与随应用分发的
  * `packages/models/licenses/audio.cpp.txt`。模型权重的许可另算，见 `speech-bundles.ts`、`music-bundles.ts`。
  */
@@ -56,39 +56,39 @@ function windows(fileName: string, size: number, sha256: string): ComponentRelea
 /** 内置引擎的版本与各平台的压缩包。平台键是 `<platform>-<arch>`，CPU 构建另加 `-cpu`（`audioCppAssetKey`）。 */
 export const AUDIO_CPP_RELEASE: ComponentRelease = {
   name: AUDIO_CPP_TOOL,
-  version: '0.9.2-drama3-base-small',
+  version: '0.9.3',
   // 上游的标签带 `v`，版本号（`--version` 打印的）不带。
   urlTemplate: 'https://github.com/0xShug0/audio.cpp/releases/download/v{version}/{file}',
   assets: {
     'darwin-arm64': posix(
-      'audio-v0.9.2-drama3-base-small-bin-macos-arm64-metal.tar.gz',
-      32708971,
-      '1281998c1acd170a7d92139853fe6ce6ab920e211d2ad3359775d43ad9ba616d',
+      'audio-v0.9.3-bin-macos-arm64-metal.tar.gz',
+      34847832,
+      '70a84c2b61ce5ef99547a12affab9b0d40daf08666baf7da4f940d5c7b722819',
     ),
     'darwin-x64': posix(
-      'audio-v0.9.2-drama3-base-small-bin-macos-x64-metal.tar.gz',
-      34649590,
-      'e4f1bca78339092c679bb51b90c895bdef6b2e6658eef467879f89c78a3941f0',
+      'audio-v0.9.3-bin-macos-x64-metal.tar.gz',
+      36812821,
+      '81238e3957bbf840d15094c34262fa93609caa0233c3dccc1e0f64fb47f5e51b',
     ),
     'linux-x64': posix(
-      'audio-v0.9.2-drama3-base-small-bin-ubuntu-x64-vulkan-portable.tar.gz',
-      74761470,
-      'dfd0ad832829210eb13a03779bdd90f3e6e68f68edf762bf25b3915067beeb73',
+      'audio-v0.9.3-bin-ubuntu-x64-vulkan-portable.tar.gz',
+      77051422,
+      '10ac6b5cb72bc9266e5a600407dbcc2a3eaf87139a3e01c064bf3035d11f81b8',
     ),
     'linux-x64-cpu': posix(
-      'audio-v0.9.2-drama3-base-small-bin-ubuntu-x64-cpu-portable.tar.gz',
-      61000844,
-      'd5e6110daae50800429680a277b70557d333d552c4a130a8f1d0e56181fa8697',
+      'audio-v0.9.3-bin-ubuntu-x64-cpu-portable.tar.gz',
+      63289061,
+      '02156f7a7bd9924902cec26be35087d3806c7e348be344b1ec28cac0c1af3929',
     ),
     'win32-x64': windows(
-      'audio-v0.9.2-drama3-base-small-bin-windows-x64-vulkan-portable.zip',
-      63227361,
-      '9c943d406af3543cc5005d158ed583210cd7a13371bffcd4b7f262f7a6a5ad16',
+      'audio-v0.9.3-bin-windows-x64-vulkan-portable.zip',
+      82088153,
+      '51f8d8ce6cc7789bc9dc3d15f35e05f143aaf2ce1cbecc525a4104bcdde82a42',
     ),
     'win32-x64-cpu': windows(
-      'audio-v0.9.2-drama3-base-small-bin-windows-x64-cpu-portable.zip',
-      28786884,
-      '9654c8f66f87bda768196d934059be896399b43703b06e5f2b857430775bec3b',
+      'audio-v0.9.3-bin-windows-x64-cpu-portable.zip',
+      30409504,
+      'f5fa4662b7ec323dbe31d37e224e46159b064836a9005da384551a5248771eeb',
     ),
   },
 };

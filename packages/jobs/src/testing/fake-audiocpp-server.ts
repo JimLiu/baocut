@@ -24,7 +24,7 @@ interface Control {
 
 const args = process.argv.slice(2);
 if (args.includes('--version')) {
-  fs.writeSync(1, 'audio.cpp 0.9.2\ngit: fake\nbuild: Release, fake\nbackends: cpu,metal\n');
+  fs.writeSync(1, 'audio.cpp 0.9.3\ngit: fake\nbuild: Release, fake\nbackends: cpu,metal\n');
   process.exit(0);
 }
 
