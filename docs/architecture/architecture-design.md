@@ -1624,7 +1624,7 @@ candle 读与 MLX 相同的量化权重，加载时反量化：CPU 上算 f32，
 **启动**。Worker 由 `process-host` 按需启动，不随 Runtime 启动预热。
 
 1. Node 的 `models` 模块解析模型包：显式的权重文件路径、manifest hash、backend、device、Worker 合同版本。Worker 不自己扫描目录，不联网，不下载。
-2. 以与 Engine Host 相同的 stdio JSON-line 通道启动，消息形状见 Model Worker 协议规范。Runtime 的首个请求是 `worker.hello`，回应给出 Worker 版本、合同版本、可用后端与能力；合同版本不匹配就立即关闭。握手默认等 5 秒；Intel Mac 等 60 秒，留出首次编译内嵌 Metal 内核的时间（安装到新路径时缓存可能未命中），超时仍结束进程并报加载失败。文生图的模型包要求 Worker 声明 `image`（且模型族在 `imageFamilies` 里），分离的要求 `separate`（且模型族在 `separateFamilies` 里），没有时不加载，任务以 `MODEL_LOAD_FAILED`（`unsupported`）失败，模型包不停用。
+2. 以与 Engine Host 相同的 stdio JSON-line 通道启动，消息形状见 Model Worker 协议规范。Runtime 的首个请求是 `worker.hello`，回应给出 Worker 版本、合同版本、可用后端与能力；合同版本不匹配就立即关闭。所有平台的握手默认等 60 秒，留出首次 GPU 初始化、内核编译与系统负载的余量（安装到新路径时缓存可能未命中）。超时结束进程，按运行时崩溃处理，错误详情为 `detail: 'hello-timeout'`，保留期限与 stderr 尾部；转写自动重试一次，不把超时判成模型不支持或缺少组件，也不停用模型包。文生图的模型包要求 Worker 声明 `image`（且模型族在 `imageFamilies` 里），分离的要求 `separate`（且模型族在 `separateFamilies` 里），没有时不加载，任务以 `MODEL_LOAD_FAILED`（`unsupported`）失败，模型包不停用。
 3. 加载权重是显式的 `model.load` 请求，不是启动的一部分。加载只上报阶段（`loading-weights`、`compiling`、`warming-up`），不伪造百分比。
 4. 与 §6.3 状态的对应：进程未起或权重未加载 = `installed`；`model.load` 进行中 = `loading`；加载完成 = `ready`；有任务 = `busy`；卸载中 = `unloading`。
 

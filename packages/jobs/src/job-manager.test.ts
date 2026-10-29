@@ -229,6 +229,7 @@ describe('JobManager（假 Model Worker）', () => {
       idleMs?: number;
       crashLimit?: number;
       crashWindowMs?: number;
+      helloTimeoutMs?: number;
       remote?: TranscribeProvider;
       resolveNode?: (node: string) => string | null;
       /** 假 Worker 的控制文件内容（`capabilities`、`transcribeFamilies` 等）。 */
@@ -250,6 +251,7 @@ describe('JobManager（假 Model Worker）', () => {
       // 不给时用 Provider 的默认值（5 分钟内 3 次）。
       ...(options.crashLimit !== undefined ? { crashLimit: options.crashLimit } : {}),
       ...(options.crashWindowMs !== undefined ? { crashWindowMs: options.crashWindowMs } : {}),
+      ...(options.helloTimeoutMs !== undefined ? { helloTimeoutMs: options.helloTimeoutMs } : {}),
       cancelGraceMs: 5_000,
     });
     const store = await ModelServiceStore.open(
@@ -300,17 +302,31 @@ describe('JobManager（假 Model Worker）', () => {
     await fs.rm(dir, { recursive: true, force: true });
   });
 
-  it('首次 GPU 内核编译超过 5 秒：Intel Mac 等握手完成，其他平台保留原期限', async () => {
+  it('cold GPU startup beyond five seconds completes on every platform', async () => {
     await start({ control: { helloDelayMs: 5500 } });
     const job = await run();
-    if (process.platform === 'darwin' && process.arch === 'x64') {
-      expect(job.state).toBe('completed');
-      expect(job.error).toBeNull();
-    } else {
-      expect(job.state).toBe('failed');
-      expect(job.error?.details).toMatchObject({ detail: 'hello-timeout' });
-    }
+    expect(job.state).toBe('completed');
+    expect(job.attempt).toBe(1);
+    expect(job.error).toBeNull();
   }, 15_000);
+
+  it('handshake timeout retries once and preserves startup diagnostics without suggesting installation', async () => {
+    await start({ helloTimeoutMs: 1000, control: { helloDelayMs: 5000 } });
+    const job = await run();
+    expect(job).toMatchObject({
+      state: 'failed',
+      attempt: 2,
+      error: {
+        code: 'MODEL_WORKER_CRASHED',
+        details: { detail: 'hello-timeout', timeoutMs: 1000, stderrTail: expect.stringContaining('fake-model-worker') },
+      },
+    });
+    expect(job.error?.details).not.toHaveProperty('reason', 'unsupported');
+    expect(events.some((event) => event.state === 'interrupted' && event.attempt === 1)).toBe(true);
+    expect(catalog.blocked('fake@cpu')).toBe(false);
+    expect((await catalog.status('fake@cpu'))?.state).toBe('installed');
+    expect(videos.applied).toHaveLength(0);
+  });
 
   it('完成：写出 speech 文档、发布原始结果、删除 staging，主题事件有序', async () => {
     await start();

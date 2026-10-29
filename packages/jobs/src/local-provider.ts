@@ -62,7 +62,7 @@ import { modelWorkerHolder } from './resource-profiles.ts';
 /**
  * 本地 Provider：按模型包管理 Model Worker 进程（架构设计 §6.5）。
  *
- * - 一个模型包最多一个进程，按需启动：`worker.hello`（5 秒）→ `model.load`（不限时）→ `job.run`；
+ * - 一个模型包最多一个进程，按需启动：`worker.hello`（60 秒）→ `model.load`（不限时）→ `job.run`；
  *   一个进程一次只跑一个任务（排队在 JobManager）。
  * - 空闲 `idleMs`（默认 10 分钟）后 `model.unload` 再关 stdin；下一个任务等它真的退出后再起新进程。
  * - 取消：`job.cancel`，期限（默认 5 秒）内 `job.run` 没有以 `cancelled` 返回就结束进程；进程下次按需再起。
@@ -98,7 +98,7 @@ export interface LocalProviderOptions {
   log?: JobsLogger;
   idleMs?: number;
   cancelGraceMs?: number;
-  /** Intel Mac 的首次 Metal 内核编译可能超过 5 秒；默认等 60 秒，其他平台等 5 秒。 */
+  /** 默认等 60 秒，留出首次 GPU 初始化、内核编译与系统负载的余量。 */
   helloTimeoutMs?: number;
   closeGraceMs?: number;
   crashLimit?: number;
@@ -236,7 +236,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
     this.#log = options.log ?? silentLog;
     this.#idleMs = options.idleMs ?? 10 * 60_000;
     this.#cancelGraceMs = options.cancelGraceMs ?? 5_000;
-    this.#helloTimeoutMs = options.helloTimeoutMs ?? (process.platform === 'darwin' && process.arch === 'x64' ? 60_000 : 5_000);
+    this.#helloTimeoutMs = options.helloTimeoutMs ?? 60_000;
     this.#closeGraceMs = options.closeGraceMs ?? 5_000;
     this.#crashLimit = options.crashLimit ?? 3;
     this.#crashWindowMs = options.crashWindowMs ?? 5 * 60_000;
@@ -825,8 +825,12 @@ export class LocalTranscribeProvider implements TranscribeProvider {
       if (error instanceof WorkerExitedError) {
         return fail(new ProviderFailure('crashed', L.workerExitedOnStart(), { stderrTail: worker.stderrTail() }));
       }
-      const detail =
-        error instanceof WorkerTimeoutError ? 'hello-timeout' : error instanceof WorkerRequestError ? error.code : 'hello-failed';
+      if (error instanceof WorkerTimeoutError) {
+        const details = { detail: 'hello-timeout', timeoutMs: error.timeoutMs, stderrTail: worker.stderrTail() };
+        log.warn('Model Worker handshake timed out', { bundleId: slot.bundleId, pid: worker.pid, ...details });
+        return fail(new ProviderFailure('crashed', L.handshakeFailed(), details));
+      }
+      const detail = error instanceof WorkerRequestError ? error.code : 'hello-failed';
       return fail(new ProviderFailure('load-failed', L.handshakeFailed(), { reason: 'unsupported', detail }));
     }
     if (hello.contractVersion !== WORKER_CONTRACT_VERSION) {
