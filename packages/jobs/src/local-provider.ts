@@ -815,6 +815,8 @@ export class LocalTranscribeProvider implements TranscribeProvider {
     };
 
     let hello: WorkerHello;
+    // 握手用时记进加载日志：平时几十毫秒，电脑忙时会拉长，超时前就能在日志里看出来。
+    const helloStarted = Date.now();
     try {
       hello = await worker.request<WorkerHello>(
         'worker.hello',
@@ -833,6 +835,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
       const detail = error instanceof WorkerRequestError ? error.code : 'hello-failed';
       return fail(new ProviderFailure('load-failed', L.handshakeFailed(), { reason: 'unsupported', detail }));
     }
+    const helloMs = Date.now() - helloStarted;
     if (hello.contractVersion !== WORKER_CONTRACT_VERSION) {
       return fail(
         new ProviderFailure('load-failed', L.contractMismatch(), {
@@ -952,6 +955,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
         bundleId: slot.bundleId,
         pid: worker.pid,
         workerVersion: hello.workerVersion,
+        helloMs,
         ...loadResult,
       });
     } catch (error) {

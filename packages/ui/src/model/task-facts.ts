@@ -152,7 +152,7 @@ export function cancellationCost(cancellation: Pick<JobCancellation, 'remote' | 
 /** 补救去处：与 shell 的路由同形（`models` 的类与页、设置 › Agent、语义索引或某家 API 提供方、服务）。 */
 export type RemedyTarget =
   | { tab: 'models'; category: ModelCategory; page?: ModelPage }
-  | { tab: 'settings'; section: 'agent' | 'semantic' }
+  | { tab: 'settings'; section: 'agent' | 'semantic' | 'about' }
   | { tab: 'settings'; section: 'providers'; providerId: string }
   | { tab: 'services'; service: 'remote' }
   | { tab: 'tasks'; taskId: string };
@@ -160,7 +160,7 @@ export type RemedyTarget =
 export interface Remedy {
   label: string;
   target: RemedyTarget;
-  /** 说明这是配置问题的一句；`CAPABILITY_NOT_CONFIGURED` 时用它自己的提示。 */
+  /** 说明问题出在哪、去处能怎么补的一句；`CAPABILITY_NOT_CONFIGURED` 时用它自己的提示。 */
   hint: string;
 }
 
@@ -189,7 +189,8 @@ function isCapabilityNotConfigured(details: unknown): details is CapabilityNotCo
 
 /**
  * 失败的 Job 去哪儿补：`CAPABILITY_NOT_CONFIGURED` 按 `remedy.action`（合同上它在提交时就拒绝、不建 Job，这里防御着读），
- * 其余按错误码：凭据问题去那家 API 提供方的详情，模型包问题去能力页。别的错误没有确定的去处，不给按钮。
+ * 其余按错误码：凭据问题去那家 API 提供方的详情，本地模型包加载失败按原因分（见 `localLoadRemedy`），本地推理进程
+ * 重试后仍崩溃去能力页。别的错误没有确定的去处，不给按钮。
  */
 export function jobRemedy(job: Pick<JobRecord, 'kind' | 'providerId' | 'error'>): Remedy | null {
   const error = job.error;
@@ -224,10 +225,41 @@ export function jobRemedy(job: Pick<JobRecord, 'kind' | 'providerId' | 'error'>)
     if (job.providerId.startsWith('agent:')) return { label: TASK_VIEW_COPY.remedyAgent, target: { tab: 'settings', section: 'agent' }, hint: configHint };
     return { label: TASK_VIEW_COPY.remedyCloud, target: { tab: 'settings', section: 'providers', providerId: job.providerId }, hint: configHint };
   }
-  if ((error.code === 'MODEL_LOAD_FAILED' || error.code === 'MODEL_NOT_READY') && job.providerId === 'local') {
+  if (error.code === 'MODEL_LOAD_FAILED' && job.providerId === 'local') return localLoadRemedy(error, category);
+  if (error.code === 'MODEL_NOT_READY' && job.providerId === 'local') {
     return { label: TASK_VIEW_COPY.remedyInstall, target: { tab: 'models', category }, hint: configHint };
   }
+  // 本地推理进程自动重试一次后仍然停下（含握手又一次超时）：多半是内存不够或电脑太忙。去能力页换个更小的模型，
+  // 连续崩溃被停用的模型包也在那里重新启用。Worker 中途换了版本（应用刚更新）同一个错误码，不是资源问题，不给去处。
+  if (error.code === 'MODEL_WORKER_CRASHED' && job.providerId === 'local' && error.messageRef?.key !== 'jobsLocalProvider.workerVersionChanged') {
+    return { label: TASK_VIEW_COPY.remedyDefault, target: { tab: 'models', category }, hint: TASK_VIEW_COPY.resourceHint };
+  }
   return null;
+}
+
+/** Model Worker 不认这次握手、合同版本对不上（`local-provider.ts` 的消息引用）。 */
+const WORKER_MISMATCH_KEYS: readonly string[] = ['jobsLocalProvider.handshakeFailed', 'jobsLocalProvider.contractMismatch'];
+
+/**
+ * 本地模型包加载失败（`MODEL_LOAD_FAILED`）按 `details.reason` 给去处（架构设计 §6.5「加载失败」）：只有缺文件才是
+ * 「补装组件」；模型在这台电脑或这个版本上跑不了、内存不够，去能力页换模型或重新启用；Model Worker 找不到、
+ * 起不来或与应用版本不配套，补模型组件没用，去检查更新。握手超时是电脑一时太忙，不是配置问题：新版本按崩溃自动重试，
+ * 旧记录（`reason: 'unsupported'`、`detail: 'hello-timeout'`）不给去处，不再误导去装组件。
+ */
+function localLoadRemedy(error: NonNullable<JobRecord['error']>, category: ModelCategory): Remedy | null {
+  const C = TASK_VIEW_COPY;
+  const { reason, detail } = (typeof error.details === 'object' && error.details !== null ? error.details : {}) as {
+    reason?: unknown;
+    detail?: unknown;
+  };
+  if (detail === 'hello-timeout') return null;
+  const handshake = WORKER_MISMATCH_KEYS.includes(error.messageRef?.key ?? '') || detail === 'hello-failed' || detail === 'CONTRACT_MISMATCH';
+  if (handshake || reason === 'worker-missing' || reason === 'error') {
+    return { label: C.remedyUpdate, target: { tab: 'settings', section: 'about' }, hint: C.workerHint };
+  }
+  if (reason === 'unsupported') return { label: C.remedyDefault, target: { tab: 'models', category }, hint: C.unsupportedHint };
+  if (reason === 'resource') return { label: C.remedyDefault, target: { tab: 'models', category }, hint: C.resourceHint };
+  return { label: C.remedyInstall, target: { tab: 'models', category }, hint: C.configHint };
 }
 
 /**

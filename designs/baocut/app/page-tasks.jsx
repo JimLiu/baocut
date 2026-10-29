@@ -341,7 +341,8 @@
     const k = KIND[t.kind] || KIND.transcribe;
     const proj = app.projById(t.project);
     const setup = X.stopsDirectly(t.kind);
-    const miss = F.installFailure(t, (id) => window.BC_LOCALMODELS.catOf(D.setModels.find((m) => m.id === id) || {}));
+    const catOf = (id) => window.BC_LOCALMODELS.catOf(D.setModels.find((m) => m.id === id) || {});
+    const miss = F.installFailure(t, catOf) || F.loadFailure(t, catOf);
     return (
       <Page>
         <Btn variant="quiet" size="s" icon="back" onClick={() => app.go({r: 'tasks'})}
@@ -401,7 +402,8 @@
               </div>
             </Card>
           : null}
-        {/* 模型下载没下完：下好的留着，去设置里补齐（BC_TASK_FACTS.installFailure）；不走下面那张「配置问题」卡 */}
+        {/* 模型下载没下完：下好的留着，去设置里补齐（BC_TASK_FACTS.installFailure）；本机模型没跑起来：按原因给去处
+            （BC_TASK_FACTS.loadFailure）。都不走下面那张「配置问题」卡 */}
         {miss
           ? <Card style={{padding: 14, marginTop: 16, boxShadow: 'inset 0 0 0 1px var(--red-300)', background: 'var(--red-100)'}}>
               <div className="row gap8">

@@ -14,6 +14,7 @@
       每行一次请求：摘要 `2/3 张 · 1 在画 · 约 $0.08`、元信息 `模型 · 画幅 · N 张 · 约 $0.04 · 12 s`。
       费用是按价目表估的（只写「约」），只计已完成的行。标题兜底也在这里：阶段机器值不进标题。
    5. **模型下载没下完**（2026-10-16，`installFailure`）：失败卡写下好的留着、去补齐，不当配置问题。
+   6. **本机模型没跑起来**（2026-10-29，`loadFailure`）：按失败原因给去处，只有缺文件才是「去补装组件」。
 
    时长写法与 `wizard_media::clock` 一致（`3:26` / `1:02:03`），用时与 `took_ms` 一致。 */
 (function () {
@@ -281,10 +282,39 @@
     };
   }
 
+  const LOAD_BODY = {
+    config: '这是配置问题，重试同一条链路不会好。先补上缺的组件，再跑一次。',
+    unsupported: '这台电脑或当前版本的 BaoCut 跑不了这个模型。换一个模型，再跑一次。',
+    resource: '这个模型内存不够，或者一直中途停下。关掉其他应用或换个更小的模型；如果模型被停用了，先重新启用。',
+    worker: 'BaoCut 的 Model Worker 缺失或和当前应用版本不匹配，补装模型组件解决不了。更新或重新安装 BaoCut，再跑一次。',
+  };
+
+  /** 本机模型没跑起来（`MODEL_LOAD_FAILED` / `MODEL_WORKER_CRASHED`，2026-10-29）的那张卡，与实现的 `jobRemedy` 同口径，
+      按 `errorReason`（`details.reason`）与 `errorDetail` 分：缺文件（或没说原因）才「去补装组件」；这台电脑或这个版本
+      跑不了、内存不够或被停用，去本地模型那一类换模型（被停用的在那里重新启用）；Model Worker 找不到、起不来、握手出错、
+      合同版本不符，补组件没用，去「关于」检查更新。推理进程自动重试一次后仍崩溃，按内存不够写。
+      握手超时不到这里：实现按崩溃自动重试。别的任务、取消的、没失败的 null（走通用失败卡）。 */
+  function loadFailure(t, catOf) {
+    if (!t || t.status !== 'error' || t.canceled) return null;
+    const code = t.errorCode;
+    if (code !== 'MODEL_LOAD_FAILED' && code !== 'MODEL_WORKER_CRASHED') return null;
+    const tab = t.model && catOf ? catOf(t.model) : null;
+    const models = Object.assign({r: 'settings', sec: 'local'}, tab ? {tab} : null);
+    const reason = t.errorReason;
+    const detail = t.errorDetail;
+    if (code === 'MODEL_WORKER_CRASHED') return {body: LOAD_BODY.resource, label: '去选默认模型', go: models};
+    if (reason === 'worker-missing' || reason === 'error' || detail === 'hello-failed' || detail === 'CONTRACT_MISMATCH') {
+      return {body: LOAD_BODY.worker, label: '去检查更新', go: {r: 'settings', sec: 'about'}};
+    }
+    if (reason === 'unsupported') return {body: LOAD_BODY.unsupported, label: '去选默认模型', go: models};
+    if (reason === 'resource') return {body: LOAD_BODY.resource, label: '去选默认模型', go: models};
+    return {body: LOAD_BODY.config, label: '去补装组件', go: models};
+  }
+
   window.BC_TASK_FACTS = {
     LIVE_SEGMENT_LIMIT, clock, took, fmtSize, fmtCount, fileName,
     source, transcript, transcriptSummary, statusLabel, details,
     IMAGE_ROW_LIMIT, IMAGE_PROMPT_MAX, images, imagesCost, imagesSummary, imageMeta, imageStatus, imageModelName,
-    taskTitle, cardSub, installFailure,
+    taskTitle, cardSub, installFailure, loadFailure,
   };
 })();

@@ -244,3 +244,29 @@ test('模型下载没下完：语义搜索包去语义索引，本机模型去�
   assert.strictEqual(F.installFailure({kind: 'transcribe', status: 'error'}, catOf), null);
   assert.strictEqual(F.installFailure(null), null);
 });
+
+test('本机模型没跑起来：缺文件才补装组件，跑不了或内存不够去换模型，Model Worker 不配套去检查更新', () => {
+  const catOf = () => 'asr';
+  const tr = (patch) => Object.assign({kind: 'transcribe', status: 'error', errorCode: 'MODEL_LOAD_FAILED', model: 'moss'}, patch);
+  const models = {r: 'settings', sec: 'local', tab: 'asr'};
+  const about = {r: 'settings', sec: 'about'};
+  for (const patch of [{errorReason: 'worker-missing'}, {errorReason: 'error'}, {errorReason: 'unsupported', errorDetail: 'hello-failed'},
+    {errorReason: 'unsupported', errorDetail: 'CONTRACT_MISMATCH'}]) {
+    const r = F.loadFailure(tr(patch), catOf);
+    assert.deepStrictEqual([r.label, r.go], ['去检查更新', about], JSON.stringify(patch));
+    assert.ok(/补装模型组件解决不了/.test(r.body));
+  }
+  const unsupported = F.loadFailure(tr({errorReason: 'unsupported', errorDetail: 'backend-unavailable'}), catOf);
+  assert.deepStrictEqual([unsupported.label, unsupported.go], ['去选默认模型', models]);
+  assert.ok(!/配置问题/.test(unsupported.body));
+  assert.ok(/重新启用/.test(F.loadFailure(tr({errorReason: 'resource'}), catOf).body));
+  const crashed = F.loadFailure(tr({errorCode: 'MODEL_WORKER_CRASHED'}), catOf);
+  assert.deepStrictEqual([crashed.label, crashed.go], ['去选默认模型', models]);
+  assert.strictEqual(F.loadFailure(tr({errorReason: 'not-installed'}), catOf).label, '去补装组件');
+  assert.strictEqual(F.loadFailure(tr({}), catOf).label, '去补装组件', '没说原因按缺文件');
+  assert.deepStrictEqual(F.loadFailure(tr({model: null})).go, {r: 'settings', sec: 'local'}, '没给 catOf：只到本地模型');
+  assert.strictEqual(F.loadFailure(tr({errorCode: 'DISK_FULL'}), catOf), null);
+  assert.strictEqual(F.loadFailure(tr({canceled: true}), catOf), null);
+  assert.strictEqual(F.loadFailure(tr({status: 'running'}), catOf), null);
+  assert.strictEqual(F.loadFailure(null), null);
+});

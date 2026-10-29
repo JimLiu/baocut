@@ -1636,8 +1636,8 @@ candle 读与 MLX 相同的量化权重，加载时反量化：CPU 上算 f32，
 
 | 失败 | 判定 | 处理 |
 | --- | --- | --- |
-| 加载失败 | `model.load` 返回错误 | 不重试。错误码 `MODEL_LOAD_FAILED`，按原因归类为 `not-installed`（校验不过）、`unsupported`（后端或设备不支持）或 `error`（资源不足）；Job 失败并给出可用的动作：安装、换模型、换后端 |
-| 运行时崩溃 | 进程异常退出、stdout 关闭、心跳超时 | 当前 Job 标为 `interrupted`，按 `模型包 + 输入 hash + Worker 版本` 自动重试一次（带着同一份检查点，从做完的地方接着做，§6.6）；第二次仍崩溃则 Job 失败，错误码 `MODEL_WORKER_CRASHED`，附 stderr 尾部。同一模型包在 M 分钟内崩溃 N 次后，该能力标为不可用（原因 `resource` 或 `unsupported`），不再自动拉起，直到用户重新启用 |
+| 加载失败 | `model.load` 返回错误；`worker.hello` 出错或合同版本不符；找不到或起不来 Model Worker；Worker 没有这个后端或能力 | 不重试。错误码 `MODEL_LOAD_FAILED`，`details.reason` 归类为 `not-installed`（文件缺失或校验不过）、`unsupported`（这台电脑或这个 Worker 跑不了：后端、设备或能力不支持，或握手出错）、`resource`（资源不足，或连续崩溃被停用）、`worker-missing`（找不到或起不来 Model Worker）或 `error`（不认识的加载错误）。Job 失败，界面按原因给去处（`jobRemedy`）：`not-installed` 去能力页补装组件；`unsupported` 与 `resource` 去能力页换模型（被停用的在那里重新启用）；握手出错、合同版本不符、`worker-missing` 与 `error` 补模型组件没用，去设置 › 关于检查更新。握手超时不算加载失败，按运行时崩溃处理（下一行） |
+| 运行时崩溃 | 进程异常退出、stdout 关闭、心跳超时 | 当前 Job 标为 `interrupted`，按 `模型包 + 输入 hash + Worker 版本` 自动重试一次（带着同一份检查点，从做完的地方接着做，§6.6）；第二次仍崩溃则 Job 失败，错误码 `MODEL_WORKER_CRASHED`，附 stderr 尾部；本地的界面去能力页换更小的模型或重新启用。同一模型包在 M 分钟内崩溃 N 次后，该能力标为不可用（原因 `resource` 或 `unsupported`），不再自动拉起，直到用户重新启用 |
 | 输出不合合同 | Runtime 校验 staging 结果失败，或 Worker 写出前自检不过（`job.run` 返回 `OUTPUT_INVALID`） | 不重试、不计崩溃；Job 失败，错误码 `MODEL_OUTPUT_INVALID`；原始文件移到诊断目录供上报（自检不过时没有写出的结果，只留问题清单） |
 | 取消 | `jobs.cancel` 或停止屏障（§7.4） | 发 `job.cancel`，Worker 在分段边界停下并 ack，之后仍是 `ready`，权重不丢。超过 ack 期限（默认 5 秒）则 kill 进程，模型包回到 `installed`，下一个任务再按需启动 |
 

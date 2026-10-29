@@ -582,6 +582,12 @@ const en = {
     remedyAgent: 'Open agent settings',
     remedyComplete: 'Complete download',
     remedyRedownload: 'Download again',
+    remedyUpdate: 'Check for updates',
+    unsupportedHint: 'This model can’t run on this computer or with this version of BaoCut. Choose another model, then run it again.',
+    resourceHint:
+      'This model ran out of memory or kept stopping. Close other apps or choose a smaller model; if the model was turned off, re-enable it first.',
+    workerHint:
+      'BaoCut’s Model Worker is missing or doesn’t match this version of the app, so installing model components won’t help. Update or reinstall BaoCut, then run it again.',
     completeHint: 'The parts already downloaded are kept, so completing downloads only what’s missing. If it still can’t connect, switch the download source in Settings › General first.',
     redownloadHint: 'If it can’t connect, switch the download source in Settings › General before downloading again.',
   },

@@ -150,6 +150,53 @@ describe('jobRemedy', () => {
     expect(jobRemedy(failed(undefined, 'STALE_JOB_INPUT'))).toBeNull();
     expect(jobRemedy(job({ jobId: 'ok' }))).toBeNull();
   });
+
+  it('本地模型包加载失败按原因给去处：缺文件才补装组件，跑不了或内存不够去换模型，Model Worker 不配套去检查更新', () => {
+    const load = (details: unknown, key?: string) =>
+      jobRemedy(
+        job({ jobId: 'f', state: 'failed', error: { code: 'MODEL_LOAD_FAILED', message: 'x', details, ...(key ? { messageRef: { key } } : {}) } }),
+      );
+    const models = { tab: 'models', category: 'asr' };
+    const about = { tab: 'settings', section: 'about' };
+    // 3.13.0 记下的那条：握手超时被当成「不支持」。电脑一时太忙，补装组件没用，不给按钮。
+    expect(load({ reason: 'unsupported', detail: 'hello-timeout' }, 'jobsLocalProvider.handshakeFailed')).toBeNull();
+    // Model Worker 握手出错、合同版本对不上、找不到或起不来、不认识的加载错误：补模型组件没用，去检查更新。
+    expect(load({ reason: 'unsupported', detail: 'hello-failed' }, 'jobsLocalProvider.handshakeFailed')).toMatchObject({
+      label: '去检查更新',
+      target: about,
+      hint: expect.stringContaining('补装模型组件解决不了'),
+    });
+    expect(load({ reason: 'unsupported', detail: 'INVALID_PARAMS' }, 'jobsLocalProvider.handshakeFailed')?.target).toEqual(about);
+    expect(load({ reason: 'unsupported', detail: 'CONTRACT_MISMATCH', workerContract: 1 }, 'jobsLocalProvider.contractMismatch')?.target).toEqual(about);
+    expect(load({ reason: 'worker-missing' })?.target).toEqual(about);
+    expect(load({ reason: 'error', workerCode: 'INTERNAL' })?.target).toEqual(about);
+    // 这台电脑或这个版本跑不了、内存不够或被停用：去能力页换模型（被停用的在那里重新启用）。
+    expect(load({ reason: 'unsupported', detail: 'backend-unavailable', backend: 'mlx' })).toMatchObject({
+      label: '去选默认模型',
+      target: models,
+      hint: expect.stringContaining('换一个模型'),
+    });
+    expect(load({ reason: 'resource', state: 'error' })).toMatchObject({ label: '去选默认模型', target: models, hint: expect.stringContaining('重新启用') });
+    // 缺文件（或没说原因）才是补装组件。
+    expect(load({ reason: 'not-installed' })).toMatchObject({ label: '去补装组件', target: models });
+    expect(load({ reason: 'load-failed', state: 'not-installed' })?.label).toBe('去补装组件');
+  });
+
+  it('本地推理进程重试后仍崩溃：去能力页换更小的模型或重新启用；别家节点的不给去处', () => {
+    expect(jobRemedy(failed({ attempt: 2 }, 'MODEL_WORKER_CRASHED'))).toMatchObject({
+      label: '去选默认模型',
+      target: { tab: 'models', category: 'asr' },
+      hint: expect.stringContaining('内存不够'),
+    });
+    expect(jobRemedy(failed({ attempt: 2 }, 'MODEL_WORKER_CRASHED', { providerId: 'node:x' }))).toBeNull();
+    // Worker 中途换了版本：不是内存问题，不给「换更小的模型」。
+    const versionChanged = job({
+      jobId: 'v',
+      state: 'failed',
+      error: { code: 'MODEL_WORKER_CRASHED', message: 'x', messageRef: { key: 'jobsLocalProvider.workerVersionChanged' }, details: { expected: '1', actual: '2' } },
+    });
+    expect(jobRemedy(versionChanged)).toBeNull();
+  });
 });
 
 describe('rejectionRemedy', () => {
