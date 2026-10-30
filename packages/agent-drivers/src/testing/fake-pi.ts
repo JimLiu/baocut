@@ -39,8 +39,11 @@ export interface FakePiTurn {
   promptError?: string;
   /** 发出 agent_start 与一段文字之后进程以码 3 退出。 */
   exitMidTurn?: boolean;
-  /** 先来一次扩展提问（confirm），看 BaoCut 怎么答。 */
-  ask?: boolean;
+  /**
+   * 回复之前扩展依次来问（`extension_ui_request` 去掉 type 与 id 的部分，如 `{ method: 'confirm', title, message }`），
+   * 每次等 BaoCut 答复再问下一个；带 `timeout` 的到时自己了结，与 pi 一样。
+   */
+  ask?: Array<Record<string, unknown>>;
   /** 用户消息之后照原样发的事件。 */
   events?: Array<Record<string, unknown>>;
 }

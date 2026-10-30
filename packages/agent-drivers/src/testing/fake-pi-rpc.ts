@@ -171,11 +171,17 @@ async function toolStep(tool: FakePiTool): Promise<void> {
   send({ type: 'turn_end', message: assistant([call], 'toolUse') });
 }
 
-function ask(): Promise<Msg> {
+function ask(request: Msg): Promise<Msg> {
   const uiId = `ui_${seq++}`;
   return new Promise((resolve) => {
     pendingUi.set(uiId, resolve);
-    send({ type: 'extension_ui_request', id: uiId, method: 'confirm', title: 'Allow?', message: 'Run it?' });
+    send({ type: 'extension_ui_request', id: uiId, ...request });
+    if (typeof request.timeout === 'number') {
+      // pi 到时按默认值了结，之后的答复不再认。
+      setTimeout(() => {
+        if (pendingUi.delete(uiId)) resolve({});
+      }, request.timeout);
+    }
   });
 }
 
@@ -194,7 +200,7 @@ async function runTurn(text: string): Promise<void> {
     process.stderr.write('fatal: fake pi crashed\n');
     process.exit(3);
   }
-  if (turn.ask) await ask();
+  for (const request of turn.ask ?? []) await ask(request);
   let stop = 'stop';
   if (turn.hang) {
     const callId = `call_${seq++}`;

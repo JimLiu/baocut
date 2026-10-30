@@ -29,6 +29,7 @@ export const pl: DriversAcpMessages = {
   mcpHttpUnsupported: (p) => `${p.name} nie łączy się z serwerami MCP przez HTTP; narzędzia BaoCut (odczyt i edycja projektów, napisy itp.) są niedostępne w tej sesji.`,
   resumeUnsupported: (p) => `${p.name} nie obsługuje wznawiania sesji`,
   onlyAlwaysAllow: (p) => `${p.name} zaoferował tylko „Zawsze zezwalaj”. BaoCut nie zapisze tego w ustawieniach za Ciebie, więc żądanie odrzucono.`,
+  chooserFallback: (p) => `${p.name} prosi o wybranie opcji`,
   modeSwitchFailed: (p) => `${p.name} nie przełączył trybu sesji (${p.mode}): ${p.error}`,
   noAllowAllSwitch: (p) => `Ta ${p.name} sesja nie ma przełącznika „zezwól na wszystko” (${p.configId}), więc w trybie „Pełny dostęp” nadal będzie pytać przed każdym działaniem.`,
   setOptionFailed: (p) => `${p.name} nie ustawił ${p.configId}=${p.value}: ${p.error}`,

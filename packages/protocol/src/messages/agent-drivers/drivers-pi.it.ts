@@ -14,6 +14,8 @@ export const it: DriversPiMessages = {
   effortFailed: (p) => `Pi non è riuscito a impostare l’intensità di ragionamento (${p.error}), quindi questo turno usa l’impostazione attuale.`,
   mcpConnectFailed: (p) => `Pi non è riuscito a connettersi al server MCP di BaoCut, quindi gli strumenti di BaoCut (lettura e scrittura di progetti, sottotitoli ecc.) non sono disponibili in questa sessione: ${p.error}`,
   extensionError: (p) => `Un’estensione Pi non è riuscita: ${p.error}`, modelCallFailed: 'La chiamata al modello di Pi non è riuscita', notice: (p) => `Pi: ${p.message}`,
-  extensionAsked: (p) => `Un’estensione Pi voleva chiederti qualcosa${p.title ? ` («${p.title}»)` : ''}. BaoCut non può ancora inoltrare questo tipo di domanda, quindi è stata annullata per te.`,
+  confirmYes: 'Sì',
+  confirmNo: 'No',
+  askFallback: 'Un’estensione Pi chiede una tua risposta',
   fullAccessOnly: (p) => `Pi non ha modo di chiedere prima di ogni azione, quindi BaoCut può eseguirlo solo in modalità «${p.mode}»: non chiederà prima di eseguire comandi o modificare file.`,
 };

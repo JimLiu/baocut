@@ -29,6 +29,7 @@ export const zhHans: DriversAcpMessages = {
   mcpHttpUnsupported: (p) => `${p.name} 不支持经 HTTP 连接 MCP 服务，这个会话里用不了 BaoCut 的工具（读写项目、字幕等）。`,
   resumeUnsupported: (p) => `${p.name} 不支持恢复会话`,
   onlyAlwaysAllow: (p) => `${p.name} 这次只提供「总是允许」，BaoCut 不替你写进它的设置，已按拒绝处理。`,
+  chooserFallback: (p) => `${p.name} 请你选一个`,
   modeSwitchFailed: (p) => `${p.name} 切换会话模式（${p.mode}）失败：${p.error}`,
   noAllowAllSwitch: (p) => `${p.name} 这个会话没有「全部放行」的开关（${p.configId}），完全访问下仍会逐项来问。`,
   setOptionFailed: (p) => `${p.name} 设置 ${p.configId}=${p.value} 失败：${p.error}`,

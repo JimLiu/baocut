@@ -25,8 +25,9 @@ export const ko: DriversPiMessages = {
   extensionError: (p) => `Pi 확장 프로그램에서 오류가 발생했습니다: ${p.error}`,
   modelCallFailed: 'Pi의 모델 호출이 실패했습니다',
   notice: (p) => `Pi: ${p.message}`,
-  extensionAsked: (p) =>
-    `Pi 확장 프로그램이 질문하려 했습니다${p.title ? `(“${p.title}”)` : ''}. BaoCut은 아직 이런 질문을 전달할 수 없어 대신 취소했습니다.`,
+  confirmYes: '예',
+  confirmNo: '아니요',
+  askFallback: 'Pi 확장 프로그램이 답변을 요청합니다',
   fullAccessOnly: (p) =>
     `Pi는 동작마다 먼저 확인할 방법이 없어 BaoCut은 “${p.mode}” 모드로만 실행할 수 있습니다. 명령을 실행하거나 파일을 바꾸기 전에 확인하지 않습니다.`,
 };

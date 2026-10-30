@@ -35,6 +35,7 @@ export const de: DriversAcpMessages = {
   resumeUnsupported: (p: { name: string }) => `${p.name} unterstützt keine Wiederaufnahme von Sitzungen`,
   onlyAlwaysAllow: (p: { name: string }) =>
     `${p.name} hat diesmal nur „Immer erlauben“ angeboten. BaoCut übernimmt dies nicht in Ihre Einstellungen; die Anfrage wurde daher abgelehnt.`,
+  chooserFallback: (p: { name: string }) => `${p.name} bittet Sie, eine Option auszuwählen`,
   modeSwitchFailed: (p: { name: string; mode: string; error: string }) => `${p.name} konnte den Sitzungsmodus nicht wechseln (${p.mode}): ${p.error}`,
   noAllowAllSwitch: (p: { name: string; configId: string }) =>
     `Diese Sitzung mit ${p.name} hat keinen Schalter „Alles erlauben“ (${p.configId}); im Modus Vollzugriff wird daher weiterhin jede Aktion einzeln angefragt.`,

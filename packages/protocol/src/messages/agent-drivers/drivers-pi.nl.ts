@@ -32,8 +32,11 @@ export const nl: DriversPiMessages = {
 
   notice: (p: { message: string }) => `Pi: ${p.message}`,
 
-  extensionAsked: (p: { title: string }) =>
-    `Een Pi-extensie wilde je iets vragen${p.title ? ` (‘${p.title}’)` : ""}. BaoCut kan dit soort vraag nog niet doorgeven, dus die is voor je geannuleerd.`,
+  confirmYes: 'Ja',
+
+  confirmNo: 'Nee',
+
+  askFallback: 'Een Pi-extensie vraagt om je antwoord',
 
   fullAccessOnly: (p: { mode: string }) =>
     `Pi kan niet voor elke actie toestemming vragen, dus BaoCut kan het alleen uitvoeren in de modus ‘${p.mode}’: het vraagt je geen toestemming voordat het opdrachten uitvoert of bestanden wijzigt.`,

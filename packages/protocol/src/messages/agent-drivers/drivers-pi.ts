@@ -46,9 +46,11 @@ const en = {
   modelCallFailed: "Pi's model call failed",
   /** Pi 扩展发来的通知原文，前面标上 Pi。 */
   notice: (p: { message: string }) => `Pi: ${p.message}`,
-  /** `title` 是扩展提问的标题，为空时不带。 */
-  extensionAsked: (p: { title: string }) =>
-    `A Pi extension wanted to ask you something${p.title ? ` ("${p.title}")` : ''}. BaoCut can't pass on this kind of question yet, so it was canceled for you.`,
+  /** 扩展的确认（confirm）转成提问时的两个选项。 */
+  confirmYes: 'Yes',
+  confirmNo: 'No',
+  /** 扩展提问没有标题时的问题文字。 */
+  askFallback: 'A Pi extension is waiting for your answer',
   /** `mode` 是「完全访问」模式的名字。 */
   fullAccessOnly: (p: { mode: string }) =>
     `Pi has no way to ask before each action, so BaoCut can only run it in "${p.mode}" mode: it won't ask you before running commands or changing files.`,

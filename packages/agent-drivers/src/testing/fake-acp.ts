@@ -31,6 +31,8 @@ export interface FakeAcpTurn {
   };
   /** 工具执行之前来问几次（同一类工具连续几次，用来测「本会话放行」）；0 不问。 */
   ask?: number;
+  /** 先借权限请求让用户挑一个（Kimi Code 的 AskUserQuestion 那样）：`text` 放进工具调用的内容，`options` 原样作为选项。 */
+  chooser?: { title?: string; text?: string; options: Array<{ optionId: string; name: string; kind: string }> };
   /** 文字回复（分两段发）。 */
   reply?: string;
   /** 一直不结束，直到收到 `session/cancel`。 */

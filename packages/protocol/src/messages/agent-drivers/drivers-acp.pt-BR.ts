@@ -35,6 +35,7 @@ export const ptBR: DriversAcpMessages = {
   resumeUnsupported: (p: { name: string }) => `${p.name} não permite retomar sessões`,
   onlyAlwaysAllow: (p: { name: string }) =>
     `${p.name} ofereceu apenas “Permitir sempre” desta vez. O BaoCut não registra isso nas configurações por você, então a solicitação foi negada.`,
+  chooserFallback: (p: { name: string }) => `${p.name} pede que você escolha uma opção`,
   modeSwitchFailed: (p: { name: string; mode: string; error: string }) => `${p.name} não conseguiu mudar o modo da sessão (${p.mode}): ${p.error}`,
   noAllowAllSwitch: (p: { name: string; configId: string }) =>
     `Esta sessão de ${p.name} não tem uma opção “permitir tudo” (${p.configId}), então continuará perguntando a cada ação em Acesso total.`,

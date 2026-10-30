@@ -23,6 +23,8 @@ export const pl: DriversPiMessages = {
   extensionError: (p) => `Rozszerzenie Pi nie powiodło się: ${p.error}`,
   modelCallFailed: "Wywołanie modelu Pi nie powiodło się",
   notice: (p) => `Pi: ${p.message}`,
-  extensionAsked: (p) => `Rozszerzenie Pi chciało o coś zapytać${p.title ? ` ("${p.title}")` : ""}. BaoCut nie przekazuje jeszcze tego rodzaju pytań, więc zostało anulowane.`,
+  confirmYes: 'Tak',
+  confirmNo: 'Nie',
+  askFallback: 'Rozszerzenie Pi prosi o odpowiedź',
   fullAccessOnly: (p) => `Pi nie pyta przed każdym działaniem, więc BaoCut może uruchomić go tylko w trybie „${p.mode}”: nie pyta przed uruchamianiem poleceń ani zmianami plików.`,
 };

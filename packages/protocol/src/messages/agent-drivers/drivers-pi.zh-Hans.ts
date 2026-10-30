@@ -23,6 +23,8 @@ export const zhHans: DriversPiMessages = {
   extensionError: (p) => `Pi 的扩展出错：${p.error}`,
   modelCallFailed: 'Pi 的模型调用失败',
   notice: (p) => `Pi：${p.message}`,
-  extensionAsked: (p) => `Pi 的扩展想问你${p.title ? `「${p.title}」` : ''}，BaoCut 还不能转达这类提问，已替你取消。`,
+  confirmYes: '是',
+  confirmNo: '否',
+  askFallback: 'Pi 的扩展在等你回答',
   fullAccessOnly: (p) => `Pi 没有逐次询问的通道，BaoCut 只能让它在「${p.mode}」模式下运行：执行命令和修改文件之前不会先问你。`,
 };

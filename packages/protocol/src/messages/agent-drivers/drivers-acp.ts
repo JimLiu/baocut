@@ -50,6 +50,8 @@ const en = {
   resumeUnsupported: (p: { name: string }) => `${p.name} doesn't support resuming sessions`,
   onlyAlwaysAllow: (p: { name: string }) =>
     `${p.name} only offered "Always allow" this time. BaoCut won't write that into its settings for you, so the request was declined.`,
+  /** 智能体借权限请求让用户选一个、又没给问题文字时的问话。 */
+  chooserFallback: (p: { name: string }) => `${p.name} wants you to pick an option`,
   modeSwitchFailed: (p: { name: string; mode: string; error: string }) => `${p.name} couldn't switch session mode (${p.mode}): ${p.error}`,
   noAllowAllSwitch: (p: { name: string; configId: string }) =>
     `This ${p.name} session has no "allow all" switch (${p.configId}), so it will still ask about each action in Full access.`,

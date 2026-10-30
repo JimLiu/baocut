@@ -17,6 +17,7 @@ export const it: DriversAcpMessages = {
   mcpHttpUnsupported: (p) => `${p.name} non può connettersi ai server MCP tramite HTTP, quindi gli strumenti di BaoCut (lettura e modifica di progetti, sottotitoli ecc.) non sono disponibili in questa sessione.`,
   resumeUnsupported: (p) => `${p.name} non supporta la ripresa delle sessioni`,
   onlyAlwaysAllow: (p) => `${p.name} ha offerto solo «Consenti sempre» questa volta. BaoCut non lo scriverà nelle impostazioni per te, quindi la richiesta è stata rifiutata.`,
+  chooserFallback: (p) => `${p.name} ti chiede di scegliere un’opzione`,
   modeSwitchFailed: (p) => `${p.name} non è riuscito a cambiare la modalità della sessione (${p.mode}): ${p.error}`,
   noAllowAllSwitch: (p) => `Questa sessione di ${p.name} non ha un interruttore «consenti tutto» (${p.configId}), quindi chiederà ancora prima di ogni azione in Accesso completo.`,
   setOptionFailed: (p) => `${p.name} non è riuscito a impostare ${p.configId}=${p.value}: ${p.error}`,

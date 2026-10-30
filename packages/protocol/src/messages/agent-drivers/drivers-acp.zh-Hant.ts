@@ -29,6 +29,7 @@ export const zhHant: DriversAcpMessages = {
   mcpHttpUnsupported: (p) => `${p.name} 無法透過 HTTP 連線到 MCP 伺服器，因此這個對話中無法使用 BaoCut 的工具（讀取與編輯專案、字幕等）。`,
   resumeUnsupported: (p) => `${p.name} 不支援繼續先前的對話`,
   onlyAlwaysAllow: (p) => `${p.name} 這次只提供「總是允許」。BaoCut 不會替你把它寫進設定，因此已拒絕這項請求。`,
+  chooserFallback: (p) => `${p.name} 請你選一個`,
   modeSwitchFailed: (p) => `${p.name} 無法切換對話模式（${p.mode}）：${p.error}`,
   noAllowAllSwitch: (p) => `這個 ${p.name} 對話沒有「全部允許」的開關（${p.configId}），因此在完全存取下仍會逐項詢問。`,
   setOptionFailed: (p) => `${p.name} 無法設定 ${p.configId}=${p.value}：${p.error}`,

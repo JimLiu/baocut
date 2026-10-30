@@ -14,6 +14,7 @@ export const es: DriversAcpMessages = {
  mcpHttpUnsupported: (p) => `${p.name} no puede conectarse a servidores MCP por HTTP, por lo que las herramientas de BaoCut (leer y editar proyectos, subtítulos y demás) no están disponibles en esta sesión.`,
  resumeUnsupported: (p) => `${p.name} no admite reanudar sesiones`,
  onlyAlwaysAllow: (p) => `${p.name} solo ofreció «Permitir siempre» esta vez. BaoCut no lo escribirá en sus ajustes por ti, por lo que la solicitud se rechazó.`,
+ chooserFallback: (p) => `${p.name} te pide que elijas una opción`,
  modeSwitchFailed: (p) => `${p.name} no pudo cambiar el modo de sesión (${p.mode}): ${p.error}`,
  noAllowAllSwitch: (p) => `Esta sesión de ${p.name} no tiene un interruptor «permitir todo» (${p.configId}), por lo que seguirá preguntando por cada acción en Acceso completo.`,
  setOptionFailed: (p) => `${p.name} no pudo establecer ${p.configId}=${p.value}: ${p.error}`,

@@ -2,15 +2,26 @@
  * 部分机制移植自 paseo（Apache-2.0，Copyright (c) 2025-present Mohamed Boudra），modified：
  * packages/server/src/server/agent/providers/pi/agent.ts 的回合生命周期（一次 prompt 到 agent_settled 为一轮，旧版没有
  * agent_settled 时以 agent_end 收尾；失败原因取最后一条助手消息的 errorMessage；中断先 clear_queue 再 abort；
- * steer 回「Unknown command: steer」时视为不支持；图片只在模型的 input 含 image 时随消息发）与 cli-runtime.ts 的启动参数。
+ * steer 回「Unknown command: steer」时视为不支持；图片只在模型的 input 含 image 时随消息发；扩展提问 extension_ui_request 的
+ * select / confirm / input / editor 转成提问、确认是「是 / 否」两项、填空是没有选项的题、跳过答 cancelled）与 cli-runtime.ts 的启动参数。
  * 改成 BaoCut 的 AgentSession：开发者指令经 --append-system-prompt 文件、BaoCut 的 MCP 服务经临时扩展 registerMcpServer 注入，
- * 扩展的提问（extension_ui_request）一律取消并提示，恢复句柄是 pi 的会话文件。
+ * 扩展提问成为 BaoCut 的提问卡（给了 timeout 的到时收起），恢复句柄是 pi 的会话文件。
  */
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { agentModeLabel, newId, RpcError, type AgentErrorCode, type DriverId, type DriverProbe, type Id, type Localized } from '@baocut/protocol';
+import {
+  agentModeLabel,
+  newId,
+  RpcError,
+  type AgentErrorCode,
+  type AgentQuestion,
+  type DriverId,
+  type DriverProbe,
+  type Id,
+  type Localized,
+} from '@baocut/protocol';
 import { DriversCommon, DriversPi } from '@baocut/protocol/messages/agent-drivers';
 import {
   MCP_TOOL_CALL_TIMEOUT_MS,
@@ -71,6 +82,17 @@ interface PiState {
   sessionId?: string;
 }
 
+/** 扩展的一次提问（select / confirm / input / editor）在等用户。 */
+interface PendingUiQuestion {
+  /** pi 的请求号，答复时带回。 */
+  uiId: string;
+  method: string;
+  /** confirm 的「是」选项（提问时的界面语言）：答案等于它算确认。 */
+  yes: string | null;
+  /** pi 给了 timeout 时，到时收起卡片的计时器。 */
+  timer: NodeJS.Timeout | null;
+}
+
 /** 恢复句柄里存的东西。 */
 interface PiPersistence {
   sessionFile: string;
@@ -99,7 +121,8 @@ export class PiSession implements AgentSession {
   #closed = false;
   #early: AgentEvent[] | null = [];
   #accessWarned = false;
-  #askWarned = false;
+  /** 扩展在等的提问：审批号 → pi 的请求。回答、跳过、取消时答复 pi。 */
+  readonly #questions = new Map<Id, PendingUiQuestion>();
   /** 这个进程发过 agent_settled：之后 agent_end 不再算收尾。 */
   #settles = false;
   #mcpExtension: string | null = null;
@@ -271,8 +294,17 @@ export class PiSession implements AgentSession {
     return { status: outcome === 'failed' ? 'unknown' : 'requested' };
   }
 
-  /** pi 不来请求审批（`capabilities.approvals` 为 false），这里没有可答的。 */
-  async respondToApproval(_approvalId: Id, _response: ApprovalResponse): Promise<void> {}
+  /**
+   * pi 不来请求权限审批（`capabilities.approvals` 为 false），来的只有扩展的提问：答案按提问的种类交回 pi（confirm 是 `confirmed`，
+   * 别的是 `value`），跳过与取消答 `cancelled`。
+   */
+  async respondToApproval(approvalId: Id, response: ApprovalResponse): Promise<void> {
+    const pending = this.#questions.get(approvalId);
+    if (!pending) return;
+    this.#dropQuestion(approvalId, pending);
+    const answer = response.decision === 'accept' ? response.answers?.[UI_QUESTION_ID]?.[0] : undefined;
+    this.#proc.send({ type: 'extension_ui_response', id: pending.uiId, ...uiResponse(pending, answer) });
+  }
 
   subscribe(listener: (event: AgentEvent) => void): () => void {
     this.#listeners.add(listener);
@@ -296,6 +328,7 @@ export class PiSession implements AgentSession {
     if (this.#closed) return;
     this.#closed = true;
     if (this.#turn?.settleTimer) clearTimeout(this.#turn.settleTimer);
+    for (const [approvalId, pending] of this.#questions) this.#dropQuestion(approvalId, pending);
     await this.#proc.close();
     await fs.rm(this.#tempDir, { recursive: true, force: true }).catch(() => undefined);
   }
@@ -425,20 +458,42 @@ export class PiSession implements AgentSession {
     for (const mapped of turn.mapper.map(event)) this.#emit(mapped);
   }
 
-  /** 扩展要用户作答（select / confirm / input / editor）：BaoCut 没有这条通道，立即取消；只是通知的转成提示。 */
+  /**
+   * 扩展要用户作答（select / confirm / input / editor）：转成 BaoCut 的提问，等 `respondToApproval`。回合之外没有地方放卡片，
+   * 立即答 cancelled。给了 `timeout`（毫秒）的，pi 到时自己按默认值了结，这边同时收起卡片。只是通知的转成提示。
+   */
   #onUiRequest(event: Record<string, unknown>): void {
     const method = String(event.method ?? '');
     if (method === 'notify') {
       if (event.notifyType === 'error' || event.notifyType === 'warning') this.#warn(DriversPi.notice({ message: String(event.message ?? '') }));
       return;
     }
-    if (!['select', 'confirm', 'input', 'editor'].includes(method)) return; // setStatus、setWidget 之类不需要应答
-    this.#proc.send({ type: 'extension_ui_response', id: event.id, cancelled: true });
-    if (!this.#askWarned) {
-      this.#askWarned = true;
-      const title = typeof event.title === 'string' ? event.title : '';
-      this.#warn(DriversPi.extensionAsked({ title }));
+    const asked = uiQuestion(event);
+    if (!asked) return; // setStatus、setWidget 之类不需要应答
+    const turn = this.#turn;
+    if (!turn || turn.cancelled || this.#closed) {
+      this.#log.info('Cancelling a Pi extension question outside a turn', { method });
+      this.#proc.send({ type: 'extension_ui_response', id: event.id, cancelled: true });
+      return;
     }
+    const approvalId = newId('appr');
+    const pending: PendingUiQuestion = { uiId: String(event.id), method, yes: asked.yes, timer: null };
+    if (typeof event.timeout === 'number' && event.timeout > 0) {
+      pending.timer = setTimeout(() => {
+        if (this.#questions.get(approvalId) !== pending) return;
+        this.#dropQuestion(approvalId, pending);
+        this.#emit({ type: 'approval.resolved', approvalId });
+      }, event.timeout);
+      pending.timer.unref?.();
+    }
+    this.#questions.set(approvalId, pending);
+    const request = { kind: 'question' as const, questions: [asked.question], reason: null, rule: null };
+    this.#emit({ type: 'approval.requested', turnId: turn.id, approvalId, request });
+  }
+
+  #dropQuestion(approvalId: Id, pending: PendingUiQuestion): void {
+    if (pending.timer) clearTimeout(pending.timer);
+    this.#questions.delete(approvalId);
   }
 
   #finish(turn: Turn, failure?: { error: string; code: AgentErrorCode | null }): void {
@@ -460,6 +515,7 @@ export class PiSession implements AgentSession {
   }
 
   #onExit(reason: Localized): void {
+    for (const [approvalId, pending] of this.#questions) this.#dropQuestion(approvalId, pending);
     const turn = this.#turn;
     if (turn) {
       if (turn.settleTimer) clearTimeout(turn.settleTimer);
@@ -487,6 +543,51 @@ export class PiSession implements AgentSession {
       }
     }
   }
+}
+
+/** 扩展提问的题号：pi 一次只问一道。 */
+const UI_QUESTION_ID = 'q1';
+
+/**
+ * 扩展的提问 → BaoCut 的一道题：select 是单选（选项原样、去重），confirm 是「是 / 否」，input 与 editor 是没有选项的填空题
+ * （input 的占位提示与 editor 的预填文字不带过来）。没有标题时用一句通用的问话。别的方法（setStatus 之类）不是提问，返回 null。
+ */
+function uiQuestion(event: Record<string, unknown>): { question: AgentQuestion; yes: string | null } | null {
+  const title = typeof event.title === 'string' ? event.title.trim() : '';
+  const fallback = () => String(DriversPi.askFallback());
+  const ask = (question: string, labels: string[], allowOther: boolean): AgentQuestion => ({
+    id: UI_QUESTION_ID,
+    header: '',
+    question,
+    options: labels.map((label) => ({ label, description: null })),
+    multiSelect: false,
+    allowOther,
+  });
+  switch (event.method) {
+    case 'select': {
+      const given = Array.isArray(event.options) ? event.options : [];
+      const labels = [...new Set(given.filter((o): o is string => typeof o === 'string' && o.trim() !== ''))];
+      return { question: ask(title || fallback(), labels, labels.length === 0), yes: null };
+    }
+    case 'confirm': {
+      const message = typeof event.message === 'string' ? event.message.trim() : '';
+      const yes = String(DriversPi.confirmYes());
+      const question = [title, message].filter(Boolean).join('\n\n') || fallback();
+      return { question: ask(question, [yes, String(DriversPi.confirmNo())], false), yes };
+    }
+    case 'input':
+    case 'editor':
+      return { question: ask(title || fallback(), [], true), yes: null };
+    default:
+      return null;
+  }
+}
+
+/** 用户的答案 → `extension_ui_response` 的内容：没有答案（跳过、取消）是 `cancelled`。 */
+function uiResponse(pending: PendingUiQuestion, answer: string | undefined): Record<string, unknown> {
+  if (answer === undefined) return { cancelled: true };
+  if (pending.method === 'confirm') return { confirmed: answer === pending.yes };
+  return { value: answer };
 }
 
 function readPersistence(handle: AgentPersistenceHandle | null): PiPersistence | null {

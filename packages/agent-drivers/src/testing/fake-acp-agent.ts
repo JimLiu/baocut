@@ -221,6 +221,27 @@ async function runTurn(sessionId: string, reply: (result: unknown) => void, fail
       entries: turn.plan.map((content, i) => ({ content, priority: 'medium', status: i === 0 ? 'completed' : 'pending' })),
     });
   }
+  if (turn.chooser) {
+    const toolCallId = 'chooser-1';
+    const title = turn.chooser.title;
+    update(sessionId, { sessionUpdate: 'tool_call', toolCallId, title: title ?? 'AskUserQuestion', kind: 'other', status: 'pending' });
+    const answer = await request('session/request_permission', {
+      sessionId,
+      toolCall: {
+        toolCallId,
+        ...(title === undefined ? {} : { title }),
+        status: 'pending',
+        ...(turn.chooser.text ? { content: [{ type: 'content', content: { type: 'text', text: turn.chooser.text } }] } : {}),
+      },
+      options: turn.chooser.options,
+    });
+    const outcome = (answer.result as { outcome?: { outcome: string } } | undefined)?.outcome;
+    if (outcome?.outcome === 'cancelled' || cancelled) {
+      update(sessionId, { sessionUpdate: 'tool_call_update', toolCallId, status: 'failed' });
+      return reply({ stopReason: 'cancelled' });
+    }
+    update(sessionId, { sessionUpdate: 'tool_call_update', toolCallId, status: 'completed' });
+  }
   if (turn.tool) {
     const asks = Math.max(turn.ask ?? 0, 0);
     for (let i = 0; i < Math.max(asks, 1); i++) {

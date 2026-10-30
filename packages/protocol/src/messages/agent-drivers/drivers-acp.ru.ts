@@ -29,6 +29,7 @@ export const ru: DriversAcpMessages = {
   mcpHttpUnsupported: (p) => `${p.name} не подключается к MCP-серверам по HTTP; инструменты BaoCut (чтение и правки проектов, субтитры и прочее) недоступны в этой сессии.`,
   resumeUnsupported: (p) => `${p.name} не поддерживает продолжение сессий`,
   onlyAlwaysAllow: (p) => `${p.name} предложил только «Всегда разрешать». BaoCut не запишет это в настройки за вас, запрос отклонён.`,
+  chooserFallback: (p) => `${p.name} просит выбрать вариант`,
   modeSwitchFailed: (p) => `${p.name} не смог сменить режим сессии (${p.mode}): ${p.error}`,
   noAllowAllSwitch: (p) => `Эта ${p.name} сессия не имеет переключателя «разрешить всё» (${p.configId}), в режиме «Полный доступ» всё ещё будет спрашивать о каждом действии.`,
   setOptionFailed: (p) => `${p.name} не смог задать ${p.configId}=${p.value}: ${p.error}`,

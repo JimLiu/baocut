@@ -2,11 +2,12 @@
  * 部分机制移植自 paseo（Apache-2.0，Copyright (c) 2025-present Mohamed Boudra），modified：
  * packages/server/src/server/agent/providers/acp-agent.ts 的 mergeToolSnapshot / coalesceDefined（工具调用的增量合并）、
  * mapToolStatus、extractToolText / contentBlockToText、buildShellCommand、mapPermissionRequest / selectPermissionOption
- * （审批选项）、deriveModesFromACP / deriveModelDefinitionsFromACP / findSelectConfigOption / flattenSelectOptions
- * （模式与模型表）、normalizeMcpServers（只留 Streamable HTTP）、mapPlanToTimeline。
- * 改成 BaoCut 的 AgentItem / ApprovalRequest / DriverModel，审批种类、「本会话放行」的分类键与 `diff` 内容块转 unified diff 是新加的。
+ * （审批选项）、isACPChooserRequest（借权限请求让用户挑一个）、deriveModesFromACP / deriveModelDefinitionsFromACP /
+ * findSelectConfigOption / flattenSelectOptions（模式与模型表）、normalizeMcpServers（只留 Streamable HTTP）、mapPlanToTimeline。
+ * 改成 BaoCut 的 AgentItem / ApprovalRequest / DriverModel，审批种类、「本会话放行」的分类键、`diff` 内容块转 unified diff 与
+ * 选择请求转成提问是新加的。
  */
-import type { ApprovalRequest, DriverModel, TodoItem, ToolCallInfo, ToolCallKind, ToolCallStatus } from '@baocut/protocol';
+import type { AgentQuestion, ApprovalRequest, DriverModel, TodoItem, ToolCallInfo, ToolCallKind, ToolCallStatus } from '@baocut/protocol';
 import type { AgentItem, McpServerSpec } from '@baocut/harness';
 import type {
   ContentBlock,
@@ -275,6 +276,45 @@ function summarizeInput(raw: Record<string, unknown> | null): string | null {
 export function selectPermissionOption(options: PermissionOption[], behavior: 'allow' | 'reject'): PermissionOption | null {
   if (behavior === 'allow') return options.find((o) => o.kind === 'allow_once') ?? null;
   return options.find((o) => o.kind === 'reject_once') ?? options.find((o) => o.kind === 'reject_always') ?? null;
+}
+
+/** 选择请求转成的提问只有一道题。 */
+export const CHOOSER_QUESTION_ID = 'q1';
+
+/**
+ * 智能体借权限请求让用户挑一个（如 Kimi Code 的 AskUserQuestion：每个候选是一个 `allow_once`，另有一个 reject 表示跳过）：
+ * 同一种允许（`allow_once` / `allow_always`）出现两次以上，选项就是答案，不是放不放行。
+ */
+export function isChooserRequest(options: PermissionOption[]): boolean {
+  const kinds = new Set<string>();
+  for (const option of options) {
+    if (!option.kind.startsWith('allow')) continue;
+    if (kinds.has(option.kind)) return true;
+    kinds.add(option.kind);
+  }
+  return false;
+}
+
+/**
+ * 选择请求 → 一道单选题：允许类的选项是候选（按名字去重），拒绝类的不列（跳过时用）。问题取工具调用里的文字，没有时取标题，
+ * 都没有时用 `fallback`。
+ */
+export function chooserQuestion(toolCall: ToolCallUpdate, options: PermissionOption[], fallback: string): AgentQuestion {
+  const labels = [...new Set(options.filter((o) => o.kind.startsWith('allow')).map((o) => o.name.trim()))].filter(Boolean);
+  return {
+    id: CHOOSER_QUESTION_ID,
+    header: '',
+    question: toolText(toolCall.content ?? null)?.trim() || toolCall.title?.trim() || fallback,
+    options: labels.map((label) => ({ label, description: null })),
+    multiSelect: false,
+    allowOther: false,
+  };
+}
+
+/** 选择请求的回答（候选的名字）→ 对应的原生选项；没有时为 null。 */
+export function chooserOption(options: PermissionOption[], label: string | undefined): PermissionOption | null {
+  if (label === undefined) return null;
+  return options.find((o) => o.kind.startsWith('allow') && o.name.trim() === label) ?? null;
 }
 
 /** 旧版的会话模型状态（`session/new` 应答里的 `models`，Gemini CLI 等还在用；SDK 的类型里已经没有）。 */

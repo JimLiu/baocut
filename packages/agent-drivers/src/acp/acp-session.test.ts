@@ -221,6 +221,55 @@ describe('AcpSession（假 ACP 智能体）', () => {
     expect(fake.requests('session/cancel')).toHaveLength(1);
   });
 
+  it('选择请求（同一种允许出现两次以上）：转成提问，完全访问下也不自动放行；回答选中对应的候选，跳过选拒绝的选项', async () => {
+    const options = [
+      { optionId: 'q0_opt_0', name: 'Narrow fix', kind: 'allow_once' },
+      { optionId: 'q0_opt_1', name: 'Protocol fix', kind: 'allow_once' },
+      { optionId: 'q0_skip', name: 'Skip', kind: 'reject_once' },
+    ];
+    const s = await start({ turn: { chooser: { title: 'AskUserQuestion', text: 'Which path?', options }, reply: 'ok' } });
+    const t1 = await s.session.startTurn({ text: 'go' }, settings('fullAccess'));
+    const first = await s.approval();
+    expect(first.request).toEqual({
+      kind: 'question',
+      questions: [
+        {
+          id: 'q1',
+          header: '',
+          question: 'Which path?',
+          options: [
+            { label: 'Narrow fix', description: null },
+            { label: 'Protocol fix', description: null },
+          ],
+          multiSelect: false,
+          allowOther: false,
+        },
+      ],
+      reason: null,
+      rule: null,
+    });
+    await s.session.respondToApproval(first.approvalId, { decision: 'accept', answers: { q1: ['Protocol fix'] } });
+    expect((await s.completed(t1.turnId)).outcome).toBe('completed');
+    expect(fake.permissionAnswers().at(-1)).toEqual({ outcome: 'selected', optionId: 'q0_opt_1' });
+
+    const t2 = await s.session.startTurn({ text: 'again' }, settings('fullAccess'));
+    const second = await s.approval(2);
+    await s.session.respondToApproval(second.approvalId, { decision: 'decline' });
+    await s.completed(t2.turnId);
+    expect(fake.permissionAnswers().at(-1)).toEqual({ outcome: 'selected', optionId: 'q0_skip' });
+
+    // 没有问题文字也没有标题时用通用说法。
+    const bare = await start({ turn: { chooser: { options: options.slice(0, 2) }, reply: 'ok' } });
+    const t3 = await bare.session.startTurn({ text: 'go' }, settings());
+    const third = await bare.approval();
+    if (third.request.kind !== 'question') throw new Error('not a question');
+    expect(third.request.questions[0]!.question).not.toBe('');
+    await bare.session.respondToApproval(third.approvalId, { decision: 'decline' });
+    // 没有拒绝的选项：按取消作答。
+    await bare.completed(t3.turnId);
+    expect(fake.permissionAnswers().at(-1)).toEqual({ outcome: 'cancelled' });
+  });
+
   it('改文件成功：output 是由 diff 内容块生成的 unified diff（路径相对工作目录，新建的旧侧是 /dev/null）', async () => {
     const s = await start({
       turn: {

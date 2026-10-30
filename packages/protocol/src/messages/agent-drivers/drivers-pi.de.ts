@@ -32,8 +32,11 @@ export const de: DriversPiMessages = {
 
   notice: (p: { message: string }) => `Pi: ${p.message}`,
 
-  extensionAsked: (p: { title: string }) =>
-    `Eine Pi-Erweiterung wollte Ihnen eine Frage stellen${p.title ? ` („${p.title}“)` : ""}. BaoCut kann diese Art von Frage noch nicht weitergeben; sie wurde daher abgebrochen.`,
+  confirmYes: 'Ja',
+
+  confirmNo: 'Nein',
+
+  askFallback: 'Eine Pi-Erweiterung bittet um Ihre Antwort',
 
   fullAccessOnly: (p: { mode: string }) =>
     `Pi kann nicht vor jeder Aktion nachfragen. BaoCut kann es daher nur im Modus „${p.mode}“ ausführen: Es fragt vor Befehlen oder Dateiänderungen nicht nach.`,

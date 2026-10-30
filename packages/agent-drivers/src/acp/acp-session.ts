@@ -2,9 +2,10 @@
  * 部分机制移植自 paseo（Apache-2.0，Copyright (c) 2025-present Mohamed Boudra），modified：
  * packages/server/src/server/agent/providers/acp-agent.ts 的 ACPAgentSession：initializeResumedSession（先 session/load，
  * 再 session/resume；恢复时不丢 cwd 与 mcpServers）、replayingHistory（加载时回放的历史不当成新内容）、
- * handlePromptResponse（stopReason → 回合结果）、requestPermission 的挂起表、setMode / setModel（session/set_model）、
- * closeSession；generic-acp-agent.ts 的通用会话装配。
- * 改成 BaoCut 的 AgentSession 事件；「本会话放行」由 Driver 自己记，从不选原生的「总是允许」；访问模式按更严的一方映射。
+ * handlePromptResponse（stopReason → 回合结果）、requestPermission 的挂起表（选择请求不自动放行）、setMode / setModel
+ * （session/set_model）、closeSession；generic-acp-agent.ts 的通用会话装配。
+ * 改成 BaoCut 的 AgentSession 事件；「本会话放行」由 Driver 自己记，从不选原生的「总是允许」；访问模式按更严的一方映射；
+ * 选择请求转成 BaoCut 的提问。
  */
 import fs from 'node:fs/promises';
 import { RpcError, newId, normalizeAgentMode, type AgentErrorCode, type DriverProbe, type Id, type Localized } from '@baocut/protocol';
@@ -37,8 +38,12 @@ import {
   acpMcpServers,
   approvalOf,
   availableModes,
+  CHOOSER_QUESTION_ID,
+  chooserOption,
+  chooserQuestion,
   contentText,
   findSelectOption,
+  isChooserRequest,
   isOwnMcpTool,
   mergeToolSnapshot,
   planText,
@@ -87,6 +92,8 @@ interface PendingApproval {
   toolCallId: string;
   options: PermissionOption[];
   grantKey: string;
+  /** 选择请求（`isChooserRequest`）：作为提问交给用户，答案是选中的候选。 */
+  chooser?: boolean;
   resolve: (response: RequestPermissionResponse) => void;
 }
 
@@ -274,6 +281,12 @@ export class AcpSession implements AgentSession {
     const pending = this.#approvals.get(approvalId);
     if (!pending) return;
     this.#approvals.delete(approvalId);
+    if (pending.chooser) {
+      // 选择请求：回答选中对应的候选；跳过（与用户直接发消息）选拒绝的选项；取消同普通审批。
+      const option = response.decision === 'accept' ? chooserOption(pending.options, response.answers?.[CHOOSER_QUESTION_ID]?.[0]) : null;
+      if (option) return pending.resolve({ outcome: { outcome: 'selected', optionId: option.optionId } });
+      if (response.decision !== 'cancel') return this.#reject(pending);
+    }
     // 「总是允许」的规则归 Harness 存；原生侧只按会话级放行处理，由这里记住，不选智能体自己的 allow_always。
     if (response.decision === 'accept-for-session' || response.decision === 'accept-always') this.#grants.add(pending.grantKey);
     switch (response.decision) {
@@ -445,6 +458,16 @@ export class AcpSession implements AgentSession {
     const id = params.toolCall.toolCallId;
     const snapshot = mergeToolSnapshot(id, params.toolCall, turn.tools.get(id));
     turn.tools.set(id, snapshot);
+    if (isChooserRequest(params.options)) {
+      // 让用户挑一个，不是权限：不查放行，任何模式下都等用户回答。
+      const question = chooserQuestion(params.toolCall, params.options, String(DriversAcp.chooserFallback({ name: this.#preset.name })));
+      return new Promise((resolve) => {
+        const approvalId = newId('appr');
+        this.#approvals.set(approvalId, { turnId: turn.id, toolCallId: id, options: params.options, grantKey: '', chooser: true, resolve });
+        const request = { kind: 'question' as const, questions: [question], reason: null, rule: null };
+        this.#emit({ type: 'approval.requested', turnId: turn.id, approvalId, request });
+      });
+    }
     if (isOwnMcpTool(snapshot, this.#mcpServerNames)) {
       const option = selectPermissionOption(params.options, 'allow');
       if (option) return { outcome: { outcome: 'selected', optionId: option.optionId } };

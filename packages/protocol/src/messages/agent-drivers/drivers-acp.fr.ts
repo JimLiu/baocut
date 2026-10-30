@@ -35,6 +35,7 @@ export const fr: DriversAcpMessages = {
   resumeUnsupported: (p: { name: string }) => `${p.name} ne prend pas en charge la reprise des sessions`,
   onlyAlwaysAllow: (p: { name: string }) =>
     `${p.name} a seulement proposé « Toujours autoriser » cette fois. BaoCut ne l’enregistre pas dans vos réglages à votre place ; la demande a donc été refusée.`,
+  chooserFallback: (p: { name: string }) => `${p.name} vous demande de choisir une option`,
   modeSwitchFailed: (p: { name: string; mode: string; error: string }) => `${p.name} n’a pas pu changer le mode de session (${p.mode}) : ${p.error}`,
   noAllowAllSwitch: (p: { name: string; configId: string }) =>
     `Cette session ${p.name} n’a aucun interrupteur « tout autoriser » (${p.configId}) ; elle demandera donc chaque action en mode Accès complet.`,

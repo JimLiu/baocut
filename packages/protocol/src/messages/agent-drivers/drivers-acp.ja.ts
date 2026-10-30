@@ -31,6 +31,7 @@ export const ja: DriversAcpMessages = {
   resumeUnsupported: (p) => `${p.name} はセッションの再開に対応していません`,
   onlyAlwaysAllow: (p) =>
     `${p.name} は今回「常に許可」しか提示しませんでした。BaoCut が代わりにその設定へ書き込むことはないため、このリクエストは拒否しました。`,
+  chooserFallback: (p) => `${p.name} が選択を求めています`,
   modeSwitchFailed: (p) => `${p.name} のセッションモードを切り替えられませんでした（${p.mode}）：${p.error}`,
   noAllowAllSwitch: (p) =>
     `この ${p.name} セッションには「すべて許可」のスイッチ（${p.configId}）がないため、フルアクセスでも操作ごとに確認します。`,

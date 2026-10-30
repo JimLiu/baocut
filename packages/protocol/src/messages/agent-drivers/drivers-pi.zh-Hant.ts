@@ -23,6 +23,8 @@ export const zhHant: DriversPiMessages = {
   extensionError: (p) => `Pi 的擴充功能發生錯誤：${p.error}`,
   modelCallFailed: 'Pi 的模型呼叫失敗',
   notice: (p) => `Pi：${p.message}`,
-  extensionAsked: (p) => `Pi 的擴充功能想問你一件事${p.title ? `（「${p.title}」）` : ''}。BaoCut 目前還無法轉達這類提問，已替你取消。`,
+  confirmYes: '是',
+  confirmNo: '否',
+  askFallback: 'Pi 的擴充功能在等你回答',
   fullAccessOnly: (p) => `Pi 無法在每個動作前先詢問，因此 BaoCut 只能讓它在「${p.mode}」模式下執行：執行指令或修改檔案前不會先問你。`,
 };

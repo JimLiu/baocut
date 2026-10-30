@@ -35,6 +35,7 @@ export const nl: DriversAcpMessages = {
   resumeUnsupported: (p: { name: string }) => `${p.name} ondersteunt het hervatten van sessies niet`,
   onlyAlwaysAllow: (p: { name: string }) =>
     `${p.name} bood deze keer alleen ‘Altijd toestaan’ aan. BaoCut schrijft dat niet voor je in de instellingen, dus het verzoek is geweigerd.`,
+  chooserFallback: (p: { name: string }) => `${p.name} vraagt je een optie te kiezen`,
   modeSwitchFailed: (p: { name: string; mode: string; error: string }) => `${p.name} kan de sessiemodus niet wijzigen (${p.mode}): ${p.error}`,
   noAllowAllSwitch: (p: { name: string; configId: string }) =>
     `Deze sessie met ${p.name} heeft geen schakelaar ‘Alles toestaan’ (${p.configId}), dus ook bij Volledige toegang wordt nog steeds voor elke actie toestemming gevraagd.`,

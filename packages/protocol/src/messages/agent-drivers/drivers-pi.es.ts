@@ -12,6 +12,8 @@ export const es: DriversPiMessages = {
  effortFailed: (p) => `Pi no pudo establecer el esfuerzo de razonamiento (${p.error}), por lo que este turno usa su ajuste actual.`,
  mcpConnectFailed: (p) => `Pi no pudo conectarse al servidor MCP de BaoCut, por lo que las herramientas de BaoCut (leer y escribir proyectos, subtítulos y demás) no están disponibles en esta sesión: ${p.error}`,
  extensionError: (p) => `Una extensión de Pi falló: ${p.error}`, modelCallFailed: 'La llamada al modelo de Pi falló', notice: (p) => `Pi: ${p.message}`,
- extensionAsked: (p) => `Una extensión de Pi quería preguntarte algo${p.title ? ` («${p.title}»)` : ''}. BaoCut aún no puede transmitir este tipo de pregunta, por lo que la canceló por ti.`,
+ confirmYes: 'Sí',
+ confirmNo: 'No',
+ askFallback: 'Una extensión de Pi necesita tu respuesta',
  fullAccessOnly: (p) => `Pi no puede preguntar antes de cada acción, por lo que BaoCut solo puede ejecutarlo en modo «${p.mode}»: no preguntará antes de ejecutar comandos o cambiar archivos.`,
 };

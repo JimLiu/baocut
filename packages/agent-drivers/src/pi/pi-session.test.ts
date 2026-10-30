@@ -294,12 +294,81 @@ describe('PiSession（假 pi）', () => {
     expect((await completed(turnId)).outcome).toBe('completed');
   });
 
-  it('扩展来问（confirm）：立即答 cancelled，提示一次', async () => {
-    const { session, completed, warnings } = await start({ turn: { ask: true, reply: 'ok' } });
+  it('扩展来问：select / confirm / input / editor 变成提问，答案按种类交回 pi，跳过答 cancelled', async () => {
+    const ask = [
+      { method: 'select', title: 'Pick one', options: ['A', 'B', 'A', ''] },
+      { method: 'confirm', title: 'Allow?', message: 'Run it?' },
+      { method: 'confirm', title: 'Again?' },
+      { method: 'input', title: 'Name', placeholder: 'optional' },
+      { method: 'editor', prefill: 'draft' },
+    ];
+    const { session, events, completed, warnings } = await start({ turn: { ask, reply: 'ok' } });
     const { turnId } = await session.startTurn({ text: 'x' }, settings());
-    await completed(turnId);
-    expect(fake.commands('extension_ui_response')).toMatchObject([{ cancelled: true }]);
-    expect(warnings().some((w) => w.includes('Allow?'))).toBe(true);
+    const asked = (n: number) => until(() => events.filter((e) => e.type === 'approval.requested')[n - 1]);
+    const questionOf = async (n: number) => {
+      const event = await asked(n);
+      if (event.type !== 'approval.requested' || event.request.kind !== 'question') throw new Error('not a question');
+      expect(event.turnId).toBe(turnId);
+      return { approvalId: event.approvalId, question: event.request.questions[0]! };
+    };
+
+    const select = await questionOf(1);
+    expect(select.question).toEqual({
+      id: 'q1',
+      header: '',
+      question: 'Pick one',
+      options: [
+        { label: 'A', description: null },
+        { label: 'B', description: null },
+      ],
+      multiSelect: false,
+      allowOther: false,
+    });
+    await session.respondToApproval(select.approvalId, { decision: 'accept', answers: { q1: ['B'] } });
+
+    const confirm = await questionOf(2);
+    expect(confirm.question.question).toBe('Allow?\n\nRun it?');
+    expect(confirm.question.options).toHaveLength(2);
+    expect(confirm.question.allowOther).toBe(false);
+    const [yes, no] = confirm.question.options.map((o) => o.label);
+    await session.respondToApproval(confirm.approvalId, { decision: 'accept', answers: { q1: [yes!] } });
+    const again = await questionOf(3);
+    await session.respondToApproval(again.approvalId, { decision: 'accept', answers: { q1: [no!] } });
+
+    const input = await questionOf(4);
+    expect(input.question).toMatchObject({ question: 'Name', options: [], allowOther: true });
+    await session.respondToApproval(input.approvalId, { decision: 'accept', answers: { q1: ['Bao'] } });
+
+    const editor = await questionOf(5);
+    expect(editor.question.options).toEqual([]);
+    expect(editor.question.question).not.toBe('');
+    await session.respondToApproval(editor.approvalId, { decision: 'decline' });
+    // 已经答过的不再答第二次。
+    await session.respondToApproval(editor.approvalId, { decision: 'accept', answers: { q1: ['late'] } });
+
+    expect((await completed(turnId)).outcome).toBe('completed');
+    expect(fake.commands('extension_ui_response').map(({ type: _type, id: _id, ...rest }) => rest)).toEqual([
+      { value: 'B' },
+      { confirmed: true },
+      { confirmed: false },
+      { value: 'Bao' },
+      { cancelled: true },
+    ]);
+    expect(warnings()).toEqual([]);
+  });
+
+  it('扩展的提问带 timeout：pi 到时自己了结，卡片随之收起，之后的答复不再发', async () => {
+    const { session, events, completed } = await start({
+      turn: { ask: [{ method: 'select', title: 'Quick', options: ['A', 'B'], timeout: 50 }], reply: 'ok' },
+    });
+    const { turnId } = await session.startTurn({ text: 'x' }, settings());
+    const requested = await until(() => events.find((e) => e.type === 'approval.requested'));
+    if (requested.type !== 'approval.requested') throw new Error('not an approval');
+    const resolved = await until(() => events.find((e) => e.type === 'approval.resolved'));
+    expect(resolved).toEqual({ type: 'approval.resolved', approvalId: requested.approvalId });
+    await session.respondToApproval(requested.approvalId, { decision: 'accept', answers: { q1: ['A'] } });
+    expect((await completed(turnId)).outcome).toBe('completed');
+    expect(fake.commands('extension_ui_response')).toEqual([]);
   });
 
   it('恢复：会话文件在就 --session 接着用；不在就新建并如实提示', async () => {

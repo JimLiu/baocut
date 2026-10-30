@@ -31,6 +31,7 @@ export const ko: DriversAcpMessages = {
   resumeUnsupported: (p) => `${p.name}은(는) 세션 재개를 지원하지 않습니다`,
   onlyAlwaysAllow: (p) =>
     `${p.name}이(가) 이번에는 “항상 허용”만 제시했습니다. BaoCut은 이를 대신 설정에 기록하지 않으므로 요청을 거부했습니다.`,
+  chooserFallback: (p) => `${p.name}이(가) 선택을 요청합니다`,
   modeSwitchFailed: (p) => `${p.name}이(가) 세션 모드(${p.mode})를 전환하지 못했습니다: ${p.error}`,
   noAllowAllSwitch: (p) =>
     `이 ${p.name} 세션에는 “모두 허용” 스위치(${p.configId})가 없어, 전체 접근에서도 동작마다 확인을 요청합니다.`,
