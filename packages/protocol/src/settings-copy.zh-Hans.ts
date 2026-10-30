@@ -7,6 +7,7 @@ export const zhHans: SettingDescriptionMessages = {
   'agent.defaultEffort': '新会话的推理强度；null 为引擎自己的默认值',
   'agent.defaultAccessMode':
     '没有切换过访问模式的会话用它：ask、autoAcceptEdits、auto、fullAccess 或 plan（旧值 controlled、authorized 分别按 ask、fullAccess 处理）',
+  'agent.customInstructions': '你给智能体的自定义指导，附在每个会话里 BaoCut 的指导之后（至多 8000 个字符）；null 为没有。改了之后，在跑的会话从下一轮起生效',
   'ui.language': `界面语言：system 跟随系统（没有对应的语言时英文），或语言代码（${LOCALES.join('、')}）。Runtime 给人看的文字也按它生成`,
   'captions.maxLineLength': '自动断行的目标行长（字符数）：cjk 为中日韩文字，other 为其余文字',
   'transcribe.afterComplete': '转写完成后：open-video 打开视频，notify 只通知，nothing 什么都不做',

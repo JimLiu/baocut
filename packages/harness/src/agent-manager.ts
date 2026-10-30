@@ -282,6 +282,10 @@ interface LiveSession {
   driverId: DriverId;
   grant: ToolGrant | null;
   unsubscribe: () => void;
+  /** 建会话时交给 Driver 的开发者指导。 */
+  instructions: string | undefined;
+  /** 算出 `instructions` 时指导的代数（`instructionsChanged` 加一）：落后了就在下一轮开始时重算一遍。 */
+  generation: number;
 }
 
 export interface EnsureSessionOptions {
@@ -304,6 +308,7 @@ export class AgentManager {
   readonly #tools: AgentToolAccess | null;
   readonly #live = new Map<Id, LiveSession>();
   readonly #starting = new Map<Id, Promise<AgentSession>>();
+  #generation = 0;
 
   constructor(
     drivers: DriverRegistry,
@@ -325,11 +330,26 @@ export class AgentManager {
     const pending = this.#starting.get(options.conversationId);
     if (pending) return pending;
     const live = this.#live.get(options.conversationId);
-    if (live && live.driverId === options.driverId) return live.session;
+    if (live && live.driverId === options.driverId && live.generation === this.#generation) return live.session;
 
     const start = (async () => {
       let resume = options.resume;
-      if (live) {
+      const generation = this.#generation;
+      const instructions = await this.#instructions(options.conversationId);
+      // 取指导的途中原生会话可能已经收起（进程退出），按那之后的情况走。
+      const current = this.#live.get(options.conversationId);
+      if (current && current.driverId === options.driverId) {
+        // 指导的来源变了（§3.8 热更新）：算出来一样就接着用；不一样且原生侧没有回合之外的活时，带着恢复句柄重建，
+        // 否则这一轮先用旧的，下一轮再看。
+        if (instructions === current.instructions) {
+          current.generation = generation;
+          return current.session;
+        }
+        if (!(await this.canRelease(options.conversationId))) return current.session;
+        resume = current.session.describePersistence() ?? resume;
+        this.#log.info('Agent instructions changed; reopening native session', { conversationId: options.conversationId });
+        await this.release(options.conversationId);
+      } else if (current) {
         // 换了 Agent：旧的恢复句柄属于另一个 Agent，不能拿来续。
         resume = null;
         await this.release(options.conversationId);
@@ -337,13 +357,6 @@ export class AgentManager {
       if (resume && resume.driverId !== options.driverId) resume = null;
       const driver = this.#drivers.get(options.driverId);
       // 工具授权跟着原生会话走：会话关闭（空闲、进程退出）时收回。
-      // 会话开始时的附加指导（开着的 skill 的索引，§3.8）：取不到时不附，不拦住会话。
-      const extra = this.#tools?.sessionInstructions
-        ? await this.#tools.sessionInstructions(options.conversationId).catch((error: unknown) => {
-            this.#log.warn('Failed to read extra session instructions', { conversationId: options.conversationId, error: String(error) });
-            return '';
-          })
-        : '';
       const grant = this.#tools?.grant(options.conversationId) ?? null;
       let session: AgentSession;
       try {
@@ -352,7 +365,7 @@ export class AgentManager {
           ...options.settings,
           executable: this.#drivers.executable(options.driverId),
           resume,
-          ...(this.#tools ? { developerInstructions: extra ? `${this.#tools.instructions}\n\n${extra}` : this.#tools.instructions } : {}),
+          ...(instructions !== undefined ? { developerInstructions: instructions } : {}),
           ...(grant ? { mcpServers: grant.mcpServers } : {}),
         });
       } catch (error) {
@@ -360,7 +373,7 @@ export class AgentManager {
         throw error;
       }
       const unsubscribe = session.subscribe((event) => this.#onEvent(options.conversationId, session, event));
-      this.#live.set(options.conversationId, { session, driverId: options.driverId, grant, unsubscribe });
+      this.#live.set(options.conversationId, { session, driverId: options.driverId, grant, unsubscribe, instructions, generation });
       this.#log.info('Native session ready', { conversationId: options.conversationId, driverId: options.driverId });
       return session;
     })();
@@ -370,6 +383,29 @@ export class AgentManager {
     } finally {
       this.#starting.delete(options.conversationId);
     }
+  }
+
+  /**
+   * 开发者指导的来源变了（自定义指导、skill 的开关与内容，§3.8）：在跑的原生会话在下一轮开始时（`ensure`）重算一遍指导，
+   * 不一样就带着恢复句柄重建。正在建的会话按建好时的代数，同样在下一轮重算。
+   */
+  instructionsChanged(): void {
+    this.#generation += 1;
+  }
+
+  /**
+   * 交给原生会话的开发者指导：入口层的指导，后面附会话开始时的那一段（开着的 skill 的索引与用户的自定义指导，§3.8）；
+   * 附加的那段取不到时不附，不拦住会话。没有工具通道时没有指导。
+   */
+  async #instructions(conversationId: Id): Promise<string | undefined> {
+    if (!this.#tools) return undefined;
+    const extra = this.#tools.sessionInstructions
+      ? await this.#tools.sessionInstructions(conversationId).catch((error: unknown) => {
+          this.#log.warn('Failed to read extra session instructions', { conversationId, error: String(error) });
+          return '';
+        })
+      : '';
+    return extra ? `${this.#tools.instructions}\n\n${extra}` : this.#tools.instructions;
   }
 
   /** 进程已经退出时只摘掉记录，不再调用 close。 */

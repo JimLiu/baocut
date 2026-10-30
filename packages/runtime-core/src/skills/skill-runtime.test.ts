@@ -153,6 +153,35 @@ describe('Agent skill 端到端', () => {
     expect(JSON.parse(await fs.readFile(home.skillPrefsFile, 'utf8'))).toMatchObject({ enabled: { 'b-roll': false } });
   });
 
+  it('改了 skill 开关或自定义指导：同一会话的下一轮按新的指导重建原生会话，没改时接着用', async () => {
+    await writeSkill(builtin, 'caption-layout', { description: '字幕排版规则' });
+    await boot();
+    const { conversationId, session } = await send('排一下字幕');
+    expect(session.options.developerInstructions).toContain('- caption-layout：');
+    expect(session.options.developerInstructions).not.toContain('<baocut-user-instructions>');
+
+    const next = async (text: string, from: ToolSession): Promise<ToolSession> => {
+      from.finish();
+      await until(() => runtime.harness.getConversation(conversationId).conversation.activity !== 'running');
+      const sessions = driver.sessions.length;
+      const inputs = from.inputs.length;
+      await client.request('conversations.send', { conversationId, text, commandId: newId('cmd') });
+      return until(() => driver.sessions[sessions] ?? (from.inputs.length > inputs ? from : undefined));
+    };
+
+    const same = await next('再看一遍', session);
+    expect(same).toBe(session);
+
+    await client.request('skills.setEnabled', { id: 'caption-layout', enabled: false });
+    await client.request('settings.set', { values: { 'agent.customInstructions': '回复用中文。' } });
+    const rebuilt = await next('按新的来', session);
+    expect(rebuilt).not.toBe(session);
+    await until(() => rebuilt.inputs.length > 0);
+    expect(rebuilt.options.developerInstructions).not.toContain('- caption-layout：');
+    expect(rebuilt.options.developerInstructions).toContain('<baocut-user-instructions>\n');
+    expect(rebuilt.options.developerInstructions).toContain('回复用中文。');
+  });
+
   it('点选 skill 发送：智能体拿到正文，消息带 skill 标记；关着的也能点选；不存在时拒绝', async () => {
     await writeSkill(builtin, 'caption-layout', { extra: '# 字幕\n\n每行不超过 16 个字。', files: { 'references/fonts.md': '字体表' } });
     await boot();

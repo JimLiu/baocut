@@ -6,6 +6,7 @@ export const ptBR: SettingDescriptionMessages = {
   'agent.defaultModel': 'Modelo para novas sessões; null usa o modelo recomendado (Sonnet no Claude Code, um modelo -sol no Codex) e __agent-default__ não passa modelo e segue a configuração da CLI do próprio agente',
   'agent.defaultEffort': 'Esforço de raciocínio para novas sessões; null usa o padrão do próprio agente',
   'agent.defaultAccessMode': 'Usado por sessões que nunca alteraram o modo de acesso: ask, autoAcceptEdits, auto, fullAccess ou plan (os valores antigos controlled e authorized são tratados como ask e fullAccess)',
+  'agent.customInstructions': 'Suas próprias instruções para o agente, adicionadas depois das orientações do BaoCut em cada sessão (no máximo 8.000 caracteres); null para nenhuma. Sessões em andamento usam a alteração a partir do próximo turno',
   'ui.language': `Idioma da interface: system segue o idioma do sistema (inglês quando não há idioma correspondente) ou um código de idioma (${LOCALES.join(', ')}). O texto do Runtime para pessoas também usa este idioma`,
   'captions.maxLineLength': 'Comprimento desejado para quebras automáticas de linha (caracteres): cjk para texto chinês, japonês e coreano; other para todos os demais',
   'transcribe.afterComplete': 'Após transcrever: open-video abre o vídeo, notify somente notifica, nothing não faz nada',

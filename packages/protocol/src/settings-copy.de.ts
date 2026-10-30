@@ -8,6 +8,7 @@ export const de: SettingDescriptionMessages = {
   'agent.defaultEffort': "Denkaufwand für neue Sitzungen; null verwendet den Standard des Agenten",
   'agent.defaultAccessMode':
     "Für Sitzungen, die ihren Zugriffsmodus noch nie geändert haben: ask, autoAcceptEdits, auto, fullAccess oder plan (alte Werte controlled und authorized gelten als ask und fullAccess)",
+  'agent.customInstructions': 'Eigene Anweisungen für den Agenten, in jeder Sitzung nach den Vorgaben von BaoCut angehängt (höchstens 8.000 Zeichen); null für keine. Laufende Sitzungen übernehmen eine Änderung ab ihrer nächsten Runde',
   'ui.language': `Oberflächensprache: system folgt der Systemsprache (Englisch bei keiner passenden Sprache) oder ein Sprachcode (${LOCALES.join(", ")}). Auch die an Menschen gerichteten Runtime-Texte verwenden sie`,
   'captions.maxLineLength': "Zielzeilenlänge für automatische Zeilenumbrüche (Zeichen): cjk für Chinesisch, Japanisch und Koreanisch, other für alles andere",
   'transcribe.afterComplete': "Nach der Transkription: open-video öffnet das Video, notify benachrichtigt nur, nothing tut nichts",

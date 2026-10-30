@@ -8,6 +8,7 @@ export const fr: SettingDescriptionMessages = {
   'agent.defaultEffort': "Effort de raisonnement des nouvelles sessions ; null utilise le défaut de l’Agent",
   'agent.defaultAccessMode':
     "Pour les sessions sans changement de mode : ask, autoAcceptEdits, auto, fullAccess ou plan (anciennes valeurs controlled et authorized traitées comme ask et fullAccess)",
+  'agent.customInstructions': 'Vos propres instructions pour l’agent, ajoutées après les consignes de BaoCut dans chaque session (8 000 caractères au plus) ; null pour aucune. Les sessions en cours appliquent un changement dès leur prochain tour',
   'ui.language': `Langue de l’interface : system suit le système (anglais sans langue correspondante), ou code de langue (${LOCALES.join(", ")}). Le texte du Runtime destiné aux personnes l’utilise aussi`,
   'captions.maxLineLength': "Longueur cible des lignes automatiques (caractères) : cjk pour chinois, japonais et coréen, other pour le reste",
   'transcribe.afterComplete': "Après transcription : open-video ouvre la vidéo, notify notifie seulement, nothing ne fait rien",

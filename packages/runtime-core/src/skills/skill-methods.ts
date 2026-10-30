@@ -18,6 +18,12 @@ export function skillMethods(deps: {
   media: MediaRegistry;
 }): Pick<RpcHandlers['methods'], SkillMethod> {
   const { skills, installer, brands, media } = deps;
+  // 改了 skill 的方法成功之后通知一声：会话的 skill 索引可能变了（§3.8）。
+  const changed = async <T>(result: Promise<T>): Promise<T> => {
+    const value = await result;
+    skills.changed();
+    return value;
+  };
   return {
     'skills.list': () => skills.list(),
     'skills.get': (p) => skills.get(p.id, p.revision),
@@ -27,17 +33,17 @@ export function skillMethods(deps: {
       return media.issue(root, file);
     },
     'skills.versions': (p) => skills.versions(p.id),
-    'skills.setEnabled': (p) => skills.setEnabled(p.id, p.enabled),
-    'skills.add': (p) => installer.add(p),
-    'skills.importGithub': (p) => installer.importGithub(p),
+    'skills.setEnabled': (p) => changed(skills.setEnabled(p.id, p.enabled)),
+    'skills.add': (p) => changed(installer.add(p)),
+    'skills.importGithub': (p) => changed(installer.importGithub(p)),
     'skills.inspectPackage': (p) => installer.inspectPackage(p),
-    'skills.installPackage': (p) => installer.installPackage(p),
-    'skills.create': (p) => installer.create(p),
-    'skills.duplicate': (p) => installer.duplicate(p),
-    'skills.write': (p) => installer.write(p),
-    'skills.restore': (p) => installer.restore(p),
+    'skills.installPackage': (p) => changed(installer.installPackage(p)),
+    'skills.create': (p) => changed(installer.create(p)),
+    'skills.duplicate': (p) => changed(installer.duplicate(p)),
+    'skills.write': (p) => changed(installer.write(p)),
+    'skills.restore': (p) => changed(installer.restore(p)),
     'skills.export': (p) => installer.export(p),
-    'skills.remove': (p) => installer.remove(p.id),
+    'skills.remove': (p) => changed(installer.remove(p.id)),
     'brands.list': () => brands.list(),
     'brands.get': (p) => brands.get(p.projectId),
     'brands.readFile': (p) => brands.readFile(p.projectId, p.path),

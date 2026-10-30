@@ -7,6 +7,7 @@ export const ja: SettingDescriptionMessages = {
   'agent.defaultEffort': '新しいセッションの推論の強さ。null は Agent 自身の既定値',
   'agent.defaultAccessMode':
     'アクセスモードを一度も切り替えていないセッションで使用：ask、autoAcceptEdits、auto、fullAccess、plan のいずれか（旧値の controlled と authorized はそれぞれ ask と fullAccess として扱います）',
+  'agent.customInstructions': 'エージェントへの独自の指示。各セッションで BaoCut のガイダンスの後に追加されます（最大 8,000 文字）。null はなし。変更は実行中のセッションでは次のターンから反映されます',
   'ui.language': `インターフェイスの言語：system はシステムの言語に従います（対応する言語がない場合は英語）。または言語コード（${LOCALES.join('、')}）。Runtime が表示するテキストにも使われます`,
   'captions.maxLineLength': '自動改行の目標行長（文字数）：cjk は中国語・日本語・韓国語の文字、other はそれ以外の文字',
   'transcribe.afterComplete': '文字起こしの完了後：open-video は動画を開く、notify は通知のみ、nothing は何もしない',

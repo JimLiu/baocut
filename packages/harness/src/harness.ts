@@ -2426,6 +2426,14 @@ export class Harness {
     this.#agentsTopic.publish({ type: 'agents.updated', view: this.agentsSnapshot() });
   }
 
+  /**
+   * 交给智能体的开发者指导的来源变了（自定义指导、skill 的开关与内容，架构设计 §3.8）：由 Runtime 在设置或 skill 变化时调用。
+   * 在跑的原生会话在下一轮开始时按新的指导重建（带恢复句柄）；原生侧还有回合之外的活时先接着用，下一轮再看。
+   */
+  instructionsChanged(): void {
+    this.#agents.instructionsChanged();
+  }
+
   /** 改 Agent 偏好并推送新视图：所有写偏好的路径都走这里，界面只靠 `agents` 主题也不会漏。 */
   async #updatePrefs(update: Parameters<AgentPrefsStore['update']>[0]): Promise<void> {
     await this.#prefs.update(update);

@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import { ProtocolValidation as V } from './messages/protocol/protocol-validation.ts';
 import type { RpcMethod } from './methods.ts';
-import { DOWNLOAD_MIRROR_NAME_MAX, DOWNLOAD_MIRRORS_MAX, SETTING_KEYS, type SettingKey, type SettingValues } from './settings.ts';
+import {
+  AGENT_CUSTOM_INSTRUCTIONS_MAX,
+  DOWNLOAD_MIRROR_NAME_MAX,
+  DOWNLOAD_MIRRORS_MAX,
+  SETTING_KEYS,
+  type SettingKey,
+  type SettingValues,
+} from './settings.ts';
 import { MODEL_API_MAX_CONCURRENT_LIMIT, SERVICE_IDS, SERVICE_LEVELS } from './services.ts';
 import { ACCESS_MODES, AGENT_MODES, LEGACY_AGENT_MODES, normalizeAgentMode } from './access.ts';
 import { GRANT_DATA_KINDS } from './grants.ts';
@@ -644,6 +651,12 @@ export const settingValueSchemas = {
     .nullable(),
   // 旧值（controlled、authorized）照样接受，存成新值；文件里留下的旧值读入时同样换成新值。
   'agent.defaultAccessMode': agentMode.transform(normalizeAgentMode),
+  // 只有空白的当作没有（恢复默认）。
+  'agent.customInstructions': z
+    .string()
+    .max(AGENT_CUSTOM_INSTRUCTIONS_MAX)
+    .transform((text) => (text.trim() ? text : null))
+    .nullable(),
   'ui.language': z.enum(LANGUAGE_PREFERENCES),
   'captions.maxLineLength': z.object({ cjk: z.number().int().min(4).max(60), other: z.number().int().min(10).max(120) }).strict(),
   'transcribe.afterComplete': z.enum(['open-video', 'notify', 'nothing']),

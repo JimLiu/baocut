@@ -30,6 +30,8 @@ export interface DownloadMirror {
 
 /** 一个镜像列表最多存几个。 */
 export const DOWNLOAD_MIRRORS_MAX = 20;
+/** `agent.customInstructions` 的长度上限（字符）。 */
+export const AGENT_CUSTOM_INSTRUCTIONS_MAX = 8000;
 /** 镜像名字的最大长度。 */
 export const DOWNLOAD_MIRROR_NAME_MAX = 40;
 
@@ -54,6 +56,11 @@ export interface SettingValues {
   'agent.defaultEffort': string | null;
   /** 还没切换过模式的会话用它（架构设计 §3.12）。旧值（controlled、authorized）读写时换成新值。 */
   'agent.defaultAccessMode': AgentMode;
+  /**
+   * 用户给智能体的自定义指导（设置 › Agent，架构设计 §3.8）：附在每个原生会话的开发者指导后面，至多
+   * `AGENT_CUSTOM_INSTRUCTIONS_MAX` 个字符；null 为没有。改了之后在跑的原生会话下一轮开始时按新的重建。
+   */
+  'agent.customInstructions': string | null;
   /**
    * 界面语言：`system` 跟随这台电脑的系统语言（没有对应的出货语言时英文），否则是一种出货语言。Runtime 给人看的文字
    * （错误原因、任务说明）按它生成；已经存下的文字保留生成时的语言。桌面界面把自己的选择写到这里（架构设计 §5.10）。
@@ -181,6 +188,7 @@ export const SETTING_KEYS = [
   'agent.defaultModel',
   'agent.defaultEffort',
   'agent.defaultAccessMode',
+  'agent.customInstructions',
   'ui.language',
   'captions.maxLineLength',
   'transcribe.afterComplete',
@@ -221,6 +229,7 @@ export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
   'agent.defaultModel': null,
   'agent.defaultEffort': null,
   'agent.defaultAccessMode': DEFAULT_AGENT_MODE,
+  'agent.customInstructions': null,
   'ui.language': 'system',
   'captions.maxLineLength': Object.freeze({ cjk: 16, other: 42 }),
   'transcribe.afterComplete': 'open-video',

@@ -136,8 +136,8 @@ export interface AgentToolAccess {
   /** 入口层的指导（§3.8）：作为开发者指令交给原生会话。 */
   readonly instructions: string;
   /**
-   * 每个原生会话开始时另附在 `instructions` 后面的一段（§3.8：开着的 skill 的索引）。空串表示不附；出错时按空串处理，不拦住会话。
-   * 只在会话开始时取一次：会话进行中改了也不影响这个原生会话。
+   * 每个原生会话开始时另附在 `instructions` 后面的一段（§3.8：开着的 skill 的索引与用户的自定义指导）。空串表示不附；出错时按空串
+   * 处理，不拦住会话。会话开始时取一次；来源变了时（`Harness.instructionsChanged`）在跑的会话在下一轮开始时再取一次，不同就重建。
    */
   sessionInstructions?(conversationId: Id): Promise<string>;
 }

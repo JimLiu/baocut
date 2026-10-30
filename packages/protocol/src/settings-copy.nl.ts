@@ -8,6 +8,7 @@ export const nl: SettingDescriptionMessages = {
   'agent.defaultEffort': "Denkintensiteit voor nieuwe sessies; null gebruikt de eigen standaard van de agent",
   'agent.defaultAccessMode':
     "Gebruikt door sessies die nooit van toegangsmodus zijn veranderd: ask, autoAcceptEdits, auto, fullAccess of plan (de oude waarden controlled en authorized worden behandeld als ask en fullAccess)",
+  'agent.customInstructions': 'Je eigen instructies voor de agent, in elke sessie toegevoegd na de richtlijnen van BaoCut (maximaal 8000 tekens); null voor geen. Lopende sessies gebruiken een wijziging vanaf hun volgende beurt',
   'ui.language': `Interfacetaal: system volgt de systeemtaal (Engels als er geen passende taal is) of een taalcode (${LOCALES.join(", ")}). Tekst die de Runtime aan mensen toont gebruikt deze taal ook`,
   'captions.maxLineLength': "Gewenste regellengte voor automatische regeleinden (tekens): cjk voor Chinese, Japanse en Koreaanse tekst, other voor de rest",
   'transcribe.afterComplete': "Na transcriptie: open-video opent de video, notify geeft alleen een melding, nothing doet niets",

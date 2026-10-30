@@ -7,6 +7,7 @@ export const ru: SettingDescriptionMessages = {
   'agent.defaultEffort': "Уровень рассуждений новых сессий; null использует значение агента по умолчанию",
   'agent.defaultAccessMode':
     "Для сессий без смены режима доступа: ask, autoAcceptEdits, auto, fullAccess или plan (старые controlled и authorized трактуются как ask и fullAccess)",
+  'agent.customInstructions': 'Ваши собственные указания агенту, добавляются после указаний BaoCut в каждой сессии (не более 8000 символов); null — без них. Идущие сессии применяют изменение со следующего хода',
   'ui.language': `Язык интерфейса: system следует языку системы (английский при отсутствии), либо код языка (${LOCALES.join(", ")}). Текст Runtime для пользователя использует его тоже`,
   'captions.maxLineLength': "Целевая длина автоматического переноса (символы): cjk для китайского, японского и корейского текста, other для остального",
   'transcribe.afterComplete': "После расшифровки: open-video открывает видео, notify только уведомляет, nothing ничего не делает",

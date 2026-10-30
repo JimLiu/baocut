@@ -138,6 +138,7 @@ function isDirectory(dir: string): boolean {
 
 export class SkillCatalog {
   readonly #options: SkillCatalogOptions;
+  readonly #listeners = new Set<() => void>();
   #guide: LoadedSkill[] = [];
 
   constructor(options: SkillCatalogOptions) {
@@ -266,6 +267,21 @@ export class SkillCatalog {
     await this.#options.prefs.set(id, enabled, SKILL_DEFAULT_ENABLED[skill.origin]);
     const list = await this.list();
     return { ...list, skill: list.skills.find((s) => s.id === id) ?? this.summaryOf(skill) };
+  }
+
+  /**
+   * skill 开关、添加、编辑、恢复或移除之后（`skillMethods` 调 `changed`）：会话的 skill 索引可能变了，在跑的原生会话下一轮
+   * 开始时按新的重建（§3.8）。返回取消订阅。
+   */
+  onChange(listener: () => void): () => void {
+    this.#listeners.add(listener);
+    return () => {
+      this.#listeners.delete(listener);
+    };
+  }
+
+  changed(): void {
+    for (const listener of this.#listeners) listener();
   }
 
   /** 开着的 skill（会话开始时的索引用）。 */

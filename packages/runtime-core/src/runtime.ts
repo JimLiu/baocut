@@ -141,6 +141,7 @@ import { templateLogoPreparer } from './templates/template-logos.ts';
 import { SkillCatalog, resolveBuiltinSkillsDir } from './skills/skill-catalog.ts';
 import { SkillInstaller } from './skills/skill-installer.ts';
 import { skillIndexBlock } from './skills/skill-brief.ts';
+import { customInstructionsBlock } from './agent-tools/custom-instructions.ts';
 import { aiToolDefinition } from './ai-tools/ai-tool-wiring.ts';
 import { resolveBuiltinAgentSkillsDir } from './skills/agent-skill-renderer.ts';
 import { SkillTools } from './agent-tools/skill-tools.ts';
@@ -766,9 +767,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       offlineStrict: () => settings.store.get('offline.strict'),
       ...(options.skillsGithub ? { github: options.skillsGithub } : {}),
     });
+    // 每个原生会话开始时附在指导后面的：开着的 skill 的索引，再是用户的自定义指导（§3.8）。
     const grants = new AgentGrants(
       (principal) => videos.connectionClosed(principal.connectionId),
-      async () => skillIndexBlock(await skills.enabled()),
+      async () =>
+        [skillIndexBlock(await skills.enabled()), customInstructionsBlock(settings.store.get('agent.customInstructions'))]
+          .filter(Boolean)
+          .join('\n\n'),
     );
     // 消息里的图片：经网关同一端口上传，发送时交给 Driver（产品设计 §3.2.4）。
     const attachments = new AttachmentStore({
@@ -820,9 +825,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     await harness.migrateScratch().catch((error: unknown) => log.warn('Failed to tidy session folders', { error: String(error) }));
     // 默认 Agent 存在偏好设置里（`agent.defaultDriver`，§3.11）：设置页、CLI、`agents.setDefault` 改了它都推送新的 Agent 视图。
     // 默认 Agent 没设过默认模型时 `DriverInfo.defaultModel` 取 `agent.defaultModel`，改了它也推送。
+    // 自定义指导与 skill 进每个原生会话的开发者指导（§3.8）：改了之后在跑的原生会话下一轮开始时按新的重建。
     settings.store.onChange((changed) => {
       if ('agent.defaultDriver' in changed || 'agent.defaultModel' in changed) harness.agentsChanged();
+      if ('agent.customInstructions' in changed) harness.instructionsChanged();
     });
+    skills.onChange(() => harness.instructionsChanged());
     // 会话里的智能体从链接下载、解析出平台给的标题时，按第一句话起的会话标题换成它（产品设计 §3.1）。
     retitleFromLinkImports(models.jobs, harness);
     harnessRef = harness;

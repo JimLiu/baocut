@@ -7,6 +7,7 @@ export const zhHant: SettingDescriptionMessages = {
   'agent.defaultEffort': '新對話的推理強度；null 使用 Agent 自己的預設值',
   'agent.defaultAccessMode':
     '從未切換過存取模式的對話會使用它：ask、autoAcceptEdits、auto、fullAccess 或 plan（舊值 controlled 與 authorized 分別視為 ask 與 fullAccess）',
+  'agent.customInstructions': '你給 Agent 的自訂指導，附在每個對話裡 BaoCut 的指導之後（至多 8000 個字元）；null 為沒有。修改後，執行中的對話從下一輪起生效',
   'ui.language': `介面語言：system 跟隨系統語言（沒有對應的語言時使用英文），或語言代碼（${LOCALES.join('、')}）。Runtime 顯示給使用者的文字也會使用它`,
   'captions.maxLineLength': '自動換行的目標行長（字元數）：cjk 用於中文、日文與韓文文字，other 用於其他文字',
   'transcribe.afterComplete': '轉錄完成後：open-video 會開啟影片，notify 只發出通知，nothing 不做任何事',

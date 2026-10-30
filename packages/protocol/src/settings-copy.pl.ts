@@ -7,6 +7,7 @@ export const pl: SettingDescriptionMessages = {
   'agent.defaultEffort': "Intensywność rozumowania nowych sesji; null używa domyślnej agenta",
   'agent.defaultAccessMode':
     "Dla sesji bez zmiany trybu dostępu: ask, autoAcceptEdits, auto, fullAccess lub plan (stare controlled i authorized traktowane jako ask i fullAccess)",
+  'agent.customInstructions': 'Własne instrukcje dla agenta, dodawane w każdej sesji po wskazówkach BaoCut (najwyżej 8000 znaków); null oznacza brak. Trwające sesje stosują zmianę od następnej tury',
   'ui.language': `Język interfejsu: system używa języka systemu (angielski przy braku odpowiednika), lub kod języka (${LOCALES.join(", ")}). Tekst Runtime dla użytkowników także go używa`,
   'captions.maxLineLength': "Docelowa długość automatycznych podziałów wiersza (znaki): cjk dla chińskiego, japońskiego i koreańskiego, other dla reszty",
   'transcribe.afterComplete': "Po transkrypcji: open-video otwiera wideo, notify tylko powiadamia, nothing nic nie robi",

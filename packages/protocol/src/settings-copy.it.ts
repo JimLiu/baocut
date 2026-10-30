@@ -6,6 +6,7 @@ export const it: SettingDescriptionMessages = {
   'agent.defaultModel': 'Modello per le nuove sessioni; null usa il modello consigliato (Sonnet per Claude Code, un modello -sol per Codex), __agent-default__ non passa alcun modello e segue la configurazione della CLI dell’agente',
   'agent.defaultEffort': 'Intensità di ragionamento per le nuove sessioni; null usa il predefinito dell’agente',
   'agent.defaultAccessMode': 'Usato dalle sessioni che non hanno mai cambiato modalità di accesso: ask, autoAcceptEdits, auto, fullAccess o plan (i vecchi valori controlled e authorized sono trattati come ask e fullAccess)',
+  'agent.customInstructions': 'Istruzioni personali per l’agente, aggiunte dopo le indicazioni di BaoCut in ogni sessione (al massimo 8000 caratteri); null per nessuna. Le sessioni in corso applicano la modifica dal turno successivo',
   'ui.language': `Lingua dell’interfaccia: system segue la lingua del sistema (inglese se non c’è una lingua corrispondente) o un codice di lingua (${LOCALES.join(', ')}). Anche il testo del Runtime rivolto alle persone usa questa lingua`,
   'captions.maxLineLength': 'Lunghezza desiderata per le interruzioni di riga automatiche (caratteri): cjk per testo cinese, giapponese e coreano; other per tutto il resto',
   'transcribe.afterComplete': 'Dopo la trascrizione: open-video apre il video, notify invia solo una notifica, nothing non fa nulla',

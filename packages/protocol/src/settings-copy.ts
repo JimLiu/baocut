@@ -22,6 +22,7 @@ const en = {
   'agent.defaultEffort': "Reasoning effort for new sessions; null uses the Agent's own default",
   'agent.defaultAccessMode':
     'Used by sessions that have never switched access mode: ask, autoAcceptEdits, auto, fullAccess, or plan (the old values controlled and authorized are treated as ask and fullAccess)',
+  'agent.customInstructions': "Your own instructions for the agent, added after BaoCut's guidance in every session (at most 8,000 characters); null for none. Running sessions use a change from their next turn",
   'ui.language': `Interface language: system follows the system language (English when there is no matching language), or a language code (${LOCALES.join(', ')}). Text the Runtime shows to people uses it too`,
   'captions.maxLineLength': 'Target line length for automatic line breaks (characters): cjk for Chinese, Japanese, and Korean text, other for everything else',
   'transcribe.afterComplete': 'After transcription: open-video opens the video, notify only notifies, nothing does nothing',

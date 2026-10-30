@@ -7,6 +7,7 @@ export const ko: SettingDescriptionMessages = {
   'agent.defaultEffort': '새 세션의 추론 강도. null이면 Agent 자체의 기본값을 사용합니다',
   'agent.defaultAccessMode':
     '접근 모드를 한 번도 바꾸지 않은 세션에 사용합니다: ask, autoAcceptEdits, auto, fullAccess 또는 plan(이전 값 controlled와 authorized는 각각 ask와 fullAccess로 처리)',
+  'agent.customInstructions': '에이전트에게 주는 사용자 지침. 모든 세션에서 BaoCut 안내 뒤에 추가됩니다(최대 8,000자). null이면 없음. 변경하면 실행 중인 세션은 다음 턴부터 적용됩니다',
   'ui.language': `인터페이스 언어: system은 시스템 언어를 따르며(맞는 언어가 없으면 영어), 또는 언어 코드(${LOCALES.join(', ')})를 지정합니다. Runtime이 사람에게 보여 주는 텍스트도 이 설정을 따릅니다`,
   'captions.maxLineLength': '자동 줄바꿈의 목표 줄 길이(문자 수): cjk는 중국어·일본어·한국어 텍스트, other는 그 밖의 텍스트',
   'transcribe.afterComplete': '전사가 끝난 뒤: open-video는 영상을 열고, notify는 알림만 보내고, nothing은 아무것도 하지 않습니다',
