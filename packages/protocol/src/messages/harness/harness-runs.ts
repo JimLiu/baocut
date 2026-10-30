@@ -46,6 +46,9 @@ const en = {
   jobHeld: 'A background task ended. The agent will be told when its current turn ends.',
   jobDropped: "A background task ended, but this task was stopped or failed, or the session isn't available, so the agent wasn't told.",
   contextCompacted: 'The agent compacted its context to keep working. Earlier details may now be summarized.',
+  /** 分叉（产品设计 §3.2.2「分叉」）：新会话的标题与线程顶上那一条。 */
+  forkTitle: (p: { title: string }) => `${p.title} (fork)`,
+  forkedFrom: (p: { title: string; turn: number }) => `Forked from "${p.title}" · through turn ${p.turn}`,
 };
 
 export type HarnessRunsMessages = typeof en;

@@ -111,6 +111,7 @@ import { AgentManager, type DriverRegistry } from './agent-manager.ts';
 import { ApprovalService, type ApprovalResolution } from './approval-service.ts';
 import { ConversationState } from './conversation-state.ts';
 import { contextBlock, escapeContextTags } from './context-tags.ts';
+import { forkHistory, forkHistoryBlock, forkNoteOf, forkPoint, touchedVideos, type TouchedVideo } from './fork.ts';
 import type {
   AgentDriver,
   AgentEvent,
@@ -1040,6 +1041,8 @@ export class Harness {
     model?: string | null;
     effort?: string | null;
     accessMode?: AgentMode | Autonomy | null;
+    /** 沿用别的会话的模型与强度（分叉）：模型表里已经没有时改用推荐的，不拒绝。 */
+    inherit?: boolean;
   }): Promise<Conversation> {
     const key = params.commandId ? `create:${params.commandId}` : null;
     const done = key ? this.#commands.get(key) : undefined;
@@ -1077,8 +1080,8 @@ export class Harness {
           ? params.model
           : this.#defaultModelOf(driverId, this.#drivers.result(driverId)?.models ?? [], driverId === defaultDriverId),
       effort: params.effort !== undefined ? params.effort : (driverPrefs.defaultEffort ?? global?.['agent.defaultEffort'] ?? null),
-      givenModel: params.model !== undefined,
-      givenEffort: params.effort !== undefined,
+      givenModel: params.model !== undefined && !params.inherit,
+      givenEffort: params.effort !== undefined && !params.inherit,
     });
 
     const id = newId('conv');
@@ -1118,6 +1121,68 @@ export class Harness {
     if (key) this.#commands.set(key, id);
     this.#directory.publish({ type: 'conversation.upsert', conversation: state.conversation });
     return state.conversation;
+  }
+
+  /**
+   * 从一轮已经结束的任务分出一条新会话（产品设计 §3.2.2「分叉」，架构设计 §3.4）。不分叉 Agent 的原生会话：新会话开在同一个项目
+   * （无项目会话用同一个文件夹），Agent、模型、推理强度与访问模式跟原会话一样；截至那一轮的对话记在顶上的提示里，
+   * 第一次交给智能体时放在用户消息前面（见 `send`）。视频回到那时由 Runtime 在这之后做（`conversations.fork`）。
+   */
+  async forkConversation(params: { conversationId: Id; taskId: Id; commandId: Id }): Promise<Conversation> {
+    const key = `fork:${params.commandId}`;
+    const done = this.#commands.get(key);
+    if (done) return this.#require(done).conversation;
+    const source = this.#require(params.conversationId);
+    const { at, task } = this.#forkTask(source, params.taskId);
+    const items = source.items();
+    const from = source.conversation;
+    const title = from.title ? HR.forkTitle({ title: from.title }).text : '';
+    const conversation = await this.createConversation({
+      folderOf: from.id,
+      ...(from.spaceReadScope ? { spaceReadScope: from.spaceReadScope } : {}),
+      title,
+      commandId: params.commandId,
+      driverId: from.driverId,
+      model: from.model,
+      effort: from.effort,
+      accessMode: from.accessMode,
+      inherit: true,
+    });
+    const state = this.#require(conversation.id);
+    // 同一条命令重发时 `createConversation` 返回已经建好的那条，提示已经在了。
+    if (!state.items().length) {
+      const carried = forkNoteOf(items);
+      const note = {
+        conversationId: from.id,
+        title: from.title,
+        turn: at.turn,
+        ...forkHistory(items, at.end, { title: from.title, folder: from.cwd, carried: carried?.history ?? null }),
+      };
+      const text = HR.forkedFrom({ title: from.title, turn: at.turn });
+      state.upsert({ kind: 'notice', id: newId('note'), createdAt: nowIso(), taskId: null, level: 'info', text: String(text), textRef: refOf(text), fork: note });
+      this.#log.info('Session forked', { from: from.id, to: state.id, taskId: task.id, turn: at.turn, omitted: note.omitted });
+    }
+    this.#commands.set(key, state.id);
+    return state.conversation;
+  }
+
+  /**
+   * 分叉「把视频回到那时」的候选（`conversations.forkVideos`）：那一轮结束的时刻，与这条会话截至现在改过或建过的视频。
+   * 哪些回得去、回到哪一版由 Runtime 按视频的版本记录算。
+   */
+  forkCandidates(conversationId: Id, taskId: Id): { endedAt: string; videos: TouchedVideo[] } {
+    const state = this.#require(conversationId);
+    const { task } = this.#forkTask(state, taskId);
+    return { endedAt: task.endedAt!, videos: touchedVideos(state.items()) };
+  }
+
+  /** 能分叉的那一轮：任务存在、已经结束（不在跑、不在停）。 */
+  #forkTask(state: ConversationState, taskId: Id): { at: { turn: number; end: number }; task: Extract<TimelineItem, { kind: 'task' }> } {
+    const at = forkPoint(state.items(), taskId);
+    const task = state.item(taskId);
+    if (!at || task?.kind !== 'task') throw new RpcError('not-found', HA.taskNotFound({ id: taskId }));
+    if (task.status === 'running' || task.status === 'stopping' || !task.endedAt) throw new RpcError('conflict', HA.forkTurnRunning());
+    return { at, task };
   }
 
   /** 会话此刻的记录；不存在时 undefined。工具的范围按它取工作目录与项目：调用中途绑定了项目也跟得上。 */
@@ -1531,8 +1596,14 @@ export class Harness {
       stopTimer: null,
     };
     this.#runs.set(state.id, run);
+    // 分叉出来的会话（产品设计 §3.2.2「分叉」）：带进来的记录放在用户消息前面交给智能体。智能体还没回过话（第一轮没跑起来、
+    // 刚开始就停了）时下一次接着带，宁可重复也不丢。
+    const fork = forkNoteOf(state.items());
+    const carried =
+      fork && !state.items().some((i) => i.kind === 'agent-message' || (i.kind === 'task' && i.status === 'completed')) ? forkHistoryBlock(fork) : null;
     // 用户的原话里冒充上下文段的标签先转义（context-tags.ts）；会话里显示的仍是原话。
     const agentText = [
+      carried,
       escapeContextTags(params.text),
       params.template?.instructions,
       params.brand?.instructions,

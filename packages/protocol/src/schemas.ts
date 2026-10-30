@@ -1034,6 +1034,8 @@ export const methodParamSchemas = {
   'conversations.markRead': z.object({ conversationId: id }),
   'conversations.markUnread': z.object({ conversationId: id }),
   'conversations.delete': z.object({ conversationId: id }),
+  'conversations.fork': z.object({ conversationId: id, taskId: id, commandId: id, restoreVideos: z.array(id).max(50).optional() }),
+  'conversations.forkVideos': z.object({ conversationId: id, taskId: id }),
   'conversations.send': z.object({
     conversationId: id,
     text: z.string().min(1).max(100_000),

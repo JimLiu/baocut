@@ -27,4 +27,5 @@ export const es: HarnessAgentsMessages = {
   questionUnanswered: (p) => `«${p.question}» no tiene respuesta`,
   questionSingleChoice: (p) => `«${p.question}» admite una sola respuesta`,
   questionUnknownOption: (p) => `«${p.option}» no es una opción de «${p.question}»`,
+  forkTurnRunning: 'Este turno aún no ha terminado. Bifúrcalo cuando termine.',
 };

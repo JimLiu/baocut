@@ -24,4 +24,6 @@ export const ptBR: HarnessRunsMessages = {
   jobHeld: 'Uma tarefa em segundo plano terminou. O agente será avisado quando o turno atual acabar.',
   jobDropped: 'Uma tarefa em segundo plano terminou, mas esta tarefa foi interrompida ou falhou, ou a sessão não está disponível, então o agente não foi avisado.',
   contextCompacted: 'O agente compactou o contexto para continuar trabalhando. Detalhes anteriores agora podem estar apenas resumidos.',
+  forkTitle: (p) => `${p.title} (ramificação)`,
+  forkedFrom: (p) => `Ramificada de “${p.title}” · até o turno ${p.turn}`,
 };

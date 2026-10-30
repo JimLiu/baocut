@@ -1,0 +1,28 @@
+import type { ForkMessages } from './fork-copy.ts';
+
+export const zhHant: ForkMessages = {
+  button: '從這一輪分岔',
+  fork: '在新對話中接著做',
+  forkHint: '帶上到這一輪為止的對話',
+  restore: '接著做，並把影片回到那時…',
+  restoreOne: (name) => `「${name}」回到這一輪結束時`,
+  restoreMany: (n) => `${n} 部影片回到這一輪結束時`,
+  restoreNone: '那時的版本都已不在或讀不出',
+  checking: '正在查版本記錄…',
+  dialogTitle: '分岔，並把影片回到那時',
+  dialogLead: '新對話帶上到這一輪為止的對話。下面的影片回到這一輪結束時；回到本身記成新的一版，在版本記錄裡可以再回來。',
+  listLabel: '要回到那時的影片',
+  cancel: '取消',
+  confirm: '分岔並回到那時',
+  ok: (version, undone) => `回到版本 ${version}；那之後的 ${undone} 版改動（含你和別的對話的）都會撤回`,
+  pruned: '那時的版本已不在（版本記錄只留最近的與儲存的版本）',
+  createdAfter: '這部影片是這一輪之後才有的，不動它',
+  chainBroken: '版本記錄讀不回那時',
+  done: '已分岔到新對話',
+  doneRestored: (n) => `已分岔到新對話，${n} 部影片回到了那時；版本記錄裡可以再回來`,
+  failed: (error) => `分岔失敗：${error}`,
+  forkedFrom: (title, turn) => `分岔自「${title}」· 截至第 ${turn} 輪`,
+  sourceDeleted: '（原對話已刪除）',
+  history: (turns, omitted) => `帶進去的記錄 · ${turns} 輪${omitted ? `（更早的 ${omitted} 輪略去）` : ''}`,
+  hideHistory: '收起記錄',
+};

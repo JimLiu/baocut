@@ -2,10 +2,12 @@ import { memo } from 'react';
 import { localizeText, type Id } from '@baocut/protocol';
 import { PixelLoader } from '@react-spectrum/ai/loader';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { forkable } from '../../model/agent-fork.ts';
 import { clockLabel, footerLabel, type Turn } from '../../model/agent-turn.ts';
 import { useNow } from '../use-now.ts';
 import { loaderSequence } from './agent-loader-icons.ts';
 import { CopyButton } from './copy-button.tsx';
+import { ForkButton } from './fork-button.tsx';
 import { PlanImplementRow } from './plan-card.tsx';
 import { T } from './thread-copy.ts';
 import { TaskRecovery } from './task-recovery.tsx';
@@ -16,7 +18,8 @@ const stack = style({ display: 'flex', flexDirection: 'column', gap: 8 });
 /**
  * 回合页脚（产品设计 §3.2.2）：一轮从一条用户消息到下一条之前，页脚挂在这一轮最后一行下面。
  * 状态来自任务事件，不来自模型说了什么（架构设计 §11.3）。进行中「正在工作 · 0:42」每秒跳，只有计时的小组件自己重渲；
- * 等审批时「等你允许 · 0:42」；完成后「已工作 1:03」，hover 换成结束时刻。右侧复制这一轮的回复正文（Markdown 源码，不含工具与思考）。
+ * 等审批时「等你允许 · 0:42」；完成后「已工作 1:03」，hover 换成结束时刻。右侧复制这一轮的回复正文（Markdown 源码，不含工具与思考）；
+ * 已经结束、有你的话也有回复的一轮，复制左边一枚分叉按钮（§3.2.2「分叉」）。
  * `recover`：这是会话里最后一个任务、失败了、会话空闲，下面挂恢复区。
  * `implementPlan`：这是最后一个任务、做完了、会话还在「先给方案」，下面挂「按方案实施」那一行。
  */
@@ -39,6 +42,7 @@ export const TaskFooter = memo(function TaskFooter({
     <div className={`bc-turn${failed ? ' bc-turn--failed' : ''}`}>
       {live ? <LiveClock turn={turn} /> : <DoneClock turn={turn} />}
       <span className="bc-turn__grow" />
+      {task && forkable(turn, live) ? <ForkButton conversationId={conversationId} taskId={task.id} /> : null}
       {!live && turn.text ? <CopyButton text={turn.text} label={T.copyReply} showLabel /> : null}
     </div>
   );

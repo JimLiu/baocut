@@ -24,4 +24,6 @@ export const it: HarnessRunsMessages = {
   jobHeld: 'Un’attività in background è terminata. L’agente verrà avvisato alla fine del turno in corso.',
   jobDropped: 'Un’attività in background è terminata, ma questa attività è stata interrotta o non è riuscita, oppure la sessione non è disponibile, quindi l’agente non è stato avvisato.',
   contextCompacted: 'L’agente ha compattato il contesto per continuare a lavorare. I dettagli precedenti ora potrebbero essere solo riassunti.',
+  forkTitle: (p) => `${p.title} (diramazione)`,
+  forkedFrom: (p) => `Diramata da «${p.title}» · fino al turno ${p.turn}`,
 };

@@ -7,4 +7,6 @@ retrying: (p) => `${p.message} (yeniden deneniyor)`, modeChanged: (p) => `Erişi
   jobHeld: 'Bir arka plan görevi bitti. Ajana mevcut turu bitince bildirilecek.',
   jobDropped: 'Bir arka plan görevi bitti, ancak bu görev durduruldu ya da başarısız oldu veya oturum kullanılamıyor; bu yüzden ajana bildirilmedi.',
   contextCompacted: 'Ajan çalışmaya devam etmek için bağlamını sıkıştırdı. Önceki ayrıntılar artık yalnızca özet olarak kalmış olabilir.',
+  forkTitle: (p) => `${p.title} (dal)`,
+  forkedFrom: (p) => `"${p.title}" oturumundan dal · ${p.turn}. tura kadar`,
 };

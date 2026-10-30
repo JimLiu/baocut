@@ -37,6 +37,7 @@
 | 视频 | Video | 只指编辑对象；导出的文件是 Export |
 | 短视频（切出的子视频） | Short | 工具名是 Cut into shorts |
 | 会话 / 新会话 | Session / New session | |
+| 分叉 / 在新会话中接着做 | Fork / Continue in a new session | 从会话的某一轮分出一条新会话；不写 Branch、Clone、Duplicate |
 | 工作目录 | Working folder | |
 | 素材 | Asset | |
 | 产物 | Output | |

@@ -42,4 +42,5 @@ export const zhHans: HarnessAgentsMessages = {
   questionUnanswered: (p) => `「${p.question}」还没有回答`,
   questionSingleChoice: (p) => `「${p.question}」只能选一个答案`,
   questionUnknownOption: (p) => `「${p.option}」不是「${p.question}」的选项`,
+  forkTurnRunning: '这一轮还没结束，结束后再分叉。',
 };

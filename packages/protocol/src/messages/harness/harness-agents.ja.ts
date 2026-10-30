@@ -46,4 +46,5 @@ export const ja: HarnessAgentsMessages = {
   questionUnanswered: (p) => `「${p.question}」に回答がありません`,
   questionSingleChoice: (p) => `「${p.question}」は回答を 1 つだけ選べます`,
   questionUnknownOption: (p) => `「${p.option}」は「${p.question}」の選択肢ではありません`,
+  forkTurnRunning: 'このターンはまだ終わっていません。終わってから分岐してください。',
 };

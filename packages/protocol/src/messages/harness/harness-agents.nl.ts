@@ -48,4 +48,5 @@ export const nl: HarnessAgentsMessages = {
   questionUnanswered: (p) => `Geen antwoord op ‘${p.question}’`,
   questionSingleChoice: (p) => `‘${p.question}’ staat maar één antwoord toe`,
   questionUnknownOption: (p) => `‘${p.option}’ is geen optie van ‘${p.question}’`,
+  forkTurnRunning: 'Deze beurt is nog niet klaar. Splits hem af als hij klaar is.',
 };

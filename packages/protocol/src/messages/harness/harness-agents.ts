@@ -63,6 +63,7 @@ const en = {
   questionUnanswered: (p: { question: string }) => `No answer for "${p.question}"`,
   questionSingleChoice: (p: { question: string }) => `"${p.question}" takes one answer`,
   questionUnknownOption: (p: { question: string; option: string }) => `"${p.option}" isn't an option of "${p.question}"`,
+  forkTurnRunning: "This turn hasn't ended yet. Fork it after it ends.",
 };
 
 export type HarnessAgentsMessages = typeof en;

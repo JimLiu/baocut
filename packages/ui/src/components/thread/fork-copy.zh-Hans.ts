@@ -1,0 +1,28 @@
+import type { ForkMessages } from './fork-copy.ts';
+
+export const zhHans: ForkMessages = {
+  button: '从这一轮分叉',
+  fork: '在新会话中接着做',
+  forkHint: '带上到这一轮为止的对话',
+  restore: '接着做，并把视频回到那时…',
+  restoreOne: (name) => `「${name}」回到这一轮结束时`,
+  restoreMany: (n) => `${n} 部视频回到这一轮结束时`,
+  restoreNone: '那时的版本都已不在或读不出',
+  checking: '正在查版本记录…',
+  dialogTitle: '分叉，并把视频回到那时',
+  dialogLead: '新会话带上到这一轮为止的对话。下面的视频回到这一轮结束时；回到本身记成新的一版，在版本记录里可以再回来。',
+  listLabel: '要回到那时的视频',
+  cancel: '取消',
+  confirm: '分叉并回到那时',
+  ok: (version, undone) => `回到版本 ${version}；那之后的 ${undone} 版改动（含你和别的会话的）都会撤回`,
+  pruned: '那时的版本已不在（版本记录只留最近的与保存的版本）',
+  createdAfter: '这部视频是这一轮之后才有的，不动它',
+  chainBroken: '版本记录读不回那时',
+  done: '已分叉到新会话',
+  doneRestored: (n) => `已分叉到新会话，${n} 部视频回到了那时；版本记录里可以再回来`,
+  failed: (error) => `分叉失败：${error}`,
+  forkedFrom: (title, turn) => `分叉自「${title}」· 截至第 ${turn} 轮`,
+  sourceDeleted: '（原会话已删除）',
+  history: (turns, omitted) => `带进去的记录 · ${turns} 轮${omitted ? `（更早的 ${omitted} 轮略去）` : ''}`,
+  hideHistory: '收起记录',
+};

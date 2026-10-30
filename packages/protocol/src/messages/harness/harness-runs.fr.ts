@@ -30,4 +30,6 @@ export const fr: HarnessRunsMessages = {
   jobHeld: 'Une tâche en arrière-plan est terminée. L’agent sera prévenu à la fin de son tour en cours.',
   jobDropped: 'Une tâche en arrière-plan est terminée, mais cette tâche a été arrêtée ou a échoué, ou la session n’est pas disponible : l’agent n’a pas été prévenu.',
   contextCompacted: 'L’agent a compacté son contexte pour continuer à travailler. Les détails précédents ne sont peut-être plus que résumés.',
+  forkTitle: (p) => `${p.title} (dérivée)`,
+  forkedFrom: (p) => `Dérivée de « ${p.title} » · jusqu’au tour ${p.turn}`,
 };

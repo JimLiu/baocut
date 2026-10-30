@@ -17,6 +17,7 @@ import {
   type ExportCreateRequest,
   type ExternalVideoCreated,
   type FileTarget,
+  type ForkVideoOption,
   type Id,
   type JobReconcileDecision,
   type JobRecord,
@@ -445,6 +446,25 @@ export class RuntimeSession {
   async listSubtitles(target: FileTarget): Promise<SubtitleTrack[]> {
     const { tracks } = await this.client.request('media.subtitles', target);
     return tracks;
+  }
+
+  /**
+   * 从一轮已经结束的任务分叉（产品设计 §3.2.2「分叉」）：新会话在同一个项目、用同一个 Agent，截至那一轮的对话由 Runtime 带进去。
+   * `restoreVideos`：分叉之后把这些视频回到那一轮结束时；`restored` 是回了几部。
+   */
+  async forkConversation(conversationId: Id, taskId: Id, restoreVideos?: readonly Id[]): Promise<{ conversation: Conversation; restored: number }> {
+    return this.client.request('conversations.fork', {
+      conversationId,
+      taskId,
+      commandId: newId('cmd'),
+      ...(restoreVideos?.length ? { restoreVideos: [...restoreVideos] } : {}),
+    });
+  }
+
+  /** 分叉时能回到那时的视频（只列那一轮之后又有改动的）。 */
+  async forkVideos(conversationId: Id, taskId: Id): Promise<ForkVideoOption[]> {
+    const { videos } = await this.client.request('conversations.forkVideos', { conversationId, taskId });
+    return videos;
   }
 
   async deleteConversation(conversationId: Id): Promise<void> {

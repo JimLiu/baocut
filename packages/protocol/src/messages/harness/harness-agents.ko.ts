@@ -46,4 +46,5 @@ export const ko: HarnessAgentsMessages = {
   questionUnanswered: (p) => `"${p.question}"에 대한 답이 없습니다`,
   questionSingleChoice: (p) => `"${p.question}"에는 답을 하나만 고를 수 있습니다`,
   questionUnknownOption: (p) => `"${p.option}"은(는) "${p.question}"의 선택지가 아닙니다`,
+  forkTurnRunning: '이 턴이 아직 끝나지 않았습니다. 끝난 뒤에 분기하세요.',
 };

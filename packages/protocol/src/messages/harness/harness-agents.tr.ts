@@ -10,4 +10,5 @@ listSeparator: ', ', noDriver: (p) => `${p.id} kimliğiyle kayıtlı ajan yok`, 
   questionUnanswered: (p) => `"${p.question}" için yanıt yok`,
   questionSingleChoice: (p) => `"${p.question}" için yalnızca bir yanıt seçilebilir`,
   questionUnknownOption: (p) => `"${p.option}", "${p.question}" sorusunun seçeneği değil`,
+  forkTurnRunning: 'Bu tur henüz bitmedi. Bittikten sonra dal oluşturun.',
 };

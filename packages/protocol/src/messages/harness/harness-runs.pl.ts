@@ -24,4 +24,6 @@ export const pl: HarnessRunsMessages = {
   jobHeld: 'Zadanie w tle zakończyło się. Agent zostanie poinformowany po zakończeniu bieżącej tury.',
   jobDropped: 'Zadanie w tle zakończyło się, ale to zadanie zostało zatrzymane lub nie powiodło się albo sesja jest niedostępna, więc agent nie został poinformowany.',
   contextCompacted: 'Agent skompaktował kontekst, aby pracować dalej. Wcześniejsze szczegóły mogą być teraz tylko streszczone.',
+  forkTitle: (p) => `${p.title} (odgałęzienie)`,
+  forkedFrom: (p) => `Odgałęzienie z „${p.title}” · do tury ${p.turn}`,
 };

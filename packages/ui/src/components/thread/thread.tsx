@@ -35,6 +35,7 @@ import { AgentMessage, NoticeLine, UserMessage } from './messages.tsx';
 import { OutputCard } from './output-card.tsx';
 import { StepsGroup } from './steps-group.tsx';
 import { TaskFooter } from './task-footer.tsx';
+import { ForkMarker } from './fork-marker.tsx';
 import { DownloadCard, useJobsForPlacement } from './video-card-rows.tsx';
 
 const scroller = style({ flexGrow: 1, minHeight: 0, overflowY: 'auto' });
@@ -533,6 +534,6 @@ function Block({
       if (block.item.request.kind === 'plan') return <PlanCard item={block.item} conversationId={conversationId} />;
       return <ApprovalCard item={block.item} conversationId={conversationId} />;
     case 'notice':
-      return <NoticeLine item={block.item} />;
+      return block.item.fork ? <ForkMarker note={block.item.fork} /> : <NoticeLine item={block.item} />;
   }
 }

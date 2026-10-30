@@ -390,6 +390,8 @@ export type TimelineItem =
       job?: JobFinishedNote;
       /** 智能体压缩了上下文（原生的压缩事件，§11.3）：较早的细节可能只剩摘要。 */
       compaction?: true;
+      /** 分叉出来的会话顶上那一条（`conversations.fork`，产品设计 §3.2.2「分叉」）：从哪条会话的第几轮分出来、带进去的记录。 */
+      fork?: ForkNote;
     })
   | (TimelineBase & VideoChange & { kind: 'video-change' })
   | (TimelineBase & VideoCreated & { kind: 'video-created' })
@@ -410,6 +412,36 @@ export interface JobFinishedNote {
   attempt: number;
   state: 'completed' | 'failed';
   delivery: 'steered' | 'woke' | 'held' | 'dropped';
+}
+
+/**
+ * 分叉的来源（`conversations.fork`，产品设计 §3.2.2「分叉」）。分叉不分叉 Agent 的原生会话：新会话第一次交给智能体时，
+ * `history` 包成 `<baocut-fork-history>` 放在用户消息前面（架构设计 §3.4）。原会话删了之后照样留着，界面据此写明。
+ */
+export interface ForkNote {
+  conversationId: Id;
+  /** 分叉时原会话的标题。 */
+  title: string;
+  /** 截至原会话的第几轮（按任务从 1 数）。 */
+  turn: number;
+  /** 带进去的记录里原会话自己的轮数，与超长时从最早起略去的轮数（不含原会话自己带进来的那段）。 */
+  turns: number;
+  omitted: number;
+  /** 带进去的原文：`Chat history from a previous BaoCut session.` 起头的那几行与 `User:`、`Assistant:` 各条，不含标签。 */
+  history: string;
+}
+
+/**
+ * 分叉时能「回到那时」的一部视频（`conversations.forkVideos`，产品设计 §3.2.2「分叉」）：这条会话改过或建过、那一轮结束之后又有改动的。
+ * `state`：`ok` 回到 `version`，那之后的 `undone` 版改动撤回；`pruned` 那时的版本已被保留规则清掉；`created-after` 视频是那一轮之后才有的；
+ * `chain-broken` 版本记录对不上。
+ */
+export interface ForkVideoOption {
+  videoId: Id;
+  videoName: string;
+  state: 'ok' | 'pruned' | 'created-after' | 'chain-broken';
+  version?: number;
+  undone?: number;
 }
 
 /** 智能体待办清单里的一项（任务条目的 `todo`）。文字是智能体写的原话；`activeForm` 是进行中时的说法（例如「正在跑测试」），只有 Claude 给。 */

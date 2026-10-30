@@ -30,4 +30,6 @@ export const ko: HarnessRunsMessages = {
   jobHeld: '백그라운드 작업이 끝났습니다. 에이전트의 현재 턴이 끝나면 알립니다.',
   jobDropped: '백그라운드 작업이 끝났지만 이 작업이 중지되었거나 실패했거나 세션을 사용할 수 없어 에이전트에게 알리지 않았습니다.',
   contextCompacted: '에이전트가 작업을 계속하려고 컨텍스트를 압축했습니다. 이전 세부 내용은 요약만 남았을 수 있습니다.',
+  forkTitle: (p) => `${p.title} (분기)`,
+  forkedFrom: (p) => `"${p.title}"에서 분기 · ${p.turn}번째 턴까지`,
 };

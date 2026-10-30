@@ -41,4 +41,5 @@ export const ru: HarnessAgentsMessages = {
   questionUnanswered: (p) => `Нет ответа на «${p.question}»`,
   questionSingleChoice: (p) => `На «${p.question}» можно дать только один ответ`,
   questionUnknownOption: (p) => `«${p.option}» — не вариант ответа на «${p.question}»`,
+  forkTurnRunning: 'Этот ход ещё не закончился. Создайте ответвление, когда он закончится.',
 };

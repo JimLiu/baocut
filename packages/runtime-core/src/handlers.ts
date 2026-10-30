@@ -42,6 +42,7 @@ import {
 } from './slides.ts';
 import { resolveDocsAnnotations, type DocsOpener } from './docs.ts';
 import type { SpaceCatalog } from './space-catalog.ts';
+import { forkVideoOptions, restoreForkVideos, type ForkVideoDeps } from './conversation-fork.ts';
 import { resolvePipelineEntryInputs, withImageEntries, withSpeechMaterial, withTextMaterial } from './space/space-inputs.ts';
 import { spaceMethods, updateEntry } from './space/space-methods.ts';
 import type { SpaceThumbnails } from './space/space-thumbnails.ts';
@@ -255,6 +256,21 @@ export function createHandlers({
   const nodeChanged = <T>(result: Promise<T>): Promise<T> => result.finally(() => external.manager.refresh('node'));
   /** 文件定位到来源目录与文件。目录内的检查在媒体通道（或视频服务）里做。 */
   const locateMedia = (target: FileTarget) => locateFileTarget(harness, space, target);
+  const forkVideos: ForkVideoDeps = {
+    candidates: (conversationId, taskId) => harness.forkCandidates(conversationId, taskId),
+    locate: (video) => {
+      let target: FileTarget = video.target;
+      try {
+        target = videoTargetOf(videos, space, video.videoId);
+      } catch {
+        // 没打开、Space 也没登记：用会话里记下的位置。
+      }
+      return locateMedia(target);
+    },
+    videos,
+  };
+  /** 分叉按 `commandId` 只做一次（命令与协议规范 §2.4）：重发拿回同一个结果，视频不再回一次。失败的不留。 */
+  const forkRuns = new Map<Id, Promise<RpcResult<'conversations.fork'>>>();
   /** 发送与插话带的幻灯片标注：deck 换成相对会话工作目录的路径（docs/design/slides §9）。 */
   // 项目品牌与全局品牌（§3.8）：不缓存，每次按项目登记与 Home 根目录读磁盘。
   const brands = new ProjectBrands({ projects: () => harness.listProjects(), skills, globalDir: globalBrandDir ?? null });
@@ -398,6 +414,21 @@ export function createHandlers({
       },
       'conversations.list': () => harness.directorySnapshot(),
       'conversations.create': async (p) => ({ conversation: await harness.createConversation(p) }),
+      // 分叉（产品设计 §3.2.2「分叉」）：先分出新会话，再把勾上的视频回到那时。
+      'conversations.fork': ({ restoreVideos, ...p }, principal) => {
+        const known = forkRuns.get(p.commandId);
+        if (known) return known;
+        const run = (async () => {
+          const conversation = await harness.forkConversation(p);
+          const restored = restoreVideos?.length ? await restoreForkVideos(forkVideos, { ...p, restoreVideos }, principal) : 0;
+          return { conversation, restored };
+        })();
+        forkRuns.set(p.commandId, run);
+        if (forkRuns.size > 100) forkRuns.delete(forkRuns.keys().next().value!);
+        run.catch(() => forkRuns.delete(p.commandId));
+        return run;
+      },
+      'conversations.forkVideos': async (p, principal) => ({ videos: await forkVideoOptions(forkVideos, p, principal) }),
       'conversations.get': (p) => harness.getConversation(p.conversationId, p.tail),
       'conversations.page': (p) => harness.pageConversation(p.conversationId, p.before, p.turns),
       'conversations.search': (p) => harness.searchConversation(p.conversationId, p.query),

@@ -15,6 +15,7 @@ import type {
   DriverInfo,
   DriverInstallOption,
   EditorContext,
+  ForkVideoOption,
   Id,
   Project,
   RuntimeInfo,
@@ -482,6 +483,23 @@ export interface RpcMethods {
   'conversations.markUnread': { params: { conversationId: Id }; result: { conversation: Conversation } };
   /** 只删除 Runtime Store 里的会话记录，不删项目目录里的任何文件（架构设计 §3.10）。 */
   'conversations.delete': { params: { conversationId: Id }; result: { deleted: true } };
+  /**
+   * 从一个已经结束的回合分叉（产品设计 §3.2.2「分叉」）：在同一个项目（无项目会话用同一个文件夹，同 `folderOf`）里新开一条会话，
+   * Agent、模型、推理强度与访问模式同原会话，标题后面加「（分叉）」，顶上一条带 `fork`（`ForkNote`）的提示。不分叉 Agent 的原生会话：
+   * 截至那一轮的用户消息与回复包成 `<baocut-fork-history>`，新会话第一次交给智能体时放在用户消息前面（架构设计 §3.4）。
+   * `taskId` 是那一轮的任务；没有时 `not-found`，还在跑或在停时 `conflict`。`restoreVideos`：分叉之后把这些视频回到那一轮结束前的最后一版
+   * （`conversations.forkVideos` 里 `state: 'ok'` 的），回到本身记成新的一版；此刻回不去的跳过，`restored` 是回成了几部。
+   * 同一个 `commandId` 重发回同一条会话与同一个结果，视频不再回一次。
+   */
+  'conversations.fork': {
+    params: { conversationId: Id; taskId: Id; commandId: Id; restoreVideos?: Id[] };
+    result: { conversation: Conversation; restored: number };
+  };
+  /**
+   * 分叉时能「回到那时」的视频（`ForkVideoOption`）：这条会话改过或建过的项目视频里，那一轮结束之后又有改动的，按最后一次改动排，新的在前。
+   * 没有时是空列表；无项目会话的视频没有版本记录，不列。
+   */
+  'conversations.forkVideos': { params: { conversationId: Id; taskId: Id }; result: { videos: ForkVideoOption[] } };
   /**
    * 发送一条用户消息，建立任务并启动一个回合。`context`：编辑器里打开的视频与选区，交给智能体作为上下文。
    * `accessMode`（旧名 `autonomy`，两个都给时以 `accessMode` 为准）与会话当前的模式不同时，等于先切换会话的模式（§3.12）；

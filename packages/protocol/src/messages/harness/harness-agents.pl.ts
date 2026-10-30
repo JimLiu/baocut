@@ -41,4 +41,5 @@ export const pl: HarnessAgentsMessages = {
   questionUnanswered: (p) => `Brak odpowiedzi na „${p.question}”`,
   questionSingleChoice: (p) => `Na „${p.question}” można wybrać tylko jedną odpowiedź`,
   questionUnknownOption: (p) => `„${p.option}” nie jest opcją pytania „${p.question}”`,
+  forkTurnRunning: 'Ta tura jeszcze się nie skończyła. Utwórz odgałęzienie, gdy się skończy.',
 };

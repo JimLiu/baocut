@@ -31,4 +31,5 @@ export const ptBR: HarnessAgentsMessages = {
   questionUnanswered: (p) => `“${p.question}” está sem resposta`,
   questionSingleChoice: (p) => `“${p.question}” aceita só uma resposta`,
   questionUnknownOption: (p) => `“${p.option}” não é uma opção de “${p.question}”`,
+  forkTurnRunning: 'Este turno ainda não terminou. Ramifique depois que terminar.',
 };

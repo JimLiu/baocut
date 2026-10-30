@@ -10,4 +10,5 @@ listSeparator: ', ', noDriver: (p) => `Không có Agent đăng ký với id ${p.
   questionUnanswered: (p) => `Chưa có câu trả lời cho “${p.question}”`,
   questionSingleChoice: (p) => `“${p.question}” chỉ nhận một câu trả lời`,
   questionUnknownOption: (p) => `“${p.option}” không phải lựa chọn của “${p.question}”`,
+  forkTurnRunning: 'Lượt này chưa kết thúc. Hãy tách nhánh sau khi nó kết thúc.',
 };

@@ -42,4 +42,5 @@ export const zhHant: HarnessAgentsMessages = {
   questionUnanswered: (p) => `「${p.question}」還沒有回答`,
   questionSingleChoice: (p) => `「${p.question}」只能選一個答案`,
   questionUnknownOption: (p) => `「${p.option}」不是「${p.question}」的選項`,
+  forkTurnRunning: '這一輪還沒結束，結束後再分岔。',
 };
