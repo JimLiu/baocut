@@ -40,6 +40,8 @@ export const ru: ShellMessages = {
     deleteConfirm: "Удалить",
     deleteBody: "История сессии удалится из BaoCut, выполняющаяся задача сначала остановится. Файлы проекта не затронуты.",
     deleteFailed: (message) => `Не удалось удалить: ${message}`,
+    find: 'Найти в сессии',
+    findFailed: (message) => `Не удалось выполнить поиск: ${message}`,
     renameTitle: "Переименовать сессию",
     videosIn: (place) => (place === 'project' ? "Видео проекта" : "Видео рабочей папки"),
     noVideosIn: (place) => (place === 'project' ? "В проекте ещё нет видео" : "В рабочей папке ещё нет видео"),

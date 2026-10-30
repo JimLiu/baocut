@@ -563,3 +563,14 @@
 .bc-turn:hover .bc-turn__at {
   visibility: visible;
 }
+
+/* ---------- 在会话中查找 ---------- */
+/* 命中用 CSS Custom Highlight 上色（conversation-find.tsx），不改 DOM：全部命中一种底色，当前那一处另一种。变量取不到时退成系统的标记色。 */
+::highlight(bc-conversation-find) {
+  background-color: var(--bc-at-find-bg, Mark);
+  color: var(--bc-at-find-text, MarkText);
+}
+::highlight(bc-conversation-find-current) {
+  background-color: var(--bc-at-find-current-bg, Mark);
+  color: var(--bc-at-find-text, MarkText);
+}

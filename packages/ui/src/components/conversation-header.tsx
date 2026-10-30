@@ -11,6 +11,7 @@ import {
   SubmenuTrigger,
   Header as MenuHeader,
   Heading as MenuHeading,
+  Keyboard,
   Text,
   ToastQueue,
 } from '@react-spectrum/s2';
@@ -25,6 +26,7 @@ import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import PinOff from '@react-spectrum/s2/icons/PinOff';
 import PinOn from '@react-spectrum/s2/icons/PinOn';
 import Play from '@react-spectrum/s2/icons/Play';
+import Search from '@react-spectrum/s2/icons/Search';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { untitled } from '../copy.ts';
@@ -32,9 +34,12 @@ import { liveWord, type LiveWord } from '../model/sidebar.ts';
 import { formatBytes, isPlayable, KIND_LABEL, videoTargetOf } from '../model/space.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { useConnection } from '../state/connection-store.ts';
+import { openConversationFind } from '../state/conversation-find-store.ts';
 import { useProject } from '../state/directory-store.ts';
 import { useShell } from '../state/shell-store.ts';
 import { useSpace } from '../state/space-store.ts';
+import { useTimelineItems } from '../state/timeline-store.ts';
+import { FIND_SHORTCUT } from './thread/conversation-find.tsx';
 import { NameDialog } from './name-dialog.tsx';
 import { useProjectBrand } from '../state/brands-store.ts';
 import { PROJECT_MENU_COPY } from './skills/skills-copy.ts';
@@ -96,6 +101,8 @@ export function ConversationHeader({
   const go = useShell((s) => s.go);
   const [dialog, setDialog] = useState<'rename' | 'delete' | null>(null);
   const title = conversation.title || untitled();
+  // 有消息才有可查的：查找条只在线程里有内容时出现（产品设计 §3.2.2）。
+  const hasMessages = useTimelineItems(conversation.id).length > 0;
   const status = liveWord(conversation);
   const word = status ? STATUS_WORD[status] : null;
 
@@ -110,6 +117,7 @@ export function ConversationHeader({
     else if (key === 'space' && project) go({ tab: 'space', category: 'all', projectId: project.id });
     else if (key === 'brand' && project) go({ tab: 'skills', brand: project.id });
     else if (key === 'reveal') void runtime.host.revealPath(project?.path ?? conversation.cwd);
+    else if (key === 'find') openConversationFind(conversation.id);
   };
 
   return (
@@ -137,6 +145,13 @@ export function ConversationHeader({
             <MediaSubmenu conversation={conversation} />
           </MenuSection>
           <MenuSection>
+            {hasMessages ? (
+              <MenuItem id="find" textValue={S.conversationHeader.find}>
+                <Search />
+                <Text slot="label">{S.conversationHeader.find}</Text>
+                <Keyboard>{FIND_SHORTCUT}</Keyboard>
+              </MenuItem>
+            ) : null}
             <MenuItem id="pin" textValue={conversation.pinned ? S.common.unpin : S.common.pin}>
               {conversation.pinned ? <PinOff /> : <PinOn />}
               <Text slot="label">{conversation.pinned ? S.common.unpin : S.common.pin}</Text>

@@ -29,7 +29,7 @@
   function UserMsg({m}) {
     const [preview, setPreview] = useState(null);
     /* 交给 Agent 带的引用（§4.7）放在气泡上方，与气泡右对齐 */
-    return <div className="amsg amsg--user" data-role="user">
+    return <div className="amsg amsg--user" data-role="user" data-find-id={m.id}>
       {m.reference && window.ComposerRefToken ? <div className="bc-ai-sent-attachments" style={{marginBottom: 0}} aria-label="引用的 Space 条目"><window.ComposerRefToken reference={m.reference} /></div> : null}
       {m.slideAnnotations?.length && window.SlideNotesToken ? <div className="bc-ai-sent-attachments" style={{marginBottom: 0}} aria-label="幻灯片标注"><window.SlideNotesToken notes={m.slideAnnotations} /></div> : null}
       {m.designAnnotations?.length && window.DesignNotesToken ? <div className="bc-ai-sent-attachments" style={{marginBottom: 0}} aria-label="设计稿标注"><window.DesignNotesToken notes={m.designAnnotations} /></div> : null}
@@ -43,7 +43,7 @@
           <span>{a.name}</span>
         </BCAction>)}
       </div>}
-      <div className="bc-ai-message-text" onDoubleClick={selectTextBlock}>{m.text}</div>
+      <div className="bc-ai-message-text" data-find-body onDoubleClick={selectTextBlock}>{m.text}</div>
       {preview && <window.ComposerAttachmentViewer item={preview} items={m.attachments} onClose={() => setPreview(null)} />}
     </A.UserMessage><div className="awork__actions"><CopyMsg text={m.text} /></div></div>;
   }
@@ -106,10 +106,10 @@
     const app = useApp();
     const movie = m.movieId || sess.project;
     return (
-      <div className="amsg amsg--ai">
+      <div className="amsg amsg--ai" data-find-id={m.id}>
         <span className="amsg__av"><Ic n="agent" className="ic--14" /></span>
         <div className="amsg__body">
-          {m.text ? <AgentMarkdown text={m.text} streaming={!!m.streaming} /> : null}
+          {m.text ? <div data-find-body><AgentMarkdown text={m.text} streaming={!!m.streaming} /></div> : null}
           {m.open && movie && app.openTool ? <div className="amsg__open"><Btn variant="secondary" size="s" onClick={() => app.openTool(movie, m.open.tool, sess.id)}>{m.open.cta || `打开${m.open.label}`}</Btn></div> : null}
           {m.error ? <ErrorMsg m={m} sess={sess} /> : null}
           {m.work ? <WorkMsg m={{id: `work-${m.id}`, items: m.work}} live={live}
@@ -423,6 +423,40 @@
     );
   }
 
+  /* 查找高亮用 CSS Custom Highlight API：不改 DOM，Markdown 正文照常渲染。全部命中一种底色（bc-find），当前那一处另一种
+     （bc-find-current）。在每条消息正文（[data-find-body]）渲染出来的文字上找，返回当前那一处的 Range；不支持这个 API
+     时不画，只返回 Range 供滚动。`root` 为空时清掉。 */
+  function paintFind(root, query, curId, nth) {
+    const reg = typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight !== 'undefined' ? CSS.highlights : null;
+    if (!root || !query) {
+      if (reg) { reg.delete('bc-find'); reg.delete('bc-find-current'); }
+      return null;
+    }
+    const all = [];
+    let current = null;
+    root.querySelectorAll('[data-find-id]').forEach((msg) => {
+      const body = msg.querySelector('[data-find-body]');
+      if (!body) return;
+      const nodes = [];
+      let text = '';
+      const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) { nodes.push({n, at: text.length}); text += n.data; }
+      window.BC_FIND.ranges(text, query, {}).forEach((r, k) => {
+        const range = document.createRange();
+        const a = nodes.findLast((x) => x.at <= r.start), b = nodes.findLast((x) => x.at < r.end);
+        range.setStart(a.n, r.start - a.at);
+        range.setEnd(b.n, r.end - b.at);
+        all.push(range);
+        if (k === nth && msg.getAttribute('data-find-id') === curId) current = range;
+      });
+    });
+    if (reg) {
+      reg.set('bc-find', new Highlight(...all));
+      if (current) reg.set('bc-find-current', new Highlight(current)); else reg.delete('bc-find-current');
+    }
+    return current;
+  }
+
   /* ---------- 线程 ----------
      `sid` 为空 = 新会话：第一句话才真的建会话（然后 onCreated 把宿主切过去）。
      这样侧栏「新会话」点十次不会长出十条空会话。 */
@@ -474,6 +508,48 @@
       kept.current = null;
       if (anchor && el && anchor.node.isConnected) el.scrollTop += anchor.node.getBoundingClientRect().top - anchor.top;
     }, [shownTurns]);
+    /* 在会话中查找（产品设计 §3.2.2）：焦点在这条会话里时 ⌘F，或会话头「⋯ › 在会话中查找」。只查用户消息与回复正文；
+       起点是最近的一处，Enter 往后、⇧Enter 往前，到头绕回。命中在还没显示的旧回合里时先往前接，再滚过去，不再跟到底 */
+    const root = useRef(null);
+    const findField = useRef(null);
+    const [find, setFind] = useState(null);
+    const openFind = () => {
+      setFind((f) => f || {q: '', idx: 0});
+      requestAnimationFrame(() => { const input = findField.current?.getInputElement?.(); input?.focus(); input?.select(); });
+    };
+    useEffect(() => { setFind(null); }, [sid]);
+    useEffect(() => {
+      const keys = (e) => {
+        if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f' && root.current?.contains(e.target)) {
+          e.preventDefault(); openFind();
+        }
+      };
+      const fromHead = (e) => { if (sid && e.detail === sid) openFind(); };
+      document.addEventListener('keydown', keys, true);
+      window.addEventListener('bc-session-find', fromHead);
+      return () => { document.removeEventListener('keydown', keys, true); window.removeEventListener('bc-session-find', fromHead); };
+    }, [sid]);
+    const hits = find ? TURN.findHits(rows, find.q) : [];
+    const total = hits.reduce((n, h) => n + h.count, 0);
+    const at = find ? TURN.locateHit(hits, Math.min(find.idx, total - 1)) : null;
+    const setQuery = (q) => setFind({q, idx: TURN.findHits(rows, q).reduce((n, h) => n + h.count, 0) - 1});
+    const stepFind = (d) => setFind((f) => ({...f, idx: total ? (((Math.min(f.idx, total - 1) + d) % total) + total) % total : 0}));
+    // 命中在窗口之前：先往前接到它
+    useEffect(() => {
+      if (at && at.hit.row < start) setShownTurns((v) => TURN.shownFor(rows, at.hit.row, v));
+    }, [at && at.hit.id, start]);
+    // 每次渲染重画（回复还在往外走时命中会变）；只在换了当前那一处时滚过去，用户自己滚开不拽回来
+    const scrolledTo = useRef(null);
+    useLayoutEffect(() => {
+      const current = find && root.current ? paintFind(root.current, find.q, at && at.hit.id, at ? at.nth : -1) : paintFind(null);
+      const key = find && at ? `${find.q}#${find.idx}` : null;
+      if (!current || !scroller.current || scrolledTo.current === key) return;
+      scrolledTo.current = key;
+      following.current = false;
+      const box = current.getBoundingClientRect(), view = scroller.current.getBoundingClientRect();
+      if (box.top < view.top + 24 || box.bottom > view.bottom - 24) scroller.current.scrollTop += box.top - view.top - view.height / 2;
+    });
+    useEffect(() => () => paintFind(null), []);
     /* 每一行后面挂的卡（agent-cards.jsx）：视频卡等会话产物、还没建出视频的下载、完成的候选；
        每张只挂在第一次出现的那一行，工具消息折在回复或工作组里时挂在那一行后面 */
     const cardAt = window.BC_AGENT_CARDS
@@ -520,7 +596,19 @@
     const proj = cur.project ? app.projById(cur.project) : null;
 
     return (
-      <div className={cx('ath', compact && 'ath--compact')}>
+      <div className={cx('ath', compact && 'ath--compact')} ref={root}>
+        {find ? <div className="ath__find" role="search" aria-label="在会话中查找">
+          <window.RSP.SearchField ref={findField} autoFocus aria-label="在会话中查找" placeholder="在会话中查找" value={find.q}
+            onChange={setQuery} onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); stepFind(e.shiftKey ? -1 : 1); }
+              else if (e.key === 'Escape') { e.preventDefault(); setFind(null); }
+              else e.continuePropagation();
+            }} />
+          <span className="ath__find-count" aria-live="polite">{find.q ? `${total ? Math.min(find.idx, total - 1) + 1 : 0} / ${total}` : ''}</span>
+          <window.RSP.ActionButton isQuiet aria-label="上一个匹配" isDisabled={!total} onPress={() => stepFind(-1)}><window.RSP.Icons.ChevronUp /></window.RSP.ActionButton>
+          <window.RSP.ActionButton isQuiet aria-label="下一个匹配" isDisabled={!total} onPress={() => stepFind(1)}><window.RSP.Icons.ChevronDown /></window.RSP.ActionButton>
+          <window.RSP.ActionButton isQuiet aria-label="关闭查找" onPress={() => setFind(null)}><window.RSP.Icons.Close /></window.RSP.ActionButton>
+        </div> : null}
         <div className="ath__scroll bc-scroll" ref={scroller} onScroll={(e) => {
           const el = e.currentTarget; following.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
         }}>

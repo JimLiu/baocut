@@ -47,6 +47,7 @@ import {
   useDraftVideoShots,
 } from '../state/draft-video-annotations-store.ts';
 import { useContextTag } from '../state/agent-context.ts';
+import { closeConversationFind, openConversationFind, useConversationFind } from '../state/conversation-find-store.ts';
 import { flushEditors } from '../state/editor-bridge.ts';
 import { useTimelineItems, useTimelineLoaded } from '../state/timeline-store.ts';
 import { useSetting } from '../state/settings-store.ts';
@@ -55,6 +56,7 @@ import { Composer } from './composer.tsx';
 import { QueuedMessages } from './queued-messages.tsx';
 import { TodoDock } from './thread/todo-dock.tsx';
 import { useEditorReference } from './use-editor-reference.ts';
+import { isFindShortcut } from './thread/conversation-find.tsx';
 import { Thread } from './thread/thread.tsx';
 import { ThreadEmpty } from './thread/thread-empty.tsx';
 
@@ -94,6 +96,10 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
   const [sendingNow, setSendingNow] = useState<Id | null>(null);
 
   useEffect(() => runtime.watchConversation(conversationId), [runtime, conversationId]);
+  // 在会话中查找（§3.2.2）：查找条跟着 store 开关；切走就关，回来不再开着。
+  const findOpen = useConversationFind((s) => s.openIn === conversationId);
+  const findFocus = useConversationFind((s) => s.focus);
+  useEffect(() => () => closeConversationFind(conversationId), [conversationId]);
   // 正在看的会话完成了就算读过：清掉「已完成未读」。
   const unread = meta?.unread ?? false;
   useEffect(() => {
@@ -188,13 +194,22 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
   };
 
   return (
-    <div className={view}>
+    <div
+      className={view}
+      // 捕获阶段：输入框自己处理按键时也不会把 ⌘F 吞掉；查找条已经开着时把光标放回搜索框。
+      onKeyDownCapture={(event) => {
+        if (!loaded || !isFindShortcut(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        openConversationFind(conversationId);
+      }}>
       {loaded ? (
         <Thread
           items={items}
           conversationId={conversationId}
           running={busy}
           empty={<ThreadEmpty conversationId={conversationId} projectId={meta.projectId} folderOf={meta.folderOf} />}
+          find={findOpen ? { focus: findFocus, onClose: () => closeConversationFind(conversationId) } : null}
         />
       ) : (
         <div className={centered}>

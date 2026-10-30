@@ -27,7 +27,7 @@ import type {
   VideoShotsParams,
   VideoShotsResult,
 } from './domain.ts';
-import type { ConversationPage, ConversationSnapshot, DirectorySnapshot, SequencedEvent, Topic } from './events.ts';
+import type { ConversationPage, ConversationSearch, ConversationSnapshot, DirectorySnapshot, SequencedEvent, Topic } from './events.ts';
 import type { ExportCreateRequest, ExportRenderTextRequest, ExportRenderTextResult } from './exports.ts';
 import type {
   GenerateImageRequest,
@@ -445,6 +445,11 @@ export interface RpcMethods {
     params: { conversationId: Id; before: number; turns?: number };
     result: ConversationPage;
   };
+  /**
+   * 在会话中查找（产品设计 §3.2.2）：用户消息与回复正文里不分大小写的纯文本命中，步骤与工具输出不查。查整条记录，
+   * 不管客户端载入了多少；命中在已载入那一段之前时客户端按 `index` 往前翻页。
+   */
+  'conversations.search': { params: { conversationId: Id; query: string }; result: ConversationSearch };
   /**
    * 改标题、置顶、归档、Agent、模型、强度、访问模式。归档只影响列表显示，不取消任务（产品设计 §2.3）。
    * 模型、强度随时可改，下一轮生效。Agent 只能在会话还没有任务时换，之后换会得到 `conflict`。

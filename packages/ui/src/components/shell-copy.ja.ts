@@ -39,6 +39,8 @@ export const ja: ShellMessages = {
     deleteConfirm: '削除',
     deleteBody: 'セッションの履歴は BaoCut から削除され、実行中のタスクは先に停止されます。プロジェクトフォルダ内のファイルには影響しません。',
     deleteFailed: (message) => `削除できませんでした：${message}`,
+    find: 'セッション内を検索',
+    findFailed: (message) => `検索できませんでした：${message}`,
     renameTitle: 'セッションの名前を変更',
     videosIn: (place) => `${where(place)}の動画`,
     noVideosIn: (place) => `${where(place)}にはまだ動画がありません`,

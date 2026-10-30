@@ -191,3 +191,31 @@ test('windowStart：只显示最后几个回合时从哪一行开始；回合不
   assert.equal(T.windowStart(rows, 3), 0, '三个回合正好全显示，开头那条没有用户消息的回复也在');
   assert.equal(T.windowStart([], T.TAIL_TURNS), 0);
 });
+
+test('findHits / locateHit：只查用户消息与回复正文，不分大小写；命中跨行连着数', () => {
+  const rows = [
+    {id: 'u1', role: 'user', text: '给片头配 BGM'},
+    {id: 'w1', role: 'work', items: [{id: 't', text: 'bgm.wav'}]},
+    {id: 'a1', role: 'assistant', text: '换了一段 bgm，另一段 Bgm 留作备选'},
+    {id: 'u2', role: 'user', text: '好'},
+    {id: 'a2', role: 'assistant', text: 'BGM 已经放上'},
+  ];
+  const hits = T.findHits(rows, 'bgm');
+  assert.deepEqual(hits, [{id: 'u1', row: 0, count: 1}, {id: 'a1', row: 2, count: 2}, {id: 'a2', row: 4, count: 1}]);
+  assert.deepEqual(T.findHits(rows, ''), []);
+  assert.deepEqual(T.findHits(rows, 'aa'), []);
+  assert.deepEqual(T.locateHit(hits, 0), {hit: hits[0], nth: 0});
+  assert.deepEqual(T.locateHit(hits, 2), {hit: hits[1], nth: 1});
+  assert.deepEqual(T.locateHit(hits, 3), {hit: hits[2], nth: 0});
+  assert.equal(T.locateHit(hits, 4), null);
+  assert.equal(T.locateHit(hits, -1), null);
+  assert.equal(T.findHits([{id: 'x', role: 'user', text: 'aaaa'}], 'aa')[0].count, 2, '不重叠地数');
+});
+
+test('shownFor：命中在还没显示的旧回合里时，每次多接 TAIL_TURNS 直到它进窗口', () => {
+  const rows = [];
+  for (let i = 0; i < 70; i++) rows.push({id: `u${i}`, role: 'user', text: ''}, {id: `a${i}`, role: 'assistant', text: ''});
+  assert.equal(T.shownFor(rows, 139, T.TAIL_TURNS), T.TAIL_TURNS);
+  assert.equal(T.shownFor(rows, 70, T.TAIL_TURNS), T.TAIL_TURNS * 2);
+  assert.equal(T.shownFor(rows, 0, T.TAIL_TURNS), T.TAIL_TURNS * 3);
+});

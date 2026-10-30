@@ -191,6 +191,39 @@
     return starts.length > shown ? starts[starts.length - shown] : 0;
   }
 
+  /**
+   * 在会话中查找（产品设计 §3.2.2）：只查用户消息与回复的正文，不分大小写的纯文本，步骤与工具输出不查。
+   * 按先后给出有命中的行 {id, row, count}；`row` 是它在 rows 里的下标（还没显示的旧回合据此往前接）。
+   */
+  function findHits(rows, query) {
+    const q = String(query || '').toLowerCase();
+    if (!q) return [];
+    const out = [];
+    (rows || []).forEach((row, i) => {
+      if (row.role !== 'user' && row.role !== 'assistant') return;
+      const text = String(row.text || '').toLowerCase();
+      let count = 0;
+      for (let at = text.indexOf(q); at >= 0; at = text.indexOf(q, at + q.length)) count++;
+      if (count) out.push({id: row.id, row: i, count});
+    });
+    return out;
+  }
+  /** 第 `index` 处命中（从 0 数，跨行连着数）落在哪一行、是那一行里的第几处；越界时 null。 */
+  function locateHit(hits, index) {
+    let rest = index;
+    for (const hit of hits || []) {
+      if (rest < hit.count) return rest >= 0 ? {hit, nth: rest} : null;
+      rest -= hit.count;
+    }
+    return null;
+  }
+  /** 要显示多少个回合，第 `row` 行才在窗口里（每次多接 TAIL_TURNS）。 */
+  function shownFor(rows, row, shown) {
+    let n = shown;
+    while (windowStart(rows, n) > row) n += TAIL_TURNS;
+    return n;
+  }
+
   /** 时长：0:42、1:03、1:02:05。 */
   function formatElapsed(ms) {
     const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
@@ -251,6 +284,6 @@
   window.BC_AGENT_TURN = {
     endTurn,
     TOOL_LABELS, FILE_EXT, toolStep, toolStatus, nextToolStatus, stepMeta, diffLines, looksLikeDiff,
-    parsePathToken, pathTip, parseVideoTime, gapBetween, rowKind, turns, TAIL_TURNS, windowStart, formatElapsed, clockLabel, footerLabel, waitingFor, waitingLabel,
+    parsePathToken, pathTip, parseVideoTime, gapBetween, rowKind, turns, TAIL_TURNS, windowStart, findHits, locateHit, shownFor, formatElapsed, clockLabel, footerLabel, waitingFor, waitingLabel,
   };
 })();

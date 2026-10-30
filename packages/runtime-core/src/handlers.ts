@@ -400,6 +400,7 @@ export function createHandlers({
       'conversations.create': async (p) => ({ conversation: await harness.createConversation(p) }),
       'conversations.get': (p) => harness.getConversation(p.conversationId, p.tail),
       'conversations.page': (p) => harness.pageConversation(p.conversationId, p.before, p.turns),
+      'conversations.search': (p) => harness.searchConversation(p.conversationId, p.query),
       'conversations.update': async (p) => ({ conversation: await harness.updateConversation(p) }),
       'conversations.markRead': (p) => ({ conversation: harness.markRead(p.conversationId) }),
       'conversations.markUnread': (p) => ({ conversation: harness.markUnread(p.conversationId) }),

@@ -39,6 +39,8 @@ export const zhHant: ShellMessages = {
     deleteConfirm: '刪除',
     deleteBody: '對話記錄會從 BaoCut 中移除，執行中的任務會先停止。專案資料夾中的檔案不受影響。',
     deleteFailed: (message) => `無法刪除：${message}`,
+    find: '在對話中尋找',
+    findFailed: (message) => `無法搜尋：${message}`,
     renameTitle: '重新命名對話',
     videosIn: (place) => `${where(place)}的影片`,
     noVideosIn: (place) => `${where(place)}還沒有影片`,

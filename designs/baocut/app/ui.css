@@ -2827,6 +2827,13 @@ div.blkw { display: inline; }
 /* ---------- 线程 ---------- */
 .ath { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .ath__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* 在会话中查找：线程上方一行，不随消息滚走；命中用 CSS Custom Highlight 上色（同网页面板的查找） */
+.ath__find { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 8px 12px; border-bottom: 1px solid var(--gray-100); font-size: 12px; color: var(--gray-700); }
+.ath__find > div:first-child { flex: 1 1 auto; min-width: 0; max-width: 320px; }
+.ath__find-count { min-width: 44px; font-variant-numeric: tabular-nums; }
+/* 深色下用亮底配深色字（同浏览器的页内查找）：浅底在深色里认不出来 */
+::highlight(bc-find) { background-color: light-dark(var(--yellow-200), var(--yellow-1000)); color: light-dark(var(--gray-900), var(--gray-25)); }
+::highlight(bc-find-current) { background-color: light-dark(var(--orange-300), var(--orange-900)); color: light-dark(var(--gray-900), var(--gray-25)); }
 .ath .amsg--user { flex-direction: column; align-items: flex-end; gap: 4px; }
 .awork { font-size: 12px; color: var(--gray-600); }
 .awork__actions button:hover { background: var(--gray-100); }

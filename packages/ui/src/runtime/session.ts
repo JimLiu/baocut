@@ -11,6 +11,7 @@ import {
   type ApprovalDecision,
   type AttachmentRef,
   type Conversation,
+  type ConversationSearch,
   type DriverId,
   type EditorContext,
   type ExportCreateRequest,
@@ -237,6 +238,24 @@ export class RuntimeSession {
     const page = await this.client.request('conversations.page', { conversationId: id, before });
     beforeApply?.();
     useTimeline.getState().prepend(id, before, page);
+  }
+
+  /**
+   * 往前接到记录里的第 `index` 条（在会话中查找跳到还没载入的命中）：一页一页接，`beforeApply` 同 `loadEarlier`，接完由查找条滚过去。
+   * 期间重取过快照、起点挪回了尾部时按新起点接着往前；一页下来起点没动就停，不空转。
+   */
+  async loadEarlierThrough(id: Id, index: number, beforeApply?: () => void): Promise<void> {
+    for (;;) {
+      const before = useTimeline.getState().byConversationId[id]?.offset;
+      if (!before || before <= index) return;
+      await this.loadEarlier(id, beforeApply);
+      if (useTimeline.getState().byConversationId[id]?.offset === before) return;
+    }
+  }
+
+  /** 在会话中查找（产品设计 §3.2.2）：查整条记录，不管载入了多少。 */
+  searchConversation(id: Id, query: string): Promise<ConversationSearch> {
+    return this.client.request('conversations.search', { conversationId: id, query });
   }
 
   // ---- 命令 ----

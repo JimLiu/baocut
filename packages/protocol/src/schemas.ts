@@ -1018,6 +1018,7 @@ export const methodParamSchemas = {
     before: z.number().int().min(0),
     turns: z.number().int().min(1).max(10_000).optional(),
   }),
+  'conversations.search': z.object({ conversationId: id, query: z.string().max(1000) }),
   'conversations.update': z.object({
     conversationId: id,
     title: z.string().trim().min(1).max(200).optional(),

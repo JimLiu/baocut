@@ -17,6 +17,7 @@ import {
   normalizeAgentMode,
   nowIso,
   parseConversationTopic,
+  CONVERSATION_SEARCH_LIMIT,
   CONVERSATION_TAIL_TURNS,
   planSummary,
   type AgentErrorCode,
@@ -42,6 +43,7 @@ import {
   type RiskLevel,
   type Conversation,
   type ConversationPage,
+  type ConversationSearch,
   type ConversationSnapshot,
   type BuiltinDriverId,
   type CustomAgentProvider,
@@ -1147,6 +1149,13 @@ export class Harness {
     const state = this.#require(id);
     state.flush();
     return state.page(before, turns);
+  }
+
+  /** 在会话中查找（`conversations.search`，产品设计 §3.2.2）。 */
+  searchConversation(id: Id, query: string): ConversationSearch {
+    const state = this.#require(id);
+    state.flush();
+    return state.search(query, CONVERSATION_SEARCH_LIMIT);
   }
 
   async updateConversation(params: {

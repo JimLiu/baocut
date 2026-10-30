@@ -40,6 +40,8 @@ export const ptBR: ShellMessages = {
     deleteBody:
       "Histórico removido do BaoCut, tarefa em andamento parada primeiro. Arquivos do projeto não mudam.",
     deleteFailed: (message: string) => `Não foi possível excluir: ${message}`,
+    find: 'Localizar na sessão',
+    findFailed: (message: string) => `Não foi possível pesquisar: ${message}`,
     renameTitle: "Renomear sessão",
     videosIn: (place: ConversationPlace): string => (place === 'project' ? "Vídeos no projeto" : "Vídeos na pasta de trabalho"),
     noVideosIn: (place: ConversationPlace): string => (place === 'project' ? "Sem vídeos no projeto" : "Sem vídeos na pasta de trabalho"),

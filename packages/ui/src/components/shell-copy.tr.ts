@@ -39,6 +39,8 @@ export const tr: ShellMessages = {
     deleteConfirm: "Sil",
     deleteBody: "Oturum geçmişi BaoCut içinden kaldırılır; çalışan görevler önce durdurulur. Proje klasöründeki dosyalar etkilenmez.",
     deleteFailed: (message) => `Silinemedi: ${message}`,
+    find: 'Oturumda bul',
+    findFailed: (message) => `Aranamadı: ${message}`,
     renameTitle: "Oturumu yeniden adlandır",
     videosIn: (place) => place === 'project' ? 'Projedeki videolar' : 'Çalışma klasöründeki videolar',
     noVideosIn: (place) => place === 'project' ? 'Projede henüz video yok' : 'Çalışma klasöründe henüz video yok',

@@ -61,6 +61,8 @@ const en = {
     deleteBody:
       'The session history will be removed from BaoCut, and any running task will be stopped first. Files in the project folder are not affected.',
     deleteFailed: (message: string) => `Couldn’t delete: ${message}`,
+    find: 'Find in session',
+    findFailed: (message: string) => `Couldn’t search: ${message}`,
     renameTitle: 'Rename session',
     videosIn: (place: ConversationPlace): string => (place === 'project' ? 'Videos in the project' : 'Videos in the working folder'),
     noVideosIn: (place: ConversationPlace): string => (place === 'project' ? 'No videos in the project yet' : 'No videos in the working folder yet'),

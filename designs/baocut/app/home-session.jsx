@@ -105,6 +105,8 @@
       else if (k === 'new') app.go(d ? {r: 'agent', dir: d.id} : {r: 'home'});
       else if (k === 'brand') app.go({r: 'skills', dir: d.id});
       else if (k === 'reveal') app.toast(`已在文件夹中显示 ${d.path}（演示）`);
+      // 查找条在线程里（agent-thread.jsx `AgentThread`），按会话 id 叫它打开
+      else if (k === 'find') window.dispatchEvent(new CustomEvent('bc-session-find', {detail: sess.id}));
     };
     const hasBrand = !!d && window.BC_PROJECT_BRAND.hasBrand(app.projectBrands, d.id);
     return <div className="hhd">
@@ -114,6 +116,7 @@
       {/* 项目目录不在了：要用目录的几项变灰（同侧栏项目菜单），记录照常能看 */}
       <R.ActionMenu aria-label="会话操作" isQuiet onAction={onAction} disabledKeys={d && d.missing ? ['new', 'space', 'brand', 'reveal'] : []}>
         <R.MenuItem id="new" textValue="新建会话"><R.Icons.Add /><R.Text>{d ? '在此项目中新建会话' : '新建会话'}</R.Text></R.MenuItem>
+        {sess && sess.messages.length ? <R.MenuItem id="find" textValue="在会话中查找"><R.Icons.Search /><R.Text slot="label">在会话中查找</R.Text><R.Keyboard>⌘F</R.Keyboard></R.MenuItem> : null}
         {sess ? <R.MenuItem id="pin" textValue={sess.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{sess.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem> : null}
         {d ? <R.MenuItem id="space" textValue={`在 Space 中查看 ${d.name}`}><R.Icons.Asset /><R.Text>{d.name}</R.Text></R.MenuItem> : null}
         {d ? <R.MenuItem id="brand" textValue="项目品牌（BRAND.md）"><R.Icons.Bookmark /><R.Text slot="label">项目品牌（BRAND.md）</R.Text>

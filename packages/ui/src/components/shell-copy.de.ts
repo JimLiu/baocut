@@ -40,6 +40,8 @@ export const de: ShellMessages = {
     deleteBody:
       "Der Sitzungsverlauf wird aus BaoCut entfernt; laufende Aufgaben werden zuerst gestoppt. Dateien im Projektordner bleiben unverändert.",
     deleteFailed: (message: string) => `Löschen fehlgeschlagen: ${message}`,
+    find: 'In Sitzung suchen',
+    findFailed: (message: string) => `Suche fehlgeschlagen: ${message}`,
     renameTitle: "Sitzung umbenennen",
     videosIn: (place: ConversationPlace): string => (place === 'project' ? "Videos im Projekt" : "Videos im Arbeitsordner"),
     noVideosIn: (place: ConversationPlace): string => (place === 'project' ? "Noch keine Videos im Projekt" : "Noch keine Videos im Arbeitsordner"),

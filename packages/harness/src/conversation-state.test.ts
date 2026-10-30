@@ -288,3 +288,43 @@ describe('ConversationState 分页', () => {
     expect(ids(sub.result.snapshot.items)).toEqual(['u_t2', 't2', 'm1_t2']);
   });
 });
+
+describe('ConversationState 在会话中查找', () => {
+  const at = '2026-01-01T00:00:00.000Z';
+  const msg = (id: string, kind: 'user-message' | 'agent-message' | 'reasoning', text: string) =>
+    ({ id, taskId: 't1', at, kind, text, streaming: false }) as unknown as TimelineItem;
+  const items = [
+    msg('u1', 'user-message', '给片头配 BGM'),
+    msg('r1', 'reasoning', '想想 bgm 选哪段'),
+    msg('a1', 'agent-message', '换了一段 bgm，另一段 Bgm 留作备选'),
+    msg('u2', 'user-message', '好'),
+    msg('a2', 'agent-message', 'BGM 已经放上'),
+  ];
+
+  it('只数用户消息与回复正文，不分大小写、不重叠；按记录先后，index 是记录里的下标', () => {
+    const { state } = make(items);
+    expect(state.search('bgm', 100)).toEqual({
+      hits: [
+        { itemId: 'u1', index: 0, count: 1 },
+        { itemId: 'a1', index: 2, count: 2 },
+        { itemId: 'a2', index: 4, count: 1 },
+      ],
+      truncated: false,
+    });
+    expect(state.search('', 100)).toEqual({ hits: [], truncated: false });
+    expect(state.search('选哪段', 100).hits).toEqual([]);
+    expect(make([msg('x', 'user-message', 'aaaa')]).state.search('aa', 100).hits[0]?.count).toBe(2);
+  });
+
+  it('从最近的往前数，数满上限就停，更早还有时 truncated', () => {
+    const { state } = make(items);
+    expect(state.search('bgm', 2)).toEqual({
+      hits: [
+        { itemId: 'a1', index: 2, count: 1 },
+        { itemId: 'a2', index: 4, count: 1 },
+      ],
+      truncated: true,
+    });
+    expect(state.search('bgm', 4).truncated).toBe(false);
+  });
+});

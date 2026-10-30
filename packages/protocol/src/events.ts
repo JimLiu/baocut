@@ -145,6 +145,24 @@ export interface ConversationPage {
 /** 会话主题默认只送最近这么多个回合；更早的由客户端按需翻页（`conversations.page`）。 */
 export const CONVERSATION_TAIL_TURNS = 30;
 
+/** 在会话中查找的结果（`conversations.search`）：有命中的用户消息与回复，按记录先后。 */
+export interface ConversationSearch {
+  hits: ConversationSearchHit[];
+  /** 命中超过 `CONVERSATION_SEARCH_LIMIT` 处：只给了最近的那么多处，更早的没列。 */
+  truncated: boolean;
+}
+
+export interface ConversationSearchHit {
+  itemId: Id;
+  /** 条目在会话记录里的下标，与快照、翻页的 `offset` 同一口径：小于客户端的 `offset` 时还没载入。 */
+  index: number;
+  /** 这条正文里有几处（在原始文本上数，界面高亮在渲染出来的文字上找，Markdown 记号与链接地址会让两边差几处）。 */
+  count: number;
+}
+
+/** 一次查找最多数这么多处命中，从最近的往前数。 */
+export const CONVERSATION_SEARCH_LIMIT = 1000;
+
 /**
  * 会话主题的事件。流式文本以 `item.append` 增量送达，但保留条目身份与完成边界：
  * 终态总以一条 `item.upsert` 收尾（架构设计 §4.5）。

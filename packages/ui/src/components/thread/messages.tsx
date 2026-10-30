@@ -134,7 +134,7 @@ export const UserMessage = memo(function UserMessage({ item, conversationId }: {
   const skillCatalog = useSkills((s) => s.skills);
   const attachments = item.attachments ?? [];
   return (
-    <div className={userRow} data-role="user">
+    <div className={userRow} data-role="user" data-find-item={item.id}>
       <UserBubble>
         {attachments.length ? (
           <div className={sentAttachments} role="group" aria-label={sentAttachmentsLabel()}>
@@ -143,7 +143,7 @@ export const UserMessage = memo(function UserMessage({ item, conversationId }: {
             ))}
           </div>
         ) : null}
-        <div className={userText}>{item.text}</div>
+        <div className={userText} data-find-body>{item.text}</div>
       </UserBubble>
       {context ? (
         <div className={contextLine} title={T.message.contextTitle}>
@@ -250,11 +250,11 @@ export const AgentMessage = memo(function AgentMessage({
   cwd?: string | null;
 }) {
   return (
-    <div className={agentRow} data-role="agent">
+    <div className={agentRow} data-role="agent" data-find-item={item.id}>
       <span className={avatar} aria-hidden>
         <AIMark />
       </span>
-      <div className={agentBody}>
+      <div className={agentBody} data-find-body>
         {item.text ? <AgentMarkdown text={item.text} streaming={item.streaming} conversationId={conversationId} cwd={cwd} /> : null}
       </div>
     </div>

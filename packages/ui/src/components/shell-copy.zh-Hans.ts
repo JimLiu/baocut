@@ -39,6 +39,8 @@ export const zhHans: ShellMessages = {
     deleteConfirm: '删除',
     deleteBody: '会话记录会从 BaoCut 里删除，正在运行的任务会先停下。项目目录里的文件不受影响。',
     deleteFailed: (message) => `没能删除：${message}`,
+    find: '在会话中查找',
+    findFailed: (message) => `没能查找：${message}`,
     renameTitle: '重命名会话',
     videosIn: (place) => `${where(place)}的视频`,
     noVideosIn: (place) => `${where(place)}还没有视频`,

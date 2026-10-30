@@ -4,6 +4,8 @@ import {
   type Conversation,
   type ConversationEvent,
   type ConversationPage,
+  type ConversationSearch,
+  type ConversationSearchHit,
   type ConversationSnapshot,
   type Id,
   type Seq,
@@ -116,6 +118,34 @@ export class ConversationState {
     const offset = turnStart(items, end, turns);
     const slice = items.slice(offset, end);
     return { items: [...this.#pinnedTasks(slice, offset), ...slice], offset };
+  }
+
+  /**
+   * 在会话中查找（`conversations.search`）：用户消息与回复正文里不分大小写、不重叠地数。从最近的往前数，数满 `limit` 处就停，
+   * 更早还有时 `truncated`；结果按记录先后。
+   */
+  search(query: string, limit: number): ConversationSearch {
+    const needle = query.toLowerCase();
+    const items = this.record.items;
+    const hits: ConversationSearchHit[] = [];
+    let total = 0;
+    let truncated = false;
+    for (let i = items.length - 1; needle && i >= 0 && !truncated; i--) {
+      const item = items[i]!;
+      if (item.kind !== 'user-message' && item.kind !== 'agent-message') continue;
+      const text = item.text.toLowerCase();
+      let count = 0;
+      for (let at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + needle.length)) {
+        if (total + count === limit) {
+          truncated = true;
+          break;
+        }
+        count++;
+      }
+      if (count) hits.push({ itemId: item.id, index: i, count });
+      total += count;
+    }
+    return { hits: hits.reverse(), truncated };
   }
 
   /** `slice` 里的条目引用、本身在 `offset` 之前的任务条目，按记录里的先后。 */

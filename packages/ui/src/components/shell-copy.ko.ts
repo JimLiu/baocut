@@ -39,6 +39,8 @@ export const ko: ShellMessages = {
     deleteConfirm: '삭제',
     deleteBody: '세션 기록이 BaoCut에서 삭제되며, 실행 중인 작업은 먼저 중지됩니다. 프로젝트 폴더의 파일은 영향을 받지 않습니다.',
     deleteFailed: (message) => `삭제하지 못했습니다: ${message}`,
+    find: '세션에서 찾기',
+    findFailed: (message) => `검색하지 못했습니다: ${message}`,
     renameTitle: '세션 이름 변경',
     videosIn: (place) => `${where(place)}의 영상`,
     noVideosIn: (place) => `${where(place)}에 아직 영상이 없습니다`,

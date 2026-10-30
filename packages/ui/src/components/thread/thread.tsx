@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DEFAULT_AGENT_MODE, type TimelineItem } from '@baocut/protocol';
 import { Button, ToastQueue } from '@react-spectrum/s2';
-import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { lightDark, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { OUTPUT_COPY, THREAD_HISTORY_COPY } from '../../copy.ts';
 import { conversationOutputs, outputsByMessage, type ConversationOutput } from '../../model/conversation-outputs.ts';
 import { gapBetween, rowKind, showFooter, turns, type RowKind, type Turn } from '../../model/agent-turn.ts';
@@ -30,6 +30,7 @@ import {
   upwardIntentRemaining,
   type FollowState,
 } from './follow-bottom.ts';
+import { ConversationFindBar } from './conversation-find.tsx';
 import { AgentMessage, NoticeLine, UserMessage } from './messages.tsx';
 import { OutputCard } from './output-card.tsx';
 import { StepsGroup } from './steps-group.tsx';
@@ -73,6 +74,10 @@ const threadVars = style({
   '--bc-at-err-bg': { type: 'backgroundColor', value: 'red-100' },
   '--bc-at-add-bg': { type: 'backgroundColor', value: 'green-100' },
   '--bc-at-del-bg': { type: 'backgroundColor', value: 'red-100' },
+  // 查找命中：深色下用亮底配深色字（同浏览器的页内查找），浅底在深色里认不出来。
+  '--bc-at-find-bg': { type: 'backgroundColor', value: lightDark('yellow-200', 'yellow-1000') },
+  '--bc-at-find-current-bg': { type: 'backgroundColor', value: lightDark('orange-300', 'orange-900') },
+  '--bc-at-find-text': { type: 'color', value: lightDark('gray-900', 'gray-25') },
   '--bc-at-line': { type: 'borderColor', value: 'gray-200' },
   '--bc-at-quote': { type: 'borderColor', value: 'gray-300' },
   '--bc-at-err-line': { type: 'borderColor', value: 'red-300' },
@@ -93,11 +98,14 @@ export function Thread({
   conversationId,
   running,
   empty,
+  find,
 }: {
   items: readonly TimelineItem[];
   conversationId: string;
   running: boolean;
   empty?: ReactNode;
+  /** 在会话中查找的查找条开着（产品设计 §3.2.2）：`focus` 每变一次光标回到搜索框。 */
+  find?: { focus: number; onClose(): void } | null;
 }) {
   const blocks = useMemo(() => buildThread(items), [items]);
   const meta = useConversationMeta(conversationId);
@@ -122,7 +130,7 @@ export function Thread({
   );
   useOpenFreshVideos(cards, items, conversationId);
   const showColumn = blocks.length > 0 || running;
-  const { scrollerRef, columnRef, keepPosition } = useFollowBottom(conversationId, blocks, showColumn);
+  const { scrollerRef, columnRef, keepPosition, reveal } = useFollowBottom(conversationId, blocks, showColumn);
   const hasEarlier = useTimelineHasEarlier(conversationId);
 
   // 「当前」的内容块：步骤组在跑时摘要行换成正在跑的那一步。
@@ -178,17 +186,31 @@ export function Thread({
     prevHasCards = false;
   });
 
+  // 查找条在滚动区外面（不随消息滚走），也不在朗读新消息的 log 区里。
   return (
-    <div ref={scrollerRef} className={`${scroller} bc-scroll`}>
-      {!showColumn ? (
-        empty
-      ) : (
-        <div ref={columnRef} className={`${column} ${threadVars}`} role="log" aria-live="polite" aria-relevant="additions" tabIndex={-1}>
-          {hasEarlier ? <LoadEarlier key={conversationId} conversationId={conversationId} keepPosition={keepPosition} /> : null}
-          {rows}
-        </div>
-      )}
-    </div>
+    <>
+      {find && showColumn ? (
+        <ConversationFindBar
+          conversationId={conversationId}
+          items={items}
+          columnRef={columnRef}
+          reveal={reveal}
+          keepPosition={keepPosition}
+          focus={find.focus}
+          onClose={find.onClose}
+        />
+      ) : null}
+      <div ref={scrollerRef} className={`${scroller} bc-scroll`}>
+        {!showColumn ? (
+          empty
+        ) : (
+          <div ref={columnRef} className={`${column} ${threadVars}`} role="log" aria-live="polite" aria-relevant="additions" tabIndex={-1}>
+            {hasEarlier ? <LoadEarlier key={conversationId} conversationId={conversationId} keepPosition={keepPosition} /> : null}
+            {rows}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -414,7 +436,17 @@ function useFollowBottom(conversationId: string, blocks: unknown, showColumn: bo
     }, 0);
   }, []);
 
-  return { scrollerRef, columnRef, keepPosition };
+  /** 在会话中查找跳到一处：先脱开跟底（不然下一次尺寸变化又钉回底），再滚到视口中间；比视口高的让顶边靠上。 */
+  const reveal = useCallback((target: Range | Element) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    state.current = { ...state.current, following: false };
+    const box = target.getBoundingClientRect();
+    const inset = box.height < el.clientHeight ? (el.clientHeight - box.height) / 2 : 24;
+    el.scrollTop += box.top - el.getBoundingClientRect().top - inset;
+  }, []);
+
+  return { scrollerRef, columnRef, keepPosition, reveal };
 }
 
 /** 钉到底，并把钉到的位置记成下次比较的基准：钉底的 scroll 事件可能在监听挂上之前就派发了。 */
