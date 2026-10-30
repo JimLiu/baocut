@@ -57,12 +57,11 @@ body,
 }
 
 /*
- * 行尾与段头的操作（项目菜单、会话的置顶与归档、段头的整理与新建）：悬停或键盘聚焦时才出现；
+ * 行尾与段头的操作（项目菜单、会话菜单、段头的整理与新建）：悬停或键盘聚焦时才出现；
  * 用透明度藏起来，它们仍在 Tab 序里。展开钮同理；触屏上一直显示。
- * 项目行的 ActionMenu 不接 UNSAFE_className，按它的菜单按钮来选。
+ * 行尾的 ActionMenu 不接 UNSAFE_className，按它的菜单按钮来选。
  */
-.bc-row-actions,
-[data-bc-expandable] button[aria-haspopup] {
+:is([data-bc-row], [data-bc-expandable]) button[aria-haspopup] {
   opacity: 0;
   pointer-events: none;
   max-width: 0;
@@ -70,8 +69,8 @@ body,
   overflow: hidden;
   margin-inline: 0;
 }
-:is([data-bc-row], [data-bc-expandable]):is(:hover, :focus-within) :is(.bc-row-actions, button[aria-haspopup]),
-:is([data-bc-row], [data-bc-expandable]):has([aria-expanded='true'][aria-haspopup]) :is(.bc-row-actions, button[aria-haspopup]) {
+:is([data-bc-row], [data-bc-expandable]):is(:hover, :focus-within) button[aria-haspopup],
+:is([data-bc-row], [data-bc-expandable]):has([aria-expanded='true'][aria-haspopup]) button[aria-haspopup] {
   opacity: 1;
   pointer-events: auto;
   max-width: 64px;
@@ -107,8 +106,7 @@ body,
   pointer-events: auto;
 }
 @media (hover: none) {
-  .bc-row-actions,
-  [data-bc-expandable] button[aria-haspopup],
+  :is([data-bc-row], [data-bc-expandable]) button[aria-haspopup],
   .bc-section-actions,
   .bc-section-chevron,
   [data-bc-expandable] > [role='gridcell'] > [slot='chevron'] {

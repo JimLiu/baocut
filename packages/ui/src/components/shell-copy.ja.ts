@@ -77,6 +77,7 @@ export const ja: ShellMessages = {
     organize: 'サイドバーを整理',
     byProject: 'プロジェクトごとにグループ化',
     flat: '1 つのリストで表示',
+    byStatus: '状態ごとにグループ化',
     sortSessions: 'セッションの並べ替え',
     byRecent: '最近のアクティビティ',
     byName: '名前',
@@ -84,8 +85,8 @@ export const ja: ShellMessages = {
   sidebarRows: {
     noProject: 'プロジェクトに属していません',
     rowActions: (title) => `「${title}」の操作`,
-    togglePin: (pinned, title) => (pinned ? `「${title}」のピン留めを外す` : `「${title}」をピン留め`),
-    archiveNamed: (title) => `「${title}」をアーカイブ`,
+    markUnread: '未読にする',
+    markRead: '既読にする',
     archive: 'セッションをアーカイブ',
     projectActions: (name) => `プロジェクト「${name}」の操作`,
     showInSpace: 'Space で表示',

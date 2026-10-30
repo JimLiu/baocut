@@ -77,6 +77,7 @@ export const zhHant: ShellMessages = {
     organize: '整理側邊欄',
     byProject: '依專案分組',
     flat: '單一清單',
+    byStatus: '依狀態分組',
     sortSessions: '對話排序',
     byRecent: '最近活動',
     byName: '名稱',
@@ -84,8 +85,8 @@ export const zhHant: ShellMessages = {
   sidebarRows: {
     noProject: '不屬於任何專案',
     rowActions: (title) => `「${title}」的操作`,
-    togglePin: (pinned, title) => `${pinned ? '取消釘選' : '釘選'}「${title}」`,
-    archiveNamed: (title) => `封存「${title}」`,
+    markUnread: '標為未讀',
+    markRead: '標為已讀',
     archive: '封存對話',
     projectActions: (name) => `專案「${name}」的操作`,
     showInSpace: '在 Space 中顯示',

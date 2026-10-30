@@ -42,6 +42,7 @@ export const ko: HarnessAgentsMessages = {
   notQuestion: '이 승인은 질문이 아닙니다',
   planDecisionOnly: '계획은 승인(accept) 또는 거절(decline)만 할 수 있습니다',
   accessModeOnlyForPlan: 'accessMode는 계획을 승인할 때만 쓸 수 있습니다',
+  markUnreadIdleOnly: '진행 중이거나 응답을 기다리거나 실패한 세션은 읽지 않음으로 표시할 수 없습니다',
   questionUnanswered: (p) => `"${p.question}"에 대한 답이 없습니다`,
   questionSingleChoice: (p) => `"${p.question}"에는 답을 하나만 고를 수 있습니다`,
   questionUnknownOption: (p) => `"${p.option}"은(는) "${p.question}"의 선택지가 아닙니다`,

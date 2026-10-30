@@ -78,6 +78,7 @@ export const pl: ShellMessages = {
     organize: "Organizuj pasek boczny",
     byProject: "Grupuj według projektu",
     flat: "Na jednej liście",
+    byStatus: "Grupuj według stanu",
     sortSessions: "Sortuj sesje",
     byRecent: "Ostatnia aktywność",
     byName: "Nazwa",
@@ -85,8 +86,8 @@ export const pl: ShellMessages = {
   sidebarRows: {
     noProject: "Poza projektem",
     rowActions: (title) => `Działania dla „${title}”`,
-    togglePin: (pinned, title) => `${pinned ? "Odepnij" : "Kotwica"} „${title}”`,
-    archiveNamed: (title) => `Archiwizuj „${title}”`,
+    markUnread: "Oznacz jako nieprzeczytaną",
+    markRead: "Oznacz jako przeczytaną",
     archive: "Archiwizuj sesję",
     projectActions: (name) => `Działania projektu „${name}”`,
     showInSpace: "Pokaż w Space",

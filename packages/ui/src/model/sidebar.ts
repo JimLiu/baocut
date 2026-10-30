@@ -17,7 +17,8 @@ import { vi } from './sidebar.vi.ts';
 /**
  * Home 侧栏的树（产品设计 §3.1）。从上到下三段：
  * 置顶（钉住的项目与会话，它们同时还在原来的位置）、项目（按最近活动排，下面挂它的会话）、
- * 最近（不属于任何项目的会话）。「在一个列表中」时项目段换成全部会话的一张单表（用户修订）。
+ * 最近（不属于任何项目的会话）。「在一个列表中」时项目段换成全部会话的一张单表（用户修订）；
+ * 「按状态分组」时有状态的会话按要你处理的先后各成一段排在上面，其余的在最后一段「其他会话」。
  */
 
 export type SessionStatus = 'waiting' | 'failed' | 'running' | 'unread';
@@ -27,6 +28,8 @@ export type StatusVariant = 'informative' | 'notice' | 'negative' | 'positive' |
 const en = {
   status: { answer: 'Waiting for your answer', waiting: 'Waiting for approval', failed: 'Failed', running: 'Running', unread: 'Done, unread' },
   stopping: 'Stopping',
+  /** 「按状态分组」的段名：等批准与等回答合成一段；失败、进行中与已完成未读用上面的状态词。 */
+  group: { waiting: 'Needs you', rest: 'Other sessions' },
   /** 项目行汇总里的一段，例如「1 个进行中」。 */
   count: {
     answer: (n: number) => `${n} waiting for your answer`,
@@ -98,6 +101,11 @@ export interface ProjectRow {
 
 export type PinnedRow = { kind: 'project'; row: ProjectRow } | { kind: 'conversation'; conversation: Conversation };
 
+export interface StatusGroup {
+  status: SessionStatus;
+  conversations: Conversation[];
+}
+
 export interface SidebarTree {
   pinned: PinnedRow[];
   projects: ProjectRow[];
@@ -105,10 +113,25 @@ export interface SidebarTree {
   loose: Conversation[];
   /** 「在一个列表中」：项目下的与不属于项目的会话放在一起。 */
   flat: Conversation[];
+  /** 「按状态分组」：`flat` 里有状态的按 `STATUS_ORDER` 分段（空段不列），其余的在 `rest`；段内次序同 `flat`。 */
+  byStatus: { groups: StatusGroup[]; rest: Conversation[] };
 }
+
+/** 侧栏怎么整理（「⋯ › 整理侧栏」）：按项目分组、在一个列表中、按状态分组。 */
+export type SidebarGrouping = 'project' | 'flat' | 'status';
 
 /** 会话排序：最近活动或名称（侧栏「会话排序」）。项目始终按最近活动。 */
 export type SidebarSort = 'recent' | 'name';
+
+/** 「按状态分组」一段的段名。 */
+export function statusGroupLabel(status: SessionStatus): string {
+  return status === 'waiting' ? M.group.waiting : M.status[status];
+}
+
+/** 「按状态分组」最后一段的段名；上面没有分段时它就是全部会话。 */
+export function restGroupLabel(): string {
+  return M.group.rest;
+}
 
 const byRecent = (a: { updatedAt: string }, b: { updatedAt: string }) => b.updatedAt.localeCompare(a.updatedAt);
 const byName = (a: Conversation, b: Conversation) => a.title.localeCompare(b.title, intlLocale()) || byRecent(a, b);
@@ -139,11 +162,18 @@ export function buildSidebar(projects: readonly Project[], conversations: readon
       .map((conversation) => ({ kind: 'conversation' as const, conversation })),
   ];
   const listed = new Set(rows.map((row) => row.project.id));
+  const flat = order(visible.filter((c) => c.projectId === null || listed.has(c.projectId)));
   return {
     pinned,
     projects: rows,
     loose: order(visible.filter((c) => c.projectId === null)),
-    flat: order(visible.filter((c) => c.projectId === null || listed.has(c.projectId))),
+    flat,
+    byStatus: {
+      groups: STATUS_ORDER.map((status) => ({ status, conversations: flat.filter((c) => sessionStatus(c) === status) })).filter(
+        (group) => group.conversations.length > 0,
+      ),
+      rest: flat.filter((c) => sessionStatus(c) === null),
+    },
   };
 }
 

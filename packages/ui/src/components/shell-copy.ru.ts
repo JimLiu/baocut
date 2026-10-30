@@ -78,6 +78,7 @@ export const ru: ShellMessages = {
     organize: "Организовать боковую панель",
     byProject: "Группировать по проектам",
     flat: "Одним списком",
+    byStatus: "Группировать по статусу",
     sortSessions: "Сортировать сессии",
     byRecent: "Недавняя активность",
     byName: "Название",
@@ -85,8 +86,8 @@ export const ru: ShellMessages = {
   sidebarRows: {
     noProject: "Вне проекта",
     rowActions: (title) => `Действия для «${title}»`,
-    togglePin: (pinned, title) => `${pinned ? "Открепить" : "Привязка"} «${title}»`,
-    archiveNamed: (title) => `Архивировать «${title}»`,
+    markUnread: "Отметить как непрочитанную",
+    markRead: "Отметить как прочитанную",
     archive: "Архивировать сессию",
     projectActions: (name) => `Действия с проектом «${name}»`,
     showInSpace: "Показать в Space",

@@ -7,6 +7,8 @@
            段头的加号菜单：新建项目、打开已有目录；
      最近：不属于任何项目的会话。
    三处的会话行是同一个行组件（sessionItem）：单行标题省略，末尾显示状态图标；完整状态与时间放在悬停说明里。
+   会话行尾悬停出「⋯」菜单（2026-10-30）：置顶、标为未读 / 已读、归档，与项目行的「⋯」同一种控件。
+   段头「⋯ › 整理侧栏」三种：按项目分组、在一个列表中、按状态分组（要你处理的分段排在上面，其余在「其他会话」）。
    会话选中行按截图反馈用中性圆角底色；置顶会话带单气泡 Comment 图标。S2 SideNav 继续负责路由、树结构和键盘焦点。
    工具与服务在 App rail 的 end section 上（2026-10-02，apprail.jsx），这里不再放。
    没有缩略图、没有卡片——这里是对话的目录，不是素材库（素材在 Space）。
@@ -32,7 +34,11 @@
     </span>;
   }
 
-  /** 会话行（置顶、项目下、最近三处同一个）：单行标题 + 行尾状态，完整内容与时间由链接说明保留。 */
+  /**
+   * 会话行（置顶、项目下、最近、单表与状态分段同一个）：单行标题 + 行尾状态，完整内容与时间由链接说明保留。
+   * 行尾「⋯」：置顶、标为未读（做完且看过、没有别的状态时才能点；正开着的这条不行，看着就算读过）或标为已读、归档。
+   * 标为未读只是给自己留个记号：不发提醒、不进徽标。
+   */
   function sessionItem(R, app, s, key, pinned = false) {
     const href = IA.hrefFor({r: 'agent', id: s.id});
     const title = s.title || '新会话';
@@ -46,6 +52,14 @@
       if (app.route.r === 'agent' && app.route.id === s.id) app.go({r: 'home'});
       app.toast(`已归档「${title}」`, null, {label: '查看归档', run: () => app.go({r: 'archived', id: s.id})});
     };
+    const st = AP.sessionStatus(s);
+    const open = app.route.r === 'agent' && app.route.id === s.id;
+    const onAction = (k) => {
+      if (k === 'pin') app.toggleSessionPin(s.id);
+      else if (k === 'unread') app.markUnread(s.id);
+      else if (k === 'read') app.markRead(s.id);
+      else if (k === 'archive') archive();
+    };
     return (
       <R.SideNavItem key={key} id={key} textValue={title} href={href} data-session-row="">
         <R.SideNavItemContent>
@@ -58,16 +72,14 @@
               </span>
             </R.Text>
           </R.SideNavItemLink>
-          <R.ActionButtonGroup isQuiet UNSAFE_className="hs-sess__actions" aria-label={`「${title}」的操作`}>
-            <R.TooltipTrigger>
-              <R.ActionButton aria-label={`${s.pinned ? '取消置顶' : '置顶'}「${title}」`} onPress={() => app.toggleSessionPin(s.id)}><R.Icons.PinOn /></R.ActionButton>
-              <R.Tooltip>{s.pinned ? '取消置顶' : '置顶'}</R.Tooltip>
-            </R.TooltipTrigger>
-            <R.TooltipTrigger>
-              <R.ActionButton aria-label={`归档「${title}」`} onPress={archive}><R.Icons.Archive /></R.ActionButton>
-              <R.Tooltip>归档会话</R.Tooltip>
-            </R.TooltipTrigger>
-          </R.ActionButtonGroup>
+          <R.ActionMenu aria-label={`会话「${title}」的操作`} data-session-menu="" isQuiet size="S"
+            disabledKeys={st || open ? ['unread'] : []} onAction={onAction}>
+            <R.MenuItem id="pin" textValue={s.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{s.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem>
+            {st === 'unread'
+              ? <R.MenuItem key="read" id="read" textValue="标为已读"><R.Icons.Visibility /><R.Text>标为已读</R.Text></R.MenuItem>
+              : <R.MenuItem key="unread" id="unread" textValue="标为未读"><R.Icons.VisibilityOff /><R.Text>标为未读</R.Text></R.MenuItem>}
+            <R.MenuItem id="archive" textValue="归档"><R.Icons.Archive /><R.Text>归档</R.Text></R.MenuItem>
+          </R.ActionMenu>
         </R.SideNavItemContent>
       </R.SideNavItem>
     );
@@ -163,7 +175,7 @@
   /** 「项目」段头：段名 + 加号菜单——新建项目 / 打开已有目录（§3.1）。
       加进来的目录排在最前、展开，并去它的「在这里新建会话」。原型没有系统的目录选择器，打开固定接一个演示目录。
       按钮是 S2 的 quiet ActionButton（S 号，与行尾的 ⋯ ActionMenu 同号），与段名同一行、右对齐到各行展开箭头那一列。 */
-  function ProjectsHead({onAdded, collapsed, onToggle, grouping, sort}) {
+  function ProjectsHead({onAdded, collapsed, onToggle, grouping, sort, label}) {
     const app = useApp();
     const R = window.RSP;
     const [creating, setCreating] = React.useState(false);
@@ -182,7 +194,7 @@
     return (
       <span className="hs-head" onFocus={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         {creating && <window.CreateProjectDialog onClose={() => setCreating(false)} onCreated={d => onAdded(d.id)} />}
-        <SectionToggle label={grouping === 'flat' ? '会话' : '项目'} collapsed={collapsed} onToggle={onToggle} />
+        <SectionToggle label={label} collapsed={collapsed} onToggle={onToggle} />
         <span className="hs-head__actions">
           <R.MenuTrigger>
             <R.ActionButton isQuiet size="S" aria-label="整理项目与会话"><R.Icons.More /></R.ActionButton>
@@ -192,6 +204,7 @@
                 <R.Menu aria-label="整理侧栏" selectionMode="single" selectedKeys={[grouping]} onSelectionChange={(keys) => app.setPref('sidebarGrouping', [...keys][0])}>
                   <R.MenuItem id="project" textValue="按项目分组"><R.Text>按项目分组</R.Text></R.MenuItem>
                   <R.MenuItem id="flat" textValue="在一个列表中"><R.Text>在一个列表中</R.Text></R.MenuItem>
+                  <R.MenuItem id="status" textValue="按状态分组"><R.Text>按状态分组</R.Text></R.MenuItem>
                 </R.Menu>
               </R.SubmenuTrigger>
               <R.SubmenuTrigger>
@@ -237,7 +250,7 @@
     const route = IA.sidebarRoute(app.route, app.nav);
     const [collapsed, setCollapsed] = useState(new Set());
     const toggleSection = (key) => setCollapsed((prev) => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
-    const grouping = app.prefs.sidebarGrouping === 'flat' ? 'flat' : 'project';
+    const grouping = ['flat', 'status'].includes(app.prefs.sidebarGrouping) ? app.prefs.sidebarGrouping : 'project';
     const sort = app.prefs.sidebarSort === 'name' ? 'name' : 'recent';
     const full = useMemo(() => AP.tree({dirs: app.dirs, movies: app.activeProjects, sessions: app.sessions}),
       [app.dirs, app.activeProjects, app.sessions]);
@@ -275,10 +288,18 @@
                   : sessionItem(R, app, x.sess, 'pin:' + x.id, true)))}
               </R.SideNavSection>
             ) : null}
+            {/* 按状态分组：要你处理的各成一段排在上面，段头可折叠；整理菜单仍在最后一段「其他会话」的段头上。 */}
+            {grouping === 'status' ? tree.byStatus.groups.map((g) => (
+              <R.SideNavSection key={'st:' + g.k} id={'st:' + g.k}>
+                <R.SideNavHeader><SectionHead label={g.label} collapsed={collapsed.has('st:' + g.k)} onToggle={() => toggleSection('st:' + g.k)} /></R.SideNavHeader>
+                {(!collapsed.has('st:' + g.k)) && g.sessions.map((s) => sessionItem(R, app, s, 'st:' + s.id))}
+              </R.SideNavSection>
+            )) : null}
             <R.SideNavSection id="proj">
-              <R.SideNavHeader><ProjectsHead onAdded={onDirAdded} grouping={grouping} sort={sort} collapsed={collapsed.has('proj')} onToggle={() => toggleSection('proj')} /></R.SideNavHeader>
-              {(!collapsed.has('proj')) && (grouping === 'flat'
-                ? tree.flat.map((s) => sessionItem(R, app, s, 'flat:' + s.id))
+              <R.SideNavHeader><ProjectsHead onAdded={onDirAdded} grouping={grouping} sort={sort} collapsed={collapsed.has('proj')} onToggle={() => toggleSection('proj')}
+                label={grouping === 'project' ? '项目' : grouping === 'status' && tree.byStatus.groups.length ? '其他会话' : '会话'} /></R.SideNavHeader>
+              {(!collapsed.has('proj')) && (grouping === 'flat' ? tree.flat.map((s) => sessionItem(R, app, s, 'flat:' + s.id))
+                : grouping === 'status' ? tree.byStatus.rest.map((s) => sessionItem(R, app, s, 'st:' + s.id))
                 : tree.projects.map((p) => projectItem(R, app, p, 'proj:' + p.dir.id, expanded.has('proj:' + p.dir.id))))}
             </R.SideNavSection>
             {grouping === 'project' && tree.loose.length ? (

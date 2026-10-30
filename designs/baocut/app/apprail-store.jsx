@@ -173,6 +173,8 @@
       const s = sessionById(sid);
       if (s && s.unread) patchSession(sid, {unread: false});
     }, [sessionById, patchSession]);
+    /* 侧栏会话菜单的「标为未读」：只给已读、没有别的状态的会话（侧栏只在那时让点）；不发提醒，打开它就清掉。 */
+    const markUnread = useCallback((sid) => patchSession(sid, {unread: true}), [patchSession]);
 
     /* ---- Space ---- */
     const [spaceMarks, setSpaceMarks] = useState({fav: {}, trash: {}});
@@ -304,7 +306,7 @@
       legacySettingsAvailable, legacySettingsOpen, setLegacySettingsOpen, onboarding, launchOnboarding, closeOnboarding,
       dirs, dirById, toggleDirPin, toggleSessionPin, dirOfSession, moviesOf, createDir, openDir, removeDir, projectBrands, setProjectBrands,
       addedModels, addModelEntry, removeAddedModel,
-      openMovie, openTool, closeMovie, railGo, markRead, newProject, createProject,
+      openMovie, openTool, closeMovie, railGo, markRead, markUnread, newProject, createProject,
       spaceItems, toggleFav, setTrashed, saveVersion, importAssets, createHtmlPage, registerToolOutput, createMovieFromOutput,
     };
   }

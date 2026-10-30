@@ -26,7 +26,14 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { ARCHIVED } from './archived-copy.ts';
 import { S } from './shell-copy.ts';
 import { untitled } from '../copy.ts';
-import { buildSidebar, type ProjectRow } from '../model/sidebar.ts';
+import {
+  buildSidebar,
+  restGroupLabel,
+  statusGroupLabel,
+  type ProjectRow,
+  type SessionStatus,
+  type SidebarGrouping,
+} from '../model/sidebar.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { useConnection } from '../state/connection-store.ts';
 import { useDirectory } from '../state/directory-store.ts';
@@ -50,12 +57,15 @@ type DialogState =
   | { kind: 'rename-project'; project: Project }
   | { kind: 'remove-project'; project: Project }
   | null;
-type SectionKey = 'pinned' | 'projects' | 'recent';
+type SectionKey = 'pinned' | 'projects' | 'recent' | `st:${SessionStatus}`;
+
+/** 存下来的整理方式不认识时（例如更新的版本写的）按项目分组。 */
+const groupingOf = (value: SidebarGrouping): SidebarGrouping => (value === 'flat' || value === 'status' ? value : 'project');
 
 /**
  * Home 的页面侧栏（产品设计 §3.1，用户修订）：区域标题、新建会话；置顶、项目、最近三段，段头可折叠。
- * 搜索与通知按用户反馈暂时移除。项目段头的「⋯」整理侧栏（按项目分组 / 在一个列表中）与会话排序，
- * 「+」新建项目或打开已有目录。
+ * 搜索与通知按用户反馈暂时移除。项目段头的「⋯」整理侧栏（按项目分组 / 在一个列表中 / 按状态分组）与会话排序，
+ * 「+」新建项目或打开已有目录。按状态分组时，要你处理的会话按急迫度各成一段排在置顶下面，其余的在「其他会话」。
  */
 export function HomeSidebar() {
   const runtime = useRuntime();
@@ -64,7 +74,7 @@ export function HomeSidebar() {
   const go = useSidebarGo();
   const expanded = useShell((s) => s.expandedProjects);
   const setExpanded = useShell((s) => s.setExpandedProjects);
-  const grouping = useShell((s) => s.sidebarGrouping);
+  const grouping = useShell((s) => groupingOf(s.sidebarGrouping));
   const sort = useShell((s) => s.sidebarSort);
   const projectsDir = useConnection((s) => (s.state.status === 'connected' ? s.state.runtime.projectsDir : null));
   const projects = useDirectory((s) => s.projects);
@@ -160,10 +170,13 @@ export function HomeSidebar() {
         })
         .catch(fail);
     },
+    markUnread: (conversation) => void runtime.markUnread(conversation.id).catch(fail),
+    markRead: (conversation) => void runtime.markRead(conversation.id).catch(fail),
   };
   const projectName = (c: Conversation) => projects.find((p) => p.id === c.projectId)?.name ?? null;
+  const openId = route.tab === 'home' ? route.conversationId : null;
   const conversationRow = (conversation: Conversation, key: string, pinned = false) =>
-    conversationItem(conversation, key, { now, projectName: projectName(conversation), pinned, actions });
+    conversationItem(conversation, key, { now, projectName: projectName(conversation), pinned, open: conversation.id === openId, actions });
   const projectItem = (row: ProjectRow, key: string) => (
     <ProjectItem
       key={key}
@@ -175,8 +188,19 @@ export function HomeSidebar() {
     />
   );
 
-  const flat = grouping === 'flat';
-  const listEmpty = flat ? !tree.flat.length : !tree.projects.length;
+  const byProject = grouping === 'project';
+  const listEmpty = byProject ? !tree.projects.length : !tree.flat.length;
+  const listLabel = byProject
+    ? S.sidebar.projects
+    : grouping === 'status' && tree.byStatus.groups.length
+      ? restGroupLabel()
+      : S.sidebar.sessions;
+  const listRows =
+    grouping === 'flat'
+      ? tree.flat.map((conversation) => conversationRow(conversation, `flat:${conversation.id}`))
+      : grouping === 'status'
+        ? tree.byStatus.rest.map((conversation) => conversationRow(conversation, `st:${conversation.id}`))
+        : tree.projects.map((row) => projectItem(row, `proj:${row.project.id}`));
 
   return (
     <PageSidebar label={S.sidebar.sessions}>
@@ -213,9 +237,25 @@ export function HomeSidebar() {
                   )}
             </SideNavSection>
           ) : null}
+          {grouping === 'status'
+            ? tree.byStatus.groups.map((group) => {
+                const key: SectionKey = `st:${group.status}`;
+                const label = statusGroupLabel(group.status);
+                return (
+                  <SideNavSection key={key} id={key}>
+                    <SideNavHeader>
+                      <SectionHead label={label} collapsed={collapsed.has(key)} onToggle={() => toggleSection(key)} />
+                    </SideNavHeader>
+                    {collapsed.has(key)
+                      ? []
+                      : group.conversations.map((conversation) => conversationRow(conversation, `st:${conversation.id}`))}
+                  </SideNavSection>
+                );
+              })
+            : null}
           <SideNavSection id="projects">
             <SideNavHeader>
-              <SectionHead label={flat ? S.sidebar.sessions : S.sidebar.projects} collapsed={collapsed.has('projects')} onToggle={() => toggleSection('projects')}>
+              <SectionHead label={listLabel} collapsed={collapsed.has('projects')} onToggle={() => toggleSection('projects')}>
                 <OrganizeMenu />
                 <MenuTrigger>
                   <ActionButton isQuiet size="S" aria-label={S.sidebar.newOrOpenProject} isDisabled={!projectsDir}>
@@ -234,13 +274,9 @@ export function HomeSidebar() {
                 </MenuTrigger>
               </SectionHead>
             </SideNavHeader>
-            {collapsed.has('projects')
-              ? []
-              : flat
-                ? tree.flat.map((conversation) => conversationRow(conversation, `flat:${conversation.id}`))
-                : tree.projects.map((row) => projectItem(row, `proj:${row.project.id}`))}
+            {collapsed.has('projects') ? [] : listRows}
           </SideNavSection>
-          {!flat && tree.loose.length ? (
+          {byProject && tree.loose.length ? (
             <SideNavSection id="recent">
               <SideNavHeader>
                 <SectionHead label={S.sidebar.recent} collapsed={collapsed.has('recent')} onToggle={() => toggleSection('recent')} />
@@ -251,7 +287,7 @@ export function HomeSidebar() {
         </SideNav>
         {listEmpty && !collapsed.has('projects') ? (
           <p className={empty}>
-            {!ready ? S.common.loadingEllipsis : flat ? S.sidebar.noSessions : S.sidebar.noProjects}
+            {!ready ? S.common.loadingEllipsis : byProject ? S.sidebar.noProjects : S.sidebar.noSessions}
           </p>
         ) : null}
       </div>
@@ -319,10 +355,10 @@ function SectionHead({ label, collapsed, onToggle, children }: { label: string; 
   );
 }
 
-/** 项目段头的「⋯」：整理侧栏（按项目分组 / 在一个列表中）、会话排序，与 Home ›「已归档会话」。 */
+/** 项目段头的「⋯」：整理侧栏（按项目分组 / 在一个列表中 / 按状态分组）、会话排序，与 Home ›「已归档会话」。 */
 function OrganizeMenu() {
   const go = useSidebarGo();
-  const grouping = useShell((s) => s.sidebarGrouping);
+  const grouping = useShell((s) => groupingOf(s.sidebarGrouping));
   const sort = useShell((s) => s.sidebarSort);
   const archivedCount = useDirectory((s) => s.conversations.filter((c) => c.archived).length);
   const { setSidebarGrouping, setSidebarSort } = useShell.getState();
@@ -341,12 +377,15 @@ function OrganizeMenu() {
             selectionMode="single"
             disallowEmptySelection
             selectedKeys={[grouping]}
-            onSelectionChange={(keys) => keys !== 'all' && setSidebarGrouping([...keys][0] === 'flat' ? 'flat' : 'project')}>
+            onSelectionChange={(keys) => keys !== 'all' && setSidebarGrouping(groupingOf([...keys][0] as SidebarGrouping))}>
             <MenuItem id="project" textValue={S.sidebar.byProject}>
               <Text slot="label">{S.sidebar.byProject}</Text>
             </MenuItem>
             <MenuItem id="flat" textValue={S.sidebar.flat}>
               <Text slot="label">{S.sidebar.flat}</Text>
+            </MenuItem>
+            <MenuItem id="status" textValue={S.sidebar.byStatus}>
+              <Text slot="label">{S.sidebar.byStatus}</Text>
             </MenuItem>
           </Menu>
         </SubmenuTrigger>

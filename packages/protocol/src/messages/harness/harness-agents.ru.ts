@@ -37,6 +37,7 @@ export const ru: HarnessAgentsMessages = {
   notQuestion: 'Это одобрение не является вопросом',
   planDecisionOnly: 'План можно только одобрить (accept) или отклонить (decline)',
   accessModeOnlyForPlan: 'accessMode применяется только при одобрении плана',
+  markUnreadIdleOnly: 'Отметить непрочитанной можно только сессию, которая не выполняется, не ждёт вас и не завершилась ошибкой',
   questionUnanswered: (p) => `Нет ответа на «${p.question}»`,
   questionSingleChoice: (p) => `На «${p.question}» можно дать только один ответ`,
   questionUnknownOption: (p) => `«${p.option}» — не вариант ответа на «${p.question}»`,

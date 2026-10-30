@@ -552,6 +552,8 @@ describe('Runtime（假 Driver）', () => {
       autonomy: 'plan',
     });
     await until(() => runtime.harness.getConversation(conversation.id).conversation.activity === 'awaiting-approval');
+    // 等着你的会话已经有自己的状态，不能再标为未读。
+    expect((await rejection(client.request('conversations.markUnread', { conversationId: conversation.id }))).code).toBe('invalid-request');
     client.close();
     await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -566,7 +568,7 @@ describe('Runtime（假 Driver）', () => {
     });
   });
 
-  it('任务主题：快照与增量；完成后会话标为未读，markRead 清掉', async () => {
+  it('任务主题：快照与增量；完成后会话标为未读，markRead 清掉，markUnread 挂回', async () => {
     let tasks: TasksSnapshot | null = null;
     client.subscribeTasks({
       snapshot: (snapshot) => {
@@ -590,6 +592,8 @@ describe('Runtime（假 Driver）', () => {
     const before = runtime.harness.getConversation(conversation.id).conversation.updatedAt;
     const read = await client.request('conversations.markRead', { conversationId: conversation.id });
     expect(read.conversation).toMatchObject({ unread: false, updatedAt: before });
+    const unread = await client.request('conversations.markUnread', { conversationId: conversation.id });
+    expect(unread.conversation).toMatchObject({ unread: true, updatedAt: before });
 
     // 会话删除后，它的任务从任务中心消失。
     await client.request('conversations.delete', { conversationId: conversation.id });

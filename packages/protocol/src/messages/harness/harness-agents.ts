@@ -59,6 +59,7 @@ const en = {
   notQuestion: "This approval isn't a question",
   planDecisionOnly: 'A plan can only be approved (accept) or declined (decline)',
   accessModeOnlyForPlan: 'accessMode only applies when approving a plan',
+  markUnreadIdleOnly: "Only a session that isn't running, waiting for you, or failed can be marked as unread",
   questionUnanswered: (p: { question: string }) => `No answer for "${p.question}"`,
   questionSingleChoice: (p: { question: string }) => `"${p.question}" takes one answer`,
   questionUnknownOption: (p: { question: string; option: string }) => `"${p.option}" isn't an option of "${p.question}"`,

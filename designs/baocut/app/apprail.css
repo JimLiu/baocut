@@ -103,14 +103,15 @@
 .hs-head__toggle[aria-expanded="false"] .hs-head__chevron { opacity: 1; }
 .hs-head__btn { flex: none; }
 .hs-proj__sub { display: none; }
-[data-project-menu], .hs-sess__actions { opacity: 0; pointer-events: none; max-width: 0; min-width: 0; overflow: hidden; margin-inline: 0; }
+[data-project-menu], [data-session-menu] { opacity: 0; pointer-events: none; max-width: 0; min-width: 0; overflow: hidden; margin-inline: 0; }
 .hside--home [data-project-row]:is(:hover, :focus-within) [data-project-menu],
 .hside--home [data-project-row]:has([aria-expanded="true"][aria-haspopup]) [data-project-menu],
-.hside--home [data-session-row]:is(:hover, :focus-within) .hs-sess__actions { opacity: 1; pointer-events: auto; max-width: 56px; overflow: visible; }
+.hside--home [data-session-row]:is(:hover, :focus-within) [data-session-menu],
+.hside--home [data-session-row]:has([aria-expanded="true"][aria-haspopup]) [data-session-menu] { opacity: 1; pointer-events: auto; max-width: 56px; overflow: visible; }
 .hside--home [data-project-row] > [role="gridcell"] > [slot="chevron"] { opacity: 0; }
 .hside--home [data-project-row]:is(:hover, :focus-within) > [role="gridcell"] > [slot="chevron"] { opacity: 1; }
 @media (hover: none) {
-  .hs-head__actions, .hs-head__chevron, [data-project-menu], .hs-sess__actions { opacity: 1; pointer-events: auto; max-width: none; overflow: visible; }
+  .hs-head__actions, .hs-head__chevron, [data-project-menu], [data-session-menu] { opacity: 1; pointer-events: auto; max-width: none; overflow: visible; }
   .hside--home [data-project-row] > [role="gridcell"] > [slot="chevron"] { opacity: 1; }
 }
 

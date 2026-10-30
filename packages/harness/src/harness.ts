@@ -1273,6 +1273,16 @@ export class Harness {
   }
 
   /**
+   * 侧栏的「标为未读」（产品设计 §3.1）：只给空闲的会话，不改最近活动。提醒只认 `activity` 的跳变（界面的 `attention.ts`），
+   * 所以这里不会发提醒、也不进徽标。
+   */
+  markUnread(id: Id): Conversation {
+    const state = this.#require(id);
+    if (state.conversation.activity !== 'idle') throw new RpcError('invalid-request', HA.markUnreadIdleOnly());
+    return state.conversation.unread ? state.conversation : state.updateConversation({ unread: true }, { touch: false });
+  }
+
+  /**
    * 只删会话记录（架构设计 §3.10）：不碰项目目录。运行中的任务先停下。
    * 不属于项目、工作目录里还有视频的，先建一个以视频命名的项目并搬进去（`ensureConversationProject`），视频不随会话消失；其中还有
    * 视频被别处开着时不删（`VIDEO_IN_USE`，会话的智能体刚放下的不算），会话记录与工作目录原样留着；其他原因搬不了的留在原处，

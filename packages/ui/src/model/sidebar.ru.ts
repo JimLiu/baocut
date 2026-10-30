@@ -3,6 +3,7 @@ import type { SidebarMessages } from './sidebar.ts';
 export const ru: SidebarMessages = {
   status: { answer: 'Ожидание ответа', waiting: "Ожидание одобрения", failed: "Ошибка", running: "Выполняется", unread: "Готово, не прочитано" },
   stopping: "Остановка",
+  group: { waiting: 'Ждут вас', rest: 'Другие сессии' },
   count: {
     answer: (n: number) => `${n} ожидают ответа`,
     waiting: (n: number) => `${n} ожидают одобрения`,

@@ -77,6 +77,7 @@ export const tr: ShellMessages = {
     organize: "Kenar çubuğunu düzenle",
     byProject: "Projeye göre grupla",
     flat: "Tek listede",
+    byStatus: "Duruma göre grupla",
     sortSessions: "Oturumları sırala",
     byRecent: "Son etkinlik",
     byName: "Ad",
@@ -84,8 +85,8 @@ export const tr: ShellMessages = {
   sidebarRows: {
     noProject: "Projede değil",
     rowActions: (title) => `${title} adlı oturumun eylemleri`,
-    togglePin: (pinned,title) => `${title}: ${pinned ? 'sabitlemeyi kaldır' : 'sabitle'}`,
-    archiveNamed: (title) => `${title} adlı oturumu arşivle`,
+    markUnread: "Okunmadı olarak işaretle",
+    markRead: "Okundu olarak işaretle",
     archive: "Oturumu arşivle",
     projectActions: (name) => `${name} adlı projenin eylemleri`,
     showInSpace: "Space içinde göster",

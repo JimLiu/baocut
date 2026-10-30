@@ -102,6 +102,7 @@ const en = {
     organize: 'Organize sidebar',
     byProject: 'Group by project',
     flat: 'In one list',
+    byStatus: 'Group by status',
     sortSessions: 'Sort sessions',
     byRecent: 'Recent activity',
     byName: 'Name',
@@ -109,8 +110,8 @@ const en = {
   sidebarRows: {
     noProject: 'Not in a project',
     rowActions: (title: string) => `Actions for “${title}”`,
-    togglePin: (pinned: boolean, title: string) => `${pinned ? 'Unpin' : 'Pin'} “${title}”`,
-    archiveNamed: (title: string) => `Archive “${title}”`,
+    markUnread: 'Mark as unread',
+    markRead: 'Mark as read',
     archive: 'Archive session',
     projectActions: (name: string) => `Actions for project “${name}”`,
     showInSpace: 'Show in Space',

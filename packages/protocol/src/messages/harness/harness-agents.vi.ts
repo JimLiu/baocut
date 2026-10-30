@@ -6,6 +6,7 @@ listSeparator: ', ', noDriver: (p) => `Không có Agent đăng ký với id ${p.
   notQuestion: 'Phê duyệt này không phải câu hỏi',
   planDecisionOnly: 'Kế hoạch chỉ có thể được duyệt (accept) hoặc từ chối (decline)',
   accessModeOnlyForPlan: 'accessMode chỉ dùng khi duyệt kế hoạch',
+  markUnreadIdleOnly: 'Chỉ có thể đánh dấu chưa đọc cho phiên không đang chạy, không chờ bạn và không thất bại',
   questionUnanswered: (p) => `Chưa có câu trả lời cho “${p.question}”`,
   questionSingleChoice: (p) => `“${p.question}” chỉ nhận một câu trả lời`,
   questionUnknownOption: (p) => `“${p.option}” không phải lựa chọn của “${p.question}”`,

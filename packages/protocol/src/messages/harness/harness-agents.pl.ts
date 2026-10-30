@@ -37,6 +37,7 @@ export const pl: HarnessAgentsMessages = {
   notQuestion: 'To zatwierdzenie nie jest pytaniem',
   planDecisionOnly: 'Plan można tylko zatwierdzić (accept) albo odrzucić (decline)',
   accessModeOnlyForPlan: 'accessMode dotyczy tylko zatwierdzania planu',
+  markUnreadIdleOnly: 'Jako nieprzeczytaną można oznaczyć tylko sesję, która nie trwa, nie czeka na Ciebie i nie zakończyła się niepowodzeniem',
   questionUnanswered: (p) => `Brak odpowiedzi na „${p.question}”`,
   questionSingleChoice: (p) => `Na „${p.question}” można wybrać tylko jedną odpowiedź`,
   questionUnknownOption: (p) => `„${p.option}” nie jest opcją pytania „${p.question}”`,

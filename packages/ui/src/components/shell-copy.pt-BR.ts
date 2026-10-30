@@ -80,6 +80,7 @@ export const ptBR: ShellMessages = {
     organize: "Organizar barra lateral",
     byProject: "Agrupar por projeto",
     flat: "Em uma lista",
+    byStatus: "Agrupar por status",
     sortSessions: "Ordenar sessões",
     byRecent: "Atividade recente",
     byName: "Nome",
@@ -87,8 +88,8 @@ export const ptBR: ShellMessages = {
   sidebarRows: {
     noProject: "Fora de um projeto",
     rowActions: (title: string) => `Ações de “${title}”`,
-    togglePin: (pinned: boolean, title: string) => `${pinned ? "Desafixar" : "Âncora"} “${title}”`,
-    archiveNamed: (title: string) => `Arquivar “${title}”`,
+    markUnread: "Marcar como não lida",
+    markRead: "Marcar como lida",
     archive: "Arquivar sessão",
     projectActions: (name: string) => `Ações do projeto “${name}”`,
     showInSpace: "Mostrar no Space",

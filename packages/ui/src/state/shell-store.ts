@@ -23,7 +23,7 @@ import {
   type ModelPage,
   type SettingsSection,
 } from '../model/settings-nav.ts';
-import type { SidebarSort } from '../model/sidebar.ts';
+import type { SidebarGrouping, SidebarSort } from '../model/sidebar.ts';
 import { SPACE_CATEGORIES, type SpaceCategory, type SpaceSort } from '../model/space.ts';
 import { toolIdOf, type ToolId } from '../model/tool-catalog.ts';
 import {
@@ -116,8 +116,8 @@ export interface ShellStore {
   /** 还没建出来的新会话（草稿键）选的访问模式。建好的会话的访问模式在 Runtime 里，不在这里。 */
   draftAccessModes: Record<string, AgentMode>;
   expandedProjects: Id[];
-  /** Home 侧栏「整理侧栏」：按项目分组，或所有会话在一个列表中。 */
-  sidebarGrouping: 'project' | 'flat';
+  /** Home 侧栏「整理侧栏」：按项目分组、所有会话在一个列表中，或要你处理的按状态分段。 */
+  sidebarGrouping: SidebarGrouping;
   sidebarSort: SidebarSort;
   colorScheme: ColorScheme;
   /** 界面语言（设置 › 通用）：`system` 跟随系统。桌面端还把它写进 Runtime 的 `ui.language`（state/locale.ts）。 */
@@ -228,7 +228,7 @@ export interface ShellStore {
   setVideoChat(key: string, conversationId: Id | null): void;
   setVideoChatMin(min: boolean): void;
   setExpandedProjects(ids: Id[]): void;
-  setSidebarGrouping(grouping: 'project' | 'flat'): void;
+  setSidebarGrouping(grouping: SidebarGrouping): void;
   setSidebarSort(sort: SidebarSort): void;
   setColorScheme(scheme: ColorScheme): void;
   setNotifications(on: boolean): void;

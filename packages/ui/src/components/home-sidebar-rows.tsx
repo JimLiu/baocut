@@ -1,8 +1,6 @@
 import type { ReactElement } from 'react';
 import type { Conversation } from '@baocut/protocol';
 import {
-  ActionButton,
-  ActionButtonGroup,
   ActionMenu,
   MenuItem,
   MenuSection,
@@ -11,8 +9,6 @@ import {
   SideNavItemContent,
   SideNavItemLink,
   Text,
-  Tooltip,
-  TooltipTrigger,
 } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
@@ -29,6 +25,8 @@ import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import PinOff from '@react-spectrum/s2/icons/PinOff';
 import PinOn from '@react-spectrum/s2/icons/PinOn';
 import Settings from '@react-spectrum/s2/icons/Settings';
+import Visibility from '@react-spectrum/s2/icons/Visibility';
+import VisibilityOff from '@react-spectrum/s2/icons/VisibilityOff';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { revealLabel, untitled } from '../copy.ts';
 import { S } from './shell-copy.ts';
@@ -85,19 +83,35 @@ function SessionTail({ conversation }: { conversation: Conversation }) {
 export interface ConversationRowActions {
   togglePin(conversation: Conversation): void;
   archive(conversation: Conversation): void;
+  markUnread(conversation: Conversation): void;
+  markRead(conversation: Conversation): void;
 }
 
 /**
- * 会话行（置顶、项目下、最近、单表四处同一个）：单行标题 + 行尾状态；完整状态、项目与时间放在悬停说明里。
- * 悬停或聚焦时行尾出现置顶与归档。置顶的会话带一个对话气泡图标。
+ * 会话行（置顶、项目下、最近、单表、状态分段几处同一个）：单行标题 + 行尾状态；完整状态、项目与时间放在悬停说明里。
+ * 悬停或聚焦时行尾出现「⋯」：置顶、标为未读（已是未读时换成标为已读）、归档。置顶的会话带一个对话气泡图标。
+ * 标为未读只给已读、没有别的状态的会话；正打开着的那条一看就会被标回已读，也不让点。
  */
 export function conversationItem(
   conversation: Conversation,
   key: string,
-  { now, projectName, pinned = false, actions }: { now: number; projectName: string | null; pinned?: boolean; actions: ConversationRowActions },
+  {
+    now,
+    projectName,
+    pinned = false,
+    open = false,
+    actions,
+  }: { now: number; projectName: string | null; pinned?: boolean; open?: boolean; actions: ConversationRowActions },
 ) {
   const title = conversation.title || untitled();
   const status = conversationStatus(conversation);
+  const tailStatus = sessionStatus(conversation);
+  const onAction = (action: string) => {
+    if (action === 'pin') actions.togglePin(conversation);
+    else if (action === 'unread') actions.markUnread(conversation);
+    else if (action === 'read') actions.markRead(conversation);
+    else if (action === 'archive') actions.archive(conversation);
+  };
   const detail = [title, projectName ?? S.sidebarRows.noProject, status?.label, agoLabel(conversation.updatedAt, now)].filter(Boolean).join(' · ');
   return (
     <SideNavItem
@@ -116,20 +130,33 @@ export function conversationItem(
             </span>
           </Text>
         </SideNavItemLink>
-        <ActionButtonGroup isQuiet size="S" UNSAFE_className="bc-row-actions" aria-label={S.sidebarRows.rowActions(title)}>
-          <TooltipTrigger>
-            <ActionButton aria-label={S.sidebarRows.togglePin(conversation.pinned, title)} onPress={() => actions.togglePin(conversation)}>
-              {conversation.pinned ? <PinOff /> : <PinOn />}
-            </ActionButton>
-            <Tooltip>{conversation.pinned ? S.common.unpin : S.common.pin}</Tooltip>
-          </TooltipTrigger>
-          <TooltipTrigger>
-            <ActionButton aria-label={S.sidebarRows.archiveNamed(title)} onPress={() => actions.archive(conversation)}>
-              <Archive />
-            </ActionButton>
-            <Tooltip>{S.sidebarRows.archive}</Tooltip>
-          </TooltipTrigger>
-        </ActionButtonGroup>
+        <ActionMenu
+          aria-label={S.sidebarRows.rowActions(title)}
+          isQuiet
+          size="S"
+          disabledKeys={tailStatus || open ? ['unread'] : undefined}
+          onAction={(action) => onAction(String(action))}>
+          <MenuItem id="pin" textValue={conversation.pinned ? S.common.unpin : S.common.pin}>
+            {conversation.pinned ? <PinOff /> : <PinOn />}
+            <Text>{conversation.pinned ? S.common.unpin : S.common.pin}</Text>
+          </MenuItem>
+          {/* 两个分支各带 key：已读、未读之间切换时换一个条目，集合不允许同一个条目改 id。 */}
+          {tailStatus === 'unread' ? (
+            <MenuItem key="read" id="read" textValue={S.sidebarRows.markRead}>
+              <Visibility />
+              <Text>{S.sidebarRows.markRead}</Text>
+            </MenuItem>
+          ) : (
+            <MenuItem key="unread" id="unread" textValue={S.sidebarRows.markUnread}>
+              <VisibilityOff />
+              <Text>{S.sidebarRows.markUnread}</Text>
+            </MenuItem>
+          )}
+          <MenuItem id="archive" textValue={S.sidebarRows.archive}>
+            <Archive />
+            <Text>{S.sidebarRows.archive}</Text>
+          </MenuItem>
+        </ActionMenu>
       </SideNavItemContent>
     </SideNavItem>
   );

@@ -44,6 +44,7 @@ export const nl: HarnessAgentsMessages = {
   notQuestion: 'Deze goedkeuring is geen vraag',
   planDecisionOnly: 'Een plan kan alleen worden goedgekeurd (accept) of afgewezen (decline)',
   accessModeOnlyForPlan: 'accessMode geldt alleen bij het goedkeuren van een plan',
+  markUnreadIdleOnly: 'Alleen een sessie die niet bezig is, niet op je wacht en niet mislukt is, kan als ongelezen worden gemarkeerd',
   questionUnanswered: (p) => `Geen antwoord op ‘${p.question}’`,
   questionSingleChoice: (p) => `‘${p.question}’ staat maar één antwoord toe`,
   questionUnknownOption: (p) => `‘${p.option}’ is geen optie van ‘${p.question}’`,

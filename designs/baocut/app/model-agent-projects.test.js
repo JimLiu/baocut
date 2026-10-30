@@ -194,6 +194,20 @@ test('sidebar organization preserves ownership and returns each session once in 
   assert.equal(JSON.stringify(t), before);
 });
 
+test('按状态分组：要你处理的按急迫度分段，空段不出，其余进「其他会话」，段内跟排序走', () => {
+  const view = P.sidebarView(P.tree({dirs, movies, sessions}));
+  assert.deepEqual(view.byStatus.groups.map((g) => [g.k, g.label, g.sessions.map((s) => s.id)]), [
+    ['waiting', '等你处理', ['c']], ['failed', '失败', ['d']], ['running', '进行中', ['a']],
+    ['review', '有待审阅结果', ['b']], ['unread', '已完成未读', ['e']],
+  ]);
+  assert.deepEqual(view.byStatus.rest.map((s) => s.id), ['f']);
+  const more = [...sessions, S('g', {ago: 1, unread: true}), S('h', {title: 'a2', ago: 90, unread: true})];
+  const named = P.sidebarView(P.tree({dirs, movies, sessions: more}), {sort: 'name'});
+  assert.deepEqual(named.byStatus.groups.find((g) => g.k === 'unread').sessions.map((s) => s.id), ['h', 'e', 'g']);
+  const calm = P.sidebarView(P.tree({dirs, movies, sessions: [S('x'), S('y', {ago: 3})]}));
+  assert.deepEqual([calm.byStatus.groups, calm.byStatus.rest.map((s) => s.id)], [[], ['y', 'x']]);
+});
+
 test('archived sessions leave sidebar, notifications and automatic movie session selection; undo restores them', () => {
   const archived = sessions.map((s) => ({...s, archived: true}));
   const t = P.tree({dirs, movies, sessions: archived});

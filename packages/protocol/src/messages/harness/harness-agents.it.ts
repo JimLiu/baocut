@@ -27,6 +27,7 @@ export const it: HarnessAgentsMessages = {
   notQuestion: 'Questa approvazione non è una domanda',
   planDecisionOnly: 'Un piano può solo essere approvato (accept) o rifiutato (decline)',
   accessModeOnlyForPlan: 'accessMode vale solo quando si approva un piano',
+  markUnreadIdleOnly: 'Si può segnare come non letta solo una sessione che non è in corso, non ti sta aspettando e non è fallita',
   questionUnanswered: (p) => `Nessuna risposta a «${p.question}»`,
   questionSingleChoice: (p) => `«${p.question}» ammette una sola risposta`,
   questionUnknownOption: (p) => `«${p.option}» non è un’opzione di «${p.question}»`,

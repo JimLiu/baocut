@@ -40,6 +40,13 @@ describe('attention', () => {
     expect(attentionEvents(prev, next)).toEqual([{ conversationId: 'a', title: 'Title a', kind: 'approval' }]);
   });
 
+  it('手动标为未读（产品设计 §3.1）只改 unread，不提醒、不进徽标数', () => {
+    const prev = [conv('a', 'idle')];
+    const next = [{ ...conv('a', 'idle'), unread: true }];
+    expect(attentionEvents(prev, next)).toEqual([]);
+    expect(waitingCount(next)).toBe(waitingCount(prev));
+  });
+
   it('徽标数：在等批准或回答的、没归档的会话', () => {
     expect(
       waitingCount([

@@ -38,6 +38,7 @@ export const zhHans: HarnessAgentsMessages = {
   notQuestion: '这条审批不是提问',
   planDecisionOnly: '方案只能批准（accept）或拒绝（decline）',
   accessModeOnlyForPlan: 'accessMode 只用于批准方案',
+  markUnreadIdleOnly: '只有不在进行中、不在等你、也没失败的会话才能标为未读',
   questionUnanswered: (p) => `「${p.question}」还没有回答`,
   questionSingleChoice: (p) => `「${p.question}」只能选一个答案`,
   questionUnknownOption: (p) => `「${p.option}」不是「${p.question}」的选项`,

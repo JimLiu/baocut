@@ -3,6 +3,7 @@ import type { SidebarMessages } from './sidebar.ts';
 export const ja: SidebarMessages = {
   status: { answer: '回答待ち', waiting: '承認待ち', failed: '失敗', running: '実行中', unread: '完了・未読' },
   stopping: '停止中',
+  group: { waiting: '対応待ち', rest: 'その他のセッション' },
   count: {
     answer: (n: number) => `回答待ち ${n} 件`,
     waiting: (n: number) => `承認待ち ${n} 件`,

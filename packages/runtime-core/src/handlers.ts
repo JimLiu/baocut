@@ -402,6 +402,7 @@ export function createHandlers({
       'conversations.page': (p) => harness.pageConversation(p.conversationId, p.before, p.turns),
       'conversations.update': async (p) => ({ conversation: await harness.updateConversation(p) }),
       'conversations.markRead': (p) => ({ conversation: harness.markRead(p.conversationId) }),
+      'conversations.markUnread': (p) => ({ conversation: harness.markUnread(p.conversationId) }),
       'conversations.delete': async (p) => {
         await harness.deleteConversation(p.conversationId);
         return { deleted: true as const };

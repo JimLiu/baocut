@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Conversation, Project } from '@baocut/protocol';
-import { buildArchived, buildSidebar, conversationStatus, liveWord, sessionStatus } from './sidebar.ts';
+import { buildArchived, buildSidebar, conversationStatus, liveWord, restGroupLabel, sessionStatus, statusGroupLabel } from './sidebar.ts';
 
 const project = (id: string, patch: Partial<Project> = {}): Project => ({
   id,
@@ -112,6 +112,36 @@ describe('buildSidebar', () => {
     expect(tree.flat.map((c) => c.id)).toEqual(['c2', 'c3', 'c1']);
     const recent = buildSidebar([project('p1')], [conversation('a', { projectId: 'p1', updatedAt: '2026-10-01T09:00:00.000Z' }), conversation('b')]);
     expect(recent.flat.map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  it('按状态分组：要你处理的按急迫度分段，空段不出，其余进「其他会话」，段内跟单表的次序', () => {
+    const at = (h: number) => `2026-10-01T0${h}:00:00.000Z`;
+    const tree = buildSidebar(
+      [project('p1')],
+      [
+        conversation('idle-new', { projectId: 'p1', updatedAt: at(9) }),
+        conversation('unread', { unread: true, updatedAt: at(8) }),
+        conversation('run', { projectId: 'p1', activity: 'running', updatedAt: at(7) }),
+        conversation('ask', { activity: 'awaiting-answer', updatedAt: at(6) }),
+        conversation('fail', { activity: 'failed', updatedAt: at(5) }),
+        conversation('approve', { projectId: 'p1', activity: 'awaiting-approval', updatedAt: at(4) }),
+        conversation('idle-old', { updatedAt: at(3) }),
+        conversation('gone', { activity: 'failed', archived: true }),
+      ],
+    );
+    expect(tree.byStatus.groups.map((g) => [g.status, g.conversations.map((c) => c.id)])).toEqual([
+      ['waiting', ['ask', 'approve']],
+      ['failed', ['fail']],
+      ['running', ['run']],
+      ['unread', ['unread']],
+    ]);
+    expect(tree.byStatus.rest.map((c) => c.id)).toEqual(['idle-new', 'idle-old']);
+    expect(statusGroupLabel('waiting')).toBe('等你处理');
+    expect(statusGroupLabel('failed')).toBe('失败');
+    expect(restGroupLabel()).toBe('其他会话');
+
+    const calm = buildSidebar([], [conversation('x')]);
+    expect(calm.byStatus).toEqual({ groups: [], rest: [calm.flat[0]] });
   });
 });
 

@@ -42,6 +42,7 @@ export const ja: HarnessAgentsMessages = {
   notQuestion: 'この承認は質問ではありません',
   planDecisionOnly: 'プランは承認（accept）か却下（decline）のみできます',
   accessModeOnlyForPlan: 'accessMode はプランを承認するときだけ使えます',
+  markUnreadIdleOnly: '実行中・あなた待ち・失敗のセッションは未読にできません',
   questionUnanswered: (p) => `「${p.question}」に回答がありません`,
   questionSingleChoice: (p) => `「${p.question}」は回答を 1 つだけ選べます`,
   questionUnknownOption: (p) => `「${p.option}」は「${p.question}」の選択肢ではありません`,

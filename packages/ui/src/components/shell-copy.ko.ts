@@ -77,6 +77,7 @@ export const ko: ShellMessages = {
     organize: '사이드바 정리',
     byProject: '프로젝트별로 묶기',
     flat: '한 목록으로 보기',
+    byStatus: '상태별로 묶기',
     sortSessions: '세션 정렬',
     byRecent: '최근 활동',
     byName: '이름',
@@ -84,8 +85,8 @@ export const ko: ShellMessages = {
   sidebarRows: {
     noProject: '프로젝트에 속하지 않음',
     rowActions: (title) => `“${title}” 메뉴`,
-    togglePin: (pinned, title) => `“${title}” ${pinned ? '고정 해제' : '고정'}`,
-    archiveNamed: (title) => `“${title}” 보관`,
+    markUnread: '읽지 않음으로 표시',
+    markRead: '읽음으로 표시',
     archive: '세션 보관',
     projectActions: (name) => `“${name}” 프로젝트 메뉴`,
     showInSpace: 'Space에서 보기',

@@ -44,6 +44,7 @@ export const fr: HarnessAgentsMessages = {
   notQuestion: "Cette approbation n'est pas une question",
   planDecisionOnly: 'Un plan ne peut être qu’approuvé (accept) ou refusé (decline)',
   accessModeOnlyForPlan: 'accessMode ne s’applique qu’à l’approbation d’un plan',
+  markUnreadIdleOnly: 'Seule une session ni en cours, ni en attente de vous, ni en échec peut être marquée comme non lue',
   questionUnanswered: (p) => `Aucune réponse à « ${p.question} »`,
   questionSingleChoice: (p) => `« ${p.question} » n'accepte qu'une réponse`,
   questionUnknownOption: (p) => `« ${p.option} » n'est pas une option de « ${p.question} »`,

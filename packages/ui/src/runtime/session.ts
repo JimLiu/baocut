@@ -400,6 +400,10 @@ export class RuntimeSession {
     await this.client.request('conversations.markRead', { conversationId });
   }
 
+  async markUnread(conversationId: Id): Promise<void> {
+    await this.client.request('conversations.markUnread', { conversationId });
+  }
+
   async updateSpaceEntry(entryId: Id, patch: { favorite?: boolean; displayName?: string | null; trashed?: boolean }): Promise<SpaceEntry> {
     const { entry } = await this.client.request('space.update', { entryId, ...patch });
     return entry;

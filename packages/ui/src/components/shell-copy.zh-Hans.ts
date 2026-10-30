@@ -77,6 +77,7 @@ export const zhHans: ShellMessages = {
     organize: '整理侧栏',
     byProject: '按项目分组',
     flat: '在一个列表中',
+    byStatus: '按状态分组',
     sortSessions: '会话排序',
     byRecent: '最近活动',
     byName: '名称',
@@ -84,8 +85,8 @@ export const zhHans: ShellMessages = {
   sidebarRows: {
     noProject: '不属于任何项目',
     rowActions: (title) => `「${title}」的操作`,
-    togglePin: (pinned, title) => `${pinned ? '取消置顶' : '置顶'}「${title}」`,
-    archiveNamed: (title) => `归档「${title}」`,
+    markUnread: '标为未读',
+    markRead: '标为已读',
     archive: '归档会话',
     projectActions: (name) => `项目「${name}」的操作`,
     showInSpace: '在 Space 中显示',

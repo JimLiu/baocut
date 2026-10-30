@@ -4,6 +4,7 @@ import { pluralForm } from '@baocut/protocol';
 export const ptBR: SidebarMessages = {
   status: { answer: 'Aguardando sua resposta', waiting: 'Aguardando aprovação', failed: 'Falhou', running: 'Em andamento', unread: 'Concluído, não lido' },
   stopping: 'Parando',
+  group: { waiting: 'Precisa de você', rest: 'Outras sessões' },
   count: {
     answer: (n: number) => `${n} aguardando sua resposta`,
     waiting: (n: number) => `${n} aguardando aprovação`,

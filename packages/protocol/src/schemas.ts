@@ -1031,6 +1031,7 @@ export const methodParamSchemas = {
     spaceReadScope: z.null().optional(),
   }),
   'conversations.markRead': z.object({ conversationId: id }),
+  'conversations.markUnread': z.object({ conversationId: id }),
   'conversations.delete': z.object({ conversationId: id }),
   'conversations.send': z.object({
     conversationId: id,

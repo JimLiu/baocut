@@ -119,16 +119,26 @@
     return {projects, loose: byRecent(loose), pinned};
   }
 
-  /** Sidebar organization is a projection: changing it never changes ownership. */
+  /** 「按状态分组」的段名（§3.1）：等批准与等回答合成一段「等你处理」。 */
+  const STATUS_GROUP_LABEL = {waiting: '等你处理', failed: '失败', running: '进行中', review: '有待审阅结果', unread: '已完成未读'};
+
+  /**
+   * Sidebar organization is a projection: changing it never changes ownership.
+   * `byStatus`：「按状态分组」——有状态的会话按急迫度分段（空段不出），其余的进 `rest`（「其他会话」）；段内按所选排序。
+   */
   function sidebarView(t, options = {}) {
     const order = (rows) => options.sort === 'name'
       ? [...rows].sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'zh-CN'))
       : byRecent(rows);
+    const flat = order(t.projects.flatMap((p) => p.sessions).concat(t.loose));
+    const groups = ORDER.map((k) => ({k, label: STATUS_GROUP_LABEL[k], sessions: flat.filter((s) => sessionStatus(s) === k)}))
+      .filter((g) => g.sessions.length);
     return {
       ...t,
       projects: t.projects.map((p) => ({...p, sessions: order(p.sessions)})),
       loose: order(t.loose),
-      flat: order(t.projects.flatMap((p) => p.sessions).concat(t.loose)),
+      flat,
+      byStatus: {groups, rest: flat.filter((s) => !sessionStatus(s))},
     };
   }
 

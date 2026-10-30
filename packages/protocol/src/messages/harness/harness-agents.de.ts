@@ -44,6 +44,7 @@ export const de: HarnessAgentsMessages = {
   notQuestion: 'Diese Genehmigung ist keine Frage',
   planDecisionOnly: 'Ein Plan kann nur genehmigt (accept) oder abgelehnt (decline) werden',
   accessModeOnlyForPlan: 'accessMode gilt nur beim Genehmigen eines Plans',
+  markUnreadIdleOnly: 'Nur eine Sitzung, die weder läuft noch auf Sie wartet noch fehlgeschlagen ist, kann als ungelesen markiert werden',
   questionUnanswered: (p) => `Keine Antwort auf „${p.question}“`,
   questionSingleChoice: (p) => `„${p.question}“ erlaubt nur eine Antwort`,
   questionUnknownOption: (p) => `„${p.option}“ ist keine Option von „${p.question}“`,

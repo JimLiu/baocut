@@ -470,6 +470,11 @@ export interface RpcMethods {
   };
   /** 用户看过了：清掉「已完成未读」。 */
   'conversations.markRead': { params: { conversationId: Id }; result: { conversation: Conversation } };
+  /**
+   * 侧栏的「标为未读」（产品设计 §3.1）：给做完且看过的会话重新挂上「已完成未读」，不改最近活动、不发提醒。只给空闲的会话：
+   * 进行中、等待与失败各有自己的状态，以 `invalid-request` 拒绝。
+   */
+  'conversations.markUnread': { params: { conversationId: Id }; result: { conversation: Conversation } };
   /** 只删除 Runtime Store 里的会话记录，不删项目目录里的任何文件（架构设计 §3.10）。 */
   'conversations.delete': { params: { conversationId: Id }; result: { deleted: true } };
   /**

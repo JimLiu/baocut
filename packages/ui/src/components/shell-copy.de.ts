@@ -80,6 +80,7 @@ export const de: ShellMessages = {
     organize: "Seitenleiste organisieren",
     byProject: "Nach Projekt gruppieren",
     flat: "In einer Liste",
+    byStatus: "Nach Status gruppieren",
     sortSessions: "Sitzungen sortieren",
     byRecent: "Letzte Aktivität",
     byName: "Name",
@@ -87,8 +88,8 @@ export const de: ShellMessages = {
   sidebarRows: {
     noProject: "Nicht in einem Projekt",
     rowActions: (title: string) => `Aktionen für „${title}“`,
-    togglePin: (pinned: boolean, title: string) => `${pinned ? "Lösen" : "Anker"} „${title}“`,
-    archiveNamed: (title: string) => `Archivieren: „${title}“`,
+    markUnread: "Als ungelesen markieren",
+    markRead: "Als gelesen markieren",
     archive: "Sitzung archivieren",
     projectActions: (name: string) => `Aktionen für Projekt „${name}“`,
     showInSpace: "In Space anzeigen",
