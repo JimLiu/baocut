@@ -169,6 +169,7 @@
     if (m.role === 'permission') return <PermissionMsg m={m} sid={sess.id} />;
     if (m.role === 'question') return <window.AgentQuestionMsg m={m} sid={sess.id} />;
     if (m.role === 'plan') return <window.AgentPlanMsg m={m} sid={sess.id} />;
+    if (m.role === 'marker') return <window.AgentMarker m={m} />;
     return null;
   }
 
@@ -641,7 +642,7 @@
                     {cardAt && cardAt.has(m.id) && window.AgentRowCards ? <window.AgentRowCards cards={cardAt.get(m.id)} sess={cur} /> : null}
                   </div>
                   {/* 原先线程末尾的「正在回复」占位并进了页脚：这一轮在跑就是「正在工作 · 0:42」，停下来等放行是「等你允许」 */}
-                  {showFoot ? <AgentTurnFooter turn={foot.turn} live={foot.live} waiting={foot.live && TURN.waitingFor(cur)}
+                  {showFoot ? <AgentTurnFooter turn={foot.turn} live={foot.live} waiting={foot.live && TURN.waitingFor(cur)} sess={cur}
                     className={`agap-${TURN.gapBetween(kind, 'footer')}`} /> : null}
                   {showFoot && foot.last && implementable ? <window.AgentPlanImplementRow sid={cur.id} /> : null}
                 </React.Fragment>;

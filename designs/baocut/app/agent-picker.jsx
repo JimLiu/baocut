@@ -64,9 +64,10 @@
     return (
       <>
         <Menu>
-          <MenuItem icon="chevleft" label={h.name} sub={String(h.account || '本机').split(' · ')[0]} onClick={onBack} />
-          <MenuRule />
-          <MenuHead>模型</MenuHead>
+          {/* 导入的会话固定是来源那一家（产品设计 §3.1「导入外部会话」）：没有返回行，只换模型，组名写明 */}
+          {onBack ? <MenuItem icon="chevleft" label={h.name} sub={String(h.account || '本机').split(' · ')[0]} onClick={onBack} /> : null}
+          {onBack ? <MenuRule /> : null}
+          <MenuHead>{onBack ? '模型' : `模型 · 导入的会话固定用 ${h.name}`}</MenuHead>
           {AG.modelRows(h, sel, window.BC_AGENT_SETUP.defaultModelGate(h)).map((m) => (
             <MenuItem key={m.id || '__dflt'} label={m.name} sub={m.sub} on={m.on} onClick={() => onPick(m.id)} />
           ))}
@@ -84,7 +85,8 @@
     const app = useApp();
     const lv = usePickerLevels();
     const h = app.harnessList.find((x) => x.id === sel.harness) || app.harness;
-    const cur = lv.level ? app.harnessList.find((x) => x.id === lv.level) : null;
+    const locked = !!(sel.importedFrom && h && h.id === sel.harness);
+    const cur = locked ? h : lv.level ? app.harnessList.find((x) => x.id === lv.level) : null;
     const goSettings = () => { lv.close(); app.go({r: 'settings', sec: 'agent'}); };
     const eff = D.agent.efforts;
     const curEff = eff.find((e) => e.k === (sel.effort || 'mid')) || eff[1];
@@ -102,7 +104,7 @@
             </ProviderLevel>
           </>
         ) : (
-          <ModelLevel h={cur} sel={sel} onBack={() => lv.setLevel(null)}
+          <ModelLevel h={cur} sel={sel} onBack={locked ? null : () => lv.setLevel(null)}
             onPick={(id) => { onChange({harness: cur.id, model: id}); lv.close(); }}>
             <MenuRule />
             <Menu>

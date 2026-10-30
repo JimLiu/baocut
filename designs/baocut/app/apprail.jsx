@@ -108,6 +108,11 @@
                 <span className={`utility-nav__dot utility-nav__dot--${tone}`} aria-hidden="true" />, `${s.name} · ${label}`);
             })}
           </R.SideNavSection>}
+          {/* 定时任务（产品设计 §6.1「定时任务」）：在会话标题栏 ⋯「定时运行…」里建，这里一行一个、点开是详情页 */}
+          {kind === 'tasks' && app.schedules && app.schedules.length ? <R.SideNavSection id="group:schedules">
+            <R.SideNavHeader>定时 · {app.schedules.length}</R.SideNavHeader>
+            {window.scheduleRows(app, row)}
+          </R.SideNavSection> : null}
           {kind === 'tasks' && groups.filter(g => g.items.length).map(g => <R.SideNavSection key={g.id} id={`group:${g.id}`}>
             <R.SideNavHeader>{g.label} · {g.items.length}</R.SideNavHeader>
             {g.items.map(t => {

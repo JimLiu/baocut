@@ -2315,6 +2315,38 @@
   const turnDone = (ago, secs) => ({startedAt: Date.now() - ago * 60000 - secs * 1000, endedAt: Date.now() - ago * 60000});
   const turnLive = (secs) => ({startedAt: Date.now() - secs * 1000});
 
+  /* 本机终端里的会话（产品设计 §3.1「导入外部会话」）：Claude Code 读 ~/.claude/projects，Codex 读它的会话列表。
+     `ago` 是最后一次活动在多少分钟前；`history` 是原会话的记录（导入时复制进 BaoCut，工具调用照样成为步骤）；
+     `cwdMissing`：原目录已经不在了，不能导入。第一条已经导入过（会话 s50），对话框里写「已导入」、按钮换成「打开」。 */
+  const launchScriptHistory = [
+    {role: 'user', text: '发布会的口播稿太长了，压到 90 秒以内，先别动产品名和价格那两句。', ...turnDone(60 * 26, 64)},
+    {role: 'tool', kind: 'read', cmd: '读取 script/launch-v3.md', status: 'done', took: '0.1s'},
+    {role: 'assistant', text: '现在是 142 秒。我把开场的行业背景压成一句、删掉第二段重复的卖点，价格和产品名原样保留，估计能到 88 秒。改好的稿子写在 script/launch-v4.md。'},
+    {role: 'user', text: '可以，再把结尾的号召改短一点。', ...turnDone(60 * 25, 22)},
+    {role: 'assistant', text: '结尾从三句改成一句：「今天起，预约就能先拿到。」现在 84 秒。'},
+  ];
+  const externalSessions = [
+    {agent: 'claude', nativeId: '7c1f2a90-launch', cwd: '~/BaoCut/新品发布/', title: '发布会的口播稿太长了，压到 90 秒以内', ago: 60 * 25, turns: 2, history: launchScriptHistory},
+    {agent: 'claude', nativeId: '3b88d0e1-hero', cwd: '~/Code/landing-page/', title: '给落地页的首屏做一段 6 秒的循环视频', ago: 180, turns: 3, history: [
+      {role: 'user', text: '给落地页的首屏做一段 6 秒的循环视频，素材在 public/hero/。', ...turnDone(200, 31)},
+      {role: 'tool', kind: 'command', cmd: 'ls public/hero', status: 'done', took: '0.1s', out: 'shot-01.mov  shot-02.mov  logo.svg'},
+      {role: 'assistant', text: '两段素材各 12 秒。我打算取 shot-01 的 2–5 秒和 shot-02 的 7–10 秒，首尾做交叉淡化让它能无缝循环。'},
+      {role: 'user', text: '好，先出一版。', ...turnDone(190, 95)},
+      {role: 'assistant', text: '出了 public/hero/loop.mp4，6 秒、1920×1080、没有声音。循环点在 6.0 秒处看不出接缝。'},
+      {role: 'user', text: '再出一个竖版给手机。', ...turnDone(180, 70)},
+      {role: 'assistant', text: '竖版 loop-mobile.mp4 也好了，1080×1920，主体居中裁切。'},
+    ]},
+    {agent: 'claude', nativeId: 'e01d77c4-old', cwd: '~/Movies/去年的素材/', title: '去年的素材里挑 10 个最好看的镜头', ago: 60 * 24 * 3, turns: 1, history: [
+      {role: 'user', text: '去年的素材里挑 10 个最好看的镜头。'},
+      {role: 'assistant', text: '挑好了，清单在 picks.md。'},
+    ]},
+    {agent: 'codex', nativeId: 'thr_9a2c41', cwd: '~/BaoCut/科浪访谈-42/', title: '核对第 42 期英文字幕里的术语', ago: 120, turns: 1, history: [
+      {role: 'user', text: '核对第 42 期英文字幕里的术语，和 glossary.md 对一遍。'},
+      {role: 'assistant', text: '对完了：render 有 3 处写成 rasterize，已列在 terms-diff.md，没改原文件。'},
+    ]},
+    {agent: 'codex', nativeId: 'thr_51ff07', cwd: '~/scratch/demo-gif/', cwdMissing: true, title: '把录屏剪成 15 秒的 GIF', ago: 60 * 24 * 6, turns: 2, history: []},
+  ];
+
   const agent = {
     harnesses: [
       /* 2026-09-18（设置 › Agent 重设计）：探测结果多带几样——cmd（终端里敲的名字）、minVer / latest
@@ -2946,6 +2978,15 @@
       {id: 's13', title: '把一期播客切成 5 条短视频的思路', project: null, harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'done', ago: 14400,
        messages: [{id: 'm1', role: 'user', text: '把一期播客切成 5 条短视频的思路'}]},
+      /* 从 Claude Code 导入的会话（产品设计 §3.1「导入外部会话」）：前面是复制进来的原记录，一条「以上导入自 …」分隔线，
+         之后在 BaoCut 里接着做；Agent 固定是来源那一家（输入框的 Agent 菜单只能换模型） */
+      {id: 's50', title: '发布会的口播稿太长了，压到 90 秒以内', dir: 'd3', harness: 'claude', model: 'sonnet', effort: 'mid',
+       status: 'done', ago: 60 * 20, importedFrom: {agent: 'claude', nativeId: '7c1f2a90-launch'},
+       messages: launchScriptHistory.map((m, i) => ({...m, id: `imp_${i}`})).concat([
+         {id: 'imp_end', role: 'marker', kind: 'imported', text: '以上导入自 Claude Code · 昨天'},
+         {id: 'm1', role: 'user', text: '接着把 v4 的口播稿配上中英字幕。', ...turnDone(60 * 20, 48)},
+         {id: 'm2', role: 'assistant', text: '中英字幕都按 v4 的分句做好了，英文行控制在 42 个字符以内。要导出 SRT 还是直接烧进成片？'},
+       ])},
       /* 已归档的会话（product-design §3.1：归档只影响列表显示）：不进侧栏，在 Home ›「已归档会话」页里恢复或删除。
          archivedAgo：多少分钟前归档的 */
       {id: 's40', title: '片头动画的三个方案先各做一版', project: 'p1', harness: 'claude', model: 'sonnet', effort: 'mid',
@@ -2961,6 +3002,26 @@
       {id: 's43', title: '演讲稿翻译成日语再对一遍口型', project: null, harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'idle', ago: 60 * 24 * 30, archived: true, archivedAgo: 60 * 24 * 20,
        messages: [{id: 'm1', role: 'user', text: '演讲稿翻译成日语再对一遍口型'}]},
+    ],
+    externalSessions,
+    /* 定时任务（产品设计 §6.1「定时任务」）：按频率把一段话发给一条会话，或每次在项目里新开一条。
+       runs 最新的在前；`ago` 是多少分钟前（新跑的记 `at` 时刻）；missed 是 Runtime 没开着时错过的几次，不补跑。 */
+    schedules: [
+      {id: 'sc1', name: '频道周报', status: 'active', cadence: {type: 'weekly', days: [1], time: '09:00'},
+       target: {type: 'new', dir: 'd1'}, mode: 'auto', maxRuns: null,
+       prompt: '看一下这个项目这周新导出的成片，写一份周报：每部一句话、时长、发布到哪了，最后列下周要补的。',
+       runs: [{status: 'done', ago: 60 * 24 * 4 + 60 * 3, took: 212}, {status: 'missed', count: 1, ago: 60 * 24 * 11}, {status: 'done', ago: 60 * 24 * 18, took: 180}]},
+      {id: 'sc2', name: '每晚核对术语', status: 'active', cadence: {type: 'daily', time: '21:00'},
+       target: {type: 'session', id: 's2'}, maxRuns: 10,
+       prompt: '把今天改过的英文字幕再和术语表对一遍，有出入的列出来，先别改。',
+       runs: [{status: 'done', ago: 60 * 13, took: 41, sessionId: 's2'}, {status: 'skipped', ago: 60 * 37}, {status: 'done', ago: 60 * 61, took: 39, sessionId: 's2'},
+         {status: 'missed', count: 2, ago: 60 * 85}, {status: 'failed', ago: 60 * 133, sessionId: 's2'}]},
+      {id: 'sc3', name: '每小时看一眼片头方案', status: 'paused', pauseReason: '目标会话已归档', cadence: {type: 'hourly', minute: 0},
+       target: {type: 'session', id: 's40'}, maxRuns: null, prompt: '看看三个片头方案有没有新反馈。',
+       runs: [{status: 'done', ago: 320, took: 12, sessionId: 's40'}]},
+      {id: 'sc4', name: '发布前三天的预告', status: 'completed', cadence: {type: 'cron', expr: '0 10 * * *'},
+       target: {type: 'new', dir: 'd3'}, mode: 'autoAcceptEdits', maxRuns: 3, prompt: '按发布倒计时出一版 15 秒预告，片尾写「还有 N 天」。',
+       runs: [{status: 'done', ago: 60 * 24 * 7 + 600, took: 300}, {status: 'done', ago: 60 * 24 * 8 + 600, took: 290}, {status: 'done', ago: 60 * 24 * 9 + 600, took: 340}]},
     ],
   };
 

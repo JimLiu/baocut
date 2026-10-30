@@ -24,7 +24,7 @@ test('路由归哪一格：工具 / 服务各亮自己那格；打开的视频�
     [{r: 'tools'}, 'tools'], [{r: 'tools', id: 'tts'}, 'tools'],
     [{r: 'services'}, 'services'], [{r: 'services', id: 'mcp'}, 'services'],
     [{r: 'remote'}, 'services'], [{r: 'tools', id: 'remote'}, 'services'],
-    [{r: 'projects'}, 'space'], [{r: 'sessions'}, 'space'], [{r: 'tasks'}, 'tasks'], [{r: 'task', id: 'j1'}, 'tasks'],
+    [{r: 'projects'}, 'space'], [{r: 'sessions'}, 'space'], [{r: 'tasks'}, 'tasks'], [{r: 'task', id: 'j1'}, 'tasks'], [{r: 'schedule', id: 'sc1'}, 'tasks'],
     [{r: 'settings', sec: 'agent'}, 'settings'], [{r: 'skill'}, 'skills'],
     [{r: 'skills'}, 'skills'], [{r: 'skills', id: 'caption-layout', tab: 'files'}, 'skills'], [{r: 'settings', sec: 'skills'}, 'skills'],
     [{r: 'editor', id: 'p1'}, 'home'], [{r: 'editor', id: 'p1', via: 'home'}, 'home'], [{r: 'editor', id: 'p1', via: 'space'}, 'space'],
@@ -44,7 +44,7 @@ test('页面侧栏：入口及其子页保留对应目录；视频保留入口�
   assert.equal(IA.sideOf({r: 'editor', id: 'p1', via: 'home'}), 'home');
   [{r: 'tools'}, {r: 'tools', id: 'tts'}].forEach(r => assert.equal(IA.sideOf(r), 'tools'));
   [{r: 'services'}, {r: 'services', id: 'web'}, {r: 'remote'}, {r: 'tools', id: 'remote'}].forEach(r => assert.equal(IA.sideOf(r), 'services'));
-  [{r: 'tasks'}, {r: 'task', id: 'j1'}].forEach(r => assert.equal(IA.sideOf(r), 'tasks'));
+  [{r: 'tasks'}, {r: 'task', id: 'j1'}, {r: 'schedule', id: 'sc1'}].forEach(r => assert.equal(IA.sideOf(r), 'tasks'));
   [{r: 'settings'}, {r: 'models'}, {r: 'skill'}, {r: 'skills'}, {r: 'skills', id: 'x'}].forEach(r => assert.equal(IA.sideOf(r), null));
 });
 

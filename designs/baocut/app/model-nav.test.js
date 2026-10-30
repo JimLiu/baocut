@@ -157,3 +157,9 @@ test('编辑器的 view（轻量 / 时间线）进 URL，也算路由的一部�
   assert.ok(!N.isSame({r: 'editor', id: 'p1', view: 'lite'}, {r: 'editor', id: 'p1', view: 'timeline'}));
   assert.ok(N.isSame({r: 'editor', id: 'p1', view: 'lite'}, {r: 'editor', id: 'p1', view: 'lite'}));
 });
+
+test('定时任务详情页经地址往返；没有 id 时落到后台任务', () => {
+  assert.equal(N.hrefFor({r: 'schedule', id: 'sc1'}), '#/schedule/sc1');
+  assert.deepEqual(N.routeFromHref('#/schedule/sc1'), {r: 'schedule', id: 'sc1'});
+  assert.deepEqual(N.routeFromHref('#/schedule'), {r: 'tasks'});
+});

@@ -1,0 +1,80 @@
+/* 会话的分叉、导入、定时（产品设计 §3.2.2「分叉」、§3.1「导入外部会话」、§6.1「定时任务」；agent-fork.jsx / agent-import.jsx / agent-schedule.jsx）。
+   对话框本身是 S2，这里只排正文；线程里的分隔线跟回合页脚同一套灰。 */
+
+/* ---------- 线程里的分隔线：分叉自 / 导入自 ---------- */
+.amark { display: flex; align-items: center; gap: 12px; font-size: 12px; line-height: 1.5; color: var(--gray-600); }
+.amark__rule { flex: 1 1 24px; height: 1px; background: var(--gray-200); }
+.amark__text { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; text-align: center; }
+.amark__text > svg { flex: none; width: 14px; height: 14px; }
+.amark__link { color: var(--gray-700); text-decoration: underline; text-decoration-color: var(--gray-300); text-underline-offset: 2px; }
+.amark__link:hover { color: var(--gray-900); text-decoration-color: currentColor; }
+.amark__context {
+  margin: 8px 0 0; padding: 10px 12px; max-height: 280px; overflow: auto; overscroll-behavior: contain;
+  border-radius: 8px; background: var(--gray-75); border: 1px solid var(--gray-200);
+  font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--gray-800); white-space: pre-wrap; word-break: break-word; user-select: text;
+}
+
+/* ---------- 分叉并把视频回到那时 ---------- */
+.afork__lead { margin: 0; font-size: 14px; line-height: 1.5; color: var(--gray-800); }
+.afork__list { list-style: none; margin: 12px 0 0; padding: 4px 0; border-radius: 8px; background: var(--gray-100); }
+.afork__row { display: flex; flex-direction: column; gap: 2px; padding: 6px 12px; }
+.afork__name { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--gray-900); }
+.afork__name svg { width: 16px; height: 16px; }
+.afork__note { padding-left: 28px; font-size: 12px; line-height: 1.5; color: var(--gray-600); }
+.afork__row.is-disabled .afork__note { color: var(--gray-500); }
+
+/* ---------- 导入外部会话 ---------- */
+.aimp { display: flex; flex-direction: column; gap: 8px; }
+.aimp__bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.aimp__src { font-size: 14px; font-weight: 700; color: var(--gray-800); }
+.aimp__search { flex: 1 1 200px; min-width: 160px; }
+.aimp__where { margin: 0; }
+.aimp__list { max-height: 280px; overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; border: 1px solid var(--gray-200); padding: 4px; }
+.aimp__row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; outline: none; cursor: default; }
+.aimp__row + .aimp__row { margin-top: 2px; }
+.aimp__row[data-hovered] { background: var(--gray-100); }
+.aimp__row[data-selected] { background: var(--blue-100); }
+.aimp__row[data-focus-visible] { outline: 2px solid var(--blue-900); outline-offset: -2px; }
+.aimp__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aimp__t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: var(--gray-900); }
+.aimp__d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--gray-600); }
+.aimp__empty { margin: 8px 0; font-size: 14px; line-height: 1.5; color: var(--gray-600); }
+.aimp__land { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--gray-800); }
+.aimp__land p { margin: 0; }
+.aimp__warn { display: flex; align-items: flex-start; gap: 6px; color: var(--orange-1100); }
+.aimp__warn svg { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.aimp__notes { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+
+/* ---------- 定时任务：建立 / 编辑 ---------- */
+.asch-form { display: flex; flex-direction: column; gap: 16px; }
+.asch-field { display: flex; flex-direction: column; gap: 8px; }
+.asch-field > .t-detail { margin: 0; }
+.asch-label { font-size: 12px; line-height: 1.3; color: var(--gray-700); }
+.asch-cadence { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.asch-time { width: 96px; }
+.asch-cron { flex: 1 1 240px; }
+.asch-limit { display: flex; align-items: center; gap: 12px; }
+.asch-max { width: 96px; }
+.asch-note { margin: 0; }
+.asch-hint { margin: 0; display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.5; color: var(--gray-700); }
+.asch-hint svg { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--blue-900); }
+
+/* ---------- 定时任务：详情页 ---------- */
+.asch-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.asch-head__t { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.asch-head__acts { flex: none; max-width: 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.asch-why { margin: 8px 0 0; }
+.asch-props { margin: 20px 0 12px; display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; font-size: 14px; line-height: 1.5; }
+.asch-props dt { color: var(--gray-600); }
+.asch-props dd { margin: 0; min-width: 0; color: var(--gray-900); }
+.asch-prompt { white-space: pre-wrap; user-select: text; }
+.asch-sub { margin: 24px 0 8px; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.asch-runs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--gray-200); }
+.asch-run { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 4px 0; border-bottom: 1px solid var(--gray-200); font-size: 14px; }
+.asch-run__at { flex: none; width: 96px; color: var(--gray-700); font-variant-numeric: tabular-nums; }
+.asch-run__sess { min-width: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) {
+  .asch-props { grid-template-columns: 1fr; gap: 2px; }
+  .asch-props dd { margin-bottom: 8px; }
+  .asch-run { flex-wrap: wrap; }
+}

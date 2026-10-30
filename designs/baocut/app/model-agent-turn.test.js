@@ -114,6 +114,10 @@ test('turns：按用户消息切回合，正文用空行连接、不含工具', 
   assert.equal(t[2].text, '');
   assert.equal(t[0].user.id, 'u1');
   assert.deepEqual(T.turns([]), []);
+  // 分隔线自成一段、没有用户消息（不画页脚），后面的消息另起一轮
+  const marked = T.turns([{id: 'fork', role: 'marker', kind: 'fork'}, {id: 'u1', role: 'user', text: 'a'}, {id: 'a1', role: 'assistant', text: 'b'},
+    {id: 'imp_end', role: 'marker', kind: 'imported'}, {id: 'u2', role: 'user', text: 'c'}]);
+  assert.deepEqual(marked.map((x) => [x.start, x.end, !!x.user]), [[0, 0, false], [1, 2, true], [3, 3, false], [4, 4, true]]);
 });
 
 test('formatElapsed / clockLabel / footerLabel', () => {

@@ -36,6 +36,13 @@
     const put = (next) => { cache[keyOf(movie, scen)] = next; subs.forEach((f) => f()); };
     return [load(movie, scen), put, () => load(movie, scen)];
   }
+  /** 不经对话框回到版本 n 结束时（会话分叉时「把视频回到那时」，agent-fork.jsx）：同对话框里的回到，记成一个 restore 版本。 */
+  function restoreTo(movie, scen, n) {
+    const r = VV.restore(load(movie, scen), n, false);
+    cache[keyOf(movie, scen)] = r.state;
+    subs.forEach((f) => f());
+    return r;
+  }
   const agentNames = () => Object.fromEntries(((D.agent && D.agent.harnesses) || []).map((h) => [h.id, h.name]));
   const fileName = (n) => `history/${String(n).padStart(6, '0')}.patch`;
 
@@ -463,5 +470,6 @@
     </BCModal>;
   }
 
-  Object.assign(window, {VideoVersionsControl: VersionsControl, VideoVersionsDialog, VideoVersionsStrip: VersionsStrip, loadVideoVersions: load});
+  Object.assign(window, {VideoVersionsControl: VersionsControl, VideoVersionsDialog, VideoVersionsStrip: VersionsStrip, loadVideoVersions: load,
+    restoreVideoVersion: restoreTo});
 })();

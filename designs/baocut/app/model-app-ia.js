@@ -31,7 +31,7 @@
     if (r === 'services' || r === 'remote' || (r === 'tools' && route.id === 'remote')) return 'services';
     if (r === 'models') return 'settings';
     if (r === 'tools') return 'tools';
-    if (r === 'tasks' || r === 'task') return 'tasks';
+    if (r === 'tasks' || r === 'task' || r === 'schedule') return 'tasks';   // 定时任务的详情页挂在后台任务下
     if (r === 'skills' || r === 'skill' || (r === 'settings' && (route.sec === 'skills' || route.sec === 'integrations'))) return 'skills';
     if (r === 'settings') return 'settings';
     return 'home';   // home / agent / 未知

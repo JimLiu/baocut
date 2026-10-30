@@ -88,6 +88,7 @@
 <link rel="stylesheet" href="app/font-library.css">
 <link rel="stylesheet" href="app/agent-messages.css">
 <link rel="stylesheet" href="app/agent-cards.css">
+<link rel="stylesheet" href="app/agent-sessions.css">
 <link rel="stylesheet" href="app/legacy-import.css">
 <link rel="stylesheet" href="app/onboarding.css">
 </head>
@@ -278,6 +279,10 @@
 <script src="app/model-agent-stream.js"></script>
 <script src="app/model-agent-tools.js?v=20261012-emb"></script>
 <script src="app/model-agent-turn.js"></script>
+<!-- 会话的分叉（带记录、把视频回到那时）、导入 Claude Code / Codex 的本机会话、定时任务（只在 App 入口；agent-fork / agent-import / agent-schedule.jsx 读它们） -->
+<script src="app/model-agent-fork.js"></script>
+<script src="app/model-agent-import.js"></script>
+<script src="app/model-agent-schedule.js"></script>
 <!-- Agent 向你提问的草稿与收起规则（只在 App 入口；agent-question.jsx 与 store-agent-sim.jsx 读它） -->
 <script src="app/model-agent-question.js"></script>
 <!-- Agent 写好方案等你批准的摘要与状态词（只在 App 入口；agent-plan.jsx 与 page-agent.jsx 读它） -->
@@ -409,6 +414,9 @@
 <script type="text/jsx" src="app/agent-question.jsx"></script>
 <script type="text/jsx" src="app/agent-plan.jsx"></script>
 <script type="text/jsx" src="app/agent-todo.jsx"></script>
+<script type="text/jsx" src="app/agent-fork.jsx"></script>
+<script type="text/jsx" src="app/agent-import.jsx"></script>
+<script type="text/jsx" src="app/agent-schedule.jsx"></script>
 <script type="text/jsx" src="app/agent-thread.jsx?v=20261002-0317"></script>
 <script type="text/jsx" src="app/page-agent.jsx?v=20261002-0317"></script>
 <script type="text/jsx" src="app/apprail.jsx?v=20261002-0317"></script>

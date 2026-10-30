@@ -177,6 +177,9 @@
       "app/model-agent-stream.js",
       "app/model-agent-tools.js",
       "app/model-agent-turn.js",
+      "app/model-agent-fork.js",
+      "app/model-agent-import.js",
+      "app/model-agent-schedule.js",
       "app/model-agent-question.js",
       "app/model-agent-plan.js",
       "app/model-agent-todo.js",
@@ -297,6 +300,9 @@
       "app/agent-question.jsx",
       "app/agent-plan.jsx",
       "app/agent-todo.jsx",
+      "app/agent-fork.jsx",
+      "app/agent-import.jsx",
+      "app/agent-schedule.jsx",
       "app/agent-thread.jsx",
       "app/page-agent.jsx",
       "app/apprail.jsx",
@@ -515,15 +521,16 @@
       "app/font-library.css",
       "app/agent-messages.css",
       "app/agent-cards.css",
+      "app/agent-sessions.css",
       "app/legacy-import.css",
       "app/onboarding.css",
       "app/subtitle-motion.css",
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=ff2b586fe896",
-    "css": "generated/app.css?v=23a9d433e712",
-    "bytes": 5013560
+    "js": "generated/app.js?v=7ecfc83089da",
+    "css": "generated/app.css?v=7d750eff798a",
+    "bytes": 5058153
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -794,9 +801,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=e84d955ad3df",
+    "js": "generated/web.js?v=7d8b45f0668a",
     "css": "generated/web.css?v=14d3b5850ab6",
-    "bytes": 2886485
+    "bytes": 2893399
   },
   "components": {
     "file": "Components.html",
@@ -821,8 +828,8 @@
       "vendor/react-spectrum-s2/react-spectrum-s2-font.css",
       "app/spectrum.css"
     ],
-    "js": "generated/components.js?v=043c7f5cb7fd",
+    "js": "generated/components.js?v=bef6cb1a279c",
     "css": "generated/components.css?v=86d395b1f9db",
-    "bytes": 114503
+    "bytes": 114713
   }
 }

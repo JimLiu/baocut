@@ -181,11 +181,13 @@
     </span>;
   }
 
-  function TurnFooter({turn, live, waiting, className}) {
+  function TurnFooter({turn, live, waiting, sess, className}) {
     const u = turn.user || {};
     return <div className={cx('aturn', className)}>
       {live ? <LiveClock startedAt={u.startedAt} waiting={waiting} /> : <DoneClock startedAt={u.startedAt} endedAt={u.endedAt} />}
       <span className="grow" />
+      {/* 分叉（产品设计 §3.2.2「分叉」）：只在已结束、有问有答的回合上 */}
+      {sess && window.AgentForkButton && window.BC_AGENT_FORK.forkable(turn, live) ? <window.AgentForkButton sess={sess} turn={turn} /> : null}
       {!live && turn.text ? <CopyButton text={turn.text} label="复制" title="复制这一轮的回复" /> : null}
     </div>;
   }

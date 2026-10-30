@@ -86,7 +86,7 @@
   }
 
   /* 目录不在了时用不了的项目菜单项（它们都要读写这个目录）；置顶与移除只动登记，照常可用。 */
-  const NEEDS_FOLDER = ['new', 'space', 'brand', 'reveal', 'settings'];
+  const NEEDS_FOLDER = ['new', 'space', 'brand', 'reveal', 'settings', 'import'];
 
   /** 从 BaoCut 移除项目（§3.1）：先确认；目录不动，会话一起删。停在这个项目的页面上时回到 Home。 */
   function confirmRemoveDir(app, d, sessionCount) {
@@ -120,6 +120,7 @@
       else if (k === 'brand') app.go({r: 'skills', dir: d.id});
       else if (k === 'reveal') app.toast(`已在文件夹中显示 ${d.path}（演示）`);
       else if (k === 'settings') app.openProjectSettings(d.id);
+      else if (k === 'import') app.openImport(d.id);
       else if (k === 'remove') confirmRemoveDir(app, d, p.sessions.length);
     };
     const hasBrand = window.BC_PROJECT_BRAND.hasBrand(app.projectBrands, d.id);
@@ -148,6 +149,8 @@
                 <R.Text slot="description">{hasBrand ? '这个项目的会话自动参考' : '还没有，新建一份'}</R.Text></R.MenuItem>
               <R.MenuItem id="reveal" textValue="在文件夹中显示"><R.Icons.OpenIn /><R.Text>在文件夹中显示</R.Text></R.MenuItem>
               <R.MenuItem id="settings" textValue="项目设置"><R.Icons.Settings /><R.Text>项目设置…</R.Text></R.MenuItem>
+              {app.openImport ? <R.MenuItem id="import" textValue="导入这个目录的会话"><R.Icons.Import /><R.Text slot="label">导入这个目录的会话…</R.Text>
+                <R.Text slot="description">Claude Code / Codex 在这个目录里的会话</R.Text></R.MenuItem> : null}
             </R.MenuSection>
             <R.MenuSection>
               <R.MenuItem id="remove" textValue="从 BaoCut 移除"><R.Icons.Delete /><R.Text>从 BaoCut 移除…</R.Text></R.MenuItem>
@@ -198,7 +201,7 @@
         <span className="hs-head__actions">
           <R.MenuTrigger>
             <R.ActionButton isQuiet size="S" aria-label="整理项目与会话"><R.Icons.More /></R.ActionButton>
-            <R.Menu aria-label="侧栏设置" onAction={(k) => { if (k === 'archived') app.go({r: 'archived'}); }}>
+            <R.Menu aria-label="侧栏设置" onAction={(k) => { if (k === 'archived') app.go({r: 'archived'}); else if (k === 'import') app.openImport(); }}>
               <R.SubmenuTrigger>
                 <R.MenuItem id="organize" textValue="整理侧栏"><R.Text>整理侧栏</R.Text></R.MenuItem>
                 <R.Menu aria-label="整理侧栏" selectionMode="single" selectedKeys={[grouping]} onSelectionChange={(keys) => app.setPref('sidebarGrouping', [...keys][0])}>
@@ -214,6 +217,8 @@
                   <R.MenuItem id="name" textValue="名称"><R.Text>名称</R.Text></R.MenuItem>
                 </R.Menu>
               </R.SubmenuTrigger>
+              {/* 导入外部会话（产品设计 §3.1）：只有 App 有 */}
+              {app.openImport ? <R.MenuItem id="import" textValue="导入 Claude Code / Codex 会话"><R.Icons.Import /><R.Text>导入 Claude Code / Codex 会话…</R.Text></R.MenuItem> : null}
               <R.MenuItem id="archived" textValue="已归档会话"><R.Icons.Archive /><R.Text>已归档会话</R.Text>
                 {archivedCount ? <R.Text slot="description">{archivedCount} 个会话</R.Text> : null}</R.MenuItem>
             </R.Menu>

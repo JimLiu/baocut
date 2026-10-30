@@ -2,7 +2,7 @@
    window.BC_NAV。纯函数 + 一个 localStorage 键，无 React、无 DOM。
 
    路由记录形状按 docs/design/product/product-design.md §7 的路由状态键表：
-     {r: 'home'|'agent'|'projects'|'tasks'|'task'|'tools'|'services'|'remote'|'settings'|'editor', id?, sec?, tab?, from?, via?, dir?, movie?}
+     {r: 'home'|'agent'|'projects'|'tasks'|'task'|'schedule'|'tools'|'services'|'remote'|'settings'|'editor', id?, sec?, tab?, from?, via?, dir?, movie?}
      `projects` 的 from 是来源项目的 id：只看它切出的短视频（§15.12）
      `editor` 的 via 是从哪个 App Tab 打开的视频（'home' | 'space'，2026-10-01）：两处打开是同一套布局，
      只差 rail 上亮哪一格、「后退」回哪儿，所以它进 isSame——从 Home 与从 Space 打开同一部视频是两条历史
@@ -75,7 +75,7 @@
 
   // Hash URLs work on a plain static server, including direct links and refresh.
   const names = {projects: 'space', editor: 'movie', task: 'task'};
-  const routes = new Set(['home', 'agent', 'projects', 'tasks', 'task', 'tools', 'services', 'models', 'settings', 'skills', 'editor', 'archived', 'none']);
+  const routes = new Set(['home', 'agent', 'projects', 'tasks', 'task', 'schedule', 'tools', 'services', 'models', 'settings', 'skills', 'editor', 'archived', 'none']);
   // product-design §7.6：模型配置归入设置；旧模型链接保留能力与子页。
   // 2026-10-16：Skills 从设置搬到 rail（Space 下面一格）；旧的 设置 › Skills 与 `skill` 链接落到 Skills 页，
   // 「在终端里使用 BaoCut」那一段带着 tab=external 过去。
@@ -124,6 +124,7 @@
       }
       if (q.has('t') && q.get('t') !== '' && Number.isFinite(Number(q.get('t'))) && Number(q.get('t')) >= 0) r.t = Number(q.get('t'));
       if ((name === 'editor' || name === 'task') && !r.id) return {...HOME};
+      if (name === 'schedule' && !r.id) return {r: 'tasks'};
       return canonicalRoute(r);
     } catch { return {...HOME}; }
   }

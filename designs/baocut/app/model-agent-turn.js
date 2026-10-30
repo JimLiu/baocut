@@ -166,12 +166,13 @@
   }
 
   /* ---------- 回合 ---------- */
-  /** 把线程行切成回合：每个回合 {start, end, user, text, replied}。`text` 是这一轮 assistant 正文（Markdown 源码，空行连接）。 */
+  /** 把线程行切成回合：每个回合 {start, end, user, text, replied}。`text` 是这一轮 assistant 正文（Markdown 源码，空行连接）。
+      分隔线（分叉自、导入自，role 'marker'）自成一段、没有用户消息，所以不画页脚。 */
   function turns(rows) {
     const out = [];
     let cur = null;
     (rows || []).forEach((row, i) => {
-      if (row.role === 'user' || !cur) {
+      if (row.role === 'user' || row.role === 'marker' || !cur) {
         cur = {start: i, end: i, user: row.role === 'user' ? row : null, texts: [], replied: false};
         out.push(cur);
       }

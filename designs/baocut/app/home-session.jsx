@@ -99,6 +99,9 @@
     const dirId = sess ? AP.dirOf(sess, app.projects) : dir || null;
     const d = dirId ? app.dirById(dirId) : null;
     const title = sess?.title || '新会话';
+    const [scheduling, setScheduling] = useState(false);
+    // 定时任务（agent-schedule.jsx）：只有 App 有
+    const scheduled = sess && app.schedules ? app.schedules.filter((s) => s.target.type === 'session' && s.target.id === sess.id).length : 0;
     const onAction = k => {
       if (k === 'pin') app.toggleSessionPin(sess.id);
       else if (k === 'space') app.go({r: 'projects', id: d.id});
@@ -107,6 +110,7 @@
       else if (k === 'reveal') app.toast(`已在文件夹中显示 ${d.path}（演示）`);
       // 查找条在线程里（agent-thread.jsx `AgentThread`），按会话 id 叫它打开
       else if (k === 'find') window.dispatchEvent(new CustomEvent('bc-session-find', {detail: sess.id}));
+      else if (k === 'schedule') setScheduling(true);
     };
     const hasBrand = !!d && window.BC_PROJECT_BRAND.hasBrand(app.projectBrands, d.id);
     return <div className="hhd">
@@ -118,11 +122,14 @@
         <R.MenuItem id="new" textValue="新建会话"><R.Icons.Add /><R.Text>{d ? '在此项目中新建会话' : '新建会话'}</R.Text></R.MenuItem>
         {sess && sess.messages.length ? <R.MenuItem id="find" textValue="在会话中查找"><R.Icons.Search /><R.Text slot="label">在会话中查找</R.Text><R.Keyboard>⌘F</R.Keyboard></R.MenuItem> : null}
         {sess ? <R.MenuItem id="pin" textValue={sess.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{sess.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem> : null}
+        {sess && !sess.archived && app.schedules ? <R.MenuItem id="schedule" textValue="定时运行"><R.Icons.ClockPending /><R.Text slot="label">定时运行…</R.Text>
+          {scheduled ? <R.Text slot="description">已有 {scheduled} 个定时任务</R.Text> : null}</R.MenuItem> : null}
         {d ? <R.MenuItem id="space" textValue={`在 Space 中查看 ${d.name}`}><R.Icons.Asset /><R.Text>{d.name}</R.Text></R.MenuItem> : null}
         {d ? <R.MenuItem id="brand" textValue="项目品牌（BRAND.md）"><R.Icons.Bookmark /><R.Text slot="label">项目品牌（BRAND.md）</R.Text>
           <R.Text slot="description">{hasBrand ? '这个项目的会话自动参考' : '还没有，新建一份'}</R.Text></R.MenuItem> : null}
         {d ? <R.MenuItem id="reveal" textValue="在文件夹中显示项目"><R.Icons.OpenIn /><R.Text>在文件夹中显示项目</R.Text></R.MenuItem> : null}
       </R.ActionMenu>
+      {scheduling ? <window.ScheduleDialog sess={sess} onClose={() => setScheduling(false)} /> : null}
     </div>;
   }
 

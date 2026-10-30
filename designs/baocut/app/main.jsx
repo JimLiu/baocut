@@ -25,6 +25,7 @@
       r.r === 'projects' || r.r === 'sessions' ? <window.SpacePage />
       : r.r === 'tasks'  ? <window.TasksPage />
       : r.r === 'task'   ? <window.TaskDetailPage id={r.id} />
+      : r.r === 'schedule' ? <window.ScheduleDetailPage id={r.id} />
       : r.r === 'agent'  ? <window.AgentPage id={r.id} dir={r.dir} />
       : r.r === 'archived' ? <window.ArchivedSessionsPage key={r.id || 'all'} focus={r.id} />
       /* 2026-09-17：远端算力从「工具」搬到「服务」（§17.6）；`remote` 与 `tools/remote` 两种旧链接都落到服务页 */
@@ -78,7 +79,8 @@
     /* App rail 那一层（apprail-store.jsx）盖在共享 store 上：项目（目录）、打开 / 关闭视频、Space 的整理标记 */
     const base = useStore();
     const ia = {...base, ...window.useAppIA(base)};
-    const store = {...ia, ...window.useHomeWorkspace(ia)};
+    /* 导入外部会话的开关与定时任务（agent-import.jsx / agent-schedule.jsx，产品设计 §3.1、§6.1）：定时任务要往会话里发消息，所以接在 ia 上 */
+    const store = {...ia, ...window.useHomeWorkspace(ia), ...window.useAgentImport(), ...window.useAgentSchedules(ia)};
     /* 全屏统一 S2 Provider：语言、主题与链接导航由 App 提供（product-design §2.6）。 */
     const RSP = window.RSP;
     const router = React.useMemo(() => ({navigate: (href) => base.go(window.BC_APP_IA.routeFromHref(href))}), [base.go]);
@@ -95,6 +97,7 @@
         <window.ProjectInfoDialog />
         <window.ProjectSettingsDialog />
         <window.LegacyImportDialog />
+        <window.AgentImportDialog />
         {/* 首次启动引导：只在第一次启动弹，关掉就记下（onboarding.jsx） */}
         <window.OnboardingDialog />
         {/* 所有模型下载的确认框（download-dialog.jsx）：大小、按种类分组的来源（可就地换）、许可 */}
