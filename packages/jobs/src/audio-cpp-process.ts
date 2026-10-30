@@ -75,7 +75,9 @@ export function runAudioCppEngine(options: {
     });
     child.once('exit', (code, sig) => {
       done();
-      if (!cancelled && code !== 0) options.log.warn('audio.cpp engine failed', { jobId: options.jobId, code, signal: sig, tail });
+      if (!cancelled && code !== 0) {
+        options.log.warn('audio.cpp engine failed', { jobId: options.jobId, code, signal: sig, args: options.args, tail });
+      }
       resolve({ cancelled, code, signal: sig, tail: tail.trim() });
     });
   });

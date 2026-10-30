@@ -217,12 +217,26 @@ describe('本地音乐生成', () => {
       ).rejects.toBeInstanceOf(ProviderFailure);
     });
 
-    it('引擎非零退出：crashed 并带 stderr 的尾巴；退出了没有 WAV：protocol', async () => {
+    it('引擎非零退出：crashed 并带 stderr 的尾巴，日志记下命令行；退出了没有 WAV：protocol', async () => {
       env.FAKE_FAIL = 'out of memory';
-      await expect(provider.generate(run(), sink().s, new AbortController().signal)).rejects.toMatchObject({
+      const warnings: { message: string; fields?: Record<string, unknown> }[] = [];
+      const logged = new LocalMusicProvider({
+        catalog,
+        engine: () => engine,
+        env: async () => env,
+        threads: 1,
+        log: { info() {}, warn: (message, fields) => void warnings.push({ message, fields }), error() {} },
+      });
+      await expect(logged.generate(run(), sink().s, new AbortController().signal)).rejects.toMatchObject({
         kind: 'crashed',
         message: expect.stringContaining('out of memory'),
       });
+      expect(warnings).toEqual([
+        {
+          message: 'audio.cpp engine failed',
+          fields: expect.objectContaining({ code: 3, args: expect.arrayContaining([expect.stringMatching(/^semantic_max_tokens=\d+$/)]) }),
+        },
+      ]);
       delete env.FAKE_FAIL;
       env.FAKE_NO_OUTPUT = '1';
       await expect(provider.generate(run(), sink().s, new AbortController().signal)).rejects.toMatchObject({ kind: 'protocol' });

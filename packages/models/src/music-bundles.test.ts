@@ -24,6 +24,7 @@ import type { ModelChoice } from './model-selection.ts';
 import {
   AUDIO_CPP_ENGINE,
   MUSIC_BUNDLES,
+  YUE2_SEMANTIC_MIN_TOKENS,
   YUE2_SEMANTIC_TOKENS_PER_SEC,
 } from './music-bundles.ts';
 import {
@@ -304,6 +305,8 @@ describe('模型描述与冻结参数', () => {
     expect(option('--request-option', 'semantic_max_tokens=')).toBe(
       'semantic_max_tokens=2250',
     );
+    // 上限不低于权重自带的下限：下限交给引擎的缺省
+    expect(option('--request-option', 'semantic_min_tokens=')).toBeUndefined();
     expect(option('--request-option', 'num_inference_steps=')).toBeUndefined();
     // 相对于模型根，不是绝对路径：引擎拒绝绝对路径
     expect(option('--session-option', 'yue2.model_gguf=')).toBe(`yue2.model_gguf=${YUE.music!.files.model}`);
@@ -334,6 +337,24 @@ describe('模型描述与冻结参数', () => {
     expect(instrumental.semanticMaxTokens).toBe(
       MUSIC_SELF_TEST.maxDurationSec * 25,
     );
+    // 自检的 8 秒正好是下限
+    expect(instrumental.semanticMaxTokens).toBe(YUE2_SEMANTIC_MIN_TOKENS);
+    expect(instrumental.args.some((a) => a.startsWith('semantic_min_tokens='))).toBe(false);
+  });
+
+  it('时长上限短于权重的语义 token 下限（8 秒）时同时降低下限，引擎才接受（下限不能大于上限）', () => {
+    expect(YUE.music!.semanticMinTokens).toBe(YUE2_SEMANTIC_MIN_TOKENS);
+    const tokenOptions = (maxDurationSec: number) =>
+      musicEngineRunOf(
+        { ...musicSelfTestParameters(), maxDurationSec },
+        YUE.music!,
+        { modelDir: '/m', staging: '/s', threads: 1 },
+      ).args.filter((a) => a.startsWith('semantic_'));
+    expect(tokenOptions(5)).toEqual(['semantic_max_tokens=125', 'semantic_min_tokens=125']);
+    expect(tokenOptions(7.9)).toEqual(['semantic_max_tokens=198', 'semantic_min_tokens=198']);
+    expect(tokenOptions(0.01)).toEqual(['semantic_max_tokens=1', 'semantic_min_tokens=1']);
+    expect(tokenOptions(8)).toEqual(['semantic_max_tokens=200']);
+    expect(tokenOptions(10)).toEqual(['semantic_max_tokens=250']);
   });
 
   it('环境变量名固定', () => {

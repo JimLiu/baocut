@@ -72,7 +72,8 @@ export interface MusicEngineRun {
 
 /**
  * 冻结的参数 → audio.cpp 引擎的命令行（上游 `audiocpp_cli --task gen --family yue2`）。纯音乐是空歌词；编排是 `cot`；时长没有直接的
- * 参数，按语义帧率换成 `semantic_max_tokens`。步数取冻结的 `steps`，没有时取调用方给的（模型包自检用少步数出一小段），都没有时
+ * 参数，按语义帧率换成 `semantic_max_tokens`；它小于权重自带的下限（YuE2 是 200，即 8 秒）时引擎拒绝请求，所以同时传
+ * `semantic_min_tokens` 等于上限，正好生成这么长。步数取冻结的 `steps`，没有时取调用方给的（模型包自检用少步数出一小段），都没有时
  * 不传（引擎用默认值）。`backend` 不给时由引擎按构建自己选。
  */
 export function musicEngineRunOf(
@@ -101,6 +102,7 @@ export function musicEngineRunOf(
     `seed=${parameters.seed}`,
     '--request-option',
     `semantic_max_tokens=${tokens}`,
+    ...(tokens < profile.semanticMinTokens ? ['--request-option', `semantic_min_tokens=${tokens}`] : []),
     ...(steps !== null ? ['--request-option', `num_inference_steps=${steps}`] : []),
     // 引擎要求 GGUF 的路径相对于 `--model` 给的模型根（绝对路径被拒：`yue2.model_gguf must be relative to the Yue2 model root`）。
     '--session-option',

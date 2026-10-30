@@ -233,6 +233,11 @@ export interface MusicBundleProfile {
   defaultDurationSec: number;
   /** 引擎的语义 token 帧率（每秒几个 token）：`maxDurationSec` × 它 = 引擎的 `semantic_max_tokens`。 */
   semanticTokensPerSec: number;
+  /**
+   * 权重自带的语义 token 下限（生成配置的 `semantic.min_tokens`，到它之前不接受结束）。引擎要求 `semantic_max_tokens` 不小于它，
+   * 时长换算出的上限更小时一并把下限降到上限（`musicEngineRunOf`）。
+   */
+  semanticMinTokens: number;
   /** 输出的采样率。 */
   sampleRate: number;
   /** 编排（引擎的 `cot`）：先想整体结构再写（`full`）、只想旋律（`melody`）或不想（`off`）。 */

@@ -32,6 +32,12 @@ const YUE2_LICENSE: ModelLicense = {
 /** 引擎的语义 token 帧率：YuE2 每秒 25 个语义 token（上游 `semantic_max_tokens` 的换算依据）。 */
 export const YUE2_SEMANTIC_TOKENS_PER_SEC = 25;
 
+/**
+ * 登记版本的 `sidecars/yue2-generation-config.json` 里 `semantic.min_tokens`（上游没有这个文件时的缺省也是 200）：8 秒。时长上限
+ * 短于它时引擎拒绝请求（`Yue2 semantic sampling options are invalid`），所以命令行要同时降低下限。
+ */
+export const YUE2_SEMANTIC_MIN_TOKENS = 200;
+
 export const YUE2_3B_Q8: BundleDefinition = {
   bundleId: 'yue2-3b@audio-cpp-q8',
   capability: 'music',
@@ -52,6 +58,7 @@ export const YUE2_3B_Q8: BundleDefinition = {
     maxDurationSec: 300,
     defaultDurationSec: 120,
     semanticTokensPerSec: YUE2_SEMANTIC_TOKENS_PER_SEC,
+    semanticMinTokens: YUE2_SEMANTIC_MIN_TOKENS,
     sampleRate: 44100,
     planning: { options: ['off', 'melody', 'full'], default: 'melody' },
     // 上游 CLI 的 `num_inference_steps` 默认 8。

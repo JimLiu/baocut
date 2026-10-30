@@ -452,6 +452,7 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
   --request-option cot=<planning：off | melody | full>
   --request-option seed=<seed>
   --request-option semantic_max_tokens=<round(maxDurationSec × 25)，至少 1>
+  [--request-option semantic_min_tokens=<同 semantic_max_tokens>]  # 只在上限小于权重的语义 token 下限（200）时传
   [--request-option num_inference_steps=<steps>]        # 冻结了 steps（或自检给的少步数）时才传，否则引擎用默认值
   --session-option yue2.model_gguf=yue2-3b-q8_0.gguf      # 相对于 --model 的模型根；引擎拒绝绝对路径
   --session-option yue2.vae_gguf=yue2-vae-f16.gguf
@@ -460,6 +461,7 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
 ```
 
 - 时长没有直接的参数：`maxDurationSec` 按模型包登记的语义帧率（YuE2 每秒 25 个语义 token）换成 `semantic_max_tokens`，所以它是计算预算而不是承诺的时长；`targetDurationSec` 只写在任务记录里，不交给引擎。
+- 权重的生成配置（`sidecars/yue2-generation-config.json` 的 `semantic.min_tokens`，登记为模型包的 `semanticMinTokens`，YuE2 是 200 即 8 秒）规定了结束前至少生成多少语义 token，引擎要求 `semantic_max_tokens` 不小于它，否则以 `Yue2 semantic sampling options are invalid` 拒绝。上限更小时（`maxDurationSec` 不到 8 秒，界面的入口都不会，智能体与 RPC 可以）同时传 `semantic_min_tokens` 等于上限，正好生成这么长（结果到了上限，照样带 `output-truncated` 警告）；不小于下限时不传，下限用权重自己的。
 - 线程数默认是 `min(8, 可用并行数 − 2)`，至少 1。
 - 引擎不报告步数：进入 `generating` 后只有不定进度，完成时报 1/1。
 
