@@ -193,6 +193,8 @@ export interface AgentSession {
   respondToApproval(approvalId: Id, response: ApprovalResponse): Promise<void>;
   subscribe(listener: (event: AgentEvent) => void): () => void;
   describePersistence(): AgentPersistenceHandle | null;
+  /** 空闲回收前问一声：原生侧还有回合之外的活（Claude 的后台任务）时返回 false，Harness 过一段再问。不实现等于随时可以。 */
+  canRelease?(): Promise<boolean>;
   close(): Promise<void>;
 }
 

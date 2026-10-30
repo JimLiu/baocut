@@ -812,6 +812,35 @@ describe('ClaudeSession：恢复、错误与退出', () => {
     expect(s.of('context.compacted')).toEqual([{ type: 'context.compacted', turnId }]);
   });
 
+  it('后台任务（background_tasks_changed，整份替换、ambient 不算）还在跑时 canRelease 为 false，跑完了为 true', async () => {
+    const changed = (tasks: Array<{ task_id: string; ambient?: boolean }>, sessionId: string) =>
+      ({
+        type: 'system',
+        subtype: 'background_tasks_changed',
+        tasks: tasks.map((task) => ({ task_type: 'local_bash', description: 'npm run dev', ...task })),
+        session_id: sessionId,
+        uuid: 'u',
+      }) as unknown as SDKMessage;
+    const fake = createFakeClaude({
+      turn: (t) => {
+        t.emit(changed([{ task_id: 'b1' }, { task_id: 'w1', ambient: true }], t.query.sessionId));
+        t.result();
+      },
+    });
+    const s = track(open(fake));
+    expect(await s.session.canRelease!()).toBe(true);
+    const { turnId } = await s.session.startTurn({ text: 'go' }, settings());
+    await s.completed(turnId);
+    expect(await s.session.canRelease!()).toBe(false);
+    fake.last().emit(changed([{ task_id: 'w1', ambient: true }], fake.last().sessionId));
+    let released = false;
+    for (let i = 0; i < 200 && !released; i++) {
+      released = await s.session.canRelease!();
+      if (!released) await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    expect(released).toBe(true);
+  });
+
   it('待办：TodoWrite 整份发 todo.updated；TaskCreate 建的任务在下一个回合被 TaskUpdate 改，清单跨回合累加', async () => {
     let round = 0;
     const fake = createFakeClaude({

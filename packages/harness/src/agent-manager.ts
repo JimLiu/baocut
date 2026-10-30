@@ -381,6 +381,16 @@ export class AgentManager {
     this.#live.delete(conversationId);
   }
 
+  /** 空闲回收前问原生会话能不能放（`AgentSession.canRelease`）。没有原生会话、Driver 不实现或问出错时可以放。 */
+  async canRelease(conversationId: Id): Promise<boolean> {
+    const session = this.#live.get(conversationId)?.session;
+    if (!session?.canRelease) return true;
+    return session.canRelease().catch((error: unknown) => {
+      this.#log.warn('Failed to ask whether the native session can be released', { conversationId, error: String(error) });
+      return true;
+    });
+  }
+
   async release(conversationId: Id): Promise<void> {
     const live = this.#live.get(conversationId);
     if (!live) return;

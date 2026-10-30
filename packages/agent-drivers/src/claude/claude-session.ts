@@ -202,6 +202,8 @@ interface LiveQuery {
   retired: boolean;
   models: Promise<ModelInfo[]> | null;
   stderr: string[];
+  /** 这个进程里还在跑的后台任务数（后台命令、后台子智能体），不算 ambient 的；按 `background_tasks_changed` 整份替换。 */
+  background: number;
 }
 
 interface Turn {
@@ -374,6 +376,11 @@ export class ClaudeSession implements AgentSession {
     return this.#sessionId ? { driverId: 'claude', data: { sessionId: this.#sessionId } } : null;
   }
 
+  /** 还有后台任务在跑（回合结束后接着跑的后台命令、后台子智能体）时不让空闲回收：关掉进程会把它们一起杀掉。 */
+  async canRelease(): Promise<boolean> {
+    return !this.#live || this.#live.background === 0;
+  }
+
   async close(): Promise<void> {
     if (this.#closed) return;
     this.#closed = true;
@@ -419,6 +426,7 @@ export class ClaudeSession implements AgentSession {
       retired: false,
       models: null,
       stderr: [],
+      background: 0,
     };
     const options = this.#queryOptions(live, mode, settings.model, effort, resume, confined);
     live.query = this.#factory({ prompt: input.iterable, options });
@@ -602,6 +610,8 @@ export class ClaudeSession implements AgentSession {
         // 会话此刻的访问模式改回去。这是有意的：访问模式归 Harness 管（§3.12 两边取更严），会话仍是「先给方案」时，
         // 原生侧回到 plan 才和 Harness 的查表一致；用户改了访问模式，下一轮就按新的档位切过去。
         live.applied.mode = message.permissionMode;
+      } else if (message.subtype === 'background_tasks_changed') {
+        live.background = message.tasks.filter((task) => !task.ambient).length;
       } else if (message.subtype === 'compact_boundary') {
         // 自动压缩与手动 `/compact` 都发这一条（SDKCompactBoundaryMessage）。
         this.#emit({ type: 'context.compacted', turnId: this.#turn?.id ?? null });

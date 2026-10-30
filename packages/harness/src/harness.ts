@@ -3125,11 +3125,26 @@ export class Harness {
     const timer = setTimeout(() => {
       this.#idleTimers.delete(conversationId);
       if (this.#runs.has(conversationId)) return;
-      this.#log.info('Native session idle; closing', { conversationId });
-      void this.#agents.release(conversationId);
+      void this.#releaseIfIdle(conversationId);
     }, SESSION_IDLE_MS);
     timer.unref?.();
     this.#idleTimers.set(conversationId, timer);
+  }
+
+  /**
+   * 空闲到时先问 Driver（架构设计 §2.5）：原生侧还有回合之外的活（Claude 的后台任务）就过一段再问。
+   * 问的途中开了新回合、重新计了时或 Runtime 在关的，这次不放。
+   */
+  async #releaseIfIdle(conversationId: Id): Promise<void> {
+    const releasable = await this.#agents.canRelease(conversationId);
+    if (this.#closing || this.#runs.has(conversationId) || this.#idleTimers.has(conversationId)) return;
+    if (!releasable) {
+      this.#log.info('Native session still has background work; keeping it', { conversationId });
+      this.#scheduleIdle(conversationId);
+      return;
+    }
+    this.#log.info('Native session idle; closing', { conversationId });
+    await this.#agents.release(conversationId);
   }
 
   #cancelIdle(conversationId: Id): void {

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId, type DriverProbe, type Id, type TimelineItem } from '@baocut/protocol';
 import { ConversationStore, ProjectStore, resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { DriverRegistry } from './agent-manager.ts';
@@ -9,7 +9,10 @@ import type { AgentDriver, AgentEvent, AgentSession } from './driver.ts';
 import { Harness, type JobFinished } from './harness.ts';
 import { silentLogger } from './logger.ts';
 
-/** 完成收件箱（架构设计 §7.2）：后台任务结束时插话、唤醒、等回合结束或不告诉。假 Driver，全部在临时目录里。 */
+/**
+ * 完成收件箱（架构设计 §7.2）：后台任务结束时插话、唤醒、等回合结束或不告诉；以及原生会话的空闲回收（§2.5）。
+ * 假 Driver，全部在临时目录里。
+ */
 
 let steerable = true;
 
@@ -22,6 +25,9 @@ class Session implements AgentSession {
   readonly #listeners = new Set<(event: AgentEvent) => void>();
   turnId: string | null = null;
   steer?: AgentSession['steer'];
+  /** 原生侧还有没有回合之外的活：false 时不让空闲回收。 */
+  releasable = true;
+  closed = false;
 
   constructor() {
     if (steerable) {
@@ -67,7 +73,13 @@ class Session implements AgentSession {
     return null;
   }
 
-  async close() {}
+  async canRelease() {
+    return this.releasable;
+  }
+
+  async close() {
+    this.closed = true;
+  }
 
   #emit(event: AgentEvent) {
     for (const listener of this.#listeners) listener(event);
@@ -254,5 +266,23 @@ describe('Harness.jobFinished', () => {
     await harness.shutdown();
     harness = await open();
     expect(notices(running.conversationId)[0]?.job?.delivery).toBe('dropped');
+  });
+});
+
+describe('空闲回收', () => {
+  it('Driver 说还有后台任务时不收起原生会话，过 10 分钟再问，能放了才关', async () => {
+    const { session } = await started('跑个后台命令', false);
+    session.releasable = false;
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      session.finish();
+      await vi.advanceTimersByTimeAsync(10 * 60_000 + 1);
+      expect(session.closed).toBe(false);
+      session.releasable = true;
+      await vi.advanceTimersByTimeAsync(10 * 60_000 + 1);
+      expect(session.closed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
