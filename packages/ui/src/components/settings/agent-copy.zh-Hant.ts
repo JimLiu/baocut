@@ -180,6 +180,14 @@ export const zhHant: AgentMessages = {
   modeHint: (firstDefault: string, last: string | null) =>
     `在每個對話的輸入框下方選擇存取模式。第一次預設為「${firstDefault}」；之後新對話會沿用你最近的選擇${last ? `（目前為「${last}」）` : ''}。`,
 
+  customHeading: '自訂指示',
+  customHint: '寫給 Agent 的長期要求，例如回覆用哪種語言、頻道的說話風格。每個對話都會附在 BaoCut 的指示之後，不會放寬存取模式與核准。',
+  customPlaceholder: '例如：\n回覆用繁體中文。\n字幕裡的產品名稱保留英文原文。',
+  customCount: (count: number, max: number) => `${count} / ${max} 個字元`,
+  customTooLong: (over: number, max: number) => `超出 ${over} 個字元，最多 ${max} 個`,
+  customRevert: '還原',
+  customSave: '儲存',
+  customSaved: '已儲存 · 已開啟的對話從下一則訊息起生效',
   advancedHeading: '進階與疑難排解',
   advancedHint: '連線正常時，這裡的內容都不需要更改。',
   modelAutoUpdate: {
@@ -235,7 +243,7 @@ export const zhHant: AgentMessages = {
   },
 
   skills: {
-    lede: 'Skill 是一個資料夾（一份 SKILL.md，加上選用的參考檔案），用來教 BaoCut 中的 Agent 以特定方式做事。開關開啟時，Agent 認為與任務相關就會自行使用；關閉時，只有在你從輸入框的「+」中選取它時才會使用。開啟或關閉、新增或移除 Skill，都會從下一個新的 Agent 對話開始生效。',
+    lede: 'Skill 是一個資料夾（一份 SKILL.md，加上選用的參考檔案），用來教 BaoCut 中的 Agent 以特定方式做事。開關開啟時，Agent 認為與任務相關就會自行使用；關閉時，只有在你從輸入框的「+」中選取它時才會使用。開啟或關閉、新增或移除 Skill，都會從下一則訊息開始生效，已開啟的對話也一樣。',
     search: '搜尋 Skills',
     filter: '依來源篩選',
     tab: (label: string, count: number) => `${label} ${count}`,
@@ -257,7 +265,7 @@ export const zhHant: AgentMessages = {
     webNote: '在瀏覽器中可以檢視與開關 Skill；新增、匯入與移除請在 BaoCut 桌面應用程式中進行。',
     view: (name: string) => `檢視 ${name}`,
     enable: (name: string) => `啟用 ${name}`,
-    toggledOn: (name: string) => `已開啟「${name}」：從下一個新對話開始，Agent 認為相關時會自行使用它`,
+    toggledOn: (name: string) => `已開啟「${name}」：從下一則訊息開始，Agent 認為相關時會自行使用它`,
     toggledOff: (name: string) => `已關閉「${name}」：之後只有在你從輸入框的「+」中選取時才會使用`,
     added: (name: string) => `已新增「${name}」`,
     imported: (name: string) => `已匯入「${name}」，預設為關閉`,

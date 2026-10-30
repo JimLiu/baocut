@@ -172,6 +172,14 @@ export const tr: AgentMessages = {
   ruleRemoveFailed: (message) => `Kural kaldırılamadı: ${message}`,
   modeHint: (firstDefault,last) => `Her oturumun giriş kutusu altından erişim modunu seçin. İlk seferde varsayılan “${firstDefault}” olur; ardından yeni oturumlar son seçiminizi korur${last ? ` (şu anda “${last}”)` : ''}.`,
 
+  customHeading: 'Özel talimatlar',
+  customHint: 'Ajan için kalıcı istekler; örneğin hangi dilde yanıt vereceği veya kanalınızın üslubu. Her oturumda BaoCut yönergelerinin ardından eklenir; erişim modunu ve onayları gevşetmez.',
+  customPlaceholder: 'Örneğin:\nTürkçe yanıt ver.\nAltyazılarda ürün adlarını İngilizce bırak.',
+  customCount: (count, max) => `${count} / ${max} karakter`,
+  customTooLong: (over, max) => `Sınır ${max}; ${over} karakter fazla`,
+  customRevert: 'Geri al',
+  customSave: 'Kaydet',
+  customSaved: 'Kaydedildi. Açık oturumlar bir sonraki mesajdan itibaren kullanır',
   advancedHeading: "Gelişmiş ve sorun giderme",
   advancedHint: "Bağlantı çalışıyorsa burada değişiklik gerekmez.",
   modelAutoUpdate: {
@@ -227,7 +235,7 @@ export const tr: AgentMessages = {
   },
 
   skills: {
-    lede: "Skill, BaoCut içindeki ajanlarne belirli bir yöntemle iş yapmayı öğreten bir klasördür (SKILL.md ve isteğe bağlı referans dosyaları). Anahtar açıkken Ajan, görevle ilgili gördüğünde kendiliğinden kullanır; kapalıyken yalnızca giriş kutusundaki “+” üzerinden seçtiğinizde kullanılır. Skill açma, kapatma, ekleme ve kaldırma sonraki yeni Ajan oturumunda geçerli olur.",
+    lede: "Skill, BaoCut içindeki ajanlarne belirli bir yöntemle iş yapmayı öğreten bir klasördür (SKILL.md ve isteğe bağlı referans dosyaları). Anahtar açıkken Ajan, görevle ilgili gördüğünde kendiliğinden kullanır; kapalıyken yalnızca giriş kutusundaki “+” üzerinden seçtiğinizde kullanılır. Skill açma, kapatma, ekleme ve kaldırma sonraki mesajdan itibaren geçerli olur; açık oturumlar da buna dahildir.",
     search: "Skill ara",
     filter: "Kaynağa göre filtrele",
     tab: (label: string, count: number) => `${label} ${count}`,
@@ -249,7 +257,7 @@ export const tr: AgentMessages = {
     webNote: "Tarayıcıda Skill’leri görüntüleyip açıp kapatabilirsiniz; ekleme, içe aktarma ve kaldırma için BaoCut masaüstü uygulamasını kullanın.",
     view: (name) => `${name} adlı Skill öğesini gör`,
     enable: (name) => `${name} adlı Skill öğesini etkinleştir`,
-    toggledOn: (name) => `${name} adlı Skill açıldı: sonraki yeni oturumdan itibaren Ajan ilgili olduğunda kendiliğinden kullanır`,
+    toggledOn: (name) => `${name} adlı Skill açıldı: sonraki mesajdan itibaren Ajan ilgili olduğunda kendiliğinden kullanır`,
     toggledOff: (name) => `${name} adlı Skill kapatıldı: artık yalnızca giriş kutusundaki “+” üzerinden seçtiğinizde kullanılır`,
     added: (name) => `${name} adlı Skill eklendi`,
     imported: (name) => `${name} adlı Skill içe aktarıldı; varsayılan kapalı`,

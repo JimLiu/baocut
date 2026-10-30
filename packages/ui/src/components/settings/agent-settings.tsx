@@ -4,6 +4,7 @@ import Lock from '@react-spectrum/s2/icons/Lock';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { AgentAdvanced } from './agent-advanced.tsx';
 import { AGENT_COPY, AGENT_FACTS } from './agent-copy.ts';
+import { AgentCustomInstructions } from './agent-instructions.tsx';
 import { AgentProviders } from './agent-providers.tsx';
 
 const FACT_ICON = { cli: DeviceLaptop, plan: CheckmarkCircle, ask: Lock } as const;
@@ -36,7 +37,7 @@ const tail = style({ paddingBottom: 32 });
 
 /**
  * 设置 › Agent 提供方（设计稿 page-settings-agent.jsx 的 AgentSection）：一句话说清 Agent 是什么、三条事实，
- * 然后是提供方内容，页底接「高级与排障」。不再分页签；Skills 与 Agent 权限各在自己的页（设置 › Skills、设置 › 隐私与权限）。
+ * 然后是提供方内容、自定义指导，页底接「高级与排障」。不再分页签；Skills 与 Agent 权限各在自己的页（设置 › Skills、设置 › 隐私与权限）。
  */
 export function AgentSettings() {
   return (
@@ -60,6 +61,7 @@ export function AgentSettings() {
         })}
       </ul>
       <AgentProviders />
+      <AgentCustomInstructions />
       <div className={tail}>
         <AgentAdvanced />
       </div>

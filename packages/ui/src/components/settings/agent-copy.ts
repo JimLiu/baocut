@@ -225,6 +225,18 @@ const en = {
   modeHint: (firstDefault: string, last: string | null) =>
     `Choose the access mode below the input box of each session. The first time it defaults to “${firstDefault}”; after that, new sessions keep your latest choice${last ? ` (currently “${last}”)` : ''}.`,
 
+  // ---- 自定义指导（page-settings-agent.jsx 的 AgentCustomInstructions） ----
+  customHeading: 'Custom instructions',
+  customHint:
+    "Standing requests for the Agent, such as which language to reply in or the tone of your channel. They're added after BaoCut's guidance in every session and don't loosen the access mode or approvals.",
+  customPlaceholder: 'For example:\nReply in English.\nKeep product names in their original spelling in captions.',
+  /** 字数说明：已写的 / 上限。 */
+  customCount: (count: number, max: number) => `${count} / ${max} characters`,
+  customTooLong: (over: number, max: number) => `${over} characters over the limit of ${max}`,
+  customRevert: 'Revert',
+  customSave: 'Save',
+  customSaved: 'Saved. Open sessions use it from their next message',
+
   // ---- 高级（page-settings-agent.jsx:167-183） ----
   advancedHeading: 'Advanced & troubleshooting',
   advancedHint: 'When the connection works, nothing here needs changing.',
@@ -284,7 +296,7 @@ const en = {
 
   // ---- Skills（产品设计 §6.9；原型 settings-agent-skills.jsx、settings-agent-skill-detail.jsx） ----
   skills: {
-    lede: "A skill is a folder (a SKILL.md, plus optional reference files) that teaches the Agents in BaoCut to do things a certain way. With the switch on, an Agent uses it on its own when it seems relevant to the task; with it off, it's used only when you pick it from “+” in the input box. Turning skills on or off, adding or removing them takes effect from the next new Agent session.",
+    lede: "A skill is a folder (a SKILL.md, plus optional reference files) that teaches the Agents in BaoCut to do things a certain way. With the switch on, an Agent uses it on its own when it seems relevant to the task; with it off, it's used only when you pick it from “+” in the input box. Turning skills on or off, adding or removing them takes effect from the next message, in open sessions too.",
     search: 'Search skills',
     filter: 'Filter by source',
     tab: (label: string, count: number) => `${label} ${count}`,
@@ -306,7 +318,7 @@ const en = {
     webNote: 'In the browser you can view and toggle skills; add, import and remove them in the BaoCut desktop app.',
     view: (name: string) => `View ${name}`,
     enable: (name: string) => `Enable ${name}`,
-    toggledOn: (name: string) => `Turned on “${name}”: from the next new session, the Agent uses it on its own when relevant`,
+    toggledOn: (name: string) => `Turned on “${name}”: from the next message, the Agent uses it on its own when relevant`,
     toggledOff: (name: string) => `Turned off “${name}”: from now on it's used only when you pick it from “+” in the input box`,
     added: (name: string) => `Added “${name}”`,
     imported: (name: string) => `Imported “${name}”, off by default`,

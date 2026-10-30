@@ -200,6 +200,14 @@ export const ptBR: AgentMessages = {
   modeHint: (firstDefault: string, last: string | null) =>
     `Escolha o modo abaixo do campo. Na primeira vez, padrão “${firstDefault}”; depois novas sessões mantêm a última escolha${last ? ` (atual “${last}”)` : ""}.`,
 
+  customHeading: 'Instruções personalizadas',
+  customHint: 'Pedidos permanentes para o agente, como em que idioma responder ou o tom do seu canal. São adicionados após as orientações do BaoCut em cada sessão e não afrouxam o modo de acesso nem as aprovações.',
+  customPlaceholder: 'Por exemplo:\nResponda em português.\nMantenha nomes de produtos em inglês nas legendas.',
+  customCount: (count: number, max: number) => `${count} / ${max} caracteres`,
+  customTooLong: (over: number, max: number) => `${over} caracteres acima do limite de ${max}`,
+  customRevert: 'Reverter',
+  customSave: 'Salvar',
+  customSaved: 'Salvo. As sessões abertas passam a usar a partir da próxima mensagem',
   advancedHeading: "Avançado e diagnóstico",
   advancedHint: "Se conectado, nada aqui precisa mudar.",
   modelAutoUpdate: {
@@ -257,7 +265,7 @@ export const ptBR: AgentMessages = {
   },
 
   skills: {
-    lede: "Skill é pasta com SKILL.md e referências opcionais que ensina um método ao agente. Ativada, usada automaticamente quando relevante; desativada, só quando escolhida em “+”. Mudanças de ativação, adição ou remoção valem da próxima nova sessão.",
+    lede: "Skill é pasta com SKILL.md e referências opcionais que ensina um método ao agente. Ativada, usada automaticamente quando relevante; desativada, só quando escolhida em “+”. Mudanças de ativação, adição ou remoção valem a partir da próxima mensagem, também nas sessões abertas.",
     search: "Buscar Skills",
     filter: "Filtrar por origem",
     tab: (label: string, count: number) => `${label} ${count}`,
@@ -279,7 +287,7 @@ export const ptBR: AgentMessages = {
     webNote: "Navegador visualiza e alterna; adicione, importe e remova pelo desktop.",
     view: (name: string) => `Ver ${name}`,
     enable: (name: string) => `Ativar ${name}`,
-    toggledOn: (name: string) => `Ativada “${name}”: na próxima sessão, o agente usa quando relevante`,
+    toggledOn: (name: string) => `Ativada “${name}”: a partir da próxima mensagem, o agente usa quando relevante`,
     toggledOff: (name: string) => `Desativada “${name}”: só usa quando escolhida em “+”`,
     added: (name: string) => `Adicionada “${name}”`,
     imported: (name: string) => `Importada “${name}”, desativada por padrão`,

@@ -162,7 +162,7 @@ export function createBrandFromSkill(session: Session, projectId: Id, skillId: s
   return applyBrand(session.client.request('brands.createFromSkill', { projectId, skillId, commandId: newId('cmd') }));
 }
 
-/** 开关：从下一次新开始的 Agent 会话起生效。 */
+/** 开关：已经开着的会话从下一条消息起按新的列表（架构设计 §3.8）。 */
 export function setSkillEnabled(session: Session, id: string, enabled: boolean): Promise<SkillChangeResult> {
   return apply(session.client.request('skills.setEnabled', { id, enabled }));
 }

@@ -182,6 +182,14 @@ export const ja: AgentMessages = {
   modeHint: (firstDefault: string, last: string | null) =>
     `アクセスモードは各セッションの入力欄の下で選びます。初回は「${firstDefault}」が既定で、以降の新しいセッションは最後に選んだモードを引き継ぎます${last ? `（現在は「${last}」）` : ''}。`,
 
+  customHeading: 'カスタム指示',
+  customHint: 'Agent への継続的な要望です。たとえば返信の言語やチャンネルの話し方など。どのセッションでも BaoCut のガイダンスの後に追加され、アクセスモードや承認を緩めることはありません。',
+  customPlaceholder: '例：\n日本語で返信してください。\n字幕の製品名は英語のままにしてください。',
+  customCount: (count: number, max: number) => `${count} / ${max} 文字`,
+  customTooLong: (over: number, max: number) => `${over} 文字超えています（最大 ${max} 文字）`,
+  customRevert: '元に戻す',
+  customSave: '保存',
+  customSaved: '保存しました。開いているセッションでは次のメッセージから反映されます',
   advancedHeading: '詳細設定とトラブルシューティング',
   advancedHint: '接続が正常なら、ここを変更する必要はありません。',
   modelAutoUpdate: {
@@ -237,7 +245,7 @@ export const ja: AgentMessages = {
   },
 
   skills: {
-    lede: 'Skill は、BaoCut 内の Agent に特定のやり方を教えるフォルダ（SKILL.md と、任意の参考ファイル）です。スイッチがオンなら、Agent はタスクに関係がありそうなときに自分で使います。オフなら、入力欄の「+」から選んだときだけ使われます。Skill のオン・オフ、追加、削除は、次に新しく始める Agent セッションから反映されます。',
+    lede: 'Skill は、BaoCut 内の Agent に特定のやり方を教えるフォルダ（SKILL.md と、任意の参考ファイル）です。スイッチがオンなら、Agent はタスクに関係がありそうなときに自分で使います。オフなら、入力欄の「+」から選んだときだけ使われます。Skill のオン・オフ、追加、削除は、次のメッセージから反映されます。開いているセッションも同じです。',
     search: 'Skill を検索',
     filter: '提供元で絞り込む',
     tab: (label: string, count: number) => `${label} ${count}`,
@@ -259,7 +267,7 @@ export const ja: AgentMessages = {
     webNote: 'ブラウザでは Skill の表示とオン・オフの切り替えができます。追加、読み込み、削除は BaoCut デスクトップアプリで行ってください。',
     view: (name: string) => `${name} を表示`,
     enable: (name: string) => `${name} を有効にする`,
-    toggledOn: (name: string) => `「${name}」をオンにしました：次の新しいセッションから、関係があるときに Agent が自分で使います`,
+    toggledOn: (name: string) => `「${name}」をオンにしました：次のメッセージから、関係があるときに Agent が自分で使います`,
     toggledOff: (name: string) => `「${name}」をオフにしました：今後は入力欄の「+」から選んだときだけ使われます`,
     added: (name: string) => `「${name}」を追加しました`,
     imported: (name: string) => `「${name}」を読み込みました。既定ではオフです`,

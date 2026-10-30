@@ -71,6 +71,11 @@
 .agset-rows .btn { flex: none; }
 .agset-rulelist { display: flex; flex-wrap: wrap; gap: 6px; }
 .agset-advanced { padding: 0 20px; }
+/* 自定义指导：一块整宽的多行输入，下面右对齐「还原」「保存」 */
+.agset-custom { display: flex; flex-direction: column; gap: 12px; padding: 16px; margin-bottom: 32px; }
+.agset-custom__field { width: 100%; }
+.agset-custom__field textarea { min-height: 120px; }
+.agset-custom__acts { display: flex; justify-content: flex-end; gap: 8px; }
 .agset-advanced > .agset-disclosure:first-child { border-top: none; }
 .agset-path { display: block; overflow-wrap: anywhere; color: var(--gray-700); font-size: 12px; line-height: 1.6; margin: 8px 0 12px; }
 .agset-tech { margin-top: 16px; }

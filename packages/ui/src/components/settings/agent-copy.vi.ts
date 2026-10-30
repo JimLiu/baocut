@@ -209,6 +209,14 @@ export const vi: AgentMessages = {
     `Chọn chế độ truy cập bên dưới ô nhập của từng phiên. Lần đầu mặc định là “${firstDefault}”; sau đó phiên mới giữ lựa chọn gần nhất của bạn${last ? ` (hiện tại “${last}”)` : ""}.`,
 
   // ---- 高级（page-settings-agent.jsx:167-183） ----
+  customHeading: 'Hướng dẫn tùy chỉnh',
+  customHint: 'Yêu cầu lâu dài dành cho Agent, chẳng hạn trả lời bằng ngôn ngữ nào hay giọng điệu của kênh. Chúng được thêm sau hướng dẫn của BaoCut trong mọi phiên và không nới lỏng chế độ truy cập hay việc phê duyệt.',
+  customPlaceholder: 'Ví dụ:\nTrả lời bằng tiếng Việt.\nGiữ nguyên tên sản phẩm tiếng Anh trong phụ đề.',
+  customCount: (count: number, max: number) => `${count} / ${max} ký tự`,
+  customTooLong: (over: number, max: number) => `Vượt ${over} ký tự, tối đa ${max}`,
+  customRevert: 'Hoàn tác',
+  customSave: 'Lưu',
+  customSaved: 'Đã lưu. Các phiên đang mở sẽ dùng từ tin nhắn tiếp theo',
   advancedHeading: "Nâng cao và khắc phục sự cố",
   advancedHint: "Không cần thay đổi gì ở đây khi kết nối hoạt động.",
   modelAutoUpdate: {
@@ -267,7 +275,7 @@ export const vi: AgentMessages = {
 
   // ---- Skills（产品设计 §6.9；原型 settings-agent-skills.jsx、settings-agent-skill-detail.jsx） ----
   skills: {
-    lede: "Skill là thư mục (SKILL.md và tệp tham khảo tùy chọn) hướng dẫn Agent trong BaoCut làm việc theo cách nhất định. Khi bật, Agent tự dùng Skill khi thấy phù hợp với tác vụ; khi tắt, Skill chỉ được dùng khi bạn chọn từ “+” trong ô nhập. Bật, tắt, thêm hoặc xóa Skill có hiệu lực từ phiên Agent mới tiếp theo.",
+    lede: "Skill là thư mục (SKILL.md và tệp tham khảo tùy chọn) hướng dẫn Agent trong BaoCut làm việc theo cách nhất định. Khi bật, Agent tự dùng Skill khi thấy phù hợp với tác vụ; khi tắt, Skill chỉ được dùng khi bạn chọn từ “+” trong ô nhập. Bật, tắt, thêm hoặc xóa Skill có hiệu lực từ tin nhắn tiếp theo, kể cả trong các phiên đang mở.",
     search: "Tìm Skill",
     filter: "Lọc theo nguồn",
     tab: (label: string, count: number) => `${label} ${count}`,
@@ -289,7 +297,7 @@ export const vi: AgentMessages = {
     webNote: "Trong trình duyệt, bạn có thể xem và bật/tắt Skill; hãy thêm, nhập và xóa bằng ứng dụng BaoCut trên máy tính.",
     view: (name: string) => `Xem ${name}`,
     enable: (name: string) => `Bật ${name}`,
-    toggledOn: (name: string) => `Đã bật “${name}”: từ phiên mới tiếp theo, Agent tự dùng khi phù hợp`,
+    toggledOn: (name: string) => `Đã bật “${name}”: từ tin nhắn tiếp theo, Agent tự dùng khi phù hợp`,
     toggledOff: (name: string) => `Đã tắt “${name}”: từ giờ chỉ dùng khi bạn chọn từ “+” trong ô nhập`,
     added: (name: string) => `Đã thêm “${name}”`,
     imported: (name: string) => `Đã nhập “${name}”, mặc định tắt`,

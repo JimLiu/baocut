@@ -181,6 +181,14 @@ export const ko: AgentMessages = {
   modeHint: (firstDefault: string, last: string | null) =>
     `각 세션의 입력창 아래에서 접근 모드를 선택하세요. 처음에는 “${firstDefault}” 모드가 기본이며, 이후 새 세션은 가장 최근 선택을 따릅니다${last ? `(현재 “${last}”)` : ''}.`,
 
+  customHeading: '사용자 지정 지침',
+  customHint: 'Agent에게 계속 적용할 요청입니다. 예를 들어 어떤 언어로 답할지, 채널의 말투 등을 적습니다. 모든 세션에서 BaoCut의 지침 뒤에 붙으며, 접근 모드나 승인을 완화하지 않습니다.',
+  customPlaceholder: '예:\n한국어로 답해 주세요.\n자막의 제품명은 영어 원문을 유지해 주세요.',
+  customCount: (count: number, max: number) => `${count} / ${max}자`,
+  customTooLong: (over: number, max: number) => `${over}자 초과 (최대 ${max}자)`,
+  customRevert: '되돌리기',
+  customSave: '저장',
+  customSaved: '저장했습니다. 열려 있는 세션은 다음 메시지부터 적용됩니다',
   advancedHeading: '고급 및 문제 해결',
   advancedHint: '연결이 정상이면 여기서 바꿀 것은 없습니다.',
   modelAutoUpdate: {
@@ -236,7 +244,7 @@ export const ko: AgentMessages = {
   },
 
   skills: {
-    lede: 'Skill은 BaoCut의 Agent에게 특정 방식으로 일하는 법을 알려 주는 폴더(SKILL.md와 선택적 참고 파일)입니다. 스위치를 켜 두면 Agent가 작업과 관련 있다고 판단할 때 알아서 사용하고, 끄면 입력창의 “+”에서 직접 선택할 때만 사용합니다. Skill을 켜거나 끄고, 추가하거나 제거한 내용은 다음에 새로 시작하는 Agent 세션부터 적용됩니다.',
+    lede: 'Skill은 BaoCut의 Agent에게 특정 방식으로 일하는 법을 알려 주는 폴더(SKILL.md와 선택적 참고 파일)입니다. 스위치를 켜 두면 Agent가 작업과 관련 있다고 판단할 때 알아서 사용하고, 끄면 입력창의 “+”에서 직접 선택할 때만 사용합니다. Skill을 켜거나 끄고, 추가하거나 제거한 내용은 다음 메시지부터 적용되며, 이미 열려 있는 세션도 마찬가지입니다.',
     search: 'Skill 검색',
     filter: '출처별 필터',
     tab: (label: string, count: number) => `${label} ${count}`,
@@ -258,7 +266,7 @@ export const ko: AgentMessages = {
     webNote: '브라우저에서는 Skill을 보고 켜거나 끌 수 있습니다. 추가, 가져오기, 제거는 BaoCut 데스크톱 앱에서 하세요.',
     view: (name: string) => `${name} 보기`,
     enable: (name: string) => `${name} 활성화`,
-    toggledOn: (name: string) => `“${name}” Skill을 켰습니다: 다음에 새로 시작하는 세션부터 관련 있을 때 Agent가 알아서 사용합니다`,
+    toggledOn: (name: string) => `“${name}” Skill을 켰습니다: 다음 메시지부터 관련 있을 때 Agent가 알아서 사용합니다`,
     toggledOff: (name: string) => `“${name}” Skill을 껐습니다: 이제 입력창의 “+”에서 선택할 때만 사용합니다`,
     added: (name: string) => `“${name}” Skill을 추가했습니다`,
     imported: (name: string) => `“${name}” Skill을 가져왔습니다. 기본으로 꺼져 있습니다`,

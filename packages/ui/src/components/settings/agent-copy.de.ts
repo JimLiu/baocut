@@ -200,6 +200,14 @@ export const de: AgentMessages = {
   modeHint: (firstDefault: string, last: string | null) =>
     `Zugriffsmodus unter dem Eingabefeld jeder Sitzung wählen. Anfangsstandard ist „${firstDefault}“; danach behalten neue Sitzungen die letzte Auswahl${last ? ` (aktuell „${last}“)` : ""}.`,
 
+  customHeading: 'Eigene Anweisungen',
+  customHint: 'Dauerhafte Wünsche an den Agenten, etwa in welcher Sprache er antwortet oder der Ton Ihres Kanals. Sie werden in jeder Sitzung nach den Vorgaben von BaoCut angefügt und lockern weder den Zugriffsmodus noch Freigaben.',
+  customPlaceholder: 'Zum Beispiel:\nAntworte auf Deutsch.\nProduktnamen in Untertiteln auf Englisch lassen.',
+  customCount: (count: number, max: number) => `${count} / ${max} Zeichen`,
+  customTooLong: (over: number, max: number) => `${over} Zeichen über dem Limit von ${max}`,
+  customRevert: 'Zurücksetzen',
+  customSave: 'Speichern',
+  customSaved: 'Gespeichert. Offene Sitzungen verwenden es ab der nächsten Nachricht',
   advancedHeading: "Erweitert & Fehlerbehebung",
   advancedHint: "Bei funktionierender Verbindung muss hier nichts geändert werden.",
   modelAutoUpdate: {
@@ -257,7 +265,7 @@ export const de: AgentMessages = {
   },
 
   skills: {
-    lede: "Ein Skill ist ein Ordner (SKILL.md und optionale Referenzdateien), der BaoCuts Agenten eine Arbeitsweise vermittelt. Eingeschaltet wird er bei passenden Aufgaben automatisch verwendet; ausgeschaltet nur nach Auswahl über „+“ im Eingabefeld. Ein-/Ausschalten, Hinzufügen und Entfernen werden ab der nächsten neuen Agentensitzung wirksam.",
+    lede: "Ein Skill ist ein Ordner (SKILL.md und optionale Referenzdateien), der BaoCuts Agenten eine Arbeitsweise vermittelt. Eingeschaltet wird er bei passenden Aufgaben automatisch verwendet; ausgeschaltet nur nach Auswahl über „+“ im Eingabefeld. Ein-/Ausschalten, Hinzufügen und Entfernen werden ab der nächsten Nachricht wirksam, auch in bereits offenen Sitzungen.",
     search: "Skills suchen",
     filter: "Nach Quelle filtern",
     tab: (label: string, count: number) => `${label} ${count}`,
@@ -279,7 +287,7 @@ export const de: AgentMessages = {
     webNote: "Im Browser Skills anzeigen und umschalten; in der BaoCut-Desktop-App hinzufügen, importieren und entfernen.",
     view: (name: string) => `Anzeigen: ${name}`,
     enable: (name: string) => `Aktivieren: ${name}`,
-    toggledOn: (name: string) => `Eingeschaltet: „${name}“: ab der nächsten neuen Sitzung automatisch vom Agenten bei passenden Aufgaben verwendet`,
+    toggledOn: (name: string) => `Eingeschaltet: „${name}“: ab der nächsten Nachricht automatisch vom Agenten bei passenden Aufgaben verwendet`,
     toggledOff: (name: string) => `Ausgeschaltet: „${name}“: nur noch nach Auswahl über „+“ im Eingabefeld verwendet`,
     added: (name: string) => `Hinzugefügt: „${name}“`,
     imported: (name: string) => `Importiert: „${name}“, standardmäßig ausgeschaltet`,

@@ -8,6 +8,7 @@
 (function () {
   const {useState, useRef, useEffect} = React;
   const D = window.BC_DATA;
+  const R = window.RSP;
   const Row = window.ShellRow;
   const S = window.BC_AGENT_SETUP;
   const FACTS = [
@@ -43,6 +44,41 @@
             <div className="agset-rulelist">{app.autoAllow.map((r) => <Chip key={r} icon="close" aria-label={'移除规则 ' + r} onClick={() => { app.dropAutoAllow(r); app.toast('已移除规则 ' + r); }}>{r}</Chip>)}</div>
           </BCDisclosure>
     </div>;
+  }
+
+  /* 自定义指导（架构设计 §3.8 `agent.customInstructions`）：每个会话里附在 BaoCut 的指导之后，各家 Agent 一样。
+     改完点保存，不边打边存（每次保存都会让开着的会话下一轮重建）；已经开着的会话从下一条消息起按新的。
+     草稿与已存的不同时才能保存或还原；超过 8000 个字符标错、不能保存；只有空白等于没有。
+     别处（CLI 的 baocut settings set）改了它时，没在改的草稿跟着换，正在改的不被盖掉。浏览器里只读（settings.set 不在 Web 白名单）。 */
+  const CUSTOM_MAX = 8000;
+  function AgentCustomInstructions() {
+    const app = useApp();
+    const saved = app.prefs.agentCustomInstructions || '';
+    const [draft, setDraft] = useState(saved);
+    const dirty = useRef(false);
+    dirty.current = draft !== saved;
+    useEffect(() => { if (!dirty.current) setDraft(saved); }, [saved]);
+    const over = draft.length > CUSTOM_MAX;
+    const save = () => {
+      const value = draft.trim() ? draft : '';
+      app.setPref('agentCustomInstructions', value);
+      setDraft(value);
+      app.toast('已保存 · 开着的会话从下一条消息起生效', 'positive');
+    };
+    return <>
+      <h2 className="t-title-sm">自定义指导</h2>
+      <p className="agset-description">写给 Agent 的长期要求，例如回复用什么语言、频道的说话风格。每个会话里都会附在 BaoCut 的指导之后，不会放宽访问模式和审批。</p>
+      <Card layer className="agset-custom">
+        <R.TextArea aria-label="自定义指导" value={draft} onChange={setDraft} placeholder={'例如：\n回复用中文。\n字幕里的产品名保留英文原文。'}
+          description={`${draft.length} / ${CUSTOM_MAX} 个字符`} isInvalid={over}
+          errorMessage={over ? `超出 ${draft.length - CUSTOM_MAX} 个字符，最多 ${CUSTOM_MAX} 个` : undefined}
+          UNSAFE_className="agset-custom__field" />
+        <div className="agset-custom__acts">
+          <Btn size="s" disabled={draft === saved} onClick={() => setDraft(saved)}>还原</Btn>
+          <Btn size="s" variant="accent" disabled={draft === saved || over} onClick={save}>保存</Btn>
+        </div>
+      </Card>
+    </>;
   }
 
   function AgentSection() {
@@ -171,6 +207,8 @@
               label="会话里没有可用的语音识别服务（说「转录」时回复带设置链接）" />
           </div>
         </>
+
+        <AgentCustomInstructions />
 
         <>
           <h2 className="t-title-sm">高级与排障</h2>
