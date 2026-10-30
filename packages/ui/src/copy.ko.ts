@@ -416,6 +416,7 @@ export const ko: CopyMessages = {
     applying: '영상에 기록하는 중',
     done: '완료',
   },
+  threadHistory: { loadEarlier: '이전 메시지 불러오기', loading: '이전 메시지를 불러오는 중…', failed: (error) => `이전 메시지를 불러오지 못했습니다: ${error}` },
   taskView: {
     queued: '대기 중',
     running: '진행 중',

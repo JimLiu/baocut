@@ -2,6 +2,7 @@ import {attachmentUploadMime} from '@baocut/protocol';
 import { BaoCutClient } from '@baocut/client';
 import { preparePlaybackMedia } from './media-playback.ts';
 import {
+  CONVERSATION_TAIL_TURNS,
   RUNTIME_VERSION,
   newId,
   type AccessMode,
@@ -206,10 +207,14 @@ export class RuntimeSession {
   watchConversation(id: Id): () => void {
     let watcher = this.#watchers.get(id);
     if (!watcher) {
-      const unsubscribe = this.client.subscribeConversation(id, {
-        snapshot: (snapshot) => useTimeline.getState().replace(id, snapshot),
-        event: (event) => useTimeline.getState().apply(id, event),
-      });
+      const unsubscribe = this.client.subscribeConversation(
+        id,
+        {
+          snapshot: (snapshot) => useTimeline.getState().replace(id, snapshot),
+          event: (event) => useTimeline.getState().apply(id, event),
+        },
+        { tail: CONVERSATION_TAIL_TURNS },
+      );
       watcher = { count: 0, unsubscribe };
       this.#watchers.set(id, watcher);
     }
@@ -220,6 +225,18 @@ export class RuntimeSession {
       current.unsubscribe();
       this.#watchers.delete(id);
     };
+  }
+
+  /**
+   * 往前翻一页（架构设计 §11.3）：已载入那一段之前最近的几个回合，接在镜像最前面。已经从头载入、或这一段的起点在请求途中变了
+   * （重连后重取了快照）时什么也不做。`beforeApply`：拿到这一页、写进镜像之前调用（线程在这时记下滚动位置）。
+   */
+  async loadEarlier(id: Id, beforeApply?: () => void): Promise<void> {
+    const before = useTimeline.getState().byConversationId[id]?.offset;
+    if (!before) return;
+    const page = await this.client.request('conversations.page', { conversationId: id, before });
+    beforeApply?.();
+    useTimeline.getState().prepend(id, before, page);
   }
 
   // ---- 命令 ----

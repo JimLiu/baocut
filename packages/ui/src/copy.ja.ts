@@ -415,6 +415,7 @@ export const ja: CopyMessages = {
     applying: '動画に書き込み中',
     done: '完了',
   },
+  threadHistory: { loadEarlier: '以前のメッセージを読み込む', loading: '以前のメッセージを読み込んでいます…', failed: (error) => `以前のメッセージを読み込めませんでした：${error}` },
   taskView: {
     queued: '待機中',
     running: '進行中',

@@ -182,6 +182,15 @@
     return out.map((t) => ({start: t.start, end: t.end, user: t.user, replied: t.replied, text: t.texts.join('\n\n')}));
   }
 
+  /** 打开会话时先载入的回合数（架构设计 §11.3 `CONVERSATION_TAIL_TURNS`），「加载更早的消息」每次再往前接这么多。 */
+  const TAIL_TURNS = 30;
+  /** 只显示最后 `shown` 个回合时，第一行在 rows 里的下标；回合不够这么多时是 0。回合从用户消息算起。 */
+  function windowStart(rows, shown) {
+    const starts = [];
+    (rows || []).forEach((row, i) => { if (row.role === 'user') starts.push(i); });
+    return starts.length > shown ? starts[starts.length - shown] : 0;
+  }
+
   /** 时长：0:42、1:03、1:02:05。 */
   function formatElapsed(ms) {
     const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
@@ -242,6 +251,6 @@
   window.BC_AGENT_TURN = {
     endTurn,
     TOOL_LABELS, FILE_EXT, toolStep, toolStatus, nextToolStatus, stepMeta, diffLines, looksLikeDiff,
-    parsePathToken, pathTip, parseVideoTime, gapBetween, rowKind, turns, formatElapsed, clockLabel, footerLabel, waitingFor, waitingLabel,
+    parsePathToken, pathTip, parseVideoTime, gapBetween, rowKind, turns, TAIL_TURNS, windowStart, formatElapsed, clockLabel, footerLabel, waitingFor, waitingLabel,
   };
 })();

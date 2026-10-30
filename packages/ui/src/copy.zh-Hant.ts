@@ -402,6 +402,7 @@ export const zhHant: CopyMessages = {
     applying: '寫入影片',
     done: '已完成',
   },
+  threadHistory: { loadEarlier: '載入更早的訊息', loading: '正在載入更早的訊息…', failed: (error) => `無法載入更早的訊息：${error}` },
   taskView: {
     queued: '排隊中',
     running: '進行中',

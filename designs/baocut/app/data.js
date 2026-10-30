@@ -2460,6 +2460,15 @@
          {id: 'm2', role: 'assistant', text: '读了那一期的 4 个章节标题，都是「动词 + 对象」四到六个字。这一期我按同样的口径起了 4 个，写入前给你看。'},
          {id: 'm3', role: 'receipt', text: '已应用 · 4 个章节改名 · 0.3s', taskId: null},
        ]},
+      /* 长会话（架构设计 §11.3）：36 轮，打开时只显示最近 30 轮，顶上「加载更早的消息」再往前接 */
+      {id: 's46', title: '逐句校对这一期的英文字幕', project: 'p1', harness: 'claude', model: 'sonnet', effort: 'mid',
+       status: 'done', ago: 2900, taskId: null,
+       messages: Array.from({length: 36}, (_, k) => [
+         {id: `u${k + 1}`, role: 'user', text: `第 ${k + 1} 组（g${k * 2 + 1}–g${k * 2 + 2}）看一下。`, ...turnDone(2900 + (36 - k) * 3, 20)},
+         {id: `a${k + 1}`, role: 'assistant', text: k % 3
+           ? `g${k * 2 + 1}–g${k * 2 + 2} 没问题，术语和术语表一致。`
+           : `g${k * 2 + 1} 的 render 改成了 rendering，和上下文的时态对齐；g${k * 2 + 2} 不动。`},
+       ]).flat()},
       /* 本机语义（embedding-integration §2.10）：Agent 按主题取材，工具行写「按主题读取 12 段」；没装模型时同一工具退回字面匹配并写明 */
       {id: 's31', title: '写一篇讲「为什么做本地」的博客', project: 'p1', harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'done', ago: 900, taskId: null,

@@ -413,6 +413,7 @@ export const zhHans: CopyMessages = {
     applying: '写入视频',
     done: '已完成',
   },
+  threadHistory: { loadEarlier: '加载更早的消息', loading: '正在加载更早的消息…', failed: (error) => `没能加载更早的消息：${error}` },
   taskView: {
     queued: '排队中',
     running: '进行中',

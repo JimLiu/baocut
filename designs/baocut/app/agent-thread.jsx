@@ -15,7 +15,7 @@
    不再问）；推理强度从 Segmented 改成下拉；脚注随选中的编码 Agent 变。底栏最左一枚 +：
    附上文件 / 引用（= 敲 @）/ 使用工具（= 开头敲 /）——三件事一个入口，正文里直接敲也行。 */
 (function () {
-  const {useState, useEffect, useRef} = React;
+  const {useState, useEffect, useLayoutEffect, useRef} = React;
   const D = window.BC_DATA;
   const AG = window.BC_AGENT;
   const A = window.RSP.AI;
@@ -458,6 +458,22 @@
       return () => ro.disconnect();
     }, [sid, n === 0]);
     const rows = AG.conversationRows(cur.messages);
+    /* 长会话只先显示最近 30 轮（架构设计 §11.3）：顶上「加载更早的消息」每点一次再往前 30 轮；
+       前面接上之后按第一行原来的位置补回滚动，读到的地方不动 */
+    const [shownTurns, setShownTurns] = useState(TURN.TAIL_TURNS);
+    useEffect(() => { setShownTurns(TURN.TAIL_TURNS); }, [sid]);
+    const start = TURN.windowStart(rows, shownTurns);
+    const kept = useRef(null);
+    const loadEarlier = () => {
+      const first = list.current && list.current.querySelector('.ath__row');
+      kept.current = first ? {node: first, top: first.getBoundingClientRect().top} : null;
+      setShownTurns((v) => v + TURN.TAIL_TURNS);
+    };
+    useLayoutEffect(() => {
+      const anchor = kept.current, el = scroller.current;
+      kept.current = null;
+      if (anchor && el && anchor.node.isConnected) el.scrollTop += anchor.node.getBoundingClientRect().top - anchor.top;
+    }, [shownTurns]);
     /* 每一行后面挂的卡（agent-cards.jsx）：视频卡等会话产物、还没建出视频的下载、完成的候选；
        每张只挂在第一次出现的那一行，工具消息折在回复或工作组里时挂在那一行后面 */
     const cardAt = window.BC_AGENT_CARDS
@@ -525,12 +541,14 @@
             </div>
           ) : (
             <div className="ath__list" ref={list}>
+              {start > 0 ? <div className="ath__history"><Btn variant="secondary" size="s" onClick={loadEarlier}>加载更早的消息</Btn></div> : null}
               {rows.map((m, i) => {
+                if (i < start) return null;
                 const kind = TURN.rowKind(m);
                 const foot = footerAt.get(i);
                 const showFoot = foot && (foot.live || (foot.turn.replied && foot.turn.user));
                 return <React.Fragment key={m.id}>
-                  <div className={cx('ath__row', `agap-${TURN.gapBetween(i ? TURN.rowKind(rows[i - 1]) : null, kind, i > 0 && !!cardAt?.get(rows[i - 1].id)?.length)}`)}>
+                  <div className={cx('ath__row', `agap-${TURN.gapBetween(i > start ? TURN.rowKind(rows[i - 1]) : null, kind, i > start && !!cardAt?.get(rows[i - 1].id)?.length)}`)}>
                     <Message m={m} sess={cur} />
                     {cardAt && cardAt.has(m.id) && window.AgentRowCards ? <window.AgentRowCards cards={cardAt.get(m.id)} sess={cur} /> : null}
                   </div>

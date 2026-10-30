@@ -455,6 +455,7 @@ export const fr: CopyMessages = {
     done: "Terminé",
   },
 
+  threadHistory: { loadEarlier: 'Charger les messages précédents', loading: 'Chargement des messages précédents…', failed: (error) => `Impossible de charger les messages précédents: ${error}` },
   taskView: {
     queued: "En file",
     running: "En cours",

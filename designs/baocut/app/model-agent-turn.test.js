@@ -183,3 +183,11 @@ test('结构化事实：类别与摘要按它定，标签写读的行、搜到�
   assert.deepEqual(T.stepMeta({info: {type: 'fetch', url: 'u', status: 200}}), []);
   assert.deepEqual(T.stepMeta({info: {type: 'subAgent', agentType: 'Explore'}}), ['Explore']);
 });
+
+test('windowStart：只显示最后几个回合时从哪一行开始；回合不够时从头', () => {
+  const rows = [{role: 'assistant'}, {role: 'user'}, {role: 'assistant'}, {role: 'user'}, {role: 'work'}, {role: 'user'}];
+  assert.equal(T.windowStart(rows, 1), 5);
+  assert.equal(T.windowStart(rows, 2), 3);
+  assert.equal(T.windowStart(rows, 3), 0, '三个回合正好全显示，开头那条没有用户消息的回复也在');
+  assert.equal(T.windowStart([], T.TAIL_TURNS), 0);
+});

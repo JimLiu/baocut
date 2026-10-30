@@ -475,6 +475,7 @@ export const pl: CopyMessages = {
     done: "Gotowe",
   },
   /** 后台任务页、详情与侧栏。 */
+  threadHistory: { loadEarlier: 'Wczytaj wcześniejsze wiadomości', loading: 'Wczytywanie wcześniejszych wiadomości…', failed: (error) => `Nie udało się wczytać wcześniejszych wiadomości: ${error}` },
   taskView: {
     queued: "W kolejce",
     running: "W toku",

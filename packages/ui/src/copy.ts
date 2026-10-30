@@ -490,6 +490,12 @@ const en = {
     applying: 'Writing to video',
     done: 'Done',
   },
+  /** 会话只先载最近若干轮时，线程顶上的「加载更早的消息」（产品设计 §3.2）。 */
+  threadHistory: {
+    loadEarlier: 'Load earlier messages',
+    loading: 'Loading earlier messages…',
+    failed: (error: string) => `Couldn't load earlier messages: ${error}`,
+  },
   /** 后台任务页、详情与侧栏。 */
   taskView: {
     queued: 'Queued',
@@ -1230,6 +1236,7 @@ export const RECOVERY_COPY = live(() => M.recovery);
 export const APPROVAL_COPY = live(() => M.approval);
 export const CHANGE_COPY = live(() => M.change);
 export const THREAD_EMPTY_COPY = live(() => M.threadEmpty);
+export const THREAD_HISTORY_COPY = live(() => M.threadHistory);
 export const OUTPUT_COPY = live(() => M.output);
 export const VIDEO_CARD_COPY = live(() => M.videoCard);
 export const HOME_COPY = live(() => M.home);

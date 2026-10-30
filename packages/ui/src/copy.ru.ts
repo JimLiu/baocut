@@ -475,6 +475,7 @@ export const ru: CopyMessages = {
     done: "Готово",
   },
   /** 后台任务页、详情与侧栏。 */
+  threadHistory: { loadEarlier: 'Загрузить предыдущие сообщения', loading: 'Загрузка предыдущих сообщений…', failed: (error) => `Не удалось загрузить предыдущие сообщения: ${error}` },
   taskView: {
     queued: "В очереди",
     running: "Выполняется",

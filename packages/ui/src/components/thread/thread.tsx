@@ -1,16 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DEFAULT_AGENT_MODE, type TimelineItem } from '@baocut/protocol';
+import { Button, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { OUTPUT_COPY } from '../../copy.ts';
+import { OUTPUT_COPY, THREAD_HISTORY_COPY } from '../../copy.ts';
 import { conversationOutputs, outputsByMessage, type ConversationOutput } from '../../model/conversation-outputs.ts';
 import { gapBetween, rowKind, showFooter, turns, type RowKind, type Turn } from '../../model/agent-turn.ts';
 import { buildThread, type ThreadBlock } from '../../model/thread.ts';
 import { freshVideoCards, openingVideo, threadCards, videoCardKeys, type ThreadCard } from '../../model/video-cards.ts';
+import { useRuntime } from '../../runtime/context.tsx';
 import { useConversationMeta } from '../../state/directory-store.ts';
 import { useJobs } from '../../state/jobs-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
+import { useTimelineHasEarlier } from '../../state/timeline-store.ts';
 import { ApprovalCard } from './approval-card.tsx';
 import { PlanCard } from './plan-card.tsx';
 import { QuestionCard } from './question-card.tsx';
@@ -18,6 +21,7 @@ import {
   beginScrollbarDrag,
   endScrollbarDrag,
   initialFollowState,
+  isNearBottom,
   isUpwardKey,
   nextFollowState,
   recordUpwardIntent,
@@ -42,6 +46,7 @@ export const column = style({
   paddingX: 24,
   paddingY: 24,
   boxSizing: 'border-box',
+  outlineStyle: 'none',
 });
 
 /** 线程里回复正文、步骤行与页脚用的颜色（agent-thread.css 读这些变量）。 */
@@ -73,6 +78,9 @@ const threadVars = style({
   '--bc-at-err-line': { type: 'borderColor', value: 'red-300' },
   '--bc-at-focus': { type: 'outlineColor', value: 'focus-ring' },
 });
+
+/** 线程顶上「加载更早的消息」：居中，与第一行隔开。 */
+const history = style({ display: 'flex', justifyContent: 'center', marginBottom: 24 });
 
 /** 一行：回复下面挂着产物时，两者之间 8。 */
 const row = style({ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 });
@@ -114,7 +122,8 @@ export function Thread({
   );
   useOpenFreshVideos(cards, items, conversationId);
   const showColumn = blocks.length > 0 || running;
-  const { scrollerRef, columnRef } = useFollowBottom(conversationId, blocks, showColumn);
+  const { scrollerRef, columnRef, keepPosition } = useFollowBottom(conversationId, blocks, showColumn);
+  const hasEarlier = useTimelineHasEarlier(conversationId);
 
   // 「当前」的内容块：步骤组在跑时摘要行换成正在跑的那一步。
   const lastContent = blocks.findLast((block) => block.type !== 'task');
@@ -174,10 +183,37 @@ export function Thread({
       {!showColumn ? (
         empty
       ) : (
-        <div ref={columnRef} className={`${column} ${threadVars}`} role="log" aria-live="polite" aria-relevant="additions">
+        <div ref={columnRef} className={`${column} ${threadVars}`} role="log" aria-live="polite" aria-relevant="additions" tabIndex={-1}>
+          {hasEarlier ? <LoadEarlier key={conversationId} conversationId={conversationId} keepPosition={keepPosition} /> : null}
           {rows}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 会话只先载了最近若干轮（架构设计 §11.3）：线程顶上给「加载更早的消息」，每点一次往前接一页。
+ * 写进镜像前记下滚动位置，前插后补回，读到的那一行留在原处。
+ */
+function LoadEarlier({ conversationId, keepPosition }: { conversationId: string; keepPosition: () => void }) {
+  const runtime = useRuntime();
+  const [pending, setPending] = useState(false);
+  const load = async () => {
+    setPending(true);
+    try {
+      await runtime.loadEarlier(conversationId, keepPosition);
+    } catch (error) {
+      ToastQueue.negative(THREAD_HISTORY_COPY.failed(error instanceof Error ? error.message : String(error)), { timeout: 5000 });
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <div className={history} data-thread-history>
+      <Button variant="secondary" fillStyle="outline" size="S" isPending={pending} onPress={() => void load()}>
+        {pending ? THREAD_HISTORY_COPY.loading : THREAD_HISTORY_COPY.loadEarlier}
+      </Button>
     </div>
   );
 }
@@ -220,6 +256,7 @@ function useFollowBottom(conversationId: string, blocks: unknown, showColumn: bo
   const state = useRef<FollowState>(initialFollowState());
   const frame = useRef<number | null>(null);
   const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const kept = useRef<{ node: Element; top: number; focused: boolean } | null>(null);
 
   const schedulePin = useCallback(() => {
     if (frame.current !== null) return;
@@ -245,7 +282,26 @@ function useFollowBottom(conversationId: string, blocks: unknown, showColumn: bo
   // 会话切换时重置为跟底；声明在下面钉底的 effect 之前，同一次提交里先重置再钉。
   useLayoutEffect(() => {
     state.current = { ...initialFollowState(), lastScrollTop: scrollerRef.current?.scrollTop ?? null };
+    kept.current = null;
   }, [conversationId]);
+
+  // 往前接了一页：按记下的那一行补回 scrollTop，读到的地方不动；记成基准，这次滚动不算用户往上滚。
+  // 同样声明在钉底之前。用户是在读旧消息，不在底部就不再跟底（键盘聚焦把按钮滚进视口不算向上输入）。
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    const anchor = kept.current;
+    if (!el || !anchor) return;
+    kept.current = null;
+    if (anchor.node.isConnected) el.scrollTop += anchor.node.getBoundingClientRect().top - anchor.top;
+    const following = state.current.following && isNearBottom(el.scrollHeight - el.scrollTop - el.clientHeight);
+    state.current = { ...state.current, following, lastScrollTop: el.scrollTop };
+    const column = columnRef.current;
+    if (!column) return;
+    // 接完最后一页按钮就没了：焦点原来在按钮上时交给消息列，不掉到 body。
+    if (anchor.focused && !column.contains(column.ownerDocument.activeElement)) column.focus({ preventScroll: true });
+    // 前插的旧消息不朗读：live region 先关，这次提交之后再开（不用 rAF：窗口在后台时它不触发）。
+    setTimeout(() => column.setAttribute('aria-live', 'polite'), 0);
+  }, [blocks]);
 
   useLayoutEffect(() => {
     const el = scrollerRef.current;
@@ -343,7 +399,22 @@ function useFollowBottom(conversationId: string, blocks: unknown, showColumn: bo
     };
   }, [conversationId, showColumn, schedulePin]);
 
-  return { scrollerRef, columnRef };
+  /** 往前接一页之前调用：记下第一行在视口里的位置。镜像更新同步排下的提交先于下一个宏任务；没接上（这一段起点变了）时那时作废。 */
+  const keepPosition = useCallback(() => {
+    const column = columnRef.current;
+    const node = column ? [...column.children].find((child) => !child.hasAttribute('data-thread-history')) : undefined;
+    if (!column || !node) return;
+    const focused = column.querySelector('[data-thread-history]')?.contains(column.ownerDocument.activeElement) ?? false;
+    kept.current = { node, top: node.getBoundingClientRect().top, focused };
+    column.setAttribute('aria-live', 'off');
+    setTimeout(() => {
+      if (kept.current?.node !== node) return;
+      kept.current = null;
+      column.setAttribute('aria-live', 'polite');
+    }, 0);
+  }, []);
+
+  return { scrollerRef, columnRef, keepPosition };
 }
 
 /** 钉到底，并把钉到的位置记成下次比较的基准：钉底的 scroll 事件可能在监听挂上之前就派发了。 */
