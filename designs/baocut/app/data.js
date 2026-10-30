@@ -2581,6 +2581,15 @@
          s20 的视频卡只摊开最后结束的导出（已取消），可重试的两件收在「之前的 2 项」里，那一行写「2 项待处理」（foldRows 的 pending）。 */
       {id: 's18', title: '发布前把这一期的活一起做了', project: 'p10', harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'running', ago: 4, taskId: 'ag18t',
+       /* 智能体的待办（product-design §3.2.3）：它自己列的步骤清单，每次整份替换；会话在跑时显示在输入框上方。
+          activeForm 是进行中那一项的说法，只有 Claude Code 给 */
+       todo: [
+         {text: '看这一期的素材与已有文稿', status: 'completed'},
+         {text: '开始转录、翻译、导出、旁白与封面', status: 'completed'},
+         {text: '转录完后核对第二段文稿', status: 'inProgress', activeForm: '正在等第二段访谈转录完'},
+         {text: '核对英语译文', status: 'pending'},
+         {text: '检查预览与封面，汇报结果', status: 'pending'},
+       ],
        messages: [
          {id: 'm1', role: 'user', text: '发布前把这一期的活一起做了：第二段访谈转录，已有的文稿翻成英语，导出一版 1080p 预览，片头配一句旁白，再出两张竖版封面。', ...turnLive(252)},
          {id: 'm2', role: 'assistant', text: '这五件互不依赖，我一起开始。转录跑在本机；旁白和封面走云端的星河云。译文写进视频、导出都不动原片，哪一件都可以单独取消。'},

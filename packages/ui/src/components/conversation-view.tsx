@@ -12,6 +12,7 @@ import {
   type Id,
   type SkillSendRef,
   type SlideAnnotation,
+  type TimelineItem,
 } from '@baocut/protocol';
 import { Button, ProgressCircle, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -52,6 +53,7 @@ import { useSetting } from '../state/settings-store.ts';
 import { useShell } from '../state/shell-store.ts';
 import { Composer } from './composer.tsx';
 import { QueuedMessages } from './queued-messages.tsx';
+import { TodoDock } from './thread/todo-dock.tsx';
 import { useEditorReference } from './use-editor-reference.ts';
 import { Thread } from './thread/thread.tsx';
 import { ThreadEmpty } from './thread/thread-empty.tsx';
@@ -114,6 +116,10 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
   }
 
   const busy = meta.activeTaskId !== null;
+  // 待办条只看正在跑的那个任务（架构设计 §11.3）。
+  const activeTask = busy
+    ? items.find((i): i is Extract<TimelineItem, { kind: 'task' }> => i.kind === 'task' && i.taskId === meta.activeTaskId)
+    : undefined;
   // 有过任务的会话不能再换 Agent（原生会话不能跨 Agent 续，架构设计 §3.11）。
   const lockedTo = items.some((i) => i.kind === 'task') ? meta.driverId : null;
 
@@ -271,7 +277,12 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           onClear: () => useDraftDocsAnnotations.getState().clear(conversationId),
         }}
         mentionScope={{ projectId: meta.projectId, conversationId }}
-        queue={<QueuedMessages conversationId={conversationId} sending={sendingNow} onSendNow={(id) => void sendNow(id)} />}
+        queue={
+          <>
+            <TodoDock key={conversationId} task={activeTask} />
+            <QueuedMessages conversationId={conversationId} sending={sendingNow} onSendNow={(id) => void sendNow(id)} />
+          </>
+        }
         beforeSend={async () => {
           // 带着幻灯片、设计稿、设计系统或协作文档标注时，先让打开着的编辑器把改动保存完（docs/design/slides §8.2、docs/design/canvas §8.2、§10.6、
           // docs/design/docs §8）：

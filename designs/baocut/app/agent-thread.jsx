@@ -340,6 +340,8 @@
       <div ref={boxRef} className={cx('acomp', compact && 'acomp--compact', off && 'acomp--off')}
         onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
         onDrop={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.stopPropagation(); addFiles(e.dataTransfer.files); } }}>
+        {/* 智能体的待办（product-design §3.2.3）：会话在跑、列了清单时才有；key 让换会话时收起 */}
+        {window.AgentTodoDock ? <window.AgentTodoDock key={sess.id} sess={sess} /> : null}
         {off ? (
           <div className="acomp__offnote">
             <Ic n="alert" className="ic--16" />
