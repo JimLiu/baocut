@@ -326,11 +326,16 @@ class Connection {
     // 订阅必须同步完成：登记监听、算出快照或补发、写回响应在同一段里，之后的事件才保证排在响应后面。
     if (method === 'subscribe') {
       try {
-        const { topic, afterSeq } = params as { topic: Topic; afterSeq?: string };
+        const { topic, afterSeq, tail } = params as { topic: Topic; afterSeq?: string; tail?: number };
         this.#subscriptions.get(topic)?.();
-        const subscription = this.#options.handlers.subscribe(topic, afterSeq, (event) => {
-          this.#send({ type: 'event', topic, seq: event.seq, event: event.event });
-        });
+        const subscription = this.#options.handlers.subscribe(
+          topic,
+          afterSeq,
+          (event) => {
+            this.#send({ type: 'event', topic, seq: event.seq, event: event.event });
+          },
+          tail,
+        );
         this.#subscriptions.set(topic, subscription.unsubscribe);
         this.#send({ type: 'response', id, ok: true, result: subscription.result });
       } catch (error) {

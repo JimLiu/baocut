@@ -228,3 +228,63 @@ describe('ConversationState 任务的会话外作用', () => {
     expect(state.hasSideEffects('t2')).toBe(false);
   });
 });
+
+describe('ConversationState 分页', () => {
+  const at = '2026-01-01T00:00:00.000Z';
+  const user = (taskId: string) => ({ id: `u_${taskId}`, taskId, at, kind: 'user-message', text: taskId }) as unknown as TimelineItem;
+  const task = (taskId: string) => ({ id: taskId, taskId, at, kind: 'task', goal: taskId, status: 'completed' }) as unknown as TimelineItem;
+  const reply = (taskId: string, n = 1) =>
+    ({ id: `m${n}_${taskId}`, taskId, at, kind: 'agent-message', text: '', streaming: false }) as unknown as TimelineItem;
+  const turn = (taskId: string) => [user(taskId), task(taskId), reply(taskId)];
+  const ids = (items: readonly TimelineItem[]) => items.map((i) => i.id);
+
+  it('不带 tail 给全部条目、不带 offset；tail 不少于回合数时同样', () => {
+    const { state } = make([...turn('t1'), ...turn('t2')]);
+    expect(state.snapshot()).not.toHaveProperty('offset');
+    expect(state.snapshot(2)).not.toHaveProperty('offset');
+    expect(ids(state.snapshot(5).items)).toHaveLength(6);
+  });
+
+  it('tail 按回合开头切，offset 是这一段在记录里的起点', () => {
+    const { state } = make([...turn('t1'), ...turn('t2'), ...turn('t3')]);
+    const snapshot = state.snapshot(2);
+    expect(snapshot.offset).toBe(3);
+    expect(ids(snapshot.items)).toEqual(['u_t2', 't2', 'm1_t2', 'u_t3', 't3', 'm1_t3']);
+  });
+
+  it('这一段引用的更早任务条目钉在最前面，不算进 offset', () => {
+    // t1 被唤醒，在 t2 之后又写了一条回复。
+    const { state } = make([...turn('t1'), ...turn('t2'), reply('t1', 2)]);
+    const snapshot = state.snapshot(1);
+    expect(snapshot.offset).toBe(3);
+    expect(ids(snapshot.items)).toEqual(['t1', 'u_t2', 't2', 'm1_t2', 'm2_t1']);
+  });
+
+  it('page 取 before 之前最近的几个回合；从头取完时 offset 为 0，before 超出时按末尾算', () => {
+    const { state } = make([...turn('t1'), ...turn('t2'), ...turn('t3')]);
+    expect(state.page(6, 1)).toEqual({ items: state.items().slice(3, 6), offset: 3 });
+    expect(state.page(3, 5)).toEqual({ items: state.items().slice(0, 3), offset: 0 });
+    expect(state.page(100, 1).offset).toBe(6);
+    expect(state.page(0, 1)).toEqual({ items: [], offset: 0 });
+  });
+
+  it('item.upsert 带条目在记录里的位置：新条目接在末尾，替换不变', () => {
+    const { state, events } = make([...turn('t1')]);
+    state.upsert(reply('t1', 2));
+    state.upsert({ ...(task('t1') as object), status: 'failed' } as TimelineItem);
+    const upserts = events.flatMap((e) => (e.event.type === 'item.upsert' ? [[e.event.item.id, e.event.index]] : []));
+    expect(upserts).toEqual([
+      ['m2_t1', 3],
+      ['t1', 1],
+    ]);
+  });
+
+  it('带 tail 订阅拿到的是尾部窗口', () => {
+    const { state } = make([...turn('t1'), ...turn('t2')]);
+    const sub = state.subscribe(undefined, () => {}, 1);
+    expect(sub.result.mode).toBe('snapshot');
+    if (sub.result.mode !== 'snapshot') return;
+    expect(sub.result.snapshot.offset).toBe(3);
+    expect(ids(sub.result.snapshot.items)).toEqual(['u_t2', 't2', 'm1_t2']);
+  });
+});

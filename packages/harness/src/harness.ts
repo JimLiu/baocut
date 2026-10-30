@@ -17,6 +17,7 @@ import {
   normalizeAgentMode,
   nowIso,
   parseConversationTopic,
+  CONVERSATION_TAIL_TURNS,
   planSummary,
   type AgentErrorCode,
   type AccessMode,
@@ -40,6 +41,7 @@ import {
   type CheckResult,
   type RiskLevel,
   type Conversation,
+  type ConversationPage,
   type ConversationSnapshot,
   type BuiltinDriverId,
   type CustomAgentProvider,
@@ -381,10 +383,12 @@ export class Harness {
     return { tasks, approvals: this.approvals.pending() };
   }
 
+  /** `tail`：会话主题的快照只送最近几个回合（§11.3）；别的主题不看。 */
   subscribe(
     topic: Topic,
     afterSeq: Seq | undefined,
     listener: (event: SequencedEvent<unknown>) => void,
+    tail?: number,
   ): TopicSubscription<unknown, unknown> {
     if (topic === 'directory') return this.#directory.subscribe(afterSeq, listener);
     if (topic === 'tasks') return this.#tasks.subscribe(afterSeq, listener);
@@ -392,7 +396,7 @@ export class Harness {
     const id = parseConversationTopic(topic);
     const state = id ? this.#states.get(id) : undefined;
     if (!state) throw new RpcError('not-found', HP.conversationNotFound({ id: String(id) }));
-    return state.subscribe(afterSeq, listener);
+    return state.subscribe(afterSeq, listener, tail);
   }
 
   // ---- 项目 ----
@@ -1105,10 +1109,17 @@ export class Harness {
     return this.#states.get(id)?.conversation;
   }
 
-  getConversation(id: Id): ConversationSnapshot & { seq: Seq } {
+  getConversation(id: Id, tail?: number): ConversationSnapshot & { seq: Seq } {
     const state = this.#require(id);
     state.flush();
-    return { ...state.snapshot(), seq: state.log.seq };
+    return { ...state.snapshot(tail), seq: state.log.seq };
+  }
+
+  /** 会话的一页更早的条目（`conversations.page`）。 */
+  pageConversation(id: Id, before: number, turns: number = CONVERSATION_TAIL_TURNS): ConversationPage {
+    const state = this.#require(id);
+    state.flush();
+    return state.page(before, turns);
   }
 
   async updateConversation(params: {

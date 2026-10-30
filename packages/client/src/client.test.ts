@@ -5,7 +5,7 @@ import { BaoCutClient } from './client.ts';
 const clients: BaoCutClient[] = [];
 afterEach(() => { for (const client of clients.splice(0)) client.close(); });
 
-async function connected(onSubscribe: (socket: TestSocket, id: string) => void) {
+async function connected(onSubscribe: (socket: TestSocket, id: string, params: Record<string, unknown>) => void) {
   class Socket extends TestSocket {
     constructor() {
       super(onSubscribe);
@@ -29,8 +29,8 @@ class TestSocket {
   onclose: ((event: { reason: string }) => void) | null = null;
   onerror: (() => void) | null = null;
 
-  readonly onSubscribe: (socket: TestSocket, id: string) => void;
-  constructor(onSubscribe: (socket: TestSocket, id: string) => void) { this.onSubscribe = onSubscribe; }
+  readonly onSubscribe: (socket: TestSocket, id: string, params: Record<string, unknown>) => void;
+  constructor(onSubscribe: (socket: TestSocket, id: string, params: Record<string, unknown>) => void) { this.onSubscribe = onSubscribe; }
 
   emit(frame: ServerFrame) { this.onmessage?.({ data: JSON.stringify(frame) }); }
   respond(id: string, result: SubscribeResult<string, string>) {
@@ -46,7 +46,7 @@ class TestSocket {
         startedAt: new Date(0).toISOString(), launchedBy: null,
       } });
     } else if (frame.method === 'subscribe') {
-      this.onSubscribe(this, frame.id);
+      this.onSubscribe(this, frame.id, frame.params);
     } else {
       this.emit({ type: 'response', id: frame.id, ok: true, result: { ok: true } });
     }
@@ -100,4 +100,18 @@ it('does not deliver buffered events after the snapshot handler unsubscribes', a
   });
   await Promise.resolve();
   expect(event).not.toHaveBeenCalled();
+});
+
+it('sends the tail window on the first subscription and again when it re-takes a snapshot', async () => {
+  const params: Record<string, unknown>[] = [];
+  const client = await connected((socket, id, p) => {
+    params.push(p);
+    const seq = params.length === 1 ? '1' : '3';
+    socket.respond(id, { mode: 'snapshot', seq, snapshot: seq });
+    if (params.length === 1) socket.event('3');
+  });
+  client.subscribe<string, string>('settings', { snapshot: () => {}, event: () => {} }, { tail: 30 });
+  await vi.waitFor(() => expect(params).toHaveLength(2));
+  expect(params[0]).toEqual({ topic: 'settings', tail: 30 });
+  expect(params[1]).toMatchObject({ topic: 'settings', tail: 30 });
 });

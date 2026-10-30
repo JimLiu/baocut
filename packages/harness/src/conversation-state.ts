@@ -3,6 +3,7 @@ import {
   nowIso,
   type Conversation,
   type ConversationEvent,
+  type ConversationPage,
   type ConversationSnapshot,
   type Id,
   type Seq,
@@ -95,8 +96,37 @@ export class ConversationState {
     return this.record.conversation.id;
   }
 
-  snapshot(): ConversationSnapshot {
-    return { conversation: this.record.conversation, items: this.record.items };
+  /**
+   * 快照。`tail`：只要最近几个回合（架构设计 §11.3），从后往前数第 `tail` 个回合的开头切开，`offset` 是切口；
+   * 切口之前、被这一段引用的任务条目（完成收件箱唤醒的旧任务）放在最前面，之后它的更新客户端按 id 接住。回合不够时整份。
+   */
+  snapshot(tail?: number): ConversationSnapshot {
+    const conversation = this.record.conversation;
+    const items = this.record.items;
+    const offset = tail === undefined ? 0 : turnStart(items, items.length, tail);
+    if (offset === 0) return { conversation, items };
+    const slice = items.slice(offset);
+    return { conversation, items: [...this.#pinnedTasks(slice, offset), ...slice], offset };
+  }
+
+  /** 往前一页：`before` 之前最近 `turns` 个回合，切口对齐回合开头；同样带上这一页引用的、更早的任务条目。 */
+  page(before: number, turns: number): ConversationPage {
+    const items = this.record.items;
+    const end = Math.min(Math.max(0, before), items.length);
+    const offset = turnStart(items, end, turns);
+    const slice = items.slice(offset, end);
+    return { items: [...this.#pinnedTasks(slice, offset), ...slice], offset };
+  }
+
+  /** `slice` 里的条目引用、本身在 `offset` 之前的任务条目，按记录里的先后。 */
+  #pinnedTasks(slice: readonly TimelineItem[], offset: number): TimelineItem[] {
+    const indexes = new Set<number>();
+    for (const item of slice) {
+      if (!item.taskId) continue;
+      const i = this.#index.get(item.taskId);
+      if (i !== undefined && i < offset && this.record.items[i]?.kind === 'task') indexes.add(i);
+    }
+    return [...indexes].sort((a, b) => a - b).map((i) => this.record.items[i]!);
   }
 
   item(id: Id): TimelineItem | undefined {
@@ -109,14 +139,15 @@ export class ConversationState {
   }
 
   upsert(item: TimelineItem): void {
-    const i = this.#index.get(item.id);
-    if (i === undefined) {
-      this.#index.set(item.id, this.record.items.length);
+    let index = this.#index.get(item.id);
+    if (index === undefined) {
+      index = this.record.items.length;
+      this.#index.set(item.id, index);
       this.record.items.push(item);
     } else {
-      this.record.items[i] = item;
+      this.record.items[index] = item;
     }
-    this.#publishOrdered({ type: 'item.upsert', item });
+    this.#publishOrdered({ type: 'item.upsert', item, index });
     if (item.kind === 'task') {
       this.#onTaskChanged(item);
     } else if (item.taskId && !this.#effectful.has(item.taskId) && isSideEffect(item)) {
@@ -160,9 +191,10 @@ export class ConversationState {
   subscribe(
     afterSeq: Seq | undefined,
     listener: (event: SequencedEvent<ConversationEvent>) => void,
+    tail?: number,
   ): TopicSubscription<ConversationSnapshot, ConversationEvent> {
     this.flush();
-    return this.log.subscribe(afterSeq, listener);
+    return this.log.subscribe(afterSeq, listener, tail === undefined ? undefined : () => this.snapshot(tail));
   }
 
   /** 会话被丢弃：清掉定时器，未发的增量不再发布（订阅者随后被断开）。 */
@@ -231,4 +263,20 @@ export class ConversationState {
     this.record.seq = this.log.publish(event);
     this.#dirty();
   }
+}
+
+/**
+ * `end` 之前从后往前数第 `turns` 个回合的开头。回合按任务第一次出现的位置算（用户消息在前，任务条目紧随其后）；
+ * 完成收件箱唤醒的旧任务接着写的条目不算新回合。回合不够时是 0。
+ */
+function turnStart(items: readonly TimelineItem[], end: number, turns: number): number {
+  const seen = new Set<Id>();
+  const starts: number[] = [];
+  for (let i = 0; i < end; i++) {
+    const taskId = items[i]!.taskId;
+    if (!taskId || seen.has(taskId)) continue;
+    seen.add(taskId);
+    starts.push(i);
+  }
+  return starts.length > turns ? starts[starts.length - turns]! : 0;
 }

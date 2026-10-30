@@ -171,8 +171,8 @@ export function webHandlers(base: RpcHandlers, deps: WebHandlerDeps): RpcHandler
       }
     };
   }
-  const subscribe: RpcHandlers['subscribe'] = (topic, afterSeq, listener) => {
-    if (topic !== 'models') return base.subscribe(topic, afterSeq, listener);
+  const subscribe: RpcHandlers['subscribe'] = (topic, afterSeq, listener, tail) => {
+    if (topic !== 'models') return base.subscribe(topic, afterSeq, listener, tail);
     const sub = base.subscribe(topic, afterSeq, (event) => listener(webModelsEvent(event as SequencedEvent<ModelsEvent>)));
     const r = sub.result;
     const result =

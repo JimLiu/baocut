@@ -195,6 +195,7 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'projects.git.status',
   'conversations.list',
   'conversations.get',
+  'conversations.page',
   'tasks.getContract',
   'tasks.listContracts',
   'tasks.listChecks',

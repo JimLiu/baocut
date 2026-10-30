@@ -129,14 +129,29 @@ export interface ConversationSnapshot {
   conversation: Conversation;
   /** 按出现顺序排列。 */
   items: TimelineItem[];
+  /**
+   * 只给了最近几个回合时（`tail`，架构设计 §11.3）：`items` 里连续的那一段从记录的第几条开始，0 或没有表示从头起都在。
+   * 这一段之前的、被段里条目引用的任务条目（完成收件箱唤醒的旧任务）放在 `items` 最前面，不算在这一段里。
+   */
+  offset?: number;
 }
+
+/** 会话的一页更早的条目（`conversations.page`）：记录里 `[offset, before)` 这一段，起点对齐回合开头。 */
+export interface ConversationPage {
+  items: TimelineItem[];
+  offset: number;
+}
+
+/** 会话主题默认只送最近这么多个回合；更早的由客户端按需翻页（`conversations.page`）。 */
+export const CONVERSATION_TAIL_TURNS = 30;
 
 /**
  * 会话主题的事件。流式文本以 `item.append` 增量送达，但保留条目身份与完成边界：
  * 终态总以一条 `item.upsert` 收尾（架构设计 §4.5）。
  */
 export type ConversationEvent =
-  | { type: 'item.upsert'; item: TimelineItem }
+  /** `index`：条目在记录里的位置（只追加、不重排）。客户端没有这一条且它在已载入的那一段之前时忽略。 */
+  | { type: 'item.upsert'; item: TimelineItem; index?: number }
   | { type: 'item.append'; itemId: Id; field: 'text' | 'output'; delta: string }
   | { type: 'conversation.updated'; conversation: Conversation }
   | { type: 'conversation.removed' };

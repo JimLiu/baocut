@@ -5,6 +5,7 @@ import {
   type AgentSetupEvent,
   type AgentSetupSnapshot,
   type ConversationEvent,
+  type ConversationPage,
   type ConversationSnapshot,
   type DirectoryEvent,
   type DirectorySnapshot,
@@ -195,10 +196,17 @@ export function applySpaceEvent(state: SpaceSnapshot, event: SpaceEvent): SpaceS
 }
 
 /** 会话被删除时返回 null。 */
+/**
+ * 会话主题的增量。快照只有最近几个回合时（`offset`），没有的条目按事件带的位置分：在已载入那一段之前的不要（翻页时再取），
+ * 其余是新条目，接在最后；已有的条目不管位置都原地替换（包括钉在最前面的旧任务条目）。
+ */
 export function applyConversationEvent(state: ConversationSnapshot, event: ConversationEvent): ConversationSnapshot | null {
   switch (event.type) {
-    case 'item.upsert':
+    case 'item.upsert': {
+      const index = state.items.findIndex((i) => i.id === event.item.id);
+      if (index < 0 && state.offset && event.index !== undefined && event.index < state.offset) return state;
       return { ...state, items: upsertBy(state.items, event.item, (i) => i.id) };
+    }
     case 'item.append': {
       const index = state.items.findIndex((i) => i.id === event.itemId);
       if (index < 0) return state;
@@ -213,6 +221,16 @@ export function applyConversationEvent(state: ConversationSnapshot, event: Conve
     case 'conversation.removed':
       return null;
   }
+}
+
+/**
+ * 把往前翻到的一页接在最前面。`before` 是请求时已载入那一段的起点：之后快照被整体替换过（重连）、起点变了，这一页作废。
+ * 页里也有的条目（钉在最前面的旧任务）换成页里的，页是更晚读的。
+ */
+export function prependConversationPage(state: ConversationSnapshot, before: number, page: ConversationPage): ConversationSnapshot {
+  if (!state.offset || state.offset !== before || page.offset >= before) return state;
+  const ids = new Set(page.items.map((i) => i.id));
+  return { ...state, items: [...page.items, ...state.items.filter((i) => !ids.has(i.id))], offset: page.offset };
 }
 
 function appendToItem(item: TimelineItem, field: 'text' | 'output', delta: string): TimelineItem | null {

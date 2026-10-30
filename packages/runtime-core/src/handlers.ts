@@ -87,10 +87,12 @@ type MethodHandler<M extends RpcMethod> = (params: RpcParams<M>, principal: Trus
 
 export interface RpcHandlers {
   methods: { [M in Exclude<RpcMethod, 'subscribe' | 'unsubscribe'>]: MethodHandler<M> };
+  /** `tail`：会话主题的快照只送最近几个回合；别的主题不看。 */
   subscribe(
     topic: Topic,
     afterSeq: Seq | undefined,
     listener: (event: SequencedEvent<unknown>) => void,
+    tail?: number,
   ): TopicSubscription<unknown, unknown>;
 }
 
@@ -396,7 +398,8 @@ export function createHandlers({
       },
       'conversations.list': () => harness.directorySnapshot(),
       'conversations.create': async (p) => ({ conversation: await harness.createConversation(p) }),
-      'conversations.get': (p) => harness.getConversation(p.conversationId),
+      'conversations.get': (p) => harness.getConversation(p.conversationId, p.tail),
+      'conversations.page': (p) => harness.pageConversation(p.conversationId, p.before, p.turns),
       'conversations.update': async (p) => ({ conversation: await harness.updateConversation(p) }),
       'conversations.markRead': (p) => ({ conversation: harness.markRead(p.conversationId) }),
       'conversations.delete': async (p) => {
@@ -765,7 +768,7 @@ export function createHandlers({
         return {};
       },
     },
-    subscribe: (topic, afterSeq, listener) => {
+    subscribe: (topic, afterSeq, listener, tail) => {
       if (topic === 'space') return space.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'jobs') return models.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'models') return models.modelsTopic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
@@ -777,7 +780,7 @@ export function createHandlers({
       if (topic === 'legacy-import') return legacyUpgrade.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       const videoId = parseVideoTopic(topic);
       if (videoId) return videos.subscribe(videoId, afterSeq, listener);
-      return harness.subscribe(topic, afterSeq, listener);
+      return harness.subscribe(topic, afterSeq, listener, tail);
     },
   };
 }

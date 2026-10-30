@@ -27,7 +27,7 @@ import type {
   VideoShotsParams,
   VideoShotsResult,
 } from './domain.ts';
-import type { ConversationSnapshot, DirectorySnapshot, SequencedEvent, Topic } from './events.ts';
+import type { ConversationPage, ConversationSnapshot, DirectorySnapshot, SequencedEvent, Topic } from './events.ts';
 import type { ExportCreateRequest, ExportRenderTextRequest, ExportRenderTextResult } from './exports.ts';
 import type {
   GenerateImageRequest,
@@ -432,9 +432,18 @@ export interface RpcMethods {
     };
     result: { conversation: Conversation };
   };
+  /** `tail`：只要最近几个回合（`ConversationSnapshot.offset` 标出切口）；不给时整份。 */
   'conversations.get': {
-    params: { conversationId: Id };
+    params: { conversationId: Id; tail?: number };
     result: ConversationSnapshot & { seq: Seq };
+  };
+  /**
+   * 往前翻一页：记录里 `before` 之前最近 `turns` 个回合（默认 `CONVERSATION_TAIL_TURNS`），切口对齐回合开头。
+   * `before` 是客户端已载入那一段的起点（快照或上一页的 `offset`）；为 0 时返回空页。
+   */
+  'conversations.page': {
+    params: { conversationId: Id; before: number; turns?: number };
+    result: ConversationPage;
   };
   /**
    * 改标题、置顶、归档、Agent、模型、强度、访问模式。归档只影响列表显示，不取消任务（产品设计 §2.3）。
@@ -1475,8 +1484,9 @@ export interface RpcMethods {
    */
   'settings.set': { params: { values: { [K in SettingKey]?: SettingInputValues[K] | null } }; result: SettingsSnapshot };
 
+  /** `tail`：会话主题的快照只送最近几个回合（`ConversationSnapshot.offset`）；别的主题不看。补发（replay）不受影响。 */
   subscribe: {
-    params: { topic: Topic; afterSeq?: Seq };
+    params: { topic: Topic; afterSeq?: Seq; tail?: number };
     result: { mode: 'snapshot'; seq: Seq; snapshot: unknown } | { mode: 'replay'; seq: Seq; events: SequencedEvent<unknown>[] };
   };
   unsubscribe: { params: { topic: Topic }; result: { ok: true } };

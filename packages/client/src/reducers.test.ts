@@ -21,6 +21,7 @@ import {
   applyModelsEvent,
   applySettingsEvent,
   applyTasksEvent,
+  prependConversationPage,
 } from './reducers.ts';
 
 const at = '2026-10-02T00:00:00.000Z';
@@ -93,6 +94,52 @@ describe('applyConversationEvent', () => {
 
   it('会话删除时返回 null', () => {
     expect(applyConversationEvent(base, { type: 'conversation.removed' })).toBeNull();
+  });
+});
+
+describe('会话分页', () => {
+  const task: TimelineItem = {
+    kind: 'task',
+    id: 't1',
+    createdAt: at,
+    taskId: 't1',
+    goal: 'x',
+    status: 'running',
+  } as unknown as TimelineItem;
+  const item = (id: string): TimelineItem => ({ ...message, id, streaming: false });
+  // 记录里 0–4 已在别处，窗口从 5 开始；t1（记录里第 1 条）被窗口里的条目引用，钉在最前。
+  const windowed: ConversationSnapshot = { conversation, items: [task, item('m5'), item('m6')], offset: 5 };
+  const ids = (snapshot: ConversationSnapshot) => snapshot.items.map((i) => i.id);
+
+  it('窗口之前的新条目不收，之后的追加；已载入的照常替换', () => {
+    expect(applyConversationEvent(windowed, { type: 'item.upsert', item: item('m3'), index: 3 })).toBe(windowed);
+    expect(ids(applyConversationEvent(windowed, { type: 'item.upsert', item: item('m7'), index: 7 })!)).toEqual(['t1', 'm5', 'm6', 'm7']);
+    const replaced = applyConversationEvent(windowed, {
+      type: 'item.upsert',
+      item: { ...task, status: 'completed' } as TimelineItem,
+      index: 1,
+    })!;
+    expect(replaced.items[0]).toMatchObject({ status: 'completed' });
+    // 不带 index 的（旧 Runtime）照旧追加。
+    expect(ids(applyConversationEvent(windowed, { type: 'item.upsert', item: item('m9') })!)).toEqual(['t1', 'm5', 'm6', 'm9']);
+  });
+
+  it('往前接一页：接在最前面，钉过的任务条目以这一页的为准不重复', () => {
+    const next = prependConversationPage(windowed, 5, {
+      items: [{ ...task, status: 'completed' } as TimelineItem, item('m2'), item('m3')],
+      offset: 2,
+    });
+    expect(ids(next)).toEqual(['t1', 'm2', 'm3', 'm5', 'm6']);
+    expect(next.items[0]).toMatchObject({ status: 'completed' });
+    expect(next.offset).toBe(2);
+  });
+
+  it('起点已经变了、已经从头载入或这一页没往前走时不动', () => {
+    const page = { items: [item('m2')], offset: 2 };
+    expect(prependConversationPage(windowed, 4, page)).toBe(windowed);
+    const complete = { ...windowed, offset: 0 };
+    expect(prependConversationPage(complete, 0, page)).toBe(complete);
+    expect(prependConversationPage(windowed, 5, { items: [], offset: 5 })).toBe(windowed);
   });
 });
 

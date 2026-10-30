@@ -999,7 +999,12 @@ export const methodParamSchemas = {
     effort: agentEffort.optional(),
     accessMode: agentMode.nullable().optional(),
   }),
-  'conversations.get': z.object({ conversationId: id }),
+  'conversations.get': z.object({ conversationId: id, tail: z.number().int().min(1).max(10_000).optional() }),
+  'conversations.page': z.object({
+    conversationId: id,
+    before: z.number().int().min(0),
+    turns: z.number().int().min(1).max(10_000).optional(),
+  }),
   'conversations.update': z.object({
     conversationId: id,
     title: z.string().trim().min(1).max(200).optional(),
@@ -1674,7 +1679,7 @@ export const methodParamSchemas = {
   'services.web.revokeSession': z.object({ sessionId: id }).strict(),
   'settings.get': z.object({ keys: z.array(z.enum(SETTING_KEYS)).max(SETTING_KEYS.length).optional() }).strict(),
   'settings.set': z.object({ values: settingsPatchSchema }).strict(),
-  subscribe: z.object({ topic, afterSeq: seq.optional() }),
+  subscribe: z.object({ topic, afterSeq: seq.optional(), tail: z.number().int().min(1).max(10_000).optional() }),
   unsubscribe: z.object({ topic }),
 } satisfies Record<RpcMethod, z.ZodType>;
 

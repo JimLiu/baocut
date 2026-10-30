@@ -37,12 +37,13 @@ export class TopicLog<S, E> {
     return this.#seq;
   }
 
-  subscribe(afterSeq: Seq | undefined, listener: (event: SequencedEvent<E>) => void): TopicSubscription<S, E> {
+  /** `snapshot`：这个订阅者要的快照（例如会话只要最近几个回合）；补发不受影响。 */
+  subscribe(afterSeq: Seq | undefined, listener: (event: SequencedEvent<E>) => void, snapshot?: () => S): TopicSubscription<S, E> {
     this.#listeners.add(listener);
-    return { result: this.#initial(afterSeq), unsubscribe: () => this.#listeners.delete(listener) };
+    return { result: this.#initial(afterSeq, snapshot ?? this.#snapshot), unsubscribe: () => this.#listeners.delete(listener) };
   }
 
-  #initial(afterSeq: Seq | undefined): SubscribeResult<S, E> {
+  #initial(afterSeq: Seq | undefined, snapshot: () => S): SubscribeResult<S, E> {
     if (afterSeq !== undefined && compareSeq(afterSeq, this.#seq) <= 0) {
       if (compareSeq(afterSeq, this.#seq) === 0) return { mode: 'replay', seq: this.#seq, events: [] };
       const first = this.#buffer[0];
@@ -54,7 +55,7 @@ export class TopicLog<S, E> {
         };
       }
     }
-    return { mode: 'snapshot', seq: this.#seq, snapshot: this.#snapshot() };
+    return { mode: 'snapshot', seq: this.#seq, snapshot: snapshot() };
   }
 
   /** 主题被删除时断开所有订阅者。 */

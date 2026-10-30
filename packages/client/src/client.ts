@@ -81,6 +81,8 @@ export interface TopicHandlers<S, E> {
 interface TopicEntry {
   topic: Topic;
   handlers: TopicHandlers<unknown, unknown>;
+  /** 会话主题的快照只要最近几个回合（`subscribe` 的 `tail`）。 */
+  tail?: number;
   /** 本地镜像所在的水位；null 表示需要快照。 */
   seq: Seq | null;
   /** 订阅请求在途；响应处理前到达的事件在快照或补发之后按序应用。 */
@@ -151,8 +153,15 @@ export class BaoCutClient {
     return this.#send(method, params, options.timeoutMs) as Promise<RpcResult<M>>;
   }
 
-  subscribe<S, E>(topic: Topic, handlers: TopicHandlers<S, E>): () => void {
-    const entry: TopicEntry = { topic, handlers: handlers as TopicHandlers<unknown, unknown>, seq: null, pending: false, buffered: [] };
+  subscribe<S, E>(topic: Topic, handlers: TopicHandlers<S, E>, options: { tail?: number } = {}): () => void {
+    const entry: TopicEntry = {
+      topic,
+      handlers: handlers as TopicHandlers<unknown, unknown>,
+      seq: null,
+      pending: false,
+      buffered: [],
+      ...(options.tail !== undefined ? { tail: options.tail } : {}),
+    };
     this.#topics.set(topic, entry);
     if (this.#state.status === 'connected') this.#resubscribe(entry);
     return () => {
@@ -166,8 +175,16 @@ export class BaoCutClient {
     return this.subscribe('directory', handlers);
   }
 
-  subscribeConversation(conversationId: Id, handlers: TopicHandlers<ConversationSnapshot, ConversationEvent>): () => void {
-    return this.subscribe(conversationTopic(conversationId), handlers);
+  /**
+   * `tail`：快照只要最近几个回合（`ConversationSnapshot.offset` 标出切口），更早的用 `conversations.page` 翻；
+   * 重连时能补发就补发、已翻到的保留，补不上要重取快照时回到最近这几个回合。
+   */
+  subscribeConversation(
+    conversationId: Id,
+    handlers: TopicHandlers<ConversationSnapshot, ConversationEvent>,
+    options: { tail?: number } = {},
+  ): () => void {
+    return this.subscribe(conversationTopic(conversationId), handlers, options);
   }
 
   subscribeTasks(handlers: TopicHandlers<TasksSnapshot, TasksEvent>): () => void {
@@ -376,7 +393,11 @@ export class BaoCutClient {
   #resubscribe(entry: TopicEntry): void {
     entry.pending = true;
     entry.buffered = [];
-    const params = entry.seq === null ? { topic: entry.topic } : { topic: entry.topic, afterSeq: entry.seq };
+    const params = {
+      topic: entry.topic,
+      ...(entry.seq === null ? {} : { afterSeq: entry.seq }),
+      ...(entry.tail !== undefined ? { tail: entry.tail } : {}),
+    };
     this.#send('subscribe', params).then(
       (raw) => {
         if (this.#topics.get(entry.topic) !== entry) return;

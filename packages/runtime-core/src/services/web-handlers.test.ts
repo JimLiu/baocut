@@ -78,3 +78,20 @@ describe('Web 服务里的模型包状态', () => {
     expect(JSON.stringify(setup('snapshot').web.subscribe('settings', undefined, () => {}).result)).toContain('/Volumes/');
   });
 });
+
+describe('Web 服务里的订阅', () => {
+  it('会话主题的 tail 原样交给 Runtime', () => {
+    const tails: unknown[] = [];
+    const base = {
+      methods: {},
+      subscribe: (_topic: string, _after: unknown, _l: unknown, tail?: number) => {
+        tails.push(tail);
+        return { result: { mode: 'snapshot', seq: '1', snapshot: {} }, unsubscribe: () => {} };
+      },
+    } as unknown as RpcHandlers;
+    const web = webHandlers(base, {} as WebHandlerDeps);
+    web.subscribe('conversation:conv_1', undefined, () => {}, 30);
+    web.subscribe('settings', undefined, () => {});
+    expect(tails).toEqual([30, undefined]);
+  });
+});
