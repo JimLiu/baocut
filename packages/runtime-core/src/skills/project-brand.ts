@@ -19,6 +19,7 @@ import {
   type SkillFileContent,
   type SkillFileEntry,
 } from '@baocut/protocol';
+import { escapeContextTags } from '@baocut/harness';
 import { RcSkills } from '@baocut/protocol/messages/runtime-core';
 import { decodeUtf8, inside, listSkillFiles, readCapped, readText, type SkillCatalog } from './skill-catalog.ts';
 import { applyFileChanges } from './skill-installer.ts';
@@ -393,7 +394,7 @@ export function brandPathFromSkill(file: string): string {
 /** 最多列出多少个 `brand/` 文件。 */
 const BRAND_MAX_FILES = 50;
 
-/** 交给智能体的品牌段，包在 `<baocut-project-brand>` 里。 */
+/** 交给智能体的品牌段，包在 `<baocut-project-brand>` 里。BRAND.md 是用户写的，里面的 `<baocut-…>` 标签先转义（harness `escapeContextTags`）。 */
 export function projectBrandBlock(brand: {
   projectPath: string;
   brandPath: string;
@@ -411,7 +412,7 @@ export function projectBrandBlock(brand: {
     `Paths in it are relative to the project folder (${brand.projectPath}). The brand assets are already inside the project, so import them by path; do not copy them elsewhere.`,
     '',
     `${PROJECT_BRAND_FILE}:`,
-    brand.content.trim(),
+    escapeContextTags(brand.content.trim()),
   ];
   if (brand.truncated)
     lines.push(
@@ -446,7 +447,7 @@ export function globalBrandBlock(brand: {
     `Paths in it are relative to the BaoCut home folder (${brand.homePath}). Import the brand assets from there by path; do not move or edit them unless the user asks.`,
     '',
     `${PROJECT_BRAND_FILE}:`,
-    brand.content.trim(),
+    escapeContextTags(brand.content.trim()),
   ];
   if (brand.truncated)
     lines.push(

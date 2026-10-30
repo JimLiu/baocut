@@ -105,6 +105,7 @@ import { HarnessAgents as HA, HarnessProjects as HP, HarnessRuns as HR } from '@
 import { AgentManager, type DriverRegistry } from './agent-manager.ts';
 import { ApprovalService, type ApprovalResolution } from './approval-service.ts';
 import { ConversationState } from './conversation-state.ts';
+import { contextBlock, escapeContextTags } from './context-tags.ts';
 import type {
   AgentDriver,
   AgentEvent,
@@ -1450,8 +1451,9 @@ export class Harness {
       stopTimer: null,
     };
     this.#runs.set(state.id, run);
+    // 用户的原话里冒充上下文段的标签先转义（context-tags.ts）；会话里显示的仍是原话。
     const agentText = [
-      params.text,
+      escapeContextTags(params.text),
       params.template?.instructions,
       params.brand?.instructions,
       params.skills?.instructions,
@@ -1604,7 +1606,7 @@ export class Harness {
       withVideoAnnotations(
         withDesignSystemAnnotations(
           withDesignAnnotations(
-            withSlideAnnotations([params.text, fileAttachmentsText(attached)].filter(Boolean).join('\n\n'), annotations),
+            withSlideAnnotations([escapeContextTags(params.text), fileAttachmentsText(attached)].filter(Boolean).join('\n\n'), annotations),
             designAnnotations,
           ),
           designSystemAnnotations,
@@ -3167,7 +3169,7 @@ export function withEditorContext(text: string, context: EditorContext | undefin
     '「这个」「选中的」「这里」指的就是上面这些。修改前先用 videos_inspect 读取当前版本：用户可能刚改过。',
   ];
   // i18n-ignore-end
-  return `${text}\n\n<baocut-editor-context>\n${lines.join('\n')}\n</baocut-editor-context>`;
+  return `${text}\n\n${contextBlock('<baocut-editor-context>', lines, '</baocut-editor-context>')}`;
 }
 
 /** 一个会话最多同时挂着几个还没发出的条目引用。 */
@@ -3196,10 +3198,11 @@ export function withSpaceReferences(text: string, references: readonly SpaceEntr
   return [
     text,
     '',
-    '<baocut-space-references>',
-    '用户从 Space 带来了这些条目，接着它们做。这里只有元数据：要看内容时用 space_list、videos_inspect 等工具按 id 去取。',
-    ...lines,
-    '</baocut-space-references>',
+    contextBlock(
+      '<baocut-space-references>',
+      ['用户从 Space 带来了这些条目，接着它们做。这里只有元数据：要看内容时用 space_list、videos_inspect 等工具按 id 去取。', ...lines],
+      '</baocut-space-references>',
+    ),
   ].join('\n');
   // i18n-ignore-end
 }
@@ -3223,7 +3226,7 @@ export function withSlideAnnotations(text: string, annotations: readonly Resolve
     // i18n-ignore-end
     groups.set(deckPath, [...(groups.get(deckPath) ?? []), lines.join('\n')]);
   });
-  const blocks = [...groups].map(([deckPath, items]) => [`<baocut-slide-annotations deck=${JSON.stringify(deckPath)}>`, ...items, '</baocut-slide-annotations>'].join('\n'));
+  const blocks = [...groups].map(([deckPath, items]) => contextBlock(`<baocut-slide-annotations deck=${JSON.stringify(deckPath)}>`, items, '</baocut-slide-annotations>'));
   return [text, '', ...blocks].join('\n');
 }
 
@@ -3247,7 +3250,7 @@ export function withDesignAnnotations(text: string, annotations: readonly Resolv
     groups.set(canvasPath, [...(groups.get(canvasPath) ?? []), lines.join('\n')]);
   });
   const blocks = [...groups].map(([canvasPath, items]) =>
-    [`<baocut-design-annotations canvas=${JSON.stringify(canvasPath)}>`, ...items, '</baocut-design-annotations>'].join('\n'),
+    contextBlock(`<baocut-design-annotations canvas=${JSON.stringify(canvasPath)}>`, items, '</baocut-design-annotations>'),
   );
   return [text, '', ...blocks].join('\n');
 }
@@ -3272,7 +3275,7 @@ export function withDesignSystemAnnotations(text: string, annotations: readonly 
     groups.set(systemPath, [...(groups.get(systemPath) ?? []), lines.join('\n')]);
   });
   const blocks = [...groups].map(([systemPath, items]) =>
-    [`<baocut-design-system-annotations system=${JSON.stringify(systemPath)}>`, ...items, '</baocut-design-system-annotations>'].join('\n'),
+    contextBlock(`<baocut-design-system-annotations system=${JSON.stringify(systemPath)}>`, items, '</baocut-design-system-annotations>'),
   );
   return [text, '', ...blocks].join('\n');
 }
@@ -3382,12 +3385,11 @@ export function withVideoAnnotations(
     const times = frames.map((frame) => frame.timeMs);
     const tail = frames.length >= 2 ? [`candidateBoundsMs: ${Math.min(...times)}–${Math.max(...times)}（候选范围，不是要改的区间）`] : [];
     // i18n-ignore-end
-    return [
+    return contextBlock(
       `<baocut-video-annotations video=${JSON.stringify(videoPath)} revision=${JSON.stringify(revision)}>`,
-      ...lines,
-      ...tail,
+      [...lines, ...tail],
       '</baocut-video-annotations>',
-    ].join('\n');
+    );
   });
   return [text, '', ...blocks].join('\n');
 }
@@ -3434,7 +3436,7 @@ export function withDocsAnnotations(text: string, annotations: readonly Resolved
     // i18n-ignore-end
     groups.set(docPath, [...(groups.get(docPath) ?? []), lines.join('\n')]);
   });
-  const blocks = [...groups].map(([docPath, items]) => [`<baocut-docs-annotations doc=${JSON.stringify(docPath)}>`, ...items, '</baocut-docs-annotations>'].join('\n'));
+  const blocks = [...groups].map(([docPath, items]) => contextBlock(`<baocut-docs-annotations doc=${JSON.stringify(docPath)}>`, items, '</baocut-docs-annotations>'));
   return [text, '', ...blocks].join('\n');
 }
 

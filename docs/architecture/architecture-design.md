@@ -404,6 +404,8 @@ P0 由一个用户可以理解的执行主体对结果负责。内部的分析�
 
 消息带幻灯片标注（`slideAnnotations`，幻灯片设计 §9）时，Runtime 把每条的 deck 换成相对会话工作目录的路径，Harness 按 deck 分段，每份一段 `<baocut-slide-annotations>`，逐条列出位置、定位与批注，附在交给智能体的文字最后；锚点只给编辑器用，不交给智能体。设计稿标注（`designAnnotations`）同样处理：canvas 换成相对路径，每份设计稿一段 `<baocut-design-annotations>`，放在幻灯片标注段之后，编号各自从 1 起。设计系统标注（`designSystemAnnotations`）也一样：每套设计系统一段 `<baocut-design-system-annotations>`，放在设计稿标注段之后。视频标注（`videoAnnotations`，产品设计 §3.2.3「视频标注」）同样处理：每部视频一段 `<baocut-video-annotations video="…" revision="…">`，放在设计系统标注段之后，一帧一条（同一帧的几处标记并在一起）：条头是时刻（含毫秒）与几处标记，下面是这一帧的落点（`segment:`，段与句）与截图（`screenshot:`），再逐处列出种类与归一化区域，轻量视图标记工具送来的另有样式（`style:`）、点中的元素（`element:`，给模型看的英文说法）与评论的印章位置（`stamp:`）各一行，最后是批注（画的标记没有批注时不写），标了两帧以上时另给 `candidateBoundsMs`；它与 `<baocut-editor-context>` 分开——上下文说的是编辑器此刻的状态，标注说的是用户圈出来要改的位置与时刻。文档标注（`docsAnnotations`，[文档设计 §8](../design/docs/docs-design.md#8-评论与请求发给智能体)）指向文档里已经存在的评论或写给智能体的请求：每份文档一段 `<baocut-docs-annotations>`，放在设计系统标注段之后，逐条给出元素路径、原文、评论或请求，以及在哪个线程回复、写到哪个块。格式与限制见协议规范 `conversations`。
 
+这些 `<baocut-…>` 段（连同 skill、模板与品牌段）是 BaoCut 附上的上下文，模型按标签名认它们。用户写的内容——消息正文（发出与插话）、批注、视频与条目的名字、`BRAND.md`——里出现的 `<baocut-…>` 与 `</baocut-…>` 先转义成 `&lt;baocut-…`（Harness `escapeContextTags`），不能冒充这些段或提前把它们闭合；会话里记的、界面显示的仍是原话。skill 与模板的正文是作者写的说明，可能正当地提到这些标签，不转义。
+
 - 先摘要与检索，再按需扩展，不默认把完整视频和全文外发。
 - 只读到文件名不能声称理解了内容。`ContextEvidence` 记录实际读取的范围与方法。
 - 检查记录包含 `method`、`inputRefs`、`coveredRanges`、`uncoveredRanges`、`findings` 和 `confidence`；它不是被展示出来的内部推理。

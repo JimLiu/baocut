@@ -2,6 +2,7 @@ export * from './driver.ts';
 export * from './logger.ts';
 export { TopicLog, type TopicSubscription } from './topic-log.ts';
 export { ConversationState } from './conversation-state.ts';
+export { contextBlock, escapeContextTags } from './context-tags.ts';
 export { projectAgentEvent, finishTask, type RunContext, type ProjectionSignal } from './projector.ts';
 export { AgentManager, DriverRegistry } from './agent-manager.ts';
 export {
