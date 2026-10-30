@@ -87,6 +87,11 @@
 .asteps--box .astep__detail { margin: 0 12px 12px 36px; }
 .asteps--box .arcpt { margin: 0; min-height: 32px; padding: 4px 12px; border-radius: 0; background: transparent; box-shadow: none; }
 .asteps--box .arcpt__t { font-weight: 500; color: var(--gray-800); }
+/* 子智能体的步骤：父级那一行展开后最前面的小框，同样一步一行、行间分隔线，稍紧一些 */
+.asteps--nested { border: 1px solid var(--gray-200); border-radius: 8px; overflow: hidden; }
+.asteps--nested > li + li { border-top: 1px solid var(--gray-200); }
+.asteps--box .asteps--nested .astep__row.astep__row { min-height: 28px; padding: 4px 10px; }
+.asteps--box .asteps--nested .astep__detail { margin: 0 10px 10px 34px; }
 .astep__loader { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
 .astep__label { flex: none; font-weight: 500; color: var(--gray-800); white-space: nowrap; }
 .astep__sum { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); color: var(--gray-600); }

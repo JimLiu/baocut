@@ -18,6 +18,7 @@ export const zhHant: AgentTurnMessages = {
   stepMatches: (count) => `${count} 處符合`,
   stepFiles: (count) => `${count} 個檔案`,
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => `${count} 步`,
   lineRange: (path: string, line: number, end: number) => `${path} · 第 ${line}–${end} 行`,
   lineCol: (path: string, line: number, col: number) => `${path} · 第 ${line} 行第 ${col} 欄`,
   line: (path: string, line: number) => `${path} · 第 ${line} 行`,

@@ -2429,8 +2429,14 @@
          {id: 'm3a', role: 'tool', info: {type: 'search', pattern: '光栅化', path: 'transcript.json', matches: 6}, status: 'done', took: '0.1s', out: 'g12 · g19 · g27 · g33 · g41 · g58'},
          {id: 'm3b', role: 'tool', info: {type: 'read', path: 'glossary.md', offset: 40, limit: 25}, status: 'done', took: '0.1s'},
          {id: 'm3c', role: 'tool', info: {type: 'fetch', url: 'https://en.wikipedia.org/wiki/Rasterisation'}, status: 'done', took: '1.8s'},
+         /* 子智能体自己走的步骤收在这一行下面（parentId），不进组头摘要 */
          {id: 'm3d', role: 'tool', info: {type: 'subAgent', agentType: 'Explore', description: '核对 g27 与 g58 的原文是 render 还是 rasterize'}, status: 'done', took: '14s',
-          out: 'g27、g58 原文是 rasterize；其余 4 句是 render。'},
+          out: 'g27、g58 原文是 rasterize；其余 4 句是 render。',
+          substeps: [
+            {id: 'm3d1', role: 'tool', info: {type: 'search', pattern: 'rasteri', path: 'source.en.srt', matches: 2}, status: 'done', took: '0.1s', out: 'g27 · g58'},
+            {id: 'm3d2', role: 'tool', info: {type: 'read', path: 'source.en.srt', offset: 210, limit: 30}, status: 'done', took: '0.1s'},
+            {id: 'm3d3', role: 'tool', info: {type: 'read', path: 'source.en.srt', offset: 455, limit: 30}, status: 'done', took: '0.1s'},
+          ]},
          {id: 'm4', role: 'user', text: '对，render 一律「渲染」，rasterize 才是「光栅化」。', ...turnDone(18, 63)},
          {id: 'm5', role: 'permission', cmd: 'bcut translate project.bcut --lang en --only 4 句', state: 'allowed',
           why: '只重译这 4 句，其余 58 句一个字不动；对齐会跟着重算。可整条撤销。'},

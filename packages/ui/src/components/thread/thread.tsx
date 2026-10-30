@@ -415,7 +415,16 @@ function Block({
         </>
       );
     case 'steps':
-      return <StepsGroup items={block.items} undone={block.undone} live={live} conversationId={conversationId} cwd={cwd} />;
+      return (
+        <StepsGroup
+          items={block.items}
+          undone={block.undone}
+          substeps={block.children}
+          live={live}
+          conversationId={conversationId}
+          cwd={cwd}
+        />
+      );
     case 'approval':
       if (block.item.request.kind === 'question') return <QuestionCard item={block.item} conversationId={conversationId} />;
       if (block.item.request.kind === 'plan') return <PlanCard item={block.item} conversationId={conversationId} />;

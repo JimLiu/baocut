@@ -74,6 +74,9 @@
     const out = [];
     const fact = infoMeta(m && m.info);
     if (fact) out.push(fact);
+    // 子智能体走了几步（挂在这一行下的 substeps，架构设计 §3.1 的 parentId）
+    const subs = m && Array.isArray(m.substeps) ? m.substeps.length : 0;
+    if (subs > 0) out.push(`${subs} 步`);
     const code = m && m.exitCode;
     if (code != null && Number(code) !== 0) out.push(`退出码 ${code}`);
     if (m && m.took != null && m.took !== '') out.push(typeof m.took === 'number' ? `${m.took}s` : String(m.took));

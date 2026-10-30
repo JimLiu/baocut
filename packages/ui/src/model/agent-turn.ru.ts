@@ -18,6 +18,7 @@ export const ru: AgentTurnMessages = {
   stepMatches: (count) => `Совпадений: ${count}`,
   stepFiles: (count) => `Файлов: ${count}`,
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => `Шагов: ${count}`,
   lineRange: (path: string, line: number, end: number) => `${path} · строки ${line}–${end}`,
   lineCol: (path: string, line: number, col: number) => `${path} · строка ${line}, столбец ${col}`,
   line: (path: string, line: number) => `${path} · строка ${line}`,

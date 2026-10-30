@@ -35,6 +35,9 @@ test('stepMeta：非零退出码与耗时', () => {
   assert.deepEqual(T.stepMeta({exitCode: 0, took: '0.4s'}), ['0.4s']);
   assert.deepEqual(T.stepMeta({took: 2}), ['2s']);
   assert.deepEqual(T.stepMeta({}), []);
+  // 子智能体走了几步：写在结构化事实之后、耗时之前
+  assert.deepEqual(T.stepMeta({info: {type: 'subAgent', agentType: 'Explore'}, substeps: [{}, {}, {}], took: '14s'}), ['Explore', '3 步', '14s']);
+  assert.deepEqual(T.stepMeta({substeps: []}), []);
 });
 
 test('diffLines / looksLikeDiff：按行归类，文件头不算增删', () => {

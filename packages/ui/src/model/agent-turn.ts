@@ -35,6 +35,7 @@ const en = {
   stepMatches: (count: number) => (count === 1 ? '1 match' : `${count} matches`),
   stepFiles: (count: number) => (count === 1 ? '1 file' : `${count} files`),
   stepHttp: (status: number) => `HTTP ${status}`,
+  stepCount: (count: number) => (count === 1 ? '1 step' : `${count} steps`),
   lineRange: (path: string, line: number, end: number) => `${path} · lines ${line}–${end}`,
   lineCol: (path: string, line: number, col: number) => `${path} · line ${line}, column ${col}`,
   line: (path: string, line: number) => `${path} · line ${line}`,
@@ -229,13 +230,17 @@ export function durationLabel(ms: number): string {
 
 const STATUS_META: Partial<Record<ToolCall['status'], string>> = liveMessages(() => M.stepStatus);
 
-/** 折叠行右侧的元数据：被拒绝 / 中断、非零退出码（`code`，失败时标红）、耗时。`status` 是界面上锁存后的状态。 */
-export function stepMeta(item: ToolCall, status: ToolCall['status']): { text: string; code?: boolean }[] {
+/**
+ * 折叠行右侧的元数据：被拒绝 / 中断、结构化事实、子智能体走了几步、非零退出码（`code`，失败时标红）、耗时。
+ * `status` 是界面上锁存后的状态；`substeps` 是挂在这一行下的子智能体步骤数。
+ */
+export function stepMeta(item: ToolCall, status: ToolCall['status'], substeps = 0): { text: string; code?: boolean }[] {
   const out: { text: string; code?: boolean }[] = [];
   const word = STATUS_META[status];
   if (word) out.push({ text: word });
   const fact = infoMeta(item.info);
   if (fact) out.push(fact);
+  if (substeps > 0) out.push({ text: M.stepCount(substeps) });
   if (item.exitCode !== null && item.exitCode !== 0) out.push({ text: M.exitCode(item.exitCode), code: true });
   if (item.durationMs !== null) out.push({ text: durationLabel(item.durationMs) });
   return out;

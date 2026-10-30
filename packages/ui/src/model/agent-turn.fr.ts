@@ -20,6 +20,7 @@ export const fr: AgentTurnMessages = {
   stepMatches: (count) => (count === 1 ? '1 correspondance' : `${count} correspondances`),
   stepFiles: (count) => (count === 1 ? '1 fichier' : `${count} fichiers`),
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => (count === 1 ? '1 étape' : `${count} étapes`),
   lineRange: (path: string, line: number, end: number) => `${path} · lignes ${line}–${end}`,
   lineCol: (path: string, line: number, col: number) => `${path} · ligne ${line}, colonne ${col}`,
   line: (path: string, line: number) => `${path} · ligne ${line}`,

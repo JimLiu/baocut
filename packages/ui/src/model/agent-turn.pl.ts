@@ -18,6 +18,7 @@ export const pl: AgentTurnMessages = {
   stepMatches: (count) => `Dopasowania: ${count}`,
   stepFiles: (count) => `Pliki: ${count}`,
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => `Kroki: ${count}`,
   lineRange: (path: string, line: number, end: number) => `${path} · wiersze ${line}–${end}`,
   lineCol: (path: string, line: number, col: number) => `${path} · wiersz ${line}, kolumna ${col}`,
   line: (path: string, line: number) => `${path} · wiersz ${line}`,

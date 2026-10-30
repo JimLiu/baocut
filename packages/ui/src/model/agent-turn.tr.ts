@@ -18,6 +18,7 @@ export const tr: AgentTurnMessages = {
   stepMatches: (count) => `${count} eşleşme`,
   stepFiles: (count) => `${count} dosya`,
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => `${count} adım`,
   lineRange: (path,line,end) => `${path} · satırlar ${line}–${end}`,
   lineCol: (path,line,col) => `${path} · satır ${line}, sütun ${col}`,
   line: (path,line) => `${path} · satır ${line}`,

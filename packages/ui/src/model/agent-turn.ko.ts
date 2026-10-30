@@ -18,6 +18,7 @@ export const ko: AgentTurnMessages = {
   stepMatches: (count) => `일치 ${count}개`,
   stepFiles: (count) => `파일 ${count}개`,
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => `${count}단계`,
   lineRange: (path: string, line: number, end: number) => `${path} · ${line}–${end}행`,
   lineCol: (path: string, line: number, col: number) => `${path} · ${line}행 ${col}열`,
   line: (path: string, line: number) => `${path} · ${line}행`,

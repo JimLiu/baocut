@@ -282,6 +282,22 @@
 .bc-steps--box .bc-step__detail {
   margin: 0 12px 12px 40px;
 }
+/* 子智能体的步骤：父级那一行展开后最前面的一个小框，行与外框同样一步一行、行间分隔线，稍紧一些。 */
+.bc-steps--nested {
+  border: 1px solid var(--bc-at-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.bc-steps--nested > li + li {
+  border-top: 1px solid var(--bc-at-line);
+}
+.bc-steps--box .bc-steps--nested .bc-step__row {
+  min-height: 28px;
+  padding: 4px 10px;
+}
+.bc-steps--box .bc-steps--nested .bc-step__detail {
+  margin: 0 10px 10px 34px;
+}
 
 /* ---------- 工具步骤行 ---------- */
 .bc-steps {

@@ -18,6 +18,7 @@ export const ptBR: AgentTurnMessages = {
   stepMatches: (count) => (count === 1 ? '1 correspondência' : `${count} correspondências`),
   stepFiles: (count) => (count === 1 ? '1 arquivo' : `${count} arquivos`),
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => (count === 1 ? '1 etapa' : `${count} etapas`),
   lineRange: (path: string, line: number, end: number) => `${path} · linhas ${line}–${end}`,
   lineCol: (path: string, line: number, col: number) => `${path} · linha ${line}, coluna ${col}`,
   line: (path: string, line: number) => `${path} · linha ${line}`,

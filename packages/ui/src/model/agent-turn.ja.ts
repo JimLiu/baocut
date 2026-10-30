@@ -18,6 +18,7 @@ export const ja: AgentTurnMessages = {
   stepMatches: (count) => `${count} 件一致`,
   stepFiles: (count) => `${count} ファイル`,
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => `${count} ステップ`,
   lineRange: (path: string, line: number, end: number) => `${path} · ${line}–${end} 行目`,
   lineCol: (path: string, line: number, col: number) => `${path} · ${line} 行目、${col} 列目`,
   line: (path: string, line: number) => `${path} · ${line} 行目`,

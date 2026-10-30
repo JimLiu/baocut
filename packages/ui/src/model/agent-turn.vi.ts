@@ -18,6 +18,7 @@ export const vi: AgentTurnMessages = {
   stepMatches: (count) => `${count} kết quả khớp`,
   stepFiles: (count) => `${count} tệp`,
   stepHttp: (status) => `HTTP ${status}`,
+  stepCount: (count) => `${count} bước`,
   lineRange: (path,line,end) => `${path} · dòng ${line}–${end}`,
   lineCol: (path,line,col) => `${path} · dòng ${line}, cột ${col}`,
   line: (path,line) => `${path} · dòng ${line}`,

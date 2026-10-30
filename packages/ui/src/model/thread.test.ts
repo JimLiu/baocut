@@ -96,6 +96,24 @@ describe('buildThread', () => {
     const blocks = buildThread([user('u1', 't1'), task('t1'), tool('c1', 't1'), agent('a1', 't1'), tool('c2', 't1')]);
     expect(blocks.map((b) => b.type)).toEqual(['user', 'steps', 'agent', 'steps', 'task']);
   });
+
+  it('子智能体的步骤收在父级下面，不占组里的一行、不打断步骤组；找不到父级的按普通步骤排', () => {
+    const sub = (id: string, parentId: string): TimelineItem => ({ ...tool(id, 't1'), parentId }) as TimelineItem;
+    const blocks = buildThread([
+      user('u1', 't1'),
+      task('t1'),
+      tool('task_call', 't1'),
+      sub('s1', 'task_call'),
+      sub('s2', 'task_call'),
+      tool('c2', 't1'),
+      sub('orphan', 'missing'),
+    ]);
+    expect(blocks.map((b) => b.type)).toEqual(['user', 'steps', 'task']);
+    const steps = blocks[1];
+    if (steps?.type !== 'steps') throw new Error('steps');
+    expect(steps.items.map((i) => i.id)).toEqual(['task_call', 'c2', 'orphan']);
+    expect(steps.children.get('task_call')?.map((i) => i.id)).toEqual(['s1', 's2']);
+  });
 });
 
 const change = (id: string, taskId: string, undoOf: string | null = null): TimelineItem => ({

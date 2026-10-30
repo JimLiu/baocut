@@ -209,6 +209,11 @@ describe('步骤行的元数据', () => {
       { text: '1 处匹配' },
       { text: '0.4s' },
     ]);
+    expect(stepMeta(call({ info: { type: 'subAgent', agentType: 'Explore' }, durationMs: 12_000 }), 'completed', 3)).toEqual([
+      { text: 'Explore', code: true },
+      { text: '3 步' },
+      { text: '12s' },
+    ]);
   });
 
   it('错误一段的文字', () => {

@@ -123,12 +123,14 @@ const TOOL_ICON: Record<BaoCutStepKind, ReactNode> = {
 export const StepsGroup = memo(function StepsGroup({
   items,
   undone,
+  substeps,
   live,
   conversationId,
   cwd,
 }: {
   items: StepsBlock['items'];
   undone: StepsBlock['undone'];
+  substeps: StepsBlock['children'];
   live: boolean;
   conversationId: string;
   cwd?: string | null;
@@ -152,7 +154,15 @@ export const StepsGroup = memo(function StepsGroup({
       {open ? (
         <ol className="bc-steps bc-steps--box">
           {items.map((item) => (
-            <StepRow key={item.id} item={item} still={!!current} undone={undone} conversationId={conversationId} cwd={cwd} />
+            <StepRow
+              key={item.id}
+              item={item}
+              still={!!current}
+              undone={undone}
+              substeps={substeps}
+              conversationId={conversationId}
+              cwd={cwd}
+            />
           ))}
         </ol>
       ) : null}
@@ -200,18 +210,20 @@ const StepRow = memo(function StepRow({
   item,
   still,
   undone,
+  substeps,
   conversationId,
   cwd,
 }: {
   item: Step;
   still: boolean;
   undone: ReadonlySet<Id>;
+  substeps: StepsBlock['children'];
   conversationId: string;
   cwd?: string | null;
 }) {
   if (item.kind === 'reasoning') return <ReasoningRow item={item} still={still} />;
   if (item.kind === 'video-change') return <ChangeCard item={item} undone={undone.has(item.transactionId)} conversationId={conversationId} />;
-  return <ToolRow item={item} still={still} conversationId={conversationId} cwd={cwd} />;
+  return <ToolRow item={item} still={still} substeps={substeps.get(item.id)} conversationId={conversationId} cwd={cwd} />;
 });
 
 /** 思考只露第一行（去掉 Markdown 加粗），全文在展开里。 */
@@ -254,7 +266,20 @@ function useLatchedStatus(status: ToolCall['status']): ToolCall['status'] {
   return latched.current;
 }
 
-function ToolRow({ item, still, conversationId, cwd }: { item: ToolCall; still: boolean; conversationId: string; cwd?: string | null }) {
+/** `substeps`：交给子智能体的这一步下面，子智能体自己走的步骤；展开后在详情的最前面，一步一行，也能再展开。 */
+function ToolRow({
+  item,
+  still,
+  substeps,
+  conversationId,
+  cwd,
+}: {
+  item: ToolCall;
+  still: boolean;
+  substeps?: readonly ToolCall[];
+  conversationId: string;
+  cwd?: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const openPane = useShell((s) => s.openPane);
   const status = useLatchedStatus(item.status);
@@ -270,7 +295,7 @@ function ToolRow({ item, still, conversationId, cwd }: { item: ToolCall; still: 
         {running && !still ? <RowLoader kind={loaderKey} /> : <span className="bc-step__ic">{icon}</span>}
         <span className={`bc-step__label${running ? ' bc-shimmer' : ''}`}>{step.label}</span>
         <span className="bc-step__sum">{step.summary}</span>
-        {stepMeta(item, status).map((meta) => (
+        {stepMeta(item, status, substeps?.length).map((meta) => (
           <span key={meta.text} className={`bc-step__meta${meta.code ? ' bc-step__meta--code' : ''}`}>
             {meta.text}
           </span>
@@ -279,6 +304,13 @@ function ToolRow({ item, still, conversationId, cwd }: { item: ToolCall; still: 
       </button>
       {open ? (
         <div className="bc-step__detail">
+          {substeps?.length ? (
+            <ol className="bc-steps bc-steps--nested" aria-label={step.label}>
+              {substeps.map((sub) => (
+                <ToolRow key={sub.id} item={sub} still={still} conversationId={conversationId} cwd={cwd} />
+              ))}
+            </ol>
+          ) : null}
           {changed.length ? (
             <div className={files}>
               {changed.map((file) => (
@@ -301,7 +333,7 @@ function ToolRow({ item, still, conversationId, cwd }: { item: ToolCall; still: 
           ) : null}
           {item.output ? (
             <Section title={T.steps.output} text={item.output} diff={looksLikeDiff(item.output)} />
-          ) : running ? (
+          ) : running && !substeps?.length ? (
             <div className="bc-step__skel" role="status" aria-label={T.steps.waiting}>
               <span />
               <span />

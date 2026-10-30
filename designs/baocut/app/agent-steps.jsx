@@ -43,7 +43,8 @@
     return <div className="astep__skel" aria-label="等待输出"><span /><span /><span /></div>;
   }
 
-  /** 一次工具调用。跑着的写入任务的进度读任务记录（同源，不另存）。`still`：加载图形已在工作记录的摘要行上，这一行用静止图标。 */
+  /** 一次工具调用。跑着的写入任务的进度读任务记录（同源，不另存）。`still`：加载图形已在工作记录的摘要行上，这一行用静止图标。
+      交给子智能体的一步带 `substeps`：子智能体自己走的步骤，展开后排在详情最前面，一步一行，也能再展开。 */
   function ToolStep({m, still}) {
     const app = useApp();
     const [open, setOpen] = useState(false);
@@ -69,6 +70,8 @@
         <Ic n={open ? 'chevdown' : 'chevright'} className="ic--14 astep__chev" />
       </BCAction>
       {open ? <div className="astep__detail">
+        {m.substeps && m.substeps.length ? <ol className="asteps asteps--nested" aria-label={step.label}>
+          {m.substeps.map((s) => <ToolStep key={s.id} m={s} still={still} />)}</ol> : null}
         {pct != null ? <Progress value={pct} /> : null}
         {input ? <section className="astep__sec"><header>输入<CopyButton text={input} /></header><pre tabIndex={0}>{input}</pre></section> : null}
         {status === 'failed' ? <section className="astep__sec astep__sec--err"><header>错误</header>
@@ -77,7 +80,7 @@
           onClick={() => (fix.k === 'retry' ? app.retryAgentTask(task.id) : app.go(fix.route))}>{fix.label}</Btn></div> : null}
         {m.out ? <section className="astep__sec"><header>输出<CopyButton text={m.out} /></header>
           {diff ? <DiffView text={m.out} /> : <pre tabIndex={0}>{m.out}</pre>}</section>
-          : status === 'run' ? <Skeleton />
+          : status === 'run' && !(m.substeps && m.substeps.length) ? <Skeleton />
           : status === 'done' ? <p className="astep__none">没有输出</p> : null}
       </div> : null}
     </li>;

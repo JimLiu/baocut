@@ -23,12 +23,14 @@ type Item<K extends TimelineItem['kind']> = Extract<TimelineItem, { kind: K }>;
 /**
  * 一组连续的执行过程（推理、工具调用与视频修改的回执），默认折叠成一行摘要（产品设计 §3.2.2）。
  * `undone`：这个会话里之后被撤销了的那些修改的事务 id（回执行据此写「已撤销」）。
+ * `children`：子智能体的步骤，按父级工具调用的 id 归在它下面（`parentId`），不在 `items` 里、不进摘要。
  */
 export interface StepsBlock {
   type: 'steps';
   id: Id;
   items: (Item<'reasoning'> | Item<'tool-call'> | Item<'video-change'>)[];
   undone: ReadonlySet<Id>;
+  children: ReadonlyMap<Id, readonly Item<'tool-call'>[]>;
 }
 
 export type ThreadBlock =
@@ -43,16 +45,20 @@ export type ThreadBlock =
 /**
  * 把条目排成线程块。按出现顺序；连续的步骤合并成一组；任务条目移到它的最后一个条目之后。
  * 视频修改的回执（产品设计 §6.5 变更卡）也是过程，与步骤收进同一组：两段文字之间只有一行摘要，回执在展开后按先后排。
+ * 子智能体的步骤收在父级那一行下面，不占组里的一行、也不打断步骤组；找不到父级时（旧记录、分页没载到）按普通步骤排。
  */
 export function buildThread(items: readonly TimelineItem[]): ThreadBlock[] {
   const tasks = new Map<Id, Item<'task'>>();
   const lastIndex = new Map<Id, number>();
   const undone = new Set<Id>();
+  const tools = new Set<Id>();
   items.forEach((item, i) => {
     if (item.kind === 'task') tasks.set(item.id, item);
     if (item.kind === 'video-change' && item.undoOf) undone.add(item.undoOf);
+    if (item.kind === 'tool-call') tools.add(item.id);
     if (item.taskId) lastIndex.set(item.taskId, i);
   });
+  const children = new Map<Id, Item<'tool-call'>[]>();
 
   const blocks: ThreadBlock[] = [];
   let steps: StepsBlock | null = null;
@@ -75,13 +81,20 @@ export function buildThread(items: readonly TimelineItem[]): ThreadBlock[] {
       flushTasksEndingAt(i);
       return;
     }
+    if (item.kind === 'tool-call' && item.parentId && item.parentId !== item.id && tools.has(item.parentId)) {
+      const siblings = children.get(item.parentId);
+      if (siblings) siblings.push(item);
+      else children.set(item.parentId, [item]);
+      flushTasksEndingAt(i);
+      return;
+    }
     if (item.kind === 'reasoning' || item.kind === 'tool-call' || item.kind === 'video-change') {
       if (item.kind === 'reasoning' && !item.text.trim()) {
         flushTasksEndingAt(i);
         return;
       }
       if (!steps) {
-        steps = { type: 'steps', id: `steps/${item.id}`, items: [], undone };
+        steps = { type: 'steps', id: `steps/${item.id}`, items: [], undone, children };
         blocks.push(steps);
       }
       steps.items.push(item);
