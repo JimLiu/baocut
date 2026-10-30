@@ -21,4 +21,5 @@ export const ja: DriversCommonMessages = {
   unknownReason: '不明な理由',
   imagePlaceholder: '[画像]',
   officialScript: '公式スクリプト',
+  nativeSessionNotFound: (p) => `ローカルのセッション ${p.id} が見つかりません。削除された可能性があります。`,
 };

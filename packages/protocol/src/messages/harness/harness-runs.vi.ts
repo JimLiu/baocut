@@ -9,4 +9,5 @@ retrying: (p) => `${p.message} (đang thử lại)`, modeChanged: (p) => `Chế 
   contextCompacted: 'Agent đã nén ngữ cảnh để tiếp tục làm việc. Các chi tiết trước đó giờ có thể chỉ còn bản tóm tắt.',
   forkTitle: (p) => `${p.title} (nhánh)`,
   forkedFrom: (p) => `Tách nhánh từ “${p.title}” · đến lượt ${p.turn}`,
+  importedFrom: (p) => `Đã nhập từ ${p.name}`,
 };

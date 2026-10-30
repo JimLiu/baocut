@@ -108,12 +108,15 @@ export interface Turn {
   answer: boolean;
 }
 
-/** 把线程块切成回合：从一条用户消息到下一条之前。任务状态行不算内容，只记成这一轮的任务。 */
+/**
+ * 把线程块切成回合：从一条用户消息到下一条之前。任务状态行不算内容，只记成这一轮的任务。
+ * 导入的记录下面那一条（「以上导入自 …」）自成一段、没有用户消息，前一轮的页脚留在它上面。
+ */
 export function turns(blocks: readonly ThreadBlock[]): Turn[] {
   const out: (Turn & { texts: string[] })[] = [];
   let cur: (Turn & { texts: string[] }) | null = null;
   blocks.forEach((block, i) => {
-    if (block.type === 'user' || !cur) {
+    if (block.type === 'user' || !cur || (block.type === 'notice' && block.item.imported)) {
       cur = {
         start: i,
         end: i,

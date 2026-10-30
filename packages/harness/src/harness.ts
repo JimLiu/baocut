@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   RpcError,
@@ -54,6 +55,8 @@ import {
   type DriverInfo,
   type DriverProbe,
   type EditorContext,
+  type ImportableSession,
+  type ImportedFrom,
   type Id,
   type JobFinishedNote,
   type VideoChange,
@@ -112,6 +115,7 @@ import { ApprovalService, type ApprovalResolution } from './approval-service.ts'
 import { ConversationState } from './conversation-state.ts';
 import { contextBlock, escapeContextTags } from './context-tags.ts';
 import { forkHistory, forkHistoryBlock, forkNoteOf, forkPoint, touchedVideos, type TouchedVideo } from './fork.ts';
+import { importedItems } from './import.ts';
 import type {
   AgentDriver,
   AgentEvent,
@@ -120,6 +124,7 @@ import type {
   AgentPersistenceHandle,
   AgentSession,
   AgentToolAccess,
+  NativeSession,
   TurnSettings,
 } from './driver.ts';
 import type { Logger } from './logger.ts';
@@ -190,6 +195,8 @@ const SHUTDOWN_GRACE_MS = 3_000;
 const SESSION_IDLE_MS = 10 * 60_000;
 /** `agents.list` 的便宜纠正（§3.11）：经过集成测试、结果不是 ready 的 Driver，结果超过这么久就后台再探一次。 */
 const STALE_RECHECK_MS = 60_000;
+/** 导入外部会话时每家最多列多少条（最近用过的）。 */
+const IMPORT_LIST_LIMIT = 200;
 /** 无项目会话绑定项目时，选定的项目目录先记在工作目录里的这个文件（§3.10 的幂等键）；绑定完成后删掉。 */
 const BIND_INTENT_FILE = '.baocut-binding.json';
 /** 会话工作目录的名字是会话 id（`newId('conv')`）；会话目录里别的名字不是 Runtime 建的，启动收拾时不碰。 */
@@ -317,6 +324,8 @@ export class Harness {
   readonly #heldJobs = new Map<Id, Map<Id, JobFinished>>();
   /** 进行中的「无项目会话绑定项目」：同一个会话同时只跑一趟。 */
   readonly #binding = new Map<Id, Promise<Project>>();
+  /** 正在导入的原生会话（`driverId:nativeId`）：同时来的同一条只导入一次。 */
+  readonly #importing = new Map<string, Promise<Conversation>>();
   /**
    * 回合进行中绑定了项目的会话 → 它回合里还在用的旧工作目录（共用工作目录的会话是那条会话的）：回合结束时收拾那里剩下的东西，
    * 并关掉原生会话（下一轮在项目目录里起）。
@@ -672,6 +681,8 @@ export class Harness {
       await this.#assertNoneOpen(scratch);
     }
     let project: Project | null = into ? await this.#targetProject(into, name) : null;
+    // 导入的无项目会话用的是原会话的目录：就把那个目录接成项目，不新建目录、不换工作目录（原生会话按它接着跑）。
+    if (!project && !scratch && state.conversation.importedFrom) project = await this.#adoptBorrowed(state.conversation.cwd);
     if (intentFile) {
       const intent = await fs.readFile(intentFile, 'utf8').then(
         (text) => JSON.parse(text) as { path?: unknown },
@@ -713,6 +724,12 @@ export class Harness {
       linked = true;
     }
     return project;
+  }
+
+  /** 导入的会话借用的目录接成项目：目录不在了时 `not-found`，不替用户建出来。 */
+  async #adoptBorrowed(cwd: string): Promise<Project> {
+    if (!(await fs.stat(cwd).then((s) => s.isDirectory(), () => false))) throw new RpcError('not-found', HA.importFolderMissing({ path: cwd }));
+    return this.openProject(cwd);
   }
 
   /** 用户指定的落点（`ensureConversationProject` 的 `into`）：已登记的项目，或在那个目录上登记（不存在时先建出来）。 */
@@ -1043,7 +1060,13 @@ export class Harness {
     accessMode?: AgentMode | Autonomy | null;
     /** 沿用别的会话的模型与强度（分叉）：模型表里已经没有时改用推荐的，不拒绝。 */
     inherit?: boolean;
-  }): Promise<Conversation> {
+  },
+  /**
+   * 导入的会话（`importConversation`）：复制过来的条目、原生会话的恢复句柄，与没有项目时用的工作目录（原会话的目录，已经确认存在；
+   * 不建、也不放进 `scratchDir`）。
+   */
+  seed?: { cwd: string; importedFrom: ImportedFrom; items: TimelineItem[]; persistence: AgentPersistenceHandle },
+  ): Promise<Conversation> {
     const key = params.commandId ? `create:${params.commandId}` : null;
     const done = key ? this.#commands.get(key) : undefined;
     if (done) return this.#require(done).conversation;
@@ -1087,8 +1110,8 @@ export class Harness {
     const id = newId('conv');
     // 无项目会话的工作目录在 `scratchDir` 下（系统给应用的数据目录），新建的视频也在这里；用户要建项目时才绑定，东西搬进项目
     // （§3.10，`ensureConversationProject`）。共用工作目录的会话就在那条会话的工作目录里。
-    const cwd = project ? project.path : host ? host.cwd : path.join(this.#home.scratchDir, id);
-    await fs.mkdir(cwd, { recursive: true });
+    const cwd = project ? project.path : host ? host.cwd : (seed?.cwd ?? path.join(this.#home.scratchDir, id));
+    if (!seed) await fs.mkdir(cwd, { recursive: true });
     const now = nowIso();
     const record: ConversationRecord = {
       schemaVersion: 1,
@@ -1098,6 +1121,7 @@ export class Harness {
         projectId,
         cwd,
         ...(host ? { folderOf: host.id } : {}),
+        ...(seed ? { importedFrom: seed.importedFrom } : {}),
         ...(params.spaceReadScope ? { spaceReadScope: params.spaceReadScope } : {}),
         driverId,
         model,
@@ -1112,9 +1136,9 @@ export class Harness {
         // null：跟随偏好设置 `agent.defaultAccessMode`（§3.12）。
         accessMode: params.accessMode ? normalizeAgentMode(params.accessMode) : null,
       },
-      items: [],
+      items: seed?.items ?? [],
       seq: '0',
-      agent: { driverId, persistence: null },
+      agent: { driverId, persistence: seed?.persistence ?? null },
     };
     const state = this.#adopt(record);
     this.#store.put(record);
@@ -1164,6 +1188,108 @@ export class Harness {
     }
     this.#commands.set(key, state.id);
     return state.conversation;
+  }
+
+  /**
+   * 本机能导入的外部会话（产品设计 §3.1「导入外部会话」）：能列出与读取本机会话的 Agent（没装、停用的不算）各自最近的会话，
+   * 新的在前。`importedAs`：已经导入过的（`importedFrom`），或 BaoCut 自己就在跑的那条原生会话（恢复句柄相同）。
+   * 给了 `projectId` 时只列工作目录就是那个项目目录的。一家列不出来时记日志、不列它，不影响别家。
+   */
+  async listImportable(params: { projectId?: Id } = {}): Promise<{ sources: DriverId[]; sessions: ImportableSession[] }> {
+    const only = params.projectId ? this.#projects.get(params.projectId) : null;
+    if (params.projectId && !only) throw new RpcError('not-found', HP.projectNotFound({ id: params.projectId }));
+    const sources: DriverId[] = [];
+    const sessions: ImportableSession[] = [];
+    const landings = new Map<string, Promise<ImportableSession['landing']>>();
+    for (const driverId of this.#drivers.ids()) {
+      const driver = this.#drivers.get(driverId);
+      if (!driver.listNativeSessions || !driver.readNativeSession) continue;
+      if (this.#drivers.result(driverId)?.state === 'not-installed' || !this.#prefs.driver(driverId).enabled) continue;
+      let found: NativeSession[];
+      try {
+        found = await driver.listNativeSessions({ limit: IMPORT_LIST_LIMIT, executable: this.#drivers.executable(driverId) });
+      } catch (error) {
+        this.#log.warn('Failed to list local agent sessions', { driverId, error: String(error) });
+        continue;
+      }
+      sources.push(driverId);
+      for (const { persistence, ...session } of found) {
+        const key = session.cwd ?? '';
+        if (!landings.has(key)) landings.set(key, this.#importLanding(session.cwd).then((l) => l.landing));
+        const landing = await landings.get(key)!;
+        if (only && (landing.kind !== 'project' || landing.projectId !== only.id)) continue;
+        sessions.push({ driverId, ...session, landing, importedAs: this.#importedAs(driverId, session.nativeId, persistence)?.id ?? null });
+      }
+    }
+    sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return { sources, sessions };
+  }
+
+  /**
+   * 导入一条外部会话（`agents.importSession`）：复制它的记录（`importedItems`），之后用原生会话的恢复句柄接着跑。落点见
+   * `listImportable` 的 `landing`：已是项目落进去；不是时 `adopt` 就把目录登记成项目，否则作为无项目会话，工作目录就是原目录。
+   * 已经导入过的（或 BaoCut 自己在跑的）返回那一条；同时来的同一条只导入一次。
+   */
+  importConversation(params: { driverId: DriverId; nativeId: string; adopt: boolean; commandId: Id }): Promise<Conversation> {
+    const key = `import:${params.commandId}`;
+    const done = this.#commands.get(key);
+    if (done) return Promise.resolve(this.#require(done).conversation);
+    const existing = this.#importedAs(params.driverId, params.nativeId);
+    if (existing) return Promise.resolve(existing);
+    const native = `${params.driverId}:${params.nativeId}`;
+    const running = this.#importing.get(native);
+    if (running) return running;
+    const run = this.#import(params)
+      .then((conversation) => {
+        this.#commands.set(key, conversation.id);
+        return conversation;
+      })
+      .finally(() => this.#importing.delete(native));
+    this.#importing.set(native, run);
+    return run;
+  }
+
+  async #import(params: { driverId: DriverId; nativeId: string; adopt: boolean }): Promise<Conversation> {
+    const driver = this.#drivers.get(params.driverId);
+    const name = this.#driverNameOf(params.driverId);
+    if (!driver.readNativeSession) throw new RpcError('invalid-request', HA.importUnsupported({ name }));
+    const history = await driver.readNativeSession(params.nativeId, { executable: this.#drivers.executable(params.driverId) });
+    const same = this.#importedAs(params.driverId, params.nativeId, history.persistence);
+    if (same) return same;
+    const { landing, real } = await this.#importLanding(history.cwd);
+    if (landing.kind === 'missing' || !real) throw new RpcError('not-found', HA.importFolderMissing({ path: history.cwd ?? '' }));
+    const project = landing.kind === 'project' ? this.#projects.get(landing.projectId) : params.adopt ? await this.openProject(real) : null;
+    const importedFrom = { driverId: params.driverId, nativeId: params.nativeId };
+    const { items, note } = importedItems(history, { driverId: params.driverId, at: nowIso(), notice: HR.importedFrom({ name }) });
+    const conversation = await this.createConversation(
+      { projectId: project?.id ?? null, driverId: params.driverId, title: history.title },
+      { cwd: real, importedFrom, items, persistence: history.persistence },
+    );
+    this.#log.info('Session imported', { driverId: params.driverId, conversationId: conversation.id, turns: note.turns, omitted: note.omitted, project: !!project });
+    return conversation;
+  }
+
+  /** 导入后落在哪（按原会话目录的真实路径找已登记的项目）。目录不在、不是目录或不是绝对路径时 `missing`。 */
+  async #importLanding(cwd: string | null): Promise<{ landing: ImportableSession['landing']; real: string | null }> {
+    const real = cwd && path.isAbsolute(cwd) ? await fs.realpath(cwd).catch(() => null) : null;
+    if (!real || !(await fs.stat(real).then((s) => s.isDirectory(), () => false))) return { landing: { kind: 'missing' }, real: null };
+    // BaoCut 自己的会话目录（启动时会被收拾、搬走）不能借：当作找不到。
+    const own = await Promise.all([this.#home.scratchDir, ...this.#home.legacyScratchDirs].map((dir) => fs.realpath(dir).catch(() => path.resolve(dir))));
+    if (own.some((dir) => dir === real || isInside(dir, real))) return { landing: { kind: 'missing' }, real: null };
+    const project = this.#projects.findByPath(real);
+    if (project) return { landing: { kind: 'project', projectId: project.id, projectName: project.name }, real };
+    return { landing: { kind: 'adopt', name: path.basename(real) }, real };
+  }
+
+  /** 接着这条原生会话的会话：导入过的，或（给了恢复句柄时）BaoCut 自己在跑的。 */
+  #importedAs(driverId: DriverId, nativeId: string, handle?: AgentPersistenceHandle): Conversation | null {
+    for (const state of this.#states.values()) {
+      const from = state.conversation.importedFrom;
+      if (from?.driverId === driverId && from.nativeId === nativeId) return state.conversation;
+      const own = state.record.agent.persistence as AgentPersistenceHandle | null;
+      if (handle && own?.driverId === driverId && isDeepStrictEqual(own.data, handle.data)) return state.conversation;
+    }
+    return null;
   }
 
   /**
@@ -1394,6 +1520,13 @@ export class Harness {
   }
 
   async #tidyBeforeDelete(state: ConversationState): Promise<void> {
+    // 导入的无项目会话用的是原会话的目录：有共用它的会话时先把目录接成项目，它们跟着进项目，不留下指向已删会话的 `folderOf`。
+    if (!state.conversation.projectId && state.conversation.importedFrom && this.#guestsOf(state.id).length > 0) {
+      await this.ensureConversationProject(state.id).catch((error) =>
+        this.#log.warn('Failed to adopt the borrowed folder before deleting the session', { conversationId: state.id, error: String(error) }),
+      );
+      return;
+    }
     const scratch = path.join(this.#home.scratchDir, state.id);
     const stat = await fs.lstat(scratch).catch(() => null);
     if (stat?.isSymbolicLink()) {

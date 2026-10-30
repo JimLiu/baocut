@@ -31,4 +31,5 @@ export const ja: HarnessRunsMessages = {
   contextCompacted: 'エージェントは作業を続けるためにコンテキストを圧縮しました。以前の詳細は要約になっている場合があります。',
   forkTitle: (p) => `${p.title}（分岐）`,
   forkedFrom: (p) => `「${p.title}」から分岐 · 第 ${p.turn} ターンまで`,
+  importedFrom: (p) => `ここまで ${p.name} からインポート`,
 };

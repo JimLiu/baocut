@@ -9,7 +9,9 @@ import {
   type ModelTier,
 } from '@baocut/protocol';
 import { AGENT_PICKER, DRIVER_STATE_REASON, EFFORT_COPY, MODEL_TIER_LABEL } from '../copy.ts';
+import { IMPORT_COPY } from '../components/agent-import/import-copy.ts';
 import { listedInPicker } from './agent-catalog.ts';
+import { sourceName } from './agent-import.ts';
 
 /**
  * 输入区的 Agent · 模型 · 推理强度选择（原型 agent-picker.jsx、model-agent.js `providerRows` / `modelRows` / `harnessLabel`）。
@@ -218,7 +220,8 @@ export interface ProviderRow {
 /**
  * 第一级：每个 Agent 一行（原型 `providerRows`）。能用的写当前模型与账号；用不了的写原因，点了去设置。
  * 能用的排在前面，同一状态里保持注册表的顺序（产品设计 §7.6：配好的 Agent 排前面）。
- * `lockedTo`：会话有任务后 Agent 固定，其他 Agent 的行标出原因、不能选。
+ * `lockedTo`：会话有任务后 Agent 固定，其他 Agent 的行标出原因、不能选；`imported`（导入的会话，产品设计 §3.1「导入外部会话」）时
+ * 原因写「导入的会话固定用 <Agent>」。
  * 「更多」四家与用户添加的没检测到时不列（`listedInPicker`）；当前选着的那个照列，免得收起时的字样找不到行。
  */
 export function providerRows(
@@ -226,7 +229,10 @@ export function providerRows(
   selected: DriverId | null,
   model: string | null,
   lockedTo: DriverId | null,
+  imported = false,
 ): ProviderRow[] {
+  const lockNote =
+    lockedTo && imported ? IMPORT_COPY.locked(sourceName(lockedTo, drivers.find((d) => d.id === lockedTo)?.name)) : AGENT_PICKER.locked;
   const rows = drivers
     .filter((driver) => driver.id === selected || listedInPicker(driver))
     .map((driver) => {
@@ -234,7 +240,7 @@ export function providerRows(
       const ready = driver.state === 'ready';
       const locked = lockedTo !== null && driver.id !== lockedTo;
       const sub = locked
-        ? AGENT_PICKER.locked
+        ? lockNote
         : driver.state === 'ready'
           ? `${isSelected ? `${modelLabel(driver, model)} · ` : ''}${accountLabel(driver)}`
           : DRIVER_STATE_REASON[driver.state];

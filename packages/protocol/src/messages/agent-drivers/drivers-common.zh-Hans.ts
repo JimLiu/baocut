@@ -20,4 +20,5 @@ export const zhHans: DriversCommonMessages = {
   unknownReason: '原因不明',
   imagePlaceholder: '[图片]',
   officialScript: '官方脚本',
+  nativeSessionNotFound: (p) => `没有找到本机会话 ${p.id}，可能已经删掉了。`,
 };

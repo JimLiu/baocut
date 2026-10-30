@@ -49,4 +49,6 @@ export const de: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `„${p.question}“ erlaubt nur eine Antwort`,
   questionUnknownOption: (p) => `„${p.option}“ ist keine Option von „${p.question}“`,
   forkTurnRunning: 'Diese Runde ist noch nicht beendet. Zweige sie ab, wenn sie beendet ist.',
+  importUnsupported: (p) => `${p.name}-Sitzungen können nicht importiert werden`,
+  importFolderMissing: (p) => `Der Ordner der Sitzung ist nicht mehr vorhanden (${p.path}). Sie muss in ihrem ursprünglichen Ordner weiterlaufen.`,
 };

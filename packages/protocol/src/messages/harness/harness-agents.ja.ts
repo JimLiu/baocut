@@ -47,4 +47,6 @@ export const ja: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `「${p.question}」は回答を 1 つだけ選べます`,
   questionUnknownOption: (p) => `「${p.option}」は「${p.question}」の選択肢ではありません`,
   forkTurnRunning: 'このターンはまだ終わっていません。終わってから分岐してください。',
+  importUnsupported: (p) => `${p.name} のセッションはインポートできません`,
+  importFolderMissing: (p) => `このセッションのフォルダーがありません（${p.path}）。元のフォルダーで続ける必要があります。`,
 };

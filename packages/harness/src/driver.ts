@@ -52,7 +52,46 @@ export interface AgentDriver {
    */
   describe?(): DriverDescription;
   createSession(options: CreateSessionOptions): Promise<AgentSession>;
+  /**
+   * 这一家在本机留下的会话（导入外部会话，产品设计 §3.1）：最近用过的在前，最多 `limit` 条。只读本机的记录，不跑模型。
+   * 没有实现它与 `readNativeSession` 的 Driver 不能导入。
+   */
+  listNativeSessions?(options: { limit: number; executable?: string | null }): Promise<NativeSession[]>;
+  /** 读一条本机会话的记录，连同接着跑它的恢复句柄。找不到时抛 `RpcError('not-found')`。 */
+  readNativeSession?(nativeId: string, options: { executable?: string | null }): Promise<NativeSessionHistory>;
 }
+
+/** 本机的一条外部会话。`cwd`：原会话的工作目录，记录里没有时为 null；`turns`：用户发过几次话，拿不到时为 null。 */
+export interface NativeSession {
+  nativeId: string;
+  cwd: string | null;
+  /** 第一句话（压成一行），没有时为空串。 */
+  title: string;
+  turns: number | null;
+  updatedAt: string;
+  /** 接着跑它的恢复句柄：Harness 据此认出 BaoCut 自己就在跑的那条（同一个句柄），不当成别处的会话。 */
+  persistence: AgentPersistenceHandle;
+}
+
+/** 一条外部会话的记录，按用户发的话分轮。工具步骤只有标题，没有输出。 */
+export interface NativeSessionHistory {
+  nativeId: string;
+  cwd: string | null;
+  title: string;
+  turns: NativeTurn[];
+  persistence: AgentPersistenceHandle;
+}
+
+export interface NativeTurn {
+  user: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  steps: NativeStep[];
+}
+
+export type NativeStep =
+  | { kind: 'message'; text: string }
+  | { kind: 'tool'; tool: ToolCallKind; title: string; detail: string | null; status: 'completed' | 'failed' };
 
 /** `describe()` 给出的常量部分：探测结果去掉本机事实与由 `state` 推出的 `status` / `unavailableReason`。 */
 export type DriverDescription = Pick<

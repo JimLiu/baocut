@@ -20,4 +20,5 @@ export const pl: DriversCommonMessages = {
   unknownReason: "nieznana przyczyna",
   imagePlaceholder: "[Obraz]",
   officialScript: "Oficjalny skrypt",
+  nativeSessionNotFound: (p) => `Nie znaleziono lokalnej sesji ${p.id}. Mogła zostać usunięta.`,
 };

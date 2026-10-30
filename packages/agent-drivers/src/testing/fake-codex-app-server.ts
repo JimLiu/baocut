@@ -46,7 +46,7 @@ const startedAt = Date.now();
 let role: 'session' | 'catalog' | null = null;
 function classify(method: string | undefined): void {
   if (role || !method || method === 'initialize') return;
-  role = method === 'model/list' ? 'catalog' : 'session';
+  role = method === 'model/list' || method === 'thread/list' || method === 'thread/read' ? 'catalog' : 'session';
   log({ kind: role === 'catalog' ? 'catalog-start' : 'start', t: startedAt, cwd: process.cwd() });
 }
 
@@ -95,6 +95,32 @@ function handleRequest(message: Message): void {
       const start = typeof params.cursor === 'string' ? Number(params.cursor) : 0;
       const end = start + 2;
       send({ id, result: { data: all.slice(start, end), nextCursor: end < all.length ? String(end) : null } });
+      return;
+    }
+    case 'thread/list': {
+      const all = scenario.threads ?? [];
+      const start = typeof params.cursor === 'string' ? Number(params.cursor) : 0;
+      const end = start + 2;
+      const data = all.slice(start, end).map(({ turns: _turns, historyMode: _mode, ...row }) => row);
+      send({ id, result: { data, nextCursor: end < all.length ? String(end) : null } });
+      return;
+    }
+    case 'thread/read': {
+      const thread = (scenario.threads ?? []).find((t) => t.id === params.threadId);
+      if (!thread) {
+        send({ id, error: { code: -32600, message: `thread not found: ${String(params.threadId)}` } });
+        return;
+      }
+      const { turns, ...row } = thread;
+      send({ id, result: { thread: params.includeTurns === true && thread.historyMode !== 'paginated' ? { ...row, turns } : row } });
+      return;
+    }
+    case 'thread/items/list': {
+      const thread = (scenario.threads ?? []).find((t) => t.id === params.threadId);
+      const rows = (thread?.turns ?? []).flatMap((turn) => turn.items.map((item) => ({ turnId: turn.id, item, startedAtMs: null, completedAtMs: null })));
+      const start = typeof params.cursor === 'string' ? Number(params.cursor) : 0;
+      const end = start + 2;
+      send({ id, result: { data: rows.slice(start, end), nextCursor: end < rows.length ? String(end) : null } });
       return;
     }
     case 'turn/steer': {

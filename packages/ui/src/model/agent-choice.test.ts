@@ -152,6 +152,9 @@ describe('Agent 行', () => {
     const locked = providerRows([driver(), driver({ id: 'codex', name: 'Codex CLI' })], 'claude', null, 'claude');
     expect(locked[1]).toMatchObject({ locked: true, sub: '这条会话已经开始，不能再换 Agent；要换请新建会话' });
     expect(locked[0]!.locked).toBe(false);
+    // 导入的会话固定是来源那一家：原因写明。
+    const imported = providerRows([driver(), driver({ id: 'codex', name: 'Codex CLI' })], 'claude', null, 'claude', true);
+    expect(imported[1]).toMatchObject({ locked: true, sub: `导入的会话固定用 ${imported[0]!.name}` });
   });
 
   it('「更多」四家与用户添加的没检测到时不列，检测到之后与内置一样列出；选着的照列', () => {

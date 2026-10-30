@@ -42,4 +42,6 @@ export const ru: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `На «${p.question}» можно дать только один ответ`,
   questionUnknownOption: (p) => `«${p.option}» — не вариант ответа на «${p.question}»`,
   forkTurnRunning: 'Этот ход ещё не закончился. Создайте ответвление, когда он закончится.',
+  importUnsupported: (p) => `Сеансы ${p.name} нельзя импортировать`,
+  importFolderMissing: (p) => `Папки сеанса больше нет (${p.path}). Его нужно продолжать в исходной папке.`,
 };

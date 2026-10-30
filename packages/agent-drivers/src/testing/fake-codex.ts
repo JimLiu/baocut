@@ -56,6 +56,19 @@ export interface FakeCodexScenario {
    * `no-active-turn` 一律那样拒绝；`unsupported` 回 -32601；`error` 回 -32603（说不清送没送到）。
    */
   steer: 'accept' | 'no-active-turn' | 'unsupported' | 'error';
+  /** 本机的线程（导入外部会话）：`thread/list` 按给的顺序、每页 2 条；`thread/read` 与 `thread/items/list` 回它们的记录。 */
+  threads?: FakeCodexThread[];
+}
+
+export interface FakeCodexThread {
+  id: string;
+  cwd?: string;
+  preview?: string;
+  name?: string;
+  updatedAt?: number;
+  /** `paginated`：记录要经 `thread/items/list` 取（每页 2 条）；默认一次 `thread/read` 带回。 */
+  historyMode?: 'legacy' | 'paginated';
+  turns: Array<{ id: string; items: Array<Record<string, unknown>> }>;
 }
 
 export interface FakeCodexLogEntry {

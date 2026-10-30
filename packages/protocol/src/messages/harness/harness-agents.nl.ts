@@ -49,4 +49,6 @@ export const nl: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `‘${p.question}’ staat maar één antwoord toe`,
   questionUnknownOption: (p) => `‘${p.option}’ is geen optie van ‘${p.question}’`,
   forkTurnRunning: 'Deze beurt is nog niet klaar. Splits hem af als hij klaar is.',
+  importUnsupported: (p) => `Sessies van ${p.name} kunnen niet worden geïmporteerd`,
+  importFolderMissing: (p) => `De map van de sessie bestaat niet meer (${p.path}). De sessie moet in de oorspronkelijke map verdergaan.`,
 };

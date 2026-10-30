@@ -38,6 +38,7 @@
 | 短视频（切出的子视频） | Short | 工具名是 Cut into shorts |
 | 会话 / 新会话 | Session / New session | |
 | 分叉 / 在新会话中接着做 | Fork / Continue in a new session | 从会话的某一轮分出一条新会话；不写 Branch、Clone、Duplicate |
+| 导入（外部会话） | Import | 把 Claude Code / Codex 在终端里的本机会话接到 BaoCut 里继续；不写 Migrate、Sync |
 | 工作目录 | Working folder | |
 | 素材 | Asset | |
 | 产物 | Output | |

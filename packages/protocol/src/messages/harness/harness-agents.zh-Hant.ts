@@ -43,4 +43,6 @@ export const zhHant: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `「${p.question}」只能選一個答案`,
   questionUnknownOption: (p) => `「${p.option}」不是「${p.question}」的選項`,
   forkTurnRunning: '這一輪還沒結束，結束後再分岔。',
+  importUnsupported: (p) => `無法匯入 ${p.name} 的工作階段`,
+  importFolderMissing: (p) => `這個工作階段的資料夾不在了（${p.path}）。原工作階段要在原來的資料夾裡繼續執行。`,
 };

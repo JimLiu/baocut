@@ -10,4 +10,5 @@ export const es: DriversCommonMessages = {
  sessionClosed: (p) => `La sesión de ${p.name} está cerrada`, sessionNotReady: (p) => `La sesión de ${p.name} aún no está lista`, turnInProgress: 'El turno anterior aún no ha terminado',
  modelSwitchFailed: (p) => `${p.name} no pudo cambiar al modelo ${p.model}: ${p.error}`, timedOut: (p) => `${p.label} agotó el tiempo (${p.seconds} s)`,
  unknownError: 'Error desconocido', unknownReason: 'motivo desconocido', imagePlaceholder: '[Imagen]', officialScript: 'Script oficial',
+  nativeSessionNotFound: (p) => `No se encontró la sesión local ${p.id}. Puede que se haya eliminado.`,
 };

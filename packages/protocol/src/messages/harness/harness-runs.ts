@@ -49,6 +49,7 @@ const en = {
   /** 分叉（产品设计 §3.2.2「分叉」）：新会话的标题与线程顶上那一条。 */
   forkTitle: (p: { title: string }) => `${p.title} (fork)`,
   forkedFrom: (p: { title: string; turn: number }) => `Forked from "${p.title}" · through turn ${p.turn}`,
+  importedFrom: (p: { name: string }) => `Imported from ${p.name}`,
 };
 
 export type HarnessRunsMessages = typeof en;

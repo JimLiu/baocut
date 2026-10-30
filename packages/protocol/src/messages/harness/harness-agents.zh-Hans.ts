@@ -43,4 +43,6 @@ export const zhHans: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `「${p.question}」只能选一个答案`,
   questionUnknownOption: (p) => `「${p.option}」不是「${p.question}」的选项`,
   forkTurnRunning: '这一轮还没结束，结束后再分叉。',
+  importUnsupported: (p) => `不能导入 ${p.name} 的会话`,
+  importFolderMissing: (p) => `这条会话的目录不在了（${p.path}）。原会话要在原来的目录里接着跑。`,
 };

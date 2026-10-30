@@ -32,4 +32,5 @@ export const ko: HarnessRunsMessages = {
   contextCompacted: '에이전트가 작업을 계속하려고 컨텍스트를 압축했습니다. 이전 세부 내용은 요약만 남았을 수 있습니다.',
   forkTitle: (p) => `${p.title} (분기)`,
   forkedFrom: (p) => `"${p.title}"에서 분기 · ${p.turn}번째 턴까지`,
+  importedFrom: (p) => `여기까지 ${p.name}에서 가져옴`,
 };

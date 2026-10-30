@@ -24,4 +24,5 @@ export const fr: DriversCommonMessages = {
   imagePlaceholder: "[Image]",
 
   officialScript: "Script officiel",
+  nativeSessionNotFound: (p) => `Session locale ${p.id} introuvable. Elle a peut-être été supprimée.`,
 };

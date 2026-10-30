@@ -64,6 +64,8 @@ const en = {
   questionSingleChoice: (p: { question: string }) => `"${p.question}" takes one answer`,
   questionUnknownOption: (p: { question: string; option: string }) => `"${p.option}" isn't an option of "${p.question}"`,
   forkTurnRunning: "This turn hasn't ended yet. Fork it after it ends.",
+  importUnsupported: (p: { name: string }) => `${p.name} sessions can't be imported`,
+  importFolderMissing: (p: { path: string }) => `The session's folder is gone (${p.path}). It has to continue in its original folder.`,
 };
 
 export type HarnessAgentsMessages = typeof en;

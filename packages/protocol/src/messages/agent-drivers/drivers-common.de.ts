@@ -24,4 +24,5 @@ export const de: DriversCommonMessages = {
   imagePlaceholder: "[Bild]",
 
   officialScript: "Offizielles Skript",
+  nativeSessionNotFound: (p) => `Lokale Sitzung ${p.id} nicht gefunden. Sie wurde möglicherweise gelöscht.`,
 };

@@ -28,4 +28,6 @@ export const es: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `«${p.question}» admite una sola respuesta`,
   questionUnknownOption: (p) => `«${p.option}» no es una opción de «${p.question}»`,
   forkTurnRunning: 'Este turno aún no ha terminado. Bifúrcalo cuando termine.',
+  importUnsupported: (p) => `No se pueden importar sesiones de ${p.name}`,
+  importFolderMissing: (p) => `La carpeta de la sesión ya no existe (${p.path}). Debe continuar en su carpeta original.`,
 };

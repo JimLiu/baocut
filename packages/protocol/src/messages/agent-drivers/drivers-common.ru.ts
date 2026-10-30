@@ -20,4 +20,5 @@ export const ru: DriversCommonMessages = {
   unknownReason: "неизвестная причина",
   imagePlaceholder: "[Изображение]",
   officialScript: "Официальный скрипт",
+  nativeSessionNotFound: (p) => `Локальный сеанс ${p.id} не найден. Возможно, он был удалён.`,
 };

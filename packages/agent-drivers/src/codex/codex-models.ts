@@ -27,6 +27,20 @@ const MAX_PAGES = 5;
  * 没登录时能不能拿到：未验证（本机的 codex 是登录状态）；拿不到时调用方给空表。
  */
 export async function listCodexModels(install: CodexInstall, log: Logger, timeoutMs = 15_000): Promise<CodexCatalog> {
+  return withTempAppServer(install, log, timeoutMs, 'model/list', (conn) => fetchCatalog(conn, timeoutMs));
+}
+
+/**
+ * 起一个临时的 `codex app-server`，初始化之后交给 `run`：取模型表、列出与读取本机会话（导入外部会话）都用它。整个过程限时
+ * `timeoutMs`，结束（含失败、超时）一定关掉进程。不跑模型回合，不花额度。
+ */
+export async function withTempAppServer<T>(
+  install: CodexInstall,
+  log: Logger,
+  timeoutMs: number,
+  label: string,
+  run: (conn: CodexRpcConnection) => Promise<T>,
+): Promise<T> {
   const exec = codexCommand(install.command, ['app-server']);
   const child = spawn(exec.file, exec.args, {
     cwd: os.tmpdir(),
@@ -36,18 +50,17 @@ export async function listCodexModels(install: CodexInstall, log: Logger, timeou
   const conn = new CodexRpcConnection(child, log);
   let timer: ReturnType<typeof setTimeout> | null = null;
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`codex model/list timed out (${timeoutMs} ms)`)), timeoutMs);
+    timer = setTimeout(() => reject(new Error(`codex ${label} timed out (${timeoutMs} ms)`)), timeoutMs);
   });
   try {
-    return await Promise.race([fetchCatalog(conn, timeoutMs), deadline]);
+    return await Promise.race([initialize(conn, timeoutMs).then(() => run(conn)), deadline]);
   } finally {
     if (timer) clearTimeout(timer);
     await conn.close();
   }
 }
 
-async function fetchCatalog(conn: CodexRpcConnection, timeoutMs: number): Promise<CodexCatalog> {
-  // 真实的 app-server 会发 configWarning 之类的通知，一律不管。
+async function initialize(conn: CodexRpcConnection, timeoutMs: number): Promise<void> {
   conn.onNotification(() => {});
   const init: InitializeParams = {
     clientInfo: { name: 'baocut', title: 'BaoCut', version: RUNTIME_VERSION },
@@ -55,6 +68,9 @@ async function fetchCatalog(conn: CodexRpcConnection, timeoutMs: number): Promis
   };
   await conn.request('initialize', init, timeoutMs);
   conn.notify('initialized');
+}
+
+async function fetchCatalog(conn: CodexRpcConnection, timeoutMs: number): Promise<CodexCatalog> {
   const raw: CodexModel[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < MAX_PAGES; page++) {

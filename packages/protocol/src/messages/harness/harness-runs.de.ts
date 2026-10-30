@@ -32,4 +32,5 @@ export const de: HarnessRunsMessages = {
   contextCompacted: 'Der Agent hat seinen Kontext komprimiert, um weiterzuarbeiten. Frühere Details sind jetzt möglicherweise nur zusammengefasst.',
   forkTitle: (p) => `${p.title} (Abzweigung)`,
   forkedFrom: (p) => `Abgezweigt von „${p.title}“ · bis Runde ${p.turn}`,
+  importedFrom: (p) => `Aus ${p.name} importiert`,
 };

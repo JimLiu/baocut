@@ -26,4 +26,5 @@ export const zhHans: HarnessRunsMessages = {
   contextCompacted: '智能体压缩了上下文以便继续工作，较早的细节可能只剩摘要。',
   forkTitle: (p) => `${p.title}（分叉）`,
   forkedFrom: (p) => `分叉自「${p.title}」· 截至第 ${p.turn} 轮`,
+  importedFrom: (p) => `以上导入自 ${p.name}`,
 };

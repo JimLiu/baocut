@@ -39,6 +39,7 @@ const en = {
   imagePlaceholder: '[Image]',
   /** 安装方式的名字。 */
   officialScript: 'Official script',
+  nativeSessionNotFound: (p: { id: string }) => `Couldn't find the local session ${p.id}. It may have been deleted.`,
 };
 
 export type DriversCommonMessages = typeof en;

@@ -1,0 +1,45 @@
+import type { ImportMessages } from './import-copy.ts';
+
+export const de: ImportMessages = {
+  menuAll: 'Claude Code-/Codex-Sitzungen importieren…',
+  menuProject: 'Sitzungen aus diesem Ordner importieren…',
+  menuProjectHint: 'Claude Code-/Codex-Sitzungen in diesem Ordner',
+  titleAll: 'Claude Code-/Codex-Sitzungen importieren',
+  titleProject: (name) => `Sitzungen aus „${name}“ importieren`,
+  sourceLabel: 'Importieren aus',
+  search: 'Sitzungen durchsuchen',
+  searchPlaceholder: 'Nach erster Nachricht oder Ordner suchen',
+  whereClaude: '~/.claude/projects',
+  whereCodex: 'der Sitzungsliste von Codex',
+  readFrom: (where, folder) => `Gelesen aus ${where}${folder ? ` · nur Sitzungen in ${folder}` : ''}`,
+  listLabel: 'Sitzungen auf diesem Computer',
+  loading: 'Sitzungen werden gesucht…',
+  loadFailed: (error) => `Sitzungen konnten nicht aufgelistet werden: ${error}`,
+  noSources:
+    'Auf diesem Computer wurde weder Claude Code noch Codex gefunden. Nach der Installation erscheinen ihre Terminal-Sitzungen hier.',
+  noMatch: 'Keine passenden Sitzungen',
+  noneInFolder: 'In diesem Ordner wurden keine Sitzungen gefunden',
+  none: 'Keine Sitzungen gefunden',
+  turns: (n) => `${n} ${n === 1 ? 'Runde' : 'Runden'}`,
+  noFolder: 'Kein Ordner',
+  imported: 'Importiert',
+  alreadyImported: (title) => `Bereits importiert. In „${title}“ weitermachen.`,
+  intoProject: (name) => `Wird in das Projekt „${name}“ importiert.`,
+  missing:
+    'Dieser Ordner existiert nicht mehr, daher kann die Sitzung nicht importiert werden: Sie muss in ihrem ursprünglichen Ordner weiterlaufen.',
+  adopt: (folder, name) => `${folder} als Projekt „${name}“ hinzufügen`,
+  noAdopt: 'Andernfalls wird sie als Sitzung ohne Projekt importiert und arbeitet weiter in diesem Ordner.',
+  noteDiverge:
+    'Die importierte Sitzung setzt die ursprüngliche fort. Wenn Sie sie auch im Terminal weiter nutzen, führt jede Seite ihren eigenen Verlauf.',
+  noteSettings:
+    'Die Anweisungen und Skills von BaoCut gelten ab der ersten Runde nach dem Import. Projekteinstellungen, die die ursprüngliche Sitzung geladen hat (etwa .claude/ im Projekt), lädt BaoCut nicht.',
+  cancel: 'Abbrechen',
+  import: 'Importieren',
+  open: 'Öffnen',
+  doneProject: (name) => `In das Projekt „${name}“ importiert`,
+  doneLoose: 'Als Sitzung ohne Projekt importiert',
+  failed: (error) => `Import fehlgeschlagen: ${error}`,
+  importedFrom: (name, when) => `Oben Stehendes aus ${name} importiert · ${when}`,
+  omitted: (n) => `${n} ${n === 1 ? 'frühere Runde' : 'frühere Runden'} nicht kopiert`,
+  locked: (agent) => `Importierte Sitzungen bleiben bei ${agent}`,
+};

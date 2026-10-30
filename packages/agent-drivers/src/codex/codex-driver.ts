@@ -1,11 +1,21 @@
 import fs from 'node:fs/promises';
 import { RpcError, driverAvailability, nowIso, refOf, type DriverInstallOption, type DriverProbe, type DriverState } from '@baocut/protocol';
-import type { AgentDriver, AgentSession, CreateSessionOptions, DriverDescription, Logger, ProbeOptions } from '@baocut/harness';
+import type {
+  AgentDriver,
+  AgentSession,
+  CreateSessionOptions,
+  DriverDescription,
+  Logger,
+  NativeSession,
+  NativeSessionHistory,
+  ProbeOptions,
+} from '@baocut/harness';
 import { DriversCodex, DriversCommon } from '@baocut/protocol/messages/agent-drivers';
 import { refField, textOf, type DriverText } from '../driver-text.ts';
 import { compareVersions } from '../login-shell.ts';
 import { codexAt, locateCodex, codexAccount, readCodexLogin, type CodexInstall } from './codex-binary.ts';
 import { codexHome, readCodexConfigModel } from './codex-config.ts';
+import { listCodexThreads, readCodexThread } from './codex-import.ts';
 import { listCodexModels, type CodexCatalog } from './codex-models.ts';
 import { CODEX_CAPABILITIES, CodexSession } from './codex-session.ts';
 
@@ -128,6 +138,18 @@ export class CodexDriver implements AgentDriver {
       if (error instanceof RpcError) throw error;
       throw new RpcError('driver-failed', DriversCommon.startFailed({ name: 'Codex', error: error instanceof Error ? error.message : String(error) }));
     }
+  }
+
+  /** 本机的 Codex 线程（导入外部会话）：没装时为空表。 */
+  async listNativeSessions(options: { limit: number; executable?: string | null }): Promise<NativeSession[]> {
+    const install = await this.#find(options.executable);
+    return install ? listCodexThreads(install, this.#log, options.limit) : [];
+  }
+
+  async readNativeSession(nativeId: string, options: { executable?: string | null } = {}): Promise<NativeSessionHistory> {
+    const install = await this.#find(options.executable);
+    if (!install) throw new RpcError('driver-unavailable', DriversCommon.commandNotFound({ command: 'codex' }));
+    return readCodexThread(install, this.#log, nativeId);
   }
 
   #find(executable: string | null | undefined): Promise<CodexInstall | null> {

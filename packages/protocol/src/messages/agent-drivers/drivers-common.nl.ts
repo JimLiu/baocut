@@ -24,4 +24,5 @@ export const nl: DriversCommonMessages = {
   imagePlaceholder: "[Afbeelding]",
 
   officialScript: "Officieel script",
+  nativeSessionNotFound: (p) => `Lokale sessie ${p.id} niet gevonden. Mogelijk is die verwijderd.`,
 };

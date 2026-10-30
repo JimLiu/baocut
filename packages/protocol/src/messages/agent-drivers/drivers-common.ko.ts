@@ -21,4 +21,5 @@ export const ko: DriversCommonMessages = {
   unknownReason: '알 수 없는 이유',
   imagePlaceholder: '[이미지]',
   officialScript: '공식 스크립트',
+  nativeSessionNotFound: (p) => `로컬 세션 ${p.id}을(를) 찾지 못했습니다. 삭제되었을 수 있습니다.`,
 };

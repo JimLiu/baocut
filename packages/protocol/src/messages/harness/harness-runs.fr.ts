@@ -32,4 +32,5 @@ export const fr: HarnessRunsMessages = {
   contextCompacted: 'L’agent a compacté son contexte pour continuer à travailler. Les détails précédents ne sont peut-être plus que résumés.',
   forkTitle: (p) => `${p.title} (dérivée)`,
   forkedFrom: (p) => `Dérivée de « ${p.title} » · jusqu’au tour ${p.turn}`,
+  importedFrom: (p) => `Importé depuis ${p.name}`,
 };

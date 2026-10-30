@@ -47,4 +47,6 @@ export const ko: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `"${p.question}"에는 답을 하나만 고를 수 있습니다`,
   questionUnknownOption: (p) => `"${p.option}"은(는) "${p.question}"의 선택지가 아닙니다`,
   forkTurnRunning: '이 턴이 아직 끝나지 않았습니다. 끝난 뒤에 분기하세요.',
+  importUnsupported: (p) => `${p.name} 세션은 가져올 수 없습니다`,
+  importFolderMissing: (p) => `이 세션의 폴더가 없습니다(${p.path}). 원래 폴더에서 이어서 실행해야 합니다.`,
 };

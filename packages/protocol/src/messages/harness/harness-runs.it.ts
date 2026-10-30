@@ -26,4 +26,5 @@ export const it: HarnessRunsMessages = {
   contextCompacted: 'L’agente ha compattato il contesto per continuare a lavorare. I dettagli precedenti ora potrebbero essere solo riassunti.',
   forkTitle: (p) => `${p.title} (diramazione)`,
   forkedFrom: (p) => `Diramata da «${p.title}» · fino al turno ${p.turn}`,
+  importedFrom: (p) => `Importato da ${p.name}`,
 };

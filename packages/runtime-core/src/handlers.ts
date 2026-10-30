@@ -390,6 +390,9 @@ export function createHandlers({
       'agents.respondToApproval': (p) => harness.respondToApproval(p),
       'agents.answerQuestion': (p) => harness.answerQuestion(p),
       'agents.interrupt': (p) => harness.interrupt(p.conversationId),
+      // 导入外部会话（产品设计 §3.1）：读这台电脑上别的程序的记录，不在 Web 服务的白名单里。
+      'agents.listImportable': (p) => harness.listImportable(p),
+      'agents.importSession': async (p) => ({ conversation: await harness.importConversation(p) }),
       'agents.runSetup': (p) => setup.run(p),
       'agents.cancelSetup': (p) => setup.cancel(p.runId),
       'agents.openTerminal': (p) => setup.openTerminal(p),

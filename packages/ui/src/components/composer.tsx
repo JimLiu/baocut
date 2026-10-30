@@ -208,6 +208,8 @@ export interface ComposerProps {
   effort: string | null;
   /** 会话有过任务后 Agent 固定成这一个。 */
   lockedTo: DriverId | null;
+  /** 导入的会话（Agent 固定是来源那一家）。 */
+  lockImported?: boolean;
   onAgentChange(change: AgentChange): void;
   /** 访问模式（架构设计 §3.12）：建好的会话取会话上的，新会话取草稿上的选择。随时可以切，下一轮生效。 */
   accessMode: AgentMode;
@@ -331,7 +333,7 @@ export interface ComposerSendOptions {
 }
 
 export function Composer(props: ComposerProps) {
-  const { draftKey, driverId, model, effort, lockedTo, onAgentChange, accessMode, onAccessModeChange } = props;
+  const { draftKey, driverId, model, effort, lockedTo, lockImported, onAgentChange, accessMode, onAccessModeChange } = props;
   const { busy, queueWhileBusy, stopping, placeholder, autoFocus, mentionScope, onSend, beforeSend, onStop, reference, queue, start, tool } = props;
   const spaceReferences = props.spaceReferences?.items.length ? props.spaceReferences : null;
   const readScope = props.readScope?.scope === 'unfiled' ? props.readScope : null;
@@ -1059,6 +1061,7 @@ export function Composer(props: ComposerProps) {
                   model={model}
                   effort={effort}
                   lockedTo={lockedTo}
+                  lockImported={lockImported}
                   compact={compact}
                   onChange={onAgentChange}
                 />

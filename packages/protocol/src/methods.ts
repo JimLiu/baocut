@@ -16,6 +16,7 @@ import type {
   DriverInstallOption,
   EditorContext,
   ForkVideoOption,
+  ImportableSession,
   Id,
   Project,
   RuntimeInfo,
@@ -308,6 +309,23 @@ export interface RpcMethods {
   'agents.answerQuestion': {
     params: { conversationId: Id; approvalId: Id; answers: AgentQuestionAnswers };
     result: { status: 'answered' | 'already-resolved' };
+  };
+  /**
+   * 本机能导入的外部会话（产品设计 §3.1「导入外部会话」）：Runtime 所在那台电脑上装了的 Claude Code 与 Codex 各自留下的会话，
+   * 最近用过的在前，每家最多 200 条。`sources` 是找到的那几家（按 Agent 列表的顺序）。给了 `projectId` 时只列工作目录就是那个项目目录的。
+   * 浏览器与对外服务不能调用：它读的是这台电脑上别的程序的记录。
+   */
+  'agents.listImportable': { params: { projectId?: Id }; result: { sources: DriverId[]; sessions: ImportableSession[] } };
+  /**
+   * 导入一条外部会话：复制它的记录（每一轮一个已完成的任务，工具步骤只有标题；超出上限时只复制最近的，架构设计 §3.4），
+   * 末尾一条 `imported` 提示，之后用原生会话的恢复句柄接着跑，Agent 固定是来源那一家。工作目录已是项目时落进那个项目；
+   * 不是时 `adopt` 为 true 就把目录登记成项目（同 `projects.open`），否则作为无项目会话，工作目录仍是原目录。
+   * 目录不在了或没有目录时 `not-found`。已经导入过的返回原来那条（不重复导入）；同一个 `commandId` 重发回同一条。
+   * 浏览器与对外服务不能调用。
+   */
+  'agents.importSession': {
+    params: { driverId: DriverId; nativeId: string; adopt: boolean; commandId: Id };
+    result: { conversation: Conversation };
   };
   /** 次级操作：只停当前模型回合（D04），待处理的审批按取消处理。主停止按钮走 `tasks.stop`。 */
   'agents.interrupt': {

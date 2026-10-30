@@ -21,6 +21,7 @@ import Delete from '@react-spectrum/s2/icons/Delete';
 import Edit from '@react-spectrum/s2/icons/Edit';
 import Folder from '@react-spectrum/s2/icons/Folder';
 import FolderOpen from '@react-spectrum/s2/icons/FolderOpen';
+import Import from '@react-spectrum/s2/icons/Import';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import PinOff from '@react-spectrum/s2/icons/PinOff';
 import PinOn from '@react-spectrum/s2/icons/PinOn';
@@ -33,6 +34,7 @@ import { S } from './shell-copy.ts';
 import { agoLabel, shortenPath } from '../model/format.ts';
 import { conversationStatus, sessionStatus, type ProjectRow } from '../model/sidebar.ts';
 import { hrefFor } from '../state/shell-store.ts';
+import { IMPORT_COPY } from './agent-import/import-copy.ts';
 import { PROJECT_SETTINGS_COPY } from './project-settings/project-settings-copy.ts';
 import { PROJECT_MENU_COPY } from './skills/skills-copy.ts';
 
@@ -163,7 +165,7 @@ export function conversationItem(
 }
 
 /** 目录不在了时用不了的项目菜单项：它们都要读写这个目录。置顶、重命名与移除只动登记，照常可用。 */
-const NEEDS_FOLDER = ['new', 'space', 'brand', 'reveal', 'settings'];
+const NEEDS_FOLDER = ['new', 'space', 'brand', 'reveal', 'settings', 'import'];
 
 /**
  * 一个项目：单行文件夹行 + 它的会话；状态汇总与路径在悬停说明里。行尾的项目菜单与展开钮悬停或聚焦时才出现。
@@ -176,12 +178,15 @@ export function ProjectItem({
   open,
   onAction,
   conversationRow,
+  canImport,
 }: {
   id: string;
   row: ProjectRow;
   open: boolean;
   onAction: (key: string) => void;
   conversationRow: (conversation: Conversation, key: string) => ReactElement;
+  /** 有「导入这个目录的会话…」（产品设计 §3.1「导入外部会话」）：浏览器里没有。 */
+  canImport: boolean;
 }) {
   const { project } = row;
   const missing = project.missing === true;
@@ -236,6 +241,13 @@ export function ProjectItem({
               <Settings />
               <Text>{PROJECT_SETTINGS_COPY.menuItem}</Text>
             </MenuItem>
+            {canImport ? (
+              <MenuItem id="import" textValue={IMPORT_COPY.menuProject}>
+                <Import />
+                <Text slot="label">{IMPORT_COPY.menuProject}</Text>
+                <Text slot="description">{IMPORT_COPY.menuProjectHint}</Text>
+              </MenuItem>
+            ) : null}
           </MenuSection>
           <MenuSection>
             <MenuItem id="remove" textValue={S.sidebarRows.removeProject}>

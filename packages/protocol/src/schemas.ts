@@ -970,6 +970,8 @@ export const methodParamSchemas = {
       .refine((a) => Object.keys(a).length <= 20),
   }),
   'agents.interrupt': z.object({ conversationId: id }),
+  'agents.listImportable': z.object({ projectId: id.optional() }).strict(),
+  'agents.importSession': z.object({ driverId, nativeId: z.string().min(1).max(200), adopt: z.boolean(), commandId: id }).strict(),
   // 参数里不收命令：命令由 Runtime 从探测结果里取（架构设计 §12.9）。多给的字段直接拒绝。
   'agents.runSetup': z
     .object({ driverId, action: z.enum(['install', 'upgrade']), kind: installKind, commandId: id })

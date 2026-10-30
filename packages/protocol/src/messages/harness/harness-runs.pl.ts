@@ -26,4 +26,5 @@ export const pl: HarnessRunsMessages = {
   contextCompacted: 'Agent skompaktował kontekst, aby pracować dalej. Wcześniejsze szczegóły mogą być teraz tylko streszczone.',
   forkTitle: (p) => `${p.title} (odgałęzienie)`,
   forkedFrom: (p) => `Odgałęzienie z „${p.title}” · do tury ${p.turn}`,
+  importedFrom: (p) => `Zaimportowano z ${p.name}`,
 };

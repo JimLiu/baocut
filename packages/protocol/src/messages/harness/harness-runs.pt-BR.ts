@@ -26,4 +26,5 @@ export const ptBR: HarnessRunsMessages = {
   contextCompacted: 'O agente compactou o contexto para continuar trabalhando. Detalhes anteriores agora podem estar apenas resumidos.',
   forkTitle: (p) => `${p.title} (ramificação)`,
   forkedFrom: (p) => `Ramificada de “${p.title}” · até o turno ${p.turn}`,
+  importedFrom: (p) => `Importado do ${p.name}`,
 };

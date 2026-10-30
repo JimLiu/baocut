@@ -61,6 +61,11 @@ export interface Conversation {
    * 之后省略。自己有工作目录的会话省略。
    */
   folderOf?: Id;
+  /**
+   * 从终端里的 Claude Code 或 Codex 导入的会话（`agents.importSession`，产品设计 §3.1「导入外部会话」）：哪一家、原生会话的 id。
+   * 之后接着那条原生会话跑；没有项目时工作目录就是原会话的目录（不在 `scratchDir` 下）。不是导入的省略。
+   */
+  importedFrom?: ImportedFrom;
   /** 会话的 Agent。没有任务之前可以换，之后固定（原生会话不能跨 Agent 续）。 */
   driverId: DriverId;
   /** 模型 id，来自 `DriverInfo.models`；null = 不传模型，用 Agent 自己的默认（`configModel`）。下一轮生效。 */
@@ -392,6 +397,8 @@ export type TimelineItem =
       compaction?: true;
       /** 分叉出来的会话顶上那一条（`conversations.fork`，产品设计 §3.2.2「分叉」）：从哪条会话的第几轮分出来、带进去的记录。 */
       fork?: ForkNote;
+      /** 导入的会话里，复制过来的记录末尾那一条（`agents.importSession`）：以上导入自哪一家、什么时候。 */
+      imported?: ImportNote;
     })
   | (TimelineBase & VideoChange & { kind: 'video-change' })
   | (TimelineBase & VideoCreated & { kind: 'video-created' })
@@ -442,6 +449,34 @@ export interface ForkVideoOption {
   state: 'ok' | 'pruned' | 'created-after' | 'chain-broken';
   version?: number;
   undone?: number;
+}
+
+export interface ImportedFrom {
+  driverId: DriverId;
+  nativeId: string;
+}
+
+/** 导入时复制过来的记录（`ImportedFrom`）：导入的时刻、复制了几轮；超出上限时最早的 `omitted` 轮没有复制（架构设计 §3.4）。 */
+export interface ImportNote extends ImportedFrom {
+  at: string;
+  turns: number;
+  omitted: number;
+}
+
+/**
+ * 本机能导入的一条外部会话（`agents.listImportable`）。`cwd`：原会话的工作目录，记录里没有时为 null；`turns`：用户发过几次话，
+ * 拿不到时为 null。`landing` 是导入后落在哪：工作目录已登记成项目（`project`）、还不是项目（`adopt`，接成项目时取 `name`）、
+ * 目录不在了或没有目录（`missing`，不能导入）。`importedAs`：已经导入过时接着它的那条会话。
+ */
+export interface ImportableSession {
+  driverId: DriverId;
+  nativeId: string;
+  cwd: string | null;
+  title: string;
+  turns: number | null;
+  updatedAt: string;
+  landing: { kind: 'project'; projectId: Id; projectName: string } | { kind: 'adopt'; name: string } | { kind: 'missing' };
+  importedAs: Id | null;
 }
 
 /** 智能体待办清单里的一项（任务条目的 `todo`）。文字是智能体写的原话；`activeForm` 是进行中时的说法（例如「正在跑测试」），只有 Claude 给。 */

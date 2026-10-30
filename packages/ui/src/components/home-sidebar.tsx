@@ -21,9 +21,12 @@ import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import AddCircle from '@react-spectrum/s2/icons/AddCircle';
 import Folder from '@react-spectrum/s2/icons/Folder';
 import FolderOpen from '@react-spectrum/s2/icons/FolderOpen';
+import Import from '@react-spectrum/s2/icons/Import';
 import More from '@react-spectrum/s2/icons/More';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { ARCHIVED } from './archived-copy.ts';
+import { IMPORT_COPY } from './agent-import/import-copy.ts';
+import { ImportSessionsDialog } from './agent-import/import-dialog.tsx';
 import { S } from './shell-copy.ts';
 import { untitled } from '../copy.ts';
 import {
@@ -56,6 +59,7 @@ type DialogState =
   | { kind: 'new-project' }
   | { kind: 'rename-project'; project: Project }
   | { kind: 'remove-project'; project: Project }
+  | { kind: 'import'; project: Project | null }
   | null;
 type SectionKey = 'pinned' | 'projects' | 'recent' | `st:${SessionStatus}`;
 
@@ -83,6 +87,8 @@ export function HomeSidebar() {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [collapsed, setCollapsed] = useState<ReadonlySet<SectionKey>>(new Set());
   const now = useNow(60_000);
+  // 导入本机的 Claude Code / Codex 会话（产品设计 §3.1）：Runtime 不对浏览器开放，浏览器里不出入口。
+  const canImport = runtime.host.platform !== 'web';
 
   const tree = useMemo(() => buildSidebar(projects, conversations, sort), [projects, conversations, sort]);
   // 打开着视频时侧栏仍指向那条会话：选中位置不带视频参数。
@@ -131,6 +137,7 @@ export function HomeSidebar() {
     else if (key === 'reveal') void runtime.host.revealPath(project.path);
     else if (key === 'settings') useProjectSettings.getState().open(project.id);
     else if (key === 'remove') setDialog({ kind: 'remove-project', project });
+    else if (key === 'import') setDialog({ kind: 'import', project });
   };
 
   // 从 BaoCut 移除项目（产品设计 §3.1）：目录不动，它的会话一起删。停在这个项目的页面上时回到 Home。
@@ -185,6 +192,7 @@ export function HomeSidebar() {
       open={expandedKeys.has(key)}
       onAction={(k) => onProjectAction(row.project, k)}
       conversationRow={conversationRow}
+      canImport={canImport}
     />
   );
 
@@ -256,7 +264,7 @@ export function HomeSidebar() {
           <SideNavSection id="projects">
             <SideNavHeader>
               <SectionHead label={listLabel} collapsed={collapsed.has('projects')} onToggle={() => toggleSection('projects')}>
-                <OrganizeMenu />
+                <OrganizeMenu onImport={canImport ? () => setDialog({ kind: 'import', project: null }) : null} />
                 <MenuTrigger>
                   <ActionButton isQuiet size="S" aria-label={S.sidebar.newOrOpenProject} isDisabled={!projectsDir}>
                     <Add />
@@ -318,6 +326,8 @@ export function HomeSidebar() {
             onPrimaryAction={() => void removeProject(dialog.project)}>
             {S.sidebar.removeProjectBody(conversations.filter((c) => c.projectId === dialog.project.id).length)}
           </AlertDialog>
+        ) : dialog?.kind === 'import' ? (
+          <ImportSessionsDialog project={dialog.project} onClose={() => setDialog(null)} />
         ) : null}
       </DialogContainer>
     </PageSidebar>
@@ -355,8 +365,8 @@ function SectionHead({ label, collapsed, onToggle, children }: { label: string; 
   );
 }
 
-/** 项目段头的「⋯」：整理侧栏（按项目分组 / 在一个列表中 / 按状态分组）、会话排序，与 Home ›「已归档会话」。 */
-function OrganizeMenu() {
+/** 项目段头的「⋯」：整理侧栏（按项目分组 / 在一个列表中 / 按状态分组）、会话排序、导入本机的外部会话，与 Home ›「已归档会话」。 */
+function OrganizeMenu({ onImport }: { onImport: (() => void) | null }) {
   const go = useSidebarGo();
   const grouping = useShell((s) => groupingOf(s.sidebarGrouping));
   const sort = useShell((s) => s.sidebarSort);
@@ -367,7 +377,12 @@ function OrganizeMenu() {
       <ActionButton isQuiet size="S" aria-label={S.sidebar.organizeLabel}>
         <More />
       </ActionButton>
-      <Menu aria-label={S.sidebar.sidebarSettings} onAction={(key) => key === 'archived' && go({ tab: 'archived' })}>
+      <Menu
+        aria-label={S.sidebar.sidebarSettings}
+        onAction={(key) => {
+          if (key === 'archived') go({ tab: 'archived' });
+          else if (key === 'import') onImport?.();
+        }}>
         <SubmenuTrigger>
           <MenuItem id="organize" textValue={S.sidebar.organize}>
             <Text slot="label">{S.sidebar.organize}</Text>
@@ -407,6 +422,12 @@ function OrganizeMenu() {
             </MenuItem>
           </Menu>
         </SubmenuTrigger>
+        {onImport ? (
+          <MenuItem id="import" textValue={IMPORT_COPY.menuAll}>
+            <Import />
+            <Text slot="label">{IMPORT_COPY.menuAll}</Text>
+          </MenuItem>
+        ) : null}
         <MenuItem id="archived" textValue={ARCHIVED.title}>
           <Archive />
           <Text slot="label">{ARCHIVED.title}</Text>

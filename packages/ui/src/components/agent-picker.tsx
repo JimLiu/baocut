@@ -46,6 +46,8 @@ export interface AgentPickerProps {
   effort: string | null;
   /** 会话有过任务后 Agent 固定成这一个；其他 Agent 标出原因、不能选。 */
   lockedTo: DriverId | null;
+  /** 导入的会话：原因写「导入的会话固定用 <Agent>」。 */
+  lockImported?: boolean;
   /** 窄的时候 Agent 只剩图标，模型只留级别名（`compactHarnessLabel`）。 */
   compact?: boolean;
   onChange(change: AgentChange): void;
@@ -55,11 +57,11 @@ export interface AgentPickerProps {
  * 编码 Agent · 模型 · 推理强度（原型 agent-picker.jsx、model-agent.js `providerRows` / `modelRows`）。
  * 第一级每个 Agent 一行：能用的展开第二级选模型与推理强度；用不了的写原因，点了去设置 › Agent。
  */
-export function AgentPicker({ drivers, driverId, model, effort, lockedTo, compact, onChange }: AgentPickerProps) {
+export function AgentPicker({ drivers, driverId, model, effort, lockedTo, lockImported, compact, onChange }: AgentPickerProps) {
   const go = useShell((s) => s.go);
   const list = drivers ?? [];
   const current = list.find((d) => d.id === driverId) ?? null;
-  const rows = providerRows(list, driverId, model, lockedTo);
+  const rows = providerRows(list, driverId, model, lockedTo, lockImported);
   const goSettings = () => go({ tab: 'settings', section: 'agent' });
   const text = compact ? compactHarnessLabel(current, model) : harnessLabel(current, model);
 

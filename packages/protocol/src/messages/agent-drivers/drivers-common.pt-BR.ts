@@ -20,4 +20,5 @@ export const ptBR: DriversCommonMessages = {
   unknownReason: "motivo desconhecido",
   imagePlaceholder: "[Imagem]",
   officialScript: "Script oficial",
+  nativeSessionNotFound: (p) => `Não foi possível encontrar a sessão local ${p.id}. Ela pode ter sido excluída.`,
 };

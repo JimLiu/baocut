@@ -222,6 +222,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         model={meta.model}
         effort={meta.effort}
         lockedTo={lockedTo}
+        lockImported={!!meta.importedFrom}
         onAgentChange={(change) =>
           void runtime.updateConversation(conversationId, change).catch((error: Error) => {
             const message = error instanceof RpcError && error.code === 'conflict' ? AGENT_PICKER.locked : S.conversationView.switchFailed(error.message);

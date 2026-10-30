@@ -20,4 +20,5 @@ export const zhHant: DriversCommonMessages = {
   unknownReason: '原因不明',
   imagePlaceholder: '[圖片]',
   officialScript: '官方指令碼',
+  nativeSessionNotFound: (p) => `找不到本機工作階段 ${p.id}，可能已經刪除。`,
 };

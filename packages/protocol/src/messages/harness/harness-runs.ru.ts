@@ -26,4 +26,5 @@ export const ru: HarnessRunsMessages = {
   contextCompacted: 'Агент сжал контекст, чтобы продолжить работу. Более ранние подробности теперь могут остаться только в виде сводки.',
   forkTitle: (p) => `${p.title} (ответвление)`,
   forkedFrom: (p) => `Ответвление от «${p.title}» · до хода ${p.turn}`,
+  importedFrom: (p) => `Импортировано из ${p.name}`,
 };

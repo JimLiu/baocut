@@ -32,4 +32,6 @@ export const ptBR: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `“${p.question}” aceita só uma resposta`,
   questionUnknownOption: (p) => `“${p.option}” não é uma opção de “${p.question}”`,
   forkTurnRunning: 'Este turno ainda não terminou. Ramifique depois que terminar.',
+  importUnsupported: (p) => `Não é possível importar sessões do ${p.name}`,
+  importFolderMissing: (p) => `A pasta da sessão não existe mais (${p.path}). Ela precisa continuar na pasta original.`,
 };

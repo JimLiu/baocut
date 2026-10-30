@@ -11,4 +11,6 @@ listSeparator: ', ', noDriver: (p) => `Không có Agent đăng ký với id ${p.
   questionSingleChoice: (p) => `“${p.question}” chỉ nhận một câu trả lời`,
   questionUnknownOption: (p) => `“${p.option}” không phải lựa chọn của “${p.question}”`,
   forkTurnRunning: 'Lượt này chưa kết thúc. Hãy tách nhánh sau khi nó kết thúc.',
+  importUnsupported: (p) => `Không thể nhập phiên của ${p.name}`,
+  importFolderMissing: (p) => `Thư mục của phiên không còn nữa (${p.path}). Phiên phải tiếp tục trong thư mục gốc.`,
 };

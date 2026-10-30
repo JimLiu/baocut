@@ -9,4 +9,5 @@ retrying: (p) => `${p.message} (yeniden deneniyor)`, modeChanged: (p) => `Erişi
   contextCompacted: 'Ajan çalışmaya devam etmek için bağlamını sıkıştırdı. Önceki ayrıntılar artık yalnızca özet olarak kalmış olabilir.',
   forkTitle: (p) => `${p.title} (dal)`,
   forkedFrom: (p) => `"${p.title}" oturumundan dal · ${p.turn}. tura kadar`,
+  importedFrom: (p) => `${p.name} kaynağından içe aktarıldı`,
 };

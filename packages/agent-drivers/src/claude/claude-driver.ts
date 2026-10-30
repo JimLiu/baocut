@@ -3,11 +3,21 @@ import os from 'node:os';
 import path from 'node:path';
 import { RpcError, driverAvailability, nowIso, refOf, type DriverInstallOption, type DriverModel, type DriverProbe, type DriverState } from '@baocut/protocol';
 import { DriversClaude, DriversCommon } from '@baocut/protocol/messages/agent-drivers';
-import type { AgentDriver, AgentSession, CreateSessionOptions, DriverDescription, Logger, ProbeOptions } from '@baocut/harness';
+import type {
+  AgentDriver,
+  AgentSession,
+  CreateSessionOptions,
+  DriverDescription,
+  Logger,
+  NativeSession,
+  NativeSessionHistory,
+  ProbeOptions,
+} from '@baocut/harness';
 import type { SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { officialScript, refField, textOf, type DriverText } from '../driver-text.ts';
 import { compareVersions } from '../login-shell.ts';
 import { claudeAt, claudeConfigDir, locateClaude, readClaudeLogin, readClaudeSettingsModels, type ClaudeInstall } from './claude-binary.ts';
+import { listClaudeSessions, readClaudeSession } from './claude-import.ts';
 import { FALLBACK_CLAUDE_MODELS, claudeModelKnown, mapClaudeModels, withSettingsModels, type ClaudeModelEntry } from './claude-models.ts';
 import { createMessageInput, sdkQueryFactory, type ClaudeQueryFactory } from './claude-query.ts';
 import { ClaudeSession, claudeSettingsOptions } from './claude-session.ts';
@@ -34,6 +44,8 @@ export interface ClaudeDriverOptions {
   queryFactory?: ClaudeQueryFactory;
   /** Claude Code 的用户设置文件，读其中的 `model` 与 `env` 里的模型。默认 `$CLAUDE_CONFIG_DIR/settings.json`（`~/.claude/settings.json`）。 */
   settingsFile?: string;
+  /** Claude Code 的配置目录，本机会话的记录在它的 `projects/` 下（导入外部会话）。默认 `$CLAUDE_CONFIG_DIR`（`~/.claude`）。 */
+  configDir?: string;
 }
 
 /**
@@ -48,6 +60,7 @@ export class ClaudeDriver implements AgentDriver {
   readonly #locate: () => Promise<ClaudeInstall | null>;
   readonly #factory: ClaudeQueryFactory;
   readonly #settingsFile: string | null;
+  readonly #configDir: string | null;
   #models: { key: string; result: Promise<ClaudeModelEntry[] | null> } | null = null;
 
   constructor(log: Logger, options: ClaudeDriverOptions = {}) {
@@ -55,6 +68,7 @@ export class ClaudeDriver implements AgentDriver {
     this.#locate = options.locate ?? locateClaude;
     this.#factory = options.queryFactory ?? sdkQueryFactory;
     this.#settingsFile = options.settingsFile ?? null;
+    this.#configDir = options.configDir ?? null;
   }
 
   describe(): DriverDescription {
@@ -143,6 +157,22 @@ export class ClaudeDriver implements AgentDriver {
     if (!install) throw new RpcError('driver-unavailable', DriversCommon.commandNotFound({ command: 'claude' }));
     // claude 进程在第一轮才起（见 ClaudeSession），这里不会因为进程启动失败而抛错。
     return new ClaudeSession(install, options, this.#log, this.#factory);
+  }
+
+  /** 本机的 Claude Code 会话（导入外部会话）：读配置目录里的记录文件，不起 claude。 */
+  async listNativeSessions(options: { limit: number; executable?: string | null }): Promise<NativeSession[]> {
+    return listClaudeSessions(await this.#sessionsDir(options.executable), options.limit);
+  }
+
+  async readNativeSession(nativeId: string, options: { executable?: string | null } = {}): Promise<NativeSessionHistory> {
+    return readClaudeSession(await this.#sessionsDir(options.executable), nativeId);
+  }
+
+  /** 会话记录所在的配置目录：按找到的 claude 的环境（登录 shell 里可能设了 `CLAUDE_CONFIG_DIR`）。 */
+  async #sessionsDir(executable: string | null | undefined): Promise<string> {
+    if (this.#configDir) return this.#configDir;
+    const install = await this.#find(executable).catch(() => null);
+    return claudeConfigDir(install?.env ?? process.env);
   }
 
   #find(executable: string | null | undefined): Promise<ClaudeInstall | null> {

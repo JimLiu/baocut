@@ -11,4 +11,6 @@ listSeparator: ', ', noDriver: (p) => `${p.id} kimliğiyle kayıtlı ajan yok`, 
   questionSingleChoice: (p) => `"${p.question}" için yalnızca bir yanıt seçilebilir`,
   questionUnknownOption: (p) => `"${p.option}", "${p.question}" sorusunun seçeneği değil`,
   forkTurnRunning: 'Bu tur henüz bitmedi. Bittikten sonra dal oluşturun.',
+  importUnsupported: (p) => `${p.name} oturumları içe aktarılamaz`,
+  importFolderMissing: (p) => `Oturumun klasörü artık yok (${p.path}). Oturum özgün klasöründe sürdürülmelidir.`,
 };

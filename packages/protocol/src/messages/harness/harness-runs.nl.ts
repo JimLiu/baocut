@@ -32,4 +32,5 @@ export const nl: HarnessRunsMessages = {
   contextCompacted: 'De agent heeft zijn context ingekort om door te werken. Eerdere details zijn nu mogelijk alleen samengevat.',
   forkTitle: (p) => `${p.title} (afsplitsing)`,
   forkedFrom: (p) => `Afgesplitst van ‘${p.title}’ · t/m beurt ${p.turn}`,
+  importedFrom: (p) => `Geïmporteerd uit ${p.name}`,
 };

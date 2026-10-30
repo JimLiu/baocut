@@ -18,6 +18,7 @@ import {
   type ExternalVideoCreated,
   type FileTarget,
   type ForkVideoOption,
+  type ImportableSession,
   type Id,
   type JobReconcileDecision,
   type JobRecord,
@@ -465,6 +466,20 @@ export class RuntimeSession {
   async forkVideos(conversationId: Id, taskId: Id): Promise<ForkVideoOption[]> {
     const { videos } = await this.client.request('conversations.forkVideos', { conversationId, taskId });
     return videos;
+  }
+
+  /**
+   * 本机能导入的 Claude Code / Codex 会话（产品设计 §3.1「导入外部会话」）：`sources` 是列得出来的几家，会话新的在前。
+   * 给了 `projectId` 时只列工作目录就是那个项目目录的。浏览器里没有这个方法（Web 端不出入口）。
+   */
+  async listImportable(projectId?: Id): Promise<{ sources: DriverId[]; sessions: ImportableSession[] }> {
+    return this.client.request('agents.listImportable', projectId ? { projectId } : {});
+  }
+
+  /** 导入一条外部会话：`adopt` 时把还不是项目的目录接成项目。已经导入过的返回那一条。 */
+  async importSession(driverId: DriverId, nativeId: string, adopt: boolean): Promise<Conversation> {
+    const { conversation } = await this.client.request('agents.importSession', { driverId, nativeId, adopt, commandId: newId('cmd') });
+    return conversation;
   }
 
   async deleteConversation(conversationId: Id): Promise<void> {

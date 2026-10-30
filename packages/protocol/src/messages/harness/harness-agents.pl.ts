@@ -42,4 +42,6 @@ export const pl: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `Na „${p.question}” można wybrać tylko jedną odpowiedź`,
   questionUnknownOption: (p) => `„${p.option}” nie jest opcją pytania „${p.question}”`,
   forkTurnRunning: 'Ta tura jeszcze się nie skończyła. Utwórz odgałęzienie, gdy się skończy.',
+  importUnsupported: (p) => `Nie można importować sesji ${p.name}`,
+  importFolderMissing: (p) => `Folder sesji już nie istnieje (${p.path}). Sesja musi być kontynuowana w swoim pierwotnym folderze.`,
 };

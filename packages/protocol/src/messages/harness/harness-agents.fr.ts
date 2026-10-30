@@ -49,4 +49,6 @@ export const fr: HarnessAgentsMessages = {
   questionSingleChoice: (p) => `« ${p.question} » n'accepte qu'une réponse`,
   questionUnknownOption: (p) => `« ${p.option} » n'est pas une option de « ${p.question} »`,
   forkTurnRunning: 'Ce tour n’est pas encore terminé. Dérivez-le une fois terminé.',
+  importUnsupported: (p) => `Impossible d’importer les sessions ${p.name}`,
+  importFolderMissing: (p) => `Le dossier de la session n’existe plus (${p.path}). Elle doit continuer dans son dossier d’origine.`,
 };

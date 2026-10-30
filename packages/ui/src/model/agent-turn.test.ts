@@ -136,6 +136,24 @@ describe('turns', () => {
     const [failed] = turns(buildThread([user('u1', 't1'), task('t1', 'failed')]));
     expect(showFooter(failed!, false)).toBe(true);
   });
+
+  it('导入的记录下面那一条自成一段：前一轮的页脚在它上面，它自己没有页脚', () => {
+    const imported: TimelineItem = {
+      kind: 'notice',
+      id: 'n1',
+      createdAt: at,
+      taskId: null,
+      level: 'info',
+      text: 'Imported',
+      imported: { driverId: 'claude', nativeId: 'x', at, turns: 1, omitted: 0 },
+    };
+    const blocks = buildThread([user('u1', 't1'), task('t1'), agent('a1', 't1', '好'), imported, user('u2', 't2')]);
+    expect(blocks.map((b) => b.type)).toEqual(['user', 'agent', 'task', 'notice', 'user']);
+    const [first, marker] = turns(blocks);
+    expect([first!.start, first!.end, marker!.start, marker!.end]).toEqual([0, 1, 3, 3]);
+    expect(first!.task?.id).toBe('t1');
+    expect(showFooter(marker!, false)).toBe(false);
+  });
 });
 
 describe('页脚文案', () => {
