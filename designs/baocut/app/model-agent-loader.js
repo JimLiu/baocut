@@ -48,6 +48,8 @@
     read: ['document', 'page', 'eye'],
     edit: ['pencil', 'brush', 'document'],
     search: ['mag', 'filter', 'eye'],
+    fetch: ['cloud', 'page', 'eye'],
+    agent: ['aiLogo', 'journey', 'flower'],
     slides: ['page', 'eye', 'pencil'],
     design: ['brush', 'eyedrop', 'eye'],
     'design-system': ['eyedrop', 'slider', 'document'],

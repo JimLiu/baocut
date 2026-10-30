@@ -12,7 +12,7 @@ export const nl: ThreadMessages = {
   } as Record<string, string>,
 
   toolTitle: (action: string, label: string) => `${action}: ${label}`,
-  steps: { command: "Opdracht uitvoeren", read: "Bestand lezen", edit: "Bestand bewerken", search: "Zoeken", other: "Andere tool" },
+  steps: { command: "Opdracht uitvoeren", read: "Bestand lezen", edit: "Bestand bewerken", search: "Zoeken", fetch: "Webpagina ophalen", agent: "Subagent", other: "Andere tool" },
 
   phrase: {
     command: "opdrachten uitgevoerd",
@@ -20,6 +20,8 @@ export const nl: ThreadMessages = {
     edit: (count: number) => `bewerkt: ${count} ${pluralForm('nl', count, { one: "bestand", other: "bestanden" })}`,
     search: "gezocht",
     video: (count: number) => `vastgelegd: ${count} video ${pluralForm('nl', count, { one: "bewerking", other: "bewerkingen" })}`,
+    fetch: "webpagina’s opgehaald",
+    agent: "subagents ingezet",
     tool: "tools aangeroepen",
   },
   summary: (phrases: readonly string[]) => {

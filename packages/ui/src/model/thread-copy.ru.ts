@@ -10,13 +10,15 @@ export const ru: ThreadMessages = {
     edits_undo: "Отменить правки",
   },
   toolTitle: (action: string, label: string) => `${action}: ${label}`,
-  steps: { command: "Выполнить команду", read: "Прочитать файл", edit: "Изменить файл", search: "Поиск", other: "Другой инструмент" },
+  steps: { command: "Выполнить команду", read: "Прочитать файл", edit: "Изменить файл", search: "Поиск", fetch: "Загрузить веб-страницу", agent: "Субагент", other: "Другой инструмент" },
   phrase: {
     command: "выполнены команды",
     read: (count: number) => pluralForm('ru', count, { one: `прочитан ${count} файл`, few: `прочитано ${count} файла`, many: `прочитано ${count} файлов`, other: `прочитано ${count} файла` }),
     edit: (count: number) => pluralForm('ru', count, { one: `изменён ${count} файл`, few: `изменено ${count} файла`, many: `изменено ${count} файлов`, other: `изменено ${count} файла` }),
     search: "выполнен поиск",
     video: (count: number) => pluralForm('ru', count, { one: `записана ${count} правка видео`, few: `записаны ${count} правки видео`, many: `записано ${count} правок видео`, other: `записано ${count} правки видео` }),
+    fetch: "загружены веб-страницы",
+    agent: "задействованы субагенты",
     tool: "вызваны инструменты",
   },
   summary: (phrases: readonly string[]) => {

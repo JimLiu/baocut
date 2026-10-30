@@ -192,6 +192,25 @@ describe('步骤行的元数据', () => {
     expect(stepMeta(call({}), 'completed')).toEqual([]);
   });
 
+  it('结构化事实：读的行、搜到几处、取网页失败的状态码、子智能体的类型；整读与成功不写', () => {
+    const meta = (info: Extract<TimelineItem, { kind: 'tool-call' }>['info']) => stepMeta(call({ info }), 'completed');
+    expect(meta({ type: 'read', path: 'a', offset: 10, limit: 50 })).toEqual([{ text: '第 10–59 行' }]);
+    expect(meta({ type: 'read', path: 'a', offset: 10 })).toEqual([{ text: '从第 10 行' }]);
+    expect(meta({ type: 'read', path: 'a', limit: 20 })).toEqual([{ text: '第 1–20 行' }]);
+    expect(meta({ type: 'read', path: 'a' })).toEqual([]);
+    expect(meta({ type: 'search', pattern: 'x', files: 3, matches: 7 })).toEqual([{ text: '7 处匹配' }]);
+    expect(meta({ type: 'search', pattern: 'x', files: 0 })).toEqual([{ text: '0 个文件' }]);
+    expect(meta({ type: 'search', pattern: 'x' })).toEqual([]);
+    expect(meta({ type: 'fetch', url: 'u', status: 404 })).toEqual([{ text: 'HTTP 404', code: true }]);
+    expect(meta({ type: 'fetch', url: 'u', status: 200 })).toEqual([]);
+    expect(meta({ type: 'subAgent', agentType: 'Explore' })).toEqual([{ text: 'Explore', code: true }]);
+    expect(stepMeta(call({ info: { type: 'search', pattern: 'x', matches: 1 }, durationMs: 400 }), 'declined')).toEqual([
+      { text: '已拒绝' },
+      { text: '1 处匹配' },
+      { text: '0.4s' },
+    ]);
+  });
+
   it('错误一段的文字', () => {
     expect(stepError(call({ exitCode: 2 }), 'failed')).toBe('命令以退出码 2 结束');
     expect(stepError(call({}), 'failed')).toBe('这一步没有完成');

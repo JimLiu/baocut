@@ -28,11 +28,13 @@ import Transcript from '@react-spectrum/s2/icons/Transcript';
 import Translate from '@react-spectrum/s2/icons/Translate';
 import Undo from '@react-spectrum/s2/icons/Undo';
 import Video from '@react-spectrum/s2/icons/Video';
+import AIMark from '@react-spectrum/s2/icons/AIMark';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import Clock from '@react-spectrum/s2/icons/Clock';
 import Edit from '@react-spectrum/s2/icons/Edit';
 import Folder from '@react-spectrum/s2/icons/Folder';
+import GlobeGrid from '@react-spectrum/s2/icons/GlobeGrid';
 import Lightbulb from '@react-spectrum/s2/icons/Lightbulb';
 import More from '@react-spectrum/s2/icons/More';
 import Search from '@react-spectrum/s2/icons/Search';
@@ -70,6 +72,8 @@ const KIND_ICON: Record<StepKind, ReactNode> = {
   read: <Folder />,
   edit: <Edit />,
   search: <Search />,
+  fetch: <GlobeGrid />,
+  agent: <AIMark />,
   other: <More />,
 };
 

@@ -31,6 +31,10 @@ const en = {
   stepDeclined: 'This step was declined',
   commandExited: (code: number) => `The command exited with code ${code}`,
   stepIncomplete: 'This step didn’t finish',
+  stepLines: (from: number, to: number | null) => (to === null ? `From line ${from}` : `Lines ${from}–${to}`),
+  stepMatches: (count: number) => (count === 1 ? '1 match' : `${count} matches`),
+  stepFiles: (count: number) => (count === 1 ? '1 file' : `${count} files`),
+  stepHttp: (status: number) => `HTTP ${status}`,
   lineRange: (path: string, line: number, end: number) => `${path} · lines ${line}–${end}`,
   lineCol: (path: string, line: number, col: number) => `${path} · line ${line}, column ${col}`,
   line: (path: string, line: number) => `${path} · line ${line}`,
@@ -230,9 +234,34 @@ export function stepMeta(item: ToolCall, status: ToolCall['status']): { text: st
   const out: { text: string; code?: boolean }[] = [];
   const word = STATUS_META[status];
   if (word) out.push({ text: word });
+  const fact = infoMeta(item.info);
+  if (fact) out.push(fact);
   if (item.exitCode !== null && item.exitCode !== 0) out.push({ text: M.exitCode(item.exitCode), code: true });
   if (item.durationMs !== null) out.push({ text: durationLabel(item.durationMs) });
   return out;
+}
+
+/**
+ * 结构化事实（§3.1）给的一个标签：读了哪几行、搜到几处（没有匹配数时按文件数）、取网页失败的 HTTP 状态、子智能体的类型。
+ * 整个文件读完、取网页成功时不写。
+ */
+function infoMeta(info: ToolCall['info']): { text: string; code?: boolean } | null {
+  switch (info?.type) {
+    case 'read': {
+      if (!info.offset && !info.limit) return null;
+      const from = info.offset ?? 1;
+      return { text: M.stepLines(from, info.limit ? from + info.limit - 1 : null) };
+    }
+    case 'search':
+      if (info.matches !== undefined) return { text: M.stepMatches(info.matches) };
+      return info.files !== undefined ? { text: M.stepFiles(info.files) } : null;
+    case 'fetch':
+      return info.status !== undefined && info.status >= 400 ? { text: M.stepHttp(info.status), code: true } : null;
+    case 'subAgent':
+      return info.agentType ? { text: info.agentType, code: true } : null;
+    default:
+      return null;
+  }
 }
 
 /** 失败与被拒绝的步骤展开后「错误」一段的文字。 */

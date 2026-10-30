@@ -918,18 +918,21 @@
   // 工具行的种类：演示数据带 kind（command / read / edit / search / other）；没有 kind 的老数据按 cmd 的写法推——「读取 …」是读文件，其余是命令。
   const WORK_KINDS = {
     command: '运行了命令', file_change: '修改了', file_read: '读取了',
-    search: '搜索了', plan: '做了计划', tool: '调用了工具', video: '提交了',
+    search: '搜索了', fetch: '读取了网页', agent: '用了子智能体', plan: '做了计划', tool: '调用了工具', video: '提交了',
   };
   const KIND_ALIAS = {read: 'file_read', edit: 'file_change', other: 'tool'};
+  const INFO_KIND = {read: 'file_read', search: 'search', fetch: 'fetch', subAgent: 'agent'};
   function workKind(item) {
     if (item.role === 'receipt') return 'video'; // 变更回执：写进视频的一笔修改
     if (item.tool) return 'tool'; // BaoCut 自己的工具（model-agent-tools.js）
+    if (item.info && INFO_KIND[item.info.type]) return INFO_KIND[item.info.type]; // 结构化事实（架构设计 §3.1）
     const k = KIND_ALIAS[item.kind] || item.kind;
     if (k && WORK_KINDS[k]) return k;
     return /^读取/.test(item.cmd || '') ? 'file_read' : 'command';
   }
   // 读 / 改的是哪个文件：有 summary 用它，否则取「读取 X · …」里的 X
   function workPath(item) {
+    if (item.info && item.info.type === 'read') return String(item.info.path).trim();
     if (item.summary) return String(item.summary).trim();
     return String(item.cmd || '').replace(/^读取\s*/, '').split(' · ')[0].trim();
   }

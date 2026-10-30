@@ -243,6 +243,38 @@ describe('工具步骤', () => {
     });
   });
 
+  it('有结构化事实时按它定类别与摘要，不看标题；组头摘要带上取网页与子智能体', () => {
+    const withInfo = (info: ToolCall['info'], tool: ToolCall['tool'] = 'other') => ({ ...step(tool, 'whatever'), info });
+    expect(toolStep(withInfo({ type: 'read', path: '/work/proj/src/a.ts', offset: 3 }), cwd)).toEqual({
+      kind: 'read',
+      label: '读取文件',
+      summary: 'src/a.ts',
+    });
+    expect(toolStep(withInfo({ type: 'search', pattern: 'cut', path: '/work/proj/src', files: 2 }), cwd).summary).toBe('cut · src');
+    expect(toolStep(withInfo({ type: 'fetch', url: 'https://x.test/a' }, 'web-search'), cwd)).toEqual({
+      kind: 'fetch',
+      label: '读取网页',
+      summary: 'https://x.test/a',
+    });
+    expect(toolStep(withInfo({ type: 'subAgent', agentType: 'Explore', description: '找字幕' }), cwd)).toEqual({
+      kind: 'agent',
+      label: '子智能体',
+      summary: '找字幕',
+    });
+    expect(toolStep(withInfo({ type: 'subAgent' }), cwd).summary).toBe('whatever');
+    expect(
+      stepsSummary(
+        [
+          withInfo({ type: 'read', path: '/work/proj/a.ts' }),
+          withInfo({ type: 'read', path: 'a.ts', offset: 9 }),
+          withInfo({ type: 'fetch', url: 'https://x.test' }),
+          withInfo({ type: 'subAgent' }),
+        ],
+        cwd,
+      ),
+    ).toBe('读取了 1 个文件、读取了网页、用了子智能体');
+  });
+
   it('新建视频的记录不占块，也不打断步骤组', () => {
     const created: TimelineItem = {
       kind: 'video-created',

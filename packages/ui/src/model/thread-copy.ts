@@ -26,7 +26,15 @@ const en = {
   } as Record<string, string>,
   /** 视频工具的动作带上它的说明。 */
   toolTitle: (action: string, label: string) => `${action}: ${label}`,
-  steps: { command: 'Run command', read: 'Read file', edit: 'Edit file', search: 'Search', other: 'Other tool' },
+  steps: {
+    command: 'Run command',
+    read: 'Read file',
+    edit: 'Edit file',
+    search: 'Search',
+    fetch: 'Fetch web page',
+    agent: 'Subagent',
+    other: 'Other tool',
+  },
   /** 组头摘要的各个短语（按首次出现的顺序由 `summary` 连起来）。 */
   phrase: {
     command: 'ran commands',
@@ -34,6 +42,8 @@ const en = {
     edit: (count: number) => `edited ${count} ${count === 1 ? 'file' : 'files'}`,
     search: 'searched',
     video: (count: number) => `committed ${count} video ${count === 1 ? 'edit' : 'edits'}`,
+    fetch: 'fetched web pages',
+    agent: 'used subagents',
     tool: 'called tools',
   },
   summary: (phrases: readonly string[]) => {

@@ -132,13 +132,13 @@ export function toolTitle(item: Item<'tool-call'>): string {
 }
 
 /** 步骤行的类别（产品设计 §3.2.2）：协议的工具种类没有「读取」，读取与搜索由 `(tool, title)` 推出来。 */
-export type StepKind = 'command' | 'read' | 'edit' | 'search' | 'other';
+export type StepKind = 'command' | 'read' | 'edit' | 'search' | 'fetch' | 'agent' | 'other';
 
 export const STEP_LABELS: Record<StepKind, string> = live(() => M.steps);
 
 /**
- * Claude Driver 把读、搜一类的自带工具记成 `other`，标题是「<工具名> <简述>」（agent-drivers 的 claude-items）：
- * `Read <路径>`，`Grep <模式> · <路径>`，`Glob <模式> · <路径>`。
+ * 没有结构化事实（`info`）的旧记录：Claude Driver 把读、搜一类的自带工具记成 `other`，标题是「<工具名> <简述>」
+ * （agent-drivers 的 claude-items）：`Read <路径>`，`Grep <模式> · <路径>`，`Glob <模式> · <路径>`。
  */
 const READ_TITLE = /^Read(?:\s+(.*))?$/;
 const SEARCH_TITLE = /^(?:Grep|Glob)(?:\s+(.*))?$/;
@@ -176,6 +176,17 @@ export function toolStep(
   cwd?: string | null,
 ): { kind: StepKind; label: string; summary: string; tool?: BaoCutStepKind } {
   const step = (kind: StepKind, summary: string) => ({ kind, label: STEP_LABELS[kind], summary: summary.trim() });
+  const info = item.info;
+  switch (info?.type) {
+    case 'read':
+      return step('read', relativePath(info.path, cwd));
+    case 'search':
+      return step('search', info.path ? `${info.pattern} · ${relativePath(info.path, cwd)}` : info.pattern);
+    case 'fetch':
+      return step('fetch', info.url);
+    case 'subAgent':
+      return step('agent', info.description ?? toolTitle(item));
+  }
   switch (item.tool) {
     case 'command':
       return step('command', item.title);
@@ -240,6 +251,8 @@ export function stepsSummary(items: StepsBlock['items'], cwd?: string | null): s
     read: P.read(paths.read?.size ?? 0),
     edit: P.edit(paths.edit?.size ?? 0),
     search: P.search,
+    fetch: P.fetch,
+    agent: P.agent,
     video: P.video(videoEdits),
     tool: P.tool,
   };

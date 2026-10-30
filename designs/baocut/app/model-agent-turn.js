@@ -2,14 +2,14 @@
    window.BC_AGENT_TURN。无 React、无 DOM，node --test 直接 require。只在 App 入口加载。
 
    - 工具步骤行：固定的类别名 + 次级摘要（命令本身 / 相对路径 / 查询词），状态一旦失败不再被改回；
-     BaoCut 自己的工具另有类别（model-agent-tools.js）
+     BaoCut 自己的工具另有类别（model-agent-tools.js）；带结构化事实（`info`，架构设计 §3.1）的按它定类别、摘要与标签
    - `parsePathToken`：正文行内代码像不像项目里的文件路径，带不带行号
    - `parseVideoTime`：正文里的视频时间链接（`/videos/<videoId>?t=<秒>`）
    - `gapBetween`：相邻两行按种类定间距
    - 回合：从一句用户消息到下一句之前；页脚的计时、结束时刻与「复制这一轮」的正文 */
 (function () {
   /* ---------- 工具步骤 ---------- */
-  const TOOL_LABELS = {command: '运行命令', read: '读取文件', edit: '修改文件', search: '搜索', other: '其他工具'};
+  const TOOL_LABELS = {command: '运行命令', read: '读取文件', edit: '修改文件', search: '搜索', fetch: '读取网页', agent: '子智能体', other: '其他工具'};
   const FILE_EXT = ['ts', 'tsx', 'js', 'jsx', 'json', 'md', 'css', 'rs', 'py', 'toml', 'yaml', 'yml',
     'srt', 'vtt', 'ass', 'mp4', 'mov', 'wav', 'mp3', 'png', 'jpg'];
   const CLI = /^(bcut|ffmpeg|ffprobe|npm|npx|node|git|ls|cat|rg|grep|find|python3?|sh|bash)(\s|$)/;
@@ -20,6 +20,8 @@
     /* BaoCut 自己的工具（架构设计 §3.5）：类别名与摘要按工具与参数定（model-agent-tools.js），带图标 */
     const own = m && m.tool && window.BC_AGENT_TOOLS ? window.BC_AGENT_TOOLS.describe(m.tool, m.args) : null;
     if (own) return own;
+    const fact = infoStep(m && m.info);
+    if (fact) return fact;
     const cmd = String((m && m.cmd) || '').trim();
     const kind = m && TOOL_LABELS[m.kind] ? m.kind : null;
     if (kind) return {kind, label: TOOL_LABELS[kind], summary: (m.summary || cmd).trim()};
@@ -33,6 +35,29 @@
     return {kind: 'other', label: TOOL_LABELS.other, summary: cmd};
   }
 
+  /** 结构化事实 → 类别与摘要：读的文件、搜的模式（与位置）、取的网址、交给子智能体的事。 */
+  function infoStep(info) {
+    if (!info) return null;
+    const make = (kind, summary) => ({kind, label: TOOL_LABELS[kind], summary: String(summary || '').trim()});
+    if (info.type === 'read') return make('read', info.path);
+    if (info.type === 'search') return make('search', info.path ? `${info.pattern} · ${info.path}` : info.pattern);
+    if (info.type === 'fetch') return make('fetch', info.url);
+    if (info.type === 'subAgent') return make('agent', info.description);
+    return null;
+  }
+  /** 结构化事实给的标签：读了哪几行、搜到几处、取网页失败的状态码、子智能体的类型。整读与成功不写。 */
+  function infoMeta(info) {
+    if (!info) return null;
+    if (info.type === 'read' && (info.offset || info.limit)) {
+      const from = info.offset || 1;
+      return info.limit ? `第 ${from}–${from + info.limit - 1} 行` : `从第 ${from} 行`;
+    }
+    if (info.type === 'search') return info.matches != null ? `${info.matches} 处匹配` : info.files != null ? `${info.files} 个文件` : null;
+    if (info.type === 'fetch' && info.status >= 400) return `HTTP ${info.status}`;
+    if (info.type === 'subAgent' && info.agentType) return info.agentType;
+    return null;
+  }
+
   /** 演示数据里失败写成过 `fail` 与 `failed` 两种：统一成 run / done / failed。 */
   function toolStatus(status) {
     if (status === 'run') return 'run';
@@ -44,9 +69,11 @@
     return toolStatus(prev) === 'failed' ? prev : next;
   }
 
-  /** 折叠行右侧的元数据：非零退出码、耗时。 */
+  /** 折叠行右侧的元数据：结构化事实的标签、非零退出码、耗时。 */
   function stepMeta(m) {
     const out = [];
+    const fact = infoMeta(m && m.info);
+    if (fact) out.push(fact);
     const code = m && m.exitCode;
     if (code != null && Number(code) !== 0) out.push(`退出码 ${code}`);
     if (m && m.took != null && m.took !== '') out.push(typeof m.took === 'number' ? `${m.took}s` : String(m.took));

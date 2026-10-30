@@ -10,13 +10,15 @@ export const pl: ThreadMessages = {
     edits_undo: "Cofnij zmiany",
   },
   toolTitle: (action: string, label: string) => `${action}: ${label}`,
-  steps: { command: "Uruchom polecenie", read: "Odczytaj plik", edit: "Edytuj plik", search: "Szukaj", other: "Inne narzędzie" },
+  steps: { command: "Uruchom polecenie", read: "Odczytaj plik", edit: "Edytuj plik", search: "Szukaj", fetch: "Pobierz stronę WWW", agent: "Subagent", other: "Inne narzędzie" },
   phrase: {
     command: "uruchomiono polecenia",
     read: (count: number) => pluralForm('pl', count, { one: `odczytano ${count} plik`, few: `odczytano ${count} pliki`, many: `odczytano ${count} plików`, other: `odczytano ${count} pliku` }),
     edit: (count: number) => pluralForm('pl', count, { one: `zmieniono ${count} plik`, few: `zmieniono ${count} pliki`, many: `zmieniono ${count} plików`, other: `zmieniono ${count} pliku` }),
     search: "wyszukano",
     video: (count: number) => pluralForm('pl', count, { one: `zapisano ${count} zmianę wideo`, few: `zapisano ${count} zmiany wideo`, many: `zapisano ${count} zmian wideo`, other: `zapisano ${count} zmiany wideo` }),
+    fetch: "pobrano strony WWW",
+    agent: "użyto subagentów",
     tool: "wywołano narzędzia",
   },
   summary: (phrases: readonly string[]) => {

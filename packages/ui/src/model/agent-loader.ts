@@ -97,6 +97,8 @@ export const KINDS: Readonly<Record<LoaderKind, readonly LoaderIcon[]>> = Object
   read: seq('document', 'page', 'eye'),
   edit: seq('pencil', 'brush', 'document'),
   search: seq('mag', 'filter', 'eye'),
+  fetch: seq('cloud', 'page', 'eye'),
+  agent: seq('aiLogo', 'journey', 'flower'),
   other: FALLBACK,
   reasoning: seq('aiLogo', 'flower', 'potion'),
   /* 声音与文字 */

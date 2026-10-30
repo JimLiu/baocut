@@ -12,7 +12,7 @@ export const de: ThreadMessages = {
   } as Record<string, string>,
 
   toolTitle: (action: string, label: string) => `${action}: ${label}`,
-  steps: { command: "Befehl ausführen", read: "Datei lesen", edit: "Datei bearbeiten", search: "Suchen", other: "Anderes Werkzeug" },
+  steps: { command: "Befehl ausführen", read: "Datei lesen", edit: "Datei bearbeiten", search: "Suchen", fetch: "Webseite abrufen", agent: "Subagent", other: "Anderes Werkzeug" },
 
   phrase: {
     command: "Befehle ausgeführt",
@@ -20,6 +20,8 @@ export const de: ThreadMessages = {
     edit: (count: number) => `bearbeitet: ${count} ${pluralForm('de', count, { one: "Datei", other: "Dateien" })}`,
     search: "gesucht",
     video: (count: number) => `gespeichert: ${count} Video ${pluralForm('de', count, { one: "Bearbeitung", other: "Bearbeitungen" })}`,
+    fetch: "Webseiten abgerufen",
+    agent: "Subagenten eingesetzt",
     tool: "Werkzeuge aufgerufen",
   },
   summary: (phrases: readonly string[]) => {

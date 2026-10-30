@@ -640,3 +640,16 @@ test('planFor：话里留着没填的待填项（[目标语言]）就先问，�
   assert.equal(A.askFor('转录这个视频，并翻译成日语，做成双语字幕。'), null);
   assert.match(A.planFor('给[产品]做推广\n模板：推广短片', true).summary, /场景模板「推广短片」/);
 });
+
+test('workSummary：结构化事实按种类归组，读取按路径计数', () => {
+  assert.equal(
+    A.workSummary([
+      {info: {type: 'read', path: 'glossary.md', offset: 40}},
+      {kind: 'read', summary: 'glossary.md'},
+      {info: {type: 'search', pattern: 'x'}},
+      {info: {type: 'fetch', url: 'u'}},
+      {info: {type: 'subAgent'}},
+    ]),
+    '读取了 1 个文件、搜索了、读取了网页、用了子智能体',
+  );
+});

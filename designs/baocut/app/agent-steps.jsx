@@ -21,7 +21,7 @@
   const A = window.RSP.AI;
   const {AgentCopyButton: CopyButton} = window;
 
-  const KIND_ICON = {command: 'tools', read: 'folder', edit: 'edit', search: 'search', other: 'more'};
+  const KIND_ICON = {command: 'tools', read: 'folder', edit: 'edit', search: 'search', fetch: 'web', agent: 'sparkle', other: 'more'};
 
   /* 加载图形：'thinking' 是通用序列，其余是步骤类别。按键缓存，数组引用稳定；一个图都取不到时返回 undefined（PixelLoader 用默认图形）。 */
   const LOADER_CACHE = new Map();

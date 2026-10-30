@@ -165,3 +165,18 @@ test('waitingFor / waitingLabel：等的是提问卡说「等你回答」，否�
   assert.equal(T.footerLabel({live: true, waiting: 'answer'}), '等你回答');
   assert.equal(T.footerLabel({live: true, waiting: true}), '等你允许');
 });
+
+test('结构化事实：类别与摘要按它定，标签写读的行、搜到几处、失败的状态码、子智能体类型', () => {
+  assert.deepEqual(T.toolStep({info: {type: 'read', path: 'glossary.md', offset: 40, limit: 25}, cmd: 'x'}), {kind: 'read', label: '读取文件', summary: 'glossary.md'});
+  assert.deepEqual(T.toolStep({info: {type: 'search', pattern: '光栅化', path: 'transcript.json'}}).summary, '光栅化 · transcript.json');
+  assert.deepEqual(T.toolStep({info: {type: 'fetch', url: 'https://x.test'}}), {kind: 'fetch', label: '读取网页', summary: 'https://x.test'});
+  assert.deepEqual(T.toolStep({info: {type: 'subAgent', description: '核对原文'}}), {kind: 'agent', label: '子智能体', summary: '核对原文'});
+  assert.deepEqual(T.stepMeta({info: {type: 'read', path: 'a', offset: 40, limit: 25}, took: '0.1s'}), ['第 40–64 行', '0.1s']);
+  assert.deepEqual(T.stepMeta({info: {type: 'read', path: 'a', offset: 40}}), ['从第 40 行']);
+  assert.deepEqual(T.stepMeta({info: {type: 'read', path: 'a'}}), []);
+  assert.deepEqual(T.stepMeta({info: {type: 'search', pattern: 'x', files: 2, matches: 6}}), ['6 处匹配']);
+  assert.deepEqual(T.stepMeta({info: {type: 'search', pattern: 'x', files: 2}}), ['2 个文件']);
+  assert.deepEqual(T.stepMeta({info: {type: 'fetch', url: 'u', status: 404}}), ['HTTP 404']);
+  assert.deepEqual(T.stepMeta({info: {type: 'fetch', url: 'u', status: 200}}), []);
+  assert.deepEqual(T.stepMeta({info: {type: 'subAgent', agentType: 'Explore'}}), ['Explore']);
+});
