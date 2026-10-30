@@ -674,6 +674,7 @@ Claude 的兜底模型表只保留 `opus`、`fable`、`sonnet`、`haiku` 别名�
 | `jobs_cancel` | `command` |
 | `downloads_save` | `command`：写的是工作目录以外的新文件，`autoAcceptEdits` 下照样询问；但只进下载目录、不覆盖（重名加序号），与 `download` 把下载的新文件放进下载目录同级，不是 `high` 的越界写入或不可撤销的覆盖。路径先检查，不合法的直接拒绝，不生成审批 |
 | `tasks_contract`、`tasks_update_contract`、`tasks_record_check` | 不确认，`plan` 下也可用：只读写这个任务自己的合同与检查结果，不碰视频、不外发；改动记为智能体的修订，用户能看到；不能改的字段以 `CONTRACT_FIELD_READONLY` 拒绝（§3.2）。只给会话里的智能体，不在 MCP |
+| `conversations_ask` | 不确认，`plan` 下也可用（目录里登记为 `read`）：只在会话里放一张提问卡、等用户回答（本节「提问」），预览文件只读。只给会话里的智能体，不在 MCP |
 | `conversations_set_title` | 不确认，`plan` 下也可用（目录里登记为 `read`）：只改这个会话在 BaoCut 里的标题，标题还是自动起的才换、只换一次（§3.10），不碰视频与文件、不外发。只给会话里的智能体，不在 MCP |
 | （`jobs.reconcile`） | 不是工具，按 `high` 只由用户决定（§7.5）：`retry` 是一次新的外发调用（新的预留，可能再次计费），`discard` 放弃一个可能已经计费的结果，`apply` 写用户的视频。智能体在 `jobs_inspect` 里看得到 `needs-reconciliation`、`applications` 与 `cancellation`，`next` 让它告诉用户 |
 | `transcribe`、`translate`、`dub`、`transcode` | `command`：启动固定流程（§7.9）；外发授权由流程检查，没有覆盖时以 `GRANT_REQUIRED` 拒绝，确认里不代发授权。`transcribe` 给 `url` 时按 `download` 确认 |
@@ -710,7 +711,8 @@ BaoCut 工具经 Codex 的 MCP 调用会等审批，Codex 默认 60 秒就放弃
 - 「跳过」是 `agents.respondToApproval` 的 `decline`（提问只认 `decline`，别的决定以 `invalid-request` 拒绝）：模型收到「用户没有回答，按自己的判断继续」。Claude 与 Codex 在同一回合里接着做；OpenCode 取消表单会结束这一轮，会话里记一条提示，用户再发一条消息继续。
 - 有待回答的提问时用户直接在输入框发消息，就是回答：提问按拒绝结束、卡片标 `answeredByMessage`，模型收到「答案在接下来的消息里」，消息随后作为插话（`steer`，§3.1）进入回合。
 - 停止任务、停止回复与任务结束把待回答的提问取消，与审批相同。
-- 原生侧没有提问通道的 Driver（Pi、ACP 智能体）由智能体在回复里用文字问，用户下一条消息回答。
+- BaoCut 自己的提问工具 `conversations_ask { questions }`（工具桥，`surfaces` 只有 `agent`）：同一张卡、同一套规则，选项可以带预览（`preview`：会话工作目录里的图片、视频或音频文件，种类按扩展名定，路径记成相对工作目录，界面经 `media.resolve` 取地址）。题号由 Runtime 按顺序编（`q1`…），一次一到四题、每题两到四个选项、`allowOther` 默认允许。工具调用一直等到有结果：回答返回每题的答案，跳过与直接发消息返回 `declined`（后者 `byMessage: true`，消息随后作为插话送到），停止任务、停止回复与任务结束返回 `APPROVAL_CANCELLED`；同一个任务里还有一次没答完时以 `QUESTION_PENDING` 拒绝。预览文件不存在、不在工作目录里或不是图片、视频、音频时直接拒绝，不出卡片。没有原生提问的智能体靠它问；要用户看着样稿选时（封面、风格、音色），原生有提问的也用它。
+- 原生侧没有提问通道的 Driver（Pi、ACP 智能体、Antigravity）用 `conversations_ask` 问，或在回复里用文字问、用户下一条消息回答。
 
 **批准方案**。`plan` 下智能体写好方案后可以停下来请用户批准（原生工具：Claude Code 的 `ExitPlanMode`）。Driver 把它报成一条审批，`request` 是 `{ kind: 'plan', plan }`，`plan` 是 Markdown 的方案全文。
 

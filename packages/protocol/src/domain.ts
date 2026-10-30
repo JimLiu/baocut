@@ -226,10 +226,23 @@ export function planSummary(plan: string): string {
   return line.length > 120 ? `${line.slice(0, 119)}…` : line;
 }
 
-/** 一道选择题的选项。`description`：选项的说明，没有时为 null。 */
+/**
+ * 一道选择题的选项。`description`：选项的说明，没有时为 null。
+ * `preview`：选项的预览（BaoCut 自己的提问工具 `conversations_ask` 才有，架构设计 §3.12「提问」）；没有时省略或为 null。
+ */
 export interface AgentQuestionOption {
   label: string;
   description: string | null;
+  preview?: QuestionPreview | null;
+}
+
+/**
+ * 选项的预览：会话工作目录里的一个图片、视频或音频文件。`path` 相对会话的工作目录、用 `/` 分隔，界面经
+ * `media.resolve({ conversationId, path })` 取地址。种类由 Runtime 按扩展名定。
+ */
+export interface QuestionPreview {
+  kind: 'image' | 'video' | 'audio';
+  path: string;
 }
 
 /**

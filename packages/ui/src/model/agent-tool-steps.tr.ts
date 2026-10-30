@@ -50,6 +50,7 @@ export const tr: AgentToolStepsMessages = {
     refineContract: "Görev sözleşmesini netleştir",
     recordCheck: "Kabul denetimini kaydet",
     renameSession: "Oturumu yeniden adlandır",
+    askUser: "Soru sor",
     listProjects: "Projeleri listele",
     newProject: "Yeni proje",
     moveToNewProject: "Yeni projeye taşı",

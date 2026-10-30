@@ -51,6 +51,7 @@ export const ru: AgentToolStepsMessages = {
     refineContract: "Уточнить контракт задачи",
     recordCheck: "Записать проверку приёмки",
     renameSession: "Переименовать сессию",
+    askUser: "Задать вопрос",
     listProjects: "Список проектов",
     newProject: "Новый проект",
     moveToNewProject: "Перенести в новый проект",

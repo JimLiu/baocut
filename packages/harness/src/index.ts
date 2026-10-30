@@ -28,6 +28,7 @@ export {
   type HarnessOptions,
   type ToolCallApproval,
   type ToolCallApprovalRequest,
+  type ToolQuestionOutcome,
 } from './harness.ts';
 export { ApprovalService, type ApprovalRequestInput, type ApprovalResolution, type ApprovalServiceEvent } from './approval-service.ts';
 export { NO_TASK_BUDGET, buildContract, engineProtections, type TaskBudgetPort } from './task-contracts.ts';

@@ -262,6 +262,18 @@ export type ToolCallApproval =
   | { status: 'no-task' };
 
 /**
+ * BaoCut 自己的提问工具（`conversations_ask`）问完的结果（`Harness.askQuestions`）：`answered` 是核对过的答案；`declined` 是
+ * 用户跳过或直接发了消息（`byMessage`，那条消息随后插进回合），`message` 是给模型的说明；`cancelled` 是任务停止、回复被打断
+ * 或回合结束；`busy` 是这个任务里还有一次没答完的提问。
+ */
+export type ToolQuestionOutcome =
+  | { status: 'answered'; answers: AgentQuestionAnswers }
+  | { status: 'declined'; message: string; byMessage: boolean }
+  | { status: 'cancelled' }
+  | { status: 'busy' }
+  | { status: 'no-task' };
+
+/**
  * Agent Harness 的外观（架构设计 §3）：会话、任务、审批与原生会话的协调。
  *
  * 0.1 的范围：ConversationStore、TaskController（发送、停止屏障）、ApprovalService、
@@ -292,6 +304,8 @@ export class Harness {
    * `respondToApproval` 与插话先记下，统一列表的回调（`#askUser`）取用；从统一列表直接处理的没有，按默认。
    */
   readonly #planSettle = new Map<string, { accessMode?: AccessMode; message?: string; byMessage?: boolean }>();
+  /** 经工具提的问题（`askQuestions`）在等的工具调用（键同 `#approvalKeys`）：没有原生的审批号，回答、跳过与取消都在这里了结。 */
+  readonly #toolQuestions = new Map<string, (outcome: ToolQuestionOutcome) => void>();
   readonly #idleTimers = new Map<Id, ReturnType<typeof setTimeout>>();
   /**
    * 等回合结束再告诉智能体的后台任务（`jobFinished` 的 `held`）：会话 → 提示条目 id → 任务。只在内存里，回合结束时（`#finish`）再交一次；
@@ -2088,6 +2102,55 @@ export class Harness {
     return { status: 'cancelled', mode, risk };
   }
 
+  /**
+   * BaoCut 自己的提问工具（`conversations_ask`，§3.12「提问」）：在会话里放一张待回答的提问卡，等用户回答、跳过或直接发消息。
+   * 与原生提问同一张卡、同一套规则（不查模式与规则，任何模式下都等），只是没有 Driver 那一端：回答经这里交回工具调用。
+   * 没有时限；停止、打断或任务结束时按取消了结。一个任务里同时只等一次。
+   */
+  askQuestions(conversationId: Id, questions: AgentQuestion[]): Promise<ToolQuestionOutcome> {
+    const state = this.#require(conversationId);
+    const run = this.#runs.get(conversationId);
+    if (!run) return Promise.resolve({ status: 'no-task' });
+    if (run.stopRequested) return Promise.resolve({ status: 'cancelled' });
+    const asking = state
+      .items()
+      .some((i) => i.kind === 'approval' && i.status === 'pending' && this.#toolQuestions.has(approvalKey(state.id, i.approvalId)));
+    if (asking) return Promise.resolve({ status: 'busy' });
+    const approvalId = newId('apv');
+    return new Promise((resolve) => {
+      this.#toolQuestions.set(approvalKey(state.id, approvalId), resolve);
+      state.upsert({
+        kind: 'approval',
+        id: `approval/${approvalId}`,
+        createdAt: nowIso(),
+        taskId: run.taskId,
+        approvalId,
+        request: { kind: 'question', questions, reason: null, rule: null },
+        status: 'pending',
+        decidedAt: null,
+        mode: run.mode,
+      });
+      refreshActivity(state);
+    });
+  }
+
+  /** 经工具提的问题了结：卡片按 `patch` 结束，等着的工具调用拿到结果。不是经工具提的返回 false。 */
+  #settleToolQuestion(
+    state: ConversationState,
+    item: Extract<TimelineItem, { kind: 'approval' }>,
+    patch: Partial<Extract<TimelineItem, { kind: 'approval' }>>,
+    outcome: ToolQuestionOutcome,
+  ): boolean {
+    const key = approvalKey(state.id, item.approvalId);
+    const resolve = this.#toolQuestions.get(key);
+    if (!resolve) return false;
+    this.#toolQuestions.delete(key);
+    state.upsert({ ...item, decidedAt: nowIso(), ...patch });
+    refreshActivity(state);
+    resolve(outcome);
+    return true;
+  }
+
   /** 智能体经工具提交了一笔视频修改：在会话里放一张变更卡（产品设计 §6.5）。 */
   recordVideoChange(conversationId: Id, taskId: Id | null, change: VideoChange): void {
     const state = this.#states.get(conversationId);
@@ -2317,6 +2380,8 @@ export class Harness {
     if (item.request.kind !== 'question') throw new RpcError('invalid-request', HA.notQuestion());
     if (item.status !== 'pending') return { status: 'already-resolved' };
     const answers = checkAnswers(item.request.questions, params.answers);
+    const answered = { status: 'accepted', decidedBy: 'user', decision: 'accept', answers } as const;
+    if (this.#settleToolQuestion(state, item, answered, { status: 'answered', answers })) return { status: 'answered' };
     const run = this.#runs.get(state.id);
     const session = this.#agents.get(state.id);
     if (!run || run.stopRequested || !session) {
@@ -2324,7 +2389,7 @@ export class Harness {
       refreshActivity(state);
       return { status: 'already-resolved' };
     }
-    state.upsert({ ...item, status: 'accepted', decidedAt: nowIso(), decidedBy: 'user', decision: 'accept', answers });
+    state.upsert({ ...item, ...answered, decidedAt: nowIso() });
     refreshActivity(state);
     await session.respondToApproval(params.approvalId, { decision: 'accept', answers });
     return { status: 'answered' };
@@ -2337,6 +2402,13 @@ export class Harness {
     message: string,
     byMessage = false,
   ): Promise<{ status: 'declined' | 'already-resolved' }> {
+    const declined = {
+      status: 'declined',
+      decidedBy: 'user',
+      decision: 'decline',
+      ...(byMessage ? { answeredByMessage: true } : {}),
+    } as const;
+    if (this.#settleToolQuestion(state, item, declined, { status: 'declined', message, byMessage })) return { status: 'declined' };
     const run = this.#runs.get(state.id);
     const session = this.#agents.get(state.id);
     if (!run || run.stopRequested || !session) {
@@ -2344,14 +2416,7 @@ export class Harness {
       refreshActivity(state);
       return { status: 'already-resolved' };
     }
-    state.upsert({
-      ...item,
-      status: 'declined',
-      decidedAt: nowIso(),
-      decidedBy: 'user',
-      decision: 'decline',
-      ...(byMessage ? { answeredByMessage: true } : {}),
-    });
+    state.upsert({ ...item, ...declined, decidedAt: nowIso() });
     refreshActivity(state);
     await session.respondToApproval(item.approvalId, { decision: 'decline', message });
     return { status: 'declined' };
@@ -3078,6 +3143,7 @@ export class Harness {
     const session = this.#agents.get(state.id);
     for (const item of state.items()) {
       if (item.kind !== 'approval' || item.status !== 'pending' || item.taskId !== run.taskId) continue;
+      if (this.#settleToolQuestion(state, item, { status: 'cancelled' }, { status: 'cancelled' })) continue;
       const unified = this.#approvalKeys.get(approvalKey(state.id, item.approvalId));
       if (unified && this.approvals.cancel(unified)) continue;
       state.upsert({ ...item, status: 'cancelled', decidedAt: nowIso() });

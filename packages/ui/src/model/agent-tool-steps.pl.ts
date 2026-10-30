@@ -51,6 +51,7 @@ export const pl: AgentToolStepsMessages = {
     refineContract: "Doprecyzuj kontrakt zadania",
     recordCheck: "Zapisz kontrolę odbioru",
     renameSession: "Zmień nazwę sesji",
+    askUser: "Zadaj pytanie",
     listProjects: "Lista projektów",
     newProject: "Nowy projekt",
     moveToNewProject: "Przenieś do nowego projektu",

@@ -65,6 +65,7 @@ const en = {
     refineContract: 'Refine task contract',
     recordCheck: 'Record acceptance check',
     renameSession: 'Rename session',
+    askUser: 'Ask a question',
     listProjects: 'List projects',
     newProject: 'New project',
     moveToNewProject: 'Move to new project',
@@ -247,6 +248,12 @@ const CATALOG: Record<string, (a: Args) => BaoCutStep> = {
   tasks_update_contract: () => ({ kind: 'contract', label: M.label.refineContract, summary: '' }),
   tasks_record_check: (a) => ({ kind: 'contract', label: M.label.recordCheck, summary: str(a.checkId) ?? '' }),
   conversations_set_title: (a) => ({ kind: 'conversation', label: M.label.renameSession, summary: str(a.title) ?? '' }),
+  // 提问（§3.12）：摘要是第一题的短标签；问题与答案在提问卡上。
+  conversations_ask: (a) => ({
+    kind: 'conversation',
+    label: M.label.askUser,
+    summary: (Array.isArray(a.questions) ? str((a.questions[0] as Record<string, unknown> | undefined)?.header) : null) ?? '',
+  }),
   // 项目：新建念项目名（没给时念目录名）；把会话放进项目念用户给的名字，没给时念指定的目录名（项目 id 不念），都没有时只给类别名。
   projects_list: () => ({ kind: 'project', label: M.label.listProjects, summary: '' }),
   projects_create: (a) => ({ kind: 'project', label: M.label.newProject, summary: str(a.name) ?? base(a.path) }),

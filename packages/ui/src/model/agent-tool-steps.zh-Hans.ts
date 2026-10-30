@@ -50,6 +50,7 @@ export const zhHans: AgentToolStepsMessages = {
     refineContract: '细化任务合同',
     recordCheck: '记录验收检查',
     renameSession: '重命名会话',
+    askUser: '提问',
     listProjects: '列出项目',
     newProject: '新建项目',
     moveToNewProject: '放进新项目',

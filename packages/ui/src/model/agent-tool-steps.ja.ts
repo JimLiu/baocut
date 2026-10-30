@@ -50,6 +50,7 @@ export const ja: AgentToolStepsMessages = {
     refineContract: 'タスク契約を詳細化',
     recordCheck: '検収チェックを記録',
     renameSession: 'セッションの名前を変更',
+    askUser: '質問する',
     listProjects: 'プロジェクトを一覧表示',
     newProject: '新規プロジェクト',
     moveToNewProject: '新規プロジェクトに移動',

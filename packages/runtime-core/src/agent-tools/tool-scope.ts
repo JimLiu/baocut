@@ -213,6 +213,8 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   // 给会话起标题（产品设计 §3.1）：只改这个会话在 BaoCut 里的标题（还是自动起的才换、只换一次），不碰视频与文件、不外发；
   // 不确认，规划模式下也能用，与任务合同的工具同理。
   conversations_set_title: 'read',
+  // 向用户提问（§3.12「提问」）：只在会话里放一张提问卡、等用户回答，不碰视频与文件；预览文件只读。
+  conversations_ask: 'read',
   skills_list: 'read',
   // 用户库（§5.9）：只读。
   library_list: 'read',

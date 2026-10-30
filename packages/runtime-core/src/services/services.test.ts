@@ -327,7 +327,7 @@ describe('对外服务', () => {
       expect(auto).not.toContain(name);
     }
     // 任务合同与会话标题的工具只在工具桥一面（§3.2、§3.10）：对外服务没有任务与会话，调用时与不存在一样。
-    for (const name of ['tasks_contract', 'tasks_update_contract', 'tasks_record_check', 'conversations_set_title']) {
+    for (const name of ['tasks_contract', 'tasks_update_contract', 'tasks_record_check', 'conversations_set_title', 'conversations_ask']) {
       expect(auto).not.toContain(name);
       const call = await rpc(url, token, 'tools/call', { name, arguments: {} });
       expect(JSON.parse((call.result!.content as { text: string }[])[0]!.text).error.code).toBe('UNKNOWN_TOOL');

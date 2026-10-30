@@ -42,6 +42,7 @@ description: 任务的查看、等待、取消与重跑；跨视频检索、视�
 | 把项目里 BaoCut 的文件提交到 git（用户要求时） | {{tool:projects_git_commit}}；可给 {{arg:message}}。结果里有 `paused` 或 `unavailable` 时照 `next` 告诉用户，不要自己初始化仓库、改 git 配置或删锁文件 |
 <!-- surface: agent -->
 | 把这个会话收进项目（会话不属于项目、用户要求时） | {{tool:projects_adopt_session}}；默认在 BaoCut 的项目目录下新建、以视频命名，可给 {{arg:name}}；用户指定了位置时给 {{arg:project}}（文件夹的绝对路径或 projectId） |
+| 向用户提问，选项带预览（看着样稿选封面、风格、音色时） | {{tool:conversations_ask}}，{{arg:questions}} 一到四题，每题两到四个选项；选项的 `preview` 给会话工作目录里的图片、视频或音频；等用户回答才返回 |
 | 给会话起能认出内容的标题（第一句话是泛泛的指令时） | {{tool:conversations_set_title}}，{{arg:title}} 用用户的语言，一行、最多 40 个字符；只换自动起的标题、只换一次 |
 <!-- /surface -->
 | 跨视频按意思找讲过的内容（默认用这个） | {{tool:space_search_v2}}，{{arg:query}} 写一句意思；可给 {{arg:videoIds}}、{{arg:projectId}}、{{arg:kinds}}；改过的视频用 {{tool:space_resolve_search_hit}} 重新定位 |

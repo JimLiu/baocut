@@ -50,6 +50,7 @@ export const vi: AgentToolStepsMessages = {
     refineContract: "Làm rõ hợp đồng tác vụ",
     recordCheck: "Ghi kiểm tra nghiệm thu",
     renameSession: "Đổi tên phiên",
+    askUser: "Đặt câu hỏi",
     listProjects: "Liệt kê dự án",
     newProject: "Dự án mới",
     moveToNewProject: "Chuyển sang dự án mới",

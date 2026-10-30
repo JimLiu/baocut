@@ -50,6 +50,7 @@ export const ko: AgentToolStepsMessages = {
     refineContract: '작업 계약 구체화',
     recordCheck: '검수 결과 기록',
     renameSession: '세션 이름 변경',
+    askUser: '질문하기',
     listProjects: '프로젝트 목록',
     newProject: '새 프로젝트',
     moveToNewProject: '새 프로젝트로 이동',
