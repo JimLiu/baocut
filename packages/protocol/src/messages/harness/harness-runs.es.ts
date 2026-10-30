@@ -11,4 +11,8 @@ export const es: HarnessRunsMessages = {
  runtimeStoppedNotice: 'La tarea seguía en curso cuando se detuvo el Runtime, por lo que se interrumpió.', runtimeExitedNotice: 'El Runtime terminó mientras la tarea estaba en curso, por lo que no terminó. Los cambios ya realizados no se deshacen automáticamente.',
  runtimeExited: 'El Runtime terminó mientras la tarea estaba en curso', turnFailed: 'El turno falló', processExited: (p) => `El proceso de ${p.agent} terminó inesperadamente: ${p.error}`,
  noErrorMessage: 'sin mensaje de error', fileChangeSummary: 'Editar archivos',
+  jobSteered: 'Una tarea en segundo plano terminó. Se lo dijimos al agente durante su turno actual.',
+  jobWoke: 'Una tarea en segundo plano terminó, así que el agente retomó esta tarea.',
+  jobHeld: 'Una tarea en segundo plano terminó. Se lo diremos al agente cuando acabe su turno actual.',
+  jobDropped: 'Una tarea en segundo plano terminó, pero esta tarea se detuvo o falló, o la sesión no está disponible, así que no se lo dijimos al agente.',
 };

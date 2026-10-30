@@ -55,6 +55,7 @@ import { TaskTools } from './agent-tools/task-tools.ts';
 import { ConversationTools } from './agent-tools/conversation-tools.ts';
 import { openCredentialStore, type CredentialStoreOptions } from './credentials.ts';
 import { retitleFromLinkImports } from './conversation-titles.ts';
+import { JobInbox } from './job-inbox.ts';
 import { McpEndpoint } from './agent-tools/mcp-endpoint.ts';
 import { AgentScope } from './agent-tools/agent-scope.ts';
 import { LocalScope } from './agent-tools/local-scope.ts';
@@ -338,6 +339,7 @@ const STOP_ORDER = [
   'storage-gc',
   'services',
   'nodes',
+  'job-inbox',
   'jobs',
   'grants',
   'usage',
@@ -803,6 +805,9 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       log,
     });
     stops.add('harness', () => harness.shutdown(), 'Stopping the Harness failed');
+    // 完成收件箱（§7.2）：会话里的智能体提交的 Job 结束、它没看结果时，交给 Harness 告诉它。在任务管理器之前停，停机取消的不交。
+    const jobInbox = new JobInbox({ jobs: models.jobs, harness, log: log.child('job-inbox') });
+    stops.add('job-inbox', () => jobInbox.close(), null);
     // 版本记录（§5.12）：任务属于哪个会话写进版本头部；按回合切分时，新任务开始就是新回合。文档的版本总按回合分开
     // （版本记录设计 §13.2）。订阅随 Harness 停止一起结束。
     harness.subscribe('tasks', undefined, (event) => {
@@ -874,7 +879,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       return [
         videoTools,
         new ModelTools({ models, scope: toolScope, space: () => space }),
-        new JobTools({ jobs: models.jobs, pipelines: models.pipelines, scope: toolScope }),
+        new JobTools({ jobs: models.jobs, pipelines: models.pipelines, scope: toolScope, seen: (record) => jobInbox.markSeen(record) }),
         new ExportTools({ exports, scope: toolScope }),
         new ModelInstallTools({ installs: models.installs, catalog: models.catalog, scope: toolScope }),
         new ProjectTools({ harness, videos, git: projectGit, scope: toolScope }),

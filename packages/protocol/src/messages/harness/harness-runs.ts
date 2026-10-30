@@ -40,6 +40,11 @@ const en = {
   noErrorMessage: 'no error message',
   /** 文件修改审批没有说明时的摘要。 */
   fileChangeSummary: 'Edit files',
+  /** 完成收件箱（架构设计 §7.2）：智能体提交的后台任务结束后，怎么交给了智能体。 */
+  jobSteered: 'A background task ended. The agent was told during its current turn.',
+  jobWoke: 'A background task ended, so the agent picked this task back up.',
+  jobHeld: 'A background task ended. The agent will be told when its current turn ends.',
+  jobDropped: "A background task ended, but this task was stopped or failed, or the session isn't available, so the agent wasn't told.",
 };
 
 export type HarnessRunsMessages = typeof en;

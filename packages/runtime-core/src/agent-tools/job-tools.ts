@@ -32,6 +32,8 @@ export interface JobToolsDeps {
   jobs: Pick<JobManager, 'settled' | 'cancel'>;
   pipelines: Pick<PipelineRunner, 'retry'>;
   scope: ToolScope;
+  /** 提交它的会话的智能体看到了一个 Job 的记录（完成收件箱据此不再叫醒它，架构设计 §7.2）。 */
+  seen?: (record: JobRecord) => void;
 }
 
 /** 等待的上限（秒）。 */
@@ -153,6 +155,10 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
   },
 };
 
+/** 会话里的智能体等得久时的另一条路：结束回合，Job 结束时 Harness 叫醒它（完成收件箱，架构设计 §7.2）。 */
+const AGENT_WAKE_HINT =
+  '；要等很久时也可以先告诉用户在做什么、结束这一回合，任务结束时 BaoCut 会叫醒你（消息里的 <baocut-job-finished> 段）';
+
 /** 任务失败时给智能体的下一步（命令与协议规范 §11.3 的恢复规则）。 */
 const FAILURE_NEXT: Record<string, string> = {
   PROVIDER_AUTH_FAILED:
@@ -217,6 +223,8 @@ export class JobTools implements ToolSet {
     const { scope } = this.#deps;
     const access = scope.authorize(principal, false);
     const record = await scope.visibleJob(args.jobId, access);
+    if (principal.kind === 'agent' && record.submitter.kind === 'agent' && record.submitter.id === principal.conversationId)
+      this.#deps.seen?.(record);
     if (!record.pipeline) return digestJob(record);
     // 固定流程：每一步的子任务与这一步提交的任务（转写）用来算各步的耗时；看不到的不给。
     const related = new Map<Id, JobRecord>();
@@ -265,7 +273,7 @@ export class JobTools implements ToolSet {
       ...inspected,
       settled,
       // i18n-ignore: 给模型的工具说明、错误与下一步
-      next: `等了 ${timeoutSec} 秒还没有结束${waiting?.detail ? `（还在等资源：${waiting.detail}）` : ''}：再调一次 jobs_wait 接着等。不要重复提交，也不要声称已经完成。`,
+      next: `等了 ${timeoutSec} 秒还没有结束${waiting?.detail ? `（还在等资源：${waiting.detail}）` : ''}：再调一次 jobs_wait 接着等${principal.kind === 'agent' ? AGENT_WAKE_HINT : ''}。不要重复提交，也不要声称已经完成。`,
     };
   }
 

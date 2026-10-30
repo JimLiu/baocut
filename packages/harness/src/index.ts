@@ -15,6 +15,7 @@ export {
   withDesignAnnotations,
   withDesignSystemAnnotations,
   withVideoAnnotations,
+  type JobFinished,
   type ResolvedSlideAnnotation,
   type ResolvedDesignAnnotation,
   type ResolvedDesignSystemAnnotation,

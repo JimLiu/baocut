@@ -353,6 +353,8 @@ export type TimelineItem =
       textRef?: MessageRef;
       /** 切换访问模式的记录（§3.12）。 */
       modeChange?: { from: AgentMode; to: AgentMode };
+      /** 智能体提交的后台任务结束了（完成收件箱，架构设计 §7.2）：哪个任务、第几次尝试、终态，以及怎么交给了智能体。 */
+      job?: JobFinishedNote;
     })
   | (TimelineBase & VideoChange & { kind: 'video-change' })
   | (TimelineBase & VideoCreated & { kind: 'video-created' })
@@ -362,6 +364,18 @@ export type TimelineItem =
   | (TimelineBase & DocsCreated & { kind: 'docs-created' });
 
 export type TimelineItemKind = TimelineItem['kind'];
+
+/**
+ * 完成收件箱的一条（架构设计 §7.2）。`delivery`：`steered` 插进了正在跑的回合；`woke` 重开提交它的任务、开了一个回合；
+ * `held` 回合在跑但送不进去，等这个回合结束再交；`dropped` 没有交给智能体（任务已停止或失败、会话归档、Driver 不能用、Runtime 重启过）。
+ * 同一个 Job 的同一次尝试只记一条（条目 id 是 `job_<jobId>_<attempt>`），重复的通知不再投递。
+ */
+export interface JobFinishedNote {
+  jobId: Id;
+  attempt: number;
+  state: 'completed' | 'failed';
+  delivery: 'steered' | 'woke' | 'held' | 'dropped';
+}
 
 /**
  * 智能体在这条会话里新建了一部视频（`videos_create`，架构设计 §3.5）：视频一存在，线程里的视频卡就出现，随时能打开编辑器

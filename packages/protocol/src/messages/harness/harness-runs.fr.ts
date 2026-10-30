@@ -25,4 +25,8 @@ export const fr: HarnessRunsMessages = {
   noErrorMessage: "aucun message d’erreur",
 
   fileChangeSummary: "Modifier les fichiers",
+  jobSteered: 'Une tâche en arrière-plan est terminée. L’agent a été prévenu pendant son tour en cours.',
+  jobWoke: 'Une tâche en arrière-plan est terminée : l’agent a repris cette tâche.',
+  jobHeld: 'Une tâche en arrière-plan est terminée. L’agent sera prévenu à la fin de son tour en cours.',
+  jobDropped: 'Une tâche en arrière-plan est terminée, mais cette tâche a été arrêtée ou a échoué, ou la session n’est pas disponible : l’agent n’a pas été prévenu.',
 };

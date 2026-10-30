@@ -51,6 +51,7 @@ import {
   type DriverProbe,
   type EditorContext,
   type Id,
+  type JobFinishedNote,
   type VideoChange,
   type VideoCreated,
   type SlidesCreated,
@@ -117,7 +118,7 @@ import type {
   TurnSettings,
 } from './driver.ts';
 import type { Logger } from './logger.ts';
-import { addNotice, finishTask, projectAgentEvent, refreshActivity, type RunContext } from './projector.ts';
+import { addNotice, finishTask, projectAgentEvent, refreshActivity, reopenTask, type RunContext } from './projector.ts';
 import { TopicLog, type TopicSubscription } from './topic-log.ts';
 import { NO_TASK_BUDGET, assertAgentPatch, buildContract, carriedInput, reviseContract, type TaskBudgetPort } from './task-contracts.ts';
 import { containsVideo, firstVideoName, isInside, moveEntries, moveInto, removeIfEmpty, reusableProjectDir } from './scratch.ts';
@@ -215,6 +216,18 @@ interface ActiveRun extends RunContext {
   stopTimer: ReturnType<typeof setTimeout> | null;
 }
 
+/** 智能体提交的一个后台任务结束了（架构设计 §7.2「完成收件箱」）：Runtime 在它没被 `jobs_inspect` / `jobs_wait` 看过时交给 `jobFinished`。 */
+export interface JobFinished {
+  conversationId: Id;
+  /** 提交它的任务。 */
+  taskId: Id;
+  jobId: Id;
+  /** Job 的种类（`JobRecord.kind`），写进交给智能体的那一段。 */
+  kind: string;
+  attempt: number;
+  state: 'completed' | 'failed';
+}
+
 /**
  * 不属于项目的会话放进哪里（§3.10，`ensureConversationProject` 的 `into`）：任意目录（不存在时建出来、登记为项目），或一个已登记的
  * 项目。不给时在默认项目目录下新建一个项目。
@@ -278,6 +291,11 @@ export class Harness {
    */
   readonly #planSettle = new Map<string, { accessMode?: AccessMode; message?: string; byMessage?: boolean }>();
   readonly #idleTimers = new Map<Id, ReturnType<typeof setTimeout>>();
+  /**
+   * 等回合结束再告诉智能体的后台任务（`jobFinished` 的 `held`）：会话 → 提示条目 id → 任务。只在内存里，回合结束时（`#finish`）再交一次；
+   * 重启后会话里还是 `held` 的提示标为没有告诉（`#recover`）。
+   */
+  readonly #heldJobs = new Map<Id, Map<Id, JobFinished>>();
   /** 进行中的「无项目会话绑定项目」：同一个会话同时只跑一趟。 */
   readonly #binding = new Map<Id, Promise<Project>>();
   /**
@@ -1650,6 +1668,130 @@ export class Harness {
     return { status: 'steered' };
   }
 
+  /**
+   * 智能体提交的后台任务结束了，它在回合里没有看结果（架构设计 §7.2「完成收件箱」）。会话里记一条提示（id 由 Job 与第几次尝试决定，
+   * 同一次结束重复交来只有一条），按会话此刻的状态告诉智能体：
+   *
+   * - 回合进行中：Agent 支持插话、回合已经开始时插进去（`steered`）；否则等回合结束（`held`），`#finish` 时再交一次；
+   * - 空闲、提交它的任务已完成：重新打开那个任务、起一个回合（`woke`），模式与检查同 `send`；
+   * - 其余（任务停止或失败、会话归档或不在、项目目录不在、Driver 不能用、Runtime 正在退出）：不告诉（`dropped`）。
+   *
+   * 不查任务预算：预算在提交时检查，唤醒本身不提交。返回这一次交的结果。
+   */
+  async jobFinished(job: JobFinished): Promise<JobFinishedNote['delivery']> {
+    const state = this.#states.get(job.conversationId);
+    if (!state) return 'dropped';
+    await this.#deliverJobs(state, [job]);
+    return jobNoteOf(state, job)?.delivery ?? 'dropped';
+  }
+
+  /** 把几个结束的后台任务交给智能体（`jobFinished`，回合结束时的 `held`）。已经交过的（提示不是 `held`）跳过。 */
+  async #deliverJobs(state: ConversationState, given: readonly JobFinished[]): Promise<void> {
+    let jobs = given;
+    for (;;) {
+      jobs = jobs.filter((job) => (jobNoteOf(state, job)?.delivery ?? 'held') === 'held');
+      if (jobs.length === 0) return;
+      const run = this.#runs.get(state.id);
+      if (!run) break;
+      const session = this.#agents.get(state.id);
+      if (run.turnId && !run.stopRequested && session?.steer) {
+        let result: 'accepted' | 'unavailable' = 'unavailable';
+        try {
+          result = await session.steer(run.turnId, { text: jobFinishedText(jobs) });
+        } catch (error) {
+          this.#log.warn('Failed to tell the running turn about a finished job', { conversationId: state.id, error: String(error) });
+        }
+        if (result === 'accepted') {
+          for (const job of jobs) this.#noteJob(state, job, 'steered', run.taskId);
+          return;
+        }
+        // 插话期间回合结束了：按空闲再交。
+        if (this.#runs.get(state.id) !== run) continue;
+      }
+      this.#holdJobs(state, jobs, run.taskId);
+      return;
+    }
+
+    // 空闲：唤醒第一个已完成的任务，交给它的是这个任务提交的那些；别的已完成任务的等这一回合结束。
+    const statusOf = (taskId: Id) => {
+      const task = state.item(taskId);
+      return task?.kind === 'task' ? task.status : null;
+    };
+    const target = jobs.find((job) => statusOf(job.taskId) === 'completed')?.taskId ?? null;
+    const conversation = state.conversation;
+    let autonomy: { mode: AgentMode; source: AutonomySource } | null = null;
+    if (target && !conversation.archived) {
+      try {
+        this.#checkCanSend(state.id);
+        this.#checkProjectNotMissing(conversation);
+        this.#checkDriverUsable(conversation.driverId);
+        autonomy = this.#resolveMode(state);
+        this.#checkAccessMode(conversation.driverId, autonomy.mode);
+      } catch (error) {
+        this.#log.info('Not waking the agent for a finished job', { conversationId: state.id, error: String(error) });
+        autonomy = null;
+      }
+    }
+    if (!target || !autonomy) {
+      for (const job of jobs) this.#noteJob(state, job, 'dropped', null);
+      return;
+    }
+    const wake = jobs.filter((job) => job.taskId === target);
+    for (const job of wake) this.#noteJob(state, job, 'woke', target);
+    for (const job of jobs) if (job.taskId !== target && statusOf(job.taskId) !== 'completed') this.#noteJob(state, job, 'dropped', null);
+    this.#holdJobs(
+      state,
+      jobs.filter((job) => job.taskId !== target && statusOf(job.taskId) === 'completed'),
+      target,
+    );
+    reopenTask(state, target);
+    this.#cancelIdle(state.id);
+    const run: ActiveRun = {
+      taskId: target,
+      runGeneration: ++this.#runGeneration,
+      turnId: null,
+      stopRequested: false,
+      mode: autonomy.mode,
+      sessionAllowed: new Set(),
+      model: conversation.model,
+      effort: conversation.effort,
+      interruptSent: false,
+      stopTimer: null,
+    };
+    this.#runs.set(state.id, run);
+    void this.#startRun(state, run, { text: jobFinishedText(wake) });
+  }
+
+  #holdJobs(state: ConversationState, jobs: readonly JobFinished[], taskId: Id): void {
+    if (jobs.length === 0) return;
+    const held = this.#heldJobs.get(state.id) ?? new Map<Id, JobFinished>();
+    for (const job of jobs) {
+      held.set(jobNoteId(job), job);
+      this.#noteJob(state, job, 'held', taskId);
+    }
+    this.#heldJobs.set(state.id, held);
+  }
+
+  /**
+   * 记下（或改写）后台任务结束的提示。`taskId` 是它所在的任务：插进的、等着的、唤醒的那个回合的任务；没有告诉的不挂在任务上，
+   * 免得把旧任务的状态行挪到后面的任务之后。
+   */
+  #noteJob(state: ConversationState, job: Pick<JobFinished, 'jobId' | 'attempt' | 'state'>, delivery: JobFinishedNote['delivery'], taskId: Id | null): void {
+    const id = jobNoteId(job);
+    const previous = state.item(id);
+    const text = JOB_NOTE_TEXT[delivery]();
+    state.upsert({
+      kind: 'notice',
+      id,
+      createdAt: previous?.createdAt ?? nowIso(),
+      taskId,
+      level: job.state === 'failed' ? 'warning' : 'info',
+      text: String(text),
+      textRef: refOf(text),
+      job: { jobId: job.jobId, attempt: job.attempt, state: job.state, delivery },
+    });
+  }
+
   // ---- 任务合同（架构设计 §3.2）----
 
   /** 一个任务的合同：默认最新修订，给 `revision` 时是那个修订；连同预算用量。 */
@@ -2644,6 +2786,10 @@ export class Harness {
       } else if (conv.activity !== 'idle' && conv.activity !== 'failed') {
         state.updateConversation({ activity: 'idle' });
       }
+      // 等回合结束再告诉智能体的后台任务只在内存里：那个回合已经不在，标为没有告诉（§7.2）。
+      for (const item of state.items()) {
+        if (item.kind === 'notice' && item.job?.delivery === 'held') this.#noteJob(state, item.job, 'dropped', null);
+      }
     }
   }
 
@@ -2952,6 +3098,14 @@ export class Harness {
       const known = this.#drivers.result(driverId);
       if (known && known.state !== 'ready') this.#recheckDriver(driverId, 'turn-completed');
     }
+    // 等回合结束的后台任务现在交（§7.2）。先取出来：唤醒的回合立刻失败、再进这里时不会重复交。
+    const held = this.#heldJobs.get(state.id);
+    if (held) {
+      this.#heldJobs.delete(state.id);
+      void this.#deliverJobs(state, [...held.values()]).catch((e: unknown) =>
+        this.#log.warn('Failed to deliver finished jobs after the turn', { conversationId: state.id, error: String(e) }),
+      );
+    }
   }
 
   #scheduleIdle(conversationId: Id): void {
@@ -3034,6 +3188,48 @@ const PLAN_DEFAULT_MODE: AccessMode = 'autoAcceptEdits';
 const PLAN_DECLINED_MESSAGE = "The user didn't approve the plan. Stay in planning: ask what to change, or revise the plan and present it again.";
 /** 用户没在方案卡上作答、直接发了消息时给模型的说明（消息随后作为插话到达）。 */
 const PLAN_REPLIED_MESSAGE = 'The user replied with a message instead of approving the plan. Their message follows; revise the plan accordingly.';
+
+/** 后台任务结束的提示（§7.2）：一次结束一条，id 由 Job 与第几次尝试决定（`jobs_retry` 之后是新的一条）。 */
+function jobNoteId(job: Pick<JobFinished, 'jobId' | 'attempt'>): Id {
+  return `job_${job.jobId}_${job.attempt}`;
+}
+
+function jobNoteOf(state: ConversationState, job: Pick<JobFinished, 'jobId' | 'attempt'>): JobFinishedNote | null {
+  const item = state.item(jobNoteId(job));
+  return item?.kind === 'notice' ? (item.job ?? null) : null;
+}
+
+const JOB_NOTE_TEXT: Record<JobFinishedNote['delivery'], () => Localized> = {
+  steered: () => HR.jobSteered(),
+  woke: () => HR.jobWoke(),
+  held: () => HR.jobHeld(),
+  dropped: () => HR.jobDropped(),
+};
+
+/** 后台任务结束时给模型的下一步。 */
+const JOB_COMPLETED_NEXT =
+  'A background job you submitted has finished. Call jobs_inspect with this job id to get its outputs, carry on with the task, and tell the user the result.';
+const JOB_FAILED_NEXT =
+  "A background job you submitted has failed. Call jobs_inspect with this job id to see the error and its next step, follow that next step, and tell the user what happened.";
+
+/** 交给智能体的结束通知（§7.2，skills/baocut/SKILL.md 写明了这个段）：一个 Job 一段。 */
+function jobFinishedText(jobs: readonly JobFinished[]): string {
+  return jobs
+    .map((job) =>
+      contextBlock(
+        '<baocut-job-finished>',
+        [
+          `job: ${job.jobId}`,
+          `kind: ${job.kind}`,
+          `state: ${job.state}`,
+          `attempt: ${job.attempt}`,
+          job.state === 'completed' ? JOB_COMPLETED_NEXT : JOB_FAILED_NEXT,
+        ],
+        '</baocut-job-finished>',
+      ),
+    )
+    .join('\n\n');
+}
 
 /** 核对提问的回答：每题都有，单选恰好一个，不许自填的只能是选项名。返回去重、去空白后的答案；不合格抛 `invalid-request`。 */
 export function checkAnswers(questions: AgentQuestion[], answers: AgentQuestionAnswers): AgentQuestionAnswers {

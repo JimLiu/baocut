@@ -1910,7 +1910,7 @@ interface ApplicationRecord {
 
 **`commandId` 去重跨重启**。提交时带的 `commandId` 随任务记进任务账本：Runtime 重启之后用同一个 `commandId` 重发（`pipelines.start`、直接提交的转写与生成、导出、安装之类），仍返回原来的任务，即使它已经是 `interrupted` 或 `failed`，要不要重试由调用方按状态决定（`pipelines.retry`、`jobs.reconcile retry`），不另建一个。去重只在任务留在账本里的期间成立，任务被淘汰（§7.9「记录保留」）之后同一个 `commandId` 会建新任务。同一个 `commandId` 换了参数不报冲突，返回原来的任务。
 
-长调用立即返回 `jobId`。异步完成的通知进入持久化的 inbox，按事件去重；检查 Task 未停止、授权与预算仍然成立之后，才能唤醒后续的 Agent Turn。
+**完成收件箱**。长调用立即返回 `jobId`。会话里的智能体提交的顶层 Job 以 `completed` 或 `failed` 结束、它在回合里没有用 `jobs_inspect` / `jobs_wait` 看到这次结束时，Runtime 等约 1.5 秒（给正在等它的 `jobs_wait` 返回）后交给 Harness（`Harness.jobFinished`）；取消、中断与待核对的不交，固定流程里的步骤不单独交。每次结束（`jobId` 与 `attempt`）只交一次，`jobs_retry` 之后是新的一次。Harness 在会话里记一条提示（`kind: 'notice'`，id 是 `job_<jobId>_<attempt>`，带 `job: JobFinishedNote`，重复交来只有这一条），再按会话此刻的状态告诉智能体：回合进行中、Agent 支持插话且回合已经开始时插进当前回合（`steered`），否则等回合结束（`held`）再按空闲处理；空闲、提交它的任务已完成时重新打开那个任务（回到 `running`，还是同一个任务，即使之后有更新的任务）并起一个回合（`woke`），访问模式与发送前的检查同 `send`（§3.12）；任务已停止或失败、会话归档或不在、项目目录不在、Driver 不能用、Runtime 正在退出时不告诉（`dropped`）。交给智能体的是一段 `<baocut-job-finished>`（`job`、`kind`、`state`、`attempt` 与下一步：用 `jobs_inspect` 取结果接着做、告诉用户结果；段内照 §3.4 转义）。唤醒时不查任务预算与授权：它们在提交时检查（§7.8），唤醒本身不提交调用，所以把预算全部预留的任务照样能被叫醒报告结果。收件箱只在内存里：重启前结束、还没交的不补交；重启时还是 `held` 的提示标为 `dropped`（那个回合已按 §2.5 标为失败）。
 
 ### 7.3 从产物到视频的可恢复闭环
 

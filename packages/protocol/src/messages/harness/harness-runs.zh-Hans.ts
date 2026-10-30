@@ -19,4 +19,8 @@ export const zhHans: HarnessRunsMessages = {
   processExited: (p) => `${p.agent} 进程意外结束：${p.error}`,
   noErrorMessage: '没有错误信息',
   fileChangeSummary: '修改文件',
+  jobSteered: '后台任务已结束，已在当前回合里告诉智能体。',
+  jobWoke: '后台任务已结束，智能体接着这个任务继续做。',
+  jobHeld: '后台任务已结束，等智能体这一回合结束后再告诉它。',
+  jobDropped: '后台任务已结束，但这个任务已经停止或失败，或者会话现在用不了，没有告诉智能体。',
 };

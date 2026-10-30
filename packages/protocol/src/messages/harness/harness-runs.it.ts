@@ -19,4 +19,8 @@ export const it: HarnessRunsMessages = {
   processExited: (p) => `${p.agent} ha avuto il processo terminato inaspettatamente: ${p.error}`,
   noErrorMessage: "nessun messaggio di errore",
   fileChangeSummary: "Modifica file",
+  jobSteered: 'Un’attività in background è terminata. L’agente è stato avvisato durante il turno in corso.',
+  jobWoke: 'Un’attività in background è terminata, quindi l’agente ha ripreso questa attività.',
+  jobHeld: 'Un’attività in background è terminata. L’agente verrà avvisato alla fine del turno in corso.',
+  jobDropped: 'Un’attività in background è terminata, ma questa attività è stata interrotta o non è riuscita, oppure la sessione non è disponibile, quindi l’agente non è stato avvisato.',
 };

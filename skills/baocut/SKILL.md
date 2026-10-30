@@ -210,7 +210,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 4. **不动用户的原始媒体。** 「剪」「删掉这段」「挪到」指时间线，不是改文件；范围在时间线上选，不预先切文件。只有用户明确要一个新的媒体文件时才生成（{{tool:transcode}}、{{tool:export}}），要进视频再导入。
 5. **任务要等到终态。** 返回任务的调用等到 `state` 为 `completed` 才算完成；没完成的不说做好了，不重复提交同一件事。怎么等见 [conventions](references/conventions.md)。
 <!-- surface: agent -->
-   用 {{tool:jobs_wait}} 等：一次最多 50 秒，`settled` 为 `false` 时再调一次；不用 {{tool:jobs_inspect}} 反复轮询。
+   用 {{tool:jobs_wait}} 等：一次最多 50 秒，`settled` 为 `false` 时再调一次；不用 {{tool:jobs_inspect}} 反复轮询。要等很久的（生成音乐、长视频）也可以先告诉用户在做什么、结束这一回合：任务结束时 BaoCut 会在一条消息里用 `<baocut-job-finished>` 段叫醒你（段里有 `job`、`kind`、`state`、`attempt`），收到后用 {{tool:jobs_inspect}} 取结果接着做，并告诉用户结果。
 <!-- /surface -->
 6. **只改要求的，改完读回执。** 只改用户要求的部分。改之前读当前版本与对象 ID（{{tool:videos_inspect}}）；只有回执里的才是真正改了的，向用户说明回执里实际改了什么（对象、时间、时长变化）。相关的几步放进同一笔修改，一起撤销。
 7. **版本冲突就重新读。** `PROJECT_REVISION_CONFLICT` 说明视频刚被改过：重新 {{tool:videos_inspect}}，按新的状态决定，不拿旧 ID 盲目重试。

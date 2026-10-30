@@ -19,4 +19,8 @@ export const ptBR: HarnessRunsMessages = {
   processExited: (p) => `${p.agent} teve o processo encerrado inesperadamente: ${p.error}`,
   noErrorMessage: "nenhuma mensagem de erro",
   fileChangeSummary: "Editar arquivos",
+  jobSteered: 'Uma tarefa em segundo plano terminou. O agente foi avisado durante o turno atual.',
+  jobWoke: 'Uma tarefa em segundo plano terminou, então o agente retomou esta tarefa.',
+  jobHeld: 'Uma tarefa em segundo plano terminou. O agente será avisado quando o turno atual acabar.',
+  jobDropped: 'Uma tarefa em segundo plano terminou, mas esta tarefa foi interrompida ou falhou, ou a sessão não está disponível, então o agente não foi avisado.',
 };

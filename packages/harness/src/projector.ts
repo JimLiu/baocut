@@ -167,6 +167,19 @@ export function finishTask(
   state.updateConversation({ activity: status === 'failed' ? 'failed' : 'idle', activeTaskId: null, unread: true });
 }
 
+/**
+ * 完成收件箱唤醒智能体接着做一个已完成的任务（架构设计 §7.2）：把任务重新标为进行中，撤掉 `finishTask` 写下的结束时间与原因。
+ * 预算、授权与停止都按这个任务算。
+ */
+export function reopenTask(state: ConversationState, taskId: Id): void {
+  const task = state.item(taskId);
+  if (task?.kind === 'task') {
+    const { errorRef: _ref, errorCode: _code, ...rest } = task;
+    state.upsert({ ...rest, status: 'running', endedAt: null, error: null });
+  }
+  state.updateConversation({ activity: 'running', activeTaskId: taskId });
+}
+
 /** 会话的活动状态由条目重新汇总：有待批的审批就是「等待批准」；只剩智能体的提问时是「等你回答」。 */
 export function refreshActivity(state: ConversationState): void {
   const conv = state.conversation;

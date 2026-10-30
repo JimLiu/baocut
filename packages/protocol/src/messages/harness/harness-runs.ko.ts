@@ -25,4 +25,8 @@ export const ko: HarnessRunsMessages = {
   processExited: (p) => `${p.agent} 프로세스가 예기치 않게 종료되었습니다: ${p.error}`,
   noErrorMessage: '오류 메시지 없음',
   fileChangeSummary: '파일 수정',
+  jobSteered: '백그라운드 작업이 끝났습니다. 현재 턴에서 에이전트에게 알렸습니다.',
+  jobWoke: '백그라운드 작업이 끝나서 에이전트가 이 작업을 이어서 진행합니다.',
+  jobHeld: '백그라운드 작업이 끝났습니다. 에이전트의 현재 턴이 끝나면 알립니다.',
+  jobDropped: '백그라운드 작업이 끝났지만 이 작업이 중지되었거나 실패했거나 세션을 사용할 수 없어 에이전트에게 알리지 않았습니다.',
 };

@@ -25,4 +25,8 @@ export const nl: HarnessRunsMessages = {
   noErrorMessage: "geen foutmelding",
 
   fileChangeSummary: "Bestanden bewerken",
+  jobSteered: 'Een achtergrondtaak is klaar. De agent is tijdens zijn huidige beurt op de hoogte gebracht.',
+  jobWoke: 'Een achtergrondtaak is klaar, dus de agent heeft deze taak weer opgepakt.',
+  jobHeld: 'Een achtergrondtaak is klaar. De agent hoort het zodra zijn huidige beurt eindigt.',
+  jobDropped: 'Een achtergrondtaak is klaar, maar deze taak is gestopt of mislukt, of de sessie is niet beschikbaar. De agent is niet op de hoogte gebracht.',
 };

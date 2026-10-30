@@ -19,4 +19,8 @@ export const pl: HarnessRunsMessages = {
   processExited: (p) => `${p.agent} – proces zakończył się nieoczekiwanie: ${p.error}`,
   noErrorMessage: "brak komunikatu błędu",
   fileChangeSummary: "Edytuj pliki",
+  jobSteered: 'Zadanie w tle zakończyło się. Agent został poinformowany w trakcie bieżącej tury.',
+  jobWoke: 'Zadanie w tle zakończyło się, więc agent wrócił do tego zadania.',
+  jobHeld: 'Zadanie w tle zakończyło się. Agent zostanie poinformowany po zakończeniu bieżącej tury.',
+  jobDropped: 'Zadanie w tle zakończyło się, ale to zadanie zostało zatrzymane lub nie powiodło się albo sesja jest niedostępna, więc agent nie został poinformowany.',
 };
