@@ -1109,12 +1109,15 @@ export class Harness {
     return this.#states.get(id)?.conversation;
   }
 
-  /** 会话里最近一条用户消息带的编辑器上下文；那一条没带或会话不存在时 undefined。Runtime 据此找出这之后用户亲手做的修改（§3.4）。 */
+  /**
+   * 会话里最近一条带着编辑器上下文的用户消息的上下文；都没带或会话不存在时 undefined。插话与 CLI 发的消息不带上下文，跳过它们
+   * 往前找。Runtime 据此找出这之后用户亲手做的修改（§3.4）。
+   */
   lastEditorContext(id: Id): EditorContext | undefined {
     const items = this.#states.get(id)?.items() ?? [];
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i]!;
-      if (item.kind === 'user-message') return item.context;
+      if (item.kind === 'user-message' && item.context) return item.context;
     }
     return undefined;
   }

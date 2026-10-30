@@ -216,7 +216,7 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
     expect(after.body.error.code).toBe('NO_ACTIVE_TASK');
   });
 
-  it('两条消息之间用户亲手改了视频：下一条附上 <baocut-user-edits>，只列用户的修改', async () => {
+  it('两条消息之间用户亲手改了视频：下一条附上 <baocut-user-edits>，只列用户的修改；插话不打断锚点', async () => {
     const context = (revision: string): EditorContext => ({
       videoId,
       videoName: '样片',
@@ -238,6 +238,10 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
       ],
     });
     expect(placed.isError).toBe(false);
+    // 插话不带编辑器上下文：之后的消息仍以上一条带上下文的为准。
+    Object.assign(session.capabilities, { steer: true });
+    const steered = await client.request('conversations.steer', { conversationId, text: '放在开头', commandId: newId('cmd') });
+    expect(steered.status).toBe('steered');
     session.finish();
     await until(() => runtime.harness.agentRun(conversationId).taskId === null);
 
@@ -253,7 +257,7 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
     });
 
     await send('再加一段', { context: context(receipt.videoRevision) });
-    const input = session.inputs[1]!;
+    const input = session.inputs.at(-1)!;
     expect(input).toContain('<baocut-user-edits>');
     expect(input).toContain(`- Remove clip by hand (revision ${receipt.videoRevision})`);
     expect(input).not.toContain('Agent places clip');
