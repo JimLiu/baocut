@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ImportableSession } from '@baocut/protocol';
 import { IMPORT_COPY as I } from '../components/agent-import/import-copy.ts';
-import { filterImportable, importMeta, sourceName, sourceWhere } from './agent-import.ts';
+import { filterImportable, importMeta, sourceName, sourceWhere, titleInSentence } from './agent-import.ts';
 
 /** 导入外部会话的对话框（产品设计 §3.1「导入外部会话」）：列表的筛选、每行下面那一行、Agent 的名字与出处。 */
 
@@ -51,5 +51,15 @@ describe('sourceName / sourceWhere', () => {
     expect(sourceName('claude', 'Claude Code (beta)')).toBe('Claude Code (beta)');
     expect(sourceWhere('claude')).toBe('~/.claude/projects');
     expect(sourceWhere('codex')).toBe(I.whereCodex);
+  });
+});
+
+describe('titleInSentence', () => {
+  it('去掉末尾的句末标点，句子里只留一个句号；别处的标点不动', () => {
+    expect(titleInSentence('Cut the intro, then add captions.')).toBe('Cut the intro, then add captions');
+    expect(titleInSentence('剪掉片头。')).toBe('剪掉片头');
+    expect(titleInSentence('Why so slow?! ')).toBe('Why so slow');
+    expect(titleInSentence('v1.2 notes')).toBe('v1.2 notes');
+    expect(titleInSentence('...')).toBe('');
   });
 });

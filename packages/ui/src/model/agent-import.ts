@@ -31,6 +31,11 @@ export function filterImportable(
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+/** 写进句子里的会话标题：去掉末尾的句号、问号这类标点，免得和句子自己的标点叠在一起（「…captions.”.」）。 */
+export function titleInSentence(title: string): string {
+  return title.trim().replace(/[.。!！?？…]+$/u, '');
+}
+
 /** 每行下面的一行：目录 · 多久前 · 几轮（不知道几轮时不写）· 已导入。 */
 export function importMeta(session: ImportableSession, now = Date.now()): string {
   return [

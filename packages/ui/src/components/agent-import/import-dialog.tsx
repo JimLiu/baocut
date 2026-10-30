@@ -19,7 +19,7 @@ import {
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { untitled } from '../../copy.ts';
-import { filterImportable, importMeta, sourceName, sourceWhere } from '../../model/agent-import.ts';
+import { filterImportable, importMeta, sourceName, sourceWhere, titleInSentence } from '../../model/agent-import.ts';
 import { shortenPath } from '../../model/format.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useConnection } from '../../state/connection-store.ts';
@@ -191,7 +191,7 @@ export function ImportSessionsDialog({ project, onClose }: { project: Project | 
                 {item ? (
                   <div className={land} aria-live="polite">
                     {done ? (
-                      <p className={para}>{I.alreadyImported(done.title || untitled())}</p>
+                      <p className={para}>{I.alreadyImported(titleInSentence(done.title) || untitled())}</p>
                     ) : item.landing.kind === 'project' ? (
                       <p className={para}>{I.intoProject(item.landing.projectName)}</p>
                     ) : item.landing.kind === 'missing' ? (
