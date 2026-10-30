@@ -10,6 +10,9 @@ export const tr: GeneralSettingsMessages = {
   schemeSystem: "Sistem",
   schemeLight: "Açık",
   schemeDark: "Koyu",
+  notifications: 'Bildirimler',
+  notificationsDesc: 'Bir oturum onayınızı veya yanıtınızı beklediğinde ya da bir görev bittiğinde veya başarısız olduğunda haber verir. O oturumda çalışırken rahatsız etmez.',
+  notificationsWeb: 'Tarayıcıda yalnızca sayfanın içinde görünür.',
 
   saveFailed: (message) => `Kaydedilemedi: ${message}`,
 

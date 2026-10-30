@@ -58,6 +58,18 @@ const updates: UpdatesHost = {
   openDownloadPage: () => ipcRenderer.invoke('baocut:updates-open-download-page'),
 };
 
+/** 系统通知与徽标（产品设计 §3.1「提醒」）：参数在主进程里重新校验。 */
+const notifications: NonNullable<HostBridge['notifications']> = {
+  show: (notification) =>
+    ipcRenderer.send('baocut:notify', { title: notification.title, body: notification.body, conversationId: notification.conversationId }),
+  setBadge: (count) => ipcRenderer.send('baocut:set-badge', count),
+  onClick: (listener) => {
+    const handler = (_event: IpcRendererEvent, conversationId: string) => listener(conversationId);
+    ipcRenderer.on('baocut:notification-click', handler);
+    return () => void ipcRenderer.removeListener('baocut:notification-click', handler);
+  },
+};
+
 /**
  * 渲染进程能用的全部原生能力。保持最小：业务请求不经过这里，界面直连 Runtime。
  * 形状与 @baocut/ui 的 HostBridge 一致。
@@ -74,6 +86,7 @@ contextBridge.exposeInMainWorld('baocut', {
   trashProjectBrand: (projectPath: string) => ipcRenderer.invoke('baocut:trash-project-brand', projectPath),
   web,
   updates,
+  notifications,
   openExternal: (url: string) => ipcRenderer.invoke('baocut:open-external', url),
   pickMessageFiles: (options) => ipcRenderer.invoke('baocut:pick-message-files', options),
   pickFiles: (options) => ipcRenderer.invoke('baocut:pick-files', options),

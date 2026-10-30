@@ -10,6 +10,9 @@ export const pl: GeneralSettingsMessages = {
   schemeSystem: "Systemu",
   schemeLight: "Jasny",
   schemeDark: "Ciemny",
+  notifications: 'Powiadomienia',
+  notificationsDesc: 'Dają znać, gdy sesja czeka na Twoją zgodę lub odpowiedź albo gdy zadanie się zakończy lub nie powiedzie. Nie przeszkadzają, gdy pracujesz w tej sesji.',
+  notificationsWeb: 'W przeglądarce pojawiają się tylko na stronie.',
 
   saveFailed: (message: string) => `Nie udało się zapisać: ${message}`,
 

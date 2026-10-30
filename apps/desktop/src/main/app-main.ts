@@ -13,6 +13,8 @@ import { packagedResources } from './packaged-resources.ts';
 import { quitChoice, quitPrompt, type QuitChoice } from './quit-prompt.ts';
 import { RuntimeSupervisor } from './runtime-supervisor.ts';
 import { installWebTabs } from './web-tabs.ts';
+import { installNotifications } from './notifications.ts';
+import { BUNDLE_ID } from './app-update-rules.ts';
 import { openLocalFile } from './open-local-file.ts';
 import { trashProjectBrand } from './trash-brand.ts';
 import { showInFolder } from './reveal-path.ts';
@@ -296,6 +298,9 @@ export function startDesktopApp(): void {
 
   // 网页标签：独立分区的原生网页视图（架构设计 §12.10）。
   installWebTabs({ appOrigins: devServerUrl ? [new URL(devServerUrl).origin] : [] });
+  // 系统通知与徽标（产品设计 §3.1「提醒」）。Windows 的通知认进程的 AppUserModelID，要与安装器给开始菜单快捷方式设的 appId 一致。
+  installNotifications();
+  if (process.platform === 'win32' && app.isPackaged) app.setAppUserModelId(BUNDLE_ID);
 
   app.whenReady().then(() => {
     if (isDev && devServerUrl) {

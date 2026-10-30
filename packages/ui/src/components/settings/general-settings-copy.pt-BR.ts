@@ -10,6 +10,9 @@ export const ptBR: GeneralSettingsMessages = {
   schemeSystem: "Sistema",
   schemeLight: "Claro",
   schemeDark: "Escuro",
+  notifications: 'Notificações',
+  notificationsDesc: 'Avisa quando uma sessão precisa da sua aprovação ou resposta, ou quando uma tarefa termina ou falha. Não interrompe enquanto você trabalha nessa sessão.',
+  notificationsWeb: 'No navegador, aparecem só dentro da página.',
 
   saveFailed: (message: string) => `Não foi possível salvar: ${message}`,
 

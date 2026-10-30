@@ -10,6 +10,9 @@ export const de: GeneralSettingsMessages = {
   schemeSystem: "System",
   schemeLight: "Hell",
   schemeDark: "Dunkel",
+  notifications: 'Benachrichtigungen',
+  notificationsDesc: 'Informiert Sie, wenn eine Sitzung auf Ihre Freigabe oder Antwort wartet oder eine Aufgabe fertig ist oder fehlschlägt. Stört nicht, solange Sie in dieser Sitzung arbeiten.',
+  notificationsWeb: 'Im Browser erscheinen sie nur innerhalb der Seite.',
 
   saveFailed: (message: string) => `Speichern fehlgeschlagen: ${message}`,
 

@@ -10,6 +10,7 @@ import { useHelp } from '../state/help-store.ts';
 import { HOME, hasSidebar, routeVideo, useShell } from '../state/shell-store.ts';
 import { useVideo } from '../state/video-store.ts';
 import { AppUpdateHost } from './app-update/app-update-host.tsx';
+import { AttentionHost } from './attention-host.tsx';
 import { ArchivedPage } from './archived-page.tsx';
 import { LegacyImportHost } from './legacy-import/legacy-import-host.tsx';
 import { OnboardingHost } from './onboarding/onboarding-host.tsx';
@@ -143,6 +144,8 @@ export function AppShell({ platform }: { platform: string }) {
         <HelpCenter platform={platform} />
         {/* 应用更新：离开设置页照样收主进程的状态、弹 toast；更新窗与停止屏障也挂在这里。 */}
         <AppUpdateHost />
+        {/* 提醒：会话等你、任务做完或失败时按你在不在跟前提示或发系统通知，徽标是在等你的会话条数（产品设计 §3.1）。 */}
+        <AttentionHost />
         {/* 启动时的旧版项目导入询问：Runtime 发现还没导入的旧版项目、又没有记下决定时问一次（Web 不问）。 */}
         <LegacyImportHost />
         {/* 首次启动引导：旧版导入的询问答完再弹（挂在它后面）；引导里勾上的 Agent 在这里排队安装（Web 不弹）。 */}

@@ -10,6 +10,9 @@ export const ru: GeneralSettingsMessages = {
   schemeSystem: "Система",
   schemeLight: "Светлый",
   schemeDark: "Тёмный",
+  notifications: 'Уведомления',
+  notificationsDesc: 'Сообщают, когда сессия ждёт вашего одобрения или ответа, а также когда задача завершилась или не выполнилась. Не отвлекают, пока вы работаете в этой сессии.',
+  notificationsWeb: 'В браузере они появляются только внутри страницы.',
 
   saveFailed: (message: string) => `Не удалось сохранить: ${message}`,
 

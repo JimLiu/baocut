@@ -10,6 +10,9 @@ export const ja: GeneralSettingsMessages = {
   schemeSystem: 'システム',
   schemeLight: 'ライト',
   schemeDark: 'ダーク',
+  notifications: '通知',
+  notificationsDesc: 'セッションが承認や回答を待っているとき、タスクが完了または失敗したときに通知します。そのセッションを操作している間は通知しません。',
+  notificationsWeb: 'ブラウザではページ内にだけ表示されます。',
 
   saveFailed: (message: string) => `保存できませんでした：${message}`,
 

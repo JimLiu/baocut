@@ -36,6 +36,10 @@
               <Segmented size="s" value={app.theme} onChange={(t) => app.setPref('theme', t)}
                 items={[{k: 'system', label: '跟随系统'}, {k: 'light', label: '浅色'}, {k: 'dark', label: '深色'}]} />
             </Row>
+            {/* 提醒（产品设计 §3.1）：窗口在后台或人走开了发系统通知、徽标是在等你的会话条数；人在跟前、看着别的会话时在应用里提示一句。 */}
+            <Row label="通知" desc="会话等你批准或回答、任务完成或失败时通知你。你正在那条会话里操作时不打扰。">
+              <Switch ariaLabel="通知" on={app.prefs.notify !== false} onChange={(x) => app.setPref('notify', x)} />
+            </Row>
           </div>
         </section>
         <section className="setpage__group" aria-label="编辑与转录">

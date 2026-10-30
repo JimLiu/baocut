@@ -10,6 +10,9 @@ export const zhHans: GeneralSettingsMessages = {
   schemeSystem: '跟随系统',
   schemeLight: '浅色',
   schemeDark: '深色',
+  notifications: '通知',
+  notificationsDesc: '会话等你批准或回答、任务完成或失败时通知你。你正在那条会话里操作时不打扰。',
+  notificationsWeb: '浏览器里只在页面内提示。',
 
   saveFailed: (message: string) => `没能保存：${message}`,
 

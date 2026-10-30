@@ -155,6 +155,8 @@ export interface ShellStore {
   videoChats: Record<string, Id>;
   /** 悬浮会话最小化成图标；默认展开，最小化后记在本机。 */
   videoChatMin: boolean;
+  /** 提醒（设置 › 通用，产品设计 §3.1「提醒」）：会话等你、任务做完或失败时通知你。默认开，记在本机。 */
+  notifications: boolean;
   navigate(href: string): void;
   go(route: Route): void;
   /** 替换当前位置，不进历史（筛选、分类这类原地切换）。 */
@@ -229,6 +231,7 @@ export interface ShellStore {
   setSidebarGrouping(grouping: 'project' | 'flat'): void;
   setSidebarSort(sort: SidebarSort): void;
   setColorScheme(scheme: ColorScheme): void;
+  setNotifications(on: boolean): void;
   setLanguage(language: LanguagePreference): void;
   setSpaceView(view: 'grid' | 'list'): void;
   setSpaceSort(sort: SpaceSort): void;
@@ -263,6 +266,7 @@ export const useShell = create<ShellStore>()(
       queues: {},
       videoChats: {},
       videoChatMin: false,
+      notifications: true,
       navigate: (href) => get().go(parseHref(href)),
       go: (route) =>
         set((s) => {
@@ -501,6 +505,7 @@ export const useShell = create<ShellStore>()(
         }),
       setVideoChatMin: (videoChatMin) => set({ videoChatMin }),
       setColorScheme: (colorScheme) => set({ colorScheme }),
+      setNotifications: (notifications) => set({ notifications }),
       setLanguage: (language) => set({ language }),
       setSpaceView: (spaceView) => set({ spaceView }),
       setSpaceSort: (spaceSort) => set({ spaceSort }),
@@ -528,6 +533,7 @@ export const useShell = create<ShellStore>()(
         draftAgents: s.draftAgents,
         queues: s.queues,
         videoChatMin: s.videoChatMin,
+        notifications: s.notifications,
       }),
       migrate: (persisted, version) => migrateShell(persisted, version),
     },
@@ -540,7 +546,7 @@ export const useShell = create<ShellStore>()(
  * 旧值不翻译：草稿上的选择丢掉，回到 Runtime 给的初值；不认识的值一律不留（拿不准就问）。
  * 3 → 4：加了新会话草稿上的 Agent 选择（`draftAgents`）与忙时排队（`queues`）；旧数据里没有，取默认。
  * 有这两项时逐条校验，形状不对的丢掉（以后再升版本时，旧数据也经这里清洗）。
- * v4 之内加的 `dockWidth`（会话列宽）、标签组的 `last`（收起前的标签）、`videoChatMin`（悬浮会话最小化）与 `language`（界面语言）都是可缺的字段：旧数据里没有就取默认，不升版本。
+ * v4 之内加的 `dockWidth`（会话列宽）、标签组的 `last`（收起前的标签）、`videoChatMin`（悬浮会话最小化）、`language`（界面语言）与 `notifications`（提醒）都是可缺的字段：旧数据里没有就取默认，不升版本。
  * 4 → 5：功能区的收起与完整视图从全局开关改成每条会话一份（`views`），并记在本机。v4 的全局开关本来就不记在本机，
  * 万一读回里有也丢掉，各会话从默认视图开始；有 `views` 时逐条校验，只留布尔的 `hidden` / `full`。
  */
@@ -555,6 +561,7 @@ export function migrateShell(persisted: unknown, version: number): Partial<Shell
   if ('draftAgents' in state) state.draftAgents = cleanDraftAgents(state.draftAgents);
   if ('queues' in state) state.queues = cleanQueues(state.queues);
   if ('videoChatMin' in state && typeof state.videoChatMin !== 'boolean') delete state.videoChatMin;
+  if ('notifications' in state && typeof state.notifications !== 'boolean') delete state.notifications;
   if ('language' in state && !isLanguagePreference(state.language)) delete state.language;
   delete state.workspaceHidden;
   delete state.workspaceFull;

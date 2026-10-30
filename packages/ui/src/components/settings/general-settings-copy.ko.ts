@@ -10,6 +10,9 @@ export const ko: GeneralSettingsMessages = {
   schemeSystem: '시스템',
   schemeLight: '라이트',
   schemeDark: '다크',
+  notifications: '알림',
+  notificationsDesc: '세션이 승인이나 답변을 기다리거나 작업이 완료 또는 실패하면 알려 줍니다. 그 세션에서 작업 중일 때는 알리지 않습니다.',
+  notificationsWeb: '브라우저에서는 페이지 안에만 표시됩니다.',
 
   saveFailed: (message: string) => `저장하지 못했습니다: ${message}`,
 

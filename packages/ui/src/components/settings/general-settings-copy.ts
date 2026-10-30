@@ -25,6 +25,10 @@ const en = {
   schemeSystem: 'System',
   schemeLight: 'Light',
   schemeDark: 'Dark',
+  notifications: 'Notifications',
+  notificationsDesc: "Get notified when a session needs your approval or an answer, or when a task finishes or fails. BaoCut stays quiet while you're working in that session.",
+  /** 浏览器里没有系统通知，只在页面内提示。 */
+  notificationsWeb: 'In the browser, these only appear inside the page.',
 
   saveFailed: (message: string) => `Couldn't save: ${message}`,
 

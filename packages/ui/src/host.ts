@@ -64,8 +64,21 @@ export interface HostBridge {
   captureFrame?(rect: CaptureRect): Promise<Uint8Array | null>;
   /** 应用自动更新（架构设计 §2.6，桌面端才有）。没有它的宿主里，更新相关的界面一概不出现。 */
   updates?: UpdatesHost;
+  /** 系统通知与徽标（产品设计 §3.1「提醒」，桌面端才有）。没有它的宿主（Web）只在应用里提示。 */
+  notifications?: NotificationsHost;
   /** 界面语言变了（启动时也调一次）：宿主据此换原生菜单与对话框的语言。没有它的宿主不管。 */
   setLocale?(locale: Locale): void;
+}
+
+/**
+ * 系统通知与徽标：要不要提醒由界面决定（`model/attention.ts`），宿主只交给系统。平台差异见 apps/desktop 的 `notifications.ts`。
+ */
+export interface NotificationsHost {
+  /** 发一条系统通知；系统不支持时什么都不做。点它时窗口回到前台，`onClick` 收到这条的 `conversationId`。 */
+  show(notification: { title: string; body: string; conversationId: string }): void;
+  /** 徽标上的数（macOS 的 Dock、Linux 的启动器），0 清掉。Windows 没有数字徽标，不管。 */
+  setBadge(count: number): void;
+  onClick(listener: (conversationId: string) => void): () => void;
 }
 
 /** `captureFrame` 要截的那块：相对窗口视口左上角的 CSS 像素。 */

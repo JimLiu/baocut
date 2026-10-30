@@ -3,7 +3,7 @@ import { pluralForm } from '@baocut/protocol';
 
 export const it: GeneralSettingsMessages = {
   interfaceGroup: 'Interfaccia', language: 'Lingua', languageDesc: 'Ha effetto subito, senza riavvio.', languageSystem: (current: string) => `Sistema (${current})`,
-  appearance: 'Aspetto', appearanceDesc: 'Riguarda solo le finestre di BaoCut su questo computer.', schemeSystem: 'Sistema', schemeLight: 'Chiaro', schemeDark: 'Scuro', saveFailed: (message: string) => `Impossibile salvare: ${message}`,
+  appearance: 'Aspetto', appearanceDesc: 'Riguarda solo le finestre di BaoCut su questo computer.', schemeSystem: 'Sistema', schemeLight: 'Chiaro', schemeDark: 'Scuro', notifications: 'Notifiche', notificationsDesc: 'Ti avvisa quando una sessione attende la tua approvazione o una risposta, o quando un’attività termina o non riesce. Non disturba mentre lavori in quella sessione.', notificationsWeb: 'Nel browser compaiono solo all’interno della pagina.', saveFailed: (message: string) => `Impossibile salvare: ${message}`,
   editingGroup: 'Modifica e trascrizione', autoOpen: 'Apri automaticamente il video dopo la trascrizione', autoOpenDesc: 'Per le importazioni locali. Quando un’importazione da link termina in background, ricevi solo una notifica e la pagina attuale rimane invariata.',
   autoOpenNote: 'Non ancora collegato: dopo la trascrizione rimani sempre sulla pagina attuale; il video non si apre automaticamente.',
   lineLength: 'Lunghezza della riga dei sottotitoli', lineLengthDesc: 'Imposta la lunghezza desiderata per le interruzioni di riga automatiche. Le righe modificate manualmente non cambiano.',

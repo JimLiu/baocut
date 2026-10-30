@@ -89,7 +89,7 @@ export function GeneralSettings() {
   const ready = useSettingsReady();
   return (
     <>
-      <InterfaceGroup />
+      <InterfaceGroup web={web} />
       <EditingGroup />
       <DownloadsGroup web={web} ready={ready} />
       <SourcesGroup web={web} ready={ready} />
@@ -98,9 +98,11 @@ export function GeneralSettings() {
   );
 }
 
-function InterfaceGroup() {
+function InterfaceGroup({ web }: { web: boolean }) {
   const scheme = useShell((s) => s.colorScheme);
   const setScheme = useShell((s) => s.setColorScheme);
+  const notifications = useShell((s) => s.notifications);
+  const setNotifications = useShell((s) => s.setNotifications);
   const language = useShell((s) => s.language);
   const setLanguage = useShell((s) => s.setLanguage);
   const system = LOCALE_NATIVE_NAMES[resolveLanguage('system', navigator.languages ?? [navigator.language])];
@@ -127,6 +129,10 @@ function InterfaceGroup() {
           <SegmentedControlItem id="light">{M.schemeLight}</SegmentedControlItem>
           <SegmentedControlItem id="dark">{M.schemeDark}</SegmentedControlItem>
         </SegmentedControl>
+      </Row>
+      {/* 提醒（产品设计 §3.1）：记在本机；浏览器里没有系统通知，只在页面内提示。 */}
+      <Row label={M.notifications} desc={M.notificationsDesc} note={web ? M.notificationsWeb : undefined}>
+        <Switch aria-label={M.notifications} isSelected={notifications} onChange={setNotifications} />
       </Row>
     </Group>
   );

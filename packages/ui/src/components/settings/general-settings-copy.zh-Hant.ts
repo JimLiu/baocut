@@ -10,6 +10,9 @@ export const zhHant: GeneralSettingsMessages = {
   schemeSystem: '跟隨系統',
   schemeLight: '淺色',
   schemeDark: '深色',
+  notifications: '通知',
+  notificationsDesc: '對話等你核准或回答、任務完成或失敗時通知你。你正在那則對話裡操作時不打擾。',
+  notificationsWeb: '瀏覽器裡只在頁面內提示。',
 
   saveFailed: (message: string) => `無法儲存：${message}`,
 

@@ -8,15 +8,19 @@ import type { Conversation, DirectoryEvent, DirectorySnapshot, Id, Project } fro
  */
 export interface DirectoryStore extends DirectorySnapshot {
   ready: boolean;
+  /** 收到过几次快照（首次连上与每次重连各一次）：提醒把快照当新的基线，只认两次快照之间的事件（model/attention.ts）。 */
+  snapshots: number;
   replace(snapshot: DirectorySnapshot): void;
   apply(event: DirectoryEvent): void;
 }
 
 export const useDirectory = create<DirectoryStore>()((set) => ({
   ready: false,
+  snapshots: 0,
   projects: [],
   conversations: [],
-  replace: (snapshot) => set({ ready: true, projects: snapshot.projects, conversations: snapshot.conversations }),
+  replace: (snapshot) =>
+    set((s) => ({ ready: true, snapshots: s.snapshots + 1, projects: snapshot.projects, conversations: snapshot.conversations })),
   apply: (event) => set((s) => applyDirectoryEvent(s, event)),
 }));
 
