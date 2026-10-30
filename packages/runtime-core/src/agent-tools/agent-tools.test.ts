@@ -216,6 +216,49 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
     expect(after.body.error.code).toBe('NO_ACTIVE_TASK');
   });
 
+  it('两条消息之间用户亲手改了视频：下一条附上 <baocut-user-edits>，只列用户的修改', async () => {
+    const context = (revision: string): EditorContext => ({
+      videoId,
+      videoName: '样片',
+      videoPath,
+      revision,
+      selection: [],
+      playheadSeconds: 0,
+      uiLanguage: 'zh-Hans',
+    });
+    const { session } = await send('放一段 clip.mp4', { context: context(runtime.videos.mirror(videoId)!.video.revision) });
+    expect(session.inputs[0]).not.toContain('<baocut-user-edits>');
+    const placed = await tool(session, 'edits_apply', {
+      video: videoId,
+      expectedRevision: runtime.videos.mirror(videoId)!.video.revision,
+      label: 'Agent places clip',
+      operations: [
+        { type: 'importAsset', path: 'clip.mp4', ref: 'c' },
+        { type: 'addItem', asset: { ref: 'c' }, at: 0 },
+      ],
+    });
+    expect(placed.isError).toBe(false);
+    session.finish();
+    await until(() => runtime.harness.agentRun(conversationId).taskId === null);
+
+    // 用户在编辑器里删掉智能体放的片段。
+    const mirror = runtime.videos.mirror(videoId)!.video;
+    const clipItem = mirror.sequences[mirror.rootSequenceId]!.items.find((item) => item.type === 'video')!;
+    const { receipt } = await client.request('edits.apply', {
+      videoId,
+      commandId: newId('cmd'),
+      expectedRevision: mirror.revision,
+      label: 'Remove clip by hand',
+      operations: [{ type: 'deleteItems', itemIds: [clipItem.id] }],
+    });
+
+    await send('再加一段', { context: context(receipt.videoRevision) });
+    const input = session.inputs[1]!;
+    expect(input).toContain('<baocut-user-edits>');
+    expect(input).toContain(`- Remove clip by hand (revision ${receipt.videoRevision})`);
+    expect(input).not.toContain('Agent places clip');
+  });
+
   it('videos_create 新建视频后会话里记一条 video-created：打开编辑器的位置与新建时的版本', async () => {
     const { taskId, session } = await send('新建一部视频');
     const created = await tool(session, 'videos_create', { name: '新片' });

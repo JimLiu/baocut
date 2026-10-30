@@ -1109,6 +1109,16 @@ export class Harness {
     return this.#states.get(id)?.conversation;
   }
 
+  /** 会话里最近一条用户消息带的编辑器上下文；那一条没带或会话不存在时 undefined。Runtime 据此找出这之后用户亲手做的修改（§3.4）。 */
+  lastEditorContext(id: Id): EditorContext | undefined {
+    const items = this.#states.get(id)?.items() ?? [];
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i]!;
+      if (item.kind === 'user-message') return item.context;
+    }
+    return undefined;
+  }
+
   getConversation(id: Id, tail?: number): ConversationSnapshot & { seq: Seq } {
     const state = this.#require(id);
     state.flush();
@@ -1358,6 +1368,11 @@ export class Harness {
     videoAnnotations?: ResolvedVideoAnnotation[];
     /** 文档标注（docs/design/docs §8），由 Runtime 按添加的顺序解析好文档相对会话工作目录的路径。 */
     docsAnnotations?: ResolvedDocsAnnotation[];
+    /**
+     * 上一条消息之后用户在编辑器里亲手做的修改（§3.4 `<baocut-user-edits>`），由 Runtime 按视频的修改记录写好；
+     * 只附在交给智能体的文字后面，不记在用户消息上。
+     */
+    userEdits?: string;
   }): Promise<{ taskId: Id }> {
     const key = `send:${params.commandId}`;
     const done = this.#commands.get(key);
@@ -1487,6 +1502,7 @@ export class Harness {
       params.brand?.instructions,
       params.skills?.instructions,
       fileAttachmentsText(attached),
+      params.userEdits,
     ]
       .filter(Boolean)
       .join('\n\n');

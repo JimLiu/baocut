@@ -658,6 +658,7 @@ export function createHandlers({
         harness,
         skills,
         brands,
+        videos,
         slideAnnotationsOf,
         designAnnotationsOf,
         designSystemAnnotationsOf,
