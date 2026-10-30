@@ -82,6 +82,7 @@ import { RcRuntime } from '@baocut/protocol/messages/runtime-core';
 import type { ToolCatalog } from './agent-tools/tool-catalog.ts';
 import type { RuntimeActivity } from './runtime-activity.ts';
 import type { LegacyUpgrade } from './legacy-upgrade.ts';
+import type { ScheduleService } from './schedules/schedule-service.ts';
 import { catalogMethods } from './agent-tools/catalog-methods.ts';
 
 type MethodHandler<M extends RpcMethod> = (params: RpcParams<M>, principal: TrustedPrincipal) => RpcResult<M> | Promise<RpcResult<M>>;
@@ -165,6 +166,8 @@ export interface HandlerDeps {
   requestStop: (() => void) | null;
   /** 历史版本的启动迁移（§2.7）：旧版项目的导入询问（`legacyImport.*` 与 `legacy-import` 主题）。 */
   legacyUpgrade: LegacyUpgrade;
+  /** 定时任务（产品设计 §6.1「定时任务」）：网关与 Web 服务共用同一个服务。 */
+  schedules: ScheduleService;
 }
 
 /** 文件目标定位到来源目录与文件（Space 条目、会话工作目录或项目目录里的路径）。目录内的检查在媒体通道（或视频服务）里做。 */
@@ -247,6 +250,7 @@ export function createHandlers({
   requestStop,
   legacyUpgrade,
   semantic,
+  schedules,
 }: HandlerDeps): RpcHandlers {
   const { catalog, jobs, services, pipelines } = models;
   const packages = new PackageImporter(videos);
@@ -472,6 +476,11 @@ export function createHandlers({
       'tasks.recordCheck': (p) => harness.recordCheck(p, 'user'),
       'tasks.listChecks': (p) => harness.listChecks(p.taskId),
       // 统一的待处理审批（架构设计 §3.12）：会话的与对外服务的在一处列出、一处处理。
+      'schedules.list': () => ({ schedules: schedules.list() }),
+      'schedules.create': (p) => schedules.create(p),
+      'schedules.update': (p) => schedules.update(p),
+      'schedules.run': (p) => schedules.run(p),
+      'schedules.remove': (p) => schedules.remove(p),
       'approvals.list': () => ({ approvals: harness.approvals.pending() }),
       // 带外发授权的审批可以同时选择「只这一次」或发放持续授权（§12.5）。
       'approvals.respond': (p) => harness.approvals.respond(p.approvalId, p.decision, p.grant ? { grant: p.grant } : {}),

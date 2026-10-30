@@ -85,6 +85,7 @@ import {
   type TaskStatus,
   type TaskSummary,
   type TasksEvent,
+  type Schedule,
   type TasksSnapshot,
   type TemplateMessageRef,
   type SkillMessageRef,
@@ -341,6 +342,8 @@ export class Harness {
   readonly #directory: TopicLog<DirectorySnapshot, DirectoryEvent>;
   readonly #tasks: TopicLog<TasksSnapshot, TasksEvent>;
   readonly #agentsTopic: TopicLog<AgentsSnapshot, AgentsEvent>;
+  /** 定时任务（`attachSchedules`）：`tasks` 主题快照里的那一份。没接上时快照里没有这个字段。 */
+  #schedules: (() => Schedule[]) | null = null;
   #runGeneration = 0;
   #closing = false;
 
@@ -406,7 +409,16 @@ export class Harness {
   tasksSnapshot(): TasksSnapshot {
     const tasks = [...this.#states.values()].flatMap((state) => state.tasks().map((task) => summarize(state, task)));
     tasks.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
-    return { tasks, approvals: this.approvals.pending() };
+    return { tasks, approvals: this.approvals.pending(), ...(this.#schedules ? { schedules: this.#schedules() } : {}) };
+  }
+
+  /**
+   * 接上定时任务（runtime-core 的 `ScheduleService`，产品设计 §6.1「定时任务」）：它们和任务、审批一起在 `tasks` 主题上，
+   * 快照取 `list()`，返回的函数发布 `schedule.upsert` / `schedule.removed`。
+   */
+  attachSchedules(list: () => Schedule[]): (event: Extract<TasksEvent, { type: 'schedule.upsert' | 'schedule.removed' }>) => void {
+    this.#schedules = list;
+    return (event) => this.#tasks.publish(event);
   }
 
   /** `tail`：会话主题的快照只送最近几个回合（§11.3）；别的主题不看。 */

@@ -1,5 +1,6 @@
 import type { AccessMode, AgentMode, PendingApproval, PendingApprovalDecision } from './access.ts';
 import type { MessageRef } from './message-ref.ts';
+import type { Schedule, ScheduleCadence, ScheduleFireOutcome, ScheduleTarget } from './schedule.ts';
 import type {
   AgentPolicy,
   AgentPreferences,
@@ -643,6 +644,52 @@ export interface RpcMethods {
   };
   /** 一个任务的验收检查（最新合同里的）与记录过的结果，旧的在前。 */
   'tasks.listChecks': { params: { taskId: Id }; result: { checks: CheckDefinition[]; results: CheckResult[] } };
+
+  /** 定时任务（产品设计 §6.1「定时任务」），新建的在前。与 `tasks` 主题快照里的 `schedules` 相同。 */
+  'schedules.list': { params: Record<string, never>; result: { schedules: Schedule[] } };
+  /**
+   * 从一条会话建立定时任务。`target: 'new'` 时每次在这条会话的项目里新开一条会话，Agent、模型、推理强度与访问模式取这条会话此刻的
+   * （`Schedule.agent`）；无项目会话给 `new`、或会话已归档时 `invalid-request`。`name` 空着取 `prompt` 的开头（`scheduleDefaultName`）。
+   * 频率等不对时 `invalid-request`，`details` 是 `ScheduleProblem`。`runNow`：建好后立即运行一次，规则同 `schedules.run`，`outcome` 是结果。
+   * 同一个 `commandId` 重发回同一个定时任务。
+   */
+  'schedules.create': {
+    params: {
+      conversationId: Id;
+      name?: string;
+      prompt: string;
+      cadence: ScheduleCadence;
+      target: ScheduleTarget;
+      maxRuns: number | null;
+      runNow?: boolean;
+      commandId: Id;
+    };
+    result: { schedule: Schedule; outcome?: ScheduleFireOutcome };
+  };
+  /**
+   * 编辑、暂停或继续。改频率时从现在起重算下一次。`paused: false`（继续）只给启用条件都满足的：目标会话还在且没归档
+   * （`target: 'conversation'`）、项目还在（`new`）、没跑满（跑满的先把 `maxRuns` 改大）；否则 `invalid-request`。
+   * 跑满的（`completed`）改大次数后仍停着，等继续。`target: 'new'` 只给建立时有项目的。
+   */
+  'schedules.update': {
+    params: {
+      scheduleId: Id;
+      name?: string;
+      prompt?: string;
+      cadence?: ScheduleCadence;
+      target?: ScheduleTarget;
+      maxRuns?: number | null;
+      paused?: boolean;
+    };
+    result: { schedule: Schedule };
+  };
+  /**
+   * 立即运行一次：只给启用的（否则 `invalid-request`），规则同到点时——目标会话正忙就排队、上一次还在跑就跳过，记一条手动的运行记录；
+   * 不改下一次到点的时刻。同一个 `commandId` 只运行一次。
+   */
+  'schedules.run': { params: { scheduleId: Id; commandId: Id }; result: { schedule: Schedule; outcome: ScheduleFireOutcome } };
+  /** 删除定时任务本身；它跑过的会话与结果都留着。 */
+  'schedules.remove': { params: { scheduleId: Id }; result: { removed: true } };
 
   /** 待处理的审批（架构设计 §3.12）：会话的与对外服务的，旧的在前。与 `tasks` 主题快照里的 `approvals` 相同。 */
   'approvals.list': { params: Record<string, never>; result: { approvals: PendingApproval[] } };

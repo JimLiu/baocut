@@ -67,6 +67,8 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   'conversations.*',
   'attachments.prepare',
   'tasks.*',
+  // 定时任务（产品设计 §6.1）：到点时发的就是一条 `conversations.send`，与浏览器里能做的相同；只读下只能列出。
+  'schedules.*',
   'space.*',
   'media.*',
   // 预览要的本机字体（架构设计 §9.1）只解析：处理函数对浏览器不下载，句柄只发给挑中的那一个字体文件。
@@ -197,6 +199,7 @@ export const WEB_READ_METHODS: readonly RpcMethod[] = [
   'conversations.get',
   'conversations.page',
   'conversations.search',
+  'schedules.list',
   'tasks.getContract',
   'tasks.listContracts',
   'tasks.listChecks',

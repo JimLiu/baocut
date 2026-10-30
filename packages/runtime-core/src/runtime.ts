@@ -27,6 +27,7 @@ import {
   type RuntimeDiscovery,
   type RuntimeInfo,
   type RuntimeLauncher,
+  type DirectoryEvent,
   type TasksEvent,
 } from '@baocut/protocol';
 import type { CapacitySource, JobManager } from '@baocut/jobs';
@@ -37,6 +38,7 @@ import {
   SkillPrefsStore,
   ConversationStore,
   ProjectStore,
+  ScheduleStore,
   SpaceArtifactStore,
   SpaceMarkStore,
   acquireInstanceLock,
@@ -56,6 +58,7 @@ import { ConversationTools } from './agent-tools/conversation-tools.ts';
 import { openCredentialStore, type CredentialStoreOptions } from './credentials.ts';
 import { retitleFromLinkImports } from './conversation-titles.ts';
 import { JobInbox } from './job-inbox.ts';
+import { ScheduleService } from './schedules/schedule-service.ts';
 import { McpEndpoint } from './agent-tools/mcp-endpoint.ts';
 import { AgentScope } from './agent-tools/agent-scope.ts';
 import { LocalScope } from './agent-tools/local-scope.ts';
@@ -337,6 +340,7 @@ const STOP_ORDER = [
   'locale',
   'activity',
   'legacy-upgrade',
+  'schedules',
   'storage-gc',
   'services',
   'nodes',
@@ -821,6 +825,45 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       videos.noteTask(tasksEvent.task);
       docs.noteTask(tasksEvent.task);
     });
+    // 定时任务（产品设计 §6.1）：到点时发的就是一条 `conversations.send`（带品牌与 skill 的同一条路），发送入口在方法表建好后接上；
+    // 在网关开始监听之前读出，客户端连上时 `tasks` 快照里就有。
+    let sendScheduled: ((params: { conversationId: Id; text: string; commandId: Id }) => Promise<{ taskId: Id }>) | null = null;
+    const scheduleStore = new ScheduleStore(home.schedulesFile, { log: log.child('schedules') });
+    const schedules: ScheduleService = new ScheduleService({
+      store: scheduleStore,
+      log: log.child('schedules'),
+      host: {
+        conversation: (id) => harness.conversationOf(id),
+        hasProject: (id) => harness.listProjects().some((project) => project.id === id),
+        createConversation: ({ projectId, title, agent, commandId }) =>
+          harness.createConversation({
+            projectId,
+            title,
+            commandId,
+            driverId: agent.driverId,
+            model: agent.model,
+            effort: agent.effort,
+            accessMode: agent.accessMode,
+            inherit: true,
+          }),
+        send: (params) => {
+          if (!sendScheduled) return Promise.reject(new Error('Schedule sending is not ready'));
+          return sendScheduled(params);
+        },
+        task: (taskId) => harness.tasksSnapshot().tasks.find((task) => task.taskId === taskId),
+        publish: harness.attachSchedules(() => schedules.list()),
+      },
+    });
+    harness.subscribe('directory', undefined, (event) => {
+      const directoryEvent = event.event as DirectoryEvent;
+      if (directoryEvent.type === 'conversation.upsert') schedules.conversationChanged(directoryEvent.conversation);
+      else if (directoryEvent.type === 'conversation.removed') schedules.conversationRemoved(directoryEvent.conversationId);
+      else if (directoryEvent.type === 'project.removed') schedules.projectRemoved(directoryEvent.projectId);
+    });
+    harness.subscribe('tasks', undefined, (event) => {
+      const tasksEvent = event.event as TasksEvent;
+      if (tasksEvent.type === 'task.upsert') schedules.taskChanged(tasksEvent.task);
+    });
     // 升级前留在会话工作目录里的视频搬进项目，没有会话的工作目录收拾掉（§3.10）。在 Space 首次扫描与客户端连上之前。
     await harness.migrateScratch().catch((error: unknown) => log.warn('Failed to tidy session folders', { error: String(error) }));
     // 默认 Agent 存在偏好设置里（`agent.defaultDriver`，§3.11）：设置页、CLI、`agents.setDefault` 改了它都推送新的 Agent 视图。
@@ -1211,6 +1254,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       activity,
       requestStop: options.requestStop ?? null,
       legacyUpgrade,
+      schedules,
     };
     // Web 服务（§4.8）用同一组处理函数，只把媒体句柄换成它自己的（同源地址、要会话）；白名单在它的网关入口上。
     services.web.bind({
@@ -1230,10 +1274,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     // 在场的用户（工具页的当场授权，§7.9）：这个网关上的桌面界面连接。CLI、智能体、浏览器与对外服务都不算。
     const present = new Set<string>();
     models.grants.setPresence((submitter) => submitter.kind === 'connection' && present.has(submitter.id));
+    const gatewayHandlers = createHandlers(handlerDeps);
+    sendScheduled = async (params) =>
+      gatewayHandlers.methods['conversations.send'](params, { connectionId: 'local:schedules', kind: 'local', name: 'schedules' });
     const gateway = new Gateway({
       token,
       runtime: info,
-      handlers: createHandlers(handlerDeps),
+      handlers: gatewayHandlers,
       log,
       allowedOrigins: options.allowedOrigins,
       http: (request, response) => {
@@ -1261,6 +1308,15 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     // 监听失败时网关自己收拾干净；登记在监听之前，是为了之后写发现文件失败时也关掉它。
     stops.add('gateway', () => gateway.close(), 'Stopping the gateway failed');
+    await schedules.start();
+    stops.add(
+      'schedules',
+      () => {
+        schedules.stop();
+        return scheduleStore.flush();
+      },
+      null,
+    );
     const endpoint = await gateway.listen(options.host, options.port);
     media.setBaseUrl(endpoint.replace(/^ws:/, 'http:'));
     slides.setBaseUrl(endpoint.replace(/^ws:/, 'http:'));

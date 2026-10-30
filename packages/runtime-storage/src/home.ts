@@ -85,6 +85,8 @@ export interface RuntimeHome {
   usageFile: string;
   /** Agent 偏好：各家 Driver 的默认模型、放行策略与「总是允许」规则（默认 Driver 与模式在设置里）。 */
   agentPrefsFile: string;
+  /** 定时任务（产品设计 §6.1「定时任务」）：频率、目标与运行记录。 */
+  schedulesFile: string;
   /** Agent 的探测缓存：每个 Driver 最近一次探测的本机事实（架构设计 §3.11）。删掉只是下次启动要从头探测。 */
   agentProbesFile: string;
   /** 用户添加的 ACP 智能体（`agents.addProvider`，架构设计 §3.11）。`env` 可能含密钥，文件只给所有者读写。 */
@@ -147,6 +149,7 @@ export function resolveRuntimeHome(
     grantsFile: path.join(root, 'store', 'grants.json'),
     usageFile: path.join(root, 'store', 'usage.jsonl'),
     agentPrefsFile: path.join(root, 'store', 'agent-prefs.json'),
+    schedulesFile: path.join(root, 'store', 'schedules.json'),
     agentProbesFile: path.join(root, 'store', 'agent-probes.json'),
     agentProvidersFile: path.join(root, 'store', 'agent-providers.json'),
     skillPrefsFile: path.join(root, 'store', 'skill-prefs.json'),

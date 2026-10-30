@@ -740,6 +740,22 @@ BaoCut 工具经 Codex 的 MCP 调用会等审批，Codex 默认 60 秒就放弃
 - **高风险的定义不随模式放宽到没有**：除 `fullAccess` 外，`auto` 下仍然询问的动作包括项目目录之外的写入（下载目录里新建文件除外：`download`、`downloads_save` 是 `command`）、删除视频或项目、不可撤销的覆盖、需要新授权的数据外发与付费调用（§12.5）。
 - **模式不是授权**。任何模式都不授予数据外发、预算、声音克隆或公开发布的权限，这些仍由 Grant 逐项给出；`fullAccess` 只免除逐次确认，不改变保护范围与版本校验，也不改变 §12.4 关于隔离的说明。
 
+### 3.13 定时任务
+
+`ScheduleService`（`runtime-core/src/schedules/`）按频率把同一段话发给建它的那条会话，或每次在那条会话的项目里新开一条会话（产品设计 §6.1「定时任务」）。数据形状、cron 的解析、下一次的计算与建立时的检查（`nextScheduleRun`、`scheduleProblem`、`scheduleCron`）在 `@baocut/protocol` 的 `schedule.ts`，界面与 Runtime 共用。
+
+- **频率**：每小时（第几分）、每天（时刻）、每周（星期几与时刻）与五段 cron（分 时 日 月 周；周的 7 当作周日；日与周都限定时满足其一就算）。一律按 Runtime 所在电脑的本机时区。夏令时跳过的时刻不跑；重复的那一小时只在时是 `*` 时跑两次。
+- **到点**：计时器按最早的下一次，最长一小时醒一次重新对时（睡眠、改系统时间之后不漂）。到点与「立即运行一次」都先同步记下这一次，再异步发出：
+  - 上一次还在跑或在排队：这次跳过，记一条 `skipped`。
+  - 目标会话正忙（在跑、在等允许或回答）：记一条 `queued`，会话空下来（`directory` 主题的 `conversation.upsert`）时再发，不跳过。发出去之后，那一次的任务到终态（`tasks` 主题的 `task.upsert`）时记完成或失败。
+  - 发消息与界面里发送走同一个 `conversations.send` 处理函数（连接记为 `local:schedules`）：访问模式、审批、提问与预算照常，不替用户放宽。
+  - `target: 'new'` 时先用建立时记下的 Agent、模型、推理强度与访问模式（`Schedule.agent`）在项目里新建会话，标题是定时任务的名称。
+- **迟到**：Runtime 启动或机器睡醒时，最近一次到点在 5 分钟（`SCHEDULE_GRACE_MS`）之内的照常发一次；更早的不补跑，合并成一条 `missed`（带次数），从现在起算下一次。上次关掉时还在 `running` 的，按任务的终态收尾；还没拿到任务的按失败记。
+- **暂停与完成**：目标会话归档或删除、`new` 的项目从 BaoCut 移除时自动暂停，记下 `pauseReason`（`directory` 主题的事件触发）。完成与失败算进 `runCount`，到 `maxRuns` 标为 `completed`。「继续」与「立即运行一次」只给满足条件的，否则 `invalid-request`。
+- **持久形态**：`store/schedules.json`（`ScheduleStore`），整份读进内存，改一次写一次、写串行；运行记录只留最近 50 条。认不出的条目丢掉，整个文件不是 JSON 时改名保留、取空列表。
+- **推送**：`tasks` 主题的快照带 `schedules`，变化发 `schedule.upsert` / `schedule.removed`。方法见命令协议规范 §4.1 的 `schedules`。`create` 与 `run` 同一个 `commandId` 只生效一次。Web 开放全部 `schedules.*`（到点时发的就是一条 `conversations.send`），只读下只能 `list`。
+- Runtime 关着时不跑：没有系统级的计划任务，也不唤醒电脑。
+
 ---
 
 ## 4. 业务协议

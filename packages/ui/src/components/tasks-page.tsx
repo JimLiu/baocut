@@ -2,6 +2,7 @@ import type { Id } from '@baocut/protocol';
 import { ActionButton, Content, Heading, IllustratedMessage, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { TASK_VIEW_COPY } from '../copy.ts';
+import { ScheduleDetail } from './agent-schedule/schedule-detail.tsx';
 import { HISTORY_PAGE, clearedUpTo } from '../model/task-list.ts';
 import { useTaskHistory } from '../state/task-history-store.ts';
 import { TaskCard } from './tasks/task-card.tsx';
@@ -19,8 +20,10 @@ const older = style({ display: 'flex', gap: 8, marginTop: 8 });
 /**
  * 后台任务（原型 page-tasks.jsx、产品设计 §2.1 用户修订）：Agent 会话里的任务与转录、配音、生成这些 Job 合成一张表，
  * 分「进行中 / 已完成」两节；选一条看详情。任务属于会话或视频，这里只是汇总。已完成只列最近的，可以清空（§6.1）。
+ * 定时任务（§6.1「定时任务」）列在侧栏的「定时」一段，选一个看它的详情。
  */
-export function TasksPage({ taskId }: { taskId?: Id }) {
+export function TasksPage({ taskId, scheduleId }: { taskId?: Id; scheduleId?: Id }) {
+  if (scheduleId) return <ScheduleDetail scheduleId={scheduleId} />;
   return taskId ? <TaskDetail taskId={taskId} /> : <TaskList />;
 }
 

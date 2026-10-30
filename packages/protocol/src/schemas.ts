@@ -19,6 +19,7 @@ import { USAGE_PERIODS } from './usage.ts';
 import { MAX_SELECTED_GLOSSARIES, MAX_SPEAKER_VOICES } from './library.ts';
 import { WEB_METHOD_PATTERN } from './web.ts';
 import { AGENT_SKILL_HOST_FOLDERS } from './catalog.ts';
+import { SCHEDULE_LIMITS } from './schedule.ts';
 import { SLIDE_ANNOTATION_LIMITS } from './slides.ts';
 import { DESIGN_ANNOTATION_LIMITS } from './design.ts';
 import { DESIGN_SYSTEM_ANNOTATION_LIMITS } from './design-system.ts';
@@ -67,6 +68,15 @@ const topic = z.union([
   z.string().regex(/^video:[A-Za-z0-9_-]+$/),
 ]);
 const empty = z.object({}).strict();
+/** 定时任务的频率（产品设计 §6.1「定时任务」）：形状在这里查，取值（时刻、cron 能不能到点）由 `scheduleProblem` 查。 */
+const scheduleCadence = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('hourly'), minute: z.number().int().min(0).max(59) }).strict(),
+  z.object({ type: z.literal('daily'), time: z.string().max(5) }).strict(),
+  z.object({ type: z.literal('weekly'), days: z.array(z.number().int().min(0).max(6)).max(7), time: z.string().max(5) }).strict(),
+  z.object({ type: z.literal('cron'), expr: z.string().max(SCHEDULE_LIMITS.cron) }).strict(),
+]);
+const scheduleTarget = z.enum(['conversation', 'new']);
+const scheduleMaxRuns = z.number().int().min(1).max(SCHEDULE_LIMITS.maxRuns).nullable();
 /** 访问模式：新值与仍被接受的旧值（架构设计 §3.12）。换成新值由收到的一方做（`normalizeAgentMode`）。 */
 const agentMode = z.enum([...AGENT_MODES, ...LEGACY_AGENT_MODES]);
 const serviceId = z.enum(SERVICE_IDS);
@@ -1102,6 +1112,32 @@ export const methodParamSchemas = {
     })
     .strict(),
   'tasks.listChecks': z.object({ taskId: id }).strict(),
+  'schedules.list': empty,
+  'schedules.create': z
+    .object({
+      conversationId: id,
+      name: z.string().max(SCHEDULE_LIMITS.name).optional(),
+      prompt: z.string().min(1).max(SCHEDULE_LIMITS.prompt),
+      cadence: scheduleCadence,
+      target: scheduleTarget,
+      maxRuns: scheduleMaxRuns,
+      runNow: z.boolean().optional(),
+      commandId: id,
+    })
+    .strict(),
+  'schedules.update': z
+    .object({
+      scheduleId: id,
+      name: z.string().max(SCHEDULE_LIMITS.name).optional(),
+      prompt: z.string().min(1).max(SCHEDULE_LIMITS.prompt).optional(),
+      cadence: scheduleCadence.optional(),
+      target: scheduleTarget.optional(),
+      maxRuns: scheduleMaxRuns.optional(),
+      paused: z.boolean().optional(),
+    })
+    .strict(),
+  'schedules.run': z.object({ scheduleId: id, commandId: id }).strict(),
+  'schedules.remove': z.object({ scheduleId: id }).strict(),
   'approvals.list': empty,
   'approvals.respond': z.object({ approvalId: id, decision: z.enum(['allow', 'deny']), grant: approvalGrantChoice.optional() }).strict(),
   'grants.list': z.object({ recipient: providerId.optional(), videoId: id.optional(), includeEnded: z.boolean().optional() }).strict(),

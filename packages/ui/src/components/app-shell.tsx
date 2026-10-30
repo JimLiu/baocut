@@ -125,7 +125,7 @@ export function AppShell({ platform }: { platform: string }) {
             ) : route.tab === 'skills' ? (
               <SkillsPage route={route} />
             ) : route.tab === 'tasks' ? (
-              <TasksPage taskId={route.taskId} />
+              <TasksPage taskId={route.taskId} scheduleId={route.scheduleId} />
             ) : route.tab === 'services' ? (
               <ServicesPage service={route.service} />
             ) : route.tab === 'settings' ? (

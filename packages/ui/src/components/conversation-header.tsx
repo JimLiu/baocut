@@ -18,6 +18,7 @@ import {
 import Add from '@react-spectrum/s2/icons/Add';
 import Asset from '@react-spectrum/s2/icons/Asset';
 import Brand from '@react-spectrum/s2/icons/Brand';
+import ClockPending from '@react-spectrum/s2/icons/ClockPending';
 import Delete from '@react-spectrum/s2/icons/Delete';
 import Edit from '@react-spectrum/s2/icons/Edit';
 import More from '@react-spectrum/s2/icons/More';
@@ -30,6 +31,7 @@ import Search from '@react-spectrum/s2/icons/Search';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { untitled } from '../copy.ts';
+import { schedulesOf } from '../model/agent-schedule.ts';
 import { liveWord, type LiveWord } from '../model/sidebar.ts';
 import { formatBytes, isPlayable, KIND_LABEL, videoTargetOf } from '../model/space.ts';
 import { useRuntime } from '../runtime/context.tsx';
@@ -38,9 +40,12 @@ import { openConversationFind } from '../state/conversation-find-store.ts';
 import { useProject } from '../state/directory-store.ts';
 import { useShell } from '../state/shell-store.ts';
 import { useSpace } from '../state/space-store.ts';
+import { useTasks } from '../state/tasks-store.ts';
 import { useTimelineItems } from '../state/timeline-store.ts';
 import { FIND_SHORTCUT } from './thread/conversation-find.tsx';
 import { NameDialog } from './name-dialog.tsx';
+import { SCHEDULE_COPY } from './agent-schedule/schedule-copy.ts';
+import { ScheduleDialog } from './agent-schedule/schedule-dialog.tsx';
 import { useProjectBrand } from '../state/brands-store.ts';
 import { PROJECT_MENU_COPY } from './skills/skills-copy.ts';
 
@@ -99,7 +104,9 @@ export function ConversationHeader({
   const project = useProject(conversation.projectId);
   const brand = useProjectBrand(conversation.projectId);
   const go = useShell((s) => s.go);
-  const [dialog, setDialog] = useState<'rename' | 'delete' | null>(null);
+  const [dialog, setDialog] = useState<'rename' | 'delete' | 'schedule' | null>(null);
+  // 定时任务（产品设计 §6.1「定时任务」）：在这条会话上建过几个。
+  const scheduled = useTasks((s) => schedulesOf(s.schedules, conversation.id));
   const title = conversation.title || untitled();
   // 有消息才有可查的：查找条只在线程里有内容时出现（产品设计 §3.2.2）。
   const hasMessages = useTimelineItems(conversation.id).length > 0;
@@ -118,6 +125,7 @@ export function ConversationHeader({
     else if (key === 'brand' && project) go({ tab: 'skills', brand: project.id });
     else if (key === 'reveal') void runtime.host.revealPath(project?.path ?? conversation.cwd);
     else if (key === 'find') openConversationFind(conversation.id);
+    else if (key === 'schedule') setDialog('schedule');
   };
 
   return (
@@ -160,6 +168,13 @@ export function ConversationHeader({
               <Edit />
               <Text slot="label">{S.common.renameEllipsis}</Text>
             </MenuItem>
+            {conversation.archived ? null : (
+              <MenuItem id="schedule" textValue={SCHEDULE_COPY.menu}>
+                <ClockPending />
+                <Text slot="label">{SCHEDULE_COPY.menu}</Text>
+                {scheduled ? <Text slot="description">{SCHEDULE_COPY.menuCount(scheduled)}</Text> : null}
+              </MenuItem>
+            )}
             {project ? (
               <MenuItem id="space" textValue={S.conversationHeader.viewInSpace(project.name)}>
                 <Asset />
@@ -205,6 +220,8 @@ export function ConversationHeader({
             }}>
             {S.conversationHeader.deleteBody}
           </AlertDialog>
+        ) : dialog === 'schedule' ? (
+          <ScheduleDialog conversation={conversation} onClose={() => setDialog(null)} />
         ) : null}
       </DialogContainer>
       {dialog === 'rename' ? (

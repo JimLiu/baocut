@@ -16,6 +16,7 @@ export * from './keychain-credential-store.ts';
 export * from './credential-migration.ts';
 export * from './grant-store.ts';
 export * from './agent-prefs.ts';
+export * from './schedules.ts';
 export * from './agent-probes.ts';
 export * from './agent-providers.ts';
 export * from './skill-prefs.ts';

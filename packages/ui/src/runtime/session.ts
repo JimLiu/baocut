@@ -25,6 +25,8 @@ import {
   type MediaHandle,
   type MediaTarget,
   type Project,
+  type RpcParams,
+  type RpcResult,
   type SpaceEntry,
   type SpaceReadScope,
   type SubtitleTrack,
@@ -480,6 +482,28 @@ export class RuntimeSession {
   async importSession(driverId: DriverId, nativeId: string, adopt: boolean): Promise<Conversation> {
     const { conversation } = await this.client.request('agents.importSession', { driverId, nativeId, adopt, commandId: newId('cmd') });
     return conversation;
+  }
+
+  /**
+   * 定时任务（产品设计 §6.1「定时任务」）：按频率把一段话发给这条会话，或每次在它的项目里新开一条。列表在 `tasks` 主题里（`useTasks`）。
+   * 建立与「立即运行一次」带 `commandId`，重发只做一次。
+   */
+  createSchedule(params: Omit<RpcParams<'schedules.create'>, 'commandId'>): Promise<RpcResult<'schedules.create'>> {
+    return this.client.request('schedules.create', { ...params, commandId: newId('cmd') });
+  }
+
+  /** 改定时任务；`paused` 暂停或继续（目标不在或已跑满时 Runtime 拒绝继续，写明原因）。 */
+  async updateSchedule(params: RpcParams<'schedules.update'>): Promise<void> {
+    await this.client.request('schedules.update', params);
+  }
+
+  runSchedule(scheduleId: Id): Promise<RpcResult<'schedules.run'>> {
+    return this.client.request('schedules.run', { scheduleId, commandId: newId('cmd') });
+  }
+
+  /** 只删定时任务本身：它跑过的会话与运行结果都留着。 */
+  async removeSchedule(scheduleId: Id): Promise<void> {
+    await this.client.request('schedules.remove', { scheduleId });
   }
 
   async deleteConversation(conversationId: Id): Promise<void> {

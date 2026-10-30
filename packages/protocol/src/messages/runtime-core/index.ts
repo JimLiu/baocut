@@ -29,3 +29,4 @@ export * from './rc-docs.ts';
 export * from './rc-runtime.ts';
 export * from './rc-ai-tools.ts';
 export * from './rc-semantic.ts';
+export * from './rc-schedules.ts';

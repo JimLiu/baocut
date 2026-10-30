@@ -43,18 +43,18 @@ export function applyDirectoryEvent(state: DirectorySnapshot, event: DirectoryEv
   }
 }
 
-/** 新任务放在最前面，与快照的排序一致。 */
+/** 新任务放在最前面，与快照的排序一致。定时任务同样新建的在前。 */
 export function applyTasksEvent(state: TasksSnapshot, event: TasksEvent): TasksSnapshot {
   switch (event.type) {
     case 'task.upsert': {
       const index = state.tasks.findIndex((t) => t.taskId === event.task.taskId);
-      if (index < 0) return withApprovals({ tasks: [event.task, ...state.tasks] }, state);
+      if (index < 0) return { ...state, tasks: [event.task, ...state.tasks] };
       const tasks = state.tasks.slice();
       tasks[index] = event.task;
-      return withApprovals({ tasks }, state);
+      return { ...state, tasks };
     }
     case 'task.removed':
-      return withApprovals({ tasks: state.tasks.filter((t) => t.taskId !== event.taskId) }, state);
+      return { ...state, tasks: state.tasks.filter((t) => t.taskId !== event.taskId) };
     // 待处理的审批（会话的与对外服务的）：出现时追加在后面（旧的在前，与快照一致），结束时去掉。
     // 旧镜像没有 `approvals` 时当作空列表。
     case 'approval.upsert': {
@@ -62,15 +62,20 @@ export function applyTasksEvent(state: TasksSnapshot, event: TasksEvent): TasksS
       const index = approvals.findIndex((a) => a.approvalId === event.approval.approvalId);
       if (index < 0) approvals.push(event.approval);
       else approvals[index] = event.approval;
-      return { tasks: state.tasks, approvals };
+      return { ...state, approvals };
     }
     case 'approval.removed':
-      return { tasks: state.tasks, approvals: (state.approvals ?? []).filter((a) => a.approvalId !== event.approvalId) };
+      return { ...state, approvals: (state.approvals ?? []).filter((a) => a.approvalId !== event.approvalId) };
+    case 'schedule.upsert': {
+      const schedules = (state.schedules ?? []).slice();
+      const index = schedules.findIndex((s) => s.id === event.schedule.id);
+      if (index < 0) schedules.unshift(event.schedule);
+      else schedules[index] = event.schedule;
+      return { ...state, schedules };
+    }
+    case 'schedule.removed':
+      return { ...state, schedules: (state.schedules ?? []).filter((s) => s.id !== event.scheduleId) };
   }
-}
-
-function withApprovals(next: TasksSnapshot, state: TasksSnapshot): TasksSnapshot {
-  return state.approvals ? { ...next, approvals: state.approvals } : next;
 }
 
 /**

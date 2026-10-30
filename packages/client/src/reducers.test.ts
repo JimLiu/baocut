@@ -10,6 +10,7 @@ import {
   type ModelBundleStatus,
   type ModelsSnapshot,
   type PendingApproval,
+  type Schedule,
   type TasksSnapshot,
   type TimelineItem,
 } from '@baocut/protocol';
@@ -269,6 +270,37 @@ describe('applyTasksEvent', () => {
     expect(next.approvals).toHaveLength(1);
     expect(applyTasksEvent(legacy, { type: 'approval.removed', approvalId: 'x', outcome: 'cancelled' }).approvals).toEqual([]);
     expect(applyTasksEvent(legacy, { type: 'task.removed', taskId: 't' })).toEqual({ tasks: [] });
+  });
+
+  it('定时任务新建的在前、改了原地换、删了去掉；别的字段不动', () => {
+    const schedule = (id: string, name = id): Schedule => ({
+      id,
+      name,
+      prompt: 'Check',
+      cadence: { type: 'daily', time: '09:00' },
+      conversationId: 'c1',
+      target: 'conversation',
+      projectId: null,
+      agent: { driverId: 'claude', model: null, effort: null, accessMode: null },
+      maxRuns: null,
+      runCount: 0,
+      status: 'active',
+      pauseReason: null,
+      nextAt: null,
+      createdAt: '2026-10-30T00:00:00.000Z',
+      updatedAt: '2026-10-30T00:00:00.000Z',
+      runs: [],
+    });
+    const state: TasksSnapshot = { tasks: [], approvals: [] };
+    const one = applyTasksEvent(state, { type: 'schedule.upsert', schedule: schedule('s1') });
+    const two = applyTasksEvent(one, { type: 'schedule.upsert', schedule: schedule('s2') });
+    expect(two.schedules!.map((s) => s.id)).toEqual(['s2', 's1']);
+    const renamed = applyTasksEvent(two, { type: 'schedule.upsert', schedule: schedule('s1', 'Renamed') });
+    expect(renamed.schedules!.map((s) => s.name)).toEqual(['s2', 'Renamed']);
+    const removed = applyTasksEvent(renamed, { type: 'schedule.removed', scheduleId: 's2' });
+    expect(removed.schedules!.map((s) => s.id)).toEqual(['s1']);
+    expect(removed.approvals).toBe(state.approvals);
+    expect(applyTasksEvent(removed, { type: 'task.removed', taskId: 't' }).schedules).toBe(removed.schedules);
   });
 });
 

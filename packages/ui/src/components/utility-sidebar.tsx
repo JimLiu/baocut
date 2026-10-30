@@ -4,10 +4,13 @@ import { ProgressCircle, SideNav, SideNavHeader, SideNavItem, SideNavItemContent
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
 import CheckmarkCircle from '@react-spectrum/s2/icons/CheckmarkCircle';
 import Clock from '@react-spectrum/s2/icons/Clock';
+import ClockPending from '@react-spectrum/s2/icons/ClockPending';
+import Pause from '@react-spectrum/s2/icons/Pause';
 import ViewGrid from '@react-spectrum/s2/icons/ViewGrid';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { SERVICE_COPY } from '../copy.ts';
+import { describeCadence, scheduleStatus } from '../model/agent-schedule.ts';
 import { SERVICE_IDS, serviceStateLabel, serviceTone, type ServiceTone } from '../model/services.ts';
 import { TOOL_GROUPS } from '../model/tool-catalog.ts';
 import { plannedReason } from '../model/tools-gallery.ts';
@@ -15,6 +18,8 @@ import { hrefFor, type Route } from '../state/shell-store.ts';
 import { PageSidebar, SidebarNote, SidebarTitle, sidebarBody, useSidebarRoute } from './page-sidebar.tsx';
 import { SERVICE_ICON } from './services/service-icon.tsx';
 import { useServiceStates } from './services/use-share-status.ts';
+import { useTasks } from '../state/tasks-store.ts';
+import { SCHEDULE_COPY } from './agent-schedule/schedule-copy.ts';
 import { useTaskSections } from './tasks/use-task-sections.ts';
 import { TOOL_ICON } from './tools/tool-icon.tsx';
 import { useNow } from './use-now.ts';
@@ -59,7 +64,9 @@ const dot = style({
 export function UtilitySidebar({ kind }: { kind: UtilityKind }) {
   const route = useSidebarRoute();
   // 历史与任务页的「已完成」列同一批（产品设计 §6.1）；30 天的界线走得慢，一分钟重算一次足够。
-  const { active, history } = useTaskSections(useNow(60_000, kind === 'tasks'));
+  const now = useNow(60_000, kind === 'tasks');
+  const { active, history } = useTaskSections(now);
+  const schedules = useTasks((s) => s.schedules);
   const serviceStates = useServiceStates();
   const groups = [active, history];
 
@@ -100,6 +107,22 @@ export function UtilitySidebar({ kind }: { kind: UtilityKind }) {
                   SERVICE_ICON[id],
                   light(serviceTone(serviceStates[id])),
                   `${SERVICE_COPY[id].name} · ${serviceStateLabel(id, serviceStates[id])}`,
+                ),
+              )}
+            </SideNavSection>
+          ) : null}
+          {/* 定时任务（产品设计 §6.1「定时任务」）：在会话标题栏 ⋯「定时运行…」里建，这里一行一个，点开是详情。 */}
+          {kind === 'tasks' && schedules.length ? (
+            <SideNavSection id="group:schedules">
+              <SideNavHeader>{SCHEDULE_COPY.section(schedules.length)}</SideNavHeader>
+              {schedules.map((schedule) =>
+                item(
+                  `schedule:${schedule.id}`,
+                  schedule.name,
+                  { tab: 'tasks', scheduleId: schedule.id },
+                  schedule.status === 'paused' ? Pause : schedule.status === 'completed' ? CheckmarkCircle : ClockPending,
+                  undefined,
+                  `${schedule.name} · ${describeCadence(schedule.cadence)} · ${scheduleStatus(schedule, now).label}`,
                 ),
               )}
             </SideNavSection>

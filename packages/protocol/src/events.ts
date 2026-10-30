@@ -15,6 +15,7 @@ import type { GrantsEvent, GrantsSnapshot } from './grants.ts';
 import type { JobsEvent, JobsSnapshot } from './jobs.ts';
 import type { LegacyImportEvent, LegacyImportSnapshot } from './legacy-import.ts';
 import type { LibraryEvent, LibrarySnapshot } from './library.ts';
+import type { Schedule } from './schedule.ts';
 import type { AgentsView } from './methods.ts';
 import type { ModelsEvent, ModelsSnapshot } from './models.ts';
 import type { SettingsEvent, SettingsSnapshot } from './settings.ts';
@@ -94,13 +95,17 @@ export interface TasksSnapshot {
    * 可选只是为了让只认任务的旧镜像（没有这个字段）照样能套用 `tasks` 主题的事件。
    */
   approvals?: PendingApproval[];
+  /** 定时任务（产品设计 §6.1「定时任务」），新建的在前。同 `approvals`，可选只为旧镜像。 */
+  schedules?: Schedule[];
 }
 
 export type TasksEvent =
   | { type: 'task.upsert'; task: TaskSummary }
   | { type: 'task.removed'; taskId: Id }
   | { type: 'approval.upsert'; approval: PendingApproval }
-  | { type: 'approval.removed'; approvalId: Id; outcome: ApprovalOutcome };
+  | { type: 'approval.removed'; approvalId: Id; outcome: ApprovalOutcome }
+  | { type: 'schedule.upsert'; schedule: Schedule }
+  | { type: 'schedule.removed'; scheduleId: Id };
 
 export interface SpaceSnapshot {
   entries: SpaceEntry[];

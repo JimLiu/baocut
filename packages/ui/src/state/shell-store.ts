@@ -80,7 +80,8 @@ export type Route =
    */
   | { tab: 'settings'; section: SettingsSection; providerId?: string; from?: ProvidersFrom }
   | { tab: 'models'; category: ModelCategory; page?: ModelPage }
-  | { tab: 'tasks'; taskId?: Id }
+  /** `scheduleId`：定时任务的详情（产品设计 §6.1「定时任务」），列在后台任务侧栏的「定时」一段。 */
+  | { tab: 'tasks'; taskId?: Id; scheduleId?: Id }
   | { tab: 'services'; service?: string }
   | { tab: 'tools'; tool?: ToolId };
 
@@ -770,6 +771,7 @@ export function hrefFor(route: Route): string {
     case 'models':
       return route.page ? `/settings/models/${route.category}/${route.page}` : `/settings/models/${route.category}`;
     case 'tasks':
+      if (route.scheduleId) return `/tasks/schedules/${encodeURIComponent(route.scheduleId)}`;
       return route.taskId ? `/tasks/${encodeURIComponent(route.taskId)}` : '/tasks';
     case 'services':
       return route.service ? `/services/${encodeURIComponent(route.service)}` : '/services';
@@ -857,6 +859,7 @@ export function parseHref(href: string): Route {
     return isModelPage(b) ? { tab: 'models', category, page: b } : { tab: 'models', category };
   }
   if (head === 'skills') return parseSkillsRoute(a, query);
+  if (head === 'tasks' && a === 'schedules' && b) return { tab: 'tasks', scheduleId: decodeURIComponent(b) };
   if (head === 'tasks') return a ? { tab: 'tasks', taskId: decodeURIComponent(a) } : { tab: 'tasks' };
   if (head === 'archived') return a ? { tab: 'archived', focus: decodeURIComponent(a) } : { tab: 'archived' };
   // 远端算力的旧链接在服务页。

@@ -49,6 +49,7 @@ const routes: Route[] = [
   { tab: 'models', category: 'tts', page: 'voices' },
   { tab: 'tasks' },
   { tab: 'tasks', taskId: 't/1' },
+  { tab: 'tasks', scheduleId: 'sch/1' },
   { tab: 'tools' },
   { tab: 'tools', tool: 'translate-subtitles' },
   { tab: 'services' },
