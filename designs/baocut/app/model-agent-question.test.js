@@ -22,6 +22,14 @@ test('draftAnswers：选了「其他」要写了字才算答了，写的字代�
     {q1: ['爵士'], q2: ['片头', '转场']});
 });
 
+test('draftAnswers：填空题没有选项，写的字就是答案，空白不算', () => {
+  const qs = [QUESTIONS[0], {id: 'q3', header: '标题', question: '封面标题写什么？', options: [], multiSelect: false}];
+  assert.equal(Q.isFillIn(qs[1]), true);
+  assert.equal(Q.isFillIn(qs[0]), false);
+  assert.equal(Q.draftAnswers(qs, {picked: {q1: ['轻快']}, other: {q3: '   '}}), null);
+  assert.deepEqual(Q.draftAnswers(qs, {picked: {q1: ['轻快']}, other: {q3: ' 三分钟看懂剪辑 '}}), {q1: ['轻快'], q3: ['三分钟看懂剪辑']});
+});
+
 test('answerText、stateLabel、replyFor、pendingSummary', () => {
   assert.equal(Q.answerText({q2: ['片头', '片尾']}, 'q2'), '片头、片尾');
   assert.equal(Q.answerText({}, 'q1'), '没有回答');

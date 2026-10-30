@@ -10,6 +10,7 @@ import {
   questionAnswerText,
   questionDecidedLabel,
   questionDraftAnswers,
+  questionIsFillIn,
   stepsSummary,
   toolStep,
   toolTitle,
@@ -496,6 +497,14 @@ describe('审批卡', () => {
     expect(questionDraftAnswers(questions, { picked: { q1: [OTHER_OPTION], q2: ['Voice'] }, other: { q1: '  ' } })).toBeNull();
     expect(questionDraftAnswers(questions, { picked: { q1: [OTHER_OPTION], q2: ['Voice'] }, other: { q1: ' 4:3 ' } })).toEqual({ q1: ['4:3'], q2: ['Voice'] });
     expect(questionDraftAnswers(questions, { picked: { q1: ['9:16', '16:9'], q2: ['Voice'] }, other: {} })).toEqual({ q1: ['9:16'], q2: ['Voice'] });
+  });
+
+  it('填空题没有选项：写的字就是答案，空白不算', () => {
+    const fill: AgentQuestion = { id: 'q3', header: '', question: 'Cover title?', options: [], multiSelect: false, allowOther: true };
+    expect(questionIsFillIn(fill)).toBe(true);
+    expect(questionIsFillIn(questions[0]!)).toBe(false);
+    expect(questionDraftAnswers([fill], { picked: {}, other: { q3: '   ' } })).toBeNull();
+    expect(questionDraftAnswers([fill], { picked: {}, other: { q3: ' Deterministic rendering ' } })).toEqual({ q3: ['Deterministic rendering'] });
   });
 });
 

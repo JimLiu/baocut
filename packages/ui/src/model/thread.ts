@@ -376,14 +376,19 @@ export interface QuestionDraft {
   other: Record<string, string>;
 }
 
+/** 填空题：没有选项，只有一个输入框（Pi 扩展的 input / editor，或智能体只给了问题）。写的字记在草稿的 `other` 里。 */
+export function questionIsFillIn(question: AgentQuestion): boolean {
+  return question.options.length === 0;
+}
+
 /**
  * 草稿 → 要交的答案。选了「其他」但没写字的不算；有一题没答就返回 null（「发送回答」不可用）。
- * 单选题只取第一个。
+ * 单选题只取第一个；填空题按选了「其他」算。
  */
 export function questionDraftAnswers(questions: AgentQuestion[], draft: QuestionDraft): AgentQuestionAnswers | null {
   const answers: AgentQuestionAnswers = {};
   for (const q of questions) {
-    const picked = draft.picked[q.id] ?? [];
+    const picked = questionIsFillIn(q) ? [OTHER_OPTION] : (draft.picked[q.id] ?? []);
     const other = picked.includes(OTHER_OPTION) ? (draft.other[q.id] ?? '').trim() : '';
     const values = [...picked.filter((v) => v !== OTHER_OPTION), ...(other ? [other] : [])];
     if (values.length === 0) return null;

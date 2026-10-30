@@ -2912,6 +2912,14 @@ div.blkw { display: inline; }
 .aquest__text { margin: 0; font-size: 14px; line-height: 1.6; color: var(--gray-900); overflow-wrap: anywhere; }
 .aquest__opt { display: flex; flex-direction: column; }
 .aquest__checks { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+/* 带预览的选项：预览在单选或勾选框下面、跟标签文字对齐，不进标签。图点了选这一项，不另画选中态（选中只看单选框）。 */
+.aquest__item { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; align-self: stretch; }
+.aquest__thumb { display: block; margin-inline-start: 24px; padding: 0; border: 0; border-radius: 8px; background: var(--gray-75); cursor: pointer; overflow: hidden; transition: transform var(--ease); }
+.aquest__thumb:active { transform: scale(0.96); }
+.aquest__thumb img { display: block; max-width: 240px; max-height: 160px; }
+.aquest__player { align-self: stretch; margin-inline-start: 24px; max-width: 360px; min-width: 0; }
+.aquest__player .media-video video { aspect-ratio: 16 / 9; max-height: none; background: var(--gray-75); }
+.aquest__player--audio .amd-media.media-audio-inline { display: flex; max-width: none; }
 .aquest__desc { font-size: 12px; color: var(--gray-700); }
 .aquest__answer { margin: 0; font-size: 12px; color: var(--gray-800); overflow-wrap: anywhere; }
 .aquest__acts { display: flex; flex-wrap: wrap; gap: 6px; }

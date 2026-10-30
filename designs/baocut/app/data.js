@@ -2540,9 +2540,11 @@
          {id: 'm2', role: 'tool', cmd: 'bcut project info project.bcut', status: 'done', took: '0.2s', out: 'duration 38:20 · 4 章 · 1 位说话人'},
          {id: 'm3', role: 'assistant', text: '这一讲 38 分钟、4 章。配之前有两件事你定一下比我猜更快：'},
          {id: 'm4', role: 'question', state: 'pending', questions: [
-           {id: 'q1', header: '风格', question: '音乐想要什么感觉？', multiSelect: false, options: [
-             {label: '轻快', description: '木吉他和拍手，节奏明亮'},
-             {label: '沉稳', description: '钢琴和弦乐垫底，不抢讲解'},
+           {id: 'q1', header: '风格', question: '音乐想要什么感觉？各试了一段，可以先听：', multiSelect: false, options: [
+             {label: '轻快', description: '木吉他和拍手，节奏明亮',
+              preview: {kind: 'audio', path: '试听/轻快.wav', src: 'assets/media-preview/audio-preview-demo.wav'}},
+             {label: '沉稳', description: '钢琴和弦乐垫底，不抢讲解',
+              preview: {kind: 'audio', path: '试听/沉稳.wav', src: 'assets/media-preview/audio-preview-demo.wav'}},
              {label: '电子', description: '合成器律动，偏科技感'},
            ]},
            {id: 'q2', header: '位置', question: '放在哪几处？', multiSelect: true, options: [
@@ -2550,6 +2552,29 @@
              {label: '每章转场', description: null},
              {label: '片尾', description: null},
            ]},
+         ]},
+       ]},
+      /* 带预览的提问与填空题（产品设计 §6.6「提问」）：选封面时每个选项下面是那张图，点图也算选；片头动效带一段视频，
+         只播不选；最后一题没有选项，直接写。 */
+      {id: 's47', title: '课程 03 的封面和片头', project: 'p3', harness: 'claude', model: 'sonnet', effort: 'mid',
+       status: 'waiting', ago: 4,
+       messages: [
+         {id: 'm1', role: 'user', text: '给第 03 讲做个封面，片头要不要动效你看着办，拿不准就问我。', ...turnLive(80)},
+         {id: 'm2', role: 'tool', cmd: 'bcut media frames project.bcut --pick 3 --out 封面/', status: 'done', took: '1.8s',
+          out: '封面/候选-a.svg · 封面/候选-b.svg · 封面/候选-c.svg'},
+         {id: 'm3', role: 'assistant', text: '从画面里挑了三帧做封面候选，片头也试做了一段动效。这几件你定：'},
+         {id: 'm4', role: 'question', state: 'pending', questions: [
+           {id: 'q1', header: '封面', question: '封面用哪一张？', multiSelect: false, options: [
+             {label: '候选 A', description: '讲台全景', preview: {kind: 'image', path: '封面/候选-a.svg', src: 'assets/media-preview/cover-a.svg'}},
+             {label: '候选 B', description: '板书特写', preview: {kind: 'image', path: '封面/候选-b.svg', src: 'assets/media-preview/cover-b.svg'}},
+             {label: '候选 C', description: '讲者近景', preview: {kind: 'image', path: '封面/候选-c.svg', src: 'assets/media-preview/cover-c.svg'}},
+           ]},
+           {id: 'q2', header: '片头', question: '片头加这段动效吗？', multiSelect: false, allowOther: false, options: [
+             {label: '加', description: '6 秒，色块转场进标题',
+              preview: {kind: 'video', path: '片头/色块动效.webm', src: 'assets/media-preview/geometric-demo.webm', poster: 'assets/media-preview/video-poster.svg'}},
+             {label: '不加', description: '直接从讲解开始'},
+           ]},
+           {id: 'q3', header: '标题', question: '封面上的标题写什么？', multiSelect: false, options: []},
          ]},
        ]},
       /* 等你批准方案的一条（产品设计 §6.6「批准方案」）：会话在第五档「先给方案」里，Agent 只读、写好方案停下来。

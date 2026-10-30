@@ -1,8 +1,8 @@
 /* BaoCut 原型 — Agent 向你提问（产品设计 §6.6「提问」）里「算出来的东西」：window.BC_AGENT_QUESTION。
    无 React、无 DOM，node --test 直接 require。只在 App 入口加载。
 
-   一张提问卡是一道或几道选择题（单选或多选），末尾可以选「其他」自己写。卡片上的草稿是
-   `{picked: {题号: [选中的 label]}, other: {题号: 自己写的}}`；每题都有答案才能发送。
+   一张提问卡是一道或几道选择题（单选或多选），末尾可以选「其他」自己写；没有选项的是填空题，写的字就是答案。
+   卡片上的草稿是 `{picked: {题号: [选中的 label]}, other: {题号: 自己写的}}`；每题都有答案才能发送。
    回答之后卡片收成一行记录：已回答 / 已跳过 / 已在输入框回复 / 已停止。 */
 (function () {
   /** 「其他」这一项在草稿里的值（不会和选项 label 撞上）。 */
@@ -10,13 +10,18 @@
 
   const STATE_LABELS = {answered: '已回答', skipped: '已跳过', byMessage: '已在输入框回复', stopped: '已停止'};
 
-  /** 草稿 → 答案：`{题号: [答案]}`。有一题没答（或选了「其他」却没写）就是 null。单选只取第一个。 */
+  /** 填空题：没有选项，只有一个输入框。 */
+  function isFillIn(q) {
+    return !(q && q.options && q.options.length);
+  }
+
+  /** 草稿 → 答案：`{题号: [答案]}`。有一题没答（或选了「其他」却没写）就是 null。单选只取第一个；填空题按选了「其他」算。 */
   function draftAnswers(questions, draft) {
     const picked = (draft && draft.picked) || {};
     const other = (draft && draft.other) || {};
     const answers = {};
     for (const q of questions || []) {
-      const chosen = (picked[q.id] || []).slice(0, q.multiSelect ? undefined : 1);
+      const chosen = isFillIn(q) ? [OTHER] : (picked[q.id] || []).slice(0, q.multiSelect ? undefined : 1);
       const values = [];
       for (const v of chosen) {
         const text = v === OTHER ? String(other[q.id] || '').trim() : v;
@@ -51,5 +56,5 @@
     return `等你回答 · ${first ? first.header || first.question : '提问'}`;
   }
 
-  window.BC_AGENT_QUESTION = {OTHER, draftAnswers, answerText, stateLabel, replyFor, pendingSummary};
+  window.BC_AGENT_QUESTION = {OTHER, isFillIn, draftAnswers, answerText, stateLabel, replyFor, pendingSummary};
 })();
