@@ -176,4 +176,44 @@ describe('ClaudeItemMapper', () => {
     expect(summarizeToolInput('TodoWrite', {})).toBe('TodoWrite');
     expect(summarizeToolInput('Skill', { skill: 'pdf' })).toBe('Skill pdf');
   });
+
+  it('结构化事实：读的行、搜的模式、取的网址、子智能体；完成时补上命中数与 HTTP 状态，出错时不补', () => {
+    const mapper = new ClaudeItemMapper('turn_1');
+    const started = mapper.map(
+      assistant('m', [
+        { type: 'tool_use', id: 'r', name: 'Read', input: { file_path: '/w/a.ts', offset: 10, limit: 50 } },
+        { type: 'tool_use', id: 'r0', name: 'Read', input: { file_path: '/w/b.ts', offset: 0 } },
+        { type: 'tool_use', id: 'g', name: 'Grep', input: { pattern: 'cut', path: 'src' } },
+        { type: 'tool_use', id: 'f', name: 'WebFetch', input: { url: 'https://x.test/a', prompt: 'p' } },
+        { type: 'tool_use', id: 's', name: 'WebSearch', input: { query: 'ffmpeg loudnorm' } },
+        { type: 'tool_use', id: 't', name: 'Task', input: { description: 'Find captions', subagent_type: 'Explore', prompt: 'p' } },
+        { type: 'tool_use', id: 'b', name: 'Bash', input: { command: 'ls' } },
+      ]),
+    );
+    expect(started.map((e) => (e.type === 'item.started' && e.item.kind === 'tool-call' ? (e.item.info ?? null) : 'x'))).toEqual([
+      { type: 'read', path: '/w/a.ts', offset: 10, limit: 50 },
+      { type: 'read', path: '/w/b.ts' },
+      { type: 'search', pattern: 'cut', path: 'src' },
+      { type: 'fetch', url: 'https://x.test/a' },
+      { type: 'search', pattern: 'ffmpeg loudnorm' },
+      { type: 'subAgent', agentType: 'Explore', description: 'Find captions' },
+      null,
+    ]);
+    expect(mapper.map(toolResult('g', 'a.ts', false, { mode: 'content', numFiles: 2, numMatches: 0, filenames: [] }))).toMatchObject([
+      { item: { info: { type: 'search', pattern: 'cut', path: 'src', files: 2, matches: 0 } } },
+    ]);
+    expect(mapper.map(toolResult('f', 'gone', false, { code: 404, codeText: 'Not Found', bytes: 9 }))).toMatchObject([
+      { item: { info: { type: 'fetch', url: 'https://x.test/a', status: 404 } } },
+    ]);
+    expect(mapper.map(toolResult('s', 'boom', true, { numFiles: 3 }))).toMatchObject([
+      { item: { status: 'failed', info: { type: 'search', pattern: 'ffmpeg loudnorm' } } },
+    ]);
+    const [read] = mapper.map(toolResult('r', 'text', false, 'not an object'));
+    expect(read?.type === 'item.completed' && read.item.kind === 'tool-call' ? read.item.info : null).toEqual({
+      type: 'read',
+      path: '/w/a.ts',
+      offset: 10,
+      limit: 50,
+    });
+  });
 });

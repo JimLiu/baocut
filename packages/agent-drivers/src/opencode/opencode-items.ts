@@ -15,6 +15,7 @@ import {
   type AgentQuestionAnswers,
   type ApprovalRequest,
   type TodoItem,
+  type ToolCallInfo,
   type ToolCallKind,
   type ToolCallStatus,
 } from '@baocut/protocol';
@@ -248,6 +249,7 @@ export function toolItem(state: ToolState, cwd: string, mcpServers: Iterable<str
   }
   const meta = state.metadata;
   const exit = meta?.exit ?? meta?.exitCode;
+  const info = toolInfo(state.name, input);
   return {
     kind: 'tool-call',
     id: state.id,
@@ -258,7 +260,40 @@ export function toolItem(state: ToolState, cwd: string, mcpServers: Iterable<str
     status: state.status,
     exitCode: typeof exit === 'number' ? exit : null,
     durationMs: state.endedAt !== null ? state.endedAt - state.startedAt : null,
+    ...(info ? { info } : {}),
   };
+}
+
+/**
+ * 读、搜、取网页与子智能体的结构化事实，只取工具输入：read 的 offset 从 0 还是从 1 数、grep / glob 元数据里的命中数
+ * 都没有用真实会话核对过，不记。
+ */
+function toolInfo(name: string, input: Record<string, unknown> | null): ToolCallInfo | undefined {
+  switch (name) {
+    case 'read': {
+      const file = readString(input, ['filePath', 'path', 'file_path']);
+      return file ? { type: 'read', path: file } : undefined;
+    }
+    case 'grep':
+    case 'glob':
+    case 'websearch':
+    case 'web_search': {
+      const pattern = readString(input, name === 'grep' || name === 'glob' ? ['pattern'] : ['query']);
+      const where = name === 'grep' || name === 'glob' ? readString(input, ['path']) : null;
+      return pattern ? { type: 'search', pattern, ...(where ? { path: where } : {}) } : undefined;
+    }
+    case 'webfetch': {
+      const url = readString(input, ['url']);
+      return url ? { type: 'fetch', url } : undefined;
+    }
+    case 'task': {
+      const agentType = readString(input, ['subagent_type', 'subagentType']);
+      const description = readString(input, ['description']);
+      return { type: 'subAgent', ...(agentType ? { agentType } : {}), ...(description ? { description } : {}) };
+    }
+    default:
+      return undefined;
+  }
 }
 
 /** edit 的 oldString → newString 写成一段统一 diff（OpenCode 没给元数据时的兜底）。 */

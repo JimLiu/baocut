@@ -6,7 +6,7 @@
  * （模式与模型表）、normalizeMcpServers（只留 Streamable HTTP）、mapPlanToTimeline。
  * 改成 BaoCut 的 AgentItem / ApprovalRequest / DriverModel，审批种类、「本会话放行」的分类键与 `diff` 内容块转 unified diff 是新加的。
  */
-import type { ApprovalRequest, DriverModel, TodoItem, ToolCallKind, ToolCallStatus } from '@baocut/protocol';
+import type { ApprovalRequest, DriverModel, TodoItem, ToolCallInfo, ToolCallKind, ToolCallStatus } from '@baocut/protocol';
 import type { AgentItem, McpServerSpec } from '@baocut/harness';
 import type {
   ContentBlock,
@@ -95,6 +95,7 @@ export function toolItem(
   const tool = toolCallKind(snapshot.kind);
   const finalStatus = status ?? mapToolStatus(snapshot.status);
   const diff = tool === 'file-change' && finalStatus === 'completed' ? toolDiff(snapshot.content, cwd) : null;
+  const info = toolInfo(snapshot, raw);
   return {
     kind: 'tool-call',
     id: snapshot.toolCallId,
@@ -105,7 +106,29 @@ export function toolItem(
     status: finalStatus,
     exitCode: typeof exit === 'number' ? exit : null,
     durationMs: null,
+    ...(info ? { info } : {}),
   };
+}
+
+/** 读、搜、取网页的结构化事实：ACP 的工具种类加上位置与原始输入里常见的键。`locations` 的行号从几数没有规定，不记。 */
+function toolInfo(snapshot: ToolSnapshot, raw: Record<string, unknown> | null): ToolCallInfo | undefined {
+  switch (snapshot.kind) {
+    case 'read': {
+      const file = snapshot.locations?.[0]?.path ?? readString(raw, ['path', 'file_path', 'filePath']);
+      return file ? { type: 'read', path: file } : undefined;
+    }
+    case 'search': {
+      const pattern = readString(raw, ['pattern', 'query']);
+      const where = readString(raw, ['path']);
+      return pattern ? { type: 'search', pattern, ...(where ? { path: where } : {}) } : undefined;
+    }
+    case 'fetch': {
+      const url = readString(raw, ['url']);
+      return url ? { type: 'fetch', url } : undefined;
+    }
+    default:
+      return undefined;
+  }
 }
 
 /** 计划（`plan`）同时作为待办清单（输入框上方的停靠条）：整份替换。 */

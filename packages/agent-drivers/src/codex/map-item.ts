@@ -87,6 +87,7 @@ export function mapCodexItem(raw: CodexThreadItem): AgentItem {
         status: 'completed',
         exitCode: null,
         durationMs: null,
+        ...(item.query ? { info: { type: 'search', pattern: String(item.query) } } : {}),
       };
     default:
       return { kind: 'other', id: item.id, label: item.type };

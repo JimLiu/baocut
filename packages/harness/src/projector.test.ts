@@ -88,3 +88,35 @@ describe('todo.updated', () => {
     expect(task()).not.toHaveProperty('todo');
   });
 });
+
+describe('tool-call info', () => {
+  it('结构化事实随条目存下；完成事件带了就换成新的，没带就沿用开始时的', () => {
+    const state = make();
+    const run: RunContext = { taskId: 'task_1', runGeneration: 1, turnId: 'turn-1', stopRequested: false };
+    const call = {
+      kind: 'tool-call' as const,
+      id: 'g1',
+      tool: 'other' as const,
+      title: 'Grep cut',
+      detail: null,
+      output: null,
+      status: 'running' as const,
+      exitCode: null,
+      durationMs: null,
+    };
+    const stored = () => state.items().find((i) => i.kind === 'tool-call');
+    projectAgentEvent(state, run, { type: 'item.started', turnId: 'turn-1', item: { ...call, info: { type: 'search', pattern: 'cut' } } });
+    expect(stored()).toMatchObject({ info: { type: 'search', pattern: 'cut' } });
+    projectAgentEvent(state, run, {
+      type: 'item.completed',
+      turnId: 'turn-1',
+      item: { ...call, status: 'completed', info: { type: 'search', pattern: 'cut', files: 2, matches: 5 } },
+    });
+    expect(stored()).toMatchObject({ status: 'completed', info: { type: 'search', pattern: 'cut', files: 2, matches: 5 } });
+    projectAgentEvent(state, run, { type: 'item.completed', turnId: 'turn-1', item: { ...call, status: 'completed' } });
+    expect(stored()).toMatchObject({ info: { files: 2, matches: 5 } });
+
+    projectAgentEvent(state, run, { type: 'item.completed', turnId: 'turn-1', item: { ...call, id: 'b1', tool: 'command', title: 'ls' } });
+    expect(state.items().find((i) => i.kind === 'tool-call' && i.title === 'ls')).not.toHaveProperty('info');
+  });
+});

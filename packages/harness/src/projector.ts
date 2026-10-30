@@ -249,6 +249,8 @@ function toTimelineItem(
     }
     case 'tool-call': {
       const priorOutput = existing?.kind === 'tool-call' ? existing.output : '';
+      // 完成事件没带结构化事实时沿用开始事件的。
+      const info = item.info ?? (existing?.kind === 'tool-call' ? existing.info : undefined);
       return {
         kind: 'tool-call',
         id,
@@ -261,6 +263,7 @@ function toTimelineItem(
         status: completed && item.status === 'running' ? 'completed' : item.status,
         exitCode: item.exitCode,
         durationMs: item.durationMs,
+        ...(info ? { info } : {}),
       };
     }
     case 'user-message':

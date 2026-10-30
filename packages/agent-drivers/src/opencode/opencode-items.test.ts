@@ -221,6 +221,20 @@ describe('工具步骤', () => {
     expect(toolItem({ ...base, name: 'baocut_project_read', input: {}, metadata: null }, '/work', ['baocut']).tool).toBe('mcp');
     expect(toolItem({ ...base, name: 'glob', input: { pattern: '**/x' }, metadata: null }, '/work', []).title).toBe('glob **/x');
   });
+
+  it('读、搜、取网页与子智能体带结构化事实，只取输入', () => {
+    const info = (name: string, input: Record<string, unknown>) => toolItem({ ...base, name, input, metadata: null }, '/work', []).info;
+    expect(info('read', { filePath: '/work/a.ts', offset: 5 })).toEqual({ type: 'read', path: '/work/a.ts' });
+    expect(info('grep', { pattern: 'cut', path: 'src', include: '*.ts' })).toEqual({ type: 'search', pattern: 'cut', path: 'src' });
+    expect(info('websearch', { query: 'loudnorm' })).toEqual({ type: 'search', pattern: 'loudnorm' });
+    expect(info('webfetch', { url: 'https://x.test' })).toEqual({ type: 'fetch', url: 'https://x.test' });
+    expect(info('task', { description: 'Find captions', subagent_type: 'general' })).toEqual({
+      type: 'subAgent',
+      agentType: 'general',
+      description: 'Find captions',
+    });
+    expect(info('shell', { command: 'ls' })).toBeUndefined();
+  });
 });
 
 describe('SSE 帧', () => {

@@ -269,7 +269,7 @@ interface AgentSession {
 }
 ```
 
-Driver 把原生事件映射成驱动无关的会话条目（`AgentEvent`）。改文件的工具调用（`tool-call`，`tool: 'file-change'`）成功时，`output` 是 unified diff：原生事件带了 diff 的照用，没带的由 Driver 从工具输入合成；失败时 `output` 是错误文本。`detail` 仍是动作与路径。
+Driver 把原生事件映射成驱动无关的会话条目（`AgentEvent`）。改文件的工具调用（`tool-call`，`tool: 'file-change'`）成功时，`output` 是 unified diff：原生事件带了 diff 的照用，没带的由 Driver 从工具输入合成；失败时 `output` 是错误文本。`detail` 仍是动作与路径。读、搜、取网页与交给子智能体的工具调用另带结构化事实 `info`（`ToolCallInfo`）：`read { path, offset?, limit? }`、`search { pattern, path?, files?, matches? }`、`fetch { url, status? }`、`subAgent { agentType?, description? }`，只放 `title`、`detail`、`output` 表达不了的，驱动拿不到的字段不写，旧记录没有；界面按它写步骤行的类别、摘要与标签（读了哪几行、搜到几处、取网页失败的状态码、子智能体的类型），没有时退回按标题认。Claude 开始时从工具输入取，完成时从结构化结果补上命中数与状态码（结果形状取自 paseo，未用真实会话核对）；OpenCode 与 ACP 只取输入；Codex 只有网页搜索的查询词，命令与改文件已经由 `title`、`detail` 表达。
 
 Driver 声明图片输入、原生工具、审批、恢复、后台工作与 steer 等能力；经过集成测试才能开放。
 

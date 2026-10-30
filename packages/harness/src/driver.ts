@@ -10,6 +10,7 @@ import type {
   Id,
   MessageRef,
   TodoItem,
+  ToolCallInfo,
   ToolCallKind,
   ToolCallStatus,
 } from '@baocut/protocol';
@@ -209,6 +210,7 @@ export type AgentItem =
       status: ToolCallStatus;
       exitCode: number | null;
       durationMs: number | null;
+      info?: ToolCallInfo;
     }
   | { kind: 'user-message'; id: string; text: string }
   | { kind: 'other'; id: string; label: string };

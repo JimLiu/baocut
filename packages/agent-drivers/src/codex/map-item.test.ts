@@ -35,4 +35,12 @@ describe('mapCodexItem', () => {
       exitCode: 0,
     });
   });
+
+  it('网页搜索带查询词作结构化事实', () => {
+    expect(mapCodexItem({ type: 'webSearch', id: 'w1', query: 'ffmpeg loudnorm' } as never)).toMatchObject({
+      tool: 'web-search',
+      info: { type: 'search', pattern: 'ffmpeg loudnorm' },
+    });
+    expect(mapCodexItem({ type: 'webSearch', id: 'w2', query: '' } as never)).not.toHaveProperty('info');
+  });
 });

@@ -187,6 +187,17 @@ export type ToolCallKind = 'command' | 'file-change' | 'mcp' | 'web-search' | 'o
 export type ToolCallStatus = 'running' | 'completed' | 'failed' | 'declined' | 'interrupted';
 
 /**
+ * 工具调用的结构化事实（架构设计 §3.1）：只放 `title` / `detail` / `output` 表达不了的，界面按它写步骤行，不再从标题猜。
+ * `read` 的 `offset` 是起始行（从 1 数）、`limit` 是行数；`search` 的 `files` / `matches` 是命中的文件数与匹配数；
+ * `fetch` 的 `status` 是 HTTP 状态码；`subAgent` 是交给子智能体去做的一件事。驱动拿不到的字段不写。
+ */
+export type ToolCallInfo =
+  | { type: 'read'; path: string; offset?: number; limit?: number }
+  | { type: 'search'; pattern: string; path?: string; files?: number; matches?: number }
+  | { type: 'fetch'; url: string; status?: number }
+  | { type: 'subAgent'; agentType?: string; description?: string };
+
+/**
  * 审批的内容。`tool` 是工具调用（架构设计 §3.12）：BaoCut 自己的工具，或 Agent 自带的工具（Claude 的 WebFetch 之类）；
  * `files` 放目标（视频、文件），`reason` 放参数摘要，只认 `command` 与 `file-change` 的旧界面按文件修改显示它也不出错。
  * `server`：MCP 服务名，BaoCut 自己的是 `baocut`，Agent 自带的工具为 null。
@@ -300,6 +311,8 @@ export type TimelineItem =
       status: ToolCallStatus;
       exitCode: number | null;
       durationMs: number | null;
+      /** 结构化事实。旧记录与驱动给不出时没有。 */
+      info?: ToolCallInfo;
     })
   | (TimelineBase & {
       kind: 'approval';

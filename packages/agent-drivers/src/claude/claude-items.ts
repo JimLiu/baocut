@@ -1,4 +1,4 @@
-import type { ToolCallKind, ToolCallStatus } from '@baocut/protocol';
+import type { ToolCallInfo, ToolCallKind, ToolCallStatus } from '@baocut/protocol';
 import type { AgentEvent, AgentItem } from '@baocut/harness';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { DriversCommon } from '@baocut/protocol/messages/agent-drivers';
@@ -18,6 +18,9 @@ import { diffBodyLines, diffPath } from '../unified-diff.ts';
  * 改文件的工具（Edit / Write / MultiEdit）成功时，`output` 是 unified diff：它们的 tool_result 只是一句确认。
  * SDK 的结构化结果带补丁时按它拼（`structuredPatchLines`，真实行号与上下文），没有时从工具输入合成（`fileChangeDiff`）。
  * 失败、拒绝与中断时仍是 tool_result 的原文。
+ *
+ * 读、搜、取网页与子智能体的调用带结构化事实（`info`）：开始时从工具输入取，完成时再从结构化结果补上命中数与 HTTP 状态
+ * （`resultInfo`；结果的形状取自 paseo，没有用真实会话核对过）。
  */
 
 type Block = { type: string; [key: string]: unknown };
@@ -164,13 +167,13 @@ export class ClaudeItemMapper {
             ? 'interrupted'
             : 'failed'
           : 'completed';
-      const diff =
-        status === 'completed' && open.item.tool === 'file-change'
-          ? this.#fileChangeDiff(open, output, results.length === 1 ? toolUseResult : undefined)
-          : null;
+      const structured = results.length === 1 ? toolUseResult : undefined;
+      const diff = status === 'completed' && open.item.tool === 'file-change' ? this.#fileChangeDiff(open, output, structured) : null;
+      const info = status === 'completed' ? resultInfo(open.item.info, structured) : open.item.info;
       events.push(
         this.#completed({
           ...open.item,
+          ...(info ? { info } : {}),
           output: diff ?? (output || null),
           status,
           exitCode: open.item.tool === 'command' && (status === 'completed' || status === 'failed') ? bashExitCode(isError, output) : null,
@@ -289,6 +292,7 @@ function inputSummary(name: string, input: Record<string, unknown>): string {
 
 function toolCallItem(id: string, name: string, input: Record<string, unknown>): Extract<AgentItem, { kind: 'tool-call' }> {
   const tool = claudeToolKind(name);
+  const info = inputInfo(name, input);
   return {
     kind: 'tool-call',
     id,
@@ -300,7 +304,60 @@ function toolCallItem(id: string, name: string, input: Record<string, unknown>):
     status: 'running',
     exitCode: null,
     durationMs: null,
+    ...(info ? { info } : {}),
   };
+}
+
+/** 工具输入里的结构化事实：读的文件与行、搜的模式与位置、取的网址、交给子智能体的事。 */
+function inputInfo(name: string, input: Record<string, unknown>): ToolCallInfo | undefined {
+  switch (name) {
+    case 'Read': {
+      const path = toolFiles(input)[0];
+      if (!path) return undefined;
+      const offset = count(input.offset);
+      const limit = count(input.limit);
+      return { type: 'read', path, ...(offset ? { offset } : {}), ...(limit ? { limit } : {}) };
+    }
+    case 'Grep':
+    case 'Glob':
+    case 'WebSearch': {
+      const pattern = str(name === 'WebSearch' ? input.query : input.pattern);
+      if (!pattern) return undefined;
+      const path = name === 'WebSearch' ? null : str(input.path);
+      return { type: 'search', pattern, ...(path ? { path } : {}) };
+    }
+    case 'WebFetch': {
+      const url = str(input.url);
+      return url ? { type: 'fetch', url } : undefined;
+    }
+    case 'Task':
+    case 'Agent': {
+      const agentType = str(input.subagent_type);
+      const description = str(input.description);
+      return { type: 'subAgent', ...(agentType ? { agentType } : {}), ...(description ? { description } : {}) };
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * 完成时从 SDK 的结构化结果补上的事实：Grep / Glob 的 `numFiles` / `numMatches`，WebFetch 的 `code`。
+ * 形状取自 paseo 的解析（tool-call-detail-primitives.ts），没有用真实会话核对过；对不上时原样返回。
+ */
+function resultInfo(info: ToolCallInfo | undefined, toolUseResult: unknown): ToolCallInfo | undefined {
+  const result = toolUseResult && typeof toolUseResult === 'object' ? (toolUseResult as Record<string, unknown>) : null;
+  if (!info || !result) return info;
+  if (info.type === 'search') {
+    const files = count(result.numFiles, true);
+    const matches = count(result.numMatches, true);
+    return { ...info, ...(files !== undefined ? { files } : {}), ...(matches !== undefined ? { matches } : {}) };
+  }
+  if (info.type === 'fetch') {
+    const status = count(result.code);
+    return status ? { ...info, status } : info;
+  }
+  return info;
 }
 
 const READ_TOOLS = new Set(['Read', 'Grep', 'Glob']);
@@ -421,6 +478,11 @@ function bashExitCode(isError: boolean, output: string): number | null {
   if (!isError) return 0;
   const match = /^Exit code (\d+)/.exec(output.trim());
   return match ? Number(match[1]) : null;
+}
+
+/** 非负整数（`zero` 为假时只认正数）；别的都不算。 */
+function count(value: unknown, zero = false): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && (zero ? value >= 0 : value > 0) ? value : undefined;
 }
 
 function str(value: unknown): string | null {
