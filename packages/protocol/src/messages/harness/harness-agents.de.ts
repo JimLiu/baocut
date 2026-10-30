@@ -40,4 +40,9 @@ export const de: HarnessAgentsMessages = {
   approvalNoGrant: "Diese Genehmigung sendet keine Daten nach außen und kann daher keine Berechtigungsauswahl enthalten",
   contractFieldsReadonly: (p: { fields: string }) =>
     `Der Agent kann diese Felder des Aufgabenvertrags nicht ändern: ${p.fields}. Nur der Benutzer entscheidet über Zugriffsmodus, Berechtigungsumfang, Budget und geschützte Bereiche`,
+  questionOnly: 'Diese Genehmigung ist eine Frage: Senden Sie Antworten mit agents.answerQuestion oder lehnen Sie sie ab',
+  notQuestion: 'Diese Genehmigung ist keine Frage',
+  questionUnanswered: (p) => `Keine Antwort auf „${p.question}“`,
+  questionSingleChoice: (p) => `„${p.question}“ erlaubt nur eine Antwort`,
+  questionUnknownOption: (p) => `„${p.option}“ ist keine Option von „${p.question}“`,
 };

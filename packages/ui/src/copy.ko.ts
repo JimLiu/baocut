@@ -124,6 +124,7 @@ export const ko: CopyMessages = {
     steerUnsupported: '이 Agent는 작업 도중에 메시지를 받을 수 없습니다. 현재 작업이 끝나면 보냅니다',
     skillWaits: 'Skill이 포함된 메시지는 진행 중인 턴에 끼어들 수 없습니다. 이번 턴이 끝나면 보냅니다',
     failed: (message: string) => `대기 중인 메시지를 보내지 못했습니다: ${message}`,
+    answerPlaceholder: '여기에 바로 답하거나 위 카드에서 고르세요',
     busyPlaceholder: 'Agent가 작업 중입니다. 지금 보내는 메시지는 이번 턴이 끝날 때까지 대기합니다',
   },
   recovery: {
@@ -417,6 +418,7 @@ export const ko: CopyMessages = {
   taskView: {
     queued: '대기 중',
     running: '진행 중',
+    awaitingAnswer: '답변 필요',
     awaitingApproval: '승인 필요',
     cancelled: '취소됨',
     failed: '실패',

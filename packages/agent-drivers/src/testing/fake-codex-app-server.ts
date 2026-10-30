@@ -137,6 +137,16 @@ async function runTurn(turnId: string): Promise<void> {
       });
     });
   }
+  let reply = spec.reply;
+  if (spec.askQuestions) {
+    const requestId = nextServerId++;
+    const response = await new Promise<Message>((resolve) => {
+      serverRequests.set(requestId, resolve);
+      const ask = { threadId, turnId, itemId: 'item_ask', questions: spec.askQuestions };
+      send({ id: requestId, method: 'item/tool/requestUserInput', params: ask });
+    });
+    reply = `answered ${JSON.stringify(response.result ?? null)}`;
+  }
   for (const error of spec.errors ?? []) {
     send({
       method: 'error',
@@ -162,8 +172,8 @@ async function runTurn(turnId: string): Promise<void> {
     const item = { type: 'imageGeneration', id: 'item_img', status: 'completed', revisedPrompt: 'fake', savedPath: null };
     send({ method: 'item/completed', params: { threadId, turnId, item } });
   }
-  if (spec.reply) {
-    send({ method: 'item/completed', params: { threadId, turnId, item: { type: 'agentMessage', id: 'item_msg', text: spec.reply } } });
+  if (reply) {
+    send({ method: 'item/completed', params: { threadId, turnId, item: { type: 'agentMessage', id: 'item_msg', text: reply } } });
   }
   complete(spec.status === 'failed' ? 'failed' : 'completed', spec.error, spec.errorInfo);
 }

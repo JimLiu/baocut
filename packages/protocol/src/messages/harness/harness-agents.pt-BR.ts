@@ -23,4 +23,9 @@ export const ptBR: HarnessAgentsMessages = {
   effortUnsupported: (p) => `O modelo “${p.model}” não tem níveis de esforço de raciocínio`,
   approvalNoGrant: 'Esta aprovação não envia dados, então não pode incluir uma escolha de autorização',
   contractFieldsReadonly: (p) => `O agente não pode alterar estes campos do contrato da tarefa: ${p.fields}. Somente o usuário decide modo de acesso, escopo das permissões, orçamento e intervalos protegidos`,
+  questionOnly: 'Esta aprovação é uma pergunta: envie as respostas com agents.answerQuestion ou recuse-a',
+  notQuestion: 'Esta aprovação não é uma pergunta',
+  questionUnanswered: (p) => `“${p.question}” está sem resposta`,
+  questionSingleChoice: (p) => `“${p.question}” aceita só uma resposta`,
+  questionUnknownOption: (p) => `“${p.option}” não é uma opção de “${p.question}”`,
 };

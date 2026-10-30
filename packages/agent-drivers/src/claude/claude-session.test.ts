@@ -8,7 +8,7 @@ import type { PermissionResult, SDKAssistantMessageError, SDKMessage } from '@an
 import { createFakeClaude, createFakeClaudeCli, type FakeClaude } from '../testing/fake-claude.ts';
 import type { ClaudeInstall } from './claude-binary.ts';
 import { ClaudeDriver } from './claude-driver.ts';
-import { ASK_USER_QUESTION_DENIAL, ClaudeSession, approvalRequest, claudeMcpServers, claudePermissionMode } from './claude-session.ts';
+import { ClaudeSession, approvalRequest, claudeAnswers, claudeMcpServers, claudePermissionMode, claudeQuestions } from './claude-session.ts';
 
 /**
  * Claude 会话对着假 Query（`testing/fake-claude.ts`）：不起 claude 进程、不联网、不花额度。
@@ -285,7 +285,7 @@ describe('ClaudeSession：审批', () => {
     ]);
   });
 
-  it('AskUserQuestion：不弹审批卡，直接拒绝并让 Claude 用文字问；时间线上记为 declined，带着问题与选项', async () => {
+  it('AskUserQuestion：任何模式下都发提问；回答按题目全文放进 updatedInput.answers，多选用逗号连接', async () => {
     const input = {
       questions: [
         {
@@ -297,25 +297,90 @@ describe('ClaudeSession：审批', () => {
           ],
           multiSelect: false,
         },
+        { question: 'Which tracks? ', header: 'Tracks', options: ['Voice', 'Music'], multiSelect: true },
       ],
     };
     const { fake, answers } = asking([{ name: 'AskUserQuestion', input }]);
     for (const accessMode of ['ask', 'fullAccess'] as AgentMode[]) {
-      const s = track(open(fake));
+      const s = track(open(fake, { accessMode }));
       const { turnId } = await s.session.startTurn({ text: 'go' }, settings({ accessMode }));
-      await s.completed(turnId);
-      expect(s.of('approval.requested')).toEqual([]);
-      const step = s.items().find((i): i is ToolItem => i.kind === 'tool-call')!;
-      expect(step).toMatchObject({
-        title: 'AskUserQuestion Which aspect ratio should the export use?',
-        detail: 'Which aspect ratio should the export use?\n  - 16:9 — Landscape\n  - 9:16 — Vertical',
-        status: 'declined',
+      const asked = await s.approval(0);
+      expect(asked.request).toEqual({
+        kind: 'question',
+        reason: null,
+        rule: null,
+        questions: [
+          {
+            id: 'q1',
+            header: 'Ratio',
+            question: 'Which aspect ratio should the export use?',
+            options: [
+              { label: '16:9', description: 'Landscape' },
+              { label: '9:16', description: 'Vertical' },
+            ],
+            multiSelect: false,
+            allowOther: true,
+          },
+          {
+            id: 'q2',
+            header: 'Tracks',
+            question: 'Which tracks?',
+            options: [
+              { label: 'Voice', description: null },
+              { label: 'Music', description: null },
+            ],
+            multiSelect: true,
+            allowOther: true,
+          },
+        ],
       });
+      await s.session.respondToApproval(asked.approvalId, { decision: 'accept', answers: { q1: ['9:16'], q2: ['Voice', 'Music'] } });
+      await s.completed(turnId);
+      const step = s.items().find((i): i is ToolItem => i.kind === 'tool-call')!;
+      expect(step).toMatchObject({ title: 'AskUserQuestion Which aspect ratio should the export use?', status: 'completed' });
     }
+    // 键是输入里原样的题目全文（含尾随空格）；用 header 当键时 CLI 只会告诉 Claude「用户没有回答」。
+    const expected = { ...input, answers: { 'Which aspect ratio should the export use?': '9:16', 'Which tracks? ': 'Voice, Music' } };
     expect(answers).toEqual([
-      { behavior: 'deny', message: ASK_USER_QUESTION_DENIAL },
-      { behavior: 'deny', message: ASK_USER_QUESTION_DENIAL },
+      { behavior: 'allow', updatedInput: expected },
+      { behavior: 'allow', updatedInput: expected },
     ]);
+  });
+
+  it('AskUserQuestion：拒绝带 Harness 给的说明（没有时用默认说明）；受限调用里不发提问、直接拒绝', async () => {
+    const input = { questions: [{ question: 'Pick one', header: 'Pick', options: [{ label: 'A' }, { label: 'B' }] }] };
+    const { fake, answers } = asking([
+      { name: 'AskUserQuestion', input },
+      { name: 'AskUserQuestion', input },
+    ]);
+    const s = track(open(fake));
+    const { turnId } = await s.session.startTurn({ text: 'go' }, settings());
+    await s.session.respondToApproval((await s.approval(0)).approvalId, { decision: 'decline', message: 'The user replied with a message.' });
+    await s.session.respondToApproval((await s.approval(1)).approvalId, { decision: 'decline' });
+    await s.completed(turnId);
+    expect(answers[0]).toEqual({ behavior: 'deny', message: 'The user replied with a message.' });
+    expect(answers[1]).toMatchObject({ behavior: 'deny', message: expect.stringMatching(/declined to answer/) });
+    expect((s.items() as ToolItem[]).map((i) => i.status)).toEqual(['declined', 'declined']);
+
+    const confined: Array<PermissionResult | null> = [];
+    const fake2 = createFakeClaude({
+      turn: async (t) => {
+        confined.push(await t.ask('AskUserQuestion', input));
+        t.result();
+      },
+    });
+    const c = track(open(fake2, { cwd: '/work', confinement: 'cwd-write-only' }));
+    const second = await c.session.startTurn({ text: 'go' }, settings());
+    await c.completed(second.turnId);
+    expect(c.of('approval.requested')).toEqual([]);
+    expect(confined[0]).toMatchObject({ behavior: 'deny', message: expect.stringMatching(/Nobody can answer/) });
+  });
+
+  it('claudeQuestions / claudeAnswers：没有题目的项丢掉，题号按原位置；没答的题不放键', () => {
+    const input = { questions: [{ header: 'x' }, { question: 'Real?', options: [] }] };
+    const questions = claudeQuestions(input);
+    expect(questions).toEqual([{ id: 'q2', header: '', question: 'Real?', options: [], multiSelect: false, allowOther: true }]);
+    expect(claudeAnswers(new Map([['q2', 'Real?'], ['q3', 'Other?']]), { q2: ['Yes'] })).toEqual({ 'Real?': 'Yes' });
   });
 
   it('ExitPlanMode：审批带计划全文、不给总是允许、不记会话级放行；在先给方案下批准后提示切换访问模式', async () => {

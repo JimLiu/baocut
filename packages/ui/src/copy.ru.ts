@@ -152,6 +152,7 @@ export const ru: CopyMessages = {
     steerUnsupported: "Этот агент не принимает сообщения во время задачи. Сообщение будет отправлено после её завершения",
     skillWaits: "Сообщения со Skill не могут присоединиться к текущему ходу. Они будут отправлены после его завершения",
     failed: (message: string) => `Не удалось отправить сообщение из очереди: ${message}`,
+    answerPlaceholder: 'Ответьте здесь или выберите вариант в карточке выше',
     busyPlaceholder: "Агент работает. Новые сообщения помещаются в очередь до завершения текущего хода",
   },
   /** 任务失败后的恢复区（原型 agent-thread.jsx `ErrorMsg`）。 */
@@ -476,6 +477,7 @@ export const ru: CopyMessages = {
   taskView: {
     queued: "В очереди",
     running: "Выполняется",
+    awaitingAnswer: 'Нужен ваш ответ',
     awaitingApproval: "Нужно ваше одобрение",
     cancelled: "Отменено",
     failed: "Ошибка",

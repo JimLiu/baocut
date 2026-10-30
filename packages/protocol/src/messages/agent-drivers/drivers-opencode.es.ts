@@ -18,5 +18,6 @@ export const es: DriversOpencodeMessages = {
  promptRejected: (p) => `${p.name} no aceptó este mensaje: ${p.error}`, setModeFailed: (p) => `${p.name} no pudo establecer el modo de acceso: ${p.error}`,
  retryFallback: 'La solicitud al modelo falló. Se reintentará en breve.', runFailed: (p) => `La ejecución de ${p.name} falló`,
  endedAfterRejection: (p) => `${p.name} terminó este turno después de rechazarse una herramienta. Envía otro mensaje si quieres que pruebe otro método.`,
+ endedAfterSkip: (p) => `${p.name} terminó este turno después de que se omitiera la pregunta. Envía otro mensaje para continuar.`,
  interruptedTurn: (p) => `${p.name} interrumpió este turno (${p.reason}).`, modelFormat: (p) => `Los modelos de ${p.name} deben escribirse como provider/model (se recibió ${p.id})`,
 };

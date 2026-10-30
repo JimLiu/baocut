@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import type { ApprovalRequest, HistoryEntry, TimelineItem } from '@baocut/protocol';
-import { approvalDecidedLabel, approvalSummary, buildThread, changeUndoState, stepsSummary, toolStep, toolTitle } from './thread.ts';
+import type { AgentQuestion, ApprovalRequest, HistoryEntry, TimelineItem } from '@baocut/protocol';
+import {
+  OTHER_OPTION,
+  approvalDecidedLabel,
+  approvalSummary,
+  buildThread,
+  changeUndoState,
+  questionAnswerText,
+  questionDecidedLabel,
+  questionDraftAnswers,
+  stepsSummary,
+  toolStep,
+  toolTitle,
+} from './thread.ts';
 
 const at = '2026-10-02T00:00:00.000Z';
 const user = (id: string, taskId: string): TimelineItem => ({ kind: 'user-message', id, createdAt: at, taskId, text: '你好' });
@@ -390,6 +402,40 @@ describe('审批卡', () => {
     expect(approvalDecidedLabel(approval({ decidedBy: 'auto' }), undefined)).toBe('自动允许 · 访问模式');
     expect(approvalDecidedLabel(approval({ status: 'declined' }), 'decline')).toBe('已拒绝');
     expect(approvalDecidedLabel(approval({ status: 'cancelled', decidedBy: undefined }), undefined)).toBe('已停止');
+  });
+
+  const questions: AgentQuestion[] = [
+    {
+      id: 'q1',
+      header: 'Ratio',
+      question: 'Which ratio?',
+      options: [
+        { label: '16:9', description: null },
+        { label: '9:16', description: null },
+      ],
+      multiSelect: false,
+      allowOther: true,
+    },
+    { id: 'q2', header: 'Tracks', question: 'Which tracks?', options: [{ label: 'Voice', description: null }], multiSelect: true, allowOther: false },
+  ];
+  const question: ApprovalRequest = { kind: 'question', questions, reason: null, rule: null };
+
+  it('提问：标题按题数，摘要是题目；收起的一行分已回答、跳过、用消息回答、停止', () => {
+    expect(approvalSummary(question)).toMatchObject({ title: 'Agent 有 2 个问题要问你', kind: '提问', subject: 'Which ratio?\nWhich tracks?' });
+    expect(approvalSummary({ ...question, questions: questions.slice(0, 1) }).title).toBe('Agent 有个问题要问你');
+    expect(questionDecidedLabel(approval({}, question))).toBe('已回答');
+    expect(questionDecidedLabel(approval({ status: 'declined' }, question))).toBe('已跳过');
+    expect(questionDecidedLabel(approval({ status: 'declined', answeredByMessage: true }, question))).toBe('已用消息回答');
+    expect(questionDecidedLabel(approval({ status: 'cancelled' }, question))).toBe('已停止');
+    expect(questionAnswerText({ q2: ['Voice', 'Music'] }, 'q2')).toBe('Voice和Music');
+    expect(questionAnswerText(undefined, 'q1')).toBe('没有回答');
+  });
+
+  it('提问草稿：每题都答了才有答案；「其他」要写了字才算；单选只取一个', () => {
+    expect(questionDraftAnswers(questions, { picked: { q1: ['16:9'] }, other: {} })).toBeNull();
+    expect(questionDraftAnswers(questions, { picked: { q1: [OTHER_OPTION], q2: ['Voice'] }, other: { q1: '  ' } })).toBeNull();
+    expect(questionDraftAnswers(questions, { picked: { q1: [OTHER_OPTION], q2: ['Voice'] }, other: { q1: ' 4:3 ' } })).toEqual({ q1: ['4:3'], q2: ['Voice'] });
+    expect(questionDraftAnswers(questions, { picked: { q1: ['9:16', '16:9'], q2: ['Voice'] }, other: {} })).toEqual({ q1: ['9:16'], q2: ['Voice'] });
   });
 });
 

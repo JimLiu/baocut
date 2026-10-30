@@ -30,6 +30,7 @@ export const zhHans: DriversOpencodeMessages = {
   retryFallback: '模型请求失败，稍后重试',
   runFailed: (p) => `${p.name} 执行失败`,
   endedAfterRejection: (p) => `${p.name} 在工具被拒绝后结束了这一轮；需要换个做法时请再发一条消息。`,
+  endedAfterSkip: (p) => `${p.name} 在提问被跳过后结束了这一轮；要继续请再发一条消息。`,
   interruptedTurn: (p) => `${p.name} 中断了这一轮（${p.reason}）。`,
   modelFormat: (p) => `${p.name} 的模型要写成 provider/model（收到 ${p.id}）`,
 };

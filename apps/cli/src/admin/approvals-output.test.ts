@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { PendingApproval } from '@baocut/protocol';
+import type { AgentQuestion, PendingApproval } from '@baocut/protocol';
 import { describeApprovalRequest, formatApprovals, formatMode, parseApprovalsArgs, parseModeOption } from './approvals-output.ts';
+import { parseQuestionReply } from './chat.ts';
 
 describe('--mode', () => {
   it('连字符写法对应协议里的值，不给时为 undefined', () => {
@@ -76,5 +77,40 @@ describe('baocut approvals 的输出', () => {
     expect(describeApprovalRequest({ kind: 'file-change', files: ['a.ts', 'b.ts'], reason: null })).toBe('修改文件：a.ts, b.ts');
     expect(describeApprovalRequest({ kind: 'tool', tool: 'jobs_cancel', files: [], reason: '取消任务 job_1' })).toBe('调用 jobs_cancel');
     expect(describeApprovalRequest({ kind: 'tool', tool: 'edits_apply', files: ['demo'], reason: null })).toBe('调用 edits_apply：demo');
+    const q = { header: '', options: [], multiSelect: false, allowOther: true };
+    const questions: AgentQuestion[] = [
+      { ...q, id: 'q1', question: '用哪个比例？' },
+      { ...q, id: 'q2', question: '要字幕吗？' },
+    ];
+    expect(describeApprovalRequest({ kind: 'question', questions, reason: null })).toBe('回答：用哪个比例？（另有 1 题）');
+  });
+});
+
+describe('baocut chat 的提问回答', () => {
+  const base: AgentQuestion = {
+    id: 'q1',
+    header: 'Ratio',
+    question: 'Which ratio?',
+    options: [
+      { label: '16:9', description: null },
+      { label: '9:16', description: null },
+    ],
+    multiSelect: false,
+    allowOther: false,
+  };
+
+  it('编号或选项名；单选只认一个编号；不能自填的题答不上来时返回 null（再问一次）', () => {
+    expect(parseQuestionReply(base, '2')).toEqual(['9:16']);
+    expect(parseQuestionReply(base, '16:9')).toEqual(['16:9']);
+    expect(parseQuestionReply(base, '1,2')).toBeNull();
+    expect(parseQuestionReply(base, '3')).toBeNull();
+    expect(parseQuestionReply(base, '4:3')).toBeNull();
+  });
+
+  it('多选用逗号或顿号分隔、去重；能自填的题把整行当答案', () => {
+    const multi = { ...base, multiSelect: true, allowOther: true };
+    expect(parseQuestionReply(multi, '2， 1、2')).toEqual(['9:16', '16:9']);
+    expect(parseQuestionReply(multi, '4:3 please')).toEqual(['4:3 please']);
+    expect(parseQuestionReply(multi, '7')).toEqual(['7']);
   });
 });

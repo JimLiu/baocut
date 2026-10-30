@@ -27,6 +27,7 @@ export const ptBR: ShellMessages = {
   },
   conversationHeader: {
     running: "Em andamento",
+    answer: 'Aguardando sua resposta',
     waiting: "Aguardando aprovação",
     actions: "Ações da sessão",
     viewInSpace: (name: string) => `Ver “${name}” no Space`,

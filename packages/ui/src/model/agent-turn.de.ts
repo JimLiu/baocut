@@ -3,6 +3,7 @@ type ToolCall = Extract<TimelineItem, { kind: 'tool-call' }>;
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const de: AgentTurnMessages = {
+  answer: 'Wartet auf Ihre Antwort',
   waiting: "Wartet auf Ihre Genehmigung",
   working: "Verarbeitung",
   stopping: "Wird gestoppt",

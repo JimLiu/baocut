@@ -19,6 +19,7 @@ const en = {
   task: {
     running: 'In progress',
     stopping: 'Stopping',
+    awaitingAnswer: 'Waiting for your answer',
     awaitingApproval: 'Waiting for approval',
   },
 };

@@ -54,6 +54,8 @@ const en = {
   runFailed: (p: { name: string }) => `${p.name} run failed`,
   endedAfterRejection: (p: { name: string }) =>
     `${p.name} ended this turn after a tool was rejected. Send another message if you want it to try a different approach.`,
+  endedAfterSkip: (p: { name: string }) =>
+    `${p.name} ended this turn after the question was skipped. Send another message to continue.`,
   interruptedTurn: (p: { name: string; reason: string }) => `${p.name} interrupted this turn (${p.reason}).`,
   modelFormat: (p: { name: string; id: string }) => `${p.name} models must be written as provider/model (got ${p.id})`,
 };

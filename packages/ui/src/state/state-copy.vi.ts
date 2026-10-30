@@ -4,6 +4,7 @@ export const vi: StateMessages = {
   task: {
     running: 'Đang xử lý',
     stopping: 'Đang dừng',
+    awaitingAnswer: 'Đang chờ bạn trả lời',
     awaitingApproval: 'Đang chờ phê duyệt',
   },
 };

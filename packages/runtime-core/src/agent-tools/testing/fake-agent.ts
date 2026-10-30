@@ -45,7 +45,7 @@ export class ToolSession implements AgentSession {
   /** 每次收到的图片（startTurn 与 steer），与 `inputs` 不一一对应。 */
   readonly images: AgentImage[][] = [];
   /** Harness 对审批的回应：自动答应的、用户点的、停止屏障取消的。 */
-  readonly responses: { approvalId: string; decision: ApprovalResponse['decision'] }[] = [];
+  readonly responses: ({ approvalId: string } & ApprovalResponse)[] = [];
   readonly #listeners = new Set<(event: AgentEvent) => void>();
   #turn = 0;
   turnId: string | null = null;
@@ -103,7 +103,12 @@ export class ToolSession implements AgentSession {
   }
 
   async respondToApproval(approvalId: string, response: ApprovalResponse) {
-    this.responses.push({ approvalId, decision: response.decision });
+    this.responses.push({
+      approvalId,
+      decision: response.decision,
+      ...(response.answers ? { answers: response.answers } : {}),
+      ...(response.message ? { message: response.message } : {}),
+    });
   }
 
   subscribe(listener: (event: AgentEvent) => void) {

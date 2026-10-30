@@ -33,6 +33,8 @@ export interface FakeCodexTurn {
   errorInfo?: CodexErrorInfo;
   /** 回合里先发一个命令审批请求（越界的网络命令），记下 BaoCut 的答复。 */
   askApproval?: boolean;
+  /** 回合里先发一个 `item/tool/requestUserInput`（这些题目），BaoCut 的回应原样写进回复：`answered <JSON>`。 */
+  askQuestions?: unknown[];
   /** 回合里（结束之前）发的 `error` 通知。 */
   errors?: Array<{ message: string; codexErrorInfo?: CodexErrorInfo | null; willRetry: boolean }>;
 }

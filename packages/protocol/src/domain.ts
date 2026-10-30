@@ -39,8 +39,11 @@ export interface Project {
   missing?: true;
 }
 
-/** 会话的活动状态，侧栏徽标由它汇总（架构设计 §11.3）。 */
-export type ConversationActivity = 'idle' | 'running' | 'stopping' | 'awaiting-approval' | 'failed';
+/**
+ * 会话的活动状态，侧栏徽标由它汇总（架构设计 §11.3）。`awaiting-answer`：只有智能体的提问在等用户回答（§3.12「提问」）；
+ * 同时有待批准的动作时算 `awaiting-approval`。
+ */
+export type ConversationActivity = 'idle' | 'running' | 'stopping' | 'awaiting-approval' | 'awaiting-answer' | 'failed';
 
 export interface Conversation {
   id: Id;
@@ -193,7 +196,34 @@ export type ToolCallStatus = 'running' | 'completed' | 'failed' | 'declined' | '
 export type ApprovalRequest =
   | { kind: 'command'; command: string; cwd: string | null; reason: string | null; rule?: string | null }
   | { kind: 'file-change'; reason: string | null; files: string[]; rule?: string | null }
-  | { kind: 'tool'; tool: string; reason: string | null; files: string[]; server?: string | null; rule?: string | null };
+  | { kind: 'tool'; tool: string; reason: string | null; files: string[]; server?: string | null; rule?: string | null }
+  /**
+   * 智能体向用户提问（架构设计 §3.12「提问」）：不是权限审批，不查访问模式、不看「总是允许」规则、任何模式下都等用户。
+   * 用 `agents.answerQuestion` 回答，或用 `agents.respondToApproval` 拒绝（`decline`）。`reason` 恒为 null，只为与其他种类同形。
+   */
+  | { kind: 'question'; questions: AgentQuestion[]; reason: null; rule?: null };
+
+/** 一道选择题的选项。`description`：选项的说明，没有时为 null。 */
+export interface AgentQuestionOption {
+  label: string;
+  description: string | null;
+}
+
+/**
+ * 智能体提的一道选择题。`id` 是题号（原生给的；没有时由 Driver 按顺序编），答案按题号回传。
+ * `allowOther`：除了选项还能自己写答案（界面上的「其他」）。
+ */
+export interface AgentQuestion {
+  id: string;
+  header: string;
+  question: string;
+  options: AgentQuestionOption[];
+  multiSelect: boolean;
+  allowOther: boolean;
+}
+
+/** 题号 → 选中的选项名，或用户自己写的答案（`allowOther`）。单选题恰好一项，多选题至少一项。 */
+export type AgentQuestionAnswers = Record<string, string[]>;
 
 /**
  * - `accept-for-session`：对 Driver 原样转交（原生侧的会话级放行）；对 BaoCut 工具是「这个任务里同一个工具不再问」，
@@ -275,6 +305,10 @@ export type TimelineItem =
        * 早先的记录没有这个字段。
        */
       decision?: ApprovalDecision;
+      /** 提问的回答（`request.kind === 'question'` 且用户答了才有，`status` 为 `accepted`）。 */
+      answers?: AgentQuestionAnswers;
+      /** 提问没有选答案：用户直接发了一条消息，问题按拒绝结束，消息随后插进回合（`status` 为 `declined`）。 */
+      answeredByMessage?: boolean;
     })
   | (TimelineBase & {
       kind: 'task';

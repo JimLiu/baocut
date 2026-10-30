@@ -13,6 +13,8 @@ import {
   normalizeAgentMode,
   type AgentErrorCode,
   type AgentMode,
+  type AgentQuestion,
+  type AgentQuestionAnswers,
   type Autonomy,
   type DriverProbe,
   type Id,
@@ -139,7 +141,7 @@ const CONFINED_WORKSPACE_WRITE: SandboxWorkspaceWrite = {
 
 interface PendingApproval {
   rpcId: RpcId;
-  settle: (decision: CodexApprovalDecision) => void;
+  settle: (response: ApprovalResponse) => void;
   abandon: () => void;
 }
 
@@ -157,6 +159,34 @@ interface TurnFailure {
   /** Codex 给的原话；没有时是 BaoCut 写的「未知错误」。 */
   message: DriverText;
   code: AgentErrorCode | null;
+}
+
+/**
+ * Codex 的 request_user_input 题目 → BaoCut 的提问：`{ id, header, question, options: [{ label, description }], multiSelect?, isOther? }`。
+ * 题号原样沿用；`isOther` 是「还能自己写答案」。没有题号或题目的丢掉。
+ */
+export function codexQuestions(raw: unknown): AgentQuestion[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    const q = item as { id?: unknown; header?: unknown; question?: unknown; options?: unknown; multiSelect?: unknown; isOther?: unknown } | null;
+    const id = typeof q?.id === 'string' ? q.id : '';
+    const question = typeof q?.question === 'string' ? q.question.trim() : '';
+    if (!id || !question) return [];
+    const options = (Array.isArray(q?.options) ? q.options : []).flatMap((option) => {
+      const o = option as { label?: unknown; description?: unknown } | null;
+      const label = typeof o?.label === 'string' ? o.label.trim() : '';
+      if (!label) return [];
+      return [{ label, description: typeof o?.description === 'string' && o.description.trim() ? o.description.trim() : null }];
+    });
+    const header = typeof q?.header === 'string' ? q.header.trim() : '';
+    // 没有选项的题只能自己写。
+    return [{ id, header, question, options, multiSelect: q?.multiSelect === true, allowOther: q?.isOther === true || options.length === 0 }];
+  });
+}
+
+/** BaoCut 的回答 → Codex 的 `answers`：`{ [题号]: { answers: [...] } }`。 */
+export function codexAnswers(answers: AgentQuestionAnswers): Record<string, { answers: string[] }> {
+  return Object.fromEntries(Object.entries(answers).map(([id, values]) => [id, { answers: values }]));
 }
 
 export class CodexSession implements AgentSession {
@@ -242,6 +272,41 @@ export class CodexSession implements AgentSession {
         // 文件修改按访问模式放行，不存规则。
         rule: null,
       });
+    });
+
+    // 提问（Codex 的 request_user_input）：答案按题号回传，拒绝与取消回空答案（Codex 当作没回答）。
+    // 受限的调用里没人能回答，直接回空答案。旧版 Codex 用不带 item/ 的方法名。
+    const askUser = (params: unknown, rpcId: RpcId) => {
+      const p = params as { turnId?: string; questions?: unknown };
+      const questions = codexQuestions(p.questions);
+      if (this.#confined || questions.length === 0) return Promise.resolve({ answers: {} });
+      return this.#ask(rpcId, p.turnId ?? '', { kind: 'question', questions, reason: null, rule: null }, (response) => ({
+        answers: response.decision === 'accept' ? codexAnswers(response.answers ?? {}) : {},
+      }));
+    };
+    conn.handle('item/tool/requestUserInput', askUser);
+    conn.handle('tool/requestUserInput', askUser);
+    // MCP 服务向用户要确认（elicitation）：只接没有必填字段的表单，当成一次工具审批（允许 / 拒绝）；要填字段或打开链接的直接拒绝。
+    conn.handle('mcpServer/elicitation/request', (params, rpcId) => {
+      const p = params as {
+        turnId?: string | null;
+        serverName?: string;
+        mode?: string;
+        message?: string;
+        requestedSchema?: { required?: unknown };
+      };
+      const required = Array.isArray(p.requestedSchema?.required) && p.requestedSchema.required.length > 0;
+      if (this.#confined || p.mode === 'url' || required) return Promise.resolve({ action: 'decline', content: null, _meta: null });
+      const server = p.serverName ?? 'mcp';
+      return this.#ask(
+        rpcId,
+        p.turnId ?? '',
+        { kind: 'tool', tool: server, server, reason: p.message ?? null, files: [], rule: null },
+        (response) => {
+          const action = response.decision === 'decline' ? 'decline' : response.decision === 'cancel' ? 'cancel' : 'accept';
+          return { action, content: action === 'accept' ? {} : null, _meta: null };
+        },
+      );
     });
 
     const init: InitializeParams = {
@@ -340,7 +405,7 @@ export class CodexSession implements AgentSession {
     if (!pending) return;
     this.#approvals.delete(approvalId);
     this.#approvalByRpc.delete(String(pending.rpcId));
-    pending.settle(DECISION[response.decision]);
+    pending.settle(response);
   }
 
   subscribe(listener: (event: AgentEvent) => void): () => void {
@@ -378,11 +443,21 @@ export class CodexSession implements AgentSession {
     turnId: string,
     request: Extract<AgentEvent, { type: 'approval.requested' }>['request'],
   ): Promise<{ decision: CodexApprovalDecision }> {
+    return this.#ask(rpcId, turnId, request, (response) => ({ decision: DECISION[response.decision] }));
+  }
+
+  /** 原生的一个请求挂起来等 Harness 回答；`answer` 把回答换成原生的回应。 */
+  #ask<T>(
+    rpcId: RpcId,
+    turnId: string,
+    request: Extract<AgentEvent, { type: 'approval.requested' }>['request'],
+    answer: (response: ApprovalResponse) => T,
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
       const approvalId = newId('appr');
       this.#approvals.set(approvalId, {
         rpcId,
-        settle: (decision) => resolve({ decision }),
+        settle: (response) => resolve(answer(response)),
         abandon: () => reject(NO_RESPONSE),
       });
       this.#approvalByRpc.set(String(rpcId), approvalId);

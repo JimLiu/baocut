@@ -11,6 +11,7 @@ import { useJobs } from '../../state/jobs-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { ApprovalCard } from './approval-card.tsx';
+import { QuestionCard } from './question-card.tsx';
 import {
   beginScrollbarDrag,
   endScrollbarDrag,
@@ -408,6 +409,7 @@ function Block({
     case 'steps':
       return <StepsGroup items={block.items} undone={block.undone} live={live} conversationId={conversationId} cwd={cwd} />;
     case 'approval':
+      if (block.item.request.kind === 'question') return <QuestionCard item={block.item} conversationId={conversationId} />;
       return <ApprovalCard item={block.item} conversationId={conversationId} />;
     case 'notice':
       return <NoticeLine item={block.item} />;

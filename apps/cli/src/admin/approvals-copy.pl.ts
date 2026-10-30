@@ -28,4 +28,5 @@ export const pl: ApprovalsMessages = {
   runCommand: (command: string) => `Uruchom polecenie: ${command}`,
   changeFiles: (files: readonly string[]) => `Zmień pliki: ${files.join(", ")}`,
   callTool: (tool: string, files: readonly string[]) => `Wywołaj ${tool}${files.length > 0 ? `: ${files.join(", ")}` : ""}`,
+  askQuestion: (question: string, more: number) => `Odpowiedz: ${question}${more > 0 ? ` (+${more} więcej)` : ''}`,
 };

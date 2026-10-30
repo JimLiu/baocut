@@ -93,7 +93,7 @@ export function projectAgentEvent(state: ConversationState, run: RunContext | nu
         decidedAt: blocked ? nowIso() : null,
       });
       if (blocked) return { type: 'approval-blocked', approvalId: event.approvalId };
-      state.updateConversation({ activity: 'awaiting-approval' });
+      state.updateConversation({ activity: event.request.kind === 'question' ? 'awaiting-answer' : 'awaiting-approval' });
       return NONE;
     }
 
@@ -167,13 +167,18 @@ export function finishTask(
   state.updateConversation({ activity: status === 'failed' ? 'failed' : 'idle', activeTaskId: null, unread: true });
 }
 
-/** 会话的活动状态由条目重新汇总：有待批的审批就是「等待批准」。 */
+/** 会话的活动状态由条目重新汇总：有待批的审批就是「等待批准」；只剩智能体的提问时是「等你回答」。 */
 export function refreshActivity(state: ConversationState): void {
   const conv = state.conversation;
   if (!conv.activeTaskId) return;
   if (conv.activity === 'stopping') return;
-  const waiting = state.items().some((i) => i.kind === 'approval' && i.status === 'pending' && i.taskId === conv.activeTaskId);
-  const activity = waiting ? 'awaiting-approval' : 'running';
+  const pending = state.items().filter((i) => i.kind === 'approval' && i.status === 'pending' && i.taskId === conv.activeTaskId);
+  const activity =
+    pending.length === 0
+      ? 'running'
+      : pending.some((i) => i.kind === 'approval' && i.request.kind !== 'question')
+        ? 'awaiting-approval'
+        : 'awaiting-answer';
   if (conv.activity !== activity) state.updateConversation({ activity });
 }
 

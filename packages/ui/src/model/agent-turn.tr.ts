@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const tr: AgentTurnMessages = {
+  answer: 'Yanıtınız bekleniyor',
   waiting: "Onayınız bekleniyor",
   working: "İşleniyor",
   stopping: "Durduruluyor",

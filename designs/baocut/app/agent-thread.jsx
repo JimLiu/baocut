@@ -167,6 +167,7 @@
     if (m.role === 'assistant') return <AssistantMsg m={m} live={sess.status === 'running'} sess={sess} />;
     if (m.role === 'tool') return <AgentToolSteps items={[m]} />;
     if (m.role === 'permission') return <PermissionMsg m={m} sid={sess.id} />;
+    if (m.role === 'question') return <window.AgentQuestionMsg m={m} sid={sess.id} />;
     return null;
   }
 
@@ -287,7 +288,8 @@
     const off = !h || !h.found;
     const SETUP = window.BC_AGENT_SETUP;
     const gate = !off && h.id === sess.harness && sess.model == null && SETUP.health(h) === 'ready' ? SETUP.defaultModelGate(h) : null;
-    const busy = sess.status === 'running' || sess.status === 'waiting';
+    /* 停下来等你回答提问时不算忙：输入框里发的这句就是回答（产品设计 §6.6），发送照常可用 */
+    const busy = sess.status === 'running' || (sess.status === 'waiting' && TURN.waitingFor(sess) !== 'answer');
     const proj = sess.project ? app.projById(sess.project) : null;
     const dirId = sess.project ? (proj && proj.dir) || null : sess.dir || null;
     // 访问模式：会话自己的那一档就是真相，没有全局上限去改写它
@@ -524,7 +526,7 @@
                     {cardAt && cardAt.has(m.id) && window.AgentRowCards ? <window.AgentRowCards cards={cardAt.get(m.id)} sess={cur} /> : null}
                   </div>
                   {/* 原先线程末尾的「正在回复」占位并进了页脚：这一轮在跑就是「正在工作 · 0:42」，停下来等放行是「等你允许」 */}
-                  {showFoot ? <AgentTurnFooter turn={foot.turn} live={foot.live} waiting={foot.live && cur.status === 'waiting'}
+                  {showFoot ? <AgentTurnFooter turn={foot.turn} live={foot.live} waiting={foot.live && TURN.waitingFor(cur)}
                     className={`agap-${TURN.gapBetween(kind, 'footer')}`} /> : null}
                 </React.Fragment>;
               })}
@@ -537,12 +539,12 @@
     );
   }
 
-  /* 会话行（侧栏 / 首页「进行中」/ 抽屉切换菜单共用）。状态词：运行中 / 等你允许 / 完成。 */
+  /* 会话行（侧栏 / 首页「进行中」/ 抽屉切换菜单共用）。状态词：运行中 / 等你允许（或等你回答）/ 完成。 */
   function SessionStatus({s}) {
     const app = useApp();
     const task = s.taskId ? app.tasks.find((t) => t.id === s.taskId) : null;
     if (s.status === 'running') return <span className="sstat sstat--run">运行中{task && task.status === 'running' ? ` · ${task.pct}%` : ''}</span>;
-    if (s.status === 'waiting') return <span className="sstat sstat--wait">等你允许</span>;
+    if (s.status === 'waiting') return <span className="sstat sstat--wait">{TURN.waitingLabel(s)}</span>;
     return <span className="sstat">{AG.agoLabel(s.ago)}</span>;
   }
 

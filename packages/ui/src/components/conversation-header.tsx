@@ -28,7 +28,7 @@ import Play from '@react-spectrum/s2/icons/Play';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { untitled } from '../copy.ts';
-import { sessionStatus } from '../model/sidebar.ts';
+import { liveWord, type LiveWord } from '../model/sidebar.ts';
 import { formatBytes, isPlayable, KIND_LABEL, videoTargetOf } from '../model/space.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { useConnection } from '../state/connection-store.ts';
@@ -71,10 +71,11 @@ const statusText = style({ flexShrink: 0, font: 'ui-xs', color: 'gray-600' });
 
 /** 项目目录不在了时变灰的菜单项：都要用到项目目录（同侧栏项目菜单的 NEEDS_FOLDER）。 */
 const NEEDS_FOLDER = ['new', 'space', 'brand', 'reveal'];
-/** 会话进行中 / 等待批准的状态词（按界面语言）；窄窗口的会话标签也用它（workspace-tabs.tsx）。 */
-export const STATUS_WORD: { readonly running: string; readonly waiting: string } = live(() => ({
+/** 会话进行中 / 等待批准 / 等待回答的状态词（按界面语言）；窄窗口的会话标签也用它（workspace-tabs.tsx）。 */
+export const STATUS_WORD: Readonly<Record<LiveWord, string>> = live(() => ({
   running: S.conversationHeader.running,
   waiting: S.conversationHeader.waiting,
+  answer: S.conversationHeader.answer,
 }));
 
 /** 会话头右端的排法：默认左右 12；`joined` 和右侧按钮组连成一组；`summary` 在 ··· 后面跟着 `trailing`（会话摘要）。 */
@@ -95,8 +96,8 @@ export function ConversationHeader({
   const go = useShell((s) => s.go);
   const [dialog, setDialog] = useState<'rename' | 'delete' | null>(null);
   const title = conversation.title || untitled();
-  const status = sessionStatus(conversation);
-  const word = status === 'running' || status === 'waiting' ? STATUS_WORD[status] : null;
+  const status = liveWord(conversation);
+  const word = status ? STATUS_WORD[status] : null;
 
   const onAction = (key: Key) => {
     if (key === 'new') go({ tab: 'home', conversationId: null, projectId: conversation.projectId });

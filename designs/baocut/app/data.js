@@ -2506,6 +2506,27 @@
             receipt: '已创建 3 支短视频 · 6.1s',
             close: '好了：已创建 3 支短视频，起止都落在句子边界上。回到「剪成短视频」逐支打开：片段外的话在文稿里划掉了，点一下可以放回；不要哪一支就移入回收站。'}},
        ]},
+      /* 等你回答的一条（产品设计 §6.6「提问」）：Agent 停在一张提问卡上——两道题，一道单选、一道多选，都能选「其他」自己写。
+         点「发送回答」或「跳过」走 store-agent-sim.jsx 的 answerQuestion；直接在输入框发一句也算回答。 */
+      {id: 's44', title: '给课程 03 配片头和转场音乐', project: 'p3', harness: 'claude', model: 'sonnet', effort: 'mid',
+       status: 'waiting', ago: 3,
+       messages: [
+         {id: 'm1', role: 'user', text: '给第 03 讲配点音乐，片头和章节转场都要。', ...turnLive(95)},
+         {id: 'm2', role: 'tool', cmd: 'bcut project info project.bcut', status: 'done', took: '0.2s', out: 'duration 38:20 · 4 章 · 1 位说话人'},
+         {id: 'm3', role: 'assistant', text: '这一讲 38 分钟、4 章。配之前有两件事你定一下比我猜更快：'},
+         {id: 'm4', role: 'question', state: 'pending', questions: [
+           {id: 'q1', header: '风格', question: '音乐想要什么感觉？', multiSelect: false, options: [
+             {label: '轻快', description: '木吉他和拍手，节奏明亮'},
+             {label: '沉稳', description: '钢琴和弦乐垫底，不抢讲解'},
+             {label: '电子', description: '合成器律动，偏科技感'},
+           ]},
+           {id: 'q2', header: '位置', question: '放在哪几处？', multiSelect: true, options: [
+             {label: '片头 10 秒', description: null},
+             {label: '每章转场', description: null},
+             {label: '片尾', description: null},
+           ]},
+         ]},
+       ]},
       /* 只在项目目录里、还没有视频的会话（2026-10-01）：「产品手册动画」项目只有插图和文档。 */
       {id: 's17', title: '产品手册的插图做成 40 秒动画', project: null, dir: 'd8', harness: 'claude', model: 'sonnet', effort: 'mid',
        status: 'done', ago: 35, unread: true,

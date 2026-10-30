@@ -27,6 +27,7 @@ export const tr: ShellMessages = {
   },
   conversationHeader: {
     running: "İşleniyor",
+    answer: 'Yanıt bekleniyor',
     waiting: "Onay bekleniyor",
     actions: "Oturum eylemleri",
     viewInSpace: (name) => `${name} adlı öğeyi Space içinde gör`,

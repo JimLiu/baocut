@@ -4,7 +4,7 @@ import type { Id } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { homeBarBounds, itemKey, summaryInHead, workspaceKey, type WorkspaceItem } from '../../model/workspace.ts';
 import { untitled } from '../../copy.ts';
-import { sessionStatus } from '../../model/sidebar.ts';
+import { liveWord } from '../../model/sidebar.ts';
 import { useConversationMeta } from '../../state/directory-store.ts';
 import { homeMode, useShell } from '../../state/shell-store.ts';
 import { ConversationHeader, DraftConversationHeader, type ConversationHeaderEnd } from '../conversation-header.tsx';
@@ -52,7 +52,7 @@ export function HomeTitleBar({
   const hasPane = !!mode?.visible;
   const single = !!mode?.single;
   const inHead = summaryInHead({ visible: hasPane, single, count: tabs.length });
-  const status = conversation ? sessionStatus(conversation) : null;
+  const status = conversation ? liveWord(conversation) : null;
   const [bounds, setBounds] = useState<{ left: number; split: number; right: number } | null>(null);
 
   // 按钮组的按钮数随标签、会话与视图变化：尺寸一变就重画一次，下面的布局效果重新量它的左缘（没有按钮时当作没有这一组）。
@@ -117,7 +117,7 @@ export function HomeTitleBar({
               single
                 ? {
                     title: conversation?.title || untitled(),
-                    status: status === 'running' || status === 'waiting' ? status : null,
+                    status,
                     selected: conversationSelected,
                   }
                 : undefined

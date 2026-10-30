@@ -947,6 +947,14 @@ export const methodParamSchemas = {
     approvalId: id,
     decision: z.enum(['accept', 'accept-for-session', 'accept-always', 'decline']),
   }),
+  // 只挡过大的请求（最多 20 道题、每题 20 个答案）；每题是否答了、选项对不对由 Harness 按提问逐题核对。
+  'agents.answerQuestion': z.object({
+    conversationId: id,
+    approvalId: id,
+    answers: z
+      .record(z.string().min(1).max(200), z.array(z.string().min(1).max(2000)).min(1).max(20))
+      .refine((a) => Object.keys(a).length <= 20),
+  }),
   'agents.interrupt': z.object({ conversationId: id }),
   // 参数里不收命令：命令由 Runtime 从探测结果里取（架构设计 §12.9）。多给的字段直接拒绝。
   'agents.runSetup': z

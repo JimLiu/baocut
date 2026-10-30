@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const vi: AgentTurnMessages = {
+  answer: 'Đang chờ bạn trả lời',
   waiting: "Đang chờ bạn phê duyệt",
   working: "Đang xử lý",
   stopping: "Đang dừng",

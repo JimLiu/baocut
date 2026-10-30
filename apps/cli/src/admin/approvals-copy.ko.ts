@@ -41,4 +41,5 @@ export const ko: ApprovalsMessages = {
   runCommand: (command: string) => `명령 실행: ${command}`,
   changeFiles: (files: readonly string[]) => `파일 수정: ${files.join(', ')}`,
   callTool: (tool: string, files: readonly string[]) => `${tool} 호출${files.length > 0 ? `: ${files.join(', ')}` : ''}`,
+  askQuestion: (question: string, more: number) => `답변: ${question}${more > 0 ? ` (외 ${more}개)` : ''}`,
 };

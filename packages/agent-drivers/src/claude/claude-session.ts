@@ -4,7 +4,7 @@
  * steerActiveTurn（priority:'next'）、interruptActiveTurn / discardQueuedSteers（中断前撤回没读到的追加消息）、
  * readMissingResumedConversationError（恢复不了的会话）、handlePermissionRequest（canUseTool 的挂起表；
  * ExitPlanMode 带出计划全文 `planText`）、normalizeClaudeAskUserQuestionRequestInput（AskUserQuestion 的输入形状，
- * BaoCut 不回答它，改为拒绝并让 Claude 用文字问）、CLAUDE_SETTING_SOURCES（加载设置层；BaoCut 只取 user 层）。
+ * BaoCut 映射成提问卡，答案按题目全文回传）、CLAUDE_SETTING_SOURCES（加载设置层；BaoCut 只取 user 层）。
  */
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -14,6 +14,8 @@ import {
   normalizeAgentMode,
   type AgentErrorCode,
   type AgentMode,
+  type AgentQuestion,
+  type AgentQuestionAnswers,
   type ApprovalRequest,
   type Autonomy,
   type Id,
@@ -57,14 +59,15 @@ const CAPABILITIES = { steer: true, approvals: true, resume: true, images: true 
 const BAOCUT_TOOLS = 'mcp__baocut__';
 
 /**
- * Claude 向用户提问的工具。Driver ABI 的审批只有允许与拒绝，带不回用户的答案：当成审批放行的话 Claude 拿到的是原样的
- * 输入、没有答案。所以不弹审批卡，直接拒绝，让 Claude 把问题写进回复、结束本回合，用户的下一条消息就是回答。
- * 这句话是给模型看的，写成英文并要它用用户的语言提问，免得把回复带偏成某一种语言。
+ * Claude 向用户提问的工具：映射成 BaoCut 的提问（`question`），任何访问模式下都等用户回答（实测各个 permissionMode 都经
+ * canUseTool 问它，`requiresUserInteraction` 为 true）。回答放进 `updatedInput.answers`，键是题目全文（不是 header：
+ * 键对不上 CLI 不报错，只告诉 Claude「用户没有回答」），多选题用逗号连接。
  */
 const ASK_USER_QUESTION = 'AskUserQuestion';
-export const ASK_USER_QUESTION_DENIAL =
-  'AskUserQuestion is not available here: the user cannot see or answer it. Instead, write your question(s) to the user as plain text in your reply ' +
-  '(list the options if there are any), in the language the user has been using, then end your turn and wait for their answer in the next message.';
+/** 用户拒绝回答（Harness 没给说明时）。给模型看。 */
+const QUESTION_DECLINED = 'The user declined to answer. Continue with your best judgment, or ask in plain text if you must.';
+/** 受限的调用里没人能回答。给模型看。 */
+const QUESTION_UNAVAILABLE = 'Nobody can answer questions in this run. Decide on your own and continue.';
 
 /** 退出计划模式的工具：审批卡带上计划全文，不给「总是允许」，也不记会话级放行（每个计划都要用户看过）。 */
 const EXIT_PLAN_MODE = 'ExitPlanMode';
@@ -216,6 +219,8 @@ interface PendingApproval {
   input: Record<string, unknown>;
   /** null：这一类不记会话级放行。 */
   grantKey: string | null;
+  /** 提问：题号 → 题目全文（回答按题目全文交回 CLI）。 */
+  questions?: Map<string, string>;
   resolve: (result: PermissionResult) => void;
 }
 
@@ -323,13 +328,21 @@ export class ClaudeSession implements AgentSession {
         this.#afterAllowed(pending);
         return;
       case 'accept':
+        if (pending.questions) {
+          const answers = claudeAnswers(pending.questions, response.answers ?? {});
+          pending.resolve({ behavior: 'allow', updatedInput: { ...pending.input, answers } });
+          return;
+        }
         pending.resolve({ behavior: 'allow', updatedInput: pending.input });
         this.#afterAllowed(pending);
         return;
       case 'decline':
         this.#turn?.mapper.declined(pending.toolUseId);
         // i18n-ignore: 交给 Claude 的拒绝说明，给模型看
-        pending.resolve({ behavior: 'deny', message: '用户拒绝了这次操作。' });
+        pending.resolve({
+          behavior: 'deny',
+          message: response.message ?? (pending.questions ? QUESTION_DECLINED : '用户拒绝了这次操作。'),
+        });
         return;
       case 'cancel': {
         // 停止屏障（D04）：拒绝并结束本回合。
@@ -646,11 +659,9 @@ export class ClaudeSession implements AgentSession {
 
   readonly #canUseTool: CanUseTool = (toolName, input, options) => {
     if (toolName.startsWith(BAOCUT_TOOLS)) return Promise.resolve({ behavior: 'allow', updatedInput: input });
-    if (toolName === ASK_USER_QUESTION) {
-      // 不弹审批卡（见 ASK_USER_QUESTION）。时间线上这一步记为「已拒绝」而不是「失败」。
-      // 未验证：bypassPermissions 与 auto 模式下 CLI 是否仍经 canUseTool 问这个工具（auto 可能交给分类器）；不经过时它照原生行为执行。
+    if (toolName === ASK_USER_QUESTION && this.#options.confinement === 'cwd-write-only') {
       this.#turn?.mapper.declined(options.toolUseID);
-      return Promise.resolve({ behavior: 'deny', message: ASK_USER_QUESTION_DENIAL });
+      return Promise.resolve({ behavior: 'deny', message: QUESTION_UNAVAILABLE });
     }
     if (this.#options.confinement === 'cwd-write-only') {
       // i18n-ignore: 交给 Claude 的拒绝说明，给模型看
@@ -661,12 +672,28 @@ export class ClaudeSession implements AgentSession {
       // i18n-ignore: 交给 Claude 的拒绝说明，给模型看
       return Promise.resolve({ behavior: 'deny', message: '任务已停止。' });
     }
-    const { request, grantKey } = approvalRequest(toolName, input, options, this.#options.cwd);
+    const asked = toolName === ASK_USER_QUESTION ? claudeQuestions(input) : null;
+    if (asked && asked.length === 0) {
+      this.#turn?.mapper.declined(options.toolUseID);
+      return Promise.resolve({ behavior: 'deny', message: 'AskUserQuestion needs at least one question with options.' });
+    }
+    const { request, grantKey } = asked
+      ? { request: { kind: 'question' as const, questions: asked, reason: null, rule: null }, grantKey: null }
+      : approvalRequest(toolName, input, options, this.#options.cwd);
     if (grantKey && this.#sessionGrants.has(grantKey)) return Promise.resolve({ behavior: 'allow', updatedInput: input });
 
     return new Promise<PermissionResult>((resolve) => {
       const approvalId = newId('appr');
-      this.#approvals.set(approvalId, { turnId: turn.id, toolName, toolUseId: options.toolUseID, input, grantKey, resolve });
+      const questions = asked ? claudeQuestionKeys(input, asked) : undefined;
+      this.#approvals.set(approvalId, {
+        turnId: turn.id,
+        toolName,
+        toolUseId: options.toolUseID,
+        input,
+        grantKey,
+        ...(questions ? { questions } : {}),
+        resolve,
+      });
       options.signal.addEventListener(
         'abort',
         () => {
@@ -730,6 +757,45 @@ export class ClaudeSession implements AgentSession {
       }
     }
   }
+}
+
+/**
+ * AskUserQuestion 的输入 → BaoCut 的提问。题号按顺序编（`q1`、`q2`…），回答时再换回题目全文。
+ * Claude Code 的提问总能自己写答案（原生界面上的「Other」），所以 `allowOther` 恒为 true。没有题目的项丢掉。
+ */
+export function claudeQuestions(input: Record<string, unknown>): AgentQuestion[] {
+  if (!Array.isArray(input.questions)) return [];
+  return input.questions.flatMap((item, index) => {
+    const q = item as { question?: unknown; header?: unknown; options?: unknown; multiSelect?: unknown } | null;
+    const question = typeof q?.question === 'string' ? q.question.trim() : '';
+    if (!question) return [];
+    const options = (Array.isArray(q?.options) ? q.options : []).flatMap((option) => {
+      if (typeof option === 'string') return option.trim() ? [{ label: option.trim(), description: null }] : [];
+      const o = option as { label?: unknown; description?: unknown } | null;
+      const label = typeof o?.label === 'string' ? o.label.trim() : '';
+      if (!label) return [];
+      const description = typeof o?.description === 'string' && o.description.trim() ? o.description.trim() : null;
+      return [{ label, description }];
+    });
+    const header = typeof q?.header === 'string' ? q.header.trim() : '';
+    return [{ id: `q${index + 1}`, header, question, options, multiSelect: q?.multiSelect === true, allowOther: true }];
+  });
+}
+
+/** 题号 → 输入里原样的题目全文（CLI 按原文对答案，去了空白就对不上）。 */
+function claudeQuestionKeys(input: Record<string, unknown>, asked: AgentQuestion[]): Map<string, string> {
+  const raw = input.questions as Array<{ question: string }>;
+  return new Map(asked.map((q) => [q.id, raw[Number(q.id.slice(1)) - 1]!.question]));
+}
+
+/** BaoCut 的回答 → AskUserQuestion 的 `answers`：键是题目全文，多选用逗号连接。 */
+export function claudeAnswers(questions: Map<string, string>, answers: AgentQuestionAnswers): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [id, question] of questions) {
+    const picked = answers[id];
+    if (picked?.length) out[question] = picked.join(', ');
+  }
+  return out;
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const zhHans: AgentTurnMessages = {
+  answer: '等你回答',
   waiting: '等你允许',
   working: '正在工作',
   stopping: '正在停止',

@@ -83,5 +83,7 @@ export function describeApprovalRequest(request: ApprovalRequest): string {
       return M.changeFiles(request.files);
     case 'tool':
       return M.callTool(request.tool, request.files);
+    case 'question':
+      return M.askQuestion(request.questions[0]?.question ?? '', Math.max(0, request.questions.length - 1));
   }
 }

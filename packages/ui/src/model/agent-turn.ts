@@ -18,6 +18,7 @@ import { vi } from './agent-turn.vi.ts';
 
 /** 会话线程里回合页脚与步骤的文案（英文是键与类型的来源，译文在 `agent-turn.zh-Hans.ts`）。 */
 const en = {
+  answer: 'Waiting for your answer',
   waiting: 'Waiting for your approval',
   working: 'Working',
   stopping: 'Stopping',
@@ -96,8 +97,10 @@ export interface Turn {
   text: string;
   /** 这一轮的任务（有几个取最后一个）。 */
   task: Task | null;
-  /** 有还在等决定的审批。 */
+  /** 有还在等决定的审批或提问。 */
   waiting: boolean;
+  /** 等的只有智能体的提问（页脚写「等你回答」而不是「等你允许」）。 */
+  answer: boolean;
 }
 
 /** 把线程块切成回合：从一条用户消息到下一条之前。任务状态行不算内容，只记成这一轮的任务。 */
@@ -106,7 +109,17 @@ export function turns(blocks: readonly ThreadBlock[]): Turn[] {
   let cur: (Turn & { texts: string[] }) | null = null;
   blocks.forEach((block, i) => {
     if (block.type === 'user' || !cur) {
-      cur = { start: i, end: i, hasUser: block.type === 'user', replied: false, text: '', task: null, waiting: false, texts: [] };
+      cur = {
+        start: i,
+        end: i,
+        hasUser: block.type === 'user',
+        replied: false,
+        text: '',
+        task: null,
+        waiting: false,
+        answer: false,
+        texts: [],
+      };
       out.push(cur);
     }
     if (block.type === 'task') {
@@ -116,7 +129,12 @@ export function turns(blocks: readonly ThreadBlock[]): Turn[] {
     cur.end = i;
     if (block.type !== 'user') cur.replied = true;
     if (block.type === 'agent' && block.item.text.trim()) cur.texts.push(block.item.text.trim());
-    if (block.type === 'approval' && block.item.status === 'pending') cur.waiting = true;
+    if (block.type === 'approval' && block.item.status === 'pending') {
+      // 同时有待批准的动作与提问时按批准写，与会话的活动状态一致。
+      const question = block.item.request.kind === 'question';
+      cur.answer = cur.waiting ? cur.answer && question : question;
+      cur.waiting = true;
+    }
   });
   return out.map(({ texts, ...turn }) => ({ ...turn, text: texts.join('\n\n') }));
 }
@@ -150,15 +168,17 @@ export function footerLabel(input: {
   endedAt?: number | null;
   now: number;
   waiting?: boolean;
+  /** 等的只有提问。 */
+  answer?: boolean;
   error?: string | null;
 }): string {
-  const { status, startedAt, endedAt, now, waiting, error } = input;
+  const { status, startedAt, endedAt, now, waiting, answer, error } = input;
   const span = startedAt != null ? elapsedLabel((endedAt ?? now) - startedAt) : null;
   const live = (word: string) => (span ? `${word} · ${span}` : word);
   switch (status) {
     case null:
     case 'running':
-      return live(waiting ? M.waiting : M.working);
+      return live(waiting ? (answer ? M.answer : M.waiting) : M.working);
     case 'stopping':
       return live(M.stopping);
     case 'completed':

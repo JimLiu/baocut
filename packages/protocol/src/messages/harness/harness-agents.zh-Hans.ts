@@ -34,4 +34,9 @@ export const zhHans: HarnessAgentsMessages = {
   effortUnsupported: (p) => `模型「${p.model}」不分推理强度`,
   approvalNoGrant: '这条审批不涉及数据外发，不能带授权的选择',
   contractFieldsReadonly: (p) => `智能体不能修改任务合同的 ${p.fields}：访问模式、权限范围、预算与保护范围只由用户决定`,
+  questionOnly: '这条审批是提问：用 agents.answerQuestion 提交回答，或者拒绝它',
+  notQuestion: '这条审批不是提问',
+  questionUnanswered: (p) => `「${p.question}」还没有回答`,
+  questionSingleChoice: (p) => `「${p.question}」只能选一个答案`,
+  questionUnknownOption: (p) => `「${p.option}」不是「${p.question}」的选项`,
 };

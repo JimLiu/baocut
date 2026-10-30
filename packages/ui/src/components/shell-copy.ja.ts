@@ -27,6 +27,7 @@ export const ja: ShellMessages = {
   },
   conversationHeader: {
     running: '処理中',
+    answer: '回答待ち',
     waiting: '承認待ち',
     actions: 'セッションの操作',
     viewInSpace: (name) => `「${name}」を Space で表示`,

@@ -166,6 +166,7 @@ const en = {
     steerUnsupported: 'This agent can’t take messages mid-task. It will be sent when the current task ends',
     skillWaits: 'Messages with a skill can’t join the turn in progress. It will be sent when the turn ends',
     failed: (message: string) => `Couldn’t send the queued message: ${message}`,
+    answerPlaceholder: 'Type your answer here, or pick options in the card above',
     busyPlaceholder: 'The agent is working. Messages you send now are queued until this turn ends',
   },
   /** 任务失败后的恢复区（原型 agent-thread.jsx `ErrorMsg`）。 */
@@ -492,6 +493,7 @@ const en = {
   taskView: {
     queued: 'Queued',
     running: 'In progress',
+    awaitingAnswer: 'Needs your answer',
     awaitingApproval: 'Needs your approval',
     cancelled: 'Cancelled',
     failed: 'Failed',

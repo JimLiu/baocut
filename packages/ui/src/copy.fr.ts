@@ -143,6 +143,7 @@ export const fr: CopyMessages = {
     steerUnsupported: "Cet Agent ne reçoit pas de messages pendant une tâche ; envoi à sa fin",
     skillWaits: "Les messages avec Skill ne rejoignent pas le tour en cours ; envoi à sa fin",
     failed: (message: string) => `Impossible d’envoyer le message en file : ${message}`,
+    answerPlaceholder: 'Écrivez votre réponse ici ou choisissez dans la carte ci-dessus',
     busyPlaceholder: "L’Agent travaille. Les messages envoyés sont en file jusqu’à la fin du tour",
   },
 
@@ -456,6 +457,7 @@ export const fr: CopyMessages = {
   taskView: {
     queued: "En file",
     running: "En cours",
+    awaitingAnswer: 'Réponse requise',
     awaitingApproval: "Votre approbation requise",
     cancelled: "Annulé",
     failed: "Échec",

@@ -28,6 +28,8 @@ export interface FakeOpenCodeTurn {
   reasoning?: string;
   tool?: FakeOpenCodeTool;
   reply?: string;
+  /** 发一张提问表单（`form.created`）等回答：答了把 answer 写进回复（`answered {...}`）；取消就以 `interrupted(shutdown)` 结束。 */
+  form?: { title?: string; fields: unknown[] };
   /** `hang`：一直不结束，直到收到中断。 */
   end?: 'succeeded' | 'failed' | 'hang';
   error?: string;

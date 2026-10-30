@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const ja: AgentTurnMessages = {
+  answer: '回答待ち',
   waiting: '承認待ち',
   working: '処理中',
   stopping: '停止中',

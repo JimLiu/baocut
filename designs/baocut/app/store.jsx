@@ -30,7 +30,7 @@
   const NO_SHORTS_CUT = {sessions: {}, open: () => ({ok: false, error: SURF.aiElsewhere('剪成短视频')}), hasResult: () => false, focusChild: () => false};
   const NO_CROP = {sessions: {}, outputs: {}, open: () => ({ok: false, error: SURF.aiElsewhere('智能裁剪')})};
   const NO_FLOW = {};
-  const NO_AGENT_SIM = {runWrite: () => {}, retryTask: () => {}, runWait: () => {}, planFor: (t, hasProject) => AG.planFor(t, hasProject)};
+  const NO_AGENT_SIM = {runWrite: () => {}, retryTask: () => {}, runWait: () => {}, answerQuestion: () => {}, planFor: (t, hasProject) => AG.planFor(t, hasProject)};
   const loadPrefs = () => {
     try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; }
   };
@@ -502,6 +502,8 @@
         : designAnnotations.length ? '请按这些设计稿标注修改。' : designSystemAnnotations.length ? '请按这些设计系统标注修改。'
         : videoAnnotations.length ? '请按这些视频标注修改。'
         : docsAnnotations.length ? (DOC ? DOC.fallbackText() : '请处理这些协作文档里的评论和请求。') : '');
+      /* 提问卡还在等：这句话就是回答（product-design §6.6），卡片记成「已在输入框回复」 */
+      mapMsgs(sid, (ms) => ms.map((m) => (m.role === 'question' && m.state === 'pending' ? {...m, state: 'byMessage'} : m)));
       appendMsg(sid, {role: 'user', text: said, attachments, ...(reference ? {reference} : {}),
         ...(artifactIds.length ? {artifactIds} : {}), ...(slideAnnotations.length ? {slideAnnotations} : {}),
         ...(designAnnotations.length ? {designAnnotations} : {}), ...(designSystemAnnotations.length ? {designSystemAnnotations} : {}),
@@ -569,6 +571,7 @@
           if (m.streaming) return {...m, streaming: false};
           if (m.role === 'tool' && m.status === 'run') return {...m, status: 'failed', took: '已停止'};
           if (m.role === 'permission' && m.state === 'pending') return {...m, state: 'stopped', plan: null};
+          if (m.role === 'question' && m.state === 'pending') return {...m, state: 'stopped'};
           return m;
         }),
       })));
@@ -867,6 +870,7 @@
       ttsPace, bumpPace,
       mediaStage, setMediaStage, stageMediaDemo, setStageMediaDemo, stageLoadDemo, setStageLoadDemo, coreMarks, setCoreMarks, proxyDemo, patchProxyDemo,
       sessions, sessionById, newSession, patchSession, archiveSession, deleteSessions, sendAgent, stopAgent, answerPermission,
+      answerQuestion: agentSim.answerQuestion,
       autoAllow, dropAutoAllow, harness, harnessPref, setHarnessPref, harnessOn, setHarnessOn, harnessList, patchHarness, addedHarnesses, addHarness, removeHarness, agentAvail, enableAgent, runner, setRunner, runnerBy, setRunnerFor, setAgentDefault,
       policy: policyMap, setPolicy, setSessionMode,
       dock, movieChats, setMovieChat, videoNotes, setVideoNotes, toolReq, requestTool, clearToolReq, openAgent, openSession, createProject, closeDock, toggleDock, setDock, dockW, setDockW,

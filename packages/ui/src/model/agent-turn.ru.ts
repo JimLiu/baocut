@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const ru: AgentTurnMessages = {
+  answer: 'Ожидание вашего ответа',
   waiting: "Ожидание вашего одобрения",
   working: "Выполняется",
   stopping: "Остановка",

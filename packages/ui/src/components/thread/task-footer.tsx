@@ -59,6 +59,7 @@ function LiveClock({ turn }: { turn: Turn }) {
     startedAt: task ? Date.parse(task.startedAt) : null,
     now,
     waiting: turn.waiting,
+    answer: turn.answer,
   });
   return (
     <>

@@ -370,6 +370,7 @@ export function createHandlers({
       'agents.updatePreferences': (p) => harness.updateAgentPreferences(p),
       'agents.removeRule': (p) => harness.removeRule(p.rule),
       'agents.respondToApproval': (p) => harness.respondToApproval(p),
+      'agents.answerQuestion': (p) => harness.answerQuestion(p),
       'agents.interrupt': (p) => harness.interrupt(p.conversationId),
       'agents.runSetup': (p) => setup.run(p),
       'agents.cancelSetup': (p) => setup.cancel(p.runId),

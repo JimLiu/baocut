@@ -30,6 +30,7 @@ export const pl: DriversOpencodeMessages = {
   retryFallback: "Żądanie modelu nie powiodło się. Wkrótce ponowienie.",
   runFailed: (p) => `${p.name} – wykonanie nie powiodło się`,
   endedAfterRejection: (p) => `${p.name} zakończył turę po odrzuceniu narzędzia. Wyślij kolejną wiadomość, aby spróbował innego podejścia.`,
+  endedAfterSkip: (p) => `${p.name} zakończył turę po pominięciu pytania. Wyślij kolejną wiadomość, aby kontynuować.`,
   interruptedTurn: (p) => `${p.name} przerwał turę (${p.reason}).`,
   modelFormat: (p) => `${p.name} – modele muszą mieć format provider/model (otrzymano ${p.id})`,
 };

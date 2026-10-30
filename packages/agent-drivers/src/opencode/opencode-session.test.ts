@@ -135,6 +135,59 @@ describe('OpenCodeSession（假 opencode serve）', () => {
     expect(replies.map((e) => e.body)).toEqual([{ decision: 'reject' }]);
   });
 
+  it('提问表单：转成 question 审批；回答把 label 换回 value 交给 form reply，跳过就取消表单、回合记成完成并提示', async () => {
+    const form = {
+      fields: [
+        {
+          key: 'q0',
+          title: 'Color',
+          description: 'Which color?',
+          type: 'string',
+          options: [
+            { value: 'red', label: 'Red' },
+            { value: 'blue', label: 'Blue' },
+          ],
+        },
+      ],
+    };
+    const { session, events, completed, approval } = await start({ turn: { form } });
+    const first = await session.startTurn({ text: 'ask' }, settings());
+    const asked = await approval();
+    expect(asked.request).toEqual({
+      kind: 'question',
+      questions: [
+        {
+          id: 'q0',
+          header: 'Color',
+          question: 'Which color?',
+          options: [
+            { label: 'Red', description: null },
+            { label: 'Blue', description: null },
+          ],
+          multiSelect: false,
+          allowOther: false,
+        },
+      ],
+      reason: null,
+      rule: null,
+    });
+    await session.respondToApproval(asked.approvalId, { decision: 'accept', answers: { q0: ['Blue'] } });
+    expect((await completed(first.turnId)).outcome).toBe('completed');
+    const replies = fake.log().filter((e) => e.kind === 'request' && e.path?.includes('/form/'));
+    expect(replies.map((e) => [e.path!.split('/').pop(), e.body])).toEqual([['reply', { answer: { q0: 'blue' } }]]);
+    const said = events.filter((e): e is ItemEvent => e.type === 'item.completed').map((e) => e.item);
+    expect(said).toContainEqual(expect.objectContaining({ kind: 'agent-message', text: 'answered {"q0":"blue"}' }));
+    // 收到 form.replied 时卡片已经收起，不重复报。
+    expect(events.filter((e) => e.type === 'approval.resolved')).toEqual([]);
+
+    const second = await session.startTurn({ text: 'ask again' }, settings());
+    const again = await approval(2);
+    await session.respondToApproval(again.approvalId, { decision: 'decline', message: 'skip' });
+    expect((await completed(second.turnId)).outcome).toBe('completed');
+    expect(events.some((e) => e.type === 'session.warning' && e.message.includes('提问被跳过'))).toBe(true);
+    expect(fake.log().filter((e) => e.kind === 'request' && e.path?.endsWith('/cancel'))).toHaveLength(1);
+  });
+
   it('本会话放行：之后同类的请求直接答应，从不回原生的 always', async () => {
     const shell = { name: 'shell', input: { command: 'npm test' }, permission: { action: 'shell', resources: ['npm test'] } };
     const { session, events, completed, approval } = await start({ turn: { tool: shell, reply: 'ok' } });

@@ -16,4 +16,10 @@ export const es: ChatMessages = {
     --yes                          Aprobar solicitudes automáticamente (solo esta sesión)`,
  missingMessage: 'Falta el texto del mensaje', templateIsExample: (title, id) => `«${title}» es un ejemplo y no se puede adjuntar: obtén su prompt con baocut templates show ${id} y envíalo como mensaje`, sessionCreated: (id, cwd) => `Sesión ${id}  carpeta de trabajo ${cwd}`, disconnected: (reason) => `Se perdió la conexión con el Runtime: ${reason}`, sessionDeleted: 'La sesión se eliminó', stopping: 'Deteniendo…', chatTemplate: (id) => `Plantilla: ${id}`, chatSkill: (id) => `Skill: ${id}`, chatMode: (mode) => `Modo de acceso: ${mode}`,
  taskEnded: (status, error) => `Tarea: ${status}${error ? ` — ${error}` : ''}`, taskStatus: { completed: 'Completado', stopped: 'Detenido', failed: 'Fallido' }, taskFailed: 'La tarea falló', toolCallFinished: (title, status, exitCode) => `▸ ${title} — ${status}${exitCode !== null ? ` (código de salida ${exitCode})` : ''}`, approvalNeeded: (what) => `Se necesita aprobación — ${what}`, approvalReason: (isTool, reason) => `${isTool ? 'Contenido' : 'Motivo'}: ${reason}`, approvalMode: (mode) => `Modo actual: ${mode}`, autoApproved: 'Aprobado automáticamente (--yes)', declinedNotTty: 'No se ejecuta en un terminal: denegado (añade --yes para aprobar automáticamente)', approvalQuestion: '¿Aprobar? [y] sí / [s] sesión / [N] no ',
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? 'Elige números separados por comas' : 'Elige un número'}${other ? ' o escribe tu propia respuesta' : ''} (vacío para omitir): `,
+  questionSkipped: '  Omitida: el agente decidirá por su cuenta',
+  questionNotTty: '  No se ejecuta en una terminal: omitida (el agente decidirá por su cuenta)',
+  questionAutoSkipped: '  Omitida (--yes no responde preguntas)',
 };

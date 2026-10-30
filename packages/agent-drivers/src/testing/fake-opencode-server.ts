@@ -2,7 +2,8 @@
  * 假 opencode 的入口（由 fake-opencode.ts 写出的 shell 包装调用）。`--version` 按场景输出版本；`serve` 起一个只监听
  * 127.0.0.1 的 HTTP 服务，形状照 OpenCode 2.x 的 v2 API（2.0.24 实测）：Basic 认证（用户名 opencode、密码取
  * OPENCODE_PASSWORD）、`server listening on http://127.0.0.1:<port>` 一行、冷启动时第一次 `/api/plugin` 回空表、
- * `/api/event` 是带心跳注释的 SSE。回合按场景发事件；拒绝工具后以 `interrupted(shutdown)` 结束执行（同真实行为）。
+ * `/api/event` 是带心跳注释的 SSE。回合按场景发事件；拒绝工具或取消提问表单后以 `interrupted(shutdown)` 结束执行
+ * （同真实行为）。
  * 收到的每个请求记进 `log.jsonl`；会话存进 `sessions.json`，换一个进程也能按 id 恢复。
  */
 import http from 'node:http';
@@ -62,6 +63,8 @@ let nextId = 1;
 const id = (prefix: string) => `${prefix}_fake${process.pid}x${nextId++}`;
 /** 等待中的权限请求：requestID → 收到答复时继续。 */
 const permissionWaiters = new Map<string, (decision: string) => void>();
+/** 等待中的提问表单：formID → 收到回答（或取消，为 null）时继续。 */
+const formWaiters = new Map<string, (answer: unknown) => void>();
 const interruptWaiters = new Map<string, () => void>();
 /** 收到中断、但执行还没走到等待点的会话：走到时直接结束。 */
 const interruptRequested = new Set<string>();
@@ -158,10 +161,26 @@ async function runTurn(sessionID: string, turn: FakeOpenCodeTurn): Promise<void>
       true,
     );
   }
-  if (turn.reply) {
+  let reply = turn.reply;
+  if (turn.form) {
+    const formID = id('frm');
+    const answer = await new Promise<unknown>((resolve) => {
+      formWaiters.set(formID, resolve);
+      broadcast('form.created', { form: { id: formID, sessionID, title: turn.form!.title ?? 'Questions', fields: turn.form!.fields } });
+    });
+    if (answer === null) {
+      broadcast('form.cancelled', { id: formID, sessionID });
+      broadcast('session.execution.interrupted', { sessionID, reason: 'shutdown' }, true);
+      active.delete(sessionID);
+      return;
+    }
+    broadcast('form.replied', { id: formID, sessionID, answer });
+    reply = `answered ${JSON.stringify(answer)}`;
+  }
+  if (reply) {
     broadcast('session.text.started', { ...base, ordinal: 0 }, true);
-    for (const part of turn.reply.match(/.{1,4}/gs) ?? []) broadcast('session.text.delta', { ...base, ordinal: 0, delta: part });
-    broadcast('session.text.ended', { ...base, ordinal: 0, text: turn.reply }, true);
+    for (const part of reply.match(/.{1,4}/gs) ?? []) broadcast('session.text.delta', { ...base, ordinal: 0, delta: part });
+    broadcast('session.text.ended', { ...base, ordinal: 0, text: reply }, true);
   }
   if (turn.end === 'hang') {
     if (!interruptRequested.has(sessionID)) await new Promise<void>((resolve) => interruptWaiters.set(sessionID, resolve));
@@ -285,6 +304,14 @@ const server = http.createServer(async (req, res) => {
       if (!waiter) return send(res, 404, { _tag: 'PermissionNotFoundError', message: 'no such request' });
       permissionWaiters.delete(parts[4]!);
       waiter(String(payload.decision));
+      return send(res, 204);
+    }
+    case `POST /api/session/:id/form/${parts[4]}/reply`:
+    case `POST /api/session/:id/form/${parts[4]}/cancel`: {
+      const waiter = formWaiters.get(parts[4]!);
+      if (!waiter) return send(res, 404, { _tag: 'FormNotFoundError', message: 'no such form' });
+      formWaiters.delete(parts[4]!);
+      waiter(parts[5] === 'reply' ? (payload.answer ?? {}) : null);
       return send(res, 204);
     }
     default:

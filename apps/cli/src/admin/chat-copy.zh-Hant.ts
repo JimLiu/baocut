@@ -34,4 +34,10 @@ export const zhHant: ChatMessages = {
   autoApproved: '已自動核准（--yes）',
   declinedNotTty: '不是在終端機中執行：已拒絕（加上 --yes 可自動核准）',
   approvalQuestion: '要核准嗎？[y]es / [s]ession / [N]o ',
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? '輸入編號，多個用逗號分隔' : '輸入編號'}${other ? '，或直接寫你的回答' : ''}（留空略過）：`,
+  questionSkipped: '  已略過：Agent 會自己拿主意',
+  questionNotTty: '  不在終端機裡執行：已略過（Agent 會自己拿主意）',
+  questionAutoSkipped: '  已略過（--yes 不回答提問）',
 };

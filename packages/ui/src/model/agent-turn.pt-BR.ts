@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const ptBR: AgentTurnMessages = {
+  answer: 'Aguardando sua resposta',
   waiting: "Aguardando sua aprovação",
   working: "Em andamento",
   stopping: "Parando",

@@ -38,4 +38,5 @@ export const zhHans: ApprovalsMessages = {
   runCommand: (command: string) => `运行命令：${command}`,
   changeFiles: (files: readonly string[]) => `修改文件：${files.join(', ')}`,
   callTool: (tool: string, files: readonly string[]) => `调用 ${tool}${files.length > 0 ? `：${files.join(', ')}` : ''}`,
+  askQuestion: (question: string, more: number) => `回答：${question}${more > 0 ? `（另有 ${more} 题）` : ''}`,
 };

@@ -20,6 +20,7 @@
   const D = window.BC_DATA;
   const AG = window.BC_AGENT;
   const SIM = window.BC_AGENT_SIM;
+  const Q = window.BC_AGENT_QUESTION;
 
   function useAgentSim({projects, prefs, tasks, addTask, patchTask, patchSession, appendMsg, setSessions, setProjects, sessionsRef,
     route, landTool, later, streamReply, endTurn}) {
@@ -276,7 +277,22 @@
       else driveQuiet(route.id, t.id, sim, t.pct || 0);
     }, [route, tasks]);
 
-    return {runWrite, planFor, retryTask, runWait};
+    /** 提问卡的回答（`answers` 为 null 是跳过，product-design §6.6）：卡片收成一行记录，Agent 接着说一句、收掉这一轮。 */
+    const answerQuestion = useCallback((sid, mid, answers) => {
+      const sess = sessionsRef.current.find((x) => x.id === sid);
+      const msg = sess && sess.messages.find((m) => m.id === mid);
+      if (!msg || msg.role !== 'question' || msg.state !== 'pending') return;
+      setSessions((ss) => ss.map((x) => (x.id !== sid ? x : {...x, status: 'running',
+        messages: x.messages.map((m) => (m.id === mid ? {...m, state: answers ? 'answered' : 'skipped', answers: answers || null} : m))})));
+      const text = answers ? Q.replyFor(msg.questions, answers) : '好，那我先按自己的判断来，做完给你看；不合适随时说。';
+      const end = streamReply(sid, text, 200);
+      later(sid, end + 200, () => {
+        endTurn(sid);
+        patchSession(sid, {status: 'idle'});
+      });
+    }, []);
+
+    return {runWrite, planFor, retryTask, runWait, answerQuestion};
   }
 
   Object.assign(window, {useAgentSim});

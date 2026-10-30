@@ -312,7 +312,7 @@ function toolDetail(name: string, input: Record<string, unknown>): string | null
   if (name.startsWith('mcp__')) return JSON.stringify(input);
   // 计划全文：标题只放得下第一行，用户要在时间线上读完整的方案再决定批不批。
   if (name === 'ExitPlanMode') return str(input.plan)?.trim() ?? null;
-  // Claude 本想问的问题与选项（这个工具会被拒绝，见 claude-session.ts 的 ASK_USER_QUESTION），留着让用户看得到。
+  // 问题与选项：回答在提问卡上（见 claude-session.ts 的 ASK_USER_QUESTION），这一步留着问过什么、Claude 拿到了什么。
   if (name === 'AskUserQuestion') {
     const lines = askedQuestions(input).flatMap((q) => [q.question, ...q.options.map((o) => `  - ${o}`)]);
     return lines.length ? lines.join('\n') : null;

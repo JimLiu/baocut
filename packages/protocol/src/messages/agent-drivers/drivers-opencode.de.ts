@@ -39,6 +39,8 @@ export const de: DriversOpencodeMessages = {
   runFailed: (p: { name: string }) => `${p.name}-Ausführung fehlgeschlagen`,
   endedAfterRejection: (p: { name: string }) =>
     `${p.name} hat diese Runde nach Ablehnung eines Werkzeugs beendet. Für einen anderen Ansatz eine weitere Nachricht senden.`,
+  endedAfterSkip: (p: { name: string }) =>
+    `${p.name} hat diese Runde beendet, nachdem die Frage übersprungen wurde. Zum Fortfahren eine weitere Nachricht senden.`,
   interruptedTurn: (p: { name: string; reason: string }) => `${p.name} hat diese Runde unterbrochen (${p.reason}).`,
   modelFormat: (p: { name: string; id: string }) => `${p.name}-Modelle müssen als provider/model angegeben werden (erhalten: ${p.id})`,
 };

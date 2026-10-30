@@ -33,4 +33,9 @@ export const pl: HarnessAgentsMessages = {
   effortUnsupported: (p) => `Model „${p.model}” nie ma poziomów rozumowania`,
   approvalNoGrant: "To zatwierdzenie nie wysyła danych, więc nie może zawierać wyboru uprawnienia",
   contractFieldsReadonly: (p) => `Agent nie może zmieniać pól kontraktu zadania: ${p.fields}. Tylko użytkownik określa tryb dostępu, zakres uprawnień, budżet i chronione zakresy`,
+  questionOnly: 'To zatwierdzenie jest pytaniem: wyślij odpowiedzi przez agents.answerQuestion albo je odrzuć',
+  notQuestion: 'To zatwierdzenie nie jest pytaniem',
+  questionUnanswered: (p) => `Brak odpowiedzi na „${p.question}”`,
+  questionSingleChoice: (p) => `Na „${p.question}” można wybrać tylko jedną odpowiedź`,
+  questionUnknownOption: (p) => `„${p.option}” nie jest opcją pytania „${p.question}”`,
 };

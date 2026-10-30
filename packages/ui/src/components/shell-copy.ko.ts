@@ -27,6 +27,7 @@ export const ko: ShellMessages = {
   },
   conversationHeader: {
     running: '진행 중',
+    answer: '답변 대기 중',
     waiting: '승인 대기 중',
     actions: '세션 메뉴',
     viewInSpace: (name) => `Space에서 “${name}” 보기`,

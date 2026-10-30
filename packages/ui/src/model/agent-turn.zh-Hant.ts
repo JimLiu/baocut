@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const zhHant: AgentTurnMessages = {
+  answer: '等你回答',
   waiting: '等待你核准',
   working: '處理中',
   stopping: '正在停止',

@@ -83,7 +83,7 @@ const WEB_DENY = [
   /* App rail / Home / Space（2026-10-01）：只属于 App 外壳，且全部用 react-spectrum */
   /^app\/apprail/, /^app\/home-/, /^app\/space/, /^app\/model-home/, /^app\/model-space(?!-search\.js)/, /^app\/model-app-ia/,
   /* model-space-search.js 例外：编辑器文稿查找条下的「意思相近」（embedding-integration-design §2.1）两端都有，用它的纯函数 */
-  /^app\/model-agent-projects/, /^app\/model-llm-tools/,
+  /^app\/model-agent-projects/, /^app\/model-agent-question/, /^app\/model-llm-tools/,
   /* 文本模型两级菜单（2026-10-28）：只在 App 的工具页与编辑器 AI 工具 */
   /^app\/text-model-picker/,
   /* Skills 页（2026-10-16，rail 上 Space 下面）：包、素材与版本只在 App */

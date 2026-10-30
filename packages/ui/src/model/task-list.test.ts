@@ -1,6 +1,7 @@
 import { setLocale } from '@baocut/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { job, task } from '../testing/task-records.ts';
+import { pillState } from './task-pill.ts';
 import {
   HISTORY_LIMIT,
   HISTORY_PAGE,
@@ -274,6 +275,13 @@ describe('agentRow', () => {
   it('会话在等批准：念「需要你确认」，不画进度条', () => {
     const row = agentRow(task({ taskId: 't2', conversationId: 'c2' }), ctx);
     expect(row).toMatchObject({ waiting: true, label: '需要你确认', tone: 'notice', progress: null, live: true });
+  });
+
+  it('会话只等智能体的提问：念「需要你回答」，胶囊上同样', () => {
+    const asking: TaskContext = { ...ctx, conversations: [{ id: 'c3', projectId: 'p1', activity: 'awaiting-answer' }] };
+    const row = agentRow(task({ taskId: 't4', conversationId: 'c3' }), asking);
+    expect(row).toMatchObject({ waiting: true, label: '需要你回答', tone: 'notice', progress: null, live: true });
+    expect(pillState(row)).toBe('需要你回答');
   });
 
   it('正在停止仍算进行中但不能再停；会话标题与目标相同时只写项目', () => {

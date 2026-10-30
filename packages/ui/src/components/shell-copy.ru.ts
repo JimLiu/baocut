@@ -28,6 +28,7 @@ export const ru: ShellMessages = {
   },
   conversationHeader: {
     running: "Выполняется",
+    answer: 'Ожидание ответа',
     waiting: "Ожидание одобрения",
     actions: "Действия с сессией",
     viewInSpace: (name) => `Показать «${name}» в Space`,

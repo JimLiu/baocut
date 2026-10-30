@@ -21,7 +21,7 @@
     const R = window.RSP;
     const sess = app.sessionById(app.workspaceSessionId);
     const title = sess?.title || '新会话';
-    const status = sess && SESSION_STATUS[sess.status];
+    const status = sess && (sess.status === 'waiting' ? window.BC_AGENT_TURN.waitingLabel(sess, true) : SESSION_STATUS[sess.status]);
     const selected = app.workspaceConversation;
     const select = () => { app.showConversation(); document.getElementById(tabId(CONVERSATION))?.focus(); };
     // No data-workspace-tab and no pointer handlers: it cannot be dragged, and the

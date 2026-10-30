@@ -53,6 +53,14 @@ const en = {
   autoApproved: 'Approved automatically (--yes)',
   declinedNotTty: 'Not running in a terminal: declined (add --yes to approve automatically)',
   approvalQuestion: 'Approve? [y]es / [s]ession / [N]o ',
+  /** 提问的一道题：小标题（可能为空）与题目。 */
+  questionLine: (header: string, question: string) => `? ${header ? `[${header}] ` : ''}${question}`,
+  /** 题目下的一个选项，`n` 从 1 起。 */
+  questionOption: (n: number, label: string, description: string | null) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi: boolean, other: boolean) => `  ${multi ? 'Pick numbers, comma-separated' : 'Pick a number'}${other ? ', or type your own answer' : ''} (empty to skip): `,
+  questionSkipped: '  Skipped: the agent will decide on its own',
+  questionNotTty: '  Not running in a terminal: skipped (the agent will decide on its own)',
+  questionAutoSkipped: '  Skipped (--yes doesn’t answer questions)',
 };
 
 export type ChatMessages = typeof en;

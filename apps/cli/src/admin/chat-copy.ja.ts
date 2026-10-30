@@ -36,4 +36,10 @@ export const ja: ChatMessages = {
   autoApproved: '自動で承認しました（--yes）',
   declinedNotTty: 'ターミナルで実行されていないため拒否しました（自動で承認するには --yes を付けてください）',
   approvalQuestion: '承認しますか？[y]es / [s]ession / [N]o ',
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? '番号を入力（複数はカンマ区切り）' : '番号を入力'}${other ? '、または回答を直接入力' : ''}（空欄でスキップ）：`,
+  questionSkipped: '  スキップしました：Agent が自分で判断します',
+  questionNotTty: '  ターミナルで実行されていないためスキップしました（Agent が自分で判断します）',
+  questionAutoSkipped: '  スキップしました（--yes は質問に回答しません）',
 };

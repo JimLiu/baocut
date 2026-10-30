@@ -27,6 +27,7 @@ export const de: ShellMessages = {
   },
   conversationHeader: {
     running: "Verarbeitung",
+    answer: 'Wartet auf Ihre Antwort',
     waiting: "Wartet auf Genehmigung",
     actions: "Sitzungsaktionen",
     viewInSpace: (name: string) => `In Space anzeigen: „${name}“`,

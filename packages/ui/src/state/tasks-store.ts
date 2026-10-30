@@ -31,8 +31,9 @@ export function isLive(task: TaskSummary): boolean {
   return task.status === 'running' || task.status === 'stopping';
 }
 
-/** 进行中的任务怎么称呼。等用户批准时任务本身仍在进行，等待记在会话的活动上（产品设计 §3.1）。 */
+/** 进行中的任务怎么称呼。等用户批准或回答时任务本身仍在进行，等待记在会话的活动上（产品设计 §3.1）。 */
 export function liveLabel(task: TaskSummary, activity: ConversationActivity | undefined): string {
   if (task.status === 'stopping') return SC.task.stopping;
-  return activity === 'awaiting-approval' ? SC.task.awaitingApproval : SC.task.running;
+  if (activity === 'awaiting-approval') return SC.task.awaitingApproval;
+  return activity === 'awaiting-answer' ? SC.task.awaitingAnswer : SC.task.running;
 }

@@ -21,4 +21,10 @@ export const ru: ChatMessages = {
   autoApproved: "Одобрено автоматически (--yes)",
   declinedNotTty: "Запуск вне терминала: отклонено (добавьте --yes для автоматического одобрения)",
   approvalQuestion: "Одобрить? [y] да / [s] сессия / [N] нет ",
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? 'Введите номера через запятую' : 'Введите номер'}${other ? ' или свой ответ' : ''} (пусто — пропустить): `,
+  questionSkipped: '  Пропущено: агент решит сам',
+  questionNotTty: '  Запуск не в терминале: пропущено (агент решит сам)',
+  questionAutoSkipped: '  Пропущено (--yes не отвечает на вопросы)',
 };

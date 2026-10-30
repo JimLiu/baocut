@@ -19,4 +19,9 @@ export const es: HarnessAgentsMessages = {
  effortMissing: (p) => `El modelo «${p.model}» no tiene el esfuerzo de razonamiento «${p.effort}». Elige entre ${p.choices}`,
  effortUnsupported: (p) => `El modelo «${p.model}» no tiene niveles de esfuerzo de razonamiento`, approvalNoGrant: 'Esta aprobación no envía datos fuera, por lo que no puede incluir una elección de autorización',
  contractFieldsReadonly: (p) => `El agente no puede cambiar estos campos del contrato de la tarea: ${p.fields}. Solo el usuario decide el modo de acceso, el ámbito de permisos, el presupuesto y los intervalos protegidos`,
+  questionOnly: 'Esta aprobación es una pregunta: envía las respuestas con agents.answerQuestion o recházala',
+  notQuestion: 'Esta aprobación no es una pregunta',
+  questionUnanswered: (p) => `«${p.question}» no tiene respuesta`,
+  questionSingleChoice: (p) => `«${p.question}» admite una sola respuesta`,
+  questionUnknownOption: (p) => `«${p.option}» no es una opción de «${p.question}»`,
 };

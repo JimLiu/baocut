@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { majorVersion, parseOpenCodeVersion } from './opencode-binary.ts';
 import { accountOf, driverModels, modelRef } from './opencode-models.ts';
-import { approvalOf, editDiff, permissionRules, toolItem, type ToolState } from './opencode-items.ts';
+import {
+  approvalOf,
+  editDiff,
+  formAnswer,
+  formQuestions,
+  permissionRules,
+  toolItem,
+  type FormInfo,
+  type ToolState,
+} from './opencode-items.ts';
 import { parseFrame } from './opencode-server.ts';
 
 /** 纯函数：版本、模型 id、权限规则、权限请求与工具步骤的映射、SSE 帧。样本取自 OpenCode 2.0.24 的真实输出。 */
@@ -72,8 +81,69 @@ describe('访问模式 → 权限规则', () => {
     expect(effect('fullAccess', 'shell')).toBe('allow');
   });
 
-  it('每一档都拒绝 question（BaoCut 没有回答表单的通道）', () => {
-    for (const mode of ['plan', 'ask', 'autoAcceptEdits', 'auto', 'fullAccess'] as const) expect(effect(mode, 'question')).toBe('deny');
+  it('question 不加规则（按智能体默认放行，表单转成 BaoCut 的提问）', () => {
+    for (const mode of ['plan', 'ask', 'autoAcceptEdits', 'auto', 'fullAccess'] as const) expect(effect(mode, 'question')).toBeUndefined();
+  });
+});
+
+describe('提问表单 → 提问', () => {
+  const FORM: FormInfo = {
+    id: 'frm_1',
+    sessionID: 'ses_1',
+    title: 'Questions',
+    fields: [
+      {
+        key: 'q0',
+        title: 'Next task',
+        description: 'What would you like me to work on next?',
+        type: 'string',
+        options: [
+          { value: 'explore', label: 'Explore', description: 'Map the codebase' },
+          { value: 'fix', label: 'Fix a bug', description: '' },
+        ],
+        custom: true,
+      },
+      { key: 'q1', title: 'Fixes', type: 'multiselect', options: [{ value: 'a', label: 'A' }, { value: 'b' }] },
+      { key: 'q2', description: 'Anything else?', type: 'string' },
+    ],
+  };
+
+  it('字段 → 问题：string 单选、multiselect 多选、没有选项的是填空；custom 决定能不能自己写', () => {
+    expect(formQuestions(FORM)).toEqual([
+      {
+        id: 'q0',
+        header: 'Next task',
+        question: 'What would you like me to work on next?',
+        options: [
+          { label: 'Explore', description: 'Map the codebase' },
+          { label: 'Fix a bug', description: null },
+        ],
+        multiSelect: false,
+        allowOther: true,
+      },
+      {
+        id: 'q1',
+        header: 'Fixes',
+        question: 'Fixes',
+        options: [
+          { label: 'A', description: null },
+          { label: 'b', description: null },
+        ],
+        multiSelect: true,
+        allowOther: false,
+      },
+      { id: 'q2', header: '', question: 'Anything else?', options: [], multiSelect: false, allowOther: true },
+    ]);
+  });
+
+  it('有答不了的字段（布尔、数字、外部）时整张表单不转', () => {
+    expect(formQuestions({ ...FORM, fields: [...FORM.fields, { key: 'ok', type: 'boolean' }] })).toBeNull();
+    expect(formQuestions({ ...FORM, fields: [] })).toBeNull();
+  });
+
+  it('回答 → answer：label 换回 value，自己写的原样，没答的不带', () => {
+    expect(formAnswer(FORM, { q0: ['Fix a bug'], q1: ['A', 'b'] })).toEqual({ q0: 'fix', q1: ['a', 'b'] });
+    expect(formAnswer(FORM, { q0: ['Write the release notes'], q2: ['no'] })).toEqual({ q0: 'Write the release notes', q2: 'no' });
   });
 });
 

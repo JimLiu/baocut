@@ -31,6 +31,7 @@ import {
   type TabRect,
   type WorkspaceItem,
 } from '../../model/workspace.ts';
+import type { LiveWord } from '../../model/sidebar.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { useVideo } from '../../state/video-store.ts';
@@ -44,10 +45,10 @@ export const workspacePanelId = (key: string) => `workspace-panel-${encodeURICom
 /** 单条标签条里会话那个固定的第一个标签；定义在 model/workspace.ts，这里转出给原来的引用方。 */
 export { CONVERSATION_TAB };
 
-/** 单条标签条（窄窗口或完整视图）的会话标签：标题、进行中 / 等待批准，以及它是不是当前选中的。 */
+/** 单条标签条（窄窗口或完整视图）的会话标签：标题、进行中 / 等待批准 / 等待回答，以及它是不是当前选中的。 */
 export interface ConversationTabInfo {
   title: string;
-  status: 'running' | 'waiting' | null;
+  status: LiveWord | null;
   selected: boolean;
 }
 
@@ -643,7 +644,9 @@ function ConversationTab({
             <span className={glyph}>
               <Comment UNSAFE_style={icon} />
               {info.status ? (
-                <span className={statusDot({ isWaiting: info.status === 'waiting', isHovered: hovered && !info.selected })} />
+                <span
+                  className={statusDot({ isWaiting: info.status === 'waiting' || info.status === 'answer', isHovered: hovered && !info.selected })}
+                />
               ) : null}
             </span>
             <span className={conversationName}>{info.title}</span>

@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const it: AgentTurnMessages = {
+  answer: 'In attesa della tua risposta',
   waiting: "In attesa della tua approvazione",
   working: "In corso",
   stopping: "Interruzione in corso",

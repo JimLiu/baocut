@@ -47,6 +47,7 @@ export const WEB_DEFAULT_METHODS: readonly string[] = [
   'runtime.info',
   'agents.list',
   'agents.respondToApproval',
+  'agents.answerQuestion',
   'agents.interrupt',
   'projects.list',
   // 只能打开已登记的项目（Web 服务在处理函数里再查一次）。

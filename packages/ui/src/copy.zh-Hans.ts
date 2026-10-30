@@ -132,6 +132,7 @@ export const zhHans: CopyMessages = {
     steerUnsupported: '这个 Agent 不支持插话，会在当前任务结束后发送',
     skillWaits: '带 Skill 的消息不能插进正在进行的这一轮，会在它结束后发送',
     failed: (message: string) => `排队的消息没能发送：${message}`,
+    answerPlaceholder: '直接在这里回复，或在上面的卡片里选',
     busyPlaceholder: '智能体正在工作；现在发的话会排队，等这一轮结束再发',
   },
   recovery: {
@@ -414,6 +415,7 @@ export const zhHans: CopyMessages = {
   taskView: {
     queued: '排队中',
     running: '进行中',
+    awaitingAnswer: '需要你回答',
     awaitingApproval: '需要你确认',
     cancelled: '已取消',
     failed: '失败',

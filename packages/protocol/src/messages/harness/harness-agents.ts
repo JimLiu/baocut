@@ -55,6 +55,11 @@ const en = {
   approvalNoGrant: "This approval doesn't send data out, so it can't include a grant choice",
   contractFieldsReadonly: (p: { fields: string }) =>
     `The Agent can't change these task contract fields: ${p.fields}. Only the user decides access mode, permission scope, budget, and protected ranges`,
+  questionOnly: 'This approval is a question: submit answers with agents.answerQuestion, or decline it',
+  notQuestion: "This approval isn't a question",
+  questionUnanswered: (p: { question: string }) => `No answer for "${p.question}"`,
+  questionSingleChoice: (p: { question: string }) => `"${p.question}" takes one answer`,
+  questionUnknownOption: (p: { question: string; option: string }) => `"${p.option}" isn't an option of "${p.question}"`,
 };
 
 export type HarnessAgentsMessages = typeof en;

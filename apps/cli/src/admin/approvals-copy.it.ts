@@ -19,4 +19,5 @@ export const it: ApprovalsMessages = {
   fromSession: (title: string) => `Sessione «${title}»`, fromService: (serviceId: string, clientName: string) => `Servizio ${serviceId} · ${clientName}`, basisMode: (mode: string) => `modalità ${mode}`, basisLevel: (level: string) => `livello ${level}`,
   approvalLine: (a) => `${a.id}  ${a.who}  ${a.action}${a.targets.length > 0 ? ` → ${a.targets.join(', ')}` : ''}  [${a.risk}] ${a.summary} (${a.basis}${a.secondsLeft === null ? '' : `, negata automaticamente tra ${a.secondsLeft} s`})`,
   runCommand: (command: string) => `Esegui comando: ${command}`, changeFiles: (files: readonly string[]) => `Modifica file: ${files.join(', ')}`, callTool: (tool: string, files: readonly string[]) => `Chiama ${tool}${files.length > 0 ? `: ${files.join(', ')}` : ''}`,
+  askQuestion: (question: string, more: number) => `Rispondere: ${question}${more > 0 ? ` (+${more} altre)` : ''}`,
 };

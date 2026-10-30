@@ -2,12 +2,21 @@
  * 部分机制移植自 paseo（Apache-2.0，Copyright (c) 2025-present Mohamed Boudra），modified：
  * packages/server/src/server/agent/providers/opencode/tool-call-detail-parser.ts 与 tool-call-mapper.ts 的工具名分类
  * （shell / bash、edit / write / patch、websearch / webfetch，edit 的 path / filePath、oldString / newString），
- * v2/configuration.ts 的权限规则写法（`{ action, resource, effect }`），v2/permissions.ts 的权限请求形状。
- * 改成 BaoCut 的 AgentItem / ApprovalRequest；文件修改的输出直接用 OpenCode 在元数据里给的统一 diff，
+ * v2/configuration.ts 的权限规则写法（`{ action, resource, effect }`），v2/permissions.ts 的权限请求形状与提问表单
+ * （`FormInfo` 的字段 → 问题、选项的 label → value）。改成 BaoCut 的 AgentItem / ApprovalRequest / AgentQuestion；
+ * 文件修改的输出直接用 OpenCode 在元数据里给的统一 diff，
  * 访问模式到权限规则的映射与「本会话放行」的分类键是新加的。
  */
 import path from 'node:path';
-import { normalizeAgentMode, type AgentMode, type ApprovalRequest, type ToolCallKind, type ToolCallStatus } from '@baocut/protocol';
+import {
+  normalizeAgentMode,
+  type AgentMode,
+  type AgentQuestion,
+  type AgentQuestionAnswers,
+  type ApprovalRequest,
+  type ToolCallKind,
+  type ToolCallStatus,
+} from '@baocut/protocol';
 import { DriversOpencode } from '@baocut/protocol/messages/agent-drivers';
 import type { AgentItem } from '@baocut/harness';
 import { commandRule } from '../approval-rule.ts';
@@ -29,22 +38,70 @@ export interface PermissionRule {
  * | ask / autoAcceptEdits / auto | ask | ask | ask |
  * | fullAccess | allow | allow | allow |
  *
- * 每一档都拒绝 `question`（向用户发表单）：BaoCut 没有回答表单的通道，发出来回合就会一直等。
+ * `question`（向用户发表单）不加规则，按 build 智能体的默认放行：表单由会话转成 BaoCut 的提问（`formQuestions`）。
  * BaoCut 自己的 MCP 工具不加规则：OpenCode 的 build 智能体默认放行（`* * allow`），它的写操作由 Runtime 把关。
  * 读文件、搜索、取网页也按 build 智能体的默认放行（读 `.env` 仍会来问）。
  */
 export function permissionRules(mode: AgentMode): PermissionRule[] {
   const normalized = normalizeAgentMode(mode);
   const rule = (action: string, effect: PermissionRule['effect']): PermissionRule => ({ action, resource: '*', effect });
-  const question = rule('question', 'deny');
   switch (normalized) {
     case 'plan':
-      return [rule('edit', 'deny'), rule('shell', 'ask'), rule('external_directory', 'ask'), question];
+      return [rule('edit', 'deny'), rule('shell', 'ask'), rule('external_directory', 'ask')];
     case 'fullAccess':
-      return [rule('edit', 'allow'), rule('shell', 'allow'), rule('external_directory', 'allow'), question];
+      return [rule('edit', 'allow'), rule('shell', 'allow'), rule('external_directory', 'allow')];
     default:
-      return [rule('edit', 'ask'), rule('shell', 'ask'), rule('external_directory', 'ask'), question];
+      return [rule('edit', 'ask'), rule('shell', 'ask'), rule('external_directory', 'ask')];
   }
+}
+
+/** OpenCode 的提问表单（`form.created` 的 `data.form`，或 `GET /api/session/{id}/form` 的一项）。 */
+export interface FormInfo {
+  id: string;
+  sessionID: string;
+  title?: string;
+  fields: FormField[];
+}
+
+/** 表单的一个字段。question 工具只出 `string`（单选或自由填写）与 `multiselect`；别的类型 BaoCut 答不了。 */
+export interface FormField {
+  key: string;
+  type: string;
+  title?: string;
+  description?: string;
+  options?: Array<{ value: string; label?: string; description?: string }>;
+  custom?: boolean;
+}
+
+/** 表单 → BaoCut 的提问。有答不了的字段（布尔、数字、外部）时为 null，由会话取消这张表单。 */
+export function formQuestions(form: FormInfo): AgentQuestion[] | null {
+  const questions: AgentQuestion[] = [];
+  for (const field of form.fields) {
+    if (field.type !== 'string' && field.type !== 'multiselect') return null;
+    const options = (field.options ?? []).map((o) => ({ label: (o.label ?? o.value).trim(), description: o.description?.trim() || null }));
+    questions.push({
+      id: field.key,
+      header: field.title?.trim() ?? '',
+      question: (field.description ?? field.title ?? field.key).trim(),
+      options,
+      multiSelect: field.type === 'multiselect',
+      // 没有选项的单选就是填空题。
+      allowOther: field.custom === true || options.length === 0,
+    });
+  }
+  return questions.length > 0 ? questions : null;
+}
+
+/** BaoCut 的回答 → `form/{id}/reply` 的 `answer`：选项的 label 换回 value，自己填的原样；没答的字段不带。 */
+export function formAnswer(form: FormInfo, answers: AgentQuestionAnswers): Record<string, string | string[]> {
+  const answer: Record<string, string | string[]> = {};
+  for (const field of form.fields) {
+    const picked = answers[field.key];
+    if (!picked || picked.length === 0) continue;
+    const value = (label: string) => field.options?.find((o) => (o.label ?? o.value).trim() === label)?.value ?? label;
+    answer[field.key] = field.type === 'multiselect' ? picked.map(value) : value(picked[0]!);
+  }
+  return answer;
 }
 
 /** 一个权限请求（`permission.asked` 的 data，或 `GET /api/session/{id}/permission` 的一项）。 */

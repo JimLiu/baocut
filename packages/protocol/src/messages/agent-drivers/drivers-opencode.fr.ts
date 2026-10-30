@@ -39,6 +39,8 @@ export const fr: DriversOpencodeMessages = {
   runFailed: (p: { name: string }) => `${p.name} : échec de l’exécution`,
   endedAfterRejection: (p: { name: string }) =>
     `${p.name} a terminé ce tour après le refus d’un outil. Envoyez un autre message pour essayer une autre approche.`,
+  endedAfterSkip: (p: { name: string }) =>
+    `${p.name} a terminé ce tour après que la question a été ignorée. Envoyez un autre message pour continuer.`,
   interruptedTurn: (p: { name: string; reason: string }) => `${p.name} a interrompu ce tour (${p.reason}).`,
   modelFormat: (p: { name: string; id: string }) => `${p.name} : les modèles doivent être écrits provider/model (reçu ${p.id})`,
 };

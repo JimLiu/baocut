@@ -21,4 +21,10 @@ export const pl: ChatMessages = {
   autoApproved: "Zatwierdzono automatycznie (--yes)",
   declinedNotTty: "Uruchomione poza terminalem: odmówiono (dodaj --yes dla automatycznego zatwierdzania)",
   approvalQuestion: "Zatwierdzić? [y] tak / [s] sesja / [N] nie ",
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? 'Wpisz numery oddzielone przecinkami' : 'Wpisz numer'}${other ? ' lub własną odpowiedź' : ''} (puste, aby pominąć): `,
+  questionSkipped: '  Pominięto: agent zdecyduje sam',
+  questionNotTty: '  Nie w terminalu: pominięto (agent zdecyduje sam)',
+  questionAutoSkipped: '  Pominięto (--yes nie odpowiada na pytania)',
 };

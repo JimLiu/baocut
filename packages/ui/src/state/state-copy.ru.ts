@@ -4,6 +4,7 @@ export const ru: StateMessages = {
   task: {
     running: 'Выполняется',
     stopping: 'Остановка',
+    awaitingAnswer: 'Ожидание ответа',
     awaitingApproval: 'Ожидание одобрения',
   },
 };

@@ -124,6 +124,7 @@ export const ja: CopyMessages = {
     steerUnsupported: 'この Agent はタスクの途中でメッセージを受け付けません。現在のタスクが終わると送信されます',
     skillWaits: 'Skill 付きのメッセージは進行中のターンに加えられません。ターンが終わると送信されます',
     failed: (message: string) => `待機中のメッセージを送信できませんでした：${message}`,
+    answerPlaceholder: 'ここに回答を入力するか、上のカードで選んでください',
     busyPlaceholder: 'Agent が処理中です。今送るメッセージは、このターンが終わるまで待機します',
   },
   recovery: {
@@ -416,6 +417,7 @@ export const ja: CopyMessages = {
   taskView: {
     queued: '待機中',
     running: '進行中',
+    awaitingAnswer: '回答が必要',
     awaitingApproval: '承認が必要',
     cancelled: 'キャンセル済み',
     failed: '失敗',

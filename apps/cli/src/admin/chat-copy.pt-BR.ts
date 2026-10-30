@@ -26,4 +26,10 @@ export const ptBR: ChatMessages = {
   approvalNeeded: (what: string) => `Aprovação necessária — ${what}`, approvalReason: (isTool: boolean, reason: string) => `${isTool ? 'Conteúdo' : 'Motivo'}: ${reason}`, approvalMode: (mode: string) => `Modo atual: ${mode}`,
   autoApproved: 'Aprovado automaticamente (--yes)', declinedNotTty: 'Não está executando em um terminal: recusado (adicione --yes para aprovar automaticamente)',
   approvalQuestion: 'Aprovar? [y] sim / [s] sessão / [N] não ',
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? 'Escolha números separados por vírgula' : 'Escolha um número'}${other ? ' ou digite sua resposta' : ''} (vazio para pular): `,
+  questionSkipped: '  Pulada: o agente vai decidir sozinho',
+  questionNotTty: '  Fora de um terminal: pulada (o agente vai decidir sozinho)',
+  questionAutoSkipped: '  Pulada (--yes não responde perguntas)',
 };

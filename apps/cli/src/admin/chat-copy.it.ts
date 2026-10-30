@@ -26,4 +26,10 @@ export const it: ChatMessages = {
   approvalNeeded: (what: string) => `Approvazione necessaria — ${what}`, approvalReason: (isTool: boolean, reason: string) => `${isTool ? 'Contenuto' : 'Motivo'}: ${reason}`, approvalMode: (mode: string) => `Modalità attuale: ${mode}`,
   autoApproved: 'Approvato automaticamente (--yes)', declinedNotTty: 'Non eseguito in un terminale: rifiutato (aggiungi --yes per approvare automaticamente)',
   approvalQuestion: 'Approva? [y] sì / [s] sessione / [N] no ',
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? 'Scegli i numeri separati da virgole' : 'Scegli un numero'}${other ? ' o scrivi la tua risposta' : ''} (vuoto per saltare): `,
+  questionSkipped: '  Saltata: l’agente deciderà da solo',
+  questionNotTty: '  Non in un terminale: saltata (l’agente deciderà da solo)',
+  questionAutoSkipped: '  Saltata (--yes non risponde alle domande)',
 };

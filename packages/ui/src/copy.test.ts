@@ -65,6 +65,7 @@ describe('界面文案跟随界面语言', () => {
     expect(S.conversationHeader.revealWorkdir).toBe('在文件夹中显示工作目录');
     expect(ST.flow.reason(['网络', '超时'])).toBe('网络：超时');
     expect(liveLabel({ status: 'running' } as TaskSummary, 'awaiting-approval')).toBe('等待批准');
+    expect(liveLabel({ status: 'running' } as TaskSummary, 'awaiting-answer')).toBe('等待回答');
     expect(CONFETTI_SHAPE_NAMES.heart).toBe('爱心');
     expect(S.titleBar.summary).toBe('会话摘要');
     expect(S.titleBar.summaryOutputs(2)).toBe('产物 · 2');

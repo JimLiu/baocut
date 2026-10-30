@@ -31,4 +31,10 @@ export const zhHans: ChatMessages = {
   autoApproved: '已自动批准（--yes）',
   declinedNotTty: '不在终端里运行：已拒绝（要自动批准加 --yes）',
   approvalQuestion: '批准？[y]es / [s]ession / [N]o ',
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? '输入编号，多个用逗号分隔' : '输入编号'}${other ? '，或直接写你的回答' : ''}（留空跳过）：`,
+  questionSkipped: '  已跳过：Agent 会自己拿主意',
+  questionNotTty: '  不在终端里运行：已跳过（Agent 会自己拿主意）',
+  questionAutoSkipped: '  已跳过（--yes 不回答提问）',
 };

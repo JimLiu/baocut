@@ -30,6 +30,7 @@ export const ru: DriversOpencodeMessages = {
   retryFallback: "Ошибка запроса модели. Скоро повторная попытка.",
   runFailed: (p) => `${p.name} — выполнение завершилось ошибкой`,
   endedAfterRejection: (p) => `${p.name} завершил итерацию после отклонения инструмента. Отправьте ещё сообщение, чтобы попробовать другой подход.`,
+  endedAfterSkip: (p) => `${p.name} завершил итерацию после того, как вопрос был пропущен. Отправьте ещё сообщение, чтобы продолжить.`,
   interruptedTurn: (p) => `${p.name} прервал итерацию (${p.reason}).`,
   modelFormat: (p) => `${p.name} — модели должны иметь формат provider/model (получено ${p.id})`,
 };

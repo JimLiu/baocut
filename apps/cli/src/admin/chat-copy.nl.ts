@@ -15,4 +15,10 @@ export const nl: ChatMessages = {
                                    staan, of geldt agent.defaultAccessMode (standaard auto) als de modus nooit is gewijzigd
     --yes                          Goedkeuringsverzoeken automatisch goedkeuren (alleen deze sessie)`,
  missingMessage: 'Berichttekst ontbreekt', templateIsExample: (title, id) => `‘${title}’ is een voorbeeld en kan niet worden bijgevoegd: haal de prompt op met baocut templates show ${id} en stuur deze als bericht`, sessionCreated: (id, cwd) => `Sessie ${id}  werkmap ${cwd}`, disconnected: (reason) => `De verbinding met de Runtime is verbroken: ${reason}`, sessionDeleted: 'De sessie is verwijderd', stopping: 'Bezig met stoppen…', chatTemplate: (id) => `Sjabloon: ${id}`, chatSkill: (id) => `Skill: ${id}`, chatMode: (mode) => `Toegangsmodus: ${mode}`, taskEnded: (status, error) => `Taak: ${status}${error ? ` — ${error}` : ''}`, taskStatus: { completed: 'Klaar', stopped: 'Gestopt', failed: 'Mislukt' }, taskFailed: 'Taak mislukt', toolCallFinished: (title, status, exitCode) => `▸ ${title} — ${status}${exitCode !== null ? ` (afsluitcode ${exitCode})` : ''}`, approvalNeeded: (what) => `Goedkeuring nodig — ${what}`, approvalReason: (isTool, reason) => `${isTool ? 'Inhoud' : 'Reden'}: ${reason}`, approvalMode: (mode) => `Huidige modus: ${mode}`, autoApproved: 'Automatisch goedgekeurd (--yes)', declinedNotTty: 'Niet uitgevoerd in een terminal: geweigerd (voeg --yes toe voor automatische goedkeuring)', approvalQuestion: 'Goedkeuren? [y] ja / [s] sessie / [N] nee ',
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? 'Kies nummers, gescheiden door komma’s' : 'Kies een nummer'}${other ? ' of typ je eigen antwoord' : ''} (leeg om over te slaan): `,
+  questionSkipped: '  Overgeslagen: de agent beslist zelf',
+  questionNotTty: '  Niet in een terminal: overgeslagen (de agent beslist zelf)',
+  questionAutoSkipped: '  Overgeslagen (--yes beantwoordt geen vragen)',
 };

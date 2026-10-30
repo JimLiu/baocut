@@ -4,6 +4,7 @@ export const zhHant: StateMessages = {
   task: {
     running: '進行中',
     stopping: '正在停止',
+    awaitingAnswer: '等待回答',
     awaitingApproval: '等待核准',
   },
 };

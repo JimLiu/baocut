@@ -1,10 +1,11 @@
 import type { SidebarMessages } from './sidebar.ts';
 
 export const de: SidebarMessages = {
-  status: { waiting: "Wartet auf Genehmigung", failed: "Fehlgeschlagen", running: "Läuft", unread: "Fertig, ungelesen" },
+  status: { answer: 'Wartet auf Ihre Antwort', waiting: "Wartet auf Genehmigung", failed: "Fehlgeschlagen", running: "Läuft", unread: "Fertig, ungelesen" },
   stopping: "Wird gestoppt",
 
   count: {
+    answer: (n: number) => `${n} warten auf Ihre Antwort`,
     waiting: (n: number) => `${n} warten auf Genehmigung`,
     failed: (n: number) => `${n} fehlgeschlagen`,
     running: (n: number) => `${n} laufend`,

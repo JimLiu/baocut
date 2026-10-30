@@ -109,7 +109,7 @@
     useEffect(() => setOpen(false), [sess?.id]);
     if (!sess) return null;
     const items = AP.artifactList(sess, app.spaceItems, app.tasks);
-    const status = SESSION_STATUS[sess.status];
+    const status = sess.status === 'waiting' ? window.BC_AGENT_TURN.waitingLabel(sess, true) : SESSION_STATUS[sess.status];
     return <span ref={anchor} className="shell-summary-anchor">
       <ShellButton name="summary" label="会话摘要" tooltip={!open} pressed={open} onPress={() => setOpen(v => !v)} />
       <Popover open={open} onClose={() => setOpen(false)} anchorRef={anchor} align="right" width={360} label="会话摘要">

@@ -40,4 +40,9 @@ export const fr: HarnessAgentsMessages = {
   approvalNoGrant: "Cette approbation n’envoie pas de données et ne peut donc pas inclure de choix d’autorisation",
   contractFieldsReadonly: (p: { fields: string }) =>
     `L’Agent ne peut pas modifier ces champs du contrat : ${p.fields}. Seul l’utilisateur décide du mode d’accès, des permissions, du budget et des plages protégées`,
+  questionOnly: 'Cette approbation est une question : envoyez les réponses avec agents.answerQuestion, ou refusez-la',
+  notQuestion: "Cette approbation n'est pas une question",
+  questionUnanswered: (p) => `Aucune réponse à « ${p.question} »`,
+  questionSingleChoice: (p) => `« ${p.question} » n'accepte qu'une réponse`,
+  questionUnknownOption: (p) => `« ${p.option} » n'est pas une option de « ${p.question} »`,
 };

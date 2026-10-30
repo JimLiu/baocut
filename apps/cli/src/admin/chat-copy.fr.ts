@@ -38,4 +38,10 @@ export const fr: ChatMessages = {
   autoApproved: "Approuvé automatiquement (--yes)",
   declinedNotTty: "Hors d’un terminal : refusé (ajoutez --yes pour approuver automatiquement)",
   approvalQuestion: "Approuver ? [y]oui / [s]session / [N]non ",
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? 'Choisissez des numéros séparés par des virgules' : 'Choisissez un numéro'}${other ? ' ou saisissez votre réponse' : ''} (vide pour passer) : `,
+  questionSkipped: '  Passée : l’agent décidera seul',
+  questionNotTty: '  Pas dans un terminal : passée (l’agent décidera seul)',
+  questionAutoSkipped: '  Passée (--yes ne répond pas aux questions)',
 };

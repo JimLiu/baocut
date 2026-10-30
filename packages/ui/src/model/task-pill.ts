@@ -44,9 +44,9 @@ export function pillList(rows: readonly TaskRow[], options: PillOptions = {}): T
     .map(({ row }) => row);
 }
 
-/** 右侧那一格：百分比 / 排队中 / 需要你确认 / 正在停止；不确定进度时为空。 */
+/** 右侧那一格：百分比 / 排队中 / 需要你确认或回答 / 正在停止；不确定进度时为空。 */
 export function pillState(row: TaskRow): string {
-  if (row.waiting) return TASK_VIEW_COPY.awaitingApproval;
+  if (row.waiting) return row.label;
   if (row.queued) return TASK_VIEW_COPY.queued;
   if (row.origin === 'task' && !row.action) return row.label;
   return row.pct == null ? '' : `${row.pct}%`;

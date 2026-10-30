@@ -246,6 +246,102 @@ describe('审批、附件与模型校验（假 Agent）', () => {
     await finish(conversationId, session);
   });
 
+  // ---- 提问 ----
+
+  const QUESTION: ApprovalRequest = {
+    kind: 'question',
+    reason: null,
+    rule: null,
+    questions: [
+      {
+        id: 'q1',
+        header: 'Ratio',
+        question: 'Which ratio?',
+        options: [
+          { label: '16:9', description: null },
+          { label: '9:16', description: null },
+        ],
+        multiSelect: false,
+        allowOther: false,
+      },
+      { id: 'q2', header: 'Tracks', question: 'Which tracks?', options: [{ label: 'Voice', description: null }], multiSelect: true, allowOther: true },
+    ],
+  };
+
+  function answer(conversationId: Id, approvalId: string, answers: Record<string, string[]>) {
+    return rpc().request('agents.answerQuestion', { conversationId, approvalId, answers });
+  }
+
+  it('提问：任何模式下都等用户、不进统一列表；答案逐题核对，通过后交给 Driver；只能用 respondToApproval 拒绝', async () => {
+    await start();
+    for (const mode of ['fullAccess', 'plan'] as AgentMode[]) {
+      const { conversationId, session } = await begin(mode);
+      const asked = session.requestApproval(QUESTION);
+      expect(await card(conversationId, asked)).toMatchObject({ status: 'pending', mode });
+      expect((await rpc().request('conversations.get', { conversationId })).conversation.activity).toBe('awaiting-answer');
+      expect(runtime!.harness.approvals.pending()).toEqual([]);
+      expect(session.responses).toEqual([]);
+
+      // 漏答、单选多答、不许自填的题写了别的：都拒绝，问题还挂着。
+      const bads: Record<string, string[]>[] = [{ q1: ['16:9'] }, { q1: ['16:9', '9:16'], q2: ['Voice'] }, { q1: ['4:3'], q2: ['Voice'] }];
+      for (const bad of bads) {
+        expect((await rejection(answer(conversationId, asked, bad))).code).toBe('invalid-request');
+      }
+      expect((await rejection(respond(conversationId, asked, 'accept'))).code).toBe('invalid-request');
+      expect((await card(conversationId, asked)).status).toBe('pending');
+
+      expect(await answer(conversationId, asked, { q1: [' 9:16 '], q2: ['Voice', 'My own'] })).toEqual({ status: 'answered' });
+      const answers = { q1: ['9:16'], q2: ['Voice', 'My own'] };
+      expect(session.responses).toEqual([{ approvalId: asked, decision: 'accept', answers }]);
+      expect(await card(conversationId, asked)).toMatchObject({ status: 'accepted', decidedBy: 'user', answers });
+      expect((await rpc().request('conversations.get', { conversationId })).conversation.activity).toBe('running');
+      expect(await answer(conversationId, asked, answers)).toEqual({ status: 'already-resolved' });
+
+      const declined = session.requestApproval(QUESTION);
+      await card(conversationId, declined);
+      expect((await respond(conversationId, declined, 'decline')).status).toBe('declined');
+      expect(session.responses.at(-1)).toMatchObject({ approvalId: declined, decision: 'decline', message: expect.stringMatching(/declined to answer/) });
+      await finish(conversationId, session);
+    }
+  });
+
+  it('提问：只有提问在等时会话是「等待回答」，同时有待批准的动作时是「等待批准」', async () => {
+    await start();
+    const { conversationId, session } = await begin('ask');
+    const activity = async () => (await rpc().request('conversations.get', { conversationId })).conversation.activity;
+    const asked = session.requestApproval(QUESTION);
+    await card(conversationId, asked);
+    expect(await activity()).toBe('awaiting-answer');
+    const command = session.requestApproval({ kind: 'command', command: 'ls', cwd: null, reason: null });
+    await card(conversationId, command);
+    expect(await activity()).toBe('awaiting-approval');
+    expect((await respond(conversationId, command, 'accept')).status).toBe('accepted');
+    expect(await activity()).toBe('awaiting-answer');
+    expect(await answer(conversationId, asked, { q1: ['16:9'], q2: ['Voice'] })).toEqual({ status: 'answered' });
+    expect(await activity()).toBe('running');
+    await finish(conversationId, session);
+  });
+
+  it('提问：挂着的时候直接发消息，问题按拒绝结束（记为用消息回答），消息随后插进回合；停止时取消', async () => {
+    await start({ capabilities: { steer: true } });
+    const { conversationId, session } = await begin('ask');
+    const asked = session.requestApproval(QUESTION);
+    await card(conversationId, asked);
+    expect(await rpc().request('conversations.steer', { conversationId, text: 'Use 9:16, voice only', commandId: newId('cmd') })).toEqual({
+      status: 'steered',
+    });
+    expect(await card(conversationId, asked)).toMatchObject({ status: 'declined', answeredByMessage: true });
+    expect(session.responses).toEqual([{ approvalId: asked, decision: 'decline', message: expect.stringMatching(/replied with a message/) }]);
+    expect(session.inputs.at(-1)).toBe('Use 9:16, voice only');
+
+    const stopped = session.requestApproval(QUESTION);
+    await card(conversationId, stopped);
+    await rpc().request('agents.interrupt', { conversationId });
+    expect((await card(conversationId, stopped)).status).toBe('cancelled');
+    expect(session.responses.at(-1)).toEqual({ approvalId: stopped, decision: 'cancel' });
+    await finish(conversationId, session);
+  });
+
   // ---- 附件 ----
 
   async function upload(bytes: Buffer = PNG, fileName = 'shot.png') {

@@ -38,4 +38,9 @@ export const ja: HarnessAgentsMessages = {
   approvalNoGrant: 'この承認はデータを外部に送信しないため、許可の選択肢を含めることはできません',
   contractFieldsReadonly: (p) =>
     `Agent はタスク契約の次の項目を変更できません：${p.fields}。アクセスモード、権限の範囲、予算、保護範囲を決められるのはユーザだけです`,
+  questionOnly: 'この承認は質問です。agents.answerQuestion で回答を送信するか、拒否してください',
+  notQuestion: 'この承認は質問ではありません',
+  questionUnanswered: (p) => `「${p.question}」に回答がありません`,
+  questionSingleChoice: (p) => `「${p.question}」は回答を 1 つだけ選べます`,
+  questionUnknownOption: (p) => `「${p.option}」は「${p.question}」の選択肢ではありません`,
 };

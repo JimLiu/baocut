@@ -35,4 +35,10 @@ export const ko: ChatMessages = {
   autoApproved: '자동으로 승인했습니다(--yes)',
   declinedNotTty: '터미널에서 실행 중이 아니어서 거부했습니다(자동으로 승인하려면 --yes를 추가하세요)',
   approvalQuestion: '승인할까요? [y]es / [s]ession / [N]o ',
+  questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
+  questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
+  questionPrompt: (multi, other) => `  ${multi ? '번호 입력(여러 개는 쉼표로 구분)' : '번호 입력'}${other ? ' 또는 답변을 직접 입력' : ''}(비워 두면 건너뜀): `,
+  questionSkipped: '  건너뜀: Agent가 스스로 판단합니다',
+  questionNotTty: '  터미널에서 실행 중이 아니라 건너뛰었습니다(Agent가 스스로 판단합니다)',
+  questionAutoSkipped: '  건너뜀(--yes는 질문에 답하지 않습니다)',
 };

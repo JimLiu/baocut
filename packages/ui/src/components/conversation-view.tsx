@@ -117,7 +117,15 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
   // 有过任务的会话不能再换 Agent（原生会话不能跨 Agent 续，架构设计 §3.11）。
   const lockedTo = items.some((i) => i.kind === 'task') ? meta.driverId : null;
 
-  /** 忙的时候发的话先排队，带上此刻的编辑器状态、点选的 skill 与幻灯片、设计稿、设计系统、视频、协作文档标注；任务结束后按顺序发出。 */
+  /** 这一轮里有待答的提问：这时发的话就是回答，立即插进回合（Harness 先把提问按「用消息回答」结束）。 */
+  const questionPending =
+    busy &&
+    items.some((i) => i.kind === 'approval' && i.status === 'pending' && i.request.kind === 'question' && i.taskId === meta.activeTaskId);
+
+  /**
+   * 忙的时候发的话先排队，带上此刻的编辑器状态、点选的 skill 与幻灯片、设计稿、设计系统、视频、协作文档标注；任务结束后按顺序发出。
+   * 返回排进去的那一条的 id。
+   */
   const enqueue = async (
     text: string,
     attachments: AttachmentRef[],
@@ -130,9 +138,10 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
     skipProjectBrand: boolean,
   ) => {
     const context = await editor.capture();
+    const id = newId('queue');
     useShell.getState().setQueue(conversationId, (queue) =>
       enqueueMessage(queue, {
-        id: newId('queue'),
+        id,
         text,
         attachments,
         ...(context ? { context } : {}),
@@ -147,6 +156,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
       }),
     );
     editor.reset();
+    return id;
   };
   const reportQueueFailure = (message: string) => ToastQueue.negative(QUEUE_COPY.failed(message), { timeout: 5000 });
 
@@ -199,7 +209,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         busy={busy}
         queueWhileBusy
         stopping={meta.activity === 'stopping'}
-        placeholder={busy ? QUEUE_COPY.busyPlaceholder : S.conversationView.placeholder}
+        placeholder={questionPending ? QUEUE_COPY.answerPlaceholder : busy ? QUEUE_COPY.busyPlaceholder : S.conversationView.placeholder}
         autoFocus={autoFocus}
         reference={editor.reference}
         spaceReferences={
@@ -312,8 +322,9 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           };
           // 前面还有排队的：排到最后，保持先后；会话空着就先发队首那一条。
           if (busy || useShell.getState().queues[conversationId]?.length) {
-            await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes, skipProjectBrand);
+            const queued = await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes, skipProjectBrand);
             sentNotes();
+            if (questionPending) void sendNow(queued);
             if (!busy)
               void drainQueue(runtime, conversationId).then((result) => {
                 if (result.status === 'failed') reportQueueFailure(result.error);

@@ -1,4 +1,16 @@
-import { live, type ApprovalDecision, type ApprovalRequest, type HistoryEntry, type Id, type RiskLevel, type TimelineItem } from '@baocut/protocol';
+import {
+  intlLocale,
+  live,
+  type AgentQuestion,
+  type AgentQuestionAnswers,
+  type ApprovalDecision,
+  type ApprovalRequest,
+  type HistoryEntry,
+  type Id,
+  type RiskLevel,
+  type TimelineItem,
+} from '@baocut/protocol';
+import { QUESTION_COPY } from '../components/thread/question-copy.ts';
 import { APPROVAL_COPY } from '../copy.ts';
 import { baocutStep, type BaoCutStepKind } from './agent-tool-steps.ts';
 import { shortenPath } from './format.ts';
@@ -275,6 +287,11 @@ export function approvalSummary(
         subject: [request.tool, ...request.files.map(shortenPath)].join('\n'),
         copyText: [request.tool, ...request.files].join('\n'),
       };
+    case 'question': {
+      const text = request.questions.map((q) => q.question).join('\n');
+      const n = request.questions.length;
+      return { title: n > 1 ? QUESTION_COPY.titleMany(n) : QUESTION_COPY.title, kind: QUESTION_COPY.kind, subject: text, copyText: text };
+    }
   }
 }
 
@@ -300,6 +317,53 @@ export function approvalDecidedLabel(item: Item<'approval'>, chosen: ApprovalDec
     case 'pending':
       return '';
   }
+}
+
+// ---- 提问卡 ----
+
+/** 提问卡上「其他」那一项的值（不会和选项名撞上）。 */
+export const OTHER_OPTION = '\u0000other';
+
+/** 提问卡的草稿：每题选中的选项名（可能含 `OTHER_OPTION`），与「其他」里写的字。 */
+export interface QuestionDraft {
+  picked: Record<string, string[]>;
+  other: Record<string, string>;
+}
+
+/**
+ * 草稿 → 要交的答案。选了「其他」但没写字的不算；有一题没答就返回 null（「发送回答」不可用）。
+ * 单选题只取第一个。
+ */
+export function questionDraftAnswers(questions: AgentQuestion[], draft: QuestionDraft): AgentQuestionAnswers | null {
+  const answers: AgentQuestionAnswers = {};
+  for (const q of questions) {
+    const picked = draft.picked[q.id] ?? [];
+    const other = picked.includes(OTHER_OPTION) ? (draft.other[q.id] ?? '').trim() : '';
+    const values = [...picked.filter((v) => v !== OTHER_OPTION), ...(other ? [other] : [])];
+    if (values.length === 0) return null;
+    answers[q.id] = q.multiSelect ? values : values.slice(0, 1);
+  }
+  return answers;
+}
+
+/** 提问卡收起后那一行写什么。 */
+export function questionDecidedLabel(item: Item<'approval'>): string {
+  switch (item.status) {
+    case 'accepted':
+      return QUESTION_COPY.answered;
+    case 'declined':
+      return item.answeredByMessage ? QUESTION_COPY.byMessage : QUESTION_COPY.skipped;
+    case 'cancelled':
+      return QUESTION_COPY.cancelled;
+    case 'pending':
+      return '';
+  }
+}
+
+/** 一道题的答案写成一句（按当前语言的并列写法）；没答的写「没有回答」。 */
+export function questionAnswerText(answers: AgentQuestionAnswers | undefined, questionId: string): string {
+  const picked = answers?.[questionId] ?? [];
+  return picked.length ? new Intl.ListFormat(intlLocale(), { type: 'conjunction' }).format(picked) : QUESTION_COPY.noAnswer;
 }
 
 // ---- 变更卡的撤销与恢复 ----

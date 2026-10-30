@@ -48,6 +48,7 @@ const en = {
   },
   conversationHeader: {
     running: 'Working',
+    answer: 'Waiting for your answer',
     waiting: 'Waiting for approval',
     actions: 'Session actions',
     viewInSpace: (name: string) => `View “${name}” in Space`,

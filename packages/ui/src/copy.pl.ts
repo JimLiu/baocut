@@ -152,6 +152,7 @@ export const pl: CopyMessages = {
     steerUnsupported: "Ten agent nie przyjmuje wiadomości w trakcie zadania. Wiadomość zostanie wysłana po jego zakończeniu",
     skillWaits: "Wiadomość ze Skill nie może dołączyć do bieżącej tury. Zostanie wysłana po zakończeniu tury",
     failed: (message: string) => `Nie udało się wysłać wiadomości z kolejki: ${message}`,
+    answerPlaceholder: 'Odpowiedz tutaj lub wybierz w karcie powyżej',
     busyPlaceholder: "Agent pracuje. Nowe wiadomości czekają w kolejce do końca tej tury",
   },
   /** 任务失败后的恢复区（原型 agent-thread.jsx `ErrorMsg`）。 */
@@ -476,6 +477,7 @@ export const pl: CopyMessages = {
   taskView: {
     queued: "W kolejce",
     running: "W toku",
+    awaitingAnswer: 'Wymaga Twojej odpowiedzi',
     awaitingApproval: "Wymaga Twojego zatwierdzenia",
     cancelled: "Anulowano",
     failed: "Niepowodzenie",

@@ -27,6 +27,7 @@ export const zhHant: ShellMessages = {
   },
   conversationHeader: {
     running: '處理中',
+    answer: '等待回答',
     waiting: '等待核准',
     actions: '對話操作',
     viewInSpace: (name) => `在 Space 中檢視「${name}」`,

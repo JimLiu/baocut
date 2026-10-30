@@ -25,6 +25,8 @@ import {
   type ApprovalAction,
   type ApprovalGrantChoice,
   type GrantRequestItem,
+  type AgentQuestion,
+  type AgentQuestionAnswers,
   type ApprovalDecision,
   type ApprovalRequest,
   type ApprovalSubject,
@@ -1605,6 +1607,14 @@ export class Harness {
       ),
       docsAnnotations,
     );
+    // 有待答的提问时，消息就是回答：提问按拒绝结束（告诉模型看接下来的消息），再把消息插进回合。
+    const questions = state
+      .items()
+      .filter(
+        (i): i is Extract<TimelineItem, { kind: 'approval' }> =>
+          i.kind === 'approval' && i.status === 'pending' && i.taskId === run.taskId && i.request.kind === 'question',
+      );
+    for (const question of questions) await this.#declineQuestion(state, question, QUESTION_REPLIED_MESSAGE, true);
     const result = await session.steer(run.turnId, { text, ...imagesOf(attached) });
     if (result !== 'accepted') return { status: 'unsupported' };
     this.#commands.set(key, run.taskId);
@@ -2057,6 +2067,10 @@ export class Harness {
     const item = state.item(`approval/${params.approvalId}`);
     if (item?.kind !== 'approval') throw new RpcError('not-found', HA.approvalNotFound({ id: params.approvalId }));
     if (item.status !== 'pending') return { status: 'already-resolved' as const };
+    if (item.request.kind === 'question') {
+      if (params.decision !== 'decline') throw new RpcError('invalid-request', HA.questionOnly());
+      return this.#declineQuestion(state, item, QUESTION_DECLINED_MESSAGE);
+    }
     const run = this.#runs.get(state.id);
     const unified = this.#approvalKeys.get(approvalKey(state.id, params.approvalId));
     const session = this.#agents.get(state.id);
@@ -2088,6 +2102,61 @@ export class Harness {
     if (settled?.kind === 'approval' && settled.decidedBy === 'user') state.upsert({ ...settled, decision: params.decision });
     if (always && result.status === 'allowed' && !outbound) await this.#rememberRule(item.request);
     return { status: result.status === 'allowed' ? ('accepted' as const) : ('declined' as const) };
+  }
+
+  /**
+   * 回答智能体的提问（§3.12「提问」）：每题都要有答案，单选题恰好一个，不许自填的题只能选给出的选项。
+   * 核对通过后交给 Driver，卡片记下答案。
+   */
+  async answerQuestion(params: {
+    conversationId: Id;
+    approvalId: Id;
+    answers: AgentQuestionAnswers;
+  }): Promise<{ status: 'answered' | 'already-resolved' }> {
+    const state = this.#require(params.conversationId);
+    const item = state.item(`approval/${params.approvalId}`);
+    if (item?.kind !== 'approval') throw new RpcError('not-found', HA.approvalNotFound({ id: params.approvalId }));
+    if (item.request.kind !== 'question') throw new RpcError('invalid-request', HA.notQuestion());
+    if (item.status !== 'pending') return { status: 'already-resolved' };
+    const answers = checkAnswers(item.request.questions, params.answers);
+    const run = this.#runs.get(state.id);
+    const session = this.#agents.get(state.id);
+    if (!run || run.stopRequested || !session) {
+      state.upsert({ ...item, status: 'cancelled', decidedAt: nowIso() });
+      refreshActivity(state);
+      return { status: 'already-resolved' };
+    }
+    state.upsert({ ...item, status: 'accepted', decidedAt: nowIso(), decidedBy: 'user', decision: 'accept', answers });
+    refreshActivity(state);
+    await session.respondToApproval(params.approvalId, { decision: 'accept', answers });
+    return { status: 'answered' };
+  }
+
+  /** 提问按拒绝结束：卡片收起，Driver 收到拒绝与给模型的说明。 */
+  async #declineQuestion(
+    state: ConversationState,
+    item: Extract<TimelineItem, { kind: 'approval' }>,
+    message: string,
+    byMessage = false,
+  ): Promise<{ status: 'declined' | 'already-resolved' }> {
+    const run = this.#runs.get(state.id);
+    const session = this.#agents.get(state.id);
+    if (!run || run.stopRequested || !session) {
+      state.upsert({ ...item, status: 'cancelled', decidedAt: nowIso() });
+      refreshActivity(state);
+      return { status: 'already-resolved' };
+    }
+    state.upsert({
+      ...item,
+      status: 'declined',
+      decidedAt: nowIso(),
+      decidedBy: 'user',
+      decision: 'decline',
+      ...(byMessage ? { answeredByMessage: true } : {}),
+    });
+    refreshActivity(state);
+    await session.respondToApproval(item.approvalId, { decision: 'decline', message });
+    return { status: 'declined' };
   }
 
   /** 「总是允许」存进偏好（所有会话，设置页能移除）。不提供规则的请求不存。 */
@@ -2626,6 +2695,22 @@ export class Harness {
     event: Extract<AgentEvent, { type: 'approval.requested' }>,
   ): void {
     const { request } = event;
+    if (request.kind === 'question') {
+      // 提问不是权限审批：不查模式与规则，任何模式下都等用户；也不进统一的待处理列表（那里只放能允许或拒绝的动作）。
+      state.upsert({
+        kind: 'approval',
+        id: `approval/${event.approvalId}`,
+        createdAt: nowIso(),
+        taskId: run.taskId,
+        approvalId: event.approvalId,
+        request,
+        status: 'pending',
+        decidedAt: null,
+        mode: run.mode,
+      });
+      refreshActivity(state);
+      return;
+    }
     const risk = driverApprovalRisk(request, state.conversation.cwd, event.escalation === true);
     const decided = decideApproval(run.mode, risk);
     // 「总是允许」的规则只把要问的变成允许，不放开模式拒绝的（`plan` 下的写）。命中时只答应这一次（`accept`），
@@ -2857,6 +2942,29 @@ function toolRequest(request: ToolCallApprovalRequest): ApprovalRequest {
 function agentErrorCode(error: unknown): AgentErrorCode | null {
   const code = (error as { agentCode?: unknown } | null)?.agentCode;
   return typeof code === 'string' && code.startsWith('AGENT_') ? (code as AgentErrorCode) : null;
+}
+
+/** 用户拒绝回答提问时给模型的说明。 */
+const QUESTION_DECLINED_MESSAGE = 'The user declined to answer. Continue with your best judgment, or ask in plain text if you must.';
+/** 用户没选答案、直接发了消息时给模型的说明（消息随后作为插话到达）。 */
+const QUESTION_REPLIED_MESSAGE = 'The user replied with a message instead of picking an answer. Their message follows; treat it as the answer.';
+
+/** 核对提问的回答：每题都有，单选恰好一个，不许自填的只能是选项名。返回去重、去空白后的答案；不合格抛 `invalid-request`。 */
+export function checkAnswers(questions: AgentQuestion[], answers: AgentQuestionAnswers): AgentQuestionAnswers {
+  const checked: AgentQuestionAnswers = {};
+  for (const q of questions) {
+    const picked = [...new Set((answers[q.id] ?? []).map((a) => a.trim()).filter(Boolean))];
+    if (picked.length === 0) throw new RpcError('invalid-request', HA.questionUnanswered({ question: q.header || q.question }));
+    if (!q.multiSelect && picked.length > 1) {
+      throw new RpcError('invalid-request', HA.questionSingleChoice({ question: q.header || q.question }));
+    }
+    if (!q.allowOther) {
+      const unknown = picked.find((a) => !q.options.some((o) => o.label === a));
+      if (unknown) throw new RpcError('invalid-request', HA.questionUnknownOption({ question: q.header || q.question, option: unknown }));
+    }
+    checked[q.id] = picked;
+  }
+  return checked;
 }
 
 function approvalKey(conversationId: Id, approvalId: Id): string {

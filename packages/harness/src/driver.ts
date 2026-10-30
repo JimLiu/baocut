@@ -1,6 +1,7 @@
 import type {
   AgentErrorCode,
   AgentMode,
+  AgentQuestionAnswers,
   ApprovalDecision,
   ApprovalRequest,
   DriverId,
@@ -166,8 +167,13 @@ export interface ApprovalResponse {
   /**
    * `cancel`：拒绝并结束本回合，只由停止屏障使用（D04），不对外暴露。
    * `accept-always` 到了 Driver 这里等同 `accept-for-session`：规则由 Harness 存，Driver 不写原生的持久设置。
+   * 提问（`question`）只会收到 `accept`（带 `answers`）、`decline` 与 `cancel`。
    */
   decision: ApprovalDecision | 'cancel';
+  /** 提问的回答，按题号（`AgentQuestion.id`），Harness 已核对过每题都有。只随 `accept` 给。 */
+  answers?: AgentQuestionAnswers;
+  /** 拒绝时交给智能体的说明（给模型看，英文）。不给时 Driver 用自己的默认说法。 */
+  message?: string;
 }
 
 export interface AgentSession {

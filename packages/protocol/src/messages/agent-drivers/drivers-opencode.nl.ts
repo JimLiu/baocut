@@ -39,6 +39,8 @@ export const nl: DriversOpencodeMessages = {
   runFailed: (p: { name: string }) => `${p.name}-uitvoering mislukt`,
   endedAfterRejection: (p: { name: string }) =>
     `${p.name} heeft deze beurt beëindigd nadat een tool is geweigerd. Stuur nog een bericht als je wilt dat het een andere aanpak probeert.`,
+  endedAfterSkip: (p: { name: string }) =>
+    `${p.name} heeft deze beurt beëindigd nadat de vraag is overgeslagen. Stuur nog een bericht om verder te gaan.`,
   interruptedTurn: (p: { name: string; reason: string }) => `${p.name} heeft deze beurt onderbroken (${p.reason}).`,
   modelFormat: (p: { name: string; id: string }) => `${p.name}-modellen moeten worden geschreven als provider/model (ontvangen: ${p.id})`,
 };

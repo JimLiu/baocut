@@ -2899,6 +2899,21 @@ div.blkw { display: inline; }
 .aperm__cmd { margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: var(--gray-25); font-size: 12px; color: var(--gray-900); word-break: break-all; }
 .aperm__why { margin-top: 8px; font-size: 12px; line-height: 1.6; color: var(--gray-700); }
 .aperm__acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+/* 提问卡（agent-question.jsx）：和允许卡同位、同几何，蓝底表示「要你回答」而不是「要你批准」 */
+.aquest { display: flex; flex-direction: column; gap: 12px; margin-left: 34px; padding: 12px 14px; border-radius: 10px; background: var(--blue-100); box-shadow: inset 0 0 0 1px var(--blue-300); }
+.ath--compact .aquest { margin-left: 0; padding: 10px 12px; }
+.aquest__hd { display: flex; align-items: center; gap: 8px; color: var(--blue-1000); }
+.aquest__hd b { font-size: 14px; font-weight: 700; }
+.ath--compact .aquest__hd b { font-size: 12px; }
+.aquest__q { display: flex; flex-direction: column; gap: 4px; }
+.aquest__chip { font-size: 11px; font-weight: 700; color: var(--gray-700); text-transform: uppercase; }
+.aquest__text { margin: 0; font-size: 14px; line-height: 1.6; color: var(--gray-900); overflow-wrap: anywhere; }
+.aquest__opt { display: flex; flex-direction: column; }
+.aquest__checks { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.aquest__desc { font-size: 12px; color: var(--gray-700); }
+.aquest__answer { margin: 0; font-size: 12px; color: var(--gray-800); overflow-wrap: anywhere; }
+.aquest__acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.aquest__hint { margin: 0; font-size: 12px; color: var(--gray-700); }
 
 /* 收据：写进项目之后那一行（撤销位与后台任务同源） */
 .arcpt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: 34px; padding: 8px 12px; border-radius: 10px; background: var(--green-100); box-shadow: inset 0 0 0 1px var(--green-300); }

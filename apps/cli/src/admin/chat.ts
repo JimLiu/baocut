@@ -1,6 +1,15 @@
 import readline from 'node:readline/promises';
 import { applyConversationEvent } from '@baocut/client';
-import { getLocale, localizeText, newId, type ApprovalDecision, type ConversationSnapshot, type TimelineItem } from '@baocut/protocol';
+import {
+  getLocale,
+  localizeText,
+  newId,
+  type AgentQuestion,
+  type AgentQuestionAnswers,
+  type ApprovalDecision,
+  type ConversationSnapshot,
+  type TimelineItem,
+} from '@baocut/protocol';
 import { CliError } from '../envelope.ts';
 import { describeApprovalRequest, formatMode, parseModeOption } from './approvals-output.ts';
 import { M } from './chat-copy.ts';
@@ -74,9 +83,18 @@ export const chat = defineNoun({
           renderItem(item, printed, body, ctx.log.bind(ctx));
           if (item.kind === 'approval' && item.status === 'pending' && !answered.has(item.approvalId)) {
             answered.add(item.approvalId);
-            void askApproval(item, rl, values.yes === true, ctx.log.bind(ctx)).then((decision) =>
-              client.request('agents.respondToApproval', { conversationId: id, approvalId: item.approvalId, decision }),
-            );
+            if (item.request.kind === 'question') {
+              const questions = item.request.questions;
+              const ref = { conversationId: id, approvalId: item.approvalId };
+              void askQuestions(questions, rl, values.yes === true, ctx.log.bind(ctx)).then(async (answers) => {
+                if (answers) await client.request('agents.answerQuestion', { ...ref, answers });
+                else await client.request('agents.respondToApproval', { ...ref, decision: 'decline' });
+              });
+            } else {
+              void askApproval(item, rl, values.yes === true, ctx.log.bind(ctx)).then((decision) =>
+                client.request('agents.respondToApproval', { conversationId: id, approvalId: item.approvalId, decision }),
+              );
+            }
           }
           if (item.kind === 'task' && item.id === taskId && item.status !== 'running' && item.status !== 'stopping') {
             done = true;
@@ -158,6 +176,56 @@ function renderItem(item: TimelineItem, printed: Map<string, number>, body: Node
     default:
       return;
   }
+}
+
+/**
+ * 智能体的提问：逐题列出编号选项，读一行回答。`--yes` 与不在终端里时跳过（Agent 自己拿主意）；
+ * 任何一题留空也算跳过整组。返回 null 表示跳过。
+ */
+async function askQuestions(
+  questions: AgentQuestion[],
+  rl: readline.Interface | null,
+  yes: boolean,
+  log: (line: string) => void,
+): Promise<AgentQuestionAnswers | null> {
+  const answers: AgentQuestionAnswers = {};
+  for (const [index, q] of questions.entries()) {
+    log(`\n${M.questionLine(q.header, q.question)}`);
+    q.options.forEach((o, i) => log(M.questionOption(i + 1, o.label, o.description)));
+    if (index === 0 && yes) {
+      log(M.questionAutoSkipped);
+      return null;
+    }
+    if (index === 0 && !rl) {
+      log(M.questionNotTty);
+      return null;
+    }
+    let picked: string[] | null = null;
+    while (picked === null) {
+      const reply = (await rl!.question(M.questionPrompt(q.multiSelect, q.allowOther))).trim();
+      if (!reply) {
+        log(M.questionSkipped);
+        return null;
+      }
+      picked = parseQuestionReply(q, reply);
+    }
+    answers[q.id] = picked;
+  }
+  return answers;
+}
+
+/**
+ * 一行回答 → 选中的选项名：选项名本身，或编号（多选题用逗号、顿号分隔）；越界或不是编号时，能自己写答案的题把整行当答案，
+ * 不能的返回 null（再问一次）。单选题只认一个编号。
+ */
+export function parseQuestionReply(q: AgentQuestion, reply: string): string[] | null {
+  const byLabel = q.options.find((o) => o.label.toLowerCase() === reply.toLowerCase());
+  if (byLabel) return [byLabel.label];
+  const parts = reply.split(/[,，、]/).map((p) => p.trim()).filter(Boolean);
+  const numbers = parts.map((p) => (/^\d+$/.test(p) ? Number(p) : NaN));
+  const valid = numbers.every((n) => n >= 1 && n <= q.options.length) && (q.multiSelect || numbers.length === 1);
+  if (valid) return [...new Set(numbers.map((n) => q.options[n - 1]!.label))];
+  return q.allowOther ? [reply] : null;
 }
 
 async function askApproval(

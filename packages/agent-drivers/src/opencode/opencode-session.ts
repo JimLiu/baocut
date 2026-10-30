@@ -4,10 +4,11 @@
  * 过滤事件；`mcp.add` 远程 MCP 后轮询 `mcp.list` 到 connected；开发者指令写进会话的 instructions 条目；恢复时
  * `session.get`），v2/turns.ts（回合由 `session.execution.*` 收尾、`session.active` 确认不再运行、steer 用
  * `delivery: 'steer'`、中断用 `session.interrupt`），v2/permissions.ts（`permission.asked` / `permission.replied`、
- * 以 once / reject 作答），v2/timeline.ts（文字与推理按 assistantMessageID 与 ordinal 分段）。
+ * 以 once / reject 作答；提问表单 `form.created` / `form.replied` / `form.cancelled`，以 form reply / cancel 作答），
+ * v2/timeline.ts（文字与推理按 assistantMessageID 与 ordinal 分段）。
  * 改成 BaoCut 的 AgentSession 事件：一个会话一个 serve 进程；「本会话放行」由 Driver 自己记，从不回原生的 always；
  * 访问模式映射成会话的权限规则（两边取更严的）；拒绝一个工具后 OpenCode 以 `interrupted(shutdown)` 结束执行，
- * 这里记成回合完成、那一步记成 declined。
+ * 这里记成回合完成、那一步记成 declined；跳过提问同样会结束执行，也记成回合完成。
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -37,7 +38,18 @@ import { DriversCommon, DriversOpencode } from '@baocut/protocol/messages/agent-
 import { agentError } from '../acp/acp-session.ts';
 import { refField, textOf, type DriverText } from '../driver-text.ts';
 import type { OpenCodeInstall } from './opencode-binary.ts';
-import { approvalOf, contentText, permissionRules, record, toolItem, type PermissionRequest, type ToolState } from './opencode-items.ts';
+import {
+  approvalOf,
+  contentText,
+  formAnswer,
+  formQuestions,
+  permissionRules,
+  record,
+  toolItem,
+  type FormInfo,
+  type PermissionRequest,
+  type ToolState,
+} from './opencode-items.ts';
 import { modelRef, waitForLocation } from './opencode-models.ts';
 import { OPENCODE_PRESET } from './opencode-preset.ts';
 import { OpenCodeHttpError, OpenCodeServer, type OpenCodeEvent } from './opencode-server.ts';
@@ -62,8 +74,8 @@ interface OpenMessage {
 interface Turn {
   id: string;
   cancelled: boolean;
-  /** 这一轮里 BaoCut 拒绝过工具：OpenCode 随后以 `interrupted(shutdown)` 结束执行。 */
-  rejected: boolean;
+  /** 这一轮里 BaoCut 拒绝过工具（或跳过了提问）：OpenCode 随后以 `interrupted(shutdown)` 结束执行。 */
+  rejected: 'tool' | 'question' | null;
   messages: Map<string, OpenMessage>;
   tools: Map<string, ToolState>;
   finished: Set<string>;
@@ -77,9 +89,11 @@ interface Turn {
 
 interface PendingApproval {
   turnId: string;
+  /** 权限请求的 id，或提问表单的 id（`form` 不为 null 时）。 */
   requestId: string;
   toolId: string | null;
   grantKey: string;
+  form: FormInfo | null;
 }
 
 export class OpenCodeSession implements AgentSession {
@@ -257,7 +271,7 @@ export class OpenCodeSession implements AgentSession {
     const turn: Turn = {
       id: turnId,
       cancelled: false,
-      rejected: false,
+      rejected: null,
       messages: new Map(),
       tools: new Map(),
       finished: new Set(),
@@ -319,6 +333,17 @@ export class OpenCodeSession implements AgentSession {
     const pending = this.#approvals.get(approvalId);
     if (!pending) return;
     this.#approvals.delete(approvalId);
+    if (pending.form) {
+      if (response.decision === 'accept') {
+        await this.#formRequest(pending.form.id, 'reply', { answer: formAnswer(pending.form, response.answers ?? {}) });
+        return;
+      }
+      // OpenCode 收到取消就结束这次执行（不像 Claude 那样把拒绝的话交给模型）。
+      this.#markRejected(pending);
+      await this.#formRequest(pending.form.id, 'cancel');
+      if (response.decision === 'cancel' && this.#turn?.id === pending.turnId) await this.interrupt(pending.turnId);
+      return;
+    }
     // 「总是允许」的规则归 Harness 存；原生侧只按会话级放行处理，由这里记住，不回 OpenCode 的 always（它会写进原生的规则）。
     if (response.decision === 'accept-for-session' || response.decision === 'accept-always') this.#grants.add(pending.grantKey);
     const accept = response.decision === 'accept' || response.decision === 'accept-for-session' || response.decision === 'accept-always';
@@ -403,6 +428,16 @@ export class OpenCodeSession implements AgentSession {
       return;
     }
     const data = event.data;
+    if (event.type === 'form.created') {
+      const form = record(data.form) as FormInfo | null;
+      if (form && this.#sessionId && form.sessionID === this.#sessionId) this.#onForm(form);
+      return;
+    }
+    if (event.type === 'form.replied' || event.type === 'form.cancelled') {
+      // 别处答了（或取消了）这张表单：收起 BaoCut 这边的卡片。
+      this.#resolveRequest(typeof data.id === 'string' ? data.id : String(data.formID ?? ''));
+      return;
+    }
     if (!this.#sessionId || data.sessionID !== this.#sessionId) return;
     const turn = this.#turn;
     if (event.type === 'permission.asked') {
@@ -411,12 +446,7 @@ export class OpenCodeSession implements AgentSession {
     }
     if (event.type === 'permission.replied') {
       // 别处（例如 OpenCode 自己的界面）答了：收起 BaoCut 这边的卡片。
-      const requestId = data.requestID;
-      for (const [approvalId, pending] of this.#approvals) {
-        if (pending.requestId !== requestId) continue;
-        this.#approvals.delete(approvalId);
-        this.#emit({ type: 'approval.resolved', approvalId });
-      }
+      this.#resolveRequest(String(data.requestID ?? ''));
       return;
     }
     if (!turn) return;
@@ -544,8 +574,42 @@ export class OpenCodeSession implements AgentSession {
     }
     const approvalId = newId('appr');
     const toolId = typeof request.source?.id === 'string' ? request.source.id : null;
-    this.#approvals.set(approvalId, { turnId: turn.id, requestId: request.id, toolId, grantKey });
+    this.#approvals.set(approvalId, { turnId: turn.id, requestId: request.id, toolId, grantKey, form: null });
     this.#emit({ type: 'approval.requested', turnId: turn.id, approvalId, request: approval, ...(escalation ? { escalation: true } : {}) });
+  }
+
+  /** 提问表单（question 工具）→ BaoCut 的提问。回合之外、或有答不了的字段时直接取消（OpenCode 随即结束这次执行）。 */
+  #onForm(form: FormInfo): void {
+    const turn = this.#turn;
+    if ([...this.#approvals.values()].some((p) => p.requestId === form.id)) return;
+    const questions = formQuestions(form);
+    if (!turn || turn.cancelled || this.#closed || !questions) {
+      if (!questions) this.#log.warn('Cancelling an OpenCode form BaoCut cannot answer', { fields: form.fields.map((f) => f.type) });
+      void this.#formRequest(form.id, 'cancel');
+      return;
+    }
+    const approvalId = newId('appr');
+    this.#approvals.set(approvalId, { turnId: turn.id, requestId: form.id, toolId: null, grantKey: '', form });
+    const request = { kind: 'question' as const, questions, reason: null, rule: null };
+    this.#emit({ type: 'approval.requested', turnId: turn.id, approvalId, request });
+  }
+
+  #resolveRequest(requestId: string): void {
+    for (const [approvalId, pending] of this.#approvals) {
+      if (pending.requestId !== requestId) continue;
+      this.#approvals.delete(approvalId);
+      this.#emit({ type: 'approval.resolved', approvalId });
+    }
+  }
+
+  async #formRequest(formId: string, action: 'reply' | 'cancel', body?: unknown): Promise<void> {
+    if (!this.#sessionId || this.#server.hasExited) return;
+    try {
+      const url = `/api/session/${this.#sessionId}/form/${encodeURIComponent(formId)}/${action}`;
+      await this.#server.request('POST', url, body === undefined ? {} : { body });
+    } catch (error) {
+      this.#log.warn('Answering an OpenCode form failed', { action, error: message(error) });
+    }
   }
 
   async #reply(requestId: string, decision: 'once' | 'reject'): Promise<void> {
@@ -562,7 +626,7 @@ export class OpenCodeSession implements AgentSession {
   #markRejected(pending: PendingApproval): void {
     const turn = this.#turn;
     if (!turn || turn.id !== pending.turnId) return;
-    turn.rejected = true;
+    turn.rejected = pending.form ? 'question' : 'tool';
     if (pending.toolId) turn.declined.add(pending.toolId);
   }
 
@@ -600,7 +664,9 @@ export class OpenCodeSession implements AgentSession {
         return this.#finishTurn(turn, 'failed', ending.error ?? DriversOpencode.runFailed({ name: OPENCODE_PRESET.name }), null);
       case 'interrupted':
         if (ending.reason === 'shutdown' && turn.rejected) {
-          this.#warn(DriversOpencode.endedAfterRejection({ name: OPENCODE_PRESET.name }));
+          const name = OPENCODE_PRESET.name;
+          const ended = turn.rejected === 'question' ? DriversOpencode.endedAfterSkip : DriversOpencode.endedAfterRejection;
+          this.#warn(ended({ name }));
           return this.#finishTurn(turn, 'completed', null, null);
         }
         if (ending.reason !== 'user') {
@@ -641,7 +707,7 @@ export class OpenCodeSession implements AgentSession {
     for (const [approvalId, pending] of this.#approvals) {
       if (turnId !== null && pending.turnId !== turnId) continue;
       this.#approvals.delete(approvalId);
-      if (reject) replies.push(this.#reply(pending.requestId, 'reject'));
+      if (reject) replies.push(pending.form ? this.#formRequest(pending.form.id, 'cancel') : this.#reply(pending.requestId, 'reject'));
       this.#emit({ type: 'approval.resolved', approvalId });
     }
     await Promise.all(replies);

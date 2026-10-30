@@ -42,7 +42,7 @@ export interface TaskRow {
   /** 进行中一组：Agent 任务在跑或正在停止，Job 排队或在跑。 */
   live: boolean;
   queued: boolean;
-  /** Agent 任务在等用户批准。 */
+  /** Agent 任务在等用户批准或回答提问（`label` 写明是哪一种）。 */
   waiting: boolean;
   /**
    * 结束了但要用户决定（结果不明的 Job、旧版项目有没导入的）：历史里不受 20 条、30 天与清空的限制（`historyView`）。
@@ -272,8 +272,9 @@ export function agentRow(task: TaskSummary, ctx: TaskContext): TaskRow {
   const conversation = ctx.conversations.find((c) => c.id === task.conversationId);
   const project = task.projectId ? ctx.projects.find((p) => p.id === task.projectId) : undefined;
   const live = task.status === 'running' || task.status === 'stopping';
-  // 等用户批准时任务本身仍在进行，等待记在会话的活动上（产品设计 §3.1）。
-  const waiting = task.status === 'running' && conversation?.activity === 'awaiting-approval';
+  // 等用户批准或回答时任务本身仍在进行，等待记在会话的活动上（产品设计 §3.1）。
+  const answer = task.status === 'running' && conversation?.activity === 'awaiting-answer';
+  const waiting = answer || (task.status === 'running' && conversation?.activity === 'awaiting-approval');
   // 会话标题常常就是第一句话（也就是任务目标）：一样时只写项目。
   const title = task.conversationTitle && task.conversationTitle !== task.goal ? task.conversationTitle : null;
   const where = [project?.name ?? (title ? null : TASK_VIEW_COPY.noProject), title].filter(Boolean).join(' › ');
@@ -299,7 +300,7 @@ export function agentRow(task: TaskSummary, ctx: TaskContext): TaskRow {
     queued: false,
     waiting,
     attention: false,
-    label: waiting ? TASK_VIEW_COPY.awaitingApproval : TASK_STATUS_LABEL[task.status],
+    label: answer ? TASK_VIEW_COPY.awaitingAnswer : waiting ? TASK_VIEW_COPY.awaitingApproval : TASK_STATUS_LABEL[task.status],
     tone,
     phase: null,
     pct: null,

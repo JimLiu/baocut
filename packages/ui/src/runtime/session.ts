@@ -5,6 +5,7 @@ import {
   RUNTIME_VERSION,
   newId,
   type AgentMode,
+  type AgentQuestionAnswers,
   type ApprovalDecision,
   type AttachmentRef,
   type Conversation,
@@ -324,6 +325,11 @@ export class RuntimeSession {
 
   async respondToApproval(conversationId: Id, approvalId: Id, decision: ApprovalDecision): Promise<void> {
     await this.client.request('agents.respondToApproval', { conversationId, approvalId, decision });
+  }
+
+  /** 回答智能体的提问（拒绝回答用 `respondToApproval` 的 `decline`）。 */
+  async answerQuestion(conversationId: Id, approvalId: Id, answers: AgentQuestionAnswers): Promise<void> {
+    await this.client.request('agents.answerQuestion', { conversationId, approvalId, answers });
   }
 
   /** 让用户选一个目录并登记为项目；取消时返回 null。 */

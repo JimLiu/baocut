@@ -125,6 +125,45 @@ describe('CodexSession（假 codex）', () => {
     expect(lastParams('turn/start').input).toEqual([{ type: 'localImage', path: '/work/a.png' }]);
   });
 
+  it('提问（request_user_input）：映射成 question，题号沿用；回答按题号回 answers，拒绝回空答案', async () => {
+    const questions = [
+      { id: 'ratio', header: 'Ratio', question: 'Which ratio?', options: [{ label: '16:9', description: 'Wide' }, { label: '9:16' }], isOther: true },
+      { id: 'name', header: 'Name', question: 'Project name?', options: null },
+      { header: 'broken' },
+    ];
+    for (const [decision, expected] of [
+      ['accept', 'answered {"answers":{"ratio":{"answers":["9:16"]},"name":{"answers":["Demo"]}}}'],
+      ['decline', 'answered {"answers":{}}'],
+    ] as const) {
+      const { session, events, completed } = await start({ turn: { askQuestions: questions, reply: 'unused' } });
+      const { turnId } = await session.startTurn({ text: 'go' }, { accessMode: 'ask', model: null, effort: null });
+      const asked = await until(() => events.find((e): e is Extract<AgentEvent, { type: 'approval.requested' }> => e.type === 'approval.requested'));
+      expect(asked.request).toEqual({
+        kind: 'question',
+        reason: null,
+        rule: null,
+        questions: [
+          {
+            id: 'ratio',
+            header: 'Ratio',
+            question: 'Which ratio?',
+            options: [
+              { label: '16:9', description: 'Wide' },
+              { label: '9:16', description: null },
+            ],
+            multiSelect: false,
+            allowOther: true,
+          },
+          { id: 'name', header: 'Name', question: 'Project name?', options: [], multiSelect: false, allowOther: true },
+        ],
+      });
+      await session.respondToApproval(asked.approvalId, decision === 'accept' ? { decision, answers: { ratio: ['9:16'], name: ['Demo'] } } : { decision });
+      await completed(turnId);
+      const reply = events.find((e) => e.type === 'item.completed' && e.item.kind === 'agent-message');
+      expect(reply?.type === 'item.completed' && reply.item.kind === 'agent-message' && reply.item.text).toBe(expected);
+    }
+  });
+
   it('插话：正在跑的回合 accepted（带 expectedTurnId）；别的回合、已经结束的回合 unavailable，不发请求', async () => {
     const { session, events, completed } = await start({ turn: { status: 'hang' } });
     const { turnId } = await session.startTurn({ text: '开始' }, { accessMode: 'ask', model: null, effort: null });

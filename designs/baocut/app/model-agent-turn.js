@@ -166,15 +166,33 @@
     if (isNaN(d.getTime())) return '';
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
-  /** 页脚文案：进行中「正在工作 · 0:42」（停下来等放行时「等你允许 · 0:42」），完成「已工作 1:03」；没有开始时间就不显示时长。 */
+  /** 页脚文案：进行中「正在工作 · 0:42」（停下来等放行时「等你允许 · 0:42」，等你回答提问时「等你回答」），完成「已工作 1:03」；
+      没有开始时间就不显示时长。`waiting` 是 waitingFor 的结果（'allow' / 'answer'），老调用传 true 按放行算。 */
   function footerLabel(o) {
     const {startedAt, endedAt, live, waiting, now} = o || {};
     if (live) {
-      const word = waiting ? '等你允许' : '正在工作';
+      const word = waiting ? WAIT_WORDS[waiting === 'answer' ? 'answer' : 'allow'].long : '正在工作';
       return startedAt ? `${word} · ${formatElapsed((now || Date.now()) - startedAt)}` : word;
     }
     if (startedAt && endedAt) return `已工作 ${formatElapsed(endedAt - startedAt)}`;
     return '';
+  }
+
+  /** 会话停下来等你时等的是什么（产品设计 §6.6）：最后一张没答的是提问卡就是 'answer'，否则 'allow'；不在等是 null。 */
+  const WAIT_WORDS = {answer: {long: '等你回答', short: '待回答'}, allow: {long: '等你允许', short: '待允许'}};
+  function waitingFor(sess) {
+    if (!sess || sess.status !== 'waiting') return null;
+    const ms = sess.messages || [];
+    for (let i = ms.length - 1; i >= 0; i--) {
+      const m = ms[i];
+      if ((m.role === 'question' || m.role === 'permission') && m.state === 'pending') return m.role === 'question' ? 'answer' : 'allow';
+    }
+    return 'allow';
+  }
+  /** 状态词：长的「等你回答 / 等你允许」（会话行），短的「待回答 / 待允许」（标题旁的小标签）。 */
+  function waitingLabel(sess, short) {
+    const k = waitingFor(sess);
+    return k ? WAIT_WORDS[k][short ? 'short' : 'long'] : '';
   }
 
   /** 这一轮结束：给最后一条还没有 endedAt 的用户消息记上结束时刻（停止、拒绝、跑完都走这里）。 */
@@ -189,6 +207,6 @@
   window.BC_AGENT_TURN = {
     endTurn,
     TOOL_LABELS, FILE_EXT, toolStep, toolStatus, nextToolStatus, stepMeta, diffLines, looksLikeDiff,
-    parsePathToken, pathTip, parseVideoTime, gapBetween, rowKind, turns, formatElapsed, clockLabel, footerLabel,
+    parsePathToken, pathTip, parseVideoTime, gapBetween, rowKind, turns, formatElapsed, clockLabel, footerLabel, waitingFor, waitingLabel,
   };
 })();

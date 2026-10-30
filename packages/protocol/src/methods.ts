@@ -5,6 +5,7 @@ import type {
   AgentPreferences,
   AgentSetupAction,
   AgentSetupRun,
+  AgentQuestionAnswers,
   ApprovalDecision,
   AttachmentRef,
   Autonomy,
@@ -293,6 +294,15 @@ export interface RpcMethods {
   'agents.respondToApproval': {
     params: { conversationId: Id; approvalId: Id; decision: ApprovalDecision };
     result: { status: 'accepted' | 'declined' | 'already-resolved' };
+  };
+  /**
+   * 回答会话里的一道提问（`ApprovalRequest` 的 `question`，架构设计 §3.12「提问」）：`answers` 按题号给，每题都要有；
+   * 单选题恰好一项，不允许「其他」的题只能是选项名。不合的以 `invalid-request` 拒绝，问题保持待回答。
+   * 拒绝回答用 `agents.respondToApproval` 的 `decline`。
+   */
+  'agents.answerQuestion': {
+    params: { conversationId: Id; approvalId: Id; answers: AgentQuestionAnswers };
+    result: { status: 'answered' | 'already-resolved' };
   };
   /** 次级操作：只停当前模型回合（D04），待处理的审批按取消处理。主停止按钮走 `tasks.stop`。 */
   'agents.interrupt': {

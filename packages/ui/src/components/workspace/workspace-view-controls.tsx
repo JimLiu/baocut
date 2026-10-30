@@ -5,7 +5,7 @@ import { DialogTrigger, Popover } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { WORKSPACE_COPY, untitled } from '../../copy.ts';
 import { conversationOutputs } from '../../model/conversation-outputs.ts';
-import { sessionStatus } from '../../model/sidebar.ts';
+import { liveWord } from '../../model/sidebar.ts';
 import { conversationVideoJobs } from '../../model/video-cards.ts';
 import { itemKey, summaryInHead, tabsButton, type TabsButtonAction, type WorkspaceItem } from '../../model/workspace.ts';
 import { homeMode, useShell } from '../../state/shell-store.ts';
@@ -246,8 +246,8 @@ export function SessionSummaryButton({ conversation }: { conversation: Conversat
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [conversation.id]);
   const outputs = conversationOutputs(conversation, items, entries, undefined, jobs);
-  const status = sessionStatus(conversation);
-  const word = status === 'running' || status === 'waiting' ? STATUS_WORD[status] : null;
+  const status = liveWord(conversation);
+  const word = status ? STATUS_WORD[status] : null;
   return (
     <DialogTrigger isOpen={open} onOpenChange={setOpen}>
       <ShellButton label={S.titleBar.summary} tooltip={!open} pressed={open}>
@@ -257,7 +257,7 @@ export function SessionSummaryButton({ conversation }: { conversation: Conversat
         <section className={summary} aria-label={S.titleBar.summary}>
           <h2 className={summaryTitle}>{conversation.title || untitled()}</h2>
           {word ? (
-            <p className={summaryStatus({ isWaiting: status === 'waiting' })} role="status">
+            <p className={summaryStatus({ isWaiting: status === 'waiting' || status === 'answer' })} role="status">
               {word}
             </p>
           ) : null}

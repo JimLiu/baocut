@@ -53,14 +53,16 @@ const tool = (id: string, taskId: string): TimelineItem => ({
   exitCode: null,
   durationMs: null,
 });
-const approval = (id: string, taskId: string): TimelineItem =>
+const approval = (id: string, taskId: string, question = false): TimelineItem =>
   ({
     kind: 'approval',
     id,
     createdAt: at,
     taskId,
     approvalId: id,
-    request: { kind: 'command', command: 'rm x', cwd: null, reason: null },
+    request: question
+      ? { kind: 'question', questions: [], reason: null, rule: null }
+      : { kind: 'command', command: 'rm x', cwd: null, reason: null },
     status: 'pending',
     decidedAt: null,
   }) as unknown as TimelineItem;
@@ -121,6 +123,7 @@ describe('turns', () => {
     expect(t[0]!.task?.id).toBe('t1');
     expect(t[1]!.task).toBeNull();
     expect(t[2]!.waiting).toBe(true);
+    expect(t[2]!.answer).toBe(false);
     expect(t[2]!.text).toBe('');
     expect(turns([])).toEqual([]);
   });
@@ -145,10 +148,18 @@ describe('页脚文案', () => {
     expect(clockLabel(new Date(2026, 9, 5, 9, 5).getTime())).toBe('09:05');
   });
 
+  it('等的只有提问时页脚写「等你回答」；同时有审批时按审批', () => {
+    const only = turns(buildThread([user('u1', 't1'), task('t1', 'running'), approval('q1', 't1', true)]));
+    expect(only[0]).toMatchObject({ waiting: true, answer: true });
+    const both = turns(buildThread([user('u1', 't1'), task('t1', 'running'), approval('q1', 't1', true), approval('p1', 't1')]));
+    expect(both[0]).toMatchObject({ waiting: true, answer: false });
+  });
+
   it('进行中、等允许、完成、停止与失败', () => {
     expect(footerLabel({ status: 'running', startedAt: 1000, now: 43000 })).toBe('正在工作 · 0:42');
     expect(footerLabel({ status: null, now: 0 })).toBe('正在工作');
     expect(footerLabel({ status: 'running', waiting: true, startedAt: 1000, now: 61000 })).toBe('等你允许 · 1:00');
+    expect(footerLabel({ status: 'running', waiting: true, answer: true, startedAt: 1000, now: 61000 })).toBe('等你回答 · 1:00');
     expect(footerLabel({ status: 'stopping', startedAt: 0, now: 5000 })).toBe('正在停止 · 0:05');
     expect(footerLabel({ status: 'completed', startedAt: 1, endedAt: 63001, now: 99999 })).toBe('已工作 1:03');
     expect(footerLabel({ status: 'stopped', startedAt: 0, endedAt: 9000, now: 0 })).toBe('已停止 · 工作了 0:09');

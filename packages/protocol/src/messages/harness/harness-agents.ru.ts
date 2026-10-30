@@ -33,4 +33,9 @@ export const ru: HarnessAgentsMessages = {
   effortUnsupported: (p) => `Модель «${p.model}» не имеет уровней рассуждений`,
   approvalNoGrant: "Это одобрение не передаёт данные, выбор разрешения не нужен",
   contractFieldsReadonly: (p) => `Агент не может изменить поля контракта задачи: ${p.fields}. Только пользователь определяет режим доступа, область разрешений, бюджет и защищённые диапазоны`,
+  questionOnly: 'Это одобрение — вопрос: отправьте ответы через agents.answerQuestion или отклоните его',
+  notQuestion: 'Это одобрение не является вопросом',
+  questionUnanswered: (p) => `Нет ответа на «${p.question}»`,
+  questionSingleChoice: (p) => `На «${p.question}» можно дать только один ответ`,
+  questionUnknownOption: (p) => `«${p.option}» — не вариант ответа на «${p.question}»`,
 };

@@ -1,6 +1,7 @@
 import type { AgentTurnMessages } from './agent-turn.ts';
 
 export const ko: AgentTurnMessages = {
+  answer: '답변 대기 중',
   waiting: '승인 대기 중',
   working: '진행 중',
   stopping: '중지하는 중',

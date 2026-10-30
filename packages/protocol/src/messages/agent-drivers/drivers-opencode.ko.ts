@@ -32,6 +32,7 @@ export const ko: DriversOpencodeMessages = {
   retryFallback: '모델 요청이 실패했습니다. 잠시 후 다시 시도합니다.',
   runFailed: (p) => `${p.name} 실행 실패`,
   endedAfterRejection: (p) => `도구가 거부되어 ${p.name}이(가) 이번 턴을 종료했습니다. 다른 방법을 시도하게 하려면 메시지를 다시 보내세요.`,
+  endedAfterSkip: (p) => `질문을 건너뛰어 ${p.name}이(가) 이번 턴을 종료했습니다. 계속하려면 메시지를 다시 보내세요.`,
   interruptedTurn: (p) => `${p.name}이(가) 이번 턴을 중단했습니다(${p.reason}).`,
   modelFormat: (p) => `${p.name} 모델은 provider/model 형식으로 써야 합니다(받은 값: ${p.id})`,
 };

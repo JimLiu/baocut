@@ -698,6 +698,15 @@ Claude 的兜底模型表只保留 `opus`、`fable`、`sonnet`、`haiku` 别名�
 
 BaoCut 工具经 Codex 的 MCP 调用会等审批，Codex 默认 60 秒就放弃一次工具调用，所以会话给 BaoCut 的 MCP 服务配置 `tool_timeout_sec` 为一天。
 
+**提问**。智能体可以停下来问用户一道或几道选择题（原生工具：Claude Code 的 `AskUserQuestion`、Codex 的 `item/tool/requestUserInput`、OpenCode 的表单）。Driver 把它报成一条审批，`request` 是 `{ kind: 'question', questions: AgentQuestion[] }`：每题有题号、短标题、题目、选项（名称与说明）、是否多选、是否允许「其他」（用户自己写）。提问不是权限审批：
+
+- 不查访问模式、不看「总是允许」的规则，`fullAccess` 与 `plan` 下也等用户；不进统一的待处理列表（`approvals.list` 与 `tasks` 主题只放能允许或拒绝的动作），只在会话里显示。只有提问在等时会话的 `activity` 为 `awaiting-answer`（侧栏、会话头与任务列表写「等待回答」）；同时有待批准的动作时仍是 `awaiting-approval`。
+- `agents.answerQuestion { conversationId, approvalId, answers }` 回答：`answers` 是题号 → 选中的选项名或自己写的答案，每题都要有，单选题恰好一项，不允许「其他」的题只能是选项名；不合的以 `invalid-request` 拒绝，问题保持待回答。卡片记下 `answers`，Driver 把答案按原生格式交回（Claude 以题目全文为键、多选用 `, ` 连接；Codex 以题号为键；OpenCode 把选项名换回表单字段的取值）。
+- 「跳过」是 `agents.respondToApproval` 的 `decline`（提问只认 `decline`，别的决定以 `invalid-request` 拒绝）：模型收到「用户没有回答，按自己的判断继续」。Claude 与 Codex 在同一回合里接着做；OpenCode 取消表单会结束这一轮，会话里记一条提示，用户再发一条消息继续。
+- 有待回答的提问时用户直接在输入框发消息，就是回答：提问按拒绝结束、卡片标 `answeredByMessage`，模型收到「答案在接下来的消息里」，消息随后作为插话（`steer`，§3.1）进入回合。
+- 停止任务、停止回复与任务结束把待回答的提问取消，与审批相同。
+- 原生侧没有提问通道的 Driver（Pi、ACP 智能体）由智能体在回复里用文字问，用户下一条消息回答。
+
 **切换**。会话记录上的 `accessMode` 是这个会话切换过的模式，`null` 表示跟随偏好设置 `agent.defaultAccessMode`（§5.10，默认 `auto`）。
 
 - `conversations.update { accessMode }` 切换，`null` 回到跟随设置；`conversations.send` 显式给出 `accessMode`（旧名 `autonomy`）等于先切换再发送。不给时用会话的模式，会话没有切换过时用设置。

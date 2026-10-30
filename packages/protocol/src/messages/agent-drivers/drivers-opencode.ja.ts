@@ -33,6 +33,8 @@ export const ja: DriversOpencodeMessages = {
   runFailed: (p) => `${p.name} の実行が失敗しました`,
   endedAfterRejection: (p) =>
     `ツールが拒否されたため、${p.name} はこのターンを終了しました。別の方法を試させたい場合は、もう一度メッセージを送信してください。`,
+  endedAfterSkip: (p) =>
+    `質問がスキップされたため、${p.name} はこのターンを終了しました。続けるにはもう一度メッセージを送信してください。`,
   interruptedTurn: (p) => `${p.name} はこのターンを中断しました（${p.reason}）。`,
   modelFormat: (p) => `${p.name} のモデルは provider/model の形式で指定する必要があります（受け取った値：${p.id}）`,
 };

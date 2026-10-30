@@ -4,6 +4,7 @@ export const ja: StateMessages = {
   task: {
     running: '進行中',
     stopping: '停止中',
+    awaitingAnswer: '回答待ち',
     awaitingApproval: '承認待ち',
   },
 };

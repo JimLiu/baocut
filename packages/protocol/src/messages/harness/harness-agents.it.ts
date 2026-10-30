@@ -23,4 +23,9 @@ export const it: HarnessAgentsMessages = {
   effortUnsupported: (p) => `Il modello «${p.model}» non ha livelli di intensità di ragionamento`,
   approvalNoGrant: 'Questa approvazione non invia dati, quindi non può includere una scelta di autorizzazione',
   contractFieldsReadonly: (p) => `L’agente non può cambiare questi campi del contratto dell’attività: ${p.fields}. Solo l’utente decide modalità di accesso, ambito dei permessi, budget e intervalli protetti`,
+  questionOnly: 'Questa approvazione è una domanda: invia le risposte con agents.answerQuestion oppure rifiutala',
+  notQuestion: 'Questa approvazione non è una domanda',
+  questionUnanswered: (p) => `Nessuna risposta a «${p.question}»`,
+  questionSingleChoice: (p) => `«${p.question}» ammette una sola risposta`,
+  questionUnknownOption: (p) => `«${p.option}» non è un’opzione di «${p.question}»`,
 };

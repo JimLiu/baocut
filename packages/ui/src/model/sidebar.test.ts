@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Conversation, Project } from '@baocut/protocol';
-import { buildArchived, buildSidebar, conversationStatus, sessionStatus } from './sidebar.ts';
+import { buildArchived, buildSidebar, conversationStatus, liveWord, sessionStatus } from './sidebar.ts';
 
 const project = (id: string, patch: Partial<Project> = {}): Project => ({
   id,
@@ -34,11 +34,21 @@ const conversation = (id: string, patch: Partial<Conversation> = {}): Conversati
 describe('会话状态', () => {
   it('把活动与未读映射成侧栏的四种状态', () => {
     expect(sessionStatus(conversation('a', { activity: 'awaiting-approval' }))).toBe('waiting');
+    expect(sessionStatus(conversation('a', { activity: 'awaiting-answer' }))).toBe('waiting');
     expect(sessionStatus(conversation('a', { activity: 'running' }))).toBe('running');
     expect(sessionStatus(conversation('a', { activity: 'stopping' }))).toBe('running');
     expect(sessionStatus(conversation('a', { activity: 'failed' }))).toBe('failed');
     expect(sessionStatus(conversation('a', { unread: true }))).toBe('unread');
     expect(sessionStatus(conversation('a'))).toBeNull();
+  });
+
+  it('只等智能体的提问时写「等待回答」，状态词与等待批准分开', () => {
+    expect(conversationStatus(conversation('a', { activity: 'awaiting-answer' }))).toEqual({ label: '等待回答', variant: 'notice' });
+    expect(conversationStatus(conversation('a', { activity: 'awaiting-approval' }))).toEqual({ label: '等待批准', variant: 'notice' });
+    expect(liveWord(conversation('a', { activity: 'awaiting-answer' }))).toBe('answer');
+    expect(liveWord(conversation('a', { activity: 'awaiting-approval' }))).toBe('waiting');
+    expect(liveWord(conversation('a', { activity: 'stopping' }))).toBe('running');
+    expect(liveWord(conversation('a', { unread: true }))).toBeNull();
   });
 
   it('正在停止单独显示，不算进行中', () => {
@@ -80,9 +90,10 @@ describe('buildSidebar', () => {
         conversation('c1', { projectId: 'p1', activity: 'running' }),
         conversation('c2', { projectId: 'p1', activity: 'awaiting-approval' }),
         conversation('c3', { projectId: 'p1', unread: true }),
+        conversation('c4', { projectId: 'p1', activity: 'awaiting-answer' }),
       ],
     );
-    expect(tree.projects[0]?.summary).toBe('1 个等待批准 · 1 个进行中 · 1 个已完成未读');
+    expect(tree.projects[0]?.summary).toBe('1 个等待批准 · 1 个等待回答 · 1 个进行中 · 1 个已完成未读');
   });
 
   it('会话可以按名称排；「在一个列表中」收齐项目下与不属于项目的会话', () => {

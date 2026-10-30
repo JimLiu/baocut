@@ -152,3 +152,16 @@ test('parseVideoTime：视频时间链接取出视频与秒，认不出的返回
   ['/videos/p7', '/videos/p7?t=', '/videos/p7?t=-3', '/videos/p7?t=abc', '/videos/p7/x?t=3', '/videos/?t=3',
     'https://x.example/videos/p7?t=3', '/settings/models'].forEach((s) => assert.equal(T.parseVideoTime(s), null, s));
 });
+
+test('waitingFor / waitingLabel：等的是提问卡说「等你回答」，否则「等你允许」', () => {
+  const sess = (messages, status = 'waiting') => ({status, messages});
+  assert.equal(T.waitingFor(sess([], 'running')), null);
+  assert.equal(T.waitingFor(sess([{role: 'permission', state: 'pending'}])), 'allow');
+  assert.equal(T.waitingFor(sess([{role: 'permission', state: 'allowed'}, {role: 'question', state: 'pending'}])), 'answer');
+  assert.equal(T.waitingFor(sess([])), 'allow');
+  assert.equal(T.waitingLabel(sess([{role: 'question', state: 'pending'}])), '等你回答');
+  assert.equal(T.waitingLabel(sess([{role: 'question', state: 'pending'}]), true), '待回答');
+  assert.equal(T.waitingLabel(sess([], 'idle')), '');
+  assert.equal(T.footerLabel({live: true, waiting: 'answer'}), '等你回答');
+  assert.equal(T.footerLabel({live: true, waiting: true}), '等你允许');
+});

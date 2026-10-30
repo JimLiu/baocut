@@ -40,4 +40,5 @@ export const ja: ApprovalsMessages = {
   runCommand: (command: string) => `コマンドを実行：${command}`,
   changeFiles: (files: readonly string[]) => `ファイルを変更：${files.join(', ')}`,
   callTool: (tool: string, files: readonly string[]) => `${tool} を呼び出し${files.length > 0 ? `：${files.join(', ')}` : ''}`,
+  askQuestion: (question: string, more: number) => `回答：${question}${more > 0 ? `（ほか ${more} 問）` : ''}`,
 };

@@ -25,10 +25,11 @@ export type StatusVariant = 'informative' | 'notice' | 'negative' | 'positive' |
 
 /** 侧栏状态灯与汇总的文案（译文在 `sidebar.<语言>.ts`）。 */
 const en = {
-  status: { waiting: 'Waiting for approval', failed: 'Failed', running: 'Running', unread: 'Done, unread' },
+  status: { answer: 'Waiting for your answer', waiting: 'Waiting for approval', failed: 'Failed', running: 'Running', unread: 'Done, unread' },
   stopping: 'Stopping',
   /** 项目行汇总里的一段，例如「1 个进行中」。 */
   count: {
+    answer: (n: number) => `${n} waiting for your answer`,
     waiting: (n: number) => `${n} waiting for approval`,
     failed: (n: number) => `${n} failed`,
     running: (n: number) => `${n} running`,
@@ -58,6 +59,7 @@ const STATUS_ORDER: SessionStatus[] = ['waiting', 'failed', 'running', 'unread']
 export function sessionStatus(conversation: Conversation): SessionStatus | null {
   switch (conversation.activity) {
     case 'awaiting-approval':
+    case 'awaiting-answer':
       return 'waiting';
     case 'running':
     case 'stopping':
@@ -72,8 +74,18 @@ export function sessionStatus(conversation: Conversation): SessionStatus | null 
 /** 会话行第二行的状态灯；没有状态时返回 null，改显示多久前。 */
 export function conversationStatus(conversation: Conversation): { label: string; variant: StatusVariant } | null {
   if (conversation.activity === 'stopping') return { label: M.stopping, variant: 'neutral' };
+  if (conversation.activity === 'awaiting-answer') return { label: M.status.answer, variant: 'notice' };
   const status = sessionStatus(conversation);
   return status ? STATUS_INFO[status] : null;
+}
+
+/** 会话头、标签与摘要上的状态词：进行中、等待批准，或只等智能体的提问时的「等待回答」；别的状态没有。 */
+export type LiveWord = 'running' | 'waiting' | 'answer';
+
+export function liveWord(conversation: Conversation): LiveWord | null {
+  if (conversation.activity === 'awaiting-answer') return 'answer';
+  const status = sessionStatus(conversation);
+  return status === 'running' || status === 'waiting' ? status : null;
 }
 
 export interface ProjectRow {
@@ -137,8 +149,12 @@ export function buildSidebar(projects: readonly Project[], conversations: readon
 
 function summarize(conversations: readonly Conversation[]): string | null {
   const parts = STATUS_ORDER.flatMap((status) => {
-    const n = conversations.filter((c) => sessionStatus(c) === status).length;
-    return n ? [M.count[status](n)] : [];
+    const matched = conversations.filter((c) => sessionStatus(c) === status);
+    if (status !== 'waiting') return matched.length ? [M.count[status](matched.length)] : [];
+    // 等待里分开数：要批准的与只等回答的。
+    const answers = matched.filter((c) => c.activity === 'awaiting-answer').length;
+    const approvals = matched.length - answers;
+    return [...(approvals ? [M.count.waiting(approvals)] : []), ...(answers ? [M.count.answer(answers)] : [])];
   });
   return parts.length ? parts.join(' · ') : null;
 }

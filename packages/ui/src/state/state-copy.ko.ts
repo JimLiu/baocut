@@ -4,6 +4,7 @@ export const ko: StateMessages = {
   task: {
     running: '진행 중',
     stopping: '중지하는 중',
+    awaitingAnswer: '답변 대기 중',
     awaitingApproval: '승인 대기 중',
   },
 };
