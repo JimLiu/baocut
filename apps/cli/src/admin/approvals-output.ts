@@ -1,6 +1,7 @@
 import {
   AGENT_MODE_LABELS,
   live,
+  planSummary,
   type AgentMode,
   type ApprovalRequest,
   type PendingApproval,
@@ -85,5 +86,7 @@ export function describeApprovalRequest(request: ApprovalRequest): string {
       return M.callTool(request.tool, request.files);
     case 'question':
       return M.askQuestion(request.questions[0]?.question ?? '', Math.max(0, request.questions.length - 1));
+    case 'plan':
+      return M.approvePlan(planSummary(request.plan));
   }
 }

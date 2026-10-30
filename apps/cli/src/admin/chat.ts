@@ -4,6 +4,7 @@ import {
   getLocale,
   localizeText,
   newId,
+  type AccessMode,
   type AgentQuestion,
   type AgentQuestionAnswers,
   type ApprovalDecision,
@@ -90,6 +91,11 @@ export const chat = defineNoun({
                 if (answers) await client.request('agents.answerQuestion', { ...ref, answers });
                 else await client.request('agents.respondToApproval', { ...ref, decision: 'decline' });
               });
+            } else if (item.request.kind === 'plan') {
+              const ref = { conversationId: id, approvalId: item.approvalId };
+              void askPlan(item.request.plan, rl, values.yes === true, ctx.log.bind(ctx)).then((accessMode) =>
+                client.request('agents.respondToApproval', accessMode ? { ...ref, decision: 'accept', accessMode } : { ...ref, decision: 'decline' }),
+              );
             } else {
               void askApproval(item, rl, values.yes === true, ctx.log.bind(ctx)).then((decision) =>
                 client.request('agents.respondToApproval', { conversationId: id, approvalId: item.approvalId, decision }),
@@ -226,6 +232,30 @@ export function parseQuestionReply(q: AgentQuestion, reply: string): string[] | 
   const valid = numbers.every((n) => n >= 1 && n <= q.options.length) && (q.multiSelect || numbers.length === 1);
   if (valid) return [...new Set(numbers.map((n) => q.options[n - 1]!.label))];
   return q.allowOther ? [reply] : null;
+}
+
+/** 批准方案时可选的访问模式，推荐的在前（与界面方案卡的默认一致）。 */
+const PLAN_MODES: readonly AccessMode[] = ['autoAcceptEdits', 'ask', 'auto', 'fullAccess'];
+
+/**
+ * 方案审批：打出方案全文，列出可选的访问模式，读一个编号。`--yes` 按推荐的模式批准；不在终端里、留空或输入不认识的值时
+ * 不批准（Agent 继续改方案）。返回选中的访问模式，null 表示不批准。
+ */
+async function askPlan(plan: string, rl: readline.Interface | null, yes: boolean, log: (line: string) => void): Promise<AccessMode | null> {
+  log(`\n${M.planReady}\n${plan.replace(/^/gm, '  ')}\n`);
+  PLAN_MODES.forEach((mode, i) => log(M.questionOption(i + 1, formatMode(mode), i === 0 ? M.planRecommended : null)));
+  if (yes) {
+    log(M.planAutoApproved(formatMode(PLAN_MODES[0]!)));
+    return PLAN_MODES[0]!;
+  }
+  if (!rl) {
+    log(M.planNotTty);
+    return null;
+  }
+  const reply = (await rl.question(M.planPrompt)).trim();
+  const mode = /^\d+$/.test(reply) ? PLAN_MODES[Number(reply) - 1] : undefined;
+  if (!mode) log(M.planKept);
+  return mode ?? null;
 }
 
 async function askApproval(

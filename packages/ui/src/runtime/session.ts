@@ -4,6 +4,7 @@ import { preparePlaybackMedia } from './media-playback.ts';
 import {
   RUNTIME_VERSION,
   newId,
+  type AccessMode,
   type AgentMode,
   type AgentQuestionAnswers,
   type ApprovalDecision,
@@ -323,8 +324,9 @@ export class RuntimeSession {
     await this.client.request('agents.interrupt', { conversationId });
   }
 
-  async respondToApproval(conversationId: Id, approvalId: Id, decision: ApprovalDecision): Promise<void> {
-    await this.client.request('agents.respondToApproval', { conversationId, approvalId, decision });
+  /** `accessMode`：批准方案时切到的访问模式（只用于方案，见架构设计 §3.12「批准方案」）。 */
+  async respondToApproval(conversationId: Id, approvalId: Id, decision: ApprovalDecision, accessMode?: AccessMode): Promise<void> {
+    await this.client.request('agents.respondToApproval', { conversationId, approvalId, decision, ...(accessMode ? { accessMode } : {}) });
   }
 
   /** 回答智能体的提问（拒绝回答用 `respondToApproval` 的 `decline`）。 */

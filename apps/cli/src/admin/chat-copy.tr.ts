@@ -16,6 +16,12 @@ help: `Kullanım:
                                    modunu korur veya hiç değiştirilmediyse agent.defaultAccessMode ayarını kullanır (varsayılan auto)
     --yes                          Onay isteklerini otomatik onayla (yalnızca bu oturum)`,
 missingMessage: 'Mesaj metni eksik', templateIsExample: (title, id) => `“${title}” bir örnektir ve eklenemez: istemini baocut templates show ${id} ile alıp mesaj olarak gönderin`, sessionCreated: (id, cwd) => `Oturum ${id}  çalışma klasörü ${cwd}`, disconnected: (reason) => `Runtime bağlantısı kesildi: ${reason}`, sessionDeleted: 'Oturum silindi', stopping: 'Durduruluyor…', chatTemplate: (id) => `Şablon: ${id}`, chatSkill: (id) => `Skill: ${id}`, chatMode: (mode) => `Erişim modu: ${mode}`, taskEnded: (status, error) => `Görev: ${status}${error ? ` — ${error}` : ''}`, taskStatus: { completed: 'Tamamlandı', stopped: 'Durduruldu', failed: 'Başarısız' }, taskFailed: 'Görev başarısız oldu', toolCallFinished: (title, status, exitCode) => `▸ ${title} — ${status}${exitCode !== null ? ` (çıkış kodu ${exitCode})` : ''}`, approvalNeeded: (what) => `Onay gerekli — ${what}`, approvalReason: (isTool, reason) => `${isTool ? 'İçerik' : 'Neden'}: ${reason}`, approvalMode: (mode) => `Mevcut mod: ${mode}`, autoApproved: 'Otomatik onaylandı (--yes)', declinedNotTty: 'Terminalde çalışmıyor: reddedildi (otomatik onay için --yes ekleyin)', approvalQuestion: 'Onayla? [y] evet / [s] oturum / [N] hayır ',
+  planReady: 'Ajan bir plan hazırladı ve onayınızı bekliyor:',
+  planRecommended: 'önerilen',
+  planPrompt: '  Uygulamak için bir erişim modu seçin (planlamaya devam etmek için boş bırakın): ',
+  planAutoApproved: (mode) => `  Otomatik onaylandı (--yes): ${mode} ile uygulanıyor`,
+  planNotTty: '  Terminalde çalışmıyor: planlamaya devam ediliyor (otomatik onay için --yes ekleyin)',
+  planKept: '  Planlamaya devam ediliyor: ajan planı gözden geçirecek',
   questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
   questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
   questionPrompt: (multi, other) => `  ${multi ? 'Virgülle ayırarak numaraları girin' : 'Bir numara girin'}${other ? ' ya da kendi yanıtınızı yazın' : ''} (atlamak için boş bırakın): `,

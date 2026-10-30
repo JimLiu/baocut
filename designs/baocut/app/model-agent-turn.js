@@ -178,14 +178,19 @@
     return '';
   }
 
-  /** 会话停下来等你时等的是什么（产品设计 §6.6）：最后一张没答的是提问卡就是 'answer'，否则 'allow'；不在等是 null。 */
+  /**
+   * 会话停下来等你时等的是什么（产品设计 §6.6）：最后一张没答的卡是提问就是 'answer'，是方案就是 'plan'，否则 'allow'；
+   * 不在等是 null。方案和允许一样进待处理列表，状态词同「等你允许」，只是输入框里发的话算回复。
+   */
   const WAIT_WORDS = {answer: {long: '等你回答', short: '待回答'}, allow: {long: '等你允许', short: '待允许'}};
+  WAIT_WORDS.plan = WAIT_WORDS.allow;
+  const WAIT_ROLES = {question: 'answer', plan: 'plan', permission: 'allow'};
   function waitingFor(sess) {
     if (!sess || sess.status !== 'waiting') return null;
     const ms = sess.messages || [];
     for (let i = ms.length - 1; i >= 0; i--) {
       const m = ms[i];
-      if ((m.role === 'question' || m.role === 'permission') && m.state === 'pending') return m.role === 'question' ? 'answer' : 'allow';
+      if (WAIT_ROLES[m.role] && m.state === 'pending') return WAIT_ROLES[m.role];
     }
     return 'allow';
   }

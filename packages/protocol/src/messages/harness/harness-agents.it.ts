@@ -25,6 +25,8 @@ export const it: HarnessAgentsMessages = {
   contractFieldsReadonly: (p) => `L’agente non può cambiare questi campi del contratto dell’attività: ${p.fields}. Solo l’utente decide modalità di accesso, ambito dei permessi, budget e intervalli protetti`,
   questionOnly: 'Questa approvazione è una domanda: invia le risposte con agents.answerQuestion oppure rifiutala',
   notQuestion: 'Questa approvazione non è una domanda',
+  planDecisionOnly: 'Un piano può solo essere approvato (accept) o rifiutato (decline)',
+  accessModeOnlyForPlan: 'accessMode vale solo quando si approva un piano',
   questionUnanswered: (p) => `Nessuna risposta a «${p.question}»`,
   questionSingleChoice: (p) => `«${p.question}» ammette una sola risposta`,
   questionUnknownOption: (p) => `«${p.option}» non è un’opzione di «${p.question}»`,

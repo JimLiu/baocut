@@ -17,6 +17,12 @@ export const de: ChatMessages = {
                                    gilt agent.defaultAccessMode (Standard: auto).
     --yes                          Genehmigungsanfragen automatisch genehmigen (nur in dieser Sitzung)`,
  missingMessage: 'Nachrichtentext fehlt', templateIsExample: (title, id) => `„${title}“ ist ein Beispiel und lässt sich nicht anhängen. Rufen Sie den Prompt mit baocut templates show ${id} ab und senden Sie ihn als Nachricht.`, sessionCreated: (id, cwd) => `Sitzung ${id}  Arbeitsordner ${cwd}`, disconnected: (reason) => `Verbindung zur Runtime unterbrochen: ${reason}`, sessionDeleted: 'Die Sitzung wurde gelöscht', stopping: 'Wird gestoppt…', chatTemplate: (id) => `Vorlage: ${id}`, chatSkill: (id) => `Skill: ${id}`, chatMode: (mode) => `Zugriffsmodus: ${mode}`, taskEnded: (status, error) => `Aufgabe: ${status}${error ? ` – ${error}` : ''}`, taskStatus: { completed: 'Fertig', stopped: 'Gestoppt', failed: 'Fehlgeschlagen' } as Readonly<Record<string, string>>, taskFailed: 'Aufgabe fehlgeschlagen', toolCallFinished: (title, status, exitCode) => `▸ ${title} – ${status}${exitCode !== null ? ` (Exit-Code ${exitCode})` : ''}`, approvalNeeded: (what) => `Genehmigung erforderlich – ${what}`, approvalReason: (isTool, reason) => `${isTool ? 'Inhalt' : 'Grund'}: ${reason}`, approvalMode: (mode) => `Aktueller Modus: ${mode}`, autoApproved: 'Automatisch genehmigt (--yes)', declinedNotTty: 'Nicht in einem Terminal ausgeführt: abgelehnt (mit --yes automatisch genehmigen)', approvalQuestion: 'Genehmigen? [y] ja / [s] Sitzung / [N] nein ',
+  planReady: 'Der Agent hat einen Plan fertig und wartet auf deine Genehmigung:',
+  planRecommended: 'empfohlen',
+  planPrompt: '  Wähle einen Zugriffsmodus für die Umsetzung (leer lassen, um weiter zu planen): ',
+  planAutoApproved: (mode) => `  Automatisch genehmigt (--yes): Umsetzung in ${mode}`,
+  planNotTty: '  Nicht in einem Terminal: es wird weiter geplant (mit --yes automatisch genehmigen)',
+  planKept: '  Es wird weiter geplant: der Agent überarbeitet den Plan',
   questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
   questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
   questionPrompt: (multi, other) => `  ${multi ? 'Nummern durch Kommas getrennt eingeben' : 'Nummer eingeben'}${other ? ' oder eigene Antwort tippen' : ''} (leer zum Überspringen): `,

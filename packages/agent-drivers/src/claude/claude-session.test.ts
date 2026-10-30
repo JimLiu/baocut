@@ -383,7 +383,7 @@ describe('ClaudeSession：审批', () => {
     expect(claudeAnswers(new Map([['q2', 'Real?'], ['q3', 'Other?']]), { q2: ['Yes'] })).toEqual({ 'Real?': 'Yes' });
   });
 
-  it('ExitPlanMode：审批带计划全文、不给总是允许、不记会话级放行；在先给方案下批准后提示切换访问模式', async () => {
+  it('ExitPlanMode：映射成方案审批（带全文），不记会话级放行；批准不再提示切换模式，没给说明的拒绝带默认说明', async () => {
     const plan = '# 方案\n\n1. 剪掉开头的静音\n2. 加字幕';
     const { fake, answers } = asking([
       { name: 'ExitPlanMode', input: { plan } },
@@ -392,33 +392,47 @@ describe('ClaudeSession：审批', () => {
     const s = track(open(fake, { accessMode: 'plan' }));
     const { turnId } = await s.session.startTurn({ text: 'go' }, settings({ accessMode: 'plan' }));
     const first = await s.approval(0);
-    expect(first.request).toEqual({ kind: 'tool', tool: 'ExitPlanMode', server: null, reason: plan, files: [], rule: null });
+    expect(first.request).toEqual({ kind: 'plan', plan, reason: null, rule: null });
     await s.session.respondToApproval(first.approvalId, { decision: 'accept-for-session' });
-    // 会话级放行对它不生效：下一个计划照样要问。
+    // 会话级放行对它不生效：下一个方案照样要问。
     const second = await s.approval(1);
     await s.session.respondToApproval(second.approvalId, { decision: 'decline' });
     await s.completed(turnId);
     expect(answers.map((a) => a?.behavior)).toEqual(['allow', 'deny']);
-    expect(s.of('session.warning')).toHaveLength(1);
-    expect(s.of('session.warning')[0]!.message).toMatch(/退出计划模式.*「先给方案」.*「自动接受修改」/);
+    expect(answers[1]).toMatchObject({ message: expect.stringMatching(/didn't approve the plan/) });
+    // 访问模式由 Harness 在批准时切换，Driver 不再提示用户自己切。
+    expect(s.of('session.warning')).toEqual([]);
     // 时间线上那一步的 detail 是计划全文。
     const steps = s.items().filter((i): i is ToolItem => i.kind === 'tool-call');
     expect(steps[0]).toMatchObject({ detail: plan, status: 'completed' });
+  });
 
-    // 会话不在先给方案（Claude 自己进过计划模式）时批准不提示。
-    const other = createFakeClaude({
+  it('ExitPlanMode：批准带了访问模式时先把 CLI 切到对应的权限模式再放行，下一轮不再重切；没带模式或拒绝时不切', async () => {
+    const plan = '# 方案\n\n1. 加字幕';
+    const switchedBeforeAnswer: unknown[][] = [];
+    const fake = createFakeClaude({
       turn: async (t) => {
         const id = t.toolUse('ExitPlanMode', { plan });
-        await t.ask('ExitPlanMode', { plan }, id);
-        t.toolResult(id, 'ok');
+        const answer = await t.ask('ExitPlanMode', { plan }, id);
+        switchedBeforeAnswer.push(fake.last().callsOf('setPermissionMode'));
+        if (answer?.behavior === 'allow') t.toolResult(id, 'ok');
+        else t.toolResult(id, answer?.message ?? 'denied', true);
         t.result();
       },
     });
-    const o = track(open(other));
-    const run = await o.session.startTurn({ text: 'go' }, settings({ accessMode: 'ask' }));
-    await o.session.respondToApproval((await o.approval(0)).approvalId, { decision: 'accept' });
-    await o.completed(run.turnId);
-    expect(o.of('session.warning')).toEqual([]);
+    const s = track(open(fake, { accessMode: 'plan' }));
+    const first = await s.session.startTurn({ text: 'go' }, settings({ accessMode: 'plan' }));
+    await s.session.respondToApproval((await s.approval(0)).approvalId, { decision: 'accept', accessMode: 'autoAcceptEdits' });
+    await s.completed(first.turnId);
+    // 实测只放行时 CLI 退到 default：先切再放行，本回合余下的修改才按「自动接受修改」走。
+    expect(switchedBeforeAnswer[0]).toEqual([['acceptEdits']]);
+    const second = await s.session.startTurn({ text: 'go' }, settings({ accessMode: 'autoAcceptEdits' }));
+    await s.session.respondToApproval((await s.approval(1)).approvalId, { decision: 'accept' });
+    await s.completed(second.turnId);
+    const third = await s.session.startTurn({ text: 'go' }, settings({ accessMode: 'autoAcceptEdits' }));
+    await s.session.respondToApproval((await s.approval(2)).approvalId, { decision: 'decline' });
+    await s.completed(third.turnId);
+    expect(fake.last().callsOf('setPermissionMode')).toEqual([['acceptEdits']]);
   });
 
   it('approvalRequest：越界路径并进文件列表，decisionReason 作为理由；复合命令没有规则，只按原文放行', () => {

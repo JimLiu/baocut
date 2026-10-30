@@ -53,6 +53,13 @@ const en = {
   autoApproved: 'Approved automatically (--yes)',
   declinedNotTty: 'Not running in a terminal: declined (add --yes to approve automatically)',
   approvalQuestion: 'Approve? [y]es / [s]ession / [N]o ',
+  /** 方案审批：先打方案全文，再列可选的访问模式（编号与 `questionOption` 同形）。 */
+  planReady: 'The agent finished a plan and is waiting for your approval:',
+  planRecommended: 'recommended',
+  planPrompt: '  Pick an access mode to implement it (empty to keep planning): ',
+  planAutoApproved: (mode: string) => `  Approved automatically (--yes): implementing in ${mode}`,
+  planNotTty: '  Not running in a terminal: kept planning (add --yes to approve automatically)',
+  planKept: '  Kept planning: the agent will revise the plan',
   /** 提问的一道题：小标题（可能为空）与题目。 */
   questionLine: (header: string, question: string) => `? ${header ? `[${header}] ` : ''}${question}`,
   /** 题目下的一个选项，`n` 从 1 起。 */

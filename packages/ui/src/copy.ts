@@ -166,6 +166,7 @@ const en = {
     steerUnsupported: 'This agent can’t take messages mid-task. It will be sent when the current task ends',
     skillWaits: 'Messages with a skill can’t join the turn in progress. It will be sent when the turn ends',
     failed: (message: string) => `Couldn’t send the queued message: ${message}`,
+    revisePlaceholder: 'Tell the agent what to change, or approve the plan in the card above',
     answerPlaceholder: 'Type your answer here, or pick options in the card above',
     busyPlaceholder: 'The agent is working. Messages you send now are queued until this turn ends',
   },

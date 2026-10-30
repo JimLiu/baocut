@@ -437,9 +437,9 @@
      没有「高风险命令集」这一层：哪一步真的需要停下来，是核心层的细判据，原型只画粗口径。 */
   const MODES = ['ask', 'autoAcceptEdits', 'auto', 'fullAccess'];
 
-  /** 没认出来的一律当「监督」——拿不准就问，不拿不准当放行。 */
+  /** 没认出来的一律当「监督」——拿不准就问，不拿不准当放行。「先给方案」（plan）是第五档：认得，但不在四档里排位。 */
   function normalizeMode(k) {
-    return MODES.indexOf(k) >= 0 ? k : 'ask';
+    return MODES.indexOf(k) >= 0 || k === 'plan' ? k : 'ask';
   }
 
   function modeRank(k) {
@@ -462,7 +462,7 @@
   function modeGate(mode, cmd, rules) {
     if (autoAllowed(cmd, rules)) return {auto: true, reason: 'rule'};
     const m = normalizeMode(mode);
-    if (m === 'ask') return {auto: false, reason: null};
+    if (m === 'ask' || m === 'plan') return {auto: false, reason: null};
     if (m === 'autoAcceptEdits') {
       return isEditWrite(cmd) ? {auto: true, reason: 'edit'} : {auto: false, reason: null};
     }
@@ -484,6 +484,7 @@
       autoAcceptEdits: '改视频文件自动允许，其它命令仍会问你。',
       auto: '常规操作交给它自带的审核者，不再逐次问你。',
       fullAccess: '写入视频不再逐次问你。',
+      plan: '只给方案，不改视频。',
     }[normalizeMode(mode)];
   }
 

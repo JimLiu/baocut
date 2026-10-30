@@ -633,7 +633,7 @@ Claude 的兜底模型表只保留 `opus`、`fable`、`sonnet`、`haiku` 别名�
 | `auto` | 自动（默认） | 常规动作自动批准；高风险动作仍然询问 |
 | `fullAccess` | 完全访问 | 不再逐次确认 |
 
-`plan`（先给方案）是另外一档：只读，修改一律拒绝（工具返回 `PLAN_ONLY`），智能体说明打算怎么改，等用户切换模式。它和四档共用同一个字段与同一张决策表。
+`plan`（先给方案）是另外一档：只读，修改一律拒绝（工具返回 `PLAN_ONLY`），智能体写出打算怎么改。有方案审批通道的 Driver 写好方案后停下来请用户批准，批准时切到用户选的模式（见下文「批准方案」）；其余的等用户切换模式。它和四档共用同一个字段与同一张决策表。
 
 **没有逐次审批通道的 Driver 只能用 `fullAccess`**。探测结果（没有时用 Driver 声明的能力）里 `capabilities.approvals` 为 `false` 的 Driver 不会来问，BaoCut 无从执行别的模式。建会话、切换会话的模式时显式给出别的模式，以及发送时生效的模式（显式给出的、会话的或设置里的）不是 `fullAccess`，都以 `conflict` 拒绝，`details` 带 `code: 'AGENT_ACCESS_MODE_UNSUPPORTED'`、`driverId`、`mode` 与 `supportedModes: ['fullAccess']`；不建任务，也不替用户改模式。
 
@@ -707,10 +707,19 @@ BaoCut 工具经 Codex 的 MCP 调用会等审批，Codex 默认 60 秒就放弃
 - 停止任务、停止回复与任务结束把待回答的提问取消，与审批相同。
 - 原生侧没有提问通道的 Driver（Pi、ACP 智能体）由智能体在回复里用文字问，用户下一条消息回答。
 
+**批准方案**。`plan` 下智能体写好方案后可以停下来请用户批准（原生工具：Claude Code 的 `ExitPlanMode`）。Driver 把它报成一条审批，`request` 是 `{ kind: 'plan', plan }`，`plan` 是 Markdown 的方案全文。
+
+- 与提问一样不查访问模式、不看「总是允许」的规则，任何模式下都等用户；与提问不同，它进统一的待处理列表（动作是 `{ kind: 'tool', name: 'plan', summary }`，摘要取方案第一行非空文字，风险记 `edit`），等待时会话的 `activity` 为 `awaiting-approval`。
+- `agents.respondToApproval` 只认 `accept` 与 `decline`，别的决定以 `invalid-request` 拒绝。`accept` 可以带 `accessMode`（四档之一，不给时 `autoAcceptEdits`）：Harness 先把会话切到这一档（与 `conversations.update` 相同，记 `modeChange` 提示与合同修订，见下文「切换」），再答复 Driver 允许，卡片记 `implementMode`。批准不交给原生侧的会话级放行。`approvals.respond` 与 `baocut approvals allow` 的允许等于不带 `accessMode` 的 `accept`；别的审批带 `accessMode` 以 `invalid-request` 拒绝。
+- 拒绝时模型收到「用户没有批准，留在规划里：问要改哪里，或改好方案再提交」，会话仍在 `plan`。
+- 有待批准的方案时用户直接在输入框发消息，就是回复：方案按拒绝结束、卡片标 `answeredByMessage`，模型收到「用户用消息回复了方案，按它修改」，消息随后作为插话（`steer`，§3.1）进入回合。停止任务、停止回复与任务结束把它取消，与审批相同。
+- Harness 答复 Driver 时带上选定的访问模式（`ApprovalResponse.accessMode`）。Claude Driver 放行之前先把 CLI 的权限模式切到对应的一档，同一回合里接着实施：只放行的话，CLI 退出 plan 模式后会落到 `default`，本回合余下的写入和命令都来问一遍（照新模式查表，结果不错，但每步多一张自动决定的卡；本地假端点实测）。切不过去只记日志。中途换不了权限设置的 Driver 忽略这个字段，下一条消息按会话的模式对齐。
+- 没有方案审批通道的 Driver（Codex、OpenCode、Pi、ACP 智能体）在回复里写方案。界面在回合结束、会话仍在 `plan` 时给一行「按方案实施」：先 `conversations.update { accessMode }`，再替用户发一条「按上面的方案实施」，不需要另外的接口（产品设计 §6.6）。
+
 **切换**。会话记录上的 `accessMode` 是这个会话切换过的模式，`null` 表示跟随偏好设置 `agent.defaultAccessMode`（§5.10，默认 `auto`）。
 
 - `conversations.update { accessMode }` 切换，`null` 回到跟随设置；`conversations.send` 显式给出 `accessMode`（旧名 `autonomy`）等于先切换再发送。不给时用会话的模式，会话没有切换过时用设置。
-- 切换立即作用于之后的动作，任务进行中也是：BaoCut 工具调用与 Driver 的审批按新模式查表，已经在等用户的审批不变。Driver 自带的权限设置要到下一次建立原生会话（下一条消息）时才换。
+- 切换立即作用于之后的动作，任务进行中也是：BaoCut 工具调用与 Driver 的审批按新模式查表，已经在等用户的审批不变。Driver 自带的权限设置要到下一次建立原生会话（下一条消息）时才换（批准方案时除外，见上文「批准方案」）。
 - 生效的模式变了时，会话里记一条提示（`notice`，带 `modeChange { from, to }`）；会话还没有任何内容时只记在会话上。
 
 **记下动作发生时的模式**。任务卡片带 `autonomy { mode, source }`（`source`：`request` 发送时给出、`conversation` 会话切换过的、`setting` 来自设置、`default` 内置默认）；审批卡带 `risk`、`mode` 与 `decidedBy`（`auto` 或 `user`）；BaoCut 工具的结果带 `approval { mode, risk, decidedBy }`。这些都在 Runtime 记录里，不进视频的回执，引擎不需要知道模式。

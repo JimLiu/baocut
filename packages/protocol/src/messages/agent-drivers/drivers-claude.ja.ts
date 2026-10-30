@@ -23,7 +23,4 @@ export const ja: DriversClaudeMessages = {
     `${p.model ? `モデル ${p.model} は` : '現在のモデルは'}Claude の「自動」権限モードに対応していません${p.reason ? `（${p.reason}）` : ''}。このターンは「毎回確認」で実行し、操作の前に確認します。`,
   apiRetry: (p) => `Claude API エラー（${p.error}）。再試行 ${p.attempt}/${p.max}`,
   turnFailed: (p) => `Claude Code のターンが失敗しました（${p.subtype}）`,
-  exitedPlanMode: (p) =>
-    `Claude Code は承認されたプランでプランモードを終了し、変更を始めます。アクセスモードが「${p.plan}」のままだと、これらの変更は拒否されます。` +
-    `続行させるには、アクセスモードを「${p.edit}」または別のレベルに変更してください。`,
 };

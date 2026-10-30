@@ -127,6 +127,7 @@ export const zhHant: CopyMessages = {
     steerUnsupported: '這個 Agent 無法在任務中途接收訊息，會在目前的任務結束後傳送',
     skillWaits: '附帶 Skill 的訊息無法加入進行中的這一輪，會在這一輪結束後傳送',
     failed: (message: string) => `無法傳送排隊中的訊息：${message}`,
+    revisePlaceholder: '直接在這裡說要改什麼，或在上面的卡片裡核准方案',
     answerPlaceholder: '直接在這裡回覆，或在上面的卡片裡選',
     busyPlaceholder: 'Agent 正在工作；現在傳送的訊息會排隊，等這一輪結束後再傳送',
   },

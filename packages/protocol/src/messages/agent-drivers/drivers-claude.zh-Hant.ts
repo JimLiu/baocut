@@ -23,7 +23,4 @@ export const zhHant: DriversClaudeMessages = {
     `${p.model ? `模型 ${p.model} ` : '目前的模型'}不支援 Claude 的「自動」權限模式${p.reason ? `（${p.reason}）` : ''}。這一輪改以「每次詢問」執行，動手前會先詢問。`,
   apiRetry: (p) => `Claude API 發生錯誤（${p.error}），第 ${p.attempt}/${p.max} 次重試`,
   turnFailed: (p) => `Claude Code 回合失敗（${p.subtype}）`,
-  exitedPlanMode: (p) =>
-    `Claude Code 已依核准的方案離開計畫模式，接下來會開始修改。存取模式仍是「${p.plan}」時，這些修改會被拒絕。` +
-    `要讓它繼續，請把存取模式改為「${p.edit}」或其他層級。`,
 };

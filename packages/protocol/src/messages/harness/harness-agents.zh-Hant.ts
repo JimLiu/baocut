@@ -36,6 +36,8 @@ export const zhHant: HarnessAgentsMessages = {
   contractFieldsReadonly: (p) => `Agent 不能修改任務合約的這些欄位：${p.fields}。存取模式、權限範圍、預算與受保護範圍只由使用者決定`,
   questionOnly: '這條審批是提問：用 agents.answerQuestion 提交回答，或者拒絕它',
   notQuestion: '這條審批不是提問',
+  planDecisionOnly: '方案只能核准（accept）或拒絕（decline）',
+  accessModeOnlyForPlan: 'accessMode 只用於核准方案',
   questionUnanswered: (p) => `「${p.question}」還沒有回答`,
   questionSingleChoice: (p) => `「${p.question}」只能選一個答案`,
   questionUnknownOption: (p) => `「${p.option}」不是「${p.question}」的選項`,

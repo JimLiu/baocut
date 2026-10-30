@@ -2387,6 +2387,10 @@
       {k: 'auto', label: '自动', icon: 'sparkle', desc: '由编码 Agent 自带的审核者批准常规操作；高风险操作仍会询问'},
       {k: 'fullAccess', label: '完全访问', icon: 'unlock', desc: '无需确认即可执行命令和修改文件'},
     ],
+    /* 第五档「先给方案」（产品设计 §6.6「批准方案」）：只读，Agent 写好方案等你批准。不在四档菜单里——
+       只有会话当前就在这一档时，输入框的访问模式菜单才把它列在最前（和 Electron 的 AccessPicker 一样）；
+       批准方案时选的是上面四档之一。 */
+    planMode: {k: 'plan', label: '先给方案', icon: 'eye', desc: '只读，先给出方案；修改文件与视频一律不做'},
     /* 三条放行策略，都可关。第 121 轮删掉了原先那条锁死的「写入项目一律先问」——
        写入要不要先问，由 composer 的访问模式说了算（默认「监督」），设置页不再另设
        一个天花板去钳它。 */
@@ -2526,6 +2530,27 @@
              {label: '片尾', description: null},
            ]},
          ]},
+       ]},
+      /* 等你批准方案的一条（产品设计 §6.6「批准方案」）：会话在第五档「先给方案」里，Agent 只读、写好方案停下来。
+         卡上选实施时的访问模式再点「按方案实施」，或「继续改方案」——后者结束这一轮、会话留在「先给方案」，
+         页脚下面多出一行「方案没问题？按方案实施」。都走 store-agent-sim.jsx 的 answerPlan / store.jsx 的 implementPlan。 */
+      {id: 's45', title: '科浪访谈剪一版 5 分钟精华', project: 'p1', harness: 'claude', model: 'sonnet', effort: 'mid', mode: 'plan',
+       status: 'waiting', ago: 2,
+       messages: [
+         {id: 'm1', role: 'user', text: '把科浪的访谈剪一版 5 分钟左右的精华，先给我方案，别直接动。', ...turnLive(140)},
+         {id: 'm2', role: 'tool', kind: 'read', summary: '文稿', cmd: 'bcut transcript show project.bcut --chapters', status: 'done', took: '0.3s',
+          out: '38:12 · 6 章 · 2 位说话人'},
+         {id: 'm3', role: 'assistant', text: '看完了文稿。38 分钟里能独立成立、又最有信息量的是四段，方案如下：'},
+         {id: 'm4', role: 'plan', state: 'pending', plan: [
+           '## 精华版剪辑方案（约 5 分 10 秒）',
+           '',
+           '1. **保留四段**：开场自我介绍（0:12–0:48）、为什么离开大厂（6:05–7:40）、第一款产品怎么没做成（14:20–16:05）、给新人的建议（33:10–34:30）',
+           '2. **删掉**：中段两次技术细节追问、结尾的闲聊和片尾致谢',
+           '3. **衔接**：段与段之间 0.3 秒交叉淡化；保留段里的口头禅「然后」「就是说」划掉',
+           '4. **字幕与章节**：沿用双语字幕样式，章节改成四段各一个标题',
+           '',
+           '改动都写进一部新视频（引用原片），原片不动。',
+         ].join('\n')},
        ]},
       /* 只在项目目录里、还没有视频的会话（2026-10-01）：「产品手册动画」项目只有插图和文档。 */
       {id: 's17', title: '产品手册的插图做成 40 秒动画', project: null, dir: 'd8', harness: 'claude', model: 'sonnet', effort: 'mid',

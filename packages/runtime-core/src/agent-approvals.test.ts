@@ -7,6 +7,7 @@ import {
   AGENT_MODES,
   RpcError,
   newId,
+  type AccessMode,
   type AgentMode,
   type ApprovalRequest,
   type ApprovalVerdict,
@@ -339,6 +340,87 @@ describe('审批、附件与模型校验（假 Agent）', () => {
     await rpc().request('agents.interrupt', { conversationId });
     expect((await card(conversationId, stopped)).status).toBe('cancelled');
     expect(session.responses.at(-1)).toEqual({ approvalId: stopped, decision: 'cancel' });
+    await finish(conversationId, session);
+  });
+
+  // ---- 批准方案 ----
+
+  const PLAN: ApprovalRequest = { kind: 'plan', plan: '# Trim the intro\n\n1. Cut the silence\n2. Add captions', reason: null, rule: null };
+
+  function approvePlan(conversationId: Id, approvalId: string, accessMode?: AccessMode) {
+    return rpc().request('agents.respondToApproval', { conversationId, approvalId, decision: 'accept', ...(accessMode ? { accessMode } : {}) });
+  }
+
+  it('方案：任何模式下都等用户、进统一列表；批准时先把会话切到选定的访问模式（记切换提示与合同修订），再答复 Driver', async () => {
+    await start();
+    for (const mode of ['fullAccess', 'plan'] as AgentMode[]) {
+      const { conversationId, session } = await begin(mode);
+      const asked = session.requestApproval(PLAN);
+      expect(await card(conversationId, asked)).toMatchObject({ status: 'pending', mode });
+      expect((await rpc().request('conversations.get', { conversationId })).conversation.activity).toBe('awaiting-approval');
+      expect(runtime!.harness.approvals.pending()).toMatchObject([{ action: { kind: 'tool', name: 'plan', summary: 'Trim the intro' } }]);
+      expect(session.responses).toEqual([]);
+
+      // 只认 accept / decline；访问模式只跟着批准。
+      expect((await rejection(respond(conversationId, asked, 'accept-for-session'))).code).toBe('invalid-request');
+      const declineWithMode = rpc().request('agents.respondToApproval', { conversationId, approvalId: asked, decision: 'decline', accessMode: 'ask' });
+      expect((await rejection(declineWithMode)).code).toBe('invalid-request');
+      expect((await card(conversationId, asked)).status).toBe('pending');
+
+      expect(await approvePlan(conversationId, asked, 'ask')).toEqual({ status: 'accepted' });
+      // 选定的访问模式也交给 Driver：能在回合中途换原生权限设置的先换过去再放行。
+      expect(session.responses).toEqual([{ approvalId: asked, decision: 'accept', accessMode: 'ask' }]);
+      expect(await card(conversationId, asked)).toMatchObject({ status: 'accepted', decidedBy: 'user', implementMode: 'ask' });
+      expect((await rpc().request('conversations.get', { conversationId })).conversation.accessMode).toBe('ask');
+      expect(await items(conversationId)).toContainEqual(expect.objectContaining({ kind: 'notice', modeChange: { from: mode, to: 'ask' } }));
+      await finish(conversationId, session);
+    }
+  });
+
+  it('方案：不指定访问模式时按「自动接受修改」实施，本回合余下的修改就按新模式自动允许；别的审批不收访问模式', async () => {
+    await start();
+    const { conversationId, session } = await begin('plan');
+    const edit: ApprovalRequest = { kind: 'file-change', reason: null, files: ['src/a.ts'], rule: null };
+    const asked = session.requestApproval(PLAN);
+    await card(conversationId, asked);
+    expect(await approvePlan(conversationId, asked)).toEqual({ status: 'accepted' });
+    expect(await card(conversationId, asked)).toMatchObject({ status: 'accepted', implementMode: 'autoAcceptEdits' });
+    expect(session.responses.at(-1)).toEqual({ approvalId: asked, decision: 'accept', accessMode: 'autoAcceptEdits' });
+    const edited = session.requestApproval(edit);
+    expect(await card(conversationId, edited)).toMatchObject({ status: 'accepted', decidedBy: 'auto', mode: 'autoAcceptEdits' });
+
+    const command = session.requestApproval({ kind: 'command', command: 'ls', cwd: null, reason: null });
+    await card(conversationId, command);
+    expect((await rejection(approvePlan(conversationId, command, 'ask'))).code).toBe('invalid-request');
+    await finish(conversationId, session);
+  });
+
+  it('方案：「继续改方案」按拒绝结束、带说明，模式不变；挂着时发消息记为用消息回复并插进回合；停止时取消', async () => {
+    await start({ capabilities: { steer: true } });
+    const { conversationId, session } = await begin('plan');
+    const declined = session.requestApproval(PLAN);
+    await card(conversationId, declined);
+    expect((await respond(conversationId, declined, 'decline')).status).toBe('declined');
+    expect(session.responses.at(-1)).toEqual({ approvalId: declined, decision: 'decline', message: expect.stringMatching(/didn't approve the plan/) });
+    expect(await card(conversationId, declined)).toMatchObject({ status: 'declined', decision: 'decline' });
+    expect((await card(conversationId, declined)).implementMode).toBeUndefined();
+    expect((await rpc().request('conversations.get', { conversationId })).conversation.accessMode).toBe('plan');
+    expect(runtime!.harness.approvals.pending()).toEqual([]);
+
+    const replied = session.requestApproval(PLAN);
+    await card(conversationId, replied);
+    const steered = await rpc().request('conversations.steer', { conversationId, text: 'Keep the intro music', commandId: newId('cmd') });
+    expect(steered).toEqual({ status: 'steered' });
+    expect(await card(conversationId, replied)).toMatchObject({ status: 'declined', answeredByMessage: true });
+    expect(session.responses.at(-1)).toEqual({ approvalId: replied, decision: 'decline', message: expect.stringMatching(/instead of approving the plan/) });
+    expect(session.inputs.at(-1)).toBe('Keep the intro music');
+
+    const stopped = session.requestApproval(PLAN);
+    await card(conversationId, stopped);
+    await rpc().request('agents.interrupt', { conversationId });
+    expect((await card(conversationId, stopped)).status).toBe('cancelled');
+    expect(session.responses.at(-1)).toEqual({ approvalId: stopped, decision: 'cancel' });
+    expect(runtime!.harness.approvals.pending()).toEqual([]);
     await finish(conversationId, session);
   });
 

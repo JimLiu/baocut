@@ -504,6 +504,9 @@ test('访问模式：四档两两可分，规则层先于模式层', () => {
   assert.deepEqual(A.MODE_KEYS, ['ask', 'autoAcceptEdits', 'auto', 'fullAccess']);
   assert.equal(A.normalizeMode('乱写'), 'ask');
   assert.equal(A.normalizeMode(undefined), 'ask');
+  // 「先给方案」是第五档：认得，不当成监督；写入一律先问
+  assert.equal(A.normalizeMode('plan'), 'plan');
+  assert.deepEqual(A.modeGate('plan', 'bcut cut project.bcut', []), {auto: false, reason: null});
   assert.ok(A.modeRank('fullAccess') > A.modeRank('ask'));
   // 监督：常规写入也要问
   assert.deepEqual(A.modeGate('ask', 'bcut translate p.bcut --lang en', []), {auto: false, reason: null});

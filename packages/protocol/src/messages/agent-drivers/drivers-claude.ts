@@ -41,9 +41,6 @@ const en = {
     `${p.model ? `Model ${p.model}` : 'The current model'} doesn't support Claude's "auto" permission mode${p.reason ? ` (${p.reason})` : ''}. This turn runs as "ask each time" and will ask before acting.`,
   apiRetry: (p: { error: string; attempt: number; max: number }) => `Claude API error (${p.error}); retry ${p.attempt}/${p.max}`,
   turnFailed: (p: { subtype: string }) => `Claude Code turn failed (${p.subtype})`,
-  /** 批准 ExitPlanMode 之后的提示；参数是访问模式的名字。 */
-  exitedPlanMode: (p: { plan: string; edit: string }) =>
-    `Claude Code left plan mode with the approved plan and will start making changes. While the access mode is still "${p.plan}", those changes will be declined. To let it proceed, change the access mode to "${p.edit}" or another level.`,
 };
 
 export type DriversClaudeMessages = typeof en;

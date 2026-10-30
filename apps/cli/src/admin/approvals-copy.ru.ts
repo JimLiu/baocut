@@ -28,5 +28,6 @@ export const ru: ApprovalsMessages = {
   runCommand: (command: string) => `Выполнить команду: ${command}`,
   changeFiles: (files: readonly string[]) => `Изменить файлы: ${files.join(", ")}`,
   callTool: (tool: string, files: readonly string[]) => `Вызвать ${tool}${files.length > 0 ? `: ${files.join(", ")}` : ""}`,
+  approvePlan: (summary) => `Одобрить план: ${summary}`,
   askQuestion: (question: string, more: number) => `Ответить: ${question}${more > 0 ? ` (ещё ${more})` : ''}`,
 };

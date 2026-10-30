@@ -152,6 +152,7 @@ export const pl: CopyMessages = {
     steerUnsupported: "Ten agent nie przyjmuje wiadomości w trakcie zadania. Wiadomość zostanie wysłana po jego zakończeniu",
     skillWaits: "Wiadomość ze Skill nie może dołączyć do bieżącej tury. Zostanie wysłana po zakończeniu tury",
     failed: (message: string) => `Nie udało się wysłać wiadomości z kolejki: ${message}`,
+    revisePlaceholder: 'Napisz agentowi, co zmienić, albo zatwierdź plan na karcie powyżej',
     answerPlaceholder: 'Odpowiedz tutaj lub wybierz w karcie powyżej',
     busyPlaceholder: "Agent pracuje. Nowe wiadomości czekają w kolejce do końca tej tury",
   },

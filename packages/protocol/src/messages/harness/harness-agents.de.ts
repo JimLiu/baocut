@@ -42,6 +42,8 @@ export const de: HarnessAgentsMessages = {
     `Der Agent kann diese Felder des Aufgabenvertrags nicht ändern: ${p.fields}. Nur der Benutzer entscheidet über Zugriffsmodus, Berechtigungsumfang, Budget und geschützte Bereiche`,
   questionOnly: 'Diese Genehmigung ist eine Frage: Senden Sie Antworten mit agents.answerQuestion oder lehnen Sie sie ab',
   notQuestion: 'Diese Genehmigung ist keine Frage',
+  planDecisionOnly: 'Ein Plan kann nur genehmigt (accept) oder abgelehnt (decline) werden',
+  accessModeOnlyForPlan: 'accessMode gilt nur beim Genehmigen eines Plans',
   questionUnanswered: (p) => `Keine Antwort auf „${p.question}“`,
   questionSingleChoice: (p) => `„${p.question}“ erlaubt nur eine Antwort`,
   questionUnknownOption: (p) => `„${p.option}“ ist keine Option von „${p.question}“`,

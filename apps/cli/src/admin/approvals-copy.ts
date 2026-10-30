@@ -56,6 +56,7 @@ const en = {
   runCommand: (command: string) => `Run command: ${command}`,
   changeFiles: (files: readonly string[]) => `Change files: ${files.join(', ')}`,
   callTool: (tool: string, files: readonly string[]) => `Call ${tool}${files.length > 0 ? `: ${files.join(', ')}` : ''}`,
+  approvePlan: (summary: string) => `Approve plan: ${summary}`,
   askQuestion: (question: string, more: number) => `Answer: ${question}${more > 0 ? ` (+${more} more)` : ''}`,
 };
 

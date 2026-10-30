@@ -23,7 +23,4 @@ export const ko: DriversClaudeMessages = {
     `${p.model ? `${p.model} 모델은` : '현재 모델은'} Claude의 “자동” 권한 모드를 지원하지 않습니다${p.reason ? `(${p.reason})` : ''}. 이번 턴은 “매번 확인” 모드로 실행되며 동작 전에 먼저 확인합니다.`,
   apiRetry: (p) => `Claude API 오류(${p.error}), 재시도 ${p.attempt}/${p.max}`,
   turnFailed: (p) => `Claude Code 턴이 실패했습니다(${p.subtype})`,
-  exitedPlanMode: (p) =>
-    `Claude Code가 승인된 계획으로 계획 모드를 종료했으며 이제 수정을 시작합니다. 접근 모드가 아직 “${p.plan}” 모드이면 이 수정은 거부됩니다. ` +
-    `진행하게 하려면 접근 모드를 “${p.edit}” 모드나 다른 단계로 바꾸세요.`,
 };

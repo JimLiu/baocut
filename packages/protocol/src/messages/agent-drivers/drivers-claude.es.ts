@@ -9,5 +9,4 @@ export const es: DriversClaudeMessages = {
  autoUnsupported: (p) => `${p.model ? `El modelo ${p.model}` : 'El modelo actual'} no admite el modo de permisos «auto» de Claude${p.reason ? ` (${p.reason})` : ''}. Este turno se ejecuta en «preguntar cada vez» y preguntará antes de actuar.`,
  apiRetry: (p) => `Error de la API de Claude (${p.error}); reintento ${p.attempt}/${p.max}`,
  turnFailed: (p) => `El turno de Claude Code falló (${p.subtype})`,
- exitedPlanMode: (p) => `Claude Code salió del modo de planificación con el plan aprobado y empezará a hacer cambios. Mientras el modo de acceso siga en «${p.plan}», esos cambios se rechazarán. Para dejar que continúe, cambia el modo de acceso a «${p.edit}» u otro nivel.`,
 };

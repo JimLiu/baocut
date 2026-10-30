@@ -27,6 +27,4 @@ export const de: DriversClaudeMessages = {
   apiRetry: (p: { error: string; attempt: number; max: number }) => `Claude-API-Fehler (${p.error}); erneuter Versuch ${p.attempt}/${p.max}`,
   turnFailed: (p: { subtype: string }) => `Claude Code-Runde fehlgeschlagen (${p.subtype})`,
 
-  exitedPlanMode: (p: { plan: string; edit: string }) =>
-    `Claude Code hat den Planungsmodus mit dem genehmigten Plan verlassen und beginnt mit Änderungen. Solange der Zugriffsmodus „${p.plan}“ ist, werden diese Änderungen abgelehnt. Zum Fortfahren den Zugriffsmodus ändern zu „${p.edit}“ oder einer anderen Stufe.`,
 };

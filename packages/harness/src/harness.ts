@@ -17,7 +17,9 @@ import {
   normalizeAgentMode,
   nowIso,
   parseConversationTopic,
+  planSummary,
   type AgentErrorCode,
+  type AccessMode,
   type AgentMode,
   type AgentsEvent,
   type AgentsSnapshot,
@@ -269,6 +271,11 @@ export class Harness {
   readonly #commands = new Map<string, Id>();
   /** 会话审批 → 统一审批号：键是 `<会话>/<条目里的审批号>`。 */
   readonly #approvalKeys = new Map<string, Id>();
+  /**
+   * 方案审批结束时要带上的东西（键同 `#approvalKeys`）：批准时切到的访问模式、拒绝时给模型的说明、是不是用户直接发了消息。
+   * `respondToApproval` 与插话先记下，统一列表的回调（`#askUser`）取用；从统一列表直接处理的没有，按默认。
+   */
+  readonly #planSettle = new Map<string, { accessMode?: AccessMode; message?: string; byMessage?: boolean }>();
   readonly #idleTimers = new Map<Id, ReturnType<typeof setTimeout>>();
   /** 进行中的「无项目会话绑定项目」：同一个会话同时只跑一趟。 */
   readonly #binding = new Map<Id, Promise<Project>>();
@@ -1607,14 +1614,20 @@ export class Harness {
       ),
       docsAnnotations,
     );
-    // 有待答的提问时，消息就是回答：提问按拒绝结束（告诉模型看接下来的消息），再把消息插进回合。
-    const questions = state
+    // 有待答的提问或待批的方案时，消息就是回答：卡片按拒绝结束（告诉模型看接下来的消息），再把消息插进回合。
+    const waiting = state
       .items()
       .filter(
         (i): i is Extract<TimelineItem, { kind: 'approval' }> =>
-          i.kind === 'approval' && i.status === 'pending' && i.taskId === run.taskId && i.request.kind === 'question',
+          i.kind === 'approval' &&
+          i.status === 'pending' &&
+          i.taskId === run.taskId &&
+          (i.request.kind === 'question' || i.request.kind === 'plan'),
       );
-    for (const question of questions) await this.#declineQuestion(state, question, QUESTION_REPLIED_MESSAGE, true);
+    for (const item of waiting) {
+      if (item.request.kind === 'question') await this.#declineQuestion(state, item, QUESTION_REPLIED_MESSAGE, true);
+      else this.#declinePlan(state, item, { message: PLAN_REPLIED_MESSAGE, byMessage: true });
+    }
     const result = await session.steer(run.turnId, { text, ...imagesOf(attached) });
     if (result !== 'accepted') return { status: 'unsupported' };
     this.#commands.set(key, run.taskId);
@@ -2062,14 +2075,21 @@ export class Harness {
     conversationId: Id;
     approvalId: Id;
     decision: ApprovalDecision;
+    accessMode?: AccessMode;
   }): Promise<{ status: 'accepted' | 'declined' | 'already-resolved' }> {
     const state = this.#require(params.conversationId);
     const item = state.item(`approval/${params.approvalId}`);
     if (item?.kind !== 'approval') throw new RpcError('not-found', HA.approvalNotFound({ id: params.approvalId }));
     if (item.status !== 'pending') return { status: 'already-resolved' as const };
     if (item.request.kind === 'question') {
-      if (params.decision !== 'decline') throw new RpcError('invalid-request', HA.questionOnly());
+      if (params.decision !== 'decline' || params.accessMode) throw new RpcError('invalid-request', HA.questionOnly());
       return this.#declineQuestion(state, item, QUESTION_DECLINED_MESSAGE);
+    }
+    if (item.request.kind === 'plan') {
+      if (params.decision !== 'accept' && params.decision !== 'decline') throw new RpcError('invalid-request', HA.planDecisionOnly());
+      if (params.decision === 'decline' && params.accessMode) throw new RpcError('invalid-request', HA.accessModeOnlyForPlan());
+    } else if (params.accessMode) {
+      throw new RpcError('invalid-request', HA.accessModeOnlyForPlan());
     }
     const run = this.#runs.get(state.id);
     const unified = this.#approvalKeys.get(approvalKey(state.id, params.approvalId));
@@ -2089,6 +2109,10 @@ export class Harness {
       refreshActivity(state);
       if (always) await this.#rememberRule(item.request);
       return { status };
+    }
+    if (item.request.kind === 'plan') {
+      if (params.decision === 'decline') return this.#declinePlan(state, item, { message: PLAN_DECLINED_MESSAGE });
+      this.#planSettle.set(approvalKey(state.id, params.approvalId), { accessMode: params.accessMode ?? PLAN_DEFAULT_MODE });
     }
     // 带外发授权的审批每一次都要有授权覆盖（§12.5）：不存规则。
     const outbound = (this.approvals.get(unified)?.grants?.length ?? 0) > 0;
@@ -2156,6 +2180,30 @@ export class Harness {
     });
     refreshActivity(state);
     await session.respondToApproval(item.approvalId, { decision: 'decline', message });
+    return { status: 'declined' };
+  }
+
+  /** 方案按拒绝结束（卡片的「继续改方案」，或用户直接发了消息）：经统一列表结束，回调里给 Driver 带上说明。 */
+  #declinePlan(
+    state: ConversationState,
+    item: Extract<TimelineItem, { kind: 'approval' }>,
+    settle: { message: string; byMessage?: boolean },
+  ): { status: 'declined' | 'already-resolved' } {
+    const key = approvalKey(state.id, item.approvalId);
+    const unified = this.#approvalKeys.get(key);
+    if (!unified) {
+      state.upsert({ ...item, status: 'cancelled', decidedAt: nowIso() });
+      refreshActivity(state);
+      return { status: 'already-resolved' };
+    }
+    this.#planSettle.set(key, settle);
+    const result = this.approvals.respond(unified, 'deny', { forSession: false });
+    if (result.status === 'already-resolved') {
+      this.#planSettle.delete(key);
+      return { status: 'already-resolved' };
+    }
+    const settled = state.item(`approval/${item.approvalId}`);
+    if (settled?.kind === 'approval' && settled.decidedBy === 'user') state.upsert({ ...settled, decision: 'decline' });
     return { status: 'declined' };
   }
 
@@ -2711,6 +2759,12 @@ export class Harness {
       refreshActivity(state);
       return;
     }
+    if (request.kind === 'plan') {
+      // 方案也不查模式与规则：任何模式下都等用户批准。批准时先切访问模式再答复 Driver（`#askUser` 的回调）。
+      const action: ApprovalAction = { kind: 'tool', name: 'plan', targets: [], summary: planSummary(request.plan) };
+      void this.#askUser(state, run, { itemApprovalId: event.approvalId, request, action, risk: 'edit', session });
+      return;
+    }
     const risk = driverApprovalRisk(request, state.conversation.cwd, event.escalation === true);
     const decided = decideApproval(run.mode, risk);
     // 「总是允许」的规则只把要问的变成允许，不放开模式拒绝的（`plan` 下的写）。命中时只答应这一次（`accept`），
@@ -2793,16 +2847,39 @@ export class Harness {
       ...(ask.grants ? { grants: ask.grants } : {}),
       onSettled: ({ outcome, forSession }) => {
         this.#approvalKeys.delete(key);
+        const plan = ask.request.kind === 'plan';
+        const settle = plan ? (this.#planSettle.get(key) ?? {}) : {};
+        this.#planSettle.delete(key);
+        // 批准方案：卡片记下切到的模式，会话先切过去（记一条模式切换），Driver 随后按新模式实施。
+        const implementMode = plan && outcome === 'allowed' ? (settle.accessMode ?? PLAN_DEFAULT_MODE) : null;
         const item = state.item(`approval/${ask.itemApprovalId}`);
         if (item?.kind === 'approval' && item.status === 'pending') {
           const status = outcome === 'allowed' ? 'accepted' : outcome === 'denied' ? 'declined' : 'cancelled';
-          state.upsert({ ...item, status, decidedAt: nowIso(), ...(status === 'cancelled' ? {} : { decidedBy: 'user' as const }) });
+          state.upsert({
+            ...item,
+            status,
+            decidedAt: nowIso(),
+            ...(status === 'cancelled' ? {} : { decidedBy: 'user' as const }),
+            ...(implementMode ? { implementMode } : {}),
+            ...(settle.byMessage && status === 'declined' ? { answeredByMessage: true } : {}),
+          });
           refreshActivity(state);
         }
+        if (implementMode) this.#switchMode(state, implementMode);
         if (ask.session) {
           const decision =
-            outcome === 'allowed' ? (forSession ? 'accept-for-session' : 'accept') : outcome === 'denied' ? 'decline' : 'cancel';
-          void ask.session.respondToApproval(ask.itemApprovalId, { decision });
+            outcome === 'allowed'
+              ? forSession && !plan
+                ? 'accept-for-session'
+                : 'accept'
+              : outcome === 'denied'
+                ? 'decline'
+                : 'cancel';
+          void ask.session.respondToApproval(ask.itemApprovalId, {
+            decision,
+            ...(settle.message ? { message: settle.message } : {}),
+            ...(implementMode ? { accessMode: implementMode } : {}),
+          });
         }
       },
     });
@@ -2948,6 +3025,13 @@ function agentErrorCode(error: unknown): AgentErrorCode | null {
 const QUESTION_DECLINED_MESSAGE = 'The user declined to answer. Continue with your best judgment, or ask in plain text if you must.';
 /** 用户没选答案、直接发了消息时给模型的说明（消息随后作为插话到达）。 */
 const QUESTION_REPLIED_MESSAGE = 'The user replied with a message instead of picking an answer. Their message follows; treat it as the answer.';
+
+/** 批准方案没指定访问模式时切到的模式：修改自动接受，命令与高风险的仍问。 */
+const PLAN_DEFAULT_MODE: AccessMode = 'autoAcceptEdits';
+/** 用户没批准方案时给模型的说明。 */
+const PLAN_DECLINED_MESSAGE = "The user didn't approve the plan. Stay in planning: ask what to change, or revise the plan and present it again.";
+/** 用户没在方案卡上作答、直接发了消息时给模型的说明（消息随后作为插话到达）。 */
+const PLAN_REPLIED_MESSAGE = 'The user replied with a message instead of approving the plan. Their message follows; revise the plan accordingly.';
 
 /** 核对提问的回答：每题都有，单选恰好一个，不许自填的只能是选项名。返回去重、去空白后的答案；不合格抛 `invalid-request`。 */
 export function checkAnswers(questions: AgentQuestion[], answers: AgentQuestionAnswers): AgentQuestionAnswers {

@@ -40,6 +40,8 @@ export const ko: HarnessAgentsMessages = {
     `Agent는 작업 계약의 다음 필드를 바꿀 수 없습니다: ${p.fields}. 접근 모드, 권한 범위, 예산, 보호 구간은 사용자만 정할 수 있습니다`,
   questionOnly: '이 승인은 질문입니다. agents.answerQuestion으로 답을 보내거나 거부하세요',
   notQuestion: '이 승인은 질문이 아닙니다',
+  planDecisionOnly: '계획은 승인(accept) 또는 거절(decline)만 할 수 있습니다',
+  accessModeOnlyForPlan: 'accessMode는 계획을 승인할 때만 쓸 수 있습니다',
   questionUnanswered: (p) => `"${p.question}"에 대한 답이 없습니다`,
   questionSingleChoice: (p) => `"${p.question}"에는 답을 하나만 고를 수 있습니다`,
   questionUnknownOption: (p) => `"${p.option}"은(는) "${p.question}"의 선택지가 아닙니다`,

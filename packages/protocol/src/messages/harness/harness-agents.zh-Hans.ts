@@ -36,6 +36,8 @@ export const zhHans: HarnessAgentsMessages = {
   contractFieldsReadonly: (p) => `智能体不能修改任务合同的 ${p.fields}：访问模式、权限范围、预算与保护范围只由用户决定`,
   questionOnly: '这条审批是提问：用 agents.answerQuestion 提交回答，或者拒绝它',
   notQuestion: '这条审批不是提问',
+  planDecisionOnly: '方案只能批准（accept）或拒绝（decline）',
+  accessModeOnlyForPlan: 'accessMode 只用于批准方案',
   questionUnanswered: (p) => `「${p.question}」还没有回答`,
   questionSingleChoice: (p) => `「${p.question}」只能选一个答案`,
   questionUnknownOption: (p) => `「${p.option}」不是「${p.question}」的选项`,

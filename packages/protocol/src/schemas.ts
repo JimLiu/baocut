@@ -3,7 +3,7 @@ import { ProtocolValidation as V } from './messages/protocol/protocol-validation
 import type { RpcMethod } from './methods.ts';
 import { DOWNLOAD_MIRROR_NAME_MAX, DOWNLOAD_MIRRORS_MAX, SETTING_KEYS, type SettingKey, type SettingValues } from './settings.ts';
 import { MODEL_API_MAX_CONCURRENT_LIMIT, SERVICE_IDS, SERVICE_LEVELS } from './services.ts';
-import { AGENT_MODES, LEGACY_AGENT_MODES, normalizeAgentMode } from './access.ts';
+import { ACCESS_MODES, AGENT_MODES, LEGACY_AGENT_MODES, normalizeAgentMode } from './access.ts';
 import { GRANT_DATA_KINDS } from './grants.ts';
 import { LANGUAGE_PREFERENCES } from './i18n.ts';
 import { LINK_COOKIE_BROWSERS } from './pipelines.ts';
@@ -946,6 +946,7 @@ export const methodParamSchemas = {
     conversationId: id,
     approvalId: id,
     decision: z.enum(['accept', 'accept-for-session', 'accept-always', 'decline']),
+    accessMode: z.enum(ACCESS_MODES).optional(),
   }),
   // 只挡过大的请求（最多 20 道题、每题 20 个答案）；每题是否答了、选项对不对由 Harness 按提问逐题核对。
   'agents.answerQuestion': z.object({

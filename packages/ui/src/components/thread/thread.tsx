@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
-import type { TimelineItem } from '@baocut/protocol';
+import { DEFAULT_AGENT_MODE, type TimelineItem } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { OUTPUT_COPY } from '../../copy.ts';
 import { conversationOutputs, outputsByMessage, type ConversationOutput } from '../../model/conversation-outputs.ts';
@@ -8,9 +8,11 @@ import { buildThread, type ThreadBlock } from '../../model/thread.ts';
 import { freshVideoCards, openingVideo, threadCards, videoCardKeys, type ThreadCard } from '../../model/video-cards.ts';
 import { useConversationMeta } from '../../state/directory-store.ts';
 import { useJobs } from '../../state/jobs-store.ts';
+import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { ApprovalCard } from './approval-card.tsx';
+import { PlanCard } from './plan-card.tsx';
 import { QuestionCard } from './question-card.tsx';
 import {
   beginScrollbarDrag,
@@ -91,6 +93,7 @@ export function Thread({
 }) {
   const blocks = useMemo(() => buildThread(items), [items]);
   const meta = useConversationMeta(conversationId);
+  const defaultMode = useSetting('agent.defaultAccessMode') ?? DEFAULT_AGENT_MODE;
   const entries = useSpace((s) => s.entries);
   const projectId = meta?.projectId ?? null;
   const cwd = meta?.cwd;
@@ -119,6 +122,10 @@ export function Thread({
   // 失败的恢复区只挂在最后一个任务上，而且会话空闲时才出：之后又跑过别的，旧的失败就不再给出路。
   const lastTask = blocks.findLast((block) => block.type === 'task');
   const recoverable = !running && lastTask?.type === 'task' && lastTask.item.status === 'failed' ? lastTask.item : undefined;
+  // 会话还在「先给方案」、最后一个任务做完了：页脚下面给「按方案实施」（没有方案审批的 Agent 也能接着实施，§3.12）。
+  // 没切过访问模式的会话按设置里的默认算，和输入框的访问模式一致。
+  const mode = meta?.accessMode ?? defaultMode;
+  const implementable = !running && mode === 'plan' && lastTask?.type === 'task' && lastTask.item.status === 'completed' ? lastTask.item : undefined;
 
   // 行间距按相邻种类定（gapBetween）；页脚挂在每一轮最后一行下面，任务状态行本身不占一行。
   const footerAfter = new Map(turnList.map((turn, i) => [turn.end, { turn, last: i === turnList.length - 1 }]));
@@ -154,6 +161,7 @@ export function Thread({
           live={live}
           conversationId={conversationId}
           recover={!!recoverable && foot.turn.task?.id === recoverable.id}
+          implementPlan={!!implementable && foot.turn.task?.id === implementable.id}
         />
       </div>,
     );
@@ -410,6 +418,7 @@ function Block({
       return <StepsGroup items={block.items} undone={block.undone} live={live} conversationId={conversationId} cwd={cwd} />;
     case 'approval':
       if (block.item.request.kind === 'question') return <QuestionCard item={block.item} conversationId={conversationId} />;
+      if (block.item.request.kind === 'plan') return <PlanCard item={block.item} conversationId={conversationId} />;
       return <ApprovalCard item={block.item} conversationId={conversationId} />;
     case 'notice':
       return <NoticeLine item={block.item} />;

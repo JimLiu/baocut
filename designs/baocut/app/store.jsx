@@ -30,7 +30,8 @@
   const NO_SHORTS_CUT = {sessions: {}, open: () => ({ok: false, error: SURF.aiElsewhere('剪成短视频')}), hasResult: () => false, focusChild: () => false};
   const NO_CROP = {sessions: {}, outputs: {}, open: () => ({ok: false, error: SURF.aiElsewhere('智能裁剪')})};
   const NO_FLOW = {};
-  const NO_AGENT_SIM = {runWrite: () => {}, retryTask: () => {}, runWait: () => {}, answerQuestion: () => {}, planFor: (t, hasProject) => AG.planFor(t, hasProject)};
+  const NO_AGENT_SIM = {runWrite: () => {}, retryTask: () => {}, runWait: () => {}, answerQuestion: () => {}, answerPlan: () => {},
+    planFor: (t, hasProject) => AG.planFor(t, hasProject)};
   const loadPrefs = () => {
     try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; }
   };
@@ -502,8 +503,8 @@
         : designAnnotations.length ? '请按这些设计稿标注修改。' : designSystemAnnotations.length ? '请按这些设计系统标注修改。'
         : videoAnnotations.length ? '请按这些视频标注修改。'
         : docsAnnotations.length ? (DOC ? DOC.fallbackText() : '请处理这些协作文档里的评论和请求。') : '');
-      /* 提问卡还在等：这句话就是回答（product-design §6.6），卡片记成「已在输入框回复」 */
-      mapMsgs(sid, (ms) => ms.map((m) => (m.role === 'question' && m.state === 'pending' ? {...m, state: 'byMessage'} : m)));
+      /* 提问卡或方案卡还在等：这句话就是回复（product-design §6.6），卡片记成「已在输入框回复」「已用消息回复」 */
+      mapMsgs(sid, (ms) => ms.map((m) => ((m.role === 'question' || m.role === 'plan') && m.state === 'pending' ? {...m, state: 'byMessage'} : m)));
       appendMsg(sid, {role: 'user', text: said, attachments, ...(reference ? {reference} : {}),
         ...(artifactIds.length ? {artifactIds} : {}), ...(slideAnnotations.length ? {slideAnnotations} : {}),
         ...(designAnnotations.length ? {designAnnotations} : {}), ...(designSystemAnnotations.length ? {designSystemAnnotations} : {}),
@@ -571,7 +572,7 @@
           if (m.streaming) return {...m, streaming: false};
           if (m.role === 'tool' && m.status === 'run') return {...m, status: 'failed', took: '已停止'};
           if (m.role === 'permission' && m.state === 'pending') return {...m, state: 'stopped', plan: null};
-          if (m.role === 'question' && m.state === 'pending') return {...m, state: 'stopped'};
+          if ((m.role === 'question' || m.role === 'plan') && m.state === 'pending') return {...m, state: 'stopped'};
           return m;
         }),
       })));
@@ -776,8 +777,14 @@
       patchSession(sid, {mode: k});
       setPref('agentMode', k);
       const cur = sessionsRef.current.find((s) => s.id === sid);
-      toast(AG.modeToast(D.agent.modes, k, cur && cur.status), k === 'fullAccess' ? 'notice' : null);
+      toast(AG.modeToast(D.agent.modes.concat([D.agent.planMode]), k, cur && cur.status), k === 'fullAccess' ? 'notice' : null);
     }, [patchSession, setPref, toast]);
+    /* 回合后的「按方案实施」（agent-plan.jsx `AgentPlanImplementRow`）：先把会话切到选定的档位，再替你发一句。
+       和输入框切档不同，这里不写回 prefs 的新会话种子。 */
+    const implementPlan = useCallback((sid, k) => {
+      patchSession(sid, {mode: k});
+      sendAgent(sid, '按上面的方案实施。');
+    }, [patchSession, sendAgent]);
 
     /* 远端算力 › 共享这台 Mac 的开关（§17.3）。侧栏圆点也读它，所以放在 store。
        勾了「打开 BaoCut 时自动开始共享」，每次加载就从「正在共享」起步——那正是 App 启动后的样子。 */
@@ -870,7 +877,7 @@
       ttsPace, bumpPace,
       mediaStage, setMediaStage, stageMediaDemo, setStageMediaDemo, stageLoadDemo, setStageLoadDemo, coreMarks, setCoreMarks, proxyDemo, patchProxyDemo,
       sessions, sessionById, newSession, patchSession, archiveSession, deleteSessions, sendAgent, stopAgent, answerPermission,
-      answerQuestion: agentSim.answerQuestion,
+      answerQuestion: agentSim.answerQuestion, answerPlan: agentSim.answerPlan, implementPlan,
       autoAllow, dropAutoAllow, harness, harnessPref, setHarnessPref, harnessOn, setHarnessOn, harnessList, patchHarness, addedHarnesses, addHarness, removeHarness, agentAvail, enableAgent, runner, setRunner, runnerBy, setRunnerFor, setAgentDefault,
       policy: policyMap, setPolicy, setSessionMode,
       dock, movieChats, setMovieChat, videoNotes, setVideoNotes, toolReq, requestTool, clearToolReq, openAgent, openSession, createProject, closeDock, toggleDock, setDock, dockW, setDockW,

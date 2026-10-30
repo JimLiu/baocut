@@ -1,6 +1,7 @@
 import {
   intlLocale,
   live,
+  planSummary,
   type AgentQuestion,
   type AgentQuestionAnswers,
   type ApprovalDecision,
@@ -10,8 +11,9 @@ import {
   type RiskLevel,
   type TimelineItem,
 } from '@baocut/protocol';
+import { PLAN_COPY } from '../components/thread/plan-copy.ts';
 import { QUESTION_COPY } from '../components/thread/question-copy.ts';
-import { APPROVAL_COPY } from '../copy.ts';
+import { ACCESS_MODE_LABEL, APPROVAL_COPY } from '../copy.ts';
 import { baocutStep, type BaoCutStepKind } from './agent-tool-steps.ts';
 import { shortenPath } from './format.ts';
 import { M } from './thread-copy.ts';
@@ -292,6 +294,8 @@ export function approvalSummary(
       const n = request.questions.length;
       return { title: n > 1 ? QUESTION_COPY.titleMany(n) : QUESTION_COPY.title, kind: QUESTION_COPY.kind, subject: text, copyText: text };
     }
+    case 'plan':
+      return { title: PLAN_COPY.title, kind: PLAN_COPY.kind, subject: planSummary(request.plan), copyText: request.plan };
   }
 }
 
@@ -314,6 +318,22 @@ export function approvalDecidedLabel(item: Item<'approval'>, chosen: ApprovalDec
       return APPROVAL_COPY.declined;
     case 'cancelled':
       return APPROVAL_COPY.cancelled;
+    case 'pending':
+      return '';
+  }
+}
+
+// ---- 方案卡 ----
+
+/** 方案卡收起后那一行写什么：批准的带上实施时切到的访问模式。 */
+export function planDecidedLabel(item: Item<'approval'>): string {
+  switch (item.status) {
+    case 'accepted':
+      return item.implementMode ? PLAN_COPY.approved(ACCESS_MODE_LABEL[item.implementMode]) : APPROVAL_COPY.accepted;
+    case 'declined':
+      return item.answeredByMessage ? PLAN_COPY.byMessage : PLAN_COPY.declined;
+    case 'cancelled':
+      return PLAN_COPY.cancelled;
     case 'pending':
       return '';
   }

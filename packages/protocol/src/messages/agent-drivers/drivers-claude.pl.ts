@@ -22,5 +22,4 @@ export const pl: DriversClaudeMessages = {
   autoUnsupported: (p) => `${p.model ? `Model ${p.model}` : "Obecny model"} nie obsługuje trybu uprawnień Claude „auto”${p.reason ? ` (${p.reason})` : ""}. Ta tura działa w trybie „pytaj za każdym razem” i pyta przed działaniem.`,
   apiRetry: (p) => `Błąd API Claude (${p.error}); ponowna próba ${p.attempt}/${p.max}`,
   turnFailed: (p) => `Tura Claude Code nie powiodła się (${p.subtype})`,
-  exitedPlanMode: (p) => `Claude Code opuścił tryb planowania z zatwierdzonym planem i rozpocznie zmiany. Dopóki tryb dostępu to „${p.plan}”, te zmiany będą odrzucane. Aby kontynuować, zmień tryb dostępu na „${p.edit}” lub inny poziom.`,
 };

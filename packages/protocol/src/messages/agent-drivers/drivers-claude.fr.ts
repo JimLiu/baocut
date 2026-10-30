@@ -27,6 +27,4 @@ export const fr: DriversClaudeMessages = {
   apiRetry: (p: { error: string; attempt: number; max: number }) => `Erreur API Claude (${p.error}) ; nouvelle tentative ${p.attempt}/${p.max}`,
   turnFailed: (p: { subtype: string }) => `Échec du tour Claude Code (${p.subtype})`,
 
-  exitedPlanMode: (p: { plan: string; edit: string }) =>
-    `Claude Code a quitté le mode plan avec le plan approuvé et va commencer les modifications. Tant que le mode d’accès reste « ${p.plan} », ces modifications seront refusées. Pour continuer, choisissez le mode « ${p.edit} » ou un autre niveau.`,
 };

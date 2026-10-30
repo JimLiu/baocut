@@ -1,4 +1,5 @@
 import type {
+  AccessMode,
   AgentErrorCode,
   AgentMode,
   AgentQuestionAnswers,
@@ -174,6 +175,11 @@ export interface ApprovalResponse {
   answers?: AgentQuestionAnswers;
   /** 拒绝时交给智能体的说明（给模型看，英文）。不给时 Driver 用自己的默认说法。 */
   message?: string;
+  /**
+   * 批准方案（`plan`）时会话已经切到的访问模式，只随方案的 `accept` 给。能在回合中途换原生权限设置的 Driver 先换过去再放行
+   * （Claude）；换不了的忽略，下一轮按会话的模式对齐。
+   */
+  accessMode?: AccessMode;
 }
 
 export interface AgentSession {

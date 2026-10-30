@@ -83,6 +83,7 @@ describe('baocut approvals 的输出', () => {
       { ...q, id: 'q2', question: '要字幕吗？' },
     ];
     expect(describeApprovalRequest({ kind: 'question', questions, reason: null })).toBe('回答：用哪个比例？（另有 1 题）');
+    expect(describeApprovalRequest({ kind: 'plan', plan: '\n## 剪掉开头的静音\n\n1. 找静音段', reason: null })).toBe('批准方案：剪掉开头的静音');
   });
 });
 

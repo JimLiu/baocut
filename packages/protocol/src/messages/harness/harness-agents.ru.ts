@@ -35,6 +35,8 @@ export const ru: HarnessAgentsMessages = {
   contractFieldsReadonly: (p) => `Агент не может изменить поля контракта задачи: ${p.fields}. Только пользователь определяет режим доступа, область разрешений, бюджет и защищённые диапазоны`,
   questionOnly: 'Это одобрение — вопрос: отправьте ответы через agents.answerQuestion или отклоните его',
   notQuestion: 'Это одобрение не является вопросом',
+  planDecisionOnly: 'План можно только одобрить (accept) или отклонить (decline)',
+  accessModeOnlyForPlan: 'accessMode применяется только при одобрении плана',
   questionUnanswered: (p) => `Нет ответа на «${p.question}»`,
   questionSingleChoice: (p) => `На «${p.question}» можно дать только один ответ`,
   questionUnknownOption: (p) => `«${p.option}» — не вариант ответа на «${p.question}»`,

@@ -9,7 +9,6 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import {
-  agentModeLabel,
   newId,
   normalizeAgentMode,
   type AgentErrorCode,
@@ -69,8 +68,15 @@ const QUESTION_DECLINED = 'The user declined to answer. Continue with your best 
 /** 受限的调用里没人能回答。给模型看。 */
 const QUESTION_UNAVAILABLE = 'Nobody can answer questions in this run. Decide on your own and continue.';
 
-/** 退出计划模式的工具：审批卡带上计划全文，不给「总是允许」，也不记会话级放行（每个计划都要用户看过）。 */
+/**
+ * 退出计划模式的工具：映射成方案审批（`plan`，带方案全文），不记会话级放行（每个方案都要用户看过）。批准时 Harness 已经把
+ * 会话切到用户选的访问模式，随回答带来（`accessMode`）；放行之前先把 CLI 切到对应的 permissionMode。实测只放行时 CLI 自己
+ * 退出计划模式、退到 `default`（`status` 消息带出），本回合剩下的写入与命令都来问，照新档位查表也对，只是每一步多一张自动
+ * 决定的卡。
+ */
 const EXIT_PLAN_MODE = 'ExitPlanMode';
+/** 用户没批准方案（Harness 没给说明时）。给模型看。 */
+const PLAN_DECLINED = "The user didn't approve the plan. Stay in planning: ask what to change, or revise the plan and present it again.";
 
 /**
  * 访问模式 → Claude 的 permissionMode（架构设计 §3.12，对照表见 `TurnSettings`）。
@@ -325,7 +331,6 @@ export class ClaudeSession implements AgentSession {
         // 「总是允许」的规则归 Harness 存；这里只按会话级放行处理，绝不回传 updatedPermissions（那会写进 Claude 的设置文件）。
         if (pending.grantKey) this.#sessionGrants.add(pending.grantKey);
         pending.resolve({ behavior: 'allow', updatedInput: pending.input });
-        this.#afterAllowed(pending);
         return;
       case 'accept':
         if (pending.questions) {
@@ -333,17 +338,16 @@ export class ClaudeSession implements AgentSession {
           pending.resolve({ behavior: 'allow', updatedInput: { ...pending.input, answers } });
           return;
         }
+        if (pending.toolName === EXIT_PLAN_MODE && response.accessMode) await this.#switchForPlan(response.accessMode);
         pending.resolve({ behavior: 'allow', updatedInput: pending.input });
-        this.#afterAllowed(pending);
         return;
-      case 'decline':
+      case 'decline': {
         this.#turn?.mapper.declined(pending.toolUseId);
+        const fallback = pending.questions ? QUESTION_DECLINED : pending.toolName === EXIT_PLAN_MODE ? PLAN_DECLINED : null;
         // i18n-ignore: 交给 Claude 的拒绝说明，给模型看
-        pending.resolve({
-          behavior: 'deny',
-          message: response.message ?? (pending.questions ? QUESTION_DECLINED : '用户拒绝了这次操作。'),
-        });
+        pending.resolve({ behavior: 'deny', message: response.message ?? fallback ?? '用户拒绝了这次操作。' });
         return;
+      }
       case 'cancel': {
         // 停止屏障（D04）：拒绝并结束本回合。
         const turn = this.#turn;
@@ -494,7 +498,7 @@ export class ClaudeSession implements AgentSession {
       live.applied.model = settings.model;
     }
     if (this.#options.confinement === 'cwd-write-only') return;
-    const mode = await this.#resolveMode(live, settings);
+    const mode = await this.#resolveMode(live, settings.accessMode, settings.model);
     if (live.applied.mode === mode) return;
     try {
       await withTimeout(live.query.setPermissionMode(mode), 15_000, 'setPermissionMode');
@@ -509,15 +513,28 @@ export class ClaudeSession implements AgentSession {
     }
   }
 
-  async #resolveMode(live: LiveQuery, settings: TurnSettings): Promise<PermissionMode> {
-    const mode = claudePermissionMode(settings.accessMode);
+  async #resolveMode(live: LiveQuery, accessMode: AgentMode, model: string | null): Promise<PermissionMode> {
+    const mode = claudePermissionMode(accessMode);
     if (mode !== 'auto') return mode;
     live.models ??= withTimeout(live.query.supportedModels(), 15_000, 'supportedModels').catch(() => []);
-    if (claudeAutoModeSupport(await live.models, settings.model) === false) {
-      this.#warnAutoUnsupported(settings.model, null);
+    if (claudeAutoModeSupport(await live.models, model) === false) {
+      this.#warnAutoUnsupported(model, null);
       return 'default';
     }
     return 'auto';
+  }
+
+  /** 批准方案、放行 ExitPlanMode 之前切 CLI 的模式（见 `EXIT_PLAN_MODE`）。切不过去只记日志：CLI 退到 `default`，照样经 Harness 查表。 */
+  async #switchForPlan(accessMode: AgentMode): Promise<void> {
+    const live = this.#live;
+    if (!live || this.#options.confinement === 'cwd-write-only') return;
+    try {
+      const mode = await this.#resolveMode(live, accessMode, live.applied.model);
+      await withTimeout(live.query.setPermissionMode(mode), 15_000, 'setPermissionMode');
+      live.applied.mode = mode;
+    } catch (error) {
+      this.#log.warn('Switching the Claude permission mode after plan approval failed', { accessMode, error: errorMessage(error) });
+    }
   }
 
   #warnAutoUnsupported(model: string | null, reason: string | null): void {
@@ -709,19 +726,6 @@ export class ClaudeSession implements AgentSession {
     });
   };
 
-  /**
-   * 允许之后的提示。批准 ExitPlanMode 后 CLI 退出计划模式、开始按方案修改；而 BaoCut 会话的访问模式还是「先给方案」时，
-   * Harness 会按 §3.12 拒绝这些修改，Claude 收到的只是「用户拒绝了」（Driver 分不出是模式自动拒绝的还是用户点的）。
-   * Driver ABI 改不了会话的访问模式，只能提示用户自己切换；切了之后，本回合余下的审批按新模式查表，下一轮原生侧也跟着切。
-   */
-  #afterAllowed(pending: PendingApproval): void {
-    if (pending.toolName !== EXIT_PLAN_MODE) return;
-    const turn = this.#turn;
-    if (!turn || turn.id !== pending.turnId || normalizeAgentMode(turn.settings.accessMode) !== 'plan') return;
-    const message = DriversClaude.exitedPlanMode({ plan: agentModeLabel('plan'), edit: agentModeLabel('autoAcceptEdits') });
-    this.#emit({ type: 'session.warning', message: String(message), ...refField('messageRef', message) });
-  }
-
   /** 结清所有挂着的审批：按拒绝答复 Claude，并让界面收起待批卡片。 */
   #settleApprovals(message: string): void {
     for (const [approvalId, pending] of [...this.#approvals]) {
@@ -810,9 +814,9 @@ export function approvalRequest(
 ): { request: ApprovalRequest; grantKey: string | null } {
   const reason = options.decisionReason ?? null;
   if (toolName === EXIT_PLAN_MODE) {
-    // 审批卡的 `reason` 放计划全文（时间线上那一步的 detail 也是全文，见 claude-items.ts）。不给「总是允许」，不记会话级放行。
-    const plan = typeof input.plan === 'string' && input.plan.trim() ? input.plan.trim() : null;
-    return { request: { kind: 'tool', tool: toolName, server: null, reason: plan ?? reason, files: [], rule: null }, grantKey: null };
+    // 方案审批带方案全文（时间线上那一步的 detail 也是全文，见 claude-items.ts）。不记会话级放行。
+    const plan = typeof input.plan === 'string' && input.plan.trim() ? input.plan.trim() : (reason ?? '');
+    return { request: { kind: 'plan', plan, reason: null, rule: null }, grantKey: null };
   }
   if (toolName === 'Bash') {
     const command = typeof input.command === 'string' ? input.command : '';

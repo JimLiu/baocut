@@ -6,6 +6,7 @@ import { clockLabel, footerLabel, type Turn } from '../../model/agent-turn.ts';
 import { useNow } from '../use-now.ts';
 import { loaderSequence } from './agent-loader-icons.ts';
 import { CopyButton } from './copy-button.tsx';
+import { PlanImplementRow } from './plan-card.tsx';
 import { T } from './thread-copy.ts';
 import { TaskRecovery } from './task-recovery.tsx';
 import './agent-thread.css';
@@ -17,17 +18,20 @@ const stack = style({ display: 'flex', flexDirection: 'column', gap: 8 });
  * 状态来自任务事件，不来自模型说了什么（架构设计 §11.3）。进行中「正在工作 · 0:42」每秒跳，只有计时的小组件自己重渲；
  * 等审批时「等你允许 · 0:42」；完成后「已工作 1:03」，hover 换成结束时刻。右侧复制这一轮的回复正文（Markdown 源码，不含工具与思考）。
  * `recover`：这是会话里最后一个任务、失败了、会话空闲，下面挂恢复区。
+ * `implementPlan`：这是最后一个任务、做完了、会话还在「先给方案」，下面挂「按方案实施」那一行。
  */
 export const TaskFooter = memo(function TaskFooter({
   turn,
   live,
   conversationId,
   recover = false,
+  implementPlan = false,
 }: {
   turn: Turn;
   live: boolean;
   conversationId: Id;
   recover?: boolean;
+  implementPlan?: boolean;
 }) {
   const task = turn.task;
   const failed = task?.status === 'failed';
@@ -38,11 +42,12 @@ export const TaskFooter = memo(function TaskFooter({
       {!live && turn.text ? <CopyButton text={turn.text} label={T.copyReply} showLabel /> : null}
     </div>
   );
-  if (!recover || !task) return line;
+  if ((!recover && !implementPlan) || !task) return line;
   return (
     <div className={stack}>
       {line}
-      <TaskRecovery item={task} conversationId={conversationId} />
+      {recover ? <TaskRecovery item={task} conversationId={conversationId} /> : null}
+      {implementPlan ? <PlanImplementRow conversationId={conversationId} /> : null}
     </div>
   );
 });

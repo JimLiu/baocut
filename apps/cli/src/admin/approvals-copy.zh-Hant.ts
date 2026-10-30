@@ -38,5 +38,6 @@ export const zhHant: ApprovalsMessages = {
   runCommand: (command: string) => `執行指令：${command}`,
   changeFiles: (files: readonly string[]) => `修改檔案：${files.join(', ')}`,
   callTool: (tool: string, files: readonly string[]) => `呼叫 ${tool}${files.length > 0 ? `：${files.join(', ')}` : ''}`,
+  approvePlan: (summary) => `核准方案：${summary}`,
   askQuestion: (question: string, more: number) => `回答：${question}${more > 0 ? `（另有 ${more} 題）` : ''}`,
 };

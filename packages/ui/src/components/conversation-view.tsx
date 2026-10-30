@@ -117,10 +117,17 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
   // 有过任务的会话不能再换 Agent（原生会话不能跨 Agent 续，架构设计 §3.11）。
   const lockedTo = items.some((i) => i.kind === 'task') ? meta.driverId : null;
 
-  /** 这一轮里有待答的提问：这时发的话就是回答，立即插进回合（Harness 先把提问按「用消息回答」结束）。 */
-  const questionPending =
-    busy &&
-    items.some((i) => i.kind === 'approval' && i.status === 'pending' && i.request.kind === 'question' && i.taskId === meta.activeTaskId);
+  /**
+   * 这一轮里有待答的提问或待批准的方案：这时发的话就是回复，立即插进回合（Harness 先把提问或方案按「用消息回复」结束）。
+   */
+  const waitingOn = busy
+    ? items.find(
+        (i) =>
+          i.kind === 'approval' && i.status === 'pending' && (i.request.kind === 'question' || i.request.kind === 'plan') && i.taskId === meta.activeTaskId,
+      )
+    : undefined;
+  const questionPending = !!waitingOn;
+  const planPending = waitingOn?.kind === 'approval' && waitingOn.request.kind === 'plan';
 
   /**
    * 忙的时候发的话先排队，带上此刻的编辑器状态、点选的 skill 与幻灯片、设计稿、设计系统、视频、协作文档标注；任务结束后按顺序发出。
@@ -209,7 +216,15 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         busy={busy}
         queueWhileBusy
         stopping={meta.activity === 'stopping'}
-        placeholder={questionPending ? QUEUE_COPY.answerPlaceholder : busy ? QUEUE_COPY.busyPlaceholder : S.conversationView.placeholder}
+        placeholder={
+          planPending
+            ? QUEUE_COPY.revisePlaceholder
+            : questionPending
+              ? QUEUE_COPY.answerPlaceholder
+              : busy
+                ? QUEUE_COPY.busyPlaceholder
+                : S.conversationView.placeholder
+        }
         autoFocus={autoFocus}
         reference={editor.reference}
         spaceReferences={

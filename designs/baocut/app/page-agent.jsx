@@ -37,7 +37,8 @@
     const last = s.messages.length ? s.messages[s.messages.length - 1] : null;
     const preview = last ? (last.role === 'user' || last.role === 'assistant' ? last.text
       : last.role === 'receipt' ? last.text : last.role === 'permission' ? `等你允许 · ${last.cmd}`
-      : last.role === 'question' ? window.BC_AGENT_QUESTION.pendingSummary(last) : last.cmd) : '';
+      : last.role === 'question' ? window.BC_AGENT_QUESTION.pendingSummary(last)
+      : last.role === 'plan' ? window.BC_AGENT_PLAN.pendingSummary(last) : last.cmd) : '';
     return (
       <BCAction className="srow" onClick={() => app.openSession(s.id)}>
         <span className={cx('srow__ic', s.status === 'running' && 'is-run', s.status === 'waiting' && 'is-wait')}>

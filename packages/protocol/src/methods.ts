@@ -1,4 +1,4 @@
-import type { AgentMode, PendingApproval, PendingApprovalDecision } from './access.ts';
+import type { AccessMode, AgentMode, PendingApproval, PendingApprovalDecision } from './access.ts';
 import type { MessageRef } from './message-ref.ts';
 import type {
   AgentPolicy,
@@ -290,9 +290,13 @@ export interface RpcMethods {
   };
   /** 移除一条「总是允许」规则。不存在时原样返回。 */
   'agents.removeRule': { params: { rule: string }; result: AgentsView };
-  /** 处理会话里的一条审批（与 `approvals.respond` 是同一个实现）。`accept-for-session` 在这个任务里不再问同一种动作，`accept-always` 另存一条规则。 */
+  /**
+   * 处理会话里的一条审批（与 `approvals.respond` 是同一个实现）。`accept-for-session` 在这个任务里不再问同一种动作，`accept-always` 另存一条规则。
+   * 方案（`plan`）只收 `accept` 与 `decline`：`accept` 时会话先切到 `accessMode`（不给时为 `autoAcceptEdits`，架构设计 §3.12「批准方案」）。
+   * 别的种类给了 `accessMode` 以 `invalid-request` 拒绝。
+   */
   'agents.respondToApproval': {
-    params: { conversationId: Id; approvalId: Id; decision: ApprovalDecision };
+    params: { conversationId: Id; approvalId: Id; decision: ApprovalDecision; accessMode?: AccessMode };
     result: { status: 'accepted' | 'declined' | 'already-resolved' };
   };
   /**

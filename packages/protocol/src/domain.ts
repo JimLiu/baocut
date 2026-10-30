@@ -1,4 +1,4 @@
-import type { AgentMode, RiskLevel } from './access.ts';
+import type { AccessMode, AgentMode, RiskLevel } from './access.ts';
 import type { TaskContract } from './tasks.ts';
 import type { TemplateMessageRef } from './template.ts';
 import type { MessageBrandRef, SkillMessageRef } from './skill.ts';
@@ -201,7 +201,19 @@ export type ApprovalRequest =
    * 智能体向用户提问（架构设计 §3.12「提问」）：不是权限审批，不查访问模式、不看「总是允许」规则、任何模式下都等用户。
    * 用 `agents.answerQuestion` 回答，或用 `agents.respondToApproval` 拒绝（`decline`）。`reason` 恒为 null，只为与其他种类同形。
    */
-  | { kind: 'question'; questions: AgentQuestion[]; reason: null; rule?: null };
+  | { kind: 'question'; questions: AgentQuestion[]; reason: null; rule?: null }
+  /**
+   * 智能体在「先给方案」里写完方案、请用户批准后开始实施（架构设计 §3.12「批准方案」，如 Claude 的 ExitPlanMode）。
+   * 不查访问模式与规则，任何模式下都等用户；进统一的待处理列表。批准时 Harness 先把会话切到选定的访问模式，再答复 Driver。
+   * `plan` 是方案全文（Markdown）。
+   */
+  | { kind: 'plan'; plan: string; reason: null; rule?: null };
+
+/** 方案的一行摘要（待处理列表、CLI 与收起的记录）：第一行非空文字，去掉标题的 `#`，过长截断。 */
+export function planSummary(plan: string): string {
+  const line = plan.split('\n').map((l) => l.replace(/^#+\s*/, '').trim()).find(Boolean) ?? '';
+  return line.length > 120 ? `${line.slice(0, 119)}…` : line;
+}
 
 /** 一道选择题的选项。`description`：选项的说明，没有时为 null。 */
 export interface AgentQuestionOption {
@@ -307,8 +319,12 @@ export type TimelineItem =
       decision?: ApprovalDecision;
       /** 提问的回答（`request.kind === 'question'` 且用户答了才有，`status` 为 `accepted`）。 */
       answers?: AgentQuestionAnswers;
-      /** 提问没有选答案：用户直接发了一条消息，问题按拒绝结束，消息随后插进回合（`status` 为 `declined`）。 */
+      /**
+       * 提问或方案没有在卡片上作答：用户直接发了一条消息，卡片按拒绝结束，消息随后插进回合（`status` 为 `declined`）。
+       */
       answeredByMessage?: boolean;
+      /** 批准方案时切到的访问模式（`request.kind === 'plan'` 且 `status` 为 `accepted`）。 */
+      implementMode?: AccessMode;
     })
   | (TimelineBase & {
       kind: 'task';

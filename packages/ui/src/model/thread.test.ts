@@ -6,6 +6,7 @@ import {
   approvalSummary,
   buildThread,
   changeUndoState,
+  planDecidedLabel,
   questionAnswerText,
   questionDecidedLabel,
   questionDraftAnswers,
@@ -429,6 +430,15 @@ describe('审批卡', () => {
     expect(questionDecidedLabel(approval({ status: 'cancelled' }, question))).toBe('已停止');
     expect(questionAnswerText({ q2: ['Voice', 'Music'] }, 'q2')).toBe('Voice和Music');
     expect(questionAnswerText(undefined, 'q1')).toBe('没有回答');
+  });
+
+  it('方案：摘要是第一行；收起的一行写实施时的访问模式，或未批准、用消息回复、停止', () => {
+    const plan: ApprovalRequest = { kind: 'plan', plan: '# 剪掉开头的静音\n\n1. 找静音段', reason: null };
+    expect(approvalSummary(plan)).toMatchObject({ title: 'Agent 写好了方案，等你批准', kind: '方案', subject: '剪掉开头的静音' });
+    expect(planDecidedLabel(approval({ implementMode: 'autoAcceptEdits' }, plan))).toBe('已批准 · 按「自动接受修改」实施');
+    expect(planDecidedLabel(approval({ status: 'declined' }, plan))).toBe('未批准');
+    expect(planDecidedLabel(approval({ status: 'declined', answeredByMessage: true }, plan))).toBe('已用消息回复');
+    expect(planDecidedLabel(approval({ status: 'cancelled' }, plan))).toBe('已停止');
   });
 
   it('提问草稿：每题都答了才有答案；「其他」要写了字才算；单选只取一个', () => {

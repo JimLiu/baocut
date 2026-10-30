@@ -42,6 +42,8 @@ export const nl: HarnessAgentsMessages = {
     `De agent kan deze velden van het taakcontract niet wijzigen: ${p.fields}. Alleen de gebruiker bepaalt de toegangsmodus, toestemmingsbereik, budget en beschermde bereiken`,
   questionOnly: 'Deze goedkeuring is een vraag: stuur antwoorden met agents.answerQuestion of wijs haar af',
   notQuestion: 'Deze goedkeuring is geen vraag',
+  planDecisionOnly: 'Een plan kan alleen worden goedgekeurd (accept) of afgewezen (decline)',
+  accessModeOnlyForPlan: 'accessMode geldt alleen bij het goedkeuren van een plan',
   questionUnanswered: (p) => `Geen antwoord op ‘${p.question}’`,
   questionSingleChoice: (p) => `‘${p.question}’ staat maar één antwoord toe`,
   questionUnknownOption: (p) => `‘${p.option}’ is geen optie van ‘${p.question}’`,

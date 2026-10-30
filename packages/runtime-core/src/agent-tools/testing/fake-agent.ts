@@ -108,6 +108,7 @@ export class ToolSession implements AgentSession {
       decision: response.decision,
       ...(response.answers ? { answers: response.answers } : {}),
       ...(response.message ? { message: response.message } : {}),
+      ...(response.accessMode ? { accessMode: response.accessMode } : {}),
     });
   }
 

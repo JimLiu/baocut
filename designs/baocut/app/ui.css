@@ -2914,6 +2914,19 @@ div.blkw { display: inline; }
 .aquest__answer { margin: 0; font-size: 12px; color: var(--gray-800); overflow-wrap: anywhere; }
 .aquest__acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .aquest__hint { margin: 0; font-size: 12px; color: var(--gray-700); }
+/* 方案卡（agent-plan.jsx）：和提问卡同一种蓝底细边；方案正文放进底色框里限高滚动，长方案不把按钮挤出视口 */
+.aplan { display: flex; flex-direction: column; gap: 12px; margin-left: 34px; padding: 12px 14px; border-radius: 10px; background: var(--blue-100); box-shadow: inset 0 0 0 1px var(--blue-300); }
+.ath--compact .aplan { margin-left: 0; padding: 10px 12px; }
+.aplan__hd { display: flex; align-items: center; gap: 8px; color: var(--blue-1000); }
+.aplan__hd b { font-size: 14px; font-weight: 700; }
+.ath--compact .aplan__hd b { font-size: 12px; }
+.aplan__body { max-height: 360px; overflow-y: auto; padding: 8px 12px; border-radius: 8px; background: var(--gray-25); user-select: text; }
+.ath--compact .aplan__body { max-height: 240px; }
+.aplan__acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.aplan__hint { margin: 0; font-size: 12px; color: var(--gray-700); }
+/* 回合结束、会话还在「先给方案」时页脚下面那一行（AgentPlanImplementRow）：与回复正文对齐 */
+.aplan-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: 34px; font-size: 12px; color: var(--gray-700); }
+.ath--compact .aplan-row { margin-left: 0; }
 
 /* 收据：写进项目之后那一行（撤销位与后台任务同源） */
 .arcpt { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: 34px; padding: 8px 12px; border-radius: 10px; background: var(--green-100); box-shadow: inset 0 0 0 1px var(--green-300); }

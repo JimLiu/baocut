@@ -40,6 +40,8 @@ export const ja: HarnessAgentsMessages = {
     `Agent はタスク契約の次の項目を変更できません：${p.fields}。アクセスモード、権限の範囲、予算、保護範囲を決められるのはユーザだけです`,
   questionOnly: 'この承認は質問です。agents.answerQuestion で回答を送信するか、拒否してください',
   notQuestion: 'この承認は質問ではありません',
+  planDecisionOnly: 'プランは承認（accept）か却下（decline）のみできます',
+  accessModeOnlyForPlan: 'accessMode はプランを承認するときだけ使えます',
   questionUnanswered: (p) => `「${p.question}」に回答がありません`,
   questionSingleChoice: (p) => `「${p.question}」は回答を 1 つだけ選べます`,
   questionUnknownOption: (p) => `「${p.option}」は「${p.question}」の選択肢ではありません`,

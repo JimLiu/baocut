@@ -168,6 +168,7 @@
     if (m.role === 'tool') return <AgentToolSteps items={[m]} />;
     if (m.role === 'permission') return <PermissionMsg m={m} sid={sess.id} />;
     if (m.role === 'question') return <window.AgentQuestionMsg m={m} sid={sess.id} />;
+    if (m.role === 'plan') return <window.AgentPlanMsg m={m} sid={sess.id} />;
     return null;
   }
 
@@ -185,7 +186,8 @@
      支持哪一档是它自己的事，粗闸的语义在我们这边；切档也不弹确认框（只出一条 toast）。 */
   function AccessPicker({value, compact, narrow, onChange}) {
     const [pop, setPop] = useState(false);
-    const modes = D.agent.modes;
+    // 「先给方案」只在会话当前就是这一档时列在最前，切走就不再出现（产品设计 §6.6「批准方案」）
+    const modes = value === 'plan' ? [D.agent.planMode].concat(D.agent.modes) : D.agent.modes;
     const cur = modes.find((m) => m.k === value) || modes[0];
     const name = `访问模式 · ${cur.label}`;
     // 抽屉里只剩档名（前缀会把底栏挤到两行），用档位图标补上「这是什么」；
@@ -288,8 +290,9 @@
     const off = !h || !h.found;
     const SETUP = window.BC_AGENT_SETUP;
     const gate = !off && h.id === sess.harness && sess.model == null && SETUP.health(h) === 'ready' ? SETUP.defaultModelGate(h) : null;
-    /* 停下来等你回答提问时不算忙：输入框里发的这句就是回答（产品设计 §6.6），发送照常可用 */
-    const busy = sess.status === 'running' || (sess.status === 'waiting' && TURN.waitingFor(sess) !== 'answer');
+    /* 停下来等你回答提问或批准方案时不算忙：输入框里发的这句就是回复（产品设计 §6.6），发送照常可用 */
+    const waitFor = TURN.waitingFor(sess);
+    const busy = sess.status === 'running' || (sess.status === 'waiting' && waitFor !== 'answer' && waitFor !== 'plan');
     const proj = sess.project ? app.projById(sess.project) : null;
     const dirId = sess.project ? (proj && proj.dir) || null : sess.dir || null;
     // 访问模式：会话自己的那一档就是真相，没有全局上限去改写它
@@ -390,7 +393,9 @@
             <ComposerAttachments items={attachments} onRemove={i => {
               const all = attachments.filter((_, n) => n !== i); setAttachments(all); onPatch({draftAttachments: all});
             }} /></>} inputProps={{rows: compact ? 2 : 3, value: draft, disabled: off,
-          placeholder: sess.project ? '要对这部视频做什么？比如：把口癖剪掉，再翻成英文。/ 调用工具，@ 引用章节或说话人' : '用一句话说你要做什么，或者把视频拖进来',
+          placeholder: waitFor === 'plan' ? '直接在这里说要改什么，或在上面的卡片里批准方案'
+            : waitFor === 'answer' ? '直接在这里回复，或在上面的卡片里选'
+            : sess.project ? '要对这部视频做什么？比如：把口癖剪掉，再翻成英文。/ 调用工具，@ 引用章节或说话人' : '用一句话说你要做什么，或者把视频拖进来',
           onChange: (e) => setDraft(e.target.value),
           onPaste: (e) => { const images = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/')); if (images.length) { e.preventDefault(); addFiles(images); } },
         }}
@@ -469,7 +474,9 @@
     /* 回合：一句用户消息到下一句之前。页脚挂在每轮最后一行下面；最后一轮在跑时页脚计时 */
     const turns = TURN.turns(rows);
     const live = cur.status === 'running' || cur.status === 'waiting';
-    const footerAt = new Map(turns.map((t, i) => [t.end, {turn: t, live: live && i === turns.length - 1}]));
+    const footerAt = new Map(turns.map((t, i) => [t.end, {turn: t, live: live && i === turns.length - 1, last: i === turns.length - 1}]));
+    /* 会话还在「先给方案」、最后一轮做完了：页脚下面给「按方案实施」（不会停下来请你批准的 Agent 也能接着实施） */
+    const implementable = !live && cur.mode === 'plan';
 
     const patch = (p) => {
       const next = ('model' in p || 'harness' in p) ? {...p, activeModel: null} : p;
@@ -528,6 +535,7 @@
                   {/* 原先线程末尾的「正在回复」占位并进了页脚：这一轮在跑就是「正在工作 · 0:42」，停下来等放行是「等你允许」 */}
                   {showFoot ? <AgentTurnFooter turn={foot.turn} live={foot.live} waiting={foot.live && TURN.waitingFor(cur)}
                     className={`agap-${TURN.gapBetween(kind, 'footer')}`} /> : null}
+                  {showFoot && foot.last && implementable ? <window.AgentPlanImplementRow sid={cur.id} /> : null}
                 </React.Fragment>;
               })}
             </div>

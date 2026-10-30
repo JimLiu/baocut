@@ -292,7 +292,23 @@
       });
     }, []);
 
-    return {runWrite, planFor, retryTask, runWait, answerQuestion};
+    /** 方案卡的决定（`mode` 为 null 是继续改方案，product-design §6.6「批准方案」）：批准就把会话切到选定的访问模式、
+        Agent 接着说一句开工；不批准就留在「先给方案」，Agent 问要改哪里。卡片都收成一行记录。 */
+    const answerPlan = useCallback((sid, mid, mode) => {
+      const sess = sessionsRef.current.find((x) => x.id === sid);
+      const msg = sess && sess.messages.find((m) => m.id === mid);
+      if (!msg || msg.role !== 'plan' || msg.state !== 'pending') return;
+      setSessions((ss) => ss.map((x) => (x.id !== sid ? x : {...x, status: 'running', ...(mode ? {mode} : {}),
+        messages: x.messages.map((m) => (m.id === mid ? {...m, state: mode ? 'approved' : 'declined', mode: mode || null} : m))})));
+      const text = mode ? '好，按方案开始改，改完给你看。' : '好，方案先不动。你想改哪里？说一下我再调整。';
+      const end = streamReply(sid, text, 200);
+      later(sid, end + 200, () => {
+        endTurn(sid);
+        patchSession(sid, {status: 'idle'});
+      });
+    }, []);
+
+    return {runWrite, planFor, retryTask, runWait, answerQuestion, answerPlan};
   }
 
   Object.assign(window, {useAgentSim});

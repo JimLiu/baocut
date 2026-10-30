@@ -16,6 +16,12 @@ help: `Cách dùng:
                                    hoặc dùng agent.defaultAccessMode (mặc định auto) nếu chưa từng đổi
     --yes                          Tự phê duyệt yêu cầu (chỉ phiên này)`,
 missingMessage: 'Thiếu văn bản thông điệp', templateIsExample: (title, id) => `“${title}” là ví dụ và không thể đính kèm: lấy lời nhắc bằng baocut templates show ${id} rồi gửi làm thông điệp`, sessionCreated: (id, cwd) => `Phiên ${id}  thư mục làm việc ${cwd}`, disconnected: (reason) => `Mất kết nối Runtime: ${reason}`, sessionDeleted: 'Phiên đã bị xóa', stopping: 'Đang dừng…', chatTemplate: (id) => `Mẫu: ${id}`, chatSkill: (id) => `Skill: ${id}`, chatMode: (mode) => `Chế độ truy cập: ${mode}`, taskEnded: (status, error) => `Tác vụ: ${status}${error ? ` · ${error}` : ''}`, taskStatus: { completed: 'Xong', stopped: 'Đã dừng', failed: 'Thất bại' }, taskFailed: 'Tác vụ thất bại', toolCallFinished: (title, status, exitCode) => `▸ ${title} · ${status}${exitCode !== null ? ` (mã thoát ${exitCode})` : ''}`, approvalNeeded: (what) => `Cần phê duyệt · ${what}`, approvalReason: (isTool, reason) => `${isTool ? 'Nội dung' : 'Lý do'}: ${reason}`, approvalMode: (mode) => `Chế độ hiện tại: ${mode}`, autoApproved: 'Đã tự phê duyệt (--yes)', declinedNotTty: 'Không chạy trong terminal: đã từ chối (thêm --yes để tự phê duyệt)', approvalQuestion: 'Phê duyệt? [y] có / [s] phiên / [N] không ',
+  planReady: 'Agent đã viết xong kế hoạch và đang chờ bạn duyệt:',
+  planRecommended: 'khuyên dùng',
+  planPrompt: '  Chọn chế độ truy cập để thực hiện (để trống để tiếp tục lập kế hoạch): ',
+  planAutoApproved: (mode) => `  Đã tự động duyệt (--yes): thực hiện ở ${mode}`,
+  planNotTty: '  Không chạy trong terminal: tiếp tục lập kế hoạch (thêm --yes để tự động duyệt)',
+  planKept: '  Tiếp tục lập kế hoạch: agent sẽ sửa kế hoạch',
   questionLine: (header, question) => `? ${header ? `[${header}] ` : ''}${question}`,
   questionOption: (n, label, description) => `  ${n}. ${label}${description ? ` — ${description}` : ''}`,
   questionPrompt: (multi, other) => `  ${multi ? 'Nhập các số, cách nhau bằng dấu phẩy' : 'Nhập một số'}${other ? ' hoặc tự gõ câu trả lời' : ''} (để trống để bỏ qua): `,
