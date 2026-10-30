@@ -336,6 +336,19 @@ describe('模型描述与冻结参数', () => {
     );
   });
 
+  it.each([0.01, 1, 4, 7.96, 8, 10, 120])('bounds the semantic minimum within a %s-second budget without increasing the maximum', (maxDurationSec) => {
+    const run = musicEngineRunOf(
+      { ...musicSelfTestParameters(), maxDurationSec },
+      YUE.music!,
+      { modelDir: '/models/yue2', staging: '/staging', threads: 1 },
+    );
+    const options = run.args.filter((_, i) => run.args[i - 1] === '--request-option');
+    const maximum = Math.max(1, Math.round(maxDurationSec * 25));
+    expect(options).toContain(`semantic_max_tokens=${maximum}`);
+    expect(options).toContain(`semantic_min_tokens=${Math.min(200, maximum)}`);
+    expect(run.semanticMaxTokens).toBe(maximum);
+  });
+
   it('环境变量名固定', () => {
     expect(AUDIO_CPP_CLI_ENV).toBe('BAOCUT_AUDIOCPP_CLI');
   });

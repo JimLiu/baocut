@@ -451,6 +451,7 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
   --request-option style=<style>
   --request-option cot=<planning：off | melody | full>
   --request-option seed=<seed>
+  --request-option semantic_min_tokens=<min(200, semantic_max_tokens)>
   --request-option semantic_max_tokens=<round(maxDurationSec × 25)，至少 1>
   [--request-option num_inference_steps=<steps>]        # 冻结了 steps（或自检给的少步数）时才传，否则引擎用默认值
   --session-option yue2.model_gguf=yue2-3b-q8_0.gguf      # 相对于 --model 的模型根；引擎拒绝绝对路径
@@ -460,6 +461,7 @@ audiocpp_cli --task gen --family yue2 --model <模型包目录> --threads <n>
 ```
 
 - 时长没有直接的参数：`maxDurationSec` 按模型包登记的语义帧率（YuE2 每秒 25 个语义 token）换成 `semantic_max_tokens`，所以它是计算预算而不是承诺的时长；`targetDurationSec` 只写在任务记录里，不交给引擎。
+- 语义采样下限沿用 audio.cpp 0.9.3 的 200 token 缺省值，但不超过本次换算的上限；短请求（不足 8 秒）一起降低下限，避免引擎以 `Yue2 semantic sampling options are invalid` 拒绝，不增加用户给定的时长预算。其他采样参数仍用引擎的默认值，编排模式不改变这条规则。
 - 线程数默认是 `min(8, 可用并行数 − 2)`，至少 1。
 - 引擎不报告步数：进入 `generating` 后只有不定进度，完成时报 1/1。
 

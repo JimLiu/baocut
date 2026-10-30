@@ -35,6 +35,14 @@ const path = require('node:path');
 const args = process.argv.slice(2);
 const flag = (name) => { const i = args.indexOf(name); return i === -1 ? null : args[i + 1]; };
 const options = args.filter((_, i) => args[i - 1] === '--request-option');
+// audio.cpp 0.9.3 defaults to 200 semantic tokens and rejects max < min.
+if (process.env.FAKE_VALIDATE_SAMPLING) {
+  const numberOption = (key, fallback) => Number((options.find((o) => o.startsWith(key + '=')) ?? (key + '=' + fallback)).split('=')[1]);
+  if (numberOption('semantic_max_tokens', 9000) < numberOption('semantic_min_tokens', 200)) {
+    process.stderr.write('Yue2 semantic sampling options are invalid');
+    process.exit(3);
+  }
+}
 fs.writeFileSync(path.join(flag('--out-dir'), 'args.json'), JSON.stringify(args));
 if (process.env.FAKE_FAIL) { process.stderr.write('boom: ' + process.env.FAKE_FAIL + '\\n'); process.exit(3); }
 if (process.env.FAKE_HANG) { process.stderr.write('hanging\\n'); setInterval(() => {}, 1000); }
@@ -193,6 +201,16 @@ describe('本地音乐生成', () => {
       expect(args).toContain('num_inference_steps=4');
       expect(args[args.indexOf('--lyrics') + 1]).toBe('');
       expect(args).toContain('cot=off');
+    });
+
+    it.each([1, 4, 7.96, 8, 10, 120])('semantic sampling accepts a %s-second budget with every planning mode', async (maxDurationSec) => {
+      env.FAKE_VALIDATE_SAMPLING = '1';
+      env.FAKE_SECONDS = '0.3';
+      for (const planning of ['off', 'melody', 'full'] as const) {
+        const parameters = { ...musicSelfTestParameters(), maxDurationSec, planning };
+        const attempt = await provider.generate(run({ parameters }), sink().s, new AbortController().signal);
+        expect(attempt.outcome).toBe('completed');
+      }
     });
 
     it('后端由选项给时进命令行', async () => {
