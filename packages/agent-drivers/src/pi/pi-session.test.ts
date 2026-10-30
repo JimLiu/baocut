@@ -266,6 +266,28 @@ describe('PiSession（假 pi）', () => {
     expect(await b.completed(second.turnId)).toMatchObject({ outcome: 'failed', error: '529 overloaded', errorCode: null });
   });
 
+  it('压缩：auto_compaction_end / compaction_end 成功时发 context.compacted；中止与失败（result 为空）不发', async () => {
+    const result = { summary: 's', firstKeptEntryId: 'e1', tokensBefore: 150000, details: {} };
+    const { session, events, completed } = await start({
+      turn: {
+        events: [
+          { type: 'auto_compaction_start', reason: 'threshold' },
+          { type: 'auto_compaction_end', result, aborted: false, willRetry: false },
+          { type: 'auto_compaction_end', result: null, aborted: true, willRetry: false },
+          { type: 'auto_compaction_end', result: null, aborted: false, willRetry: false, errorMessage: 'quota' },
+          { type: 'compaction_end', reason: 'auto', result, aborted: false, willRetry: false },
+        ],
+        reply: 'ok',
+      },
+    });
+    const { turnId } = await session.startTurn({ text: 'x' }, settings());
+    await completed(turnId);
+    expect(events.filter((e) => e.type === 'context.compacted')).toEqual([
+      { type: 'context.compacted', turnId },
+      { type: 'context.compacted', turnId },
+    ]);
+  });
+
   it('旧版没有 agent_settled：agent_end 之后没有动静就收尾', async () => {
     const { session, completed } = await start({ settled: false });
     const { turnId } = await session.startTurn({ text: 'x' }, settings());

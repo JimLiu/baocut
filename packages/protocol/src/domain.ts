@@ -355,6 +355,8 @@ export type TimelineItem =
       modeChange?: { from: AgentMode; to: AgentMode };
       /** 智能体提交的后台任务结束了（完成收件箱，架构设计 §7.2）：哪个任务、第几次尝试、终态，以及怎么交给了智能体。 */
       job?: JobFinishedNote;
+      /** 智能体压缩了上下文（原生的压缩事件，§11.3）：较早的细节可能只剩摘要。 */
+      compaction?: true;
     })
   | (TimelineBase & VideoChange & { kind: 'video-change' })
   | (TimelineBase & VideoCreated & { kind: 'video-created' })

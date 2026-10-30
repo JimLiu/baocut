@@ -158,6 +158,7 @@ async function runTurn(turnId: string): Promise<void> {
       },
     });
   }
+  for (const { method, params } of spec.notifications ?? []) send({ method, params: { threadId, turnId, ...params } });
   if (spec.status === 'hang') return;
   await new Promise<void>((resolve) => {
     turn!.timer = setTimeout(resolve, spec.delayMs ?? 0);

@@ -247,6 +247,8 @@ export type AgentEvent =
     }
   /** 原生侧已经结算了这次审批（例如回合被中断），界面上的待批卡片要收起。 */
   | { type: 'approval.resolved'; approvalId: Id }
+  /** 原生侧压缩了上下文（自动或手动）。同一次压缩只报一次；原生没有这类事件的 Driver 不报。 */
+  | { type: 'context.compacted'; turnId: string | null }
   | { type: 'session.warning'; message: string; messageRef?: MessageRef }
   | { type: 'session.error'; turnId: string | null; message: string; messageRef?: MessageRef; willRetry: boolean; code?: AgentErrorCode | null }
   /** 智能体进程退出。`error` 为空表示正常关闭。 */

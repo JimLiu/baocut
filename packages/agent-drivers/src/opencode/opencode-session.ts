@@ -523,6 +523,10 @@ export class OpenCodeSession implements AgentSession {
         this.#emit({ type: 'item.completed', turnId: turn.id, item: toolItem(tool, this.#cwd, this.#mcpNames) });
         return;
       }
+      case 'session.compaction.ended':
+        // 未验证：事件名与时机取自 OpenCode 1.18 自带界面的处理，没有用真实会话复现过。
+        this.#emit({ type: 'context.compacted', turnId: turn.id });
+        return;
       case 'session.retry.scheduled': {
         const reason: DriverText = errorMessage(data.error) ?? DriversOpencode.retryFallback();
         this.#emit({ type: 'session.error', turnId: turn.id, message: String(reason), ...refField('messageRef', reason), willRetry: true });

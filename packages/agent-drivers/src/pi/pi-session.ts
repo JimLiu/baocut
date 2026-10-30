@@ -387,6 +387,11 @@ export class PiSession implements AgentSession {
       case 'auto_retry_end':
         if (event.success === false && this.#turn && typeof event.finalError === 'string') this.#turn.errorMessage = event.finalError;
         return;
+      case 'auto_compaction_end':
+      case 'compaction_end':
+        // 中止或失败时 `result` 为空。未验证：`compaction_end` 是新版的名字（别的 Pi 衍生版这样发），没有用真实会话复现过。
+        if (event.result != null && event.aborted !== true) this.#emit({ type: 'context.compacted', turnId: this.#turn?.id ?? null });
+        return;
     }
     const turn = this.#turn;
     if (!turn) return;

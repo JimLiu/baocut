@@ -37,6 +37,8 @@ export interface FakeCodexTurn {
   askQuestions?: unknown[];
   /** 回合里（结束之前）发的 `error` 通知。 */
   errors?: Array<{ message: string; codexErrorInfo?: CodexErrorInfo | null; willRetry: boolean }>;
+  /** 回合里（结束之前）照原样发的通知；`params` 补上 `threadId` 与 `turnId`。 */
+  notifications?: Array<{ method: string; params?: Record<string, unknown> }>;
 }
 
 export interface FakeCodexScenario {

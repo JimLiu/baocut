@@ -29,4 +29,5 @@ export const de: HarnessRunsMessages = {
   jobWoke: 'Eine Hintergrundaufgabe ist beendet, daher hat der Agent diese Aufgabe wieder aufgenommen.',
   jobHeld: 'Eine Hintergrundaufgabe ist beendet. Der Agent wird informiert, sobald sein aktueller Durchgang endet.',
   jobDropped: 'Eine Hintergrundaufgabe ist beendet, aber diese Aufgabe wurde gestoppt oder ist fehlgeschlagen, oder die Sitzung ist nicht verfügbar. Der Agent wurde nicht informiert.',
+  contextCompacted: 'Der Agent hat seinen Kontext komprimiert, um weiterzuarbeiten. Frühere Details sind jetzt möglicherweise nur zusammengefasst.',
 };

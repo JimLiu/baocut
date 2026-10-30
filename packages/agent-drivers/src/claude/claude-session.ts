@@ -599,6 +599,9 @@ export class ClaudeSession implements AgentSession {
         // 会话此刻的访问模式改回去。这是有意的：访问模式归 Harness 管（§3.12 两边取更严），会话仍是「先给方案」时，
         // 原生侧回到 plan 才和 Harness 的查表一致；用户改了访问模式，下一轮就按新的档位切过去。
         live.applied.mode = message.permissionMode;
+      } else if (message.subtype === 'compact_boundary') {
+        // 自动压缩与手动 `/compact` 都发这一条（SDKCompactBoundaryMessage）。
+        this.#emit({ type: 'context.compacted', turnId: this.#turn?.id ?? null });
       } else if (message.subtype === 'api_retry') {
         const text = DriversClaude.apiRetry({ error: message.error, attempt: message.attempt, max: message.max_retries });
         this.#emit({

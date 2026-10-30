@@ -23,4 +23,5 @@ export const zhHant: HarnessRunsMessages = {
   jobWoke: '背景任務已結束，智慧體接著這個任務繼續做。',
   jobHeld: '背景任務已結束，等智慧體這一回合結束後再告訴它。',
   jobDropped: '背景任務已結束，但這個任務已經停止或失敗，或者對話現在無法使用，沒有告訴智慧體。',
+  contextCompacted: '智慧體壓縮了上下文以便繼續工作，較早的細節可能只剩摘要。',
 };

@@ -2943,6 +2943,7 @@ App Shell
 `ConversationProjector` 把 Driver 事件投影成线程条目（消息、推理、工具步骤、审批）；Task 条目由 Harness 在收发消息时写入，视频回执（`video-created`、`video-change`）与幻灯片、设计稿、文档回执（`slides-created`、`design-created`、`docs-created`）由工具落到会话里。Job 记录不投影成条目：要显示的卡片由客户端按下面的规则从记录推出（产品设计 §6.5）。
 
 - 卡片状态来自事件与回执，不来自模型的自然语言。
+- 智能体压缩了上下文（`AgentEvent` 的 `context.compacted`）时，会话里记一条带 `compaction: true` 的 `info` 提示，挂在当前任务上：较早的细节之后可能只剩摘要。原生事件各家不同，Driver 只映射原生明确报出的压缩，不按 token 用量推断：Claude Code 是 `system` / `compact_boundary`；Codex 是完成的 `contextCompaction` 条目与（已弃用的）`thread/compacted` 通知，同一次可能两个通道各报一次，先到的报出、另一个通道随后到的抵掉，每个回合清零；OpenCode 是 `session.compaction.ended`；Pi 是 `auto_compaction_end`（新版名为 `compaction_end`），`result` 为空（中止或失败）时不报。OpenCode 与 Pi 的事件名取自各自的文档与自带界面，没有用真实会话复现过。Antigravity 与 ACP 的智能体没有压缩事件，不报。
 - 卡片保存的是稳定引用（`taskId`、`jobId`、`artifactRef`、`receiptId`、`candidateRef`）；点击时由功能区按引用打开对应的视图。
 - 流式文本可以合并小块；终态与权限事件不可丢失。Runtime 在发出 `item.append` 前按条目与字段合并窗口（默认 60 ms）内的文本增量：窗口开头的第一块立即发出，之后到达的攒到窗口结束再发一条；发出同一会话的任何其他事件、答复 `conversations.get` 与落盘之前，先把攒着的增量发出去，记录里的 `seq` 与文本同一水位。
 - 线程里的视频卡与下载卡（产品设计 §3.2.2）服务端不做卡片投影：客户端从智能体提交的 Job 记录（`submitter.kind === 'agent'`，`submitter.taskId` 把 Job 连到会话里引用它的消息；一部视频一张卡，挂在最后的引用之后，Job 还没结束时按 `endedAt` 比之后回合的开始时刻跟到更晚的回合；固定流程的步骤是 `parentJobId` 指向父任务、`submitter.kind === 'pipeline'` 的子记录）加会话里的 `video-created` / `video-change` 回执推出。`video-created` 记视频 ID、名字、打开编辑器的位置（与变更卡的 `target` 同一个写法）与新建时的版本，只记智能体经 `videos_create` 新建的视频；固定流程（从链接导入、转录的 `target.create`）新建的视频不另记，看父任务记录的 `videoId`：视频一建出来（导入媒体之前）就写进父任务并落盘，随 `jobs` 主题推给客户端（§7.9）。

@@ -94,6 +94,24 @@ describe('OpenCodeSession（假 opencode serve）', () => {
     expect(session.describePersistence()).toEqual({ driverId: 'opencode', data: { sessionId: expect.stringMatching(/^ses_/) } });
   });
 
+  it('压缩：session.compaction.ended 发 context.compacted；开始与失败不发', async () => {
+    const { session, events, completed } = await start({
+      turn: {
+        events: [
+          { type: 'session.compaction.started', data: { reason: 'auto' } },
+          { type: 'session.compaction.failed', data: { error: { message: 'boom' } } },
+          { type: 'session.compaction.started', data: { reason: 'auto' } },
+          { type: 'session.compaction.ended', data: { reason: 'auto', text: 'summary' } },
+        ],
+        reply: 'ok',
+        end: 'succeeded',
+      },
+    });
+    const { turnId } = await session.startTurn({ text: 'hi' }, settings());
+    await completed(turnId);
+    expect(events.filter((e) => e.type === 'context.compacted')).toEqual([{ type: 'context.compacted', turnId }]);
+  });
+
   it('执行失败：回合 failed，带 OpenCode 的错误', async () => {
     const { session, completed } = await start({ turn: { end: 'failed', error: 'rate limited' } });
     const { turnId } = await session.startTurn({ text: 'hi' }, settings());

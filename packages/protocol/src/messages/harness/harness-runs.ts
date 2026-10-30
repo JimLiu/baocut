@@ -45,6 +45,7 @@ const en = {
   jobWoke: 'A background task ended, so the agent picked this task back up.',
   jobHeld: 'A background task ended. The agent will be told when its current turn ends.',
   jobDropped: "A background task ended, but this task was stopped or failed, or the session isn't available, so the agent wasn't told.",
+  contextCompacted: 'The agent compacted its context to keep working. Earlier details may now be summarized.',
 };
 
 export type HarnessRunsMessages = typeof en;

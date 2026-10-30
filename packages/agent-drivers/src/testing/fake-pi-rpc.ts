@@ -187,6 +187,7 @@ async function runTurn(text: string): Promise<void> {
   const user = { role: 'user', content: [{ type: 'text', text }] };
   send({ type: 'message_start', message: user });
   send({ type: 'message_end', message: user });
+  for (const event of turn.events ?? []) send(event as Msg);
   if (turn.exitMidTurn) {
     send({ type: 'message_start', message: assistant([], 'pending') });
     await streamBlock(0, 'text', 'partial');

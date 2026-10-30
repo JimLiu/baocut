@@ -244,4 +244,28 @@ describe('CodexSession（假 codex）', () => {
       expect(await completed(turnId), turn.error).toMatchObject({ outcome: 'failed', error: turn.error, errorCode: code });
     }
   });
+
+  it('压缩：thread/compacted 与完成的 contextCompaction 条目是同一次，只报一次；只有一个通道的照样报', async () => {
+    const compactionItem = { method: 'item/completed', params: { item: { type: 'contextCompaction', id: 'item_cmp' } } };
+    const { session, events, completed } = await start({
+      turn: {
+        notifications: [
+          { method: 'item/started', params: { item: { type: 'contextCompaction', id: 'item_cmp' } } },
+          { method: 'thread/compacted' },
+          compactionItem,
+          compactionItem,
+          { method: 'thread/compacted' },
+          { method: 'thread/compacted' },
+        ],
+      },
+    });
+    const { turnId } = await session.startTurn({ text: 'hi' }, { accessMode: 'ask', model: null, effort: null });
+    await completed(turnId);
+    // 三次：通知在前的一对、条目在前的一对、只有通知的一次。
+    expect(events.filter((e) => e.type === 'context.compacted')).toEqual([
+      { type: 'context.compacted', turnId },
+      { type: 'context.compacted', turnId },
+      { type: 'context.compacted', turnId },
+    ]);
+  });
 });

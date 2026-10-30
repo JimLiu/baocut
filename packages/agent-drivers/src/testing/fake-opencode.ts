@@ -35,6 +35,8 @@ export interface FakeOpenCodeTurn {
   error?: string;
   /** 执行开始后进程直接退出（意外退出）。 */
   crash?: boolean;
+  /** 回复之前照原样广播的事件；`data` 补上 `sessionID`。 */
+  events?: Array<{ type: string; data?: Record<string, unknown> }>;
 }
 
 export interface FakeOpenCodeScenario {

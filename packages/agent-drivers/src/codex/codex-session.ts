@@ -209,6 +209,11 @@ export class CodexSession implements AgentSession {
   #activeTurnId: string | null = null;
   #lastCompletedTurnId: string | null = null;
   readonly #turnFailures = new Map<string, TurnFailure>();
+  /**
+   * 同一次压缩 Codex 可能从两个通道各报一次（`thread/compacted` 通知与完成的 `contextCompaction` 条目），也可能只报一个：
+   * 先到的报出去，另一个通道随后到的抵掉。每个回合开始时清零。
+   */
+  readonly #unpairedCompactions = { notice: 0, item: 0 };
 
   private constructor(conn: CodexRpcConnection, log: Logger) {
     this.#conn = conn;
@@ -474,6 +479,7 @@ export class CodexSession implements AgentSession {
       case 'turn/started': {
         const turnId = (p.turn as CodexTurn).id;
         this.#activeTurnId = turnId;
+        this.#unpairedCompactions.notice = this.#unpairedCompactions.item = 0;
         this.#emit({ type: 'turn.started', turnId });
         return;
       }
@@ -522,8 +528,12 @@ export class CodexSession implements AgentSession {
           turnId,
           item: mapCodexItem(item),
         });
+        if (method === 'item/completed' && item.type === 'contextCompaction') this.#onCompacted('item', turnId);
         return;
       }
+      case 'thread/compacted':
+        this.#onCompacted('notice', turnId);
+        return;
       case 'item/agentMessage/delta':
       case 'item/plan/delta':
         this.#emit({ type: 'item.delta', turnId, itemId: String(p.itemId), channel: 'text', delta: String(p.delta ?? '') });
@@ -570,6 +580,16 @@ export class CodexSession implements AgentSession {
       default:
         this.#log.debug('Ignoring codex notification', { method });
     }
+  }
+
+  #onCompacted(channel: 'notice' | 'item', turnId: string): void {
+    const other = channel === 'notice' ? 'item' : 'notice';
+    if (this.#unpairedCompactions[other] > 0) {
+      this.#unpairedCompactions[other]--;
+      return;
+    }
+    this.#unpairedCompactions[channel]++;
+    this.#emit({ type: 'context.compacted', turnId: turnId || this.#activeTurnId });
   }
 }
 

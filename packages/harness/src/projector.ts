@@ -110,6 +110,21 @@ export function projectAgentEvent(state: ConversationState, run: RunContext | nu
       addNotice(state, taskId, 'warning', withRef(event.message, event.messageRef));
       return NONE;
 
+    case 'context.compacted': {
+      const text = H.contextCompacted();
+      state.upsert({
+        kind: 'notice',
+        id: newId('note'),
+        createdAt: nowIso(),
+        taskId,
+        level: 'info',
+        text: String(text),
+        textRef: refOf(text),
+        compaction: true,
+      });
+      return NONE;
+    }
+
     case 'session.error':
       if (run && event.code) run.errorCode = event.code;
       addNotice(

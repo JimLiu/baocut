@@ -6,4 +6,5 @@ retrying: (p) => `${p.message} (đang thử lại)`, modeChanged: (p) => `Chế 
   jobWoke: 'Một tác vụ nền đã kết thúc, nên Agent tiếp tục tác vụ này.',
   jobHeld: 'Một tác vụ nền đã kết thúc. Agent sẽ được báo khi lượt hiện tại kết thúc.',
   jobDropped: 'Một tác vụ nền đã kết thúc, nhưng tác vụ này đã dừng hoặc thất bại, hoặc phiên hiện không dùng được, nên Agent không được báo.',
+  contextCompacted: 'Agent đã nén ngữ cảnh để tiếp tục làm việc. Các chi tiết trước đó giờ có thể chỉ còn bản tóm tắt.',
 };

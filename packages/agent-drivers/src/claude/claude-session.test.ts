@@ -793,6 +793,25 @@ describe('ClaudeSession：恢复、错误与退出', () => {
     ]);
   });
 
+  it('压缩边界（compact_boundary）发 context.compacted，带当前回合', async () => {
+    const fake = createFakeClaude({
+      turn: (t) => {
+        t.emit({
+          type: 'system',
+          subtype: 'compact_boundary',
+          compact_metadata: { trigger: 'auto', pre_tokens: 150000 },
+          session_id: t.query.sessionId,
+          uuid: 'u',
+        } as unknown as SDKMessage);
+        t.result();
+      },
+    });
+    const s = track(open(fake));
+    const { turnId } = await s.session.startTurn({ text: 'go' }, settings());
+    await s.completed(turnId);
+    expect(s.of('context.compacted')).toEqual([{ type: 'context.compacted', turnId }]);
+  });
+
   it('进程出错退出：挂着的审批结清，发 session.exited 带原因', async () => {
     const fake = createFakeClaude({ turn: async (t) => void (await t.ask('Bash', { command: 'ls' })) });
     const s = track(open(fake));

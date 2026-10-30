@@ -41,6 +41,8 @@ export interface FakePiTurn {
   exitMidTurn?: boolean;
   /** 先来一次扩展提问（confirm），看 BaoCut 怎么答。 */
   ask?: boolean;
+  /** 用户消息之后照原样发的事件。 */
+  events?: Array<Record<string, unknown>>;
 }
 
 export interface FakePiScenario {

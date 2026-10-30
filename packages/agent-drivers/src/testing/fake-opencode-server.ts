@@ -177,6 +177,7 @@ async function runTurn(sessionID: string, turn: FakeOpenCodeTurn): Promise<void>
     broadcast('form.replied', { id: formID, sessionID, answer });
     reply = `answered ${JSON.stringify(answer)}`;
   }
+  for (const event of turn.events ?? []) broadcast(event.type, { sessionID, ...event.data }, true);
   if (reply) {
     broadcast('session.text.started', { ...base, ordinal: 0 }, true);
     for (const part of reply.match(/.{1,4}/gs) ?? []) broadcast('session.text.delta', { ...base, ordinal: 0, delta: part });

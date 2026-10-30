@@ -23,4 +23,5 @@ export const it: HarnessRunsMessages = {
   jobWoke: 'Un’attività in background è terminata, quindi l’agente ha ripreso questa attività.',
   jobHeld: 'Un’attività in background è terminata. L’agente verrà avvisato alla fine del turno in corso.',
   jobDropped: 'Un’attività in background è terminata, ma questa attività è stata interrotta o non è riuscita, oppure la sessione non è disponibile, quindi l’agente non è stato avvisato.',
+  contextCompacted: 'L’agente ha compattato il contesto per continuare a lavorare. I dettagli precedenti ora potrebbero essere solo riassunti.',
 };
