@@ -45,6 +45,7 @@ import {
   formQuestions,
   permissionRules,
   record,
+  todoOf,
   toolItem,
   type FormInfo,
   type PermissionRequest,
@@ -504,6 +505,8 @@ export class OpenCodeSession implements AgentSession {
         const tool = turn.tools.get(id) ?? this.#newTool(turn, id, typeof data.name === 'string' ? data.name : 'tool');
         if (record(data.input)) tool.input = record(data.input);
         this.#emit({ type: 'item.started', turnId: turn.id, item: toolItem(tool, this.#cwd, this.#mcpNames) });
+        const todo = todoOf(tool.name, tool.input);
+        if (todo) this.#emit({ type: 'todo.updated', turnId: turn.id, items: todo });
         return;
       }
       case 'session.tool.success':

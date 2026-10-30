@@ -107,6 +107,16 @@ describe('AcpSession（假 ACP 智能体）', () => {
     const items = events.filter((e) => e.type === 'item.completed').map((e) => (e as { item: { kind: string; text?: string } }).item);
     expect(items).toContainEqual(expect.objectContaining({ kind: 'reasoning', text: 'thinking…' }));
     expect(items).toContainEqual(expect.objectContaining({ kind: 'agent-message', text: '- [x] read\n- [ ] cut' }));
+    expect(events.filter((e) => e.type === 'todo.updated')).toEqual([
+      {
+        type: 'todo.updated',
+        turnId,
+        items: [
+          { text: 'read', status: 'completed' },
+          { text: 'cut', status: 'pending' },
+        ],
+      },
+    ]);
     expect(items).toContainEqual(expect.objectContaining({ kind: 'agent-message', text: 'hello world' }));
     expect(events.indexOf(done)).toBe(events.length - 1);
 

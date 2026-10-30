@@ -18,6 +18,7 @@ import {
   type Autonomy,
   type DriverProbe,
   type Id,
+  type TodoItem,
 } from '@baocut/protocol';
 import {
   MCP_TOOL_CALL_TIMEOUT_MS,
@@ -534,6 +535,10 @@ export class CodexSession implements AgentSession {
       case 'thread/compacted':
         this.#onCompacted('notice', turnId);
         return;
+      case 'turn/plan/updated':
+        // 执行中的步骤清单（update_plan 工具），不是「先给方案」模式的方案文字（`plan` 条目）。
+        this.#emit({ type: 'todo.updated', turnId: turnId || this.#activeTurnId, items: codexTodo(p.plan) });
+        return;
       case 'item/agentMessage/delta':
       case 'item/plan/delta':
         this.#emit({ type: 'item.delta', turnId, itemId: String(p.itemId), channel: 'text', delta: String(p.delta ?? '') });
@@ -591,6 +596,17 @@ export class CodexSession implements AgentSession {
     this.#unpairedCompactions[channel]++;
     this.#emit({ type: 'context.compacted', turnId: turnId || this.#activeTurnId });
   }
+}
+
+/** `turn/plan/updated` 的 `plan[]`（`{ step, status }`）→ 待办清单。没有文字的步骤不要。 */
+export function codexTodo(plan: unknown): TodoItem[] {
+  if (!Array.isArray(plan)) return [];
+  return plan.flatMap((entry) => {
+    const { step, status } = (entry ?? {}) as { step?: unknown; status?: unknown };
+    const text = typeof step === 'string' ? step.trim() : '';
+    if (!text) return [];
+    return [{ text, status: status === 'completed' || status === 'inProgress' ? status : 'pending' } satisfies TodoItem];
+  });
 }
 
 export function codexMcpServers(servers: Record<string, McpServerSpec>): Record<string, CodexMcpServer> {

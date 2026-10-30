@@ -268,4 +268,41 @@ describe('CodexSession（假 codex）', () => {
       { type: 'context.compacted', turnId },
     ]);
   });
+
+  it('待办：turn/plan/updated 整份发 todo.updated，状态照搬，空步骤丢掉；plan 条目不算', async () => {
+    const { session, events, completed } = await start({
+      turn: {
+        notifications: [
+          {
+            method: 'turn/plan/updated',
+            params: {
+              explanation: null,
+              plan: [
+                { step: 'Read the brief', status: 'completed' },
+                { step: 'Cut the intro', status: 'inProgress' },
+                { step: ' ', status: 'pending' },
+                { step: 'Export', status: 'pending' },
+              ],
+            },
+          },
+          { method: 'item/completed', params: { item: { type: 'plan', id: 'item_plan', text: '1. Cut' } } },
+          { method: 'turn/plan/updated', params: { explanation: null, plan: [] } },
+        ],
+      },
+    });
+    const { turnId } = await session.startTurn({ text: 'hi' }, { accessMode: 'ask', model: null, effort: null });
+    await completed(turnId);
+    expect(events.filter((e) => e.type === 'todo.updated')).toEqual([
+      {
+        type: 'todo.updated',
+        turnId,
+        items: [
+          { text: 'Read the brief', status: 'completed' },
+          { text: 'Cut the intro', status: 'inProgress' },
+          { text: 'Export', status: 'pending' },
+        ],
+      },
+      { type: 'todo.updated', turnId, items: [] },
+    ]);
+  });
 });

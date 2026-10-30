@@ -14,6 +14,7 @@ import {
   type AgentQuestion,
   type AgentQuestionAnswers,
   type ApprovalRequest,
+  type TodoItem,
   type ToolCallKind,
   type ToolCallStatus,
 } from '@baocut/protocol';
@@ -300,6 +301,21 @@ function relativeTo(cwd: string, file: string): string {
   if (!path.isAbsolute(file)) return file;
   const relative = path.relative(cwd, file);
   return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : file;
+}
+
+/**
+ * `todowrite` 工具的输入（`todos[]`：`content`、`status`、`priority`）→ 待办清单；不是这个工具、或输入里还没有清单时为 null。
+ * 取消的项（`cancelled`）不要。
+ */
+export function todoOf(name: string, input: Record<string, unknown> | null): TodoItem[] | null {
+  if (name.trim().toLowerCase() !== 'todowrite' || !Array.isArray(input?.todos)) return null;
+  return input.todos.flatMap((entry) => {
+    const { content, status } = record(entry) ?? {};
+    const text = typeof content === 'string' ? content.trim() : '';
+    if (!text || status === 'cancelled') return [];
+    const mapped: TodoItem['status'] = status === 'completed' ? 'completed' : status === 'in_progress' ? 'inProgress' : 'pending';
+    return [{ text, status: mapped }];
+  });
 }
 
 export function record(value: unknown): Record<string, unknown> | null {

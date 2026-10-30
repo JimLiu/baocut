@@ -6,7 +6,7 @@
  * （模式与模型表）、normalizeMcpServers（只留 Streamable HTTP）、mapPlanToTimeline。
  * 改成 BaoCut 的 AgentItem / ApprovalRequest / DriverModel，审批种类、「本会话放行」的分类键与 `diff` 内容块转 unified diff 是新加的。
  */
-import type { ApprovalRequest, DriverModel, ToolCallKind, ToolCallStatus } from '@baocut/protocol';
+import type { ApprovalRequest, DriverModel, TodoItem, ToolCallKind, ToolCallStatus } from '@baocut/protocol';
 import type { AgentItem, McpServerSpec } from '@baocut/harness';
 import type {
   ContentBlock,
@@ -106,6 +106,20 @@ export function toolItem(
     exitCode: typeof exit === 'number' ? exit : null,
     durationMs: null,
   };
+}
+
+/** 计划（`plan`）同时作为待办清单（输入框上方的停靠条）：整份替换。 */
+export function planTodo(plan: Plan): TodoItem[] {
+  return plan.entries.flatMap((entry) => {
+    const text = entry.content.trim();
+    if (!text) return [];
+    return [
+      {
+        text,
+        status: entry.status === 'completed' ? 'completed' : entry.status === 'in_progress' ? 'inProgress' : 'pending',
+      } satisfies TodoItem,
+    ];
+  });
 }
 
 /** 计划（`plan`）写成一段清单文字，作为一条智能体消息显示。 */

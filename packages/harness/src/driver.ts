@@ -9,6 +9,7 @@ import type {
   DriverProbe,
   Id,
   MessageRef,
+  TodoItem,
   ToolCallKind,
   ToolCallStatus,
 } from '@baocut/protocol';
@@ -249,6 +250,8 @@ export type AgentEvent =
   | { type: 'approval.resolved'; approvalId: Id }
   /** 原生侧压缩了上下文（自动或手动）。同一次压缩只报一次；原生没有这类事件的 Driver 不报。 */
   | { type: 'context.compacted'; turnId: string | null }
+  /** 智能体的待办清单变了：整份清单，后到的覆盖先到的；空表是清空。 */
+  | { type: 'todo.updated'; turnId: string | null; items: TodoItem[] }
   | { type: 'session.warning'; message: string; messageRef?: MessageRef }
   | { type: 'session.error'; turnId: string | null; message: string; messageRef?: MessageRef; willRetry: boolean; code?: AgentErrorCode | null }
   /** 智能体进程退出。`error` 为空表示正常关闭。 */

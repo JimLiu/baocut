@@ -42,6 +42,7 @@ import {
   isOwnMcpTool,
   mergeToolSnapshot,
   planText,
+  planTodo,
   selectPermissionOption,
   toolItem,
   type AcpSessionState,
@@ -507,6 +508,7 @@ export class AcpSession implements AgentSession {
         this.#closeMessage(turn);
         turn.planId ??= newId('item');
         this.#emit({ type: 'item.completed', turnId: turn.id, item: { kind: 'agent-message', id: turn.planId, text: planText(update) } });
+        this.#emit({ type: 'todo.updated', turnId: turn.id, items: planTodo(update) });
         return;
       }
       default:

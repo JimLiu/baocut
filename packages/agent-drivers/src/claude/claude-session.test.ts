@@ -812,6 +812,54 @@ describe('ClaudeSession：恢复、错误与退出', () => {
     expect(s.of('context.compacted')).toEqual([{ type: 'context.compacted', turnId }]);
   });
 
+  it('待办：TodoWrite 整份发 todo.updated；TaskCreate 建的任务在下一个回合被 TaskUpdate 改，清单跨回合累加', async () => {
+    let round = 0;
+    const fake = createFakeClaude({
+      turn: (t) => {
+        round += 1;
+        if (round === 1) {
+          t.toolResult(t.toolUse('TodoWrite', { todos: [{ content: 'Read the brief', status: 'in_progress', activeForm: 'Reading' }] }), 'ok');
+          const id = t.toolUse('TaskCreate', { subject: 'Cut the intro', description: 'd' });
+          t.emit({
+            type: 'user',
+            message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: 'Task #1 created' }] },
+            parent_tool_use_id: null,
+            tool_use_result: { task: { id: '1', subject: 'Cut the intro' } },
+            session_id: t.query.sessionId,
+          } as unknown as SDKMessage);
+        } else {
+          t.toolResult(t.toolUse('TaskUpdate', { taskId: '1', status: 'completed' }), 'Updated task #1');
+        }
+        t.result();
+      },
+    });
+    const s = track(open(fake));
+    const first = await s.session.startTurn({ text: 'go' }, settings());
+    await s.completed(first.turnId);
+    const second = await s.session.startTurn({ text: 'again' }, settings());
+    await s.completed(second.turnId);
+    // TodoWrite 整份替换；TaskCreate 加在后面（id 来自结果）；第二个回合的 TaskUpdate 改的是第一个回合建的任务。
+    expect(s.of('todo.updated')).toEqual([
+      { type: 'todo.updated', turnId: first.turnId, items: [{ text: 'Read the brief', status: 'inProgress', activeForm: 'Reading' }] },
+      {
+        type: 'todo.updated',
+        turnId: first.turnId,
+        items: [
+          { text: 'Read the brief', status: 'inProgress', activeForm: 'Reading' },
+          { text: 'Cut the intro', status: 'pending' },
+        ],
+      },
+      {
+        type: 'todo.updated',
+        turnId: second.turnId,
+        items: [
+          { text: 'Read the brief', status: 'inProgress', activeForm: 'Reading' },
+          { text: 'Cut the intro', status: 'completed' },
+        ],
+      },
+    ]);
+  });
+
   it('进程出错退出：挂着的审批结清，发 session.exited 带原因', async () => {
     const fake = createFakeClaude({ turn: async (t) => void (await t.ask('Bash', { command: 'ls' })) });
     const s = track(open(fake));

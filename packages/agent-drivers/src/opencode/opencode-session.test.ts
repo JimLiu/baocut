@@ -112,6 +112,38 @@ describe('OpenCodeSession（假 opencode serve）', () => {
     expect(events.filter((e) => e.type === 'context.compacted')).toEqual([{ type: 'context.compacted', turnId }]);
   });
 
+  it('待办：todowrite 工具调用发 todo.updated，取消的丢掉、in_progress 换成 inProgress；别的工具不发', async () => {
+    const todos = [
+      { content: 'Read the brief', status: 'completed', priority: 'high' },
+      { content: 'Cut the intro', status: 'in_progress', priority: 'high' },
+      { content: 'Old idea', status: 'cancelled', priority: 'low' },
+      { content: 'Export', status: 'pending', priority: 'medium' },
+    ];
+    const { session, events, completed } = await start({
+      turn: {
+        events: [
+          { type: 'session.tool.called', data: { id: 't1', name: 'todowrite', input: { todos } } },
+          { type: 'session.tool.called', data: { id: 't2', name: 'read', input: { filePath: 'a.txt' } } },
+        ],
+        reply: 'ok',
+        end: 'succeeded',
+      },
+    });
+    const { turnId } = await session.startTurn({ text: 'hi' }, settings());
+    await completed(turnId);
+    expect(events.filter((e) => e.type === 'todo.updated')).toEqual([
+      {
+        type: 'todo.updated',
+        turnId,
+        items: [
+          { text: 'Read the brief', status: 'completed' },
+          { text: 'Cut the intro', status: 'inProgress' },
+          { text: 'Export', status: 'pending' },
+        ],
+      },
+    ]);
+  });
+
   it('执行失败：回合 failed，带 OpenCode 的错误', async () => {
     const { session, completed } = await start({ turn: { end: 'failed', error: 'rate limited' } });
     const { turnId } = await session.startTurn({ text: 'hi' }, settings());

@@ -49,6 +49,7 @@ import { commandRule } from '../approval-rule.ts';
 import { refField, textOf } from '../driver-text.ts';
 import type { ClaudeInstall } from './claude-binary.ts';
 import { ClaudeItemMapper, FILE_TOOLS, splitMcpTool, summarizeToolInput, toolFiles } from './claude-items.ts';
+import { ClaudeTodoState } from './claude-todo.ts';
 import { claudeAutoModeSupport, isClaudeEffort } from './claude-models.ts';
 import { createMessageInput, sdkQueryFactory, type ClaudeQuery, type ClaudeQueryFactory, type MessageInput } from './claude-query.ts';
 
@@ -250,6 +251,8 @@ export class ClaudeSession implements AgentSession {
   readonly #sessionGrants = new Set<string>();
   /** 已经提示过「不支持 auto」的模型，免得每一轮都提示。 */
   readonly #autoWarned = new Set<string>();
+  /** 待办清单属于原生会话，跨回合累加（claude-todo.ts）。 */
+  readonly #todos = new ClaudeTodoState();
 
   #live: LiveQuery | null = null;
   /** 原生会话 id：恢复句柄给的，或 system/init 给的。下一个 Query 带着它恢复。 */
@@ -629,6 +632,8 @@ export class ClaudeSession implements AgentSession {
       turn.errorText ??= assistantText(message.message.content as unknown) || message.error;
     }
     for (const event of turn.mapper.map(message)) this.#emit(event);
+    const todo = this.#todos.observe(message);
+    if (todo) this.#emit({ type: 'todo.updated', turnId: turn.id, items: todo });
   }
 
   #onResult(live: LiveQuery, turn: Turn, result: Extract<SDKMessage, { type: 'result' }>): void {
@@ -661,6 +666,7 @@ export class ClaudeSession implements AgentSession {
     if (old) this.#retire(old);
     this.#live = null;
     this.#sessionId = null;
+    this.#todos.reset();
     turn.retriedFresh = true;
     const warning = DriversCommon.resumeFailed({ name: 'Claude Code', error: reason });
     this.#emit({ type: 'session.warning', message: String(warning), ...refField('messageRef', warning) });

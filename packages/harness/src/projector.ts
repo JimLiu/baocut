@@ -110,6 +110,16 @@ export function projectAgentEvent(state: ConversationState, run: RunContext | nu
       addNotice(state, taskId, 'warning', withRef(event.message, event.messageRef));
       return NONE;
 
+    case 'todo.updated': {
+      // 清单记在正在跑的任务上；没有在跑的任务时（回合之外）不记。只改这一个字段，不动状态与未读。
+      const task = taskId ? state.item(taskId) : undefined;
+      if (task?.kind === 'task') {
+        const { todo: _prior, ...rest } = task;
+        state.upsert(event.items.length ? { ...rest, todo: { items: event.items } } : rest);
+      }
+      return NONE;
+    }
+
     case 'context.compacted': {
       const text = H.contextCompacted();
       state.upsert({

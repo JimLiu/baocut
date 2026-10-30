@@ -344,6 +344,8 @@ export type TimelineItem =
       errorCode?: AgentErrorCode | null;
       /** 任务合同的当前修订（架构设计 §3.2）。旧记录没有，读入时补上默认合同。历史修订经 `tasks.getContract` 查。 */
       contract?: TaskContract;
+      /** 智能体的待办清单（架构设计 §11.3），最新的一份。智能体没列过、或清空了时没有。任务结束后留着，界面只在进行中显示。 */
+      todo?: { items: TodoItem[] };
     })
   | (TimelineBase & {
       kind: 'notice';
@@ -377,6 +379,13 @@ export interface JobFinishedNote {
   attempt: number;
   state: 'completed' | 'failed';
   delivery: 'steered' | 'woke' | 'held' | 'dropped';
+}
+
+/** 智能体待办清单里的一项（任务条目的 `todo`）。文字是智能体写的原话；`activeForm` 是进行中时的说法（例如「正在跑测试」），只有 Claude 给。 */
+export interface TodoItem {
+  text: string;
+  status: 'pending' | 'inProgress' | 'completed';
+  activeForm?: string;
 }
 
 /**
