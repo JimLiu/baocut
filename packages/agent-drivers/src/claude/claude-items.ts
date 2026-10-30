@@ -13,7 +13,8 @@ import { diffBodyLines, diffPath } from '../unified-diff.ts';
  * 在 `content_block_start` 时按块的种类排队一个 id，`assistant` 消息里同种类的块按先后顺序认领。
  * 工具调用直接用 `tool_use` 的 id；它的结果在随后一条 `user` 消息的 `tool_result` 块里，不是用户发言。
  *
- * 子智能体（`parent_tool_use_id` 不为空）的帧不进时间线：它们在父级的那一个工具调用（Task / Agent）里。
+ * 子智能体（`parent_tool_use_id` 不为空）的帧只取工具调用：它们带 `parentId` 挂在父级那一个还没结束的工具调用（Task / Agent）下，
+ * 子智能体再派的子智能体也挂在最外层这一个上（只有一层）；它的文字、思考与流式增量不进时间线。父级先结束时，还没拿到结果的子步骤记为 interrupted。
  *
  * 改文件的工具（Edit / Write / MultiEdit）成功时，`output` 是 unified diff：它们的 tool_result 只是一句确认。
  * SDK 的结构化结果带补丁时按它拼（`structuredPatchLines`，真实行号与上下文），没有时从工具输入合成（`fileChangeDiff`）。
@@ -75,12 +76,16 @@ export class ClaudeItemMapper {
     switch (message.type) {
       case 'stream_event':
         return message.parent_tool_use_id ? [] : this.#onStream(message.event);
-      case 'assistant':
+      case 'assistant': {
         // 出错的回合里那条「API Error …」是 CLI 合成的，错误原文随 turn.completed 带出，这里不重复成一条回复。
-        if (message.parent_tool_use_id || message.error) return [];
-        return this.#onAssistant(message.message.id, message.message.content as unknown as Block[]);
+        if (message.error) return [];
+        const content = message.message.content as unknown as Block[];
+        if (!message.parent_tool_use_id) return this.#onAssistant(message.message.id, content);
+        const parent = this.#rootParent(message.parent_tool_use_id);
+        return parent ? this.#onChildAssistant(parent, content) : [];
+      }
       case 'user':
-        if (message.parent_tool_use_id) return [];
+        // 子智能体的帧里只有它自己工具的结果；不认识的 tool_use_id 照常跳过。
         return this.#onUser(message.message.content as unknown, message.tool_use_result);
       default:
         return [];
@@ -131,21 +136,36 @@ export class ClaudeItemMapper {
           if (id.streamed || text) events.push(this.#completed({ kind: 'reasoning', id: id.id, text }));
           break;
         }
-        case 'tool_use': {
-          const id = String(block.id ?? this.#nextId());
-          const name = String(block.name ?? '');
-          const input = (block.input ?? {}) as Record<string, unknown>;
-          const item = toolCallItem(id, name, input);
-          this.#tools.set(id, { item, name, input, startedAt: this.#now() });
-          events.push({ type: 'item.started', turnId: this.#turnId, item });
+        case 'tool_use':
+          events.push(this.#startTool(block, null));
           break;
-        }
         default:
           // redacted_thinking、服务端工具块等不进时间线。
           break;
       }
     }
     return events;
+  }
+
+  /** 子智能体的一条消息：只取工具调用，挂在 `parent` 下。 */
+  #onChildAssistant(parent: string, content: Block[]): AgentEvent[] {
+    return content.filter((block) => block.type === 'tool_use').map((block) => this.#startTool(block, parent));
+  }
+
+  #startTool(block: Block, parentId: string | null): AgentEvent {
+    const id = String(block.id ?? this.#nextId());
+    const name = String(block.name ?? '');
+    const input = (block.input ?? {}) as Record<string, unknown>;
+    const item = { ...toolCallItem(id, name, input), ...(parentId ? { parentId } : {}) };
+    this.#tools.set(id, { item, name, input, startedAt: this.#now() });
+    return { type: 'item.started', turnId: this.#turnId, item };
+  }
+
+  /** 子步骤挂在哪个工具调用下：父级本身是子步骤时换成它的父级。父级已经结束或不认识时没有。 */
+  #rootParent(parentToolUseId: string): string | null {
+    const parent = this.#tools.get(parentToolUseId);
+    if (!parent) return null;
+    return parent.item.parentId ?? parentToolUseId;
   }
 
   /** `toolUseResult`：SDK 附在这条消息上的结构化工具输出（只在一条消息只答一个工具时用得上）。 */
@@ -180,6 +200,11 @@ export class ClaudeItemMapper {
           durationMs: Math.max(0, this.#now() - open.startedAt),
         }),
       );
+      for (const [childId, child] of this.#tools) {
+        if (child.item.parentId !== toolUseId) continue;
+        this.#tools.delete(childId);
+        events.push(this.#completed({ ...child.item, status: 'interrupted', durationMs: Math.max(0, this.#now() - child.startedAt) }));
+      }
     }
     return events;
   }

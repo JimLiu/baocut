@@ -120,3 +120,26 @@ describe('tool-call info', () => {
     expect(state.items().find((i) => i.kind === 'tool-call' && i.title === 'ls')).not.toHaveProperty('info');
   });
 });
+
+describe('tool-call parentId', () => {
+  it('子智能体的步骤把父级的回合内 id 换成会话条目 id；主智能体的步骤没有', () => {
+    const state = make();
+    const run: RunContext = { taskId: 'task_1', runGeneration: 1, turnId: 'turn-1', stopRequested: false };
+    const call = {
+      kind: 'tool-call' as const,
+      tool: 'other' as const,
+      title: 'x',
+      detail: null,
+      output: null,
+      status: 'running' as const,
+      exitCode: null,
+      durationMs: null,
+    };
+    projectAgentEvent(state, run, { type: 'item.started', turnId: 'turn-1', item: { ...call, id: 'task' } });
+    projectAgentEvent(state, run, { type: 'item.started', turnId: 'turn-1', item: { ...call, id: 'child', parentId: 'task' } });
+    const [parent, child] = state.items().filter((i) => i.kind === 'tool-call');
+    expect(parent).not.toHaveProperty('parentId');
+    expect(child).toMatchObject({ id: 'turn-1/child', parentId: parent?.id });
+    expect(parent?.id).toBe('turn-1/task');
+  });
+});

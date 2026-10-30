@@ -211,6 +211,8 @@ export type AgentItem =
       exitCode: number | null;
       durationMs: number | null;
       info?: ToolCallInfo;
+      /** 子智能体的步骤：父级工具调用在同一回合里的条目 id（投影器换成会话条目 id）。 */
+      parentId?: string;
     }
   | { kind: 'user-message'; id: string; text: string }
   | { kind: 'other'; id: string; label: string };

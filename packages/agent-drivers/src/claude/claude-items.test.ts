@@ -216,4 +216,43 @@ describe('ClaudeItemMapper', () => {
       limit: 50,
     });
   });
+
+  it('子智能体的工具调用挂在父级 Task 下，再派的也挂在最外层；文字与流式不进；父级结束时没结果的子步骤记 interrupted', () => {
+    const mapper = new ClaudeItemMapper('turn_1');
+    const child = (msg: SDKMessage, parent: string) => ({ ...msg, parent_tool_use_id: parent }) as unknown as SDKMessage;
+    mapper.map(assistant('m', [{ type: 'tool_use', id: 'task', name: 'Task', input: { description: 'Find captions', prompt: 'p' } }]));
+
+    expect(mapper.map(child(stream({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }), 'task'))).toEqual([]);
+    const started = mapper.map(
+      child(
+        assistant('c1', [
+          { type: 'text', text: 'Looking around' },
+          { type: 'tool_use', id: 'c_grep', name: 'Grep', input: { pattern: 'caption' } },
+          { type: 'tool_use', id: 'c_task', name: 'Task', input: { description: 'Nested', prompt: 'p' } },
+        ]),
+        'task',
+      ),
+    );
+    expect(started).toMatchObject([
+      { type: 'item.started', item: { id: 'c_grep', parentId: 'task', info: { type: 'search', pattern: 'caption' } } },
+      { type: 'item.started', item: { id: 'c_task', parentId: 'task' } },
+    ]);
+    expect(
+      mapper.map(child(assistant('c2', [{ type: 'tool_use', id: 'cc_read', name: 'Read', input: { file_path: '/w/a.srt' } }]), 'c_task')),
+    ).toMatchObject([{ item: { id: 'cc_read', parentId: 'task' } }]);
+    expect(mapper.map(child(toolResult('c_grep', 'a.srt', false, { numFiles: 1 }), 'task'))).toMatchObject([
+      { type: 'item.completed', item: { id: 'c_grep', parentId: 'task', status: 'completed', info: { files: 1 } } },
+    ]);
+    expect(mapper.map(child(toolResult('c_task', 'done'), 'task'))).toMatchObject([{ item: { id: 'c_task', status: 'completed' } }]);
+
+    const parentDone = mapper.map(toolResult('task', 'Found it'));
+    expect(parentDone).toMatchObject([
+      { item: { id: 'task', status: 'completed' } },
+      { item: { id: 'cc_read', parentId: 'task', status: 'interrupted' } },
+    ]);
+    expect(parentDone[0]?.type === 'item.completed' && parentDone[0].item).not.toHaveProperty('parentId');
+    expect(mapper.openTools()).toEqual([]);
+    // 父级已经结束：之后到的子智能体帧不认识，不进时间线。
+    expect(mapper.map(child(assistant('c3', [{ type: 'tool_use', id: 'late', name: 'Bash', input: { command: 'ls' } }]), 'task'))).toEqual([]);
+  });
 });

@@ -313,6 +313,11 @@ export type TimelineItem =
       durationMs: number | null;
       /** 结构化事实。旧记录与驱动给不出时没有。 */
       info?: ToolCallInfo;
+      /**
+       * 子智能体的步骤：交给它的那个工具调用（`info.type === 'subAgent'`）的条目 id。只有一层，子智能体再派的步骤也挂在最外层这一个上。
+       * 主智能体的步骤、旧记录与驱动给不出时没有。
+       */
+      parentId?: Id;
     })
   | (TimelineBase & {
       kind: 'approval';

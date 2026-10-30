@@ -58,7 +58,7 @@ export function projectAgentEvent(state: ConversationState, run: RunContext | nu
 
     case 'item.started':
     case 'item.completed': {
-      const item = toTimelineItem(state, itemKey(event.turnId, event.item.id), event.item, taskId, event.type === 'item.completed');
+      const item = toTimelineItem(state, event.turnId, event.item, taskId, event.type === 'item.completed');
       if (item) state.upsert(item);
       return NONE;
     }
@@ -232,11 +232,12 @@ function itemKey(turnId: string, itemId: string): Id {
 
 function toTimelineItem(
   state: ConversationState,
-  id: Id,
+  turnId: string,
   item: AgentItem,
   taskId: Id | null,
   completed: boolean,
 ): TimelineItem | null {
+  const id = itemKey(turnId, item.id);
   const existing = state.item(id);
   const createdAt = existing?.createdAt ?? nowIso();
   switch (item.kind) {
@@ -264,6 +265,7 @@ function toTimelineItem(
         exitCode: item.exitCode,
         durationMs: item.durationMs,
         ...(info ? { info } : {}),
+        ...(item.parentId ? { parentId: itemKey(turnId, item.parentId) } : {}),
       };
     }
     case 'user-message':
