@@ -284,6 +284,9 @@ export class BotService {
     // 回合上下文里的记忆来自缓存：对账可能马上投报告、起协调者回合，先把各频道的记忆与全局记忆读进来。
     for (const channel of this.#channels.list()) await this.refreshMemoryCache(channel.id);
     this.#unsubscribe.push(this.#harness.onRun((event) => this.#onRun(event)));
+    // 后台任务叫醒线程也占并发名额（§18.1）：没空位时 Harness 先记着，#pump 有空位再放行。
+    this.#harness.setJobWakeGate((conversationId) => this.#jobWakeAllowed(conversationId));
+    this.#unsubscribe.push(() => this.#harness.setJobWakeGate(null));
     const directory = this.#harness.subscribe('directory', undefined, (event) => {
       const directoryEvent = event.event as DirectoryEvent;
       if (directoryEvent.type === 'conversation.upsert') this.#onConversation(directoryEvent.conversation);
@@ -1123,15 +1126,17 @@ export class BotService {
   /** 删除任务记录（BOT-EX-20）：dryRun 列出会删的与保留的文件。 */
   async deleteRecord(id: Id, dryRun: boolean, confirm?: { files: string[] }): Promise<{ files: string[]; keptShared: string[]; deleted: boolean }> {
     const item = this.item(id);
-    const others = new Set(this.#channelItems(item.channelId).filter((i) => i.id !== id).flatMap((i) => i.files));
-    const files = item.files.filter((f) => !others.has(f));
-    const keptShared = item.files.filter((f) => others.has(f));
+    // 别的任务写过、或拿它当资源与产出的文件都算共用（相对与绝对路径统一成频道文件夹里的相对路径再比）。
+    const base = this.#files.filesDir(item.channelId);
+    const others = new Set(this.#channelItems(item.channelId).filter((i) => i.id !== id).flatMap((i) => taskFilePaths(base, i.files, [...i.resources, ...i.outputs])));
+    const own = taskFilePaths(base, item.files, []);
+    const files = own.filter((f) => !others.has(f));
+    const keptShared = own.filter((f) => others.has(f));
     if (dryRun) return { files, keptShared, deleted: false };
     if (!confirm || JSON.stringify([...confirm.files].sort()) !== JSON.stringify([...files].sort())) {
       throw new RpcError('conflict', RcBot.channelDeleteCountsChanged(), { files, keptShared });
     }
     if (item.status === 'active' && item.threadId) await this.#stopThread(item).catch(() => {});
-    const base = this.#files.filesDir(item.channelId);
     for (const file of files) {
       const full = path.resolve(base, file);
       if (!full.startsWith(base + path.sep)) continue;
@@ -1274,9 +1279,25 @@ export class BotService {
     let n = 0;
     for (const item of this.#items.values()) {
       if (item.id === exclude || (channelId && item.channelId !== channelId)) continue;
-      if (item.status === 'active' && item.active?.state === 'working' && item.owner === 'agent') n++;
+      const working = item.status === 'active' && item.active?.state === 'working';
+      if ((working || this.#jobWaking.has(item.id)) && item.owner === 'agent') n++;
     }
     return n;
+  }
+
+  /** 后台任务放行叫醒、回合已起但还没转回工作中的任务：这段时间也算占着名额。 */
+  readonly #jobWaking = new Set<Id>();
+
+  /** Harness 空闲叫醒线程之前问这里：线程不在工作中时要有空位、频道没归档、自动化没暂停。 */
+  #jobWakeAllowed(conversationId: Id): boolean {
+    const conversation = this.#harness.conversationOf(conversationId);
+    if (conversation?.role !== 'thread') return true;
+    const item = this.itemOfThread(conversationId);
+    if (!item || item.status !== 'active' || item.active?.state === 'working') return true;
+    const channel = this.#channels.get(item.channelId);
+    if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(item.channelId, item.id)) return false;
+    this.#jobWaking.add(item.id);
+    return true;
   }
 
   #slotFree(channelId: Id, exclude: Id): boolean {
@@ -1300,6 +1321,12 @@ export class BotService {
         continue;
       }
       await this.#wakeIfReady(item, null);
+    }
+    // 后台任务结束、没空位时被挡下的线程：放行一次，还会再问闸门。
+    for (const conversationId of this.#harness.gatedJobWakes()) {
+      await this.#harness.releaseJobWakes(conversationId).catch((error: unknown) =>
+        this.#log.warn('Releasing a held job wake failed', { conversationId, error: String(error) }),
+      );
     }
     const queued = [...this.#items.values()]
       .filter((i) => i.status === 'upNext' && i.owner === 'agent' && i.reminded.includes('queued'))
@@ -1823,12 +1850,14 @@ export class BotService {
         } else if (item.status === 'active' && item.active?.state === 'waitingOnOthers' && !this.#expecting.has(conversation.id)) {
           await this.transition(item.id, { type: 'unblocked', cause: 'job-finished' }, { actor: 'system' }).catch(() => {});
         }
+        this.#jobWaking.delete(item.id);
         const current = this.#items.get(item.id);
         if (current?.status === 'active' && current.active?.state === 'working') {
           await this.patchItemContent(item.id, (i) => i, true);
         }
         return;
       }
+      this.#jobWaking.delete(item.id);
       this.bindThreadChips(conversation.id, event.taskId);
       const info = this.#runStarts.get(event.taskId);
       this.#runStarts.delete(event.taskId);

@@ -172,6 +172,23 @@ describe('moving a task', () => {
     expect(kit.item(item.id).channelId).toBe(kit.main.id);
   });
 
+  it('BOT-EX-20 deleting a task record removes only the files no other task uses', async () => {
+    const dir = kit.bot.filesDir(kit.main.id);
+    await fs.mkdir(dir, { recursive: true });
+    for (const name of ['mine.srt', 'script.md', 'cut.txt', 'shared.txt']) await fs.writeFile(path.join(dir, name), name);
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Draft captions', owner: 'user' });
+    await kit.bot.patchItemContent(item.id, (i) => ({ ...i, files: ['mine.srt', 'script.md', path.join(dir, 'cut.txt'), 'shared.txt'] }), false);
+    // 别的任务拿 script.md 当资源、cut.txt（绝对路径）当产出、shared.txt 也写过：都不删。
+    const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice over', owner: 'user', resources: [{ kind: 'file', path: 'script.md' }] });
+    await kit.bot.patchItemContent(other.id, (i) => ({ ...i, outputs: [{ kind: 'file', path: path.join(dir, 'cut.txt'), label: 'Cut', version: null }], files: ['shared.txt'] }), false);
+    const plan = await kit.bot.deleteRecord(item.id, true);
+    expect(plan.files).toEqual(['mine.srt']);
+    expect([...plan.keptShared].sort()).toEqual(['cut.txt', 'script.md', 'shared.txt']);
+    await kit.bot.deleteRecord(item.id, false, { files: plan.files });
+    await expect(fs.access(path.join(dir, 'mine.srt'))).rejects.toThrow();
+    for (const name of ['script.md', 'cut.txt', 'shared.txt']) expect(await fs.readFile(path.join(dir, name), 'utf8')).toBe(name);
+  });
+
   it('a thread waiting on an approval cannot be moved, and its notes stay where they were', async () => {
     kit.thread = (ctx) => void escalate(ctx, 'voice-generate --segment 1');
     const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice the intro', owner: 'agent' });

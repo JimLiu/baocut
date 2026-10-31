@@ -411,6 +411,12 @@ export class Harness {
    * 重启后会话里还是 `held` 的提示标为没有告诉（`#recover`）。
    */
   readonly #heldJobs = new Map<Id, Map<Id, JobFinished>>();
+  /**
+   * 空闲时被叫醒闸门（`setJobWakeGate`）挡下的后台任务：会话 → 提示条目 id → 任务。闸门的主人有空位时用 `releaseJobWakes` 放行。
+   * 只在内存里；重启后同 `#heldJobs`。
+   */
+  readonly #gatedJobs = new Map<Id, Map<Id, JobFinished>>();
+  #jobWakeGate: ((conversationId: Id) => boolean) | null = null;
   /** 进行中的「无项目会话绑定项目」：同一个会话同时只跑一趟。 */
   readonly #binding = new Map<Id, Promise<Project>>();
   /** 正在导入的原生会话（`driverId:nativeId`）：同时来的同一条只导入一次。 */
@@ -2162,6 +2168,16 @@ export class Harness {
       for (const job of jobs) this.#noteJob(state, job, 'dropped', null);
       return;
     }
+    // 叫醒要起一个新回合：先问闸门（Bot 模式按并发名额，Bot 技术方案 §18.1）；挡下的记着，等放行再交。
+    if (this.#jobWakeGate && !this.#jobWakeGate(state.id)) {
+      const gated = this.#gatedJobs.get(state.id) ?? new Map<Id, JobFinished>();
+      for (const job of jobs) {
+        gated.set(jobNoteId(job), job);
+        this.#noteJob(state, job, 'held', null);
+      }
+      this.#gatedJobs.set(state.id, gated);
+      return;
+    }
     const wake = jobs.filter((job) => job.taskId === target);
     for (const job of wake) this.#noteJob(state, job, 'woke', target);
     for (const job of jobs) if (job.taskId !== target && statusOf(job.taskId) !== 'completed') this.#noteJob(state, job, 'dropped', null);
@@ -2210,6 +2226,28 @@ export class Harness {
     this.#runs.set(state.id, run);
     this.#emitRun({ type: 'started', conversationId: state.id, taskId: target, origin: run.origin, attended: run.attended });
     void this.#startRun(state, run, { text: jobFinishedText(wake) });
+  }
+
+  /**
+   * 空闲会话被后台任务叫醒之前要过的闸门：返回 false 时这次不起回合，任务记下来，等 `releaseJobWakes` 再交。
+   * 回合进行中的插话与等回合结束不经过它（不新起回合）。
+   */
+  setJobWakeGate(gate: ((conversationId: Id) => boolean) | null): void {
+    this.#jobWakeGate = gate;
+  }
+
+  /** 被闸门挡下的会话（按挡下的先后）。 */
+  gatedJobWakes(): Id[] {
+    return [...this.#gatedJobs.keys()];
+  }
+
+  /** 放行一个会话被闸门挡下的后台任务：照常再交一次（还会再问闸门）。返回交完后的结果。 */
+  async releaseJobWakes(conversationId: Id): Promise<void> {
+    const gated = this.#gatedJobs.get(conversationId);
+    const state = this.#states.get(conversationId);
+    this.#gatedJobs.delete(conversationId);
+    if (!gated || !state) return;
+    await this.#deliverJobs(state, [...gated.values()]);
   }
 
   #holdJobs(state: ConversationState, jobs: readonly JobFinished[], taskId: Id): void {
@@ -3984,6 +4022,12 @@ export class Harness {
       this.#heldJobs.delete(state.id);
       void this.#deliverJobs(state, [...held.values()]).catch((e: unknown) =>
         this.#log.warn('Failed to deliver finished jobs after the turn', { conversationId: state.id, error: String(e) }),
+      );
+    }
+    // 闸门挡下的也再试一次（还会再问闸门）：会话这一回合是别的原因起的，结束后可能已经有空位了。
+    if (!held && this.#gatedJobs.has(state.id) && !this.#closing) {
+      void this.releaseJobWakes(state.id).catch((e: unknown) =>
+        this.#log.warn('Failed to deliver gated jobs after the turn', { conversationId: state.id, error: String(e) }),
       );
     }
   }

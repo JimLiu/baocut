@@ -161,11 +161,10 @@ describe('BOT-S01..S16', () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
     const turns = new Map<Id, number>();
-    let musicThread: Id | null = null;
     kit.thread = async (ctx) => {
       const n = (turns.get(ctx.conversationId) ?? 0) + 1;
       turns.set(ctx.conversationId, n);
-      if (ctx.conversationId === musicThread) {
+      if (kit.bot.itemOfThread(ctx.conversationId)?.title === 'Add music to the trailer') {
         if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
         else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer has music now.' });
         return;
@@ -174,9 +173,7 @@ describe('BOT-S01..S16', () => {
       await ctx.call('thread_report', { stop: 'needs-review', headline: 'The captions are done.' });
     };
     const music = await kit.bot.createItem({ channelId: kit.main.id, title: 'Add music to the trailer', owner: 'agent' });
-    const openedMusic = kit.bot.startItem(music.id, { attended: false });
-    musicThread = await kit.until(() => kit.item(music.id).threadId);
-    await openedMusic;
+    await kit.bot.startItem(music.id, { attended: false });
     await kit.until(() => state(music.id) === 'waitingOnOthers');
     const captions = await kit.bot.createItem({ channelId: kit.main.id, title: 'Caption the trailer', owner: 'agent' });
     await kit.bot.startItem(captions.id, { attended: false });
@@ -189,6 +186,42 @@ describe('BOT-S01..S16', () => {
     await kit.until(() => state(music.id) === 'needsReview');
     await kit.settle();
     expect(causes(music.id)).toEqual(expect.arrayContaining(['unblocked:dependency->working']));
+  });
+
+  it('a finished background job does not wake its thread past the channel thread limit (§18.1)', async () => {
+    await kit.bot.updateChannel(kit.main.id, { concurrentThreads: 1 });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (kit.bot.itemOfThread(ctx.conversationId)?.title === 'Dub the trailer') {
+        if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'The dub is rendering.', waitingFor: { jobIds: ['job_dub_2'] } });
+        else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The dub is ready.' });
+        return;
+      }
+      await gate;
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The captions are done.' });
+    };
+    const dub = await kit.bot.createItem({ channelId: kit.main.id, title: 'Dub the trailer', owner: 'agent' });
+    await kit.bot.startItem(dub.id, { attended: false });
+    const dubThread = kit.threadOf(dub.id);
+    await kit.until(() => state(dub.id) === 'waitingOnOthers' && kit.harness.conversationOf(dubThread)?.activity === 'idle');
+    const captions = await kit.bot.createItem({ channelId: kit.main.id, title: 'Caption the trailer', owner: 'agent' });
+    await kit.bot.startItem(captions.id, { attended: false });
+    await kit.until(() => state(captions.id) === 'working');
+    const taskId = ofKind(dubThread, 'task').at(-1)!.id;
+    const outcome = await kit.harness.jobFinished({ conversationId: dubThread, taskId, jobId: 'job_dub_2', kind: 'dub', attempt: 1, state: 'completed' });
+    // 唯一的位置被字幕任务占着：先记着，不起回合。
+    expect(outcome).toBe('held');
+    expect(state(dub.id)).toBe('waitingOnOthers');
+    expect(turns.get(dubThread)).toBe(1);
+    release();
+    await kit.until(() => state(captions.id) === 'needsReview');
+    await kit.until(() => state(dub.id) === 'needsReview');
+    await kit.settle();
+    expect(causes(dub.id)).toEqual(expect.arrayContaining(['unblocked:job-finished->working']));
   });
 
   it('after a restart, an automatic coordinator turn still sees the channel rules and user memory', async () => {
