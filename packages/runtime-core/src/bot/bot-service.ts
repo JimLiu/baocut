@@ -193,6 +193,30 @@ const MAKE_DENY_WORDS =
   /\b(?:publish(?:es|ed|ing)?|upload(?:s|ed|ing)?|post(?:s|ed|ing)?(?!-)|send(?:s|ing)?|sent|shar(?:e|es|ed|ing)|buy(?:s|ing)?|bought|pay(?:s|ing|ment|ments)?|paid|order(?:s|ed|ing)?|purchas(?:e|es|ed|ing)|clon(?:e|es|ed|ing)|dub-online)\b/;
 const MAKE_DENY_CJK = /发布|上传|发送|分享|购买|付款|支付|下单|克隆|投稿|推送|发帖|公开/;
 
+/** 中文标题里认类别的词（剪、字幕、翻译、转录、导出、封面、短视频、竖版、章节、精彩、摘要、总结、整理、标题、重命名）。 */
+const FOLLOW_UP_KINDS_CJK: readonly [RegExp, string][] = [
+  [/\u77ed\u89c6\u9891|\u7ad6\u7248/, 'shorts'],
+  [/\u5b57\u5e55/, 'subtitle'],
+  [/\u7ffb\u8bd1/, 'translate'],
+  [/\u8f6c\u5f55/, 'transcribe'],
+  [/\u5bfc\u51fa/, 'export'],
+  [/\u5c01\u9762/, 'thumbnail'],
+  [/\u7ae0\u8282/, 'chapters'],
+  [/\u7cbe\u5f69/, 'highlights'],
+  [/\u6458\u8981|\u603b\u7ed3/, 'summary'],
+  [/\u91cd\u547d\u540d/, 'rename'],
+  [/\u6574\u7406/, 'organize'],
+  [/\u6807\u9898/, 'title'],
+  [/\u526a/, 'cut'],
+];
+
+/** 报告里一条 followUp 的类别：标题里第一个在白名单里的英文词，或认得的中文词；都没有时 null。 */
+function followUpKind(title: string): string | null {
+  for (const word of title.toLowerCase().split(/[^a-z-]+/)) if (word && MAKE_KIND_ALLOW.test(word)) return word;
+  for (const [pattern, kind] of FOLLOW_UP_KINDS_CJK) if (pattern.test(title)) return kind;
+  return null;
+}
+
 function makeDenied(text: string): boolean {
   const lower = text.toLowerCase();
   return MAKE_DENY_WORDS.test(lower) || MAKE_DENY_CJK.test(lower);
@@ -1999,11 +2023,7 @@ export class BotService {
       await this.createItem({ channelId: item.channelId, title: [...todo].slice(0, BOT_LIMITS.title).join(''), owner: 'user', source: { kind: 'thread', messageId: null, scheduleId: null, runId: null } });
     }
     if (report.followUps.length) {
-      void this.suggestItems(
-        item.channelId,
-        report.followUps.map((f) => ({ title: f, reason: item.title, kindTag: 'follow-up', evidence: [] as ResourceRef[] })),
-        'thread-report',
-      ).catch(() => {});
+      void this.#suggestFollowUps(item, report.followUps).catch((error: unknown) => this.#log.warn('Suggesting follow-ups failed', { workItemId: item.id, error: String(error) }));
     }
     await this.#deliverReport(report, run.attended);
     // 报告说在等的任务可能在报告之前就结了：那时的「已结」事件找不到它，这里补查一次。
@@ -2855,7 +2875,7 @@ export class BotService {
       if (made.length >= 3 || channelOpen() >= BOT_LIMITS.pendingSuggestionsPerChannel) break;
       const tag = candidate.kindTag.toLowerCase();
       if (makeDenied(tag) || makeDenied(candidate.title)) continue;
-      if (tag !== 'follow-up' && !MAKE_KIND_ALLOW.test(tag)) continue;
+      if (!MAKE_KIND_ALLOW.test(tag)) continue;
       if (unwanted.has(tag)) continue;
       const subjectKey = `${tag}:${candidate.evidence.map((e) => JSON.stringify(e)).join('|') || candidate.title.toLowerCase()}`;
       if (ignored.has(subjectKey)) continue;
@@ -2909,6 +2929,23 @@ export class BotService {
     if (!reason) return true;
     await this.#files.appendMakeRun(channel.id, { id: runId, trigger, at: nowIso(), candidates: 0, shown: 0, reason }).catch(() => {});
     return false;
+  }
+
+  /**
+   * 报告里的 followUps 是 Make 的 `thread-report` 触发（§11.3 第 1 步）：与别的自动触发一样受暂停、归档、每天 3 次与建议名额
+   * 的限制，也记一笔 Make 运行。类别按标题里的词认（认不出的不建），照样过白名单与禁止的词。
+   */
+  async #suggestFollowUps(item: WorkItem, followUps: readonly string[]): Promise<void> {
+    const channel = this.#channels.get(item.channelId);
+    if (!channel) return;
+    const runId = newId('make');
+    if (!(await this.#autoMakeAllowed(channel, runId, 'thread-report'))) return;
+    const candidates = followUps.flatMap((title) => {
+      const kindTag = followUpKind(title);
+      return kindTag ? [{ title, reason: item.title, kindTag, evidence: [] as ResourceRef[] }] : [];
+    });
+    const shown = candidates.length ? await this.suggestItems(channel.id, candidates, 'thread-report') : 0;
+    await this.#files.appendMakeRun(channel.id, { id: runId, trigger: 'thread-report', at: nowIso(), candidates: followUps.length, shown }).catch(() => {});
   }
 
   /** Make（§11.3）：收集事实 → 生成 → 过滤 → 落地。 */

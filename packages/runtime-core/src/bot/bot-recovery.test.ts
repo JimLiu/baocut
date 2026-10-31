@@ -344,6 +344,42 @@ describe('the user talks to a thread that is waiting', () => {
   });
 });
 
+describe('follow-ups in a report go through Make', () => {
+  const suggested = () => kit.bot.listItems(kit.main.id).filter((i) => i.status === 'suggested');
+  const reportWith = (followUps: string[], before?: () => Promise<unknown>) => {
+    let done = false;
+    kit.thread = async (ctx) => {
+      if (done) return;
+      done = true;
+      await before?.();
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer is cut.', followUps });
+    };
+  };
+
+  it('I9: a follow-up that is not local editing work (no allowed kind) does not become a suggestion', async () => {
+    reportWith(['Call the venue about Friday', 'Make shorts from the trailer']);
+    await kit.startTask('Cut the trailer');
+    await kit.settle();
+    expect(suggested().map((i) => [i.title, i.suggestion?.kindTag, i.suggestion?.trigger])).toEqual([['Make shorts from the trailer', 'shorts', 'thread-report']]);
+  });
+
+  it('I9: follow-ups are not suggested while all automation is paused', async () => {
+    reportWith(['Make shorts from the trailer'], () => kit.bot.updateSettings({ automationPaused: true }));
+    await kit.startTask('Cut the trailer');
+    await kit.settle();
+    expect(suggested()).toEqual([]);
+  });
+
+  it('I9: follow-ups count as an automatic Make run and stop once three ran today', async () => {
+    for (let i = 0; i < 3; i++) await kit.bot.runMake(kit.main.id, 'item-resolved');
+    expect(kit.make.inputs).toHaveLength(3);
+    reportWith(['Make shorts from the trailer']);
+    await kit.startTask('Cut the trailer');
+    await kit.settle();
+    expect(suggested()).toEqual([]);
+  });
+});
+
 describe('Make filters and limits', () => {
   const suggested = () => kit.bot.listItems(kit.main.id).filter((i) => i.status === 'suggested');
   const candidate = (title: string, kindTag: string) => ({ title, reason: 'Seen in the channel.', kindTag, evidence: [] });
