@@ -175,8 +175,9 @@ export function ChannelSidebar() {
         </ActionButton>
       </div>
       <div className={`${sidebarBody} bc-scroll`}>
+        {/* 分组的键加 `group:`：与条目同名（收件箱）时集合的前后链接成环，渲染时死循环。 */}
         <SideNav styles={nav} aria-label={C.sidebar.nav} selectedRoute={selectedHref(route)}>
-          <SideNavSection id="inbox">
+          <SideNavSection id="group:inbox">
             <SideNavItem id="inbox" textValue={C.sidebar.inbox} href={hrefFor(inboxRoute)} data-bc-row="">
               <SideNavItemContent>
                 <SideNavItemLink aria-label={total ? `${C.sidebar.inbox}, ${C.sidebar.needsYou(total)}` : C.sidebar.inbox}>
@@ -195,12 +196,12 @@ export function ChannelSidebar() {
               </SideNavItemContent>
             </SideNavItem>
           </SideNavSection>
-          <SideNavSection id="channels">
+          <SideNavSection id="group:channels">
             <SideNavHeader>{C.sidebar.title}</SideNavHeader>
             {ready ? groups.active.map(row) : []}
           </SideNavSection>
           {groups.archived.length ? (
-            <SideNavSection id="archived">
+            <SideNavSection id="group:archived">
               <SideNavHeader>
                 <span className={sectionHead}>
                   <ActionButton isQuiet size="S" aria-expanded={showArchived} aria-label={C.sidebar.archived} onPress={() => setShowArchived(!showArchived)}>

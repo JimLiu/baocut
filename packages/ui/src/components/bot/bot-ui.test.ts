@@ -13,7 +13,7 @@ import { ChannelDialog } from './channel-dialog.tsx';
 import { drainQueue, sendQueuedMessageNow } from '../../runtime/message-queue-runner.ts';
 import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
 import { useWorkItems } from '../../state/work-items-store.ts';
-import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
+import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions, resourceLabel } from './task-detail.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { Reactions, UserMessageExtras } from './timeline/message-extras.tsx';
 import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
@@ -25,6 +25,7 @@ import { DEFAULT_BOT_SETTINGS, type SpaceEntry, type WorkItem } from '@baocut/pr
 import { ProposalCard, SuggestionButtons } from './timeline/proposal-card.tsx';
 import { useBotCall, useScopedState } from './bot-actions.ts';
 import { ChannelMemoryPage } from './channel-memory-page.tsx';
+import { ChannelSidebar } from './channel-sidebar.tsx';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 
@@ -87,6 +88,28 @@ afterEach(async () => {
   document.body.innerHTML = '';
   request.mockClear();
   vi.unstubAllGlobals();
+});
+
+describe('频道侧栏（BOT-CH-02）', () => {
+  // 分组与条目共用一个键（比如收件箱组与收件箱都叫 inbox）时，集合的前后链接成环，找第一项时死循环，整页卡死。
+  it('收件箱、频道与归档组都画得出来', async () => {
+    const row = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
+      channel: { id, name, kind: id === 'chan_main' ? 'main' : 'normal', purpose: '', pinned: false, muted: false, private: false, archived: false, ...extra },
+      unread: false,
+      counts: { needsYou: 0 },
+      lastActivityAt: '2026-10-31T00:00:00.000Z',
+      spend: null,
+    });
+    useChannels.setState({ ready: true, channels: [row('chan_main', 'Main'), row('chan_pod', 'Podcast'), row('chan_old', 'Old', { archived: true })] as never });
+    try {
+      await render(createElement(ChannelSidebar));
+      const rows = [...document.querySelectorAll('[data-bc-row]')].map((e) => e.getAttribute('data-key'));
+      expect(rows).toEqual(['inbox', 'chan_main', 'chan_pod']);
+      expect(new Set([...document.querySelectorAll('[data-key]')].map((e) => e.getAttribute('data-key'))).size).toBe(document.querySelectorAll('[data-key]').length);
+    } finally {
+      useChannels.setState({ channels: [] });
+    }
+  });
 });
 
 describe('新建任务（需求 §4.4）', () => {
@@ -378,6 +401,13 @@ describe('任务详情可改（BOT-TK-06）', () => {
     expect(dateFact('截止', '2026-11-07', 'user')).toMatch(/· 你定的$/);
     expect(dateFact('截止', '2026-11-07', 'agent')).toMatch(/· 来自你的消息$/);
     expect(dateFact('截止', '2026-11-07', undefined)).not.toContain('·');
+  });
+
+  it('资源与产物写出是哪个：没名字的文件用文件名（BOT-TK-06）', () => {
+    expect(resourceLabel({ kind: 'file', path: 'drafts/outline.md' })).toBe('文件 · outline.md');
+    expect(resourceLabel({ kind: 'file', path: 'C:\\clips\\take 2.mov' })).toBe('文件 · take 2.mov');
+    expect(resourceLabel({ kind: 'file', path: 'script.md', label: '旁白稿', version: null })).toBe('文件 · 旁白稿');
+    expect(resourceLabel({ kind: 'video', projectId: 'p1', videoId: 'v1' })).toBe('视频');
   });
 });
 

@@ -44,6 +44,10 @@ export type ChannelDialogState = { mode: 'create' } | { mode: 'settings'; channe
 const fieldRow = style({ display: 'flex', flexDirection: 'column', gap: 4 });
 const fieldLabel = style({ font: 'ui-sm', color: 'gray-800' });
 const twoUp = style({ display: 'flex', gap: 12, flexWrap: 'wrap' });
+// 并排的字段在换行的 flex 里会缩到最窄（输入框只剩几像素）：平分一行，放不下再换行，只有一个时占满。
+const cell = style({ flexGrow: 1, flexBasis: 0, minWidth: 120 });
+// 导出、归档、删除不进底部按钮组：五个按钮挤不下，按钮组会竖着排成一列。
+const manageRow = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 24 });
 const note = style({ margin: 0, font: 'ui-sm', color: 'gray-600' });
 const body = style({ margin: 0, font: 'body-sm', color: 'gray-800' });
 const busyRow = style({ display: 'flex', alignItems: 'center', gap: 8, font: 'ui-sm', color: 'gray-700' });
@@ -251,6 +255,7 @@ export function ChannelDialog({
                 <div className={twoUp}>
                   <Picker
                     label={C.dialog.defaultAccess}
+                    styles={cell}
                     selectedKey={draft.defaultAccessMode ?? 'default'}
                     onSelectionChange={(key) => set('defaultAccessMode', key === 'default' ? null : (key as AgentMode))}>
                     <PickerItem id="default">{C.dialog.followDefault}</PickerItem>
@@ -263,6 +268,7 @@ export function ChannelDialog({
                   {creating ? null : (
                     <Picker
                       label={C.dialog.maxAccess}
+                      styles={cell}
                       selectedKey={draft.maxAccessMode ?? 'none'}
                       onSelectionChange={(key) => set('maxAccessMode', key === 'none' ? null : (key as AgentMode))}>
                       <PickerItem id="none">{C.dialog.noLimit}</PickerItem>
@@ -294,6 +300,7 @@ export function ChannelDialog({
                     <div className={twoUp}>
                       <NumberField
                         label={C.dialog.concurrent}
+                        styles={cell}
                         minValue={1}
                         maxValue={BOT_LIMITS.maxConcurrentThreads}
                         step={1}
@@ -302,6 +309,7 @@ export function ChannelDialog({
                       />
                       <NumberField
                         label={C.dialog.stall}
+                        styles={cell}
                         description={C.dialog.stallHint}
                         minValue={1}
                         maxValue={24 * 60}
@@ -313,6 +321,7 @@ export function ChannelDialog({
                     <div className={twoUp}>
                       <TextField
                         label={C.dialog.dailyBudget}
+                        styles={cell}
                         description={C.dialog.budgetHint}
                         inputMode="decimal"
                         value={draft.dailyBudget}
@@ -320,35 +329,38 @@ export function ChannelDialog({
                       />
                       <TextField
                         label={C.dialog.monthlyBudget}
+                        styles={cell}
                         inputMode="decimal"
                         value={draft.monthlyBudget}
                         onChange={(value) => set('monthlyBudget', value)}
                       />
-                      <TextField label={C.dialog.currency} value={draft.currency} maxLength={3} onChange={(value) => set('currency', value)} />
+                      <TextField label={C.dialog.currency} styles={cell} value={draft.currency} maxLength={3} onChange={(value) => set('currency', value)} />
                     </div>
                     {main ? <p className={note}>{C.dialog.mainNote}</p> : null}
                   </>
                 )}
               </Form>
+              {!creating && channel ? (
+                <div className={manageRow}>
+                  <Button variant="secondary" fillStyle="outline" isPending={busy === 'export'} isDisabled={!!busy} onPress={() => void exportChannel()}>
+                    {C.dialog.export}
+                  </Button>
+                  {main ? null : (
+                    <>
+                      <Button variant="secondary" fillStyle="outline" isPending={busy === 'archive'} isDisabled={!!busy} onPress={() => void toggleArchive()}>
+                        {channel.archived ? C.dialog.unarchive : C.dialog.archive}
+                      </Button>
+                      {summary ? (
+                        <Button variant="negative" fillStyle="outline" isDisabled={!!busy} onPress={() => onDelete(summary)}>
+                          {C.dialog.delete}
+                        </Button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              ) : null}
             </Content>
             <ButtonGroup>
-              {!creating && channel ? (
-                <Button variant="secondary" fillStyle="outline" isPending={busy === 'export'} isDisabled={!!busy} onPress={() => void exportChannel()}>
-                  {C.dialog.export}
-                </Button>
-              ) : null}
-              {!creating && !main && channel ? (
-                <>
-                  <Button variant="secondary" fillStyle="outline" isPending={busy === 'archive'} isDisabled={!!busy} onPress={() => void toggleArchive()}>
-                    {channel.archived ? C.dialog.unarchive : C.dialog.archive}
-                  </Button>
-                  {summary ? (
-                    <Button variant="negative" fillStyle="outline" isDisabled={!!busy} onPress={() => onDelete(summary)}>
-                      {C.dialog.delete}
-                    </Button>
-                  ) : null}
-                </>
-              ) : null}
               <Button variant="secondary" onPress={close}>
                 {C.common.cancel}
               </Button>

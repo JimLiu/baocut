@@ -147,9 +147,11 @@ export function dateFact(label: string, day: string, by: WorkItem['dueOnBy']): s
   return `${text} · ${by === 'user' ? C.detail.setByYou : C.detail.fromYourMessage}`;
 }
 
-function resourceLabel(ref: ResourceRef | ArtifactRef): string {
+/** 资源与产物的一行：有名字写名字；没写名字的文件用文件名，不然一排「文件」分不出是哪个。 */
+export function resourceLabel(ref: ResourceRef | ArtifactRef): string {
   const kind = C.detail.resource[ref.kind];
-  return 'label' in ref && ref.label ? `${kind} · ${ref.label}` : kind;
+  const name = 'label' in ref && ref.label ? ref.label : ref.kind === 'file' ? ref.path.split(/[\\/]/).pop() : null;
+  return name ? `${kind} · ${name}` : kind;
 }
 
 function Block({ label, children }: { label: string; children: ReactNode }) {
