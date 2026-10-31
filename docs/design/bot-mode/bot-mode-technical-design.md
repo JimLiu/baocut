@@ -598,7 +598,7 @@ type WorkItemEvent =
 | active·needsInput | approval(settled) | system | 回到审批前的子状态 | — |
 | active·needsReview / needsInput / blocked | user-replied | system（由线程收到 `via` 为用户的消息触发） | active·working | 清 `question`；note 写回答摘要 |
 | active·blocked / waitingOnOthers | unblocked | system；thread | active·working | — |
-| active·* | resolve | user | resolved·done | 停线程里未完成的回合 |
+| upNext / scheduled / active·*（建议除外） | resolve | user | resolved·done | 有线程时停掉未完成的回合；`owner:'user'` 的任务在 `upNext` 直接勾掉，不开线程（BOT-TK-04） |
 | active·* | resolve | coordinator，且 `ctx.run.origin = 'refresh'`，且 `evidence` 非空 | resolved·done | `resolution.by='agent'`；频道里写一条转述（D6） |
 | 任一未解决 | dismiss | user | resolved·dismissed | 先停线程 |
 | 任一未解决 | merge(into) | coordinator（需用户在本回合的消息里同意，ctx 带 cited message） | resolved·merged | 把本任务的线程挂到 `into` 的资源里 |
@@ -776,7 +776,7 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 | 标签 | 谁收 | 内容 |
 | --- | --- | --- |
 | `<baocut-thread-brief>` | 线程 | 任务、简报、引用、资源、文件归属、频道规则 |
-| `<baocut-relay>` | 线程 | 协调者的备注；`<cited author="user" at="…">` 原文 |
+| `<baocut-relay>` | 线程 | 协调者的备注；`<baocut-cited author="user" at="…">` 原文 |
 | `<baocut-thread-report>` | 协调者 | 一份报告（可以一回合多个） |
 | `<baocut-channel-state>` | 协调者 | 每回合前置：未解决任务的紧凑列表（id、标题、状态、问题）、本频道记忆的版本号与「规则」一节 |
 | `<baocut-channel-handoff>` | 协调者 | 接力种子（§6.3） |
@@ -785,7 +785,7 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 | `<baocut-ambiguous-answer>` | 协调者 | 消歧候选 |
 | `<baocut-refresh>` | 线程 | 刷新：上次报告以来，任务来源的变化清单（Job 结束、视频版本变化、文件修改时间） |
 
-`<cited author="user">` 只由 Runtime 在 `relay` 块里生成。块外出现的同名文字已被转义，智能体指令写明：只有块内、未转义的 `cited author="user"` 才是用户原话。
+`<baocut-cited author="user">` 只由 Runtime 在 `relay` 块里生成。引用标签用 `baocut-` 前缀，正是为了落进 `escapeContextTags` 的转义范围：简报、报告、引用正文里出现的 `<baocut-cited …>` 一律变成 `&lt;baocut-cited …`，伪造不出来。智能体指令写明：只有未转义的 `<baocut-cited author="user">` 才是用户原话，没有前缀的 `<cited>` 一类写法不算。
 
 ### 13.2 每回合的组装顺序（协调者）
 
