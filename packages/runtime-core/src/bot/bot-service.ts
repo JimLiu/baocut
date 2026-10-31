@@ -1205,6 +1205,14 @@ export class BotService {
     if (rest.title !== undefined && by === 'user') next.titleBy = 'user';
     if (rest.overrides && item.overrides?.budget !== rest.overrides.budget) next.budgetWarnedAt = null;
     await this.#commit(item, next, [], []);
+    // 改了任务的访问模式：已有的线程会话跟着改，不经 Bot 投递的回合（例如 Job 跑完叫醒）也用新模式开始。
+    const accessMode = rest.overrides?.accessMode;
+    if (accessMode && accessMode !== item.overrides?.accessMode && next.threadId && this.#harness.conversationOf(next.threadId)) {
+      await this.#harness.updateConversation(
+        { conversationId: next.threadId, accessMode: minMode(accessMode, channel.maxAccessMode) ?? accessMode },
+        { internal: BOT_INTERNAL },
+      );
+    }
     return next;
   }
 

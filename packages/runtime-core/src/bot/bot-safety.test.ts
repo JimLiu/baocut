@@ -695,6 +695,16 @@ describe('channel access ceiling (§14.4)', () => {
     expect(kit.harness.conversationOf(kit.threadOf(followed.id))!.accessMode).toBe('ask');
   });
 
+  it('lowering a task access mode lowers its existing thread too, so a job wake or a direct message does not start in the old mode', async () => {
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'auto', maxAccessMode: null });
+    const item = await kit.startTask('Cut the trailer');
+    await kit.settle();
+    const threadId = kit.threadOf(item.id);
+    expect(kit.harness.conversationMode(threadId)).toBe('auto');
+    await kit.bot.updateItem(item.id, { overrides: { accessMode: 'plan', driverId: null, model: null, budget: null, outputLanguage: null } });
+    expect(kit.harness.conversationMode(threadId)).toBe('plan');
+  });
+
   it('setting the channel back to Follow default clears the coordinator mode, still under the ceiling', async () => {
     const coordinator = kit.main.conversationId;
     // 测试里机器人默认是 fullAccess（建频道时就固定在协调者上），跟随默认就回到它。
