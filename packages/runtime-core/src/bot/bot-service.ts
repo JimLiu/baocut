@@ -73,7 +73,7 @@ import {
   workspaceFactsBlock,
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
-import { carryTaskFiles, changedFiles, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
+import { carryTaskFiles, changedFiles, realInside, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
 import { spendWindow, sumMoney, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { confirmChips, questionChips, questionCount } from './suggestions.ts';
 import { datesSetBy } from './dates-set-by.ts';
@@ -1418,7 +1418,9 @@ export class BotService {
     const others = new Set(this.#channelItems(item.channelId).filter((i) => i.id !== id).flatMap((i) => taskFilePaths(base, i.files, [...i.resources, ...i.outputs])));
     // 自己的：线程写过的（每个回合前后比对频道文件夹记下的）加上报告里交出的文件产出。
     const own = taskFilePaths(base, item.files, item.outputs);
-    const files = own.filter((f) => !others.has(f));
+    // 只删按真实路径也在频道文件夹里的：经过指到外面的符号链接的不列、不删。
+    const inside = await Promise.all(own.map((f) => realInside(base, f)));
+    const files = own.filter((f, i) => inside[i] && !others.has(f));
     const keptShared = own.filter((f) => others.has(f));
     if (dryRun) return { files, keptShared, deleted: false };
     if (!confirm || JSON.stringify([...confirm.files].sort()) !== JSON.stringify([...files].sort())) {

@@ -258,6 +258,27 @@ describe('moving a task', () => {
     expect(await files.readHeld(kit.main.id, item.id)).toBeNull();
   });
 
+  it('BOT-EX-20 deleting a task record does not list or delete a file reached through a symlink that leaves the channel folder', async () => {
+    const dir = kit.bot.filesDir(kit.main.id);
+    await fs.mkdir(dir, { recursive: true });
+    const outside = path.join(kit.dir, 'outside');
+    await fs.mkdir(outside, { recursive: true });
+    await fs.writeFile(path.join(outside, 'source.txt'), 'keep me');
+    await fs.symlink(outside, path.join(dir, 'linked'), 'dir');
+    await fs.writeFile(path.join(dir, 'mine.txt'), 'mine');
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Draft captions', owner: 'user' });
+    await kit.bot.patchItemContent(
+      item.id,
+      (i) => ({ ...i, files: ['mine.txt'], outputs: [{ kind: 'file', path: path.join('linked', 'source.txt'), label: 'Source', version: null }] }),
+      false,
+    );
+    const plan = await kit.bot.deleteRecord(item.id, true);
+    expect(plan.files).toEqual(['mine.txt']);
+    await kit.bot.deleteRecord(item.id, false, { files: plan.files });
+    expect(await fs.readFile(path.join(outside, 'source.txt'), 'utf8')).toBe('keep me');
+    await expect(fs.access(path.join(dir, 'mine.txt'))).rejects.toThrow();
+  });
+
   it('BOT-EX-20 deleting a task record tells the schedules, so a run that created the task can close', async () => {
     const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Weekly recap', owner: 'user' });
     const plan = await kit.bot.deleteRecord(item.id, true);

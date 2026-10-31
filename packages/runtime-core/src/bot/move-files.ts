@@ -10,6 +10,31 @@ export function relativeInside(base: string, file: string): string | null {
   return rel;
 }
 
+/**
+ * 文件按真实路径也在频道文件夹里：路径上的目录符号链接（或文件本身是链接）指到外面的不算。文件已经不在时按它最近的
+ * 还在的上级目录算。只看字面路径的 `relativeInside` 挡不住 `linked/x.txt`（`linked` 指向外面）这种。
+ */
+export async function realInside(base: string, rel: string): Promise<boolean> {
+  const realBase = await fs.realpath(base).catch(() => null);
+  if (!realBase) return false;
+  let probe = path.resolve(base, rel);
+  const rest: string[] = [];
+  let real: string | null = null;
+  for (;;) {
+    try {
+      real = await fs.realpath(probe);
+      break;
+    } catch {
+      const parent = path.dirname(probe);
+      if (parent === probe) return false;
+      rest.unshift(path.basename(probe));
+      probe = parent;
+    }
+  }
+  const relative = path.relative(realBase, path.join(real, ...rest));
+  return !!relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
 /** 任务引用到的、在频道文件夹里的文件（相对路径，去重）。 */
 export function taskFilePaths(base: string, files: readonly string[], refs: readonly (ResourceRef | ArtifactRef)[]): string[] {
   const out = new Set<string>();
