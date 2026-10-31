@@ -1,4 +1,3 @@
-/// <reference types="electron-vite/node" />
 import { BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, type MenuItemConstructorOptions } from 'electron';
 import { BaoCutClient } from '@baocut/client';
 import { onLocaleChange, type BotStatus } from '@baocut/protocol';
