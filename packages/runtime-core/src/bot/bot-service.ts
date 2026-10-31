@@ -1266,7 +1266,15 @@ export class BotService {
     const blocking = this.#heldReplies.get(itemId);
     if (blocking === undefined || blocking === runTaskId) return;
     this.#heldReplies.delete(itemId);
-    await this.transition(itemId, { type: 'user-replied' }, { actor: 'system' }).catch(() => {});
+    await this.#userReplied(itemId);
+  }
+
+  /** 用户的回复（经协调者转过来的）交给了线程：任务回到工作中。停在「等别人」的按放行算（`user-replied` 只管待审阅、需要你、卡住）。 */
+  async #userReplied(itemId: Id): Promise<void> {
+    const current = this.#items.get(itemId);
+    const event: WorkItemEvent =
+      current?.status === 'active' && current.active?.state === 'waitingOnOthers' ? { type: 'unblocked', cause: 'user-replied' } : { type: 'user-replied' };
+    await this.transition(itemId, event, { actor: 'system' }).catch(() => {});
   }
 
   /** 刷新（BOT-EX-08）：只投给线程，无人在场。 */
@@ -2119,6 +2127,11 @@ export class BotService {
     for (const c of cited) {
       if (c.author === 'user') await this.#files.appendRelayIndex(channel.id, { citedMessageId: c.messageId, workItemId: item.id, deliveryId }).catch(() => {});
     }
+    const fromUser = cited.some((c) => c.author === 'user');
+    // 线程空着时这次投递会起一个新回合：回合一开始（或它报告时）就把用户的回复算上，任务先回到工作中（在等别人的也一样），
+    // 这一回合的报告才收得下。投递带着 `#expecting`，回合开始时的等待恢复不看它，所以在这里先记下。
+    const idle = fromUser && !this.#harness.runInfo(item.threadId);
+    if (idle) this.#heldReplies.set(item.id, null);
     const outcome = await this.#deliverToThread(item, {
       id: deliveryId,
       direction: 'relay',
@@ -2128,11 +2141,14 @@ export class BotService {
       note,
       cited,
     });
-    if (outcome.result === 'held' && cited.some((c) => c.author === 'user')) {
+    if (outcome.result === 'held' && fromUser) {
       // 回合还在跑：这一回合可能还会报告「待审阅」或「需要你」，回复要等接着的那一回合开始时才算数。
       this.#heldReplies.set(item.id, item.threadId ? (this.#harness.runInfo(item.threadId)?.taskId ?? null) : null);
-    } else if (outcome.result !== 'dropped' && cited.some((c) => c.author === 'user')) {
-      await this.transition(item.id, { type: 'user-replied' }, { actor: 'system' }).catch(() => {});
+    } else if (outcome.result === 'dropped') {
+      if (idle && this.#heldReplies.get(item.id) === null) this.#heldReplies.delete(item.id);
+    } else if (fromUser) {
+      this.#heldReplies.delete(item.id);
+      await this.#userReplied(item.id);
     }
     return outcome.result;
   }
