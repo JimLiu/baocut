@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Id, TimelineItem } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
-import { isBareAnswer, isYesNoQuestion } from './bot-service.ts';
+import { isBareAnswer, isYesNoQuestion, minMode } from './bot-service.ts';
 import { stateName } from './work-item-machine.ts';
 import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
 
@@ -354,6 +354,41 @@ describe('channel access ceiling (§14.4)', () => {
     await kit.settle();
     expect(modes.at(-1)).toBe('ask');
     expect(kit.harness.conversationOf(kit.threadOf(followed.id))!.accessMode).toBe('ask');
+  });
+
+  it('setting the channel back to Follow default clears the coordinator mode, still under the ceiling', async () => {
+    const coordinator = kit.main.conversationId;
+    // 测试里机器人默认是 fullAccess（建频道时就固定在协调者上），跟随默认就回到它。
+    const followed = kit.harness.conversationMode(coordinator);
+    expect(followed).toBe('fullAccess');
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'plan' });
+    expect(kit.harness.conversationOf(coordinator)!.accessMode).toBe('plan');
+
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: null });
+    expect(kit.bot.channel(kit.main.id).defaultAccessMode).toBeNull();
+    expect(kit.harness.conversationMode(coordinator)).toBe(followed);
+
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'fullAccess', maxAccessMode: 'auto' });
+    expect(kit.harness.conversationOf(coordinator)!.accessMode).toBe('auto');
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: null });
+    expect(kit.harness.conversationMode(coordinator)).toBe(minMode(followed, 'auto'));
+  });
+
+  it('with no bot default, Follow default hands the coordinator back to the preference, capped at the ceiling', async () => {
+    await kit.close();
+    kit = await BotKit.open({ followPreferences: true });
+    const coordinator = kit.main.conversationId;
+    expect(kit.harness.conversationOf(coordinator)!.accessMode ?? null).toBeNull();
+    const preference = kit.harness.conversationMode(coordinator);
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'plan' });
+    expect(kit.harness.conversationMode(coordinator)).toBe('plan');
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: null });
+    expect(kit.harness.conversationOf(coordinator)!.accessMode ?? null).toBeNull();
+    expect(kit.harness.conversationMode(coordinator)).toBe(preference);
+
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'plan', maxAccessMode: 'plan' });
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: null });
+    expect(kit.harness.conversationMode(coordinator)).toBe(minMode(preference, 'plan'));
   });
 
   it('lowering the ceiling lowers existing threads too; a message sent straight to a thread cannot ask for more', async () => {

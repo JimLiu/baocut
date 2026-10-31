@@ -624,6 +624,10 @@ export class BotService {
     } else if (next.defaultAccessMode && (next.maxAccessMode ?? null) !== (channel.maxAccessMode ?? null)) {
       // 上限变了：协调者回到「默认模式压到新上限」，上限放宽时也能回到频道设的默认。
       conversationPatch.accessMode = minMode(next.defaultAccessMode, next.maxAccessMode ?? null) ?? next.defaultAccessMode;
+    } else if (!next.defaultAccessMode && (channel.defaultAccessMode || (next.maxAccessMode ?? null) !== (channel.maxAccessMode ?? null))) {
+      // 改回「跟随默认」，或跟随默认时上限变了：协调者回到建频道时的做法（机器人默认，没有就跟随偏好设置），下面再压到上限以内。
+      const fallback = this.#defaults().accessMode;
+      conversationPatch.accessMode = fallback ? (minMode(fallback, next.maxAccessMode ?? null) ?? fallback) : null;
     }
     // 先改会话（换 Driver 可能因为协调者正忙而失败），成功了再存频道，免得频道和会话对不上。
     if (Object.keys(conversationPatch).length > 1) {
@@ -631,6 +635,15 @@ export class BotService {
     }
     await this.#putChannel(next);
     if (dailyBudget !== undefined || monthlyBudget !== undefined) await this.#refreshSpend(id);
+    // 协调者回到跟随偏好设置后，偏好的模式若高于上限，固定成上限（与新线程的做法一样）。
+    if (conversationPatch.accessMode === null && next.maxAccessMode) {
+      const followed = this.#threadMode(next.conversationId);
+      if (followed && rank(followed) > rank(next.maxAccessMode)) {
+        await this.#harness.updateConversation({ conversationId: next.conversationId, accessMode: next.maxAccessMode }, { internal: BOT_INTERNAL }).catch((error: unknown) =>
+          this.#log.warn('Lowering the coordinator to the channel ceiling failed', { conversationId: next.conversationId, error: String(error) }),
+        );
+      }
+    }
     // 上限压低了（§14.4）：频道与已有线程里高于上限的模式一起压下来，直接发给它们的消息也不会越过上限。
     if (next.maxAccessMode && next.maxAccessMode !== channel.maxAccessMode) {
       const max = next.maxAccessMode;

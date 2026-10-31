@@ -160,7 +160,7 @@ export class BotKit {
   readonly scripts = new Map<Id, BotScript>();
   #home!: ReturnType<typeof resolveRuntimeHome>;
 
-  static async open(options: { approvals?: boolean; steer?: boolean; facts?: string[]; seedTimeoutMs?: number; otherDriver?: boolean } = {}): Promise<BotKit> {
+  static async open(options: { approvals?: boolean; steer?: boolean; facts?: string[]; seedTimeoutMs?: number; otherDriver?: boolean; followPreferences?: boolean } = {}): Promise<BotKit> {
     const kit = new BotKit();
     kit.dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-bot-')));
     kit.#home = resolveRuntimeHome({ BAOCUT_HOME: path.join(kit.dir, 'home') });
@@ -169,7 +169,7 @@ export class BotKit {
     return kit;
   }
 
-  async #boot(options: { approvals?: boolean; steer?: boolean; seedTimeoutMs?: number; otherDriver?: boolean }): Promise<void> {
+  async #boot(options: { approvals?: boolean; steer?: boolean; seedTimeoutMs?: number; otherDriver?: boolean; followPreferences?: boolean }): Promise<void> {
     const home = this.#home;
     this.driver = new ScriptedDriver({ ...(options.approvals !== undefined ? { approvals: options.approvals } : {}), ...(options.steer !== undefined ? { steer: options.steer } : {}) });
     const drivers = new DriverRegistry();
@@ -198,7 +198,7 @@ export class BotKit {
       workspace: this.workspace,
       make: this.make,
       schedules: this.schedules,
-      defaults: () => ({ driverId: null, accessMode: 'fullAccess' }),
+      defaults: () => ({ driverId: null, accessMode: options.followPreferences ? null : 'fullAccess' }),
       clock: this.clock,
       seedTimeoutMs: options.seedTimeoutMs ?? 60_000,
     });
