@@ -3,7 +3,7 @@ import { confirmRisk, type ToolConfirmation } from './tool-scope.ts';
 
 /* 无人在场的 Bot 回合里，可能花钱的调用不论授权都要问（Bot 技术方案 §14.2）。 */
 
-const speak = (paid: boolean): ToolConfirmation => ({ tool: 'speak', summary: 'speak', risk: 'command', ...(paid ? { paid } : {}) });
+const speak = (paid: boolean): ToolConfirmation => ({ tool: 'speak', summary: 'speak', risk: 'command', paid });
 
 describe('confirmRisk', () => {
   it('a paid call in an unattended thread or channel turn is high, so even auto mode asks', () => {

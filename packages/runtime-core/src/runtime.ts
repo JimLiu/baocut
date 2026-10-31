@@ -137,6 +137,7 @@ import { resolveDownloadsDirectory, resolveSaveDirectory } from './external-tool
 import { entryPlace } from './videos/pipeline-targets.ts';
 import { FlowTools } from './agent-tools/flow-tools.ts';
 import { LinkImportTools } from './agent-tools/link-import-tools.ts';
+import { servicesPaidProbe } from './agent-tools/paid-calls.ts';
 import { OpenMediaTools } from './agent-tools/open-media-tools.ts';
 import { AudioTools } from './agent-tools/audio-tools.ts';
 import { ImageTools } from './agent-tools/image-tools.ts';
@@ -994,9 +995,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     // 智能体写作的句子编号（创作辅助集成设计 §3.4「智能体路径」）：`speech_sentences` 发、`downloads_save` 校验，按会话分开。
     const citationRegistry = new MemoryCitationRegistry();
+    // 一次调用会不会交给在线 Provider（花钱）：按模型服务此刻的选择判断（Bot 技术方案 §14.2）。
+    const paid = servicesPaidProbe(models.services);
     const toolSets = (toolScope: ToolScope): ToolSet[] => {
       // 从链接下载：`download` 与 `transcribe` 给 `url` 时共用。
       const linkImport = {
+        paid,
         tools: externalTools,
         pipelines: models.pipelines,
         jobs: models.jobs,
@@ -1033,7 +1037,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         new ConversationTools({ harness, scope: toolScope }),
         new LinkImportTools(linkImport),
         // 一级动词（transcribe、translate、dub、transcode）：启动固定流程；视频启用的术语表由流程自己读。
-        new FlowTools({ pipelines: models.pipelines, scope: toolScope, linkImport }),
+        new FlowTools({ pipelines: models.pipelines, scope: toolScope, linkImport, paid }),
         new DownloadTools({
           scope: toolScope,
           downloadsDirectory: () => resolveDownloadsDirectory(settings.store.get('downloads.directory')),

@@ -12,6 +12,7 @@ import { LINK_COOKIE_BROWSERS, RpcError, type CapabilityNotConfiguredDetails } f
 import { RcFlowTools } from '@baocut/protocol/messages/runtime-core';
 import { errorBody, ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import { approvalField, bindingConfirmation, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import { assumePaid, type ModelCall, type PaidProbe } from './paid-calls.ts';
 import { cookieBrowsersArg, startLinkImport, toolErrorOf, type LinkImportToolsDeps } from './link-import-tools.ts';
 import { resolveUserPath } from './video-digest.ts';
 import { commandIdArg, videoArg } from './video-tools.ts';
@@ -36,6 +37,8 @@ export interface FlowToolsDeps {
   scope: ToolScope;
   /** `transcribe` 给 `url` 时用（与 `download` 同一份依赖）。 */
   linkImport: LinkImportToolsDeps;
+  /** 这次调用会不会交给在线 Provider（Bot 技术方案 §14.2）；不给时按付费处理。 */
+  paid?: PaidProbe;
 }
 
 const LANGUAGE = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/;
@@ -344,6 +347,7 @@ export class FlowTools implements ToolSet {
 
     const { scope } = this.#deps;
     const access = scope.authorize(principal, true);
+    const paid = await this.#paid([{ capability: 'transcribe', provider: args.provider, model: args.model }]);
     const recognition = {
       ...(args.language !== undefined ? { language: args.language } : {}),
       ...(args.provider !== undefined ? { provider: args.provider } : {}),
@@ -356,6 +360,7 @@ export class FlowTools implements ToolSet {
       const approval = await scope.confirm(access, {
         tool: 'transcribe',
         video: args.video,
+        paid,
         ...confirmSummary(
           args.target === 'replace'
             ? RcFlowTools.transcribeReplaceSummary({ asset: args.asset ?? null, ...providerOf(args) })
@@ -391,6 +396,7 @@ export class FlowTools implements ToolSet {
       const outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, base) : undefined;
       const approval = await scope.confirm(access, {
         tool: 'transcribe',
+        paid,
         ...confirmSummary(RcFlowTools.transcribeFileSummary({ file, ...providerOf(args), outDir: outDir ?? null })),
       });
       const jobId = await this.#start(access, TRANSCRIBE_PIPELINE, args.commandId, {
@@ -411,6 +417,7 @@ export class FlowTools implements ToolSet {
       bindingConfirmation(
         {
           tool: 'transcribe',
+          paid,
           ...confirmSummary(
             RcFlowTools.transcribeCreateSummary({ name: args.name ?? null, file, ...providerOf(args), captions: !args.noCaptions }),
           ),
@@ -483,6 +490,7 @@ export class FlowTools implements ToolSet {
       ...(args.model !== undefined ? { model: args.model } : {}),
       ...(args.bilingual !== undefined ? { bilingual: args.bilingual } : {}),
     };
+    const paid = await this.#paid([{ capability: 'generateText', provider: args.provider, model: args.model }]);
     if (args.video !== undefined) {
       // i18n-ignore-start: 给模型的工具说明、错误与下一步
       if (args.from !== undefined || args.format !== undefined || args.outDir !== undefined) {
@@ -495,6 +503,7 @@ export class FlowTools implements ToolSet {
       const approval = await scope.confirm(access, {
         tool: 'translate',
         video: args.video,
+        paid,
         ...confirmSummary(
           RcFlowTools.translateVideoSummary({
             to: args.to,
@@ -531,6 +540,7 @@ export class FlowTools implements ToolSet {
     const outDir = args.outDir !== undefined ? resolveUserPath(args.outDir, base) : undefined;
     const approval = await scope.confirm(access, {
       tool: 'translate',
+      paid,
       ...confirmSummary(RcFlowTools.translateFileSummary({ input, to: args.to, ...providerOf(args), outDir: outDir ?? null })),
     });
     const jobId = await this.#start(
@@ -562,9 +572,17 @@ export class FlowTools implements ToolSet {
     const { scope } = this.#deps;
     const access = scope.authorize(principal, true);
     const opened = await scope.open(args.video, access);
+    // 配音逐句交给语音合成；没给译文时先用文本模型翻译。用户库里的音色可能绑在别的 Provider 上：没指定 Provider 时按付费处理。
+    const paid =
+      (args.voice?.startsWith('library:') === true && args.provider === undefined) ||
+      (await this.#paid([
+        { capability: 'synthesizeSpeech', provider: args.provider, model: args.model },
+        ...(args.translation === undefined ? [{ capability: 'generateText' as const }] : []),
+      ]));
     const approval = await scope.confirm(access, {
       tool: 'dub',
       video: args.video,
+      paid,
       ...confirmSummary(
         RcFlowTools.dubSummary({
           to: args.to ?? null,
@@ -611,6 +629,8 @@ export class FlowTools implements ToolSet {
     const action = args.merge ? 'merge' : args.extractAudio ? 'extract-audio' : 'compress';
     const approval = await scope.confirm(access, {
       tool: 'transcode',
+      // 只用本机的 ffmpeg。
+      paid: false,
       ...confirmSummary(
         RcFlowTools.transcodeSummary({
           action,
@@ -635,6 +655,11 @@ export class FlowTools implements ToolSet {
       // i18n-ignore: 给模型的工具说明、错误与下一步
       next: '转码已提交。用 jobs_wait 等到 completed：outputs 的 path（pipeline.summary.files）是输出的文件，把位置告诉用户。',
     };
+  }
+
+  /** 这些模型调用里有没有会花钱的（§14.2）。 */
+  #paid(calls: ModelCall[]): Promise<boolean> {
+    return (this.#deps.paid ?? assumePaid)(calls);
   }
 
   /** 启动流程；文本模型没有配置时把 `next` 换成 `selfTranslate`（给了时）。 */

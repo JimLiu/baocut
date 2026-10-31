@@ -5,6 +5,7 @@ import {
   DUB_PIPELINE,
   isTerminal,
   LINK_IMPORT_PIPELINE,
+  SPEAKERS_PIPELINE,
   TRANSCODE_PIPELINE,
   UPSCALE_IMAGE_PIPELINE,
   TRANSCRIBE_PIPELINE,
@@ -34,6 +35,16 @@ export interface JobToolsDeps {
   scope: ToolScope;
   /** 提交它的会话的智能体看到了一个 Job 的记录（完成收件箱据此不再叫醒它，架构设计 §7.2）。 */
   seen?: (record: JobRecord) => void;
+}
+
+/** 只用本机工具、从不调用在线 Provider 的流程：重跑它们不花钱。 */
+const LOCAL_PIPELINES: ReadonlySet<string> = new Set([TRANSCODE_PIPELINE, SPEAKERS_PIPELINE]);
+
+/** 重跑这个流程会不会调用在线 Provider：只下载不转写的、只用本机工具的不会，别的按可能花钱处理。 */
+function retryMayPay(pipeline: { name: string; params: Record<string, unknown> }): boolean {
+  if (LOCAL_PIPELINES.has(pipeline.name)) return false;
+  if (pipeline.name === LINK_IMPORT_PIPELINE) return pipeline.params.transcribe === true;
+  return true;
 }
 
 /** 等待的上限（秒）。 */
@@ -322,6 +333,8 @@ export class JobTools implements ToolSet {
     // i18n-ignore-end
     const approval = await scope.confirm(access, {
       tool: 'jobs_retry',
+      // 重跑会再调用流程冻结的 Provider：只用本机工具的流程之外都按可能花钱处理（Bot 技术方案 §14.2）。
+      paid: retryMayPay(record.pipeline),
       ...confirmSummary(
         RcAgentTools.retryPipelineSummary({ jobId: record.jobId, pipeline: record.pipeline.name, attempt: record.attempt + 1 }),
       ),
