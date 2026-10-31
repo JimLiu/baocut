@@ -138,6 +138,27 @@ describe('BOT-S01..S16', () => {
     expect(causes(item.id)).toEqual(expect.arrayContaining(['unblocked:dependency->working', 'report:needs-review->needsReview']));
   });
 
+  it('a user reply the coordinator relays to a thread waiting on another task brings it back to working, so its report lands', async () => {
+    const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
+      if (n === 2) await ctx.call('thread_report', { stop: 'needs-review', headline: 'Used library music instead.' });
+    };
+    const item = await kit.startTask('Add music to the trailer');
+    expect(state(item.id)).toBe('waitingOnOthers');
+    const out = await kit.coordinatorTurn('Skip the license, use library music', (ctx) =>
+      ctx.call<{ delivered: string }>('thread_relay', { workItemId: item.id, note: 'Use library music.', citedMessageIds: [userMsg(ctx)] }),
+    );
+    expect(out.delivered).not.toBe('dropped');
+    await kit.until(() => state(item.id) === 'needsReview');
+    await kit.settle();
+    expect(causes(item.id)).toEqual(expect.arrayContaining(['unblocked:user-replied->working', 'report:needs-review->needsReview']));
+    expect(kit.item(other.id).status).not.toBe('resolved');
+  });
+
   it('waiting on the same task a second time (after it was reopened) wakes the thread again', async () => {
     const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
     const turns = new Map<Id, number>();

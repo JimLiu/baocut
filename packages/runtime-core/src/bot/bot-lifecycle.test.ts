@@ -3,6 +3,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId, type Id } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
+import { ChannelFiles, WorkItemStore } from '@baocut/runtime-storage';
 import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
 import { stateName } from './work-item-machine.ts';
 
@@ -211,6 +212,73 @@ describe('moving a task', () => {
     for (const name of ['script.md', 'cut.txt', 'shared.txt']) expect(await fs.readFile(path.join(dir, name), 'utf8')).toBe(name);
   });
 
+  it('BOT-EX-20 deleting a task that another thread reported waiting on wakes that thread', async () => {
+    const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
+      if (n === 2) await ctx.call('thread_report', { stop: 'needs-review', headline: 'Used library music instead.' });
+    };
+    const item = await kit.startTask('Add music to the trailer');
+    expect(stateName(kit.item(item.id))).toBe('waitingOnOthers');
+    const plan = await kit.bot.deleteRecord(other.id, true);
+    await kit.bot.deleteRecord(other.id, false, { files: plan.files });
+    await kit.until(() => stateName(kit.item(item.id)) === 'needsReview');
+    await kit.settle();
+    const woke = kit.turns(kit.threadOf(item.id)).at(-1)!;
+    expect(woke).toContain('<baocut-refresh reason="dependency-resolved">');
+    expect(woke).toContain('was deleted');
+  });
+
+  it('BOT-EX-20 deleting a task that a queued task depends on lets the queued task start', async () => {
+    kit.thread = firstTurn(async (ctx) => {
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'Trailer cut.' });
+    });
+    const first = await kit.bot.createItem({ channelId: kit.main.id, title: 'Pick the shots', owner: 'user' });
+    const next = await kit.bot.createItem({ channelId: kit.main.id, title: 'Cut the trailer', owner: 'agent', dependsOn: [first.id] });
+    await kit.bot.startItem(next.id, { attended: false });
+    expect(kit.item(next.id).status).toBe('upNext');
+    const plan = await kit.bot.deleteRecord(first.id, true);
+    await kit.bot.deleteRecord(first.id, false, { files: plan.files });
+    await kit.until(() => stateName(kit.item(next.id)) === 'needsReview');
+  });
+
+  it('BOT-EX-20 deleting a task record removes its held and queued launch files', async () => {
+    const files = new ChannelFiles(kit.home.channelsDir);
+    const blocker = await kit.bot.createItem({ channelId: kit.main.id, title: 'Pick the shots', owner: 'user' });
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Cut the trailer', owner: 'agent', dependsOn: [blocker.id] });
+    await kit.bot.startItem(item.id, { attended: false, brief: 'Use the wide shots.' });
+    expect(await files.readQueued(kit.main.id, item.id)).not.toBeNull();
+    await files.writeHeld(kit.main.id, item.id, { conversationId: 'conv_x', text: 'held' });
+    const plan = await kit.bot.deleteRecord(item.id, true);
+    await kit.bot.deleteRecord(item.id, false, { files: plan.files });
+    expect(await files.readQueued(kit.main.id, item.id)).toBeNull();
+    expect(await files.readHeld(kit.main.id, item.id)).toBeNull();
+  });
+
+  it('BOT-EX-20 deleting a task record does not list or delete a file reached through a symlink that leaves the channel folder', async () => {
+    const dir = kit.bot.filesDir(kit.main.id);
+    await fs.mkdir(dir, { recursive: true });
+    const outside = path.join(kit.dir, 'outside');
+    await fs.mkdir(outside, { recursive: true });
+    await fs.writeFile(path.join(outside, 'source.txt'), 'keep me');
+    await fs.symlink(outside, path.join(dir, 'linked'), 'dir');
+    await fs.writeFile(path.join(dir, 'mine.txt'), 'mine');
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Draft captions', owner: 'user' });
+    await kit.bot.patchItemContent(
+      item.id,
+      (i) => ({ ...i, files: ['mine.txt'], outputs: [{ kind: 'file', path: path.join('linked', 'source.txt'), label: 'Source', version: null }] }),
+      false,
+    );
+    const plan = await kit.bot.deleteRecord(item.id, true);
+    expect(plan.files).toEqual(['mine.txt']);
+    await kit.bot.deleteRecord(item.id, false, { files: plan.files });
+    expect(await fs.readFile(path.join(outside, 'source.txt'), 'utf8')).toBe('keep me');
+    await expect(fs.access(path.join(dir, 'mine.txt'))).rejects.toThrow();
+  });
+
   it('BOT-EX-20 deleting a task record tells the schedules, so a run that created the task can close', async () => {
     const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Weekly recap', owner: 'user' });
     const plan = await kit.bot.deleteRecord(item.id, true);
@@ -413,6 +481,33 @@ describe('undo baselines', () => {
     await kit.send(kit.threadOf(item.id), 'Trim a bit more');
     await kit.settle();
     expect(kit.item(item.id).baseVersions).toEqual([{ projectId: 'proj_1', videoId: video.videoId, version: 4 }]);
+  });
+});
+
+describe('stopping the service', () => {
+  it('stop waits for background writes that are still running, so nothing is written after it returns', async () => {
+    const video = { kind: 'video', projectId: 'proj_1', videoId: 'video_0123456789abcdef' } as const;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let asked = false;
+    // 回合结束后读视频基线（没人等着的后台处理）：读得很慢。
+    kit.workspace.baselines = async () => {
+      asked = true;
+      await gate;
+      return [{ projectId: 'proj_1', videoId: video.videoId, version: 4 }];
+    };
+    const item = await kit.startTask('Trim episode 4', { resources: [video] });
+    await kit.until(() => asked);
+    let stopped = false;
+    const stopping = kit.bot.stop().then(() => (stopped = true));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(stopped).toBe(false);
+    release();
+    await stopping;
+    // stop 返回时基线已经写进任务存储。
+    const store = new WorkItemStore(kit.home.workItemsDir);
+    const saved = (await store.load(kit.main.id)).items.find((i) => i.id === item.id);
+    expect(saved?.baseVersions).toEqual([{ projectId: 'proj_1', videoId: video.videoId, version: 4 }]);
   });
 });
 

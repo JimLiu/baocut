@@ -73,12 +73,12 @@ import {
   workspaceFactsBlock,
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
-import { carryTaskFiles, changedFiles, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
+import { carryTaskFiles, changedFiles, realInside, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
 import { channelBudgetSpent, spendWindow, sumMoney, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { confirmChips, questionChips, questionCount } from './suggestions.ts';
 import { datesSetBy } from './dates-set-by.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
-import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
+import { TransitionDenied, applyEvent, continueQuestion, heldForUser, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
 
 /*
  * Bot 模式的服务（docs/design/bot-mode 技术方案 §3）：频道、任务状态机的副作用、线程路由（简报、转交、报告）、活动桥（回合与审批
@@ -190,16 +190,22 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const ONE_SHOT_GRACE_MS = 5 * MINUTE;
+/** `stop` 最多等后台处理这么久。 */
+const STOP_DRAIN_MS = 5000;
 const NEEDS_REVIEW_STALE_DAYS = 3;
-/** 建议任务默认的「本地、可撤销」类别（§11.3 第 4 步的白名单）。 */
-const MAKE_KIND_ALLOW = /^(derive-|add-|translate|transcribe|export|tidy|cleanup|chapters|highlights|summar|review|caption|subtitle|cut|trim|shorts|thumbnail|title|organize|rename|fix-)/;
 /**
- * 建议里不许有的事：花钱、外发、发布、克隆声音。英文按整词（带常见词形）比，免得「reorder」「add border」被误拦；
- * 中文没有词界，按词直接找（发布、上传、发送、分享、购买、付款、支付、下单、克隆、投稿、推送、发帖、公开）。
+ * 建议任务默认的「本地、可撤销」类别（§11.3 第 4 步的白名单）。与下面的禁用词一样按整词（带常见词形）比：只看开头时
+ * 「cute」「trimester」「reviewers」也会算进来。`derive-`、`add-`、`fix-` 是一族，后面接什么都行。
+ */
+const MAKE_KIND_ALLOW =
+  /\b(?:(?:derive|add|fix)-[a-z]+|translat(?:e|es|ed|ing|ion|ions)|transcri(?:be|bes|bed|bing|pt|pts|ption|ptions)|export(?:s|ed|ing)?|tid(?:y|ies|ied|ying)|clean-?ups?|chapters?|highlights?|summar(?:y|ies|ize|izes|ized|izing|ise|ises|ised|ising)|review(?:s|ed|ing)?|caption(?:s|ed|ing)?|subtitl(?:e|es|ed|ing)|cut(?:s|ting)?|trim(?:s|med|ming)?|shorts|thumbnails?|titl(?:e|es|ed|ing)|organi[sz](?:e|es|ed|ing)|renam(?:e|es|ed|ing))\b/;
+/**
+ * 建议里不许有的事：花钱、外发（发布、发邮件、发消息）、克隆声音。英文按整词（带常见词形）比，免得「reorder」「add border」被误拦；
+ * 中文没有词界，按词直接找（发布、上传、发送、分享、购买、付款、支付、下单、克隆、投稿、推送、发帖、公开、邮件、私信、发消息、短信）。
  */
 const MAKE_DENY_WORDS =
-  /\b(?:publish(?:es|ed|ing)?|upload(?:s|ed|ing)?|post(?:s|ed|ing)?(?!-)|send(?:s|ing)?|sent|shar(?:e|es|ed|ing)|buy(?:s|ing)?|bought|pay(?:s|ing|ment|ments)?|paid|order(?:s|ed|ing)?|purchas(?:e|es|ed|ing)|clon(?:e|es|ed|ing)|dub-online)\b/;
-const MAKE_DENY_CJK = /发布|上传|发送|分享|购买|付款|支付|下单|克隆|投稿|推送|发帖|公开/;
+  /\b(?:publish(?:es|ed|ing)?|upload(?:s|ed|ing)?|post(?:s|ed|ing)?(?!-)|send(?:s|ing)?|sent|shar(?:e|es|ed|ing)|buy(?:s|ing)?|bought|pay(?:s|ing|ment|ments)?|paid|order(?:s|ed|ing)?|purchas(?:e|es|ed|ing)|clon(?:e|es|ed|ing)|dub-online|e-?mail(?:s|ed|ing)?|mail(?:s|ed|ing)?|messag(?:e|es|ed|ing)|dm(?:s|ed|ing)?|text-messag(?:e|es|ed|ing))\b/;
+const MAKE_DENY_CJK = /发布|上传|发送|分享|购买|付款|支付|下单|克隆|投稿|推送|发帖|公开|邮件|私信|发消息|短信/;
 
 /** 中文标题里认类别的词（剪、字幕、翻译、转录、导出、封面、短视频、竖版、章节、精彩、摘要、总结、整理、标题、重命名）。 */
 const FOLLOW_UP_KINDS_CJK: readonly [RegExp, string][] = [
@@ -362,7 +368,7 @@ export class BotService {
     // Driver 的可用性变了（重新探测、改了偏好）：之前因为 Driver 不可用没投出去的报告再投一次（§8.3）。
     const agents = this.#harness.subscribe('agents', undefined, (event) => {
       if ((event.event as { type?: string }).type !== 'agents.updated' || this.#stopped) return;
-      void this.#resendPending().catch(() => {});
+      void this.#track(this.#resendPending().catch(() => {}));
     });
     this.#unsubscribe.push(() => agents.unsubscribe?.());
     // 接力（§6.3）之后、下一个协调者回合之前重启：接力要补的上下文只记在内存里，按会话记录找回来。
@@ -397,8 +403,44 @@ export class BotService {
     this.#cancelHourly?.();
     for (const cancel of this.#seedTimers.values()) cancel();
     this.#seedTimers.clear();
+    // 不等就关的话，还在跑的处理（回合事件、报告、建议、基线……）会在存储关掉、目录删掉之后接着写盘。
+    await this.#drainBackground();
+    await Promise.all([...this.#memoryWrites.values()]);
     await this.#store.flush();
     await this.#channels.flush();
+    await this.#files.flush();
+  }
+
+  /** 没人等着的后台处理（`void …`）：都经 `#track` 记下，`stop` 时等它们落定。 */
+  readonly #background = new Set<Promise<void>>();
+
+  #track(work: Promise<unknown>): Promise<void> {
+    const settled = work.then(
+      () => {},
+      (error: unknown) => this.#log.warn('Background work failed', { error: String(error) }),
+    );
+    this.#background.add(settled);
+    void settled.then(() => this.#background.delete(settled));
+    return settled;
+  }
+
+  /** 等后台处理落定（它们还会再起新的，所以一轮轮等）；卡住不返回的（比如在等一个停着的回合）等到上限就不等了。 */
+  async #drainBackground(): Promise<void> {
+    const deadline = Date.now() + STOP_DRAIN_MS;
+    while (this.#background.size) {
+      const left = deadline - Date.now();
+      if (left <= 0) {
+        this.#log.warn('Stopping with background work still running', { count: this.#background.size });
+        return;
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, left);
+        timer.unref?.();
+      });
+      await Promise.race([Promise.all([...this.#background]), timeout]);
+      clearTimeout(timer);
+    }
   }
 
   async #loadChannel(channelId: Id): Promise<void> {
@@ -618,7 +660,7 @@ export class BotService {
       const existing = this.#channels.get(MAIN_CHANNEL_ID);
       if (existing) return existing;
       const channel = await this.#createChannel({ id: MAIN_CHANNEL_ID, kind: 'main', name: RcBot.mainChannelName().text, purpose: '' });
-      void this.#seed(channel).catch((error: unknown) => this.#log.warn('Seed turn failed', { error: String(error) }));
+      void this.#track(this.#seed(channel).catch((error: unknown) => this.#log.warn('Seed turn failed', { error: String(error) })));
       return channel;
     });
   }
@@ -635,7 +677,7 @@ export class BotService {
   }): Promise<Channel> {
     const channel = await this.#createChannel({ id: newId('chan'), kind: 'topic', ...params, purpose: params.purpose ?? '' });
     this.#writeChannelIntro(channel);
-    void this.runMake(channel.id, 'channel-created').catch(() => {});
+    void this.#track(this.runMake(channel.id, 'channel-created').catch(() => {}));
     return channel;
   }
 
@@ -738,8 +780,8 @@ export class BotService {
       this.#clock.setTimer(() => {
         this.#seedTimers.delete(channel.conversationId);
         if (!this.#hasAgentMessage(channel.conversationId, outcome.taskId)) {
-          void this.#harness.interrupt(channel.conversationId).catch(() => {});
-          void this.#seedFallback(channel, block);
+          void this.#track(this.#harness.interrupt(channel.conversationId).catch(() => {}));
+          void this.#track(this.#seedFallback(channel, block));
         }
       }, this.#seedTimeoutMs),
     );
@@ -756,9 +798,11 @@ export class BotService {
     const id = `welcome_${channel.id}`;
     if (this.#findItem(channel.conversationId, id)) return;
     const purpose = channel.purpose.trim();
-    const text = purpose ? RcBot.channelIntro({ name: channel.name, purpose }).text : RcBot.channelIntroNoPurpose({ name: channel.name }).text;
+    // 介绍句自己带句号：用途结尾的句末标点（含全角的）先去掉，免得出现两个句号。
+    const stated = purpose.replace(/[\s.!?\u2026\u3002\uFF0E\uFF61\uFF01\uFF1F]+$/u, '');
+    const text = stated ? RcBot.channelIntro({ name: channel.name, purpose: stated }).text : RcBot.channelIntroNoPurpose({ name: channel.name }).text;
     this.#harness.writeItem(channel.conversationId, { kind: 'agent-message', id, createdAt: nowIso(), taskId: null, text, streaming: false, fallback: true });
-    const subject = purpose || channel.name;
+    const subject = stated || channel.name;
     this.#writeSuggestions(channel.conversationId, id, 'system', [
       starterChip(RcBot.starterChannelPlan().text, RcBot.starterChannelPlanText({ subject }).text),
       starterChip(RcBot.starterChannelLatest().text, RcBot.starterChannelLatestText({ subject }).text),
@@ -917,21 +961,29 @@ export class BotService {
    * 留着，下次启动再清（`start`）。`known` 是已知属于它的会话，目录里标着这个频道的会话也一并删。
    */
   async #purgeChannel(id: Id, known: readonly Id[] = []): Promise<void> {
-    try {
+    // 一步失败（例如有个线程的视频还开着、会话删不掉）不挡后面的：能清的都清掉，只有真有失败时才留着记下的 id。
+    let failed = false;
+    const attempt = async (step: string, fn: () => Promise<void> | void): Promise<void> => {
+      try {
+        await fn();
+      } catch (error) {
+        failed = true;
+        this.#log.warn('Cleaning up a deleted channel failed; will retry at the next start', { channelId: id, step, error: String(error) });
+      }
+    };
+    await attempt('schedules', async () => {
       await this.#schedules?.deleteForChannel(id);
       this.#schedules?.channelChanged(id);
-      const ids = new Set(known);
-      for (const c of this.#harness.directorySnapshot().conversations) if (c.channelId === id) ids.add(c.id);
-      for (const conversationId of ids) {
-        if (!this.#harness.conversationOf(conversationId)) continue;
-        await this.#harness.deleteConversation(conversationId, { internal: BOT_INTERNAL });
-      }
-      await this.#store.deleteChannel(id);
-      await this.#files.remove(id);
-      await this.#channels.clearTombstone(id);
-    } catch (error) {
-      this.#log.warn('Cleaning up a deleted channel failed; will retry at the next start', { channelId: id, error: String(error) });
+    });
+    const ids = new Set(known);
+    for (const c of this.#harness.directorySnapshot().conversations) if (c.channelId === id) ids.add(c.id);
+    for (const conversationId of ids) {
+      if (!this.#harness.conversationOf(conversationId)) continue;
+      await attempt('conversation', () => this.#harness.deleteConversation(conversationId, { internal: BOT_INTERNAL }));
     }
+    await attempt('work-items', () => this.#store.deleteChannel(id));
+    await attempt('files', () => this.#files.remove(id));
+    if (!failed) await attempt('tombstone', () => this.#channels.clearTombstone(id));
   }
 
   async readMemory(id: Id): Promise<{ content: string; version: number }> {
@@ -1254,7 +1306,15 @@ export class BotService {
     const blocking = this.#heldReplies.get(itemId);
     if (blocking === undefined || blocking === runTaskId) return;
     this.#heldReplies.delete(itemId);
-    await this.transition(itemId, { type: 'user-replied' }, { actor: 'system' }).catch(() => {});
+    await this.#userReplied(itemId);
+  }
+
+  /** 用户的回复（经协调者转过来的）交给了线程：任务回到工作中。停在「等别人」的按放行算（`user-replied` 只管待审阅、需要你、卡住）。 */
+  async #userReplied(itemId: Id): Promise<void> {
+    const current = this.#items.get(itemId);
+    const event: WorkItemEvent =
+      current?.status === 'active' && current.active?.state === 'waitingOnOthers' ? { type: 'unblocked', cause: 'user-replied' } : { type: 'user-replied' };
+    await this.transition(itemId, event, { actor: 'system' }).catch(() => {});
   }
 
   /** 刷新（BOT-EX-08）：只投给线程，无人在场。 */
@@ -1406,7 +1466,9 @@ export class BotService {
     const others = new Set(this.#channelItems(item.channelId).filter((i) => i.id !== id).flatMap((i) => taskFilePaths(base, i.files, [...i.resources, ...i.outputs])));
     // 自己的：线程写过的（每个回合前后比对频道文件夹记下的）加上报告里交出的文件产出。
     const own = taskFilePaths(base, item.files, item.outputs);
-    const files = own.filter((f) => !others.has(f));
+    // 只删按真实路径也在频道文件夹里的：经过指到外面的符号链接的不列、不删。
+    const inside = await Promise.all(own.map((f) => realInside(base, f)));
+    const files = own.filter((f, i) => inside[i] && !others.has(f));
     const keptShared = own.filter((f) => others.has(f));
     if (dryRun) return { files, keptShared, deleted: false };
     if (!confirm || JSON.stringify([...confirm.files].sort()) !== JSON.stringify([...files].sort())) {
@@ -1425,10 +1487,21 @@ export class BotService {
     this.#items.delete(id);
     for (const r of [...this.#reports.values()]) if (r.workItemId === id) this.#reports.delete(r.id);
     await this.#store.removeItem(item.channelId, id);
+    // 按任务记在内存与盘上的东西（等用户在场的那一份、排队的开工内容、等叫醒、挡着的回复）一并清掉。
+    this.#needsYou.delete(id);
+    this.#queuedBriefs.delete(id);
+    this.#heldReplies.delete(id);
+    this.#readyToWake.delete(id);
+    this.#jobWaking.delete(id);
+    this.#progressMarks.delete(id);
+    await this.#files.removeHeld(item.channelId, id).catch(() => {});
+    await this.#files.removeQueued(item.channelId, id).catch(() => {});
     this.#topicOf(item.channelId).publish({ type: 'work-item.removed', id });
     this.#publishChannel(this.channel(item.channelId));
     // 周期任务建的这一次还开着（例如还在「接下来」里的用户任务）：告诉它任务没了，好把这一次收尾，下一次照常建。
     this.#schedules?.workItemChanged(item);
+    // 依赖它或在等它的任务：删了的任务不会再结，按结了算，照常叫醒（不然它们一直停在「等别人」）。
+    await this.#wakeDependants(item, { id: item.id, title: item.title, removed: true });
     return { files, keptShared, deleted: true };
   }
 
@@ -1600,10 +1673,19 @@ export class BotService {
     if (conversation?.role !== 'thread') return true;
     const item = this.itemOfThread(conversationId);
     if (!item || item.status !== 'active' || item.active?.state === 'working') return true;
+    // 等你决定的任务（用户停下、预算或没进展卡住）不叫醒：线程会接着花钱。挡下的等任务回到工作中再交。
+    if (heldForUser(item) && !this.#stalledOnJob(item)) return false;
     const channel = this.#channels.get(item.channelId);
     if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(item.channelId, item.id)) return false;
     this.#jobWaking.add(item.id);
     return true;
+  }
+
+  /** 任务停在「卡住」上，原因是后台任务没动静（`stalled:job-hung`）：任务结束了，卡住的原因也就没了。 */
+  #stalledOnJob(item: WorkItem): boolean {
+    if (item.status !== 'active' || item.active?.state !== 'blocked') return false;
+    const last = (this.#transitions.get(item.channelId) ?? []).findLast((t) => t.workItemId === item.id);
+    return last?.cause === 'stalled:job-hung';
   }
 
   #slotFree(channelId: Id, exclude: Id): boolean {
@@ -1653,14 +1735,29 @@ export class BotService {
   }
 
   async #onResolved(item: WorkItem): Promise<void> {
-    // 依赖它的任务（BOT-EX-14），以及线程上次报告里说在等它的任务（§7.4 waitingFor）：等的都结了就转回工作中，并叫醒线程接着做。
+    await this.#wakeDependants(item, { id: item.id, title: item.title });
+    if (item.resolution?.kind === 'done') void this.#track(this.runMake(item.channelId, 'item-resolved').catch(() => {}));
+  }
+
+  /**
+   * 依赖它的任务（BOT-EX-14），以及线程上次报告里说在等它的任务（§7.4 waitingFor）：等的都结了（或删了）就转回工作中，
+   * 并叫醒线程接着做；再按顺序开排队的任务。
+   */
+  async #wakeDependants(item: WorkItem, cause: WakeCause): Promise<void> {
     for (const other of [...this.#items.values()]) {
       if (other.status === 'resolved' || other.id === item.id) continue;
       if (!other.dependsOn.includes(item.id) && !this.#waitingOn(other).includes(item.id)) continue;
-      await this.#wakeIfReady(other, item);
+      await this.#wakeIfReady(other, cause);
     }
     await this.#pump();
-    if (item.resolution?.kind === 'done') void this.runMake(item.channelId, 'item-resolved').catch(() => {});
+  }
+
+  /** 等的任务里还有没结的：找不到的（删了）按结了算。 */
+  #anyOpen(ids: readonly Id[]): boolean {
+    return ids.some((d) => {
+      const dep = this.#items.get(d);
+      return !!dep && dep.status !== 'resolved';
+    });
   }
 
   /** 线程上次报告里说在等的任务（只在它停在「等别人」时算数）。 */
@@ -1671,13 +1768,13 @@ export class BotService {
   }
 
   /** 等到能叫醒、但当时没有空位的任务：有空位时由 `#pump` 接着叫醒（与开工同一道并发闸门，§18.1）。 */
-  readonly #readyToWake = new Map<Id, { id: Id; title: string } | null>();
+  readonly #readyToWake = new Map<Id, WakeCause | null>();
 
   /**
    * 停在「等别人」的任务，等的都结了就叫醒：先过并发闸门，没空位就记下来等 `#pump`。
    * `resolved` 是刚结的那一个（叫醒的话里提它）；报告刚落下时自查、重启后对账时为 null。
    */
-  async #wakeIfReady(item: WorkItem, resolved: { id: Id; title: string } | null): Promise<void> {
+  async #wakeIfReady(item: WorkItem, resolved: WakeCause | null): Promise<void> {
     const current = this.#items.get(item.id);
     if (!current || current.status !== 'active' || current.active?.state !== 'waitingOnOthers') {
       this.#readyToWake.delete(item.id);
@@ -1688,11 +1785,10 @@ export class BotService {
     // 报告里还在等后台作业的，作业结束时另有叫醒；这里只管等任务的。
     if (!current.dependsOn.length && !waitingOn.length) return;
     if (report?.waitingFor?.jobIds.length && !resolved && !this.#readyToWake.has(current.id)) return;
-    const open = [...current.dependsOn, ...waitingOn].some((d) => this.#items.get(d)?.status !== 'resolved');
-    if (open) return;
+    if (this.#anyOpen([...current.dependsOn, ...waitingOn])) return;
     const channel = this.#channels.get(current.channelId);
     if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) {
-      this.#readyToWake.set(current.id, resolved ? { id: resolved.id, title: resolved.title } : (this.#readyToWake.get(current.id) ?? null));
+      this.#readyToWake.set(current.id, resolved ? { ...resolved } : (this.#readyToWake.get(current.id) ?? null));
       return;
     }
     const cause = resolved ?? this.#readyToWake.get(current.id) ?? null;
@@ -1702,9 +1798,11 @@ export class BotService {
     await this.transition(current.id, { type: 'unblocked', cause: 'dependency' }, { actor: 'system' }).catch(() => {});
     const woke = this.#items.get(current.id);
     if (woke?.threadId && woke.status === 'active' && woke.active?.state === 'working') {
-      const line = cause
-        ? `Task ${cause.id} ("${cause.title}") that you were waiting for is resolved. Check its result and continue.`
-        : 'The tasks you were waiting for are resolved. Check their results and continue.';
+      const line = !cause
+        ? 'The tasks you were waiting for are resolved. Check their results and continue.'
+        : cause.removed
+          ? `Task ${cause.id} ("${cause.title}") that you were waiting for was deleted and will not be finished. Decide how to go on without it.`
+          : `Task ${cause.id} ("${cause.title}") that you were waiting for is resolved. Check its result and continue.`;
       await this.#deliverToThread(woke, {
         id: `deps_${woke.id}_${cycle}_${cause?.id ?? 'all'}`,
         direction: 'refresh',
@@ -1726,8 +1824,7 @@ export class BotService {
     const report = current.lastReportId ? this.#reports.get(current.lastReportId) : undefined;
     const jobs = report?.waitingFor?.jobIds ?? [];
     if (!jobs.length) return;
-    const others = [...current.dependsOn, ...(report?.waitingFor?.workItemIds ?? [])];
-    if (others.some((d) => this.#items.get(d)?.status !== 'resolved')) return;
+    if (this.#anyOpen([...current.dependsOn, ...(report?.waitingFor?.workItemIds ?? [])])) return;
     const thread = this.#harness.conversationOf(current.threadId);
     if (!thread || thread.activeTaskId || this.#harness.runInfo(thread.id) || this.#harness.gatedJobWakes().includes(thread.id)) return;
     if (!(await this.#workspace.jobsFinished(jobs).catch(() => false))) return;
@@ -2080,6 +2177,11 @@ export class BotService {
     for (const c of cited) {
       if (c.author === 'user') await this.#files.appendRelayIndex(channel.id, { citedMessageId: c.messageId, workItemId: item.id, deliveryId }).catch(() => {});
     }
+    const fromUser = cited.some((c) => c.author === 'user');
+    // 线程空着时这次投递会起一个新回合：回合一开始（或它报告时）就把用户的回复算上，任务先回到工作中（在等别人的也一样），
+    // 这一回合的报告才收得下。投递带着 `#expecting`，回合开始时的等待恢复不看它，所以在这里先记下。
+    const idle = fromUser && !this.#harness.runInfo(item.threadId);
+    if (idle) this.#heldReplies.set(item.id, null);
     const outcome = await this.#deliverToThread(item, {
       id: deliveryId,
       direction: 'relay',
@@ -2089,11 +2191,14 @@ export class BotService {
       note,
       cited,
     });
-    if (outcome.result === 'held' && cited.some((c) => c.author === 'user')) {
+    if (outcome.result === 'held' && fromUser) {
       // 回合还在跑：这一回合可能还会报告「待审阅」或「需要你」，回复要等接着的那一回合开始时才算数。
       this.#heldReplies.set(item.id, item.threadId ? (this.#harness.runInfo(item.threadId)?.taskId ?? null) : null);
-    } else if (outcome.result !== 'dropped' && cited.some((c) => c.author === 'user')) {
-      await this.transition(item.id, { type: 'user-replied' }, { actor: 'system' }).catch(() => {});
+    } else if (outcome.result === 'dropped') {
+      if (idle && this.#heldReplies.get(item.id) === null) this.#heldReplies.delete(item.id);
+    } else if (fromUser) {
+      this.#heldReplies.delete(item.id);
+      await this.#userReplied(item.id);
     }
     return outcome.result;
   }
@@ -2145,14 +2250,14 @@ export class BotService {
       await this.createItem({ channelId: item.channelId, title: [...todo].slice(0, BOT_LIMITS.title).join(''), owner: 'user', source: { kind: 'thread', messageId: null, scheduleId: null, runId: null } });
     }
     if (report.followUps.length) {
-      void this.#suggestFollowUps(item, report.followUps).catch((error: unknown) => this.#log.warn('Suggesting follow-ups failed', { workItemId: item.id, error: String(error) }));
+      void this.#track(this.#suggestFollowUps(item, report.followUps).catch((error: unknown) => this.#log.warn('Suggesting follow-ups failed', { workItemId: item.id, error: String(error) })));
     }
     await this.#deliverReport(report, run.attended);
     // 报告说在等的任务可能在报告之前就结了：那时的「已结」事件找不到它，这里补查一次。
     // 不等它：这份报告常是线程在回合里交的，叫醒的投递要等这一回合结束才开始。
     if (report.stop === 'waiting') {
       const current = this.#items.get(item.id);
-      if (current) void this.#wakeIfReady(current, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: item.id, error: String(error) }));
+      if (current) void this.#track(this.#wakeIfReady(current, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: item.id, error: String(error) })));
     }
     return report;
   }
@@ -2213,7 +2318,7 @@ export class BotService {
       onDelivered: () => {
         const taskId = this.#harness.runInfo(channel.conversationId)?.taskId;
         if (taskId) this.#relayRuns.set(taskId, [...(this.#relayRuns.get(taskId) ?? []), report]);
-        void markDelivered();
+        void this.#track(markDelivered());
       },
     });
     if (outcome.result === 'dropped' && outcome.reason === 'unattended-needs-approvals') {
@@ -2242,7 +2347,7 @@ export class BotService {
   // ---- 活动桥（§9.3） ----
 
   #onRun(event: RunEvent): void {
-    void this.#handleRun(event).catch((error: unknown) => this.#log.warn('Run handling failed', { error: String(error) }));
+    void this.#track(this.#handleRun(event).catch((error: unknown) => this.#log.warn('Run handling failed', { error: String(error) })));
   }
 
   async #handleRun(event: RunEvent): Promise<void> {
@@ -2280,7 +2385,7 @@ export class BotService {
           // 后台任务结束叫醒了线程，而线程在 Job 跑着时已经报告过（待审阅、需要你、卡住）：回到工作中，这一回合的报告才收得下。
           // 用户停下的不动（停下时 Job 的叫醒已丢掉，这里只是兜底）。
           const current = this.#items.get(item.id);
-          if (current?.status === 'active' && jobWakeResumes(current)) await this.#forceWorking(current, 'unblocked:job-finished');
+          if (current?.status === 'active' && jobWakeResumes(current, this.#stalledOnJob(current))) await this.#forceWorking(current, 'unblocked:job-finished');
         }
         this.#jobWaking.delete(item.id);
         const current = this.#items.get(item.id);
@@ -2292,7 +2397,7 @@ export class BotService {
       this.#jobWaking.delete(item.id);
       await this.#recordRunFiles(item.id, event.taskId);
       // 读视频版本要打开视频，不挡住后面的收尾。
-      void this.#recordBaselines(item.id);
+      void this.#track(this.#recordBaselines(item.id));
       this.bindThreadChips(conversation.id, event.taskId);
       if (event.status === 'completed') this.#supplementChips(conversation.id, event.taskId);
       const info = this.#runStarts.get(event.taskId);
@@ -2414,7 +2519,7 @@ export class BotService {
   /** 审批与提问（§9.3）：线程会话的 activity 变成等你 → needsInput；回来 → 审批结束。同时把提问卡的选项做成答案提示。 */
   #onConversation(conversation: Conversation): void {
     if (conversation.role !== 'thread' && conversation.role !== 'channel') return;
-    void this.#handleConversation(conversation).catch((error: unknown) => this.#log.warn('Conversation handling failed', { error: String(error) }));
+    void this.#track(this.#handleConversation(conversation).catch((error: unknown) => this.#log.warn('Conversation handling failed', { error: String(error) })));
   }
 
   async #handleConversation(conversation: Conversation): Promise<void> {
@@ -2447,7 +2552,7 @@ export class BotService {
         // 审批时交的「在等」报告落下了：等的任务可能在审批期间就结了，那时的「已结」叫不醒它，这里补查一次。
         const settled = item ? this.#items.get(item.id) : undefined;
         if (settled?.status === 'active' && settled.active?.state === 'waitingOnOthers') {
-          void this.#wakeIfReady(settled, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: settled.id, error: String(error) }));
+          void this.#track(this.#wakeIfReady(settled, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: settled.id, error: String(error) })));
         }
       }
     }
@@ -2457,13 +2562,13 @@ export class BotService {
   #armWatchdog(): void {
     const tick = () => {
       if (this.#stopped) return;
-      void this.watchdog().catch((error: unknown) => this.#log.warn('Watchdog failed', { error: String(error) }));
+      void this.#track(this.watchdog().catch((error: unknown) => this.#log.warn('Watchdog failed', { error: String(error) })));
       this.#cancelWatchdog = this.#clock.setTimer(tick, MINUTE);
     };
     this.#cancelWatchdog = this.#clock.setTimer(tick, MINUTE);
     const hourly = () => {
       if (this.#stopped) return;
-      void this.hourly().catch((error: unknown) => this.#log.warn('Reminder scan failed', { error: String(error) }));
+      void this.#track(this.hourly().catch((error: unknown) => this.#log.warn('Reminder scan failed', { error: String(error) })));
       this.#cancelHourly = this.#clock.setTimer(hourly, HOUR);
     };
     this.#cancelHourly = this.#clock.setTimer(hourly, HOUR);
@@ -2590,7 +2695,7 @@ export class BotService {
     });
     const next = { ...current, reminded: [...current.reminded, key] };
     this.#items.set(item.id, next);
-    void this.#store.putItem(item.channelId, next, { sync: false });
+    void this.#track(this.#store.putItem(item.channelId, next, { sync: false }));
     this.#topicOf(item.channelId).publish({ type: 'work-item.upsert', item: next });
     if (key.startsWith('due') || key.startsWith('overdue')) this.#notify(next, 'reminder');
   }
@@ -2630,7 +2735,7 @@ export class BotService {
     if (due.length === 0) return;
     const next = Math.min(...due);
     const wait = Math.max(0, Math.min(next - now, HOUR));
-    this.#cancelOneShot = this.#clock.setTimer(() => void this.fireDue(), wait);
+    this.#cancelOneShot = this.#clock.setTimer(() => void this.#track(this.fireDue()), wait);
   }
 
   /** 一次性定时的候选：已排期、有时刻，且所在频道没有归档（归档的频道恢复时重新挂定时）。 */
@@ -2686,7 +2791,7 @@ export class BotService {
       if (prelude) parts.push(...prelude);
       if (channel.seedPending) {
         parts.push(channel.seedPending);
-        void this.#putChannel({ ...channel, seedPending: null });
+        void this.#track(this.#putChannel({ ...channel, seedPending: null }));
       }
     }
     return parts.join('\n');
@@ -3491,7 +3596,9 @@ export function isYesNoQuestion(text: string): boolean {
  * 后台任务叫醒线程时，任务能不能回到工作中：线程在 Job 跑着时报告过的待审阅、需要你（线程自己的提问）、卡住都能；
  * 用户停下的、停在审批上的、等用户在场才能跑的不能。
  */
-function jobWakeResumes(item: WorkItem): boolean {
+function jobWakeResumes(item: WorkItem, stalledOnJob: boolean): boolean {
+  // 等你决定（用户停下、预算或没进展卡住问「继续还是停下」）的不动：只有卡住的原因就是后台任务本身时，任务结束才接着做。
+  if (heldForUser(item) && !stalledOnJob) return false;
   const state = item.active?.state;
   if (state === 'needsReview') return true;
   if (state === 'needsInput') return !item.question?.approvalId && item.question?.askedBy !== 'system';
@@ -3500,6 +3607,9 @@ function jobWakeResumes(item: WorkItem): boolean {
 }
 
 /** 审批卡或提问卡 → 任务上的问题。 */
+/** 叫醒在等的任务时提的那一个：刚结的，或刚删的（`removed`）。 */
+type WakeCause = { id: Id; title: string; removed?: boolean };
+
 type LaunchOptions = { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null };
 
 /** 盘上的排队开工内容（自己写的，仍按形状核对）；不认识时 null。 */

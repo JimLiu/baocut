@@ -295,6 +295,55 @@ describe('a thread waiting on background jobs', () => {
     await kit.settle();
     expect(kit.item(item.id).active?.state).toBe('blocked');
   });
+
+  it('a job wake does not resume a task the budget watchdog stalled while the user-sent turn ran', async () => {
+    let turn = 0;
+    kit.thread = async (ctx) => {
+      turn++;
+      if (turn === 1) await ctx.call('thread_report', { stop: 'needs-review', headline: 'The rough cut is ready; the export is still running.' });
+      else if (turn === 2) ctx.turn.hold();
+      else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The export is ready too.' });
+    };
+    const item = await kit.startTask('Cut episode 8');
+    expect(kit.item(item.id).active?.state).toBe('needsReview');
+    const thread = kit.threadOf(item.id);
+    const briefTask = kit.items(thread).filter((i) => i.kind === 'task').at(-1)!.id;
+    await kit.send(thread, 'Tighten the intro too.');
+    await kit.until(() => turn === 2 && kit.item(item.id).active?.state === 'working');
+    kit.workspace.budget = 0.9;
+    await kit.bot.watchdog();
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    expect(kit.item(item.id).question?.askedBy).toBe('system');
+    await kit.harness.jobFinished({ conversationId: thread, taskId: briefTask, jobId: 'job_f', kind: 'export', attempt: 1, state: 'completed' });
+    await kit.settle();
+    await kit.bot.watchdog();
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    expect(turn).toBe(2);
+  });
+
+  it('a job wake still resumes a task that stalled only because that job went quiet', async () => {
+    let turn = 0;
+    kit.thread = async (ctx) => {
+      turn++;
+      if (turn === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'The dub is rendering.', waitingFor: { jobIds: ['job_g'] } });
+      else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The dub is ready.' });
+    };
+    const item = await kit.startTask('Dub episode 9');
+    expect(kit.item(item.id).active?.state).toBe('waitingOnOthers');
+    kit.workspace.hung = 'job_g';
+    await kit.bot.watchdog();
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    kit.workspace.hung = null;
+    const thread = kit.threadOf(item.id);
+    const taskId = kit.items(thread).filter((i) => i.kind === 'task').at(-1)!.id;
+    expect(await kit.harness.jobFinished({ conversationId: thread, taskId, jobId: 'job_g', kind: 'dub', attempt: 1, state: 'completed' })).toBe('woke');
+    await kit.until(() => kit.item(item.id).active?.state === 'needsReview');
+    await kit.settle();
+    expect(lastHeadline(item.id)).toBe('The dub is ready.');
+  });
 });
 
 describe('a report that could not be relayed is sent again', () => {
@@ -393,6 +442,24 @@ describe('first messages', () => {
     expect(chips?.kind === 'suggestions' && chips.chips.length).toBeLessThanOrEqual(3);
     expect(chips?.kind === 'suggestions' && chips.chips.some((c) => c.text?.includes('vertical clips for the weekly show'))).toBe(true);
     expect(chips?.kind === 'suggestions' && chips.chips.every((c) => c.kind === 'starter' && c.fillOnly)).toBe(true);
+  });
+
+  it('I18: a purpose that already ends with a full stop does not get a second one in the intro', async () => {
+    const intro = (channelId: Id) => {
+      const channel = kit.bot.channel(channelId);
+      const first = kit.items(channel.conversationId).find((i) => i.kind === 'agent-message');
+      return first?.kind === 'agent-message' ? first.text : '';
+    };
+    const english = await kit.bot.createChannel({ name: 'Recaps', purpose: 'Weekly recaps.' });
+    expect(intro(english.id)).toBe(RcBot.channelIntro({ name: 'Recaps', purpose: 'Weekly recaps' }).text);
+    // 全角句号与问号、叹号，以及结尾的空白也去掉。
+    const chinese = await kit.bot.createChannel({ name: 'Zh', purpose: '\u6BCF\u5468\u56DE\u987E\u3002 ' });
+    expect(intro(chinese.id)).toBe(RcBot.channelIntro({ name: 'Zh', purpose: '\u6BCF\u5468\u56DE\u987E' }).text);
+    const asking = await kit.bot.createChannel({ name: 'Ideas', purpose: 'New video ideas!?' });
+    expect(intro(asking.id)).toBe(RcBot.channelIntro({ name: 'Ideas', purpose: 'New video ideas' }).text);
+    // 只有标点的用途按没有用途算。
+    const dots = await kit.bot.createChannel({ name: 'Dots', purpose: '...' });
+    expect(intro(dots.id)).toBe(RcBot.channelIntroNoPurpose({ name: 'Dots' }).text);
   });
 });
 
@@ -503,6 +570,36 @@ describe('deleting a channel', () => {
     expect(saved.channels.map((c) => c.id)).not.toContain(channel.id);
     expect(saved.deletedChannels).toBeUndefined();
   });
+
+  it('I13: a conversation that cannot be deleted does not stop the rest of the clean-up; only it is retried at the next start', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Clips' });
+    const item = await kit.bot.createItem({ channelId: channel.id, title: 'Cut the teaser', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => kit.item(item.id).threadId && kit.harness.conversationOf(kit.threadOf(item.id))?.activity === 'idle');
+    await kit.settle();
+    const thread = kit.threadOf(item.id);
+    const channelDir = path.join(kit.home.channelsDir, channel.id);
+    const tasksFile = path.join(kit.home.workItemsDir, `${channel.id}.jsonl`);
+    await expect(fs.access(channelDir)).resolves.toBeUndefined();
+    await expect(fs.access(tasksFile)).resolves.toBeUndefined();
+    // 线程会话删不掉（比如它的视频还开着），频道对话照常能删。
+    const original = kit.harness.deleteConversation.bind(kit.harness);
+    kit.harness.deleteConversation = (async (conversationId: string, options?: unknown) => {
+      if (conversationId === thread) throw new Error('video is open');
+      return original(conversationId, options as never);
+    }) as typeof kit.harness.deleteConversation;
+    await kit.bot.deleteChannel(channel.id, { threads: 1, schedules: 0 });
+    kit.harness.deleteConversation = original;
+    expect(kit.harness.conversationOf(thread)).toBeTruthy();
+    expect(kit.harness.conversationOf(channel.conversationId)).toBeUndefined();
+    await expect(fs.access(channelDir)).rejects.toThrow();
+    await expect(fs.access(tasksFile)).rejects.toThrow();
+    const saved = () => fs.readFile(kit.home.channelsFile, 'utf8').then((t) => JSON.parse(t) as { deletedChannels?: string[] });
+    expect((await saved()).deletedChannels).toEqual([channel.id]);
+    await kit.restart();
+    expect(kit.harness.conversationOf(thread)).toBeUndefined();
+    expect((await saved()).deletedChannels).toBeUndefined();
+  });
 });
 
 describe('a delivery held for "continue" goes stale', () => {
@@ -602,6 +699,42 @@ describe('Make filters and limits', () => {
     const run = await kit.bot.runMake(kit.main.id, 'manual');
     expect(run.shown).toBe(2);
     expect(suggested().map((i) => i.title).sort()).toEqual(['Add a border to the thumbnail', 'Reorder the chapters']);
+  });
+
+  it('I20: a kind only counts as a whole word, and mailing or messaging someone is dropped', async () => {
+    kit.make.candidates = [
+      // 只是开头像白名单里的词：不算。
+      candidate('Cute ideas for the intro', 'cute-ideas'),
+      candidate('Plan the trimester', 'trimester'),
+      candidate('Find reviewers', 'reviewers'),
+      // 外发：发邮件、发消息。
+      candidate('Email the client the cut', 'cut'),
+      candidate('E-mail the edit to Sam', 'export'),
+      candidate('Mail the producer the trims', 'trim'),
+      candidate('Message the editor about the trim', 'trim'),
+      candidate('DM the host the highlights', 'highlights'),
+      candidate('Text-message the guest the cut', 'cut'),
+      candidate('给客户发邮件说剪好了', 'cut'),
+      candidate('私信剪辑师', 'review'),
+      candidate('发消息给主持人', 'highlights'),
+    ];
+    expect((await kit.bot.runMake(kit.main.id, 'manual')).shown).toBe(0);
+    expect(suggested()).toEqual([]);
+    // 词形变化和带后缀的类别照常算。
+    kit.make.candidates = [candidate('Translate a draft of the captions', 'translate-draft'), candidate('Caption episode 4', 'captions'), candidate('Pick the highlight', 'highlight')];
+    expect((await kit.bot.runMake(kit.main.id, 'manual')).shown).toBe(3);
+  });
+
+  it('I9: a follow-up whose only kind-like word is a longer word, or that mails someone, does not become a suggestion', async () => {
+    let done = false;
+    kit.thread = async (ctx) => {
+      if (done) return;
+      done = true;
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer is cut.', followUps: ['Cute ideas for the outro', 'Email the client the cut', 'Make shorts from the trailer'] });
+    };
+    await kit.startTask('Cut the trailer');
+    await kit.settle();
+    expect(suggested().map((i) => [i.title, i.suggestion?.kindTag])).toEqual([['Make shorts from the trailer', 'shorts']]);
   });
 
   it('I20: an automatic run with the suggestion slots full does not call the model and does not use up a daily run', async () => {

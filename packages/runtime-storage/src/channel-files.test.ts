@@ -67,6 +67,15 @@ describe('ChannelFiles', () => {
     await expect(fs.stat(path.join(root, 'channels', 'chan_1'))).rejects.toThrow();
   });
 
+  it('flush 等排着的写入都落盘', async () => {
+    const writes = [files.writeQueued('ch1', 'wi1', { brief: 'a' }), files.writeHeld('ch1', 'wi2', { text: 'b' }), files.appendRelayIndex('ch1', { citedMessageId: 'm1', workItemId: 'wi1', deliveryId: 'd1' })];
+    await files.flush();
+    expect(await files.readQueued('ch1', 'wi1')).toEqual({ brief: 'a' });
+    expect(await files.readHeld('ch1', 'wi2')).toEqual({ text: 'b' });
+    expect(await files.readRelayIndex('ch1')).toHaveLength(1);
+    await Promise.all(writes);
+  });
+
   it('不安全的 id 被拒绝', async () => {
     for (const bad of ['', '.', '..', 'a/b', 'a\\b', '../x', 'x..y']) {
       expect(() => files.dir(bad)).toThrow();

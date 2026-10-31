@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Logger } from '@baocut/harness';
 import {
+  BOT_LIMITS,
   nextScheduleRun,
   normalizeAgentMode,
   refOf,
@@ -212,6 +213,11 @@ export class ScheduleService {
     // 频道任务的计划：每次建任务用的是模板里的简报，改了指令要一起改，不然之后的任务还按旧的做。
     if (params.prompt !== undefined && schedule.workItem && next.prompt) {
       schedule.workItem = { ...schedule.workItem, template: { ...schedule.workItem.template, prompt: next.prompt } };
+    }
+    // 改了名字：之后建的任务也用新名字当标题（与建立时一样去掉首尾空白、按任务标题的上限截断）。
+    if (params.name !== undefined && schedule.workItem) {
+      const title = [...next.name.trim()].slice(0, BOT_LIMITS.title).join('');
+      if (title) schedule.workItem = { ...schedule.workItem, template: { ...schedule.workItem.template, title } };
     }
     if (params.target) schedule.target = params.target;
     if (params.paused === true && schedule.status === 'active') this.#pause(schedule, null);
