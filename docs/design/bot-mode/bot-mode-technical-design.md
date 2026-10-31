@@ -124,6 +124,10 @@ interface Channel {
   archived: boolean;
   archivedAt: string | null;
   limits: { concurrentThreads: number; dailyBudget: Money | null; monthlyBudget: Money | null };
+  outputLanguage: string | null; // 产物语言（BCP 47，如 'en'），null = 跟随对话语言（BOT-BH-10）
+  private: boolean;              // 不被其他频道读取（BOT-CH-12，P1）
+  muted: boolean;                // 只进徽标与「等你」收件箱，不弹系统通知（BOT-NF-08）
+  lastSeen: { at: string; itemId: Id | null } | null;   // 用户上次看到的位置，「你不在时」汇总与「以下是新消息」细线用（BOT-BH-08）
   memoryVersion: number;         // MEMORY.md 的版本号，写入时校验
   createdAt: string;
   updatedAt: string;
@@ -270,7 +274,9 @@ interface WorkItem {
   resources: ResourceRef[];      // ≤ 5
   outputs: ArtifactRef[];        // 线程做出的产物，同一产物只留最新版本
   dependsOn: Id[];               // BOT-EX-14
-  overrides: { accessMode: AgentMode | null; driverId: DriverId | null; model: string | null; budget: Money | null } | null;
+  overrides: { accessMode: AgentMode | null; driverId: DriverId | null; model: string | null; budget: Money | null; outputLanguage: string | null } | null;
+  baseVersions: { projectId: Id; videoId: Id; version: number }[];   // 任务第一次动某部视频前的版本，整体撤销用（BOT-EX-19）
+  lastProgressAt: string | null; // 最近一次有进展的时刻，卡住检测用（BOT-CV-10）
   suggestion: SuggestionMeta | null;     // status = suggested 时有
   source: { kind: 'conversation' | 'manual' | 'make' | 'schedule' | 'thread' | 'import'; messageId: Id | null; scheduleId: Id | null; runId: Id | null };
   threadId: Id | null;
@@ -399,6 +405,7 @@ interface WorkItemTransition {
 - 用户在记忆页的编辑走 `channels.writeMemory`，同一个版本校验。
 - `USER.md` 是用户级记忆，同样的版本校验，版本号存在 `channels.json` 的顶层。每个频道的协调者与线程都读它（注入 `<baocut-user-memory>`，排在频道记忆前，冲突时以频道记忆为准）；协调者可写，条件同 §13.3，再加一条：当前回合的用户 typed 消息说了「所有频道」「以后都」这类全局的话，或者用户回答了协调者的「只在这个频道，还是所有频道？」。用户在记忆页的「全局」一栏编辑它，走 `bot.writeUserMemory`。
 - 两份记忆的写入都过同一个**敏感内容校验**，命中就整次拒绝（`ToolError('invalid', '不要把密钥、密码、证件号、卡号写进记忆')`）：11 位以上连续数字（§10.4）、常见密钥前缀（`sk-`、`AKIA`、`ghp_`、`xox`）、`-----BEGIN … PRIVATE KEY-----`、「密码」「password」「口令」后面紧跟的非空字段。用户在记忆页手动写入时同样校验，界面给出原因。
+- **规则带编号**：记忆里由纠正产生的规则（BOT-EX-11）写成一行 `- [r12 · 2026-10-31] 字幕不用繁体`，编号由写入工具分配、日期是用户说这句话的日期。线程报告可以带 `appliedRules: string[]`，`thread_report` 校验每个编号在当前记忆里存在、不存在的丢掉；转述卡片上画成「按你 10 月 31 日说的」，点了打开记忆页并定位到那一行。新指令和已有规则冲突时由协调者问「只这次，还是以后都这样」（指令约束）：选「只这次」写进任务的 `overrides` 说明、不动记忆；选「以后都这样」改写那一行并保留编号。
 - 工作笔记由线程自己用文件工具读写（它在线程的 `cwd` 外面，所以单独给线程开一个可写路径，§7.1）。Runtime 不解析内容。
 - 两份都是数据：注入上下文时包在标签块里并转义（§13）。
 
@@ -542,6 +549,7 @@ Harness.deliver(d: Delivery): Promise<DeliveryResult>;
 - `thread_start`（§10.3）：校验任务存在、`owner:'agent'`、还没有线程；通过并发闸门（§18.1）则建线程并投递简报，否则任务留在 `upNext`、返回 `{ queued: true, position }`。
 - `thread_relay`：协调者把用户在频道里的补充转给线程。参数只有 `workItemId`、`note`（协调者的话）与 `citedMessageIds`（≤ 8，必须是本频道对话里的 `user-message` 或协调者自己的 `agent-message`）。Runtime 从频道对话里**原文复制**这些消息成 `CitedMessage`，并按条目填 `author` 与 `via`：只有 `user-message` 是 `user`，协调者自己的消息是 `coordinator`；用户消息的 `via` 照抄（typed / suggestion / reaction / notification）。渲染成 `<baocut-cited author="…" via="…">`，协调者的话不会冒充用户原话，点提示发出的话也标明是提示（§13.1）；组装 `<baocut-relay>` 块，`Harness.deliver(threadId, { wake:'new-task', … })`。投递 id = `relay_<cmsg>_<workItemId>`，同一条用户消息转给同一个线程只投一次。
 - `cited` 里有 `author:'user'` 的消息时，`thread_relay` 在投递成功后对任务发 `user-replied`（任务在 `needsReview` / `needsInput` / `blocked` 时回到 `working`），与用户直接在线程里回答的效果一致（BOT-EX-09）。没有用户引用的转交不改状态。
+- **转交索引**：每次转交（以及开线程时简报里附的用户原话）都在 `relays.jsonl`（频道目录下）记一行 `{ citedMessageId, workItemId, deliveryId }`。用户编辑一条消息（`conversations.editMessage`，新方法，P1；只能改自己的 typed 消息，原文保留在条目的 `history` 里）时，Runtime 查这个索引：消息转给过哪些任务，就对每个任务的线程再投一次 `<baocut-relay kind="edited">`，里面是新旧两版原文（`author:'user'`、`via:'typed'`），投递 id = `relay_edit_<cmsg>_<rev>_<workItemId>`。这一步由 Runtime 自动做，不经协调者；协调者那一侧照常收到编辑事件，只用一行说改了什么（BOT-EX-06）。只改错字的判断留给线程与协调者，Runtime 不比对文本。任务已解决时同下一条的规则。
 - 任务已解决时 `thread_relay` 不重开任务，交给线程按 §7.3 的规则判断：转交里有用户 typed 的原话时，线程可以凭它的 `citedMessageId` 重开。
 
 ### 8.3 回报（线程 → 协调者）
@@ -567,6 +575,7 @@ Harness.deliver(d: Delivery): Promise<DeliveryResult>;
 | --- | --- |
 | 投递简报 | `brief_<workItemId>_<threadStartCount>` |
 | 转交 | `relay_<cmsgId>_<workItemId>` |
+| 用户改了已转交的消息 | `relay_edit_<cmsgId>_<rev>_<workItemId>` |
 | 报告 | `report_<reportId>` |
 | 刷新 | `refresh_<workItemId>_<分钟时间戳>` |
 | 定时任务开任务 | `schedule_<runId>`（写进 `WorkItem.source.runId`，同一个 run 只建一条） |
@@ -625,7 +634,8 @@ type WorkItemEvent =
 | active·working | approval(pending) / thread-activity(awaiting-*) | system | active·needsInput | `question` 从审批推出（`askedBy:'system'`） |
 | active·needsInput | approval(settled) | system | 回到审批前的子状态 | — |
 | active·needsReview / needsInput / blocked | user-replied | system（由线程收到 `via` 为用户的消息触发） | active·working | 清 `question`；note 写回答摘要 |
-| active·blocked / waitingOnOthers | unblocked | system；thread | active·working | — |
+| active·blocked / waitingOnOthers | unblocked | system；thread；user（卡住后点「继续」） | active·working | 卡住后继续时投递 `<baocut-refresh reason="stalled">` |
+| active·working | stalled(no-progress / job-hung / budget) | system（看门狗，§9.3） | active·blocked | reason 写成一句人话，`question` 为「继续还是停止？」；`agents.interrupt` 线程；发通知 |
 | upNext / scheduled / active·*（建议除外） | resolve | user | resolved·done | 有线程时停掉未完成的回合；`owner:'user'` 的任务在 `upNext` 直接勾掉，不开线程（BOT-TK-04） |
 | upNext / scheduled / active·* | resolve(confirmedBy) | coordinator 或 thread，且当前回合 `attended`、未 `tainted`，由 `confirmedBy` 那条 `author:'user'`、`via:'typed'` 的消息起（线程须是自己会话里的消息，协调者须是频道里的消息） | resolved·done | 用户在对话里说了「标完成吧」「这个做完了」：`resolution.by='user'`、`confirmedBy` 存那条消息的 id，界面写「你确认完成」；有线程时停掉未完成的回合 |
 | active·* | resolve | thread，且当前回合 `task.origin = 'refresh'`，且 `evidence` 通过核验（§9.5） | resolved·done | `resolution.by='agent'`、`resolution.evidence` 存核验过的引用；报告照常交给协调者，频道里一句话告诉用户（D6） |
@@ -652,6 +662,14 @@ type WorkItemEvent =
 | 线程的 `task.upsert(running)` 且由完成收件箱 `woke` | `unblocked('job-finished')` |
 | 线程的任务 `completed` / `failed` 且本回合没有报告 | 兜底 `report`（§7.4） |
 | `dependsOn` 里的任务全部解决 | 依赖它的任务 `unblocked('dependency')` 或 `start` |
+
+**卡住检测（BOT-CV-10）**：`ActivityBridge` 在下面这些事发生时把 `WorkItem.lastProgressAt` 设为当前时刻：`update_status` 改了步骤、`work_items_update` 写了更新、`outputs` 变了、任务资源里的视频出了新版本、线程等的 Job 报了新进度。同一个工具用同样的参数连续调用、只读工具的调用都不算。一个每分钟一次的看门狗扫 `active·working` 的任务：
+
+- `now - lastProgressAt` 超过 `BotSettings.stallMinutes`（默认 20，频道可覆盖）→ 发 `stalled('no-progress')`；
+- 线程在等的 Job 超过它预计时长的两倍没有新进度 → `stalled('job-hung')`，reason 里带 Job 的名称；
+- 任务用量到了预算的 80% → `stalled('budget')`。
+
+`stalled` 事件把任务转 `blocked`，reason 写成用户看得懂的一句（「20 分钟没有进展」），`question` 是「继续还是停止？」，选项「继续」「停止」，并对线程调 `agents.interrupt`。「继续」走 `unblocked('user')`，投递一条 `<baocut-refresh reason="stalled">` 提醒线程先读工作笔记、换做法；「停止」走 `workItems.stop`。挂住的 Job 不在这里取消，由线程或用户决定。
 
 审批与报告同时到时，`needsInput` 优先（需求 §5.3）：状态机在 `approval(pending)` 期间收到的 `report(needs-review)` 只记下报告、不改子状态，审批结束时再落到 `needsReview`。
 
@@ -693,8 +711,8 @@ type Evidence =
 | `channel_read_memory` | — | 返回 `MEMORY.md` 全文与 `version` |
 | `channel_write_memory` | `content`、`ifVersion` | 版本冲突返回当前内容；> 16 KiB 拒绝；过敏感内容校验（§5.4）。用户口头说「忘掉这条」时也用它，删掉对应条目后在回复里复述删了什么 |
 | `user_read_memory` / `user_write_memory` | 同上 | 用户级记忆 `USER.md`（§5.4）；写入条件比频道记忆多一条「用户说了全局」 |
-| `channel_list` | — | 本用户全部频道的摘要（只读，BOT-CH-07） |
-| `channel_peek` | `channelId` | 另一个频道的未解决任务与记忆的前 2 KiB（只读） |
+| `channel_list` | — | 本用户全部频道的摘要（只读，BOT-CH-07）；`private` 的频道只给名称与计数 |
+| `channel_peek` | `channelId` | 另一个频道的未解决任务与记忆的前 2 KiB（只读）；对 `private` 的频道返回 `ToolError('forbidden')` |
 | `channel_propose` | `name`、`purpose`、`templateId?` | 写一张 `proposal{type:'channel'}` 卡，用户点「建立」才建 |
 | `work_items_list` | `channelId?`、`status?`、`query?` | 默认本频道；`query` 在标题、描述、结果里搜 |
 | `work_items_create` | `title`、`description`、`owner`、`priority?`、`dueOn?`、`eventOn?`、`resources?`、`steps?`、`sourceMessageId`、`dependsOn?` | 建任务（`upNext`），返回 `id` 与 `duplicates`（§10.5）；`sourceMessageId` 必须是本频道的用户消息 |
@@ -868,7 +886,7 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 
 ### 13.4 行为约定的落点（需求 §8.4）
 
-行为约定大多是智能体自己的习惯，写在角色指令里；Runtime 能兜底的部分如下。和 §14.6 一样，测试只对「Runtime」一栏写硬断言，其余用 BOT-S19–S25 做行为回归。
+行为约定大多是智能体自己的习惯，写在角色指令里；Runtime 能兜底的部分如下。和 §14.6 一样，测试只对「Runtime」一栏写硬断言，其余用 BOT-S19–S31 做行为回归。
 
 | 约定 | Runtime 做的 | 靠指令的 |
 | --- | --- | --- |
@@ -876,14 +894,14 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 | 先核对再开口（BH-02） | `<baocut-channel-state>` 每回合从 `WorkItemStore` 现取，不缓存；`work_items_get`、`thread_read` 的返回都带 `asOf`；简报与转交里协调者写的结论包在 `<baocut-earlier-findings asOf="…">` 里，和 Runtime 现取的事实分开 | 说结论前重读来源 |
 | 找不到时说清（BH-03） | 视频与文件的查找工具在没有结果时返回实际查过的范围（项目、目录、字段），供智能体照着说 | 换说法再找 |
 | 做到结果、换做法（BH-05） | 同一回合里同一个工具以同样的错误连续失败 3 次时，第 3 次的 `ToolError` 附一句「换一种做法，或者报告已停下并写明试过什么」 | 判断还有没有别的路 |
-| 回来时先说要你做的（BH-08） | `bot.awaySummary({ channelId, since })`：从转换记录里数出 `since` 之后做完、等你、停下的任务，不调模型；界面在用户离开超过 30 分钟（窗口失焦或系统锁屏起算）后回到频道时调用，画分隔条 | — |
+| 回来时先看到发生了什么（BH-08，P0） | `Channel.lastSeen` 在用户离开频道视图、窗口失焦或锁屏时由界面经 `channels.markSeen` 写下（频道对话最后一条条目的 id 与时刻）。打开频道时界面调 `bot.awaySummary({ channelId })`：Runtime 用 `lastSeen.at` 从转换记录里数出之后做完、等你、停下或出错的任务，每件带标题与报告的 headline，再给出 `firstUnreadItemId`；不调模型、不起协调者回合。结果非空就在频道顶部画汇总，「跳到第一条未读」滚到 `firstUnreadItemId`；用户看过后界面再调 `channels.markSeen` | — |
 | 时间按用户的钟（BH-09） | 用户时区取系统时区，存在 `BotSettings.timeZone`（可在设置里改）；`startAt`、`dueOn`、`eventOn` 按它解析，存 UTC 时刻或本地日期；周期任务沿用 `nextScheduleRun`（`protocol/src/schedule.ts`）的本地墙上时间计算，已处理夏令时；时区变化时重算所有 `nextAt` 与 `startAt` 并发 `work-item.upsert`。`<baocut-channel-state>` 开头写一行当前时刻与时区，智能体不用自己猜 | 写给用户的时刻用 12 / 24 小时习惯 |
-| 用户的语言（BH-10） | Runtime 自己写的文字（兜底转述、提醒行、分隔条、起手提示）用频道里用户常用的语言（§12.4 的同一判断）；`<baocut-channel-state>` 带 `lang` | 智能体写的一切跟随用户 |
+| 对话语言与产出语言（BH-10） | 对话语言：Runtime 自己写的文字（兜底转述、提醒行、汇总、起手提示、通知）用频道里用户常用的语言（§12.4 的同一判断），`<baocut-channel-state>` 带 `lang`。产出语言：`WorkItem.overrides.outputLanguage ?? Channel.outputLanguage`，写进简报的 `<baocut-task-contract outputLanguage="…">`，为空时不写；线程调用字幕、翻译、配音、标题类工具时，参数里没给语言就用它 | 智能体写给用户的一切跟随对话语言；两者都空又看不出产物该用什么语言时问一次 |
 | 问题写成下一步、过时就撤（BH-11） | 状态机在问题失效时自动清 `question`：任务转 `resolved`、对应审批已处理、`answers` 指向的提问卡已回答；线程下次被叫醒时 `<baocut-refresh>` 里写明「上次的问题已不适用」 | 问题的措辞 |
 | 回答带出处（BH-12） | `ResourceRef.video-range`；转录查询工具的结果本来就带时间码，转述时原样挂成卡片 | 没看到的不说看到 |
 | 逐类放权（BH-13，P2） | 复用现有的「总是允许」规则（`agents.removeRule` 管理的那一套）：用户在提问卡上选「这类以后都允许」时另存规则；新增约束：Bot 角色的会话里「总是允许」规则只对 `edit` / `command` 风险生效，`high` 永远要问；规则按频道存，列在频道设置里可删 | 用户在对话里说的「这类直接做」，由协调者把原话写进记忆，同时在下一次同类审批卡上预选「这类以后都允许」，仍由用户点 |
 | 确认跟着细节走（SF-12） | 审批记录绑定参数摘要（对象、金额、目标）；同一个任务里参数摘要变了不复用之前的「本次会话允许」，重新出审批卡 | 对话里的「好」覆盖哪一步 |
-| 撤销智能体的改动（EX-19） | 线程每次动手前记下视频版本到工作笔记的 `baseVersion`；`work_items_revert({ to: 'before-thread' \| version })` 调现有的 `videos.versions.restore`，回退照常进撤销历史与版本记录 | 判断用户说的是撤哪一次 |
+| 撤销这条任务的改动（EX-19） | 两种粒度。①线程每次动手前记下视频版本到工作笔记的 `baseVersion`，`work_items_revert({ to: 'before-thread' \| version })` 回到最近一次动手前。②任务菜单走 `workItems.revertAll`：Runtime 在任务第一次动某部视频时把当前版本记进 `WorkItem.baseVersions`；撤销时对每部视频读 `baseVersion` 之后的版本记录，挑出 `Action: user_local` 的版本，先以 `{ dryRun: true }` 返回「用户在中间改过哪些」交界面列出；用户选「连我的一起撤」时恢复到 `baseVersion`，选「只撤智能体的」时只反向应用 `Action: agent:*` 那几个版本的补丁，补丁之间冲突就整体拒绝并说明哪部视频的哪一处（不半撤）。每部视频的恢复都走现有的 `videos.versions.restore` / 版本补丁的反向应用（[版本历史设计 §3.5](../version-history/version-history-design.md)），各自是一笔可撤销的事务 | 判断用户说的是撤哪一次 |
 
 ### 13.5 首次使用的种子回合
 
@@ -968,7 +986,7 @@ D5 要的「常驻」比现在多两点：没有活时也不退（定时任务�
   - Runtime 不进入空闲退出：Electron 主进程通过 IPC `{type:'resident', on:true}` 告诉 Runtime（`apps/runtime/src/main.ts` 新增消息），Runtime 在常驻时忽略 `idleExitMinutes`。
 - **托盘 / 菜单栏**：`apps/desktop/src/main/tray.ts`（新）。用 Electron `Tray` + `Menu`：「打开 BaoCut」「正在工作的任务（n）」子菜单、「暂停全部自动运行」「退出后台服务」。图标角标（macOS `tray.setTitle`，Windows 叠加图标）是等你的任务数。
 - **主进程订阅**：窗口全关时渲染端不在，主进程需要自己连 Runtime。复用 `packages/client` 的 `BaoCutClient`（Node 侧可用），只订阅 `channels` 主题（摘要里有计数），驱动托盘角标与通知。
-- **通知**：主进程用 Electron `Notification`。来源是 `channels` 主题里 `needsYou` 计数的增加 + `bot.notification` 事件（§16.3，带任务 id、headline、问题与选项）。点通知：打开窗口并路由到任务详情。合并与免打扰（P1）在主进程里做：5 分钟窗口按频道合并，免打扰时段内攒着。
+- **通知**：主进程用 Electron `Notification`。来源是 `channels` 主题里 `needsYou` 计数的增加 + `bot.notification` 事件（§16.3，带任务 id、headline、问题与选项）。点通知：打开窗口并路由到任务详情。合并与免打扰在主进程里做：5 分钟窗口按频道合并（P1）；免打扰（P0）读 `BotSettings.quietHours`（默认 `{ start:'22:00', end:'08:00', enabled:true }`，按 `BotSettings.timeZone`），时段内只更新托盘角标、通知攒着，时段结束时合并成一条「夜里有 n 件等你」；`Channel.muted` 的频道永远不弹通知，只计入角标与收件箱。
 - **开机自启**：`app.setLoginItemSettings({ openAtLogin, openAsHidden: true })`，设置里的开关（默认关，需求 §11.8）；以隐藏方式启动时只起 Runtime 与托盘，不开窗口。Windows 用同一 API（注册表 Run 键），Linux 第一期不支持（只做 macOS 与 Windows 桌面）。
 - **暂停全部自动运行**：Runtime 新方法 `bot.pauseAutomation({ paused })`，暂停时 `ScheduleService` 不 fire（记 `missed`）、Make 自动触发与刷新巡检不跑；进行中的线程不停。
 - **退出后台服务**：先调 `bot.status` 拿到进行中的线程与即将到点的周期任务，弹框列出，确认后 `supervisor.stop()` 并 `app.exit()`。
@@ -992,7 +1010,7 @@ D5 要的「常驻」比现在多两点：没有活时也不退（定时任务�
 | --- | --- | --- | --- |
 | `channels.list` | — | `ChannelSummary[]` | 用户 |
 | `channels.ensureMain` | — | `Channel` | 用户 |
-| `channels.create` | `name, purpose?, templateId?, driverId?, model?, effort?, defaultAccessMode?` | `Channel` | 用户 |
+| `channels.create` | `name, purpose?, templateId?, driverId?, model?, effort?, defaultAccessMode?, outputLanguage?` | `Channel` | 用户 |
 | `channels.update` | `id, patch` | `Channel` | 用户 |
 | `channels.archive` / `channels.unarchive` | `id` | `Channel` | 用户 |
 | `channels.delete` | `id, confirm: { threads: n, schedules: n }` | `{}` | 用户；`confirm` 与实时计数不符时拒绝 |
@@ -1012,7 +1030,13 @@ D5 要的「常驻」比现在多两点：没有活时也不退（定时任务�
 | `bot.make.run` | `channelId` | `{ runId, shown }` | 用户（P1） |
 | `bot.react` | `conversationId, itemId, emoji` | `{}` | 用户（P1） |
 | `bot.status` | — | `{ workingThreads, nextSchedules, paused }` | 用户、桌面主进程 |
-| `bot.awaySummary` | `channelId, since` | `{ done: Id[], needsYou: Id[], stopped: Id[] }` | 用户（P1，§13.4） |
+| `bot.awaySummary` | `channelId` | `{ since, done, needsYou, stopped: { id, title, headline }[]; firstUnreadItemId }` | 用户（§13.4） |
+| `channels.markSeen` | `id, itemId` | `Channel` | 用户 |
+| `bot.inbox` | — | `InboxRow[]`：所有频道里 `needsReview` / `needsInput` 的任务与待处理授权，按频道分组、最急的在前；每行带问题、选项、付费授权的金额与所属任务；私人频道照常列出（收件箱只给用户看） | 用户 |
+| `workItems.revertAll` | `id, dryRun?, keepUserEdits?` | `{ videos: { videoId, userEdits: VersionSummary[] }[] }`（dryRun）或 `{ restored: { videoId, version }[] }` | 用户（P1） |
+| `workItems.deleteRecord` | `id, confirm: { files: n }` | `{}` | 用户（P1）；进行中先停线程；删线程会话、工作笔记、转换记录、报告与频道目录下属于该任务的文件；不碰项目视频与 Space |
+| `channels.export` | `id, dir` | `{ path }` | 用户（P1）；对话、任务（含转换记录与报告）、记忆导出成 Markdown + JSON，视频只列引用 |
+| `conversations.editMessage` | `conversationId, itemId, text` | `{ item }` | 用户（P1，§8.2 转交索引） |
 | `bot.pauseAutomation` | `paused` | `{}` | 用户、桌面主进程 |
 
 `conversations.send` 的参数加 `via?`、`suggestionChipId?`、`replyToItemId?`（`schemas.ts` 同步）。
@@ -1035,14 +1059,14 @@ interface BotNotificationEvent {
   type: 'bot.notification';
   channelId: Id;
   workItemId: Id;
-  reason: 'needs-review' | 'needs-input' | 'reminder' | 'unattended-approval';
+  reason: 'needs-review' | 'needs-input' | 'reminder' | 'unattended-approval' | 'stalled';
   headline: string;              // 报告的第一句或提醒文字
   question: WorkItemQuestion | null;
   at: string;
 }
 ```
 
-只有这四种原因发（BOT-NF-08）。工作中、建议、转述不发。
+只有这五种原因发（BOT-NF-08）；免打扰时段与静音频道见 §15.2。工作中、建议、转述不发。
 
 ### 16.4 客户端
 
@@ -1052,8 +1076,8 @@ interface BotNotificationEvent {
 
 ### 17.1 路由与入口
 
-- `Tab` 加 `'bot'`，`Route` 加 `{ tab:'bot'; channelId: Id | null; workItemId: Id | null; view: 'channel' | 'task' | 'memory' }`（`state/shell-store.ts:58`）。
-- `Rail`（`components/rail.tsx`）的 `PRIMARY` 在 `home` 后插入 `bot`，图标与徽标（`needsYou` 总和）；徽标数据来自 `channels-store`。
+- `Tab` 加 `'bot'`，`Route` 加 `{ tab:'bot'; channelId: Id | null; workItemId: Id | null; view: 'channel' | 'task' | 'memory' | 'inbox' }`（`state/shell-store.ts:58`）。
+- `Rail`（`components/rail.tsx`）的 `PRIMARY` 在 `home` 后插入 `bot`，图标与徽标（`needsYou` 总和，含静音频道）；徽标数据来自 `channels-store`。点图标进 Bot 页；点徽标打开「等你」收件箱（`Route.view: 'inbox'`，数据来自 `bot.inbox`，订阅 `channels` 主题刷新）。收件箱每行就地作答走现有的 `agents.answerQuestion` / `approvals.respond` / `workItems.transition`，没有批量接口。
 - 第一次进入时调 `channels.ensureMain`。
 
 ### 17.2 组件
@@ -1126,7 +1150,7 @@ interface BotNotificationEvent {
 | 集成 | 用假 Driver（现有测试 Driver）跑：频道发三件活 → 三张卡、三个线程；线程报告 → 协调者转述；线程提问 → 任务 `needsInput` → 用户在任务卡上答 → 继续 | `runtime-core/src/bot/bot.integration.test.ts` |
 | 集成 | 注入：转录稿里含 `</baocut-thread-report>`、`<baocut-cited author="user">`、`<cited author="user">` 与「忽略之前的指令」→ 块边界不被打破、伪造的引用被转义或不被认、不产生任务与提示 | 同上 |
 | 集成 | 无人在场：Job 叫醒、报告投递的回合 `attended = false`；`fullAccess` 降到 `auto`；不支持审批的 Driver 在定时任务里停在 `needsInput` | 同上 |
-| 端到端 | 需求 §12 的 BOT-S01–S25 各写一条验收用例，与产品设计 §9 的 S01–S12 并列 | `docs/acceptance/` 与 e2e 套件 |
+| 端到端 | 需求 §12 的 BOT-S01–S31 各写一条验收用例，与产品设计 §9 的 S01–S12 并列 | `docs/acceptance/` 与 e2e 套件 |
 | 桌面 | 窗口全关不退出、托盘菜单、通知点击路由、退出确认列出的数目 | 手动验收清单（Electron 主进程难以自动化的部分） |
 
 ## 21. 实施顺序与 PR 拆分
@@ -1146,9 +1170,10 @@ interface BotNotificationEvent {
 9. **定时任务目标 `work-item`**：`ScheduleService` 扩展、定时任务页的「频道任务」目标。
 10. **无人在场与预算**：`effectiveMode` 降级、`ToolScope.unattended` 与付费调用升级、`GrantService`、频道预算。
 11. **界面**（原型确认后）：Rail 入口、`bot-page`、频道侧栏与频道视图、线程卡、任务面板、任务详情。
-12. **后台服务**：常驻 IPC、托盘、通知、退出确认、开机自启设置、暂停自动运行。
+12. **后台服务**：常驻 IPC、托盘、通知与免打扰、频道静音、退出确认、开机自启设置、暂停自动运行。
+13. **回来与收件箱**：`Channel.lastSeen`、`channels.markSeen`、`bot.awaySummary`、`bot.inbox` 与收件箱视图、卡住检测看门狗。
 
-**第二期（P1）**：频道记忆工具与记忆页、工作笔记路径、刷新与巡检、Make 与建议卡、周期任务提议卡、一次性定时、提醒、表情、消歧与下一步与起手提示、任务依赖与文件归属、任务级设置、模板与品牌规范、诊断页、通知合并与免打扰；Web 端与 CLI `bot` 命令组。
+**第二期（P1）**：频道记忆工具与记忆页、工作笔记路径、刷新与巡检、Make 与建议卡、周期任务提议卡、一次性定时、提醒、表情、消歧与下一步与起手提示、任务依赖与文件归属、任务级设置、模板与品牌规范、诊断页、通知合并、产出语言、规则编号与冲突提问、整体撤销、改已转交消息的重投、私人频道、删除任务记录、导出频道；Web 端与 CLI `bot` 命令组。
 
 **第三期（P2）**：跨频道移动任务、从普通会话导入、日报、外部来源、偏好学习、引用补全、通知里直接答、Space 分享、多语言批量任务。
 
