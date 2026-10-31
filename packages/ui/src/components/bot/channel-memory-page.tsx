@@ -131,14 +131,15 @@ export function ChannelMemoryPage({ channel }: { channel: Channel }) {
   const near = !over && bytes > store.limit * 0.9;
   const dirty = !!loaded && text !== loaded.content;
 
-  const save = async (content: string, ifVersion: number) => {
+  /** `replaceDraft`：清空时把输入框也换成存下的内容；保存草稿时不换，存的过程中接着打的字留着，仍算没保存的修改。 */
+  const save = async (content: string, ifVersion: number, replaceDraft = false) => {
     setBusy(true);
     try {
       const outcome = await saves.run(() => store.write(content, ifVersion));
       if (!outcome) return;
       if (outcome.ok) {
         setLoaded({ content, version: outcome.value.version });
-        setText(content);
+        if (replaceDraft) setText(content);
         setConflict(null);
         ToastQueue.positive(C.memory.saved, { timeout: 2500 });
       } else {
@@ -217,7 +218,7 @@ export function ChannelMemoryPage({ channel }: { channel: Channel }) {
             title={C.memory.clearTitle}
             primaryActionLabel={C.memory.clearConfirm}
             cancelLabel={C.common.cancel}
-            onPrimaryAction={() => void save('', loaded.version)}>
+            onPrimaryAction={() => void save('', loaded.version, true)}>
             {C.memory.clearBody}
           </AlertDialog>
         ) : null}

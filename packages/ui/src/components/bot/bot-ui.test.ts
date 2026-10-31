@@ -24,6 +24,7 @@ import { useChannels } from '../../state/channels-store.ts';
 import { DEFAULT_BOT_SETTINGS, type SpaceEntry, type WorkItem } from '@baocut/protocol';
 import { ProposalCard, SuggestionButtons } from './timeline/proposal-card.tsx';
 import { useBotCall, useScopedState } from './bot-actions.ts';
+import { ChannelMemoryPage } from './channel-memory-page.tsx';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 
@@ -672,5 +673,22 @@ describe('导出频道（BOT-CH-13）', () => {
     } finally {
       useChannels.setState({ channels: [] });
     }
+  });
+});
+
+describe('频道记忆页', () => {
+  it('保存还没回来时接着打的字不会被存下的旧内容盖掉，仍算没保存的修改', async () => {
+    let finish: (v: { version: number }) => void = () => {};
+    handlers['channels.readMemory'] = () => ({ content: '## Rules\n', version: 1 });
+    handlers['channels.writeMemory'] = () => new Promise((resolve) => (finish = resolve));
+    await render(createElement(ChannelMemoryPage, { channel: { id: 'c1', name: '剪辑' } as never }));
+    const field = document.querySelector('textarea')!;
+    await typeInto(field, '## Rules\n- 字幕用白色\n');
+    await press('保存');
+    await typeInto(field, '## Rules\n- 字幕用白色\n- 片头 5 秒\n');
+    await act(async () => finish({ version: 2 }));
+    expect(calls('channels.writeMemory')).toEqual([{ id: 'c1', content: '## Rules\n- 字幕用白色\n', ifVersion: 1 }]);
+    expect(document.querySelector('textarea')!.value).toBe('## Rules\n- 字幕用白色\n- 片头 5 秒\n');
+    expect(button('放弃修改')!.disabled || button('放弃修改')!.getAttribute('aria-disabled') === 'true').toBe(false);
   });
 });
