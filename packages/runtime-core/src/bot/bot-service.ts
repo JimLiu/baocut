@@ -244,7 +244,7 @@ function makeDenied(text: string): boolean {
   return MAKE_DENY_WORDS.test(lower) || MAKE_DENY_CJK.test(lower);
 }
 
-type ActorRun = { actor: BotActor; run?: MachineRun | null; citedUserTyped?: boolean; confirmedIsTyped?: boolean; evidenceVerified?: boolean };
+type ActorRun = { actor: BotActor; run?: MachineRun | null; citedUserTyped?: boolean; citedMessageId?: Id; confirmedIsTyped?: boolean; evidenceVerified?: boolean };
 
 interface RunStart {
   workItemId: Id;
@@ -344,6 +344,7 @@ export class BotService {
     await this.load();
     this.#harness.setTurnContext((conversation, kind) => this.#turnContext(conversation, kind));
     this.#harness.setTaskBudgetResolver((conversation) => this.#taskBudget(conversation));
+    this.#harness.setAccessCeiling((conversation) => this.#accessCeiling(conversation));
     for (const channel of this.#channels.list()) await this.#refreshSpend(channel.id);
     // 回合上下文里的记忆来自缓存：对账可能马上投报告、起协调者回合，先把各频道的记忆与全局记忆读进来。
     for (const channel of this.#channels.list()) await this.refreshMemoryCache(channel.id);
@@ -388,6 +389,7 @@ export class BotService {
     for (const off of this.#unsubscribe.splice(0)) off();
     this.#harness.setTurnContext(null);
     this.#harness.setTaskBudgetResolver(null);
+    this.#harness.setAccessCeiling(null);
     this.#cancelOneShot?.();
     this.#cancelWatchdog?.();
     this.#cancelHourly?.();
@@ -1193,6 +1195,7 @@ export class BotService {
       now: nowIso(),
       run: who.run ?? null,
       ...(who.citedUserTyped !== undefined ? { citedUserTyped: who.citedUserTyped } : {}),
+      ...(who.citedMessageId !== undefined ? { citedMessageId: who.citedMessageId } : {}),
       ...(who.confirmedIsTyped !== undefined ? { confirmedIsTyped: who.confirmedIsTyped } : {}),
       ...(who.evidenceVerified !== undefined ? { evidenceVerified: who.evidenceVerified } : {}),
       stallMinutes: channel.stallMinutes ?? this.settings().stallMinutes,
@@ -1890,6 +1893,12 @@ export class BotService {
     const channel = item ? this.#channels.get(item.channelId) : undefined;
     if (!item || !channel) return null;
     return threadTaskBudget(item, channel, this.#spend.get(channel.id));
+  }
+
+  /** 频道对话与线程会话的模式上限：所属频道的 `maxAccessMode`（§14.4）。 */
+  #accessCeiling(conversation: Conversation): AgentMode | null {
+    const channelId = conversation.role === 'thread' ? this.itemOfThread(conversation.id)?.channelId : conversation.channelId;
+    return channelId ? (this.#channels.get(channelId)?.maxAccessMode ?? null) : null;
   }
 
   /** 重读频道的花费。没有频道预算或没有账本时不读。读失败时留着旧值。 */

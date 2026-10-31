@@ -22,7 +22,7 @@ import type { ToolPrincipal } from '../agent-tools/tool-scope.ts';
 import type { BotService } from './bot-service.ts';
 import { validateChips } from './suggestions.ts';
 import { assertMax, assertPlainText, assertQuestion, firstSentence } from './text-rules.ts';
-import { TransitionDenied, stateName, type MachineRun } from './work-item-machine.ts';
+import { TransitionDenied, heldForUser, stateName, type MachineRun } from './work-item-machine.ts';
 
 /*
  * Bot 的智能体工具（技术方案 §10）：协调者（`role: 'channel'`）与线程（`role: 'thread'`）各一组，`roles` 决定谁看得到；
@@ -446,6 +446,33 @@ export class BotTools implements ToolSet {
     }
   }
 
+  /**
+   * 建任务与开线程只在有人在场的回合里（BOT-SF-03）：报告或转交里写的「去做 X」不是用户的要求。回合里插进过报告或转交
+   * （`tainted`，包括报告起的回合被用户插了一句）时，新的工作只能出自起这一回合的那条用户消息（`cited` 里要有它）：
+   * 早先的「好」或回合中途插的一句都不算，报告起的回合没有这样的消息。
+   */
+  #newWork(caller: Caller, cited: readonly Id[]): void {
+    const { run } = caller;
+    if (!run.attended) {
+      throw new ToolError('NEEDS_USER_TURN', 'Tasks are only created and started in a turn the user started. A report or relay cannot ask for new work; mention it to the user instead.');
+    }
+    if (run.tainted && !(run.userMessageId && cited.includes(run.userMessageId))) {
+      throw new ToolError(
+        'NEEDS_USER_TURN',
+        'A report or relay arrived in this turn, so new work must come from the message that started this turn (cite it). Mention anything else to the user instead.',
+      );
+    }
+  }
+
+  /** 引用里有用户在这一回合打的字：起这一回合的消息，或这一回合里随投递带来的用户原话。 */
+  #citesUserThisTurn(caller: Caller, cited: readonly Id[]): boolean {
+    const { run } = caller;
+    if (!run.attended) return false;
+    return cited.some(
+      (id) => (id === run.userMessageId || run.userCitations.has(id)) && this.#deps.bot.isUserTyped(caller.channel.conversationId, id),
+    );
+  }
+
   /** 提议卡只在有人在场的回合里写（§14.2）：报告、转交、定时、种子回合里不可用。 */
   #attended(caller: Caller): void {
     if (!caller.run.attended) throw new ToolError('NEEDS_USER_TURN', 'Proposals can only be made in a turn the user started.');
@@ -540,6 +567,7 @@ export class BotTools implements ToolSet {
         } else throw new ToolError('INVALID_ARGUMENTS', 'Give workItemId or create.');
         if (item.owner === 'user') throw new ToolError('USER_TASK', 'That task is for the user to do; it gets no thread.');
         if (item.status !== 'upNext') throw new ToolError('NOT_STARTABLE', `The task is ${stateName(item)}; only upNext tasks can start. Use thread_relay for running ones.`);
+        if (!args.create) this.#newWork(caller, args.citedMessageIds);
         assertMax('brief', args.brief, BOT_LIMITS.brief);
         const cited = bot.cite(caller.channel.conversationId, args.citedMessageIds);
         const started = await bot.startItem(item.id, {
@@ -562,6 +590,12 @@ export class BotTools implements ToolSet {
         const args = raw as Args<'thread_relay'>;
         const item = this.#target(caller, args.workItemId);
         if (!args.note && !args.citedMessageIds.length) throw new ToolError('INVALID_ARGUMENTS', 'Give a note or cited messages.');
+        if (heldForUser(item) && !this.#citesUserThisTurn(caller, args.citedMessageIds)) {
+          throw new ToolError(
+            'NEEDS_USER_WORDS',
+            'This task waits for the user to let it go on (they stopped it, or it asked whether to continue). Relay only their own message from this turn, cited; otherwise tell the user instead.',
+          );
+        }
         return { delivered: await bot.relay(item, args.note, args.citedMessageIds) };
       }
       case 'thread_read': {
@@ -625,8 +659,8 @@ export class BotTools implements ToolSet {
     assertMax('description', args.description, BOT_LIMITS.description);
     for (const s of args.steps) assertMax('step', s.text, BOT_LIMITS.stepText);
     assertPlainText(args.title, args.description, ...args.steps.map((s) => s.text));
-    // 报告、转交、刷新等无人在场的回合里读到的「请做 X」不能变成任务（BOT-SF-03）：建任务只在用户起的回合里。
-    if (!caller.run.attended) throw new ToolError('NEEDS_USER_TURN', 'Tasks are only created in a turn the user started. A report or relay cannot ask for new work; mention it to the user instead.');
+    // 报告、转交、刷新等无人在场的回合里读到的「请做 X」不能变成任务（BOT-SF-03）。
+    this.#newWork(caller, [args.sourceMessageId]);
     const source = bot.findItem(caller.channel.conversationId, args.sourceMessageId);
     if (source?.kind !== 'user-message') throw new ToolError('NEEDS_USER_WORDS', 'sourceMessageId must be a user message in this channel.');
     if (args.eventOn && !bot.isUserTyped(caller.channel.conversationId, args.sourceMessageId)) {
@@ -657,6 +691,12 @@ export class BotTools implements ToolSet {
   async #update(caller: Caller, args: Args<'work_items_update'>): Promise<unknown> {
     const bot = this.#deps.bot;
     let item = this.#target(caller, args.id);
+    // 标题与说明跟着线程的指令一直带着（§6.2）：只在有人在场的回合里改，报告、简报、刷新里读到的文字不能改写它们。
+    const renamed = (args.title !== undefined && args.title !== item.title) || (args.description !== undefined && args.description !== item.description);
+    if (renamed && !caller.run.attended) {
+      throw new ToolError('NEEDS_USER_TURN', 'The task title and description only change in a turn the user started. Put progress in update or steps instead.');
+    }
+    if (args.resources !== undefined) this.#checkResourceScope(caller, item, args.resources);
     if (args.title !== undefined && args.title !== item.title) {
       if (item.titleBy === 'user') throw new ToolError('TITLE_LOCKED', 'The user named this task; keep the title.');
       assertMax('title', args.title, BOT_LIMITS.title);
@@ -709,6 +749,22 @@ export class BotTools implements ToolSet {
     return { item: row(item) };
   }
 
+  /**
+   * 线程能打开哪些项目里的视频，由任务资源里的视频决定（`BotService.videoProjectsOf`）。所以资源里新加别的项目的视频就是放宽了
+   * 线程的权限：线程自己不能这样做；协调者只在用户起的、没插进过报告或转交的回合里能（用户刚说要用那个视频）。
+   */
+  #checkResourceScope(caller: Caller, item: WorkItem, resources: readonly ResourceRef[]): void {
+    const projects = new Set(item.resources.flatMap((r) => (r.kind === 'video' || r.kind === 'video-range' ? [r.projectId] : [])));
+    const widened = resources.some((r) => (r.kind === 'video' || r.kind === 'video-range') && !projects.has(r.projectId));
+    if (!widened) return;
+    if (caller.role === 'thread') {
+      throw new ToolError('FORBIDDEN', 'A thread cannot add videos from another project to its own task. Ask the user, and mention it in your report.');
+    }
+    if (!caller.run.attended || caller.run.tainted) {
+      throw new ToolError('NEEDS_USER_TURN', 'Videos from another project are only added to a task in a turn the user started.');
+    }
+  }
+
   async #event(caller: Caller, item: WorkItem, event: NonNullable<Args<'work_items_update'>['event']>): Promise<WorkItem> {
     const bot = this.#deps.bot;
     const actor = caller.role === 'channel' ? 'coordinator' : 'thread';
@@ -731,14 +787,18 @@ export class BotTools implements ToolSet {
         return bot.transition(item.id, { type: 'reopen', ...(event.citedMessageId ? { citedMessageId: event.citedMessageId } : {}) }, who);
       case 'merge': {
         const into = this.#target(caller, event.into);
-        return bot.transition(item.id, { type: 'merge', into: into.id }, { ...who, citedUserTyped: bot.isUserTyped(caller.channel.conversationId, event.citedMessageId) });
+        return bot.transition(
+          item.id,
+          { type: 'merge', into: into.id },
+          { ...who, citedUserTyped: bot.isUserTyped(caller.channel.conversationId, event.citedMessageId), citedMessageId: event.citedMessageId },
+        );
       }
       case 'schedule': {
         if (Number.isNaN(Date.parse(event.startAt))) throw new ToolError('INVALID_ARGUMENTS', 'startAt must be an ISO date and time.');
         return bot.transition(
           item.id,
           { type: 'schedule', startAt: new Date(event.startAt).toISOString() } as WorkItemEvent,
-          { ...who, citedUserTyped: bot.isUserTyped(caller.channel.conversationId, event.citedMessageId) },
+          { ...who, citedUserTyped: bot.isUserTyped(caller.channel.conversationId, event.citedMessageId), citedMessageId: event.citedMessageId },
         );
       }
       case 'unblocked':

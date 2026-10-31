@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BotActor, ThreadReport, ThreadStop, WorkItem, WorkItemEvent, WorkItemQuestion } from '@baocut/protocol';
-import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineRun } from './work-item-machine.ts';
+import { TransitionDenied, applyEvent, continueQuestion, heldForUser, newWorkItem, stateName, type MachineContext, type MachineRun } from './work-item-machine.ts';
 
 /** 任务状态机（技术方案 §9.2 转换表）：每条允许的转换与表外被拒的事件。纯函数，不起 Harness。 */
 
@@ -177,8 +177,9 @@ describe('schedule, unschedule, start, due', () => {
   it('coordinator schedules only when citing a user-typed time', () => {
     denied(item(), { type: 'schedule', startAt: NOW }, ctx('coordinator'), 'needs-user-time');
     denied(item(), { type: 'schedule', startAt: NOW }, ctx('coordinator', { citedUserTyped: false }), 'needs-user-time');
-    expect(applyEvent(item(), { type: 'schedule', startAt: NOW }, ctx('coordinator', { citedUserTyped: true })).item.status).toBe('scheduled');
-    denied(item(), { type: 'schedule', startAt: NOW }, ctx('thread', { citedUserTyped: true }));
+    const thisTurn = { citedUserTyped: true, citedMessageId: 'msg_user', run: run() };
+    expect(applyEvent(item(), { type: 'schedule', startAt: NOW }, ctx('coordinator', thisTurn)).item.status).toBe('scheduled');
+    denied(item(), { type: 'schedule', startAt: NOW }, ctx('thread', thisTurn));
     denied(active('working'), { type: 'schedule', startAt: NOW }, ctx('user'), 'not-up-next');
   });
 
@@ -386,6 +387,17 @@ describe('unblocked, stalled, stop', () => {
     denied(runtime, { type: 'unblocked', cause: 'x' }, ctx('system'), 'not-blocked');
   });
 
+  it('I12 a thread cannot unblock a task the user stopped or one the runtime stalled; the user can', () => {
+    const stopped = applyEvent(active('working'), { type: 'stop' }, ctx('user')).item;
+    denied(stopped, { type: 'unblocked', cause: 'fixed' }, ctx('thread'), 'needs-user');
+    const stalled = applyEvent(active('working'), { type: 'stalled', reason: 'budget', note: 'over budget' }, ctx('system')).item;
+    denied(stalled, { type: 'unblocked', cause: 'fixed' }, ctx('thread'), 'needs-user');
+    expect(stateName(applyEvent(stopped, { type: 'unblocked', cause: 'user' }, ctx('user')).item)).toBe('working');
+    expect(stateName(applyEvent(stalled, { type: 'unblocked', cause: 'user' }, ctx('user')).item)).toBe('working');
+    expect(heldForUser(stopped) && heldForUser(stalled)).toBe(true);
+    expect(heldForUser(active('blocked'))).toBe(false);
+  });
+
   it('unblocked is denied for working tasks, inactive tasks and the coordinator', () => {
     denied(active('working'), { type: 'unblocked', cause: 'x' }, ctx('system'), 'not-blocked');
     denied(item(), { type: 'unblocked', cause: 'x' }, ctx('system'), 'not-active');
@@ -501,14 +513,30 @@ describe('reopen', () => {
 
 describe('merge and set-owner', () => {
   it('coordinator merges with the user consent; user merges directly', () => {
-    const r = applyEvent(active('working'), { type: 'merge', into: 'wi_2' }, ctx('coordinator', { citedUserTyped: true }));
+    const thisTurn = { citedUserTyped: true, citedMessageId: 'msg_user', run: run() };
+    const r = applyEvent(active('working'), { type: 'merge', into: 'wi_2' }, ctx('coordinator', thisTurn));
     expect(r.item.resolution).toMatchObject({ kind: 'merged', by: 'coordinator', mergedInto: 'wi_2' });
     expect(kinds(r.effects)).toEqual(['stop-thread', 'merge']);
     expect(applyEvent(item(), { type: 'merge', into: 'wi_2' }, ctx('user')).item.resolution?.kind).toBe('merged');
     denied(item(), { type: 'merge', into: 'wi_2' }, ctx('coordinator'), 'needs-user-consent');
     denied(item(), { type: 'merge', into: 'wi_1' }, ctx('user'), 'self');
     denied(resolved(), { type: 'merge', into: 'wi_2' }, ctx('user'), 'resolved');
-    denied(item(), { type: 'merge', into: 'wi_2' }, ctx('thread', { citedUserTyped: true }));
+    denied(item(), { type: 'merge', into: 'wi_2' }, ctx('thread', thisTurn));
+  });
+
+  it('I4 coordinator merge and schedule cite this turn: an older typed message, a report turn or a missing run do not count', () => {
+    const older = { citedUserTyped: true, citedMessageId: 'msg_older', run: run() };
+    denied(item(), { type: 'merge', into: 'wi_2' }, ctx('coordinator', older), 'needs-user-consent');
+    denied(item(), { type: 'schedule', startAt: NOW }, ctx('coordinator', older), 'needs-user-time');
+    // 报告起的回合：没有起回合的用户消息；用户插了一句也不算。
+    const reportTurn = { citedUserTyped: true, citedMessageId: 'msg_user', run: run({ origin: 'relay', attended: false, userMessageId: null }) };
+    denied(item(), { type: 'merge', into: 'wi_2' }, ctx('coordinator', reportTurn), 'needs-user-consent');
+    const steered = { ...reportTurn, run: run({ origin: 'relay', attended: true, tainted: true, userMessageId: null }) };
+    denied(item(), { type: 'schedule', startAt: NOW }, ctx('coordinator', steered), 'needs-user-time');
+    denied(item(), { type: 'merge', into: 'wi_2' }, ctx('coordinator', { citedUserTyped: true, citedMessageId: 'msg_user' }), 'needs-user-consent');
+    // Runtime 在这一回合投进来的用户原话算。
+    const relayed = { citedUserTyped: true, citedMessageId: 'msg_relayed', run: run({ userCitations: new Set(['msg_relayed']) }) };
+    expect(applyEvent(item(), { type: 'merge', into: 'wi_2' }, ctx('coordinator', relayed)).item.resolution?.kind).toBe('merged');
   });
 
   it('handing a running task to the user stops the thread; giving it back may start it', () => {

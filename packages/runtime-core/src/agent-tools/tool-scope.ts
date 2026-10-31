@@ -24,6 +24,7 @@ import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { TrustedPrincipal } from '../gateway.ts';
 import type { EngineProtection } from '../videos/video-service.ts';
 import type { AgentPrincipal } from './grants.ts';
+import { PAID_TOOLS } from './paid-calls.ts';
 import { ToolError } from './tool-catalog.ts';
 
 /**
@@ -87,7 +88,10 @@ export interface ToolConfirmation {
   /** `summary` 的消息引用（文案目录 rcAgentTools）；审批动作还没有引用字段时只用 `summary`。 */
   summaryRef?: MessageRef;
   risk?: RiskLevel;
-  /** 交给在线或智能体 Provider 的调用（可能花钱）：Bot 无人在场的回合里不论授权一律按 `high` 问（Bot 技术方案 §14.2）。 */
+  /**
+   * 交给在线或智能体 Provider 的调用（可能花钱）：Bot 无人在场的回合里不论授权一律按 `high` 问（Bot 技术方案 §14.2）。
+   * `PAID_TOOLS` 里的工具每次都要明确给出；不给时按付费处理。
+   */
   paid?: boolean;
   /**
    * 这次调用要外发、还没有授权覆盖的数据（§12.5）。给了时确认通过就是授权了这次外发：说明里带回用户的选择（`grant`）；
@@ -252,7 +256,9 @@ export function toolRisk(request: ToolConfirmation): RiskLevel {
  */
 export function confirmRisk(request: ToolConfirmation, run: { role: string | undefined; attended: boolean } | null): RiskLevel {
   const risk = toolRisk(request);
-  if (!request.paid || !run || run.attended) return risk;
+  // 能花钱的工具漏给 `paid` 时按付费处理（`PAID_TOOLS`）。
+  const paid = request.paid ?? PAID_TOOLS.has(request.tool);
+  if (!paid || !run || run.attended) return risk;
   return run.role === 'channel' || run.role === 'thread' ? 'high' : risk;
 }
 

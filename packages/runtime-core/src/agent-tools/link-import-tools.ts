@@ -16,6 +16,7 @@ import { YT_DLP } from '../external-tools/tool-manifests.ts';
 import { isGrantErrorDetails } from '../grants/grant-errors.ts';
 import { inside, nearestReal } from './artifact-save.ts';
 import { formatBytes } from './model-install-tools.ts';
+import { assumePaid, type PaidProbe } from './paid-calls.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import {
   approvalField,
@@ -81,6 +82,8 @@ export interface LinkImportToolsDeps {
   /** 设置 › 视频下载的网站登录按此刻检测到的浏览器展开的列表（空的是匿名）；不给 `cookieBrowsers` 时用。 */
   settingCookieBrowsers: () => Promise<LinkCookieBrowser[]>;
   scope: ToolScope;
+  /** 转写会不会交给在线 Provider（Bot 技术方案 §14.2）；不给时按付费处理。 */
+  paid?: PaidProbe;
 }
 
 /** 一次从链接下载的请求（`download` 的参数，`transcribe` 给 `url` 时由它拼出）。 */
@@ -368,6 +371,10 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
     cookies: cookieBrowsers ? cookieBrowsers.map((id) => COOKIE_BROWSER_LABELS[id]).join(RcAgentTools.listSeparator().text) : null,
     dir: outDir ?? null,
   };
+  // 只有转写可能花钱（§14.2）；下载本身用本机的 yt-dlp。
+  const paid = args.transcribe
+    ? await (deps.paid ?? assumePaid)([{ capability: 'transcribe', provider: args.provider, model: args.model }])
+    : false;
   // 会话要放进别的项目时同一张卡写明落点，按 `high`（`bindingConfirmation`）。
   const approval = await scope.confirm(
     access,
@@ -375,12 +382,14 @@ async function start(deps: LinkImportToolsDeps, args: LinkImportRequest, princip
       status.consent?.state === 'granted'
         ? {
             tool: 'download',
+            paid,
             ...confirmSummary(RcAgentTools.linkImportSummary(about)),
             // 新建视频（`edit`）不提高风险：仍按下载的 `command`。
             risk: 'command',
           }
         : {
             tool: 'external_tools_consent',
+            paid,
             ...confirmSummary(RcAgentTools.linkImportConsentSummary({ ...about, path: status.path ?? '' })),
             risk: 'high',
           },
