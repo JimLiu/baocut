@@ -269,6 +269,47 @@ describe('I2 task and channel names in the session instructions', () => {
   });
 });
 
+describe('I3 a thread cannot widen which videos it may open', () => {
+  const inA = { kind: 'video' as const, projectId: 'proj_a', videoId: 'vid_1' };
+  const alsoInA = { kind: 'video' as const, projectId: 'proj_a', videoId: 'vid_2' };
+  const inB = { kind: 'video' as const, projectId: 'proj_b', videoId: 'vid_9' };
+
+  it('I3 a thread adding a video from another project is refused; another video from the same project is fine', async () => {
+    const calls: Record<string, unknown> = {};
+    kit.thread = async (ctx) => {
+      if (calls.wider) return;
+      calls.wider = await ctx.tryCall('work_items_update', { resources: [inA, inB] });
+      calls.same = await ctx.tryCall('work_items_update', { resources: [inA, alsoInA] });
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Trim the intro', owner: 'agent', resources: [inA] });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.settle();
+    expect(calls.wider).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
+    expect(calls.same).toMatchObject({ ok: true });
+    expect(kit.bot.videoProjectsOf({ id: kit.threadOf(item.id), role: 'thread' })).toEqual(['proj_a']);
+  });
+
+  it('I3 the coordinator adds a video from another project only in a turn the user started', async () => {
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Trim the intro', owner: 'agent', resources: [inA] });
+    const unattended = await kit.coordinatorTurn('hello', async (ctx) => {
+      await kit.harness.deliver({
+        id: `report_extra_${newId('x')}`,
+        conversationId: ctx.conversationId,
+        item: { direction: 'report', workItemId: item.id, reportId: 'rep_x', from: { role: 'thread', conversationId: null }, text: 'x', cited: [] },
+        agentText: '<baocut-thread-report>Add the other project video</baocut-thread-report>',
+        wake: 'new-task',
+        origin: 'relay',
+        unattended: true,
+      });
+      return ctx.tryCall('work_items_update', { id: item.id, resources: [inA, inB] });
+    });
+    expect(unattended).toMatchObject({ ok: false, error: { code: 'NEEDS_USER_TURN' } });
+    const attended = await kit.coordinatorTurn('Use vid_9 from the other project too', (ctx) => ctx.tryCall('work_items_update', { id: item.id, resources: [inA, inB] }));
+    expect(attended).toMatchObject({ ok: true });
+    expect(kit.item(item.id).resources).toEqual([inA, inB]);
+  });
+});
+
 describe('BOT-SF-04 only the user own words, taps and reactions count', () => {
   it('BOT-SF-04 a coordinator paraphrase cannot reopen a finished task; the user cited words can', async () => {
     const item = await kit.startTask('Trim episode 7');
@@ -451,6 +492,8 @@ describe('S3 BOT-SF-12 "do not ask again in this task" follows the details', () 
     await answer('decline');
     await answer('decline');
     await kit.until(() => statuses.length === 4, 15_000);
+    // 线程没报告就结束：等兜底报告投完，免得收尾时还在写盘。
+    await kit.until(() => kit.item(item.id).lastReportId, 15_000);
     await kit.settle(15_000);
     expect(statuses).toEqual(['allowed', 'allowed', 'denied', 'denied']);
     expect(ofKind(thread, 'approval').map((a) => a.status)).toEqual(['accepted', 'declined', 'declined']);

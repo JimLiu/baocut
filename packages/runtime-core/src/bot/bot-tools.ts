@@ -681,6 +681,7 @@ export class BotTools implements ToolSet {
     if (renamed && !caller.run.attended) {
       throw new ToolError('NEEDS_USER_TURN', 'The task title and description only change in a turn the user started. Put progress in update or steps instead.');
     }
+    if (args.resources !== undefined) this.#checkResourceScope(caller, item, args.resources);
     if (args.title !== undefined && args.title !== item.title) {
       if (item.titleBy === 'user') throw new ToolError('TITLE_LOCKED', 'The user named this task; keep the title.');
       assertMax('title', args.title, BOT_LIMITS.title);
@@ -731,6 +732,22 @@ export class BotTools implements ToolSet {
     }
     if (args.event) item = await this.#event(caller, item, args.event);
     return { item: row(item) };
+  }
+
+  /**
+   * 线程能打开哪些项目里的视频，由任务资源里的视频决定（`BotService.videoProjectsOf`）。所以资源里新加别的项目的视频就是放宽了
+   * 线程的权限：线程自己不能这样做；协调者只在用户起的、没插进过报告或转交的回合里能（用户刚说要用那个视频）。
+   */
+  #checkResourceScope(caller: Caller, item: WorkItem, resources: readonly ResourceRef[]): void {
+    const projects = new Set(item.resources.flatMap((r) => (r.kind === 'video' || r.kind === 'video-range' ? [r.projectId] : [])));
+    const widened = resources.some((r) => (r.kind === 'video' || r.kind === 'video-range') && !projects.has(r.projectId));
+    if (!widened) return;
+    if (caller.role === 'thread') {
+      throw new ToolError('FORBIDDEN', 'A thread cannot add videos from another project to its own task. Ask the user, and mention it in your report.');
+    }
+    if (!caller.run.attended || caller.run.tainted) {
+      throw new ToolError('NEEDS_USER_TURN', 'Videos from another project are only added to a task in a turn the user started.');
+    }
   }
 
   async #event(caller: Caller, item: WorkItem, event: NonNullable<Args<'work_items_update'>['event']>): Promise<WorkItem> {
