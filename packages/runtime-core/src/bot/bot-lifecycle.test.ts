@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId, type Id } from '@baocut/protocol';
-import { BotKit, escalate } from './testing/bot-kit.ts';
+import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
 import { stateName } from './work-item-machine.ts';
 
 /* 一次性定时遇上归档与暂停，任务跨频道移动时线程跟着走（BOT-TK-09）。 */
@@ -14,6 +14,15 @@ beforeEach(async () => {
 afterEach(async () => {
   await kit.close();
 });
+
+function firstTurn(fn: (ctx: TurnContext) => Promise<void>) {
+  const seen = new Set<string>();
+  return async (ctx: TurnContext) => {
+    if (seen.has(ctx.conversationId)) return;
+    seen.add(ctx.conversationId);
+    await fn(ctx);
+  };
+}
 
 async function scheduledIn(channelId: string, title: string, inMs: number) {
   const item = await kit.bot.createItem({ channelId, title, owner: 'agent' });
@@ -187,6 +196,30 @@ describe('moving a task', () => {
     await kit.bot.deleteRecord(item.id, false, { files: plan.files });
     await expect(fs.access(path.join(dir, 'mine.srt'))).rejects.toThrow();
     for (const name of ['script.md', 'cut.txt', 'shared.txt']) expect(await fs.readFile(path.join(dir, name), 'utf8')).toBe(name);
+  });
+
+  it('BOT-EX-20 the files a thread writes and the file outputs it reports are recorded for the task', async () => {
+    const dir = kit.bot.filesDir(kit.main.id);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'before.txt'), 'already here');
+    kit.thread = firstTurn(async (ctx) => {
+      await fs.mkdir(path.join(dir, 'out'), { recursive: true });
+      await fs.writeFile(path.join(dir, 'out', 'captions.srt'), '1\n00:00:00,000 --> 00:00:01,000\nHi');
+      await fs.writeFile(path.join(dir, 'report.md'), 'summary');
+      await ctx.call('thread_report', {
+        stop: 'needs-review',
+        headline: 'Captions are ready.',
+        outputs: [{ kind: 'file', path: 'report.md', label: 'Summary', version: null }],
+      });
+    });
+    const item = await kit.startTask('Caption the intro');
+    await kit.until(() => kit.item(item.id).files.length === 2);
+    expect([...kit.item(item.id).files].sort()).toEqual([path.join('out', 'captions.srt'), 'report.md']);
+    const plan = await kit.bot.deleteRecord(item.id, true);
+    expect([...plan.files].sort()).toEqual([path.join('out', 'captions.srt'), 'report.md']);
+    await kit.bot.deleteRecord(item.id, false, { files: plan.files });
+    await expect(fs.access(path.join(dir, 'report.md'))).rejects.toThrow();
+    expect(await fs.readFile(path.join(dir, 'before.txt'), 'utf8')).toBe('already here');
   });
 
   it('a thread waiting on an approval cannot be moved, and its notes stay where they were', async () => {

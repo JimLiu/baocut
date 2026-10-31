@@ -69,7 +69,7 @@ import {
   workspaceFactsBlock,
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
-import { carryTaskFiles, relativeInside, rewriteFileRef, taskFilePaths } from './move-files.ts';
+import { carryTaskFiles, changedFiles, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
 import { spendWindow, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { questionChips, questionCount } from './suggestions.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
@@ -1129,7 +1129,8 @@ export class BotService {
     // 别的任务写过、或拿它当资源与产出的文件都算共用（相对与绝对路径统一成频道文件夹里的相对路径再比）。
     const base = this.#files.filesDir(item.channelId);
     const others = new Set(this.#channelItems(item.channelId).filter((i) => i.id !== id).flatMap((i) => taskFilePaths(base, i.files, [...i.resources, ...i.outputs])));
-    const own = taskFilePaths(base, item.files, []);
+    // 自己的：线程写过的（每个回合前后比对频道文件夹记下的）加上报告里交出的文件产出。
+    const own = taskFilePaths(base, item.files, item.outputs);
     const files = own.filter((f) => !others.has(f));
     const keptShared = own.filter((f) => others.has(f));
     if (dryRun) return { files, keptShared, deleted: false };
@@ -1842,6 +1843,8 @@ export class BotService {
       if (!item) return;
       if (event.type === 'started') {
         this.#runStarts.set(event.taskId, { workItemId: item.id, status: item.status, reported: false, resolvedInRefresh: false, origin: event.origin });
+        // 记下回合开始时频道文件夹的样子：回合结束时比一比，新出现或改过的文件记在这条任务名下（BOT-EX-20）。
+        this.#fileSnapshots.set(event.taskId, snapshotFiles(this.#files.filesDir(item.channelId)));
         const info = this.#harness.runInfo(conversation.id);
         if (event.origin === 'user' && info?.userMessageId) {
           const message = this.#findItem(conversation.id, info.userMessageId);
@@ -1858,6 +1861,7 @@ export class BotService {
         return;
       }
       this.#jobWaking.delete(item.id);
+      await this.#recordRunFiles(item.id, event.taskId);
       this.bindThreadChips(conversation.id, event.taskId);
       const info = this.#runStarts.get(event.taskId);
       this.#runStarts.delete(event.taskId);
@@ -2863,6 +2867,26 @@ export class BotService {
   recordThreadFile(item: WorkItem, file: string): Promise<WorkItem> {
     if (item.files.includes(file)) return Promise.resolve(item);
     return this.patchItemContent(item.id, (i) => ({ ...i, files: [...i.files, file] }), true);
+  }
+
+  /** 回合开始时频道文件夹的快照（按回合）。 */
+  readonly #fileSnapshots = new Map<Id, Promise<Map<string, string>>>();
+
+  /** 回合结束：和开始时比，新出现或改过的文件，加上报告交出的文件产出，记进任务的 `files`。 */
+  async #recordRunFiles(itemId: Id, taskId: Id): Promise<void> {
+    const before = this.#fileSnapshots.get(taskId);
+    this.#fileSnapshots.delete(taskId);
+    const item = this.#items.get(itemId);
+    if (!item) return;
+    const base = this.#files.filesDir(item.channelId);
+    const written = before ? changedFiles(await before, await snapshotFiles(base)) : [];
+    const outputs = taskFilePaths(base, [], item.outputs);
+    const known = new Set(taskFilePaths(base, item.files, []));
+    const added = [...new Set([...written, ...outputs])].filter((f) => !known.has(f));
+    if (!added.length) return;
+    await this.patchItemContent(itemId, (i) => ({ ...i, files: [...new Set([...i.files, ...added])].slice(-1000) }), false).catch((error: unknown) =>
+      this.#log.warn('Recording thread files failed', { workItemId: itemId, error: String(error) }),
+    );
   }
 
   writeWorkItemRef(conversationId: Id, workItemId: Id, ackGroup: Id | null): void {

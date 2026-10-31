@@ -117,3 +117,29 @@ export function rewriteFileRef<T extends ResourceRef | ArtifactRef>(ref: T, from
   if (!rel || next === undefined) return ref;
   return { ...ref, path: path.isAbsolute(ref.path) ? path.join(toDir, next) : next };
 }
+
+/** 频道文件夹的快照：相对路径 → 大小与修改时间。跳过以点开头的目录（线程笔记在 `.threads/`）；文件太多时只看前 `limit` 个。 */
+export async function snapshotFiles(base: string, limit = 5000): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const walk = async (dir: string): Promise<void> => {
+    if (out.size >= limit) return;
+    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (out.size >= limit) return;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!entry.name.startsWith('.')) await walk(full);
+      } else if (entry.isFile()) {
+        const stat = await fs.stat(full).catch(() => null);
+        if (stat) out.set(path.relative(base, full), `${stat.size}:${stat.mtimeMs}`);
+      }
+    }
+  };
+  await walk(base);
+  return out;
+}
+
+/** 两次快照之间新出现或改过的文件。 */
+export function changedFiles(before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>): string[] {
+  return [...after].filter(([rel, sig]) => before.get(rel) !== sig).map(([rel]) => rel);
+}
