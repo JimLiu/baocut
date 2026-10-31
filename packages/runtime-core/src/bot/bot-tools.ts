@@ -676,6 +676,11 @@ export class BotTools implements ToolSet {
   async #update(caller: Caller, args: Args<'work_items_update'>): Promise<unknown> {
     const bot = this.#deps.bot;
     let item = this.#target(caller, args.id);
+    // 标题与说明跟着线程的指令一直带着（§6.2）：只在有人在场的回合里改，报告、简报、刷新里读到的文字不能改写它们。
+    const renamed = (args.title !== undefined && args.title !== item.title) || (args.description !== undefined && args.description !== item.description);
+    if (renamed && !caller.run.attended) {
+      throw new ToolError('NEEDS_USER_TURN', 'The task title and description only change in a turn the user started. Put progress in update or steps instead.');
+    }
     if (args.title !== undefined && args.title !== item.title) {
       if (item.titleBy === 'user') throw new ToolError('TITLE_LOCKED', 'The user named this task; keep the title.');
       assertMax('title', args.title, BOT_LIMITS.title);

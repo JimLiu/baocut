@@ -1,4 +1,5 @@
 // i18n-ignore-file: 给智能体的角色指令（英文，Bot 技术方案 §6.2）
+import { escapeContextTags } from '@baocut/harness';
 import type { Channel, WorkItem } from '@baocut/protocol';
 import { purposeBlock } from './context-blocks.ts';
 
@@ -95,15 +96,24 @@ Reports:
 - "Undo what you did" means work_items_revert with before-thread, then videos_restore_version for each video it lists, then say what you reverted.
 `.trim();
 
+/**
+ * 频道名、任务标题与说明是用户或智能体写的文字，跟着会话的指令一直带着：先转义 `<baocut-…>` 标签、压成一行，
+ * 免得冒充 BaoCut 的上下文段（例如一段「用户原话」）或另起一段指令。
+ */
+function inline(text: string): string {
+  return escapeContextTags(text.replace(/\s+/g, ' ').trim());
+}
+
 export function coordinatorInstructions(channel: Channel): string {
-  return [`Channel: ${channel.name}`, purposeBlock(channel.purpose), COORDINATOR, SHARED].join('\n\n');
+  return [`Channel: ${inline(channel.name)}`, purposeBlock(channel.purpose), COORDINATOR, SHARED].join('\n\n');
 }
 
 export function threadInstructions(channel: Channel, item: WorkItem | undefined, notesPath: string): string {
+  const description = item ? inline(item.description) : '';
   const head = [
-    `Channel: ${channel.name}`,
+    `Channel: ${inline(channel.name)}`,
     purposeBlock(channel.purpose),
-    item ? `Your task: ${item.title}${item.description ? ` (${item.description})` : ''}` : '',
+    item ? `Your task: ${inline(item.title)}${description ? ` (${description})` : ''}` : '',
     `Working notes file: ${notesPath}`,
   ].filter(Boolean);
   return [...head, THREAD, SHARED].join('\n\n');
