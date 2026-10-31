@@ -86,6 +86,9 @@ const suggestionReason = style({ font: 'ui-xs', color: 'gray-600' });
 const empty = style({ marginX: 8, marginY: 16, font: 'body-sm', color: 'gray-600' });
 const loading = style({ display: 'flex', justifyContent: 'center', padding: 24 });
 
+/** 新任务的默认值（需求 §4.4 第 2 步）：「我来做」，不马上开始。 */
+export const NEW_TASK_DEFAULTS: { owner: WorkItemOwner; start: boolean } = { owner: 'user', start: false };
+
 type QuickAction = 'start' | 'markDone' | 'dismiss' | 'stop' | 'refresh' | 'reopen';
 
 function quickActions(item: WorkItem): QuickAction[] {
@@ -265,12 +268,15 @@ export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId
   );
 }
 
-/** 新建任务（BOT-TK-02）：标题、谁来做；交给智能体的可以马上开始，不开始就进「接下来」。 */
-function NewTaskDialog({ channelId, onClose, onCreated }: { channelId: Id; onClose: () => void; onCreated: (id: Id) => void }) {
+/**
+ * 新建任务（BOT-TK-02、需求 §4.4）：标题、谁来做。默认「我来做」、进「接下来」；改成交给智能体时可以勾「马上开始」，
+ * 默认不勾，也进「接下来」。
+ */
+export function NewTaskDialog({ channelId, onClose, onCreated }: { channelId: Id; onClose: () => void; onCreated: (id: Id) => void }) {
   const call = useBotCall();
   const [title, setTitle] = useState('');
-  const [owner, setOwner] = useState<WorkItemOwner>('agent');
-  const [start, setStart] = useState(true);
+  const [owner, setOwner] = useState<WorkItemOwner>(NEW_TASK_DEFAULTS.owner);
+  const [start, setStart] = useState(NEW_TASK_DEFAULTS.start);
   const [busy, setBusy] = useState(false);
   const valid = title.trim() !== '' && title.trim().length <= BOT_LIMITS.title;
   const submit = async () => {
@@ -297,8 +303,8 @@ function NewTaskDialog({ channelId, onClose, onCreated }: { channelId: Id; onClo
                 }}>
                 <TextField label={C.panel.taskTitle} value={title} onChange={setTitle} autoFocus isRequired maxLength={BOT_LIMITS.title} />
                 <RadioGroup label={C.panel.owner} value={owner} onChange={(value) => setOwner(value as WorkItemOwner)}>
-                  <Radio value="agent">{C.panel.ownerAgent}</Radio>
                   <Radio value="user">{C.panel.ownerUser}</Radio>
+                  <Radio value="agent">{C.panel.ownerAgent}</Radio>
                 </RadioGroup>
                 {owner === 'agent' ? (
                   <Switch isSelected={start} onChange={setStart}>
