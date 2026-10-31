@@ -79,6 +79,7 @@ export const fr: BotMessages = {
     open: 'Ouvrir',
     stop: 'Arrêter',
     missing: 'Les détails de la tâche ne sont pas chargés',
+    reply: 'Répondre',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const fr: BotMessages = {
     reactions: 'Réagir',
     thumbsUp: 'J’aime (sur « Je le fais… ? » cela veut dire oui)',
     thumbsDown: 'Je n’aime pas (l’agent demande quoi changer)',
+    cancelReply: 'Ne pas répondre à cette tâche',
   },
   chips: {
     label: 'Réponses suggérées',

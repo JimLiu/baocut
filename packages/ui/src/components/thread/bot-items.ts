@@ -24,6 +24,8 @@ export interface BotThreadExtras {
   unread: { itemId: Id; node: ReactNode } | null;
   userMessage: ((item: MessageItem<'user-message'>, conversationId: Id) => ReactNode) | null;
   agentMessage: ((item: MessageItem<'agent-message'>, conversationId: Id) => ReactNode) | null;
+  /** 频道里「回复」一张线程卡（BOT-EX-09）：下一条消息带上 `replyToItemId`。没有时卡片上不给「回复」。 */
+  reply?: ((cardItemId: Id, workItemId: Id) => void) | null;
 }
 
 export const BotThreadExtrasContext = createContext<BotThreadExtras | null>(null);

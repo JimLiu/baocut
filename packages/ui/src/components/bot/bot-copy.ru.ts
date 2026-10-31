@@ -88,6 +88,7 @@ export const ru: BotMessages = {
     open: 'Открыть',
     stop: 'Остановить',
     missing: 'Подробности задачи не загружены',
+    reply: 'Ответить',
   },
   relay: {
     direction: {
@@ -139,6 +140,7 @@ export const ru: BotMessages = {
     reactions: 'Реакция',
     thumbsUp: 'Нравится (на «Сделать…?» означает «да»)',
     thumbsDown: 'Не нравится (агент спросит, что изменить)',
+    cancelReply: 'Не отвечать на эту задачу',
   },
   chips: {
     label: 'Предлагаемые ответы',

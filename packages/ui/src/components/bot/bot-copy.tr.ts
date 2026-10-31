@@ -79,6 +79,7 @@ export const tr: BotMessages = {
     open: 'Aç',
     stop: 'Durdur',
     missing: 'Görev ayrıntıları yüklenmedi',
+    reply: 'Yanıtla',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const tr: BotMessages = {
     reactions: 'Tepki ver',
     thumbsUp: 'Beğen (“…yapayım mı?” sorusunda evet demek)',
     thumbsDown: 'Beğenme (ajan neyin değişeceğini sorar)',
+    cancelReply: 'Bu göreve yanıt verme',
   },
   chips: {
     label: 'Önerilen yanıtlar',

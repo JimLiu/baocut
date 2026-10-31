@@ -15,7 +15,11 @@ export function BotTimeline({ channelId, extras = null, children }: { channelId:
     (item: BotTimelineItem, conversationId: Id) => (
       <div data-bot-item={item.id}>
         {item.kind === 'work-item-ref' ? (
-          <WorkItemRefCard workItemId={item.workItemId} channelId={channelId} />
+          <WorkItemRefCard
+            workItemId={item.workItemId}
+            channelId={channelId}
+            onReply={extras?.reply ? () => extras.reply!(item.id, item.workItemId) : null}
+          />
         ) : item.kind === 'relay' ? (
           <RelayRow item={item} channelId={channelId} />
         ) : (
@@ -23,7 +27,7 @@ export function BotTimeline({ channelId, extras = null, children }: { channelId:
         )}
       </div>
     ),
-    [channelId],
+    [channelId, extras],
   );
   return (
     <BotItemsContext.Provider value={render}>

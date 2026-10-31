@@ -79,6 +79,7 @@ export const nl: BotMessages = {
     open: 'Openen',
     stop: 'Stoppen',
     missing: 'Taakdetails zijn niet geladen',
+    reply: 'Antwoorden',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const nl: BotMessages = {
     reactions: 'Reageren',
     thumbsUp: 'Duim omhoog (bij „Zal ik…?” betekent dit ja)',
     thumbsDown: 'Duim omlaag (de agent vraagt wat er anders moet)',
+    cancelReply: 'Niet op deze taak antwoorden',
   },
   chips: {
     label: 'Voorgestelde antwoorden',

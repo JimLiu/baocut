@@ -1,5 +1,6 @@
 import type { Id } from '@baocut/protocol';
 import { ActionButton, Text } from '@react-spectrum/s2';
+import Comment from '@react-spectrum/s2/icons/Comment';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import StopProcessing from '@react-spectrum/s2/icons/StopProcessing';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -45,7 +46,7 @@ const muted = style({ font: 'ui-sm', color: 'gray-600' });
  * 线程卡（BOT-CV-03、需求 §11.4）：频道对话里一条任务的占位，标题、状态与「下一步」从任务镜像实时读。
  * 「打开」在右侧打开任务详情；进行中的智能体任务可以「停止」。读屏读出「任务名，状态，下一步」（需求 §11.10）。
  */
-export function WorkItemRefCard({ workItemId, channelId }: { workItemId: Id; channelId: Id | null }) {
+export function WorkItemRefCard({ workItemId, channelId, onReply = null }: { workItemId: Id; channelId: Id | null; onReply?: (() => void) | null }) {
   const item = useWorkItem(workItemId);
   const go = useShell((s) => s.go);
   const call = useBotCall();
@@ -83,6 +84,12 @@ export function WorkItemRefCard({ workItemId, channelId }: { workItemId: Id; cha
           <ActionButton isQuiet size="S" onPress={() => void call('workItems.stop', { id: item.id })}>
             <StopProcessing />
             <Text>{C.card.stop}</Text>
+          </ActionButton>
+        ) : null}
+        {onReply ? (
+          <ActionButton isQuiet size="S" onPress={onReply}>
+            <Comment />
+            <Text>{C.card.reply}</Text>
           </ActionButton>
         ) : null}
         <ActionButton isQuiet size="S" onPress={open}>

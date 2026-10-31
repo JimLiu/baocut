@@ -79,6 +79,7 @@ export const zhHant: BotMessages = {
     open: '開啟',
     stop: '停止',
     missing: '任務詳情還沒載入',
+    reply: '回覆',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const zhHant: BotMessages = {
     reactions: '表情回應',
     thumbsUp: '讚（在「要我……嗎」上等於「好」）',
     thumbsDown: '踩（智慧體會問哪裡要改）',
+    cancelReply: '不回覆這條任務',
   },
   chips: {
     label: '建議的回覆',

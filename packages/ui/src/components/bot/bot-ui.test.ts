@@ -7,7 +7,9 @@ import type { RuntimeSession } from '../../runtime/session.ts';
 import type { AwaySummary, TimelineItem } from '@baocut/protocol';
 import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
-import { AwayBanner, ChannelSpend, useAwayAndSeen } from './channel-view.tsx';
+import { AwayBanner, ChannelSpend, ReplyTarget, useAwayAndSeen } from './channel-view.tsx';
+import { WorkItemRefCard } from './timeline/work-item-ref-card.tsx';
+import { drainQueue, sendQueuedMessageNow } from '../../runtime/message-queue-runner.ts';
 import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
 import { useWorkItems } from '../../state/work-items-store.ts';
 import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
@@ -526,5 +528,57 @@ describe('改已发的消息与表情回应（BOT-EX-06、BOT-EX-10）', () => {
     await render(createElement(Reactions, { item: { ...agent, reactions: ['\u{1F44D}'] }, conversationId: 'conv_c1' }));
     const pressed = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('赞'))!;
     expect(pressed.getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+describe('回复线程卡（BOT-EX-09）', () => {
+  const task = { ...RUNNING, title: '第 12 期字幕', steps: [], question: null } as unknown as WorkItem;
+
+  it('频道里的线程卡有「回复」；输入框上方写明回复哪条，可取消；发出的消息标「回复：任务名」', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [task], resolvedTail: 20, reports: [] } } });
+    useTimeline.setState({ byConversationId: { conv_c1: { items: [{ kind: 'work-item-ref', id: 'card1', createdAt: '2026-10-31T09:00:00Z', taskId: null, workItemId: 'wi_run' }], offset: 0 } as never } });
+    try {
+      const replies: string[] = [];
+      await render(createElement(WorkItemRefCard, { workItemId: 'wi_run', channelId: 'c1', onReply: () => replies.push('card1') }));
+      await press('回复');
+      expect(replies).toEqual(['card1']);
+
+      let cancelled = false;
+      await render(createElement(ReplyTarget, { workItemId: 'wi_run', onCancel: () => (cancelled = true) }));
+      expect(container.textContent).toContain('回复「第 12 期字幕」');
+      await press('不回复这条任务');
+      expect(cancelled).toBe(true);
+
+      const sent = { kind: 'user-message', id: 'msg9', createdAt: '2026-10-31T09:05:00Z', taskId: null, text: '加上英文', replyToItemId: 'card1' } as Extract<TimelineItem, { kind: 'user-message' }>;
+      await render(createElement(UserMessageExtras, { item: sent, conversationId: 'conv_c1' }));
+      expect(container.textContent).toContain('回复「第 12 期字幕」');
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+      useTimeline.setState({ byConversationId: {} });
+    }
+  });
+
+  it('没有回复入口时卡片上不给「回复」', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [task], resolvedTail: 20, reports: [] } } });
+    try {
+      await render(createElement(WorkItemRefCard, { workItemId: 'wi_run', channelId: 'c1' }));
+      expect(button('回复')).toBeUndefined();
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
+  });
+
+  it('排队的回复：到时候带 replyToItemId 发出，不插进正在跑的回合', async () => {
+    const send = vi.fn(async () => 't9');
+    const steer = vi.fn(async () => 'steered');
+    Object.assign(runtime, { send, steer });
+    const queued = { id: 'q1', text: '加上英文', attachments: [], replyToItemId: 'card1', queuedAt: '2026-10-31T09:05:00Z' };
+    useShell.getState().setQueue('conv_c1', () => [queued]);
+    expect(await sendQueuedMessageNow(runtime, 'conv_c1', 'q1')).toEqual({ status: 'sent' });
+    expect(steer).not.toHaveBeenCalled();
+    expect(send.mock.calls[0]).toEqual(['conv_c1', '加上英文', undefined, [], undefined, undefined, undefined, undefined, undefined, undefined, undefined, { replyToItemId: 'card1' }]);
+    useShell.getState().setQueue('conv_c1', () => [queued]);
+    await drainQueue(runtime, 'conv_c1');
+    expect(send.mock.calls[1]!.at(-1)).toEqual({ replyToItemId: 'card1' });
   });
 });

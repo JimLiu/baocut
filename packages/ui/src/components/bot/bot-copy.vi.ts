@@ -79,6 +79,7 @@ export const vi: BotMessages = {
     open: 'Mở',
     stop: 'Dừng',
     missing: 'Chưa tải chi tiết việc',
+    reply: 'Trả lời',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const vi: BotMessages = {
     reactions: 'Bày tỏ cảm xúc',
     thumbsUp: 'Thích (với câu “Tôi làm… nhé?” nghĩa là có)',
     thumbsDown: 'Không thích (tác tử sẽ hỏi cần sửa gì)',
+    cancelReply: 'Không trả lời việc này',
   },
   chips: {
     label: 'Câu trả lời gợi ý',

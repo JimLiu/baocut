@@ -79,6 +79,7 @@ export const de: BotMessages = {
     open: 'Öffnen',
     stop: 'Stoppen',
     missing: 'Aufgabendetails sind nicht geladen',
+    reply: 'Antworten',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const de: BotMessages = {
     reactions: 'Reagieren',
     thumbsUp: 'Daumen hoch (bei „Soll ich …?“ heißt das ja)',
     thumbsDown: 'Daumen runter (der Agent fragt, was zu ändern ist)',
+    cancelReply: 'Nicht auf diese Aufgabe antworten',
   },
   chips: {
     label: 'Vorgeschlagene Antworten',

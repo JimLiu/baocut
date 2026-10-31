@@ -79,6 +79,7 @@ export const ko: BotMessages = {
     open: '열기',
     stop: '중지',
     missing: '작업 세부 정보를 아직 불러오지 않았습니다',
+    reply: '답장',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const ko: BotMessages = {
     reactions: '반응',
     thumbsUp: '좋아요(“~할까요?”에서는 예)',
     thumbsDown: '싫어요(에이전트가 무엇을 고칠지 묻습니다)',
+    cancelReply: '이 작업에 답장하지 않기',
   },
   chips: {
     label: '추천 답장',

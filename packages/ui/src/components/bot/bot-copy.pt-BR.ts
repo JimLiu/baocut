@@ -79,6 +79,7 @@ export const ptBR: BotMessages = {
     open: 'Abrir',
     stop: 'Parar',
     missing: 'Os detalhes da tarefa não foram carregados',
+    reply: 'Responder',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const ptBR: BotMessages = {
     reactions: 'Reagir',
     thumbsUp: 'Curtir (em “Posso…?” significa sim)',
     thumbsDown: 'Não curtir (o agente pergunta o que mudar)',
+    cancelReply: 'Não responder a esta tarefa',
   },
   chips: {
     label: 'Respostas sugeridas',

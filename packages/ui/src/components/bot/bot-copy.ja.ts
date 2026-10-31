@@ -79,6 +79,7 @@ export const ja: BotMessages = {
     open: '開く',
     stop: '停止',
     missing: 'タスクの詳細はまだ読み込まれていません',
+    reply: '返信',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const ja: BotMessages = {
     reactions: 'リアクション',
     thumbsUp: 'いいね（「〜しましょうか？」では「はい」）',
     thumbsDown: 'よくない（エージェントがどこを直すか尋ねます）',
+    cancelReply: 'このタスクへの返信をやめる',
   },
   chips: {
     label: '返信の候補',

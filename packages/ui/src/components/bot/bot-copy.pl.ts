@@ -88,6 +88,7 @@ export const pl: BotMessages = {
     open: 'Otwórz',
     stop: 'Zatrzymaj',
     missing: 'Szczegóły zadania nie są wczytane',
+    reply: 'Odpowiedz',
   },
   relay: {
     direction: {
@@ -139,6 +140,7 @@ export const pl: BotMessages = {
     reactions: 'Zareaguj',
     thumbsUp: 'Kciuk w górę (przy „Czy mam…?” oznacza tak)',
     thumbsDown: 'Kciuk w dół (agent zapyta, co zmienić)',
+    cancelReply: 'Nie odpowiadaj na to zadanie',
   },
   chips: {
     label: 'Proponowane odpowiedzi',

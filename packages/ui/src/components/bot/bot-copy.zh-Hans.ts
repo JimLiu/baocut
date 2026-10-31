@@ -79,6 +79,7 @@ export const zhHans: BotMessages = {
     open: '打开',
     stop: '停止',
     missing: '任务详情还没载入',
+    reply: '回复',
   },
   relay: {
     direction: {
@@ -130,6 +131,7 @@ export const zhHans: BotMessages = {
     reactions: '表情回应',
     thumbsUp: '赞（在「要我……吗」上等于「好」）',
     thumbsDown: '踩（智能体会问哪里要改）',
+    cancelReply: '不回复这条任务',
   },
   chips: {
     label: '建议的回复',

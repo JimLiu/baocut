@@ -98,6 +98,7 @@ const en = {
     open: 'Open',
     stop: 'Stop',
     missing: 'Task details aren’t loaded',
+    reply: 'Reply',
   },
   relay: {
     direction: {
@@ -149,6 +150,7 @@ const en = {
     reactions: 'React',
     thumbsUp: 'Thumbs up (on “Shall I…?” it means yes)',
     thumbsDown: 'Thumbs down (the agent asks what to change)',
+    cancelReply: 'Don’t reply to this task',
   },
   chips: {
     label: 'Suggested replies',

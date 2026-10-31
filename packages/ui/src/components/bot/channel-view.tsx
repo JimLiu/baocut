@@ -3,6 +3,7 @@ import type { AwaySummary, AwaySummaryRow, Channel, Id } from '@baocut/protocol'
 import { ActionButton, Button, DialogContainer, Text } from '@react-spectrum/s2';
 import Bookmark from '@react-spectrum/s2/icons/Bookmark';
 import CalendarAdd from '@react-spectrum/s2/icons/CalendarAdd';
+import Close from '@react-spectrum/s2/icons/Close';
 import Settings from '@react-spectrum/s2/icons/Settings';
 import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -12,9 +13,10 @@ import { useChannels } from '../../state/channels-store.ts';
 import { useConnection } from '../../state/connection-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTimeline, useTimelineItems } from '../../state/timeline-store.ts';
+import { useWorkItem } from '../../state/work-items-store.ts';
 import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
 import { ConversationView } from '../conversation-view.tsx';
-import { useBotCall } from './bot-actions.ts';
+import { focusComposer, useBotCall } from './bot-actions.ts';
 import { jumpTo } from './bot-jump.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
@@ -36,6 +38,8 @@ const header = style({
   borderColor: 'gray-100',
   minWidth: 0,
 });
+const replyRow = style({ display: 'flex', alignItems: 'center', gap: 4, paddingX: 4, font: 'ui-sm', color: 'gray-700', minWidth: 0 });
+const replyText = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
 const spendLine = style({ font: 'ui-xs', color: 'gray-600', whiteSpace: 'nowrap' });
 const headText = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 });
 const name = style({ margin: 0, font: 'title-sm', color: 'gray-900', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
@@ -195,6 +199,20 @@ function useDriverUnavailable(channel: Channel): boolean {
   return !driver || !driver.enabled || driver.state !== 'ready';
 }
 
+/** 输入框上方「回复：任务名 ✕」（BOT-EX-09）。 */
+export function ReplyTarget({ workItemId, onCancel }: { workItemId: Id; onCancel: () => void }) {
+  const task = useWorkItem(workItemId);
+  const text = task ? C.message.replyTo(task.title) : C.message.replyToCard;
+  return (
+    <div className={replyRow} role="status">
+      <span className={replyText}>{text}</span>
+      <ActionButton isQuiet size="XS" aria-label={C.message.cancelReply} onPress={onCancel}>
+        <Close />
+      </ActionButton>
+    </div>
+  );
+}
+
 /** 频道的花费（BOT-NF-04）：今天与本月，来自频道摘要；没有账本或这个月还没花钱时不显示。 */
 export function ChannelSpend({ channelId }: { channelId: Id }) {
   const spend = useChannels((s) => s.channels.find((c) => c.channel.id === channelId)?.spend ?? null);
@@ -229,6 +247,8 @@ export function ChannelView({
   const away = useAwayAndSeen(channel);
   const unavailable = useDriverUnavailable(channel);
   const [scheduling, setScheduling] = useState(false);
+  // 回复一张线程卡（BOT-EX-09）：下一条消息带上卡片的 id，协调者把原文转给那条任务的线程。
+  const [replyTo, setReplyTo] = useState<{ itemId: Id; workItemId: Id } | null>(null);
   const firstUnread = away.summary?.firstUnreadItemId ?? null;
   const messageExtras = useBotMessageExtras();
   const extras = useMemo(
@@ -246,8 +266,12 @@ export function ChannelView({
           }
         : null,
       ...messageExtras,
+      reply: (itemId: Id, workItemId: Id) => {
+        setReplyTo({ itemId, workItemId });
+        focusComposer(channel.conversationId);
+      },
     }),
-    [away.firstUnread, messageExtras],
+    [away.firstUnread, messageExtras, channel.conversationId],
   );
   const banners: ReactNode[] = [];
 
@@ -324,7 +348,13 @@ export function ChannelView({
           onAgentChange={(change) =>
             void call('channels.update', { id: channel.id, patch: { driverId: change.driverId, model: change.model ?? null, effort: change.effort ?? null } })
           }
-          aboveComposer={<SuggestionChips conversationId={channel.conversationId} items={items} disabled={channel.archived || unavailable} />}
+          aboveComposer={
+            <>
+              {replyTo ? <ReplyTarget workItemId={replyTo.workItemId} onCancel={() => setReplyTo(null)} /> : null}
+              <SuggestionChips conversationId={channel.conversationId} items={items} disabled={channel.archived || unavailable} />
+            </>
+          }
+          reply={replyTo ? { itemId: replyTo.itemId, onSent: () => setReplyTo(null) } : null}
         />
       </BotTimeline>
     </section>

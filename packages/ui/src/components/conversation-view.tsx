@@ -85,6 +85,7 @@ export function ConversationView({
   placeholder,
   onAgentChange,
   empty,
+  reply,
 }: {
   conversationId: string;
   autoFocus?: boolean;
@@ -92,6 +93,8 @@ export function ConversationView({
   placeholder?: string;
   onAgentChange?: (change: AgentChange) => void;
   empty?: ReactNode;
+  /** Bot 频道：下一条消息回复哪张线程卡（BOT-EX-09）；发出或排进队列后调 `onSent`。 */
+  reply?: { itemId: Id; onSent: () => void } | null;
 }) {
   const runtime = useRuntime();
   const meta = useConversationMeta(conversationId);
@@ -190,6 +193,7 @@ export function ConversationView({
         ...(videoNotes.length ? { videoAnnotations: videoNotes } : {}),
         ...(docsNotes.length ? { docsAnnotations: docsNotes } : {}),
         ...(skipProjectBrand ? { skipProjectBrand } : {}),
+        ...(reply ? { replyToItemId: reply.itemId } : {}),
         queuedAt: nowIso(),
       }),
     );
@@ -388,6 +392,7 @@ export function ConversationView({
           if (busy || useShell.getState().queues[conversationId]?.length) {
             const queued = await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes, skipProjectBrand);
             sentNotes();
+            reply?.onSent();
             if (questionPending) void sendNow(queued);
             if (!busy)
               void drainQueue(runtime, conversationId).then((result) => {
@@ -408,16 +413,18 @@ export function ConversationView({
               systemNotes,
               videoNotes,
               docsNotes,
-              { skipProjectBrand },
+              { skipProjectBrand, ...(reply ? { replyToItemId: reply.itemId } : {}) },
             );
             editor.reset();
             sentNotes();
+            reply?.onSent();
             return true;
           } catch (error) {
             // 刚好有任务开跑（别的窗口、别的入口）：这句话排队，不丢。
             if (error instanceof RpcError && error.code === 'busy') {
               await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes, skipProjectBrand);
               sentNotes();
+              reply?.onSent();
               return true;
             }
             ToastQueue.negative(sendFailureMessage(error), { timeout: 5000 });
