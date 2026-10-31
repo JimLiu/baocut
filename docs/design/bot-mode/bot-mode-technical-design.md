@@ -632,11 +632,13 @@ type WorkItemEvent =
 | scheduled | unschedule | user | upNext | 删一次性定时 |
 | active·working | report(needs-review / needs-input / blocked / waiting) | thread；system（兜底报告） | 对应子状态 | 设 `question`；需要用户时发通知 |
 | active·working | report(done) | thread | active·needsReview | 线程不能直接关任务（§5.2 硬约束），`done` 一律落成待审阅 |
+| active·needsReview / needsInput / blocked / waitingOnOthers | report(任意 stop) | thread，且当前回合 `task.origin = 'refresh'` | 按 stop 落到对应子状态（`done` 仍落 `needsReview`） | 刷新发现了变化（BOT-EX-08）；替换 `question`，旧问题写进 `updates`。刷新没发现变化时不调 `thread_report`，状态原样（§7.4） |
+| resolved·done（由本回合的 refresh 关闭） | report(done) | thread，且同一个 refresh 回合刚刚 `resolve` 了这条任务 | 不变 | 只追加报告并投递给协调者，供转述（D6）；其他情况下对已解决任务的报告拒绝 |
 | active·working | approval(pending) / thread-activity(awaiting-*) | system | active·needsInput | `question` 从审批推出（`askedBy:'system'`） |
 | active·needsInput | approval(settled) | system | 回到审批前的子状态 | — |
 | active·needsReview / needsInput / blocked | user-replied | system（由线程收到 `via` 为用户的消息触发） | active·working | 清 `question`；note 写回答摘要 |
 | active·blocked / waitingOnOthers | unblocked | system；thread；user（卡住后点「继续」） | active·working | 卡住后继续时以 `origin:'relay'` 投递 `<baocut-refresh reason="stalled">` |
-| active·working | stalled(no-progress / job-hung / budget) | system（看门狗，§9.3） | active·blocked | reason 写成一句人话，`question` 为「继续还是停止？」；`agents.interrupt` 线程；发通知 |
+| active·working；active·waitingOnOthers（仅 job-hung） | stalled(no-progress / job-hung / budget) | system（看门狗，§9.3） | active·blocked | reason 写成一句人话，`question` 为「继续还是停止？」；`agents.interrupt` 线程；发通知 |
 | upNext / scheduled / active·*（建议除外） | resolve | user | resolved·done | 有线程时停掉未完成的回合；`owner:'user'` 的任务在 `upNext` 直接勾掉，不开线程（BOT-TK-04） |
 | upNext / scheduled / active·* | resolve(confirmedBy) | coordinator 或 thread，且当前回合 `attended`、未 `tainted`，由 `confirmedBy` 那条 `author:'user'`、`via:'typed'` 的消息起（线程须是自己会话里的消息，协调者须是频道里的消息） | resolved·done | 用户在对话里说了「标完成吧」「这个做完了」：`resolution.by='user'`、`confirmedBy` 存那条消息的 id，界面写「你确认完成」；有线程时停掉未完成的回合 |
 | active·* | resolve | thread，且当前回合 `task.origin = 'refresh'`，且 `evidence` 通过核验（§9.5） | resolved·done | `resolution.by='agent'`、`resolution.evidence` 存核验过的引用；报告照常交给协调者，频道里一句话告诉用户（D6） |
@@ -664,7 +666,7 @@ type WorkItemEvent =
 | 线程的任务 `completed` / `failed` 且本回合没有报告 | 兜底 `report`（§7.4） |
 | `dependsOn` 里的任务全部解决 | 依赖它的任务 `unblocked('dependency')` 或 `start` |
 
-**卡住检测（BOT-CV-10）**：`ActivityBridge` 在下面这些事发生时把 `WorkItem.lastProgressAt` 设为当前时刻：`update_status` 改了步骤、`work_items_update` 写了更新、`outputs` 变了、任务资源里的视频出了新版本、线程等的 Job 报了新进度。同一个工具用同样的参数连续调用、只读工具的调用都不算。一个每分钟一次的看门狗扫 `active·working` 的任务：
+**卡住检测（BOT-CV-10）**：`ActivityBridge` 在下面这些事发生时把 `WorkItem.lastProgressAt` 设为当前时刻：`update_status` 改了步骤、`work_items_update` 写了更新、`outputs` 变了、任务资源里的视频出了新版本、线程等的 Job 报了新进度。同一个工具用同样的参数连续调用、只读工具的调用都不算。一个每分钟一次的看门狗扫 `active·working` 与 `active·waitingOnOthers` 的任务（后者就是 §7.5 里线程交了长 Job、结束回合在等的常态，只做下面第二条检查，`no-progress` 与 `budget` 不适用）：
 
 - `now - lastProgressAt` 超过 `BotSettings.stallMinutes`（默认 20，频道可覆盖）→ 发 `stalled('no-progress')`；
 - 线程在等的 Job 超过它预计时长的两倍没有新进度 → `stalled('job-hung')`，reason 里带 Job 的名称；
@@ -902,7 +904,7 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 | 回答带出处（BH-12） | `ResourceRef.video-range`；转录查询工具的结果本来就带时间码，转述时原样挂成卡片 | 没看到的不说看到 |
 | 逐类放权（BH-13，P2） | 复用现有的「总是允许」规则（`agents.removeRule` 管理的那一套）：用户在提问卡上选「这类以后都允许」时另存规则；新增约束：Bot 角色的会话里「总是允许」规则只对 `edit` / `command` 风险生效，`high` 永远要问；规则按频道存，列在频道设置里可删 | 用户在对话里说的「这类直接做」，由协调者把原话写进记忆，同时在下一次同类审批卡上预选「这类以后都允许」，仍由用户点 |
 | 确认跟着细节走（SF-12） | 审批记录绑定参数摘要（对象、金额、目标）；同一个任务里参数摘要变了不复用之前的「本次会话允许」，重新出审批卡 | 对话里的「好」覆盖哪一步 |
-| 撤销这条任务的改动（EX-19） | 两种粒度。①线程每次动手前记下视频版本到工作笔记的 `baseVersion`，`work_items_revert({ to: 'before-thread' \| version })` 回到最近一次动手前。②任务菜单走 `workItems.revertAll`：Runtime 在任务第一次动某部视频时把当前版本记进 `WorkItem.baseVersions`；撤销时对每部视频读 `baseVersion` 之后的版本记录，挑出 `Action: user_local` 的版本，先以 `{ dryRun: true }` 返回「用户在中间改过哪些」交界面列出；用户选「连我的一起撤」时恢复到 `baseVersion`，选「只撤智能体的」时只反向应用 `Action: agent:*` 那几个版本的补丁，补丁之间冲突就整体拒绝并说明哪部视频的哪一处（不半撤）。每部视频的恢复都走现有的 `videos.versions.restore` / 版本补丁的反向应用（[版本历史设计 §3.5](../version-history/version-history-design.md)），各自是一笔可撤销的事务 | 判断用户说的是撤哪一次 |
+| 撤销这条任务的改动（EX-19） | 两种粒度。①线程每次动手前记下视频版本到工作笔记的 `baseVersion`，`work_items_revert({ to: 'before-thread' \| version })` 回到最近一次动手前。②任务菜单走 `workItems.revertAll`：Runtime 在任务第一次动某部视频时把当前版本记进 `WorkItem.baseVersions`；撤销时对每部视频读 `baseVersion` 之后的版本记录，挑出 `Action: user_local` 的版本，先以 `{ dryRun: true }` 返回「用户在中间改过哪些」交界面列出；用户选「连我的一起撤」时恢复到 `baseVersion`，选「只撤智能体的」时按版本归属判断：一个版本只有 `Action: agent:*` 且它的 `Conversation:` 行是本任务的线程会话，才算本任务的版本，反向应用它的补丁；只有 `Action: user_local` 的版本跳过。只要中间有一个版本既有智能体又有用户的 Action（版本历史 §3.1 允许同一版本里合并多次编辑），或者是别的会话（别的任务、普通对话）的智能体改动，就无法只撤本任务的部分：这个选项置灰并说明是哪部视频的哪个版本，只留「连我的一起撤」与「取消」。补丁之间冲突时同样整体拒绝（不半撤）。dryRun 的结果里给出每部视频是否可以「只撤智能体的」。每部视频的恢复都走现有的 `videos.versions.restore` / 版本补丁的反向应用（[版本历史设计 §3.5](../version-history/version-history-design.md)），各自是一笔可撤销的事务 | 判断用户说的是撤哪一次 |
 
 ### 13.5 首次使用的种子回合
 
