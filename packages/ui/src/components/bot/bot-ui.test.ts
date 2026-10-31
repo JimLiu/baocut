@@ -9,6 +9,8 @@ import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
 import { AwayBanner, useAwayAndSeen } from './channel-view.tsx';
 import { NewTaskDialog } from './task-panel.tsx';
+import { ThreadChips } from './task-detail.tsx';
+import { useTimeline } from '../../state/timeline-store.ts';
 import { BotSettings } from '../settings/bot-settings.tsx';
 import { useChannels } from '../../state/channels-store.ts';
 import { DEFAULT_BOT_SETTINGS } from '@baocut/protocol';
@@ -152,5 +154,33 @@ describe('设置里的 Bot 一节（需求 §11.8）', () => {
     await act(async () => toggle('补充提示').click());
     expect(calls('bot.settings')).toEqual([{ patch: { makeAutoTrigger: false } }, { patch: { supplementHints: false } }]);
     expect(useChannels.getState().settings.supplementHints).toBe(false);
+  });
+});
+
+describe('线程的提示芯片（BOT-SG-01/02）', () => {
+  it('任务详情的输入框上方显示线程最新一条消息下的提示，点了发出完整的句子', async () => {
+    handlers['conversations.send'] = () => ({ taskId: 't2' });
+    const items = [
+      { kind: 'agent-message', id: 'am1', createdAt: '2026-10-31T09:00:00Z', taskId: 't1', text: '要我把第 2 段也剪短吗？', streaming: false },
+      {
+        kind: 'suggestions',
+        id: 'sg1',
+        createdAt: '2026-10-31T09:00:01Z',
+        taskId: null,
+        forItemId: 'am1',
+        source: 'system',
+        state: 'open',
+        usedChipId: null,
+        chips: [
+          { id: 'ch_yes', label: '是', text: '是', kind: 'confirm', kindTag: null, fillOnly: false, recommended: false, answers: null, target: null, action: null },
+          { id: 'ch_no', label: '否', text: '否', kind: 'decline', kindTag: null, fillOnly: false, recommended: false, answers: null, target: null, action: null },
+        ],
+      },
+    ] as TimelineItem[];
+    useTimeline.setState({ byConversationId: { conv_thread: { items, offset: 0 } as never } });
+    await render(createElement(ThreadChips, { threadId: 'conv_thread' }));
+    expect(container.querySelector('[role="group"]')?.textContent).toBe('是否');
+    await press('是');
+    expect(calls('conversations.send')).toEqual([expect.objectContaining({ conversationId: 'conv_thread', text: '是', via: 'suggestion', suggestionChipId: 'ch_yes' })]);
   });
 });

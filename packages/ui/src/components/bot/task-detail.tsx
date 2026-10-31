@@ -26,6 +26,7 @@ import { FINISHED_STEPS_SHOWN, canRevertItem, type WorkItemStatusKey } from '../
 import { agoLabel } from '../../model/format.ts';
 import { formatMoneyOne } from '../../model/usage-format.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useTimelineItems } from '../../state/timeline-store.ts';
 import { useTransitionTick, useWorkItem } from '../../state/work-items-store.ts';
 import { ConversationView } from '../conversation-view.tsx';
 import { useNow } from '../use-now.ts';
@@ -34,6 +35,7 @@ import { BOT_COPY as C } from './bot-copy.ts';
 import { formatDay } from './bot-format.ts';
 import { StatusLabel } from './status-badge.tsx';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
+import { SuggestionChips } from './timeline/suggestion-chips.tsx';
 import { statusLabel, workItemStatus } from './work-item-status.ts';
 
 const frame = style({ display: 'flex', flexDirection: { default: 'column', isWide: 'row' }, flexGrow: 1, minHeight: 0, minWidth: 0 });
@@ -381,7 +383,13 @@ export function TaskDetail({
       <div className={thread}>
         {item.threadId ? (
           <BotTimeline channelId={channelId ?? item.channelId}>
-            <ConversationView conversationId={item.threadId} autoFocus={false} placeholder={placeholder} empty={<div className={centered}>{C.detail.thread}</div>} />
+            <ConversationView
+              conversationId={item.threadId}
+              autoFocus={false}
+              placeholder={placeholder}
+              empty={<div className={centered}>{C.detail.thread}</div>}
+              aboveComposer={<ThreadChips threadId={item.threadId} />}
+            />
           </BotTimeline>
         ) : (
           <div className={centered}>{item.owner === 'user' ? C.detail.userTask : C.detail.noThread}</div>
@@ -392,6 +400,14 @@ export function TaskDetail({
       {dialog === 'delete' ? <DeleteRecordDialog item={item} onClose={() => setDialog(null)} onDeleted={onClose} /> : null}
     </section>
   );
+}
+
+/**
+ * 线程的提示芯片（BOT-SG-01/02）：线程用 `suggest_replies` 给的答案与确认提示、Runtime 补的「是」「否」，与频道对话一样挂在输入框上方。
+ */
+export function ThreadChips({ threadId }: { threadId: Id }) {
+  const items = useTimelineItems(threadId);
+  return <SuggestionChips conversationId={threadId} items={items} />;
 }
 
 /** 改方向（BOT-TK-08）：新的要求，以及已经做到一半的那份停掉还是留着。 */
