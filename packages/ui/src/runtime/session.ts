@@ -42,6 +42,7 @@ import { EditLabel } from '@baocut/protocol/messages/ui';
 import type { HostBridge } from '../host.ts';
 import { importAndPlace } from '../model/editor-ops.ts';
 import { insertVisual, type VisualLayer } from '../model/new-items.ts';
+import { useChannels } from '../state/channels-store.ts';
 import { useConnection } from '../state/connection-store.ts';
 import { useDirectory } from '../state/directory-store.ts';
 import { useGrants } from '../state/grants-store.ts';
@@ -127,6 +128,12 @@ export class RuntimeSession {
       this.client.subscribeDirectory({
         snapshot: (snapshot) => useDirectory.getState().replace(snapshot),
         event: (event) => useDirectory.getState().apply(event),
+      }),
+      // Bot 模式的频道摘要、设置与通知（docs/design/bot-mode 技术方案 §16.2）：Rail 徽标要用，一直订着；
+      // 频道的任务按需订（state/work-items-store.ts）。
+      this.client.subscribeChannels({
+        snapshot: (snapshot) => useChannels.getState().replace(snapshot),
+        event: (event) => useChannels.getState().apply(event),
       }),
       this.client.subscribeTasks({
         snapshot: (snapshot) => useTasks.getState().replace(snapshot),

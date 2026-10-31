@@ -84,6 +84,8 @@ export function rowKind(block: ThreadBlock): RowKind {
       return 'tool';
     case 'task':
       return 'footer';
+    case 'bot':
+      return 'notice';
     default:
       return block.type;
   }
@@ -95,6 +97,10 @@ export interface Turn {
   /** 回合第一块与最后一个内容块（不含任务状态行）在线程块里的下标；页脚挂在 `end` 之后。 */
   start: number;
   end: number;
+  /**
+   * 这一轮由一条消息起头：用户消息，或 Bot 的报告、转交（`relay`，不是用户打的字，技术方案 §8.1）。
+   * 没有起头的（导入记录下面那一段）不出页脚。
+   */
   hasUser: boolean;
   /** 有用户消息以外的内容。 */
   replied: boolean;
@@ -116,11 +122,12 @@ export function turns(blocks: readonly ThreadBlock[]): Turn[] {
   const out: (Turn & { texts: string[] })[] = [];
   let cur: (Turn & { texts: string[] }) | null = null;
   blocks.forEach((block, i) => {
-    if (block.type === 'user' || !cur || (block.type === 'notice' && block.item.imported)) {
+    const relay = block.type === 'bot' && block.item.kind === 'relay';
+    if (block.type === 'user' || relay || !cur || (block.type === 'notice' && block.item.imported)) {
       cur = {
         start: i,
         end: i,
-        hasUser: block.type === 'user',
+        hasUser: block.type === 'user' || relay,
         replied: false,
         text: '',
         task: null,
@@ -135,7 +142,7 @@ export function turns(blocks: readonly ThreadBlock[]): Turn[] {
       return;
     }
     cur.end = i;
-    if (block.type !== 'user') cur.replied = true;
+    if (block.type !== 'user' && !relay) cur.replied = true;
     if (block.type === 'agent' && block.item.text.trim()) cur.texts.push(block.item.text.trim());
     if (block.type === 'approval' && block.item.status === 'pending') {
       // 同时有待批准的动作与提问时按批准写，与会话的活动状态一致。

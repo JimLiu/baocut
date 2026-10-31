@@ -39,6 +39,9 @@ import {
   ConversationStore,
   ProjectStore,
   ScheduleStore,
+  ChannelStore,
+  WorkItemStore,
+  ChannelFiles,
   SpaceArtifactStore,
   SpaceMarkStore,
   acquireInstanceLock,
@@ -58,6 +61,10 @@ import { ConversationTools } from './agent-tools/conversation-tools.ts';
 import { openCredentialStore, type CredentialStoreOptions } from './credentials.ts';
 import { retitleFromLinkImports } from './conversation-titles.ts';
 import { JobInbox } from './job-inbox.ts';
+import { BotService } from './bot/bot-service.ts';
+import { BotTools } from './bot/bot-tools.ts';
+import { textMakeGenerator } from './bot/make-generator.ts';
+import { runtimeWorkspace } from './bot/workspace.ts';
 import { ScheduleService } from './schedules/schedule-service.ts';
 import { McpEndpoint } from './agent-tools/mcp-endpoint.ts';
 import { AgentScope } from './agent-tools/agent-scope.ts';
@@ -68,7 +75,7 @@ import { GrantTools } from './agent-tools/grant-tools.ts';
 import { ToolCatalog, type ToolSet } from './agent-tools/tool-catalog.ts';
 import type { ToolScope } from './agent-tools/tool-scope.ts';
 import { VideoTools } from './agent-tools/video-tools.ts';
-import { Gateway, originAllowed } from './gateway.ts';
+import { Gateway, originAllowed, type TrustedPrincipal } from './gateway.ts';
 import { createHandlers } from './handlers.ts';
 import { createFileLogger } from './logger.ts';
 import { StorageGc } from './storage-gc.ts';
@@ -340,6 +347,7 @@ const STOP_ORDER = [
   'locale',
   'activity',
   'legacy-upgrade',
+  'bot',
   'schedules',
   'storage-gc',
   'services',
@@ -397,6 +405,9 @@ class StopSequence {
  * 组装并启动 Runtime（架构设计 §2）：实例锁 → 存储 → Harness → Space 目录 → 网关 → 发现文件。
  * 停止顺序见 `STOP_ORDER`；启动中途失败时，已经起来的服务按同样的顺序停掉，再释放实例锁、关日志，抛出原来的错误。
  */
+/** Bot 替用户打开视频、整体撤销时的身份：算用户本人的操作（版本记录里是 `user_local`）。 */
+const BOT_VIDEO_PRINCIPAL: TrustedPrincipal = { kind: 'desktop', connectionId: 'bot', name: 'bot' };
+
 export async function startRuntime(options: StartRuntimeOptions = {}): Promise<RunningRuntime> {
   const home = options.home ?? resolveRuntimeHome();
   for (const dir of [
@@ -772,10 +783,16 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       ...(options.skillsGithub ? { github: options.skillsGithub } : {}),
     });
     // 每个原生会话开始时附在指导后面的：开着的 skill 的索引，再是用户的自定义指导（§3.8）。
+    // Bot 模式的服务（docs/design/bot-mode）：Harness 建好之后才有；频道与线程的角色指令跟在开发者指导后面（§6.2）。
+    let bot: BotService | null = null;
     const grants = new AgentGrants(
       (principal) => videos.connectionClosed(principal.connectionId),
-      async () =>
-        [skillIndexBlock(await skills.enabled()), customInstructionsBlock(settings.store.get('agent.customInstructions'))]
+      async (conversationId) =>
+        [
+          skillIndexBlock(await skills.enabled()),
+          customInstructionsBlock(settings.store.get('agent.customInstructions')),
+          bot ? await bot.instructionsFor(conversationId) : '',
+        ]
           .filter(Boolean)
           .join('\n\n'),
     );
@@ -852,6 +869,18 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         },
         task: (taskId) => harness.tasksSnapshot().tasks.find((task) => task.taskId === taskId),
         publish: harness.attachSchedules(() => schedules.list()),
+        bot: {
+          channel: (channelId) => bot?.listChannels().find((s) => s.channel.id === channelId)?.channel,
+          createWorkItem: (channelId, template, scheduleId, runId) => {
+            if (!bot) return Promise.reject(new Error('Bot mode is not ready'));
+            return bot.createScheduledItem(channelId, template, scheduleId, runId);
+          },
+          automationPaused: () => bot?.settings().automationPaused ?? false,
+          workItem: (workItemId) => {
+            const item = bot?.itemOrNull(workItemId);
+            return item ? { status: item.status, activeState: item.active?.state ?? null } : undefined;
+          },
+        },
       },
     });
     harness.subscribe('directory', undefined, (event) => {
@@ -864,6 +893,64 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       const tasksEvent = event.event as TasksEvent;
       if (tasksEvent.type === 'task.upsert') schedules.taskChanged(tasksEvent.task);
     });
+    // Bot 模式（docs/design/bot-mode 技术方案 §3）：频道、任务、线程路由与 Make。Space 目录在后面才建好，用到时再取。
+    const channelStore = new ChannelStore(home.channelsFile, { log: log.child('channels') });
+    const workItemStore = new WorkItemStore(home.workItemsDir, { log: log.child('work-items') });
+    bot = new BotService({
+      harness,
+      channels: channelStore,
+      workItems: workItemStore,
+      files: new ChannelFiles(home.channelsDir),
+      log,
+      workspace: runtimeWorkspace({
+        projects: () => harness.listProjects(),
+        videos: () => space.videos(),
+        job: (jobId) => models.jobs.inspect(jobId),
+        versions: (videoId) => videos.listVersions(videoId),
+        usage: () => models.readUsage(),
+        // 整体撤销：视频没开着时按项目打开；回到版本是用户在任务上点的，记成用户的操作。线程的「改回去」走视频工具。
+        openVideo: async (projectId, videoId) => {
+          if (videos.ref(videoId)) return;
+          const project = harness.listProjects().find((p) => p.id === projectId);
+          const entry = space.videos().find((v) => v.videoId === videoId && v.projectId === projectId);
+          if (!project || !entry) throw new Error(`video ${videoId} is not in project ${projectId}`);
+          await videos.open({ root: project.path, file: entry.dir, scope: { projectId } }, BOT_VIDEO_PRINCIPAL);
+        },
+        restoreVersion: async (videoId, version, before) => {
+          const result = await videos.restoreVersion({ videoId, commandId: newId('cmd'), version, ...(before ? { before: true } : {}) }, BOT_VIDEO_PRINCIPAL);
+          return result.version;
+        },
+      }),
+      make: textMakeGenerator(() => models.services.textGenerator()),
+      defaults: () => ({ driverId: null, accessMode: null }),
+      schedules: {
+        // 提议同意的访问模式已经放进了模板（`template.accessMode`），每次建出的任务按它开工。
+        createForChannel: async ({ channel, name, cadence, template }) => {
+          const { schedule } = await schedules.create({
+            conversationId: channel.conversationId,
+            name,
+            prompt: template.prompt || template.title,
+            cadence: cadence as never,
+            target: 'work-item',
+            maxRuns: null,
+            workItem: { channelId: channel.id, template },
+            commandId: `bot-schedule:${channel.id}:${name}:${Date.now()}`,
+          });
+          return schedule.id;
+        },
+        countForChannel: (channelId) => schedules.forChannel(channelId).length,
+        nextForStatus: () =>
+          schedules
+            .list()
+            .filter((s) => s.status === 'active' && s.nextAt)
+            .sort((a, b) => a.nextAt!.localeCompare(b.nextAt!))
+            .slice(0, 5)
+            .map((s) => ({ scheduleId: s.id, name: s.name, nextAt: s.nextAt! })),
+        channelChanged: (channelId) => schedules.channelChanged(channelId),
+        workItemChanged: (item) => schedules.workItemChanged(item.id),
+      },
+    });
+    const botService = bot;
     // 升级前留在会话工作目录里的视频搬进项目，没有会话的工作目录收拾掉（§3.10）。在 Space 首次扫描与客户端连上之前。
     await harness.migrateScratch().catch((error: unknown) => log.warn('Failed to tidy session folders', { error: String(error) }));
     // 默认 Agent 存在偏好设置里（`agent.defaultDriver`，§3.11）：设置页、CLI、`agents.setDefault` 改了它都推送新的 Agent 视图。
@@ -999,6 +1086,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         new DesignSystemTools({ scope: toolScope, designSystem: slides }),
         // 会话里的文档（docs/design/docs §7）：连接器与编辑器共用文档服务里的同一份文档。
         new DocsTools({ scope: toolScope, docs }),
+        // Bot 模式的工具（技术方案 §10）：只露给频道对话与线程会话（`roles`）。
+        new BotTools({ bot: botService, harness }),
       ];
     };
     // 会话的工具桥与网关 `catalog.call`（终端）共用同一组工具实例：`ScopeRouter` 按主体的种类转给会话的范围或终端的范围
@@ -1009,6 +1098,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         videos,
         jobs: models.jobs,
         sessionsDirs: [home.scratchDir, ...home.legacyScratchDirs],
+        // Bot 线程按任务资源打开项目里的视频（技术方案 §7.1）。
+        videoProjects: (conversation) => botService.videoProjectsOf(conversation),
       }),
       local: new LocalScope({ harness, videos, jobs: models.jobs, space: () => space, projectsDir: home.projectsDir }),
     });
@@ -1019,7 +1110,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const guidance = loadAgentGuidance(agentSkillsDir, { tools: tools.list() });
     grants.setInstructions(guidance.instructions);
     skills.setGuidePages(guidance.pages, guidance.sourceDir);
-    const mcp = new McpEndpoint({ grants, tools, log });
+    const mcp = new McpEndpoint({ grants, tools, log, roleOf: (conversationId) => harness.conversationOf(conversationId)?.role ?? 'chat' });
     // 对外服务（§4.8）：先登记，网关就绪之后再开启随 Runtime 启动的。停止时排在最前：断开外部连接，取消待处理的服务审批。
     const services = await openServices({
       home,
@@ -1255,6 +1346,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       requestStop: options.requestStop ?? null,
       legacyUpgrade,
       schedules,
+      bot: botService,
     };
     // Web 服务（§4.8）用同一组处理函数，只把媒体句柄换成它自己的（同源地址、要会话）；白名单在它的网关入口上。
     services.web.bind({
@@ -1308,7 +1400,12 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     // 监听失败时网关自己收拾干净；登记在监听之前，是为了之后写发现文件失败时也关掉它。
     stops.add('gateway', () => gateway.close(), 'Stopping the gateway failed');
+    // Bot 模式：先读入频道与任务，定时任务核对 `work-item` 目标时才看得到它们；定时任务起来之后再重启对账（§8.6）。
+    // 停止时排在定时任务之前。
+    await botService.load();
     await schedules.start();
+    await botService.start();
+    stops.add('bot', () => botService.stop(), 'Stopping bot mode failed');
     stops.add(
       'schedules',
       () => {

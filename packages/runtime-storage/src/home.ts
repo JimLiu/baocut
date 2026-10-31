@@ -23,6 +23,10 @@ import path from 'node:path';
  *   store/settings.json   Runtime 持有的偏好设置：只存与默认值不同的取值（架构设计 §5.10）
  *   store/services.json   对外服务的配置：随 Runtime 启动、端口、访问策略、客户端令牌的哈希（架构设计 §4.8）（0600）
  *   store/agent-probes.json Agent 的探测缓存：每个 Driver 最近一次探测的本机事实，启动时先用它（架构设计 §3.11）
+ *   store/channels.json   Bot 模式的频道、Bot 设置与用户级记忆的版本号（Bot 技术方案 §5.1）
+ *   store/work-items/<channelId>.jsonl  频道的任务、线程报告与状态转换：只追加的日志，膨胀后压缩（Bot 技术方案 §5.3）
+ *   channels/<channelId>/ 频道目录：MEMORY.md、files/（协调者与线程的 cwd，线程工作笔记在 files/.threads/<threadId>/working-notes.md）、make-runs.jsonl
+ *   channels/USER.md      用户级记忆（对所有频道都成立）
  *   staging/jobs/<id>/    任务进行中的 Worker 输出，结束后删除
  *   staging/node-jobs/<id>/ 别的机器提交的远端任务：上传的媒体与结果，随任务删除
  *   artifacts/<sha256>.<扩展名>  内容寻址的产物库：转写结果、合成的音频与图片、导出的文件等，`artifactId` 去掉
@@ -103,6 +107,12 @@ export interface RuntimeHome {
   modelsDir: string;
   /** 用户库（架构设计 §5.9）。不是 Space 的来源目录。 */
   libraryDir: string;
+  /** Bot 模式的频道列表与设置（Bot 技术方案 §5.1）。 */
+  channelsFile: string;
+  /** Bot 模式的任务日志，每个频道一份 `<channelId>.jsonl`（Bot 技术方案 §5.3）。 */
+  workItemsDir: string;
+  /** 频道目录（记忆、文件、工作笔记）。不放在 `scratchDir` 下：频道的文件要跟着频道活。 */
+  channelsDir: string;
 }
 
 export function resolveRuntimeHome(
@@ -160,6 +170,9 @@ export function resolveRuntimeHome(
     artifactsDir: path.join(root, 'artifacts'),
     modelsDir: env.BAOCUT_MODELS_DIR ? path.resolve(env.BAOCUT_MODELS_DIR) : path.join(root, 'models'),
     libraryDir: path.join(root, 'library'),
+    channelsFile: path.join(root, 'store', 'channels.json'),
+    workItemsDir: path.join(root, 'store', 'work-items'),
+    channelsDir: path.join(root, 'channels'),
   };
 }
 

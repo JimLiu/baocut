@@ -22,6 +22,7 @@ export const pl: SettingsNavMessages = {
     downloader: 'Pobieranie filmów',
     semantic: 'Indeks semantyczny',
     agent: "Dostawcy agentów",
+    bot: "Bot",
     providers: "Dostawcy API",
     usage: "Użycie",
     glossary: "Słownik",

@@ -91,6 +91,7 @@ const en = {
     'conversation-archived': 'session archived',
     'conversation-deleted': 'session deleted',
     'project-removed': 'project removed',
+    'channel-archived': 'channel archived',
   } satisfies Record<SchedulePauseReason, string>,
   statusCompleted: (n: number) => `Completed (${n} ${n === 1 ? 'run' : 'runs'})`,
   /** 详情页。 */

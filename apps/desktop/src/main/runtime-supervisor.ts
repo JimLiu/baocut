@@ -92,6 +92,8 @@ export class RuntimeSupervisor {
   #ensuring: Promise<ConnectionTarget> | null = null;
   /** 应用开始退出（调过 `stop`）之后不再拉起 Runtime。 */
   #stopped = false;
+  /** Bot 后台服务常驻（技术方案 §15.2）：新拉起的 Runtime 也要知道。 */
+  #resident = false;
 
   constructor(options: RuntimeSupervisorOptions) {
     this.#options = options;
@@ -117,6 +119,7 @@ export class RuntimeSupervisor {
     await this.#spawn();
     const started = await this.#discover();
     if (!started) throw new Error(M.runtimeNoDiscovery);
+    if (this.#resident) this.#sendResident();
     return started;
   }
 
@@ -201,6 +204,29 @@ export class RuntimeSupervisor {
     this.#stopped = true;
     await this.#ask({ type: 'detach' }, 'detached', timeoutMs);
     this.#child = null;
+  }
+
+  /**
+   * Bot 后台服务常驻与否（技术方案 §15.2）：经 IPC 通道发 `{ type: 'resident', on }`，常驻时 Runtime 不进入空闲退出。只告诉
+   * 自己起的 Runtime（别人起的没有通道）；之后拉起的 Runtime 就绪时补发。发不出去时不报错。
+   */
+  setResident(on: boolean): void {
+    this.#resident = on;
+    this.#sendResident();
+  }
+
+  get resident(): boolean {
+    return this.#resident;
+  }
+
+  #sendResident(): void {
+    const child = this.#child;
+    if (!child?.connected) return;
+    try {
+      child.send({ type: 'resident', on: this.#resident }, () => {});
+    } catch {
+      // 通道刚断开：下一次拉起时补发。
+    }
   }
 
   /** 经 IPC 通道发一条消息，等类型为 `replyType` 的回复。没有通道、发不出去、子进程退出或超时都得到 null。 */

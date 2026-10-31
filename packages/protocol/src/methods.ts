@@ -1,3 +1,5 @@
+import type { BotRpcMethods } from './bot-methods.ts';
+import type { UserMessageVia, WorkItemTemplate } from './bot.ts';
 import type { AccessMode, AgentMode, PendingApproval, PendingApprovalDecision } from './access.ts';
 import type { MessageRef } from './message-ref.ts';
 import type { Schedule, ScheduleCadence, ScheduleFireOutcome, ScheduleTarget } from './schedule.ts';
@@ -227,7 +229,7 @@ import type {
  * - 公共请求不携带 `actor` 或任何信任标记；身份由 Runtime 从已认证的连接构造（§4.2）。
  * - 会产生副作用的命令带 `commandId`，同一个 key 重试返回同一份结果。
  */
-export interface RpcMethods {
+export interface RpcMethods extends BotRpcMethods {
   'runtime.info': { params: Record<string, never>; result: RuntimeInfo };
   /** 连接、任务与空闲退出（架构设计 §2.2）：只给 `cli` 与 `desktop` 连接，其余 `forbidden`。 */
   'runtime.status': { params: Record<string, never>; result: RuntimeStatus };
@@ -567,6 +569,12 @@ export interface RpcMethods {
       designSystemAnnotations?: DesignSystemAnnotation[];
       videoAnnotations?: VideoAnnotation[];
       docsAnnotations?: DocsAnnotation[];
+      /** Bot 模式：消息的来源（亲手打、点提示、点表情、在通知里答）；缺省为亲手打。 */
+      via?: UserMessageVia;
+      /** 点的提示（`via: 'suggestion'`）：Runtime 核验它还开着，否则 `conflict`（`STALE_SUGGESTION`）。 */
+      suggestionChipId?: Id;
+      /** 回复的线程卡（`work-item-ref` 条目）。 */
+      replyToItemId?: Id;
     };
     result: { taskId: Id };
   };
@@ -662,6 +670,8 @@ export interface RpcMethods {
       target: ScheduleTarget;
       maxRuns: number | null;
       runNow?: boolean;
+      /** `target: 'work-item'`：在哪个频道建任务、任务长什么样（`conversationId` 给那个频道的频道对话）。 */
+      workItem?: { channelId: Id; template: WorkItemTemplate };
       commandId: Id;
     };
     result: { schedule: Schedule; outcome?: ScheduleFireOutcome };

@@ -58,6 +58,16 @@ describe('会话状态', () => {
 });
 
 describe('buildSidebar', () => {
+  it('Bot 的频道对话与线程不进 Home 的列表与已归档页', () => {
+    const tree = buildSidebar(
+      [],
+      [conversation('chat'), conversation('legacy', { role: 'chat' }), conversation('chan', { role: 'channel' }), conversation('th', { role: 'thread', pinned: true })],
+    );
+    expect(tree.loose.map((c) => c.id).sort()).toEqual(['chat', 'legacy']);
+    expect(tree.pinned).toEqual([]);
+    expect(buildArchived([], [conversation('old', { archived: true }), conversation('th', { role: 'thread', archived: true })]).total).toBe(1);
+  });
+
   it('项目按最近活动排，会话挂在项目下；不属于项目的进「最近」', () => {
     const tree = buildSidebar(
       [project('p1'), project('p2', { lastActiveAt: '2026-10-01T01:00:00.000Z' })],

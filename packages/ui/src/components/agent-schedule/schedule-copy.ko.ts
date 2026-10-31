@@ -64,6 +64,7 @@ export const ko: ScheduleMessages = {
     'conversation-archived': '대상 세션이 보관됨',
     'conversation-deleted': '대상 세션이 삭제됨',
     'project-removed': '프로젝트가 제거됨',
+    'channel-archived': '채널이 보관됨',
   },
   statusCompleted: (n) => `완료(${n}회 실행)`,
   notFound: '이 예약 작업은 삭제되었습니다',

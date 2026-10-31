@@ -66,6 +66,7 @@ export const es: ScheduleMessages = {
     'conversation-archived': 'sesión archivada',
     'conversation-deleted': 'sesión eliminada',
     'project-removed': 'proyecto quitado',
+    'channel-archived': 'canal archivado',
   },
   statusCompleted: (n) => `Completada (${n} ${n === 1 ? 'ejecución' : 'ejecuciones'})`,
   notFound: 'Esta tarea programada se ha eliminado',

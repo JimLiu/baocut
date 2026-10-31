@@ -482,9 +482,10 @@ export class ModelTools implements ToolSet {
   }
 
   /** 确认的风险等级（§3.12）与要授权的数据：没有授权覆盖的外发是 `high`，审批里列出它。 */
-  #risk(plan: OutboundPlan): { risk: RiskLevel; grants?: GrantRequestItem[] } {
+  #risk(plan: OutboundPlan): { risk: RiskLevel; paid?: true; grants?: GrantRequestItem[] } {
     const risk = modelCallRisk(outboundGrantOf(plan));
-    return plan.status === 'approval' ? { risk, grants: [plan.item] } : { risk };
+    const paid = plan.kind === 'online' || plan.kind === 'agent' ? { paid: true as const } : {};
+    return plan.status === 'approval' ? { risk, ...paid, grants: [plan.item] } : { risk, ...paid };
   }
 
   /**

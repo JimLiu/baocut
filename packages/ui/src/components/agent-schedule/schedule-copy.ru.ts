@@ -68,6 +68,7 @@ export const ru: ScheduleMessages = {
     'conversation-archived': 'сессия в архиве',
     'conversation-deleted': 'сессия удалена',
     'project-removed': 'проект удалён',
+    'channel-archived': 'канал в архиве',
   },
   statusCompleted: (n) => `Завершено (${n} ${pluralForm('ru', n, { one: 'запуск', few: 'запуска', many: 'запусков', other: 'запуска' })})`,
   notFound: 'Эта задача по расписанию удалена',

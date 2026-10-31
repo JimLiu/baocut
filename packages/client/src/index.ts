@@ -8,6 +8,8 @@ export {
 } from './client.ts';
 export {
   applyAgentSetupEvent,
+  applyChannelsEvent,
+  applyWorkItemsEvent,
   applyConversationEvent,
   applyDirectoryEvent,
   applyJobsEvent,

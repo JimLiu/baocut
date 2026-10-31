@@ -5,6 +5,7 @@ BaoCut 的 Electron 桌面端：主进程（`src/main`）、preload 与渲染进
 | 目录 | 内容 |
 | --- | --- |
 | `src/main` | 主进程：窗口、Runtime 的监护（`runtime-supervisor.ts`）、更新、打包后的资源布局（`packaged-resources.ts`） |
+| `src/main/bot` | Bot 后台服务（[技术方案 §15](../../docs/design/bot-mode/bot-mode-technical-design.md#15-后台服务)）：主进程自己连 Runtime 订阅 `channels`（`bot-monitor.ts`），托盘 / 菜单栏（`tray.ts`）、通知的合并与免打扰（`notification-policy.ts`）、开机启动（`login-item.ts`）、常驻时的退出确认（`bot-quit.ts`）；Electron 调用只在 `bot-service.ts`。点通知把界面带到任务：主进程存待取路由并发 `baocut:bot-route`，界面经 `window.baocutBot.onRoute` 用 `baocut:bot-take-route` 取（`bot-route.ts`）。常驻时经 IPC 告诉 Runtime `{ type: 'resident', on }`，Runtime 不进入空闲退出（`apps/runtime/src/parent-channel.ts`） |
 | `src/preload`、`src/renderer` | 预加载脚本与渲染进程入口 |
 | `tools/` | 对构建产物的检查（`check-file-fonts.mjs`、`check-model-assets.mjs`）、性能测量与打包脚本 |
 | `build/` | 打包用的资源：`icon.ico`（Windows）、`icon.icns`（macOS）、`icon.png`（1024），都由 `tools/app-icon/` 生成，`npm run icons` 重新导出，不手改 |

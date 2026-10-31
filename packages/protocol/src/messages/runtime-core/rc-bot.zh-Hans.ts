@@ -1,0 +1,83 @@
+import type { RcBotMessages } from './rc-bot.ts';
+
+export const zhHans: RcBotMessages = {
+  // ---- 频道 ----
+  mainChannelName: '主频道',
+  channelNotFound: (p: { id: string }) => `找不到频道：${p.id}`,
+  mainChannelLocked: '主频道不能归档或删除。',
+  channelArchived: '这个频道已归档。恢复后才能继续在这里工作。',
+  channelDeleteCountsChanged: '这个频道里的任务或定时任务数量有变化，请重新确认后再删除。',
+  memoryVersionConflict: '你打开之后记忆又被改过了。看一下最新版本再试一次。',
+  memoryTooLarge: (p: { max: number }) => `记忆最多 ${p.max} KB，先整理一下再往里加。`,
+  memorySensitive: '不要把密钥、密码、证件号或卡号放进记忆。',
+  accessAboveChannelMax: '任务的权限模式不能高于频道的上限。',
+
+  // ---- 任务 ----
+  workItemNotFound: (p: { id: string }) => `找不到任务：${p.id}`,
+  transitionDenied: (p: { from: string; event: string }) => `任务处于 ${p.from} 状态时不能执行「${p.event}」。`,
+  textHasLinkOrNumber: '任务文字里不要放链接、邮箱地址或长串数字，请放到资源里。',
+  titleByUser: '这个标题是你写的，智能体不能改。',
+  userTasksNoThread: '你自己的任务不会开线程。',
+  stoppedByYou: '你停下了这个任务。',
+  continueOrStop: '继续还是停下？',
+  optionContinue: '继续',
+  optionStop: '停止',
+  stalledNoProgress: (p: { minutes: number }) => `已经 ${p.minutes} 分钟没有进展了。`,
+  stalledJobHung: (p: { job: string }) => `${p.job} 没有动静的时间比预期长了很多。`,
+  stalledBudget: '这个任务已经用掉了 80% 的预算。',
+  interruptedOnExit: '上次退出 BaoCut 时被中断了。',
+  threadLost: '这个任务的线程不见了。',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} 现在用不了，这个任务没能运行。去设置里检查一下，再继续。`,
+  needsYouToRun: (p: { agent: string }) => `这一步需要你在场：${p.agent} 不支持逐次审批。现在继续吗？`,
+  approvalWaiting: (p: { summary: string }) => `等你审批：${p.summary}`,
+  youAnswered: (p: { text: string }) => `你的回答：${p.text}`,
+  youConfirmedDone: '你确认已经完成。',
+  youReopened: '你重新打开了这个任务。',
+  previousQuestion: (p: { text: string }) => `之前的问题：${p.text}`,
+  implicitReopenNote: (p: { what: string }) => `任务解决之后，线程又改动了 ${p.what}。`,
+  movedFrom: (p: { channel: string }) => `从 ${p.channel} 移过来。`,
+  queued: (p: { position: number }) => `正在排队等空位（第 ${p.position} 位）。`,
+  revertUserEdits: (p: { video: string; version: number }) => `你在版本 ${p.version} 里改过 ${p.video}，没法只撤销智能体的修改。`,
+  revertMixedVersion: (p: { video: string; version: number }) =>
+    `${p.video} 的版本 ${p.version} 里既有你的修改也有智能体的修改，没法只撤销智能体的修改。`,
+
+  // ---- 频道对话里 Runtime 写的 ----
+  fallbackRelay: (p: { title: string; headline: string }) => `${p.title}：${p.headline}`,
+  reminder: (p: { title: string }) => `提醒：${p.title}`,
+  reminderOverdue: (p: { title: string; date: string }) => `${p.title} 本该在 ${p.date} 完成，现在还没结束。`,
+  reminderStale: (p: { title: string; days: number }) => `${p.title} 已经等你 ${p.days} 天了。`,
+  welcome: '你好，我是你在这里的助手。告诉我想把视频怎么处理，我来搞定；有需要你的地方我会来找你。',
+  welcomeWithProjects: (p: { projects: number; videos: number }) =>
+    `你好，我是你在这里的助手。我能看到 ${p.projects} 个项目、${p.videos} 个视频。告诉我想做什么，我来搞定。`,
+  starterSummarize: '总结视频',
+  starterSummarizeText: '帮我总结一下最新的视频',
+  starterCaptions: '加字幕',
+  starterCaptionsText: '给我最新的视频加上字幕',
+  starterHighlights: '找精彩片段',
+  starterHighlightsText: '找出我最新视频里最精彩的片段',
+  markDone: '标为完成',
+  handoffDriver: (p: { agent: string }) => `改由 ${p.agent} 继续。`,
+  editedMessage: '你编辑了这条消息。',
+  reactionYes: '是',
+  reactionNo: '否',
+  approvalNeedsYou: '有一项审批在等你。',
+  makeNoGenerator: '还没有设置文本模型，暂时没法给出建议。',
+  scheduleNotReady: '定时任务现在用不了。',
+  proposalChannelExists: '已经有同名的频道了。',
+  dependencyWaiting: (p: { title: string }) => `正在等「${p.title}」。`,
+  lateStart: (p: { minutes: number }) => `晚了 ${p.minutes} 分钟才开始。`,
+
+  // ---- 通知 ----
+  notifyNeedsReview: (p: { title: string }) => `${p.title} 可以审阅了`,
+  notifyNeedsInput: (p: { title: string }) => `${p.title} 需要你回答`,
+  notifyStalled: (p: { title: string }) => `${p.title} 卡住了`,
+  notifyReminder: (p: { title: string }) => `提醒：${p.title}`,
+
+  // ---- 提议 ----
+  proposalNotFound: '这张卡片已经不在了。',
+  proposalHandled: '这张卡片已经处理过了。',
+  chipStale: '这些建议已经过时了。',
+  userOnly: '只有用户本人能做这件事。',
+  notReady: 'Bot 模式还没准备好。',
+  automationPaused: '自动化已暂停。',
+};

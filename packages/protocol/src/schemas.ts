@@ -34,6 +34,7 @@ import {
 } from './video.ts';
 import { DOCS_ANNOTATION_LIMITS } from './docs.ts';
 import { SPACE_PARAM_SCHEMAS } from './space-schemas.ts';
+import { BOT_PARAM_SCHEMAS, workItemTemplateSchema } from './bot-schemas.ts';
 import { EXTERNAL_TOOL_PARAM_SCHEMAS } from './external-tools-schemas.ts';
 import { PROJECT_GIT_PARAM_SCHEMAS } from './project-git-schemas.ts';
 import { TEMPLATE_PARAM_SCHEMAS, templateSendRefSchema } from './template-schemas.ts';
@@ -64,18 +65,21 @@ const topic = z.union([
   z.literal('agent-setup'),
   z.literal('agents'),
   z.literal('legacy-import'),
+  z.literal('channels'),
+  z.string().regex(/^work-items:[A-Za-z0-9_-]+$/),
   z.string().regex(/^conversation:[A-Za-z0-9_-]+$/),
   z.string().regex(/^video:[A-Za-z0-9_-]+$/),
 ]);
 const empty = z.object({}).strict();
 /** 定时任务的频率（产品设计 §6.1「定时任务」）：形状在这里查，取值（时刻、cron 能不能到点）由 `scheduleProblem` 查。 */
-const scheduleCadence = z.discriminatedUnion('type', [
+export const scheduleCadence = z.discriminatedUnion('type', [
   z.object({ type: z.literal('hourly'), minute: z.number().int().min(0).max(59) }).strict(),
   z.object({ type: z.literal('daily'), time: z.string().max(5) }).strict(),
   z.object({ type: z.literal('weekly'), days: z.array(z.number().int().min(0).max(6)).max(7), time: z.string().max(5) }).strict(),
   z.object({ type: z.literal('cron'), expr: z.string().max(SCHEDULE_LIMITS.cron) }).strict(),
 ]);
-const scheduleTarget = z.enum(['conversation', 'new']);
+const scheduleTarget = z.enum(['conversation', 'new', 'work-item']);
+const userMessageVia = z.enum(['typed', 'suggestion', 'reaction', 'notification']);
 const scheduleMaxRuns = z.number().int().min(1).max(SCHEDULE_LIMITS.maxRuns).nullable();
 /** 访问模式：新值与仍被接受的旧值（架构设计 §3.12）。换成新值由收到的一方做（`normalizeAgentMode`）。 */
 const agentMode = z.enum([...AGENT_MODES, ...LEGACY_AGENT_MODES]);
@@ -1066,6 +1070,9 @@ export const methodParamSchemas = {
     designSystemAnnotations: designSystemAnnotations.optional(),
     videoAnnotations: videoAnnotations.optional(),
     docsAnnotations: docsAnnotations.optional(),
+    via: userMessageVia.optional(),
+    suggestionChipId: id.optional(),
+    replyToItemId: id.optional(),
   }),
   'conversations.steer': z.object({
     conversationId: id,
@@ -1122,6 +1129,7 @@ export const methodParamSchemas = {
       target: scheduleTarget,
       maxRuns: scheduleMaxRuns,
       runNow: z.boolean().optional(),
+      workItem: z.object({ channelId: id, template: workItemTemplateSchema }).strict().optional(),
       commandId: id,
     })
     .strict(),
@@ -1175,6 +1183,7 @@ export const methodParamSchemas = {
   }),
   'space.rescan': empty,
   ...SPACE_PARAM_SCHEMAS,
+  ...BOT_PARAM_SCHEMAS,
   ...EXTERNAL_TOOL_PARAM_SCHEMAS,
   ...PROJECT_GIT_PARAM_SCHEMAS,
   ...TOOL_CATALOGUE_PARAM_SCHEMAS,
@@ -1790,3 +1799,4 @@ export {
 } from './template-schemas.ts';
 export { skillSendListSchema, skillSendRefSchema } from './skill-schemas.ts';
 export { aiToolParamsSchema } from './ai-tool-schemas.ts';
+export { resourceRefSchema, evidenceSchema, workItemTemplateSchema } from './bot-schemas.ts';

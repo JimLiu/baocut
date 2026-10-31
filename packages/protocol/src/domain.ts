@@ -8,6 +8,7 @@ import type { DesignAnnotation } from './design.ts';
 import type { DesignSystemAnnotation } from './design-system.ts';
 import type { VideoAnnotation } from './video.ts';
 import type { DocsAnnotation } from './docs.ts';
+import type { ConversationRole, ProposalState, RelayBody, SuggestionsBody, UserMessageVia } from './bot.ts';
 
 /**
  * 会话侧的领域对象（架构设计 §1.5、§3.10）。
@@ -99,6 +100,17 @@ export interface Conversation {
    * （`conversations.create`），`conversations.update { spaceReadScope: null }` 收回；智能体没有工具能改它。没有时省略。
    */
   spaceReadScope?: SpaceReadScope;
+  /**
+   * Bot 模式里的角色（docs/design/bot-mode 技术方案 §4.2）：频道对话（`channel`）与线程（`thread`）只经 Bot 的方法改动，
+   * 不进 Home 列表。旧记录与普通会话没有这个字段（等于 `chat`）。
+   */
+  role?: ConversationRole;
+  /** `role` 为 channel / thread 时：所属频道。 */
+  channelId?: Id;
+  /** `role` 为 thread 时：对应的任务。 */
+  workItemId?: Id;
+  /** 协调者接力的代数（技术方案 §6.3）。 */
+  handoffGeneration?: number;
 }
 
 /** 会话的只读检索范围（`Conversation.spaceReadScope`）。 */
@@ -317,8 +329,26 @@ export type TimelineItem =
       videoAnnotations?: VideoAnnotation[];
       /** 随消息发出的文档标注（docs/design/docs §8），按添加的顺序；与 `designAnnotations` 同一个写法。旧记录没有。 */
       docsAnnotations?: DocsAnnotation[];
+      /** Bot 模式：这条用户消息从哪来（亲手打、点提示、点表情、在通知里答）。普通会话没有。 */
+      via?: UserMessageVia;
+      /** 点的是哪个提示（`via: 'suggestion'`）。 */
+      suggestionChipId?: Id;
+      /** 回复的是哪张线程卡（BOT-EX-09）。 */
+      replyToItemId?: Id;
+      /** 用户改过这条消息（`conversations.editMessage`）：之前的原文，旧的在前。 */
+      history?: { text: string; editedAt: string }[];
+      /** 改过几次（转交重投的幂等键）。 */
+      revision?: number;
     })
-  | (TimelineBase & { kind: 'agent-message'; text: string; streaming: boolean })
+  | (TimelineBase & {
+      kind: 'agent-message';
+      text: string;
+      streaming: boolean;
+      /** Bot 模式：用户在这条上点的表情（BOT-EX-10）。 */
+      reactions?: string[];
+      /** Runtime 代写的兜底消息（转述兜底、静态的第一条）：不是智能体说的。 */
+      fallback?: true;
+    })
   | (TimelineBase & { kind: 'reasoning'; text: string; streaming: boolean })
   | (TimelineBase & {
       kind: 'tool-call';
@@ -382,6 +412,11 @@ export type TimelineItem =
       contract?: TaskContract;
       /** 智能体的待办清单（架构设计 §11.3），最新的一份。智能体没列过、或清空了时没有。任务结束后留着，界面只在进行中显示。 */
       todo?: { items: TodoItem[] };
+      /**
+       * 这个任务从哪起（Bot 技术方案 §8.1）：`user` 是用户发的消息；其余不是用户打的字（报告、转交、刷新、定时、种子），
+       * 界面不把它画成「你发的消息」。旧记录与普通会话没有（等于 `user`）。
+       */
+      origin?: TaskOrigin;
     })
   | (TimelineBase & {
       kind: 'notice';
@@ -399,13 +434,26 @@ export type TimelineItem =
       fork?: ForkNote;
       /** 导入的会话里，复制过来的记录末尾那一条（`agents.importSession`）：以上导入自哪一家、什么时候。 */
       imported?: ImportNote;
+      /** Bot 协调者接力（Bot 技术方案 §6.3）：这是第几代的开头。文字为空时界面只画分隔线。 */
+      handoff?: number;
     })
   | (TimelineBase & VideoChange & { kind: 'video-change' })
   | (TimelineBase & VideoCreated & { kind: 'video-created' })
   | (TimelineBase & SlidesCreated & { kind: 'slides-created' })
   | (TimelineBase & DesignCreated & { kind: 'design-created' })
   | (TimelineBase & DesignSystemCreated & { kind: 'design-system-created' })
-  | (TimelineBase & DocsCreated & { kind: 'docs-created' });
+  | (TimelineBase & DocsCreated & { kind: 'docs-created' })
+  /** Bot 频道对话里的线程卡占位：卡片内容由界面从 WorkItem 实时画（BOT-CV-03）。 */
+  | (TimelineBase & { kind: 'work-item-ref'; workItemId: Id; ackGroup: Id | null })
+  /** Runtime 搬进会话的、不是用户打的字：报告、简报、转交、刷新、定时与提醒（技术方案 §4.3）。 */
+  | (TimelineBase & RelayBody & { kind: 'relay' })
+  /** 智能体提出、等用户点的卡片：建频道、周期任务、建议任务。 */
+  | (TimelineBase & ProposalState & { kind: 'proposal' })
+  /** 可点的回复提示（技术方案 §12）。 */
+  | (TimelineBase & SuggestionsBody & { kind: 'suggestions' });
+
+/** 任务的起因（`task.origin`）。 */
+export type TaskOrigin = 'user' | 'relay' | 'refresh' | 'schedule' | 'seed';
 
 export type TimelineItemKind = TimelineItem['kind'];
 

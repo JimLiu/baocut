@@ -87,6 +87,8 @@ export interface ToolConfirmation {
   /** `summary` 的消息引用（文案目录 rcAgentTools）；审批动作还没有引用字段时只用 `summary`。 */
   summaryRef?: MessageRef;
   risk?: RiskLevel;
+  /** 交给在线或智能体 Provider 的调用（可能花钱）：Bot 无人在场的回合里不论授权一律按 `high` 问（Bot 技术方案 §14.2）。 */
+  paid?: boolean;
   /**
    * 这次调用要外发、还没有授权覆盖的数据（§12.5）。给了时确认通过就是授权了这次外发：说明里带回用户的选择（`grant`）；
    * 对外服务的 `auto` 等级不是外发授权，直接以 `GRANT_REQUIRED` 拒绝。
@@ -242,6 +244,16 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
 
 export function toolRisk(request: ToolConfirmation): RiskLevel {
   return request.risk ?? TOOL_RISK[request.tool] ?? 'command';
+}
+
+/**
+ * 确认时实际用的风险等级：频道与线程里没人在场的回合（报告、定时、刷新、Job 叫醒）里，可能花钱的调用升到 `high`，降级后的
+ * `auto` 模式也要问。普通对话与有人在场的回合不变。
+ */
+export function confirmRisk(request: ToolConfirmation, run: { role: string | undefined; attended: boolean } | null): RiskLevel {
+  const risk = toolRisk(request);
+  if (!request.paid || !run || run.attended) return risk;
+  return run.role === 'channel' || run.role === 'thread' ? 'high' : risk;
 }
 
 /** 工具的默认风险等级（目录列表用）：没有登记的按 `command`。 */

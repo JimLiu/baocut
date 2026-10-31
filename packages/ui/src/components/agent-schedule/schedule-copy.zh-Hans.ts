@@ -63,6 +63,7 @@ export const zhHans: ScheduleMessages = {
     'conversation-archived': '目标会话已归档',
     'conversation-deleted': '目标会话已删除',
     'project-removed': '项目已移除',
+    'channel-archived': '频道已归档',
   },
   statusCompleted: (n) => `已完成（跑满 ${n} 次）`,
   notFound: '这个定时任务已经删掉了',

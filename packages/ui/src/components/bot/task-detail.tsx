@@ -1,0 +1,616 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import type { ArtifactRef, Id, RevertPlan, ResourceRef, WorkItem, WorkItemStateName, WorkItemTransition } from '@baocut/protocol';
+import {
+  ActionButton,
+  ActionMenu,
+  Button,
+  ButtonGroup,
+  Content,
+  Dialog,
+  DialogContainer,
+  Heading,
+  MenuItem,
+  ProgressCircle,
+  Radio,
+  RadioGroup,
+  Text,
+  TextArea,
+  ToastQueue,
+} from '@react-spectrum/s2';
+import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
+import Close from '@react-spectrum/s2/icons/Close';
+import FullScreen from '@react-spectrum/s2/icons/FullScreen';
+import FullScreenExit from '@react-spectrum/s2/icons/FullScreenExit';
+import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { FINISHED_STEPS_SHOWN, canRevertItem, type WorkItemStatusKey } from '../../model/bot.ts';
+import { agoLabel } from '../../model/format.ts';
+import { formatMoneyOne } from '../../model/usage-format.ts';
+import { useRuntime } from '../../runtime/context.tsx';
+import { useTransitionTick, useWorkItem } from '../../state/work-items-store.ts';
+import { ConversationView } from '../conversation-view.tsx';
+import { useNow } from '../use-now.ts';
+import { answerWorkItemQuestion, errorText, transitionWorkItem, useBotCall } from './bot-actions.ts';
+import { BOT_COPY as C } from './bot-copy.ts';
+import { formatDay } from './bot-format.ts';
+import { StatusLabel } from './status-badge.tsx';
+import { BotTimeline } from './timeline/bot-timeline.tsx';
+import { statusLabel, workItemStatus } from './work-item-status.ts';
+
+const frame = style({ display: 'flex', flexDirection: { default: 'column', isWide: 'row' }, flexGrow: 1, minHeight: 0, minWidth: 0 });
+const meta = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16,
+  flexShrink: { default: 1, isWide: 0 },
+  width: { default: 'auto', isWide: 400 },
+  maxHeight: { default: '[55%]', isWide: 'none' },
+  minHeight: 0,
+  overflowY: 'auto',
+  paddingX: 16,
+  paddingY: 12,
+  boxSizing: 'border-box',
+  borderColor: 'gray-100',
+  borderStyle: 'solid',
+  borderTopWidth: 0,
+  borderStartWidth: 0,
+  borderBottomWidth: { default: 1, isWide: 0 },
+  borderEndWidth: { default: 0, isWide: 1 },
+});
+const thread = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, minWidth: 0 });
+const headRow = style({ display: 'flex', alignItems: 'center', gap: 4 });
+const spacer = style({ flexGrow: 1 });
+const title = style({ margin: 0, font: 'title', color: 'gray-900', overflowWrap: 'anywhere', textDecoration: { default: 'none', isStruck: 'line-through' } });
+const facts = style({ display: 'flex', flexWrap: 'wrap', gap: 12, font: 'ui-sm', color: 'gray-700' });
+const description = style({ margin: 0, font: 'body-sm', color: 'gray-800', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' });
+const block = style({ display: 'flex', flexDirection: 'column', gap: 8 });
+const blockTitle = style({ margin: 0, font: 'ui-sm', fontWeight: 'bold', color: 'gray-700' });
+const waiting = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+  padding: 12,
+  borderRadius: 'lg',
+  backgroundColor: 'notice-subtle',
+});
+const questionText = style({ margin: 0, font: 'body', color: 'gray-900', overflowWrap: 'anywhere' });
+const options = style({ display: 'flex', flexWrap: 'wrap', gap: 8 });
+const optionNote = style({ font: 'ui-xs', color: 'gray-700' });
+const items = style({ display: 'flex', flexDirection: 'column', gap: 4, margin: 0, padding: 0, listStyleType: 'none', font: 'ui-sm', color: 'gray-800' });
+const itemRow = style({ display: 'flex', gap: 8, alignItems: 'baseline', overflowWrap: 'anywhere' });
+const muted = style({ font: 'ui-xs', color: 'gray-600', flexShrink: 0 });
+const activeStep = style({ fontWeight: 'bold' });
+const centered = style({ display: 'flex', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: 24, font: 'body-sm', color: 'gray-600', textAlign: 'center' });
+const dialogBody = style({ display: 'flex', flexDirection: 'column', gap: 12, font: 'body-sm', color: 'gray-800' });
+
+type MenuAction =
+  | 'stop'
+  | 'redirect'
+  | 'refresh'
+  | 'markDone'
+  | 'reopen'
+  | 'dismiss'
+  | 'start'
+  | 'handToAgent'
+  | 'takeOver'
+  | 'revertAll'
+  | 'deleteRecord';
+
+/** 详情「⋯」里这条任务此刻能做的事（需求 §11.6）。 */
+function menuActions(item: WorkItem): MenuAction[] {
+  const out: MenuAction[] = [];
+  const agent = item.owner === 'agent';
+  if (item.status === 'active' && agent && item.active?.state !== 'blocked') out.push('stop');
+  if (item.status === 'active' && agent) out.push('redirect', 'refresh');
+  if ((item.status === 'upNext' || item.status === 'scheduled') && agent) out.push('start');
+  if (item.status !== 'resolved' && item.status !== 'suggested') out.push('markDone', 'dismiss');
+  if (item.status === 'suggested') out.push('dismiss');
+  if (item.status === 'resolved') out.push('reopen');
+  if (item.status !== 'resolved') out.push(agent ? 'takeOver' : 'handToAgent');
+  if (canRevertItem(item)) out.push('revertAll');
+  if (item.status === 'resolved') out.push('deleteRecord');
+  return out;
+}
+
+const MENU_LABEL: Record<MenuAction, () => string> = {
+  stop: () => C.detail.stop,
+  redirect: () => C.detail.redirect,
+  refresh: () => C.detail.refresh,
+  markDone: () => C.detail.markDone,
+  reopen: () => C.detail.reopen,
+  dismiss: () => C.detail.dismiss,
+  start: () => C.detail.start,
+  handToAgent: () => C.detail.handToAgent,
+  takeOver: () => C.detail.takeOver,
+  revertAll: () => C.detail.revertAll,
+  deleteRecord: () => C.detail.deleteRecord,
+};
+
+/** 转换记录里的状态名：子状态与解决方式用状态表的字，`active`、`resolved` 两个总状态用「工作中」「已完成」。 */
+function stateName(name: WorkItemStateName): string {
+  if (name === 'active') return C.status.working;
+  if (name === 'resolved') return C.status.done;
+  return statusLabel(name as WorkItemStatusKey);
+}
+
+function resourceLabel(ref: ResourceRef | ArtifactRef): string {
+  const kind = C.detail.resource[ref.kind];
+  return 'label' in ref && ref.label ? `${kind} · ${ref.label}` : kind;
+}
+
+function Block({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section className={block} aria-label={label}>
+      <h3 className={blockTitle}>{label}</h3>
+      {children}
+    </section>
+  );
+}
+
+/** 任务转换记录：转换事件来时重取（`workItems.get`），也顺便拿到不在已订阅频道里的任务本身。 */
+function useWorkItemRecord(id: Id) {
+  const runtime = useRuntime();
+  const tick = useTransitionTick(id);
+  const [record, setRecord] = useState<{ item: WorkItem; transitions: WorkItemTransition[] } | null>(null);
+  const [missing, setMissing] = useState(false);
+  useEffect(() => {
+    let live = true;
+    runtime.client
+      .request('workItems.get', { id })
+      .then((result) => {
+        if (live) setRecord({ item: result.item, transitions: result.transitions });
+      })
+      .catch(() => {
+        if (live) setMissing(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, [runtime, id, tick]);
+  return { record, missing };
+}
+
+/**
+ * 任务详情（BOT-TK-06…10、BOT-CH-11、BOT-EX-19/20、需求 §11.6）：头部是状态、标题与操作；等你的问题带选项按钮，
+ * 下面是步骤、产物与资源、进展、转换记录；线程会话照普通会话画，输入框发的话进线程。用户自己的任务没有线程。
+ * 可以收在频道右侧，也可以展开占满主区（宽版左右分栏）。
+ */
+export function TaskDetail({
+  workItemId,
+  channelId,
+  wide,
+  onToggleWide,
+  onClose,
+}: {
+  workItemId: Id;
+  channelId: Id | null;
+  wide: boolean;
+  onToggleWide: (() => void) | null;
+  onClose: () => void;
+}) {
+  const live = useWorkItem(workItemId);
+  const { record, missing } = useWorkItemRecord(workItemId);
+  const item = live ?? record?.item;
+  const runtime = useRuntime();
+  const call = useBotCall();
+  const now = useNow(60_000);
+  const [dialog, setDialog] = useState<'redirect' | 'revert' | 'delete' | null>(null);
+  const [allFinished, setAllFinished] = useState(false);
+  const [answering, setAnswering] = useState<number | null>(null);
+
+  if (!item) {
+    return (
+      <div className={thread}>
+        <div className={headRow}>
+          <ActionButton isQuiet size="S" aria-label={C.detail.back} onPress={onClose}>
+            {wide ? <ChevronLeft /> : <Close />}
+          </ActionButton>
+        </div>
+        <div className={centered}>{missing ? C.card.missing : <ProgressCircle size="S" isIndeterminate aria-label={C.common.loading} />}</div>
+      </div>
+    );
+  }
+
+  const status = workItemStatus(item);
+  const actions = menuActions(item);
+  const question = item.question;
+  const finished = allFinished ? item.finishedSteps : item.finishedSteps.slice(-FINISHED_STEPS_SHOWN);
+  const placeholder = item.status === 'resolved' ? C.detail.placeholderResolved : question ? C.detail.placeholderWaiting : C.detail.placeholderWorking;
+
+  const run = (action: MenuAction) => {
+    if (action === 'stop') void call('workItems.stop', { id: item.id });
+    else if (action === 'refresh') void call('workItems.refresh', { id: item.id });
+    else if (action === 'markDone') void transitionWorkItem(call, item.id, { type: 'resolve', evidence: null });
+    else if (action === 'reopen') void transitionWorkItem(call, item.id, { type: 'reopen' });
+    else if (action === 'dismiss') void transitionWorkItem(call, item.id, { type: 'dismiss' });
+    else if (action === 'start') void transitionWorkItem(call, item.id, { type: 'start' });
+    else if (action === 'handToAgent') void transitionWorkItem(call, item.id, { type: 'set-owner', owner: 'agent' });
+    else if (action === 'takeOver') void transitionWorkItem(call, item.id, { type: 'set-owner', owner: 'user' });
+    else if (action === 'redirect') setDialog('redirect');
+    else if (action === 'revertAll') setDialog('revert');
+    else setDialog('delete');
+  };
+
+  const answer = async (index: number) => {
+    if (!question) return;
+    setAnswering(index);
+    await answerWorkItemQuestion(runtime, item, question, index);
+    setAnswering(null);
+  };
+
+  const details = (
+    <div className={`${meta({ isWide: wide })} bc-scroll`}>
+      <div className={headRow}>
+        <ActionButton isQuiet size="S" aria-label={C.detail.back} onPress={onClose}>
+          {wide ? <ChevronLeft /> : <Close />}
+        </ActionButton>
+        <StatusLabel statusKey={status.key} />
+        <span className={spacer} />
+        {onToggleWide ? (
+          <ActionButton isQuiet size="S" aria-label={wide ? C.detail.collapse : C.detail.expand} onPress={onToggleWide}>
+            {wide ? <FullScreenExit /> : <FullScreen />}
+          </ActionButton>
+        ) : null}
+        {actions.length ? (
+          <ActionMenu aria-label={C.common.more} isQuiet size="S" onAction={(key) => run(key as MenuAction)}>
+            {actions.map((action) => (
+              <MenuItem key={action} id={action} textValue={MENU_LABEL[action]()}>
+                <Text>{MENU_LABEL[action]()}</Text>
+              </MenuItem>
+            ))}
+          </ActionMenu>
+        ) : null}
+      </div>
+      <h2 className={title({ isStruck: status.strike })}>{item.title}</h2>
+      <div className={facts}>
+        <span>{`${C.detail.priority}: ${C.detail.priorities[item.priority]}`}</span>
+        {item.dueOn ? <span>{`${C.detail.due}: ${formatDay(item.dueOn)}`}</span> : null}
+        {item.eventOn ? <span>{`${C.detail.event}: ${formatDay(item.eventOn)}`}</span> : null}
+        <span>{item.owner === 'user' ? C.common.me : C.common.agent}</span>
+      </div>
+      {item.description ? <p className={description}>{item.description}</p> : null}
+      {item.owner === 'user' ? <p className={optionNote}>{C.detail.userTask}</p> : null}
+
+      {question ? (
+        <section className={waiting} aria-label={C.detail.waiting}>
+          <h3 className={blockTitle}>{C.detail.waiting}</h3>
+          <p className={questionText}>{question.text}</p>
+          {question.options.length && item.threadId ? (
+            <div className={options}>
+              {question.options.map((option, index) => (
+                <Button
+                  key={option.label}
+                  size="S"
+                  variant={!question.risky && question.pick === index ? 'accent' : 'secondary'}
+                  isPending={answering === index}
+                  isDisabled={answering !== null && answering !== index}
+                  onPress={() => void answer(index)}>
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          ) : null}
+          {question.options.some((option) => option.description) ? (
+            <ul className={items}>
+              {question.options
+                .filter((option) => option.description)
+                .map((option) => (
+                  <li key={option.label} className={optionNote}>{`${option.label}: ${option.description}`}</li>
+                ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+
+      {item.steps.length ? (
+        <Block label={C.detail.steps}>
+          <ol className={items}>
+            {item.steps.map((step, index) => (
+              <li key={`${index}:${step.text}`} className={step.state === 'active' ? activeStep : undefined}>
+                {step.text}
+              </li>
+            ))}
+          </ol>
+        </Block>
+      ) : null}
+      {item.finishedSteps.length ? (
+        <Block label={C.detail.finished}>
+          <ul className={items}>
+            {finished.map((step, index) => (
+              <li key={`${step.at}:${index}`} className={itemRow}>
+                <span>{step.result ? `${step.text} — ${step.result}` : step.text}</span>
+              </li>
+            ))}
+          </ul>
+          {!allFinished && item.finishedSteps.length > FINISHED_STEPS_SHOWN ? (
+            <div>
+              <ActionButton isQuiet size="S" onPress={() => setAllFinished(true)}>
+                {C.detail.showAll(item.finishedSteps.length)}
+              </ActionButton>
+            </div>
+          ) : null}
+        </Block>
+      ) : null}
+      {item.outputs.length ? (
+        <Block label={C.detail.outputs}>
+          <ul className={items}>
+            {item.outputs.map((output, index) => (
+              <li key={index}>{resourceLabel(output)}</li>
+            ))}
+          </ul>
+        </Block>
+      ) : null}
+      {item.resources.length ? (
+        <Block label={C.detail.resources}>
+          <ul className={items}>
+            {item.resources.map((resource, index) => (
+              <li key={index}>{resourceLabel(resource)}</li>
+            ))}
+          </ul>
+        </Block>
+      ) : null}
+      {item.updates.length ? (
+        <Block label={C.detail.updates}>
+          <ul className={items}>
+            {[...item.updates].reverse().map((update, index) => (
+              <li key={`${update.at}:${index}`} className={itemRow}>
+                <span>{update.text}</span>
+                <span className={muted}>{`${C.detail.actor[update.by]} · ${agoLabel(update.at, now)}`}</span>
+              </li>
+            ))}
+          </ul>
+        </Block>
+      ) : null}
+      {record?.transitions.length ? (
+        <Block label={C.detail.history}>
+          <ul className={items}>
+            {[...record.transitions].reverse().map((transition, index) => (
+              <li key={`${transition.at}:${index}`} className={itemRow}>
+                <span>{C.detail.transition(stateName(transition.from), stateName(transition.to), C.detail.actor[transition.actor])}</span>
+                <span className={muted}>{agoLabel(transition.at, now)}</span>
+              </li>
+            ))}
+          </ul>
+        </Block>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <section className={frame({ isWide: wide })} aria-label={C.detail.label}>
+      {details}
+      <div className={thread}>
+        {item.threadId ? (
+          <BotTimeline channelId={channelId ?? item.channelId}>
+            <ConversationView conversationId={item.threadId} autoFocus={false} placeholder={placeholder} empty={<div className={centered}>{C.detail.thread}</div>} />
+          </BotTimeline>
+        ) : (
+          <div className={centered}>{item.owner === 'user' ? C.detail.userTask : C.detail.noThread}</div>
+        )}
+      </div>
+      {dialog === 'redirect' ? <RedirectDialog item={item} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'revert' ? <RevertDialog item={item} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'delete' ? <DeleteRecordDialog item={item} onClose={() => setDialog(null)} onDeleted={onClose} /> : null}
+    </section>
+  );
+}
+
+/** 改方向（BOT-TK-08）：新的要求，以及已经做到一半的那份停掉还是留着。 */
+function RedirectDialog({ item, onClose }: { item: WorkItem; onClose: () => void }) {
+  const call = useBotCall();
+  const [text, setText] = useState('');
+  const [oldWork, setOldWork] = useState<'stop' | 'keep'>('stop');
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    const result = await call('workItems.redirect', { id: item.id, text: text.trim(), oldWork });
+    setBusy(false);
+    if (result) onClose();
+  };
+  return (
+    <DialogContainer onDismiss={onClose}>
+      <Dialog size="M">
+        {({ close }) => (
+          <>
+            <Heading slot="title">{C.detail.redirectTitle}</Heading>
+            <Content>
+              <div className={dialogBody}>
+                <TextArea label={C.detail.redirectLabel} value={text} onChange={setText} autoFocus />
+                <RadioGroup label={C.detail.oldWork} value={oldWork} onChange={(value) => setOldWork(value as 'stop' | 'keep')} orientation="horizontal">
+                  <Radio value="stop">{C.detail.stopOld}</Radio>
+                  <Radio value="keep">{C.detail.keepOld}</Radio>
+                </RadioGroup>
+              </div>
+            </Content>
+            <ButtonGroup>
+              <Button variant="secondary" onPress={close}>
+                {C.common.cancel}
+              </Button>
+              <Button variant="accent" isDisabled={!text.trim()} isPending={busy} onPress={() => void submit()}>
+                {C.detail.send}
+              </Button>
+            </ButtonGroup>
+          </>
+        )}
+      </Dialog>
+    </DialogContainer>
+  );
+}
+
+/** 视频在任务产物或资源里的名字；没有就用 id。 */
+function videoName(item: WorkItem, videoId: Id): string {
+  const named = [...item.outputs].find((ref) => (ref.kind === 'video' || ref.kind === 'video-range') && ref.videoId === videoId && ref.label);
+  return named?.label ?? videoId;
+}
+
+/**
+ * 整体撤销（BOT-EX-19）：先试算（`dryRun`），列出每部视频此后有没有你自己的改动；都能只撤智能体的时给「只撤智能体的」，
+ * 否则写出原因，只能连你的一起撤。确认后才真的恢复。
+ */
+function RevertDialog({ item, onClose }: { item: WorkItem; onClose: () => void }) {
+  const runtime = useRuntime();
+  const call = useBotCall();
+  const [plan, setPlan] = useState<RevertPlan | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'agent' | 'all' | null>(null);
+  useEffect(() => {
+    let live = true;
+    runtime.client
+      .request('workItems.revertAll', { id: item.id, dryRun: true })
+      .then((result) => {
+        if (live && 'plan' in result) setPlan(result.plan);
+      })
+      .catch((error: unknown) => {
+        if (live) setFailure(errorText(error));
+      });
+    return () => {
+      live = false;
+    };
+  }, [runtime, item.id]);
+  const agentOnly = !!plan?.videos.length && plan.videos.every((video) => video.agentOnlyPossible);
+  const blocked = plan?.videos.find((video) => !video.agentOnlyPossible && video.reason)?.reason ?? null;
+  const revert = async (keepUserEdits: boolean) => {
+    setBusy(keepUserEdits ? 'agent' : 'all');
+    const result = await call('workItems.revertAll', { id: item.id, keepUserEdits });
+    setBusy(null);
+    if (result && 'restored' in result) {
+      ToastQueue.positive(C.detail.reverted(result.restored.length), { timeout: 4000 });
+      onClose();
+    }
+  };
+  return (
+    <DialogContainer onDismiss={onClose}>
+      <Dialog size="M" role="alertdialog">
+        {({ close }) => (
+          <>
+            <Heading slot="title">{C.detail.revertTitle}</Heading>
+            <Content>
+              <div className={dialogBody}>
+                {failure ? (
+                  <span>{C.common.failed(failure)}</span>
+                ) : !plan ? (
+                  <span>{C.detail.revertChecking}</span>
+                ) : !plan.videos.length ? (
+                  <span>{C.detail.revertNothing}</span>
+                ) : (
+                  <>
+                    <ul className={items}>
+                      {plan.videos.map((video) => (
+                        <li key={video.videoId}>{C.detail.revertVideo(videoName(item, video.videoId), video.userEdits.length)}</li>
+                      ))}
+                    </ul>
+                    {!agentOnly && blocked ? <span>{C.detail.revertBlocked(blocked)}</span> : null}
+                  </>
+                )}
+              </div>
+            </Content>
+            <ButtonGroup>
+              <Button variant="secondary" onPress={close}>
+                {C.common.cancel}
+              </Button>
+              {plan?.videos.length && agentOnly ? (
+                <Button variant="accent" isPending={busy === 'agent'} isDisabled={!!busy} onPress={() => void revert(true)}>
+                  {C.detail.revertAgentOnly}
+                </Button>
+              ) : null}
+              {plan?.videos.length ? (
+                <Button variant="negative" fillStyle={agentOnly ? 'outline' : 'fill'} isPending={busy === 'all'} isDisabled={!!busy} onPress={() => void revert(false)}>
+                  {C.detail.revertEverything}
+                </Button>
+              ) : null}
+            </ButtonGroup>
+          </>
+        )}
+      </Dialog>
+    </DialogContainer>
+  );
+}
+
+/** 删除任务记录（BOT-EX-20）：先试算要删的文件与因为别的任务还在用而保留的，确认时带上这份文件单。 */
+function DeleteRecordDialog({ item, onClose, onDeleted }: { item: WorkItem; onClose: () => void; onDeleted: () => void }) {
+  const runtime = useRuntime();
+  const call = useBotCall();
+  const [plan, setPlan] = useState<{ files: string[]; keptShared: string[] } | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    runtime.client
+      .request('workItems.deleteRecord', { id: item.id, dryRun: true })
+      .then((result) => {
+        if (live) setPlan({ files: result.files, keptShared: result.keptShared });
+      })
+      .catch((error: unknown) => {
+        if (live) setFailure(errorText(error));
+      });
+    return () => {
+      live = false;
+    };
+  }, [runtime, item.id]);
+  const confirm = async () => {
+    if (!plan) return;
+    setBusy(true);
+    const result = await call('workItems.deleteRecord', { id: item.id, confirm: { files: plan.files } });
+    setBusy(false);
+    if (result?.deleted) {
+      onClose();
+      onDeleted();
+    }
+  };
+  return (
+    <DialogContainer onDismiss={onClose}>
+      <Dialog size="M" role="alertdialog">
+        {({ close }) => (
+          <>
+            <Heading slot="title">{C.detail.deleteTitle}</Heading>
+            <Content>
+              <div className={dialogBody}>
+                <span>{C.detail.deleteBody}</span>
+                {failure ? (
+                  <span>{C.common.failed(failure)}</span>
+                ) : !plan ? (
+                  <ProgressCircle size="S" isIndeterminate aria-label={C.common.loading} />
+                ) : (
+                  <>
+                    {plan.files.length ? (
+                      <ul className={items}>
+                        {plan.files.map((file) => (
+                          <li key={file}>{file}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span>{C.detail.deleteNoFiles}</span>
+                    )}
+                    {plan.keptShared.length ? (
+                      <>
+                        <span>{C.detail.deleteKept}</span>
+                        <ul className={items}>
+                          {plan.keptShared.map((file) => (
+                            <li key={file}>{file}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            </Content>
+            <ButtonGroup>
+              <Button variant="secondary" onPress={close}>
+                {C.common.cancel}
+              </Button>
+              <Button variant="negative" isDisabled={!plan} isPending={busy} onPress={() => void confirm()}>
+                {C.detail.delete}
+              </Button>
+            </ButtonGroup>
+          </>
+        )}
+      </Dialog>
+    </DialogContainer>
+  );
+}
+
+/** 授权的花费一行（收件箱也用）。 */
+export function costLine(cost: { amount: string; currency: string } | null): string | null {
+  return cost ? C.detail.cost(formatMoneyOne(cost)) : null;
+}

@@ -5,3 +5,4 @@
 export * from './harness-runs.ts';
 export * from './harness-projects.ts';
 export * from './harness-agents.ts';
+export * from './harness-bot.ts';

@@ -14,6 +14,7 @@ export const SETTINGS_SECTIONS = [
   'downloader',
   'semantic',
   'agent',
+  'bot',
   'providers',
   'usage',
   'glossary',
@@ -94,7 +95,7 @@ const group = (id: SettingsGroupId, keys: readonly SettingsSection[]) => ({
 });
 export const SETTINGS_GROUPS: readonly { id: SettingsGroupId; label: string; keys: readonly SettingsSection[] }[] = [
   group('preferences', ['general', 'shortcuts', 'fonts', 'downloader', 'semantic']),
-  group('agents', ['agent']),
+  group('agents', ['agent', 'bot']),
   group('app', ['glossary', 'privacy', 'diagnostics', 'about']),
 ];
 
