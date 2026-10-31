@@ -104,8 +104,8 @@ const schemas = {
     description: z.string().trim().optional().describe('New one-sentence description.'),
     priority: z.enum(['high', 'medium', 'low']).optional().describe('high, medium or low.'),
     dueOn: day.nullish().describe('Due day (YYYY-MM-DD), or null to clear it.'),
-    eventOn: day.nullish().describe('Event day (YYYY-MM-DD). The coordinator must cite the user message with eventOnMessageId.'),
-    eventOnMessageId: id.optional().describe('Coordinator: the user message that gave the event date.'),
+    eventOn: day.nullish().describe('Event day (YYYY-MM-DD). Cite the user message that gave it with eventOnMessageId.'),
+    eventOnMessageId: id.optional().describe('The user message that gave the event date (in the channel, or in this thread).'),
     steps: z.array(step).max(BOT_LIMITS.steps).optional().describe('The remaining steps, replacing the old list.'),
     finishedSteps: z
       .array(z.strictObject({ text: z.string().trim().min(1), result: z.string().trim().max(BOT_LIMITS.updateText) }))
@@ -665,9 +665,13 @@ export class BotTools implements ToolSet {
     assertMax('update', args.update, BOT_LIMITS.updateText);
     for (const s of args.steps ?? []) assertMax('step', s.text, BOT_LIMITS.stepText);
     assertPlainText(args.title, args.description, args.update, ...(args.steps ?? []).map((s) => s.text), ...(args.finishedSteps ?? []).flatMap((s) => [s.text, s.result]));
-    if (args.eventOn !== undefined && args.eventOn !== null && caller.role === 'channel') {
+    // 事件日期只能来自用户的原话（§7.5）：线程也一样，否则它能先编一个过去的日期，再用 past-date 自己结掉任务。
+    if (args.eventOn !== undefined && args.eventOn !== null && args.eventOn !== item.eventOn) {
       if (!args.eventOnMessageId) throw new ToolError('NEEDS_USER_WORDS', 'Cite the user message that gave the date (eventOnMessageId).');
-      this.#userMessage(caller, args.eventOnMessageId, 'eventOnMessageId');
+      const typed =
+        bot.isUserTyped(caller.channel.conversationId, args.eventOnMessageId) ||
+        (caller.role === 'thread' && bot.isUserTyped(caller.conversation.id, args.eventOnMessageId));
+      if (!typed) throw new ToolError('NEEDS_USER_WORDS', 'eventOnMessageId must be the id of a message the user typed in this channel or thread.');
     }
     const by: 'coordinator' | 'thread' = caller.role === 'channel' ? 'coordinator' : 'thread';
     const content =

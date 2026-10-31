@@ -4,6 +4,7 @@ import { newId, type Id, type TimelineItem } from '@baocut/protocol';
 import { ToolCatalog, ToolError } from '../agent-tools/tool-catalog.ts';
 import { BOT_TOOL_NAMES, BotTools } from './bot-tools.ts';
 import { BotKit, type TurnContext } from './testing/bot-kit.ts';
+import { stateName } from './work-item-machine.ts';
 
 /** Bot 的智能体工具（技术方案 §10）：按角色露出、拒绝的错误码、工具层对来源的核验。 */
 
@@ -235,6 +236,27 @@ describe('BotTools with a live channel', () => {
     expect(out.tainted).toBe(true);
     expect(out.after).toMatchObject({ ok: false, error: { code: 'NEEDS_USER_TURN' } });
     expect((await kit.bot.readMemory(kit.main.id)).content).toBe('');
+  });
+
+  it('a thread cannot invent an event day to close its own task with past-date evidence', async () => {
+    const item = await kit.startTask('Write up the screening');
+    const out = await kit.threadTurn(item.id, 'keep going', async (ctx) => ({
+      uncited: await ctx.tryCall('work_items_update', { eventOn: '2020-01-01', event: { type: 'resolve', evidence: [{ kind: 'past-date', date: '2020-01-01' }] } }),
+      agentCited: await (async () => {
+        ctx.turn.say('The screening was on 2020-01-01.');
+        return ctx.tryCall('work_items_update', { eventOn: '2020-01-01', eventOnMessageId: lastAgentMessage(ctx.conversationId).id });
+      })(),
+    }));
+    expect(out.uncited).toMatchObject({ ok: false, error: { code: 'NEEDS_USER_WORDS' } });
+    expect(out.agentCited).toMatchObject({ ok: false, error: { code: 'NEEDS_USER_WORDS' } });
+    expect(kit.item(item.id).eventOn).toBeNull();
+    expect(stateName(kit.item(item.id))).not.toBe('resolved');
+    // 用户在线程里亲口说的日期可以记。
+    const cited = await kit.threadTurn(item.id, 'the screening was on 2020-01-01', async (ctx) =>
+      ctx.tryCall('work_items_update', { eventOn: '2020-01-01', eventOnMessageId: kit.bot.runOf(ctx.conversationId)!.userMessageId! }),
+    );
+    expect(cited).toMatchObject({ ok: true });
+    expect(kit.item(item.id).eventOn).toBe('2020-01-01');
   });
 
   it('threads only touch their own task and cannot start threads or write memory', async () => {
