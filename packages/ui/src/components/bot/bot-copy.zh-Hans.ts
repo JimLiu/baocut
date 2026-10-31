@@ -113,6 +113,9 @@ export const zhHans: BotMessages = {
     access: (mode: string) => `访问：${mode}`,
     each: (text: string) => `每次：${text}`,
     suggestionMissing: '这条建议已经不在了',
+    evidence: '依据',
+    editTitle: '改标题',
+    modify: '修改',
   },
   chips: {
     label: '建议的回复',

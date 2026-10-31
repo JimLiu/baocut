@@ -113,6 +113,9 @@ export const vi: BotMessages = {
     access: (mode: string) => `Quyền truy cập: ${mode}`,
     each: (text: string) => `Mỗi lần: ${text}`,
     suggestionMissing: 'Đề xuất này không còn nữa',
+    evidence: 'Dựa trên',
+    editTitle: 'Sửa tiêu đề',
+    modify: 'Sửa',
   },
   chips: {
     label: 'Câu trả lời gợi ý',

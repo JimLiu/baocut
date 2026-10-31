@@ -113,6 +113,9 @@ export const ptBR: BotMessages = {
     access: (mode: string) => `Acesso: ${mode}`,
     each: (text: string) => `Toda vez: ${text}`,
     suggestionMissing: 'Esta sugestão não existe mais',
+    evidence: 'Com base em',
+    editTitle: 'Editar título',
+    modify: 'Modificar',
   },
   chips: {
     label: 'Respostas sugeridas',

@@ -113,6 +113,9 @@ export const ja: BotMessages = {
     access: (mode: string) => `アクセス：${mode}`,
     each: (text: string) => `毎回：${text}`,
     suggestionMissing: 'この提案はもうありません',
+    evidence: '根拠',
+    editTitle: 'タイトルを編集',
+    modify: '変更',
   },
   chips: {
     label: '返信の候補',

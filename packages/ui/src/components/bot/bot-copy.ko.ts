@@ -113,6 +113,9 @@ export const ko: BotMessages = {
     access: (mode: string) => `접근: ${mode}`,
     each: (text: string) => `매번: ${text}`,
     suggestionMissing: '이 제안은 더 이상 없습니다',
+    evidence: '근거',
+    editTitle: '제목 편집',
+    modify: '수정',
   },
   chips: {
     label: '추천 답장',

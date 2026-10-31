@@ -122,6 +122,9 @@ export const pl: BotMessages = {
     access: (mode: string) => `Dostęp: ${mode}`,
     each: (text: string) => `Za każdym razem: ${text}`,
     suggestionMissing: 'Tej propozycji już nie ma',
+    evidence: 'Na podstawie',
+    editTitle: 'Edytuj tytuł',
+    modify: 'Zmień',
   },
   chips: {
     label: 'Proponowane odpowiedzi',

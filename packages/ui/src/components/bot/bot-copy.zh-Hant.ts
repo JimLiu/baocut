@@ -113,6 +113,9 @@ export const zhHant: BotMessages = {
     access: (mode: string) => `存取：${mode}`,
     each: (text: string) => `每次：${text}`,
     suggestionMissing: '這則建議已經不在了',
+    evidence: '依據',
+    editTitle: '改標題',
+    modify: '修改',
   },
   chips: {
     label: '建議的回覆',

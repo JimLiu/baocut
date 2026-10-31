@@ -113,6 +113,9 @@ export const tr: BotMessages = {
     access: (mode: string) => `Erişim: ${mode}`,
     each: (text: string) => `Her seferinde: ${text}`,
     suggestionMissing: 'Bu öneri artık yok',
+    evidence: 'Dayanak',
+    editTitle: 'Başlığı düzenle',
+    modify: 'Değiştir',
   },
   chips: {
     label: 'Önerilen yanıtlar',

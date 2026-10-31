@@ -113,6 +113,9 @@ export const nl: BotMessages = {
     access: (mode: string) => `Toegang: ${mode}`,
     each: (text: string) => `Elke keer: ${text}`,
     suggestionMissing: 'Dit voorstel bestaat niet meer',
+    evidence: 'Op basis van',
+    editTitle: 'Titel bewerken',
+    modify: 'Wijzigen',
   },
   chips: {
     label: 'Voorgestelde antwoorden',

@@ -132,6 +132,9 @@ const en = {
     access: (mode: string) => `Access: ${mode}`,
     each: (text: string) => `Each time: ${text}`,
     suggestionMissing: 'This suggestion is gone',
+    evidence: 'Based on',
+    editTitle: 'Edit title',
+    modify: 'Modify',
   },
   chips: {
     label: 'Suggested replies',

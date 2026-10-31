@@ -13,7 +13,11 @@ import { ThreadChips } from './task-detail.tsx';
 import { useTimeline } from '../../state/timeline-store.ts';
 import { BotSettings } from '../settings/bot-settings.tsx';
 import { useChannels } from '../../state/channels-store.ts';
-import { DEFAULT_BOT_SETTINGS } from '@baocut/protocol';
+import { DEFAULT_BOT_SETTINGS, type SpaceEntry, type WorkItem } from '@baocut/protocol';
+import { ProposalCard, SuggestionButtons } from './timeline/proposal-card.tsx';
+import { useBotCall } from './bot-actions.ts';
+import { useShell } from '../../state/shell-store.ts';
+import { useSpace } from '../../state/space-store.ts';
 
 /*
  * Bot 页组件的行为测试（docs/design/bot-mode 需求 §11）：假的 Runtime 只记下发了哪些 RPC，按方法给出结果。
@@ -56,6 +60,9 @@ async function typeInto(field: HTMLInputElement | HTMLTextAreaElement, value: st
     field.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
+
+// happy-dom 没有 Web Animations；SegmentedControl 的选中滑块要用它。
+Element.prototype.getAnimations ??= () => [];
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -182,5 +189,108 @@ describe('线程的提示芯片（BOT-SG-01/02）', () => {
     expect(container.querySelector('[role="group"]')?.textContent).toBe('是否');
     await press('是');
     expect(calls('conversations.send')).toEqual([expect.objectContaining({ conversationId: 'conv_thread', text: '是', via: 'suggestion', suggestionChipId: 'ch_yes' })]);
+  });
+});
+
+function SuggestionProbe({ item }: { item: WorkItem }) {
+  const call = useBotCall();
+  return createElement(SuggestionButtons, { item, pending: false, run: async (fn: () => Promise<unknown>) => void (await fn()), call });
+}
+
+const SUGGESTED = {
+  id: 'wi_s',
+  channelId: 'c1',
+  title: '给第 12 期加字幕',
+  owner: 'agent',
+  status: 'suggested',
+  suggestion: {
+    reason: '还没有字幕',
+    owner: 'agent',
+    evidence: [
+      { kind: 'video', projectId: 'p1', videoId: 'v12' },
+      { kind: 'file', path: '/work/notes/brief.txt' },
+    ],
+    trigger: 'manual',
+    kindTag: 'add-captions',
+    subjectKey: 'k',
+    expiresAt: '2026-11-14T00:00:00Z',
+  },
+} as unknown as WorkItem;
+
+describe('建议卡（BOT-MK-04）', () => {
+  it('归属可切成我来做（这时没有「现在做」），采纳前可改标题，改动随采纳一起交出', async () => {
+    handlers['workItems.transition'] = () => ({ item: SUGGESTED });
+    await render(createElement(SuggestionProbe, { item: SUGGESTED }));
+    expect(button('现在做')).toBeDefined();
+    await press('我来做');
+    expect(button('现在做')).toBeUndefined();
+    await press('改标题');
+    const field = container.querySelector<HTMLInputElement>('input')!;
+    expect(field.value).toBe('给第 12 期加字幕');
+    await typeInto(field, '给第 12 期加中英字幕');
+    await press('加入');
+    expect(calls('workItems.transition')).toEqual([
+      { id: 'wi_s', event: { type: 'accept', start: false, owner: 'user', title: '给第 12 期加中英字幕' } },
+    ]);
+  });
+
+  it('默认交给智能体；没改标题时不带 title', async () => {
+    handlers['workItems.transition'] = () => ({ item: SUGGESTED });
+    await render(createElement(SuggestionProbe, { item: SUGGESTED }));
+    await press('现在做');
+    expect(calls('workItems.transition')).toEqual([{ id: 'wi_s', event: { type: 'accept', start: true, owner: 'agent' } }]);
+  });
+
+  it('依据链接：视频在编辑器里打开，文件只写名字', async () => {
+    const openVideo = vi.fn();
+    const shell = useShell.getState().openVideo;
+    useShell.setState({ openVideo });
+    useSpace.setState({
+      entries: [
+        {
+          id: 'e12',
+          kind: 'video',
+          name: '第 12 期',
+          fileName: 'ep12.baocut',
+          source: { projectId: 'p1', conversationId: null },
+          relPath: 'ep12.baocut',
+          user: { favorite: false, displayName: null, trashedAt: null },
+          ref: { videoId: 'v12' },
+        } as unknown as SpaceEntry,
+      ],
+    });
+    try {
+      await render(createElement(SuggestionProbe, { item: SUGGESTED }));
+      const text = container.textContent ?? '';
+      expect(text).toContain('依据');
+      expect(text).toContain('文件 · brief.txt');
+      await press('视频 · 第 12 期');
+      expect(openVideo).toHaveBeenCalledWith({ projectId: 'p1', path: 'ep12.baocut' });
+    } finally {
+      useShell.setState({ openVideo: shell });
+      useSpace.setState({ entries: [] });
+    }
+  });
+});
+
+describe('建立频道卡的「修改」（需求 §11.4）', () => {
+  it('改名字后再建立：改过的字段随 edits 交给 Runtime', async () => {
+    handlers['bot.proposals.respond'] = () => ({ resultId: 'c2' });
+    const item = {
+      kind: 'proposal',
+      id: 'pr1',
+      createdAt: '2026-10-31T09:00:00Z',
+      taskId: null,
+      proposal: { type: 'channel', name: '剪辑', purpose: '剪第 12 期', templateId: null },
+      status: 'pending',
+      resultId: null,
+    } as unknown as Extract<TimelineItem, { kind: 'proposal' }>;
+    await render(createElement(ProposalCard, { item, conversationId: 'conv_main', channelId: null }));
+    await press('修改');
+    const name = container.querySelector<HTMLInputElement>('input')!;
+    expect(name.value).toBe('剪辑');
+    await typeInto(name, '第 12 期剪辑');
+    await press('建立');
+    expect(calls('bot.proposals.respond')).toEqual([{ conversationId: 'conv_main', itemId: 'pr1', accept: true, edits: { name: '第 12 期剪辑' } }]);
   });
 });

@@ -6,12 +6,12 @@ import Settings from '@react-spectrum/s2/icons/Settings';
 import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { useRuntime } from '../../runtime/context.tsx';
-import type { RuntimeSession } from '../../runtime/session.ts';
 import { useConnection } from '../../state/connection-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTimeline, useTimelineItems } from '../../state/timeline-store.ts';
 import { ConversationView } from '../conversation-view.tsx';
 import { useBotCall } from './bot-actions.ts';
+import { jumpTo } from './bot-jump.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
 import { SuggestionChips } from './timeline/suggestion-chips.tsx';
@@ -85,22 +85,6 @@ const emptyNote = style({ maxWidth: 420, margin: 'auto', padding: 24, textAlign:
 function lastItemId(conversationId: Id): Id | null {
   const items = useTimeline.getState().byConversationId[conversationId]?.items;
   return items?.length ? items[items.length - 1]!.id : null;
-}
-
-/** 往前翻页直到这一条载入（最多十页），再滚到它。线程里每条用户、智能体消息带 `data-find-item`，Bot 条目带 `data-bot-item`。 */
-async function jumpTo(runtime: RuntimeSession, conversationId: Id, itemId: Id): Promise<void> {
-  for (let page = 0; page < 10; page++) {
-    const state = useTimeline.getState().byConversationId[conversationId];
-    if (!state || state.items.some((item) => item.id === itemId)) break;
-    const before = state.offset;
-    await runtime.loadEarlier(conversationId);
-    if (useTimeline.getState().byConversationId[conversationId]?.offset === before) break;
-  }
-  requestAnimationFrame(() => {
-    const id = CSS.escape(itemId);
-    const target = document.querySelector<HTMLElement>(`[data-find-item="${id}"], [data-bot-item="${id}"]`);
-    target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  });
 }
 
 function awayParts(summary: AwaySummary): string {

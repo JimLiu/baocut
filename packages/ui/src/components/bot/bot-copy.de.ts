@@ -113,6 +113,9 @@ export const de: BotMessages = {
     access: (mode: string) => `Zugriff: ${mode}`,
     each: (text: string) => `Jedes Mal: ${text}`,
     suggestionMissing: 'Diesen Vorschlag gibt es nicht mehr',
+    evidence: 'Grundlage',
+    editTitle: 'Titel bearbeiten',
+    modify: 'Ändern',
   },
   chips: {
     label: 'Vorgeschlagene Antworten',
