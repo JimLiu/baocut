@@ -15,6 +15,7 @@ import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { useTimelineHasEarlier } from '../../state/timeline-store.ts';
 import { ApprovalCard } from './approval-card.tsx';
+import { useBotItemRenderer, useBotThreadExtras, type BotItemRenderer } from './bot-items.ts';
 import { PlanCard } from './plan-card.tsx';
 import { QuestionCard } from './question-card.tsx';
 import {
@@ -109,7 +110,13 @@ export function Thread({
   /** 在会话中查找的查找条开着（产品设计 §3.2.2）：`focus` 每变一次光标回到搜索框。 */
   find?: { focus: number; onClose(): void } | null;
 }) {
-  const blocks = useMemo(() => buildThread(items), [items]);
+  const botRenderer = useBotItemRenderer();
+  const unread = useBotThreadExtras()?.unread ?? null;
+  // 没有 Bot 渲染器（普通会话）时 Bot 条目不占一行。
+  const blocks = useMemo(() => {
+    const all = buildThread(items);
+    return botRenderer ? all : all.filter((block) => block.type !== 'bot');
+  }, [items, botRenderer]);
   const meta = useConversationMeta(conversationId);
   const defaultMode = useSetting('agent.defaultAccessMode') ?? DEFAULT_AGENT_MODE;
   const entries = useSpace((s) => s.entries);
@@ -154,6 +161,14 @@ export function Thread({
   blocks.forEach((block, i) => {
     if (block.type !== 'task') {
       const kind = rowKind(block);
+      // 频道上次看到之后的第一条（Bot 的「你不在时」）：前面一条「以下是新消息」细线；第一行前面不画。
+      if (unread && block.id === unread.itemId && rows.length > 0) {
+        rows.push(
+          <div key="bot-unread" style={{ marginTop: gapBetween(prev, kind, prevHasCards) }}>
+            {unread.node}
+          </div>,
+        );
+      }
       rows.push(
         <div key={block.id} className={row} style={{ marginTop: gapBetween(prev, kind, prevHasCards) }}>
           <Block
@@ -162,6 +177,7 @@ export function Thread({
             cwd={cwd}
             live={running && block === lastContent}
             outputs={block.type === 'agent' ? outputs.get(block.id) : undefined}
+            bot={botRenderer}
           />
           {cards.has(block.id) ? <ThreadCards cards={cards.get(block.id)!} conversationId={conversationId} /> : null}
         </div>,
@@ -496,12 +512,14 @@ function Block({
   cwd,
   live,
   outputs,
+  bot,
 }: {
   block: Exclude<ThreadBlock, { type: 'task' }>;
   conversationId: string;
   cwd?: string | null;
   live: boolean;
   outputs?: ConversationOutput[];
+  bot: BotItemRenderer | null;
 }) {
   switch (block.type) {
     case 'user':
@@ -537,5 +555,7 @@ function Block({
     case 'notice':
       if (block.item.fork) return <ForkMarker note={block.item.fork} />;
       return block.item.imported ? <ImportedMarker note={block.item.imported} /> : <NoticeLine item={block.item} />;
+    case 'bot':
+      return bot ? bot(block.item, conversationId) : null;
   }
 }

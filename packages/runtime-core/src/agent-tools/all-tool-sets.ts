@@ -27,6 +27,7 @@ import { EditAidTools } from './edit-aid-tools.ts';
 import { TaskTools } from './task-tools.ts';
 import { VideoDeleteTools } from './video-delete-tools.ts';
 import { VideoTools } from './video-tools.ts';
+import { BotTools } from '../bot/bot-tools.ts';
 
 /**
  * Runtime 组装的全部工具组（`runtime.ts` 的 `toolSets`）的空壳：依赖都是空的，只用来读 schema 与目录项，不能调用。
@@ -64,6 +65,7 @@ export function allToolSets(): ToolSet[] {
     new DesignTools(none),
     new DesignSystemTools(none),
     new DocsTools(none),
+    new BotTools(none),
   ];
 }
 

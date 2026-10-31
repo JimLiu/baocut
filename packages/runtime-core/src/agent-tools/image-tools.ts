@@ -17,6 +17,7 @@ import { RcAgentTools } from '@baocut/protocol/messages/runtime-core';
 import type { ExternalToolService } from '../external-tools/external-tool-service.ts';
 import { toolErrorOf } from './link-import-tools.ts';
 import { formatBytes } from './model-install-tools.ts';
+import { isPaidProvider } from './paid-calls.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
 import { resolveUserPath } from './video-digest.ts';
@@ -261,7 +262,9 @@ async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipa
           dir,
         })
       : RcAgentTools.upscaleSummary({ count: inputs.length, scale, executor: executorLabel(model), dir });
-  const approval = await scope.confirm(access, { tool: 'upscale', ...confirmSummary(summary) });
+  // 生成式放大交给图片模型：选不出模型时（目录生成）按付费处理；本机的超分不花钱（§14.2）。
+  const paid = spec.engine === 'generative' && (target ? isPaidProvider(target.providerId) : true);
+  const approval = await scope.confirm(access, { tool: 'upscale', paid, ...confirmSummary(summary) });
   const { jobId } = await pipelines.start(
     {
       pipeline: UPSCALE_IMAGE_PIPELINE,
@@ -373,8 +376,11 @@ async function imageEdit(deps: ImageToolsDeps, args: EditArgs, principal: ToolPr
       : target
         ? `${target.providerId}/${target.modelId}`
         : (args.model ?? args.provider ?? RcAgentTools.imageEditDefaultModel().text);
+  // AI 修补交给图片模型（选不出时按付费处理）；快速填充只用本机的 ffmpeg（§14.2）。
+  const paid = method === 'model' && (target ? isPaidProvider(target.providerId) : true);
   const approval = await scope.confirm(access, {
     tool: 'retouch',
+    paid,
     ...confirmSummary(
       RcAgentTools.imageEditSummary({ tool: EDIT_LABELS[args.op]().text, count: inputs.length, executor, dir: outDir ?? deps.saveDirectory() }),
     ),

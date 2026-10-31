@@ -7,6 +7,7 @@ import {
   localizeText,
   type CapabilityNotConfiguredDetails,
   type CatalogCliSwitch,
+  type ConversationRole,
   type ToolEffect,
   type ToolSurface,
 } from '@baocut/protocol';
@@ -37,6 +38,8 @@ export interface ToolDefinition {
   positional?: string;
   /** CLI 的快捷开关（`CatalogTool.cliSwitches`）：`--<flag>` 等于给 `field` 这个取值。 */
   cliSwitches?: ReadonlyArray<CatalogCliSwitch>;
+  /** 只给这些会话角色（Bot 技术方案 §10.1）；不写时所有角色都有。 */
+  roles?: ReadonlyArray<ConversationRole>;
 }
 
 export interface ToolExample {
@@ -66,6 +69,8 @@ export interface ToolCatalogView {
   surface?: ToolSurface;
   expose?: (name: string, info: ToolInfo) => boolean;
   describe?: (name: string, info: ToolInfo) => ToolInfo;
+  /** 调用者会话的角色：带 `roles` 的工具只露给其中的角色；不给时按普通会话（`chat`）。 */
+  role?: ConversationRole;
 }
 
 /** 工具层自己的拒绝：与引擎错误同一个形态，智能体按 `code` 决定下一步。 */
@@ -100,6 +105,11 @@ export class ToolCatalog {
   /** 同一组工具（同一份实现与范围）的另一个视图：给另一类主体用，不另建工具组。 */
   withView(view: ToolCatalogView): ToolCatalog {
     return new ToolCatalog(this.#sets, this.#parentLog, view);
+  }
+
+  /** 同一视图，换成某个会话角色（Bot 技术方案 §10.1）。 */
+  forRole(role: ConversationRole): ToolCatalog {
+    return role === (this.#view.role ?? 'chat') ? this : new ToolCatalog(this.#sets, this.#parentLog, { ...this.#view, role });
   }
 
   list(): ToolDefinition[] {
@@ -160,6 +170,7 @@ export class ToolCatalog {
     const info = set.definitions[name];
     if (!info) return false;
     if (this.#view.surface && !info.surfaces.includes(this.#view.surface)) return false;
+    if (info.roles && !info.roles.includes(this.#view.role ?? 'chat')) return false;
     return this.#view.expose ? this.#view.expose(name, info) : true;
   }
 }

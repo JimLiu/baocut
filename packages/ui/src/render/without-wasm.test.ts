@@ -27,7 +27,8 @@ vi.mock('@baocut/editor-wasm', async (importOriginal) => {
 const MODULES = import.meta.glob(['../**/*.ts', '!../**/*.test.ts', '!../**/*.d.ts']);
 
 describe('没有编辑语义的 WASM', () => {
-  it.for(Object.keys(MODULES))('载入 %s 不碰 WASM', async (file, context) => {
+  // 首个载入整套界面的模块（如 ../index.ts）要把所有组件转一遍，机器忙时远超默认的 15 秒。
+  it.for(Object.keys(MODULES))('载入 %s 不碰 WASM', { timeout: 180_000 }, async (file, context) => {
     try {
       await MODULES[file]!();
     } catch (error) {

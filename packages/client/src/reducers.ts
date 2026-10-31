@@ -4,6 +4,10 @@ import {
   clampOutput,
   type AgentSetupEvent,
   type AgentSetupSnapshot,
+  type ChannelsEvent,
+  type ChannelsSnapshot,
+  type WorkItemsEvent,
+  type WorkItemsSnapshot,
   type ConversationEvent,
   type ConversationPage,
   type ConversationSnapshot,
@@ -266,5 +270,51 @@ export function applyVideoTopicEvent(state: VideoTopicSnapshot, event: VideoTopi
       return event.snapshot;
     case 'video.closed':
       return null;
+  }
+}
+
+/**
+ * `channels` 主题（Bot 模式）：频道摘要按 id 替换，置顶在前、再按最近活动排；通知事件不改快照（由订阅方另行处理）。
+ */
+export function applyChannelsEvent(state: ChannelsSnapshot, event: ChannelsEvent): ChannelsSnapshot {
+  switch (event.type) {
+    case 'channel.upsert': {
+      const others = state.channels.filter((row) => row.channel.id !== event.summary.channel.id);
+      return { ...state, channels: sortChannels([...others, event.summary]) };
+    }
+    case 'channel.removed':
+      return { ...state, channels: state.channels.filter((row) => row.channel.id !== event.id) };
+    case 'bot.settings':
+      return { ...state, settings: event.settings };
+    case 'bot.notification':
+      return state;
+  }
+}
+
+function sortChannels(rows: ChannelsSnapshot['channels']): ChannelsSnapshot['channels'] {
+  return [...rows].sort((a, b) => {
+    if (a.channel.kind !== b.channel.kind) return a.channel.kind === 'main' ? -1 : 1;
+    if (a.channel.pinned !== b.channel.pinned) return a.channel.pinned ? -1 : 1;
+    return a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0;
+  });
+}
+
+/** `work-items:<channelId>` 主题：任务按 id 替换或追加；报告按 id 替换；转换记录不进快照（任务详情按需取）。 */
+export function applyWorkItemsEvent(state: WorkItemsSnapshot, event: WorkItemsEvent): WorkItemsSnapshot {
+  switch (event.type) {
+    case 'work-item.upsert': {
+      const index = state.items.findIndex((item) => item.id === event.item.id);
+      const items = index < 0 ? [...state.items, event.item] : state.items.map((item, i) => (i === index ? event.item : item));
+      return { ...state, items };
+    }
+    case 'work-item.removed':
+      return { ...state, items: state.items.filter((item) => item.id !== event.id) };
+    case 'work-item.report': {
+      const index = state.reports.findIndex((report) => report.id === event.report.id);
+      const reports = index < 0 ? [...state.reports, event.report] : state.reports.map((report, i) => (i === index ? event.report : report));
+      return { ...state, reports };
+    }
+    case 'work-item.transition':
+      return state;
   }
 }

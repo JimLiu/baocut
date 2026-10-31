@@ -185,3 +185,25 @@ it('knows no running work for someone else’s Runtime or one that does not answ
   await silent.stop();
   expect(runtime.received).toEqual([{ type: 'status' }, STOP_MESSAGE]);
 });
+
+it('tells its own Runtime when the Bot background service is resident, also one started later', async () => {
+  const home = resolveRuntimeHome({ BAOCUT_HOME: path.join(os.tmpdir(), 'desktop-resident-home') });
+  // Before any Runtime: remembered, sent once it is up.
+  const runtime = fakeRuntime();
+  mocks.spawn.mockReturnValueOnce(runtime.child);
+  mocks.readDiscovery.mockResolvedValueOnce(null).mockResolvedValue(DISCOVERY);
+  const supervisor = supervisorFor(home);
+  supervisor.setResident(true);
+  expect(supervisor.resident).toBe(true);
+  await supervisor.connection();
+  expect(runtime.received).toEqual([{ type: 'resident', on: true }]);
+  supervisor.setResident(false);
+  expect(runtime.received).toEqual([{ type: 'resident', on: true }, { type: 'resident', on: false }]);
+  await supervisor.stop();
+
+  // Someone else's Runtime has no channel: nothing to send, no error.
+  mocks.readDiscovery.mockReset().mockResolvedValue(DISCOVERY);
+  const foreign = supervisorFor(home);
+  await foreign.connection();
+  expect(() => foreign.setResident(true)).not.toThrow();
+});

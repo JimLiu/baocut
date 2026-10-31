@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { AppUpdateNotice, AppUpdateSnapshot, HostBridge, UpdatesHost } from '@baocut/ui';
+import { BOT_ROUTE_CHANNEL, BOT_TAKE_ROUTE_CHANNEL, botRoute, type BotRoute } from '../main/bot/bot-route.ts';
 
 type WebHost = NonNullable<HostBridge['web']>;
 type WebTabState = Parameters<Parameters<WebHost['onState']>[0]>[0];
@@ -103,3 +104,25 @@ contextBridge.exposeInMainWorld('baocut', {
   // 界面语言：主进程据此换应用菜单与对话框的语言（参数在主进程里重新校验）。
   setLocale: (locale) => ipcRenderer.send('baocut:set-locale', locale),
 } satisfies HostBridge);
+
+/**
+ * Bot 后台服务把界面带到 Bot 页的某处（点系统通知、托盘里的任务，技术方案 §15.2）。主进程把路由存成待取并发提醒；这里在订阅时
+ * 与每次提醒时去取，取到就交给界面，同一个路由只交付一次（`main/bot/bot-route.ts`）。`HostBridge` 还没有这一项，先单独挂在
+ * `window.baocutBot` 上，界面接上 Bot 页时再并进去。
+ */
+contextBridge.exposeInMainWorld('baocutBot', {
+  onRoute: (listener: (route: BotRoute) => void) => {
+    const take = () =>
+      void ipcRenderer.invoke(BOT_TAKE_ROUTE_CHANNEL).then(
+        (raw: unknown) => {
+          const route = botRoute(raw);
+          if (route) listener(route);
+        },
+        () => {},
+      );
+    const handler = () => take();
+    ipcRenderer.on(BOT_ROUTE_CHANNEL, handler);
+    take();
+    return () => void ipcRenderer.removeListener(BOT_ROUTE_CHANNEL, handler);
+  },
+});

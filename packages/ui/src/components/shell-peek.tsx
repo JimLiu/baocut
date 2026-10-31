@@ -15,6 +15,7 @@ import {
   type PeekKind,
 } from '../model/shell-peek.ts';
 import { defaultRoute, useShell, type Route, type Tab } from '../state/shell-store.ts';
+import { ChannelSidebar } from './bot/channel-sidebar.tsx';
 import { HomeSidebar } from './home-sidebar.tsx';
 import { SidebarPeekContext } from './page-sidebar.tsx';
 import { ShellButton } from './shell-button.tsx';
@@ -210,6 +211,8 @@ export function ShellPeek({ sheet }: { sheet: RefObject<HTMLElement | null> }) {
         <RouterProvider navigate={navigate}>
           {kind === 'home' ? (
             <HomeSidebar />
+          ) : kind === 'bot' ? (
+            <ChannelSidebar />
           ) : kind === 'space' ? (
             <SpaceSidebar category={r.tab === 'space' ? r.category : 'all'} projectId={r.tab === 'space' ? r.projectId : null} />
           ) : (

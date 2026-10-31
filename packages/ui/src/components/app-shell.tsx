@@ -19,6 +19,8 @@ import { AgentSetupHost } from './settings/agent-setup-host.tsx';
 import { ConnectionBanner } from './connection-banner.tsx';
 import { HelpCenter } from './help/help-center.tsx';
 import { HomePage } from './home-page.tsx';
+import { BotNotificationHost } from './bot/bot-notification-host.tsx';
+import { BotPage } from './bot/bot-page.tsx';
 import { Rail } from './rail.tsx';
 import { ServicesPage } from './services-page.tsx';
 import { SettingsPage } from './settings-page.tsx';
@@ -57,6 +59,11 @@ const sheet = style({
   overflow: 'hidden',
 });
 
+/** 桌面版 preload 挂在 `window.baocutBot` 上的路由桥（`apps/desktop/src/preload/index.ts`）。 */
+interface BotRouteBridge {
+  onRoute(listener: (route: { channelId: string | null; workItemId: string | null; view: string }) => void): () => void;
+}
+
 export function AppShell({ platform }: { platform: string }) {
   const runtime = useRuntime();
   const route = useShell((s) => s.route);
@@ -76,6 +83,15 @@ export function AppShell({ platform }: { platform: string }) {
 
   // 忙时排队的消息：哪条会话的任务结束了就发它队首的那一条，不管现在看的是哪个页面。
   useEffect(() => startQueueRunner(runtime, (message) => ToastQueue.negative(QUEUE_COPY.failed(message), { timeout: 5000 })), [runtime]);
+
+  // 桌面版的 Bot 后台服务（点系统通知、托盘里的任务）把界面带到 Bot 页的某处（技术方案 §15.2）；网页版没有这座桥。
+  useEffect(() => {
+    const bridge = (window as { baocutBot?: BotRouteBridge }).baocutBot;
+    return bridge?.onRoute((target) => {
+      const view = target.view === 'task' || target.view === 'inbox' || target.view === 'memory' ? target.view : 'channel';
+      useShell.getState().go({ tab: 'bot', channelId: target.channelId ?? null, workItemId: target.workItemId ?? null, view });
+    });
+  }, []);
 
   // 全局快捷键（原型 main.jsx）：⌘[ / ⌘] 后退前进（Windows 与 Linux 用 Alt+←/→），⌘N 新建会话，⇧⌘H Space，
   // ⇧⌘B 后台任务，⌘, 设置，⌃⌘S 开合侧栏。Windows 与 Linux 上 ⌘ 换成 Ctrl。
@@ -134,6 +150,8 @@ export function AppShell({ platform }: { platform: string }) {
               <ArchivedPage focus={route.focus} />
             ) : route.tab === 'models' ? (
               <SettingsPage model={route} platform={platform} />
+            ) : route.tab === 'bot' ? (
+              <BotPage channelId={route.channelId} workItemId={route.workItemId} view={route.view} />
             ) : (
               <ToolsPage tool={route.tool} />
             )}
@@ -146,6 +164,8 @@ export function AppShell({ platform }: { platform: string }) {
         <AppUpdateHost />
         {/* 提醒：会话等你、任务做完或失败时按你在不在跟前提示或发系统通知，徽标是在等你的会话条数（产品设计 §3.1）。 */}
         <AttentionHost />
+        {/* Bot 的提醒：在跟前时弹一条提示，静音频道与正在看的频道不弹。 */}
+        <BotNotificationHost />
         {/* 启动时的旧版项目导入询问：Runtime 发现还没导入的旧版项目、又没有记下决定时问一次（Web 不问）。 */}
         <LegacyImportHost />
         {/* 首次启动引导：旧版导入的询问答完再弹（挂在它后面）；引导里勾上的 Agent 在这里排队安装（Web 不弹）。 */}

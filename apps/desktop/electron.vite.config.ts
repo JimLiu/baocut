@@ -14,7 +14,7 @@ import { guardRunningApp } from '../../tools/running-app-guard.ts';
 import { s2Styles, s2StylesChunk } from '../../tools/s2-styles.ts';
 
 // 工作区包是 TypeScript 源码（没有构建产物），必须打进 bundle；第三方依赖照常外置。
-const bundleWorkspace = { exclude: ['@baocut/runtime', '@baocut/runtime-storage', '@baocut/protocol', '@baocut/ui'] };
+const bundleWorkspace = { exclude: ['@baocut/client', '@baocut/runtime', '@baocut/runtime-storage', '@baocut/protocol', '@baocut/ui'] };
 
 /** 界面里存状态的模块：Zustand store 与 Runtime 会话。 */
 const STATEFUL = /\/packages\/ui\/src\/(state|runtime)\//;

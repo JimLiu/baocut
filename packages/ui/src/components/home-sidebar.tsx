@@ -31,6 +31,7 @@ import { S } from './shell-copy.ts';
 import { untitled } from '../copy.ts';
 import {
   buildSidebar,
+  isHomeConversation,
   restGroupLabel,
   statusGroupLabel,
   type ProjectRow,
@@ -370,7 +371,7 @@ function OrganizeMenu({ onImport }: { onImport: (() => void) | null }) {
   const go = useSidebarGo();
   const grouping = useShell((s) => groupingOf(s.sidebarGrouping));
   const sort = useShell((s) => s.sidebarSort);
-  const archivedCount = useDirectory((s) => s.conversations.filter((c) => c.archived).length);
+  const archivedCount = useDirectory((s) => s.conversations.filter((c) => c.archived && isHomeConversation(c)).length);
   const { setSidebarGrouping, setSidebarSort } = useShell.getState();
   return (
     <MenuTrigger>

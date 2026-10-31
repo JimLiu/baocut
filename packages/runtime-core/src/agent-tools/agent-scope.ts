@@ -28,7 +28,7 @@ import { inside, nearestReal } from './artifact-save.ts';
 import type { AgentPrincipal } from './grants.ts';
 import { ToolError } from './tool-catalog.ts';
 import {
-  toolRisk,
+  confirmRisk,
   type ToolAccess,
   type ToolApprovalNote,
   type ToolConfirmation,
@@ -72,11 +72,21 @@ export class AgentScope implements ToolScope<AgentAccess> {
   /** 订阅了任务中心（回合结束时收尾进度记录）。第一次登记进度记录时才订阅。 */
   #watchingTasks = false;
 
-  constructor(deps: { harness: Harness; videos: VideoService; jobs: JobManager; sessionsDirs?: readonly string[] }) {
+  /** 会话另外可以打开视频的项目（Bot 线程：任务资源里的视频所在的项目，技术方案 §7.1）。 */
+  readonly #videoProjects: (conversation: Conversation) => readonly Id[];
+
+  constructor(deps: {
+    harness: Harness;
+    videos: VideoService;
+    jobs: JobManager;
+    sessionsDirs?: readonly string[];
+    videoProjects?: (conversation: Conversation) => readonly Id[];
+  }) {
     this.#harness = deps.harness;
     this.#videos = deps.videos;
     this.#jobs = deps.jobs;
     this.#sessionsDirs = deps.sessionsDirs ?? [];
+    this.#videoProjects = deps.videoProjects ?? (() => []);
   }
 
   /** 工具只在任务里可用；停止屏障之后一律拒绝（D04）；规划模式只读。 */
@@ -105,7 +115,9 @@ export class AgentScope implements ToolScope<AgentAccess> {
   /** 按会话此刻的访问模式与风险决定（§3.12）：自动、等用户，或拒绝。结果里的模式记进工具结果。 */
   async confirm(access: AgentAccess, request: ToolConfirmation): Promise<ToolApprovalNote> {
     const targets = [...(request.video !== undefined ? [request.video] : []), ...(request.targets ?? [])];
-    const risk = toolRisk(request);
+    const conversation = access.conversation;
+    const run = this.#harness.runInfo(conversation.id);
+    const risk = confirmRisk(request, run ? { role: conversation.role, attended: run.attended } : null);
     const result = await this.#harness.approveToolCall(access.conversation.id, {
       tool: request.tool,
       targets,
@@ -441,8 +453,20 @@ export class AgentScope implements ToolScope<AgentAccess> {
    */
   async open(video: string, access: AgentAccess): Promise<VideoOpenResult> {
     const { conversation, principal } = access;
-    const { root, scope } = this.source(conversation);
-    const known = this.#videos.ref(video) ?? (VIDEO_ID.test(video) ? await this.#locate(video, root) : null);
+    let { root, scope } = this.source(conversation);
+    let known = this.#videos.ref(video) ?? (VIDEO_ID.test(video) ? await this.#locate(video, root) : null);
+    // 工作目录里没有、但在会话另外能用的项目里（Bot 线程的任务资源）：按那个项目打开，范围记成项目。
+    if (VIDEO_ID.test(video) && !(known && (await within(known.path, root)))) {
+      for (const project of this.#grantedProjects(conversation)) {
+        const ref = this.#videos.ref(video);
+        const hit = ref && (await within(ref.path, project.path)) ? { path: ref.path } : await this.#locate(video, project.path);
+        if (!hit) continue;
+        known = hit;
+        root = project.path;
+        scope = { projectId: project.id };
+        break;
+      }
+    }
     try {
       return await this.#videos.open({ root, file: known ? known.path : video, scope }, principal);
     } catch (error) {
@@ -487,15 +511,26 @@ export class AgentScope implements ToolScope<AgentAccess> {
     return null;
   }
 
-  /** 一个已经打开的视频是否在会话的来源目录里。没有打开时无从判断，为 false。 */
+  /** 会话另外能打开视频的项目（来源目录本身是项目时不重复）。 */
+  #grantedProjects(conversation: Conversation): { id: Id; path: string }[] {
+    let ids: readonly Id[];
+    try {
+      ids = this.#videoProjects(conversation);
+    } catch {
+      return [];
+    }
+    if (!ids.length) return [];
+    const projects = this.#harness.listProjects();
+    return ids.filter((id) => id !== conversation.projectId).flatMap((id) => projects.filter((p) => p.id === id).map((p) => ({ id: p.id, path: p.path })));
+  }
+
+  /** 一个已经打开的视频是否在会话的来源目录（或另外能用的项目）里。没有打开时无从判断，为 false。 */
   async contains(videoId: Id, conversation: Conversation): Promise<boolean> {
     const ref = this.#videos.ref(videoId);
     if (!ref) return false;
-    const { root } = this.source(conversation);
-    const rootReal = await fs.realpath(root).catch(() => null);
-    if (!rootReal) return false;
-    const prefix = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
-    return ref.path === rootReal || ref.path.startsWith(prefix);
+    if (await within(ref.path, this.source(conversation).root)) return true;
+    for (const project of this.#grantedProjects(conversation)) if (await within(ref.path, project.path)) return true;
+    return false;
   }
 
   /** 这个会话能看到的任务：自己提交的，或来源目录里已打开的视频上的。看不到的与不存在的一样回答。 */
@@ -600,4 +635,12 @@ function translationKey(conversationId: Id, scope: TranslationScope): string {
 
 function jobNotFound(jobId: Id): ToolError {
   return new ToolError('JOB_NOT_FOUND', `找不到任务 ${jobId}，或它不属于这个会话的工作目录`);
+}
+
+/** `file` 是 `root`（按真实路径）本身或在它里面。 */
+async function within(file: string, root: string): Promise<boolean> {
+  const rootReal = await fs.realpath(root).catch(() => null);
+  if (!rootReal) return false;
+  const prefix = rootReal.endsWith(path.sep) ? rootReal : rootReal + path.sep;
+  return file === rootReal || file.startsWith(prefix);
 }

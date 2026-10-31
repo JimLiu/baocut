@@ -39,7 +39,8 @@ export function attentionEvents(prev: readonly Conversation[], next: readonly Co
   const events: AttentionEvent[] = [];
   for (const conversation of next) {
     const was = before.get(conversation.id);
-    if (was === undefined || conversation.archived) continue;
+    // Bot 的频道对话与线程有自己的通知（`bot.notification`），这里不重复提醒。
+    if (was === undefined || conversation.archived || isBotRole(conversation)) continue;
     const kind = attentionKind(was, conversation.activity);
     if (kind) events.push({ conversationId: conversation.id, title: conversation.title, kind });
   }
@@ -48,7 +49,11 @@ export function attentionEvents(prev: readonly Conversation[], next: readonly Co
 
 /** Dock / 任务栏徽标上的数：在等用户批准或回答的会话条数。 */
 export function waitingCount(conversations: readonly Conversation[]): number {
-  return conversations.filter((c) => !c.archived && (c.activity === 'awaiting-approval' || c.activity === 'awaiting-answer')).length;
+  return conversations.filter((c) => !c.archived && !isBotRole(c) && (c.activity === 'awaiting-approval' || c.activity === 'awaiting-answer')).length;
+}
+
+function isBotRole(c: Conversation): boolean {
+  return c.role === 'channel' || c.role === 'thread';
 }
 
 export interface Presence {

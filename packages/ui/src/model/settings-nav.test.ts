@@ -12,7 +12,7 @@ import {
 describe('设置分组', () => {
   it('Agent 自成一组，在偏好设置之后、应用之前；Skills 搬到了 rail，不在设置里', () => {
     expect(SETTINGS_GROUPS.map((g) => g.id)).toEqual(['preferences', 'agents', 'app']);
-    expect(SETTINGS_GROUPS.find((g) => g.id === 'agents')).toMatchObject({ label: 'Agent', keys: ['agent'] });
+    expect(SETTINGS_GROUPS.find((g) => g.id === 'agents')).toMatchObject({ label: 'Agent', keys: ['agent', 'bot'] });
     expect(SETTINGS_GROUPS.find((g) => g.id === 'app')?.keys).toEqual(['glossary', 'privacy', 'diagnostics', 'about']);
     // 视频下载（yt-dlp 与网站登录）在偏好设置里，跟在字体后面；语义索引跟在视频下载后面
     expect(SETTINGS_GROUPS.find((g) => g.id === 'preferences')?.keys).toEqual(['general', 'shortcuts', 'fonts', 'downloader', 'semantic']);

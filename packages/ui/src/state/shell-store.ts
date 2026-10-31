@@ -55,7 +55,10 @@ export type { SettingsSection } from '../model/settings-nav.ts';
 export { SETTINGS_SECTIONS } from '../model/settings-nav.ts';
 
 /** 一级入口（App rail，产品设计 §2.1 用户修订）。 */
-export type Tab = 'home' | 'space' | 'skills' | 'tasks' | 'models' | 'services' | 'tools' | 'settings';
+export type Tab = 'home' | 'bot' | 'space' | 'skills' | 'tasks' | 'models' | 'services' | 'tools' | 'settings';
+
+/** Bot 页的视图（docs/design/bot-mode 技术方案 §17.1）：频道对话、任务详情、频道记忆、「等你」收件箱。 */
+export type BotView = 'channel' | 'task' | 'memory' | 'inbox';
 
 /**
  * Home 的 `pane`：会话右侧功能区当前的标签（视频、文件、项目文件、网页）；同一条会话的其他标签记在 `workspaces` 里。
@@ -64,6 +67,11 @@ export type Tab = 'home' | 'space' | 'skills' | 'tasks' | 'models' | 'services' 
 export type Route =
   /** `view`：打开视频时指定编辑器视图（轻量编辑器设计 §6 的 `?view=lite|timeline`）；编辑器用过就把它从路由里去掉，不进 `WorkspaceItem`。 */
   | { tab: 'home'; conversationId: Id | null; projectId: Id | null; pane?: WorkspaceItem; view?: EditorView }
+  /**
+   * Bot 模式（docs/design/bot-mode 技术方案 §17.1）：`channelId` 为 null 时进主频道；`workItemId` 是右侧打开的任务详情；
+   * `view: 'inbox'` 是 Rail 徽标打开的跨频道「等你」收件箱，`memory` 是频道记忆页。
+   */
+  | { tab: 'bot'; channelId: Id | null; workItemId: Id | null; view: BotView }
   /** Home 的「已归档会话」（产品设计 §3.1）：属于 Home 入口，不是 rail 上的一格。`focus`：归档提示条的「查看」带来的那条，高亮它。 */
   | { tab: 'archived'; focus?: Id }
   /** `from`：只看从这部视频派生的视频（剪成短视频结果页的「在 Space 里看这几支」、查看框的「查看切出的短视频」）。 */
@@ -693,8 +701,11 @@ export function railTabOf(route: Route): Exclude<Tab, 'models'> {
   return route.tab === 'models' ? 'settings' : route.tab;
 }
 
+export const BOT_HOME: Route = { tab: 'bot', channelId: null, workItemId: null, view: 'channel' };
+
 export function defaultRoute(tab: Tab): Route {
   if (tab === 'home') return HOME;
+  if (tab === 'bot') return BOT_HOME;
   if (tab === 'space') return { tab, category: 'all', projectId: null };
   if (tab === 'settings') return { tab, section: 'general' };
   if (tab === 'models') return { tab, category: 'asr' };
@@ -787,7 +798,32 @@ export function hrefFor(route: Route): string {
     }
     case 'archived':
       return route.focus ? `/archived/${encodeURIComponent(route.focus)}` : '/archived';
+    case 'bot':
+      return botHref(route);
   }
+}
+
+/**
+ * Bot 的链接：`/bot`（主频道）、`/bot/inbox`、`/bot/<频道>`、`/bot/<频道>/memory`、`/bot/<频道>/task/<任务>`；
+ * 收件箱与频道对话旁边开着的任务带 `?task=<任务>`。
+ */
+function botHref(route: Extract<Route, { tab: 'bot' }>): string {
+  const task = route.workItemId ? encodeURIComponent(route.workItemId) : null;
+  if (route.view === 'inbox') return task ? `/bot/inbox?task=${task}` : '/bot/inbox';
+  if (!route.channelId) return task ? `/bot?task=${task}` : '/bot';
+  const channel = `/bot/${encodeURIComponent(route.channelId)}`;
+  if (route.view === 'memory') return `${channel}/memory`;
+  if (route.view === 'task' && task) return `${channel}/task/${task}`;
+  return task ? `${channel}?task=${task}` : channel;
+}
+
+function parseBotRoute(a: string | undefined, b: string | undefined, c: string | undefined, query: URLSearchParams): Route {
+  const task = query.get('task');
+  if (a === 'inbox') return { tab: 'bot', channelId: null, workItemId: task, view: 'inbox' };
+  const channelId = a ? decodeURIComponent(a) : null;
+  if (channelId && b === 'memory') return { tab: 'bot', channelId, workItemId: null, view: 'memory' };
+  if (channelId && b === 'task' && c) return { tab: 'bot', channelId, workItemId: decodeURIComponent(c), view: 'task' };
+  return { tab: 'bot', channelId, workItemId: task, view: 'channel' };
 }
 
 function paneQuery(pane: WorkspaceItem): string {
@@ -861,6 +897,7 @@ export function parseHref(href: string): Route {
   if (head === 'skills') return parseSkillsRoute(a, query);
   if (head === 'tasks' && a === 'schedules' && b) return { tab: 'tasks', scheduleId: decodeURIComponent(b) };
   if (head === 'tasks') return a ? { tab: 'tasks', taskId: decodeURIComponent(a) } : { tab: 'tasks' };
+  if (head === 'bot') return parseBotRoute(a, b, c, query);
   if (head === 'archived') return a ? { tab: 'archived', focus: decodeURIComponent(a) } : { tab: 'archived' };
   // 远端算力的旧链接在服务页。
   if (head === 'tools' && a === 'remote') return { tab: 'services', service: 'remote' };

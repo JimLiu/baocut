@@ -33,12 +33,19 @@ export interface StepsBlock {
   children: ReadonlyMap<Id, readonly Item<'tool-call'>[]>;
 }
 
+export type BotTimelineItem = Item<'work-item-ref'> | Item<'relay'> | Item<'proposal'>;
+
 export type ThreadBlock =
   | { type: 'user'; id: Id; item: Item<'user-message'> }
   | { type: 'agent'; id: Id; item: Item<'agent-message'> }
   | StepsBlock
   | { type: 'approval'; id: Id; item: Item<'approval'> }
   | { type: 'notice'; id: Id; item: Item<'notice'> }
+  /**
+   * Bot 模式的条目（docs/design/bot-mode 技术方案 §4.3）：线程卡、报告与转交、提议卡。由 Bot 页提供的渲染器画
+   * （thread/bot-items.ts），普通会话里没有渲染器时不占一行。提示（`suggestions`）不进线程，画在输入框上方。
+   */
+  | { type: 'bot'; id: Id; item: BotTimelineItem }
   /** 任务的状态行：放在这个任务的最后，写「已工作 X」或停止、失败的原因。 */
   | { type: 'task'; id: Id; item: Item<'task'> };
 
@@ -114,6 +121,12 @@ export function buildThread(items: readonly TimelineItem[]): ThreadBlock[] {
         case 'notice':
           blocks.push({ type: 'notice', id: item.id, item });
           break;
+        case 'work-item-ref':
+        case 'relay':
+        case 'proposal':
+          blocks.push({ type: 'bot', id: item.id, item });
+          break;
+        case 'suggestions':
         case 'task':
           break;
       }

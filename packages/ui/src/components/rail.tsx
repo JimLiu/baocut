@@ -2,6 +2,7 @@ import { useMemo, type ComponentType } from 'react';
 import { ActionButton, NotificationBadge, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import Clock from '@react-spectrum/s2/icons/Clock';
 import Asset from '@react-spectrum/s2/icons/Asset';
+import Chat from '@react-spectrum/s2/icons/Chat';
 import GlobeGrid from '@react-spectrum/s2/icons/GlobeGrid';
 import Home from '@react-spectrum/s2/icons/Home';
 import Lightbulb from '@react-spectrum/s2/icons/Lightbulb';
@@ -10,6 +11,8 @@ import Settings from '@react-spectrum/s2/icons/Settings';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { useShell, railTabOf, type Tab } from '../state/shell-store.ts';
+import { useNeedsYouTotal } from '../state/channels-store.ts';
+import { BOT_COPY } from './bot/bot-copy.ts';
 import { isJobLive, useJobs } from '../state/jobs-store.ts';
 import { useLegacyImport } from '../state/legacy-import-store.ts';
 import { isLive, useTasks } from '../state/tasks-store.ts';
@@ -27,6 +30,8 @@ interface RailTab {
 /** 主要入口贴顶，横线下方是服务与后台任务，设置固定在底部（产品设计 §2.1 用户修订）。 */
 const PRIMARY: RailTab[] = [
   { tab: 'home', label: 'Home', Icon: Home },
+  // Bot 模式（docs/design/bot-mode 需求 §11.1）：排在 Home 之后、Space 之前；名字同 Home、Space 不翻译。
+  { tab: 'bot', label: 'Bot', Icon: Chat },
   { tab: 'space', label: 'Space', Icon: Asset },
   // Skills 在 Space 下面一格（产品设计 §6.9）；名字同 Home、Space 不翻译（术语表：Skill）。
   { tab: 'skills', label: 'Skills', Icon: Lightbulb },
@@ -48,6 +53,24 @@ const rail = style({
   paddingY: 8,
 });
 const group = style({ display: 'flex', flexDirection: 'column' });
+/**
+ * Bot 的「等你」徽标（需求 §11.8）：点徽标打开跨频道的收件箱，点图标进频道。徽标是图标按钮右上角单独的一个按钮，
+ * 不套在图标按钮里面（按钮里不能再放按钮）。
+ */
+const inboxBadge = style({
+  position: 'absolute',
+  top: 0,
+  insetEnd: 4,
+  display: 'flex',
+  padding: 0,
+  borderWidth: 0,
+  backgroundColor: 'transparent',
+  cursor: 'pointer',
+  outlineStyle: { default: 'none', ':focus-visible': 'solid' },
+  outlineColor: 'focus-ring',
+  outlineWidth: 2,
+  borderRadius: 'full',
+});
 /** 每格高 40，图标 20 居中在 32×32 的按钮里。 */
 const cell = style({ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 40 });
 const divider = style({ borderWidth: 0, borderTopWidth: 1, borderStyle: 'solid', borderColor: 'gray-200', marginX: 16, marginY: 8 });
@@ -89,12 +112,22 @@ export function Rail() {
   );
   // 只有服务出错才亮（原型：每项服务各自的灯在服务页里）；顺带在连上 Runtime 时读一次共享状态。
   const servicesAlert = useServicesAlert();
+  // Bot 的徽标：全部频道里「待你审阅 + 需要你输入」的任务数（含静音频道，需求 §11.1）。
+  const needsYou = useNeedsYouTotal();
+  const go = useShell((s) => s.go);
   // 侧栏隐藏时悬停入口浮出该区域的侧栏（产品设计 §2.5；设置没有侧栏，在 shell-peek 里跳过）。
   const peek = useShellPeekControls();
 
   const button = ({ tab, label, Icon }: RailTab) => {
     const badge = tab === 'tasks' && running ? <NotificationBadge value={running} /> : null;
-    const name = tab === 'tasks' && running ? S.rail.running(label, running) : tab === 'services' && servicesAlert ? servicesAlert : label;
+    const name =
+      tab === 'tasks' && running
+        ? S.rail.running(label, running)
+        : tab === 'services' && servicesAlert
+          ? servicesAlert
+          : tab === 'bot' && needsYou
+            ? BOT_COPY.rail.label(needsYou)
+            : label;
     return (
       <div key={tab} className={cell} onPointerEnter={() => peek?.peekSidebar(tab)} onPointerLeave={() => peek?.leaveSidebar()}>
         {railTabOf(route) === tab ? <span className={indicator} /> : null}
@@ -110,6 +143,16 @@ export function Rail() {
           <Tooltip>{label}</Tooltip>
         </TooltipTrigger>
         {tab === 'services' && servicesAlert ? <span className={alertDot} aria-hidden="true" /> : null}
+        {tab === 'bot' && needsYou ? (
+          <button
+            type="button"
+            className={inboxBadge}
+            aria-label={BOT_COPY.rail.openInbox}
+            title={BOT_COPY.rail.openInbox}
+            onClick={() => go({ tab: 'bot', channelId: null, workItemId: null, view: 'inbox' })}>
+            <NotificationBadge value={needsYou} />
+          </button>
+        ) : null}
       </div>
     );
   };

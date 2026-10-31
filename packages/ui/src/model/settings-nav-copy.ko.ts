@@ -22,6 +22,7 @@ export const ko: SettingsNavMessages = {
     downloader: '동영상 다운로드',
     semantic: '의미 색인',
     agent: 'Agent 공급자',
+    bot: 'Bot',
     providers: 'API 공급자',
     usage: '사용량',
     glossary: '용어집',

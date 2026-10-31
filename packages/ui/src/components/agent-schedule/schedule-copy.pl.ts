@@ -31,6 +31,10 @@ export const pl: ScheduleMessages = {
   targetGone: 'Pierwotna sesja (usunięta)',
   targetNew: (project) => `Za każdym razem nowa sesja w projekcie „${project}”`,
   targetNewNoProject: 'Za każdym razem nowa sesja (ta sesja nie należy do projektu)',
+  targetWorkItem: (channel) => `Za każdym razem nowe zadanie w kanale „${channel}”`,
+  targetWorkItemPick: 'Za każdym razem nowe zadanie w kanale',
+  targetWorkItemNone: 'Za każdym razem nowe zadanie w kanale (brak kanałów)',
+  channel: 'Kanał',
   limit: 'Zatrzymaj po określonej liczbie uruchomień',
   maxRuns: 'Maksymalna liczba uruchomień',
   note: 'Działa tylko, gdy BaoCut jest otwarty. Uruchomienia pominięte, gdy jest zamknięty, nie są nadrabiane; historia zapisuje je jako pominięte. Jeśli poprzednie uruchomienie jeszcze trwa, to zostaje pominięte. Jeśli sesja jest zajęta, czeka, aż się zwolni.',
@@ -68,6 +72,7 @@ export const pl: ScheduleMessages = {
     'conversation-archived': 'sesja zarchiwizowana',
     'conversation-deleted': 'sesja usunięta',
     'project-removed': 'projekt usunięty',
+    'channel-archived': 'kanał zarchiwizowany',
   },
   statusCompleted: (n) =>
     `Zakończone (${n} ${pluralForm('pl', n, { one: 'uruchomienie', few: 'uruchomienia', many: 'uruchomień', other: 'uruchomienia' })})`,

@@ -28,6 +28,8 @@ export interface QueuedMessage {
   docsAnnotations?: DocsAnnotation[];
   /** 用户点掉了「品牌：BRAND.md」：走 `conversations.send` 时不带项目的 `BRAND.md`（`steer` 不收，带它的不插话）。 */
   skipProjectBrand?: boolean;
+  /** Bot 频道：这条是回复哪张线程卡的（BOT-EX-09）。走 `conversations.send` 时带上；`steer` 不收，带它的不插话。 */
+  replyToItemId?: Id;
   queuedAt: string;
 }
 
@@ -158,7 +160,8 @@ export function isQueuedMessage(value: unknown): value is QueuedMessage {
     (m.designSystemAnnotations === undefined ||
       (Array.isArray(m.designSystemAnnotations) && m.designSystemAnnotations.every(isDesignSystemAnnotation))) &&
     (m.videoAnnotations === undefined || (Array.isArray(m.videoAnnotations) && m.videoAnnotations.every(isVideoAnnotation))) &&
-    (m.docsAnnotations === undefined || (Array.isArray(m.docsAnnotations) && m.docsAnnotations.every(isDocsAnnotation)))
+    (m.docsAnnotations === undefined || (Array.isArray(m.docsAnnotations) && m.docsAnnotations.every(isDocsAnnotation))) &&
+    (m.replyToItemId === undefined || typeof m.replyToItemId === 'string')
   );
 }
 

@@ -1,0 +1,694 @@
+// @vitest-environment happy-dom
+import { act, createElement, type ReactElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RuntimeContext } from '../../runtime/context.tsx';
+import type { RuntimeSession } from '../../runtime/session.ts';
+import type { AwaySummary, TimelineItem } from '@baocut/protocol';
+import { BotThreadExtrasContext } from '../thread/bot-items.ts';
+import { Thread } from '../thread/thread.tsx';
+import { AwayBanner, ChannelSpend, ReplyTarget, useAwayAndSeen } from './channel-view.tsx';
+import { WorkItemRefCard } from './timeline/work-item-ref-card.tsx';
+import { ChannelDialog } from './channel-dialog.tsx';
+import { drainQueue, sendQueuedMessageNow } from '../../runtime/message-queue-runner.ts';
+import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
+import { useWorkItems } from '../../state/work-items-store.ts';
+import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
+import { TaskEditDialog } from './task-edit-dialog.tsx';
+import { Reactions, UserMessageExtras } from './timeline/message-extras.tsx';
+import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
+import { DialogContainer } from '@react-spectrum/s2';
+import { useTimeline } from '../../state/timeline-store.ts';
+import { BotSettings } from '../settings/bot-settings.tsx';
+import { useChannels } from '../../state/channels-store.ts';
+import { DEFAULT_BOT_SETTINGS, type SpaceEntry, type WorkItem } from '@baocut/protocol';
+import { ProposalCard, SuggestionButtons } from './timeline/proposal-card.tsx';
+import { useBotCall, useScopedState } from './bot-actions.ts';
+import { ChannelMemoryPage } from './channel-memory-page.tsx';
+import { useShell } from '../../state/shell-store.ts';
+import { useSpace } from '../../state/space-store.ts';
+
+/*
+ * Bot 页组件的行为测试（docs/design/bot-mode 需求 §11）：假的 Runtime 只记下发了哪些 RPC，按方法给出结果。
+ */
+
+type Handler = (params: Record<string, unknown>) => unknown;
+
+let container: HTMLDivElement;
+let root: Root;
+let handlers: Record<string, Handler>;
+const request = vi.fn(async (method: string, params: Record<string, unknown>) => {
+  const handler = handlers[method];
+  if (!handler) throw new Error(`unexpected ${method}`);
+  return handler(params);
+});
+const runtime = { client: { request } } as unknown as RuntimeSession;
+
+async function render(element: ReactElement) {
+  await act(() => root.render(createElement(RuntimeContext.Provider, { value: runtime }, element)));
+}
+
+function calls(method: string): Record<string, unknown>[] {
+  return request.mock.calls.filter(([m]) => m === method).map(([, p]) => p);
+}
+
+function button(label: string): HTMLButtonElement | undefined {
+  return [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === label || b.getAttribute('aria-label') === label);
+}
+
+async function press(label: string) {
+  const target = button(label);
+  if (!target) throw new Error(`no button ${label}`);
+  await act(async () => target.click());
+}
+
+async function typeInto(field: HTMLInputElement | HTMLTextAreaElement, value: string) {
+  const proto = field instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(field, value);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+// happy-dom 没有 Web Animations；SegmentedControl 的选中滑块要用它。
+Element.prototype.getAnimations ??= () => [];
+
+beforeEach(() => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  handlers = {};
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+});
+
+afterEach(async () => {
+  await act(() => root.unmount());
+  container.remove();
+  document.body.innerHTML = '';
+  request.mockClear();
+  vi.unstubAllGlobals();
+});
+
+describe('新建任务（需求 §4.4）', () => {
+  it('默认「我来做」、不马上开始：直接添加时建的是用户自己的任务，进接下来', async () => {
+    handlers['workItems.create'] = (p) => ({ item: { id: 'wi1', ...p } });
+    await render(createElement(NewTaskDialog, { channelId: 'c1', onClose: () => {}, onCreated: () => {} }));
+    const radios = [...document.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+    expect(radios.find((r) => r.checked)?.value).toBe('user');
+    // 「我来做」时没有「马上开始」。
+    expect(document.querySelector('input[role="switch"]')).toBeNull();
+    await typeInto(document.querySelector<HTMLInputElement>('input[type="text"], input:not([type])')!, '录第 12 期口播');
+    await press('添加');
+    expect(calls('workItems.create')).toEqual([expect.objectContaining({ channelId: 'c1', title: '录第 12 期口播', owner: 'user', start: false })]);
+  });
+});
+
+const AWAY: AwaySummary = {
+  since: '2026-10-31T08:00:00Z',
+  done: [{ id: 'wi_done', title: '第 11 期字幕', headline: '中英字幕都加好了' }],
+  needsYou: [{ id: 'wi_review', title: '竖版短视频', headline: null }],
+  stopped: [],
+  firstUnreadItemId: 'msg2',
+};
+
+function AwayProbe() {
+  const away = useAwayAndSeen({ id: 'c1', conversationId: 'conv_c1' });
+  return createElement('span', { 'data-testid': 'away' }, away.summary ? `${away.summary.done.length}/${away.firstUnread}` : 'none');
+}
+
+describe('你不在时（BOT-BH-08、需求 §11.4）', () => {
+  it('人一直停在频道里：切走窗口时记下看到的位置，回到窗口时重取摘要', async () => {
+    let summary: AwaySummary = { ...AWAY, done: [], needsYou: [], firstUnreadItemId: null };
+    handlers['bot.awaySummary'] = () => summary;
+    handlers['channels.markSeen'] = () => ({ channel: {} });
+    await render(createElement(AwayProbe));
+    expect(calls('bot.awaySummary')).toHaveLength(1);
+    expect(document.querySelector('[data-testid="away"]')?.textContent).toBe('none');
+    await act(async () => window.dispatchEvent(new Event('blur')));
+    expect(calls('channels.markSeen')).toHaveLength(1);
+    summary = AWAY;
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(calls('bot.awaySummary')).toHaveLength(2);
+    expect(document.querySelector('[data-testid="away"]')?.textContent).toBe('1/msg2');
+  });
+
+  it('每件一行结论，点了打开那条任务', async () => {
+    const opened: string[] = [];
+    await render(createElement(AwayBanner, { summary: AWAY, onOpen: (row: { id: string }) => opened.push(row.id) }));
+    const text = container.textContent ?? '';
+    expect(text).toContain('你不在时：1 个已完成 · 1 个等你');
+    expect(text).toContain('第 11 期字幕：中英字幕都加好了');
+    expect(text).toContain('竖版短视频');
+    await act(async () => [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('竖版短视频'))!.click());
+    expect(opened).toEqual(['wi_review']);
+  });
+
+  it('上次看到之后的第一条前面画「以下是新消息」细线', async () => {
+    const items: TimelineItem[] = [
+      { kind: 'user-message', id: 'msg1', createdAt: '2026-10-31T07:00:00Z', taskId: null, text: '旧的' },
+      { kind: 'user-message', id: 'msg2', createdAt: '2026-10-31T09:00:00Z', taskId: null, text: '新的' },
+    ] as TimelineItem[];
+    const extras = { unread: { itemId: 'msg2', node: createElement('hr', { 'data-testid': 'unread' }) }, userMessage: null, agentMessage: null };
+    await render(createElement(BotThreadExtrasContext.Provider, { value: extras }, createElement(Thread, { items, conversationId: 'conv_c1', running: false })));
+    const rule = container.querySelector('[data-testid="unread"]');
+    expect(rule).not.toBeNull();
+    const html = container.innerHTML;
+    expect(html.indexOf('旧的')).toBeLessThan(html.indexOf('data-testid="unread"'));
+    expect(html.indexOf('data-testid="unread"')).toBeLessThan(html.indexOf('新的'));
+  });
+});
+
+describe('设置里的 Bot 一节（需求 §11.8）', () => {
+  it('有 Make 自动触发与补充提示两个开关，切换时只改这一项', async () => {
+    useChannels.setState({ ready: true, settings: DEFAULT_BOT_SETTINGS });
+    handlers['bot.settings'] = (p) => ({ settings: { ...DEFAULT_BOT_SETTINGS, ...(p.patch as object) } });
+    await render(createElement(BotSettings));
+    const toggle = (label: string) => document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+    expect(toggle('Make 自动触发').checked).toBe(true);
+    expect(toggle('补充提示').checked).toBe(true);
+    await act(async () => toggle('Make 自动触发').click());
+    await act(async () => toggle('补充提示').click());
+    expect(calls('bot.settings')).toEqual([{ patch: { makeAutoTrigger: false } }, { patch: { supplementHints: false } }]);
+    expect(useChannels.getState().settings.supplementHints).toBe(false);
+  });
+});
+
+describe('线程的提示芯片（BOT-SG-01/02）', () => {
+  it('任务详情的输入框上方显示线程最新一条消息下的提示，点了发出完整的句子', async () => {
+    handlers['conversations.send'] = () => ({ taskId: 't2' });
+    const items = [
+      { kind: 'agent-message', id: 'am1', createdAt: '2026-10-31T09:00:00Z', taskId: 't1', text: '要我把第 2 段也剪短吗？', streaming: false },
+      {
+        kind: 'suggestions',
+        id: 'sg1',
+        createdAt: '2026-10-31T09:00:01Z',
+        taskId: null,
+        forItemId: 'am1',
+        source: 'system',
+        state: 'open',
+        usedChipId: null,
+        chips: [
+          { id: 'ch_yes', label: '是', text: '是', kind: 'confirm', kindTag: null, fillOnly: false, recommended: false, answers: null, target: null, action: null },
+          { id: 'ch_no', label: '否', text: '否', kind: 'decline', kindTag: null, fillOnly: false, recommended: false, answers: null, target: null, action: null },
+        ],
+      },
+    ] as TimelineItem[];
+    useTimeline.setState({ byConversationId: { conv_thread: { items, offset: 0 } as never } });
+    await render(createElement(ThreadChips, { threadId: 'conv_thread' }));
+    expect(container.querySelector('[role="group"]')?.textContent).toBe('是否');
+    await press('是');
+    expect(calls('conversations.send')).toEqual([expect.objectContaining({ conversationId: 'conv_thread', text: '是', via: 'suggestion', suggestionChipId: 'ch_yes' })]);
+  });
+});
+
+function SuggestionProbe({ item }: { item: WorkItem }) {
+  const call = useBotCall();
+  return createElement(SuggestionButtons, { item, pending: false, run: async (fn: () => Promise<unknown>) => void (await fn()), call });
+}
+
+const SUGGESTED = {
+  id: 'wi_s',
+  channelId: 'c1',
+  title: '给第 12 期加字幕',
+  owner: 'agent',
+  status: 'suggested',
+  suggestion: {
+    reason: '还没有字幕',
+    owner: 'agent',
+    evidence: [
+      { kind: 'video', projectId: 'p1', videoId: 'v12' },
+      { kind: 'file', path: '/work/notes/brief.txt' },
+    ],
+    trigger: 'manual',
+    kindTag: 'add-captions',
+    subjectKey: 'k',
+    expiresAt: '2026-11-14T00:00:00Z',
+  },
+} as unknown as WorkItem;
+
+describe('建议卡（BOT-MK-04）', () => {
+  it('归属可切成我来做（这时没有「现在做」），采纳前可改标题，改动随采纳一起交出', async () => {
+    handlers['workItems.transition'] = () => ({ item: SUGGESTED });
+    await render(createElement(SuggestionProbe, { item: SUGGESTED }));
+    expect(button('现在做')).toBeDefined();
+    await press('我来做');
+    expect(button('现在做')).toBeUndefined();
+    await press('改标题');
+    const field = container.querySelector<HTMLInputElement>('input')!;
+    expect(field.value).toBe('给第 12 期加字幕');
+    await typeInto(field, '给第 12 期加中英字幕');
+    await press('加入');
+    expect(calls('workItems.transition')).toEqual([
+      { id: 'wi_s', event: { type: 'accept', start: false, owner: 'user', title: '给第 12 期加中英字幕' } },
+    ]);
+  });
+
+  it('默认交给智能体；没改标题时不带 title', async () => {
+    handlers['workItems.transition'] = () => ({ item: SUGGESTED });
+    await render(createElement(SuggestionProbe, { item: SUGGESTED }));
+    await press('现在做');
+    expect(calls('workItems.transition')).toEqual([{ id: 'wi_s', event: { type: 'accept', start: true, owner: 'agent' } }]);
+  });
+
+  it('依据链接：视频在编辑器里打开，文件只写名字', async () => {
+    const openVideo = vi.fn();
+    const shell = useShell.getState().openVideo;
+    useShell.setState({ openVideo });
+    useSpace.setState({
+      entries: [
+        {
+          id: 'e12',
+          kind: 'video',
+          name: '第 12 期',
+          fileName: 'ep12.baocut',
+          source: { projectId: 'p1', conversationId: null },
+          relPath: 'ep12.baocut',
+          user: { favorite: false, displayName: null, trashedAt: null },
+          ref: { videoId: 'v12' },
+        } as unknown as SpaceEntry,
+      ],
+    });
+    try {
+      await render(createElement(SuggestionProbe, { item: SUGGESTED }));
+      const text = container.textContent ?? '';
+      expect(text).toContain('依据');
+      expect(text).toContain('文件 · brief.txt');
+      await press('视频 · 第 12 期');
+      expect(openVideo).toHaveBeenCalledWith({ projectId: 'p1', path: 'ep12.baocut' });
+    } finally {
+      useShell.setState({ openVideo: shell });
+      useSpace.setState({ entries: [] });
+    }
+  });
+});
+
+describe('建立频道卡的「修改」（需求 §11.4）', () => {
+  it('改名字后再建立：改过的字段随 edits 交给 Runtime', async () => {
+    handlers['bot.proposals.respond'] = () => ({ resultId: 'c2' });
+    const item = {
+      kind: 'proposal',
+      id: 'pr1',
+      createdAt: '2026-10-31T09:00:00Z',
+      taskId: null,
+      proposal: { type: 'channel', name: '剪辑', purpose: '剪第 12 期', templateId: null },
+      status: 'pending',
+      resultId: null,
+    } as unknown as Extract<TimelineItem, { kind: 'proposal' }>;
+    await render(createElement(ProposalCard, { item, conversationId: 'conv_main', channelId: null }));
+    await press('修改');
+    const name = container.querySelector<HTMLInputElement>('input')!;
+    expect(name.value).toBe('剪辑');
+    await typeInto(name, '第 12 期剪辑');
+    await press('建立');
+    expect(calls('bot.proposals.respond')).toEqual([{ conversationId: 'conv_main', itemId: 'pr1', accept: true, edits: { name: '第 12 期剪辑' } }]);
+  });
+});
+
+const RUNNING = {
+  id: 'wi_run',
+  channelId: 'c1',
+  title: '第 12 期字幕改成黄色',
+  owner: 'agent',
+  status: 'active',
+  active: { state: 'working' },
+  threadId: 'conv_thread',
+  outputs: [{ kind: 'video', projectId: 'p1', videoId: 'v12', label: '第 12 期', version: null }],
+  resources: [],
+  baseVersions: [],
+} as unknown as WorkItem;
+
+describe('撤销与删除记录（BOT-EX-19、BOT-EX-20）', () => {
+  it('进行中的任务也能删除记录：菜单里有，对话框写明先停线程', async () => {
+    expect(menuActions(RUNNING)).toContain('deleteRecord');
+    expect(menuActions({ ...RUNNING, status: 'upNext', active: null } as unknown as WorkItem)).toContain('deleteRecord');
+    handlers['workItems.deleteRecord'] = () => ({ files: ['notes/a.txt'], keptShared: [], deleted: false });
+    await render(createElement(DeleteRecordDialog, { item: RUNNING, onClose: () => {}, onDeleted: () => {} }));
+    expect(document.body.textContent).toContain('这条任务还在进行，会先停下它的线程。');
+    expect(document.body.textContent).toContain('notes/a.txt');
+  });
+
+  it('整体撤销列出你在每部视频里改了什么，同名操作合计次数', async () => {
+    handlers['workItems.revertAll'] = () => ({
+      plan: {
+        videos: [
+          {
+            projectId: 'p1',
+            videoId: 'v12',
+            baseVersion: 3,
+            userEdits: [
+              { version: 4, at: '2026-10-31T09:00:00Z', changes: [{ label: '改字幕', count: 1 }] },
+              { version: 6, at: '2026-10-31T10:00:00Z', changes: [{ label: '改字幕', count: 1 }, { label: '删除片段', count: 1 }] },
+            ],
+            agentOnlyPossible: false,
+            reason: 'video v12 has your own edits since version 3',
+          },
+        ],
+      },
+    });
+    await render(createElement(RevertDialog, { item: RUNNING, onClose: () => {} }));
+    const text = document.body.textContent ?? '';
+    expect(text).toContain('第 12 期：之后你改过 2 次');
+    expect(text).toContain('改字幕（2 次）');
+    expect(text).toContain('删除片段');
+  });
+});
+
+describe('任务详情可改（BOT-TK-06）', () => {
+  const item = { ...RUNNING, priority: 'medium', dueOn: null, eventOn: null } as unknown as WorkItem;
+
+  it('改标题、优先级与截止日，只交改过的字段', async () => {
+    handlers['workItems.update'] = (p) => ({ item: { ...item, ...(p.patch as object) } });
+    await render(createElement(TaskEditDialog, { item, onClose: () => {} }));
+    const fields = [...document.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')];
+    expect(fields.map((f) => f.value)).toEqual(['第 12 期字幕改成黄色', '', '']);
+    await typeInto(fields[0]!, '第 12 期字幕改成白色');
+    await typeInto(fields[1]!, '2026-11-07');
+    await press('保存');
+    expect(calls('workItems.update')).toEqual([{ id: 'wi_run', patch: { title: '第 12 期字幕改成白色', dueOn: '2026-11-07' } }]);
+  });
+
+  it('日期写错时不能保存', async () => {
+    await render(createElement(TaskEditDialog, { item, onClose: () => {} }));
+    const fields = [...document.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')];
+    await typeInto(fields[2]!, '2026-02-30');
+    expect(button('保存')?.disabled || button('保存')?.getAttribute('aria-disabled') === 'true').toBe(true);
+  });
+
+  it('截止日旁写明是谁定的', () => {
+    expect(dateFact('截止', '2026-11-07', 'user')).toMatch(/· 你定的$/);
+    expect(dateFact('截止', '2026-11-07', 'agent')).toMatch(/· 来自你的消息$/);
+    expect(dateFact('截止', '2026-11-07', undefined)).not.toContain('·');
+  });
+});
+
+function resolvedItem(n: number): WorkItem {
+  const at = `2026-10-${String(30 - n).padStart(2, '0')}T09:00:00Z`;
+  return {
+    id: `wi_r${n}`,
+    channelId: 'c1',
+    title: `第 ${n} 期`,
+    owner: 'agent',
+    status: 'resolved',
+    priority: 'medium',
+    resolution: { kind: 'done', by: 'user', at, evidence: null, confirmedBy: null, mergedInto: null },
+    updatedAt: at,
+    dueOn: null,
+    question: null,
+    steps: [],
+    active: null,
+  } as unknown as WorkItem;
+}
+
+describe('任务面板的已完成段（I19）', () => {
+  it('快照里已解决的到了上限：给「显示更早的」，取回 Runtime 的全部已解决任务补进来', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [resolvedItem(1), resolvedItem(2)], resolvedTail: 2, reports: [] } } });
+    handlers['workItems.list'] = () => ({ items: [resolvedItem(1), resolvedItem(2), resolvedItem(3)] });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      expect(container.textContent).not.toContain('第 3 期');
+      await press('显示更早的');
+      expect(calls('workItems.list')).toEqual([{ channelId: 'c1', status: 'resolved' }]);
+      expect(container.textContent).toContain('第 3 期');
+      expect(button('显示更早的')).toBeUndefined();
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
+  });
+
+  it('按频道保存的状态（回复目标等）换了频道就回到初始值，换回来也不带旧值', async () => {
+    let setReply: (next: string | null) => void = () => {};
+    function Probe({ channelId }: { channelId: string }) {
+      const [replyTo, set] = useScopedState<string | null>(channelId, null);
+      setReply = set;
+      return createElement('span', null, replyTo ?? '无');
+    }
+    await render(createElement(Probe, { channelId: 'A' }));
+    await act(async () => setReply('card1'));
+    expect(container.textContent).toBe('card1');
+    await render(createElement(Probe, { channelId: 'B' }));
+    expect(container.textContent).toBe('无');
+    await render(createElement(Probe, { channelId: 'A' }));
+    expect(container.textContent).toBe('无');
+  });
+
+  it('切到别的频道：「显示更早的」照常出现，不沿用上一个频道已经点开的状态', async () => {
+    useWorkItems.setState({
+      byChannel: {
+        c1: { items: [resolvedItem(1), resolvedItem(2)], resolvedTail: 2, reports: [] },
+        c2: { items: [resolvedItem(4), resolvedItem(5)], resolvedTail: 2, reports: [] },
+      },
+    });
+    handlers['workItems.list'] = () => ({ items: [resolvedItem(1), resolvedItem(2), resolvedItem(3)] });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      await press('显示更早的');
+      expect(button('显示更早的')).toBeUndefined();
+      await render(createElement(TaskPanel, { channelId: 'c2', selectedId: null }));
+      expect(button('显示更早的')).toBeDefined();
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
+  });
+
+  it('没到上限时不给，也不去取', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [resolvedItem(1)], resolvedTail: 2, reports: [] } } });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      expect(button('显示更早的')).toBeUndefined();
+      expect(calls('workItems.list')).toEqual([]);
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
+  });
+});
+
+describe('频道花费（I16、BOT-NF-04）', () => {
+  it('频道头部写今天与本月的花费；这个月没花钱时不写', async () => {
+    const summary = (month: string) => ({
+      channel: { id: 'c1' },
+      spend: { today: { amount: '0.42', currency: 'USD' }, month: { amount: month, currency: 'USD' } },
+    });
+    useChannels.setState({ channels: [summary('3.10')] as never });
+    await render(createElement(ChannelSpend, { channelId: 'c1' }));
+    expect(container.textContent).toBe('今天花了 $0.42 · 本月 $3.10');
+    useChannels.setState({ channels: [summary('0')] as never });
+    await render(createElement(ChannelSpend, { channelId: 'c1' }));
+    expect(container.textContent).toBe('');
+    useChannels.setState({ channels: [] });
+  });
+});
+
+describe('任务的花费（BOT-NF-04）', () => {
+  it('任务卡写这项任务累计花了多少；没花过的不写', async () => {
+    useChannels.setState({
+      channels: [{ channel: { id: 'c1' }, spend: { today: null, month: { amount: '1.25', currency: 'USD' }, tasks: { wi_r1: { amount: '1.25', currency: 'USD' } } } }] as never,
+    });
+    useWorkItems.setState({ byChannel: { c1: { items: [resolvedItem(1), resolvedItem(2)], resolvedTail: 20, reports: [] } } });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      const rows = [...container.querySelectorAll('li')];
+      expect(rows.find((r) => r.textContent?.includes('第 1 期'))?.textContent).toContain('已花 $1.25');
+      expect(rows.find((r) => r.textContent?.includes('第 2 期'))?.textContent).not.toContain('已花');
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+      useChannels.setState({ channels: [] });
+    }
+  });
+});
+
+describe('周期任务建到频道里（Bot 技术方案 §14.1）', () => {
+  it('从频道头部打开：目标默认这个频道，建立时交频道对话与任务模板', async () => {
+    useChannels.setState({ channels: [{ channel: { id: 'c1', name: '剪辑', conversationId: 'conv_c1', archived: false } }] as never });
+    const createSchedule = vi.fn(async (params: { name?: string }) => ({ schedule: { id: 's1', name: params.name || '每周一整理评论', cadence: { type: 'daily', time: '09:00' } } }));
+    Object.assign(runtime, { createSchedule });
+    try {
+      await render(createElement(DialogContainer, { onDismiss: () => {}, children: createElement(ScheduleDialog, { channelId: 'c1', onClose: () => {} }) }));
+      const radio = document.querySelector<HTMLInputElement>('input[type="radio"][value="work-item"]')!;
+      expect(radio.checked).toBe(true);
+      const prompt = document.querySelector<HTMLTextAreaElement>('textarea')!;
+      await typeInto(prompt, '每周一整理评论\n挑出要回复的');
+      await press('建立');
+      expect(createSchedule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'conv_c1',
+          target: 'work-item',
+          workItem: { channelId: 'c1', template: { title: '每周一整理评论', description: '', owner: 'agent', prompt: '每周一整理评论\n挑出要回复的', resources: [] } },
+        }),
+      );
+    } finally {
+      useChannels.setState({ channels: [] });
+    }
+  });
+
+  it('编辑频道任务的周期任务：目标固定，不交 target', async () => {
+    useChannels.setState({ channels: [{ channel: { id: 'c1', name: '剪辑', conversationId: 'conv_c1', archived: false } }] as never });
+    const updateSchedule = vi.fn(async (_params: Record<string, unknown>) => {});
+    Object.assign(runtime, { updateSchedule });
+    const schedule = {
+      id: 's1',
+      name: '整理评论',
+      prompt: '每周一整理评论',
+      cadence: { type: 'daily', time: '09:00' },
+      conversationId: 'conv_c1',
+      target: 'work-item',
+      projectId: null,
+      agent: { driverId: 'claude', model: null, effort: null, accessMode: null },
+      maxRuns: null,
+      workItem: { channelId: 'c1', template: { title: '整理评论', description: '', owner: 'agent', prompt: '每周一整理评论', resources: [] } },
+    };
+    try {
+      await render(createElement(DialogContainer, { onDismiss: () => {}, children: createElement(ScheduleDialog, { schedule: schedule as never, onClose: () => {} }) }));
+      expect(document.querySelector('input[type="radio"]')).toBeNull();
+      expect(document.body.textContent).toContain('每次在频道「剪辑」里建一条任务');
+      await press('保存');
+      expect(updateSchedule).toHaveBeenCalledTimes(1);
+      expect(updateSchedule.mock.calls[0]![0]).not.toHaveProperty('target');
+    } finally {
+      useChannels.setState({ channels: [] });
+    }
+  });
+});
+
+describe('改已发的消息与表情回应（BOT-EX-06、BOT-EX-10）', () => {
+  const typed = { kind: 'user-message', id: 'msg1', createdAt: '2026-10-31T09:00:00Z', taskId: null, text: '剪 3 条' } as Extract<TimelineItem, { kind: 'user-message' }>;
+
+  it('亲手打的消息可以改：交 conversations.editMessage；改过的标「已编辑」', async () => {
+    handlers['conversations.editMessage'] = (p) => ({ item: { ...typed, text: p.text } });
+    await render(createElement(UserMessageExtras, { item: typed, conversationId: 'conv_c1' }));
+    expect(container.textContent).not.toContain('已编辑');
+    await press('编辑消息');
+    const field = document.querySelector<HTMLTextAreaElement>('textarea')!;
+    expect(field.value).toBe('剪 3 条');
+    await typeInto(field, '剪 5 条');
+    await press('保存');
+    expect(calls('conversations.editMessage')).toEqual([{ conversationId: 'conv_c1', itemId: 'msg1', text: '剪 5 条' }]);
+
+    await render(createElement(UserMessageExtras, { item: { ...typed, text: '剪 5 条', history: [{ text: '剪 3 条', editedAt: '2026-10-31T09:01:00Z' }] }, conversationId: 'conv_c1' }));
+    expect(container.textContent).toContain('已编辑');
+  });
+
+  it('点提示、点表情发的消息不能改', async () => {
+    await render(createElement(UserMessageExtras, { item: { ...typed, via: 'suggestion' }, conversationId: 'conv_c1' }));
+    expect(button('编辑消息')).toBeUndefined();
+  });
+
+  it('智能体的消息下 👍 👎 交 bot.react；点过的高亮且不再重复', async () => {
+    handlers['bot.react'] = () => ({ taskId: 't1' });
+    const agent = { kind: 'agent-message', id: 'am1', createdAt: '2026-10-31T09:00:00Z', taskId: 't0', text: '要我把第 2 段也剪短吗？', streaming: false } as Extract<TimelineItem, { kind: 'agent-message' }>;
+    await render(createElement(Reactions, { item: agent, conversationId: 'conv_c1' }));
+    const up = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('赞'))!;
+    await act(async () => up.click());
+    expect(calls('bot.react')).toEqual([{ conversationId: 'conv_c1', itemId: 'am1', emoji: '\u{1F44D}' }]);
+
+    await render(createElement(Reactions, { item: { ...agent, reactions: ['\u{1F44D}'] }, conversationId: 'conv_c1' }));
+    const pressed = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('赞'))!;
+    expect(pressed.getAttribute('aria-pressed')).toBe('true');
+    // 回应过了另一个也不能再点：不然协调者先后收到相反的两个回答。
+    const down = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') && !b.getAttribute('aria-label')!.startsWith('赞'))!;
+    expect(down.disabled || down.getAttribute('aria-disabled') === 'true').toBe(true);
+  });
+});
+
+describe('回复线程卡（BOT-EX-09）', () => {
+  const task = { ...RUNNING, title: '第 12 期字幕', steps: [], question: null } as unknown as WorkItem;
+
+  it('频道里的线程卡有「回复」；输入框上方写明回复哪条，可取消；发出的消息标「回复：任务名」', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [task], resolvedTail: 20, reports: [] } } });
+    useTimeline.setState({ byConversationId: { conv_c1: { items: [{ kind: 'work-item-ref', id: 'card1', createdAt: '2026-10-31T09:00:00Z', taskId: null, workItemId: 'wi_run' }], offset: 0 } as never } });
+    try {
+      const replies: string[] = [];
+      await render(createElement(WorkItemRefCard, { workItemId: 'wi_run', channelId: 'c1', onReply: () => replies.push('card1') }));
+      await press('回复');
+      expect(replies).toEqual(['card1']);
+
+      let cancelled = false;
+      await render(createElement(ReplyTarget, { workItemId: 'wi_run', onCancel: () => (cancelled = true) }));
+      expect(container.textContent).toContain('回复「第 12 期字幕」');
+      await press('不回复这条任务');
+      expect(cancelled).toBe(true);
+
+      const sent = { kind: 'user-message', id: 'msg9', createdAt: '2026-10-31T09:05:00Z', taskId: null, text: '加上英文', replyToItemId: 'card1' } as Extract<TimelineItem, { kind: 'user-message' }>;
+      await render(createElement(UserMessageExtras, { item: sent, conversationId: 'conv_c1' }));
+      expect(container.textContent).toContain('回复「第 12 期字幕」');
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+      useTimeline.setState({ byConversationId: {} });
+    }
+  });
+
+  it('没有回复入口时卡片上不给「回复」', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [task], resolvedTail: 20, reports: [] } } });
+    try {
+      await render(createElement(WorkItemRefCard, { workItemId: 'wi_run', channelId: 'c1' }));
+      expect(button('回复')).toBeUndefined();
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
+  });
+
+  it('排队的回复：到时候带 replyToItemId 发出，不插进正在跑的回合', async () => {
+    const send = vi.fn(async () => 't9');
+    const steer = vi.fn(async () => 'steered');
+    Object.assign(runtime, { send, steer });
+    const queued = { id: 'q1', text: '加上英文', attachments: [], replyToItemId: 'card1', queuedAt: '2026-10-31T09:05:00Z' };
+    useShell.getState().setQueue('conv_c1', () => [queued]);
+    expect(await sendQueuedMessageNow(runtime, 'conv_c1', 'q1')).toEqual({ status: 'sent' });
+    expect(steer).not.toHaveBeenCalled();
+    expect(send.mock.calls[0]).toEqual(['conv_c1', '加上英文', undefined, [], undefined, undefined, undefined, undefined, undefined, undefined, undefined, { replyToItemId: 'card1' }]);
+    useShell.getState().setQueue('conv_c1', () => [queued]);
+    await drainQueue(runtime, 'conv_c1');
+    expect(send.mock.calls[1]!.at(-1)).toEqual({ replyToItemId: 'card1' });
+  });
+});
+
+describe('导出频道（BOT-CH-13）', () => {
+  it('频道设置里「导出…」：选文件夹后交 channels.export', async () => {
+    const channel = {
+      id: 'c1',
+      kind: 'custom',
+      name: '剪辑',
+      purpose: '',
+      conversationId: 'conv_c1',
+      archived: false,
+      driverId: null,
+      model: null,
+      effort: null,
+      defaultAccessMode: null,
+      maxAccessMode: null,
+      outputLanguage: null,
+      muted: false,
+      private: false,
+      stallMinutes: null,
+      limits: { concurrentThreads: 3, dailyBudget: null, monthlyBudget: null },
+    };
+    useChannels.setState({ channels: [{ channel, unread: false, counts: {}, lastActivityAt: '2026-10-31T09:00:00Z', spend: null }] as never });
+    const pickDirectory = vi.fn(async () => '/Users/me/Exports');
+    Object.assign(runtime, { host: { pickDirectory, revealPath: vi.fn(async () => {}) } });
+    handlers['channels.export'] = () => ({ path: '/Users/me/Exports/剪辑-c1' });
+    try {
+      await render(createElement(ChannelDialog, { state: { mode: 'settings', channelId: 'c1' }, onClose: () => {}, onCreated: () => {}, onDelete: () => {} }));
+      await press('导出…');
+      expect(pickDirectory).toHaveBeenCalledTimes(1);
+      expect(calls('channels.export')).toEqual([{ id: 'c1', dir: '/Users/me/Exports' }]);
+    } finally {
+      useChannels.setState({ channels: [] });
+    }
+  });
+});
+
+describe('频道记忆页', () => {
+  it('保存还没回来时接着打的字不会被存下的旧内容盖掉，仍算没保存的修改', async () => {
+    let finish: (v: { version: number }) => void = () => {};
+    handlers['channels.readMemory'] = () => ({ content: '## Rules\n', version: 1 });
+    handlers['channels.writeMemory'] = () => new Promise((resolve) => (finish = resolve));
+    await render(createElement(ChannelMemoryPage, { channel: { id: 'c1', name: '剪辑' } as never }));
+    const field = document.querySelector('textarea')!;
+    await typeInto(field, '## Rules\n- 字幕用白色\n');
+    await press('保存');
+    await typeInto(field, '## Rules\n- 字幕用白色\n- 片头 5 秒\n');
+    await act(async () => finish({ version: 2 }));
+    expect(calls('channels.writeMemory')).toEqual([{ id: 'c1', content: '## Rules\n- 字幕用白色\n', ifVersion: 1 }]);
+    expect(document.querySelector('textarea')!.value).toBe('## Rules\n- 字幕用白色\n- 片头 5 秒\n');
+    expect(button('放弃修改')!.disabled || button('放弃修改')!.getAttribute('aria-disabled') === 'true').toBe(false);
+  });
+});

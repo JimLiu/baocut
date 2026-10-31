@@ -37,6 +37,7 @@ const en = {
     downloader: 'Video downloader',
     semantic: 'Semantic index',
     agent: 'Agent providers',
+    bot: 'Bot',
     providers: 'API providers',
     usage: 'Usage',
     glossary: 'Glossary',

@@ -1,4 +1,4 @@
-import { RcWeb } from '@baocut/protocol/messages/runtime-core';
+import { RcBot, RcWeb } from '@baocut/protocol/messages/runtime-core';
 import path from 'node:path';
 import {
   type CodeBundleManifest,
@@ -66,6 +66,8 @@ import { toolCatalogueMethods } from './tool-catalogue/tool-methods.ts';
 import { resolveSaveDirectory } from './external-tools/downloads-directory.ts';
 import type { TemplateCatalog } from './templates/template-catalog.ts';
 import { templateMethods } from './templates/template-methods.ts';
+import { botMethods, wrapBotSend, wrapBotSteer } from './bot/bot-methods.ts';
+import type { BotService } from './bot/bot-service.ts';
 import type { StickerPacks } from './templates/sticker-packs.ts';
 import { ProjectBrands } from './skills/project-brand.ts';
 import type { CodexPets } from './templates/codex-pets.ts';
@@ -168,6 +170,8 @@ export interface HandlerDeps {
   legacyUpgrade: LegacyUpgrade;
   /** 定时任务（产品设计 §6.1「定时任务」）：网关与 Web 服务共用同一个服务。 */
   schedules: ScheduleService;
+  /** Bot 模式（docs/design/bot-mode）：频道、任务与提示。Runtime 起来之后才有，所以可以是取值函数；没有时 Bot 的方法回 `unsupported`。 */
+  bot?: BotService | null | (() => BotService | null);
 }
 
 /** 文件目标定位到来源目录与文件（Space 条目、会话工作目录或项目目录里的路径）。目录内的检查在媒体通道（或视频服务）里做。 */
@@ -251,6 +255,7 @@ export function createHandlers({
   legacyUpgrade,
   semantic,
   schedules,
+  bot,
 }: HandlerDeps): RpcHandlers {
   const { catalog, jobs, services, pipelines } = models;
   const packages = new PackageImporter(videos);
@@ -335,6 +340,20 @@ export function createHandlers({
       : { root: conversation.cwd, scope: { conversationId: conversation.id } };
   };
 
+  const templated = templateMethods({
+    templates,
+    media,
+    harness,
+    skills,
+    brands,
+    videos,
+    slideAnnotationsOf,
+    designAnnotationsOf,
+    designSystemAnnotationsOf,
+    videoAnnotationsOf,
+    docsAnnotationsOf,
+  });
+  const botRef = (): BotService | null => (typeof bot === 'function' ? bot() : (bot ?? null));
   return {
     methods: {
       'runtime.info': () => runtime,
@@ -447,7 +466,7 @@ export function createHandlers({
         return { deleted: true as const };
       },
       // 带模板或 skill 的发送在 `templateMethods` 里：先解析模板与 skill，再交给 Harness。
-      'conversations.steer': ({ slideAnnotations, designAnnotations, designSystemAnnotations, videoAnnotations, docsAnnotations, ...p }) => {
+      'conversations.steer': wrapBotSteer(botRef, ({ slideAnnotations, designAnnotations, designSystemAnnotations, videoAnnotations, docsAnnotations, ...p }) => {
         const resolved = slideAnnotationsOf(p.conversationId, slideAnnotations);
         const resolvedDesign = designAnnotationsOf(p.conversationId, designAnnotations);
         const resolvedSystem = designSystemAnnotationsOf(p.conversationId, designSystemAnnotations);
@@ -461,7 +480,7 @@ export function createHandlers({
           ...(resolvedVideo ? { videoAnnotations: resolvedVideo } : {}),
           ...(resolvedDocs ? { docsAnnotations: resolvedDocs } : {}),
         });
-      },
+      }),
       'attachments.prepare': (p) => attachments.prepare(p),
       'tasks.stop': (p) => harness.stopTask(p.taskId),
       // 任务合同（架构设计 §3.2）：经 RPC 的一方都是用户（界面、CLI、Web）；智能体经工具读写自己的合同。
@@ -697,19 +716,9 @@ export function createHandlers({
       'pipelines.retry': (p) => pipelines.retry(p.jobId),
       ...externalToolMethods(() => externalTools),
       ...projectGitMethods(() => git),
-      ...templateMethods({
-        templates,
-        media,
-        harness,
-        skills,
-        brands,
-        videos,
-        slideAnnotationsOf,
-        designAnnotationsOf,
-        designSystemAnnotationsOf,
-        videoAnnotationsOf,
-        docsAnnotationsOf,
-      }),
+      ...templated,
+      'conversations.send': wrapBotSend(botRef, harness, templated['conversations.send']),
+      ...botMethods(botRef),
       ...skillMethods({ skills, installer: skillInstaller, brands, media }),
       ...catalogMethods(toolCatalog, {
         ...(agentSkillsDir === undefined ? {} : { agentSkillsDir: () => agentSkillsDir }),
@@ -824,6 +833,11 @@ export function createHandlers({
       if (topic === 'grants') return models.grants.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'agent-setup') return setup.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
       if (topic === 'legacy-import') return legacyUpgrade.topic.subscribe(afterSeq, listener) as TopicSubscription<unknown, unknown>;
+      if (topic === 'channels' || topic.startsWith('work-items:')) {
+        const found = botRef()?.subscribe(topic, afterSeq, listener as (event: never) => void);
+        if (found) return found as TopicSubscription<unknown, unknown>;
+        throw new RpcError('unsupported', RcBot.notReady());
+      }
       const videoId = parseVideoTopic(topic);
       if (videoId) return videos.subscribe(videoId, afterSeq, listener);
       return harness.subscribe(topic, afterSeq, listener, tail);

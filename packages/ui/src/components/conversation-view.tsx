@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   DEFAULT_AGENT_MODE,
   RpcError,
@@ -19,6 +19,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { S } from './shell-copy.ts';
 import { AGENT_PICKER, QUEUE_COPY } from '../copy.ts';
 import { docsTokenItem, draftVideoTokenItems } from './annotations-token.tsx';
+import type { AgentChange } from '../model/agent-choice.ts';
 import { sendFailureMessage } from '../model/agent-skills.ts';
 import { enqueueMessage } from '../model/message-queue.ts';
 import { sentDesignAnnotations } from '../model/design-annotations.ts';
@@ -72,8 +73,29 @@ const centered = style({
   color: 'gray-600',
 });
 
-/** `autoFocus`：挂上时把光标放进输入框；编辑器右下角默认展开的悬浮会话不抢焦点。 */
-export function ConversationView({ conversationId, autoFocus = true }: { conversationId: string; autoFocus?: boolean }) {
+/**
+ * `autoFocus`：挂上时把光标放进输入框；编辑器右下角默认展开的悬浮会话不抢焦点。
+ * Bot 页（docs/design/bot-mode 技术方案 §17.2）复用这个视图画频道对话与任务线程：`aboveComposer` 放提示芯片，
+ * `placeholder` 换输入框的占位文字，`onAgentChange` 把换 Agent 交给频道设置，`empty` 换空会话的样子。
+ */
+export function ConversationView({
+  conversationId,
+  autoFocus = true,
+  aboveComposer,
+  placeholder,
+  onAgentChange,
+  empty,
+  reply,
+}: {
+  conversationId: string;
+  autoFocus?: boolean;
+  aboveComposer?: ReactNode;
+  placeholder?: string;
+  onAgentChange?: (change: AgentChange) => void;
+  empty?: ReactNode;
+  /** Bot 频道：下一条消息回复哪张线程卡（BOT-EX-09）；发出或排进队列后调 `onSent`。 */
+  reply?: { itemId: Id; onSent: () => void } | null;
+}) {
   const runtime = useRuntime();
   const meta = useConversationMeta(conversationId);
   // 会话没切过访问模式时跟着设置里的默认走（§3.12），设置还没到就按协议的默认。
@@ -171,6 +193,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         ...(videoNotes.length ? { videoAnnotations: videoNotes } : {}),
         ...(docsNotes.length ? { docsAnnotations: docsNotes } : {}),
         ...(skipProjectBrand ? { skipProjectBrand } : {}),
+        ...(reply ? { replyToItemId: reply.itemId } : {}),
         queuedAt: nowIso(),
       }),
     );
@@ -208,7 +231,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           items={items}
           conversationId={conversationId}
           running={busy}
-          empty={<ThreadEmpty conversationId={conversationId} projectId={meta.projectId} folderOf={meta.folderOf} />}
+          empty={empty ?? <ThreadEmpty conversationId={conversationId} projectId={meta.projectId} folderOf={meta.folderOf} />}
           find={findOpen ? { focus: findFocus, onClose: () => closeConversationFind(conversationId) } : null}
         />
       ) : (
@@ -216,6 +239,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           <ProgressCircle isIndeterminate aria-label={S.conversationView.loadingSession} />
         </div>
       )}
+      {aboveComposer}
       <Composer
         draftKey={conversationId}
         driverId={meta.driverId}
@@ -224,7 +248,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         lockedTo={lockedTo}
         lockImported={!!meta.importedFrom}
         onAgentChange={(change) =>
-          void runtime.updateConversation(conversationId, change).catch((error: Error) => {
+          onAgentChange ? onAgentChange(change) : void runtime.updateConversation(conversationId, change).catch((error: Error) => {
             const message = error instanceof RpcError && error.code === 'conflict' ? AGENT_PICKER.locked : S.conversationView.switchFailed(error.message);
             ToastQueue.negative(message, { timeout: 5000 });
           })
@@ -239,7 +263,9 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
         queueWhileBusy
         stopping={meta.activity === 'stopping'}
         placeholder={
-          planPending
+          placeholder && !planPending && !questionPending
+            ? placeholder
+            : planPending
             ? QUEUE_COPY.revisePlaceholder
             : questionPending
               ? QUEUE_COPY.answerPlaceholder
@@ -366,6 +392,7 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
           if (busy || useShell.getState().queues[conversationId]?.length) {
             const queued = await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes, skipProjectBrand);
             sentNotes();
+            reply?.onSent();
             if (questionPending) void sendNow(queued);
             if (!busy)
               void drainQueue(runtime, conversationId).then((result) => {
@@ -386,16 +413,18 @@ export function ConversationView({ conversationId, autoFocus = true }: { convers
               systemNotes,
               videoNotes,
               docsNotes,
-              { skipProjectBrand },
+              { skipProjectBrand, ...(reply ? { replyToItemId: reply.itemId } : {}) },
             );
             editor.reset();
             sentNotes();
+            reply?.onSent();
             return true;
           } catch (error) {
             // 刚好有任务开跑（别的窗口、别的入口）：这句话排队，不丢。
             if (error instanceof RpcError && error.code === 'busy') {
               await enqueue(text, attachments, skills, notes, designNotes, systemNotes, videoNotes, docsNotes, skipProjectBrand);
               sentNotes();
+              reply?.onSent();
               return true;
             }
             ToastQueue.negative(sendFailureMessage(error), { timeout: 5000 });

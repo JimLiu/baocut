@@ -1,6 +1,7 @@
 import type { AgentMode } from './access.ts';
 import type { DriverId, Id } from './domain.ts';
 import type { MessageRef } from './message-ref.ts';
+import type { WorkItemTemplate } from './bot.ts';
 
 /**
  * 定时任务（产品设计 §6.1「定时任务」，架构设计 §3.13）：按频率把同一段话发给一条会话，或每次在它的项目里新开一条会话。
@@ -17,14 +18,17 @@ export type ScheduleCadence =
 
 export type ScheduleCadenceType = ScheduleCadence['type'];
 
-/** 发给谁：建它的那条会话（`conversation`），或每次在那条会话的项目里新开一条（`new`，无项目会话没有）。 */
-export type ScheduleTarget = 'conversation' | 'new';
+/**
+ * 发给谁：建它的那条会话（`conversation`），或每次在那条会话的项目里新开一条（`new`，无项目会话没有），或每次在 Bot 频道里建一条
+ * 任务并开线程（`work-item`，docs/design/bot-mode 技术方案 §11.1）。
+ */
+export type ScheduleTarget = 'conversation' | 'new' | 'work-item';
 
 /** `completed`：跑满了最多运行次数；要再跑先把次数改大，再「继续」。 */
 export type ScheduleStatus = 'active' | 'paused' | 'completed';
 
 /** 自动暂停的原因：目标会话归档了、删除了，或每次新开会话的那个项目从 BaoCut 移除了。用户自己暂停的没有原因。 */
-export type SchedulePauseReason = 'conversation-archived' | 'conversation-deleted' | 'project-removed';
+export type SchedulePauseReason = 'conversation-archived' | 'conversation-deleted' | 'project-removed' | 'channel-archived';
 
 /**
  * 一次运行的状态。`queued`：到点时目标会话正忙，等它空下来再发；`skipped`：到点时上一次还没跑完；
@@ -42,6 +46,8 @@ export interface ScheduleRun {
   endedAt: string | null;
   /** 那一次的会话：发给的会话，或新开的那条；跳过与错过的为 null。 */
   conversationId: Id | null;
+  /** `work-item` 目标：这一次建的任务。 */
+  workItemId?: Id | null;
   /** 发出去之后的任务。 */
   taskId: Id | null;
   /** `missed`：错过了几次（数到 `SCHEDULE_LIMITS.missedCap` 为止）。 */
@@ -86,6 +92,8 @@ export interface Schedule {
   updatedAt: string;
   /** 运行记录，新的在前，最多 `SCHEDULE_LIMITS.runs` 条。 */
   runs: ScheduleRun[];
+  /** `target` 是 `work-item` 时：在哪个频道建任务、每次建的任务长什么样。 */
+  workItem?: { channelId: Id; template: WorkItemTemplate };
 }
 
 /**
