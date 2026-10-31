@@ -170,6 +170,16 @@ export interface InboxGroup {
 }
 
 /** 收件箱按频道分组（BOT-CH-11）：Runtime 已经把最急的排在前面，组的顺序按各组第一行出现的先后，组内保持原顺序。 */
+/**
+ * 收件箱一行给哪种操作：有选项的问题点选项作答；授权审批（命令、工具、改文件）带的问题外壳没有选项，给允许与拒绝；
+ * 都没有的（报告里的开放问题、用户自己的任务）只能打开任务去回。
+ */
+export function inboxRowAction(row: Pick<InboxRow, 'question' | 'approval'>, hasThread: boolean): 'answer' | 'approve' | 'open' {
+  if (row.question?.options.length && hasThread) return 'answer';
+  if (row.approval && !row.question?.options.length) return 'approve';
+  return 'open';
+}
+
 export function groupInbox(rows: readonly InboxRow[]): InboxGroup[] {
   const groups = new Map<Id, InboxGroup>();
   for (const row of rows) {

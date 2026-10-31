@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { newId } from '@baocut/protocol';
 import { BotKit } from './testing/bot-kit.ts';
 
 /* 一次性定时遇上归档与暂停，任务跨频道移动时线程跟着走（BOT-TK-09）。 */
@@ -68,5 +69,48 @@ describe('moving a task', () => {
     expect(newNotes).not.toBe(oldNotes);
     expect(await fs.readFile(newNotes, 'utf8')).toBe('step 1 done');
     await expect(fs.access(oldNotes)).rejects.toThrow();
+  });
+});
+
+describe('inbox questions', () => {
+  it('a question card on a thread carries its question id, so the inbox can answer without opening the thread', async () => {
+    const approvalId = newId('ap');
+    let finish: () => void = () => {};
+    let asked = false;
+    kit.thread = (ctx) => {
+      if (asked) return;
+      asked = true;
+      ctx.turn.hold();
+      finish = () => ctx.turn.complete();
+      ctx.turn.session.emit({
+        type: 'approval.requested',
+        turnId: ctx.turn.session.turnId!,
+        approvalId,
+        request: {
+          kind: 'question',
+          reason: null,
+          rule: null,
+          questions: [
+            {
+              id: 'q1',
+              header: 'Format',
+              question: 'Which aspect ratio?',
+              options: [
+                { label: '16:9', description: '' },
+                { label: '9:16', description: '' },
+              ],
+              multiSelect: false,
+              allowOther: false,
+            },
+          ],
+        },
+      } as never);
+    };
+    const item = await kit.startTask('Cut a short');
+    await kit.until(() => kit.item(item.id).question?.approvalId === approvalId);
+    expect(kit.item(item.id).question).toMatchObject({ approvalId, questionId: 'q1' });
+    expect(kit.bot.inbox().find((r) => r.workItemId === item.id)?.question).toMatchObject({ questionId: 'q1' });
+    finish();
+    await kit.settle();
   });
 });

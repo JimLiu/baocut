@@ -192,6 +192,7 @@ interface PendingChips {
 export class BotService {
   readonly #harness: Harness;
   readonly #channels: ChannelStore;
+  #loaded = false;
   readonly #store: WorkItemStore;
   readonly #files: ChannelFiles;
   readonly #log: Logger;
@@ -251,9 +252,19 @@ export class BotService {
   // ---- 启动与停止 ----
 
   /** 读入频道与任务，接上 Harness，做重启对账（§8.6）。 */
-  async start(): Promise<void> {
+  /**
+   * 只读入频道与任务，不起任何东西。Runtime 在定时任务启动之前调用：定时任务核对 `work-item` 目标时要看得到已有的频道，
+   * 否则会把它们当成没了而暂停。`start()` 没读过时自己读。
+   */
+  async load(): Promise<void> {
+    if (this.#loaded) return;
+    this.#loaded = true;
     await this.#channels.load();
     for (const channel of this.#channels.list()) await this.#loadChannel(channel.id);
+  }
+
+  async start(): Promise<void> {
+    await this.load();
     this.#harness.setTurnContext((conversation, kind) => this.#turnContext(conversation, kind));
     this.#unsubscribe.push(this.#harness.onRun((event) => this.#onRun(event)));
     const directory = this.#harness.subscribe('directory', undefined, (event) => {
@@ -2523,6 +2534,7 @@ function approvalQuestion(item: Extract<TimelineItem, { kind: 'approval' }>): Wo
       risky: false,
       askedBy: 'thread',
       approvalId: item.approvalId,
+      questionId: q.id,
     };
   }
   const summary =

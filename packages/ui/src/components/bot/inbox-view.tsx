@@ -3,7 +3,7 @@ import type { InboxRow } from '@baocut/protocol';
 import { ActionButton, Button, ProgressCircle, Text } from '@react-spectrum/s2';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { groupInbox } from '../../model/bot.ts';
+import { groupInbox, inboxRowAction } from '../../model/bot.ts';
 import { agoLabel } from '../../model/format.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useChannels } from '../../state/channels-store.ts';
@@ -49,7 +49,8 @@ function InboxCard({ row, now }: { row: InboxRow; now: number }) {
   const [pending, setPending] = useState<string | null>(null);
   const open = () => go({ tab: 'bot', channelId: row.channelId, workItemId: row.workItemId, view: 'channel' });
   const question = row.question;
-  const canAnswer = !!question && !!item?.threadId && question.options.length > 0;
+  const action = inboxRowAction(row, !!item?.threadId);
+  const canAnswer = action === 'answer';
   const act = async (key: string, fn: () => Promise<unknown>) => {
     setPending(key);
     await fn();
@@ -67,7 +68,7 @@ function InboxCard({ row, now }: { row: InboxRow; now: number }) {
         <p className={text}>{[row.approval.summary, costLine(row.approval.cost)].filter(Boolean).join(' · ')}</p>
       ) : null}
       <div className={buttons}>
-        {canAnswer
+        {canAnswer && question
           ? question.options.map((option, index) => (
               <Button
                 key={option.label}
@@ -80,7 +81,7 @@ function InboxCard({ row, now }: { row: InboxRow; now: number }) {
               </Button>
             ))
           : null}
-        {row.approval && !question ? (
+        {action === 'approve' ? (
           <>
             <Button
               size="S"
@@ -102,7 +103,7 @@ function InboxCard({ row, now }: { row: InboxRow; now: number }) {
         ) : null}
         <ActionButton isQuiet size="S" onPress={open}>
           <OpenIn />
-          <Text>{question && !canAnswer ? C.inbox.reply : C.inbox.openTask}</Text>
+          <Text>{question && action === 'open' ? C.inbox.reply : C.inbox.openTask}</Text>
         </ActionButton>
       </div>
     </li>

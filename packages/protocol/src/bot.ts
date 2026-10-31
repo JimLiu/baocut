@@ -111,6 +111,8 @@ export interface WorkItemQuestion {
   askedBy: 'thread' | 'coordinator' | 'system';
   /** 由审批或提问卡推出时指向它（统一审批号）。 */
   approvalId: Id | null;
+  /** 由提问卡推出时那一问的 id（`agents.answerQuestion` 按它作答）；没打开线程也能在收件箱里直接回答。 */
+  questionId?: Id | null;
 }
 
 export type ResourceRef =

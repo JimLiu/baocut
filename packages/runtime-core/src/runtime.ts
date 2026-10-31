@@ -1380,8 +1380,10 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     });
     // 监听失败时网关自己收拾干净；登记在监听之前，是为了之后写发现文件失败时也关掉它。
     stops.add('gateway', () => gateway.close(), 'Stopping the gateway failed');
+    // Bot 模式：先读入频道与任务，定时任务核对 `work-item` 目标时才看得到它们；定时任务起来之后再重启对账（§8.6）。
+    // 停止时排在定时任务之前。
+    await botService.load();
     await schedules.start();
-    // Bot 模式：读入频道与任务、重启对账（§8.6）；停止时排在定时任务之前。
     await botService.start();
     stops.add('bot', () => botService.stop(), 'Stopping bot mode failed');
     stops.add(

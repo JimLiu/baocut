@@ -5,6 +5,7 @@ import {
   chipAction,
   chipAllowed,
   groupInbox,
+  inboxRowAction,
   isOverdue,
   localDate,
   needsYouTotal,
@@ -234,5 +235,25 @@ describe('bot model', () => {
     expect(chipAction(chip('a'))).toBe('send');
     expect(chipAction(chip('a', { kind: 'other' }))).toBe('focus');
     expect(chipAction(chip('a', { kind: 'starter', fillOnly: true }))).toBe('fill');
+  });
+});
+
+describe('inboxRowAction', () => {
+  const question = (options: string[]) =>
+    ({ text: 'Q', kind: 'input', options: options.map((label) => ({ label, description: null })), pick: null, risky: false, askedBy: 'thread', approvalId: 'ap1' }) as InboxRow['question'];
+  const approval = { approvalId: 'ap1', summary: 'run ffmpeg', cost: null };
+
+  it('answers questions with options in place', () => {
+    expect(inboxRowAction({ question: question(['A', 'B']), approval }, true)).toBe('answer');
+  });
+
+  it('gives allow and deny for an authorization wrapped in a question without options', () => {
+    expect(inboxRowAction({ question: question([]), approval }, true)).toBe('approve');
+    expect(inboxRowAction({ question: null, approval }, true)).toBe('approve');
+  });
+
+  it('opens the task for open questions and tasks without a thread', () => {
+    expect(inboxRowAction({ question: question([]), approval: null }, true)).toBe('open');
+    expect(inboxRowAction({ question: question(['A']), approval: null }, false)).toBe('open');
   });
 });

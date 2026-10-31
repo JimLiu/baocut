@@ -107,10 +107,11 @@ export async function answerWorkItemQuestion(
   const threadId = item.threadId;
   if (!option || !threadId) return false;
   try {
-    const approval = question.approvalId ? findApproval(threadId, question.approvalId) : undefined;
-    const asked = approval?.request.kind === 'question' ? approval.request.questions[0] : undefined;
-    if (question.approvalId && asked) {
-      await runtime.answerQuestion(threadId, question.approvalId, { [asked.id]: [option.label] });
+    // 提问卡推出的问题带着那一问的 id：线程的时间线没订着（没打开过线程）也能直接作答；旧记录没有时再看缓存的提问卡。
+    const approval = question.approvalId && !question.questionId ? findApproval(threadId, question.approvalId) : undefined;
+    const askedId = question.questionId ?? (approval?.request.kind === 'question' ? approval.request.questions[0]?.id : undefined);
+    if (question.approvalId && askedId) {
+      await runtime.answerQuestion(threadId, question.approvalId, { [askedId]: [option.label] });
     } else {
       await runtime.client.request('conversations.send', { conversationId: threadId, text: option.label, commandId: newId('cmd'), via: 'notification' });
     }
