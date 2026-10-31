@@ -266,6 +266,24 @@ describe('moving a task', () => {
     expect(woke).toContain('was deleted');
   });
 
+  it('BOT-EX-20 deleting a channel wakes a task in another channel that reported waiting on one of its tasks', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Licensing' });
+    const other = await kit.bot.createItem({ channelId: channel.id, title: 'Approve the music license', owner: 'user' });
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
+      if (n === 2) await ctx.call('thread_report', { stop: 'needs-review', headline: 'Used library music instead.' });
+    };
+    const item = await kit.startTask('Add music to the trailer');
+    expect(stateName(kit.item(item.id))).toBe('waitingOnOthers');
+    await kit.bot.deleteChannel(channel.id, { threads: 0, schedules: 0 });
+    await kit.until(() => stateName(kit.item(item.id)) === 'needsReview');
+    await kit.settle();
+    expect(kit.turns(kit.threadOf(item.id)).at(-1)!).toContain('was deleted');
+  });
+
   it('BOT-EX-20 deleting a task that a queued task depends on lets the queued task start', async () => {
     kit.thread = firstTurn(async (ctx) => {
       await ctx.call('thread_report', { stop: 'needs-review', headline: 'Trailer cut.' });

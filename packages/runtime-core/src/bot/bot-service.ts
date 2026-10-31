@@ -954,6 +954,8 @@ export class BotService {
     this.#transitions.delete(id);
     this.#channelsTopic.publish({ type: 'channel.removed', id });
     await this.#purgeChannel(id, [channel.conversationId, ...items.flatMap((i) => (i.threadId ? [i.threadId] : []))]);
+    // 别的频道里依赖或在等这些任务的：任务跟着频道没了，按结了算，照常叫醒（同删任务记录）。
+    for (const item of items) await this.#wakeDependants(item, { id: item.id, title: item.title, removed: true });
   }
 
   /**
