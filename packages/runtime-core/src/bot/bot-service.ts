@@ -1652,6 +1652,8 @@ export class BotService {
     if (!item.threadId) return;
     const thread = this.#harness.conversationOf(item.threadId);
     if (!thread) return;
+    // 没空位时挡下、还没交的后台任务结果：停下就不再叫醒（要接着做由用户点继续）。
+    this.#harness.discardJobWakes(item.threadId);
     if (thread.activeTaskId && (thread.activity === 'running' || thread.activity.startsWith('awaiting'))) {
       await this.#harness.stopTask(thread.activeTaskId).catch(() => {});
     } else {
@@ -1838,6 +1840,7 @@ export class BotService {
   async #handleRun(event: RunEvent): Promise<void> {
     const conversation = this.#harness.conversationOf(event.conversationId);
     if (!conversation) return;
+    if (conversation.channelId && conversation.role === 'thread') this.#trackChannelRun(conversation.channelId, event);
     if (conversation.role === 'thread') {
       const item = conversation.workItemId ? this.#items.get(conversation.workItemId) : undefined;
       if (!item) return;
@@ -2869,6 +2872,29 @@ export class BotService {
     return this.patchItemContent(item.id, (i) => ({ ...i, files: [...i.files, file] }), true);
   }
 
+  /**
+   * 频道里正在跑的线程回合（按回合 id）；和别的线程回合重叠过的记进 `#contended`。协调者的回合不算：
+   * 它常在线程交报告时就起来转述，很少写文件；删除记录前也会把要删的文件列给用户确认。
+   */
+  readonly #channelRuns = new Map<Id, Set<Id>>();
+  readonly #contended = new Set<Id>();
+
+  #trackChannelRun(channelId: Id, event: RunEvent): void {
+    const running = this.#channelRuns.get(channelId) ?? new Set<Id>();
+    if (event.type === 'started') {
+      // 同一文件夹里同时有别的线程在跑：这段时间改的文件分不清是谁写的，谁都不按快照记。
+      if (running.size) {
+        for (const taskId of running) this.#contended.add(taskId);
+        this.#contended.add(event.taskId);
+      }
+      running.add(event.taskId);
+      this.#channelRuns.set(channelId, running);
+      return;
+    }
+    running.delete(event.taskId);
+    if (!running.size) this.#channelRuns.delete(channelId);
+  }
+
   /** 回合开始时频道文件夹的快照（按回合）。 */
   readonly #fileSnapshots = new Map<Id, Promise<Map<string, string>>>();
 
@@ -2879,7 +2905,9 @@ export class BotService {
     const item = this.#items.get(itemId);
     if (!item) return;
     const base = this.#files.filesDir(item.channelId);
-    const written = before ? changedFiles(await before, await snapshotFiles(base)) : [];
+    // 和同频道别的线程回合重叠过的，快照的差别不能当成这个线程写的：只记报告里明说的产出。
+    const contended = this.#contended.delete(taskId);
+    const written = before && !contended ? changedFiles(await before, await snapshotFiles(base)) : [];
     const outputs = taskFilePaths(base, [], item.outputs);
     const known = new Set(taskFilePaths(base, item.files, []));
     const added = [...new Set([...written, ...outputs])].filter((f) => !known.has(f));

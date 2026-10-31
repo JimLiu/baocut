@@ -2250,6 +2250,15 @@ export class Harness {
     await this.#deliverJobs(state, [...gated.values()]);
   }
 
+  /** 丢掉一个会话被闸门挡下的后台任务（用户停下任务时）：提示改成没有告诉，以后不会再叫醒。 */
+  discardJobWakes(conversationId: Id): void {
+    const gated = this.#gatedJobs.get(conversationId);
+    this.#gatedJobs.delete(conversationId);
+    const state = this.#states.get(conversationId);
+    if (!gated || !state) return;
+    for (const job of gated.values()) this.#noteJob(state, job, 'dropped', null);
+  }
+
   #holdJobs(state: ConversationState, jobs: readonly JobFinished[], taskId: Id): void {
     if (jobs.length === 0) return;
     const held = this.#heldJobs.get(state.id) ?? new Map<Id, JobFinished>();

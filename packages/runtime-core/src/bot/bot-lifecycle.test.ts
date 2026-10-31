@@ -222,6 +222,38 @@ describe('moving a task', () => {
     expect(await fs.readFile(path.join(dir, 'before.txt'), 'utf8')).toBe('already here');
   });
 
+  it('BOT-EX-20 when two threads write in the channel folder at the same time, only what each reports is recorded', async () => {
+    const dir = kit.bot.filesDir(kit.main.id);
+    await fs.mkdir(dir, { recursive: true });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let bWrote = false;
+    kit.thread = firstTurn(async (ctx) => {
+      if (kit.bot.itemOfThread(ctx.conversationId)?.title === 'Cut A') {
+        await fs.writeFile(path.join(dir, 'a.txt'), 'a');
+        await gate;
+        await ctx.call('thread_report', { stop: 'needs-review', headline: 'A is done.', outputs: [{ kind: 'file', path: 'a.txt', label: 'A', version: null }] });
+      } else {
+        await fs.writeFile(path.join(dir, 'b.txt'), 'b');
+        bWrote = true;
+        await gate;
+        await ctx.call('thread_report', { stop: 'needs-review', headline: 'B is done.' });
+      }
+    });
+    const a = await kit.bot.createItem({ channelId: kit.main.id, title: 'Cut A', owner: 'agent' });
+    const b = await kit.bot.createItem({ channelId: kit.main.id, title: 'Cut B', owner: 'agent' });
+    await kit.bot.startItem(a.id, { attended: false });
+    await kit.bot.startItem(b.id, { attended: false });
+    await kit.until(() => bWrote);
+    release();
+    await kit.until(() => stateName(kit.item(a.id)) === 'needsReview' && stateName(kit.item(b.id)) === 'needsReview');
+    await kit.settle();
+    // b.txt 是 B 写的，A 的回合与它重叠：不能记在 A 名下；B 没报告它，也不按快照猜。
+    expect(kit.item(a.id).files).toEqual(['a.txt']);
+    expect(kit.item(b.id).files).toEqual([]);
+    expect((await kit.bot.deleteRecord(a.id, true)).files).toEqual(['a.txt']);
+  });
+
   it('a thread waiting on an approval cannot be moved, and its notes stay where they were', async () => {
     kit.thread = (ctx) => void escalate(ctx, 'voice-generate --segment 1');
     const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice the intro', owner: 'agent' });

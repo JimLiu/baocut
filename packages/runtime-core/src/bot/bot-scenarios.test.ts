@@ -224,6 +224,39 @@ describe('BOT-S01..S16', () => {
     expect(causes(dub.id)).toEqual(expect.arrayContaining(['unblocked:job-finished->working']));
   });
 
+  it('stopping a task drops a finished job that was waiting for a free slot', async () => {
+    await kit.bot.updateChannel(kit.main.id, { concurrentThreads: 1 });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (kit.bot.itemOfThread(ctx.conversationId)?.title === 'Dub the trailer') {
+        if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'The dub is rendering.', waitingFor: { jobIds: ['job_dub_3'] } });
+        return;
+      }
+      await gate;
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The captions are done.' });
+    };
+    const dub = await kit.bot.createItem({ channelId: kit.main.id, title: 'Dub the trailer', owner: 'agent' });
+    await kit.bot.startItem(dub.id, { attended: false });
+    const dubThread = kit.threadOf(dub.id);
+    await kit.until(() => state(dub.id) === 'waitingOnOthers' && kit.harness.conversationOf(dubThread)?.activity === 'idle');
+    const captions = await kit.bot.createItem({ channelId: kit.main.id, title: 'Caption the trailer', owner: 'agent' });
+    await kit.bot.startItem(captions.id, { attended: false });
+    await kit.until(() => state(captions.id) === 'working');
+    const taskId = ofKind(dubThread, 'task').at(-1)!.id;
+    expect(await kit.harness.jobFinished({ conversationId: dubThread, taskId, jobId: 'job_dub_3', kind: 'dub', attempt: 1, state: 'completed' })).toBe('held');
+    await kit.bot.stopItem(dub.id);
+    expect(kit.harness.gatedJobWakes()).not.toContain(dubThread);
+    release();
+    await kit.until(() => state(captions.id) === 'needsReview');
+    await kit.settle();
+    expect(state(dub.id)).not.toBe('working');
+    expect(turns.get(dubThread)).toBe(1);
+  });
+
   it('after a restart, an automatic coordinator turn still sees the channel rules and user memory', async () => {
     await kit.bot.writeMemory(kit.main.id, '## Rules\nAlways export in 1080p.', 0);
     await kit.bot.writeUserMemory('Prefers short captions.', (await kit.bot.readUserMemory()).version);
