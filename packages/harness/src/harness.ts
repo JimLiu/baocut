@@ -1768,7 +1768,7 @@ export class Harness {
     const requestedMode = params.accessMode ?? params.autonomy;
     {
       const pending = this.#require(params.conversationId);
-      const mode = requestedMode ? normalizeAgentMode(requestedMode) : this.#resolveMode(pending).mode;
+      const mode = requestedMode ? normalizeAgentMode(requestedMode) : this.#startMode(pending).mode;
       this.#checkAccessMode(pending.conversation.driverId, mode);
     }
 
@@ -1789,7 +1789,7 @@ export class Harness {
       this.#switchMode(state, mode);
       autonomy = { mode, source: 'request' };
     } else {
-      autonomy = this.#resolveMode(state);
+      autonomy = this.#startMode(state);
     }
     const taskId = newId('task');
     const now = nowIso();
@@ -2174,7 +2174,7 @@ export class Harness {
         this.#checkCanSend(state.id);
         this.#checkProjectNotMissing(conversation);
         this.#checkDriverUsable(conversation.driverId);
-        autonomy = this.#resolveMode(state);
+        autonomy = this.#startMode(state);
         this.#checkAccessMode(conversation.driverId, autonomy.mode);
       } catch (error) {
         this.#log.info('Not waking the agent for a finished job', { conversationId: state.id, error: String(error) });
@@ -2389,6 +2389,16 @@ export class Harness {
     this.#ceilingFor = resolver;
   }
 
+  /**
+   * 起回合时用的模式：会话的模式（没切换过时跟偏好设置）再压到频道上限以内（Bot 技术方案 §14.4）。偏好设置改了之后，
+   * 跟着它走的 Bot 会话也不能因此高过上限。
+   */
+  #startMode(state: ConversationState): { mode: AgentMode; source: AutonomySource } {
+    const resolved = this.#resolveMode(state);
+    const ceiling = this.#accessCeilingOf(state.conversation);
+    return ceiling && rankMode(resolved.mode) > rankMode(ceiling) ? { ...resolved, mode: ceiling } : resolved;
+  }
+
   #accessCeilingOf(conversation: Conversation): AgentMode | null {
     if (!isBotRole(conversation) || !this.#ceilingFor) return null;
     try {
@@ -2570,7 +2580,7 @@ export class Harness {
       this.#checkProjectNotMissing(conversation);
       this.#checkDriverUsable(conversation.driverId);
       // 等过回合结束的投递按此刻重算（§14.4）：等的时候上限可能压低了。
-      mode = (first.accessModeAt ? first.accessModeAt() : first.accessMode) ?? this.#resolveMode(state).mode;
+      mode = (first.accessModeAt ? first.accessModeAt() : first.accessMode) ?? this.#startMode(state).mode;
       if (unattended) {
         // 不知道支不支持逐次审批（探测还没结果或失败）时按不支持：无人在场的回合宁可停下等人。
         if (this.#approvalsSupported(conversation.driverId) !== true) return drop('unattended-needs-approvals');

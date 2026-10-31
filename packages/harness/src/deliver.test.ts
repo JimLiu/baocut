@@ -286,4 +286,20 @@ describe('role lock', () => {
     expect(runs.find((r) => r.type === 'started')).toMatchObject({ attended: false });
     await until(() => tasks(id)[0]?.status === 'completed');
   });
+
+  it('a job wake and a plain send start under the access ceiling even when the conversation mode was never lowered', async () => {
+    const id = await channel();
+    const { taskId } = await harness.send({ conversationId: id, text: 'hi', commandId: newId('cmd') });
+    await until(() => tasks(id)[0]?.status === 'completed');
+    // 上限压低了，但会话的模式没跟着改（例如跟随偏好设置、偏好后来调高了）：起回合时仍按上限。
+    harness.setAccessCeiling(() => 'plan');
+    const modes: string[] = [];
+    driver.script = () => void modes.push(harness.conversationMode(id));
+    expect(await harness.jobFinished({ conversationId: id, taskId, jobId: 'job_1', kind: 'music', attempt: 1, state: 'completed' })).toBe('woke');
+    await until(() => modes.length === 1 && tasks(id)[0]?.status === 'completed');
+    await harness.send({ conversationId: id, text: 'again', commandId: newId('cmd') });
+    await until(() => tasks(id).length === 2 && tasks(id)[1]!.status === 'completed');
+    expect(modes).toEqual(['plan', 'plan']);
+    expect(tasks(id)[1]!.autonomy?.mode).toBe('plan');
+  });
 });
