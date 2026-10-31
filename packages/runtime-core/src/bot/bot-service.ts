@@ -647,8 +647,17 @@ export class BotService {
     const channel = this.channel(id);
     if (channel.kind === 'main') throw new RpcError('invalid-request', RcBot.mainChannelLocked());
     if (archived) {
+      // 归档等于用户把频道里在做的任务都停下（§5.6）：走 stop，任务转为停下（不再占并发名额），线程的回合也停掉。
       for (const item of this.#channelItems(id)) {
-        if (item.status === 'active' && item.threadId) await this.#stopThread(item);
+        if (item.status !== 'active' || !item.threadId) continue;
+        if (item.owner === 'agent' && item.active?.state !== 'blocked') {
+          const stopped = await this.transition(item.id, { type: 'stop' } as never, { actor: 'user' }).then(
+            () => true,
+            () => false,
+          );
+          if (stopped) continue;
+        }
+        await this.#stopThread(item);
       }
     }
     const next = { ...channel, archived, archivedAt: archived ? nowIso() : null, updatedAt: nowIso() };
@@ -991,7 +1000,8 @@ export class BotService {
     if (to.archived) throw new RpcError('invalid-request', RcBot.channelArchived());
     if (item.channelId === toChannelId) return item;
     const thread = item.threadId ? this.#harness.conversationOf(item.threadId) : undefined;
-    if (thread && (thread.activity === 'running' || thread.activity === 'stopping')) {
+    // 线程还有进行中的任务（在跑、在停、在等审批或回答）时不能搬：先查完整的条件，再动任何文件。
+    if (thread && (thread.activeTaskId || thread.activity === 'running' || thread.activity === 'stopping' || thread.activity.startsWith('awaiting'))) {
       throw new RpcError('busy', RcBot.transitionDenied({ from: stateName(item), event: 'move' }));
     }
     // 线程跟着走（BOT-TK-09）：线程会话换到新频道与它的工作目录，工作笔记搬过去，免得记忆、笔记与删除旧频道时对不上。
@@ -1000,10 +1010,18 @@ export class BotService {
       const oldNotes = path.dirname(this.#files.notesPath(from.id, item.threadId));
       const newNotes = path.dirname(this.#files.notesPath(to.id, item.threadId));
       await fs.mkdir(path.dirname(newNotes), { recursive: true });
+      let notesMoved = true;
       await fs.rename(oldNotes, newNotes).catch((error: unknown) => {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        notesMoved = false;
       });
-      await this.#harness.moveThread(item.threadId, { channelId: to.id, cwd: filesDir }, { internal: BOT_INTERNAL });
+      try {
+        await this.#harness.moveThread(item.threadId, { channelId: to.id, cwd: filesDir }, { internal: BOT_INTERNAL });
+      } catch (error) {
+        // 会话没搬成：笔记搬回原处，任务、会话与笔记仍在原频道。
+        if (notesMoved) await fs.rename(newNotes, oldNotes).catch(() => {});
+        throw error;
+      }
     }
     const next = { ...item, channelId: toChannelId, updatedAt: nowIso() };
     // 等你在场再投的那一份也跟着走。

@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId, type Id } from '@baocut/protocol';
-import { BotKit } from './testing/bot-kit.ts';
+import { BotKit, escalate } from './testing/bot-kit.ts';
+import { stateName } from './work-item-machine.ts';
 
 /* 一次性定时遇上归档与暂停，任务跨频道移动时线程跟着走（BOT-TK-09）。 */
 
@@ -34,6 +35,19 @@ describe('one-shot timers', () => {
     await kit.bot.archiveChannel(channel.id, false);
     await kit.until(() => kit.item(item.id).status !== 'scheduled');
     await kit.settle();
+  });
+
+  it('archiving a channel stops its working tasks so they no longer hold a slot', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Later' });
+    kit.thread = (ctx) => ctx.turn.hold();
+    const item = await kit.bot.createItem({ channelId: channel.id, title: 'Render the long cut', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => kit.item(item.id).threadId && kit.harness.conversationOf(kit.threadOf(item.id))?.activity === 'running');
+    expect(stateName(kit.item(item.id))).toBe('working');
+    await kit.bot.archiveChannel(channel.id, true);
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    expect(kit.harness.conversationOf(kit.threadOf(item.id))!.activeTaskId).toBeFalsy();
   });
 
   it('while automation is paused no timer is armed, and a due item runs when it resumes', async () => {
@@ -69,6 +83,23 @@ describe('moving a task', () => {
     expect(newNotes).not.toBe(oldNotes);
     expect(await fs.readFile(newNotes, 'utf8')).toBe('step 1 done');
     await expect(fs.access(oldNotes)).rejects.toThrow();
+  });
+
+  it('a thread waiting on an approval cannot be moved, and its notes stay where they were', async () => {
+    kit.thread = (ctx) => void escalate(ctx, 'voice-generate --segment 1');
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice the intro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => kit.item(item.id).threadId && kit.harness.conversationOf(kit.threadOf(item.id))?.activity === 'awaiting-approval');
+    const oldNotes = kit.bot.notesPath(kit.item(item.id))!;
+    await fs.mkdir(path.dirname(oldNotes), { recursive: true });
+    await fs.writeFile(oldNotes, 'waiting for approval');
+    const target = await kit.bot.createChannel({ name: 'Voice' });
+    await expect(kit.bot.moveItem(item.id, target.id)).rejects.toMatchObject({ code: 'busy' });
+    expect(kit.item(item.id).channelId).toBe(kit.main.id);
+    expect(kit.harness.conversationOf(kit.threadOf(item.id))!.channelId).toBe(kit.main.id);
+    expect(await fs.readFile(oldNotes, 'utf8')).toBe('waiting for approval');
+    await kit.bot.stopItem(item.id);
+    await kit.settle();
   });
 
   it('BOT-TK-09 the task keeps its reports and history after a move, also across a restart', async () => {
