@@ -446,6 +446,24 @@ export class BotTools implements ToolSet {
     }
   }
 
+  /**
+   * 建任务与开线程只在有人在场的回合里（BOT-SF-03）：报告或转交里写的「去做 X」不是用户的要求。回合里插进过报告或转交
+   * （`tainted`，包括报告起的回合被用户插了一句）时，新的工作只能出自起这一回合的那条用户消息（`cited` 里要有它）：
+   * 早先的「好」或回合中途插的一句都不算，报告起的回合没有这样的消息。
+   */
+  #newWork(caller: Caller, cited: readonly Id[]): void {
+    const { run } = caller;
+    if (!run.attended) {
+      throw new ToolError('NEEDS_USER_TURN', 'Tasks are only created and started in a turn the user started. A report or relay cannot ask for new work; mention it to the user instead.');
+    }
+    if (run.tainted && !(run.userMessageId && cited.includes(run.userMessageId))) {
+      throw new ToolError(
+        'NEEDS_USER_TURN',
+        'A report or relay arrived in this turn, so new work must come from the message that started this turn (cite it). Mention anything else to the user instead.',
+      );
+    }
+  }
+
   /** 提议卡只在有人在场的回合里写（§14.2）：报告、转交、定时、种子回合里不可用。 */
   #attended(caller: Caller): void {
     if (!caller.run.attended) throw new ToolError('NEEDS_USER_TURN', 'Proposals can only be made in a turn the user started.');
@@ -540,6 +558,7 @@ export class BotTools implements ToolSet {
         } else throw new ToolError('INVALID_ARGUMENTS', 'Give workItemId or create.');
         if (item.owner === 'user') throw new ToolError('USER_TASK', 'That task is for the user to do; it gets no thread.');
         if (item.status !== 'upNext') throw new ToolError('NOT_STARTABLE', `The task is ${stateName(item)}; only upNext tasks can start. Use thread_relay for running ones.`);
+        if (!args.create) this.#newWork(caller, args.citedMessageIds);
         assertMax('brief', args.brief, BOT_LIMITS.brief);
         const cited = bot.cite(caller.channel.conversationId, args.citedMessageIds);
         const started = await bot.startItem(item.id, {
@@ -625,8 +644,8 @@ export class BotTools implements ToolSet {
     assertMax('description', args.description, BOT_LIMITS.description);
     for (const s of args.steps) assertMax('step', s.text, BOT_LIMITS.stepText);
     assertPlainText(args.title, args.description, ...args.steps.map((s) => s.text));
-    // 报告、转交、刷新等无人在场的回合里读到的「请做 X」不能变成任务（BOT-SF-03）：建任务只在用户起的回合里。
-    if (!caller.run.attended) throw new ToolError('NEEDS_USER_TURN', 'Tasks are only created in a turn the user started. A report or relay cannot ask for new work; mention it to the user instead.');
+    // 报告、转交、刷新等无人在场的回合里读到的「请做 X」不能变成任务（BOT-SF-03）。
+    this.#newWork(caller, [args.sourceMessageId]);
     const source = bot.findItem(caller.channel.conversationId, args.sourceMessageId);
     if (source?.kind !== 'user-message') throw new ToolError('NEEDS_USER_WORDS', 'sourceMessageId must be a user message in this channel.');
     if (args.eventOn && !bot.isUserTyped(caller.channel.conversationId, args.sourceMessageId)) {

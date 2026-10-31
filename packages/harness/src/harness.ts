@@ -2109,8 +2109,10 @@ export class Harness {
       ...(videoAnnotations.length ? { videoAnnotations: videoAnnotations.map((a) => a.annotation) } : {}),
       ...(docsAnnotations.length ? { docsAnnotations: docsAnnotations.map((a) => a.annotation) } : {}),
     });
-    // 无人在场的回合（报告、刷新）里用户插了一句：之后这一回合算有人在场，但已经插过 relay 的仍不能写记忆。
+    // 无人在场的回合（报告、刷新）里用户插了一句：之后这一回合算有人在场，但它是由 Runtime 转来的文字起的，按插过 relay 处理：
+    // 不能写记忆，也不能凭回合里早先读到的报告建任务、开线程（BOT-SF-03）。
     if (!isBotRole(state.conversation)) return { status: 'steered' };
+    if (!run.attended) run.tainted = true;
     run.attended = true;
     return { status: 'steered', messageId };
   }
