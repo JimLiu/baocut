@@ -62,6 +62,7 @@ export const zhHant: BotMessages = {
     empty: '說說你要做什麼。費時的工作會在背景進行，並以任務的形式出現在右邊。',
     archivedNote: '這個頻道已封存。還原後才能繼續在這裡工作。',
     spend: (today: string, month: string) => `今天花了 ${today} · 本月 ${month}`,
+    recurring: '新建週期任務',
   },
   away: {
     done: (n: number) => `${n} 個已完成`,

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AwaySummary, AwaySummaryRow, Channel, Id } from '@baocut/protocol';
-import { ActionButton, Button, Text } from '@react-spectrum/s2';
+import { ActionButton, Button, DialogContainer, Text } from '@react-spectrum/s2';
 import Bookmark from '@react-spectrum/s2/icons/Bookmark';
+import CalendarAdd from '@react-spectrum/s2/icons/CalendarAdd';
 import Settings from '@react-spectrum/s2/icons/Settings';
 import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -11,6 +12,7 @@ import { useChannels } from '../../state/channels-store.ts';
 import { useConnection } from '../../state/connection-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTimeline, useTimelineItems } from '../../state/timeline-store.ts';
+import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
 import { ConversationView } from '../conversation-view.tsx';
 import { useBotCall } from './bot-actions.ts';
 import { jumpTo } from './bot-jump.ts';
@@ -225,6 +227,7 @@ export function ChannelView({
   const items = useTimelineItems(channel.conversationId);
   const away = useAwayAndSeen(channel);
   const unavailable = useDriverUnavailable(channel);
+  const [scheduling, setScheduling] = useState(false);
   const firstUnread = away.summary?.firstUnreadItemId ?? null;
   const extras = useMemo(
     () => ({
@@ -294,6 +297,10 @@ export function ChannelView({
           <Bookmark />
           <Text>{C.channel.memory}</Text>
         </ActionButton>
+        {/* 周期任务（Bot 技术方案 §14.1）：每次到点在这个频道里建一条任务。 */}
+        <ActionButton isQuiet size="S" aria-label={C.channel.recurring} isDisabled={channel.archived} onPress={() => setScheduling(true)}>
+          <CalendarAdd />
+        </ActionButton>
         <ActionButton isQuiet size="S" aria-label={C.sidebar.settings} onPress={onSettings}>
           <Settings />
         </ActionButton>
@@ -305,6 +312,9 @@ export function ChannelView({
         ) : null}
       </header>
       {banners}
+      <DialogContainer onDismiss={() => setScheduling(false)}>
+        {scheduling ? <ScheduleDialog channelId={channel.id} onClose={() => setScheduling(false)} /> : null}
+      </DialogContainer>
       <BotTimeline channelId={channel.id} extras={extras}>
         <ConversationView
           conversationId={channel.conversationId}

@@ -62,6 +62,7 @@ export const ptBR: BotMessages = {
     empty: 'Diga do que você precisa. Trabalhos demorados rodam em segundo plano e aparecem como tarefas.',
     archivedNote: 'Este canal está arquivado. Restaure-o para continuar trabalhando aqui.',
     spend: (today: string, month: string) => `Gasto hoje ${today} · este mês ${month}`,
+    recurring: 'Nova tarefa recorrente',
   },
   away: {
     done: (n: number) => (n === 1 ? '1 concluída' : `${n} concluídas`),

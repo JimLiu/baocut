@@ -62,6 +62,7 @@ export const vi: BotMessages = {
     empty: 'Hãy nói bạn cần gì. Việc tốn thời gian sẽ chạy nền và hiện thành các việc.',
     archivedNote: 'Kênh này đã được lưu trữ. Khôi phục để tiếp tục làm việc ở đây.',
     spend: (today: string, month: string) => `Đã chi hôm nay ${today} · tháng này ${month}`,
+    recurring: 'Việc định kỳ mới',
   },
   away: {
     done: (n: number) => `${n} việc xong`,

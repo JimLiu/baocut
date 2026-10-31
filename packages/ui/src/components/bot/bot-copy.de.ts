@@ -62,6 +62,7 @@ export const de: BotMessages = {
     empty: 'Sag, was du brauchst. Längere Arbeiten laufen im Hintergrund und erscheinen als Aufgaben.',
     archivedNote: 'Dieser Kanal ist archiviert. Stelle ihn wieder her, um hier weiterzuarbeiten.',
     spend: (today: string, month: string) => `Heute ${today} · diesen Monat ${month} ausgegeben`,
+    recurring: 'Neue wiederkehrende Aufgabe',
   },
   away: {
     done: (n: number) => `${n} erledigt`,

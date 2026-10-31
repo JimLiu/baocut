@@ -12,6 +12,8 @@ import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
 import { useWorkItems } from '../../state/work-items-store.ts';
 import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
+import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
+import { DialogContainer } from '@react-spectrum/s2';
 import { useTimeline } from '../../state/timeline-store.ts';
 import { BotSettings } from '../settings/bot-settings.tsx';
 import { useChannels } from '../../state/channels-store.ts';
@@ -433,5 +435,58 @@ describe('频道花费（I16、BOT-NF-04）', () => {
     await render(createElement(ChannelSpend, { channelId: 'c1' }));
     expect(container.textContent).toBe('');
     useChannels.setState({ channels: [] });
+  });
+});
+
+describe('周期任务建到频道里（Bot 技术方案 §14.1）', () => {
+  it('从频道头部打开：目标默认这个频道，建立时交频道对话与任务模板', async () => {
+    useChannels.setState({ channels: [{ channel: { id: 'c1', name: '剪辑', conversationId: 'conv_c1', archived: false } }] as never });
+    const createSchedule = vi.fn(async (params: { name?: string }) => ({ schedule: { id: 's1', name: params.name || '每周一整理评论', cadence: { type: 'daily', time: '09:00' } } }));
+    Object.assign(runtime, { createSchedule });
+    try {
+      await render(createElement(DialogContainer, { onDismiss: () => {}, children: createElement(ScheduleDialog, { channelId: 'c1', onClose: () => {} }) }));
+      const radio = document.querySelector<HTMLInputElement>('input[type="radio"][value="work-item"]')!;
+      expect(radio.checked).toBe(true);
+      const prompt = document.querySelector<HTMLTextAreaElement>('textarea')!;
+      await typeInto(prompt, '每周一整理评论\n挑出要回复的');
+      await press('建立');
+      expect(createSchedule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conversationId: 'conv_c1',
+          target: 'work-item',
+          workItem: { channelId: 'c1', template: { title: '每周一整理评论', description: '', owner: 'agent', prompt: '每周一整理评论\n挑出要回复的', resources: [] } },
+        }),
+      );
+    } finally {
+      useChannels.setState({ channels: [] });
+    }
+  });
+
+  it('编辑频道任务的周期任务：目标固定，不交 target', async () => {
+    useChannels.setState({ channels: [{ channel: { id: 'c1', name: '剪辑', conversationId: 'conv_c1', archived: false } }] as never });
+    const updateSchedule = vi.fn(async (_params: Record<string, unknown>) => {});
+    Object.assign(runtime, { updateSchedule });
+    const schedule = {
+      id: 's1',
+      name: '整理评论',
+      prompt: '每周一整理评论',
+      cadence: { type: 'daily', time: '09:00' },
+      conversationId: 'conv_c1',
+      target: 'work-item',
+      projectId: null,
+      agent: { driverId: 'claude', model: null, effort: null, accessMode: null },
+      maxRuns: null,
+      workItem: { channelId: 'c1', template: { title: '整理评论', description: '', owner: 'agent', prompt: '每周一整理评论', resources: [] } },
+    };
+    try {
+      await render(createElement(DialogContainer, { onDismiss: () => {}, children: createElement(ScheduleDialog, { schedule: schedule as never, onClose: () => {} }) }));
+      expect(document.querySelector('input[type="radio"]')).toBeNull();
+      expect(document.body.textContent).toContain('每次在频道「剪辑」里建一条任务');
+      await press('保存');
+      expect(updateSchedule).toHaveBeenCalledTimes(1);
+      expect(updateSchedule.mock.calls[0]![0]).not.toHaveProperty('target');
+    } finally {
+      useChannels.setState({ channels: [] });
+    }
   });
 });

@@ -71,6 +71,7 @@ export const ru: BotMessages = {
     empty: 'Скажите, что нужно. Долгие работы идут в фоне и появляются как задачи.',
     archivedNote: 'Этот канал в архиве. Восстановите его, чтобы продолжить здесь работу.',
     spend: (today: string, month: string) => `Потрачено сегодня ${today} · за месяц ${month}`,
+    recurring: 'Новая повторяющаяся задача',
   },
   away: {
     done: (n: number) => `готово: ${n}`,

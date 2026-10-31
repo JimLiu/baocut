@@ -81,6 +81,7 @@ const en = {
     empty: 'Say what you need. Jobs that take a while run in the background and show up as tasks.',
     archivedNote: 'This channel is archived. Restore it to keep working here.',
     spend: (today: string, month: string) => `Spent ${today} today · ${month} this month`,
+    recurring: 'New recurring task',
   },
   away: {
     done: (n: number) => (n === 1 ? '1 done' : `${n} done`),
