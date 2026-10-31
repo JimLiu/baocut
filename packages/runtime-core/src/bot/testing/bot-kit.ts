@@ -115,7 +115,14 @@ export class FakeSchedules implements BotSchedules {
     this.created.push({ channelId: p.channel.id, name: p.name, template: p.template });
     return `sched_${this.created.length}`;
   };
-  countForChannel = () => 0;
+  /** 各频道的定时任务个数（测试里直接设）。 */
+  perChannel = new Map<Id, number>();
+  deleted: Id[] = [];
+  countForChannel = (channelId: Id) => this.perChannel.get(channelId) ?? 0;
+  deleteForChannel = async (channelId: Id) => {
+    this.deleted.push(channelId);
+    this.perChannel.delete(channelId);
+  };
   nextForStatus = () => [];
   channelChanged = (channelId: Id) => void this.channelChanges.push(channelId);
   workItemChanged = (item: WorkItem) => void this.changed.push({ id: item.id, status: item.status, state: item.active?.state ?? null });

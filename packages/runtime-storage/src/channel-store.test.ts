@@ -170,4 +170,25 @@ describe('ChannelStore', () => {
     expect(order).toEqual(['first:start', 'first:end', 'second:start', 'second:end']);
     expect(store.list()).toHaveLength(1);
   });
+
+  it('删除频道先记一笔：频道拿掉、id 记下，重新读回还在；清完去掉', async () => {
+    const store = new ChannelStore(file);
+    await store.load();
+    await store.put(channel('chan_a'));
+    await store.put(channel('chan_b'));
+    await store.markDeleted('chan_a');
+    expect(store.list().map((c) => c.id)).toEqual(['chan_b']);
+    expect(store.tombstones()).toEqual(['chan_a']);
+
+    const again = new ChannelStore(file);
+    await again.load();
+    expect(again.list().map((c) => c.id)).toEqual(['chan_b']);
+    expect(again.tombstones()).toEqual(['chan_a']);
+    await again.clearTombstone('chan_a');
+
+    const third = new ChannelStore(file);
+    await third.load();
+    expect(third.tombstones()).toEqual([]);
+    expect(third.degraded).toBe(false);
+  });
 });

@@ -20,6 +20,8 @@ interface ChannelsFile {
   settings: BotSettings;
   /** `channels/USER.md` 的版本号，写入时校验。 */
   userMemoryVersion: number;
+  /** 删掉了、但会话与文件还没清干净的频道（删除时先记下，清完再去掉；启动时接着清）。 */
+  deletedChannels?: Id[];
 }
 
 /**
@@ -37,6 +39,7 @@ export class ChannelStore {
   readonly #channels = new Map<Id, Channel>();
   #settings: BotSettings = structuredClone(DEFAULT_BOT_SETTINGS);
   #userMemoryVersion = 0;
+  readonly #tombstones = new Set<Id>();
   #degraded = false;
   #saving: Promise<void> = Promise.resolve();
   #lock: Promise<void> = Promise.resolve();
@@ -59,6 +62,8 @@ export class ChannelStore {
     this.#degraded = (read.status !== 'ok' && read.status !== 'missing') || this.#file.readOnly || dropped > 0;
     this.#settings = normalizeSettings(value?.settings);
     this.#userMemoryVersion = nonNegativeInt(value?.userMemoryVersion) ?? 0;
+    this.#tombstones.clear();
+    if (Array.isArray(value?.deletedChannels)) for (const id of value.deletedChannels) if (str(id) && id && !this.#channels.has(id)) this.#tombstones.add(id);
   }
 
   list(): Channel[] {
@@ -96,6 +101,26 @@ export class ChannelStore {
     return this.#save();
   }
 
+  /**
+   * 删除频道的第一步：频道从列表里拿掉，同时记下它的 id（一次写入）。之后清会话、文件、定时任务；中途崩溃的，启动时照
+   * `tombstones()` 接着清，清完 `clearTombstone`。
+   */
+  markDeleted(id: Id): Promise<void> {
+    this.#channels.delete(id);
+    this.#tombstones.add(id);
+    return this.#save();
+  }
+
+  /** 删掉了、还没清干净的频道。 */
+  tombstones(): Id[] {
+    return [...this.#tombstones];
+  }
+
+  clearTombstone(id: Id): Promise<void> {
+    if (!this.#tombstones.delete(id)) return Promise.resolve();
+    return this.#save();
+  }
+
   setSettings(settings: BotSettings): Promise<void> {
     this.#settings = structuredClone(settings);
     return this.#save();
@@ -127,6 +152,7 @@ export class ChannelStore {
       channels: structuredClone([...this.#channels.values()]),
       settings: structuredClone(this.#settings),
       userMemoryVersion: this.#userMemoryVersion,
+      ...(this.#tombstones.size ? { deletedChannels: [...this.#tombstones] } : {}),
     };
     const next = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     this.#saving = next;

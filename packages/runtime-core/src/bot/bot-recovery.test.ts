@@ -344,6 +344,41 @@ describe('the user talks to a thread that is waiting', () => {
   });
 });
 
+describe('deleting a channel', () => {
+  it('I13: deleting a channel deletes the schedules the confirmation counted', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Clips' });
+    kit.schedules.perChannel.set(channel.id, 2);
+    await kit.bot.deleteChannel(channel.id, { threads: 0, schedules: 2 });
+    expect(kit.schedules.deleted).toEqual([channel.id]);
+    expect(kit.bot.listChannels().some((c) => c.channel.id === channel.id)).toBe(false);
+  });
+
+  it('I13: a delete that fails half way leaves no channel behind and is finished at the next start', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Clips' });
+    const item = await kit.bot.createItem({ channelId: channel.id, title: 'Cut the teaser', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => kit.item(item.id).threadId && kit.harness.conversationOf(kit.threadOf(item.id))?.activity === 'idle');
+    await kit.settle();
+    const thread = kit.threadOf(item.id);
+    // 删会话这一步出错（相当于删到一半崩了）。
+    const original = kit.harness.deleteConversation.bind(kit.harness);
+    kit.harness.deleteConversation = (async () => {
+      throw new Error('disk went away');
+    }) as typeof kit.harness.deleteConversation;
+    await kit.bot.deleteChannel(channel.id, { threads: 1, schedules: 0 });
+    kit.harness.deleteConversation = original;
+    expect(kit.bot.listChannels().some((c) => c.channel.id === channel.id)).toBe(false);
+    expect(kit.harness.conversationOf(thread)).toBeTruthy();
+    await kit.restart();
+    expect(kit.bot.listChannels().some((c) => c.channel.id === channel.id)).toBe(false);
+    expect(kit.harness.conversationOf(thread)).toBeUndefined();
+    expect(kit.harness.conversationOf(channel.conversationId)).toBeUndefined();
+    const saved = JSON.parse(await fs.readFile(kit.home.channelsFile, 'utf8')) as { channels: { id: string }[]; deletedChannels?: string[] };
+    expect(saved.channels.map((c) => c.id)).not.toContain(channel.id);
+    expect(saved.deletedChannels).toBeUndefined();
+  });
+});
+
 describe('a delivery held for "continue" goes stale', () => {
   /** 盘上为这条任务留着的那一份（`held/<id>.json`）。 */
   async function heldFiles(id: Id): Promise<string[]> {

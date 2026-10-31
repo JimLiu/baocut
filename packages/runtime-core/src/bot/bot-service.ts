@@ -143,6 +143,8 @@ export interface MakeGenerator {
 export interface BotSchedules {
   createForChannel(params: { channel: Channel; name: string; cadence: unknown; template: WorkItemTemplate; accessMode: AgentMode | null }): Promise<Id>;
   countForChannel(channelId: Id): number;
+  /** 删除频道时一并删掉它的定时任务（删除确认里数过的那些）。 */
+  deleteForChannel(channelId: Id): Promise<void>;
   nextForStatus(): { scheduleId: Id; name: string; nextAt: string }[];
   channelChanged(channelId: Id): void;
   workItemChanged(item: WorkItem): void;
@@ -342,6 +344,8 @@ export class BotService {
     this.#unsubscribe.push(() => agents.unsubscribe?.());
     // 接力（§6.3）之后、下一个协调者回合之前重启：接力要补的上下文只记在内存里，按会话记录找回来。
     for (const channel of this.#channels.list()) if (this.#handoffWaiting(channel.conversationId)) this.#handoffPending.add(channel.conversationId);
+    // 上次删频道没清干净（中途崩溃或某一步失败）：先接着清，再对账。
+    for (const id of this.#channels.tombstones()) await this.#purgeChannel(id);
     await this.#reconcile();
     this.#armOneShot();
     this.#armWatchdog();
@@ -860,17 +864,40 @@ export class BotService {
     }
     for (const item of items) {
       if (item.status === 'active' && item.threadId) await this.#stopThread(item).catch(() => {});
-      if (item.threadId) await this.#harness.deleteConversation(item.threadId, { internal: BOT_INTERNAL }).catch(() => {});
+    }
+    // 先把频道从列表里拿掉并记下 id（一次写入）：之后哪一步崩了，重启时照记下的接着清，不会留下一个半删的频道。
+    await this.#channels.markDeleted(id);
+    for (const item of items) {
       this.#items.delete(item.id);
+      this.#needsYou.delete(item.id);
+      this.#queuedBriefs.delete(item.id);
       for (const r of [...this.#reports.values()]) if (r.workItemId === item.id) this.#reports.delete(r.id);
     }
-    await this.#harness.deleteConversation(channel.conversationId, { internal: BOT_INTERNAL }).catch(() => {});
-    await this.#store.deleteChannel(id);
-    await this.#files.remove(id);
-    await this.#channels.remove(id);
     this.#transitions.delete(id);
     this.#channelsTopic.publish({ type: 'channel.removed', id });
-    this.#schedules?.channelChanged(id);
+    await this.#purgeChannel(id, [channel.conversationId, ...items.flatMap((i) => (i.threadId ? [i.threadId] : []))]);
+  }
+
+  /**
+   * 清掉删了的频道留下的东西：定时任务、频道对话与线程会话、任务存储、频道文件夹。都清完才去掉记下的 id；有一步失败的
+   * 留着，下次启动再清（`start`）。`known` 是已知属于它的会话，目录里标着这个频道的会话也一并删。
+   */
+  async #purgeChannel(id: Id, known: readonly Id[] = []): Promise<void> {
+    try {
+      await this.#schedules?.deleteForChannel(id);
+      this.#schedules?.channelChanged(id);
+      const ids = new Set(known);
+      for (const c of this.#harness.directorySnapshot().conversations) if (c.channelId === id) ids.add(c.id);
+      for (const conversationId of ids) {
+        if (!this.#harness.conversationOf(conversationId)) continue;
+        await this.#harness.deleteConversation(conversationId, { internal: BOT_INTERNAL });
+      }
+      await this.#store.deleteChannel(id);
+      await this.#files.remove(id);
+      await this.#channels.clearTombstone(id);
+    } catch (error) {
+      this.#log.warn('Cleaning up a deleted channel failed; will retry at the next start', { channelId: id, error: String(error) });
+    }
   }
 
   async readMemory(id: Id): Promise<{ content: string; version: number }> {
