@@ -99,6 +99,8 @@ export async function carryTaskFiles(options: { fromDir: string; toDir: string; 
   };
   try {
     for (const rel of options.paths) {
+      // 经符号链接出了原频道文件夹的不搬：搬走的是外面的文件。
+      if (!(await realInside(fromDir, rel))) continue;
       const src = path.join(fromDir, rel);
       const stat = await fs.stat(src).catch(() => null);
       if (!stat?.isFile()) continue;
@@ -116,6 +118,8 @@ export async function carryTaskFiles(options: { fromDir: string; toDir: string; 
         target = await freeName(toDir, rel, taken);
         dest = path.join(toDir, target);
       }
+      // 新频道里同一路径经符号链接指到外面：不往外面写，留在原处。
+      if (!(await realInside(toDir, target))) continue;
       taken.add(target);
       await fs.mkdir(path.dirname(dest), { recursive: true });
       if (options.shared.has(rel)) {

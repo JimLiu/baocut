@@ -279,6 +279,33 @@ describe('moving a task', () => {
     await expect(fs.access(path.join(dir, 'mine.txt'))).rejects.toThrow();
   });
 
+  it('moving a task does not carry a file reached through a symlink out of the channel folder, nor write through one in the new channel', async () => {
+    const fromDir = kit.bot.filesDir(kit.main.id);
+    await fs.mkdir(fromDir, { recursive: true });
+    const outside = path.join(kit.dir, 'outside-move');
+    const outsideTarget = path.join(kit.dir, 'outside-target');
+    await fs.mkdir(outside, { recursive: true });
+    await fs.mkdir(outsideTarget, { recursive: true });
+    await fs.writeFile(path.join(outside, 'source.txt'), 'keep me here');
+    await fs.symlink(outside, path.join(fromDir, 'linked'), 'dir');
+    await fs.mkdir(path.join(fromDir, 'out'), { recursive: true });
+    await fs.writeFile(path.join(fromDir, 'out', 'cut.txt'), 'own output');
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Draft captions', owner: 'user' });
+    await kit.bot.patchItemContent(item.id, (i) => ({ ...i, files: [path.join('linked', 'source.txt'), path.join('out', 'cut.txt')] }), false);
+    const target = await kit.bot.createChannel({ name: 'Captions' });
+    const toDir = kit.bot.filesDir(target.id);
+    await fs.mkdir(toDir, { recursive: true });
+    // 新频道的 out 指到外面：任务的 out/cut.txt 不能经它写出去。
+    await fs.symlink(outsideTarget, path.join(toDir, 'out'), 'dir');
+
+    await kit.bot.moveItem(item.id, target.id);
+
+    expect(await fs.readFile(path.join(outside, 'source.txt'), 'utf8')).toBe('keep me here');
+    await expect(fs.access(path.join(toDir, 'linked'))).rejects.toThrow();
+    expect(await fs.readdir(outsideTarget)).toEqual([]);
+    expect(await fs.readFile(path.join(fromDir, 'out', 'cut.txt'), 'utf8')).toBe('own output');
+  });
+
   it('BOT-EX-20 deleting a task record tells the schedules, so a run that created the task can close', async () => {
     const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Weekly recap', owner: 'user' });
     const plan = await kit.bot.deleteRecord(item.id, true);
