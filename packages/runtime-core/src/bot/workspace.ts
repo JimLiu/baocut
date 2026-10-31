@@ -124,6 +124,7 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
         case 'export': {
           const record = job(evidence.exportId);
           if (!record) return `export ${evidence.exportId} not found`;
+          if (record.kind !== 'export') return `job ${evidence.exportId} is a ${record.kind} job, not an export`;
           if (record.videoId && record.videoId !== evidence.videoId) return 'the export belongs to another video';
           if (!ofItem(record) && !itemVideos.has(evidence.videoId)) return `export ${evidence.exportId} was not made by this task's thread or from one of its videos`;
           if (record.state !== 'completed') return `export ${evidence.exportId} is ${record.state}`;

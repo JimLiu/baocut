@@ -435,6 +435,45 @@ describe('channel access ceiling (§14.4)', () => {
     expect(modes.at(-1)).toBe('plan');
   });
 
+  it('a user reply held behind a turn that then asks for review takes the task back to working when the reply runs', async () => {
+    await kit.close();
+    kit = await BotKit.open({ steer: false });
+    let first: TurnContext['turn'] | null = null;
+    let report!: () => void;
+    const reportNow = new Promise<void>((resolve) => (report = resolve));
+    let reported = false;
+    const second: { ok: boolean }[] = [];
+    kit.thread = async (ctx) => {
+      if (!first) {
+        first = ctx.turn;
+        ctx.turn.hold();
+        await reportNow;
+        await ctx.call('thread_report', { stop: 'needs-review', headline: 'The intro is trimmed.' });
+        reported = true;
+        return;
+      }
+      second.push(await ctx.tryCall('thread_report', { stop: 'needs-review', headline: 'The intro is shorter now.' }));
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Trim the intro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => first);
+    // 回合停着、不能插话：用户的回复排在后面；这一回合接着报告了「待审阅」才结束。
+    kit.coordinator = kit.once((ctx) => ctx.call('thread_relay', { workItemId: item.id, citedMessageIds: [userMsg(ctx)] })).script;
+    await kit.send(main(), 'Make it shorter');
+    await kit.until(() => kit.items(kit.threadOf(item.id)).some((i) => i.kind === 'relay'));
+    await kit.until(() => kit.harness.conversationOf(main())?.activity === 'idle');
+    expect(kit.item(item.id).active?.state).toBe('working');
+    report();
+    await kit.until(() => reported);
+    expect(kit.item(item.id).active?.state).toBe('needsReview');
+    first!.complete();
+    await kit.until(() => second.length === 1);
+    await kit.settle();
+    expect(second[0]!.ok).toBe(true);
+    expect(kit.item(item.id).active?.state).toBe('needsReview');
+    expect(kit.bot.getItem(item.id).reports.map((r) => r.headline)).toEqual(['The intro is trimmed.', 'The intro is shorter now.']);
+  });
+
   it('a channel default above the ceiling is capped on the coordinator; raising the ceiling brings the default back', async () => {
     await kit.bot.updateChannel(kit.main.id, { maxAccessMode: 'plan' });
     await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'auto' });

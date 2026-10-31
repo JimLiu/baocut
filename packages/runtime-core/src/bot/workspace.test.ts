@@ -41,9 +41,9 @@ describe('video-version evidence', () => {
 });
 
 describe('evidence must belong to the task (§7.5)', () => {
-  const done = (videoId: string | null, submitter: string) =>
-    ({ state: 'completed', attempt: 1, createdAt: '2026-10-02T00:00:00.000Z', videoId, submitter: { kind: 'agent', id: submitter, taskId: 't' } }) as unknown as JobRecord;
-  const jobs = { own: done('v2', 'conv_thread'), onVideo: done('v1', 'conv_other'), stray: done('v2', 'conv_other') };
+  const done = (videoId: string | null, submitter: string, kind = 'export') =>
+    ({ kind, state: 'completed', attempt: 1, createdAt: '2026-10-02T00:00:00.000Z', videoId, submitter: { kind: 'agent', id: submitter, taskId: 't' } }) as unknown as JobRecord;
+  const jobs = { own: done('v2', 'conv_thread'), onVideo: done('v1', 'conv_other'), stray: done('v2', 'conv_other'), transcript: done('v1', 'conv_thread', 'transcribe') };
   const ws = workspace(async () => list(3, 'r3', '2026-10-02T00:00:00.000Z'), jobs);
 
   it('accepts a job the thread ran or one on the task video, and rejects a job from another conversation on another video', async () => {
@@ -51,6 +51,13 @@ describe('evidence must belong to the task (§7.5)', () => {
     expect(await ws.verifyEvidence({ kind: 'job', jobId: 'onVideo', attempt: 1 }, item, since)).toBeNull();
     expect(await ws.verifyEvidence({ kind: 'job', jobId: 'stray', attempt: 1 }, item, since)).toMatch(/not run by this task/);
     expect(await ws.verifyEvidence({ kind: 'export', projectId: 'p1', exportId: 'stray', videoId: 'v2' }, item, since)).toMatch(/not made by this task/);
+  });
+
+  it('accepts export evidence only for an export job, not another kind of job on the task video', async () => {
+    expect(await ws.verifyEvidence({ kind: 'export', projectId: 'p1', exportId: 'onVideo', videoId: 'v1' }, item, since)).toBeNull();
+    expect(await ws.verifyEvidence({ kind: 'export', projectId: 'p1', exportId: 'transcript', videoId: 'v1' }, item, since)).toMatch(/not an export/);
+    // 同一个 Job 当作普通 Job 证据仍然算数。
+    expect(await ws.verifyEvidence({ kind: 'job', jobId: 'transcript', attempt: 1 }, item, since)).toBeNull();
   });
 
   it('accepts a new version of a task video or one the thread made, and rejects another video changed elsewhere', async () => {

@@ -962,6 +962,11 @@ export class BotService {
     who: ActorRun,
     startOptions: { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null } = {},
   ): Promise<WorkItem> {
+    // 线程在带着等着的用户回复的回合里调用：先把回复落下，免得它的报告撞上上一回合留下的「待审阅」。
+    if (who.actor === 'thread' && who.run && this.#heldReplies.has(id)) {
+      const taskId = this.#harness.runInfo(who.run.conversationId)?.taskId;
+      if (taskId) await this.#applyHeldReply(id, taskId);
+    }
     const item = this.item(id);
     const channel = this.channel(item.channelId);
     const ctx: MachineContext = {
@@ -1025,6 +1030,14 @@ export class BotService {
     const next: WorkItem = { ...item, status: 'active', active: { state: 'working', reason: null, since: now }, question: null, lastProgressAt: now, updatedAt: now };
     await this.#commit(item, next, [{ workItemId: id, from: stateName(item), to: 'working', actor: 'user', cause: 'user:redirect', note: null, at: now }], []);
     return next;
+  }
+
+  /** 等着的用户回复已经交给了这一回合（不是挡着它的那一回合）：任务转回工作中，只做一次。 */
+  async #applyHeldReply(itemId: Id, runTaskId: Id): Promise<void> {
+    const blocking = this.#heldReplies.get(itemId);
+    if (blocking === undefined || blocking === runTaskId) return;
+    this.#heldReplies.delete(itemId);
+    await this.transition(itemId, { type: 'user-replied' }, { actor: 'system' }).catch(() => {});
   }
 
   /** 刷新（BOT-EX-08）：只投给线程，无人在场。 */
@@ -1333,6 +1346,11 @@ export class BotService {
 
   /** 后台任务放行叫醒、回合已起但还没转回工作中的任务：这段时间也算占着名额。 */
   readonly #jobWaking = new Set<Id>();
+  /**
+   * 等当前回合结束才交的用户回复（Driver 不能插话）：任务 → 挡着它的那个回合。这一回合还可能报告「待审阅」或「需要你」，
+   * 所以等接着的回合开始（或它先报告）时才转回工作中。
+   */
+  readonly #heldReplies = new Map<Id, Id | null>();
 
   /** Harness 空闲叫醒线程之前问这里：线程不在工作中时要有空位、频道没归档、自动化没暂停。 */
   #jobWakeAllowed(conversationId: Id): boolean {
@@ -1780,7 +1798,10 @@ export class BotService {
       note,
       cited,
     });
-    if (outcome.result !== 'dropped' && cited.some((c) => c.author === 'user')) {
+    if (outcome.result === 'held' && cited.some((c) => c.author === 'user')) {
+      // 回合还在跑：这一回合可能还会报告「待审阅」或「需要你」，回复要等接着的那一回合开始时才算数。
+      this.#heldReplies.set(item.id, item.threadId ? (this.#harness.runInfo(item.threadId)?.taskId ?? null) : null);
+    } else if (outcome.result !== 'dropped' && cited.some((c) => c.author === 'user')) {
       await this.transition(item.id, { type: 'user-replied' }, { actor: 'system' }).catch(() => {});
     }
     return outcome.result;
@@ -1921,6 +1942,9 @@ export class BotService {
         // 记下回合开始时频道文件夹的样子：回合结束时比一比，新出现或改过的文件记在这条任务名下（BOT-EX-20）。
         this.#fileSnapshots.set(event.taskId, snapshotFiles(this.#files.filesDir(item.channelId)));
         const info = this.#harness.runInfo(conversation.id);
+        // 等着的用户回复随这一回合交给线程：此时才把任务转回工作中。
+        if (event.origin !== 'user') await this.#applyHeldReply(item.id, event.taskId);
+        else this.#heldReplies.delete(item.id);
         if (event.origin === 'user' && info?.userMessageId) {
           const message = this.#findItem(conversation.id, info.userMessageId);
           const note = message?.kind === 'user-message' ? message.text : undefined;
