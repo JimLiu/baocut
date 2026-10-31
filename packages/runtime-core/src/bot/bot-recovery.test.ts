@@ -443,6 +443,24 @@ describe('first messages', () => {
     expect(chips?.kind === 'suggestions' && chips.chips.some((c) => c.text?.includes('vertical clips for the weekly show'))).toBe(true);
     expect(chips?.kind === 'suggestions' && chips.chips.every((c) => c.kind === 'starter' && c.fillOnly)).toBe(true);
   });
+
+  it('I18: a purpose that already ends with a full stop does not get a second one in the intro', async () => {
+    const intro = (channelId: Id) => {
+      const channel = kit.bot.channel(channelId);
+      const first = kit.items(channel.conversationId).find((i) => i.kind === 'agent-message');
+      return first?.kind === 'agent-message' ? first.text : '';
+    };
+    const english = await kit.bot.createChannel({ name: 'Recaps', purpose: 'Weekly recaps.' });
+    expect(intro(english.id)).toBe(RcBot.channelIntro({ name: 'Recaps', purpose: 'Weekly recaps' }).text);
+    // 全角句号与问号、叹号，以及结尾的空白也去掉。
+    const chinese = await kit.bot.createChannel({ name: 'Zh', purpose: '\u6BCF\u5468\u56DE\u987E\u3002 ' });
+    expect(intro(chinese.id)).toBe(RcBot.channelIntro({ name: 'Zh', purpose: '\u6BCF\u5468\u56DE\u987E' }).text);
+    const asking = await kit.bot.createChannel({ name: 'Ideas', purpose: 'New video ideas!?' });
+    expect(intro(asking.id)).toBe(RcBot.channelIntro({ name: 'Ideas', purpose: 'New video ideas' }).text);
+    // 只有标点的用途按没有用途算。
+    const dots = await kit.bot.createChannel({ name: 'Dots', purpose: '...' });
+    expect(intro(dots.id)).toBe(RcBot.channelIntroNoPurpose({ name: 'Dots' }).text);
+  });
 });
 
 describe('older resolved tasks', () => {

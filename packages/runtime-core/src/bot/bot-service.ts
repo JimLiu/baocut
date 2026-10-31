@@ -754,9 +754,11 @@ export class BotService {
     const id = `welcome_${channel.id}`;
     if (this.#findItem(channel.conversationId, id)) return;
     const purpose = channel.purpose.trim();
-    const text = purpose ? RcBot.channelIntro({ name: channel.name, purpose }).text : RcBot.channelIntroNoPurpose({ name: channel.name }).text;
+    // 介绍句自己带句号：用途结尾的句末标点（含全角的）先去掉，免得出现两个句号。
+    const stated = purpose.replace(/[\s.!?\u2026\u3002\uFF0E\uFF61\uFF01\uFF1F]+$/u, '');
+    const text = stated ? RcBot.channelIntro({ name: channel.name, purpose: stated }).text : RcBot.channelIntroNoPurpose({ name: channel.name }).text;
     this.#harness.writeItem(channel.conversationId, { kind: 'agent-message', id, createdAt: nowIso(), taskId: null, text, streaming: false, fallback: true });
-    const subject = purpose || channel.name;
+    const subject = stated || channel.name;
     this.#writeSuggestions(channel.conversationId, id, 'system', [
       starterChip(RcBot.starterChannelPlan().text, RcBot.starterChannelPlanText({ subject }).text),
       starterChip(RcBot.starterChannelLatest().text, RcBot.starterChannelLatestText({ subject }).text),
