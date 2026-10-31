@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newId, type Id, type ThreadReport, type WorkItem } from '@baocut/protocol';
+import { RcBot } from '@baocut/protocol/messages/runtime-core';
 import { methodParamSchemas } from '@baocut/protocol/schemas';
 import { WorkItemStore } from '@baocut/runtime-storage';
 import type { TrustedPrincipal } from '../gateway.ts';
@@ -344,6 +345,33 @@ describe('the user talks to a thread that is waiting', () => {
     expect(result.ok).toBe(true);
     expect(kit.item(item.id).active?.state).toBe('needsReview');
     expect(kit.bot.getItem(item.id).transitions.map((t) => `${t.cause}->${t.to}`)).toContain('unblocked:user-replied->working');
+  });
+});
+
+describe('first messages', () => {
+  it('I18: the first-run seed turn asks for no greeting and names the interface language before the user has written', async () => {
+    await kit.close();
+    kit = await BotKit.open({ facts: ['project Trailer (3 videos)', '  video teaser.mp4 2:10'] });
+    await kit.settle();
+    const seed = kit.turns(kit.main.conversationId)[0]!;
+    expect(seed).toContain('project Trailer');
+    expect(seed).not.toMatch(/\bgreet them\b/);
+    expect(seed).toMatch(/greeting/);
+    // 测试跑在简体中文界面下（vitest 的 BAOCUT_LOCALE）。
+    expect(seed).toContain('zh-CN');
+  });
+
+  it('I18: a new topic channel opens with its purpose restated and starter chips built from it, not the main channel welcome', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Shorts', purpose: 'vertical clips for the weekly show' });
+    const items = kit.items(channel.conversationId);
+    const first = items.find((i) => i.kind === 'agent-message');
+    expect(first?.kind === 'agent-message' && first.text).toContain('vertical clips for the weekly show');
+    const welcome = RcBot.welcome().text;
+    expect(first?.kind === 'agent-message' && first.text).not.toBe(welcome);
+    const chips = items.filter((i) => i.kind === 'suggestions').at(-1);
+    expect(chips?.kind === 'suggestions' && chips.chips.length).toBeLessThanOrEqual(3);
+    expect(chips?.kind === 'suggestions' && chips.chips.some((c) => c.text?.includes('vertical clips for the weekly show'))).toBe(true);
+    expect(chips?.kind === 'suggestions' && chips.chips.every((c) => c.kind === 'starter' && c.fillOnly)).toBe(true);
   });
 });
 

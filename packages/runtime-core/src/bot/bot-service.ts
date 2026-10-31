@@ -5,6 +5,7 @@ import {
   BOT_LIMITS,
   DEFAULT_BOT_SETTINGS,
   MAIN_CHANNEL_ID,
+  intlLocale,
   RpcError,
   needsUser,
   newId,
@@ -219,6 +220,11 @@ function followUpKind(title: string): string | null {
   for (const word of title.toLowerCase().split(/[^a-z-]+/)) if (word && MAKE_KIND_ALLOW.test(word)) return word;
   for (const [pattern, kind] of FOLLOW_UP_KINDS_CJK) if (pattern.test(title)) return kind;
   return null;
+}
+
+/** 系统写的开头提示：点了只填进输入框，用户改完再发。 */
+function starterChip(label: string, text: string): SuggestionChip {
+  return { id: newId('chip'), label, text, kind: 'starter', kindTag: null, fillOnly: true, recommended: false, answers: null, target: null, action: null };
 }
 
 /**
@@ -623,7 +629,7 @@ export class BotService {
     outputLanguage?: string | null;
   }): Promise<Channel> {
     const channel = await this.#createChannel({ id: newId('chan'), kind: 'topic', ...params, purpose: params.purpose ?? '' });
-    await this.#writeWelcome(channel, false);
+    this.#writeChannelIntro(channel);
     void this.runMake(channel.id, 'channel-created').catch(() => {});
     return channel;
   }
@@ -698,9 +704,15 @@ export class BotService {
       return;
     }
     const block = workspaceFactsBlock(facts);
+    // 第一条消息不是欢迎词（§11.9）：直接说看到了什么、能先做什么，猜错了让用户纠正。用户还没说过话时按界面语言写。
     const text = [
       block,
-      'This is the first time the user opens BaoCut in bot mode. Write one short first message: greet them, say in a sentence what you can see in their workspace, and what you can help with. Then offer two to four starter suggestions with suggest_replies (kind "starter"). Do not create tasks.',
+      [
+        'The user has just turned on bot mode and has not written anything yet. Post one short opening message.',
+        'Skip any greeting or self-introduction. In one or two sentences, name what stands out in the workspace facts above and one useful thing you could do with it, and invite the user to correct you if you read it wrong.',
+        'Then call suggest_replies (kind "starter") with at most three suggestions; make the first one a small task you could finish quickly. Do not create tasks.',
+        `Write in the language with the tag ${intlLocale()}.`,
+      ].join(' '),
     ].join('\n\n');
     const outcome = await this.#harness.deliver({
       id: `seed_${channel.id}`,
@@ -734,6 +746,21 @@ export class BotService {
     await this.#writeWelcome(current, true);
   }
 
+  /** 新频道（不是主频道）的第一条消息（需求 §2.3）：复述这个频道是做什么的，再给不超过三条照着用途写的开头提示。 */
+  #writeChannelIntro(channel: Channel): void {
+    const id = `welcome_${channel.id}`;
+    if (this.#findItem(channel.conversationId, id)) return;
+    const purpose = channel.purpose.trim();
+    const text = purpose ? RcBot.channelIntro({ name: channel.name, purpose }).text : RcBot.channelIntroNoPurpose({ name: channel.name }).text;
+    this.#harness.writeItem(channel.conversationId, { kind: 'agent-message', id, createdAt: nowIso(), taskId: null, text, streaming: false, fallback: true });
+    const subject = purpose || channel.name;
+    this.#writeSuggestions(channel.conversationId, id, 'system', [
+      starterChip(RcBot.starterChannelPlan().text, RcBot.starterChannelPlanText({ subject }).text),
+      starterChip(RcBot.starterChannelLatest().text, RcBot.starterChannelLatestText({ subject }).text),
+      starterChip(RcBot.starterChannelGoal().text, RcBot.starterChannelGoalText().text),
+    ]);
+  }
+
   async #writeWelcome(channel: Channel, withFacts: boolean): Promise<void> {
     const id = `welcome_${channel.id}`;
     if (this.#findItem(channel.conversationId, id)) return;
@@ -742,22 +769,10 @@ export class BotService {
     const videos = facts.filter((f) => f.startsWith('video') || f.startsWith('  video')).length;
     const text = projects ? RcBot.welcomeWithProjects({ projects, videos }).text : RcBot.welcome().text;
     this.#harness.writeItem(channel.conversationId, { kind: 'agent-message', id, createdAt: nowIso(), taskId: null, text, streaming: false, fallback: true });
-    const starter = (label: string, text: string): SuggestionChip => ({
-      id: newId('chip'),
-      label,
-      text,
-      kind: 'starter',
-      kindTag: null,
-      fillOnly: true,
-      recommended: false,
-      answers: null,
-      target: null,
-      action: null,
-    });
     this.#writeSuggestions(channel.conversationId, id, 'system', [
-      starter(RcBot.starterSummarize().text, RcBot.starterSummarizeText().text),
-      starter(RcBot.starterCaptions().text, RcBot.starterCaptionsText().text),
-      starter(RcBot.starterHighlights().text, RcBot.starterHighlightsText().text),
+      starterChip(RcBot.starterSummarize().text, RcBot.starterSummarizeText().text),
+      starterChip(RcBot.starterCaptions().text, RcBot.starterCaptionsText().text),
+      starterChip(RcBot.starterHighlights().text, RcBot.starterHighlightsText().text),
     ]);
   }
 
@@ -3231,9 +3246,11 @@ export class BotService {
     return this.#timeZone();
   }
 
+  /** 用户写东西用的语言：按最近的消息猜；还没写过话时用界面语言（BH-10）。 */
   #language(conversationId: Id): string | null {
     const items = this.#harness.getConversation(conversationId).items;
-    return guessLanguage(items.filter((i) => i.kind === 'user-message').slice(-20).map((i) => (i as { text: string }).text));
+    const texts = items.filter((i) => i.kind === 'user-message').slice(-20).map((i) => (i as { text: string }).text);
+    return texts.length === 0 ? intlLocale() : guessLanguage(texts);
   }
 
   #findItem(conversationId: Id, itemId: Id): TimelineItem | undefined {
