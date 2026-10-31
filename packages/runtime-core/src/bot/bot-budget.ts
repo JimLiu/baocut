@@ -40,6 +40,12 @@ export function threadTaskBudget(item: WorkItem, channel: Channel, spend: Channe
   return { maxCalls: null, cap };
 }
 
+/** 频道今天或本月的额度已经花完（没设额度的不算）。自动触发的 Make 用它决定要不要调模型。 */
+export function channelBudgetSpent(channel: Channel, spend: ChannelSpend | undefined): boolean {
+  const out = (limit: Money | null, spent: Money[]) => !!limit && moneyToMicros(remaining(limit, spent).amount) === 0n;
+  return out(channel.limits.dailyBudget, spend?.day ?? []) || out(channel.limits.monthlyBudget, spend?.month ?? []);
+}
+
 /** 账本记录的金额按币种加起来（只算供应商报告了金额的调用）。 */
 export function sumMoney(amounts: readonly Money[]): Money[] {
   const totals = new Map<string, bigint>();

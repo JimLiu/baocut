@@ -74,7 +74,7 @@ import {
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
 import { carryTaskFiles, changedFiles, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
-import { spendWindow, sumMoney, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
+import { channelBudgetSpent, spendWindow, sumMoney, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { confirmChips, questionChips, questionCount } from './suggestions.ts';
 import { datesSetBy } from './dates-set-by.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
@@ -128,6 +128,8 @@ export interface MakeCandidate {
 }
 
 export interface MakeInput {
+  /** 频道对话的 id：这次调用的用量记在它名下，算进频道的花费与预算。 */
+  conversationId: Id;
   channelName: string;
   purpose: string;
   memory: string;
@@ -3054,7 +3056,7 @@ export class BotService {
 
   /**
    * 自动触发的 Make 能不能跑（§11.3 第 1、4 步）：暂停了全部自动化、频道归档了、今天自动跑满 3 次的不跑；建议名额满了
-   * （这个频道 3 条或全部频道 9 条未处理）的也不跑，记一笔 `shown:0` 带原因，不调模型，也不占当天的次数。
+   * （这个频道 3 条或全部频道 9 条未处理）或频道今天、本月的额度花完了的也不跑，记一笔 `shown:0` 带原因，不调模型，也不占当天的次数。
    */
   async #autoMakeAllowed(channel: Channel, runId: Id, trigger: string): Promise<boolean> {
     // 设置里关了 Make 的自动触发（需求 §11.8）：只剩手动的。
@@ -3064,8 +3066,12 @@ export class BotService {
     const autoToday = runs.filter((r) => r.trigger !== 'manual' && !r.reason && r.at && localDay(new Date(r.at), this.#timeZone()) === today).length;
     if (autoToday >= BOT_LIMITS.makeAutoPerDay) return false;
     const open = [...this.#items.values()].filter((i) => i.status === 'suggested');
-    const reason =
-      open.length >= BOT_LIMITS.pendingSuggestionsTotal
+    // 频道今天或本月的额度花完了：自动触发不再调模型（BOT-NF-04），手动的照常。
+    if (channel.limits.dailyBudget || channel.limits.monthlyBudget) await this.#refreshSpend(channel.id);
+    const budgetSpent = channelBudgetSpent(channel, this.#spend.get(channel.id));
+    const reason = budgetSpent
+      ? 'budget'
+      : open.length >= BOT_LIMITS.pendingSuggestionsTotal
         ? 'global-cap'
         : open.filter((i) => i.channelId === channel.id).length >= BOT_LIMITS.pendingSuggestionsPerChannel
           ? 'channel-cap'
@@ -3117,6 +3123,7 @@ export class BotService {
     let candidates: MakeCandidate[] = [];
     try {
       candidates = await this.#make.suggest({
+        conversationId: channel.conversationId,
         channelName: channel.name,
         purpose: channel.purpose,
         memory,
@@ -3130,6 +3137,9 @@ export class BotService {
       await this.#files.appendMakeRun(channelId, { id: runId, trigger, at: nowIso(), candidates: 0, shown: 0, error: String(error) }).catch(() => {});
       if (manual) throw new RpcError('unsupported', RcBot.makeNoGenerator(), { error: String(error) });
       return { runId, shown: 0 };
+    } finally {
+      // 这次调用记在频道对话名下：头部的花费与剩下的额度跟着更新。
+      await this.#refreshSpend(channelId);
     }
     const shown = await this.suggestItems(
       channelId,

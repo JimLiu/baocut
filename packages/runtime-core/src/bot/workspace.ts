@@ -267,7 +267,6 @@ function lostBaseline(list: VideoVersionList, baseVersion: number, recorded: boo
   return `older versions from while this task ran are no longer kept, so its first change cannot be found`;
 }
 
-/** 记录属于这组会话：直接记了会话，或是会话里的智能体交的 Job。 */
 /** 这笔用量记在哪个会话名下（会话自己调的，或会话里的智能体提交的 Job）；不在这些会话里的返回 null。 */
 function ownerOf(record: UsageRecord, ids: ReadonlySet<Id>, job: (jobId: Id) => JobRecord | undefined): Id | null {
   const conversationId = record.ref?.conversationId;

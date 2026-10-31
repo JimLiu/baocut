@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Channel, Id, WorkItem } from '@baocut/protocol';
-import { spendWindow, sumMoney, threadTaskBudget } from './bot-budget.ts';
+import { channelBudgetSpent, spendWindow, sumMoney, threadTaskBudget } from './bot-budget.ts';
+import { textMakeGenerator } from './make-generator.ts';
+import type { TextGenerator } from '@baocut/models';
 import { BotKit } from './testing/bot-kit.ts';
 
 /* 线程任务的预算上限（技术方案 §14.5）：任务预算与频道今天、本月剩余额度的较小值。 */
@@ -9,6 +11,22 @@ const usd = (amount: string) => ({ amount, currency: 'USD' });
 const channel = (daily: string | null, monthly: string | null) =>
   ({ limits: { concurrentThreads: 3, dailyBudget: daily ? usd(daily) : null, monthlyBudget: monthly ? usd(monthly) : null } }) as Channel;
 const item = (budget: string | null) => ({ overrides: budget ? { accessMode: null, driverId: null, model: null, budget: usd(budget), outputLanguage: null } : null }) as WorkItem;
+
+describe('Make and the channel budget (BOT-NF-04)', () => {
+  it('the allowance counts as spent only when a set daily or monthly limit has nothing left', () => {
+    expect(channelBudgetSpent(channel(null, null), { day: [usd('99')], month: [usd('99')] })).toBe(false);
+    expect(channelBudgetSpent(channel('5', null), { day: [usd('4.99')], month: [] })).toBe(false);
+    expect(channelBudgetSpent(channel('5', null), { day: [usd('5')], month: [] })).toBe(true);
+    expect(channelBudgetSpent(channel(null, '20'), { day: [], month: [usd('21')] })).toBe(true);
+  });
+
+  it('the text call of a Make run is recorded against the channel conversation', async () => {
+    const options: unknown[] = [];
+    const text = { generate: async (_request: unknown, opts: unknown) => (options.push(opts), { text: '{"suggestions":[]}', json: { suggestions: [] } }), stats: () => ({}) } as unknown as TextGenerator;
+    await textMakeGenerator(() => text).suggest({ conversationId: 'conv_main', channelName: 'Main', purpose: '', memory: '', openTasks: [], recentlyResolved: [], userMessages: [], facts: [], language: null });
+    expect(options).toEqual([{ ref: { conversationId: 'conv_main' } }]);
+  });
+});
 
 describe('threadTaskBudget', () => {
   it('no budget anywhere means no cap', () => {

@@ -68,7 +68,7 @@ export function textMakeGenerator(text: () => TextGenerator): MakeGenerator {
         ],
         responseFormat: { type: 'json', schema: SCHEMA as unknown as Record<string, unknown>, name: 'suggestions' },
         maxOutputTokens: 1200,
-      });
+      }, { ref: { conversationId: input.conversationId } });
       const value = (result.json ?? JSON.parse(result.text)) as { suggestions?: unknown };
       if (!Array.isArray(value.suggestions)) return [];
       return value.suggestions

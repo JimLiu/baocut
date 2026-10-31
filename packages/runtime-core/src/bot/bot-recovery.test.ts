@@ -615,4 +615,22 @@ describe('Make filters and limits', () => {
     expect((await kit.bot.runMake(kit.main.id, 'item-resolved')).shown).toBe(1);
     expect(kit.make.inputs).toHaveLength(2);
   });
+
+  it('BOT-NF-04: with the channel allowance used up an automatic run does not call the model; a manual one still does', async () => {
+    const usd = (amount: string) => ({ amount, currency: 'USD' });
+    await kit.bot.updateChannel(kit.main.id, { dailyBudget: usd('2.00') });
+    kit.workspace.spend = { day: [usd('2.00')], month: [usd('2.00')] };
+    kit.make.candidates = [candidate('Add captions', 'add-captions')];
+    expect((await kit.bot.runMake(kit.main.id, 'item-resolved')).shown).toBe(0);
+    expect(kit.make.inputs).toHaveLength(0);
+    kit.workspace.spend = { day: [usd('1.20')], month: [usd('1.20')] };
+    expect((await kit.bot.runMake(kit.main.id, 'item-resolved')).shown).toBe(1);
+    expect(kit.make.inputs).toHaveLength(1);
+    // 额度又花完了，手动点「给我建议」照样跑：用户自己要的。
+    kit.workspace.spend = { day: [usd('2.50')], month: [usd('2.50')] };
+    kit.make.candidates = [candidate('Make chapters', 'chapters')];
+    expect((await kit.bot.runMake(kit.main.id, 'manual')).shown).toBe(1);
+    // 用量记在频道对话名下，才算进频道的花费。
+    expect(kit.make.inputs.map((i) => i.conversationId)).toEqual([kit.main.conversationId, kit.main.conversationId]);
+  });
 });
