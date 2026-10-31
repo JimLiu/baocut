@@ -77,6 +77,22 @@ describe('one-shot timers', () => {
     expect(kit.item(queued.id)).toMatchObject({ status: 'upNext', threadId: null });
   });
 
+  it('a task queued behind the thread limit starts once it is moved to a channel with a free slot', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Later' });
+    await kit.bot.updateChannel(channel.id, { concurrentThreads: 1 });
+    kit.thread = (ctx) => ctx.turn.hold();
+    const first = await kit.bot.createItem({ channelId: channel.id, title: 'Render the long cut', owner: 'agent' });
+    await kit.bot.startItem(first.id, { attended: true });
+    await kit.until(() => kit.item(first.id).threadId && kit.harness.conversationOf(kit.threadOf(first.id))?.activity === 'running');
+    const queued = await kit.bot.createItem({ channelId: channel.id, title: 'Render the short cut', owner: 'agent' });
+    await kit.bot.startItem(queued.id, { attended: true });
+    expect(kit.item(queued.id)).toMatchObject({ status: 'upNext', threadId: null });
+    const free = await kit.bot.createChannel({ name: 'Free' });
+    await kit.bot.moveItem(queued.id, free.id);
+    await kit.until(() => kit.item(queued.id).threadId);
+    expect(kit.item(queued.id)).toMatchObject({ channelId: free.id, status: 'active' });
+  });
+
   it('while automation is paused no timer is armed, and a due item runs when it resumes', async () => {
     const others = kit.clock.timers.size;
     const item = await scheduledIn(kit.main.id, 'Make chapters', 60_000);

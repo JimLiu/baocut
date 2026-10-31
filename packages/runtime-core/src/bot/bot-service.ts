@@ -1434,7 +1434,9 @@ export class BotService {
     note(from.conversationId, `${item.title} → ${to.name}`);
     this.#publishChannel(from);
     this.#publishChannel(to);
-    return next;
+    // 排着队的任务换到有空位的频道：马上看能不能开工，不等别的事来推。
+    await this.#pump();
+    return this.#items.get(id) ?? next;
   }
 
   async revertAll(id: Id, dryRun: boolean, keepUserEdits: boolean): Promise<{ plan: RevertPlan } | { restored: { videoId: Id; version: number }[] }> {
