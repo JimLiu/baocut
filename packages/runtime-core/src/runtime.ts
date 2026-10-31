@@ -1081,6 +1081,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         videos,
         jobs: models.jobs,
         sessionsDirs: [home.scratchDir, ...home.legacyScratchDirs],
+        // Bot 线程按任务资源打开项目里的视频（技术方案 §7.1）。
+        videoProjects: (conversation) => botService.videoProjectsOf(conversation),
       }),
       local: new LocalScope({ harness, videos, jobs: models.jobs, space: () => space, projectsDir: home.projectsDir }),
     });

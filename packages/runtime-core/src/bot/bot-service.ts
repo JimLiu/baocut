@@ -759,6 +759,16 @@ export class BotService {
     };
   }
 
+  /** 线程能打开视频的项目（技术方案 §7.1、BOT-VE-02）：任务资源里的视频所在的项目。cwd 仍是频道文件目录。别的会话没有。 */
+  videoProjectsOf(conversation: Pick<Conversation, 'id' | 'role'>): Id[] {
+    if (conversation.role !== 'thread') return [];
+    const item = this.itemOfThread(conversation.id);
+    if (!item) return [];
+    const ids = new Set<Id>();
+    for (const ref of item.resources) if (ref.kind === 'video' || ref.kind === 'video-range') ids.add(ref.projectId);
+    return [...ids];
+  }
+
   itemOfThread(conversationId: Id): WorkItem | undefined {
     const conversation = this.#harness.conversationOf(conversationId);
     return conversation?.workItemId ? this.#items.get(conversation.workItemId) : undefined;

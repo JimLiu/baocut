@@ -135,3 +135,14 @@ describe('inbox questions', () => {
     await kit.settle();
   });
 });
+
+describe('video access for threads', () => {
+  it('a thread may open the videos in its task resources; the coordinator and other threads may not', async () => {
+    const withVideo = await kit.startTask('Trim episode 4', { resources: [{ kind: 'video', projectId: 'proj_1', videoId: 'video_0123456789abcdef' }] });
+    const plain = await kit.startTask('Write a summary');
+    const thread = kit.harness.conversationOf(kit.threadOf(withVideo.id))!;
+    expect(kit.bot.videoProjectsOf(thread)).toEqual(['proj_1']);
+    expect(kit.bot.videoProjectsOf(kit.harness.conversationOf(kit.threadOf(plain.id))!)).toEqual([]);
+    expect(kit.bot.videoProjectsOf(kit.harness.conversationOf(kit.main.conversationId)!)).toEqual([]);
+  });
+});

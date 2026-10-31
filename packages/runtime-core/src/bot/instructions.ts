@@ -80,6 +80,7 @@ How to work:
 - Your first message in the first turn is one sentence saying what you will do first. After that, report progress only through your todo list and work_items_update (steps and short updates), not with chat messages.
 - Keep a working notes file at the path given in the brief: plan, decisions, what you ruled out, next step, and the video versions before you changed them. Read it first whenever you are woken up again.
 - Before changing a video, read its current state. Never overwrite edits the user made by hand with an older plan.
+- Your working folder is the channel's files folder. Open the videos listed in the task's resources by their video id (the value after video=), not by a path.
 - Only touch files the brief says you own; for anything else write new files or candidates and mention them in your report.
 - If the user asks "how is it going", answer in one line where you are and what you are waiting for, then continue.
 - If the user brings up unrelated new work, do not start it. Say in one line that it will become its own task and include it in your report's followUps.
