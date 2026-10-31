@@ -310,6 +310,10 @@ export const zhHant: BotMessages = {
     pause: '暫停所有自動化',
     pauseDesc: '定時任務與建議會等你恢復後再進行。',
     saveFailed: (message: string) => `沒能儲存：${message}`,
+    makeAuto: 'Make 自動觸發',
+    makeAutoDesc: '新建頻道、任務完成或報告裡有後續時產生建議，每個頻道每天最多 3 次。關掉後只在你手動點時產生。',
+    supplementHints: '補充提示',
+    supplementHintsDesc: '智慧體問「要我……嗎」卻沒給提示時，在問題下面補上「是」「否」。',
   },
   notify: {
     reason: {

@@ -108,6 +108,8 @@ const settingsPatch = z
     background: z.boolean().optional(),
     openAtLogin: z.boolean().optional(),
     automationPaused: z.boolean().optional(),
+    makeAutoTrigger: z.boolean().optional(),
+    supplementHints: z.boolean().optional(),
   })
   .strict();
 

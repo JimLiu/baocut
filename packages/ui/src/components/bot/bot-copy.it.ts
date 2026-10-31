@@ -311,6 +311,10 @@ export const it: BotMessages = {
     pause: 'Metti in pausa tutta l’automazione',
     pauseDesc: 'Attività programmate e suggerimenti aspettano finché non riprendi.',
     saveFailed: (message: string) => `Impossibile salvare: ${message}`,
+    makeAuto: 'Suggerire attività da solo',
+    makeAutoDesc: 'Dopo un nuovo canale, un’attività completata o un rapporto con seguiti, fino a 3 volte al giorno per canale. Disattivato: solo su richiesta.',
+    supplementHints: 'Aggiungere risposte rapide',
+    supplementHintsDesc: 'Quando l’agente chiede «Devo…?» senza offrire risposte, mostra Sì e No sotto.',
   },
   notify: {
     reason: {

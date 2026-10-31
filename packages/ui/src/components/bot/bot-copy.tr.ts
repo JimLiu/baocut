@@ -310,6 +310,10 @@ export const tr: BotMessages = {
     pause: 'Tüm otomasyonu duraklat',
     pauseDesc: 'Zamanlanmış görevler ve öneriler siz devam ettirene kadar bekler.',
     saveFailed: (message: string) => `Kaydedilemedi: ${message}`,
+    makeAuto: 'Görevleri kendiliğinden öner',
+    makeAutoDesc: 'Yeni kanal, biten görev veya devamı olan rapordan sonra, kanal başına günde en çok 3 kez. Kapalıyken yalnızca siz istediğinizde.',
+    supplementHints: 'Hızlı yanıtlar ekle',
+    supplementHintsDesc: 'Ajan yanıt önermeden “…yapayım mı?” diye sorduğunda altında Evet ve Hayır göster.',
   },
   notify: {
     reason: {

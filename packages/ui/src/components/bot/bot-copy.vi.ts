@@ -310,6 +310,10 @@ export const vi: BotMessages = {
     pause: 'Tạm dừng mọi tự động hóa',
     pauseDesc: 'Việc đã lên lịch và đề xuất sẽ chờ đến khi bạn tiếp tục.',
     saveFailed: (message: string) => `Không lưu được: ${message}`,
+    makeAuto: 'Tự đề xuất việc',
+    makeAutoDesc: 'Sau khi tạo kênh mới, xong một việc hoặc có báo cáo kèm bước tiếp, tối đa 3 lần mỗi ngày cho mỗi kênh. Tắt: chỉ khi bạn yêu cầu.',
+    supplementHints: 'Thêm trả lời nhanh',
+    supplementHintsDesc: 'Khi tác tử hỏi “Tôi làm… nhé?” mà không đưa trả lời gợi ý, hiện Có và Không bên dưới.',
   },
   notify: {
     reason: {

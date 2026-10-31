@@ -310,6 +310,10 @@ export const zhHans: BotMessages = {
     pause: '暂停全部自动化',
     pauseDesc: '定时任务与建议会等你恢复后再进行。',
     saveFailed: (message: string) => `没能保存：${message}`,
+    makeAuto: 'Make 自动触发',
+    makeAutoDesc: '新建频道、任务完成或报告里有后续时生成建议，每个频道每天最多 3 次。关掉后只在你手动点时生成。',
+    supplementHints: '补充提示',
+    supplementHintsDesc: '智能体问「要我……吗」却没给提示时，在问题下面补上「是」「否」。',
   },
   notify: {
     reason: {

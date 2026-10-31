@@ -310,6 +310,10 @@ export const ko: BotMessages = {
     pause: '모든 자동화 일시 중지',
     pauseDesc: '예약된 작업과 제안은 다시 시작할 때까지 기다립니다.',
     saveFailed: (message: string) => `저장하지 못했습니다: ${message}`,
+    makeAuto: 'Make 자동 실행',
+    makeAutoDesc: '새 채널, 작업 완료, 후속 작업이 있는 보고 뒤에 제안합니다(채널마다 하루 최대 3번). 끄면 직접 요청할 때만 제안합니다.',
+    supplementHints: '빠른 답장 보충',
+    supplementHintsDesc: '에이전트가 답장 제안 없이 “~할까요?”라고 물으면 질문 아래에 예와 아니요를 보여 줍니다.',
   },
   notify: {
     reason: {

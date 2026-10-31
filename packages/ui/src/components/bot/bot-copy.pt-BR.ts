@@ -311,6 +311,10 @@ export const ptBR: BotMessages = {
     pause: 'Pausar toda a automação',
     pauseDesc: 'Tarefas agendadas e sugestões aguardam até você retomar.',
     saveFailed: (message: string) => `Não foi possível salvar: ${message}`,
+    makeAuto: 'Sugerir tarefas sozinho',
+    makeAutoDesc: 'Depois de um canal novo, uma tarefa concluída ou um relatório com próximos passos, até 3 vezes por dia por canal. Desligado: só quando você pedir.',
+    supplementHints: 'Adicionar respostas rápidas',
+    supplementHintsDesc: 'Quando o agente pergunta “Posso…?” sem oferecer respostas, mostrar Sim e Não abaixo.',
   },
   notify: {
     reason: {

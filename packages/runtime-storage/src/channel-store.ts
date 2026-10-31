@@ -212,5 +212,7 @@ function normalizeSettings(v: unknown): BotSettings {
     background: bool(v.background, d.background),
     openAtLogin: bool(v.openAtLogin, d.openAtLogin),
     automationPaused: bool(v.automationPaused, d.automationPaused),
+    makeAutoTrigger: bool(v.makeAutoTrigger, d.makeAutoTrigger),
+    supplementHints: bool(v.supplementHints, d.supplementHints),
   };
 }

@@ -311,6 +311,10 @@ export const nl: BotMessages = {
     pause: 'Alle automatisering pauzeren',
     pauseDesc: 'Geplande taken en voorstellen wachten tot je hervat.',
     saveFailed: (message: string) => `Opslaan mislukt: ${message}`,
+    makeAuto: 'Zelf taken voorstellen',
+    makeAutoDesc: 'Na een nieuw kanaal, een afgeronde taak of een rapport met vervolgstappen, tot 3 keer per dag per kanaal. Uit: alleen als je erom vraagt.',
+    supplementHints: 'Snelle antwoorden toevoegen',
+    supplementHintsDesc: 'Als de agent „Zal ik…?” vraagt zonder antwoorden aan te bieden, Ja en Nee eronder tonen.',
   },
   notify: {
     reason: {

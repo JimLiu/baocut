@@ -319,6 +319,10 @@ export const pl: BotMessages = {
     pause: 'Wstrzymaj całą automatyzację',
     pauseDesc: 'Zaplanowane zadania i propozycje czekają, aż wznowisz.',
     saveFailed: (message: string) => `Nie udało się zapisać: ${message}`,
+    makeAuto: 'Samodzielnie proponuj zadania',
+    makeAutoDesc: 'Po nowym kanale, ukończonym zadaniu lub raporcie z dalszymi krokami, do 3 razy dziennie na kanał. Wyłączone: tylko na prośbę.',
+    supplementHints: 'Dodawaj szybkie odpowiedzi',
+    supplementHintsDesc: 'Gdy agent pyta „Czy mam…?” bez propozycji odpowiedzi, pokaż pod pytaniem Tak i Nie.',
   },
   notify: {
     reason: {

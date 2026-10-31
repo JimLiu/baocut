@@ -310,6 +310,10 @@ export const ja: BotMessages = {
     pause: 'すべての自動化を一時停止',
     pauseDesc: '定期タスクと提案は再開するまで待ちます。',
     saveFailed: (message: string) => `保存できませんでした：${message}`,
+    makeAuto: 'Make を自動で実行',
+    makeAutoDesc: '新しいチャンネル、タスクの完了、続きのある報告のあとに提案します（チャンネルごとに 1 日 3 回まで）。オフにすると手動のときだけです。',
+    supplementHints: 'クイック返信を補う',
+    supplementHintsDesc: 'エージェントが返信候補なしで「〜しましょうか？」と聞いたとき、「はい」「いいえ」を表示します。',
   },
   notify: {
     reason: {

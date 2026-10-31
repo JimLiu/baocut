@@ -103,6 +103,27 @@ export function questionChips(approvalId: Id, options: { label: string }[]): Sug
   });
 }
 
+/**
+ * 补充提示（§12.1 的 `system` 来源）：消息是一句确认类问句时给「好」「不」两个提示，否则 null。「好」是确认、「不」是拒绝，
+ * 都不推荐，点了发出这句话，只对这一问算数（需求 §7.3）。
+ */
+export function confirmChips(messageText: string, words: { yes: string; no: string }): SuggestionChip[] | null {
+  if (!isConfirmQuestion(messageText)) return null;
+  const chip = (kind: 'confirm' | 'decline', text: string): SuggestionChip => ({
+    id: newId('chip'),
+    label: [...text].slice(0, BOT_LIMITS.chipLabel).join(''),
+    text,
+    kind,
+    kindTag: null,
+    fillOnly: false,
+    recommended: false,
+    answers: null,
+    target: null,
+    action: null,
+  });
+  return [chip('confirm', words.yes), chip('decline', words.no)];
+}
+
 /** 确认类问句（「要我…吗」）：不支持工具的 Driver 的兜底提示用。 */
 export function isConfirmQuestion(text: string): boolean {
   if (questionCount(text) !== 1) return false;

@@ -311,6 +311,10 @@ export const de: BotMessages = {
     pause: 'Alle Automatisierung pausieren',
     pauseDesc: 'Geplante Aufgaben und Vorschläge warten, bis du fortsetzt.',
     saveFailed: (message: string) => `Speichern fehlgeschlagen: ${message}`,
+    makeAuto: 'Aufgaben von selbst vorschlagen',
+    makeAutoDesc: 'Nach einem neuen Kanal, einer erledigten Aufgabe oder einem Bericht mit Folgeschritten, bis zu 3-mal am Tag pro Kanal. Aus: nur auf Anfrage.',
+    supplementHints: 'Schnellantworten ergänzen',
+    supplementHintsDesc: 'Wenn der Agent „Soll ich …?“ fragt, ohne Antworten anzubieten, Ja und Nein darunter zeigen.',
   },
   notify: {
     reason: {

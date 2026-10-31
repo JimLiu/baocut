@@ -364,6 +364,10 @@ export interface BotSettings {
   background: boolean;
   openAtLogin: boolean;
   automationPaused: boolean;
+  /** Make 的自动触发（需求 §6.2 BOT-MK-02、§11.8）：关掉后只有手动「Make」才生成建议。 */
+  makeAutoTrigger: boolean;
+  /** 补充提示（技术方案 §12.1 的 `system` 来源）：智能体没给提示时，Runtime 在「要我……吗」下面补「好」「不」。 */
+  supplementHints: boolean;
 }
 
 export const DEFAULT_BOT_SETTINGS: BotSettings = {
@@ -374,6 +378,8 @@ export const DEFAULT_BOT_SETTINGS: BotSettings = {
   background: true,
   openAtLogin: false,
   automationPaused: false,
+  makeAutoTrigger: true,
+  supplementHints: true,
 };
 
 export type BotNotificationReason = 'needs-review' | 'needs-input' | 'reminder' | 'unattended-approval' | 'stalled';

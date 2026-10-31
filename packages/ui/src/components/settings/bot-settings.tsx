@@ -58,8 +58,8 @@ function ClockField({ label, value, isDisabled, onCommit }: { label: string; val
 }
 
 /**
- * 设置里的 Bot 一节（技术方案 §17、需求 §11.9）：时区、免打扰时段、后台运行与开机启动、卡住判定的分钟数、同时工作的任务数，
- * 以及暂停全部自动化。值来自 `channels` 主题里的 Bot 设置，改动走 `bot.settings`（暂停走 `bot.pauseAutomation`），回来的事件刷新这里。
+ * 设置里的 Bot 一节（技术方案 §17、需求 §11.8）：时区、免打扰时段、后台运行与开机启动、卡住判定的分钟数、同时工作的任务数、
+ * Make 的自动触发、补充提示，以及暂停全部自动化。值来自 `channels` 主题里的 Bot 设置，改动走 `bot.settings`（暂停走 `bot.pauseAutomation`），回来的事件刷新这里。
  */
 export function BotSettings() {
   const runtime = useRuntime();
@@ -158,6 +158,18 @@ export function BotSettings() {
           onChange={(maxConcurrentThreads) =>
             Number.isFinite(maxConcurrentThreads) && maxConcurrentThreads !== settings.maxConcurrentThreads && void save({ maxConcurrentThreads })
           }
+        />
+      </Row>
+      <Row label={C.makeAuto} desc={C.makeAutoDesc}>
+        <Switch aria-label={C.makeAuto} size="S" isSelected={settings.makeAutoTrigger} isDisabled={disabled} onChange={(makeAutoTrigger) => void save({ makeAutoTrigger })} />
+      </Row>
+      <Row label={C.supplementHints} desc={C.supplementHintsDesc}>
+        <Switch
+          aria-label={C.supplementHints}
+          size="S"
+          isSelected={settings.supplementHints}
+          isDisabled={disabled}
+          onChange={(supplementHints) => void save({ supplementHints })}
         />
       </Row>
       <Row label={C.pause} desc={C.pauseDesc}>

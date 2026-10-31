@@ -311,6 +311,10 @@ export const es: BotMessages = {
     pause: 'Pausar toda la automatización',
     pauseDesc: 'Las tareas programadas y las sugerencias esperan hasta que la reanudes.',
     saveFailed: (message: string) => `No se pudo guardar: ${message}`,
+    makeAuto: 'Sugerir tareas por su cuenta',
+    makeAutoDesc: 'Tras un canal nuevo, una tarea terminada o un informe con pasos siguientes, hasta 3 veces al día por canal. Desactivado: solo cuando lo pidas.',
+    supplementHints: 'Añadir respuestas rápidas',
+    supplementHintsDesc: 'Cuando el agente pregunta «¿Lo hago…?» sin ofrecer respuestas, muestra Sí y No debajo.',
   },
   notify: {
     reason: {

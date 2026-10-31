@@ -9,6 +9,9 @@ import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
 import { AwayBanner, useAwayAndSeen } from './channel-view.tsx';
 import { NewTaskDialog } from './task-panel.tsx';
+import { BotSettings } from '../settings/bot-settings.tsx';
+import { useChannels } from '../../state/channels-store.ts';
+import { DEFAULT_BOT_SETTINGS } from '@baocut/protocol';
 
 /*
  * Bot 页组件的行为测试（docs/design/bot-mode 需求 §11）：假的 Runtime 只记下发了哪些 RPC，按方法给出结果。
@@ -134,5 +137,20 @@ describe('你不在时（BOT-BH-08、需求 §11.4）', () => {
     const html = container.innerHTML;
     expect(html.indexOf('旧的')).toBeLessThan(html.indexOf('data-testid="unread"'));
     expect(html.indexOf('data-testid="unread"')).toBeLessThan(html.indexOf('新的'));
+  });
+});
+
+describe('设置里的 Bot 一节（需求 §11.8）', () => {
+  it('有 Make 自动触发与补充提示两个开关，切换时只改这一项', async () => {
+    useChannels.setState({ ready: true, settings: DEFAULT_BOT_SETTINGS });
+    handlers['bot.settings'] = (p) => ({ settings: { ...DEFAULT_BOT_SETTINGS, ...(p.patch as object) } });
+    await render(createElement(BotSettings));
+    const toggle = (label: string) => document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+    expect(toggle('Make 自动触发').checked).toBe(true);
+    expect(toggle('补充提示').checked).toBe(true);
+    await act(async () => toggle('Make 自动触发').click());
+    await act(async () => toggle('补充提示').click());
+    expect(calls('bot.settings')).toEqual([{ patch: { makeAutoTrigger: false } }, { patch: { supplementHints: false } }]);
+    expect(useChannels.getState().settings.supplementHints).toBe(false);
   });
 });

@@ -72,7 +72,7 @@ import {
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
 import { carryTaskFiles, changedFiles, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
 import { spendWindow, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
-import { questionChips, questionCount } from './suggestions.ts';
+import { confirmChips, questionChips, questionCount } from './suggestions.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
 import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
 
@@ -1964,6 +1964,7 @@ export class BotService {
       // 读视频版本要打开视频，不挡住后面的收尾。
       void this.#recordBaselines(item.id);
       this.bindThreadChips(conversation.id, event.taskId);
+      if (event.status === 'completed') this.#supplementChips(conversation.id, event.taskId);
       const info = this.#runStarts.get(event.taskId);
       this.#runStarts.delete(event.taskId);
       if (event.error === 'unattended-needs-approvals') {
@@ -2028,6 +2029,7 @@ export class BotService {
       const last = this.#lastAgentMessageItem(conversation.id, event.taskId);
       if (last) this.#writeSuggestions(conversation.id, last.id, chips.source, chips.chips);
     }
+    if (event.status === 'completed') this.#supplementChips(conversation.id, event.taskId);
     if (reports?.length && !this.#hasAgentMessage(conversation.id, event.taskId) && !this.#hasSuggestions(conversation.id, event.taskId)) {
       this.#fallbackRelay(conversation.id, reports);
     }
@@ -2042,6 +2044,20 @@ export class BotService {
     }
     const stats = this.#harness.generationStats(conversation.id);
     if (stats.compactions >= 3 || stats.turns > 400) await this.#handoff(conversation.id, null);
+  }
+
+  /**
+   * 补充提示（技术方案 §12.1 `system`，需求 §11.8 的开关）：回合结束时智能体没给提示（不支持工具的 Driver 给不了），
+   * 最后一条回复又是「要我……吗」这样的确认问句，就补上「好」「不」。会话里已经有开着的提示、或还有待处理的审批与提问卡时不补。
+   */
+  #supplementChips(conversationId: Id, taskId: Id): void {
+    if (this.settings().supplementHints === false) return;
+    const last = this.#lastAgentMessageItem(conversationId, taskId);
+    if (!last) return;
+    const items = this.#harness.getConversation(conversationId).items;
+    if (items.some((i) => (i.kind === 'suggestions' && i.state === 'open') || (i.kind === 'approval' && i.status === 'pending'))) return;
+    const chips = confirmChips(last.text, { yes: RcBot.reactionYes().text, no: RcBot.reactionNo().text });
+    if (chips) this.#writeSuggestions(conversationId, last.id, 'system', chips);
   }
 
   /** 线程会话的提示条目在回合结束时绑定。 */
@@ -2705,7 +2721,8 @@ export class BotService {
       return { runId, shown: 0 };
     }
     if (!manual) {
-      if (this.settings().automationPaused || channel.archived) return { runId, shown: 0 };
+      // 设置里关了 Make 的自动触发（需求 §11.8）：只剩手动的。
+      if (this.settings().automationPaused || this.settings().makeAutoTrigger === false || channel.archived) return { runId, shown: 0 };
       const runs = (await this.#files.readMakeRuns(channelId).catch(() => [])) as { at?: string; trigger?: string }[];
       const today = localDay(new Date(this.#clock.now()), this.#timeZone());
       const autoToday = runs.filter((r) => r.trigger !== 'manual' && r.at && localDay(new Date(r.at), this.#timeZone()) === today).length;

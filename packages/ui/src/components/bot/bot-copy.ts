@@ -330,6 +330,10 @@ const en = {
     pause: 'Pause all automation',
     pauseDesc: 'Scheduled tasks and suggestions wait until you resume.',
     saveFailed: (message: string) => `Couldn’t save: ${message}`,
+    makeAuto: 'Suggest tasks on their own',
+    makeAutoDesc: 'After a new channel, a finished task or a report with follow-ups, up to 3 times a day per channel. Off: only when you ask.',
+    supplementHints: 'Add quick replies',
+    supplementHintsDesc: 'When the agent asks “Shall I…?” without offering replies, show Yes and No under the question.',
   },
   notify: {
     reason: {

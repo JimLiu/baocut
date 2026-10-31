@@ -311,6 +311,10 @@ export const fr: BotMessages = {
     pause: 'Suspendre toute l’automatisation',
     pauseDesc: 'Les tâches planifiées et les suggestions attendent votre reprise.',
     saveFailed: (message: string) => `Impossible d’enregistrer : ${message}`,
+    makeAuto: 'Suggérer des tâches automatiquement',
+    makeAutoDesc: 'Après un nouveau canal, une tâche terminée ou un rapport avec des suites, jusqu’à 3 fois par jour et par canal. Désactivé : seulement à votre demande.',
+    supplementHints: 'Ajouter des réponses rapides',
+    supplementHintsDesc: 'Quand l’agent demande « Je le fais… ? » sans proposer de réponses, affiche Oui et Non dessous.',
   },
   notify: {
     reason: {
