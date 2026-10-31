@@ -1426,6 +1426,8 @@ export class BotService {
       return;
     }
     const cause = resolved ?? this.#readyToWake.get(current.id) ?? null;
+    // 每一轮等待一个投递 id（等的报告与进入等待的时刻）：同一轮重复叫醒只投一次，再等一轮时不会撞上上一轮的结果。
+    const cycle = `${current.lastReportId ?? 'none'}_${Date.parse(current.active.since) || 0}`;
     this.#readyToWake.delete(current.id);
     await this.transition(current.id, { type: 'unblocked', cause: 'dependency' }, { actor: 'system' }).catch(() => {});
     const woke = this.#items.get(current.id);
@@ -1434,7 +1436,7 @@ export class BotService {
         ? `Task ${cause.id} ("${cause.title}") that you were waiting for is resolved. Check its result and continue.`
         : 'The tasks you were waiting for are resolved. Check their results and continue.';
       await this.#deliverToThread(woke, {
-        id: `deps_${woke.id}_${cause?.id ?? woke.lastReportId ?? 'all'}`,
+        id: `deps_${woke.id}_${cycle}_${cause?.id ?? 'all'}`,
         direction: 'refresh',
         text: refreshBlock('dependency-resolved', [line]),
         origin: 'relay',

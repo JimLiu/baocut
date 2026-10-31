@@ -138,6 +138,29 @@ describe('BOT-S01..S16', () => {
     expect(causes(item.id)).toEqual(expect.arrayContaining(['unblocked:dependency->working', 'report:needs-review->needsReview']));
   });
 
+  it('waiting on the same task a second time (after it was reopened) wakes the thread again', async () => {
+    const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      // 第二回合开始前，用户又把那条任务打开了：线程再等它一轮。
+      if (n === 2) await kit.bot.userTransition(other.id, { type: 'reopen' } as never);
+      if (n <= 2) await ctx.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
+      if (n === 3) await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer has music now.' });
+    };
+    const item = await kit.startTask('Add music to the trailer');
+    expect(state(item.id)).toBe('waitingOnOthers');
+    await kit.bot.userTransition(other.id, { type: 'resolve', evidence: null });
+    await kit.until(() => turns.get(kit.threadOf(item.id)) === 2 && state(item.id) === 'waitingOnOthers');
+    await kit.settle();
+    expect(kit.item(other.id).status).not.toBe('resolved');
+    await kit.bot.userTransition(other.id, { type: 'resolve', evidence: null });
+    await kit.until(() => state(item.id) === 'needsReview');
+    await kit.settle();
+    expect(turns.get(kit.threadOf(item.id))).toBe(3);
+  });
+
   it('a task that was already resolved when the thread reported waiting on it wakes the thread right away', async () => {
     const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
     await kit.bot.userTransition(other.id, { type: 'resolve', evidence: null });
