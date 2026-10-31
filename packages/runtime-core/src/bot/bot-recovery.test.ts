@@ -343,3 +343,34 @@ describe('the user talks to a thread that is waiting', () => {
     expect(kit.bot.getItem(item.id).transitions.map((t) => `${t.cause}->${t.to}`)).toContain('unblocked:user-replied->working');
   });
 });
+
+describe('Make filters and limits', () => {
+  const suggested = () => kit.bot.listItems(kit.main.id).filter((i) => i.status === 'suggested');
+  const candidate = (title: string, kindTag: string) => ({ title, reason: 'Seen in the channel.', kindTag, evidence: [] });
+
+  it('I20: words like "reorder" and "border" pass, while publishing in Chinese or with an inflected verb is dropped', async () => {
+    kit.make.candidates = [
+      // 发布到 B 站 / 上传到 YouTube：外发，不许。
+      candidate('发布到 B 站', 'export'),
+      candidate('上传到 YouTube', 'export'),
+      candidate('Shorts posted to the channel', 'shorts'),
+      candidate('Reorder the chapters', 'chapters'),
+      candidate('Add a border to the thumbnail', 'add-border'),
+    ];
+    const run = await kit.bot.runMake(kit.main.id, 'manual');
+    expect(run.shown).toBe(2);
+    expect(suggested().map((i) => i.title).sort()).toEqual(['Add a border to the thumbnail', 'Reorder the chapters']);
+  });
+
+  it('I20: an automatic run with the suggestion slots full does not call the model and does not use up a daily run', async () => {
+    kit.make.candidates = [candidate('Trim the intro', 'trim'), candidate('Add captions', 'add-captions'), candidate('Export a vertical cut', 'export')];
+    expect((await kit.bot.runMake(kit.main.id, 'manual')).shown).toBe(3);
+    expect(kit.make.inputs).toHaveLength(1);
+    for (let i = 0; i < 3; i++) expect((await kit.bot.runMake(kit.main.id, 'item-resolved')).shown).toBe(0);
+    expect(kit.make.inputs).toHaveLength(1);
+    for (const item of suggested()) await kit.bot.userTransition(item.id, { type: 'dismiss' });
+    kit.make.candidates = [candidate('Make chapters for the long cut', 'chapters')];
+    expect((await kit.bot.runMake(kit.main.id, 'item-resolved')).shown).toBe(1);
+    expect(kit.make.inputs).toHaveLength(2);
+  });
+});

@@ -185,7 +185,18 @@ const ONE_SHOT_GRACE_MS = 5 * MINUTE;
 const NEEDS_REVIEW_STALE_DAYS = 3;
 /** 建议任务默认的「本地、可撤销」类别（§11.3 第 4 步的白名单）。 */
 const MAKE_KIND_ALLOW = /^(derive-|add-|translate|transcribe|export|tidy|cleanup|chapters|highlights|summar|review|caption|subtitle|cut|trim|shorts|thumbnail|title|organize|rename|fix-)/;
-const MAKE_KIND_DENY = /(publish|upload|post|send|share|buy|pay|order|dub-online|clone)/;
+/**
+ * 建议里不许有的事：花钱、外发、发布、克隆声音。英文按整词（带常见词形）比，免得「reorder」「add border」被误拦；
+ * 中文没有词界，按词直接找（发布、上传、发送、分享、购买、付款、支付、下单、克隆、投稿、推送、发帖、公开）。
+ */
+const MAKE_DENY_WORDS =
+  /\b(?:publish(?:es|ed|ing)?|upload(?:s|ed|ing)?|post(?:s|ed|ing)?(?!-)|send(?:s|ing)?|sent|shar(?:e|es|ed|ing)|buy(?:s|ing)?|bought|pay(?:s|ing|ment|ments)?|paid|order(?:s|ed|ing)?|purchas(?:e|es|ed|ing)|clon(?:e|es|ed|ing)|dub-online)\b/;
+const MAKE_DENY_CJK = /发布|上传|发送|分享|购买|付款|支付|下单|克隆|投稿|推送|发帖|公开/;
+
+function makeDenied(text: string): boolean {
+  const lower = text.toLowerCase();
+  return MAKE_DENY_WORDS.test(lower) || MAKE_DENY_CJK.test(lower);
+}
 
 type ActorRun = { actor: BotActor; run?: MachineRun | null; citedUserTyped?: boolean; confirmedIsTyped?: boolean; evidenceVerified?: boolean };
 
@@ -2843,7 +2854,7 @@ export class BotService {
     for (const candidate of candidates) {
       if (made.length >= 3 || channelOpen() >= BOT_LIMITS.pendingSuggestionsPerChannel) break;
       const tag = candidate.kindTag.toLowerCase();
-      if (MAKE_KIND_DENY.test(tag) || MAKE_KIND_DENY.test(candidate.title.toLowerCase())) continue;
+      if (makeDenied(tag) || makeDenied(candidate.title)) continue;
       if (tag !== 'follow-up' && !MAKE_KIND_ALLOW.test(tag)) continue;
       if (unwanted.has(tag)) continue;
       const subjectKey = `${tag}:${candidate.evidence.map((e) => JSON.stringify(e)).join('|') || candidate.title.toLowerCase()}`;
@@ -2878,6 +2889,28 @@ export class BotService {
     return made.length;
   }
 
+  /**
+   * 自动触发的 Make 能不能跑（§11.3 第 1、4 步）：暂停了全部自动化、频道归档了、今天自动跑满 3 次的不跑；建议名额满了
+   * （这个频道 3 条或全部频道 9 条未处理）的也不跑，记一笔 `shown:0` 带原因，不调模型，也不占当天的次数。
+   */
+  async #autoMakeAllowed(channel: Channel, runId: Id, trigger: string): Promise<boolean> {
+    if (this.settings().automationPaused || channel.archived) return false;
+    const runs = (await this.#files.readMakeRuns(channel.id).catch(() => [])) as { at?: string; trigger?: string; reason?: string }[];
+    const today = localDay(new Date(this.#clock.now()), this.#timeZone());
+    const autoToday = runs.filter((r) => r.trigger !== 'manual' && !r.reason && r.at && localDay(new Date(r.at), this.#timeZone()) === today).length;
+    if (autoToday >= BOT_LIMITS.makeAutoPerDay) return false;
+    const open = [...this.#items.values()].filter((i) => i.status === 'suggested');
+    const reason =
+      open.length >= BOT_LIMITS.pendingSuggestionsTotal
+        ? 'global-cap'
+        : open.filter((i) => i.channelId === channel.id).length >= BOT_LIMITS.pendingSuggestionsPerChannel
+          ? 'channel-cap'
+          : null;
+    if (!reason) return true;
+    await this.#files.appendMakeRun(channel.id, { id: runId, trigger, at: nowIso(), candidates: 0, shown: 0, reason }).catch(() => {});
+    return false;
+  }
+
   /** Make（§11.3）：收集事实 → 生成 → 过滤 → 落地。 */
   async runMake(channelId: Id, trigger: 'manual' | 'channel-created' | 'item-resolved' | 'thread-report' | 'new-media'): Promise<{ runId: Id; shown: number }> {
     const runId = newId('make');
@@ -2887,13 +2920,7 @@ export class BotService {
       if (manual) throw new RpcError('unsupported', RcBot.makeNoGenerator());
       return { runId, shown: 0 };
     }
-    if (!manual) {
-      if (this.settings().automationPaused || channel.archived) return { runId, shown: 0 };
-      const runs = (await this.#files.readMakeRuns(channelId).catch(() => [])) as { at?: string; trigger?: string }[];
-      const today = localDay(new Date(this.#clock.now()), this.#timeZone());
-      const autoToday = runs.filter((r) => r.trigger !== 'manual' && r.at && localDay(new Date(r.at), this.#timeZone()) === today).length;
-      if (autoToday >= BOT_LIMITS.makeAutoPerDay) return { runId, shown: 0 };
-    }
+    if (!manual && !(await this.#autoMakeAllowed(channel, runId, trigger))) return { runId, shown: 0 };
     const memory = await this.#files.readMemory(channelId).catch(() => '');
     const items = this.#channelItems(channelId);
     const refs: ResourceRef[] = [];
