@@ -32,6 +32,7 @@ const en = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Task not found: ${p.id}`,
+  workItemCursorInvalid: 'The position in the task list is not valid. Load the list again.',
   transitionDenied: (p: { from: string; event: string }) => `This task can't do "${p.event}" while it is ${p.from}.`,
   textHasLinkOrNumber: 'Task text should not contain links, email addresses or long numbers. Put them in resources instead.',
   titleByUser: "You wrote this title, so the agent can't change it.",

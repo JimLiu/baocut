@@ -17,6 +17,7 @@ export const ptBR: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Tarefa não encontrada: ${p.id}`,
+  workItemCursorInvalid: 'A posição na lista de tarefas não é válida. Carregue a lista novamente.',
   transitionDenied: (p: { from: string; event: string }) => `Esta tarefa não pode fazer "${p.event}" enquanto está em ${p.from}.`,
   textHasLinkOrNumber: 'O texto da tarefa não deve ter links, endereços de e-mail nem números longos. Coloque-os nos recursos.',
   titleByUser: 'Você escreveu este título, então o agente não pode alterá-lo.',

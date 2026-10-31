@@ -1,8 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { newId, type Id, type ThreadReport } from '@baocut/protocol';
+import { newId, type Id, type ThreadReport, type WorkItem } from '@baocut/protocol';
+import { methodParamSchemas } from '@baocut/protocol/schemas';
 import { WorkItemStore } from '@baocut/runtime-storage';
+import type { TrustedPrincipal } from '../gateway.ts';
+import { botMethods } from './bot-methods.ts';
 import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
 
 /* 运行期的收尾与恢复：排队、重启对账、报告重投、等后台任务、删除频道等（评审意见的回归测试）。 */
@@ -341,6 +344,39 @@ describe('the user talks to a thread that is waiting', () => {
     expect(result.ok).toBe(true);
     expect(kit.item(item.id).active?.state).toBe('needsReview');
     expect(kit.bot.getItem(item.id).transitions.map((t) => `${t.cause}->${t.to}`)).toContain('unblocked:user-replied->working');
+  });
+});
+
+describe('older resolved tasks', () => {
+  it('I19: workItems.list pages through every resolved task, newest first, past the 20 in the snapshot', async () => {
+    const ids: Id[] = [];
+    for (let i = 0; i < 25; i++) {
+      const item = await kit.bot.createItem({ channelId: kit.main.id, title: `Clip ${i}`, owner: 'user' });
+      await kit.bot.userTransition(item.id, { type: 'resolve', evidence: null });
+      ids.push(item.id);
+    }
+    expect(kit.bot.workItemsSnapshot(kit.main.id).items.filter((i) => i.status === 'resolved')).toHaveLength(20);
+    const list = botMethods(() => kit.bot)['workItems.list'] as (p: unknown, pr: TrustedPrincipal) => Promise<{ items: WorkItem[]; nextCursor: string | null }>;
+    const desktop: TrustedPrincipal = { kind: 'desktop', connectionId: 'ui', name: 'desktop' };
+    const params = (cursor: string | null) => methodParamSchemas['workItems.list'].parse({ channelId: kit.main.id, status: 'resolved', limit: 10, cursor });
+    const seen: Id[] = [];
+    let cursor: string | null = null;
+    let pages = 0;
+    do {
+      const page = await list(params(cursor), desktop);
+      seen.push(...page.items.map((i) => i.id));
+      cursor = page.nextCursor;
+      pages++;
+    } while (cursor && pages < 10);
+    expect(pages).toBe(3);
+    expect(seen).toHaveLength(25);
+    expect(new Set(seen)).toEqual(new Set(ids));
+    const at = (id: Id) => kit.item(id).resolution!.at;
+    expect(seen.map(at)).toEqual([...seen.map(at)].sort().reverse());
+    // 不分页时照旧一次给全部。
+    const all = await list({ channelId: kit.main.id }, desktop);
+    expect(all.items.length).toBeGreaterThanOrEqual(25);
+    expect(all.nextCursor).toBeNull();
   });
 });
 

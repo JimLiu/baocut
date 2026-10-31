@@ -14,6 +14,7 @@ export const ko: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `작업을 찾을 수 없습니다: ${p.id}`,
+  workItemCursorInvalid: '작업 목록의 위치가 올바르지 않습니다. 목록을 다시 불러오세요.',
   transitionDenied: (p: { from: string; event: string }) => `이 작업은 ${p.from} 상태에서 "${p.event}"을(를) 할 수 없습니다.`,
   textHasLinkOrNumber: '작업 텍스트에는 링크, 이메일 주소, 긴 숫자를 넣지 마세요. 대신 리소스에 넣으세요.',
   titleByUser: '이 제목은 사용자가 작성했으므로 에이전트가 바꿀 수 없습니다.',

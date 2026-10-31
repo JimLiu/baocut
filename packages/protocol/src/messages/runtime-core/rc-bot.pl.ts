@@ -17,6 +17,7 @@ export const pl: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Nie znaleziono zadania: ${p.id}`,
+  workItemCursorInvalid: 'Pozycja na liście zadań jest nieprawidłowa. Wczytaj listę ponownie.',
   transitionDenied: (p: { from: string; event: string }) => `To zadanie nie może wykonać „${p.event}”, gdy jest w stanie ${p.from}.`,
   textHasLinkOrNumber: 'Tekst zadania nie powinien zawierać linków, adresów e-mail ani długich numerów. Umieść je w zasobach.',
   titleByUser: 'Ten tytuł został napisany przez Ciebie, więc agent nie może go zmienić.',

@@ -1012,6 +1012,26 @@ export class BotService {
     return this.#channelItems(channelId).filter((i) => !status || i.status === status);
   }
 
+  /**
+   * 分页列任务（`workItems.list` 带 `limit` / `cursor`，§11.5）：按解决时间（没解决的按更新时间）从新到旧，同一时刻按 id。
+   * 游标是上一页最后一条的「时间|id」，下一页从它之后开始；新解决的任务不会让后面的页重复或漏掉已经翻过的。
+   */
+  pageItems(channelId: Id, options: { status?: WorkItem['status']; limit?: number; cursor: string | null }): { items: WorkItem[]; nextCursor: string | null } {
+    const limit = Math.min(Math.max(Math.trunc(options.limit ?? 50), 1), 200);
+    const at = (i: WorkItem) => i.resolution?.at ?? i.updatedAt;
+    let after: { at: string; id: string } | null = null;
+    if (options.cursor) {
+      const split = options.cursor.lastIndexOf('|');
+      if (split <= 0) throw new RpcError('invalid-request', RcBot.workItemCursorInvalid());
+      after = { at: options.cursor.slice(0, split), id: options.cursor.slice(split + 1) };
+    }
+    const sorted = this.listItems(channelId, options.status).sort((a, b) => at(b).localeCompare(at(a)) || b.id.localeCompare(a.id));
+    const rest = after ? sorted.filter((i) => at(i) < after.at || (at(i) === after.at && i.id < after.id)) : sorted;
+    const items = rest.slice(0, limit);
+    const last = items.at(-1);
+    return { items, nextCursor: rest.length > limit && last ? `${at(last)}|${last.id}` : null };
+  }
+
   item(id: Id): WorkItem {
     const item = this.#items.get(id);
     if (!item) throw new RpcError('not-found', RcBot.workItemNotFound({ id }));

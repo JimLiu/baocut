@@ -14,6 +14,7 @@ export const ja: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `タスクが見つかりません: ${p.id}`,
+  workItemCursorInvalid: 'タスク一覧の位置が正しくありません。一覧を読み込み直してください。',
   transitionDenied: (p: { from: string; event: string }) => `このタスクは ${p.from} の状態では「${p.event}」を実行できません。`,
   textHasLinkOrNumber: 'タスクのテキストにはリンク、メールアドレス、長い数字を含めないでください。リソースに入れてください。',
   titleByUser: 'このタイトルはあなたが書いたものなので、エージェントは変更できません。',

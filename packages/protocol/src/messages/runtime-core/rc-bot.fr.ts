@@ -17,6 +17,7 @@ export const fr: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Tâche introuvable : ${p.id}`,
+  workItemCursorInvalid: 'La position dans la liste des tâches n’est pas valide. Rechargez la liste.',
   transitionDenied: (p: { from: string; event: string }) => `Cette tâche ne peut pas effectuer « ${p.event} » tant qu’elle est à l’état ${p.from}.`,
   textHasLinkOrNumber: 'Le texte d’une tâche ne doit contenir ni liens, ni adresses e-mail, ni longs numéros. Placez-les plutôt dans les ressources.',
   titleByUser: 'Vous avez écrit ce titre, l’agent ne peut donc pas le modifier.',

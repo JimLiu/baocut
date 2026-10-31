@@ -14,6 +14,7 @@ export const zhHans: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `找不到任务：${p.id}`,
+  workItemCursorInvalid: '任务列表的位置无效，请重新加载列表。',
   transitionDenied: (p: { from: string; event: string }) => `任务处于 ${p.from} 状态时不能执行「${p.event}」。`,
   textHasLinkOrNumber: '任务文字里不要放链接、邮箱地址或长串数字，请放到资源里。',
   titleByUser: '这个标题是你写的，智能体不能改。',

@@ -91,7 +91,15 @@ export interface BotRpcMethods {
   'bot.writeUserMemory': { params: { content: string; ifVersion: number }; result: { content: string; version: number } };
   'bot.settings': { params: { patch?: Partial<BotSettings> }; result: { settings: BotSettings } };
 
-  'workItems.list': { params: { channelId: Id; status?: WorkItem['status'] }; result: { items: WorkItem[] } };
+  /**
+   * 频道的任务。给了 `limit` 或 `cursor` 时分页：按解决时间（没解决的按更新时间）从新到旧，每页最多 `limit` 条（默认 50，
+   * 最多 200）；`nextCursor` 交回来取下一页，没有更多时为 null。不分页时一次给全部，`nextCursor` 为 null。
+   * 界面用 `{ status: 'resolved', limit }` 翻看快照里最近 20 条之外更早解决的任务（§11.5）。
+   */
+  'workItems.list': {
+    params: { channelId: Id; status?: WorkItem['status']; limit?: number; cursor?: string | null };
+    result: { items: WorkItem[]; nextCursor: string | null };
+  };
   'workItems.get': { params: { id: Id }; result: { item: WorkItem; transitions: WorkItemTransition[]; reports: ThreadReport[] } };
   'workItems.create': {
     params: {

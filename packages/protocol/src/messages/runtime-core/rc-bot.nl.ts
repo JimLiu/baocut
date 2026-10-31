@@ -17,6 +17,7 @@ export const nl: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Taak niet gevonden: ${p.id}`,
+  workItemCursorInvalid: 'De positie in de takenlijst is ongeldig. Laad de lijst opnieuw.',
   transitionDenied: (p: { from: string; event: string }) => `Deze taak kan '${p.event}' niet uitvoeren in de status ${p.from}.`,
   textHasLinkOrNumber: 'Taaktekst mag geen links, e-mailadressen of lange nummers bevatten. Zet ze in plaats daarvan bij de bronnen.',
   titleByUser: 'Jij hebt deze titel geschreven, dus de agent kan hem niet wijzigen.',

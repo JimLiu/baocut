@@ -17,6 +17,7 @@ export const de: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Aufgabe nicht gefunden: ${p.id}`,
+  workItemCursorInvalid: 'Die Position in der Aufgabenliste ist ungültig. Lade die Liste neu.',
   transitionDenied: (p: { from: string; event: string }) => `Diese Aufgabe kann „${p.event}“ im Zustand ${p.from} nicht ausführen.`,
   textHasLinkOrNumber: 'Aufgabentexte sollten keine Links, E-Mail-Adressen oder langen Zahlen enthalten. Lege sie stattdessen unter Ressourcen ab.',
   titleByUser: 'Diesen Titel hast du geschrieben, deshalb kann der Agent ihn nicht ändern.',

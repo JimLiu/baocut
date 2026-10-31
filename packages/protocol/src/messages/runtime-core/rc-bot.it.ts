@@ -17,6 +17,7 @@ export const it: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Attività non trovata: ${p.id}`,
+  workItemCursorInvalid: 'La posizione nell’elenco delle attività non è valida. Ricarica l’elenco.',
   transitionDenied: (p: { from: string; event: string }) => `Questa attività non può eseguire «${p.event}» mentre è nello stato ${p.from}.`,
   textHasLinkOrNumber: 'Il testo dell’attività non deve contenere link, indirizzi email o numeri lunghi. Mettili invece nelle risorse.',
   titleByUser: 'Questo titolo l’hai scritto tu, quindi l’agente non può modificarlo.',

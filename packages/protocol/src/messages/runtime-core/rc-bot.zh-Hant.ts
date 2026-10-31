@@ -14,6 +14,7 @@ export const zhHant: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `找不到任務：${p.id}`,
+  workItemCursorInvalid: '任務列表的位置無效，請重新載入列表。',
   transitionDenied: (p: { from: string; event: string }) => `任務處於 ${p.from} 狀態時不能執行「${p.event}」。`,
   textHasLinkOrNumber: '任務文字裡不要放連結、電子郵件地址或長串數字，請放到資源裡。',
   titleByUser: '這個標題是你寫的，智慧代理不能改。',

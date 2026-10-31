@@ -14,6 +14,7 @@ export const tr: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Görev bulunamadı: ${p.id}`,
+  workItemCursorInvalid: 'Görev listesindeki konum geçerli değil. Listeyi yeniden yükleyin.',
   transitionDenied: (p: { from: string; event: string }) => `Bu görev ${p.from} durumundayken "${p.event}" işlemini yapamaz.`,
   textHasLinkOrNumber: 'Görev metninde bağlantı, e-posta adresi veya uzun numara olmamalı. Bunları kaynaklara ekleyin.',
   titleByUser: 'Bu başlığı siz yazdınız, bu yüzden ajan değiştiremez.',

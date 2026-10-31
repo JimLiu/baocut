@@ -14,6 +14,7 @@ export const vi: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Không tìm thấy việc: ${p.id}`,
+  workItemCursorInvalid: 'Vị trí trong danh sách việc không hợp lệ. Hãy tải lại danh sách.',
   transitionDenied: (p: { from: string; event: string }) => `Việc này không thể thực hiện "${p.event}" khi đang ở trạng thái ${p.from}.`,
   textHasLinkOrNumber: 'Nội dung việc không nên chứa liên kết, địa chỉ email hay dãy số dài. Hãy đưa chúng vào phần tài nguyên.',
   titleByUser: 'Bạn đã viết tiêu đề này nên agent không thể thay đổi.',

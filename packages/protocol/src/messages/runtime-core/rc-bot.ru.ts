@@ -17,6 +17,7 @@ export const ru: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Задача не найдена: ${p.id}`,
+  workItemCursorInvalid: 'Позиция в списке задач недействительна. Загрузите список заново.',
   transitionDenied: (p: { from: string; event: string }) => `Задача не может выполнить «${p.event}», пока находится в состоянии ${p.from}.`,
   textHasLinkOrNumber: 'В тексте задачи не должно быть ссылок, адресов электронной почты и длинных номеров. Добавьте их в ресурсы.',
   titleByUser: 'Это название написали вы, поэтому агент не может его изменить.',

@@ -142,7 +142,14 @@ export const BOT_PARAM_SCHEMAS = {
   'bot.readUserMemory': empty,
   'bot.writeUserMemory': z.object({ content: z.string().max(BOT_LIMITS.userMemoryBytes * 2), ifVersion: z.number().int().nonnegative() }).strict(),
   'bot.settings': z.object({ patch: settingsPatch.optional() }).strict(),
-  'workItems.list': z.object({ channelId: id, status: z.enum(['suggested', 'upNext', 'scheduled', 'active', 'resolved']).optional() }).strict(),
+  'workItems.list': z
+    .object({
+      channelId: id,
+      status: z.enum(['suggested', 'upNext', 'scheduled', 'active', 'resolved']).optional(),
+      limit: z.number().int().min(1).max(200).optional(),
+      cursor: z.string().max(200).nullable().optional(),
+    })
+    .strict(),
   'workItems.get': z.object({ id }).strict(),
   'workItems.create': z
     .object({
