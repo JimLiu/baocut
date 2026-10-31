@@ -38,11 +38,15 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
    * 撤销计划：任务资源里的每部视频，线程改过的最早一版是基线（回到它开始之前）。基线之后有用户自己的改动（`user_local` 的操作）
    * 时不能只撤智能体的；有别的会话（别的任务、别的对话）的改动时整个回到基线会连它们一起撤掉，这部视频不撤（`others` 里记着）。
    * 线程没改过的视频不列。
+   * 基线优先用任务上记下的（`item.baseVersions`，线程第一次改这部视频后记的）：视频引擎只留最近几版，线程最早的几版可能已经
+   * 清掉了。基线那一版已不在，或没有记下而任务开始后有版本被清掉（分不清线程有没有改过它们），这部视频不撤（`blocked` 里记着），
+   * 不拿后面的一版顶替。
    */
-  const inspect = async (item: WorkItem): Promise<{ plan: RevertPlan; others: Set<Id> }> => {
+  const inspect = async (item: WorkItem): Promise<{ plan: RevertPlan; others: Set<Id>; blocked: Set<Id> }> => {
     const others = new Set<Id>();
+    const blocked = new Set<Id>();
     const threadId = item.threadId;
-    if (!threadId || !deps.openVideo) return { plan: { videos: [] }, others };
+    if (!threadId || !deps.openVideo) return { plan: { videos: [] }, others, blocked };
     const refs = new Map<Id, Id>();
     for (const ref of item.resources) if (ref.kind === 'video' || ref.kind === 'video-range') refs.set(ref.videoId, ref.projectId);
     const videos: RevertPlan['videos'] = [];
@@ -56,8 +60,15 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
         continue;
       }
       const touched = list.versions.filter((v) => v.conversations.some((c) => c.id === threadId));
-      if (!touched.length) continue;
-      const baseVersion = Math.min(...touched.map((v) => v.version));
+      const recorded = item.baseVersions?.find((b) => b.videoId === videoId)?.version ?? null;
+      if (!touched.length && recorded === null) continue;
+      const baseVersion = Math.min(...touched.map((v) => v.version), ...(recorded === null ? [] : [recorded]));
+      const lost = lostBaseline(list, baseVersion, recorded !== null, item.createdAt);
+      if (lost) {
+        blocked.add(videoId);
+        videos.push({ projectId, videoId, baseVersion, userEdits: [], agentOnlyPossible: false, reason: `video ${videoId}: ${lost}` });
+        continue;
+      }
       const since = list.versions.filter((v) => v.version >= baseVersion);
       const userEdits = since
         .filter((v) => v.actions.some((a) => a.actor === 'user_local'))
@@ -78,7 +89,7 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
             : null,
       });
     }
-    return { plan: { videos }, others };
+    return { plan: { videos }, others, blocked };
   };
   const plan = async (item: WorkItem): Promise<RevertPlan> => (await inspect(item)).plan;
   const revertTools = deps.openVideo && deps.restoreVersion ? { openVideo: deps.openVideo, restoreVersion: deps.restoreVersion } : null;
@@ -175,17 +186,26 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       ? {
           revertPlan: plan,
           async revert(item: WorkItem, keepUserEdits: boolean) {
-            const { plan: current, others } = await inspect(item);
+            const { plan: current, others, blocked } = await inspect(item);
             const restored: { videoId: Id; version: number }[] = [];
             for (const video of current.videos) {
               if (!video.baseVersion) continue;
               // 别的会话也改过的视频不整体撤：会连别人的改动一起撤掉。
               if (others.has(video.videoId)) continue;
+              // 任务开始之前的那一版已经不在：回不到，也不拿后面的一版顶替。
+              if (blocked.has(video.videoId)) continue;
               if (keepUserEdits && !video.agentOnlyPossible) continue;
               const version = await revertTools.restoreVersion(video.videoId, video.baseVersion, true);
               if (version !== null) restored.push({ videoId: video.videoId, version });
             }
             return restored;
+          },
+          async baselines(item: WorkItem) {
+            const recorded = new Set((item.baseVersions ?? []).map((b) => b.videoId));
+            const { plan: current, blocked } = await inspect(item);
+            return current.videos
+              .filter((v) => v.baseVersion > 0 && !recorded.has(v.videoId) && !blocked.has(v.videoId))
+              .map((v) => ({ projectId: v.projectId, videoId: v.videoId, version: v.baseVersion }));
           },
           async revertThread(item: WorkItem, to: 'before-thread' | number) {
             if (!item.threadId) return [];
@@ -208,6 +228,23 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       return null;
     },
   };
+}
+
+/**
+ * 回到基线之前要的那一版还在不在。视频引擎从最旧的未命名版本删起（中间删的会并进后一版，归属的会话也一起并过去），
+ * 所以只有最旧的一段会整段消失：最旧的一版不是 1 号，就有版本被清掉了。
+ */
+function lostBaseline(list: VideoVersionList, baseVersion: number, recorded: boolean, taskStart: string | undefined): string | null {
+  const kept = list.versions.map((v) => v.version);
+  if (!kept.length) return null;
+  const oldest = Math.min(...kept, ...list.unreadable);
+  if (baseVersion < oldest) return `version ${baseVersion}, where this task's first change starts, is no longer kept`;
+  if (recorded || oldest <= 1) return null;
+  // 没记下基线：被清掉的版本若有在任务开始之后的，分不清线程是不是从那里开始改的。
+  const first = list.versions.find((v) => v.version === oldest);
+  const startedAt = first ? (first.startedAt ?? first.updatedAt) : undefined;
+  if (taskStart && startedAt && startedAt < taskStart) return null;
+  return `older versions from while this task ran are no longer kept, so its first change cannot be found`;
 }
 
 /** 记录属于这组会话：直接记了会话，或是会话里的智能体交的 Job。 */

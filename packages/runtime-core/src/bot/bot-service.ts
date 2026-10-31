@@ -102,6 +102,8 @@ export interface BotWorkspace {
    * 照样过它的授权、确认与保护范围。
    */
   revertThread?(item: WorkItem, to: 'before-thread' | number): Promise<{ videoId: Id; version: number; before: boolean }[]>;
+  /** 线程第一次改了的视频的基线（还没记在任务上、而且确定的），线程回合结束后记到 `item.baseVersions`，免得之后被清掉。 */
+  baselines?(item: WorkItem): Promise<{ projectId: Id; videoId: Id; version: number }[]>;
   /** 线程等的 Job 是不是挂住了（§9.3 job-hung）：挂住的返回它的名字。 */
   hungJob?(jobIds: readonly Id[]): Promise<string | null>;
   /** 任务合同的用量占预算的比例（0–1），没有预算时 null。 */
@@ -1878,6 +1880,8 @@ export class BotService {
       }
       this.#jobWaking.delete(item.id);
       await this.#recordRunFiles(item.id, event.taskId);
+      // 读视频版本要打开视频，不挡住后面的收尾。
+      void this.#recordBaselines(item.id);
       this.bindThreadChips(conversation.id, event.taskId);
       const info = this.#runStarts.get(event.taskId);
       this.#runStarts.delete(event.taskId);
@@ -2928,6 +2932,26 @@ export class BotService {
     await this.patchItemContent(itemId, (i) => ({ ...i, files: [...new Set([...i.files, ...added])].slice(-1000) }), false).catch((error: unknown) =>
       this.#log.warn('Recording thread files failed', { workItemId: itemId, error: String(error) }),
     );
+  }
+
+  /** 线程这一回合第一次改到的视频：把它开始改之前的那一版记在任务上（撤销用，视频那边只留最近几版）。 */
+  async #recordBaselines(itemId: Id): Promise<void> {
+    const item = this.#items.get(itemId);
+    if (!item || !this.#workspace.baselines || !item.resources.some((r) => r.kind === 'video' || r.kind === 'video-range')) return;
+    try {
+      const found = await this.#workspace.baselines(item);
+      if (!found.length) return;
+      await this.patchItemContent(
+        itemId,
+        (i) => {
+          const have = new Set((i.baseVersions ?? []).map((b) => b.videoId));
+          return { ...i, baseVersions: [...(i.baseVersions ?? []), ...found.filter((b) => !have.has(b.videoId))] };
+        },
+        false,
+      );
+    } catch (error) {
+      this.#log.warn('Recording video baselines failed', { workItemId: itemId, error: String(error) });
+    }
   }
 
   writeWorkItemRef(conversationId: Id, workItemId: Id, ackGroup: Id | null): void {

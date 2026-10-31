@@ -361,6 +361,21 @@ describe('video access for threads', () => {
   });
 });
 
+describe('undo baselines', () => {
+  it('after a thread turn, the version before its first change of each video is kept on the task, and a later turn does not move it', async () => {
+    const video = { kind: 'video', projectId: 'proj_1', videoId: 'video_0123456789abcdef' } as const;
+    kit.workspace.baselineFinds = [{ projectId: 'proj_1', videoId: video.videoId, version: 4 }];
+    const item = await kit.startTask('Trim episode 4', { resources: [video] });
+    await kit.until(() => kit.item(item.id).baseVersions.length === 1);
+    expect(kit.item(item.id).baseVersions).toEqual([{ projectId: 'proj_1', videoId: video.videoId, version: 4 }]);
+
+    kit.workspace.baselineFinds = [{ projectId: 'proj_1', videoId: video.videoId, version: 9 }];
+    await kit.send(kit.threadOf(item.id), 'Trim a bit more');
+    await kit.settle();
+    expect(kit.item(item.id).baseVersions).toEqual([{ projectId: 'proj_1', videoId: video.videoId, version: 4 }]);
+  });
+});
+
 describe('queued tasks across a restart', () => {
   it('a queued task keeps its brief and file ownership when the runtime restarts before it starts', async () => {
     const first = await kit.startTask('Color grade episode 7');

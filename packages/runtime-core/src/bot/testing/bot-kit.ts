@@ -66,6 +66,9 @@ export class FakeWorkspace implements BotWorkspace {
     this.threadReverts.push({ item: item.id, to });
     return [{ videoId: 'vid_1', version: 3, before: true }];
   };
+  /** 线程回合结束后报出的视频基线；已记在任务上的不再报。 */
+  baselineFinds: { projectId: Id; videoId: Id; version: number }[] = [];
+  baselines = async (item: WorkItem) => this.baselineFinds.filter((b) => !(item.baseVersions ?? []).some((x) => x.videoId === b.videoId));
   hungJob = async () => this.hung;
   budgetUsed = () => this.budget;
   /** 频道花费（§14.5）：所有频道都按这个算；`spendAsks` 记下每次被问到的会话。 */

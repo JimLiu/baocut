@@ -150,19 +150,49 @@ describe('reverting a task on real video versions', () => {
     expect(await clean.ws.revertThread!(task, 1)).toEqual([{ videoId: 'v1', version: 1, before: false }]);
     expect(clean.restored).toHaveLength(1);
 
-    const mixed = setup({ v1: [version(2, ['conv_thread'], ['agent:x']), version(3, [], ['user_local'])] });
+    const mixed = setup({ v1: [version(1, [], ['user_local']), version(2, ['conv_thread'], ['agent:x']), version(3, [], ['user_local'])] });
     await expect(mixed.ws.revertThread!(task, 'before-thread')).rejects.toThrow(/own edits/);
     expect(await mixed.ws.revert!(task, true)).toEqual([]);
     expect(await mixed.ws.revert!(task, false)).toEqual([{ videoId: 'v1', version: 99 }]);
   });
 
   it('another conversation changed the video after the thread: neither the thread nor the whole revert wipes those changes', async () => {
-    const shared = setup({ v1: [version(2, ['conv_thread'], ['agent:x']), version(3, ['conv_other'], ['agent:y'])] });
+    const shared = setup({ v1: [version(1, [], ['user_local']), version(2, ['conv_thread'], ['agent:x']), version(3, ['conv_other'], ['agent:y'])] });
     const plan = await shared.ws.revertPlan!(task);
     expect(plan.videos).toEqual([expect.objectContaining({ videoId: 'v1', baseVersion: 2, agentOnlyPossible: false, reason: expect.stringContaining('another conversation') })]);
     await expect(shared.ws.revertThread!(task, 'before-thread')).rejects.toThrow(/another conversation/);
     expect(await shared.ws.revert!(task, false)).toEqual([]);
     expect(shared.restored).toEqual([]);
+  });
+
+  it('the thread\'s first versions were pruned: the task is not undone from a later version instead', async () => {
+    // 线程从 1 号改起，视频只留下 3–5 号：任务开始后有版本被清掉，分不清起点。
+    const started = { ...task, createdAt: '2026-10-01T00:00:00.000Z', baseVersions: [] } as WorkItem;
+    const pruned = setup({ v1: [version(3, ['conv_thread'], ['agent:x']), version(4, ['conv_thread'], ['agent:x']), version(5, ['conv_thread'], ['agent:x'])] });
+    const plan = await pruned.ws.revertPlan!(started);
+    expect(plan.videos).toEqual([expect.objectContaining({ videoId: 'v1', agentOnlyPossible: false, reason: expect.stringContaining('no longer kept') })]);
+    expect(await pruned.ws.revert!(started, false)).toEqual([]);
+    await expect(pruned.ws.revertThread!(started, 'before-thread')).rejects.toThrow(/no longer kept/);
+    expect(await pruned.ws.baselines!(started)).toEqual([]);
+    expect(pruned.restored).toEqual([]);
+
+    // 记下的基线（1 号）已经不在：同样不撤。
+    const recorded = { ...started, baseVersions: [{ projectId: 'p1', videoId: 'v1', version: 1 }] } as WorkItem;
+    expect((await pruned.ws.revertPlan!(recorded)).videos).toEqual([expect.objectContaining({ baseVersion: 1, reason: expect.stringContaining('version 1') })]);
+    expect(await pruned.ws.revert!(recorded, false)).toEqual([]);
+  });
+
+  it('a recorded baseline that is still kept wins over the earliest version left, and pruning before the task does not block', async () => {
+    const started = { ...task, createdAt: '2026-10-03T12:00:00.000Z', baseVersions: [{ projectId: 'p1', videoId: 'v1', version: 4 }] } as WorkItem;
+    // 1–2 号被清掉，但都在任务开始之前；线程在 4 号改起，后面几版里只剩 6 号还标着它（5 号是用户的，已并进去也无妨）。
+    const kept = setup({ v1: [version(3, [], ['user_local']), version(4, [], ['agent:x']), version(6, ['conv_thread'], ['agent:x'])] });
+    expect((await kept.ws.revertPlan!(started)).videos).toEqual([expect.objectContaining({ videoId: 'v1', baseVersion: 4, agentOnlyPossible: true, reason: null })]);
+    expect(await kept.ws.revert!(started, false)).toEqual([{ videoId: 'v1', version: 99 }]);
+    expect(kept.restored).toEqual([{ videoId: 'v1', version: 4, before: true }]);
+
+    // 没记下时，最早还在的一版在任务开始之前：从线程最早的那一版撤，并能把它记下来。
+    const fresh = { ...started, baseVersions: [] } as WorkItem;
+    expect(await kept.ws.baselines!(fresh)).toEqual([{ projectId: 'p1', videoId: 'v1', version: 6 }]);
   });
 
   it('is not offered without a way to open videos and restore versions', () => {
