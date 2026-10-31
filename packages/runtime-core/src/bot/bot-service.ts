@@ -294,9 +294,23 @@ export class BotService {
       if (directoryEvent.type === 'conversation.upsert') this.#onConversation(directoryEvent.conversation);
     });
     this.#unsubscribe.push(() => directory.unsubscribe?.());
+    // 接力（§6.3）之后、下一个协调者回合之前重启：接力要补的上下文只记在内存里，按会话记录找回来。
+    for (const channel of this.#channels.list()) if (this.#handoffWaiting(channel.conversationId)) this.#handoffPending.add(channel.conversationId);
     await this.#reconcile();
     this.#armOneShot();
     this.#armWatchdog();
+  }
+
+  /** 会话最近一次接力之后还没有回合：下一个回合要带上接力的上下文。 */
+  #handoffWaiting(conversationId: Id): boolean {
+    if (!this.#harness.conversationOf(conversationId)) return false;
+    const items = this.#harness.getConversation(conversationId).items;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i]!;
+      if (item.kind === 'task') return false;
+      if (item.kind === 'notice' && item.handoff) return true;
+    }
+    return false;
   }
 
   async stop(): Promise<void> {
@@ -1052,6 +1066,11 @@ export class BotService {
           notesMoved = false;
         });
         await this.#harness.moveThread(item.threadId, { channelId: to.id, cwd: filesDir }, { internal: BOT_INTERNAL });
+        // 新频道的上限（§14.4）也管搬过来的线程：后台任务做完直接叫醒它时不经过发送前的压低，模式要先压下来。
+        const mode = this.#threadMode(item.threadId);
+        if (to.maxAccessMode && mode && rank(mode) > rank(to.maxAccessMode)) {
+          await this.#harness.updateConversation({ conversationId: item.threadId, accessMode: to.maxAccessMode }, { internal: BOT_INTERNAL });
+        }
       } catch (error) {
         // 会话没搬成：笔记与文件搬回原处，任务、会话、笔记与文件仍在原频道。
         if (notesMoved) await fs.rename(newNotes, oldNotes).catch(() => {});

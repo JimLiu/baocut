@@ -112,6 +112,18 @@ describe('moving a task', () => {
     await expect(fs.access(oldNotes)).rejects.toThrow();
   });
 
+  it('a thread moved into a channel with a lower ceiling is lowered to it, so a finished job cannot wake it above the ceiling', async () => {
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'auto' });
+    const item = await kit.startTask('Render the teaser');
+    const threadId = kit.threadOf(item.id);
+    expect(kit.harness.conversationMode(threadId)).toBe('auto');
+    const target = await kit.bot.createChannel({ name: 'Planning' });
+    await kit.bot.updateChannel(target.id, { maxAccessMode: 'plan' });
+    await kit.bot.moveItem(item.id, target.id);
+    expect(kit.harness.conversationOf(threadId)!.accessMode).toBe('plan');
+    expect(kit.harness.conversationMode(threadId)).toBe('plan');
+  });
+
   it('BOT-TK-09 the task files move into the new channel folder and the references follow them', async () => {
     const fromDir = kit.bot.filesDir(kit.main.id);
     await fs.mkdir(fromDir, { recursive: true });

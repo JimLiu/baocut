@@ -514,6 +514,19 @@ describe('BOT-S01..S16', () => {
     expect(after).toContain('rules from memory:');
   });
 
+  it('a restart between a handoff and the next coordinator turn still hands the conversation over', async () => {
+    await kit.coordinatorTurn('Rule: captions are always white', (ctx) =>
+      ctx.call('channel_write_memory', { content: '## Rules\n- Captions are always white (2026-08-01).\n', ifVersion: 0 }),
+    );
+    await kit.bot.updateChannel(kit.main.id, { model: 'other-model' });
+    await kit.restart();
+    const after = await kit.coordinatorTurn('And the caption rule again?', (ctx) => ctx.turn.text);
+    expect(after).toContain('<baocut-channel-handoff>');
+    expect(after).toContain('Rule: captions are always white');
+    const next = await kit.coordinatorTurn('Thanks', (ctx) => ctx.turn.text);
+    expect(next).not.toContain('<baocut-channel-handoff>');
+  });
+
   it('BOT-S14 one message, three jobs, one of them the user\'s own: three tasks, no thread for the user task', async () => {
     const out = await kit.coordinatorTurn('Captions for ep 3, a thumbnail for ep 3, and I need to call the venue', async (ctx) => {
       const m = userMsg(ctx);
