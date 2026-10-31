@@ -97,6 +97,25 @@ describe('a launch held for the user survives a restart', () => {
     expect(turns.at(-1)).toContain('<baocut-thread-brief');
     expect(turns.at(-1)).not.toContain('<baocut-refresh');
   });
+
+  it('a held launch is redelivered under the ceiling as it is now, not the mode saved with it', async () => {
+    await kit.close();
+    kit = await BotKit.open({ approvals: false });
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'fullAccess' });
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice-over for episode 4', owner: 'agent' });
+    await kit.bot.updateItem(item.id, { overrides: { accessMode: 'fullAccess', driverId: null, model: null, budget: null, outputLanguage: null } });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.settle();
+    expect(kit.item(item.id)).toMatchObject({ active: { state: 'needsInput' }, question: { askedBy: 'system' } });
+    // 换成能逐次询问的 Agent 重启（存下的那一份从盘上读回），再把频道上限压到只做计划。
+    await kit.restart({ approvals: true });
+    await kit.bot.updateChannel(kit.main.id, { maxAccessMode: 'plan' });
+    const modes: string[] = [];
+    kit.thread = (ctx) => void modes.push(kit.harness.conversationMode(ctx.conversationId));
+    await kit.bot.userTransition(item.id, { type: 'unblocked', cause: 'user' });
+    await kit.settle();
+    expect(modes).toEqual(['plan']);
+  });
 });
 
 describe('BOT-SF-03 what agents read is data', () => {

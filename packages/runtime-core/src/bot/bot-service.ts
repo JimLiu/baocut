@@ -1342,11 +1342,8 @@ export class BotService {
       userCitations: citations,
       ...(d.reopenTaskId ? { reopenTaskId: d.reopenTaskId } : {}),
     };
-    // 先定下这次实际会用的模式（任务覆盖的，否则线程自己的），再按频道上限压低；没有覆盖时不能直接取上限。
-    const override = item.overrides?.accessMode ?? null;
-    const effective = override ?? this.#threadMode(item.threadId);
-    const capped = minMode(effective, this.channel(item.channelId).maxAccessMode);
-    if (capped && (override || capped !== effective)) delivery.accessMode = capped;
+    const mode = this.#deliveryMode(item);
+    if (mode) delivery.accessMode = mode;
     await this.#refreshSpend(item.channelId);
     this.#expecting.add(item.threadId);
     let outcome;
@@ -1360,6 +1357,18 @@ export class BotService {
       await this.#needsYouToRun(item);
     }
     return { result: outcome.result, reason: outcome.reason };
+  }
+
+  /**
+   * 投给线程时要明确带上的模式：先定下这次实际会用的（任务覆盖的，否则线程自己的），再按频道此刻的上限压低；
+   * 没有覆盖时不能直接取上限。不用明确带（就是线程自己的模式）时为 null。
+   */
+  #deliveryMode(item: WorkItem): AgentMode | null {
+    if (!item.threadId) return null;
+    const override = item.overrides?.accessMode ?? null;
+    const effective = override ?? this.#threadMode(item.threadId);
+    const capped = minMode(effective, this.channel(item.channelId).maxAccessMode);
+    return capped && (override || capped !== effective) ? capped : null;
   }
 
   /** 线程此刻的访问模式（会话设的，否则偏好设置）；读不到时为 null。 */
@@ -1450,7 +1459,10 @@ export class BotService {
     if (held) {
       this.#expecting.add(item.threadId);
       try {
-        await this.#harness.deliver({ ...held, id: `${held.id}_attended`, unattended: false });
+        // 存下之后频道上限或任务的模式可能改过：按现在的重新算，不沿用存下的模式。
+        const { accessMode: _saved, ...rest } = held;
+        const mode = this.#deliveryMode(this.#items.get(item.id) ?? item);
+        await this.#harness.deliver({ ...rest, id: `${held.id}_attended`, unattended: false, ...(mode ? { accessMode: mode } : {}) });
       } finally {
         this.#expecting.delete(item.threadId);
       }
