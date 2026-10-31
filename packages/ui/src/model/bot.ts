@@ -177,7 +177,8 @@ export interface InboxGroup {
  */
 export function inboxRowAction(row: Pick<InboxRow, 'question' | 'approval'>, hasThread: boolean): 'answer' | 'approve' | 'open' {
   if (row.question?.options.length && hasThread) return 'answer';
-  if (row.approval && !row.question?.options.length) return 'approve';
+  // 线程的提问卡（多问、多选）不是授权：没有选项时打开任务去答，不给允许与拒绝。
+  if (row.approval && !row.question?.options.length && row.question?.askedBy !== 'thread') return 'approve';
   return 'open';
 }
 

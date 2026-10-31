@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { newId } from '@baocut/protocol';
+import { newId, type Id } from '@baocut/protocol';
 import { BotKit } from './testing/bot-kit.ts';
 
 /* 一次性定时遇上归档与暂停，任务跨频道移动时线程跟着走（BOT-TK-09）。 */
@@ -94,7 +94,20 @@ describe('moving a task', () => {
 });
 
 describe('inbox questions', () => {
-  it('a question card on a thread carries its question id, so the inbox can answer without opening the thread', async () => {
+  const ratio = (id: string) => ({
+    id,
+    header: 'Format',
+    question: 'Which aspect ratio?',
+    options: [
+      { label: '16:9', description: '' },
+      { label: '9:16', description: '' },
+    ],
+    multiSelect: false,
+    allowOther: false,
+  });
+
+  /** 线程在回合里提一张提问卡，回合停着等回答。 */
+  async function ask(questions: unknown[]) {
     const approvalId = newId('ap');
     let finish: () => void = () => {};
     let asked = false;
@@ -107,31 +120,32 @@ describe('inbox questions', () => {
         type: 'approval.requested',
         turnId: ctx.turn.session.turnId!,
         approvalId,
-        request: {
-          kind: 'question',
-          reason: null,
-          rule: null,
-          questions: [
-            {
-              id: 'q1',
-              header: 'Format',
-              question: 'Which aspect ratio?',
-              options: [
-                { label: '16:9', description: '' },
-                { label: '9:16', description: '' },
-              ],
-              multiSelect: false,
-              allowOther: false,
-            },
-          ],
-        },
+        request: { kind: 'question', reason: null, rule: null, questions },
       } as never);
     };
     const item = await kit.startTask('Cut a short');
     await kit.until(() => kit.item(item.id).question?.approvalId === approvalId);
+    return { item, approvalId, finish: () => finish() };
+  }
+
+  it('a question card on a thread carries its question id, so the inbox can answer without opening the thread', async () => {
+    const { item, approvalId, finish } = await ask([ratio('q1')]);
     expect(kit.item(item.id).question).toMatchObject({ approvalId, questionId: 'q1' });
     expect(kit.bot.inbox().find((r) => r.workItemId === item.id)?.question).toMatchObject({ questionId: 'q1' });
     finish();
+    await kit.settle();
+  });
+
+  it('a card with several questions or a multiple choice offers no one-tap answers; it is answered in the thread', async () => {
+    const { item, finish } = await ask([ratio('q1'), { ...ratio('q2'), question: 'Which length?' }]);
+    expect(kit.item(item.id).question).toMatchObject({ options: [], questionId: null, askedBy: 'thread' });
+    finish();
+    await kit.settle();
+    await kit.close();
+    kit = await BotKit.open();
+    const multi = await ask([{ ...ratio('q1'), multiSelect: true }]);
+    expect(kit.item(multi.item.id).question).toMatchObject({ options: [], questionId: null });
+    multi.finish();
     await kit.settle();
   });
 });
@@ -144,5 +158,27 @@ describe('video access for threads', () => {
     expect(kit.bot.videoProjectsOf(thread)).toEqual(['proj_1']);
     expect(kit.bot.videoProjectsOf(kit.harness.conversationOf(kit.threadOf(plain.id))!)).toEqual([]);
     expect(kit.bot.videoProjectsOf(kit.harness.conversationOf(kit.main.conversationId)!)).toEqual([]);
+  });
+});
+
+describe('queued tasks across a restart', () => {
+  it('a queued task keeps its brief and file ownership when the runtime restarts before it starts', async () => {
+    const first = await kit.startTask('Color grade episode 7');
+    const second = await kit.coordinatorTurn('Also add captions to episode 7', (ctx) =>
+      ctx.call<{ workItemId: Id; queued: boolean }>('thread_start', {
+        create: { title: 'Add captions to episode 7', sourceMessageId: kit.bot.runOf(ctx.conversationId)!.userMessageId!, dependsOn: [first.id] },
+        citedMessageIds: [kit.bot.runOf(ctx.conversationId)!.userMessageId!],
+        brief: 'Use the house caption style.',
+        fileOwnership: 'Only new caption files.',
+      }),
+    );
+    expect(second.queued).toBe(true);
+    await kit.restart();
+    await kit.bot.userTransition(first.id, { type: 'resolve', evidence: null });
+    await kit.until(() => kit.item(second.workItemId).threadId);
+    await kit.settle();
+    const brief = kit.turns(kit.threadOf(second.workItemId))[0]!;
+    expect(brief).toContain('Use the house caption style.');
+    expect(brief).toContain('file ownership: Only new caption files.');
   });
 });

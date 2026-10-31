@@ -959,6 +959,12 @@ export class BotService {
       await this.#harness.moveThread(item.threadId, { channelId: to.id, cwd: filesDir }, { internal: BOT_INTERNAL });
     }
     const next = { ...item, channelId: toChannelId, updatedAt: nowIso() };
+    // 排队任务的开工内容跟着走。
+    const queued = this.#queuedBriefs.get(id) ?? launchFrom(await this.#files.readQueued(from.id, id).catch(() => null));
+    if (queued) {
+      await this.#queueLaunch(next, queued);
+      await this.#files.removeQueued(from.id, id).catch(() => {});
+    }
     // 报告与转换记录跟着任务走：先写进新频道，再从旧频道删（旧频道的 removed 会把它们一起清掉）。
     const reports = [...this.#reports.values()].filter((r) => r.workItemId === id);
     const fromLog = this.#transitions.get(from.id) ?? [];
@@ -1139,13 +1145,31 @@ export class BotService {
       this.#items.set(item.id, queued);
       await this.#store.putItem(item.channelId, queued, { sync: true });
       this.#topicOf(item.channelId).publish({ type: 'work-item.upsert', item: queued });
-      if (options.brief || options.cited?.length) this.#queuedBriefs.set(item.id, options);
+      if (options.brief || options.cited?.length || options.fileOwnership) await this.#queueLaunch(item, options);
       return;
     }
     await this.#openThread(item, options);
   }
 
-  readonly #queuedBriefs = new Map<Id, { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null }>();
+  readonly #queuedBriefs = new Map<Id, LaunchOptions>();
+
+  /** 记下排队任务开工时要带的东西；同时落盘，重启后照样带上（有没有人在场不存：重启后开工就是无人在场）。 */
+  async #queueLaunch(item: WorkItem, options: LaunchOptions): Promise<void> {
+    this.#queuedBriefs.set(item.id, options);
+    const { attended: _attended, ...stored } = options;
+    await this.#files.writeQueued(item.channelId, item.id, stored).catch((error: unknown) =>
+      this.#log.warn('Saving the queued brief failed', { workItemId: item.id, error: String(error) }),
+    );
+  }
+
+  /** 取出并清掉排队任务的开工内容：内存里没有（重启过）时读盘上的。 */
+  async #takeQueued(item: WorkItem): Promise<LaunchOptions> {
+    const inMemory = this.#queuedBriefs.get(item.id);
+    this.#queuedBriefs.delete(item.id);
+    const stored = inMemory ? null : launchFrom(await this.#files.readQueued(item.channelId, item.id).catch(() => null));
+    await this.#files.removeQueued(item.channelId, item.id).catch(() => {});
+    return inMemory ?? stored ?? {};
+  }
 
   #workingCount(channelId?: Id, exclude?: Id): number {
     let n = 0;
@@ -1177,8 +1201,7 @@ export class BotService {
       if (!channel || channel.archived) continue;
       const deps = item.dependsOn.map((d) => this.#items.get(d)).filter((d) => d && d.status !== 'resolved');
       if (deps.length || !this.#slotFree(item.channelId, item.id)) continue;
-      const options = this.#queuedBriefs.get(item.id) ?? {};
-      this.#queuedBriefs.delete(item.id);
+      const options = await this.#takeQueued(item);
       const current = this.#items.get(item.id)!;
       const unmarked = { ...current, reminded: current.reminded.filter((r) => r !== 'queued') };
       this.#items.set(item.id, unmarked);
@@ -1204,7 +1227,16 @@ export class BotService {
 
   // ---- 线程路由（§7、§8） ----
 
-  async #openThread(item: WorkItem, options: { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null }): Promise<void> {
+  async #openThread(item: WorkItem, given: LaunchOptions): Promise<void> {
+    // 排队时记下的开工内容（直接开工、没经过队列时也带上），这次给的优先。
+    const leftover = await this.#takeQueued(item);
+    const options: LaunchOptions = {
+      ...leftover,
+      ...given,
+      brief: [leftover.brief, given.brief].filter(Boolean).join('\n\n') || undefined,
+      cited: [...(leftover.cited ?? []), ...(given.cited ?? [])],
+    };
+    if (!options.brief) delete options.brief;
     const channel = this.channel(item.channelId);
     let threadId = item.threadId;
     if (!threadId || !this.#harness.conversationOf(threadId)) {
@@ -1425,8 +1457,8 @@ export class BotService {
     const cited = this.#citeFrom(channel.conversationId, citedIds);
     if (!item.threadId) {
       // 任务还没线程（排队中）：把补充记在任务上，开工时一起带上。
-      const prev = this.#queuedBriefs.get(item.id) ?? {};
-      this.#queuedBriefs.set(item.id, { ...prev, brief: [prev.brief, note].filter(Boolean).join('\n\n'), cited: [...(prev.cited ?? []), ...cited] });
+      const prev = this.#queuedBriefs.get(item.id) ?? launchFrom(await this.#files.readQueued(item.channelId, item.id).catch(() => null)) ?? {};
+      await this.#queueLaunch(item, { ...prev, brief: [prev.brief, note].filter(Boolean).join('\n\n'), cited: [...(prev.cited ?? []), ...cited] });
       return 'held';
     }
     const key = cited.find((c) => c.author === 'user')?.messageId ?? newId('n');
@@ -2579,18 +2611,43 @@ export function isYesNoQuestion(text: string): boolean {
 }
 
 /** 审批卡或提问卡 → 任务上的问题。 */
+type LaunchOptions = { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null };
+
+/** 盘上的排队开工内容（自己写的，仍按形状核对）；不认识时 null。 */
+function launchFrom(raw: unknown): LaunchOptions | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const out: LaunchOptions = {};
+  if (typeof r.brief === 'string') out.brief = r.brief;
+  if (typeof r.fileOwnership === 'string' || r.fileOwnership === null) out.fileOwnership = r.fileOwnership as string | null;
+  if (Array.isArray(r.cited)) {
+    out.cited = r.cited.filter(
+      (c): c is CitedMessage => !!c && typeof c === 'object' && typeof (c as CitedMessage).messageId === 'string' && typeof (c as CitedMessage).conversationId === 'string',
+    );
+  }
+  return out.brief || out.cited?.length || out.fileOwnership ? out : null;
+}
+
 function approvalQuestion(item: Extract<TimelineItem, { kind: 'approval' }>): WorkItemQuestion {
   if (item.request.kind === 'question' && item.request.questions.length) {
-    const q = item.request.questions[0]!;
+    const questions = item.request.questions;
+    const q = questions[0]!;
+    // 只有一问、单选、选项原样放得下时才能在收件箱与任务详情里一键作答；否则不给选项，打开线程用完整的提问卡回答。
+    const inline =
+      questions.length === 1 &&
+      !q.multiSelect &&
+      q.options.length > 0 &&
+      q.options.length <= BOT_LIMITS.questionOptions &&
+      q.options.every((o) => [...o.label].length <= BOT_LIMITS.optionLabel);
     return {
       text: [...q.question].slice(0, BOT_LIMITS.questionText).join(''),
       kind: 'input',
-      options: q.options.slice(0, BOT_LIMITS.questionOptions).map((o) => ({ label: [...o.label].slice(0, BOT_LIMITS.optionLabel).join(''), description: o.description })),
+      options: inline ? q.options.map((o) => ({ label: o.label, description: o.description })) : [],
       pick: null,
       risky: false,
       askedBy: 'thread',
       approvalId: item.approvalId,
-      questionId: q.id,
+      questionId: inline ? q.id : null,
     };
   }
   const summary =

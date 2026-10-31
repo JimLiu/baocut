@@ -76,3 +76,63 @@ describe('channel spend from the usage ledger', () => {
     expect(workspace(async () => list(1, 'r1', since)).channelSpend).toBeUndefined();
   });
 });
+
+describe('reverting a task on real video versions', () => {
+  const version = (n: number, conversations: string[], actors: string[]) =>
+    ({ version: n, updatedAt: `2026-10-0${n}T00:00:00.000Z`, conversations: conversations.map((id) => ({ id, title: id })), actions: actors.map((actor) => ({ actor, label: 'edit', count: 1 })) }) as unknown;
+  const task = {
+    threadId: 'conv_thread',
+    resources: [
+      { kind: 'video', projectId: 'p1', videoId: 'v1' },
+      { kind: 'video', projectId: 'p1', videoId: 'v2' },
+    ],
+  } as unknown as WorkItem;
+
+  function setup(lists: Record<string, unknown[]>) {
+    const opened: string[] = [];
+    const restored: { videoId: string; version: number; before: boolean; by: unknown }[] = [];
+    const ws = runtimeWorkspace({
+      projects: () => [],
+      videos: () => [],
+      job: () => undefined,
+      versions: async (videoId) => ({ versions: [...(lists[videoId] ?? [])].reverse(), unreadable: [] }) as unknown as VideoVersionList,
+      openVideo: async (_projectId, videoId) => void opened.push(videoId),
+      restoreVersion: async (videoId, n, before, by) => {
+        restored.push({ videoId, version: n, before, by });
+        return 99;
+      },
+    });
+    return { ws, opened, restored };
+  }
+
+  it('the plan starts at the first version the thread made and lists the user edits after it', async () => {
+    const { ws, opened } = setup({
+      v1: [version(1, [], ['user_local']), version(2, ['conv_thread'], ['agent:x']), version(3, [], ['user_local']), version(4, ['conv_thread'], ['agent:x'])],
+      v2: [version(1, ['conv_other'], ['agent:y'])],
+    });
+    const plan = await ws.revertPlan!(task);
+    expect(opened).toEqual(['v1', 'v2']);
+    expect(plan.videos).toEqual([
+      { projectId: 'p1', videoId: 'v1', baseVersion: 2, userEdits: [{ version: 3, at: '2026-10-03T00:00:00.000Z' }], agentOnlyPossible: false, reason: expect.stringContaining('own edits') },
+    ]);
+  });
+
+  it('reverting goes back to just before that version as the user; the thread may only revert its own work', async () => {
+    const clean = setup({ v1: [version(1, [], ['user_local']), version(2, ['conv_thread'], ['agent:x'])] });
+    expect(await clean.ws.revert!(task, false)).toEqual([{ videoId: 'v1', version: 99 }]);
+    expect(clean.restored).toEqual([{ videoId: 'v1', version: 2, before: true, by: { kind: 'user' } }]);
+    expect(await clean.ws.revertThread!(task, 'before-thread')).toEqual([{ videoId: 'v1', version: 99 }]);
+    expect(clean.restored.at(-1)).toEqual({ videoId: 'v1', version: 2, before: true, by: { kind: 'thread', threadId: 'conv_thread' } });
+    await clean.ws.revertThread!(task, 1);
+    expect(clean.restored.at(-1)).toMatchObject({ version: 1, before: false });
+
+    const mixed = setup({ v1: [version(2, ['conv_thread'], ['agent:x']), version(3, [], ['user_local'])] });
+    await expect(mixed.ws.revertThread!(task, 'before-thread')).rejects.toThrow(/own edits/);
+    expect(await mixed.ws.revert!(task, true)).toEqual([]);
+    expect(await mixed.ws.revert!(task, false)).toEqual([{ videoId: 'v1', version: 99 }]);
+  });
+
+  it('is not offered without a way to open videos and restore versions', () => {
+    expect(workspace(async () => list(1, 'r1', since)).revert).toBeUndefined();
+  });
+});

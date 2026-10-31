@@ -1,6 +1,6 @@
 // i18n-ignore-file: facts and evidence reasons for the model (English)
 import path from 'node:path';
-import type { Evidence, Id, JobRecord, Money, Project, ResourceRef, UsageRecord, VideoVersionList, WorkItem } from '@baocut/protocol';
+import type { Evidence, Id, JobRecord, Money, Project, ResourceRef, RevertPlan, UsageRecord, VideoVersionList, WorkItem } from '@baocut/protocol';
 import { sumMoney } from './bot-budget.ts';
 import type { BotWorkspace } from './bot-service.ts';
 
@@ -18,6 +18,12 @@ export interface RuntimeWorkspaceDeps {
   versions: (videoId: Id) => Promise<VideoVersionList>;
   /** 用量账本的全部记录（§14.5 频道花费）；不给时不算频道预算。 */
   usage?: () => Promise<UsageRecord[]>;
+  /**
+   * 整体撤销与线程的「改回去」（BOT-EX-19）：打开视频（读版本、回到版本都要视频开着）与回到某一版。`by` 是谁撤的：用户在任务上点的，
+   * 还是线程自己。不给时不提供撤销。
+   */
+  openVideo?: (projectId: Id, videoId: Id) => Promise<void>;
+  restoreVersion?: (videoId: Id, version: number, before: boolean, by: { kind: 'user' } | { kind: 'thread'; threadId: Id }) => Promise<number | null>;
 }
 
 export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
@@ -28,6 +34,44 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       return undefined;
     }
   };
+  /**
+   * 撤销计划：任务资源里的每部视频，线程改过的最早一版是基线（回到它开始之前）；基线之后有用户自己的改动（`user_local` 的操作）
+   * 时不能只撤智能体的。线程没改过的视频不列。
+   */
+  const plan = async (item: WorkItem): Promise<RevertPlan> => {
+    const threadId = item.threadId;
+    if (!threadId || !deps.openVideo) return { videos: [] };
+    const refs = new Map<Id, Id>();
+    for (const ref of item.resources) if (ref.kind === 'video' || ref.kind === 'video-range') refs.set(ref.videoId, ref.projectId);
+    const videos: RevertPlan['videos'] = [];
+    for (const [videoId, projectId] of refs) {
+      let list: VideoVersionList;
+      try {
+        await deps.openVideo(projectId, videoId);
+        list = await deps.versions(videoId);
+      } catch {
+        videos.push({ projectId, videoId, baseVersion: 0, userEdits: [], agentOnlyPossible: false, reason: `could not read the versions of video ${videoId}` });
+        continue;
+      }
+      const touched = list.versions.filter((v) => v.conversations.some((c) => c.id === threadId));
+      if (!touched.length) continue;
+      const baseVersion = Math.min(...touched.map((v) => v.version));
+      const userEdits = list.versions
+        .filter((v) => v.version >= baseVersion && v.actions.some((a) => a.actor === 'user_local'))
+        .map((v) => ({ version: v.version, at: v.updatedAt }))
+        .sort((a, b) => a.version - b.version);
+      videos.push({
+        projectId,
+        videoId,
+        baseVersion,
+        userEdits,
+        agentOnlyPossible: userEdits.length === 0,
+        reason: userEdits.length ? `video ${videoId} has your own edits since version ${baseVersion}` : null,
+      });
+    }
+    return { videos };
+  };
+  const revertTools = deps.openVideo && deps.restoreVersion ? { openVideo: deps.openVideo, restoreVersion: deps.restoreVersion } : null;
   return {
     async facts() {
       const projects = deps.projects();
@@ -104,6 +148,39 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
               if (record.at >= since.day) day.push(money);
             }
             return { day: sumMoney(day), month: sumMoney(month) };
+          },
+        }
+      : {}),
+    ...(revertTools
+      ? {
+          revertPlan: plan,
+          async revert(item: WorkItem, keepUserEdits: boolean) {
+            const restored: { videoId: Id; version: number }[] = [];
+            for (const video of (await plan(item)).videos) {
+              if (!video.baseVersion) continue;
+              if (keepUserEdits && !video.agentOnlyPossible) continue;
+              const version = await revertTools.restoreVersion(video.videoId, video.baseVersion, true, { kind: 'user' });
+              if (version !== null) restored.push({ videoId: video.videoId, version });
+            }
+            return restored;
+          },
+          async revertThread(item: WorkItem, to: 'before-thread' | number) {
+            const threadId = item.threadId;
+            if (!threadId) return [];
+            const videos = (await plan(item)).videos.filter((v) => v.baseVersion > 0);
+            // 线程自己撤：有用户的改动时不动，由用户在任务上决定（整体撤销可以保留用户的改动）。
+            const mixed = videos.find((v) => !v.agentOnlyPossible);
+            if (mixed) throw new Error(mixed.reason ?? `video ${mixed.videoId} has edits by the user`);
+            if (typeof to === 'number' && videos.length !== 1) throw new Error('a version number only works when the task changed exactly one video');
+            const restored: { videoId: Id; version: number }[] = [];
+            for (const video of videos) {
+              const version =
+                to === 'before-thread'
+                  ? await revertTools.restoreVersion(video.videoId, video.baseVersion, true, { kind: 'thread', threadId })
+                  : await revertTools.restoreVersion(video.videoId, to, false, { kind: 'thread', threadId });
+              if (version !== null) restored.push({ videoId: video.videoId, version });
+            }
+            return restored;
           },
         }
       : {}),

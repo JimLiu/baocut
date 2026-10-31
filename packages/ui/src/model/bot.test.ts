@@ -240,8 +240,8 @@ describe('bot model', () => {
 });
 
 describe('inboxRowAction', () => {
-  const question = (options: string[]) =>
-    ({ text: 'Q', kind: 'input', options: options.map((label) => ({ label, description: null })), pick: null, risky: false, askedBy: 'thread', approvalId: 'ap1' }) as InboxRow['question'];
+  const question = (options: string[], askedBy: 'thread' | 'system' = 'thread') =>
+    ({ text: 'Q', kind: 'input', options: options.map((label) => ({ label, description: null })), pick: null, risky: false, askedBy, approvalId: 'ap1' }) as InboxRow['question'];
   const approval = { approvalId: 'ap1', summary: 'run ffmpeg', cost: null };
 
   it('answers questions with options in place', () => {
@@ -249,8 +249,12 @@ describe('inboxRowAction', () => {
   });
 
   it('gives allow and deny for an authorization wrapped in a question without options', () => {
-    expect(inboxRowAction({ question: question([]), approval }, true)).toBe('approve');
+    expect(inboxRowAction({ question: question([], 'system'), approval }, true)).toBe('approve');
     expect(inboxRowAction({ question: null, approval }, true)).toBe('approve');
+  });
+
+  it('a question card that cannot be answered in one tap opens the task instead of offering allow and deny', () => {
+    expect(inboxRowAction({ question: question([]), approval }, true)).toBe('open');
   });
 
   it('opens the task for open questions and tasks without a thread', () => {

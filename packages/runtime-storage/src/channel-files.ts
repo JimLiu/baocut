@@ -143,6 +143,38 @@ export class ChannelFiles {
     return readLines(path.join(this.dir(channelId), MAKE_RUNS_FILE));
   }
 
+  /**
+   * 排队任务开工时要带的东西（简报、引用、文件归属），按任务存一份 JSON：Runtime 重启后排到它时照样带上。内容是 Runtime 自己
+   * 写的，读出来不认识的形状当没有。
+   */
+  async writeQueued(channelId: Id, workItemId: Id, payload: unknown): Promise<void> {
+    const file = this.#queuedFile(channelId, workItemId);
+    return this.#serial(file, async () => {
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await writeTextAtomic(file, JSON.stringify(payload));
+    });
+  }
+
+  async readQueued(channelId: Id, workItemId: Id): Promise<unknown> {
+    const text = await readText(this.#queuedFile(channelId, workItemId));
+    if (!text) return null;
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  async removeQueued(channelId: Id, workItemId: Id): Promise<void> {
+    const file = this.#queuedFile(channelId, workItemId);
+    return this.#serial(file, () => fs.rm(file, { force: true }));
+  }
+
+  #queuedFile(channelId: Id, workItemId: Id): string {
+    assertSafePathSegment(workItemId, 'work item id');
+    return path.join(this.dir(channelId), 'queued', `${workItemId}.json`);
+  }
+
   /** 删掉整个频道目录（频道文件、记忆、工作笔记都在里面）。 */
   async remove(channelId: Id): Promise<void> {
     const dir = this.dir(channelId);

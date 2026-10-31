@@ -75,7 +75,7 @@ import { GrantTools } from './agent-tools/grant-tools.ts';
 import { ToolCatalog, type ToolSet } from './agent-tools/tool-catalog.ts';
 import type { ToolScope } from './agent-tools/tool-scope.ts';
 import { VideoTools } from './agent-tools/video-tools.ts';
-import { Gateway, originAllowed } from './gateway.ts';
+import { Gateway, originAllowed, type TrustedPrincipal } from './gateway.ts';
 import { createHandlers } from './handlers.ts';
 import { createFileLogger } from './logger.ts';
 import { StorageGc } from './storage-gc.ts';
@@ -405,6 +405,9 @@ class StopSequence {
  * 组装并启动 Runtime（架构设计 §2）：实例锁 → 存储 → Harness → Space 目录 → 网关 → 发现文件。
  * 停止顺序见 `STOP_ORDER`；启动中途失败时，已经起来的服务按同样的顺序停掉，再释放实例锁、关日志，抛出原来的错误。
  */
+/** Bot 替用户打开视频、整体撤销时的身份：算用户本人的操作（版本记录里是 `user_local`）。 */
+const BOT_VIDEO_PRINCIPAL: TrustedPrincipal = { kind: 'desktop', connectionId: 'bot', name: 'bot' };
+
 export async function startRuntime(options: StartRuntimeOptions = {}): Promise<RunningRuntime> {
   const home = options.home ?? resolveRuntimeHome();
   for (const dir of [
@@ -902,8 +905,21 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         projects: () => harness.listProjects(),
         videos: () => space.videos(),
         job: (jobId) => models.jobs.inspect(jobId),
-        versions: (videoId) => videos.listVersions(videoId, 1),
+        versions: (videoId) => videos.listVersions(videoId),
         usage: () => models.readUsage(),
+        // 整体撤销与线程的「改回去」：视频没开着时按项目打开，回到版本记成用户或那条线程的操作。
+        openVideo: async (projectId, videoId) => {
+          if (videos.ref(videoId)) return;
+          const project = harness.listProjects().find((p) => p.id === projectId);
+          const entry = space.videos().find((v) => v.videoId === videoId && v.projectId === projectId);
+          if (!project || !entry) throw new Error(`video ${videoId} is not in project ${projectId}`);
+          await videos.open({ root: project.path, file: entry.dir, scope: { projectId } }, BOT_VIDEO_PRINCIPAL);
+        },
+        restoreVersion: async (videoId, version, before, by) => {
+          const principal: TrustedPrincipal = by.kind === 'thread' ? { kind: 'agent', connectionId: `bot:${by.threadId}`, name: 'bot' } : BOT_VIDEO_PRINCIPAL;
+          const result = await videos.restoreVersion({ videoId, commandId: newId('cmd'), version, ...(before ? { before: true } : {}) }, principal);
+          return result.version;
+        },
       }),
       make: textMakeGenerator(() => models.services.textGenerator()),
       defaults: () => ({ driverId: null, accessMode: null }),
