@@ -462,7 +462,7 @@ interface WorkItemTransition {
 
 - 线程空闲：`conversations.send`（`via: 'typed'`）。任务若在 `needsReview` / `needsInput` / `blocked`，`ActivityBridge` 在 `task.upsert(running)` 时把它转回 `working`，转换记录的 note 写「你回答了：<前 40 字>」（BOT-EX-02）。
 - 线程正忙：先 `conversations.steer`；返回 `unsupported` 时进界面队列（`message-queue-runner.ts`，现有逻辑），界面写明「会在这一步做完后看到」（BOT-EX-03）。
-- 任务已解决：发送时**不**先重开，任务保持已解决，消息照常进线程。线程判断这是对结果的修改时，调用 `work_items_update({ event:{type:'reopen'} })` 再动手；状态机只在这一回合由用户的 typed 消息发起时接受线程的 reopen（§9.2）。只是一句问题时直接回答，任务状态不变（BOT-EX-05、需求 §8.2）。线程没有判断就动手改了东西（写了产物、提交了 Job），`ActivityBridge` 看到产物变化时补一次 reopen，cause 记 `implicit-reopen`。
+- 任务已解决：发送时**不**先重开，任务保持已解决，消息照常进线程。线程判断这是对结果的修改时，调用 `work_items_update({ event:{type:'reopen'} })` 再动手；状态机只在两种情况下接受线程的 reopen（§9.2）：这一回合由用户在线程里的 typed 消息发起；或者这一回合收到过协调者 `thread_relay` 转来的用户原话，即 Runtime 复制、`author:'user'`、`via:'typed'` 的引用。后一种情况下 `reopen` 要带 `citedMessageId`，必须在 `ActiveRun.userCitations` 里，转换记录存这个 id。转交里协调者自己的话、提示与表情发出的话都不算。只是一句问题时直接回答，任务状态不变（BOT-EX-05、需求 §8.2）。线程没有判断就动手改了东西（写了产物、提交了 Job），`ActivityBridge` 看到产物变化时补一次 reopen，cause 记 `implicit-reopen`。
 
 ### 7.4 线程到停点
 
@@ -524,7 +524,7 @@ Harness.deliver(d: Delivery): Promise<DeliveryResult>;
 
 `task` 条目新增可选字段 `origin?: 'user' | 'relay' | 'refresh' | 'schedule'`，界面据此不把它画成「你发的消息」。报告与转交用 `relay`，刷新与巡检用 `refresh`，定时任务起的线程用 `schedule`。完成收件箱重开的任务保留原来的 `origin`，但回合本身按下一段算无人在场。
 
-`ActiveRun` 新增 `attended: boolean` 与 `tainted: boolean`。在 `role` 为 `channel` / `thread` 的会话里，**只有**用户的 typed 消息或用户按钮（提示、表情、通知里的选项）起的回合 `attended = true`；其余一切回合（Job 完成叫醒、报告、转交、刷新、定时）都是 `false`，不看是谁触发了上游。回合中途经 `steer` 插进任何 `relay` 文字时置 `tainted = true`，直到回合结束。`chat` 角色的会话不受这两个字段影响，行为与现在一致（BOT-NF-06）。`#checkCanSend` 的预算与授权检查在 `started` 时照做（与 `send` 一致），不通过时 `dropped` 并由调用方处理。
+`ActiveRun` 新增 `attended: boolean`、`tainted: boolean` 与 `userCitations: Id[]`。`userCitations` 记 Runtime 在本回合投进来的 `author:'user'`、`via:'typed'` 的 `CitedMessage` 的 id，包括起回合的转交和回合中途 steer 进来的转交，只由 `deliver` 写入（§9.2 的 reopen 用它）。在 `role` 为 `channel` / `thread` 的会话里，**只有**用户的 typed 消息或用户按钮（提示、表情、通知里的选项）起的回合 `attended = true`；其余一切回合（Job 完成叫醒、报告、转交、刷新、定时）都是 `false`，不看是谁触发了上游。回合中途经 `steer` 插进任何 `relay` 文字时置 `tainted = true`，直到回合结束。`chat` 角色的会话不受这两个字段影响，行为与现在一致（BOT-NF-06）。`#checkCanSend` 的预算与授权检查在 `started` 时照做（与 `send` 一致），不通过时 `dropped` 并由调用方处理。
 
 现有的 `jobFinished` 改为调用 `deliver`（`wake: 'reopen-task'`），行为不变，`job-finished.test.ts` 全部保留作回归。
 
@@ -533,7 +533,7 @@ Harness.deliver(d: Delivery): Promise<DeliveryResult>;
 - `thread_start`（§10.3）：校验任务存在、`owner:'agent'`、还没有线程；通过并发闸门（§18.1）则建线程并投递简报，否则任务留在 `upNext`、返回 `{ queued: true, position }`。
 - `thread_relay`：协调者把用户在频道里的补充转给线程。参数只有 `workItemId`、`note`（协调者的话）与 `citedMessageIds`（≤ 8，必须是本频道对话里的 `user-message` 或协调者自己的 `agent-message`）。Runtime 从频道对话里**原文复制**这些消息成 `CitedMessage`，并按条目填 `author` 与 `via`：只有 `user-message` 是 `user`，协调者自己的消息是 `coordinator`；用户消息的 `via` 照抄（typed / suggestion / reaction / notification）。渲染成 `<baocut-cited author="…" via="…">`，协调者的话不会冒充用户原话，点提示发出的话也标明是提示（§13.1）；组装 `<baocut-relay>` 块，`Harness.deliver(threadId, { wake:'new-task', … })`。投递 id = `relay_<cmsg>_<workItemId>`，同一条用户消息转给同一个线程只投一次。
 - `cited` 里有 `author:'user'` 的消息时，`thread_relay` 在投递成功后对任务发 `user-replied`（任务在 `needsReview` / `needsInput` / `blocked` 时回到 `working`），与用户直接在线程里回答的效果一致（BOT-EX-09）。没有用户引用的转交不改状态。
-- 任务已解决时 `thread_relay` 不重开任务，交给线程按 §7.3 的规则判断。
+- 任务已解决时 `thread_relay` 不重开任务，交给线程按 §7.3 的规则判断：转交里有用户 typed 的原话时，线程可以凭它的 `citedMessageId` 重开。
 
 ### 8.3 回报（线程 → 协调者）
 
@@ -594,7 +594,7 @@ type WorkItemEvent =
   | { type: 'user-replied' }
   | { type: 'unblocked'; cause: string }
   | { type: 'resolve'; evidence: Evidence[] | null; confirmedBy?: Id }   // 用户关 evidence 为 null；线程刷新关必填（§9.5）；智能体替用户关带 confirmedBy
-  | { type: 'reopen' }
+  | { type: 'reopen'; citedMessageId?: Id }                  // 线程凭转交来的用户原话重开时必填（§7.3）
   | { type: 'merge'; into: Id }
   | { type: 'set-owner'; owner: 'agent' | 'user' };
 ```
@@ -608,7 +608,8 @@ type WorkItemEvent =
 | suggested | dismiss / expire | user / system | resolved·dismissed | 记 `subjectKey` 进 14 天忽略表 |
 | upNext | start | user；system（名额空出，仅 owner=agent） | active·working | 开线程或重开线程 |
 | upNext | schedule | user；coordinator（仅当用户消息里说了时间，ctx 带 cited message） | scheduled | 建一次性定时 |
-| scheduled | due | system | active·working | 同 start |
+| scheduled（owner=agent） | due | system | active·working | 同 start |
+| scheduled（owner=user） | due | system | upNext | 不开线程（BOT-TK-04）：写一条 `relay{direction:'make'}` 的提醒行，发 `bot.notification{reason:'reminder'}` |
 | scheduled | unschedule | user | upNext | 删一次性定时 |
 | active·working | report(needs-review / needs-input / blocked / waiting) | thread；system（兜底报告） | 对应子状态 | 设 `question`；需要用户时发通知 |
 | active·working | report(done) | thread | active·needsReview | 线程不能直接关任务（§5.2 硬约束），`done` 一律落成待审阅 |
@@ -621,7 +622,7 @@ type WorkItemEvent =
 | active·* | resolve | thread，且当前回合 `task.origin = 'refresh'`，且 `evidence` 通过核验（§9.5） | resolved·done | `resolution.by='agent'`、`resolution.evidence` 存核验过的引用；报告照常交给协调者，频道里一句话告诉用户（D6） |
 | 任一未解决 | dismiss | user | resolved·dismissed | 先停线程 |
 | 任一未解决 | merge(into) | coordinator（需用户在本回合的消息里同意，ctx 带 cited message） | resolved·merged | 把本任务的线程挂到 `into` 的资源里 |
-| resolved | reopen | user；thread（仅当前回合由用户 typed 消息发起，§7.3）；system（`implicit-reopen`） | active·working 或 upNext（owner=user） | — |
+| resolved | reopen | user；thread（当前回合由用户 typed 消息发起，或本回合收到过 Runtime 复制的 `author:'user'`、`via:'typed'` 引用，§7.3）；system（`implicit-reopen`） | active·working 或 upNext（owner=user） | — |
 | active·* | set-owner(user) | user | upNext | 停线程，保留线程与产物 |
 | upNext（owner=user） | set-owner(agent) | user | upNext | 名额允许时随后 start |
 
@@ -891,7 +892,7 @@ Runtime 能核对的是「来源」：一条消息是谁写的、一个回合是
 | 智能体关任务（D6） | 只有线程、只在 `refresh` 回合、证据逐条核验（§9.5） | 证据确实说明目的达成 |
 | 智能体替用户关任务 | 「标为完成」提示由 Runtime 以用户身份关；`resolve(confirmedBy)` 要求本回合由那条 typed 用户消息起且未 `tainted`（§9.2、§12.4） | 那句话的意思确实是完成 |
 | 线程不能自己关任务 | 状态机把 `report(done)` 落成 `needsReview`（§9.2） | — |
-| 已解决任务里问一句不重开 | 线程的 reopen 只在用户 typed 回合有效（§9.2） | 线程分辨「修改」还是「问题」 |
+| 已解决任务里问一句不重开 | 线程的 reopen 只在用户 typed 回合，或凭本回合转交来的用户 typed 原话有效（§9.2） | 线程分辨「修改」还是「问题」 |
 | 合并任务（`merge`）、协调者设定时 | 引用的消息必须是本频道 `author:'user'`、`via:'typed'` 的用户消息 | 那条消息的意思确实是同意合并或说了时间 |
 | 任务文字里不放链接与号码 | URL、邮箱、11 位以上数字的模式校验（§10.4） | 不把素材里的指令改写成任务 |
 | 提示不替用户做决定 | 长度、词表、问号数、`risky` 时不推荐、过时提示拒绝（§12.2–§12.4） | 选项本身合理、平列 |
@@ -1061,7 +1062,7 @@ interface BotNotificationEvent {
 
 | 层 | 测什么 | 位置 |
 | --- | --- | --- |
-| 单元 | `WorkItemMachine` 的转换表：每一行允许与拒绝的 actor、`refresh` + evidence 的关闭规则、`done` 落成待审阅、`needsInput` 优先 | `runtime-core/src/bot/work-item-machine.test.ts` |
+| 单元 | `WorkItemMachine` 的转换表：每一行允许与拒绝的 actor、`refresh` + evidence 的关闭规则、`done` 落成待审阅、`needsInput` 优先、用户任务到点回到 `upNext` 不开线程、线程凭转交来的用户原话重开（引用不在 `userCitations` 里时拒绝） | `runtime-core/src/bot/work-item-machine.test.ts` |
 | 单元 | `WorkItemStore`：追加、压缩、崩溃后半行的容错、转换记录归档 | `runtime-storage/src/work-item-store.test.ts` |
 | 单元 | `Harness.deliver`：五种结果；`jobFinished` 改走 `deliver` 后原有用例全部通过 | `harness/src/deliver.test.ts`、`job-finished.test.ts` |
 | 单元 | `ThreadRouter`：幂等键、报告合并、`superseded`、重启对账、并发闸门排队与释放 | `runtime-core/src/bot/thread-router.test.ts` |
