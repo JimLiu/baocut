@@ -939,6 +939,9 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           return schedule.id;
         },
         countForChannel: (channelId) => schedules.forChannel(channelId).length,
+        deleteForChannel: async (channelId) => {
+          for (const schedule of schedules.forChannel(channelId)) await schedules.remove({ scheduleId: schedule.id });
+        },
         nextForStatus: () =>
           schedules
             .list()

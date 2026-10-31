@@ -17,6 +17,7 @@ export const nl: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Taak niet gevonden: ${p.id}`,
+  workItemCursorInvalid: 'De positie in de takenlijst is ongeldig. Laad de lijst opnieuw.',
   transitionDenied: (p: { from: string; event: string }) => `Deze taak kan '${p.event}' niet uitvoeren in de status ${p.from}.`,
   textHasLinkOrNumber: 'Taaktekst mag geen links, e-mailadressen of lange nummers bevatten. Zet ze in plaats daarvan bij de bronnen.',
   titleByUser: 'Jij hebt deze titel geschreven, dus de agent kan hem niet wijzigen.',
@@ -52,15 +53,23 @@ export const nl: RcBotMessages = {
   reminderStale: (p: { title: string; days: number }) =>
     `${p.title} wacht al ${p.days} ${pluralForm('nl', p.days, { one: 'dag', other: 'dagen' })} op je.`,
   welcome:
-    'Hoi, ik ben hier je assistent. Vertel me wat je met je video’s wilt doen, dan regel ik het. Ik laat het je weten als iets jou nodig heeft.',
+    'Vertel me wat je met je video’s wilt doen, dan regel ik het. Ik laat het je weten als iets jou nodig heeft.',
   welcomeWithProjects: (p: { projects: number; videos: number }) =>
-    `Hoi, ik ben hier je assistent. Ik zie ${p.projects} ${pluralForm('nl', p.projects, { one: 'project', other: 'projecten' })} met ${p.videos} ${pluralForm('nl', p.videos, { one: 'video', other: 'video’s' })}. Vertel me wat je wilt doen, dan regel ik het.`,
+    `Ik zie ${p.projects} ${pluralForm('nl', p.projects, { one: 'project', other: 'projecten' })} met ${p.videos} ${pluralForm('nl', p.videos, { one: 'video', other: 'video’s' })}. Vertel me wat je wilt doen, dan regel ik het.`,
   starterSummarize: 'Video samenvatten',
   starterSummarizeText: 'Vat mijn nieuwste video voor me samen',
   starterCaptions: 'Ondertitels toevoegen',
   starterCaptionsText: 'Voeg ondertitels toe aan mijn nieuwste video',
   starterHighlights: 'Hoogtepunten vinden',
   starterHighlightsText: 'Zoek de beste momenten in mijn nieuwste video',
+  channelIntro: (p: { name: string; purpose: string }) => `Dit kanaal is voor: ${p.purpose}. Vertel me wat hier moet gebeuren; het werk blijft in dit kanaal.`,
+  channelIntroNoPurpose: (p: { name: string }) => `Dit is het kanaal ${p.name}. Vertel me waarvoor het is en waarmee we beginnen.`,
+  starterChannelPlan: 'Eerste taken voorstellen',
+  starterChannelPlanText: (p: { subject: string }) => `Stel de eerste taken voor voor: ${p.subject}`,
+  starterChannelLatest: 'Mijn nieuwste video gebruiken',
+  starterChannelLatestText: (p: { subject: string }) => `Gebruik mijn nieuwste video voor: ${p.subject}`,
+  starterChannelGoal: 'Meer vertellen',
+  starterChannelGoalText: 'Meer over waar dit kanaal voor is: ',
   markDone: 'Markeren als klaar',
   handoffDriver: (p: { agent: string }) => `We gaan verder met ${p.agent}.`,
   editedMessage: 'Je hebt dit bericht bewerkt.',

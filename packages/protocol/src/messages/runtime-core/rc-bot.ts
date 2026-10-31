@@ -32,6 +32,7 @@ const en = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Task not found: ${p.id}`,
+  workItemCursorInvalid: 'The position in the task list is not valid. Load the list again.',
   transitionDenied: (p: { from: string; event: string }) => `This task can't do "${p.event}" while it is ${p.from}.`,
   textHasLinkOrNumber: 'Task text should not contain links, email addresses or long numbers. Put them in resources instead.',
   titleByUser: "You wrote this title, so the agent can't change it.",
@@ -65,15 +66,23 @@ const en = {
   reminderOverdue: (p: { title: string; date: string }) => `${p.title} was due on ${p.date}. It's still open.`,
   reminderStale: (p: { title: string; days: number }) => `${p.title} has been waiting on you for ${p.days} days.`,
   welcome:
-    "Hi, I'm your assistant here. Tell me what you want done with your videos and I'll take care of it, and I'll check in when something needs you.",
+    "Tell me what you want done with your videos and I'll take care of it, and I'll check in when something needs you.",
   welcomeWithProjects: (p: { projects: number; videos: number }) =>
-    `Hi, I'm your assistant here. I can see ${p.projects} projects with ${p.videos} videos. Tell me what you want done and I'll take care of it.`,
+    `I can see ${p.projects} projects with ${p.videos} videos. Tell me what you want done and I'll take care of it.`,
   starterSummarize: 'Summarize a video',
   starterSummarizeText: 'Summarize my latest video for me',
   starterCaptions: 'Add captions',
   starterCaptionsText: 'Add captions to my latest video',
   starterHighlights: 'Find highlights',
   starterHighlightsText: 'Find the best moments in my latest video',
+  channelIntro: (p: { name: string; purpose: string }) => `This channel is for: ${p.purpose}. Tell me what to do here, and I'll keep the work in this channel.`,
+  channelIntroNoPurpose: (p: { name: string }) => `This is the ${p.name} channel. Tell me what it's for and what to do first.`,
+  starterChannelPlan: 'Suggest first tasks',
+  starterChannelPlanText: (p: { subject: string }) => `Suggest the first few tasks for: ${p.subject}`,
+  starterChannelLatest: 'Use my latest video',
+  starterChannelLatestText: (p: { subject: string }) => `Use my latest video for: ${p.subject}`,
+  starterChannelGoal: 'Say more about it',
+  starterChannelGoalText: 'More about what this channel is for: ',
   markDone: 'Mark done',
   handoffDriver: (p: { agent: string }) => `Continuing with ${p.agent}.`,
   editedMessage: 'You edited this message.',

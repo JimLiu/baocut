@@ -53,6 +53,7 @@ describe('ChannelStore', () => {
     const store = new ChannelStore(file);
     await store.load();
     expect(store.list()).toEqual([]);
+    expect(store.degraded).toBe(false);
     expect(store.settings()).toEqual(DEFAULT_BOT_SETTINGS);
     expect(store.userMemoryVersion()).toBe(0);
 
@@ -97,6 +98,8 @@ describe('ChannelStore', () => {
     await store.load();
     const list = store.list();
     expect(list.map((c) => c.id)).toEqual(['chan_a']);
+    // 有频道被丢掉：列表可能不全，调用方不能拿「找不到频道」当作不存在。
+    expect(store.degraded).toBe(true);
     const a = list[0]!;
     expect(a).toMatchObject({
       kind: 'topic',
@@ -131,6 +134,7 @@ describe('ChannelStore', () => {
     const store = new ChannelStore(file);
     await store.load();
     expect(store.list()).toEqual([]);
+    expect(store.degraded).toBe(true);
     const names = await fs.readdir(path.dirname(file));
     expect(names.some((n) => n.startsWith('channels.json.corrupt-'))).toBe(true);
   });
@@ -165,5 +169,26 @@ describe('ChannelStore', () => {
     expect(results).toEqual(['first', 'boom', 'first']);
     expect(order).toEqual(['first:start', 'first:end', 'second:start', 'second:end']);
     expect(store.list()).toHaveLength(1);
+  });
+
+  it('删除频道先记一笔：频道拿掉、id 记下，重新读回还在；清完去掉', async () => {
+    const store = new ChannelStore(file);
+    await store.load();
+    await store.put(channel('chan_a'));
+    await store.put(channel('chan_b'));
+    await store.markDeleted('chan_a');
+    expect(store.list().map((c) => c.id)).toEqual(['chan_b']);
+    expect(store.tombstones()).toEqual(['chan_a']);
+
+    const again = new ChannelStore(file);
+    await again.load();
+    expect(again.list().map((c) => c.id)).toEqual(['chan_b']);
+    expect(again.tombstones()).toEqual(['chan_a']);
+    await again.clearTombstone('chan_a');
+
+    const third = new ChannelStore(file);
+    await third.load();
+    expect(third.tombstones()).toEqual([]);
+    expect(third.degraded).toBe(false);
   });
 });

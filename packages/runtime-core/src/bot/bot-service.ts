@@ -5,6 +5,7 @@ import {
   BOT_LIMITS,
   DEFAULT_BOT_SETTINGS,
   MAIN_CHANNEL_ID,
+  intlLocale,
   RpcError,
   needsUser,
   newId,
@@ -50,6 +51,8 @@ import {
   type WorkItemTransition,
   type WorkItemsEvent,
   type WorkItemsSnapshot,
+  type Money,
+  type PendingApproval,
 } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
 import { HarnessAgents as HA } from '@baocut/protocol/messages/harness';
@@ -71,7 +74,7 @@ import {
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
 import { carryTaskFiles, changedFiles, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
-import { spendWindow, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
+import { spendWindow, sumMoney, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { confirmChips, questionChips, questionCount } from './suggestions.ts';
 import { datesSetBy } from './dates-set-by.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
@@ -108,6 +111,8 @@ export interface BotWorkspace {
   baselines?(item: WorkItem): Promise<{ projectId: Id; videoId: Id; version: number }[]>;
   /** 线程等的 Job 是不是挂住了（§9.3 job-hung）：挂住的返回它的名字。 */
   hungJob?(jobIds: readonly Id[]): Promise<string | null>;
+  /** 线程等的 Job 是不是都结束了（完成、失败或取消；挂住的不算）。叫醒丢了时（重启、闸门、Driver 不可用）据此补叫醒。 */
+  jobsFinished?(jobIds: readonly Id[]): Promise<boolean>;
   /** 任务合同的用量占预算的比例（0–1），没有预算时 null。 */
   budgetUsed?(conversationId: Id, taskId: Id | null): number | null;
   /** 一组会话（频道对话与它的线程）从 `since.day` / `since.month` 起花掉的钱（§14.5）。 */
@@ -142,6 +147,8 @@ export interface MakeGenerator {
 export interface BotSchedules {
   createForChannel(params: { channel: Channel; name: string; cadence: unknown; template: WorkItemTemplate; accessMode: AgentMode | null }): Promise<Id>;
   countForChannel(channelId: Id): number;
+  /** 删除频道时一并删掉它的定时任务（删除确认里数过的那些）。 */
+  deleteForChannel(channelId: Id): Promise<void>;
   nextForStatus(): { scheduleId: Id; name: string; nextAt: string }[];
   channelChanged(channelId: Id): void;
   workItemChanged(item: WorkItem): void;
@@ -184,7 +191,58 @@ const ONE_SHOT_GRACE_MS = 5 * MINUTE;
 const NEEDS_REVIEW_STALE_DAYS = 3;
 /** 建议任务默认的「本地、可撤销」类别（§11.3 第 4 步的白名单）。 */
 const MAKE_KIND_ALLOW = /^(derive-|add-|translate|transcribe|export|tidy|cleanup|chapters|highlights|summar|review|caption|subtitle|cut|trim|shorts|thumbnail|title|organize|rename|fix-)/;
-const MAKE_KIND_DENY = /(publish|upload|post|send|share|buy|pay|order|dub-online|clone)/;
+/**
+ * 建议里不许有的事：花钱、外发、发布、克隆声音。英文按整词（带常见词形）比，免得「reorder」「add border」被误拦；
+ * 中文没有词界，按词直接找（发布、上传、发送、分享、购买、付款、支付、下单、克隆、投稿、推送、发帖、公开）。
+ */
+const MAKE_DENY_WORDS =
+  /\b(?:publish(?:es|ed|ing)?|upload(?:s|ed|ing)?|post(?:s|ed|ing)?(?!-)|send(?:s|ing)?|sent|shar(?:e|es|ed|ing)|buy(?:s|ing)?|bought|pay(?:s|ing|ment|ments)?|paid|order(?:s|ed|ing)?|purchas(?:e|es|ed|ing)|clon(?:e|es|ed|ing)|dub-online)\b/;
+const MAKE_DENY_CJK = /发布|上传|发送|分享|购买|付款|支付|下单|克隆|投稿|推送|发帖|公开/;
+
+/** 中文标题里认类别的词（剪、字幕、翻译、转录、导出、封面、短视频、竖版、章节、精彩、摘要、总结、整理、标题、重命名）。 */
+const FOLLOW_UP_KINDS_CJK: readonly [RegExp, string][] = [
+  [/\u77ed\u89c6\u9891|\u7ad6\u7248/, 'shorts'],
+  [/\u5b57\u5e55/, 'subtitle'],
+  [/\u7ffb\u8bd1/, 'translate'],
+  [/\u8f6c\u5f55/, 'transcribe'],
+  [/\u5bfc\u51fa/, 'export'],
+  [/\u5c01\u9762/, 'thumbnail'],
+  [/\u7ae0\u8282/, 'chapters'],
+  [/\u7cbe\u5f69/, 'highlights'],
+  [/\u6458\u8981|\u603b\u7ed3/, 'summary'],
+  [/\u91cd\u547d\u540d/, 'rename'],
+  [/\u6574\u7406/, 'organize'],
+  [/\u6807\u9898/, 'title'],
+  [/\u526a/, 'cut'],
+];
+
+/** 报告里一条 followUp 的类别：标题里第一个在白名单里的英文词，或认得的中文词；都没有时 null。 */
+function followUpKind(title: string): string | null {
+  for (const word of title.toLowerCase().split(/[^a-z-]+/)) if (word && MAKE_KIND_ALLOW.test(word)) return word;
+  for (const [pattern, kind] of FOLLOW_UP_KINDS_CJK) if (pattern.test(title)) return kind;
+  return null;
+}
+
+/** 系统写的开头提示：点了只填进输入框，用户改完再发。 */
+function starterChip(label: string, text: string): SuggestionChip {
+  return { id: newId('chip'), label, text, kind: 'starter', kindTag: null, fillOnly: true, recommended: false, answers: null, target: null, action: null };
+}
+
+/**
+ * 审批里付费调用的估算合计（收件箱的金额）：每项授权都有估算、币种相同时是它们的和；没有付费项，或有一项不知道价格、
+ * 币种不一时为 null（不显示一个偏低的数）。
+ */
+function approvalCost(approval: PendingApproval): Money | null {
+  const grants = approval.grants ?? [];
+  if (grants.length === 0 || grants.some((g) => !g.estimate)) return null;
+  const totals = sumMoney(grants.map((g) => g.estimate!));
+  return totals.length === 1 ? totals[0]! : null;
+}
+
+function makeDenied(text: string): boolean {
+  const lower = text.toLowerCase();
+  return MAKE_DENY_WORDS.test(lower) || MAKE_DENY_CJK.test(lower);
+}
 
 type ActorRun = { actor: BotActor; run?: MachineRun | null; citedUserTyped?: boolean; confirmedIsTyped?: boolean; evidenceVerified?: boolean };
 
@@ -218,6 +276,8 @@ export class BotService {
   readonly #seedTimeoutMs: number;
 
   readonly #items = new Map<Id, WorkItem>();
+  /** 任务日志没有完整读进来的频道（`WorkItemLog.degraded`）：重启对账不在这里找孤儿线程。 */
+  readonly #degradedChannels = new Set<Id>();
   readonly #reports = new Map<Id, ThreadReport>();
   readonly #transitions = new Map<Id, WorkItemTransition[]>();
   /** 频道今天与本月已花的钱（§14.5），投递前刷新，线程任务的预算上限由它算。 */
@@ -296,8 +356,16 @@ export class BotService {
       if (directoryEvent.type === 'conversation.upsert') this.#onConversation(directoryEvent.conversation);
     });
     this.#unsubscribe.push(() => directory.unsubscribe?.());
+    // Driver 的可用性变了（重新探测、改了偏好）：之前因为 Driver 不可用没投出去的报告再投一次（§8.3）。
+    const agents = this.#harness.subscribe('agents', undefined, (event) => {
+      if ((event.event as { type?: string }).type !== 'agents.updated' || this.#stopped) return;
+      void this.#resendPending().catch(() => {});
+    });
+    this.#unsubscribe.push(() => agents.unsubscribe?.());
     // 接力（§6.3）之后、下一个协调者回合之前重启：接力要补的上下文只记在内存里，按会话记录找回来。
     for (const channel of this.#channels.list()) if (this.#handoffWaiting(channel.conversationId)) this.#handoffPending.add(channel.conversationId);
+    // 上次删频道没清干净（中途崩溃或某一步失败）：先接着清，再对账。
+    for (const id of this.#channels.tombstones()) await this.#purgeChannel(id);
     await this.#reconcile();
     this.#armOneShot();
     this.#armWatchdog();
@@ -331,6 +399,8 @@ export class BotService {
 
   async #loadChannel(channelId: Id): Promise<void> {
     const log = await this.#store.load(channelId);
+    if (log.degraded) this.#degradedChannels.add(channelId);
+    else this.#degradedChannels.delete(channelId);
     for (const item of log.items) this.#items.set(item.id, item);
     for (const report of log.reports) this.#reports.set(report.id, report);
     this.#transitions.set(channelId, log.transitions);
@@ -339,34 +409,110 @@ export class BotService {
   /** §8.6 重启对账。 */
   async #reconcile(): Promise<void> {
     const now = nowIso();
-    for (const item of [...this.#items.values()]) {
-      if (item.status !== 'active') continue;
-      const thread = item.threadId ? this.#harness.conversationOf(item.threadId) : undefined;
-      if (item.threadId && !thread) {
-        this.#log.warn('Thread conversation missing', { workItemId: item.id });
-        await this.#force(item, { state: 'blocked', reason: RcBot.threadLost().text, question: continueQuestion() }, 'system:thread-lost', now);
+    await this.#applyUnappliedReports();
+    for (const listed of [...this.#items.values()]) {
+      if (listed.status !== 'active') continue;
+      const thread = listed.threadId ? this.#harness.conversationOf(listed.threadId) : undefined;
+      if (listed.threadId && !thread) {
+        this.#log.warn('Thread conversation missing', { workItemId: listed.id });
+        await this.#force(listed, { state: 'blocked', reason: RcBot.threadLost().text, question: continueQuestion() }, 'system:thread-lost', now);
         continue;
       }
-      if (item.active?.state === 'working' && thread && thread.activity !== 'running' && thread.activity !== 'stopping') {
+      // 停在审批上的任务：重启时 Harness 已经把那张审批取消了，「审批结束」的事件不会再来。照审批结束处理，
+      // 审批期间记下的那份报告这时落下；不然任务一直停在一张不存在的审批上。
+      const approvalId = listed.active?.state === 'needsInput' ? listed.question?.approvalId : null;
+      if (approvalId && !this.#approvalLive(listed.threadId)) {
+        const deferredReport = listed.deferredStop && listed.lastReportId ? (this.#reports.get(listed.lastReportId) ?? null) : null;
+        await this.transition(listed.id, { type: 'approval', approvalId, pending: false, deferredReport }, { actor: 'system' }).catch((error: unknown) =>
+          this.#log.warn('Settling a dead approval failed', { workItemId: listed.id, error: String(error) }),
+        );
+      }
+      const item = this.#items.get(listed.id) ?? listed;
+      if (item.status !== 'active' || item.active?.state !== 'working') continue;
+      // 工作中却没有线程（开线程前崩溃，或开线程失败）或线程没在跑：都是被打断了，等用户点「继续」。
+      if (!thread || (thread.activity !== 'running' && thread.activity !== 'stopping')) {
         await this.#force(item, { state: 'blocked', reason: RcBot.interruptedOnExit().text, question: continueQuestion() }, 'system:interrupted', now);
       }
     }
-    // 有线程会话但没有任务的：归档成孤儿。
+    // 有线程会话但没有任务的：归档成孤儿。只在频道列表与这个频道的任务日志都完整读进来时才算孤儿：文件认不出、
+    // 是更新版本写的（只读）或有行读不出时，找不到任务不等于任务不在，归档了线程就再也回不来。
+    const listComplete = !this.#channels.degraded;
     for (const conversation of this.#harness.directorySnapshot().conversations) {
       if (conversation.role !== 'thread' || conversation.archived) continue;
+      if (!listComplete || !conversation.channelId || !this.#channels.get(conversation.channelId) || this.#degradedChannels.has(conversation.channelId)) continue;
       const item = conversation.workItemId ? this.#items.get(conversation.workItemId) : undefined;
       if (!item) {
         this.#log.warn('Orphan thread conversation', { conversationId: conversation.id });
         await this.#harness.updateConversation({ conversationId: conversation.id, archived: true }, { internal: BOT_INTERNAL }).catch(() => {});
       }
     }
-    const pending = [...this.#reports.values()].filter((r) => r.delivery === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    for (const report of pending) await this.#deliverReport(report, true);
-    // 停机期间等的任务结了的：「已结」事件没赶上，这里对账一次（同样过并发闸门）。
+    await this.#resendPending();
+    // 停机期间等的任务结了的：「已结」事件没赶上，这里对账一次（同样过并发闸门）。等的后台任务停机前后结束、叫醒没交到的
+    // （没有空位时 Harness 只在内存里记着，重启就丢了）也补一次。
     for (const item of [...this.#items.values()]) {
-      if (item.status === 'active' && item.active?.state === 'waitingOnOthers') await this.#wakeIfReady(item, null);
+      if (item.status === 'active' && item.active?.state === 'waitingOnOthers') {
+        await this.#wakeIfReady(item, null);
+        await this.#wakeForJobs(item);
+      }
     }
     await this.#pump();
+  }
+
+  /**
+   * 报告先落盘再转换（`submitReport`）：两步之间崩溃时，盘上有一份 pending 的报告，任务还停在原处。任务还在交报告时的
+   * 子状态（工作中，或审批中记下停点）就照这份报告补上转换；别的（任务后来又变过）这份报告作废，不再投递。
+   */
+  async #applyUnappliedReports(): Promise<void> {
+    const pending = [...this.#reports.values()].filter((r) => r.delivery === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    for (const report of pending) {
+      const item = this.#items.get(report.workItemId);
+      if (!item || item.lastReportId === report.id) continue;
+      const state = item.status === 'active' ? item.active?.state : null;
+      const fits = (state === 'working' || (state === 'needsInput' && !!item.question?.approvalId)) && report.createdAt >= (item.active?.since ?? '');
+      if (fits) {
+        const applied = await this.transition(item.id, { type: 'report', report }, { actor: 'system' }).then(
+          () => true,
+          (error: unknown) => {
+            this.#log.warn('Applying a saved report failed', { workItemId: item.id, error: String(error) });
+            return false;
+          },
+        );
+        if (applied) continue;
+      }
+      const stale = { ...report, delivery: 'superseded' as const };
+      this.#reports.set(report.id, stale);
+      await this.#store.appendReport(item.channelId, stale).catch(() => {});
+    }
+  }
+
+  /** 线程此刻还停在一张审批或提问上（回合还在、会话在等你）。重启之后总是 false：回合与审批都不在了。 */
+  #approvalLive(threadId: Id | null): boolean {
+    const thread = threadId ? this.#harness.conversationOf(threadId) : undefined;
+    return !!thread && (thread.activity === 'awaiting-approval' || thread.activity === 'awaiting-answer') && !!this.#harness.runInfo(thread.id);
+  }
+
+  /**
+   * 这一回合是不是后台任务叫醒的：线程里有本进程里记下的、叫醒了这个任务、还没算过的提示。每条提示只算一次；
+   * 重启前的提示不算（重启后的叫醒由对账经 `#wakeForJobs` 投递）。
+   */
+  #takeJobWake(conversationId: Id, taskId: Id): boolean {
+    let found = false;
+    for (const i of this.#harness.getConversation(conversationId).items) {
+      if (i.kind !== 'notice' || i.job?.delivery !== 'woke' || i.taskId !== taskId || this.#seenJobWakes.has(i.id)) continue;
+      if (i.createdAt < this.#bootAt) continue;
+      this.#seenJobWakes.add(i.id);
+      found = true;
+    }
+    return found;
+  }
+
+  /** 状态机之外：后台任务叫醒的回合把任务带回工作中（问题清掉，与 `unblocked` 一样）。 */
+  async #forceWorking(item: WorkItem, cause: string): Promise<void> {
+    const current = this.#items.get(item.id) ?? item;
+    if (current.status !== 'active' || current.active?.state === 'working') return;
+    const now = nowIso();
+    const next: WorkItem = { ...current, active: { state: 'working', reason: null, since: now }, question: null, beforeInput: null, deferredStop: null, lastProgressAt: now, updatedAt: now };
+    await this.#commit(current, next, [{ workItemId: current.id, from: stateName(current), to: 'working', actor: 'system', cause, note: null, at: now }], []);
   }
 
   /** 状态机之外的强制落点（重启对账）：直接写 active 子状态并记转换。 */
@@ -427,7 +573,8 @@ export class BotService {
     const conversation = this.#harness.conversationOf(channel.conversationId);
     if (conversation && conversation.updatedAt > last) last = conversation.updatedAt;
     const unread = channel.lastSeen ? last > channel.lastSeen.at : items.length > 0;
-    return { channel, unread, counts, lastActivityAt: last, spend: null };
+    const spend = this.#spend.get(channel.id);
+    return { channel, unread, counts, lastActivityAt: last, spend: spend ? { today: spend.day[0] ?? null, month: spend.month[0] ?? null } : null };
   }
 
   // ---- 频道 ----
@@ -483,7 +630,7 @@ export class BotService {
     outputLanguage?: string | null;
   }): Promise<Channel> {
     const channel = await this.#createChannel({ id: newId('chan'), kind: 'topic', ...params, purpose: params.purpose ?? '' });
-    await this.#writeWelcome(channel, false);
+    this.#writeChannelIntro(channel);
     void this.runMake(channel.id, 'channel-created').catch(() => {});
     return channel;
   }
@@ -558,9 +705,15 @@ export class BotService {
       return;
     }
     const block = workspaceFactsBlock(facts);
+    // 第一条消息不是欢迎词（§11.9）：直接说看到了什么、能先做什么，猜错了让用户纠正。用户还没说过话时按界面语言写。
     const text = [
       block,
-      'This is the first time the user opens BaoCut in bot mode. Write one short first message: greet them, say in a sentence what you can see in their workspace, and what you can help with. Then offer two to four starter suggestions with suggest_replies (kind "starter"). Do not create tasks.',
+      [
+        'The user has just turned on bot mode and has not written anything yet. Post one short opening message.',
+        'Skip any greeting or self-introduction. In one or two sentences, name what stands out in the workspace facts above and one useful thing you could do with it, and invite the user to correct you if you read it wrong.',
+        'Then call suggest_replies (kind "starter") with at most three suggestions; make the first one a small task you could finish quickly. Do not create tasks.',
+        `Write in the language with the tag ${intlLocale()}.`,
+      ].join(' '),
     ].join('\n\n');
     const outcome = await this.#harness.deliver({
       id: `seed_${channel.id}`,
@@ -594,6 +747,21 @@ export class BotService {
     await this.#writeWelcome(current, true);
   }
 
+  /** 新频道（不是主频道）的第一条消息（需求 §2.3）：复述这个频道是做什么的，再给不超过三条照着用途写的开头提示。 */
+  #writeChannelIntro(channel: Channel): void {
+    const id = `welcome_${channel.id}`;
+    if (this.#findItem(channel.conversationId, id)) return;
+    const purpose = channel.purpose.trim();
+    const text = purpose ? RcBot.channelIntro({ name: channel.name, purpose }).text : RcBot.channelIntroNoPurpose({ name: channel.name }).text;
+    this.#harness.writeItem(channel.conversationId, { kind: 'agent-message', id, createdAt: nowIso(), taskId: null, text, streaming: false, fallback: true });
+    const subject = purpose || channel.name;
+    this.#writeSuggestions(channel.conversationId, id, 'system', [
+      starterChip(RcBot.starterChannelPlan().text, RcBot.starterChannelPlanText({ subject }).text),
+      starterChip(RcBot.starterChannelLatest().text, RcBot.starterChannelLatestText({ subject }).text),
+      starterChip(RcBot.starterChannelGoal().text, RcBot.starterChannelGoalText().text),
+    ]);
+  }
+
   async #writeWelcome(channel: Channel, withFacts: boolean): Promise<void> {
     const id = `welcome_${channel.id}`;
     if (this.#findItem(channel.conversationId, id)) return;
@@ -602,22 +770,10 @@ export class BotService {
     const videos = facts.filter((f) => f.startsWith('video') || f.startsWith('  video')).length;
     const text = projects ? RcBot.welcomeWithProjects({ projects, videos }).text : RcBot.welcome().text;
     this.#harness.writeItem(channel.conversationId, { kind: 'agent-message', id, createdAt: nowIso(), taskId: null, text, streaming: false, fallback: true });
-    const starter = (label: string, text: string): SuggestionChip => ({
-      id: newId('chip'),
-      label,
-      text,
-      kind: 'starter',
-      kindTag: null,
-      fillOnly: true,
-      recommended: false,
-      answers: null,
-      target: null,
-      action: null,
-    });
     this.#writeSuggestions(channel.conversationId, id, 'system', [
-      starter(RcBot.starterSummarize().text, RcBot.starterSummarizeText().text),
-      starter(RcBot.starterCaptions().text, RcBot.starterCaptionsText().text),
-      starter(RcBot.starterHighlights().text, RcBot.starterHighlightsText().text),
+      starterChip(RcBot.starterSummarize().text, RcBot.starterSummarizeText().text),
+      starterChip(RcBot.starterCaptions().text, RcBot.starterCaptionsText().text),
+      starterChip(RcBot.starterHighlights().text, RcBot.starterHighlightsText().text),
     ]);
   }
 
@@ -717,7 +873,7 @@ export class BotService {
     await this.#harness.updateConversation({ conversationId: channel.conversationId, archived }, { internal: BOT_INTERNAL });
     this.#schedules?.channelChanged(id);
     // 恢复时补投挂起的报告（§8.3 dropped 的那一类）。
-    if (!archived) for (const r of [...this.#reports.values()].filter((r) => r.delivery === 'pending')) await this.#deliverReport(r, true);
+    if (!archived) await this.#resendPending(id);
     // 归档的频道不跑到点的条目与排队的任务；恢复时补上。
     if (archived) this.#armOneShot();
     else {
@@ -738,17 +894,40 @@ export class BotService {
     }
     for (const item of items) {
       if (item.status === 'active' && item.threadId) await this.#stopThread(item).catch(() => {});
-      if (item.threadId) await this.#harness.deleteConversation(item.threadId, { internal: BOT_INTERNAL }).catch(() => {});
+    }
+    // 先把频道从列表里拿掉并记下 id（一次写入）：之后哪一步崩了，重启时照记下的接着清，不会留下一个半删的频道。
+    await this.#channels.markDeleted(id);
+    for (const item of items) {
       this.#items.delete(item.id);
+      this.#needsYou.delete(item.id);
+      this.#queuedBriefs.delete(item.id);
       for (const r of [...this.#reports.values()]) if (r.workItemId === item.id) this.#reports.delete(r.id);
     }
-    await this.#harness.deleteConversation(channel.conversationId, { internal: BOT_INTERNAL }).catch(() => {});
-    await this.#store.deleteChannel(id);
-    await this.#files.remove(id);
-    await this.#channels.remove(id);
     this.#transitions.delete(id);
     this.#channelsTopic.publish({ type: 'channel.removed', id });
-    this.#schedules?.channelChanged(id);
+    await this.#purgeChannel(id, [channel.conversationId, ...items.flatMap((i) => (i.threadId ? [i.threadId] : []))]);
+  }
+
+  /**
+   * 清掉删了的频道留下的东西：定时任务、频道对话与线程会话、任务存储、频道文件夹。都清完才去掉记下的 id；有一步失败的
+   * 留着，下次启动再清（`start`）。`known` 是已知属于它的会话，目录里标着这个频道的会话也一并删。
+   */
+  async #purgeChannel(id: Id, known: readonly Id[] = []): Promise<void> {
+    try {
+      await this.#schedules?.deleteForChannel(id);
+      this.#schedules?.channelChanged(id);
+      const ids = new Set(known);
+      for (const c of this.#harness.directorySnapshot().conversations) if (c.channelId === id) ids.add(c.id);
+      for (const conversationId of ids) {
+        if (!this.#harness.conversationOf(conversationId)) continue;
+        await this.#harness.deleteConversation(conversationId, { internal: BOT_INTERNAL });
+      }
+      await this.#store.deleteChannel(id);
+      await this.#files.remove(id);
+      await this.#channels.clearTombstone(id);
+    } catch (error) {
+      this.#log.warn('Cleaning up a deleted channel failed; will retry at the next start', { channelId: id, error: String(error) });
+    }
   }
 
   async readMemory(id: Id): Promise<{ content: string; version: number }> {
@@ -852,6 +1031,26 @@ export class BotService {
   listItems(channelId: Id, status?: WorkItem['status']): WorkItem[] {
     this.channel(channelId);
     return this.#channelItems(channelId).filter((i) => !status || i.status === status);
+  }
+
+  /**
+   * 分页列任务（`workItems.list` 带 `limit` / `cursor`，§11.5）：按解决时间（没解决的按更新时间）从新到旧，同一时刻按 id。
+   * 游标是上一页最后一条的「时间|id」，下一页从它之后开始；新解决的任务不会让后面的页重复或漏掉已经翻过的。
+   */
+  pageItems(channelId: Id, options: { status?: WorkItem['status']; limit?: number; cursor: string | null }): { items: WorkItem[]; nextCursor: string | null } {
+    const limit = Math.min(Math.max(Math.trunc(options.limit ?? 50), 1), 200);
+    const at = (i: WorkItem) => i.resolution?.at ?? i.updatedAt;
+    let after: { at: string; id: string } | null = null;
+    if (options.cursor) {
+      const split = options.cursor.lastIndexOf('|');
+      if (split <= 0) throw new RpcError('invalid-request', RcBot.workItemCursorInvalid());
+      after = { at: options.cursor.slice(0, split), id: options.cursor.slice(split + 1) };
+    }
+    const sorted = this.listItems(channelId, options.status).sort((a, b) => at(b).localeCompare(at(a)) || b.id.localeCompare(a.id));
+    const rest = after ? sorted.filter((i) => at(i) < after.at || (at(i) === after.at && i.id < after.id)) : sorted;
+    const items = rest.slice(0, limit);
+    const last = items.at(-1);
+    return { items, nextCursor: rest.length > limit && last ? `${at(last)}|${last.id}` : null };
   }
 
   item(id: Id): WorkItem {
@@ -968,12 +1167,26 @@ export class BotService {
     who: ActorRun,
     startOptions: { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null } = {},
   ): Promise<WorkItem> {
-    // 线程在带着等着的用户回复的回合里调用：先把回复落下，免得它的报告撞上上一回合留下的「待审阅」。
-    if (who.actor === 'thread' && who.run && this.#heldReplies.has(id)) {
-      const taskId = this.#harness.runInfo(who.run.conversationId)?.taskId;
-      if (taskId) await this.#applyHeldReply(id, taskId);
-    }
+    await this.#settleHeldReply(id, who);
     const item = this.item(id);
+    const result = applyEvent(item, event, this.#machineContext(item, event, who));
+    if (result.item === item) return item;
+    if (event.type === 'resolve' && who.actor === 'thread' && who.run?.origin === 'refresh') {
+      const info = this.#runStarts.get(this.#harness.runInfo(who.run.conversationId)?.taskId ?? '');
+      if (info) info.resolvedInRefresh = true;
+    }
+    await this.#commit(item, result.item, result.transitions, result.effects, startOptions);
+    return this.#items.get(id) ?? result.item;
+  }
+
+  /** 线程在带着等着的用户回复的回合里调用：先把回复落下，免得它的报告撞上上一回合留下的「待审阅」。 */
+  async #settleHeldReply(id: Id, who: ActorRun): Promise<void> {
+    if (who.actor !== 'thread' || !who.run || !this.#heldReplies.has(id)) return;
+    const taskId = this.#harness.runInfo(who.run.conversationId)?.taskId;
+    if (taskId) await this.#applyHeldReply(id, taskId);
+  }
+
+  #machineContext(item: WorkItem, event: WorkItemEvent, who: ActorRun): MachineContext {
     const channel = this.channel(item.channelId);
     const ctx: MachineContext = {
       actor: who.actor,
@@ -988,14 +1201,7 @@ export class BotService {
       const info = this.#runStarts.get(this.#harness.runInfo(who.run.conversationId)?.taskId ?? '');
       if (info?.resolvedInRefresh) ctx.resolvedInThisRefresh = true;
     }
-    const result = applyEvent(item, event, ctx);
-    if (result.item === item) return item;
-    if (event.type === 'resolve' && who.actor === 'thread' && who.run?.origin === 'refresh') {
-      const info = this.#runStarts.get(this.#harness.runInfo(who.run.conversationId)?.taskId ?? '');
-      if (info) info.resolvedInRefresh = true;
-    }
-    await this.#commit(item, result.item, result.transitions, result.effects, startOptions);
-    return this.#items.get(id) ?? result.item;
+    return ctx;
   }
 
   /** 用户方法（`workItems.transition`）：拒绝换成 RpcError。 */
@@ -1241,6 +1447,7 @@ export class BotService {
     this.#transitions.set(next.channelId, log.slice(-2000));
     const channel = this.#channels.get(next.channelId);
     if (channel) this.#publishChannel(channel);
+    await this.#dropStaleHeld(before, next, transitions);
     for (const effect of effects) {
       try {
         await this.#effect(next, effect, startOptions);
@@ -1254,6 +1461,22 @@ export class BotService {
     if (after.status === 'resolved' && before.status !== 'resolved') await this.#onResolved(after);
     const freed = before.status === 'active' && before.active?.state === 'working' && !(after.status === 'active' && after.active?.state === 'working');
     if (freed) await this.#pump();
+  }
+
+  /**
+   * 留着等「继续」的那一份（要你在场、智能体当时用不了）在这些时候就过时了，清掉（内存与盘上）：用户直接在线程里回了话
+   * （活接着干了，之后再点继续不能把旧简报再投一遍）、任务重开、任务结了（解决或不要了）。任务结了时排队的开工参数也清掉。
+   */
+  async #dropStaleHeld(before: WorkItem, next: WorkItem, transitions: readonly WorkItemTransition[]): Promise<void> {
+    const resolved = next.status === 'resolved' && before.status !== 'resolved';
+    const stale = resolved || transitions.some((t) => t.cause === 'user:replied' || t.cause === 'unblocked:user-replied' || t.cause.endsWith(':reopen') || t.cause === 'system:implicit-reopen');
+    if (!stale) return;
+    this.#needsYou.delete(next.id);
+    await this.#files.removeHeld(next.channelId, next.id).catch(() => {});
+    if (resolved) {
+      this.#queuedBriefs.delete(next.id);
+      await this.#files.removeQueued(next.channelId, next.id).catch(() => {});
+    }
   }
 
   async #effect(item: WorkItem, effect: MachineEffect, startOptions: { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null }): Promise<void> {
@@ -1322,10 +1545,13 @@ export class BotService {
 
   readonly #queuedBriefs = new Map<Id, LaunchOptions>();
 
-  /** 记下排队任务开工时要带的东西；同时落盘，重启后照样带上（有没有人在场不存：重启后开工就是无人在场）。 */
+  /**
+   * 记下排队任务开工时要带的东西；同时落盘，重启后照样带上。有没有人在场内存里也不留：排队之后什么时候开工说不准，
+   * 那时用户多半已经不在，开工就是无人在场的回合（与重启后一样）。
+   */
   async #queueLaunch(item: WorkItem, options: LaunchOptions): Promise<void> {
-    this.#queuedBriefs.set(item.id, options);
     const { attended: _attended, ...stored } = options;
+    this.#queuedBriefs.set(item.id, stored);
     await this.#files.writeQueued(item.channelId, item.id, stored).catch((error: unknown) =>
       this.#log.warn('Saving the queued brief failed', { workItemId: item.id, error: String(error) }),
     );
@@ -1352,6 +1578,9 @@ export class BotService {
 
   /** 后台任务放行叫醒、回合已起但还没转回工作中的任务：这段时间也算占着名额。 */
   readonly #jobWaking = new Set<Id>();
+  /** 已经算过的「叫醒了」提示（`#takeJobWake`）。 */
+  readonly #seenJobWakes = new Set<Id>();
+  readonly #bootAt = new Date().toISOString();
   /**
    * 等当前回合结束才交的用户回复（Driver 不能插话）：任务 → 挡着它的那个回合。这一回合还可能报告「待审阅」或「需要你」，
    * 所以等接着的回合开始（或它先报告）时才转回工作中。
@@ -1478,6 +1707,39 @@ export class BotService {
         note: '',
       }).catch((error: unknown) => this.#log.warn('Waking a waiting thread failed', { workItemId: woke.id, error: String(error) }));
     }
+  }
+
+  /**
+   * 停在「等别人」、等的后台任务都已结束、线程却空着的任务：Job 结束的叫醒丢了（重启时 Harness 只在内存里的闸门、Driver 当时
+   * 不可用）。转回工作中并投一份刷新叫醒线程。同样过并发闸门；没有空位时等下一次看门狗。Harness 还记着、等空位再交的不管。
+   */
+  async #wakeForJobs(item: WorkItem): Promise<void> {
+    const current = this.#items.get(item.id);
+    if (!current?.threadId || current.status !== 'active' || current.active?.state !== 'waitingOnOthers' || !this.#workspace.jobsFinished) return;
+    const report = current.lastReportId ? this.#reports.get(current.lastReportId) : undefined;
+    const jobs = report?.waitingFor?.jobIds ?? [];
+    if (!jobs.length) return;
+    const others = [...current.dependsOn, ...(report?.waitingFor?.workItemIds ?? [])];
+    if (others.some((d) => this.#items.get(d)?.status !== 'resolved')) return;
+    const thread = this.#harness.conversationOf(current.threadId);
+    if (!thread || thread.activeTaskId || this.#harness.runInfo(thread.id) || this.#harness.gatedJobWakes().includes(thread.id)) return;
+    if (!(await this.#workspace.jobsFinished(jobs).catch(() => false))) return;
+    const channel = this.#channels.get(current.channelId);
+    if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) return;
+    const latest = this.#items.get(current.id);
+    if (latest?.status !== 'active' || latest.active?.state !== 'waitingOnOthers') return;
+    const cycle = `${latest.lastReportId ?? 'none'}_${Date.parse(latest.active.since) || 0}`;
+    await this.transition(latest.id, { type: 'unblocked', cause: 'job-finished' }, { actor: 'system' }).catch(() => {});
+    const woke = this.#items.get(latest.id);
+    if (woke?.status !== 'active' || woke.active?.state !== 'working') return;
+    await this.#deliverToThread(woke, {
+      id: `jobs_${woke.id}_${cycle}`,
+      direction: 'refresh',
+      text: refreshBlock('job-finished', [`The background jobs you were waiting for (${jobs.join(', ')}) have finished. Check their results and continue.`]),
+      origin: 'relay',
+      unattended: true,
+      note: '',
+    }).catch((error: unknown) => this.#log.warn('Waking a thread for finished jobs failed', { workItemId: woke.id, error: String(error) }));
   }
 
   // ---- 线程路由（§7、§8） ----
@@ -1831,26 +2093,36 @@ export class BotService {
       fallback: actor === 'system',
     };
     const info = this.#runStarts.get(run.taskId);
+    // 报告先落盘（pending）再转换：转换写下之后、报告写下之前崩溃，任务会指着一份盘上没有的报告，永远投不出去，
+    // 线程重报又因为任务已不在工作中被拒。先在不改任务的情况下核对这次转换会不会被拒，免得盘上留下没用的报告。
+    const who: ActorRun = { actor, run };
+    await this.#settleHeldReply(item.id, who);
+    const before = this.item(item.id);
+    const event: WorkItemEvent = { type: 'report', report };
+    applyEvent(before, event, this.#machineContext(before, event, who));
     // 先登记报告再转换：转换落盘期间结掉的依赖读到新的 lastReportId 时，能找到它在等谁。
     this.#reports.set(report.id, report);
     try {
-      await this.transition(item.id, { type: 'report', report }, { actor, run });
+      await this.#store.appendReport(item.channelId, report);
     } catch (error) {
       this.#reports.delete(report.id);
       throw error;
     }
+    try {
+      await this.transition(item.id, event, who);
+    } catch (error) {
+      // 核对之后状态又变了：盘上那份标为作废，不再投递。
+      this.#reports.delete(report.id);
+      await this.#store.appendReport(item.channelId, { ...report, delivery: 'superseded' }).catch(() => {});
+      throw error;
+    }
     if (info) info.reported = true;
-    await this.#store.appendReport(item.channelId, report);
     this.#topicOf(item.channelId).publish({ type: 'work-item.report', report });
     for (const todo of report.userTodos.slice(0, 5)) {
       await this.createItem({ channelId: item.channelId, title: [...todo].slice(0, BOT_LIMITS.title).join(''), owner: 'user', source: { kind: 'thread', messageId: null, scheduleId: null, runId: null } });
     }
     if (report.followUps.length) {
-      void this.suggestItems(
-        item.channelId,
-        report.followUps.map((f) => ({ title: f, reason: item.title, kindTag: 'follow-up', evidence: [] as ResourceRef[] })),
-        'thread-report',
-      ).catch(() => {});
+      void this.#suggestFollowUps(item, report.followUps).catch((error: unknown) => this.#log.warn('Suggesting follow-ups failed', { workItemId: item.id, error: String(error) }));
     }
     await this.#deliverReport(report, run.attended);
     // 报告说在等的任务可能在报告之前就结了：那时的「已结」事件找不到它，这里补查一次。
@@ -1860,6 +2132,20 @@ export class BotService {
       if (current) void this.#wakeIfReady(current, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: item.id, error: String(error) }));
     }
     return report;
+  }
+
+  /**
+   * 还没转述出去的报告再投一次（§8.3），旧的在前；只投每条任务最新的那份。投递按 id 幂等：还等着或已交出的不会重复，
+   * 之前被丢掉的（协调者回合被停、Driver 不可用、回合起不来）这次重新起。
+   */
+  async #resendPending(channelId?: Id): Promise<void> {
+    const pending = [...this.#reports.values()]
+      .filter((r) => r.delivery === 'pending' && (!channelId || this.#items.get(r.workItemId)?.channelId === channelId))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    for (const report of pending) {
+      if (this.#reports.get(report.id)?.delivery !== 'pending') continue;
+      await this.#deliverReport(report, true).catch((error: unknown) => this.#log.warn('Re-sending a report failed', { reportId: report.id, error: String(error) }));
+    }
   }
 
   async #deliverReport(report: ThreadReport, attended: boolean): Promise<void> {
@@ -1948,15 +2234,28 @@ export class BotService {
         // 记下回合开始时频道文件夹的样子：回合结束时比一比，新出现或改过的文件记在这条任务名下（BOT-EX-20）。
         this.#fileSnapshots.set(event.taskId, snapshotFiles(this.#files.filesDir(item.channelId)));
         const info = this.#harness.runInfo(conversation.id);
+        // 在任何 await 之前看：Harness 先记下「叫醒了」的提示再发 started，这一回合是不是后台任务叫醒的。
+        const jobWake = event.origin !== 'user' && this.#takeJobWake(conversation.id, event.taskId);
         // 等着的用户回复随这一回合交给线程：此时才把任务转回工作中。
         if (event.origin !== 'user') await this.#applyHeldReply(item.id, event.taskId);
         else this.#heldReplies.delete(item.id);
         if (event.origin === 'user' && info?.userMessageId) {
           const message = this.#findItem(conversation.id, info.userMessageId);
           const note = message?.kind === 'user-message' ? message.text : undefined;
-          await this.transition(item.id, { type: 'user-replied', ...(note ? { note } : {}) }, { actor: 'user' }).catch(() => {});
+          const latest = this.#items.get(item.id);
+          if (latest?.status === 'active' && latest.active?.state === 'waitingOnOthers') {
+            // 线程在等别的（后台任务、别的任务），用户却直接跟它说话：先回到工作中，这一回合的报告才收得下。
+            await this.transition(item.id, { type: 'unblocked', cause: 'user-replied' }, { actor: 'system' }).catch(() => {});
+          } else {
+            await this.transition(item.id, { type: 'user-replied', ...(note ? { note } : {}) }, { actor: 'user' }).catch(() => {});
+          }
         } else if (item.status === 'active' && item.active?.state === 'waitingOnOthers' && !this.#expecting.has(conversation.id)) {
           await this.transition(item.id, { type: 'unblocked', cause: 'job-finished' }, { actor: 'system' }).catch(() => {});
+        } else if (jobWake && !this.#expecting.has(conversation.id)) {
+          // 后台任务结束叫醒了线程，而线程在 Job 跑着时已经报告过（待审阅、需要你、卡住）：回到工作中，这一回合的报告才收得下。
+          // 用户停下的不动（停下时 Job 的叫醒已丢掉，这里只是兜底）。
+          const current = this.#items.get(item.id);
+          if (current?.status === 'active' && jobWakeResumes(current)) await this.#forceWorking(current, 'unblocked:job-finished');
         }
         this.#jobWaking.delete(item.id);
         const current = this.#items.get(item.id);
@@ -2050,6 +2349,12 @@ export class BotService {
     }
     const stats = this.#harness.generationStats(conversation.id);
     if (stats.compactions >= 3 || stats.turns > 400) await this.#handoff(conversation.id, null);
+    // 回合结束后 Harness 才把等着的投递合成一回合交出去，起不来的丢掉（§8.3）：等它做完，再补投这个频道还挂着的报告。
+    // 用户停下的回合不接着起新回合，挂着的报告等下一个回合结束或 Driver 恢复时再投。
+    if (event.status !== 'stopped' && conversation.channelId) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      if (!this.#stopped && !this.#harness.closing) await this.#resendPending(conversation.channelId);
+    }
   }
 
   /**
@@ -2153,6 +2458,8 @@ export class BotService {
             continue;
           }
         }
+        // 等的后台任务都结束了，叫醒却没来：补叫醒（§9.3）。
+        if (jobs.length) await this.#wakeForJobs(item);
       }
       if (state !== 'working') continue;
       const thread = item.threadId ? this.#harness.conversationOf(item.threadId) : undefined;
@@ -2682,8 +2989,8 @@ export class BotService {
     for (const candidate of candidates) {
       if (made.length >= 3 || channelOpen() >= BOT_LIMITS.pendingSuggestionsPerChannel) break;
       const tag = candidate.kindTag.toLowerCase();
-      if (MAKE_KIND_DENY.test(tag) || MAKE_KIND_DENY.test(candidate.title.toLowerCase())) continue;
-      if (tag !== 'follow-up' && !MAKE_KIND_ALLOW.test(tag)) continue;
+      if (makeDenied(tag) || makeDenied(candidate.title)) continue;
+      if (!MAKE_KIND_ALLOW.test(tag)) continue;
       if (unwanted.has(tag)) continue;
       const subjectKey = `${tag}:${candidate.evidence.map((e) => JSON.stringify(e)).join('|') || candidate.title.toLowerCase()}`;
       if (ignored.has(subjectKey)) continue;
@@ -2717,6 +3024,46 @@ export class BotService {
     return made.length;
   }
 
+  /**
+   * 自动触发的 Make 能不能跑（§11.3 第 1、4 步）：暂停了全部自动化、频道归档了、今天自动跑满 3 次的不跑；建议名额满了
+   * （这个频道 3 条或全部频道 9 条未处理）的也不跑，记一笔 `shown:0` 带原因，不调模型，也不占当天的次数。
+   */
+  async #autoMakeAllowed(channel: Channel, runId: Id, trigger: string): Promise<boolean> {
+    // 设置里关了 Make 的自动触发（需求 §11.8）：只剩手动的。
+    if (this.settings().automationPaused || this.settings().makeAutoTrigger === false || channel.archived) return false;
+    const runs = (await this.#files.readMakeRuns(channel.id).catch(() => [])) as { at?: string; trigger?: string; reason?: string }[];
+    const today = localDay(new Date(this.#clock.now()), this.#timeZone());
+    const autoToday = runs.filter((r) => r.trigger !== 'manual' && !r.reason && r.at && localDay(new Date(r.at), this.#timeZone()) === today).length;
+    if (autoToday >= BOT_LIMITS.makeAutoPerDay) return false;
+    const open = [...this.#items.values()].filter((i) => i.status === 'suggested');
+    const reason =
+      open.length >= BOT_LIMITS.pendingSuggestionsTotal
+        ? 'global-cap'
+        : open.filter((i) => i.channelId === channel.id).length >= BOT_LIMITS.pendingSuggestionsPerChannel
+          ? 'channel-cap'
+          : null;
+    if (!reason) return true;
+    await this.#files.appendMakeRun(channel.id, { id: runId, trigger, at: nowIso(), candidates: 0, shown: 0, reason }).catch(() => {});
+    return false;
+  }
+
+  /**
+   * 报告里的 followUps 是 Make 的 `thread-report` 触发（§11.3 第 1 步）：与别的自动触发一样受暂停、归档、每天 3 次与建议名额
+   * 的限制，也记一笔 Make 运行。类别按标题里的词认（认不出的不建），照样过白名单与禁止的词。
+   */
+  async #suggestFollowUps(item: WorkItem, followUps: readonly string[]): Promise<void> {
+    const channel = this.#channels.get(item.channelId);
+    if (!channel) return;
+    const runId = newId('make');
+    if (!(await this.#autoMakeAllowed(channel, runId, 'thread-report'))) return;
+    const candidates = followUps.flatMap((title) => {
+      const kindTag = followUpKind(title);
+      return kindTag ? [{ title, reason: item.title, kindTag, evidence: [] as ResourceRef[] }] : [];
+    });
+    const shown = candidates.length ? await this.suggestItems(channel.id, candidates, 'thread-report') : 0;
+    await this.#files.appendMakeRun(channel.id, { id: runId, trigger: 'thread-report', at: nowIso(), candidates: followUps.length, shown }).catch(() => {});
+  }
+
   /** Make（§11.3）：收集事实 → 生成 → 过滤 → 落地。 */
   async runMake(channelId: Id, trigger: 'manual' | 'channel-created' | 'item-resolved' | 'thread-report' | 'new-media'): Promise<{ runId: Id; shown: number }> {
     const runId = newId('make');
@@ -2726,14 +3073,7 @@ export class BotService {
       if (manual) throw new RpcError('unsupported', RcBot.makeNoGenerator());
       return { runId, shown: 0 };
     }
-    if (!manual) {
-      // 设置里关了 Make 的自动触发（需求 §11.8）：只剩手动的。
-      if (this.settings().automationPaused || this.settings().makeAutoTrigger === false || channel.archived) return { runId, shown: 0 };
-      const runs = (await this.#files.readMakeRuns(channelId).catch(() => [])) as { at?: string; trigger?: string }[];
-      const today = localDay(new Date(this.#clock.now()), this.#timeZone());
-      const autoToday = runs.filter((r) => r.trigger !== 'manual' && r.at && localDay(new Date(r.at), this.#timeZone()) === today).length;
-      if (autoToday >= BOT_LIMITS.makeAutoPerDay) return { runId, shown: 0 };
-    }
+    if (!manual && !(await this.#autoMakeAllowed(channel, runId, trigger))) return { runId, shown: 0 };
     const memory = await this.#files.readMemory(channelId).catch(() => '');
     const items = this.#channelItems(channelId);
     const refs: ResourceRef[] = [];
@@ -2833,7 +3173,8 @@ export class BotService {
     const rows: InboxRow[] = [];
     const pending = this.#harness.approvals.pending();
     for (const item of this.#items.values()) {
-      if (!needsUser(item) && !(item.status === 'active' && item.active?.state === 'blocked')) continue;
+      // 与频道的「等你」计数（Rail 上的数字）是同一批：待审阅与需要你（审批也在里面）。停下的在频道的任务列表里。
+      if (!needsUser(item)) continue;
       const channel = this.#channels.get(item.channelId);
       if (!channel) continue;
       const approval = item.question?.approvalId ? pending.find((p) => p.approvalId === item.question!.approvalId) : undefined;
@@ -2844,7 +3185,7 @@ export class BotService {
         title: item.title,
         state: item.active!.state,
         question: item.question,
-        approval: approval ? { approvalId: approval.approvalId, summary: approval.action.summary, cost: null } : null,
+        approval: approval ? { approvalId: approval.approvalId, summary: approval.action.summary, cost: approvalCost(approval) } : null,
         priority: item.priority,
         since: item.active!.since,
       });
@@ -2928,9 +3269,11 @@ export class BotService {
     return this.#timeZone();
   }
 
+  /** 用户写东西用的语言：按最近的消息猜；还没写过话时用界面语言（BH-10）。 */
   #language(conversationId: Id): string | null {
     const items = this.#harness.getConversation(conversationId).items;
-    return guessLanguage(items.filter((i) => i.kind === 'user-message').slice(-20).map((i) => (i as { text: string }).text));
+    const texts = items.filter((i) => i.kind === 'user-message').slice(-20).map((i) => (i as { text: string }).text);
+    return texts.length === 0 ? intlLocale() : guessLanguage(texts);
   }
 
   #findItem(conversationId: Id, itemId: Id): TimelineItem | undefined {
@@ -3104,6 +3447,18 @@ export function isYesNoQuestion(text: string): boolean {
   // 先排除选择题（「用哪一条？」「竖版还是横版？」），即使问句以「要我……」开头。
   const question = /[^.!\u3002\uFF01?\uFF1F\n]*[?\uFF1F]/.exec(text)?.[0] ?? '';
   return !/\b(or|which|what|when|where|who|how)\b|\u8FD8\u662F|\u6216\u8005|\u54EA|\u4EC0\u4E48|\u600E\u4E48|\u591A\u5C11|\u51E0/i.test(question);
+}
+
+/**
+ * 后台任务叫醒线程时，任务能不能回到工作中：线程在 Job 跑着时报告过的待审阅、需要你（线程自己的提问）、卡住都能；
+ * 用户停下的、停在审批上的、等用户在场才能跑的不能。
+ */
+function jobWakeResumes(item: WorkItem): boolean {
+  const state = item.active?.state;
+  if (state === 'needsReview') return true;
+  if (state === 'needsInput') return !item.question?.approvalId && item.question?.askedBy !== 'system';
+  if (state === 'blocked') return item.active?.reason !== RcBot.stoppedByYou().text;
+  return false;
 }
 
 /** 审批卡或提问卡 → 任务上的问题。 */

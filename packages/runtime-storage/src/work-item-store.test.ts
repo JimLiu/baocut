@@ -95,7 +95,7 @@ async function ops(channelId = CH): Promise<string[]> {
 describe('WorkItemStore', () => {
   it('追加、按 id 替换、删除，重新读回', async () => {
     const store = new WorkItemStore(dir);
-    expect(await store.load(CH)).toEqual({ items: [], reports: [], transitions: [] });
+    expect(await store.load(CH)).toEqual({ items: [], reports: [], transitions: [], degraded: false });
     await store.putItem(CH, item('w1'), { sync: true });
     await store.putItem(CH, item('w2'), { sync: true });
     await store.putItem(CH, item('w1', { title: 'New title' }), { sync: true });
@@ -176,6 +176,7 @@ describe('WorkItemStore', () => {
     const store = new WorkItemStore(dir);
     const loaded = await store.load(CH);
     expect(loaded.items.map((i) => i.id)).toEqual(['w1']);
+    expect(loaded.degraded).toBe(true);
     await store.appendTransition(CH, transition('w1', 1));
     expect(await ops()).toEqual(['header', 'snapshot']);
     const again = await new WorkItemStore(dir).load(CH);
@@ -183,10 +184,22 @@ describe('WorkItemStore', () => {
     expect(again.transitions).toEqual([transition('w1', 1)]);
   });
 
+  it('更新版本写下的日志：不读、不改写，并标为没读全', async () => {
+    const file = path.join(dir, `${CH}.jsonl`);
+    const text = [JSON.stringify({ op: 'header', formatVersion: 99 }), JSON.stringify({ op: 'item', item: item('w1') })].join('\n') + '\n';
+    await fs.writeFile(file, text);
+    const store = new WorkItemStore(dir);
+    const loaded = await store.load(CH);
+    expect(loaded).toMatchObject({ items: [], degraded: true });
+    await store.putItem(CH, item('w2'), { sync: true });
+    expect(await fs.readFile(file, 'utf8')).toBe(text);
+  });
+
   it('文件头认不出时改名保留，从空开始', async () => {
     await fs.writeFile(path.join(dir, `${CH}.jsonl`), 'not json\n');
     const loaded = await new WorkItemStore(dir).load(CH);
     expect(loaded.items).toEqual([]);
+    expect(loaded.degraded).toBe(true);
     expect((await fs.readdir(dir)).some((n) => n.startsWith(`${CH}.jsonl.corrupt-`))).toBe(true);
   });
 
@@ -255,7 +268,7 @@ describe('WorkItemStore', () => {
     await store.flush();
     const names = await fs.readdir(dir);
     expect(names).toEqual(['chan_2.jsonl']);
-    expect(await store.load(CH)).toEqual({ items: [], reports: [], transitions: [] });
+    expect(await store.load(CH)).toEqual({ items: [], reports: [], transitions: [], degraded: false });
     expect((await store.load('chan_2')).items.map((i) => i.id)).toEqual(['w9']);
   });
 

@@ -20,6 +20,8 @@ interface ChannelsFile {
   settings: BotSettings;
   /** `channels/USER.md` 的版本号，写入时校验。 */
   userMemoryVersion: number;
+  /** 删掉了、但会话与文件还没清干净的频道（删除时先记下，清完再去掉；启动时接着清）。 */
+  deletedChannels?: Id[];
 }
 
 /**
@@ -37,6 +39,8 @@ export class ChannelStore {
   readonly #channels = new Map<Id, Channel>();
   #settings: BotSettings = structuredClone(DEFAULT_BOT_SETTINGS);
   #userMemoryVersion = 0;
+  readonly #tombstones = new Set<Id>();
+  #degraded = false;
   #saving: Promise<void> = Promise.resolve();
   #lock: Promise<void> = Promise.resolve();
 
@@ -45,14 +49,21 @@ export class ChannelStore {
   }
 
   async load(): Promise<void> {
-    const { value } = await this.#file.read({ recognize: (raw) => raw as Partial<ChannelsFile>, tolerateReadErrors: true });
+    const read = await this.#file.read({ recognize: (raw) => raw as Partial<ChannelsFile>, tolerateReadErrors: true });
+    const value = read.value;
     this.#channels.clear();
-    for (const raw of Array.isArray(value?.channels) ? value.channels : []) {
+    const rows = Array.isArray(value?.channels) ? value.channels : [];
+    let dropped = 0;
+    for (const raw of rows) {
       const channel = normalizeChannel(raw);
       if (channel && !this.#channels.has(channel.id)) this.#channels.set(channel.id, channel);
+      else if (!channel) dropped++;
     }
+    this.#degraded = (read.status !== 'ok' && read.status !== 'missing') || this.#file.readOnly || dropped > 0;
     this.#settings = normalizeSettings(value?.settings);
     this.#userMemoryVersion = nonNegativeInt(value?.userMemoryVersion) ?? 0;
+    this.#tombstones.clear();
+    if (Array.isArray(value?.deletedChannels)) for (const id of value.deletedChannels) if (str(id) && id && !this.#channels.has(id)) this.#tombstones.add(id);
   }
 
   list(): Channel[] {
@@ -72,6 +83,14 @@ export class ChannelStore {
     return this.#userMemoryVersion;
   }
 
+  /**
+   * 上次 `load` 没有把文件完整读进来：读不了、认不出（改名保留后从空开始）、更新版本写下的（只读），或有认不出的频道被丢掉。
+   * 这时频道列表可能缺了几个，调用方不能拿「找不到频道」当作频道不存在。
+   */
+  get degraded(): boolean {
+    return this.#degraded;
+  }
+
   put(channel: Channel): Promise<void> {
     this.#channels.set(channel.id, structuredClone(channel));
     return this.#save();
@@ -79,6 +98,26 @@ export class ChannelStore {
 
   remove(id: Id): Promise<void> {
     this.#channels.delete(id);
+    return this.#save();
+  }
+
+  /**
+   * 删除频道的第一步：频道从列表里拿掉，同时记下它的 id（一次写入）。之后清会话、文件、定时任务；中途崩溃的，启动时照
+   * `tombstones()` 接着清，清完 `clearTombstone`。
+   */
+  markDeleted(id: Id): Promise<void> {
+    this.#channels.delete(id);
+    this.#tombstones.add(id);
+    return this.#save();
+  }
+
+  /** 删掉了、还没清干净的频道。 */
+  tombstones(): Id[] {
+    return [...this.#tombstones];
+  }
+
+  clearTombstone(id: Id): Promise<void> {
+    if (!this.#tombstones.delete(id)) return Promise.resolve();
     return this.#save();
   }
 
@@ -113,6 +152,7 @@ export class ChannelStore {
       channels: structuredClone([...this.#channels.values()]),
       settings: structuredClone(this.#settings),
       userMemoryVersion: this.#userMemoryVersion,
+      ...(this.#tombstones.size ? { deletedChannels: [...this.#tombstones] } : {}),
     };
     const next = this.#saving.catch(() => {}).then(() => this.#file.write(snapshot));
     this.#saving = next;

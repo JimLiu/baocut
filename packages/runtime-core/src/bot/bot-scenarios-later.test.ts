@@ -52,11 +52,9 @@ describe('BOT-S17..S31', () => {
     expect(state(stuck.id)).toBe('blocked');
     // 用户自己在界面上处理了第一件。
     await kit.bot.userTransition(handled.id, { type: 'resolve', evidence: null });
+    // 「等你」收件箱只列待审阅与需要你（BOT-CH-11，与徽标同一批）；停下的在频道的任务列表里，协调者照样看得到。
     const rows = kit.bot.inbox();
-    expect(rows.map((r) => [r.workItemId, r.state])).toEqual([
-      [waiting.id, 'needsReview'],
-      [stuck.id, 'blocked'],
-    ]);
+    expect(rows.map((r) => [r.workItemId, r.state])).toEqual([[waiting.id, 'needsReview']]);
     const text = await kit.coordinatorTurn('Anything I need to handle?', (ctx) => ctx.turn.text);
     expect(text).toContain(`- ${waiting.id} [needsReview] Export episode 2`);
     expect(text).toContain(`- ${stuck.id} [blocked] Fix the audio of episode 3 | The source file is missing. | asks: Upload the source again?`);

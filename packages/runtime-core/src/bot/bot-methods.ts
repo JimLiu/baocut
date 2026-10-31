@@ -79,7 +79,10 @@ export function botMethods(getBot: () => BotService | null): { [M in BotMethod]:
       const bot = need(pr);
       return { settings: p.patch ? await bot.updateSettings(p.patch) : bot.settings() };
     },
-    'workItems.list': (p, pr) => ({ items: need(pr).listItems(p.channelId, p.status) }),
+    'workItems.list': (p, pr) =>
+      p.limit !== undefined || p.cursor !== undefined
+        ? need(pr).pageItems(p.channelId, { status: p.status, limit: p.limit, cursor: p.cursor ?? null })
+        : { items: need(pr).listItems(p.channelId, p.status), nextCursor: null },
     'workItems.get': (p, pr) => need(pr).getItem(p.id),
     'workItems.create': async ({ commandId: _c, start, ...p }, pr) => ({
       item: await need(pr).createItem(

@@ -17,6 +17,7 @@ export const es: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `No se encontró la tarea: ${p.id}`,
+  workItemCursorInvalid: 'La posición en la lista de tareas no es válida. Vuelve a cargar la lista.',
   transitionDenied: (p: { from: string; event: string }) => `Esta tarea no puede hacer «${p.event}» mientras está en ${p.from}.`,
   textHasLinkOrNumber: 'El texto de la tarea no debe incluir enlaces, direcciones de correo ni números largos. Ponlos en los recursos.',
   titleByUser: 'Tú escribiste este título, así que el agente no puede cambiarlo.',
@@ -52,15 +53,23 @@ export const es: RcBotMessages = {
   reminderStale: (p: { title: string; days: number }) =>
     `${p.title} lleva ${p.days} ${pluralForm('es', p.days, { one: 'día', other: 'días' })} esperándote.`,
   welcome:
-    'Hola, soy tu asistente aquí. Dime qué quieres hacer con tus vídeos y me encargo yo. Te avisaré cuando algo te necesite.',
+    'Dime qué quieres hacer con tus vídeos y me encargo yo. Te avisaré cuando algo te necesite.',
   welcomeWithProjects: (p: { projects: number; videos: number }) =>
-    `Hola, soy tu asistente aquí. Veo ${p.projects} ${pluralForm('es', p.projects, { one: 'proyecto', other: 'proyectos' })} con ${p.videos} ${pluralForm('es', p.videos, { one: 'vídeo', other: 'vídeos' })}. Dime qué quieres hacer y me encargo yo.`,
+    `Veo ${p.projects} ${pluralForm('es', p.projects, { one: 'proyecto', other: 'proyectos' })} con ${p.videos} ${pluralForm('es', p.videos, { one: 'vídeo', other: 'vídeos' })}. Dime qué quieres hacer y me encargo yo.`,
   starterSummarize: 'Resumir un vídeo',
   starterSummarizeText: 'Resume mi vídeo más reciente',
   starterCaptions: 'Añadir subtítulos',
   starterCaptionsText: 'Añade subtítulos a mi vídeo más reciente',
   starterHighlights: 'Buscar momentos destacados',
   starterHighlightsText: 'Encuentra los mejores momentos de mi vídeo más reciente',
+  channelIntro: (p: { name: string; purpose: string }) => `Este canal es para: ${p.purpose}. Dime qué hacer aquí y mantendré el trabajo en este canal.`,
+  channelIntroNoPurpose: (p: { name: string }) => `Este es el canal ${p.name}. Dime para qué es y por dónde empezar.`,
+  starterChannelPlan: 'Sugerir primeras tareas',
+  starterChannelPlanText: (p: { subject: string }) => `Sugiere las primeras tareas para: ${p.subject}`,
+  starterChannelLatest: 'Usar mi último vídeo',
+  starterChannelLatestText: (p: { subject: string }) => `Usa mi último vídeo para: ${p.subject}`,
+  starterChannelGoal: 'Contar más',
+  starterChannelGoalText: 'Más sobre para qué es este canal: ',
   markDone: 'Marcar como terminada',
   handoffDriver: (p: { agent: string }) => `Continuando con ${p.agent}.`,
   editedMessage: 'Editaste este mensaje.',

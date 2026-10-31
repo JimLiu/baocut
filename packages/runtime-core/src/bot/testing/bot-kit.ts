@@ -70,6 +70,9 @@ export class FakeWorkspace implements BotWorkspace {
   baselineFinds: { projectId: Id; videoId: Id; version: number }[] = [];
   baselines = async (item: WorkItem) => this.baselineFinds.filter((b) => !(item.baseVersions ?? []).some((x) => x.videoId === b.videoId));
   hungJob = async () => this.hung;
+  /** 已经结束的 Job（`jobsFinished` 只认这里有的）。 */
+  finishedJobs = new Set<Id>();
+  jobsFinished = async (jobIds: readonly Id[]) => jobIds.every((id) => this.finishedJobs.has(id));
   budgetUsed = () => this.budget;
   /** 频道花费（§14.5）：所有频道都按这个算；`spendAsks` 记下每次被问到的会话。 */
   spend: { day: Money[]; month: Money[] } = { day: [], month: [] };
@@ -112,7 +115,14 @@ export class FakeSchedules implements BotSchedules {
     this.created.push({ channelId: p.channel.id, name: p.name, template: p.template });
     return `sched_${this.created.length}`;
   };
-  countForChannel = () => 0;
+  /** 各频道的定时任务个数（测试里直接设）。 */
+  perChannel = new Map<Id, number>();
+  deleted: Id[] = [];
+  countForChannel = (channelId: Id) => this.perChannel.get(channelId) ?? 0;
+  deleteForChannel = async (channelId: Id) => {
+    this.deleted.push(channelId);
+    this.perChannel.delete(channelId);
+  };
   nextForStatus = () => [];
   channelChanged = (channelId: Id) => void this.channelChanges.push(channelId);
   workItemChanged = (item: WorkItem) => void this.changed.push({ id: item.id, status: item.status, state: item.active?.state ?? null });
@@ -220,10 +230,16 @@ export class BotKit {
     await this.settle();
   }
 
-  /** 模拟进程重启：Harness 与 BotService 关掉再从同一个目录打开。 */
-  async restart(options: { approvals?: boolean } = {}): Promise<void> {
+  /** 存储目录（测试改坏文件用）。 */
+  get home(): ReturnType<typeof resolveRuntimeHome> {
+    return this.#home;
+  }
+
+  /** 模拟进程重启：Harness 与 BotService 关掉再从同一个目录打开。`whileDown` 在两者之间跑（模拟停机期间的文件变化）。 */
+  async restart(options: { approvals?: boolean; whileDown?: () => Promise<void> } = {}): Promise<void> {
     await this.bot.stop();
     await this.harness.shutdown();
+    await options.whileDown?.();
     this.events = [];
     this.runs = [];
     await this.#boot(options);

@@ -17,6 +17,7 @@ export const ru: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Задача не найдена: ${p.id}`,
+  workItemCursorInvalid: 'Позиция в списке задач недействительна. Загрузите список заново.',
   transitionDenied: (p: { from: string; event: string }) => `Задача не может выполнить «${p.event}», пока находится в состоянии ${p.from}.`,
   textHasLinkOrNumber: 'В тексте задачи не должно быть ссылок, адресов электронной почты и длинных номеров. Добавьте их в ресурсы.',
   titleByUser: 'Это название написали вы, поэтому агент не может его изменить.',
@@ -52,15 +53,23 @@ export const ru: RcBotMessages = {
   reminderStale: (p: { title: string; days: number }) =>
     `«${p.title}» ждёт вас уже ${p.days} ${pluralForm('ru', p.days, { one: 'день', few: 'дня', many: 'дней', other: 'дня' })}.`,
   welcome:
-    'Здравствуйте, я ваш помощник. Расскажите, что сделать с вашими видео, и я всё возьму на себя, а когда понадобится ваше участие, дам знать.',
+    'Расскажите, что сделать с вашими видео, и я всё возьму на себя, а когда понадобится ваше участие, дам знать.',
   welcomeWithProjects: (p: { projects: number; videos: number }) =>
-    `Здравствуйте, я ваш помощник. Я вижу ${pluralForm('ru', p.projects, { one: `${p.projects} проект`, few: `${p.projects} проекта`, many: `${p.projects} проектов`, other: `${p.projects} проекта` })} и ${p.videos} видео. Расскажите, что нужно сделать, и я всё возьму на себя.`,
+    `Я вижу ${pluralForm('ru', p.projects, { one: `${p.projects} проект`, few: `${p.projects} проекта`, many: `${p.projects} проектов`, other: `${p.projects} проекта` })} и ${p.videos} видео. Расскажите, что нужно сделать, и я всё возьму на себя.`,
   starterSummarize: 'Кратко пересказать видео',
   starterSummarizeText: 'Кратко перескажи моё последнее видео',
   starterCaptions: 'Добавить субтитры',
   starterCaptionsText: 'Добавь субтитры к моему последнему видео',
   starterHighlights: 'Найти лучшие моменты',
   starterHighlightsText: 'Найди лучшие моменты в моём последнем видео',
+  channelIntro: (p: { name: string; purpose: string }) => `Этот канал для: ${p.purpose}. Скажите, что здесь сделать, и вся работа останется в этом канале.`,
+  channelIntroNoPurpose: (p: { name: string }) => `Это канал «${p.name}». Расскажите, для чего он и с чего начать.`,
+  starterChannelPlan: 'Предложить первые задачи',
+  starterChannelPlanText: (p: { subject: string }) => `Предложи первые задачи для: ${p.subject}`,
+  starterChannelLatest: 'Взять моё последнее видео',
+  starterChannelLatestText: (p: { subject: string }) => `Возьми моё последнее видео для: ${p.subject}`,
+  starterChannelGoal: 'Рассказать подробнее',
+  starterChannelGoalText: 'Подробнее о том, для чего этот канал: ',
   markDone: 'Отметить готовой',
   handoffDriver: (p: { agent: string }) => `Продолжаем с ${p.agent}.`,
   editedMessage: 'Вы изменили это сообщение.',

@@ -14,6 +14,7 @@ export const tr: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Görev bulunamadı: ${p.id}`,
+  workItemCursorInvalid: 'Görev listesindeki konum geçerli değil. Listeyi yeniden yükleyin.',
   transitionDenied: (p: { from: string; event: string }) => `Bu görev ${p.from} durumundayken "${p.event}" işlemini yapamaz.`,
   textHasLinkOrNumber: 'Görev metninde bağlantı, e-posta adresi veya uzun numara olmamalı. Bunları kaynaklara ekleyin.',
   titleByUser: 'Bu başlığı siz yazdınız, bu yüzden ajan değiştiremez.',
@@ -48,15 +49,23 @@ export const tr: RcBotMessages = {
   reminderOverdue: (p: { title: string; date: string }) => `${p.title} için son tarih ${p.date} idi. Hâlâ açık.`,
   reminderStale: (p: { title: string; days: number }) => `${p.title} ${p.days} gündür sizi bekliyor.`,
   welcome:
-    'Merhaba, buradaki asistanınızım. Videolarınızla ne yapmak istediğinizi söyleyin, ben hallederim. Size ihtiyaç olduğunda haber veririm.',
+    'Videolarınızla ne yapmak istediğinizi söyleyin, ben hallederim. Size ihtiyaç olduğunda haber veririm.',
   welcomeWithProjects: (p: { projects: number; videos: number }) =>
-    `Merhaba, buradaki asistanınızım. ${p.projects} projede ${p.videos} video görüyorum. Ne yapmak istediğinizi söyleyin, ben hallederim.`,
+    `${p.projects} projede ${p.videos} video görüyorum. Ne yapmak istediğinizi söyleyin, ben hallederim.`,
   starterSummarize: 'Videoyu özetle',
   starterSummarizeText: 'En son videomu benim için özetle',
   starterCaptions: 'Altyazı ekle',
   starterCaptionsText: 'En son videoma altyazı ekle',
   starterHighlights: 'Öne çıkan anları bul',
   starterHighlightsText: 'En son videomdaki en iyi anları bul',
+  channelIntro: (p: { name: string; purpose: string }) => `Bu kanalın amacı: ${p.purpose}. Burada ne yapılacağını söyleyin, işleri bu kanalda tutarım.`,
+  channelIntroNoPurpose: (p: { name: string }) => `Bu, ${p.name} kanalı. Ne için olduğunu ve neyle başlayacağımızı söyleyin.`,
+  starterChannelPlan: 'İlk görevleri öner',
+  starterChannelPlanText: (p: { subject: string }) => `Şunun için ilk görevleri öner: ${p.subject}`,
+  starterChannelLatest: 'En son videomu kullan',
+  starterChannelLatestText: (p: { subject: string }) => `En son videomu şunun için kullan: ${p.subject}`,
+  starterChannelGoal: 'Daha fazla anlat',
+  starterChannelGoalText: 'Bu kanalın amacı hakkında daha fazlası: ',
   markDone: 'Tamamlandı olarak işaretle',
   handoffDriver: (p: { agent: string }) => `${p.agent} ile devam ediliyor.`,
   editedMessage: 'Bu mesajı düzenlediniz.',

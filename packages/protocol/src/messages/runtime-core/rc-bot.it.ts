@@ -17,6 +17,7 @@ export const it: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Attività non trovata: ${p.id}`,
+  workItemCursorInvalid: 'La posizione nell’elenco delle attività non è valida. Ricarica l’elenco.',
   transitionDenied: (p: { from: string; event: string }) => `Questa attività non può eseguire «${p.event}» mentre è nello stato ${p.from}.`,
   textHasLinkOrNumber: 'Il testo dell’attività non deve contenere link, indirizzi email o numeri lunghi. Mettili invece nelle risorse.',
   titleByUser: 'Questo titolo l’hai scritto tu, quindi l’agente non può modificarlo.',
@@ -52,15 +53,23 @@ export const it: RcBotMessages = {
   reminderStale: (p: { title: string; days: number }) =>
     `${p.title} ti aspetta da ${p.days} ${pluralForm('it', p.days, { one: 'giorno', other: 'giorni' })}.`,
   welcome:
-    'Ciao, sono il tuo assistente qui. Dimmi cosa vuoi fare con i tuoi video e me ne occupo io. Ti avviserò quando qualcosa avrà bisogno di te.',
+    'Dimmi cosa vuoi fare con i tuoi video e me ne occupo io. Ti avviserò quando qualcosa avrà bisogno di te.',
   welcomeWithProjects: (p: { projects: number; videos: number }) =>
-    `Ciao, sono il tuo assistente qui. Vedo ${p.projects} ${pluralForm('it', p.projects, { one: 'progetto', other: 'progetti' })} con ${p.videos} video. Dimmi cosa vuoi fare e me ne occupo io.`,
+    `Vedo ${p.projects} ${pluralForm('it', p.projects, { one: 'progetto', other: 'progetti' })} con ${p.videos} video. Dimmi cosa vuoi fare e me ne occupo io.`,
   starterSummarize: 'Riassumi un video',
   starterSummarizeText: 'Riassumi il mio video più recente',
   starterCaptions: 'Aggiungi sottotitoli',
   starterCaptionsText: 'Aggiungi i sottotitoli al mio video più recente',
   starterHighlights: 'Trova i momenti salienti',
   starterHighlightsText: 'Trova i momenti migliori del mio video più recente',
+  channelIntro: (p: { name: string; purpose: string }) => `Questo canale serve per: ${p.purpose}. Dimmi cosa fare qui e terrò il lavoro in questo canale.`,
+  channelIntroNoPurpose: (p: { name: string }) => `Questo è il canale ${p.name}. Dimmi a cosa serve e da dove iniziare.`,
+  starterChannelPlan: 'Suggerisci le prime attività',
+  starterChannelPlanText: (p: { subject: string }) => `Suggerisci le prime attività per: ${p.subject}`,
+  starterChannelLatest: 'Usa il mio ultimo video',
+  starterChannelLatestText: (p: { subject: string }) => `Usa il mio ultimo video per: ${p.subject}`,
+  starterChannelGoal: 'Spiega meglio',
+  starterChannelGoalText: 'Ecco a cosa serve questo canale: ',
   markDone: 'Segna come completata',
   handoffDriver: (p: { agent: string }) => `Si continua con ${p.agent}.`,
   editedMessage: 'Hai modificato questo messaggio.',

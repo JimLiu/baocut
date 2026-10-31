@@ -17,6 +17,7 @@ export const pl: RcBotMessages = {
 
   // ---- 任务 ----
   workItemNotFound: (p: { id: string }) => `Nie znaleziono zadania: ${p.id}`,
+  workItemCursorInvalid: 'Pozycja na liście zadań jest nieprawidłowa. Wczytaj listę ponownie.',
   transitionDenied: (p: { from: string; event: string }) => `To zadanie nie może wykonać „${p.event}”, gdy jest w stanie ${p.from}.`,
   textHasLinkOrNumber: 'Tekst zadania nie powinien zawierać linków, adresów e-mail ani długich numerów. Umieść je w zasobach.',
   titleByUser: 'Ten tytuł został napisany przez Ciebie, więc agent nie może go zmienić.',
@@ -52,15 +53,23 @@ export const pl: RcBotMessages = {
   reminderStale: (p: { title: string; days: number }) =>
     `„${p.title}” czeka na Ciebie od ${p.days} ${pluralForm('pl', p.days, { one: 'dnia', few: 'dni', many: 'dni', other: 'dnia' })}.`,
   welcome:
-    'Cześć, jestem tutaj Twoim asystentem. Powiedz, co chcesz zrobić ze swoimi filmami, a ja się tym zajmę. Dam znać, gdy coś będzie wymagało Twojej uwagi.',
+    'Powiedz, co chcesz zrobić ze swoimi filmami, a ja się tym zajmę. Dam znać, gdy coś będzie wymagało Twojej uwagi.',
   welcomeWithProjects: (p: { projects: number; videos: number }) =>
-    `Cześć, jestem tutaj Twoim asystentem. Widzę ${p.projects} ${pluralForm('pl', p.projects, { one: 'projekt', few: 'projekty', many: 'projektów', other: 'projektu' })} i ${p.videos} ${pluralForm('pl', p.videos, { one: 'film', few: 'filmy', many: 'filmów', other: 'filmu' })}. Powiedz, co chcesz zrobić, a ja się tym zajmę.`,
+    `Widzę ${p.projects} ${pluralForm('pl', p.projects, { one: 'projekt', few: 'projekty', many: 'projektów', other: 'projektu' })} i ${p.videos} ${pluralForm('pl', p.videos, { one: 'film', few: 'filmy', many: 'filmów', other: 'filmu' })}. Powiedz, co chcesz zrobić, a ja się tym zajmę.`,
   starterSummarize: 'Podsumuj film',
   starterSummarizeText: 'Podsumuj mój najnowszy film',
   starterCaptions: 'Dodaj napisy',
   starterCaptionsText: 'Dodaj napisy do mojego najnowszego filmu',
   starterHighlights: 'Znajdź najlepsze momenty',
   starterHighlightsText: 'Znajdź najlepsze momenty w moim najnowszym filmie',
+  channelIntro: (p: { name: string; purpose: string }) => `Ten kanał służy do: ${p.purpose}. Powiedz, co tu zrobić, a całą pracę zostawię w tym kanale.`,
+  channelIntroNoPurpose: (p: { name: string }) => `To kanał ${p.name}. Powiedz, do czego służy i od czego zacząć.`,
+  starterChannelPlan: 'Zaproponuj pierwsze zadania',
+  starterChannelPlanText: (p: { subject: string }) => `Zaproponuj pierwsze zadania dla: ${p.subject}`,
+  starterChannelLatest: 'Użyj mojego najnowszego filmu',
+  starterChannelLatestText: (p: { subject: string }) => `Użyj mojego najnowszego filmu dla: ${p.subject}`,
+  starterChannelGoal: 'Opowiedz więcej',
+  starterChannelGoalText: 'Więcej o tym, do czego służy ten kanał: ',
   markDone: 'Oznacz jako gotowe',
   handoffDriver: (p: { agent: string }) => `Kontynuujemy z ${p.agent}.`,
   editedMessage: 'Ta wiadomość została przez Ciebie edytowana.',

@@ -109,6 +109,17 @@ describe('channel spend from the usage ledger', () => {
   });
 });
 
+describe('jobs a thread waits for', () => {
+  const job = (state: JobRecord['state']) => ({ state, kind: 'dub' }) as unknown as JobRecord;
+  const ws = workspace(async () => list(1, 'r1', since), { done: job('completed'), failed: job('failed'), running: job('running'), hung: job('interrupted') });
+
+  it('are finished once each one completed, failed or is no longer known; running and hung ones are not', async () => {
+    expect(await ws.jobsFinished!(['done', 'failed', 'gone'])).toBe(true);
+    expect(await ws.jobsFinished!(['done', 'running'])).toBe(false);
+    expect(await ws.jobsFinished!(['hung'])).toBe(false);
+  });
+});
+
 describe('reverting a task on real video versions', () => {
   const version = (n: number, conversations: string[], actors: string[]) =>
     ({ version: n, updatedAt: `2026-10-0${n}T00:00:00.000Z`, conversations: conversations.map((id) => ({ id, title: id })), actions: actors.map((actor) => ({ actor, label: 'edit', count: 1 })) }) as unknown;
