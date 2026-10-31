@@ -27,6 +27,7 @@ export const zhHans: RcBotMessages = {
   stalledBudget: '这个任务已经用掉了 80% 的预算。',
   interruptedOnExit: '上次退出 BaoCut 时被中断了。',
   threadLost: '这个任务的线程不见了。',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} 现在用不了，这个任务没能运行。去设置里检查一下，再继续。`,
   needsYouToRun: (p: { agent: string }) => `这一步需要你在场：${p.agent} 不支持逐次审批。现在继续吗？`,
   approvalWaiting: (p: { summary: string }) => `等你审批：${p.summary}`,
   youAnswered: (p: { text: string }) => `你的回答：${p.text}`,

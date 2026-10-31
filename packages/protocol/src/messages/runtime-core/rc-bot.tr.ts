@@ -27,6 +27,7 @@ export const tr: RcBotMessages = {
   stalledBudget: 'Bu görev bütçesinin %80’ini kullandı.',
   interruptedOnExit: 'BaoCut en son kapatıldığında yarıda kaldı.',
   threadLost: 'Bu görevin iş parçacığı bulunamıyor.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} şu anda kullanılamıyor, bu yüzden bu görev çalışamadı. Ayarlar'dan kontrol edip devam edin.`,
   needsYouToRun: (p: { agent: string }) => `Bu adım için sizin orada olmanız gerekiyor: ${p.agent} adım adım onay isteyemiyor. Şimdi devam edilsin mi?`,
   approvalWaiting: (p: { summary: string }) => `Onayınızı bekliyor: ${p.summary}`,
   youAnswered: (p: { text: string }) => `Yanıtınız: ${p.text}`,

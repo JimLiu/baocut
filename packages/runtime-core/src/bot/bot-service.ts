@@ -450,10 +450,13 @@ export class BotService {
   }
 
   async updateSettings(patch: Partial<BotSettings>): Promise<BotSettings> {
-    const next = { ...DEFAULT_BOT_SETTINGS, ...this.#channels.settings(), ...patch };
+    const before = this.#channels.settings();
+    const next = { ...DEFAULT_BOT_SETTINGS, ...before, ...patch };
     await this.#channels.setSettings(next);
     this.#channelsTopic.publish({ type: 'bot.settings', settings: next });
     this.#armOneShot();
+    // 全局并发调高了：排着队的任务马上补上空出的位置。
+    if (next.maxConcurrentThreads !== before.maxConcurrentThreads) await this.#pump();
     return next;
   }
 
@@ -1560,6 +1563,8 @@ export class BotService {
     if (outcome.result === 'dropped' && outcome.reason === 'unattended-needs-approvals') {
       await this.#hold(item, delivery);
       await this.#needsYouToRun(item);
+    } else if (outcome.result === 'dropped' && outcome.reason === 'unavailable' && !this.#harness.closing) {
+      await this.#cannotRun(item, delivery);
     }
     return { result: outcome.result, reason: outcome.reason };
   }
@@ -1649,6 +1654,26 @@ export class BotService {
     ]);
   }
 
+  /**
+   * 智能体此刻用不了（停用、没登录、没装好）时回合起不来：工作中的任务不能一直挂着占位，转为已停下，
+   * 等用户点「继续」。没投出去的那份留着（简报只在开线程时取一次，别的投递也不该丢），继续时原样重投；
+   * 已经留着一份时不拿后来的刷新顶掉它。
+   */
+  async #cannotRun(item: WorkItem, delivery: Delivery): Promise<void> {
+    const current = this.#items.get(item.id) ?? item;
+    if (current.status !== 'active' || current.active?.state !== 'working') return;
+    const holding = this.#needsYou.has(item.id) || (await this.#files.readHeld(item.channelId, item.id).catch(() => null)) != null;
+    if (!holding || delivery.item.direction !== 'refresh') await this.#hold(current, delivery);
+    const thread = current.threadId ? this.#harness.conversationOf(current.threadId) : undefined;
+    const agent = thread ? await this.#driverName(thread.driverId) : '';
+    const now = nowIso();
+    const reason = RcBot.agentUnavailable({ agent }).text;
+    const next: WorkItem = { ...current, active: { state: 'blocked', reason, since: now }, question: continueQuestion(), updatedAt: now };
+    await this.#commit(current, next, [{ workItemId: item.id, from: stateName(current), to: 'blocked', actor: 'system', cause: 'system:agent-unavailable', note: reason, at: now }], [
+      { kind: 'notify', reason: 'stalled' },
+    ]);
+  }
+
   async #driverName(driverId: DriverId): Promise<string> {
     const view = this.#harness.agentsSnapshot();
     return view.drivers?.find((d) => d.id === driverId)?.name ?? driverId;
@@ -1660,14 +1685,17 @@ export class BotService {
       await this.#openThread(item, { attended: true });
       return;
     }
-    const held = reason === 'needs-you' ? await this.#takeHeld(item) : null;
+    // 要你在场的、智能体当时用不了的，都留着原来那份：先重投它。
+    const held = await this.#takeHeld(item);
     if (held) {
       this.#expecting.add(item.threadId);
       try {
         // 存下之后频道上限或任务的模式可能改过：按现在的重新算，不沿用存下的模式。
         const { accessMode: _saved, ...rest } = held;
         const mode = this.#deliveryMode(this.#items.get(item.id) ?? item);
-        await this.#harness.deliver({ ...rest, id: `${held.id}_attended`, unattended: false, ...(mode ? { accessMode: mode } : {}) });
+        const outcome = await this.#harness.deliver({ ...rest, id: `${held.id}_attended`, unattended: false, ...(mode ? { accessMode: mode } : {}) });
+        // 智能体还是用不了：留回原来那份，任务再停下。
+        if (outcome.result === 'dropped' && outcome.reason === 'unavailable' && !this.#harness.closing) await this.#cannotRun(item, held);
       } finally {
         this.#expecting.delete(item.threadId);
       }

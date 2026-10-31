@@ -27,6 +27,7 @@ export const vi: RcBotMessages = {
   stalledBudget: 'Việc này đã dùng 80% ngân sách.',
   interruptedOnExit: 'Bị gián đoạn khi BaoCut thoát lần trước.',
   threadLost: 'Không còn thấy luồng của việc này.',
+  agentUnavailable: (p: { agent: string }) => `Hiện không dùng được ${p.agent}, nên việc này chưa chạy được. Hãy kiểm tra trong Cài đặt rồi tiếp tục.`,
   needsYouToRun: (p: { agent: string }) => `Bước này cần bạn có mặt: ${p.agent} không thể xin phê duyệt từng bước. Tiếp tục ngay bây giờ?`,
   approvalWaiting: (p: { summary: string }) => `Đang chờ bạn phê duyệt: ${p.summary}`,
   youAnswered: (p: { text: string }) => `Bạn đã trả lời: ${p.text}`,

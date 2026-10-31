@@ -30,6 +30,7 @@ export const nl: RcBotMessages = {
   stalledBudget: 'Deze taak heeft 80% van zijn budget gebruikt.',
   interruptedOnExit: 'Onderbroken toen BaoCut de vorige keer werd afgesloten.',
   threadLost: 'De thread van deze taak ontbreekt.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} is nu niet beschikbaar, dus deze taak kon niet draaien. Controleer het in Instellingen en ga dan verder.`,
   needsYouToRun: (p: { agent: string }) => `Voor deze stap moet je erbij zijn: ${p.agent} kan niet per stap om goedkeuring vragen. Nu doorgaan?`,
   approvalWaiting: (p: { summary: string }) => `Wacht op je goedkeuring: ${p.summary}`,
   youAnswered: (p: { text: string }) => `Je antwoordde: ${p.text}`,

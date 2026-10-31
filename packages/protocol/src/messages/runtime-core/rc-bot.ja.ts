@@ -27,6 +27,7 @@ export const ja: RcBotMessages = {
   stalledBudget: 'このタスクは予算の 80% を使いました。',
   interruptedOnExit: '前回 BaoCut を終了したときに中断されました。',
   threadLost: 'このタスクのスレッドが見つかりません。',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} は今使えないため、このタスクを実行できませんでした。設定で確認してから続けてください。`,
   needsYouToRun: (p: { agent: string }) => `この手順にはあなたの立ち会いが必要です。${p.agent} は手順ごとの承認に対応していません。今すぐ続けますか?`,
   approvalWaiting: (p: { summary: string }) => `あなたの承認待ち: ${p.summary}`,
   youAnswered: (p: { text: string }) => `あなたの回答: ${p.text}`,

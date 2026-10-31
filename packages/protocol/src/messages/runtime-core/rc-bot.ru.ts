@@ -30,6 +30,7 @@ export const ru: RcBotMessages = {
   stalledBudget: 'Эта задача израсходовала 80 % своего бюджета.',
   interruptedOnExit: 'Прервано при последнем закрытии BaoCut.',
   threadLost: 'Поток этой задачи пропал.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} сейчас недоступен, поэтому задача не запустилась. Проверьте его в настройках и продолжите.`,
   needsYouToRun: (p: { agent: string }) => `Для этого шага нужно ваше присутствие: ${p.agent} не умеет запрашивать подтверждение по шагам. Продолжить сейчас?`,
   approvalWaiting: (p: { summary: string }) => `Ждёт вашего подтверждения: ${p.summary}`,
   youAnswered: (p: { text: string }) => `Ваш ответ: ${p.text}`,

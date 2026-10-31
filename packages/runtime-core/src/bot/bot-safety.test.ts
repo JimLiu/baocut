@@ -528,3 +528,76 @@ describe('memory writes (§11)', () => {
     expect(channel.content === 'saved meanwhile').toBe(channel.version === channelStart + 1);
   });
 });
+
+describe('an agent that cannot run right now', () => {
+  it('a launch the agent cannot start stops the task at once, keeps the brief and delivers it on "continue"', async () => {
+    const runs: string[] = [];
+    kit.thread = async (ctx) => {
+      runs.push(kit.turns(ctx.conversationId).at(-1) ?? '');
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The intro is cut.' });
+    };
+    const driver = kit.driver as unknown as { verified?: boolean };
+    driver.verified = false;
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Cut the intro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.settle();
+    expect(runs).toEqual([]);
+    expect(kit.item(item.id)).toMatchObject({
+      active: { state: 'blocked', reason: RcBot.agentUnavailable({ agent: 'Scripted' }).text },
+      question: { askedBy: 'system' },
+    });
+    expect(kit.notifications().some((n) => n.reason === 'stalled' && n.workItemId === item.id)).toBe(true);
+
+    driver.verified = true;
+    await kit.bot.userTransition(item.id, { type: 'unblocked', cause: 'user' });
+    await kit.until(() => kit.item(item.id).active?.state === 'needsReview');
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toContain('<baocut-thread-brief');
+    expect(runs[0]).not.toContain('<baocut-refresh');
+  });
+
+  it('"continue" while the agent is still unavailable stops the task again and keeps the brief', async () => {
+    const runs: string[] = [];
+    kit.thread = async (ctx) => {
+      runs.push(kit.turns(ctx.conversationId).at(-1) ?? '');
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The outro is cut.' });
+    };
+    const driver = kit.driver as unknown as { verified?: boolean };
+    driver.verified = false;
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Cut the outro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.settle();
+    await kit.bot.userTransition(item.id, { type: 'unblocked', cause: 'user' });
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    driver.verified = true;
+    await kit.bot.userTransition(item.id, { type: 'unblocked', cause: 'user' });
+    await kit.until(() => kit.item(item.id).active?.state === 'needsReview');
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toContain('<baocut-thread-brief');
+  });
+});
+
+describe('raising the global thread limit', () => {
+  it('starts a queued task right away when the global limit goes up', async () => {
+    await kit.bot.updateSettings({ maxConcurrentThreads: 1 });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    kit.thread = async (ctx) => {
+      if (kit.bot.itemOfThread(ctx.conversationId)?.title === 'Long render') await gate;
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'Done.' });
+    };
+    const long = await kit.bot.createItem({ channelId: kit.main.id, title: 'Long render', owner: 'agent' });
+    await kit.bot.startItem(long.id, { attended: false });
+    await kit.until(() => kit.item(long.id).active?.state === 'working');
+    const quick = await kit.bot.createItem({ channelId: kit.main.id, title: 'Quick trim', owner: 'agent' });
+    await kit.bot.startItem(quick.id, { attended: false });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(kit.item(quick.id).status).toBe('upNext');
+    await kit.bot.updateSettings({ maxConcurrentThreads: 2 });
+    await kit.until(() => kit.item(quick.id).active?.state === 'needsReview');
+    expect(kit.item(long.id).active?.state).toBe('working');
+    release();
+    await kit.until(() => kit.item(long.id).active?.state === 'needsReview');
+  });
+});

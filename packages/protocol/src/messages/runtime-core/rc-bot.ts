@@ -45,6 +45,7 @@ const en = {
   stalledBudget: 'This task has used 80% of its budget.',
   interruptedOnExit: 'Interrupted when BaoCut last quit.',
   threadLost: "This task's thread is missing.",
+  agentUnavailable: (p: { agent: string }) => `${p.agent} isn't available right now, so this task couldn't run. Check it in Settings, then continue.`,
   needsYouToRun: (p: { agent: string }) => `This step needs you here: ${p.agent} can't ask for approval step by step. Continue now?`,
   approvalWaiting: (p: { summary: string }) => `Waiting for your approval: ${p.summary}`,
   youAnswered: (p: { text: string }) => `You answered: ${p.text}`,

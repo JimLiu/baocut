@@ -30,6 +30,7 @@ export const it: RcBotMessages = {
   stalledBudget: 'Questa attività ha usato l’80% del suo budget.',
   interruptedOnExit: 'Interrotta all’ultima chiusura di BaoCut.',
   threadLost: 'Il thread di questa attività non si trova.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} non è disponibile al momento, quindi questa attività non è partita. Controllalo nelle impostazioni, poi continua.`,
   needsYouToRun: (p: { agent: string }) => `Questo passaggio richiede la tua presenza: ${p.agent} non può chiedere l’approvazione passo per passo. Continuare ora?`,
   approvalWaiting: (p: { summary: string }) => `In attesa della tua approvazione: ${p.summary}`,
   youAnswered: (p: { text: string }) => `Hai risposto: ${p.text}`,

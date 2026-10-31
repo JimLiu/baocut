@@ -30,6 +30,7 @@ export const ptBR: RcBotMessages = {
   stalledBudget: 'Esta tarefa já usou 80% do orçamento.',
   interruptedOnExit: 'Interrompida quando o BaoCut foi fechado pela última vez.',
   threadLost: 'O fio desta tarefa sumiu.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} não está disponível agora, então esta tarefa não pôde rodar. Confira nas Configurações e depois continue.`,
   needsYouToRun: (p: { agent: string }) => `Esta etapa precisa de você presente: ${p.agent} não pode pedir aprovação passo a passo. Continuar agora?`,
   approvalWaiting: (p: { summary: string }) => `Aguardando sua aprovação: ${p.summary}`,
   youAnswered: (p: { text: string }) => `Você respondeu: ${p.text}`,

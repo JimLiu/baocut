@@ -30,6 +30,7 @@ export const pl: RcBotMessages = {
   stalledBudget: 'To zadanie zużyło 80% swojego budżetu.',
   interruptedOnExit: 'Przerwano przy ostatnim zamknięciu BaoCut.',
   threadLost: 'Brakuje wątku tego zadania.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} jest teraz niedostępny, więc to zadanie nie mogło ruszyć. Sprawdź to w Ustawieniach, a potem kontynuuj.`,
   needsYouToRun: (p: { agent: string }) => `Ten krok wymaga Twojej obecności: ${p.agent} nie może prosić o zatwierdzenie krok po kroku. Kontynuować teraz?`,
   approvalWaiting: (p: { summary: string }) => `Czeka na Twoje zatwierdzenie: ${p.summary}`,
   youAnswered: (p: { text: string }) => `Twoja odpowiedź: ${p.text}`,

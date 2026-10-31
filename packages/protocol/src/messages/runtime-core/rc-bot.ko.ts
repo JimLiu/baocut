@@ -27,6 +27,7 @@ export const ko: RcBotMessages = {
   stalledBudget: '이 작업이 예산의 80%를 사용했습니다.',
   interruptedOnExit: '지난번 BaoCut을 종료할 때 중단되었습니다.',
   threadLost: '이 작업의 스레드가 없습니다.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent}을(를) 지금 사용할 수 없어 이 작업을 실행하지 못했습니다. 설정에서 확인한 뒤 계속하세요.`,
   needsYouToRun: (p: { agent: string }) => `이 단계는 사용자가 있어야 합니다. ${p.agent}은(는) 단계별 승인을 요청할 수 없습니다. 지금 계속할까요?`,
   approvalWaiting: (p: { summary: string }) => `승인 대기 중: ${p.summary}`,
   youAnswered: (p: { text: string }) => `내 답변: ${p.text}`,

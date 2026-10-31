@@ -30,6 +30,7 @@ export const de: RcBotMessages = {
   stalledBudget: 'Diese Aufgabe hat 80 % ihres Budgets verbraucht.',
   interruptedOnExit: 'Beim letzten Beenden von BaoCut unterbrochen.',
   threadLost: 'Der Thread dieser Aufgabe fehlt.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} ist gerade nicht verfügbar, deshalb konnte diese Aufgabe nicht laufen. Prüfe es in den Einstellungen und fahre dann fort.`,
   needsYouToRun: (p: { agent: string }) => `Für diesen Schritt musst du dabei sein: ${p.agent} kann nicht schrittweise um Freigabe bitten. Jetzt weitermachen?`,
   approvalWaiting: (p: { summary: string }) => `Wartet auf deine Freigabe: ${p.summary}`,
   youAnswered: (p: { text: string }) => `Deine Antwort: ${p.text}`,

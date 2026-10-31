@@ -30,6 +30,7 @@ export const fr: RcBotMessages = {
   stalledBudget: 'Cette tâche a utilisé 80 % de son budget.',
   interruptedOnExit: 'Interrompue lors de la dernière fermeture de BaoCut.',
   threadLost: 'Le fil de cette tâche est introuvable.',
+  agentUnavailable: (p: { agent: string }) => `${p.agent} n'est pas disponible pour l'instant, cette tâche n'a donc pas pu s'exécuter. Vérifiez-le dans les réglages, puis continuez.`,
   needsYouToRun: (p: { agent: string }) => `Cette étape nécessite votre présence : ${p.agent} ne peut pas demander d’approbation étape par étape. Continuer maintenant ?`,
   approvalWaiting: (p: { summary: string }) => `En attente de votre approbation : ${p.summary}`,
   youAnswered: (p: { text: string }) => `Votre réponse : ${p.text}`,
