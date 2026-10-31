@@ -514,6 +514,8 @@ describe('S3 BOT-SF-12 "do not ask again in this task" follows the details', () 
     await kit.until(() => statuses.length === 4, 15_000);
     // 线程没报告就结束：等兜底报告投完，免得收尾时还在写盘。
     await kit.until(() => kit.item(item.id).lastReportId, 15_000);
+    // 兜底报告交给协调者的那一回合也跑完，再收尾。
+    await kit.until(() => kit.turns(main()).some((t) => t.includes('<baocut-thread-report')), 15_000);
     await kit.settle(15_000);
     expect(statuses).toEqual(['allowed', 'allowed', 'denied', 'denied']);
     expect(ofKind(thread, 'approval').map((a) => a.status)).toEqual(['accepted', 'declined', 'declined']);
