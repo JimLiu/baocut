@@ -1,3 +1,4 @@
+import type { ConversationRole } from '@baocut/protocol';
 import type { ToolSet } from './tool-catalog.ts';
 import { AssembleTools } from './assemble-tools.ts';
 import { CompositionTools } from './composition-tools.ts';
@@ -69,9 +70,9 @@ export function allToolSets(): ToolSet[] {
   ];
 }
 
-/** 全部工具名，按字母排序。 */
-export function allToolNames(): string[] {
+/** 全部工具名，按字母排序；给了会话角色时只算这个角色拿得到的（带 `roles` 的工具只露给其中的角色）。 */
+export function allToolNames(role?: ConversationRole): string[] {
   return allToolSets()
-    .flatMap((set) => Object.keys(set.schemas))
+    .flatMap((set) => Object.keys(set.schemas).filter((name) => !role || (set.definitions[name]?.roles ?? [role]).includes(role)))
     .sort();
 }

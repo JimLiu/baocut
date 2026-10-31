@@ -110,8 +110,8 @@ describe.skipIf(!engine || !ffmpeg)('智能体工具（真实引擎）', () => {
     expect(init.result).toMatchObject({ protocolVersion: '2025-06-18', serverInfo: { name: 'baocut' }, capabilities: { tools: {} } });
     const listed = await mcp(session, 'tools/list');
     const tools = listed.result!.tools as { name: string; inputSchema: { type: string } }[];
-    // 工具桥列出目录里的全部工具（每一项的 surfaces 都含 agent）。
-    expect(tools.map((t) => t.name).sort()).toEqual(allToolNames());
+    // 工具桥列出目录里普通会话拿得到的全部工具（每一项的 surfaces 都含 agent；Bot 的工具只给频道与线程）。
+    expect(tools.map((t) => t.name).sort()).toEqual(allToolNames('chat'));
     expect(tools.every((t) => t.inputSchema.type === 'object')).toBe(true);
 
     const body = { jsonrpc: '2.0', id: 1, method: 'tools/list' };

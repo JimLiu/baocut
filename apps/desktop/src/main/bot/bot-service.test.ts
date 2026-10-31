@@ -155,7 +155,9 @@ describe('Bot service wiring (Electron simulated)', () => {
 
   it('a clicked notification opens the window and hands the task route to the renderer once', async () => {
     const { client, win, options } = install();
-    client.snapshot(channelsSnapshot([channelSummary('chan_pod', { name: 'Weekly podcast' })]));
+    // Quiet hours off: the real clock drives the policy here, and 22:00–08:00 UTC would hold the notification.
+    const quietHours = { start: '22:00', end: '08:00', enabled: false };
+    client.snapshot(channelsSnapshot([channelSummary('chan_pod', { name: 'Weekly podcast' })], { quietHours }));
     await flush();
     client.event({
       type: 'bot.notification',

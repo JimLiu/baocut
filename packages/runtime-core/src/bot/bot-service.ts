@@ -414,6 +414,11 @@ export class BotService {
   /** 没人等着的后台处理（`void …`）：都经 `#track` 记下，`stop` 时等它们落定。 */
   readonly #background = new Set<Promise<void>>();
 
+  /** 还没落定的后台处理件数（测试据此判断 Bot 是否安静下来）。 */
+  get backgroundWork(): number {
+    return this.#background.size;
+  }
+
   #track(work: Promise<unknown>): Promise<void> {
     const settled = work.then(
       () => {},

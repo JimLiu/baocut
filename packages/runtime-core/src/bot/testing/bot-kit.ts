@@ -318,17 +318,22 @@ export class BotKit {
     return this.events.filter((e): e is BotNotificationEvent => e.type === 'bot.notification');
   }
 
-  /** 等到所有 Bot 会话都没有进行中的回合，且连续两次看都不再变。 */
+  /** 等到所有 Bot 会话都没有进行中的回合、Bot 的后台处理也都落定，且连续几次看都不再变（负载高时回合之间的写盘与转交会拖长）。 */
   async settle(timeoutMs = 5000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     let quiet = 0;
     let lastRuns = -1;
+    let backgroundSince: number | null = null;
     for (;;) {
       // 停在审批或提问上的回合不算忙（它在等用户）。
       const busy = this.harness
         .directorySnapshot()
         .conversations.some((c) => c.role !== 'chat' && (c.activity === 'running' || c.activity === 'stopping' || (this.harness.runInfo(c.id) && !c.activity.startsWith('awaiting'))));
-      if (!busy && this.runs.length === lastRuns) quiet++;
+      // 后台处理一秒都不落定的，多半是测试自己卡着它（比如挡住一次读盘），不再等。
+      const background = !busy && this.bot.backgroundWork > 0;
+      backgroundSince = background ? (backgroundSince ?? Date.now()) : null;
+      const waiting = background && Date.now() - backgroundSince! < 1000;
+      if (!busy && !waiting && this.runs.length === lastRuns) quiet++;
       else quiet = 0;
       lastRuns = this.runs.length;
       if (quiet >= 3) return;
