@@ -1860,6 +1860,8 @@ export class Harness {
       userMessageId: messageId,
     };
     this.#runs.set(state.id, run);
+    // 用户起的回合也报「开始」（与投递一致）：Bot 据此把等你的任务转回工作中，回合结束时才有兜底报告。
+    this.#emitRun({ type: 'started', conversationId: state.id, taskId, origin: 'user', attended: true });
     // 分叉出来的会话（产品设计 §3.2.2「分叉」）：带进来的记录放在用户消息前面交给智能体。智能体还没回过话（第一轮没跑起来、
     // 刚开始就停了）时下一次接着带，宁可重复也不丢。
     const fork = forkNoteOf(state.items());

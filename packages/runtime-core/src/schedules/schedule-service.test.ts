@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { silentLogger } from '@baocut/harness';
-import { RpcError, type Conversation, type Id, type Schedule, type TaskStatus, type TaskSummary, type TasksEvent } from '@baocut/protocol';
+import { RpcError, type ActiveState, type Conversation, type Id, type Schedule, type TaskStatus, type TaskSummary, type TasksEvent, type WorkItemStatus, type WorkItemTemplate } from '@baocut/protocol';
 import { SCHEDULE_MAX_TIMER_MS, ScheduleService, type ScheduleClock, type ScheduleHost } from './schedule-service.ts';
 
 /** 定时任务（产品设计 §6.1「定时任务」）：假时钟、假会话与假发送，不起 Agent。钉在 UTC，时刻按墙上时间写。 */
@@ -73,6 +73,7 @@ class FakeHost implements ScheduleHost {
   created: Parameters<ScheduleHost['createConversation']>[0][] = [];
   events: TasksEvent[] = [];
   sendError: Error | null = null;
+  bot?: FakeBot;
   #n = 0;
 
   conversation = (id: Id) => this.conversations.get(id);
@@ -115,6 +116,22 @@ class FakeHost implements ScheduleHost {
     this.conversations.set(id, c);
     return c;
   }
+}
+
+/** Bot 模式的宿主一侧（§11.1）：频道在不在、建任务、任务的状态。 */
+class FakeBot implements NonNullable<ScheduleHost['bot']> {
+  channels = new Map<Id, { archived: boolean }>([['chan1', { archived: false }]]);
+  items = new Map<Id, { status: WorkItemStatus; activeState: ActiveState | null }>();
+  created: { channelId: Id; template: WorkItemTemplate; scheduleId: Id; runId: Id }[] = [];
+  #n = 0;
+  channel = (id: Id) => this.channels.get(id);
+  createWorkItem = async (channelId: Id, template: WorkItemTemplate, scheduleId: Id, runId: Id) => {
+    const workItemId = `wi${++this.#n}`;
+    this.created.push({ channelId, template, scheduleId, runId });
+    this.items.set(workItemId, { status: 'active', activeState: 'working' });
+    return { workItemId };
+  };
+  workItem = (id: Id) => this.items.get(id);
 }
 
 class MemoryStore {
@@ -443,5 +460,111 @@ describe('启动', () => {
     expect(first!.runs.map((r) => r.status)).toEqual(['failed', 'done']);
     expect(first!.runCount).toBe(2);
     expect(second).toMatchObject({ status: 'paused', pauseReason: 'conversation-deleted' });
+  });
+});
+
+describe('频道任务（work-item）', () => {
+  const template: WorkItemTemplate = { title: 'Weekly recap', description: '', owner: 'agent', prompt: 'Summarise the week.', resources: [] };
+  let bot: FakeBot;
+  beforeEach(() => {
+    bot = new FakeBot();
+    host.bot = bot;
+    host.conversations.set('chanconv', conversation({ id: 'chanconv', projectId: null }));
+  });
+
+  const hourly = (overrides: Partial<Parameters<ScheduleService['create']>[0]> = {}) =>
+    daily({
+      conversationId: 'chanconv',
+      target: 'work-item',
+      cadence: { type: 'hourly', minute: 0 },
+      workItem: { channelId: 'chan1', template },
+      ...overrides,
+    });
+
+  it('没有频道、频道不在或没有 Bot 都拒绝建立', async () => {
+    await expect(hourly({ workItem: undefined } as never)).rejects.toMatchObject({ code: 'invalid-request' });
+    await expect(hourly({ workItem: { channelId: 'nope', template } })).rejects.toMatchObject({ code: 'invalid-request' });
+    delete host.bot;
+    await expect(hourly()).rejects.toMatchObject({ code: 'invalid-request' });
+    expect(service.list()).toEqual([]);
+  });
+
+  it('到点在频道里按模板建任务，这一次记下任务；不发消息', async () => {
+    const { schedule } = await hourly();
+    expect(schedule).toMatchObject({ target: 'work-item', workItem: { channelId: 'chan1', template } });
+    await clock.advance(HOUR);
+    expect(host.sent).toEqual([]);
+    expect(bot.created).toEqual([{ channelId: 'chan1', template, scheduleId: schedule.id, runId: only().runs[0]!.id }]);
+    expect(only().runs[0]).toMatchObject({ status: 'running', workItemId: 'wi1' });
+  });
+
+  it('任务到了停点这一次算完成；卡住算失败；还在做或在等别人时不收', async () => {
+    await hourly();
+    await clock.advance(HOUR);
+    bot.items.set('wi1', { status: 'active', activeState: 'waitingOnOthers' });
+    service.workItemChanged('wi1');
+    expect(only().runs[0]!.status).toBe('running');
+    bot.items.set('wi1', { status: 'active', activeState: 'needsReview' });
+    service.workItemChanged('wi1');
+    expect(only()).toMatchObject({ runCount: 1, runs: [{ status: 'done' }] });
+    // 上一条还没解决（待你审阅也算）：下一次跳过，不堆积。
+    await clock.advance(HOUR);
+    expect(bot.created).toHaveLength(1);
+    expect(only().runs.map((r) => r.status)).toEqual(['skipped', 'done']);
+    bot.items.set('wi1', { status: 'resolved', activeState: null });
+    await clock.advance(HOUR);
+    expect(bot.created).toHaveLength(2);
+    bot.items.set('wi2', { status: 'active', activeState: 'blocked' });
+    service.workItemChanged('wi2');
+    expect(only().runs[0]).toMatchObject({ status: 'failed', workItemId: 'wi2' });
+    // 别的任务变了不影响。
+    service.workItemChanged('other');
+    expect(only().runs[0]!.status).toBe('failed');
+  });
+
+  it('建出来的任务马上就停下（例如用户自己的任务）时当场收尾；任务不见了算失败', async () => {
+    bot.createWorkItem = async (channelId, tmpl, scheduleId, runId) => {
+      bot.created.push({ channelId, template: tmpl, scheduleId, runId });
+      bot.items.set('wiX', { status: 'active', activeState: 'needsInput' });
+      return { workItemId: 'wiX' };
+    };
+    await hourly();
+    await clock.advance(HOUR);
+    expect(only().runs[0]).toMatchObject({ status: 'done', workItemId: 'wiX' });
+    bot.items.set('wiX', { status: 'resolved', activeState: null });
+    bot.createWorkItem = async () => ({ workItemId: 'ghost' });
+    await clock.advance(HOUR);
+    expect(only().runs[0]).toMatchObject({ status: 'failed', workItemId: 'ghost' });
+  });
+
+  it('频道归档时暂停（channel-archived），删除时写明删除；恢复后要用户自己继续', async () => {
+    await hourly();
+    bot.channels.set('chan1', { archived: true });
+    service.channelChanged('chan1');
+    expect(only()).toMatchObject({ status: 'paused', pauseReason: 'channel-archived', nextAt: null });
+    await expect(service.update({ scheduleId: only().id, paused: false })).rejects.toMatchObject({ code: 'invalid-request' });
+    bot.channels.set('chan1', { archived: false });
+    service.channelChanged('chan1');
+    expect(only().status).toBe('paused');
+    await service.update({ scheduleId: only().id, paused: false });
+    expect(only()).toMatchObject({ status: 'active', pauseReason: null });
+    bot.channels.delete('chan1');
+    service.channelChanged('chan1');
+    expect(only()).toMatchObject({ status: 'paused', pauseReason: 'conversation-deleted' });
+    await clock.advance(HOUR);
+    expect(bot.created).toEqual([]);
+  });
+
+  it('forChannel 只列这个频道的频道任务；别的频道变化不碰它', async () => {
+    bot.channels.set('chan2', { archived: false });
+    const { schedule: a } = await hourly();
+    const { schedule: b } = await hourly({ workItem: { channelId: 'chan2', template } });
+    await daily();
+    expect(service.forChannel('chan1').map((s) => s.id)).toEqual([a.id]);
+    expect(service.forChannel('chan2').map((s) => s.id)).toEqual([b.id]);
+    bot.channels.set('chan2', { archived: true });
+    service.channelChanged('chan2');
+    expect(service.list().find((s) => s.id === a.id)!.status).toBe('active');
+    expect(service.list().find((s) => s.id === b.id)!.status).toBe('paused');
   });
 });

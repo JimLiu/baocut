@@ -27,7 +27,7 @@ import {
   type WorkItemStatus,
   type WorkItemTemplate,
 } from '@baocut/protocol';
-import { RcSchedules } from '@baocut/protocol/messages/runtime-core';
+import { RcBot, RcSchedules } from '@baocut/protocol/messages/runtime-core';
 
 /** 计时器最长等多久：机器睡醒、系统时间改过之后，最迟这么久重新对一次表。 */
 export const SCHEDULE_MAX_TIMER_MS = 60 * 60_000;
@@ -482,6 +482,8 @@ export class ScheduleService {
   #blocked(schedule: Schedule) {
     const reason = this.#targetGone(schedule);
     if (reason === 'conversation-archived') return RcSchedules.resumeArchived();
+    // 频道归档时也不能继续（否则继续后到点又被暂停）。
+    if (reason === 'channel-archived') return RcBot.channelArchived();
     if (reason === 'conversation-deleted') return RcSchedules.resumeDeleted();
     if (reason === 'project-removed') return RcSchedules.resumeProjectRemoved();
     if (schedule.maxRuns !== null && schedule.runCount >= schedule.maxRuns) return RcSchedules.resumeCompleted();

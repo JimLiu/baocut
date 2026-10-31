@@ -132,6 +132,7 @@ export function threadReportBlock(report: ThreadReport, item: WorkItem | undefin
       ...questionLines(report.question),
       ...report.outputs.map((o) => `output: ${o.label} (${resourceLine(o)})`),
       ...report.userTodos.map((t) => `for the user: ${t}`),
+      ...report.appliedRules.map((r) => `followed rule: ${r}`),
       ...superseded.map((h) => `earlier report (superseded): ${h}`),
       ...(report.text ? ['', ...lines(report.text)] : []),
     ],

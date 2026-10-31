@@ -66,7 +66,7 @@ import {
   workspaceFactsBlock,
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
-import { questionChips } from './suggestions.ts';
+import { questionChips, questionCount } from './suggestions.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
 import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
 
@@ -1517,7 +1517,8 @@ export class BotService {
         await this.#needsYouToRun(item);
         return;
       }
-      if (!info || info.reported || info.origin === 'refresh' || info.status === 'resolved') return;
+      // 开始时已解决的任务：回合里没重开就不动（下面的 status 检查）；重开了又没报告的，照常兜底，不留在「工作中」。
+      if (!info || info.reported || info.origin === 'refresh') return;
       const current = this.#items.get(item.id);
       if (!current || current.status !== 'active' || current.active?.state !== 'working') return;
       const run: MachineRun & { taskId: Id } = {
@@ -1976,7 +1977,7 @@ export class BotService {
     const latest = [...items].reverse().find((i) => i.kind === 'agent-message');
     const yes = emoji === '\u{1F44D}' || emoji === '✓' || emoji === '✔️' || emoji === '✅';
     const no = emoji === '\u{1F44E}';
-    if (yes && latest?.id === itemId && isConfirmQuestionText(target.text)) {
+    if (yes && latest?.id === itemId && isYesNoQuestion(target.text)) {
       return this.#sendAsUser(conversationId, RcBot.reactionYes().text, 'reaction');
     }
     if (no) return this.#sendAsUser(conversationId, '\u{1F44E}', 'reaction');
@@ -2476,8 +2477,15 @@ export function isBareAnswer(text: string): boolean {
   return /^(ok|okay|yes|yep|sure|go|go ahead|do it|fine|y|\u{1F44D}|好|好的|可以|行|嗯|对|没问题|做吧|继续)$/u.test(t);
 }
 
-function isConfirmQuestionText(text: string): boolean {
-  return (text.match(/[?？]/g) ?? []).length === 1;
+/**
+ * 👍 / ✓ 能当「好」的问句（§12.4、BOT-SF-06）：整条消息只有一个问句，且是「要我……吗」这类是非问题，不是「A 还是 B」的选择题。
+ * 指令要求问题写成下一步（「导出成片？」），所以只有一个问句、又不是选择题的也算。
+ */
+export function isYesNoQuestion(text: string): boolean {
+  if (questionCount(text) !== 1) return false;
+  // 先排除选择题（「用哪一条？」「竖版还是横版？」），即使问句以「要我……」开头。
+  const question = /[^.!\u3002\uFF01?\uFF1F\n]*[?\uFF1F]/.exec(text)?.[0] ?? '';
+  return !/\b(or|which|what|when|where|who|how)\b|\u8FD8\u662F|\u6216\u8005|\u54EA|\u4EC0\u4E48|\u600E\u4E48|\u591A\u5C11|\u51E0/i.test(question);
 }
 
 /** 审批卡或提问卡 → 任务上的问题。 */
