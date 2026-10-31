@@ -59,6 +59,14 @@ export const ja: RcBotMessages = {
   markDone: 'Mark done',
   handoffDriver: (p: { agent: string }) => `Continuing with ${p.agent}.`,
   editedMessage: 'You edited this message.',
+  reactionYes: 'Yes',
+  reactionNo: 'No',
+  approvalNeedsYou: 'An approval is waiting for you.',
+  makeNoGenerator: 'No text model is set up, so suggestions are not available.',
+  scheduleNotReady: 'Scheduled tasks are not available right now.',
+  proposalChannelExists: 'A channel with this name already exists.',
+  dependencyWaiting: (p: { title: string }) => `Waiting for "${p.title}".`,
+  lateStart: (p: { minutes: number }) => `Started ${p.minutes} minutes late.`,
 
   // ---- 通知 ----
   notifyNeedsReview: (p: { title: string }) => `${p.title} is ready for you to review`,
@@ -70,5 +78,7 @@ export const ja: RcBotMessages = {
   proposalNotFound: 'This card is no longer available.',
   proposalHandled: 'This card was already handled.',
   chipStale: 'These suggestions are out of date.',
+  userOnly: 'Only the user can do this.',
+  notReady: 'Bot mode is not ready yet.',
   automationPaused: 'Automation is paused.',
 };

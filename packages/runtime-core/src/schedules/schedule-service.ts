@@ -23,6 +23,9 @@ import {
   type ScheduleRun,
   type TaskSummary,
   type TasksEvent,
+  type ActiveState,
+  type WorkItemStatus,
+  type WorkItemTemplate,
 } from '@baocut/protocol';
 import { RcSchedules } from '@baocut/protocol/messages/runtime-core';
 
@@ -43,6 +46,15 @@ export interface ScheduleHost {
   send(params: { conversationId: Id; text: string; commandId: Id }): Promise<{ taskId: Id }>;
   task(taskId: Id): TaskSummary | undefined;
   publish(event: Extract<TasksEvent, { type: 'schedule.upsert' | 'schedule.removed' }>): void;
+  /**
+   * Bot 模式（技术方案 §11.1）：`work-item` 目标到点时在频道里建一条任务（按模板），不给时这类定时任务按失败记。
+   * `channel` 查频道是否还在、是否归档；`workItem` 查任务的状态（到了停点就算这一次结束）。
+   */
+  bot?: {
+    channel(channelId: Id): { archived: boolean } | undefined;
+    createWorkItem(channelId: Id, template: WorkItemTemplate, scheduleId: Id, runId: Id): Promise<{ workItemId: Id }>;
+    workItem(workItemId: Id): { status: WorkItemStatus; activeState: ActiveState | null } | undefined;
+  };
 }
 
 export interface ScheduleClock {
@@ -134,6 +146,9 @@ export class ScheduleService {
     return this.#once(`create:${params.commandId}`, async () => {
       const conversation = this.#host.conversation(params.conversationId);
       if (!conversation) throw new RpcError('not-found', RcSchedules.conversationNotFound({ id: params.conversationId }));
+      if (params.target === 'work-item' && (!params.workItem || !this.#host.bot?.channel(params.workItem.channelId))) {
+        throw new RpcError('invalid-request', RcSchedules.invalid());
+      }
       if (conversation.archived) throw new RpcError('invalid-request', RcSchedules.conversationArchived());
       if (params.target === 'new' && !conversation.projectId) throw new RpcError('invalid-request', RcSchedules.noProject());
       const now = this.#clock.now();
@@ -162,6 +177,7 @@ export class ScheduleService {
         createdAt: stamp,
         updatedAt: stamp,
         runs: [],
+        ...(params.target === 'work-item' && params.workItem ? { workItem: params.workItem } : {}),
       };
       this.#schedules.unshift(schedule);
       this.#changed(schedule);
@@ -256,6 +272,39 @@ export class ScheduleService {
     }
   }
 
+  /** Bot 任务变了（§11.1）：这一次建的任务到了停点（待你审阅、待你回答、卡住或完成）就把这一次记成完成。 */
+  workItemChanged(workItemId: Id): void {
+    for (const schedule of this.#schedules) {
+      if (schedule.target !== 'work-item') continue;
+      const run = schedule.runs.find((r) => r.status === 'running' && r.workItemId === workItemId);
+      if (run) this.#settleWorkItem(schedule, run);
+    }
+  }
+
+  /** 频道归档或删除：在里面建任务的定时任务暂停；恢复了不自动继续（用户自己点）。 */
+  channelChanged(channelId: Id): void {
+    for (const schedule of this.#schedules) {
+      if (schedule.target === 'work-item' && schedule.workItem?.channelId === channelId) this.#checkTarget(schedule);
+    }
+  }
+
+  /** 频道里的定时任务（删除频道时的确认计数、托盘的「接下来」）。 */
+  forChannel(channelId: Id): Schedule[] {
+    return this.#schedules.filter((s) => s.target === 'work-item' && s.workItem?.channelId === channelId).map((s) => structuredClone(s));
+  }
+
+  #settleWorkItem(schedule: Schedule, run: ScheduleRun): void {
+    const item = run.workItemId ? this.#host.bot?.workItem(run.workItemId) : undefined;
+    if (!item) {
+      this.#finish(schedule, run, 'failed', RcSchedules.runStopped().text);
+      return;
+    }
+    const stopped =
+      item.status === 'resolved' ||
+      (item.status === 'active' && item.activeState !== null && item.activeState !== 'working' && item.activeState !== 'waitingOnOthers');
+    if (stopped) this.#finish(schedule, run, item.activeState === 'blocked' ? 'failed' : 'done', null);
+  }
+
   // ---- 到点 ----
 
   #tick(): void {
@@ -329,6 +378,12 @@ export class ScheduleService {
     const reason = this.#targetGone(schedule);
     if (reason) return { k: 'pause', reason };
     if (schedule.runs.some(scheduleRunOpen)) return { k: 'skip' };
+    // 频道任务：上一次建的任务还没解决（待你审阅也算），这次跳过，不堆积（§11.1）。
+    if (schedule.target === 'work-item') {
+      const last = schedule.runs.find((r) => r.workItemId);
+      const item = last?.workItemId ? this.#host.bot?.workItem(last.workItemId) : undefined;
+      if (item && item.status !== 'resolved') return { k: 'skip' };
+    }
     const target = schedule.target === 'conversation' ? this.#host.conversation(schedule.conversationId) : undefined;
     if (target && busy(target)) return { k: 'queue', target };
     return { k: 'run', ...(target ? { target } : {}) };
@@ -337,6 +392,14 @@ export class ScheduleService {
   /** 发出去：新开会话（需要时）、发消息、记下任务。会话正忙（抢在我们前面）时退回排队；别的失败记在这一次上。 */
   async #start(schedule: Schedule, run: ScheduleRun): Promise<ScheduleFireOutcome> {
     try {
+      if (schedule.target === 'work-item') {
+        if (!this.#host.bot || !schedule.workItem) throw new RpcError('unsupported', RcSchedules.invalid());
+        const { workItemId } = await this.#host.bot.createWorkItem(schedule.workItem.channelId, schedule.workItem.template, schedule.id, run.id);
+        run.workItemId = workItemId;
+        this.#settleWorkItem(schedule, run);
+        this.#changed(schedule);
+        return 'run';
+      }
       if (!run.conversationId) {
         const created = await this.#host.createConversation({
           projectId: schedule.projectId!,
@@ -401,6 +464,11 @@ export class ScheduleService {
   }
 
   #targetGone(schedule: Schedule): SchedulePauseReason | null {
+    if (schedule.target === 'work-item') {
+      const channel = schedule.workItem ? this.#host.bot?.channel(schedule.workItem.channelId) : undefined;
+      if (!channel) return 'conversation-deleted';
+      return channel.archived ? 'channel-archived' : null;
+    }
     if (schedule.target === 'conversation') {
       const conversation = this.#host.conversation(schedule.conversationId);
       if (!conversation) return 'conversation-deleted';

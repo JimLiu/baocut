@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { RUNTIME_VERSION } from '@baocut/protocol';
+import { RUNTIME_VERSION, type ConversationRole } from '@baocut/protocol';
 import type { Logger } from '@baocut/harness';
 import type { AgentGrants } from './grants.ts';
 import type { ToolCatalog, ToolResult } from './tool-catalog.ts';
@@ -29,6 +29,8 @@ export interface McpEndpointOptions {
   serverInfo?: { version: string; meta?: Record<string, unknown> };
   /** 每次工具调用之后（审计）。 */
   onToolCall?: (name: string, principal: ToolPrincipal, result: ToolResult) => void;
+  /** 会话主体的角色（Bot 技术方案 §10.1）：带 `roles` 的工具按它露出；不给时都按普通会话。 */
+  roleOf?: (conversationId: string) => ConversationRole;
 }
 
 const PATH = '/mcp';
@@ -130,6 +132,7 @@ export class McpEndpoint {
 
   async #dispatch(message: JsonRpcRequest, principal: ToolPrincipal): Promise<unknown> {
     const params = message.params ?? {};
+    const tools = principal.kind === 'agent' && this.#options.roleOf ? this.#tools.forRole(this.#options.roleOf(principal.conversationId)) : this.#tools;
     switch (message.method) {
       case 'initialize': {
         const requested = typeof params.protocolVersion === 'string' ? params.protocolVersion : '';
@@ -146,7 +149,7 @@ export class McpEndpoint {
       case 'tools/list':
         // MCP 的工具形状：目录项的 `effect`、`examples`、`surfaces`、`positional` 给 CLI 与帮助用，不进 tools/list。
         return {
-          tools: this.#tools.list().map(({ name, title, description, inputSchema, annotations }) => ({
+          tools: tools.list().map(({ name, title, description, inputSchema, annotations }) => ({
             name,
             title,
             description,
@@ -157,7 +160,7 @@ export class McpEndpoint {
       case 'tools/call': {
         // i18n-ignore: 回给 MCP 客户端（智能体）的 JSON-RPC 错误
         if (typeof params.name !== 'string') throw new JsonRpcFailure(-32602, '缺少工具名');
-        const result = await this.#tools.call(params.name, params.arguments, principal);
+        const result = await tools.call(params.name, params.arguments, principal);
         this.#options.onToolCall?.(params.name, principal, result);
         return result;
       }

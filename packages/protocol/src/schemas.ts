@@ -72,7 +72,7 @@ const topic = z.union([
 ]);
 const empty = z.object({}).strict();
 /** 定时任务的频率（产品设计 §6.1「定时任务」）：形状在这里查，取值（时刻、cron 能不能到点）由 `scheduleProblem` 查。 */
-const scheduleCadence = z.discriminatedUnion('type', [
+export const scheduleCadence = z.discriminatedUnion('type', [
   z.object({ type: z.literal('hourly'), minute: z.number().int().min(0).max(59) }).strict(),
   z.object({ type: z.literal('daily'), time: z.string().max(5) }).strict(),
   z.object({ type: z.literal('weekly'), days: z.array(z.number().int().min(0).max(6)).max(7), time: z.string().max(5) }).strict(),
@@ -1799,3 +1799,4 @@ export {
 } from './template-schemas.ts';
 export { skillSendListSchema, skillSendRefSchema } from './skill-schemas.ts';
 export { aiToolParamsSchema } from './ai-tool-schemas.ts';
+export { resourceRefSchema, evidenceSchema, workItemTemplateSchema } from './bot-schemas.ts';
