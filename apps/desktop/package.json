@@ -12,6 +12,7 @@
     "start": "electron-vite preview"
   },
   "dependencies": {
+    "@baocut/client": "*",
     "@baocut/protocol": "*",
     "@baocut/runtime": "*",
     "@baocut/runtime-storage": "*",

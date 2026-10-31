@@ -25,6 +25,8 @@ import { writeImageRef } from './image-ref-file.ts';
 import { captureRect } from './capture-frame.ts';
 import { writeRecording } from './recording-file.ts';
 import { desktopRuntimeHeaders, desktopRuntimeResponseHeaders, isDesktopRuntimeRequest } from './runtime-origin.ts';
+import { installBotService, type BotService } from './bot/bot-service.ts';
+import { launchedHidden } from './bot/login-item.ts';
 
 /**
  * 桌面端主进程：找到或启动 Runtime、开窗口、提供少量原生能力（选目录、在文件夹中显示）。
@@ -34,6 +36,11 @@ import { desktopRuntimeHeaders, desktopRuntimeResponseHeaders, isDesktopRuntimeR
  */
 export function startDesktopApp(): void {
   installStdioErrorGuards();
+  // 只留一个应用实例（Bot 技术方案 §15.2）：Bot 常驻托盘时再次打开应用（或开机启动之后用户再点图标），交给已有的实例开窗口。
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+    return;
+  }
   const devServerUrl = process.env.ELECTRON_RENDERER_URL;
   const isDev = !app.isPackaged;
   // 开发态（`npm run dev` / 未打包运行）用带「DEV」标记的图标，和装好的正式版一眼区分；打包后 macOS / Windows
@@ -68,6 +75,8 @@ export function startDesktopApp(): void {
 
   /** 应用更新的服务；就绪之前退出时还没有。 */
   let updates: AppUpdateService | null = null;
+  /** Bot 后台服务（技术方案 §15.2）：托盘、通知、常驻判断。就绪之前还没有。 */
+  let bot: BotService | null = null;
   const appContents = new Set<number>();
   let runtimeEndpoint: string | null = null;
 
@@ -125,6 +134,16 @@ export function startDesktopApp(): void {
     if (devServerUrl) void win.loadURL(devServerUrl);
     else void win.loadFile(path.join(__dirname, '../renderer/index.html'));
     return win;
+  }
+
+  /** 打开应用窗口并带到前台；没有窗口时新开一个（托盘、通知把应用从后台叫回来）。 */
+  function showWindow(): BrowserWindow {
+    const existing = BrowserWindow.getAllWindows().find((win) => !win.isDestroyed());
+    if (!existing) return createWindow();
+    if (existing.isMinimized()) existing.restore();
+    existing.show();
+    existing.focus();
+    return existing;
   }
 
   ipcMain.handle('baocut:connection', () => connection());
@@ -335,13 +354,44 @@ export function startDesktopApp(): void {
     });
     // macOS 的 Dock 图标不认 BrowserWindow 的 icon，开发态单独设。
     if (devIcon && process.platform === 'darwin') app.dock?.setIcon(devIcon);
-    createWindow();
+    // Bot 后台服务（技术方案 §15.2）：主进程自己连 Runtime，管托盘、通知、常驻与开机启动。
+    bot = installBotService({
+      connection,
+      version: app.getVersion(),
+      platform: process.platform,
+      showWindow,
+      quitCompletely: () => {
+        quitWithoutAsking = true;
+        app.quit();
+      },
+      onResidency: (resident, status) => {
+        supervisor.setResident(resident);
+        // 常驻结束（没有活要等了）且窗口都关着：回到普通的生命周期，Windows / Linux 上退出。暂停了自动运行的不退，
+        // 留着托盘好恢复。
+        if (!resident && !status?.paused && quitState === 'idle' && process.platform !== 'darwin' && BrowserWindow.getAllWindows().length === 0) {
+          app.quit();
+        }
+      },
+      loginItemApi: app,
+    });
+    // 开机自动启动（隐藏方式）：只起 Runtime 与托盘，不开窗口；没有活要等就直接退出。
+    if (launchedHidden(process.platform, process.argv, app)) {
+      bot.showTray();
+      void bot.monitor.ready.then(() => {
+        if (!bot?.monitor.resident && BrowserWindow.getAllWindows().length === 0 && quitState === 'idle') app.quit();
+      });
+    } else {
+      createWindow();
+    }
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
+    app.on('second-instance', () => showWindow());
   });
 
   app.on('window-all-closed', () => {
+    // Bot 后台服务常驻时窗口全关不退出（所有平台），托盘留着。
+    if (bot?.monitor.resident) return;
     if (process.platform !== 'darwin') app.quit();
   });
 
@@ -356,7 +406,13 @@ export function startDesktopApp(): void {
     quitState = 'asking';
     void (async () => {
       // 对话框出了错也要能退出，不卡在 asking。
-      const choice = quitWithoutAsking ? 'stop' : await confirmQuit().catch((): QuitChoice => 'stop');
+      const choice = quitWithoutAsking ? 'stop' : await confirmQuit().catch((): AppQuitChoice => 'stop');
+      if (choice === 'keep') {
+        // Bot 常驻、用户选了保持后台：关掉窗口，主进程与 Runtime 留着（托盘）。
+        quitState = 'idle';
+        for (const win of BrowserWindow.getAllWindows()) win.close();
+        return;
+      }
       if (choice === 'cancel') {
         quitState = 'idle';
         // Windows / Linux 上关掉最后一个窗口会退出：取消之后不能留下一个没有窗口的应用。
@@ -364,6 +420,7 @@ export function startDesktopApp(): void {
         return;
       }
       quitState = 'stopping';
+      bot?.dispose();
       if (choice === 'background') await supervisor.detach();
       await supervisor.stop().catch(() => {});
       // 退出即安装（架构设计 §2.6）：Runtime 停下之后把已下载、已就位的更新交给换包程序，换完不重新打开。有时限、不抛；
@@ -379,7 +436,12 @@ export function startDesktopApp(): void {
    * 自己起的 Runtime 手上还有活时问用户（架构设计 §2.2、产品设计 §7.8）：在后台继续、停止并退出，或取消。没有活、问不到或
    * 连的是别人的 Runtime 时不问，照常停。
    */
-  async function confirmQuit(): Promise<QuitChoice> {
+  async function confirmQuit(): Promise<AppQuitChoice> {
+    // Bot 常驻：Bot 会在后台继续工作；保持后台 / 彻底退出 / 取消（技术方案 §15.2）。
+    if (bot?.monitor.resident) {
+      const choice = await bot.confirmResidentQuit(BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null);
+      return choice === 'quit' ? 'stop' : choice;
+    }
     const options = quitPrompt(await supervisor.activeWork());
     if (!options) return 'stop';
     const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
@@ -388,6 +450,9 @@ export function startDesktopApp(): void {
     return quitChoice(response);
   }
 }
+
+/** 退出时的选择：`keep` 是 Bot 常驻时的「保持后台」（主进程不退，只关窗口）。 */
+type AppQuitChoice = QuitChoice | 'keep';
 
 function systemDownloadsDir(): string | null {
   try {
