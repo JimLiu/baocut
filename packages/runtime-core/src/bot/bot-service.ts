@@ -601,17 +601,24 @@ export class BotService {
       },
       updatedAt: nowIso(),
     };
-    await this.#putChannel(next);
-    if (dailyBudget !== undefined || monthlyBudget !== undefined) await this.#refreshSpend(id);
     const conversationPatch: Parameters<Harness['updateConversation']>[0] = { conversationId: channel.conversationId };
     if (patch.name !== undefined) conversationPatch.title = patch.name;
     if (patch.driverId !== undefined) conversationPatch.driverId = patch.driverId;
     if (patch.model !== undefined) conversationPatch.model = patch.model;
     if (patch.effort !== undefined) conversationPatch.effort = patch.effort;
-    if (patch.defaultAccessMode !== undefined && patch.defaultAccessMode !== null) conversationPatch.accessMode = patch.defaultAccessMode;
+    // 频道的默认模式也不能越过上限（§14.4）：协调者会话按压过的模式走。
+    if (patch.defaultAccessMode !== undefined && patch.defaultAccessMode !== null) {
+      conversationPatch.accessMode = minMode(patch.defaultAccessMode, next.maxAccessMode ?? null) ?? patch.defaultAccessMode;
+    } else if (next.defaultAccessMode && (next.maxAccessMode ?? null) !== (channel.maxAccessMode ?? null)) {
+      // 上限变了：协调者回到「默认模式压到新上限」，上限放宽时也能回到频道设的默认。
+      conversationPatch.accessMode = minMode(next.defaultAccessMode, next.maxAccessMode ?? null) ?? next.defaultAccessMode;
+    }
+    // 先改会话（换 Driver 可能因为协调者正忙而失败），成功了再存频道，免得频道和会话对不上。
     if (Object.keys(conversationPatch).length > 1) {
       await this.#harness.updateConversation(conversationPatch, { internal: BOT_INTERNAL });
     }
+    await this.#putChannel(next);
+    if (dailyBudget !== undefined || monthlyBudget !== undefined) await this.#refreshSpend(id);
     // 上限压低了（§14.4）：频道与已有线程里高于上限的模式一起压下来，直接发给它们的消息也不会越过上限。
     if (next.maxAccessMode && next.maxAccessMode !== channel.maxAccessMode) {
       const max = next.maxAccessMode;

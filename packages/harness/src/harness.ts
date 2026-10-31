@@ -1490,7 +1490,11 @@ export class Harness {
     if (params.spaceReadScope === null && state.conversation.spaceReadScope) patch.spaceReadScope = undefined;
     if (params.driverId !== undefined && params.driverId !== conv.driverId) {
       // 原生会话不能跨 Agent 续：有过任务的会话不能换。
-      if (state.tasks().length > 0 || conv.activeTaskId) {
+      // Bot 的频道会话例外（§6.3）：空闲时由 Bot 换 Driver，丢掉原生会话，接下来由接力从新的原生会话开始。
+      const botSwitch = options.internal === BOT_INTERNAL && conv.role === 'channel';
+      if (botSwitch) {
+        if (conv.activeTaskId || this.#runs.has(conv.id)) throw new RpcError('busy', HA.sessionBusy());
+      } else if (state.tasks().length > 0 || conv.activeTaskId) {
         throw new RpcError('conflict', HA.cannotChangeAgent());
       }
       this.#drivers.get(params.driverId);

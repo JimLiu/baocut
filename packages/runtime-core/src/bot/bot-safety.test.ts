@@ -345,4 +345,50 @@ describe('channel access ceiling (§14.4)', () => {
     expect(modes.at(-1)).toBe('plan');
     expect(kit.harness.conversationOf(thread)!.accessMode).toBe('plan');
   });
+
+  it('a channel default above the ceiling is capped on the coordinator; raising the ceiling brings the default back', async () => {
+    await kit.bot.updateChannel(kit.main.id, { maxAccessMode: 'plan' });
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'auto' });
+    expect(kit.harness.conversationOf(main())!.accessMode).toBe('plan');
+    const modes: string[] = [];
+    kit.coordinator = (ctx) => void modes.push(kit.harness.conversationMode(ctx.conversationId));
+    await kit.send(main(), 'What is left on the list?');
+    await kit.settle();
+    expect(modes).toEqual(['plan']);
+    await kit.bot.updateChannel(kit.main.id, { maxAccessMode: 'fullAccess' });
+    expect(kit.harness.conversationOf(main())!.accessMode).toBe('auto');
+  });
+});
+
+describe('switching a channel driver (§6.3)', () => {
+  it('a coordinator that already had turns switches to the new agent and hands off to a fresh native session', async () => {
+    await kit.close();
+    kit = await BotKit.open({ otherDriver: true });
+    await kit.send(main(), 'Hello');
+    await kit.settle();
+    expect(kit.harness.getConversation(main()).items.length).toBeGreaterThan(0);
+    const next = await kit.bot.updateChannel(kit.main.id, { driverId: 'other' });
+    expect(next.driverId).toBe('other');
+    expect(kit.bot.channel(kit.main.id).driverId).toBe('other');
+    expect(kit.harness.conversationOf(main())!.driverId).toBe('other');
+    await kit.send(main(), 'Still there?');
+    await kit.settle();
+    expect(kit.otherDriver!.sessionOf(main())).toBeDefined();
+  });
+
+  it('a busy coordinator refuses the switch and the channel keeps its old agent', async () => {
+    await kit.close();
+    kit = await BotKit.open({ otherDriver: true });
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    kit.coordinator = async () => {
+      await held;
+    };
+    await kit.send(main(), 'Think about this for a while');
+    await expect(kit.bot.updateChannel(kit.main.id, { driverId: 'other' })).rejects.toMatchObject({ code: 'busy' });
+    expect(kit.bot.channel(kit.main.id).driverId).toBe('codex');
+    expect(kit.harness.conversationOf(main())!.driverId).toBe('codex');
+    release();
+    await kit.settle();
+  });
 });

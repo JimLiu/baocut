@@ -142,6 +142,7 @@ export class BotKit {
   dir!: string;
   harness!: Harness;
   driver!: ScriptedDriver;
+  otherDriver: ScriptedDriver | null = null;
   bot!: BotService;
   tools!: BotTools;
   catalog!: ToolCatalog;
@@ -159,7 +160,7 @@ export class BotKit {
   readonly scripts = new Map<Id, BotScript>();
   #home!: ReturnType<typeof resolveRuntimeHome>;
 
-  static async open(options: { approvals?: boolean; steer?: boolean; facts?: string[]; seedTimeoutMs?: number } = {}): Promise<BotKit> {
+  static async open(options: { approvals?: boolean; steer?: boolean; facts?: string[]; seedTimeoutMs?: number; otherDriver?: boolean } = {}): Promise<BotKit> {
     const kit = new BotKit();
     kit.dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-bot-')));
     kit.#home = resolveRuntimeHome({ BAOCUT_HOME: path.join(kit.dir, 'home') });
@@ -168,11 +169,16 @@ export class BotKit {
     return kit;
   }
 
-  async #boot(options: { approvals?: boolean; steer?: boolean; seedTimeoutMs?: number }): Promise<void> {
+  async #boot(options: { approvals?: boolean; steer?: boolean; seedTimeoutMs?: number; otherDriver?: boolean }): Promise<void> {
     const home = this.#home;
     this.driver = new ScriptedDriver({ ...(options.approvals !== undefined ? { approvals: options.approvals } : {}), ...(options.steer !== undefined ? { steer: options.steer } : {}) });
     const drivers = new DriverRegistry();
     drivers.register(this.driver);
+    // 第二个 Agent（id `other`）：测换 Driver 用，脚本和第一个一样。
+    if (options.otherDriver) {
+      this.otherDriver = new ScriptedDriver({ id: 'other', name: 'Other' });
+      drivers.register(this.otherDriver);
+    }
     this.harness = await Harness.open({
       home,
       conversations: new ConversationStore(home.conversationsDir),
@@ -204,6 +210,7 @@ export class BotKit {
       const script = this.scripts.get(conversationId) ?? (role === 'thread' ? this.thread : role === 'channel' ? this.coordinator : null);
       if (script) await script(this.#context(turn));
     };
+    if (this.otherDriver) this.otherDriver.script = this.driver.script;
     await this.bot.start();
     this.bot.subscribe('channels', undefined, ((event: { event: ChannelsEvent }) => this.events.push(event.event)) as never);
     this.main = await this.bot.ensureMain();
