@@ -511,6 +511,17 @@ describe('频道任务（work-item）', () => {
     expect(only().workItem!.template.prompt).toBe('Summarise the week and list open questions.');
   });
 
+  it('改了计划的名字，之后建的任务用新名字当标题', async () => {
+    const { schedule } = await hourly();
+    await service.update({ scheduleId: schedule.id, name: '  Monday recap  ' });
+    expect(only().workItem!.template).toMatchObject({ title: 'Monday recap', prompt: 'Summarise the week.' });
+    await clock.advance(HOUR);
+    expect(bot.created[0]!.template.title).toBe('Monday recap');
+    // 只改指令不动标题。
+    await service.update({ scheduleId: schedule.id, prompt: 'Summarise the week again.' });
+    expect(only().workItem!.template.title).toBe('Monday recap');
+  });
+
   it('任务到了停点这一次算完成；卡住算失败；还在做或在等别人时不收', async () => {
     await hourly();
     await clock.advance(HOUR);
