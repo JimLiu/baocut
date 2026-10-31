@@ -209,6 +209,10 @@ export class ScheduleService {
     if (problem) throw new RpcError('invalid-request', RcSchedules.invalid(), problem);
     if (params.target === 'new' && !schedule.projectId) throw new RpcError('invalid-request', RcSchedules.noProject());
     Object.assign(schedule, next);
+    // 频道任务的计划：每次建任务用的是模板里的简报，改了指令要一起改，不然之后的任务还按旧的做。
+    if (params.prompt !== undefined && schedule.workItem && next.prompt) {
+      schedule.workItem = { ...schedule.workItem, template: { ...schedule.workItem.template, prompt: next.prompt } };
+    }
     if (params.target) schedule.target = params.target;
     if (params.paused === true && schedule.status === 'active') this.#pause(schedule, null);
     else if (params.paused === false && schedule.status !== 'active') {

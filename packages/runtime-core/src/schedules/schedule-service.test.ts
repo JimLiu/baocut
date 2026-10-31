@@ -500,6 +500,17 @@ describe('频道任务（work-item）', () => {
     expect(only().runs[0]).toMatchObject({ status: 'running', workItemId: 'wi1' });
   });
 
+  it('改了计划的指令，之后建的任务用新的简报', async () => {
+    const { schedule } = await hourly();
+    await service.update({ scheduleId: schedule.id, prompt: '  Summarise the week and list open questions.  ' });
+    expect(only().workItem!.template).toMatchObject({ title: 'Weekly recap', prompt: 'Summarise the week and list open questions.' });
+    await clock.advance(HOUR);
+    expect(bot.created[0]!.template.prompt).toBe('Summarise the week and list open questions.');
+    // 只改名字不动简报。
+    await service.update({ scheduleId: schedule.id, name: 'Recap' });
+    expect(only().workItem!.template.prompt).toBe('Summarise the week and list open questions.');
+  });
+
   it('任务到了停点这一次算完成；卡住算失败；还在做或在等别人时不收', async () => {
     await hourly();
     await clock.advance(HOUR);
