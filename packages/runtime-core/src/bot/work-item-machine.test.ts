@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BotActor, ThreadReport, ThreadStop, WorkItem, WorkItemEvent, WorkItemQuestion } from '@baocut/protocol';
-import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineRun } from './work-item-machine.ts';
+import { TransitionDenied, applyEvent, continueQuestion, heldForUser, newWorkItem, stateName, type MachineContext, type MachineRun } from './work-item-machine.ts';
 
 /** 任务状态机（技术方案 §9.2 转换表）：每条允许的转换与表外被拒的事件。纯函数，不起 Harness。 */
 
@@ -385,6 +385,17 @@ describe('unblocked, stalled, stop', () => {
     denied(active('needsInput', { question: question() }), { type: 'unblocked', cause: 'user' }, ctx('user'), 'not-blocked');
     denied(active('needsInput', { question: question({ askedBy: 'system', approvalId: 'appr_1' }) }), { type: 'unblocked', cause: 'user' }, ctx('user'), 'not-blocked');
     denied(runtime, { type: 'unblocked', cause: 'x' }, ctx('system'), 'not-blocked');
+  });
+
+  it('I12 a thread cannot unblock a task the user stopped or one the runtime stalled; the user can', () => {
+    const stopped = applyEvent(active('working'), { type: 'stop' }, ctx('user')).item;
+    denied(stopped, { type: 'unblocked', cause: 'fixed' }, ctx('thread'), 'needs-user');
+    const stalled = applyEvent(active('working'), { type: 'stalled', reason: 'budget', note: 'over budget' }, ctx('system')).item;
+    denied(stalled, { type: 'unblocked', cause: 'fixed' }, ctx('thread'), 'needs-user');
+    expect(stateName(applyEvent(stopped, { type: 'unblocked', cause: 'user' }, ctx('user')).item)).toBe('working');
+    expect(stateName(applyEvent(stalled, { type: 'unblocked', cause: 'user' }, ctx('user')).item)).toBe('working');
+    expect(heldForUser(stopped) && heldForUser(stalled)).toBe(true);
+    expect(heldForUser(active('blocked'))).toBe(false);
   });
 
   it('unblocked is denied for working tasks, inactive tasks and the coordinator', () => {

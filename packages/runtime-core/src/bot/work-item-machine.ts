@@ -341,6 +341,8 @@ export function applyEvent(current: WorkItem, event: WorkItemEvent, ctx: Machine
       const runtimeQuestion = state === 'needsInput' && current.question?.askedBy === 'system' && !current.question.approvalId;
       if (state !== 'blocked' && state !== 'waitingOnOthers' && !(runtimeQuestion && actor === 'user')) deny('not-blocked');
       const wasStopped = current.active?.reason === RcBot.stoppedByYou().text;
+      // 用户叫停的、Runtime 自己停下来问「继续还是停」的（预算、卡住）：只有用户能放行，线程不能自己接着干。
+      if (actor === 'thread' && heldForUser(current)) deny('needs-user');
       toWorking();
       record(`${actor}:unblocked`, null);
       if (actor === 'user') {
@@ -478,6 +480,16 @@ function applyStop(item: WorkItem, report: ThreadReport, now: string): void {
  * 协调者替用户合并、排期（§14.6、BOT-SF-04）：引用的是用户亲手打的，而且是这一回合的原话（起回合的那条，或 Runtime 投进来的），
  * 回合有人在场。报告、转交起的回合没有这样的消息，早先的「好」也不算。
  */
+/**
+ * 等用户放行的任务：用户叫停的，或 Runtime 停下来问「继续还是停」的（预算、卡住、要逐次审批的 Agent）。
+ * 线程不能自己放行；协调者转交时要带上用户这一回合的话才起线程回合。
+ */
+export function heldForUser(item: WorkItem): boolean {
+  if (item.status !== 'active') return false;
+  if (item.active?.reason === RcBot.stoppedByYou().text) return true;
+  return item.question?.askedBy === 'system' && !item.question.approvalId;
+}
+
 function citesThisTurn(ctx: MachineContext): boolean {
   const { run, citedMessageId } = ctx;
   if (!ctx.citedUserTyped || !run || !run.attended || !citedMessageId) return false;

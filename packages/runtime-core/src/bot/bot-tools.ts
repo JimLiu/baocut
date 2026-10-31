@@ -22,7 +22,7 @@ import type { ToolPrincipal } from '../agent-tools/tool-scope.ts';
 import type { BotService } from './bot-service.ts';
 import { validateChips } from './suggestions.ts';
 import { assertMax, assertPlainText, assertQuestion, firstSentence } from './text-rules.ts';
-import { TransitionDenied, stateName, type MachineRun } from './work-item-machine.ts';
+import { TransitionDenied, heldForUser, stateName, type MachineRun } from './work-item-machine.ts';
 
 /*
  * Bot 的智能体工具（技术方案 §10）：协调者（`role: 'channel'`）与线程（`role: 'thread'`）各一组，`roles` 决定谁看得到；
@@ -464,6 +464,15 @@ export class BotTools implements ToolSet {
     }
   }
 
+  /** 引用里有用户在这一回合打的字：起这一回合的消息，或这一回合里随投递带来的用户原话。 */
+  #citesUserThisTurn(caller: Caller, cited: readonly Id[]): boolean {
+    const { run } = caller;
+    if (!run.attended) return false;
+    return cited.some(
+      (id) => (id === run.userMessageId || run.userCitations.has(id)) && this.#deps.bot.isUserTyped(caller.channel.conversationId, id),
+    );
+  }
+
   /** 提议卡只在有人在场的回合里写（§14.2）：报告、转交、定时、种子回合里不可用。 */
   #attended(caller: Caller): void {
     if (!caller.run.attended) throw new ToolError('NEEDS_USER_TURN', 'Proposals can only be made in a turn the user started.');
@@ -581,6 +590,12 @@ export class BotTools implements ToolSet {
         const args = raw as Args<'thread_relay'>;
         const item = this.#target(caller, args.workItemId);
         if (!args.note && !args.citedMessageIds.length) throw new ToolError('INVALID_ARGUMENTS', 'Give a note or cited messages.');
+        if (heldForUser(item) && !this.#citesUserThisTurn(caller, args.citedMessageIds)) {
+          throw new ToolError(
+            'NEEDS_USER_WORDS',
+            'This task waits for the user to let it go on (they stopped it, or it asked whether to continue). Relay only their own message from this turn, cited; otherwise tell the user instead.',
+          );
+        }
         return { delivered: await bot.relay(item, args.note, args.citedMessageIds) };
       }
       case 'thread_read': {
