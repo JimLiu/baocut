@@ -50,6 +50,8 @@ import {
   type WorkItemTransition,
   type WorkItemsEvent,
   type WorkItemsSnapshot,
+  type Money,
+  type PendingApproval,
 } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
 import { HarnessAgents as HA } from '@baocut/protocol/messages/harness';
@@ -71,7 +73,7 @@ import {
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
 import { carryTaskFiles, changedFiles, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
-import { spendWindow, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
+import { spendWindow, sumMoney, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { questionChips, questionCount } from './suggestions.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
 import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
@@ -217,6 +219,17 @@ function followUpKind(title: string): string | null {
   for (const word of title.toLowerCase().split(/[^a-z-]+/)) if (word && MAKE_KIND_ALLOW.test(word)) return word;
   for (const [pattern, kind] of FOLLOW_UP_KINDS_CJK) if (pattern.test(title)) return kind;
   return null;
+}
+
+/**
+ * 审批里付费调用的估算合计（收件箱的金额）：每项授权都有估算、币种相同时是它们的和；没有付费项，或有一项不知道价格、
+ * 币种不一时为 null（不显示一个偏低的数）。
+ */
+function approvalCost(approval: PendingApproval): Money | null {
+  const grants = approval.grants ?? [];
+  if (grants.length === 0 || grants.some((g) => !g.estimate)) return null;
+  const totals = sumMoney(grants.map((g) => g.estimate!));
+  return totals.length === 1 ? totals[0]! : null;
 }
 
 function makeDenied(text: string): boolean {
@@ -553,7 +566,8 @@ export class BotService {
     const conversation = this.#harness.conversationOf(channel.conversationId);
     if (conversation && conversation.updatedAt > last) last = conversation.updatedAt;
     const unread = channel.lastSeen ? last > channel.lastSeen.at : items.length > 0;
-    return { channel, unread, counts, lastActivityAt: last, spend: null };
+    const spend = this.#spend.get(channel.id);
+    return { channel, unread, counts, lastActivityAt: last, spend: spend ? { today: spend.day[0] ?? null, month: spend.month[0] ?? null } : null };
   }
 
   // ---- 频道 ----
@@ -3101,7 +3115,8 @@ export class BotService {
     const rows: InboxRow[] = [];
     const pending = this.#harness.approvals.pending();
     for (const item of this.#items.values()) {
-      if (!needsUser(item) && !(item.status === 'active' && item.active?.state === 'blocked')) continue;
+      // 与频道的「等你」计数（Rail 上的数字）是同一批：待审阅与需要你（审批也在里面）。停下的在频道的任务列表里。
+      if (!needsUser(item)) continue;
       const channel = this.#channels.get(item.channelId);
       if (!channel) continue;
       const approval = item.question?.approvalId ? pending.find((p) => p.approvalId === item.question!.approvalId) : undefined;
@@ -3112,7 +3127,7 @@ export class BotService {
         title: item.title,
         state: item.active!.state,
         question: item.question,
-        approval: approval ? { approvalId: approval.approvalId, summary: approval.action.summary, cost: null } : null,
+        approval: approval ? { approvalId: approval.approvalId, summary: approval.action.summary, cost: approvalCost(approval) } : null,
         priority: item.priority,
         since: item.active!.since,
       });

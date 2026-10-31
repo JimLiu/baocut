@@ -344,6 +344,47 @@ describe('the user talks to a thread that is waiting', () => {
   });
 });
 
+describe('the inbox', () => {
+  it('I16: the inbox lists exactly the tasks the needs-you count covers; a stopped task is not in it', async () => {
+    kit.thread = (ctx) => {
+      const title = kit.bot.itemOfThread(ctx.conversationId)?.title;
+      if (title === 'Cut the teaser') return ctx.call('thread_report', { stop: 'needs-review', headline: 'The teaser is cut.' });
+      return ctx.call('thread_report', { stop: 'blocked', headline: 'The source file is missing.' });
+    };
+    const review = await kit.startTask('Cut the teaser');
+    const stopped = await kit.startTask('Grade the footage');
+    await kit.settle();
+    expect(kit.item(review.id).active?.state).toBe('needsReview');
+    expect(kit.item(stopped.id).active?.state).toBe('blocked');
+    const badge = kit.bot.listChannels().reduce((sum, row) => sum + row.counts.needsYou, 0);
+    expect(kit.bot.inbox().map((r) => r.workItemId)).toEqual([review.id]);
+    expect(badge).toBe(1);
+  });
+
+  it('I16: an approval row for paid calls carries the estimated amount', async () => {
+    kit.thread = (ctx) => void escalate(ctx, 'voice-generate --segment 1');
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice the intro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => kit.item(item.id).active?.state === 'needsInput' && kit.item(item.id).question?.approvalId);
+    const real = kit.harness.approvals.pending.bind(kit.harness.approvals);
+    const grant = (amount: string | null) => ({ estimate: amount ? { amount, currency: 'USD' } : null }) as never;
+    const withGrants = (grants: unknown[]) => () => real().map((p) => (p.approvalId === kit.item(item.id).question?.approvalId ? { ...p, grants: grants as never } : p));
+    kit.harness.approvals.pending = withGrants([grant('0.30'), grant('0.20')]);
+    expect(kit.bot.inbox().find((r) => r.workItemId === item.id)?.approval?.cost).toEqual({ amount: '0.50', currency: 'USD' });
+    // 有一项不知道价格：不显示一个偏低的数。
+    kit.harness.approvals.pending = withGrants([grant('0.30'), grant(null)]);
+    expect(kit.bot.inbox().find((r) => r.workItemId === item.id)?.approval?.cost).toBeNull();
+    kit.harness.approvals.pending = real;
+  });
+
+  it('I16: a channel with a budget reports what it spent today and this month in its summary', async () => {
+    kit.workspace.spend = { day: [{ amount: '0.40', currency: 'USD' }], month: [{ amount: '2.10', currency: 'USD' }] };
+    await kit.bot.updateChannel(kit.main.id, { dailyBudget: { amount: '5.00', currency: 'USD' } });
+    const row = kit.bot.listChannels().find((c) => c.channel.id === kit.main.id)!;
+    expect(row.spend).toEqual({ today: { amount: '0.40', currency: 'USD' }, month: { amount: '2.10', currency: 'USD' } });
+  });
+});
+
 describe('deleting a channel', () => {
   it('I13: deleting a channel deletes the schedules the confirmation counted', async () => {
     const channel = await kit.bot.createChannel({ name: 'Clips' });
