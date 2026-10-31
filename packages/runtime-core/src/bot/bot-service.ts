@@ -34,6 +34,7 @@ import {
   type ProposalBody,
   type RelayBody,
   type ResourceRef,
+  type ArtifactRef,
   type RevertPlan,
   type SuggestionChip,
   type SuggestionsBody,
@@ -68,6 +69,7 @@ import {
   workspaceFactsBlock,
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
+import { carryTaskFiles, relativeInside, rewriteFileRef, taskFilePaths } from './move-files.ts';
 import { spendWindow, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { questionChips, questionCount } from './suggestions.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
@@ -1004,26 +1006,46 @@ export class BotService {
     if (thread && (thread.activeTaskId || thread.activity === 'running' || thread.activity === 'stopping' || thread.activity.startsWith('awaiting'))) {
       throw new RpcError('busy', RcBot.transitionDenied({ from: stateName(item), event: 'move' }));
     }
-    // 线程跟着走（BOT-TK-09）：线程会话换到新频道与它的工作目录，工作笔记搬过去，免得记忆、笔记与删除旧频道时对不上。
+    const reports = [...this.#reports.values()].filter((r) => r.workItemId === id);
+    // 任务的文件跟着走（BOT-TK-09）：线程的工作目录换成新频道的文件夹，它的输入输出也得在那里；别的任务也在用的复制一份。
+    const { filesDir } = await this.#files.ensure(to.id);
+    const fromDir = this.#files.filesDir(from.id);
+    const ownRefs = [...item.resources, ...item.outputs, ...reports.flatMap((r) => r.outputs)];
+    const others = this.#channelItems(from.id).filter((i) => i.id !== id);
+    const shared = new Set(others.flatMap((i) => taskFilePaths(fromDir, i.files, [...i.resources, ...i.outputs])));
+    const carried = await carryTaskFiles({ fromDir, toDir: filesDir, paths: taskFilePaths(fromDir, item.files, ownRefs), shared });
+    // 线程跟着走：线程会话换到新频道与它的工作目录，工作笔记搬过去，免得记忆、笔记与删除旧频道时对不上。
     if (thread && item.threadId) {
-      const { filesDir } = await this.#files.ensure(to.id);
       const oldNotes = path.dirname(this.#files.notesPath(from.id, item.threadId));
       const newNotes = path.dirname(this.#files.notesPath(to.id, item.threadId));
-      await fs.mkdir(path.dirname(newNotes), { recursive: true });
-      let notesMoved = true;
-      await fs.rename(oldNotes, newNotes).catch((error: unknown) => {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-        notesMoved = false;
-      });
+      let notesMoved = false;
       try {
+        await fs.mkdir(path.dirname(newNotes), { recursive: true });
+        notesMoved = true;
+        await fs.rename(oldNotes, newNotes).catch((error: unknown) => {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          notesMoved = false;
+        });
         await this.#harness.moveThread(item.threadId, { channelId: to.id, cwd: filesDir }, { internal: BOT_INTERNAL });
       } catch (error) {
-        // 会话没搬成：笔记搬回原处，任务、会话与笔记仍在原频道。
+        // 会话没搬成：笔记与文件搬回原处，任务、会话、笔记与文件仍在原频道。
         if (notesMoved) await fs.rename(newNotes, oldNotes).catch(() => {});
+        await carried.undo();
         throw error;
       }
     }
-    const next = { ...item, channelId: toChannelId, updatedAt: nowIso() };
+    const rewrite = <T extends ResourceRef | ArtifactRef>(ref: T): T => rewriteFileRef(ref, fromDir, filesDir, carried.renamed);
+    const next: WorkItem = {
+      ...item,
+      channelId: toChannelId,
+      resources: item.resources.map(rewrite),
+      outputs: item.outputs.map(rewrite),
+      files: item.files.map((f) => {
+        const rel = relativeInside(fromDir, f);
+        return (rel && carried.renamed.get(rel)) ?? f;
+      }),
+      updatedAt: nowIso(),
+    };
     // 等你在场再投的那一份也跟着走。
     const held = this.#needsYou.get(id) ?? heldFrom(await this.#files.readHeld(from.id, id).catch(() => null), item);
     if (held) {
@@ -1037,12 +1059,13 @@ export class BotService {
       await this.#files.removeQueued(from.id, id).catch(() => {});
     }
     // 报告与转换记录跟着任务走：先写进新频道，再从旧频道删（旧频道的 removed 会把它们一起清掉）。
-    const reports = [...this.#reports.values()].filter((r) => r.workItemId === id);
+    const movedReports = reports.map((r) => ({ ...r, outputs: r.outputs.map(rewrite) }));
+    for (const report of movedReports) this.#reports.set(report.id, report);
     const fromLog = this.#transitions.get(from.id) ?? [];
     const moved = fromLog.filter((t) => t.workItemId === id);
     this.#items.set(id, next);
     await this.#store.putItem(to.id, next, { sync: true });
-    for (const report of reports) await this.#store.appendReport(to.id, report);
+    for (const report of movedReports) await this.#store.appendReport(to.id, report);
     for (const transition of moved) await this.#store.appendTransition(to.id, transition);
     await this.#store.removeItem(from.id, id);
     this.#transitions.set(from.id, fromLog.filter((t) => t.workItemId !== id));
@@ -1866,7 +1889,8 @@ export class BotService {
       this.#approvalSeen.delete(conversation.id);
       if (conversation.role === 'thread') {
         const item = this.itemOfThread(conversation.id);
-        if (item) await this.transition(item.id, { type: 'approval', approvalId: seen, pending: false }, { actor: 'system' }).catch(() => {});
+        const deferredReport = item?.deferredStop && item.lastReportId ? (this.#reports.get(item.lastReportId) ?? null) : null;
+        if (item) await this.transition(item.id, { type: 'approval', approvalId: seen, pending: false, deferredReport }, { actor: 'system' }).catch(() => {});
       }
     }
   }

@@ -374,7 +374,7 @@ interface WorkItemTransition {
 <root>/channels/<channelId>/
   MEMORY.md                       频道记忆，≤ 16 KiB
   files/                          频道文件目录：协调者与线程的 cwd
-  threads/<threadId>/working-notes.md   线程工作笔记
+    .threads/<threadId>/working-notes.md  线程工作笔记（在 cwd 里，智能体的沙箱不用额外放行）
   make-runs.jsonl                 Make 的运行记录，只留最近 50 条
 <root>/channels/USER.md           用户级记忆：对所有频道都成立的偏好与规矩，≤ 8 KiB
 ```
@@ -466,7 +466,7 @@ interface WorkItemTransition {
 `ThreadRouter.start(workItemId, brief)` 建线程会话：
 
 - `createConversation({ role:'thread', channelId, workItemId, title: workItem.title, driverId: overrides.driverId ?? channel.driverId, model…, accessMode: min(overrides.accessMode ?? channel.defaultAccessMode, channel.maxAccessMode), cwd: <频道文件目录> })`。
-- 同频道的线程共用 `cwd`（BOT-EX-15 的文件归属靠简报约束，不靠目录隔离）。线程的工作笔记路径 `threads/<threadId>/working-notes.md` 写进线程指令；它在 `cwd` 之外，`AgentScope` 的可写路径加上这一个文件。
+- 同频道的线程共用 `cwd`（BOT-EX-15 的文件归属靠简报约束，不靠目录隔离）。线程的工作笔记路径 `files/.threads/<threadId>/working-notes.md` 写进线程指令；它放在 `cwd` 里面，各家智能体的原生沙箱（如 Codex 的 workspace-write）不用额外放行就能写，无人值守时也不会为写笔记停下来要审批。
 - 资源里的视频不改变 `cwd`：线程通过现有的视频工具按 `projectId` + `videoId` 打开（BOT-VE-02），视频锁与版本校验照旧（架构设计 D05）。
 
 ### 7.2 第一回合

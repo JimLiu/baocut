@@ -277,7 +277,8 @@ export type WorkItemEvent =
   | { type: 'due' }
   | { type: 'report'; report: ThreadReport }
   | { type: 'thread-activity'; activity: ConversationActivity; taskStatus: TaskStatus | null }
-  | { type: 'approval'; approvalId: Id; pending: boolean; question?: WorkItemQuestion | null }
+  /** `deferredReport`：审批结束时，审批期间收到、只记下停点的那份报告（Runtime 按 `lastReportId` 找来），用来恢复它的提问与原因。 */
+  | { type: 'approval'; approvalId: Id; pending: boolean; question?: WorkItemQuestion | null; deferredReport?: ThreadReport | null }
   | { type: 'user-replied'; note?: string }
   | { type: 'unblocked'; cause: string }
   | { type: 'stalled'; reason: 'no-progress' | 'job-hung' | 'budget'; note: string }

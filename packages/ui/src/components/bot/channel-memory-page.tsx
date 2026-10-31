@@ -6,6 +6,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useShell } from '../../state/shell-store.ts';
+import { LatestOnly } from '../../model/latest-only.ts';
 import { errorText } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 
@@ -101,18 +102,25 @@ export function ChannelMemoryPage({ channel }: { channel: Channel }) {
   const [clearing, setClearing] = useState(false);
   const channelId = channel.id;
   const store = storeFor(runtime, scope, channelId);
+  // 读写是异步的：切了标签或频道之后才回来的结果属于原来那份记忆，丢掉，免得把它当成新标签的内容再存回去。
+  const scopeKey = `${scope}:${channelId}`;
+  const [loads] = useState(() => new LatestOnly(scopeKey));
+  const [saves] = useState(() => new LatestOnly(scopeKey));
+  loads.setKey(scopeKey);
+  saves.setKey(scopeKey);
 
   const load = useCallback(async () => {
     setLoaded(null);
     setConflict(null);
-    try {
-      const result = await storeFor(runtime, scope, channelId).read();
-      setLoaded(result);
-      setText(result.content);
-    } catch (error) {
-      ToastQueue.negative(C.common.failed(errorText(error)), { timeout: 5000 });
+    const outcome = await loads.run(() => storeFor(runtime, scope, channelId).read());
+    if (!outcome) return;
+    if (outcome.ok) {
+      setLoaded(outcome.value);
+      setText(outcome.value.content);
+    } else {
+      ToastQueue.negative(C.common.failed(errorText(outcome.error)), { timeout: 5000 });
     }
-  }, [runtime, scope, channelId]);
+  }, [runtime, scope, channelId, loads]);
 
   useEffect(() => {
     void load();
@@ -126,15 +134,18 @@ export function ChannelMemoryPage({ channel }: { channel: Channel }) {
   const save = async (content: string, ifVersion: number) => {
     setBusy(true);
     try {
-      const result = await store.write(content, ifVersion);
-      setLoaded({ content, version: result.version });
-      setText(content);
-      setConflict(null);
-      ToastQueue.positive(C.memory.saved, { timeout: 2500 });
-    } catch (error) {
-      const latest = conflictOf(error);
-      if (latest) setConflict(latest);
-      else ToastQueue.negative(C.memory.rejected(errorText(error)), { timeout: 6000 });
+      const outcome = await saves.run(() => store.write(content, ifVersion));
+      if (!outcome) return;
+      if (outcome.ok) {
+        setLoaded({ content, version: outcome.value.version });
+        setText(content);
+        setConflict(null);
+        ToastQueue.positive(C.memory.saved, { timeout: 2500 });
+      } else {
+        const latest = conflictOf(outcome.error);
+        if (latest) setConflict(latest);
+        else ToastQueue.negative(C.memory.rejected(errorText(outcome.error)), { timeout: 6000 });
+      }
     } finally {
       setBusy(false);
     }
@@ -148,7 +159,7 @@ export function ChannelMemoryPage({ channel }: { channel: Channel }) {
             <ChevronLeft />
           </ActionButton>
           <h1 className={heading}>{`${C.memory.title} · ${channel.name}`}</h1>
-          <SegmentedControl aria-label={C.memory.title} selectedKey={scope} onSelectionChange={(key) => setScope(key as Scope)}>
+          <SegmentedControl aria-label={C.memory.title} selectedKey={scope} isDisabled={busy} onSelectionChange={(key) => setScope(key as Scope)}>
             <SegmentedControlItem id="channel">{C.memory.thisChannel}</SegmentedControlItem>
             <SegmentedControlItem id="user">{C.memory.allChannels}</SegmentedControlItem>
           </SegmentedControl>

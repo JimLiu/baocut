@@ -311,9 +311,13 @@ export function applyEvent(current: WorkItem, event: WorkItemEvent, ctx: Machine
       if (current.deferredStop) {
         const stop = current.deferredStop;
         item.deferredStop = null;
-        setActive(STOP_STATE[stop]);
+        const deferred = event.deferredReport;
+        // 记下的那份报告还在：照它落（提问、选项、卡住的原因都回来）；找不到时只落停点。
+        if (deferred && deferred.id === current.lastReportId && deferred.stop === stop) applyStop(item, deferred, now);
+        else setActive(STOP_STATE[stop]);
         transitions.push({ workItemId: item.id, from: back, to: stateName(item), actor: 'system', cause: `report:${stop}`, note: null, at: now });
         if (item.active?.state === 'needsReview') effects.push({ kind: 'notify', reason: 'needs-review' });
+        if (item.active?.state === 'needsInput') effects.push({ kind: 'notify', reason: 'needs-input' });
       }
       break;
     }

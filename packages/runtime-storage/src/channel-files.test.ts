@@ -23,7 +23,7 @@ describe('ChannelFiles', () => {
     expect(filesDir).toBe(path.join(dir, 'files'));
     expect((await fs.stat(filesDir)).isDirectory()).toBe(true);
     const notes = await files.ensureNotes('chan_1', 'conv_t');
-    expect(notes).toBe(path.join(dir, 'threads', 'conv_t', 'working-notes.md'));
+    expect(notes).toBe(path.join(filesDir, '.threads', 'conv_t', 'working-notes.md'));
     expect(files.notesPath('chan_1', 'conv_t')).toBe(notes);
     expect((await fs.stat(path.dirname(notes))).isDirectory()).toBe(true);
   });

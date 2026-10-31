@@ -10,7 +10,7 @@ import type { Id } from '@baocut/protocol';
  * <channelsDir>/<channelId>/
  *   MEMORY.md                           频道记忆
  *   files/                              频道文件目录：协调者与线程的 cwd
- *   threads/<threadId>/working-notes.md 线程工作笔记
+ *     .threads/<threadId>/working-notes.md  线程工作笔记：放在 cwd 里，智能体的沙箱不用额外放行就能写
  *   relays.jsonl                        转述索引：引用的消息 → 任务与投递
  *   make-runs.jsonl                     Make 的运行记录，只留最近 50 条
  * <channelsDir>/USER.md                 用户级记忆
@@ -69,7 +69,7 @@ export class ChannelFiles {
 
   notesPath(channelId: Id, threadId: Id): string {
     assertSafePathSegment(threadId, 'thread id');
-    return path.join(this.dir(channelId), 'threads', threadId, 'working-notes.md');
+    return path.join(this.filesDir(channelId), '.threads', threadId, 'working-notes.md');
   }
 
   async ensure(channelId: Id): Promise<{ dir: string; filesDir: string }> {

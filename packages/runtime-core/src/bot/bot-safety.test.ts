@@ -311,6 +311,32 @@ describe('BOT-SF-08 BOT-SF-12 spending, sending and publishing always ask', () =
   });
 });
 
+describe('a report sent while an approval waits (§9.3)', () => {
+  it('lands with its own question once the approval is answered', async () => {
+    let thread: TurnContext | null = null;
+    kit.thread = (ctx) => {
+      if (thread) return;
+      thread = ctx;
+      escalate(ctx, 'voice-generate --segment 1');
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice the intro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => state(item.id) === 'needsInput');
+    await thread!.call('thread_report', {
+      stop: 'needs-input',
+      headline: 'Two voices fit.',
+      question: { text: 'Which voice for the intro?', options: [{ label: 'Warm' }, { label: 'Bright' }] },
+    });
+    expect(kit.item(item.id).deferredStop).toBe('needs-input');
+    const pending = kit.harness.approvals.pending()[0]!;
+    await kit.harness.respondToApproval({ conversationId: kit.threadOf(item.id), approvalId: pending.approvalId, decision: 'accept' });
+    await kit.until(() => kit.item(item.id).deferredStop === null);
+    expect(state(item.id)).toBe('needsInput');
+    expect(kit.item(item.id).question).toMatchObject({ text: 'Which voice for the intro?', approvalId: null });
+    expect(kit.item(item.id).question!.options.map((o) => o.label)).toEqual(['Warm', 'Bright']);
+  });
+});
+
 describe('channel access ceiling (§14.4)', () => {
   it('a task with no override runs in the channel default, not in the ceiling; an override above the ceiling is capped', async () => {
     await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'plan', maxAccessMode: 'auto' });

@@ -25,7 +25,7 @@ import path from 'node:path';
  *   store/agent-probes.json Agent 的探测缓存：每个 Driver 最近一次探测的本机事实，启动时先用它（架构设计 §3.11）
  *   store/channels.json   Bot 模式的频道、Bot 设置与用户级记忆的版本号（Bot 技术方案 §5.1）
  *   store/work-items/<channelId>.jsonl  频道的任务、线程报告与状态转换：只追加的日志，膨胀后压缩（Bot 技术方案 §5.3）
- *   channels/<channelId>/ 频道目录：MEMORY.md、files/（协调者与线程的 cwd）、threads/<threadId>/working-notes.md、make-runs.jsonl
+ *   channels/<channelId>/ 频道目录：MEMORY.md、files/（协调者与线程的 cwd，线程工作笔记在 files/.threads/<threadId>/working-notes.md）、make-runs.jsonl
  *   channels/USER.md      用户级记忆（对所有频道都成立）
  *   staging/jobs/<id>/    任务进行中的 Worker 输出，结束后删除
  *   staging/node-jobs/<id>/ 别的机器提交的远端任务：上传的媒体与结果，随任务删除

@@ -284,6 +284,27 @@ describe('report', () => {
     expect(settled.effects).toEqual([{ kind: 'notify', reason: 'needs-review' }]);
   });
 
+  it('a needs-input report sent during an approval keeps its question once the approval settles (§9.3)', () => {
+    const waiting = active('needsInput', { question: question({ approvalId: 'appr_1', askedBy: 'system', text: 'Allow the export?' }), beforeInput: 'working' });
+    const asked = report('needs-input', { question: question({ text: 'Which intro do you want?' }) });
+    const r = applyEvent(waiting, { type: 'report', report: asked }, ctx('thread'));
+    expect(r.item.deferredStop).toBe('needs-input');
+    const settled = applyEvent(r.item, { type: 'approval', approvalId: 'appr_1', pending: false, deferredReport: asked }, ctx('system'));
+    expect(stateName(settled.item)).toBe('needsInput');
+    expect(settled.item.question?.text).toBe('Which intro do you want?');
+    expect(settled.item.question?.approvalId ?? null).toBeNull();
+    expect(settled.effects).toEqual([{ kind: 'notify', reason: 'needs-input' }]);
+  });
+
+  it('a blocked report sent during an approval keeps its reason once the approval settles', () => {
+    const waiting = active('needsInput', { question: question({ approvalId: 'appr_1', askedBy: 'system' }), beforeInput: 'working' });
+    const stuck = report('blocked', { headline: 'The source file is missing.' });
+    const r = applyEvent(waiting, { type: 'report', report: stuck }, ctx('thread'));
+    const settled = applyEvent(r.item, { type: 'approval', approvalId: 'appr_1', pending: false, deferredReport: stuck }, ctx('system'));
+    expect(stateName(settled.item)).toBe('blocked');
+    expect(settled.item.active?.reason).toBe('The source file is missing.');
+  });
+
   it('a resolved task only takes a done report from the refresh that just closed it (D6)', () => {
     const closed = resolved({ resolution: { kind: 'done', by: 'thread', at: NOW, evidence: [], confirmedBy: null, mergedInto: null } });
     const r = applyEvent(closed, { type: 'report', report: report('done') }, ctx('thread', { run: run({ origin: 'refresh' }), resolvedInThisRefresh: true }));

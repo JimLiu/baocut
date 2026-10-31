@@ -80,9 +80,80 @@ describe('moving a task', () => {
     expect(thread.channelId).toBe(target.id);
     expect(thread.cwd).toBe(kit.bot.filesDir(target.id));
     const newNotes = kit.bot.notesPath(kit.item(item.id))!;
+    // 笔记在线程的工作目录里：智能体的沙箱只放行 cwd 时也写得了。
+    expect(newNotes.startsWith(thread.cwd + path.sep)).toBe(true);
     expect(newNotes).not.toBe(oldNotes);
     expect(await fs.readFile(newNotes, 'utf8')).toBe('step 1 done');
     await expect(fs.access(oldNotes)).rejects.toThrow();
+  });
+
+  it('BOT-TK-09 the task files move into the new channel folder and the references follow them', async () => {
+    const fromDir = kit.bot.filesDir(kit.main.id);
+    await fs.mkdir(fromDir, { recursive: true });
+    await fs.writeFile(path.join(fromDir, 'draft.srt'), 'own captions');
+    await fs.mkdir(path.join(fromDir, 'out'), { recursive: true });
+    await fs.writeFile(path.join(fromDir, 'out', 'cut.txt'), 'own output');
+    await fs.writeFile(path.join(fromDir, 'script.md'), 'shared script');
+    await fs.writeFile(path.join(fromDir, 'notes.txt'), 'mine');
+    await fs.writeFile(path.join(fromDir, 'same.txt'), 'identical');
+    const item = await kit.startTask('Draft captions');
+    await kit.bot.patchItemContent(
+      item.id,
+      (i) => ({
+        ...i,
+        resources: [
+          { kind: 'file', path: 'draft.srt' },
+          { kind: 'file', path: 'script.md' },
+          { kind: 'file', path: '/elsewhere/source.mov' },
+        ],
+        outputs: [{ kind: 'file', path: path.join(fromDir, 'out', 'cut.txt'), label: 'Cut list', version: null }],
+        files: ['notes.txt', 'same.txt'],
+      }),
+      false,
+    );
+    // 另一个任务也在用 script.md：它留在原处，新频道拿一份副本。
+    await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice over', owner: 'user', resources: [{ kind: 'file', path: 'script.md' }] });
+    const target = await kit.bot.createChannel({ name: 'Captions' });
+    const toDir = kit.bot.filesDir(target.id);
+    await fs.mkdir(toDir, { recursive: true });
+    await fs.writeFile(path.join(toDir, 'notes.txt'), 'someone else');
+    await fs.writeFile(path.join(toDir, 'same.txt'), 'identical');
+
+    const moved = await kit.bot.moveItem(item.id, target.id);
+
+    expect(moved.resources).toEqual([
+      { kind: 'file', path: 'draft.srt' },
+      { kind: 'file', path: 'script.md' },
+      { kind: 'file', path: '/elsewhere/source.mov' },
+    ]);
+    expect(moved.outputs[0]).toMatchObject({ path: path.join(toDir, 'out', 'cut.txt') });
+    // 新频道里同名不同内容的换个名字，同名同内容的直接用那份。
+    expect(moved.files).toEqual(['notes (2).txt', 'same.txt']);
+    expect(await fs.readFile(path.join(toDir, 'draft.srt'), 'utf8')).toBe('own captions');
+    expect(await fs.readFile(path.join(toDir, 'out', 'cut.txt'), 'utf8')).toBe('own output');
+    expect(await fs.readFile(path.join(toDir, 'script.md'), 'utf8')).toBe('shared script');
+    expect(await fs.readFile(path.join(toDir, 'notes (2).txt'), 'utf8')).toBe('mine');
+    expect(await fs.readFile(path.join(toDir, 'notes.txt'), 'utf8')).toBe('someone else');
+    expect(await fs.readFile(path.join(fromDir, 'script.md'), 'utf8')).toBe('shared script');
+    await expect(fs.access(path.join(fromDir, 'draft.srt'))).rejects.toThrow();
+    await expect(fs.access(path.join(fromDir, 'notes.txt'))).rejects.toThrow();
+    await expect(fs.access(path.join(fromDir, 'same.txt'))).rejects.toThrow();
+  });
+
+  it('BOT-TK-09 when the thread cannot move, the task files go back where they were', async () => {
+    const fromDir = kit.bot.filesDir(kit.main.id);
+    await fs.mkdir(fromDir, { recursive: true });
+    await fs.writeFile(path.join(fromDir, 'draft.srt'), 'own captions');
+    const item = await kit.startTask('Draft captions');
+    await kit.bot.patchItemContent(item.id, (i) => ({ ...i, resources: [{ kind: 'file', path: 'draft.srt' }] }), false);
+    const target = await kit.bot.createChannel({ name: 'Captions' });
+    kit.harness.moveThread = async () => {
+      throw new Error('disk full');
+    };
+    await expect(kit.bot.moveItem(item.id, target.id)).rejects.toThrow('disk full');
+    expect(await fs.readFile(path.join(fromDir, 'draft.srt'), 'utf8')).toBe('own captions');
+    await expect(fs.access(path.join(kit.bot.filesDir(target.id), 'draft.srt'))).rejects.toThrow();
+    expect(kit.item(item.id).channelId).toBe(kit.main.id);
   });
 
   it('a thread waiting on an approval cannot be moved, and its notes stay where they were', async () => {
