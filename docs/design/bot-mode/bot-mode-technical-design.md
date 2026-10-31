@@ -92,7 +92,7 @@ Runtime（runtime-core）
    ├─ Conversation.role / channelId / workItemId / handoffGeneration
    └─ AgentToolAccess.sessionInstructions(conversationId)：按角色给指令
   ScheduleService（扩展 target: 'work-item'）
-  ApprovalService（扩展 basis.unattended）
+  工具风险（无人时 effectiveMode 降到 auto、付费调用升为 high，§14.2）
 Desktop main（扩展）
   Tray / 菜单栏、开机自启、窗口全关后不退出、通知
 ```
@@ -226,6 +226,7 @@ interface SuggestionChip {
   recommended: boolean;
   answers: { approvalId: Id; optionIndex: number } | null;   // 来自提问卡的答案提示
   target: { workItemId: Id } | null;                         // 消歧提示
+  action: { kind: 'resolve'; workItemId: Id } | null;        // 「标为完成」提示：点了由 Runtime 以用户身份关任务（§12.4）
 }
 
 // user-message 新增（都可选）：
@@ -253,7 +254,7 @@ interface WorkItem {
   owner: 'agent' | 'user';
   status: WorkItemStatus;
   active: { state: ActiveState; reason: string | null; since: string } | null;   // status = active 时有
-  resolution: { kind: Resolution; by: Actor; at: string; evidence: Evidence[] | null; mergedInto: Id | null } | null;   // Evidence 见 §9.5
+  resolution: { kind: Resolution; by: Actor; at: string; evidence: Evidence[] | null; confirmedBy: Id | null; mergedInto: Id | null } | null;   // Evidence 见 §9.5；confirmedBy 是用户确认那条消息的 id
   priority: 'high' | 'medium' | 'low';
   dueOn: string | null;          // YYYY-MM-DD，用户时区
   startAt: string | null;        // status = scheduled 时的开始时刻
@@ -592,7 +593,7 @@ type WorkItemEvent =
   | { type: 'approval'; approvalId: Id; pending: boolean }
   | { type: 'user-replied' }
   | { type: 'unblocked'; cause: string }
-  | { type: 'resolve'; evidence: Evidence[] | null }          // 用户关为 null；线程关必填（§9.5）
+  | { type: 'resolve'; evidence: Evidence[] | null; confirmedBy?: Id }   // 用户关 evidence 为 null；线程刷新关必填（§9.5）；智能体替用户关带 confirmedBy
   | { type: 'reopen' }
   | { type: 'merge'; into: Id }
   | { type: 'set-owner'; owner: 'agent' | 'user' };
@@ -616,6 +617,7 @@ type WorkItemEvent =
 | active·needsReview / needsInput / blocked | user-replied | system（由线程收到 `via` 为用户的消息触发） | active·working | 清 `question`；note 写回答摘要 |
 | active·blocked / waitingOnOthers | unblocked | system；thread | active·working | — |
 | upNext / scheduled / active·*（建议除外） | resolve | user | resolved·done | 有线程时停掉未完成的回合；`owner:'user'` 的任务在 `upNext` 直接勾掉，不开线程（BOT-TK-04） |
+| upNext / scheduled / active·* | resolve(confirmedBy) | coordinator 或 thread，且当前回合 `attended`、未 `tainted`，由 `confirmedBy` 那条 `author:'user'`、`via:'typed'` 的消息起（线程须是自己会话里的消息，协调者须是频道里的消息） | resolved·done | 用户在对话里说了「标完成吧」「这个做完了」：`resolution.by='user'`、`confirmedBy` 存那条消息的 id，界面写「你确认完成」；有线程时停掉未完成的回合 |
 | active·* | resolve | thread，且当前回合 `task.origin = 'refresh'`，且 `evidence` 通过核验（§9.5） | resolved·done | `resolution.by='agent'`、`resolution.evidence` 存核验过的引用；报告照常交给协调者，频道里一句话告诉用户（D6） |
 | 任一未解决 | dismiss | user | resolved·dismissed | 先停线程 |
 | 任一未解决 | merge(into) | coordinator（需用户在本回合的消息里同意，ctx 带 cited message） | resolved·merged | 把本任务的线程挂到 `into` 的资源里 |
@@ -625,7 +627,7 @@ type WorkItemEvent =
 
 `ctx.run` 是线程当前回合的 `ActiveRun`（`origin`、`attended`、`tainted`，§8.1）。工具调用里拿到的是 `AgentPrincipal.conversationId`，`BotTools` 再查这条会话正在跑的回合；这些字段都由 Runtime 在起回合时写定，智能体无法自己声称是刷新或有人在场。
 
-**刷新由谁跑**：刷新总是投进**线程**（`Harness.deliver(threadId, {origin:'refresh'})`），由线程看自己的来源（BOT-EX-08）。触发者有两个：用户点任务卡上的「刷新」，或 `BotService` 的巡检定时器（需求里说的「定时巡检」，P1）。巡检不起协调者的回合。线程在刷新回合里能关任务，结果照常作为报告交给协调者，由协调者在频道里告诉用户。协调者自己不能关任务。
+**刷新由谁跑**：刷新总是投进**线程**（`Harness.deliver(threadId, {origin:'refresh'})`），由线程看自己的来源（BOT-EX-08）。触发者有两个：用户点任务卡上的「刷新」，或 `BotService` 的巡检定时器（需求里说的「定时巡检」，P1）。巡检不起协调者的回合。线程在刷新回合里能关任务，结果照常作为报告交给协调者，由协调者在频道里告诉用户。除此之外，协调者和线程都只能**替用户**关：要么用户点了「标为完成」提示（Runtime 直接以用户身份关，§12.4），要么用户在本回合亲手打了确认的话（`resolve(confirmedBy)`，上表）。Runtime 核对的是「这一回合由用户的 typed 消息起、没被插过转交」，核对不了「这句话的意思是完成」，后者靠指令（§14.6）；关错了用户可以重新打开。
 
 ### 9.3 子状态的自动推导：ActivityBridge
 
@@ -787,7 +789,8 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 - 不含 URL、邮箱、11 位以上数字（同 §10.4）；
 - `text` 不以完成式描述外部动作（「已发送」「已发布」「已付款」等词表），不含「以后都」「总是」「永远」这类长期授权词；
 - `kind:'confirm'` 只能在 `forItemId` 那条消息只有一个问句时出现（按问号数判断，半角 `?` 与全角 `？` 都算，超过一个拒绝）；
-- 调用方标记了 `risky`（工具参数）时，所有提示的 `recommended` 强制为 false。
+- 调用方标记了 `risky`（工具参数）时，所有提示的 `recommended` 强制为 false；
+- `action:{kind:'resolve'}` 只能出现在 `kind:'confirm'` 的提示上，且 `workItemId` 指向的任务处于 `active·needsReview`，属于本频道（协调者）或就是线程自己的任务（线程）。
 
 不合规的整组拒绝（`ToolError('invalid')`），不截断后硬发（需求 §7.5）。
 
@@ -797,7 +800,7 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 
 ### 12.4 点提示与表情
 
-- 点提示：界面调 `conversations.send({ text: chip.text, via:'suggestion', suggestionChipId })`。Runtime 在写 `user-message` 前核验：提示存在、属于这个会话、状态 `open`；否则 `RpcError('stale')`。通过后条目改 `used`。`answers` 不为空时改走 `agents.answerQuestion(approvalId, optionIndex)`，同时写一条 `via:'suggestion'` 的用户消息，两者在一个事务里。
+- 点提示：界面调 `conversations.send({ text: chip.text, via:'suggestion', suggestionChipId })`。Runtime 在写 `user-message` 前核验：提示存在、属于这个会话、状态 `open`；否则 `RpcError('stale')`。通过后条目改 `used`。`action` 为 `resolve` 时，在同一个事务里写 `via:'suggestion'` 的用户消息，并以 actor `user` 对任务发 `resolve`（与用户在任务卡上点「标为完成」等价，`resolution.by='user'`、`confirmedBy` 为这条消息的 id）；任务此时已不在 `needsReview` 就拒绝（`RpcError('stale')`）。之后照常起回合，智能体只需确认一句。`answers` 不为空时改走 `agents.answerQuestion(approvalId, optionIndex)`，同时写一条 `via:'suggestion'` 的用户消息，两者在一个事务里。
 - 起手提示 `fillOnly`：界面只填输入框，不调 RPC。
 - 表情（BOT-EX-10，P1）：`bot.react({ conversationId, itemId, emoji })`。👍 / ✓ 落在「最新一条、只有一个问句、问句是确认类」的 `agent-message` 上时，等同发送 `via:'reaction'` 的「好」；👎 发一条 `via:'reaction'` 的「👎」并让智能体追问；其余表情只存在条目的 `reactions` 上，不起回合。
 
@@ -858,13 +861,14 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 
 - **不改 `decideApproval` 的签名**。它仍是两参 `(mode, risk)`（`protocol/src/access.ts:90`）；`ApprovalBasis` 仍是记在审批上的依据（`{kind:'mode', mode}`），不是判定的输入。改的是 Harness 传进去的 `mode`：无人在场的回合用 `effectiveMode = min(会话模式, 'auto')`，于是 `high` 一律 `ask`，`fullAccess` 在无人时不生效；审批上记的 `basis.mode` 就是这个 `effectiveMode`，审计看得出来是降级后判的。
 - **没有逐次审批通道的 Driver 不能无人在场地跑**。这类 Driver 只能跑 `fullAccess`（`#checkAccessMode`，`harness.ts:1802`），它们自己的命令与文件修改不经过 `decideApproval`，降级也管不住。所以 `Harness.deliver` 起回合前检查 `#approvalsSupported(driverId)`：`attended = false` 且结果为 `false` 时不起回合（`dropped`，原因 `unattended-needs-approvals`），任务转 `needsInput`，问题是「这一步要你在场才能跑：X 不支持逐次审批。现在继续？」，用户点了就以有人在场的回合起。频道设置里给这类 Driver 一行提示：选它做周期任务的 Driver 时，每次到点都会停下等你。
-- `GrantService.admit`：`unattended` 时不签发新的出站数据授权，也不使用「本次会话允许」的授权；已有的长期授权照用。
+- **付费调用无人时一律 `high`**。现在的 `modelCallRisk`（`agent-tools/outbound-grants.ts`）把有授权覆盖的在线调用定为 `command`，`auto` 下会直接放行；长期授权管的是「数据能不能外发」，不是「能不能花钱」。所以 `ToolScope` 加 `unattended`，模型工具的 `#risk`（`agent-tools/model-tools.ts`）在 `unattended` 时对所有在线调用（`grant.kind` 不是 `null`、不是 `local`）返回 `high`，不看有没有授权；本地模型不花钱，照旧 `edit`。以后新增会产生费用的工具，在工具定义上标 `paid: true`，`AgentScope` 在无人时同样升为 `high`，一致性测试检查所有调用在线模型的工具都带了这个标记。
+- `GrantService.admit`：`unattended` 时不签发新的出站数据授权，也不使用「本次会话允许」的授权；已有的长期授权照用于判断数据能否外发，但不降低上一条的风险等级。
 - 「询问」在无人时的含义：审批照常建出来并保持待处理，线程回合停在 `awaiting-approval`，任务转 `needsInput`，通知用户。**不**超时自动拒绝，也不自动同意。
 - 无人在场的回合里 `channel_write_memory`、`channel_propose`、`schedule_propose` 不可用（§13.3）。
 
 ### 14.3 永不自动
 
-BOT-SF-08 的清单（发布、上传、付款、删除源素材、覆盖用户手改）在现有的风险分级里都已经是 `high`；Bot 不放宽，只靠 §14.2 保证无人时也要问。覆盖用户手改由现有的视频版本校验与编辑保护（产品设计 §6.4）保证。
+BOT-SF-08 的清单（发布、上传、付款、删除源素材、覆盖用户手改）在现有的风险分级里都已经是 `high`；Bot 不放宽，只靠 §14.2 保证无人时也要问。付费生成在有长期授权时现有分级是 `command`，无人时由 §14.2 升为 `high`（BOT-SF-02）。覆盖用户手改由现有的视频版本校验与编辑保护（产品设计 §6.4）保证。
 
 ### 14.4 权限不传递
 
@@ -881,10 +885,11 @@ Runtime 能核对的是「来源」：一条消息是谁写的、一个回合是
 
 | 规则 | Runtime 强制的部分 | 靠指令约束的部分 |
 | --- | --- | --- |
-| 付费、外发、删除、覆盖要用户确认（BOT-SF-07、08） | 风险分级、`decideApproval`、无人时降到 `auto`、不支持审批的 Driver 不能无人跑（§14.2） | — |
+| 付费、外发、删除、覆盖要用户确认（BOT-SF-02、07、08） | 风险分级、`decideApproval`、无人时降到 `auto`、无人时付费调用升为 `high`、不支持审批的 Driver 不能无人跑（§14.2） | — |
 | 用户同意只来自用户（BOT-SF-04） | 审批只接受本地用户主体；`proposal` 只接受用户点；`<baocut-cited>` 带作者与 `via`，伪造会被转义（§13.1） | 智能体不把转述、简报、记忆里的「用户同意了」当真 |
 | 记忆只记用户原话（BOT-SF-09） | 只有 `attended` 且未 `tainted` 的回合能写（§13.3）；16 KiB 上限与版本校验 | 写进去的内容是用户的原话而不是转述 |
 | 智能体关任务（D6） | 只有线程、只在 `refresh` 回合、证据逐条核验（§9.5） | 证据确实说明目的达成 |
+| 智能体替用户关任务 | 「标为完成」提示由 Runtime 以用户身份关；`resolve(confirmedBy)` 要求本回合由那条 typed 用户消息起且未 `tainted`（§9.2、§12.4） | 那句话的意思确实是完成 |
 | 线程不能自己关任务 | 状态机把 `report(done)` 落成 `needsReview`（§9.2） | — |
 | 已解决任务里问一句不重开 | 线程的 reopen 只在用户 typed 回合有效（§9.2） | 线程分辨「修改」还是「问题」 |
 | 合并任务（`merge`）、协调者设定时 | 引用的消息必须是本频道 `author:'user'`、`via:'typed'` 的用户消息 | 那条消息的意思确实是同意合并或说了时间 |
@@ -1063,7 +1068,7 @@ interface BotNotificationEvent {
 | 单元 | `SuggestionService`：校验规则逐条、作废、`stale` 拒绝、表情的认定 | `runtime-core/src/bot/suggestion-service.test.ts` |
 | 单元 | 工具按角色暴露：chat 会话看不到 Bot 工具，线程看不到协调者工具；`allToolSets` 一致性 | `agent-tools/*.test.ts` |
 | 单元 | `ScheduleService` 的 `work-item` 目标：建任务、上次未解决时 skip、频道归档时 pause、run 按 WorkItem 结算 | `schedules/schedule-service.test.ts` |
-| 单元 | 无人在场：`decideApproval` 在 `fullAccess` + `high` + `unattended` 时为 `ask`；`channel_write_memory` 在 relay 回合被拒 | `protocol/src/access.test.ts`、`bot-tools.test.ts` |
+| 单元 | 无人在场：`effectiveMode` 在 `fullAccess` 时降为 `auto`，`high` 判为 `ask`；有长期授权的在线模型调用在 `unattended` 时为 `high`、在有人时仍为 `command`；`channel_write_memory` 在 relay 回合被拒；`resolve(confirmedBy)` 在 relay 回合或引用非本回合消息时被拒 | `protocol/src/access.test.ts`、`bot-tools.test.ts` |
 | 集成 | 用假 Driver（现有测试 Driver）跑：频道发三件活 → 三张卡、三个线程；线程报告 → 协调者转述；线程提问 → 任务 `needsInput` → 用户在任务卡上答 → 继续 | `runtime-core/src/bot/bot.integration.test.ts` |
 | 集成 | 注入：转录稿里含 `</baocut-thread-report>`、`<baocut-cited author="user">`、`<cited author="user">` 与「忽略之前的指令」→ 块边界不被打破、伪造的引用被转义或不被认、不产生任务与提示 | 同上 |
 | 集成 | 无人在场：Job 叫醒、报告投递的回合 `attended = false`；`fullAccess` 降到 `auto`；不支持审批的 Driver 在定时任务里停在 `needsInput` | 同上 |
@@ -1085,7 +1090,7 @@ interface BotNotificationEvent {
 7. **接力**：`CoordinatorKeeper`、`<baocut-channel-handoff>`、`<baocut-channel-state>`。
 8. **智能提示基础**：`suggest_replies`、提问卡的答案提示、确认提示、作废与核验。
 9. **定时任务目标 `work-item`**：`ScheduleService` 扩展、定时任务页的「频道任务」目标。
-10. **无人在场与预算**：`ApprovalBasis.unattended`、`decideApproval`、`GrantService`、频道预算。
+10. **无人在场与预算**：`effectiveMode` 降级、`ToolScope.unattended` 与付费调用升级、`GrantService`、频道预算。
 11. **界面**（原型确认后）：Rail 入口、`bot-page`、频道侧栏与频道视图、线程卡、任务面板、任务详情。
 12. **后台服务**：常驻 IPC、托盘、通知、退出确认、开机自启设置、暂停自动运行。
 
