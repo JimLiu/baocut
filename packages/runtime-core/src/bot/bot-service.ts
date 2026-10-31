@@ -342,6 +342,7 @@ export class BotService {
   /** §8.6 重启对账。 */
   async #reconcile(): Promise<void> {
     const now = nowIso();
+    await this.#applyUnappliedReports();
     for (const listed of [...this.#items.values()]) {
       if (listed.status !== 'active') continue;
       const thread = listed.threadId ? this.#harness.conversationOf(listed.threadId) : undefined;
@@ -385,6 +386,33 @@ export class BotService {
       if (item.status === 'active' && item.active?.state === 'waitingOnOthers') await this.#wakeIfReady(item, null);
     }
     await this.#pump();
+  }
+
+  /**
+   * 报告先落盘再转换（`submitReport`）：两步之间崩溃时，盘上有一份 pending 的报告，任务还停在原处。任务还在交报告时的
+   * 子状态（工作中，或审批中记下停点）就照这份报告补上转换；别的（任务后来又变过）这份报告作废，不再投递。
+   */
+  async #applyUnappliedReports(): Promise<void> {
+    const pending = [...this.#reports.values()].filter((r) => r.delivery === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    for (const report of pending) {
+      const item = this.#items.get(report.workItemId);
+      if (!item || item.lastReportId === report.id) continue;
+      const state = item.status === 'active' ? item.active?.state : null;
+      const fits = (state === 'working' || (state === 'needsInput' && !!item.question?.approvalId)) && report.createdAt >= (item.active?.since ?? '');
+      if (fits) {
+        const applied = await this.transition(item.id, { type: 'report', report }, { actor: 'system' }).then(
+          () => true,
+          (error: unknown) => {
+            this.#log.warn('Applying a saved report failed', { workItemId: item.id, error: String(error) });
+            return false;
+          },
+        );
+        if (applied) continue;
+      }
+      const stale = { ...report, delivery: 'superseded' as const };
+      this.#reports.set(report.id, stale);
+      await this.#store.appendReport(item.channelId, stale).catch(() => {});
+    }
   }
 
   /** 线程此刻还停在一张审批或提问上（回合还在、会话在等你）。重启之后总是 false：回合与审批都不在了。 */
@@ -987,12 +1015,26 @@ export class BotService {
     who: ActorRun,
     startOptions: { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null } = {},
   ): Promise<WorkItem> {
-    // 线程在带着等着的用户回复的回合里调用：先把回复落下，免得它的报告撞上上一回合留下的「待审阅」。
-    if (who.actor === 'thread' && who.run && this.#heldReplies.has(id)) {
-      const taskId = this.#harness.runInfo(who.run.conversationId)?.taskId;
-      if (taskId) await this.#applyHeldReply(id, taskId);
-    }
+    await this.#settleHeldReply(id, who);
     const item = this.item(id);
+    const result = applyEvent(item, event, this.#machineContext(item, event, who));
+    if (result.item === item) return item;
+    if (event.type === 'resolve' && who.actor === 'thread' && who.run?.origin === 'refresh') {
+      const info = this.#runStarts.get(this.#harness.runInfo(who.run.conversationId)?.taskId ?? '');
+      if (info) info.resolvedInRefresh = true;
+    }
+    await this.#commit(item, result.item, result.transitions, result.effects, startOptions);
+    return this.#items.get(id) ?? result.item;
+  }
+
+  /** 线程在带着等着的用户回复的回合里调用：先把回复落下，免得它的报告撞上上一回合留下的「待审阅」。 */
+  async #settleHeldReply(id: Id, who: ActorRun): Promise<void> {
+    if (who.actor !== 'thread' || !who.run || !this.#heldReplies.has(id)) return;
+    const taskId = this.#harness.runInfo(who.run.conversationId)?.taskId;
+    if (taskId) await this.#applyHeldReply(id, taskId);
+  }
+
+  #machineContext(item: WorkItem, event: WorkItemEvent, who: ActorRun): MachineContext {
     const channel = this.channel(item.channelId);
     const ctx: MachineContext = {
       actor: who.actor,
@@ -1007,14 +1049,7 @@ export class BotService {
       const info = this.#runStarts.get(this.#harness.runInfo(who.run.conversationId)?.taskId ?? '');
       if (info?.resolvedInRefresh) ctx.resolvedInThisRefresh = true;
     }
-    const result = applyEvent(item, event, ctx);
-    if (result.item === item) return item;
-    if (event.type === 'resolve' && who.actor === 'thread' && who.run?.origin === 'refresh') {
-      const info = this.#runStarts.get(this.#harness.runInfo(who.run.conversationId)?.taskId ?? '');
-      if (info) info.resolvedInRefresh = true;
-    }
-    await this.#commit(item, result.item, result.transitions, result.effects, startOptions);
-    return this.#items.get(id) ?? result.item;
+    return ctx;
   }
 
   /** 用户方法（`workItems.transition`）：拒绝换成 RpcError。 */
@@ -1853,16 +1888,30 @@ export class BotService {
       fallback: actor === 'system',
     };
     const info = this.#runStarts.get(run.taskId);
+    // 报告先落盘（pending）再转换：转换写下之后、报告写下之前崩溃，任务会指着一份盘上没有的报告，永远投不出去，
+    // 线程重报又因为任务已不在工作中被拒。先在不改任务的情况下核对这次转换会不会被拒，免得盘上留下没用的报告。
+    const who: ActorRun = { actor, run };
+    await this.#settleHeldReply(item.id, who);
+    const before = this.item(item.id);
+    const event: WorkItemEvent = { type: 'report', report };
+    applyEvent(before, event, this.#machineContext(before, event, who));
     // 先登记报告再转换：转换落盘期间结掉的依赖读到新的 lastReportId 时，能找到它在等谁。
     this.#reports.set(report.id, report);
     try {
-      await this.transition(item.id, { type: 'report', report }, { actor, run });
+      await this.#store.appendReport(item.channelId, report);
     } catch (error) {
       this.#reports.delete(report.id);
       throw error;
     }
+    try {
+      await this.transition(item.id, event, who);
+    } catch (error) {
+      // 核对之后状态又变了：盘上那份标为作废，不再投递。
+      this.#reports.delete(report.id);
+      await this.#store.appendReport(item.channelId, { ...report, delivery: 'superseded' }).catch(() => {});
+      throw error;
+    }
     if (info) info.reported = true;
-    await this.#store.appendReport(item.channelId, report);
     this.#topicOf(item.channelId).publish({ type: 'work-item.report', report });
     for (const todo of report.userTodos.slice(0, 5)) {
       await this.createItem({ channelId: item.channelId, title: [...todo].slice(0, BOT_LIMITS.title).join(''), owner: 'user', source: { kind: 'thread', messageId: null, scheduleId: null, runId: null } });

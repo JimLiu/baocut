@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Id } from '@baocut/protocol';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { newId, type Id, type ThreadReport } from '@baocut/protocol';
+import { WorkItemStore } from '@baocut/runtime-storage';
 import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
 
 /* 运行期的收尾与恢复：排队、重启对账、报告重投、等后台任务、删除频道等（评审意见的回归测试）。 */
@@ -128,5 +129,59 @@ describe('restart when the channel data did not load cleanly', () => {
     });
     await kit.settle();
     expect(kit.harness.conversationOf(threadId)?.archived).toBe(true);
+  });
+});
+
+describe('a report is saved before the task moves', () => {
+  it('when saving the report fails the task stays working, so the thread can report again', async () => {
+    const outcomes: boolean[] = [];
+    let turn = 0;
+    kit.thread = async (ctx) => {
+      if (turn++ > 0) return;
+      const failing = vi.spyOn(WorkItemStore.prototype, 'appendReport').mockRejectedValueOnce(new Error('disk full'));
+      outcomes.push((await ctx.tryCall('thread_report', { stop: 'needs-review', headline: 'The trailer is cut.' })).ok);
+      failing.mockRestore();
+      outcomes.push((await ctx.tryCall('thread_report', { stop: 'needs-review', headline: 'The trailer is cut.' })).ok);
+    };
+    const item = await kit.startTask('Cut the trailer');
+    await kit.until(() => outcomes.length === 2);
+    await kit.settle();
+    expect(outcomes).toEqual([false, true]);
+    expect(kit.item(item.id).active?.state).toBe('needsReview');
+    await kit.restart();
+    const reloaded = kit.bot.getItem(item.id);
+    expect(reloaded.reports.map((r) => r.id)).toContain(reloaded.item.lastReportId);
+  });
+
+  it('a report saved just before a crash is applied after the restart', async () => {
+    kit.thread = (ctx) => ctx.turn.hold();
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Cut the teaser', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.until(() => kit.item(item.id).active?.state === 'working' && kit.item(item.id).threadId);
+    const report: ThreadReport = {
+      id: newId('rep'),
+      workItemId: item.id,
+      threadId: kit.threadOf(item.id),
+      taskId: newId('task'),
+      stop: 'needs-review',
+      headline: 'The teaser is cut.',
+      text: '',
+      question: null,
+      outputs: [],
+      userTodos: [],
+      followUps: [],
+      waitingFor: null,
+      appliedRules: [],
+      fallback: false,
+      createdAt: new Date().toISOString(),
+      delivery: 'pending',
+    };
+    kit.thread = () => {};
+    await kit.restart({
+      whileDown: () => fs.appendFile(path.join(kit.home.workItemsDir, `${kit.main.id}.jsonl`), `${JSON.stringify({ op: 'report', report })}\n`),
+    });
+    await kit.settle();
+    expect(kit.item(item.id)).toMatchObject({ lastReportId: report.id, active: { state: 'needsReview' } });
+    expect(kit.turns(kit.main.conversationId).at(-1)).toContain('headline: The teaser is cut.');
   });
 });
