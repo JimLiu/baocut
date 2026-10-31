@@ -132,6 +132,8 @@ class FakeBot implements NonNullable<ScheduleHost['bot']> {
     return { workItemId };
   };
   workItem = (id: Id) => this.items.get(id);
+  paused = false;
+  automationPaused = () => this.paused;
 }
 
 class MemoryStore {
@@ -559,6 +561,18 @@ describe('频道任务（work-item）', () => {
     service.stop();
     await boot(before);
     expect(service.list().find((x) => x.maxRuns === null)!.runs[0]).toMatchObject({ status: 'done', workItemId: lastId });
+  });
+
+  it('自动化暂停时到点记跳过：不建任务，不占运行次数；恢复后照常', async () => {
+    await hourly({ maxRuns: 1 });
+    bot.paused = true;
+    await clock.advance(HOUR);
+    expect(bot.created).toEqual([]);
+    expect(only()).toMatchObject({ status: 'active', runCount: 0, runs: [{ status: 'skipped' }] });
+    bot.paused = false;
+    await clock.advance(HOUR);
+    expect(bot.created).toHaveLength(1);
+    expect(only().runs[0]).toMatchObject({ status: 'running', workItemId: 'wi1' });
   });
 
   it('上一条任务一直没解决：跳过的次数再多，也不会挤掉它而再建一条', async () => {

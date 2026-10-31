@@ -875,6 +875,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
             if (!bot) return Promise.reject(new Error('Bot mode is not ready'));
             return bot.createScheduledItem(channelId, template, scheduleId, runId);
           },
+          automationPaused: () => bot?.settings().automationPaused ?? false,
           workItem: (workItemId) => {
             const item = bot?.itemOrNull(workItemId);
             return item ? { status: item.status, activeState: item.active?.state ?? null } : undefined;

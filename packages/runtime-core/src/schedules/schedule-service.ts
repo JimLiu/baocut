@@ -54,6 +54,8 @@ export interface ScheduleHost {
     channel(channelId: Id): { archived: boolean } | undefined;
     createWorkItem(channelId: Id, template: WorkItemTemplate, scheduleId: Id, runId: Id): Promise<{ workItemId: Id }>;
     workItem(workItemId: Id): { status: WorkItemStatus; activeState: ActiveState | null } | undefined;
+    /** 用户暂停了自动化（Bot 设置）：到点的这一次记跳过，不算一次运行、不建任务。 */
+    automationPaused?(): boolean;
   };
 }
 
@@ -383,8 +385,9 @@ export class ScheduleService {
     const reason = this.#targetGone(schedule);
     if (reason) return { k: 'pause', reason };
     if (schedule.runs.some(scheduleRunOpen)) return { k: 'skip' };
-    // 频道任务：上一次建的任务还没解决（待你审阅也算），这次跳过，不堆积（§11.1）。
+    // 频道任务：上一次建的任务还没解决（待你审阅也算），这次跳过，不堆积（§11.1）。自动化暂停时也跳过，不占运行次数。
     if (schedule.target === 'work-item') {
+      if (this.#host.bot?.automationPaused?.()) return { k: 'skip' };
       const last = schedule.runs.find((r) => r.workItemId);
       const item = last?.workItemId ? this.#host.bot?.workItem(last.workItemId) : undefined;
       if (item && item.status !== 'resolved') return { k: 'skip' };
