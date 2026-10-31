@@ -185,3 +185,89 @@ describe('a report is saved before the task moves', () => {
     expect(kit.turns(kit.main.conversationId).at(-1)).toContain('headline: The teaser is cut.');
   });
 });
+
+describe('a thread waiting on background jobs', () => {
+  function lastHeadline(id: Id) {
+    const item = kit.item(id);
+    return kit.bot.getItem(id).reports.find((r) => r.id === item.lastReportId)?.headline;
+  }
+
+  /** 线程第一回合报告在等 Job，之后的回合报告待审阅。 */
+  function waitsThenFinishes(jobId: string) {
+    const turns = new Map<Id, number>();
+    return async (ctx: TurnContext) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'The dub is rendering.', waitingFor: { jobIds: [jobId] } });
+      else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The dub is ready.' });
+    };
+  }
+
+  it('C2: a job wake held back for a free slot is not lost across a restart', async () => {
+    await kit.bot.updateChannel(kit.main.id, { concurrentThreads: 1 });
+    const waiting = waitsThenFinishes('job_a');
+    kit.thread = (ctx) => (kit.bot.itemOfThread(ctx.conversationId)?.title === 'Render the long cut' ? ctx.turn.hold() : waiting(ctx));
+    const dub = await kit.startTask('Dub episode 3');
+    expect(kit.item(dub.id).active?.state).toBe('waitingOnOthers');
+    const busy = await kit.bot.createItem({ channelId: kit.main.id, title: 'Render the long cut', owner: 'agent' });
+    await kit.bot.startItem(busy.id, { attended: false });
+    await kit.until(() => kit.item(busy.id).active?.state === 'working' && kit.item(busy.id).threadId);
+    const thread = kit.threadOf(dub.id);
+    const taskId = kit.items(thread).filter((i) => i.kind === 'task').at(-1)!.id;
+    await kit.harness.jobFinished({ conversationId: thread, taskId, jobId: 'job_a', kind: 'dub', attempt: 1, state: 'completed' });
+    expect(kit.harness.gatedJobWakes()).toContain(thread);
+    kit.workspace.finishedJobs.add('job_a');
+    await kit.restart();
+    await kit.until(() => kit.item(dub.id).active?.state === 'needsReview');
+    await kit.settle();
+    expect(lastHeadline(dub.id)).toBe('The dub is ready.');
+  });
+
+  it('the watchdog wakes a thread whose jobs finished when the wake never came', async () => {
+    kit.thread = waitsThenFinishes('job_b');
+    const dub = await kit.startTask('Dub episode 4');
+    expect(kit.item(dub.id).active?.state).toBe('waitingOnOthers');
+    await kit.bot.watchdog();
+    await kit.settle();
+    expect(kit.item(dub.id).active?.state).toBe('waitingOnOthers');
+    kit.workspace.finishedJobs.add('job_b');
+    await kit.bot.watchdog();
+    await kit.until(() => kit.item(dub.id).active?.state === 'needsReview');
+    await kit.settle();
+    expect(lastHeadline(dub.id)).toBe('The dub is ready.');
+  });
+
+  it('a job that finishes after the thread already asked for review brings the task back to working, so its new report lands', async () => {
+    let turn = 0;
+    kit.thread = async (ctx) => {
+      turn++;
+      if (turn === 1) await ctx.call('thread_report', { stop: 'needs-review', headline: 'The rough cut is ready; the export is still running.' });
+      else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The export is ready too.' });
+    };
+    const item = await kit.startTask('Cut and export episode 5');
+    expect(kit.item(item.id).active?.state).toBe('needsReview');
+    const thread = kit.threadOf(item.id);
+    const taskId = kit.items(thread).filter((i) => i.kind === 'task').at(-1)!.id;
+    expect(await kit.harness.jobFinished({ conversationId: thread, taskId, jobId: 'job_c', kind: 'export', attempt: 1, state: 'completed' })).toBe('woke');
+    await kit.until(() => turn === 2);
+    await kit.settle();
+    expect(lastHeadline(item.id)).toBe('The export is ready too.');
+    expect(kit.bot.getItem(item.id).transitions.map((t) => t.cause)).toContain('unblocked:job-finished');
+  });
+
+  it('a job wake does not resume a task the user stopped', async () => {
+    let turn = 0;
+    kit.thread = async () => {
+      turn++;
+    };
+    const item = await kit.startTask('Cut episode 6');
+    await kit.bot.stopItem(item.id).catch(() => {});
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    const thread = kit.threadOf(item.id);
+    const taskId = kit.items(thread).filter((i) => i.kind === 'task').at(-1)!.id;
+    await kit.harness.jobFinished({ conversationId: thread, taskId, jobId: 'job_d', kind: 'export', attempt: 1, state: 'completed' });
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+  });
+});

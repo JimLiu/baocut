@@ -70,6 +70,9 @@ export class FakeWorkspace implements BotWorkspace {
   baselineFinds: { projectId: Id; videoId: Id; version: number }[] = [];
   baselines = async (item: WorkItem) => this.baselineFinds.filter((b) => !(item.baseVersions ?? []).some((x) => x.videoId === b.videoId));
   hungJob = async () => this.hung;
+  /** 已经结束的 Job（`jobsFinished` 只认这里有的）。 */
+  finishedJobs = new Set<Id>();
+  jobsFinished = async (jobIds: readonly Id[]) => jobIds.every((id) => this.finishedJobs.has(id));
   budgetUsed = () => this.budget;
   /** 频道花费（§14.5）：所有频道都按这个算；`spendAsks` 记下每次被问到的会话。 */
   spend: { day: Money[]; month: Money[] } = { day: [], month: [] };

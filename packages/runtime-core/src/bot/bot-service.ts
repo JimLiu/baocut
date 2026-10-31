@@ -107,6 +107,8 @@ export interface BotWorkspace {
   baselines?(item: WorkItem): Promise<{ projectId: Id; videoId: Id; version: number }[]>;
   /** 线程等的 Job 是不是挂住了（§9.3 job-hung）：挂住的返回它的名字。 */
   hungJob?(jobIds: readonly Id[]): Promise<string | null>;
+  /** 线程等的 Job 是不是都结束了（完成、失败或取消；挂住的不算）。叫醒丢了时（重启、闸门、Driver 不可用）据此补叫醒。 */
+  jobsFinished?(jobIds: readonly Id[]): Promise<boolean>;
   /** 任务合同的用量占预算的比例（0–1），没有预算时 null。 */
   budgetUsed?(conversationId: Id, taskId: Id | null): number | null;
   /** 一组会话（频道对话与它的线程）从 `since.day` / `since.month` 起花掉的钱（§14.5）。 */
@@ -381,9 +383,13 @@ export class BotService {
     }
     const pending = [...this.#reports.values()].filter((r) => r.delivery === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     for (const report of pending) await this.#deliverReport(report, true);
-    // 停机期间等的任务结了的：「已结」事件没赶上，这里对账一次（同样过并发闸门）。
+    // 停机期间等的任务结了的：「已结」事件没赶上，这里对账一次（同样过并发闸门）。等的后台任务停机前后结束、叫醒没交到的
+    // （没有空位时 Harness 只在内存里记着，重启就丢了）也补一次。
     for (const item of [...this.#items.values()]) {
-      if (item.status === 'active' && item.active?.state === 'waitingOnOthers') await this.#wakeIfReady(item, null);
+      if (item.status === 'active' && item.active?.state === 'waitingOnOthers') {
+        await this.#wakeIfReady(item, null);
+        await this.#wakeForJobs(item);
+      }
     }
     await this.#pump();
   }
@@ -419,6 +425,30 @@ export class BotService {
   #approvalLive(threadId: Id | null): boolean {
     const thread = threadId ? this.#harness.conversationOf(threadId) : undefined;
     return !!thread && (thread.activity === 'awaiting-approval' || thread.activity === 'awaiting-answer') && !!this.#harness.runInfo(thread.id);
+  }
+
+  /**
+   * 这一回合是不是后台任务叫醒的：线程里有本进程里记下的、叫醒了这个任务、还没算过的提示。每条提示只算一次；
+   * 重启前的提示不算（重启后的叫醒由对账经 `#wakeForJobs` 投递）。
+   */
+  #takeJobWake(conversationId: Id, taskId: Id): boolean {
+    let found = false;
+    for (const i of this.#harness.getConversation(conversationId).items) {
+      if (i.kind !== 'notice' || i.job?.delivery !== 'woke' || i.taskId !== taskId || this.#seenJobWakes.has(i.id)) continue;
+      if (i.createdAt < this.#bootAt) continue;
+      this.#seenJobWakes.add(i.id);
+      found = true;
+    }
+    return found;
+  }
+
+  /** 状态机之外：后台任务叫醒的回合把任务带回工作中（问题清掉，与 `unblocked` 一样）。 */
+  async #forceWorking(item: WorkItem, cause: string): Promise<void> {
+    const current = this.#items.get(item.id) ?? item;
+    if (current.status !== 'active' || current.active?.state === 'working') return;
+    const now = nowIso();
+    const next: WorkItem = { ...current, active: { state: 'working', reason: null, since: now }, question: null, beforeInput: null, deferredStop: null, lastProgressAt: now, updatedAt: now };
+    await this.#commit(current, next, [{ workItemId: current.id, from: stateName(current), to: 'working', actor: 'system', cause, note: null, at: now }], []);
   }
 
   /** 状态机之外的强制落点（重启对账）：直接写 active 子状态并记转换。 */
@@ -1409,6 +1439,9 @@ export class BotService {
 
   /** 后台任务放行叫醒、回合已起但还没转回工作中的任务：这段时间也算占着名额。 */
   readonly #jobWaking = new Set<Id>();
+  /** 已经算过的「叫醒了」提示（`#takeJobWake`）。 */
+  readonly #seenJobWakes = new Set<Id>();
+  readonly #bootAt = new Date().toISOString();
   /**
    * 等当前回合结束才交的用户回复（Driver 不能插话）：任务 → 挡着它的那个回合。这一回合还可能报告「待审阅」或「需要你」，
    * 所以等接着的回合开始（或它先报告）时才转回工作中。
@@ -1535,6 +1568,39 @@ export class BotService {
         note: '',
       }).catch((error: unknown) => this.#log.warn('Waking a waiting thread failed', { workItemId: woke.id, error: String(error) }));
     }
+  }
+
+  /**
+   * 停在「等别人」、等的后台任务都已结束、线程却空着的任务：Job 结束的叫醒丢了（重启时 Harness 只在内存里的闸门、Driver 当时
+   * 不可用）。转回工作中并投一份刷新叫醒线程。同样过并发闸门；没有空位时等下一次看门狗。Harness 还记着、等空位再交的不管。
+   */
+  async #wakeForJobs(item: WorkItem): Promise<void> {
+    const current = this.#items.get(item.id);
+    if (!current?.threadId || current.status !== 'active' || current.active?.state !== 'waitingOnOthers' || !this.#workspace.jobsFinished) return;
+    const report = current.lastReportId ? this.#reports.get(current.lastReportId) : undefined;
+    const jobs = report?.waitingFor?.jobIds ?? [];
+    if (!jobs.length) return;
+    const others = [...current.dependsOn, ...(report?.waitingFor?.workItemIds ?? [])];
+    if (others.some((d) => this.#items.get(d)?.status !== 'resolved')) return;
+    const thread = this.#harness.conversationOf(current.threadId);
+    if (!thread || thread.activeTaskId || this.#harness.runInfo(thread.id) || this.#harness.gatedJobWakes().includes(thread.id)) return;
+    if (!(await this.#workspace.jobsFinished(jobs).catch(() => false))) return;
+    const channel = this.#channels.get(current.channelId);
+    if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) return;
+    const latest = this.#items.get(current.id);
+    if (latest?.status !== 'active' || latest.active?.state !== 'waitingOnOthers') return;
+    const cycle = `${latest.lastReportId ?? 'none'}_${Date.parse(latest.active.since) || 0}`;
+    await this.transition(latest.id, { type: 'unblocked', cause: 'job-finished' }, { actor: 'system' }).catch(() => {});
+    const woke = this.#items.get(latest.id);
+    if (woke?.status !== 'active' || woke.active?.state !== 'working') return;
+    await this.#deliverToThread(woke, {
+      id: `jobs_${woke.id}_${cycle}`,
+      direction: 'refresh',
+      text: refreshBlock('job-finished', [`The background jobs you were waiting for (${jobs.join(', ')}) have finished. Check their results and continue.`]),
+      origin: 'relay',
+      unattended: true,
+      note: '',
+    }).catch((error: unknown) => this.#log.warn('Waking a thread for finished jobs failed', { workItemId: woke.id, error: String(error) }));
   }
 
   // ---- 线程路由（§7、§8） ----
@@ -2019,6 +2085,8 @@ export class BotService {
         // 记下回合开始时频道文件夹的样子：回合结束时比一比，新出现或改过的文件记在这条任务名下（BOT-EX-20）。
         this.#fileSnapshots.set(event.taskId, snapshotFiles(this.#files.filesDir(item.channelId)));
         const info = this.#harness.runInfo(conversation.id);
+        // 在任何 await 之前看：Harness 先记下「叫醒了」的提示再发 started，这一回合是不是后台任务叫醒的。
+        const jobWake = event.origin !== 'user' && this.#takeJobWake(conversation.id, event.taskId);
         // 等着的用户回复随这一回合交给线程：此时才把任务转回工作中。
         if (event.origin !== 'user') await this.#applyHeldReply(item.id, event.taskId);
         else this.#heldReplies.delete(item.id);
@@ -2028,6 +2096,11 @@ export class BotService {
           await this.transition(item.id, { type: 'user-replied', ...(note ? { note } : {}) }, { actor: 'user' }).catch(() => {});
         } else if (item.status === 'active' && item.active?.state === 'waitingOnOthers' && !this.#expecting.has(conversation.id)) {
           await this.transition(item.id, { type: 'unblocked', cause: 'job-finished' }, { actor: 'system' }).catch(() => {});
+        } else if (jobWake && !this.#expecting.has(conversation.id)) {
+          // 后台任务结束叫醒了线程，而线程在 Job 跑着时已经报告过（待审阅、需要你、卡住）：回到工作中，这一回合的报告才收得下。
+          // 用户停下的不动（停下时 Job 的叫醒已丢掉，这里只是兜底）。
+          const current = this.#items.get(item.id);
+          if (current?.status === 'active' && jobWakeResumes(current)) await this.#forceWorking(current, 'unblocked:job-finished');
         }
         this.#jobWaking.delete(item.id);
         const current = this.#items.get(item.id);
@@ -2208,6 +2281,8 @@ export class BotService {
             continue;
           }
         }
+        // 等的后台任务都结束了，叫醒却没来：补叫醒（§9.3）。
+        if (jobs.length) await this.#wakeForJobs(item);
       }
       if (state !== 'working') continue;
       const thread = item.threadId ? this.#harness.conversationOf(item.threadId) : undefined;
@@ -3158,6 +3233,18 @@ export function isYesNoQuestion(text: string): boolean {
   // 先排除选择题（「用哪一条？」「竖版还是横版？」），即使问句以「要我……」开头。
   const question = /[^.!\u3002\uFF01?\uFF1F\n]*[?\uFF1F]/.exec(text)?.[0] ?? '';
   return !/\b(or|which|what|when|where|who|how)\b|\u8FD8\u662F|\u6216\u8005|\u54EA|\u4EC0\u4E48|\u600E\u4E48|\u591A\u5C11|\u51E0/i.test(question);
+}
+
+/**
+ * 后台任务叫醒线程时，任务能不能回到工作中：线程在 Job 跑着时报告过的待审阅、需要你（线程自己的提问）、卡住都能；
+ * 用户停下的、停在审批上的、等用户在场才能跑的不能。
+ */
+function jobWakeResumes(item: WorkItem): boolean {
+  const state = item.active?.state;
+  if (state === 'needsReview') return true;
+  if (state === 'needsInput') return !item.question?.approvalId && item.question?.askedBy !== 'system';
+  if (state === 'blocked') return item.active?.reason !== RcBot.stoppedByYou().text;
+  return false;
 }
 
 /** 审批卡或提问卡 → 任务上的问题。 */

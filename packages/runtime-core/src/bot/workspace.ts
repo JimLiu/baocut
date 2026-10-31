@@ -221,6 +221,13 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
           },
         }
       : {}),
+    async jobsFinished(jobIds: readonly Id[]) {
+      // 找不到记录的 Job 不再等：线程给错了 id，或记录已经清掉。挂住的（interrupted、needs-reconciliation）由 hungJob 管。
+      return jobIds.every((id) => {
+        const state = job(id)?.state;
+        return state === undefined || state === 'completed' || state === 'failed' || state === 'cancelled';
+      });
+    },
     async hungJob(jobIds: readonly Id[]) {
       for (const id of jobIds) {
         const record = job(id);
