@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
@@ -226,7 +227,10 @@ const RECHECK_ERROR_CODES = new Set<AgentErrorCode>([
 interface ActiveRun extends RunContext {
   /** 此刻生效的访问模式：任务开始时取定，任务进行中切换模式时跟着改（§3.12）。 */
   mode: AgentMode;
-  /** 用户选了「这个任务里不再问」的 BaoCut 工具。只在内存里，任务结束即失效。 */
+  /**
+   * 用户选了「这个任务里不再问」的 BaoCut 工具（`sessionAllowKey`：普通会话按工具名，Bot 角色的会话按工具与参数摘要）。
+   * 只在内存里，任务结束即失效。
+   */
   sessionAllowed: Set<string>;
   /** 发送时会话上的模型与强度：这一轮按它跑，中途改了下一轮生效。 */
   model: string | null;
@@ -2898,7 +2902,8 @@ export class Harness {
     const verdict = decideApproval(mode, risk);
     const outbound = (request.grants?.length ?? 0) > 0;
     // 「这个任务里不再问」与规则一样不放开 `high`：同名工具的高风险调用（覆盖、越出工作目录、把会话放进别的项目）每次都问。
-    if (verdict === 'ask' && !outbound && risk !== 'high' && run.sessionAllowed.has(request.tool)) {
+    const sessionKey = sessionAllowKey(state.conversation, request);
+    if (verdict === 'ask' && !outbound && risk !== 'high' && run.sessionAllowed.has(sessionKey)) {
       return { status: 'allowed', mode, risk, decidedBy: 'user' };
     }
     if (verdict === 'ask' && !outbound && this.#ruleAllows(request.rule)) {
@@ -2931,7 +2936,7 @@ export class Harness {
       ...(outbound ? { grants: request.grants } : {}),
     });
     if (outcome === 'allowed') {
-      if (forSession && !outbound) run.sessionAllowed.add(request.tool);
+      if (forSession && !outbound) run.sessionAllowed.add(sessionKey);
       return { status: 'allowed', mode, risk, decidedBy: 'user', ...(outbound ? { grant: grant ?? { persist: false } } : {}) };
     }
     if (outcome === 'denied') return { status: 'denied', mode, risk, decidedBy: 'user' };
@@ -4648,6 +4653,19 @@ function fileAttachmentsText(attached:{ref:AttachmentRef;path:string}[]):string 
 /** 频道对话与线程会话（Bot 技术方案 §4.2）。 */
 function isBotRole(conversation: Conversation): boolean {
   return conversation.role === 'channel' || conversation.role === 'thread';
+}
+
+/**
+ * 「这个任务里不再问」记住的键。普通会话按工具名（§3.12）；频道对话与线程会话按工具加这次调用的对象与摘要（摘要里写着金额、
+ * 范围与去向）：同一个任务里细节变了不复用之前的允许，重新问（Bot 技术方案 §13.4、BOT-SF-12）。
+ */
+function sessionAllowKey(conversation: Conversation, request: ToolCallApprovalRequest): string {
+  if (!isBotRole(conversation)) return request.tool;
+  const digest = createHash('sha256')
+    .update(JSON.stringify([[...request.targets].sort(), request.summary]))
+    .digest('hex')
+    .slice(0, 16);
+  return `${request.tool}#${digest}`;
 }
 
 /** 模式从严到宽的次序。 */

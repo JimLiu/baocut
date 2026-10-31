@@ -312,6 +312,35 @@ describe('BOT-SF-08 BOT-SF-12 spending, sending and publishing always ask', () =
   });
 });
 
+describe('S3 BOT-SF-12 "do not ask again in this task" follows the details', () => {
+  it('S3 a yes for the rest of the task covers the same call again, but not the same tool with a bigger amount or another target', async () => {
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'ask' });
+    const statuses: string[] = [];
+    kit.thread = async (ctx) => {
+      const ask = (summary: string, video = 'vid_1') =>
+        kit.harness.approveToolCall(ctx.conversationId, { tool: 'speak', targets: [video], summary, risk: 'command', rule: 'speak' });
+      statuses.push((await ask('Speech for segment 3, about 12 CNY')).status);
+      statuses.push((await ask('Speech for segment 3, about 12 CNY')).status);
+      statuses.push((await ask('Speech for segments 3 and 4, about 25 CNY')).status);
+      statuses.push((await ask('Speech for segment 3, about 12 CNY', 'vid_2')).status);
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice segment 3', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    const thread = kit.threadOf(item.id);
+    const answer = async (decision: 'accept-for-session' | 'decline') => {
+      const pending = await kit.until(() => kit.harness.approvals.pending()[0]);
+      await kit.harness.respondToApproval({ conversationId: thread, approvalId: pending.approvalId, decision });
+      await kit.until(() => kit.harness.approvals.pending().every((p) => p.approvalId !== pending.approvalId));
+    };
+    await answer('accept-for-session');
+    await answer('decline');
+    await answer('decline');
+    await kit.settle();
+    expect(statuses).toEqual(['allowed', 'allowed', 'denied', 'denied']);
+    expect(ofKind(thread, 'approval').map((a) => a.status)).toEqual(['accepted', 'declined', 'declined']);
+  });
+});
+
 describe('a report sent while an approval waits (§9.3)', () => {
   it('lands with its own question once the approval is answered', async () => {
     let thread: TurnContext | null = null;
