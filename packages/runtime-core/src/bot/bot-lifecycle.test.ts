@@ -48,6 +48,24 @@ describe('one-shot timers', () => {
     await kit.settle();
   });
 
+  it('a scheduled item moved out of an archived channel gets its timer back, and starts at once if it is already due', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Later' });
+    const others = kit.clock.timers.size;
+    const later = await scheduledIn(channel.id, 'Cut the trailer', 10 * 60_000);
+    const due = await scheduledIn(channel.id, 'Render the teaser', 60_000);
+    await kit.bot.archiveChannel(channel.id, true);
+    expect(kit.clock.timers.size).toBe(others);
+    kit.clock.offset = 2 * 60_000;
+    await kit.bot.moveItem(later.id, kit.main.id);
+    // 没到点的：一次性定时重新挂上。
+    expect(kit.item(later.id).status).toBe('scheduled');
+    expect(kit.clock.timers.size).toBe(others + 1);
+    // 已经过点的：移过去就开。
+    await kit.bot.moveItem(due.id, kit.main.id);
+    await kit.until(() => kit.item(due.id).status !== 'scheduled');
+    await kit.settle();
+  });
+
   it('archiving a channel stops its working tasks so they no longer hold a slot', async () => {
     const channel = await kit.bot.createChannel({ name: 'Later' });
     kit.thread = (ctx) => ctx.turn.hold();

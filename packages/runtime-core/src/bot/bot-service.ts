@@ -1436,6 +1436,8 @@ export class BotService {
     this.#publishChannel(to);
     // 排着队的任务换到有空位的频道：马上看能不能开工，不等别的事来推。
     await this.#pump();
+    // 排了期的任务从归档频道移到没归档的：到点的马上开，没到点的重新挂上一次性定时。
+    await this.fireDue();
     return this.#items.get(id) ?? next;
   }
 
