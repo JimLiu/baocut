@@ -1940,6 +1940,11 @@ export class BotService {
           run,
           'system',
         );
+      } else if (event.status === 'stopped' && !this.#harness.closing && !this.#expecting.has(conversation.id)) {
+        // 用户在任务详情的对话框里点了停止（直接停回合，不经过 stopItem）：任务一样转为停下，等你点继续，不再占名额。
+        await this.transition(current.id, { type: 'stop' } as never, { actor: 'user' }).catch((error: unknown) =>
+          this.#log.warn('Stopping a work item after its thread run stopped failed', { workItemId: current.id, error: String(error) }),
+        );
       } else if (event.status === 'failed') {
         const reason = firstSentence(event.error ?? event.errorCode ?? 'failed');
         await this.submitReport(

@@ -2228,6 +2228,11 @@ export class Harness {
     void this.#startRun(state, run, { text: jobFinishedText(wake) });
   }
 
+  /** 正在退出：退出时停掉的回合不是用户停的。 */
+  get closing(): boolean {
+    return this.#closing;
+  }
+
   /**
    * 空闲会话被后台任务叫醒之前要过的闸门：返回 false 时这次不起回合，任务记下来，等 `releaseJobWakes` 再交。
    * 回合进行中的插话与等回合结束不经过它（不新起回合）。

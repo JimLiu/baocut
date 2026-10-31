@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId, type Id } from '@baocut/protocol';
+import { RcBot } from '@baocut/protocol/messages/runtime-core';
 import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
 import { stateName } from './work-item-machine.ts';
 
@@ -370,6 +371,25 @@ describe('video access for threads', () => {
     expect(kit.bot.videoProjectsOf(thread)).toEqual(['proj_1']);
     expect(kit.bot.videoProjectsOf(kit.harness.conversationOf(kit.threadOf(plain.id))!)).toEqual([]);
     expect(kit.bot.videoProjectsOf(kit.harness.conversationOf(kit.main.conversationId)!)).toEqual([]);
+  });
+});
+
+describe('stopping from the thread itself', () => {
+  it('a turn stopped from the thread composer stops the task too: it frees its slot and offers Continue', async () => {
+    let release: () => void = () => {};
+    kit.thread = () => new Promise<void>((resolve) => (release = resolve));
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice the intro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => kit.item(item.id).threadId && kit.harness.conversationOf(kit.threadOf(item.id))?.activity === 'running');
+    expect(kit.item(item.id).active?.state).toBe('working');
+    const thread = kit.harness.conversationOf(kit.threadOf(item.id))!;
+    await kit.harness.stopTask(thread.activeTaskId!);
+    release();
+    await kit.until(() => kit.item(item.id).active?.state === 'blocked');
+    expect(kit.item(item.id).question?.options.map((o) => o.label).length).toBeGreaterThan(0);
+    expect(kit.item(item.id).active?.reason).toBe(RcBot.stoppedByYou().text);
+    expect(kit.bot.status().workingThreads).toEqual([]);
+    await kit.settle();
   });
 });
 
