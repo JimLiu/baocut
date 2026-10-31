@@ -61,6 +61,7 @@ export const ko: BotMessages = {
     retry: '다시 시도',
     empty: '필요한 것을 말해 주세요. 오래 걸리는 일은 백그라운드에서 진행되고 작업으로 표시됩니다.',
     archivedNote: '이 채널은 보관되었습니다. 여기서 계속 작업하려면 복원하세요.',
+    spend: (today: string, month: string) => `오늘 ${today} · 이번 달 ${month} 사용`,
   },
   away: {
     done: (n: number) => `${n}개 완료`,

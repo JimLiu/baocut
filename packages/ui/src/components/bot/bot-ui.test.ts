@@ -7,7 +7,7 @@ import type { RuntimeSession } from '../../runtime/session.ts';
 import type { AwaySummary, TimelineItem } from '@baocut/protocol';
 import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
-import { AwayBanner, useAwayAndSeen } from './channel-view.tsx';
+import { AwayBanner, ChannelSpend, useAwayAndSeen } from './channel-view.tsx';
 import { NewTaskDialog } from './task-panel.tsx';
 import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
@@ -370,5 +370,21 @@ describe('任务详情可改（BOT-TK-06）', () => {
     expect(dateFact('截止', '2026-11-07', 'user')).toMatch(/· 你定的$/);
     expect(dateFact('截止', '2026-11-07', 'agent')).toMatch(/· 来自你的消息$/);
     expect(dateFact('截止', '2026-11-07', undefined)).not.toContain('·');
+  });
+});
+
+describe('频道花费（I16、BOT-NF-04）', () => {
+  it('频道头部写今天与本月的花费；这个月没花钱时不写', async () => {
+    const summary = (month: string) => ({
+      channel: { id: 'c1' },
+      spend: { today: { amount: '0.42', currency: 'USD' }, month: { amount: month, currency: 'USD' } },
+    });
+    useChannels.setState({ channels: [summary('3.10')] as never });
+    await render(createElement(ChannelSpend, { channelId: 'c1' }));
+    expect(container.textContent).toBe('今天花了 $0.42 · 本月 $3.10');
+    useChannels.setState({ channels: [summary('0')] as never });
+    await render(createElement(ChannelSpend, { channelId: 'c1' }));
+    expect(container.textContent).toBe('');
+    useChannels.setState({ channels: [] });
   });
 });

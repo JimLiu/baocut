@@ -6,6 +6,8 @@ import Settings from '@react-spectrum/s2/icons/Settings';
 import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { useRuntime } from '../../runtime/context.tsx';
+import { formatMoneyOne } from '../../model/usage-format.ts';
+import { useChannels } from '../../state/channels-store.ts';
 import { useConnection } from '../../state/connection-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTimeline, useTimelineItems } from '../../state/timeline-store.ts';
@@ -31,6 +33,7 @@ const header = style({
   borderColor: 'gray-100',
   minWidth: 0,
 });
+const spendLine = style({ font: 'ui-xs', color: 'gray-600', whiteSpace: 'nowrap' });
 const headText = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 });
 const name = style({ margin: 0, font: 'title-sm', color: 'gray-900', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 const purpose = style({
@@ -189,6 +192,20 @@ function useDriverUnavailable(channel: Channel): boolean {
   return !driver || !driver.enabled || driver.state !== 'ready';
 }
 
+/** 频道的花费（BOT-NF-04）：今天与本月，来自频道摘要；没有账本或这个月还没花钱时不显示。 */
+export function ChannelSpend({ channelId }: { channelId: Id }) {
+  const spend = useChannels((s) => s.channels.find((c) => c.channel.id === channelId)?.spend ?? null);
+  const month = spend?.month;
+  if (!month || !(Number(month.amount) > 0)) return null;
+  const today = spend.today ?? { amount: '0', currency: month.currency };
+  const text = C.channel.spend(formatMoneyOne(today), formatMoneyOne(month));
+  return (
+    <span className={spendLine} aria-label={text}>
+      {text}
+    </span>
+  );
+}
+
 /**
  * 频道对话（BOT-CV-01…05、需求 §11.3）：头部是频道名与用途；时间线就是普通会话的时间线，Bot 条目（线程卡、报告行、提议卡）
  * 由 `BotTimeline` 画；输入框上方是提示芯片。换 Agent 改的是频道（`channels.update`），不是这一条会话。
@@ -272,6 +289,7 @@ export function ChannelView({
             {channel.purpose || C.channel.noPurpose}
           </span>
         </div>
+        <ChannelSpend channelId={channel.id} />
         <ActionButton isQuiet size="S" onPress={() => go({ tab: 'bot', channelId: channel.id, workItemId: null, view: 'memory' })}>
           <Bookmark />
           <Text>{C.channel.memory}</Text>

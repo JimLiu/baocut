@@ -61,6 +61,7 @@ export const zhHans: BotMessages = {
     retry: '重试',
     empty: '说说你要做什么。费时的活会在后台做，并作为任务出现在右边。',
     archivedNote: '这个频道已归档。恢复后才能继续在这里工作。',
+    spend: (today: string, month: string) => `今天花了 ${today} · 本月 ${month}`,
   },
   away: {
     done: (n: number) => `${n} 个已完成`,

@@ -61,6 +61,7 @@ export const ja: BotMessages = {
     retry: '再試行',
     empty: 'やりたいことを伝えてください。時間のかかる作業はバックグラウンドで進み、タスクとして表示されます。',
     archivedNote: 'このチャンネルはアーカイブされています。ここで作業を続けるには元に戻してください。',
+    spend: (today: string, month: string) => `今日 ${today} · 今月 ${month}`,
   },
   away: {
     done: (n: number) => `${n} 件完了`,

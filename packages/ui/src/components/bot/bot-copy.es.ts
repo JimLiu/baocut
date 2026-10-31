@@ -61,6 +61,7 @@ export const es: BotMessages = {
     retry: 'Reintentar',
     empty: 'Di lo que necesitas. Los trabajos largos se hacen en segundo plano y aparecen como tareas.',
     archivedNote: 'Este canal está archivado. Restáuralo para seguir trabajando aquí.',
+    spend: (today: string, month: string) => `Gastado hoy ${today} · este mes ${month}`,
   },
   away: {
     done: (n: number) => (n === 1 ? '1 hecha' : `${n} hechas`),

@@ -70,6 +70,7 @@ export const pl: BotMessages = {
     retry: 'Spróbuj ponownie',
     empty: 'Powiedz, czego potrzebujesz. Dłuższe prace idą w tle i pojawiają się jako zadania.',
     archivedNote: 'Ten kanał jest zarchiwizowany. Przywróć go, aby dalej tu pracować.',
+    spend: (today: string, month: string) => `Wydano dziś ${today} · w tym miesiącu ${month}`,
   },
   away: {
     done: (n: number) => `gotowe: ${n}`,

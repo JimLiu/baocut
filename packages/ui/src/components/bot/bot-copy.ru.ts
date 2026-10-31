@@ -70,6 +70,7 @@ export const ru: BotMessages = {
     retry: 'Повторить',
     empty: 'Скажите, что нужно. Долгие работы идут в фоне и появляются как задачи.',
     archivedNote: 'Этот канал в архиве. Восстановите его, чтобы продолжить здесь работу.',
+    spend: (today: string, month: string) => `Потрачено сегодня ${today} · за месяц ${month}`,
   },
   away: {
     done: (n: number) => `готово: ${n}`,

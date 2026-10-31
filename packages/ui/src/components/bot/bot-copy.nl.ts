@@ -61,6 +61,7 @@ export const nl: BotMessages = {
     retry: 'Opnieuw proberen',
     empty: 'Zeg wat je nodig hebt. Langer werk draait op de achtergrond en verschijnt als taak.',
     archivedNote: 'Dit kanaal is gearchiveerd. Herstel het om hier verder te werken.',
+    spend: (today: string, month: string) => `Vandaag ${today} · deze maand ${month} uitgegeven`,
   },
   away: {
     done: (n: number) => `${n} klaar`,

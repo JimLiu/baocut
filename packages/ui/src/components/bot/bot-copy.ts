@@ -80,6 +80,7 @@ const en = {
     retry: 'Try again',
     empty: 'Say what you need. Jobs that take a while run in the background and show up as tasks.',
     archivedNote: 'This channel is archived. Restore it to keep working here.',
+    spend: (today: string, month: string) => `Spent ${today} today · ${month} this month`,
   },
   away: {
     done: (n: number) => (n === 1 ? '1 done' : `${n} done`),

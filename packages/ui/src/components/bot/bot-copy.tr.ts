@@ -61,6 +61,7 @@ export const tr: BotMessages = {
     retry: 'Yeniden dene',
     empty: 'Neye ihtiyacınız olduğunu söyleyin. Uzun işler arka planda yürür ve görev olarak görünür.',
     archivedNote: 'Bu kanal arşivlendi. Burada çalışmaya devam etmek için geri yükleyin.',
+    spend: (today: string, month: string) => `Bugün ${today} · bu ay ${month} harcandı`,
   },
   away: {
     done: (n: number) => `${n} bitti`,
