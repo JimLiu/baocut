@@ -489,6 +489,7 @@ interface Delivery {
   reopenTaskId?: Id;
   accessMode?: AgentMode;        // 起新任务时的访问模式，默认会话的
   unattended: boolean;           // §14.2
+  onDelivered?: () => void;      // 智能体真正收到时调用：steered / woke / started 立即调用，held 等 #finish 带进回合时调用
 }
 
 type DeliveryResult = 'steered' | 'held' | 'woke' | 'started' | 'dropped';
@@ -522,7 +523,7 @@ Harness.deliver(d: Delivery): Promise<DeliveryResult>;
 
 1. 组装 `<baocut-thread-report>` 块：任务 id 与标题、stop、headline、正文、问题与选项、产物列表。正文转义（§13）。
 2. `Harness.deliver(channel.conversationId, { id: 'report_' + reportId, item: relay{direction:'report'}, wake: 'new-task', unattended: <报告所在的运行是否无人在场> })`。
-3. 结果为 `steered | held | started` 时把 `ThreadReport.delivery` 改为 `delivered`；`dropped` 时保持 `pending`，等频道对话可用（恢复归档、Driver 修好）时由 `ActivityBridge` 重投。
+3. 结果为 `steered | started` 时把 `ThreadReport.delivery` 改为 `delivered`。结果为 `held` 时仍保持 `pending`：挂起只在内存里，还没进协调者的回合；等 `#finish` 真正把它带进新回合时，由 `Delivery.onDelivered` 回调再改成 `delivered`。这样在挂起期间崩溃，重启对账（§8.6）会把它重投，会话里已经写过的 `relay` 条目按 id 替换，不会重复。`dropped` 时也保持 `pending`，等频道对话可用（恢复归档、Driver 修好）时由 `ActivityBridge` 重投。
 4. 同一任务在上一份报告还 `pending` 时又来新报告：旧的标 `superseded`，只投最新一份，转述时协调者能看到被覆盖的那份的 headline（块里列出）。
 
 **合并**：频道对话正忙且不能插话时，`held` 的多份报告在 `#finish` 里合成一次投递（一个回合里多个 `<baocut-thread-report>` 块），满足 BOT-CV-05 的「回合结束后合并成一个回合转述」。
