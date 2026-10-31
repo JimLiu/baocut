@@ -34,6 +34,7 @@ BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用�
 | [`design/lite-editor/`](design/lite-editor/README.md) | **轻量编辑器（方案稿）**：同一编辑器的另一种视图，给看一遍、指出哪里要改的人：画面 + 按段分格的播放条 + 当前段的脚本与逐句侧栏；段统一场景与章节；按轨道生成的图层开关；画面上的标记带段落落点发给会话；顶栏与时间线视图切换，共用一份状态；默认打开规则与偏好 |
 | [`design/version-history/`](design/version-history/README.md) | **视频的版本记录（一期、二期已实现；三期方案待确认）**：不依赖 git，每部视频保存最新快照与最近 10 个版本的 diff，按版本回滚；版本边界与动作清单、保留与清理、重建与外部改动导入；有 git 时快照随时可提交 |
 | [`design/shorts-framing/`](design/shorts-framing/README.md) | **短视频的分屏同框（一期已实现；二期待做）**：横版多人访谈剪成竖版时，多人全景镜头每人一格上下排开：什么时候分屏、不频繁切换、两到四人的版式与取景换算、`VideoItem.panels`、派生的输入与警告、结果页版式条与编辑器的「版式」段 |
+| [`design/bot-mode/`](design/bot-mode/README.md) | **Bot 模式（方案稿）**：按主题建频道、每个频道一条持续对话；协调者分派、后台线程做活并回报；任务的产生、状态与流转、Make（建议任务与周期任务）、对话里的智能提示、后台常驻服务；需求与交互设计、技术方案各一份 |
 | [`glossary.md`](glossary.md) | **术语表**：同一概念只用一个词 |
 | [`repo-conventions.md`](repo-conventions.md) | **仓库约定**：顶层目录、代码放置与文件命名 |
 | [`development-workflow.md`](development-workflow.md) | **开发流程**：规范与实现同步、验证入口、多端同步、语言与平台、工作区与产物；按任务读取相关章节 |
@@ -59,6 +60,7 @@ BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用�
 | 做讲解片、MV 等代码动画片：章节、分轨、实时播放、导出 | [`design/motion-video/`](design/motion-video/README.md)；代码包规范；架构设计 §8、§9.4 |
 | 做轻量编辑器：段、按段分格的播放条、侧栏脚本与逐句、图层开关、画面标记、与时间线视图的切换 | [`design/lite-editor/`](design/lite-editor/README.md)；产品设计 §5.3；[`design/motion-video/`](design/motion-video/README.md) §2、§5 |
 | 改剪成短视频的取景：多人全景分屏、版式、`panels` | [`design/shorts-framing/`](design/shorts-framing/README.md)；产品设计 §5.10；视频格式规范 §3.4、§3.5 |
+| 做 Bot 模式：频道、协调者与后台线程、任务状态、Make、智能提示、后台常驻 | [`design/bot-mode/`](design/bot-mode/README.md)；架构设计 §3、§3.13、§7.2；产品设计 §3.2.5、§7.8 |
 | 实现工具页任务、固定流程与各种导出 | 架构设计 §7.9、§9.13 |
 | 管理外部工具、安装动作与应用更新 | 架构设计 §12.9、§2.6 |
 | 实现 Home 模板库、新增内置模板 | 模板包规范；产品设计 §3.2.1 |
