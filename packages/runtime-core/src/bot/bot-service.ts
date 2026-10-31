@@ -2093,7 +2093,13 @@ export class BotService {
         if (event.origin === 'user' && info?.userMessageId) {
           const message = this.#findItem(conversation.id, info.userMessageId);
           const note = message?.kind === 'user-message' ? message.text : undefined;
-          await this.transition(item.id, { type: 'user-replied', ...(note ? { note } : {}) }, { actor: 'user' }).catch(() => {});
+          const latest = this.#items.get(item.id);
+          if (latest?.status === 'active' && latest.active?.state === 'waitingOnOthers') {
+            // 线程在等别的（后台任务、别的任务），用户却直接跟它说话：先回到工作中，这一回合的报告才收得下。
+            await this.transition(item.id, { type: 'unblocked', cause: 'user-replied' }, { actor: 'system' }).catch(() => {});
+          } else {
+            await this.transition(item.id, { type: 'user-replied', ...(note ? { note } : {}) }, { actor: 'user' }).catch(() => {});
+          }
         } else if (item.status === 'active' && item.active?.state === 'waitingOnOthers' && !this.#expecting.has(conversation.id)) {
           await this.transition(item.id, { type: 'unblocked', cause: 'job-finished' }, { actor: 'system' }).catch(() => {});
         } else if (jobWake && !this.#expecting.has(conversation.id)) {

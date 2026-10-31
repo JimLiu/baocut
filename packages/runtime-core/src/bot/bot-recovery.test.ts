@@ -271,3 +271,18 @@ describe('a thread waiting on background jobs', () => {
     expect(kit.item(item.id).active?.state).toBe('blocked');
   });
 });
+
+describe('the user talks to a thread that is waiting', () => {
+  it('C1: a message from the user in a waiting thread moves the task back to working first, so the turn can report', async () => {
+    kit.thread = (ctx) => ctx.call('thread_report', { stop: 'waiting', headline: 'The dub is rendering.', waitingFor: { jobIds: ['job_dub_9'] } });
+    const item = await kit.startTask('Dub the trailer');
+    expect(kit.item(item.id).active?.state).toBe('waitingOnOthers');
+    const result = await kit.threadTurn(item.id, 'Skip the dub, the subtitles are enough.', (ctx) =>
+      ctx.tryCall('thread_report', { stop: 'needs-review', headline: 'Subtitles only, no dub.' }),
+    );
+    await kit.settle();
+    expect(result.ok).toBe(true);
+    expect(kit.item(item.id).active?.state).toBe('needsReview');
+    expect(kit.bot.getItem(item.id).transitions.map((t) => `${t.cause}->${t.to}`)).toContain('unblocked:user-replied->working');
+  });
+});
