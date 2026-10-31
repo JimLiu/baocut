@@ -1316,10 +1316,13 @@ export class BotService {
 
   readonly #queuedBriefs = new Map<Id, LaunchOptions>();
 
-  /** 记下排队任务开工时要带的东西；同时落盘，重启后照样带上（有没有人在场不存：重启后开工就是无人在场）。 */
+  /**
+   * 记下排队任务开工时要带的东西；同时落盘，重启后照样带上。有没有人在场内存里也不留：排队之后什么时候开工说不准，
+   * 那时用户多半已经不在，开工就是无人在场的回合（与重启后一样）。
+   */
   async #queueLaunch(item: WorkItem, options: LaunchOptions): Promise<void> {
-    this.#queuedBriefs.set(item.id, options);
     const { attended: _attended, ...stored } = options;
+    this.#queuedBriefs.set(item.id, stored);
     await this.#files.writeQueued(item.channelId, item.id, stored).catch((error: unknown) =>
       this.#log.warn('Saving the queued brief failed', { workItemId: item.id, error: String(error) }),
     );
