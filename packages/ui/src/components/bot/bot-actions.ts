@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   RpcError,
   newId,
@@ -148,4 +148,15 @@ export function nextLine(item: WorkItem): string | null {
   if (step) return step.text;
   if (item.status === 'resolved' && item.outcome) return item.outcome;
   return item.description || null;
+}
+
+/**
+ * 只属于一个频道的界面状态（回复目标、「显示更早的」）：`owner` 换了就回到初始值，切频道时不串过去，
+ * 切回来也是初始值（快照换过了，之前补进来的不一定还在）。
+ */
+export function useScopedState<T>(owner: string, initial: T): [T, (next: T) => void] {
+  const [state, setState] = useState<{ owner: string; value: T }>({ owner, value: initial });
+  const value = state.owner === owner ? state.value : initial;
+  const set = useCallback((next: T) => setState({ owner, value: next }), [owner]);
+  return [value, set];
 }

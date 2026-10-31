@@ -16,7 +16,7 @@ import { useTimeline, useTimelineItems } from '../../state/timeline-store.ts';
 import { useWorkItem } from '../../state/work-items-store.ts';
 import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
 import { ConversationView } from '../conversation-view.tsx';
-import { focusComposer, useBotCall } from './bot-actions.ts';
+import { focusComposer, useBotCall, useScopedState } from './bot-actions.ts';
 import { jumpTo } from './bot-jump.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
@@ -248,7 +248,7 @@ export function ChannelView({
   const unavailable = useDriverUnavailable(channel);
   const [scheduling, setScheduling] = useState(false);
   // 回复一张线程卡（BOT-EX-09）：下一条消息带上卡片的 id，协调者把原文转给那条任务的线程。
-  const [replyTo, setReplyTo] = useState<{ itemId: Id; workItemId: Id } | null>(null);
+  const [replyTo, setReplyTo] = useScopedState<{ itemId: Id; workItemId: Id } | null>(channel.id, null);
   const firstUnread = away.summary?.firstUnreadItemId ?? null;
   const messageExtras = useBotMessageExtras();
   const extras = useMemo(

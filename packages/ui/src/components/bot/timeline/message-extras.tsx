@@ -126,7 +126,8 @@ export function Reactions({ item, conversationId }: { item: AgentMessage; conver
           aria-label={label}
           aria-pressed={on}
           isPending={pending === emoji}
-          isDisabled={on || (pending !== null && pending !== emoji)}
+          // 一条消息只回应一次：点过 👍 再点 👎，协调者会先后收到相反的两个回答。
+          isDisabled={given.length > 0 || (pending !== null && pending !== emoji)}
           onPress={() => void react(emoji)}>
           {icon}
         </ActionButton>

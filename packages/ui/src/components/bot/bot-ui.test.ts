@@ -414,6 +414,25 @@ describe('任务面板的已完成段（I19）', () => {
     }
   });
 
+  it('切到别的频道：「显示更早的」照常出现，不沿用上一个频道已经点开的状态', async () => {
+    useWorkItems.setState({
+      byChannel: {
+        c1: { items: [resolvedItem(1), resolvedItem(2)], resolvedTail: 2, reports: [] },
+        c2: { items: [resolvedItem(4), resolvedItem(5)], resolvedTail: 2, reports: [] },
+      },
+    });
+    handlers['workItems.list'] = () => ({ items: [resolvedItem(1), resolvedItem(2), resolvedItem(3)] });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      await press('显示更早的');
+      expect(button('显示更早的')).toBeUndefined();
+      await render(createElement(TaskPanel, { channelId: 'c2', selectedId: null }));
+      expect(button('显示更早的')).toBeDefined();
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
+  });
+
   it('没到上限时不给，也不去取', async () => {
     useWorkItems.setState({ byChannel: { c1: { items: [resolvedItem(1)], resolvedTail: 2, reports: [] } } });
     try {
@@ -529,6 +548,9 @@ describe('改已发的消息与表情回应（BOT-EX-06、BOT-EX-10）', () => {
     await render(createElement(Reactions, { item: { ...agent, reactions: ['\u{1F44D}'] }, conversationId: 'conv_c1' }));
     const pressed = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('赞'))!;
     expect(pressed.getAttribute('aria-pressed')).toBe('true');
+    // 回应过了另一个也不能再点：不然协调者先后收到相反的两个回答。
+    const down = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label') && !b.getAttribute('aria-label')!.startsWith('赞'))!;
+    expect(down.disabled || down.getAttribute('aria-disabled') === 'true').toBe(true);
   });
 });
 

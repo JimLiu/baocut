@@ -155,7 +155,9 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
     center = <TaskDetail workItemId={workItemId} channelId={channel.id} wide onToggleWide={() => routeTo({ view: 'channel' })} onClose={closeDetail} />;
   } else {
     center = (
+      // 按频道换实例：回复目标、「显示更早的」这类界面状态只属于一个频道，切频道时不能串过去。
       <ChannelView
+        key={channel.id}
         channel={channel}
         onSettings={() => setSettingsOpen(true)}
         tasksToggle={narrow && !workItemId ? { shown: tasksShown, onToggle: () => setTasksShown(!tasksShown) } : null}
@@ -165,7 +167,7 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
       right = (
         <TaskDetail workItemId={workItemId} channelId={channel.id} wide={false} onToggleWide={() => routeTo({ view: 'task' })} onClose={closeDetail} />
       );
-    else if (!narrow || tasksShown) right = <TaskPanel channelId={channel.id} selectedId={null} />;
+    else if (!narrow || tasksShown) right = <TaskPanel key={channel.id} channelId={channel.id} selectedId={null} />;
   }
 
   return (

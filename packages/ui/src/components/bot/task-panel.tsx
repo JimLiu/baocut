@@ -30,7 +30,7 @@ import { useChannels } from '../../state/channels-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useChannelWorkItems, useWorkItems, useWorkItemsLoaded } from '../../state/work-items-store.ts';
 import { useNow } from '../use-now.ts';
-import { errorText, nextLine, transitionWorkItem, useBotCall } from './bot-actions.ts';
+import { errorText, nextLine, transitionWorkItem, useBotCall, useScopedState } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { formatDay, formatWhen } from './bot-format.ts';
 import { StatusIcon } from './status-badge.tsx';
@@ -194,7 +194,7 @@ export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId
   const call = useBotCall();
   const now = useNow(60_000);
   const [filter, setFilter] = useState<TaskFilter>('all');
-  const [allDone, setAllDone] = useState(false);
+  const [allDone, setAllDone] = useScopedState(channelId, false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const resolvedTail = useWorkItems((s) => s.byChannel[channelId]?.resolvedTail);
   const runtime = useRuntime();
