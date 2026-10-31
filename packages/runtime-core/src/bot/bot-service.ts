@@ -189,15 +189,19 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const ONE_SHOT_GRACE_MS = 5 * MINUTE;
 const NEEDS_REVIEW_STALE_DAYS = 3;
-/** 建议任务默认的「本地、可撤销」类别（§11.3 第 4 步的白名单）。 */
-const MAKE_KIND_ALLOW = /^(derive-|add-|translate|transcribe|export|tidy|cleanup|chapters|highlights|summar|review|caption|subtitle|cut|trim|shorts|thumbnail|title|organize|rename|fix-)/;
 /**
- * 建议里不许有的事：花钱、外发、发布、克隆声音。英文按整词（带常见词形）比，免得「reorder」「add border」被误拦；
- * 中文没有词界，按词直接找（发布、上传、发送、分享、购买、付款、支付、下单、克隆、投稿、推送、发帖、公开）。
+ * 建议任务默认的「本地、可撤销」类别（§11.3 第 4 步的白名单）。与下面的禁用词一样按整词（带常见词形）比：只看开头时
+ * 「cute」「trimester」「reviewers」也会算进来。`derive-`、`add-`、`fix-` 是一族，后面接什么都行。
+ */
+const MAKE_KIND_ALLOW =
+  /\b(?:(?:derive|add|fix)-[a-z]+|translat(?:e|es|ed|ing|ion|ions)|transcri(?:be|bes|bed|bing|pt|pts|ption|ptions)|export(?:s|ed|ing)?|tid(?:y|ies|ied|ying)|clean-?ups?|chapters?|highlights?|summar(?:y|ies|ize|izes|ized|izing|ise|ises|ised|ising)|review(?:s|ed|ing)?|caption(?:s|ed|ing)?|subtitl(?:e|es|ed|ing)|cut(?:s|ting)?|trim(?:s|med|ming)?|shorts|thumbnails?|titl(?:e|es|ed|ing)|organi[sz](?:e|es|ed|ing)|renam(?:e|es|ed|ing))\b/;
+/**
+ * 建议里不许有的事：花钱、外发（发布、发邮件、发消息）、克隆声音。英文按整词（带常见词形）比，免得「reorder」「add border」被误拦；
+ * 中文没有词界，按词直接找（发布、上传、发送、分享、购买、付款、支付、下单、克隆、投稿、推送、发帖、公开、邮件、私信、发消息、短信）。
  */
 const MAKE_DENY_WORDS =
-  /\b(?:publish(?:es|ed|ing)?|upload(?:s|ed|ing)?|post(?:s|ed|ing)?(?!-)|send(?:s|ing)?|sent|shar(?:e|es|ed|ing)|buy(?:s|ing)?|bought|pay(?:s|ing|ment|ments)?|paid|order(?:s|ed|ing)?|purchas(?:e|es|ed|ing)|clon(?:e|es|ed|ing)|dub-online)\b/;
-const MAKE_DENY_CJK = /发布|上传|发送|分享|购买|付款|支付|下单|克隆|投稿|推送|发帖|公开/;
+  /\b(?:publish(?:es|ed|ing)?|upload(?:s|ed|ing)?|post(?:s|ed|ing)?(?!-)|send(?:s|ing)?|sent|shar(?:e|es|ed|ing)|buy(?:s|ing)?|bought|pay(?:s|ing|ment|ments)?|paid|order(?:s|ed|ing)?|purchas(?:e|es|ed|ing)|clon(?:e|es|ed|ing)|dub-online|e-?mail(?:s|ed|ing)?|mail(?:s|ed|ing)?|messag(?:e|es|ed|ing)|dm(?:s|ed|ing)?|text-messag(?:e|es|ed|ing))\b/;
+const MAKE_DENY_CJK = /发布|上传|发送|分享|购买|付款|支付|下单|克隆|投稿|推送|发帖|公开|邮件|私信|发消息|短信/;
 
 /** 中文标题里认类别的词（剪、字幕、翻译、转录、导出、封面、短视频、竖版、章节、精彩、摘要、总结、整理、标题、重命名）。 */
 const FOLLOW_UP_KINDS_CJK: readonly [RegExp, string][] = [

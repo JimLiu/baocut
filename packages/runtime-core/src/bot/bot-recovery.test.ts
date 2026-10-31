@@ -671,6 +671,42 @@ describe('Make filters and limits', () => {
     expect(suggested().map((i) => i.title).sort()).toEqual(['Add a border to the thumbnail', 'Reorder the chapters']);
   });
 
+  it('I20: a kind only counts as a whole word, and mailing or messaging someone is dropped', async () => {
+    kit.make.candidates = [
+      // 只是开头像白名单里的词：不算。
+      candidate('Cute ideas for the intro', 'cute-ideas'),
+      candidate('Plan the trimester', 'trimester'),
+      candidate('Find reviewers', 'reviewers'),
+      // 外发：发邮件、发消息。
+      candidate('Email the client the cut', 'cut'),
+      candidate('E-mail the edit to Sam', 'export'),
+      candidate('Mail the producer the trims', 'trim'),
+      candidate('Message the editor about the trim', 'trim'),
+      candidate('DM the host the highlights', 'highlights'),
+      candidate('Text-message the guest the cut', 'cut'),
+      candidate('给客户发邮件说剪好了', 'cut'),
+      candidate('私信剪辑师', 'review'),
+      candidate('发消息给主持人', 'highlights'),
+    ];
+    expect((await kit.bot.runMake(kit.main.id, 'manual')).shown).toBe(0);
+    expect(suggested()).toEqual([]);
+    // 词形变化和带后缀的类别照常算。
+    kit.make.candidates = [candidate('Translate a draft of the captions', 'translate-draft'), candidate('Caption episode 4', 'captions'), candidate('Pick the highlight', 'highlight')];
+    expect((await kit.bot.runMake(kit.main.id, 'manual')).shown).toBe(3);
+  });
+
+  it('I9: a follow-up whose only kind-like word is a longer word, or that mails someone, does not become a suggestion', async () => {
+    let done = false;
+    kit.thread = async (ctx) => {
+      if (done) return;
+      done = true;
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer is cut.', followUps: ['Cute ideas for the outro', 'Email the client the cut', 'Make shorts from the trailer'] });
+    };
+    await kit.startTask('Cut the trailer');
+    await kit.settle();
+    expect(suggested().map((i) => [i.title, i.suggestion?.kindTag])).toEqual([['Make shorts from the trailer', 'shorts']]);
+  });
+
   it('I20: an automatic run with the suggestion slots full does not call the model and does not use up a daily run', async () => {
     kit.make.candidates = [candidate('Trim the intro', 'trim'), candidate('Add captions', 'add-captions'), candidate('Export a vertical cut', 'export')];
     expect((await kit.bot.runMake(kit.main.id, 'manual')).shown).toBe(3);
