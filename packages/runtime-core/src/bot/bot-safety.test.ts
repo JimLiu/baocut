@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChannelFiles } from '@baocut/runtime-storage';
-import type { Id, TimelineItem } from '@baocut/protocol';
+import { newId, type Id, type TimelineItem } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
 import { isBareAnswer, isYesNoQuestion, minMode } from './bot-service.ts';
 import { stateName } from './work-item-machine.ts';
@@ -406,6 +406,64 @@ describe('channel access ceiling (§14.4)', () => {
     await kit.settle();
     expect(modes.at(-1)).toBe('plan');
     expect(kit.harness.conversationOf(thread)!.accessMode).toBe('plan');
+  });
+
+  it('S2 a running unattended turn stays at auto when the mode is switched to full access by the channel default or a contract change', async () => {
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'auto' });
+    let held: TurnContext['turn'] | null = null;
+    kit.thread = (ctx) => {
+      held = ctx.turn;
+      ctx.turn.hold();
+    };
+    // 简报起的回合无人在场。
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice-over for episode 5', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.until(() => held);
+    const thread = kit.threadOf(item.id);
+    const run = kit.harness.runInfo(thread)!;
+    expect(run.attended).toBe(false);
+    const contract = kit.harness.currentContract(thread, run.taskId)!;
+    kit.harness.updateContract({ taskId: run.taskId, expectedRevision: contract.revision, commandId: newId('cmd'), patch: { autonomy: 'fullAccess' } }, 'user');
+    expect(kit.harness.conversationMode(thread)).toBe('auto');
+    // 协调者在报告回合里（无人在场）时用户把频道默认改成完全放开：这一回合仍是 auto。
+    let coordinatorHeld: TurnContext['turn'] | null = null;
+    kit.coordinator = (ctx) => {
+      if (kit.bot.runOf(ctx.conversationId)!.attended) return;
+      coordinatorHeld = ctx.turn;
+      ctx.turn.hold();
+    };
+    held!.complete();
+    await kit.until(() => coordinatorHeld);
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'fullAccess' });
+    expect(kit.harness.conversationMode(main())).toBe('auto');
+    coordinatorHeld!.complete();
+    await kit.settle();
+  });
+
+  it('S2 a contract change cannot lift a thread above the channel ceiling', async () => {
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'ask', maxAccessMode: 'autoAcceptEdits' });
+    let held: TurnContext['turn'] | null = null;
+    kit.thread = (ctx) => {
+      if (held) return;
+      held = ctx.turn;
+      ctx.turn.hold();
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Trim the intro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => held);
+    const thread = kit.threadOf(item.id);
+    const run = kit.harness.runInfo(thread)!;
+    expect(run.attended).toBe(true);
+    const contract = kit.harness.currentContract(thread, run.taskId)!;
+    const revised = kit.harness.updateContract(
+      { taskId: run.taskId, expectedRevision: contract.revision, commandId: newId('cmd'), patch: { autonomy: 'fullAccess' } },
+      'user',
+    );
+    expect(revised.contract.autonomy).toBe('autoAcceptEdits');
+    expect(kit.harness.conversationMode(thread)).toBe('autoAcceptEdits');
+    expect(kit.harness.conversationOf(thread)!.accessMode).toBe('autoAcceptEdits');
+    held!.complete();
+    await kit.settle();
   });
 
   it('a relay held behind a turn that cannot be steered runs under the ceiling as it is when the turn ends', async () => {

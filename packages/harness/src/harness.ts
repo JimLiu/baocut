@@ -15,6 +15,7 @@ import {
   recommendedDriverModel,
   isBuiltinDriverId,
   newId,
+  AGENT_MODES,
   normalizeAgentMode,
   nowIso,
   parseConversationTopic,
@@ -390,6 +391,7 @@ export class Harness {
   readonly #jobs: HarnessOptions['jobs'];
   readonly #budgets: TaskBudgetPort | null;
   #budgetFor: ((conversation: Conversation) => TaskBudgetLimits | null) | null = null;
+  #ceilingFor: ((conversation: Conversation) => AgentMode | null) | null = null;
   readonly #settings: NonNullable<HarnessOptions['settings']>;
   readonly #providers: HarnessOptions['providers'] | null;
   readonly #attachments: HarnessAttachments | null;
@@ -1531,7 +1533,10 @@ export class Harness {
     }
     // 模式切换对之后的动作立即生效，进行中的任务也是（§3.12）；原生侧的审批策略与沙箱下一轮生效。
     if (params.accessMode) this.#checkAccessMode(patch.driverId ?? conv.driverId, normalizeAgentMode(params.accessMode));
-    if (params.accessMode !== undefined) this.#switchMode(state, params.accessMode === null ? null : normalizeAgentMode(params.accessMode));
+    // Bot 自己改模式时已经按频道此刻（可能正在改）的上限算好了，不再按旧上限压一次。
+    if (params.accessMode !== undefined) {
+      this.#switchMode(state, params.accessMode === null ? null : normalizeAgentMode(params.accessMode), { ceiling: options.internal !== BOT_INTERNAL });
+    }
     if (Object.keys(patch).length === 0) return state.conversation;
     const configChanged = patch.driverId !== undefined || patch.model !== undefined || patch.effort !== undefined;
     return state.updateConversation(patch, { touch: configChanged });
@@ -1568,11 +1573,17 @@ export class Harness {
    * 切换会话的模式（§3.12）：对之后的动作立即生效，进行中的任务也是（已经在等用户的审批不变）。
    * 生效的模式变了时在会话里记一条提示；会话还没有任何内容时只记在会话上。`null` 回到跟随偏好设置。
    */
-  #switchMode(state: ConversationState, next: AgentMode | null, options: { contract?: boolean } = {}): void {
+  #switchMode(state: ConversationState, next: AgentMode | null, options: { contract?: boolean; ceiling?: boolean } = {}): void {
     const run = this.#runs.get(state.id);
-    const before = run?.mode ?? this.#resolveMode(state).mode;
+    // Bot 角色的会话不高于频道上限（§14.4），合同修改与批准方案切过来的也一样。
+    const ceiling = options.ceiling === false ? null : this.#accessCeilingOf(state.conversation);
+    const capped = (mode: AgentMode): AgentMode => (ceiling && rankMode(mode) > rankMode(ceiling) ? ceiling : mode);
+    if (next) next = capped(next);
+    const before = run?.mode ?? capped(this.#resolveMode(state).mode);
     if ((state.conversation.accessMode ?? null) !== next) state.updateConversation({ accessMode: next }, { touch: false });
-    const after = this.#resolveMode(state).mode;
+    const settled = capped(this.#resolveMode(state).mode);
+    // 无人在场的回合（Bot 技术方案 §14.2）切了模式也不能放开：完全放开仍降到 auto。
+    const after = run && !run.attended ? unattendedMode(settled) : settled;
     if (run) run.mode = after;
     if (before === after || state.items().length === 0) return;
     // 合同的 autonomy 就是这个模式：进行中的任务记一个新修订（经合同修改切换时由那次修改一并记）。
@@ -2362,6 +2373,24 @@ export class Harness {
    */
   setTaskBudgetResolver(resolver: ((conversation: Conversation) => TaskBudgetLimits | null) | null): void {
     this.#budgetFor = resolver;
+  }
+
+  /**
+   * Bot 角色的会话的访问模式上限（Bot 技术方案 §14.4：频道的 `maxAccessMode`）：会话里切模式（合同修改、批准方案）都压在它以内。
+   * 回调同步、不抛出；返回 null 时不设上限。
+   */
+  setAccessCeiling(resolver: ((conversation: Conversation) => AgentMode | null) | null): void {
+    this.#ceilingFor = resolver;
+  }
+
+  #accessCeilingOf(conversation: Conversation): AgentMode | null {
+    if (!isBotRole(conversation) || !this.#ceilingFor) return null;
+    try {
+      return this.#ceilingFor(conversation);
+    } catch (error) {
+      this.#log.warn('Working out an access ceiling failed', { conversationId: conversation.id, error: String(error) });
+      return null;
+    }
   }
 
   #defaultBudget(conversationId: Id): TaskBudgetLimits {
@@ -4619,6 +4648,11 @@ function fileAttachmentsText(attached:{ref:AttachmentRef;path:string}[]):string 
 /** 频道对话与线程会话（Bot 技术方案 §4.2）。 */
 function isBotRole(conversation: Conversation): boolean {
   return conversation.role === 'channel' || conversation.role === 'thread';
+}
+
+/** 模式从严到宽的次序。 */
+function rankMode(mode: AgentMode): number {
+  return AGENT_MODES.indexOf(mode);
 }
 
 /** 无人在场的回合：完全放开不生效，降到 auto（Bot 技术方案 §14.2）。别的模式本来就不高于 auto。 */
