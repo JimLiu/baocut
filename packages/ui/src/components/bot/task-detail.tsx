@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import type { ArtifactRef, Id, RevertPlan, ResourceRef, WorkItem, WorkItemStateName, WorkItemTransition } from '@baocut/protocol';
+import { localizeText, type ArtifactRef, type Id, type RevertPlan, type ResourceRef, type WorkItem, type WorkItemStateName, type WorkItemTransition } from '@baocut/protocol';
 import {
   ActionButton,
   ActionMenu,
@@ -82,6 +82,7 @@ const itemRow = style({ display: 'flex', gap: 8, alignItems: 'baseline', overflo
 const muted = style({ font: 'ui-xs', color: 'gray-600', flexShrink: 0 });
 const activeStep = style({ fontWeight: 'bold' });
 const centered = style({ display: 'flex', alignItems: 'center', justifyContent: 'center', flexGrow: 1, padding: 24, font: 'body-sm', color: 'gray-600', textAlign: 'center' });
+const changeList = style({ margin: 0, paddingStart: 16, font: 'ui-xs', color: 'gray-600' });
 const dialogBody = style({ display: 'flex', flexDirection: 'column', gap: 12, font: 'body-sm', color: 'gray-800' });
 
 type MenuAction =
@@ -98,7 +99,7 @@ type MenuAction =
   | 'deleteRecord';
 
 /** 详情「⋯」里这条任务此刻能做的事（需求 §11.6）。 */
-function menuActions(item: WorkItem): MenuAction[] {
+export function menuActions(item: WorkItem): MenuAction[] {
   const out: MenuAction[] = [];
   const agent = item.owner === 'agent';
   if (item.status === 'active' && agent && item.active?.state !== 'blocked') out.push('stop');
@@ -109,7 +110,8 @@ function menuActions(item: WorkItem): MenuAction[] {
   if (item.status === 'resolved') out.push('reopen');
   if (item.status !== 'resolved') out.push(agent ? 'takeOver' : 'handToAgent');
   if (canRevertItem(item)) out.push('revertAll');
-  if (item.status === 'resolved') out.push('deleteRecord');
+  // 删除记录（BOT-EX-20）任何状态都给；进行中的先停线程（Runtime 的 `deleteRecord` 先停再删，对话框里写明）。
+  out.push('deleteRecord');
   return out;
 }
 
@@ -463,7 +465,7 @@ function videoName(item: WorkItem, videoId: Id): string {
  * 整体撤销（BOT-EX-19）：先试算（`dryRun`），列出每部视频此后有没有你自己的改动；都能只撤智能体的时给「只撤智能体的」，
  * 否则写出原因，只能连你的一起撤。确认后才真的恢复。
  */
-function RevertDialog({ item, onClose }: { item: WorkItem; onClose: () => void }) {
+export function RevertDialog({ item, onClose }: { item: WorkItem; onClose: () => void }) {
   const runtime = useRuntime();
   const call = useBotCall();
   const [plan, setPlan] = useState<RevertPlan | null>(null);
@@ -512,7 +514,10 @@ function RevertDialog({ item, onClose }: { item: WorkItem; onClose: () => void }
                   <>
                     <ul className={items}>
                       {plan.videos.map((video) => (
-                        <li key={video.videoId}>{C.detail.revertVideo(videoName(item, video.videoId), video.userEdits.length)}</li>
+                        <li key={video.videoId}>
+                          {C.detail.revertVideo(videoName(item, video.videoId), video.userEdits.length)}
+                          <RevertChanges edits={video.userEdits} />
+                        </li>
                       ))}
                     </ul>
                     {!agentOnly && blocked ? <span>{C.detail.revertBlocked(blocked)}</span> : null}
@@ -542,8 +547,25 @@ function RevertDialog({ item, onClose }: { item: WorkItem; onClose: () => void }
   );
 }
 
+/** 你在这期间改了什么（BOT-EX-19「哪部视频、改了什么」）：同名的操作合在一起计次数。 */
+function RevertChanges({ edits }: { edits: RevertPlan['videos'][number]['userEdits'] }) {
+  const counts = new Map<string, number>();
+  for (const edit of edits) for (const change of edit.changes ?? []) {
+    const label = localizeText(change.label, change.labelRef);
+    counts.set(label, (counts.get(label) ?? 0) + change.count);
+  }
+  if (!counts.size) return null;
+  return (
+    <ul className={changeList}>
+      {[...counts].map(([label, count]) => (
+        <li key={label}>{C.detail.revertChange(label, count)}</li>
+      ))}
+    </ul>
+  );
+}
+
 /** 删除任务记录（BOT-EX-20）：先试算要删的文件与因为别的任务还在用而保留的，确认时带上这份文件单。 */
-function DeleteRecordDialog({ item, onClose, onDeleted }: { item: WorkItem; onClose: () => void; onDeleted: () => void }) {
+export function DeleteRecordDialog({ item, onClose, onDeleted }: { item: WorkItem; onClose: () => void; onDeleted: () => void }) {
   const runtime = useRuntime();
   const call = useBotCall();
   const [plan, setPlan] = useState<{ files: string[]; keptShared: string[] } | null>(null);
@@ -582,6 +604,7 @@ function DeleteRecordDialog({ item, onClose, onDeleted }: { item: WorkItem; onCl
             <Content>
               <div className={dialogBody}>
                 <span>{C.detail.deleteBody}</span>
+                {item.status === 'active' && item.threadId ? <span>{C.detail.deleteStopsFirst}</span> : null}
                 {failure ? (
                   <span>{C.common.failed(failure)}</span>
                 ) : !plan ? (

@@ -230,6 +230,8 @@ export const pl: BotMessages = {
     deleteNoFiles: 'Brak plików do usunięcia.',
     deleteKept: 'Zachowane, bo używają ich inne zadania:',
     delete: 'Usuń',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} razy)` : label),
+    deleteStopsFirst: 'To zadanie nadal trwa. Najpierw zatrzymamy jego wątek.',
   },
   inbox: {
     title: 'Czeka na Ciebie',

@@ -72,7 +72,14 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       const since = list.versions.filter((v) => v.version >= baseVersion);
       const userEdits = since
         .filter((v) => v.actions.some((a) => a.actor === 'user_local'))
-        .map((v) => ({ version: v.version, at: v.updatedAt }))
+        .map((v) => ({
+          version: v.version,
+          at: v.updatedAt,
+          // 列出你改了什么（需求 BOT-EX-19「哪部视频、改了什么」）：只取你自己的操作。
+          changes: v.actions
+            .filter((a) => a.actor === 'user_local')
+            .map((a) => ({ label: a.label, ...(a.labelRef ? { labelRef: a.labelRef } : {}), count: a.count })),
+        }))
         .sort((a, b) => a.version - b.version);
       const other = since.filter((v) => v.conversations.some((c) => c.id !== threadId)).sort((a, b) => a.version - b.version)[0];
       if (other) others.add(videoId);

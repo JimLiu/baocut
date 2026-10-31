@@ -221,6 +221,8 @@ export const ja: BotMessages = {
     deleteNoFiles: '削除するファイルはありません。',
     deleteKept: 'ほかのタスクが使っているため残すもの：',
     delete: '削除',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label}（${count} 回）` : label),
+    deleteStopsFirst: 'このタスクはまだ進行中です。先にスレッドを止めます。',
   },
   inbox: {
     title: 'あなた待ち',

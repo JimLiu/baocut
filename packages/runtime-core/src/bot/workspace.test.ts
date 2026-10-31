@@ -145,7 +145,7 @@ describe('reverting a task on real video versions', () => {
     const plan = await ws.revertPlan!(task);
     expect(opened).toEqual(['v1', 'v2']);
     expect(plan.videos).toEqual([
-      { projectId: 'p1', videoId: 'v1', baseVersion: 2, userEdits: [{ version: 3, at: '2026-10-03T00:00:00.000Z' }], agentOnlyPossible: false, reason: expect.stringContaining('own edits') },
+      { projectId: 'p1', videoId: 'v1', baseVersion: 2, userEdits: [{ version: 3, at: '2026-10-03T00:00:00.000Z', changes: [{ label: 'edit', count: 1 }] }], agentOnlyPossible: false, reason: expect.stringContaining('own edits') },
     ]);
   });
 

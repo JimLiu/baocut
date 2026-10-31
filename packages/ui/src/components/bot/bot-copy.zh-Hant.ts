@@ -221,6 +221,8 @@ export const zhHant: BotMessages = {
     deleteNoFiles: '沒有要刪除的檔案。',
     deleteKept: '其他任務還在使用，所以保留：',
     delete: '刪除',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label}（${count} 次）` : label),
+    deleteStopsFirst: '這條任務還在進行，會先停下它的執行緒。',
   },
   inbox: {
     title: '等你處理',

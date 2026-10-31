@@ -230,6 +230,8 @@ export const ru: BotMessages = {
     deleteNoFiles: 'Удалять нечего.',
     deleteKept: 'Сохранены, потому что их используют другие задачи:',
     delete: 'Удалить',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} раз)` : label),
+    deleteStopsFirst: 'Задача ещё выполняется. Сначала её поток будет остановлен.',
   },
   inbox: {
     title: 'Ждёт вас',

@@ -1,6 +1,7 @@
 import type { AgentMode } from './access.ts';
 import type { ConversationActivity, DriverId, Id, TaskStatus } from './domain.ts';
 import type { Money } from './grants.ts';
+import type { MessageRef } from './message-ref.ts';
 import type { ScheduleCadence } from './schedule.ts';
 
 /**
@@ -434,7 +435,15 @@ export interface BotStatus {
 
 /** 整体撤销的试算结果（BOT-EX-19）。 */
 export interface RevertPlan {
-  videos: { projectId: Id; videoId: Id; baseVersion: number; userEdits: { version: number; at: string }[]; agentOnlyPossible: boolean; reason: string | null }[];
+  videos: {
+    projectId: Id;
+    videoId: Id;
+    baseVersion: number;
+    /** 这期间你自己在编辑器里改过的版本；`changes` 是那一版里你的操作（版本记录的操作说明与次数），旧 Runtime 不给。 */
+    userEdits: { version: number; at: string; changes?: { label: string; labelRef?: MessageRef; count: number }[] }[];
+    agentOnlyPossible: boolean;
+    reason: string | null;
+  }[];
 }
 
 // ---- 主题 ----

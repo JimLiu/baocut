@@ -9,7 +9,7 @@ import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
 import { AwayBanner, useAwayAndSeen } from './channel-view.tsx';
 import { NewTaskDialog } from './task-panel.tsx';
-import { ThreadChips } from './task-detail.tsx';
+import { DeleteRecordDialog, RevertDialog, ThreadChips, menuActions } from './task-detail.tsx';
 import { useTimeline } from '../../state/timeline-store.ts';
 import { BotSettings } from '../settings/bot-settings.tsx';
 import { useChannels } from '../../state/channels-store.ts';
@@ -292,5 +292,54 @@ describe('建立频道卡的「修改」（需求 §11.4）', () => {
     await typeInto(name, '第 12 期剪辑');
     await press('建立');
     expect(calls('bot.proposals.respond')).toEqual([{ conversationId: 'conv_main', itemId: 'pr1', accept: true, edits: { name: '第 12 期剪辑' } }]);
+  });
+});
+
+const RUNNING = {
+  id: 'wi_run',
+  channelId: 'c1',
+  title: '第 12 期字幕改成黄色',
+  owner: 'agent',
+  status: 'active',
+  active: { state: 'working' },
+  threadId: 'conv_thread',
+  outputs: [{ kind: 'video', projectId: 'p1', videoId: 'v12', label: '第 12 期', version: null }],
+  resources: [],
+  baseVersions: [],
+} as unknown as WorkItem;
+
+describe('撤销与删除记录（BOT-EX-19、BOT-EX-20）', () => {
+  it('进行中的任务也能删除记录：菜单里有，对话框写明先停线程', async () => {
+    expect(menuActions(RUNNING)).toContain('deleteRecord');
+    expect(menuActions({ ...RUNNING, status: 'upNext', active: null } as unknown as WorkItem)).toContain('deleteRecord');
+    handlers['workItems.deleteRecord'] = () => ({ files: ['notes/a.txt'], keptShared: [], deleted: false });
+    await render(createElement(DeleteRecordDialog, { item: RUNNING, onClose: () => {}, onDeleted: () => {} }));
+    expect(document.body.textContent).toContain('这条任务还在进行，会先停下它的线程。');
+    expect(document.body.textContent).toContain('notes/a.txt');
+  });
+
+  it('整体撤销列出你在每部视频里改了什么，同名操作合计次数', async () => {
+    handlers['workItems.revertAll'] = () => ({
+      plan: {
+        videos: [
+          {
+            projectId: 'p1',
+            videoId: 'v12',
+            baseVersion: 3,
+            userEdits: [
+              { version: 4, at: '2026-10-31T09:00:00Z', changes: [{ label: '改字幕', count: 1 }] },
+              { version: 6, at: '2026-10-31T10:00:00Z', changes: [{ label: '改字幕', count: 1 }, { label: '删除片段', count: 1 }] },
+            ],
+            agentOnlyPossible: false,
+            reason: 'video v12 has your own edits since version 3',
+          },
+        ],
+      },
+    });
+    await render(createElement(RevertDialog, { item: RUNNING, onClose: () => {} }));
+    const text = document.body.textContent ?? '';
+    expect(text).toContain('第 12 期：之后你改过 2 次');
+    expect(text).toContain('改字幕（2 次）');
+    expect(text).toContain('删除片段');
   });
 });

@@ -221,6 +221,8 @@ export const zhHans: BotMessages = {
     deleteNoFiles: '没有要删的文件。',
     deleteKept: '别的任务还在用，所以保留：',
     delete: '删除',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label}（${count} 次）` : label),
+    deleteStopsFirst: '这条任务还在进行，会先停下它的线程。',
   },
   inbox: {
     title: '等你处理',

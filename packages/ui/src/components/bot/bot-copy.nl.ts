@@ -222,6 +222,8 @@ export const nl: BotMessages = {
     deleteNoFiles: 'Geen bestanden om te verwijderen.',
     deleteKept: 'Bewaard omdat andere taken ze nog gebruiken:',
     delete: 'Verwijderen',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} keer)` : label),
+    deleteStopsFirst: 'Deze taak loopt nog. De thread stopt eerst.',
   },
   inbox: {
     title: 'Wacht op jou',

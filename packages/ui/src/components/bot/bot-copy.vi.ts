@@ -221,6 +221,8 @@ export const vi: BotMessages = {
     deleteNoFiles: 'Không có tệp nào để xóa.',
     deleteKept: 'Được giữ lại vì việc khác vẫn dùng:',
     delete: 'Xóa',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} lần)` : label),
+    deleteStopsFirst: 'Việc này vẫn đang chạy. Luồng của nó sẽ dừng trước.',
   },
   inbox: {
     title: 'Đang chờ bạn',

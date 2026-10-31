@@ -222,6 +222,8 @@ export const de: BotMessages = {
     deleteNoFiles: 'Keine Dateien zu löschen.',
     deleteKept: 'Behalten, weil andere Aufgaben sie noch nutzen:',
     delete: 'Löschen',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count}-mal)` : label),
+    deleteStopsFirst: 'Diese Aufgabe läuft noch. Ihr Thread wird zuerst gestoppt.',
   },
   inbox: {
     title: 'Wartet auf dich',

@@ -222,6 +222,8 @@ export const ptBR: BotMessages = {
     deleteNoFiles: 'Nenhum arquivo para excluir.',
     deleteKept: 'Mantidos porque outras tarefas ainda os usam:',
     delete: 'Excluir',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} vezes)` : label),
+    deleteStopsFirst: 'Esta tarefa ainda está em andamento. O fio dela para primeiro.',
   },
   inbox: {
     title: 'Esperando por você',

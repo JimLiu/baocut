@@ -221,6 +221,8 @@ export const tr: BotMessages = {
     deleteNoFiles: 'Silinecek dosya yok.',
     deleteKept: 'Başka görevler hâlâ kullandığı için korunanlar:',
     delete: 'Sil',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} kez)` : label),
+    deleteStopsFirst: 'Bu görev hâlâ sürüyor. Önce iş parçacığı durdurulur.',
   },
   inbox: {
     title: 'Sizi bekleyenler',

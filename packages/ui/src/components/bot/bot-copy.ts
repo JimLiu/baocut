@@ -241,6 +241,8 @@ const en = {
     deleteNoFiles: 'No files to delete.',
     deleteKept: 'Kept because other tasks still use them:',
     delete: 'Delete',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} times)` : label),
+    deleteStopsFirst: 'This task is still running. Its thread stops first.',
   },
   inbox: {
     title: 'Needs you',

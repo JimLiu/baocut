@@ -221,6 +221,8 @@ export const ko: BotMessages = {
     deleteNoFiles: '삭제할 파일이 없습니다.',
     deleteKept: '다른 작업이 아직 사용하므로 남겨 둡니다:',
     delete: '삭제',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count}번)` : label),
+    deleteStopsFirst: '이 작업은 아직 진행 중입니다. 스레드를 먼저 멈춥니다.',
   },
   inbox: {
     title: '나를 기다리는 일',

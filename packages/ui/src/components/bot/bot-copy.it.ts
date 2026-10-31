@@ -222,6 +222,8 @@ export const it: BotMessages = {
     deleteNoFiles: 'Nessun file da eliminare.',
     deleteKept: 'Conservati perché altre attività li usano ancora:',
     delete: 'Elimina',
+    revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} volte)` : label),
+    deleteStopsFirst: 'Questa attività è ancora in corso. Prima si ferma il suo thread.',
   },
   inbox: {
     title: 'Ti aspettano',
