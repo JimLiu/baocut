@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ChannelFiles } from '@baocut/runtime-storage';
 import type { Id, TimelineItem } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
 import { isBareAnswer, isYesNoQuestion, minMode } from './bot-service.ts';
@@ -493,5 +494,37 @@ describe('memory writes (§11)', () => {
     expect(c).toMatchObject({ status: 'fulfilled', value: { version: start + 1 } });
     expect(d).toMatchObject({ status: 'rejected', reason: { code: 'conflict' } });
     expect(await kit.bot.readUserMemory()).toMatchObject({ content: 'mine', version: start + 1 });
+  });
+
+  it('a read while a save is under way returns content and version from the same moment', async () => {
+    const start = (await kit.bot.readUserMemory()).version;
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    // 读文件慢一点：读完旧内容之后，别人的保存在中间做完。
+    const readUser = ChannelFiles.prototype.readUserMemory;
+    const slowUser = vi.spyOn(ChannelFiles.prototype, 'readUserMemory').mockImplementation(async function (this: ChannelFiles) {
+      const content = await readUser.call(this);
+      await sleep(50);
+      return content;
+    });
+    const reading = kit.bot.readUserMemory();
+    await sleep(5);
+    slowUser.mockRestore();
+    await kit.bot.writeUserMemory('saved meanwhile', start);
+    const user = await reading;
+    expect(user.content === 'saved meanwhile').toBe(user.version === start + 1);
+
+    // 频道记忆：版本先取、内容后读，中间的保存让内容是新的、版本是旧的。
+    const channelStart = (await kit.bot.readMemory(kit.main.id)).version;
+    const readChannel = ChannelFiles.prototype.readMemory;
+    const slowChannel = vi.spyOn(ChannelFiles.prototype, 'readMemory').mockImplementation(async function (this: ChannelFiles, id: Id) {
+      await sleep(50);
+      return readChannel.call(this, id);
+    });
+    const channelReading = kit.bot.readMemory(kit.main.id);
+    await sleep(5);
+    slowChannel.mockRestore();
+    await kit.bot.writeMemory(kit.main.id, 'saved meanwhile', channelStart);
+    const channel = await channelReading;
+    expect(channel.content === 'saved meanwhile').toBe(channel.version === channelStart + 1);
   });
 });

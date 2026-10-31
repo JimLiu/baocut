@@ -741,8 +741,9 @@ export class BotService {
   }
 
   async readMemory(id: Id): Promise<{ content: string; version: number }> {
-    const channel = this.channel(id);
-    return { content: await this.#files.readMemory(id), version: channel.memoryVersion };
+    this.channel(id);
+    // 读也排进写的队：内容与版本号出自同一刻，不会拿旧内容配上新版本，再用它盖掉别人刚存的。
+    return this.#memorySerial(`channel:${id}`, async () => ({ content: await this.#files.readMemory(id), version: this.channel(id).memoryVersion }));
   }
 
   /** 写频道记忆（§5.4、§13.3）：版本、16 KiB、敏感内容。 */
@@ -765,7 +766,7 @@ export class BotService {
   }
 
   async readUserMemory(): Promise<{ content: string; version: number }> {
-    return { content: await this.#files.readUserMemory(), version: this.#channels.userMemoryVersion() };
+    return this.#memorySerial('user', async () => ({ content: await this.#files.readUserMemory(), version: this.#channels.userMemoryVersion() }));
   }
 
   async writeUserMemory(content: string, ifVersion: number): Promise<{ content: string; version: number }> {
@@ -780,7 +781,7 @@ export class BotService {
     });
   }
 
-  /** 同一份记忆的写排成一队（前一个失败不影响后一个）。 */
+  /** 同一份记忆的读写排成一队（前一个失败不影响后一个）。 */
   #memorySerial<T>(key: string, fn: () => Promise<T>): Promise<T> {
     const previous = this.#memoryWrites.get(key) ?? Promise.resolve();
     const run = previous.then(fn, fn);
