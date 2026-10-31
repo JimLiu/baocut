@@ -772,14 +772,18 @@ export class BotTools implements ToolSet {
         return bot.transition(item.id, { type: 'reopen', ...(event.citedMessageId ? { citedMessageId: event.citedMessageId } : {}) }, who);
       case 'merge': {
         const into = this.#target(caller, event.into);
-        return bot.transition(item.id, { type: 'merge', into: into.id }, { ...who, citedUserTyped: bot.isUserTyped(caller.channel.conversationId, event.citedMessageId) });
+        return bot.transition(
+          item.id,
+          { type: 'merge', into: into.id },
+          { ...who, citedUserTyped: bot.isUserTyped(caller.channel.conversationId, event.citedMessageId), citedMessageId: event.citedMessageId },
+        );
       }
       case 'schedule': {
         if (Number.isNaN(Date.parse(event.startAt))) throw new ToolError('INVALID_ARGUMENTS', 'startAt must be an ISO date and time.');
         return bot.transition(
           item.id,
           { type: 'schedule', startAt: new Date(event.startAt).toISOString() } as WorkItemEvent,
-          { ...who, citedUserTyped: bot.isUserTyped(caller.channel.conversationId, event.citedMessageId) },
+          { ...who, citedUserTyped: bot.isUserTyped(caller.channel.conversationId, event.citedMessageId), citedMessageId: event.citedMessageId },
         );
       }
       case 'unblocked':

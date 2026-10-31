@@ -38,6 +38,8 @@ export interface MachineContext {
   run?: MachineRun | null;
   /** 协调者的 schedule / merge / eventOn：引用的消息已由调用方核对过是本频道用户 typed 的。 */
   citedUserTyped?: boolean;
+  /** 协调者的 schedule / merge 引用的那条消息：要是这一回合的用户原话（`citesThisTurn`）。 */
+  citedMessageId?: Id;
   /** `resolve(confirmedBy)`：调用方核对过 confirmedBy 是那条会话里的用户 typed 消息。 */
   confirmedIsTyped?: boolean;
   /** `resolve(evidence)`：调用方逐条核验过证据（§9.5）。 */
@@ -198,7 +200,7 @@ export function applyEvent(current: WorkItem, event: WorkItemEvent, ctx: Machine
     }
     case 'schedule': {
       if (actor === 'coordinator') {
-        if (!ctx.citedUserTyped) deny('needs-user-time');
+        if (!citesThisTurn(ctx)) deny('needs-user-time');
       } else requireActor('user');
       if (current.status !== 'upNext' && current.status !== 'scheduled') deny('not-up-next');
       item.status = 'scheduled';
@@ -426,7 +428,7 @@ export function applyEvent(current: WorkItem, event: WorkItemEvent, ctx: Machine
     }
     case 'merge': {
       requireActor('coordinator', 'user');
-      if (actor === 'coordinator' && !ctx.citedUserTyped) deny('needs-user-consent');
+      if (actor === 'coordinator' && !citesThisTurn(ctx)) deny('needs-user-consent');
       if (!unresolved) deny('resolved');
       if (event.into === current.id) deny('self');
       if (hasThreadRun) effects.push({ kind: 'stop-thread' });
@@ -470,6 +472,16 @@ function applyStop(item: WorkItem, report: ThreadReport, now: string): void {
   item.beforeInput = null;
   item.lastProgressAt = now;
   mergeOutputs(item, report);
+}
+
+/**
+ * 协调者替用户合并、排期（§14.6、BOT-SF-04）：引用的是用户亲手打的，而且是这一回合的原话（起回合的那条，或 Runtime 投进来的），
+ * 回合有人在场。报告、转交起的回合没有这样的消息，早先的「好」也不算。
+ */
+function citesThisTurn(ctx: MachineContext): boolean {
+  const { run, citedMessageId } = ctx;
+  if (!ctx.citedUserTyped || !run || !run.attended || !citedMessageId) return false;
+  return run.userMessageId === citedMessageId || run.userCitations.has(citedMessageId);
 }
 
 function mergeOutputs(item: WorkItem, report: ThreadReport): void {

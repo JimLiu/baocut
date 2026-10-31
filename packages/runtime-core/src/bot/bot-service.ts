@@ -185,7 +185,7 @@ const NEEDS_REVIEW_STALE_DAYS = 3;
 const MAKE_KIND_ALLOW = /^(derive-|add-|translate|transcribe|export|tidy|cleanup|chapters|highlights|summar|review|caption|subtitle|cut|trim|shorts|thumbnail|title|organize|rename|fix-)/;
 const MAKE_KIND_DENY = /(publish|upload|post|send|share|buy|pay|order|dub-online|clone)/;
 
-type ActorRun = { actor: BotActor; run?: MachineRun | null; citedUserTyped?: boolean; confirmedIsTyped?: boolean; evidenceVerified?: boolean };
+type ActorRun = { actor: BotActor; run?: MachineRun | null; citedUserTyped?: boolean; citedMessageId?: Id; confirmedIsTyped?: boolean; evidenceVerified?: boolean };
 
 interface RunStart {
   workItemId: Id;
@@ -976,6 +976,7 @@ export class BotService {
       now: nowIso(),
       run: who.run ?? null,
       ...(who.citedUserTyped !== undefined ? { citedUserTyped: who.citedUserTyped } : {}),
+      ...(who.citedMessageId !== undefined ? { citedMessageId: who.citedMessageId } : {}),
       ...(who.confirmedIsTyped !== undefined ? { confirmedIsTyped: who.confirmedIsTyped } : {}),
       ...(who.evidenceVerified !== undefined ? { evidenceVerified: who.evidenceVerified } : {}),
       stallMinutes: channel.stallMinutes ?? this.settings().stallMinutes,

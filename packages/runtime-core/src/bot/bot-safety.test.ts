@@ -310,6 +310,26 @@ describe('I3 a thread cannot widen which videos it may open', () => {
   });
 });
 
+describe('I4 merge and schedule cite the user words of this turn', () => {
+  it('I4 an earlier "ok" cannot merge or schedule tasks; the message that started this turn can', async () => {
+    const a = await kit.bot.createItem({ channelId: kit.main.id, title: 'Trim episode 1', owner: 'agent' });
+    const b = await kit.bot.createItem({ channelId: kit.main.id, title: 'Trim episode one', owner: 'agent' });
+    const c = await kit.bot.createItem({ channelId: kit.main.id, title: 'Export episode 2', owner: 'agent' });
+    await kit.coordinatorTurn('ok', () => undefined);
+    const older = ofKind(main(), 'user-message').at(-1)!.id;
+    const out = await kit.coordinatorTurn('Merge the two trim tasks', async (ctx) => ({
+      mergeOld: await ctx.tryCall('work_items_update', { id: a.id, event: { type: 'merge', into: b.id, citedMessageId: older } }),
+      scheduleOld: await ctx.tryCall('work_items_update', { id: c.id, event: { type: 'schedule', startAt: '2026-12-01T09:00:00Z', citedMessageId: older } }),
+      mergeOwn: await ctx.tryCall('work_items_update', { id: a.id, event: { type: 'merge', into: b.id, citedMessageId: userMsg(ctx) } }),
+    }));
+    expect(out.mergeOld).toMatchObject({ ok: false, error: { code: 'TRANSITION_DENIED', reason: 'needs-user-consent' } });
+    expect(out.scheduleOld).toMatchObject({ ok: false, error: { code: 'TRANSITION_DENIED', reason: 'needs-user-time' } });
+    expect(out.mergeOwn).toMatchObject({ ok: true });
+    expect(kit.item(c.id).status).toBe('upNext');
+    expect(kit.item(a.id).resolution).toMatchObject({ kind: 'merged', mergedInto: b.id });
+  });
+});
+
 describe('BOT-SF-04 only the user own words, taps and reactions count', () => {
   it('BOT-SF-04 a coordinator paraphrase cannot reopen a finished task; the user cited words can', async () => {
     const item = await kit.startTask('Trim episode 7');
