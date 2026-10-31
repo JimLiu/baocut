@@ -137,7 +137,9 @@ describe('BOT-S17..S31', () => {
     // 这个工具自己不恢复：给出 videos_restore_version 的参数，恢复照样过视频工具的授权、确认与保护范围。
     expect(out).toEqual({ restore: [{ video: 'vid_1', version: 3, before: true }], note: expect.stringContaining('videos_restore_version') });
     expect(kit.workspace.threadReverts).toEqual([{ item: item.id, to: 'before-thread' }]);
-    expect(state(item.id)).toBe('needsReview');
+    // 报告在回合结束后才落到任务上：机器忙时可能晚一点，等它而不是立刻看。
+    await kit.until(() => state(item.id) === 'needsReview');
+    await kit.settle();
     await kit.bot.userTransition(item.id, { type: 'resolve', evidence: null });
     expect(kit.item(item.id).status).toBe('resolved');
   });
@@ -318,7 +320,8 @@ describe('BOT-S17..S31', () => {
     expect(text).toContain(`<baocut-relay task="${item.id}" kind="edited">`);
     expect(text).toMatch(new RegExp(`<baocut-cited author="user" via="typed" id="${messageId}@0"[^>]*>\\nCut 3 clips from episode 6\\n</baocut-cited>`));
     expect(text).toMatch(new RegExp(`<baocut-cited author="user" via="typed" id="${messageId}"[^>]*>\\nCut 5 clips from episode 6\\n</baocut-cited>`));
-    expect(kit.turns(main()).at(-1)).toContain('kind="edited"');
+    // 改过的话让任务回到工作中，线程接着报告，频道里之后还有回合：只看协调者收到过改动。
+    expect(kit.turns(main()).some((t) => t.includes('kind="edited"'))).toBe(true);
     expect(ofKind(main(), 'user-message').find((m) => m.id === messageId)).toMatchObject({ text: 'Cut 5 clips from episode 6', revision: 1, history: [{ text: 'Cut 3 clips from episode 6' }] });
   });
 

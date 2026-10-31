@@ -159,6 +159,40 @@ describe('BOT-S01..S16', () => {
     expect(kit.item(other.id).status).not.toBe('resolved');
   });
 
+  it('editing the channel message of a task that waits for review brings it back to working, so the next report lands', async () => {
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      await ctx.call('thread_report', { stop: 'needs-review', headline: n === 1 ? 'Cut 3 clips.' : 'Cut 5 clips instead.' });
+    };
+    const item = await kit.startTask('Cut 3 clips from episode 6');
+    expect(state(item.id)).toBe('needsReview');
+    await kit.bot.editMessage(kit.main.conversationId, kit.item(item.id).source.messageId!, 'Cut 5 clips from episode 6');
+    await kit.until(() => turns.get(kit.threadOf(item.id)) === 2);
+    await kit.settle();
+    expect(causes(item.id).slice(-2)).toEqual(['user:replied->working', 'report:needs-review->needsReview']);
+  });
+
+  it('editing a message the user wrote straight in the thread also brings a task waiting for review back to working', async () => {
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      await ctx.call('thread_report', { stop: 'needs-review', headline: `Round ${n}.` });
+    };
+    const item = await kit.startTask('Cut 3 clips from episode 6');
+    const threadId = kit.threadOf(item.id);
+    await kit.send(threadId, 'Make them vertical');
+    await kit.until(() => turns.get(threadId) === 2 && state(item.id) === 'needsReview');
+    await kit.settle();
+    const typed = ofKind(threadId, 'user-message').at(-1)!;
+    await kit.bot.editMessage(threadId, typed.id, 'Make them square');
+    await kit.until(() => turns.get(threadId) === 3);
+    await kit.settle();
+    expect(causes(item.id).slice(-2)).toEqual(['user:replied->working', 'report:needs-review->needsReview']);
+  });
+
   it('waiting on the same task a second time (after it was reopened) wakes the thread again', async () => {
     const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
     const turns = new Map<Id, number>();

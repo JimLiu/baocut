@@ -2177,30 +2177,40 @@ export class BotService {
     for (const c of cited) {
       if (c.author === 'user') await this.#files.appendRelayIndex(channel.id, { citedMessageId: c.messageId, workItemId: item.id, deliveryId }).catch(() => {});
     }
-    const fromUser = cited.some((c) => c.author === 'user');
-    // 线程空着时这次投递会起一个新回合：回合一开始（或它报告时）就把用户的回复算上，任务先回到工作中（在等别人的也一样），
-    // 这一回合的报告才收得下。投递带着 `#expecting`，回合开始时的等待恢复不看它，所以在这里先记下。
-    const idle = fromUser && !this.#harness.runInfo(item.threadId);
+    const send = async () =>
+      (
+        await this.#deliverToThread(item, {
+          id: deliveryId,
+          direction: 'relay',
+          text: relayBlock({ workItemId: item.id, note, cited, asOf: nowIso() }),
+          origin: 'relay',
+          unattended: true,
+          note,
+          cited,
+        })
+      ).result;
+    return cited.some((c) => c.author === 'user') ? this.#withUserReply(item, send) : send();
+  }
+
+  /**
+   * 带着用户原话投给线程（协调者转交、用户改了消息）：任务要按「用户回复了」处理。线程空着时这次投递会起一个新回合：回合一开始
+   * （或它报告时）就把回复算上，任务先回到工作中（在等别人的也一样），这一回合的报告才收得下。转交的投递带着 `#expecting`，
+   * 回合开始时的等待恢复不看它，所以在投之前先记下。回合还在跑时，这一回合可能还会报告「待审阅」或「需要你」，回复要等接着的
+   * 那一回合开始时才算数。
+   */
+  async #withUserReply(item: WorkItem, send: () => Promise<DeliveryResult>): Promise<DeliveryResult> {
+    const idle = !!item.threadId && !this.#harness.runInfo(item.threadId);
     if (idle) this.#heldReplies.set(item.id, null);
-    const outcome = await this.#deliverToThread(item, {
-      id: deliveryId,
-      direction: 'relay',
-      text: relayBlock({ workItemId: item.id, note, cited, asOf: nowIso() }),
-      origin: 'relay',
-      unattended: true,
-      note,
-      cited,
-    });
-    if (outcome.result === 'held' && fromUser) {
-      // 回合还在跑：这一回合可能还会报告「待审阅」或「需要你」，回复要等接着的那一回合开始时才算数。
+    const result = await send();
+    if (result === 'held') {
       this.#heldReplies.set(item.id, item.threadId ? (this.#harness.runInfo(item.threadId)?.taskId ?? null) : null);
-    } else if (outcome.result === 'dropped') {
+    } else if (result === 'dropped') {
       if (idle && this.#heldReplies.get(item.id) === null) this.#heldReplies.delete(item.id);
-    } else if (fromUser) {
+    } else {
       this.#heldReplies.delete(item.id);
       await this.#userReplied(item.id);
     }
-    return outcome.result;
+    return result;
   }
 
   /** 线程的 `thread_report`（§7.4）：追加报告、走状态机、建用户的任务与建议，再交给协调者。 */
@@ -3009,29 +3019,39 @@ export class BotService {
       for (const workItemId of new Set(rows.map((r) => r.workItemId))) {
         const item = this.#items.get(workItemId);
         if (!item?.threadId) continue;
-        await this.#deliverToThread(item, {
-          id: `relay_edit_${itemId}_${revision}_${workItemId}`,
-          direction: 'relay',
-          text: relayBlock({ workItemId, note, cited: both, kind: 'edited', asOf: nowIso() }),
-          origin: 'relay',
-          unattended: false,
-          note: RcBot.editedMessage().text,
-          cited: both,
-        });
+        // 改过的话仍是用户对这个任务的回复：「待审阅」「需要你」或在等别人的任务回到工作中。
+        await this.#withUserReply(item, async () =>
+          (
+            await this.#deliverToThread(item, {
+              id: `relay_edit_${itemId}_${revision}_${workItemId}`,
+              direction: 'relay',
+              text: relayBlock({ workItemId, note, cited: both, kind: 'edited', asOf: nowIso() }),
+              origin: 'relay',
+              unattended: false,
+              note: RcBot.editedMessage().text,
+              cited: both,
+            })
+          ).result,
+        );
       }
     }
     if (conversation.role === 'channel' || conversation.role === 'thread') {
       const workItemId = conversation.workItemId ?? null;
-      await this.#harness.deliver({
-        id: `edit_${itemId}_${revision}`,
-        conversationId,
-        item: { direction: 'relay', workItemId, reportId: null, from: { role: 'system', conversationId: null }, text: RcBot.editedMessage().text, cited: both },
-        agentText: relayBlock({ workItemId: workItemId ?? '', note, cited: both, kind: 'edited', asOf: nowIso() }),
-        wake: 'new-task',
-        origin: 'relay',
-        unattended: false,
-        userCitations: [itemId],
-      });
+      const send = async () =>
+        (
+          await this.#harness.deliver({
+            id: `edit_${itemId}_${revision}`,
+            conversationId,
+            item: { direction: 'relay', workItemId, reportId: null, from: { role: 'system', conversationId: null }, text: RcBot.editedMessage().text, cited: both },
+            agentText: relayBlock({ workItemId: workItemId ?? '', note, cited: both, kind: 'edited', asOf: nowIso() }),
+            wake: 'new-task',
+            origin: 'relay',
+            unattended: false,
+            userCitations: [itemId],
+          })
+        ).result;
+      // 直接在线程里改的消息不经 `#expecting`：回合开始时的等待恢复已经把它当用户的回复。
+      await send();
     }
     return updated;
   }
