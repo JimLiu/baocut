@@ -147,16 +147,40 @@ export class ChannelFiles {
    * 排队任务开工时要带的东西（简报、引用、文件归属），按任务存一份 JSON：Runtime 重启后排到它时照样带上。内容是 Runtime 自己
    * 写的，读出来不认识的形状当没有。
    */
-  async writeQueued(channelId: Id, workItemId: Id, payload: unknown): Promise<void> {
-    const file = this.#queuedFile(channelId, workItemId);
+  writeQueued(channelId: Id, workItemId: Id, payload: unknown): Promise<void> {
+    return this.#writeJson(this.#itemFile(channelId, 'queued', workItemId), payload);
+  }
+
+  readQueued(channelId: Id, workItemId: Id): Promise<unknown> {
+    return this.#readJson(this.#itemFile(channelId, 'queued', workItemId));
+  }
+
+  removeQueued(channelId: Id, workItemId: Id): Promise<void> {
+    return this.#removeFile(this.#itemFile(channelId, 'queued', workItemId));
+  }
+
+  /** 等用户在场再投的那一份（Driver 不能逐次审批、无人在场起不了的回合）：重启后点「继续」照样投原来那份。 */
+  writeHeld(channelId: Id, workItemId: Id, payload: unknown): Promise<void> {
+    return this.#writeJson(this.#itemFile(channelId, 'held', workItemId), payload);
+  }
+
+  readHeld(channelId: Id, workItemId: Id): Promise<unknown> {
+    return this.#readJson(this.#itemFile(channelId, 'held', workItemId));
+  }
+
+  removeHeld(channelId: Id, workItemId: Id): Promise<void> {
+    return this.#removeFile(this.#itemFile(channelId, 'held', workItemId));
+  }
+
+  #writeJson(file: string, payload: unknown): Promise<void> {
     return this.#serial(file, async () => {
       await fs.mkdir(path.dirname(file), { recursive: true });
       await writeTextAtomic(file, JSON.stringify(payload));
     });
   }
 
-  async readQueued(channelId: Id, workItemId: Id): Promise<unknown> {
-    const text = await readText(this.#queuedFile(channelId, workItemId));
+  async #readJson(file: string): Promise<unknown> {
+    const text = await readText(file);
     if (!text) return null;
     try {
       return JSON.parse(text) as unknown;
@@ -165,14 +189,13 @@ export class ChannelFiles {
     }
   }
 
-  async removeQueued(channelId: Id, workItemId: Id): Promise<void> {
-    const file = this.#queuedFile(channelId, workItemId);
+  #removeFile(file: string): Promise<void> {
     return this.#serial(file, () => fs.rm(file, { force: true }));
   }
 
-  #queuedFile(channelId: Id, workItemId: Id): string {
+  #itemFile(channelId: Id, kind: 'queued' | 'held', workItemId: Id): string {
     assertSafePathSegment(workItemId, 'work item id');
-    return path.join(this.dir(channelId), 'queued', `${workItemId}.json`);
+    return path.join(this.dir(channelId), kind, `${workItemId}.json`);
   }
 
   /** 删掉整个频道目录（频道文件、记忆、工作笔记都在里面）。 */

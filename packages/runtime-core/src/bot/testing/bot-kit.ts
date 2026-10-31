@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { newId, type BotNotificationEvent, type Money, type TaskBudgetLimits, type TaskBudgetPolicy, type Channel, type ChannelsEvent, type Evidence, type Id, type ResourceRef, type RevertPlan, type TimelineItem, type WorkItem, type WorkItemTemplate } from '@baocut/protocol';
+import { newId, type AgentMode, type BotNotificationEvent, type Money, type TaskBudgetLimits, type TaskBudgetPolicy, type Channel, type ChannelsEvent, type Evidence, type Id, type ResourceRef, type RevertPlan, type TimelineItem, type WorkItem, type WorkItemTemplate } from '@baocut/protocol';
 import { DriverRegistry, Harness, silentLogger, type RunEvent, type TaskBudgetPort } from '@baocut/harness';
 import { ScriptedDriver, testToolAccess, type ScriptedTurn } from '@baocut/harness/testing';
 import { ChannelFiles, ChannelStore, ConversationStore, ProjectStore, WorkItemStore, resolveRuntimeHome } from '@baocut/runtime-storage';
@@ -246,15 +246,20 @@ export class BotKit {
   }
 
   /** 用户在频道或线程里发一条消息（经 Bot 的 `conversations.send` 包装）。 */
-  async send(conversationId: Id, text: string, extra: { via?: 'typed' | 'suggestion' | 'reaction'; suggestionChipId?: Id; replyToItemId?: Id } = {}): Promise<{ taskId: Id }> {
+  async send(
+    conversationId: Id,
+    text: string,
+    extra: { via?: 'typed' | 'suggestion' | 'reaction'; suggestionChipId?: Id; replyToItemId?: Id; accessMode?: AgentMode } = {},
+  ): Promise<{ taskId: Id }> {
     const handler = wrapBotSend(
       () => this.bot,
       this.harness,
-      (async (p: { conversationId: Id; text: string; commandId: Id; via?: 'typed' | 'suggestion' | 'reaction'; suggestionChipId?: Id; replyToItemId?: Id }) =>
+      (async (p: { conversationId: Id; text: string; commandId: Id; via?: 'typed' | 'suggestion' | 'reaction'; suggestionChipId?: Id; replyToItemId?: Id; accessMode?: AgentMode }) =>
         this.harness.send({
           conversationId: p.conversationId,
           text: p.text,
           commandId: p.commandId,
+          ...(p.accessMode ? { accessMode: p.accessMode } : {}),
           ...(p.via ? { via: p.via } : {}),
           ...(p.suggestionChipId ? { suggestionChipId: p.suggestionChipId } : {}),
           ...(p.replyToItemId ? { replyToItemId: p.replyToItemId } : {}),

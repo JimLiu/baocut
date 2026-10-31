@@ -8,6 +8,7 @@ import {
   RpcError,
   needsUser,
   newId,
+  normalizeAgentMode,
   nowIso,
   workItemsTopic,
   type AgentMode,
@@ -611,6 +612,18 @@ export class BotService {
     if (Object.keys(conversationPatch).length > 1) {
       await this.#harness.updateConversation(conversationPatch, { internal: BOT_INTERNAL });
     }
+    // 上限压低了（§14.4）：频道与已有线程里高于上限的模式一起压下来，直接发给它们的消息也不会越过上限。
+    if (next.maxAccessMode && next.maxAccessMode !== channel.maxAccessMode) {
+      const max = next.maxAccessMode;
+      const ids = [next.conversationId, ...this.#channelItems(id).flatMap((i) => (i.threadId ? [i.threadId] : []))];
+      for (const conversationId of ids) {
+        const mode = this.#threadMode(conversationId);
+        if (!mode || rank(mode) <= rank(max)) continue;
+        await this.#harness.updateConversation({ conversationId, accessMode: max }, { internal: BOT_INTERNAL }).catch((error: unknown) =>
+          this.#log.warn('Lowering a conversation to the channel ceiling failed', { conversationId, error: String(error) }),
+        );
+      }
+    }
     // 换了 Driver 或模型：接力到新的原生会话（§6.3），换 Driver 时写一行。
     if ((patch.driverId !== undefined && patch.driverId !== channel.driverId) || (patch.model !== undefined && patch.model !== channel.model)) {
       await this.#handoff(channel.conversationId, patch.driverId !== undefined && patch.driverId !== channel.driverId ? patch.driverId : null);
@@ -962,6 +975,12 @@ export class BotService {
       await this.#harness.moveThread(item.threadId, { channelId: to.id, cwd: filesDir }, { internal: BOT_INTERNAL });
     }
     const next = { ...item, channelId: toChannelId, updatedAt: nowIso() };
+    // 等你在场再投的那一份也跟着走。
+    const held = this.#needsYou.get(id) ?? heldFrom(await this.#files.readHeld(from.id, id).catch(() => null), item);
+    if (held) {
+      await this.#hold(next, held);
+      await this.#files.removeHeld(from.id, id).catch(() => {});
+    }
     // 排队任务的开工内容跟着走。
     const queued = this.#queuedBriefs.get(id) ?? launchFrom(await this.#files.readQueued(from.id, id).catch(() => null));
     if (queued) {
@@ -1337,7 +1356,7 @@ export class BotService {
       this.#expecting.delete(item.threadId);
     }
     if (outcome.result === 'dropped' && outcome.reason === 'unattended-needs-approvals') {
-      this.#needsYou.set(item.id, delivery);
+      await this.#hold(item, delivery);
       await this.#needsYouToRun(item);
     }
     return { result: outcome.result, reason: outcome.reason };
@@ -1377,6 +1396,23 @@ export class BotService {
     }
   }
 
+  /** 记下等用户在场再投的那一份；同时落盘，重启后点「继续」照样投原来那份（简报、引用、文件归属都在里面）。 */
+  async #hold(item: WorkItem, delivery: Delivery): Promise<void> {
+    this.#needsYou.set(item.id, delivery);
+    await this.#files.writeHeld(item.channelId, item.id, delivery).catch((error: unknown) =>
+      this.#log.warn('Saving the held delivery failed', { workItemId: item.id, error: String(error) }),
+    );
+  }
+
+  /** 取出并清掉等着的那一份：内存里没有（重启过）时读盘上的，只认投给这条任务线程的。 */
+  async #takeHeld(item: WorkItem): Promise<Delivery | null> {
+    const inMemory = this.#needsYou.get(item.id);
+    this.#needsYou.delete(item.id);
+    const stored = inMemory ? null : heldFrom(await this.#files.readHeld(item.channelId, item.id).catch(() => null), item);
+    await this.#files.removeHeld(item.channelId, item.id).catch(() => {});
+    return inMemory ?? stored;
+  }
+
   /** §14.2：Driver 不支持逐次审批，无人在场的回合不起；任务转 needsInput 等用户点「继续」。 */
   async #needsYouToRun(item: WorkItem): Promise<void> {
     const current = this.#items.get(item.id) ?? item;
@@ -1410,9 +1446,8 @@ export class BotService {
       await this.#openThread(item, { attended: true });
       return;
     }
-    const held = this.#needsYou.get(item.id);
-    if (reason === 'needs-you' && held) {
-      this.#needsYou.delete(item.id);
+    const held = reason === 'needs-you' ? await this.#takeHeld(item) : null;
+    if (held) {
       this.#expecting.add(item.threadId);
       try {
         await this.#harness.deliver({ ...held, id: `${held.id}_attended`, unattended: false });
@@ -1634,7 +1669,7 @@ export class BotService {
       const info = this.#runStarts.get(event.taskId);
       this.#runStarts.delete(event.taskId);
       if (event.error === 'unattended-needs-approvals') {
-        this.#needsYou.set(item.id, {
+        await this.#hold(item, {
           id: `job_${event.taskId}_${newId('w')}`,
           conversationId: conversation.id,
           item: { direction: 'refresh', workItemId: item.id, reportId: null, from: { role: 'system', conversationId: null }, text: '', cited: [] },
@@ -1994,14 +2029,23 @@ export class BotService {
   readonly #memoryCache = new Map<Id, string>();
 
   /** 发送前（handlers 的 `conversations.send` 包装）：核验提示、算前置、刷新缓存。 */
-  async beforeSend(params: { conversationId: Id; text: string; via?: UserMessageVia; suggestionChipId?: Id; replyToItemId?: Id }): Promise<{
+  async beforeSend(params: { conversationId: Id; text: string; via?: UserMessageVia; suggestionChipId?: Id; replyToItemId?: Id; accessMode?: Parameters<typeof normalizeAgentMode>[0] }): Promise<{
     chip: SuggestionChip | null;
     suggestionsItemId: Id | null;
+    /** 这次发送要用的模式：压到频道上限以内后与原来不同（或调用方指定了）时给出，否则 null。 */
+    accessMode: AgentMode | null;
   }> {
     const conversation = this.#harness.conversationOf(params.conversationId);
-    if (!conversation || (conversation.role !== 'channel' && conversation.role !== 'thread')) return { chip: null, suggestionsItemId: null };
+    if (!conversation || (conversation.role !== 'channel' && conversation.role !== 'thread')) return { chip: null, suggestionsItemId: null, accessMode: null };
     const threadItem = conversation.role === 'thread' ? this.itemOfThread(conversation.id) : undefined;
     if (threadItem) await this.#refreshSpend(threadItem.channelId);
+    // 频道上限（§14.4）对直接发给线程或频道的消息同样生效：用户指定的或会话自己的模式都压在上限以内。
+    const channelId = threadItem?.channelId ?? conversation.channelId ?? null;
+    const max = channelId ? (this.#channels.get(channelId)?.maxAccessMode ?? null) : null;
+    const asked = params.accessMode ? normalizeAgentMode(params.accessMode) : null;
+    const effective = asked ?? this.#threadMode(conversation.id);
+    const capped = minMode(effective, max);
+    const accessMode = capped && (asked || capped !== effective) ? capped : null;
     let chip: SuggestionChip | null = null;
     let suggestionsItemId: Id | null = null;
     if (params.suggestionChipId) {
@@ -2027,7 +2071,7 @@ export class BotService {
       if (!target && waiting.length >= 2 && isBareAnswer(params.text)) prelude.push(ambiguousAnswerBlock(waiting));
       if (prelude.length) this.#prelude.set(conversation.id, prelude);
     }
-    return { chip, suggestionsItemId };
+    return { chip, suggestionsItemId, accessMode };
   }
 
   /** 发送后：提示改 used、其余作废；「标为完成」提示以用户身份关任务（§12.4）。 */
@@ -2603,6 +2647,15 @@ export class BotService {
 
 function rank(mode: AgentMode): number {
   return AGENT_MODES.indexOf(mode);
+}
+
+/** 盘上读回的等你在场的那一份：形状对、投给这条任务的线程才用。 */
+function heldFrom(raw: unknown, item: WorkItem): Delivery | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Partial<Delivery>;
+  if (typeof d.id !== 'string' || typeof d.agentText !== 'string' || !d.item || typeof d.item !== 'object') return null;
+  if (!item.threadId || d.conversationId !== item.threadId || d.item.workItemId !== item.id) return null;
+  return d as Delivery;
 }
 
 /** 任务的访问模式不高于频道上限（§14.4）。 */

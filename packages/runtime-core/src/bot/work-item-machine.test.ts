@@ -201,6 +201,14 @@ describe('schedule, unschedule, start, due', () => {
     denied(active('working'), { type: 'start' }, ctx('system'), 'not-up-next');
   });
 
+  it('the user can start a scheduled task early: the timer goes and the thread starts', () => {
+    const r = applyEvent(item({ status: 'scheduled', startAt: NOW }), { type: 'start' }, ctx('user'));
+    expect(stateName(r.item)).toBe('working');
+    expect(r.item.startAt).toBeNull();
+    expect(kinds(r.effects)).toEqual(['unschedule', 'start-thread']);
+    denied(item({ status: 'scheduled', startAt: NOW }), { type: 'start' }, ctx('system'), 'not-up-next');
+  });
+
   it('due starts an agent task; a user task only gets a reminder (BOT-TK-04)', () => {
     const agent = applyEvent(item({ status: 'scheduled', startAt: NOW }), { type: 'due' }, ctx('system'));
     expect(stateName(agent.item)).toBe('working');

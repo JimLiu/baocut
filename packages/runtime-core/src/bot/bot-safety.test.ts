@@ -77,6 +77,28 @@ describe('BOT-SF-02 unattended runs never approve', () => {
   });
 });
 
+describe('a launch held for the user survives a restart', () => {
+  it('BOT-SF-02 after a restart, "continue" still delivers the original brief that the unattended launch could not start', async () => {
+    await kit.close();
+    kit = await BotKit.open({ approvals: false });
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'fullAccess' });
+    const item = await kit.startTask('Voice-over for episode 3');
+    expect(kit.item(item.id)).toMatchObject({ active: { state: 'needsInput' }, question: { askedBy: 'system' } });
+    await kit.restart({ approvals: false });
+    const runs: { attended: boolean; origin: string }[] = [];
+    kit.thread = (ctx) => {
+      const run = kit.bot.runOf(ctx.conversationId)!;
+      runs.push({ attended: run.attended, origin: run.origin });
+    };
+    await kit.bot.userTransition(item.id, { type: 'unblocked', cause: 'user' });
+    await kit.settle();
+    expect(runs).toEqual([{ attended: true, origin: 'relay' }]);
+    const turns = kit.turns(kit.threadOf(item.id));
+    expect(turns.at(-1)).toContain('<baocut-thread-brief');
+    expect(turns.at(-1)).not.toContain('<baocut-refresh');
+  });
+});
+
 describe('BOT-SF-03 what agents read is data', () => {
   it('BOT-SF-03 follow-ups in a report become suggestions to accept, not tasks; user todos become the user own reminders', async () => {
     let reported = false;
@@ -287,5 +309,21 @@ describe('channel access ceiling (§14.4)', () => {
     await kit.settle();
     expect(modes.at(-1)).toBe('ask');
     expect(kit.harness.conversationOf(kit.threadOf(followed.id))!.accessMode).toBe('ask');
+  });
+
+  it('lowering the ceiling lowers existing threads too; a message sent straight to a thread cannot ask for more', async () => {
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'auto' });
+    const modes: string[] = [];
+    kit.thread = (ctx) => void modes.push(kit.harness.conversationMode(ctx.conversationId));
+    const item = await kit.startTask('Trim the intro');
+    await kit.settle();
+    expect(modes).toEqual(['auto']);
+    const thread = kit.threadOf(item.id);
+    await kit.bot.updateChannel(kit.main.id, { maxAccessMode: 'plan' });
+    expect(kit.harness.conversationOf(thread)!.accessMode).toBe('plan');
+    await kit.send(thread, 'Go ahead and cut it', { accessMode: 'fullAccess' });
+    await kit.settle();
+    expect(modes.at(-1)).toBe('plan');
+    expect(kit.harness.conversationOf(thread)!.accessMode).toBe('plan');
   });
 });

@@ -134,9 +134,10 @@ export function wrapBotSend(
       }
       return inner(params, principal);
     }
-    const { chip, suggestionsItemId } = await bot.beforeSend({
+    const { chip, suggestionsItemId, accessMode } = await bot.beforeSend({
       conversationId: params.conversationId,
       text: params.text,
+      ...((params.accessMode ?? params.autonomy) ? { accessMode: (params.accessMode ?? params.autonomy)! } : {}),
       ...(params.via ? { via: params.via } : {}),
       ...(params.suggestionChipId ? { suggestionChipId: params.suggestionChipId } : {}),
       ...(params.replyToItemId ? { replyToItemId: params.replyToItemId } : {}),
@@ -147,7 +148,8 @@ export function wrapBotSend(
       if (!taskId) throw new RpcError('conflict', RcBot.chipStale());
       return { taskId };
     }
-    const sent = await inner({ ...params, ...(chip ? { via: 'suggestion' as const } : {}) }, principal);
+    // 频道上限压低了模式时按压低后的发（§14.4）。
+    const sent = await inner({ ...params, ...(accessMode ? { accessMode } : {}), ...(chip ? { via: 'suggestion' as const } : {}) }, principal);
     const messageId = (sent as { messageId?: string }).messageId ?? latestUserMessage(bot, params.conversationId, sent.taskId);
     await bot.afterSend(params, { messageId: messageId ?? '' }, chip, suggestionsItemId);
     return sent;

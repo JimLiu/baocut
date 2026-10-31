@@ -219,8 +219,13 @@ export function applyEvent(current: WorkItem, event: WorkItemEvent, ctx: Machine
     }
     case 'start': {
       requireActor('user', 'system');
-      if (current.status !== 'upNext') deny('not-up-next');
+      // 定好时间的任务也可以提前开始（任务菜单的「开始」）：先撤掉定时。
+      if (current.status !== 'upNext' && !(current.status === 'scheduled' && actor === 'user')) deny('not-up-next');
       if (current.owner === 'user') deny('user-owned');
+      if (current.status === 'scheduled') {
+        item.startAt = null;
+        effects.push({ kind: 'unschedule' });
+      }
       toWorking();
       effects.push({ kind: 'start-thread' });
       record(`${actor}:start`);
