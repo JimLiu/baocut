@@ -493,6 +493,7 @@ interface WorkItemTransition {
 - 任务以 `completed` 结束 → `ActivityBridge` 写一条系统报告 `stop:'needs-review'`，headline 取最后一条 `agent-message` 的第一句；
 - 以 `failed` 结束 → `stop:'blocked'`，reason 取错误码的人话；
 - 以 `stopped` 结束（用户点了停止）→ 不写报告，状态由停止动作决定（§9.2）；
+- 回合开始时任务已是 `resolved`，回合里也没有重开它（用户在已解决的任务里问了一句，线程照 §7.3 只回答）→ 不写兜底报告、不投递、不改状态，任务保持已解决；线程的回答照常留在线程对话里。这种回合里线程不应调 `thread_report`，调了按 §9.2 拒绝；
 - 回合的 `task.origin = 'refresh'`（刷新，§9.3）→ 不写兜底报告、不投递、不改状态：刷新没发现变化时线程按 BOT-EX-08 什么都不发，任务保持刷新前的子状态与 `question`。刷新回合以 `failed` 结束时只记诊断事件，同样不动任务。刷新里真有变化时由线程自己调 `thread_report`。卡住后点「继续」不算刷新（投递用 `origin:'relay'`），照常走上面两条兜底。
 
 ### 7.5 线程等后台 Job
