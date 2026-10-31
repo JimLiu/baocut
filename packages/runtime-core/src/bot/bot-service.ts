@@ -1423,10 +1423,21 @@ export class BotService {
     this.#items.delete(id);
     for (const r of [...this.#reports.values()]) if (r.workItemId === id) this.#reports.delete(r.id);
     await this.#store.removeItem(item.channelId, id);
+    // 按任务记在内存与盘上的东西（等用户在场的那一份、排队的开工内容、等叫醒、挡着的回复）一并清掉。
+    this.#needsYou.delete(id);
+    this.#queuedBriefs.delete(id);
+    this.#heldReplies.delete(id);
+    this.#readyToWake.delete(id);
+    this.#jobWaking.delete(id);
+    this.#progressMarks.delete(id);
+    await this.#files.removeHeld(item.channelId, id).catch(() => {});
+    await this.#files.removeQueued(item.channelId, id).catch(() => {});
     this.#topicOf(item.channelId).publish({ type: 'work-item.removed', id });
     this.#publishChannel(this.channel(item.channelId));
     // 周期任务建的这一次还开着（例如还在「接下来」里的用户任务）：告诉它任务没了，好把这一次收尾，下一次照常建。
     this.#schedules?.workItemChanged(item);
+    // 依赖它或在等它的任务：删了的任务不会再结，按结了算，照常叫醒（不然它们一直停在「等别人」）。
+    await this.#wakeDependants(item, { id: item.id, title: item.title, removed: true });
     return { files, keptShared, deleted: true };
   }
 
@@ -1651,14 +1662,29 @@ export class BotService {
   }
 
   async #onResolved(item: WorkItem): Promise<void> {
-    // 依赖它的任务（BOT-EX-14），以及线程上次报告里说在等它的任务（§7.4 waitingFor）：等的都结了就转回工作中，并叫醒线程接着做。
+    await this.#wakeDependants(item, { id: item.id, title: item.title });
+    if (item.resolution?.kind === 'done') void this.runMake(item.channelId, 'item-resolved').catch(() => {});
+  }
+
+  /**
+   * 依赖它的任务（BOT-EX-14），以及线程上次报告里说在等它的任务（§7.4 waitingFor）：等的都结了（或删了）就转回工作中，
+   * 并叫醒线程接着做；再按顺序开排队的任务。
+   */
+  async #wakeDependants(item: WorkItem, cause: WakeCause): Promise<void> {
     for (const other of [...this.#items.values()]) {
       if (other.status === 'resolved' || other.id === item.id) continue;
       if (!other.dependsOn.includes(item.id) && !this.#waitingOn(other).includes(item.id)) continue;
-      await this.#wakeIfReady(other, item);
+      await this.#wakeIfReady(other, cause);
     }
     await this.#pump();
-    if (item.resolution?.kind === 'done') void this.runMake(item.channelId, 'item-resolved').catch(() => {});
+  }
+
+  /** 等的任务里还有没结的：找不到的（删了）按结了算。 */
+  #anyOpen(ids: readonly Id[]): boolean {
+    return ids.some((d) => {
+      const dep = this.#items.get(d);
+      return !!dep && dep.status !== 'resolved';
+    });
   }
 
   /** 线程上次报告里说在等的任务（只在它停在「等别人」时算数）。 */
@@ -1669,13 +1695,13 @@ export class BotService {
   }
 
   /** 等到能叫醒、但当时没有空位的任务：有空位时由 `#pump` 接着叫醒（与开工同一道并发闸门，§18.1）。 */
-  readonly #readyToWake = new Map<Id, { id: Id; title: string } | null>();
+  readonly #readyToWake = new Map<Id, WakeCause | null>();
 
   /**
    * 停在「等别人」的任务，等的都结了就叫醒：先过并发闸门，没空位就记下来等 `#pump`。
    * `resolved` 是刚结的那一个（叫醒的话里提它）；报告刚落下时自查、重启后对账时为 null。
    */
-  async #wakeIfReady(item: WorkItem, resolved: { id: Id; title: string } | null): Promise<void> {
+  async #wakeIfReady(item: WorkItem, resolved: WakeCause | null): Promise<void> {
     const current = this.#items.get(item.id);
     if (!current || current.status !== 'active' || current.active?.state !== 'waitingOnOthers') {
       this.#readyToWake.delete(item.id);
@@ -1686,11 +1712,10 @@ export class BotService {
     // 报告里还在等后台作业的，作业结束时另有叫醒；这里只管等任务的。
     if (!current.dependsOn.length && !waitingOn.length) return;
     if (report?.waitingFor?.jobIds.length && !resolved && !this.#readyToWake.has(current.id)) return;
-    const open = [...current.dependsOn, ...waitingOn].some((d) => this.#items.get(d)?.status !== 'resolved');
-    if (open) return;
+    if (this.#anyOpen([...current.dependsOn, ...waitingOn])) return;
     const channel = this.#channels.get(current.channelId);
     if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) {
-      this.#readyToWake.set(current.id, resolved ? { id: resolved.id, title: resolved.title } : (this.#readyToWake.get(current.id) ?? null));
+      this.#readyToWake.set(current.id, resolved ? { ...resolved } : (this.#readyToWake.get(current.id) ?? null));
       return;
     }
     const cause = resolved ?? this.#readyToWake.get(current.id) ?? null;
@@ -1700,9 +1725,11 @@ export class BotService {
     await this.transition(current.id, { type: 'unblocked', cause: 'dependency' }, { actor: 'system' }).catch(() => {});
     const woke = this.#items.get(current.id);
     if (woke?.threadId && woke.status === 'active' && woke.active?.state === 'working') {
-      const line = cause
-        ? `Task ${cause.id} ("${cause.title}") that you were waiting for is resolved. Check its result and continue.`
-        : 'The tasks you were waiting for are resolved. Check their results and continue.';
+      const line = !cause
+        ? 'The tasks you were waiting for are resolved. Check their results and continue.'
+        : cause.removed
+          ? `Task ${cause.id} ("${cause.title}") that you were waiting for was deleted and will not be finished. Decide how to go on without it.`
+          : `Task ${cause.id} ("${cause.title}") that you were waiting for is resolved. Check its result and continue.`;
       await this.#deliverToThread(woke, {
         id: `deps_${woke.id}_${cycle}_${cause?.id ?? 'all'}`,
         direction: 'refresh',
@@ -1724,8 +1751,7 @@ export class BotService {
     const report = current.lastReportId ? this.#reports.get(current.lastReportId) : undefined;
     const jobs = report?.waitingFor?.jobIds ?? [];
     if (!jobs.length) return;
-    const others = [...current.dependsOn, ...(report?.waitingFor?.workItemIds ?? [])];
-    if (others.some((d) => this.#items.get(d)?.status !== 'resolved')) return;
+    if (this.#anyOpen([...current.dependsOn, ...(report?.waitingFor?.workItemIds ?? [])])) return;
     const thread = this.#harness.conversationOf(current.threadId);
     if (!thread || thread.activeTaskId || this.#harness.runInfo(thread.id) || this.#harness.gatedJobWakes().includes(thread.id)) return;
     if (!(await this.#workspace.jobsFinished(jobs).catch(() => false))) return;
@@ -3480,6 +3506,9 @@ function jobWakeResumes(item: WorkItem): boolean {
 }
 
 /** 审批卡或提问卡 → 任务上的问题。 */
+/** 叫醒在等的任务时提的那一个：刚结的，或刚删的（`removed`）。 */
+type WakeCause = { id: Id; title: string; removed?: boolean };
+
 type LaunchOptions = { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null };
 
 /** 盘上的排队开工内容（自己写的，仍按形状核对）；不认识时 null。 */
