@@ -23,6 +23,7 @@ import {
   type ChannelsSnapshot,
   type CitedMessage,
   type Conversation,
+  type TaskBudgetLimits,
   type DeliveryResult,
   type DirectoryEvent,
   type DriverId,
@@ -66,6 +67,7 @@ import {
   workspaceFactsBlock,
 } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
+import { spendWindow, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { questionChips, questionCount } from './suggestions.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
 import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
@@ -98,6 +100,8 @@ export interface BotWorkspace {
   hungJob?(jobIds: readonly Id[]): Promise<string | null>;
   /** 任务合同的用量占预算的比例（0–1），没有预算时 null。 */
   budgetUsed?(conversationId: Id, taskId: Id | null): number | null;
+  /** 一组会话（频道对话与它的线程）从 `since.day` / `since.month` 起花掉的钱（§14.5）。 */
+  channelSpend?(conversationIds: ReadonlySet<Id>, since: { day: string; month: string }): Promise<ChannelSpend>;
 }
 
 /** Make 的候选（§11.3 第 3 步的输出）。 */
@@ -206,6 +210,8 @@ export class BotService {
   readonly #items = new Map<Id, WorkItem>();
   readonly #reports = new Map<Id, ThreadReport>();
   readonly #transitions = new Map<Id, WorkItemTransition[]>();
+  /** 频道今天与本月已花的钱（§14.5），投递前刷新，线程任务的预算上限由它算。 */
+  readonly #spend = new Map<Id, ChannelSpend>();
   readonly #channelsTopic: TopicLog<ChannelsSnapshot, ChannelsEvent>;
   readonly #itemTopics = new Map<Id, TopicLog<WorkItemsSnapshot, WorkItemsEvent>>();
   readonly #runStarts = new Map<Id, RunStart>();
@@ -266,6 +272,8 @@ export class BotService {
   async start(): Promise<void> {
     await this.load();
     this.#harness.setTurnContext((conversation, kind) => this.#turnContext(conversation, kind));
+    this.#harness.setTaskBudgetResolver((conversation) => this.#taskBudget(conversation));
+    for (const channel of this.#channels.list()) await this.#refreshSpend(channel.id);
     this.#unsubscribe.push(this.#harness.onRun((event) => this.#onRun(event)));
     const directory = this.#harness.subscribe('directory', undefined, (event) => {
       const directoryEvent = event.event as DirectoryEvent;
@@ -281,6 +289,7 @@ export class BotService {
     this.#stopped = true;
     for (const off of this.#unsubscribe.splice(0)) off();
     this.#harness.setTurnContext(null);
+    this.#harness.setTaskBudgetResolver(null);
     this.#cancelOneShot?.();
     this.#cancelWatchdog?.();
     this.#cancelHourly?.();
@@ -589,6 +598,7 @@ export class BotService {
       updatedAt: nowIso(),
     };
     await this.#putChannel(next);
+    if (dailyBudget !== undefined || monthlyBudget !== undefined) await this.#refreshSpend(id);
     const conversationPatch: Parameters<Harness['updateConversation']>[0] = { conversationId: channel.conversationId };
     if (patch.name !== undefined) conversationPatch.title = patch.name;
     if (patch.driverId !== undefined) conversationPatch.driverId = patch.driverId;
@@ -939,9 +949,17 @@ export class BotService {
       await this.#harness.moveThread(item.threadId, { channelId: to.id, cwd: filesDir }, { internal: BOT_INTERNAL });
     }
     const next = { ...item, channelId: toChannelId, updatedAt: nowIso() };
+    // 报告与转换记录跟着任务走：先写进新频道，再从旧频道删（旧频道的 removed 会把它们一起清掉）。
+    const reports = [...this.#reports.values()].filter((r) => r.workItemId === id);
+    const fromLog = this.#transitions.get(from.id) ?? [];
+    const moved = fromLog.filter((t) => t.workItemId === id);
     this.#items.set(id, next);
-    await this.#store.removeItem(from.id, id);
     await this.#store.putItem(to.id, next, { sync: true });
+    for (const report of reports) await this.#store.appendReport(to.id, report);
+    for (const transition of moved) await this.#store.appendTransition(to.id, transition);
+    await this.#store.removeItem(from.id, id);
+    this.#transitions.set(from.id, fromLog.filter((t) => t.workItemId !== id));
+    this.#transitions.set(to.id, [...(this.#transitions.get(to.id) ?? []), ...moved].sort((a, b) => a.at.localeCompare(b.at)).slice(-2000));
     this.#topicOf(from.id).publish({ type: 'work-item.removed', id });
     this.#topicOf(to.id).publish({ type: 'work-item.upsert', item: next });
     const note = (conversationId: Id, text: string) =>
@@ -1261,6 +1279,7 @@ export class BotService {
     const channel = this.channel(item.channelId);
     const capped = minMode(mode ?? null, channel.maxAccessMode);
     if (capped) delivery.accessMode = capped;
+    await this.#refreshSpend(item.channelId);
     this.#expecting.add(item.threadId);
     let outcome;
     try {
@@ -1273,6 +1292,31 @@ export class BotService {
       await this.#needsYouToRun(item);
     }
     return { result: outcome.result, reason: outcome.reason };
+  }
+
+  /** 线程新任务的预算上限（§14.5）：任务预算与频道剩余额度的较小值。别的会话不设。 */
+  #taskBudget(conversation: Conversation): TaskBudgetLimits | null {
+    if (conversation.role !== 'thread') return null;
+    const item = this.itemOfThread(conversation.id);
+    const channel = item ? this.#channels.get(item.channelId) : undefined;
+    if (!item || !channel) return null;
+    return threadTaskBudget(item, channel, this.#spend.get(channel.id));
+  }
+
+  /** 重读频道的花费。没有频道预算或没有账本时不读。读失败时留着旧值。 */
+  async #refreshSpend(channelId: Id): Promise<void> {
+    const channel = this.#channels.get(channelId);
+    if (!channel || !this.#workspace.channelSpend || (!channel.limits.dailyBudget && !channel.limits.monthlyBudget)) {
+      this.#spend.delete(channelId);
+      return;
+    }
+    const ids = new Set<Id>([channel.conversationId]);
+    for (const item of this.#channelItems(channelId)) if (item.threadId) ids.add(item.threadId);
+    try {
+      this.#spend.set(channelId, await this.#workspace.channelSpend(ids, spendWindow(this.#clock.now())));
+    } catch (error) {
+      this.#log.warn('Reading the channel spend failed', { channelId, error: String(error) });
+    }
   }
 
   /** §14.2：Driver 不支持逐次审批，无人在场的回合不起；任务转 needsInput 等用户点「继续」。 */
@@ -1898,6 +1942,8 @@ export class BotService {
   }> {
     const conversation = this.#harness.conversationOf(params.conversationId);
     if (!conversation || (conversation.role !== 'channel' && conversation.role !== 'thread')) return { chip: null, suggestionsItemId: null };
+    const threadItem = conversation.role === 'thread' ? this.itemOfThread(conversation.id) : undefined;
+    if (threadItem) await this.#refreshSpend(threadItem.channelId);
     let chip: SuggestionChip | null = null;
     let suggestionsItemId: Id | null = null;
     if (params.suggestionChipId) {

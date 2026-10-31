@@ -9,6 +9,7 @@ import {
   type TimelineItem,
   type WorkItem,
   type WorkItemPriority,
+  type WorkItemQuestion,
 } from '@baocut/protocol';
 
 /**
@@ -178,6 +179,15 @@ export function inboxRowAction(row: Pick<InboxRow, 'question' | 'approval'>, has
   if (row.question?.options.length && hasThread) return 'answer';
   if (row.approval && !row.question?.options.length) return 'approve';
   return 'open';
+}
+
+/**
+ * 一个问题选项怎么送达：Runtime 自己问的（卡住时「继续还是停止」、要你在场才能跑）没有提问卡，第一个选项是继续（`unblocked`），
+ * 第二个是停止（`workItems.stop`）；提问卡推出的按卡作答；线程报告里的问题把选项原话发给线程。
+ */
+export function questionAnswerRoute(question: Pick<WorkItemQuestion, 'askedBy' | 'approvalId' | 'options'>, index: number): 'continue' | 'stop' | 'card' | 'message' {
+  if (question.askedBy === 'system' && !question.approvalId) return index === 0 ? 'continue' : 'stop';
+  return question.approvalId ? 'card' : 'message';
 }
 
 export function groupInbox(rows: readonly InboxRow[]): InboxGroup[] {

@@ -13,7 +13,7 @@ import {
   type WorkItemQuestion,
 } from '@baocut/protocol';
 import { ToastQueue } from '@react-spectrum/s2';
-import { chipAction } from '../../model/bot.ts';
+import { chipAction, questionAnswerRoute } from '../../model/bot.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useShell } from '../../state/shell-store.ts';
@@ -94,12 +94,12 @@ export function findApproval(conversationId: Id | null, approvalId: Id): Approva
 
 /**
  * 回答任务上「等你的问题」的第 `index` 个选项（需求 §11.6、BOT-CH-11）：问题来自提问卡时走 `agents.answerQuestion`
- * （与在卡片上选一样）；来自报告的问题没有卡片，把选项原话作为一条消息发给线程（`via: 'notification'`：不是在对话里亲手打的）。
- * 没有线程的（用户自己的任务）不在这里答。
+ * （与在卡片上选一样）；来自报告的问题没有卡片，把选项原话作为一条消息发给线程（`via: 'notification'`：不是在对话里亲手打的）；
+ * Runtime 自己问的「继续还是停止」走 `workItems.transition`（unblocked）或 `workItems.stop`。没有线程的（用户自己的任务）不在这里答。
  */
 export async function answerWorkItemQuestion(
   runtime: RuntimeSession,
-  item: Pick<WorkItem, 'threadId'>,
+  item: Pick<WorkItem, 'id' | 'threadId'>,
   question: WorkItemQuestion,
   index: number,
 ): Promise<boolean> {
@@ -107,6 +107,14 @@ export async function answerWorkItemQuestion(
   const threadId = item.threadId;
   if (!option || !threadId) return false;
   try {
+    // Runtime 自己问的（卡住、要你在场）走状态转换：「继续」是 unblocked，「停止」停掉任务，不当成一条消息发给线程。
+    const route = questionAnswerRoute(question, index);
+    if (route === 'continue' || route === 'stop') {
+      if (route === 'continue') await runtime.client.request('workItems.transition', { id: item.id, event: { type: 'unblocked', cause: 'user' } });
+      else await runtime.client.request('workItems.stop', { id: item.id });
+      ToastQueue.positive(C.detail.answered, { timeout: 3000 });
+      return true;
+    }
     // 提问卡推出的问题带着那一问的 id：线程的时间线没订着（没打开过线程）也能直接作答；旧记录没有时再看缓存的提问卡。
     const approval = question.approvalId && !question.questionId ? findApproval(threadId, question.approvalId) : undefined;
     const askedId = question.questionId ?? (approval?.request.kind === 'question' ? approval.request.questions[0]?.id : undefined);

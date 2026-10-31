@@ -94,6 +94,7 @@ import {
   type TemplateMessageRef,
   type SkillMessageRef,
   type MessageBrandRef,
+  type TaskBudgetLimits,
   type TimelineItem,
   type Localized,
   type Topic,
@@ -386,6 +387,7 @@ export class Harness {
   readonly #agents: AgentManager;
   readonly #jobs: HarnessOptions['jobs'];
   readonly #budgets: TaskBudgetPort | null;
+  #budgetFor: ((conversation: Conversation) => TaskBudgetLimits | null) | null = null;
   readonly #settings: NonNullable<HarnessOptions['settings']>;
   readonly #providers: HarnessOptions['providers'] | null;
   readonly #attachments: HarnessAttachments | null;
@@ -1765,7 +1767,7 @@ export class Harness {
     const taskId = newId('task');
     const now = nowIso();
     // 合同随任务建立（§3.2）：先登记预算策略，预算不合法时整次拒绝，不留下任务。
-    const budget = this.#budgets ? this.#budgets.setTaskBudget(taskId, params.contract?.budget ?? NO_TASK_BUDGET) : null;
+    const budget = this.#budgets ? this.#budgets.setTaskBudget(taskId, params.contract?.budget ?? this.#defaultBudget(params.conversationId)) : null;
     if (params.contract?.budget && !budget) throw new RpcError('invalid-request', HA.noBudgetLedger());
     const contract = buildContract({
       taskId,
@@ -2297,6 +2299,25 @@ export class Harness {
   }
 
   /**
+   * 没有显式预算时新任务带的上限（Bot 技术方案 §14.5：线程取任务预算与频道剩余额度的较小值）。回调同步、不抛出；
+   * 返回 null 时不设上限。
+   */
+  setTaskBudgetResolver(resolver: ((conversation: Conversation) => TaskBudgetLimits | null) | null): void {
+    this.#budgetFor = resolver;
+  }
+
+  #defaultBudget(conversationId: Id): TaskBudgetLimits {
+    const conversation = this.#states.get(conversationId)?.conversation;
+    if (!conversation || !this.#budgetFor) return NO_TASK_BUDGET;
+    try {
+      return this.#budgetFor(conversation) ?? NO_TASK_BUDGET;
+    } catch (error) {
+      this.#log.warn('Working out a task budget failed', { conversationId, error: String(error) });
+      return NO_TASK_BUDGET;
+    }
+  }
+
+  /**
    * 任务移到别的频道时线程跟着走（Bot 需求 BOT-TK-09）：线程会话换频道与工作目录。只给 Bot 服务用；回合进行中不能移。
    * 闲着的原生会话还在旧目录里，和绑定项目时一样关掉，下一轮在新目录里起。
    */
@@ -2472,7 +2493,7 @@ export class Harness {
       taskId = newId('task');
       result = 'started';
       const goal = first.goal ?? oneLine(first.item.text);
-      const budget = this.#budgets ? this.#budgets.setTaskBudget(taskId, NO_TASK_BUDGET) : null;
+      const budget = this.#budgets ? this.#budgets.setTaskBudget(taskId, this.#defaultBudget(state.id)) : null;
       const contract = buildContract({
         taskId,
         conversation,

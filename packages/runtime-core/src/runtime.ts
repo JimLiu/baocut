@@ -903,6 +903,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         videos: () => space.videos(),
         job: (jobId) => models.jobs.inspect(jobId),
         versions: (videoId) => videos.listVersions(videoId, 1),
+        usage: () => models.readUsage(),
       }),
       make: textMakeGenerator(() => models.services.textGenerator()),
       defaults: () => ({ driverId: null, accessMode: null }),

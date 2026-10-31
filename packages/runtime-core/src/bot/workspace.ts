@@ -1,6 +1,7 @@
 // i18n-ignore-file: facts and evidence reasons for the model (English)
 import path from 'node:path';
-import type { Evidence, Id, JobRecord, Project, ResourceRef, VideoVersionList, WorkItem } from '@baocut/protocol';
+import type { Evidence, Id, JobRecord, Money, Project, ResourceRef, UsageRecord, VideoVersionList, WorkItem } from '@baocut/protocol';
+import { sumMoney } from './bot-budget.ts';
 import type { BotWorkspace } from './bot-service.ts';
 
 /*
@@ -15,6 +16,8 @@ export interface RuntimeWorkspaceDeps {
   job: (jobId: Id) => JobRecord | undefined;
   /** 视频的版本记录，新的在前（`VideoService.listVersions`）；读不出时抛错。 */
   versions: (videoId: Id) => Promise<VideoVersionList>;
+  /** 用量账本的全部记录（§14.5 频道花费）；不给时不算频道预算。 */
+  usage?: () => Promise<UsageRecord[]>;
 }
 
 export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
@@ -87,6 +90,23 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       if (ref.kind === 'file') return `file ${path.basename(ref.path)}`;
       return null;
     },
+    ...(deps.usage
+      ? {
+          async channelSpend(conversationIds: ReadonlySet<Id>, since: { day: string; month: string }) {
+            const records = await deps.usage!();
+            const day: Money[] = [];
+            const month: Money[] = [];
+            for (const record of records) {
+              if (record.cost.kind !== 'reported' || record.at < since.month) continue;
+              if (!belongsTo(record, conversationIds, job)) continue;
+              const money = { amount: record.cost.amount, currency: record.cost.currency };
+              month.push(money);
+              if (record.at >= since.day) day.push(money);
+            }
+            return { day: sumMoney(day), month: sumMoney(month) };
+          },
+        }
+      : {}),
     async hungJob(jobIds: readonly Id[]) {
       for (const id of jobIds) {
         const record = job(id);
@@ -95,6 +115,16 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       return null;
     },
   };
+}
+
+/** 记录属于这组会话：直接记了会话，或是会话里的智能体交的 Job。 */
+function belongsTo(record: UsageRecord, ids: ReadonlySet<Id>, job: (jobId: Id) => JobRecord | undefined): boolean {
+  const conversationId = record.ref?.conversationId;
+  if (conversationId) return ids.has(conversationId);
+  const jobId = record.ref?.jobId;
+  if (!jobId) return false;
+  const submitter = job(jobId)?.submitter;
+  return submitter?.kind === 'agent' && ids.has(submitter.id);
 }
 
 function safe<T>(fn: () => T[]): T[] {

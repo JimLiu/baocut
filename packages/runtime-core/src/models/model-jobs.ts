@@ -67,6 +67,7 @@ import {
   type ModelsEvent,
   type ResourceCapacitySetting,
   type ModelsSnapshot,
+  type UsageRecord,
 } from '@baocut/protocol';
 import {
   AgentProviderSource,
@@ -136,6 +137,8 @@ export interface ModelJobs {
   voiceCloner(providerId: string): VoiceCloner | null;
   /** 等排队的用量记录（§6.10）与账号的最近使用时间（§6.8）写完；停机时调用。 */
   flushUsage(): Promise<void>;
+  /** 用量账本的全部记录（Bot 的频道预算按会话汇总）。 */
+  readUsage(): Promise<UsageRecord[]>;
 }
 
 export interface ModelJobsOptions {
@@ -607,7 +610,8 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
     await usage.flush();
     await store.flush();
   };
-  return { catalog, provider, embedding, services, jobs, pipelines, topic, modelsTopic, relocalize, installs, dir, grants, voiceCloner, flushUsage };
+  const readUsage = () => usage.read();
+  return { catalog, provider, embedding, services, jobs, pipelines, topic, modelsTopic, relocalize, installs, dir, grants, voiceCloner, flushUsage, readUsage };
 }
 
 /**

@@ -1,8 +1,8 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { newId, type BotNotificationEvent, type Channel, type ChannelsEvent, type Evidence, type Id, type ResourceRef, type RevertPlan, type TimelineItem, type WorkItem, type WorkItemTemplate } from '@baocut/protocol';
-import { DriverRegistry, Harness, silentLogger, type RunEvent } from '@baocut/harness';
+import { newId, type BotNotificationEvent, type Money, type TaskBudgetLimits, type TaskBudgetPolicy, type Channel, type ChannelsEvent, type Evidence, type Id, type ResourceRef, type RevertPlan, type TimelineItem, type WorkItem, type WorkItemTemplate } from '@baocut/protocol';
+import { DriverRegistry, Harness, silentLogger, type RunEvent, type TaskBudgetPort } from '@baocut/harness';
 import { ScriptedDriver, testToolAccess, type ScriptedTurn } from '@baocut/harness/testing';
 import { ChannelFiles, ChannelStore, ConversationStore, ProjectStore, WorkItemStore, resolveRuntimeHome } from '@baocut/runtime-storage';
 import { ToolCatalog, type ToolErrorBody } from '../../agent-tools/tool-catalog.ts';
@@ -68,6 +68,28 @@ export class FakeWorkspace implements BotWorkspace {
   };
   hungJob = async () => this.hung;
   budgetUsed = () => this.budget;
+  /** 频道花费（§14.5）：所有频道都按这个算；`spendAsks` 记下每次被问到的会话。 */
+  spend: { day: Money[]; month: Money[] } = { day: [], month: [] };
+  spendAsks: Id[][] = [];
+  channelSpend = async (ids: ReadonlySet<Id>) => {
+    this.spendAsks.push([...ids]);
+    return structuredClone(this.spend);
+  };
+}
+
+/** 任务预算账本：只记上限。 */
+export class FakeBudgets implements TaskBudgetPort {
+  readonly limits = new Map<Id, TaskBudgetLimits>();
+  taskBudget(taskId: Id): TaskBudgetPolicy | null {
+    const limits = this.limits.get(taskId);
+    if (!limits) return null;
+    const at = new Date().toISOString();
+    return { policyId: `tbp_${taskId}`, taskId, ...limits, usage: { calls: 0, reservedCalls: 0, spent: [], reserved: [], unknownCostCalls: 0 }, createdAt: at, updatedAt: at };
+  }
+  setTaskBudget(taskId: Id, limits: TaskBudgetLimits): TaskBudgetPolicy {
+    this.limits.set(taskId, structuredClone(limits));
+    return this.taskBudget(taskId)!;
+  }
 }
 
 export class FakeMake implements MakeGenerator {
@@ -125,6 +147,7 @@ export class BotKit {
   catalog!: ToolCatalog;
   clock = new FakeClock();
   workspace = new FakeWorkspace();
+  budgets = new FakeBudgets();
   make = new FakeMake();
   schedules = new FakeSchedules();
   events: ChannelsEvent[] = [];
@@ -157,6 +180,7 @@ export class BotKit {
       drivers,
       log: silentLogger,
       tools: testToolAccess(),
+      budgets: this.budgets,
     });
     this.harness.onRun((event) => this.runs.push(event));
     this.bot = new BotService({

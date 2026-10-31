@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { VideoVersionList, WorkItem } from '@baocut/protocol';
+import type { JobRecord, UsageRecord, VideoVersionList, WorkItem } from '@baocut/protocol';
 import { runtimeWorkspace } from './workspace.ts';
 
 const since = '2026-10-01T00:00:00.000Z';
@@ -34,5 +34,45 @@ describe('video-version evidence', () => {
         throw new Error('closed');
       }).verifyEvidence(evidence('7'), item, since),
     ).toMatch(/could not read/);
+  });
+});
+
+describe('channel spend from the usage ledger', () => {
+  const record = (at: string, amount: string | null, ref: { conversationId?: string; jobId?: string }) =>
+    ({
+      at,
+      providerId: 'openai',
+      accountId: null,
+      capability: 'text',
+      modelId: 'm',
+      source: 'agent-tool',
+      ref,
+      units: {},
+      cost: amount ? { kind: 'reported', amount, currency: 'USD' } : { kind: 'unknown' },
+      durationMs: 1,
+      status: 'ok',
+    }) as unknown as UsageRecord;
+
+  it('adds up reported costs of the channel conversations and their agent jobs, for the day and the month', async () => {
+    const ws = runtimeWorkspace({
+      projects: () => [],
+      videos: () => [],
+      job: (jobId) => (jobId === 'job_t' ? ({ submitter: { kind: 'agent', id: 'conv_thread', taskId: 't' } } as JobRecord) : undefined),
+      versions: async () => list(1, 'r1', since),
+      usage: async () => [
+        record('2026-10-31T09:00:00.000Z', '1.25', { conversationId: 'conv_thread' }),
+        record('2026-10-31T10:00:00.000Z', '0.50', { jobId: 'job_t' }),
+        record('2026-10-31T10:00:00.000Z', '9.00', { conversationId: 'conv_other' }),
+        record('2026-10-31T10:00:00.000Z', null, { conversationId: 'conv_thread' }),
+        record('2026-10-12T10:00:00.000Z', '2.00', { conversationId: 'conv_channel' }),
+        record('2026-09-30T10:00:00.000Z', '5.00', { conversationId: 'conv_channel' }),
+      ],
+    });
+    const spend = await ws.channelSpend!(new Set(['conv_channel', 'conv_thread']), { day: '2026-10-31T00:00:00.000Z', month: '2026-10-01T00:00:00.000Z' });
+    expect(spend).toEqual({ day: [{ amount: '1.75', currency: 'USD' }], month: [{ amount: '3.75', currency: 'USD' }] });
+  });
+
+  it('is not offered without a ledger', () => {
+    expect(workspace(async () => list(1, 'r1', since)).channelSpend).toBeUndefined();
   });
 });

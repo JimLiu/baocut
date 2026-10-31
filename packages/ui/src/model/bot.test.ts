@@ -6,6 +6,7 @@ import {
   chipAllowed,
   groupInbox,
   inboxRowAction,
+  questionAnswerRoute,
   isOverdue,
   localDate,
   needsYouTotal,
@@ -255,5 +256,25 @@ describe('inboxRowAction', () => {
   it('opens the task for open questions and tasks without a thread', () => {
     expect(inboxRowAction({ question: question([]), approval: null }, true)).toBe('open');
     expect(inboxRowAction({ question: question(['A']), approval: null }, false)).toBe('open');
+  });
+});
+
+describe('questionAnswerRoute', () => {
+  const q = (askedBy: 'thread' | 'coordinator' | 'system', approvalId: string | null, labels: string[]) => ({
+    askedBy,
+    approvalId,
+    options: labels.map((label) => ({ label, description: null })),
+  });
+
+  it('a question the runtime asked continues or stops the task instead of messaging the thread', () => {
+    expect(questionAnswerRoute(q('system', null, ['Continue', 'Stop']), 0)).toBe('continue');
+    expect(questionAnswerRoute(q('system', null, ['Continue', 'Stop']), 1)).toBe('stop');
+    expect(questionAnswerRoute(q('system', null, ['Continue']), 0)).toBe('continue');
+  });
+
+  it('a question card is answered on the card; a report question is sent as a message', () => {
+    expect(questionAnswerRoute(q('thread', 'ap1', ['A', 'B']), 1)).toBe('card');
+    expect(questionAnswerRoute(q('system', 'ap1', ['A']), 0)).toBe('card');
+    expect(questionAnswerRoute(q('thread', null, ['Yes', 'No']), 0)).toBe('message');
   });
 });

@@ -70,6 +70,27 @@ describe('moving a task', () => {
     expect(await fs.readFile(newNotes, 'utf8')).toBe('step 1 done');
     await expect(fs.access(oldNotes)).rejects.toThrow();
   });
+
+  it('BOT-TK-09 the task keeps its reports and history after a move, also across a restart', async () => {
+    kit.thread = (ctx) => ctx.call('thread_report', { stop: 'blocked', headline: 'The source file is missing.' });
+    const item = await kit.startTask('Fix the audio');
+    await kit.until(() => kit.item(item.id).lastReportId);
+    await kit.settle();
+    const before = kit.bot.getItem(item.id);
+    expect(before.reports.length).toBeGreaterThan(0);
+    expect(before.transitions.length).toBeGreaterThan(0);
+    const target = await kit.bot.createChannel({ name: 'Audio' });
+    await kit.bot.moveItem(item.id, target.id);
+    const after = kit.bot.getItem(item.id);
+    expect(after.reports.map((r) => r.id)).toEqual(before.reports.map((r) => r.id));
+    expect(after.transitions).toEqual(before.transitions);
+    await kit.restart();
+    const reloaded = kit.bot.getItem(item.id);
+    expect(reloaded.item.channelId).toBe(target.id);
+    expect(reloaded.reports.map((r) => r.id)).toEqual(before.reports.map((r) => r.id));
+    expect(reloaded.transitions.map((t) => [t.from, t.to])).toEqual(before.transitions.map((t) => [t.from, t.to]));
+    expect(kit.bot.getItem(item.id).item.lastReportId).toBe(before.item.lastReportId);
+  });
 });
 
 describe('inbox questions', () => {
