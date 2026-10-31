@@ -144,6 +144,40 @@ describe('Harness.deliver', () => {
     expect(turns[1]).toContain('B');
   });
 
+  it('stopping the turn drops what was held for it instead of starting another turn afterwards', async () => {
+    await harness.shutdown();
+    await open({ steer: false });
+    const id = await channel();
+    driver.script = (turn) => turn.hold();
+    await harness.send({ conversationId: id, text: 'hello', commandId: newId('cmd') });
+    await until(() => driver.sessionOf(id)?.turnId);
+    let delivered = 0;
+    const d = delivery(id, { agentText: 'A', onDelivered: () => delivered++ });
+    expect((await harness.deliver(d)).result).toBe('held');
+    await harness.stopTask(tasks(id)[0]!.id);
+    await until(() => !harness.runInfo(id) && tasks(id)[0]!.status !== 'running' && tasks(id)[0]!.status !== 'stopping');
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(tasks(id)).toHaveLength(1);
+    expect(delivered).toBe(0);
+    expect(driver.sessionOf(id)!.turns).toHaveLength(1);
+  });
+
+  it('a held delivery works out its access mode when the turn actually starts', async () => {
+    await harness.shutdown();
+    await open({ steer: false });
+    const id = await channel();
+    driver.script = (turn) => turn.hold();
+    await harness.send({ conversationId: id, text: 'hello', commandId: newId('cmd') });
+    await until(() => driver.sessionOf(id)?.turnId);
+    let ceiling: 'auto' | 'plan' = 'auto';
+    expect((await harness.deliver(delivery(id, { unattended: false, accessMode: 'auto', accessModeAt: () => ceiling }))).result).toBe('held');
+    ceiling = 'plan';
+    driver.script = () => {};
+    driver.lastTurn!.complete();
+    await until(() => tasks(id).length === 2 && tasks(id)[1]!.status === 'completed');
+    expect(tasks(id)[1]!.autonomy?.mode).toBe('plan');
+  });
+
   it('drops unattended deliveries when the driver has no per-step approvals', async () => {
     await harness.shutdown();
     await open({ approvals: false });

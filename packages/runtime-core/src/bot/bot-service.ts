@@ -228,6 +228,7 @@ export class BotService {
   /** 要你在场才能跑的投递（§14.2）：用户点「继续」时以有人在场的回合重投。 */
   readonly #needsYou = new Map<Id, Delivery>();
   /** 频道对话接力之后下一回合带的种子（§6.3）。 */
+  readonly #memoryWrites = new Map<string, Promise<void>>();
   readonly #handoffPending = new Set<Id>();
   /** 下一次用户回合的前置（§8.4 回复线程卡、§9.4 消歧），按会话。 */
   readonly #prelude = new Map<Id, string[]>();
@@ -694,15 +695,18 @@ export class BotService {
 
   /** 写频道记忆（§5.4、§13.3）：版本、16 KiB、敏感内容。 */
   async writeMemory(id: Id, content: string, ifVersion: number): Promise<{ version: number; content?: string }> {
-    const channel = this.channel(id);
-    if (ifVersion !== channel.memoryVersion) {
-      throw new RpcError('conflict', RcBot.memoryVersionConflict(), { version: channel.memoryVersion, content: await this.#files.readMemory(id) });
-    }
-    this.#checkMemory(content, BOT_LIMITS.channelMemoryBytes);
-    await this.#files.writeMemory(id, content);
-    const next = { ...channel, memoryVersion: channel.memoryVersion + 1, updatedAt: nowIso() };
-    await this.#putChannel(next);
-    return { version: next.memoryVersion };
+    // 版本核对、写文件、版本加一是一件事：同一份记忆的写一个接一个来，同一个 ifVersion 的第二次写拿到冲突，不会悄悄盖掉第一次的。
+    return this.#memorySerial(`channel:${id}`, async () => {
+      const channel = this.channel(id);
+      if (ifVersion !== channel.memoryVersion) {
+        throw new RpcError('conflict', RcBot.memoryVersionConflict(), { version: channel.memoryVersion, content: await this.#files.readMemory(id) });
+      }
+      this.#checkMemory(content, BOT_LIMITS.channelMemoryBytes);
+      await this.#files.writeMemory(id, content);
+      const next = { ...this.channel(id), memoryVersion: channel.memoryVersion + 1, updatedAt: nowIso() };
+      await this.#putChannel(next);
+      return { version: next.memoryVersion };
+    });
   }
 
   async readUserMemory(): Promise<{ content: string; version: number }> {
@@ -710,12 +714,26 @@ export class BotService {
   }
 
   async writeUserMemory(content: string, ifVersion: number): Promise<{ content: string; version: number }> {
-    const version = this.#channels.userMemoryVersion();
-    if (ifVersion !== version) throw new RpcError('conflict', RcBot.memoryVersionConflict(), { version, content: await this.#files.readUserMemory() });
-    this.#checkMemory(content, BOT_LIMITS.userMemoryBytes);
-    await this.#files.writeUserMemory(content);
-    await this.#channels.setUserMemoryVersion(version + 1);
-    return { content, version: version + 1 };
+    return this.#memorySerial('user', async () => {
+      const version = this.#channels.userMemoryVersion();
+      if (ifVersion !== version) throw new RpcError('conflict', RcBot.memoryVersionConflict(), { version, content: await this.#files.readUserMemory() });
+      this.#checkMemory(content, BOT_LIMITS.userMemoryBytes);
+      await this.#files.writeUserMemory(content);
+      await this.#channels.setUserMemoryVersion(version + 1);
+      return { content, version: version + 1 };
+    });
+  }
+
+  /** 同一份记忆的写排成一队（前一个失败不影响后一个）。 */
+  #memorySerial<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.#memoryWrites.get(key) ?? Promise.resolve();
+    const run = previous.then(fn, fn);
+    const tail = run.then(() => {}, () => {});
+    this.#memoryWrites.set(key, tail);
+    void tail.then(() => {
+      if (this.#memoryWrites.get(key) === tail) this.#memoryWrites.delete(key);
+    });
+    return run;
   }
 
   #checkMemory(content: string, max: number): void {
@@ -1351,6 +1369,8 @@ export class BotService {
     };
     const mode = this.#deliveryMode(item);
     if (mode) delivery.accessMode = mode;
+    // 等回合结束才交的投递，起回合时按那时的任务覆盖与频道上限重算（§14.4）。
+    delivery.accessModeAt = () => this.#deliveryMode(this.itemOrNull(item.id) ?? item);
     await this.#refreshSpend(item.channelId);
     this.#expecting.add(item.threadId);
     let outcome;

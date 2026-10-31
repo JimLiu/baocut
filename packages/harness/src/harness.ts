@@ -281,6 +281,8 @@ export interface Delivery {
   reopenTaskId?: Id;
   /** 起新任务时的访问模式；不给时用会话的。 */
   accessMode?: AgentMode;
+  /** 真正起回合时再算一次模式（等过回合结束的投递用它，不用 `accessMode`）；返回 null 时用会话的。 */
+  accessModeAt?: () => AgentMode | null;
   unattended: boolean;
   /** 本次投递里 Runtime 复制进来的用户亲手打的原话（`author:'user'`、`via:'typed'`）。 */
   userCitations?: readonly Id[];
@@ -290,7 +292,7 @@ export interface Delivery {
 
 export type DeliveryOutcome = {
   result: 'steered' | 'held' | 'woke' | 'started' | 'dropped';
-  /** `dropped` 的原因：`unattended-needs-approvals`、`archived`、`not-found`、`unavailable`。 */
+  /** `dropped` 的原因：`unattended-needs-approvals`、`archived`、`not-found`、`unavailable`、`stopped`（等着时回合被停了）。 */
   reason: string | null;
   /** 收到它的任务（steered / held / woke / started）。 */
   taskId: Id | null;
@@ -2451,6 +2453,14 @@ export class Harness {
     state.upsert({ ...d.item, kind: 'relay', id: d.id, createdAt: previous?.createdAt ?? nowIso(), taskId });
   }
 
+  /** 丢掉等着回合结束的投递，都标为 `dropped`（带原因）。 */
+  #discardHeld(conversationId: Id, reason: string): void {
+    const held = this.#heldDeliveries.get(conversationId);
+    if (!held) return;
+    this.#heldDeliveries.delete(conversationId);
+    for (const d of held) this.#dropDelivery(d, reason);
+  }
+
   /** 回合结束时把等着的投递合成一次（§8.3）。起不了的标为 `dropped`，由调用方的对账再投。 */
   #deliverHeld(state: ConversationState, held: readonly Delivery[]): void {
     const outcome = this.#startDelivery(state, held);
@@ -2472,7 +2482,8 @@ export class Harness {
       this.#checkCanSend(state.id);
       this.#checkProjectNotMissing(conversation);
       this.#checkDriverUsable(conversation.driverId);
-      mode = first.accessMode ?? this.#resolveMode(state).mode;
+      // 等过回合结束的投递按此刻重算（§14.4）：等的时候上限可能压低了。
+      mode = (first.accessModeAt ? first.accessModeAt() : first.accessMode) ?? this.#resolveMode(state).mode;
       if (unattended) {
         if (this.#approvalsSupported(conversation.driverId) === false) return drop('unattended-needs-approvals');
         mode = unattendedMode(mode);
@@ -3026,6 +3037,8 @@ export class Harness {
       if (task?.kind === 'task') state.upsert({ ...task, status: 'stopping' });
       state.updateConversation({ activity: 'stopping' });
       this.#cancelPendingApprovals(state, run);
+      // 停下来的回合后面不接着跑等着的投递（Bot 技术方案 §8.3）：用户点了停，就不能在回合结束时又起一轮。
+      this.#discardHeld(state.id, 'stopped');
       // 取消 Job（等引擎确认停止屏障）与中断回合同时进行。
       const cancelling = Promise.resolve(this.#jobs?.cancelSubmittedBy(state.id) ?? 0);
       const interrupted = this.#interrupt(state, run);

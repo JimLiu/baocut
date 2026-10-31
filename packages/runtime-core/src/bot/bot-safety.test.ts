@@ -346,6 +346,33 @@ describe('channel access ceiling (§14.4)', () => {
     expect(kit.harness.conversationOf(thread)!.accessMode).toBe('plan');
   });
 
+  it('a relay held behind a turn that cannot be steered runs under the ceiling as it is when the turn ends', async () => {
+    await kit.close();
+    kit = await BotKit.open({ steer: false });
+    const modes: string[] = [];
+    let first: TurnContext['turn'] | null = null;
+    kit.thread = (ctx) => {
+      modes.push(kit.harness.conversationMode(ctx.conversationId));
+      if (!first) {
+        first = ctx.turn;
+        ctx.turn.hold();
+      }
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Trim the intro', owner: 'agent' });
+    await kit.bot.updateItem(item.id, { overrides: { accessMode: 'auto', driverId: null, model: null, budget: null, outputLanguage: null } });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => first);
+    // 线程的回合停着、不能插话：转交只能排队。
+    kit.coordinator = kit.once((ctx) => ctx.call('thread_relay', { workItemId: item.id, citedMessageIds: [userMsg(ctx)] })).script;
+    await kit.send(main(), 'Make it shorter');
+    await kit.until(() => kit.items(kit.threadOf(item.id)).some((i) => i.kind === 'relay'));
+    await kit.bot.updateChannel(kit.main.id, { maxAccessMode: 'plan' });
+    first!.complete();
+    await kit.settle();
+    expect(modes).toHaveLength(2);
+    expect(modes.at(-1)).toBe('plan');
+  });
+
   it('a channel default above the ceiling is capped on the coordinator; raising the ceiling brings the default back', async () => {
     await kit.bot.updateChannel(kit.main.id, { maxAccessMode: 'plan' });
     await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'auto' });
@@ -390,5 +417,20 @@ describe('switching a channel driver (§6.3)', () => {
     expect(kit.harness.conversationOf(main())!.driverId).toBe('codex');
     release();
     await kit.settle();
+  });
+});
+
+describe('memory writes (§11)', () => {
+  it('two saves with the same version: the first wins and the second gets a conflict, for channel and user memory', async () => {
+    const [a, b] = await Promise.allSettled([kit.bot.writeMemory(kit.main.id, 'first', 0), kit.bot.writeMemory(kit.main.id, 'second', 0)]);
+    expect(a).toMatchObject({ status: 'fulfilled', value: { version: 1 } });
+    expect(b).toMatchObject({ status: 'rejected', reason: { code: 'conflict' } });
+    expect(await kit.bot.readMemory(kit.main.id)).toMatchObject({ content: 'first', version: 1 });
+
+    const start = (await kit.bot.readUserMemory()).version;
+    const [c, d] = await Promise.allSettled([kit.bot.writeUserMemory('mine', start), kit.bot.writeUserMemory('theirs', start)]);
+    expect(c).toMatchObject({ status: 'fulfilled', value: { version: start + 1 } });
+    expect(d).toMatchObject({ status: 'rejected', reason: { code: 'conflict' } });
+    expect(await kit.bot.readUserMemory()).toMatchObject({ content: 'mine', version: start + 1 });
   });
 });
