@@ -50,6 +50,22 @@ describe('one-shot timers', () => {
     expect(kit.harness.conversationOf(kit.threadOf(item.id))!.activeTaskId).toBeFalsy();
   });
 
+  it('archiving does not let a task queued behind the thread limit take the freed slot', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Later' });
+    await kit.bot.updateChannel(channel.id, { concurrentThreads: 1 });
+    kit.thread = (ctx) => ctx.turn.hold();
+    const first = await kit.bot.createItem({ channelId: channel.id, title: 'Render the long cut', owner: 'agent' });
+    await kit.bot.startItem(first.id, { attended: true });
+    await kit.until(() => kit.item(first.id).threadId && kit.harness.conversationOf(kit.threadOf(first.id))?.activity === 'running');
+    const queued = await kit.bot.createItem({ channelId: channel.id, title: 'Render the short cut', owner: 'agent' });
+    await kit.bot.startItem(queued.id, { attended: true });
+    expect(kit.item(queued.id)).toMatchObject({ status: 'upNext', threadId: null });
+    await kit.bot.archiveChannel(channel.id, true);
+    await kit.settle();
+    expect(kit.item(first.id).active?.state).toBe('blocked');
+    expect(kit.item(queued.id)).toMatchObject({ status: 'upNext', threadId: null });
+  });
+
   it('while automation is paused no timer is armed, and a due item runs when it resumes', async () => {
     const others = kit.clock.timers.size;
     const item = await scheduledIn(kit.main.id, 'Make chapters', 60_000);

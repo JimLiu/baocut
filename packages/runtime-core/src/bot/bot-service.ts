@@ -652,9 +652,13 @@ export class BotService {
   async archiveChannel(id: Id, archived: boolean): Promise<Channel> {
     const channel = this.channel(id);
     if (channel.kind === 'main') throw new RpcError('invalid-request', RcBot.mainChannelLocked());
+    const next = { ...channel, archived, archivedAt: archived ? nowIso() : null, updatedAt: nowIso() };
+    // 先标归档再停任务：停下空出的名额不能被这个频道里排队的任务接走（#pump 与 #launch 跳过归档的频道）。
+    if (archived) await this.#putChannel(next);
     if (archived) {
       // 归档等于用户把频道里在做的任务都停下（§5.6）：走 stop，任务转为停下（不再占并发名额），线程的回合也停掉。
-      for (const item of this.#channelItems(id)) {
+      for (const listed of this.#channelItems(id)) {
+        const item = this.#items.get(listed.id) ?? listed;
         if (item.status !== 'active' || !item.threadId) continue;
         if (item.owner === 'agent' && item.active?.state !== 'blocked') {
           const stopped = await this.transition(item.id, { type: 'stop' } as never, { actor: 'user' }).then(
@@ -666,8 +670,7 @@ export class BotService {
         await this.#stopThread(item);
       }
     }
-    const next = { ...channel, archived, archivedAt: archived ? nowIso() : null, updatedAt: nowIso() };
-    await this.#putChannel(next);
+    if (!archived) await this.#putChannel(next);
     await this.#harness.updateConversation({ conversationId: channel.conversationId, archived }, { internal: BOT_INTERNAL });
     this.#schedules?.channelChanged(id);
     // 恢复时补投挂起的报告（§8.3 dropped 的那一类）。
@@ -1229,7 +1232,7 @@ export class BotService {
   /** 开工：闸门有空位就开线程投简报，否则回到 upNext 排队（§18.1）。 */
   async #launch(item: WorkItem, options: { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null }): Promise<void> {
     const deps = item.dependsOn.map((d) => this.#items.get(d)).filter((d): d is WorkItem => !!d && d.status !== 'resolved');
-    if (deps.length || !this.#slotFree(item.channelId, item.id) || this.settings().automationPaused) {
+    if (deps.length || !this.#slotFree(item.channelId, item.id) || this.settings().automationPaused || this.#channels.get(item.channelId)?.archived) {
       const queued: WorkItem = {
         ...item,
         status: 'upNext',
@@ -1354,7 +1357,8 @@ export class BotService {
     if (report?.waitingFor?.jobIds.length && !resolved && !this.#readyToWake.has(current.id)) return;
     const open = [...current.dependsOn, ...waitingOn].some((d) => this.#items.get(d)?.status !== 'resolved');
     if (open) return;
-    if (this.#stopped || this.settings().automationPaused || !this.#channels.get(current.channelId) || !this.#slotFree(current.channelId, current.id)) {
+    const channel = this.#channels.get(current.channelId);
+    if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) {
       this.#readyToWake.set(current.id, resolved ? { id: resolved.id, title: resolved.title } : (this.#readyToWake.get(current.id) ?? null));
       return;
     }
