@@ -693,8 +693,12 @@ export class BotTools implements ToolSet {
     let item = this.#target(caller, args.id);
     // 标题与说明跟着线程的指令一直带着（§6.2）：只在有人在场的回合里改，报告、简报、刷新里读到的文字不能改写它们。
     const renamed = (args.title !== undefined && args.title !== item.title) || (args.description !== undefined && args.description !== item.description);
-    if (renamed && !caller.run.attended) {
-      throw new ToolError('NEEDS_USER_TURN', 'The task title and description only change in a turn the user started. Put progress in update or steps instead.');
+    // 回合里插进了报告或转交（tainted）也不行：读到的文字可能要它改，与建新任务同一条规矩（`#newWork`）。
+    if (renamed && (!caller.run.attended || caller.run.tainted)) {
+      throw new ToolError(
+        'NEEDS_USER_TURN',
+        'The task title and description only change in a turn the user started and that no report or relay arrived in. Put progress in update or steps instead.',
+      );
     }
     if (args.resources !== undefined) this.#checkResourceScope(caller, item, args.resources);
     if (args.title !== undefined && args.title !== item.title) {
