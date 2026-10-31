@@ -537,6 +537,46 @@ describe('频道任务（work-item）', () => {
     expect(only().runs[0]).toMatchObject({ status: 'failed', workItemId: 'ghost' });
   });
 
+  it('重启时按任务现在的状态收尾这一次：还在等别人就接着等，不按失败记，也不多算一次', async () => {
+    await hourly({ maxRuns: 1 });
+    await clock.advance(HOUR);
+    bot.items.set('wi1', { status: 'active', activeState: 'waitingOnOthers' });
+    service.workItemChanged('wi1');
+    const saved = service.list();
+    service.stop();
+    await boot(saved);
+    expect(only()).toMatchObject({ status: 'active', runCount: 0, runs: [{ status: 'running', workItemId: 'wi1' }] });
+    bot.items.set('wi1', { status: 'active', activeState: 'needsReview' });
+    service.workItemChanged('wi1');
+    expect(only()).toMatchObject({ runCount: 1, runs: [{ status: 'done' }] });
+    // 关掉时任务已经停下：重启当场收尾；任务不见了才算失败。
+    await hourly();
+    await clock.advance(HOUR);
+    const second = service.list().find((x) => x.maxRuns === null)!;
+    const lastId = second.runs[0]!.workItemId!;
+    bot.items.set(lastId, { status: 'active', activeState: 'needsInput' });
+    const before = service.list();
+    service.stop();
+    await boot(before);
+    expect(service.list().find((x) => x.maxRuns === null)!.runs[0]).toMatchObject({ status: 'done', workItemId: lastId });
+  });
+
+  it('上一条任务一直没解决：跳过的次数再多，也不会挤掉它而再建一条', async () => {
+    await hourly();
+    await clock.advance(HOUR);
+    bot.items.set('wi1', { status: 'active', activeState: 'needsReview' });
+    service.workItemChanged('wi1');
+    await clock.advance(60 * HOUR);
+    expect(bot.created).toHaveLength(1);
+    const runs = only().runs;
+    expect(runs.length).toBeLessThanOrEqual(50);
+    expect(runs.at(-1)).toMatchObject({ workItemId: 'wi1' });
+    expect(runs.slice(0, -1).every((r) => r.status === 'skipped')).toBe(true);
+    bot.items.set('wi1', { status: 'resolved', activeState: null });
+    await clock.advance(HOUR);
+    expect(bot.created).toHaveLength(2);
+  });
+
   it('频道归档时暂停（channel-archived），删除时写明删除；恢复后要用户自己继续', async () => {
     await hourly();
     bot.channels.set('chan1', { archived: true });

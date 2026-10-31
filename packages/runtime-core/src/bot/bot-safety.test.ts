@@ -269,3 +269,23 @@ describe('BOT-SF-08 BOT-SF-12 spending, sending and publishing always ask', () =
     expect(kit.harness.approvals.pending()[0]!.approvalId).not.toBe(first.approvalId);
   });
 });
+
+describe('channel access ceiling (§14.4)', () => {
+  it('a task with no override runs in the channel default, not in the ceiling; an override above the ceiling is capped', async () => {
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'plan', maxAccessMode: 'auto' });
+    const modes: string[] = [];
+    kit.thread = (ctx) => {
+      modes.push(kit.harness.conversationMode(ctx.conversationId));
+    };
+    const planned = await kit.startTask('Plan the episode cut');
+    await kit.settle();
+    expect(modes).toEqual(['plan']);
+    expect(kit.harness.conversationOf(kit.threadOf(planned.id))!.accessMode).toBe('plan');
+
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: null, maxAccessMode: 'ask' });
+    const followed = await kit.startTask('Follow the preference');
+    await kit.settle();
+    expect(modes.at(-1)).toBe('ask');
+    expect(kit.harness.conversationOf(kit.threadOf(followed.id))!.accessMode).toBe('ask');
+  });
+});

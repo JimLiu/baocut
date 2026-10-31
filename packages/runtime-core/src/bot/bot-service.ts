@@ -1240,6 +1240,7 @@ export class BotService {
     const channel = this.channel(item.channelId);
     let threadId = item.threadId;
     if (!threadId || !this.#harness.conversationOf(threadId)) {
+      // 没有指定模式时线程跟随偏好设置，不是直接取频道上限；建好后再压到上限以内。
       const mode = minMode(item.overrides?.accessMode ?? channel.defaultAccessMode, channel.maxAccessMode);
       const conversation = await this.#harness.createConversation(
         {
@@ -1253,6 +1254,10 @@ export class BotService {
         { role: 'thread', channelId: channel.id, workItemId: item.id, cwd: this.#files.filesDir(channel.id) },
       );
       threadId = conversation.id;
+      const followed = this.#threadMode(threadId);
+      if (!mode && channel.maxAccessMode && followed && rank(followed) > rank(channel.maxAccessMode)) {
+        await this.#harness.updateConversation({ conversationId: threadId, accessMode: channel.maxAccessMode }, { internal: BOT_INTERNAL });
+      }
       await this.#files.ensureNotes(channel.id, threadId).catch(() => {});
     }
     const current = this.#items.get(item.id) ?? item;
@@ -1317,10 +1322,11 @@ export class BotService {
       userCitations: citations,
       ...(d.reopenTaskId ? { reopenTaskId: d.reopenTaskId } : {}),
     };
-    const mode = item.overrides?.accessMode;
-    const channel = this.channel(item.channelId);
-    const capped = minMode(mode ?? null, channel.maxAccessMode);
-    if (capped) delivery.accessMode = capped;
+    // 先定下这次实际会用的模式（任务覆盖的，否则线程自己的），再按频道上限压低；没有覆盖时不能直接取上限。
+    const override = item.overrides?.accessMode ?? null;
+    const effective = override ?? this.#threadMode(item.threadId);
+    const capped = minMode(effective, this.channel(item.channelId).maxAccessMode);
+    if (capped && (override || capped !== effective)) delivery.accessMode = capped;
     await this.#refreshSpend(item.channelId);
     this.#expecting.add(item.threadId);
     let outcome;
@@ -1334,6 +1340,15 @@ export class BotService {
       await this.#needsYouToRun(item);
     }
     return { result: outcome.result, reason: outcome.reason };
+  }
+
+  /** 线程此刻的访问模式（会话设的，否则偏好设置）；读不到时为 null。 */
+  #threadMode(threadId: Id): AgentMode | null {
+    try {
+      return this.#harness.conversationMode(threadId);
+    } catch {
+      return null;
+    }
   }
 
   /** 线程新任务的预算上限（§14.5）：任务预算与频道剩余额度的较小值。别的会话不设。 */
@@ -2588,8 +2603,7 @@ function rank(mode: AgentMode): number {
 
 /** 任务的访问模式不高于频道上限（§14.4）。 */
 export function minMode(mode: AgentMode | null, max: AgentMode | null): AgentMode | null {
-  if (!max) return mode;
-  if (!mode) return max;
+  if (!mode || !max) return mode;
   return rank(mode) > rank(max) ? max : mode;
 }
 

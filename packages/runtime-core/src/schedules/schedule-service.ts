@@ -118,6 +118,11 @@ export class ScheduleService {
     for (const schedule of this.#schedules) {
       for (const run of schedule.runs) {
         if (run.status !== 'running') continue;
+        // 频道任务这一次记的是 Bot 任务，不是 Agent 任务：按任务现在的状态收尾（还在做、在等别人就接着等）。
+        if (run.workItemId) {
+          this.#settleWorkItem(schedule, run);
+          continue;
+        }
         const task = run.taskId ? this.#host.task(run.taskId) : undefined;
         // 上次关掉时还没拿到任务的那一轮不知道发没发出去，按失败记。
         if (!task) this.#finish(schedule, run, 'failed', null);
@@ -543,7 +548,12 @@ export class ScheduleService {
       error: null,
       ...patch,
     };
-    schedule.runs = [run, ...schedule.runs].slice(0, SCHEDULE_LIMITS.runs);
+    const all = [run, ...schedule.runs];
+    let kept = all.slice(0, SCHEDULE_LIMITS.runs);
+    // 最近建过任务的那一次不能被挤掉：下一次跳不跳过要看那条任务解决了没有（§11.1）。
+    const lastItem = all.find((r) => r.workItemId);
+    if (lastItem && !kept.includes(lastItem)) kept = [...kept.slice(0, SCHEDULE_LIMITS.runs - 1), lastItem];
+    schedule.runs = kept;
     return run;
   }
 
