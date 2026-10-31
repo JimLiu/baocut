@@ -206,6 +206,11 @@ export class ChannelFiles {
     await fs.rm(dir, { recursive: true, force: true });
   }
 
+  /** 等所有排着的写入落定（关停前用）。写入期间又排进来的也等。 */
+  async flush(): Promise<void> {
+    while (this.#writes.size) await Promise.all([...this.#writes.values()].map((p) => p.catch(() => {})));
+  }
+
   #serial(file: string, fn: () => Promise<void>): Promise<void> {
     const next = (this.#writes.get(file) ?? Promise.resolve()).catch(() => {}).then(fn);
     this.#writes.set(file, next);

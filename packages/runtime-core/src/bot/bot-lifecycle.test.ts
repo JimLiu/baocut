@@ -3,7 +3,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId, type Id } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
-import { ChannelFiles } from '@baocut/runtime-storage';
+import { ChannelFiles, WorkItemStore } from '@baocut/runtime-storage';
 import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
 import { stateName } from './work-item-machine.ts';
 
@@ -481,6 +481,33 @@ describe('undo baselines', () => {
     await kit.send(kit.threadOf(item.id), 'Trim a bit more');
     await kit.settle();
     expect(kit.item(item.id).baseVersions).toEqual([{ projectId: 'proj_1', videoId: video.videoId, version: 4 }]);
+  });
+});
+
+describe('stopping the service', () => {
+  it('stop waits for background writes that are still running, so nothing is written after it returns', async () => {
+    const video = { kind: 'video', projectId: 'proj_1', videoId: 'video_0123456789abcdef' } as const;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let asked = false;
+    // 回合结束后读视频基线（没人等着的后台处理）：读得很慢。
+    kit.workspace.baselines = async () => {
+      asked = true;
+      await gate;
+      return [{ projectId: 'proj_1', videoId: video.videoId, version: 4 }];
+    };
+    const item = await kit.startTask('Trim episode 4', { resources: [video] });
+    await kit.until(() => asked);
+    let stopped = false;
+    const stopping = kit.bot.stop().then(() => (stopped = true));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(stopped).toBe(false);
+    release();
+    await stopping;
+    // stop 返回时基线已经写进任务存储。
+    const store = new WorkItemStore(kit.home.workItemsDir);
+    const saved = (await store.load(kit.main.id)).items.find((i) => i.id === item.id);
+    expect(saved?.baseVersions).toEqual([{ projectId: 'proj_1', videoId: video.videoId, version: 4 }]);
   });
 });
 

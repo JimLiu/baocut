@@ -188,6 +188,8 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const ONE_SHOT_GRACE_MS = 5 * MINUTE;
+/** `stop` 最多等后台处理这么久。 */
+const STOP_DRAIN_MS = 5000;
 const NEEDS_REVIEW_STALE_DAYS = 3;
 /**
  * 建议任务默认的「本地、可撤销」类别（§11.3 第 4 步的白名单）。与下面的禁用词一样按整词（带常见词形）比：只看开头时
@@ -364,7 +366,7 @@ export class BotService {
     // Driver 的可用性变了（重新探测、改了偏好）：之前因为 Driver 不可用没投出去的报告再投一次（§8.3）。
     const agents = this.#harness.subscribe('agents', undefined, (event) => {
       if ((event.event as { type?: string }).type !== 'agents.updated' || this.#stopped) return;
-      void this.#resendPending().catch(() => {});
+      void this.#track(this.#resendPending().catch(() => {}));
     });
     this.#unsubscribe.push(() => agents.unsubscribe?.());
     // 接力（§6.3）之后、下一个协调者回合之前重启：接力要补的上下文只记在内存里，按会话记录找回来。
@@ -399,8 +401,44 @@ export class BotService {
     this.#cancelHourly?.();
     for (const cancel of this.#seedTimers.values()) cancel();
     this.#seedTimers.clear();
+    // 不等就关的话，还在跑的处理（回合事件、报告、建议、基线……）会在存储关掉、目录删掉之后接着写盘。
+    await this.#drainBackground();
+    await Promise.all([...this.#memoryWrites.values()]);
     await this.#store.flush();
     await this.#channels.flush();
+    await this.#files.flush();
+  }
+
+  /** 没人等着的后台处理（`void …`）：都经 `#track` 记下，`stop` 时等它们落定。 */
+  readonly #background = new Set<Promise<void>>();
+
+  #track(work: Promise<unknown>): Promise<void> {
+    const settled = work.then(
+      () => {},
+      (error: unknown) => this.#log.warn('Background work failed', { error: String(error) }),
+    );
+    this.#background.add(settled);
+    void settled.then(() => this.#background.delete(settled));
+    return settled;
+  }
+
+  /** 等后台处理落定（它们还会再起新的，所以一轮轮等）；卡住不返回的（比如在等一个停着的回合）等到上限就不等了。 */
+  async #drainBackground(): Promise<void> {
+    const deadline = Date.now() + STOP_DRAIN_MS;
+    while (this.#background.size) {
+      const left = deadline - Date.now();
+      if (left <= 0) {
+        this.#log.warn('Stopping with background work still running', { count: this.#background.size });
+        return;
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, left);
+        timer.unref?.();
+      });
+      await Promise.race([Promise.all([...this.#background]), timeout]);
+      clearTimeout(timer);
+    }
   }
 
   async #loadChannel(channelId: Id): Promise<void> {
@@ -620,7 +658,7 @@ export class BotService {
       const existing = this.#channels.get(MAIN_CHANNEL_ID);
       if (existing) return existing;
       const channel = await this.#createChannel({ id: MAIN_CHANNEL_ID, kind: 'main', name: RcBot.mainChannelName().text, purpose: '' });
-      void this.#seed(channel).catch((error: unknown) => this.#log.warn('Seed turn failed', { error: String(error) }));
+      void this.#track(this.#seed(channel).catch((error: unknown) => this.#log.warn('Seed turn failed', { error: String(error) })));
       return channel;
     });
   }
@@ -637,7 +675,7 @@ export class BotService {
   }): Promise<Channel> {
     const channel = await this.#createChannel({ id: newId('chan'), kind: 'topic', ...params, purpose: params.purpose ?? '' });
     this.#writeChannelIntro(channel);
-    void this.runMake(channel.id, 'channel-created').catch(() => {});
+    void this.#track(this.runMake(channel.id, 'channel-created').catch(() => {}));
     return channel;
   }
 
@@ -740,8 +778,8 @@ export class BotService {
       this.#clock.setTimer(() => {
         this.#seedTimers.delete(channel.conversationId);
         if (!this.#hasAgentMessage(channel.conversationId, outcome.taskId)) {
-          void this.#harness.interrupt(channel.conversationId).catch(() => {});
-          void this.#seedFallback(channel, block);
+          void this.#track(this.#harness.interrupt(channel.conversationId).catch(() => {}));
+          void this.#track(this.#seedFallback(channel, block));
         }
       }, this.#seedTimeoutMs),
     );
@@ -1696,7 +1734,7 @@ export class BotService {
 
   async #onResolved(item: WorkItem): Promise<void> {
     await this.#wakeDependants(item, { id: item.id, title: item.title });
-    if (item.resolution?.kind === 'done') void this.runMake(item.channelId, 'item-resolved').catch(() => {});
+    if (item.resolution?.kind === 'done') void this.#track(this.runMake(item.channelId, 'item-resolved').catch(() => {}));
   }
 
   /**
@@ -2200,14 +2238,14 @@ export class BotService {
       await this.createItem({ channelId: item.channelId, title: [...todo].slice(0, BOT_LIMITS.title).join(''), owner: 'user', source: { kind: 'thread', messageId: null, scheduleId: null, runId: null } });
     }
     if (report.followUps.length) {
-      void this.#suggestFollowUps(item, report.followUps).catch((error: unknown) => this.#log.warn('Suggesting follow-ups failed', { workItemId: item.id, error: String(error) }));
+      void this.#track(this.#suggestFollowUps(item, report.followUps).catch((error: unknown) => this.#log.warn('Suggesting follow-ups failed', { workItemId: item.id, error: String(error) })));
     }
     await this.#deliverReport(report, run.attended);
     // 报告说在等的任务可能在报告之前就结了：那时的「已结」事件找不到它，这里补查一次。
     // 不等它：这份报告常是线程在回合里交的，叫醒的投递要等这一回合结束才开始。
     if (report.stop === 'waiting') {
       const current = this.#items.get(item.id);
-      if (current) void this.#wakeIfReady(current, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: item.id, error: String(error) }));
+      if (current) void this.#track(this.#wakeIfReady(current, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: item.id, error: String(error) })));
     }
     return report;
   }
@@ -2268,7 +2306,7 @@ export class BotService {
       onDelivered: () => {
         const taskId = this.#harness.runInfo(channel.conversationId)?.taskId;
         if (taskId) this.#relayRuns.set(taskId, [...(this.#relayRuns.get(taskId) ?? []), report]);
-        void markDelivered();
+        void this.#track(markDelivered());
       },
     });
     if (outcome.result === 'dropped' && outcome.reason === 'unattended-needs-approvals') {
@@ -2297,7 +2335,7 @@ export class BotService {
   // ---- 活动桥（§9.3） ----
 
   #onRun(event: RunEvent): void {
-    void this.#handleRun(event).catch((error: unknown) => this.#log.warn('Run handling failed', { error: String(error) }));
+    void this.#track(this.#handleRun(event).catch((error: unknown) => this.#log.warn('Run handling failed', { error: String(error) })));
   }
 
   async #handleRun(event: RunEvent): Promise<void> {
@@ -2347,7 +2385,7 @@ export class BotService {
       this.#jobWaking.delete(item.id);
       await this.#recordRunFiles(item.id, event.taskId);
       // 读视频版本要打开视频，不挡住后面的收尾。
-      void this.#recordBaselines(item.id);
+      void this.#track(this.#recordBaselines(item.id));
       this.bindThreadChips(conversation.id, event.taskId);
       if (event.status === 'completed') this.#supplementChips(conversation.id, event.taskId);
       const info = this.#runStarts.get(event.taskId);
@@ -2469,7 +2507,7 @@ export class BotService {
   /** 审批与提问（§9.3）：线程会话的 activity 变成等你 → needsInput；回来 → 审批结束。同时把提问卡的选项做成答案提示。 */
   #onConversation(conversation: Conversation): void {
     if (conversation.role !== 'thread' && conversation.role !== 'channel') return;
-    void this.#handleConversation(conversation).catch((error: unknown) => this.#log.warn('Conversation handling failed', { error: String(error) }));
+    void this.#track(this.#handleConversation(conversation).catch((error: unknown) => this.#log.warn('Conversation handling failed', { error: String(error) })));
   }
 
   async #handleConversation(conversation: Conversation): Promise<void> {
@@ -2502,7 +2540,7 @@ export class BotService {
         // 审批时交的「在等」报告落下了：等的任务可能在审批期间就结了，那时的「已结」叫不醒它，这里补查一次。
         const settled = item ? this.#items.get(item.id) : undefined;
         if (settled?.status === 'active' && settled.active?.state === 'waitingOnOthers') {
-          void this.#wakeIfReady(settled, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: settled.id, error: String(error) }));
+          void this.#track(this.#wakeIfReady(settled, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: settled.id, error: String(error) })));
         }
       }
     }
@@ -2512,13 +2550,13 @@ export class BotService {
   #armWatchdog(): void {
     const tick = () => {
       if (this.#stopped) return;
-      void this.watchdog().catch((error: unknown) => this.#log.warn('Watchdog failed', { error: String(error) }));
+      void this.#track(this.watchdog().catch((error: unknown) => this.#log.warn('Watchdog failed', { error: String(error) })));
       this.#cancelWatchdog = this.#clock.setTimer(tick, MINUTE);
     };
     this.#cancelWatchdog = this.#clock.setTimer(tick, MINUTE);
     const hourly = () => {
       if (this.#stopped) return;
-      void this.hourly().catch((error: unknown) => this.#log.warn('Reminder scan failed', { error: String(error) }));
+      void this.#track(this.hourly().catch((error: unknown) => this.#log.warn('Reminder scan failed', { error: String(error) })));
       this.#cancelHourly = this.#clock.setTimer(hourly, HOUR);
     };
     this.#cancelHourly = this.#clock.setTimer(hourly, HOUR);
@@ -2645,7 +2683,7 @@ export class BotService {
     });
     const next = { ...current, reminded: [...current.reminded, key] };
     this.#items.set(item.id, next);
-    void this.#store.putItem(item.channelId, next, { sync: false });
+    void this.#track(this.#store.putItem(item.channelId, next, { sync: false }));
     this.#topicOf(item.channelId).publish({ type: 'work-item.upsert', item: next });
     if (key.startsWith('due') || key.startsWith('overdue')) this.#notify(next, 'reminder');
   }
@@ -2685,7 +2723,7 @@ export class BotService {
     if (due.length === 0) return;
     const next = Math.min(...due);
     const wait = Math.max(0, Math.min(next - now, HOUR));
-    this.#cancelOneShot = this.#clock.setTimer(() => void this.fireDue(), wait);
+    this.#cancelOneShot = this.#clock.setTimer(() => void this.#track(this.fireDue()), wait);
   }
 
   /** 一次性定时的候选：已排期、有时刻，且所在频道没有归档（归档的频道恢复时重新挂定时）。 */
@@ -2741,7 +2779,7 @@ export class BotService {
       if (prelude) parts.push(...prelude);
       if (channel.seedPending) {
         parts.push(channel.seedPending);
-        void this.#putChannel({ ...channel, seedPending: null });
+        void this.#track(this.#putChannel({ ...channel, seedPending: null }));
       }
     }
     return parts.join('\n');
