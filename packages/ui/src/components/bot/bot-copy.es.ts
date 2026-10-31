@@ -224,6 +224,13 @@ export const es: BotMessages = {
     delete: 'Eliminar',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} veces)` : label),
     deleteStopsFirst: 'Esta tarea sigue en curso. Primero se detiene su hilo.',
+    editTask: 'Editar tarea',
+    dueLabel: 'Fecha límite',
+    eventLabel: 'Día del evento',
+    dayHint: 'Déjalo vacío si no hay',
+    dayInvalid: 'Usa una fecha como 2026-11-07',
+    setByYou: 'lo fijaste tú',
+    fromYourMessage: 'de tu mensaje',
   },
   inbox: {
     title: 'Te esperan',

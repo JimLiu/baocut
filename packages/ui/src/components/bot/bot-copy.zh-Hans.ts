@@ -223,6 +223,13 @@ export const zhHans: BotMessages = {
     delete: '删除',
     revertChange: (label: string, count: number) => (count > 1 ? `${label}（${count} 次）` : label),
     deleteStopsFirst: '这条任务还在进行，会先停下它的线程。',
+    editTask: '编辑任务',
+    dueLabel: '截止日',
+    eventLabel: '活动日',
+    dayHint: '留空表示没有',
+    dayInvalid: '请写成 2026-11-07 这样的日期',
+    setByYou: '你定的',
+    fromYourMessage: '来自你的消息',
   },
   inbox: {
     title: '等你处理',

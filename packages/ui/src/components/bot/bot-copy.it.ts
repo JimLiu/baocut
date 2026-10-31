@@ -224,6 +224,13 @@ export const it: BotMessages = {
     delete: 'Elimina',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} volte)` : label),
     deleteStopsFirst: 'Questa attività è ancora in corso. Prima si ferma il suo thread.',
+    editTask: 'Modifica attività',
+    dueLabel: 'Scadenza',
+    eventLabel: 'Giorno dell’evento',
+    dayHint: 'Lascia vuoto se non c’è',
+    dayInvalid: 'Usa una data come 2026-11-07',
+    setByYou: 'impostato da te',
+    fromYourMessage: 'dal tuo messaggio',
   },
   inbox: {
     title: 'Ti aspettano',

@@ -9,7 +9,8 @@ import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
 import { AwayBanner, useAwayAndSeen } from './channel-view.tsx';
 import { NewTaskDialog } from './task-panel.tsx';
-import { DeleteRecordDialog, RevertDialog, ThreadChips, menuActions } from './task-detail.tsx';
+import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
+import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { useTimeline } from '../../state/timeline-store.ts';
 import { BotSettings } from '../settings/bot-settings.tsx';
 import { useChannels } from '../../state/channels-store.ts';
@@ -341,5 +342,33 @@ describe('撤销与删除记录（BOT-EX-19、BOT-EX-20）', () => {
     expect(text).toContain('第 12 期：之后你改过 2 次');
     expect(text).toContain('改字幕（2 次）');
     expect(text).toContain('删除片段');
+  });
+});
+
+describe('任务详情可改（BOT-TK-06）', () => {
+  const item = { ...RUNNING, priority: 'medium', dueOn: null, eventOn: null } as unknown as WorkItem;
+
+  it('改标题、优先级与截止日，只交改过的字段', async () => {
+    handlers['workItems.update'] = (p) => ({ item: { ...item, ...(p.patch as object) } });
+    await render(createElement(TaskEditDialog, { item, onClose: () => {} }));
+    const fields = [...document.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')];
+    expect(fields.map((f) => f.value)).toEqual(['第 12 期字幕改成黄色', '', '']);
+    await typeInto(fields[0]!, '第 12 期字幕改成白色');
+    await typeInto(fields[1]!, '2026-11-07');
+    await press('保存');
+    expect(calls('workItems.update')).toEqual([{ id: 'wi_run', patch: { title: '第 12 期字幕改成白色', dueOn: '2026-11-07' } }]);
+  });
+
+  it('日期写错时不能保存', async () => {
+    await render(createElement(TaskEditDialog, { item, onClose: () => {} }));
+    const fields = [...document.querySelectorAll<HTMLInputElement>('input[type="text"], input:not([type])')];
+    await typeInto(fields[2]!, '2026-02-30');
+    expect(button('保存')?.disabled || button('保存')?.getAttribute('aria-disabled') === 'true').toBe(true);
+  });
+
+  it('截止日旁写明是谁定的', () => {
+    expect(dateFact('截止', '2026-11-07', 'user')).toMatch(/· 你定的$/);
+    expect(dateFact('截止', '2026-11-07', 'agent')).toMatch(/· 来自你的消息$/);
+    expect(dateFact('截止', '2026-11-07', undefined)).not.toContain('·');
   });
 });

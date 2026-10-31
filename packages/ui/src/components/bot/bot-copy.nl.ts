@@ -224,6 +224,13 @@ export const nl: BotMessages = {
     delete: 'Verwijderen',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} keer)` : label),
     deleteStopsFirst: 'Deze taak loopt nog. De thread stopt eerst.',
+    editTask: 'Taak bewerken',
+    dueLabel: 'Deadline',
+    eventLabel: 'Dag van het evenement',
+    dayHint: 'Leeg laten als er geen is',
+    dayInvalid: 'Gebruik een datum als 2026-11-07',
+    setByYou: 'door jou ingesteld',
+    fromYourMessage: 'uit je bericht',
   },
   inbox: {
     title: 'Wacht op jou',

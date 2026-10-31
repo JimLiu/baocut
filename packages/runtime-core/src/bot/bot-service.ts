@@ -73,6 +73,7 @@ import { coordinatorInstructions, threadInstructions } from './instructions.ts';
 import { carryTaskFiles, changedFiles, relativeInside, rewriteFileRef, snapshotFiles, taskFilePaths } from './move-files.ts';
 import { spendWindow, threadTaskBudget, type ChannelSpend } from './bot-budget.ts';
 import { confirmChips, questionChips, questionCount } from './suggestions.ts';
+import { datesSetBy } from './dates-set-by.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
 import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
 
@@ -906,7 +907,7 @@ export class BotService {
     const channel = this.channel(fields.channelId);
     if (channel.archived) throw new RpcError('invalid-request', RcBot.channelArchived());
     const now = nowIso();
-    const item = newWorkItem({ id: newId('wi'), ...fields }, now);
+    const item = datesSetBy(undefined, newWorkItem({ id: newId('wi'), ...fields }, now), 'agent');
     this.#items.set(item.id, item);
     await this.#store.putItem(item.channelId, item, { sync: true });
     this.#topicOf(item.channelId).publish({ type: 'work-item.upsert', item });
@@ -938,7 +939,7 @@ export class BotService {
       throw new RpcError('invalid-request', RcBot.accessAboveChannelMax());
     }
     const { by = 'user', ...rest } = patch;
-    const next: WorkItem = { ...item, ...rest, updatedAt: nowIso() };
+    const next: WorkItem = datesSetBy(item, { ...item, ...rest, updatedAt: nowIso() }, by === 'user' ? 'user' : 'agent');
     if (rest.title !== undefined && by === 'user') next.titleBy = 'user';
     if (rest.overrides && item.overrides?.budget !== rest.overrides.budget) next.budgetWarnedAt = null;
     await this.#commit(item, next, [], []);
@@ -948,7 +949,7 @@ export class BotService {
   /** 智能体工具对任务内容的修改（步骤、更新、资源、产物）：不改状态，只刷新进展时刻。 */
   async patchItemContent(id: Id, fn: (item: WorkItem) => WorkItem, progress: boolean): Promise<WorkItem> {
     const item = this.item(id);
-    const next = fn(structuredClone(item));
+    const next = datesSetBy(item, fn(structuredClone(item)), 'agent');
     next.updatedAt = nowIso();
     if (progress) next.lastProgressAt = next.updatedAt;
     await this.#commit(item, next, [], []);

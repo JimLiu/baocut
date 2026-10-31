@@ -223,6 +223,13 @@ export const vi: BotMessages = {
     delete: 'Xóa',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} lần)` : label),
     deleteStopsFirst: 'Việc này vẫn đang chạy. Luồng của nó sẽ dừng trước.',
+    editTask: 'Sửa việc',
+    dueLabel: 'Hạn chót',
+    eventLabel: 'Ngày sự kiện',
+    dayHint: 'Để trống nếu không có',
+    dayInvalid: 'Nhập ngày dạng 2026-11-07',
+    setByYou: 'bạn đặt',
+    fromYourMessage: 'từ tin nhắn của bạn',
   },
   inbox: {
     title: 'Đang chờ bạn',

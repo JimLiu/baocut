@@ -224,6 +224,13 @@ export const de: BotMessages = {
     delete: 'Löschen',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count}-mal)` : label),
     deleteStopsFirst: 'Diese Aufgabe läuft noch. Ihr Thread wird zuerst gestoppt.',
+    editTask: 'Aufgabe bearbeiten',
+    dueLabel: 'Fällig am',
+    eventLabel: 'Tag des Ereignisses',
+    dayHint: 'Leer lassen, wenn keiner',
+    dayInvalid: 'Datum wie 2026-11-07 angeben',
+    setByYou: 'von dir festgelegt',
+    fromYourMessage: 'aus deiner Nachricht',
   },
   inbox: {
     title: 'Wartet auf dich',

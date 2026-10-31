@@ -91,6 +91,7 @@ export function botMethods(getBot: () => BotService | null): { [M in BotMethod]:
           description: p.description ?? '',
           ...(p.priority ? { priority: p.priority } : {}),
           dueOn: p.dueOn ?? null,
+          ...(p.dueOn ? { dueOnBy: 'user' as const } : {}),
           source: { kind: 'manual', messageId: null, scheduleId: null, runId: null },
         },
         { start: start === true, attended: true },

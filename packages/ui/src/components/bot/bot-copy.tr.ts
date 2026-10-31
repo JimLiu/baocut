@@ -223,6 +223,13 @@ export const tr: BotMessages = {
     delete: 'Sil',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} kez)` : label),
     deleteStopsFirst: 'Bu görev hâlâ sürüyor. Önce iş parçacığı durdurulur.',
+    editTask: 'Görevi düzenle',
+    dueLabel: 'Son tarih',
+    eventLabel: 'Etkinlik günü',
+    dayHint: 'Yoksa boş bırakın',
+    dayInvalid: '2026-11-07 gibi bir tarih girin',
+    setByYou: 'sizin belirlediğiniz',
+    fromYourMessage: 'mesajınızdan',
   },
   inbox: {
     title: 'Sizi bekleyenler',

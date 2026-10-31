@@ -223,6 +223,13 @@ export const ja: BotMessages = {
     delete: '削除',
     revertChange: (label: string, count: number) => (count > 1 ? `${label}（${count} 回）` : label),
     deleteStopsFirst: 'このタスクはまだ進行中です。先にスレッドを止めます。',
+    editTask: 'タスクを編集',
+    dueLabel: '期限',
+    eventLabel: 'イベントの日',
+    dayHint: '空欄ならなし',
+    dayInvalid: '2026-11-07 のように入力してください',
+    setByYou: 'あなたが設定',
+    fromYourMessage: 'あなたのメッセージから',
   },
   inbox: {
     title: 'あなた待ち',

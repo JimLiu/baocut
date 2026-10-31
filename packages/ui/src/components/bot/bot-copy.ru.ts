@@ -232,6 +232,13 @@ export const ru: BotMessages = {
     delete: 'Удалить',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} раз)` : label),
     deleteStopsFirst: 'Задача ещё выполняется. Сначала её поток будет остановлен.',
+    editTask: 'Изменить задачу',
+    dueLabel: 'Срок',
+    eventLabel: 'День события',
+    dayHint: 'Оставьте пустым, если нет',
+    dayInvalid: 'Укажите дату вида 2026-11-07',
+    setByYou: 'задано вами',
+    fromYourMessage: 'из вашего сообщения',
   },
   inbox: {
     title: 'Ждёт вас',

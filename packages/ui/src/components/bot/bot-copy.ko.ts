@@ -223,6 +223,13 @@ export const ko: BotMessages = {
     delete: '삭제',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count}번)` : label),
     deleteStopsFirst: '이 작업은 아직 진행 중입니다. 스레드를 먼저 멈춥니다.',
+    editTask: '작업 편집',
+    dueLabel: '마감일',
+    eventLabel: '행사일',
+    dayHint: '비워 두면 없음',
+    dayInvalid: '2026-11-07 형식으로 입력하세요',
+    setByYou: '직접 설정',
+    fromYourMessage: '내 메시지에서',
   },
   inbox: {
     title: '나를 기다리는 일',

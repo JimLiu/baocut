@@ -243,6 +243,13 @@ const en = {
     delete: 'Delete',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} times)` : label),
     deleteStopsFirst: 'This task is still running. Its thread stops first.',
+    editTask: 'Edit task',
+    dueLabel: 'Due date',
+    eventLabel: 'Event day',
+    dayHint: 'Leave empty for none',
+    dayInvalid: 'Use a date like 2026-11-07',
+    setByYou: 'set by you',
+    fromYourMessage: 'from your message',
   },
   inbox: {
     title: 'Needs you',

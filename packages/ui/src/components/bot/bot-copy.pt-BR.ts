@@ -224,6 +224,13 @@ export const ptBR: BotMessages = {
     delete: 'Excluir',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} vezes)` : label),
     deleteStopsFirst: 'Esta tarefa ainda está em andamento. O fio dela para primeiro.',
+    editTask: 'Editar tarefa',
+    dueLabel: 'Prazo',
+    eventLabel: 'Dia do evento',
+    dayHint: 'Deixe vazio se não houver',
+    dayInvalid: 'Use uma data como 2026-11-07',
+    setByYou: 'definido por você',
+    fromYourMessage: 'da sua mensagem',
   },
   inbox: {
     title: 'Esperando por você',

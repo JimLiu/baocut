@@ -86,6 +86,7 @@ export type Resolution = 'done' | 'dismissed' | 'merged';
 export type BotActor = 'user' | 'coordinator' | 'thread' | 'system';
 export type WorkItemOwner = 'agent' | 'user';
 export type WorkItemPriority = 'high' | 'medium' | 'low';
+export type DateSetBy = 'user' | 'agent';
 
 export const WORK_ITEM_STATUSES: readonly WorkItemStatus[] = ['suggested', 'upNext', 'scheduled', 'active', 'resolved'];
 export const ACTIVE_STATES: readonly ActiveState[] = ['working', 'needsReview', 'needsInput', 'blocked', 'waitingOnOthers'];
@@ -194,6 +195,12 @@ export interface WorkItem {
   dueOn: string | null;
   /** 事件日：任务是为某个活动做的；只由用户或用户原话里的日期设。 */
   eventOn: string | null;
+  /**
+   * 截止日与事件日是谁定的（BOT-TK-06「你定的 / 来自你的消息」）：`user` 是你在界面里设的，`agent` 是智能体按你的消息写的。
+   * 没有日期、或旧数据里没记时缺省。
+   */
+  dueOnBy?: DateSetBy;
+  eventOnBy?: DateSetBy;
   /** `scheduled` 时的开始时刻（RFC 3339）。 */
   startAt: string | null;
   steps: WorkItemStep[];

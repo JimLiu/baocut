@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Id, TimelineItem } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
+import type { TrustedPrincipal } from '../gateway.ts';
+import { botMethods } from './bot-methods.ts';
 import { BotKit } from './testing/bot-kit.ts';
 
 /* 界面入口要的 Runtime 部分（需求 §11）：设置里的 Make 自动触发与补充提示开关。 */
@@ -59,5 +61,36 @@ describe('设置里的 Make 自动触发与补充提示（需求 §11.8）', () 
     expect(suggestions(main()).map((g) => g.source)).toEqual(['agent']);
     await kit.coordinatorTurn('Thanks', (ctx) => ctx.turn.say('You are welcome.'));
     expect(suggestions(main()).map((g) => g.source)).toEqual(['agent']);
+  });
+});
+
+describe('截止日与事件日是谁定的（BOT-TK-06）', () => {
+  const desktop: TrustedPrincipal = { kind: 'desktop', connectionId: 'ui', name: 'desktop' };
+  const rpc = <T>(name: string, params: unknown) =>
+    (botMethods(() => kit.bot)[name as 'workItems.update'] as unknown as (p: unknown, pr: TrustedPrincipal) => Promise<T>)(params, desktop);
+
+  it('界面里新建或改的记成你定的；智能体按你的消息写的记成来自消息；清掉日期一起清掉', async () => {
+    const { item: mine } = await rpc<{ item: { id: Id } }>('workItems.create', { channelId: kit.main.id, title: 'Record the intro', owner: 'user', dueOn: '2026-11-07' });
+    expect(kit.bot.item(mine.id)).toMatchObject({ dueOn: '2026-11-07', dueOnBy: 'user' });
+
+    const { id } = await kit.startTask('Add captions to episode 12');
+    await kit.coordinatorTurn('Need it by Friday', async (ctx) => {
+      await ctx.call('work_items_update', { id, dueOn: '2026-11-06' });
+      ctx.turn.say('Due Friday.');
+    });
+    expect(kit.bot.item(id)).toMatchObject({ dueOn: '2026-11-06', dueOnBy: 'agent' });
+
+    await rpc('workItems.update', { id, patch: { dueOn: '2026-11-08', priority: 'high' } });
+    expect(kit.bot.item(id)).toMatchObject({ dueOn: '2026-11-08', dueOnBy: 'user', priority: 'high' });
+    // 只改优先级、日期没动：仍是你定的。
+    await kit.coordinatorTurn('Make it low priority', async (ctx) => {
+      await ctx.call('work_items_update', { id, priority: 'low' });
+      ctx.turn.say('Done.');
+    });
+    expect(kit.bot.item(id)).toMatchObject({ dueOnBy: 'user', priority: 'low' });
+
+    await rpc('workItems.update', { id, patch: { dueOn: null } });
+    expect(kit.bot.item(id).dueOn).toBeNull();
+    expect(kit.bot.item(id).dueOnBy).toBeUndefined();
   });
 });

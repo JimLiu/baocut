@@ -232,6 +232,13 @@ export const pl: BotMessages = {
     delete: 'Usuń',
     revertChange: (label: string, count: number) => (count > 1 ? `${label} (${count} razy)` : label),
     deleteStopsFirst: 'To zadanie nadal trwa. Najpierw zatrzymamy jego wątek.',
+    editTask: 'Edytuj zadanie',
+    dueLabel: 'Termin',
+    eventLabel: 'Dzień wydarzenia',
+    dayHint: 'Zostaw puste, jeśli brak',
+    dayInvalid: 'Podaj datę w formacie 2026-11-07',
+    setByYou: 'ustawione przez ciebie',
+    fromYourMessage: 'z twojej wiadomości',
   },
   inbox: {
     title: 'Czeka na Ciebie',

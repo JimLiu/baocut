@@ -19,6 +19,7 @@ import {
 } from '@react-spectrum/s2';
 import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
 import Close from '@react-spectrum/s2/icons/Close';
+import Edit from '@react-spectrum/s2/icons/Edit';
 import FullScreen from '@react-spectrum/s2/icons/FullScreen';
 import FullScreenExit from '@react-spectrum/s2/icons/FullScreenExit';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -34,6 +35,7 @@ import { answerWorkItemQuestion, errorText, transitionWorkItem, useBotCall } fro
 import { BOT_COPY as C } from './bot-copy.ts';
 import { formatDay } from './bot-format.ts';
 import { StatusLabel } from './status-badge.tsx';
+import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
 import { SuggestionChips } from './timeline/suggestion-chips.tsx';
 import { statusLabel, workItemStatus } from './work-item-status.ts';
@@ -136,6 +138,13 @@ function stateName(name: WorkItemStateName): string {
   return statusLabel(name as WorkItemStatusKey);
 }
 
+/** 截止日、活动日旁写明是谁定的（BOT-TK-06）：你定的 / 来自你的消息；旧数据没记就不写。 */
+export function dateFact(label: string, day: string, by: WorkItem['dueOnBy']): string {
+  const text = `${label}: ${formatDay(day)}`;
+  if (!by) return text;
+  return `${text} · ${by === 'user' ? C.detail.setByYou : C.detail.fromYourMessage}`;
+}
+
 function resourceLabel(ref: ResourceRef | ArtifactRef): string {
   const kind = C.detail.resource[ref.kind];
   return 'label' in ref && ref.label ? `${kind} · ${ref.label}` : kind;
@@ -197,7 +206,7 @@ export function TaskDetail({
   const runtime = useRuntime();
   const call = useBotCall();
   const now = useNow(60_000);
-  const [dialog, setDialog] = useState<'redirect' | 'revert' | 'delete' | null>(null);
+  const [dialog, setDialog] = useState<'redirect' | 'revert' | 'delete' | 'edit' | null>(null);
   const [allFinished, setAllFinished] = useState(false);
   const [answering, setAnswering] = useState<number | null>(null);
 
@@ -254,6 +263,9 @@ export function TaskDetail({
             {wide ? <FullScreenExit /> : <FullScreen />}
           </ActionButton>
         ) : null}
+        <ActionButton isQuiet size="S" aria-label={C.detail.editTask} onPress={() => setDialog('edit')}>
+          <Edit />
+        </ActionButton>
         {actions.length ? (
           <ActionMenu aria-label={C.common.more} isQuiet size="S" onAction={(key) => run(key as MenuAction)}>
             {actions.map((action) => (
@@ -267,8 +279,8 @@ export function TaskDetail({
       <h2 className={title({ isStruck: status.strike })}>{item.title}</h2>
       <div className={facts}>
         <span>{`${C.detail.priority}: ${C.detail.priorities[item.priority]}`}</span>
-        {item.dueOn ? <span>{`${C.detail.due}: ${formatDay(item.dueOn)}`}</span> : null}
-        {item.eventOn ? <span>{`${C.detail.event}: ${formatDay(item.eventOn)}`}</span> : null}
+        {item.dueOn ? <span>{dateFact(C.detail.due, item.dueOn, item.dueOnBy)}</span> : null}
+        {item.eventOn ? <span>{dateFact(C.detail.event, item.eventOn, item.eventOnBy)}</span> : null}
         <span>{item.owner === 'user' ? C.common.me : C.common.agent}</span>
       </div>
       {item.description ? <p className={description}>{item.description}</p> : null}
@@ -398,6 +410,7 @@ export function TaskDetail({
         )}
       </div>
       {dialog === 'redirect' ? <RedirectDialog item={item} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'edit' ? <TaskEditDialog item={item} onClose={() => setDialog(null)} /> : null}
       {dialog === 'revert' ? <RevertDialog item={item} onClose={() => setDialog(null)} /> : null}
       {dialog === 'delete' ? <DeleteRecordDialog item={item} onClose={() => setDialog(null)} onDeleted={onClose} /> : null}
     </section>

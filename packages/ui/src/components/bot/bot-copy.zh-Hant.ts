@@ -223,6 +223,13 @@ export const zhHant: BotMessages = {
     delete: '刪除',
     revertChange: (label: string, count: number) => (count > 1 ? `${label}（${count} 次）` : label),
     deleteStopsFirst: '這條任務還在進行，會先停下它的執行緒。',
+    editTask: '編輯任務',
+    dueLabel: '截止日',
+    eventLabel: '活動日',
+    dayHint: '留空表示沒有',
+    dayInvalid: '請寫成 2026-11-07 這樣的日期',
+    setByYou: '你定的',
+    fromYourMessage: '來自你的訊息',
   },
   inbox: {
     title: '等你處理',
