@@ -51,6 +51,7 @@ export const workItemTemplateSchema = z
     owner,
     prompt: z.string().max(BOT_LIMITS.brief),
     resources: z.array(resourceRefSchema).max(BOT_LIMITS.resources),
+    accessMode: agentMode.nullable().optional(),
   })
   .strict();
 const priority = z.enum(['high', 'medium', 'low']);

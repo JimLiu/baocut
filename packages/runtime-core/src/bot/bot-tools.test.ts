@@ -178,6 +178,25 @@ describe('BotTools with a live channel', () => {
     expect(await result()).toMatchObject({ ok: false, error: { code: 'NEEDS_USER_TURN' } });
   });
 
+  it('an accepted schedule keeps the access mode shown on the card, and every task it creates runs in that mode', async () => {
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'auto' });
+    const template = { title: 'Weekly recap', description: '', owner: 'agent', prompt: 'Summarise the week.', resources: [] };
+    const cadence = { type: 'weekly', days: [1], time: '09:00' };
+    await kit.coordinatorTurn('every monday plan a recap', async (ctx) =>
+      ctx.call('schedule_propose', { name: 'Recap', cadence, template, accessMode: 'plan', citedMessageId: userMessageId(ctx) }),
+    );
+    const proposal = kit.items(kit.main.conversationId).find((i) => i.kind === 'proposal')!;
+    await kit.bot.respondProposal(kit.main.conversationId, proposal.id, true);
+    const stored = kit.schedules.created.at(-1)!.template;
+    expect(stored.accessMode).toBe('plan');
+    const modes: string[] = [];
+    kit.thread = (ctx) => void modes.push(kit.harness.conversationMode(ctx.conversationId));
+    const { workItemId } = await kit.bot.createScheduledItem(kit.main.id, stored, 'sched_1', 'run_1');
+    await kit.settle();
+    expect(kit.item(workItemId).overrides?.accessMode).toBe('plan');
+    expect(modes).toEqual(['plan']);
+  });
+
   it('memory: only in a clean user turn; secrets and stale versions are refused', async () => {
     const ok = await kit.coordinatorTurn('remember: captions in white', (ctx) => ctx.call('channel_write_memory', { content: '## Rules\n- Captions in white.\n', ifVersion: 0 }));
     expect(ok).toEqual({ version: 1 });

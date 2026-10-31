@@ -19,11 +19,11 @@ export interface RuntimeWorkspaceDeps {
   /** 用量账本的全部记录（§14.5 频道花费）；不给时不算频道预算。 */
   usage?: () => Promise<UsageRecord[]>;
   /**
-   * 整体撤销与线程的「改回去」（BOT-EX-19）：打开视频（读版本、回到版本都要视频开着）与回到某一版。`by` 是谁撤的：用户在任务上点的，
-   * 还是线程自己。不给时不提供撤销。
+   * 整体撤销（BOT-EX-19）：打开视频（读版本、回到版本都要视频开着）与以用户的身份回到某一版（用户在任务上点的）。
+   * 线程自己的「改回去」不走这里：只算出该回到哪一版，由线程用普通的视频工具去做，照样过授权、确认与保护范围。不给时不提供撤销。
    */
   openVideo?: (projectId: Id, videoId: Id) => Promise<void>;
-  restoreVersion?: (videoId: Id, version: number, before: boolean, by: { kind: 'user' } | { kind: 'thread'; threadId: Id }) => Promise<number | null>;
+  restoreVersion?: (videoId: Id, version: number, before: boolean) => Promise<number | null>;
 }
 
 export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
@@ -35,12 +35,14 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
     }
   };
   /**
-   * 撤销计划：任务资源里的每部视频，线程改过的最早一版是基线（回到它开始之前）；基线之后有用户自己的改动（`user_local` 的操作）
-   * 时不能只撤智能体的。线程没改过的视频不列。
+   * 撤销计划：任务资源里的每部视频，线程改过的最早一版是基线（回到它开始之前）。基线之后有用户自己的改动（`user_local` 的操作）
+   * 时不能只撤智能体的；有别的会话（别的任务、别的对话）的改动时整个回到基线会连它们一起撤掉，这部视频不撤（`others` 里记着）。
+   * 线程没改过的视频不列。
    */
-  const plan = async (item: WorkItem): Promise<RevertPlan> => {
+  const inspect = async (item: WorkItem): Promise<{ plan: RevertPlan; others: Set<Id> }> => {
+    const others = new Set<Id>();
     const threadId = item.threadId;
-    if (!threadId || !deps.openVideo) return { videos: [] };
+    if (!threadId || !deps.openVideo) return { plan: { videos: [] }, others };
     const refs = new Map<Id, Id>();
     for (const ref of item.resources) if (ref.kind === 'video' || ref.kind === 'video-range') refs.set(ref.videoId, ref.projectId);
     const videos: RevertPlan['videos'] = [];
@@ -56,21 +58,29 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       const touched = list.versions.filter((v) => v.conversations.some((c) => c.id === threadId));
       if (!touched.length) continue;
       const baseVersion = Math.min(...touched.map((v) => v.version));
-      const userEdits = list.versions
-        .filter((v) => v.version >= baseVersion && v.actions.some((a) => a.actor === 'user_local'))
+      const since = list.versions.filter((v) => v.version >= baseVersion);
+      const userEdits = since
+        .filter((v) => v.actions.some((a) => a.actor === 'user_local'))
         .map((v) => ({ version: v.version, at: v.updatedAt }))
         .sort((a, b) => a.version - b.version);
+      const other = since.filter((v) => v.conversations.some((c) => c.id !== threadId)).sort((a, b) => a.version - b.version)[0];
+      if (other) others.add(videoId);
       videos.push({
         projectId,
         videoId,
         baseVersion,
         userEdits,
-        agentOnlyPossible: userEdits.length === 0,
-        reason: userEdits.length ? `video ${videoId} has your own edits since version ${baseVersion}` : null,
+        agentOnlyPossible: userEdits.length === 0 && !other,
+        reason: other
+          ? `video ${videoId} also has changes from another conversation in version ${other.version}; undo those parts by hand`
+          : userEdits.length
+            ? `video ${videoId} has your own edits since version ${baseVersion}`
+            : null,
       });
     }
-    return { videos };
+    return { plan: { videos }, others };
   };
+  const plan = async (item: WorkItem): Promise<RevertPlan> => (await inspect(item)).plan;
   const revertTools = deps.openVideo && deps.restoreVersion ? { openVideo: deps.openVideo, restoreVersion: deps.restoreVersion } : null;
   return {
     async facts() {
@@ -155,32 +165,28 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       ? {
           revertPlan: plan,
           async revert(item: WorkItem, keepUserEdits: boolean) {
+            const { plan: current, others } = await inspect(item);
             const restored: { videoId: Id; version: number }[] = [];
-            for (const video of (await plan(item)).videos) {
+            for (const video of current.videos) {
               if (!video.baseVersion) continue;
+              // 别的会话也改过的视频不整体撤：会连别人的改动一起撤掉。
+              if (others.has(video.videoId)) continue;
               if (keepUserEdits && !video.agentOnlyPossible) continue;
-              const version = await revertTools.restoreVersion(video.videoId, video.baseVersion, true, { kind: 'user' });
+              const version = await revertTools.restoreVersion(video.videoId, video.baseVersion, true);
               if (version !== null) restored.push({ videoId: video.videoId, version });
             }
             return restored;
           },
           async revertThread(item: WorkItem, to: 'before-thread' | number) {
-            const threadId = item.threadId;
-            if (!threadId) return [];
+            if (!item.threadId) return [];
             const videos = (await plan(item)).videos.filter((v) => v.baseVersion > 0);
-            // 线程自己撤：有用户的改动时不动，由用户在任务上决定（整体撤销可以保留用户的改动）。
+            // 线程自己撤：有用户或别的会话的改动时不动，由用户在任务上决定。
             const mixed = videos.find((v) => !v.agentOnlyPossible);
-            if (mixed) throw new Error(mixed.reason ?? `video ${mixed.videoId} has edits by the user`);
+            if (mixed) throw new Error(mixed.reason ?? `video ${mixed.videoId} has edits by someone else`);
             if (typeof to === 'number' && videos.length !== 1) throw new Error('a version number only works when the task changed exactly one video');
-            const restored: { videoId: Id; version: number }[] = [];
-            for (const video of videos) {
-              const version =
-                to === 'before-thread'
-                  ? await revertTools.restoreVersion(video.videoId, video.baseVersion, true, { kind: 'thread', threadId })
-                  : await revertTools.restoreVersion(video.videoId, to, false, { kind: 'thread', threadId });
-              if (version !== null) restored.push({ videoId: video.videoId, version });
-            }
-            return restored;
+            return videos.map((video) =>
+              to === 'before-thread' ? { videoId: video.videoId, version: video.baseVersion, before: true } : { videoId: video.videoId, version: to, before: false },
+            );
           },
         }
       : {}),

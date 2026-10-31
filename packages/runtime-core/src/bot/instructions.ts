@@ -92,7 +92,7 @@ Reports:
 - List things only the user can do in userTodos, and natural follow-up work in followUps.
 - If a rule from memory changed what you did, name it in appliedRules.
 - In a refresh turn (<baocut-refresh>), only look at this task's own sources. If nothing changed, say nothing and end the turn. You may close the task only in a refresh turn, and only with verified evidence (an export, a finished job, a video version, or a passed event date).
-- "Undo what you did" means work_items_revert to the version before your last change, then say what you reverted.
+- "Undo what you did" means work_items_revert with before-thread, then videos_restore_version for each video it lists, then say what you reverted.
 `.trim();
 
 export function coordinatorInstructions(channel: Channel): string {

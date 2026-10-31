@@ -129,16 +129,16 @@ describe('BOT-S17..S31', () => {
     ]);
   });
 
-  it('BOT-S21 "change it back": the thread reverts to before its own changes and says so; the user can close it', async () => {
+  it('BOT-S21 "change it back": the thread works out the version before its own changes, restores it with the video tool and says so; the user can close it', async () => {
     const item = await kit.startTask('Restyle the captions of episode 2');
     const out = await kit.threadTurn(item.id, 'Change it back, the original was better', async (ctx) => {
-      const reverted = await ctx.call<{ restored: unknown }>('work_items_revert', { to: 'before-thread' });
+      const reverted = await ctx.call<{ restore: unknown; note: string }>('work_items_revert', { to: 'before-thread' });
       await ctx.call('thread_report', { stop: 'needs-review', headline: 'The captions are back to how they were.' });
-      return reverted.restored;
+      return reverted;
     });
-    expect(out).toEqual([{ videoId: 'vid_1', version: 3 }]);
+    // 这个工具自己不恢复：给出 videos_restore_version 的参数，恢复照样过视频工具的授权、确认与保护范围。
+    expect(out).toEqual({ restore: [{ video: 'vid_1', version: 3, before: true }], note: expect.stringContaining('videos_restore_version') });
     expect(kit.workspace.threadReverts).toEqual([{ item: item.id, to: 'before-thread' }]);
-    expect(kit.item(item.id).updates.map((u) => u.text)).toContain('Reverted the thread changes');
     expect(state(item.id)).toBe('needsReview');
     await kit.bot.userTransition(item.id, { type: 'resolve', evidence: null });
     expect(kit.item(item.id).status).toBe('resolved');

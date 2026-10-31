@@ -907,7 +907,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         job: (jobId) => models.jobs.inspect(jobId),
         versions: (videoId) => videos.listVersions(videoId),
         usage: () => models.readUsage(),
-        // 整体撤销与线程的「改回去」：视频没开着时按项目打开，回到版本记成用户或那条线程的操作。
+        // 整体撤销：视频没开着时按项目打开；回到版本是用户在任务上点的，记成用户的操作。线程的「改回去」走视频工具。
         openVideo: async (projectId, videoId) => {
           if (videos.ref(videoId)) return;
           const project = harness.listProjects().find((p) => p.id === projectId);
@@ -915,16 +915,16 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           if (!project || !entry) throw new Error(`video ${videoId} is not in project ${projectId}`);
           await videos.open({ root: project.path, file: entry.dir, scope: { projectId } }, BOT_VIDEO_PRINCIPAL);
         },
-        restoreVersion: async (videoId, version, before, by) => {
-          const principal: TrustedPrincipal = by.kind === 'thread' ? { kind: 'agent', connectionId: `bot:${by.threadId}`, name: 'bot' } : BOT_VIDEO_PRINCIPAL;
-          const result = await videos.restoreVersion({ videoId, commandId: newId('cmd'), version, ...(before ? { before: true } : {}) }, principal);
+        restoreVersion: async (videoId, version, before) => {
+          const result = await videos.restoreVersion({ videoId, commandId: newId('cmd'), version, ...(before ? { before: true } : {}) }, BOT_VIDEO_PRINCIPAL);
           return result.version;
         },
       }),
       make: textMakeGenerator(() => models.services.textGenerator()),
       defaults: () => ({ driverId: null, accessMode: null }),
       schedules: {
-        createForChannel: async ({ channel, name, cadence, template, accessMode: _mode }) => {
+        // 提议同意的访问模式已经放进了模板（`template.accessMode`），每次建出的任务按它开工。
+        createForChannel: async ({ channel, name, cadence, template }) => {
           const { schedule } = await schedules.create({
             conversationId: channel.conversationId,
             name,

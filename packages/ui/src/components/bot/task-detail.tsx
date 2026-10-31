@@ -22,7 +22,7 @@ import Close from '@react-spectrum/s2/icons/Close';
 import FullScreen from '@react-spectrum/s2/icons/FullScreen';
 import FullScreenExit from '@react-spectrum/s2/icons/FullScreenExit';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { FINISHED_STEPS_SHOWN, type WorkItemStatusKey } from '../../model/bot.ts';
+import { FINISHED_STEPS_SHOWN, canRevertItem, type WorkItemStatusKey } from '../../model/bot.ts';
 import { agoLabel } from '../../model/format.ts';
 import { formatMoneyOne } from '../../model/usage-format.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -106,7 +106,7 @@ function menuActions(item: WorkItem): MenuAction[] {
   if (item.status === 'suggested') out.push('dismiss');
   if (item.status === 'resolved') out.push('reopen');
   if (item.status !== 'resolved') out.push(agent ? 'takeOver' : 'handToAgent');
-  if (item.baseVersions.length) out.push('revertAll');
+  if (canRevertItem(item)) out.push('revertAll');
   if (item.status === 'resolved') out.push('deleteRecord');
   return out;
 }

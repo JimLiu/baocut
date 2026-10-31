@@ -359,9 +359,9 @@ const DEFINITIONS: Record<Name, ToolInfo> = {
   work_items_get: def(THREAD, 'Read your task', 'Read the task this thread works on.', 'query', [{ title: 'Read', args: {} }]),
   work_items_revert: def(
     THREAD,
-    'Revert your changes',
-    'Put the videos of your task back to the version before this thread changed them, or to a given version.',
-    'mutation',
+    'Plan reverting your changes',
+    'Work out which version each video of your task should go back to: before this thread changed it, or a given version. It restores nothing; restore each one with videos_restore_version.',
+    'query',
     [{ title: 'Undo', args: { to: 'before-thread' } }],
   ),
   thread_report: def(
@@ -606,8 +606,13 @@ export class BotTools implements ToolSet {
       case 'work_items_revert': {
         const args = raw as Args<'work_items_revert'>;
         const item = this.#own(caller);
-        const restored = await bot.revertThread(item, args.to);
-        return { restored, note: 'Tell the user which videos you put back.' };
+        const steps = await bot.revertThread(item, args.to);
+        return {
+          restore: steps.map((step) => ({ video: step.videoId, version: step.version, ...(step.before ? { before: true } : {}) })),
+          note: steps.length
+            ? 'Nothing is restored yet. Call videos_restore_version once with each entry in restore, then tell the user which videos you put back.'
+            : 'This task has not changed any videos.',
+        };
       }
       case 'thread_report':
         return this.#report(caller, raw as Args<'thread_report'>);

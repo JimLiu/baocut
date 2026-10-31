@@ -64,7 +64,7 @@ export class FakeWorkspace implements BotWorkspace {
   };
   revertThread = async (item: WorkItem, to: 'before-thread' | number) => {
     this.threadReverts.push({ item: item.id, to });
-    return [{ videoId: 'vid_1', version: 3 }];
+    return [{ videoId: 'vid_1', version: 3, before: true }];
   };
   hungJob = async () => this.hung;
   budgetUsed = () => this.budget;

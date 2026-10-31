@@ -172,6 +172,15 @@ export interface InboxGroup {
 
 /** 收件箱按频道分组（BOT-CH-11）：Runtime 已经把最急的排在前面，组的顺序按各组第一行出现的先后，组内保持原顺序。 */
 /**
+ * 任务详情里给不给「撤销这个任务的改动」（BOT-EX-19）：任务有过线程、资源里有视频时就给，线程实际改了哪些版本由撤销对话框试算时查。
+ * 已经记下基线版本的也给。
+ */
+export function canRevertItem(item: Pick<WorkItem, 'threadId' | 'resources' | 'baseVersions'>): boolean {
+  if (item.baseVersions.length) return true;
+  return !!item.threadId && item.resources.some((ref) => ref.kind === 'video' || ref.kind === 'video-range');
+}
+
+/**
  * 收件箱一行给哪种操作：有选项的问题点选项作答；授权审批（命令、工具、改文件）带的问题外壳没有选项，给允许与拒绝；
  * 都没有的（报告里的开放问题、用户自己的任务）只能打开任务去回。
  */

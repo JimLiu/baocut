@@ -90,15 +90,15 @@ describe('reverting a task on real video versions', () => {
 
   function setup(lists: Record<string, unknown[]>) {
     const opened: string[] = [];
-    const restored: { videoId: string; version: number; before: boolean; by: unknown }[] = [];
+    const restored: { videoId: string; version: number; before: boolean }[] = [];
     const ws = runtimeWorkspace({
       projects: () => [],
       videos: () => [],
       job: () => undefined,
       versions: async (videoId) => ({ versions: [...(lists[videoId] ?? [])].reverse(), unreadable: [] }) as unknown as VideoVersionList,
       openVideo: async (_projectId, videoId) => void opened.push(videoId),
-      restoreVersion: async (videoId, n, before, by) => {
-        restored.push({ videoId, version: n, before, by });
+      restoreVersion: async (videoId, n, before) => {
+        restored.push({ videoId, version: n, before });
         return 99;
       },
     });
@@ -117,19 +117,27 @@ describe('reverting a task on real video versions', () => {
     ]);
   });
 
-  it('reverting goes back to just before that version as the user; the thread may only revert its own work', async () => {
+  it('reverting goes back to just before that version as the user; the thread only gets the versions to restore with its own tools', async () => {
     const clean = setup({ v1: [version(1, [], ['user_local']), version(2, ['conv_thread'], ['agent:x'])] });
     expect(await clean.ws.revert!(task, false)).toEqual([{ videoId: 'v1', version: 99 }]);
-    expect(clean.restored).toEqual([{ videoId: 'v1', version: 2, before: true, by: { kind: 'user' } }]);
-    expect(await clean.ws.revertThread!(task, 'before-thread')).toEqual([{ videoId: 'v1', version: 99 }]);
-    expect(clean.restored.at(-1)).toEqual({ videoId: 'v1', version: 2, before: true, by: { kind: 'thread', threadId: 'conv_thread' } });
-    await clean.ws.revertThread!(task, 1);
-    expect(clean.restored.at(-1)).toMatchObject({ version: 1, before: false });
+    expect(clean.restored).toEqual([{ videoId: 'v1', version: 2, before: true }]);
+    expect(await clean.ws.revertThread!(task, 'before-thread')).toEqual([{ videoId: 'v1', version: 2, before: true }]);
+    expect(await clean.ws.revertThread!(task, 1)).toEqual([{ videoId: 'v1', version: 1, before: false }]);
+    expect(clean.restored).toHaveLength(1);
 
     const mixed = setup({ v1: [version(2, ['conv_thread'], ['agent:x']), version(3, [], ['user_local'])] });
     await expect(mixed.ws.revertThread!(task, 'before-thread')).rejects.toThrow(/own edits/);
     expect(await mixed.ws.revert!(task, true)).toEqual([]);
     expect(await mixed.ws.revert!(task, false)).toEqual([{ videoId: 'v1', version: 99 }]);
+  });
+
+  it('another conversation changed the video after the thread: neither the thread nor the whole revert wipes those changes', async () => {
+    const shared = setup({ v1: [version(2, ['conv_thread'], ['agent:x']), version(3, ['conv_other'], ['agent:y'])] });
+    const plan = await shared.ws.revertPlan!(task);
+    expect(plan.videos).toEqual([expect.objectContaining({ videoId: 'v1', baseVersion: 2, agentOnlyPossible: false, reason: expect.stringContaining('another conversation') })]);
+    await expect(shared.ws.revertThread!(task, 'before-thread')).rejects.toThrow(/another conversation/);
+    expect(await shared.ws.revert!(task, false)).toEqual([]);
+    expect(shared.restored).toEqual([]);
   });
 
   it('is not offered without a way to open videos and restore versions', () => {

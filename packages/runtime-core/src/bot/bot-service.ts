@@ -94,8 +94,11 @@ export interface BotWorkspace {
   /** 整体撤销（BOT-EX-19）。 */
   revertPlan?(item: WorkItem): Promise<RevertPlan>;
   revert?(item: WorkItem, keepUserEdits: boolean): Promise<{ videoId: Id; version: number }[]>;
-  /** 线程的「改回去」：回到线程最近一次动手前的版本。 */
-  revertThread?(item: WorkItem, to: 'before-thread' | number): Promise<{ videoId: Id; version: number }[]>;
+  /**
+   * 线程的「改回去」：算出每部视频该回到哪一版（线程第一次动手之前，或指定的一版），不自己恢复；线程用视频工具去做，
+   * 照样过它的授权、确认与保护范围。
+   */
+  revertThread?(item: WorkItem, to: 'before-thread' | number): Promise<{ videoId: Id; version: number; before: boolean }[]>;
   /** 线程等的 Job 是不是挂住了（§9.3 job-hung）：挂住的返回它的名字。 */
   hungJob?(jobIds: readonly Id[]): Promise<string | null>;
   /** 任务合同的用量占预算的比例（0–1），没有预算时 null。 */
@@ -1013,12 +1016,10 @@ export class BotService {
     return { restored: await this.#workspace.revert(item, keepUserEdits) };
   }
 
-  /** 线程的「改回去」（工具 `work_items_revert`）。 */
-  async revertThread(item: WorkItem, to: 'before-thread' | number): Promise<{ videoId: Id; version: number }[]> {
+  /** 线程的「改回去」（工具 `work_items_revert`）：只给出该回到的版本，恢复由线程用视频工具做。 */
+  async revertThread(item: WorkItem, to: 'before-thread' | number): Promise<{ videoId: Id; version: number; before: boolean }[]> {
     if (!this.#workspace.revertThread) throw new RpcError('unsupported', RcBot.makeNoGenerator());
-    const restored = await this.#workspace.revertThread(item, to);
-    await this.patchItemContent(item.id, (i) => ({ ...i, updates: [...i.updates, { text: 'Reverted the thread changes', at: nowIso(), by: 'thread' as const }].slice(-BOT_LIMITS.updatesKept) }), true);
-    return restored;
+    return this.#workspace.revertThread(item, to);
   }
 
   /** 删除任务记录（BOT-EX-20）：dryRun 列出会删的与保留的文件。 */
@@ -2215,7 +2216,8 @@ export class BotService {
           channel,
           name: edits?.name ?? proposal.name,
           cadence: proposal.cadence,
-          template: proposal.template,
+          // 卡片上给用户看过的访问模式跟着模板存下，每次建任务都用它。
+          template: proposal.accessMode ? { ...proposal.template, accessMode: proposal.accessMode } : proposal.template,
           accessMode: proposal.accessMode,
         });
       } else {
@@ -2386,6 +2388,8 @@ export class BotService {
         owner: template.owner,
         resources: template.resources,
         source: { kind: 'schedule', messageId: null, scheduleId, runId },
+        // 提议卡上写明并经用户同意的访问模式，每一次都照用（开工时仍压在频道上限以内）。
+        ...(template.accessMode ? { overrides: { accessMode: template.accessMode, driverId: null, model: null, budget: null, outputLanguage: null } } : {}),
       },
       { start: template.owner === 'agent', attended: false, brief: template.prompt },
     );

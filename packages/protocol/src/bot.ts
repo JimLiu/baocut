@@ -146,6 +146,8 @@ export interface WorkItemTemplate {
   /** 线程简报的正文。 */
   prompt: string;
   resources: ResourceRef[];
+  /** 用户接受提议时看到并同意的访问模式；每次建出的任务都用它（仍不高于频道上限）。没有时跟随频道。 */
+  accessMode?: AgentMode | null;
 }
 
 /** 关任务的证据（技术方案 §9.5）：结构化引用，Runtime 逐条核验。 */

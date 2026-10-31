@@ -6,6 +6,7 @@ import {
   chipAllowed,
   groupInbox,
   inboxRowAction,
+  canRevertItem,
   questionAnswerRoute,
   isOverdue,
   localDate,
@@ -236,6 +237,16 @@ describe('bot model', () => {
     expect(chipAction(chip('a'))).toBe('send');
     expect(chipAction(chip('a', { kind: 'other' }))).toBe('focus');
     expect(chipAction(chip('a', { kind: 'starter', fillOnly: true }))).toBe('fill');
+  });
+});
+
+describe('canRevertItem', () => {
+  const video = { kind: 'video', projectId: 'p1', videoId: 'v1' } as const;
+  it('offers undo once a thread worked on a task with videos; the dialog checks what actually changed', () => {
+    expect(canRevertItem(item('a', { threadId: 'conv_t', resources: [video] }))).toBe(true);
+    expect(canRevertItem(item('b', { threadId: null, resources: [video] }))).toBe(false);
+    expect(canRevertItem(item('c', { threadId: 'conv_t', resources: [] }))).toBe(false);
+    expect(canRevertItem(item('d', { baseVersions: [{ projectId: 'p1', videoId: 'v1', version: 2 }] }))).toBe(true);
   });
 });
 
