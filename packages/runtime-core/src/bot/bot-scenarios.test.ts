@@ -138,6 +138,59 @@ describe('BOT-S01..S16', () => {
     expect(causes(item.id)).toEqual(expect.arrayContaining(['unblocked:dependency->working', 'report:needs-review->needsReview']));
   });
 
+  it('a task that was already resolved when the thread reported waiting on it wakes the thread right away', async () => {
+    const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
+    await kit.bot.userTransition(other.id, { type: 'resolve', evidence: null });
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
+      if (n === 2) await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer has music now.' });
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Add music to the trailer', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.until(() => state(item.id) === 'needsReview');
+    await kit.settle();
+    expect(causes(item.id)).toEqual(expect.arrayContaining(['report:waiting->waitingOnOthers', 'unblocked:dependency->working', 'report:needs-review->needsReview']));
+  });
+
+  it('a woken waiting thread still respects the channel thread limit (§18.1)', async () => {
+    await kit.bot.updateChannel(kit.main.id, { concurrentThreads: 1 });
+    const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const turns = new Map<Id, number>();
+    let musicThread: Id | null = null;
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (ctx.conversationId === musicThread) {
+        if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
+        else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer has music now.' });
+        return;
+      }
+      await gate;
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The captions are done.' });
+    };
+    const music = await kit.bot.createItem({ channelId: kit.main.id, title: 'Add music to the trailer', owner: 'agent' });
+    const openedMusic = kit.bot.startItem(music.id, { attended: false });
+    musicThread = await kit.until(() => kit.item(music.id).threadId);
+    await openedMusic;
+    await kit.until(() => state(music.id) === 'waitingOnOthers');
+    const captions = await kit.bot.createItem({ channelId: kit.main.id, title: 'Caption the trailer', owner: 'agent' });
+    await kit.bot.startItem(captions.id, { attended: false });
+    await kit.until(() => state(captions.id) === 'working');
+    await kit.bot.userTransition(other.id, { type: 'resolve', evidence: null });
+    // 唯一的位置被字幕任务占着：等音乐的任务先不醒。
+    expect(state(music.id)).toBe('waitingOnOthers');
+    release();
+    await kit.until(() => state(captions.id) === 'needsReview');
+    await kit.until(() => state(music.id) === 'needsReview');
+    await kit.settle();
+    expect(causes(music.id)).toEqual(expect.arrayContaining(['unblocked:dependency->working']));
+  });
+
   it('after a restart, an automatic coordinator turn still sees the channel rules and user memory', async () => {
     await kit.bot.writeMemory(kit.main.id, '## Rules\nAlways export in 1080p.', 0);
     await kit.bot.writeUserMemory('Prefers short captions.', (await kit.bot.readUserMemory()).version);

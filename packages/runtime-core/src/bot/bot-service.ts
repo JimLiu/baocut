@@ -341,6 +341,10 @@ export class BotService {
     }
     const pending = [...this.#reports.values()].filter((r) => r.delivery === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     for (const report of pending) await this.#deliverReport(report, true);
+    // 停机期间等的任务结了的：「已结」事件没赶上，这里对账一次（同样过并发闸门）。
+    for (const item of [...this.#items.values()]) {
+      if (item.status === 'active' && item.active?.state === 'waitingOnOthers') await this.#wakeIfReady(item, null);
+    }
     await this.#pump();
   }
 
@@ -1285,6 +1289,15 @@ export class BotService {
   /** 空出位置时按顺序开排队的任务。 */
   async #pump(): Promise<void> {
     if (this.#stopped || this.settings().automationPaused) return;
+    // 先叫醒等到了、却因为没空位还停着的任务：它们比排队的新任务先占位。
+    for (const id of [...this.#readyToWake.keys()]) {
+      const item = this.#items.get(id);
+      if (!item) {
+        this.#readyToWake.delete(id);
+        continue;
+      }
+      await this.#wakeIfReady(item, null);
+    }
     const queued = [...this.#items.values()]
       .filter((i) => i.status === 'upNext' && i.owner === 'agent' && i.reminded.includes('queued'))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -1306,29 +1319,62 @@ export class BotService {
   async #onResolved(item: WorkItem): Promise<void> {
     // 依赖它的任务（BOT-EX-14），以及线程上次报告里说在等它的任务（§7.4 waitingFor）：等的都结了就转回工作中，并叫醒线程接着做。
     for (const other of [...this.#items.values()]) {
-      if (other.status === 'resolved') continue;
-      const report = other.lastReportId ? this.#reports.get(other.lastReportId) : undefined;
-      const waitingOn = other.status === 'active' && other.active?.state === 'waitingOnOthers' ? (report?.waitingFor?.workItemIds ?? []) : [];
-      if (!other.dependsOn.includes(item.id) && !waitingOn.includes(item.id)) continue;
-      const open = [...other.dependsOn, ...waitingOn].some((d) => this.#items.get(d)?.status !== 'resolved');
-      if (open) continue;
-      if (other.status === 'active' && other.active?.state === 'waitingOnOthers') {
-        await this.transition(other.id, { type: 'unblocked', cause: 'dependency' }, { actor: 'system' }).catch(() => {});
-        const current = this.#items.get(other.id);
-        if (current?.threadId && current.status === 'active' && current.active?.state === 'working') {
-          await this.#deliverToThread(current, {
-            id: `deps_${current.id}_${item.id}`,
-            direction: 'refresh',
-            text: refreshBlock('dependency-resolved', [`Task ${item.id} ("${item.title}") that you were waiting for is resolved. Check its result and continue.`]),
-            origin: 'relay',
-            unattended: true,
-            note: '',
-          }).catch((error: unknown) => this.#log.warn('Waking a waiting thread failed', { workItemId: current.id, error: String(error) }));
-        }
-      }
+      if (other.status === 'resolved' || other.id === item.id) continue;
+      if (!other.dependsOn.includes(item.id) && !this.#waitingOn(other).includes(item.id)) continue;
+      await this.#wakeIfReady(other, item);
     }
     await this.#pump();
     if (item.resolution?.kind === 'done') void this.runMake(item.channelId, 'item-resolved').catch(() => {});
+  }
+
+  /** 线程上次报告里说在等的任务（只在它停在「等别人」时算数）。 */
+  #waitingOn(item: WorkItem): Id[] {
+    if (item.status !== 'active' || item.active?.state !== 'waitingOnOthers') return [];
+    const report = item.lastReportId ? this.#reports.get(item.lastReportId) : undefined;
+    return report?.waitingFor?.workItemIds ?? [];
+  }
+
+  /** 等到能叫醒、但当时没有空位的任务：有空位时由 `#pump` 接着叫醒（与开工同一道并发闸门，§18.1）。 */
+  readonly #readyToWake = new Map<Id, { id: Id; title: string } | null>();
+
+  /**
+   * 停在「等别人」的任务，等的都结了就叫醒：先过并发闸门，没空位就记下来等 `#pump`。
+   * `resolved` 是刚结的那一个（叫醒的话里提它）；报告刚落下时自查、重启后对账时为 null。
+   */
+  async #wakeIfReady(item: WorkItem, resolved: { id: Id; title: string } | null): Promise<void> {
+    const current = this.#items.get(item.id);
+    if (!current || current.status !== 'active' || current.active?.state !== 'waitingOnOthers') {
+      this.#readyToWake.delete(item.id);
+      return;
+    }
+    const waitingOn = this.#waitingOn(current);
+    const report = current.lastReportId ? this.#reports.get(current.lastReportId) : undefined;
+    // 报告里还在等后台作业的，作业结束时另有叫醒；这里只管等任务的。
+    if (!current.dependsOn.length && !waitingOn.length) return;
+    if (report?.waitingFor?.jobIds.length && !resolved && !this.#readyToWake.has(current.id)) return;
+    const open = [...current.dependsOn, ...waitingOn].some((d) => this.#items.get(d)?.status !== 'resolved');
+    if (open) return;
+    if (this.#stopped || this.settings().automationPaused || !this.#channels.get(current.channelId) || !this.#slotFree(current.channelId, current.id)) {
+      this.#readyToWake.set(current.id, resolved ? { id: resolved.id, title: resolved.title } : (this.#readyToWake.get(current.id) ?? null));
+      return;
+    }
+    const cause = resolved ?? this.#readyToWake.get(current.id) ?? null;
+    this.#readyToWake.delete(current.id);
+    await this.transition(current.id, { type: 'unblocked', cause: 'dependency' }, { actor: 'system' }).catch(() => {});
+    const woke = this.#items.get(current.id);
+    if (woke?.threadId && woke.status === 'active' && woke.active?.state === 'working') {
+      const line = cause
+        ? `Task ${cause.id} ("${cause.title}") that you were waiting for is resolved. Check its result and continue.`
+        : 'The tasks you were waiting for are resolved. Check their results and continue.';
+      await this.#deliverToThread(woke, {
+        id: `deps_${woke.id}_${cause?.id ?? woke.lastReportId ?? 'all'}`,
+        direction: 'refresh',
+        text: refreshBlock('dependency-resolved', [line]),
+        origin: 'relay',
+        unattended: true,
+        note: '',
+      }).catch((error: unknown) => this.#log.warn('Waking a waiting thread failed', { workItemId: woke.id, error: String(error) }));
+    }
   }
 
   // ---- 线程路由（§7、§8） ----
@@ -1652,9 +1698,15 @@ export class BotService {
       fallback: actor === 'system',
     };
     const info = this.#runStarts.get(run.taskId);
-    await this.transition(item.id, { type: 'report', report }, { actor, run });
-    if (info) info.reported = true;
+    // 先登记报告再转换：转换落盘期间结掉的依赖读到新的 lastReportId 时，能找到它在等谁。
     this.#reports.set(report.id, report);
+    try {
+      await this.transition(item.id, { type: 'report', report }, { actor, run });
+    } catch (error) {
+      this.#reports.delete(report.id);
+      throw error;
+    }
+    if (info) info.reported = true;
     await this.#store.appendReport(item.channelId, report);
     this.#topicOf(item.channelId).publish({ type: 'work-item.report', report });
     for (const todo of report.userTodos.slice(0, 5)) {
@@ -1668,6 +1720,12 @@ export class BotService {
       ).catch(() => {});
     }
     await this.#deliverReport(report, run.attended);
+    // 报告说在等的任务可能在报告之前就结了：那时的「已结」事件找不到它，这里补查一次。
+    // 不等它：这份报告常是线程在回合里交的，叫醒的投递要等这一回合结束才开始。
+    if (report.stop === 'waiting') {
+      const current = this.#items.get(item.id);
+      if (current) void this.#wakeIfReady(current, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: item.id, error: String(error) }));
+    }
     return report;
   }
 
