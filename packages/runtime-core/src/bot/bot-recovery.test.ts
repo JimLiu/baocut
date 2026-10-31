@@ -570,6 +570,36 @@ describe('deleting a channel', () => {
     expect(saved.channels.map((c) => c.id)).not.toContain(channel.id);
     expect(saved.deletedChannels).toBeUndefined();
   });
+
+  it('I13: a conversation that cannot be deleted does not stop the rest of the clean-up; only it is retried at the next start', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Clips' });
+    const item = await kit.bot.createItem({ channelId: channel.id, title: 'Cut the teaser', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => kit.item(item.id).threadId && kit.harness.conversationOf(kit.threadOf(item.id))?.activity === 'idle');
+    await kit.settle();
+    const thread = kit.threadOf(item.id);
+    const channelDir = path.join(kit.home.channelsDir, channel.id);
+    const tasksFile = path.join(kit.home.workItemsDir, `${channel.id}.jsonl`);
+    await expect(fs.access(channelDir)).resolves.toBeUndefined();
+    await expect(fs.access(tasksFile)).resolves.toBeUndefined();
+    // 线程会话删不掉（比如它的视频还开着），频道对话照常能删。
+    const original = kit.harness.deleteConversation.bind(kit.harness);
+    kit.harness.deleteConversation = (async (conversationId: string, options?: unknown) => {
+      if (conversationId === thread) throw new Error('video is open');
+      return original(conversationId, options as never);
+    }) as typeof kit.harness.deleteConversation;
+    await kit.bot.deleteChannel(channel.id, { threads: 1, schedules: 0 });
+    kit.harness.deleteConversation = original;
+    expect(kit.harness.conversationOf(thread)).toBeTruthy();
+    expect(kit.harness.conversationOf(channel.conversationId)).toBeUndefined();
+    await expect(fs.access(channelDir)).rejects.toThrow();
+    await expect(fs.access(tasksFile)).rejects.toThrow();
+    const saved = () => fs.readFile(kit.home.channelsFile, 'utf8').then((t) => JSON.parse(t) as { deletedChannels?: string[] });
+    expect((await saved()).deletedChannels).toEqual([channel.id]);
+    await kit.restart();
+    expect(kit.harness.conversationOf(thread)).toBeUndefined();
+    expect((await saved()).deletedChannels).toBeUndefined();
+  });
 });
 
 describe('a delivery held for "continue" goes stale', () => {

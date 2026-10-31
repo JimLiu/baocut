@@ -921,21 +921,29 @@ export class BotService {
    * 留着，下次启动再清（`start`）。`known` 是已知属于它的会话，目录里标着这个频道的会话也一并删。
    */
   async #purgeChannel(id: Id, known: readonly Id[] = []): Promise<void> {
-    try {
+    // 一步失败（例如有个线程的视频还开着、会话删不掉）不挡后面的：能清的都清掉，只有真有失败时才留着记下的 id。
+    let failed = false;
+    const attempt = async (step: string, fn: () => Promise<void> | void): Promise<void> => {
+      try {
+        await fn();
+      } catch (error) {
+        failed = true;
+        this.#log.warn('Cleaning up a deleted channel failed; will retry at the next start', { channelId: id, step, error: String(error) });
+      }
+    };
+    await attempt('schedules', async () => {
       await this.#schedules?.deleteForChannel(id);
       this.#schedules?.channelChanged(id);
-      const ids = new Set(known);
-      for (const c of this.#harness.directorySnapshot().conversations) if (c.channelId === id) ids.add(c.id);
-      for (const conversationId of ids) {
-        if (!this.#harness.conversationOf(conversationId)) continue;
-        await this.#harness.deleteConversation(conversationId, { internal: BOT_INTERNAL });
-      }
-      await this.#store.deleteChannel(id);
-      await this.#files.remove(id);
-      await this.#channels.clearTombstone(id);
-    } catch (error) {
-      this.#log.warn('Cleaning up a deleted channel failed; will retry at the next start', { channelId: id, error: String(error) });
+    });
+    const ids = new Set(known);
+    for (const c of this.#harness.directorySnapshot().conversations) if (c.channelId === id) ids.add(c.id);
+    for (const conversationId of ids) {
+      if (!this.#harness.conversationOf(conversationId)) continue;
+      await attempt('conversation', () => this.#harness.deleteConversation(conversationId, { internal: BOT_INTERNAL }));
     }
+    await attempt('work-items', () => this.#store.deleteChannel(id));
+    await attempt('files', () => this.#files.remove(id));
+    if (!failed) await attempt('tombstone', () => this.#channels.clearTombstone(id));
   }
 
   async readMemory(id: Id): Promise<{ content: string; version: number }> {
