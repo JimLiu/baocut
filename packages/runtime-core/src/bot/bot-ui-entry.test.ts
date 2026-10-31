@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Id, TimelineItem } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
@@ -92,5 +95,20 @@ describe('截止日与事件日是谁定的（BOT-TK-06）', () => {
     await rpc('workItems.update', { id, patch: { dueOn: null } });
     expect(kit.bot.item(id).dueOn).toBeNull();
     expect(kit.bot.item(id).dueOnBy).toBeUndefined();
+  });
+});
+
+describe('导出频道（BOT-CH-13）', () => {
+  it('tasks.json 带上任务的状态转换记录', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'bot-export-'));
+    try {
+      const item = await kit.startTask('Add captions to episode 12');
+      const target = await kit.bot.exportChannel(kit.main.id, dir);
+      const tasks = JSON.parse(await readFile(path.join(target, 'tasks.json'), 'utf8')) as { transitions: { workItemId: Id; to: unknown }[] };
+      expect(tasks.transitions.length).toBeGreaterThan(0);
+      expect(tasks.transitions.every((t) => t.workItemId === item.id)).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

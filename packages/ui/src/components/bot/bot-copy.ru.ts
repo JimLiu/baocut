@@ -324,6 +324,10 @@ export const ru: BotMessages = {
       `Будет остановлено: ${threadsN(threads)}; удалятся задачи канала и ${schedulesN(schedules)}. Папки проектов, видео и всё сохранённое в Space останутся.`,
     deleteCounting: 'Считаем, что будет остановлено…',
     deleteConfirm: 'Удалить',
+    export: 'Экспорт…',
+    exportPick: 'Выберите, куда экспортировать канал',
+    exported: (path: string) => `Экспортировано в ${path}`,
+    exportReveal: 'Показать в папке',
   },
   settings: {
     group: 'Фон и уведомления',

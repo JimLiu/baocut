@@ -324,6 +324,10 @@ export const pl: BotMessages = {
       `Zatrzyma to ${threadsN(threads)} i usunie zadania kanału oraz ${schedulesN(schedules)}. Foldery projektów, wideo i wszystko zapisane w Space zostaną.`,
     deleteCounting: 'Liczenie, co zostanie zatrzymane…',
     deleteConfirm: 'Usuń',
+    export: 'Eksportuj…',
+    exportPick: 'Wybierz, dokąd wyeksportować kanał',
+    exported: (path: string) => `Wyeksportowano do ${path}`,
+    exportReveal: 'Pokaż w folderze',
   },
   settings: {
     group: 'Tło i powiadomienia',

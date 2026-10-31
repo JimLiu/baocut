@@ -316,6 +316,10 @@ export const nl: BotMessages = {
       `Dit stopt ${threads === 1 ? '1 lopende thread' : `${threads} lopende threads`} en verwijdert de taken van het kanaal en ${schedules === 1 ? '1 terugkerende taak' : `${schedules} terugkerende taken`}. Projectmappen, video’s en alles wat in Space is bewaard, blijven staan.`,
     deleteCounting: 'Tellen wat er stopt…',
     deleteConfirm: 'Verwijderen',
+    export: 'Exporteren…',
+    exportPick: 'Kies waar het kanaal naartoe wordt geëxporteerd',
+    exported: (path: string) => `Geëxporteerd naar ${path}`,
+    exportReveal: 'Tonen in map',
   },
   settings: {
     group: 'Achtergrond en meldingen',

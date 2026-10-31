@@ -316,6 +316,10 @@ export const fr: BotMessages = {
       `Cela arrête ${threads === 1 ? '1 fil en cours' : `${threads} fils en cours`} et supprime les tâches du canal ainsi que ${schedules === 1 ? '1 tâche récurrente' : `${schedules} tâches récurrentes`}. Les dossiers de projet, les vidéos et tout ce qui est enregistré dans Space sont conservés.`,
     deleteCounting: 'Décompte de ce qui va s’arrêter…',
     deleteConfirm: 'Supprimer',
+    export: 'Exporter…',
+    exportPick: 'Choisir où exporter le canal',
+    exported: (path: string) => `Exporté vers ${path}`,
+    exportReveal: 'Afficher dans le dossier',
   },
   settings: {
     group: 'Arrière-plan et notifications',

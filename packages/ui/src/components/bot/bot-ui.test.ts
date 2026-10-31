@@ -9,6 +9,7 @@ import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
 import { AwayBanner, ChannelSpend, ReplyTarget, useAwayAndSeen } from './channel-view.tsx';
 import { WorkItemRefCard } from './timeline/work-item-ref-card.tsx';
+import { ChannelDialog } from './channel-dialog.tsx';
 import { drainQueue, sendQueuedMessageNow } from '../../runtime/message-queue-runner.ts';
 import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
 import { useWorkItems } from '../../state/work-items-store.ts';
@@ -580,5 +581,40 @@ describe('回复线程卡（BOT-EX-09）', () => {
     useShell.getState().setQueue('conv_c1', () => [queued]);
     await drainQueue(runtime, 'conv_c1');
     expect(send.mock.calls[1]!.at(-1)).toEqual({ replyToItemId: 'card1' });
+  });
+});
+
+describe('导出频道（BOT-CH-13）', () => {
+  it('频道设置里「导出…」：选文件夹后交 channels.export', async () => {
+    const channel = {
+      id: 'c1',
+      kind: 'custom',
+      name: '剪辑',
+      purpose: '',
+      conversationId: 'conv_c1',
+      archived: false,
+      driverId: null,
+      model: null,
+      effort: null,
+      defaultAccessMode: null,
+      maxAccessMode: null,
+      outputLanguage: null,
+      muted: false,
+      private: false,
+      stallMinutes: null,
+      limits: { concurrentThreads: 3, dailyBudget: null, monthlyBudget: null },
+    };
+    useChannels.setState({ channels: [{ channel, unread: false, counts: {}, lastActivityAt: '2026-10-31T09:00:00Z', spend: null }] as never });
+    const pickDirectory = vi.fn(async () => '/Users/me/Exports');
+    Object.assign(runtime, { host: { pickDirectory, revealPath: vi.fn(async () => {}) } });
+    handlers['channels.export'] = () => ({ path: '/Users/me/Exports/剪辑-c1' });
+    try {
+      await render(createElement(ChannelDialog, { state: { mode: 'settings', channelId: 'c1' }, onClose: () => {}, onCreated: () => {}, onDelete: () => {} }));
+      await press('导出…');
+      expect(pickDirectory).toHaveBeenCalledTimes(1);
+      expect(calls('channels.export')).toEqual([{ id: 'c1', dir: '/Users/me/Exports' }]);
+    } finally {
+      useChannels.setState({ channels: [] });
+    }
   });
 });

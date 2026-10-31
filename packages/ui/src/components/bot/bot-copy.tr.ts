@@ -315,6 +315,10 @@ export const tr: BotMessages = {
       `Bu, çalışan ${threads} iş parçacığını durdurur; kanalın görevlerini ve ${schedules} yinelenen görevi siler. Proje klasörleri, videolar ve Space’e kaydedilenler korunur.`,
     deleteCounting: 'Neyin duracağı sayılıyor…',
     deleteConfirm: 'Sil',
+    export: 'Dışa aktar…',
+    exportPick: 'Kanalın nereye aktarılacağını seçin',
+    exported: (path: string) => `${path} konumuna aktarıldı`,
+    exportReveal: 'Klasörde göster',
   },
   settings: {
     group: 'Arka plan ve bildirimler',

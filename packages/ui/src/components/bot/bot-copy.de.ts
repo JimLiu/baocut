@@ -316,6 +316,10 @@ export const de: BotMessages = {
       `Das stoppt ${threads === 1 ? '1 laufenden Thread' : `${threads} laufende Threads`} und löscht die Aufgaben des Kanals sowie ${schedules === 1 ? '1 wiederkehrende Aufgabe' : `${schedules} wiederkehrende Aufgaben`}. Projektordner, Videos und alles in Space Gespeicherte bleiben erhalten.`,
     deleteCounting: 'Zähle, was gestoppt wird …',
     deleteConfirm: 'Löschen',
+    export: 'Exportieren…',
+    exportPick: 'Wähle, wohin der Kanal exportiert wird',
+    exported: (path: string) => `Exportiert nach ${path}`,
+    exportReveal: 'Im Ordner zeigen',
   },
   settings: {
     group: 'Hintergrund und Benachrichtigungen',

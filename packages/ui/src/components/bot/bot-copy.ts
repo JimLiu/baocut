@@ -335,6 +335,10 @@ const en = {
       `This stops ${threads} working ${threads === 1 ? 'thread' : 'threads'}, and deletes the channel’s tasks and ${schedules} recurring ${schedules === 1 ? 'task' : 'tasks'}. Project folders, videos and anything saved to Space stay.`,
     deleteCounting: 'Counting what will stop…',
     deleteConfirm: 'Delete',
+    export: 'Export…',
+    exportPick: 'Choose where to export the channel',
+    exported: (path: string) => `Exported to ${path}`,
+    exportReveal: 'Show in folder',
   },
   settings: {
     group: 'Background and notifications',

@@ -315,6 +315,10 @@ export const vi: BotMessages = {
       `Thao tác này dừng ${threads} luồng đang chạy, xóa các việc của kênh và ${schedules} việc định kỳ. Thư mục dự án, video và mọi thứ đã lưu vào Space vẫn được giữ.`,
     deleteCounting: 'Đang đếm những gì sẽ dừng…',
     deleteConfirm: 'Xóa',
+    export: 'Xuất…',
+    exportPick: 'Chọn nơi xuất kênh',
+    exported: (path: string) => `Đã xuất tới ${path}`,
+    exportReveal: 'Hiện trong thư mục',
   },
   settings: {
     group: 'Chạy nền và thông báo',

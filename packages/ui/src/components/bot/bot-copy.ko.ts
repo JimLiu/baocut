@@ -315,6 +315,10 @@ export const ko: BotMessages = {
       `작업 중인 스레드 ${threads}개를 멈추고, 이 채널의 작업과 반복 작업 ${schedules}개를 삭제합니다. 프로젝트 폴더, 동영상, Space에 저장한 내용은 남습니다.`,
     deleteCounting: '멈출 항목을 세는 중…',
     deleteConfirm: '삭제',
+    export: '내보내기…',
+    exportPick: '채널을 내보낼 위치 선택',
+    exported: (path: string) => `${path}(으)로 내보냈습니다`,
+    exportReveal: '폴더에서 보기',
   },
   settings: {
     group: '백그라운드와 알림',

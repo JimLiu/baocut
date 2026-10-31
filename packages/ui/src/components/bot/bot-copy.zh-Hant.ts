@@ -315,6 +315,10 @@ export const zhHant: BotMessages = {
       `會停掉 ${threads} 個正在工作的執行緒，刪除這個頻道的任務和 ${schedules} 個週期任務。專案資料夾、影片以及存進 Space 的內容都會保留。`,
     deleteCounting: '正在統計會停掉哪些…',
     deleteConfirm: '刪除',
+    export: '匯出…',
+    exportPick: '選擇把頻道匯出到哪裡',
+    exported: (path: string) => `已匯出到 ${path}`,
+    exportReveal: '在資料夾中顯示',
   },
   settings: {
     group: '背景與通知',

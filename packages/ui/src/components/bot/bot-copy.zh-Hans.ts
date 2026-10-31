@@ -315,6 +315,10 @@ export const zhHans: BotMessages = {
       `会停掉 ${threads} 个正在工作的线程，删除这个频道的任务和 ${schedules} 个周期任务。项目目录、视频以及存进 Space 的内容都会保留。`,
     deleteCounting: '正在统计会停掉哪些…',
     deleteConfirm: '删除',
+    export: '导出…',
+    exportPick: '选择把频道导出到哪里',
+    exported: (path: string) => `已导出到 ${path}`,
+    exportReveal: '在文件夹中显示',
   },
   settings: {
     group: '后台与通知',

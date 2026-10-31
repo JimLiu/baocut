@@ -824,7 +824,12 @@ export class BotService {
     await fs.mkdir(target, { recursive: true });
     await fs.writeFile(path.join(target, 'MEMORY.md'), await this.#files.readMemory(id));
     const items = this.#channelItems(id);
-    await fs.writeFile(path.join(target, 'tasks.json'), JSON.stringify({ channel, items, reports: [...this.#reports.values()].filter((r) => items.some((i) => i.id === r.workItemId)) }, null, 2));
+    // 状态转换记录（BOT-CH-13「任务含更新记录与结果」）：内存里留的最近 2000 条，更早的在任务存储的归档里。
+    const transitions = this.#transitions.get(id) ?? [];
+    await fs.writeFile(
+      path.join(target, 'tasks.json'),
+      JSON.stringify({ channel, items, transitions, reports: [...this.#reports.values()].filter((r) => items.some((i) => i.id === r.workItemId)) }, null, 2),
+    );
     const lines = this.#harness
       .getConversation(channel.conversationId)
       .items.filter((i) => i.kind === 'user-message' || i.kind === 'agent-message')

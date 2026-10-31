@@ -316,6 +316,10 @@ export const it: BotMessages = {
       `Ferma ${threads === 1 ? '1 thread in corso' : `${threads} thread in corso`} ed elimina le attività del canale e ${schedules === 1 ? '1 attività ricorrente' : `${schedules} attività ricorrenti`}. Le cartelle dei progetti, i video e ciò che è salvato in Space restano.`,
     deleteCounting: 'Conteggio di ciò che si fermerà…',
     deleteConfirm: 'Elimina',
+    export: 'Esporta…',
+    exportPick: 'Scegli dove esportare il canale',
+    exported: (path: string) => `Esportato in ${path}`,
+    exportReveal: 'Mostra nella cartella',
   },
   settings: {
     group: 'Background e notifiche',

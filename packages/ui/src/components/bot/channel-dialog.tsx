@@ -28,6 +28,7 @@ import {
   Switch,
   TextArea,
   TextField,
+  ToastQueue,
 } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { ACCESS_MODE_LABEL } from '../../copy.ts';
@@ -140,8 +141,9 @@ export function ChannelDialog({
   const checking = useConnection((s) => s.checking);
   const fallbackDriver = defaultDriver(drivers, checking)?.id ?? null;
   const [draft, setDraft] = useState<Draft>(() => draftOf(channel, fallbackDriver));
-  const [busy, setBusy] = useState<'save' | 'archive' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'archive' | 'export' | null>(null);
   const call = useBotCall();
+  const runtime = useRuntime();
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
   // 打开时 Agent 列表可能还没到：到了再补上默认的那个。
@@ -176,6 +178,23 @@ export function ChannelDialog({
     const result = Object.keys(patch).length ? await call('channels.update', { id: channel!.id, patch }) : true;
     setBusy(null);
     if (result) onClose();
+  };
+
+  // 导出频道（BOT-CH-13）：选一个文件夹，Runtime 在里面建一个子文件夹写对话、任务（含状态转换记录）与记忆。
+  const exportChannel = async () => {
+    if (!channel || busy) return;
+    const dir = await runtime.host.pickDirectory({ title: C.dialog.exportPick });
+    if (!dir) return;
+    setBusy('export');
+    const result = await call('channels.export', { id: channel.id, dir });
+    setBusy(null);
+    if (result)
+      ToastQueue.positive(C.dialog.exported(result.path), {
+        timeout: 8000,
+        actionLabel: C.dialog.exportReveal,
+        shouldCloseOnAction: true,
+        onAction: () => void runtime.host.revealPath(result.path).catch(() => {}),
+      });
   };
 
   const toggleArchive = async () => {
@@ -313,6 +332,11 @@ export function ChannelDialog({
               </Form>
             </Content>
             <ButtonGroup>
+              {!creating && channel ? (
+                <Button variant="secondary" fillStyle="outline" isPending={busy === 'export'} isDisabled={!!busy} onPress={() => void exportChannel()}>
+                  {C.dialog.export}
+                </Button>
+              ) : null}
               {!creating && !main && channel ? (
                 <>
                   <Button variant="secondary" fillStyle="outline" isPending={busy === 'archive'} isDisabled={!!busy} onPress={() => void toggleArchive()}>

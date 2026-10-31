@@ -316,6 +316,10 @@ export const ptBR: BotMessages = {
       `Isso para ${threads === 1 ? '1 fio em andamento' : `${threads} fios em andamento`} e exclui as tarefas do canal e ${schedules === 1 ? '1 tarefa recorrente' : `${schedules} tarefas recorrentes`}. Pastas de projeto, vídeos e o que foi salvo no Space são mantidos.`,
     deleteCounting: 'Contando o que vai parar…',
     deleteConfirm: 'Excluir',
+    export: 'Exportar…',
+    exportPick: 'Escolha onde exportar o canal',
+    exported: (path: string) => `Exportado para ${path}`,
+    exportReveal: 'Mostrar na pasta',
   },
   settings: {
     group: 'Segundo plano e notificações',

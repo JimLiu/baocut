@@ -316,6 +316,10 @@ export const es: BotMessages = {
       `Se ${threads === 1 ? 'detendrá 1 hilo en curso' : `detendrán ${threads} hilos en curso`} y se eliminarán las tareas del canal y ${schedules === 1 ? '1 tarea periódica' : `${schedules} tareas periódicas`}. Las carpetas de proyecto, los vídeos y lo guardado en Space se conservan.`,
     deleteCounting: 'Contando lo que se detendrá…',
     deleteConfirm: 'Eliminar',
+    export: 'Exportar…',
+    exportPick: 'Elige dónde exportar el canal',
+    exported: (path: string) => `Exportado a ${path}`,
+    exportReveal: 'Mostrar en la carpeta',
   },
   settings: {
     group: 'Segundo plano y notificaciones',

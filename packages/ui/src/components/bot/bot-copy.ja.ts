@@ -315,6 +315,10 @@ export const ja: BotMessages = {
       `作業中のスレッド ${threads} 件を止め、このチャンネルのタスクと定期タスク ${schedules} 件を削除します。プロジェクトフォルダ、動画、Space に保存したものは残ります。`,
     deleteCounting: '止まるものを数えています…',
     deleteConfirm: '削除',
+    export: '書き出す…',
+    exportPick: 'チャンネルの書き出し先を選択',
+    exported: (path: string) => `${path} に書き出しました`,
+    exportReveal: 'フォルダで表示',
   },
   settings: {
     group: 'バックグラウンドと通知',
