@@ -2246,11 +2246,13 @@ export class BotService {
         this.#fileSnapshots.set(event.taskId, snapshotFiles(this.#files.filesDir(item.channelId)));
         const info = this.#harness.runInfo(conversation.id);
         // 在任何 await 之前看：Harness 先记下「叫醒了」的提示再发 started，这一回合是不是后台任务叫醒的。
-        const jobWake = event.origin !== 'user' && this.#takeJobWake(conversation.id, event.taskId);
+        // 不看回合的来源：用户直接发给线程的回合里起的后台任务，叫醒时沿用 user 来源，但不带用户消息。
+        const jobWake = this.#takeJobWake(conversation.id, event.taskId);
+        const userTurn = event.origin === 'user' && !!info?.userMessageId && !jobWake;
         // 等着的用户回复随这一回合交给线程：此时才把任务转回工作中。
-        if (event.origin !== 'user') await this.#applyHeldReply(item.id, event.taskId);
+        if (!userTurn) await this.#applyHeldReply(item.id, event.taskId);
         else this.#heldReplies.delete(item.id);
-        if (event.origin === 'user' && info?.userMessageId) {
+        if (userTurn && info?.userMessageId) {
           const message = this.#findItem(conversation.id, info.userMessageId);
           const note = message?.kind === 'user-message' ? message.text : undefined;
           const latest = this.#items.get(item.id);
@@ -2430,6 +2432,11 @@ export class BotService {
         const item = this.itemOfThread(conversation.id);
         const deferredReport = item?.deferredStop && item.lastReportId ? (this.#reports.get(item.lastReportId) ?? null) : null;
         if (item) await this.transition(item.id, { type: 'approval', approvalId: seen, pending: false, deferredReport }, { actor: 'system' }).catch(() => {});
+        // 审批时交的「在等」报告落下了：等的任务可能在审批期间就结了，那时的「已结」叫不醒它，这里补查一次。
+        const settled = item ? this.#items.get(item.id) : undefined;
+        if (settled?.status === 'active' && settled.active?.state === 'waitingOnOthers') {
+          void this.#wakeIfReady(settled, null).catch((error: unknown) => this.#log.warn('Rechecking a waiting task failed', { workItemId: settled.id, error: String(error) }));
+        }
       }
     }
   }

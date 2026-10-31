@@ -259,6 +259,27 @@ describe('a thread waiting on background jobs', () => {
     expect(kit.bot.getItem(item.id).transitions.map((t) => t.cause)).toContain('unblocked:job-finished');
   });
 
+  it('a job started in a turn the user sent straight to the thread still brings the task back to working when it wakes the thread', async () => {
+    let turn = 0;
+    kit.thread = async (ctx) => {
+      turn++;
+      if (turn === 1) await ctx.call('thread_report', { stop: 'needs-review', headline: 'The rough cut is ready.' });
+      else if (turn === 2) await ctx.call('thread_report', { stop: 'needs-review', headline: 'Exporting now; the rough cut is unchanged.' });
+      else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The export is ready too.' });
+    };
+    const item = await kit.startTask('Cut episode 7');
+    expect(kit.item(item.id).active?.state).toBe('needsReview');
+    const thread = kit.threadOf(item.id);
+    await kit.send(thread, 'Please export it as well.');
+    await kit.until(() => lastHeadline(item.id) === 'Exporting now; the rough cut is unchanged.');
+    await kit.settle();
+    const taskId = kit.items(thread).filter((i) => i.kind === 'task').at(-1)!.id;
+    expect(await kit.harness.jobFinished({ conversationId: thread, taskId, jobId: 'job_e', kind: 'export', attempt: 1, state: 'completed' })).toBe('woke');
+    await kit.until(() => turn === 3);
+    await kit.settle();
+    expect(lastHeadline(item.id)).toBe('The export is ready too.');
+  });
+
   it('a job wake does not resume a task the user stopped', async () => {
     let turn = 0;
     kit.thread = async () => {

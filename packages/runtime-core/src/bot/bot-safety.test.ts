@@ -612,6 +612,33 @@ describe('a report sent while an approval waits (§9.3)', () => {
     expect(kit.item(item.id).question).toMatchObject({ text: 'Which voice for the intro?', approvalId: null });
     expect(kit.item(item.id).question!.options.map((o) => o.label)).toEqual(['Warm', 'Bright']);
   });
+
+  it('a waiting report whose task resolved during the approval wakes the thread once the approval is answered', async () => {
+    const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
+    let thread: TurnContext | null = null;
+    let n = 0;
+    kit.thread = async (ctx) => {
+      n++;
+      if (n === 1) {
+        thread = ctx;
+        escalate(ctx, 'music-fetch --track 2');
+      } else if (n === 2) {
+        await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer has music now.' });
+      }
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Add music to the trailer', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => state(item.id) === 'needsInput');
+    await thread!.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
+    expect(kit.item(item.id).deferredStop).toBe('waiting');
+    // 等的任务在审批还没答时就结了：那时任务不在「等别人」，叫不醒。
+    await kit.bot.userTransition(other.id, { type: 'resolve', evidence: null });
+    const pending = kit.harness.approvals.pending()[0]!;
+    await kit.harness.respondToApproval({ conversationId: kit.threadOf(item.id), approvalId: pending.approvalId, decision: 'accept' });
+    thread!.turn.complete();
+    await kit.until(() => state(item.id) === 'needsReview');
+    expect(kit.bot.getItem(item.id).transitions.map((t) => t.cause)).toContain('unblocked:dependency');
+  });
 });
 
 describe('channel access ceiling (§14.4)', () => {
