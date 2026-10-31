@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RpcError, type ProviderKind } from '@baocut/protocol';
-import { allToolNames } from './all-tool-sets.ts';
+import { z } from 'zod';
+import { allToolNames, allToolSets } from './all-tool-sets.ts';
 import { FlowTools, type FlowToolsDeps } from './flow-tools.ts';
 import { ImageTools, type ImageToolsDeps } from './image-tools.ts';
 import { JobTools, type JobToolsDeps } from './job-tools.ts';
@@ -143,6 +144,21 @@ describe('每个可能花钱的工具都标了 paid（Bot 技术方案 §14.2）
     for (const tool of PAID_TOOLS) expect(names, tool).toContain(tool);
     const covered = new Set([...CALLS.map((call) => call.tool), 'external_tools_consent']);
     expect([...PAID_TOOLS].filter((tool) => !covered.has(tool))).toEqual([]);
+  });
+
+  it('参数里能指定 Provider 或模型的工具默认算付费：要么在 PAID_TOOLS 里，要么写明为什么不花钱', () => {
+    // 新加的工具只要带 provider / model 参数，就会被这里拦下，不会因为忘了加进 PAID_TOOLS 而在无人在场时不问就花钱。
+    const notPaid: Record<string, string> = {
+      // 只是申请授权，本身不调用模型；之后用授权的那次调用另有确认。
+      grants_request: 'asks for a grant; the call that uses it is confirmed on its own',
+    };
+    const withProvider = allToolSets().flatMap((set) =>
+      Object.entries(set.schemas)
+        .filter(([, schema]) => /"(provider|model)":/.test(JSON.stringify(z.toJSONSchema(schema, { io: 'input' }))))
+        .map(([name]) => name),
+    );
+    expect(withProvider.length).toBeGreaterThan(5);
+    expect(withProvider.filter((tool) => !PAID_TOOLS.has(tool) && !(tool in notPaid))).toEqual([]);
   });
 
   it.each(CALLS)('$tool $args：在线 Provider 时 paid 为 true，无人在场的 Bot 回合按 high 问', async ({ tool, args }) => {
