@@ -95,7 +95,10 @@ export function clip(text: string, max: number): string {
   return chars.length > max ? `${chars.slice(0, max - 1).join('')}…` : text;
 }
 
-/** 用户写的文字主要是什么语言（Runtime 自己写的文字用它，BH-10）：粗略按文字系统判断。 */
+/**
+ * 用户写的文字主要是什么语言（Runtime 自己写的文字用它，BH-10）：只认一种文字系统就能确定的语言。
+ * 拉丁、西里尔等文字被许多语言共用，单看字母分不出英语还是西班牙语，返回 null，由模型照消息本身判断，不假定英语。
+ */
 export function guessLanguage(texts: readonly string[]): string | null {
   const sample = texts.join(' ').slice(-2000);
   if (!sample.trim()) return null;
@@ -103,11 +106,10 @@ export function guessLanguage(texts: readonly string[]): string | null {
   const kana = count(/[぀-ヿ]/g);
   const hangul = count(/[가-힯]/g);
   const han = count(/[一-鿿]/g);
-  const cyrillic = count(/[Ѐ-ӿ]/g);
   const latin = count(/[A-Za-z]/g);
   if (kana > 5) return 'ja';
   if (hangul > 5) return 'ko';
-  if (han > latin / 3 && han > 3) return 'zh-Hans';
-  if (cyrillic > latin) return 'ru';
-  return latin > 0 ? 'en' : null;
+  // 汉字不分简繁：只说是中文，书写形式由模型照消息决定。
+  if (han > latin / 3 && han > 3) return 'zh';
+  return null;
 }

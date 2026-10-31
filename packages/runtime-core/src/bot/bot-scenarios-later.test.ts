@@ -225,7 +225,7 @@ describe('BOT-S17..S31', () => {
     expect(kit.item(item.id).title).toBe(request);
     expect(kit.turns(kit.threadOf(item.id))[0]).toContain('<baocut-task-contract outputLanguage="en"/>');
     const text = await kit.coordinatorTurn('进度怎么样了？', (ctx) => ctx.turn.text);
-    expect(text).toContain('conversation language: zh-Hans');
+    expect(text).toContain('conversation language: zh');
     expect(coordinatorInstructions(kit.main)).toContain("Use the language of the user's latest messages for everything the user reads.");
   });
 
