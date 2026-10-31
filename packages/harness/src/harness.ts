@@ -2297,6 +2297,22 @@ export class Harness {
   }
 
   /**
+   * 任务移到别的频道时线程跟着走（Bot 需求 BOT-TK-09）：线程会话换频道与工作目录。只给 Bot 服务用；回合进行中不能移。
+   * 闲着的原生会话还在旧目录里，和绑定项目时一样关掉，下一轮在新目录里起。
+   */
+  async moveThread(conversationId: Id, target: { channelId: Id; cwd: string }, options: BotInternal = {}): Promise<Conversation> {
+    const state = this.#require(conversationId);
+    if (options.internal !== BOT_INTERNAL || state.conversation.role !== 'thread') {
+      throw new RpcError('invalid-request', HB.roleLocked(), { code: 'BOT_ROLE_LOCKED', role: state.conversation.role ?? null });
+    }
+    if (state.conversation.activeTaskId || this.#runs.has(conversationId)) throw new RpcError('busy', HA.sessionBusy());
+    const moved = state.updateConversation({ channelId: target.channelId, cwd: target.cwd }, { touch: false });
+    await this.#store.flush();
+    await this.#agents.release(conversationId);
+    return moved;
+  }
+
+  /**
    * 取消这个会话提交、还没结束的后台 Job（§7.6）：线程已经结束回合、只在等 Job 时停下用。取消了几个写进会话提示。
    */
   async cancelJobs(conversationId: Id): Promise<number> {

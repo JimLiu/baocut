@@ -610,6 +610,12 @@ export class BotService {
     this.#schedules?.channelChanged(id);
     // 恢复时补投挂起的报告（§8.3 dropped 的那一类）。
     if (!archived) for (const r of [...this.#reports.values()].filter((r) => r.delivery === 'pending')) await this.#deliverReport(r, true);
+    // 归档的频道不跑到点的条目与排队的任务；恢复时补上。
+    if (archived) this.#armOneShot();
+    else {
+      await this.#pump();
+      await this.fireDue();
+    }
     return next;
   }
 
@@ -909,6 +915,17 @@ export class BotService {
     const thread = item.threadId ? this.#harness.conversationOf(item.threadId) : undefined;
     if (thread && (thread.activity === 'running' || thread.activity === 'stopping')) {
       throw new RpcError('busy', RcBot.transitionDenied({ from: stateName(item), event: 'move' }));
+    }
+    // 线程跟着走（BOT-TK-09）：线程会话换到新频道与它的工作目录，工作笔记搬过去，免得记忆、笔记与删除旧频道时对不上。
+    if (thread && item.threadId) {
+      const { filesDir } = await this.#files.ensure(to.id);
+      const oldNotes = path.dirname(this.#files.notesPath(from.id, item.threadId));
+      const newNotes = path.dirname(this.#files.notesPath(to.id, item.threadId));
+      await fs.mkdir(path.dirname(newNotes), { recursive: true });
+      await fs.rename(oldNotes, newNotes).catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      });
+      await this.#harness.moveThread(item.threadId, { channelId: to.id, cwd: filesDir }, { internal: BOT_INTERNAL });
     }
     const next = { ...item, channelId: toChannelId, updatedAt: nowIso() };
     this.#items.set(id, next);
@@ -1761,20 +1778,26 @@ export class BotService {
   #armOneShot(): void {
     this.#cancelOneShot?.();
     this.#cancelOneShot = null;
-    if (this.#stopped) return;
+    // 暂停了自动运行时不挂定时：到点的条目在恢复时由 `pauseAutomation(false)` 补跑，否则过期的条目会让定时器空转。
+    if (this.#stopped || this.settings().automationPaused) return;
     const now = this.#clock.now();
-    const due = [...this.#items.values()].filter((i) => i.status === 'scheduled' && i.startAt).map((i) => Date.parse(i.startAt!));
+    const due = [...this.#items.values()].filter((i) => this.#oneShotEligible(i)).map((i) => Date.parse(i.startAt!));
     if (due.length === 0) return;
     const next = Math.min(...due);
     const wait = Math.max(0, Math.min(next - now, HOUR));
     this.#cancelOneShot = this.#clock.setTimer(() => void this.fireDue(), wait);
   }
 
+  /** 一次性定时的候选：已排期、有时刻，且所在频道没有归档（归档的频道恢复时重新挂定时）。 */
+  #oneShotEligible(item: WorkItem): boolean {
+    return item.status === 'scheduled' && !!item.startAt && this.#channels.get(item.channelId)?.archived !== true;
+  }
+
   async fireDue(): Promise<void> {
     const now = this.#clock.now();
     for (const item of [...this.#items.values()]) {
-      if (item.status !== 'scheduled' || !item.startAt || Date.parse(item.startAt) > now) continue;
-      if (this.settings().automationPaused) continue;
+      if (!this.#oneShotEligible(item) || !item.startAt || Date.parse(item.startAt) > now) continue;
+      if (this.settings().automationPaused) break;
       const late = now - Date.parse(item.startAt);
       await this.transition(item.id, { type: 'due' }, { actor: 'system' }).catch(() => {});
       if (late > ONE_SHOT_GRACE_MS) {

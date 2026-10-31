@@ -1,6 +1,6 @@
 // i18n-ignore-file: facts and evidence reasons for the model (English)
 import path from 'node:path';
-import type { Evidence, Id, JobRecord, Project, ResourceRef, WorkItem } from '@baocut/protocol';
+import type { Evidence, Id, JobRecord, Project, ResourceRef, VideoVersionList, WorkItem } from '@baocut/protocol';
 import type { BotWorkspace } from './bot-service.ts';
 
 /*
@@ -13,6 +13,8 @@ export interface RuntimeWorkspaceDeps {
   videos: () => { entryId: Id; dir: string; projectId: Id | null; videoId: Id | null; lastActivityAt: string }[];
   /** Job 记录；没有这个 Job 时抛错或返回 undefined。 */
   job: (jobId: Id) => JobRecord | undefined;
+  /** 视频的版本记录，新的在前（`VideoService.listVersions`）；读不出时抛错。 */
+  versions: (videoId: Id) => Promise<VideoVersionList>;
 }
 
 export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
@@ -56,7 +58,20 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
         }
         case 'video-version': {
           const known = safe(deps.videos).some((v) => v.videoId === evidence.videoId && v.projectId === evidence.projectId);
-          return known ? null : `video ${evidence.videoId} not found in that project`;
+          if (!known) return `video ${evidence.videoId} not found in that project`;
+          // 只认视频此刻的最新一版，而且是这条任务开始之后才有的：编号或修订号都要对得上。
+          let newest: VideoVersionList['versions'][number] | undefined;
+          try {
+            newest = (await deps.versions(evidence.videoId)).versions[0];
+          } catch {
+            return `could not read the versions of video ${evidence.videoId}`;
+          }
+          if (!newest) return `video ${evidence.videoId} has no versions`;
+          if (String(newest.version) !== evidence.version && newest.toRevision !== evidence.version) {
+            return `video ${evidence.videoId} is at version ${newest.version}, not ${evidence.version}`;
+          }
+          if (newest.updatedAt < since) return `version ${evidence.version} is older than this task`;
+          return null;
         }
         case 'past-date':
           return null;
