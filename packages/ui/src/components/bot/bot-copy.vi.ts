@@ -119,6 +119,18 @@ export const vi: BotMessages = {
     editTitle: 'Sửa tiêu đề',
     modify: 'Sửa',
   },
+  message: {
+    edit: 'Sửa tin nhắn',
+    editTitle: 'Sửa tin nhắn của bạn',
+    editHint: 'Nếu một việc đã nhận tin nhắn này, nó sẽ nhận cả bản cũ và bản mới.',
+    edited: 'Đã sửa',
+    editedFrom: (text: string) => `Trước: ${text}`,
+    replyTo: (title: string) => `Trả lời “${title}”`,
+    replyToCard: 'Trả lời thẻ việc',
+    reactions: 'Bày tỏ cảm xúc',
+    thumbsUp: 'Thích (với câu “Tôi làm… nhé?” nghĩa là có)',
+    thumbsDown: 'Không thích (tác tử sẽ hỏi cần sửa gì)',
+  },
   chips: {
     label: 'Câu trả lời gợi ý',
     stale: 'Gợi ý này đã cũ',

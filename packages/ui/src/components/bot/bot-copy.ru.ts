@@ -128,6 +128,18 @@ export const ru: BotMessages = {
     editTitle: 'Изменить название',
     modify: 'Изменить',
   },
+  message: {
+    edit: 'Изменить сообщение',
+    editTitle: 'Изменить ваше сообщение',
+    editHint: 'Если задача уже получила это сообщение, она получит старый и новый текст.',
+    edited: 'Изменено',
+    editedFrom: (text: string) => `Было: ${text}`,
+    replyTo: (title: string) => `Ответ на «${title}»`,
+    replyToCard: 'Ответ на карточку задачи',
+    reactions: 'Реакция',
+    thumbsUp: 'Нравится (на «Сделать…?» означает «да»)',
+    thumbsDown: 'Не нравится (агент спросит, что изменить)',
+  },
   chips: {
     label: 'Предлагаемые ответы',
     stale: 'Это предложение устарело',

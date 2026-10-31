@@ -18,6 +18,7 @@ import { useBotCall } from './bot-actions.ts';
 import { jumpTo } from './bot-jump.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
+import { useBotMessageExtras } from './timeline/message-extras.tsx';
 import { SuggestionChips } from './timeline/suggestion-chips.tsx';
 
 const column = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0, minHeight: 0 });
@@ -229,6 +230,7 @@ export function ChannelView({
   const unavailable = useDriverUnavailable(channel);
   const [scheduling, setScheduling] = useState(false);
   const firstUnread = away.summary?.firstUnreadItemId ?? null;
+  const messageExtras = useBotMessageExtras();
   const extras = useMemo(
     () => ({
       unread: away.firstUnread
@@ -243,10 +245,9 @@ export function ChannelView({
             ),
           }
         : null,
-      userMessage: null,
-      agentMessage: null,
+      ...messageExtras,
     }),
-    [away.firstUnread],
+    [away.firstUnread, messageExtras],
   );
   const banners: ReactNode[] = [];
 

@@ -119,6 +119,18 @@ export const it: BotMessages = {
     editTitle: 'Modifica titolo',
     modify: 'Modifica',
   },
+  message: {
+    edit: 'Modifica messaggio',
+    editTitle: 'Modifica il tuo messaggio',
+    editHint: 'Se un’attività ha già ricevuto questo messaggio, riceve il testo vecchio e quello nuovo.',
+    edited: 'Modificato',
+    editedFrom: (text: string) => `Prima: ${text}`,
+    replyTo: (title: string) => `Risposta a «${title}»`,
+    replyToCard: 'Risposta a una scheda attività',
+    reactions: 'Reagisci',
+    thumbsUp: 'Mi piace (su «Devo…?» vuol dire sì)',
+    thumbsDown: 'Non mi piace (l’agente chiede cosa cambiare)',
+  },
   chips: {
     label: 'Risposte suggerite',
     stale: 'Questo suggerimento non è aggiornato',

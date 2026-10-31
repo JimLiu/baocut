@@ -12,6 +12,7 @@ import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
 import { useWorkItems } from '../../state/work-items-store.ts';
 import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
+import { Reactions, UserMessageExtras } from './timeline/message-extras.tsx';
 import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
 import { DialogContainer } from '@react-spectrum/s2';
 import { useTimeline } from '../../state/timeline-store.ts';
@@ -488,5 +489,42 @@ describe('周期任务建到频道里（Bot 技术方案 §14.1）', () => {
     } finally {
       useChannels.setState({ channels: [] });
     }
+  });
+});
+
+describe('改已发的消息与表情回应（BOT-EX-06、BOT-EX-10）', () => {
+  const typed = { kind: 'user-message', id: 'msg1', createdAt: '2026-10-31T09:00:00Z', taskId: null, text: '剪 3 条' } as Extract<TimelineItem, { kind: 'user-message' }>;
+
+  it('亲手打的消息可以改：交 conversations.editMessage；改过的标「已编辑」', async () => {
+    handlers['conversations.editMessage'] = (p) => ({ item: { ...typed, text: p.text } });
+    await render(createElement(UserMessageExtras, { item: typed, conversationId: 'conv_c1' }));
+    expect(container.textContent).not.toContain('已编辑');
+    await press('编辑消息');
+    const field = document.querySelector<HTMLTextAreaElement>('textarea')!;
+    expect(field.value).toBe('剪 3 条');
+    await typeInto(field, '剪 5 条');
+    await press('保存');
+    expect(calls('conversations.editMessage')).toEqual([{ conversationId: 'conv_c1', itemId: 'msg1', text: '剪 5 条' }]);
+
+    await render(createElement(UserMessageExtras, { item: { ...typed, text: '剪 5 条', history: [{ text: '剪 3 条', editedAt: '2026-10-31T09:01:00Z' }] }, conversationId: 'conv_c1' }));
+    expect(container.textContent).toContain('已编辑');
+  });
+
+  it('点提示、点表情发的消息不能改', async () => {
+    await render(createElement(UserMessageExtras, { item: { ...typed, via: 'suggestion' }, conversationId: 'conv_c1' }));
+    expect(button('编辑消息')).toBeUndefined();
+  });
+
+  it('智能体的消息下 👍 👎 交 bot.react；点过的高亮且不再重复', async () => {
+    handlers['bot.react'] = () => ({ taskId: 't1' });
+    const agent = { kind: 'agent-message', id: 'am1', createdAt: '2026-10-31T09:00:00Z', taskId: 't0', text: '要我把第 2 段也剪短吗？', streaming: false } as Extract<TimelineItem, { kind: 'agent-message' }>;
+    await render(createElement(Reactions, { item: agent, conversationId: 'conv_c1' }));
+    const up = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('赞'))!;
+    await act(async () => up.click());
+    expect(calls('bot.react')).toEqual([{ conversationId: 'conv_c1', itemId: 'am1', emoji: '\u{1F44D}' }]);
+
+    await render(createElement(Reactions, { item: { ...agent, reactions: ['\u{1F44D}'] }, conversationId: 'conv_c1' }));
+    const pressed = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('赞'))!;
+    expect(pressed.getAttribute('aria-pressed')).toBe('true');
   });
 });

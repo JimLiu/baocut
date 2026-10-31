@@ -119,6 +119,18 @@ export const zhHant: BotMessages = {
     editTitle: '改標題',
     modify: '修改',
   },
+  message: {
+    edit: '編輯訊息',
+    editTitle: '改這條訊息',
+    editHint: '這條已經轉給了任務的話，任務會收到改前和改後的兩版。',
+    edited: '已編輯',
+    editedFrom: (text: string) => `改前：${text}`,
+    replyTo: (title: string) => `回覆「${title}」`,
+    replyToCard: '回覆了一張任務卡',
+    reactions: '表情回應',
+    thumbsUp: '讚（在「要我……嗎」上等於「好」）',
+    thumbsDown: '踩（智慧體會問哪裡要改）',
+  },
   chips: {
     label: '建議的回覆',
     stale: '這則提示已經過時',

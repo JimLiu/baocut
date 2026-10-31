@@ -119,6 +119,18 @@ export const nl: BotMessages = {
     editTitle: 'Titel bewerken',
     modify: 'Wijzigen',
   },
+  message: {
+    edit: 'Bericht bewerken',
+    editTitle: 'Je bericht bewerken',
+    editHint: 'Als een taak dit bericht al kreeg, krijgt die de oude en de nieuwe tekst.',
+    edited: 'Bewerkt',
+    editedFrom: (text: string) => `Eerder: ${text}`,
+    replyTo: (title: string) => `Antwoord op ‘${title}’`,
+    replyToCard: 'Antwoord op een taakkaart',
+    reactions: 'Reageren',
+    thumbsUp: 'Duim omhoog (bij „Zal ik…?” betekent dit ja)',
+    thumbsDown: 'Duim omlaag (de agent vraagt wat er anders moet)',
+  },
   chips: {
     label: 'Voorgestelde antwoorden',
     stale: 'Dit voorstel is verouderd',

@@ -119,6 +119,18 @@ export const ja: BotMessages = {
     editTitle: 'タイトルを編集',
     modify: '変更',
   },
+  message: {
+    edit: 'メッセージを編集',
+    editTitle: 'メッセージを編集',
+    editHint: 'このメッセージがすでにタスクに渡っていれば、タスクには変更前と変更後の両方が届きます。',
+    edited: '編集済み',
+    editedFrom: (text: string) => `変更前：${text}`,
+    replyTo: (title: string) => `「${title}」への返信`,
+    replyToCard: 'タスクカードへの返信',
+    reactions: 'リアクション',
+    thumbsUp: 'いいね（「〜しましょうか？」では「はい」）',
+    thumbsDown: 'よくない（エージェントがどこを直すか尋ねます）',
+  },
   chips: {
     label: '返信の候補',
     stale: 'この候補は古くなっています',

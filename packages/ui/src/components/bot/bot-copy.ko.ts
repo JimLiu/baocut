@@ -119,6 +119,18 @@ export const ko: BotMessages = {
     editTitle: '제목 편집',
     modify: '수정',
   },
+  message: {
+    edit: '메시지 편집',
+    editTitle: '내 메시지 편집',
+    editHint: '이 메시지가 이미 작업에 전달됐다면, 작업은 이전 글과 새 글을 모두 받습니다.',
+    edited: '편집됨',
+    editedFrom: (text: string) => `이전: ${text}`,
+    replyTo: (title: string) => `“${title}”에 답장`,
+    replyToCard: '작업 카드에 답장',
+    reactions: '반응',
+    thumbsUp: '좋아요(“~할까요?”에서는 예)',
+    thumbsDown: '싫어요(에이전트가 무엇을 고칠지 묻습니다)',
+  },
   chips: {
     label: '추천 답장',
     stale: '이 제안은 오래되었습니다',

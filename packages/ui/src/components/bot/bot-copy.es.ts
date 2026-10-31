@@ -119,6 +119,18 @@ export const es: BotMessages = {
     editTitle: 'Editar título',
     modify: 'Modificar',
   },
+  message: {
+    edit: 'Editar mensaje',
+    editTitle: 'Edita tu mensaje',
+    editHint: 'Si una tarea ya recibió este mensaje, recibe el texto anterior y el nuevo.',
+    edited: 'Editado',
+    editedFrom: (text: string) => `Antes: ${text}`,
+    replyTo: (title: string) => `Respuesta a «${title}»`,
+    replyToCard: 'Respuesta a una tarjeta de tarea',
+    reactions: 'Reaccionar',
+    thumbsUp: 'Me gusta (en «¿Lo hago…?» significa sí)',
+    thumbsDown: 'No me gusta (el agente pregunta qué cambiar)',
+  },
   chips: {
     label: 'Respuestas sugeridas',
     stale: 'Esta sugerencia está desactualizada',

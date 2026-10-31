@@ -119,6 +119,18 @@ export const tr: BotMessages = {
     editTitle: 'Başlığı düzenle',
     modify: 'Değiştir',
   },
+  message: {
+    edit: 'Mesajı düzenle',
+    editTitle: 'Mesajınızı düzenleyin',
+    editHint: 'Bir görev bu mesajı zaten aldıysa eski ve yeni metni birlikte alır.',
+    edited: 'Düzenlendi',
+    editedFrom: (text: string) => `Önceki: ${text}`,
+    replyTo: (title: string) => `“${title}” yanıtı`,
+    replyToCard: 'Görev kartına yanıt',
+    reactions: 'Tepki ver',
+    thumbsUp: 'Beğen (“…yapayım mı?” sorusunda evet demek)',
+    thumbsDown: 'Beğenme (ajan neyin değişeceğini sorar)',
+  },
   chips: {
     label: 'Önerilen yanıtlar',
     stale: 'Bu öneri güncel değil',

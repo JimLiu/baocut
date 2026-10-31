@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { localizeText, type ArtifactRef, type Id, type RevertPlan, type ResourceRef, type WorkItem, type WorkItemStateName, type WorkItemTransition } from '@baocut/protocol';
 import {
   ActionButton,
@@ -37,6 +37,7 @@ import { formatDay } from './bot-format.ts';
 import { StatusLabel } from './status-badge.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
+import { useBotMessageExtras } from './timeline/message-extras.tsx';
 import { SuggestionChips } from './timeline/suggestion-chips.tsx';
 import { statusLabel, workItemStatus } from './work-item-status.ts';
 
@@ -209,6 +210,9 @@ export function TaskDetail({
   const [dialog, setDialog] = useState<'redirect' | 'revert' | 'delete' | 'edit' | null>(null);
   const [allFinished, setAllFinished] = useState(false);
   const [answering, setAnswering] = useState<number | null>(null);
+  // 线程里也能改自己的消息、给智能体的消息点 👍 👎（BOT-EX-06、BOT-EX-10）。
+  const messageExtras = useBotMessageExtras();
+  const threadExtras = useMemo(() => ({ unread: null, ...messageExtras }), [messageExtras]);
 
   if (!item) {
     return (
@@ -396,7 +400,7 @@ export function TaskDetail({
       {details}
       <div className={thread}>
         {item.threadId ? (
-          <BotTimeline channelId={channelId ?? item.channelId}>
+          <BotTimeline channelId={channelId ?? item.channelId} extras={threadExtras}>
             <ConversationView
               conversationId={item.threadId}
               autoFocus={false}

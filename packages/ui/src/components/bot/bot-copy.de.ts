@@ -119,6 +119,18 @@ export const de: BotMessages = {
     editTitle: 'Titel bearbeiten',
     modify: 'Ändern',
   },
+  message: {
+    edit: 'Nachricht bearbeiten',
+    editTitle: 'Deine Nachricht bearbeiten',
+    editHint: 'Hat eine Aufgabe diese Nachricht schon bekommen, erhält sie den alten und den neuen Text.',
+    edited: 'Bearbeitet',
+    editedFrom: (text: string) => `Vorher: ${text}`,
+    replyTo: (title: string) => `Antwort auf „${title}“`,
+    replyToCard: 'Antwort auf eine Aufgabenkarte',
+    reactions: 'Reagieren',
+    thumbsUp: 'Daumen hoch (bei „Soll ich …?“ heißt das ja)',
+    thumbsDown: 'Daumen runter (der Agent fragt, was zu ändern ist)',
+  },
   chips: {
     label: 'Vorgeschlagene Antworten',
     stale: 'Dieser Vorschlag ist veraltet',

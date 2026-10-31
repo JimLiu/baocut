@@ -119,6 +119,18 @@ export const zhHans: BotMessages = {
     editTitle: '改标题',
     modify: '修改',
   },
+  message: {
+    edit: '编辑消息',
+    editTitle: '改这条消息',
+    editHint: '这条已经转给了任务的话，任务会收到改前和改后的两版。',
+    edited: '已编辑',
+    editedFrom: (text: string) => `改前：${text}`,
+    replyTo: (title: string) => `回复「${title}」`,
+    replyToCard: '回复了一张任务卡',
+    reactions: '表情回应',
+    thumbsUp: '赞（在「要我……吗」上等于「好」）',
+    thumbsDown: '踩（智能体会问哪里要改）',
+  },
   chips: {
     label: '建议的回复',
     stale: '这条提示已经过时',

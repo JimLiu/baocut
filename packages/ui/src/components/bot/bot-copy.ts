@@ -138,6 +138,18 @@ const en = {
     editTitle: 'Edit title',
     modify: 'Modify',
   },
+  message: {
+    edit: 'Edit message',
+    editTitle: 'Edit your message',
+    editHint: 'If a task already got this message, it gets the old and new text.',
+    edited: 'Edited',
+    editedFrom: (text: string) => `Before: ${text}`,
+    replyTo: (title: string) => `Reply to “${title}”`,
+    replyToCard: 'Reply to a task card',
+    reactions: 'React',
+    thumbsUp: 'Thumbs up (on “Shall I…?” it means yes)',
+    thumbsDown: 'Thumbs down (the agent asks what to change)',
+  },
   chips: {
     label: 'Suggested replies',
     stale: 'This suggestion is out of date',

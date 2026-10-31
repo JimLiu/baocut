@@ -128,6 +128,18 @@ export const pl: BotMessages = {
     editTitle: 'Edytuj tytuł',
     modify: 'Zmień',
   },
+  message: {
+    edit: 'Edytuj wiadomość',
+    editTitle: 'Edytuj swoją wiadomość',
+    editHint: 'Jeśli zadanie już dostało tę wiadomość, otrzyma starą i nową treść.',
+    edited: 'Edytowano',
+    editedFrom: (text: string) => `Wcześniej: ${text}`,
+    replyTo: (title: string) => `Odpowiedź na „${title}”`,
+    replyToCard: 'Odpowiedź na kartę zadania',
+    reactions: 'Zareaguj',
+    thumbsUp: 'Kciuk w górę (przy „Czy mam…?” oznacza tak)',
+    thumbsDown: 'Kciuk w dół (agent zapyta, co zmienić)',
+  },
   chips: {
     label: 'Proponowane odpowiedzi',
     stale: 'Ta propozycja jest nieaktualna',

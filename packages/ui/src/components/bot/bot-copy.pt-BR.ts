@@ -119,6 +119,18 @@ export const ptBR: BotMessages = {
     editTitle: 'Editar título',
     modify: 'Modificar',
   },
+  message: {
+    edit: 'Editar mensagem',
+    editTitle: 'Edite sua mensagem',
+    editHint: 'Se uma tarefa já recebeu esta mensagem, ela recebe o texto antigo e o novo.',
+    edited: 'Editada',
+    editedFrom: (text: string) => `Antes: ${text}`,
+    replyTo: (title: string) => `Resposta a “${title}”`,
+    replyToCard: 'Resposta a um cartão de tarefa',
+    reactions: 'Reagir',
+    thumbsUp: 'Curtir (em “Posso…?” significa sim)',
+    thumbsDown: 'Não curtir (o agente pergunta o que mudar)',
+  },
   chips: {
     label: 'Respostas sugeridas',
     stale: 'Esta sugestão está desatualizada',
