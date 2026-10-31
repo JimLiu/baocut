@@ -1,4 +1,4 @@
-import { isMoneyAmount, microsToMoney, moneyToMicros, type Channel, type Money, type TaskBudgetLimits, type WorkItem } from '@baocut/protocol';
+import { isMoneyAmount, microsToMoney, moneyToMicros, type Channel, type Id, type Money, type TaskBudgetLimits, type WorkItem } from '@baocut/protocol';
 
 /*
  * 线程任务的预算上限（Bot 技术方案 §14.5）：取任务自己的预算与频道今天、本月剩下的额度里最小的一个。频道花了多少由 Runtime 从
@@ -9,6 +9,8 @@ import { isMoneyAmount, microsToMoney, moneyToMicros, type Channel, type Money, 
 export interface ChannelSpend {
   day: Money[];
   month: Money[];
+  /** 每个会话（频道对话、线程）从开始到现在累计的花费。 */
+  byConversation?: Record<Id, Money[]>;
 }
 
 /** 本地时间的今天零点与本月一号零点。 */

@@ -62,6 +62,7 @@ export const es: BotMessages = {
     empty: 'Di lo que necesitas. Los trabajos largos se hacen en segundo plano y aparecen como tareas.',
     archivedNote: 'Este canal está archivado. Restáuralo para seguir trabajando aquí.',
     spend: (today: string, month: string) => `Gastado hoy ${today} · este mes ${month}`,
+    taskSpend: (amount: string) => `Gastado: ${amount}`,
     recurring: 'Nueva tarea recurrente',
   },
   away: {

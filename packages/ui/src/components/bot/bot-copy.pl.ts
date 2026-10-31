@@ -71,6 +71,7 @@ export const pl: BotMessages = {
     empty: 'Powiedz, czego potrzebujesz. Dłuższe prace idą w tle i pojawiają się jako zadania.',
     archivedNote: 'Ten kanał jest zarchiwizowany. Przywróć go, aby dalej tu pracować.',
     spend: (today: string, month: string) => `Wydano dziś ${today} · w tym miesiącu ${month}`,
+    taskSpend: (amount: string) => `Wydano: ${amount}`,
     recurring: 'Nowe zadanie cykliczne',
   },
   away: {

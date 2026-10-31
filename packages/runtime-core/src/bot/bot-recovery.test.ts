@@ -466,7 +466,7 @@ describe('the inbox', () => {
     kit.workspace.spend = { day: [{ amount: '0.40', currency: 'USD' }], month: [{ amount: '2.10', currency: 'USD' }] };
     await kit.bot.updateChannel(kit.main.id, { dailyBudget: { amount: '5.00', currency: 'USD' } });
     const row = kit.bot.listChannels().find((c) => c.channel.id === kit.main.id)!;
-    expect(row.spend).toEqual({ today: { amount: '0.40', currency: 'USD' }, month: { amount: '2.10', currency: 'USD' } });
+    expect(row.spend).toMatchObject({ today: { amount: '0.40', currency: 'USD' }, month: { amount: '2.10', currency: 'USD' } });
   });
 });
 

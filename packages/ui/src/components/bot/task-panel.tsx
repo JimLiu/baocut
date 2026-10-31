@@ -33,6 +33,7 @@ import { useNow } from '../use-now.ts';
 import { errorText, nextLine, transitionWorkItem, useBotCall, useScopedState } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { formatDay, formatWhen } from './bot-format.ts';
+import { useTaskSpend } from './task-spend.ts';
 import { StatusIcon } from './status-badge.tsx';
 import { SuggestionButtons } from './timeline/proposal-card.tsx';
 import { workItemStatus } from './work-item-status.ts';
@@ -119,6 +120,7 @@ function TaskRow({ item, today, timeZone, selected, onOpen }: { item: WorkItem; 
   const sub =
     item.status === 'scheduled' && item.startAt ? C.panel.starts(formatWhen(item.startAt, timeZone)) : (nextLine(item) ?? (item.dueOn ? C.panel.due(formatDay(item.dueOn)) : null));
   const actions = quickActions(item);
+  const spent = useTaskSpend(item.channelId, item.id);
   const run = (action: QuickAction) => {
     if (action === 'start') void transitionWorkItem(call, item.id, { type: 'start' });
     else if (action === 'markDone') void transitionWorkItem(call, item.id, { type: 'resolve', evidence: null });
@@ -134,6 +136,7 @@ function TaskRow({ item, today, timeZone, selected, onOpen }: { item: WorkItem; 
         <span className={rowText}>
           <span className={rowTitle({ isStruck: status.strike })}>{item.title}</span>
           {late ? <span className={overdue}>{`${C.panel.overdue} · ${C.panel.due(formatDay(item.dueOn!))}`}</span> : sub ? <span className={rowSub}>{sub}</span> : null}
+          {spent ? <span className={rowSub}>{spent}</span> : null}
         </span>
       </button>
       {actions.length ? (

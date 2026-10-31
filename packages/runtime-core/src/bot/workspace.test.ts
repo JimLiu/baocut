@@ -101,7 +101,12 @@ describe('channel spend from the usage ledger', () => {
       ],
     });
     const spend = await ws.channelSpend!(new Set(['conv_channel', 'conv_thread']), { day: '2026-10-31T00:00:00.000Z', month: '2026-10-01T00:00:00.000Z' });
-    expect(spend).toEqual({ day: [{ amount: '1.75', currency: 'USD' }], month: [{ amount: '3.75', currency: 'USD' }] });
+    expect(spend).toEqual({
+      day: [{ amount: '1.75', currency: 'USD' }],
+      month: [{ amount: '3.75', currency: 'USD' }],
+      // 每个会话从开始累计（上个月的也算），Job 记在提交它的会话名下。
+      byConversation: { conv_thread: [{ amount: '1.75', currency: 'USD' }], conv_channel: [{ amount: '7.00', currency: 'USD' }] },
+    });
   });
 
   it('is not offered without a ledger', () => {

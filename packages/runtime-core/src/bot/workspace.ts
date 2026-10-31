@@ -179,14 +179,19 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
             const records = await deps.usage!();
             const day: Money[] = [];
             const month: Money[] = [];
+            const all = new Map<Id, Money[]>();
             for (const record of records) {
-              if (record.cost.kind !== 'reported' || record.at < since.month) continue;
-              if (!belongsTo(record, conversationIds, job)) continue;
+              if (record.cost.kind !== 'reported') continue;
+              const owner = ownerOf(record, conversationIds, job);
+              if (!owner) continue;
               const money = { amount: record.cost.amount, currency: record.cost.currency };
+              all.set(owner, [...(all.get(owner) ?? []), money]);
+              if (record.at < since.month) continue;
               month.push(money);
               if (record.at >= since.day) day.push(money);
             }
-            return { day: sumMoney(day), month: sumMoney(month) };
+            const byConversation = Object.fromEntries([...all].map(([id, amounts]) => [id, sumMoney(amounts)]));
+            return { day: sumMoney(day), month: sumMoney(month), byConversation };
           },
         }
       : {}),
@@ -263,13 +268,14 @@ function lostBaseline(list: VideoVersionList, baseVersion: number, recorded: boo
 }
 
 /** 记录属于这组会话：直接记了会话，或是会话里的智能体交的 Job。 */
-function belongsTo(record: UsageRecord, ids: ReadonlySet<Id>, job: (jobId: Id) => JobRecord | undefined): boolean {
+/** 这笔用量记在哪个会话名下（会话自己调的，或会话里的智能体提交的 Job）；不在这些会话里的返回 null。 */
+function ownerOf(record: UsageRecord, ids: ReadonlySet<Id>, job: (jobId: Id) => JobRecord | undefined): Id | null {
   const conversationId = record.ref?.conversationId;
-  if (conversationId) return ids.has(conversationId);
+  if (conversationId) return ids.has(conversationId) ? conversationId : null;
   const jobId = record.ref?.jobId;
-  if (!jobId) return false;
+  if (!jobId) return null;
   const submitter = job(jobId)?.submitter;
-  return submitter?.kind === 'agent' && ids.has(submitter.id);
+  return submitter?.kind === 'agent' && ids.has(submitter.id) ? submitter.id : null;
 }
 
 function safe<T>(fn: () => T[]): T[] {

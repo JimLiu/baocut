@@ -461,6 +461,24 @@ describe('频道花费（I16、BOT-NF-04）', () => {
   });
 });
 
+describe('任务的花费（BOT-NF-04）', () => {
+  it('任务卡写这项任务累计花了多少；没花过的不写', async () => {
+    useChannels.setState({
+      channels: [{ channel: { id: 'c1' }, spend: { today: null, month: { amount: '1.25', currency: 'USD' }, tasks: { wi_r1: { amount: '1.25', currency: 'USD' } } } }] as never,
+    });
+    useWorkItems.setState({ byChannel: { c1: { items: [resolvedItem(1), resolvedItem(2)], resolvedTail: 20, reports: [] } } });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      const rows = [...container.querySelectorAll('li')];
+      expect(rows.find((r) => r.textContent?.includes('第 1 期'))?.textContent).toContain('已花 $1.25');
+      expect(rows.find((r) => r.textContent?.includes('第 2 期'))?.textContent).not.toContain('已花');
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+      useChannels.setState({ channels: [] });
+    }
+  });
+});
+
 describe('周期任务建到频道里（Bot 技术方案 §14.1）', () => {
   it('从频道头部打开：目标默认这个频道，建立时交频道对话与任务模板', async () => {
     useChannels.setState({ channels: [{ channel: { id: 'c1', name: '剪辑', conversationId: 'conv_c1', archived: false } }] as never });

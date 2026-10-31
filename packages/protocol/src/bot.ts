@@ -71,8 +71,11 @@ export interface ChannelSummary {
   unread: boolean;
   counts: ChannelCounts;
   lastActivityAt: string;
-  /** 频道的花费（BOT-NF-04）；没有账本时为 null。 */
-  spend: { today: Money | null; month: Money | null } | null;
+  /**
+   * 频道的花费（BOT-NF-04）；没有账本时为 null。`tasks` 是各任务（按任务 id）从开始到现在累计的花费，没花过的不列。
+   * 只算供应商报告了金额的调用；有几种币种时取第一种。
+   */
+  spend: { today: Money | null; month: Money | null; tasks?: Record<Id, Money> } | null;
 }
 
 /** 会话在 Bot 模式里的角色（技术方案 §4.2）：缺省等于 `chat`。 */

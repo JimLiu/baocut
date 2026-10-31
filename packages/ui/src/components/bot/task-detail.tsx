@@ -34,6 +34,7 @@ import { useNow } from '../use-now.ts';
 import { answerWorkItemQuestion, errorText, transitionWorkItem, useBotCall } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { formatDay } from './bot-format.ts';
+import { useTaskSpend } from './task-spend.ts';
 import { StatusLabel } from './status-badge.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
@@ -213,6 +214,7 @@ export function TaskDetail({
   // 线程里也能改自己的消息、给智能体的消息点 👍 👎（BOT-EX-06、BOT-EX-10）。
   const messageExtras = useBotMessageExtras();
   const threadExtras = useMemo(() => ({ unread: null, ...messageExtras }), [messageExtras]);
+  const spent = useTaskSpend(item?.channelId ?? channelId, workItemId);
 
   if (!item) {
     return (
@@ -286,6 +288,7 @@ export function TaskDetail({
         {item.dueOn ? <span>{dateFact(C.detail.due, item.dueOn, item.dueOnBy)}</span> : null}
         {item.eventOn ? <span>{dateFact(C.detail.event, item.eventOn, item.eventOnBy)}</span> : null}
         <span>{item.owner === 'user' ? C.common.me : C.common.agent}</span>
+        {spent ? <span>{spent}</span> : null}
       </div>
       {item.description ? <p className={description}>{item.description}</p> : null}
       {item.owner === 'user' ? <p className={optionNote}>{C.detail.userTask}</p> : null}

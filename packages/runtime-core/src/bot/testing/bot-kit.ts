@@ -75,7 +75,7 @@ export class FakeWorkspace implements BotWorkspace {
   jobsFinished = async (jobIds: readonly Id[]) => jobIds.every((id) => this.finishedJobs.has(id));
   budgetUsed = () => this.budget;
   /** 频道花费（§14.5）：所有频道都按这个算；`spendAsks` 记下每次被问到的会话。 */
-  spend: { day: Money[]; month: Money[] } = { day: [], month: [] };
+  spend: { day: Money[]; month: Money[]; byConversation?: Record<Id, Money[]> } = { day: [], month: [] };
   spendAsks: Id[][] = [];
   channelSpend = async (ids: ReadonlySet<Id>) => {
     this.spendAsks.push([...ids]);

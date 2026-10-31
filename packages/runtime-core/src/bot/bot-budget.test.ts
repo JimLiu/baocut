@@ -70,11 +70,22 @@ describe('budgets on thread tasks', () => {
     expect(kit.budgets.limits.get(second)).toEqual({ maxCalls: null, cap: usd('1.00') });
   });
 
-  it('without channel budgets nothing is read and thread tasks are not capped', async () => {
+  it('without channel budgets thread tasks are not capped', async () => {
     kit = await BotKit.open();
+    kit.workspace.spend = { day: [usd('3.5')], month: [usd('3.5')] };
     const created = await kit.startTask('Make chapters');
     const task = startedTasks(kit.threadOf(created.id))[0]!;
     expect(kit.budgets.limits.get(task)).toEqual({ maxCalls: null, cap: null });
-    expect(kit.workspace.spendAsks).toEqual([]);
+  });
+
+  it('BOT-NF-04 a channel without a budget still shows what it spent, and each task shows its own total', async () => {
+    kit = await BotKit.open();
+    const created = await kit.startTask('Make chapters');
+    const threadId = kit.threadOf(created.id);
+    kit.workspace.spend = { day: [usd('0.40')], month: [usd('2.10')], byConversation: { [threadId]: [usd('1.25')], [kit.main.conversationId]: [usd('0.85')] } };
+    await kit.send(threadId, 'Add one more chapter.');
+    await kit.settle();
+    const row = kit.bot.listChannels().find((c) => c.channel.id === kit.main.id)!;
+    expect(row.spend).toEqual({ today: usd('0.40'), month: usd('2.10'), tasks: { [created.id]: usd('1.25') } });
   });
 });

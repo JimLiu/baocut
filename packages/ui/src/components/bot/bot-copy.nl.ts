@@ -62,6 +62,7 @@ export const nl: BotMessages = {
     empty: 'Zeg wat je nodig hebt. Langer werk draait op de achtergrond en verschijnt als taak.',
     archivedNote: 'Dit kanaal is gearchiveerd. Herstel het om hier verder te werken.',
     spend: (today: string, month: string) => `Vandaag ${today} · deze maand ${month} uitgegeven`,
+    taskSpend: (amount: string) => `Uitgegeven: ${amount}`,
     recurring: 'Nieuwe terugkerende taak',
   },
   away: {

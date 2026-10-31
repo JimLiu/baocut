@@ -576,7 +576,7 @@ export class BotService {
     if (conversation && conversation.updatedAt > last) last = conversation.updatedAt;
     const unread = channel.lastSeen ? last > channel.lastSeen.at : items.length > 0;
     const spend = this.#spend.get(channel.id);
-    return { channel, unread, counts, lastActivityAt: last, spend: spend ? { today: spend.day[0] ?? null, month: spend.month[0] ?? null } : null };
+    return { channel, unread, counts, lastActivityAt: last, spend: spend ? this.#spendSummary(channel.id, spend) : null };
   }
 
   // ---- 频道 ----
@@ -1903,10 +1903,20 @@ export class BotService {
     return channelId ? (this.#channels.get(channelId)?.maxAccessMode ?? null) : null;
   }
 
-  /** 重读频道的花费。没有频道预算或没有账本时不读。读失败时留着旧值。 */
+  /** 频道摘要里的花费：今天、本月，以及每项任务（线程会话）累计的。 */
+  #spendSummary(channelId: Id, spend: ChannelSpend): NonNullable<ChannelSummary['spend']> {
+    const tasks: Record<Id, Money> = {};
+    for (const item of this.#channelItems(channelId)) {
+      const total = item.threadId ? spend.byConversation?.[item.threadId]?.[0] : undefined;
+      if (total && Number(total.amount) > 0) tasks[item.id] = total;
+    }
+    return { today: spend.day[0] ?? null, month: spend.month[0] ?? null, tasks };
+  }
+
+  /** 重读频道的花费（有没有设预算都读，BOT-NF-04 要求看得到）。没有账本时不读。读失败时留着旧值。 */
   async #refreshSpend(channelId: Id): Promise<void> {
     const channel = this.#channels.get(channelId);
-    if (!channel || !this.#workspace.channelSpend || (!channel.limits.dailyBudget && !channel.limits.monthlyBudget)) {
+    if (!channel || !this.#workspace.channelSpend) {
       this.#spend.delete(channelId);
       return;
     }

@@ -62,6 +62,7 @@ export const ja: BotMessages = {
     empty: 'やりたいことを伝えてください。時間のかかる作業はバックグラウンドで進み、タスクとして表示されます。',
     archivedNote: 'このチャンネルはアーカイブされています。ここで作業を続けるには元に戻してください。',
     spend: (today: string, month: string) => `今日 ${today} · 今月 ${month}`,
+    taskSpend: (amount: string) => `使用額 ${amount}`,
     recurring: '定期タスクを作成',
   },
   away: {

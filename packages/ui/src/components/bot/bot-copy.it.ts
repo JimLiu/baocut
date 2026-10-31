@@ -62,6 +62,7 @@ export const it: BotMessages = {
     empty: 'Di’ di cosa hai bisogno. I lavori lunghi girano in background e compaiono come attività.',
     archivedNote: 'Questo canale è archiviato. Ripristinalo per continuare a lavorarci.',
     spend: (today: string, month: string) => `Speso oggi ${today} · questo mese ${month}`,
+    taskSpend: (amount: string) => `Speso: ${amount}`,
     recurring: 'Nuova attività ricorrente',
   },
   away: {
