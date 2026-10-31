@@ -229,6 +229,53 @@ describe('BOT-S17..S31', () => {
     expect(coordinatorInstructions(kit.main)).toContain("Use the language of the user's latest messages for everything the user reads.");
   });
 
+  it('a task the coordinator only created, started later by the user, still hands the thread the original request', async () => {
+    const created = await kit.coordinatorTurn('Cut the intro to five seconds and keep the logo on screen', (ctx) =>
+      ctx.call<{ id: Id }>('work_items_create', { title: 'Cut the intro', sourceMessageId: userMsg(ctx) }),
+    );
+    kit.thread = () => {};
+    await kit.bot.startItem(created.id, { attended: true });
+    await kit.settle();
+    const brief = kit.turns(kit.threadOf(created.id))[0]!;
+    expect(brief).toContain('Cut the intro to five seconds and keep the logo on screen');
+    expect(brief).toContain('<baocut-cited author="user"');
+  });
+
+  it('a thread that keeps editing videos without updating its task is not taken for stalled', async () => {
+    kit.thread = byTitle('Render', (ctx) => ctx.turn.hold());
+    const id = await startHeld('Render the long cut');
+    await kit.until(() => {
+      const threadId = kit.item(id).threadId;
+      return state(id) === 'working' && !!threadId && kit.harness.conversationOf(threadId)?.activity === 'running';
+    });
+    const thread = kit.threadOf(id);
+    const edit = (n: number) =>
+      kit.harness.recordVideoChange(thread, kit.harness.conversationOf(thread)!.activeTaskId, {
+        videoId: 'v1',
+        videoName: 'cut',
+        target: { conversationId: thread, path: 'cut' },
+        transactionId: `tx${n}`,
+        label: 'Trim',
+        previousRevision: `r${n}`,
+        videoRevision: `r${n + 1}`,
+        createdIds: [],
+        updatedIds: [],
+        deletedIds: [],
+        durationSeconds: { before: 10, after: 9 },
+      } as never);
+    kit.clock.offset = 10 * 60_000;
+    await kit.bot.watchdog();
+    edit(1);
+    kit.clock.offset = 21 * 60_000;
+    await kit.bot.watchdog();
+    expect(state(id)).toBe('working');
+    expect(kit.clock.now() - Date.parse(kit.item(id).lastProgressAt!)).toBeLessThan(60_000);
+    // 之后真的没动静了，照样按 20 分钟判卡住。
+    kit.clock.offset = 42 * 60_000;
+    await kit.bot.watchdog();
+    expect(kit.item(id).active).toMatchObject({ state: 'blocked', reason: RcBot.stalledNoProgress({ minutes: 20 }).text });
+  });
+
   it('BOT-S28 no progress for 20 minutes: the task stops itself, and "continue" tells the thread to read its notes and try another way', async () => {
     kit.thread = byTitle('Render', (ctx) => ctx.turn.hold());
     const id = await startHeld('Render all chapters');

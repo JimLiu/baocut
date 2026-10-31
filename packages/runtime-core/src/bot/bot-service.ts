@@ -1302,6 +1302,8 @@ export class BotService {
       cited: [...(leftover.cited ?? []), ...(given.cited ?? [])],
     };
     if (!options.brief) delete options.brief;
+    // 两边都没带引用（比如用户在任务上点了开工）：不给空表，下面才会退回任务来源的那条用户消息。
+    if (!options.cited?.length) delete options.cited;
     const channel = this.channel(item.channelId);
     let threadId = item.threadId;
     if (!threadId || !this.#harness.conversationOf(threadId)) {
@@ -1898,11 +1900,45 @@ export class BotService {
       }
       // 线程在等审批或提问时不算卡住。
       if (thread && (thread.activity === 'awaiting-approval' || thread.activity === 'awaiting-answer')) continue;
+      // 线程在会话里有了实在的进展（改视频、产出、说话、勾步骤），哪怕没调 work_items_update，也算进展（§9.3 卡住判定）。
+      if (thread) {
+        const mark = this.#progressMark(thread.id);
+        const previous = this.#progressMarks.get(item.id);
+        this.#progressMarks.set(item.id, mark);
+        if (previous !== undefined && previous !== mark) {
+          await this.patchItemContent(item.id, (i) => ({ ...i, lastProgressAt: new Date(now).toISOString() }), false).catch(() => {});
+          continue;
+        }
+      }
       const since = Date.parse(item.lastProgressAt ?? item.active?.since ?? item.updatedAt);
       if (now - since >= minutes * MINUTE) {
         await this.transition(item.id, { type: 'stalled', reason: 'no-progress', note: RcBot.stalledNoProgress({ minutes }).text }, { actor: 'system' }).catch(() => {});
       }
     }
+  }
+
+  readonly #progressMarks = new Map<Id, string>();
+
+  /** 线程会话里看得见的进展的指纹：视频修改与产出、智能体的话、当前任务的步骤。变了就是有进展。 */
+  #progressMark(threadId: Id): string {
+    let items: TimelineItem[];
+    try {
+      items = this.#harness.getConversation(threadId).items;
+    } catch {
+      return '';
+    }
+    let count = 0;
+    let last = '';
+    let todo = '';
+    for (const i of items) {
+      if (i.kind === 'video-change' || i.kind === 'agent-message' || i.kind.endsWith('-created')) {
+        count++;
+        last = i.id;
+      } else if (i.kind === 'task' && i.todo) {
+        todo = i.todo.items.map((t) => `${t.status}:${t.text}`).join('|');
+      }
+    }
+    return `${count}/${last}/${todo}`;
   }
 
   /** 提醒（§11.4）：用户的任务截止前一天、待你审阅超过 3 天；建议过期。 */
