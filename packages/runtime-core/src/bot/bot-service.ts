@@ -78,7 +78,7 @@ import { spendWindow, sumMoney, threadTaskBudget, type ChannelSpend } from './bo
 import { confirmChips, questionChips, questionCount } from './suggestions.ts';
 import { datesSetBy } from './dates-set-by.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
-import { TransitionDenied, applyEvent, continueQuestion, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
+import { TransitionDenied, applyEvent, continueQuestion, heldForUser, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
 
 /*
  * Bot 模式的服务（docs/design/bot-mode 技术方案 §3）：频道、任务状态机的副作用、线程路由（简报、转交、报告）、活动桥（回合与审批
@@ -1609,10 +1609,19 @@ export class BotService {
     if (conversation?.role !== 'thread') return true;
     const item = this.itemOfThread(conversationId);
     if (!item || item.status !== 'active' || item.active?.state === 'working') return true;
+    // 等你决定的任务（用户停下、预算或没进展卡住）不叫醒：线程会接着花钱。挡下的等任务回到工作中再交。
+    if (heldForUser(item) && !this.#stalledOnJob(item)) return false;
     const channel = this.#channels.get(item.channelId);
     if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(item.channelId, item.id)) return false;
     this.#jobWaking.add(item.id);
     return true;
+  }
+
+  /** 任务停在「卡住」上，原因是后台任务没动静（`stalled:job-hung`）：任务结束了，卡住的原因也就没了。 */
+  #stalledOnJob(item: WorkItem): boolean {
+    if (item.status !== 'active' || item.active?.state !== 'blocked') return false;
+    const last = (this.#transitions.get(item.channelId) ?? []).findLast((t) => t.workItemId === item.id);
+    return last?.cause === 'stalled:job-hung';
   }
 
   #slotFree(channelId: Id, exclude: Id): boolean {
@@ -2294,7 +2303,7 @@ export class BotService {
           // 后台任务结束叫醒了线程，而线程在 Job 跑着时已经报告过（待审阅、需要你、卡住）：回到工作中，这一回合的报告才收得下。
           // 用户停下的不动（停下时 Job 的叫醒已丢掉，这里只是兜底）。
           const current = this.#items.get(item.id);
-          if (current?.status === 'active' && jobWakeResumes(current)) await this.#forceWorking(current, 'unblocked:job-finished');
+          if (current?.status === 'active' && jobWakeResumes(current, this.#stalledOnJob(current))) await this.#forceWorking(current, 'unblocked:job-finished');
         }
         this.#jobWaking.delete(item.id);
         const current = this.#items.get(item.id);
@@ -3497,7 +3506,9 @@ export function isYesNoQuestion(text: string): boolean {
  * 后台任务叫醒线程时，任务能不能回到工作中：线程在 Job 跑着时报告过的待审阅、需要你（线程自己的提问）、卡住都能；
  * 用户停下的、停在审批上的、等用户在场才能跑的不能。
  */
-function jobWakeResumes(item: WorkItem): boolean {
+function jobWakeResumes(item: WorkItem, stalledOnJob: boolean): boolean {
+  // 等你决定（用户停下、预算或没进展卡住问「继续还是停下」）的不动：只有卡住的原因就是后台任务本身时，任务结束才接着做。
+  if (heldForUser(item) && !stalledOnJob) return false;
   const state = item.active?.state;
   if (state === 'needsReview') return true;
   if (state === 'needsInput') return !item.question?.approvalId && item.question?.askedBy !== 'system';

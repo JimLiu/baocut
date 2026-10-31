@@ -295,6 +295,55 @@ describe('a thread waiting on background jobs', () => {
     await kit.settle();
     expect(kit.item(item.id).active?.state).toBe('blocked');
   });
+
+  it('a job wake does not resume a task the budget watchdog stalled while the user-sent turn ran', async () => {
+    let turn = 0;
+    kit.thread = async (ctx) => {
+      turn++;
+      if (turn === 1) await ctx.call('thread_report', { stop: 'needs-review', headline: 'The rough cut is ready; the export is still running.' });
+      else if (turn === 2) ctx.turn.hold();
+      else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The export is ready too.' });
+    };
+    const item = await kit.startTask('Cut episode 8');
+    expect(kit.item(item.id).active?.state).toBe('needsReview');
+    const thread = kit.threadOf(item.id);
+    const briefTask = kit.items(thread).filter((i) => i.kind === 'task').at(-1)!.id;
+    await kit.send(thread, 'Tighten the intro too.');
+    await kit.until(() => turn === 2 && kit.item(item.id).active?.state === 'working');
+    kit.workspace.budget = 0.9;
+    await kit.bot.watchdog();
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    expect(kit.item(item.id).question?.askedBy).toBe('system');
+    await kit.harness.jobFinished({ conversationId: thread, taskId: briefTask, jobId: 'job_f', kind: 'export', attempt: 1, state: 'completed' });
+    await kit.settle();
+    await kit.bot.watchdog();
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    expect(turn).toBe(2);
+  });
+
+  it('a job wake still resumes a task that stalled only because that job went quiet', async () => {
+    let turn = 0;
+    kit.thread = async (ctx) => {
+      turn++;
+      if (turn === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'The dub is rendering.', waitingFor: { jobIds: ['job_g'] } });
+      else await ctx.call('thread_report', { stop: 'needs-review', headline: 'The dub is ready.' });
+    };
+    const item = await kit.startTask('Dub episode 9');
+    expect(kit.item(item.id).active?.state).toBe('waitingOnOthers');
+    kit.workspace.hung = 'job_g';
+    await kit.bot.watchdog();
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    kit.workspace.hung = null;
+    const thread = kit.threadOf(item.id);
+    const taskId = kit.items(thread).filter((i) => i.kind === 'task').at(-1)!.id;
+    expect(await kit.harness.jobFinished({ conversationId: thread, taskId, jobId: 'job_g', kind: 'dub', attempt: 1, state: 'completed' })).toBe('woke');
+    await kit.until(() => kit.item(item.id).active?.state === 'needsReview');
+    await kit.settle();
+    expect(lastHeadline(item.id)).toBe('The dub is ready.');
+  });
 });
 
 describe('a report that could not be relayed is sent again', () => {
