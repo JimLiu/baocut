@@ -95,11 +95,16 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       }
       return lines;
     },
-    async verifyEvidence(evidence: Evidence, _item: WorkItem, since: string) {
+    async verifyEvidence(evidence: Evidence, item: WorkItem, since: string) {
+      // 证据要属于这条任务（§7.5）：Job 是任务的线程提交的，或者落在任务资源里的视频上；版本同理。
+      const itemVideos = new Set(item.resources.flatMap((r) => (r.kind === 'video' || r.kind === 'video-range' ? [r.videoId] : [])));
+      const byThread = (record: JobRecord) => !!item.threadId && record.submitter.kind === 'agent' && record.submitter.id === item.threadId;
+      const ofItem = (record: JobRecord) => byThread(record) || (!!record.videoId && itemVideos.has(record.videoId));
       switch (evidence.kind) {
         case 'job': {
           const record = job(evidence.jobId);
           if (!record) return `job ${evidence.jobId} not found`;
+          if (!ofItem(record)) return `job ${evidence.jobId} was not run by this task's thread or on one of its videos`;
           if (record.state !== 'completed') return `job ${evidence.jobId} is ${record.state}`;
           if (record.attempt !== evidence.attempt) return `job ${evidence.jobId} is on attempt ${record.attempt}`;
           if (record.createdAt < since) return `job ${evidence.jobId} finished before this task started`;
@@ -108,8 +113,9 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
         case 'export': {
           const record = job(evidence.exportId);
           if (!record) return `export ${evidence.exportId} not found`;
-          if (record.state !== 'completed') return `export ${evidence.exportId} is ${record.state}`;
           if (record.videoId && record.videoId !== evidence.videoId) return 'the export belongs to another video';
+          if (!ofItem(record) && !itemVideos.has(evidence.videoId)) return `export ${evidence.exportId} was not made by this task's thread or from one of its videos`;
+          if (record.state !== 'completed') return `export ${evidence.exportId} is ${record.state}`;
           if (record.createdAt < since) return 'the export is older than this task';
           return null;
         }
@@ -124,6 +130,10 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
             return `could not read the versions of video ${evidence.videoId}`;
           }
           if (!newest) return `video ${evidence.videoId} has no versions`;
+          const touchedByThread = !!item.threadId && newest.conversations.some((c) => c.id === item.threadId);
+          if (!itemVideos.has(evidence.videoId) && !touchedByThread) {
+            return `video ${evidence.videoId} is not one of this task's videos and its newest version is not from this task's thread`;
+          }
           if (String(newest.version) !== evidence.version && newest.toRevision !== evidence.version) {
             return `video ${evidence.videoId} is at version ${newest.version}, not ${evidence.version}`;
           }

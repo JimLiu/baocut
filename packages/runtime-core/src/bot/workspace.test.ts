@@ -3,19 +3,22 @@ import type { JobRecord, UsageRecord, VideoVersionList, WorkItem } from '@baocut
 import { runtimeWorkspace } from './workspace.ts';
 
 const since = '2026-10-01T00:00:00.000Z';
-const item = {} as WorkItem;
+const item = { threadId: 'conv_thread', resources: [{ kind: 'video', projectId: 'p1', videoId: 'v1' }] } as unknown as WorkItem;
 
-function workspace(versions: () => Promise<VideoVersionList>) {
+function workspace(versions: () => Promise<VideoVersionList>, jobs: Record<string, JobRecord> = {}) {
   return runtimeWorkspace({
     projects: () => [],
-    videos: () => [{ entryId: 'e1', dir: '/p/v1', projectId: 'p1', videoId: 'v1', lastActivityAt: since }],
-    job: () => undefined,
+    videos: () => [
+      { entryId: 'e1', dir: '/p/v1', projectId: 'p1', videoId: 'v1', lastActivityAt: since },
+      { entryId: 'e2', dir: '/p/v2', projectId: 'p1', videoId: 'v2', lastActivityAt: since },
+    ],
+    job: (id) => jobs[id],
     versions,
   });
 }
 
-const list = (version: number, toRevision: string, updatedAt: string) =>
-  ({ versions: [{ version, toRevision, updatedAt }], unreadable: [] }) as unknown as VideoVersionList;
+const list = (version: number, toRevision: string, updatedAt: string, conversation = 'conv_other') =>
+  ({ versions: [{ version, toRevision, updatedAt, conversations: [{ id: conversation }] }], unreadable: [] }) as unknown as VideoVersionList;
 
 describe('video-version evidence', () => {
   const evidence = (version: string) => ({ kind: 'video-version' as const, projectId: 'p1', videoId: 'v1', version });
@@ -34,6 +37,28 @@ describe('video-version evidence', () => {
         throw new Error('closed');
       }).verifyEvidence(evidence('7'), item, since),
     ).toMatch(/could not read/);
+  });
+});
+
+describe('evidence must belong to the task (§7.5)', () => {
+  const done = (videoId: string | null, submitter: string) =>
+    ({ state: 'completed', attempt: 1, createdAt: '2026-10-02T00:00:00.000Z', videoId, submitter: { kind: 'agent', id: submitter, taskId: 't' } }) as unknown as JobRecord;
+  const jobs = { own: done('v2', 'conv_thread'), onVideo: done('v1', 'conv_other'), stray: done('v2', 'conv_other') };
+  const ws = workspace(async () => list(3, 'r3', '2026-10-02T00:00:00.000Z'), jobs);
+
+  it('accepts a job the thread ran or one on the task video, and rejects a job from another conversation on another video', async () => {
+    expect(await ws.verifyEvidence({ kind: 'job', jobId: 'own', attempt: 1 }, item, since)).toBeNull();
+    expect(await ws.verifyEvidence({ kind: 'job', jobId: 'onVideo', attempt: 1 }, item, since)).toBeNull();
+    expect(await ws.verifyEvidence({ kind: 'job', jobId: 'stray', attempt: 1 }, item, since)).toMatch(/not run by this task/);
+    expect(await ws.verifyEvidence({ kind: 'export', projectId: 'p1', exportId: 'stray', videoId: 'v2' }, item, since)).toMatch(/not made by this task/);
+  });
+
+  it('accepts a new version of a task video or one the thread made, and rejects another video changed elsewhere', async () => {
+    const v = (videoId: string) => ({ kind: 'video-version' as const, projectId: 'p1', videoId, version: '3' });
+    expect(await ws.verifyEvidence(v('v1'), item, since)).toBeNull();
+    expect(await ws.verifyEvidence(v('v2'), item, since)).toMatch(/not one of this task's videos/);
+    const mine = workspace(async () => list(3, 'r3', '2026-10-02T00:00:00.000Z', 'conv_thread'));
+    expect(await mine.verifyEvidence(v('v2'), item, since)).toBeNull();
   });
 });
 
