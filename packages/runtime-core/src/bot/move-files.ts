@@ -106,6 +106,8 @@ export async function carryTaskFiles(options: { fromDir: string; toDir: string; 
       if (!stat?.isFile()) continue;
       let target = rel;
       let dest = path.join(toDir, target);
+      // 新频道里这个路径经符号链接指到外面：不拿外面那份当「同一个文件」，也不往外面写，原文件留在原处。
+      if (!(await realInside(toDir, target))) continue;
       if (taken.has(target) || (await exists(dest))) {
         if (!taken.has(target) && (await sameContent(src, dest).catch(() => false))) {
           renamed.set(rel, target);
@@ -118,7 +120,7 @@ export async function carryTaskFiles(options: { fromDir: string; toDir: string; 
         target = await freeName(toDir, rel, taken);
         dest = path.join(toDir, target);
       }
-      // 新频道里同一路径经符号链接指到外面：不往外面写，留在原处。
+      // 换了名字的目标同样不能经符号链接出新频道。
       if (!(await realInside(toDir, target))) continue;
       taken.add(target);
       await fs.mkdir(path.dirname(dest), { recursive: true });

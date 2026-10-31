@@ -311,14 +311,15 @@ describe('moving a task', () => {
     const target = await kit.bot.createChannel({ name: 'Captions' });
     const toDir = kit.bot.filesDir(target.id);
     await fs.mkdir(toDir, { recursive: true });
-    // 新频道的 out 指到外面：任务的 out/cut.txt 不能经它写出去。
+    // 新频道的 out 指到外面：任务的 out/cut.txt 不能经它写出去。外面恰好有一份内容相同的，也不能当成同一个文件把原件删掉。
     await fs.symlink(outsideTarget, path.join(toDir, 'out'), 'dir');
+    await fs.writeFile(path.join(outsideTarget, 'cut.txt'), 'own output');
 
     await kit.bot.moveItem(item.id, target.id);
 
     expect(await fs.readFile(path.join(outside, 'source.txt'), 'utf8')).toBe('keep me here');
     await expect(fs.access(path.join(toDir, 'linked'))).rejects.toThrow();
-    expect(await fs.readdir(outsideTarget)).toEqual([]);
+    expect(await fs.readdir(outsideTarget)).toEqual(['cut.txt']);
     expect(await fs.readFile(path.join(fromDir, 'out', 'cut.txt'), 'utf8')).toBe('own output');
   });
 
