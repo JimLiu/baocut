@@ -151,6 +151,7 @@ export const zhHant: BotMessages = {
     ownerAgent: '交給智慧代理',
     startNow: '現在開始',
     add: '新增',
+    showOlder: '顯示更早的',
   },
   detail: {
     label: '任務',

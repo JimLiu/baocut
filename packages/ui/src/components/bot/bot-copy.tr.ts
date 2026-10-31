@@ -151,6 +151,7 @@ export const tr: BotMessages = {
     ownerAgent: 'Ajana ver',
     startNow: 'Hemen başlat',
     add: 'Ekle',
+    showOlder: 'Daha eskileri göster',
   },
   detail: {
     label: 'Görev',

@@ -151,6 +151,7 @@ export const ptBR: BotMessages = {
     ownerAgent: 'Passar para o agente',
     startNow: 'Iniciar agora',
     add: 'Adicionar',
+    showOlder: 'Mostrar anteriores',
   },
   detail: {
     label: 'Tarefa',

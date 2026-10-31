@@ -8,7 +8,8 @@ import type { AwaySummary, TimelineItem } from '@baocut/protocol';
 import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
 import { AwayBanner, ChannelSpend, useAwayAndSeen } from './channel-view.tsx';
-import { NewTaskDialog } from './task-panel.tsx';
+import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
+import { useWorkItems } from '../../state/work-items-store.ts';
 import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { useTimeline } from '../../state/timeline-store.ts';
@@ -370,6 +371,52 @@ describe('任务详情可改（BOT-TK-06）', () => {
     expect(dateFact('截止', '2026-11-07', 'user')).toMatch(/· 你定的$/);
     expect(dateFact('截止', '2026-11-07', 'agent')).toMatch(/· 来自你的消息$/);
     expect(dateFact('截止', '2026-11-07', undefined)).not.toContain('·');
+  });
+});
+
+function resolvedItem(n: number): WorkItem {
+  const at = `2026-10-${String(30 - n).padStart(2, '0')}T09:00:00Z`;
+  return {
+    id: `wi_r${n}`,
+    channelId: 'c1',
+    title: `第 ${n} 期`,
+    owner: 'agent',
+    status: 'resolved',
+    priority: 'medium',
+    resolution: { kind: 'done', by: 'user', at, evidence: null, confirmedBy: null, mergedInto: null },
+    updatedAt: at,
+    dueOn: null,
+    question: null,
+    steps: [],
+    active: null,
+  } as unknown as WorkItem;
+}
+
+describe('任务面板的已完成段（I19）', () => {
+  it('快照里已解决的到了上限：给「显示更早的」，取回 Runtime 的全部已解决任务补进来', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [resolvedItem(1), resolvedItem(2)], resolvedTail: 2, reports: [] } } });
+    handlers['workItems.list'] = () => ({ items: [resolvedItem(1), resolvedItem(2), resolvedItem(3)] });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      expect(container.textContent).not.toContain('第 3 期');
+      await press('显示更早的');
+      expect(calls('workItems.list')).toEqual([{ channelId: 'c1', status: 'resolved' }]);
+      expect(container.textContent).toContain('第 3 期');
+      expect(button('显示更早的')).toBeUndefined();
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
+  });
+
+  it('没到上限时不给，也不去取', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [resolvedItem(1)], resolvedTail: 2, reports: [] } } });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      expect(button('显示更早的')).toBeUndefined();
+      expect(calls('workItems.list')).toEqual([]);
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
   });
 });
 

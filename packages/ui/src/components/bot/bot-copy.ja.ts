@@ -151,6 +151,7 @@ export const ja: BotMessages = {
     ownerAgent: 'エージェントに任せる',
     startNow: '今すぐ開始',
     add: '追加',
+    showOlder: 'さらに前を表示',
   },
   detail: {
     label: 'タスク',

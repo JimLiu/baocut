@@ -151,6 +151,7 @@ export const zhHans: BotMessages = {
     ownerAgent: '交给智能体',
     startNow: '现在开始',
     add: '添加',
+    showOlder: '显示更早的',
   },
   detail: {
     label: '任务',

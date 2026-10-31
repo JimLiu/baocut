@@ -13,6 +13,8 @@ export interface WorkItemsStore {
   replace(channelId: Id, snapshot: WorkItemsSnapshot): void;
   apply(channelId: Id, event: WorkItemsEvent): void;
   drop(channelId: Id): void;
+  /** 补进快照里没有的任务（「显示更早的」取回的已解决任务）；已有的以快照为准，不覆盖。 */
+  merge(channelId: Id, items: readonly WorkItem[]): void;
 }
 
 export const useWorkItems = create<WorkItemsStore>()((set) => ({
@@ -29,6 +31,14 @@ export const useWorkItems = create<WorkItemsStore>()((set) => ({
       if (!current) return { transitions };
       const next = applyWorkItemsEvent(current, event);
       return next === current ? { transitions } : { transitions, byChannel: { ...s.byChannel, [channelId]: next } };
+    }),
+  merge: (channelId, items) =>
+    set((s) => {
+      const current = s.byChannel[channelId];
+      if (!current) return {};
+      const known = new Set(current.items.map((item) => item.id));
+      const added = items.filter((item) => item.channelId === channelId && !known.has(item.id));
+      return added.length ? { byChannel: { ...s.byChannel, [channelId]: { ...current, items: [...current.items, ...added] } } } : {};
     }),
   drop: (channelId) =>
     set((s) => {

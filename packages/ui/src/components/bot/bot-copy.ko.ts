@@ -151,6 +151,7 @@ export const ko: BotMessages = {
     ownerAgent: '에이전트에게 맡기기',
     startNow: '지금 시작',
     add: '추가',
+    showOlder: '이전 항목 보기',
   },
   detail: {
     label: '작업',

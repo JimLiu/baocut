@@ -160,6 +160,7 @@ export const ru: BotMessages = {
     ownerAgent: 'Поручить агенту',
     startNow: 'Начать сейчас',
     add: 'Добавить',
+    showOlder: 'Показать более ранние',
   },
   detail: {
     label: 'Задача',

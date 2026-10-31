@@ -151,6 +151,7 @@ export const nl: BotMessages = {
     ownerAgent: 'Aan de agent geven',
     startNow: 'Nu starten',
     add: 'Toevoegen',
+    showOlder: 'Oudere tonen',
   },
   detail: {
     label: 'Taak',

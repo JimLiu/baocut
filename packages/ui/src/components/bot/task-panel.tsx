@@ -24,12 +24,13 @@ import {
 import Add from '@react-spectrum/s2/icons/Add';
 import MagicWand from '@react-spectrum/s2/icons/MagicWand';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { isOverdue, localDate, taskSections, type TaskFilter } from '../../model/bot.ts';
+import { isOverdue, loadResolvedWorkItems, localDate, mayHaveOlderResolved, taskSections, type TaskFilter } from '../../model/bot.ts';
+import { useRuntime } from '../../runtime/context.tsx';
 import { useChannels } from '../../state/channels-store.ts';
 import { useShell } from '../../state/shell-store.ts';
-import { useChannelWorkItems, useWorkItemsLoaded } from '../../state/work-items-store.ts';
+import { useChannelWorkItems, useWorkItems, useWorkItemsLoaded } from '../../state/work-items-store.ts';
 import { useNow } from '../use-now.ts';
-import { nextLine, transitionWorkItem, useBotCall } from './bot-actions.ts';
+import { errorText, nextLine, transitionWorkItem, useBotCall } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { formatDay, formatWhen } from './bot-format.ts';
 import { StatusIcon } from './status-badge.tsx';
@@ -194,6 +195,9 @@ export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId
   const now = useNow(60_000);
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [allDone, setAllDone] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const resolvedTail = useWorkItems((s) => s.byChannel[channelId]?.resolvedTail);
+  const runtime = useRuntime();
   const [creating, setCreating] = useState(false);
   const [making, setMaking] = useState(false);
   const sections = useMemo(() => taskSections(items, filter, now, allDone), [items, filter, now, allDone]);
@@ -202,6 +206,23 @@ export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId
   const rows = (list: readonly WorkItem[]) =>
     list.map((item) => <TaskRow key={item.id} item={item} today={today} timeZone={timeZone} selected={item.id === selectedId} onOpen={() => open(item.id)} />);
   const nothing = !sections.suggested.length && !sections.needsYou.length && !sections.working.length && !sections.upNext.length && !sections.done.length;
+
+  // 「显示更早的」（I19）：快照里已解决的条数到了上限时，Runtime 可能还有更早的，取回来补进快照再全部列出。
+  const older = !allDone && mayHaveOlderResolved(items, resolvedTail);
+  const showMore = async () => {
+    if (older) {
+      setLoadingOlder(true);
+      try {
+        useWorkItems.getState().merge(channelId, await loadResolvedWorkItems(runtime.client, channelId));
+      } catch (error) {
+        ToastQueue.negative(C.common.failed(errorText(error)), { timeout: 5000 });
+        setLoadingOlder(false);
+        return;
+      }
+      setLoadingOlder(false);
+    }
+    setAllDone(true);
+  };
 
   const make = async () => {
     setMaking(true);
@@ -251,10 +272,10 @@ export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId
             {sections.done.length || sections.moreDone ? (
               <Section title={C.panel.done}>
                 {rows(sections.done)}
-                {sections.moreDone && !allDone ? (
+                {(sections.moreDone || older) && !allDone ? (
                   <li>
-                    <ActionButton isQuiet size="S" onPress={() => setAllDone(true)}>
-                      {C.panel.showMore(sections.moreDone)}
+                    <ActionButton isQuiet size="S" isPending={loadingOlder} onPress={() => void showMore()}>
+                      {older ? C.panel.showOlder : C.panel.showMore(sections.moreDone)}
                     </ActionButton>
                   </li>
                 ) : null}

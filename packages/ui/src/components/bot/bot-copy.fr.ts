@@ -151,6 +151,7 @@ export const fr: BotMessages = {
     ownerAgent: 'La confier à l’agent',
     startNow: 'Démarrer maintenant',
     add: 'Ajouter',
+    showOlder: 'Afficher les plus anciennes',
   },
   detail: {
     label: 'Tâche',

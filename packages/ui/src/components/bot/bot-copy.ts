@@ -170,6 +170,7 @@ const en = {
     ownerAgent: 'Hand it to the agent',
     startNow: 'Start now',
     add: 'Add',
+    showOlder: 'Show older',
   },
   detail: {
     label: 'Task',

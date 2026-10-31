@@ -151,6 +151,7 @@ export const vi: BotMessages = {
     ownerAgent: 'Giao cho agent',
     startNow: 'Bắt đầu ngay',
     add: 'Thêm',
+    showOlder: 'Hiện cũ hơn',
   },
   detail: {
     label: 'Việc',

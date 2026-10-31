@@ -11,6 +11,7 @@ import {
   type WorkItemPriority,
   type WorkItemQuestion,
 } from '@baocut/protocol';
+import type { BaoCutClient } from '@baocut/client';
 
 /**
  * Bot 模式界面的纯逻辑（docs/design/bot-mode 需求 §11、技术方案 §17）：频道侧栏的分组、任务面板的分段与排序、
@@ -144,6 +145,20 @@ export function taskSections(items: readonly WorkItem[], filter: TaskFilter, now
     done: recent,
     moreDone: resolved.length - recent.length,
   };
+}
+
+/**
+ * 快照只带最近 `resolvedTail` 条已解决的（技术方案 §16.2）：条数到了上限，说明 Runtime 那边可能还有更早的，
+ * 面板给「显示更早的」，按需用 `loadResolvedWorkItems` 取。
+ */
+export function mayHaveOlderResolved(items: readonly WorkItem[], resolvedTail: number | undefined): boolean {
+  return !!resolvedTail && items.filter((item) => item.status === 'resolved').length >= resolvedTail;
+}
+
+/** 取一个频道全部已解决的任务（`workItems.list`）：任务面板「显示更早的」用，界面里只有这一处调它。 */
+export async function loadResolvedWorkItems(client: Pick<BaoCutClient, 'request'>, channelId: Id): Promise<WorkItem[]> {
+  const { items } = await client.request('workItems.list', { channelId, status: 'resolved' });
+  return items;
 }
 
 /** 今天的日期（YYYY-MM-DD），按用户时区（`BotSettings.timeZone`，空 = 系统时区）。 */

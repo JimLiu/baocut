@@ -151,6 +151,7 @@ export const es: BotMessages = {
     ownerAgent: 'Encargársela al agente',
     startNow: 'Empezar ahora',
     add: 'Añadir',
+    showOlder: 'Mostrar anteriores',
   },
   detail: {
     label: 'Tarea',
