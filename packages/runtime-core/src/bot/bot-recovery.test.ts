@@ -344,6 +344,51 @@ describe('the user talks to a thread that is waiting', () => {
   });
 });
 
+describe('a delivery held for "continue" goes stale', () => {
+  /** 盘上为这条任务留着的那一份（`held/<id>.json`）。 */
+  async function heldFiles(id: Id): Promise<string[]> {
+    const all = (await fs.readdir(kit.dir, { recursive: true })) as string[];
+    return all.filter((f) => f.split(path.sep).includes('held') && f.endsWith(`${id}.json`));
+  }
+
+  async function heldLaunch(title: string) {
+    await kit.close();
+    kit = await BotKit.open({ approvals: false });
+    await kit.bot.updateChannel(kit.main.id, { defaultAccessMode: 'fullAccess' });
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title, owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false, brief: 'Use the calm voice.' });
+    await kit.settle();
+    expect(kit.item(item.id)).toMatchObject({ active: { state: 'needsInput' }, question: { askedBy: 'system' } });
+    expect(await heldFiles(item.id)).toHaveLength(1);
+    return item;
+  }
+
+  it('I11: after the user answers in the thread instead of pressing Continue, a later Continue does not deliver the old brief again', async () => {
+    const item = await heldLaunch('Voice-over for episode 5');
+    await kit.threadTurn(item.id, 'Go ahead with the calm voice.', (ctx) => ctx.call('thread_report', { stop: 'blocked', headline: 'The voice file is missing.' }));
+    await kit.settle();
+    expect(kit.item(item.id).active?.state).toBe('blocked');
+    expect(await heldFiles(item.id)).toEqual([]);
+    const thread = kit.threadOf(item.id);
+    const before = kit.turns(thread).length;
+    kit.thread = () => {};
+    await kit.bot.userTransition(item.id, { type: 'unblocked', cause: 'user' });
+    await kit.settle();
+    const after = kit.turns(thread).slice(before);
+    expect(after).toHaveLength(1);
+    expect(after[0]).not.toContain('<baocut-thread-brief');
+    expect(after[0]).toContain('<baocut-refresh');
+  });
+
+  it('I11: a task that is resolved while its launch is held leaves no held file behind', async () => {
+    const item = await heldLaunch('Voice-over for episode 6');
+    await kit.bot.userTransition(item.id, { type: 'resolve', evidence: null });
+    await kit.settle();
+    expect(kit.item(item.id).status).toBe('resolved');
+    expect(await heldFiles(item.id)).toEqual([]);
+  });
+});
+
 describe('follow-ups in a report go through Make', () => {
   const suggested = () => kit.bot.listItems(kit.main.id).filter((i) => i.status === 'suggested');
   const reportWith = (followUps: string[], before?: () => Promise<unknown>) => {

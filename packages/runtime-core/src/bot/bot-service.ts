@@ -1365,6 +1365,7 @@ export class BotService {
     this.#transitions.set(next.channelId, log.slice(-2000));
     const channel = this.#channels.get(next.channelId);
     if (channel) this.#publishChannel(channel);
+    await this.#dropStaleHeld(before, next, transitions);
     for (const effect of effects) {
       try {
         await this.#effect(next, effect, startOptions);
@@ -1378,6 +1379,22 @@ export class BotService {
     if (after.status === 'resolved' && before.status !== 'resolved') await this.#onResolved(after);
     const freed = before.status === 'active' && before.active?.state === 'working' && !(after.status === 'active' && after.active?.state === 'working');
     if (freed) await this.#pump();
+  }
+
+  /**
+   * 留着等「继续」的那一份（要你在场、智能体当时用不了）在这些时候就过时了，清掉（内存与盘上）：用户直接在线程里回了话
+   * （活接着干了，之后再点继续不能把旧简报再投一遍）、任务重开、任务结了（解决或不要了）。任务结了时排队的开工参数也清掉。
+   */
+  async #dropStaleHeld(before: WorkItem, next: WorkItem, transitions: readonly WorkItemTransition[]): Promise<void> {
+    const resolved = next.status === 'resolved' && before.status !== 'resolved';
+    const stale = resolved || transitions.some((t) => t.cause === 'user:replied' || t.cause === 'unblocked:user-replied' || t.cause.endsWith(':reopen') || t.cause === 'system:implicit-reopen');
+    if (!stale) return;
+    this.#needsYou.delete(next.id);
+    await this.#files.removeHeld(next.channelId, next.id).catch(() => {});
+    if (resolved) {
+      this.#queuedBriefs.delete(next.id);
+      await this.#files.removeQueued(next.channelId, next.id).catch(() => {});
+    }
   }
 
   async #effect(item: WorkItem, effect: MachineEffect, startOptions: { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null }): Promise<void> {
