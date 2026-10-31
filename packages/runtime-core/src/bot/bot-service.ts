@@ -338,15 +338,27 @@ export class BotService {
   /** §8.6 重启对账。 */
   async #reconcile(): Promise<void> {
     const now = nowIso();
-    for (const item of [...this.#items.values()]) {
-      if (item.status !== 'active') continue;
-      const thread = item.threadId ? this.#harness.conversationOf(item.threadId) : undefined;
-      if (item.threadId && !thread) {
-        this.#log.warn('Thread conversation missing', { workItemId: item.id });
-        await this.#force(item, { state: 'blocked', reason: RcBot.threadLost().text, question: continueQuestion() }, 'system:thread-lost', now);
+    for (const listed of [...this.#items.values()]) {
+      if (listed.status !== 'active') continue;
+      const thread = listed.threadId ? this.#harness.conversationOf(listed.threadId) : undefined;
+      if (listed.threadId && !thread) {
+        this.#log.warn('Thread conversation missing', { workItemId: listed.id });
+        await this.#force(listed, { state: 'blocked', reason: RcBot.threadLost().text, question: continueQuestion() }, 'system:thread-lost', now);
         continue;
       }
-      if (item.active?.state === 'working' && thread && thread.activity !== 'running' && thread.activity !== 'stopping') {
+      // 停在审批上的任务：重启时 Harness 已经把那张审批取消了，「审批结束」的事件不会再来。照审批结束处理，
+      // 审批期间记下的那份报告这时落下；不然任务一直停在一张不存在的审批上。
+      const approvalId = listed.active?.state === 'needsInput' ? listed.question?.approvalId : null;
+      if (approvalId && !this.#approvalLive(listed.threadId)) {
+        const deferredReport = listed.deferredStop && listed.lastReportId ? (this.#reports.get(listed.lastReportId) ?? null) : null;
+        await this.transition(listed.id, { type: 'approval', approvalId, pending: false, deferredReport }, { actor: 'system' }).catch((error: unknown) =>
+          this.#log.warn('Settling a dead approval failed', { workItemId: listed.id, error: String(error) }),
+        );
+      }
+      const item = this.#items.get(listed.id) ?? listed;
+      if (item.status !== 'active' || item.active?.state !== 'working') continue;
+      // 工作中却没有线程（开线程前崩溃，或开线程失败）或线程没在跑：都是被打断了，等用户点「继续」。
+      if (!thread || (thread.activity !== 'running' && thread.activity !== 'stopping')) {
         await this.#force(item, { state: 'blocked', reason: RcBot.interruptedOnExit().text, question: continueQuestion() }, 'system:interrupted', now);
       }
     }
@@ -366,6 +378,12 @@ export class BotService {
       if (item.status === 'active' && item.active?.state === 'waitingOnOthers') await this.#wakeIfReady(item, null);
     }
     await this.#pump();
+  }
+
+  /** 线程此刻还停在一张审批或提问上（回合还在、会话在等你）。重启之后总是 false：回合与审批都不在了。 */
+  #approvalLive(threadId: Id | null): boolean {
+    const thread = threadId ? this.#harness.conversationOf(threadId) : undefined;
+    return !!thread && (thread.activity === 'awaiting-approval' || thread.activity === 'awaiting-answer') && !!this.#harness.runInfo(thread.id);
   }
 
   /** 状态机之外的强制落点（重启对账）：直接写 active 子状态并记转换。 */

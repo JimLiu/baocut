@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Id } from '@baocut/protocol';
-import { BotKit } from './testing/bot-kit.ts';
+import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
 
 /* 运行期的收尾与恢复：排队、重启对账、报告重投、等后台任务、删除频道等（评审意见的回归测试）。 */
 
@@ -36,5 +36,53 @@ describe('queued launches', () => {
     const run = threadRuns(second.id).find((r) => r.type === 'started')!;
     expect(run.attended).toBe(false);
     expect(kit.turns(kit.threadOf(second.id))[0]).toContain('Use the vertical crop.');
+  });
+});
+
+describe('restart while a thread waits on an approval', () => {
+  async function waitingOnApproval(report: boolean) {
+    let thread: TurnContext | null = null;
+    kit.thread = (ctx) => {
+      if (thread) return;
+      thread = ctx;
+      escalate(ctx, 'voice-generate --segment 1');
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Voice the intro', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: true });
+    await kit.until(() => kit.item(item.id).active?.state === 'needsInput' && kit.item(item.id).question?.approvalId);
+    if (report) {
+      await thread!.call('thread_report', { stop: 'needs-review', headline: 'The intro is voiced.' });
+      expect(kit.item(item.id).deferredStop).toBe('needs-review');
+    }
+    return item;
+  }
+
+  it('the report sent during the approval lands after a restart instead of leaving the task on a dead approval', async () => {
+    const item = await waitingOnApproval(true);
+    kit.thread = () => {};
+    await kit.restart();
+    await kit.settle();
+    expect(kit.item(item.id)).toMatchObject({ status: 'active', active: { state: 'needsReview' }, deferredStop: null });
+    expect(kit.item(item.id).question?.approvalId ?? null).toBeNull();
+  });
+
+  it('without a report the task is shown as interrupted, with Continue', async () => {
+    const item = await waitingOnApproval(false);
+    kit.thread = () => {};
+    await kit.restart();
+    await kit.settle();
+    expect(kit.item(item.id)).toMatchObject({ status: 'active', active: { state: 'blocked' }, question: { askedBy: 'system', approvalId: null } });
+  });
+});
+
+describe('restart with a working task that never got its thread', () => {
+  it('is shown as interrupted instead of holding a slot', async () => {
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Trim the intro', owner: 'agent' });
+    // 开线程之前崩溃：任务已是工作中，线程还没建。
+    await kit.bot.patchItemContent(item.id, (i) => ({ ...i, status: 'active', active: { state: 'working', reason: null, since: new Date().toISOString() } }), true);
+    await kit.restart();
+    await kit.settle();
+    expect(kit.item(item.id)).toMatchObject({ threadId: null, active: { state: 'blocked' }, question: { askedBy: 'system' } });
+    expect(kit.bot.status().workingThreads).toEqual([]);
   });
 });
