@@ -272,6 +272,63 @@ describe('a thread waiting on background jobs', () => {
   });
 });
 
+describe('a report that could not be relayed is sent again', () => {
+  const reportItems = () => kit.items(kit.main.conversationId).filter((i) => i.kind === 'relay' && i.direction === 'report');
+
+  it('S4: a report held behind a coordinator turn the user stopped is relayed after the next coordinator turn ends', async () => {
+    await kit.close();
+    kit = await BotKit.open({ steer: false });
+    let coordinatorTurns = 0;
+    let first: TurnContext['turn'] | null = null;
+    kit.coordinator = (ctx) => {
+      coordinatorTurns++;
+      if (coordinatorTurns === 1) {
+        first = ctx.turn;
+        ctx.turn.hold();
+      }
+    };
+    kit.thread = (ctx) => ctx.call('thread_report', { stop: 'needs-review', headline: 'The cut is ready.' });
+    await kit.send(kit.main.conversationId, 'How is it going?');
+    await kit.until(() => first);
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Cut the trailer', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.until(() => kit.item(item.id).active?.state === 'needsReview');
+    await kit.until(() => kit.items(kit.main.conversationId).some((i) => i.kind === 'relay' && i.direction === 'report'));
+    const report = kit.bot.getItem(item.id).reports.at(-1)!;
+    // 报告排在协调者回合后面；用户停了这一回合，等着的投递跟着丢掉。
+    await kit.harness.stopTask(kit.harness.conversationOf(kit.main.conversationId)!.activeTaskId!);
+    await kit.until(() => kit.harness.conversationOf(kit.main.conversationId)?.activity === 'idle');
+    await kit.settle();
+    expect(kit.bot.getItem(item.id).reports.at(-1)!.delivery).toBe('pending');
+    await kit.send(kit.main.conversationId, 'Anything new?');
+    await kit.until(() => kit.bot.getItem(item.id).reports.find((r) => r.id === report.id)?.delivery === 'delivered');
+    await kit.settle();
+    expect(reportItems().map((i) => i.kind === 'relay' && i.reportId)).toContain(report.id);
+  });
+
+  it('S4: a report dropped while the Driver was unavailable is relayed once the Driver is back', async () => {
+    kit.thread = async (ctx) => {
+      // 线程回合跑着时 Driver 变得不可用：报告存下了，转述给协调者时起不了回合。
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (kit.driver as any).verified = false;
+      await ctx.call('thread_report', { stop: 'needs-review', headline: 'The poster is ready.' });
+    };
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Make the poster', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.until(() => kit.item(item.id).active?.state === 'needsReview');
+    await kit.settle();
+    const report = kit.bot.getItem(item.id).reports.at(-1)!;
+    expect(report.delivery).toBe('pending');
+    expect(reportItems()).toEqual([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (kit.driver as any).verified = true;
+    kit.harness.agentsChanged();
+    await kit.until(() => kit.bot.getItem(item.id).reports.find((r) => r.id === report.id)?.delivery === 'delivered');
+    await kit.settle();
+    expect(reportItems().map((i) => i.kind === 'relay' && i.reportId)).toContain(report.id);
+  });
+});
+
 describe('the user talks to a thread that is waiting', () => {
   it('C1: a message from the user in a waiting thread moves the task back to working first, so the turn can report', async () => {
     kit.thread = (ctx) => ctx.call('thread_report', { stop: 'waiting', headline: 'The dub is rendering.', waitingFor: { jobIds: ['job_dub_9'] } });

@@ -299,6 +299,12 @@ export class BotService {
       if (directoryEvent.type === 'conversation.upsert') this.#onConversation(directoryEvent.conversation);
     });
     this.#unsubscribe.push(() => directory.unsubscribe?.());
+    // Driver 的可用性变了（重新探测、改了偏好）：之前因为 Driver 不可用没投出去的报告再投一次（§8.3）。
+    const agents = this.#harness.subscribe('agents', undefined, (event) => {
+      if ((event.event as { type?: string }).type !== 'agents.updated' || this.#stopped) return;
+      void this.#resendPending().catch(() => {});
+    });
+    this.#unsubscribe.push(() => agents.unsubscribe?.());
     // 接力（§6.3）之后、下一个协调者回合之前重启：接力要补的上下文只记在内存里，按会话记录找回来。
     for (const channel of this.#channels.list()) if (this.#handoffWaiting(channel.conversationId)) this.#handoffPending.add(channel.conversationId);
     await this.#reconcile();
@@ -381,8 +387,7 @@ export class BotService {
         await this.#harness.updateConversation({ conversationId: conversation.id, archived: true }, { internal: BOT_INTERNAL }).catch(() => {});
       }
     }
-    const pending = [...this.#reports.values()].filter((r) => r.delivery === 'pending').sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    for (const report of pending) await this.#deliverReport(report, true);
+    await this.#resendPending();
     // 停机期间等的任务结了的：「已结」事件没赶上，这里对账一次（同样过并发闸门）。等的后台任务停机前后结束、叫醒没交到的
     // （没有空位时 Harness 只在内存里记着，重启就丢了）也补一次。
     for (const item of [...this.#items.values()]) {
@@ -799,7 +804,7 @@ export class BotService {
     await this.#harness.updateConversation({ conversationId: channel.conversationId, archived }, { internal: BOT_INTERNAL });
     this.#schedules?.channelChanged(id);
     // 恢复时补投挂起的报告（§8.3 dropped 的那一类）。
-    if (!archived) for (const r of [...this.#reports.values()].filter((r) => r.delivery === 'pending')) await this.#deliverReport(r, true);
+    if (!archived) await this.#resendPending(id);
     // 归档的频道不跑到点的条目与排队的任务；恢复时补上。
     if (archived) this.#armOneShot();
     else {
@@ -1999,6 +2004,20 @@ export class BotService {
     return report;
   }
 
+  /**
+   * 还没转述出去的报告再投一次（§8.3），旧的在前；只投每条任务最新的那份。投递按 id 幂等：还等着或已交出的不会重复，
+   * 之前被丢掉的（协调者回合被停、Driver 不可用、回合起不来）这次重新起。
+   */
+  async #resendPending(channelId?: Id): Promise<void> {
+    const pending = [...this.#reports.values()]
+      .filter((r) => r.delivery === 'pending' && (!channelId || this.#items.get(r.workItemId)?.channelId === channelId))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    for (const report of pending) {
+      if (this.#reports.get(report.id)?.delivery !== 'pending') continue;
+      await this.#deliverReport(report, true).catch((error: unknown) => this.#log.warn('Re-sending a report failed', { reportId: report.id, error: String(error) }));
+    }
+  }
+
   async #deliverReport(report: ThreadReport, attended: boolean): Promise<void> {
     const item = this.#items.get(report.workItemId);
     const channel = item ? this.#channels.get(item.channelId) : undefined;
@@ -2198,6 +2217,12 @@ export class BotService {
     }
     const stats = this.#harness.generationStats(conversation.id);
     if (stats.compactions >= 3 || stats.turns > 400) await this.#handoff(conversation.id, null);
+    // 回合结束后 Harness 才把等着的投递合成一回合交出去，起不来的丢掉（§8.3）：等它做完，再补投这个频道还挂着的报告。
+    // 用户停下的回合不接着起新回合，挂着的报告等下一个回合结束或 Driver 恢复时再投。
+    if (event.status !== 'stopped' && conversation.channelId) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      if (!this.#stopped && !this.#harness.closing) await this.#resendPending(conversation.channelId);
+    }
   }
 
   /** 线程会话的提示条目在回合结束时绑定。 */
