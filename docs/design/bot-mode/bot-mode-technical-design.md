@@ -384,7 +384,7 @@ interface WorkItemTransition {
 - 条数少（几十个），沿用 `ScheduleStore` 的写法：整文件串行写，写临时文件后原子改名。
 - `load()` 时若没有 `kind: 'main'` 的频道不自动建；主频道在用户第一次打开 Bot 页时由 `channels.ensureMain` 建（BOT-CH-01），避免不用 Bot 的用户多出会话（BOT-NF-06）。
 - 所有写操作经 `ChannelStore` 的一把异步锁串行执行。`ensureMain` 在锁内先查后建，主频道用固定 id `chan_main`，频道对话的创建用 `commandId: 'channel:main'`（`createConversation` 现有的幂等键），两个窗口同时第一次打开也只建出一个。
-- 删除频道：先停所有线程（`stopTask`），删定时任务，删 WorkItem 日志，再删频道对话与线程会话（走 Harness 的内部删除，绕过 §4.2 的拒绝），最后删 `<root>/channels/<id>/`；登记到 Space 的产物与项目里的视频不动。删除过程写一条日志 `bot.channel.deleted`，中途崩溃时启动对账（§8.6）把残留的会话与日志清掉。
+- 删除频道：先停所有线程（`stopTask`；回合已结束、只在等 Job 的用 `cancelJobs`，§7.6），删定时任务，删 WorkItem 日志，再删频道对话与线程会话（走 Harness 的内部删除，绕过 §4.2 的拒绝），最后删 `<root>/channels/<id>/`；登记到 Space 的产物与项目里的视频不动。删除过程写一条日志 `bot.channel.deleted`，中途崩溃时启动对账（§8.6）把残留的会话与日志清掉。
 
 ### 5.3 WorkItemStore
 
@@ -492,7 +492,8 @@ interface WorkItemTransition {
 
 - 任务以 `completed` 结束 → `ActivityBridge` 写一条系统报告 `stop:'needs-review'`，headline 取最后一条 `agent-message` 的第一句；
 - 以 `failed` 结束 → `stop:'blocked'`，reason 取错误码的人话；
-- 以 `stopped` 结束（用户点了停止）→ 不写报告，状态由停止动作决定（§9.2）。
+- 以 `stopped` 结束（用户点了停止）→ 不写报告，状态由停止动作决定（§9.2）；
+- 回合的 `task.origin = 'refresh'`（刷新，§9.3）→ 不写兜底报告、不投递、不改状态：刷新没发现变化时线程按 BOT-EX-08 什么都不发，任务保持刷新前的子状态与 `question`。刷新回合以 `failed` 结束时只记诊断事件，同样不动任务。刷新里真有变化时由线程自己调 `thread_report`。卡住后点「继续」不算刷新（投递用 `origin:'relay'`），照常走上面两条兜底。
 
 ### 7.5 线程等后台 Job
 
@@ -500,8 +501,8 @@ interface WorkItemTransition {
 
 ### 7.6 停止与改向
 
-- **停止**（BOT-EX-07）：`workItems.stop` → `harness.stopTask(thread.activeTaskId)`；任务转 `blocked`，reason「你停下了这件事」，带「继续」。
-- **改向**：`workItems.redirect({ workItemId, text, oldWork: 'stop' | 'keep' })`。`stop` 时先 `stopTask`（会取消未完成的 Job）；`keep` 时不取消已提交的 Job，产物照常完成并挂成候选。随后把用户的新要求作为一条 `user-message` 发进线程（新 Task，沿用旧合同的范围与预算上限，同产品设计 §6.2「改变目标」）。仍是同一条 WorkItem。
+- **停止**（BOT-EX-07）：`workItems.stop` → 线程有进行中的回合时 `harness.stopTask(thread.activeTaskId)`（它会取消这个会话提交的 Job）；线程已经结束回合、只在等 Job（§7.5）时 `stopTask` 不会走到取消那一步，所以改调新增的 `harness.cancelJobs(threadConversationId)`，内部就是 `stopTask` 与 `changeGoal` 都在用的 `jobs.cancelSubmittedBy`，取消了几个照常写进会话提示。两种情况任务都转 `blocked`，reason「你停下了这件事」，带「继续」。
+- **改向**：`workItems.redirect({ workItemId, text, oldWork: 'stop' | 'keep' })`。直接走现有的 `harness.changeGoal({ taskId, goal: text, previousWork: oldWork })`：有进行中的回合时它先停（`stop`）或中断（`keep`）；回合已经结束时 `stop` 仍取消这个会话还没结束的 Job，`keep` 不取消，产物照常完成并挂成候选。随后它以新要求起新 Task，沿用旧合同的范围与预算上限（产品设计 §6.2「改变目标」）。仍是同一条 WorkItem。
 
 ## 8. ThreadRouter：简报、转交与回报
 
@@ -634,7 +635,7 @@ type WorkItemEvent =
 | active·working | approval(pending) / thread-activity(awaiting-*) | system | active·needsInput | `question` 从审批推出（`askedBy:'system'`） |
 | active·needsInput | approval(settled) | system | 回到审批前的子状态 | — |
 | active·needsReview / needsInput / blocked | user-replied | system（由线程收到 `via` 为用户的消息触发） | active·working | 清 `question`；note 写回答摘要 |
-| active·blocked / waitingOnOthers | unblocked | system；thread；user（卡住后点「继续」） | active·working | 卡住后继续时投递 `<baocut-refresh reason="stalled">` |
+| active·blocked / waitingOnOthers | unblocked | system；thread；user（卡住后点「继续」） | active·working | 卡住后继续时以 `origin:'relay'` 投递 `<baocut-refresh reason="stalled">` |
 | active·working | stalled(no-progress / job-hung / budget) | system（看门狗，§9.3） | active·blocked | reason 写成一句人话，`question` 为「继续还是停止？」；`agents.interrupt` 线程；发通知 |
 | upNext / scheduled / active·*（建议除外） | resolve | user | resolved·done | 有线程时停掉未完成的回合；`owner:'user'` 的任务在 `upNext` 直接勾掉，不开线程（BOT-TK-04） |
 | upNext / scheduled / active·* | resolve(confirmedBy) | coordinator 或 thread，且当前回合 `attended`、未 `tainted`，由 `confirmedBy` 那条 `author:'user'`、`via:'typed'` 的消息起（线程须是自己会话里的消息，协调者须是频道里的消息） | resolved·done | 用户在对话里说了「标完成吧」「这个做完了」：`resolution.by='user'`、`confirmedBy` 存那条消息的 id，界面写「你确认完成」；有线程时停掉未完成的回合 |
@@ -669,7 +670,7 @@ type WorkItemEvent =
 - 线程在等的 Job 超过它预计时长的两倍没有新进度 → `stalled('job-hung')`，reason 里带 Job 的名称；
 - 任务用量到了预算的 80% → `stalled('budget')`。
 
-`stalled` 事件把任务转 `blocked`，reason 写成用户看得懂的一句（「20 分钟没有进展」），`question` 是「继续还是停止？」，选项「继续」「停止」，并对线程调 `agents.interrupt`。「继续」走 `unblocked('user')`，投递一条 `<baocut-refresh reason="stalled">` 提醒线程先读工作笔记、换做法；「停止」走 `workItems.stop`。挂住的 Job 不在这里取消，由线程或用户决定。
+`stalled` 事件把任务转 `blocked`，reason 写成用户看得懂的一句（「20 分钟没有进展」），`question` 是「继续还是停止？」，选项「继续」「停止」，并对线程调 `agents.interrupt`。「继续」走 `unblocked('user')`，以 `origin:'relay'` 投递一条 `<baocut-refresh reason="stalled">`（不是刷新回合，结束时照常兜底报告），提醒线程先读工作笔记、换做法；「停止」走 `workItems.stop`。挂住的 Job 不在这里取消，由线程或用户决定。
 
 审批与报告同时到时，`needsInput` 优先（需求 §5.3）：状态机在 `approval(pending)` 期间收到的 `report(needs-review)` 只记下报告、不改子状态，审批结束时再落到 `needsReview`。
 
