@@ -16,6 +16,7 @@ import type { JobsEvent, JobsSnapshot } from './jobs.ts';
 import type { LegacyImportEvent, LegacyImportSnapshot } from './legacy-import.ts';
 import type { LibraryEvent, LibrarySnapshot } from './library.ts';
 import type { Schedule } from './schedule.ts';
+import type { ChannelsEvent, ChannelsSnapshot, WorkItemsEvent, WorkItemsSnapshot } from './bot.ts';
 import type { AgentsView } from './methods.ts';
 import type { ModelsEvent, ModelsSnapshot } from './models.ts';
 import type { SettingsEvent, SettingsSnapshot } from './settings.ts';
@@ -39,6 +40,8 @@ import type { VideoTopicEvent, VideoTopicSnapshot } from './video.ts';
  *   每个 Driver 的后台探测完成、偏好变化时送 `agents.updated`。
  * - `legacy-import`：旧版项目的导入询问与这次启动里的导入（架构设计 §2.7，`legacy-import.ts`）；快照是等回答的询问与导入的进展，
  *   询问出现或消失时送 `prompt.updated`，导入每有进展送 `run.updated`。
+ * - `channels`：Bot 模式的频道摘要（docs/design/bot-mode 技术方案 §16.2），连同 Bot 设置与通知事件。
+ * - `work-items:<channelId>`：一个频道的任务、转换记录与线程报告。
  * - `conversation:<id>`：一个会话的内容（卡片投影）。
  * - `video:<id>`：一个已打开的视频的投影（命令与协议规范 §10）。
  *
@@ -57,6 +60,8 @@ export type Topic =
   | 'agent-setup'
   | 'agents'
   | 'legacy-import'
+  | 'channels'
+  | `work-items:${Id}`
   | `conversation:${Id}`
   | `video:${Id}`;
 
@@ -213,6 +218,8 @@ export interface TopicMap {
   'agent-setup': { snapshot: AgentSetupSnapshot; event: AgentSetupEvent };
   agents: { snapshot: AgentsSnapshot; event: AgentsEvent };
   'legacy-import': { snapshot: LegacyImportSnapshot; event: LegacyImportEvent };
+  channels: { snapshot: ChannelsSnapshot; event: ChannelsEvent };
+  'work-items': { snapshot: WorkItemsSnapshot; event: WorkItemsEvent };
   conversation: { snapshot: ConversationSnapshot; event: ConversationEvent };
   video: { snapshot: VideoTopicSnapshot; event: VideoTopicEvent };
 }
@@ -241,6 +248,10 @@ export type SnapshotOf<T extends Topic> = T extends 'directory'
                       ? AgentsSnapshot
                       : T extends 'legacy-import'
                         ? LegacyImportSnapshot
+                        : T extends 'channels'
+                        ? ChannelsSnapshot
+                        : T extends `work-items:${string}`
+                        ? WorkItemsSnapshot
                         : T extends `video:${string}`
                         ? VideoTopicSnapshot
                         : ConversationSnapshot;
@@ -268,6 +279,10 @@ export type EventOf<T extends Topic> = T extends 'directory'
                       ? AgentsEvent
                       : T extends 'legacy-import'
                         ? LegacyImportEvent
+                        : T extends 'channels'
+                        ? ChannelsEvent
+                        : T extends `work-items:${string}`
+                        ? WorkItemsEvent
                         : T extends `video:${string}`
                         ? VideoTopicEvent
                         : ConversationEvent;

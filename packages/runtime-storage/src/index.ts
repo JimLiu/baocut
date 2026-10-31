@@ -20,3 +20,6 @@ export * from './schedules.ts';
 export * from './agent-probes.ts';
 export * from './agent-providers.ts';
 export * from './skill-prefs.ts';
+export * from './channel-store.ts';
+export * from './work-item-store.ts';
+export * from './channel-files.ts';
