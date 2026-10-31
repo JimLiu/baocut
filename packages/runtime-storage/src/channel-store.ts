@@ -37,6 +37,7 @@ export class ChannelStore {
   readonly #channels = new Map<Id, Channel>();
   #settings: BotSettings = structuredClone(DEFAULT_BOT_SETTINGS);
   #userMemoryVersion = 0;
+  #degraded = false;
   #saving: Promise<void> = Promise.resolve();
   #lock: Promise<void> = Promise.resolve();
 
@@ -45,12 +46,17 @@ export class ChannelStore {
   }
 
   async load(): Promise<void> {
-    const { value } = await this.#file.read({ recognize: (raw) => raw as Partial<ChannelsFile>, tolerateReadErrors: true });
+    const read = await this.#file.read({ recognize: (raw) => raw as Partial<ChannelsFile>, tolerateReadErrors: true });
+    const value = read.value;
     this.#channels.clear();
-    for (const raw of Array.isArray(value?.channels) ? value.channels : []) {
+    const rows = Array.isArray(value?.channels) ? value.channels : [];
+    let dropped = 0;
+    for (const raw of rows) {
       const channel = normalizeChannel(raw);
       if (channel && !this.#channels.has(channel.id)) this.#channels.set(channel.id, channel);
+      else if (!channel) dropped++;
     }
+    this.#degraded = (read.status !== 'ok' && read.status !== 'missing') || this.#file.readOnly || dropped > 0;
     this.#settings = normalizeSettings(value?.settings);
     this.#userMemoryVersion = nonNegativeInt(value?.userMemoryVersion) ?? 0;
   }
@@ -70,6 +76,14 @@ export class ChannelStore {
 
   userMemoryVersion(): number {
     return this.#userMemoryVersion;
+  }
+
+  /**
+   * 上次 `load` 没有把文件完整读进来：读不了、认不出（改名保留后从空开始）、更新版本写下的（只读），或有认不出的频道被丢掉。
+   * 这时频道列表可能缺了几个，调用方不能拿「找不到频道」当作频道不存在。
+   */
+  get degraded(): boolean {
+    return this.#degraded;
   }
 
   put(channel: Channel): Promise<void> {

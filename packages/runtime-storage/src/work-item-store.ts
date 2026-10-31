@@ -27,6 +27,11 @@ export interface WorkItemLog {
   reports: ThreadReport[];
   /** 按写入顺序（旧的在前）；只含快照里保留的与之后追加的，归档的不在这里。 */
   transitions: WorkItemTransition[];
+  /**
+   * 文件没有完整读进来：认不出改名保留后从空开始、更新版本写下的（只读）、有残行或坏行被跳过。这时任务可能缺了几条，
+   * 调用方不能拿「找不到任务」当作任务不存在（例如把它的线程当孤儿收掉）。
+   */
+  degraded: boolean;
 }
 
 const SAVE_DELAY_MS = 150;
@@ -56,6 +61,8 @@ interface ChannelState {
   needsCompact: boolean;
   /** 更新版本写下的文件：不改写。 */
   readOnly: boolean;
+  /** 读入时丢了东西（见 `WorkItemLog.degraded`）。整个进程期间不变，压缩之后也不清。 */
+  degraded: boolean;
 }
 
 interface Deferred {
@@ -94,7 +101,7 @@ export class WorkItemStore {
     assertSafePathSegment(channelId, 'channel id');
     await this.#flushChannel(channelId);
     const state = await this.#state(channelId);
-    return structuredClone({ items: [...state.items.values()], reports: [...state.reports.values()], transitions: state.transitions });
+    return structuredClone({ items: [...state.items.values()], reports: [...state.reports.values()], transitions: state.transitions, degraded: state.degraded });
   }
 
   async putItem(channelId: Id, item: WorkItem, options: { sync: boolean }): Promise<void> {
@@ -245,6 +252,7 @@ export class WorkItemStore {
       if (!(error instanceof JsonlCorruptError)) throw error;
       const renamedTo = await quarantineFile(file);
       this.#log?.warn('Unrecognized work item log renamed; starting empty', { file: name, renamedTo: path.basename(renamedTo) });
+      state.degraded = true;
       return state;
     }
     if (!read || read.header === null) return state;
@@ -252,11 +260,13 @@ export class WorkItemStore {
     if (header?.op !== 'header' || typeof header.formatVersion !== 'number') {
       const renamedTo = await quarantineFile(file);
       this.#log?.warn('Unrecognized work item log renamed; starting empty', { file: name, renamedTo: path.basename(renamedTo) });
+      state.degraded = true;
       return state;
     }
     if (header.formatVersion > WORK_ITEM_LOG_HEADER.formatVersion) {
       this.#log?.warn('Work item log was written by a newer version; ignored and left untouched', { file: name, formatVersion: header.formatVersion });
       state.readOnly = true;
+      state.degraded = true;
       return state;
     }
     for (const row of read.rows) applyLine(state, row);
@@ -265,6 +275,7 @@ export class WorkItemStore {
     if (read.truncatedTail) this.#log?.warn('Work item log ends with a partial line; skipped it', { file: name });
     if (read.skipped > 0) this.#log?.warn('Work item log has unreadable lines; skipped them', { file: name, count: read.skipped });
     state.needsCompact = read.truncatedTail || read.skipped > 0;
+    state.degraded = state.needsCompact;
     return state;
   }
 
@@ -348,6 +359,7 @@ function emptyState(): ChannelState {
     bytes: 0,
     needsCompact: false,
     readOnly: false,
+    degraded: false,
   };
 }
 

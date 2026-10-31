@@ -220,10 +220,16 @@ export class BotKit {
     await this.settle();
   }
 
-  /** 模拟进程重启：Harness 与 BotService 关掉再从同一个目录打开。 */
-  async restart(options: { approvals?: boolean } = {}): Promise<void> {
+  /** 存储目录（测试改坏文件用）。 */
+  get home(): ReturnType<typeof resolveRuntimeHome> {
+    return this.#home;
+  }
+
+  /** 模拟进程重启：Harness 与 BotService 关掉再从同一个目录打开。`whileDown` 在两者之间跑（模拟停机期间的文件变化）。 */
+  async restart(options: { approvals?: boolean; whileDown?: () => Promise<void> } = {}): Promise<void> {
     await this.bot.stop();
     await this.harness.shutdown();
+    await options.whileDown?.();
     this.events = [];
     this.runs = [];
     await this.#boot(options);

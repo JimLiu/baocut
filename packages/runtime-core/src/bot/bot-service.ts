@@ -217,6 +217,8 @@ export class BotService {
   readonly #seedTimeoutMs: number;
 
   readonly #items = new Map<Id, WorkItem>();
+  /** 任务日志没有完整读进来的频道（`WorkItemLog.degraded`）：重启对账不在这里找孤儿线程。 */
+  readonly #degradedChannels = new Set<Id>();
   readonly #reports = new Map<Id, ThreadReport>();
   readonly #transitions = new Map<Id, WorkItemTransition[]>();
   /** 频道今天与本月已花的钱（§14.5），投递前刷新，线程任务的预算上限由它算。 */
@@ -330,6 +332,8 @@ export class BotService {
 
   async #loadChannel(channelId: Id): Promise<void> {
     const log = await this.#store.load(channelId);
+    if (log.degraded) this.#degradedChannels.add(channelId);
+    else this.#degradedChannels.delete(channelId);
     for (const item of log.items) this.#items.set(item.id, item);
     for (const report of log.reports) this.#reports.set(report.id, report);
     this.#transitions.set(channelId, log.transitions);
@@ -362,9 +366,12 @@ export class BotService {
         await this.#force(item, { state: 'blocked', reason: RcBot.interruptedOnExit().text, question: continueQuestion() }, 'system:interrupted', now);
       }
     }
-    // 有线程会话但没有任务的：归档成孤儿。
+    // 有线程会话但没有任务的：归档成孤儿。只在频道列表与这个频道的任务日志都完整读进来时才算孤儿：文件认不出、
+    // 是更新版本写的（只读）或有行读不出时，找不到任务不等于任务不在，归档了线程就再也回不来。
+    const listComplete = !this.#channels.degraded;
     for (const conversation of this.#harness.directorySnapshot().conversations) {
       if (conversation.role !== 'thread' || conversation.archived) continue;
+      if (!listComplete || !conversation.channelId || !this.#channels.get(conversation.channelId) || this.#degradedChannels.has(conversation.channelId)) continue;
       const item = conversation.workItemId ? this.#items.get(conversation.workItemId) : undefined;
       if (!item) {
         this.#log.warn('Orphan thread conversation', { conversationId: conversation.id });

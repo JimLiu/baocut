@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Id } from '@baocut/protocol';
 import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
@@ -84,5 +86,47 @@ describe('restart with a working task that never got its thread', () => {
     await kit.settle();
     expect(kit.item(item.id)).toMatchObject({ threadId: null, active: { state: 'blocked' }, question: { askedBy: 'system' } });
     expect(kit.bot.status().workingThreads).toEqual([]);
+  });
+});
+
+describe('restart when the channel data did not load cleanly', () => {
+  it('a thread is not archived as an orphan when its channel task log is unreadable', async () => {
+    const item = await kit.startTask('Cut the trailer');
+    const threadId = kit.threadOf(item.id);
+    await kit.restart({ whileDown: () => fs.writeFile(path.join(kit.home.workItemsDir, `${kit.main.id}.jsonl`), 'not a log\n') });
+    await kit.settle();
+    expect(kit.harness.conversationOf(threadId)?.archived).toBe(false);
+  });
+
+  it('a thread is not archived when the channel list was written by a newer version', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Shorts' });
+    const item = await kit.bot.createItem({ channelId: channel.id, title: 'Cut a short', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.until(() => kit.item(item.id).threadId);
+    await kit.settle();
+    const threadId = kit.threadOf(item.id);
+    await kit.restart({
+      whileDown: async () => {
+        const file = kit.home.channelsFile;
+        const raw = JSON.parse(await fs.readFile(file, 'utf8')) as Record<string, unknown>;
+        await fs.writeFile(file, JSON.stringify({ ...raw, schemaVersion: 99 }));
+      },
+    });
+    await kit.settle();
+    expect(kit.harness.conversationOf(threadId)?.archived).toBe(false);
+  });
+
+  it('a thread whose task is really gone is still archived when everything loaded', async () => {
+    const item = await kit.startTask('Cut the teaser');
+    const threadId = kit.threadOf(item.id);
+    await kit.restart({
+      whileDown: async () => {
+        // 任务从日志里删掉（之前的版本删了任务却留下了线程）。
+        const file = path.join(kit.home.workItemsDir, `${kit.main.id}.jsonl`);
+        await fs.appendFile(file, `${JSON.stringify({ op: 'removed', workItemId: item.id })}\n`);
+      },
+    });
+    await kit.settle();
+    expect(kit.harness.conversationOf(threadId)?.archived).toBe(true);
   });
 });
