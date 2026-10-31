@@ -69,6 +69,8 @@ export const es: BotMessages = {
     title: (parts: string) => `Mientras no estabas: ${parts}`,
     jump: 'Ir al primero sin leer',
     dismiss: 'Entendido',
+    row: (title: string, headline: string) => `${title}: ${headline}`,
+    newMessages: 'Mensajes nuevos',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),

@@ -26,7 +26,7 @@ export default defineConfig({
   assetsInclude: ['**/*.bcmap', '**/*.pfb', '**/*.wasm'],
   test: {
     // S2 components import CSS, which Node cannot load as an external module.
-    server: { deps: { inline: ['@react-spectrum/s2'] } },
+    server: { deps: { inline: ['@react-spectrum/s2', '@react-spectrum/ai'] } },
     environment: 'node',
     setupFiles: ['tools/vitest-storage.setup.ts'],
     // CLI 的离线目录快照（apps/cli/src/generated/catalog.json，不进 git）：测试前按当前的工具目录写一份。

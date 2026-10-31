@@ -88,6 +88,8 @@ const en = {
     title: (parts: string) => `While you were away: ${parts}`,
     jump: 'Jump to first unread',
     dismiss: 'Got it',
+    row: (title: string, headline: string) => `${title}: ${headline}`,
+    newMessages: 'New messages',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),

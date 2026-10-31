@@ -69,6 +69,8 @@ export const ja: BotMessages = {
     title: (parts: string) => `不在の間に：${parts}`,
     jump: '最初の未読へ移動',
     dismiss: 'OK',
+    row: (title: string, headline: string) => `${title}：${headline}`,
+    newMessages: 'ここから新しいメッセージ',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}、${status}、${next}` : `${title}、${status}`),

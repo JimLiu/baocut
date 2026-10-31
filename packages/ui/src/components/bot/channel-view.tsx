@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import type { AwaySummary, Channel, Id } from '@baocut/protocol';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import type { AwaySummary, AwaySummaryRow, Channel, Id } from '@baocut/protocol';
 import { ActionButton, Button, Text } from '@react-spectrum/s2';
 import Bookmark from '@react-spectrum/s2/icons/Bookmark';
 import Settings from '@react-spectrum/s2/icons/Settings';
@@ -56,6 +56,29 @@ const banner = style({
   color: 'gray-900',
 });
 const bannerText = style({ flexGrow: 1, flexBasis: 200, minWidth: 0 });
+const awayBox = style({ display: 'flex', flexDirection: 'column', gap: 4, flexGrow: 1, flexBasis: 260, minWidth: 0 });
+const awayTitle = style({ fontWeight: 'bold' });
+const awayList = style({ display: 'flex', flexDirection: 'column', gap: 2, margin: 0, padding: 0, listStyleType: 'none' });
+const awayRow = style({
+  display: 'flex',
+  gap: 8,
+  width: 'full',
+  padding: 0,
+  borderWidth: 0,
+  backgroundColor: 'transparent',
+  textAlign: 'start',
+  font: 'ui-sm',
+  color: { default: 'gray-900', ':hover': 'accent-900' },
+  cursor: 'pointer',
+  outlineStyle: { default: 'none', ':focus-visible': 'solid' },
+  outlineColor: 'focus-ring',
+  outlineWidth: 2,
+  borderRadius: 'sm',
+});
+const awayKind = style({ flexShrink: 0, color: 'gray-700' });
+const awayLine = style({ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+const unreadLine = style({ display: 'flex', alignItems: 'center', gap: 8, font: 'ui-xs', color: 'accent-900' });
+const unreadRule = style({ flexGrow: 1, height: 1, backgroundColor: 'accent-subtle' });
 const emptyNote = style({ maxWidth: 420, margin: 'auto', padding: 24, textAlign: 'center', font: 'body-sm', color: 'gray-600' });
 
 /** 频道对话里最后一条（「看到哪里」的位置）。 */
@@ -90,44 +113,88 @@ function awayParts(summary: AwaySummary): string {
     .join(' · ');
 }
 
+/** 摘要里有没有要说的：做完、等你或停下的至少一件。 */
+export function hasAwayNews(summary: AwaySummary): boolean {
+  return summary.done.length > 0 || summary.needsYou.length > 0 || summary.stopped.length > 0;
+}
+
 /**
- * 「你不在时」的摘要条（BOT-BH-08、需求 §11.3）：进频道时取一次 `bot.awaySummary`，有做完、等你或停下的才显示；
- * 「跳到第一条未读」翻到上次看到之后的第一条。离开频道、窗口失焦或隐藏时 `channels.markSeen` 记下看到的位置。
+ * 「你不在时」的摘要条（BOT-BH-08、需求 §11.4）：进频道时取 `bot.awaySummary`，有做完、等你或停下的才显示；
+ * 人一直停在这个频道、只是切走了窗口，回到窗口（获得焦点或重新可见）时再取一次——离开时已经 `markSeen`，摘要只算离开之后的。
+ * 「跳到第一条未读」翻到上次看到之后的第一条，那一条前面画「以下是新消息」细线。离开频道、窗口失焦或隐藏时 `channels.markSeen`
+ * 记下看到的位置。
  */
-function useAwayAndSeen(channel: Channel) {
+export function useAwayAndSeen(channel: Pick<Channel, 'id' | 'conversationId'>) {
   const runtime = useRuntime();
   const [summary, setSummary] = useState<AwaySummary | null>(null);
+  const [firstUnread, setFirstUnread] = useState<Id | null>(null);
   const { id, conversationId } = channel;
 
   useEffect(() => {
     let live = true;
+    let away = false;
     setSummary(null);
-    runtime.client
-      .request('bot.awaySummary', { channelId: id })
-      .then((result) => {
-        if (live && (result.done.length || result.needsYou.length || result.stopped.length)) setSummary(result);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [runtime, id]);
-
-  useEffect(() => {
+    setFirstUnread(null);
+    const load = () =>
+      runtime.client
+        .request('bot.awaySummary', { channelId: id })
+        .then((result) => {
+          if (!live) return;
+          if (hasAwayNews(result)) setSummary(result);
+          if (result.firstUnreadItemId) setFirstUnread(result.firstUnreadItemId);
+        })
+        .catch(() => {});
     const markSeen = () => void runtime.client.request('channels.markSeen', { id, itemId: lastItemId(conversationId) }).catch(() => {});
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') markSeen();
+    const leave = () => {
+      away = true;
+      markSeen();
     };
-    window.addEventListener('blur', markSeen);
+    const back = () => {
+      if (!away) return;
+      away = false;
+      void load();
+    };
+    const onVisibility = () => (document.visibilityState === 'hidden' ? leave() : back());
+    void load();
+    window.addEventListener('blur', leave);
+    window.addEventListener('focus', back);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
-      window.removeEventListener('blur', markSeen);
+      live = false;
+      window.removeEventListener('blur', leave);
+      window.removeEventListener('focus', back);
       document.removeEventListener('visibilitychange', onVisibility);
       markSeen();
     };
   }, [runtime, id, conversationId]);
 
-  return { summary, dismiss: () => setSummary(null), jump: (itemId: Id) => void jumpTo(runtime, conversationId, itemId) };
+  return { summary, firstUnread, dismiss: () => setSummary(null), jump: (itemId: Id) => void jumpTo(runtime, conversationId, itemId) };
+}
+
+/** 摘要条：标题一行计数，下面每件一行「状态 · 标题：结论」，点了打开那条任务。 */
+export function AwayBanner({ summary, onOpen }: { summary: AwaySummary; onOpen: (row: AwaySummaryRow) => void }) {
+  const groups: [string, AwaySummaryRow[]][] = [
+    [C.status.done, summary.done],
+    [C.panel.needsYou, summary.needsYou],
+    [C.status.blocked, summary.stopped],
+  ];
+  return (
+    <div className={awayBox}>
+      <span className={awayTitle}>{C.away.title(awayParts(summary))}</span>
+      <ul className={awayList}>
+        {groups.flatMap(([kind, rows]) =>
+          rows.map((row) => (
+            <li key={`${kind}:${row.id}`}>
+              <button type="button" className={awayRow} onClick={() => onOpen(row)}>
+                <span className={awayKind}>{kind}</span>
+                <span className={awayLine}>{row.headline ? C.away.row(row.title, row.headline) : row.title}</span>
+              </button>
+            </li>
+          )),
+        )}
+      </ul>
+    </div>
+  );
 }
 
 /** 频道的 Agent 用不了（没装、没登录、被关掉）：对话只读，给一个去设置的入口（需求 §11.3 边界）。 */
@@ -158,6 +225,25 @@ export function ChannelView({
   const away = useAwayAndSeen(channel);
   const unavailable = useDriverUnavailable(channel);
   const firstUnread = away.summary?.firstUnreadItemId ?? null;
+  const extras = useMemo(
+    () => ({
+      unread: away.firstUnread
+        ? {
+            itemId: away.firstUnread,
+            node: (
+              <div className={unreadLine} role="separator" aria-label={C.away.newMessages}>
+                <span className={unreadRule} />
+                <span>{C.away.newMessages}</span>
+                <span className={unreadRule} />
+              </div>
+            ),
+          }
+        : null,
+      userMessage: null,
+      agentMessage: null,
+    }),
+    [away.firstUnread],
+  );
   const banners: ReactNode[] = [];
 
   if (channel.archived)
@@ -181,7 +267,7 @@ export function ChannelView({
   if (away.summary)
     banners.push(
       <div key="away" className={banner({ tone: 'info' })} role="status">
-        <span className={bannerText}>{C.away.title(awayParts(away.summary))}</span>
+        <AwayBanner summary={away.summary} onOpen={(row) => go({ tab: 'bot', channelId: channel.id, workItemId: row.id, view: 'channel' })} />
         {firstUnread ? (
           <Button size="S" variant="secondary" onPress={() => away.jump(firstUnread)}>
             {C.away.jump}
@@ -217,7 +303,7 @@ export function ChannelView({
         ) : null}
       </header>
       {banners}
-      <BotTimeline channelId={channel.id}>
+      <BotTimeline channelId={channel.id} extras={extras}>
         <ConversationView
           conversationId={channel.conversationId}
           placeholder={C.channel.placeholder}

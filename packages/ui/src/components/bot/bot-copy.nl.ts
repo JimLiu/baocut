@@ -69,6 +69,8 @@ export const nl: BotMessages = {
     title: (parts: string) => `Terwijl je weg was: ${parts}`,
     jump: 'Naar het eerste ongelezen bericht',
     dismiss: 'Begrepen',
+    row: (title: string, headline: string) => `${title}: ${headline}`,
+    newMessages: 'Nieuwe berichten',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),

@@ -69,6 +69,8 @@ export const fr: BotMessages = {
     title: (parts: string) => `Pendant votre absence : ${parts}`,
     jump: 'Aller au premier non lu',
     dismiss: 'Compris',
+    row: (title: string, headline: string) => `${title} : ${headline}`,
+    newMessages: 'Nouveaux messages',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),

@@ -78,6 +78,8 @@ export const ru: BotMessages = {
     title: (parts: string) => `Пока вас не было: ${parts}`,
     jump: 'К первому непрочитанному',
     dismiss: 'Понятно',
+    row: (title: string, headline: string) => `${title}: ${headline}`,
+    newMessages: 'Новые сообщения',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),

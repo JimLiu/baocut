@@ -4,6 +4,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RuntimeContext } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
+import type { AwaySummary, TimelineItem } from '@baocut/protocol';
+import { BotThreadExtrasContext } from '../thread/bot-items.ts';
+import { Thread } from '../thread/thread.tsx';
+import { AwayBanner, useAwayAndSeen } from './channel-view.tsx';
 import { NewTaskDialog } from './task-panel.tsx';
 
 /*
@@ -75,5 +79,60 @@ describe('新建任务（需求 §4.4）', () => {
     await typeInto(document.querySelector<HTMLInputElement>('input[type="text"], input:not([type])')!, '录第 12 期口播');
     await press('添加');
     expect(calls('workItems.create')).toEqual([expect.objectContaining({ channelId: 'c1', title: '录第 12 期口播', owner: 'user', start: false })]);
+  });
+});
+
+const AWAY: AwaySummary = {
+  since: '2026-10-31T08:00:00Z',
+  done: [{ id: 'wi_done', title: '第 11 期字幕', headline: '中英字幕都加好了' }],
+  needsYou: [{ id: 'wi_review', title: '竖版短视频', headline: null }],
+  stopped: [],
+  firstUnreadItemId: 'msg2',
+};
+
+function AwayProbe() {
+  const away = useAwayAndSeen({ id: 'c1', conversationId: 'conv_c1' });
+  return createElement('span', { 'data-testid': 'away' }, away.summary ? `${away.summary.done.length}/${away.firstUnread}` : 'none');
+}
+
+describe('你不在时（BOT-BH-08、需求 §11.4）', () => {
+  it('人一直停在频道里：切走窗口时记下看到的位置，回到窗口时重取摘要', async () => {
+    let summary: AwaySummary = { ...AWAY, done: [], needsYou: [], firstUnreadItemId: null };
+    handlers['bot.awaySummary'] = () => summary;
+    handlers['channels.markSeen'] = () => ({ channel: {} });
+    await render(createElement(AwayProbe));
+    expect(calls('bot.awaySummary')).toHaveLength(1);
+    expect(document.querySelector('[data-testid="away"]')?.textContent).toBe('none');
+    await act(async () => window.dispatchEvent(new Event('blur')));
+    expect(calls('channels.markSeen')).toHaveLength(1);
+    summary = AWAY;
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(calls('bot.awaySummary')).toHaveLength(2);
+    expect(document.querySelector('[data-testid="away"]')?.textContent).toBe('1/msg2');
+  });
+
+  it('每件一行结论，点了打开那条任务', async () => {
+    const opened: string[] = [];
+    await render(createElement(AwayBanner, { summary: AWAY, onOpen: (row: { id: string }) => opened.push(row.id) }));
+    const text = container.textContent ?? '';
+    expect(text).toContain('你不在时：1 个已完成 · 1 个等你');
+    expect(text).toContain('第 11 期字幕：中英字幕都加好了');
+    expect(text).toContain('竖版短视频');
+    await act(async () => [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('竖版短视频'))!.click());
+    expect(opened).toEqual(['wi_review']);
+  });
+
+  it('上次看到之后的第一条前面画「以下是新消息」细线', async () => {
+    const items: TimelineItem[] = [
+      { kind: 'user-message', id: 'msg1', createdAt: '2026-10-31T07:00:00Z', taskId: null, text: '旧的' },
+      { kind: 'user-message', id: 'msg2', createdAt: '2026-10-31T09:00:00Z', taskId: null, text: '新的' },
+    ] as TimelineItem[];
+    const extras = { unread: { itemId: 'msg2', node: createElement('hr', { 'data-testid': 'unread' }) }, userMessage: null, agentMessage: null };
+    await render(createElement(BotThreadExtrasContext.Provider, { value: extras }, createElement(Thread, { items, conversationId: 'conv_c1', running: false })));
+    const rule = container.querySelector('[data-testid="unread"]');
+    expect(rule).not.toBeNull();
+    const html = container.innerHTML;
+    expect(html.indexOf('旧的')).toBeLessThan(html.indexOf('data-testid="unread"'));
+    expect(html.indexOf('data-testid="unread"')).toBeLessThan(html.indexOf('新的'));
   });
 });

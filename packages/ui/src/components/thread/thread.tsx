@@ -15,7 +15,7 @@ import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { useTimelineHasEarlier } from '../../state/timeline-store.ts';
 import { ApprovalCard } from './approval-card.tsx';
-import { useBotItemRenderer, type BotItemRenderer } from './bot-items.ts';
+import { useBotItemRenderer, useBotThreadExtras, type BotItemRenderer } from './bot-items.ts';
 import { PlanCard } from './plan-card.tsx';
 import { QuestionCard } from './question-card.tsx';
 import {
@@ -111,6 +111,7 @@ export function Thread({
   find?: { focus: number; onClose(): void } | null;
 }) {
   const botRenderer = useBotItemRenderer();
+  const unread = useBotThreadExtras()?.unread ?? null;
   // 没有 Bot 渲染器（普通会话）时 Bot 条目不占一行。
   const blocks = useMemo(() => {
     const all = buildThread(items);
@@ -160,6 +161,14 @@ export function Thread({
   blocks.forEach((block, i) => {
     if (block.type !== 'task') {
       const kind = rowKind(block);
+      // 频道上次看到之后的第一条（Bot 的「你不在时」）：前面一条「以下是新消息」细线；第一行前面不画。
+      if (unread && block.id === unread.itemId && rows.length > 0) {
+        rows.push(
+          <div key="bot-unread" style={{ marginTop: gapBetween(prev, kind, prevHasCards) }}>
+            {unread.node}
+          </div>,
+        );
+      }
       rows.push(
         <div key={block.id} className={row} style={{ marginTop: gapBetween(prev, kind, prevHasCards) }}>
           <Block

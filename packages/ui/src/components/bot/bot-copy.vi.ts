@@ -69,6 +69,8 @@ export const vi: BotMessages = {
     title: (parts: string) => `Trong lúc bạn vắng: ${parts}`,
     jump: 'Đến mục chưa đọc đầu tiên',
     dismiss: 'Đã hiểu',
+    row: (title: string, headline: string) => `${title}: ${headline}`,
+    newMessages: 'Tin nhắn mới',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),

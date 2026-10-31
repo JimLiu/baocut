@@ -69,6 +69,8 @@ export const tr: BotMessages = {
     title: (parts: string) => `Siz yokken: ${parts}`,
     jump: 'İlk okunmamışa git',
     dismiss: 'Tamam',
+    row: (title: string, headline: string) => `${title}: ${headline}`,
+    newMessages: 'Yeni mesajlar',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),

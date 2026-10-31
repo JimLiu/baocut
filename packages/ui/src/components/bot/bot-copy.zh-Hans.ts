@@ -69,6 +69,8 @@ export const zhHans: BotMessages = {
     title: (parts: string) => `你不在时：${parts}`,
     jump: '跳到第一条未读',
     dismiss: '知道了',
+    row: (title: string, headline: string) => `${title}：${headline}`,
+    newMessages: '以下是新消息',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}，${status}，${next}` : `${title}，${status}`),

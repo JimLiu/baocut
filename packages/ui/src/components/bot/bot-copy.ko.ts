@@ -69,6 +69,8 @@ export const ko: BotMessages = {
     title: (parts: string) => `자리를 비운 사이: ${parts}`,
     jump: '첫 번째 읽지 않은 항목으로',
     dismiss: '확인',
+    row: (title: string, headline: string) => `${title}: ${headline}`,
+    newMessages: '여기부터 새 메시지',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),

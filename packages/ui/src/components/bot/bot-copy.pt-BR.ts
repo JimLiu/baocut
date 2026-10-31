@@ -69,6 +69,8 @@ export const ptBR: BotMessages = {
     title: (parts: string) => `Enquanto você estava fora: ${parts}`,
     jump: 'Ir para a primeira não lida',
     dismiss: 'Entendi',
+    row: (title: string, headline: string) => `${title}: ${headline}`,
+    newMessages: 'Mensagens novas',
   },
   card: {
     label: (title: string, status: string, next: string | null) => (next ? `${title}, ${status}, ${next}` : `${title}, ${status}`),
