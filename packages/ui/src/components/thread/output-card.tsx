@@ -258,6 +258,7 @@ export function OutputCard({
     else if (designSystem) shell.openPane({ kind: 'design-system', target: designSystem.target });
     // 协作文档在功能区的协作文档标签里打开，智能体的改动实时出现在里面（docs/design/docs §8）。
     else if (docs) shell.openPane({ kind: 'docs', target: docs.target });
+    else if (!isVideo && output.file) shell.openPane({ kind: 'file', target: output.file.target });
     else if (!isVideo && output.entry) shell.openPane({ kind: 'file', target: { conversationId, path: output.entry.relPath } });
   };
 

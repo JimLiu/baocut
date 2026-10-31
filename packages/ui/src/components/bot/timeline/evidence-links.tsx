@@ -1,5 +1,6 @@
-import type { Id, ResourceRef, SpaceEntry } from '@baocut/protocol';
+import type { ResourceRef } from '@baocut/protocol';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { videoEntryOf } from '../../../model/bot-refs.ts';
 import { videoTargetOf } from '../../../model/space.ts';
 import { useRuntime } from '../../../runtime/context.tsx';
 import { useChannels } from '../../../state/channels-store.ts';
@@ -27,10 +28,6 @@ const link = style({
 const plain = style({ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 
 const SNIPPET = 40;
-
-function videoEntry(entries: SpaceEntry[], videoId: Id): SpaceEntry | undefined {
-  return entries.find((e) => e.kind === 'video' && !e.user.trashedAt && !!e.ref && 'videoId' in e.ref && e.ref.videoId === videoId);
-}
 
 /**
  * 建议卡的依据链接（BOT-MK-04）：消息跳到频道里那一条，视频在编辑器里打开，任务打开详情；文件、文档等只写名字。
@@ -75,7 +72,7 @@ function Evidence({ target }: { target: ResourceRef }) {
     }
     case 'video':
     case 'video-range': {
-      const entry = videoEntry(entries, target.videoId);
+      const entry = videoEntryOf(entries, target.videoId);
       if (!entry) return <span className={plain}>{kind}</span>;
       return button(`${kind} · ${entry.name}`, () => useShell.getState().openVideo(videoTargetOf(entry)));
     }

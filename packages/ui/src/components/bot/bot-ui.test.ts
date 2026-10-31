@@ -13,7 +13,12 @@ import { ChannelDialog } from './channel-dialog.tsx';
 import { drainQueue, sendQueuedMessageNow } from '../../runtime/message-queue-runner.ts';
 import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
 import { useWorkItems } from '../../state/work-items-store.ts';
-import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions, resourceLabel } from './task-detail.tsx';
+import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
+import { TaskRefs, resourceLabel } from './task-refs.tsx';
+import { fileRefTarget, refOutput } from '../../model/bot-refs.ts';
+import { useDirectory } from '../../state/directory-store.ts';
+import { useEditor } from '../../state/editor-store.ts';
+import { useJobs } from '../../state/jobs-store.ts';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { Reactions, UserMessageExtras } from './timeline/message-extras.tsx';
 import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
@@ -21,7 +26,7 @@ import { DialogContainer } from '@react-spectrum/s2';
 import { useTimeline } from '../../state/timeline-store.ts';
 import { BotSettings } from '../settings/bot-settings.tsx';
 import { useChannels } from '../../state/channels-store.ts';
-import { DEFAULT_BOT_SETTINGS, type SpaceEntry, type WorkItem } from '@baocut/protocol';
+import { DEFAULT_BOT_SETTINGS, type JobRecord, type SpaceEntry, type WorkItem } from '@baocut/protocol';
 import { ProposalCard, SuggestionButtons } from './timeline/proposal-card.tsx';
 import { useBotCall, useScopedState } from './bot-actions.ts';
 import { ChannelMemoryPage } from './channel-memory-page.tsx';
@@ -408,6 +413,138 @@ describe('任务详情可改（BOT-TK-06）', () => {
     expect(resourceLabel({ kind: 'file', path: 'C:\\clips\\take 2.mov' })).toBe('文件 · take 2.mov');
     expect(resourceLabel({ kind: 'file', path: 'script.md', label: '旁白稿', version: null })).toBe('文件 · 旁白稿');
     expect(resourceLabel({ kind: 'video', projectId: 'p1', videoId: 'v1' })).toBe('视频');
+  });
+});
+
+describe('任务的产物与资源卡（BOT-VE-03、需求 §11.6）', () => {
+  const user = { favorite: false, displayName: null, trashedAt: null };
+  const VIDEO = {
+    id: 'e12',
+    kind: 'video',
+    name: '第 12 期',
+    fileName: 'ep12.baocut',
+    source: { projectId: 'p1', conversationId: null },
+    relPath: 'ep12.baocut',
+    user,
+    ref: { videoId: 'v12' },
+    media: { durationSec: 65 },
+    status: null,
+    size: 0,
+    lastActivityAt: '2026-10-31T09:00:00Z',
+  } as unknown as SpaceEntry;
+  const EXPORT = {
+    id: 'e_mp4',
+    kind: 'export',
+    name: 'ep12-final.mp4',
+    fileName: 'ep12-final.mp4',
+    source: { projectId: 'p1', conversationId: null },
+    relPath: 'exports/ep12-final.mp4',
+    user,
+    ref: null,
+    status: null,
+    size: 12_000_000,
+    lastActivityAt: '2026-10-31T09:00:00Z',
+  } as unknown as SpaceEntry;
+  const dirs = { projects: [{ id: 'p1', path: '/Users/me/Shows' }], conversations: [{ id: 'conv_thread', cwd: '/Users/me/BaoCut/channels/c1' }] };
+
+  it('视频对到 Space 条目：名字、时长与打开的位置；片段写出起止；文件按位置找到条目', () => {
+    const entries = [VIDEO, EXPORT];
+    expect(refOutput({ kind: 'video', projectId: 'p1', videoId: 'v12' }, entries, dirs, 'conv_thread', '视频')).toMatchObject({
+      id: 'v12',
+      kind: 'video',
+      name: '第 12 期',
+      durationSeconds: 65,
+      entry: VIDEO,
+      video: { projectId: 'p1', path: 'ep12.baocut' },
+    });
+    const range = refOutput({ kind: 'video-range', projectId: 'p1', videoId: 'v12', startMs: 12_000, endMs: 30_500 }, entries, dirs, 'conv_thread', '视频');
+    expect(range?.name).toBe('第 12 期 · 0:12–0:30');
+    // Space 里还没有：卡照画，打开置灰。
+    expect(refOutput({ kind: 'video', projectId: 'p1', videoId: 'v_new' }, entries, dirs, 'conv_thread', '视频')).toMatchObject({ name: '视频', video: null, entry: null });
+    // 导出到项目目录里的成片：绝对路径相对项目，对上 Space 条目。
+    expect(refOutput({ kind: 'file', path: '/Users/me/Shows/exports/ep12-final.mp4', label: '成片', version: null }, entries, dirs, 'conv_thread', '视频')).toMatchObject({
+      kind: 'export',
+      name: '成片',
+      entry: EXPORT,
+      file: { target: { projectId: 'p1', path: 'exports/ep12-final.mp4' } },
+    });
+    // 频道文件目录里生成的素材：相对路径落在线程会话的工作目录。
+    expect(refOutput({ kind: 'file', path: './covers/cover.png' }, entries, dirs, 'conv_thread', '视频')).toMatchObject({
+      kind: 'image',
+      name: 'cover.png',
+      entry: null,
+      file: { target: { conversationId: 'conv_thread', path: 'covers/cover.png' } },
+    });
+    expect(refOutput({ kind: 'space', entryId: 'e_mp4' }, entries, dirs, 'conv_thread', '视频')).toMatchObject({ entry: EXPORT, file: { target: { entryId: 'e_mp4' } } });
+    expect(refOutput({ kind: 'message', conversationId: 'conv_c1', itemId: 'm1' }, entries, dirs, 'conv_thread', '视频')).toBeNull();
+  });
+
+  it('文件的位置：频道目录里的绝对路径相对线程会话，盘符路径不分大小写，哪里都不在时交给会话', () => {
+    expect(fileRefTarget('/Users/me/BaoCut/channels/c1/notes.md', [], dirs, 'conv_thread')).toEqual({ conversationId: 'conv_thread', path: 'notes.md' });
+    expect(fileRefTarget('C:\\Shows\\out\\a.mp4', [], { projects: [{ id: 'p2', path: 'c:\\shows' }], conversations: [] }, null)).toEqual({ projectId: 'p2', path: 'out/a.mp4' });
+    expect(fileRefTarget('/tmp/elsewhere.mp4', [], dirs, 'conv_thread')).toEqual({ conversationId: 'conv_thread', path: '/tmp/elsewhere.mp4' });
+    expect(fileRefTarget('/tmp/elsewhere.mp4', [], dirs, null)).toBeNull();
+  });
+
+  it('详情里画成卡：视频有缩略图、时长与状态，「打开编辑器」在功能区打开；文件卡在单文件标签里打开；画不了的写一行字', async () => {
+    const shell = useShell.getState();
+    const openVideo = vi.fn();
+    const openPane = vi.fn();
+    useShell.setState({ openVideo, openPane });
+    useSpace.setState({ entries: [VIDEO, EXPORT], ready: true, scanning: false, issues: [] });
+    useDirectory.setState({ projects: [{ id: 'p1', name: 'Shows', path: '/Users/me/Shows' }] as never, conversations: [] });
+    const transcribing = {
+      jobId: 'job_t',
+      kind: 'transcribe',
+      state: 'running',
+      videoId: 'v12',
+      progress: null,
+      submitter: { kind: 'user', id: null, taskId: null },
+      createdAt: '2026-10-31T09:00:00Z',
+      updatedAt: '2026-10-31T09:00:00Z',
+    } as unknown as JobRecord;
+    useJobs.setState({ jobs: [transcribing] });
+    Object.assign(runtime, {
+      spaceThumbnails: { retain: () => () => {}, subscribe: () => () => {}, version: () => 0, peek: () => ({ kind: 'image', url: 'blob:poster', width: 640, height: 360 }) },
+      videos: { media: { subscribe: () => () => {}, version: () => 0, thumbnail: () => null } },
+    });
+    const item = {
+      ...RUNNING,
+      outputs: [
+        { kind: 'video', projectId: 'p1', videoId: 'v12', label: '第 12 期 · 黄色字幕', version: null },
+        { kind: 'file', path: '/Users/me/Shows/exports/ep12-final.mp4', label: '成片 MP4', version: null },
+      ],
+      resources: [
+        { kind: 'video-range', projectId: 'p1', videoId: 'v12', startMs: 12_000, endMs: 30_000 },
+        { kind: 'message', conversationId: 'conv_c1', itemId: 'm1' },
+      ],
+    } as unknown as WorkItem;
+    try {
+      await render(createElement(TaskRefs, { refs: item.outputs, item }));
+      expect(container.querySelector('img')?.getAttribute('src')).toBe('blob:poster');
+      const text = container.textContent ?? '';
+      expect(text).toContain('第 12 期 · 黄色字幕');
+      expect(text).toContain('1:05');
+      expect(text).toContain('转录中');
+      await press('打开编辑器');
+      expect(openVideo).toHaveBeenCalledWith({ projectId: 'p1', path: 'ep12.baocut' });
+      const file = [...container.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('成片 MP4'));
+      await act(async () => file!.click());
+      expect(openPane).toHaveBeenCalledWith({ kind: 'file', target: { projectId: 'p1', path: 'exports/ep12-final.mp4' } });
+
+      await render(createElement(TaskRefs, { refs: item.resources, item }));
+      expect(container.textContent).toContain('第 12 期 · 0:12–0:30');
+      expect(container.textContent).toContain('消息');
+      await press('打开编辑器');
+      expect(useEditor.getState().videoId).toBe('v12');
+      expect(useEditor.getState().playhead).toBe(12);
+      expect(openVideo).toHaveBeenLastCalledWith({ projectId: 'p1', path: 'ep12.baocut' });
+    } finally {
+      useShell.setState({ openVideo: shell.openVideo, openPane: shell.openPane });
+      useSpace.setState({ entries: [], ready: false, scanning: true, issues: [] });
+      useDirectory.setState({ projects: [], conversations: [] });
+      useJobs.setState({ jobs: [] });
+    }
   });
 });
 

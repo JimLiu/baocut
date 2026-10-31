@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { localizeText, type ArtifactRef, type Id, type RevertPlan, type ResourceRef, type WorkItem, type WorkItemStateName, type WorkItemTransition } from '@baocut/protocol';
+import { localizeText, type Id, type RevertPlan, type WorkItem, type WorkItemStateName, type WorkItemTransition } from '@baocut/protocol';
 import {
   ActionButton,
   ActionMenu,
@@ -37,6 +37,7 @@ import { formatDay } from './bot-format.ts';
 import { useTaskSpend } from './task-spend.ts';
 import { StatusLabel } from './status-badge.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
+import { TaskRefs, videoIdsOf } from './task-refs.tsx';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
 import { useBotMessageExtras } from './timeline/message-extras.tsx';
 import { SuggestionChips } from './timeline/suggestion-chips.tsx';
@@ -145,13 +146,6 @@ export function dateFact(label: string, day: string, by: WorkItem['dueOnBy']): s
   const text = `${label}: ${formatDay(day)}`;
   if (!by) return text;
   return `${text} · ${by === 'user' ? C.detail.setByYou : C.detail.fromYourMessage}`;
-}
-
-/** 资源与产物的一行：有名字写名字；没写名字的文件用文件名，不然一排「文件」分不出是哪个。 */
-export function resourceLabel(ref: ResourceRef | ArtifactRef): string {
-  const kind = C.detail.resource[ref.kind];
-  const name = 'label' in ref && ref.label ? ref.label : ref.kind === 'file' ? ref.path.split(/[\\/]/).pop() : null;
-  return name ? `${kind} · ${name}` : kind;
 }
 
 function Block({ label, children }: { label: string; children: ReactNode }) {
@@ -357,20 +351,12 @@ export function TaskDetail({
       ) : null}
       {item.outputs.length ? (
         <Block label={C.detail.outputs}>
-          <ul className={items}>
-            {item.outputs.map((output, index) => (
-              <li key={index}>{resourceLabel(output)}</li>
-            ))}
-          </ul>
+          <TaskRefs refs={item.outputs} item={item} />
         </Block>
       ) : null}
       {item.resources.length ? (
         <Block label={C.detail.resources}>
-          <ul className={items}>
-            {item.resources.map((resource, index) => (
-              <li key={index}>{resourceLabel(resource)}</li>
-            ))}
-          </ul>
+          <TaskRefs refs={item.resources} item={item} jobsShownFor={videoIdsOf(item.outputs)} />
         </Block>
       ) : null}
       {item.updates.length ? (

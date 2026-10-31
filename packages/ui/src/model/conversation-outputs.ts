@@ -36,6 +36,8 @@ export interface ConversationOutput {
   designSystem?: { target: FileTarget };
   /** 协作文档（docs/design/docs）：在功能区协作文档标签里打开的定位与标签页数（不知道时 null）；不是协作文档时没有。 */
   docs?: { target: FileTarget; tabCount: number | null };
+  /** 单文件标签打开的定位（Bot 任务的文件产物，可能在项目目录里）；没有时按 `entry.relPath` 在这条会话的工作目录里打开。 */
+  file?: { target: FileTarget };
   at: string;
   /**
    * 产生它的任务：视频取最近一次修改所在的任务；文件取最近一次改到它的文件改动步骤所在的任务。
