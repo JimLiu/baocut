@@ -181,6 +181,7 @@ interface RelayItem {            // Runtime 搬进会话的、不是用户打的
 interface CitedMessage {
   messageId: Id;
   conversationId: Id;
+  author: 'user' | 'coordinator';   // 由 Runtime 按条目 kind 填：user-message → user，agent-message → coordinator
   text: string;                  // 原文，超过 4000 字截断并标 truncated
   truncated: boolean;
   at: string;
@@ -486,6 +487,7 @@ interface Delivery {
   item: RelayItem | NoticeItem;  // 先写进会话的条目（id = delivery id，重复投只有一条）
   agentText: string;             // 交给智能体的文字（已经组装好的标签块）
   wake: 'new-task' | 'reopen-task';   // 空闲时起新任务（报告、转交）还是重开原任务（Job）
+  origin: 'relay' | 'refresh' | 'schedule';   // 起新任务时写进 task.origin；只由 Runtime 的调用方给，智能体碰不到
   reopenTaskId?: Id;
   accessMode?: AgentMode;        // 起新任务时的访问模式，默认会话的
   unattended: boolean;           // §14.2
@@ -504,17 +506,17 @@ Harness.deliver(d: Delivery): Promise<DeliveryResult>;
 | 回合进行中，Driver 支持 `steer`，回合已开始 | `steer(turnId, agentText)` → `steered` |
 | 回合进行中，不能插话 | 进 `#held`，回合结束后在 `#finish` 里按空闲处理 → `held` |
 | 空闲，`wake: 'reopen-task'` | 现有的 `reopenTask` + 新 `ActiveRun` → `woke` |
-| 空闲，`wake: 'new-task'` | 新建 `task` 条目（`goal` 取 `item` 的一行摘要，`origin: 'relay'`），新 `ActiveRun`，`#startRun(state, run, {text: agentText})` → `started`；不写 `user-message` |
+| 空闲，`wake: 'new-task'` | 新建 `task` 条目（`goal` 取 `item` 的一行摘要，`origin` 取 `Delivery.origin`），新 `ActiveRun`，`#startRun(state, run, {text: agentText})` → `started`；不写 `user-message` |
 | 会话归档、不存在、Driver 不可用、Runtime 正在退出 | `dropped` |
 
-`task` 条目新增可选字段 `origin?: 'user' | 'relay' | 'schedule'`，界面据此不把它画成「你发的消息」。`#checkCanSend` 的预算与授权检查在 `started` 时照做（与 `send` 一致），不通过时 `dropped` 并由调用方处理。
+`task` 条目新增可选字段 `origin?: 'user' | 'relay' | 'refresh' | 'schedule'`，界面据此不把它画成「你发的消息」。报告与转交用 `relay`，刷新与巡检用 `refresh`，定时任务起的线程用 `schedule`。`#checkCanSend` 的预算与授权检查在 `started` 时照做（与 `send` 一致），不通过时 `dropped` 并由调用方处理。
 
 现有的 `jobFinished` 改为调用 `deliver`（`wake: 'reopen-task'`），行为不变，`job-finished.test.ts` 全部保留作回归。
 
 ### 8.2 开线程与转交（协调者 → 线程）
 
 - `thread_start`（§10.3）：校验任务存在、`owner:'agent'`、还没有线程；通过并发闸门（§18.1）则建线程并投递简报，否则任务留在 `upNext`、返回 `{ queued: true, position }`。
-- `thread_relay`：协调者把用户在频道里的补充转给线程。参数只有 `workItemId`、`note`（协调者的话）与 `citedMessageIds`（≤ 8，必须是本频道对话里的 `user-message` 或协调者自己的 `agent-message`）。Runtime 从频道对话里**原文复制**这些消息成 `CitedMessage`，组装 `<baocut-relay>` 块，`Harness.deliver(threadId, { wake:'new-task', … })`。投递 id = `relay_<cmsg>_<workItemId>`，同一条用户消息转给同一个线程只投一次。
+- `thread_relay`：协调者把用户在频道里的补充转给线程。参数只有 `workItemId`、`note`（协调者的话）与 `citedMessageIds`（≤ 8，必须是本频道对话里的 `user-message` 或协调者自己的 `agent-message`）。Runtime 从频道对话里**原文复制**这些消息成 `CitedMessage`，并按条目的 kind 填 `author`：只有 `user-message` 是 `user`，协调者自己的消息是 `coordinator`，渲染成 `<baocut-cited author="coordinator">`，不会冒充用户原话；组装 `<baocut-relay>` 块，`Harness.deliver(threadId, { wake:'new-task', … })`。投递 id = `relay_<cmsg>_<workItemId>`，同一条用户消息转给同一个线程只投一次。
 - 任务已解决时，`thread_relay` 先重开任务（actor `coordinator`，cause `relay:reopen`）；这一条只允许在被引用的消息是用户消息时发生，避免协调者自己把关掉的任务翻出来。
 
 ### 8.3 回报（线程 → 协调者）
@@ -802,7 +804,7 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 
 ### 13.3 记忆写入的约束
 
-`channel_write_memory` 只在**当前回合由用户消息发起**（`task.origin = 'user'`）时可用，`relay` 发起的回合（报告、刷新、定时）调用时报错（BOT-SF-09）。这是 Runtime 能硬性保证的那一半；「只记用户原话」靠指令约束。
+`channel_write_memory` 只在**当前回合由用户消息发起**（`task.origin = 'user'`）时可用，`relay`、`refresh`、`schedule` 发起的回合（报告、转交、刷新、定时）调用时报错（BOT-SF-09）。这是 Runtime 能硬性保证的那一半；「只记用户原话」靠指令约束。
 
 ## 14. 安全与授权的落点
 
