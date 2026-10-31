@@ -550,6 +550,27 @@ describe('BOT-S01..S16', () => {
     expect(next).not.toContain('<baocut-channel-handoff>');
   });
 
+  it('a model change while the coordinator is running is refused and leaves the coordinator able to finish', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    kit.coordinator = async (ctx) => {
+      await gate;
+      ctx.turn.say('Done.');
+    };
+    const coordinator = kit.main.conversationId;
+    await kit.send(coordinator, 'Plan the week');
+    await kit.until(() => kit.harness.conversationOf(coordinator)?.activity === 'running');
+    await expect(kit.bot.updateChannel(kit.main.id, { model: 'other-model' })).rejects.toMatchObject({ code: 'busy' });
+    expect(kit.bot.channel(kit.main.id).model).not.toBe('other-model');
+    release();
+    await kit.until(() => kit.harness.conversationOf(coordinator)?.activity === 'idle');
+    await kit.bot.updateChannel(kit.main.id, { model: 'other-model' });
+    expect(kit.bot.channel(kit.main.id).model).toBe('other-model');
+    kit.coordinator = () => {};
+    const text = await kit.coordinatorTurn('And now?', (ctx) => ctx.turn.text);
+    expect(text).toContain('<baocut-channel-handoff>');
+  });
+
   it('BOT-S14 one message, three jobs, one of them the user\'s own: three tasks, no thread for the user task', async () => {
     const out = await kit.coordinatorTurn('Captions for ep 3, a thumbnail for ep 3, and I need to call the venue', async (ctx) => {
       const m = userMsg(ctx);

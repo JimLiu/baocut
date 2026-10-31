@@ -52,6 +52,7 @@ import {
   type WorkItemsSnapshot,
 } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
+import { HarnessAgents as HA } from '@baocut/protocol/messages/harness';
 import { BOT_INTERNAL, TopicLog, type Delivery, type Harness, type Logger, type RunEvent } from '@baocut/harness';
 import type { ChannelFiles, ChannelStore, WorkItemStore } from '@baocut/runtime-storage';
 import {
@@ -632,6 +633,12 @@ export class BotService {
       },
       updatedAt: nowIso(),
     };
+    // 换模型要接力到新的原生会话：协调者还在跑（或在等审批、在停）时不能换，否则正在跑的回合连同它的会话一起被放掉，
+    // 协调者就一直卡在忙。换 Driver 由 Harness 自己挡。
+    if (patch.model !== undefined && patch.model !== channel.model) {
+      const coordinator = this.#harness.conversationOf(channel.conversationId);
+      if (coordinator && (coordinator.activeTaskId || coordinator.activity === 'running' || coordinator.activity === 'stopping' || coordinator.activity.startsWith('awaiting'))) throw new RpcError('busy', HA.sessionBusy());
+    }
     const conversationPatch: Parameters<Harness['updateConversation']>[0] = { conversationId: channel.conversationId };
     if (patch.name !== undefined) conversationPatch.title = patch.name;
     if (patch.driverId !== undefined) conversationPatch.driverId = patch.driverId;
