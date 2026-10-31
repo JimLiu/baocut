@@ -1425,6 +1425,8 @@ export class BotService {
     await this.#store.removeItem(item.channelId, id);
     this.#topicOf(item.channelId).publish({ type: 'work-item.removed', id });
     this.#publishChannel(this.channel(item.channelId));
+    // 周期任务建的这一次还开着（例如还在「接下来」里的用户任务）：告诉它任务没了，好把这一次收尾，下一次照常建。
+    this.#schedules?.workItemChanged(item);
     return { files, keptShared, deleted: true };
   }
 

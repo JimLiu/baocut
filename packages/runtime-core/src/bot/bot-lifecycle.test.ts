@@ -211,6 +211,14 @@ describe('moving a task', () => {
     for (const name of ['script.md', 'cut.txt', 'shared.txt']) expect(await fs.readFile(path.join(dir, name), 'utf8')).toBe(name);
   });
 
+  it('BOT-EX-20 deleting a task record tells the schedules, so a run that created the task can close', async () => {
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Weekly recap', owner: 'user' });
+    const plan = await kit.bot.deleteRecord(item.id, true);
+    kit.schedules.changed = [];
+    await kit.bot.deleteRecord(item.id, false, { files: plan.files });
+    expect(kit.schedules.changed.map((c) => c.id)).toEqual([item.id]);
+  });
+
   it('BOT-EX-20 the files a thread writes and the file outputs it reports are recorded for the task', async () => {
     const dir = kit.bot.filesDir(kit.main.id);
     await fs.mkdir(dir, { recursive: true });

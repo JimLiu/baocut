@@ -550,6 +550,19 @@ describe('频道任务（work-item）', () => {
     expect(only().runs[0]).toMatchObject({ status: 'failed', workItemId: 'ghost' });
   });
 
+  it('这一次建的任务还没开始就被删了：收到通知时这一次记失败，下一次照常建', async () => {
+    await hourly();
+    await clock.advance(HOUR);
+    bot.items.set('wi1', { status: 'upNext', activeState: null });
+    service.workItemChanged('wi1');
+    expect(only().runs[0]).toMatchObject({ status: 'running', workItemId: 'wi1' });
+    bot.items.delete('wi1');
+    service.workItemChanged('wi1');
+    expect(only().runs[0]).toMatchObject({ status: 'failed', workItemId: 'wi1' });
+    await clock.advance(HOUR);
+    expect(bot.created).toHaveLength(2);
+  });
+
   it('重启时按任务现在的状态收尾这一次：还在等别人就接着等，不按失败记，也不多算一次', async () => {
     await hourly({ maxRuns: 1 });
     await clock.advance(HOUR);
