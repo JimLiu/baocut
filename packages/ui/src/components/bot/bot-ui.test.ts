@@ -23,7 +23,7 @@ import { BotSettings } from '../settings/bot-settings.tsx';
 import { useChannels } from '../../state/channels-store.ts';
 import { DEFAULT_BOT_SETTINGS, type SpaceEntry, type WorkItem } from '@baocut/protocol';
 import { ProposalCard, SuggestionButtons } from './timeline/proposal-card.tsx';
-import { useBotCall } from './bot-actions.ts';
+import { useBotCall, useScopedState } from './bot-actions.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 
@@ -412,6 +412,22 @@ describe('任务面板的已完成段（I19）', () => {
     } finally {
       useWorkItems.setState({ byChannel: {} });
     }
+  });
+
+  it('按频道保存的状态（回复目标等）换了频道就回到初始值，换回来也不带旧值', async () => {
+    let setReply: (next: string | null) => void = () => {};
+    function Probe({ channelId }: { channelId: string }) {
+      const [replyTo, set] = useScopedState<string | null>(channelId, null);
+      setReply = set;
+      return createElement('span', null, replyTo ?? '无');
+    }
+    await render(createElement(Probe, { channelId: 'A' }));
+    await act(async () => setReply('card1'));
+    expect(container.textContent).toBe('card1');
+    await render(createElement(Probe, { channelId: 'B' }));
+    expect(container.textContent).toBe('无');
+    await render(createElement(Probe, { channelId: 'A' }));
+    expect(container.textContent).toBe('无');
   });
 
   it('切到别的频道：「显示更早的」照常出现，不沿用上一个频道已经点开的状态', async () => {

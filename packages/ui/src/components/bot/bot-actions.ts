@@ -156,6 +156,8 @@ export function nextLine(item: WorkItem): string | null {
  */
 export function useScopedState<T>(owner: string, initial: T): [T, (next: T) => void] {
   const [state, setState] = useState<{ owner: string; value: T }>({ owner, value: initial });
+  // 换了主人就丢掉旧值，换回来也从初始值开始。
+  if (state.owner !== owner) setState({ owner, value: initial });
   const value = state.owner === owner ? state.value : initial;
   const set = useCallback((next: T) => setState({ owner, value: next }), [owner]);
   return [value, set];
