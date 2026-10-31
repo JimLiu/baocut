@@ -909,6 +909,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         job: (jobId) => models.jobs.inspect(jobId),
         versions: (videoId) => videos.listVersions(videoId),
         usage: () => models.readUsage(),
+        taskBudget: (taskId) => models.grants.taskBudget(taskId),
         // 整体撤销：视频没开着时按项目打开；回到版本是用户在任务上点的，记成用户的操作。线程的「改回去」走视频工具。
         openVideo: async (projectId, videoId) => {
           if (videos.ref(videoId)) return;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { JobRecord, UsageRecord, VideoVersionList, WorkItem } from '@baocut/protocol';
-import { runtimeWorkspace } from './workspace.ts';
+import { budgetFraction, runtimeWorkspace } from './workspace.ts';
+import type { TaskBudgetPolicy } from '@baocut/protocol';
 
 const since = '2026-10-01T00:00:00.000Z';
 const item = { threadId: 'conv_thread', resources: [{ kind: 'video', projectId: 'p1', videoId: 'v1' }] } as unknown as WorkItem;
@@ -220,5 +221,38 @@ describe('reverting a task on real video versions', () => {
 
   it('is not offered without a way to open videos and restore versions', () => {
     expect(workspace(async () => list(1, 'r1', since)).revert).toBeUndefined();
+  });
+});
+
+describe('task budget usage (the 80% warning)', () => {
+  const policy = (over: Partial<TaskBudgetPolicy>): TaskBudgetPolicy => ({
+    policyId: 'bp1',
+    taskId: 'task_1',
+    maxCalls: null,
+    cap: null,
+    usage: { calls: 0, reservedCalls: 0, spent: [], reserved: [], unknownCostCalls: 0 },
+    createdAt: '2026-10-31T00:00:00.000Z',
+    updatedAt: '2026-10-31T00:00:00.000Z',
+    ...over,
+  });
+
+  it('counts what was spent and what is reserved in the cap currency, and the larger of money and calls', () => {
+    const usd = (amount: string) => ({ amount, currency: 'USD' });
+    expect(budgetFraction(policy({}))).toBeNull();
+    expect(budgetFraction(policy({ cap: usd('10'), usage: { calls: 3, reservedCalls: 0, spent: [usd('6'), { amount: '99', currency: 'EUR' }], reserved: [usd('2.5')], unknownCostCalls: 0 } }))).toBe(0.85);
+    expect(budgetFraction(policy({ cap: usd('10'), maxCalls: 4, usage: { calls: 3, reservedCalls: 1, spent: [usd('1')], reserved: [], unknownCostCalls: 0 } }))).toBe(1);
+  });
+
+  it('the production workspace reads it from the task ledger, so the warning can fire outside tests', () => {
+    const ws = runtimeWorkspace({
+      projects: () => [],
+      videos: () => [],
+      job: () => undefined,
+      versions: async () => ({ versions: [] }) as never,
+      taskBudget: (taskId) => (taskId === 'task_1' ? policy({ maxCalls: 10, usage: { calls: 8, reservedCalls: 0, spent: [], reserved: [], unknownCostCalls: 0 } }) : null),
+    });
+    expect(ws.budgetUsed?.('conv_thread', 'task_1')).toBe(0.8);
+    expect(ws.budgetUsed?.('conv_thread', 'task_2')).toBeNull();
+    expect(ws.budgetUsed?.('conv_thread', null)).toBeNull();
   });
 });

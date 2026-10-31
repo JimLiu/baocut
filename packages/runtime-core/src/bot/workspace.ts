@@ -1,6 +1,6 @@
 // i18n-ignore-file: facts and evidence reasons for the model (English)
 import path from 'node:path';
-import type { Evidence, Id, JobRecord, Money, Project, ResourceRef, RevertPlan, UsageRecord, VideoVersionList, WorkItem } from '@baocut/protocol';
+import { moneyToMicros, type Evidence, type Id, type JobRecord, type Money, type Project, type ResourceRef, type RevertPlan, type TaskBudgetPolicy, type UsageRecord, type VideoVersionList, type WorkItem } from '@baocut/protocol';
 import { sumMoney } from './bot-budget.ts';
 import type { BotWorkspace } from './bot-service.ts';
 
@@ -16,6 +16,8 @@ export interface RuntimeWorkspaceDeps {
   job: (jobId: Id) => JobRecord | undefined;
   /** 视频的版本记录，新的在前（`VideoService.listVersions`）；读不出时抛错。 */
   versions: (videoId: Id) => Promise<VideoVersionList>;
+  /** 任务的预算与用量（授权账本）；不给时不做 80% 的预算提醒。 */
+  taskBudget?: (taskId: Id) => TaskBudgetPolicy | null;
   /** 用量账本的全部记录（§14.5 频道花费）；不给时不算频道预算。 */
   usage?: () => Promise<UsageRecord[]>;
   /**
@@ -173,6 +175,20 @@ export function runtimeWorkspace(deps: RuntimeWorkspaceDeps): BotWorkspace {
       if (ref.kind === 'file') return `file ${path.basename(ref.path)}`;
       return null;
     },
+    ...(deps.taskBudget
+      ? {
+          budgetUsed(_conversationId: Id, taskId: Id | null) {
+            if (!taskId) return null;
+            let policy: TaskBudgetPolicy | null;
+            try {
+              policy = deps.taskBudget!(taskId);
+            } catch {
+              return null;
+            }
+            return policy ? budgetFraction(policy) : null;
+          },
+        }
+      : {}),
     ...(deps.usage
       ? {
           async channelSpend(conversationIds: ReadonlySet<Id>, since: { day: string; month: string }) {
@@ -265,6 +281,19 @@ function lostBaseline(list: VideoVersionList, baseVersion: number, recorded: boo
   const startedAt = first ? (first.startedAt ?? first.updatedAt) : undefined;
   if (taskStart && startedAt && startedAt < taskStart) return null;
   return `older versions from while this task ran are no longer kept, so its first change cannot be found`;
+}
+
+/** 用了预算的几成（0–1）：金额上限按同币种的已花与预留算，次数上限按已调用与预留的次数算，两者取大；没有上限时 null。 */
+export function budgetFraction(policy: TaskBudgetPolicy): number | null {
+  const parts: number[] = [];
+  if (policy.cap) {
+    const cap = policy.cap;
+    const limit = moneyToMicros(cap.amount);
+    const used = [...policy.usage.spent, ...policy.usage.reserved].filter((m) => m.currency === cap.currency).reduce((sum, m) => sum + moneyToMicros(m.amount), 0n);
+    parts.push(limit > 0n ? Number((used * 10_000n) / limit) / 10_000 : 1);
+  }
+  if (policy.maxCalls) parts.push((policy.usage.calls + policy.usage.reservedCalls) / policy.maxCalls);
+  return parts.length ? Math.min(1, Math.max(...parts)) : null;
 }
 
 /** 这笔用量记在哪个会话名下（会话自己调的，或会话里的智能体提交的 Job）；不在这些会话里的返回 null。 */
