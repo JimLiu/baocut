@@ -1483,6 +1483,10 @@ export class BotService {
       await fs.rm(full, { force: true }).catch(() => {});
     }
     if (item.threadId) {
+      // 先记下线程会话：记录删了，它花掉的钱仍算频道的（今日、本月花费与剩余额度）。
+      await this.#files.appendSpentThread(item.channelId, item.threadId).catch((error: unknown) =>
+        this.#log.warn('Recording the deleted task thread for spend failed', { workItemId: id, error: String(error) }),
+      );
       await fs.rm(path.dirname(this.#files.notesPath(item.channelId, item.threadId)), { recursive: true, force: true }).catch(() => {});
       await this.#harness.deleteConversation(item.threadId, { internal: BOT_INTERNAL }).catch(() => {});
     }
@@ -2024,6 +2028,8 @@ export class BotService {
     const ids = new Set<Id>([channel.conversationId]);
     for (const item of this.#channelItems(channelId)) if (item.threadId) ids.add(item.threadId);
     try {
+      // 删掉记录的任务：线程会话没了，账本里的花费还在，照样算在频道名下。
+      for (const threadId of await this.#files.readSpentThreads(channelId)) ids.add(threadId);
       this.#spend.set(channelId, await this.#workspace.channelSpend(ids, spendWindow(this.#clock.now())));
     } catch (error) {
       this.#log.warn('Reading the channel spend failed', { channelId, error: String(error) });

@@ -13,6 +13,7 @@ import type { Id } from '@baocut/protocol';
  *     .threads/<threadId>/working-notes.md  线程工作笔记：放在 cwd 里，智能体的沙箱不用额外放行就能写
  *   relays.jsonl                        转述索引：引用的消息 → 任务与投递
  *   make-runs.jsonl                     Make 的运行记录，只留最近 50 条
+ *   spent-threads.jsonl                 删掉记录的任务的线程会话：花费照样记在频道名下
  * <channelsDir>/USER.md                 用户级记忆
  * ```
  *
@@ -24,6 +25,7 @@ const MEMORY_FILE = 'MEMORY.md';
 const USER_MEMORY_FILE = 'USER.md';
 const RELAYS_FILE = 'relays.jsonl';
 const MAKE_RUNS_FILE = 'make-runs.jsonl';
+const SPENT_THREADS_FILE = 'spent-threads.jsonl';
 /** Make 的运行记录只留最近这么多条。 */
 export const MAKE_RUNS_KEPT = 50;
 
@@ -136,6 +138,26 @@ export class ChannelFiles {
         return;
       }
       await writeTextAtomic(file, `${runs.slice(-MAKE_RUNS_KEPT).join('\n')}\n`);
+    });
+  }
+
+  /**
+   * 删掉记录的任务的线程会话 id：任务没了，用量账本里它的花费还在，频道的今日、本月花费与剩余额度照样要算它（BOT-NF-04）。
+   */
+  async appendSpentThread(channelId: Id, threadId: Id): Promise<void> {
+    const file = path.join(this.dir(channelId), SPENT_THREADS_FILE);
+    const line = JSON.stringify({ threadId });
+    return this.#serial(file, async () => {
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await appendLine(file, line);
+    });
+  }
+
+  async readSpentThreads(channelId: Id): Promise<Id[]> {
+    const rows = await readLines(path.join(this.dir(channelId), SPENT_THREADS_FILE));
+    return rows.flatMap((raw) => {
+      const id = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).threadId : undefined;
+      return typeof id === 'string' ? [id] : [];
     });
   }
 

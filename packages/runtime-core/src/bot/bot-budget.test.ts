@@ -106,4 +106,15 @@ describe('budgets on thread tasks', () => {
     const row = kit.bot.listChannels().find((c) => c.channel.id === kit.main.id)!;
     expect(row.spend).toEqual({ today: usd('0.40'), month: usd('2.10'), tasks: { [created.id]: usd('1.25') } });
   });
+
+  it('BOT-NF-04 deleting a task record keeps its spend on the channel, so the allowance does not grow back', async () => {
+    kit = await BotKit.open();
+    const created = await kit.startTask('Dub the intro');
+    const threadId = kit.threadOf(created.id);
+    const { files } = await kit.bot.deleteRecord(created.id, true);
+    await kit.bot.deleteRecord(created.id, false, { files });
+    await kit.bot.updateChannel(kit.main.id, { dailyBudget: usd('5.00') });
+    // 记录删了，线程会话仍在要读的会话里：账本里它花掉的钱照样算频道的。
+    expect(kit.workspace.spendAsks.at(-1)).toEqual(expect.arrayContaining([kit.main.conversationId, threadId]));
+  });
 });
