@@ -100,6 +100,32 @@ describe('gapBetween', () => {
 });
 
 describe('turns', () => {
+  it('Bot 的报告与转交起一轮（不是用户打的字），线程卡与提议卡占一行，提示不进线程', () => {
+    const relay = {
+      kind: 'relay',
+      id: 'r1',
+      createdAt: at,
+      taskId: 't1',
+      direction: 'report',
+      workItemId: 'w1',
+      reportId: 'rep1',
+      from: { role: 'thread', conversationId: 'th1' },
+      text: 'done',
+      cited: [],
+    } as TimelineItem;
+    const ref = { kind: 'work-item-ref', id: 'ref1', createdAt: at, taskId: 't0', workItemId: 'w1', ackGroup: null } as TimelineItem;
+    const chips = { kind: 'suggestions', id: 's1', createdAt: at, taskId: 't1', forItemId: 'a2', source: 'agent', chips: [], state: 'open', usedChipId: null } as TimelineItem;
+    const blocks = buildThread([user('u1', 't0'), agent('a1', 't0', '好'), ref, relay, task('t1'), agent('a2', 't1', '做完了'), chips]);
+    expect(blocks.map((b) => b.type)).toEqual(['user', 'agent', 'bot', 'bot', 'agent', 'task']);
+    expect(rowKind(blocks[2]!)).toBe('notice');
+    const t = turns(blocks);
+    expect(t.map((x) => [x.start, x.end, x.hasUser, x.replied])).toEqual([
+      [0, 2, true, true],
+      [3, 4, true, true],
+    ]);
+    expect(t[1]!.task?.id).toBe('t1');
+  });
+
   it('按用户消息切回合，正文用空行连接、不含工具；任务状态行只记成这一轮的任务', () => {
     const blocks = buildThread([
       user('u1', 't1'),

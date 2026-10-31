@@ -64,6 +64,7 @@ export const tr: ScheduleMessages = {
     'conversation-archived': 'oturum arşivlendi',
     'conversation-deleted': 'oturum silindi',
     'project-removed': 'proje kaldırıldı',
+    'channel-archived': 'kanal arşivlendi',
   },
   statusCompleted: (n) => `Tamamlandı (${n} çalıştırma)`,
   notFound: 'Bu zamanlanmış görev silindi',

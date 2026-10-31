@@ -22,6 +22,7 @@ export const zhHans: SettingsNavMessages = {
     downloader: '视频下载',
     semantic: '语义索引',
     agent: 'Agent 提供方',
+    bot: 'Bot',
     providers: 'API 提供方',
     usage: '用量',
     glossary: '术语库',

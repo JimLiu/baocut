@@ -68,6 +68,7 @@ export const pl: ScheduleMessages = {
     'conversation-archived': 'sesja zarchiwizowana',
     'conversation-deleted': 'sesja usunięta',
     'project-removed': 'projekt usunięty',
+    'channel-archived': 'kanał zarchiwizowany',
   },
   statusCompleted: (n) =>
     `Zakończone (${n} ${pluralForm('pl', n, { one: 'uruchomienie', few: 'uruchomienia', many: 'uruchomień', other: 'uruchomienia' })})`,

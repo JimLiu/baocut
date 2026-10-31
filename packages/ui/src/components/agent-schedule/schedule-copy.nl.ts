@@ -66,6 +66,7 @@ export const nl: ScheduleMessages = {
     'conversation-archived': 'sessie gearchiveerd',
     'conversation-deleted': 'sessie verwijderd',
     'project-removed': 'project verwijderd',
+    'channel-archived': 'kanaal gearchiveerd',
   },
   statusCompleted: (n) => `Voltooid (${keer(n)} uitgevoerd)`,
   notFound: 'Deze geplande taak is verwijderd',

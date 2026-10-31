@@ -66,6 +66,7 @@ export const it: ScheduleMessages = {
     'conversation-archived': 'sessione archiviata',
     'conversation-deleted': 'sessione eliminata',
     'project-removed': 'progetto rimosso',
+    'channel-archived': 'canale archiviato',
   },
   statusCompleted: (n) => `Completata (${n} ${n === 1 ? 'esecuzione' : 'esecuzioni'})`,
   notFound: 'Questa attività pianificata è stata eliminata',

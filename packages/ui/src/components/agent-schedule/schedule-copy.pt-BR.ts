@@ -66,6 +66,7 @@ export const ptBR: ScheduleMessages = {
     'conversation-archived': 'sessão arquivada',
     'conversation-deleted': 'sessão excluída',
     'project-removed': 'projeto removido',
+    'channel-archived': 'canal arquivado',
   },
   statusCompleted: (n) => `Concluída (${n} ${n === 1 ? 'execução' : 'execuções'})`,
   notFound: 'Esta tarefa agendada foi excluída',

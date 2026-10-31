@@ -64,6 +64,7 @@ export const vi: ScheduleMessages = {
     'conversation-archived': 'phiên đã lưu trữ',
     'conversation-deleted': 'phiên đã xóa',
     'project-removed': 'dự án đã gỡ',
+    'channel-archived': 'kênh đã lưu trữ',
   },
   statusCompleted: (n) => `Đã hoàn tất (chạy ${n} lần)`,
   notFound: 'Tác vụ theo lịch này đã bị xóa',

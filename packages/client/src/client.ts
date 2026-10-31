@@ -4,6 +4,11 @@ import {
   compareSeq,
   conversationTopic,
   isNextSeq,
+  workItemsTopic,
+  type ChannelsEvent,
+  type ChannelsSnapshot,
+  type WorkItemsEvent,
+  type WorkItemsSnapshot,
   videoTopic,
   type AgentSetupEvent,
   type AgentsEvent,
@@ -228,6 +233,16 @@ export class BaoCutClient {
 
   subscribeSpace(handlers: TopicHandlers<SpaceSnapshot, SpaceEvent>): () => void {
     return this.subscribe('space', handlers);
+  }
+
+  /** Bot 模式的频道摘要、设置与通知（docs/design/bot-mode 技术方案 §16.2）。 */
+  subscribeChannels(handlers: TopicHandlers<ChannelsSnapshot, ChannelsEvent>): () => void {
+    return this.subscribe('channels', handlers);
+  }
+
+  /** 一个频道的任务、转换记录与线程报告。 */
+  subscribeWorkItems(channelId: Id, handlers: TopicHandlers<WorkItemsSnapshot, WorkItemsEvent>): () => void {
+    return this.subscribe(workItemsTopic(channelId), handlers);
   }
 
   /** 已打开视频的投影。视频要先经 `videos.open` / `videos.create` 打开；没有打开时订阅不会重试。 */

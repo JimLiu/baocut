@@ -22,6 +22,7 @@ export const it: SettingsNavMessages = {
     downloader: 'Download dei video',
     semantic: 'Indice semantico',
     agent: "Provider degli agenti",
+    bot: "Bot",
     providers: "Provider API",
     usage: "Utilizzo",
     glossary: "Glossario",

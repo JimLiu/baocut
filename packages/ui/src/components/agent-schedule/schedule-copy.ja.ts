@@ -64,6 +64,7 @@ export const ja: ScheduleMessages = {
     'conversation-archived': '送信先のセッションがアーカイブされました',
     'conversation-deleted': '送信先のセッションが削除されました',
     'project-removed': 'プロジェクトが削除されました',
+    'channel-archived': 'チャンネルがアーカイブされました',
   },
   statusCompleted: (n) => `完了（${n} 回実行）`,
   notFound: 'このスケジュールは削除されています',

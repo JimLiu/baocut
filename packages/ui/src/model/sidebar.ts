@@ -136,8 +136,16 @@ export function restGroupLabel(): string {
 const byRecent = (a: { updatedAt: string }, b: { updatedAt: string }) => b.updatedAt.localeCompare(a.updatedAt);
 const byName = (a: Conversation, b: Conversation) => a.title.localeCompare(b.title, intlLocale()) || byRecent(a, b);
 
+/**
+ * 进 Home 列表的会话：普通会话。Bot 的频道对话与线程（`role` 为 channel / thread，docs/design/bot-mode 技术方案 §4.2）
+ * 只在 Bot 页出现，不进 Home 的侧栏、已归档页与提醒。
+ */
+export function isHomeConversation(c: Pick<Conversation, 'role'>): boolean {
+  return !c.role || c.role === 'chat';
+}
+
 export function buildSidebar(projects: readonly Project[], conversations: readonly Conversation[], sort: SidebarSort = 'recent'): SidebarTree {
-  const visible = conversations.filter((c) => !c.archived);
+  const visible = conversations.filter((c) => !c.archived && isHomeConversation(c));
   const order = (list: Conversation[]) => list.sort(sort === 'name' ? byName : byRecent);
 
   const rows: ProjectRow[] = projects
@@ -225,7 +233,7 @@ export function buildArchived(
 ): ArchivedView {
   const known = new Map(projects.map((p) => [p.id, p]));
   const keyOf = (c: Conversation) => (c.projectId && known.has(c.projectId) ? c.projectId : 'none');
-  const all = conversations.filter((c) => c.archived);
+  const all = conversations.filter((c) => c.archived && isHomeConversation(c));
   const needle = query.trim().toLocaleLowerCase(intlLocale());
   const hits = all.filter(
     (c) => (scope === 'all' || keyOf(c) === scope) && (!needle || c.title.toLocaleLowerCase(intlLocale()).includes(needle)),

@@ -56,6 +56,13 @@ const routes: Route[] = [
   { tab: 'services', service: 'runtime' },
   { tab: 'archived' },
   { tab: 'archived', focus: 'c/1' },
+  { tab: 'bot', channelId: null, workItemId: null, view: 'channel' },
+  { tab: 'bot', channelId: null, workItemId: null, view: 'inbox' },
+  { tab: 'bot', channelId: null, workItemId: 'w/1', view: 'inbox' },
+  { tab: 'bot', channelId: 'chan_1', workItemId: null, view: 'channel' },
+  { tab: 'bot', channelId: 'chan_1', workItemId: 'w1', view: 'channel' },
+  { tab: 'bot', channelId: 'chan_1', workItemId: 'w1', view: 'task' },
+  { tab: 'bot', channelId: 'chan_1', workItemId: null, view: 'memory' },
   {
     tab: 'home',
     conversationId: 'c1',

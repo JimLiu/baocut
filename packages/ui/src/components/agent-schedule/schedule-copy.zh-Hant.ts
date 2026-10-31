@@ -63,6 +63,7 @@ export const zhHant: ScheduleMessages = {
     'conversation-archived': '目標對話已封存',
     'conversation-deleted': '目標對話已刪除',
     'project-removed': '專案已移除',
+    'channel-archived': '頻道已封存',
   },
   statusCompleted: (n) => `已完成（跑滿 ${n} 次）`,
   notFound: '這個定時任務已經刪除了',
