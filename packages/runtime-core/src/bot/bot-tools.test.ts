@@ -3,7 +3,7 @@ import { silentLogger } from '@baocut/harness';
 import { newId, type Id, type TimelineItem } from '@baocut/protocol';
 import { ToolCatalog, ToolError } from '../agent-tools/tool-catalog.ts';
 import { BOT_TOOL_NAMES, BotTools } from './bot-tools.ts';
-import { BotKit, type TurnContext } from './testing/bot-kit.ts';
+import { BotKit, userMessageIn } from './testing/bot-kit.ts';
 import { stateName } from './work-item-machine.ts';
 
 /** Bot 的智能体工具（技术方案 §10）：按角色露出、拒绝的错误码、工具层对来源的核验。 */
@@ -76,7 +76,7 @@ describe('BotTools with a live channel', () => {
 
   const lastAgentMessage = (conversationId: Id) =>
     kit.items(conversationId).filter((i): i is Extract<TimelineItem, { kind: 'agent-message' }> => i.kind === 'agent-message').at(-1)!;
-  const userMessageId = (ctx: TurnContext) => kit.bot.runOf(ctx.conversationId)!.userMessageId!;
+  const userMessageId = userMessageIn;
 
   it('dispatch checks the caller again: non-agents are forbidden, the wrong role or a plain chat is unknown, outside a turn there is no task', async () => {
     const principal = kit.principal(kit.main.conversationId);
@@ -253,7 +253,7 @@ describe('BotTools with a live channel', () => {
     expect(stateName(kit.item(item.id))).not.toBe('resolved');
     // 用户在线程里亲口说的日期可以记。
     const cited = await kit.threadTurn(item.id, 'the screening was on 2020-01-01', async (ctx) =>
-      ctx.tryCall('work_items_update', { eventOn: '2020-01-01', eventOnMessageId: kit.bot.runOf(ctx.conversationId)!.userMessageId! }),
+      ctx.tryCall('work_items_update', { eventOn: '2020-01-01', eventOnMessageId: userMessageIn(ctx) }),
     );
     expect(cited).toMatchObject({ ok: true });
     expect(kit.item(item.id).eventOn).toBe('2020-01-01');

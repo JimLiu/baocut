@@ -863,6 +863,7 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 | `<baocut-channel-state>` | 协调者 | 每回合前置：未解决任务的紧凑列表（id、标题、状态、问题）、本频道记忆的版本号与「规则」一节 |
 | `<baocut-channel-handoff>` | 协调者 | 接力种子（§6.3） |
 | `<baocut-channel-purpose>` | 协调者、线程 | 频道用途（指令里） |
+| `<baocut-user-message>` | 协调者、线程 | 每条用户消息前一行 `<baocut-user-message id="msg_…"/>`（不是亲手打的带 `via`）：`sourceMessageId`、`citedMessageIds`、`confirmedBy` 等参数引用的 id 只从这里来 |
 | `<baocut-reply-target>` | 协调者 | 用户这条消息回复的是哪张线程卡 |
 | `<baocut-ambiguous-answer>` | 协调者 | 消歧候选 |
 | `<baocut-refresh>` | 线程 | 刷新：上次报告以来，任务来源的变化清单（Job 结束、视频版本变化、文件修改时间） |
@@ -880,8 +881,11 @@ trigger ──► collect(channel) ──► generate ──► filter ──►
 <baocut-channel-state>                             ← 每回合，≤ 6 000 字，超出时只列需要你的与工作中的
 <baocut-thread-report> × n                         ← 报告投递的回合
 <baocut-reply-target> / <baocut-ambiguous-answer>  ← 按需
+<baocut-user-message id="msg_…"/>                 ← 用户发起的回合
 用户消息（转义后）                                   ← 用户发起的回合
 ```
+
+`<baocut-user-message>` 由 Harness 在写 `user-message` 条目时生成，Bot 角色的会话（频道与线程）才有：起回合的 `send` 与回合中途的 `steer` 都标，插话因此也能被引用。接力种子里最近对话的用户行写成 `user [msg_…]: …`，接力后协调者照样能引用早先的消息。
 
 `<baocut-channel-state>` 由 `BotService` 通过 `Harness.send` 的 `context` 参数注入（`send` 已经有 `context`、`withEditorContext` 这类前置机制，照同一个口子加）。
 

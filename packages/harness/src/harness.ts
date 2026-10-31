@@ -121,7 +121,7 @@ import { HarnessAgents as HA, HarnessBot as HB, HarnessProjects as HP, HarnessRu
 import { AgentManager, type DriverRegistry } from './agent-manager.ts';
 import { ApprovalService, type ApprovalResolution } from './approval-service.ts';
 import { ConversationState } from './conversation-state.ts';
-import { contextBlock, escapeContextTags } from './context-tags.ts';
+import { contextBlock, escapeContextTags, userMessageTag } from './context-tags.ts';
 import { forkHistory, forkHistoryBlock, forkNoteOf, forkPoint, touchedVideos, type TouchedVideo } from './fork.ts';
 import { importedItems } from './import.ts';
 import type {
@@ -1896,11 +1896,12 @@ export class Harness {
     const fork = forkNoteOf(state.items());
     const carried =
       fork && !state.items().some((i) => i.kind === 'agent-message' || (i.kind === 'task' && i.status === 'completed')) ? forkHistoryBlock(fork) : null;
-    // 用户的原话里冒充上下文段的标签先转义（context-tags.ts）；会话里显示的仍是原话。
+    // 用户的原话里冒充上下文段的标签先转义（context-tags.ts）；会话里显示的仍是原话。Bot 会话在原话前标上这条消息的 id。
     const agentText = [
       carried,
       this.#turnContextOf(state, 'user'),
       params.prelude,
+      isBotRole(state.conversation) ? userMessageTag(messageId, params.via) : null,
       escapeContextTags(params.text),
       params.template?.instructions,
       params.brand?.instructions,
@@ -2060,11 +2061,14 @@ export class Harness {
     const designSystemAnnotations = params.designSystemAnnotations ?? [];
     const videoAnnotations = params.videoAnnotations ?? [];
     const docsAnnotations = params.docsAnnotations ?? [];
+    // id 先定下来：Bot 会话插进去的话同样标上它（插话没有每回合的上下文段）。
+    const messageId = newId('msg');
+    const tag = isBotRole(state.conversation) ? userMessageTag(messageId, params.via) : null;
     const text = withDocsAnnotations(
       withVideoAnnotations(
         withDesignSystemAnnotations(
           withDesignAnnotations(
-            withSlideAnnotations([escapeContextTags(params.text), fileAttachmentsText(attached)].filter(Boolean).join('\n\n'), annotations),
+            withSlideAnnotations([tag, escapeContextTags(params.text), fileAttachmentsText(attached)].filter(Boolean).join('\n\n'), annotations),
             designAnnotations,
           ),
           designSystemAnnotations,
@@ -2092,7 +2096,6 @@ export class Harness {
     if (result !== 'accepted') return { status: 'unsupported' };
     this.#commands.set(key, run.taskId);
     if (attached.length) this.#attachments?.markSent(attached.map((a) => a.ref.id));
-    const messageId = newId('msg');
     state.upsert({
       kind: 'user-message',
       id: messageId,

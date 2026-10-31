@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Id, TimelineItem } from '@baocut/protocol';
 import { threadInstructions } from './instructions.ts';
 import { stateName } from './work-item-machine.ts';
-import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
+import { BotKit, escalate, userMessageIn, type TurnContext } from './testing/bot-kit.ts';
 
 /*
  * Bot 的使用场景 BOT-S01–S16（需求 §9）在服务与工具层能看到的部分：真的 Harness（脚本 Driver）与存储，
@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 const main = () => kit.main.conversationId;
-const userMsg = (ctx: TurnContext) => kit.bot.runOf(ctx.conversationId)!.userMessageId!;
+const userMsg = userMessageIn;
 const state = (id: Id) => stateName(kit.item(id));
 const causes = (id: Id) => kit.bot.getItem(id).transitions.map((t) => `${t.cause}->${t.to}`);
 const ofKind = <K extends TimelineItem['kind']>(conversationId: Id, kind: K) =>
@@ -600,7 +600,9 @@ describe('BOT-S01..S16', () => {
     await kit.restart();
     const after = await kit.coordinatorTurn('And the caption rule again?', (ctx) => ctx.turn.text);
     expect(after).toContain('<baocut-channel-handoff>');
-    expect(after).toContain('Rule: captions are always white');
+    // 接力种子里用户的话带着 id：新会话里协调者照样能引用它。
+    const rule = kit.harness.getConversation(kit.main.conversationId).items.find((i) => i.kind === 'user-message' && i.text === 'Rule: captions are always white')!;
+    expect(after).toContain(`user [${rule.id}]: Rule: captions are always white`);
     const next = await kit.coordinatorTurn('Thanks', (ctx) => ctx.turn.text);
     expect(next).not.toContain('<baocut-channel-handoff>');
   });

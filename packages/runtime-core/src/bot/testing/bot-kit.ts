@@ -137,6 +137,13 @@ export interface TurnContext {
 
 export type BotScript = (ctx: TurnContext) => void | Promise<void>;
 
+/** 这一回合输入里用户消息的 id：跟真模型一样只从 `<baocut-user-message>` 读（技术方案 §13.2），不走 `runOf`。 */
+export function userMessageIn(ctx: TurnContext): Id {
+  const id = /<baocut-user-message id="([^"]+)"/.exec(ctx.turn.text)?.[1];
+  if (!id) throw new Error('No <baocut-user-message> in this turn');
+  return id;
+}
+
 /** 智能体请求一条越出沙箱的命令（Harness 算 high）：回合停着等审批，返回 approvalId。 */
 export function escalate(ctx: TurnContext, command: string): Id {
   const approvalId = newId('ap');
@@ -360,7 +367,7 @@ export class BotKit {
       const run = this.bot.runOf(ctx.conversationId)!;
       // 别的回合（报告、转交）交给原来的脚本。
       if (id || run.origin !== 'user') return previous(ctx);
-      const sourceMessageId = run.userMessageId!;
+      const sourceMessageId = userMessageIn(ctx);
       const result = await ctx.call<{ workItemId: Id }>('thread_start', {
         create: { title: text, sourceMessageId, ...create },
         citedMessageIds: [sourceMessageId],

@@ -5,7 +5,7 @@ import { botMethods } from './bot-methods.ts';
 import { formatLocal, localDay } from './context-blocks.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
 import { stateName } from './work-item-machine.ts';
-import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
+import { BotKit, escalate, userMessageIn, type TurnContext } from './testing/bot-kit.ts';
 
 /* Bot 的使用场景 BOT-S17–S31（需求 §9）在服务与工具层能看到的部分。界面、托盘与系统通知的部分在 UI 与桌面端的测试里。 */
 
@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 const main = () => kit.main.conversationId;
-const userMsg = (ctx: TurnContext) => kit.bot.runOf(ctx.conversationId)!.userMessageId!;
+const userMsg = userMessageIn;
 const state = (id: Id) => stateName(kit.item(id));
 const ofKind = <K extends TimelineItem['kind']>(conversationId: Id, kind: K) =>
   kit.items(conversationId).filter((i): i is Extract<TimelineItem, { kind: K }> => i.kind === kind);

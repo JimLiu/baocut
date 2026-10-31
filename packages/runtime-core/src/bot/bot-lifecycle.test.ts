@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { newId, type Id } from '@baocut/protocol';
 import { RcBot } from '@baocut/protocol/messages/runtime-core';
 import { ChannelFiles, WorkItemStore } from '@baocut/runtime-storage';
-import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
+import { BotKit, escalate, userMessageIn, type TurnContext } from './testing/bot-kit.ts';
 import { stateName } from './work-item-machine.ts';
 
 /* 一次性定时遇上归档与暂停，任务跨频道移动时线程跟着走（BOT-TK-09）。 */
@@ -596,8 +596,8 @@ describe('queued tasks across a restart', () => {
     const first = await kit.startTask('Color grade episode 7');
     const second = await kit.coordinatorTurn('Also add captions to episode 7', (ctx) =>
       ctx.call<{ workItemId: Id; queued: boolean }>('thread_start', {
-        create: { title: 'Add captions to episode 7', sourceMessageId: kit.bot.runOf(ctx.conversationId)!.userMessageId!, dependsOn: [first.id] },
-        citedMessageIds: [kit.bot.runOf(ctx.conversationId)!.userMessageId!],
+        create: { title: 'Add captions to episode 7', sourceMessageId: userMessageIn(ctx), dependsOn: [first.id] },
+        citedMessageIds: [userMessageIn(ctx)],
         brief: 'Use the house caption style.',
         fileOwnership: 'Only new caption files.',
       }),

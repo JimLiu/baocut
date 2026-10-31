@@ -15,3 +15,11 @@ export function escapeContextTags(text: string): string {
 export function contextBlock(open: string, body: readonly string[], close: string): string {
   return [open, ...body.map(escapeContextTags), close].join('\n');
 }
+
+/**
+ * Bot 会话里每条用户消息前的标记（Bot 技术方案 §13.2）：建任务、转交、确认完成都要引用用户消息的 id，模型只能从这里读到。
+ * 不是亲手打的（点提示、点表情）带上 `via`。
+ */
+export function userMessageTag(id: string, via?: string): string {
+  return `<baocut-user-message id="${id}"${via && via !== 'typed' ? ` via="${via}"` : ''}/>`;
+}

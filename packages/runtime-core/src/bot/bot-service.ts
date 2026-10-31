@@ -2850,7 +2850,8 @@ export class BotService {
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i]!;
       if (it.kind !== 'user-message' && it.kind !== 'agent-message') continue;
-      const line = `${it.kind === 'user-message' ? 'user' : 'you'}: ${it.text}`;
+      // 用户的话带上 id（同 `<baocut-user-message>`）：接力后协调者引用早先的消息还要用它。
+      const line = it.kind === 'user-message' ? `user [${it.id}]: ${it.text}` : `you: ${it.text}`;
       if (size + line.length > BOT_LIMITS.handoffChars) break;
       size += line.length;
       transcript.unshift(line);

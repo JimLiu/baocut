@@ -5,7 +5,7 @@ import { RcBot } from '@baocut/protocol/messages/runtime-core';
 import { isBareAnswer, isYesNoQuestion, minMode } from './bot-service.ts';
 import { coordinatorInstructions, threadInstructions } from './instructions.ts';
 import { stateName } from './work-item-machine.ts';
-import { BotKit, escalate, type TurnContext } from './testing/bot-kit.ts';
+import { BotKit, escalate, userMessageIn, type TurnContext } from './testing/bot-kit.ts';
 
 /* 验收清单的安全规则（需求 §8：BOT-SF-02/03/04/05/06/08/12）在服务与工具层的保证。 */
 
@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 const main = () => kit.main.conversationId;
-const userMsg = (ctx: TurnContext) => kit.bot.runOf(ctx.conversationId)!.userMessageId!;
+const userMsg = userMessageIn;
 const state = (id: Id) => stateName(kit.item(id));
 const ofKind = <K extends TimelineItem['kind']>(conversationId: Id, kind: K) =>
   kit.items(conversationId).filter((i): i is Extract<TimelineItem, { kind: K }> => i.kind === kind);
@@ -172,7 +172,7 @@ describe('I1 BOT-SF-03 a turn that read a report cannot start new work', () => {
         unattended: true,
       });
       const run = kit.bot.runOf(ctx.conversationId)!;
-      const own = run.userMessageId!;
+      const own = userMsg(ctx);
       return {
         attended: run.attended,
         tainted: run.tainted,
