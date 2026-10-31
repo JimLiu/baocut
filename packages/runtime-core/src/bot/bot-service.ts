@@ -279,6 +279,8 @@ export class BotService {
     this.#harness.setTurnContext((conversation, kind) => this.#turnContext(conversation, kind));
     this.#harness.setTaskBudgetResolver((conversation) => this.#taskBudget(conversation));
     for (const channel of this.#channels.list()) await this.#refreshSpend(channel.id);
+    // 回合上下文里的记忆来自缓存：对账可能马上投报告、起协调者回合，先把各频道的记忆与全局记忆读进来。
+    for (const channel of this.#channels.list()) await this.refreshMemoryCache(channel.id);
     this.#unsubscribe.push(this.#harness.onRun((event) => this.#onRun(event)));
     const directory = this.#harness.subscribe('directory', undefined, (event) => {
       const directoryEvent = event.event as DirectoryEvent;
@@ -703,6 +705,9 @@ export class BotService {
       }
       this.#checkMemory(content, BOT_LIMITS.channelMemoryBytes);
       await this.#files.writeMemory(id, content);
+      // 写完就更新缓存：之后的自动回合（报告、简报）也拿到新的规则。
+      this.#memoryCache.set(id, content);
+      this.#rulesCache.set(id, rulesSection(content));
       const next = { ...this.channel(id), memoryVersion: channel.memoryVersion + 1, updatedAt: nowIso() };
       await this.#putChannel(next);
       return { version: next.memoryVersion };
@@ -719,6 +724,7 @@ export class BotService {
       if (ifVersion !== version) throw new RpcError('conflict', RcBot.memoryVersionConflict(), { version, content: await this.#files.readUserMemory() });
       this.#checkMemory(content, BOT_LIMITS.userMemoryBytes);
       await this.#files.writeUserMemory(content);
+      this.#userMemoryCache = content;
       await this.#channels.setUserMemoryVersion(version + 1);
       return { content, version: version + 1 };
     });
@@ -1257,13 +1263,27 @@ export class BotService {
   }
 
   async #onResolved(item: WorkItem): Promise<void> {
-    // 依赖它的任务（BOT-EX-14）。
+    // 依赖它的任务（BOT-EX-14），以及线程上次报告里说在等它的任务（§7.4 waitingFor）：等的都结了就转回工作中，并叫醒线程接着做。
     for (const other of [...this.#items.values()]) {
-      if (!other.dependsOn.includes(item.id) || other.status === 'resolved') continue;
-      const open = other.dependsOn.some((d) => this.#items.get(d)?.status !== 'resolved');
+      if (other.status === 'resolved') continue;
+      const report = other.lastReportId ? this.#reports.get(other.lastReportId) : undefined;
+      const waitingOn = other.status === 'active' && other.active?.state === 'waitingOnOthers' ? (report?.waitingFor?.workItemIds ?? []) : [];
+      if (!other.dependsOn.includes(item.id) && !waitingOn.includes(item.id)) continue;
+      const open = [...other.dependsOn, ...waitingOn].some((d) => this.#items.get(d)?.status !== 'resolved');
       if (open) continue;
       if (other.status === 'active' && other.active?.state === 'waitingOnOthers') {
         await this.transition(other.id, { type: 'unblocked', cause: 'dependency' }, { actor: 'system' }).catch(() => {});
+        const current = this.#items.get(other.id);
+        if (current?.threadId && current.status === 'active' && current.active?.state === 'working') {
+          await this.#deliverToThread(current, {
+            id: `deps_${current.id}_${item.id}`,
+            direction: 'refresh',
+            text: refreshBlock('dependency-resolved', [`Task ${item.id} ("${item.title}") that you were waiting for is resolved. Check its result and continue.`]),
+            origin: 'relay',
+            unattended: true,
+            note: '',
+          }).catch((error: unknown) => this.#log.warn('Waking a waiting thread failed', { workItemId: current.id, error: String(error) }));
+        }
       }
     }
     await this.#pump();
@@ -2040,6 +2060,7 @@ export class BotService {
   /** 记忆的缓存（回合上下文是同步的）：发送前与写记忆后刷新。 */
   async refreshMemoryCache(channelId: Id): Promise<void> {
     const memory = await this.#files.readMemory(channelId).catch(() => '');
+    this.#memoryCache.set(channelId, memory);
     this.#rulesCache.set(channelId, rulesSection(memory));
     this.#userMemoryCache = await this.#files.readUserMemory().catch(() => '');
   }
@@ -2099,8 +2120,6 @@ export class BotService {
     }
     if (conversation.role === 'channel' && conversation.channelId) {
       const channelId = conversation.channelId;
-      const memory = await this.#files.readMemory(channelId).catch(() => '');
-      this.#memoryCache.set(channelId, memory);
       await this.refreshMemoryCache(channelId);
       const prelude: string[] = [];
       const replyItem = params.replyToItemId ? this.#findItem(conversation.id, params.replyToItemId) : undefined;

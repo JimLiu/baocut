@@ -120,6 +120,39 @@ describe('BOT-S01..S16', () => {
     expect(relayed).toContain('headline: The English dub is ready.');
   });
 
+  it('a thread waiting on another task (reported, not a dependsOn) is woken when that task resolves', async () => {
+    const other = await kit.bot.createItem({ channelId: kit.main.id, title: 'Approve the music license', owner: 'user' });
+    const turns = new Map<Id, number>();
+    kit.thread = async (ctx) => {
+      const n = (turns.get(ctx.conversationId) ?? 0) + 1;
+      turns.set(ctx.conversationId, n);
+      if (n === 1) await ctx.call('thread_report', { stop: 'waiting', headline: 'Waiting for the music license.', waitingFor: { workItemIds: [other.id] } });
+      if (n === 2) await ctx.call('thread_report', { stop: 'needs-review', headline: 'The trailer has music now.' });
+    };
+    const item = await kit.startTask('Add music to the trailer');
+    expect(state(item.id)).toBe('waitingOnOthers');
+    await kit.bot.userTransition(other.id, { type: 'resolve', evidence: null });
+    await kit.until(() => state(item.id) === 'needsReview');
+    await kit.settle();
+    expect(kit.turns(kit.threadOf(item.id)).at(-1)).toContain('<baocut-refresh reason="dependency-resolved">');
+    expect(causes(item.id)).toEqual(expect.arrayContaining(['unblocked:dependency->working', 'report:needs-review->needsReview']));
+  });
+
+  it('after a restart, an automatic coordinator turn still sees the channel rules and user memory', async () => {
+    await kit.bot.writeMemory(kit.main.id, '## Rules\nAlways export in 1080p.', 0);
+    await kit.bot.writeUserMemory('Prefers short captions.', (await kit.bot.readUserMemory()).version);
+    await kit.restart();
+    kit.thread = firstTurnOnly((ctx) => ctx.call('thread_report', { stop: 'needs-review', headline: 'Exported.' }));
+    const item = await kit.bot.createItem({ channelId: kit.main.id, title: 'Export the episode', owner: 'agent' });
+    await kit.bot.startItem(item.id, { attended: false });
+    await kit.until(() => kit.bot.getItem(item.id).reports.at(-1)?.delivery === 'delivered');
+    await kit.settle();
+    const relayed = kit.turns(main()).at(-1)!;
+    expect(relayed).toContain('headline: Exported.');
+    expect(relayed).toContain('Always export in 1080p.');
+    expect(relayed).toContain('Prefers short captions.');
+  });
+
   it('BOT-S04 one "ok" with two waiting tasks asks which one; a reply on a task card is not ambiguous', async () => {
     const a = await kit.startTask('Export episode 11');
     const b = await kit.startTask('Export episode 12');
