@@ -189,6 +189,36 @@ describe('Harness.deliver', () => {
     expect((await harness.deliver(delivery(id, { unattended: false }))).result).toBe('started');
   });
 
+  it('I6 drops unattended deliveries and job wakes when it is unknown whether the driver asks per step', async () => {
+    await harness.shutdown();
+    // 探测失败、Driver 也没有 describe()：不知道它支不支持逐次审批。
+    driver = new ScriptedDriver();
+    driver.probe = () => Promise.reject(new Error('probe failed'));
+    const drivers = new DriverRegistry();
+    drivers.register(driver);
+    harness = await Harness.open({
+      home,
+      conversations: new ConversationStore(home.conversationsDir),
+      projects: new ProjectStore(home.projectsFile),
+      drivers,
+      log: silentLogger,
+      tools: testToolAccess(),
+    });
+    runs = [];
+    harness.onRun((event) => runs.push(event));
+    const id = await channel();
+    expect(await harness.deliver(delivery(id))).toMatchObject({ result: 'dropped', reason: 'unattended-needs-approvals' });
+    expect(tasks(id)).toHaveLength(0);
+    // 用户在场时照常起；之后后台任务结束的叫醒无人在场，也不起。
+    expect((await harness.deliver(delivery(id, { unattended: false }))).result).toBe('started');
+    await until(() => driver.lastTurn);
+    driver.lastTurn!.complete();
+    await until(() => tasks(id)[0]?.status === 'completed');
+    await harness.jobFinished({ conversationId: id, taskId: tasks(id)[0]!.id, jobId: 'job_1', kind: 'music', attempt: 1, state: 'completed' });
+    expect(runs.at(-1)).toMatchObject({ type: 'finished', attended: false, error: 'unattended-needs-approvals' });
+    expect(tasks(id)[0]!.status).toBe('completed');
+  });
+
   it('drops deliveries to archived or missing conversations', async () => {
     expect((await harness.deliver(delivery('conv_missing'))).reason).toBe('not-found');
     const id = await channel();

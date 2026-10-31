@@ -2203,9 +2203,9 @@ export class Harness {
       jobs.filter((job) => job.taskId !== target && statusOf(job.taskId) === 'completed'),
       target,
     );
-    // Bot 角色的会话里 Job 叫醒的回合无人在场（§8.1、§14.2）：完全放开降到 auto；没有逐次审批的 Driver 不跑。
+    // Bot 角色的会话里 Job 叫醒的回合无人在场（§8.1、§14.2）：完全放开降到 auto；没有逐次审批的 Driver 不跑，不知道支不支持的也不跑。
     const bot = isBotRole(conversation);
-    if (bot && this.#approvalsSupported(conversation.driverId) === false) {
+    if (bot && this.#approvalsSupported(conversation.driverId) !== true) {
       for (const job of jobs) this.#noteJob(state, job, 'dropped', null);
       this.#emitRun({
         type: 'finished',
@@ -2572,7 +2572,8 @@ export class Harness {
       // 等过回合结束的投递按此刻重算（§14.4）：等的时候上限可能压低了。
       mode = (first.accessModeAt ? first.accessModeAt() : first.accessMode) ?? this.#resolveMode(state).mode;
       if (unattended) {
-        if (this.#approvalsSupported(conversation.driverId) === false) return drop('unattended-needs-approvals');
+        // 不知道支不支持逐次审批（探测还没结果或失败）时按不支持：无人在场的回合宁可停下等人。
+        if (this.#approvalsSupported(conversation.driverId) !== true) return drop('unattended-needs-approvals');
         mode = unattendedMode(mode);
       }
       this.#checkAccessMode(conversation.driverId, mode);
