@@ -32,6 +32,7 @@ import {
   type Evidence,
   type Id,
   type InboxRow,
+  type JobSubmitter,
   type ProposalBody,
   type RelayBody,
   type ResourceRef,
@@ -78,7 +79,7 @@ import { channelBudgetSpent, spendWindow, sumMoney, threadTaskBudget, type Chann
 import { confirmChips, questionChips, questionCount } from './suggestions.ts';
 import { datesSetBy } from './dates-set-by.ts';
 import { byteLength, firstSentence, guessLanguage, sensitiveMemory, trigramJaccard } from './text-rules.ts';
-import { TransitionDenied, applyEvent, continueQuestion, heldForUser, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
+import { TransitionDenied, applyEvent, continueQuestion, heldForUser, mergeArtifacts, newWorkItem, stateName, type MachineContext, type MachineEffect, type MachineRun } from './work-item-machine.ts';
 
 /*
  * Bot 模式的服务（docs/design/bot-mode 技术方案 §3）：频道、任务状态机的副作用、线程路由（简报、转交、报告）、活动桥（回合与审批
@@ -3528,6 +3529,23 @@ export class BotService {
   recordThreadFile(item: WorkItem, file: string): Promise<WorkItem> {
     if (item.files.includes(file)) return Promise.resolve(item);
     return this.patchItemContent(item.id, (i) => ({ ...i, files: [...i.files, file] }), true);
+  }
+
+  /**
+   * 线程交出的文件挂到它的任务产物上（BOT-VE-03）：线程提交的 Job 发布的文件（导出、文件转码……），与它用 `downloads_save`
+   * 交给用户的文件。提交者不是某个任务的线程时不管；已经在产物里的路径（线程在报告里列过、起过名字的）不动。
+   */
+  async recordThreadOutputs(submitter: JobSubmitter, files: readonly string[]): Promise<void> {
+    if (submitter.kind !== 'agent' || !files.length) return;
+    const item = this.itemOfThread(submitter.id);
+    if (!item) return;
+    const base = this.#files.filesDir(item.channelId);
+    const full = (file: string) => path.resolve(base, file);
+    const have = new Set(item.outputs.flatMap((o) => (o.kind === 'file' ? [full(o.path)] : [])));
+    const fresh = [...new Set(files.map(full))].filter((file) => !have.has(file));
+    if (!fresh.length) return;
+    const add: ArtifactRef[] = fresh.map((file) => ({ kind: 'file', path: file, label: path.basename(file), version: null }));
+    await this.patchItemContent(item.id, (i) => ({ ...i, outputs: mergeArtifacts(i.outputs, add, base) }), true);
   }
 
   /**

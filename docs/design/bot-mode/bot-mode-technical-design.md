@@ -272,7 +272,7 @@ interface WorkItem {
   outcome: string | null;
   question: WorkItemQuestion | null;
   resources: ResourceRef[];      // ≤ 5
-  outputs: ArtifactRef[];        // 线程做出的产物，同一产物只留最新版本
+  outputs: ArtifactRef[];        // 线程做出的产物，同一产物只留最新版本；线程的导出与交出的文件由 Runtime 并进（§5.4）
   dependsOn: Id[];               // BOT-EX-14
   overrides: { accessMode: AgentMode | null; driverId: DriverId | null; model: string | null; budget: Money | null; outputLanguage: string | null } | null;
   baseVersions: { projectId: Id; videoId: Id; version: number }[];   // 任务第一次动某部视频前的版本，整体撤销用（BOT-EX-19）
@@ -409,6 +409,7 @@ interface WorkItemTransition {
 - 两份记忆的写入都过同一个**敏感内容校验**，命中就整次拒绝（`ToolError('invalid', '不要把密钥、密码、证件号、卡号写进记忆')`）：11 位以上连续数字（§10.4）、常见密钥前缀（`sk-`、`AKIA`、`ghp_`、`xox`）、`-----BEGIN … PRIVATE KEY-----`、「密码」「password」「口令」后面紧跟的非空字段。用户在记忆页手动写入时同样校验，界面给出原因。
 - **规则带编号**：记忆里由纠正产生的规则（BOT-EX-11）写成一行 `- [r12 · 2026-10-31] 字幕不用繁体`，编号由写入工具分配、日期是用户说这句话的日期。线程报告可以带 `appliedRules: string[]`，`thread_report` 校验每个编号在当前记忆里存在、不存在的丢掉；转述卡片上画成「按你 10 月 31 日说的」，点了打开记忆页并定位到那一行。新指令和已有规则冲突时由协调者问「只这次，还是以后都这样」（指令约束）：选「只这次」写进任务的 `overrides` 说明、不动记忆；选「以后都这样」改写那一行并保留编号。
 - **文件归属记录**：同频道的线程共用 `cwd`（§7.1），目录本身不说明文件属于谁。所以线程会话里的写文件类工具（`Write`、`Edit`、导出到频道目录的工具）成功后，`ActivityBridge` 把写到频道目录内的相对路径追加进该任务的 `WorkItem.files`（去重）；`outputs` 里的文件同样计入。删除任务记录（`workItems.deleteRecord`）只认这份清单，不按目录或文件名猜。Driver 自己在原生侧写的文件（不经 Runtime 工具）记不到，删除时不会被删，界面在 dryRun 结果下说明「只删 Bot 记录到的文件」。
+- **产物自动挂上**（BOT-VE-03）：线程提交的顶层 Job 结束时（完成，或部分发布后失败），它发布到磁盘上的文件（`result.outputs[].path`：导出、文件转码、改图……）由 Runtime 并进该任务的 `outputs`；线程用 `downloads_save` 交给用户的文件同样并进。每个文件记成 `{ kind: 'file', path: 绝对路径, label: 文件名, version: null }`，按路径去重：线程在报告里已经列过（起过名字）的不动，之后报告里再列同一路径时以报告的名字为准。链接下载拿回来的是原料，不算产物；协调者与用户提交的 Job 不挂。挂上算一次进展（§9.3 卡住检测）。
 - 工作笔记由线程自己用文件工具读写（它在线程的 `cwd` 外面，所以单独给线程开一个可写路径，§7.1）。Runtime 不解析内容。
 - 两份都是数据：注入上下文时包在标签块里并转义（§13）。
 

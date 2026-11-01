@@ -22,7 +22,7 @@ import type { ToolPrincipal } from '../agent-tools/tool-scope.ts';
 import type { BotService } from './bot-service.ts';
 import { validateChips } from './suggestions.ts';
 import { assertMax, assertPlainText, assertQuestion, firstSentence } from './text-rules.ts';
-import { TransitionDenied, heldForUser, stateName, type MachineRun } from './work-item-machine.ts';
+import { TransitionDenied, heldForUser, mergeArtifacts, stateName, type MachineRun } from './work-item-machine.ts';
 
 /*
  * Bot 的智能体工具（技术方案 §10）：协调者（`role: 'channel'`）与线程（`role: 'thread'`）各一组，`roles` 决定谁看得到；
@@ -187,7 +187,11 @@ const schemas = {
     headline: z.string().trim().min(1).describe(`One sentence stating the result, at most ${BOT_LIMITS.headline} characters.`),
     text: z.string().trim().max(BOT_LIMITS.reportText).optional().describe('Defaults to your last message this turn.'),
     question: question.nullish().describe('What you need from the user (required for needs-input).'),
-    outputs: z.array(artifact).max(10).default([]).describe('Things you produced.'),
+    outputs: z
+      .array(artifact)
+      .max(10)
+      .default([])
+      .describe('Things you produced. Files your exports publish and files you save with downloads_save are added for you; list one only to give it a clearer label.'),
     userTodos: z.array(z.string().trim().min(1).max(BOT_LIMITS.title)).max(5).default([]).describe('Things only the user can do; each becomes a task of theirs.'),
     followUps: z.array(z.string().trim().min(1).max(BOT_LIMITS.title)).max(5).default([]).describe('Natural next work; may be offered as suggestions.'),
     waitingFor: z
@@ -742,7 +746,7 @@ export class BotTools implements ToolSet {
           ...(args.eventOn !== undefined ? { eventOn: args.eventOn } : {}),
           ...(args.steps !== undefined ? { steps: args.steps } : {}),
           ...(args.resources !== undefined ? { resources: args.resources } : {}),
-          ...(args.outputs !== undefined ? { outputs: mergeOutputs(i.outputs, args.outputs.map(toArtifact)) } : {}),
+          ...(args.outputs !== undefined ? { outputs: mergeArtifacts(i.outputs, args.outputs.map(toArtifact), bot.filesDir(i.channelId)) } : {}),
           finishedSteps: [...i.finishedSteps, ...(args.finishedSteps ?? []).map((s) => ({ ...s, at: now }))].slice(-20),
           updates: args.update ? [...i.updates, { text: args.update, at: now, by }].slice(-BOT_LIMITS.updatesKept) : i.updates,
         }),
@@ -882,7 +886,7 @@ export class BotTools implements ToolSet {
       appliedRules: args.appliedRules,
     };
     if (input.outputs.length) {
-      await bot.patchItemContent(item.id, (i) => ({ ...i, outputs: mergeOutputs(i.outputs, input.outputs) }), true);
+      await bot.patchItemContent(item.id, (i) => ({ ...i, outputs: mergeArtifacts(i.outputs, input.outputs, bot.filesDir(i.channelId)) }), true);
     }
     const report = await bot.submitReport(bot.item(item.id), input, caller.run);
     const after = bot.item(item.id);
@@ -897,16 +901,6 @@ export class BotTools implements ToolSet {
 function toArtifact(o: z.output<typeof artifact>): ArtifactRef {
   const { label, version, ...ref } = o as ResourceRef & { label: string; version?: string | null };
   return { ...ref, label, version: version ?? null } as ArtifactRef;
-}
-
-function mergeOutputs(old: ArtifactRef[], add: ArtifactRef[]): ArtifactRef[] {
-  const key = (a: ArtifactRef) => {
-    const { label: _l, version: _v, ...ref } = a;
-    return JSON.stringify(ref);
-  };
-  const map = new Map(old.map((a) => [key(a), a]));
-  for (const a of add) map.set(key(a), a);
-  return [...map.values()].slice(-20);
 }
 
 /** 给智能体看的一行任务。 */

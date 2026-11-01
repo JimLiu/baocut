@@ -1,5 +1,7 @@
+import path from 'node:path';
 import {
   type ActiveState,
+  type ArtifactRef,
   type BotActor,
   type Evidence,
   type Id,
@@ -501,6 +503,20 @@ function mergeOutputs(item: WorkItem, report: ThreadReport): void {
   const key = (o: object) => JSON.stringify(o);
   const seen = new Set(item.outputs.map(key));
   item.outputs = [...item.outputs, ...report.outputs.filter((o) => !seen.has(key(o)))];
+}
+
+/**
+ * 任务的产物并进新的（技术方案 §5 `outputs`：同一产物只留最新版本）：按引用本身认同一个产物，名字与版本取新的；只留最近 20 个。
+ * 文件按频道文件目录 `filesDir` 解析成绝对路径再比，相对路径与绝对路径写的同一个文件算一个。
+ */
+export function mergeArtifacts(old: readonly ArtifactRef[], add: readonly ArtifactRef[], filesDir: string): ArtifactRef[] {
+  const key = (a: ArtifactRef) => {
+    const { label: _l, version: _v, ...ref } = a;
+    return JSON.stringify(ref.kind === 'file' ? { kind: 'file', path: path.resolve(filesDir, ref.path) } : ref);
+  };
+  const map = new Map(old.map((a) => [key(a), a]));
+  for (const a of add) map.set(key(a), a);
+  return [...map.values()].slice(-20);
 }
 
 function isDeepSame(a: unknown, b: unknown): boolean {

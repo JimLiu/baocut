@@ -64,6 +64,7 @@ import { JobInbox } from './job-inbox.ts';
 import { BotService } from './bot/bot-service.ts';
 import { BotTools } from './bot/bot-tools.ts';
 import { textMakeGenerator } from './bot/make-generator.ts';
+import { attachThreadJobOutputs } from './bot/thread-outputs.ts';
 import { runtimeWorkspace } from './bot/workspace.ts';
 import { ScheduleService } from './schedules/schedule-service.ts';
 import { McpEndpoint } from './agent-tools/mcp-endpoint.ts';
@@ -968,6 +969,8 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     skills.onChange(() => harness.instructionsChanged());
     // 会话里的智能体从链接下载、解析出平台给的标题时，按第一句话起的会话标题换成它（产品设计 §3.1）。
     retitleFromLinkImports(models.jobs, harness);
+    // 线程的 Job 发布的文件（导出、文件转码……）挂到它的任务产物上（Bot 技术方案 §5.4）。
+    attachThreadJobOutputs(models.jobs, botService, log);
     harnessRef = harness;
     harnessOpened(harness);
     // 应用内运行的安装、升级命令：停 Harness 之前结束它们（结束后的重新探测要用 Harness）。
@@ -1045,9 +1048,13 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
         new DownloadTools({
           scope: toolScope,
           downloadsDirectory: () => resolveDownloadsDirectory(settings.store.get('downloads.directory')),
-          // 交出的文件登记为 Space 交付物（§3.5）；Space 目录在后面才建好，调用时再取。
-          register: (handover) =>
-            space.recordHandover(handover).catch((error: unknown) => log.warn('Registering a handed-over download failed', { error: String(error) })),
+          // 交出的文件登记为 Space 交付物（§3.5）；Space 目录在后面才建好，调用时再取。Bot 线程交出的同时挂到任务产物上。
+          register: (handover) => {
+            botService
+              .recordThreadOutputs(handover.submitter, [handover.path])
+              .catch((error: unknown) => log.warn('Attaching a handed-over download to its task failed', { error: String(error) }));
+            return space.recordHandover(handover).catch((error: unknown) => log.warn('Registering a handed-over download failed', { error: String(error) }));
+          },
           citations: {
             registry: citationRegistry,
             publish: async (file) => (await models.jobs.artifacts.put(Buffer.from(JSON.stringify(file)), 'json')).artifactId,
