@@ -1,11 +1,12 @@
 /* Bot 页（docs/design/bot-mode/bot-mode-requirements.md §11，技术方案 §17.1）—— 只在 App 入口加载。
-   左边频道侧栏（页面侧栏，由 Shell 放），中间频道对话（或收件箱、频道记忆），右边是一组页签（任务、Make、打开的任务与产物）。
+   左边频道侧栏（页面侧栏，由 Shell 放），中间频道对话（或收件箱、频道记忆），右边是一组页签（任务、Make、打开的任务与产物），
+   页签条和 Home 一样在标题栏里。
    主区窄于 880 时右栏收起，从频道头部的开关浮出；打开任务或产物时总是显示。
 
    演示态（频道、任务、时间线）是这一页自己的：一个模块级的小 store，侧栏与页面共读，不进 store.jsx。
    规则（分组、排序、状态对照）在 model-bot.js，与 packages/ui 的 model/bot.ts 同一份。 */
 (function () {
-  const {useState, useEffect, useRef, useCallback, useSyncExternalStore} = React;
+  const {useState, useEffect, useLayoutEffect, useRef, useCallback, useSyncExternalStore} = React;
   const B = window.BC_BOT;
   const MAIN = 'chan_main';
   const NARROW = 880;
@@ -226,6 +227,29 @@
     return [ref, width];
   }
 
+  /**
+   * 标题栏里留给右栏页签条的位置（shell.jsx 的 #bot-tbar）与右栏左缘在它里面的横坐标。右栏开合、拖宽、占满、
+   * 侧栏开合都会挪左缘：量右栏、Bot 页本身与标题栏三个框，任何一个变了就重量。
+   */
+  function useTitlebarSlot(side, deps) {
+    const [slot, setSlot] = useState(null);
+    const [left, setLeft] = useState(null);
+    useLayoutEffect(() => { setSlot(document.getElementById('bot-tbar')); }, []);
+    useLayoutEffect(() => {
+      const el = side.current;
+      if (!slot || !el) { setLeft(null); return undefined; }
+      const sync = () => {
+        const x = Math.round(el.getBoundingClientRect().left - slot.getBoundingClientRect().left);
+        setLeft(old => (old === x ? old : x));
+      };
+      sync();
+      const observer = new ResizeObserver(sync);
+      [slot, el, el.parentElement].forEach(node => observer.observe(node));
+      return () => observer.disconnect();
+    }, [slot, ...deps]);
+    return slot && left != null ? {slot, left} : null;
+  }
+
   /** 拖过的宽，按形态各记各的：右栏 tasks / make / detail / output，占满时的左栏 full:tasks / full:make / full:inbox / full:task。 */
   const sideWidths = {};
   /** 右栏的页签簿（按频道各一份、收件箱一份）与每份的占满：照 Home 每个会话各记各的页签与视图，离开 Bot 页再回来还在。 */
@@ -238,8 +262,9 @@
    * Bot 页（需求 §11.1 的修订稿）：中间频道对话（或收件箱、频道记忆），右栏照 Home 的功能区是一组页签（product-design §3.3）。
    * 路由 {r:'bot', id: 频道, task, out, view: 'inbox' | 'memory'}：task / out 是当前的任务或产物页签，没有就是固定页签（「任务」或「Make」，`side`）。
    * 页签簿按频道各记一份（model-bot.js 的 reconcileSideTabs）：路由里的任务、产物没开就开一个页签；关掉当前页签换到旁边那个。
+   * 页签条照 Home 放在标题栏里（useTitlebarSlot），左缘跟着右栏，右栏收起时标题栏回到原样。
    * 右栏的开合：宽时默认开着，窄时默认收起、开了是浮层；路由里有任务或产物时总是开着。频道头的「任务」「Make」开关显示右栏并选中
-   * 那个固定页签，再按一次收起；页签条的「收起右栏」同一件事。收起不关页签。
+   * 那个固定页签，再按一次收起；标题栏右端的「收起右栏」同一件事。收起不关页签。
    * 宽时中间与右栏之间有分隔条，宽按当前页签的形态（任务面板 340、Make 380、任务更宽、产物最宽），拖过的各记各的。
    * 占满：中间收起，右栏占满主区并分成两栏——左边是当前页签的上一层，右边是当前页签（model-bot.js 的 fullColumns）；两栏之间也能拖。
    * 旧链接的 view: 'task'（任务详情占满主区）进来时换成占满。
@@ -317,6 +342,8 @@
 
     const mode = B.sideMode(active, side);
     const sized = shown && !narrow && !full && mainWidth > 0 ? B.sideWidth(mode, sideWidths[mode], mainWidth) : null;
+    const sideRef = useRef(null);
+    const titlebar = useTitlebarSlot(sideRef, [shown, full, narrow, mode]);
     let body = null;
     if (shown && full) {
       const cols = B.fullColumns(active, side, inbox);
@@ -338,9 +365,11 @@
       <window.BotDialogs />
       <div className="bot__main">{center}</div>
       {sized ? <window.BotSideSeam {...sized} onResize={w => setWidth(mode, B.sideWidth(mode, w, mainWidth).width)} onReset={() => resetWidth(mode)} /> : null}
-      {shown ? <aside className={cx('bot__side', `bot__side--${mode}`, narrow && 'bot__side--overlay')} style={sized ? {width: sized.width} : undefined} aria-label="右栏">
+      {shown && titlebar ? ReactDOM.createPortal(<div className={cx('tbar__workspace tbar__workspace--bot', !full && 'has-divider')} style={{left: titlebar.left}}>
         <window.BotSideTabs fixed={!inbox} side={side} active={tabs.active} tabs={tabs.tabs} waiting={waiting} suggestions={suggestions}
           full={full} onToggleFull={narrow ? null : () => setFull(!full)} onFixed={selectFixed} onSelect={selectTab} onClose={closeTab} onHide={hide} />
+      </div>, titlebar.slot) : null}
+      {shown ? <aside ref={sideRef} className={cx('bot__side', `bot__side--${mode}`, narrow && 'bot__side--overlay')} style={sized ? {width: sized.width} : undefined} aria-label="右栏">
         <div id="bot-side-panel" role="tabpanel" className="bot-side__panel" aria-labelledby={window.botSideTabId(tabs.active || `fixed:${side}`)}>{body}</div>
       </aside> : null}
     </div>;

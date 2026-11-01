@@ -1,5 +1,5 @@
 /* Bot 页的右栏（docs/design/bot-mode/bot-mode-requirements.md §11.1、§11.6 的修订稿）—— 只在 App 入口加载。
-   右栏照 Home 的功能区（product-design §3.3）是一条页签条：固定的「任务」「Make」，后面是打开的任务与产物；
+   右栏照 Home 的功能区（product-design §3.3）是一条页签条，和 Home 一样放在标题栏里、左缘对齐右栏：固定的「任务」「Make」，后面是打开的任务与产物；
    分隔条（中间 ∣ 右栏，占满时左栏 ∣ 右栏：拖动、方向键调宽，双击回到默认宽）；任务详情与线程里的产物卡；
    产物页签：视频是嵌进来的编辑器，文档、封面、字幕各有一个只读预览。页签簿与宽度规则在 model-bot.js。 */
 (function () {
@@ -10,7 +10,8 @@
 
   /**
    * 两栏之间的分隔条：调的是它右边那一栏（中间 ∣ 右栏）时往左拖变宽；`start` 时调的是左边那一栏（占满时的左栏），往右拖变宽。
-   * 方向键每次 16；双击回到默认宽。不用壳层的 seam--dock：标题栏按那个类名画分隔线。
+   * 方向键每次 16；双击回到默认宽。不用壳层的 seam--dock：标题栏只在挂载时量一次那些分隔线，右栏随时开合，
+   * 标题栏上对应的那根竖线由页签条自己画（.tbar__workspace--bot::before）。
    */
   function BotSideSeam({width, min, max, start: grows = false, label = '调整右栏宽度', onResize, onReset}) {
     const start = useRef(null);
@@ -155,10 +156,11 @@
   const FIXED_TABS = [{key: 'fixed:tasks', kind: 'tasks'}, {key: 'fixed:make', kind: 'make'}];
 
   /**
-   * 右栏的页签条（照 Home 功能区的页签条，product-design §3.3；样子用同一套 .home-tabs__*）：
+   * 右栏的页签条（照 Home 功能区的页签条，product-design §3.3；样子用同一套 .home-tabs__*，BotPage 把它放进标题栏）：
    * 频道里最前面固定「任务」（带等你的数）与「Make」（有建议时带点），不能关、不能拖，与后面的页签之间有一道分隔；
    * 收件箱没有固定页签。打开的任务（状态图标 + 任务名）与产物（种类图标 + 名字）各一个页签，✕、中键或选中时按 Delete 关掉。
-   * 左右方向键、Home、End 在页签之间移动并选中。条的右端是占满 / 收回（窄时没有）与收起右栏。拖动排序原型不做。
+   * 左右方向键、Home、End 在页签之间移动并选中。条的右端照 Home 标题栏的视图按钮：完整视图（窄时没有）与收起右栏。
+   * 拖动排序、悬停缩略图与「+」原型不做。
    */
   function BotSideTabs({fixed, side, active, tabs, waiting, suggestions, full, onToggleFull, onFixed, onSelect, onClose, onHide}) {
     const R = window.RSP;
@@ -216,16 +218,17 @@
         {closable ? <R.ActionButton size="XS" isQuiet UNSAFE_className="home-tabs__close" aria-label={`关闭页签「${name}」`} onPress={() => close(t)}><R.Icons.Close /></R.ActionButton> : null}
       </div>;
     };
+    const S = window.ShellButton;
     return <div className="home-tabs bot-side-tabs">
       <div className="home-tabs__strip" role="tablist" aria-label="右栏页签" onKeyDownCapture={keys}>
         {fixed ? <div className="bot-side-tabs__fixed" role="presentation">{FIXED_TABS.map(t => tab(t, false))}</div> : null}
         <div className="home-tabs__list bc-scroll" ref={list} role="presentation">{tabs.map(t => tab(t, true))}</div>
       </div>
       <span className="grow" />
-      {onToggleFull ? <R.ActionButton isQuiet size="S" aria-label={full ? '收回右栏' : '占满'} onPress={onToggleFull}>
-        {full ? <R.Icons.FullScreenExit /> : <R.Icons.FullScreen />}
-      </R.ActionButton> : null}
-      <R.ActionButton isQuiet size="S" aria-label="收起右栏" onPress={onHide}><R.Icons.Close /></R.ActionButton>
+      <div className="bot-side-tabs__controls" role="group" aria-label="右栏视图">
+        {onToggleFull ? <S name={full ? 'exit-full' : 'full'} label={full ? '退出完整视图' : '进入完整视图'} pressed={full} onPress={onToggleFull} /> : null}
+        <S name="hide-tabs" label="收起右栏" onPress={onHide} />
+      </div>
     </div>;
   }
 

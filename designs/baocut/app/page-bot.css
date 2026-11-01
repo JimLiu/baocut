@@ -15,13 +15,16 @@
 /* 「占满」：中间收起，右栏占满主区（里面分两栏） */
 .bot--side-full > .bot__main { display: none; }
 .bot--side-full > .bot__side { flex: 1 1 auto; width: auto; }
-/* 右栏：页签条（BotSideTabs，页签的样子用 Home 功能区的 .home-tabs__*）下面是当前页签；占满时分两栏，中间也是一根分隔条。
-   条高与频道头（标题 + 说明两行，74px）对齐，下沿同一根 2px 线。 */
-/* 两个类：home-workspace.css 排在后面，单写 .bot-side-tabs 压不过 .home-tabs 的 flex: 1 */
-.home-tabs.bot-side-tabs { flex: none; min-height: 74px; padding: 0 8px; box-sizing: border-box; border-bottom: 2px solid var(--gray-100); }
+/* 右栏：页签条（BotSideTabs，页签的样子用 Home 功能区的 .home-tabs__*）照 Home 放在标题栏里——shell.jsx 给 Bot 页留一层 .tbar__bot，
+   BotPage 把 .tbar__workspace--bot 放进去、左缘对齐右栏，不占满时左缘画一根和标题栏分隔线一样的竖线；有页签条时标题栏不放中间的标题与帮助。
+   右栏里只剩当前页签；占满时分两栏，中间也是一根分隔条。 */
+.tbar__bot { position: absolute; inset: 0; pointer-events: none; }
+.tbar__workspace--bot { pointer-events: auto; }
+.tbar__workspace--bot.has-divider::before { content: ''; position: absolute; top: 12px; bottom: 12px; left: 0; width: 1px; transform: translateX(-50%); background: var(--gray-100); }
+.tbar:has(.tbar__workspace--bot) :is(.tbar__title--mid, .tbar__acts) { visibility: hidden; }
+.bot-side-tabs__controls { display: flex; align-items: center; gap: 4px; flex: none; }
 .bot-side-tabs__fixed { position: relative; display: flex; flex: none; gap: 4px; margin-inline-end: 8px; }
 .bot-side-tabs__fixed::after { content: ''; position: absolute; top: 8px; bottom: 8px; right: -6px; width: 1px; background: var(--gray-300); }
-.bot-side-tabs .home-tabs__item { flex: 1 1 180px; min-width: 96px; max-width: 200px; }
 .bot-side-tabs .home-tabs__item.bot-side-tabs__pin { flex: none; min-width: 0; max-width: none; padding: 0 8px; }
 .bot-side-tabs__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-900); }
 .bot-side__panel, .bot-side__body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
