@@ -5,7 +5,8 @@ import FileText from '@react-spectrum/s2/icons/FileText';
 import Image from '@react-spectrum/s2/icons/Image';
 import Video from '@react-spectrum/s2/icons/Video';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { outputKind, type OutputKind } from '../../model/bot.ts';
+import { entryOutputKind, outputKind, type OutputKind } from '../../model/bot.ts';
+import type { ConversationOutput } from '../../model/conversation-outputs.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 
 /** 产物种类的图标（原型 model-bot.js `OUTPUT_KIND`）：Make 面板的产物卡、任务详情的产物行、产物页签与产物页共用。 */
@@ -16,6 +17,17 @@ export function outputLabel(ref: ArtifactRef): string {
   if (ref.label) return ref.label;
   if (ref.kind === 'file') return ref.path.split(/[\\/]/).pop() || ref.path;
   return C.make.outputKind[outputKind(ref) ?? 'doc'];
+}
+
+/**
+ * 产物页签与产物页头部的名字与种类：引用写了名字用它；没写的文件用文件名，其余用对上的视频或 Space 条目的名字
+ * （线程里不是任务产物的卡，键里只有 id），对不上才用种类。`space` 引用的种类看对上的条目。
+ */
+export function outputLook(ref: ArtifactRef, resolved: ConversationOutput | null): { label: string; kind: OutputKind } {
+  return {
+    label: !ref.label && ref.kind !== 'file' && resolved?.name ? resolved.name : outputLabel(ref),
+    kind: ref.kind === 'space' && resolved ? entryOutputKind(resolved.kind) : (outputKind(ref) ?? 'doc'),
+  };
 }
 
 const link = style({

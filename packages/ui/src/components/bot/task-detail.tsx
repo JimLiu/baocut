@@ -22,7 +22,7 @@ import {
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronUp from '@react-spectrum/s2/icons/ChevronUp';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { FINISHED_STEPS_SHOWN, canRevertItem, opensAsTab, outputKey, type WorkItemStatusKey } from '../../model/bot.ts';
+import { FINISHED_STEPS_SHOWN, canRevertItem, cardOutputKey, opensAsTab, outputKey, type WorkItemStatusKey } from '../../model/bot.ts';
 import type { ConversationOutput } from '../../model/conversation-outputs.ts';
 import { agoLabel } from '../../model/format.ts';
 import { formatMoneyOne } from '../../model/usage-format.ts';
@@ -223,7 +223,7 @@ const infoOpen = new Map<Id, boolean>();
  * 顶上一行贴着：状态、标题与「状态 · 下一步 · N 条进展」、收起或展开任务信息、「⋯」（编辑也在里面）；返回、占满与关闭在页签条上。
  * 下面是任务信息——等你的问题（带选项按钮，收起时也在）、事实、步骤、产物与资源、进展、转换记录——然后是线程，照普通会话画，
  * 输入框发的话进线程；任务信息跟着线程一起滚（ConversationView 的 `header`）。用户自己的任务没有线程。
- * 「产物」的每一行与线程里这些产物的卡按下都交给 `onOpenOutput(outputKey)`：在右栏开那个产物的页签（bot-output-view.tsx）。
+ * 「产物」的每一行与线程里的视频、文件卡按下都交给 `onOpenOutput(outputKey)`：在右栏开那个产物的页签（bot-output-view.tsx）。
  * 删掉记录后 `onClose` 关掉这个页签。
  */
 export function TaskDetail({
@@ -246,19 +246,16 @@ export function TaskDetail({
   const [dialog, setDialog] = useState<'redirect' | 'revert' | 'delete' | 'edit' | null>(null);
   const [allFinished, setAllFinished] = useState(false);
   const [answering, setAnswering] = useState<number | null>(null);
-  // 线程里也能改自己的消息、给智能体的消息点 👍 👎（BOT-EX-06、BOT-EX-10）；线程里这个任务的产物卡在右栏开产物页签。
+  // 线程里也能改自己的消息、给智能体的消息点 👍 👎（BOT-EX-06、BOT-EX-10）；线程里的视频与文件卡在右栏开产物页签，
+  // 不是任务产物的（线程导入的原片）也一样，幻灯片这类照常去功能区（`cardOutputKey`）。
   const messageExtras = useBotMessageExtras();
   const { resolve } = useRefResolver(item);
   const outputs = item?.outputs;
   const threadExtras = useMemo(() => {
     const openOutput = (card: ConversationOutput) => {
-      // 幻灯片、设计稿与协作文档在右栏看不了，照常去功能区。
-      if (card.slides || card.design || card.designSystem || card.docs) return false;
-      // 线程的卡与任务的产物按卡的 id 对（视频是视频 id，文件是 Space 条目 id）；同一部视频先认整部视频，再认片段。
-      const hits = (outputs ?? []).filter((ref) => opensAsTab(ref) && resolve(ref)?.id === card.id);
-      const hit = hits.find((ref) => ref.kind !== 'video-range') ?? hits[0];
-      if (!hit) return false;
-      onOpenOutput(outputKey(hit));
+      const key = cardOutputKey(card, outputs ?? [], resolve);
+      if (!key) return false;
+      onOpenOutput(key);
       return true;
     };
     return { unread: null, ...messageExtras, openOutput };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Channel, ChannelGroup, ChannelSummary, InboxRow, SuggestionChip, TimelineItem, WorkItem } from '@baocut/protocol';
+import type { Channel, ChannelGroup, ChannelSummary, InboxRow, ResourceRef, SpaceEntry, SuggestionChip, TimelineItem, WorkItem } from '@baocut/protocol';
 import {
   CHANNEL_STATUS_FILTERS,
   channelLook,
@@ -17,10 +17,14 @@ import {
   makeGallery,
   MAKE_EARLIER_MAX,
   needsYouTotal,
+  cardOutputKey,
+  entryOutputKind,
   findOutput,
   opensAsTab,
   outputKey,
   outputKind,
+  outputRefOfKey,
+  tabOutput,
   suggestionPreview,
   openChips,
   statusKey,
@@ -31,6 +35,7 @@ import {
   TASK_TABS,
   wantedWorkItemChannels,
 } from './bot.ts';
+import type { ConversationOutput } from './conversation-outputs.ts';
 
 const NOW = Date.parse('2026-10-31T12:00:00Z');
 
@@ -453,5 +458,47 @@ describe('Make panel', () => {
     expect(opensAsTab(range)).toBe(true);
     expect(opensAsTab({ kind: 'doc', id: 'd1' })).toBe(false);
     expect(opensAsTab({ kind: 'message', conversationId: 'c', itemId: 'm' })).toBe(false);
+  });
+
+  // 2026-11-01: a task whose thread imported a video but never listed it as an output sent the video card to Home.
+  it('opens every video and file card of a task thread as a tab, listed as an output or not', () => {
+    const whole = { kind: 'video', projectId: 'p', videoId: 'v', label: 'Ep', version: null } as const;
+    const clip = { kind: 'video-range', projectId: 'p', videoId: 'v', startMs: 0, endMs: 1000, label: 'Clip', version: null } as const;
+    const inSpace = new Set(['v', 'raw']);
+    const resolve = (ref: ResourceRef): ConversationOutput | null => {
+      if (ref.kind === 'video' || ref.kind === 'video-range') return inSpace.has(ref.videoId) ? ({ id: ref.videoId, video: { entryId: `e_${ref.videoId}` } } as ConversationOutput) : null;
+      return ref.kind === 'space' ? ({ id: ref.entryId, video: null } as ConversationOutput) : null;
+    };
+    const card = (over: Partial<ConversationOutput>) =>
+      ({ id: 'v', kind: 'video', name: 'Ep', video: { entryId: 'e_v' }, entry: null, durationSeconds: null, at: '', taskId: null, ...over }) as ConversationOutput;
+    // Listed outputs win, the whole video before a clip of it.
+    expect(cardOutputKey(card({}), [clip, whole], resolve)).toBe('video:v');
+    expect(cardOutputKey(card({}), [clip], resolve)).toBe(outputKey(clip));
+    // Not an output (the video the thread imported from a link): keyed by its video id.
+    expect(cardOutputKey(card({ id: 'raw' }), [], resolve)).toBe('video:raw');
+    // Not in Space yet: nothing to open here, it goes to Home.
+    expect(cardOutputKey(card({ id: 'new' }), [], resolve)).toBeNull();
+    // A file in the thread's folder: keyed by its Space entry.
+    const srt = card({ id: 'e_srt', kind: 'subtitle', video: null, entry: { id: 'e_srt' } as SpaceEntry });
+    expect(cardOutputKey(srt, [], resolve)).toBe('space:e_srt');
+    const deck = card({ id: 'e_deck', kind: 'slides', video: null, entry: { id: 'e_deck' } as SpaceEntry, slides: { target: { entryId: 'e_deck' }, slideCount: 3 } });
+    expect(cardOutputKey(deck, [], resolve)).toBeNull();
+  });
+
+  it('finds the reference of a tab keyed from a thread card, and only from the task for paths and clips', () => {
+    const srt = { kind: 'file', path: '/out/a.srt', label: 'A', version: null } as const;
+    const item = { outputs: [srt, { kind: 'slides', id: 's1', label: 'Deck', version: null }] } as unknown as WorkItem;
+    expect(tabOutput(item, 'file:/out/a.srt')).toBe(srt);
+    expect(tabOutput(item, 'video:raw')).toEqual({ kind: 'video', projectId: '', videoId: 'raw', label: '', version: null });
+    expect(tabOutput(item, 'space:e1')).toEqual({ kind: 'space', entryId: 'e1', label: '', version: null });
+    expect(tabOutput(item, 'file:/gone.png')).toBeNull();
+    expect(tabOutput(item, 'range:v:0-1000')).toBeNull();
+    expect(tabOutput(item, 'slides:s1')).toBeNull();
+    expect(tabOutput(null, 'video:raw')).toBeNull();
+    expect(outputRefOfKey('video:')).toBeNull();
+    expect(outputRefOfKey('video')).toBeNull();
+    expect(entryOutputKind('export')).toBe('video');
+    expect(entryOutputKind('subtitle')).toBe('subtitle');
+    expect(entryOutputKind('audio')).toBe('doc');
   });
 });

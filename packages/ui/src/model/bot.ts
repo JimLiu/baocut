@@ -13,6 +13,7 @@ import {
   type InboxRow,
   type ResourceRef,
   type ScheduleCadence,
+  type SpaceEntryKind,
   type SuggestionChip,
   type TimelineItem,
   type WorkItem,
@@ -20,6 +21,7 @@ import {
   type WorkItemQuestion,
 } from '@baocut/protocol';
 import type { BaoCutClient } from '@baocut/client';
+import type { ConversationOutput } from './conversation-outputs.ts';
 
 /**
  * Bot 模式界面的纯逻辑（docs/design/bot-mode 需求 §11、技术方案 §17）：频道侧栏的分组、任务面板的分段与排序、
@@ -285,6 +287,12 @@ export function outputKind(ref: ArtifactRef): OutputKind | null {
   return null;
 }
 
+/** Space 条目的种类对到产物种类：`space` 引用本身看不出是什么，要看对上的条目。 */
+export function entryOutputKind(kind: SpaceEntryKind): OutputKind {
+  if (kind === 'video' || kind === 'export' || kind === 'video-file') return 'video';
+  return kind === 'image' ? 'image' : kind === 'subtitle' ? 'subtitle' : 'doc';
+}
+
 /**
  * 产物在任务里的键（产物页签与路由的 `out`）：按引用本身取。Runtime 合并产物时去重、只留最近的那些，下标会挪，键不会；
  * 同一个引用的几个版本是同一个键，打开的是最新的那个。
@@ -316,6 +324,50 @@ export function findOutput(item: WorkItem | null | undefined, key: string): Arti
 /** 能在右栏打开成产物页签的：视频、视频片段、文件与 Space 条目。消息、任务与文档 id 只写一行字。 */
 export function opensAsTab(ref: ResourceRef): boolean {
   return ref.kind === 'video' || ref.kind === 'video-range' || ref.kind === 'file' || ref.kind === 'space';
+}
+
+/**
+ * 线程里不是任务产物的卡开的页签，键还原成引用（`outputKey` 的反面，只认 `cardOutputKey` 会给的视频与 Space 条目）。
+ * 没有名字与版本，名字画的时候取对上的条目；`projectId` 认不出，留空（对位置只用视频 id）。
+ */
+export function outputRefOfKey(key: string): ArtifactRef | null {
+  const at = key.indexOf(':');
+  const id = at < 0 ? '' : key.slice(at + 1);
+  if (!id) return null;
+  const kind = key.slice(0, at);
+  if (kind === 'video') return { kind: 'video', projectId: '', videoId: id, label: '', version: null };
+  if (kind === 'space') return { kind: 'space', entryId: id, label: '', version: null };
+  return null;
+}
+
+/**
+ * 产物页签的引用：任务的产物里有就用它（最新的版本），开不了页签的当作不在；产物里没有的，按键还原线程里的卡（`outputRefOfKey`），
+ * 文件路径与片段的键还原不了，任务里没有了就是不在了。任务不在是 null。
+ */
+export function tabOutput(item: WorkItem | null | undefined, key: string): ArtifactRef | null {
+  if (!item) return null;
+  const found = findOutput(item, key);
+  return found ? (opensAsTab(found) ? found : null) : outputRefOfKey(key);
+}
+
+/**
+ * 任务线程里的一张卡在右栏开哪个产物页签（需求 §11.6 的修订稿），返回产物键；右栏看不了的返回 null，照常去功能区。
+ * 先按卡的 id 对任务的产物（视频是视频 id，文件是 Space 条目 id；同一部视频先认整部视频，再认片段）。不是任务产物的卡——
+ * 线程从链接导入的原片、工作目录里的文件——也在右栏开：Space 里认得出的视频按视频 id，其余有条目的按 Space 条目。
+ * 幻灯片、设计稿与协作文档在右栏看不了；Space 还没扫到的视频没有条目，也去功能区。
+ */
+export function cardOutputKey(
+  card: ConversationOutput,
+  outputs: readonly ArtifactRef[],
+  resolve: (ref: ResourceRef) => ConversationOutput | null,
+): string | null {
+  if (card.slides || card.design || card.designSystem || card.docs) return null;
+  const hits = outputs.filter((ref) => opensAsTab(ref) && resolve(ref)?.id === card.id);
+  const hit = hits.find((ref) => ref.kind !== 'video-range') ?? hits[0];
+  if (hit) return outputKey(hit);
+  const video = `video:${card.id}`;
+  if (card.kind === 'video' && resolve(outputRefOfKey(video)!)?.video) return video;
+  return card.entry ? `space:${card.entry.id}` : null;
 }
 
 export interface MakeOutput {

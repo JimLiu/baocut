@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Id } from '@baocut/protocol';
 import { ActionButton, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
@@ -8,7 +8,7 @@ import MagicWand from '@react-spectrum/s2/icons/MagicWand';
 import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Focusable } from 'react-aria-components';
-import { findOutput, outputKind, type OutputKind, type WorkItemStatusKey } from '../../model/bot.ts';
+import { tabOutput, type OutputKind, type WorkItemStatusKey } from '../../model/bot.ts';
 import type { BotSideTab, FixedSideTab } from '../../model/bot-side.ts';
 import { tabKeyIndex } from '../../model/workspace.ts';
 import { useWorkItem } from '../../state/work-items-store.ts';
@@ -17,9 +17,10 @@ import { S } from '../shell-copy.ts';
 import { ShellExitFullIcon, ShellFullIcon, ShellHideTabsIcon } from '../shell-icons.tsx';
 import { workspaceTabStyles as T } from '../workspace/workspace-tabs.tsx';
 import { BOT_COPY as C } from './bot-copy.ts';
-import { OUTPUT_ICON, outputLabel } from './bot-output-link.tsx';
+import { OUTPUT_ICON, outputLook } from './bot-output-link.tsx';
 import type { BotSide } from './bot-side-state.ts';
 import { StatusIcon } from './status-badge.tsx';
+import { useRefResolver } from './task-refs.tsx';
 import { workItemStatus } from './work-item-status.ts';
 
 /** 标题栏里的页签条：页签让开拖动区，条两端的空白仍可拖窗口（同 Home 的 WorkspaceTabs）。 */
@@ -213,8 +214,13 @@ function OutputTab({
   onSelect: () => void;
   onClose: () => void;
 }) {
-  const ref = findOutput(useWorkItem(tab.workItemId), tab.output);
-  if (ref) seenOutputs.set(tab.key, { name: outputLabel(ref), kind: outputKind(ref) ?? 'doc' });
+  const item = useWorkItem(tab.workItemId);
+  const ref = useMemo(() => tabOutput(item, tab.output), [item, tab.output]);
+  const { resolve } = useRefResolver(item);
+  if (ref) {
+    const seen = outputLook(ref, resolve(ref));
+    seenOutputs.set(tab.key, { name: seen.label, kind: seen.kind });
+  }
   const last = seenOutputs.get(tab.key);
   let look: Look = { name: C.output.missingTab, aria: C.output.missingTab, icon: <FileText UNSAFE_style={T.icon} /> };
   if (last) {

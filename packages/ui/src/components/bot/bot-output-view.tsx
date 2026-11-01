@@ -3,7 +3,7 @@ import type { MediaTarget } from '@baocut/protocol';
 import { ActionButton, Button, ProgressCircle, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import OpenIn from '@react-spectrum/s2/icons/OpenIn';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { findOutput, opensAsTab, outputKind } from '../../model/bot.ts';
+import { tabOutput } from '../../model/bot.ts';
 import type { BotSideTab } from '../../model/bot-side.ts';
 import type { ConversationOutput } from '../../model/conversation-outputs.ts';
 import { formatClock } from '../../model/format.ts';
@@ -19,7 +19,7 @@ import { P } from '../player/player-copy.ts';
 import { S } from '../shell-copy.ts';
 import { OutputCard } from '../thread/output-card.tsx';
 import { BOT_COPY as C } from './bot-copy.ts';
-import { OUTPUT_ICON, outputLabel } from './bot-output-link.tsx';
+import { OUTPUT_ICON, outputLook } from './bot-output-link.tsx';
 import { useWorkItemRecord } from './task-detail.tsx';
 import { seekTo, useRefResolver } from './task-refs.tsx';
 
@@ -118,16 +118,15 @@ type OutputTab = Extract<BotSideTab, { kind: 'output' }>;
  * 产物页签（需求 §11.6 的修订稿，原型 page-bot-side.jsx `BotOutputView`）：头部是种类图标、产物名与「种类 · 任务名」
  * （任务名按下切到那个任务的页签），视频多一个「在 Home 打开」。返回、占满与关闭都在页签条上。
  * 内容按产物画：视频是嵌进来的编辑器（与 Home 功能区、Space 同一个），字幕是一句一行的列表，图片只看不改，文档与其他文件用文件预览；
- * 幻灯片、设计稿与协作文档这里看不了，给一张会话里的产物卡去功能区打开。产物从任务的 `outputs` 按 `outputKey` 找，
- * 任务里已经没有它时如实说并给「打开任务」。
+ * 幻灯片、设计稿与协作文档这里看不了，给一张会话里的产物卡去功能区打开。产物从任务的 `outputs` 按 `outputKey` 找；
+ * 线程里不是任务产物的视频与文件按键里的 id 找（`tabOutput`）。任务里已经没有它时如实说并给「打开任务」。
  */
 export function BotOutputView({ tab, onOpenTask }: { tab: OutputTab; onOpenTask: () => void }) {
   const live = useWorkItem(tab.workItemId);
   const { record, missing } = useWorkItemRecord(tab.workItemId);
   const item = live ?? record?.item;
   // 幻灯片、设计稿这类开不了产物页签（只有手改的链接会到这里），当作不在。
-  const found = findOutput(item, tab.output);
-  const ref = found && opensAsTab(found) ? found : null;
+  const ref = useMemo(() => tabOutput(item, tab.output), [item, tab.output]);
   const { conversationId, resolve } = useRefResolver(item);
   const output = useMemo(() => (ref ? resolve(ref) : null), [ref, resolve]);
   const video = output?.video ?? null;
@@ -164,9 +163,8 @@ export function BotOutputView({ tab, onOpenTask }: { tab: OutputTab; onOpenTask:
     );
   }
 
-  const kind = outputKind(ref) ?? 'doc';
+  const { label, kind } = outputLook(ref, output);
   const Icon = OUTPUT_ICON[kind];
-  const label = outputLabel(ref);
   return (
     <section className={frame} aria-label={label}>
       <header className={head}>

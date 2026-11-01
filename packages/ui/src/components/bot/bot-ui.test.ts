@@ -1049,6 +1049,38 @@ describe('产物页签（需求 §11.6 的修订稿）', () => {
     expect(onOpenTask).toHaveBeenCalledTimes(1);
   });
 
+  // 2026-11-01：任务没把线程里的文件列成产物，线程里的卡开出的页签按 Space 条目找，头部写条目名与它的种类。
+  it('线程里不是任务产物的文件：页签按 Space 条目找，写条目名与种类', async () => {
+    const zh = {
+      id: 'e_srt',
+      kind: 'subtitle',
+      name: 'ep12.zh.srt',
+      fileName: 'ep12.zh.srt',
+      source: { projectId: null, conversationId: 'conv_thread' },
+      relPath: 'ep12.zh.srt',
+      user: { trashedAt: null },
+      ref: null,
+      status: null,
+      size: 60,
+      lastActivityAt: '2026-11-01T09:00:00Z',
+    } as unknown as SpaceEntry;
+    useSpace.setState({ entries: [zh], ready: true, scanning: false, issues: [] });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('1\n00:00:01,000 --> 00:00:02,500\n大家好\n')));
+    const resolveMedia = vi.fn(async () => ({ url: 'blob:srt', size: 60 }));
+    Object.assign(runtime, { resolveMedia });
+    try {
+      const tab = { key: 'out:wi_out:space:e_srt', kind: 'output', workItemId: 'wi_out', output: 'space:e_srt' } as const;
+      await render(createElement(BotOutputView, { tab, onOpenTask: () => {} }));
+      await act(async () => {});
+      expect(resolveMedia).toHaveBeenCalledWith({ entryId: 'e_srt' });
+      expect(container.querySelector('h2')?.textContent).toBe('ep12.zh.srt');
+      expect(container.textContent).toContain('字幕 · 做字幕');
+      expect([...container.querySelectorAll('ol[aria-label="字幕"] li')].map((li) => li.textContent)).toEqual(['0:01大家好']);
+    } finally {
+      useSpace.setState({ entries: [] });
+    }
+  });
+
   it('任务线程里的产物卡交给右栏开产物页签，不去功能区；不认的照常去功能区', async () => {
     const shell = useShell.getState();
     const openPane = vi.fn();
