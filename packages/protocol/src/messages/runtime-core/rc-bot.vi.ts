@@ -2,9 +2,9 @@ import type { RcBotMessages } from './rc-bot.ts';
 
 export const vi: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: 'Kênh chính',
+  mainChannelName: 'Mọi thứ',
   channelNotFound: (p: { id: string }) => `Không tìm thấy kênh: ${p.id}`,
-  mainChannelLocked: 'Không thể lưu trữ hoặc xóa kênh chính.',
+  mainChannelLocked: 'Không thể lưu trữ hoặc xóa kênh mặc định.',
   channelArchived: 'Kênh này đã được lưu trữ. Khôi phục để tiếp tục làm việc ở đây.',
   channelDeleteCountsChanged: 'Số việc hoặc việc theo lịch trong kênh này đã thay đổi. Hãy kiểm tra lại trước khi xóa.',
   memoryVersionConflict: 'Bộ nhớ đã thay đổi từ lúc bạn mở. Hãy xem phiên bản mới nhất rồi thử lại.',

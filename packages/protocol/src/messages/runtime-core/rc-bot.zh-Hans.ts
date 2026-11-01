@@ -2,9 +2,9 @@ import type { RcBotMessages } from './rc-bot.ts';
 
 export const zhHans: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: '主频道',
+  mainChannelName: '综合',
   channelNotFound: (p: { id: string }) => `找不到频道：${p.id}`,
-  mainChannelLocked: '主频道不能归档或删除。',
+  mainChannelLocked: '默认频道不能归档或删除。',
   channelArchived: '这个频道已归档。恢复后才能继续在这里工作。',
   channelDeleteCountsChanged: '这个频道里的任务或定时任务数量有变化，请重新确认后再删除。',
   memoryVersionConflict: '你打开之后记忆又被改过了。看一下最新版本再试一次。',

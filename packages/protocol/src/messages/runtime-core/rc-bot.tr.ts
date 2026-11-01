@@ -2,9 +2,9 @@ import type { RcBotMessages } from './rc-bot.ts';
 
 export const tr: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: 'Ana kanal',
+  mainChannelName: 'Her şey',
   channelNotFound: (p: { id: string }) => `Kanal bulunamadı: ${p.id}`,
-  mainChannelLocked: 'Ana kanal arşivlenemez veya silinemez.',
+  mainChannelLocked: 'Varsayılan kanal arşivlenemez veya silinemez.',
   channelArchived: 'Bu kanal arşivlendi. Burada çalışmaya devam etmek için geri yükleyin.',
   channelDeleteCountsChanged: 'Bu kanaldaki görev veya zamanlanmış görev sayısı değişti. Silmeden önce yeniden kontrol edin.',
   memoryVersionConflict: 'Belleği açtığınızdan beri içeriği değişti. En son sürümü inceleyip yeniden deneyin.',

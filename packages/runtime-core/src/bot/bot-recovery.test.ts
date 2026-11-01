@@ -419,6 +419,14 @@ describe('the user talks to a thread that is waiting', () => {
 });
 
 describe('first messages', () => {
+  it('BOT-CH-01: the default channel is there without being created and is named in the interface language', async () => {
+    const again = await kit.bot.ensureMain();
+    expect(again.id).toBe(kit.main.id);
+    expect(kit.bot.listChannels().filter((c) => c.channel.kind === 'main')).toHaveLength(1);
+    // 测试跑在简体中文界面下（vitest 的 BAOCUT_LOCALE）。
+    expect(kit.main.name).toBe('综合');
+  });
+
   it('I18: the first-run seed turn asks for no greeting and names the interface language before the user has written', async () => {
     await kit.close();
     kit = await BotKit.open({ facts: ['project Trailer (3 videos)', '  video teaser.mp4 2:10'] });

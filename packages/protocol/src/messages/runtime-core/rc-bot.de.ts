@@ -5,9 +5,9 @@ const minutes = (n: number) => `${n} ${pluralForm('de', n, { one: 'Minute', othe
 
 export const de: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: 'Hauptkanal',
+  mainChannelName: 'Alles',
   channelNotFound: (p: { id: string }) => `Kanal nicht gefunden: ${p.id}`,
-  mainChannelLocked: 'Der Hauptkanal kann nicht archiviert oder gelöscht werden.',
+  mainChannelLocked: 'Der Standardkanal kann nicht archiviert oder gelöscht werden.',
   channelArchived: 'Dieser Kanal ist archiviert. Stelle ihn wieder her, um hier weiterzuarbeiten.',
   channelDeleteCountsChanged: 'Die Anzahl der Aufgaben oder geplanten Aufgaben in diesem Kanal hat sich geändert. Prüfe sie noch einmal, bevor du löschst.',
   memoryVersionConflict: 'Das Gedächtnis wurde geändert, seit du es geöffnet hast. Sieh dir die neueste Version an und versuche es erneut.',

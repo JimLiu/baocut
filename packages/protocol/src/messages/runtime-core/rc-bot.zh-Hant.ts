@@ -2,9 +2,9 @@ import type { RcBotMessages } from './rc-bot.ts';
 
 export const zhHant: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: '主頻道',
+  mainChannelName: '綜合',
   channelNotFound: (p: { id: string }) => `找不到頻道：${p.id}`,
-  mainChannelLocked: '主頻道不能封存或刪除。',
+  mainChannelLocked: '預設頻道不能封存或刪除。',
   channelArchived: '這個頻道已封存。還原後才能繼續在這裡工作。',
   channelDeleteCountsChanged: '這個頻道裡的任務或排程任務數量有變化，請重新確認後再刪除。',
   memoryVersionConflict: '你開啟之後記憶又被改過了。看一下最新版本再試一次。',

@@ -5,9 +5,9 @@ const minutes = (n: number) => `${n} ${pluralForm('nl', n, { one: 'minuut', othe
 
 export const nl: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: 'Hoofdkanaal',
+  mainChannelName: 'Alles',
   channelNotFound: (p: { id: string }) => `Kanaal niet gevonden: ${p.id}`,
-  mainChannelLocked: 'Het hoofdkanaal kan niet worden gearchiveerd of verwijderd.',
+  mainChannelLocked: 'Het standaardkanaal kan niet worden gearchiveerd of verwijderd.',
   channelArchived: 'Dit kanaal is gearchiveerd. Herstel het om hier verder te werken.',
   channelDeleteCountsChanged: 'Het aantal taken of geplande taken in dit kanaal is veranderd. Controleer het opnieuw voordat je verwijdert.',
   memoryVersionConflict: 'Het geheugen is gewijzigd sinds je het opende. Bekijk de nieuwste versie en probeer het opnieuw.',

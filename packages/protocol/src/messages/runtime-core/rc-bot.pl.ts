@@ -5,9 +5,9 @@ const minutesGen = (n: number) => `${n} ${pluralForm('pl', n, { one: 'minuty', f
 
 export const pl: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: 'Główny',
+  mainChannelName: 'Wszystko',
   channelNotFound: (p: { id: string }) => `Nie znaleziono kanału: ${p.id}`,
-  mainChannelLocked: 'Kanału głównego nie można zarchiwizować ani usunąć.',
+  mainChannelLocked: 'Kanału domyślnego nie można zarchiwizować ani usunąć.',
   channelArchived: 'Ten kanał jest zarchiwizowany. Przywróć go, aby dalej tu pracować.',
   channelDeleteCountsChanged: 'Liczba zadań lub zaplanowanych zadań w tym kanale się zmieniła. Sprawdź ponownie przed usunięciem.',
   memoryVersionConflict: 'Pamięć zmieniła się od czasu jej otwarcia. Przejrzyj najnowszą wersję i spróbuj ponownie.',

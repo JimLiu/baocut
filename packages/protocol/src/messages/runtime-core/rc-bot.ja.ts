@@ -2,9 +2,9 @@ import type { RcBotMessages } from './rc-bot.ts';
 
 export const ja: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: 'メイン',
+  mainChannelName: 'なんでも',
   channelNotFound: (p: { id: string }) => `チャンネルが見つかりません: ${p.id}`,
-  mainChannelLocked: 'メインチャンネルはアーカイブも削除もできません。',
+  mainChannelLocked: 'デフォルトのチャンネルはアーカイブも削除もできません。',
   channelArchived: 'このチャンネルはアーカイブされています。ここで作業を続けるには元に戻してください。',
   channelDeleteCountsChanged: 'このチャンネルのタスクまたは定期タスクの数が変わりました。もう一度確認してから削除してください。',
   memoryVersionConflict: '開いた後にメモリが変更されました。最新の内容を確認してから、もう一度お試しください。',

@@ -5,9 +5,9 @@ const minutes = (n: number) => `${n} ${pluralForm('ru', n, { one: 'минуту'
 
 export const ru: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: 'Главный',
+  mainChannelName: 'Всё',
   channelNotFound: (p: { id: string }) => `Канал не найден: ${p.id}`,
-  mainChannelLocked: 'Главный канал нельзя архивировать или удалить.',
+  mainChannelLocked: 'Канал по умолчанию нельзя архивировать или удалить.',
   channelArchived: 'Этот канал в архиве. Восстановите его, чтобы продолжить здесь работу.',
   channelDeleteCountsChanged: 'Число задач или запланированных задач в этом канале изменилось. Проверьте ещё раз перед удалением.',
   memoryVersionConflict: 'Память изменилась с тех пор, как вы её открыли. Посмотрите последнюю версию и попробуйте снова.',

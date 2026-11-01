@@ -20,9 +20,9 @@ import { vi } from './rc-bot.vi.ts';
  */
 const en = {
   // ---- 频道 ----
-  mainChannelName: 'Main',
+  mainChannelName: 'Everything',
   channelNotFound: (p: { id: string }) => `Channel not found: ${p.id}`,
-  mainChannelLocked: "The main channel can't be archived or deleted.",
+  mainChannelLocked: "The default channel can't be archived or deleted.",
   channelArchived: 'This channel is archived. Restore it before working in it.',
   channelDeleteCountsChanged: 'The number of tasks or scheduled tasks in this channel changed. Check again before deleting.',
   memoryVersionConflict: 'The memory changed since you opened it. Review the latest version and try again.',

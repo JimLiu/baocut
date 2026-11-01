@@ -2,9 +2,9 @@ import type { RcBotMessages } from './rc-bot.ts';
 
 export const ko: RcBotMessages = {
   // ---- 频道 ----
-  mainChannelName: '메인',
+  mainChannelName: '무엇이든',
   channelNotFound: (p: { id: string }) => `채널을 찾을 수 없습니다: ${p.id}`,
-  mainChannelLocked: '메인 채널은 보관하거나 삭제할 수 없습니다.',
+  mainChannelLocked: '기본 채널은 보관하거나 삭제할 수 없습니다.',
   channelArchived: '이 채널은 보관되었습니다. 여기서 계속 작업하려면 복원하세요.',
   channelDeleteCountsChanged: '이 채널의 작업 또는 예약 작업 수가 바뀌었습니다. 삭제하기 전에 다시 확인하세요.',
   memoryVersionConflict: '메모리를 연 뒤에 내용이 바뀌었습니다. 최신 버전을 확인한 뒤 다시 시도하세요.',
