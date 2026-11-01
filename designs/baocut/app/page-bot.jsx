@@ -56,6 +56,32 @@
       return task;
     },
     markRead: channelId => write(s => ({...s, channels: s.channels.map(c => (c.id === channelId && c.unread ? {...c, unread: false} : c))})),
+    /** 频道菜单与对话框（page-bot-dialogs.jsx）：改名、说明、图标、分组、置顶、静音。 */
+    updateChannel: (id, patch) => write(s => ({...s, channels: s.channels.map(c => (c.id === id ? {...c, ...patch} : c))})),
+    /** 归档与恢复（需求 §2.3）：演示里只改标记，定时任务的暂停不演示。 */
+    setArchived: (id, archived) => write(s => ({...s, channels: s.channels.map(c => (c.id === id ? {...c, archived} : c))})),
+    /** 删除频道：连同它的任务与时间线。 */
+    deleteChannel: id => write(s => {
+      const timelines = {...s.timelines};
+      delete timelines[id];
+      return {...s, channels: s.channels.filter(c => c.id !== id), items: s.items.filter(i => i.channelId !== id), timelines};
+    }),
+    /** 新建频道（需求 §2.3）：只问名字，可以直接建在一个分组里；返回新频道。 */
+    createChannel: ({name, groupId}) => {
+      const id = nextId('chan');
+      const channel = {id, kind: 'custom', name, purpose: '', lastActivityAt: Date.now(), unread: false, groupId: groupId || null};
+      write(s => ({...s, channels: [...s.channels, channel], timelines: {...s.timelines, [id]: []}}));
+      return channel;
+    },
+    /** 分组：建、改名、删（删分组不删频道，组里的回到综合）。 */
+    createGroup: name => {
+      const group = {id: nextId('grp'), name};
+      write(s => ({...s, groups: [...s.groups, group]}));
+      return group;
+    },
+    renameGroup: (id, name) => write(s => ({...s, groups: s.groups.map(g => (g.id === id ? {...g, name} : g))})),
+    deleteGroup: id => write(s => ({...s, groups: s.groups.filter(g => g.id !== id),
+      channels: s.channels.map(c => (c.groupId === id ? {...c, groupId: null} : c))})),
   };
 
   /** Bot 页与侧栏共读的演示态。 */
@@ -83,9 +109,10 @@
   /* ---------- 频道侧栏 ---------- */
 
   /**
-   * 频道侧栏（BOT-CH-02、需求 §11.2）：顶上「等你处理」，然后是综合（默认频道），其余频道缩进挂在它下面（置顶的在前、其余按最近活动），
-   * 用一根拐角线连着；这一组的最后一行是「新建频道」。归档的收在最下面一组（另一个导航，因为「新建频道」是按钮不是链接）。
-   * 每行：频道名（有未读时加粗、行尾一颗绿点），等你的任务数，置顶、静音与私密的小图标；行尾「⋯」是设置、记忆、置顶、静音、归档与删除。
+   * 频道侧栏（BOT-CH-02、需求 §11.2 修订）：顶上「等你处理」；然后是综合（默认频道），没分组的频道缩进挂在它下面，用一根拐角线连着；
+   * 每个分组另起一段（文件夹图标、名字、展开开关，行尾「⋯」与「＋」），组里的频道挂在组下；最后一行是「新建频道」（建在综合下）。
+   * 段内置顶的在前、其余按最近活动。综合行行尾是筛选（状态：进行中 / 已归档 / 全部，代替原来底部的「已归档」折叠组）与「＋」（新建频道、新建分组）。
+   * 每行：频道图标、频道名（有未读时加粗、行尾一颗绿点），等你的任务数，置顶、静音、私密与已归档的小图标；行尾「⋯」是频道菜单（page-bot-dialogs.jsx）。
    */
   function BotSidebar() {
     const app = useApp();
@@ -93,42 +120,48 @@
     const bot = useBot();
     const route = app.route;
     const rows = B.channelSummaries(bot.channels, bot.items);
-    const groups = B.channelGroups(rows);
+    const [status, setStatus] = useState('active');
+    const [collapsed, setCollapsed] = useState(() => new Set());
+    const tree = B.channelTree(rows, bot.groups, status);
     const total = B.needsYouTotal(rows);
-    const [showArchived, setShowArchived] = useState(false);
     const href = r => window.BC_APP_IA.hrefFor(r);
     const selected = route.r !== 'bot' ? null : route.view === 'inbox' ? href({r: 'bot', view: 'inbox'}) : href({r: 'bot', id: route.id || MAIN});
-    const later = what => app.toast(`原型里没有画${what}`);
+    const toggleGroup = id => setCollapsed(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
     const row = ({channel, unread, counts}) => {
       const main = channel.kind === 'main';
-      const detail = [channel.name, unread ? '有未读' : null, counts.needsYou ? `${counts.needsYou} 个任务等你` : null,
-        channel.muted ? '已静音' : null, channel.private ? '私密' : null].filter(Boolean).join('，');
+      const detail = [channel.name, unread ? '有未读' : null, counts.needsYou ? `${counts.needsYou} 个任务等你` : null, channel.pinned && !main && !channel.archived ? '已置顶' : null,
+        channel.muted ? '已静音' : null, channel.private ? '私密' : null, channel.archived ? '已归档' : null].filter(Boolean).join('，');
       const to = href({r: 'bot', id: channel.id});
-      const child = !main && !channel.archived;
-      return <R.SideNavItem key={channel.id} id={channel.id} textValue={channel.name} href={to} data-bot-row="" data-bot-child={child ? '' : undefined}>
+      return <R.SideNavItem key={channel.id} id={channel.id} textValue={channel.name} href={to} data-bot-row="" data-bot-child={main ? undefined : ''}>
         <R.SideNavItemContent>
-          <R.SideNavItemLink href={to} aria-label={channel.pinned ? `${detail}，已置顶` : detail}>
-            {main ? <R.Icons.Layers /> : null}
+          <R.SideNavItemLink href={to} aria-label={detail}>
+            <window.BotChannelGlyph channel={channel} />
             <R.Text><span className="bot-nav__line" title={channel.purpose || channel.name}>
-              <span className={cx('bot-nav__title', unread && 'is-unread')}>{channel.name}</span>
+              <span className={cx('bot-nav__title', unread && 'is-unread', channel.archived && 'is-archived')}>{channel.name}</span>
               <span className="bot-nav__tail" aria-hidden="true">
-                {channel.pinned && !main ? <R.Icons.PinOn /> : null}
+                {channel.archived ? <R.Icons.Archive /> : null}
+                {channel.pinned && !main && !channel.archived ? <R.Icons.PinOn /> : null}
                 {channel.private ? <R.Icons.Lock /> : null}
                 {channel.muted ? <R.Icons.VolumeOff /> : null}
                 {counts.needsYou ? <R.NotificationBadge size="S" value={counts.needsYou} /> : unread ? <span className="bot-nav__dot" /> : null}
               </span>
             </span></R.Text>
           </R.SideNavItemLink>
-          <R.ActionMenu aria-label="更多操作" isQuiet size="S" onAction={() => later('频道设置、置顶、静音与归档')}>
-            <R.MenuItem id="settings" textValue="频道设置…"><R.Icons.Settings /><R.Text>频道设置…</R.Text></R.MenuItem>
-            <R.MenuItem id="memory" textValue="记忆"><R.Icons.Bookmark /><R.Text>记忆</R.Text></R.MenuItem>
-            {main || channel.archived ? null : <R.MenuItem id="pin" textValue={channel.pinned ? '取消置顶' : '置顶'}><R.Icons.PinOn /><R.Text>{channel.pinned ? '取消置顶' : '置顶'}</R.Text></R.MenuItem>}
-            <R.MenuItem id="mute" textValue={channel.muted ? '取消静音' : '静音'}><R.Icons.VolumeOff /><R.Text>{channel.muted ? '取消静音' : '静音'}</R.Text></R.MenuItem>
-            {main ? null : <R.MenuItem id="archive" textValue={channel.archived ? '恢复' : '归档'}><R.Icons.Archive /><R.Text>{channel.archived ? '恢复' : '归档'}</R.Text></R.MenuItem>}
-            {main ? null : <R.MenuItem id="delete" textValue="删除…"><R.Icons.Delete /><R.Text>删除…</R.Text></R.MenuItem>}
-          </R.ActionMenu>
+          {main ? <window.BotSidebarTools status={status} onStatus={setStatus} /> : <window.BotChannelActionMenu channel={channel} groups={bot.groups} />}
         </R.SideNavItemContent>
       </R.SideNavItem>;
+    };
+    const groupSection = ({group, rows: members}) => {
+      const open = !collapsed.has(group.id);
+      return <R.SideNavSection key={group.id} id={`group:${group.id}`}>
+        <R.SideNavHeader><span className="bot-nav__group">
+          <R.ActionButton isQuiet size="S" UNSAFE_className="bot-nav__group-toggle bot-titled" aria-expanded={open} onPress={() => toggleGroup(group.id)}>
+            <R.Icons.Folder /><R.Text><span className="bot-titled__name">{group.name}</span>{open ? <R.Icons.ChevronDown /> : <R.Icons.ChevronRight />}</R.Text>
+          </R.ActionButton>
+          <window.BotGroupTools group={group} />
+        </span></R.SideNavHeader>
+        {open ? members.map(row) : []}
+      </R.SideNavSection>;
     };
     return (
       <div className="hside hside--home hside--bot" style={{width: app.sidebar.width || app.sidebar.last}}>
@@ -147,22 +180,15 @@
               </R.SideNavItem>
             </R.SideNavSection>
             <R.SideNavSection id="group:channels">
-              {groups.active.map(row)}
+              {[tree.main, ...tree.loose].filter(Boolean).map(row)}
             </R.SideNavSection>
+            {tree.groups.map(groupSection)}
           </R.SideNav>
-          <R.ActionButton isQuiet size="M" UNSAFE_className="bot-nav__new" onPress={() => later('新建频道对话框')}>
+          <R.ActionButton isQuiet size="M" UNSAFE_className="bot-nav__new" onPress={() => window.openBotDialog({kind: 'newChannel'})}>
             <R.Icons.Add /><R.Text>新建频道</R.Text>
           </R.ActionButton>
-          {groups.archived.length ? <R.SideNav aria-label="已归档的频道" selectedRoute={selected} UNSAFE_className="bot-nav__archived">
-            <R.SideNavSection id="group:archived">
-              <R.SideNavHeader><span className="bot-nav__section">
-                <R.ActionButton isQuiet size="S" aria-expanded={showArchived} aria-label="已归档" onPress={() => setShowArchived(!showArchived)}>
-                  {showArchived ? <R.Icons.ChevronDown /> : <R.Icons.ChevronRight />}
-                </R.ActionButton>{`已归档 (${groups.archived.length})`}
-              </span></R.SideNavHeader>
-              {showArchived ? groups.archived.map(row) : []}
-            </R.SideNavSection>
-          </R.SideNav> : null}
+          {status !== 'active' && !tree.loose.length && !tree.groups.some(g => g.rows.length)
+            ? <p className="bot-empty">{status === 'archived' ? '没有归档的频道。' : '还没有别的频道。'}</p> : null}
         </div>
       </div>
     );
@@ -245,6 +271,7 @@
       else if (panelShown) right = <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={null} onHide={hide} />;
     }
     return <div className="bot" ref={contentRef}>
+      <window.BotDialogs />
       <div className="bot__main">{center}</div>
       {right ? <aside className={cx('bot__side', task && 'bot__side--detail', !task && side === 'make' && 'bot__side--make', narrow && 'bot__side--overlay')}>{right}</aside> : null}
     </div>;

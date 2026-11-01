@@ -31,6 +31,8 @@
 .bot-nav__line { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
 .bot-nav__title { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bot-nav__title.is-unread { font-weight: 700; }
+/* The link is a two-column grid; without this the text column sizes to its content and the tail runs under the row menu. */
+.hside--bot .bot-nav__tree a > [data-rsp-slot="text"] { min-width: 0; }
 .bot-nav__tail { display: flex; align-items: center; gap: 4px; flex: none; color: var(--gray-600); }
 .bot-nav__tail svg { width: 16px; height: 16px; }
 .bot-nav__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-900); }
@@ -40,16 +42,63 @@
 .hside--bot [data-bot-child]::before { content: ''; position: absolute; top: 0; inset-inline-start: 20px; z-index: 1; width: 8px; height: 50%; box-sizing: border-box;
   border-inline-start: 2px solid var(--gray-200); border-bottom: 2px solid var(--gray-200); border-end-start-radius: 4px; pointer-events: none; }
 .bot-nav__new { justify-content: start; margin-inline-start: 20px; color: var(--gray-700); }
-/* S2 SideNav 默认撑满高度；这里拆成两段，各按内容高，「新建频道」才能紧跟在频道组后面 */
-.hside--bot .bot-nav__tree, .hside--bot .bot-nav__archived { height: auto; }
-.bot-nav__archived { margin-top: 12px; }
+/* S2 SideNav 默认撑满高度；这里按内容高，「新建频道」才能紧跟在最后一段后面 */
+.hside--bot .bot-nav__tree { height: auto; }
+.bot-nav__title.is-archived { color: var(--gray-600); }
+/* 分组行（需求 §11.2 修订）：和综合那一段隔开；文件夹图标与综合的图标对齐，组里频道的拐角线从它下面弯出来。
+   行尾的「⋯」「＋」悬停、键盘聚焦或菜单开着时才出现。 */
+.bot-nav__group { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; margin-top: 12px; }
+.bot-nav__group-toggle { min-width: 0; margin-inline-start: -1px; font-size: 14px; font-weight: 400; color: var(--gray-800); }
+.bot-nav__group-tools { display: flex; align-items: center; flex: none; margin-inline-start: auto; opacity: 0; }
+.bot-nav__group:hover .bot-nav__group-tools, .bot-nav__group:focus-within .bot-nav__group-tools,
+.bot-nav__group-tools:has([aria-expanded="true"]) { opacity: 1; }
+
+/* 频道的颜色：图标用 1000 档，图标选择器的大号预览垫 200 档（S2 色板里两档都有的色相） */
+.bot-hue, .bot-hue svg { --iconPrimary: var(--bot-hue-ink); }
+.bot-hue--magenta { --bot-hue-ink: var(--magenta-1000); --bot-hue-tint: var(--magenta-200); }
+.bot-hue--red { --bot-hue-ink: var(--red-1000); --bot-hue-tint: var(--red-200); }
+.bot-hue--orange { --bot-hue-ink: var(--orange-1000); --bot-hue-tint: var(--orange-200); }
+.bot-hue--yellow { --bot-hue-ink: var(--yellow-1000); --bot-hue-tint: var(--yellow-200); }
+.bot-hue--green { --bot-hue-ink: var(--green-1000); --bot-hue-tint: var(--green-200); }
+.bot-hue--seafoam { --bot-hue-ink: var(--seafoam-1000); --bot-hue-tint: var(--seafoam-200); }
+.bot-hue--cyan { --bot-hue-ink: var(--cyan-1000); --bot-hue-tint: var(--cyan-200); }
+.bot-hue--blue { --bot-hue-ink: var(--blue-1000); --bot-hue-tint: var(--blue-200); }
+.bot-hue--indigo { --bot-hue-ink: var(--indigo-1000); --bot-hue-tint: var(--indigo-200); }
+.bot-hue--purple { --bot-hue-ink: var(--purple-1000); --bot-hue-tint: var(--purple-200); }
+
+/* ---------- 频道对话框（page-bot-dialogs.jsx） ---------- */
+.bot-dialog__note { margin: 0 0 12px; font-size: 14px; line-height: 20px; color: var(--gray-700); }
+.bot-dialog__body { margin: 0 0 8px; font-size: 14px; line-height: 20px; color: var(--gray-800); }
+.bot-dialog__instructions { width: 100%; }
+.bot-dialog__instructions textarea { min-height: 160px; }
+.bot-icon-pick { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.bot-icon-pick__preview { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 16px; background: var(--bot-hue-tint); }
+/* The preview is a 32px glyph like the Space kind previews, so it outranks the 16px workflow-icon rule in spectrum.css. */
+.bot-icon-pick__preview svg[role="img"][viewBox] { width: 32px; height: 32px; }
+.bot-icon-pick__head { margin: 8px 0 0; font-size: 14px; font-weight: 700; line-height: 20px; color: var(--gray-800); }
+.bot-icon-pick__grid { display: grid; grid-template-columns: repeat(8, auto); gap: 8px; justify-content: center; }
+.bot-icon-pick__grid--colors { grid-template-columns: repeat(5, auto); gap: 12px; }
+/* Selected picks keep their hue: a light fill and a ring instead of the S2 dark selected fill. */
+.bot-icon-pick__grid [data-selected="true"] { background-color: var(--gray-100); box-shadow: inset 0 0 0 2px var(--gray-800); }
+.bot-icon-pick__swatch { display: block; width: 24px; height: 24px; border-radius: 50%; background: var(--bot-hue-ink); }
 
 /* ---------- 频道对话 ---------- */
 .bot-channel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .bot-channel__head { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; padding: 12px 24px; border-bottom: 2px solid var(--gray-100); }
 .bot-channel__text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
-.bot-channel__name { margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bot-channel__purpose { font-size: 12px; line-height: 16px; color: var(--gray-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-channel__name { display: flex; min-width: 0; margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: var(--gray-900); }
+/* 频道名是菜单入口（同视频名）：安静按钮，抵掉按钮的左内边距，让图标左缘与下面的说明对齐 */
+.bot-channel__menu { max-width: calc(100% + 12px); margin-inline-start: -12px; font-size: 16px; font-weight: 700; }
+/* 「图标 名字 ⌄」的按钮：⌄ 跟在文字槽里，名字太长时只截名字 */
+.bot-titled { max-width: 100%; }
+.bot-titled > [data-rsp-slot="text"] { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.bot-titled__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-titled > [data-rsp-slot="text"] svg { flex: none; width: 16px; height: 16px; }
+/* 说明的第一行：点开编辑说明（需求 §11.3「点开看全文并可编辑」） */
+.bot-channel__purpose { max-width: 100%; padding: 0; border: 0; border-radius: 4px; background: transparent; text-align: start; cursor: pointer;
+  font: inherit; font-size: 12px; line-height: 16px; color: var(--gray-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-channel__purpose:hover { color: var(--gray-900); }
+.bot-channel__purpose:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .bot-channel__purpose.is-empty { color: var(--gray-500); }
 .bot-toggle.is-on { background: var(--gray-100); }
 .bot-toggle__dot { position: absolute; top: 2px; inset-inline-end: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-900); }

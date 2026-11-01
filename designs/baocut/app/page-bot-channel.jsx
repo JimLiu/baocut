@@ -115,7 +115,8 @@
   }
 
   /**
-   * 频道对话（BOT-CV-01…05、需求 §11.3）：头部是频道名与用途、记忆、周期任务、频道设置，最后是右栏的「任务」「Make」两个开关：
+   * 频道对话（BOT-CV-01…05、需求 §11.3 修订）：头部是「图标 频道名 ⌄」（按下是频道菜单：频道设置、重命名、说明、图标、分组……，page-bot-dialogs.jsx）
+   * 与说明的第一行（点开编辑说明），然后是记忆、周期任务，最后是右栏的「任务」「Make」两个开关：
    * 「任务」带这个频道里等你的任务数（需求 §11.1），「Make」有新建议时带个点。回复一张线程卡（BOT-EX-09）时输入框上方显示「回复「任务名」✕」。
    */
   function BotChannelView({channel, tasksToggle, makeToggle}) {
@@ -134,14 +135,14 @@
     return <section className="bot-channel" aria-label={channel.name}>
       <header className="bot-channel__head">
         <div className="bot-channel__text">
-          <h2 className="bot-channel__name">{channel.name}</h2>
-          <span className={cx('bot-channel__purpose', !channel.purpose && 'is-empty')} title={channel.purpose || undefined}>
-            {channel.purpose || '没有设定用途，什么都能做'}
-          </span>
+          <h2 className="bot-channel__name"><window.BotChannelTitleMenu channel={channel} groups={bot.groups} /></h2>
+          <button type="button" className={cx('bot-channel__purpose', !channel.purpose && 'is-empty')} title={channel.purpose || undefined}
+            aria-label={channel.purpose ? `说明：${channel.purpose}` : '写说明'} onClick={() => window.openBotDialog({kind: 'instructions', channelId: channel.id})}>
+            {channel.purpose ? channel.purpose.split('\n')[0] : '没有写说明，什么都能做'}
+          </button>
         </div>
         <R.ActionButton isQuiet size="S" onPress={() => later('频道记忆页')}><R.Icons.Bookmark /><R.Text>记忆</R.Text></R.ActionButton>
         <R.ActionButton isQuiet size="S" aria-label="新建周期任务" onPress={() => later('周期任务对话框')}><R.Icons.CalendarAdd /></R.ActionButton>
-        <R.ActionButton isQuiet size="S" aria-label="频道设置…" onPress={() => later('频道设置')}><R.Icons.Settings /></R.ActionButton>
         {tasksToggle ? <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
           aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
           <R.Icons.ViewList /><R.Text>任务</R.Text>{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}

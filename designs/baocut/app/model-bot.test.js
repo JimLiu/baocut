@@ -69,14 +69,72 @@ test('筛选：我的只看我来做的，智能体的只看交给智能体的',
   assert.deepEqual(B.taskSections(items, 'agent', NOW).upNext.map(i => i.id), ['a']);
 });
 
-test('频道侧栏：主频道第一，置顶其次，其余按最近活动；归档另成一组；徽标数等你的任务', () => {
-  const {channels, items} = B.demo(NOW);
+test('频道侧栏：主频道一行，没分组的挂在它下面，分组各成一段；段内置顶在前、其余按最近活动；徽标数等你的任务', () => {
+  const {channels, groups, items} = B.demo(NOW);
   const rows = B.channelSummaries(channels, items);
-  const groups = B.channelGroups(rows);
-  assert.deepEqual(groups.active.map(r => r.channel.id), ['chan_main', 'chan_weekly', 'chan_shorts', 'chan_dub']);
-  assert.deepEqual(groups.archived.map(r => r.channel.id), ['chan_old']);
+  const tree = B.channelTree(rows, groups, 'active');
+  const ids = list => list.map(r => r.channel.id);
+  assert.equal(tree.main.channel.id, 'chan_main');
+  assert.deepEqual(ids(tree.loose), ['chan_shorts']);
+  assert.deepEqual(tree.groups.map(g => [g.group.id, ids(g.rows)]), [['grp_tutorials', ['chan_weekly', 'chan_dub']]]);
   assert.equal(rows.find(r => r.channel.id === 'chan_main').counts.needsYou, 2);
   assert.equal(B.needsYouTotal(rows), 3);
+});
+
+test('频道侧栏按状态筛：进行中与全部时空分组也列，只看已归档时空分组不列；分组不在了的频道算没分组', () => {
+  const row = (id, patch) => ({channel: {id, kind: 'custom', name: id, lastActivityAt: NOW, ...patch}, unread: false, counts: {needsYou: 0}});
+  const rows = [
+    {channel: {id: 'chan_main', kind: 'main', name: '综合', lastActivityAt: NOW}, unread: false, counts: {needsYou: 0}},
+    row('a', {groupId: 'g1'}),
+    row('b', {groupId: 'g1', archived: true}),
+    row('c', {archived: true}),
+    row('d', {groupId: 'gone'}),
+  ];
+  const groups = [{id: 'g1', name: '一'}, {id: 'g2', name: '空的'}];
+  const shape = status => {
+    const t = B.channelTree(rows, groups, status);
+    return {loose: t.loose.map(r => r.channel.id), groups: t.groups.map(g => [g.group.id, g.rows.map(r => r.channel.id)])};
+  };
+  assert.deepEqual(shape('active'), {loose: ['d'], groups: [['g1', ['a']], ['g2', []]]});
+  assert.deepEqual(shape('archived'), {loose: ['c'], groups: [['g1', ['b']]]});
+  assert.deepEqual(shape('all').groups, [['g1', ['a', 'b']], ['g2', []]]);
+  assert.equal(B.channelTree(rows, groups, 'archived').main.channel.id, 'chan_main');
+  B.CHANNEL_STATUS.forEach(k => assert.ok(B.CHANNEL_STATUS_LABEL[k], k));
+});
+
+test('频道图标：主频道固定 Layers；没选过的用对话气泡与按 id 取的颜色，每次一样；选了没有的值也退回缺省', () => {
+  assert.deepEqual(B.channelLook({id: 'chan_main', kind: 'main'}), {icon: 'Layers', color: null});
+  const look = B.channelLook({id: 'chan_x', kind: 'custom'});
+  assert.equal(look.icon, B.DEFAULT_CHANNEL_ICON);
+  assert.ok(B.CHANNEL_COLORS.includes(look.color));
+  assert.deepEqual(B.channelLook({id: 'chan_x', kind: 'custom'}), look);
+  assert.deepEqual(B.channelLook({id: 'chan_x', kind: 'custom', icon: 'Heart', color: 'red'}), {icon: 'Heart', color: 'red'});
+  assert.deepEqual(B.channelLook({id: 'chan_x', kind: 'custom', icon: 'Nope', color: 'teal'}), look);
+  assert.equal(B.CHANNEL_ICONS.length, 24);
+  assert.equal(new Set(B.CHANNEL_ICONS).size, 24);
+  assert.ok(!B.CHANNEL_ICONS.includes('Layers'));
+  B.CHANNEL_ICONS.forEach(k => assert.ok(B.CHANNEL_ICON_LABEL[k], k));
+  B.CHANNEL_COLORS.forEach(k => assert.ok(B.CHANNEL_COLOR_LABEL[k], k));
+});
+
+test('频道与分组的名字：必填、最多 40 字，前后空白不算', () => {
+  assert.equal(B.nameError('  ', '频道'), '给频道起个名字');
+  assert.equal(B.nameError('x'.repeat(41), '频道'), '最多 40 个字');
+  assert.equal(B.nameError(` ${'x'.repeat(40)} `, '分组'), null);
+});
+
+test('归档与删除确认框里的数：建议不算；归档数没解决的与其中定时的，删除数进行中的智能体任务、全部任务与定时', () => {
+  const items = [
+    item('w', {status: 'active', active: {state: 'working'}}),
+    item('r', {status: 'active', active: {state: 'needsReview'}}),
+    item('u', {status: 'upNext', owner: 'user'}),
+    item('s', {status: 'scheduled'}),
+    item('d', {status: 'resolved', resolution: {kind: 'done', at: NOW}}),
+    item('g', {status: 'suggested'}),
+    item('x', {channelId: 'other', status: 'active', active: {state: 'working'}}),
+  ];
+  assert.deepEqual(B.archiveImpact(items, 'c'), {open: 4, scheduled: 1});
+  assert.deepEqual(B.deleteImpact(items, 'c'), {working: 1, tasks: 5, scheduled: 1});
 });
 
 test('新建任务：默认我来做、进接下来；交给智能体并现在开始才直接开始', () => {

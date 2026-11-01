@@ -310,6 +310,7 @@
       "app/page-bot-channel.jsx",
       "app/page-bot-tasks.jsx",
       "app/page-bot-make.jsx",
+      "app/page-bot-dialogs.jsx",
       "app/apprail.jsx",
       "app/home-sidebar.jsx",
       "app/page-archived.jsx",
@@ -534,9 +535,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=54595b643b23",
-    "css": "generated/app.css?v=3bfb2ccfe74d",
-    "bytes": 5116239
+    "js": "generated/app.js?v=9b8c36612e5a",
+    "css": "generated/app.css?v=0308b945822c",
+    "bytes": 5134424
   },
   "web": {
     "file": "BaoCutWeb.html",

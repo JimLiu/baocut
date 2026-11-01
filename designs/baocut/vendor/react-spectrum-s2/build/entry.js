@@ -239,6 +239,16 @@ import I_StickyNote from '@react-spectrum/s2/icons/StickyNote';
 import I_Circle from '@react-spectrum/s2/icons/Circle';
 import I_RemoveCircle from '@react-spectrum/s2/icons/RemoveCircle';
 import I_CalendarAdd from '@react-spectrum/s2/icons/CalendarAdd';
+// Bot channel menus and the channel icon picker (app/page-bot-dialogs.jsx).
+import I_Camera from '@react-spectrum/s2/icons/Camera';
+import I_Brush from '@react-spectrum/s2/icons/Brush';
+import I_Education from '@react-spectrum/s2/icons/Education';
+import I_ChartBarVert from '@react-spectrum/s2/icons/ChartBarVert';
+import I_Email from '@react-spectrum/s2/icons/Email';
+import I_Briefcase from '@react-spectrum/s2/icons/Briefcase';
+import I_Rename from '@react-spectrum/s2/icons/Rename';
+import I_FolderMoveTo from '@react-spectrum/s2/icons/FolderMoveTo';
+import I_PinOff from '@react-spectrum/s2/icons/PinOff';
 export const Icons = {
   Home: I_Home,
   Folder: I_Folder,
@@ -380,4 +390,13 @@ export const Icons = {
   Circle: I_Circle,
   RemoveCircle: I_RemoveCircle,
   CalendarAdd: I_CalendarAdd,
+  Camera: I_Camera,
+  Brush: I_Brush,
+  Education: I_Education,
+  ChartBarVert: I_ChartBarVert,
+  Email: I_Email,
+  Briefcase: I_Briefcase,
+  Rename: I_Rename,
+  FolderMoveTo: I_FolderMoveTo,
+  PinOff: I_PinOff,
 };

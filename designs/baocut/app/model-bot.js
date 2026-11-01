@@ -62,16 +62,87 @@
   /** Rail 上 Bot 的徽标：全部频道（含静音、归档）里等你的任务数。 */
   const needsYouTotal = rows => rows.reduce((sum, row) => sum + Math.max(0, row.counts.needsYou), 0);
   const byActivity = (a, b) => b.channel.lastActivityAt - a.channel.lastActivityAt;
-  /** 频道侧栏：主频道、置顶、其余按最近活动；归档的收进底部的折叠组。 */
-  function channelGroups(rows) {
-    const live = rows.filter(r => !r.channel.archived);
+  /** 置顶的在前，其余按最近活动。 */
+  const pinnedFirst = rows => [...rows.filter(r => r.channel.pinned).sort(byActivity), ...rows.filter(r => !r.channel.pinned).sort(byActivity)];
+
+  /** 侧栏按状态筛频道（综合行上的筛选）：进行中、已归档、全部。主频道不能归档，总在。 */
+  const CHANNEL_STATUS = ['active', 'archived', 'all'];
+  const CHANNEL_STATUS_LABEL = {active: '进行中', archived: '已归档', all: '全部'};
+  const matchesStatus = (channel, status) => status === 'all' || (status === 'archived' ? !!channel.archived : !channel.archived);
+
+  /**
+   * 频道侧栏的树（需求 §11.2 修订）：主频道一行，没分组的频道挂在它下面；每个分组另起一段，组里的频道挂在组下。
+   * 段内置顶的在前、其余按最近活动；分组按建立的先后。按状态筛掉的频道不列；进行中与全部时空的分组也列（刚建的分组要能看到、能往里放），
+   * 只看已归档时空的分组不列。频道的分组已经不在了，按没分组算。
+   */
+  function channelTree(rows, groups, status) {
+    const main = rows.find(r => r.channel.kind === 'main') || null;
+    const shown = rows.filter(r => r.channel.kind !== 'main' && matchesStatus(r.channel, status));
+    const known = new Set(groups.map(g => g.id));
+    const groupOf = r => (r.channel.groupId && known.has(r.channel.groupId) ? r.channel.groupId : null);
     return {
-      active: [
-        ...live.filter(r => r.channel.kind === 'main'),
-        ...live.filter(r => r.channel.kind !== 'main' && r.channel.pinned).sort(byActivity),
-        ...live.filter(r => r.channel.kind !== 'main' && !r.channel.pinned).sort(byActivity),
-      ],
-      archived: rows.filter(r => r.channel.archived).sort(byActivity),
+      main,
+      loose: pinnedFirst(shown.filter(r => !groupOf(r))),
+      groups: groups
+        .map(group => ({group, rows: pinnedFirst(shown.filter(r => groupOf(r) === group.id))}))
+        .filter(g => g.rows.length || status !== 'archived'),
+    };
+  }
+
+  // ---- 频道的图标、名字与确认框里的数 ----
+
+  /** 频道图标可选的 S2 workflow 图标（24 个，三行八列）；主频道固定用 Layers，不在里面。 */
+  const CHANNEL_ICONS = [
+    'Chat', 'Video', 'MovieCamera', 'Filmstrip', 'Microphone', 'MusicNote', 'Camera', 'Image',
+    'Edit', 'Brush', 'Translate', 'Education', 'Lightbulb', 'Code', 'ChartBarVert', 'Target',
+    'Calendar', 'Email', 'Briefcase', 'UserGroup', 'Heart', 'Star', 'GlobeGrid', 'Home',
+  ];
+  const CHANNEL_ICON_LABEL = {
+    Chat: '对话', Video: '视频', MovieCamera: '摄像机', Filmstrip: '胶片', Microphone: '话筒', MusicNote: '音乐', Camera: '相机', Image: '图片',
+    Edit: '笔', Brush: '画笔', Translate: '翻译', Education: '书', Lightbulb: '灯泡', Code: '代码', ChartBarVert: '图表', Target: '目标',
+    Calendar: '日历', Email: '邮件', Briefcase: '公文包', UserGroup: '人', Heart: '心', Star: '星', GlobeGrid: '地球', Home: '家',
+  };
+  /** 频道颜色：S2 色板里有 200（底色）与 1000（图标）两档的色相，两行各五个。 */
+  const CHANNEL_COLORS = ['magenta', 'red', 'orange', 'yellow', 'green', 'seafoam', 'cyan', 'blue', 'indigo', 'purple'];
+  const CHANNEL_COLOR_LABEL = {magenta: '品红', red: '红', orange: '橙', yellow: '黄', green: '绿', seafoam: '海绿', cyan: '青', blue: '蓝', indigo: '靛蓝', purple: '紫'};
+  const DEFAULT_CHANNEL_ICON = 'Chat';
+
+  /** 没选过颜色的频道按 id 取一个，同一个频道每次一样。 */
+  function defaultChannelColor(id) {
+    let h = 0;
+    for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return CHANNEL_COLORS[h % CHANNEL_COLORS.length];
+  }
+  /** 频道在侧栏与频道头的图标与颜色：主频道是 Layers、不着色；其余没选过的用对话气泡与按 id 取的颜色。 */
+  function channelLook(channel) {
+    if (channel.kind === 'main') return {icon: 'Layers', color: null};
+    return {
+      icon: CHANNEL_ICONS.includes(channel.icon) ? channel.icon : DEFAULT_CHANNEL_ICON,
+      color: CHANNEL_COLORS.includes(channel.color) ? channel.color : defaultChannelColor(channel.id),
+    };
+  }
+
+  const NAME_MAX = 40;
+  /** 频道名与分组名（BOT-CH-02）：必填，最多 40 字。 */
+  function nameError(name, what) {
+    const value = String(name || '').trim();
+    if (!value) return `给${what}起个名字`;
+    if (value.length > NAME_MAX) return `最多 ${NAME_MAX} 个字`;
+    return null;
+  }
+
+  /** 归档确认框里的数（需求 §2.3）：还没解决的任务（建议不算）里，定时的会暂停。 */
+  function archiveImpact(items, channelId) {
+    const open = items.filter(i => i.channelId === channelId && i.status !== 'resolved' && i.status !== 'suggested');
+    return {open: open.length, scheduled: open.filter(i => i.status === 'scheduled').length};
+  }
+  /** 删除确认框里的数（需求 §2.3）：会停掉的进行中智能体任务、会删掉的任务（建议不算）与定时任务。 */
+  function deleteImpact(items, channelId) {
+    const mine = items.filter(i => i.channelId === channelId && i.status !== 'suggested');
+    return {
+      working: mine.filter(i => i.owner === 'agent' && i.status === 'active' && (!i.active || i.active.state === 'working')).length,
+      tasks: mine.length,
+      scheduled: mine.filter(i => i.status === 'scheduled').length,
     };
   }
 
@@ -261,11 +332,15 @@
     const step = (text, state) => ({text, state});
     const channels = [
       {id: 'chan_main', kind: 'main', name: '综合', purpose: '', lastActivityAt: m(4), unread: false},
-      {id: 'chan_weekly', kind: 'custom', name: '每周讲解', purpose: '每周一期产品讲解视频：粗剪、字幕和封面', pinned: true, lastActivityAt: m(12), unread: true},
-      {id: 'chan_shorts', kind: 'custom', name: '短视频切条', purpose: '从长访谈里切竖版短视频', lastActivityAt: h(3), unread: false},
-      {id: 'chan_dub', kind: 'custom', name: '英文配音', purpose: '给教程做英文配音版', muted: true, lastActivityAt: d(2), unread: false},
-      {id: 'chan_old', kind: 'custom', name: '旧版教程', purpose: '', archived: true, lastActivityAt: d(40), unread: false},
+      {id: 'chan_weekly', kind: 'custom', name: '每周讲解', purpose: '每周一期产品讲解视频：粗剪、字幕和封面', pinned: true, lastActivityAt: m(12), unread: true,
+        icon: 'Video', color: 'purple', groupId: 'grp_tutorials'},
+      {id: 'chan_shorts', kind: 'custom', name: '短视频切条', purpose: '从长访谈里切竖版短视频', lastActivityAt: h(3), unread: false, icon: 'Filmstrip', color: 'orange'},
+      {id: 'chan_dub', kind: 'custom', name: '英文配音', purpose: '给教程做英文配音版', muted: true, lastActivityAt: d(2), unread: false,
+        icon: 'Microphone', color: 'blue', groupId: 'grp_tutorials'},
+      {id: 'chan_old', kind: 'custom', name: '旧版教程', purpose: '', archived: true, lastActivityAt: d(40), unread: false, icon: 'Education', color: 'seafoam'},
     ];
+    /** 侧栏的分组（需求 §11.2 修订）：只有名字；频道的 groupId 指过来，空的分组也留着。 */
+    const groups = [{id: 'grp_tutorials', name: '教程系列'}];
     const W = 'chan_main';
     const items = [
       {id: 'wi_cut', channelId: W, title: '粗剪第 12 期讲解', status: 'active', owner: 'agent', active: {state: 'needsReview'}, priority: 'high', updatedAt: m(6),
@@ -328,11 +403,12 @@
       chan_dub: [],
       chan_old: [],
     };
-    return {channels, items, timelines};
+    return {channels, groups, items, timelines};
   }
 
   const root = typeof window !== 'undefined' ? window : globalThis;
   root.BC_BOT = {STATUS, RELAY, QUICK_LABEL, NEW_TASK_DEFAULTS, statusKey, statusOf, needsUser, nextLine, channelSummaries, needsYouTotal,
-    channelGroups, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, defaultTab, quickActions, applyAction, newTask, openChips,
+    CHANNEL_STATUS, CHANNEL_STATUS_LABEL, matchesStatus, channelTree, CHANNEL_ICONS, CHANNEL_ICON_LABEL, CHANNEL_COLORS, CHANNEL_COLOR_LABEL, DEFAULT_CHANNEL_ICON,
+    defaultChannelColor, channelLook, NAME_MAX, nameError, archiveImpact, deleteImpact, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, defaultTab, quickActions, applyAction, newTask, openChips,
     OUTPUT_KIND, SUGGESTION_KIND, MAKE_TEMPLATES, makeGallery, taskFromTemplate, demo};
 })();
