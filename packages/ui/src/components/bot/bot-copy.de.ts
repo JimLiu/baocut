@@ -32,7 +32,6 @@ export const de: BotMessages = {
     newChannel: 'Neuer Kanal',
     inbox: 'Wartet auf dich',
     archived: 'Archiviert',
-    archivedNav: 'Archivierte Kanäle',
     pinned: 'Angeheftet',
     unread: 'Ungelesen',
     muted: 'Stummgeschaltet',
@@ -44,13 +43,39 @@ export const de: BotMessages = {
     unpin: 'Loslösen',
     mute: 'Stummschalten',
     unmute: 'Stummschaltung aufheben',
-    archive: 'Archivieren',
+    archive: 'Archivieren …',
     unarchive: 'Wiederherstellen',
     delete: 'Löschen …',
+    rowActions: (name: string) => `Aktionen für „${name}“`,
+    tools: 'Kanalliste',
+    statuses: { active: 'Aktiv', archived: 'Archiviert', all: 'Alle' },
+    status: 'Status',
+    filter: (status: string) => `Kanäle filtern: ${status}`,
+    filterMenu: 'Kanäle filtern',
+    add: 'Neu',
+    newChannelItem: 'Neuer Kanal …',
+    newGroupItem: 'Neue Gruppe …',
+    noArchived: 'Keine archivierten Kanäle.',
+    noOthers: 'Noch keine weiteren Kanäle.',
+    groupActions: (name: string) => `Aktionen für Gruppe „${name}“`,
+    groupAdd: (name: string) => `Neuer Kanal in „${name}“`,
+    renameGroup: 'Gruppe umbenennen …',
+    deleteGroup: 'Gruppe löschen',
+  },
+  menu: {
+    label: 'Kanalaktionen',
+    rename: 'Umbenennen …',
+    instructions: 'Anweisungen …',
+    icon: 'Symbol ändern …',
+    move: 'In Gruppe verschieben',
+    noGroup: 'Keine Gruppe',
+    newGroup: 'Neue Gruppe …',
+    schedule: 'Neue wiederkehrende Aufgabe …',
   },
   channel: {
-    noPurpose: 'Kein Zweck festgelegt – er kann alles',
-    memory: 'Gedächtnis',
+    noPurpose: 'Keine Anweisungen – er kann alles',
+    instructions: (text: string) => `Anweisungen: ${text}`,
+    writeInstructions: 'Anweisungen schreiben',
     tasks: (n: number) => (n === 0 ? 'Aufgaben' : n === 1 ? 'Aufgaben, 1 wartet auf dich' : `Aufgaben, ${n} warten auf dich`),
     placeholder: 'Sag, was du brauchst',
     readOnly: 'Der Agent dieses Kanals ist nicht verfügbar, daher kann die Unterhaltung nur gelesen werden.',
@@ -64,7 +89,6 @@ export const de: BotMessages = {
     archivedNote: 'Dieser Kanal ist archiviert. Stelle ihn wieder her, um hier weiterzuarbeiten.',
     spend: (today: string, month: string) => `Heute ${today} · diesen Monat ${month} ausgegeben`,
     taskSpend: (amount: string) => `Ausgegeben: ${amount}`,
-    recurring: 'Neue wiederkehrende Aufgabe',
   },
   away: {
     done: (n: number) => `${n} erledigt`,
@@ -199,10 +223,16 @@ export const de: BotMessages = {
     addTemplate: (title: string) => `„${title}“ einrichten`,
     moreTemplates: 'Weitere Vorlagen',
     template: {
-      transcribe: { title: 'Wöchentliche Transkripte', prompt: 'Transkribiere die neuen Aufnahmen im Materialordner und entwirf eine Gliederung.' },
+      transcribe: {
+        title: 'Wöchentliche Transkripte',
+        prompt: 'Transkribiere die neuen Aufnahmen im Materialordner und entwirf eine Gliederung.',
+      },
       tidy: { title: 'Material täglich ordnen', prompt: 'Ordne die neuen Dateien im beobachteten Ordner den passenden Videos zu.' },
       captions: { title: 'Untertitel ergänzen', prompt: 'Finde Videos ohne Untertitel oder Übersetzungen und liste sie auf.' },
-      drafts: { title: 'Unfertige Videos', prompt: 'Liste Videos auf, die seit 30 Tagen unberührt sind, und frag mich, ob ich sie behalten will.' },
+      drafts: {
+        title: 'Unfertige Videos',
+        prompt: 'Liste Videos auf, die seit 30 Tagen unberührt sind, und frag mich, ob ich sie behalten will.',
+      },
     },
   },
   side: {
@@ -285,13 +315,18 @@ export const de: BotMessages = {
     revertChecking: 'Videoverlauf wird geprüft …',
     revertNothing: 'Diese Aufgabe hat keine Videos geändert.',
     revertVideo: (name: string, edits: number) =>
-      edits === 0 ? `${name}: seitdem nicht von dir bearbeitet` : edits === 1 ? `${name}: seitdem einmal von dir bearbeitet` : `${name}: seitdem ${edits}-mal von dir bearbeitet`,
+      edits === 0
+        ? `${name}: seitdem nicht von dir bearbeitet`
+        : edits === 1
+          ? `${name}: seitdem einmal von dir bearbeitet`
+          : `${name}: seitdem ${edits}-mal von dir bearbeitet`,
     revertAgentOnly: 'Nur die des Agenten',
     revertEverything: 'Auch meine rückgängig machen',
     revertBlocked: (reason: string) => `Nur die Änderungen des Agenten lassen sich nicht rückgängig machen: ${reason}`,
     reverted: (n: number) => (n === 1 ? '1 Video wiederhergestellt' : `${n} Videos wiederhergestellt`),
     deleteTitle: 'Verlauf dieser Aufgabe löschen?',
-    deleteBody: 'Löscht den Thread, seine Notizen und seinen Verlauf sowie die Dateien unten im Kanalordner. Projektvideos und Space bleiben erhalten.',
+    deleteBody:
+      'Löscht den Thread, seine Notizen und seinen Verlauf sowie die Dateien unten im Kanalordner. Projektvideos und Space bleiben erhalten.',
     deleteNoFiles: 'Keine Dateien zu löschen.',
     deleteKept: 'Behalten, weil andere Aufgaben sie noch nutzen:',
     delete: 'Löschen',
@@ -342,7 +377,6 @@ export const de: BotMessages = {
     name: 'Name',
     nameRequired: 'Gib dem Kanal einen Namen',
     purpose: 'Zweck',
-    purposeHint: 'Leer lassen, wenn dieser Kanal alles darf',
     tooLong: (max: number) => `Höchstens ${max} Zeichen`,
     agent: 'Agent und Modell',
     defaultAccess: 'Standardzugriff',
@@ -369,8 +403,92 @@ export const de: BotMessages = {
     delete: 'Kanal löschen …',
     mainNote: 'Das ist der Standardkanal. Er kann weder archiviert noch gelöscht werden.',
     deleteTitle: (name: string) => `„${name}“ löschen?`,
-    deleteBody: (threads: number, schedules: number) =>
-      `Das stoppt ${threads === 1 ? '1 laufenden Thread' : `${threads} laufende Threads`} und löscht die Aufgaben des Kanals sowie ${schedules === 1 ? '1 wiederkehrende Aufgabe' : `${schedules} wiederkehrende Aufgaben`}. Projektordner, Videos und alles in Space Gespeicherte bleiben erhalten.`,
+    deleteBody: (threads: number, schedules: number) => {
+      const stop = threads ? `stoppt ${threads === 1 ? '1 laufenden Thread' : `${threads} laufende Threads`} und ` : '';
+      const recurring = schedules ? `, ${schedules === 1 ? '1 wiederkehrende Aufgabe' : `${schedules} wiederkehrende Aufgaben`}` : '';
+      return `Das ${stop}löscht die Aufgaben des Kanals${recurring}, Nachrichten, Dateien und das Gedächtnis. Das lässt sich nicht rückgängig machen.`;
+    },
+    deleteNote:
+      'Videos in deinen Projekten und in Space gespeicherte Ergebnisse sind nicht betroffen. Wenn du ihn nur nicht mehr sehen willst, archiviere ihn stattdessen.',
+    archiveInstead: 'Stattdessen archivieren',
+    archiveTitle: (name: string) => `„${name}“ archivieren?`,
+    archiveBody: (open: number, scheduled: number) =>
+      [
+        'Der Kanal kommt unter „Archiviert“, und du kannst ihn jederzeit wiederherstellen.',
+        open === 0
+          ? ''
+          : open === 1
+            ? 'Die offene Aufgabe bleibt erhalten, laufende Arbeit wird zu Ende geführt.'
+            : `Die ${open} offenen Aufgaben bleiben erhalten, laufende Arbeit wird zu Ende geführt.`,
+        scheduled === 0
+          ? ''
+          : scheduled === 1
+            ? '1 geplante Aufgabe wird pausiert; setze sie nach dem Wiederherstellen selbst fort.'
+            : `${scheduled} geplante Aufgaben werden pausiert; setze sie nach dem Wiederherstellen selbst fort.`,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    archived: (name: string) => `„${name}“ archiviert`,
+    restored: (name: string) => `„${name}“ wiederhergestellt`,
+    deleted: (name: string) => `„${name}“ gelöscht`,
+    renameTitle: 'Kanal umbenennen',
+    channelName: 'Kanalname',
+    createNote:
+      'Ein Kanal pro Vorhaben; der Standardkanal bleibt, wie er ist. Agent, Zugriff und Budget änderst du nach dem Erstellen in den Kanaleinstellungen.',
+    createInGroup: (group: string) => `Er kommt in die Gruppe „${group}“. Ein Kanal pro Vorhaben; der Standardkanal bleibt, wie er ist.`,
+    newGroupTitle: 'Neue Gruppe',
+    renameGroupTitle: 'Gruppe umbenennen',
+    groupName: 'Gruppenname',
+    groupRequired: 'Gib der Gruppe einen Namen',
+    newGroupNote: 'Eine Gruppe hält Kanäle nur zusammen. An ihrer Arbeitsweise ändert sie nichts.',
+    newGroupMove: 'Nach dem Erstellen wird der Kanal hineinverschoben.',
+    createGroup: 'Gruppe erstellen',
+    groupDeleted: (name: string) => `Gruppe „${name}“ gelöscht. Ihre Kanäle sind nicht mehr gruppiert.`,
+    instructionsTitle: 'Kanalanweisungen',
+    instructionsLabel: 'Anweisungen',
+    instructionsPlaceholder: 'Wofür ist dieser Kanal da, und wie soll der Agent arbeiten?',
+    instructionsHint: 'Unterhaltungen und Aufgaben in diesem Kanal richten sich danach. Leer lassen, wenn der Kanal alles darf.',
+    iconTitle: 'Kanalsymbol ändern',
+    iconHead: 'Symbol',
+    colorHead: 'Farbe',
+    iconNames: {
+      Chat: 'Chat',
+      Video: 'Video',
+      MovieCamera: 'Filmkamera',
+      Filmstrip: 'Filmstreifen',
+      Microphone: 'Mikrofon',
+      MusicNote: 'Musik',
+      Camera: 'Kamera',
+      Image: 'Bild',
+      Edit: 'Stift',
+      Brush: 'Pinsel',
+      Translate: 'Übersetzen',
+      Education: 'Buch',
+      Lightbulb: 'Glühbirne',
+      Code: 'Code',
+      ChartBarVert: 'Diagramm',
+      Target: 'Zielscheibe',
+      Calendar: 'Kalender',
+      Email: 'E-Mail',
+      Briefcase: 'Aktentasche',
+      UserGroup: 'Personen',
+      Heart: 'Herz',
+      Star: 'Stern',
+      GlobeGrid: 'Globus',
+      Home: 'Zuhause',
+    },
+    colorNames: {
+      magenta: 'Magenta',
+      red: 'Rot',
+      orange: 'Orange',
+      yellow: 'Gelb',
+      green: 'Grün',
+      seafoam: 'Meeresgrün',
+      cyan: 'Cyan',
+      blue: 'Blau',
+      indigo: 'Indigo',
+      purple: 'Lila',
+    },
     deleteCounting: 'Zähle, was gestoppt wird …',
     deleteConfirm: 'Löschen',
     export: 'Exportieren…',
@@ -402,7 +520,8 @@ export const de: BotMessages = {
     pauseDesc: 'Geplante Aufgaben und Vorschläge warten, bis du fortsetzt.',
     saveFailed: (message: string) => `Speichern fehlgeschlagen: ${message}`,
     makeAuto: 'Aufgaben von selbst vorschlagen',
-    makeAutoDesc: 'Nach einem neuen Kanal, einer erledigten Aufgabe oder einem Bericht mit Folgeschritten, bis zu 3-mal am Tag pro Kanal. Aus: nur auf Anfrage.',
+    makeAutoDesc:
+      'Nach einem neuen Kanal, einer erledigten Aufgabe oder einem Bericht mit Folgeschritten, bis zu 3-mal am Tag pro Kanal. Aus: nur auf Anfrage.',
     supplementHints: 'Schnellantworten ergänzen',
     supplementHintsDesc: 'Wenn der Agent „Soll ich …?“ fragt, ohne Antworten anzubieten, Ja und Nein darunter zeigen.',
   },

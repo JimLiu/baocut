@@ -32,7 +32,6 @@ export const it: BotMessages = {
     newChannel: 'Nuovo canale',
     inbox: 'Ti aspettano',
     archived: 'Archiviati',
-    archivedNav: 'Canali archiviati',
     pinned: 'Fissato',
     unread: 'Da leggere',
     muted: 'Silenziato',
@@ -44,13 +43,39 @@ export const it: BotMessages = {
     unpin: 'Sblocca',
     mute: 'Silenzia',
     unmute: 'Riattiva notifiche',
-    archive: 'Archivia',
+    archive: 'Archivia…',
     unarchive: 'Ripristina',
     delete: 'Elimina…',
+    rowActions: (name: string) => `Azioni per «${name}»`,
+    tools: 'Elenco dei canali',
+    statuses: { active: 'Attivi', archived: 'Archiviati', all: 'Tutti' },
+    status: 'Stato',
+    filter: (status: string) => `Filtra canali: ${status}`,
+    filterMenu: 'Filtra canali',
+    add: 'Nuovo',
+    newChannelItem: 'Nuovo canale…',
+    newGroupItem: 'Nuovo gruppo…',
+    noArchived: 'Nessun canale archiviato.',
+    noOthers: 'Ancora nessun altro canale.',
+    groupActions: (name: string) => `Azioni per il gruppo «${name}»`,
+    groupAdd: (name: string) => `Nuovo canale in «${name}»`,
+    renameGroup: 'Rinomina gruppo…',
+    deleteGroup: 'Elimina gruppo',
+  },
+  menu: {
+    label: 'Azioni del canale',
+    rename: 'Rinomina…',
+    instructions: 'Istruzioni…',
+    icon: 'Cambia icona…',
+    move: 'Sposta nel gruppo',
+    noGroup: 'Nessun gruppo',
+    newGroup: 'Nuovo gruppo…',
+    schedule: 'Nuova attività ricorrente…',
   },
   channel: {
-    noPurpose: 'Nessuno scopo impostato: può fare qualsiasi cosa',
-    memory: 'Memoria',
+    noPurpose: 'Nessuna istruzione: può fare qualsiasi cosa',
+    instructions: (text: string) => `Istruzioni: ${text}`,
+    writeInstructions: 'Scrivi istruzioni',
     tasks: (n: number) => (n === 0 ? 'Attività' : n === 1 ? 'Attività, 1 ti aspetta' : `Attività, ${n} ti aspettano`),
     placeholder: 'Digli di cosa hai bisogno',
     readOnly: 'L’agente di questo canale non è disponibile, quindi la conversazione è di sola lettura.',
@@ -64,7 +89,6 @@ export const it: BotMessages = {
     archivedNote: 'Questo canale è archiviato. Ripristinalo per continuare a lavorarci.',
     spend: (today: string, month: string) => `Speso oggi ${today} · questo mese ${month}`,
     taskSpend: (amount: string) => `Speso: ${amount}`,
-    recurring: 'Nuova attività ricorrente',
   },
   away: {
     done: (n: number) => (n === 1 ? '1 fatta' : `${n} fatte`),
@@ -199,7 +223,10 @@ export const it: BotMessages = {
     addTemplate: (title: string) => `Imposta «${title}»`,
     moreTemplates: 'Altri modelli',
     template: {
-      transcribe: { title: 'Trascrizioni settimanali', prompt: 'Trascrivi le nuove registrazioni nella cartella dei materiali e prepara una scaletta.' },
+      transcribe: {
+        title: 'Trascrizioni settimanali',
+        prompt: 'Trascrivi le nuove registrazioni nella cartella dei materiali e prepara una scaletta.',
+      },
       tidy: { title: 'Riordino quotidiano dei materiali', prompt: 'Smista i nuovi file della cartella monitorata nei rispettivi video.' },
       captions: { title: 'Completa i sottotitoli', prompt: 'Trova i video senza sottotitoli o traduzioni e fanne un elenco.' },
       drafts: { title: 'Video incompiuti', prompt: 'Elenca i video fermi da 30 giorni e chiedimi se tenerli.' },
@@ -285,13 +312,18 @@ export const it: BotMessages = {
     revertChecking: 'Controllo della cronologia del video…',
     revertNothing: 'Questa attività non ha modificato alcun video.',
     revertVideo: (name: string, edits: number) =>
-      edits === 0 ? `${name}: da allora non l’hai modificato` : edits === 1 ? `${name}: da allora l’hai modificato 1 volta` : `${name}: da allora l’hai modificato ${edits} volte`,
+      edits === 0
+        ? `${name}: da allora non l’hai modificato`
+        : edits === 1
+          ? `${name}: da allora l’hai modificato 1 volta`
+          : `${name}: da allora l’hai modificato ${edits} volte`,
     revertAgentOnly: 'Annulla solo quelle dell’agente',
     revertEverything: 'Annulla anche le mie',
     revertBlocked: (reason: string) => `Impossibile annullare solo le modifiche dell’agente: ${reason}`,
     reverted: (n: number) => (n === 1 ? '1 video ripristinato' : `${n} video ripristinati`),
     deleteTitle: 'Eliminare la cronologia di questa attività?',
-    deleteBody: 'Elimina il thread, le sue note e la cronologia, e i file qui sotto dalla cartella del canale. I video del progetto e Space restano.',
+    deleteBody:
+      'Elimina il thread, le sue note e la cronologia, e i file qui sotto dalla cartella del canale. I video del progetto e Space restano.',
     deleteNoFiles: 'Nessun file da eliminare.',
     deleteKept: 'Conservati perché altre attività li usano ancora:',
     delete: 'Elimina',
@@ -342,7 +374,6 @@ export const it: BotMessages = {
     name: 'Nome',
     nameRequired: 'Dai un nome al canale',
     purpose: 'Scopo',
-    purposeHint: 'Lascia vuoto se questo canale può fare qualsiasi cosa',
     tooLong: (max: number) => `Al massimo ${max} caratteri`,
     agent: 'Agente e modello',
     defaultAccess: 'Accesso predefinito',
@@ -369,8 +400,91 @@ export const it: BotMessages = {
     delete: 'Elimina canale…',
     mainNote: 'È il canale predefinito. Non può essere archiviato né eliminato.',
     deleteTitle: (name: string) => `Eliminare «${name}»?`,
-    deleteBody: (threads: number, schedules: number) =>
-      `Ferma ${threads === 1 ? '1 thread in corso' : `${threads} thread in corso`} ed elimina le attività del canale e ${schedules === 1 ? '1 attività ricorrente' : `${schedules} attività ricorrenti`}. Le cartelle dei progetti, i video e ciò che è salvato in Space restano.`,
+    deleteBody: (threads: number, schedules: number) => {
+      const head = threads ? `Ferma ${threads === 1 ? '1 thread in corso' : `${threads} thread in corso`} ed elimina` : 'Elimina';
+      const recurring = schedules ? `, ${schedules === 1 ? '1 attività ricorrente' : `${schedules} attività ricorrenti`}` : '';
+      return `${head} le attività del canale${recurring}, i messaggi, i file e la memoria. Non si può annullare.`;
+    },
+    deleteNote: 'I video nei tuoi progetti e i risultati salvati in Space non vengono toccati. Se vuoi solo non vederlo più, archivialo.',
+    archiveInstead: 'Archivia invece',
+    archiveTitle: (name: string) => `Archiviare «${name}»?`,
+    archiveBody: (open: number, scheduled: number) =>
+      [
+        'Il canale passa in «Archiviati» e puoi ripristinarlo quando vuoi.',
+        open === 0
+          ? ''
+          : open === 1
+            ? 'La sua attività aperta resta e il lavoro in corso viene completato.'
+            : `Le sue ${open} attività aperte restano e il lavoro in corso viene completato.`,
+        scheduled === 0
+          ? ''
+          : scheduled === 1
+            ? '1 attività programmata viene messa in pausa; riprendila tu dopo il ripristino.'
+            : `${scheduled} attività programmate vengono messe in pausa; riprendile tu dopo il ripristino.`,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    archived: (name: string) => `«${name}» archiviato`,
+    restored: (name: string) => `«${name}» ripristinato`,
+    deleted: (name: string) => `«${name}» eliminato`,
+    renameTitle: 'Rinomina canale',
+    channelName: 'Nome del canale',
+    createNote:
+      'Un canale per ogni lavoro; il canale predefinito resta com’è. Agente, accesso e budget si cambiano nelle impostazioni del canale dopo averlo creato.',
+    createInGroup: (group: string) => `Finirà nel gruppo «${group}». Un canale per ogni lavoro; il canale predefinito resta com’è.`,
+    newGroupTitle: 'Nuovo gruppo',
+    renameGroupTitle: 'Rinomina gruppo',
+    groupName: 'Nome del gruppo',
+    groupRequired: 'Dai un nome al gruppo',
+    newGroupNote: 'Un gruppo tiene solo insieme i canali. Non cambia il modo in cui funzionano.',
+    newGroupMove: 'Il canale ci verrà spostato appena creato.',
+    createGroup: 'Crea gruppo',
+    groupDeleted: (name: string) => `Gruppo «${name}» eliminato. I suoi canali non sono più raggruppati.`,
+    instructionsTitle: 'Istruzioni del canale',
+    instructionsLabel: 'Istruzioni',
+    instructionsPlaceholder: 'A cosa serve questo canale e come deve lavorare l’agente?',
+    instructionsHint: 'Le conversazioni e le attività di questo canale le seguono. Lascia vuoto se il canale può fare qualsiasi cosa.',
+    iconTitle: 'Cambia icona del canale',
+    iconHead: 'Icona',
+    colorHead: 'Colore',
+    iconNames: {
+      Chat: 'Chat',
+      Video: 'Video',
+      MovieCamera: 'Cinepresa',
+      Filmstrip: 'Pellicola',
+      Microphone: 'Microfono',
+      MusicNote: 'Musica',
+      Camera: 'Fotocamera',
+      Image: 'Immagine',
+      Edit: 'Penna',
+      Brush: 'Pennello',
+      Translate: 'Traduci',
+      Education: 'Libro',
+      Lightbulb: 'Lampadina',
+      Code: 'Codice',
+      ChartBarVert: 'Grafico',
+      Target: 'Bersaglio',
+      Calendar: 'Calendario',
+      Email: 'Email',
+      Briefcase: 'Valigetta',
+      UserGroup: 'Persone',
+      Heart: 'Cuore',
+      Star: 'Stella',
+      GlobeGrid: 'Globo',
+      Home: 'Casa',
+    },
+    colorNames: {
+      magenta: 'Magenta',
+      red: 'Rosso',
+      orange: 'Arancione',
+      yellow: 'Giallo',
+      green: 'Verde',
+      seafoam: 'Verde acqua',
+      cyan: 'Ciano',
+      blue: 'Blu',
+      indigo: 'Indaco',
+      purple: 'Viola',
+    },
     deleteCounting: 'Conteggio di ciò che si fermerà…',
     deleteConfirm: 'Elimina',
     export: 'Esporta…',
@@ -402,7 +516,8 @@ export const it: BotMessages = {
     pauseDesc: 'Attività programmate e suggerimenti aspettano finché non riprendi.',
     saveFailed: (message: string) => `Impossibile salvare: ${message}`,
     makeAuto: 'Suggerire attività da solo',
-    makeAutoDesc: 'Dopo un nuovo canale, un’attività completata o un rapporto con seguiti, fino a 3 volte al giorno per canale. Disattivato: solo su richiesta.',
+    makeAutoDesc:
+      'Dopo un nuovo canale, un’attività completata o un rapporto con seguiti, fino a 3 volte al giorno per canale. Disattivato: solo su richiesta.',
     supplementHints: 'Aggiungere risposte rapide',
     supplementHintsDesc: 'Quando l’agente chiede «Devo…?» senza offrire risposte, mostra Sì e No sotto.',
   },

@@ -5,7 +5,6 @@ import {
   BOT_LIMITS,
   MAIN_CHANNEL_ID,
   RpcError,
-  newId,
   type AgentMode,
   type Channel,
   type ChannelPatch,
@@ -26,20 +25,18 @@ import {
   PickerItem,
   ProgressCircle,
   Switch,
-  TextArea,
   TextField,
   ToastQueue,
 } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { ACCESS_MODE_LABEL } from '../../copy.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import { useBotLayout } from '../../state/bot-layout-store.ts';
 import { useChannelSummary } from '../../state/channels-store.ts';
 import { defaultDriver, useConnection } from '../../state/connection-store.ts';
 import { AgentPicker } from '../agent-picker.tsx';
 import { errorText, useBotCall } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
-
-export type ChannelDialogState = { mode: 'create' } | { mode: 'settings'; channelId: Id };
 
 const fieldRow = style({ display: 'flex', flexDirection: 'column', gap: 4 });
 const fieldLabel = style({ font: 'ui-sm', color: 'gray-800' });
@@ -49,12 +46,13 @@ const cell = style({ flexGrow: 1, flexBasis: 0, minWidth: 120 });
 // 导出、归档、删除不进底部按钮组：五个按钮挤不下，按钮组会竖着排成一列。
 const manageRow = style({ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 24 });
 const note = style({ margin: 0, font: 'ui-sm', color: 'gray-600' });
+/** 对话框标题下面的频道名、删除确认框里的说明。 */
+const lead = style({ margin: 0, marginBottom: 12, font: 'ui', color: 'gray-700' });
 const body = style({ margin: 0, font: 'body-sm', color: 'gray-800' });
+const deleteNote = style({ margin: 0, marginTop: 12, font: 'ui', color: 'gray-700' });
 const busyRow = style({ display: 'flex', alignItems: 'center', gap: 8, font: 'ui-sm', color: 'gray-700' });
 
 interface Draft {
-  name: string;
-  purpose: string;
   driverId: string | null;
   model: string | null;
   effort: string | null;
@@ -72,8 +70,6 @@ interface Draft {
 
 function draftOf(channel: Channel | undefined, driverId: string | null): Draft {
   return {
-    name: channel?.name ?? '',
-    purpose: channel?.purpose ?? '',
     driverId: channel?.driverId ?? driverId,
     model: channel?.model ?? null,
     effort: channel?.effort ?? null,
@@ -102,8 +98,6 @@ function sameMoney(a: Money | null, b: Money | null): boolean {
 /** 设置里改了的字段才发（没动的 Agent 不发，频道对话有过任务后换 Agent 会被拒）。 */
 function patchOf(channel: Channel, draft: Draft): ChannelPatch {
   const patch: ChannelPatch = {};
-  if (draft.name.trim() !== channel.name) patch.name = draft.name.trim();
-  if (draft.purpose.trim() !== channel.purpose) patch.purpose = draft.purpose.trim();
   if (draft.driverId && (draft.driverId !== channel.driverId || draft.model !== channel.model || draft.effort !== channel.effort)) {
     patch.driverId = draft.driverId;
     patch.model = draft.model;
@@ -125,21 +119,12 @@ function patchOf(channel: Channel, draft: Draft): ChannelPatch {
 }
 
 /**
- * 新建频道与频道设置（BOT-CH-03、BOT-CH-05…07、BOT-SF-01、需求 §11.2）。新建只问名字、用途、Agent、默认访问与产物语言；
- * 设置里再加静音、私密、并发、卡住分钟数与预算，以及归档、恢复和删除。主频道不能归档、删除。
+ * 频道设置（BOT-CH-03、BOT-CH-05…07、BOT-SF-01、需求 §11.3 修订，原型 page-bot-channel-dialogs.jsx `BotSettingsDialog`）：
+ * Agent 与模型、默认与最高访问模式、产物语言、静音、私密、同时工作的任务数、停下阈值、预算；下面是导出、归档、删除（主频道只有导出）。
+ * 名字与说明不在这里：频道菜单的「重命名…」「说明…」各有对话框。归档与删除打开各自的确认框，恢复直接做。
  */
-export function ChannelDialog({
-  state,
-  onClose,
-  onCreated,
-  onDelete,
-}: {
-  state: ChannelDialogState;
-  onClose: () => void;
-  onCreated: (channelId: Id) => void;
-  onDelete: (summary: ChannelSummary) => void;
-}) {
-  const summary = useChannelSummary(state.mode === 'settings' ? state.channelId : null);
+export function ChannelSettingsDialog({ channelId, onClose }: { channelId: Id; onClose: () => void }) {
+  const summary = useChannelSummary(channelId);
   const channel = summary?.channel;
   const drivers = useConnection((s) => s.drivers);
   const checking = useConnection((s) => s.checking);
@@ -155,38 +140,22 @@ export function ChannelDialog({
     if (!draft.driverId && fallbackDriver) setDraft((d) => ({ ...d, driverId: fallbackDriver }));
   }, [draft.driverId, fallbackDriver]);
 
-  const creating = state.mode === 'create';
-  if (!creating && !channel) return null;
-  const main = channel?.id === MAIN_CHANNEL_ID || channel?.kind === 'main';
-  const nameError = !draft.name.trim() ? C.dialog.nameRequired : draft.name.trim().length > BOT_LIMITS.channelName ? C.dialog.tooLong(BOT_LIMITS.channelName) : null;
-  const purposeError = draft.purpose.length > BOT_LIMITS.channelPurpose ? C.dialog.tooLong(BOT_LIMITS.channelPurpose) : null;
-  const valid = !nameError && !purposeError;
+  if (!channel) return null;
+  const main = channel.id === MAIN_CHANNEL_ID || channel.kind === 'main';
 
   const submit = async () => {
-    if (!valid || busy) return;
+    if (busy) return;
+    const patch = patchOf(channel, draft);
+    if (!Object.keys(patch).length) return onClose();
     setBusy('save');
-    if (creating) {
-      const result = await call('channels.create', {
-        name: draft.name.trim(),
-        purpose: draft.purpose.trim(),
-        ...(draft.driverId ? { driverId: draft.driverId, model: draft.model, effort: draft.effort } : {}),
-        defaultAccessMode: draft.defaultAccessMode,
-        outputLanguage: draft.outputLanguage.trim() || null,
-        commandId: newId('cmd'),
-      });
-      setBusy(null);
-      if (result) onCreated(result.channel.id);
-      return;
-    }
-    const patch = patchOf(channel!, draft);
-    const result = Object.keys(patch).length ? await call('channels.update', { id: channel!.id, patch }) : true;
+    const result = await call('channels.update', { id: channel.id, patch });
     setBusy(null);
     if (result) onClose();
   };
 
   // 导出频道（BOT-CH-13）：选一个文件夹，Runtime 在里面建一个子文件夹写对话、任务（含状态转换记录）与记忆。
   const exportChannel = async () => {
-    if (!channel || busy) return;
+    if (busy) return;
     const dir = await runtime.host.pickDirectory({ title: C.dialog.exportPick });
     if (!dir) return;
     setBusy('export');
@@ -201,44 +170,29 @@ export function ChannelDialog({
       });
   };
 
-  const toggleArchive = async () => {
-    if (!channel) return;
+  const restore = async () => {
     setBusy('archive');
-    const result = await call(channel.archived ? 'channels.unarchive' : 'channels.archive', { id: channel.id });
+    const result = await call('channels.unarchive', { id: channel.id });
     setBusy(null);
-    if (result) onClose();
+    if (!result) return;
+    ToastQueue.positive(C.dialog.restored(channel.name), { timeout: 5000 });
+    onClose();
   };
+  const openDialog = (kind: 'archive' | 'delete') => useBotLayout.getState().setDialog({ kind, channelId: channel.id });
 
   return (
     <DialogContainer onDismiss={onClose}>
       <Dialog size="M">
         {({ close }) => (
           <>
-            <Heading slot="title">{creating ? C.dialog.createTitle : C.dialog.settingsTitle}</Heading>
+            <Heading slot="title">{C.dialog.settingsTitle}</Heading>
             <Content>
+              <p className={lead}>{channel.name}</p>
               <Form
                 onSubmit={(event) => {
                   event.preventDefault();
                   void submit();
                 }}>
-                <TextField
-                  label={C.dialog.name}
-                  value={draft.name}
-                  onChange={(value) => set('name', value)}
-                  autoFocus={creating}
-                  isRequired
-                  maxLength={BOT_LIMITS.channelName}
-                  isInvalid={!!draft.name && !!nameError}
-                  errorMessage={nameError ?? undefined}
-                />
-                <TextArea
-                  label={C.dialog.purpose}
-                  description={C.dialog.purposeHint}
-                  value={draft.purpose}
-                  onChange={(value) => set('purpose', value)}
-                  isInvalid={!!purposeError}
-                  errorMessage={purposeError ?? undefined}
-                />
                 <div className={fieldRow}>
                   <span className={fieldLabel}>{C.dialog.agent}</span>
                   <div>
@@ -265,20 +219,18 @@ export function ChannelDialog({
                       </PickerItem>
                     ))}
                   </Picker>
-                  {creating ? null : (
-                    <Picker
-                      label={C.dialog.maxAccess}
-                      styles={cell}
-                      selectedKey={draft.maxAccessMode ?? 'none'}
-                      onSelectionChange={(key) => set('maxAccessMode', key === 'none' ? null : (key as AgentMode))}>
-                      <PickerItem id="none">{C.dialog.noLimit}</PickerItem>
-                      {ACCESS_MODES.map((mode) => (
-                        <PickerItem key={mode} id={mode}>
-                          {ACCESS_MODE_LABEL[mode]}
-                        </PickerItem>
-                      ))}
-                    </Picker>
-                  )}
+                  <Picker
+                    label={C.dialog.maxAccess}
+                    styles={cell}
+                    selectedKey={draft.maxAccessMode ?? 'none'}
+                    onSelectionChange={(key) => set('maxAccessMode', key === 'none' ? null : (key as AgentMode))}>
+                    <PickerItem id="none">{C.dialog.noLimit}</PickerItem>
+                    {ACCESS_MODES.map((mode) => (
+                      <PickerItem key={mode} id={mode}>
+                        {ACCESS_MODE_LABEL[mode]}
+                      </PickerItem>
+                    ))}
+                  </Picker>
                 </div>
                 <TextField
                   label={C.dialog.outputLanguage}
@@ -287,85 +239,82 @@ export function ChannelDialog({
                   onChange={(value) => set('outputLanguage', value)}
                   maxLength={35}
                 />
-                {creating ? null : (
+                <Switch isSelected={draft.muted} onChange={(on) => set('muted', on)}>
+                  {C.dialog.muted}
+                </Switch>
+                <p className={note}>{C.dialog.mutedHint}</p>
+                <Switch isSelected={draft.private} onChange={(on) => set('private', on)}>
+                  {C.dialog.private}
+                </Switch>
+                <p className={note}>{C.dialog.privateHint}</p>
+                <div className={twoUp}>
+                  <NumberField
+                    label={C.dialog.concurrent}
+                    styles={cell}
+                    minValue={1}
+                    maxValue={BOT_LIMITS.maxConcurrentThreads}
+                    step={1}
+                    value={draft.concurrentThreads}
+                    onChange={(value) => Number.isFinite(value) && set('concurrentThreads', value)}
+                  />
+                  <NumberField
+                    label={C.dialog.stall}
+                    styles={cell}
+                    description={C.dialog.stallHint}
+                    minValue={1}
+                    maxValue={24 * 60}
+                    step={1}
+                    value={draft.stallMinutes ?? Number.NaN}
+                    onChange={(value) => set('stallMinutes', Number.isFinite(value) ? value : null)}
+                  />
+                </div>
+                <div className={twoUp}>
+                  <TextField
+                    label={C.dialog.dailyBudget}
+                    styles={cell}
+                    description={C.dialog.budgetHint}
+                    inputMode="decimal"
+                    value={draft.dailyBudget}
+                    onChange={(value) => set('dailyBudget', value)}
+                  />
+                  <TextField
+                    label={C.dialog.monthlyBudget}
+                    styles={cell}
+                    inputMode="decimal"
+                    value={draft.monthlyBudget}
+                    onChange={(value) => set('monthlyBudget', value)}
+                  />
+                  <TextField label={C.dialog.currency} styles={cell} value={draft.currency} maxLength={3} onChange={(value) => set('currency', value)} />
+                </div>
+                {main ? <p className={note}>{C.dialog.mainNote}</p> : null}
+              </Form>
+              <div className={manageRow}>
+                <Button variant="secondary" fillStyle="outline" isPending={busy === 'export'} isDisabled={!!busy} onPress={() => void exportChannel()}>
+                  {C.dialog.export}
+                </Button>
+                {main ? null : (
                   <>
-                    <Switch isSelected={draft.muted} onChange={(on) => set('muted', on)}>
-                      {C.dialog.muted}
-                    </Switch>
-                    <p className={note}>{C.dialog.mutedHint}</p>
-                    <Switch isSelected={draft.private} onChange={(on) => set('private', on)}>
-                      {C.dialog.private}
-                    </Switch>
-                    <p className={note}>{C.dialog.privateHint}</p>
-                    <div className={twoUp}>
-                      <NumberField
-                        label={C.dialog.concurrent}
-                        styles={cell}
-                        minValue={1}
-                        maxValue={BOT_LIMITS.maxConcurrentThreads}
-                        step={1}
-                        value={draft.concurrentThreads}
-                        onChange={(value) => Number.isFinite(value) && set('concurrentThreads', value)}
-                      />
-                      <NumberField
-                        label={C.dialog.stall}
-                        styles={cell}
-                        description={C.dialog.stallHint}
-                        minValue={1}
-                        maxValue={24 * 60}
-                        step={1}
-                        value={draft.stallMinutes ?? Number.NaN}
-                        onChange={(value) => set('stallMinutes', Number.isFinite(value) ? value : null)}
-                      />
-                    </div>
-                    <div className={twoUp}>
-                      <TextField
-                        label={C.dialog.dailyBudget}
-                        styles={cell}
-                        description={C.dialog.budgetHint}
-                        inputMode="decimal"
-                        value={draft.dailyBudget}
-                        onChange={(value) => set('dailyBudget', value)}
-                      />
-                      <TextField
-                        label={C.dialog.monthlyBudget}
-                        styles={cell}
-                        inputMode="decimal"
-                        value={draft.monthlyBudget}
-                        onChange={(value) => set('monthlyBudget', value)}
-                      />
-                      <TextField label={C.dialog.currency} styles={cell} value={draft.currency} maxLength={3} onChange={(value) => set('currency', value)} />
-                    </div>
-                    {main ? <p className={note}>{C.dialog.mainNote}</p> : null}
+                    <Button
+                      variant="secondary"
+                      fillStyle="outline"
+                      isPending={busy === 'archive'}
+                      isDisabled={!!busy}
+                      onPress={() => (channel.archived ? void restore() : openDialog('archive'))}>
+                      {channel.archived ? C.dialog.unarchive : C.sidebar.archive}
+                    </Button>
+                    <Button variant="negative" fillStyle="outline" isDisabled={!!busy} onPress={() => openDialog('delete')}>
+                      {C.dialog.delete}
+                    </Button>
                   </>
                 )}
-              </Form>
-              {!creating && channel ? (
-                <div className={manageRow}>
-                  <Button variant="secondary" fillStyle="outline" isPending={busy === 'export'} isDisabled={!!busy} onPress={() => void exportChannel()}>
-                    {C.dialog.export}
-                  </Button>
-                  {main ? null : (
-                    <>
-                      <Button variant="secondary" fillStyle="outline" isPending={busy === 'archive'} isDisabled={!!busy} onPress={() => void toggleArchive()}>
-                        {channel.archived ? C.dialog.unarchive : C.dialog.archive}
-                      </Button>
-                      {summary ? (
-                        <Button variant="negative" fillStyle="outline" isDisabled={!!busy} onPress={() => onDelete(summary)}>
-                          {C.dialog.delete}
-                        </Button>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              ) : null}
+              </div>
             </Content>
             <ButtonGroup>
               <Button variant="secondary" onPress={close}>
                 {C.common.cancel}
               </Button>
-              <Button variant="accent" isDisabled={!valid || !!busy} isPending={busy === 'save'} onPress={() => void submit()}>
-                {creating ? C.dialog.create : C.dialog.save}
+              <Button variant="accent" isDisabled={!!busy} isPending={busy === 'save'} onPress={() => void submit()}>
+                {C.dialog.save}
               </Button>
             </ButtonGroup>
           </>
@@ -387,15 +336,17 @@ function countsOf(error: unknown): DeleteCounts | null {
 }
 
 /**
- * 删除频道（BOT-CH-07）：先问 Runtime 此刻会停掉几个线程、删掉几个周期任务（用一个必然不符的确认数去问，`conflict` 带回实时计数），
+ * 删除频道（BOT-CH-07、需求 §2.3，原型 page-bot-dialogs.jsx `DeleteDialog`）：先问 Runtime 此刻会停掉几个线程、删掉几个周期任务（用一个必然不符的确认数去问，`conflict` 带回实时计数），
  * 写进确认框；确认时带上这两个数，期间数变了 Runtime 再拒一次，框里换成新数让用户重新确认。
+ * 删除无法撤销，没归档的频道旁边给「改为归档」。
  */
 export function DeleteChannelDialog({ summary, onClose, onDeleted }: { summary: ChannelSummary; onClose: () => void; onDeleted: () => void }) {
   const { channel } = summary;
   const [counts, setCounts] = useState<DeleteCounts | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'delete' | 'archive' | null>(null);
   const client = useRuntime().client;
+  const call = useBotCall();
   const deleted = useRef(onDeleted);
   deleted.current = onDeleted;
 
@@ -416,17 +367,26 @@ export function DeleteChannelDialog({ summary, onClose, onDeleted }: { summary: 
 
   const confirm = async () => {
     if (!counts) return;
-    setBusy(true);
+    setBusy('delete');
     try {
       await client.request('channels.delete', { id: channel.id, confirm: counts });
+      ToastQueue.positive(C.dialog.deleted(channel.name), { timeout: 5000 });
       onDeleted();
     } catch (error) {
       const next = countsOf(error);
       if (next) setCounts(next);
       else setFailure(errorText(error));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
+  };
+  const archiveInstead = async () => {
+    setBusy('archive');
+    const result = await call('channels.archive', { id: channel.id });
+    setBusy(null);
+    if (!result) return;
+    ToastQueue.positive(C.dialog.archived(channel.name), { timeout: 5000 });
+    onClose();
   };
 
   return (
@@ -439,7 +399,10 @@ export function DeleteChannelDialog({ summary, onClose, onDeleted }: { summary: 
               {failure ? (
                 <p className={body}>{C.common.failed(failure)}</p>
               ) : counts ? (
-                <p className={body}>{C.dialog.deleteBody(counts.threads, counts.schedules)}</p>
+                <>
+                  <p className={body}>{C.dialog.deleteBody(counts.threads, counts.schedules)}</p>
+                  <p className={deleteNote}>{C.dialog.deleteNote}</p>
+                </>
               ) : (
                 <div className={busyRow}>
                   <ProgressCircle size="S" isIndeterminate aria-label={C.dialog.deleteCounting} />
@@ -451,7 +414,12 @@ export function DeleteChannelDialog({ summary, onClose, onDeleted }: { summary: 
               <Button variant="secondary" onPress={close}>
                 {C.common.cancel}
               </Button>
-              <Button variant="negative" isDisabled={!counts || !!failure} isPending={busy} onPress={() => void confirm()}>
+              {channel.archived ? null : (
+                <Button variant="secondary" isDisabled={!!busy} isPending={busy === 'archive'} onPress={() => void archiveInstead()}>
+                  {C.dialog.archiveInstead}
+                </Button>
+              )}
+              <Button variant="negative" isDisabled={!counts || !!failure || !!busy} isPending={busy === 'delete'} onPress={() => void confirm()}>
                 {C.dialog.deleteConfirm}
               </Button>
             </ButtonGroup>

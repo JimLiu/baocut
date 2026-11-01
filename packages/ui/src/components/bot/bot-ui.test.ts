@@ -9,7 +9,9 @@ import { BotThreadExtrasContext } from '../thread/bot-items.ts';
 import { Thread } from '../thread/thread.tsx';
 import { AwayBanner, ChannelSpend, ReplyTarget, useAwayAndSeen } from './channel-view.tsx';
 import { WorkItemRefCard } from './timeline/work-item-ref-card.tsx';
-import { ChannelDialog } from './channel-dialog.tsx';
+import { ChannelSettingsDialog } from './channel-dialog.tsx';
+import { BotDialogs } from './channel-dialogs.tsx';
+import { useBotLayout, type BotDialog } from '../../state/bot-layout-store.ts';
 import { drainQueue, sendQueuedMessageNow } from '../../runtime/message-queue-runner.ts';
 import { TaskPanel } from './task-panel.tsx';
 import { useWorkItems } from '../../state/work-items-store.ts';
@@ -96,31 +98,148 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-describe('频道侧栏（BOT-CH-02）', () => {
+describe('频道侧栏（BOT-CH-02、需求 §11.2）', () => {
+  const row = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
+    channel: {
+      id,
+      name,
+      kind: id === 'chan_main' ? 'main' : 'custom',
+      purpose: '',
+      pinned: false,
+      muted: false,
+      private: false,
+      archived: false,
+      icon: null,
+      color: null,
+      groupId: null,
+      ...extra,
+    },
+    unread: false,
+    counts: { needsYou: 0 },
+    lastActivityAt: '2026-10-31T00:00:00.000Z',
+    spend: null,
+  });
+  const group = { id: 'grp_shows', name: '节目', createdAt: '2026-10-30T00:00:00.000Z', updatedAt: '2026-10-30T00:00:00.000Z' };
+
   // 分组与条目共用一个键（比如收件箱组与收件箱都叫 inbox）时，集合的前后链接成环，找第一项时死循环，整页卡死。
-  it('收件箱、频道与归档组都画得出来', async () => {
-    const row = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
-      channel: { id, name, kind: id === 'chan_main' ? 'main' : 'normal', purpose: '', pinned: false, muted: false, private: false, archived: false, ...extra },
-      unread: false,
-      counts: { needsYou: 0 },
-      lastActivityAt: '2026-10-31T00:00:00.000Z',
-      spend: null,
+  it('主频道下挂没分组的频道，分组另起一段；归档的默认不列，主频道行尾是筛选与「＋」', async () => {
+    useChannels.setState({
+      ready: true,
+      groups: [group],
+      channels: [
+        row('chan_main', 'Main'),
+        row('chan_notes', 'Notes'),
+        row('chan_pod', 'Podcast', { groupId: 'grp_shows', icon: 'Microphone', color: 'orange' }),
+        row('chan_old', 'Old', { archived: true }),
+      ] as never,
     });
-    useChannels.setState({ ready: true, channels: [row('chan_main', 'Main'), row('chan_pod', 'Podcast'), row('chan_old', 'Old', { archived: true })] as never });
     try {
       await render(createElement(ChannelSidebar));
-      const rows = [...document.querySelectorAll('[data-bc-row]')].map((e) => e.getAttribute('data-key'));
-      expect(rows).toEqual(['inbox', 'chan_main', 'chan_pod']);
+      const keys = () => [...document.querySelectorAll('[data-bc-row]')].map((e) => e.getAttribute('data-key'));
+      expect(keys()).toEqual(['inbox', 'chan_main', 'chan_notes', 'chan_pod']);
       expect(new Set([...document.querySelectorAll('[data-key]')].map((e) => e.getAttribute('data-key'))).size).toBe(document.querySelectorAll('[data-key]').length);
-      // 需求 §11.2：其他频道挂在默认频道下面（画拐角线），「新建频道」跟在最后一个频道后面，归档组另起一块。
-      expect([...document.querySelectorAll('[data-bc-child]')].map((e) => e.getAttribute('data-key'))).toEqual(['chan_pod']);
+      expect([...document.querySelectorAll('[data-bc-child]')].map((e) => e.getAttribute('data-key'))).toEqual(['chan_notes', 'chan_pod']);
+      // 原来底部的「已归档」折叠组由主频道行尾的筛选代替。
+      expect(button('筛选频道：进行中')).toBeDefined();
+      expect(button('新建')).toBeDefined();
+      expect(document.querySelector('[aria-label="已归档的频道"]')).toBeNull();
       const create = button('新建频道')!;
-      const last = document.querySelector('[data-key="chan_pod"]')!;
-      expect(last.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(document.querySelector('[aria-label="已归档的频道"]')).not.toBeNull();
+      expect(document.querySelector('[data-key="chan_pod"]')!.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // 分组行可以折叠；行尾有分组的「⋯」与「＋」。
+      const toggle = [...document.querySelectorAll('button[aria-expanded]')].find((b) => b.textContent?.includes('节目'))!;
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(button('在「节目」里新建频道')).toBeDefined();
+      await act(async () => (toggle as HTMLButtonElement).click());
+      expect(keys()).toEqual(['inbox', 'chan_main', 'chan_notes']);
+      // 「新建频道」开 App 外壳里的对话框。
+      await press('新建频道');
+      expect(useBotLayout.getState().dialog).toEqual({ kind: 'newChannel' });
     } finally {
-      useChannels.setState({ channels: [] });
+      useChannels.setState({ channels: [], groups: [] });
+      useBotLayout.setState({ dialog: null });
     }
+  });
+});
+
+describe('频道的对话框（需求 §11.2、§2.3）', () => {
+  const summary = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
+    channel: { id, name, kind: 'custom', purpose: '', archived: false, pinned: false, muted: false, private: false, icon: null, color: null, groupId: null, ...extra },
+    unread: false,
+    counts: { needsYou: 0, working: 0, open: 2, scheduled: 1 },
+    lastActivityAt: '2026-10-31T00:00:00.000Z',
+    spend: null,
+  });
+  const group = { id: 'grp_shows', name: '节目', createdAt: '2026-10-30T00:00:00.000Z', updatedAt: '2026-10-30T00:00:00.000Z' };
+  const open = async (dialog: BotDialog) => {
+    useChannels.setState({ ready: true, groups: [group], channels: [summary('c1', '剪辑')] as never });
+    useBotLayout.setState({ dialog });
+    await render(createElement(BotDialogs));
+  };
+  const field = () => document.querySelector<HTMLInputElement>('input[type="text"], input:not([type])')!;
+  afterEach(() => {
+    useChannels.setState({ channels: [], groups: [] });
+    useBotLayout.setState({ dialog: null });
+  });
+
+  it('重命名只交名字；名字没变就直接关掉', async () => {
+    handlers['channels.update'] = () => ({ channel: {} });
+    await open({ kind: 'rename', channelId: 'c1' });
+    expect(field().value).toBe('剪辑');
+    await typeInto(field(), '  粗剪  ');
+    await press('保存');
+    expect(calls('channels.update')).toEqual([{ id: 'c1', patch: { name: '粗剪' } }]);
+    expect(useBotLayout.getState().dialog).toBeNull();
+  });
+
+  it('从分组行新建频道：只问名字，建在那个分组里', async () => {
+    handlers['channels.create'] = () => ({ channel: { id: 'c9' } });
+    await open({ kind: 'newChannel', groupId: 'grp_shows' });
+    expect(container.ownerDocument.body.textContent).toContain('节目');
+    await typeInto(field(), '访谈');
+    await press('建立');
+    expect(calls('channels.create')).toEqual([{ name: '访谈', groupId: 'grp_shows' }]);
+  });
+
+  it('名字是空的不能建', async () => {
+    await open({ kind: 'newChannel' });
+    expect(button('建立')?.disabled || button('建立')?.getAttribute('aria-disabled') === 'true').toBe(true);
+  });
+
+  it('频道菜单「移到分组 › 新建分组…」：建分组时把这个频道一起移进去', async () => {
+    handlers['channelGroups.create'] = () => ({ group: { id: 'grp_new' } });
+    await open({ kind: 'newGroup', moveChannelId: 'c1' });
+    await typeInto(field(), '素材');
+    await press('新建分组');
+    expect(calls('channelGroups.create')).toEqual([{ name: '素材', channelIds: ['c1'] }]);
+  });
+
+  it('归档确认写明没解决的任务与定时任务怎么办，确认后交 channels.archive', async () => {
+    handlers['channels.archive'] = () => ({ channel: {} });
+    await open({ kind: 'archive', channelId: 'c1' });
+    const text = document.body.textContent ?? '';
+    expect(text).toContain('2 个没解决的任务');
+    expect(text).toContain('1 个定时任务会暂停');
+    await press('归档');
+    expect(calls('channels.archive')).toEqual([{ id: 'c1' }]);
+  });
+
+  it('删除确认里可以改为归档', async () => {
+    handlers['channels.delete'] = () => {
+      throw new Error('confirm mismatch');
+    };
+    handlers['channels.archive'] = () => ({ channel: {} });
+    await open({ kind: 'delete', channelId: 'c1' });
+    await press('改为归档');
+    expect(calls('channels.archive')).toEqual([{ id: 'c1' }]);
+    expect(calls('channels.delete').every((p) => (p.confirm as { threads: number }).threads === -1)).toBe(true);
+  });
+
+  it('改说明：交 purpose', async () => {
+    handlers['channels.update'] = () => ({ channel: {} });
+    await open({ kind: 'instructions', channelId: 'c1' });
+    await typeInto(document.querySelector('textarea')!, '只做播客剪辑');
+    await press('保存');
+    expect(calls('channels.update')).toEqual([{ id: 'c1', patch: { purpose: '只做播客剪辑' } }]);
   });
 });
 
@@ -973,7 +1092,7 @@ describe('导出频道（BOT-CH-13）', () => {
     Object.assign(runtime, { host: { pickDirectory, revealPath: vi.fn(async () => {}) } });
     handlers['channels.export'] = () => ({ path: '/Users/me/Exports/剪辑-c1' });
     try {
-      await render(createElement(ChannelDialog, { state: { mode: 'settings', channelId: 'c1' }, onClose: () => {}, onCreated: () => {}, onDelete: () => {} }));
+      await render(createElement(ChannelSettingsDialog, { channelId: 'c1', onClose: () => {} }));
       await press('导出…');
       expect(pickDirectory).toHaveBeenCalledTimes(1);
       expect(calls('channels.export')).toEqual([{ id: 'c1', dir: '/Users/me/Exports' }]);

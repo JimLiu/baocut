@@ -76,6 +76,13 @@ body,
   max-width: 64px;
   overflow: visible;
 }
+/* Bot 主频道行尾的筛选不在「进行中」时一直显示，看得出列表筛过（bot/channel-menu.tsx `ChannelListTools`）。 */
+[data-bc-row] button[aria-haspopup][data-on] {
+  opacity: 1;
+  pointer-events: auto;
+  max-width: 64px;
+  overflow: visible;
+}
 [data-bc-expandable] > [role='gridcell'] > [slot='chevron'] {
   opacity: 0;
 }
@@ -215,8 +222,14 @@ svg[role='img'][viewBox='0 0 20 20']:not(
 .bc-shell-button[aria-pressed='true'] {
   background-color: var(--bc-shell-pressed);
 }
-/* Bot 频道头的「任务」开关：右栏显示时铺一层底色（颜色变量由 ChannelView 给）。 */
-.bc-panel-toggle[aria-expanded='true'] {
+/* 频道图标选择器（bot/channel-dialogs.tsx）：选中的一格保留色相，浅底加一圈描边，不用 S2 选中时的深底（变量由组件给）。 */
+.bc-hue-pick [data-selected='true'] {
+  background-color: var(--bc-hue-pick-fill);
+  box-shadow: inset 0 0 0 2px var(--bc-hue-pick-ring);
+}
+/* Bot 频道头的「任务」「Make」开关：右栏显示时铺一层底色；侧栏的频道筛选不是「进行中」时也铺（颜色变量由组件给）。 */
+.bc-panel-toggle[aria-expanded='true'],
+.bc-panel-toggle[data-on] {
   background-color: var(--bc-panel-toggle-on);
 }
 /* 标签页按钮的图形：外框中间叠加号（同为 20 网格、与外框同尺寸）或标签页数（10px，两位以上缩到 0.75）。 */

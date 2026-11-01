@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { Channel, ChannelSummary, InboxRow, SuggestionChip, TimelineItem, WorkItem } from '@baocut/protocol';
+import type { Channel, ChannelGroup, ChannelSummary, InboxRow, SuggestionChip, TimelineItem, WorkItem } from '@baocut/protocol';
 import {
-  channelGroups,
+  CHANNEL_STATUS_FILTERS,
+  channelLook,
+  channelTree,
+  defaultChannelColor,
+  nameProblem,
   chipAction,
   chipAllowed,
   groupInbox,
@@ -26,6 +30,10 @@ import {
 } from './bot.ts';
 
 const NOW = Date.parse('2026-10-31T12:00:00Z');
+
+function group(id: string, name: string): ChannelGroup {
+  return { id, name, createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' };
+}
 
 function channel(id: string, patch: Partial<Channel> = {}, counts: Partial<ChannelSummary['counts']> = {}, lastActivityAt = '2026-10-30T00:00:00Z'): ChannelSummary {
   return {
@@ -149,16 +157,61 @@ describe('bot model', () => {
     expect(needsYouTotal(rows)).toBe(6);
   });
 
-  it('puts the main channel first, then pinned, then by recent activity; archived separately', () => {
-    const groups = channelGroups([
-      channel('old', {}, {}, '2026-10-01T00:00:00Z'),
-      channel('new', {}, {}, '2026-10-29T00:00:00Z'),
-      channel('pin', { pinned: true }, {}, '2026-09-01T00:00:00Z'),
-      channel('main', { kind: 'main' }, {}, '2026-08-01T00:00:00Z'),
-      channel('gone', { archived: true }),
+  it('puts the main channel on top, loose channels pinned first then by recent activity, and each group in creation order', () => {
+    const groups = [group('g1', 'Clients'), group('g2', 'Empty')];
+    const tree = channelTree(
+      [
+        channel('old', {}, {}, '2026-10-01T00:00:00Z'),
+        channel('new', {}, {}, '2026-10-29T00:00:00Z'),
+        channel('pin', { pinned: true }, {}, '2026-09-01T00:00:00Z'),
+        channel('main', { kind: 'main' }, {}, '2026-08-01T00:00:00Z'),
+        channel('gone', { archived: true }),
+        channel('acme', { groupId: 'g1' }, {}, '2026-10-02T00:00:00Z'),
+        channel('beta', { groupId: 'g1', pinned: true }, {}, '2026-09-02T00:00:00Z'),
+        channel('lost', { groupId: 'g_missing' }, {}, '2026-08-02T00:00:00Z'),
+      ],
+      groups,
+      'active',
+    );
+    expect(tree.main?.channel.id).toBe('main');
+    // 分组不在了的频道按没分组算。
+    expect(tree.loose.map((r) => r.channel.id)).toEqual(['pin', 'new', 'old', 'lost']);
+    expect(tree.groups.map((g) => [g.group.id, g.rows.map((r) => r.channel.id)])).toEqual([
+      ['g1', ['beta', 'acme']],
+      ['g2', []],
     ]);
-    expect(groups.active.map((r) => r.channel.id)).toEqual(['main', 'pin', 'new', 'old']);
-    expect(groups.archived.map((r) => r.channel.id)).toEqual(['gone']);
+  });
+
+  it('filters channels by status; only the archived view drops empty groups', () => {
+    const rows = [
+      channel('main', { kind: 'main' }),
+      channel('live'),
+      channel('gone', { archived: true }),
+      channel('old', { archived: true, groupId: 'g1' }),
+    ];
+    const groups = [group('g1', 'Clients'), group('g2', 'Empty')];
+    const ids = (status: (typeof CHANNEL_STATUS_FILTERS)[number]) => {
+      const tree = channelTree(rows, groups, status);
+      return { main: tree.main?.channel.id, loose: tree.loose.map((r) => r.channel.id), groups: tree.groups.map((g) => `${g.group.id}:${g.rows.length}`) };
+    };
+    expect(ids('active')).toEqual({ main: 'main', loose: ['live'], groups: ['g1:0', 'g2:0'] });
+    expect(ids('archived')).toEqual({ main: 'main', loose: ['gone'], groups: ['g1:1'] });
+    expect(ids('all').loose).toEqual(['live', 'gone']);
+  });
+
+  it('derives a channel look: main is Layers without a hue, others fall back to Chat and a stable hue from the id', () => {
+    expect(channelLook(channel('main', { kind: 'main', icon: 'Star', color: 'red' }).channel)).toEqual({ icon: 'Layers', color: null });
+    expect(channelLook(channel('a', { icon: 'Star', color: 'red' }).channel)).toEqual({ icon: 'Star', color: 'red' });
+    const look = channelLook(channel('chan_x').channel);
+    expect(look.icon).toBe('Chat');
+    expect(look.color).toBe(defaultChannelColor('chan_x'));
+    expect(defaultChannelColor('chan_x')).toBe(defaultChannelColor('chan_x'));
+  });
+
+  it('checks channel and group names: required, trimmed, at most the limit', () => {
+    expect(nameProblem('  ', 40)).toBe('required');
+    expect(nameProblem(' Podcast ', 40)).toBeNull();
+    expect(nameProblem('x'.repeat(41), 40)).toBe('tooLong');
   });
 
   it('subscribes the open channel and channels that need you', () => {

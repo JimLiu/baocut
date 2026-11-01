@@ -1,19 +1,16 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Channel } from '@baocut/protocol';
-import { ActionButton, DialogContainer, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
-import Bookmark from '@react-spectrum/s2/icons/Bookmark';
-import CalendarAdd from '@react-spectrum/s2/icons/CalendarAdd';
+import { ActionButton, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
 import MagicWand from '@react-spectrum/s2/icons/MagicWand';
-import Settings from '@react-spectrum/s2/icons/Settings';
 import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import type { FixedSideTab } from '../../model/bot-side.ts';
 import { useBotLayout } from '../../state/bot-layout-store.ts';
 import { useShell } from '../../state/shell-store.ts';
-import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
 import { BOT_COPY as C } from './bot-copy.ts';
 import type { BotRouteView, BotSide } from './bot-side-state.ts';
+import { ChannelTitleMenu } from './channel-menu.tsx';
 import { ChannelSpend } from './channel-view.tsx';
 
 /**
@@ -41,18 +38,30 @@ const title = style({
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 });
-/** 说明的第一行跟在频道名后面，占掉剩下的宽（基准 0：窄时它先让，频道名后让，按钮不缩）。 */
+/** 频道名是菜单入口（ChannelTitleMenu）：抵掉安静按钮的一点左内边距，让图标靠近栏的左缘。 */
+const titleMenu = style({ display: 'flex', flexShrink: 1, minWidth: 0, margin: 0, marginStart: -8 });
+/** 说明的第一行跟在频道名后面，占掉剩下的宽（基准 0：窄时它先让，频道名后让，按钮不缩）；点开编辑说明（需求 §11.3）。 */
 const purpose = style({
   flexGrow: 1,
   flexShrink: 1,
   flexBasis: 0,
   minWidth: 0,
   marginStart: 4,
+  padding: 0,
+  borderWidth: 0,
+  borderRadius: 'sm',
+  backgroundColor: 'transparent',
+  textAlign: 'start',
+  cursor: 'pointer',
   font: 'ui-xs',
-  color: { default: 'gray-600', isEmpty: 'gray-500' },
+  color: { default: 'gray-600', isEmpty: 'gray-500', ':hover': 'gray-900' },
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  outlineStyle: { default: 'none', ':focus-visible': 'solid' },
+  outlineWidth: 2,
+  outlineOffset: 2,
+  outlineColor: 'focus-ring',
 });
 const grow = style({ flexGrow: 1 });
 /** 开关显示右栏时的底色（app.css `.bc-panel-toggle[aria-expanded='true']` 读这个变量；S2 的安静按钮没有选中态）。 */
@@ -68,20 +77,10 @@ export function BotHead({ route, side }: { route: BotRouteView; side: BotSide })
   return <BotChannelHead channel={side.channel} side={side} />;
 }
 
-function IconButton({
-  label,
-  onPress,
-  isDisabled,
-  children,
-}: {
-  label: string;
-  onPress: () => void;
-  isDisabled?: boolean;
-  children: ReactNode;
-}) {
+function IconButton({ label, onPress, children }: { label: string; onPress: () => void; children: ReactNode }) {
   return (
     <TooltipTrigger>
-      <ActionButton isQuiet size="S" aria-label={label} isDisabled={isDisabled} onPress={onPress}>
+      <ActionButton isQuiet size="S" aria-label={label} onPress={onPress}>
         {children}
       </ActionButton>
       <Tooltip>{label}</Tooltip>
@@ -90,13 +89,12 @@ function IconButton({
 }
 
 /**
- * 频道头（需求 §11.3，原型 page-bot-channel.jsx `BotChannelHead`）：频道名、说明的第一行与本月花费，
- * 记忆、周期任务与设置，最后是右栏的「任务」「Make」两个开关——只有图标，有等你的事或建议时右上角带点。
+ * 频道头（需求 §11.3 修订，原型 page-bot-channel.jsx `BotChannelHead`）：「图标 频道名 ⌄」是频道菜单（设置、记忆、周期任务都收在里面），
+ * 说明的第一行点开编辑说明，本月花费（BOT-NF-04），最后是右栏的「任务」「Make」两个开关——只有图标，有等你的事或建议时右上角带点。
  * 开关打开（关掉过的插回原位）并选中那个固定页签，再按一次收起。
  */
 function BotChannelHead({ channel, side }: { channel: Channel; side: BotSide }) {
   const go = useShell((s) => s.go);
-  const [scheduling, setScheduling] = useState(false);
   const fixedOn = (kind: FixedSideTab) => side.shown && !side.active && side.sideKind === kind;
   const toggle = (kind: FixedSideTab) => (fixedOn(kind) ? side.hide() : side.selectFixed(kind));
   const toggleButton = (kind: FixedSideTab) => {
@@ -121,28 +119,21 @@ function BotChannelHead({ channel, side }: { channel: Channel; side: BotSide }) 
   };
   return (
     <div className={row}>
-      <h1 className={title} title={channel.name}>
-        {channel.name}
+      <h1 className={titleMenu}>
+        <ChannelTitleMenu channel={channel} go={go} />
       </h1>
-      <span className={purpose({ isEmpty: !channel.purpose })} title={channel.purpose || undefined}>
-        {channel.purpose || C.channel.noPurpose}
-      </span>
+      <button
+        type="button"
+        className={purpose({ isEmpty: !channel.purpose })}
+        title={channel.purpose || undefined}
+        aria-label={channel.purpose ? C.channel.instructions(channel.purpose) : C.channel.writeInstructions}
+        onClick={() => useBotLayout.getState().setDialog({ kind: 'instructions', channelId: channel.id })}
+      >
+        {channel.purpose ? channel.purpose.split('\n')[0] : C.channel.noPurpose}
+      </button>
       <ChannelSpend channelId={channel.id} />
-      <IconButton label={C.channel.memory} onPress={() => go({ tab: 'bot', channelId: channel.id, workItemId: null, view: 'memory' })}>
-        <Bookmark />
-      </IconButton>
-      {/* 周期任务（Bot 技术方案 §14.1）：每次到点在这个频道里建一条任务。 */}
-      <IconButton label={C.channel.recurring} isDisabled={channel.archived} onPress={() => setScheduling(true)}>
-        <CalendarAdd />
-      </IconButton>
-      <IconButton label={C.sidebar.settings} onPress={() => useBotLayout.getState().setSettingsFor(channel.id)}>
-        <Settings />
-      </IconButton>
       {toggleButton('tasks')}
       {toggleButton('make')}
-      <DialogContainer onDismiss={() => setScheduling(false)}>
-        {scheduling ? <ScheduleDialog channelId={channel.id} onClose={() => setScheduling(false)} /> : null}
-      </DialogContainer>
     </div>
   );
 }

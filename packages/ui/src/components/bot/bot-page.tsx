@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { MAIN_CHANNEL_ID, type ChannelSummary, type Id } from '@baocut/protocol';
+import { MAIN_CHANNEL_ID, type Id } from '@baocut/protocol';
 import { Button, ProgressCircle } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { wantedWorkItemChannels, type MakeScope } from '../../model/bot.ts';
@@ -17,7 +17,6 @@ import { BOT_COPY as C } from './bot-copy.ts';
 import { BotHead } from './bot-head.tsx';
 import { useBotSide } from './bot-side-state.ts';
 import { BOT_HOME_TAB, BOT_MAIN_PANEL, BOT_SIDE_PANEL, BotSideSeam, botSideTabId } from './bot-side-tabs.tsx';
-import { ChannelDialog, DeleteChannelDialog } from './channel-dialog.tsx';
 import { ChannelMemoryPage } from './channel-memory-page.tsx';
 import { ChannelSidebar } from './channel-sidebar.tsx';
 import { ChannelView } from './channel-view.tsx';
@@ -159,16 +158,12 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
   const contentRef = useMainWidth();
   const mainWidth = useBotLayout((st) => st.mainWidth);
   const widths = useBotLayout((st) => st.widths);
-  const settingsFor = useBotLayout((st) => st.settingsFor);
   const [makeScope, setMakeScope] = useState<MakeScope>('channel');
-  const [deleting, setDeleting] = useState<ChannelSummary | null>(null);
 
   // 路由里的任务没开就开一个页签（页签簿按频道各记一份，见 model/bot-side.ts）。
   useEffect(() => {
     if (s.tabs !== s.stored) useBotLayout.getState().setBook(s.bookKey, s.tabs);
   }, [s.tabs, s.stored, s.bookKey]);
-  // 设置对话框只属于打开时的那个频道。
-  useEffect(() => () => useBotLayout.getState().setSettingsFor(null), [channel?.id]);
   // 旧的展开链接：换成占满，路由回到频道。
   useEffect(() => {
     if (view !== 'task') return;
@@ -278,27 +273,6 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
           </aside>
         ) : null}
       </div>
-      {settingsFor && channel?.id === settingsFor ? (
-        <ChannelDialog
-          state={{ mode: 'settings', channelId: settingsFor }}
-          onClose={() => useBotLayout.getState().setSettingsFor(null)}
-          onCreated={() => useBotLayout.getState().setSettingsFor(null)}
-          onDelete={(target) => {
-            useBotLayout.getState().setSettingsFor(null);
-            setDeleting(target);
-          }}
-        />
-      ) : null}
-      {deleting ? (
-        <DeleteChannelDialog
-          summary={deleting}
-          onClose={() => setDeleting(null)}
-          onDeleted={() => {
-            setDeleting(null);
-            go({ tab: 'bot', channelId: null, workItemId: null, view: 'channel' });
-          }}
-        />
-      ) : null}
     </div>
   );
 }

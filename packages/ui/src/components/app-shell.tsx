@@ -20,6 +20,7 @@ import { ConnectionBanner } from './connection-banner.tsx';
 import { HelpCenter } from './help/help-center.tsx';
 import { HomePage } from './home-page.tsx';
 import { BotNotificationHost } from './bot/bot-notification-host.tsx';
+import { BotDialogs } from './bot/channel-dialogs.tsx';
 import { BotPage } from './bot/bot-page.tsx';
 import { Rail } from './rail.tsx';
 import { ServicesPage } from './services-page.tsx';
@@ -166,6 +167,8 @@ export function AppShell({ platform }: { platform: string }) {
         <AttentionHost />
         {/* Bot 的提醒：在跟前时弹一条提示，静音频道与正在看的频道不弹。 */}
         <BotNotificationHost />
+        {/* Bot 的频道菜单、侧栏「＋」与分组行开的对话框：侧栏浮出时开的也不跟着侧栏卸下。 */}
+        <BotDialogs />
         {/* 启动时的旧版项目导入询问：Runtime 发现还没导入的旧版项目、又没有记下决定时问一次（Web 不问）。 */}
         <LegacyImportHost />
         {/* 首次启动引导：旧版导入的询问答完再弹（挂在它后面）；引导里勾上的 Agent 在这里排队安装（Web 不弹）。 */}

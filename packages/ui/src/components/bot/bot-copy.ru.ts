@@ -2,12 +2,42 @@ import { pluralForm } from '@baocut/protocol';
 import type { BotMessages } from './bot-copy.ts';
 
 const tasksWait = (n: number) =>
-  pluralForm('ru', n, { one: `${n} задача ждёт вас`, few: `${n} задачи ждут вас`, many: `${n} задач ждут вас`, other: `${n} задачи ждут вас` });
+  pluralForm('ru', n, {
+    one: `${n} задача ждёт вас`,
+    few: `${n} задачи ждут вас`,
+    many: `${n} задач ждут вас`,
+    other: `${n} задачи ждут вас`,
+  });
 const times = (n: number) => pluralForm('ru', n, { one: `${n} раз`, few: `${n} раза`, many: `${n} раз`, other: `${n} раза` });
 const threadsN = (n: number) =>
-  pluralForm('ru', n, { one: `${n} работающий поток`, few: `${n} работающих потока`, many: `${n} работающих потоков`, other: `${n} работающих потока` });
+  pluralForm('ru', n, {
+    one: `${n} работающий поток`,
+    few: `${n} работающих потока`,
+    many: `${n} работающих потоков`,
+    other: `${n} работающих потока`,
+  });
 const schedulesN = (n: number) =>
-  pluralForm('ru', n, { one: `${n} повторяющуюся задачу`, few: `${n} повторяющиеся задачи`, many: `${n} повторяющихся задач`, other: `${n} повторяющиеся задачи` });
+  pluralForm('ru', n, {
+    one: `${n} повторяющуюся задачу`,
+    few: `${n} повторяющиеся задачи`,
+    many: `${n} повторяющихся задач`,
+    other: `${n} повторяющиеся задачи`,
+  });
+
+const openTasksStay = (n: number) =>
+  pluralForm('ru', n, {
+    one: `${n} открытая задача остаётся, а начатая работа будет доведена до конца.`,
+    few: `${n} открытые задачи остаются, а начатая работа будет доведена до конца.`,
+    many: `${n} открытых задач остаются, а начатая работа будет доведена до конца.`,
+    other: `${n} открытые задачи остаются, а начатая работа будет доведена до конца.`,
+  });
+const scheduledPause = (n: number) =>
+  pluralForm('ru', n, {
+    one: `${n} задача по расписанию будет приостановлена; после восстановления возобновите её сами.`,
+    few: `${n} задачи по расписанию будут приостановлены; после восстановления возобновите их сами.`,
+    many: `${n} задач по расписанию будут приостановлены; после восстановления возобновите их сами.`,
+    other: `${n} задачи по расписанию будут приостановлены; после восстановления возобновите их сами.`,
+  });
 
 export const ru: BotMessages = {
   status: {
@@ -41,7 +71,6 @@ export const ru: BotMessages = {
     newChannel: 'Новый канал',
     inbox: 'Ждёт вас',
     archived: 'В архиве',
-    archivedNav: 'Архивные каналы',
     pinned: 'Закреплён',
     unread: 'Непрочитанное',
     muted: 'Без звука',
@@ -53,13 +82,39 @@ export const ru: BotMessages = {
     unpin: 'Открепить',
     mute: 'Выключить уведомления',
     unmute: 'Включить уведомления',
-    archive: 'В архив',
+    archive: 'В архив…',
     unarchive: 'Восстановить',
     delete: 'Удалить…',
+    rowActions: (name: string) => `Действия с «${name}»`,
+    tools: 'Список каналов',
+    statuses: { active: 'Активные', archived: 'В архиве', all: 'Все' },
+    status: 'Статус',
+    filter: (status: string) => `Фильтр каналов: ${status}`,
+    filterMenu: 'Фильтр каналов',
+    add: 'Создать',
+    newChannelItem: 'Новый канал…',
+    newGroupItem: 'Новая группа…',
+    noArchived: 'Архивных каналов нет.',
+    noOthers: 'Других каналов пока нет.',
+    groupActions: (name: string) => `Действия с группой «${name}»`,
+    groupAdd: (name: string) => `Новый канал в «${name}»`,
+    renameGroup: 'Переименовать группу…',
+    deleteGroup: 'Удалить группу',
+  },
+  menu: {
+    label: 'Действия с каналом',
+    rename: 'Переименовать…',
+    instructions: 'Инструкции…',
+    icon: 'Сменить значок…',
+    move: 'Переместить в группу',
+    noGroup: 'Без группы',
+    newGroup: 'Новая группа…',
+    schedule: 'Новая повторяющаяся задача…',
   },
   channel: {
-    noPurpose: 'Назначение не задано — он может всё',
-    memory: 'Память',
+    noPurpose: 'Инструкций нет — он может всё',
+    instructions: (text: string) => `Инструкции: ${text}`,
+    writeInstructions: 'Написать инструкции',
     tasks: (n: number) => (n === 0 ? 'Задачи' : `Задачи, ждут вас: ${n}`),
     placeholder: 'Скажите, что нужно',
     readOnly: 'Агент этого канала недоступен, поэтому беседу можно только читать.',
@@ -73,7 +128,6 @@ export const ru: BotMessages = {
     archivedNote: 'Этот канал в архиве. Восстановите его, чтобы продолжить здесь работу.',
     spend: (today: string, month: string) => `Потрачено сегодня ${today} · за месяц ${month}`,
     taskSpend: (amount: string) => `Потрачено: ${amount}`,
-    recurring: 'Новая повторяющаяся задача',
   },
   away: {
     done: (n: number) => `готово: ${n}`,
@@ -294,7 +348,8 @@ export const ru: BotMessages = {
     revertTitle: 'Отменить изменения этой задачи?',
     revertChecking: 'Проверяем историю видео…',
     revertNothing: 'Эта задача не меняла видео.',
-    revertVideo: (name: string, edits: number) => (edits === 0 ? `${name}: с тех пор вы не правили` : `${name}: с тех пор вы правили ${times(edits)}`),
+    revertVideo: (name: string, edits: number) =>
+      edits === 0 ? `${name}: с тех пор вы не правили` : `${name}: с тех пор вы правили ${times(edits)}`,
     revertAgentOnly: 'Только изменения агента',
     revertEverything: 'Отменить и мои',
     revertBlocked: (reason: string) => `Нельзя отменить только изменения агента: ${reason}`,
@@ -351,7 +406,6 @@ export const ru: BotMessages = {
     name: 'Название',
     nameRequired: 'Дайте каналу название',
     purpose: 'Назначение',
-    purposeHint: 'Оставьте пустым, если канал может делать что угодно',
     tooLong: (max: number) => `Не больше ${max} символов`,
     agent: 'Agent и модель',
     defaultAccess: 'Доступ по умолчанию',
@@ -378,8 +432,84 @@ export const ru: BotMessages = {
     delete: 'Удалить канал…',
     mainNote: 'Это канал по умолчанию. Его нельзя архивировать или удалить.',
     deleteTitle: (name: string) => `Удалить «${name}»?`,
-    deleteBody: (threads: number, schedules: number) =>
-      `Будет остановлено: ${threadsN(threads)}; удалятся задачи канала и ${schedulesN(schedules)}. Папки проектов, видео и всё сохранённое в Space останутся.`,
+    deleteBody: (threads: number, schedules: number) => {
+      const stop = threads ? `остановит ${threadsN(threads)} и ` : '';
+      const recurring = schedules ? `, ${schedulesN(schedules)}` : '';
+      return `Это ${stop}удалит задачи канала${recurring}, сообщения, файлы и память. Отменить это нельзя.`;
+    },
+    deleteNote:
+      'Видео в ваших проектах и результаты, сохранённые в Space, не затрагиваются. Если вы просто не хотите его видеть, лучше отправьте его в архив.',
+    archiveInstead: 'Лучше в архив',
+    archiveTitle: (name: string) => `Отправить «${name}» в архив?`,
+    archiveBody: (open: number, scheduled: number) =>
+      [
+        'Канал переместится в раздел «В архиве», и его можно восстановить в любой момент.',
+        open === 0 ? '' : openTasksStay(open),
+        scheduled === 0 ? '' : scheduledPause(scheduled),
+      ]
+        .filter(Boolean)
+        .join(' '),
+    archived: (name: string) => `«${name}» отправлен в архив`,
+    restored: (name: string) => `«${name}» восстановлен`,
+    deleted: (name: string) => `«${name}» удалён`,
+    renameTitle: 'Переименовать канал',
+    channelName: 'Название канала',
+    createNote:
+      'Один канал на одно дело; канал по умолчанию остаётся как есть. Агента, доступ и бюджет можно изменить в настройках канала после создания.',
+    createInGroup: (group: string) => `Канал попадёт в группу «${group}». Один канал на одно дело; канал по умолчанию остаётся как есть.`,
+    newGroupTitle: 'Новая группа',
+    renameGroupTitle: 'Переименовать группу',
+    groupName: 'Название группы',
+    groupRequired: 'Дайте группе название',
+    newGroupNote: 'Группа просто держит каналы вместе. На их работу она не влияет.',
+    newGroupMove: 'После создания канал переместится в неё.',
+    createGroup: 'Создать группу',
+    groupDeleted: (name: string) => `Группа «${name}» удалена. Её каналы больше не сгруппированы.`,
+    instructionsTitle: 'Инструкции канала',
+    instructionsLabel: 'Инструкции',
+    instructionsPlaceholder: 'Для чего этот канал и как должен работать агент?',
+    instructionsHint: 'Беседы и задачи в этом канале следуют им. Оставьте пустым, если канал может делать что угодно.',
+    iconTitle: 'Сменить значок канала',
+    iconHead: 'Значок',
+    colorHead: 'Цвет',
+    iconNames: {
+      Chat: 'Чат',
+      Video: 'Видео',
+      MovieCamera: 'Кинокамера',
+      Filmstrip: 'Киноплёнка',
+      Microphone: 'Микрофон',
+      MusicNote: 'Музыка',
+      Camera: 'Фотоаппарат',
+      Image: 'Изображение',
+      Edit: 'Ручка',
+      Brush: 'Кисть',
+      Translate: 'Перевод',
+      Education: 'Книга',
+      Lightbulb: 'Лампочка',
+      Code: 'Код',
+      ChartBarVert: 'Диаграмма',
+      Target: 'Мишень',
+      Calendar: 'Календарь',
+      Email: 'Почта',
+      Briefcase: 'Портфель',
+      UserGroup: 'Люди',
+      Heart: 'Сердце',
+      Star: 'Звезда',
+      GlobeGrid: 'Глобус',
+      Home: 'Дом',
+    },
+    colorNames: {
+      magenta: 'Пурпурный',
+      red: 'Красный',
+      orange: 'Оранжевый',
+      yellow: 'Жёлтый',
+      green: 'Зелёный',
+      seafoam: 'Морская волна',
+      cyan: 'Голубой',
+      blue: 'Синий',
+      indigo: 'Индиго',
+      purple: 'Фиолетовый',
+    },
     deleteCounting: 'Считаем, что будет остановлено…',
     deleteConfirm: 'Удалить',
     export: 'Экспорт…',
@@ -411,7 +541,8 @@ export const ru: BotMessages = {
     pauseDesc: 'Задачи по расписанию и предложения ждут, пока вы не возобновите.',
     saveFailed: (message: string) => `Не удалось сохранить: ${message}`,
     makeAuto: 'Предлагать задачи самостоятельно',
-    makeAutoDesc: 'После нового канала, завершённой задачи или отчёта с продолжением — до 3 раз в день на канал. Выключено: только по вашей просьбе.',
+    makeAutoDesc:
+      'После нового канала, завершённой задачи или отчёта с продолжением — до 3 раз в день на канал. Выключено: только по вашей просьбе.',
     supplementHints: 'Добавлять быстрые ответы',
     supplementHintsDesc: 'Когда агент спрашивает «Сделать…?» без вариантов ответа, показывать под вопросом «Да» и «Нет».',
   },

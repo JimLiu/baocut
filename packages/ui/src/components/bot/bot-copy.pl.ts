@@ -2,12 +2,42 @@ import { pluralForm } from '@baocut/protocol';
 import type { BotMessages } from './bot-copy.ts';
 
 const tasksWait = (n: number) =>
-  pluralForm('pl', n, { one: `${n} zadanie czeka na Ciebie`, few: `${n} zadania czekają na Ciebie`, many: `${n} zadań czeka na Ciebie`, other: `${n} zadania czeka na Ciebie` });
+  pluralForm('pl', n, {
+    one: `${n} zadanie czeka na Ciebie`,
+    few: `${n} zadania czekają na Ciebie`,
+    many: `${n} zadań czeka na Ciebie`,
+    other: `${n} zadania czeka na Ciebie`,
+  });
 const times = (n: number) => pluralForm('pl', n, { one: `${n} raz`, few: `${n} razy`, many: `${n} razy`, other: `${n} razy` });
 const threadsN = (n: number) =>
-  pluralForm('pl', n, { one: `${n} działający wątek`, few: `${n} działające wątki`, many: `${n} działających wątków`, other: `${n} działającego wątku` });
+  pluralForm('pl', n, {
+    one: `${n} działający wątek`,
+    few: `${n} działające wątki`,
+    many: `${n} działających wątków`,
+    other: `${n} działającego wątku`,
+  });
 const schedulesN = (n: number) =>
-  pluralForm('pl', n, { one: `${n} zadanie cykliczne`, few: `${n} zadania cykliczne`, many: `${n} zadań cyklicznych`, other: `${n} zadania cyklicznego` });
+  pluralForm('pl', n, {
+    one: `${n} zadanie cykliczne`,
+    few: `${n} zadania cykliczne`,
+    many: `${n} zadań cyklicznych`,
+    other: `${n} zadania cyklicznego`,
+  });
+
+const openTasksStay = (n: number) =>
+  pluralForm('pl', n, {
+    one: `${n} otwarte zadanie zostaje, a rozpoczęta praca zostanie dokończona.`,
+    few: `${n} otwarte zadania zostają, a rozpoczęta praca zostanie dokończona.`,
+    many: `${n} otwartych zadań zostaje, a rozpoczęta praca zostanie dokończona.`,
+    other: `${n} otwartego zadania zostaje, a rozpoczęta praca zostanie dokończona.`,
+  });
+const scheduledPause = (n: number) =>
+  pluralForm('pl', n, {
+    one: `${n} zaplanowane zadanie zostanie wstrzymane; po przywróceniu wznów je samodzielnie.`,
+    few: `${n} zaplanowane zadania zostaną wstrzymane; po przywróceniu wznów je samodzielnie.`,
+    many: `${n} zaplanowanych zadań zostanie wstrzymanych; po przywróceniu wznów je samodzielnie.`,
+    other: `${n} zaplanowanego zadania zostanie wstrzymane; po przywróceniu wznów je samodzielnie.`,
+  });
 
 export const pl: BotMessages = {
   status: {
@@ -41,7 +71,6 @@ export const pl: BotMessages = {
     newChannel: 'Nowy kanał',
     inbox: 'Czeka na Ciebie',
     archived: 'Zarchiwizowane',
-    archivedNav: 'Zarchiwizowane kanały',
     pinned: 'Przypięty',
     unread: 'Nieprzeczytane',
     muted: 'Wyciszony',
@@ -53,13 +82,39 @@ export const pl: BotMessages = {
     unpin: 'Odepnij',
     mute: 'Wycisz',
     unmute: 'Wyłącz wyciszenie',
-    archive: 'Archiwizuj',
+    archive: 'Archiwizuj…',
     unarchive: 'Przywróć',
     delete: 'Usuń…',
+    rowActions: (name: string) => `Działania dla „${name}”`,
+    tools: 'Lista kanałów',
+    statuses: { active: 'Aktywne', archived: 'Zarchiwizowane', all: 'Wszystkie' },
+    status: 'Stan',
+    filter: (status: string) => `Filtruj kanały: ${status}`,
+    filterMenu: 'Filtruj kanały',
+    add: 'Nowy',
+    newChannelItem: 'Nowy kanał…',
+    newGroupItem: 'Nowa grupa…',
+    noArchived: 'Brak zarchiwizowanych kanałów.',
+    noOthers: 'Nie ma jeszcze innych kanałów.',
+    groupActions: (name: string) => `Działania dla grupy „${name}”`,
+    groupAdd: (name: string) => `Nowy kanał w „${name}”`,
+    renameGroup: 'Zmień nazwę grupy…',
+    deleteGroup: 'Usuń grupę',
+  },
+  menu: {
+    label: 'Działania kanału',
+    rename: 'Zmień nazwę…',
+    instructions: 'Instrukcje…',
+    icon: 'Zmień ikonę…',
+    move: 'Przenieś do grupy',
+    noGroup: 'Bez grupy',
+    newGroup: 'Nowa grupa…',
+    schedule: 'Nowe zadanie cykliczne…',
   },
   channel: {
-    noPurpose: 'Nie ustawiono celu — może robić wszystko',
-    memory: 'Pamięć',
+    noPurpose: 'Brak instrukcji — może robić wszystko',
+    instructions: (text: string) => `Instrukcje: ${text}`,
+    writeInstructions: 'Napisz instrukcje',
     tasks: (n: number) => (n === 0 ? 'Zadania' : `Zadania, czeka na Ciebie: ${n}`),
     placeholder: 'Powiedz, czego potrzebujesz',
     readOnly: 'Agent tego kanału jest niedostępny, więc rozmowa jest tylko do odczytu.',
@@ -73,7 +128,6 @@ export const pl: BotMessages = {
     archivedNote: 'Ten kanał jest zarchiwizowany. Przywróć go, aby dalej tu pracować.',
     spend: (today: string, month: string) => `Wydano dziś ${today} · w tym miesiącu ${month}`,
     taskSpend: (amount: string) => `Wydano: ${amount}`,
-    recurring: 'Nowe zadanie cykliczne',
   },
   away: {
     done: (n: number) => `gotowe: ${n}`,
@@ -294,7 +348,8 @@ export const pl: BotMessages = {
     revertTitle: 'Cofnąć zmiany tego zadania?',
     revertChecking: 'Sprawdzanie historii wideo…',
     revertNothing: 'To zadanie nie zmieniło żadnego wideo.',
-    revertVideo: (name: string, edits: number) => (edits === 0 ? `${name}: od tego czasu go nie edytowano` : `${name}: od tego czasu edytowano ${times(edits)}`),
+    revertVideo: (name: string, edits: number) =>
+      edits === 0 ? `${name}: od tego czasu go nie edytowano` : `${name}: od tego czasu edytowano ${times(edits)}`,
     revertAgentOnly: 'Cofnij tylko zmiany agenta',
     revertEverything: 'Cofnij też moje',
     revertBlocked: (reason: string) => `Nie można cofnąć tylko zmian agenta: ${reason}`,
@@ -351,7 +406,6 @@ export const pl: BotMessages = {
     name: 'Nazwa',
     nameRequired: 'Nadaj kanałowi nazwę',
     purpose: 'Cel',
-    purposeHint: 'Zostaw puste, jeśli ten kanał może robić wszystko',
     tooLong: (max: number) => `Najwyżej ${max} znaków`,
     agent: 'Agent i model',
     defaultAccess: 'Domyślny dostęp',
@@ -378,8 +432,84 @@ export const pl: BotMessages = {
     delete: 'Usuń kanał…',
     mainNote: 'To kanał domyślny. Nie można go zarchiwizować ani usunąć.',
     deleteTitle: (name: string) => `Usunąć „${name}”?`,
-    deleteBody: (threads: number, schedules: number) =>
-      `Zatrzyma to ${threadsN(threads)} i usunie zadania kanału oraz ${schedulesN(schedules)}. Foldery projektów, wideo i wszystko zapisane w Space zostaną.`,
+    deleteBody: (threads: number, schedules: number) => {
+      const head = threads ? `Zatrzyma to ${threadsN(threads)} i usunie` : 'Usunie to';
+      const recurring = schedules ? `, ${schedulesN(schedules)}` : '';
+      return `${head} zadania kanału${recurring}, wiadomości, pliki i pamięć. Tego nie da się cofnąć.`;
+    },
+    deleteNote:
+      'Nie dotyczy to wideo w Twoich projektach ani wyników zapisanych w Space. Jeśli po prostu nie chcesz go widzieć, zarchiwizuj go.',
+    archiveInstead: 'Zamiast tego zarchiwizuj',
+    archiveTitle: (name: string) => `Zarchiwizować „${name}”?`,
+    archiveBody: (open: number, scheduled: number) =>
+      [
+        'Kanał trafi do „Zarchiwizowane” i możesz go przywrócić w każdej chwili.',
+        open === 0 ? '' : openTasksStay(open),
+        scheduled === 0 ? '' : scheduledPause(scheduled),
+      ]
+        .filter(Boolean)
+        .join(' '),
+    archived: (name: string) => `Zarchiwizowano „${name}”`,
+    restored: (name: string) => `Przywrócono „${name}”`,
+    deleted: (name: string) => `Usunięto „${name}”`,
+    renameTitle: 'Zmień nazwę kanału',
+    channelName: 'Nazwa kanału',
+    createNote:
+      'Jeden kanał na jedną sprawę; kanał domyślny zostaje bez zmian. Agenta, dostęp i budżet zmienisz po utworzeniu w ustawieniach kanału.',
+    createInGroup: (group: string) => `Trafi do grupy „${group}”. Jeden kanał na jedną sprawę; kanał domyślny zostaje bez zmian.`,
+    newGroupTitle: 'Nowa grupa',
+    renameGroupTitle: 'Zmień nazwę grupy',
+    groupName: 'Nazwa grupy',
+    groupRequired: 'Nadaj grupie nazwę',
+    newGroupNote: 'Grupa tylko trzyma kanały razem. Nie zmienia tego, jak działają.',
+    newGroupMove: 'Po utworzeniu kanał zostanie do niej przeniesiony.',
+    createGroup: 'Utwórz grupę',
+    groupDeleted: (name: string) => `Usunięto grupę „${name}”. Jej kanały nie są już zgrupowane.`,
+    instructionsTitle: 'Instrukcje kanału',
+    instructionsLabel: 'Instrukcje',
+    instructionsPlaceholder: 'Do czego służy ten kanał i jak ma pracować agent?',
+    instructionsHint: 'Rozmowy i zadania w tym kanale będą się do nich stosować. Zostaw puste, jeśli kanał może robić wszystko.',
+    iconTitle: 'Zmień ikonę kanału',
+    iconHead: 'Ikona',
+    colorHead: 'Kolor',
+    iconNames: {
+      Chat: 'Czat',
+      Video: 'Wideo',
+      MovieCamera: 'Kamera filmowa',
+      Filmstrip: 'Taśma filmowa',
+      Microphone: 'Mikrofon',
+      MusicNote: 'Muzyka',
+      Camera: 'Aparat',
+      Image: 'Obraz',
+      Edit: 'Pióro',
+      Brush: 'Pędzel',
+      Translate: 'Tłumaczenie',
+      Education: 'Książka',
+      Lightbulb: 'Żarówka',
+      Code: 'Kod',
+      ChartBarVert: 'Wykres',
+      Target: 'Tarcza',
+      Calendar: 'Kalendarz',
+      Email: 'E-mail',
+      Briefcase: 'Teczka',
+      UserGroup: 'Ludzie',
+      Heart: 'Serce',
+      Star: 'Gwiazda',
+      GlobeGrid: 'Globus',
+      Home: 'Dom',
+    },
+    colorNames: {
+      magenta: 'Magenta',
+      red: 'Czerwony',
+      orange: 'Pomarańczowy',
+      yellow: 'Żółty',
+      green: 'Zielony',
+      seafoam: 'Morski',
+      cyan: 'Cyjan',
+      blue: 'Niebieski',
+      indigo: 'Indygo',
+      purple: 'Fioletowy',
+    },
     deleteCounting: 'Liczenie, co zostanie zatrzymane…',
     deleteConfirm: 'Usuń',
     export: 'Eksportuj…',
@@ -411,7 +541,8 @@ export const pl: BotMessages = {
     pauseDesc: 'Zaplanowane zadania i propozycje czekają, aż wznowisz.',
     saveFailed: (message: string) => `Nie udało się zapisać: ${message}`,
     makeAuto: 'Samodzielnie proponuj zadania',
-    makeAutoDesc: 'Po nowym kanale, ukończonym zadaniu lub raporcie z dalszymi krokami, do 3 razy dziennie na kanał. Wyłączone: tylko na prośbę.',
+    makeAutoDesc:
+      'Po nowym kanale, ukończonym zadaniu lub raporcie z dalszymi krokami, do 3 razy dziennie na kanał. Wyłączone: tylko na prośbę.',
     supplementHints: 'Dodawaj szybkie odpowiedzi',
     supplementHintsDesc: 'Gdy agent pyta „Czy mam…?” bez propozycji odpowiedzi, pokaż pod pytaniem Tak i Nie.',
   },

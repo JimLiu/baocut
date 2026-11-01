@@ -32,7 +32,6 @@ export const ptBR: BotMessages = {
     newChannel: 'Novo canal',
     inbox: 'Esperando por você',
     archived: 'Arquivados',
-    archivedNav: 'Canais arquivados',
     pinned: 'Fixado',
     unread: 'Não lido',
     muted: 'Silenciado',
@@ -44,13 +43,39 @@ export const ptBR: BotMessages = {
     unpin: 'Desafixar',
     mute: 'Silenciar',
     unmute: 'Reativar som',
-    archive: 'Arquivar',
+    archive: 'Arquivar…',
     unarchive: 'Restaurar',
     delete: 'Excluir…',
+    rowActions: (name: string) => `Ações de “${name}”`,
+    tools: 'Lista de canais',
+    statuses: { active: 'Ativos', archived: 'Arquivados', all: 'Todos' },
+    status: 'Status',
+    filter: (status: string) => `Filtrar canais: ${status}`,
+    filterMenu: 'Filtrar canais',
+    add: 'Novo',
+    newChannelItem: 'Novo canal…',
+    newGroupItem: 'Novo grupo…',
+    noArchived: 'Nenhum canal arquivado.',
+    noOthers: 'Ainda não há outros canais.',
+    groupActions: (name: string) => `Ações do grupo “${name}”`,
+    groupAdd: (name: string) => `Novo canal em “${name}”`,
+    renameGroup: 'Renomear grupo…',
+    deleteGroup: 'Excluir grupo',
+  },
+  menu: {
+    label: 'Ações do canal',
+    rename: 'Renomear…',
+    instructions: 'Instruções…',
+    icon: 'Trocar ícone…',
+    move: 'Mover para grupo',
+    noGroup: 'Sem grupo',
+    newGroup: 'Novo grupo…',
+    schedule: 'Nova tarefa recorrente…',
   },
   channel: {
-    noPurpose: 'Sem objetivo definido: pode fazer qualquer coisa',
-    memory: 'Memória',
+    noPurpose: 'Sem instruções: pode fazer qualquer coisa',
+    instructions: (text: string) => `Instruções: ${text}`,
+    writeInstructions: 'Escrever instruções',
     tasks: (n: number) => (n === 0 ? 'Tarefas' : n === 1 ? 'Tarefas, 1 espera por você' : `Tarefas, ${n} esperam por você`),
     placeholder: 'Diga do que você precisa',
     readOnly: 'O agente deste canal não está disponível, então a conversa é somente leitura.',
@@ -64,7 +89,6 @@ export const ptBR: BotMessages = {
     archivedNote: 'Este canal está arquivado. Restaure-o para continuar trabalhando aqui.',
     spend: (today: string, month: string) => `Gasto hoje ${today} · este mês ${month}`,
     taskSpend: (amount: string) => `Gasto: ${amount}`,
-    recurring: 'Nova tarefa recorrente',
   },
   away: {
     done: (n: number) => (n === 1 ? '1 concluída' : `${n} concluídas`),
@@ -285,13 +309,18 @@ export const ptBR: BotMessages = {
     revertChecking: 'Verificando o histórico do vídeo…',
     revertNothing: 'Esta tarefa não alterou nenhum vídeo.',
     revertVideo: (name: string, edits: number) =>
-      edits === 0 ? `${name}: você não editou desde então` : edits === 1 ? `${name}: você editou 1 vez desde então` : `${name}: você editou ${edits} vezes desde então`,
+      edits === 0
+        ? `${name}: você não editou desde então`
+        : edits === 1
+          ? `${name}: você editou 1 vez desde então`
+          : `${name}: você editou ${edits} vezes desde então`,
     revertAgentOnly: 'Desfazer só as do agente',
     revertEverything: 'Desfazer as minhas também',
     revertBlocked: (reason: string) => `Não é possível desfazer só as alterações do agente: ${reason}`,
     reverted: (n: number) => (n === 1 ? '1 vídeo restaurado' : `${n} vídeos restaurados`),
     deleteTitle: 'Excluir o registro desta tarefa?',
-    deleteBody: 'Exclui o fio, suas notas e histórico, e os arquivos abaixo da pasta do canal. Os vídeos do projeto e o Space são mantidos.',
+    deleteBody:
+      'Exclui o fio, suas notas e histórico, e os arquivos abaixo da pasta do canal. Os vídeos do projeto e o Space são mantidos.',
     deleteNoFiles: 'Nenhum arquivo para excluir.',
     deleteKept: 'Mantidos porque outras tarefas ainda os usam:',
     delete: 'Excluir',
@@ -342,7 +371,6 @@ export const ptBR: BotMessages = {
     name: 'Nome',
     nameRequired: 'Dê um nome ao canal',
     purpose: 'Objetivo',
-    purposeHint: 'Deixe vazio se este canal pode fazer qualquer coisa',
     tooLong: (max: number) => `No máximo ${max} caracteres`,
     agent: 'Agente e modelo',
     defaultAccess: 'Acesso padrão',
@@ -369,8 +397,92 @@ export const ptBR: BotMessages = {
     delete: 'Excluir canal…',
     mainNote: 'Este é o canal padrão. Não pode ser arquivado nem excluído.',
     deleteTitle: (name: string) => `Excluir “${name}”?`,
-    deleteBody: (threads: number, schedules: number) =>
-      `Isso para ${threads === 1 ? '1 fio em andamento' : `${threads} fios em andamento`} e exclui as tarefas do canal e ${schedules === 1 ? '1 tarefa recorrente' : `${schedules} tarefas recorrentes`}. Pastas de projeto, vídeos e o que foi salvo no Space são mantidos.`,
+    deleteBody: (threads: number, schedules: number) => {
+      const stop = threads ? `para ${threads === 1 ? '1 fio em andamento' : `${threads} fios em andamento`} e ` : '';
+      const recurring = schedules ? `, ${schedules === 1 ? '1 tarefa recorrente' : `${schedules} tarefas recorrentes`}` : '';
+      return `Isso ${stop}exclui as tarefas do canal${recurring}, as mensagens, os arquivos e a memória. Isso não pode ser desfeito.`;
+    },
+    deleteNote:
+      'Os vídeos dos seus projetos e os resultados salvos no Space não são afetados. Se você só não quer mais vê-lo, arquive-o em vez disso.',
+    archiveInstead: 'Arquivar em vez disso',
+    archiveTitle: (name: string) => `Arquivar “${name}”?`,
+    archiveBody: (open: number, scheduled: number) =>
+      [
+        'O canal vai para “Arquivados”, e você pode restaurá-lo quando quiser.',
+        open === 0
+          ? ''
+          : open === 1
+            ? 'A tarefa aberta continua lá, e o trabalho em andamento termina.'
+            : `As ${open} tarefas abertas continuam lá, e o trabalho em andamento termina.`,
+        scheduled === 0
+          ? ''
+          : scheduled === 1
+            ? '1 tarefa agendada fica pausada; retome-a você mesmo depois de restaurar.'
+            : `${scheduled} tarefas agendadas ficam pausadas; retome-as você mesmo depois de restaurar.`,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    archived: (name: string) => `“${name}” arquivado`,
+    restored: (name: string) => `“${name}” restaurado`,
+    deleted: (name: string) => `“${name}” excluído`,
+    renameTitle: 'Renomear canal',
+    channelName: 'Nome do canal',
+    createNote:
+      'Um canal para cada trabalho; o canal padrão continua como está. Agente, acesso e orçamento são alterados nas configurações do canal depois de criado.',
+    createInGroup: (group: string) => `Ele vai para o grupo “${group}”. Um canal para cada trabalho; o canal padrão continua como está.`,
+    newGroupTitle: 'Novo grupo',
+    renameGroupTitle: 'Renomear grupo',
+    groupName: 'Nome do grupo',
+    groupRequired: 'Dê um nome ao grupo',
+    newGroupNote: 'Um grupo só mantém canais juntos. Não muda como eles funcionam.',
+    newGroupMove: 'O canal vai para ele assim que for criado.',
+    createGroup: 'Criar grupo',
+    groupDeleted: (name: string) => `Grupo “${name}” excluído. Os canais dele não estão mais agrupados.`,
+    instructionsTitle: 'Instruções do canal',
+    instructionsLabel: 'Instruções',
+    instructionsPlaceholder: 'Para que serve este canal e como o agente deve trabalhar?',
+    instructionsHint: 'As conversas e tarefas deste canal seguem estas instruções. Deixe vazio se o canal pode fazer qualquer coisa.',
+    iconTitle: 'Trocar ícone do canal',
+    iconHead: 'Ícone',
+    colorHead: 'Cor',
+    iconNames: {
+      Chat: 'Chat',
+      Video: 'Vídeo',
+      MovieCamera: 'Câmera de cinema',
+      Filmstrip: 'Filme',
+      Microphone: 'Microfone',
+      MusicNote: 'Música',
+      Camera: 'Câmera',
+      Image: 'Imagem',
+      Edit: 'Caneta',
+      Brush: 'Pincel',
+      Translate: 'Traduzir',
+      Education: 'Livro',
+      Lightbulb: 'Lâmpada',
+      Code: 'Código',
+      ChartBarVert: 'Gráfico',
+      Target: 'Alvo',
+      Calendar: 'Calendário',
+      Email: 'E-mail',
+      Briefcase: 'Maleta',
+      UserGroup: 'Pessoas',
+      Heart: 'Coração',
+      Star: 'Estrela',
+      GlobeGrid: 'Globo',
+      Home: 'Casa',
+    },
+    colorNames: {
+      magenta: 'Magenta',
+      red: 'Vermelho',
+      orange: 'Laranja',
+      yellow: 'Amarelo',
+      green: 'Verde',
+      seafoam: 'Verde-mar',
+      cyan: 'Ciano',
+      blue: 'Azul',
+      indigo: 'Índigo',
+      purple: 'Roxo',
+    },
     deleteCounting: 'Contando o que vai parar…',
     deleteConfirm: 'Excluir',
     export: 'Exportar…',
@@ -402,7 +514,8 @@ export const ptBR: BotMessages = {
     pauseDesc: 'Tarefas agendadas e sugestões aguardam até você retomar.',
     saveFailed: (message: string) => `Não foi possível salvar: ${message}`,
     makeAuto: 'Sugerir tarefas sozinho',
-    makeAutoDesc: 'Depois de um canal novo, uma tarefa concluída ou um relatório com próximos passos, até 3 vezes por dia por canal. Desligado: só quando você pedir.',
+    makeAutoDesc:
+      'Depois de um canal novo, uma tarefa concluída ou um relatório com próximos passos, até 3 vezes por dia por canal. Desligado: só quando você pedir.',
     supplementHints: 'Adicionar respostas rápidas',
     supplementHintsDesc: 'Quando o agente pergunta “Posso…?” sem oferecer respostas, mostrar Sim e Não abaixo.',
   },

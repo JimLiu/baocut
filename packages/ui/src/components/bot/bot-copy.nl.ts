@@ -32,7 +32,6 @@ export const nl: BotMessages = {
     newChannel: 'Nieuw kanaal',
     inbox: 'Wacht op jou',
     archived: 'Gearchiveerd',
-    archivedNav: 'Gearchiveerde kanalen',
     pinned: 'Vastgezet',
     unread: 'Ongelezen',
     muted: 'Gedempt',
@@ -44,13 +43,39 @@ export const nl: BotMessages = {
     unpin: 'Losmaken',
     mute: 'Dempen',
     unmute: 'Dempen opheffen',
-    archive: 'Archiveren',
+    archive: 'Archiveren…',
     unarchive: 'Herstellen',
     delete: 'Verwijderen…',
+    rowActions: (name: string) => `Acties voor ‘${name}’`,
+    tools: 'Kanaallijst',
+    statuses: { active: 'Actief', archived: 'Gearchiveerd', all: 'Alle' },
+    status: 'Status',
+    filter: (status: string) => `Kanalen filteren: ${status}`,
+    filterMenu: 'Kanalen filteren',
+    add: 'Nieuw',
+    newChannelItem: 'Nieuw kanaal…',
+    newGroupItem: 'Nieuwe groep…',
+    noArchived: 'Geen gearchiveerde kanalen.',
+    noOthers: 'Nog geen andere kanalen.',
+    groupActions: (name: string) => `Acties voor groep ‘${name}’`,
+    groupAdd: (name: string) => `Nieuw kanaal in ‘${name}’`,
+    renameGroup: 'Groep hernoemen…',
+    deleteGroup: 'Groep verwijderen',
+  },
+  menu: {
+    label: 'Kanaalacties',
+    rename: 'Hernoemen…',
+    instructions: 'Instructies…',
+    icon: 'Pictogram wijzigen…',
+    move: 'Verplaatsen naar groep',
+    noGroup: 'Geen groep',
+    newGroup: 'Nieuwe groep…',
+    schedule: 'Nieuwe terugkerende taak…',
   },
   channel: {
-    noPurpose: 'Geen doel ingesteld: het kan alles',
-    memory: 'Geheugen',
+    noPurpose: 'Geen instructies: het kan alles',
+    instructions: (text: string) => `Instructies: ${text}`,
+    writeInstructions: 'Instructies schrijven',
     tasks: (n: number) => (n === 0 ? 'Taken' : n === 1 ? 'Taken, 1 wacht op je' : `Taken, ${n} wachten op je`),
     placeholder: 'Zeg wat je nodig hebt',
     readOnly: 'De agent van dit kanaal is niet beschikbaar, dus het gesprek is alleen-lezen.',
@@ -64,7 +89,6 @@ export const nl: BotMessages = {
     archivedNote: 'Dit kanaal is gearchiveerd. Herstel het om hier verder te werken.',
     spend: (today: string, month: string) => `Vandaag ${today} · deze maand ${month} uitgegeven`,
     taskSpend: (amount: string) => `Uitgegeven: ${amount}`,
-    recurring: 'Nieuwe terugkerende taak',
   },
   away: {
     done: (n: number) => `${n} klaar`,
@@ -199,10 +223,16 @@ export const nl: BotMessages = {
     addTemplate: (title: string) => `„${title}” instellen`,
     moreTemplates: 'Meer sjablonen',
     template: {
-      transcribe: { title: 'Wekelijkse transcripties', prompt: 'Zet de nieuwe opnamen in de materiaalmap om naar tekst en maak een opzet.' },
+      transcribe: {
+        title: 'Wekelijkse transcripties',
+        prompt: 'Zet de nieuwe opnamen in de materiaalmap om naar tekst en maak een opzet.',
+      },
       tidy: { title: 'Materiaal dagelijks ordenen', prompt: 'Sorteer de nieuwe bestanden in de gevolgde map bij de juiste video’s.' },
       captions: { title: 'Ondertitels aanvullen', prompt: 'Zoek video’s zonder ondertitels of vertalingen en zet ze in een lijst.' },
-      drafts: { title: 'Onafgemaakte video’s', prompt: 'Maak een lijst van video’s die 30 dagen niet zijn aangeraakt en vraag of ik ze wil houden.' },
+      drafts: {
+        title: 'Onafgemaakte video’s',
+        prompt: 'Maak een lijst van video’s die 30 dagen niet zijn aangeraakt en vraag of ik ze wil houden.',
+      },
     },
   },
   side: {
@@ -285,13 +315,18 @@ export const nl: BotMessages = {
     revertChecking: 'Videogeschiedenis controleren…',
     revertNothing: 'Deze taak heeft geen video’s gewijzigd.',
     revertVideo: (name: string, edits: number) =>
-      edits === 0 ? `${name}: sindsdien niet door jou bewerkt` : edits === 1 ? `${name}: sindsdien 1 keer door jou bewerkt` : `${name}: sindsdien ${edits} keer door jou bewerkt`,
+      edits === 0
+        ? `${name}: sindsdien niet door jou bewerkt`
+        : edits === 1
+          ? `${name}: sindsdien 1 keer door jou bewerkt`
+          : `${name}: sindsdien ${edits} keer door jou bewerkt`,
     revertAgentOnly: 'Alleen die van de agent',
     revertEverything: 'Ook de mijne ongedaan maken',
     revertBlocked: (reason: string) => `Kan niet alleen de wijzigingen van de agent ongedaan maken: ${reason}`,
     reverted: (n: number) => (n === 1 ? '1 video hersteld' : `${n} video’s hersteld`),
     deleteTitle: 'De gegevens van deze taak verwijderen?',
-    deleteBody: 'Verwijdert de thread, de notities en geschiedenis, en de bestanden hieronder uit de kanaalmap. Projectvideo’s en Space blijven bewaard.',
+    deleteBody:
+      'Verwijdert de thread, de notities en geschiedenis, en de bestanden hieronder uit de kanaalmap. Projectvideo’s en Space blijven bewaard.',
     deleteNoFiles: 'Geen bestanden om te verwijderen.',
     deleteKept: 'Bewaard omdat andere taken ze nog gebruiken:',
     delete: 'Verwijderen',
@@ -342,7 +377,6 @@ export const nl: BotMessages = {
     name: 'Naam',
     nameRequired: 'Geef het kanaal een naam',
     purpose: 'Doel',
-    purposeHint: 'Laat leeg als dit kanaal alles mag doen',
     tooLong: (max: number) => `Maximaal ${max} tekens`,
     agent: 'Agent en model',
     defaultAccess: 'Standaardtoegang',
@@ -369,8 +403,92 @@ export const nl: BotMessages = {
     delete: 'Kanaal verwijderen…',
     mainNote: 'Dit is het standaardkanaal. Het kan niet worden gearchiveerd of verwijderd.',
     deleteTitle: (name: string) => `‘${name}’ verwijderen?`,
-    deleteBody: (threads: number, schedules: number) =>
-      `Dit stopt ${threads === 1 ? '1 lopende thread' : `${threads} lopende threads`} en verwijdert de taken van het kanaal en ${schedules === 1 ? '1 terugkerende taak' : `${schedules} terugkerende taken`}. Projectmappen, video’s en alles wat in Space is bewaard, blijven staan.`,
+    deleteBody: (threads: number, schedules: number) => {
+      const stop = threads ? `stopt ${threads === 1 ? '1 lopende thread' : `${threads} lopende threads`} en ` : '';
+      const recurring = schedules ? `, ${schedules === 1 ? '1 terugkerende taak' : `${schedules} terugkerende taken`}` : '';
+      return `Dit ${stop}verwijdert de taken van het kanaal${recurring}, berichten, bestanden en geheugen. Dit kan niet ongedaan worden gemaakt.`;
+    },
+    deleteNote:
+      'Video’s in je projecten en resultaten die in Space zijn bewaard, blijven onaangetast. Wil je het alleen niet meer zien, archiveer het dan.',
+    archiveInstead: 'Liever archiveren',
+    archiveTitle: (name: string) => `‘${name}’ archiveren?`,
+    archiveBody: (open: number, scheduled: number) =>
+      [
+        'Het kanaal gaat naar ‘Gearchiveerd’ en je kunt het altijd herstellen.',
+        open === 0
+          ? ''
+          : open === 1
+            ? 'De open taak blijft staan en lopend werk wordt afgemaakt.'
+            : `De ${open} open taken blijven staan en lopend werk wordt afgemaakt.`,
+        scheduled === 0
+          ? ''
+          : scheduled === 1
+            ? '1 geplande taak wordt gepauzeerd; hervat hem zelf na het herstellen.'
+            : `${scheduled} geplande taken worden gepauzeerd; hervat ze zelf na het herstellen.`,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    archived: (name: string) => `‘${name}’ gearchiveerd`,
+    restored: (name: string) => `‘${name}’ hersteld`,
+    deleted: (name: string) => `‘${name}’ verwijderd`,
+    renameTitle: 'Kanaal hernoemen',
+    channelName: 'Kanaalnaam',
+    createNote:
+      'Eén kanaal per klus; het standaardkanaal blijft zoals het is. Agent, toegang en budget wijzig je na het maken in de kanaalinstellingen.',
+    createInGroup: (group: string) => `Het komt in de groep ‘${group}’. Eén kanaal per klus; het standaardkanaal blijft zoals het is.`,
+    newGroupTitle: 'Nieuwe groep',
+    renameGroupTitle: 'Groep hernoemen',
+    groupName: 'Groepsnaam',
+    groupRequired: 'Geef de groep een naam',
+    newGroupNote: 'Een groep houdt kanalen alleen bij elkaar. Het verandert niets aan hoe ze werken.',
+    newGroupMove: 'Het kanaal wordt erin geplaatst zodra de groep is gemaakt.',
+    createGroup: 'Groep maken',
+    groupDeleted: (name: string) => `Groep ‘${name}’ verwijderd. De kanalen erin zijn niet meer gegroepeerd.`,
+    instructionsTitle: 'Kanaalinstructies',
+    instructionsLabel: 'Instructies',
+    instructionsPlaceholder: 'Waar is dit kanaal voor, en hoe moet de agent werken?',
+    instructionsHint: 'Gesprekken en taken in dit kanaal volgen ze. Laat leeg als dit kanaal alles mag doen.',
+    iconTitle: 'Kanaalpictogram wijzigen',
+    iconHead: 'Pictogram',
+    colorHead: 'Kleur',
+    iconNames: {
+      Chat: 'Chat',
+      Video: 'Video',
+      MovieCamera: 'Filmcamera',
+      Filmstrip: 'Filmstrip',
+      Microphone: 'Microfoon',
+      MusicNote: 'Muziek',
+      Camera: 'Camera',
+      Image: 'Afbeelding',
+      Edit: 'Pen',
+      Brush: 'Penseel',
+      Translate: 'Vertalen',
+      Education: 'Boek',
+      Lightbulb: 'Gloeilamp',
+      Code: 'Code',
+      ChartBarVert: 'Grafiek',
+      Target: 'Doelwit',
+      Calendar: 'Agenda',
+      Email: 'E-mail',
+      Briefcase: 'Aktetas',
+      UserGroup: 'Mensen',
+      Heart: 'Hart',
+      Star: 'Ster',
+      GlobeGrid: 'Wereldbol',
+      Home: 'Huis',
+    },
+    colorNames: {
+      magenta: 'Magenta',
+      red: 'Rood',
+      orange: 'Oranje',
+      yellow: 'Geel',
+      green: 'Groen',
+      seafoam: 'Zeegroen',
+      cyan: 'Cyaan',
+      blue: 'Blauw',
+      indigo: 'Indigo',
+      purple: 'Paars',
+    },
     deleteCounting: 'Tellen wat er stopt…',
     deleteConfirm: 'Verwijderen',
     export: 'Exporteren…',
@@ -402,7 +520,8 @@ export const nl: BotMessages = {
     pauseDesc: 'Geplande taken en voorstellen wachten tot je hervat.',
     saveFailed: (message: string) => `Opslaan mislukt: ${message}`,
     makeAuto: 'Zelf taken voorstellen',
-    makeAutoDesc: 'Na een nieuw kanaal, een afgeronde taak of een rapport met vervolgstappen, tot 3 keer per dag per kanaal. Uit: alleen als je erom vraagt.',
+    makeAutoDesc:
+      'Na een nieuw kanaal, een afgeronde taak of een rapport met vervolgstappen, tot 3 keer per dag per kanaal. Uit: alleen als je erom vraagt.',
     supplementHints: 'Snelle antwoorden toevoegen',
     supplementHintsDesc: 'Als de agent „Zal ik…?” vraagt zonder antwoorden aan te bieden, Ja en Nee eronder tonen.',
   },

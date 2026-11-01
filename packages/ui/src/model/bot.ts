@@ -1,7 +1,13 @@
 import {
   BOT_LIMITS,
+  CHANNEL_COLORS,
+  CHANNEL_ICONS,
   type ActiveState,
   type ArtifactRef,
+  type Channel,
+  type ChannelColor,
+  type ChannelGroup,
+  type ChannelIcon,
   type ChannelSummary,
   type Id,
   type InboxRow,
@@ -42,24 +48,66 @@ export function needsYouTotal(channels: readonly ChannelSummary[]): number {
   return channels.reduce((sum, row) => sum + Math.max(0, row.counts.needsYou), 0);
 }
 
-export interface ChannelGroups {
-  /** 主频道固定第一行，然后置顶的，然后按最近活动。 */
-  active: ChannelSummary[];
-  archived: ChannelSummary[];
+const byActivity = (a: ChannelSummary, b: ChannelSummary) => b.lastActivityAt.localeCompare(a.lastActivityAt);
+/** 置顶的在前，其余按最近活动。 */
+const pinnedFirst = (rows: ChannelSummary[]) => [...rows.filter((r) => r.channel.pinned).sort(byActivity), ...rows.filter((r) => !r.channel.pinned).sort(byActivity)];
+
+/** 侧栏按状态筛频道（综合行上的筛选，需求 §11.2 修订）：进行中、已归档、全部。主频道不能归档，总在。 */
+export type ChannelStatusFilter = 'active' | 'archived' | 'all';
+export const CHANNEL_STATUS_FILTERS: readonly ChannelStatusFilter[] = ['active', 'archived', 'all'];
+
+const matchesStatus = (channel: Channel, status: ChannelStatusFilter) => status === 'all' || (status === 'archived' ? channel.archived : !channel.archived);
+
+export interface ChannelTree {
+  main: ChannelSummary | null;
+  /** 没分组的频道，挂在主频道下面。 */
+  loose: ChannelSummary[];
+  groups: { group: ChannelGroup; rows: ChannelSummary[] }[];
 }
 
-const byActivity = (a: ChannelSummary, b: ChannelSummary) => b.lastActivityAt.localeCompare(a.lastActivityAt);
-
-/** 频道侧栏（需求 §11.2）：主频道、置顶、其余按最近活动；归档的收进底部的折叠组。 */
-export function channelGroups(channels: readonly ChannelSummary[]): ChannelGroups {
-  const live = channels.filter((row) => !row.channel.archived);
-  const main = live.filter((row) => row.channel.kind === 'main');
-  const pinned = live.filter((row) => row.channel.kind !== 'main' && row.channel.pinned).sort(byActivity);
-  const rest = live.filter((row) => row.channel.kind !== 'main' && !row.channel.pinned).sort(byActivity);
+/**
+ * 频道侧栏的树（需求 §11.2 修订，原型 model-bot.js `channelTree`）：主频道一行，没分组的频道挂在它下面；每个分组另起一段，组里的频道挂在组下。
+ * 段内置顶的在前、其余按最近活动；分组按建立的先后。按状态筛掉的频道不列；进行中与全部时空的分组也列（刚建的分组要能看到、能往里放），
+ * 只看已归档时空的分组不列。频道的分组已经不在了，按没分组算。
+ */
+export function channelTree(channels: readonly ChannelSummary[], groups: readonly ChannelGroup[], status: ChannelStatusFilter): ChannelTree {
+  const main = channels.find((r) => r.channel.kind === 'main') ?? null;
+  const shown = channels.filter((r) => r.channel.kind !== 'main' && matchesStatus(r.channel, status));
+  const known = new Set(groups.map((g) => g.id));
+  const groupOf = (r: ChannelSummary) => (r.channel.groupId && known.has(r.channel.groupId) ? r.channel.groupId : null);
   return {
-    active: [...main, ...pinned, ...rest],
-    archived: channels.filter((row) => row.channel.archived).sort(byActivity),
+    main,
+    loose: pinnedFirst(shown.filter((r) => !groupOf(r))),
+    groups: groups
+      .map((group) => ({ group, rows: pinnedFirst(shown.filter((r) => groupOf(r) === group.id)) }))
+      .filter((g) => g.rows.length || status !== 'archived'),
   };
+}
+
+/** 频道没选过图标时用的：对话气泡。 */
+export const DEFAULT_CHANNEL_ICON: ChannelIcon = 'Chat';
+
+/** 没选过颜色的频道按 id 取一个，同一个频道每次一样。 */
+export function defaultChannelColor(id: Id): ChannelColor {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return CHANNEL_COLORS[h % CHANNEL_COLORS.length]!;
+}
+
+/** 频道在侧栏与频道头的图标与颜色：主频道是 Layers、不着色；其余没选过的用对话气泡与按 id 取的颜色。 */
+export function channelLook(channel: Pick<Channel, 'id' | 'kind' | 'icon' | 'color'>): { icon: ChannelIcon | 'Layers'; color: ChannelColor | null } {
+  if (channel.kind === 'main') return { icon: 'Layers', color: null };
+  return {
+    icon: channel.icon && CHANNEL_ICONS.includes(channel.icon) ? channel.icon : DEFAULT_CHANNEL_ICON,
+    color: channel.color && CHANNEL_COLORS.includes(channel.color) ? channel.color : defaultChannelColor(channel.id),
+  };
+}
+
+/** 频道名与分组名（BOT-CH-02）：必填，最多 40 字。 */
+export function nameProblem(name: string, max: number): 'required' | 'tooLong' | null {
+  const value = name.trim();
+  if (!value) return 'required';
+  return value.length > max ? 'tooLong' : null;
 }
 
 /**

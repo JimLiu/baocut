@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
-import { MAIN_CHANNEL_ID, type ChannelSummary } from '@baocut/protocol';
+import { MAIN_CHANNEL_ID, type ChannelGroup, type ChannelSummary } from '@baocut/protocol';
 import {
   ActionButton,
-  ActionMenu,
-  MenuItem,
   NotificationBadge,
   SideNav,
   SideNavHeader,
@@ -18,30 +16,25 @@ import Archive from '@react-spectrum/s2/icons/Archive';
 import Bell from '@react-spectrum/s2/icons/Bell';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
-import Delete from '@react-spectrum/s2/icons/Delete';
-import Layers from '@react-spectrum/s2/icons/Layers';
+import Folder from '@react-spectrum/s2/icons/Folder';
 import Lock from '@react-spectrum/s2/icons/Lock';
-import PinOff from '@react-spectrum/s2/icons/PinOff';
 import PinOn from '@react-spectrum/s2/icons/PinOn';
-import Settings from '@react-spectrum/s2/icons/Settings';
-import Bookmark from '@react-spectrum/s2/icons/Bookmark';
 import VolumeOff from '@react-spectrum/s2/icons/VolumeOff';
-import VolumeTwo from '@react-spectrum/s2/icons/VolumeTwo';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { channelGroups, needsYouTotal } from '../../model/bot.ts';
-import { useChannels } from '../../state/channels-store.ts';
+import { channelTree, needsYouTotal, type ChannelStatusFilter } from '../../model/bot.ts';
+import { useBotLayout } from '../../state/bot-layout-store.ts';
+import { useChannelGroups, useChannels } from '../../state/channels-store.ts';
 import { hrefFor, type Route } from '../../state/shell-store.ts';
 import { PageSidebar, SidebarTitle, sidebarBody, useSidebarGo, useSidebarRoute } from '../page-sidebar.tsx';
-import { useBotCall } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
-import { ChannelDialog, DeleteChannelDialog, type ChannelDialogState } from './channel-dialog.tsx';
+import { ChannelGlyph } from './channel-glyph.tsx';
+import { ChannelActionMenu, ChannelListTools, GroupTools } from './channel-menu.tsx';
 
 const nav = style({ height: 'auto' });
-/** 挂在默认频道下的拐角线颜色（app.css `[data-bc-child]`）。 */
+/** 挂在主频道与分组下的拐角线颜色（app.css `[data-bc-child]`）。 */
 const tree = style({ '--bc-row-connector': { type: 'borderColor', value: 'gray-200' } });
-/** 「新建频道」是频道组的最后一行：和下挂的频道一样缩进。 */
+/** 「新建频道」跟在树后面：和下挂的频道一样缩进。 */
 const newChannel = style({ marginStart: 20 });
-const archivedNav = style({ height: 'auto', marginTop: 12 });
 const fit = style({ minWidth: 0 });
 const line = style({ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: 'full' });
 const lineTitle = style({
@@ -52,6 +45,7 @@ const lineTitle = style({
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   fontWeight: { default: 'normal', isUnread: 'bold' },
+  color: { default: 'inherit', isArchived: 'gray-600' },
 });
 const tail = style({
   display: 'flex',
@@ -63,7 +57,13 @@ const tail = style({
 });
 const unreadDot = style({ size: 8, borderRadius: 'full', backgroundColor: 'green-900' });
 const tailIcon = iconStyle({ size: 'XS' });
-const sectionHead = style({ display: 'flex', alignItems: 'center', gap: 4 });
+/** 分组行：和上一段隔开；文件夹图标与主频道的图标对齐，组里频道的拐角线从它下面弯出来。 */
+const groupHead = style({ display: 'flex', alignItems: 'center', gap: 4, width: 'full', minWidth: 0, marginTop: 12 });
+const groupToggle = style({ minWidth: 0 });
+const groupName = style({ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0, font: 'ui', fontWeight: 'normal' });
+const groupNameText = style({ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+const groupTools = style({ display: 'flex', alignItems: 'center', flexShrink: 0, marginStart: 'auto' });
+const empty = style({ font: 'body-sm', color: 'gray-600', marginX: 12, marginY: 8 });
 
 /** 频道对应的路由：主频道写成 `chan_main`，侧栏的选中态与「/bot」打开的主频道对得上。 */
 export function channelRoute(channelId: string): Route {
@@ -78,46 +78,45 @@ function selectedHref(route: Route): string | undefined {
 }
 
 /**
- * 频道侧栏（BOT-CH-02、需求 §11.2）：「等你处理」，然后是默认频道，其余频道挂在它下面（置顶的在前、其余按最近活动），
- * 最后一行是「新建频道」；归档的另起一段收在最下面。
- * 每行：频道名（有未读时加粗、行尾一颗绿点），置顶、私密与静音的小图标，等你的任务数；行尾「⋯」是设置、记忆、置顶、静音、归档与删除。
+ * 频道侧栏（BOT-CH-02、需求 §11.2 修订）：「等你处理」，然后是主频道，没分组的频道挂在它下面；每个分组另起一段（可折叠），
+ * 组里的频道挂在组下；段内置顶的在前、其余按最近活动；树后面是「新建频道」。
+ * 每行：频道图标（按频道颜色）、频道名（有未读时加粗、行尾一颗绿点），归档、置顶、私密与静音的小图标，等你的任务数；
+ * 行尾「⋯」是频道菜单（channel-menu.tsx）。主频道行尾是筛选（进行中 / 已归档 / 全部）与「＋」，代替原来底部的「已归档」折叠组。
+ * 对话框由 app-shell 里的 BotDialogs 统一开：侧栏会在浮出层里再挂一份，开着的对话框不跟着它卸下。
  */
 export function ChannelSidebar() {
   const route = useSidebarRoute();
   const go = useSidebarGo();
   const channels = useChannels((s) => s.channels);
   const ready = useChannels((s) => s.ready);
-  const call = useBotCall();
-  const groups = useMemo(() => channelGroups(channels), [channels]);
+  const groups = useChannelGroups();
+  const [status, setStatus] = useState<ChannelStatusFilter>('active');
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const channelTreeRows = useMemo(() => channelTree(channels, groups, status), [channels, groups, status]);
   const total = needsYouTotal(channels);
-  const [showArchived, setShowArchived] = useState(false);
-  const [dialog, setDialog] = useState<ChannelDialogState | null>(null);
-  const [deleting, setDeleting] = useState<ChannelSummary | null>(null);
-
-  const onAction = (summary: ChannelSummary, action: string) => {
-    const { channel } = summary;
-    if (action === 'settings') setDialog({ mode: 'settings', channelId: channel.id });
-    else if (action === 'memory') go({ tab: 'bot', channelId: channel.id, workItemId: null, view: 'memory' });
-    else if (action === 'pin') void call('channels.update', { id: channel.id, patch: { pinned: !channel.pinned } });
-    else if (action === 'mute') void call('channels.update', { id: channel.id, patch: { muted: !channel.muted } });
-    else if (action === 'archive') void call(channel.archived ? 'channels.unarchive' : 'channels.archive', { id: channel.id });
-    else if (action === 'delete') setDeleting(summary);
-  };
+  const toggleGroup = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const row = (summary: ChannelSummary) => {
     const { channel, unread, counts } = summary;
     const main = channel.kind === 'main';
+    const pinned = channel.pinned && !main && !channel.archived;
     const detail = [
       channel.name,
       unread ? C.sidebar.unread : null,
       counts.needsYou ? C.sidebar.needsYou(counts.needsYou) : null,
-      channel.pinned && !main ? C.sidebar.pinned : null,
+      pinned ? C.sidebar.pinned : null,
       channel.muted ? C.sidebar.muted : null,
       channel.private ? C.sidebar.private : null,
+      channel.archived ? C.sidebar.archived : null,
     ]
       .filter(Boolean)
       .join(', ');
-    const child = !main && !channel.archived;
     return (
       <SideNavItem
         key={channel.id}
@@ -125,15 +124,16 @@ export function ChannelSidebar() {
         textValue={channel.name}
         href={hrefFor(channelRoute(channel.id))}
         data-bc-row=""
-        data-bc-child={child ? '' : undefined}>
+        data-bc-child={main ? undefined : ''}>
         <SideNavItemContent>
           <SideNavItemLink aria-label={detail}>
-            {main ? <Layers /> : null}
+            <ChannelGlyph channel={channel} />
             <Text styles={fit}>
               <span className={line} title={channel.purpose || channel.name}>
-                <span className={lineTitle({ isUnread: unread })}>{channel.name}</span>
+                <span className={lineTitle({ isUnread: unread, isArchived: channel.archived })}>{channel.name}</span>
                 <span className={tail} aria-hidden="true">
-                  {channel.pinned && !main ? <PinOn styles={tailIcon} /> : null}
+                  {channel.archived ? <Archive styles={tailIcon} /> : null}
+                  {pinned ? <PinOn styles={tailIcon} /> : null}
                   {channel.private ? <Lock styles={tailIcon} /> : null}
                   {channel.muted ? <VolumeOff styles={tailIcon} /> : null}
                   {counts.needsYou ? <NotificationBadge size="S" value={counts.needsYou} /> : unread ? <span className={unreadDot} /> : null}
@@ -141,44 +141,39 @@ export function ChannelSidebar() {
               </span>
             </Text>
           </SideNavItemLink>
-          <ActionMenu aria-label={C.common.more} isQuiet size="S" onAction={(key) => onAction(summary, String(key))}>
-            <MenuItem id="settings" textValue={C.sidebar.settings}>
-              <Settings />
-              <Text>{C.sidebar.settings}</Text>
-            </MenuItem>
-            <MenuItem id="memory" textValue={C.sidebar.memory}>
-              <Bookmark />
-              <Text>{C.sidebar.memory}</Text>
-            </MenuItem>
-            {main || channel.archived ? null : (
-              <MenuItem key={channel.pinned ? 'unpin' : 'pin'} id="pin" textValue={channel.pinned ? C.sidebar.unpin : C.sidebar.pin}>
-                {channel.pinned ? <PinOff /> : <PinOn />}
-                <Text>{channel.pinned ? C.sidebar.unpin : C.sidebar.pin}</Text>
-              </MenuItem>
-            )}
-            <MenuItem key={channel.muted ? 'unmute' : 'mute'} id="mute" textValue={channel.muted ? C.sidebar.unmute : C.sidebar.mute}>
-              {channel.muted ? <VolumeTwo /> : <VolumeOff />}
-              <Text>{channel.muted ? C.sidebar.unmute : C.sidebar.mute}</Text>
-            </MenuItem>
-            {main ? null : (
-              <MenuItem key={channel.archived ? 'unarchive' : 'archive'} id="archive" textValue={channel.archived ? C.sidebar.unarchive : C.sidebar.archive}>
-                <Archive />
-                <Text>{channel.archived ? C.sidebar.unarchive : C.sidebar.archive}</Text>
-              </MenuItem>
-            )}
-            {main ? null : (
-              <MenuItem id="delete" textValue={C.sidebar.delete}>
-                <Delete />
-                <Text>{C.sidebar.delete}</Text>
-              </MenuItem>
-            )}
-          </ActionMenu>
+          {main ? <ChannelListTools status={status} onStatus={setStatus} /> : <ChannelActionMenu channel={channel} go={go} />}
         </SideNavItemContent>
       </SideNavItem>
     );
   };
 
+  const groupSection = ({ group, rows }: { group: ChannelGroup; rows: ChannelSummary[] }) => {
+    const open = !collapsed.has(group.id);
+    return (
+      <SideNavSection key={group.id} id={`group:${group.id}`}>
+        <SideNavHeader>
+          {/* 段头里的控件自己处理焦点与按键，不让 SideNav 把它们转给某一行（同 Home 的段头）。 */}
+          <span className={`${groupHead} bc-section-head`} onFocus={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <ActionButton isQuiet size="S" styles={groupToggle} aria-expanded={open} onPress={() => toggleGroup(group.id)}>
+              <Folder />
+              <Text>
+                <span className={groupName}>
+                  <span className={groupNameText}>{group.name}</span>
+                  {open ? <ChevronDown /> : <ChevronRight />}
+                </span>
+              </Text>
+            </ActionButton>
+            <GroupTools group={group} className={`${groupTools} bc-section-actions`} />
+          </span>
+        </SideNavHeader>
+        {open ? rows.map(row) : []}
+      </SideNavSection>
+    );
+  };
+
   const inboxRoute: Route = { tab: 'bot', channelId: null, workItemId: null, view: 'inbox' };
+  const { main, loose } = channelTreeRows;
+  const nothingElse = !loose.length && !channelTreeRows.groups.some((g) => g.rows.length);
   return (
     <PageSidebar label={C.sidebar.nav}>
       <SidebarTitle>{C.sidebar.title}</SidebarTitle>
@@ -204,57 +199,21 @@ export function ChannelSidebar() {
               </SideNavItemContent>
             </SideNavItem>
           </SideNavSection>
-          {/* 侧栏标题已经是「频道」，这一组不再加组头。 */}
-          <SideNavSection id="group:channels">
-            {ready ? groups.active.map(row) : []}
-          </SideNavSection>
+          {/* 侧栏标题已经是「频道」，这一段不再加组头。 */}
+          <SideNavSection id="group:channels">{ready ? [main, ...loose].filter((r): r is ChannelSummary => r !== null).map(row) : []}</SideNavSection>
+          {ready ? channelTreeRows.groups.map(groupSection) : []}
         </SideNav>
-        {/* 导航树里没有 href 的行点了什么也不做，「新建频道」放在树外面，紧跟频道组。 */}
-        <ActionButton isQuiet styles={newChannel} UNSAFE_style={{ justifyContent: 'start' }} onPress={() => setDialog({ mode: 'create' })}>
+        {/* 导航树里没有 href 的行点了什么也不做，「新建频道」放在树外面。 */}
+        <ActionButton
+          isQuiet
+          styles={newChannel}
+          UNSAFE_style={{ justifyContent: 'start' }}
+          onPress={() => useBotLayout.getState().setDialog({ kind: 'newChannel' })}>
           <Add />
           <Text>{C.sidebar.newChannel}</Text>
         </ActionButton>
-        {groups.archived.length ? (
-          <SideNav styles={archivedNav} aria-label={C.sidebar.archivedNav} selectedRoute={selectedHref(route)}>
-            <SideNavSection id="group:archived">
-              <SideNavHeader>
-                <span className={sectionHead}>
-                  <ActionButton isQuiet size="S" aria-expanded={showArchived} aria-label={C.sidebar.archived} onPress={() => setShowArchived(!showArchived)}>
-                    {showArchived ? <ChevronDown /> : <ChevronRight />}
-                  </ActionButton>
-                  {`${C.sidebar.archived} (${groups.archived.length})`}
-                </span>
-              </SideNavHeader>
-              {showArchived ? groups.archived.map(row) : []}
-            </SideNavSection>
-          </SideNav>
-        ) : null}
+        {ready && status !== 'active' && nothingElse ? <p className={empty}>{status === 'archived' ? C.sidebar.noArchived : C.sidebar.noOthers}</p> : null}
       </div>
-      {dialog ? (
-        <ChannelDialog
-          state={dialog}
-          onClose={() => setDialog(null)}
-          onCreated={(id) => {
-            setDialog(null);
-            go(channelRoute(id));
-          }}
-          onDelete={(summary) => {
-            setDialog(null);
-            setDeleting(summary);
-          }}
-        />
-      ) : null}
-      {deleting ? (
-        <DeleteChannelDialog
-          summary={deleting}
-          onClose={() => setDeleting(null)}
-          onDeleted={() => {
-            const wasOpen = route.tab === 'bot' && route.channelId === deleting.channel.id;
-            setDeleting(null);
-            if (wasOpen) go(channelRoute(MAIN_CHANNEL_ID));
-          }}
-        />
-      ) : null}
     </PageSidebar>
   );
 }
