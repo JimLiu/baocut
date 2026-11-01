@@ -811,7 +811,7 @@ describe('Make 面板（BOT-MK-01、04、05，需求 §11.11）', () => {
     useChannels.setState({ channels: [] });
   });
 
-  const panel = () => createElement(MakePanel, { channelId: 'c1', scope: 'channel', onScope: () => {}, onHide: () => {} });
+  const panel = () => createElement(MakePanel, { channelId: 'c1', scope: 'channel', onScope: () => {} });
 
   it('第一条是带预览的大卡，右上角 ✕ 忽略；还没有产物时写明会出现什么', async () => {
     await render(panel());

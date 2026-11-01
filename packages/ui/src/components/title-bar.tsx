@@ -15,6 +15,8 @@ import { ShellButton } from './shell-button.tsx';
 import { ShellSidebarHiddenIcon, ShellSidebarIcon } from './shell-icons.tsx';
 import { useShellPeekControls } from './shell-peek.tsx';
 import { HomeTitleBar } from './workspace/home-title-bar.tsx';
+import { useBotHasHead } from './bot/bot-side-state.ts';
+import { BotTitleBar } from './bot/bot-title-bar.tsx';
 
 const bar = style({
   position: 'relative',
@@ -55,6 +57,7 @@ const divider = style({
  * 标题栏（产品设计 §2.2、§2.5 用户修订）：后退、前进，然后是侧栏开合；应用名居中在内容区上方；
  * 下方各栏的分界延伸上来。整条可以拖动窗口；macOS 的红绿灯在左边，留出位置。
  * Home 总有视图按钮组（见 HomeTitleBar）；有会话或功能区标签（或是窄窗口）时再换上会话头与标签条，不显示应用名。
+ * Bot 页照 Home 放中间栏的标题与右栏的页签条（BotTitleBar），有标题时也不显示应用名与帮助。
  */
 export function TitleBar({ platform }: { platform: string }) {
   const route = useShell((s) => s.route);
@@ -71,6 +74,8 @@ export function TitleBar({ platform }: { platform: string }) {
   const peek = useShellPeekControls();
   // 窄窗口里会话本身是标签条的第一格，没有标签时也要显示标签条。
   const homeMode = home !== null && (home.conversationId !== null || homeTabs > 0 || narrow);
+  const bot = route.tab === 'bot' ? route : null;
+  const botMode = useBotHasHead(bot);
   return (
     <div ref={ref} className={`${bar} bc-drag`} style={{ paddingInlineStart: platform === 'darwin' ? 84 : 12 }}>
       {dividers.map((x) => (
@@ -78,7 +83,7 @@ export function TitleBar({ platform }: { platform: string }) {
       ))}
       {/* 应用名这层继承了拖动区，pointer-events 管不到它：Electron 按文档顺序叠拖动区，放在按钮前面，
           侧栏收起、它从左缘铺开时按钮的 no-drag 才压得住它（否则点开合钮只会拖动窗口）。 */}
-      {homeMode ? null : (
+      {homeMode || botMode ? null : (
         <div className={titleArea} style={{ left: dividers.at(-1) ?? 0 }}>
           <span className={title}>BaoCut</span>
         </div>
@@ -121,7 +126,8 @@ export function TitleBar({ platform }: { platform: string }) {
       {home ? (
         <HomeTitleBar conversationId={home.conversationId} projectId={home.projectId} pane={home.pane ?? null} bar={ref} nav={navRef} />
       ) : null}
-      {sidebarHidden && !home ? (
+      {bot ? <BotTitleBar route={bot} bar={ref} nav={navRef} /> : null}
+      {sidebarHidden && !home && !botMode ? (
         // 帮助入口（原型 shell.jsx `sidebar.ghost && !home`）：侧栏收起时、Home 之外才放在标题栏。
         <div className={acts}>
           <TooltipTrigger>

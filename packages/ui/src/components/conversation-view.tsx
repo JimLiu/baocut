@@ -72,6 +72,8 @@ const centered = style({
   font: 'ui',
   color: 'gray-600',
 });
+/** 线程还没载入、又有 `header` 时：先把 header 画在同样的滚动区里。 */
+const headerScroll = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, overflowY: 'auto' });
 
 /**
  * `autoFocus`：挂上时把光标放进输入框；编辑器右下角默认展开的悬浮会话不抢焦点。
@@ -86,6 +88,7 @@ export function ConversationView({
   onAgentChange,
   empty,
   reply,
+  header,
 }: {
   conversationId: string;
   autoFocus?: boolean;
@@ -95,6 +98,8 @@ export function ConversationView({
   empty?: ReactNode;
   /** Bot 频道：下一条消息回复哪张线程卡（BOT-EX-09）；发出或排进队列后调 `onSent`。 */
   reply?: { itemId: Id; onSent: () => void } | null;
+  /** 跟线程一起滚的最前面那段（Bot 任务详情的任务信息，见 Thread 的 `header`）；线程还没载入时也先画出来。 */
+  header?: ReactNode;
 }) {
   const runtime = useRuntime();
   const meta = useConversationMeta(conversationId);
@@ -233,7 +238,15 @@ export function ConversationView({
           running={busy}
           empty={empty ?? <ThreadEmpty conversationId={conversationId} projectId={meta.projectId} folderOf={meta.folderOf} />}
           find={findOpen ? { focus: findFocus, onClose: () => closeConversationFind(conversationId) } : null}
+          header={header}
         />
+      ) : header ? (
+        <div className={`${headerScroll} bc-scroll`}>
+          {header}
+          <div className={centered}>
+            <ProgressCircle isIndeterminate aria-label={S.conversationView.loadingSession} />
+          </div>
+        </div>
       ) : (
         <div className={centered}>
           <ProgressCircle isIndeterminate aria-label={S.conversationView.loadingSession} />

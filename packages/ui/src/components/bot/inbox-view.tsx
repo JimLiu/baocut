@@ -112,9 +112,10 @@ function InboxCard({ row, now }: { row: InboxRow; now: number }) {
 
 /**
  * 「等你处理」（BOT-CH-11、需求 §11.7）：所有频道里等你的任务，按频道分组；每件单独回答或批准，没有批量通过。
- * 频道摘要一变（等你的数变了）就重取。
+ * 频道摘要一变（等你的数变了）就重取。在中间栏时标题在标题栏里（BotTitleBar）；占满时它是右栏的左栏，标题栏只有页签，
+ * 这时 `titled` 把标题放回列表顶上。
  */
-export function InboxView() {
+export function InboxView({ titled = false }: { titled?: boolean }) {
   const runtime = useRuntime();
   const channels = useChannels((s) => s.channels);
   const now = useNow(60_000);
@@ -142,7 +143,7 @@ export function InboxView() {
   return (
     <section className={`${page} bc-scroll`} aria-label={C.inbox.title}>
       <div className={inner}>
-        <h1 className={heading}>{C.inbox.title}</h1>
+        {titled ? <h2 className={heading}>{C.inbox.title}</h2> : null}
         <p className={lead}>{C.inbox.lead}</p>
         {failure && !rows ? (
           <p className={empty}>{C.common.failed(failure)}</p>

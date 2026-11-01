@@ -23,10 +23,11 @@ export function paneEdge(element: HTMLElement) {
 }
 
 /**
- * Home 标题栏要对齐的几块区域（原型 shell.jsx `Titlebar` 的 `.content` 与 `.home-workspace__conversation`）：
- * 内容区（会话侧栏右边）与会话列。和分界共用一个 ResizeObserver。
+ * 标题栏要对齐的几块区域（原型 shell.jsx `Titlebar` 的 `.content` 与 `.home-workspace__conversation`）：
+ * Home 的内容区（会话侧栏右边）与会话列；Bot 页的内容区（频道侧栏右边）、中间栏与右栏（原型 page-bot.jsx `useTitlebarSlot`）。
+ * 和分界共用一个 ResizeObserver。
  */
-export type PaneRegion = 'home-content' | 'home-conversation';
+export type PaneRegion = 'home-content' | 'home-conversation' | 'bot-content' | 'bot-main' | 'bot-side';
 const regions = new Map<PaneRegion, HTMLElement>();
 
 function regionRef(name: PaneRegion) {
@@ -46,6 +47,9 @@ function regionRef(name: PaneRegion) {
 /** 模块级的 ref 回调：每次渲染是同一个函数，不会反复挂上卸下。 */
 export const homeContentRegion = regionRef('home-content');
 export const homeConversationRegion = regionRef('home-conversation');
+export const botContentRegion = regionRef('bot-content');
+export const botMainRegion = regionRef('bot-main');
+export const botSideRegion = regionRef('bot-side');
 
 export interface RegionBounds {
   left: number;

@@ -95,16 +95,17 @@ const list = style({
   overflowY: 'hidden',
   scrollbarWidth: 'none',
 });
+/** `isFixed`：Bot 右栏的「任务」「Make」，宽按内容、不缩（原型 page-bot.css `.bot-side-tabs__view`）。 */
 const tabItem = style({
   position: 'relative',
   display: 'flex',
   alignItems: 'center',
   gap: 4,
-  flexGrow: 1,
-  flexShrink: 1,
-  flexBasis: { default: 160, lg: 240 },
-  minWidth: 120,
-  maxWidth: 240,
+  flexGrow: { default: 1, isFixed: 0 },
+  flexShrink: { default: 1, isFixed: 0 },
+  flexBasis: { default: 160, lg: 240, isFixed: 'auto' },
+  minWidth: { default: 120, isFixed: 0 },
+  maxWidth: { default: 240, isFixed: 'none' },
   boxSizing: 'border-box',
   paddingStart: 8,
   paddingEnd: 4,
@@ -216,6 +217,23 @@ const statusDot = style({
 const separator = style({ flexShrink: 0, alignSelf: 'stretch', width: '[1px]', marginY: 8, marginX: 2, backgroundColor: 'gray-300' });
 /** 让 S2 图标跟着标签的文字颜色（普通 / 悬停 / 当前）。 */
 const inheritIcon = { '--iconPrimary': 'currentColor' } as CSSProperties;
+
+/** Bot 右栏的页签条（bot-side-tabs.tsx）照这一套画，不拖、不预览。 */
+export const workspaceTabStyles = {
+  strip,
+  tablist,
+  list,
+  tabItem,
+  tabTarget,
+  tabName,
+  closeSlot,
+  conversationItem,
+  conversationName,
+  glyph,
+  separator,
+  inheritIcon,
+  icon,
+};
 
 interface Drag {
   key: string;

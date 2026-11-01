@@ -1,21 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AwaySummary, AwaySummaryRow, Channel, Id } from '@baocut/protocol';
-import { ActionButton, Button, DialogContainer, NotificationBadge, Text } from '@react-spectrum/s2';
-import Bookmark from '@react-spectrum/s2/icons/Bookmark';
-import CalendarAdd from '@react-spectrum/s2/icons/CalendarAdd';
+import { ActionButton, Button } from '@react-spectrum/s2';
 import Close from '@react-spectrum/s2/icons/Close';
-import MagicWand from '@react-spectrum/s2/icons/MagicWand';
-import Settings from '@react-spectrum/s2/icons/Settings';
-import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { useRuntime } from '../../runtime/context.tsx';
 import { formatMoneyOne } from '../../model/usage-format.ts';
-import { useChannelSummary, useChannels } from '../../state/channels-store.ts';
+import { useChannels } from '../../state/channels-store.ts';
 import { useConnection } from '../../state/connection-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTimeline, useTimelineItems } from '../../state/timeline-store.ts';
 import { useWorkItem } from '../../state/work-items-store.ts';
-import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
 import { ConversationView } from '../conversation-view.tsx';
 import { focusComposer, useBotCall, useScopedState } from './bot-actions.ts';
 import { jumpTo } from './bot-jump.ts';
@@ -25,36 +19,9 @@ import { useBotMessageExtras } from './timeline/message-extras.tsx';
 import { SuggestionChips } from './timeline/suggestion-chips.tsx';
 
 const column = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0, minHeight: 0 });
-const header = style({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  flexShrink: 0,
-  paddingX: 24,
-  paddingY: 12,
-  borderBottomWidth: 1,
-  borderTopWidth: 0,
-  borderXWidth: 0,
-  borderStyle: 'solid',
-  borderColor: 'gray-100',
-  minWidth: 0,
-});
-/** 「任务」开关显示右栏时的底色（app.css `.bc-panel-toggle[aria-expanded='true']` 读这个变量；S2 的安静按钮没有选中态）。 */
-const toggleOnFill = style({ '--bc-panel-toggle-on': { type: 'backgroundColor', value: 'gray-100' } });
-/** 「Make」开关右上角的蓝点：这个频道有没处理的建议。 */
-const toggleDot = style({ position: 'absolute', top: 2, insetEnd: 2, size: 8, borderRadius: 'full', backgroundColor: 'blue-900' });
 const replyRow = style({ display: 'flex', alignItems: 'center', gap: 4, paddingX: 4, font: 'ui-sm', color: 'gray-700', minWidth: 0 });
 const replyText = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
 const spendLine = style({ font: 'ui-xs', color: 'gray-600', whiteSpace: 'nowrap' });
-const headText = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 });
-const name = style({ margin: 0, font: 'title-sm', color: 'gray-900', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-const purpose = style({
-  font: 'ui-sm',
-  color: { default: 'gray-700', isEmpty: 'gray-500' },
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-});
 const banner = style({
   display: 'flex',
   alignItems: 'center',
@@ -233,31 +200,15 @@ export function ChannelSpend({ channelId }: { channelId: Id }) {
 }
 
 /**
- * 频道对话（BOT-CV-01…05、需求 §11.3）：头部是频道名与用途；时间线就是普通会话的时间线，Bot 条目（线程卡、报告行、提议卡）
- * 由 `BotTimeline` 画；输入框上方是提示芯片。换 Agent 改的是频道（`channels.update`），不是这一条会话。
+ * 频道对话（BOT-CV-01…05、需求 §11.3）：频道头在标题栏里（bot-head.tsx，窄时 BotPage 放回顶上），这里是横幅与时间线。
+ * 时间线就是普通会话的时间线，Bot 条目（线程卡、报告行、提议卡）由 `BotTimeline` 画；输入框上方是提示芯片。换 Agent 改的是频道（`channels.update`），不是这一条会话。
  */
-export function ChannelView({
-  channel,
-  onSettings,
-  tasksToggle,
-  makeToggle = null,
-}: {
-  channel: Channel;
-  onSettings: () => void;
-  /** 右栏（任务面板或任务详情）的开关，带这个频道里等你的任务数（需求 §11.1）。 */
-  tasksToggle: { shown: boolean; onToggle: () => void } | null;
-  /** 右栏放 Make 面板的开关；这个频道有没处理的建议时带一个点（需求 §11.3）。 */
-  makeToggle?: { shown: boolean; onToggle: () => void } | null;
-}) {
+export function ChannelView({ channel }: { channel: Channel }) {
   const go = useShell((s) => s.go);
   const call = useBotCall();
   const items = useTimelineItems(channel.conversationId);
   const away = useAwayAndSeen(channel);
   const unavailable = useDriverUnavailable(channel);
-  const [scheduling, setScheduling] = useState(false);
-  const counts = useChannelSummary(channel.id)?.counts;
-  const waiting = counts?.needsYou ?? 0;
-  const suggested = counts?.suggested ?? 0;
   // 回复一张线程卡（BOT-EX-09）：下一条消息带上卡片的 id，协调者把原文转给那条任务的线程。
   const [replyTo, setReplyTo] = useScopedState<{ itemId: Id; workItemId: Id } | null>(channel.id, null);
   const firstUnread = away.summary?.firstUnreadItemId ?? null;
@@ -321,56 +272,7 @@ export function ChannelView({
 
   return (
     <section className={column} aria-label={channel.name}>
-      <header className={header}>
-        <div className={headText}>
-          <h2 className={name}>{channel.name}</h2>
-          <span className={purpose({ isEmpty: !channel.purpose })} title={channel.purpose || undefined}>
-            {channel.purpose || C.channel.noPurpose}
-          </span>
-        </div>
-        <ChannelSpend channelId={channel.id} />
-        <ActionButton isQuiet size="S" onPress={() => go({ tab: 'bot', channelId: channel.id, workItemId: null, view: 'memory' })}>
-          <Bookmark />
-          <Text>{C.channel.memory}</Text>
-        </ActionButton>
-        {/* 周期任务（Bot 技术方案 §14.1）：每次到点在这个频道里建一条任务。 */}
-        <ActionButton isQuiet size="S" aria-label={C.channel.recurring} isDisabled={channel.archived} onPress={() => setScheduling(true)}>
-          <CalendarAdd />
-        </ActionButton>
-        <ActionButton isQuiet size="S" aria-label={C.sidebar.settings} onPress={onSettings}>
-          <Settings />
-        </ActionButton>
-        {tasksToggle ? (
-          <ActionButton
-            isQuiet
-            size="S"
-            aria-label={C.channel.tasks(waiting)}
-            aria-expanded={tasksToggle.shown}
-            onPress={tasksToggle.onToggle}
-            UNSAFE_className={`bc-panel-toggle ${toggleOnFill}`}>
-            <ViewList />
-            <Text>{C.panel.title}</Text>
-            {waiting ? <NotificationBadge size="S" value={waiting} /> : null}
-          </ActionButton>
-        ) : null}
-        {makeToggle ? (
-          <ActionButton
-            isQuiet
-            size="S"
-            aria-label={C.make.toggle(suggested)}
-            aria-expanded={makeToggle.shown}
-            onPress={makeToggle.onToggle}
-            UNSAFE_className={`bc-panel-toggle ${toggleOnFill}`}>
-            <MagicWand />
-            <Text>{C.make.title}</Text>
-            {suggested ? <span className={toggleDot} aria-hidden="true" /> : null}
-          </ActionButton>
-        ) : null}
-      </header>
       {banners}
-      <DialogContainer onDismiss={() => setScheduling(false)}>
-        {scheduling ? <ScheduleDialog channelId={channel.id} onClose={() => setScheduling(false)} /> : null}
-      </DialogContainer>
       <BotTimeline channelId={channel.id} extras={extras}>
         <ConversationView
           conversationId={channel.conversationId}

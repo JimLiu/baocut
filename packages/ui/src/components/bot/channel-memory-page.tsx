@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BOT_LIMITS, RpcError, type Channel } from '@baocut/protocol';
-import { ActionButton, AlertDialog, Button, DialogContainer, ProgressCircle, SegmentedControl, SegmentedControlItem, Text, ToastQueue } from '@react-spectrum/s2';
-import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
+import { AlertDialog, Button, DialogContainer, ProgressCircle, SegmentedControl, SegmentedControlItem, Text, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
-import { useShell } from '../../state/shell-store.ts';
 import { LatestOnly } from '../../model/latest-only.ts';
 import { errorText } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
@@ -25,7 +23,6 @@ const inner = style({
   boxSizing: 'border-box',
 });
 const head = style({ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' });
-const heading = style({ margin: 0, flexGrow: 1, font: 'title-lg', color: 'gray-900' });
 const lead = style({ margin: 0, font: 'body-sm', color: 'gray-700' });
 const editor = style({
   flexGrow: 1,
@@ -90,10 +87,10 @@ function conflictOf(error: unknown): { content: string; version: number } | null
 /**
  * 记忆页（BOT-MM-01…04、需求 §11.8）：这个频道的 MEMORY.md 与所有频道共用的用户偏好两个标签。保存时带上读到的版本，
  * 期间被智能体或另一个窗口改过就停下，让你选「载入最新」还是「用我的覆盖」。超过上限不让保存，接近上限时提示。
+ * 标题「‹ 记忆 · 频道名」在标题栏里（bot-head.tsx 的 BotMemoryHead）。
  */
 export function ChannelMemoryPage({ channel }: { channel: Channel }) {
   const runtime = useRuntime();
-  const go = useShell((s) => s.go);
   const [scope, setScope] = useState<Scope>('channel');
   const [loaded, setLoaded] = useState<{ content: string; version: number } | null>(null);
   const [text, setText] = useState('');
@@ -156,10 +153,6 @@ export function ChannelMemoryPage({ channel }: { channel: Channel }) {
     <section className={page} aria-label={C.memory.title}>
       <div className={inner}>
         <div className={head}>
-          <ActionButton isQuiet size="S" aria-label={C.detail.back} onPress={() => go({ tab: 'bot', channelId: channel.id, workItemId: null, view: 'channel' })}>
-            <ChevronLeft />
-          </ActionButton>
-          <h1 className={heading}>{`${C.memory.title} · ${channel.name}`}</h1>
           <SegmentedControl aria-label={C.memory.title} selectedKey={scope} isDisabled={busy} onSelectionChange={(key) => setScope(key as Scope)}>
             <SegmentedControlItem id="channel">{C.memory.thisChannel}</SegmentedControlItem>
             <SegmentedControlItem id="user">{C.memory.allChannels}</SegmentedControlItem>

@@ -18,7 +18,6 @@ import {
 } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
-import Close from '@react-spectrum/s2/icons/Close';
 import Filter from '@react-spectrum/s2/icons/Filter';
 import User from '@react-spectrum/s2/icons/User';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -50,8 +49,8 @@ import { workItemStatus } from './work-item-status.ts';
 
 /** 右栏面板的外框与头部；Make 面板（make-panel.tsx）共用。 */
 export const panel = style({ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, flexGrow: 1 });
-export const head = style({ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, paddingX: 16, paddingTop: 12, paddingBottom: 8 });
-export const headTitle = style({ margin: 0, flexGrow: 1, font: 'title-sm', color: 'gray-900' });
+/** 面板顶上只有工具，靠右（原型 page-bot.css `.bot-panel__head--tools`）：名字在页签上。 */
+const head = style({ display: 'flex', alignItems: 'center', justifyContent: 'end', gap: 4, flexShrink: 0, paddingStart: 16, paddingEnd: 12, paddingTop: 8, paddingBottom: 4 });
 const addForm = style({
   display: 'flex',
   flexDirection: 'column',
@@ -277,11 +276,11 @@ function AddTaskRow({ channelId, onAdded, onClose }: { channelId: Id; onAdded: (
 const FILTER_LABEL: Record<TaskFilter, () => string> = { all: () => C.panel.all, mine: () => C.panel.mine, agent: () => C.panel.agent };
 
 /**
- * 频道右侧的任务面板（BOT-TK-01…05、BOT-SG-05…07、需求 §11.5）：头部是标题、「显示哪些任务」菜单、新任务与收起；
- * 新任务在头部下面直接输入；建议在 Make 面板（make-panel.tsx）。四个页签：进行中（按子状态分组，组头带条数）、
- * 接下来、定时、已解决（最近 20 条、30 天内）。没选过页签时显示第一个有任务的。`onHide` 收起右栏，与频道头的「任务」开关同一件事。
+ * 频道右侧的任务面板（BOT-TK-01…05、BOT-SG-05…07、需求 §11.5）：右栏的「任务」页签。顶上是「显示哪些任务」菜单与新任务，
+ * 收起与关闭在页签条上；新任务在头部下面直接输入；建议在 Make 面板（make-panel.tsx）。四个页签：进行中（按子状态分组，组头带条数）、
+ * 接下来、定时、已解决（最近 20 条、30 天内）。没选过页签时显示第一个有任务的。
  */
-export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId: Id; selectedId: Id | null; onHide?: (() => void) | null }) {
+export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId: Id | null }) {
   const items = useChannelWorkItems(channelId);
   const loaded = useWorkItemsLoaded(channelId);
   const timeZone = useChannels((s) => s.settings.timeZone);
@@ -349,7 +348,6 @@ export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId:
   return (
     <section className={panel} aria-label={C.panel.title}>
       <div className={head}>
-        <h2 className={headTitle}>{C.panel.title}</h2>
         <MenuTrigger>
           <ActionButton isQuiet size="S" aria-label={C.panel.filterPick(FILTER_LABEL[filter]())}>
             <Filter />
@@ -374,11 +372,6 @@ export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId:
         <ActionButton isQuiet size="S" aria-label={C.panel.newTask} aria-expanded={adding} onPress={() => setAdding(!adding)}>
           <Add />
         </ActionButton>
-        {onHide ? (
-          <ActionButton isQuiet size="S" aria-label={C.panel.hide} onPress={onHide}>
-            <Close />
-          </ActionButton>
-        ) : null}
       </div>
       {adding ? (
         <AddTaskRow

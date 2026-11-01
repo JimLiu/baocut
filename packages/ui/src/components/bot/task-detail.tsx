@@ -16,11 +16,11 @@ import {
   Text,
   TextArea,
   ToastQueue,
+  Tooltip,
+  TooltipTrigger,
 } from '@react-spectrum/s2';
-import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
-import Close from '@react-spectrum/s2/icons/Close';
-import FullScreen from '@react-spectrum/s2/icons/FullScreen';
-import FullScreenExit from '@react-spectrum/s2/icons/FullScreenExit';
+import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
+import ChevronUp from '@react-spectrum/s2/icons/ChevronUp';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { FINISHED_STEPS_SHOWN, canRevertItem, type WorkItemStatusKey } from '../../model/bot.ts';
 import { agoLabel } from '../../model/format.ts';
@@ -42,28 +42,50 @@ import { useBotMessageExtras } from './timeline/message-extras.tsx';
 import { SuggestionChips } from './timeline/suggestion-chips.tsx';
 import { statusLabel, workItemStatus } from './work-item-status.ts';
 
-const frame = style({ display: 'flex', flexDirection: { default: 'column', isWide: 'row' }, flexGrow: 1, minHeight: 0, minWidth: 0 });
-const meta = style({
+const frame = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, minWidth: 0 });
+/** 用户自己的任务没有线程：任务信息自己一个滚动区。 */
+const scroll = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, overflowY: 'auto' });
+/** 头部一行贴在滚动区顶上（原型 page-bot.css `.bot-detail__bar`）。 */
+const bar = style({ position: 'sticky', top: 0, zIndex: 1, flexShrink: 0, backgroundColor: 'layer-1' });
+/** 任务信息与线程同一栏宽（Thread 的 column：760 居中、左右 24）。 */
+const infoColumn = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: 16,
-  flexShrink: { default: 1, isWide: 0 },
-  width: { default: 'auto', isWide: 400 },
-  maxHeight: { default: '[55%]', isWide: 'none' },
-  minHeight: 0,
-  overflowY: 'auto',
-  paddingX: 16,
-  paddingY: 12,
+  width: 'full',
+  maxWidth: '[760px]',
+  marginX: 'auto',
+  paddingX: 24,
+  paddingTop: 4,
+  paddingBottom: 12,
   boxSizing: 'border-box',
-  borderColor: 'gray-100',
-  borderStyle: 'solid',
-  borderTopWidth: 0,
-  borderStartWidth: 0,
-  borderBottomWidth: { default: 1, isWide: 0 },
-  borderEndWidth: { default: 0, isWide: 1 },
 });
-const thread = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, minWidth: 0 });
-const headRow = style({ display: 'flex', alignItems: 'center', gap: 4, marginStart: -8, minWidth: 0 });
+/** 有线程时任务信息下面一道 2px 的分隔，和线程分开（原型 `.bot-detail__info--divided`）。 */
+const infoBox = style({
+  display: { default: 'flex', isHidden: 'none' },
+  flexDirection: 'column',
+  gap: 16,
+  paddingBottom: { default: 0, isDivided: 16 },
+  borderStyle: 'solid',
+  borderColor: 'gray-100',
+  borderTopWidth: 0,
+  borderXWidth: 0,
+  borderBottomWidth: { default: 0, isDivided: 2 },
+});
+const more = style({ display: { default: 'flex', isHidden: 'none' }, flexDirection: 'column', gap: 16 });
+const headRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+  width: 'full',
+  maxWidth: '[760px]',
+  marginX: 'auto',
+  paddingStart: 16,
+  paddingEnd: 12,
+  paddingTop: 12,
+  paddingBottom: 8,
+  boxSizing: 'border-box',
+  minWidth: 0,
+});
 const heading = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0, marginStart: 4 });
 const title = style({
   margin: 0,
@@ -191,27 +213,17 @@ function useWorkItemRecord(id: Id) {
   return { record, missing };
 }
 
+/** 任务信息收起或展开，按任务记（离开再回来照旧）；没记过是展开的。 */
+const infoOpen = new Map<Id, boolean>();
+
 /**
- * 任务详情（BOT-TK-06…10、BOT-CH-11、BOT-EX-19/20、需求 §11.6）：头部一行是返回、状态、标题与「状态 · 下一步 · N 条进展」、
- * 展开、「⋯」（编辑也在里面）与关闭；等你的问题带选项按钮，下面是步骤、产物与资源、进展、转换记录；线程会话照普通会话画，
- * 输入框发的话进线程。用户自己的任务没有线程。可以收在频道右侧，也可以展开占满主区（宽版左右分栏）。
- * `onBack` 回到任务列表（右栏）或频道（展开时）；`onHide` 收起右栏。收件箱里只有关闭。
+ * 任务详情（BOT-TK-06…10、BOT-CH-11、BOT-EX-19/20、需求 §11.6 的修订稿）：右栏的一个任务页签，一栏从上滚到下。
+ * 顶上一行贴着：状态、标题与「状态 · 下一步 · N 条进展」、收起或展开任务信息、「⋯」（编辑也在里面）；返回、占满与关闭在页签条上。
+ * 下面是任务信息——等你的问题（带选项按钮，收起时也在）、事实、步骤、产物与资源、进展、转换记录——然后是线程，照普通会话画，
+ * 输入框发的话进线程；任务信息跟着线程一起滚（ConversationView 的 `header`）。用户自己的任务没有线程。
+ * 删掉记录后 `onClose` 关掉这个页签。
  */
-export function TaskDetail({
-  workItemId,
-  channelId,
-  wide,
-  onToggleWide,
-  onBack = null,
-  onHide = null,
-}: {
-  workItemId: Id;
-  channelId: Id | null;
-  wide: boolean;
-  onToggleWide: (() => void) | null;
-  onBack?: (() => void) | null;
-  onHide?: (() => void) | null;
-}) {
+export function TaskDetail({ workItemId, channelId, onClose }: { workItemId: Id; channelId: Id | null; onClose: () => void }) {
   const live = useWorkItem(workItemId);
   const { record, missing } = useWorkItemRecord(workItemId);
   const item = live ?? record?.item;
@@ -226,26 +238,15 @@ export function TaskDetail({
   const threadExtras = useMemo(() => ({ unread: null, ...messageExtras }), [messageExtras]);
   const spent = useTaskSpend(item?.channelId ?? channelId, workItemId);
 
-  const leave = onBack ?? onHide ?? (() => {});
-  const backButton = onBack ? (
-    <ActionButton isQuiet size="S" aria-label={onHide ? C.detail.backToList : C.detail.back} onPress={onBack}>
-      <ChevronLeft />
-    </ActionButton>
-  ) : null;
-  const hideButton = onHide ? (
-    <ActionButton isQuiet size="S" aria-label={C.panel.hide} onPress={onHide}>
-      <Close />
-    </ActionButton>
-  ) : null;
+  const [open, setOpen] = useState(() => infoOpen.get(workItemId) !== false);
+  const toggleInfo = () => {
+    infoOpen.set(workItemId, !open);
+    setOpen(!open);
+  };
 
   if (!item) {
     return (
-      <div className={thread}>
-        <div className={headRow}>
-          {backButton}
-          <span className={heading} />
-          {hideButton}
-        </div>
+      <div className={frame}>
         <div className={centered}>{missing ? C.card.missing : <ProgressCircle size="S" isIndeterminate aria-label={C.common.loading} />}</div>
       </div>
     );
@@ -281,162 +282,170 @@ export function TaskDetail({
     setAnswering(null);
   };
 
-  const details = (
-    <div className={`${meta({ isWide: wide })} bc-scroll`}>
-      <div className={headRow}>
-        {backButton}
-        <StatusIcon statusKey={status.key} chip />
-        <div className={heading}>
-          <h2 className={title({ isStruck: status.strike })} title={item.title}>
-            {item.title}
-          </h2>
-          <span className={subline} title={sub}>
-            {sub}
-          </span>
+  const infoId = `bot-detail-info-${item.id}`;
+  const infoLabel = open ? C.detail.hideInfo : C.detail.showInfo;
+  const header = (
+    <>
+      <div className={bar}>
+        <div className={headRow}>
+          <StatusIcon statusKey={status.key} chip />
+          <div className={heading}>
+            <h2 className={title({ isStruck: status.strike })} title={item.title}>
+              {item.title}
+            </h2>
+            <span className={subline} title={sub}>
+              {sub}
+            </span>
+          </div>
+          <TooltipTrigger>
+            <ActionButton isQuiet size="S" aria-label={infoLabel} aria-expanded={open} aria-controls={infoId} onPress={toggleInfo}>
+              {open ? <ChevronUp /> : <ChevronDown />}
+            </ActionButton>
+            <Tooltip>{infoLabel}</Tooltip>
+          </TooltipTrigger>
+          <ActionMenu aria-label={C.common.more} isQuiet size="S" onAction={(key) => run(key as MenuAction)}>
+            {actions.map((action) => (
+              <MenuItem key={action} id={action} textValue={MENU_LABEL[action]()}>
+                <Text>{MENU_LABEL[action]()}</Text>
+              </MenuItem>
+            ))}
+          </ActionMenu>
         </div>
-        {onToggleWide ? (
-          <ActionButton isQuiet size="S" aria-label={wide ? C.detail.collapse : C.detail.expand} onPress={onToggleWide}>
-            {wide ? <FullScreenExit /> : <FullScreen />}
-          </ActionButton>
-        ) : null}
-        <ActionMenu aria-label={C.common.more} isQuiet size="S" onAction={(key) => run(key as MenuAction)}>
-          {actions.map((action) => (
-            <MenuItem key={action} id={action} textValue={MENU_LABEL[action]()}>
-              <Text>{MENU_LABEL[action]()}</Text>
-            </MenuItem>
-          ))}
-        </ActionMenu>
-        {hideButton}
       </div>
-      <div className={facts}>
-        <span>{`${C.detail.priority}: ${C.detail.priorities[item.priority]}`}</span>
-        {item.dueOn ? <span>{dateFact(C.detail.due, item.dueOn, item.dueOnBy)}</span> : null}
-        {item.eventOn ? <span>{dateFact(C.detail.event, item.eventOn, item.eventOnBy)}</span> : null}
-        <span>{item.owner === 'user' ? C.common.me : C.common.agent}</span>
-        {spent ? <span>{spent}</span> : null}
+      <div className={infoColumn}>
+        <div className={infoBox({ isHidden: !question && !open, isDivided: !!item.threadId && (!!question || open) })}>
+          {question ? (
+            <section className={waiting} aria-label={C.detail.waiting}>
+              <h3 className={blockTitle}>{C.detail.waiting}</h3>
+              <p className={questionText}>{question.text}</p>
+              {question.options.length && item.threadId ? (
+                <div className={options}>
+                  {question.options.map((option, index) => (
+                    <Button
+                      key={option.label}
+                      size="S"
+                      variant={!question.risky && question.pick === index ? 'accent' : 'secondary'}
+                      isPending={answering === index}
+                      isDisabled={answering !== null && answering !== index}
+                      onPress={() => void answer(index)}>
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+              {question.options.some((option) => option.description) ? (
+                <ul className={items}>
+                  {question.options
+                    .filter((option) => option.description)
+                    .map((option) => (
+                      <li key={option.label} className={optionNote}>{`${option.label}: ${option.description}`}</li>
+                    ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+          <div id={infoId} className={more({ isHidden: !open })}>
+            <div className={facts}>
+              <span>{`${C.detail.priority}: ${C.detail.priorities[item.priority]}`}</span>
+              {item.dueOn ? <span>{dateFact(C.detail.due, item.dueOn, item.dueOnBy)}</span> : null}
+              {item.eventOn ? <span>{dateFact(C.detail.event, item.eventOn, item.eventOnBy)}</span> : null}
+              <span>{item.owner === 'user' ? C.common.me : C.common.agent}</span>
+              {spent ? <span>{spent}</span> : null}
+            </div>
+            {item.description ? <p className={description}>{item.description}</p> : null}
+            {item.owner === 'user' ? <p className={optionNote}>{C.detail.userTask}</p> : null}
+            {item.steps.length ? (
+              <Block label={C.detail.steps}>
+                <ol className={items}>
+                  {item.steps.map((step, index) => (
+                    <li key={`${index}:${step.text}`} className={step.state === 'active' ? activeStep : undefined}>
+                      {step.text}
+                    </li>
+                  ))}
+                </ol>
+              </Block>
+            ) : null}
+            {item.finishedSteps.length ? (
+              <Block label={C.detail.finished}>
+                <ul className={items}>
+                  {finished.map((step, index) => (
+                    <li key={`${step.at}:${index}`} className={itemRow}>
+                      <span>{step.result ? `${step.text} — ${step.result}` : step.text}</span>
+                    </li>
+                  ))}
+                </ul>
+                {!allFinished && item.finishedSteps.length > FINISHED_STEPS_SHOWN ? (
+                  <div>
+                    <ActionButton isQuiet size="S" onPress={() => setAllFinished(true)}>
+                      {C.detail.showAll(item.finishedSteps.length)}
+                    </ActionButton>
+                  </div>
+                ) : null}
+              </Block>
+            ) : null}
+            {item.outputs.length ? (
+              <Block label={C.detail.outputs}>
+                <TaskRefs refs={item.outputs} item={item} />
+              </Block>
+            ) : null}
+            {item.resources.length ? (
+              <Block label={C.detail.resources}>
+                <TaskRefs refs={item.resources} item={item} jobsShownFor={videoIdsOf(item.outputs)} />
+              </Block>
+            ) : null}
+            {item.updates.length ? (
+              <Block label={C.detail.updates}>
+                <ul className={items}>
+                  {[...item.updates].reverse().map((update, index) => (
+                    <li key={`${update.at}:${index}`} className={itemRow}>
+                      <span>{update.text}</span>
+                      <span className={muted}>{`${C.detail.actor[update.by]} · ${agoLabel(update.at, now)}`}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Block>
+            ) : null}
+            {record?.transitions.length ? (
+              <Block label={C.detail.history}>
+                <ul className={items}>
+                  {[...record.transitions].reverse().map((transition, index) => (
+                    <li key={`${transition.at}:${index}`} className={itemRow}>
+                      <span>{C.detail.transition(stateName(transition.from), stateName(transition.to), C.detail.actor[transition.actor])}</span>
+                      <span className={muted}>{agoLabel(transition.at, now)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Block>
+            ) : null}
+          </div>
+        </div>
       </div>
-      {item.description ? <p className={description}>{item.description}</p> : null}
-      {item.owner === 'user' ? <p className={optionNote}>{C.detail.userTask}</p> : null}
-
-      {question ? (
-        <section className={waiting} aria-label={C.detail.waiting}>
-          <h3 className={blockTitle}>{C.detail.waiting}</h3>
-          <p className={questionText}>{question.text}</p>
-          {question.options.length && item.threadId ? (
-            <div className={options}>
-              {question.options.map((option, index) => (
-                <Button
-                  key={option.label}
-                  size="S"
-                  variant={!question.risky && question.pick === index ? 'accent' : 'secondary'}
-                  isPending={answering === index}
-                  isDisabled={answering !== null && answering !== index}
-                  onPress={() => void answer(index)}>
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          ) : null}
-          {question.options.some((option) => option.description) ? (
-            <ul className={items}>
-              {question.options
-                .filter((option) => option.description)
-                .map((option) => (
-                  <li key={option.label} className={optionNote}>{`${option.label}: ${option.description}`}</li>
-                ))}
-            </ul>
-          ) : null}
-        </section>
-      ) : null}
-
-      {item.steps.length ? (
-        <Block label={C.detail.steps}>
-          <ol className={items}>
-            {item.steps.map((step, index) => (
-              <li key={`${index}:${step.text}`} className={step.state === 'active' ? activeStep : undefined}>
-                {step.text}
-              </li>
-            ))}
-          </ol>
-        </Block>
-      ) : null}
-      {item.finishedSteps.length ? (
-        <Block label={C.detail.finished}>
-          <ul className={items}>
-            {finished.map((step, index) => (
-              <li key={`${step.at}:${index}`} className={itemRow}>
-                <span>{step.result ? `${step.text} — ${step.result}` : step.text}</span>
-              </li>
-            ))}
-          </ul>
-          {!allFinished && item.finishedSteps.length > FINISHED_STEPS_SHOWN ? (
-            <div>
-              <ActionButton isQuiet size="S" onPress={() => setAllFinished(true)}>
-                {C.detail.showAll(item.finishedSteps.length)}
-              </ActionButton>
-            </div>
-          ) : null}
-        </Block>
-      ) : null}
-      {item.outputs.length ? (
-        <Block label={C.detail.outputs}>
-          <TaskRefs refs={item.outputs} item={item} />
-        </Block>
-      ) : null}
-      {item.resources.length ? (
-        <Block label={C.detail.resources}>
-          <TaskRefs refs={item.resources} item={item} jobsShownFor={videoIdsOf(item.outputs)} />
-        </Block>
-      ) : null}
-      {item.updates.length ? (
-        <Block label={C.detail.updates}>
-          <ul className={items}>
-            {[...item.updates].reverse().map((update, index) => (
-              <li key={`${update.at}:${index}`} className={itemRow}>
-                <span>{update.text}</span>
-                <span className={muted}>{`${C.detail.actor[update.by]} · ${agoLabel(update.at, now)}`}</span>
-              </li>
-            ))}
-          </ul>
-        </Block>
-      ) : null}
-      {record?.transitions.length ? (
-        <Block label={C.detail.history}>
-          <ul className={items}>
-            {[...record.transitions].reverse().map((transition, index) => (
-              <li key={`${transition.at}:${index}`} className={itemRow}>
-                <span>{C.detail.transition(stateName(transition.from), stateName(transition.to), C.detail.actor[transition.actor])}</span>
-                <span className={muted}>{agoLabel(transition.at, now)}</span>
-              </li>
-            ))}
-          </ul>
-        </Block>
-      ) : null}
-    </div>
+    </>
   );
 
   return (
-    <section className={frame({ isWide: wide })} aria-label={C.detail.label}>
-      {details}
-      <div className={thread}>
-        {item.threadId ? (
-          <BotTimeline channelId={channelId ?? item.channelId} extras={threadExtras}>
-            <ConversationView
-              conversationId={item.threadId}
-              autoFocus={false}
-              placeholder={placeholder}
-              empty={<div className={centered}>{C.detail.thread}</div>}
-              aboveComposer={<ThreadChips threadId={item.threadId} />}
-            />
-          </BotTimeline>
-        ) : (
-          <div className={centered}>{item.owner === 'user' ? C.detail.userTask : C.detail.noThread}</div>
-        )}
-      </div>
+    <section className={frame} aria-label={C.detail.label}>
+      {item.threadId ? (
+        <BotTimeline channelId={channelId ?? item.channelId} extras={threadExtras}>
+          <ConversationView
+            conversationId={item.threadId}
+            autoFocus={false}
+            placeholder={placeholder}
+            header={header}
+            empty={<div className={centered}>{C.detail.thread}</div>}
+            aboveComposer={<ThreadChips threadId={item.threadId} />}
+          />
+        </BotTimeline>
+      ) : (
+        <div className={`${scroll} bc-scroll`}>
+          {header}
+          {item.owner !== 'user' ? <div className={centered}>{C.detail.noThread}</div> : null}
+        </div>
+      )}
       {dialog === 'redirect' ? <RedirectDialog item={item} onClose={() => setDialog(null)} /> : null}
       {dialog === 'edit' ? <TaskEditDialog item={item} onClose={() => setDialog(null)} /> : null}
       {dialog === 'revert' ? <RevertDialog item={item} onClose={() => setDialog(null)} /> : null}
-      {dialog === 'delete' ? <DeleteRecordDialog item={item} onClose={() => setDialog(null)} onDeleted={leave} /> : null}
+      {dialog === 'delete' ? <DeleteRecordDialog item={item} onClose={() => setDialog(null)} onDeleted={onClose} /> : null}
     </section>
   );
 }

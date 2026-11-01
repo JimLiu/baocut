@@ -102,11 +102,18 @@ export function Thread({
   running,
   empty,
   find,
+  header,
 }: {
   items: readonly TimelineItem[];
   conversationId: string;
   running: boolean;
   empty?: ReactNode;
+  /**
+   * 跟线程一起滚、排在最前面的内容（Bot 任务详情的任务信息，需求 §11.6 的修订稿）：直接放进滚动区，
+   * 所以里面可以有贴在顶上（sticky）的一行。有它时打开停在顶上、先不跟底（原型 page-bot-tasks.jsx `BotTaskDetail`：
+   * 先看到等你的问题与任务信息）；滚到底后照常跟上。
+   */
+  header?: ReactNode;
   /** 在会话中查找的查找条开着（产品设计 §3.2.2）：`focus` 每变一次光标回到搜索框。 */
   find?: { focus: number; onClose(): void } | null;
 }) {
@@ -139,7 +146,7 @@ export function Thread({
   );
   useOpenFreshVideos(cards, items, conversationId);
   const showColumn = blocks.length > 0 || running;
-  const { scrollerRef, columnRef, keepPosition, reveal } = useFollowBottom(conversationId, blocks, showColumn);
+  const { scrollerRef, columnRef, keepPosition, reveal } = useFollowBottom(conversationId, blocks, showColumn, !header);
   const hasEarlier = useTimelineHasEarlier(conversationId);
 
   // 「当前」的内容块：步骤组在跑时摘要行换成正在跑的那一步。
@@ -219,6 +226,7 @@ export function Thread({
         />
       ) : null}
       <div ref={scrollerRef} className={`${scroller} bc-scroll`}>
+        {header}
         {!showColumn ? (
           empty
         ) : (
@@ -288,9 +296,9 @@ function turnLive(turn: Turn, runningLast: boolean): boolean {
 
 /**
  * 跟到底：跟底时内容或视口尺寸一变就钉到底（同一帧合并成一次）；只有带向上输入证据的 scrollTop 变小才脱钩，
- * 滚回距底 1px 内重新跟上。规则见 follow-bottom.ts。
+ * 滚回距底 1px 内重新跟上。规则见 follow-bottom.ts。`followAtStart` 为 false 时打开先停在顶上，滚到底才跟上。
  */
-function useFollowBottom(conversationId: string, blocks: unknown, showColumn: boolean) {
+function useFollowBottom(conversationId: string, blocks: unknown, showColumn: boolean, followAtStart: boolean) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   const state = useRef<FollowState>(initialFollowState());
@@ -321,7 +329,7 @@ function useFollowBottom(conversationId: string, blocks: unknown, showColumn: bo
 
   // 会话切换时重置为跟底；声明在下面钉底的 effect 之前，同一次提交里先重置再钉。
   useLayoutEffect(() => {
-    state.current = { ...initialFollowState(), lastScrollTop: scrollerRef.current?.scrollTop ?? null };
+    state.current = { ...initialFollowState(), following: followAtStart, lastScrollTop: scrollerRef.current?.scrollTop ?? null };
     kept.current = null;
   }, [conversationId]);
 

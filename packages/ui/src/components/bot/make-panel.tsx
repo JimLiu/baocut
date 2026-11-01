@@ -11,6 +11,8 @@ import {
   SegmentedControlItem,
   Text,
   ToastQueue,
+  Tooltip,
+  TooltipTrigger,
 } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import Calendar from '@react-spectrum/s2/icons/Calendar';
@@ -43,11 +45,12 @@ import { useNow } from '../use-now.ts';
 import { transitionWorkItem, useBotCall } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { StatusIcon } from './status-badge.tsx';
-import { Section, head, headTitle, list, panel, row, rowMain, rowSub, rowText, rowTitle } from './task-panel.tsx';
+import { Section, list, panel, row, rowMain, rowSub, rowText, rowTitle } from './task-panel.tsx';
 import { SuggestionButtons } from './timeline/proposal-card.tsx';
 
 /** 原型 page-bot.css 的 `.bot-make*`。 */
-const scopeBar = style({ flexShrink: 0, paddingX: 16, paddingTop: 4, paddingBottom: 8 });
+/** 顶上一行：左边切范围，右边「给点建议」（原型 page-bot.css `.bot-make__scope`）；名字在页签上。 */
+const scopeBar = style({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexShrink: 0, paddingStart: 16, paddingEnd: 12, paddingTop: 12, paddingBottom: 8 });
 const body = style({
   display: 'flex',
   flexDirection: 'column',
@@ -406,21 +409,19 @@ function TemplateCard({ id, every, onAdd }: { id: MakeTemplateId; every: string;
 }
 
 /**
- * Make 面板（BOT-MK-01、04、05，需求 §6、§11.11）：右栏的另一种内容，由频道头的「Make」开关打开，和任务面板二选一。
- * 头部是标题、「给点建议」（`bot.make.run`，给这个频道）与收起；下面切「这个频道 / 全部频道」（范围由 Bot 页持有，
- * 看全部频道时 Bot 页订阅所有没归档频道的任务）。最上面是建议（第一条是带预览的大卡，其余一行一条），然后是最近的产物，
+ * Make 面板（BOT-MK-01、04、05，需求 §6、§11.11）：右栏的「Make」页签，由频道头的「Make」开关打开。
+ * 顶上一行切「这个频道 / 全部频道」（范围由 Bot 页持有，看全部频道时 Bot 页订阅所有没归档频道的任务），右边是「给点建议」
+ * （`bot.make.run`，给这个频道）；收起与关闭在页签条上。最上面是建议（第一条是带预览的大卡，其余一行一条），然后是最近的产物，
  * 最后一排周期任务模板：「＋」打开周期任务对话框，名字、指令与频率填好、目标是这个频道，确认才建。
  */
 export function MakePanel({
   channelId,
   scope,
   onScope,
-  onHide,
 }: {
   channelId: Id;
   scope: MakeScope;
   onScope: (scope: MakeScope) => void;
-  onHide: () => void;
 }) {
   const go = useShell((s) => s.go);
   const call = useBotCall();
@@ -458,20 +459,17 @@ export function MakePanel({
 
   return (
     <section className={panel} aria-label={C.make.title}>
-      <div className={head}>
-        <h2 className={headTitle}>{C.make.title}</h2>
-        <ActionButton isQuiet size="S" aria-label={C.make.suggest} isPending={making} onPress={() => void suggest()}>
-          <MagicWand />
-        </ActionButton>
-        <ActionButton isQuiet size="S" aria-label={C.make.hide} onPress={onHide}>
-          <Close />
-        </ActionButton>
-      </div>
       <div className={scopeBar}>
         <SegmentedControl aria-label={C.make.scope} selectedKey={scope} onSelectionChange={(key) => onScope(key as MakeScope)}>
           <SegmentedControlItem id="channel">{C.make.scopeChannel}</SegmentedControlItem>
           <SegmentedControlItem id="all">{C.make.scopeAll}</SegmentedControlItem>
         </SegmentedControl>
+        <TooltipTrigger>
+          <ActionButton isQuiet size="S" aria-label={C.make.suggest} isPending={making} onPress={() => void suggest()}>
+            <MagicWand />
+          </ActionButton>
+          <Tooltip>{C.make.suggest}</Tooltip>
+        </TooltipTrigger>
       </div>
       <div className={`${body} bc-scroll`}>
         {!loaded ? (
