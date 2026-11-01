@@ -163,12 +163,12 @@ export function channelSummary(id: string, overrides: { name?: string; muted?: b
   return {
     channel,
     unread: false,
-    counts: { needsYou: overrides.needsYou ?? 0, working: 0, upNext: 0, suggested: 0 },
+    counts: { needsYou: overrides.needsYou ?? 0, working: 0, upNext: 0, suggested: 0, scheduled: 0, open: 0 },
     lastActivityAt: '2026-10-31T00:00:00.000Z',
     spend: null,
   };
 }
 
 export function channelsSnapshot(channels: ChannelSummary[], settings: Partial<BotSettings> = {}): ChannelsSnapshot {
-  return { channels, settings: { ...DEFAULT_BOT_SETTINGS, timeZone: 'UTC', ...settings } };
+  return { channels, groups: [], settings: { ...DEFAULT_BOT_SETTINGS, timeZone: 'UTC', ...settings } };
 }

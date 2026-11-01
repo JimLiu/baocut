@@ -4,6 +4,9 @@ import type {
   BotSettings,
   BotStatus,
   Channel,
+  ChannelColor,
+  ChannelGroup,
+  ChannelIcon,
   ChannelSummary,
   InboxRow,
   ResourceRef,
@@ -26,6 +29,11 @@ export type DeliveryResult = 'steered' | 'held' | 'woke' | 'started' | 'dropped'
 export interface ChannelPatch {
   name?: string;
   purpose?: string;
+  /** null = 回到默认。主频道的图标、颜色与分组忽略。 */
+  icon?: ChannelIcon | null;
+  color?: ChannelColor | null;
+  /** 移进分组（分组不存在时 `not-found`），null = 移出分组。 */
+  groupId?: Id | null;
   driverId?: DriverId;
   model?: string | null;
   effort?: string | null;
@@ -59,7 +67,7 @@ export interface WorkItemPatch {
  * 频道对话与线程会话本身仍走 `conversations.send` / `steer` 等方法（`via`、`suggestionChipId`、`replyToItemId` 是 Bot 的附加参数）。
  */
 export interface BotRpcMethods {
-  'channels.list': { params: Record<string, never>; result: { channels: ChannelSummary[] } };
+  'channels.list': { params: Record<string, never>; result: { channels: ChannelSummary[]; groups: ChannelGroup[] } };
   /** 主频道不存在时建出来（BOT-CH-01）；第一次建出时起协调者的种子回合。 */
   'channels.ensureMain': { params: Record<string, never>; result: { channel: Channel } };
   'channels.create': {
@@ -72,11 +80,20 @@ export interface BotRpcMethods {
       effort?: string | null;
       defaultAccessMode?: AgentMode | null;
       outputLanguage?: string | null;
+      icon?: ChannelIcon | null;
+      color?: ChannelColor | null;
+      /** 直接建在这个分组里；分组不存在时 `not-found`。 */
+      groupId?: Id | null;
       commandId?: Id;
     };
     result: { channel: Channel };
   };
   'channels.update': { params: { id: Id; patch: ChannelPatch }; result: { channel: Channel } };
+  /** 建分组；给了 `channelIds` 时把这些频道一起移进来（主频道跳过；有不存在的频道时 `not-found`，什么都不建）。 */
+  'channelGroups.create': { params: { name: string; channelIds?: Id[] }; result: { group: ChannelGroup } };
+  'channelGroups.update': { params: { id: Id; patch: { name?: string } }; result: { group: ChannelGroup } };
+  /** 删分组不删频道：组里的频道回到没分组，不用确认。 */
+  'channelGroups.delete': { params: { id: Id }; result: { deleted: true } };
   'channels.archive': { params: { id: Id }; result: { channel: Channel } };
   'channels.unarchive': { params: { id: Id }; result: { channel: Channel } };
   /** `confirm` 与实时计数不符时 `conflict`（`details` 是实时计数）。主频道不能删。 */

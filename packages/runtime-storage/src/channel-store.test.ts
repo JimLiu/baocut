@@ -23,6 +23,9 @@ function channel(id: string, patch: Partial<Channel> = {}): Channel {
     kind: 'topic',
     name: 'Clips',
     purpose: 'Short clips',
+    icon: null,
+    color: null,
+    groupId: null,
     conversationId: `conv_${id}`,
     driverId: 'claude',
     model: null,
@@ -126,6 +129,80 @@ describe('ChannelStore', () => {
       background: false,
     });
     expect(store.userMemoryVersion()).toBe(0);
+  });
+
+  it('图标、颜色、分组与分组列表写入后读回一样；删分组时组里的频道一起回到没分组', async () => {
+    const store = new ChannelStore(file);
+    await store.load();
+    expect(store.groups()).toEqual([]);
+    const tutorials = { id: 'grp_tut', name: 'Tutorials', createdAt: '2026-10-03T00:00:00.000Z', updatedAt: '2026-10-03T00:00:00.000Z' };
+    const misc = { id: 'grp_misc', name: 'Misc', createdAt: '2026-10-04T00:00:00.000Z', updatedAt: '2026-10-04T00:00:00.000Z' };
+    await store.put(channel('chan_a', { icon: 'Video', color: 'purple' }));
+    await store.putGroup(tutorials, [
+      channel('chan_a', { icon: 'Video', color: 'purple', groupId: 'grp_tut' }),
+      channel('chan_b', { groupId: 'grp_tut' }),
+    ]);
+    await store.putGroup(misc);
+    await store.flush();
+
+    const again = new ChannelStore(file);
+    await again.load();
+    expect(again.groups()).toEqual([tutorials, misc]);
+    expect(again.group('grp_tut')).toEqual(tutorials);
+    expect(again.get('chan_a')).toEqual(channel('chan_a', { icon: 'Video', color: 'purple', groupId: 'grp_tut' }));
+    expect(again.get('chan_b')?.groupId).toBe('grp_tut');
+    expect(again.degraded).toBe(false);
+
+    const changed = await again.removeGroup('grp_tut', '2026-10-05T00:00:00.000Z');
+    expect(changed.map((c) => [c.id, c.groupId, c.updatedAt])).toEqual([
+      ['chan_a', null, '2026-10-05T00:00:00.000Z'],
+      ['chan_b', null, '2026-10-05T00:00:00.000Z'],
+    ]);
+    const third = new ChannelStore(file);
+    await third.load();
+    expect(third.groups()).toEqual([misc]);
+    expect(third.list().map((c) => c.groupId)).toEqual([null, null]);
+    expect(third.get('chan_a')?.icon).toBe('Video');
+  });
+
+  it('旧文件没有图标、颜色与分组：读成 null 与空列表；认不出的图标与颜色、指向不存在分组的频道、主频道的这三样都按没有算', async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const legacy = { id: 'chan_old', conversationId: 'conv_old', driverId: 'claude', name: 'Old' };
+    await fs.writeFile(
+      file,
+      JSON.stringify({
+        schemaVersion: 1,
+        channels: [
+          legacy,
+          { ...legacy, id: 'chan_bad', icon: 'Rocket', color: '#ff0000', groupId: 'grp_gone' },
+          { ...legacy, id: 'chan_ok', icon: 'Microphone', color: 'blue', groupId: 'grp_ok' },
+          { ...legacy, id: 'chan_main', kind: 'main', icon: 'Video', color: 'red', groupId: 'grp_ok' },
+        ],
+        groups: [{ id: 'grp_ok', name: 'Kept' }, { name: 'no id' }, 'garbage'],
+      }),
+    );
+    const store = new ChannelStore(file);
+    await store.load();
+    // 丢掉的是分组，不是频道：频道列表是全的。
+    expect(store.degraded).toBe(false);
+    const look = (id: string) => {
+      const c = store.get(id)!;
+      return { icon: c.icon, color: c.color, groupId: c.groupId };
+    };
+    expect(look('chan_old')).toEqual({ icon: null, color: null, groupId: null });
+    expect(look('chan_bad')).toEqual({ icon: null, color: null, groupId: null });
+    expect(look('chan_ok')).toEqual({ icon: 'Microphone', color: 'blue', groupId: 'grp_ok' });
+    expect(look('chan_main')).toEqual({ icon: null, color: null, groupId: null });
+    const groups = store.groups();
+    expect(groups.map((g) => [g.id, g.name])).toEqual([['grp_ok', 'Kept']]);
+    expect(Number.isNaN(Date.parse(groups[0]!.createdAt))).toBe(false);
+    expect(groups[0]!.updatedAt).toBe(groups[0]!.createdAt);
+
+    await fs.writeFile(file, JSON.stringify({ schemaVersion: 1, channels: [legacy] }));
+    const plain = new ChannelStore(file);
+    await plain.load();
+    expect(plain.groups()).toEqual([]);
+    expect(plain.get('chan_old')).toMatchObject({ icon: null, color: null, groupId: null });
   });
 
   it('不是 JSON 的文件改名保留，从空开始', async () => {

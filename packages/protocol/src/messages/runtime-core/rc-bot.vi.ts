@@ -4,6 +4,7 @@ export const vi: RcBotMessages = {
   // ---- 频道 ----
   mainChannelName: 'Mọi thứ',
   channelNotFound: (p: { id: string }) => `Không tìm thấy kênh: ${p.id}`,
+  groupNotFound: (p: { id: string }) => `Không tìm thấy nhóm: ${p.id}`,
   mainChannelLocked: 'Không thể lưu trữ hoặc xóa kênh mặc định.',
   channelArchived: 'Kênh này đã được lưu trữ. Khôi phục để tiếp tục làm việc ở đây.',
   channelDeleteCountsChanged: 'Số việc hoặc việc theo lịch trong kênh này đã thay đổi. Hãy kiểm tra lại trước khi xóa.',

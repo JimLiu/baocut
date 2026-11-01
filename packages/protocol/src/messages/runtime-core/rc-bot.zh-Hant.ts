@@ -4,6 +4,7 @@ export const zhHant: RcBotMessages = {
   // ---- 频道 ----
   mainChannelName: '綜合',
   channelNotFound: (p: { id: string }) => `找不到頻道：${p.id}`,
+  groupNotFound: (p: { id: string }) => `找不到群組：${p.id}`,
   mainChannelLocked: '預設頻道不能封存或刪除。',
   channelArchived: '這個頻道已封存。還原後才能繼續在這裡工作。',
   channelDeleteCountsChanged: '這個頻道裡的任務或排程任務數量有變化，請重新確認後再刪除。',

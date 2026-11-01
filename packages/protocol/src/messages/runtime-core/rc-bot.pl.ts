@@ -7,6 +7,7 @@ export const pl: RcBotMessages = {
   // ---- 频道 ----
   mainChannelName: 'Wszystko',
   channelNotFound: (p: { id: string }) => `Nie znaleziono kanału: ${p.id}`,
+  groupNotFound: (p: { id: string }) => `Nie znaleziono grupy: ${p.id}`,
   mainChannelLocked: 'Kanału domyślnego nie można zarchiwizować ani usunąć.',
   channelArchived: 'Ten kanał jest zarchiwizowany. Przywróć go, aby dalej tu pracować.',
   channelDeleteCountsChanged: 'Liczba zadań lub zaplanowanych zadań w tym kanale się zmieniła. Sprawdź ponownie przed usunięciem.',

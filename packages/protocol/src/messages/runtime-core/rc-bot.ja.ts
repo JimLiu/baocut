@@ -4,6 +4,7 @@ export const ja: RcBotMessages = {
   // ---- 频道 ----
   mainChannelName: 'なんでも',
   channelNotFound: (p: { id: string }) => `チャンネルが見つかりません: ${p.id}`,
+  groupNotFound: (p: { id: string }) => `グループが見つかりません: ${p.id}`,
   mainChannelLocked: 'デフォルトのチャンネルはアーカイブも削除もできません。',
   channelArchived: 'このチャンネルはアーカイブされています。ここで作業を続けるには元に戻してください。',
   channelDeleteCountsChanged: 'このチャンネルのタスクまたは定期タスクの数が変わりました。もう一度確認してから削除してください。',

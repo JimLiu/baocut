@@ -7,6 +7,7 @@ export const ru: RcBotMessages = {
   // ---- 频道 ----
   mainChannelName: 'Всё',
   channelNotFound: (p: { id: string }) => `Канал не найден: ${p.id}`,
+  groupNotFound: (p: { id: string }) => `Группа не найдена: ${p.id}`,
   mainChannelLocked: 'Канал по умолчанию нельзя архивировать или удалить.',
   channelArchived: 'Этот канал в архиве. Восстановите его, чтобы продолжить здесь работу.',
   channelDeleteCountsChanged: 'Число задач или запланированных задач в этом канале изменилось. Проверьте ещё раз перед удалением.',

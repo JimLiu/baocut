@@ -34,6 +34,9 @@ function channel(id: string, patch: Partial<Channel> = {}, counts: Partial<Chann
       kind: 'topic',
       name: id,
       purpose: '',
+      icon: null,
+      color: null,
+      groupId: null,
       conversationId: `conv_${id}`,
       driverId: 'claude',
       model: null,
@@ -58,7 +61,7 @@ function channel(id: string, patch: Partial<Channel> = {}, counts: Partial<Chann
       ...patch,
     },
     unread: false,
-    counts: { needsYou: 0, working: 0, upNext: 0, suggested: 0, ...counts },
+    counts: { needsYou: 0, working: 0, upNext: 0, suggested: 0, scheduled: 0, open: 0, ...counts },
     lastActivityAt,
     spend: null,
   };

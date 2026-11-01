@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AGENT_MODES } from './access.ts';
-import { BOT_LIMITS } from './bot.ts';
+import { BOT_LIMITS, CHANNEL_COLORS, CHANNEL_ICONS } from './bot.ts';
 import { DRIVER_ID_PATTERN } from './domain.ts';
 
 /** Bot 方法（docs/design/bot-mode 技术方案 §16.1）的入站校验，由 `schemas.ts` 并进方法表。 */
@@ -14,6 +14,9 @@ const iso = z.string().min(10).max(40);
 const money = z.object({ amount: z.string().regex(/^\d{1,12}(\.\d{1,6})?$/), currency: z.string().regex(/^[A-Z]{3}$/) }).strict();
 const lang = z.string().min(2).max(35).regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/);
 const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const channelIcon = z.enum(CHANNEL_ICONS);
+const channelColor = z.enum(CHANNEL_COLORS);
+const groupName = z.string().trim().min(1).max(BOT_LIMITS.groupName);
 
 export const resourceRefSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('video'), projectId: id, videoId: id }).strict(),
@@ -82,6 +85,9 @@ const channelPatch = z
   .object({
     name: z.string().trim().min(1).max(BOT_LIMITS.channelName).optional(),
     purpose: z.string().max(BOT_LIMITS.channelPurpose).optional(),
+    icon: channelIcon.nullable().optional(),
+    color: channelColor.nullable().optional(),
+    groupId: id.nullable().optional(),
     driverId: driverId.optional(),
     model: z.string().max(200).nullable().optional(),
     effort: z.string().max(100).nullable().optional(),
@@ -126,10 +132,16 @@ export const BOT_PARAM_SCHEMAS = {
       effort: z.string().max(100).nullable().optional(),
       defaultAccessMode: agentMode.nullable().optional(),
       outputLanguage: lang.nullable().optional(),
+      icon: channelIcon.nullable().optional(),
+      color: channelColor.nullable().optional(),
+      groupId: id.nullable().optional(),
       commandId: id.optional(),
     })
     .strict(),
   'channels.update': z.object({ id, patch: channelPatch }).strict(),
+  'channelGroups.create': z.object({ name: groupName, channelIds: z.array(id).max(500).optional() }).strict(),
+  'channelGroups.update': z.object({ id, patch: z.object({ name: groupName.optional() }).strict() }).strict(),
+  'channelGroups.delete': z.object({ id }).strict(),
   'channels.archive': z.object({ id }).strict(),
   'channels.unarchive': z.object({ id }).strict(),
   'channels.delete': z

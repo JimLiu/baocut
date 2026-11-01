@@ -22,6 +22,7 @@ const en = {
   // ---- 频道 ----
   mainChannelName: 'Everything',
   channelNotFound: (p: { id: string }) => `Channel not found: ${p.id}`,
+  groupNotFound: (p: { id: string }) => `Group not found: ${p.id}`,
   mainChannelLocked: "The default channel can't be archived or deleted.",
   channelArchived: 'This channel is archived. Restore it before working in it.',
   channelDeleteCountsChanged: 'The number of tasks or scheduled tasks in this channel changed. Check again before deleting.',

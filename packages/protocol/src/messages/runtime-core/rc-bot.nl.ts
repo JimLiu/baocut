@@ -7,6 +7,7 @@ export const nl: RcBotMessages = {
   // ---- 频道 ----
   mainChannelName: 'Alles',
   channelNotFound: (p: { id: string }) => `Kanaal niet gevonden: ${p.id}`,
+  groupNotFound: (p: { id: string }) => `Groep niet gevonden: ${p.id}`,
   mainChannelLocked: 'Het standaardkanaal kan niet worden gearchiveerd of verwijderd.',
   channelArchived: 'Dit kanaal is gearchiveerd. Herstel het om hier verder te werken.',
   channelDeleteCountsChanged: 'Het aantal taken of geplande taken in dit kanaal is veranderd. Controleer het opnieuw voordat je verwijdert.',

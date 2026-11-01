@@ -7,6 +7,7 @@ export const ptBR: RcBotMessages = {
   // ---- 频道 ----
   mainChannelName: 'Tudo',
   channelNotFound: (p: { id: string }) => `Canal não encontrado: ${p.id}`,
+  groupNotFound: (p: { id: string }) => `Grupo não encontrado: ${p.id}`,
   mainChannelLocked: 'O canal padrão não pode ser arquivado nem excluído.',
   channelArchived: 'Este canal está arquivado. Restaure-o para continuar trabalhando aqui.',
   channelDeleteCountsChanged: 'O número de tarefas ou tarefas agendadas neste canal mudou. Confira de novo antes de excluir.',

@@ -16,6 +16,9 @@ type BotMethod =
   | 'channels.ensureMain'
   | 'channels.create'
   | 'channels.update'
+  | 'channelGroups.create'
+  | 'channelGroups.update'
+  | 'channelGroups.delete'
   | 'channels.archive'
   | 'channels.unarchive'
   | 'channels.delete'
@@ -54,10 +57,19 @@ export function botMethods(getBot: () => BotService | null): { [M in BotMethod]:
     return bot;
   };
   return {
-    'channels.list': (_p, pr) => ({ channels: need(pr).listChannels() }),
+    'channels.list': (_p, pr) => {
+      const bot = need(pr);
+      return { channels: bot.listChannels(), groups: bot.listGroups() };
+    },
     'channels.ensureMain': async (_p, pr) => ({ channel: await need(pr).ensureMain() }),
     'channels.create': async ({ commandId: _c, ...p }, pr) => ({ channel: await need(pr).createChannel(p) }),
     'channels.update': async (p, pr) => ({ channel: await need(pr).updateChannel(p.id, p.patch) }),
+    'channelGroups.create': async (p, pr) => ({ group: await need(pr).createGroup(p.name, p.channelIds) }),
+    'channelGroups.update': async (p, pr) => ({ group: await need(pr).updateGroup(p.id, p.patch) }),
+    'channelGroups.delete': async (p, pr) => {
+      await need(pr).deleteGroup(p.id);
+      return { deleted: true as const };
+    },
     'channels.archive': async (p, pr) => ({ channel: await need(pr).archiveChannel(p.id, true) }),
     'channels.unarchive': async (p, pr) => ({ channel: await need(pr).archiveChannel(p.id, false) }),
     'channels.delete': async (p, pr) => {

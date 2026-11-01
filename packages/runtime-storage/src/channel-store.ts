@@ -1,11 +1,16 @@
 import {
   AGENT_MODES,
   BOT_LIMITS,
+  CHANNEL_COLORS,
+  CHANNEL_ICONS,
   DEFAULT_BOT_SETTINGS,
   isDriverId,
   type AgentMode,
   type BotSettings,
   type Channel,
+  type ChannelColor,
+  type ChannelGroup,
+  type ChannelIcon,
   type ChannelKind,
   type ChannelLimits,
   type Id,
@@ -17,6 +22,8 @@ import { JsonStoreFile, isPlainObject, type StoreOptions } from './store-file.ts
 interface ChannelsFile {
   schemaVersion: 1;
   channels: Channel[];
+  /** 频道侧栏的分组，按建立的先后；旧文件没有这一项。 */
+  groups?: ChannelGroup[];
   settings: BotSettings;
   /** `channels/USER.md` 的版本号，写入时校验。 */
   userMemoryVersion: number;
@@ -28,8 +35,8 @@ interface ChannelsFile {
  * Bot 模式的频道列表、Bot 设置与用户级记忆的版本号（Bot 技术方案 §5.2）。频道只有几十个，沿用 `ScheduleStore` 的写法：
  * 整份读进内存，每次改动更新内存再整文件写一次；写串行，原子替换（`JsonStoreFile`）。
  *
- * 读入时宽容：认不出的频道丢掉，缺的字段按默认值补；设置合并在 `DEFAULT_BOT_SETTINGS` 之上。整个文件不是 JSON 时改名保留、
- * 从空开始；更新版本写下的不改写。
+ * 读入时宽容：认不出的频道与分组丢掉，缺的字段按默认值补；指向不存在分组的频道算没分组；设置合并在 `DEFAULT_BOT_SETTINGS`
+ * 之上。整个文件不是 JSON 时改名保留、从空开始；更新版本写下的不改写。
  *
  * `withLock` 是一把异步锁，给调用方做「先查后建」（`channels.ensureMain`）这类要原子的读改写。Store 自己的写入不拿这把锁，
  * 在锁里调用 `put` 等不会死锁。
@@ -37,6 +44,7 @@ interface ChannelsFile {
 export class ChannelStore {
   readonly #file: JsonStoreFile;
   readonly #channels = new Map<Id, Channel>();
+  readonly #groups = new Map<Id, ChannelGroup>();
   #settings: BotSettings = structuredClone(DEFAULT_BOT_SETTINGS);
   #userMemoryVersion = 0;
   readonly #tombstones = new Set<Id>();
@@ -52,12 +60,20 @@ export class ChannelStore {
     const read = await this.#file.read({ recognize: (raw) => raw as Partial<ChannelsFile>, tolerateReadErrors: true });
     const value = read.value;
     this.#channels.clear();
+    this.#groups.clear();
+    // 认不出的分组丢掉不算读坏（`degraded` 只管频道列表全不全）：组里的频道按没分组算。
+    for (const raw of Array.isArray(value?.groups) ? value.groups : []) {
+      const group = normalizeGroup(raw);
+      if (group && !this.#groups.has(group.id)) this.#groups.set(group.id, group);
+    }
     const rows = Array.isArray(value?.channels) ? value.channels : [];
     let dropped = 0;
     for (const raw of rows) {
       const channel = normalizeChannel(raw);
-      if (channel && !this.#channels.has(channel.id)) this.#channels.set(channel.id, channel);
-      else if (!channel) dropped++;
+      if (channel && !this.#channels.has(channel.id)) {
+        if (channel.groupId && !this.#groups.has(channel.groupId)) channel.groupId = null;
+        this.#channels.set(channel.id, channel);
+      } else if (!channel) dropped++;
     }
     this.#degraded = (read.status !== 'ok' && read.status !== 'missing') || this.#file.readOnly || dropped > 0;
     this.#settings = normalizeSettings(value?.settings);
@@ -73,6 +89,16 @@ export class ChannelStore {
   get(id: Id): Channel | undefined {
     const channel = this.#channels.get(id);
     return channel ? structuredClone(channel) : undefined;
+  }
+
+  /** 分组，按建立的先后。 */
+  groups(): ChannelGroup[] {
+    return [...this.#groups.values()].map((group) => structuredClone(group));
+  }
+
+  group(id: Id): ChannelGroup | undefined {
+    const group = this.#groups.get(id);
+    return group ? structuredClone(group) : undefined;
   }
 
   settings(): BotSettings {
@@ -99,6 +125,27 @@ export class ChannelStore {
   remove(id: Id): Promise<void> {
     this.#channels.delete(id);
     return this.#save();
+  }
+
+  /** 存分组，连同移进它的频道（一次写入）。 */
+  putGroup(group: ChannelGroup, channels: readonly Channel[] = []): Promise<void> {
+    this.#groups.set(group.id, structuredClone(group));
+    for (const channel of channels) this.#channels.set(channel.id, structuredClone(channel));
+    return this.#save();
+  }
+
+  /** 删分组：组里的频道回到没分组（一次写入）。返回改过的频道。 */
+  async removeGroup(id: Id, updatedAt: string): Promise<Channel[]> {
+    this.#groups.delete(id);
+    const changed: Channel[] = [];
+    for (const channel of this.#channels.values()) {
+      if (channel.groupId !== id) continue;
+      const next = { ...channel, groupId: null, updatedAt };
+      this.#channels.set(next.id, next);
+      changed.push(structuredClone(next));
+    }
+    await this.#save();
+    return changed;
   }
 
   /**
@@ -150,6 +197,7 @@ export class ChannelStore {
     const snapshot: ChannelsFile = {
       schemaVersion: 1,
       channels: structuredClone([...this.#channels.values()]),
+      groups: structuredClone([...this.#groups.values()]),
       settings: structuredClone(this.#settings),
       userMemoryVersion: this.#userMemoryVersion,
       ...(this.#tombstones.size ? { deletedChannels: [...this.#tombstones] } : {}),
@@ -179,6 +227,14 @@ function agentMode(v: unknown): AgentMode | null {
   return AGENT_MODES.includes(v as AgentMode) ? (v as AgentMode) : null;
 }
 
+function channelIcon(v: unknown): ChannelIcon | null {
+  return CHANNEL_ICONS.includes(v as ChannelIcon) ? (v as ChannelIcon) : null;
+}
+
+function channelColor(v: unknown): ChannelColor | null {
+  return CHANNEL_COLORS.includes(v as ChannelColor) ? (v as ChannelColor) : null;
+}
+
 function money(v: unknown): Money | null {
   if (!isPlainObject(v) || !str(v.amount) || !str(v.currency)) return null;
   return { amount: v.amount, currency: v.currency };
@@ -206,11 +262,17 @@ function normalizeChannel(raw: unknown): Channel | null {
   const now = new Date().toISOString();
   const createdAt = time(c.createdAt) ? c.createdAt : now;
   const archived = bool(c.archived, false);
+  const kind = KINDS.includes(c.kind as ChannelKind) ? (c.kind as ChannelKind) : 'topic';
+  // 主频道固定用 Layers、不着色、不进分组：手改进去的也不认。
+  const main = kind === 'main';
   return {
     id: c.id,
-    kind: KINDS.includes(c.kind as ChannelKind) ? (c.kind as ChannelKind) : 'topic',
+    kind,
     name: str(c.name) ? c.name : '',
     purpose: str(c.purpose) ? c.purpose : '',
+    icon: main ? null : channelIcon(c.icon),
+    color: main ? null : channelColor(c.color),
+    groupId: main ? null : strOrNull(c.groupId),
     conversationId: c.conversationId,
     driverId: c.driverId,
     model: strOrNull(c.model),
@@ -233,6 +295,13 @@ function normalizeChannel(raw: unknown): Channel | null {
     createdAt,
     updatedAt: time(c.updatedAt) ? c.updatedAt : createdAt,
   };
+}
+
+/** 认不出（没有 id）时 null；名字坏了留空，时间坏了用现在。 */
+function normalizeGroup(raw: unknown): ChannelGroup | null {
+  if (!isPlainObject(raw) || !str(raw.id) || !raw.id) return null;
+  const createdAt = time(raw.createdAt) ? raw.createdAt : new Date().toISOString();
+  return { id: raw.id, name: str(raw.name) ? raw.name : '', createdAt, updatedAt: time(raw.updatedAt) ? raw.updatedAt : createdAt };
 }
 
 /** 设置逐项合并在默认值之上：类型不对的字段用默认值。 */

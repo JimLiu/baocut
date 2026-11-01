@@ -274,7 +274,8 @@ export function applyVideoTopicEvent(state: VideoTopicSnapshot, event: VideoTopi
 }
 
 /**
- * `channels` 主题（Bot 模式）：频道摘要按 id 替换，置顶在前、再按最近活动排；通知事件不改快照（由订阅方另行处理）。
+ * `channels` 主题（Bot 模式）：频道摘要按 id 替换，置顶在前、再按最近活动排；分组按 id 替换、新的排在最后（按建立的先后）；
+ * 通知事件不改快照（由订阅方另行处理）。
  */
 export function applyChannelsEvent(state: ChannelsSnapshot, event: ChannelsEvent): ChannelsSnapshot {
   switch (event.type) {
@@ -284,6 +285,13 @@ export function applyChannelsEvent(state: ChannelsSnapshot, event: ChannelsEvent
     }
     case 'channel.removed':
       return { ...state, channels: state.channels.filter((row) => row.channel.id !== event.id) };
+    case 'channel-group.upsert': {
+      const groups = state.groups ?? [];
+      const index = groups.findIndex((group) => group.id === event.group.id);
+      return { ...state, groups: index < 0 ? [...groups, event.group] : groups.map((group, i) => (i === index ? event.group : group)) };
+    }
+    case 'channel-group.removed':
+      return { ...state, groups: (state.groups ?? []).filter((group) => group.id !== event.id) };
     case 'bot.settings':
       return { ...state, settings: event.settings };
     case 'bot.notification':

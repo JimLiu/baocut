@@ -19,6 +19,9 @@ import {
   type BotSettings,
   type BotStatus,
   type Channel,
+  type ChannelColor,
+  type ChannelGroup,
+  type ChannelIcon,
   type ChannelPatch,
   type ChannelSummary,
   type ChannelsEvent,
@@ -576,7 +579,7 @@ export class BotService {
   // ---- 主题 ----
 
   channelsSnapshot(): ChannelsSnapshot {
-    return { channels: this.#channels.list().map((c) => this.#summary(c)), settings: this.#channels.settings() };
+    return { channels: this.#channels.list().map((c) => this.#summary(c)), groups: this.#channels.groups(), settings: this.#channels.settings() };
   }
 
   subscribe(topic: string, afterSeq: string | undefined, listener: (event: never) => void) {
@@ -613,13 +616,15 @@ export class BotService {
 
   #summary(channel: Channel): ChannelSummary {
     const items = this.#channelItems(channel.id);
-    const counts = { needsYou: 0, working: 0, upNext: 0, suggested: 0 };
+    const counts = { needsYou: 0, working: 0, upNext: 0, suggested: 0, scheduled: 0, open: 0 };
     let last = channel.updatedAt;
     for (const item of items) {
       if (needsUser(item)) counts.needsYou++;
       else if (item.status === 'active' && item.active?.state === 'working') counts.working++;
       if (item.status === 'upNext' || item.status === 'scheduled') counts.upNext++;
+      if (item.status === 'scheduled') counts.scheduled++;
       if (item.status === 'suggested') counts.suggested++;
+      else if (item.status !== 'resolved') counts.open++;
       if (item.updatedAt > last) last = item.updatedAt;
     }
     const conversation = this.#harness.conversationOf(channel.conversationId);
@@ -633,6 +638,46 @@ export class BotService {
 
   listChannels(): ChannelSummary[] {
     return this.#channels.list().map((c) => this.#summary(c));
+  }
+
+  /** 频道侧栏的分组，按建立的先后。 */
+  listGroups(): ChannelGroup[] {
+    return this.#channels.groups();
+  }
+
+  /** 建分组；`channelIds` 里的频道一起移进来（主频道跳过）。先发分组再发频道，客户端不会拿着指向不存在分组的频道。 */
+  async createGroup(name: string, channelIds: readonly Id[] = []): Promise<ChannelGroup> {
+    // 先核对全部频道：有不存在的就什么都不建。
+    const moving = [...new Set(channelIds)].map((id) => this.channel(id)).filter((channel) => channel.kind !== 'main');
+    const now = nowIso();
+    const group: ChannelGroup = { id: newId('grp'), name, createdAt: now, updatedAt: now };
+    const moved = moving.map((channel) => ({ ...channel, groupId: group.id, updatedAt: now }));
+    await this.#channels.putGroup(group, moved);
+    this.#channelsTopic.publish({ type: 'channel-group.upsert', group });
+    for (const channel of moved) this.#publishChannel(channel);
+    return group;
+  }
+
+  async updateGroup(id: Id, patch: { name?: string }): Promise<ChannelGroup> {
+    const group = this.#group(id);
+    const next: ChannelGroup = { ...group, ...(patch.name !== undefined ? { name: patch.name } : {}), updatedAt: nowIso() };
+    await this.#channels.putGroup(next);
+    this.#channelsTopic.publish({ type: 'channel-group.upsert', group: next });
+    return next;
+  }
+
+  /** 删分组不删频道：组里的频道回到没分组。先发这些频道，再发分组没了。 */
+  async deleteGroup(id: Id): Promise<void> {
+    this.#group(id);
+    const ungrouped = await this.#channels.removeGroup(id, nowIso());
+    for (const channel of ungrouped) this.#publishChannel(channel);
+    this.#channelsTopic.publish({ type: 'channel-group.removed', id });
+  }
+
+  #group(id: Id): ChannelGroup {
+    const group = this.#channels.group(id);
+    if (!group) throw new RpcError('not-found', RcBot.groupNotFound({ id }));
+    return group;
   }
 
   channel(id: Id): Channel {
@@ -680,7 +725,11 @@ export class BotService {
     effort?: string | null;
     defaultAccessMode?: AgentMode | null;
     outputLanguage?: string | null;
+    icon?: ChannelIcon | null;
+    color?: ChannelColor | null;
+    groupId?: Id | null;
   }): Promise<Channel> {
+    if (params.groupId) this.#group(params.groupId);
     const channel = await this.#createChannel({ id: newId('chan'), kind: 'topic', ...params, purpose: params.purpose ?? '' });
     this.#writeChannelIntro(channel);
     void this.#track(this.runMake(channel.id, 'channel-created').catch(() => {}));
@@ -698,8 +747,13 @@ export class BotService {
     effort?: string | null;
     defaultAccessMode?: AgentMode | null;
     outputLanguage?: string | null;
+    icon?: ChannelIcon | null;
+    color?: ChannelColor | null;
+    groupId?: Id | null;
   }): Promise<Channel> {
     const defaults = this.#defaults();
+    // 主频道固定用 Layers、不着色、不进分组。
+    const main = params.kind === 'main';
     const { filesDir } = await this.#files.ensure(params.id);
     const wantedDriver = params.driverId ?? defaults.driverId ?? undefined;
     const accessMode = params.defaultAccessMode ?? defaults.accessMode;
@@ -721,6 +775,10 @@ export class BotService {
       kind: params.kind,
       name: params.name,
       purpose: params.purpose,
+      icon: main ? null : (params.icon ?? null),
+      color: main ? null : (params.color ?? null),
+      // 建会话的这段时间里分组可能被删了：那就建在没分组里。
+      groupId: !main && params.groupId && this.#channels.group(params.groupId) ? params.groupId : null,
       conversationId: conversation.id,
       driverId,
       model: conversation.model ?? null,
@@ -833,10 +891,16 @@ export class BotService {
 
   async updateChannel(id: Id, patch: ChannelPatch): Promise<Channel> {
     const channel = this.channel(id);
-    const { concurrentThreads, dailyBudget, monthlyBudget, ...rest } = patch;
+    // 主频道的图标、颜色与分组不改（总是 Layers、不着色、不进分组）：一起给的其他字段照常改。
+    const { concurrentThreads, dailyBudget, monthlyBudget, icon, color, groupId, ...rest } = patch;
+    const main = channel.kind === 'main';
+    if (!main && groupId) this.#group(groupId);
     const next: Channel = {
       ...channel,
       ...rest,
+      ...(!main && icon !== undefined ? { icon } : {}),
+      ...(!main && color !== undefined ? { color } : {}),
+      ...(!main && groupId !== undefined ? { groupId } : {}),
       limits: {
         concurrentThreads: concurrentThreads ?? channel.limits.concurrentThreads,
         dailyBudget: dailyBudget !== undefined ? dailyBudget : channel.limits.dailyBudget,
@@ -870,6 +934,8 @@ export class BotService {
     if (Object.keys(conversationPatch).length > 1) {
       await this.#harness.updateConversation(conversationPatch, { internal: BOT_INTERNAL });
     }
+    // 等会话的这段时间里分组可能被删了：不留指向不存在分组的频道。
+    if (next.groupId && !this.#channels.group(next.groupId)) next.groupId = null;
     await this.#putChannel(next);
     if (dailyBudget !== undefined || monthlyBudget !== undefined) await this.#refreshSpend(id);
     // 协调者回到跟随偏好设置后，偏好的模式若高于上限，固定成上限（与新线程的做法一样）。

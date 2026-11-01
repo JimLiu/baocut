@@ -20,11 +20,62 @@ export interface ChannelLimits {
   monthlyBudget: Money | null;
 }
 
+/**
+ * 频道图标可选的 S2 workflow 图标名（24 个）。主频道固定用 `Layers`、不着色、不进分组，不在这里面；给主频道设图标、颜色或分组时
+ * Runtime 忽略（存下的总是 null）。
+ */
+export const CHANNEL_ICONS = [
+  'Chat',
+  'Video',
+  'MovieCamera',
+  'Filmstrip',
+  'Microphone',
+  'MusicNote',
+  'Camera',
+  'Image',
+  'Edit',
+  'Brush',
+  'Translate',
+  'Education',
+  'Lightbulb',
+  'Code',
+  'ChartBarVert',
+  'Target',
+  'Calendar',
+  'Email',
+  'Briefcase',
+  'UserGroup',
+  'Heart',
+  'Star',
+  'GlobeGrid',
+  'Home',
+] as const;
+export type ChannelIcon = (typeof CHANNEL_ICONS)[number];
+
+/** 频道颜色：S2 色板里有 200（底色）与 1000（图标）两档的色相。 */
+export const CHANNEL_COLORS = ['magenta', 'red', 'orange', 'yellow', 'green', 'seafoam', 'cyan', 'blue', 'indigo', 'purple'] as const;
+export type ChannelColor = (typeof CHANNEL_COLORS)[number];
+
+/** 频道侧栏的分组：只有名字；频道的 `groupId` 指过来，空的分组也留着。按建立的先后排。 */
+export interface ChannelGroup {
+  id: Id;
+  /** ≤ 40 字（与频道名同一条规则）。 */
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Channel {
   id: Id;
   kind: ChannelKind;
   name: string;
   purpose: string;
+  /** null = 界面按默认取（对话气泡）。主频道总是 null。 */
+  icon: ChannelIcon | null;
+  /** null = 界面按 id 取一个颜色。主频道总是 null。 */
+  color: ChannelColor | null;
+  /** 所在的分组；null = 没分组。主频道总是 null。 */
+  groupId: Id | null;
   /** 频道对话（`role: 'channel'`）。 */
   conversationId: Id;
   driverId: DriverId;
@@ -62,8 +113,13 @@ export interface Channel {
 export interface ChannelCounts {
   needsYou: number;
   working: number;
+  /** 接下来与定时的。 */
   upNext: number;
   suggested: number;
+  /** 定时的（`scheduled`）：归档与删除的确认框里写「其中几条定时的会暂停」。 */
+  scheduled: number;
+  /** 还没解决的任务（建议不算）：归档的确认框用。 */
+  open: number;
 }
 
 export interface ChannelSummary {
@@ -460,12 +516,20 @@ export interface RevertPlan {
 
 export interface ChannelsSnapshot {
   channels: ChannelSummary[];
+  /** 按建立的先后。 */
+  groups: ChannelGroup[];
   settings: BotSettings;
 }
 
+/**
+ * 删分组时先为组里每个频道发 `channel.upsert`（`groupId` 已是 null），再发 `channel-group.removed`；建分组并放进频道时先发
+ * `channel-group.upsert`。客户端因此不会拿着指向不存在分组的频道。
+ */
 export type ChannelsEvent =
   | { type: 'channel.upsert'; summary: ChannelSummary }
   | { type: 'channel.removed'; id: Id }
+  | { type: 'channel-group.upsert'; group: ChannelGroup }
+  | { type: 'channel-group.removed'; id: Id }
   | { type: 'bot.settings'; settings: BotSettings }
   | BotNotificationEvent;
 
@@ -494,6 +558,7 @@ export function parseWorkItemsTopic(topic: string): Id | null {
 
 export const BOT_LIMITS = {
   channelName: 40,
+  groupName: 40,
   channelPurpose: 2000,
   title: 140,
   description: 280,

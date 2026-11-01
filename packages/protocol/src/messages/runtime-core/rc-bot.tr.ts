@@ -4,6 +4,7 @@ export const tr: RcBotMessages = {
   // ---- 频道 ----
   mainChannelName: 'Her şey',
   channelNotFound: (p: { id: string }) => `Kanal bulunamadı: ${p.id}`,
+  groupNotFound: (p: { id: string }) => `Grup bulunamadı: ${p.id}`,
   mainChannelLocked: 'Varsayılan kanal arşivlenemez veya silinemez.',
   channelArchived: 'Bu kanal arşivlendi. Burada çalışmaya devam etmek için geri yükleyin.',
   channelDeleteCountsChanged: 'Bu kanaldaki görev veya zamanlanmış görev sayısı değişti. Silmeden önce yeniden kontrol edin.',
