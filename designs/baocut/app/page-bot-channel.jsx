@@ -48,21 +48,32 @@
 
   /**
    * 运行记录行（技术方案 §4.3，需求 §11.4）：Runtime 搬进会话的报告、简报、转交、刷新、定时与提醒。
-   * 默认收成一行灰字，点开看全文与原文引用。不是用户打的字，不画成用户消息。
+   * 挂在任务上时，上面一行是任务头：一根弯线、任务的状态图标与标题，点标题打开任务。
+   * 下面默认收成一行灰字，点开看全文与原文引用。不是用户打的字，不画成用户消息。
    */
   function BotRelayRow({item, channelId}) {
     const app = useApp();
     const R = window.RSP;
     const [open, setOpen] = useState(false);
+    const bot = window.useBot();
+    const task = item.workItemId ? bot.items.find(i => i.id === item.workItemId) : null;
+    const taskStatus = task ? B.statusOf(task) : null;
+    const openTask = () => app.go({r: 'bot', id: channelId, task: item.workItemId});
     const label = B.RELAY[item.direction];
     const line = (item.text.split('\n').find(l => l.trim()) || '').trim();
     return <div className="bot-relay">
+      {task ? <div className="bot-relay__task">
+        <span className="bot-relay__curve" aria-hidden="true" />
+        <window.BotStatusIcon statusKey={taskStatus.key} chip />
+        <button type="button" className={cx('bot-relay__task-title', taskStatus.strike && 'is-struck')} onClick={openTask}
+          aria-label={`打开任务：${task.title}，${taskStatus.label}`}>{task.title}</button>
+      </div> : null}
       <div className="bot-relay__head">
         <R.ActionButton isQuiet size="S" aria-expanded={open} aria-label={open ? '收起详情' : '展开详情'} onPress={() => setOpen(!open)}>
           {open ? <R.Icons.ChevronDown /> : <R.Icons.ChevronRight />}
         </R.ActionButton>
         <span className="bot-relay__summary">{line ? `${label} · ${line}` : label}</span>
-        {item.workItemId ? <R.ActionButton isQuiet size="S" onPress={() => app.go({r: 'bot', id: channelId, task: item.workItemId})}>
+        {item.workItemId && !task ? <R.ActionButton isQuiet size="S" onPress={openTask}>
           <R.Icons.OpenIn /><R.Text>打开任务</R.Text>
         </R.ActionButton> : null}
       </div>
@@ -107,8 +118,8 @@
   }
 
   /**
-   * 频道对话（BOT-CV-01…05、需求 §11.3）：头部是频道名与用途、记忆、周期任务、频道设置；窄屏时多一个任务面板开关。
-   * 回复一张线程卡（BOT-EX-09）时输入框上方显示「回复「任务名」✕」。
+   * 频道对话（BOT-CV-01…05、需求 §11.3）：头部是频道名与用途、记忆、周期任务、频道设置，最后是右栏的「任务」开关，
+   * 带这个频道里等你的任务数（需求 §11.1）。回复一张线程卡（BOT-EX-09）时输入框上方显示「回复「任务名」✕」。
    */
   function BotChannelView({channel, tasksToggle}) {
     const app = useApp();
@@ -117,6 +128,7 @@
     const entries = bot.timelines[channel.id] || [];
     const [replyTo, setReplyTo] = useState(null);
     const replyItem = replyTo ? bot.items.find(i => i.id === replyTo) : null;
+    const waiting = bot.items.filter(i => i.channelId === channel.id && B.needsUser(i)).length;
     const later = what => app.toast(`原型里没有画${what}`);
     const send = text => {
       if (replyTo) { window.BOT_ACTIONS.reply(replyTo, text); setReplyTo(null); app.toast('已转给这条任务'); return; }
@@ -133,8 +145,9 @@
         <R.ActionButton isQuiet size="S" onPress={() => later('频道记忆页')}><R.Icons.Bookmark /><R.Text>记忆</R.Text></R.ActionButton>
         <R.ActionButton isQuiet size="S" aria-label="新建周期任务" onPress={() => later('周期任务对话框')}><R.Icons.CalendarAdd /></R.ActionButton>
         <R.ActionButton isQuiet size="S" aria-label="频道设置…" onPress={() => later('频道设置')}><R.Icons.Settings /></R.ActionButton>
-        {tasksToggle ? <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} onPress={tasksToggle.onToggle}>
-          <R.Icons.ViewList /><R.Text>{tasksToggle.shown ? '隐藏任务' : '显示任务'}</R.Text>
+        {tasksToggle ? <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
+          aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
+          <R.Icons.ViewList /><R.Text>任务</R.Text>{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}
         </R.ActionButton> : null}
       </header>
       <BotTimeline entries={entries} channelId={channel.id} onReply={setReplyTo}

@@ -16,21 +16,33 @@ test('状态键：进行中按子状态，已解决按结局，每个键都在�
   items.forEach(i => assert.ok(B.STATUS[B.statusKey(i)], i.id));
 });
 
-test('任务面板：等你、工作中按子状态排，接下来后面接定时，建议最多 3 条', () => {
+test('任务面板：进行中按子状态分组，空组不列；接下来与定时分开，定时按开始时刻；建议最多 3 条', () => {
   const items = [
     item('w', {status: 'active', active: {state: 'working'}}),
     item('in', {status: 'active', active: {state: 'needsInput'}}),
     item('rv', {status: 'active', active: {state: 'needsReview'}}),
+    item('rv2', {status: 'active', active: {state: 'needsReview'}, priority: 'high'}),
     item('bl', {status: 'active', active: {state: 'blocked'}}),
+    item('sc2', {status: 'scheduled', startAt: NOW + 2000}),
     item('sc', {status: 'scheduled', startAt: NOW + 1000}),
     item('up', {status: 'upNext'}),
     ...[1, 2, 3, 4].map(n => item('s' + n, {status: 'suggested'})),
   ];
   const s = B.taskSections(items, 'all', NOW, false);
-  assert.deepEqual(s.needsYou.map(i => i.id), ['rv', 'in']);
-  assert.deepEqual(s.working.map(i => i.id), ['bl', 'w']);
-  assert.deepEqual(s.upNext.map(i => i.id), ['up', 'sc']);
+  assert.deepEqual(s.active.map(g => [g.state, g.items.map(i => i.id)]),
+    [['needsReview', ['rv2', 'rv']], ['needsInput', ['in']], ['blocked', ['bl']], ['working', ['w']]]);
+  assert.deepEqual(s.upNext.map(i => i.id), ['up']);
+  assert.deepEqual(s.scheduled.map(i => i.id), ['sc', 'sc2']);
   assert.equal(s.suggested.length, 3);
+  assert.deepEqual(B.tabCounts(s), {active: 5, upNext: 1, scheduled: 2, resolved: 0});
+});
+
+test('页签：每条任务按状态落到一个页签，建议不落', () => {
+  assert.deepEqual(B.TASK_TABS, ['active', 'upNext', 'scheduled', 'resolved']);
+  assert.equal(B.tabOf(item('a', {status: 'scheduled'})), 'scheduled');
+  assert.equal(B.tabOf(item('a', {status: 'resolved'})), 'resolved');
+  assert.equal(B.tabOf(item('a', {status: 'suggested'})), null);
+  B.TASK_TABS.forEach(k => assert.ok(B.TAB_LABEL[k], k));
 });
 
 test('任务面板：已完成只列 30 天内最近 20 条，其余计数；展开后全列', () => {

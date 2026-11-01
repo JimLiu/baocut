@@ -105,24 +105,45 @@
     return true;
   }
 
+  /** 任务面板的四个页签（需求 §11.5）；建议不在页签里，另放在页签上方。 */
+  const TASK_TABS = ['active', 'upNext', 'scheduled', 'resolved'];
+  const TAB_LABEL = {active: '进行中', upNext: '接下来', scheduled: '定时', resolved: '已解决'};
+  /** 一条任务落在哪个页签；建议不落在任何页签。 */
+  const tabOf = item => (item.status === 'suggested' ? null : item.status);
+
   /**
-   * 任务面板的四段（需求 §11.5）：等你、工作中（已停下、工作中、等别人）、接下来（含定时）、已完成（最近 20 条、30 天内）；
-   * 建议另放，最多 3 条。
+   * 任务面板的四个页签（需求 §11.5）：进行中（按子状态分组：待你审阅 → 需要你输入 → 已停下 → 工作中 → 等别人，空组不列）、
+   * 接下来、定时（按开始时刻）、已解决（最近 20 条、30 天内）；建议另放，最多 3 条。
    */
   function taskSections(items, filter, now, showAllDone) {
     const shown = items.filter(i => matchesFilter(i, filter));
-    const active = shown.filter(i => i.status === 'active').sort(compareActive);
-    const scheduled = shown.filter(i => i.status === 'scheduled').sort((a, b) => (a.startAt || 0) - (b.startAt || 0) || compareWorkItems(a, b));
+    const active = [];
+    for (const item of shown.filter(i => i.status === 'active').sort(compareActive)) {
+      const state = activeState(item);
+      const group = active[active.length - 1];
+      if (group && group.state === state) group.items.push(item);
+      else active.push({state, items: [item]});
+    }
     const cutoff = now - RESOLVED_DAYS * 86400000;
     const resolved = shown.filter(i => i.status === 'resolved').sort((a, b) => resolvedAt(b) - resolvedAt(a));
     const recent = showAllDone ? resolved : resolved.filter(i => resolvedAt(i) >= cutoff).slice(0, RESOLVED_TAIL);
     return {
       suggested: shown.filter(i => i.status === 'suggested').sort(compareWorkItems).slice(0, SUGGESTIONS_MAX),
-      needsYou: active.filter(needsUser),
-      working: active.filter(i => !needsUser(i)),
-      upNext: [...shown.filter(i => i.status === 'upNext').sort(compareWorkItems), ...scheduled],
+      active,
+      upNext: shown.filter(i => i.status === 'upNext').sort(compareWorkItems),
+      scheduled: shown.filter(i => i.status === 'scheduled').sort((a, b) => (a.startAt || 0) - (b.startAt || 0) || compareWorkItems(a, b)),
       done: recent,
       moreDone: resolved.length - recent.length,
+    };
+  }
+
+  /** 页签上的条数；已解决只列一段，不计数。 */
+  function tabCounts(sections) {
+    return {
+      active: sections.active.reduce((n, g) => n + g.items.length, 0),
+      upNext: sections.upNext.length,
+      scheduled: sections.scheduled.length,
+      resolved: 0,
     };
   }
 
@@ -248,5 +269,5 @@
 
   const root = typeof window !== 'undefined' ? window : globalThis;
   root.BC_BOT = {STATUS, RELAY, QUICK_LABEL, NEW_TASK_DEFAULTS, statusKey, statusOf, needsUser, nextLine, channelSummaries, needsYouTotal,
-    channelGroups, compareWorkItems, matchesFilter, taskSections, quickActions, applyAction, newTask, openChips, demo};
+    channelGroups, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, quickActions, applyAction, newTask, openChips, demo};
 })();

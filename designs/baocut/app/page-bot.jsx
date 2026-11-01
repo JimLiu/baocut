@@ -24,11 +24,11 @@
   const BOT_ACTIONS = {
     /** 任务行与详情里的快捷操作（需求 §11.5）。 */
     act: (id, action) => write(s => patchItem(s, id, i => B.applyAction(i, action, Date.now()))),
-    /** 新建任务（需求 §4.4）；返回新任务的 id。 */
+    /** 新建任务（需求 §4.4）；返回新任务。 */
     addTask: ({channelId, title, owner, start}) => {
-      const id = nextId('wi');
-      write(s => ({...s, items: [...s.items, B.newTask({id, channelId, title, owner, start}, Date.now())]}));
-      return id;
+      const task = B.newTask({id: nextId('wi'), channelId, title, owner, start}, Date.now());
+      write(s => ({...s, items: [...s.items, task]}));
+      return task;
     },
     /** 频道里说一句话：演示里智能体答应下来，开一个任务并放一张线程卡（BOT-CV-03）。 */
     send: (channelId, text) => {
@@ -59,11 +59,12 @@
 
   /* ---------- 状态图标 ---------- */
 
-  /** 状态图标（16px）。图标不朗读：文字由旁边的标签或行的读屏名称给出；工作中画转圈。 */
-  function BotStatusIcon({statusKey}) {
+  /** 状态图标（16px）；`chip` 时垫一块 24px 的圆角底（任务行、详情头、运行记录行的任务头）。
+      图标不朗读：文字由旁边的标签或行的读屏名称给出；工作中画转圈。 */
+  function BotStatusIcon({statusKey, chip}) {
     const row = B.STATUS[statusKey];
     const Icon = row.icon ? window.RSP.Icons[row.icon] : null;
-    return <span className={`bot-status bot-status--${row.tone}`} aria-hidden="true">
+    return <span className={cx('bot-status', `bot-status--${row.tone}`, chip && 'bot-status--chip')} aria-hidden="true">
       {Icon ? <Icon /> : <window.RSP.ProgressCircle size="S" isIndeterminate aria-label={row.label} />}
     </span>;
   }
@@ -142,7 +143,6 @@
               </R.SideNavItem>
             </R.SideNavSection>
             <R.SideNavSection id="group:channels">
-              <R.SideNavHeader>频道</R.SideNavHeader>
               {groups.active.map(row)}
             </R.SideNavSection>
             {groups.archived.length ? <R.SideNavSection id="group:archived">
@@ -192,12 +192,16 @@
   /**
    * Bot 页（需求 §11.1）：中间频道对话（或收件箱、展开的任务详情），右边任务面板或任务详情。
    * 路由 {r:'bot', id: 频道, task: 打开的任务, view: 'inbox' | 'task'}。
+   * 右栏的开合由频道头的「任务」开关、面板与详情的关闭按钮管：宽时默认开着，窄时默认收起、开了是浮层；两种宽度各记各的。
    */
   function BotPage({id, task, view}) {
     const app = useApp();
     const bot = useBot();
     const [contentRef, narrow] = useNarrow();
-    const [tasksShown, setTasksShown] = useState(false);
+    const [wideHidden, setWideHidden] = useState(false);
+    const [narrowShown, setNarrowShown] = useState(false);
+    const panelShown = narrow ? narrowShown : !wideHidden;
+    const setShown = shown => (narrow ? setNarrowShown(shown) : setWideHidden(!shown));
     const channelId = view === 'inbox' ? null : id || MAIN;
     const channel = channelId ? bot.channels.find(c => c.id === channelId) : null;
     useEffect(() => { if (channel && channel.unread) BOT_ACTIONS.markRead(channel.id); }, [channelId]);
@@ -205,21 +209,24 @@
     const strip = r => Object.fromEntries(Object.entries(r).filter(([, v]) => v != null));
     const openTask = (item, inbox) => app.go(strip({r: 'bot', id: inbox ? item.channelId : id, task: item.id, view: inbox ? 'inbox' : null}));
     const closeDetail = () => app.go(strip({r: 'bot', id, view: view === 'inbox' ? 'inbox' : null}));
+    const backToList = () => { setShown(true); closeDetail(); };
+    const hide = () => { setShown(false); if (task) closeDetail(); };
     let center;
     let right = null;
     if (view === 'inbox') {
       center = <BotInbox selectedId={task} onOpen={i => openTask(i, true)} />;
-      if (task) right = <window.BotTaskDetail id={task} wide={false} onClose={closeDetail} />;
+      if (task) right = <window.BotTaskDetail id={task} wide={false} onHide={closeDetail} />;
     } else if (!channel) {
       center = <div className="bot-missing"><span>这个频道已经不在了。</span>
         <window.RSP.Button variant="secondary" onPress={() => app.go({r: 'bot'})}>去默认频道</window.RSP.Button></div>;
     } else if (view === 'task' && task) {
-      center = <window.BotTaskDetail id={task} wide onToggleWide={() => to({view: null})} onClose={closeDetail} />;
+      center = <window.BotTaskDetail id={task} wide onToggleWide={() => to({view: null})} onBack={backToList} />;
     } else {
+      const shown = !!task || panelShown;
       center = <window.BotChannelView key={channel.id} channel={channel}
-        tasksToggle={narrow && !task ? {shown: tasksShown, onToggle: () => setTasksShown(!tasksShown)} : null} />;
-      if (task) right = <window.BotTaskDetail id={task} wide={false} onToggleWide={() => to({view: 'task'})} onClose={closeDetail} />;
-      else if (!narrow || tasksShown) right = <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={null} />;
+        tasksToggle={{shown, onToggle: () => (shown ? hide() : setShown(true))}} />;
+      if (task) right = <window.BotTaskDetail id={task} wide={false} onToggleWide={() => to({view: 'task'})} onBack={backToList} onHide={hide} />;
+      else if (panelShown) right = <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={null} onHide={hide} />;
     }
     return <div className="bot" ref={contentRef}>
       <div className="bot__main">{center}</div>
