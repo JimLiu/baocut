@@ -17,6 +17,9 @@ import {
   makeGallery,
   MAKE_EARLIER_MAX,
   needsYouTotal,
+  findOutput,
+  opensAsTab,
+  outputKey,
   outputKind,
   suggestionPreview,
   openChips,
@@ -433,5 +436,22 @@ describe('Make panel', () => {
     expect(suggestionPreview('Captions')).toBe('captions');
     expect(suggestionPreview('tidy')).toBe('idea');
     expect(suggestionPreview(null)).toBe('idea');
+  });
+
+  it('keys outputs by reference so a tab keeps its output when the list is merged and trimmed', () => {
+    const cover = { kind: 'file', path: '/out/cover.png', label: 'Cover', version: 'v1' } as const;
+    const coverV2 = { ...cover, label: 'Cover v2', version: 'v2' } as const;
+    const range = { kind: 'video-range', projectId: 'p', videoId: 'v', startMs: 1000, endMs: 5000, label: 'Clip', version: null } as const;
+    expect(outputKey(cover)).toBe('file:/out/cover.png');
+    expect(outputKey(range)).toBe('range:v:1000-5000');
+    expect(outputKey({ kind: 'slides', id: 's1' })).toBe('slides:s1');
+    const item = { outputs: [cover, range, coverV2] } as unknown as WorkItem;
+    expect(findOutput(item, 'file:/out/cover.png')).toBe(coverV2);
+    expect(findOutput(item, 'video:v')).toBeNull();
+    expect(findOutput(null, 'file:/out/cover.png')).toBeNull();
+    expect(opensAsTab(cover)).toBe(true);
+    expect(opensAsTab(range)).toBe(true);
+    expect(opensAsTab({ kind: 'doc', id: 'd1' })).toBe(false);
+    expect(opensAsTab({ kind: 'message', conversationId: 'c', itemId: 'm' })).toBe(false);
   });
 });

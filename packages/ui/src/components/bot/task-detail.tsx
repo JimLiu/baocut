@@ -22,7 +22,8 @@ import {
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronUp from '@react-spectrum/s2/icons/ChevronUp';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { FINISHED_STEPS_SHOWN, canRevertItem, type WorkItemStatusKey } from '../../model/bot.ts';
+import { FINISHED_STEPS_SHOWN, canRevertItem, opensAsTab, outputKey, type WorkItemStatusKey } from '../../model/bot.ts';
+import type { ConversationOutput } from '../../model/conversation-outputs.ts';
 import { agoLabel } from '../../model/format.ts';
 import { formatMoneyOne } from '../../model/usage-format.ts';
 import { useRuntime } from '../../runtime/context.tsx';
@@ -36,7 +37,8 @@ import { formatDay } from './bot-format.ts';
 import { useTaskSpend } from './task-spend.ts';
 import { StatusIcon } from './status-badge.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
-import { TaskRefs, videoIdsOf } from './task-refs.tsx';
+import { BotOutputLink } from './bot-output-link.tsx';
+import { TaskRefs, useRefResolver } from './task-refs.tsx';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
 import { useBotMessageExtras } from './timeline/message-extras.tsx';
 import { SuggestionChips } from './timeline/suggestion-chips.tsx';
@@ -191,7 +193,7 @@ function Block({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** 任务转换记录：转换事件来时重取（`workItems.get`），也顺便拿到不在已订阅频道里的任务本身。 */
-function useWorkItemRecord(id: Id) {
+export function useWorkItemRecord(id: Id) {
   const runtime = useRuntime();
   const tick = useTransitionTick(id);
   const [record, setRecord] = useState<{ item: WorkItem; transitions: WorkItemTransition[] } | null>(null);
@@ -221,9 +223,20 @@ const infoOpen = new Map<Id, boolean>();
  * 顶上一行贴着：状态、标题与「状态 · 下一步 · N 条进展」、收起或展开任务信息、「⋯」（编辑也在里面）；返回、占满与关闭在页签条上。
  * 下面是任务信息——等你的问题（带选项按钮，收起时也在）、事实、步骤、产物与资源、进展、转换记录——然后是线程，照普通会话画，
  * 输入框发的话进线程；任务信息跟着线程一起滚（ConversationView 的 `header`）。用户自己的任务没有线程。
+ * 「产物」的每一行与线程里这些产物的卡按下都交给 `onOpenOutput(outputKey)`：在右栏开那个产物的页签（bot-output-view.tsx）。
  * 删掉记录后 `onClose` 关掉这个页签。
  */
-export function TaskDetail({ workItemId, channelId, onClose }: { workItemId: Id; channelId: Id | null; onClose: () => void }) {
+export function TaskDetail({
+  workItemId,
+  channelId,
+  onClose,
+  onOpenOutput,
+}: {
+  workItemId: Id;
+  channelId: Id | null;
+  onClose: () => void;
+  onOpenOutput: (output: string) => void;
+}) {
   const live = useWorkItem(workItemId);
   const { record, missing } = useWorkItemRecord(workItemId);
   const item = live ?? record?.item;
@@ -233,9 +246,23 @@ export function TaskDetail({ workItemId, channelId, onClose }: { workItemId: Id;
   const [dialog, setDialog] = useState<'redirect' | 'revert' | 'delete' | 'edit' | null>(null);
   const [allFinished, setAllFinished] = useState(false);
   const [answering, setAnswering] = useState<number | null>(null);
-  // 线程里也能改自己的消息、给智能体的消息点 👍 👎（BOT-EX-06、BOT-EX-10）。
+  // 线程里也能改自己的消息、给智能体的消息点 👍 👎（BOT-EX-06、BOT-EX-10）；线程里这个任务的产物卡在右栏开产物页签。
   const messageExtras = useBotMessageExtras();
-  const threadExtras = useMemo(() => ({ unread: null, ...messageExtras }), [messageExtras]);
+  const { resolve } = useRefResolver(item);
+  const outputs = item?.outputs;
+  const threadExtras = useMemo(() => {
+    const openOutput = (card: ConversationOutput) => {
+      // 幻灯片、设计稿与协作文档在右栏看不了，照常去功能区。
+      if (card.slides || card.design || card.designSystem || card.docs) return false;
+      // 线程的卡与任务的产物按卡的 id 对（视频是视频 id，文件是 Space 条目 id）；同一部视频先认整部视频，再认片段。
+      const hits = (outputs ?? []).filter((ref) => opensAsTab(ref) && resolve(ref)?.id === card.id);
+      const hit = hits.find((ref) => ref.kind !== 'video-range') ?? hits[0];
+      if (!hit) return false;
+      onOpenOutput(outputKey(hit));
+      return true;
+    };
+    return { unread: null, ...messageExtras, openOutput };
+  }, [messageExtras, outputs, resolve, onOpenOutput]);
   const spent = useTaskSpend(item?.channelId ?? channelId, workItemId);
 
   const [open, setOpen] = useState(() => infoOpen.get(workItemId) !== false);
@@ -385,12 +412,18 @@ export function TaskDetail({ workItemId, channelId, onClose }: { workItemId: Id;
             ) : null}
             {item.outputs.length ? (
               <Block label={C.detail.outputs}>
-                <TaskRefs refs={item.outputs} item={item} />
+                <ul className={items}>
+                  {item.outputs.map((ref, index) => (
+                    <li key={`${outputKey(ref)}:${index}`} className={itemRow}>
+                      <BotOutputLink output={ref} onOpen={opensAsTab(ref) ? () => onOpenOutput(outputKey(ref)) : undefined} />
+                    </li>
+                  ))}
+                </ul>
               </Block>
             ) : null}
             {item.resources.length ? (
               <Block label={C.detail.resources}>
-                <TaskRefs refs={item.resources} item={item} jobsShownFor={videoIdsOf(item.outputs)} />
+                <TaskRefs refs={item.resources} item={item} />
               </Block>
             ) : null}
             {item.updates.length ? (

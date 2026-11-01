@@ -34,6 +34,10 @@ import { useBotCall, useScopedState } from './bot-actions.ts';
 import { ChannelMemoryPage } from './channel-memory-page.tsx';
 import { ChannelSidebar } from './channel-sidebar.tsx';
 import { MakePanel } from './make-panel.tsx';
+import { BotOutputLink } from './bot-output-link.tsx';
+import { BotOutputView } from './bot-output-view.tsx';
+import { OutputCard } from '../thread/output-card.tsx';
+import { outputKey } from '../../model/bot.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 
@@ -972,6 +976,122 @@ describe('Make 面板（BOT-MK-01、04、05，需求 §11.11）', () => {
     await render(panel());
     await press('建立「每日素材整理」');
     expect(document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')?.value).toBe('整理关注的文件夹里新进的文件，按视频归好。');
+  });
+});
+
+describe('产物页签（需求 §11.6 的修订稿）', () => {
+  const SRT = { kind: 'file', path: '/Users/me/Shows/exports/ep12.srt', label: '第 12 期字幕', version: null } as const;
+  const SLIDES = { kind: 'slides', id: 'deck1', label: '提纲', version: null } as const;
+  const done = { ...resolvedItem(1), id: 'wi_out', title: '做字幕', outputs: [SRT, SLIDES] } as unknown as WorkItem;
+
+  beforeEach(() => {
+    useChannels.setState({ ready: true, channels: [{ channel: { id: 'c1', name: '剪辑', conversationId: 'conv_c1', archived: false } }] as never });
+    useWorkItems.setState({ byChannel: { c1: { items: [done], resolvedTail: 20, reports: [] } } });
+    useDirectory.setState({ projects: [{ id: 'p1', name: 'Shows', path: '/Users/me/Shows' }] as never, conversations: [] });
+    handlers['workItems.get'] = () => ({ item: done, transitions: [] });
+  });
+  afterEach(() => {
+    useWorkItems.setState({ byChannel: {} });
+    useChannels.setState({ channels: [] });
+    useDirectory.setState({ projects: [], conversations: [] });
+  });
+
+  it('产物按引用取键：同一个文件的新版本还是同一个页签', () => {
+    expect(outputKey(SRT)).toBe('file:/Users/me/Shows/exports/ep12.srt');
+    const v2 = { ...SRT, version: '2' };
+    expect(outputKey(v2)).toBe(outputKey(SRT));
+  });
+
+  it('任务详情的产物行：种类图标、名字，读屏名称带种类，按下交出去', async () => {
+    const onOpen = vi.fn();
+    await render(createElement(BotOutputLink, { output: SRT, onOpen }));
+    await press('打开「第 12 期字幕」，字幕');
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('Make 面板的产物卡在频道里推开那个产物的页签', async () => {
+    const go = vi.fn();
+    const shell = useShell.getState();
+    useShell.setState({ go });
+    try {
+      await render(createElement(MakePanel, { channelId: 'c1', scope: 'channel', onScope: () => {} }));
+      const card = [...container.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('第 12 期字幕'))!;
+      await act(async () => card.click());
+      expect(go).toHaveBeenCalledWith({ tab: 'bot', channelId: 'c1', workItemId: 'wi_out', view: 'channel', output: outputKey(SRT) });
+    } finally {
+      useShell.setState({ go: shell.go });
+    }
+  });
+
+  it('字幕产物一句一行；头部的任务名切回任务', async () => {
+    const fetch = vi.fn(async () => new Response('1\n00:00:01,000 --> 00:00:02,500\n大家好\n\n2\n00:01:05,000 --> 00:01:07,000\n今天讲剪辑\n'));
+    vi.stubGlobal('fetch', fetch);
+    const resolveMedia = vi.fn(async () => ({ url: 'blob:srt', size: 80 }));
+    Object.assign(runtime, { resolveMedia });
+    const onOpenTask = vi.fn();
+    const tab = { key: `out:wi_out:${outputKey(SRT)}`, kind: 'output', workItemId: 'wi_out', output: outputKey(SRT) } as const;
+    await render(createElement(BotOutputView, { tab, onOpenTask }));
+    await act(async () => {});
+    expect(resolveMedia).toHaveBeenCalledWith({ projectId: 'p1', path: 'exports/ep12.srt' });
+    const cues = [...container.querySelectorAll('ol[aria-label="字幕"] li')].map((li) => li.textContent);
+    expect(cues).toEqual(['0:01大家好', '1:05今天讲剪辑']);
+    await press('打开任务「做字幕」');
+    expect(onOpenTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('任务里已经没有这个产物：如实说，给「打开任务」', async () => {
+    const onOpenTask = vi.fn();
+    const tab = { key: 'out:wi_out:file:/gone.png', kind: 'output', workItemId: 'wi_out', output: 'file:/gone.png' } as const;
+    await render(createElement(BotOutputView, { tab, onOpenTask }));
+    await act(async () => {});
+    expect(container.textContent).toContain('这个产物已经不在了。');
+    await press('打开任务');
+    expect(onOpenTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('任务线程里的产物卡交给右栏开产物页签，不去功能区；不认的照常去功能区', async () => {
+    const shell = useShell.getState();
+    const openPane = vi.fn();
+    useShell.setState({ openPane });
+    Object.assign(runtime, {
+      spaceThumbnails: { retain: () => () => {}, subscribe: () => () => {}, version: () => 0, peek: () => null },
+      videos: { media: { subscribe: () => () => {}, version: () => 0, thumbnail: () => null } },
+    });
+    const cover = {
+      id: '/Users/me/Shows/exports/cover.png',
+      kind: 'image',
+      name: '封面',
+      video: null,
+      entry: null,
+      durationSeconds: null,
+      file: { target: { projectId: 'p1', path: 'exports/cover.png' } },
+      at: '',
+      taskId: null,
+    } as const;
+    const card = () => [...container.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('封面'))!;
+    try {
+      const openOutput = vi.fn(() => true);
+      const extras = { unread: null, agentMessage: null, openOutput } as never;
+      await render(createElement(BotThreadExtrasContext.Provider, { value: extras }, createElement(OutputCard, { output: cover, conversationId: 'conv_thread' })));
+      await act(async () => card().click());
+      expect(openOutput).toHaveBeenCalledWith(cover);
+      expect(openPane).not.toHaveBeenCalled();
+
+      const declined = { unread: null, agentMessage: null, openOutput: () => false } as never;
+      await render(createElement(BotThreadExtrasContext.Provider, { value: declined }, createElement(OutputCard, { output: cover, conversationId: 'conv_thread' })));
+      await act(async () => card().click());
+      expect(openPane).toHaveBeenCalledWith({ kind: 'file', target: { projectId: 'p1', path: 'exports/cover.png' } });
+    } finally {
+      useShell.setState({ openPane: shell.openPane });
+    }
+  });
+
+  it('链接指到开不了页签的产物（幻灯片）：当作不在，给「打开任务」', async () => {
+    const tab = { key: `out:wi_out:${outputKey(SLIDES)}`, kind: 'output', workItemId: 'wi_out', output: outputKey(SLIDES) } as const;
+    await render(createElement(BotOutputView, { tab, onOpenTask: () => {} }));
+    await act(async () => {});
+    expect(container.textContent).toContain('这个产物已经不在了。');
+    expect(button('打开任务')).toBeDefined();
   });
 });
 

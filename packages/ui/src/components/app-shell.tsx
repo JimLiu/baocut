@@ -5,7 +5,9 @@ import { QUEUE_COPY } from '../copy.ts';
 import { useRuntime } from '../runtime/context.tsx';
 import { startQueueRunner } from '../runtime/message-queue-runner.ts';
 import { shellShortcut } from '../model/shell-shortcuts.ts';
+import { sideTabFromRoute } from '../model/bot-side.ts';
 import { isVideoReferenced, targetKey } from '../model/workspace.ts';
+import { isBotVideoReferenced, useBotLayout } from '../state/bot-layout-store.ts';
 import { useHelp } from '../state/help-store.ts';
 import { HOME, hasSidebar, routeVideo, useShell } from '../state/shell-store.ts';
 import { useVideo } from '../state/video-store.ts';
@@ -68,15 +70,20 @@ interface BotRouteBridge {
 export function AppShell({ platform }: { platform: string }) {
   const runtime = useRuntime();
   const route = useShell((s) => s.route);
-  const video = routeVideo(route);
+  // Bot 右栏的视频产物页签：产物页认出视频的位置后记在 bot-layout-store 里，这里照 Home 的视频标签打开它。
+  const botTab = route.tab === 'bot' && route.output ? sideTabFromRoute(route.workItemId, route.output) : null;
+  const botVideo = useBotLayout((s) => (botTab ? s.videos[botTab.key] : undefined));
+  const video = routeVideo(route) ?? botVideo;
   const sheetRef = useRef<HTMLElement>(null);
 
   // 打开的视频跟着路由走：同一个视频在 Home 与 Space 之间切换时不重新打开；路由换到另一个视频时，打开它会先关掉旧的。
-  // 路由上没有视频（换到文件标签、换会话、收起右侧区域、去别的入口）时，只要还有哪条会话的功能区标签引用着它就不关——
-  // 编辑器留着选区、播放头与撤销栈，切回来不重新打开；视频标签都关掉了才关，Runtime 在没有打开者之后释放它。
+  // 路由上没有视频（换到文件标签、换会话、收起右侧区域、去别的入口）时，只要还有哪条会话的功能区标签、哪个 Bot 的视频产物页签
+  // 引用着它就不关——编辑器留着选区、播放头与撤销栈，切回来不重新打开；这些标签都关掉了才关，Runtime 在没有打开者之后释放它。
   const videoKey = video ? JSON.stringify(video) : null;
   const openKey = useVideo((s) => (s.video ? targetKey(s.video.target) : null));
-  const referenced = useShell((s) => openKey !== null && isVideoReferenced(s.workspaces, openKey));
+  const inWorkspace = useShell((s) => openKey !== null && isVideoReferenced(s.workspaces, openKey));
+  const inBot = useBotLayout((s) => openKey !== null && isBotVideoReferenced(s, openKey));
+  const referenced = inWorkspace || inBot;
   useEffect(() => {
     if (video) runtime.videos.open(video);
     else if (!referenced) runtime.videos.close();
@@ -152,7 +159,7 @@ export function AppShell({ platform }: { platform: string }) {
             ) : route.tab === 'models' ? (
               <SettingsPage model={route} platform={platform} />
             ) : route.tab === 'bot' ? (
-              <BotPage channelId={route.channelId} workItemId={route.workItemId} view={route.view} />
+              <BotPage channelId={route.channelId} workItemId={route.workItemId} view={route.view} output={route.output ?? null} />
             ) : (
               <ToolsPage tool={route.tool} />
             )}

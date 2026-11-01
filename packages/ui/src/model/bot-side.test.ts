@@ -16,6 +16,7 @@ import {
 } from './bot-side.ts';
 
 const task = (id: string) => sideTabFromRoute(id)!;
+const output = (id: string, key: string) => sideTabFromRoute(id, key)!;
 
 describe('bot right panel', () => {
   it('keys tab books by channel, the default channel and the inbox', () => {
@@ -24,6 +25,22 @@ describe('bot right panel', () => {
     expect(sideTabBook({ channelId: 'c1', view: 'inbox' })).toBe('inbox');
     expect(sideTabFromRoute(null)).toBeNull();
     expect(sideTabFromRoute('wi_a')).toEqual({ key: 'task:wi_a', kind: 'task', workItemId: 'wi_a' });
+    expect(sideTabFromRoute('wi_a', 'video:v1')).toEqual({
+      key: 'out:wi_a:video:v1',
+      kind: 'output',
+      workItemId: 'wi_a',
+      output: 'video:v1',
+    });
+    expect(sideTabFromRoute(null, 'video:v1')).toBeNull();
+  });
+
+  it('opens a task and its outputs as separate tabs', () => {
+    let s = reconcileSideTabs(undefined, task('a'));
+    s = reconcileSideTabs(s, output('a', 'file:cover.png'));
+    s = reconcileSideTabs(s, output('a', 'video:v1'));
+    expect(s.tabs.map((t) => t.key)).toEqual(['task:a', 'out:a:file:cover.png', 'out:a:video:v1']);
+    expect(s.active).toBe('out:a:video:v1');
+    expect(reconcileSideTabs(s, task('a')).tabs).toHaveLength(3);
   });
 
   it('opens the route task at the end, keeps open tabs when the route goes back to a fixed tab, and returns the same book when nothing changed', () => {
@@ -72,12 +89,17 @@ describe('bot right panel', () => {
     expect(sideWidth('detail', undefined, 600).width).toBe(SIDE_MIN);
     expect(sideMode(null, 'make')).toBe('make');
     expect(sideMode(task('a'), 'make')).toBe('detail');
+    expect(sideMode(output('a', 'video:v1'), 'tasks')).toBe('output');
+    expect(sideWidth('output', undefined, 1200).width).toBe(760);
+    expect(sideWidth('output', undefined, 900).width).toBe(540);
   });
 
   it('splits the full view into the parent level and the current tab', () => {
     expect(fullColumns(task('a'), 'make', false)).toEqual({ left: 'tasks', right: task('a') });
     expect(fullColumns(task('a'), 'tasks', true)).toEqual({ left: 'inbox', right: task('a') });
     expect(fullColumns(null, 'make', false)).toEqual({ left: 'make', right: null });
+    expect(fullColumns(output('a', 'video:v1'), 'tasks', true)).toEqual({ left: 'task', right: output('a', 'video:v1') });
+    expect(fullSplit('task', undefined, 1200).width).toBe(440);
     expect(fullSplit('tasks', undefined, 1200).width).toBe(340);
     expect(fullSplit('make', undefined, 1200).width).toBe(380);
     expect(fullSplit('inbox', 2000, 1200)).toEqual({ width: 720, min: SIDE_MIN, max: 720 });

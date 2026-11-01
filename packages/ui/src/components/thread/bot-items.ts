@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { Id, TimelineItem } from '@baocut/protocol';
+import type { ConversationOutput } from '../../model/conversation-outputs.ts';
 import type { BotTimelineItem } from '../../model/thread.ts';
 
 /**
@@ -26,6 +27,11 @@ export interface BotThreadExtras {
   agentMessage: ((item: MessageItem<'agent-message'>, conversationId: Id) => ReactNode) | null;
   /** 频道里「回复」一张线程卡（BOT-EX-09）：下一条消息带上 `replyToItemId`。没有时卡片上不给「回复」。 */
   reply?: ((cardItemId: Id, workItemId: Id) => void) | null;
+  /**
+   * 任务线程里的产物卡（需求 §11.6 的修订稿）：是这个任务的产物就在 Bot 右栏开它的产物页签并返回 true；
+   * 返回 false 或没有时照常在功能区打开。
+   */
+  openOutput?: ((output: ConversationOutput) => boolean) | null;
 }
 
 export const BotThreadExtrasContext = createContext<BotThreadExtras | null>(null);

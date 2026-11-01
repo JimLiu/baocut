@@ -2,18 +2,15 @@ import { MAIN_CHANNEL_ID, type Id } from '@baocut/protocol';
 
 /**
  * Bot 页右栏的页签与宽度（需求 §11.1、§11.6 的修订稿，原型 model-bot.js「右栏页签」「右栏宽度」）：右栏照 Home 的功能区
- * （产品设计 §3.3）是一组页签。频道里最前面是「任务」「Make」两个固定页签（也能关），后面是打开的任务。
- * 页签簿 {tabs, active} 按频道各记一份、收件箱一份（它没有固定页签）；路由的 workItemId 指当前的任务页签，没有就是 active: null，
- * 显示固定页签。组件只管画，规则都在这里。
+ * （产品设计 §3.3）是一组页签。频道里最前面是「任务」「Make」两个固定页签（也能关），后面是打开的任务与产物。
+ * 页签簿 {tabs, active} 按频道各记一份、收件箱一份（它没有固定页签）；路由的 workItemId（再带 output 时是它的一个产物）指当前的
+ * 任务或产物页签，没有就是 active: null，显示固定页签。组件只管画，规则都在这里。
  */
 
 export type FixedSideTab = 'tasks' | 'make';
 
-export interface BotSideTab {
-  key: string;
-  kind: 'task';
-  workItemId: Id;
-}
+/** 打开的任务，或任务的一个产物（`output` 是 `outputKey`：按引用取，不用下标——Runtime 合并产物时去重、只留最近的，下标会挪）。 */
+export type BotSideTab = { key: string; kind: 'task'; workItemId: Id } | { key: string; kind: 'output'; workItemId: Id; output: string };
 
 export interface SideTabs {
   tabs: BotSideTab[];
@@ -30,9 +27,12 @@ export function sideTabBook(route: { channelId: Id | null; view: string }): stri
   return route.view === 'inbox' ? 'inbox' : (route.channelId ?? MAIN_CHANNEL_ID);
 }
 
-/** 路由里的页签：带任务就是那个任务，没有是 null（固定页签）。 */
-export function sideTabFromRoute(workItemId: Id | null): BotSideTab | null {
-  return workItemId ? { key: `task:${workItemId}`, kind: 'task', workItemId } : null;
+/** 路由里的页签：带产物是那个任务的这个产物，只带任务是任务，没有是 null（固定页签）。 */
+export function sideTabFromRoute(workItemId: Id | null, output?: string | null): BotSideTab | null {
+  if (!workItemId) return null;
+  return output
+    ? { key: `out:${workItemId}:${output}`, kind: 'output', workItemId, output }
+    : { key: `task:${workItemId}`, kind: 'task', workItemId };
 }
 
 /** 打开一个页签并选中：已开的就选中它，没开的开在最后。 */
@@ -77,21 +77,25 @@ export function afterFixedClose(open: readonly FixedSideTab[], kind: FixedSideTa
   return rest[Math.min(at, rest.length - 1)] ?? null;
 }
 
-/** 右栏的形态（定宽用）：任务详情，或固定页签自己。 */
-export type SideMode = FixedSideTab | 'detail';
+/** 右栏的形态（定宽用）：产物、任务详情，或固定页签自己。 */
+export type SideMode = FixedSideTab | 'detail' | 'output';
 
 export function sideMode(active: BotSideTab | null, fixed: FixedSideTab): SideMode {
-  return active ? 'detail' : fixed;
+  return active ? (active.kind === 'output' ? 'output' : 'detail') : fixed;
 }
 
 /** 右栏能拖的范围：至少 300，中间至少留 360。 */
 export const SIDE_MIN = 300;
 export const CENTER_MIN = 360;
 
-/** 右栏各形态的默认宽：任务面板 340、Make 380；任务详情占主区的 45%（480–640）。 */
+/**
+ * 右栏各形态的默认宽：任务面板 340、Make 380；任务详情占主区的 45%（480–640）；产物（视频编辑器、文档……）把中间压到 440 左右，
+ * 至少 560。
+ */
 export function sideDefault(mode: SideMode, available: number): number {
   if (mode === 'make') return 380;
   if (mode === 'detail') return Math.min(640, Math.max(480, Math.round(available * 0.45)));
+  if (mode === 'output') return Math.max(560, available - 440);
   return 340;
 }
 
@@ -108,20 +112,21 @@ export function sideWidth(mode: SideMode, stored: number | undefined, available:
   return { width: Math.round(Math.min(max, Math.max(SIDE_MIN, want))), min: SIDE_MIN, max };
 }
 
-/** 占满时左栏放什么：任务列表、Make 或收件箱。 */
-export type FullLeft = FixedSideTab | 'inbox';
+/** 占满时左栏放什么：任务列表、Make、收件箱，或产物所属的任务（`task`）。 */
+export type FullLeft = FixedSideTab | 'inbox' | 'task';
 
 /**
  * 右栏占满（中间收起）时的两栏：左边是当前页签的上一层，右边是当前页签。
- * 任务 → 任务列表（收件箱里是收件箱）| 任务；固定页签 → 它自己 | 提示。
+ * 产物 → 它的任务 | 产物；任务 → 任务列表（收件箱里是收件箱）| 任务；固定页签 → 它自己 | 提示。
  */
 export function fullColumns(active: BotSideTab | null, fixed: FixedSideTab, inbox: boolean): { left: FullLeft; right: BotSideTab | null } {
+  if (active?.kind === 'output') return { left: 'task', right: active };
   if (active) return { left: inbox ? 'inbox' : 'tasks', right: active };
   return { left: inbox ? 'inbox' : fixed, right: null };
 }
 
-/** 占满时左栏的默认宽：任务列表 340、Make 380、收件箱 360；右栏至少留 480。 */
-const FULL_LEFT: Record<FullLeft, number> = { tasks: 340, make: 380, inbox: 360 };
+/** 占满时左栏的默认宽：任务列表 340、Make 380、收件箱 360、任务 440；右栏至少留 480。 */
+const FULL_LEFT: Record<FullLeft, number> = { tasks: 340, make: 380, inbox: 360, task: 440 };
 export const FULL_RIGHT_MIN = 480;
 
 export function fullSplit(left: FullLeft, stored: number | undefined, available: number): SeamRange {

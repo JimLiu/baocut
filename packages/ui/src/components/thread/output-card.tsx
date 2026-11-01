@@ -23,6 +23,7 @@ import { useVideo } from '../../state/video-store.ts';
 import { CompactPlayer } from '../media/compact-player.tsx';
 import { KIND_ICON } from '../space/space-list.tsx';
 import { useEntryThumbnail } from '../use-entry-thumbnail.ts';
+import { useBotThreadExtras } from './bot-items.ts';
 import { cardVars, VideoJobRows, VideoStatusBadge } from './video-card-rows.tsx';
 import { T } from './thread-copy.ts';
 
@@ -244,8 +245,11 @@ export function OutputCard({
       .finally(() => setLoading(false));
   };
 
+  const bot = useBotThreadExtras();
   const activate = () => {
     onOpen?.();
+    // Bot 任务线程里的这个任务的产物：在右栏开产物页签，不离开 Bot 页。
+    if (bot?.openOutput?.(output)) return;
     const shell = useShell.getState();
     // 原型 home-session.jsx `SessionArtifactCard`：非视频的产物都在功能区的单文件标签里打开；
     // 那里视频与音频用播放器，其余用查看器，预览不了的如实说明并给「在文件夹中显示」。

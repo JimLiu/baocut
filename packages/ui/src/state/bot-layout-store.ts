@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Id } from '@baocut/protocol';
+import type { FileTarget, Id } from '@baocut/protocol';
+import { targetKey } from '../model/workspace.ts';
 import { EMPTY_SIDE_TABS, FIXED_SIDE_TABS, type FixedSideTab, type SideTabs } from '../model/bot-side.ts';
 
 /**
@@ -24,8 +25,13 @@ interface BotLayoutStore {
   /** 每份页签簿开着哪几个固定页签；没记过就两个都开着。 */
   fixed: Record<string, FixedSideTab[]>;
   full: Record<string, boolean>;
-  /** 右栏 tasks / make / detail，占满时的左栏 full:tasks / full:make / full:inbox。 */
+  /** 右栏 tasks / make / detail / output，占满时的左栏 full:tasks / full:make / full:inbox / full:task。 */
   widths: Record<string, number>;
+  /**
+   * 视频产物页签打开的视频（按页签键，产物页认出来后记下）：AppShell 按它打开编辑器的视频；页签还开着时，
+   * 切到别的页签也不关这部视频（同 Home 功能区的视频标签），回来时选区、播放头与撤销栈都在。
+   */
+  videos: Record<string, FileTarget>;
   /** 没有任务页签选着时显示的固定页签：上次选的那个。 */
   side: FixedSideTab;
   /** 宽时记「收起了」，窄时记「打开了」：两边的默认不同，切宽窄时按 Home 的规矩带过去（BotPage）。 */
@@ -38,6 +44,7 @@ interface BotLayoutStore {
   setFixed(key: string, open: FixedSideTab[]): void;
   setFull(key: string, on: boolean): void;
   setWidth(key: string, width: number | null): void;
+  setVideo(key: string, target: FileTarget): void;
   setSide(side: FixedSideTab): void;
   setWideHidden(hidden: boolean): void;
   setNarrowShown(shown: boolean): void;
@@ -50,6 +57,7 @@ export const useBotLayout = create<BotLayoutStore>()((set) => ({
   fixed: {},
   full: {},
   widths: {},
+  videos: {},
   side: 'tasks',
   wideHidden: false,
   narrowShown: false,
@@ -65,6 +73,8 @@ export const useBotLayout = create<BotLayoutStore>()((set) => ({
       else widths[key] = width;
       return { widths };
     }),
+  setVideo: (key, target) =>
+    set((s) => (s.videos[key] && targetKey(s.videos[key]) === targetKey(target) ? s : { videos: { ...s.videos, [key]: target } })),
   setSide: (side) => set({ side }),
   setWideHidden: (wideHidden) => set({ wideHidden }),
   setNarrowShown: (narrowShown) => set({ narrowShown }),
@@ -74,3 +84,10 @@ export const useBotLayout = create<BotLayoutStore>()((set) => ({
 
 export const bookTabs = (books: Record<string, SideTabs>, key: string): SideTabs => books[key] ?? EMPTY_SIDE_TABS;
 export const fixedTabs = (fixed: Record<string, FixedSideTab[]>, key: string): readonly FixedSideTab[] => fixed[key] ?? FIXED_SIDE_TABS;
+
+/** 哪份页签簿里还开着打开这部视频（`targetKey`）的产物页签。 */
+export function isBotVideoReferenced(state: Pick<BotLayoutStore, 'books' | 'videos'>, key: string): boolean {
+  return Object.values(state.books).some((book) =>
+    book.tabs.some((tab) => tab.kind === 'output' && !!state.videos[tab.key] && targetKey(state.videos[tab.key]!) === key),
+  );
+}

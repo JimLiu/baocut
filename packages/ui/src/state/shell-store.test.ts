@@ -61,6 +61,8 @@ const routes: Route[] = [
   { tab: 'bot', channelId: null, workItemId: 'w/1', view: 'inbox' },
   { tab: 'bot', channelId: 'chan_1', workItemId: null, view: 'channel' },
   { tab: 'bot', channelId: 'chan_1', workItemId: 'w1', view: 'channel' },
+  { tab: 'bot', channelId: 'chan_1', workItemId: 'w1', view: 'channel', output: 'file:/Users/me/out/cover 1.png' },
+  { tab: 'bot', channelId: null, workItemId: 'w1', view: 'inbox', output: 'video:v1' },
   { tab: 'bot', channelId: 'chan_1', workItemId: 'w1', view: 'task' },
   { tab: 'bot', channelId: 'chan_1', workItemId: null, view: 'memory' },
   {

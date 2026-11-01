@@ -239,7 +239,7 @@ const en = {
     outputs: 'Outputs',
     noOutputs: 'Videos, subtitles and documents your tasks make show up here.',
     outputKind: { video: 'Video', image: 'Image', subtitle: 'Subtitles', doc: 'Document' },
-    openOutput: (label: string, meta: string, task: string) => `${label}, ${meta}, open “${task}”`,
+    openOutput: (label: string, meta: string, task: string) => `${label}, ${meta}, from “${task}”`,
     templates: 'Recurring task templates',
     addTemplate: (title: string) => `Set up “${title}”`,
     moreTemplates: 'More templates',
@@ -266,8 +266,23 @@ const en = {
     resizeHint: 'Drag to resize, double-click to reset',
     fullHint: {
       tasks: 'Open a task on the left and it shows up here.',
-      make: 'Press an output card on the left and its task opens here.',
+      make: 'Press an output card on the left and it opens here.',
     },
+  },
+  /** 产物页签（需求 §11.6 的修订稿）：任务详情的产物行、页签条上的产物页签与右栏的产物页。 */
+  output: {
+    open: (name: string, kind: string) => `Open “${name}”, ${kind}`,
+    tab: (name: string, kind: string) => `${kind} “${name}”`,
+    missingTab: 'Output no longer here',
+    missing: 'This output is no longer in the task.',
+    openTask: 'Open task',
+    task: (title: string) => `Open task “${title}”`,
+    openInHome: 'Open in Home',
+    videoNotReady: 'This video isn’t in Space yet. It opens here once Space finds it.',
+    notFound: 'Couldn’t find this file. It may have been moved or deleted.',
+    elsewhere: 'This output can’t be previewed here. Use the card below to open it in Home.',
+    cues: 'Subtitles',
+    noCues: 'This subtitle file has no lines.',
   },
   detail: {
     label: 'Task',

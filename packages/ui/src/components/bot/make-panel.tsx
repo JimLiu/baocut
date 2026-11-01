@@ -18,22 +18,19 @@ import Add from '@react-spectrum/s2/icons/Add';
 import Calendar from '@react-spectrum/s2/icons/Calendar';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import Close from '@react-spectrum/s2/icons/Close';
-import CloseCaptions from '@react-spectrum/s2/icons/CloseCaptions';
-import FileText from '@react-spectrum/s2/icons/FileText';
-import Image from '@react-spectrum/s2/icons/Image';
 import Lightbulb from '@react-spectrum/s2/icons/Lightbulb';
 import MagicWand from '@react-spectrum/s2/icons/MagicWand';
-import Video from '@react-spectrum/s2/icons/Video';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { describeCadence } from '../../model/agent-schedule.ts';
 import {
   MAKE_TEMPLATES,
   makeGallery,
+  opensAsTab,
+  outputKey,
   suggestionPreview,
   type MakeOutput,
   type MakeScope,
   type MakeTemplateId,
-  type OutputKind,
   type SuggestionPreview,
 } from '../../model/bot.ts';
 import { agoLabel } from '../../model/format.ts';
@@ -44,6 +41,7 @@ import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
 import { useNow } from '../use-now.ts';
 import { transitionWorkItem, useBotCall } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
+import { OUTPUT_ICON, outputLabel } from './bot-output-link.tsx';
 import { StatusIcon } from './status-badge.tsx';
 import { Section, list, panel, row, rowMain, rowSub, rowText, rowTitle } from './task-panel.tsx';
 import { SuggestionButtons } from './timeline/proposal-card.tsx';
@@ -239,8 +237,6 @@ const moreTemplates = style({
   backgroundColor: 'gray-25',
 });
 
-const OUTPUT_ICON: Record<OutputKind, typeof Video> = { video: Video, image: Image, subtitle: CloseCaptions, doc: FileText };
-
 /** 建议大卡的预览：按建议的种类画一个示意（竖版是三块 9:16，字幕是一帧画面加两行字幕条），不是真缩略图。 */
 function SuggestionArt({ preview }: { preview: SuggestionPreview }) {
   return (
@@ -356,7 +352,7 @@ function SuggestionRow({ item, channelName }: { item: WorkItem; channelName: str
   );
 }
 
-/** 产物卡：名字、种类 ·（全部频道时的频道名）· 多久以前，下面是种类图标的占位预览；点了打开产出它的任务。 */
+/** 产物卡：名字、种类 ·（全部频道时的频道名）· 多久以前，下面是种类图标的占位预览；点了在右栏推开它的产物页签（产物页签开不了的产物打开产出它的任务）。 */
 function OutputCard({
   output,
   channelName,
@@ -369,6 +365,7 @@ function OutputCard({
   onOpen: () => void;
 }) {
   const Icon = OUTPUT_ICON[output.kind];
+  const label = outputLabel(output.output);
   const meta = [C.make.outputKind[output.kind], channelName, agoLabel(new Date(output.at).toISOString(), now)].filter(Boolean).join(' · ');
   return (
     <li className={outputCell}>
@@ -376,8 +373,8 @@ function OutputCard({
         type="button"
         className={outputButton}
         onClick={onOpen}
-        aria-label={C.make.openOutput(output.output.label, meta, output.item.title)}>
-        <span className={outputName}>{output.output.label}</span>
+        aria-label={C.make.openOutput(label, meta, output.item.title)}>
+        <span className={outputName}>{label}</span>
         <span className={outputMeta}>
           <Icon />
           <span className={outputMetaText}>{meta}</span>
@@ -447,11 +444,13 @@ export function MakePanel({
     setMaking(false);
     if (result && result.shown === 0) ToastQueue.neutral(C.make.noneNew, { timeout: 4000 });
   };
-  const open = (item: WorkItem) => go({ tab: 'bot', channelId: item.channelId, workItemId: item.id, view: 'channel' });
+  // 产物卡在右栏开它的产物页签；在这里看不了的（文档 id 这类）开产出它的任务。
+  const open = ({ item, output }: MakeOutput) =>
+    go({ tab: 'bot', channelId: item.channelId, workItemId: item.id, view: 'channel', ...(opensAsTab(output) ? { output: outputKey(output) } : {}) });
   const cards = (outputs: readonly MakeOutput[]) => (
     <ul className={grid}>
       {outputs.map((o, n) => (
-        <OutputCard key={`${o.item.id}-${n}`} output={o} channelName={nameOf(o.item.channelId)} now={now} onOpen={() => open(o.item)} />
+        <OutputCard key={`${o.item.id}-${n}`} output={o} channelName={nameOf(o.item.channelId)} now={now} onOpen={() => open(o)} />
       ))}
     </ul>
   );

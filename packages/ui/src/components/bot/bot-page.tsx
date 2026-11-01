@@ -3,7 +3,7 @@ import { MAIN_CHANNEL_ID, type Id } from '@baocut/protocol';
 import { Button, ProgressCircle } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { wantedWorkItemChannels, type MakeScope } from '../../model/bot.ts';
-import { BOT_NARROW, fullColumns, fullSplit, sideWidth, type BotSideTab, type FixedSideTab, type FullLeft } from '../../model/bot-side.ts';
+import { BOT_NARROW, fullColumns, fullSplit, sideTabFromRoute, sideWidth, type BotSideTab, type FixedSideTab, type FullLeft } from '../../model/bot-side.ts';
 import { narrowShowsConversation } from '../../model/workspace.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
@@ -15,6 +15,7 @@ import { botContentRegion, botMainRegion, botSideRegion } from '../pane-edges.ts
 import { errorText } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { BotHead } from './bot-head.tsx';
+import { BotOutputView } from './bot-output-view.tsx';
 import { useBotSide } from './bot-side-state.ts';
 import { BOT_HOME_TAB, BOT_MAIN_PANEL, BOT_SIDE_PANEL, BotSideSeam, botSideTabId } from './bot-side-tabs.tsx';
 import { ChannelMemoryPage } from './channel-memory-page.tsx';
@@ -140,18 +141,28 @@ function useMainWidth(): (element: HTMLDivElement | null) => (() => void) | void
 
 /**
  * Bot 页（技术方案 §17.1、需求 §11.1 的修订稿；原型 page-bot.jsx `BotPage`）：左边频道侧栏，中间频道对话（或收件箱、记忆页），
- * 右栏照 Home 的功能区是一组页签（产品设计 §3.3）：「任务」「Make」两个固定页签，后面是打开的任务。页签条与中间栏的标题在标题栏里
+ * 右栏照 Home 的功能区是一组页签（产品设计 §3.3）：「任务」「Make」两个固定页签，后面是打开的任务与产物。页签条与中间栏的标题在标题栏里
  * （BotTitleBar），右栏的状态与动作在 useBotSide，两边读同一份 store。
- * 宽时中间与右栏之间有分隔条，宽按当前页签的形态（任务面板 340、Make 380、任务更宽），拖过的各记各的。
- * 占满：中间收起，右栏占满主区并分成两栏——左边是当前页签的上一层，右边是当前页签；两栏之间也能拖。
+ * 宽时中间与右栏之间有分隔条，宽按当前页签的形态（任务面板 340、Make 380、任务更宽、产物把中间压到 440 左右），拖过的各记各的。
+ * 占满：中间收起，右栏占满主区并分成两栏——左边是当前页签的上一层（产物的上一层是它的任务），右边是当前页签；两栏之间也能拖。
  * 窄（主区窄于 880）：只剩一栏，中间栏变成页签条最前面的固定页签，它的标题放回中间栏顶上；记忆页没有右栏，窄时照旧。
  * 旧链接的 view: 'task'（任务详情占满主区）进来时换成占满。
  */
-export function BotPage({ channelId: routeChannelId, workItemId, view }: { channelId: Id | null; workItemId: Id | null; view: BotView }) {
+export function BotPage({
+  channelId: routeChannelId,
+  workItemId,
+  view,
+  output,
+}: {
+  channelId: Id | null;
+  workItemId: Id | null;
+  view: BotView;
+  output: string | null;
+}) {
   const go = useShell((s) => s.go);
   const ready = useChannels((s) => s.ready);
   const { failed, retry } = useEnsureMain();
-  const route = { channelId: routeChannelId, workItemId, view };
+  const route = { channelId: routeChannelId, workItemId, view, ...(output ? { output } : {}) };
   const s = useBotSide(route);
   const { channel, active, inbox, shown, full, single } = s;
   const channelId = inbox ? null : (routeChannelId ?? MAIN_CHANNEL_ID);
@@ -176,16 +187,23 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
   useWorkItemSubscriptions(channelId ?? (workItemId ? (routeChannelId ?? null) : null), makeOn && makeScope === 'all');
 
   const setWidth = (key: string, width: number | null) => useBotLayout.getState().setWidth(key, width);
-  const tabContent = (tab: BotSideTab) => (
-    <TaskDetail key={tab.key} workItemId={tab.workItemId} channelId={inbox ? routeChannelId : (channel?.id ?? null)} onClose={() => s.closeTab(tab)} />
+  const detailChannel = inbox ? routeChannelId : (channel?.id ?? null);
+  const openTask = (id: Id) => s.selectTab(sideTabFromRoute(id)!);
+  const openOutput = (id: Id) => (key: string) => s.selectTab(sideTabFromRoute(id, key)!);
+  const taskDetail = (key: string, tab: BotSideTab) => (
+    <TaskDetail key={key} workItemId={tab.workItemId} channelId={detailChannel} onClose={() => s.closeTab(tab)} onOpenOutput={openOutput(tab.workItemId)} />
   );
+  const tabContent = (tab: BotSideTab) =>
+    tab.kind === 'output' ? <BotOutputView key={tab.key} tab={tab} onOpenTask={() => openTask(tab.workItemId)} /> : taskDetail(tab.key, tab);
   const fixedContent = (kind: FixedSideTab) =>
     !channel ? null : kind === 'make' ? (
       <MakePanel key={channel.id} channelId={channel.id} scope={makeScope} onScope={setMakeScope} />
     ) : (
-      <TaskPanel key={channel.id} channelId={channel.id} selectedId={active?.workItemId ?? null} />
+      <TaskPanel key={channel.id} channelId={channel.id} selectedId={active?.kind === 'task' ? active.workItemId : null} />
     );
-  const leftContent = (left: FullLeft) => (left === 'inbox' ? <InboxView titled /> : fixedContent(left));
+  // 占满时产物的左栏是它的任务：关掉它的「⋯ › 删除记录」时关的是产物页签。
+  const leftContent = (left: FullLeft) =>
+    left === 'inbox' ? <InboxView titled /> : left === 'task' ? (active ? taskDetail(`left:${active.workItemId}`, active) : null) : fixedContent(left);
 
   let center: ReactNode;
   if (inbox) {

@@ -11,6 +11,7 @@ import {
   type ChannelSummary,
   type Id,
   type InboxRow,
+  type ResourceRef,
   type ScheduleCadence,
   type SuggestionChip,
   type TimelineItem,
@@ -282,6 +283,39 @@ export function outputKind(ref: ArtifactRef): OutputKind | null {
   }
   if (ref.kind === 'space' || ref.kind === 'doc' || ref.kind === 'slides' || ref.kind === 'design') return 'doc';
   return null;
+}
+
+/**
+ * 产物在任务里的键（产物页签与路由的 `out`）：按引用本身取。Runtime 合并产物时去重、只留最近的那些，下标会挪，键不会；
+ * 同一个引用的几个版本是同一个键，打开的是最新的那个。
+ */
+export function outputKey(ref: ResourceRef): string {
+  switch (ref.kind) {
+    case 'video':
+      return `video:${ref.videoId}`;
+    case 'video-range':
+      return `range:${ref.videoId}:${ref.startMs}-${ref.endMs}`;
+    case 'file':
+      return `file:${ref.path}`;
+    case 'space':
+      return `space:${ref.entryId}`;
+    case 'message':
+      return `message:${ref.itemId}`;
+    case 'work-item':
+      return `task:${ref.workItemId}`;
+    default:
+      return `${ref.kind}:${ref.id}`;
+  }
+}
+
+/** 任务里这个键的产物（同键取最后一个，也就是最新的版本）；不在了是 null。 */
+export function findOutput(item: WorkItem | null | undefined, key: string): ArtifactRef | null {
+  return item?.outputs.findLast((ref) => outputKey(ref) === key) ?? null;
+}
+
+/** 能在右栏打开成产物页签的：视频、视频片段、文件与 Space 条目。消息、任务与文档 id 只写一行字。 */
+export function opensAsTab(ref: ResourceRef): boolean {
+  return ref.kind === 'video' || ref.kind === 'video-range' || ref.kind === 'file' || ref.kind === 'space';
 }
 
 export interface MakeOutput {

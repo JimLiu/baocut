@@ -22,6 +22,7 @@ export interface BotRouteView {
   channelId: Id | null;
   workItemId: Id | null;
   view: BotView;
+  output?: string;
 }
 
 const NO_FIXED: readonly FixedSideTab[] = [];
@@ -35,7 +36,7 @@ export interface BotSide {
   stored: SideTabs | undefined;
   active: BotSideTab | null;
   fixedOpen: readonly FixedSideTab[];
-  /** 没有任务页签选着时显示的固定页签：上次选的那个，关掉了就换开着的另一个；一个不剩是 null。 */
+  /** 没有任务或产物页签选着时显示的固定页签：上次选的那个，关掉了就换开着的另一个；一个不剩是 null。 */
   sideKind: FixedSideTab | null;
   narrow: boolean;
   /** 只剩一栏：窄，且这一页有右栏（记忆页没有）。 */
@@ -59,13 +60,13 @@ export interface BotSide {
  * 两边按同一个路由各调一次，读同一份 store（bot-layout-store），所以算出来的一样。动作直接改 store 与路由。
  * 右栏的开合：宽时默认开着，窄时默认收起；路由里有任务时总是开着。收件箱没有固定页签，只在打开了任务时显示右栏。
  */
-export function useBotSide({ channelId: routeChannelId, workItemId, view }: BotRouteView): BotSide {
+export function useBotSide({ channelId: routeChannelId, workItemId, view, output }: BotRouteView): BotSide {
   const inbox = view === 'inbox';
   const bookKey = sideTabBook({ channelId: routeChannelId, view });
   const summary = useChannelSummary(inbox ? null : (routeChannelId ?? MAIN_CHANNEL_ID));
   const channel = summary?.channel ?? null;
   const stored = useBotLayout((s) => s.books[bookKey]);
-  const tabs = useMemo(() => reconcileSideTabs(stored, sideTabFromRoute(workItemId)), [stored, workItemId]);
+  const tabs = useMemo(() => reconcileSideTabs(stored, sideTabFromRoute(workItemId, output)), [stored, workItemId, output]);
   const active = tabs.tabs.find((t) => t.key === tabs.active) ?? null;
   const fixedOpen = useBotLayout((s) => (channel ? fixedTabs(s.fixed, bookKey) : NO_FIXED));
   const side = useBotLayout((s) => s.side);
@@ -83,11 +84,13 @@ export function useBotSide({ channelId: routeChannelId, workItemId, view }: BotR
   const full = !narrow && fullStored;
 
   const layout = useBotLayout.getState;
-  const at = (next: Id | null) => ({
+  // 页签回到路由：任务只带 workItemId，产物再带 output；null（固定页签）两个都清掉。
+  const at = (next: BotSideTab | null) => ({
     tab: 'bot' as const,
     channelId: routeChannelId,
-    workItemId: next,
+    workItemId: next?.workItemId ?? null,
     view: inbox ? ('inbox' as const) : ('channel' as const),
+    ...(next?.kind === 'output' ? { output: next.output } : {}),
   });
   const setShown = (on: boolean) => (narrow ? layout().setNarrowShown(on) : layout().setWideHidden(!on));
   const hide = () => {
@@ -95,7 +98,7 @@ export function useBotSide({ channelId: routeChannelId, workItemId, view }: BotR
     layout().setFull(bookKey, false);
     if (workItemId) useShell.getState().replace(at(null));
   };
-  const selectTab = (tab: BotSideTab) => useShell.getState().go(at(tab.workItemId));
+  const selectTab = (tab: BotSideTab) => useShell.getState().go(at(tab));
 
   return {
     bookKey,
@@ -128,7 +131,7 @@ export function useBotSide({ channelId: routeChannelId, workItemId, view }: BotR
       if (tabs.active !== tab.key) return;
       const to = next.tabs.find((t) => t.key === next.active) ?? null;
       if (!to && !sideKind) hide();
-      else useShell.getState().replace(at(to?.workItemId ?? null));
+      else useShell.getState().replace(at(to));
     },
     closeFixed: (kind) => {
       const showing = shown && !active && sideKind === kind;

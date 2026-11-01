@@ -8,7 +8,7 @@ import MagicWand from '@react-spectrum/s2/icons/MagicWand';
 import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Focusable } from 'react-aria-components';
-import type { WorkItemStatusKey } from '../../model/bot.ts';
+import { findOutput, outputKind, type OutputKind, type WorkItemStatusKey } from '../../model/bot.ts';
 import type { BotSideTab, FixedSideTab } from '../../model/bot-side.ts';
 import { tabKeyIndex } from '../../model/workspace.ts';
 import { useWorkItem } from '../../state/work-items-store.ts';
@@ -17,6 +17,7 @@ import { S } from '../shell-copy.ts';
 import { ShellExitFullIcon, ShellFullIcon, ShellHideTabsIcon } from '../shell-icons.tsx';
 import { workspaceTabStyles as T } from '../workspace/workspace-tabs.tsx';
 import { BOT_COPY as C } from './bot-copy.ts';
+import { OUTPUT_ICON, outputLabel } from './bot-output-link.tsx';
 import type { BotSide } from './bot-side-state.ts';
 import { StatusIcon } from './status-badge.tsx';
 import { workItemStatus } from './work-item-status.ts';
@@ -53,10 +54,13 @@ type Entry =
 
 /** 任务页签上次看到的名字与状态：任务所在的频道退订后（收件箱里答完了）页签不至于变成「已删除」。 */
 const seen = new Map<Id, { title: string; statusKey: WorkItemStatusKey; label: string }>();
+/** 产物页签上次看到的名字与种类，同上。 */
+const seenOutputs = new Map<string, { name: string; kind: OutputKind }>();
 
 /**
  * 右栏的页签条（需求 §11.1、§11.6 的修订稿，原型 page-bot-side.jsx `BotSideTabs`；样子是 Home 功能区页签条的那一套）：
- * 频道里最前面是「任务」（有等你的事时带点）与「Make」（有建议时带点），宽按内容；后面是打开的任务（状态图标 + 任务名）。
+ * 频道里最前面是「任务」（有等你的事时带点）与「Make」（有建议时带点），宽按内容；后面是打开的任务（状态图标 + 任务名）
+ * 与产物（种类图标 + 产物名）。
  * 都能关，关掉的固定页签由频道头的开关再打开。收件箱没有这两个。
  * 窄时中间栏是最前面一个固定页签（`home`：频道或「等你处理」，淡蓝底、不能关、后面一道分隔），选它就是收起右栏；这时没有完整视图与收起。
  * ✕、中键或选中时按 Delete 关页签；左右方向键、Home、End 在页签之间移动并选中。右端是完整视图与收起右栏。不拖动排序、不预览。
@@ -150,6 +154,14 @@ export function BotSideTabs({ side, home }: { side: BotSide; home: BotHomeTab | 
                   onSelect={() => pick(entry)}
                   onClose={() => close(entry)}
                 />
+              ) : entry.tab.kind === 'output' ? (
+                <OutputTab
+                  key={entry.key}
+                  tab={entry.tab}
+                  selected={selected === entry.key}
+                  onSelect={() => pick(entry)}
+                  onClose={() => close(entry)}
+                />
               ) : (
                 <TaskTab
                   key={entry.key}
@@ -187,6 +199,28 @@ function TaskTab({ tab, selected, onSelect, onClose }: { tab: BotSideTab; select
   const look: Look = last
     ? { name: last.title, aria: C.side.taskTab(last.title, last.label), icon: <StatusIcon statusKey={last.statusKey} /> }
     : { name: C.side.missingTask, aria: C.side.missingTask, icon: <FileText UNSAFE_style={T.icon} /> };
+  return <SideTab id={tab.key} look={look} selected={selected} onSelect={onSelect} onClose={onClose} />;
+}
+
+function OutputTab({
+  tab,
+  selected,
+  onSelect,
+  onClose,
+}: {
+  tab: Extract<BotSideTab, { kind: 'output' }>;
+  selected: boolean;
+  onSelect: () => void;
+  onClose: () => void;
+}) {
+  const ref = findOutput(useWorkItem(tab.workItemId), tab.output);
+  if (ref) seenOutputs.set(tab.key, { name: outputLabel(ref), kind: outputKind(ref) ?? 'doc' });
+  const last = seenOutputs.get(tab.key);
+  let look: Look = { name: C.output.missingTab, aria: C.output.missingTab, icon: <FileText UNSAFE_style={T.icon} /> };
+  if (last) {
+    const Icon = OUTPUT_ICON[last.kind];
+    look = { name: last.name, aria: C.output.tab(last.name, C.make.outputKind[last.kind]), icon: <Icon UNSAFE_style={T.icon} /> };
+  }
   return <SideTab id={tab.key} look={look} selected={selected} onSelect={onSelect} onClose={onClose} />;
 }
 

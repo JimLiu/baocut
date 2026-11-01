@@ -69,9 +69,10 @@ export type Route =
   | { tab: 'home'; conversationId: Id | null; projectId: Id | null; pane?: WorkspaceItem; view?: EditorView }
   /**
    * Bot 模式（docs/design/bot-mode 技术方案 §17.1）：`channelId` 为 null 时进主频道；`workItemId` 是右侧打开的任务详情；
-   * `view: 'inbox'` 是 Rail 徽标打开的跨频道「等你」收件箱，`memory` 是频道记忆页。
+   * `output` 是那个任务的一个产物（`outputKey`），右栏打开的是它的产物页签；`view: 'inbox'` 是 Rail 徽标打开的跨频道「等你」收件箱，
+   * `memory` 是频道记忆页。
    */
-  | { tab: 'bot'; channelId: Id | null; workItemId: Id | null; view: BotView }
+  | { tab: 'bot'; channelId: Id | null; workItemId: Id | null; view: BotView; output?: string }
   /** Home 的「已归档会话」（产品设计 §3.1）：属于 Home 入口，不是 rail 上的一格。`focus`：归档提示条的「查看」带来的那条，高亮它。 */
   | { tab: 'archived'; focus?: Id }
   /** `from`：只看从这部视频派生的视频（剪成短视频结果页的「在 Space 里看这几支」、查看框的「查看切出的短视频」）。 */
@@ -805,25 +806,28 @@ export function hrefFor(route: Route): string {
 
 /**
  * Bot 的链接：`/bot`（主频道）、`/bot/inbox`、`/bot/<频道>`、`/bot/<频道>/memory`、`/bot/<频道>/task/<任务>`；
- * 收件箱与频道对话旁边开着的任务带 `?task=<任务>`。
+ * 收件箱与频道对话旁边开着的任务带 `?task=<任务>`，开着的是它的产物时再带 `&out=<产物>`。
  */
 function botHref(route: Extract<Route, { tab: 'bot' }>): string {
   const task = route.workItemId ? encodeURIComponent(route.workItemId) : null;
-  if (route.view === 'inbox') return task ? `/bot/inbox?task=${task}` : '/bot/inbox';
-  if (!route.channelId) return task ? `/bot?task=${task}` : '/bot';
+  const side = task ? `?task=${task}${route.output ? `&out=${encodeURIComponent(route.output)}` : ''}` : '';
+  if (route.view === 'inbox') return `/bot/inbox${side}`;
+  if (!route.channelId) return `/bot${side}`;
   const channel = `/bot/${encodeURIComponent(route.channelId)}`;
   if (route.view === 'memory') return `${channel}/memory`;
   if (route.view === 'task' && task) return `${channel}/task/${task}`;
-  return task ? `${channel}?task=${task}` : channel;
+  return `${channel}${side}`;
 }
 
 function parseBotRoute(a: string | undefined, b: string | undefined, c: string | undefined, query: URLSearchParams): Route {
   const task = query.get('task');
-  if (a === 'inbox') return { tab: 'bot', channelId: null, workItemId: task, view: 'inbox' };
+  const out = task ? query.get('out') : null;
+  const output = out ? { output: out } : {};
+  if (a === 'inbox') return { tab: 'bot', channelId: null, workItemId: task, view: 'inbox', ...output };
   const channelId = a ? decodeURIComponent(a) : null;
   if (channelId && b === 'memory') return { tab: 'bot', channelId, workItemId: null, view: 'memory' };
   if (channelId && b === 'task' && c) return { tab: 'bot', channelId, workItemId: decodeURIComponent(c), view: 'task' };
-  return { tab: 'bot', channelId, workItemId: task, view: 'channel' };
+  return { tab: 'bot', channelId, workItemId: task, view: 'channel', ...output };
 }
 
 function paneQuery(pane: WorkspaceItem): string {
