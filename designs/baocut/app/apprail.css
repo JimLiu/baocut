@@ -22,6 +22,7 @@
 .apprail__btn::before { content: ''; position: absolute; left: 9px; top: 50%; width: 2px; height: 16px; border-radius: 9999px; background: var(--gray-800); transform: translateY(-50%); opacity: 0; transition: opacity 150ms cubic-bezier(0.45,0,0.4,1); }
 .apprail__ic { position: relative; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; transition: background-color 150ms cubic-bezier(0.45,0,0.4,1); }
 .apprail__ic > svg { width: 20px; height: 20px; --iconPrimary: currentColor; fill: currentColor; }
+.apprail__ic > svg.ic--line { fill: none; }
 .apprail__btn.is-on { color: var(--gray-800); }
 .apprail__btn.is-on::before { opacity: 1; }
 .apprail__badge { position: absolute; top: 1px; right: 9px; display: flex; pointer-events: none; }

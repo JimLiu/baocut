@@ -7,8 +7,9 @@
 (function () {
   const TABS = [
     {k: 'home',  label: 'Home',  icon: 'Home',       root: {r: 'home'}},
-    /* Bot 模式（docs/design/bot-mode 需求 §11.1）：排在 Home 之后、Space 之前；名字同 Home、Space 不翻译 */
-    {k: 'bot',   label: 'Bot',   icon: 'Chat',       root: {r: 'bot'}},
+    /* Bot 模式（docs/design/bot-mode 需求 §11.1）：排在 Home 之后、Space 之前；名字同 Home、Space 不翻译。
+       2026-11-01：图标从 Chat 换成机器人（icons.jsx 的 agent，S2 没有机器人图标） */
+    {k: 'bot',   label: 'Bot',   icon: 'agent',      root: {r: 'bot'}},
     {k: 'space', label: 'Space', icon: 'Asset', root: {r: 'projects'}},
     /* 2026-10-16：Skills 从设置搬出来，排在 Space 下面——skill 和素材一样是用户自己攒的东西，常用、常改 */
     {k: 'skills', label: 'Skills', icon: 'Lightbulb', root: {r: 'skills'}},

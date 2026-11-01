@@ -11,6 +11,7 @@
 
   function RailBtn({tab, on, onPress, badge, label}) {
     const app = useApp();
+    /* S2 没有的图标（Bot 的机器人）走 icons.jsx 的自绘描边图标 */
     const Icon = window.RSP.Icons[tab.icon];
     /* 侧栏隐藏时悬停入口浮出该页侧栏（home-shell-chrome.jsx 的 useShellPeek；设置没有侧栏，在那边跳过） */
     return (
@@ -19,7 +20,7 @@
         <Tip label={label || tab.label} side="right">
           <window.RSP.ActionButton isQuiet size="M" UNSAFE_className="apprail__ic"
             aria-current={on ? 'page' : undefined} aria-label={label || tab.label} onPress={onPress}>
-            <Icon />
+            {Icon ? <Icon /> : <Ic n={tab.icon} />}
           </window.RSP.ActionButton>
         </Tip>
         {badge}

@@ -2,13 +2,13 @@ import { useMemo, type ComponentType } from 'react';
 import { ActionButton, NotificationBadge, Tooltip, TooltipTrigger } from '@react-spectrum/s2';
 import Clock from '@react-spectrum/s2/icons/Clock';
 import Asset from '@react-spectrum/s2/icons/Asset';
-import Chat from '@react-spectrum/s2/icons/Chat';
 import GlobeGrid from '@react-spectrum/s2/icons/GlobeGrid';
 import Home from '@react-spectrum/s2/icons/Home';
 import Lightbulb from '@react-spectrum/s2/icons/Lightbulb';
 import Tools from '@react-spectrum/s2/icons/Tools';
 import Settings from '@react-spectrum/s2/icons/Settings';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
+import { AgentIcon } from './agent-icon.tsx';
 import { S } from './shell-copy.ts';
 import { useShell, railTabOf, type Tab } from '../state/shell-store.ts';
 import { useNeedsYouTotal } from '../state/channels-store.ts';
@@ -31,7 +31,8 @@ interface RailTab {
 const PRIMARY: RailTab[] = [
   { tab: 'home', label: 'Home', Icon: Home },
   // Bot 模式（docs/design/bot-mode 需求 §11.1）：排在 Home 之后、Space 之前；名字同 Home、Space 不翻译。
-  { tab: 'bot', label: 'Bot', Icon: Chat },
+  // 图标是机器人：S2 没有，用 AgentIcon（与原型 icons.jsx 的 agent 同一几何）。
+  { tab: 'bot', label: 'Bot', Icon: AgentIcon },
   { tab: 'space', label: 'Space', Icon: Asset },
   // Skills 在 Space 下面一格（产品设计 §6.9）；名字同 Home、Space 不翻译（术语表：Skill）。
   { tab: 'skills', label: 'Skills', Icon: Lightbulb },
