@@ -118,8 +118,8 @@
   /**
    * 频道头（BOT-CV-01、需求 §11.3 修订）：照 Home 的会话头放在标题栏里、中间栏的上方（BotPage 放进去）。
    * 「图标 频道名 ⌄」（按下是频道菜单：频道设置、重命名、说明、图标、分组……，page-bot-dialogs.jsx），后面跟说明的第一行（点开编辑说明），
-   * 最后是右栏的「任务」「Make」两个开关；记忆与新建周期任务只在频道菜单里。
-   * 「任务」带这个频道里等你的任务数（需求 §11.1），「Make」有新建议时带个点。
+   * 最后是右栏的「任务」「Make」两个开关，只有图标（名字在悬停提示与读屏名里）；记忆与新建周期任务只在频道菜单里。
+   * 「任务」带这个频道里等你的任务数（需求 §11.1），「Make」有新建议时带个点。窄时频道头不在标题栏，放在中间栏顶上（照 Home 窄时的会话头）。
    */
   function BotChannelHead({channel, tasksToggle, makeToggle}) {
     const R = window.RSP;
@@ -131,14 +131,20 @@
         aria-label={channel.purpose ? `说明：${channel.purpose}` : '写说明'} onClick={() => window.openBotDialog({kind: 'instructions', channelId: channel.id})}>
         {channel.purpose ? channel.purpose.split('\n')[0] : '没有写说明，什么都能做'}
       </button>
-      <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
-        aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
-        <R.Icons.ViewList /><R.Text>任务</R.Text>{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}
-      </R.ActionButton>
-      <R.ActionButton isQuiet size="S" aria-expanded={makeToggle.shown} UNSAFE_className={cx('bot-toggle', makeToggle.shown && 'is-on')}
-        aria-label={makeToggle.suggestions ? `Make，${makeToggle.suggestions} 条建议` : 'Make'} onPress={makeToggle.onToggle}>
-        <R.Icons.MagicWand /><R.Text>Make</R.Text>{makeToggle.suggestions ? <span className="bot-toggle__dot" aria-hidden="true" /> : null}
-      </R.ActionButton>
+      <R.TooltipTrigger>
+        <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
+          aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
+          <R.Icons.ViewList />{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}
+        </R.ActionButton>
+        <R.Tooltip>任务</R.Tooltip>
+      </R.TooltipTrigger>
+      <R.TooltipTrigger>
+        <R.ActionButton isQuiet size="S" aria-expanded={makeToggle.shown} UNSAFE_className={cx('bot-toggle', makeToggle.shown && 'is-on')}
+          aria-label={makeToggle.suggestions ? `Make，${makeToggle.suggestions} 条建议` : 'Make'} onPress={makeToggle.onToggle}>
+          <R.Icons.MagicWand />{makeToggle.suggestions ? <span className="bot-toggle__dot" aria-hidden="true" /> : null}
+        </R.ActionButton>
+        <R.Tooltip>Make</R.Tooltip>
+      </R.TooltipTrigger>
     </div>;
   }
 

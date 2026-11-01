@@ -5,18 +5,17 @@
 .bot { position: relative; display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .bot__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
 /* 宽时右栏的宽由 BotPage 按形态算好写在 style 上（model-bot.js 的 sideWidth），与中间的线由分隔条画；
-   下面的宽是窄时浮层与量到主区宽之前的兜底。 */
+   下面的宽是量到主区宽之前的兜底。 */
 .bot__side { display: flex; flex-direction: column; flex: none; width: 340px; max-width: 100%; min-height: 0; box-sizing: border-box; background: var(--gray-25); }
 .bot__side--detail { width: 420px; }
 .bot__side--make { width: 380px; }
 .bot__side--output { width: 640px; }
-.bot__side--overlay { position: absolute; top: 0; bottom: 0; right: 0; z-index: 2; border-inline-start: 2px solid var(--gray-100); box-shadow: var(--sh-pop); }
-.bot__side--overlay.bot__side--output { left: 0; width: auto; border-inline-start: 0; }
-/* 「占满」：中间收起，右栏占满主区（里面分两栏） */
+/* 「占满」与窄时选着右栏的页签：中间收起（留在页面里，草稿不丢），右栏占满主区（占满时里面分两栏） */
 .bot--side-full > .bot__main { display: none; }
 .bot--side-full > .bot__side { flex: 1 1 auto; width: auto; }
 /* 右栏：页签条（BotSideTabs，页签的样子用 Home 功能区的 .home-tabs__*）照 Home 放在标题栏里——shell.jsx 给 Bot 页留一层 .tbar__bot，
-   BotPage 把 .tbar__workspace--bot 放进去、左缘对齐右栏，不占满时左缘画一根和标题栏分隔线一样的竖线；
+   BotPage 把 .tbar__workspace--bot 放进去、左缘对齐右栏，不占满时左缘画一根和标题栏分隔线一样的竖线；窄时从 Bot 页左缘开始，
+   最前面是中间栏的固定页签（用 Home 会话页签的 .home-tabs__conversation：蓝底、后面一道分隔）。
    中间栏的标题也在这一层（.tbar__conversation--bot，见「频道对话」）。Bot 页放了东西时标题栏不放中间的「BaoCut」与帮助。
    右栏里只剩当前页签；占满时分两栏，中间也是一根分隔条。 */
 .tbar__bot { position: absolute; inset: 0; pointer-events: none; }
@@ -24,9 +23,10 @@
 .tbar__workspace--bot.has-divider::before { content: ''; position: absolute; top: 12px; bottom: 12px; left: 0; width: 1px; transform: translateX(-50%); background: var(--gray-100); }
 .tbar:has(.tbar__bot > *) :is(.tbar__title--mid, .tbar__acts) { visibility: hidden; }
 .bot-side-tabs__controls { display: flex; align-items: center; gap: 4px; flex: none; }
-.bot-side-tabs__fixed { position: relative; display: flex; flex: none; gap: 4px; margin-inline-end: 8px; }
-.bot-side-tabs__fixed::after { content: ''; position: absolute; top: 8px; bottom: 8px; right: -6px; width: 1px; background: var(--gray-300); }
-.bot-side-tabs .home-tabs__item.bot-side-tabs__pin { flex: none; min-width: 0; max-width: none; padding: 0 8px; }
+/* 「任务」「Make」名字短，宽按内容，不跟着打开的页签伸缩 */
+.bot-side-tabs .home-tabs__item.bot-side-tabs__view { flex: none; min-width: 0; max-width: none; }
+/* 窄时中间栏的页签：频道名常常很短，Home 会话页签定死的 180px 基准比内容宽，条按内容量出来的宽就不够分，后面的页签被挤到最窄；改成按内容 */
+.bot-side-tabs .home-tabs__item.home-tabs__conversation { flex: 0 1 auto; }
 .bot-side-tabs__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-900); }
 .bot-side__panel, .bot-side__body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .bot-side__body--split { flex-direction: row; }
@@ -118,8 +118,10 @@
    频道头是「图标 频道名 ⌄」+ 说明的第一行 + 右栏的两个开关；收件箱只有标题，记忆页是「‹ 记忆 · 频道名」。 */
 .tbar__conversation--bot { overflow: hidden; }
 .bot-head .hhd__title { display: flex; flex: 0 1 auto; }
-/* 频道名是菜单入口（同视频名）：安静按钮，抵掉一点左内边距，让图标靠近栏的左缘；最大宽要把抵掉的 8px 加回来（写在 .bot-titled 之后的规则会压掉单类） */
-.bot-head .bot-channel__menu { max-width: calc(100% + 8px); margin-inline-start: -8px; font-size: 12px; font-weight: 600; }
+/* 频道名是菜单入口（同视频名）：安静按钮，抵掉一点左内边距，让图标靠近栏的左缘；最大宽要把抵掉的 8px 加回来（写在 .bot-titled 之后的规则会压掉单类）。
+   在标题栏里 12px；窄时放回中间栏顶上（.hhd 本来的样子）是 14px */
+.bot-head .bot-channel__menu { max-width: calc(100% + 8px); margin-inline-start: -8px; font-size: 14px; font-weight: 600; }
+.tbar__conversation--bot .bot-head .bot-channel__menu { font-size: 12px; }
 /* 「图标 名字 ⌄」的按钮：⌄ 跟在文字槽里，名字太长时只截名字 */
 .bot-titled { max-width: 100%; }
 .bot-titled > [data-rsp-slot="text"] { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }

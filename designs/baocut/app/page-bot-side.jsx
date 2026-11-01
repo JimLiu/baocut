@@ -153,27 +153,30 @@
   /* ---------- 页签条 ---------- */
 
   const tabDomId = key => 'bot-side-tab-' + encodeURIComponent(key);
-  const FIXED_TABS = [{key: 'fixed:tasks', kind: 'tasks'}, {key: 'fixed:make', kind: 'make'}];
+  /** 窄时最前面的那个页签（频道或「等你处理」）的键；它管的是中间栏。 */
+  const HOME_TAB = 'home';
 
   /**
    * 右栏的页签条（照 Home 功能区的页签条，product-design §3.3；样子用同一套 .home-tabs__*，BotPage 把它放进标题栏）：
-   * 频道里最前面固定「任务」（带等你的数）与「Make」（有建议时带点），不能关、不能拖，与后面的页签之间有一道分隔；
-   * 收件箱没有固定页签。打开的任务（状态图标 + 任务名）与产物（种类图标 + 名字）各一个页签，✕、中键或选中时按 Delete 关掉。
-   * 左右方向键、Home、End 在页签之间移动并选中。条的右端照 Home 标题栏的视图按钮：完整视图（窄时没有）与收起右栏。
-   * 拖动排序、悬停缩略图与「+」原型不做。
+   * 频道里最前面是「任务」（带等你的数）与「Make」（有建议时带点），和打开的任务（状态图标 + 任务名）、产物（种类图标 + 名字）一样能关，
+   * 只是不拖、宽度按内容；关掉后由频道头的开关再打开（BotPage）。收件箱没有这两个。
+   * 窄时照 Home 窄时的会话页签：中间栏变成最前面一个固定页签（`home`：频道或「等你处理」，蓝底、不能关、后面一道分隔），
+   * 这时没有完整视图与收起右栏——选它就是收起。✕、中键或选中时按 Delete 关页签；左右方向键、Home、End 在页签之间移动并选中。
+   * 条的右端照 Home 标题栏的视图按钮：完整视图（窄时没有）与收起右栏。拖动排序、悬停缩略图与「+」原型不做。
    */
-  function BotSideTabs({fixed, side, active, tabs, waiting, suggestions, full, onToggleFull, onFixed, onSelect, onClose, onHide}) {
+  function BotSideTabs({home, fixed, selected, tabs, waiting, suggestions, full, onToggleFull, onHide, onFixed, onCloseFixed, onSelect, onClose}) {
     const R = window.RSP;
     const bot = window.useBot();
     const list = useRef(null);
-    const order = [...(fixed ? FIXED_TABS : []), ...tabs];
-    const selected = active || (fixed ? `fixed:${side}` : null);
-    const pick = tab => (tab.key.startsWith('fixed:') ? onFixed(tab.kind) : onSelect(tab));
+    const views = fixed.map(kind => ({key: `fixed:${kind}`, kind}));
+    const order = [...(home ? [{key: HOME_TAB, kind: 'home'}] : []), ...views, ...tabs];
+    const pick = tab => (tab.kind === 'home' ? home.onSelect() : tab.key.startsWith('fixed:') ? onFixed(tab.kind) : onSelect(tab));
     const focus = key => requestAnimationFrame(() => document.getElementById(tabDomId(key))?.focus());
     useLayoutEffect(() => {
       list.current?.querySelector('.is-active')?.scrollIntoView({block: 'nearest', inline: 'nearest'});
     }, [selected, tabs.length]);
     const look = tab => {
+      if (tab.kind === 'home') return home;
       if (tab.kind === 'tasks') return {name: '任务', aria: waiting ? `任务，${waiting} 个等你` : '任务', icon: <R.Icons.ViewList />,
         extra: waiting ? <R.NotificationBadge size="S" value={waiting} /> : null};
       if (tab.kind === 'make') return {name: 'Make', aria: suggestions ? `Make，${suggestions} 条建议` : 'Make', icon: <R.Icons.MagicWand />,
@@ -192,7 +195,7 @@
     };
     const close = tab => {
       const at = order.findIndex(t => t.key === tab.key);
-      onClose(tab);
+      if (tab.key.startsWith('fixed:')) onCloseFixed(tab.kind); else onClose(tab);
       const next = order.filter(t => t.key !== tab.key);
       focus((next[Math.min(at, next.length - 1)] || {}).key);
     };
@@ -203,14 +206,16 @@
       const to = e.key === 'ArrowRight' ? (at + 1) % n : e.key === 'ArrowLeft' ? (at + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : null;
       if (to != null) { e.preventDefault(); pick(order[to]); focus(order[to].key); }
       else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(order[at]); }
-      else if (e.key === 'Delete' && !order[at].key.startsWith('fixed:')) { e.preventDefault(); close(order[at]); }
+      else if (e.key === 'Delete' && order[at].kind !== 'home') { e.preventDefault(); close(order[at]); }
     };
-    const tab = (t, closable) => {
+    const tab = (t, className) => {
       const {name, aria, icon, extra} = look(t);
       const on = selected === t.key;
-      return <div key={t.key} role="presentation" className={cx('home-tabs__item', !closable && 'bot-side-tabs__pin', on && 'is-active')}
+      const closable = t.kind !== 'home';
+      return <div key={t.key} role="presentation" className={cx('home-tabs__item', className, on && 'is-active')}
         onAuxClick={closable ? e => { if (e.button === 1) { e.preventDefault(); close(t); } } : undefined}>
-        <div role="tab" id={tabDomId(t.key)} aria-controls="bot-side-panel" aria-selected={on} aria-label={aria} tabIndex={on ? 0 : -1} className="home-tabs__target">
+        <div role="tab" id={tabDomId(t.key)} aria-controls={t.kind === 'home' ? home.panel : 'bot-side-panel'} aria-selected={on} aria-label={aria}
+          tabIndex={on ? 0 : -1} className="home-tabs__target">
           <span className="home-tabs__button" aria-hidden="true"><BCAction excludeFromTabOrder className="home-tabs__select" title={name} onClick={() => pick(t)}>
             {icon}<span>{name}</span>{extra}
           </BCAction></span>
@@ -221,16 +226,18 @@
     const S = window.ShellButton;
     return <div className="home-tabs bot-side-tabs">
       <div className="home-tabs__strip" role="tablist" aria-label="右栏页签" onKeyDownCapture={keys}>
-        {fixed ? <div className="bot-side-tabs__fixed" role="presentation">{FIXED_TABS.map(t => tab(t, false))}</div> : null}
-        <div className="home-tabs__list bc-scroll" ref={list} role="presentation">{tabs.map(t => tab(t, true))}</div>
+        {home ? tab({key: HOME_TAB, kind: 'home'}, 'home-tabs__conversation') : null}
+        <div className="home-tabs__list bc-scroll" ref={list} role="presentation">
+          {views.map(t => tab(t, 'bot-side-tabs__view'))}{tabs.map(t => tab(t))}
+        </div>
       </div>
       <span className="grow" />
-      <div className="bot-side-tabs__controls" role="group" aria-label="右栏视图">
+      {onToggleFull || onHide ? <div className="bot-side-tabs__controls" role="group" aria-label="右栏视图">
         {onToggleFull ? <S name={full ? 'exit-full' : 'full'} label={full ? '退出完整视图' : '进入完整视图'} pressed={full} onPress={onToggleFull} /> : null}
-        <S name="hide-tabs" label="收起右栏" onPress={onHide} />
-      </div>
+        {onHide ? <S name="hide-tabs" label="收起右栏" onPress={onHide} /> : null}
+      </div> : null}
     </div>;
   }
 
-  Object.assign(window, {BotSideSeam, BotOutputLink, BotOutputView, BotSideTabs, botSideTabId: tabDomId});
+  Object.assign(window, {BotSideSeam, BotOutputLink, BotOutputView, BotSideTabs, botSideTabId: tabDomId, BOT_HOME_TAB: HOME_TAB});
 })();

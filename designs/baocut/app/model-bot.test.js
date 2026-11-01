@@ -261,6 +261,18 @@ test('关页签：关当前的选右边那个，最后一个选左边，关光�
   assert.equal(B.closeSideTab({tabs: [{key: 'a'}], active: 'a'}, 'a').active, null);
 });
 
+test('固定页签：按「任务」「Make」的顺序插回，关掉正选着的选右边、再左边，关光了是 null', () => {
+  assert.deepEqual(B.openFixedTab(['make'], 'tasks'), ['tasks', 'make']);
+  assert.deepEqual(B.openFixedTab([], 'make'), ['make']);
+  assert.deepEqual(B.openFixedTab(['tasks', 'make'], 'make'), ['tasks', 'make']);
+  const tabs = [{key: 'task:a'}, {key: 'out:a:0'}];
+  assert.equal(B.afterFixedClose(['tasks', 'make'], 'tasks', tabs), 'fixed:make');
+  assert.equal(B.afterFixedClose(['tasks', 'make'], 'make', tabs), 'task:a');
+  assert.equal(B.afterFixedClose(['tasks', 'make'], 'make', []), 'fixed:tasks');
+  assert.equal(B.afterFixedClose(['make'], 'make', []), null);
+  assert.equal(B.afterFixedClose(['tasks'], 'make', tabs), null);
+});
+
 test('占满：左边是当前页签的上一层，右边是当前页签；左栏宽夹在范围里', () => {
   const out = {key: 'out:t:0', kind: 'output', task: 't', index: 0};
   const task = {key: 'task:t', kind: 'task', task: 't'};

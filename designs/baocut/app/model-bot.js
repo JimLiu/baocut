@@ -220,6 +220,19 @@
   }
   /** 关掉一个页签；关的是当前的就选它右边那个（最后一个就选左边），一个不剩就回到固定页签。 */
   const closeSideTab = (state, key) => workspaceTabs().close(state, key);
+  /** 频道里排在最前的两个页签：「任务」「Make」。它们也能关，频道头的开关按这个顺序插回去。 */
+  const FIXED_SIDE_TABS = ['tasks', 'make'];
+  const openFixedTab = (open, kind) => FIXED_SIDE_TABS.filter(k => k === kind || open.includes(k));
+  /**
+   * 关掉正选着的固定页签后选谁：照关页签的规矩选它右边那个（另一个固定页签或第一个打开的页签），没有就左边；
+   * 一个不剩是 null（右栏收起，窄时回到频道）。返回页签键，固定页签是 `fixed:tasks` / `fixed:make`。
+   */
+  function afterFixedClose(open, kind, tabs) {
+    const order = [...open.map(k => `fixed:${k}`), ...tabs.map(t => t.key)];
+    const at = order.indexOf(`fixed:${kind}`);
+    const rest = order.filter((_, i) => i !== at);
+    return at < 0 ? null : rest[Math.min(at, rest.length - 1)] || null;
+  }
   /** 右栏的形态（定宽用）：产物、任务详情，或固定页签自己（tasks / make）。 */
   const sideMode = (active, fixed) => (active ? (active.kind === 'output' ? 'output' : 'detail') : fixed);
   /**
@@ -532,5 +545,6 @@
     defaultChannelColor, channelLook, NAME_MAX, nameError, archiveImpact, deleteImpact, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, defaultTab, quickActions, applyAction, newTask, openChips,
     OUTPUT_KIND, SUGGESTION_KIND, MAKE_TEMPLATES, makeGallery, taskFromTemplate, CHANNEL_SETTINGS, MAX_CONCURRENT, channelSettings,
     MEMORY_LIMIT, memoryUsage, SIDE_MIN, CENTER_MIN, sideDefault, sideWidth, sideTabBook, sideTabFromRoute, sideTabRoute, reconcileSideTabs, closeSideTab,
+    FIXED_SIDE_TABS, openFixedTab, afterFixedClose,
     sideMode, fullColumns, FULL_LEFT, FULL_RIGHT_MIN, fullSplit, demo};
 })();
