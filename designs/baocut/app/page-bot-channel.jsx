@@ -119,7 +119,7 @@
    * 频道头（BOT-CV-01、需求 §11.3 修订）：照 Home 的会话头放在标题栏里、中间栏的上方（BotPage 放进去）。
    * 「图标 频道名 ⌄」（按下是频道菜单：频道设置、重命名、说明、图标、分组……，page-bot-dialogs.jsx），后面跟说明的第一行（点开编辑说明），
    * 最后是右栏的「任务」「Make」两个开关，只有图标（名字在悬停提示与读屏名里）；记忆与新建周期任务只在频道菜单里。
-   * 「任务」带这个频道里等你的任务数（需求 §11.1），「Make」有新建议时带个点。窄时频道头不在标题栏，放在中间栏顶上（照 Home 窄时的会话头）。
+   * 「任务」在这个频道里有等你的任务时带个点（需求 §11.1 写的是带数，原型改成点、数只在读屏标签里），「Make」有新建议时带个点。窄时频道头不在标题栏，放在中间栏顶上（照 Home 窄时的会话头）。
    */
   function BotChannelHead({channel, tasksToggle, makeToggle}) {
     const R = window.RSP;
@@ -134,7 +134,7 @@
       <R.TooltipTrigger>
         <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
           aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
-          <R.Icons.ViewList />{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}
+          <R.Icons.ViewList />{waiting ? <span className="bot-toggle__dot" aria-hidden="true" /> : null}
         </R.ActionButton>
         <R.Tooltip>任务</R.Tooltip>
       </R.TooltipTrigger>
