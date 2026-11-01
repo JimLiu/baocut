@@ -139,15 +139,21 @@
     return <section className="bot-detail__block" aria-label={label}><h3 className="bot-detail__block-title">{label}</h3>{children}</section>;
   }
 
+  /** 任务信息展开还是收起，按任务记着：换页签、进出占满再回来照旧。 */
+  const infoOpen = {};
+
   /**
-   * 任务页签（BOT-TK-06、需求 §11.6）：`wide` 时左右排（右栏占满、任务在右边那一栏时），否则上下排。改方向、撤销与删除记录的对话框原型里不画。
-   * 头部一行：状态、标题与一行「状态 · 下一步 · N 条进展」、⋯；返回、占满与关闭都在右栏的页签条上。
+   * 任务页签（BOT-TK-06、需求 §11.6）：一栏一起滚——上面是任务信息，下面接这个任务的对话，输入框钉在底下。
+   * 头一行吸在顶上：状态、标题与一行「状态 · 下一步 · N 条进展」、展开或收起信息、⋯；返回、占满与关闭都在右栏的页签条上。
+   * 「等你」（要你回答的问题）一直显示；优先级、说明、步骤、产物、进展可以收起，收起后对话紧跟在头下面。
+   * 栏宽时内容居中、最宽 760（同频道对话）。由你来做的任务没有对话与输入框。改方向、撤销与删除记录的对话框原型里不画。
    * 「产物」的每一行与线程消息下的产物卡按下都交给 `onOpenOutput(下标)`：在右栏开那个产物的页签（page-bot-side.jsx）。
    */
-  function BotTaskDetail({id, wide, onOpenOutput}) {
+  function BotTaskDetail({id, onOpenOutput}) {
     const app = useApp();
     const R = window.RSP;
     const bot = window.useBot();
+    const [open, setOpen] = useState(infoOpen[id] !== false);
     const item = bot.items.find(i => i.id === id);
     if (!item) return <div className="bot-missing"><span>这个任务已经不在了。</span></div>;
     const status = B.statusOf(item);
@@ -155,57 +161,67 @@
     const line = B.nextLine(item);
     const subline = [status.label, line, item.updates.length ? `${item.updates.length} 条进展` : null].filter(Boolean).join(' · ');
     const run = key => (B.QUICK_LABEL[key] ? window.BOT_ACTIONS.act(item.id, key) : app.toast(`原型里没有画「${MENU_LABEL[key].replace('…', '')}」对话框`));
+    const toggle = () => { infoOpen[id] = !open; setOpen(!open); };
     const q = item.question;
     const thread = item.thread || [];
+    const agent = item.owner === 'agent';
     const placeholder = item.status === 'resolved' ? '重新打开前，这里的话会让它再做一遍' : q ? '回答它的问题，或者说说别的' : '给这个任务补充点什么';
-    return <section className={cx('bot-detail', wide && 'bot-detail--wide')} aria-label="任务">
-      <div className="bot-detail__meta bc-scroll">
-        <div className="bot-detail__head">
+    const infoId = `bot-detail-info-${id}`;
+    const divided = agent && thread.length > 0 && (!!q || open);
+    return <section className="bot-detail" aria-label="任务">
+      <div className="bot-detail__scroll bc-scroll">
+        <div className="bot-detail__bar"><div className="bot-detail__head">
           <window.BotStatusIcon statusKey={status.key} chip />
           <div className="bot-detail__heading">
             <h2 className={cx('bot-detail__title', status.strike && 'is-struck')} title={item.title}>{item.title}</h2>
             <span className="bot-detail__subline" title={subline}>{subline}</span>
           </div>
+          <R.TooltipTrigger>
+            <R.ActionButton isQuiet size="S" aria-label={open ? '收起任务信息' : '展开任务信息'} aria-expanded={open} aria-controls={infoId} onPress={toggle}>
+              {open ? <R.Icons.ChevronUp /> : <R.Icons.ChevronDown />}
+            </R.ActionButton>
+            <R.Tooltip>{open ? '收起任务信息' : '展开任务信息'}</R.Tooltip>
+          </R.TooltipTrigger>
           <R.ActionMenu aria-label="更多操作" isQuiet size="S" onAction={key => run(String(key))}>
             {actions.map(a => <R.MenuItem key={a} id={a} textValue={MENU_LABEL[a]}><R.Text>{MENU_LABEL[a]}</R.Text></R.MenuItem>)}
           </R.ActionMenu>
+        </div></div>
+        <div className="bot-detail__column">
+          <div className={cx('bot-detail__info', divided && 'bot-detail__info--divided')} hidden={!q && !open}>
+            {q ? <section className="bot-detail__waiting" aria-label="等你">
+              <h3 className="bot-detail__block-title">等你</h3>
+              <p className="bot-detail__text">{q.text}</p>
+              <div className="bot-detail__options">{q.options.map((o, n) => <R.Button key={o.label} size="S" variant={q.pick === n ? 'accent' : 'secondary'}
+                onPress={() => window.BOT_ACTIONS.reply(item.id, o.label)}>{o.label}</R.Button>)}</div>
+              {q.options.some(o => o.description) ? <ul className="bot-detail__items">{q.options.filter(o => o.description).map(o => <li key={o.label} className="bot-detail__note">{`${o.label}：${o.description}`}</li>)}</ul> : null}
+            </section> : null}
+            <div id={infoId} className="bot-detail__more" hidden={!open}>
+              <div className="bot-detail__facts">
+                <span>{`优先级：${{high: '高', medium: '中', low: '低'}[item.priority || 'medium']}`}</span>
+                {item.dueOn ? <span>{`截止：${item.dueOn}`}</span> : null}
+                <span>{agent ? '智能体' : '我'}</span>
+              </div>
+              {item.description ? <p className="bot-detail__text">{item.description}</p> : null}
+              {!agent ? <p className="bot-detail__note">这件事由你来做，智能体只负责提醒。</p> : null}
+              {item.steps.length ? <BotBlock label="步骤"><ol className="bot-detail__items">{item.steps.map((s, n) => <li key={n} className={cx(s.state === 'active' && 'is-active')}>{s.text}</li>)}</ol></BotBlock> : null}
+              {item.finishedSteps.length ? <BotBlock label="已完成的步骤"><ul className="bot-detail__items">{item.finishedSteps.map((s, n) => <li key={n}>{s.result ? `${s.text} — ${s.result}` : s.text}</li>)}</ul></BotBlock> : null}
+              {item.outputs.length ? <BotBlock label="产物"><ul className="bot-detail__items">{item.outputs.map((o, n) => <li key={n} className="bot-detail__output">
+                <window.BotOutputLink output={o} onOpen={() => onOpenOutput(n)} />
+              </li>)}</ul></BotBlock> : null}
+              {item.updates.length ? <BotBlock label="进展"><ul className="bot-detail__items">{[...item.updates].reverse().map((u, n) => <li key={n} className="bot-detail__update">
+                <span>{u.text}</span><span className="bot-detail__muted">{`${u.by === 'agent' ? '智能体' : '你'} · ${window.BC_AGENT.agoLabel((Date.now() - u.at) / 60000)}`}</span>
+              </li>)}</ul></BotBlock> : null}
+            </div>
+          </div>
+          {agent ? thread.map((m, n) => <window.BotMessage key={n} m={m}>
+            {m.outputs && m.outputs.length ? <div className="bot-msg__outputs">{m.outputs.filter(k => item.outputs[k]).map(k =>
+              <window.BotOutputLink key={k} card output={item.outputs[k]} onOpen={() => onOpenOutput(k)} />)}</div> : null}
+          </window.BotMessage>) : null}
         </div>
-        <div className="bot-detail__facts">
-          <span>{`优先级：${{high: '高', medium: '中', low: '低'}[item.priority || 'medium']}`}</span>
-          {item.dueOn ? <span>{`截止：${item.dueOn}`}</span> : null}
-          <span>{item.owner === 'user' ? '我' : '智能体'}</span>
-        </div>
-        {item.description ? <p className="bot-detail__text">{item.description}</p> : null}
-        {item.owner === 'user' ? <p className="bot-detail__note">这件事由你来做，智能体只负责提醒。</p> : null}
-        {q ? <section className="bot-detail__waiting" aria-label="等你">
-          <h3 className="bot-detail__block-title">等你</h3>
-          <p className="bot-detail__text">{q.text}</p>
-          <div className="bot-detail__options">{q.options.map((o, n) => <R.Button key={o.label} size="S" variant={q.pick === n ? 'accent' : 'secondary'}
-            onPress={() => window.BOT_ACTIONS.reply(item.id, o.label)}>{o.label}</R.Button>)}</div>
-          {q.options.some(o => o.description) ? <ul className="bot-detail__items">{q.options.filter(o => o.description).map(o => <li key={o.label} className="bot-detail__note">{`${o.label}：${o.description}`}</li>)}</ul> : null}
-        </section> : null}
-        {item.steps.length ? <BotBlock label="步骤"><ol className="bot-detail__items">{item.steps.map((s, n) => <li key={n} className={cx(s.state === 'active' && 'is-active')}>{s.text}</li>)}</ol></BotBlock> : null}
-        {item.finishedSteps.length ? <BotBlock label="已完成的步骤"><ul className="bot-detail__items">{item.finishedSteps.map((s, n) => <li key={n}>{s.result ? `${s.text} — ${s.result}` : s.text}</li>)}</ul></BotBlock> : null}
-        {item.outputs.length ? <BotBlock label="产物"><ul className="bot-detail__items">{item.outputs.map((o, n) => <li key={n} className="bot-detail__output">
-          <window.BotOutputLink output={o} onOpen={() => onOpenOutput(n)} />
-        </li>)}</ul></BotBlock> : null}
-        {item.updates.length ? <BotBlock label="进展"><ul className="bot-detail__items">{[...item.updates].reverse().map((u, n) => <li key={n} className="bot-detail__update">
-          <span>{u.text}</span><span className="bot-detail__muted">{`${u.by === 'agent' ? '智能体' : '你'} · ${window.BC_AGENT.agoLabel((Date.now() - u.at) / 60000)}`}</span>
-        </li>)}</ul></BotBlock> : null}
       </div>
-      <div className="bot-detail__thread">
-        {item.owner === 'agent' ? <>
-          <div className="bot-timeline bc-scroll"><div className="bot-timeline__list">
-            {thread.length ? thread.map((m, n) => <window.BotMessage key={n} m={m}>
-              {m.outputs && m.outputs.length ? <div className="bot-msg__outputs">{m.outputs.filter(k => item.outputs[k]).map(k =>
-                <window.BotOutputLink key={k} card output={item.outputs[k]} onOpen={() => onOpenOutput(k)} />)}</div> : null}
-            </window.BotMessage>) : <p className="bot-empty bot-empty--center">对话</p>}
-          </div></div>
-          <window.BotComposer placeholder={placeholder} onSend={t => window.BOT_ACTIONS.reply(item.id, t)}
-            above={<window.BotChips chips={thread.length && thread[thread.length - 1].role === 'assistant' ? thread[thread.length - 1].chips : null}
-              onPick={t => window.BOT_ACTIONS.reply(item.id, t)} />} />
-        </> : <p className="bot-empty bot-empty--center">这件事由你来做，智能体只负责提醒。</p>}
-      </div>
+      {agent ? <window.BotComposer placeholder={placeholder} onSend={t => window.BOT_ACTIONS.reply(item.id, t)}
+        above={<window.BotChips chips={thread.length && thread[thread.length - 1].role === 'assistant' ? thread[thread.length - 1].chips : null}
+          onPick={t => window.BOT_ACTIONS.reply(item.id, t)} />} /> : null}
     </section>;
   }
 

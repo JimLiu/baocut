@@ -158,7 +158,7 @@
 
   /**
    * 右栏的页签条（照 Home 功能区的页签条，product-design §3.3；样子用同一套 .home-tabs__*，BotPage 把它放进标题栏）：
-   * 频道里最前面是「任务」（带等你的数）与「Make」（有建议时带点），和打开的任务（状态图标 + 任务名）、产物（种类图标 + 名字）一样能关，
+   * 频道里最前面是「任务」（有等你的事时带点，不显示数）与「Make」（有建议时带点），和打开的任务（状态图标 + 任务名）、产物（种类图标 + 名字）一样能关，
    * 只是不拖、宽度按内容；关掉后由频道头的开关再打开（BotPage）。收件箱没有这两个。
    * 窄时照 Home 窄时的会话页签：中间栏变成最前面一个固定页签（`home`：频道或「等你处理」，蓝底、不能关、后面一道分隔），
    * 这时没有完整视图与收起右栏——选它就是收起。✕、中键或选中时按 Delete 关页签；左右方向键、Home、End 在页签之间移动并选中。
@@ -178,7 +178,7 @@
     const look = tab => {
       if (tab.kind === 'home') return home;
       if (tab.kind === 'tasks') return {name: '任务', aria: waiting ? `任务，${waiting} 个等你` : '任务', icon: <R.Icons.ViewList />,
-        extra: waiting ? <R.NotificationBadge size="S" value={waiting} /> : null};
+        extra: waiting ? <i className="bot-side-tabs__dot" /> : null};
       if (tab.kind === 'make') return {name: 'Make', aria: suggestions ? `Make，${suggestions} 条建议` : 'Make', icon: <R.Icons.MagicWand />,
         extra: suggestions ? <i className="bot-side-tabs__dot" /> : null};
       const item = bot.items.find(i => i.id === tab.task);

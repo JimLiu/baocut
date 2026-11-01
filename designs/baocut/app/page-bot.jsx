@@ -360,10 +360,10 @@
       else if (next.startsWith('fixed:')) setSide(next.slice('fixed:'.length));
       else selectTab(tabs.tabs.find(t => t.key === next));
     };
-    const tabContent = (tab, wide) => (tab.kind === 'output'
+    const tabContent = tab => (tab.kind === 'output'
       ? <window.BotOutputView key={tab.key} item={bot.items.find(i => i.id === tab.task)} index={tab.index}
         onOpenTask={() => app.go(at({task: tab.task}))} onClose={() => closeTab(tab)} />
-      : <window.BotTaskDetail key={tab.key} id={tab.task} wide={wide} onOpenOutput={openOutput(tab.task)} />);
+      : <window.BotTaskDetail key={tab.key} id={tab.task} onOpenOutput={openOutput(tab.task)} />);
     const fixedContent = kind => (kind === 'make'
       ? <window.BotMakePanel key={channel.id} channelId={channel.id} onOpenOutput={(i, n) => app.go({r: 'bot', id: i.channelId, task: i.id, out: String(n)})} />
       : <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={active && active.kind === 'task' ? active.task : null} />);
@@ -405,11 +405,11 @@
         <div className="bot-side__col" style={{width: split.width}}>{leftContent(cols.left)}</div>
         <window.BotSideSeam {...split} start label="调整两栏宽度" onResize={w => setWidth(key, B.fullSplit(cols.left.kind, w, mainWidth).width)} onReset={() => resetWidth(key)} />
         <div className="bot-side__col bot-side__col--main">
-          {cols.right ? tabContent(cols.right, mainWidth - split.width >= 720) : <p className="bot-side__hint">{FULL_HINT[cols.left.kind]}</p>}
+          {cols.right ? tabContent(cols.right) : <p className="bot-side__hint">{FULL_HINT[cols.left.kind]}</p>}
         </div>
       </div>;
     } else if (shown) {
-      body = <div className="bot-side__body">{active ? tabContent(active, false) : fixedContent(sideKind)}</div>;
+      body = <div className="bot-side__body">{active ? tabContent(active) : fixedContent(sideKind)}</div>;
     }
     const waiting = channel ? bot.items.filter(i => i.channelId === channel.id && B.needsUser(i)).length : 0;
     const suggestions = channel ? bot.items.filter(i => i.channelId === channel.id && i.status === 'suggested').length : 0;
