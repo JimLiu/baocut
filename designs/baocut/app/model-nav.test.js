@@ -169,5 +169,9 @@ test('Bot：频道进路径，打开的任务与收件箱进 query，任务不�
   assert.equal(N.hrefFor({r: 'bot', id: 'chan_main', task: 'wi_cut'}), '#/bot/chan_main?task=wi_cut');
   assert.deepEqual(N.routeFromHref('#/bot/chan_main?task=wi_cut'), {r: 'bot', id: 'chan_main', task: 'wi_cut'});
   assert.deepEqual(N.routeFromHref('#/bot?view=inbox'), {r: 'bot', view: 'inbox'});
+  assert.equal(N.hrefFor({r: 'bot', id: 'chan_main', task: 'wi_cut', out: '0'}), '#/bot/chan_main?task=wi_cut&out=0');
+  assert.deepEqual(N.routeFromHref('#/bot/chan_main?task=wi_cut&out=0'), {r: 'bot', id: 'chan_main', task: 'wi_cut', out: '0'});
+  assert.deepEqual(N.routeFromHref('#/bot/chan_main?view=memory'), {r: 'bot', id: 'chan_main', view: 'memory'});
   assert.ok(!N.isSame({r: 'bot', id: 'chan_main', task: 'a'}, {r: 'bot', id: 'chan_main', task: 'b'}));
+  assert.ok(!N.isSame({r: 'bot', id: 'chan_main', task: 'a'}, {r: 'bot', id: 'chan_main', task: 'a', out: '0'}));
 });

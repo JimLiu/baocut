@@ -62,13 +62,13 @@
     </li>;
   }
 
-  /** 产物卡：名字、种类 · （全部频道时的频道名）· 多久以前，下面是种类图标的占位预览；点了打开产出它的任务。 */
+  /** 产物卡：名字、种类 · （全部频道时的频道名）· 多久以前，下面是种类图标的占位预览；点了在右栏推开这个产物（返回是产出它的任务）。 */
   function BotOutputCard({output, channelName, onOpen}) {
     const kind = B.OUTPUT_KIND[output.kind] || B.OUTPUT_KIND.doc;
     const Icon = window.RSP.Icons[kind.icon];
     const meta = [kind.label, channelName, window.BC_AGENT.agoLabel((Date.now() - output.at) / 60000)].filter(Boolean).join(' · ');
     return <li className="bot-make__output">
-      <button type="button" className="bot-make__output-btn" onClick={onOpen} aria-label={`${output.label}，${meta}，打开「${output.item.title}」`}>
+      <button type="button" className="bot-make__output-btn" onClick={onOpen} aria-label={`打开「${output.label}」，${meta}`}>
         <span className="bot-make__output-name">{output.label}</span>
         <span className="bot-make__output-meta"><Icon /><span>{meta}</span></span>
         <span className="bot-make__output-thumb" aria-hidden="true"><Icon /></span>
@@ -99,9 +99,9 @@
 
   /**
    * Make 面板（BOT-MK-01、04、05，需求 §6）：头部是标题、「给点建议」与收起；下面切「这个频道 / 全部频道」。
-   * 建议按 ✕ 忽略、「现在做」开工、「加入」排进接下来；产物点了打开产出它的任务；模板「＋」在这个频道建一条定时任务。
+   * 建议按 ✕ 忽略、「现在做」开工、「加入」排进接下来；产物点了在右栏推开它；模板「＋」在这个频道建一条定时任务。
    */
-  function BotMakePanel({channelId, onHide, onOpenTask}) {
+  function BotMakePanel({channelId, onHide, onOpenOutput}) {
     const app = useApp();
     const R = window.RSP;
     const bot = window.useBot();
@@ -112,7 +112,7 @@
     const nameOf = id => (scope === 'all' ? (bot.channels.find(c => c.id === id) || {}).name : null);
     const [hero, ...rest] = g.suggestions;
     const cards = list => <ul className="bot-make__grid">{list.map((o, n) => <BotOutputCard key={`${o.item.id}-${n}`} output={o}
-      channelName={nameOf(o.item.channelId)} onOpen={() => onOpenTask(o.item)} />)}</ul>;
+      channelName={nameOf(o.item.channelId)} onOpen={() => onOpenOutput(o.item, o.index)} />)}</ul>;
     const addTemplate = template => {
       const task = window.BOT_ACTIONS.schedule(channelId, template);
       app.toast(`已建立「${task.title}」，下一次 ${new Date(task.startAt).toLocaleString('zh-CN', {month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit'})}`);

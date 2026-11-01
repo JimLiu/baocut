@@ -6,11 +6,12 @@
   const B = window.BC_BOT;
 
   /** 一条消息：你说的是右侧气泡；智能体的回复是左侧灰气泡，不带头像（频道里只有它一个在回话）。 */
-  function BotMessage({m}) {
+  /** 一条消息；智能体消息下面可以挂东西（任务线程里是产物卡）。 */
+  function BotMessage({m, children}) {
     if (m.role === 'user') return <div className="amsg amsg--user bot-msg"><window.RSP.AI.UserMessage>
       <div className="bc-ai-message-text">{m.text}</div>
     </window.RSP.AI.UserMessage></div>;
-    return <div className="bot-msg bot-msg--ai"><p className="bot-msg__bubble">{m.text}</p></div>;
+    return <div className="bot-msg bot-msg--ai"><p className="bot-msg__bubble">{m.text}</p>{children}</div>;
   }
 
   /**
@@ -116,7 +117,7 @@
 
   /**
    * 频道对话（BOT-CV-01…05、需求 §11.3 修订）：头部是「图标 频道名 ⌄」（按下是频道菜单：频道设置、重命名、说明、图标、分组……，page-bot-dialogs.jsx）
-   * 与说明的第一行（点开编辑说明），然后是记忆、周期任务，最后是右栏的「任务」「Make」两个开关：
+   * 与说明的第一行（点开编辑说明），最后是右栏的「任务」「Make」两个开关；记忆与新建周期任务只在频道菜单里：
    * 「任务」带这个频道里等你的任务数（需求 §11.1），「Make」有新建议时带个点。回复一张线程卡（BOT-EX-09）时输入框上方显示「回复「任务名」✕」。
    */
   function BotChannelView({channel, tasksToggle, makeToggle}) {
@@ -127,7 +128,6 @@
     const [replyTo, setReplyTo] = useState(null);
     const replyItem = replyTo ? bot.items.find(i => i.id === replyTo) : null;
     const waiting = bot.items.filter(i => i.channelId === channel.id && B.needsUser(i)).length;
-    const later = what => app.toast(`原型里没有画${what}`);
     const send = text => {
       if (replyTo) { window.BOT_ACTIONS.reply(replyTo, text); setReplyTo(null); app.toast('已转给这条任务'); return; }
       window.BOT_ACTIONS.send(channel.id, text);
@@ -141,8 +141,6 @@
             {channel.purpose ? channel.purpose.split('\n')[0] : '没有写说明，什么都能做'}
           </button>
         </div>
-        <R.ActionButton isQuiet size="S" onPress={() => later('频道记忆页')}><R.Icons.Bookmark /><R.Text>记忆</R.Text></R.ActionButton>
-        <R.ActionButton isQuiet size="S" aria-label="新建周期任务" onPress={() => later('周期任务对话框')}><R.Icons.CalendarAdd /></R.ActionButton>
         {tasksToggle ? <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
           aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
           <R.Icons.ViewList /><R.Text>任务</R.Text>{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}

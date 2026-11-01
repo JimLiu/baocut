@@ -193,3 +193,48 @@ test('Make 模板：下一次在未来，建出来的是交给智能体的定时
   assert.equal(new Date(monday).getDay(), 1);
   assert.equal(new Date(monday).getHours(), 9);
 });
+
+test('频道设置：没写的项跟随默认', () => {
+  assert.deepEqual(B.channelSettings({id: 'c'}), B.CHANNEL_SETTINGS);
+  const s = B.channelSettings({id: 'c', settings: {concurrentThreads: 5, currency: 'CNY'}});
+  assert.equal(s.concurrentThreads, 5);
+  assert.equal(s.currency, 'CNY');
+  assert.equal(s.driverId, null);
+});
+
+test('记忆用量：按 UTF-8 字节算，九成以上快满，超过上限不能保存', () => {
+  const ascii = B.memoryUsage('abc', 'channel');
+  assert.equal(ascii.bytes, 3);
+  assert.equal(ascii.limit, 16 * 1024);
+  assert.equal(B.memoryUsage('中', 'user').bytes, 3);
+  assert.equal(B.memoryUsage('', 'user').limit, 8 * 1024);
+  const near = B.memoryUsage('a'.repeat(7400), 'user');
+  assert.ok(near.near && !near.over);
+  assert.match(near.label, /快满了/);
+  const over = B.memoryUsage('a'.repeat(8193), 'user');
+  assert.ok(over.over && !over.near);
+  assert.match(over.label, /^8\.0 KB \/ 8\.0 KB · 太长/);
+});
+
+test('右栏宽度：各形态的默认宽，拖过的夹在范围里', () => {
+  assert.equal(B.sideWidth('tasks', null, 1200).width, 340);
+  assert.equal(B.sideWidth('make', null, 1200).width, 380);
+  assert.equal(B.sideWidth('detail', null, 1200).width, 540);
+  assert.equal(B.sideWidth('detail', null, 2000).width, 640);
+  assert.ok(B.sideWidth('detail', null, 1200).width > B.sideWidth('tasks', null, 1200).width);
+  assert.equal(B.sideWidth('output', null, 1200).width, 760);
+  assert.equal(B.sideWidth('tasks', 100, 1200).width, B.SIDE_MIN);
+  const wide = B.sideWidth('tasks', 5000, 1200);
+  assert.equal(wide.width, 1200 - B.CENTER_MIN);
+  assert.equal(wide.max, 1200 - B.CENTER_MIN);
+  assert.equal(B.sideWidth('output', null, 600).width, B.SIDE_MIN);
+});
+
+test('演示产物：视频挂着原型的视频，线程消息指向产物下标', () => {
+  const d = B.demo(NOW);
+  for (const i of d.items) {
+    for (const o of i.outputs) if (o.kind === 'video') assert.ok(o.project, o.label);
+    for (const m of i.thread || []) for (const n of m.outputs || []) assert.ok(i.outputs[n], `${i.id} → ${n}`);
+  }
+  assert.ok(d.memories.chan_main && d.memories.user);
+});

@@ -4,11 +4,23 @@
 /* ---------- 布局 ---------- */
 .bot { position: relative; display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .bot__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
-.bot__side { display: flex; flex-direction: column; flex: none; width: 340px; max-width: 100%; min-height: 0; box-sizing: border-box;
-  border-inline-start: 2px solid var(--gray-100); background: var(--gray-25); }
+/* 宽时右栏的宽由 BotPage 按形态算好写在 style 上（model-bot.js 的 sideWidth），与中间的线由分隔条画；
+   下面的宽是窄时浮层与量到主区宽之前的兜底。 */
+.bot__side { display: flex; flex-direction: column; flex: none; width: 340px; max-width: 100%; min-height: 0; box-sizing: border-box; background: var(--gray-25); }
 .bot__side--detail { width: 420px; }
 .bot__side--make { width: 380px; }
-.bot__side--overlay { position: absolute; top: 0; bottom: 0; right: 0; z-index: 2; box-shadow: var(--sh-pop); }
+.bot__side--output { width: 640px; }
+.bot__side--overlay { position: absolute; top: 0; bottom: 0; right: 0; z-index: 2; border-inline-start: 2px solid var(--gray-100); box-shadow: var(--sh-pop); }
+.bot__side--overlay.bot__side--output { left: 0; width: auto; border-inline-start: 0; }
+/* 产物页「占满」：中间收起，右栏占满主区 */
+.bot--side-full > .bot__main { display: none; }
+.bot--side-full > .bot__side { flex: 1 1 auto; width: auto; }
+/* 中间 ∣ 右栏的分隔条：样子照壳层的 .seam--dock，类名分开（标题栏按 seam--dock 画线） */
+.bot__seam { position: relative; flex: none; align-self: stretch; width: 8px; margin-inline: -4px; z-index: 5; cursor: col-resize; touch-action: none; user-select: none; }
+.bot__seam::before { content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: var(--gray-100); }
+.bot__seam-bar { position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background-color 150ms cubic-bezier(0.45,0,0.4,1); }
+.bot__seam:hover .bot__seam-bar, .bot__seam.is-drag .bot__seam-bar { background: var(--blue-800); }
+.bot__seam:focus-visible { outline: 2px solid var(--blue-900); outline-offset: -2px; }
 .bot-grow { flex: 1 1 auto; }
 .bot-missing { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; flex: 1 1 auto; font-size: 14px; color: var(--gray-700); }
 .bot-empty { margin: 16px 8px; font-size: 14px; line-height: 20px; color: var(--gray-600); }
@@ -107,7 +119,8 @@
 .bot-timeline__list { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 760px; margin: 0 auto; padding: 20px 24px 12px; box-sizing: border-box; }
 .bot-msg.amsg--user { flex-direction: column; align-items: flex-end; }
 /* 智能体的回复：左侧灰气泡，不带头像；圆角与内边距同你的气泡（S2 AI.UserMessage）。 */
-.bot-msg--ai { display: flex; justify-content: flex-start; }
+.bot-msg--ai { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.bot-msg__outputs { display: flex; flex-direction: column; gap: 4px; width: 85%; max-width: 360px; }
 .bot-msg__bubble { max-width: 85%; margin: 0; padding: 8px 16px; border-radius: 10px; background: var(--gray-100);
   font-size: 14px; line-height: 20px; color: var(--gray-900); white-space: pre-wrap; overflow-wrap: anywhere; }
 
@@ -250,7 +263,68 @@
 .bot-detail__block-title { margin: 0; font-size: 12px; font-weight: 700; color: var(--gray-700); }
 .bot-detail__items { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-inline-start: 20px; font-size: 14px; line-height: 20px; color: var(--gray-800); }
 .bot-detail__items .is-active { font-weight: 700; }
-.bot-detail__output { display: flex; align-items: center; gap: 8px; margin-inline-start: -20px; list-style: none; }
-.bot-detail__output svg { width: 16px; height: 16px; }
+.bot-detail__output { margin-inline: -28px -8px; list-style: none; }
 .bot-detail__update { display: flex; flex-direction: column; margin-inline-start: -20px; list-style: none; }
 .bot-detail__muted { font-size: 11px; color: var(--gray-600); }
+
+/* ---------- 产物卡与推开的产物页（page-bot-side.jsx） ---------- */
+.bot-output-link { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 4px 8px; box-sizing: border-box; border: 0; border-radius: 8px;
+  background: transparent; font: inherit; font-size: 14px; line-height: 20px; color: var(--gray-900); text-align: start; cursor: default; }
+.bot-output-link:hover { background: var(--gray-100); }
+.bot-output-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.bot-output-link__icon { display: inline-flex; align-items: center; justify-content: center; flex: none; color: var(--gray-700); }
+.bot-output-link__text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.bot-output-link__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-output-link__meta { font-size: 11px; line-height: 16px; color: var(--gray-600); }
+.bot-output-link .bot-output-link__go { flex: none; color: var(--gray-600); }
+.bot-output-link--card { padding: 8px 12px 8px 8px; border-radius: 10px; background: var(--gray-25); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.bot-output-link--card .bot-output-link__icon { width: 32px; height: 32px; border-radius: 8px; background: var(--gray-100); }
+
+.bot-output { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.bot-output__head { display: flex; align-items: center; gap: 4px; flex: none; padding: 8px; border-bottom: 2px solid var(--gray-100); }
+.bot-output__kind { display: inline-flex; margin-inline: 4px; color: var(--gray-700); }
+.bot-output__body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; background: var(--gray-50); }
+.bot-output__doc { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 24px 32px; font-size: 14px; line-height: 24px; color: var(--gray-800); }
+.bot-output__doc > * { max-width: 720px; }
+.bot-output__doc h1 { margin: 0 0 12px; font-size: 18px; line-height: 24px; font-weight: 700; color: var(--gray-900); }
+.bot-output__doc h2 { margin: 20px 0 8px; font-size: 16px; line-height: 24px; font-weight: 700; color: var(--gray-900); }
+.bot-output__doc p { margin: 0 0 12px; }
+.bot-output__doc ul { margin: 0 0 12px; padding-inline-start: 20px; }
+.bot-output__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; }
+.bot-output__images { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
+.bot-output__images > li { display: flex; flex-direction: column; gap: 8px; }
+.bot-output__frame { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; border-radius: 10px; background: var(--gray-100); color: var(--gray-500); }
+.bot-output__frame svg[role="img"][viewBox] { width: 32px; height: 32px; }
+.bot-output__caption { display: flex; flex-direction: column; font-size: 12px; line-height: 16px; color: var(--gray-700); }
+.bot-output__caption strong { font-size: 14px; line-height: 20px; color: var(--gray-900); }
+.bot-output__cues { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.bot-output__cues > li { display: grid; grid-template-columns: 72px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--gray-200); }
+.bot-output__time { font-size: 12px; line-height: 20px; color: var(--gray-600); font-variant-numeric: tabular-nums; }
+.bot-output__lines { display: flex; flex-direction: column; font-size: 14px; line-height: 20px; color: var(--gray-900); }
+.bot-output__dst { color: var(--gray-700); }
+
+/* ---------- 频道记忆页（page-bot-memory.jsx） ---------- */
+.bot-memory { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.bot-memory__inner { display: flex; flex-direction: column; gap: 12px; flex: 1 1 auto; min-height: 0; width: 100%; max-width: 860px; margin-inline: auto; padding: 16px 24px;
+  box-sizing: border-box; }
+.bot-memory__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-inline-start: -8px; }
+.bot-memory__title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 18px; line-height: 24px; font-weight: 700; color: var(--gray-900); }
+.bot-memory__lead { margin: 0; font-size: 14px; line-height: 20px; color: var(--gray-700); }
+.bot-memory__text { flex: 1 1 auto; min-height: 240px; padding: 12px; box-sizing: border-box; resize: none; border: 1px solid var(--gray-300); border-radius: 10px;
+  background: var(--gray-25); font-family: var(--mono); font-size: 12px; line-height: 20px; color: var(--gray-900); outline: none; }
+.bot-memory__text:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -1px; }
+.bot-memory__text.is-invalid { border-color: var(--red-900); }
+.bot-memory__foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bot-memory__usage { flex: 1 1 auto; font-size: 12px; line-height: 16px; color: var(--gray-600); }
+.bot-memory__usage.is-near { color: var(--orange-900); }
+.bot-memory__usage.is-over { color: var(--red-900); }
+
+/* ---------- 频道设置（page-bot-channel-dialogs.jsx） ---------- */
+.bot-settings { display: flex; flex-direction: column; gap: 16px; }
+.bot-settings__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.bot-settings__row--budget { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 96px; }
+.bot-settings__row > * { width: 100%; min-width: 0; }
+.bot-settings__switch { display: flex; flex-direction: column; gap: 4px; }
+.bot-settings__switch > .bot-dialog__note { margin: 0; font-size: 12px; line-height: 16px; color: var(--gray-600); }
+.bot-settings__manage { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--gray-200); }
+.bot-settings__target { font-size: 14px; line-height: 20px; color: var(--gray-800); }

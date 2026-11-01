@@ -311,6 +311,9 @@
       "app/page-bot-tasks.jsx",
       "app/page-bot-make.jsx",
       "app/page-bot-dialogs.jsx",
+      "app/page-bot-channel-dialogs.jsx",
+      "app/page-bot-memory.jsx",
+      "app/page-bot-side.jsx",
       "app/apprail.jsx",
       "app/home-sidebar.jsx",
       "app/page-archived.jsx",
@@ -535,9 +538,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=9b8c36612e5a",
-    "css": "generated/app.css?v=0308b945822c",
-    "bytes": 5134424
+    "js": "generated/app.js?v=d865a86aeaed",
+    "css": "generated/app.css?v=82095b719f5a",
+    "bytes": 5159286
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -808,9 +811,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=a3119ebe6b9e",
+    "js": "generated/web.js?v=de881225448f",
     "css": "generated/web.css?v=14d3b5850ab6",
-    "bytes": 2893480
+    "bytes": 2893523
   },
   "components": {
     "file": "Components.html",

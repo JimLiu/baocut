@@ -31,8 +31,8 @@
   };
 
   /**
-   * 频道菜单（需求 §11.2、§11.3 修订）：频道设置、重命名、说明、更换图标、移到分组；记忆、置顶、静音；归档、删除。
-   * 主频道不换图标、不进分组、不置顶、不归档、不删除。「移到分组」是子菜单：各分组（当前的打勾）、不分组（回到综合）、新建分组。
+   * 频道菜单（需求 §11.2、§11.3 修订）：频道设置、重命名、说明、更换图标、移到分组；记忆、新建周期任务、置顶、静音；归档、删除。
+   * 主频道不换图标、不进分组、不置顶、不归档、不删除；归档的频道不新建周期任务。「移到分组」是子菜单：各分组（当前的打勾）、不分组（回到综合）、新建分组。
    */
   function channelMenuItems(channel, groups) {
     const R = window.RSP;
@@ -65,6 +65,7 @@
       </R.MenuSection>,
       <R.MenuSection key="keep">
         {menuItem('memory', I.Bookmark, '记忆')}
+        {channel.archived ? null : menuItem('schedule', I.CalendarAdd, '新建周期任务…')}
         {main || channel.archived ? null : menuItem('pin', channel.pinned ? I.PinOff : I.PinOn, channel.pinned ? '取消置顶' : '置顶')}
         {menuItem('mute', channel.muted ? I.VolumeTwo : I.VolumeOff, channel.muted ? '取消静音' : '静音')}
       </R.MenuSection>,
@@ -75,15 +76,14 @@
     ].filter(Boolean);
   }
 
-  /** 频道菜单的动作。归档要确认，恢复直接做；频道设置与记忆页原型里没画。 */
+  /** 频道菜单的动作。记忆在中间整页打开；归档要确认，恢复直接做；其余开对话框。 */
   function runChannelAction(channel, key, app) {
     const A = window.BOT_ACTIONS;
-    if (key === 'settings') app.toast('原型里没有画频道设置（Agent、访问模式、预算等，实现里已有）');
-    else if (key === 'memory') app.toast('原型里没有画频道记忆页');
+    if (key === 'memory') app.go({r: 'bot', id: channel.id, view: 'memory'});
     else if (key === 'pin') A.updateChannel(channel.id, {pinned: !channel.pinned});
     else if (key === 'mute') A.updateChannel(channel.id, {muted: !channel.muted});
     else if (key === 'archive' && channel.archived) { A.setArchived(channel.id, false); app.toast(`已恢复「${channel.name}」`); }
-    else if (key === 'rename' || key === 'instructions' || key === 'icon' || key === 'archive' || key === 'delete') openBotDialog({kind: key, channelId: channel.id});
+    else if (['settings', 'schedule', 'rename', 'instructions', 'icon', 'archive', 'delete'].includes(key)) openBotDialog({kind: key, channelId: channel.id});
   }
 
   /** 侧栏行尾的「⋯」：频道菜单。 */
@@ -315,7 +315,7 @@
   }
 
   /**
-   * Bot 页的对话框宿主：rename / instructions / icon / archive / delete 作用于 channelId；
+   * Bot 页的对话框宿主：settings / schedule（page-bot-channel-dialogs.jsx）、rename / instructions / icon / archive / delete 作用于 channelId；
    * newChannel（可带 groupId，建在那个分组里）、newGroup（可带 moveChannelId，建好把那个频道移进去）、renameGroup 作用于分组。
    */
   function BotDialogs() {
@@ -328,6 +328,8 @@
     const group = spec.groupId ? bot.groups.find(g => g.id === spec.groupId) : null;
     if (spec.channelId && !channel) return null;
     switch (spec.kind) {
+      case 'settings': return <window.BotSettingsDialog channel={channel} onClose={closeBotDialog} />;
+      case 'schedule': return <window.BotScheduleDialog channel={channel} onClose={closeBotDialog} />;
       case 'rename':
         return <NameDialog title="重命名频道" label="频道名" what="频道" initial={channel.name} submitLabel="保存"
           onSubmit={name => A.updateChannel(channel.id, {name})} />;

@@ -73,6 +73,8 @@
       write(s => ({...s, channels: [...s.channels, channel], timelines: {...s.timelines, [id]: []}}));
       return channel;
     },
+    /** 记忆（需求 §11.7）：key 是频道 id，或 'user'（所有频道共用的偏好）；清空就是存空字符串。 */
+    setMemory: (key, text) => write(s => ({...s, memories: {...s.memories, [key]: text}})),
     /** 分组：建、改名、删（删分组不删频道，组里的回到综合）。 */
     createGroup: name => {
       const group = {id: nextId('grp'), name};
@@ -212,53 +214,74 @@
   /* ---------- 页面 ---------- */
 
   /** 量主区宽度：窄了任务面板改成浮层。 */
-  function useNarrow() {
-    const [narrow, setNarrow] = useState(false);
+  /** 主区的宽：窄于 880 算窄；右栏的宽按它夹。 */
+  function useMainWidth() {
+    const [width, setWidth] = useState(0);
     const observer = useRef(null);
     const ref = useCallback(el => {
       if (observer.current) observer.current.disconnect();
       if (!el) return;
-      observer.current = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width < NARROW));
+      observer.current = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
       observer.current.observe(el);
     }, []);
-    return [ref, narrow];
+    return [ref, width];
   }
 
+  /** 拖过的右栏宽，按形态（tasks / make / detail / output）各记各的；离开 Bot 页再回来还在。 */
+  const sideWidths = {};
+
   /**
-   * Bot 页（需求 §11.1）：中间频道对话（或收件箱、展开的任务详情），右边任务面板、Make 面板或任务详情。
-   * 路由 {r:'bot', id: 频道, task: 打开的任务, view: 'inbox' | 'task'}。
+   * Bot 页（需求 §11.1）：中间频道对话（或收件箱、展开的任务详情、频道记忆），右边任务面板、Make 面板、任务详情或推开的产物。
+   * 路由 {r:'bot', id: 频道, task: 打开的任务, out: 从任务里推开的产物下标, view: 'inbox' | 'task' | 'memory'}。
    * 右栏的开合由频道头的「任务」「Make」两个开关、面板与详情的关闭按钮管：宽时默认开着，窄时默认收起、开了是浮层；两种宽度各记各的。
    * 两个开关切右栏里放哪一块（`side`）；打开任务时右栏是详情，「任务」开关算开着。
+   * 宽时中间与右栏之间有分隔条：任务面板默认 340、Make 380，任务详情默认更宽，推开产物时右栏把中间压到 440 左右；拖过的宽按形态记住。
+   * 产物页可以「占满」：中间收起，右栏占满主区。
    */
-  function BotPage({id, task, view}) {
+  function BotPage({id, task, view, out}) {
     const app = useApp();
     const bot = useBot();
-    const [contentRef, narrow] = useNarrow();
+    const [contentRef, mainWidth] = useMainWidth();
+    const narrow = mainWidth > 0 && mainWidth < NARROW;
     const [wideHidden, setWideHidden] = useState(false);
     const [narrowShown, setNarrowShown] = useState(false);
     const [side, setSide] = useState('tasks');
+    const [full, setFull] = useState(false);
+    const [, setWidthsSeen] = useState(0);
+    useEffect(() => setFull(false), [task, out]);
     const panelShown = narrow ? narrowShown : !wideHidden;
     const setShown = shown => (narrow ? setNarrowShown(shown) : setWideHidden(!shown));
     const channelId = view === 'inbox' ? null : id || MAIN;
     const channel = channelId ? bot.channels.find(c => c.id === channelId) : null;
     useEffect(() => { if (channel && channel.unread) BOT_ACTIONS.markRead(channel.id); }, [channelId]);
-    const to = next => app.go({r: 'bot', ...(id ? {id} : {}), ...(task ? {task} : {}), ...(view ? {view} : {}), ...next});
     const strip = r => Object.fromEntries(Object.entries(r).filter(([, v]) => v != null));
+    const to = next => app.go(strip({r: 'bot', id, task, view, ...next}));
     const openTask = (item, inbox) => app.go(strip({r: 'bot', id: inbox ? item.channelId : id, task: item.id, view: inbox ? 'inbox' : null}));
     const closeDetail = () => app.go(strip({r: 'bot', id, view: view === 'inbox' ? 'inbox' : null}));
     const backToList = () => { setSide('tasks'); setShown(true); closeDetail(); };
     const hide = () => { setShown(false); if (task) closeDetail(); };
     const showSide = which => { setSide(which); setShown(true); if (task) closeDetail(); };
+    const openOutput = n => to({out: String(n)});
+    const item = task ? bot.items.find(i => i.id === task) : null;
+    const outIndex = task && out != null ? Number(out) : null;
+    /* 推开的产物：返回回到任务详情，关闭收起右栏（收件箱里回到收件箱） */
+    const outputView = onClose => <window.BotOutputView item={item} index={outIndex} full={full} onBack={() => to({out: null})}
+      onToggleFull={narrow ? null : () => setFull(!full)} onClose={onClose} />;
     let center;
     let right = null;
+    let mode = side;
     if (view === 'inbox') {
       center = <BotInbox selectedId={task} onOpen={i => openTask(i, true)} />;
-      if (task) right = <window.BotTaskDetail id={task} wide={false} onHide={closeDetail} />;
+      if (task && outIndex != null) right = outputView(closeDetail);
+      else if (task) right = <window.BotTaskDetail id={task} wide={false} onHide={closeDetail} onOpenOutput={openOutput} />;
     } else if (!channel) {
       center = <div className="bot-missing"><span>这个频道已经不在了。</span>
         <window.RSP.Button variant="secondary" onPress={() => app.go({r: 'bot'})}>去默认频道</window.RSP.Button></div>;
+    } else if (view === 'memory') {
+      center = <window.BotMemoryPage key={channel.id} channel={channel} />;
     } else if (view === 'task' && task) {
-      center = <window.BotTaskDetail id={task} wide onToggleWide={() => to({view: null})} onBack={backToList} />;
+      center = <window.BotTaskDetail id={task} wide onToggleWide={() => to({view: null, out: null})} onBack={backToList} onOpenOutput={openOutput} />;
+      if (outIndex != null) right = outputView(() => to({out: null}));
     } else {
       const tasksOn = !!task || (panelShown && side === 'tasks');
       const makeOn = !task && panelShown && side === 'make';
@@ -266,14 +289,21 @@
       center = <window.BotChannelView key={channel.id} channel={channel}
         tasksToggle={{shown: tasksOn, onToggle: () => (tasksOn ? hide() : showSide('tasks'))}}
         makeToggle={{shown: makeOn, suggestions, onToggle: () => (makeOn ? hide() : showSide('make'))}} />;
-      if (task) right = <window.BotTaskDetail id={task} wide={false} onToggleWide={() => to({view: 'task'})} onBack={backToList} onHide={hide} />;
-      else if (panelShown && side === 'make') right = <window.BotMakePanel key={channel.id} channelId={channel.id} onHide={hide} onOpenTask={i => app.go({r: 'bot', id: i.channelId, task: i.id})} />;
+      if (task && outIndex != null) right = outputView(hide);
+      else if (task) right = <window.BotTaskDetail id={task} wide={false} onToggleWide={() => to({view: 'task'})} onBack={backToList} onHide={hide} onOpenOutput={openOutput} />;
+      else if (panelShown && side === 'make') right = <window.BotMakePanel key={channel.id} channelId={channel.id} onHide={hide}
+        onOpenOutput={(i, n) => app.go({r: 'bot', id: i.channelId, task: i.id, out: String(n)})} />;
       else if (panelShown) right = <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={null} onHide={hide} />;
     }
-    return <div className="bot" ref={contentRef}>
+    if (task) mode = outIndex != null ? 'output' : 'detail';
+    const sized = right && !narrow && mainWidth > 0 && !full ? B.sideWidth(mode, sideWidths[mode], mainWidth) : null;
+    const resize = w => { sideWidths[mode] = B.sideWidth(mode, w, mainWidth).width; setWidthsSeen(n => n + 1); };
+    const reset = () => { delete sideWidths[mode]; setWidthsSeen(n => n + 1); };
+    return <div className={cx('bot', full && right && 'bot--side-full')} ref={contentRef}>
       <window.BotDialogs />
       <div className="bot__main">{center}</div>
-      {right ? <aside className={cx('bot__side', task && 'bot__side--detail', !task && side === 'make' && 'bot__side--make', narrow && 'bot__side--overlay')}>{right}</aside> : null}
+      {sized ? <window.BotSideSeam {...sized} onResize={resize} onReset={reset} /> : null}
+      {right ? <aside className={cx('bot__side', `bot__side--${mode}`, narrow && 'bot__side--overlay')} style={sized ? {width: sized.width} : undefined}>{right}</aside> : null}
     </div>;
   }
 

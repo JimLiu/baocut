@@ -6,7 +6,9 @@
      {id, channelId, title, status: 'suggested'|'upNext'|'scheduled'|'active'|'resolved', owner: 'user'|'agent',
       active?: {state, reason?}, resolution?: {kind: 'done'|'dismissed'|'merged', at}, priority, dueOn?, startAt?, updatedAt,
       description?, outcome?, question?: {text, options: [{label, description?}], pick?}, steps: [{text, state}],
-      finishedSteps: [{text, result?, at}], outputs: [{kind, label, at?}], updates: [{text, by, at}], suggestion?: {reason, kind?}, thread?}
+      finishedSteps: [{text, result?, at}], outputs: [{kind, label, at?, project?, body?, images?, cues?}], updates: [{text, by, at}], suggestion?: {reason, kind?}, thread?}
+   产物可以在右栏推开看（需求 §11.6 修订）：视频带 project（原型里的视频 id，开嵌入的编辑器），文档带 body（几行 Markdown），
+   图片带 images（每张的说明），字幕带 cues（[{t, src, dst}]）。任务线程里智能体的消息可以带 outputs（产物下标），画成产物卡。
    频道时间线的条目：{kind: 'message', role, text, at} / {kind: 'work-item-ref', workItemId} /
      {kind: 'relay', direction, text, workItemId?, cited: [{author, text}]}；最后一条智能体消息可以带 chips（输入框上方的提示芯片）。 */
 (function () {
@@ -144,6 +146,49 @@
       tasks: mine.length,
       scheduled: mine.filter(i => i.status === 'scheduled').length,
     };
+  }
+
+  // ---- 频道设置与记忆 ----
+
+  /** 频道设置（需求 §2.3、BOT-CH-03）：没写的项跟随全局；Agent 为 null 表示用 Bot 的默认 Agent。同时工作的任务数 1–6。 */
+  const CHANNEL_SETTINGS = {driverId: null, model: null, defaultAccessMode: null, maxAccessMode: null, outputLanguage: '', private: false,
+    concurrentThreads: 3, stallMinutes: null, dailyBudget: '', monthlyBudget: '', currency: 'USD'};
+  const MAX_CONCURRENT = 6;
+  function channelSettings(channel) {
+    return {...CHANNEL_SETTINGS, ...(channel && channel.settings)};
+  }
+
+  /** 记忆的上限（需求 §11.7）：频道 16 KB，所有频道共用的偏好 8 KB；九成以上算快满。 */
+  const MEMORY_LIMIT = {channel: 16 * 1024, user: 8 * 1024};
+  const kb = bytes => `${(bytes / 1024).toFixed(1)} KB`;
+  function memoryUsage(text, scope) {
+    const limit = MEMORY_LIMIT[scope === 'user' ? 'user' : 'channel'];
+    const bytes = new TextEncoder().encode(String(text || '')).length;
+    const over = bytes > limit;
+    const near = !over && bytes > limit * 0.9;
+    return {bytes, limit, over, near, label: [`${kb(bytes)} / ${kb(limit)}`, over ? '太长，没法保存。先删短一些。' : near ? '快满了：智能体会先整理再往里加。' : null].filter(Boolean).join(' · ')};
+  }
+
+  // ---- 右栏宽度 ----
+
+  /** 右栏能拖的范围：至少 300，中间至少留 360。 */
+  const SIDE_MIN = 300;
+  const CENTER_MIN = 360;
+  /**
+   * 右栏各形态的默认宽：任务面板 340、Make 380；任务详情占主区的 45%（480–640）；推进来的产物（视频编辑器、文档……）
+   * 把中间压到 440 左右，至少 560。
+   */
+  function sideDefault(mode, available) {
+    if (mode === 'make') return 380;
+    if (mode === 'detail') return Math.min(640, Math.max(480, Math.round(available * 0.45)));
+    if (mode === 'output') return Math.max(560, available - 440);
+    return 340;
+  }
+  /** 实际宽：拖过的用拖过的，否则用默认；都夹在 [300, 主区 − 360] 里。 */
+  function sideWidth(mode, stored, available) {
+    const max = Math.max(SIDE_MIN, available - CENTER_MIN);
+    const want = stored == null ? sideDefault(mode, available) : stored;
+    return {width: Math.round(Math.min(max, Math.max(SIDE_MIN, want))), min: SIDE_MIN, max};
   }
 
   // ---- 任务面板 ----
@@ -288,7 +333,7 @@
 
   /**
    * Make 面板的内容（需求 §6、§11.5）：`scope` 是 'channel'（这个频道）或 'all'（全部频道，不含归档）。
-   * 建议按频道各取前 3 条；产物来自任务的 outputs，按时间倒排，分成今天的与更早的（更早的最多 6 条）。
+   * 建议按频道各取前 3 条；产物来自任务的 outputs（带着它在任务里的下标 index），按时间倒排，分成今天的与更早的（更早的最多 6 条）。
    */
   function makeGallery(items, channelId, scope, now, archivedIds) {
     const archived = new Set(archivedIds || []);
@@ -296,7 +341,7 @@
     const byChannel = {};
     shown.filter(i => i.status === 'suggested').sort(compareWorkItems).forEach(i => { (byChannel[i.channelId] = byChannel[i.channelId] || []).push(i); });
     const suggestions = Object.values(byChannel).flatMap(list => list.slice(0, SUGGESTIONS_MAX)).sort((a, b) => b.updatedAt - a.updatedAt);
-    const outputs = shown.flatMap(item => (item.outputs || []).map(o => ({...o, at: o.at || item.updatedAt, item})))
+    const outputs = shown.flatMap(item => (item.outputs || []).map((o, index) => ({...o, index, at: o.at || item.updatedAt, item})))
       .sort((a, b) => b.at - a.at);
     const today = startOfDay(now);
     return {
@@ -325,6 +370,32 @@
   // ---- 演示数据 ----
 
   /** 一组能看全所有状态的演示频道与任务；时间相对 `now` 生成。演示文字不出现真实品牌名。 */
+  const CUT_NOTES = [
+    '# 第 12 期 · 剪辑说明',
+    '原片 42 分钟，粗剪后 11 分 40 秒。保留三段演示，按「问题 → 演示 → 小结」重排了章节。',
+    '## 删掉的',
+    '- 61 处口误和超过 1.5 秒的停顿',
+    '- 开头 2 分钟的调试麦克风',
+    '- 第三段演示里重复的一次导出',
+    '## 要你看的',
+    '- 06:12 第二段演示有一处画面跳切，可以补一个 0.3 秒的溶解',
+    '- 09:40 的口播语速偏快，要不要放慢到 0.9 倍',
+  ].join('\n');
+  const SUB_CUES = [
+    {t: '00:00:03', src: '这一期我们讲怎么把录屏剪成讲解视频。', dst: 'This episode covers turning a screen recording into an explainer.'},
+    {t: '00:00:08', src: '先看原片：四十二分钟，有两个人在说话。', dst: 'First, the raw footage: 42 minutes, two speakers.'},
+    {t: '00:00:14', src: '我们只留三段演示，其余的都可以删。', dst: 'We keep only the three demos; the rest can go.'},
+    {t: '00:00:21', src: '转录好以后，口误和停顿会自动标出来。', dst: 'Once transcribed, slips and pauses are marked automatically.'},
+    {t: '00:00:27', src: '你只要确认一遍，再按章节排好。', dst: 'You just confirm them, then arrange by chapter.'},
+  ];
+  /** 记忆的演示文本（需求 §11.7 的五节：目标、规则、人与对象、未了的事、已谈过）。 */
+  const DEMO_MEMORIES = {
+    chan_main: ['## 目标', '- 每周一期产品讲解，周五前出粗剪', '## 规则', '- 成片控制在 12 分钟以内', '- 字幕中英双语，术语按词表', '## 人与对象',
+      '- 嘉宾：产品经理小林，说话快，口误多', '## 未了的事', '- 第 12 期封面还没定', '## 已谈过', '- 第 11 期片头 8 秒的版本用户满意'].join('\n'),
+    chan_weekly: ['## 目标', '- 每周一期，周一发预告', '## 规则', '- 预告 30 秒以内，竖版另出一版'].join('\n'),
+    user: ['- 回复用中文，结论先说', '- 导出默认 1080p、H.264', '- 不要在晚上十点以后提醒'].join('\n'),
+  };
+
   function demo(now) {
     const m = n => now - n * 60000;
     const h = n => now - n * 3600000;
@@ -346,19 +417,19 @@
       {id: 'wi_cut', channelId: W, title: '粗剪第 12 期讲解', status: 'active', owner: 'agent', active: {state: 'needsReview'}, priority: 'high', updatedAt: m(6),
         description: '把 42 分钟的录屏剪到 12 分钟以内，保留三段演示。', steps: [step('等你看粗剪', 'active')],
         finishedSteps: [{text: '转录全片', result: '42 分钟，2 位说话人', at: m(40)}, {text: '标出口误与停顿', result: '删掉 61 处', at: m(25)}, {text: '按章节重排', at: m(9)}],
-        outputs: [{kind: 'video', label: '第 12 期 · 粗剪 v1', at: m(6)}, {kind: 'doc', label: '第 12 期 · 剪辑说明.md', at: m(7)}], updates: [{text: '粗剪好了，11 分 40 秒，等你看', by: 'agent', at: m(6)}],
+        outputs: [{kind: 'video', label: '第 12 期 · 粗剪 v1', at: m(6), project: 'p12'}, {kind: 'doc', label: '第 12 期 · 剪辑说明.md', at: m(7), body: CUT_NOTES}], updates: [{text: '粗剪好了，11 分 40 秒，等你看', by: 'agent', at: m(6)}],
         thread: [
           {role: 'user', text: '把第 12 期粗剪一下，控制在 12 分钟内', at: m(48)},
           {role: 'assistant', text: '先转录全片、标出口误和长停顿，再按三段演示重排。剪好了我在这里叫你。', at: m(47)},
-          {role: 'assistant', text: '粗剪好了：11 分 40 秒，删了 61 处口误和停顿。第二段演示里有一处画面跳切，你看看要不要补一个转场。', at: m(6), chips: [{label: '看起来不错', recommended: true}, {label: '补一个转场'}]},
+          {role: 'assistant', text: '粗剪好了：11 分 40 秒，删了 61 处口误和停顿。第二段演示里有一处画面跳切，你看看要不要补一个转场。', at: m(6), outputs: [0, 1], chips: [{label: '看起来不错', recommended: true}, {label: '补一个转场'}]},
         ]},
       {id: 'wi_cover', channelId: W, title: '选第 12 期的封面', status: 'active', owner: 'agent', active: {state: 'needsInput'}, priority: 'medium', updatedAt: m(15),
         question: {text: '三张封面里用哪一张？', options: [{label: '第一张', description: '人物特写，标题在左'}, {label: '第二张', description: '产品界面截图'}, {label: '第三张', description: '纯文字'}], pick: 0},
-        steps: [step('等你选封面', 'active')], finishedSteps: [{text: '从粗剪里挑出 3 帧', at: m(18)}], outputs: [{kind: 'image', label: '封面候选 3 张', at: m(15)}], updates: [],
-        thread: [{role: 'assistant', text: '挑了三张候选封面，你选一张，我再把标题排上去。', at: m(15), chips: [{label: '第一张', recommended: true}, {label: '第二张'}, {label: '第三张'}]}]},
+        steps: [step('等你选封面', 'active')], finishedSteps: [{text: '从粗剪里挑出 3 帧', at: m(18)}], outputs: [{kind: 'image', label: '封面候选 3 张', at: m(15), images: ['人物特写，标题在左', '产品界面截图', '纯文字']}], updates: [],
+        thread: [{role: 'assistant', text: '挑了三张候选封面，你选一张，我再把标题排上去。', at: m(15), outputs: [0], chips: [{label: '第一张', recommended: true}, {label: '第二张'}, {label: '第三张'}]}]},
       {id: 'wi_sub', channelId: W, title: '给第 12 期配双语字幕', status: 'active', owner: 'agent', active: {state: 'working'}, priority: 'medium', updatedAt: m(3),
         steps: [step('翻译第 2 章', 'active'), step('校对术语', 'pending')], finishedSteps: [{text: '翻译第 1 章', at: m(8)}],
-        outputs: [{kind: 'subtitle', label: '第 12 期 · 双语字幕（第 1 章）', at: m(8)}], updates: [],
+        outputs: [{kind: 'subtitle', label: '第 12 期 · 双语字幕（第 1 章）', at: m(8), cues: SUB_CUES}], updates: [],
         thread: [{role: 'assistant', text: '在翻第 2 章，术语按你的词表来。', at: m(3)}]},
       {id: 'wi_music', channelId: W, title: '找一段片头音乐', status: 'active', owner: 'agent', active: {state: 'blocked', reason: '音乐服务的登录过期了'}, priority: 'low', updatedAt: h(1),
         steps: [], finishedSteps: [], outputs: [], updates: [{text: '登录过期，停下了', by: 'agent', at: h(1)}], thread: []},
@@ -371,7 +442,7 @@
       {id: 'wi_weekly', channelId: W, title: '每周汇总观看数据', status: 'scheduled', owner: 'agent', priority: 'medium', updatedAt: d(1), startAt: now + 2 * 86400000,
         steps: [], finishedSteps: [], outputs: [], updates: []},
       {id: 'wi_intro', channelId: W, title: '剪第 11 期的片头', status: 'resolved', owner: 'agent', resolution: {kind: 'done', at: d(1)}, priority: 'medium', updatedAt: d(1),
-        outcome: '片头 8 秒，已放进时间线', steps: [], finishedSteps: [], outputs: [{kind: 'video', label: '第 11 期 · 片头', at: d(1)}], updates: [], thread: []},
+        outcome: '片头 8 秒，已放进时间线', steps: [], finishedSteps: [], outputs: [{kind: 'video', label: '第 11 期 · 片头', at: d(1), project: 'p14'}], updates: [], thread: []},
       {id: 'wi_logo', channelId: W, title: '换掉片尾的旧标志', status: 'resolved', owner: 'user', resolution: {kind: 'dismissed', at: d(3)}, priority: 'low', updatedAt: d(3),
         steps: [], finishedSteps: [], outputs: [], updates: []},
       {id: 'wi_sugg', channelId: W, title: '把第 12 期切成 3 条竖版短视频', status: 'suggested', owner: 'agent', priority: 'medium', updatedAt: m(5),
@@ -379,7 +450,7 @@
       {id: 'wi_sugg2', channelId: W, title: '给第 11 期补英文字幕', status: 'suggested', owner: 'agent', priority: 'medium', updatedAt: h(2),
         suggestion: {reason: '第 11 期还没有英文字幕，英文配音频道下周要用', kind: 'subtitles'}, steps: [], finishedSteps: [], outputs: [], updates: []},
       {id: 'wi_clip', channelId: 'chan_weekly', title: '导出第 12 期的预告', status: 'active', owner: 'agent', active: {state: 'needsReview'}, priority: 'medium', updatedAt: m(12),
-        steps: [step('等你看预告', 'active')], finishedSteps: [], outputs: [{kind: 'video', label: '第 12 期 · 预告 30 秒', at: m(12)}], updates: [], thread: []},
+        steps: [step('等你看预告', 'active')], finishedSteps: [], outputs: [{kind: 'video', label: '第 12 期 · 预告 30 秒', at: m(12), project: 'p11'}], updates: [], thread: []},
       {id: 'wi_short', channelId: 'chan_shorts', title: '从访谈里切 5 条短视频', status: 'active', owner: 'agent', active: {state: 'working'}, priority: 'medium', updatedAt: h(3),
         steps: [step('找出 5 个高光片段', 'active')], finishedSteps: [], outputs: [], updates: [], thread: []},
     ];
@@ -403,12 +474,13 @@
       chan_dub: [],
       chan_old: [],
     };
-    return {channels, groups, items, timelines};
+    return {channels, groups, items, timelines, memories: {...DEMO_MEMORIES}};
   }
 
   const root = typeof window !== 'undefined' ? window : globalThis;
   root.BC_BOT = {STATUS, RELAY, QUICK_LABEL, NEW_TASK_DEFAULTS, statusKey, statusOf, needsUser, nextLine, channelSummaries, needsYouTotal,
     CHANNEL_STATUS, CHANNEL_STATUS_LABEL, matchesStatus, channelTree, CHANNEL_ICONS, CHANNEL_ICON_LABEL, CHANNEL_COLORS, CHANNEL_COLOR_LABEL, DEFAULT_CHANNEL_ICON,
     defaultChannelColor, channelLook, NAME_MAX, nameError, archiveImpact, deleteImpact, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, defaultTab, quickActions, applyAction, newTask, openChips,
-    OUTPUT_KIND, SUGGESTION_KIND, MAKE_TEMPLATES, makeGallery, taskFromTemplate, demo};
+    OUTPUT_KIND, SUGGESTION_KIND, MAKE_TEMPLATES, makeGallery, taskFromTemplate, CHANNEL_SETTINGS, MAX_CONCURRENT, channelSettings,
+    MEMORY_LIMIT, memoryUsage, SIDE_MIN, CENTER_MIN, sideDefault, sideWidth, demo};
 })();

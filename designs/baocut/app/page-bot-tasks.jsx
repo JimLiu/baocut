@@ -144,8 +144,9 @@
    * 任务详情（BOT-TK-06、需求 §11.6）：右侧窄栏或占满主区（wide）。改方向、撤销与删除记录的对话框原型里不画。
    * 头部一行：返回（`onBack`，回到任务列表或频道）、状态、标题与一行「状态 · 下一步 · N 条进展」、展开、⋯，
    * 有 `onHide` 时最后是关闭（收起右栏）。收件箱里只有关闭。
+   * 「产物」的每一行与线程消息下的产物卡按下都交给 `onOpenOutput(下标)`：在右栏推开那个产物（page-bot-side.jsx）。
    */
-  function BotTaskDetail({id, wide, onToggleWide, onBack, onHide}) {
+  function BotTaskDetail({id, wide, onToggleWide, onBack, onHide, onOpenOutput}) {
     const app = useApp();
     const R = window.RSP;
     const bot = window.useBot();
@@ -190,10 +191,9 @@
         </section> : null}
         {item.steps.length ? <BotBlock label="步骤"><ol className="bot-detail__items">{item.steps.map((s, n) => <li key={n} className={cx(s.state === 'active' && 'is-active')}>{s.text}</li>)}</ol></BotBlock> : null}
         {item.finishedSteps.length ? <BotBlock label="已完成的步骤"><ul className="bot-detail__items">{item.finishedSteps.map((s, n) => <li key={n}>{s.result ? `${s.text} — ${s.result}` : s.text}</li>)}</ul></BotBlock> : null}
-        {item.outputs.length ? <BotBlock label="产物"><ul className="bot-detail__items">{item.outputs.map((o, n) => {
-          const Icon = R.Icons[(B.OUTPUT_KIND[o.kind] || B.OUTPUT_KIND.doc).icon];
-          return <li key={n} className="bot-detail__output"><Icon /><span>{o.label}</span></li>;
-        })}</ul></BotBlock> : null}
+        {item.outputs.length ? <BotBlock label="产物"><ul className="bot-detail__items">{item.outputs.map((o, n) => <li key={n} className="bot-detail__output">
+          <window.BotOutputLink output={o} onOpen={() => onOpenOutput(n)} />
+        </li>)}</ul></BotBlock> : null}
         {item.updates.length ? <BotBlock label="进展"><ul className="bot-detail__items">{[...item.updates].reverse().map((u, n) => <li key={n} className="bot-detail__update">
           <span>{u.text}</span><span className="bot-detail__muted">{`${u.by === 'agent' ? '智能体' : '你'} · ${window.BC_AGENT.agoLabel((Date.now() - u.at) / 60000)}`}</span>
         </li>)}</ul></BotBlock> : null}
@@ -201,7 +201,10 @@
       <div className="bot-detail__thread">
         {item.owner === 'agent' ? <>
           <div className="bot-timeline bc-scroll"><div className="bot-timeline__list">
-            {thread.length ? thread.map((m, n) => <window.BotMessage key={n} m={m} />) : <p className="bot-empty bot-empty--center">对话</p>}
+            {thread.length ? thread.map((m, n) => <window.BotMessage key={n} m={m}>
+              {m.outputs && m.outputs.length ? <div className="bot-msg__outputs">{m.outputs.filter(k => item.outputs[k]).map(k =>
+                <window.BotOutputLink key={k} card output={item.outputs[k]} onOpen={() => onOpenOutput(k)} />)}</div> : null}
+            </window.BotMessage>) : <p className="bot-empty bot-empty--center">对话</p>}
           </div></div>
           <window.BotComposer placeholder={placeholder} onSend={t => window.BOT_ACTIONS.reply(item.id, t)}
             above={<window.BotChips chips={thread.length && thread[thread.length - 1].role === 'assistant' ? thread[thread.length - 1].chips : null}

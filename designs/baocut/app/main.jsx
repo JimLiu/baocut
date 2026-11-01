@@ -29,7 +29,7 @@
       : r.r === 'agent'  ? <window.AgentPage id={r.id} dir={r.dir} />
       : r.r === 'archived' ? <window.ArchivedSessionsPage key={r.id || 'all'} focus={r.id} />
       /* Bot 模式（docs/design/bot-mode 需求 §11.1）：频道侧栏由 Shell 放，这里是对话与右栏 */
-      : r.r === 'bot' ? <window.BotPage id={r.id} task={r.task} view={r.view} />
+      : r.r === 'bot' ? <window.BotPage id={r.id} task={r.task} view={r.view} out={r.out} />
       /* 2026-09-17：远端算力从「工具」搬到「服务」（§17.6）；`remote` 与 `tools/remote` 两种旧链接都落到服务页 */
       : window.BC_SERVICES.resolve(r) ? <window.ServicesPage key={window.BC_SERVICES.resolve(r)} id={window.BC_SERVICES.resolve(r)} tab={r.tab} />
       : r.r === 'tools'  ? <window.ToolsPage key={r.id || 'gallery'} id={r.id} />
