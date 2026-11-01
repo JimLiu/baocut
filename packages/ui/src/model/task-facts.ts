@@ -10,7 +10,7 @@ import {
 } from '@baocut/protocol';
 import { TASK_VIEW_COPY } from '../copy.ts';
 import type { ModelCategory, ModelPage } from './settings-nav.ts';
-import { runsOnLabel, type TaskRow } from './task-list.ts';
+import { jobRunsOnLabel, type TaskRow } from './task-list.ts';
 import { agoLabel, formatClock } from './format.ts';
 import { zhHans } from './task-facts.zh-Hans.ts';
 import { zhHant } from './task-facts.zh-Hant.ts';
@@ -122,7 +122,7 @@ export function taskFacts(row: TaskRow, source: { job?: JobRecord; task?: TaskSu
   add(F.status, factStatus(row));
   add(F.startedAt, agoLabel(row.startedAt, now));
   if (job) {
-    add(F.runsOn, runsOnLabel(job.providerId));
+    add(F.runsOn, jobRunsOnLabel(job));
     if (job.generation?.capability === 'synthesizeSpeech') add(F.language, job.generation.language);
     if (row.phase) add(F.phase, row.phase);
     if (job.generation?.capability === 'generateImage') {

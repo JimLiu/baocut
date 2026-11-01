@@ -34,6 +34,11 @@ describe('taskFacts', () => {
     ]);
   });
 
+  it('本机工具跑的流程（ffmpeg 转码）跑在本机，不念云端', () => {
+    const record = job({ jobId: 'tc', kind: 'pipeline', providerId: 'ffmpeg', modelId: '7.1', videoId: null });
+    expect(taskFacts(jobRow(record, ctx), { job: record }, NOW)).toContainEqual(['跑在', '本机']);
+  });
+
   it('排队的 Job 不写用时；生图写图片张数；配音写语言', () => {
     const queued = job({ jobId: 'q', state: 'queued', phase: 'queued', startedAt: null, submitter: { kind: 'system', id: 'runtime' } });
     const facts = taskFacts(jobRow(queued, ctx), { job: queued }, NOW);

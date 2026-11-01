@@ -11,6 +11,8 @@ import {
   historyView,
   jobPercent,
   jobRow,
+  jobRunsOnLabel,
+  liveJobRowCount,
   runsOnLabel,
   taskGroups,
   taskRows,
@@ -223,6 +225,46 @@ describe('jobRow', () => {
     expect(jobRow(job({ jobId: 'f1', kind: 'fontDownload', providerId: 'google-fonts', modelId: 'Inter' }), ctx).where).toBe(
       'Inter · 本机',
     );
+  });
+
+  it('用本机工具执行的流程（转码、超分、去水印）在本机跑：providerId 是工具名，不念「云端」', () => {
+    const pipeline = (name: string) => ({ name, params: {}, steps: [], current: 0, stoppedAt: null, summary: null });
+    const transcode = job({
+      jobId: 'tc',
+      kind: 'pipeline',
+      providerId: 'ffmpeg',
+      modelId: '7.1',
+      videoId: null,
+      pipeline: pipeline('transcode'),
+    });
+    expect(jobRow(transcode, ctx).where).toBe('ffmpeg 7.1 · 本机');
+    const upscale = job({
+      jobId: 'up',
+      kind: 'pipeline',
+      providerId: 'realesrgan-ncnn-vulkan',
+      modelId: 'realesrgan-x4plus@0.2.0',
+      videoId: null,
+      pipeline: pipeline('upscale-image'),
+    });
+    expect(jobRow(upscale, ctx).where).toBe('realesrgan-ncnn-vulkan realesrgan-x4plus@0.2.0 · 本机');
+    expect(jobRunsOnLabel(transcode)).toBe('本机');
+    expect(jobRunsOnLabel(job({ jobId: 'img', kind: 'generateImage', providerId: 'openai' }))).toBe('云端');
+  });
+});
+
+describe('liveJobRowCount', () => {
+  it('与任务表同一种数法：流程的步骤不另算，在跑的流程与它的转录算一行，结束的不算', () => {
+    const jobs = [
+      job({ jobId: 'parent', kind: 'pipeline' }),
+      job({ jobId: 'step', kind: 'pipeline-step', parentJobId: 'parent' }),
+      job({ jobId: 'asr', kind: 'transcribe', submitter: { kind: 'pipeline', id: 'parent' } }),
+      job({ jobId: 'tc', kind: 'pipeline', providerId: 'ffmpeg' }),
+      job({ jobId: 'tc-step', kind: 'pipeline-step', parentJobId: 'tc' }),
+      job({ jobId: 'exp', kind: 'export', state: 'queued' }),
+      job({ jobId: 'old', kind: 'export', state: 'completed', endedAt: '2026-10-01T09:05:00Z' }),
+    ];
+    expect(liveJobRowCount(jobs)).toBe(3);
+    expect(liveJobRowCount(jobs)).toBe(taskRows([], jobs, ctx).filter((r) => r.live).length);
   });
 });
 

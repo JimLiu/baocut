@@ -13,10 +13,10 @@ import { S } from './shell-copy.ts';
 import { useShell, railTabOf, type Tab } from '../state/shell-store.ts';
 import { useNeedsYouTotal } from '../state/channels-store.ts';
 import { BOT_COPY } from './bot/bot-copy.ts';
-import { isJobLive, useJobs } from '../state/jobs-store.ts';
+import { useJobs } from '../state/jobs-store.ts';
 import { useLegacyImport } from '../state/legacy-import-store.ts';
 import { isLive, useTasks } from '../state/tasks-store.ts';
-import { listedTasks } from '../model/task-list.ts';
+import { listedTasks, liveJobRowCount } from '../model/task-list.ts';
 import { UpdateRailButton } from './app-update/update-rail-button.tsx';
 import { useShellPeekControls } from './shell-peek.tsx';
 import { useServicesAlert } from './services/use-share-status.ts';
@@ -102,14 +102,12 @@ const alertDot = style({
 export function Rail() {
   const route = useShell((s) => s.route);
   const goTab = useShell((s) => s.goTab);
-  // 在跑的后台任务：进任务表的 Agent 任务（只检索、问答的不算，产品设计 §6.1）、Job，和正在导入旧版项目的那一轮。
+  // 在跑的后台任务：进任务表的 Agent 任务（只检索、问答的不算，产品设计 §6.1）、Job（按任务表的行数，流程的步骤不另算），
+  // 和正在导入旧版项目的那一轮。
   const tasks = useTasks((s) => s.tasks);
   const jobs = useJobs((s) => s.jobs);
   const legacy = useLegacyImport((s) => (s.run && s.run.state !== 'finished' ? 1 : 0));
-  const running = useMemo(
-    () => listedTasks(tasks, jobs).filter(isLive).length + jobs.filter(isJobLive).length + legacy,
-    [tasks, jobs, legacy],
-  );
+  const running = useMemo(() => listedTasks(tasks, jobs).filter(isLive).length + liveJobRowCount(jobs) + legacy, [tasks, jobs, legacy]);
   // 只有服务出错才亮（原型：每项服务各自的灯在服务页里）；顺带在连上 Runtime 时读一次共享状态。
   const servicesAlert = useServicesAlert();
   // Bot 的徽标：全部频道里「待你审阅 + 需要你输入」的任务数（含静音频道，需求 §11.1）。

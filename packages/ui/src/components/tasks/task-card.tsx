@@ -134,7 +134,8 @@ const card = style({
   borderColor: 'gray-200',
   backgroundColor: 'gray-50',
 });
-const body = style({ flexGrow: 1, flexShrink: 1, minWidth: 0 });
+/** 宽度只取按钮之后剩下的（`flexBasis: 0`）：「在哪」一行再长也只在这里省略，不把右边的按钮挤成「详…」。 */
+const body = style({ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 });
 const head = style({ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 });
 const title = style({
   font: 'ui',

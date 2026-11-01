@@ -1,4 +1,14 @@
-import { live, localizeText, type Conversation, type Id, type JobKind, type JobRecord, type Project, type TaskSummary } from '@baocut/protocol';
+import {
+  live,
+  localizeText,
+  UPSCALE_IMAGE_MODEL_SPECS,
+  type Conversation,
+  type Id,
+  type JobKind,
+  type JobRecord,
+  type Project,
+  type TaskSummary,
+} from '@baocut/protocol';
 import { JOB_PHASE_LABEL, TASK_KIND_LABEL, TASK_STATUS_LABEL, TASK_VIEW_COPY, VIDEO_CARD_COPY } from '../copy.ts';
 import { exportPhaseLabel, exportTitle } from './export-job.ts';
 import { shortenPath } from './format.ts';
@@ -163,15 +173,31 @@ function jobTitle(job: JobRecord, video: OpenVideoFacts | null): string {
   return kindLabel(job.kind);
 }
 
+/** 流程用本机工具执行时记成 `providerId` 的工具名：ffmpeg（转码、lanczos 放大、去水印）与超分工具。 */
+const LOCAL_TOOL_PROVIDERS = new Set(['ffmpeg', ...Object.values(UPSCALE_IMAGE_MODEL_SPECS).flatMap((spec) => (spec.tool ? [spec.tool] : []))]);
+
 /**
- * 这几种 Job 的 `providerId` 不是模型服务商，而是工具或来源的名字（yt-dlp、google-fonts），`modelId` 是工具版本或字体族；
+ * 这几种 Job 的 `providerId` 不是模型服务商，而是工具或来源的名字（yt-dlp、google-fonts、ffmpeg），`modelId` 是工具版本或字体族；
  * 它们都在本机跑，不能按 `runsOnLabel` 落到「云端」。
  */
+function runsOnLocalTool(job: JobRecord): boolean {
+  return (
+    isLinkImport(job) ||
+    job.kind === 'toolInstall' ||
+    job.kind === 'toolUpdate' ||
+    job.kind === 'fontDownload' ||
+    LOCAL_TOOL_PROVIDERS.has(job.providerId)
+  );
+}
+
+/** Job 跑在哪（任务详情的「跑在」）：本机工具的任务是本机，别的按 `providerId`。 */
+export function jobRunsOnLabel(job: JobRecord): string {
+  return runsOnLocalTool(job) ? TASK_VIEW_COPY.local : runsOnLabel(job.providerId);
+}
+
 function localToolWhere(job: JobRecord): string | null {
-  if (isLinkImport(job) || job.kind === 'toolInstall' || job.kind === 'toolUpdate') {
-    return [[job.providerId, job.modelId].filter(Boolean).join(' '), TASK_VIEW_COPY.local].join(' · ');
-  }
   if (job.kind === 'fontDownload') return [job.modelId, TASK_VIEW_COPY.local].filter(Boolean).join(' · ');
+  if (runsOnLocalTool(job)) return [[job.providerId, job.modelId].filter(Boolean).join(' '), TASK_VIEW_COPY.local].join(' · ');
   return null;
 }
 
@@ -372,6 +398,16 @@ export function taskRows(
     });
   const rows = [...listedTasks(tasks, jobs).map((t) => agentRow(t, ctx)), ...jobRows.filter((r) => !folded.has(r.id))];
   return rows.sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+}
+
+/**
+ * 还没结束的 Job 在任务表里占几行（Rail 的运行数量）：与 `taskRows` 同一种数法——流程的步骤（`parentJobId`）不单列，
+ * 在跑的流程与它正在做的转录合成一行。
+ */
+export function liveJobRowCount(jobs: readonly JobRecord[]): number {
+  const unfinished = jobs.filter((j) => !j.parentJobId && jobLive(j));
+  const folded = new Set(unfinished.flatMap((j) => (j.kind === 'pipeline' ? [livePipelineTranscribe(j, jobs)?.jobId] : [])));
+  return unfinished.filter((j) => !folded.has(j.jobId)).length;
 }
 
 /** 两组：进行中（在跑、排队、正在停止）与历史，各自保持表里的顺序。 */
