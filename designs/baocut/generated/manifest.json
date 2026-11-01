@@ -173,6 +173,7 @@
       "app/model-space-search.js",
       "app/model-space-index.js",
       "app/model-task-outputs.js",
+      "app/model-bot.js",
       "app/model-app-ia.js",
       "app/model-agent-stream.js",
       "app/model-agent-tools.js",
@@ -305,6 +306,9 @@
       "app/agent-schedule.jsx",
       "app/agent-thread.jsx",
       "app/page-agent.jsx",
+      "app/page-bot.jsx",
+      "app/page-bot-channel.jsx",
+      "app/page-bot-tasks.jsx",
       "app/apprail.jsx",
       "app/home-sidebar.jsx",
       "app/page-archived.jsx",
@@ -491,6 +495,7 @@
       "app/new-project.css",
       "app/home-templates.css",
       "app/page-archived.css",
+      "app/page-bot.css",
       "app/services.css",
       "app/tools.css",
       "app/image-gen.css",
@@ -528,9 +533,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/app.js?v=7ecfc83089da",
-    "css": "generated/app.css?v=7d750eff798a",
-    "bytes": 5058153
+    "js": "generated/app.js?v=6f33f0f4c852",
+    "css": "generated/app.css?v=d367dc1ffc6b",
+    "bytes": 5101712
   },
   "web": {
     "file": "BaoCutWeb.html",
@@ -801,9 +806,9 @@
       "app/subtitle-active.css",
       "app/subtitle-library.css"
     ],
-    "js": "generated/web.js?v=7d8b45f0668a",
+    "js": "generated/web.js?v=a3119ebe6b9e",
     "css": "generated/web.css?v=14d3b5850ab6",
-    "bytes": 2893399
+    "bytes": 2893480
   },
   "components": {
     "file": "Components.html",

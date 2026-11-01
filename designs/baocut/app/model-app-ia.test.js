@@ -6,11 +6,11 @@ require('./model-app-ia.js');
 const IA = global.window.BC_APP_IA;
 
 test('rail 分层且每个入口只出现一次，所有根路由仍可往返', () => {
-  assert.deepEqual(IA.TABS.map(t => t.k), ['home', 'space', 'skills', 'tools']);
+  assert.deepEqual(IA.TABS.map(t => t.k), ['home', 'bot', 'space', 'skills', 'tools']);
   assert.deepEqual(IA.SECONDARY.map(t => t.k), ['services', 'tasks']);
   assert.deepEqual(IA.END.map(t => t.k), ['settings']);
   const tabs = IA.SECTIONS.flatMap(s => s.items);
-  assert.equal(new Set(tabs.map(t => t.k)).size, 7);
+  assert.equal(new Set(tabs.map(t => t.k)).size, 8);
   tabs.forEach(t => {
     assert.equal(IA.tabOf(t.root), t.k);
     assert.deepEqual(IA.routeFromHref(IA.hrefFor(t.root)), t.root);
@@ -28,6 +28,7 @@ test('路由归哪一格：工具 / 服务各亮自己那格；打开的视频�
     [{r: 'settings', sec: 'agent'}, 'settings'], [{r: 'skill'}, 'skills'],
     [{r: 'skills'}, 'skills'], [{r: 'skills', id: 'caption-layout', tab: 'files'}, 'skills'], [{r: 'settings', sec: 'skills'}, 'skills'],
     [{r: 'editor', id: 'p1'}, 'home'], [{r: 'editor', id: 'p1', via: 'home'}, 'home'], [{r: 'editor', id: 'p1', via: 'space'}, 'space'],
+    [{r: 'bot'}, 'bot'], [{r: 'bot', id: 'chan_main', task: 'wi_cut'}, 'bot'], [{r: 'bot', view: 'inbox'}, 'bot'],
   ];
   cases.forEach(([r, t]) => assert.equal(IA.tabOf(r), t, JSON.stringify(r)));
 });
@@ -39,6 +40,7 @@ test('页面侧栏：入口及其子页保留对应目录；视频保留入口�
   assert.equal(IA.sideOf({r: 'archived'}), 'home');
   assert.equal(IA.tabOf({r: 'archived'}), 'home');
   assert.equal(IA.sideOf({r: 'projects'}), 'space');
+  assert.equal(IA.sideOf({r: 'bot', id: 'chan_main'}), 'bot');
   assert.equal(IA.sideOf({r: 'projects', sec: 'final'}), 'space');
   assert.equal(IA.sideOf({r: 'editor', id: 'p1', via: 'space'}), 'space');
   assert.equal(IA.sideOf({r: 'editor', id: 'p1', via: 'home'}), 'home');

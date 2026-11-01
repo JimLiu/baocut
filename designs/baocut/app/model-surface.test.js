@@ -119,6 +119,8 @@ const WEB_DENY = [
   /^app\/model-legacy-import/, /^app\/legacy-import/,
   /* 首次启动引导（2026-10-16）：只在 App 第一次启动弹；浏览器里不能安装本地模型 */
   /^app\/model-onboarding/, /^app\/onboarding/,
+  /* Bot 模式（docs/design/bot-mode 需求 §11）：频道、任务与演示数据只在 App；视图是 page-bot*，已在 /^app\/page-/ 里 */
+  /^app\/model-bot/,
 ];
 
 test('Web 入口：共享模块与 App 同名同缓存串', () => {

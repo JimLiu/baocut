@@ -243,7 +243,7 @@
       return () => window.removeEventListener('resize', sync);
     }, [kind]);
     if (!kind || !app.sidebar.ghost || !box) return null;
-    const Side = kind === 'home' ? window.HomeSidebar : kind === 'space' ? window.SpaceSidebar : window.UtilitySidebar;
+    const Side = kind === 'home' ? window.HomeSidebar : kind === 'space' ? window.SpaceSidebar : kind === 'bot' ? window.BotSidebar : window.UtilitySidebar;
     const current = kind === IA.sideOf(app.route);
     const route = current ? app.route : IA.railTarget(app.nav, kind) || app.route;
     const closing = fn => (...args) => { state.closePeek(); return fn?.(...args); };

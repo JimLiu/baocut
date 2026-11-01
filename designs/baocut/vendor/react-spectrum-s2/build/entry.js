@@ -235,6 +235,10 @@ import I_MenuHamburger from '@react-spectrum/s2/icons/MenuHamburger';
 import I_UserGroup from '@react-spectrum/s2/icons/UserGroup';
 import I_VisibilityOff from '@react-spectrum/s2/icons/VisibilityOff';
 import I_StickyNote from '@react-spectrum/s2/icons/StickyNote';
+// Bot page (app/page-bot*.jsx): task status icons and the channel header's recurring-task button.
+import I_Circle from '@react-spectrum/s2/icons/Circle';
+import I_RemoveCircle from '@react-spectrum/s2/icons/RemoveCircle';
+import I_CalendarAdd from '@react-spectrum/s2/icons/CalendarAdd';
 export const Icons = {
   Home: I_Home,
   Folder: I_Folder,
@@ -373,4 +377,7 @@ export const Icons = {
   UserGroup: I_UserGroup,
   VisibilityOff: I_VisibilityOff,
   StickyNote: I_StickyNote,
+  Circle: I_Circle,
+  RemoveCircle: I_RemoveCircle,
+  CalendarAdd: I_CalendarAdd,
 };

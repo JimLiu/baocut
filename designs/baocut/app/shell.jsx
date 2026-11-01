@@ -416,7 +416,7 @@
        打开视频仍保留入口侧栏；视频栏与可选会话只属于内容区（本轮调整 §2.2 / §5.1）。 */
     const pageSide = SURF.appRail ? window.BC_APP_IA.sideOf(app.route) : null;
     const side = SURF.appRail ? (!!pageSide && (!sidebar.ghost || !!sideForce)) : SURF.videoList && (!sidebar.ghost || !!sideForce);
-    const PageSide = !SURF.appRail ? null : pageSide === 'space' ? window.SpaceSidebar : pageSide === 'home' ? window.HomeSidebar : window.UtilitySidebar;
+    const PageSide = !SURF.appRail ? null : pageSide === 'space' ? window.SpaceSidebar : pageSide === 'home' ? window.HomeSidebar : pageSide === 'bot' ? window.BotSidebar : window.UtilitySidebar;
     /* 帮助中心的开合只活在外壳里；经 app 上下文给下面的页面一个 openHelp（设置左栏的「帮助」行用它，
        2026-10-01），不逐层传 prop。没有帮助中心的表面（Web）是 null。 */
     /* 侧栏浮出（App 专属，home-shell-chrome.jsx）：rail 与标题栏开关经上下文拿 peekSidebar / leaveSidebar */

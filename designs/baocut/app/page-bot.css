@@ -1,0 +1,120 @@
+/* Bot 页（docs/design/bot-mode/bot-mode-requirements.md §11）。类名前缀 `bot`，只在 App 入口加载。
+   sheet 内的竖向、横向分隔都是一根 2px gray-100（AGENTS.md「外壳的边界只画一次」）。 */
+
+/* ---------- 布局 ---------- */
+.bot { position: relative; display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.bot__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.bot__side { display: flex; flex-direction: column; flex: none; width: 340px; max-width: 100%; min-height: 0; box-sizing: border-box;
+  border-inline-start: 2px solid var(--gray-100); background: var(--gray-25); }
+.bot__side--detail { width: 420px; }
+.bot__side--overlay { position: absolute; top: 0; bottom: 0; right: 0; z-index: 2; box-shadow: var(--sh-pop); }
+.bot-grow { flex: 1 1 auto; }
+.bot-missing { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; flex: 1 1 auto; font-size: 14px; color: var(--gray-700); }
+.bot-empty { margin: 16px 8px; font-size: 14px; line-height: 20px; color: var(--gray-600); }
+.bot-empty--center { max-width: 420px; margin: auto; padding: 24px; text-align: center; }
+
+/* ---------- 状态图标 ---------- */
+.bot-status { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 16px; height: 16px; }
+.bot-status svg { width: 16px; height: 16px; }
+.bot-status--neutral { color: var(--gray-700); }
+.bot-status--attention { color: var(--orange-900); }
+.bot-status--negative { color: var(--red-900); }
+.bot-status--positive { color: var(--green-900); }
+.bot-status-label { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 12px; white-space: nowrap; }
+
+/* ---------- 频道侧栏 ---------- */
+.bot-nav__line { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+.bot-nav__title { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-nav__title.is-unread { font-weight: 700; }
+.bot-nav__tail { display: flex; align-items: center; gap: 4px; flex: none; color: var(--gray-600); }
+.bot-nav__tail svg { width: 16px; height: 16px; }
+.bot-nav__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-900); }
+.bot-nav__section { display: flex; align-items: center; gap: 4px; }
+
+/* ---------- 频道对话 ---------- */
+.bot-channel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.bot-channel__head { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; padding: 12px 24px; border-bottom: 2px solid var(--gray-100); }
+.bot-channel__text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.bot-channel__name { margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-channel__purpose { font-size: 12px; line-height: 16px; color: var(--gray-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-channel__purpose.is-empty { color: var(--gray-500); }
+
+.bot-timeline { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.bot-timeline__list { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 760px; margin: 0 auto; padding: 20px 24px 12px; box-sizing: border-box; }
+.bot-msg.amsg--user { flex-direction: column; align-items: flex-end; }
+
+.bot-card { display: flex; align-items: flex-start; gap: 12px; min-width: 0; margin-inline-start: 36px; padding: 8px 12px;
+  border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); }
+.bot-card > .bot-status { margin-top: 2px; }
+.bot-card__body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.bot-card__title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bot-card__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; color: var(--gray-900); }
+.bot-card__title.is-struck { text-decoration: line-through; color: var(--gray-600); }
+.bot-card__next { font-size: 12px; line-height: 16px; color: var(--gray-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-card__actions { display: flex; align-items: center; gap: 4px; flex: none; }
+
+.bot-relay { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bot-relay__head { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 12px; color: var(--gray-600); }
+.bot-relay__summary { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-relay__details { display: flex; flex-direction: column; gap: 8px; margin-inline-start: 28px; padding-inline-start: 12px; border-inline-start: 2px solid var(--gray-200); }
+.bot-relay__text { margin: 0; font-size: 12px; line-height: 18px; color: var(--gray-800); white-space: pre-wrap; overflow-wrap: anywhere; }
+.bot-relay__cited { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--gray-700); }
+.bot-relay__cited-head { font-weight: 500; }
+
+.bot-composer { flex: none; display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 760px; margin: 0 auto; padding: 0 24px 16px; box-sizing: border-box; }
+.bot-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.bot-reply { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 0 4px; font-size: 12px; color: var(--gray-700); }
+.bot-reply__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 任务面板 ---------- */
+.bot-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.bot-panel__head { display: flex; align-items: center; gap: 4px; flex: none; padding: 12px 16px 8px; }
+.bot-panel__title { flex: 1 1 auto; margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: var(--gray-900); }
+.bot-panel__filter { flex: none; padding: 0 16px 8px; }
+.bot-panel__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 8px 16px; }
+.bot-section { margin-top: 12px; }
+.bot-section__title { margin: 4px 8px; font-size: 12px; font-weight: 700; color: var(--gray-700); }
+.bot-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.bot-row { display: flex; align-items: flex-start; gap: 4px; border-radius: 8px; }
+.bot-row:hover { background: var(--gray-75); }
+.bot-row.is-selected { background: var(--gray-100); }
+.bot-row__main { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 auto; min-width: 0; padding: 4px 8px; border: 0; border-radius: 8px;
+  background: transparent; text-align: start; font: inherit; font-size: 14px; color: var(--gray-900); cursor: default; }
+.bot-row__main:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.bot-row__main > .bot-status { margin-top: 2px; }
+.bot-row__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.bot-row__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-row__title.is-struck { text-decoration: line-through; color: var(--gray-600); }
+.bot-row__sub { font-size: 11px; line-height: 16px; color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-row__end { display: flex; align-items: center; flex: none; padding: 2px 4px 0 0; }
+.bot-suggestion { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; padding: 8px; border-radius: 8px; background: var(--gray-50); }
+.bot-suggestion__actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 8px; }
+
+/* ---------- 收件箱 ---------- */
+.bot-inbox { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 24px; }
+.bot-inbox__title { margin: 0 8px 8px; font-size: 16px; font-weight: 700; color: var(--gray-900); }
+.bot-inbox__group { max-width: 640px; }
+
+/* ---------- 任务详情 ---------- */
+.bot-detail { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.bot-detail--wide { flex-direction: row; }
+.bot-detail__meta { display: flex; flex-direction: column; gap: 12px; flex: 0 1 auto; max-height: 55%; min-height: 0; overflow-y: auto; padding: 12px 16px; box-sizing: border-box;
+  border-bottom: 2px solid var(--gray-100); }
+.bot-detail--wide .bot-detail__meta { flex: none; width: 360px; max-height: none; border-bottom: 0; border-inline-end: 2px solid var(--gray-100); }
+.bot-detail__thread { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.bot-detail__head { display: flex; align-items: center; gap: 4px; }
+.bot-detail__title { margin: 0; font-size: 18px; font-weight: 700; line-height: 24px; color: var(--gray-900); }
+.bot-detail__title.is-struck { text-decoration: line-through; color: var(--gray-600); }
+.bot-detail__facts { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--gray-700); }
+.bot-detail__text { margin: 0; font-size: 14px; line-height: 20px; color: var(--gray-800); }
+.bot-detail__note { margin: 0; font-size: 12px; line-height: 16px; color: var(--gray-600); }
+.bot-detail__waiting { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: var(--orange-100); }
+.bot-detail__options { display: flex; flex-wrap: wrap; gap: 8px; }
+.bot-detail__block { display: flex; flex-direction: column; gap: 4px; }
+.bot-detail__block-title { margin: 0; font-size: 12px; font-weight: 700; color: var(--gray-700); }
+.bot-detail__items { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-inline-start: 20px; font-size: 14px; line-height: 20px; color: var(--gray-800); }
+.bot-detail__items .is-active { font-weight: 700; }
+.bot-detail__output { display: flex; align-items: center; gap: 8px; margin-inline-start: -20px; list-style: none; }
+.bot-detail__output svg { width: 16px; height: 16px; }
+.bot-detail__update { display: flex; flex-direction: column; margin-inline-start: -20px; list-style: none; }
+.bot-detail__muted { font-size: 11px; color: var(--gray-600); }

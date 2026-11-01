@@ -1,5 +1,5 @@
 /* App rail（2026-10-01，product-design §2.1–§2.2）—— 只在 App 入口加载。
-   上组 Home / Space / 工具，分隔线下方服务 / 后台任务，底部设置（按用户截图调整 §2.1）。
+   上组 Home / Bot / Space / 工具，分隔线下方服务 / 后台任务，底部设置（按用户截图调整 §2.1）。
    宽 56，**只有图标**：名字放进 tooltip（hover 或键盘聚焦时出现），读屏走按钮的 aria-label。
    选中 = 图标左侧一根短指示竖条 + 图标变深（gray-800），没有底色块；hover 才有一块浅圆角底。
 
@@ -37,7 +37,14 @@
        每项服务各自的灯在服务页里（总览标题旁与每一行） */
     const svc = window.BC_SERVICES.summary(app.svcStates);
     const svcErr = !!svc && svc.tone === 'error';
+    /* Bot：全部频道里「待你审阅 + 需要你输入」的任务数（需求 §11.1）；实现里徽标单独可点、打开收件箱，原型只显示数 */
+    const bot = window.useBot ? window.useBot() : null;
+    const waiting = bot ? window.BC_BOT.needsYouTotal(window.BC_BOT.channelSummaries(bot.channels, bot.items)) : 0;
     const extra = {
+      bot: {
+        label: waiting ? `Bot，${waiting} 个任务等你` : 'Bot',
+        badge: waiting ? <span className="apprail__badge"><RSP.NotificationBadge value={waiting} size="S" /></span> : null,
+      },
       tasks: {
         label: running ? `后台任务，${running} 个在跑或排队` : '后台任务',
         badge: running ? <span className="apprail__badge"><RSP.NotificationBadge value={running} size="S" /></span> : null,

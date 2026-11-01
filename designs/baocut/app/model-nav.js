@@ -14,6 +14,8 @@
      `agent` 的 docs 是右侧正在查看的协作文档（Space 条目 id，docs/design/docs §8），dtab 是停在哪个标签页；
      从一条协作文档标注跳回来时 at 是那条标注的元素路径，标签页切到它所在的标签页、找到线程或块后把它去掉。
      `agent` 没有 id、带 dir = 在这个项目（目录）里起一条还没说话的新会话（App，2026-10-01）
+     `bot` 的 id 是频道（没有就是主频道），task 是右侧打开的任务，view 是 'inbox'（等你处理）或 'task'（任务详情占满主区）
+     （docs/design/bot-mode/bot-mode-requirements.md §11.1）
      `tools` 的 id 是工具（'tts' / 'compress' / 'merge'），没有 id 是目录；`services` 的 id 是 'mcp' / 'remote' / 'web'；
      `remote` 与 {r:'tools', id:'remote'} 是旧链接，落到 {r:'services', id:'remote'}（BC_SERVICES.resolve）
      （`skill` 指向 `settings/skills`（2026-09-17 前叫 `integrations`），`sessions` 退役）
@@ -30,7 +32,7 @@
     && (a.slides || null) === (b.slides || null) && (a.slide || null) === (b.slide || null)
     && (a.design || null) === (b.design || null) && (a.board || null) === (b.board || null) && (a.system || null) === (b.system || null)
     && (a.docs || null) === (b.docs || null) && (a.dtab || null) === (b.dtab || null)
-    && (a.at || null) === (b.at || null) && (a.view || null) === (b.view || null)
+    && (a.at || null) === (b.at || null) && (a.view || null) === (b.view || null) && (a.task || null) === (b.task || null)
     && (a.movie || null) === (b.movie || null) && (a.dir || null) === (b.dir || null) && (a.t ?? null) === (b.t ?? null);
 
   const fresh = () => ({stack: [HOME], pos: 0});
@@ -75,7 +77,7 @@
 
   // Hash URLs work on a plain static server, including direct links and refresh.
   const names = {projects: 'space', editor: 'movie', task: 'task'};
-  const routes = new Set(['home', 'agent', 'projects', 'tasks', 'task', 'schedule', 'tools', 'services', 'models', 'settings', 'skills', 'editor', 'archived', 'none']);
+  const routes = new Set(['home', 'agent', 'projects', 'tasks', 'task', 'schedule', 'tools', 'services', 'models', 'settings', 'skills', 'editor', 'archived', 'bot', 'none']);
   // product-design §7.6：模型配置归入设置；旧模型链接保留能力与子页。
   // 2026-10-16：Skills 从设置搬到 rail（Space 下面一格）；旧的 设置 › Skills 与 `skill` 链接落到 Skills 页，
   // 「在终端里使用 BaoCut」那一段带着 tab=external 过去。
@@ -95,7 +97,7 @@
     let url = '#/' + name;
     if (r.id && r.r !== 'projects') url += '/' + encodeURIComponent(r.id);
     if (r.r === 'projects' && r.id) q.set('dir', r.id);
-    for (const key of ['sec', 'tab', 'from', 'via', 'dir', 'movie', 'file', 'web', 'url', 'slides', 'slide', 'design', 'board', 'system', 'docs', 'dtab', 'at', 'view']) {
+    for (const key of ['sec', 'tab', 'from', 'via', 'dir', 'movie', 'file', 'web', 'url', 'slides', 'slide', 'design', 'board', 'system', 'docs', 'dtab', 'at', 'view', 'task']) {
       if (r[key]) q.set(key === 'sec' && r.r === 'projects' ? 'cat' : key, r[key]);
     }
     if (Number.isFinite(r.t) && r.t >= 0) q.set('t', String(r.t));
@@ -117,7 +119,7 @@
       if (!routes.has(name)) return {...HOME};
       const r = {r:name};
       if (parts[1]) r.id = parts[1];
-      for (const key of ['sec', 'tab', 'from', 'via', 'dir', 'movie', 'file', 'web', 'url', 'slides', 'slide', 'design', 'board', 'system', 'docs', 'dtab', 'at', 'view']) if (q.get(key)) r[key] = q.get(key);
+      for (const key of ['sec', 'tab', 'from', 'via', 'dir', 'movie', 'file', 'web', 'url', 'slides', 'slide', 'design', 'board', 'system', 'docs', 'dtab', 'at', 'view', 'task']) if (q.get(key)) r[key] = q.get(key);
       if (name === 'projects') {
         if (q.get('cat')) r.sec = q.get('cat');
         if (q.get('dir')) { r.id = q.get('dir'); delete r.dir; }

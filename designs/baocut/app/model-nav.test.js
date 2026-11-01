@@ -163,3 +163,11 @@ test('定时任务详情页经地址往返；没有 id 时落到后台任务', (
   assert.deepEqual(N.routeFromHref('#/schedule/sc1'), {r: 'schedule', id: 'sc1'});
   assert.deepEqual(N.routeFromHref('#/schedule'), {r: 'tasks'});
 });
+
+test('Bot：频道进路径，打开的任务与收件箱进 query，任务不同算两条历史', () => {
+  assert.equal(N.hrefFor({r: 'bot'}), '#/bot');
+  assert.equal(N.hrefFor({r: 'bot', id: 'chan_main', task: 'wi_cut'}), '#/bot/chan_main?task=wi_cut');
+  assert.deepEqual(N.routeFromHref('#/bot/chan_main?task=wi_cut'), {r: 'bot', id: 'chan_main', task: 'wi_cut'});
+  assert.deepEqual(N.routeFromHref('#/bot?view=inbox'), {r: 'bot', view: 'inbox'});
+  assert.ok(!N.isSame({r: 'bot', id: 'chan_main', task: 'a'}, {r: 'bot', id: 'chan_main', task: 'b'}));
+});
