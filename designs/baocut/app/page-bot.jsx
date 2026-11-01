@@ -301,6 +301,17 @@
     useEffect(() => { if (current !== book) { tabBook = current; setBook(current); } }, [current, book]);
     const tabs = current[bookKey] || {tabs: [], active: null};
     const active = tabs.tabs.find(t => t.key === tabs.active) || null;
+    // 宽窄切换照 Home（model-home-workspace.js 的 narrowShowsConversation）：变窄时焦点在中间栏或右栏本来收着就选中间栏的页签，
+    // 否则右栏选着的页签留着；变宽时窄里开着的右栏跟过去。第一次量到宽时只记下来，窄的窗口打开时右栏默认收起
+    const wasNarrow = useRef(null);
+    useEffect(() => {
+      if (!mainWidth) return;
+      const before = wasNarrow.current;
+      wasNarrow.current = narrow;
+      if (before == null || before === narrow) return;
+      if (narrow) setNarrowShown(!window.BC_HOME_WORKSPACE.narrowShowsConversation(!!document.activeElement?.closest?.('.bot__main'), !wideHidden));
+      else if (narrowShown) setWideHidden(false);
+    }, [narrow, mainWidth > 0]);
     const panelShown = narrow ? narrowShown : !wideHidden;
     const setShown = shown => (narrow ? setNarrowShown(shown) : setWideHidden(!shown));
     const full = !narrow && !!fullBook[bookKey];
