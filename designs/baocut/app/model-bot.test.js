@@ -100,3 +100,38 @@ test('提示芯片只跟最后一条消息走：之后用户说了话就收起',
   assert.deepEqual(B.openChips([{kind: 'message', role: 'assistant', text: 'x', chips}, {kind: 'work-item-ref', workItemId: 'a'}]), chips);
   assert.equal(B.openChips([{kind: 'message', role: 'assistant', text: 'x', chips}, {kind: 'message', role: 'user', text: 'y'}]), null);
 });
+
+test('Make 面板：建议每个频道取前 3 条；产物分今天与更早，跟着范围走、不含归档频道', () => {
+  const out = (kind, at) => ({kind, label: kind, at});
+  const items = [
+    ...[1, 2, 3, 4].map(n => item('s' + n, {status: 'suggested', updatedAt: NOW - n})),
+    item('o', {channelId: 'other', status: 'suggested'}),
+    item('a', {status: 'active', outputs: [out('video', NOW - 60000), out('doc', NOW - 2 * 86400000)]}),
+    item('b', {channelId: 'other', status: 'resolved', outputs: [out('image', NOW - 1000)]}),
+    item('c', {channelId: 'old', status: 'resolved', outputs: [out('video', NOW - 1000)]}),
+    item('d', {status: 'resolved', updatedAt: NOW - 3 * 86400000, outputs: [{kind: 'subtitle', label: '没写时间'}]}),
+  ];
+  const mine = B.makeGallery(items, 'c', 'channel', NOW, ['old']);
+  assert.deepEqual(mine.suggestions.map(i => i.id), ['s1', 's2', 's3']);
+  assert.deepEqual(mine.today.map(o => o.kind), ['video']);
+  assert.deepEqual(mine.earlier.map(o => [o.kind, o.item.id]), [['doc', 'a'], ['subtitle', 'd']]);
+  const all = B.makeGallery(items, 'c', 'all', NOW, ['old']);
+  assert.deepEqual(all.suggestions.map(i => i.id).sort(), ['o', 's1', 's2', 's3']);
+  assert.deepEqual(all.today.map(o => o.item.id), ['b', 'a']);
+  Object.keys(B.OUTPUT_KIND).forEach(k => assert.ok(B.OUTPUT_KIND[k].icon && B.OUTPUT_KIND[k].label, k));
+});
+
+test('Make 模板：下一次在未来，建出来的是交给智能体的定时任务', () => {
+  B.MAKE_TEMPLATES.forEach(t => {
+    const next = t.next(NOW);
+    assert.ok(next > NOW && next - NOW <= 32 * 86400000, t.id);
+    const task = B.taskFromTemplate({id: 'x', channelId: 'c', template: t}, NOW);
+    assert.equal(task.status, 'scheduled');
+    assert.equal(task.owner, 'agent');
+    assert.equal(task.startAt, next);
+    assert.equal(B.tabOf(task), 'scheduled');
+  });
+  const monday = B.MAKE_TEMPLATES.find(t => t.id === 'transcribe').next(NOW);
+  assert.equal(new Date(monday).getDay(), 1);
+  assert.equal(new Date(monday).getHours(), 9);
+});

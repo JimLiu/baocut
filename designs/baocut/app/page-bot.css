@@ -7,6 +7,7 @@
 .bot__side { display: flex; flex-direction: column; flex: none; width: 340px; max-width: 100%; min-height: 0; box-sizing: border-box;
   border-inline-start: 2px solid var(--gray-100); background: var(--gray-25); }
 .bot__side--detail { width: 420px; }
+.bot__side--make { width: 380px; }
 .bot__side--overlay { position: absolute; top: 0; bottom: 0; right: 0; z-index: 2; box-shadow: var(--sh-pop); }
 .bot-grow { flex: 1 1 auto; }
 .bot-missing { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; flex: 1 1 auto; font-size: 14px; color: var(--gray-700); }
@@ -34,6 +35,14 @@
 .bot-nav__tail svg { width: 16px; height: 16px; }
 .bot-nav__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-900); }
 .bot-nav__section { display: flex; align-items: center; gap: 4px; }
+/* 综合下面的频道（需求 §11.2 截图修订）：内容缩进 20px，一根拐角线从综合图标的中线下来接到这一行。 */
+.hside--bot [data-bot-child] > [role="gridcell"] > div:has(> a) { padding-inline-start: 20px; }
+.hside--bot [data-bot-child]::before { content: ''; position: absolute; top: 0; inset-inline-start: 20px; z-index: 1; width: 8px; height: 50%; box-sizing: border-box;
+  border-inline-start: 2px solid var(--gray-200); border-bottom: 2px solid var(--gray-200); border-end-start-radius: 4px; pointer-events: none; }
+.bot-nav__new { justify-content: start; margin-inline-start: 20px; color: var(--gray-700); }
+/* S2 SideNav 默认撑满高度；这里拆成两段，各按内容高，「新建频道」才能紧跟在频道组后面 */
+.hside--bot .bot-nav__tree, .hside--bot .bot-nav__archived { height: auto; }
+.bot-nav__archived { margin-top: 12px; }
 
 /* ---------- 频道对话 ---------- */
 .bot-channel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
@@ -43,12 +52,17 @@
 .bot-channel__purpose { font-size: 12px; line-height: 16px; color: var(--gray-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bot-channel__purpose.is-empty { color: var(--gray-500); }
 .bot-toggle.is-on { background: var(--gray-100); }
+.bot-toggle__dot { position: absolute; top: 2px; inset-inline-end: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-900); }
 
 .bot-timeline { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 .bot-timeline__list { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 760px; margin: 0 auto; padding: 20px 24px 12px; box-sizing: border-box; }
 .bot-msg.amsg--user { flex-direction: column; align-items: flex-end; }
+/* 智能体的回复：左侧灰气泡，不带头像；圆角与内边距同你的气泡（S2 AI.UserMessage）。 */
+.bot-msg--ai { display: flex; justify-content: flex-start; }
+.bot-msg__bubble { max-width: 85%; margin: 0; padding: 8px 16px; border-radius: 10px; background: var(--gray-100);
+  font-size: 14px; line-height: 20px; color: var(--gray-900); white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.bot-card { display: flex; align-items: flex-start; gap: 12px; min-width: 0; margin-inline-start: 36px; padding: 8px 12px;
+.bot-card { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 8px 12px;
   border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); }
 .bot-card > .bot-status { margin-top: 2px; }
 .bot-card__body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
@@ -84,7 +98,6 @@
 .bot-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .bot-panel__head { display: flex; align-items: center; gap: 4px; flex: none; padding: 12px 12px 4px 16px; }
 .bot-panel__title { flex: 1 1 auto; margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: var(--gray-900); }
-.bot-panel__suggested { flex: none; padding: 0 8px; }
 .bot-tabs { flex: 1 1 auto; min-height: 0; padding-inline: 16px 8px; }
 .bot-tabs__panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; margin-inline-start: -8px; }
 .bot-panel__scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px 0 16px; }
@@ -107,8 +120,59 @@
 .bot-row__title.is-struck { text-decoration: line-through; color: var(--gray-600); }
 .bot-row__sub { font-size: 11px; line-height: 16px; color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bot-row__end { display: flex; align-items: center; flex: none; padding: 2px 4px 0 0; }
-.bot-suggestion { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; padding: 8px; border-radius: 8px; background: var(--gray-50); }
-.bot-suggestion__actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 8px; }
+
+/* ---------- Make 面板 ---------- */
+.bot-make__scope { flex: none; padding: 4px 16px 8px; }
+.bot-make__body { display: flex; flex-direction: column; gap: 20px; padding: 4px 16px 24px; }
+.bot-make__section { display: flex; flex-direction: column; gap: 8px; }
+.bot-make__section > .bot-section__title { margin: 0; }
+.bot-make__none { margin: 0; padding: 16px; border-radius: 10px; background: var(--gray-50); font-size: 14px; line-height: 20px; color: var(--gray-700); }
+
+/* 第一条建议：上半是按种类画的示意，下半是种类标签、标题、理由与按钮 */
+.bot-make__hero { position: relative; display: flex; flex-direction: column; flex: none; overflow: hidden; border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); }
+.bot-make__art { display: flex; align-items: center; justify-content: center; gap: 8px; height: 128px; background: var(--orange-100); color: var(--orange-900); }
+.bot-make__art > svg { width: 32px; height: 32px; }
+.bot-make__frame { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 88px; box-sizing: border-box;
+  border: 1px solid var(--orange-300); border-radius: 8px; background: var(--gray-25); }
+.bot-make__frame--tall { aspect-ratio: 9 / 16; }
+.bot-make__frame--wide { aspect-ratio: 16 / 9; padding-bottom: 12px; }
+.bot-make__caption { width: 72%; height: 6px; border-radius: 4px; background: var(--gray-800); }
+.bot-make__caption--short { width: 48%; }
+.bot-make__dismiss { position: absolute; top: 8px; inset-inline-end: 8px; }
+.bot-make__hero-body { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.bot-make__hero-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bot-make__tag { flex: none; padding: 0 8px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 12px; line-height: 20px; color: var(--gray-800); }
+.bot-make__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.bot-make__reason { font-size: 12px; line-height: 16px; color: var(--gray-700); }
+.bot-make__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.bot-make__row .bot-row__end { gap: 4px; }
+
+/* 产物：两列卡片，名字、种类 · 多久以前，下面露出半张占位预览 */
+.bot-make__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.bot-make__output { display: flex; min-width: 0; }
+.bot-make__output-btn { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 12px 12px 0; box-sizing: border-box; overflow: hidden; border: 0; border-radius: 10px;
+  background: var(--gray-75); font: inherit; text-align: start; cursor: default; }
+.bot-make__output-btn:hover { background: var(--gray-100); }
+.bot-make__output-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.bot-make__output-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; color: var(--gray-900); }
+.bot-make__output-meta { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; line-height: 16px; color: var(--gray-600); }
+.bot-make__output-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-make__output-meta svg { flex: none; width: 14px; height: 14px; }
+.bot-make__output-thumb { display: flex; align-items: center; justify-content: center; height: 56px; margin-top: 8px; border: 1px solid var(--gray-200); border-bottom: 0;
+  border-radius: 8px 8px 0 0; background: var(--gray-25); color: var(--gray-400); }
+.bot-make__output-thumb svg { width: 24px; height: 24px; }
+
+/* 周期任务模板：横向一排，右边的 › 往后翻 */
+.bot-make__strip-wrap { position: relative; }
+.bot-make__strip { display: flex; gap: 8px; margin: 0; padding: 0 32px 4px 0; list-style: none; overflow-x: auto; scroll-snap-type: x proximity; }
+.bot-make__template { display: flex; flex-direction: column; gap: 4px; flex: none; width: 160px; padding: 8px 8px 12px 12px; box-sizing: border-box;
+  border: 1px solid var(--gray-200); border-radius: 10px; background: var(--gray-25); scroll-snap-align: start; }
+.bot-make__template-top { display: flex; align-items: center; justify-content: space-between; color: var(--gray-700); }
+.bot-make__template-top > svg { width: 20px; height: 20px; }
+.bot-make__template-name { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+.bot-make__template-text { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 12px; line-height: 16px; color: var(--gray-700); }
+.bot-make__template-every { font-size: 11px; line-height: 16px; color: var(--gray-600); }
+.bot-make__more { position: absolute; top: 50%; inset-inline-end: 0; transform: translateY(-50%); border-radius: 8px; background: var(--gray-25); }
 
 /* ---------- 收件箱 ---------- */
 .bot-inbox { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 24px; }

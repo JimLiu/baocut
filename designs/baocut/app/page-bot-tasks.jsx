@@ -1,5 +1,5 @@
 /* Bot 页的任务面板与任务详情（docs/design/bot-mode/bot-mode-requirements.md §11.5–§11.6、§4.4）—— 只在 App 入口加载。
-   面板：头部是标题、「显示哪些任务」菜单、「给点建议」、新任务与关闭；建议另放在页签上方；
+   面板：头部是标题、「显示哪些任务」菜单、新任务与关闭；建议不在这里，在 Make 面板（page-bot-make.jsx）；
    四个页签：进行中（按子状态分组，组头带条数）、接下来、定时、已解决。新任务在面板头下面直接输入。
    详情：头部一行（返回、状态、标题与「状态 · 下一步 · N 条进展」、展开、⋯、关闭），下面是事实、问题、步骤、产物、进展与任务线程。 */
 (function () {
@@ -119,23 +119,10 @@
             {Object.keys(FILTER_LABEL).map(k => <R.MenuItem key={k} id={k} textValue={FILTER_LABEL[k]}><R.Text>{FILTER_LABEL[k]}</R.Text></R.MenuItem>)}
           </R.Menu>
         </R.MenuTrigger>
-        <R.ActionButton isQuiet size="S" aria-label="给点建议" onPress={() => app.toast('现在没有新的建议')}><R.Icons.MagicWand /></R.ActionButton>
         <R.ActionButton isQuiet size="S" aria-label="新任务" aria-expanded={adding} onPress={() => setAdding(!adding)}><R.Icons.Add /></R.ActionButton>
         {onHide ? <R.ActionButton isQuiet size="S" aria-label="收起任务" onPress={onHide}><R.Icons.Close /></R.ActionButton> : null}
       </div>
       {adding ? <BotAddTask channelId={channelId} onAdded={added} onClose={() => setAdding(false)} /> : null}
-      {sections.suggested.length ? <div className="bot-panel__suggested"><BotSection title="建议">{sections.suggested.map(i => <li key={i.id} className="bot-suggestion">
-        <button type="button" className="bot-row__main" onClick={() => open(i.id)}>
-          <window.BotStatusIcon statusKey="suggested" chip />
-          <span className="bot-row__text"><span className="bot-row__title">{i.title}</span>
-            {i.suggestion && i.suggestion.reason ? <span className="bot-row__sub">{i.suggestion.reason}</span> : null}</span>
-        </button>
-        <div className="bot-suggestion__actions">
-          <R.Button size="S" variant="accent" onPress={() => window.BOT_ACTIONS.accept(i.id, true)}>现在做</R.Button>
-          <R.Button size="S" variant="secondary" onPress={() => window.BOT_ACTIONS.accept(i.id, false)}>加入</R.Button>
-          <R.Button size="S" variant="secondary" fillStyle="outline" onPress={() => window.BOT_ACTIONS.act(i.id, 'dismiss')}>忽略</R.Button>
-        </div>
-      </li>)}</BotSection></div> : null}
       <R.Tabs aria-label="任务" density="compact" selectedKey={tab} onSelectionChange={k => setTab(String(k))} UNSAFE_className="bot-tabs">
         <R.TabList aria-label="任务">{B.TASK_TABS.map(k => <R.Tab key={k} id={k}>{counts[k] ? `${B.TAB_LABEL[k]} ${counts[k]}` : B.TAB_LABEL[k]}</R.Tab>)}</R.TabList>
         {B.TASK_TABS.map(k => <R.TabPanel key={k} id={k} UNSAFE_className="bot-tabs__panel">
@@ -203,7 +190,10 @@
         </section> : null}
         {item.steps.length ? <BotBlock label="步骤"><ol className="bot-detail__items">{item.steps.map((s, n) => <li key={n} className={cx(s.state === 'active' && 'is-active')}>{s.text}</li>)}</ol></BotBlock> : null}
         {item.finishedSteps.length ? <BotBlock label="已完成的步骤"><ul className="bot-detail__items">{item.finishedSteps.map((s, n) => <li key={n}>{s.result ? `${s.text} — ${s.result}` : s.text}</li>)}</ul></BotBlock> : null}
-        {item.outputs.length ? <BotBlock label="产物"><ul className="bot-detail__items">{item.outputs.map((o, n) => <li key={n} className="bot-detail__output"><R.Icons.FileText /><span>{o.label}</span></li>)}</ul></BotBlock> : null}
+        {item.outputs.length ? <BotBlock label="产物"><ul className="bot-detail__items">{item.outputs.map((o, n) => {
+          const Icon = R.Icons[(B.OUTPUT_KIND[o.kind] || B.OUTPUT_KIND.doc).icon];
+          return <li key={n} className="bot-detail__output"><Icon /><span>{o.label}</span></li>;
+        })}</ul></BotBlock> : null}
         {item.updates.length ? <BotBlock label="进展"><ul className="bot-detail__items">{[...item.updates].reverse().map((u, n) => <li key={n} className="bot-detail__update">
           <span>{u.text}</span><span className="bot-detail__muted">{`${u.by === 'agent' ? '智能体' : '你'} · ${window.BC_AGENT.agoLabel((Date.now() - u.at) / 60000)}`}</span>
         </li>)}</ul></BotBlock> : null}

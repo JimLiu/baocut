@@ -6,7 +6,7 @@
      {id, channelId, title, status: 'suggested'|'upNext'|'scheduled'|'active'|'resolved', owner: 'user'|'agent',
       active?: {state, reason?}, resolution?: {kind: 'done'|'dismissed'|'merged', at}, priority, dueOn?, startAt?, updatedAt,
       description?, outcome?, question?: {text, options: [{label, description?}], pick?}, steps: [{text, state}],
-      finishedSteps: [{text, result?, at}], outputs: [{kind, label}], updates: [{text, by, at}], suggestion?: {reason}, thread?}
+      finishedSteps: [{text, result?, at}], outputs: [{kind, label, at?}], updates: [{text, by, at}], suggestion?: {reason, kind?}, thread?}
    频道时间线的条目：{kind: 'message', role, text, at} / {kind: 'work-item-ref', workItemId} /
      {kind: 'relay', direction, text, workItemId?, cited: [{author, text}]}；最后一条智能体消息可以带 chips（输入框上方的提示芯片）。 */
 (function () {
@@ -186,6 +186,61 @@
       steps: [], finishedSteps: [], outputs: [], updates: []};
   }
 
+  // ---- Make 面板 ----
+
+  /** 产物的种类：图标与文字（Make 面板的产物卡、任务详情的产物）。 */
+  const OUTPUT_KIND = {
+    video:    {icon: 'Video',          label: '视频'},
+    image:    {icon: 'Image',          label: '图片'},
+    subtitle: {icon: 'CloseCaptions',  label: '字幕'},
+    doc:      {icon: 'FileText',       label: '文档'},
+  };
+  /** 建议的种类：大卡上的标签与预览画法；没写种类的用「任务」。 */
+  const SUGGESTION_KIND = {shorts: '竖版短视频', subtitles: '字幕', task: '任务'};
+  const MAKE_EARLIER_MAX = 6;
+
+  /**
+   * 周期任务模板（BOT-MK-05、BOT-VE-04）：Make 面板底部的一排卡，点「＋」在当前频道建一条定时任务。
+   * `next(now)` 给出下一次开始的时刻（本地时间）。只做 BaoCut 自己的数据（需求 §6 首期）。
+   */
+  const at = (now, days, hour) => { const d = new Date(now); d.setDate(d.getDate() + days); d.setHours(hour, 0, 0, 0); return d.getTime(); };
+  const nextWeekday = (now, weekday, hour) => { const d = new Date(now); const add = (weekday - d.getDay() + 7) % 7 || (d.getHours() >= hour ? 7 : 0); return at(now, add, hour); };
+  const MAKE_TEMPLATES = [
+    {id: 'transcribe', title: '每周素材转录', text: '把素材文件夹里新录的音频转录好，整理一份提纲', every: '每周一 09:00', next: now => nextWeekday(now, 1, 9)},
+    {id: 'inbox', title: '每日素材整理', text: '整理关注的文件夹里新进的文件，按视频归好', every: '每天 08:00', next: now => (new Date(now).getHours() >= 8 ? at(now, 1, 8) : at(now, 0, 8))},
+    {id: 'captions', title: '字幕补齐', text: '找出缺字幕、缺译文的视频，列一张单子', every: '每周日 20:00', next: now => nextWeekday(now, 0, 20)},
+    {id: 'drafts', title: '半成品清点', text: '列出 30 天没动过的半成品，问你留不留', every: '每月 1 日 09:00', next: now => { const d = new Date(now); d.setMonth(d.getMonth() + 1, 1); d.setHours(9, 0, 0, 0); return d.getTime(); }},
+  ];
+
+  /** 本地时区当天零点。 */
+  const startOfDay = now => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+  /**
+   * Make 面板的内容（需求 §6、§11.5）：`scope` 是 'channel'（这个频道）或 'all'（全部频道，不含归档）。
+   * 建议按频道各取前 3 条；产物来自任务的 outputs，按时间倒排，分成今天的与更早的（更早的最多 6 条）。
+   */
+  function makeGallery(items, channelId, scope, now, archivedIds) {
+    const archived = new Set(archivedIds || []);
+    const shown = items.filter(i => (scope === 'all' ? !archived.has(i.channelId) : i.channelId === channelId));
+    const byChannel = {};
+    shown.filter(i => i.status === 'suggested').sort(compareWorkItems).forEach(i => { (byChannel[i.channelId] = byChannel[i.channelId] || []).push(i); });
+    const suggestions = Object.values(byChannel).flatMap(list => list.slice(0, SUGGESTIONS_MAX)).sort((a, b) => b.updatedAt - a.updatedAt);
+    const outputs = shown.flatMap(item => (item.outputs || []).map(o => ({...o, at: o.at || item.updatedAt, item})))
+      .sort((a, b) => b.at - a.at);
+    const today = startOfDay(now);
+    return {
+      suggestions,
+      today: outputs.filter(o => o.at >= today),
+      earlier: outputs.filter(o => o.at < today).slice(0, MAKE_EARLIER_MAX),
+    };
+  }
+
+  /** 从模板建一条定时任务（BOT-MK-05）：交给智能体，到点开线程。 */
+  function taskFromTemplate({id, channelId, template}, now) {
+    return {...newTask({id, channelId, title: template.title, owner: 'agent', start: false}, now),
+      status: 'scheduled', startAt: template.next(now), description: `${template.every}：${template.text}`};
+  }
+
   /** 最后一条智能体消息带的提示芯片；之后用户又说了话就不再显示（BOT-SG-01）。 */
   function openChips(timeline) {
     for (let i = timeline.length - 1; i >= 0; i--) {
@@ -216,7 +271,7 @@
       {id: 'wi_cut', channelId: W, title: '粗剪第 12 期讲解', status: 'active', owner: 'agent', active: {state: 'needsReview'}, priority: 'high', updatedAt: m(6),
         description: '把 42 分钟的录屏剪到 12 分钟以内，保留三段演示。', steps: [step('等你看粗剪', 'active')],
         finishedSteps: [{text: '转录全片', result: '42 分钟，2 位说话人', at: m(40)}, {text: '标出口误与停顿', result: '删掉 61 处', at: m(25)}, {text: '按章节重排', at: m(9)}],
-        outputs: [{kind: 'video', label: '第 12 期 · 粗剪 v1'}], updates: [{text: '粗剪好了，11 分 40 秒，等你看', by: 'agent', at: m(6)}],
+        outputs: [{kind: 'video', label: '第 12 期 · 粗剪 v1', at: m(6)}, {kind: 'doc', label: '第 12 期 · 剪辑说明.md', at: m(7)}], updates: [{text: '粗剪好了，11 分 40 秒，等你看', by: 'agent', at: m(6)}],
         thread: [
           {role: 'user', text: '把第 12 期粗剪一下，控制在 12 分钟内', at: m(48)},
           {role: 'assistant', text: '先转录全片、标出口误和长停顿，再按三段演示重排。剪好了我在这里叫你。', at: m(47)},
@@ -224,10 +279,11 @@
         ]},
       {id: 'wi_cover', channelId: W, title: '选第 12 期的封面', status: 'active', owner: 'agent', active: {state: 'needsInput'}, priority: 'medium', updatedAt: m(15),
         question: {text: '三张封面里用哪一张？', options: [{label: '第一张', description: '人物特写，标题在左'}, {label: '第二张', description: '产品界面截图'}, {label: '第三张', description: '纯文字'}], pick: 0},
-        steps: [step('等你选封面', 'active')], finishedSteps: [{text: '从粗剪里挑出 3 帧', at: m(18)}], outputs: [], updates: [],
+        steps: [step('等你选封面', 'active')], finishedSteps: [{text: '从粗剪里挑出 3 帧', at: m(18)}], outputs: [{kind: 'image', label: '封面候选 3 张', at: m(15)}], updates: [],
         thread: [{role: 'assistant', text: '挑了三张候选封面，你选一张，我再把标题排上去。', at: m(15), chips: [{label: '第一张', recommended: true}, {label: '第二张'}, {label: '第三张'}]}]},
       {id: 'wi_sub', channelId: W, title: '给第 12 期配双语字幕', status: 'active', owner: 'agent', active: {state: 'working'}, priority: 'medium', updatedAt: m(3),
-        steps: [step('翻译第 2 章', 'active'), step('校对术语', 'pending')], finishedSteps: [{text: '翻译第 1 章', at: m(8)}], outputs: [], updates: [],
+        steps: [step('翻译第 2 章', 'active'), step('校对术语', 'pending')], finishedSteps: [{text: '翻译第 1 章', at: m(8)}],
+        outputs: [{kind: 'subtitle', label: '第 12 期 · 双语字幕（第 1 章）', at: m(8)}], updates: [],
         thread: [{role: 'assistant', text: '在翻第 2 章，术语按你的词表来。', at: m(3)}]},
       {id: 'wi_music', channelId: W, title: '找一段片头音乐', status: 'active', owner: 'agent', active: {state: 'blocked', reason: '音乐服务的登录过期了'}, priority: 'low', updatedAt: h(1),
         steps: [], finishedSteps: [], outputs: [], updates: [{text: '登录过期，停下了', by: 'agent', at: h(1)}], thread: []},
@@ -240,13 +296,15 @@
       {id: 'wi_weekly', channelId: W, title: '每周汇总观看数据', status: 'scheduled', owner: 'agent', priority: 'medium', updatedAt: d(1), startAt: now + 2 * 86400000,
         steps: [], finishedSteps: [], outputs: [], updates: []},
       {id: 'wi_intro', channelId: W, title: '剪第 11 期的片头', status: 'resolved', owner: 'agent', resolution: {kind: 'done', at: d(1)}, priority: 'medium', updatedAt: d(1),
-        outcome: '片头 8 秒，已放进时间线', steps: [], finishedSteps: [], outputs: [{kind: 'video', label: '第 11 期 · 片头'}], updates: [], thread: []},
+        outcome: '片头 8 秒，已放进时间线', steps: [], finishedSteps: [], outputs: [{kind: 'video', label: '第 11 期 · 片头', at: d(1)}], updates: [], thread: []},
       {id: 'wi_logo', channelId: W, title: '换掉片尾的旧标志', status: 'resolved', owner: 'user', resolution: {kind: 'dismissed', at: d(3)}, priority: 'low', updatedAt: d(3),
         steps: [], finishedSteps: [], outputs: [], updates: []},
       {id: 'wi_sugg', channelId: W, title: '把第 12 期切成 3 条竖版短视频', status: 'suggested', owner: 'agent', priority: 'medium', updatedAt: m(5),
-        suggestion: {reason: '粗剪里有三段完整的演示，适合单独发'}, steps: [], finishedSteps: [], outputs: [], updates: []},
+        suggestion: {reason: '粗剪里有三段完整的演示，适合单独发', kind: 'shorts'}, steps: [], finishedSteps: [], outputs: [], updates: []},
+      {id: 'wi_sugg2', channelId: W, title: '给第 11 期补英文字幕', status: 'suggested', owner: 'agent', priority: 'medium', updatedAt: h(2),
+        suggestion: {reason: '第 11 期还没有英文字幕，英文配音频道下周要用', kind: 'subtitles'}, steps: [], finishedSteps: [], outputs: [], updates: []},
       {id: 'wi_clip', channelId: 'chan_weekly', title: '导出第 12 期的预告', status: 'active', owner: 'agent', active: {state: 'needsReview'}, priority: 'medium', updatedAt: m(12),
-        steps: [step('等你看预告', 'active')], finishedSteps: [], outputs: [], updates: [], thread: []},
+        steps: [step('等你看预告', 'active')], finishedSteps: [], outputs: [{kind: 'video', label: '第 12 期 · 预告 30 秒', at: m(12)}], updates: [], thread: []},
       {id: 'wi_short', channelId: 'chan_shorts', title: '从访谈里切 5 条短视频', status: 'active', owner: 'agent', active: {state: 'working'}, priority: 'medium', updatedAt: h(3),
         steps: [step('找出 5 个高光片段', 'active')], finishedSteps: [], outputs: [], updates: [], thread: []},
     ];
@@ -275,5 +333,6 @@
 
   const root = typeof window !== 'undefined' ? window : globalThis;
   root.BC_BOT = {STATUS, RELAY, QUICK_LABEL, NEW_TASK_DEFAULTS, statusKey, statusOf, needsUser, nextLine, channelSummaries, needsYouTotal,
-    channelGroups, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, defaultTab, quickActions, applyAction, newTask, openChips, demo};
+    channelGroups, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, defaultTab, quickActions, applyAction, newTask, openChips,
+    OUTPUT_KIND, SUGGESTION_KIND, MAKE_TEMPLATES, makeGallery, taskFromTemplate, demo};
 })();

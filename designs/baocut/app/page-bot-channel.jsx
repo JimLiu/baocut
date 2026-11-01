@@ -5,15 +5,12 @@
   const {useState} = React;
   const B = window.BC_BOT;
 
-  /** 一条消息：你说的是右侧气泡，智能体的回复带头像（同 Home 会话的线程）。 */
+  /** 一条消息：你说的是右侧气泡；智能体的回复是左侧灰气泡，不带头像（频道里只有它一个在回话）。 */
   function BotMessage({m}) {
     if (m.role === 'user') return <div className="amsg amsg--user bot-msg"><window.RSP.AI.UserMessage>
       <div className="bc-ai-message-text">{m.text}</div>
     </window.RSP.AI.UserMessage></div>;
-    return <div className="amsg amsg--ai bot-msg">
-      <span className="amsg__av"><Ic n="agent" className="ic--14" /></span>
-      <div className="amsg__body"><p>{m.text}</p></div>
-    </div>;
+    return <div className="bot-msg bot-msg--ai"><p className="bot-msg__bubble">{m.text}</p></div>;
   }
 
   /**
@@ -118,10 +115,10 @@
   }
 
   /**
-   * 频道对话（BOT-CV-01…05、需求 §11.3）：头部是频道名与用途、记忆、周期任务、频道设置，最后是右栏的「任务」开关，
-   * 带这个频道里等你的任务数（需求 §11.1）。回复一张线程卡（BOT-EX-09）时输入框上方显示「回复「任务名」✕」。
+   * 频道对话（BOT-CV-01…05、需求 §11.3）：头部是频道名与用途、记忆、周期任务、频道设置，最后是右栏的「任务」「Make」两个开关：
+   * 「任务」带这个频道里等你的任务数（需求 §11.1），「Make」有新建议时带个点。回复一张线程卡（BOT-EX-09）时输入框上方显示「回复「任务名」✕」。
    */
-  function BotChannelView({channel, tasksToggle}) {
+  function BotChannelView({channel, tasksToggle, makeToggle}) {
     const app = useApp();
     const R = window.RSP;
     const bot = window.useBot();
@@ -148,6 +145,10 @@
         {tasksToggle ? <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
           aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
           <R.Icons.ViewList /><R.Text>任务</R.Text>{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}
+        </R.ActionButton> : null}
+        {makeToggle ? <R.ActionButton isQuiet size="S" aria-expanded={makeToggle.shown} UNSAFE_className={cx('bot-toggle', makeToggle.shown && 'is-on')}
+          aria-label={makeToggle.suggestions ? `Make，${makeToggle.suggestions} 条建议` : 'Make'} onPress={makeToggle.onToggle}>
+          <R.Icons.MagicWand /><R.Text>Make</R.Text>{makeToggle.suggestions ? <span className="bot-toggle__dot" aria-hidden="true" /> : null}
         </R.ActionButton> : null}
       </header>
       <BotTimeline entries={entries} channelId={channel.id} onReply={setReplyTo}

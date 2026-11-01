@@ -49,6 +49,12 @@
     /** 建议：现在做、加入接下来、忽略（BOT-SG-05…07）。 */
     accept: (id, now) => write(s => patchItem(s, id, i => ({...i, suggestion: undefined, updatedAt: Date.now(),
       ...(now ? {status: 'active', active: {state: 'working'}} : {status: 'upNext'})}))),
+    /** Make 面板的模板「＋」：在这个频道建一条定时任务（BOT-MK-05）；返回新任务。 */
+    schedule: (channelId, template) => {
+      const task = B.taskFromTemplate({id: nextId('wi'), channelId, template}, Date.now());
+      write(s => ({...s, items: [...s.items, task]}));
+      return task;
+    },
     markRead: channelId => write(s => ({...s, channels: s.channels.map(c => (c.id === channelId && c.unread ? {...c, unread: false} : c))})),
   };
 
@@ -77,8 +83,9 @@
   /* ---------- 频道侧栏 ---------- */
 
   /**
-   * 频道侧栏（BOT-CH-02、需求 §11.2）：顶上「新建频道」与「等你处理」，然后是主频道、置顶的、其余按最近活动；归档的收在最下面一组。
-   * 每行：频道名（有未读时加粗、行尾一颗绿点），等你的任务数，静音与私密的小图标；行尾「⋯」是设置、记忆、置顶、静音、归档与删除。
+   * 频道侧栏（BOT-CH-02、需求 §11.2）：顶上「等你处理」，然后是综合（默认频道），其余频道缩进挂在它下面（置顶的在前、其余按最近活动），
+   * 用一根拐角线连着；这一组的最后一行是「新建频道」。归档的收在最下面一组（另一个导航，因为「新建频道」是按钮不是链接）。
+   * 每行：频道名（有未读时加粗、行尾一颗绿点），等你的任务数，置顶、静音与私密的小图标；行尾「⋯」是设置、记忆、置顶、静音、归档与删除。
    */
   function BotSidebar() {
     const app = useApp();
@@ -97,13 +104,15 @@
       const detail = [channel.name, unread ? '有未读' : null, counts.needsYou ? `${counts.needsYou} 个任务等你` : null,
         channel.muted ? '已静音' : null, channel.private ? '私密' : null].filter(Boolean).join('，');
       const to = href({r: 'bot', id: channel.id});
-      return <R.SideNavItem key={channel.id} id={channel.id} textValue={channel.name} href={to} data-bot-row="">
+      const child = !main && !channel.archived;
+      return <R.SideNavItem key={channel.id} id={channel.id} textValue={channel.name} href={to} data-bot-row="" data-bot-child={child ? '' : undefined}>
         <R.SideNavItemContent>
-          <R.SideNavItemLink href={to} aria-label={detail}>
-            {main ? <R.Icons.Home /> : channel.pinned ? <R.Icons.PinOn /> : null}
+          <R.SideNavItemLink href={to} aria-label={channel.pinned ? `${detail}，已置顶` : detail}>
+            {main ? <R.Icons.Layers /> : null}
             <R.Text><span className="bot-nav__line" title={channel.purpose || channel.name}>
               <span className={cx('bot-nav__title', unread && 'is-unread')}>{channel.name}</span>
               <span className="bot-nav__tail" aria-hidden="true">
+                {channel.pinned && !main ? <R.Icons.PinOn /> : null}
                 {channel.private ? <R.Icons.Lock /> : null}
                 {channel.muted ? <R.Icons.VolumeOff /> : null}
                 {counts.needsYou ? <R.NotificationBadge size="S" value={counts.needsYou} /> : unread ? <span className="bot-nav__dot" /> : null}
@@ -124,14 +133,9 @@
     return (
       <div className="hside hside--home hside--bot" style={{width: app.sidebar.width || app.sidebar.last}}>
         <h2 className="app-section-title">频道</h2>
-        <div className="hside__top">
-          <R.ActionButton isQuiet size="M" UNSAFE_className="hside__new" onPress={() => later('新建频道对话框')}>
-            <R.Icons.AddCircle /><R.Text>新建频道</R.Text>
-          </R.ActionButton>
-        </div>
         <div className="hside__nav bc-scroll">
           {/* 分组的键加 `group:`：与条目同名时集合的前后链接成环 */}
-          <R.SideNav aria-label="频道" selectedRoute={selected}>
+          <R.SideNav aria-label="频道" selectedRoute={selected} UNSAFE_className="bot-nav__tree">
             <R.SideNavSection id="group:inbox">
               <R.SideNavItem id="inbox" textValue="等你处理" href={href({r: 'bot', view: 'inbox'})} data-bot-row="">
                 <R.SideNavItemContent><R.SideNavItemLink href={href({r: 'bot', view: 'inbox'})} aria-label={total ? `等你处理，${total} 个任务等你` : '等你处理'}>
@@ -145,15 +149,20 @@
             <R.SideNavSection id="group:channels">
               {groups.active.map(row)}
             </R.SideNavSection>
-            {groups.archived.length ? <R.SideNavSection id="group:archived">
+          </R.SideNav>
+          <R.ActionButton isQuiet size="M" UNSAFE_className="bot-nav__new" onPress={() => later('新建频道对话框')}>
+            <R.Icons.Add /><R.Text>新建频道</R.Text>
+          </R.ActionButton>
+          {groups.archived.length ? <R.SideNav aria-label="已归档的频道" selectedRoute={selected} UNSAFE_className="bot-nav__archived">
+            <R.SideNavSection id="group:archived">
               <R.SideNavHeader><span className="bot-nav__section">
                 <R.ActionButton isQuiet size="S" aria-expanded={showArchived} aria-label="已归档" onPress={() => setShowArchived(!showArchived)}>
                   {showArchived ? <R.Icons.ChevronDown /> : <R.Icons.ChevronRight />}
                 </R.ActionButton>{`已归档 (${groups.archived.length})`}
               </span></R.SideNavHeader>
               {showArchived ? groups.archived.map(row) : []}
-            </R.SideNavSection> : null}
-          </R.SideNav>
+            </R.SideNavSection>
+          </R.SideNav> : null}
         </div>
       </div>
     );
@@ -190,9 +199,10 @@
   }
 
   /**
-   * Bot 页（需求 §11.1）：中间频道对话（或收件箱、展开的任务详情），右边任务面板或任务详情。
+   * Bot 页（需求 §11.1）：中间频道对话（或收件箱、展开的任务详情），右边任务面板、Make 面板或任务详情。
    * 路由 {r:'bot', id: 频道, task: 打开的任务, view: 'inbox' | 'task'}。
-   * 右栏的开合由频道头的「任务」开关、面板与详情的关闭按钮管：宽时默认开着，窄时默认收起、开了是浮层；两种宽度各记各的。
+   * 右栏的开合由频道头的「任务」「Make」两个开关、面板与详情的关闭按钮管：宽时默认开着，窄时默认收起、开了是浮层；两种宽度各记各的。
+   * 两个开关切右栏里放哪一块（`side`）；打开任务时右栏是详情，「任务」开关算开着。
    */
   function BotPage({id, task, view}) {
     const app = useApp();
@@ -200,6 +210,7 @@
     const [contentRef, narrow] = useNarrow();
     const [wideHidden, setWideHidden] = useState(false);
     const [narrowShown, setNarrowShown] = useState(false);
+    const [side, setSide] = useState('tasks');
     const panelShown = narrow ? narrowShown : !wideHidden;
     const setShown = shown => (narrow ? setNarrowShown(shown) : setWideHidden(!shown));
     const channelId = view === 'inbox' ? null : id || MAIN;
@@ -209,8 +220,9 @@
     const strip = r => Object.fromEntries(Object.entries(r).filter(([, v]) => v != null));
     const openTask = (item, inbox) => app.go(strip({r: 'bot', id: inbox ? item.channelId : id, task: item.id, view: inbox ? 'inbox' : null}));
     const closeDetail = () => app.go(strip({r: 'bot', id, view: view === 'inbox' ? 'inbox' : null}));
-    const backToList = () => { setShown(true); closeDetail(); };
+    const backToList = () => { setSide('tasks'); setShown(true); closeDetail(); };
     const hide = () => { setShown(false); if (task) closeDetail(); };
+    const showSide = which => { setSide(which); setShown(true); if (task) closeDetail(); };
     let center;
     let right = null;
     if (view === 'inbox') {
@@ -222,15 +234,19 @@
     } else if (view === 'task' && task) {
       center = <window.BotTaskDetail id={task} wide onToggleWide={() => to({view: null})} onBack={backToList} />;
     } else {
-      const shown = !!task || panelShown;
+      const tasksOn = !!task || (panelShown && side === 'tasks');
+      const makeOn = !task && panelShown && side === 'make';
+      const suggestions = bot.items.filter(i => i.channelId === channel.id && i.status === 'suggested').length;
       center = <window.BotChannelView key={channel.id} channel={channel}
-        tasksToggle={{shown, onToggle: () => (shown ? hide() : setShown(true))}} />;
+        tasksToggle={{shown: tasksOn, onToggle: () => (tasksOn ? hide() : showSide('tasks'))}}
+        makeToggle={{shown: makeOn, suggestions, onToggle: () => (makeOn ? hide() : showSide('make'))}} />;
       if (task) right = <window.BotTaskDetail id={task} wide={false} onToggleWide={() => to({view: 'task'})} onBack={backToList} onHide={hide} />;
+      else if (panelShown && side === 'make') right = <window.BotMakePanel key={channel.id} channelId={channel.id} onHide={hide} onOpenTask={i => app.go({r: 'bot', id: i.channelId, task: i.id})} />;
       else if (panelShown) right = <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={null} onHide={hide} />;
     }
     return <div className="bot" ref={contentRef}>
       <div className="bot__main">{center}</div>
-      {right ? <aside className={cx('bot__side', task && 'bot__side--detail', narrow && 'bot__side--overlay')}>{right}</aside> : null}
+      {right ? <aside className={cx('bot__side', task && 'bot__side--detail', !task && side === 'make' && 'bot__side--make', narrow && 'bot__side--overlay')}>{right}</aside> : null}
     </div>;
   }
 
