@@ -102,7 +102,8 @@ function useNarrow(): [(element: HTMLDivElement | null) => void, boolean] {
 
 /**
  * Bot 页（技术方案 §17.1、需求 §11.1）：左边频道侧栏，中间频道对话（或收件箱、记忆页、展开的任务详情），右边任务面板或任务详情。
- * 主区变窄时右栏收起，从频道头部的开关浮出；打开任务详情时总是显示。
+ * 频道头的「任务」开关、面板与详情头部的关闭都收起右栏；宽窗口默认显示，主区变窄时默认收起、开了浮在对话上。
+ * 打开任务详情时总是显示；详情的返回回到任务列表，关闭连同详情一起收起。
  */
 export function BotPage({ channelId: routeChannelId, workItemId, view }: { channelId: Id | null; workItemId: Id | null; view: BotView }) {
   const go = useShell((s) => s.go);
@@ -112,7 +113,11 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
   const summary = useChannelSummary(channelId);
   const channel = summary?.channel;
   const [contentRef, narrow] = useNarrow();
-  const [tasksShown, setTasksShown] = useState(false);
+  // 宽窗口记「收起了」，窄窗口记「打开了」：两边各自的默认值不同，切宽窄时不互相带过去。
+  const [wideHidden, setWideHidden] = useState(false);
+  const [narrowShown, setNarrowShown] = useState(false);
+  const panelShown = narrow ? narrowShown : !wideHidden;
+  const setShown = (shown: boolean) => (narrow ? setNarrowShown(shown) : setWideHidden(!shown));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleting, setDeleting] = useState<ChannelSummary | null>(null);
   useWorkItemSubscriptions(channelId ?? (workItemId ? (routeChannelId ?? null) : null));
@@ -120,13 +125,21 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
   const routeTo = (next: { channelId?: Id | null; workItemId?: Id | null; view?: BotView }) =>
     go({ tab: 'bot', channelId: next.channelId !== undefined ? next.channelId : routeChannelId, workItemId: next.workItemId !== undefined ? next.workItemId : workItemId, view: next.view ?? view });
   const closeDetail = () => routeTo({ workItemId: null, view: view === 'task' ? 'channel' : view });
+  const backToList = () => {
+    setShown(true);
+    closeDetail();
+  };
+  const hide = () => {
+    setShown(false);
+    if (workItemId) closeDetail();
+  };
 
   let center;
   let right = null;
   if (view === 'inbox') {
     center = <InboxView />;
     if (workItemId)
-      right = <TaskDetail workItemId={workItemId} channelId={routeChannelId} wide={false} onToggleWide={null} onClose={closeDetail} />;
+      right = <TaskDetail workItemId={workItemId} channelId={routeChannelId} wide={false} onToggleWide={null} onHide={closeDetail} />;
   } else if (!channel) {
     center =
       failed && channelId === MAIN_CHANNEL_ID ? (
@@ -152,22 +165,30 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
   } else if (view === 'memory') {
     center = <ChannelMemoryPage channel={channel} />;
   } else if (view === 'task' && workItemId) {
-    center = <TaskDetail workItemId={workItemId} channelId={channel.id} wide onToggleWide={() => routeTo({ view: 'channel' })} onClose={closeDetail} />;
+    center = <TaskDetail workItemId={workItemId} channelId={channel.id} wide onToggleWide={() => routeTo({ view: 'channel' })} onBack={backToList} />;
   } else {
+    const shown = !!workItemId || panelShown;
     center = (
       // 按频道换实例：回复目标、「显示更早的」这类界面状态只属于一个频道，切频道时不能串过去。
       <ChannelView
         key={channel.id}
         channel={channel}
         onSettings={() => setSettingsOpen(true)}
-        tasksToggle={narrow && !workItemId ? { shown: tasksShown, onToggle: () => setTasksShown(!tasksShown) } : null}
+        tasksToggle={{ shown, onToggle: () => (shown ? hide() : setShown(true)) }}
       />
     );
     if (workItemId)
       right = (
-        <TaskDetail workItemId={workItemId} channelId={channel.id} wide={false} onToggleWide={() => routeTo({ view: 'task' })} onClose={closeDetail} />
+        <TaskDetail
+          workItemId={workItemId}
+          channelId={channel.id}
+          wide={false}
+          onToggleWide={() => routeTo({ view: 'task' })}
+          onBack={backToList}
+          onHide={hide}
+        />
       );
-    else if (!narrow || tasksShown) right = <TaskPanel key={channel.id} channelId={channel.id} selectedId={null} />;
+    else if (panelShown) right = <TaskPanel key={channel.id} channelId={channel.id} selectedId={null} onHide={hide} />;
   }
 
   return (

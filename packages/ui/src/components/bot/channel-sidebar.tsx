@@ -196,8 +196,8 @@ export function ChannelSidebar() {
               </SideNavItemContent>
             </SideNavItem>
           </SideNavSection>
+          {/* 侧栏标题已经是「频道」，这一组不再加组头。 */}
           <SideNavSection id="group:channels">
-            <SideNavHeader>{C.sidebar.title}</SideNavHeader>
             {ready ? groups.active.map(row) : []}
           </SideNavSection>
           {groups.archived.length ? (

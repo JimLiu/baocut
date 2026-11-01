@@ -11,7 +11,7 @@ import { AwayBanner, ChannelSpend, ReplyTarget, useAwayAndSeen } from './channel
 import { WorkItemRefCard } from './timeline/work-item-ref-card.tsx';
 import { ChannelDialog } from './channel-dialog.tsx';
 import { drainQueue, sendQueuedMessageNow } from '../../runtime/message-queue-runner.ts';
-import { NewTaskDialog, TaskPanel } from './task-panel.tsx';
+import { TaskPanel } from './task-panel.tsx';
 import { useWorkItems } from '../../state/work-items-store.ts';
 import { DeleteRecordDialog, RevertDialog, ThreadChips, dateFact, menuActions } from './task-detail.tsx';
 import { TaskRefs, resourceLabel } from './task-refs.tsx';
@@ -118,16 +118,42 @@ describe('频道侧栏（BOT-CH-02）', () => {
 });
 
 describe('新建任务（需求 §4.4）', () => {
-  it('默认「我来做」、不马上开始：直接添加时建的是用户自己的任务，进接下来', async () => {
-    handlers['workItems.create'] = (p) => ({ item: { id: 'wi1', ...p } });
-    await render(createElement(NewTaskDialog, { channelId: 'c1', onClose: () => {}, onCreated: () => {} }));
-    const radios = [...document.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
-    expect(radios.find((r) => r.checked)?.value).toBe('user');
-    // 「我来做」时没有「马上开始」。
-    expect(document.querySelector('input[role="switch"]')).toBeNull();
-    await typeInto(document.querySelector<HTMLInputElement>('input[type="text"], input:not([type])')!, '录第 12 期口播');
-    await press('添加');
-    expect(calls('workItems.create')).toEqual([expect.objectContaining({ channelId: 'c1', title: '录第 12 期口播', owner: 'user', start: false })]);
+  const selectedTab = () => document.querySelector('[role="tab"][aria-selected="true"]')?.textContent;
+
+  it('面板头下面直接输入：默认「我来做」、不马上开始；添加后切到新任务所在的页签，输入行留着', async () => {
+    useWorkItems.setState({ byChannel: { c1: { items: [], resolvedTail: 20, reports: [] } } });
+    handlers['workItems.create'] = (p) => ({ item: { ...resolvedItem(9), id: 'wi_new', title: p.title, owner: p.owner, status: 'upNext', resolution: null } });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      // 空频道停在「进行中」，写的是任务从哪儿来。
+      expect(selectedTab()).toBe('进行中');
+      expect(container.textContent).toContain('你在频道里提到的活会出现在这里。');
+      expect(container.querySelector('form')).toBeNull();
+      await press('新任务');
+      expect(button('谁来做：我来做')).toBeDefined();
+      await typeInto(container.querySelector<HTMLInputElement>('form input')!, '录第 12 期口播');
+      await press('添加');
+      expect(calls('workItems.create')).toEqual([expect.objectContaining({ channelId: 'c1', title: '录第 12 期口播', owner: 'user', start: false })]);
+      expect(selectedTab()).toBe('接下来');
+      expect(container.querySelector<HTMLInputElement>('form input')?.value).toBe('');
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
+  });
+
+  it('没选过页签时停在第一个有任务的页签，页签上带条数；进行中按子状态分组', async () => {
+    const at = '2026-10-30T09:00:00Z';
+    const active = (id: string, state: string) =>
+      ({ ...resolvedItem(1), id, title: id, status: 'active', resolution: null, active: { state, since: at }, updatedAt: at }) as unknown as WorkItem;
+    useWorkItems.setState({ byChannel: { c1: { items: [active('审片', 'needsReview'), active('剪辑', 'working'), resolvedItem(2)], resolvedTail: 20, reports: [] } } });
+    try {
+      await render(createElement(TaskPanel, { channelId: 'c1', selectedId: null }));
+      expect([...document.querySelectorAll('[role="tab"]')].map((t) => t.textContent)).toEqual(['进行中 2', '接下来', '定时', '已解决']);
+      expect(selectedTab()).toBe('进行中 2');
+      expect([...container.querySelectorAll('section h3')].map((h) => h.textContent)).toEqual(['待你审阅1', '工作中1']);
+    } finally {
+      useWorkItems.setState({ byChannel: {} });
+    }
   });
 });
 

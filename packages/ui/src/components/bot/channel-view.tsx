@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AwaySummary, AwaySummaryRow, Channel, Id } from '@baocut/protocol';
-import { ActionButton, Button, DialogContainer, Text } from '@react-spectrum/s2';
+import { ActionButton, Button, DialogContainer, NotificationBadge, Text } from '@react-spectrum/s2';
 import Bookmark from '@react-spectrum/s2/icons/Bookmark';
 import CalendarAdd from '@react-spectrum/s2/icons/CalendarAdd';
 import Close from '@react-spectrum/s2/icons/Close';
@@ -9,7 +9,7 @@ import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { useRuntime } from '../../runtime/context.tsx';
 import { formatMoneyOne } from '../../model/usage-format.ts';
-import { useChannels } from '../../state/channels-store.ts';
+import { useChannelSummary, useChannels } from '../../state/channels-store.ts';
 import { useConnection } from '../../state/connection-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useTimeline, useTimelineItems } from '../../state/timeline-store.ts';
@@ -38,6 +38,8 @@ const header = style({
   borderColor: 'gray-100',
   minWidth: 0,
 });
+/** 「任务」开关显示右栏时的底色（app.css `.bc-panel-toggle[aria-expanded='true']` 读这个变量；S2 的安静按钮没有选中态）。 */
+const toggleOnFill = style({ '--bc-panel-toggle-on': { type: 'backgroundColor', value: 'gray-100' } });
 const replyRow = style({ display: 'flex', alignItems: 'center', gap: 4, paddingX: 4, font: 'ui-sm', color: 'gray-700', minWidth: 0 });
 const replyText = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
 const spendLine = style({ font: 'ui-xs', color: 'gray-600', whiteSpace: 'nowrap' });
@@ -238,7 +240,7 @@ export function ChannelView({
 }: {
   channel: Channel;
   onSettings: () => void;
-  /** 窄屏时任务面板收起，头部给一个开关。 */
+  /** 右栏（任务面板或任务详情）的开关，带这个频道里等你的任务数（需求 §11.1）。 */
   tasksToggle: { shown: boolean; onToggle: () => void } | null;
 }) {
   const go = useShell((s) => s.go);
@@ -247,6 +249,7 @@ export function ChannelView({
   const away = useAwayAndSeen(channel);
   const unavailable = useDriverUnavailable(channel);
   const [scheduling, setScheduling] = useState(false);
+  const waiting = useChannelSummary(channel.id)?.counts.needsYou ?? 0;
   // 回复一张线程卡（BOT-EX-09）：下一条消息带上卡片的 id，协调者把原文转给那条任务的线程。
   const [replyTo, setReplyTo] = useScopedState<{ itemId: Id; workItemId: Id } | null>(channel.id, null);
   const firstUnread = away.summary?.firstUnreadItemId ?? null;
@@ -330,9 +333,16 @@ export function ChannelView({
           <Settings />
         </ActionButton>
         {tasksToggle ? (
-          <ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} onPress={tasksToggle.onToggle}>
+          <ActionButton
+            isQuiet
+            size="S"
+            aria-label={C.channel.tasks(waiting)}
+            aria-expanded={tasksToggle.shown}
+            onPress={tasksToggle.onToggle}
+            UNSAFE_className={`bc-panel-toggle ${toggleOnFill}`}>
             <ViewList />
-            <Text>{tasksToggle.shown ? C.channel.hideTasks : C.channel.showTasks}</Text>
+            <Text>{C.panel.title}</Text>
+            {waiting ? <NotificationBadge size="S" value={waiting} /> : null}
           </ActionButton>
         ) : null}
       </header>

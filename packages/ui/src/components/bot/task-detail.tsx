@@ -19,7 +19,6 @@ import {
 } from '@react-spectrum/s2';
 import ChevronLeft from '@react-spectrum/s2/icons/ChevronLeft';
 import Close from '@react-spectrum/s2/icons/Close';
-import Edit from '@react-spectrum/s2/icons/Edit';
 import FullScreen from '@react-spectrum/s2/icons/FullScreen';
 import FullScreenExit from '@react-spectrum/s2/icons/FullScreenExit';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -31,11 +30,11 @@ import { useTimelineItems } from '../../state/timeline-store.ts';
 import { useTransitionTick, useWorkItem } from '../../state/work-items-store.ts';
 import { ConversationView } from '../conversation-view.tsx';
 import { useNow } from '../use-now.ts';
-import { answerWorkItemQuestion, errorText, transitionWorkItem, useBotCall } from './bot-actions.ts';
+import { answerWorkItemQuestion, errorText, nextLine, transitionWorkItem, useBotCall } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { formatDay } from './bot-format.ts';
 import { useTaskSpend } from './task-spend.ts';
-import { StatusLabel } from './status-badge.tsx';
+import { StatusIcon } from './status-badge.tsx';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { TaskRefs, videoIdsOf } from './task-refs.tsx';
 import { BotTimeline } from './timeline/bot-timeline.tsx';
@@ -64,9 +63,19 @@ const meta = style({
   borderEndWidth: { default: 0, isWide: 1 },
 });
 const thread = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0, minWidth: 0 });
-const headRow = style({ display: 'flex', alignItems: 'center', gap: 4 });
-const spacer = style({ flexGrow: 1 });
-const title = style({ margin: 0, font: 'title', color: 'gray-900', overflowWrap: 'anywhere', textDecoration: { default: 'none', isStruck: 'line-through' } });
+const headRow = style({ display: 'flex', alignItems: 'center', gap: 4, marginStart: -8, minWidth: 0 });
+const heading = style({ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0, marginStart: 4 });
+const title = style({
+  margin: 0,
+  font: 'ui',
+  fontWeight: 'bold',
+  color: { default: 'gray-900', isStruck: 'gray-600' },
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  textDecoration: { default: 'none', isStruck: 'line-through' },
+});
+const subline = style({ font: 'ui-sm', color: 'gray-700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 const facts = style({ display: 'flex', flexWrap: 'wrap', gap: 12, font: 'ui-sm', color: 'gray-700' });
 const description = style({ margin: 0, font: 'body-sm', color: 'gray-800', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' });
 const block = style({ display: 'flex', flexDirection: 'column', gap: 8 });
@@ -91,6 +100,7 @@ const changeList = style({ margin: 0, paddingStart: 16, font: 'ui-xs', color: 'g
 const dialogBody = style({ display: 'flex', flexDirection: 'column', gap: 12, font: 'body-sm', color: 'gray-800' });
 
 type MenuAction =
+  | 'edit'
   | 'stop'
   | 'redirect'
   | 'refresh'
@@ -121,6 +131,7 @@ export function menuActions(item: WorkItem): MenuAction[] {
 }
 
 const MENU_LABEL: Record<MenuAction, () => string> = {
+  edit: () => C.detail.editMenu,
   stop: () => C.detail.stop,
   redirect: () => C.detail.redirect,
   refresh: () => C.detail.refresh,
@@ -181,22 +192,25 @@ function useWorkItemRecord(id: Id) {
 }
 
 /**
- * 任务详情（BOT-TK-06…10、BOT-CH-11、BOT-EX-19/20、需求 §11.6）：头部是状态、标题与操作；等你的问题带选项按钮，
- * 下面是步骤、产物与资源、进展、转换记录；线程会话照普通会话画，输入框发的话进线程。用户自己的任务没有线程。
- * 可以收在频道右侧，也可以展开占满主区（宽版左右分栏）。
+ * 任务详情（BOT-TK-06…10、BOT-CH-11、BOT-EX-19/20、需求 §11.6）：头部一行是返回、状态、标题与「状态 · 下一步 · N 条进展」、
+ * 展开、「⋯」（编辑也在里面）与关闭；等你的问题带选项按钮，下面是步骤、产物与资源、进展、转换记录；线程会话照普通会话画，
+ * 输入框发的话进线程。用户自己的任务没有线程。可以收在频道右侧，也可以展开占满主区（宽版左右分栏）。
+ * `onBack` 回到任务列表（右栏）或频道（展开时）；`onHide` 收起右栏。收件箱里只有关闭。
  */
 export function TaskDetail({
   workItemId,
   channelId,
   wide,
   onToggleWide,
-  onClose,
+  onBack = null,
+  onHide = null,
 }: {
   workItemId: Id;
   channelId: Id | null;
   wide: boolean;
   onToggleWide: (() => void) | null;
-  onClose: () => void;
+  onBack?: (() => void) | null;
+  onHide?: (() => void) | null;
 }) {
   const live = useWorkItem(workItemId);
   const { record, missing } = useWorkItemRecord(workItemId);
@@ -212,13 +226,25 @@ export function TaskDetail({
   const threadExtras = useMemo(() => ({ unread: null, ...messageExtras }), [messageExtras]);
   const spent = useTaskSpend(item?.channelId ?? channelId, workItemId);
 
+  const leave = onBack ?? onHide ?? (() => {});
+  const backButton = onBack ? (
+    <ActionButton isQuiet size="S" aria-label={onHide ? C.detail.backToList : C.detail.back} onPress={onBack}>
+      <ChevronLeft />
+    </ActionButton>
+  ) : null;
+  const hideButton = onHide ? (
+    <ActionButton isQuiet size="S" aria-label={C.panel.hide} onPress={onHide}>
+      <Close />
+    </ActionButton>
+  ) : null;
+
   if (!item) {
     return (
       <div className={thread}>
         <div className={headRow}>
-          <ActionButton isQuiet size="S" aria-label={C.detail.back} onPress={onClose}>
-            {wide ? <ChevronLeft /> : <Close />}
-          </ActionButton>
+          {backButton}
+          <span className={heading} />
+          {hideButton}
         </div>
         <div className={centered}>{missing ? C.card.missing : <ProgressCircle size="S" isIndeterminate aria-label={C.common.loading} />}</div>
       </div>
@@ -226,13 +252,16 @@ export function TaskDetail({
   }
 
   const status = workItemStatus(item);
-  const actions = menuActions(item);
+  const actions: MenuAction[] = ['edit', ...menuActions(item)];
+  const line = nextLine(item);
+  const sub = [status.label, line, item.updates.length ? C.detail.updateCount(item.updates.length) : null].filter(Boolean).join(' · ');
   const question = item.question;
   const finished = allFinished ? item.finishedSteps : item.finishedSteps.slice(-FINISHED_STEPS_SHOWN);
   const placeholder = item.status === 'resolved' ? C.detail.placeholderResolved : question ? C.detail.placeholderWaiting : C.detail.placeholderWorking;
 
   const run = (action: MenuAction) => {
-    if (action === 'stop') void call('workItems.stop', { id: item.id });
+    if (action === 'edit') setDialog('edit');
+    else if (action === 'stop') void call('workItems.stop', { id: item.id });
     else if (action === 'refresh') void call('workItems.refresh', { id: item.id });
     else if (action === 'markDone') void transitionWorkItem(call, item.id, { type: 'resolve', evidence: null });
     else if (action === 'reopen') void transitionWorkItem(call, item.id, { type: 'reopen' });
@@ -255,30 +284,30 @@ export function TaskDetail({
   const details = (
     <div className={`${meta({ isWide: wide })} bc-scroll`}>
       <div className={headRow}>
-        <ActionButton isQuiet size="S" aria-label={C.detail.back} onPress={onClose}>
-          {wide ? <ChevronLeft /> : <Close />}
-        </ActionButton>
-        <StatusLabel statusKey={status.key} />
-        <span className={spacer} />
+        {backButton}
+        <StatusIcon statusKey={status.key} chip />
+        <div className={heading}>
+          <h2 className={title({ isStruck: status.strike })} title={item.title}>
+            {item.title}
+          </h2>
+          <span className={subline} title={sub}>
+            {sub}
+          </span>
+        </div>
         {onToggleWide ? (
           <ActionButton isQuiet size="S" aria-label={wide ? C.detail.collapse : C.detail.expand} onPress={onToggleWide}>
             {wide ? <FullScreenExit /> : <FullScreen />}
           </ActionButton>
         ) : null}
-        <ActionButton isQuiet size="S" aria-label={C.detail.editTask} onPress={() => setDialog('edit')}>
-          <Edit />
-        </ActionButton>
-        {actions.length ? (
-          <ActionMenu aria-label={C.common.more} isQuiet size="S" onAction={(key) => run(key as MenuAction)}>
-            {actions.map((action) => (
-              <MenuItem key={action} id={action} textValue={MENU_LABEL[action]()}>
-                <Text>{MENU_LABEL[action]()}</Text>
-              </MenuItem>
-            ))}
-          </ActionMenu>
-        ) : null}
+        <ActionMenu aria-label={C.common.more} isQuiet size="S" onAction={(key) => run(key as MenuAction)}>
+          {actions.map((action) => (
+            <MenuItem key={action} id={action} textValue={MENU_LABEL[action]()}>
+              <Text>{MENU_LABEL[action]()}</Text>
+            </MenuItem>
+          ))}
+        </ActionMenu>
+        {hideButton}
       </div>
-      <h2 className={title({ isStruck: status.strike })}>{item.title}</h2>
       <div className={facts}>
         <span>{`${C.detail.priority}: ${C.detail.priorities[item.priority]}`}</span>
         {item.dueOn ? <span>{dateFact(C.detail.due, item.dueOn, item.dueOnBy)}</span> : null}
@@ -407,7 +436,7 @@ export function TaskDetail({
       {dialog === 'redirect' ? <RedirectDialog item={item} onClose={() => setDialog(null)} /> : null}
       {dialog === 'edit' ? <TaskEditDialog item={item} onClose={() => setDialog(null)} /> : null}
       {dialog === 'revert' ? <RevertDialog item={item} onClose={() => setDialog(null)} /> : null}
-      {dialog === 'delete' ? <DeleteRecordDialog item={item} onClose={() => setDialog(null)} onDeleted={onClose} /> : null}
+      {dialog === 'delete' ? <DeleteRecordDialog item={item} onClose={() => setDialog(null)} onDeleted={leave} /> : null}
     </section>
   );
 }

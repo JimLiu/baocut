@@ -1,34 +1,46 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { BOT_LIMITS, newId, type Id, type WorkItem, type WorkItemOwner } from '@baocut/protocol';
 import {
   ActionButton,
   ActionMenu,
   Button,
-  ButtonGroup,
-  Content,
-  Dialog,
-  DialogContainer,
-  Form,
-  Heading,
+  Menu,
   MenuItem,
+  MenuTrigger,
   ProgressCircle,
-  Radio,
-  RadioGroup,
-  SegmentedControl,
-  SegmentedControlItem,
-  Switch,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
   Text,
   TextField,
   ToastQueue,
 } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
+import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
+import Close from '@react-spectrum/s2/icons/Close';
+import Filter from '@react-spectrum/s2/icons/Filter';
 import MagicWand from '@react-spectrum/s2/icons/MagicWand';
+import User from '@react-spectrum/s2/icons/User';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { isOverdue, loadResolvedWorkItems, localDate, mayHaveOlderResolved, taskSections, type TaskFilter } from '../../model/bot.ts';
+import {
+  TASK_TABS,
+  defaultTab,
+  isOverdue,
+  loadResolvedWorkItems,
+  localDate,
+  mayHaveOlderResolved,
+  tabCounts,
+  tabOf,
+  taskSections,
+  type TaskFilter,
+  type TaskTab,
+} from '../../model/bot.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useChannels } from '../../state/channels-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { useChannelWorkItems, useWorkItems, useWorkItemsLoaded } from '../../state/work-items-store.ts';
+import { AgentIcon } from '../agent-icon.tsx';
 import { useNow } from '../use-now.ts';
 import { errorText, nextLine, transitionWorkItem, useBotCall, useScopedState } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
@@ -41,10 +53,29 @@ import { workItemStatus } from './work-item-status.ts';
 const panel = style({ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, flexGrow: 1 });
 const head = style({ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, paddingX: 16, paddingTop: 12, paddingBottom: 8 });
 const headTitle = style({ margin: 0, flexGrow: 1, font: 'title-sm', color: 'gray-900' });
-const filterRow = style({ flexShrink: 0, paddingX: 16, paddingBottom: 8 });
-const scroller = style({ flexGrow: 1, minHeight: 0, overflowY: 'auto', paddingX: 8, paddingBottom: 16 });
+const addForm = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+  flexShrink: 0,
+  marginX: 8,
+  marginTop: 4,
+  marginBottom: 8,
+  padding: 8,
+  borderRadius: 'lg',
+  backgroundColor: 'gray-50',
+});
+const addField = style({ width: 'full' });
+const addBar = style({ display: 'flex', alignItems: 'center', gap: 8 });
+const grow = style({ flexGrow: 1 });
+const suggestedBox = style({ flexShrink: 0, maxHeight: '[40%]', overflowY: 'auto', paddingX: 8 });
+const tabsBox = style({ flexGrow: 1, minHeight: 0 });
+const tabList = style({ marginX: 16 });
+const tabPanel = style({ height: 'full' });
+const scroller = style({ height: 'full', boxSizing: 'border-box', overflowY: 'auto', paddingX: 8, paddingBottom: 16 });
 const section = style({ marginTop: 12 });
-const sectionTitle = style({ marginX: 8, marginY: 4, font: 'ui-sm', fontWeight: 'bold', color: 'gray-700' });
+const sectionTitle = style({ display: 'flex', alignItems: 'baseline', gap: 4, marginX: 8, marginY: 4, font: 'ui-sm', fontWeight: 'bold', color: 'gray-700' });
+const sectionCount = style({ font: 'ui-xs', fontWeight: 'normal', color: 'gray-600' });
 const list = style({ display: 'flex', flexDirection: 'column', margin: 0, padding: 0, listStyleType: 'none' });
 const row = style({
   display: 'flex',
@@ -55,7 +86,7 @@ const row = style({
 });
 const rowMain = style({
   display: 'flex',
-  alignItems: 'start',
+  alignItems: 'center',
   gap: 8,
   flexGrow: 1,
   minWidth: 0,
@@ -132,7 +163,7 @@ function TaskRow({ item, today, timeZone, selected, onOpen }: { item: WorkItem; 
   return (
     <li className={row({ isSelected: selected })}>
       <button type="button" className={rowMain} aria-current={selected || undefined} onClick={onOpen} aria-label={C.card.label(item.title, status.label, sub)}>
-        <StatusIcon statusKey={status.key} />
+        <StatusIcon statusKey={status.key} chip />
         <span className={rowText}>
           <span className={rowTitle({ isStruck: status.strike })}>{item.title}</span>
           {late ? <span className={overdue}>{`${C.panel.overdue} · ${C.panel.due(formatDay(item.dueOn!))}`}</span> : sub ? <span className={rowSub}>{sub}</span> : null}
@@ -165,7 +196,7 @@ function SuggestionItem({ item, onOpen }: { item: WorkItem; onOpen: () => void }
   return (
     <li className={suggestion}>
       <button type="button" className={rowMain} onClick={onOpen}>
-        <StatusIcon statusKey="suggested" />
+        <StatusIcon statusKey="suggested" chip />
         <span className={rowText}>
           <span className={rowTitle({ isStruck: false })}>{item.title}</span>
           {item.suggestion?.reason ? <span className={suggestionReason}>{item.suggestion.reason}</span> : null}
@@ -176,20 +207,107 @@ function SuggestionItem({ item, onOpen }: { item: WorkItem; onOpen: () => void }
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, count = 0, children }: { title: string; count?: number; children: ReactNode }) {
   return (
-    <section className={section} aria-label={title}>
-      <h3 className={sectionTitle}>{title}</h3>
+    <section className={section} aria-label={count ? C.panel.sectionCount(title, count) : title}>
+      <h3 className={sectionTitle}>
+        {title}
+        {count ? <span className={sectionCount}>{count}</span> : null}
+      </h3>
       <ul className={list}>{children}</ul>
     </section>
   );
 }
 
+/** 新任务「谁来做」（BOT-TK-02、需求 §4.4）：默认我来做、进接下来；交给智能体时默认也先排着，选「并现在开始」才直接开始。 */
+type AddOwner = 'user' | 'agent' | 'agentNow';
+const ADD_OWNERS: Record<AddOwner, { owner: WorkItemOwner; start: boolean; label: () => string }> = {
+  user: { owner: 'user', start: false, label: () => C.panel.ownerUser },
+  agent: { owner: 'agent', start: false, label: () => C.panel.ownerAgent },
+  agentNow: { owner: 'agent', start: true, label: () => C.panel.ownerAgentNow },
+};
+const DEFAULT_ADD_OWNER: AddOwner = NEW_TASK_DEFAULTS.owner === 'agent' ? (NEW_TASK_DEFAULTS.start ? 'agentNow' : 'agent') : 'user';
+
 /**
- * 频道右侧的任务面板（BOT-TK-01…05、BOT-SG-05…07、需求 §11.5）：顶上筛选（全部、我的、智能体的）、新建任务与「给点建议」；
- * 建议另放一块（最多 3 条，现在做、加入、忽略），下面依次是等你、工作中、接下来（含定时）、已完成（最近 20 条、30 天内）。
+ * 面板头下面的新任务输入行（BOT-TK-02、需求 §4.4）：回车添加，Esc 收起。添加后切到新任务所在的页签，
+ * 输入行与「谁来做」留着，可以接着加。
  */
-export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId: Id | null }) {
+function AddTaskRow({ channelId, onAdded, onClose }: { channelId: Id; onAdded: (item: WorkItem) => void; onClose: () => void }) {
+  const call = useBotCall();
+  const [title, setTitle] = useState('');
+  const [ownerId, setOwnerId] = useState<AddOwner>(DEFAULT_ADD_OWNER);
+  const [busy, setBusy] = useState(false);
+  const pick = ADD_OWNERS[ownerId];
+  const valid = title.trim() !== '' && title.trim().length <= BOT_LIMITS.title;
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!valid || busy) return;
+    setBusy(true);
+    const result = await call('workItems.create', { channelId, title: title.trim(), owner: pick.owner, start: pick.start, commandId: newId('cmd') });
+    setBusy(false);
+    if (result) {
+      setTitle('');
+      onAdded(result.item);
+    }
+  };
+  return (
+    <form className={addForm} aria-label={C.panel.newTask} onSubmit={(event) => void submit(event)}>
+      <TextField
+        aria-label={C.panel.taskTitle}
+        placeholder={C.panel.addPlaceholder}
+        value={title}
+        onChange={setTitle}
+        maxLength={BOT_LIMITS.title}
+        autoFocus
+        styles={addField}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onClose();
+          else event.continuePropagation();
+        }}
+      />
+      <div className={addBar}>
+        <MenuTrigger>
+          <ActionButton isQuiet size="S" aria-label={C.panel.ownerPick(pick.label())}>
+            {pick.owner === 'user' ? <User /> : <AgentIcon />}
+            <Text>{pick.label()}</Text>
+            <ChevronDown />
+          </ActionButton>
+          <Menu
+            aria-label={C.panel.owner}
+            selectionMode="single"
+            disallowEmptySelection
+            selectedKeys={[ownerId]}
+            onSelectionChange={(keys) => {
+              const next = [...keys][0];
+              if (next) setOwnerId(next as AddOwner);
+            }}>
+            {(Object.keys(ADD_OWNERS) as AddOwner[]).map((id) => (
+              <MenuItem key={id} id={id} textValue={ADD_OWNERS[id].label()}>
+                <Text>{ADD_OWNERS[id].label()}</Text>
+              </MenuItem>
+            ))}
+          </Menu>
+        </MenuTrigger>
+        <span className={grow} />
+        <Button size="S" variant="secondary" fillStyle="outline" onPress={onClose}>
+          {C.common.cancel}
+        </Button>
+        <Button size="S" variant="accent" type="submit" isDisabled={!valid} isPending={busy}>
+          {C.panel.add}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+const FILTER_LABEL: Record<TaskFilter, () => string> = { all: () => C.panel.all, mine: () => C.panel.mine, agent: () => C.panel.agent };
+
+/**
+ * 频道右侧的任务面板（BOT-TK-01…05、BOT-SG-05…07、需求 §11.5）：头部是标题、「显示哪些任务」菜单、「给点建议」、新任务与收起；
+ * 新任务在头部下面直接输入；建议另放在页签上方（最多 3 条，现在做、加入、忽略）。四个页签：进行中（按子状态分组，组头带条数）、
+ * 接下来、定时、已解决（最近 20 条、30 天内）。没选过页签时显示第一个有任务的。`onHide` 收起右栏，与频道头的「任务」开关同一件事。
+ */
+export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId: Id; selectedId: Id | null; onHide?: (() => void) | null }) {
   const items = useChannelWorkItems(channelId);
   const loaded = useWorkItemsLoaded(channelId);
   const timeZone = useChannels((s) => s.settings.timeZone);
@@ -197,18 +315,20 @@ export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId
   const call = useBotCall();
   const now = useNow(60_000);
   const [filter, setFilter] = useState<TaskFilter>('all');
+  const [picked, setPicked] = useScopedState<TaskTab | null>(channelId, null);
   const [allDone, setAllDone] = useScopedState(channelId, false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const resolvedTail = useWorkItems((s) => s.byChannel[channelId]?.resolvedTail);
   const runtime = useRuntime();
-  const [creating, setCreating] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [making, setMaking] = useState(false);
   const sections = useMemo(() => taskSections(items, filter, now, allDone), [items, filter, now, allDone]);
+  const counts = tabCounts(sections);
+  const tab = picked ?? defaultTab(sections);
   const today = localDate(now, timeZone);
   const open = (id: Id) => go({ tab: 'bot', channelId, workItemId: id, view: 'channel' });
   const rows = (list: readonly WorkItem[]) =>
     list.map((item) => <TaskRow key={item.id} item={item} today={today} timeZone={timeZone} selected={item.id === selectedId} onOpen={() => open(item.id)} />);
-  const nothing = !sections.suggested.length && !sections.needsYou.length && !sections.working.length && !sections.upNext.length && !sections.done.length;
 
   // 「显示更早的」（I19）：快照里已解决的条数到了上限时，Runtime 可能还有更早的，取回来补进快照再全部列出。
   const older = !allDone && mayHaveOlderResolved(items, resolvedTail);
@@ -234,120 +354,111 @@ export function TaskPanel({ channelId, selectedId }: { channelId: Id; selectedId
     if (result && result.shown === 0) ToastQueue.neutral(C.panel.madeNone, { timeout: 4000 });
   };
 
+  const body = (key: TaskTab): ReactNode => {
+    if (key === 'active')
+      return sections.active.length
+        ? sections.active.map((group) => (
+            <Section key={group.state} title={C.status[group.state]} count={group.items.length}>
+              {rows(group.items)}
+            </Section>
+          ))
+        : null;
+    if (key === 'resolved')
+      return sections.done.length || sections.moreDone || older ? (
+        <ul className={list}>
+          {rows(sections.done)}
+          {(sections.moreDone || older) && !allDone ? (
+            <li>
+              <ActionButton isQuiet size="S" isPending={loadingOlder} onPress={() => void showMore()}>
+                {older ? C.panel.showOlder : C.panel.showMore(sections.moreDone)}
+              </ActionButton>
+            </li>
+          ) : null}
+        </ul>
+      ) : null;
+    const list_ = key === 'upNext' ? sections.upNext : sections.scheduled;
+    return list_.length ? <ul className={list}>{rows(list_)}</ul> : null;
+  };
+  const emptyText = (key: TaskTab) => (key === 'active' && !items.length ? C.panel.empty : C.panel.tabEmpty[key]);
+
   return (
     <section className={panel} aria-label={C.panel.title}>
       <div className={head}>
         <h2 className={headTitle}>{C.panel.title}</h2>
+        <MenuTrigger>
+          <ActionButton isQuiet size="S" aria-label={C.panel.filterPick(FILTER_LABEL[filter]())}>
+            <Filter />
+            {filter === 'all' ? null : <Text>{FILTER_LABEL[filter]()}</Text>}
+          </ActionButton>
+          <Menu
+            aria-label={C.panel.filter}
+            selectionMode="single"
+            disallowEmptySelection
+            selectedKeys={[filter]}
+            onSelectionChange={(keys) => {
+              const next = [...keys][0];
+              if (next) setFilter(next as TaskFilter);
+            }}>
+            {(Object.keys(FILTER_LABEL) as TaskFilter[]).map((key) => (
+              <MenuItem key={key} id={key} textValue={FILTER_LABEL[key]()}>
+                <Text>{FILTER_LABEL[key]()}</Text>
+              </MenuItem>
+            ))}
+          </Menu>
+        </MenuTrigger>
         <ActionButton isQuiet size="S" aria-label={C.panel.make} isPending={making} onPress={() => void make()}>
           <MagicWand />
         </ActionButton>
-        <ActionButton isQuiet size="S" onPress={() => setCreating(true)}>
+        <ActionButton isQuiet size="S" aria-label={C.panel.newTask} aria-expanded={adding} onPress={() => setAdding(!adding)}>
           <Add />
-          <Text>{C.panel.newTask}</Text>
         </ActionButton>
+        {onHide ? (
+          <ActionButton isQuiet size="S" aria-label={C.panel.hide} onPress={onHide}>
+            <Close />
+          </ActionButton>
+        ) : null}
       </div>
-      <div className={filterRow}>
-        <SegmentedControl aria-label={C.panel.filter} selectedKey={filter} onSelectionChange={(key) => setFilter(key as TaskFilter)}>
-          <SegmentedControlItem id="all">{C.panel.all}</SegmentedControlItem>
-          <SegmentedControlItem id="mine">{C.panel.mine}</SegmentedControlItem>
-          <SegmentedControlItem id="agent">{C.panel.agent}</SegmentedControlItem>
-        </SegmentedControl>
-      </div>
-      <div className={`${scroller} bc-scroll`}>
-        {!loaded ? (
-          <div className={loading}>
-            <ProgressCircle size="S" isIndeterminate aria-label={C.common.loading} />
-          </div>
-        ) : nothing ? (
-          <p className={empty}>{C.panel.empty}</p>
-        ) : (
-          <>
-            {sections.suggested.length ? (
+      {adding ? (
+        <AddTaskRow
+          channelId={channelId}
+          onAdded={(item) => {
+            const next = tabOf(item);
+            if (next) setPicked(next);
+          }}
+          onClose={() => setAdding(false)}
+        />
+      ) : null}
+      {!loaded ? (
+        <div className={loading}>
+          <ProgressCircle size="S" isIndeterminate aria-label={C.common.loading} />
+        </div>
+      ) : (
+        <>
+          {sections.suggested.length ? (
+            <div className={suggestedBox}>
               <Section title={C.panel.suggestions}>
                 {sections.suggested.map((item) => (
                   <SuggestionItem key={item.id} item={item} onOpen={() => open(item.id)} />
                 ))}
               </Section>
-            ) : null}
-            {sections.needsYou.length ? <Section title={C.panel.needsYou}>{rows(sections.needsYou)}</Section> : null}
-            {sections.working.length ? <Section title={C.panel.working}>{rows(sections.working)}</Section> : null}
-            {sections.upNext.length ? <Section title={C.panel.upNext}>{rows(sections.upNext)}</Section> : null}
-            {sections.done.length || sections.moreDone ? (
-              <Section title={C.panel.done}>
-                {rows(sections.done)}
-                {(sections.moreDone || older) && !allDone ? (
-                  <li>
-                    <ActionButton isQuiet size="S" isPending={loadingOlder} onPress={() => void showMore()}>
-                      {older ? C.panel.showOlder : C.panel.showMore(sections.moreDone)}
-                    </ActionButton>
-                  </li>
-                ) : null}
-              </Section>
-            ) : null}
-          </>
-        )}
-      </div>
-      {creating ? <NewTaskDialog channelId={channelId} onClose={() => setCreating(false)} onCreated={open} /> : null}
+            </div>
+          ) : null}
+          <Tabs aria-label={C.panel.title} density="compact" selectedKey={tab} onSelectionChange={(key) => setPicked(key as TaskTab)} styles={tabsBox}>
+            <TabList aria-label={C.panel.title} styles={tabList}>
+              {TASK_TABS.map((key) => (
+                <Tab key={key} id={key}>
+                  {counts[key] ? `${C.panel.tabs[key]} ${counts[key]}` : C.panel.tabs[key]}
+                </Tab>
+              ))}
+            </TabList>
+            {TASK_TABS.map((key) => (
+              <TabPanel key={key} id={key} styles={tabPanel}>
+                <div className={`${scroller} bc-scroll`}>{body(key) ?? <p className={empty}>{emptyText(key)}</p>}</div>
+              </TabPanel>
+            ))}
+          </Tabs>
+        </>
+      )}
     </section>
-  );
-}
-
-/**
- * 新建任务（BOT-TK-02、需求 §4.4）：标题、谁来做。默认「我来做」、进「接下来」；改成交给智能体时可以勾「马上开始」，
- * 默认不勾，也进「接下来」。
- */
-export function NewTaskDialog({ channelId, onClose, onCreated }: { channelId: Id; onClose: () => void; onCreated: (id: Id) => void }) {
-  const call = useBotCall();
-  const [title, setTitle] = useState('');
-  const [owner, setOwner] = useState<WorkItemOwner>(NEW_TASK_DEFAULTS.owner);
-  const [start, setStart] = useState(NEW_TASK_DEFAULTS.start);
-  const [busy, setBusy] = useState(false);
-  const valid = title.trim() !== '' && title.trim().length <= BOT_LIMITS.title;
-  const submit = async () => {
-    if (!valid || busy) return;
-    setBusy(true);
-    const result = await call('workItems.create', { channelId, title: title.trim(), owner, start: owner === 'agent' && start, commandId: newId('cmd') });
-    setBusy(false);
-    if (result) {
-      onClose();
-      onCreated(result.item.id);
-    }
-  };
-  return (
-    <DialogContainer onDismiss={onClose}>
-      <Dialog size="S">
-        {({ close }) => (
-          <>
-            <Heading slot="title">{C.panel.newTask}</Heading>
-            <Content>
-              <Form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void submit();
-                }}>
-                <TextField label={C.panel.taskTitle} value={title} onChange={setTitle} autoFocus isRequired maxLength={BOT_LIMITS.title} />
-                <RadioGroup label={C.panel.owner} value={owner} onChange={(value) => setOwner(value as WorkItemOwner)}>
-                  <Radio value="user">{C.panel.ownerUser}</Radio>
-                  <Radio value="agent">{C.panel.ownerAgent}</Radio>
-                </RadioGroup>
-                {owner === 'agent' ? (
-                  <Switch isSelected={start} onChange={setStart}>
-                    {C.panel.startNow}
-                  </Switch>
-                ) : null}
-              </Form>
-            </Content>
-            <ButtonGroup>
-              <Button variant="secondary" onPress={close}>
-                {C.common.cancel}
-              </Button>
-              <Button variant="accent" isDisabled={!valid} isPending={busy} onPress={() => void submit()}>
-                {C.panel.add}
-              </Button>
-            </ButtonGroup>
-          </>
-        )}
-      </Dialog>
-    </DialogContainer>
   );
 }

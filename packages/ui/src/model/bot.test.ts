@@ -14,6 +14,10 @@ import {
   openChips,
   statusKey,
   taskSections,
+  tabCounts,
+  tabOf,
+  defaultTab,
+  TASK_TABS,
   wantedWorkItemChannels,
 } from './bot.ts';
 
@@ -156,7 +160,7 @@ describe('bot model', () => {
     expect(wantedWorkItemChannels(rows, null)).toEqual(['a', 'c']);
   });
 
-  it('splits tasks into the panel sections in the required order', () => {
+  it('splits tasks into the panel tabs: active grouped by sub-state, scheduled apart from up next', () => {
     const items = [
       active('w', 'working'),
       active('wait', 'waitingOnOthers'),
@@ -175,13 +179,30 @@ describe('bot model', () => {
       item('done-new', { status: 'resolved', updatedAt: '2026-10-30T00:00:00Z' }),
     ];
     const sections = taskSections(items, 'all', NOW);
-    expect(sections.needsYou.map((i) => i.id)).toEqual(['review', 'input']);
-    expect(sections.working.map((i) => i.id)).toEqual(['blocked', 'w', 'wait']);
-    expect(sections.upNext.map((i) => i.id)).toEqual(['next-due', 'next-nodue', 'next-low', 'sched']);
+    expect(sections.active.map((g) => [g.state, g.items.map((i) => i.id)])).toEqual([
+      ['needsReview', ['review']],
+      ['needsInput', ['input']],
+      ['blocked', ['blocked']],
+      ['working', ['w']],
+      ['waitingOnOthers', ['wait']],
+    ]);
+    expect(sections.upNext.map((i) => i.id)).toEqual(['next-due', 'next-nodue', 'next-low']);
+    expect(sections.scheduled.map((i) => i.id)).toEqual(['sched']);
+    expect(tabCounts(sections)).toEqual({ active: 5, upNext: 3, scheduled: 1, resolved: 0 });
     expect(sections.suggested).toHaveLength(3);
     expect(sections.done.map((i) => i.id)).toEqual(['done-new']);
     expect(sections.moreDone).toBe(1);
     expect(taskSections(items, 'all', NOW, true).done.map((i) => i.id)).toEqual(['done-new', 'done-old']);
+  });
+
+  it('places each task in one tab and starts on the first tab that has tasks', () => {
+    expect(TASK_TABS).toEqual(['active', 'upNext', 'scheduled', 'resolved']);
+    expect(tabOf(item('a', { status: 'scheduled' }))).toBe('scheduled');
+    expect(tabOf(item('a', { status: 'suggested' }))).toBeNull();
+    expect(defaultTab(taskSections([item('next')], 'all', NOW))).toBe('upNext');
+    expect(defaultTab(taskSections([item('d', { status: 'resolved', updatedAt: '2026-10-30T00:00:00Z' })], 'all', NOW))).toBe('resolved');
+    expect(defaultTab(taskSections([item('next'), active('w', 'working')], 'all', NOW))).toBe('active');
+    expect(defaultTab(taskSections([item('s', { status: 'suggested' })], 'all', NOW))).toBe('active');
   });
 
   it('filters by owner', () => {

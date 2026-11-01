@@ -45,6 +45,15 @@ test('页签：每条任务按状态落到一个页签，建议不落', () => {
   B.TASK_TABS.forEach(k => assert.ok(B.TAB_LABEL[k], k));
 });
 
+test('默认页签：第一个有任务的页签，都空时是进行中', () => {
+  const tab = list => B.defaultTab(B.taskSections(list, 'all', NOW, false));
+  assert.equal(tab([]), 'active');
+  assert.equal(tab([item('s', {status: 'suggested'})]), 'active');
+  assert.equal(tab([item('up', {status: 'upNext'}), item('w', {status: 'active', active: {state: 'working'}})]), 'active');
+  assert.equal(tab([item('sc', {status: 'scheduled', startAt: NOW + 1000})]), 'scheduled');
+  assert.equal(tab([item('d', {status: 'resolved', resolution: {kind: 'done', at: NOW - 1000}})]), 'resolved');
+});
+
 test('任务面板：已完成只列 30 天内最近 20 条，其余计数；展开后全列', () => {
   const old = item('old', {status: 'resolved', resolution: {kind: 'done', at: NOW - 40 * 86400000}});
   const recent = Array.from({length: 22}, (_, n) => item('r' + n, {status: 'resolved', resolution: {kind: 'done', at: NOW - n * 1000}}));

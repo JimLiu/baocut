@@ -89,12 +89,13 @@
     const R = window.RSP;
     const bot = window.useBot();
     const [filter, setFilter] = useState('all');
-    const [tab, setTab] = useState('active');
+    const [picked, setTab] = useState(null);
     const [allDone, setAllDone] = useState(false);
     const [adding, setAdding] = useState(false);
     const items = bot.items.filter(i => i.channelId === channelId);
     const sections = B.taskSections(items, filter, Date.now(), allDone);
     const counts = B.tabCounts(sections);
+    const tab = picked || B.defaultTab(sections);
     const open = id => app.go({r: 'bot', id: channelId, task: id});
     const rows = list => list.map(i => <BotTaskRow key={i.id} item={i} selected={i.id === selectedId} onOpen={() => open(i.id)} />);
     const added = task => setTab(B.tabOf(task) || tab);

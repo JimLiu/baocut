@@ -147,6 +147,12 @@
     };
   }
 
+  /** 打开面板时选中的页签：第一个有任务的页签，都空时是进行中（需求 §11.5）。 */
+  function defaultTab(sections) {
+    const counts = tabCounts(sections);
+    return TASK_TABS.find(k => (k === 'resolved' ? sections.done.length > 0 || sections.moreDone > 0 : counts[k] > 0)) || 'active';
+  }
+
   /** 任务行「⋯」里的快捷操作（需求 §11.5）。 */
   function quickActions(item) {
     if (item.status === 'upNext' || item.status === 'scheduled') return item.owner === 'agent' ? ['start', 'markDone', 'dismiss'] : ['markDone', 'dismiss'];
@@ -269,5 +275,5 @@
 
   const root = typeof window !== 'undefined' ? window : globalThis;
   root.BC_BOT = {STATUS, RELAY, QUICK_LABEL, NEW_TASK_DEFAULTS, statusKey, statusOf, needsUser, nextLine, channelSummaries, needsYouTotal,
-    channelGroups, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, quickActions, applyAction, newTask, openChips, demo};
+    channelGroups, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, defaultTab, quickActions, applyAction, newTask, openChips, demo};
 })();

@@ -1,6 +1,5 @@
 import {
   BOT_LIMITS,
-  needsUser,
   type ActiveState,
   type ChannelSummary,
   type Id,
@@ -76,12 +75,27 @@ export function wantedWorkItemChannels(channels: readonly ChannelSummary[], open
 
 export type TaskFilter = 'all' | 'mine' | 'agent';
 
+/** 任务面板的四个页签（需求 §11.5）；建议不在页签里，另放在页签上方。 */
+export type TaskTab = 'active' | 'upNext' | 'scheduled' | 'resolved';
+export const TASK_TABS: readonly TaskTab[] = ['active', 'upNext', 'scheduled', 'resolved'];
+
+/** 一条任务落在哪个页签；建议不落在任何页签。 */
+export function tabOf(item: Pick<WorkItem, 'status'>): TaskTab | null {
+  return item.status === 'suggested' ? null : item.status;
+}
+
+export interface ActiveGroup {
+  state: ActiveState;
+  items: WorkItem[];
+}
+
 export interface TaskSections {
   suggested: WorkItem[];
-  needsYou: WorkItem[];
-  working: WorkItem[];
-  /** 接下来，后面接着定时的（按开始时刻）。 */
+  /** 进行中，按子状态分组：待你审阅 → 需要你输入 → 已停下 → 工作中 → 等别人；空组不列。 */
+  active: ActiveGroup[];
   upNext: WorkItem[];
+  /** 定时的，按开始时刻。 */
+  scheduled: WorkItem[];
   done: WorkItem[];
   /** 已解决的里因为条数或时间没列出的。 */
   moreDone: number;
@@ -120,7 +134,7 @@ export function matchesFilter(item: WorkItem, filter: TaskFilter): boolean {
 }
 
 /**
- * 任务面板的四段（需求 §11.5）：等你、工作中（已停下、工作中、等别人）、接下来（含定时）、已解决（最近 20 条、30 天内）；
+ * 任务面板的四个页签（需求 §11.5）：进行中（按子状态分组）、接下来、定时、已解决（最近 20 条、30 天内）；
  * 建议另放，最多 3 条。
  */
 export function taskSections(items: readonly WorkItem[], filter: TaskFilter, now: number, showAllDone = false): TaskSections {
@@ -129,7 +143,13 @@ export function taskSections(items: readonly WorkItem[], filter: TaskFilter, now
     .filter((item) => item.status === 'suggested')
     .sort(compareWorkItems)
     .slice(0, BOT_LIMITS.pendingSuggestionsPerChannel);
-  const active = shown.filter((item) => item.status === 'active').sort(compareActive);
+  const active: ActiveGroup[] = [];
+  for (const item of shown.filter((item) => item.status === 'active').sort(compareActive)) {
+    const state = item.active?.state ?? 'working';
+    const group = active[active.length - 1];
+    if (group?.state === state) group.items.push(item);
+    else active.push({ state, items: [item] });
+  }
   const upNext = shown.filter((item) => item.status === 'upNext').sort(compareWorkItems);
   const scheduled = shown
     .filter((item) => item.status === 'scheduled')
@@ -137,14 +157,23 @@ export function taskSections(items: readonly WorkItem[], filter: TaskFilter, now
   const cutoff = now - RESOLVED_DAYS * 86_400_000;
   const resolved = shown.filter((item) => item.status === 'resolved').sort((a, b) => resolvedAt(b).localeCompare(resolvedAt(a)));
   const recent = showAllDone ? resolved : resolved.filter((item) => Date.parse(resolvedAt(item)) >= cutoff).slice(0, BOT_LIMITS.resolvedTail);
+  return { suggested, active, upNext, scheduled, done: recent, moreDone: resolved.length - recent.length };
+}
+
+/** 页签上的条数；已解决只列最近一段，不计数。 */
+export function tabCounts(sections: TaskSections): Record<TaskTab, number> {
   return {
-    suggested,
-    needsYou: active.filter((item) => needsUser(item)),
-    working: active.filter((item) => !needsUser(item)),
-    upNext: [...upNext, ...scheduled],
-    done: recent,
-    moreDone: resolved.length - recent.length,
+    active: sections.active.reduce((n, group) => n + group.items.length, 0),
+    upNext: sections.upNext.length,
+    scheduled: sections.scheduled.length,
+    resolved: 0,
   };
+}
+
+/** 用户还没点过页签时停在哪个：第一个有任务的，都没有时是进行中。 */
+export function defaultTab(sections: TaskSections): TaskTab {
+  const counts = tabCounts(sections);
+  return TASK_TABS.find((tab) => (tab === 'resolved' ? sections.done.length > 0 || sections.moreDone > 0 : counts[tab] > 0)) ?? 'active';
 }
 
 /**

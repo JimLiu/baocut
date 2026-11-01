@@ -191,6 +191,10 @@ svg[role='img'][viewBox='0 0 20 20']:not(
 .bc-shell-button[aria-pressed='true'] {
   background-color: var(--bc-shell-pressed);
 }
+/* Bot 频道头的「任务」开关：右栏显示时铺一层底色（颜色变量由 ChannelView 给）。 */
+.bc-panel-toggle[aria-expanded='true'] {
+  background-color: var(--bc-panel-toggle-on);
+}
 /* 标签页按钮的图形：外框中间叠加号（同为 20 网格、与外框同尺寸）或标签页数（10px，两位以上缩到 0.75）。 */
 .bc-tabstack {
   position: relative;
