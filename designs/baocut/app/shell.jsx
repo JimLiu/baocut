@@ -354,7 +354,7 @@
       </> : editor && !SURF.appRail ? <MovieTitle editor={editor} />
         : <div className={cx('tbar__title tbar__title--mid', dividers.length && 'tbar__title--pane')}
             style={dividers.length ? {left: dividers[dividers.length - 1]} : undefined}><div className="ttitle">{SURF.name}</div></div>}
-      {/* Bot 页右栏的页签条由 BotPage 放进这里（page-bot.jsx），左缘跟着右栏 */}
+      {/* Bot 页的中间栏标题与右栏页签条由 BotPage 放进这里（page-bot.jsx），各自跟着下面那一栏的左右缘 */}
       {SURF.appRail && app.route.r === 'bot' ? <div className="tbar__bot" id="bot-tbar" /> : null}
       <div className="tbar__acts">
         {SURF.help && sidebar.ghost && !home ? <IconBtn icon="help" tip="帮助中心 · F1" onClick={onHelp} /> : null}

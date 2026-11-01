@@ -1,6 +1,6 @@
 /* Bot 页（docs/design/bot-mode/bot-mode-requirements.md §11，技术方案 §17.1）—— 只在 App 入口加载。
    左边频道侧栏（页面侧栏，由 Shell 放），中间频道对话（或收件箱、频道记忆），右边是一组页签（任务、Make、打开的任务与产物），
-   页签条和 Home 一样在标题栏里。
+   中间栏的标题（频道头、「等你处理」、记忆页的标题）与右栏的页签条都和 Home 一样在标题栏里。
    主区窄于 880 时右栏收起，从频道头部的开关浮出；打开任务或产物时总是显示。
 
    演示态（频道、任务、时间线）是这一页自己的：一个模块级的小 store，侧栏与页面共读，不进 store.jsx。
@@ -199,12 +199,15 @@
 
   /* ---------- 收件箱 ---------- */
 
-  /** 等你处理（需求 §11.8）：全部频道里待你审阅与需要你输入的任务，按频道分组；点一行在右侧打开任务。 */
-  function BotInbox({selectedId, onOpen}) {
+  /**
+   * 等你处理（需求 §11.8）：全部频道里待你审阅与需要你输入的任务，按频道分组；点一行在右侧打开任务。
+   * 在中间栏时标题在标题栏里；占满时它是左栏，标题栏只有页签，这时 `titled` 把标题放回列表顶上。
+   */
+  function BotInbox({selectedId, onOpen, titled}) {
     const bot = useBot();
     const groups = bot.channels.map(c => ({channel: c, items: bot.items.filter(i => i.channelId === c.id && B.needsUser(i))})).filter(g => g.items.length);
     return <section className="bot-inbox bc-scroll" aria-label="等你处理">
-      <h2 className="bot-inbox__title">等你处理</h2>
+      {titled ? <h2 className="bot-inbox__title">等你处理</h2> : null}
       {groups.length ? groups.map(g => <section key={g.channel.id} className="bot-inbox__group" aria-label={g.channel.name}>
         <h3 className="bot-section__title">{g.channel.name}</h3>
         <ul className="bot-list">{g.items.map(i => <window.BotTaskRow key={i.id} item={i} selected={i.id === selectedId} onOpen={() => onOpen(i)} />)}</ul>
@@ -228,26 +231,30 @@
   }
 
   /**
-   * 标题栏里留给右栏页签条的位置（shell.jsx 的 #bot-tbar）与右栏左缘在它里面的横坐标。右栏开合、拖宽、占满、
-   * 侧栏开合都会挪左缘：量右栏、Bot 页本身与标题栏三个框，任何一个变了就重量。
+   * 标题栏里留给 Bot 页的一层（shell.jsx 的 #bot-tbar）与中间栏、右栏在它里面的横坐标：中间栏的标题放在中间栏上方，
+   * 右栏的页签条从右栏左缘开始。右栏开合、拖宽、占满、窄时浮层、侧栏开合都会挪这些边：Bot 页、它的几栏与标题栏任何一个变了就重量。
    */
-  function useTitlebarSlot(side, deps) {
+  function useTitlebarSlot(root, deps) {
     const [slot, setSlot] = useState(null);
-    const [left, setLeft] = useState(null);
+    const [box, setBox] = useState(null);
     useLayoutEffect(() => { setSlot(document.getElementById('bot-tbar')); }, []);
     useLayoutEffect(() => {
-      const el = side.current;
-      if (!slot || !el) { setLeft(null); return undefined; }
+      const el = root.current;
+      if (!slot || !el) { setBox(null); return undefined; }
       const sync = () => {
-        const x = Math.round(el.getBoundingClientRect().left - slot.getBoundingClientRect().left);
-        setLeft(old => (old === x ? old : x));
+        const origin = slot.getBoundingClientRect().left;
+        const main = el.querySelector(':scope > .bot__main')?.getBoundingClientRect();
+        const side = el.querySelector(':scope > .bot__side')?.getBoundingClientRect();
+        const next = {main: main && main.width ? {left: Math.round(main.left - origin), right: Math.round(main.right - origin)} : null,
+          side: side ? Math.round(side.left - origin) : null};
+        setBox(old => (JSON.stringify(old) === JSON.stringify(next) ? old : next));
       };
       sync();
       const observer = new ResizeObserver(sync);
-      [slot, el, el.parentElement].forEach(node => observer.observe(node));
+      [slot, el, ...el.children].forEach(node => observer.observe(node));
       return () => observer.disconnect();
     }, [slot, ...deps]);
-    return slot && left != null ? {slot, left} : null;
+    return slot && box ? {slot, ...box} : null;
   }
 
   /** 拖过的宽，按形态各记各的：右栏 tasks / make / detail / output，占满时的左栏 full:tasks / full:make / full:inbox / full:task。 */
@@ -262,7 +269,8 @@
    * Bot 页（需求 §11.1 的修订稿）：中间频道对话（或收件箱、频道记忆），右栏照 Home 的功能区是一组页签（product-design §3.3）。
    * 路由 {r:'bot', id: 频道, task, out, view: 'inbox' | 'memory'}：task / out 是当前的任务或产物页签，没有就是固定页签（「任务」或「Make」，`side`）。
    * 页签簿按频道各记一份（model-bot.js 的 reconcileSideTabs）：路由里的任务、产物没开就开一个页签；关掉当前页签换到旁边那个。
-   * 页签条照 Home 放在标题栏里（useTitlebarSlot），左缘跟着右栏，右栏收起时标题栏回到原样。
+   * 照 Home 的标题栏（useTitlebarSlot）：中间栏上方是它的标题（频道头 BotChannelHead、「等你处理」、记忆页的标题），
+   * 右栏上方是页签条，左缘跟着右栏；右栏收起时标题铺到右端，占满时只有页签条。
    * 右栏的开合：宽时默认开着，窄时默认收起、开了是浮层；路由里有任务或产物时总是开着。频道头的「任务」「Make」开关显示右栏并选中
    * 那个固定页签，再按一次收起；标题栏右端的「收起右栏」同一件事。收起不关页签。
    * 宽时中间与右栏之间有分隔条，宽按当前页签的形态（任务面板 340、Make 380、任务更宽、产物最宽），拖过的各记各的。
@@ -273,6 +281,8 @@
     const app = useApp();
     const bot = useBot();
     const [contentRef, mainWidth] = useMainWidth();
+    const rootRef = useRef(null);
+    const setRoot = useCallback(el => { rootRef.current = el; contentRef(el); }, [contentRef]);
     const narrow = mainWidth > 0 && mainWidth < NARROW;
     const [wideHidden, setWideHidden] = useState(false);
     const [narrowShown, setNarrowShown] = useState(false);
@@ -319,31 +329,37 @@
       ? <window.BotMakePanel key={channel.id} channelId={channel.id} onOpenOutput={(i, n) => app.go({r: 'bot', id: i.channelId, task: i.id, out: String(n)})} />
       : <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={active && active.kind === 'task' ? active.task : null} />);
     const leftContent = left => (left.kind === 'task' ? <window.BotTaskDetail key={`left:${left.task}`} id={left.task} onOpenOutput={openOutput(left.task)} />
-      : left.kind === 'inbox' ? <BotInbox selectedId={task} onOpen={openTask} /> : fixedContent(left.kind));
+      : left.kind === 'inbox' ? <BotInbox selectedId={task} onOpen={openTask} titled /> : fixedContent(left.kind));
 
     let center;
+    let head = null;
     let shown = false;
     if (inbox) {
       center = <BotInbox selectedId={task} onOpen={openTask} />;
+      head = <div className="hhd bot-head"><h1 className="hhd__title">等你处理</h1></div>;
       shown = !!task;
     } else if (!channel) {
       center = <div className="bot-missing"><span>这个频道已经不在了。</span>
         <window.RSP.Button variant="secondary" onPress={() => app.go({r: 'bot'})}>去默认频道</window.RSP.Button></div>;
     } else if (view === 'memory') {
       center = <window.BotMemoryPage key={channel.id} channel={channel} />;
+      head = <window.BotMemoryHead channel={channel} />;
     } else {
       shown = !!task || panelShown;
       const fixedOn = kind => shown && !active && side === kind;
       const suggestions = bot.items.filter(i => i.channelId === channel.id && i.status === 'suggested').length;
-      center = <window.BotChannelView key={channel.id} channel={channel}
+      center = <window.BotChannelView key={channel.id} channel={channel} />;
+      head = <window.BotChannelHead channel={channel}
         tasksToggle={{shown: fixedOn('tasks'), onToggle: () => (fixedOn('tasks') ? hide() : selectFixed('tasks'))}}
         makeToggle={{shown: fixedOn('make'), suggestions, onToggle: () => (fixedOn('make') ? hide() : selectFixed('make'))}} />;
     }
 
     const mode = B.sideMode(active, side);
     const sized = shown && !narrow && !full && mainWidth > 0 ? B.sideWidth(mode, sideWidths[mode], mainWidth) : null;
-    const sideRef = useRef(null);
-    const titlebar = useTitlebarSlot(sideRef, [shown, full, narrow, mode]);
+    const titlebar = useTitlebarSlot(rootRef, [shown, full, narrow, mode, view]);
+    // 中间栏的标题右缘：右栏开着时到右栏左缘（窄时右栏是浮层，盖住的那段不放标题），收起时到中间栏右缘
+    const headEnd = titlebar && titlebar.main ? (shown && titlebar.side != null ? Math.min(titlebar.side, titlebar.main.right) : titlebar.main.right) : null;
+    const headWidth = headEnd != null ? headEnd - titlebar.main.left : 0;
     let body = null;
     if (shown && full) {
       const cols = B.fullColumns(active, side, inbox);
@@ -361,15 +377,18 @@
     }
     const waiting = channel ? bot.items.filter(i => i.channelId === channel.id && B.needsUser(i)).length : 0;
     const suggestions = channel ? bot.items.filter(i => i.channelId === channel.id && i.status === 'suggested').length : 0;
-    return <div className={cx('bot', full && shown && 'bot--side-full')} ref={contentRef}>
+    return <div className={cx('bot', full && shown && 'bot--side-full')} ref={setRoot}>
       <window.BotDialogs />
       <div className="bot__main">{center}</div>
       {sized ? <window.BotSideSeam {...sized} onResize={w => setWidth(mode, B.sideWidth(mode, w, mainWidth).width)} onReset={() => resetWidth(mode)} /> : null}
-      {shown && titlebar ? ReactDOM.createPortal(<div className={cx('tbar__workspace tbar__workspace--bot', !full && 'has-divider')} style={{left: titlebar.left}}>
+      {head && headWidth >= 160 ? ReactDOM.createPortal(<div className="tbar__conversation tbar__conversation--bot" style={{left: titlebar.main.left, width: headWidth}}>
+        {head}
+      </div>, titlebar.slot) : null}
+      {shown && titlebar && titlebar.side != null ? ReactDOM.createPortal(<div className={cx('tbar__workspace tbar__workspace--bot', !full && 'has-divider')} style={{left: titlebar.side}}>
         <window.BotSideTabs fixed={!inbox} side={side} active={tabs.active} tabs={tabs.tabs} waiting={waiting} suggestions={suggestions}
           full={full} onToggleFull={narrow ? null : () => setFull(!full)} onFixed={selectFixed} onSelect={selectTab} onClose={closeTab} onHide={hide} />
       </div>, titlebar.slot) : null}
-      {shown ? <aside ref={sideRef} className={cx('bot__side', `bot__side--${mode}`, narrow && 'bot__side--overlay')} style={sized ? {width: sized.width} : undefined} aria-label="右栏">
+      {shown ? <aside className={cx('bot__side', `bot__side--${mode}`, narrow && 'bot__side--overlay')} style={sized ? {width: sized.width} : undefined} aria-label="右栏">
         <div id="bot-side-panel" role="tabpanel" className="bot-side__panel" aria-labelledby={window.botSideTabId(tabs.active || `fixed:${side}`)}>{body}</div>
       </aside> : null}
     </div>;

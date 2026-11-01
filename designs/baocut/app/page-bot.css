@@ -16,12 +16,13 @@
 .bot--side-full > .bot__main { display: none; }
 .bot--side-full > .bot__side { flex: 1 1 auto; width: auto; }
 /* 右栏：页签条（BotSideTabs，页签的样子用 Home 功能区的 .home-tabs__*）照 Home 放在标题栏里——shell.jsx 给 Bot 页留一层 .tbar__bot，
-   BotPage 把 .tbar__workspace--bot 放进去、左缘对齐右栏，不占满时左缘画一根和标题栏分隔线一样的竖线；有页签条时标题栏不放中间的标题与帮助。
+   BotPage 把 .tbar__workspace--bot 放进去、左缘对齐右栏，不占满时左缘画一根和标题栏分隔线一样的竖线；
+   中间栏的标题也在这一层（.tbar__conversation--bot，见「频道对话」）。Bot 页放了东西时标题栏不放中间的「BaoCut」与帮助。
    右栏里只剩当前页签；占满时分两栏，中间也是一根分隔条。 */
 .tbar__bot { position: absolute; inset: 0; pointer-events: none; }
 .tbar__workspace--bot { pointer-events: auto; }
 .tbar__workspace--bot.has-divider::before { content: ''; position: absolute; top: 12px; bottom: 12px; left: 0; width: 1px; transform: translateX(-50%); background: var(--gray-100); }
-.tbar:has(.tbar__workspace--bot) :is(.tbar__title--mid, .tbar__acts) { visibility: hidden; }
+.tbar:has(.tbar__bot > *) :is(.tbar__title--mid, .tbar__acts) { visibility: hidden; }
 .bot-side-tabs__controls { display: flex; align-items: center; gap: 4px; flex: none; }
 .bot-side-tabs__fixed { position: relative; display: flex; flex: none; gap: 4px; margin-inline-end: 8px; }
 .bot-side-tabs__fixed::after { content: ''; position: absolute; top: 8px; bottom: 8px; right: -6px; width: 1px; background: var(--gray-300); }
@@ -113,22 +114,24 @@
 
 /* ---------- 频道对话 ---------- */
 .bot-channel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
-.bot-channel__head { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; padding: 12px 24px; border-bottom: 2px solid var(--gray-100); }
-.bot-channel__text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
-.bot-channel__name { display: flex; min-width: 0; margin: 0; font-size: 16px; font-weight: 700; line-height: 22px; color: var(--gray-900); }
-/* 频道名是菜单入口（同视频名）：安静按钮，抵掉按钮的左内边距，让图标左缘与下面的说明对齐 */
-.bot-channel__menu { max-width: calc(100% + 12px); margin-inline-start: -12px; font-size: 16px; font-weight: 700; }
+/* 中间栏的标题在标题栏里（BotPage 放进 .tbar__conversation--bot）：样子照 Home 的会话头（.tbar__conversation .hhd，12px 半粗），
+   频道头是「图标 频道名 ⌄」+ 说明的第一行 + 右栏的两个开关；收件箱只有标题，记忆页是「‹ 记忆 · 频道名」。 */
+.tbar__conversation--bot { overflow: hidden; }
+.bot-head .hhd__title { display: flex; flex: 0 1 auto; }
+/* 频道名是菜单入口（同视频名）：安静按钮，抵掉一点左内边距，让图标靠近栏的左缘；最大宽要把抵掉的 8px 加回来（写在 .bot-titled 之后的规则会压掉单类） */
+.bot-head .bot-channel__menu { max-width: calc(100% + 8px); margin-inline-start: -8px; font-size: 12px; font-weight: 600; }
 /* 「图标 名字 ⌄」的按钮：⌄ 跟在文字槽里，名字太长时只截名字 */
 .bot-titled { max-width: 100%; }
 .bot-titled > [data-rsp-slot="text"] { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
 .bot-titled__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bot-titled > [data-rsp-slot="text"] svg { flex: none; width: 16px; height: 16px; }
-/* 说明的第一行：点开编辑说明（需求 §11.3「点开看全文并可编辑」） */
-.bot-channel__purpose { max-width: 100%; padding: 0; border: 0; border-radius: 4px; background: transparent; text-align: start; cursor: pointer;
-  font: inherit; font-size: 12px; line-height: 16px; color: var(--gray-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bot-channel__purpose:hover { color: var(--gray-900); }
-.bot-channel__purpose:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.bot-channel__purpose.is-empty { color: var(--gray-500); }
+/* 说明的第一行跟在频道名后面，占掉剩下的宽（基准 0：窄时它先让，频道名后让，两个开关不缩）：点开编辑说明（需求 §11.3「点开看全文并可编辑」） */
+.bot-head__purpose { flex: 1 1 0; min-width: 0; padding: 0; border: 0; border-radius: 4px; background: transparent; text-align: start; cursor: pointer;
+  font: inherit; font-size: 12px; line-height: 16px; color: var(--gray-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bot-head__purpose:hover { color: var(--gray-900); }
+.bot-head__purpose:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.bot-head__purpose.is-empty { color: var(--gray-500); }
+.bot-head .bot-toggle { flex: none; }
 .bot-toggle.is-on { background: var(--gray-100); }
 .bot-toggle__dot { position: absolute; top: 2px; inset-inline-end: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--blue-900); }
 
@@ -329,8 +332,7 @@
 .bot-memory { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .bot-memory__inner { display: flex; flex-direction: column; gap: 12px; flex: 1 1 auto; min-height: 0; width: 100%; max-width: 860px; margin-inline: auto; padding: 16px 24px;
   box-sizing: border-box; }
-.bot-memory__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-inline-start: -8px; }
-.bot-memory__title { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 18px; line-height: 24px; font-weight: 700; color: var(--gray-900); }
+.bot-memory__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .bot-memory__lead { margin: 0; font-size: 14px; line-height: 20px; color: var(--gray-700); }
 .bot-memory__text { flex: 1 1 auto; min-height: 240px; padding: 12px; box-sizing: border-box; resize: none; border: 1px solid var(--gray-300); border-radius: 10px;
   background: var(--gray-25); font-family: var(--mono); font-size: 12px; line-height: 20px; color: var(--gray-900); outline: none; }

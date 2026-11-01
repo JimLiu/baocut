@@ -116,40 +116,48 @@
   }
 
   /**
-   * 频道对话（BOT-CV-01…05、需求 §11.3 修订）：头部是「图标 频道名 ⌄」（按下是频道菜单：频道设置、重命名、说明、图标、分组……，page-bot-dialogs.jsx）
-   * 与说明的第一行（点开编辑说明），最后是右栏的「任务」「Make」两个开关；记忆与新建周期任务只在频道菜单里：
-   * 「任务」带这个频道里等你的任务数（需求 §11.1），「Make」有新建议时带个点。回复一张线程卡（BOT-EX-09）时输入框上方显示「回复「任务名」✕」。
+   * 频道头（BOT-CV-01、需求 §11.3 修订）：照 Home 的会话头放在标题栏里、中间栏的上方（BotPage 放进去）。
+   * 「图标 频道名 ⌄」（按下是频道菜单：频道设置、重命名、说明、图标、分组……，page-bot-dialogs.jsx），后面跟说明的第一行（点开编辑说明），
+   * 最后是右栏的「任务」「Make」两个开关；记忆与新建周期任务只在频道菜单里。
+   * 「任务」带这个频道里等你的任务数（需求 §11.1），「Make」有新建议时带个点。
    */
-  function BotChannelView({channel, tasksToggle, makeToggle}) {
+  function BotChannelHead({channel, tasksToggle, makeToggle}) {
+    const R = window.RSP;
+    const bot = window.useBot();
+    const waiting = bot.items.filter(i => i.channelId === channel.id && B.needsUser(i)).length;
+    return <div className="hhd bot-head">
+      <h1 className="hhd__title"><window.BotChannelTitleMenu channel={channel} groups={bot.groups} /></h1>
+      <button type="button" className={cx('bot-head__purpose', !channel.purpose && 'is-empty')} title={channel.purpose || undefined}
+        aria-label={channel.purpose ? `说明：${channel.purpose}` : '写说明'} onClick={() => window.openBotDialog({kind: 'instructions', channelId: channel.id})}>
+        {channel.purpose ? channel.purpose.split('\n')[0] : '没有写说明，什么都能做'}
+      </button>
+      <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
+        aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
+        <R.Icons.ViewList /><R.Text>任务</R.Text>{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}
+      </R.ActionButton>
+      <R.ActionButton isQuiet size="S" aria-expanded={makeToggle.shown} UNSAFE_className={cx('bot-toggle', makeToggle.shown && 'is-on')}
+        aria-label={makeToggle.suggestions ? `Make，${makeToggle.suggestions} 条建议` : 'Make'} onPress={makeToggle.onToggle}>
+        <R.Icons.MagicWand /><R.Text>Make</R.Text>{makeToggle.suggestions ? <span className="bot-toggle__dot" aria-hidden="true" /> : null}
+      </R.ActionButton>
+    </div>;
+  }
+
+  /**
+   * 频道对话（BOT-CV-02…05）：线程与输入框；频道头在标题栏里（BotChannelHead）。
+   * 回复一张线程卡（BOT-EX-09）时输入框上方显示「回复「任务名」✕」。
+   */
+  function BotChannelView({channel}) {
     const app = useApp();
     const R = window.RSP;
     const bot = window.useBot();
     const entries = bot.timelines[channel.id] || [];
     const [replyTo, setReplyTo] = useState(null);
     const replyItem = replyTo ? bot.items.find(i => i.id === replyTo) : null;
-    const waiting = bot.items.filter(i => i.channelId === channel.id && B.needsUser(i)).length;
     const send = text => {
       if (replyTo) { window.BOT_ACTIONS.reply(replyTo, text); setReplyTo(null); app.toast('已转给这条任务'); return; }
       window.BOT_ACTIONS.send(channel.id, text);
     };
     return <section className="bot-channel" aria-label={channel.name}>
-      <header className="bot-channel__head">
-        <div className="bot-channel__text">
-          <h2 className="bot-channel__name"><window.BotChannelTitleMenu channel={channel} groups={bot.groups} /></h2>
-          <button type="button" className={cx('bot-channel__purpose', !channel.purpose && 'is-empty')} title={channel.purpose || undefined}
-            aria-label={channel.purpose ? `说明：${channel.purpose}` : '写说明'} onClick={() => window.openBotDialog({kind: 'instructions', channelId: channel.id})}>
-            {channel.purpose ? channel.purpose.split('\n')[0] : '没有写说明，什么都能做'}
-          </button>
-        </div>
-        {tasksToggle ? <R.ActionButton isQuiet size="S" aria-expanded={tasksToggle.shown} UNSAFE_className={cx('bot-toggle', tasksToggle.shown && 'is-on')}
-          aria-label={waiting ? `任务，${waiting} 个等你` : '任务'} onPress={tasksToggle.onToggle}>
-          <R.Icons.ViewList /><R.Text>任务</R.Text>{waiting ? <R.NotificationBadge size="S" value={waiting} /> : null}
-        </R.ActionButton> : null}
-        {makeToggle ? <R.ActionButton isQuiet size="S" aria-expanded={makeToggle.shown} UNSAFE_className={cx('bot-toggle', makeToggle.shown && 'is-on')}
-          aria-label={makeToggle.suggestions ? `Make，${makeToggle.suggestions} 条建议` : 'Make'} onPress={makeToggle.onToggle}>
-          <R.Icons.MagicWand /><R.Text>Make</R.Text>{makeToggle.suggestions ? <span className="bot-toggle__dot" aria-hidden="true" /> : null}
-        </R.ActionButton> : null}
-      </header>
       <BotTimeline entries={entries} channelId={channel.id} onReply={setReplyTo}
         empty="说说你要做什么。费时的活会在后台做，并作为任务出现在右边。" />
       <BotComposer placeholder="说说你要做什么" onSend={send} above={<>
@@ -162,5 +170,5 @@
     </section>;
   }
 
-  Object.assign(window, {BotChannelView, BotMessage, BotChips, BotComposer});
+  Object.assign(window, {BotChannelHead, BotChannelView, BotMessage, BotChips, BotComposer});
 })();
