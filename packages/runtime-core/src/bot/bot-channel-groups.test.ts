@@ -172,3 +172,28 @@ describe('channel counts for the confirmations', () => {
     expect(counts).toEqual({ needsYou: 0, working: 0, upNext: 2, suggested: 1, scheduled: 1, open: 3 });
   });
 });
+
+describe('channel activity', () => {
+  /** 时刻精确到毫秒：等过一毫秒，后面的改动才比 lastSeen 晚。 */
+  const later = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+  it('changing how a channel looks or files neither marks it unread nor moves it up; a task change does', async () => {
+    const channel = await kit.bot.createChannel({ name: 'Quiet' });
+    const item = await kit.bot.createItem({ channelId: channel.id, title: 'Cut', owner: 'user' });
+    await kit.bot.markSeen(channel.id, null);
+    const summary = () => kit.bot.listChannels().find((row) => row.channel.id === channel.id)!;
+    const seen = summary();
+    expect(seen.unread).toBe(false);
+
+    await later();
+    await kit.bot.createGroup('Shows', [channel.id]);
+    await kit.bot.updateChannel(channel.id, { name: 'Quiet cut', pinned: true, muted: true, icon: 'Video', color: 'blue', groupId: null });
+    await kit.bot.archiveChannel(channel.id, true);
+    await kit.bot.archiveChannel(channel.id, false);
+    expect(summary()).toMatchObject({ unread: false, lastActivityAt: seen.lastActivityAt });
+
+    await later();
+    const touched = await kit.bot.updateItem(item.id, { title: 'Rough cut' });
+    expect(summary()).toMatchObject({ unread: true, lastActivityAt: touched.updatedAt });
+  });
+});

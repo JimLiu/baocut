@@ -617,7 +617,9 @@ export class BotService {
   #summary(channel: Channel): ChannelSummary {
     const items = this.#channelItems(channel.id);
     const counts = { needsYou: 0, working: 0, upNext: 0, suggested: 0, scheduled: 0, open: 0 };
-    let last = channel.updatedAt;
+    // 最近活动只算任务与对话的动静（需求 BOT-BH-08 的「新动静」）：从建立时起算，不用 updatedAt——
+    // 置顶、静音、改名、移组、归档都会改 updatedAt，算进来会把频道标成未读、在侧栏里往前排。
+    let last = channel.createdAt;
     for (const item of items) {
       if (needsUser(item)) counts.needsYou++;
       else if (item.status === 'active' && item.active?.state === 'working') counts.working++;
