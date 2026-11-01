@@ -82,9 +82,10 @@
   const TAB_EMPTY = {active: '没有进行中的任务。', upNext: '接下来没有排着的任务。', scheduled: '没有定时的任务。', resolved: '最近 30 天没有解决的任务。'};
 
   /**
-   * 频道右侧的任务面板（BOT-TK-01…05、BOT-SG-05…07、需求 §11.5）。`onHide` 收起右栏（频道头的「任务」开关同一件事）。
+   * 频道右栏「任务」页签的内容（BOT-TK-01…05、BOT-SG-05…07、需求 §11.5）：顶上一行是筛选与新任务，标题与收起在右栏的页签条上。
+   * `selectedId` 是正打开的任务（占满时左栏的列表高亮它）。
    */
-  function BotTaskPanel({channelId, selectedId, onHide}) {
+  function BotTaskPanel({channelId, selectedId}) {
     const app = useApp();
     const R = window.RSP;
     const bot = window.useBot();
@@ -109,8 +110,7 @@
     };
     const empty = k => (k === 'active' && !items.length ? '你在频道里提到的活会出现在这里。' : TAB_EMPTY[k]);
     return <section className="bot-panel" aria-label="任务">
-      <div className="bot-panel__head">
-        <h2 className="bot-panel__title">任务</h2>
+      <div className="bot-panel__head bot-panel__head--tools">
         <R.MenuTrigger>
           <R.ActionButton isQuiet size="S" aria-label={`显示哪些任务：${FILTER_LABEL[filter]}`}>
             <R.Icons.Filter />{filter === 'all' ? null : <R.Text>{FILTER_LABEL[filter]}</R.Text>}
@@ -120,7 +120,6 @@
           </R.Menu>
         </R.MenuTrigger>
         <R.ActionButton isQuiet size="S" aria-label="新任务" aria-expanded={adding} onPress={() => setAdding(!adding)}><R.Icons.Add /></R.ActionButton>
-        {onHide ? <R.ActionButton isQuiet size="S" aria-label="收起任务" onPress={onHide}><R.Icons.Close /></R.ActionButton> : null}
       </div>
       {adding ? <BotAddTask channelId={channelId} onAdded={added} onClose={() => setAdding(false)} /> : null}
       <R.Tabs aria-label="任务" density="compact" selectedKey={tab} onSelectionChange={k => setTab(String(k))} UNSAFE_className="bot-tabs">
@@ -141,12 +140,11 @@
   }
 
   /**
-   * 任务详情（BOT-TK-06、需求 §11.6）：右侧窄栏或占满主区（wide）。改方向、撤销与删除记录的对话框原型里不画。
-   * 头部一行：返回（`onBack`，回到任务列表或频道）、状态、标题与一行「状态 · 下一步 · N 条进展」、展开、⋯，
-   * 有 `onHide` 时最后是关闭（收起右栏）。收件箱里只有关闭。
-   * 「产物」的每一行与线程消息下的产物卡按下都交给 `onOpenOutput(下标)`：在右栏推开那个产物（page-bot-side.jsx）。
+   * 任务页签（BOT-TK-06、需求 §11.6）：`wide` 时左右排（右栏占满、任务在右边那一栏时），否则上下排。改方向、撤销与删除记录的对话框原型里不画。
+   * 头部一行：状态、标题与一行「状态 · 下一步 · N 条进展」、⋯；返回、占满与关闭都在右栏的页签条上。
+   * 「产物」的每一行与线程消息下的产物卡按下都交给 `onOpenOutput(下标)`：在右栏开那个产物的页签（page-bot-side.jsx）。
    */
-  function BotTaskDetail({id, wide, onToggleWide, onBack, onHide, onOpenOutput}) {
+  function BotTaskDetail({id, wide, onOpenOutput}) {
     const app = useApp();
     const R = window.RSP;
     const bot = window.useBot();
@@ -163,17 +161,14 @@
     return <section className={cx('bot-detail', wide && 'bot-detail--wide')} aria-label="任务">
       <div className="bot-detail__meta bc-scroll">
         <div className="bot-detail__head">
-          {onBack ? <R.ActionButton isQuiet size="S" aria-label={onHide ? '回到任务列表' : '回到频道'} onPress={onBack}><R.Icons.ChevronLeft /></R.ActionButton> : null}
           <window.BotStatusIcon statusKey={status.key} chip />
           <div className="bot-detail__heading">
             <h2 className={cx('bot-detail__title', status.strike && 'is-struck')} title={item.title}>{item.title}</h2>
             <span className="bot-detail__subline" title={subline}>{subline}</span>
           </div>
-          {onToggleWide ? <R.ActionButton isQuiet size="S" aria-label={wide ? '收回侧栏' : '展开'} onPress={onToggleWide}>{wide ? <R.Icons.FullScreenExit /> : <R.Icons.FullScreen />}</R.ActionButton> : null}
           <R.ActionMenu aria-label="更多操作" isQuiet size="S" onAction={key => run(String(key))}>
             {actions.map(a => <R.MenuItem key={a} id={a} textValue={MENU_LABEL[a]}><R.Text>{MENU_LABEL[a]}</R.Text></R.MenuItem>)}
           </R.ActionMenu>
-          {onHide ? <R.ActionButton isQuiet size="S" aria-label="收起任务" onPress={onHide}><R.Icons.Close /></R.ActionButton> : null}
         </div>
         <div className="bot-detail__facts">
           <span>{`优先级：${{high: '高', medium: '中', low: '低'}[item.priority || 'medium']}`}</span>

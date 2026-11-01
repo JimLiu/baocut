@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 global.window = {};
+require('./model-home-workspace.js');
 require('./model-bot.js');
 const B = global.window.BC_BOT;
 
@@ -228,6 +229,51 @@ test('右栏宽度：各形态的默认宽，拖过的夹在范围里', () => {
   assert.equal(wide.width, 1200 - B.CENTER_MIN);
   assert.equal(wide.max, 1200 - B.CENTER_MIN);
   assert.equal(B.sideWidth('output', null, 600).width, B.SIDE_MIN);
+});
+
+test('右栏页签：路由开任务与产物页签，按频道与收件箱各记一份，回到固定页签时已开的留着', () => {
+  let book = {};
+  book = B.reconcileSideTabs(book, {id: 'c1', task: 'wi_a'});
+  assert.deepEqual(book.c1, {tabs: [{key: 'task:wi_a', kind: 'task', task: 'wi_a'}], active: 'task:wi_a'});
+  book = B.reconcileSideTabs(book, {id: 'c1', task: 'wi_a', out: '1'});
+  assert.deepEqual(book.c1.tabs.map(t => t.key), ['task:wi_a', 'out:wi_a:1']);
+  assert.equal(book.c1.active, 'out:wi_a:1');
+  const same = B.reconcileSideTabs(book, {id: 'c1', task: 'wi_a', out: '1'});
+  assert.equal(same, book);
+  book = B.reconcileSideTabs(book, {id: 'c1'});
+  assert.equal(book.c1.active, null);
+  assert.equal(book.c1.tabs.length, 2);
+  book = B.reconcileSideTabs(book, {view: 'inbox', id: 'c1', task: 'wi_b'});
+  assert.deepEqual(book.inbox.tabs.map(t => t.key), ['task:wi_b']);
+  assert.equal(book.c1.tabs.length, 2);
+  assert.equal(B.sideTabBook({}), 'chan_main');
+  assert.equal(B.reconcileSideTabs({}, {id: 'c2'}).c2.active, null);
+  assert.equal(B.sideTabFromRoute({task: 'wi_a', out: 'x'}).kind, 'task');
+  for (const tab of book.c1.tabs) assert.deepEqual(B.sideTabFromRoute({id: 'c1', ...B.sideTabRoute(tab)}), tab);
+  assert.deepEqual(B.sideTabRoute(null), {task: null, out: null});
+});
+
+test('关页签：关当前的选右边那个，最后一个选左边，关光了回到固定页签', () => {
+  const s = {tabs: ['a', 'b', 'c'].map(key => ({key})), active: 'b'};
+  assert.equal(B.closeSideTab(s, 'b').active, 'c');
+  assert.equal(B.closeSideTab({...s, active: 'c'}, 'c').active, 'b');
+  assert.equal(B.closeSideTab(s, 'a').active, 'b');
+  assert.equal(B.closeSideTab({tabs: [{key: 'a'}], active: 'a'}, 'a').active, null);
+});
+
+test('占满：左边是当前页签的上一层，右边是当前页签；左栏宽夹在范围里', () => {
+  const out = {key: 'out:t:0', kind: 'output', task: 't', index: 0};
+  const task = {key: 'task:t', kind: 'task', task: 't'};
+  assert.deepEqual(B.fullColumns(out, 'tasks', false), {left: {kind: 'task', task: 't'}, right: out});
+  assert.deepEqual(B.fullColumns(task, 'make', false), {left: {kind: 'tasks'}, right: task});
+  assert.deepEqual(B.fullColumns(task, 'tasks', true).left, {kind: 'inbox'});
+  assert.deepEqual(B.fullColumns(null, 'make', false), {left: {kind: 'make'}, right: null});
+  assert.equal(B.sideMode(out, 'tasks'), 'output');
+  assert.equal(B.sideMode(task, 'make'), 'detail');
+  assert.equal(B.sideMode(null, 'make'), 'make');
+  assert.equal(B.fullSplit('task', null, 1400).width, 440);
+  assert.equal(B.fullSplit('tasks', 9999, 1400).width, 1400 - B.FULL_RIGHT_MIN);
+  assert.equal(B.fullSplit('tasks', 10, 1400).width, B.SIDE_MIN);
 });
 
 test('演示产物：视频挂着原型的视频，线程消息指向产物下标', () => {

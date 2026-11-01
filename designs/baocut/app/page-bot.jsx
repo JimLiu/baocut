@@ -1,6 +1,6 @@
 /* Bot 页（docs/design/bot-mode/bot-mode-requirements.md §11，技术方案 §17.1）—— 只在 App 入口加载。
-   左边频道侧栏（页面侧栏，由 Shell 放），中间频道对话（或收件箱、展开的任务详情），右边任务面板或任务详情。
-   主区窄于 880 时右栏收起，从频道头部的开关浮出；打开任务详情时总是显示。
+   左边频道侧栏（页面侧栏，由 Shell 放），中间频道对话（或收件箱、频道记忆），右边是一组页签（任务、Make、打开的任务与产物）。
+   主区窄于 880 时右栏收起，从频道头部的开关浮出；打开任务或产物时总是显示。
 
    演示态（频道、任务、时间线）是这一页自己的：一个模块级的小 store，侧栏与页面共读，不进 store.jsx。
    规则（分组、排序、状态对照）在 model-bot.js，与 packages/ui 的 model/bot.ts 同一份。 */
@@ -213,8 +213,7 @@
 
   /* ---------- 页面 ---------- */
 
-  /** 量主区宽度：窄了任务面板改成浮层。 */
-  /** 主区的宽：窄于 880 算窄；右栏的宽按它夹。 */
+  /** 主区的宽：窄于 880 算窄（右栏改成浮层，没有占满）；右栏与占满时左栏的宽按它夹。 */
   function useMainWidth() {
     const [width, setWidth] = useState(0);
     const observer = useRef(null);
@@ -227,16 +226,23 @@
     return [ref, width];
   }
 
-  /** 拖过的右栏宽，按形态（tasks / make / detail / output）各记各的；离开 Bot 页再回来还在。 */
+  /** 拖过的宽，按形态各记各的：右栏 tasks / make / detail / output，占满时的左栏 full:tasks / full:make / full:inbox / full:task。 */
   const sideWidths = {};
+  /** 右栏的页签簿（按频道各一份、收件箱一份）与每份的占满：照 Home 每个会话各记各的页签与视图，离开 Bot 页再回来还在。 */
+  let tabBook = {};
+  const fullBook = {};
+  const strip = r => Object.fromEntries(Object.entries(r).filter(([, v]) => v != null));
+  const FULL_HINT = {tasks: '在左边打开一个任务，它会显示在这里。', make: '按左边的一张产物卡，它会在这里打开。'};
 
   /**
-   * Bot 页（需求 §11.1）：中间频道对话（或收件箱、展开的任务详情、频道记忆），右边任务面板、Make 面板、任务详情或推开的产物。
-   * 路由 {r:'bot', id: 频道, task: 打开的任务, out: 从任务里推开的产物下标, view: 'inbox' | 'task' | 'memory'}。
-   * 右栏的开合由频道头的「任务」「Make」两个开关、面板与详情的关闭按钮管：宽时默认开着，窄时默认收起、开了是浮层；两种宽度各记各的。
-   * 两个开关切右栏里放哪一块（`side`）；打开任务时右栏是详情，「任务」开关算开着。
-   * 宽时中间与右栏之间有分隔条：任务面板默认 340、Make 380，任务详情默认更宽，推开产物时右栏把中间压到 440 左右；拖过的宽按形态记住。
-   * 产物页可以「占满」：中间收起，右栏占满主区。
+   * Bot 页（需求 §11.1 的修订稿）：中间频道对话（或收件箱、频道记忆），右栏照 Home 的功能区是一组页签（product-design §3.3）。
+   * 路由 {r:'bot', id: 频道, task, out, view: 'inbox' | 'memory'}：task / out 是当前的任务或产物页签，没有就是固定页签（「任务」或「Make」，`side`）。
+   * 页签簿按频道各记一份（model-bot.js 的 reconcileSideTabs）：路由里的任务、产物没开就开一个页签；关掉当前页签换到旁边那个。
+   * 右栏的开合：宽时默认开着，窄时默认收起、开了是浮层；路由里有任务或产物时总是开着。频道头的「任务」「Make」开关显示右栏并选中
+   * 那个固定页签，再按一次收起；页签条的「收起右栏」同一件事。收起不关页签。
+   * 宽时中间与右栏之间有分隔条，宽按当前页签的形态（任务面板 340、Make 380、任务更宽、产物最宽），拖过的各记各的。
+   * 占满：中间收起，右栏占满主区并分成两栏——左边是当前页签的上一层，右边是当前页签（model-bot.js 的 fullColumns）；两栏之间也能拖。
+   * 旧链接的 view: 'task'（任务详情占满主区）进来时换成占满。
    */
   function BotPage({id, task, view, out}) {
     const app = useApp();
@@ -246,64 +252,97 @@
     const [wideHidden, setWideHidden] = useState(false);
     const [narrowShown, setNarrowShown] = useState(false);
     const [side, setSide] = useState('tasks');
-    const [full, setFull] = useState(false);
-    const [, setWidthsSeen] = useState(0);
-    useEffect(() => setFull(false), [task, out]);
+    const [book, setBook] = useState(tabBook);
+    const [, bump] = useState(0);
+    const inbox = view === 'inbox';
+    const bookKey = B.sideTabBook({id, view});
+    const current = B.reconcileSideTabs(book, {id, view, task, out});
+    useEffect(() => { if (current !== book) { tabBook = current; setBook(current); } }, [current, book]);
+    const tabs = current[bookKey] || {tabs: [], active: null};
+    const active = tabs.tabs.find(t => t.key === tabs.active) || null;
     const panelShown = narrow ? narrowShown : !wideHidden;
     const setShown = shown => (narrow ? setNarrowShown(shown) : setWideHidden(!shown));
-    const channelId = view === 'inbox' ? null : id || MAIN;
+    const full = !narrow && !!fullBook[bookKey];
+    const setFull = on => { fullBook[bookKey] = on; bump(n => n + 1); };
+    const setWidth = (key, width) => { sideWidths[key] = width; bump(n => n + 1); };
+    const resetWidth = key => { delete sideWidths[key]; bump(n => n + 1); };
+    useEffect(() => {
+      if (view !== 'task') return;
+      fullBook[bookKey] = true;
+      app.replace(strip({r: 'bot', id, task, out}));
+    }, [view]);
+    const channelId = inbox ? null : id || MAIN;
     const channel = channelId ? bot.channels.find(c => c.id === channelId) : null;
     useEffect(() => { if (channel && channel.unread) BOT_ACTIONS.markRead(channel.id); }, [channelId]);
-    const strip = r => Object.fromEntries(Object.entries(r).filter(([, v]) => v != null));
-    const to = next => app.go(strip({r: 'bot', id, task, view, ...next}));
-    const openTask = (item, inbox) => app.go(strip({r: 'bot', id: inbox ? item.channelId : id, task: item.id, view: inbox ? 'inbox' : null}));
-    const closeDetail = () => app.go(strip({r: 'bot', id, view: view === 'inbox' ? 'inbox' : null}));
-    const backToList = () => { setSide('tasks'); setShown(true); closeDetail(); };
-    const hide = () => { setShown(false); if (task) closeDetail(); };
-    const showSide = which => { setSide(which); setShown(true); if (task) closeDetail(); };
-    const openOutput = n => to({out: String(n)});
-    const item = task ? bot.items.find(i => i.id === task) : null;
-    const outIndex = task && out != null ? Number(out) : null;
-    /* 推开的产物：返回回到任务详情，关闭收起右栏（收件箱里回到收件箱） */
-    const outputView = onClose => <window.BotOutputView item={item} index={outIndex} full={full} onBack={() => to({out: null})}
-      onToggleFull={narrow ? null : () => setFull(!full)} onClose={onClose} />;
+    const at = next => strip({r: 'bot', id, view: inbox ? 'inbox' : null, ...next});
+    const openTask = item => app.go(strip({r: 'bot', id: item.channelId, task: item.id, view: inbox ? 'inbox' : null}));
+    const openOutput = taskId => n => app.go(at({task: taskId, out: String(n)}));
+    const selectTab = tab => app.go(at(B.sideTabRoute(tab)));
+    const selectFixed = kind => { setSide(kind); setShown(true); if (task) app.go(at({})); };
+    const hide = () => { setShown(false); setFull(false); if (task) app.replace(at({})); };
+    const closeTab = tab => {
+      const next = B.closeSideTab(tabs, tab.key);
+      if (tabs.active === tab.key) app.replace(at(B.sideTabRoute(next.tabs.find(t => t.key === next.active))));
+      tabBook = {...current, [bookKey]: next};
+      setBook(tabBook);
+    };
+    const tabContent = (tab, wide) => (tab.kind === 'output'
+      ? <window.BotOutputView key={tab.key} item={bot.items.find(i => i.id === tab.task)} index={tab.index}
+        onOpenTask={() => app.go(at({task: tab.task}))} onClose={() => closeTab(tab)} />
+      : <window.BotTaskDetail key={tab.key} id={tab.task} wide={wide} onOpenOutput={openOutput(tab.task)} />);
+    const fixedContent = kind => (kind === 'make'
+      ? <window.BotMakePanel key={channel.id} channelId={channel.id} onOpenOutput={(i, n) => app.go({r: 'bot', id: i.channelId, task: i.id, out: String(n)})} />
+      : <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={active && active.kind === 'task' ? active.task : null} />);
+    const leftContent = left => (left.kind === 'task' ? <window.BotTaskDetail key={`left:${left.task}`} id={left.task} onOpenOutput={openOutput(left.task)} />
+      : left.kind === 'inbox' ? <BotInbox selectedId={task} onOpen={openTask} /> : fixedContent(left.kind));
+
     let center;
-    let right = null;
-    let mode = side;
-    if (view === 'inbox') {
-      center = <BotInbox selectedId={task} onOpen={i => openTask(i, true)} />;
-      if (task && outIndex != null) right = outputView(closeDetail);
-      else if (task) right = <window.BotTaskDetail id={task} wide={false} onHide={closeDetail} onOpenOutput={openOutput} />;
+    let shown = false;
+    if (inbox) {
+      center = <BotInbox selectedId={task} onOpen={openTask} />;
+      shown = !!task;
     } else if (!channel) {
       center = <div className="bot-missing"><span>这个频道已经不在了。</span>
         <window.RSP.Button variant="secondary" onPress={() => app.go({r: 'bot'})}>去默认频道</window.RSP.Button></div>;
     } else if (view === 'memory') {
       center = <window.BotMemoryPage key={channel.id} channel={channel} />;
-    } else if (view === 'task' && task) {
-      center = <window.BotTaskDetail id={task} wide onToggleWide={() => to({view: null, out: null})} onBack={backToList} onOpenOutput={openOutput} />;
-      if (outIndex != null) right = outputView(() => to({out: null}));
     } else {
-      const tasksOn = !!task || (panelShown && side === 'tasks');
-      const makeOn = !task && panelShown && side === 'make';
+      shown = !!task || panelShown;
+      const fixedOn = kind => shown && !active && side === kind;
       const suggestions = bot.items.filter(i => i.channelId === channel.id && i.status === 'suggested').length;
       center = <window.BotChannelView key={channel.id} channel={channel}
-        tasksToggle={{shown: tasksOn, onToggle: () => (tasksOn ? hide() : showSide('tasks'))}}
-        makeToggle={{shown: makeOn, suggestions, onToggle: () => (makeOn ? hide() : showSide('make'))}} />;
-      if (task && outIndex != null) right = outputView(hide);
-      else if (task) right = <window.BotTaskDetail id={task} wide={false} onToggleWide={() => to({view: 'task'})} onBack={backToList} onHide={hide} onOpenOutput={openOutput} />;
-      else if (panelShown && side === 'make') right = <window.BotMakePanel key={channel.id} channelId={channel.id} onHide={hide}
-        onOpenOutput={(i, n) => app.go({r: 'bot', id: i.channelId, task: i.id, out: String(n)})} />;
-      else if (panelShown) right = <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={null} onHide={hide} />;
+        tasksToggle={{shown: fixedOn('tasks'), onToggle: () => (fixedOn('tasks') ? hide() : selectFixed('tasks'))}}
+        makeToggle={{shown: fixedOn('make'), suggestions, onToggle: () => (fixedOn('make') ? hide() : selectFixed('make'))}} />;
     }
-    if (task) mode = outIndex != null ? 'output' : 'detail';
-    const sized = right && !narrow && mainWidth > 0 && !full ? B.sideWidth(mode, sideWidths[mode], mainWidth) : null;
-    const resize = w => { sideWidths[mode] = B.sideWidth(mode, w, mainWidth).width; setWidthsSeen(n => n + 1); };
-    const reset = () => { delete sideWidths[mode]; setWidthsSeen(n => n + 1); };
-    return <div className={cx('bot', full && right && 'bot--side-full')} ref={contentRef}>
+
+    const mode = B.sideMode(active, side);
+    const sized = shown && !narrow && !full && mainWidth > 0 ? B.sideWidth(mode, sideWidths[mode], mainWidth) : null;
+    let body = null;
+    if (shown && full) {
+      const cols = B.fullColumns(active, side, inbox);
+      const key = `full:${cols.left.kind}`;
+      const split = B.fullSplit(cols.left.kind, sideWidths[key], mainWidth);
+      body = <div className="bot-side__body bot-side__body--split">
+        <div className="bot-side__col" style={{width: split.width}}>{leftContent(cols.left)}</div>
+        <window.BotSideSeam {...split} start label="调整两栏宽度" onResize={w => setWidth(key, B.fullSplit(cols.left.kind, w, mainWidth).width)} onReset={() => resetWidth(key)} />
+        <div className="bot-side__col bot-side__col--main">
+          {cols.right ? tabContent(cols.right, mainWidth - split.width >= 720) : <p className="bot-side__hint">{FULL_HINT[cols.left.kind]}</p>}
+        </div>
+      </div>;
+    } else if (shown) {
+      body = <div className="bot-side__body">{active ? tabContent(active, false) : fixedContent(side)}</div>;
+    }
+    const waiting = channel ? bot.items.filter(i => i.channelId === channel.id && B.needsUser(i)).length : 0;
+    const suggestions = channel ? bot.items.filter(i => i.channelId === channel.id && i.status === 'suggested').length : 0;
+    return <div className={cx('bot', full && shown && 'bot--side-full')} ref={contentRef}>
       <window.BotDialogs />
       <div className="bot__main">{center}</div>
-      {sized ? <window.BotSideSeam {...sized} onResize={resize} onReset={reset} /> : null}
-      {right ? <aside className={cx('bot__side', `bot__side--${mode}`, narrow && 'bot__side--overlay')} style={sized ? {width: sized.width} : undefined}>{right}</aside> : null}
+      {sized ? <window.BotSideSeam {...sized} onResize={w => setWidth(mode, B.sideWidth(mode, w, mainWidth).width)} onReset={() => resetWidth(mode)} /> : null}
+      {shown ? <aside className={cx('bot__side', `bot__side--${mode}`, narrow && 'bot__side--overlay')} style={sized ? {width: sized.width} : undefined} aria-label="右栏">
+        <window.BotSideTabs fixed={!inbox} side={side} active={tabs.active} tabs={tabs.tabs} waiting={waiting} suggestions={suggestions}
+          full={full} onToggleFull={narrow ? null : () => setFull(!full)} onFixed={selectFixed} onSelect={selectTab} onClose={closeTab} onHide={hide} />
+        <div id="bot-side-panel" role="tabpanel" className="bot-side__panel" aria-labelledby={window.botSideTabId(tabs.active || `fixed:${side}`)}>{body}</div>
+      </aside> : null}
     </div>;
   }
 

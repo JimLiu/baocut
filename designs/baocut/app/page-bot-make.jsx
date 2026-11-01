@@ -98,10 +98,10 @@
   }
 
   /**
-   * Make 面板（BOT-MK-01、04、05，需求 §6）：头部是标题、「给点建议」与收起；下面切「这个频道 / 全部频道」。
-   * 建议按 ✕ 忽略、「现在做」开工、「加入」排进接下来；产物点了在右栏推开它；模板「＋」在这个频道建一条定时任务。
+   * 右栏「Make」页签的内容（BOT-MK-01、04、05，需求 §6）：顶上一行切「这个频道 / 全部频道」，行尾是「给点建议」；标题与收起在页签条上。
+   * 建议按 ✕ 忽略、「现在做」开工、「加入」排进接下来；产物点了在右栏开它的页签；模板「＋」在这个频道建一条定时任务。
    */
-  function BotMakePanel({channelId, onHide, onOpenOutput}) {
+  function BotMakePanel({channelId, onOpenOutput}) {
     const app = useApp();
     const R = window.RSP;
     const bot = window.useBot();
@@ -118,19 +118,15 @@
       app.toast(`已建立「${task.title}」，下一次 ${new Date(task.startAt).toLocaleString('zh-CN', {month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit'})}`);
     };
     return <section className="bot-panel bot-make" aria-label="Make">
-      <div className="bot-panel__head">
-        <h2 className="bot-panel__title">Make</h2>
-        <R.ActionButton isQuiet size="S" aria-label="给点建议" onPress={() => app.toast('现在没有新的建议')}><R.Icons.MagicWand /></R.ActionButton>
-        <R.ActionButton isQuiet size="S" aria-label="收起 Make" onPress={onHide}><R.Icons.Close /></R.ActionButton>
-      </div>
       <div className="bot-make__scope">
         <R.SegmentedControl aria-label="看哪些频道" selectedKey={scope} onSelectionChange={k => setScope(String(k))}>
           <R.SegmentedControlItem id="channel">这个频道</R.SegmentedControlItem>
           <R.SegmentedControlItem id="all">全部频道</R.SegmentedControlItem>
         </R.SegmentedControl>
+        <R.ActionButton isQuiet size="S" aria-label="给点建议" onPress={() => app.toast('现在没有新的建议')}><R.Icons.MagicWand /></R.ActionButton>
       </div>
       <div className="bot-panel__scroll bot-make__body bc-scroll">
-        {hero ? <BotMakeHero item={hero} channelName={nameOf(hero.channelId)} /> : <p className="bot-make__none">现在没有建议。按右上角的「给点建议」，让它看看接下来能做什么。</p>}
+        {hero ? <BotMakeHero item={hero} channelName={nameOf(hero.channelId)} /> : <p className="bot-make__none">现在没有建议。按上面的「给点建议」，让它看看接下来能做什么。</p>}
         {rest.length ? <BotMakeSection title="更多建议" count={rest.length}>
           <ul className="bot-list">{rest.map(i => <BotMakeRow key={i.id} item={i} channelName={nameOf(i.channelId)} />)}</ul>
         </BotMakeSection> : null}

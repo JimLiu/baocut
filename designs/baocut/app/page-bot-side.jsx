@@ -1,17 +1,18 @@
 /* Bot 页的右栏（docs/design/bot-mode/bot-mode-requirements.md §11.1、§11.6 的修订稿）—— 只在 App 入口加载。
-   中间与右栏之间的分隔条（拖动、方向键调宽，双击回到默认宽）；任务详情与线程里的产物卡；
-   点开产物后推进右栏的产物页：视频是嵌进来的编辑器，文档、封面、字幕各有一个只读预览。宽度规则在 model-bot.js 的 sideWidth。 */
+   右栏照 Home 的功能区（product-design §3.3）是一条页签条：固定的「任务」「Make」，后面是打开的任务与产物；
+   分隔条（中间 ∣ 右栏，占满时左栏 ∣ 右栏：拖动、方向键调宽，双击回到默认宽）；任务详情与线程里的产物卡；
+   产物页签：视频是嵌进来的编辑器，文档、封面、字幕各有一个只读预览。页签簿与宽度规则在 model-bot.js。 */
 (function () {
-  const {useState, useEffect, useRef} = React;
+  const {useState, useEffect, useRef, useLayoutEffect} = React;
   const B = window.BC_BOT;
 
   /* ---------- 分隔条 ---------- */
 
   /**
-   * 中间 ∣ 右栏的分隔条：往左拖右栏变宽；左右方向键每次 16；双击回到这种右栏的默认宽。
-   * 不用壳层的 seam--dock：标题栏按那个类名画分隔线。
+   * 两栏之间的分隔条：调的是它右边那一栏（中间 ∣ 右栏）时往左拖变宽；`start` 时调的是左边那一栏（占满时的左栏），往右拖变宽。
+   * 方向键每次 16；双击回到默认宽。不用壳层的 seam--dock：标题栏按那个类名画分隔线。
    */
-  function BotSideSeam({width, min, max, onResize, onReset}) {
+  function BotSideSeam({width, min, max, start: grows = false, label = '调整右栏宽度', onResize, onReset}) {
     const start = useRef(null);
     const [dragging, setDragging] = useState(false);
     const finish = e => {
@@ -20,8 +21,9 @@
       setDragging(false);
       if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     };
-    const follow = e => { if (start.current?.id === e.pointerId) onResize(start.current.width - (e.clientX - start.current.x)); };
-    return <div className={cx('bot__seam', dragging && 'is-drag')} role="separator" aria-label="调整右栏宽度" aria-orientation="vertical" tabIndex={0}
+    const sign = grows ? 1 : -1;
+    const follow = e => { if (start.current?.id === e.pointerId) onResize(start.current.width + sign * (e.clientX - start.current.x)); };
+    return <div className={cx('bot__seam', dragging && 'is-drag')} role="separator" aria-label={label} aria-orientation="vertical" tabIndex={0}
       aria-valuemin={min} aria-valuemax={max} aria-valuenow={width} title="拖动调整宽度，双击还原"
       onPointerDown={e => {
         if (e.button !== 0) return;
@@ -37,7 +39,7 @@
       onKeyDown={e => {
         if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
         e.preventDefault();
-        onResize(width + (e.key === 'ArrowLeft' ? 16 : -16));
+        onResize(width + sign * (e.key === 'ArrowLeft' ? -16 : 16));
       }}><div className="bot__seam-bar" /></div>;
   }
 
@@ -117,15 +119,15 @@
   }
 
   /**
-   * 推进右栏的产物页（需求 §11.6 修订）：头部是返回（回到任务详情）、种类图标、产物名与「种类 · 任务名」、
-   * 视频多一个「在视频页打开」、占满（中间收起，右栏占满主区；窄时没有）与关闭（收起右栏）。
+   * 产物页签（需求 §11.6 修订）：头部是种类图标、产物名与「种类 · 任务名」（任务名按下切到那个任务的页签），
+   * 视频多一个「在视频页打开」。返回、占满与关闭都在页签条上。`onClose` 只给嵌进来的编辑器用（它的「关闭视频」关掉这个页签）。
    */
-  function BotOutputView({item, index, full, onBack, onToggleFull, onClose}) {
+  function BotOutputView({item, index, onOpenTask, onClose}) {
     const app = useApp();
     const R = window.RSP;
     const output = item ? item.outputs[index] : null;
     if (!output) return <div className="bot-missing"><span>这个产物已经不在了。</span>
-      {item ? <R.Button variant="secondary" onPress={onBack}>回到任务</R.Button> : null}</div>;
+      {item ? <R.Button variant="secondary" onPress={onOpenTask}>打开任务</R.Button> : null}</div>;
     const kind = B.OUTPUT_KIND[output.kind] || B.OUTPUT_KIND.doc;
     const Icon = R.Icons[kind.icon];
     const project = output.kind === 'video' && output.project ? app.projById(output.project) : null;
@@ -135,21 +137,97 @@
       : <BotOutputDoc body={output.body} />;
     return <section className="bot-output" aria-label={output.label}>
       <header className="bot-output__head">
-        <R.ActionButton isQuiet size="S" aria-label={`回到任务「${item.title}」`} onPress={onBack}><R.Icons.ChevronLeft /></R.ActionButton>
         <span className="bot-output__kind" aria-hidden="true"><Icon /></span>
         <div className="bot-detail__heading">
           <h2 className="bot-detail__title" title={output.label}>{output.label}</h2>
-          <span className="bot-detail__subline" title={item.title}>{`${kind.label} · ${item.title}`}</span>
+          <span className="bot-detail__subline">{`${kind.label} · `}<button type="button" className="bot-output__task" title={item.title}
+            aria-label={`打开任务「${item.title}」`} onClick={onOpenTask}>{item.title}</button></span>
         </div>
         {project ? <R.ActionButton isQuiet size="S" aria-label="在视频页打开" onPress={() => app.openMovie(project.id)}><R.Icons.OpenIn /></R.ActionButton> : null}
-        {onToggleFull ? <R.ActionButton isQuiet size="S" aria-label={full ? '收回右栏' : '占满'} onPress={onToggleFull}>
-          {full ? <R.Icons.FullScreenExit /> : <R.Icons.FullScreen />}
-        </R.ActionButton> : null}
-        <R.ActionButton isQuiet size="S" aria-label="关闭" onPress={onClose}><R.Icons.Close /></R.ActionButton>
       </header>
       <div className="bot-output__body">{body}</div>
     </section>;
   }
 
-  Object.assign(window, {BotSideSeam, BotOutputLink, BotOutputView});
+  /* ---------- 页签条 ---------- */
+
+  const tabDomId = key => 'bot-side-tab-' + encodeURIComponent(key);
+  const FIXED_TABS = [{key: 'fixed:tasks', kind: 'tasks'}, {key: 'fixed:make', kind: 'make'}];
+
+  /**
+   * 右栏的页签条（照 Home 功能区的页签条，product-design §3.3；样子用同一套 .home-tabs__*）：
+   * 频道里最前面固定「任务」（带等你的数）与「Make」（有建议时带点），不能关、不能拖，与后面的页签之间有一道分隔；
+   * 收件箱没有固定页签。打开的任务（状态图标 + 任务名）与产物（种类图标 + 名字）各一个页签，✕、中键或选中时按 Delete 关掉。
+   * 左右方向键、Home、End 在页签之间移动并选中。条的右端是占满 / 收回（窄时没有）与收起右栏。拖动排序原型不做。
+   */
+  function BotSideTabs({fixed, side, active, tabs, waiting, suggestions, full, onToggleFull, onFixed, onSelect, onClose, onHide}) {
+    const R = window.RSP;
+    const bot = window.useBot();
+    const list = useRef(null);
+    const order = [...(fixed ? FIXED_TABS : []), ...tabs];
+    const selected = active || (fixed ? `fixed:${side}` : null);
+    const pick = tab => (tab.key.startsWith('fixed:') ? onFixed(tab.kind) : onSelect(tab));
+    const focus = key => requestAnimationFrame(() => document.getElementById(tabDomId(key))?.focus());
+    useLayoutEffect(() => {
+      list.current?.querySelector('.is-active')?.scrollIntoView({block: 'nearest', inline: 'nearest'});
+    }, [selected, tabs.length]);
+    const look = tab => {
+      if (tab.kind === 'tasks') return {name: '任务', aria: waiting ? `任务，${waiting} 个等你` : '任务', icon: <R.Icons.ViewList />,
+        extra: waiting ? <R.NotificationBadge size="S" value={waiting} /> : null};
+      if (tab.kind === 'make') return {name: 'Make', aria: suggestions ? `Make，${suggestions} 条建议` : 'Make', icon: <R.Icons.MagicWand />,
+        extra: suggestions ? <i className="bot-side-tabs__dot" /> : null};
+      const item = bot.items.find(i => i.id === tab.task);
+      if (tab.kind === 'task') {
+        if (!item) return {name: '已删除的任务', aria: '已删除的任务', icon: <R.Icons.FileText />};
+        const status = B.statusOf(item);
+        return {name: item.title, aria: `任务「${item.title}」，${status.label}`, icon: <window.BotStatusIcon statusKey={status.key} />};
+      }
+      const output = item ? item.outputs[tab.index] : null;
+      if (!output) return {name: '已不在的产物', aria: '已不在的产物', icon: <R.Icons.FileText />};
+      const kind = B.OUTPUT_KIND[output.kind] || B.OUTPUT_KIND.doc;
+      const Icon = R.Icons[kind.icon];
+      return {name: output.label, aria: `${kind.label}「${output.label}」`, icon: <Icon />};
+    };
+    const close = tab => {
+      const at = order.findIndex(t => t.key === tab.key);
+      onClose(tab);
+      const next = order.filter(t => t.key !== tab.key);
+      focus((next[Math.min(at, next.length - 1)] || {}).key);
+    };
+    const keys = e => {
+      if (e.target.getAttribute('role') !== 'tab') return;
+      const at = order.findIndex(t => tabDomId(t.key) === e.target.id);
+      const n = order.length;
+      const to = e.key === 'ArrowRight' ? (at + 1) % n : e.key === 'ArrowLeft' ? (at + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : null;
+      if (to != null) { e.preventDefault(); pick(order[to]); focus(order[to].key); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(order[at]); }
+      else if (e.key === 'Delete' && !order[at].key.startsWith('fixed:')) { e.preventDefault(); close(order[at]); }
+    };
+    const tab = (t, closable) => {
+      const {name, aria, icon, extra} = look(t);
+      const on = selected === t.key;
+      return <div key={t.key} role="presentation" className={cx('home-tabs__item', !closable && 'bot-side-tabs__pin', on && 'is-active')}
+        onAuxClick={closable ? e => { if (e.button === 1) { e.preventDefault(); close(t); } } : undefined}>
+        <div role="tab" id={tabDomId(t.key)} aria-controls="bot-side-panel" aria-selected={on} aria-label={aria} tabIndex={on ? 0 : -1} className="home-tabs__target">
+          <span className="home-tabs__button" aria-hidden="true"><BCAction excludeFromTabOrder className="home-tabs__select" title={name} onClick={() => pick(t)}>
+            {icon}<span>{name}</span>{extra}
+          </BCAction></span>
+        </div>
+        {closable ? <R.ActionButton size="XS" isQuiet UNSAFE_className="home-tabs__close" aria-label={`关闭页签「${name}」`} onPress={() => close(t)}><R.Icons.Close /></R.ActionButton> : null}
+      </div>;
+    };
+    return <div className="home-tabs bot-side-tabs">
+      <div className="home-tabs__strip" role="tablist" aria-label="右栏页签" onKeyDownCapture={keys}>
+        {fixed ? <div className="bot-side-tabs__fixed" role="presentation">{FIXED_TABS.map(t => tab(t, false))}</div> : null}
+        <div className="home-tabs__list bc-scroll" ref={list} role="presentation">{tabs.map(t => tab(t, true))}</div>
+      </div>
+      <span className="grow" />
+      {onToggleFull ? <R.ActionButton isQuiet size="S" aria-label={full ? '收回右栏' : '占满'} onPress={onToggleFull}>
+        {full ? <R.Icons.FullScreenExit /> : <R.Icons.FullScreen />}
+      </R.ActionButton> : null}
+      <R.ActionButton isQuiet size="S" aria-label="收起右栏" onPress={onHide}><R.Icons.Close /></R.ActionButton>
+    </div>;
+  }
+
+  Object.assign(window, {BotSideSeam, BotOutputLink, BotOutputView, BotSideTabs, botSideTabId: tabDomId});
 })();
