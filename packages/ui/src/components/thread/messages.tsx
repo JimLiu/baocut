@@ -60,6 +60,17 @@ const avatar = style({
   marginTop: 2,
 });
 const agentBody = style({ display: 'flex', flexDirection: 'column', gap: 4, flexGrow: 1, minWidth: 0 });
+/** Bot 页的智能体消息（需求 §11.4，原型 page-bot.css `.bot-msg__bubble`）：不画头像，正文放进靠左的灰气泡。 */
+const agentBubble = style({
+  alignSelf: 'start',
+  maxWidth: '[85%]',
+  minWidth: 0,
+  boxSizing: 'border-box',
+  paddingX: 16,
+  paddingY: 8,
+  borderRadius: 'lg',
+  backgroundColor: 'gray-100',
+});
 const actions = style({ display: 'flex', gap: 4, minHeight: 24 });
 const notice = style({
   display: 'flex',
@@ -254,21 +265,28 @@ export const AgentMessage = memo(function AgentMessage({
 }) {
   const bot = useBotThreadExtras()?.agentMessage ?? null;
   const body = item.text ? <AgentMarkdown text={item.text} streaming={item.streaming} conversationId={conversationId} cwd={cwd} /> : null;
+  if (bot) {
+    return (
+      <div className={agentRow} data-role="agent" data-find-item={item.id}>
+        <div className={agentBody}>
+          {body ? (
+            <div className={agentBubble} data-find-body data-bubble="">
+              {body}
+            </div>
+          ) : null}
+          {bot(item, conversationId)}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={agentRow} data-role="agent" data-find-item={item.id}>
       <span className={avatar} aria-hidden>
         <AIMark />
       </span>
-      {bot ? (
-        <div className={agentBody}>
-          <div data-find-body>{body}</div>
-          {bot(item, conversationId)}
-        </div>
-      ) : (
-        <div className={agentBody} data-find-body>
-          {body}
-        </div>
-      )}
+      <div className={agentBody} data-find-body>
+        {body}
+      </div>
     </div>
   );
 });

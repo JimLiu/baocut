@@ -85,6 +85,30 @@ body,
 [data-bc-row] > [role='gridcell'] > div:has(> a) {
   padding-inline-end: 12px;
 }
+/*
+ * Bot 频道侧栏里挂在默认频道下的频道（需求 §11.2）：内容缩进 20px，一根拐角线从默认频道图标的中线下来接到这一行。
+ * 线的颜色由 ChannelSidebar 给（`--bc-row-connector`）。
+ */
+[data-bc-child] {
+  position: relative;
+}
+[data-bc-child] > [role='gridcell'] > div:has(> a) {
+  padding-inline-start: 20px;
+}
+[data-bc-child]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline-start: 20px;
+  z-index: 1;
+  width: 8px;
+  height: 50%;
+  box-sizing: border-box;
+  border-inline-start: 2px solid var(--bc-row-connector);
+  border-bottom: 2px solid var(--bc-row-connector);
+  border-end-start-radius: 4px;
+  pointer-events: none;
+}
 .bc-section-chevron {
   display: inline-flex;
   opacity: 0;

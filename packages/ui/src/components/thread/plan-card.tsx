@@ -33,7 +33,7 @@ const card = style({
   gap: 12,
   paddingX: 16,
   paddingY: 12,
-  marginStart: 36,
+  marginStart: '[var(--bc-agent-indent, 36px)]',
   borderRadius: '[10px]',
   borderWidth: 1,
   borderStyle: 'solid',
@@ -53,10 +53,10 @@ const body = style({
 const actions = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 });
 const hint = style({ margin: 0, font: 'ui-sm', color: 'gray-700' });
 /** 决定过的方案收成一行 quiet Disclosure，展开是方案全文。 */
-const decided = style({ marginStart: 36, alignSelf: 'stretch' });
+const decided = style({ marginStart: '[var(--bc-agent-indent, 36px)]', alignSelf: 'stretch' });
 const decidedTitle = style({ display: 'flex', alignItems: 'center', gap: 4, font: 'ui-sm', color: 'gray-600' });
 /** 页脚下面那一行（与回复正文对齐）。 */
-const row = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginStart: 36, font: 'ui-sm', color: 'gray-700' });
+const row = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginStart: '[var(--bc-agent-indent, 36px)]', font: 'ui-sm', color: 'gray-700' });
 
 /**
  * 方案审批（产品设计 §6.6「批准方案」，原型 agent-plan.jsx `AgentPlanMsg`）：Agent 在「先给方案」里写完方案，停下来等批准。

@@ -55,7 +55,7 @@ type Step = StepsBlock['items'][number];
 type ToolCall = Extract<TimelineItem, { kind: 'tool-call' }>;
 type Reasoning = Extract<TimelineItem, { kind: 'reasoning' }>;
 
-const group = style({ display: 'flex', flexDirection: 'column', gap: 4, marginStart: 36 });
+const group = style({ display: 'flex', flexDirection: 'column', gap: 4, marginStart: '[var(--bc-agent-indent, 36px)]' });
 const files = style({ display: 'flex', flexWrap: 'wrap', gap: 4, paddingX: 8 });
 const fileLink = style({
   padding: 0,

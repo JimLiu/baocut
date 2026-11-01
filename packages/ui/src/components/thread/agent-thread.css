@@ -521,7 +521,7 @@
   align-items: center;
   gap: 8px;
   min-height: 24px;
-  padding-inline-start: 36px;
+  padding-inline-start: var(--bc-agent-indent, 36px);
   font-size: 12px;
   color: var(--bc-at-faint);
 }

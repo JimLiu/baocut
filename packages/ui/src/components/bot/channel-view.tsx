@@ -4,6 +4,7 @@ import { ActionButton, Button, DialogContainer, NotificationBadge, Text } from '
 import Bookmark from '@react-spectrum/s2/icons/Bookmark';
 import CalendarAdd from '@react-spectrum/s2/icons/CalendarAdd';
 import Close from '@react-spectrum/s2/icons/Close';
+import MagicWand from '@react-spectrum/s2/icons/MagicWand';
 import Settings from '@react-spectrum/s2/icons/Settings';
 import ViewList from '@react-spectrum/s2/icons/ListBulleted';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -40,6 +41,8 @@ const header = style({
 });
 /** 「任务」开关显示右栏时的底色（app.css `.bc-panel-toggle[aria-expanded='true']` 读这个变量；S2 的安静按钮没有选中态）。 */
 const toggleOnFill = style({ '--bc-panel-toggle-on': { type: 'backgroundColor', value: 'gray-100' } });
+/** 「Make」开关右上角的蓝点：这个频道有没处理的建议。 */
+const toggleDot = style({ position: 'absolute', top: 2, insetEnd: 2, size: 8, borderRadius: 'full', backgroundColor: 'blue-900' });
 const replyRow = style({ display: 'flex', alignItems: 'center', gap: 4, paddingX: 4, font: 'ui-sm', color: 'gray-700', minWidth: 0 });
 const replyText = style({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 });
 const spendLine = style({ font: 'ui-xs', color: 'gray-600', whiteSpace: 'nowrap' });
@@ -237,11 +240,14 @@ export function ChannelView({
   channel,
   onSettings,
   tasksToggle,
+  makeToggle = null,
 }: {
   channel: Channel;
   onSettings: () => void;
   /** 右栏（任务面板或任务详情）的开关，带这个频道里等你的任务数（需求 §11.1）。 */
   tasksToggle: { shown: boolean; onToggle: () => void } | null;
+  /** 右栏放 Make 面板的开关；这个频道有没处理的建议时带一个点（需求 §11.3）。 */
+  makeToggle?: { shown: boolean; onToggle: () => void } | null;
 }) {
   const go = useShell((s) => s.go);
   const call = useBotCall();
@@ -249,7 +255,9 @@ export function ChannelView({
   const away = useAwayAndSeen(channel);
   const unavailable = useDriverUnavailable(channel);
   const [scheduling, setScheduling] = useState(false);
-  const waiting = useChannelSummary(channel.id)?.counts.needsYou ?? 0;
+  const counts = useChannelSummary(channel.id)?.counts;
+  const waiting = counts?.needsYou ?? 0;
+  const suggested = counts?.suggested ?? 0;
   // 回复一张线程卡（BOT-EX-09）：下一条消息带上卡片的 id，协调者把原文转给那条任务的线程。
   const [replyTo, setReplyTo] = useScopedState<{ itemId: Id; workItemId: Id } | null>(channel.id, null);
   const firstUnread = away.summary?.firstUnreadItemId ?? null;
@@ -343,6 +351,19 @@ export function ChannelView({
             <ViewList />
             <Text>{C.panel.title}</Text>
             {waiting ? <NotificationBadge size="S" value={waiting} /> : null}
+          </ActionButton>
+        ) : null}
+        {makeToggle ? (
+          <ActionButton
+            isQuiet
+            size="S"
+            aria-label={C.make.toggle(suggested)}
+            aria-expanded={makeToggle.shown}
+            onPress={makeToggle.onToggle}
+            UNSAFE_className={`bc-panel-toggle ${toggleOnFill}`}>
+            <MagicWand />
+            <Text>{C.make.title}</Text>
+            {suggested ? <span className={toggleDot} aria-hidden="true" /> : null}
           </ActionButton>
         ) : null}
       </header>

@@ -11,12 +11,11 @@ import { BOT_COPY as C } from '../bot-copy.ts';
 import { StatusIcon, StatusLabel } from '../status-badge.tsx';
 import { workItemStatus } from '../work-item-status.ts';
 
-/** 与智能体回复正文对齐（头像 24 + 间距 12），同 thread.tsx 的 `messageOutputs`。 */
+/** Bot 的消息流里智能体消息不画头像（需求 §11.4），卡片与气泡左边对齐。 */
 export const card = style({
   display: 'flex',
   alignItems: 'start',
   gap: 12,
-  marginStart: 36,
   paddingX: 12,
   paddingY: 8,
   borderWidth: 1,

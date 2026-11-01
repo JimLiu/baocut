@@ -13,13 +13,13 @@ import {
   SideNavSection,
   Text,
 } from '@react-spectrum/s2';
-import AddCircle from '@react-spectrum/s2/icons/AddCircle';
+import Add from '@react-spectrum/s2/icons/Add';
 import Archive from '@react-spectrum/s2/icons/Archive';
 import Bell from '@react-spectrum/s2/icons/Bell';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import Delete from '@react-spectrum/s2/icons/Delete';
-import Home from '@react-spectrum/s2/icons/Home';
+import Layers from '@react-spectrum/s2/icons/Layers';
 import Lock from '@react-spectrum/s2/icons/Lock';
 import PinOff from '@react-spectrum/s2/icons/PinOff';
 import PinOn from '@react-spectrum/s2/icons/PinOn';
@@ -36,8 +36,12 @@ import { useBotCall } from './bot-actions.ts';
 import { BOT_COPY as C } from './bot-copy.ts';
 import { ChannelDialog, DeleteChannelDialog, type ChannelDialogState } from './channel-dialog.tsx';
 
-const top = style({ flexShrink: 0, marginBottom: 8 });
 const nav = style({ height: 'auto' });
+/** 挂在默认频道下的拐角线颜色（app.css `[data-bc-child]`）。 */
+const tree = style({ '--bc-row-connector': { type: 'borderColor', value: 'gray-200' } });
+/** 「新建频道」是频道组的最后一行：和下挂的频道一样缩进。 */
+const newChannel = style({ marginStart: 20 });
+const archivedNav = style({ height: 'auto', marginTop: 12 });
 const fit = style({ minWidth: 0 });
 const line = style({ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, width: 'full' });
 const lineTitle = style({
@@ -74,8 +78,9 @@ function selectedHref(route: Route): string | undefined {
 }
 
 /**
- * 频道侧栏（BOT-CH-02、需求 §11.2）：顶上「新建频道」与「等你处理」，然后是主频道、置顶的、其余按最近活动；归档的收在最下面一组。
- * 每行：频道名（有未读时加粗、行尾一颗绿点），等你的任务数，静音与私密的小图标；行尾「⋯」是设置、记忆、置顶、静音、归档与删除。
+ * 频道侧栏（BOT-CH-02、需求 §11.2）：「等你处理」，然后是默认频道，其余频道挂在它下面（置顶的在前、其余按最近活动），
+ * 最后一行是「新建频道」；归档的另起一段收在最下面。
+ * 每行：频道名（有未读时加粗、行尾一颗绿点），置顶、私密与静音的小图标，等你的任务数；行尾「⋯」是设置、记忆、置顶、静音、归档与删除。
  */
 export function ChannelSidebar() {
   const route = useSidebarRoute();
@@ -106,20 +111,29 @@ export function ChannelSidebar() {
       channel.name,
       unread ? C.sidebar.unread : null,
       counts.needsYou ? C.sidebar.needsYou(counts.needsYou) : null,
+      channel.pinned && !main ? C.sidebar.pinned : null,
       channel.muted ? C.sidebar.muted : null,
       channel.private ? C.sidebar.private : null,
     ]
       .filter(Boolean)
       .join(', ');
+    const child = !main && !channel.archived;
     return (
-      <SideNavItem key={channel.id} id={channel.id} textValue={channel.name} href={hrefFor(channelRoute(channel.id))} data-bc-row="">
+      <SideNavItem
+        key={channel.id}
+        id={channel.id}
+        textValue={channel.name}
+        href={hrefFor(channelRoute(channel.id))}
+        data-bc-row=""
+        data-bc-child={child ? '' : undefined}>
         <SideNavItemContent>
           <SideNavItemLink aria-label={detail}>
-            {main ? <Home /> : channel.pinned ? <PinOn /> : null}
+            {main ? <Layers /> : null}
             <Text styles={fit}>
               <span className={line} title={channel.purpose || channel.name}>
                 <span className={lineTitle({ isUnread: unread })}>{channel.name}</span>
                 <span className={tail} aria-hidden="true">
+                  {channel.pinned && !main ? <PinOn styles={tailIcon} /> : null}
                   {channel.private ? <Lock styles={tailIcon} /> : null}
                   {channel.muted ? <VolumeOff styles={tailIcon} /> : null}
                   {counts.needsYou ? <NotificationBadge size="S" value={counts.needsYou} /> : unread ? <span className={unreadDot} /> : null}
@@ -168,13 +182,7 @@ export function ChannelSidebar() {
   return (
     <PageSidebar label={C.sidebar.nav}>
       <SidebarTitle>{C.sidebar.title}</SidebarTitle>
-      <div className={top}>
-        <ActionButton isQuiet styles={style({ width: 'full' })} UNSAFE_style={{ justifyContent: 'start' }} onPress={() => setDialog({ mode: 'create' })}>
-          <AddCircle />
-          <Text>{C.sidebar.newChannel}</Text>
-        </ActionButton>
-      </div>
-      <div className={`${sidebarBody} bc-scroll`}>
+      <div className={`${sidebarBody} ${tree} bc-scroll`}>
         {/* 分组的键加 `group:`：与条目同名（收件箱）时集合的前后链接成环，渲染时死循环。 */}
         <SideNav styles={nav} aria-label={C.sidebar.nav} selectedRoute={selectedHref(route)}>
           <SideNavSection id="group:inbox">
@@ -200,7 +208,14 @@ export function ChannelSidebar() {
           <SideNavSection id="group:channels">
             {ready ? groups.active.map(row) : []}
           </SideNavSection>
-          {groups.archived.length ? (
+        </SideNav>
+        {/* 导航树里没有 href 的行点了什么也不做，「新建频道」放在树外面，紧跟频道组。 */}
+        <ActionButton isQuiet styles={newChannel} UNSAFE_style={{ justifyContent: 'start' }} onPress={() => setDialog({ mode: 'create' })}>
+          <Add />
+          <Text>{C.sidebar.newChannel}</Text>
+        </ActionButton>
+        {groups.archived.length ? (
+          <SideNav styles={archivedNav} aria-label={C.sidebar.archivedNav} selectedRoute={selectedHref(route)}>
             <SideNavSection id="group:archived">
               <SideNavHeader>
                 <span className={sectionHead}>
@@ -212,8 +227,8 @@ export function ChannelSidebar() {
               </SideNavHeader>
               {showArchived ? groups.archived.map(row) : []}
             </SideNavSection>
-          ) : null}
-        </SideNav>
+          </SideNav>
+        ) : null}
       </div>
       {dialog ? (
         <ChannelDialog

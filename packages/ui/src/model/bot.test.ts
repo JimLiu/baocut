@@ -10,7 +10,11 @@ import {
   questionAnswerRoute,
   isOverdue,
   localDate,
+  makeGallery,
+  MAKE_EARLIER_MAX,
   needsYouTotal,
+  outputKind,
+  suggestionPreview,
   openChips,
   statusKey,
   taskSections,
@@ -160,6 +164,11 @@ describe('bot model', () => {
     expect(wantedWorkItemChannels(rows, null)).toEqual(['a', 'c']);
   });
 
+  it('subscribes every live channel while Make looks at all channels', () => {
+    const rows = [channel('a'), channel('b'), channel('gone', { archived: true }), channel('c', {}, { needsYou: 1 })];
+    expect(wantedWorkItemChannels(rows, 'a', true)).toEqual(['a', 'b', 'c']);
+  });
+
   it('splits tasks into the panel tabs: active grouped by sub-state, scheduled apart from up next', () => {
     const items = [
       active('w', 'working'),
@@ -189,7 +198,6 @@ describe('bot model', () => {
     expect(sections.upNext.map((i) => i.id)).toEqual(['next-due', 'next-nodue', 'next-low']);
     expect(sections.scheduled.map((i) => i.id)).toEqual(['sched']);
     expect(tabCounts(sections)).toEqual({ active: 5, upNext: 3, scheduled: 1, resolved: 0 });
-    expect(sections.suggested).toHaveLength(3);
     expect(sections.done.map((i) => i.id)).toEqual(['done-new']);
     expect(sections.moreDone).toBe(1);
     expect(taskSections(items, 'all', NOW, true).done.map((i) => i.id)).toEqual(['done-new', 'done-old']);
@@ -312,5 +320,62 @@ describe('questionAnswerRoute', () => {
     expect(questionAnswerRoute(q('thread', 'ap1', ['A', 'B']), 1)).toBe('card');
     expect(questionAnswerRoute(q('system', 'ap1', ['A']), 0)).toBe('card');
     expect(questionAnswerRoute(q('thread', null, ['Yes', 'No']), 0)).toBe('message');
+  });
+});
+
+describe('Make panel', () => {
+  const suggested = (id: string, channelId: string, updatedAt: string, kindTag = 'captions') =>
+    item(id, {
+      channelId,
+      status: 'suggested',
+      updatedAt,
+      suggestion: { reason: '', owner: 'agent', evidence: [], trigger: 'manual', kindTag, subjectKey: id, expiresAt: '2026-11-07T00:00:00Z' },
+    });
+
+  it('keeps up to three suggestions per channel, newest first across channels', () => {
+    const items = [
+      suggested('a1', 'a', '2026-10-31T01:00:00Z'),
+      suggested('a2', 'a', '2026-10-31T02:00:00Z'),
+      suggested('a3', 'a', '2026-10-31T03:00:00Z'),
+      suggested('a4', 'a', '2026-10-31T04:00:00Z'),
+      suggested('b1', 'b', '2026-10-31T05:00:00Z'),
+      item('busy', { status: 'upNext' }),
+    ];
+    expect(makeGallery(items, NOW).suggestions.map((i) => i.id)).toEqual(['b1', 'a4', 'a3', 'a2']);
+  });
+
+  it('lists outputs newest first, split at local midnight, and skips references that are not outputs', () => {
+    const midnight = new Date(NOW);
+    midnight.setHours(0, 0, 0, 0);
+    const iso = (offsetMs: number) => new Date(midnight.getTime() + offsetMs).toISOString();
+    const out = (label: string, path: string) => ({ kind: 'file' as const, path, label, version: null });
+    const resolved = (at: string) => ({ kind: 'done' as const, by: 'thread' as const, at, evidence: null, confirmedBy: null, mergedInto: null });
+    const items = [
+      item('today', { status: 'resolved', resolution: resolved(iso(3_600_000)), outputs: [out('Cut', '/a/cut.mp4'), out('Subs', '/a/cut.srt')] }),
+      item('working', { status: 'active', updatedAt: iso(7_200_000), outputs: [{ kind: 'message', conversationId: 'c', itemId: 'm', label: 'Note', version: null }] }),
+      ...Array.from({ length: MAKE_EARLIER_MAX + 2 }, (_, n) =>
+        item(`old${n}`, { status: 'resolved', resolution: resolved(iso(-(n + 1) * 3_600_000)), outputs: [out(`Old ${n}`, `/a/old${n}.png`)] }),
+      ),
+    ];
+    const gallery = makeGallery(items, NOW);
+    expect(gallery.today.map((o) => [o.output.label, o.kind])).toEqual([
+      ['Cut', 'video'],
+      ['Subs', 'subtitle'],
+    ]);
+    expect(gallery.earlier).toHaveLength(MAKE_EARLIER_MAX);
+    expect(gallery.earlier[0]!.output.label).toBe('Old 0');
+    expect(gallery.earlier[0]!.kind).toBe('image');
+  });
+
+  it('maps output references and suggestion kinds to what the cards draw', () => {
+    expect(outputKind({ kind: 'video', projectId: 'p', videoId: 'v', label: 'V', version: null })).toBe('video');
+    expect(outputKind({ kind: 'video-range', projectId: 'p', videoId: 'v', startMs: 0, endMs: 1, label: 'V', version: null })).toBe('video');
+    expect(outputKind({ kind: 'work-item', workItemId: 'w', label: 'W', version: null })).toBeNull();
+    expect(suggestionPreview('highlights')).toBe('clips');
+    expect(suggestionPreview('derive-shorts')).toBe('clips');
+    expect(suggestionPreview('translate-draft')).toBe('captions');
+    expect(suggestionPreview('Captions')).toBe('captions');
+    expect(suggestionPreview('tidy')).toBe('idea');
+    expect(suggestionPreview(null)).toBe('idea');
   });
 });

@@ -1107,19 +1107,21 @@ interface BotNotificationEvent {
 
 | 组件 | 内容 | 复用 |
 | --- | --- | --- |
-| `bot-page.tsx` | 三栏布局；右栏的开合（宽屏默认开、窄屏默认收起并盖在频道对话上） | `app-shell` 的分栏与拖宽 |
-| `channel-sidebar.tsx` | 频道列表、新建、置顶、归档组 | `home-sidebar-rows` 的行样式 |
-| `channel-view.tsx` | 频道头（含带等你徽标的「任务」开关）+ 消息流 + 提示芯片 + 输入框 | Home 会话的消息流与输入框组件 |
+| `bot-page.tsx` | 三栏布局；右栏的开合（宽屏默认开、窄屏默认收起并盖在频道对话上）与内容（任务面板 / Make 面板 / 任务详情），Make 的范围（这个频道 / 全部频道）在这里保存，切频道不丢 | `app-shell` 的分栏与拖宽 |
+| `channel-sidebar.tsx` | 收件箱、主频道与挂在它下面的频道（`data-bc-child` 行，拐角线画在 `app.css`）、新建、置顶、另起一块的归档组 | `home-sidebar-rows` 的行样式 |
+| `channel-view.tsx` | 频道头（含「Make」开关，有未处理建议时带圆点；带等你徽标的「任务」开关）+ 消息流 + 提示芯片 + 输入框 | Home 会话的消息流与输入框组件 |
+| `timeline/bot-timeline.tsx` | 频道与任务线程共用的消息流外壳：提供 `BotThreadExtrasContext`，智能体消息画成不带头像的灰气泡，并把线程卡、提问卡等的头像缩进（`--bc-agent-indent`）设为 0 | 会话视图的 `Thread` |
 | `timeline/work-item-ref-card.tsx` | 线程卡：从 `work-items-store` 实时读状态 | — |
 | `timeline/relay-row.tsx` | 报告、刷新等系统条目（默认折叠）；挂在任务上时上面是任务头（弯线、状态图标、标题） | 现有 `notice` 渲染 |
 | `timeline/proposal-card.tsx` | 建立频道、周期任务、建议卡 | 现有授权卡的按钮布局 |
 | `timeline/suggestion-chips.tsx` | 提示芯片 | — |
-| `task-panel.tsx` | 筛选、新任务输入行、建议区、四个页签（页签与分组规则在 `model/bot.ts` 的 `taskSections` / `tabCounts` / `defaultTab`）、行快捷动作 | S2 `Tabs` |
+| `task-panel.tsx` | 筛选、新任务输入行、四个页签（页签与分组规则在 `model/bot.ts` 的 `taskSections` / `tabCounts` / `defaultTab`）、行快捷动作 | S2 `Tabs` |
+| `make-panel.tsx` | Make 面板（需求 §11.11）：「给点建议」（`bot.make.run`）、范围、建议大卡与其余建议行、今天与更早的产物、周期任务模板（「＋」打开预填的 `ScheduleDialog`）；取数与分组在 `model/bot.ts` 的 `makeGallery` / `outputKind` / `suggestionPreview` / `MAKE_TEMPLATES` | 建议卡的 `SuggestionButtons`、任务面板的行样式 |
 | `task-detail.tsx` | 一行头部（返回、状态、标题与「状态 · 下一步 · N 条进展」、展开、⋯、收起）、等你的问题、步骤、产物与资源、更新记录、线程消息 | 线程消息部分直接用会话视图组件，传入线程会话 id |
 | `channel-memory-page.tsx` | 记忆编辑（P1） | 现有 Markdown 编辑组件 |
 | `channel-dialog.tsx` | 新建与设置 | — |
 
-状态：`state/channels-store.ts`、`state/work-items-store.ts`（Zustand，按频道懒订阅：只订阅当前打开的频道与有 `needsYou` 的频道）。
+状态：`state/channels-store.ts`、`state/work-items-store.ts`（Zustand，按频道懒订阅：只订阅当前打开的频道与有 `needsYou` 的频道；Make 面板看「全部频道」时订阅所有没归档的频道，见 `wantedWorkItemChannels`）。
 
 ### 17.3 状态表达
 
@@ -1127,7 +1129,7 @@ interface BotNotificationEvent {
 
 ### 17.4 原型先行
 
-按开发流程，用户可见的界面先做原型并经用户确认。原型覆盖：三栏布局与窄屏、线程卡与运行记录行在消息流里的样子、任务面板的页签、新任务输入行与建议区、任务详情的头部与「等你的问题」区、提示芯片的出现与淡出、托盘菜单。原型确认后再进实施的界面 PR（§21）。
+按开发流程，用户可见的界面先做原型并经用户确认。原型覆盖：三栏布局与窄屏、线程卡与运行记录行在消息流里的样子、任务面板的页签与新任务输入行、Make 面板、任务详情的头部与「等你的问题」区、提示芯片的出现与淡出、托盘菜单。原型确认后再进实施的界面 PR（§21）。
 
 ## 18. 并发、限流与成本
 

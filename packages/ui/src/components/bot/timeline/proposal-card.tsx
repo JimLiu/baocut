@@ -200,17 +200,22 @@ function SuggestionRow({ workItemId, channelId }: { workItemId: Id; channelId: I
 /**
  * 建议的处理（BOT-MK-04）：依据链接、归属（默认取建议里的，通常交给智能体，可切成我来做）、采纳前可改标题，
  * 再「现在做」「加入」「忽略」。归属是我来做时没有「现在做」（Runtime 不给用户自己的任务开线程）。
+ * Make 面板的建议大卡用自己右上角的 ✕ 忽略（`dismiss={false}`），「现在做」用 accent（`accent`）。
  */
 export function SuggestionButtons({
   item,
   pending,
   run,
   call,
+  dismiss = true,
+  accent = false,
 }: {
   item: WorkItem;
   pending: boolean;
   run: (fn: () => Promise<unknown>) => Promise<void>;
   call: ReturnType<typeof useBotCall>;
+  dismiss?: boolean;
+  accent?: boolean;
 }) {
   const [owner, setOwner] = useState<WorkItemOwner>(item.suggestion?.owner ?? item.owner);
   const [title, setTitle] = useState<string | null>(null);
@@ -236,16 +241,18 @@ export function SuggestionButtons({
       </div>
       <ButtonGroup>
         {owner === 'agent' ? (
-          <Button variant="secondary" size="S" isDisabled={pending || title?.trim() === ''} onPress={() => accept(true)}>
+          <Button variant={accent ? 'accent' : 'secondary'} size="S" isDisabled={pending || title?.trim() === ''} onPress={() => accept(true)}>
             {C.proposal.doNow}
           </Button>
         ) : null}
         <Button variant="secondary" size="S" isDisabled={pending || title?.trim() === ''} onPress={() => accept(false)}>
           {C.proposal.add}
         </Button>
-        <Button variant="secondary" fillStyle="outline" size="S" isDisabled={pending} onPress={() => void run(() => transitionWorkItem(call, item.id, { type: 'dismiss' }))}>
-          {C.proposal.dismiss}
-        </Button>
+        {dismiss ? (
+          <Button variant="secondary" fillStyle="outline" size="S" isDisabled={pending} onPress={() => void run(() => transitionWorkItem(call, item.id, { type: 'dismiss' }))}>
+            {C.proposal.dismiss}
+          </Button>
+        ) : null}
       </ButtonGroup>
     </div>
   );

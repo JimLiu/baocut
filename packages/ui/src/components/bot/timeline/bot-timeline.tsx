@@ -1,10 +1,13 @@
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, type CSSProperties, type ReactNode } from 'react';
 import type { Id } from '@baocut/protocol';
 import { BotItemsContext, BotThreadExtrasContext, type BotThreadExtras } from '../../thread/bot-items.ts';
 import type { BotTimelineItem } from '../../../model/thread.ts';
 import { ProposalCard } from './proposal-card.tsx';
 import { RelayRow } from './relay-row.tsx';
 import { WorkItemRefCard } from './work-item-ref-card.tsx';
+
+/** Bot 的线程不画智能体头像（需求 §11.4）：步骤组、授权卡这些原本让出头像宽度的，这里贴着左边。 */
+const noAvatar = { display: 'contents', '--bc-agent-indent': '0px' } as CSSProperties;
 
 /**
  * 给频道对话与任务线程的时间线提供 Bot 条目的渲染（技术方案 §17.2）：线程卡、报告与转交行、提议卡。
@@ -31,7 +34,9 @@ export function BotTimeline({ channelId, extras = null, children }: { channelId:
   );
   return (
     <BotItemsContext.Provider value={render}>
-      <BotThreadExtrasContext.Provider value={extras}>{children}</BotThreadExtrasContext.Provider>
+      <BotThreadExtrasContext.Provider value={extras}>
+        <div style={noAvatar}>{children}</div>
+      </BotThreadExtrasContext.Provider>
     </BotItemsContext.Provider>
   );
 }

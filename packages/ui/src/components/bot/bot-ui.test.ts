@@ -22,7 +22,7 @@ import { useJobs } from '../../state/jobs-store.ts';
 import { TaskEditDialog } from './task-edit-dialog.tsx';
 import { Reactions, UserMessageExtras } from './timeline/message-extras.tsx';
 import { ScheduleDialog } from '../agent-schedule/schedule-dialog.tsx';
-import { DialogContainer } from '@react-spectrum/s2';
+import { DialogContainer, ToastQueue } from '@react-spectrum/s2';
 import { useTimeline } from '../../state/timeline-store.ts';
 import { BotSettings } from '../settings/bot-settings.tsx';
 import { useChannels } from '../../state/channels-store.ts';
@@ -31,6 +31,7 @@ import { ProposalCard, SuggestionButtons } from './timeline/proposal-card.tsx';
 import { useBotCall, useScopedState } from './bot-actions.ts';
 import { ChannelMemoryPage } from './channel-memory-page.tsx';
 import { ChannelSidebar } from './channel-sidebar.tsx';
+import { MakePanel } from './make-panel.tsx';
 import { useShell } from '../../state/shell-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 
@@ -111,6 +112,12 @@ describe('频道侧栏（BOT-CH-02）', () => {
       const rows = [...document.querySelectorAll('[data-bc-row]')].map((e) => e.getAttribute('data-key'));
       expect(rows).toEqual(['inbox', 'chan_main', 'chan_pod']);
       expect(new Set([...document.querySelectorAll('[data-key]')].map((e) => e.getAttribute('data-key'))).size).toBe(document.querySelectorAll('[data-key]').length);
+      // 需求 §11.2：其他频道挂在默认频道下面（画拐角线），「新建频道」跟在最后一个频道后面，归档组另起一块。
+      expect([...document.querySelectorAll('[data-bc-child]')].map((e) => e.getAttribute('data-key'))).toEqual(['chan_pod']);
+      const create = button('新建频道')!;
+      const last = document.querySelector('[data-key="chan_pod"]')!;
+      expect(last.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(document.querySelector('[aria-label="已归档的频道"]')).not.toBeNull();
     } finally {
       useChannels.setState({ channels: [] });
     }
@@ -209,6 +216,19 @@ describe('你不在时（BOT-BH-08、需求 §11.4）', () => {
     const html = container.innerHTML;
     expect(html.indexOf('旧的')).toBeLessThan(html.indexOf('data-testid="unread"'));
     expect(html.indexOf('data-testid="unread"')).toBeLessThan(html.indexOf('新的'));
+  });
+
+  it('智能体的消息不画头像，正文放进气泡（需求 §11.4）；不在 Bot 里时照旧带头像', async () => {
+    const items = [{ kind: 'agent-message', id: 'am1', createdAt: '2026-10-31T09:00:00Z', taskId: null, text: '好的，开始剪。' }] as TimelineItem[];
+    const extras = { unread: null, userMessage: null, agentMessage: () => null };
+    await render(createElement(BotThreadExtrasContext.Provider, { value: extras }, createElement(Thread, { items, conversationId: 'conv_c1', running: false })));
+    const row = container.querySelector('[data-role="agent"]')!;
+    expect(row.querySelector('[data-bubble]')?.textContent).toContain('好的，开始剪。');
+    expect(row.querySelector(':scope > [aria-hidden]')).toBeNull();
+    await render(createElement(Thread, { items, conversationId: 'conv_c1', running: false }));
+    const plain = container.querySelector('[data-role="agent"]')!;
+    expect(plain.querySelector('[data-bubble]')).toBeNull();
+    expect(plain.querySelector(':scope > [aria-hidden]')).not.toBeNull();
   });
 });
 
@@ -739,6 +759,100 @@ describe('周期任务建到频道里（Bot 技术方案 §14.1）', () => {
     } finally {
       useChannels.setState({ channels: [] });
     }
+  });
+
+  it('从 Make 模板打开：名字、指令与频率填好，目标是这个频道，确认才建（BOT-MK-05）', async () => {
+    useChannels.setState({ channels: [{ channel: { id: 'c1', name: '剪辑', conversationId: 'conv_c1', archived: false } }] as never });
+    const createSchedule = vi.fn(async (params: { name?: string }) => ({ schedule: { id: 's1', name: params.name, cadence: { type: 'daily', time: '08:00' } } }));
+    Object.assign(runtime, { createSchedule });
+    const initial = { name: '每日素材整理', prompt: '整理关注的文件夹里新进的文件，按视频归好。', cadence: { type: 'daily' as const, time: '08:00' } };
+    try {
+      await render(createElement(DialogContainer, { onDismiss: () => {}, children: createElement(ScheduleDialog, { channelId: 'c1', initial, onClose: () => {} }) }));
+      expect(document.querySelector<HTMLInputElement>('input[type="radio"][value="work-item"]')!.checked).toBe(true);
+      expect(document.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe(initial.prompt);
+      expect(createSchedule).not.toHaveBeenCalled();
+      await press('建立');
+      expect(createSchedule).toHaveBeenCalledWith(
+        expect.objectContaining({ name: '每日素材整理', cadence: initial.cadence, conversationId: 'conv_c1', target: 'work-item' }),
+      );
+    } finally {
+      useChannels.setState({ channels: [] });
+    }
+  });
+});
+
+describe('Make 面板（BOT-MK-01、04、05，需求 §11.11）', () => {
+  const suggestion = (id: string, title: string, owner: 'agent' | 'user', updatedAt: string, kindTag: string) =>
+    ({
+      ...resolvedItem(1),
+      id,
+      title,
+      owner,
+      status: 'suggested',
+      resolution: null,
+      outputs: [],
+      updatedAt,
+      suggestion: { reason: '还没有字幕', owner, evidence: [], trigger: 'manual', kindTag, subjectKey: id, expiresAt: '2026-11-14T00:00:00Z' },
+    }) as unknown as WorkItem;
+  const items = [
+    suggestion('wi_a', '切三条竖版', 'agent', '2026-10-31T03:00:00Z', 'derive-shorts'),
+    suggestion('wi_b', '补字幕', 'agent', '2026-10-31T02:00:00Z', 'add-captions'),
+    suggestion('wi_c', '自己录口播', 'user', '2026-10-31T01:00:00Z', 'tidy'),
+  ];
+  const rowOf = (title: string) => [...container.querySelectorAll('li')].find((li) => li.textContent?.includes(title))!;
+
+  beforeEach(() => {
+    useChannels.setState({ ready: true, channels: [{ channel: { id: 'c1', name: '剪辑', conversationId: 'conv_c1', archived: false } }] as never });
+    useWorkItems.setState({ byChannel: { c1: { items, resolvedTail: 20, reports: [] } } });
+    handlers['workItems.transition'] = (p) => ({ item: items.find((i) => i.id === p.id) });
+  });
+  afterEach(() => {
+    useWorkItems.setState({ byChannel: {} });
+    useChannels.setState({ channels: [] });
+  });
+
+  const panel = () => createElement(MakePanel, { channelId: 'c1', scope: 'channel', onScope: () => {}, onHide: () => {} });
+
+  it('第一条是带预览的大卡，右上角 ✕ 忽略；还没有产物时写明会出现什么', async () => {
+    await render(panel());
+    const hero = container.querySelector('section[aria-label="建议：切三条竖版"]')!;
+    expect(hero.textContent).toContain('竖版短视频');
+    expect([...hero.querySelectorAll('button')].some((b) => b.textContent?.trim() === '忽略')).toBe(false);
+    await press('忽略「切三条竖版」');
+    expect(calls('workItems.transition')).toEqual([{ id: 'wi_a', event: { type: 'dismiss' } }]);
+    expect(container.textContent).toContain('任务做出来的视频、字幕和文档会出现在这里。');
+  });
+
+  it('其余一行一条：「现在做」按建议的归属开工，我来做的建议行尾不给「现在做」，点标题展开完整处理', async () => {
+    await render(panel());
+    expect(rowOf('自己录口播').textContent).not.toContain('现在做');
+    const doNow = [...rowOf('补字幕').querySelectorAll('button')].find((b) => b.textContent?.trim() === '现在做')!;
+    await act(async () => doNow.click());
+    expect(calls('workItems.transition')).toEqual([{ id: 'wi_b', event: { type: 'accept', start: true, owner: 'agent' } }]);
+    const title = rowOf('自己录口播').querySelector<HTMLButtonElement>('button[aria-expanded]')!;
+    await act(async () => title.click());
+    expect(title.getAttribute('aria-expanded')).toBe('true');
+    expect(rowOf('自己录口播').querySelector('[aria-label="改标题"]')).not.toBeNull();
+  });
+
+  it('「给点建议」交给这个频道；没有新建议时说一声', async () => {
+    handlers['bot.make.run'] = () => ({ runId: 'r1', shown: 0 });
+    const toast = vi.spyOn(ToastQueue, 'neutral').mockImplementation(() => () => {});
+    try {
+      await render(panel());
+      await press('给点建议');
+      await act(async () => {});
+      expect(calls('bot.make.run')).toEqual([{ channelId: 'c1' }]);
+      expect(toast).toHaveBeenCalledWith('现在没有新的建议', expect.anything());
+    } finally {
+      toast.mockRestore();
+    }
+  });
+
+  it('模板「＋」打开周期任务对话框，填好名字与指令', async () => {
+    await render(panel());
+    await press('建立「每日素材整理」');
+    expect(document.querySelector<HTMLTextAreaElement>('[role="dialog"] textarea')?.value).toBe('整理关注的文件夹里新进的文件，按视频归好。');
   });
 });
 

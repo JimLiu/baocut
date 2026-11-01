@@ -20,7 +20,6 @@ import Add from '@react-spectrum/s2/icons/Add';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import Close from '@react-spectrum/s2/icons/Close';
 import Filter from '@react-spectrum/s2/icons/Filter';
-import MagicWand from '@react-spectrum/s2/icons/MagicWand';
 import User from '@react-spectrum/s2/icons/User';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import {
@@ -47,12 +46,12 @@ import { BOT_COPY as C } from './bot-copy.ts';
 import { formatDay, formatWhen } from './bot-format.ts';
 import { useTaskSpend } from './task-spend.ts';
 import { StatusIcon } from './status-badge.tsx';
-import { SuggestionButtons } from './timeline/proposal-card.tsx';
 import { workItemStatus } from './work-item-status.ts';
 
-const panel = style({ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, flexGrow: 1 });
-const head = style({ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, paddingX: 16, paddingTop: 12, paddingBottom: 8 });
-const headTitle = style({ margin: 0, flexGrow: 1, font: 'title-sm', color: 'gray-900' });
+/** 右栏面板的外框与头部；Make 面板（make-panel.tsx）共用。 */
+export const panel = style({ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, flexGrow: 1 });
+export const head = style({ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, paddingX: 16, paddingTop: 12, paddingBottom: 8 });
+export const headTitle = style({ margin: 0, flexGrow: 1, font: 'title-sm', color: 'gray-900' });
 const addForm = style({
   display: 'flex',
   flexDirection: 'column',
@@ -68,7 +67,6 @@ const addForm = style({
 const addField = style({ width: 'full' });
 const addBar = style({ display: 'flex', alignItems: 'center', gap: 8 });
 const grow = style({ flexGrow: 1 });
-const suggestedBox = style({ flexShrink: 0, maxHeight: '[40%]', overflowY: 'auto', paddingX: 8 });
 const tabsBox = style({ flexGrow: 1, minHeight: 0 });
 const tabList = style({ marginX: 16 });
 const tabPanel = style({ height: 'full' });
@@ -76,15 +74,15 @@ const scroller = style({ height: 'full', boxSizing: 'border-box', overflowY: 'au
 const section = style({ marginTop: 12 });
 const sectionTitle = style({ display: 'flex', alignItems: 'baseline', gap: 4, marginX: 8, marginY: 4, font: 'ui-sm', fontWeight: 'bold', color: 'gray-700' });
 const sectionCount = style({ font: 'ui-xs', fontWeight: 'normal', color: 'gray-600' });
-const list = style({ display: 'flex', flexDirection: 'column', margin: 0, padding: 0, listStyleType: 'none' });
-const row = style({
+export const list = style({ display: 'flex', flexDirection: 'column', margin: 0, padding: 0, listStyleType: 'none' });
+export const row = style({
   display: 'flex',
   alignItems: 'start',
   gap: 4,
   borderRadius: 'default',
   backgroundColor: { default: 'transparent', isSelected: 'gray-100', ':hover': 'gray-75' },
 });
-const rowMain = style({
+export const rowMain = style({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -103,21 +101,19 @@ const rowMain = style({
   outlineWidth: 2,
   borderRadius: 'default',
 });
-const rowText = style({ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flexGrow: 1 });
-const rowTitle = style({
+export const rowText = style({ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flexGrow: 1 });
+export const rowTitle = style({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   textDecoration: { default: 'none', isStruck: 'line-through' },
   color: { default: 'gray-900', isStruck: 'gray-600' },
 });
-const rowSub = style({ font: 'ui-xs', color: 'gray-600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+export const rowSub = style({ font: 'ui-xs', color: 'gray-600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
 const overdue = style({ font: 'ui-xs', fontWeight: 'medium', color: 'negative-900' });
-const rowEnd = style({ display: 'flex', alignItems: 'center', paddingTop: 2, paddingEnd: 4, flexShrink: 0 });
-const suggestion = style({ display: 'flex', flexDirection: 'column', gap: 8, paddingX: 8, paddingY: 8, borderRadius: 'default', backgroundColor: 'gray-50', marginBottom: 8 });
-const suggestionReason = style({ font: 'ui-xs', color: 'gray-600' });
-const empty = style({ marginX: 8, marginY: 16, font: 'body-sm', color: 'gray-600' });
-const loading = style({ display: 'flex', justifyContent: 'center', padding: 24 });
+export const rowEnd = style({ display: 'flex', alignItems: 'center', paddingTop: 2, paddingEnd: 4, flexShrink: 0 });
+export const empty = style({ marginX: 8, marginY: 16, font: 'body-sm', color: 'gray-600' });
+export const loading = style({ display: 'flex', justifyContent: 'center', padding: 24 });
 
 /** 新任务的默认值（需求 §4.4 第 2 步）：「我来做」，不马上开始。 */
 export const NEW_TASK_DEFAULTS: { owner: WorkItemOwner; start: boolean } = { owner: 'user', start: false };
@@ -185,29 +181,7 @@ function TaskRow({ item, today, timeZone, selected, onOpen }: { item: WorkItem; 
   );
 }
 
-function SuggestionItem({ item, onOpen }: { item: WorkItem; onOpen: () => void }) {
-  const call = useBotCall();
-  const [pending, setPending] = useState(false);
-  const run = async (fn: () => Promise<unknown>) => {
-    setPending(true);
-    await fn();
-    setPending(false);
-  };
-  return (
-    <li className={suggestion}>
-      <button type="button" className={rowMain} onClick={onOpen}>
-        <StatusIcon statusKey="suggested" chip />
-        <span className={rowText}>
-          <span className={rowTitle({ isStruck: false })}>{item.title}</span>
-          {item.suggestion?.reason ? <span className={suggestionReason}>{item.suggestion.reason}</span> : null}
-        </span>
-      </button>
-      <SuggestionButtons item={item} pending={pending} run={run} call={call} />
-    </li>
-  );
-}
-
-function Section({ title, count = 0, children }: { title: string; count?: number; children: ReactNode }) {
+export function Section({ title, count = 0, children }: { title: string; count?: number; children: ReactNode }) {
   return (
     <section className={section} aria-label={count ? C.panel.sectionCount(title, count) : title}>
       <h3 className={sectionTitle}>
@@ -303,8 +277,8 @@ function AddTaskRow({ channelId, onAdded, onClose }: { channelId: Id; onAdded: (
 const FILTER_LABEL: Record<TaskFilter, () => string> = { all: () => C.panel.all, mine: () => C.panel.mine, agent: () => C.panel.agent };
 
 /**
- * 频道右侧的任务面板（BOT-TK-01…05、BOT-SG-05…07、需求 §11.5）：头部是标题、「显示哪些任务」菜单、「给点建议」、新任务与收起；
- * 新任务在头部下面直接输入；建议另放在页签上方（最多 3 条，现在做、加入、忽略）。四个页签：进行中（按子状态分组，组头带条数）、
+ * 频道右侧的任务面板（BOT-TK-01…05、BOT-SG-05…07、需求 §11.5）：头部是标题、「显示哪些任务」菜单、新任务与收起；
+ * 新任务在头部下面直接输入；建议在 Make 面板（make-panel.tsx）。四个页签：进行中（按子状态分组，组头带条数）、
  * 接下来、定时、已解决（最近 20 条、30 天内）。没选过页签时显示第一个有任务的。`onHide` 收起右栏，与频道头的「任务」开关同一件事。
  */
 export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId: Id; selectedId: Id | null; onHide?: (() => void) | null }) {
@@ -312,7 +286,6 @@ export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId:
   const loaded = useWorkItemsLoaded(channelId);
   const timeZone = useChannels((s) => s.settings.timeZone);
   const go = useShell((s) => s.go);
-  const call = useBotCall();
   const now = useNow(60_000);
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [picked, setPicked] = useScopedState<TaskTab | null>(channelId, null);
@@ -321,7 +294,6 @@ export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId:
   const resolvedTail = useWorkItems((s) => s.byChannel[channelId]?.resolvedTail);
   const runtime = useRuntime();
   const [adding, setAdding] = useState(false);
-  const [making, setMaking] = useState(false);
   const sections = useMemo(() => taskSections(items, filter, now, allDone), [items, filter, now, allDone]);
   const counts = tabCounts(sections);
   const tab = picked ?? defaultTab(sections);
@@ -345,13 +317,6 @@ export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId:
       setLoadingOlder(false);
     }
     setAllDone(true);
-  };
-
-  const make = async () => {
-    setMaking(true);
-    const result = await call('bot.make.run', { channelId });
-    setMaking(false);
-    if (result && result.shown === 0) ToastQueue.neutral(C.panel.madeNone, { timeout: 4000 });
   };
 
   const body = (key: TaskTab): ReactNode => {
@@ -406,9 +371,6 @@ export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId:
             ))}
           </Menu>
         </MenuTrigger>
-        <ActionButton isQuiet size="S" aria-label={C.panel.make} isPending={making} onPress={() => void make()}>
-          <MagicWand />
-        </ActionButton>
         <ActionButton isQuiet size="S" aria-label={C.panel.newTask} aria-expanded={adding} onPress={() => setAdding(!adding)}>
           <Add />
         </ActionButton>
@@ -433,31 +395,20 @@ export function TaskPanel({ channelId, selectedId, onHide = null }: { channelId:
           <ProgressCircle size="S" isIndeterminate aria-label={C.common.loading} />
         </div>
       ) : (
-        <>
-          {sections.suggested.length ? (
-            <div className={suggestedBox}>
-              <Section title={C.panel.suggestions}>
-                {sections.suggested.map((item) => (
-                  <SuggestionItem key={item.id} item={item} onOpen={() => open(item.id)} />
-                ))}
-              </Section>
-            </div>
-          ) : null}
-          <Tabs aria-label={C.panel.title} density="compact" selectedKey={tab} onSelectionChange={(key) => setPicked(key as TaskTab)} styles={tabsBox}>
-            <TabList aria-label={C.panel.title} styles={tabList}>
-              {TASK_TABS.map((key) => (
-                <Tab key={key} id={key}>
-                  {counts[key] ? `${C.panel.tabs[key]} ${counts[key]}` : C.panel.tabs[key]}
-                </Tab>
-              ))}
-            </TabList>
+        <Tabs aria-label={C.panel.title} density="compact" selectedKey={tab} onSelectionChange={(key) => setPicked(key as TaskTab)} styles={tabsBox}>
+          <TabList aria-label={C.panel.title} styles={tabList}>
             {TASK_TABS.map((key) => (
-              <TabPanel key={key} id={key} styles={tabPanel}>
-                <div className={`${scroller} bc-scroll`}>{body(key) ?? <p className={empty}>{emptyText(key)}</p>}</div>
-              </TabPanel>
+              <Tab key={key} id={key}>
+                {counts[key] ? `${C.panel.tabs[key]} ${counts[key]}` : C.panel.tabs[key]}
+              </Tab>
             ))}
-          </Tabs>
-        </>
+          </TabList>
+          {TASK_TABS.map((key) => (
+            <TabPanel key={key} id={key} styles={tabPanel}>
+              <div className={`${scroller} bc-scroll`}>{body(key) ?? <p className={empty}>{emptyText(key)}</p>}</div>
+            </TabPanel>
+          ))}
+        </Tabs>
       )}
     </section>
   );

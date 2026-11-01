@@ -1,9 +1,11 @@
 import {
   BOT_LIMITS,
   type ActiveState,
+  type ArtifactRef,
   type ChannelSummary,
   type Id,
   type InboxRow,
+  type ScheduleCadence,
   type SuggestionChip,
   type TimelineItem,
   type WorkItem,
@@ -61,13 +63,13 @@ export function channelGroups(channels: readonly ChannelSummary[]): ChannelGroup
 }
 
 /**
- * 要订阅任务主题的频道（技术方案 §17.2）：当前打开的频道，加上有「等你」的频道（收件箱就地作答要读它们的任务）。
- * 按 id 排序，调用方好比较前后两次是不是一样。
+ * 要订阅任务主题的频道（技术方案 §17.2）：当前打开的频道，加上有「等你」的频道（收件箱就地作答要读它们的任务）；
+ * Make 面板看「全部频道」时（`everyChannel`）再加上所有没归档的频道。按 id 排序，调用方好比较前后两次是不是一样。
  */
-export function wantedWorkItemChannels(channels: readonly ChannelSummary[], openChannelId: Id | null): Id[] {
+export function wantedWorkItemChannels(channels: readonly ChannelSummary[], openChannelId: Id | null, everyChannel = false): Id[] {
   const ids = new Set<Id>();
   if (openChannelId) ids.add(openChannelId);
-  for (const row of channels) if (row.counts.needsYou > 0) ids.add(row.channel.id);
+  for (const row of channels) if (row.counts.needsYou > 0 || (everyChannel && !row.channel.archived)) ids.add(row.channel.id);
   return [...ids].sort();
 }
 
@@ -90,7 +92,6 @@ export interface ActiveGroup {
 }
 
 export interface TaskSections {
-  suggested: WorkItem[];
   /** 进行中，按子状态分组：待你审阅 → 需要你输入 → 已停下 → 工作中 → 等别人；空组不列。 */
   active: ActiveGroup[];
   upNext: WorkItem[];
@@ -135,14 +136,10 @@ export function matchesFilter(item: WorkItem, filter: TaskFilter): boolean {
 
 /**
  * 任务面板的四个页签（需求 §11.5）：进行中（按子状态分组）、接下来、定时、已解决（最近 20 条、30 天内）；
- * 建议另放，最多 3 条。
+ * 建议不在任务面板里，在 Make 面板（`makeGallery`）。
  */
 export function taskSections(items: readonly WorkItem[], filter: TaskFilter, now: number, showAllDone = false): TaskSections {
   const shown = items.filter((item) => matchesFilter(item, filter));
-  const suggested = shown
-    .filter((item) => item.status === 'suggested')
-    .sort(compareWorkItems)
-    .slice(0, BOT_LIMITS.pendingSuggestionsPerChannel);
   const active: ActiveGroup[] = [];
   for (const item of shown.filter((item) => item.status === 'active').sort(compareActive)) {
     const state = item.active?.state ?? 'working';
@@ -157,7 +154,7 @@ export function taskSections(items: readonly WorkItem[], filter: TaskFilter, now
   const cutoff = now - RESOLVED_DAYS * 86_400_000;
   const resolved = shown.filter((item) => item.status === 'resolved').sort((a, b) => resolvedAt(b).localeCompare(resolvedAt(a)));
   const recent = showAllDone ? resolved : resolved.filter((item) => Date.parse(resolvedAt(item)) >= cutoff).slice(0, BOT_LIMITS.resolvedTail);
-  return { suggested, active, upNext, scheduled, done: recent, moreDone: resolved.length - recent.length };
+  return { active, upNext, scheduled, done: recent, moreDone: resolved.length - recent.length };
 }
 
 /** 页签上的条数；已解决只列最近一段，不计数。 */
@@ -205,6 +202,106 @@ export function localDate(now: number, timeZone: string | null): string {
 export function isOverdue(item: Pick<WorkItem, 'dueOn' | 'status'>, today: string): boolean {
   return !!item.dueOn && item.status !== 'resolved' && item.status !== 'suggested' && item.dueOn < today;
 }
+
+// ---- Make 面板 ----
+
+/** Make 面板看哪些频道（需求 §11.11）：这个频道，或全部没归档的频道。 */
+export type MakeScope = 'channel' | 'all';
+
+/** 建议大卡上的示意画法：竖版短片（三块 9:16）、字幕（一帧画面加两行字幕条），其余是灯泡。 */
+export type SuggestionPreview = 'clips' | 'captions' | 'idea';
+
+/** 按建议的 `kindTag`（Make 生成器写的自由小写词，如 highlights、captions、translate-draft）选预览。 */
+export function suggestionPreview(kindTag: string | null | undefined): SuggestionPreview {
+  const tag = (kindTag ?? '').toLowerCase();
+  if (/short|highlight|clip|reel|vertical/.test(tag)) return 'clips';
+  if (/caption|subtitle|transcri|translat/.test(tag)) return 'captions';
+  return 'idea';
+}
+
+/** 产物卡的种类：决定图标与种类字样。线程卡、消息这类引用不算产物卡。 */
+export type OutputKind = 'video' | 'image' | 'subtitle' | 'doc';
+
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm|mkv)$/i;
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|avif|heic|svg)$/i;
+const SUBTITLE_EXT = /\.(srt|vtt|ass|ssa|sbv)$/i;
+
+export function outputKind(ref: ArtifactRef): OutputKind | null {
+  if (ref.kind === 'video' || ref.kind === 'video-range') return 'video';
+  if (ref.kind === 'file') {
+    if (VIDEO_EXT.test(ref.path)) return 'video';
+    return IMAGE_EXT.test(ref.path) ? 'image' : SUBTITLE_EXT.test(ref.path) ? 'subtitle' : 'doc';
+  }
+  if (ref.kind === 'space' || ref.kind === 'doc' || ref.kind === 'slides' || ref.kind === 'design') return 'doc';
+  return null;
+}
+
+export interface MakeOutput {
+  item: WorkItem;
+  output: ArtifactRef;
+  kind: OutputKind;
+  /** 产物出来的时刻（毫秒）：任务解决的时刻，没解决的用最近更新。 */
+  at: number;
+}
+
+export interface MakeGallery {
+  /** 每个频道最多 3 条，最近更新的在前；第一条画成大卡。 */
+  suggestions: WorkItem[];
+  today: MakeOutput[];
+  /** 今天以前的，最多 `MAKE_EARLIER_MAX` 条。 */
+  earlier: MakeOutput[];
+}
+
+export const MAKE_EARLIER_MAX = 6;
+
+/** 本机时区当天零点。 */
+function startOfDay(now: number): number {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/**
+ * Make 面板的内容（需求 §6、§11.11）：`items` 是要看的那些频道的任务（调用方按范围取好）。
+ * 建议按频道各取前 3 条；产物来自任务的 outputs，按时间倒排，分成今天的与更早的。
+ */
+export function makeGallery(items: readonly WorkItem[], now: number): MakeGallery {
+  const byChannel = new Map<Id, WorkItem[]>();
+  for (const item of items.filter((i) => i.status === 'suggested').sort(compareWorkItems)) {
+    const list = byChannel.get(item.channelId) ?? [];
+    if (list.length < BOT_LIMITS.pendingSuggestionsPerChannel) list.push(item);
+    byChannel.set(item.channelId, list);
+  }
+  const suggestions = [...byChannel.values()].flat().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const outputs: MakeOutput[] = [];
+  for (const item of items) {
+    const at = Date.parse(item.resolution?.at ?? item.updatedAt);
+    for (const output of item.outputs) {
+      const kind = outputKind(output);
+      if (kind) outputs.push({ item, output, kind, at });
+    }
+  }
+  outputs.sort((a, b) => b.at - a.at);
+  const today = startOfDay(now);
+  return {
+    suggestions,
+    today: outputs.filter((o) => o.at >= today),
+    earlier: outputs.filter((o) => o.at < today).slice(0, MAKE_EARLIER_MAX),
+  };
+}
+
+/**
+ * 周期任务模板（BOT-MK-05、BOT-VE-04）：Make 面板底部的一排卡。点「＋」打开周期任务对话框，名字、指令与频率填好，
+ * 目标是当前频道，用户确认才建。名字与指令是文案（`make.templates`），频率在这里。只做 BaoCut 自己的数据（需求 §6 首期）。
+ */
+export type MakeTemplateId = 'transcribe' | 'tidy' | 'captions' | 'drafts';
+
+export const MAKE_TEMPLATES: readonly { id: MakeTemplateId; cadence: ScheduleCadence }[] = [
+  { id: 'transcribe', cadence: { type: 'weekly', days: [1], time: '09:00' } },
+  { id: 'tidy', cadence: { type: 'daily', time: '08:00' } },
+  { id: 'captions', cadence: { type: 'weekly', days: [0], time: '20:00' } },
+  { id: 'drafts', cadence: { type: 'weekly', days: [5], time: '17:00' } },
+];
 
 // ---- 收件箱 ----
 

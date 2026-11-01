@@ -18,7 +18,7 @@ const box = style({
   display: 'flex',
   flexDirection: 'column',
   gap: 8,
-  marginStart: 36,
+  marginStart: '[var(--bc-agent-indent, 36px)]',
   padding: 12,
   borderRadius: 'lg',
   backgroundColor: 'gray-50',
@@ -31,7 +31,7 @@ const box = style({
 const title = style({ font: 'title-sm', margin: 0 });
 const body = style({ margin: 0, color: 'gray-700' });
 const acts = style({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 });
-const retryRow = style({ display: 'flex', marginStart: 36 });
+const retryRow = style({ display: 'flex', marginStart: '[var(--bc-agent-indent, 36px)]' });
 const menu = style({ width: 320, maxWidth: '[calc(100vw - 32px)]' });
 
 /**

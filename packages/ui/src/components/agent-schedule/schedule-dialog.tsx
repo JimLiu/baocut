@@ -91,12 +91,15 @@ export function ScheduleDialog({
   conversation,
   schedule,
   channelId: initialChannel,
+  initial,
   onClose,
 }: {
   conversation?: Conversation;
   schedule?: Schedule;
   /** 从 Bot 频道头部打开：目标默认「每次在这个频道建一条任务」。 */
   channelId?: Id;
+  /** 从 Bot 的 Make 面板模板打开（BOT-MK-05）：名字、指令与频率先填好，用户确认才建；只在新建频道任务时用。 */
+  initial?: Pick<ScheduleDraft, 'name' | 'prompt' | 'cadence'>;
   onClose: () => void;
 }) {
   const runtime = useRuntime();
@@ -104,7 +107,9 @@ export function ScheduleDialog({
   const origin = useDirectory((s) => conversation ?? s.conversations.find((c) => c.id === schedule?.conversationId));
   const project = useProject(origin?.projectId ?? schedule?.projectId ?? null);
   const defaultMode = useSetting('agent.defaultAccessMode') ?? DEFAULT_AGENT_MODE;
-  const [d, setD] = useState<ScheduleDraft>(() => (initialChannel && !schedule ? { ...draftOf(null), target: 'work-item' } : draftOf(schedule ?? null)));
+  const [d, setD] = useState<ScheduleDraft>(() =>
+    initialChannel && !schedule ? { ...draftOf(null), target: 'work-item', ...initial } : draftOf(schedule ?? null),
+  );
   const summaries = useChannels((s) => s.channels);
   const channels = useMemo(() => summaries.filter((c) => !c.channel.archived).map((c) => c.channel), [summaries]);
   const [channelId, setChannelId] = useState<Id | null>(initialChannel ?? null);

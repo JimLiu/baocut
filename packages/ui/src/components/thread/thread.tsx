@@ -94,7 +94,7 @@ const history = style({ display: 'flex', justifyContent: 'center', marginBottom:
 const row = style({ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 });
 
 /** 回复下面的产物（原型 apprail.css `.chat-outputs` :126）：竖排，与回复正文对齐（头像 24 + 间距 12）。 */
-const messageOutputs = style({ display: 'flex', flexDirection: 'column', gap: 8, marginStart: 36 });
+const messageOutputs = style({ display: 'flex', flexDirection: 'column', gap: 8, marginStart: '[var(--bc-agent-indent, 36px)]' });
 
 export function Thread({
   items,

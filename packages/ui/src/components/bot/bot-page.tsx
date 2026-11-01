@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MAIN_CHANNEL_ID, type ChannelSummary, type Id } from '@baocut/protocol';
 import { Button, ProgressCircle } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { wantedWorkItemChannels } from '../../model/bot.ts';
+import { wantedWorkItemChannels, type MakeScope } from '../../model/bot.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import type { RuntimeSession } from '../../runtime/session.ts';
 import { useChannelSummary, useChannels } from '../../state/channels-store.ts';
@@ -15,6 +15,7 @@ import { ChannelMemoryPage } from './channel-memory-page.tsx';
 import { ChannelSidebar } from './channel-sidebar.tsx';
 import { ChannelView } from './channel-view.tsx';
 import { InboxView } from './inbox-view.tsx';
+import { MakePanel } from './make-panel.tsx';
 import { TaskDetail } from './task-detail.tsx';
 import { TaskPanel } from './task-panel.tsx';
 
@@ -25,7 +26,7 @@ const side = style({
   display: 'flex',
   flexDirection: 'column',
   flexShrink: 0,
-  width: { default: 340, isDetail: 420 },
+  width: { default: 340, isMake: 380, isDetail: 420 },
   maxWidth: 'full',
   minHeight: 0,
   boxSizing: 'border-box',
@@ -75,12 +76,13 @@ function useEnsureMain(): { failed: string | null; retry: () => void } {
 }
 
 /**
- * 任务镜像只订需要的频道（技术方案 §16.2）：打开的那个，加上有任务等你的（收件箱要在原地回答，得有任务本身）。离开 Bot 页全部退订。
+ * 任务镜像只订需要的频道（技术方案 §16.2）：打开的那个，加上有任务等你的（收件箱要在原地回答，得有任务本身）；
+ * Make 面板看「全部频道」时（`everyChannel`）订所有没归档的频道。离开 Bot 页全部退订。
  */
-function useWorkItemSubscriptions(openChannelId: Id | null) {
+function useWorkItemSubscriptions(openChannelId: Id | null, everyChannel: boolean) {
   const runtime = useRuntime();
   const channels = useChannels((s) => s.channels);
-  const wanted = useMemo(() => wantedWorkItemChannels(channels, openChannelId), [channels, openChannelId]);
+  const wanted = useMemo(() => wantedWorkItemChannels(channels, openChannelId, everyChannel), [channels, openChannelId, everyChannel]);
   const key = wanted.join(',');
   useEffect(() => {
     syncWorkItemSubscriptions(runtime.client, key ? key.split(',') : []);
@@ -101,9 +103,10 @@ function useNarrow(): [(element: HTMLDivElement | null) => void, boolean] {
 }
 
 /**
- * Bot 页（技术方案 §17.1、需求 §11.1）：左边频道侧栏，中间频道对话（或收件箱、记忆页、展开的任务详情），右边任务面板或任务详情。
- * 频道头的「任务」开关、面板与详情头部的关闭都收起右栏；宽窗口默认显示，主区变窄时默认收起、开了浮在对话上。
- * 打开任务详情时总是显示；详情的返回回到任务列表，关闭连同详情一起收起。
+ * Bot 页（技术方案 §17.1、需求 §11.1）：左边频道侧栏，中间频道对话（或收件箱、记忆页、展开的任务详情），右边任务面板、
+ * Make 面板或任务详情。频道头的「任务」「Make」两个开关切右栏放哪一块（`sideKind`），再按一次收起；面板与详情头部的关闭也收起右栏。
+ * 宽窗口默认显示，主区变窄时默认收起、开了浮在对话上。打开任务详情时总是显示，「任务」开关算开着；
+ * 详情的返回回到任务列表，关闭连同详情一起收起。
  */
 export function BotPage({ channelId: routeChannelId, workItemId, view }: { channelId: Id | null; workItemId: Id | null; view: BotView }) {
   const go = useShell((s) => s.go);
@@ -118,19 +121,28 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
   const [narrowShown, setNarrowShown] = useState(false);
   const panelShown = narrow ? narrowShown : !wideHidden;
   const setShown = (shown: boolean) => (narrow ? setNarrowShown(shown) : setWideHidden(!shown));
+  const [sideKind, setSideKind] = useState<'tasks' | 'make'>('tasks');
+  const [makeScope, setMakeScope] = useState<MakeScope>('channel');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleting, setDeleting] = useState<ChannelSummary | null>(null);
-  useWorkItemSubscriptions(channelId ?? (workItemId ? (routeChannelId ?? null) : null));
+  const makeOn = view === 'channel' && !workItemId && panelShown && sideKind === 'make';
+  useWorkItemSubscriptions(channelId ?? (workItemId ? (routeChannelId ?? null) : null), makeOn && makeScope === 'all');
 
   const routeTo = (next: { channelId?: Id | null; workItemId?: Id | null; view?: BotView }) =>
     go({ tab: 'bot', channelId: next.channelId !== undefined ? next.channelId : routeChannelId, workItemId: next.workItemId !== undefined ? next.workItemId : workItemId, view: next.view ?? view });
   const closeDetail = () => routeTo({ workItemId: null, view: view === 'task' ? 'channel' : view });
   const backToList = () => {
+    setSideKind('tasks');
     setShown(true);
     closeDetail();
   };
   const hide = () => {
     setShown(false);
+    if (workItemId) closeDetail();
+  };
+  const showSide = (kind: 'tasks' | 'make') => {
+    setSideKind(kind);
+    setShown(true);
     if (workItemId) closeDetail();
   };
 
@@ -167,14 +179,15 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
   } else if (view === 'task' && workItemId) {
     center = <TaskDetail workItemId={workItemId} channelId={channel.id} wide onToggleWide={() => routeTo({ view: 'channel' })} onBack={backToList} />;
   } else {
-    const shown = !!workItemId || panelShown;
+    const tasksOn = !!workItemId || (panelShown && sideKind === 'tasks');
     center = (
       // 按频道换实例：回复目标、「显示更早的」这类界面状态只属于一个频道，切频道时不能串过去。
       <ChannelView
         key={channel.id}
         channel={channel}
         onSettings={() => setSettingsOpen(true)}
-        tasksToggle={{ shown, onToggle: () => (shown ? hide() : setShown(true)) }}
+        tasksToggle={{ shown: tasksOn, onToggle: () => (tasksOn ? hide() : showSide('tasks')) }}
+        makeToggle={{ shown: makeOn, onToggle: () => (makeOn ? hide() : showSide('make')) }}
       />
     );
     if (workItemId)
@@ -188,6 +201,7 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
           onHide={hide}
         />
       );
+    else if (makeOn) right = <MakePanel key={channel.id} channelId={channel.id} scope={makeScope} onScope={setMakeScope} onHide={hide} />;
     else if (panelShown) right = <TaskPanel key={channel.id} channelId={channel.id} selectedId={null} onHide={hide} />;
   }
 
@@ -196,7 +210,7 @@ export function BotPage({ channelId: routeChannelId, workItemId, view }: { chann
       <ChannelSidebar />
       <div ref={contentRef} className={content}>
         <div className={main}>{center}</div>
-        {right ? <aside className={side({ isOverlay: narrow, isDetail: !!workItemId })}>{right}</aside> : null}
+        {right ? <aside className={side({ isOverlay: narrow, isDetail: !!workItemId, isMake: makeOn })}>{right}</aside> : null}
       </div>
       {settingsOpen && channel ? (
         <ChannelDialog
