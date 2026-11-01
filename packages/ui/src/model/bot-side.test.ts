@@ -19,10 +19,9 @@ const task = (id: string) => sideTabFromRoute(id)!;
 const output = (id: string, key: string) => sideTabFromRoute(id, key)!;
 
 describe('bot right panel', () => {
-  it('keys tab books by channel, the default channel and the inbox', () => {
-    expect(sideTabBook({ channelId: 'c1', view: 'channel' })).toBe('c1');
-    expect(sideTabBook({ channelId: null, view: 'channel' })).toBe('chan_main');
-    expect(sideTabBook({ channelId: 'c1', view: 'inbox' })).toBe('inbox');
+  it('keys tab books by channel and the default channel', () => {
+    expect(sideTabBook({ channelId: 'c1' })).toBe('c1');
+    expect(sideTabBook({ channelId: null })).toBe('chan_main');
     expect(sideTabFromRoute(null)).toBeNull();
     expect(sideTabFromRoute('wi_a')).toEqual({ key: 'task:wi_a', kind: 'task', workItemId: 'wi_a' });
     expect(sideTabFromRoute('wi_a', 'video:v1')).toEqual({
@@ -95,14 +94,13 @@ describe('bot right panel', () => {
   });
 
   it('splits the full view into the parent level and the current tab', () => {
-    expect(fullColumns(task('a'), 'make', false)).toEqual({ left: 'tasks', right: task('a') });
-    expect(fullColumns(task('a'), 'tasks', true)).toEqual({ left: 'inbox', right: task('a') });
-    expect(fullColumns(null, 'make', false)).toEqual({ left: 'make', right: null });
-    expect(fullColumns(output('a', 'video:v1'), 'tasks', true)).toEqual({ left: 'task', right: output('a', 'video:v1') });
+    expect(fullColumns(task('a'), 'make')).toEqual({ left: 'tasks', right: task('a') });
+    expect(fullColumns(null, 'make')).toEqual({ left: 'make', right: null });
+    expect(fullColumns(output('a', 'video:v1'), 'tasks')).toEqual({ left: 'task', right: output('a', 'video:v1') });
     expect(fullSplit('task', undefined, 1200).width).toBe(440);
     expect(fullSplit('tasks', undefined, 1200).width).toBe(340);
     expect(fullSplit('make', undefined, 1200).width).toBe(380);
-    expect(fullSplit('inbox', 2000, 1200)).toEqual({ width: 720, min: SIDE_MIN, max: 720 });
+    expect(fullSplit('tasks', 2000, 1200)).toEqual({ width: 720, min: SIDE_MIN, max: 720 });
   });
 });
 

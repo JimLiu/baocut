@@ -8,7 +8,6 @@ export const ja: BotMessages = {
   trayResume: '自動実行を再開',
   trayQuit: 'バックグラウンドサービスを終了',
   trayTooltip: 'BaoCut バックグラウンドサービス',
-  trayTooltipNeedsYou: (count: number) => `BaoCut：対応待ちが ${count} 件あります`,
   trayTooltipPaused: 'BaoCut：自動実行は一時停止中',
   notifyMerged: (count: number, channel: string) => `${channel} で ${count} 件があなたを待っています`,
   notifySummary: (count: number) => `夜のあいだに ${count} 件があなたを待っていました`,
@@ -21,7 +20,7 @@ export const ja: BotMessages = {
   },
   residentQuitTitle: 'Bot はバックグラウンドで作業を続けます',
   residentQuitDetailMac:
-    'BaoCut を閉じても、メニューバーから定期タスクと作業中のタスクを実行し続けます。すべて止めるには「完全に終了」を選んでください。',
+    'BaoCut を閉じても、バックグラウンドで定期タスクと作業中のタスクを実行し続けます。すべて止めるには「完全に終了」を選んでください。',
   residentQuitDetailOther:
     'BaoCut を閉じても、通知領域から定期タスクと作業中のタスクを実行し続けます。すべて止めるには「完全に終了」を選んでください。',
   residentKeep: 'バックグラウンドで続ける',

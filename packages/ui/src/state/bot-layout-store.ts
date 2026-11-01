@@ -25,7 +25,7 @@ interface BotLayoutStore {
   /** 每份页签簿开着哪几个固定页签；没记过就两个都开着。 */
   fixed: Record<string, FixedSideTab[]>;
   full: Record<string, boolean>;
-  /** 右栏 tasks / make / detail / output，占满时的左栏 full:tasks / full:make / full:inbox / full:task。 */
+  /** 右栏 tasks / make / detail / output，占满时的左栏 full:tasks / full:make / full:task。 */
   widths: Record<string, number>;
   /**
    * 视频产物页签打开的视频（按页签键，产物页认出来后记下）：AppShell 按它打开编辑器的视频；页签还开着时，

@@ -29,7 +29,6 @@ const NO_FIXED: readonly FixedSideTab[] = [];
 
 export interface BotSide {
   bookKey: string;
-  inbox: boolean;
   channel: Channel | null;
   /** 路由对齐后的页签簿：BotPage 把它写回 store（`tabs !== stored` 时）。 */
   tabs: SideTabs;
@@ -58,12 +57,11 @@ export interface BotSide {
 /**
  * Bot 页右栏的状态与动作（原型 page-bot.jsx `BotPage` 的前半段）：BotPage 画右栏，BotTitleBar 画中间栏的标题与页签条，
  * 两边按同一个路由各调一次，读同一份 store（bot-layout-store），所以算出来的一样。动作直接改 store 与路由。
- * 右栏的开合：宽时默认开着，窄时默认收起；路由里有任务时总是开着。收件箱没有固定页签，只在打开了任务时显示右栏。
+ * 右栏的开合：宽时默认开着，窄时默认收起；路由里有任务时总是开着。
  */
 export function useBotSide({ channelId: routeChannelId, workItemId, view, output }: BotRouteView): BotSide {
-  const inbox = view === 'inbox';
-  const bookKey = sideTabBook({ channelId: routeChannelId, view });
-  const summary = useChannelSummary(inbox ? null : (routeChannelId ?? MAIN_CHANNEL_ID));
+  const bookKey = sideTabBook({ channelId: routeChannelId });
+  const summary = useChannelSummary(routeChannelId ?? MAIN_CHANNEL_ID);
   const channel = summary?.channel ?? null;
   const stored = useBotLayout((s) => s.books[bookKey]);
   const tabs = useMemo(() => reconcileSideTabs(stored, sideTabFromRoute(workItemId, output)), [stored, workItemId, output]);
@@ -78,9 +76,9 @@ export function useBotSide({ channelId: routeChannelId, workItemId, view, output
   const sideKind = fixedOpen.includes(side) ? side : (fixedOpen[0] ?? null);
   const narrow = mainWidth > 0 && mainWidth < BOT_NARROW;
   const panelShown = narrow ? narrowShown : !wideHidden;
-  const hasSide = inbox || (!!channel && view !== 'memory');
+  const hasSide = !!channel && view !== 'memory';
   const single = narrow && hasSide;
-  const shown = inbox ? !!workItemId : hasSide && (!!workItemId || (panelShown && !!sideKind));
+  const shown = hasSide && (!!workItemId || (panelShown && !!sideKind));
   const full = !narrow && fullStored;
 
   const layout = useBotLayout.getState;
@@ -89,7 +87,7 @@ export function useBotSide({ channelId: routeChannelId, workItemId, view, output
     tab: 'bot' as const,
     channelId: routeChannelId,
     workItemId: next?.workItemId ?? null,
-    view: inbox ? ('inbox' as const) : ('channel' as const),
+    view: 'channel' as const,
     ...(next?.kind === 'output' ? { output: next.output } : {}),
   });
   const setShown = (on: boolean) => (narrow ? layout().setNarrowShown(on) : layout().setWideHidden(!on));
@@ -102,7 +100,6 @@ export function useBotSide({ channelId: routeChannelId, workItemId, view, output
 
   return {
     bookKey,
-    inbox,
     channel,
     tabs,
     stored,
@@ -124,7 +121,7 @@ export function useBotSide({ channelId: routeChannelId, workItemId, view, output
     },
     hide,
     selectTab,
-    // 关掉当前页签换到旁边那个；一个不剩又没有固定页签（收件箱、固定页签都关了）时收起右栏。
+    // 关掉当前页签换到旁边那个；一个不剩又没有固定页签（固定页签都关了）时收起右栏。
     closeTab: (tab) => {
       const next = closeSideTab(tabs, tab.key);
       layout().setBook(bookKey, next);
@@ -152,8 +149,8 @@ export function useBotSide({ channelId: routeChannelId, workItemId, view, output
   };
 }
 
-/** 收件箱或打开的频道有没有放进标题栏的标题（TitleBar 据此不放中间的「BaoCut」与帮助）；不在 Bot 页传 null。 */
-export function useBotHasHead(route: Pick<BotRouteView, 'channelId' | 'view'> | null): boolean {
-  const summary = useChannelSummary(!route || route.view === 'inbox' ? null : (route.channelId ?? MAIN_CHANNEL_ID));
-  return !!route && (route.view === 'inbox' || !!summary);
+/** 打开的频道有没有放进标题栏的标题（TitleBar 据此不放中间的「BaoCut」与帮助）；不在 Bot 页传 null。 */
+export function useBotHasHead(route: Pick<BotRouteView, 'channelId'> | null): boolean {
+  const summary = useChannelSummary(route ? (route.channelId ?? MAIN_CHANNEL_ID) : null);
+  return !!route && !!summary;
 }

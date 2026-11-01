@@ -69,9 +69,8 @@ const toggleOnFill = style({ '--bc-panel-toggle-on': { type: 'backgroundColor', 
 /** 开关右上角的点：「任务」有等你的事、「Make」有建议；数目在读屏名称里。 */
 const toggleDot = style({ position: 'absolute', top: 2, insetEnd: 2, size: 8, borderRadius: 'full', backgroundColor: 'blue-900' });
 
-/** 当前这一页的标题：频道头、「等你处理」或记忆页的标题；频道还没载入或不在了时没有。 */
+/** 当前这一页的标题：频道头或记忆页的标题；频道还没载入或不在了时没有。 */
 export function BotHead({ route, side }: { route: BotRouteView; side: BotSide }) {
-  if (route.view === 'inbox') return <BotInboxHead />;
   if (!side.channel) return null;
   if (route.view === 'memory') return <BotMemoryHead channel={side.channel} />;
   return <BotChannelHead channel={side.channel} side={side} />;
@@ -134,15 +133,6 @@ function BotChannelHead({ channel, side }: { channel: Channel; side: BotSide }) 
       <ChannelSpend channelId={channel.id} />
       {toggleButton('tasks')}
       {toggleButton('make')}
-    </div>
-  );
-}
-
-function BotInboxHead() {
-  return (
-    <div className={row}>
-      <h1 className={title}>{C.inbox.title}</h1>
-      <span className={grow} />
     </div>
   );
 }

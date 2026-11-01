@@ -8,7 +8,6 @@ export const vi: BotMessages = {
   trayResume: 'Tiếp tục tự động hóa',
   trayQuit: 'Thoát dịch vụ chạy nền',
   trayTooltip: 'Dịch vụ chạy nền của BaoCut',
-  trayTooltipNeedsYou: (count: number) => `BaoCut: ${count} việc đang chờ bạn`,
   trayTooltipPaused: 'BaoCut: đã tạm dừng tự động hóa',
   notifyMerged: (count: number, channel: string) => `${count} việc đang chờ bạn trong ${channel}`,
   notifySummary: (count: number) => `${count} việc đã chờ bạn qua đêm`,
@@ -21,7 +20,7 @@ export const vi: BotMessages = {
   },
   residentQuitTitle: 'Bot sẽ tiếp tục làm việc ở chế độ nền',
   residentQuitDetailMac:
-    'Khi bạn đóng BaoCut, ứng dụng vẫn chạy các tác vụ đã lên lịch và đang chạy từ thanh menu. Thoát hẳn để dừng mọi thứ.',
+    'Khi bạn đóng BaoCut, ứng dụng vẫn chạy các tác vụ đã lên lịch và đang chạy ở chế độ nền. Thoát hẳn để dừng mọi thứ.',
   residentQuitDetailOther:
     'Khi bạn đóng BaoCut, ứng dụng vẫn chạy các tác vụ đã lên lịch và đang chạy từ vùng thông báo. Thoát hẳn để dừng mọi thứ.',
   residentKeep: 'Giữ chạy nền',

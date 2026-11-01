@@ -13,13 +13,13 @@ const env = vi.hoisted(() => ({
   dialogs: [] as any[],
   client: null as any,
   fromWebContents: null as any,
+  windows: [{}] as unknown[],
 }));
 
 vi.mock('electron', async () => {
   const { EventEmitter } = await import('node:events');
   class Tray extends EventEmitter {
     menu: any = null;
-    title = '';
     tooltip = '';
     destroyed = false;
     image: unknown;
@@ -30,9 +30,6 @@ vi.mock('electron', async () => {
     }
     setContextMenu(menu: unknown) {
       this.menu = menu;
-    }
-    setTitle(title: string) {
-      this.title = title;
     }
     setToolTip(text: string) {
       this.tooltip = text;
@@ -54,12 +51,18 @@ vi.mock('electron', async () => {
       this.shown = true;
     }
   }
-  const image = { isEmpty: () => false, resize: () => image };
+  const image = { isEmpty: () => false, resize: () => image, toPNG: () => Buffer.from('png') };
+  const createEmpty = () => {
+    const made = { representations: [] as unknown[], template: false } as any;
+    made.addRepresentation = (rep: unknown) => made.representations.push(rep);
+    made.setTemplateImage = (on: boolean) => (made.template = on);
+    return made;
+  };
   return {
     Tray,
     Notification,
     Menu: { buildFromTemplate: (template: unknown) => ({ template }) },
-    nativeImage: { createFromPath: () => image },
+    nativeImage: { createFromPath: () => image, createEmpty },
     dialog: {
       showMessageBox: async (...args: unknown[]) => {
         env.dialogs.push(args.at(-1));
@@ -70,10 +73,12 @@ vi.mock('electron', async () => {
       handle: (channel: string, handler: Function) => env.handlers.set(channel, handler),
       removeHandler: (channel: string) => env.handlers.delete(channel),
     },
-    BrowserWindow: { fromWebContents: () => env.fromWebContents },
+    BrowserWindow: { fromWebContents: () => env.fromWebContents, getAllWindows: () => env.windows },
   };
 });
 vi.mock('../../../build/icon.png?asset', () => ({ default: '/fixture/icon.png' }));
+vi.mock('../../../build/tray-mac.png?asset', () => ({ default: '/fixture/tray-mac.png' }));
+vi.mock('../../../build/tray-mac@2x.png?asset', () => ({ default: '/fixture/tray-mac@2x.png' }));
 vi.mock('@baocut/client', async (original) => {
   const { FakeClient } = await import('./testing/fakes.ts');
   return {
@@ -98,6 +103,7 @@ beforeEach(() => {
   env.notifications.length = 0;
   env.dialogResponses.length = 0;
   env.dialogs.length = 0;
+  env.windows = [{}];
 });
 
 afterEach(() => {
@@ -137,12 +143,15 @@ function takeRoute(win: ReturnType<typeof fakeWindow>) {
 }
 
 describe('Bot service wiring (Electron simulated)', () => {
-  it('shows the tray from settings and labels its menu in the current language', async () => {
+  it('shows the tray only when the setting is on: a macOS template image, no count, menu in the current language', async () => {
     const { client } = install();
     client.snapshot(channelsSnapshot([channelSummary('chan_main', { needsYou: 2 })]));
     await flush();
+    expect(env.trays).toHaveLength(0);
+    client.event({ type: 'bot.settings', settings: channelsSnapshot([], { trayIcon: true }).settings });
     expect(env.trays).toHaveLength(1);
-    expect(env.trays[0].title).toBe('2');
+    expect(env.trays[0].image).toMatchObject({ template: true, representations: [{ scaleFactor: 1 }, { scaleFactor: 2 }] });
+    expect(env.trays[0].tooltip).toBe('BaoCut background service');
     expect(env.trays[0].menu.template.map((item: { label?: string }) => item.label)).toEqual([
       'Open BaoCut',
       'Working Tasks (0)',
@@ -151,6 +160,17 @@ describe('Bot service wiring (Electron simulated)', () => {
       undefined,
       'Quit Background Service',
     ]);
+  });
+
+  it('on Windows uses the color app icon, and shows the tray while no window is open', async () => {
+    const { client } = install({ platform: 'win32' });
+    client.snapshot(channelsSnapshot([channelSummary('chan_main')]));
+    await flush();
+    expect(env.trays).toHaveLength(0);
+    env.windows = [];
+    client.event({ type: 'bot.settings', settings: channelsSnapshot([]).settings });
+    expect(env.trays).toHaveLength(1);
+    expect(env.trays[0].image).not.toHaveProperty('template');
   });
 
   it('a clicked notification opens the window and hands the task route to the renderer once', async () => {
@@ -182,14 +202,14 @@ describe('Bot service wiring (Electron simulated)', () => {
   it('a window still loading is not pinged; it takes the route when its page is up', () => {
     const loading = fakeWindow(true);
     const { service } = install({ showWindow: vi.fn(() => loading as never) });
-    service.openRoute({ tab: 'bot', channelId: null, workItemId: null, view: 'inbox' });
+    service.openRoute({ tab: 'bot', channelId: 'chan_main', workItemId: null, view: 'channel' });
     expect(loading.webContents.send).not.toHaveBeenCalled();
-    expect(takeRoute(loading)).toEqual({ tab: 'bot', channelId: null, workItemId: null, view: 'inbox' });
+    expect(takeRoute(loading)).toEqual({ tab: 'bot', channelId: 'chan_main', workItemId: null, view: 'channel' });
   });
 
   it('only app windows (main frame) can take a route', () => {
     const { service, win } = install();
-    service.openRoute({ tab: 'bot', channelId: null, workItemId: null, view: 'inbox' });
+    service.openRoute({ tab: 'bot', channelId: 'chan_main', workItemId: null, view: 'channel' });
     env.fromWebContents = null;
     expect(env.handlers.get('baocut:bot-take-route')!({ sender: win.webContents, senderFrame: win.webContents.mainFrame })).toBeNull();
     env.fromWebContents = win;
@@ -199,7 +219,7 @@ describe('Bot service wiring (Electron simulated)', () => {
   it('“Quit Background Service” confirms with the work that will stop, then quits completely', async () => {
     const { client, options } = install();
     client.status = botStatus({ resident: true, workingThreads: [{ workItemId: 'wi_1', channelId: 'c', title: 'Trim the intro' }] });
-    client.snapshot(channelsSnapshot([channelSummary('chan_main')]));
+    client.snapshot(channelsSnapshot([channelSummary('chan_main')], { trayIcon: true }));
     await flush();
     const quit = () => env.trays[0].menu.template[5].click();
 
@@ -227,7 +247,7 @@ describe('Bot service wiring (Electron simulated)', () => {
   it('reports residency changes and cleans up on dispose', async () => {
     const { service, client, options } = install();
     client.status = botStatus({ resident: true });
-    client.snapshot(channelsSnapshot([channelSummary('chan_main')]));
+    client.snapshot(channelsSnapshot([channelSummary('chan_main')], { trayIcon: true }));
     await flush();
     expect(options.onResidency).toHaveBeenCalledWith(true, expect.objectContaining({ resident: true }));
     service.dispose();

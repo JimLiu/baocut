@@ -57,8 +57,8 @@ export { SETTINGS_SECTIONS } from '../model/settings-nav.ts';
 /** 一级入口（App rail，产品设计 §2.1 用户修订）。 */
 export type Tab = 'home' | 'bot' | 'space' | 'skills' | 'tasks' | 'models' | 'services' | 'tools' | 'settings';
 
-/** Bot 页的视图（docs/design/bot-mode 技术方案 §17.1）：频道对话、任务详情、频道记忆、「等你」收件箱。 */
-export type BotView = 'channel' | 'task' | 'memory' | 'inbox';
+/** Bot 页的视图（docs/design/bot-mode 技术方案 §17.1）：频道对话、任务详情、频道记忆。 */
+export type BotView = 'channel' | 'task' | 'memory';
 
 /**
  * Home 的 `pane`：会话右侧功能区当前的标签（视频、文件、项目文件、网页）；同一条会话的其他标签记在 `workspaces` 里。
@@ -69,8 +69,7 @@ export type Route =
   | { tab: 'home'; conversationId: Id | null; projectId: Id | null; pane?: WorkspaceItem; view?: EditorView }
   /**
    * Bot 模式（docs/design/bot-mode 技术方案 §17.1）：`channelId` 为 null 时进主频道；`workItemId` 是右侧打开的任务详情；
-   * `output` 是那个任务的一个产物（`outputKey`），右栏打开的是它的产物页签；`view: 'inbox'` 是 Rail 徽标打开的跨频道「等你」收件箱，
-   * `memory` 是频道记忆页。
+   * `output` 是那个任务的一个产物（`outputKey`），右栏打开的是它的产物页签；`memory` 是频道记忆页。
    */
   | { tab: 'bot'; channelId: Id | null; workItemId: Id | null; view: BotView; output?: string }
   /** Home 的「已归档会话」（产品设计 §3.1）：属于 Home 入口，不是 rail 上的一格。`focus`：归档提示条的「查看」带来的那条，高亮它。 */
@@ -805,13 +804,13 @@ export function hrefFor(route: Route): string {
 }
 
 /**
- * Bot 的链接：`/bot`（主频道）、`/bot/inbox`、`/bot/<频道>`、`/bot/<频道>/memory`、`/bot/<频道>/task/<任务>`；
- * 收件箱与频道对话旁边开着的任务带 `?task=<任务>`，开着的是它的产物时再带 `&out=<产物>`。
+ * Bot 的链接：`/bot`（主频道）、`/bot/<频道>`、`/bot/<频道>/memory`、`/bot/<频道>/task/<任务>`；
+ * 频道对话旁边开着的任务带 `?task=<任务>`，开着的是它的产物时再带 `&out=<产物>`。
+ * 收件箱已经去掉（需求 §11.2，2026-11-01）：旧的 `/bot/inbox` 落到主频道，那里开着的任务不跟过去（它多半不在主频道里）。
  */
 function botHref(route: Extract<Route, { tab: 'bot' }>): string {
   const task = route.workItemId ? encodeURIComponent(route.workItemId) : null;
   const side = task ? `?task=${task}${route.output ? `&out=${encodeURIComponent(route.output)}` : ''}` : '';
-  if (route.view === 'inbox') return `/bot/inbox${side}`;
   if (!route.channelId) return `/bot${side}`;
   const channel = `/bot/${encodeURIComponent(route.channelId)}`;
   if (route.view === 'memory') return `${channel}/memory`;
@@ -823,7 +822,7 @@ function parseBotRoute(a: string | undefined, b: string | undefined, c: string |
   const task = query.get('task');
   const out = task ? query.get('out') : null;
   const output = out ? { output: out } : {};
-  if (a === 'inbox') return { tab: 'bot', channelId: null, workItemId: task, view: 'inbox', ...output };
+  if (a === 'inbox') return { tab: 'bot', channelId: null, workItemId: null, view: 'channel' };
   const channelId = a ? decodeURIComponent(a) : null;
   if (channelId && b === 'memory') return { tab: 'bot', channelId, workItemId: null, view: 'memory' };
   if (channelId && b === 'task' && c) return { tab: 'bot', channelId, workItemId: decodeURIComponent(c), view: 'task' };

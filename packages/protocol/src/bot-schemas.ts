@@ -112,6 +112,7 @@ const settingsPatch = z
     stallMinutes: z.number().int().min(5).max(24 * 60).optional(),
     maxConcurrentThreads: z.number().int().min(1).max(20).optional(),
     background: z.boolean().optional(),
+    trayIcon: z.boolean().optional(),
     openAtLogin: z.boolean().optional(),
     automationPaused: z.boolean().optional(),
     makeAutoTrigger: z.boolean().optional(),

@@ -38,14 +38,8 @@
        每项服务各自的灯在服务页里（总览标题旁与每一行） */
     const svc = window.BC_SERVICES.summary(app.svcStates);
     const svcErr = !!svc && svc.tone === 'error';
-    /* Bot：全部频道里「待你审阅 + 需要你输入」的任务数（需求 §11.1）；实现里徽标单独可点、打开收件箱，原型只显示数 */
-    const bot = window.useBot ? window.useBot() : null;
-    const waiting = bot ? window.BC_BOT.needsYouTotal(window.BC_BOT.channelSummaries(bot.channels, bot.items)) : 0;
+    /* Bot 不带角标（不显示数也不显示点）：等你的任务只在频道侧栏的行尾与频道头的「任务」开关上带点 */
     const extra = {
-      bot: {
-        label: waiting ? `Bot，${waiting} 个任务等你` : 'Bot',
-        badge: waiting ? <span className="apprail__badge"><RSP.NotificationBadge value={waiting} size="S" /></span> : null,
-      },
       tasks: {
         label: running ? `后台任务，${running} 个在跑或排队` : '后台任务',
         badge: running ? <span className="apprail__badge"><RSP.NotificationBadge value={running} size="S" /></span> : null,

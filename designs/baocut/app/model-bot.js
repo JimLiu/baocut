@@ -61,8 +61,6 @@
       counts: {needsYou: items.filter(i => i.channelId === channel.id && needsUser(i)).length},
     }));
   }
-  /** Rail 上 Bot 的徽标：全部频道（含静音、归档）里等你的任务数。 */
-  const needsYouTotal = rows => rows.reduce((sum, row) => sum + Math.max(0, row.counts.needsYou), 0);
   const byActivity = (a, b) => b.channel.lastActivityAt - a.channel.lastActivityAt;
   /** 置顶的在前，其余按最近活动。 */
   const pinnedFirst = rows => [...rows.filter(r => r.channel.pinned).sort(byActivity), ...rows.filter(r => !r.channel.pinned).sort(byActivity)];
@@ -194,13 +192,13 @@
   // ---- 右栏页签（照 Home 功能区的页签，product-design §3.3）----
   /*
    * 右栏顶上是一条页签条：频道里最前面固定「任务」「Make」两个页签（不在 tabs 里，不能关），后面是打开的任务与产物。
-   * 页签簿 {tabs, active} 按频道各记一份，收件箱一份（它没有固定页签）；路由的 task / out 指当前的任务或产物页签，
+   * 页签簿 {tabs, active} 按频道各记一份；路由的 task / out 指当前的任务或产物页签，
    * 没有就是 active: null，显示固定页签。开与关用 Home 的 BC_HOME_WORKSPACE.open / close（只认 {tabs, active} 与 key）。
    */
   const workspaceTabs = () => root.BC_HOME_WORKSPACE;
   const emptyTabs = () => ({tabs: [], active: null});
-  /** 页签簿的键：频道 id（没有就是默认频道），收件箱是 'inbox'。 */
-  const sideTabBook = r => (r.view === 'inbox' ? 'inbox' : r.id || 'chan_main');
+  /** 页签簿的键：频道 id（没有就是默认频道）。 */
+  const sideTabBook = r => r.id || 'chan_main';
   /** 路由里的页签：带 out 是那个任务的第 out 个产物，只带 task 是任务；都没有是 null。 */
   function sideTabFromRoute(r) {
     if (!r || !r.task) return null;
@@ -237,15 +235,15 @@
   const sideMode = (active, fixed) => (active ? (active.kind === 'output' ? 'output' : 'detail') : fixed);
   /**
    * 右栏占满（中间收起）时的两栏：左边是当前页签的上一层，右边是当前页签。
-   * 产物 → 它的任务 | 产物；任务 → 任务列表（收件箱里是收件箱）| 任务；固定页签 → 它自己 | 提示。
+   * 产物 → 它的任务 | 产物；任务 → 任务列表 | 任务；固定页签 → 它自己 | 提示。
    */
-  function fullColumns(active, fixed, inbox) {
+  function fullColumns(active, fixed) {
     if (active && active.kind === 'output') return {left: {kind: 'task', task: active.task}, right: active};
-    if (active) return {left: {kind: inbox ? 'inbox' : 'tasks'}, right: active};
-    return {left: {kind: inbox ? 'inbox' : fixed}, right: null};
+    if (active) return {left: {kind: 'tasks'}, right: active};
+    return {left: {kind: fixed}, right: null};
   }
-  /** 占满时左栏的默认宽：任务列表 340、Make 380、收件箱 360、任务 440；右栏至少留 480。 */
-  const FULL_LEFT = {tasks: 340, make: 380, inbox: 360, task: 440};
+  /** 占满时左栏的默认宽：任务列表 340、Make 380、任务 440；右栏至少留 480。 */
+  const FULL_LEFT = {tasks: 340, make: 380, task: 440};
   const FULL_RIGHT_MIN = 480;
   function fullSplit(kind, stored, available) {
     const max = Math.max(SIDE_MIN, available - FULL_RIGHT_MIN);
@@ -540,7 +538,7 @@
   }
 
   const root = typeof window !== 'undefined' ? window : globalThis;
-  root.BC_BOT = {STATUS, RELAY, QUICK_LABEL, NEW_TASK_DEFAULTS, statusKey, statusOf, needsUser, nextLine, channelSummaries, needsYouTotal,
+  root.BC_BOT = {STATUS, RELAY, QUICK_LABEL, NEW_TASK_DEFAULTS, statusKey, statusOf, needsUser, nextLine, channelSummaries,
     CHANNEL_STATUS, CHANNEL_STATUS_LABEL, matchesStatus, channelTree, CHANNEL_ICONS, CHANNEL_ICON_LABEL, CHANNEL_COLORS, CHANNEL_COLOR_LABEL, DEFAULT_CHANNEL_ICON,
     defaultChannelColor, channelLook, NAME_MAX, nameError, archiveImpact, deleteImpact, compareWorkItems, matchesFilter, TASK_TABS, TAB_LABEL, tabOf, taskSections, tabCounts, defaultTab, quickActions, applyAction, newTask, openChips,
     OUTPUT_KIND, SUGGESTION_KIND, MAKE_TEMPLATES, makeGallery, taskFromTemplate, CHANNEL_SETTINGS, MAX_CONCURRENT, channelSettings,

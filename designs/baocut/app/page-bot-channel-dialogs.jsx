@@ -57,7 +57,7 @@
               <R.TextField label="产物语言" placeholder="与对话相同" value={d.outputLanguage} maxLength={35} onChange={v => set('outputLanguage', v)} />
               <div className="bot-settings__switch">
                 <R.Switch isSelected={d.muted} onChange={v => set('muted', v)}>静音通知</R.Switch>
-                <p className="bot-dialog__note">只计入徽标和「等你处理」列表</p>
+                <p className="bot-dialog__note">不弹系统通知，侧栏里的提示点照常显示</p>
               </div>
               <div className="bot-settings__switch">
                 <R.Switch isSelected={d.private} onChange={v => set('private', v)}>私密</R.Switch>

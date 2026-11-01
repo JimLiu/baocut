@@ -10,7 +10,6 @@ import {
   type ChannelsSnapshot,
   type Id,
 } from '@baocut/protocol';
-import { needsYouTotal } from '../model/bot.ts';
 
 /**
  * Bot 模式的频道镜像（docs/design/bot-mode 技术方案 §16.2、§17.2）：`channels` 主题的频道摘要、侧栏分组与 Bot 设置，
@@ -39,11 +38,6 @@ export const useChannels = create<ChannelsStore>()((set) => ({
       return { channels: next.channels, groups: next.groups, settings: next.settings };
     }),
 }));
-
-/** Rail 徽标：全部频道里等你的任务数。 */
-export function useNeedsYouTotal(): number {
-  return useChannels((s) => needsYouTotal(s.channels));
-}
 
 export function useChannelSummary(id: Id | null): ChannelSummary | undefined {
   return useChannels((s) => (id ? s.channels.find((row) => row.channel.id === id) : undefined));

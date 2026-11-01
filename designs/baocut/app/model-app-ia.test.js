@@ -28,7 +28,7 @@ test('路由归哪一格：工具 / 服务各亮自己那格；打开的视频�
     [{r: 'settings', sec: 'agent'}, 'settings'], [{r: 'skill'}, 'skills'],
     [{r: 'skills'}, 'skills'], [{r: 'skills', id: 'caption-layout', tab: 'files'}, 'skills'], [{r: 'settings', sec: 'skills'}, 'skills'],
     [{r: 'editor', id: 'p1'}, 'home'], [{r: 'editor', id: 'p1', via: 'home'}, 'home'], [{r: 'editor', id: 'p1', via: 'space'}, 'space'],
-    [{r: 'bot'}, 'bot'], [{r: 'bot', id: 'chan_main', task: 'wi_cut'}, 'bot'], [{r: 'bot', view: 'inbox'}, 'bot'],
+    [{r: 'bot'}, 'bot'], [{r: 'bot', id: 'chan_main', task: 'wi_cut'}, 'bot'],
   ];
   cases.forEach(([r, t]) => assert.equal(IA.tabOf(r), t, JSON.stringify(r)));
 });

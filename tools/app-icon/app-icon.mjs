@@ -220,3 +220,51 @@ export function svg(variant = VARIANTS.coral, { shadow = true, badge = false, ge
     .filter(Boolean)
     .join('\n');
 }
+
+// macOS 菜单栏的模板图（技术方案 §15.2 托盘）：同一个图形的单色版，黑色画在透明底上，系统按菜单栏深浅染色，
+// 和别的菜单栏图标一样是白（或黑）的。18 pt 里三条轨道的缝不到半个像素，所以三角画成实心；播放头两侧的缝与线宽
+// 按小尺寸加粗，星芒外面留一圈空，和三角分开。画布是正方形，图形高占 92%。
+export const TRAY = { casing: 120, line: 48, sparkHalo: 72, fill: 0.92 };
+
+export function traySvg(o = { ...GEOMETRY, ...TRAY }) {
+  const y0 = o.yc - o.H / 2;
+  const y1 = o.yc + o.H / 2;
+  const px = o.L + o.W * o.playhead;
+  const sy = y0 + o.sparkDy;
+  const top = sy - o.sparkR;
+  // 尖的圆角把右边收进去约 rApex/2。
+  const right = o.L + o.W - o.rApex / 2;
+  const side = (y1 - top) / o.fill;
+  const vx = (o.L + right) / 2 - side / 2;
+  const vy = (top + y1) / 2 - side / 2;
+  const tri = roundPolyD(
+    [
+      [o.L, y0],
+      [o.L + o.W, o.yc],
+      [o.L, y1],
+    ],
+    [o.rCorner, o.rApex, o.rCorner],
+  );
+  const spark = sparkleD(px, sy, o.sparkR);
+  const head = `M ${f(px)} ${f(sy + o.sparkR * 0.4)} L ${f(px)} ${f(y1)}`;
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="${f(vx)} ${f(vy)} ${f(side)} ${f(side)}">`,
+    '<defs>',
+    '<mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">',
+    '<rect width="1024" height="1024" fill="#FFFFFF"/>',
+    `<rect x="${f(px - o.casing / 2)}" y="0" width="${o.casing}" height="1024" fill="#000000"/>`,
+    '</mask>',
+    '<mask id="halo" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">',
+    '<rect width="1024" height="1024" fill="#FFFFFF"/>',
+    `<path d="${spark}" fill="#000000" stroke="#000000" stroke-width="${o.sparkHalo}" stroke-linejoin="round"/>`,
+    '</mask>',
+    '</defs>',
+    '<g mask="url(#halo)">',
+    `<path d="${tri}" fill="#000000" mask="url(#cut)"/>`,
+    `<path d="${head}" stroke="#000000" stroke-width="${o.line}" stroke-linecap="round" fill="none"/>`,
+    '</g>',
+    `<path d="${spark}" fill="#000000"/>`,
+    '</svg>',
+    '',
+  ].join('\n');
+}

@@ -8,7 +8,6 @@ export const tr: BotMessages = {
   trayResume: 'Otomasyonu sürdür',
   trayQuit: 'Arka plan hizmetinden çık',
   trayTooltip: 'BaoCut arka plan hizmeti',
-  trayTooltipNeedsYou: (count: number) => `BaoCut: sizi bekleyen ${count} iş var`,
   trayTooltipPaused: 'BaoCut: otomasyon duraklatıldı',
   notifyMerged: (count: number, channel: string) => `${channel} kanalında sizi bekleyen ${count} iş var`,
   notifySummary: (count: number) => `Gece boyunca sizi bekleyen ${count} iş birikti`,
@@ -21,7 +20,7 @@ export const tr: BotMessages = {
   },
   residentQuitTitle: 'Bot arka planda çalışmaya devam eder',
   residentQuitDetailMac:
-    'BaoCut’u kapatsanız da menü çubuğundan zamanlanmış ve devam eden görevleri çalıştırmayı sürdürür. Her şeyi durdurmak için tamamen çıkın.',
+    'BaoCut’u kapatsanız da zamanlanmış ve devam eden görevleri arka planda çalıştırmayı sürdürür. Her şeyi durdurmak için tamamen çıkın.',
   residentQuitDetailOther:
     'BaoCut’u kapatsanız da bildirim alanından zamanlanmış ve devam eden görevleri çalıştırmayı sürdürür. Her şeyi durdurmak için tamamen çıkın.',
   residentKeep: 'Arka planda tut',

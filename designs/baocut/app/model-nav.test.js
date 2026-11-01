@@ -164,11 +164,13 @@ test('定时任务详情页经地址往返；没有 id 时落到后台任务', (
   assert.deepEqual(N.routeFromHref('#/schedule'), {r: 'tasks'});
 });
 
-test('Bot：频道进路径，打开的任务与收件箱进 query，任务不同算两条历史', () => {
+test('Bot：频道进路径，打开的任务与记忆页进 query，任务不同算两条历史；旧的「等你处理」链接落到频道', () => {
   assert.equal(N.hrefFor({r: 'bot'}), '#/bot');
   assert.equal(N.hrefFor({r: 'bot', id: 'chan_main', task: 'wi_cut'}), '#/bot/chan_main?task=wi_cut');
   assert.deepEqual(N.routeFromHref('#/bot/chan_main?task=wi_cut'), {r: 'bot', id: 'chan_main', task: 'wi_cut'});
-  assert.deepEqual(N.routeFromHref('#/bot?view=inbox'), {r: 'bot', view: 'inbox'});
+  assert.deepEqual(N.routeFromHref('#/bot?view=inbox'), {r: 'bot'});
+  assert.deepEqual(N.routeFromHref('#/bot/chan_shorts?task=wi_short&view=inbox'), {r: 'bot', id: 'chan_shorts', task: 'wi_short'});
+  assert.equal(N.hrefFor({r: 'bot', view: 'inbox'}), '#/bot');
   assert.equal(N.hrefFor({r: 'bot', id: 'chan_main', task: 'wi_cut', out: '0'}), '#/bot/chan_main?task=wi_cut&out=0');
   assert.deepEqual(N.routeFromHref('#/bot/chan_main?task=wi_cut&out=0'), {r: 'bot', id: 'chan_main', task: 'wi_cut', out: '0'});
   assert.deepEqual(N.routeFromHref('#/bot/chan_main?view=memory'), {r: 'bot', id: 'chan_main', view: 'memory'});

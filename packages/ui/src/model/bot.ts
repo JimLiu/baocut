@@ -10,7 +10,6 @@ import {
   type ChannelIcon,
   type ChannelSummary,
   type Id,
-  type InboxRow,
   type ResourceRef,
   type ScheduleCadence,
   type SpaceEntryKind,
@@ -45,11 +44,6 @@ export function statusKey(item: Pick<WorkItem, 'status' | 'active' | 'resolution
 }
 
 // ---- 频道 ----
-
-/** Rail 上 Bot 的徽标：全部频道（含静音、归档）里「待你审阅 + 需要你输入」的任务数。 */
-export function needsYouTotal(channels: readonly ChannelSummary[]): number {
-  return channels.reduce((sum, row) => sum + Math.max(0, row.counts.needsYou), 0);
-}
 
 const byActivity = (a: ChannelSummary, b: ChannelSummary) => b.lastActivityAt.localeCompare(a.lastActivityAt);
 /** 置顶的在前，其余按最近活动。 */
@@ -114,13 +108,13 @@ export function nameProblem(name: string, max: number): 'required' | 'tooLong' |
 }
 
 /**
- * 要订阅任务主题的频道（技术方案 §17.2）：当前打开的频道，加上有「等你」的频道（收件箱就地作答要读它们的任务）；
- * Make 面板看「全部频道」时（`everyChannel`）再加上所有没归档的频道。按 id 排序，调用方好比较前后两次是不是一样。
+ * 要订阅任务主题的频道（技术方案 §17.2）：当前打开的频道；Make 面板看「全部频道」时（`everyChannel`）再加上所有没归档的频道。
+ * 按 id 排序，调用方好比较前后两次是不是一样。
  */
 export function wantedWorkItemChannels(channels: readonly ChannelSummary[], openChannelId: Id | null, everyChannel = false): Id[] {
   const ids = new Set<Id>();
   if (openChannelId) ids.add(openChannelId);
-  for (const row of channels) if (row.counts.needsYou > 0 || (everyChannel && !row.channel.archived)) ids.add(row.channel.id);
+  if (everyChannel) for (const row of channels) if (!row.channel.archived) ids.add(row.channel.id);
   return [...ids].sort();
 }
 
@@ -437,15 +431,8 @@ export const MAKE_TEMPLATES: readonly { id: MakeTemplateId; cadence: ScheduleCad
   { id: 'drafts', cadence: { type: 'weekly', days: [5], time: '17:00' } },
 ];
 
-// ---- 收件箱 ----
+// ---- 任务的撤销与作答 ----
 
-export interface InboxGroup {
-  channelId: Id;
-  channelName: string;
-  rows: InboxRow[];
-}
-
-/** 收件箱按频道分组（BOT-CH-11）：Runtime 已经把最急的排在前面，组的顺序按各组第一行出现的先后，组内保持原顺序。 */
 /**
  * 任务详情里给不给「撤销这个任务的改动」（BOT-EX-19）：任务有过线程、资源里有视频时就给，线程实际改了哪些版本由撤销对话框试算时查。
  * 已经记下基线版本的也给。
@@ -456,33 +443,12 @@ export function canRevertItem(item: Pick<WorkItem, 'threadId' | 'resources' | 'b
 }
 
 /**
- * 收件箱一行给哪种操作：有选项的问题点选项作答；授权审批（命令、工具、改文件）带的问题外壳没有选项，给允许与拒绝；
- * 都没有的（报告里的开放问题、用户自己的任务）只能打开任务去回。
- */
-export function inboxRowAction(row: Pick<InboxRow, 'question' | 'approval'>, hasThread: boolean): 'answer' | 'approve' | 'open' {
-  if (row.question?.options.length && hasThread) return 'answer';
-  // 线程的提问卡（多问、多选）不是授权：没有选项时打开任务去答，不给允许与拒绝。
-  if (row.approval && !row.question?.options.length && row.question?.askedBy !== 'thread') return 'approve';
-  return 'open';
-}
-
-/**
  * 一个问题选项怎么送达：Runtime 自己问的（卡住时「继续还是停止」、要你在场才能跑）没有提问卡，第一个选项是继续（`unblocked`），
  * 第二个是停止（`workItems.stop`）；提问卡推出的按卡作答；线程报告里的问题把选项原话发给线程。
  */
 export function questionAnswerRoute(question: Pick<WorkItemQuestion, 'askedBy' | 'approvalId' | 'options'>, index: number): 'continue' | 'stop' | 'card' | 'message' {
   if (question.askedBy === 'system' && !question.approvalId) return index === 0 ? 'continue' : 'stop';
   return question.approvalId ? 'card' : 'message';
-}
-
-export function groupInbox(rows: readonly InboxRow[]): InboxGroup[] {
-  const groups = new Map<Id, InboxGroup>();
-  for (const row of rows) {
-    const group = groups.get(row.channelId);
-    if (group) group.rows.push(row);
-    else groups.set(row.channelId, { channelId: row.channelId, channelName: row.channelName, rows: [row] });
-  }
-  return [...groups.values()];
 }
 
 // ---- 提示芯片 ----

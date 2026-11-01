@@ -16,15 +16,11 @@ import type { TrayHost, TrayMenuItem } from '../tray.ts';
 /** Stands in for Electron's Tray + Menu: records what was set. */
 export class FakeTrayHost implements TrayHost {
   menu: TrayMenuItem[] = [];
-  title = '';
   tooltip = '';
   clickListener: (() => void) | null = null;
   destroyed = false;
   setMenu(items: TrayMenuItem[]) {
     this.menu = items;
-  }
-  setTitle(title: string) {
-    this.title = title;
   }
   setToolTip(text: string) {
     this.tooltip = text;

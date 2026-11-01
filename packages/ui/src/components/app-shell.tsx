@@ -96,7 +96,7 @@ export function AppShell({ platform }: { platform: string }) {
   useEffect(() => {
     const bridge = (window as { baocutBot?: BotRouteBridge }).baocutBot;
     return bridge?.onRoute((target) => {
-      const view = target.view === 'task' || target.view === 'inbox' || target.view === 'memory' ? target.view : 'channel';
+      const view = target.view === 'task' || target.view === 'memory' ? target.view : 'channel';
       useShell.getState().go({ tab: 'bot', channelId: target.channelId ?? null, workItemId: target.workItemId ?? null, view });
     });
   }, []);

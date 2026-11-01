@@ -11,7 +11,7 @@ import path from 'node:path';
 import url from 'node:url';
 import { createRequire } from 'node:module';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { svg, VARIANTS } from './app-icon.mjs';
+import { svg, traySvg, VARIANTS } from './app-icon.mjs';
 
 const here = path.dirname(url.fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '../..');
@@ -27,6 +27,11 @@ const PNG_1024 = 'apps/desktop/build/icon.png';
 const PNG_DEV_1024 = 'apps/desktop/build/icon-dev.png'; // 开发态（`npm run dev`）用的带 DEV 标记版本，只出 PNG
 const ICNS = 'apps/desktop/build/icon.icns';
 const ICO = 'apps/desktop/build/icon.ico';
+// macOS 菜单栏的模板图：18 pt，1x 与 2x 两张，主进程合成一张模板图（bot-service.ts）。
+const TRAY_MAC = [
+  ['apps/desktop/build/tray-mac.png', 18],
+  ['apps/desktop/build/tray-mac@2x.png', 36],
+];
 
 // iconutil 的 iconset 命名：逻辑尺寸 × 倍率。
 const ICONSET = [16, 32, 128, 256, 512].flatMap((pt) => [
@@ -99,6 +104,7 @@ async function main() {
     { key: 'pngDev1024', svg: dev, size: 1024 },
     ...ICONSET.map(([name, size]) => ({ key: `iconset:${name}`, svg: withShadow, size })),
     ...ICO_SIZES.map((size) => ({ key: `ico:${size}`, svg: flat, size })),
+    ...TRAY_MAC.map(([rel, size]) => ({ key: `tray:${rel}`, svg: traySvg(), size })),
   ];
   const png = await rasterize(jobs);
 
@@ -115,8 +121,10 @@ async function main() {
   fs.rmSync(tmp, { recursive: true, force: true });
 
   fs.writeFileSync(target(ICO), ico(ICO_SIZES.map((size) => ({ size, data: png.get(`ico:${size}`) }))));
+  for (const [rel] of TRAY_MAC) fs.writeFileSync(target(rel), png.get(`tray:${rel}`));
 
-  for (const rel of [PROTOTYPE_SVG, PNG_1024, PNG_DEV_1024, ICNS, ICO]) console.log(`${target(rel)}  ${fs.statSync(target(rel)).size} B`);
+  for (const rel of [PROTOTYPE_SVG, PNG_1024, PNG_DEV_1024, ICNS, ICO, ...TRAY_MAC.map(([rel]) => rel)])
+    console.log(`${target(rel)}  ${fs.statSync(target(rel)).size} B`);
 }
 
 // ESM 主进程里不能顶层 await app.whenReady()：ready 事件要等模块求值结束才发，会死锁。

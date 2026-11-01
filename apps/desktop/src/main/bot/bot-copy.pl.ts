@@ -9,13 +9,6 @@ export const pl: BotMessages = {
   trayResume: 'Wznów automatyzację',
   trayQuit: 'Zakończ usługę w tle',
   trayTooltip: 'Usługa w tle BaoCut',
-  trayTooltipNeedsYou: (count: number) =>
-    pluralForm('pl', count, {
-      one: `BaoCut: ${count} sprawa czeka na Ciebie`,
-      few: `BaoCut: ${count} sprawy czekają na Ciebie`,
-      many: `BaoCut: ${count} spraw czeka na Ciebie`,
-      other: `BaoCut: ${count} sprawy czeka na Ciebie`,
-    }),
   trayTooltipPaused: 'BaoCut: automatyzacja wstrzymana',
   notifyMerged: (count: number, channel: string) =>
     pluralForm('pl', count, {
@@ -40,7 +33,7 @@ export const pl: BotMessages = {
   },
   residentQuitTitle: 'Bot dalej pracuje w tle',
   residentQuitDetailMac:
-    'Po zamknięciu BaoCut nadal wykonuje zaplanowane i bieżące zadania z paska menu. Zakończ całkowicie, aby wszystko zatrzymać.',
+    'Po zamknięciu BaoCut nadal wykonuje zaplanowane i bieżące zadania w tle. Zakończ całkowicie, aby wszystko zatrzymać.',
   residentQuitDetailOther:
     'Po zamknięciu BaoCut nadal wykonuje zaplanowane i bieżące zadania z obszaru powiadomień. Zakończ całkowicie, aby wszystko zatrzymać.',
   residentKeep: 'Zostaw w tle',

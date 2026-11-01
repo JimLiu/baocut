@@ -9,13 +9,6 @@ export const ru: BotMessages = {
   trayResume: 'Возобновить автоматизацию',
   trayQuit: 'Выйти из фоновой службы',
   trayTooltip: 'Фоновая служба BaoCut',
-  trayTooltipNeedsYou: (count: number) =>
-    pluralForm('ru', count, {
-      one: `BaoCut: вас ждёт ${count} дело`,
-      few: `BaoCut: вас ждут ${count} дела`,
-      many: `BaoCut: вас ждут ${count} дел`,
-      other: `BaoCut: вас ждут ${count} дела`,
-    }),
   trayTooltipPaused: 'BaoCut: автоматизация приостановлена',
   notifyMerged: (count: number, channel: string) =>
     pluralForm('ru', count, {
@@ -34,7 +27,7 @@ export const ru: BotMessages = {
   },
   residentQuitTitle: 'Bot продолжит работать в фоне',
   residentQuitDetailMac:
-    'Если закрыть BaoCut, он продолжит выполнять запланированные и текущие задачи из строки меню. Чтобы остановить всё, выйдите полностью.',
+    'Если закрыть BaoCut, он продолжит выполнять запланированные и текущие задачи в фоновом режиме. Чтобы остановить всё, выйдите полностью.',
   residentQuitDetailOther:
     'Если закрыть BaoCut, он продолжит выполнять запланированные и текущие задачи из области уведомлений. Чтобы остановить всё, выйдите полностью.',
   residentKeep: 'Оставить в фоне',

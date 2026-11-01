@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { MAIN_CHANNEL_ID, type ChannelGroup, type ChannelSummary } from '@baocut/protocol';
 import {
   ActionButton,
-  NotificationBadge,
   SideNav,
   SideNavHeader,
   SideNavItem,
@@ -13,7 +12,6 @@ import {
 } from '@react-spectrum/s2';
 import Add from '@react-spectrum/s2/icons/Add';
 import Archive from '@react-spectrum/s2/icons/Archive';
-import Bell from '@react-spectrum/s2/icons/Bell';
 import ChevronDown from '@react-spectrum/s2/icons/ChevronDown';
 import ChevronRight from '@react-spectrum/s2/icons/ChevronRight';
 import Folder from '@react-spectrum/s2/icons/Folder';
@@ -21,7 +19,7 @@ import Lock from '@react-spectrum/s2/icons/Lock';
 import PinOn from '@react-spectrum/s2/icons/PinOn';
 import VolumeOff from '@react-spectrum/s2/icons/VolumeOff';
 import { iconStyle, style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { channelTree, needsYouTotal, type ChannelStatusFilter } from '../../model/bot.ts';
+import { channelTree, type ChannelStatusFilter } from '../../model/bot.ts';
 import { useBotLayout } from '../../state/bot-layout-store.ts';
 import { useChannelGroups, useChannels } from '../../state/channels-store.ts';
 import { hrefFor, type Route } from '../../state/shell-store.ts';
@@ -55,7 +53,8 @@ const tail = style({
   color: 'gray-600',
   '--iconPrimary': { type: 'fill', value: 'currentColor' },
 });
-const unreadDot = style({ size: 8, borderRadius: 'full', backgroundColor: 'green-900' });
+/** 行尾只给一颗点、不写数（原型 page-bot.css `.bot-nav__dot`）：有等你的任务是蓝点，否则有未读是绿点；数目留在读屏的行名里。 */
+const dot = style({ size: 8, borderRadius: 'full', backgroundColor: { default: 'green-900', isAttention: 'blue-900' } });
 const tailIcon = iconStyle({ size: 'XS' });
 /** 分组行：和上一段隔开；文件夹图标与主频道的图标对齐，组里频道的拐角线从它下面弯出来。 */
 const groupHead = style({ display: 'flex', alignItems: 'center', gap: 4, width: 'full', minWidth: 0, marginTop: 12 });
@@ -70,17 +69,16 @@ export function channelRoute(channelId: string): Route {
   return { tab: 'bot', channelId, workItemId: null, view: 'channel' };
 }
 
-/** 侧栏的选中项：收件箱、频道（记忆页与任务详情都算在频道上）。 */
+/** 侧栏的选中项：频道（记忆页与任务详情都算在频道上）。 */
 function selectedHref(route: Route): string | undefined {
   if (route.tab !== 'bot') return undefined;
-  if (route.view === 'inbox') return hrefFor({ tab: 'bot', channelId: null, workItemId: null, view: 'inbox' });
   return hrefFor(channelRoute(route.channelId ?? MAIN_CHANNEL_ID));
 }
 
 /**
- * 频道侧栏（BOT-CH-02、需求 §11.2 修订）：「等你处理」，然后是主频道，没分组的频道挂在它下面；每个分组另起一段（可折叠），
+ * 频道侧栏（BOT-CH-02、需求 §11.2 修订）：主频道在最上面，没分组的频道挂在它下面；每个分组另起一段（可折叠），
  * 组里的频道挂在组下；段内置顶的在前、其余按最近活动；树后面是「新建频道」。
- * 每行：频道图标（按频道颜色）、频道名（有未读时加粗、行尾一颗绿点），归档、置顶、私密与静音的小图标，等你的任务数；
+ * 每行：频道图标（按频道颜色）、频道名（有未读时加粗），归档、置顶、私密与静音的小图标，行尾一颗点（有等你的任务是蓝点，否则未读是绿点）；
  * 行尾「⋯」是频道菜单（channel-menu.tsx）。主频道行尾是筛选（进行中 / 已归档 / 全部）与「＋」，代替原来底部的「已归档」折叠组。
  * 对话框由 app-shell 里的 BotDialogs 统一开：侧栏会在浮出层里再挂一份，开着的对话框不跟着它卸下。
  */
@@ -93,7 +91,6 @@ export function ChannelSidebar() {
   const [status, setStatus] = useState<ChannelStatusFilter>('active');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const channelTreeRows = useMemo(() => channelTree(channels, groups, status), [channels, groups, status]);
-  const total = needsYouTotal(channels);
   const toggleGroup = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -136,7 +133,7 @@ export function ChannelSidebar() {
                   {pinned ? <PinOn styles={tailIcon} /> : null}
                   {channel.private ? <Lock styles={tailIcon} /> : null}
                   {channel.muted ? <VolumeOff styles={tailIcon} /> : null}
-                  {counts.needsYou ? <NotificationBadge size="S" value={counts.needsYou} /> : unread ? <span className={unreadDot} /> : null}
+                  {counts.needsYou || unread ? <span className={dot({ isAttention: counts.needsYou > 0 })} /> : null}
                 </span>
               </span>
             </Text>
@@ -171,34 +168,14 @@ export function ChannelSidebar() {
     );
   };
 
-  const inboxRoute: Route = { tab: 'bot', channelId: null, workItemId: null, view: 'inbox' };
   const { main, loose } = channelTreeRows;
   const nothingElse = !loose.length && !channelTreeRows.groups.some((g) => g.rows.length);
   return (
     <PageSidebar label={C.sidebar.nav}>
       <SidebarTitle>{C.sidebar.title}</SidebarTitle>
       <div className={`${sidebarBody} ${tree} bc-scroll`}>
-        {/* 分组的键加 `group:`：与条目同名（收件箱）时集合的前后链接成环，渲染时死循环。 */}
+        {/* 分组的键加 `group:`：与条目同名时集合的前后链接成环，渲染时死循环。 */}
         <SideNav styles={nav} aria-label={C.sidebar.nav} selectedRoute={selectedHref(route)}>
-          <SideNavSection id="group:inbox">
-            <SideNavItem id="inbox" textValue={C.sidebar.inbox} href={hrefFor(inboxRoute)} data-bc-row="">
-              <SideNavItemContent>
-                <SideNavItemLink aria-label={total ? `${C.sidebar.inbox}, ${C.sidebar.needsYou(total)}` : C.sidebar.inbox}>
-                  <Bell />
-                  <Text styles={fit}>
-                    <span className={line}>
-                      <span className={lineTitle({ isUnread: false })}>{C.sidebar.inbox}</span>
-                      {total ? (
-                        <span className={tail} aria-hidden="true">
-                          <NotificationBadge size="S" value={total} />
-                        </span>
-                      ) : null}
-                    </span>
-                  </Text>
-                </SideNavItemLink>
-              </SideNavItemContent>
-            </SideNavItem>
-          </SideNavSection>
           {/* 侧栏标题已经是「频道」，这一段不再加组头。 */}
           <SideNavSection id="group:channels">{ready ? [main, ...loose].filter((r): r is ChannelSummary => r !== null).map(row) : []}</SideNavSection>
           {ready ? channelTreeRows.groups.map(groupSection) : []}

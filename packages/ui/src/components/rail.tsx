@@ -11,8 +11,6 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { AgentIcon } from './agent-icon.tsx';
 import { S } from './shell-copy.ts';
 import { useShell, railTabOf, type Tab } from '../state/shell-store.ts';
-import { useNeedsYouTotal } from '../state/channels-store.ts';
-import { BOT_COPY } from './bot/bot-copy.ts';
 import { useJobs } from '../state/jobs-store.ts';
 import { useLegacyImport } from '../state/legacy-import-store.ts';
 import { isLive, useTasks } from '../state/tasks-store.ts';
@@ -31,6 +29,7 @@ interface RailTab {
 const PRIMARY: RailTab[] = [
   { tab: 'home', label: 'Home', Icon: Home },
   // Bot 模式（docs/design/bot-mode 需求 §11.1）：排在 Home 之后、Space 之前；名字同 Home、Space 不翻译。
+  // 不带徽标：等你的任务在频道侧栏的行尾以圆点提示（需求 §11.2）。
   // 图标是机器人：S2 没有，用 AgentIcon（与原型 icons.jsx 的 agent 同一几何）。
   { tab: 'bot', label: 'Bot', Icon: AgentIcon },
   { tab: 'space', label: 'Space', Icon: Asset },
@@ -54,24 +53,6 @@ const rail = style({
   paddingY: 8,
 });
 const group = style({ display: 'flex', flexDirection: 'column' });
-/**
- * Bot 的「等你」徽标（需求 §11.8）：点徽标打开跨频道的收件箱，点图标进频道。徽标是图标按钮右上角单独的一个按钮，
- * 不套在图标按钮里面（按钮里不能再放按钮）。
- */
-const inboxBadge = style({
-  position: 'absolute',
-  top: 0,
-  insetEnd: 4,
-  display: 'flex',
-  padding: 0,
-  borderWidth: 0,
-  backgroundColor: 'transparent',
-  cursor: 'pointer',
-  outlineStyle: { default: 'none', ':focus-visible': 'solid' },
-  outlineColor: 'focus-ring',
-  outlineWidth: 2,
-  borderRadius: 'full',
-});
 /** 每格高 40，图标 20 居中在 32×32 的按钮里。 */
 const cell = style({ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 40 });
 const divider = style({ borderWidth: 0, borderTopWidth: 1, borderStyle: 'solid', borderColor: 'gray-200', marginX: 16, marginY: 8 });
@@ -111,22 +92,12 @@ export function Rail() {
   const running = useMemo(() => listedTasks(tasks, jobs).filter(isLive).length + liveJobRowCount(jobs) + legacy, [tasks, jobs, legacy]);
   // 只有服务出错才亮（原型：每项服务各自的灯在服务页里）；顺带在连上 Runtime 时读一次共享状态。
   const servicesAlert = useServicesAlert();
-  // Bot 的徽标：全部频道里「待你审阅 + 需要你输入」的任务数（含静音频道，需求 §11.1）。
-  const needsYou = useNeedsYouTotal();
-  const go = useShell((s) => s.go);
   // 侧栏隐藏时悬停入口浮出该区域的侧栏（产品设计 §2.5；设置没有侧栏，在 shell-peek 里跳过）。
   const peek = useShellPeekControls();
 
   const button = ({ tab, label, Icon }: RailTab) => {
     const badge = tab === 'tasks' && running ? <NotificationBadge value={running} /> : null;
-    const name =
-      tab === 'tasks' && running
-        ? S.rail.running(label, running)
-        : tab === 'services' && servicesAlert
-          ? servicesAlert
-          : tab === 'bot' && needsYou
-            ? BOT_COPY.rail.label(needsYou)
-            : label;
+    const name = tab === 'tasks' && running ? S.rail.running(label, running) : tab === 'services' && servicesAlert ? servicesAlert : label;
     return (
       <div key={tab} className={cell} onPointerEnter={() => peek?.peekSidebar(tab)} onPointerLeave={() => peek?.leaveSidebar()}>
         {railTabOf(route) === tab ? <span className={indicator} /> : null}
@@ -142,16 +113,6 @@ export function Rail() {
           <Tooltip>{label}</Tooltip>
         </TooltipTrigger>
         {tab === 'services' && servicesAlert ? <span className={alertDot} aria-hidden="true" /> : null}
-        {tab === 'bot' && needsYou ? (
-          <button
-            type="button"
-            className={inboxBadge}
-            aria-label={BOT_COPY.rail.openInbox}
-            title={BOT_COPY.rail.openInbox}
-            onClick={() => go({ tab: 'bot', channelId: null, workItemId: null, view: 'inbox' })}>
-            <NotificationBadge value={needsYou} />
-          </button>
-        ) : null}
       </div>
     );
   };

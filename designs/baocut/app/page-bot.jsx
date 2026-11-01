@@ -1,6 +1,6 @@
 /* Bot 页（docs/design/bot-mode/bot-mode-requirements.md §11，技术方案 §17.1）—— 只在 App 入口加载。
-   左边频道侧栏（页面侧栏，由 Shell 放），中间频道对话（或收件箱、频道记忆），右边是一组页签（任务、Make、打开的任务与产物），
-   中间栏的标题（频道头、「等你处理」、记忆页的标题）与右栏的页签条都和 Home 一样在标题栏里。
+   左边频道侧栏（页面侧栏，由 Shell 放），中间频道对话（或频道记忆），右边是一组页签（任务、Make、打开的任务与产物），
+   中间栏的标题（频道头、记忆页的标题）与右栏的页签条都和 Home 一样在标题栏里。
    主区窄于 880 时右栏收起，从频道头部的开关浮出；打开任务或产物时总是显示。
 
    演示态（频道、任务、时间线）是这一页自己的：一个模块级的小 store，侧栏与页面共读，不进 store.jsx。
@@ -112,10 +112,11 @@
   /* ---------- 频道侧栏 ---------- */
 
   /**
-   * 频道侧栏（BOT-CH-02、需求 §11.2 修订）：顶上「等你处理」；然后是综合（默认频道），没分组的频道缩进挂在它下面，用一根拐角线连着；
+   * 频道侧栏（BOT-CH-02、需求 §11.2 修订）：最上面是综合（默认频道），没分组的频道缩进挂在它下面，用一根拐角线连着；
    * 每个分组另起一段（文件夹图标、名字、展开开关，行尾「⋯」与「＋」），组里的频道挂在组下；最后一行是「新建频道」（建在综合下）。
    * 段内置顶的在前、其余按最近活动。综合行行尾是筛选（状态：进行中 / 已归档 / 全部，代替原来底部的「已归档」折叠组）与「＋」（新建频道、新建分组）。
-   * 每行：频道图标、频道名（有未读时加粗、行尾一颗绿点），等你的任务数，置顶、静音、私密与已归档的小图标；行尾「⋯」是频道菜单（page-bot-dialogs.jsx）。
+   * 每行：频道图标、频道名（有未读时加粗），置顶、静音、私密与已归档的小图标，再一颗点——有等你的任务是蓝点，否则有未读是绿点；
+   * 只显示点不显示数，数留在行的 aria-label 里。行尾「⋯」是频道菜单（page-bot-dialogs.jsx）。
    */
   function BotSidebar() {
     const app = useApp();
@@ -126,9 +127,8 @@
     const [status, setStatus] = useState('active');
     const [collapsed, setCollapsed] = useState(() => new Set());
     const tree = B.channelTree(rows, bot.groups, status);
-    const total = B.needsYouTotal(rows);
     const href = r => window.BC_APP_IA.hrefFor(r);
-    const selected = route.r !== 'bot' ? null : route.view === 'inbox' ? href({r: 'bot', view: 'inbox'}) : href({r: 'bot', id: route.id || MAIN});
+    const selected = route.r !== 'bot' ? null : href({r: 'bot', id: route.id || MAIN});
     const toggleGroup = id => setCollapsed(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
     const row = ({channel, unread, counts}) => {
       const main = channel.kind === 'main';
@@ -146,7 +146,7 @@
                 {channel.pinned && !main && !channel.archived ? <R.Icons.PinOn /> : null}
                 {channel.private ? <R.Icons.Lock /> : null}
                 {channel.muted ? <R.Icons.VolumeOff /> : null}
-                {counts.needsYou ? <R.NotificationBadge size="S" value={counts.needsYou} /> : unread ? <span className="bot-nav__dot" /> : null}
+                {counts.needsYou ? <span className="bot-nav__dot bot-nav__dot--attention" /> : unread ? <span className="bot-nav__dot" /> : null}
               </span>
             </span></R.Text>
           </R.SideNavItemLink>
@@ -172,16 +172,6 @@
         <div className="hside__nav bc-scroll">
           {/* 分组的键加 `group:`：与条目同名时集合的前后链接成环 */}
           <R.SideNav aria-label="频道" selectedRoute={selected} UNSAFE_className="bot-nav__tree">
-            <R.SideNavSection id="group:inbox">
-              <R.SideNavItem id="inbox" textValue="等你处理" href={href({r: 'bot', view: 'inbox'})} data-bot-row="">
-                <R.SideNavItemContent><R.SideNavItemLink href={href({r: 'bot', view: 'inbox'})} aria-label={total ? `等你处理，${total} 个任务等你` : '等你处理'}>
-                  <R.Icons.Bell />
-                  <R.Text><span className="bot-nav__line"><span className="bot-nav__title">等你处理</span>
-                    {total ? <span className="bot-nav__tail" aria-hidden="true"><R.NotificationBadge size="S" value={total} /></span> : null}
-                  </span></R.Text>
-                </R.SideNavItemLink></R.SideNavItemContent>
-              </R.SideNavItem>
-            </R.SideNavSection>
             <R.SideNavSection id="group:channels">
               {[tree.main, ...tree.loose].filter(Boolean).map(row)}
             </R.SideNavSection>
@@ -195,24 +185,6 @@
         </div>
       </div>
     );
-  }
-
-  /* ---------- 收件箱 ---------- */
-
-  /**
-   * 等你处理（需求 §11.8）：全部频道里待你审阅与需要你输入的任务，按频道分组；点一行在右侧打开任务。
-   * 在中间栏时标题在标题栏里；占满时它是左栏，标题栏只有页签，这时 `titled` 把标题放回列表顶上。
-   */
-  function BotInbox({selectedId, onOpen, titled}) {
-    const bot = useBot();
-    const groups = bot.channels.map(c => ({channel: c, items: bot.items.filter(i => i.channelId === c.id && B.needsUser(i))})).filter(g => g.items.length);
-    return <section className="bot-inbox bc-scroll" aria-label="等你处理">
-      {titled ? <h2 className="bot-inbox__title">等你处理</h2> : null}
-      {groups.length ? groups.map(g => <section key={g.channel.id} className="bot-inbox__group" aria-label={g.channel.name}>
-        <h3 className="bot-section__title">{g.channel.name}</h3>
-        <ul className="bot-list">{g.items.map(i => <window.BotTaskRow key={i.id} item={i} selected={i.id === selectedId} onOpen={() => onOpen(i)} />)}</ul>
-      </section>) : <p className="bot-empty">现在没有等你处理的任务。</p>}
-    </section>;
   }
 
   /* ---------- 页面 ---------- */
@@ -258,9 +230,9 @@
     return slot && box ? {slot, ...box} : null;
   }
 
-  /** 拖过的宽，按形态各记各的：右栏 tasks / make / detail / output，占满时的左栏 full:tasks / full:make / full:inbox / full:task。 */
+  /** 拖过的宽，按形态各记各的：右栏 tasks / make / detail / output，占满时的左栏 full:tasks / full:make / full:task。 */
   const sideWidths = {};
-  /** 右栏的页签簿（按频道各一份、收件箱一份）与每份的占满：照 Home 每个会话各记各的页签与视图，离开 Bot 页再回来还在。 */
+  /** 右栏的页签簿（按频道各一份）与每份的占满：照 Home 每个会话各记各的页签与视图，离开 Bot 页再回来还在。 */
   let tabBook = {};
   const fullBook = {};
   /** 每份页签簿开着哪几个固定页签（「任务」「Make」），没记过就两个都开着。 */
@@ -269,19 +241,19 @@
   const FULL_HINT = {tasks: '在左边打开一个任务，它会显示在这里。', make: '按左边的一张产物卡，它会在这里打开。'};
 
   /**
-   * Bot 页（需求 §11.1 的修订稿）：中间频道对话（或收件箱、频道记忆），右栏照 Home 的功能区是一组页签（product-design §3.3）。
-   * 路由 {r:'bot', id: 频道, task, out, view: 'inbox' | 'memory'}：task / out 是当前的任务或产物页签，没有就是固定页签（「任务」或「Make」，`side`）。
+   * Bot 页（需求 §11.1 的修订稿）：中间频道对话（或频道记忆），右栏照 Home 的功能区是一组页签（product-design §3.3）。
+   * 路由 {r:'bot', id: 频道, task, out, view: 'memory'}：task / out 是当前的任务或产物页签，没有就是固定页签（「任务」或「Make」，`side`）。
    * 页签簿按频道各记一份（model-bot.js 的 reconcileSideTabs）：路由里的任务、产物没开就开一个页签；关掉当前页签换到旁边那个。
-   * 照 Home 的标题栏（useTitlebarSlot）：中间栏上方是它的标题（频道头 BotChannelHead、「等你处理」、记忆页的标题），
+   * 照 Home 的标题栏（useTitlebarSlot）：中间栏上方是它的标题（频道头 BotChannelHead、记忆页的标题），
    * 右栏上方是页签条，左缘跟着右栏；右栏收起时标题铺到右端，占满时只有页签条。
    * 「任务」「Make」也能关（fixedBook 按页签簿记开着哪几个）：关掉正选着的换到旁边那个，一个不剩右栏收起。
    * 右栏的开合：宽时默认开着，窄时默认收起；路由里有任务或产物时总是开着。频道头的「任务」「Make」开关打开（关掉过的插回原位）并选中
    * 那个固定页签，再按一次收起；标题栏右端的「收起右栏」同一件事。收起不关页签。
-   * 窄（`single`，照 Home 窄时，product-design §2.5 / §3.3）：只剩一栏，标题栏是一条页签条——最前面是中间栏（频道或「等你处理」）的固定页签，
+   * 窄（`single`，照 Home 窄时，product-design §2.5 / §3.3）：只剩一栏，标题栏是一条页签条——最前面是中间栏（频道）的固定页签，
    * 选它就是收起右栏；中间栏的标题放回中间栏顶上。记忆页没有右栏，窄时照旧。
    * 宽时中间与右栏之间有分隔条，宽按当前页签的形态（任务面板 340、Make 380、任务更宽、产物最宽），拖过的各记各的。
    * 占满：中间收起，右栏占满主区并分成两栏——左边是当前页签的上一层，右边是当前页签（model-bot.js 的 fullColumns）；两栏之间也能拖。
-   * 旧链接的 view: 'task'（任务详情占满主区）进来时换成占满。
+   * 旧链接的 view: 'task'（任务详情占满主区）进来时换成占满；旧的 view: 'inbox'（「等你处理」，已移除）由 model-nav.js 落到频道。
    */
   function BotPage({id, task, view, out}) {
     const app = useApp();
@@ -295,7 +267,6 @@
     const [side, setSide] = useState('tasks');
     const [book, setBook] = useState(tabBook);
     const [, bump] = useState(0);
-    const inbox = view === 'inbox';
     const bookKey = B.sideTabBook({id, view});
     const current = B.reconcileSideTabs(book, {id, view, task, out});
     useEffect(() => { if (current !== book) { tabBook = current; setBook(current); } }, [current, book]);
@@ -323,19 +294,18 @@
       fullBook[bookKey] = true;
       app.replace(strip({r: 'bot', id, task, out}));
     }, [view]);
-    const channelId = inbox ? null : id || MAIN;
-    const channel = channelId ? bot.channels.find(c => c.id === channelId) : null;
+    const channelId = id || MAIN;
+    const channel = bot.channels.find(c => c.id === channelId) || null;
     useEffect(() => { if (channel && channel.unread) BOT_ACTIONS.markRead(channel.id); }, [channelId]);
-    const at = next => strip({r: 'bot', id, view: inbox ? 'inbox' : null, ...next});
-    const openTask = item => app.go(strip({r: 'bot', id: item.channelId, task: item.id, view: inbox ? 'inbox' : null}));
+    const at = next => strip({r: 'bot', id, ...next});
     const openOutput = taskId => n => app.go(at({task: taskId, out: String(n)}));
     const selectTab = tab => app.go(at(B.sideTabRoute(tab)));
-    const hasSide = inbox || (!!channel && view !== 'memory');
+    const hasSide = !!channel && view !== 'memory';
     const single = narrow && hasSide;
     const fixedOpen = channel ? fixedBook[bookKey] || B.FIXED_SIDE_TABS : [];
     // 没有任务、产物页签选着时右栏显示的固定页签：上次选的那个，关掉了就换开着的另一个
     const sideKind = fixedOpen.includes(side) ? side : fixedOpen[0] || null;
-    const shown = inbox ? !!task : hasSide && (!!task || (panelShown && !!sideKind));
+    const shown = hasSide && (!!task || (panelShown && !!sideKind));
     const selectFixed = kind => {
       fixedBook[bookKey] = B.openFixedTab(fixedOpen, kind);
       setSide(kind); setShown(true); bump(n => n + 1);
@@ -368,14 +338,11 @@
       ? <window.BotMakePanel key={channel.id} channelId={channel.id} onOpenOutput={(i, n) => app.go({r: 'bot', id: i.channelId, task: i.id, out: String(n)})} />
       : <window.BotTaskPanel key={channel.id} channelId={channel.id} selectedId={active && active.kind === 'task' ? active.task : null} />);
     const leftContent = left => (left.kind === 'task' ? <window.BotTaskDetail key={`left:${left.task}`} id={left.task} onOpenOutput={openOutput(left.task)} />
-      : left.kind === 'inbox' ? <BotInbox selectedId={task} onOpen={openTask} titled /> : fixedContent(left.kind));
+      : fixedContent(left.kind));
 
     let center;
     let head = null;
-    if (inbox) {
-      center = <BotInbox selectedId={task} onOpen={openTask} />;
-      head = <div className="hhd bot-head"><h1 className="hhd__title">等你处理</h1></div>;
-    } else if (!channel) {
+    if (!channel) {
       center = <div className="bot-missing"><span>这个频道已经不在了。</span>
         <window.RSP.Button variant="secondary" onPress={() => app.go({r: 'bot'})}>去默认频道</window.RSP.Button></div>;
     } else if (view === 'memory') {
@@ -398,7 +365,7 @@
     const headWidth = headEnd != null ? headEnd - titlebar.main.left : 0;
     let body = null;
     if (shown && full) {
-      const cols = B.fullColumns(active, sideKind, inbox);
+      const cols = B.fullColumns(active, sideKind);
       const key = `full:${cols.left.kind}`;
       const split = B.fullSplit(cols.left.kind, sideWidths[key], mainWidth);
       body = <div className="bot-side__body bot-side__body--split">
@@ -414,8 +381,7 @@
     const waiting = channel ? bot.items.filter(i => i.channelId === channel.id && B.needsUser(i)).length : 0;
     const suggestions = channel ? bot.items.filter(i => i.channelId === channel.id && i.status === 'suggested').length : 0;
     // 窄时中间栏是最前面那个固定页签
-    const homeTab = !single ? null : inbox ? {name: '等你处理', aria: '等你处理，固定在第一位', icon: <window.RSP.Icons.Bell />, panel: 'bot-main-panel', onSelect: hide}
-      : {name: channel.name, aria: `频道「${channel.name}」，固定在第一位`, icon: <window.BotChannelGlyph channel={channel} />, panel: 'bot-main-panel', onSelect: hide};
+    const homeTab = !single ? null : {name: channel.name, aria: `频道「${channel.name}」，固定在第一位`, icon: <window.BotChannelGlyph channel={channel} />, panel: 'bot-main-panel', onSelect: hide};
     const stripLeft = !titlebar ? null : single ? titlebar.root : shown ? titlebar.side : null;
     return <div className={cx('bot', shown && (full || single) && 'bot--side-full')} ref={setRoot}>
       <window.BotDialogs />

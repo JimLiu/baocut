@@ -16,7 +16,7 @@ export interface BotRoute {
   tab: 'bot';
   channelId: Id | null;
   workItemId: Id | null;
-  view: 'channel' | 'task' | 'inbox';
+  view: 'channel' | 'task';
 }
 
 export const BOT_ROUTE_CHANNEL = 'baocut:bot-route';
@@ -30,10 +30,8 @@ export function channelRoute(channelId: Id): BotRoute {
   return { tab: 'bot', channelId, workItemId: null, view: 'channel' };
 }
 
-export const INBOX_ROUTE: BotRoute = { tab: 'bot', channelId: null, workItemId: null, view: 'inbox' };
-
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
-const VIEWS: ReadonlySet<string> = new Set(['channel', 'task', 'inbox']);
+const VIEWS: ReadonlySet<string> = new Set(['channel', 'task']);
 
 /** 只收认得的形状（ids 只认 id 的字符）；别的 null。 */
 export function botRoute(raw: unknown): BotRoute | null {

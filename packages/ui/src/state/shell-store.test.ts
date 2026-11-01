@@ -57,12 +57,11 @@ const routes: Route[] = [
   { tab: 'archived' },
   { tab: 'archived', focus: 'c/1' },
   { tab: 'bot', channelId: null, workItemId: null, view: 'channel' },
-  { tab: 'bot', channelId: null, workItemId: null, view: 'inbox' },
-  { tab: 'bot', channelId: null, workItemId: 'w/1', view: 'inbox' },
+  { tab: 'bot', channelId: null, workItemId: 'w/1', view: 'channel' },
   { tab: 'bot', channelId: 'chan_1', workItemId: null, view: 'channel' },
   { tab: 'bot', channelId: 'chan_1', workItemId: 'w1', view: 'channel' },
   { tab: 'bot', channelId: 'chan_1', workItemId: 'w1', view: 'channel', output: 'file:/Users/me/out/cover 1.png' },
-  { tab: 'bot', channelId: null, workItemId: 'w1', view: 'inbox', output: 'video:v1' },
+  { tab: 'bot', channelId: null, workItemId: 'w1', view: 'channel', output: 'video:v1' },
   { tab: 'bot', channelId: 'chan_1', workItemId: 'w1', view: 'task' },
   { tab: 'bot', channelId: 'chan_1', workItemId: null, view: 'memory' },
   {
@@ -118,6 +117,12 @@ describe('界面内链接', () => {
     expect(parseHref('/settings/agent')).toEqual({ tab: 'settings', section: 'agent' });
     expect(parseHref('/settings/skills')).toEqual({ tab: 'skills' });
     expect(parseHref('/settings/integrations')).toEqual({ tab: 'skills' });
+  });
+
+  it('旧链接迁移：Bot 收件箱已去掉，/bot/inbox 落到主频道，开着的任务不跟过去', () => {
+    const main = { tab: 'bot', channelId: null, workItemId: null, view: 'channel' };
+    expect(parseHref('/bot/inbox')).toEqual(main);
+    expect(parseHref('/bot/inbox?task=w1&out=video%3Av1')).toEqual(main);
   });
 
   it('旧链接迁移：工具的旧短名落到注册表 ID 的新页', () => {

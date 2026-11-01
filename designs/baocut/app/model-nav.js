@@ -15,7 +15,8 @@
      从一条协作文档标注跳回来时 at 是那条标注的元素路径，标签页切到它所在的标签页、找到线程或块后把它去掉。
      `agent` 没有 id、带 dir = 在这个项目（目录）里起一条还没说话的新会话（App，2026-10-01）
      `bot` 的 id 是频道（没有就是主频道），task / out 是右栏当前的页签：只有 task 是那个任务，再带 out 是它的产物（任务 outputs 的下标）；
-     view 是 'inbox'（等你处理）或 'memory'（频道记忆页），旧链接的 'task' 打开后右栏占满（两栏）、去掉 view
+     view 是 'memory'（频道记忆页）；旧链接的 'task' 打开后右栏占满（两栏）、去掉 view；
+     旧链接的 'inbox'（「等你处理」，已移除）落到同一频道，没带频道就是主频道
      （docs/design/bot-mode/bot-mode-requirements.md §11.1）
      `tools` 的 id 是工具（'tts' / 'compress' / 'merge'），没有 id 是目录；`services` 的 id 是 'mcp' / 'remote' / 'web'；
      `remote` 与 {r:'tools', id:'remote'} 是旧链接，落到 {r:'services', id:'remote'}（BC_SERVICES.resolve）
@@ -85,6 +86,7 @@
   // 「在终端里使用 BaoCut」那一段带着 tab=external 过去。
   function canonicalRoute(route) {
     if (route.r === 'models') return {...route, r: 'settings', sec: route.sec || 'local'};
+    if (route.r === 'bot' && route.view === 'inbox') { const {view, ...rest} = route; return rest; }
     if (route.r === 'skill' || (route.r === 'settings' && (route.sec === 'skills' || route.sec === 'integrations'))) {
       return route.tab === 'external' ? {r: 'skills', tab: 'external'} : {r: 'skills'};
     }

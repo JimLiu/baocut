@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Channel, ChannelGroup, ChannelSummary, InboxRow, ResourceRef, SpaceEntry, SuggestionChip, TimelineItem, WorkItem } from '@baocut/protocol';
+import type { Channel, ChannelGroup, ChannelSummary, ResourceRef, SpaceEntry, SuggestionChip, TimelineItem, WorkItem } from '@baocut/protocol';
 import {
   CHANNEL_STATUS_FILTERS,
   channelLook,
@@ -8,15 +8,12 @@ import {
   nameProblem,
   chipAction,
   chipAllowed,
-  groupInbox,
-  inboxRowAction,
   canRevertItem,
   questionAnswerRoute,
   isOverdue,
   localDate,
   makeGallery,
   MAKE_EARLIER_MAX,
-  needsYouTotal,
   cardOutputKey,
   entryOutputKind,
   findOutput,
@@ -160,11 +157,6 @@ describe('bot model', () => {
     expect(statusKey(item('a', { status: 'resolved' }))).toBe('done');
   });
 
-  it('sums needs-you over every channel, muted and archived included', () => {
-    const rows = [channel('a', {}, { needsYou: 2 }), channel('b', { muted: true }, { needsYou: 1 }), channel('c', { archived: true }, { needsYou: 3 })];
-    expect(needsYouTotal(rows)).toBe(6);
-  });
-
   it('puts the main channel on top, loose channels pinned first then by recent activity, and each group in creation order', () => {
     const groups = [group('g1', 'Clients'), group('g2', 'Empty')];
     const tree = channelTree(
@@ -222,10 +214,10 @@ describe('bot model', () => {
     expect(nameProblem('x'.repeat(41), 40)).toBe('tooLong');
   });
 
-  it('subscribes the open channel and channels that need you', () => {
+  it('subscribes only the open channel, even when other channels need you', () => {
     const rows = [channel('a', {}, { needsYou: 1 }), channel('b'), channel('c', {}, { needsYou: 2 })];
-    expect(wantedWorkItemChannels(rows, 'b')).toEqual(['a', 'b', 'c']);
-    expect(wantedWorkItemChannels(rows, null)).toEqual(['a', 'c']);
+    expect(wantedWorkItemChannels(rows, 'b')).toEqual(['b']);
+    expect(wantedWorkItemChannels(rows, null)).toEqual([]);
   });
 
   it('subscribes every live channel while Make looks at all channels', () => {
@@ -291,25 +283,6 @@ describe('bot model', () => {
     expect(isOverdue(item('a', { dueOn: '2026-10-01', status: 'resolved' }), '2026-10-31')).toBe(false);
   });
 
-  it('groups inbox rows by channel keeping the urgency order', () => {
-    const row = (channelId: string, workItemId: string): InboxRow => ({
-      channelId,
-      channelName: channelId.toUpperCase(),
-      workItemId,
-      title: workItemId,
-      state: 'needsInput',
-      question: null,
-      approval: null,
-      priority: 'medium',
-      since: base.createdAt,
-    });
-    const groups = groupInbox([row('b', '1'), row('a', '2'), row('b', '3')]);
-    expect(groups.map((g) => [g.channelId, g.rows.map((r) => r.workItemId)])).toEqual([
-      ['b', ['1', '3']],
-      ['a', ['2']],
-    ]);
-  });
-
   it('shows chips only under the latest agent message', () => {
     const chips = [chip('a'), chip('b'), chip('c'), chip('d'), chip('e')];
     const items = [user('u1'), agent('m1'), suggestions('s1', 'm1', chips)];
@@ -340,30 +313,6 @@ describe('canRevertItem', () => {
     expect(canRevertItem(item('b', { threadId: null, resources: [video] }))).toBe(false);
     expect(canRevertItem(item('c', { threadId: 'conv_t', resources: [] }))).toBe(false);
     expect(canRevertItem(item('d', { baseVersions: [{ projectId: 'p1', videoId: 'v1', version: 2 }] }))).toBe(true);
-  });
-});
-
-describe('inboxRowAction', () => {
-  const question = (options: string[], askedBy: 'thread' | 'system' = 'thread') =>
-    ({ text: 'Q', kind: 'input', options: options.map((label) => ({ label, description: null })), pick: null, risky: false, askedBy, approvalId: 'ap1' }) as InboxRow['question'];
-  const approval = { approvalId: 'ap1', summary: 'run ffmpeg', cost: null };
-
-  it('answers questions with options in place', () => {
-    expect(inboxRowAction({ question: question(['A', 'B']), approval }, true)).toBe('answer');
-  });
-
-  it('gives allow and deny for an authorization wrapped in a question without options', () => {
-    expect(inboxRowAction({ question: question([], 'system'), approval }, true)).toBe('approve');
-    expect(inboxRowAction({ question: null, approval }, true)).toBe('approve');
-  });
-
-  it('a question card that cannot be answered in one tap opens the task instead of offering allow and deny', () => {
-    expect(inboxRowAction({ question: question([]), approval }, true)).toBe('open');
-  });
-
-  it('opens the task for open questions and tasks without a thread', () => {
-    expect(inboxRowAction({ question: question([]), approval: null }, true)).toBe('open');
-    expect(inboxRowAction({ question: question(['A']), approval: null }, false)).toBe('open');
   });
 });
 

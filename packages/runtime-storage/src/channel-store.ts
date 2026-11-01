@@ -319,6 +319,7 @@ function normalizeSettings(v: unknown): BotSettings {
     stallMinutes: positiveInt(v.stallMinutes) ?? d.stallMinutes,
     maxConcurrentThreads: positiveInt(v.maxConcurrentThreads) ?? d.maxConcurrentThreads,
     background: bool(v.background, d.background),
+    trayIcon: bool(v.trayIcon, d.trayIcon),
     openAtLogin: bool(v.openAtLogin, d.openAtLogin),
     automationPaused: bool(v.automationPaused, d.automationPaused),
     makeAutoTrigger: bool(v.makeAutoTrigger, d.makeAutoTrigger),

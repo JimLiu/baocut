@@ -133,6 +133,8 @@ export function startDesktopApp(): void {
 
     if (devServerUrl) void win.loadURL(devServerUrl);
     else void win.loadFile(path.join(__dirname, '../renderer/index.html'));
+    // 有窗口了：Windows / Linux 上窗口全关时代为入口挂上的托盘可以拿掉（设置里开着图标的照旧）。
+    bot?.monitor.syncTray();
     return win;
   }
 
@@ -374,9 +376,8 @@ export function startDesktopApp(): void {
       },
       loginItemApi: app,
     });
-    // 开机自动启动（隐藏方式）：只起 Runtime 与托盘，不开窗口；没有活要等就直接退出。
+    // 开机自动启动（隐藏方式）：只起 Runtime，不开窗口（托盘按设置挂，Windows / Linux 上没有窗口时总会挂上）；没有活要等就直接退出。
     if (launchedHidden(process.platform, process.argv, app)) {
-      bot.showTray();
       void bot.monitor.ready.then(() => {
         if (!bot?.monitor.resident && BrowserWindow.getAllWindows().length === 0 && quitState === 'idle') app.quit();
       });
@@ -390,8 +391,11 @@ export function startDesktopApp(): void {
   });
 
   app.on('window-all-closed', () => {
-    // Bot 后台服务常驻时窗口全关不退出（所有平台），托盘留着。
-    if (bot?.monitor.resident) return;
+    // Bot 后台服务常驻时窗口全关不退出（所有平台）。Windows / Linux 上这时托盘是回来的唯一入口，设置里没开也挂上。
+    if (bot?.monitor.resident) {
+      bot.monitor.syncTray();
+      return;
+    }
     if (process.platform !== 'darwin') app.quit();
   });
 

@@ -27,7 +27,6 @@ const en = {
   trayResume: 'Resume Automation',
   trayQuit: 'Quit Background Service',
   trayTooltip: 'BaoCut background service',
-  trayTooltipNeedsYou: (count: number) => (count === 1 ? 'BaoCut: 1 thing needs you' : `BaoCut: ${count} things need you`),
   trayTooltipPaused: 'BaoCut: automation paused',
 
   // ---- 系统通知（bot-monitor.ts）----
@@ -46,7 +45,7 @@ const en = {
 
   // ---- 常驻时退出应用（bot-quit.ts）----
   residentQuitTitle: 'The Bot keeps working in the background',
-  residentQuitDetailMac: 'Close BaoCut and it keeps running scheduled and working tasks from the menu bar. Quit completely to stop everything.',
+  residentQuitDetailMac: 'Close BaoCut and it keeps running scheduled and working tasks in the background. Quit completely to stop everything.',
   residentQuitDetailOther:
     'Close BaoCut and it keeps running scheduled and working tasks from the notification area. Quit completely to stop everything.',
   residentKeep: 'Keep in Background',

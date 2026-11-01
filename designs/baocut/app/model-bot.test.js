@@ -79,7 +79,6 @@ test('频道侧栏：主频道一行，没分组的挂在它下面，分组各�
   assert.deepEqual(ids(tree.loose), ['chan_shorts']);
   assert.deepEqual(tree.groups.map(g => [g.group.id, ids(g.rows)]), [['grp_tutorials', ['chan_weekly', 'chan_dub']]]);
   assert.equal(rows.find(r => r.channel.id === 'chan_main').counts.needsYou, 2);
-  assert.equal(B.needsYouTotal(rows), 3);
 });
 
 test('频道侧栏按状态筛：进行中与全部时空分组也列，只看已归档时空分组不列；分组不在了的频道算没分组', () => {
@@ -231,7 +230,7 @@ test('右栏宽度：各形态的默认宽，拖过的夹在范围里', () => {
   assert.equal(B.sideWidth('output', null, 600).width, B.SIDE_MIN);
 });
 
-test('右栏页签：路由开任务与产物页签，按频道与收件箱各记一份，回到固定页签时已开的留着', () => {
+test('右栏页签：路由开任务与产物页签，按频道各记一份，回到固定页签时已开的留着', () => {
   let book = {};
   book = B.reconcileSideTabs(book, {id: 'c1', task: 'wi_a'});
   assert.deepEqual(book.c1, {tabs: [{key: 'task:wi_a', kind: 'task', task: 'wi_a'}], active: 'task:wi_a'});
@@ -243,8 +242,8 @@ test('右栏页签：路由开任务与产物页签，按频道与收件箱各�
   book = B.reconcileSideTabs(book, {id: 'c1'});
   assert.equal(book.c1.active, null);
   assert.equal(book.c1.tabs.length, 2);
-  book = B.reconcileSideTabs(book, {view: 'inbox', id: 'c1', task: 'wi_b'});
-  assert.deepEqual(book.inbox.tabs.map(t => t.key), ['task:wi_b']);
+  book = B.reconcileSideTabs(book, {id: 'c3', task: 'wi_b'});
+  assert.deepEqual(book.c3.tabs.map(t => t.key), ['task:wi_b']);
   assert.equal(book.c1.tabs.length, 2);
   assert.equal(B.sideTabBook({}), 'chan_main');
   assert.equal(B.reconcileSideTabs({}, {id: 'c2'}).c2.active, null);
@@ -276,10 +275,9 @@ test('固定页签：按「任务」「Make」的顺序插回，关掉正选着�
 test('占满：左边是当前页签的上一层，右边是当前页签；左栏宽夹在范围里', () => {
   const out = {key: 'out:t:0', kind: 'output', task: 't', index: 0};
   const task = {key: 'task:t', kind: 'task', task: 't'};
-  assert.deepEqual(B.fullColumns(out, 'tasks', false), {left: {kind: 'task', task: 't'}, right: out});
-  assert.deepEqual(B.fullColumns(task, 'make', false), {left: {kind: 'tasks'}, right: task});
-  assert.deepEqual(B.fullColumns(task, 'tasks', true).left, {kind: 'inbox'});
-  assert.deepEqual(B.fullColumns(null, 'make', false), {left: {kind: 'make'}, right: null});
+  assert.deepEqual(B.fullColumns(out, 'tasks'), {left: {kind: 'task', task: 't'}, right: out});
+  assert.deepEqual(B.fullColumns(task, 'make'), {left: {kind: 'tasks'}, right: task});
+  assert.deepEqual(B.fullColumns(null, 'make'), {left: {kind: 'make'}, right: null});
   assert.equal(B.sideMode(out, 'tasks'), 'output');
   assert.equal(B.sideMode(task, 'make'), 'detail');
   assert.equal(B.sideMode(null, 'make'), 'make');

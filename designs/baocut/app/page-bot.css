@@ -66,6 +66,8 @@
 .bot-nav__tail { display: flex; align-items: center; gap: 4px; flex: none; color: var(--gray-600); }
 .bot-nav__tail svg { width: 16px; height: 16px; }
 .bot-nav__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-900); }
+/* 有等你的任务：蓝点（同右栏「任务」页签的 .bot-side-tabs__dot），压过未读的绿点；不显示数 */
+.bot-nav__dot--attention { background: var(--blue-900); }
 .bot-nav__section { display: flex; align-items: center; gap: 4px; }
 /* 综合下面的频道（需求 §11.2 截图修订）：内容缩进 20px，一根拐角线从综合图标的中线下来接到这一行。 */
 .hside--bot [data-bot-child] > [role="gridcell"] > div:has(> a) { padding-inline-start: 20px; }
@@ -115,7 +117,7 @@
 /* ---------- 频道对话 ---------- */
 .bot-channel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
 /* 中间栏的标题在标题栏里（BotPage 放进 .tbar__conversation--bot）：样子照 Home 的会话头（.tbar__conversation .hhd，12px 半粗），
-   频道头是「图标 频道名 ⌄」+ 说明的第一行 + 右栏的两个开关；收件箱只有标题，记忆页是「‹ 记忆 · 频道名」。 */
+   频道头是「图标 频道名 ⌄」+ 说明的第一行 + 右栏的两个开关；记忆页是「‹ 记忆 · 频道名」。 */
 .tbar__conversation--bot { overflow: hidden; }
 .bot-head .hhd__title { display: flex; flex: 0 1 auto; }
 /* 频道名是菜单入口（同视频名）：安静按钮，抵掉一点左内边距，让图标靠近栏的左缘；最大宽要把抵掉的 8px 加回来（写在 .bot-titled 之后的规则会压掉单类）。
@@ -258,11 +260,6 @@
 .bot-make__template-text { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 12px; line-height: 16px; color: var(--gray-700); }
 .bot-make__template-every { font-size: 11px; line-height: 16px; color: var(--gray-600); }
 .bot-make__more { position: absolute; top: 50%; inset-inline-end: 0; transform: translateY(-50%); border-radius: 8px; background: var(--gray-25); }
-
-/* ---------- 收件箱 ---------- */
-.bot-inbox { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 24px; }
-.bot-inbox__title { margin: 0 8px 8px; font-size: 16px; font-weight: 700; color: var(--gray-900); }
-.bot-inbox__group { max-width: 640px; }
 
 /* ---------- 任务详情 ---------- */
 .bot-detail { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }

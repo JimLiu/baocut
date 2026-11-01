@@ -16,7 +16,7 @@ afterEach(() => {
 
 const MIN = 60_000;
 
-function setup(platform: NodeJS.Platform = 'darwin') {
+function setup(platform: NodeJS.Platform = 'darwin', trayFallback?: () => boolean) {
   const fake = new FakeClient();
   const timers = new FakeTimers();
   const notifier = new FakeNotifier();
@@ -43,6 +43,7 @@ function setup(platform: NodeJS.Platform = 'darwin') {
     client: fake.client,
     notifier,
     tray,
+    ...(trayFallback ? { trayFallback } : {}),
     loginItem: { sync: loginSync },
     openRoute: (route) => routes.push(route),
     onResidency: (resident, status) => residency.push({ resident, paused: status?.paused ?? null }),
@@ -73,32 +74,42 @@ async function flush() {
 }
 
 describe('BotMonitor', () => {
-  it('subscribes channels, shows the tray when background is on, and drives the badge from needsYou counts', async () => {
+  it('subscribes channels; the tray is off by default and follows the tray icon setting, with no count', async () => {
     const { monitor, fake, hosts } = setup();
     expect(fake.handlers).not.toBeNull();
-    fake.snapshot(
-      channelsSnapshot([
-        channelSummary('chan_main', { needsYou: 1 }),
-        channelSummary('chan_pod', { name: 'Weekly podcast', needsYou: 2, muted: true }),
-      ]),
-    );
+    fake.snapshot(channelsSnapshot([channelSummary('chan_main', { needsYou: 2 })]));
     await monitor.ready;
+    expect(hosts).toHaveLength(0);
+    fake.event({ type: 'bot.settings', settings: { ...monitor.settings!, trayIcon: true } });
     expect(hosts).toHaveLength(1);
-    // Muted channels count toward the badge.
-    expect(monitor.needsYou).toBe(3);
-    expect(hosts[0]!.title).toBe('3');
+    expect(hosts[0]!.tooltip).not.toMatch(/\d/);
+    fake.event({ type: 'bot.settings', settings: { ...monitor.settings!, trayIcon: false } });
+    expect(hosts[0]!.destroyed).toBe(true);
+  });
 
-    fake.event({ type: 'channel.upsert', summary: channelSummary('chan_main', { needsYou: 0 }) });
-    expect(hosts[0]!.title).toBe('2');
-    fake.event({ type: 'channel.removed', id: 'chan_pod' });
-    expect(hosts[0]!.title).toBe('');
+  it('on Windows shows the tray while every window is closed, even with the icon off', async () => {
+    let windowless = false;
+    const { monitor, fake, hosts } = setup('win32', () => windowless);
+    fake.snapshot(channelsSnapshot([channelSummary('chan_main')]));
+    await monitor.ready;
+    expect(hosts).toHaveLength(0);
+    windowless = true;
+    monitor.syncTray();
+    expect(hosts).toHaveLength(1);
+    windowless = false;
+    monitor.syncTray();
+    expect(hosts[0]!.destroyed).toBe(true);
+    // Background off: no tray even without windows (the app quits then).
+    windowless = true;
+    fake.event({ type: 'bot.settings', settings: { ...monitor.settings!, background: false } });
+    expect(hosts).toHaveLength(1);
   });
 
   it('hides the tray when background is turned off', async () => {
     const { fake, hosts } = setup();
-    fake.snapshot(channelsSnapshot([channelSummary('chan_main')]));
+    fake.snapshot(channelsSnapshot([channelSummary('chan_main')], { trayIcon: true }));
     await flush();
-    fake.event({ type: 'bot.settings', settings: { ...channelsSnapshot([]).settings, background: false } });
+    fake.event({ type: 'bot.settings', settings: { ...channelsSnapshot([]).settings, trayIcon: true, background: false } });
     expect(hosts[0]!.destroyed).toBe(true);
   });
 
@@ -145,15 +156,15 @@ describe('BotMonitor', () => {
   it('keeps going when bot.status is not available (older Runtime): not resident', async () => {
     const { monitor, fake, hosts } = setup();
     fake.statusError = new Error('unknown method');
-    fake.snapshot(channelsSnapshot([channelSummary('chan_main', { needsYou: 1 })]));
+    fake.snapshot(channelsSnapshot([channelSummary('chan_main', { needsYou: 1 })], { trayIcon: true }));
     await monitor.ready;
     expect(monitor.resident).toBe(false);
-    expect(hosts[0]!.title).toBe('1');
+    expect(hosts[0]!.menu).toHaveLength(6);
   });
 
   it('pauses and resumes automation from the tray', async () => {
     const { monitor, fake, hosts } = setup();
-    fake.snapshot(channelsSnapshot([channelSummary('chan_main')]));
+    fake.snapshot(channelsSnapshot([channelSummary('chan_main')], { trayIcon: true }));
     await monitor.ready;
     hosts[0]!.menu[3]!.click!();
     await flush();
@@ -205,14 +216,13 @@ describe('BotMonitor', () => {
     expect(routes).toEqual([{ tab: 'bot', channelId: 'chan_pod', workItemId: null, view: 'channel' }]);
   });
 
-  it('never pops up for a muted channel, but the badge still counts it', async () => {
-    const { monitor, fake, timers, notifier, hosts } = setup();
+  it('never pops up for a muted channel', async () => {
+    const { monitor, fake, timers, notifier } = setup();
     fake.snapshot(channelsSnapshot([channelSummary('chan_pod', { muted: true, needsYou: 1 })]));
     await monitor.ready;
     fake.event(notification(timers));
     fake.event(notification(timers, { channelId: 'chan_other', muted: true }));
     expect(notifier.shown).toHaveLength(0);
-    expect(hosts[0]!.title).toBe('1');
   });
 
   it('holds notifications during quiet hours and summarizes them when quiet hours end', async () => {
@@ -228,7 +238,22 @@ describe('BotMonitor', () => {
     timers.advance(7 * 60 * MIN);
     expect(notifier.shown.map((n) => n.content)).toEqual([{ title: 'BaoCut', body: '2 things waited for you overnight' }]);
     notifier.shown[0]!.click();
-    expect(routes).toEqual([{ tab: 'bot', channelId: null, workItemId: null, view: 'inbox' }]);
+    // Two channels: open the main channel (the sidebar dots show which ones need you).
+    expect(routes).toEqual([{ tab: 'bot', channelId: 'chan_main', workItemId: null, view: 'channel' }]);
+  });
+
+  it('an overnight summary from one channel opens that channel', async () => {
+    const { monitor, fake, timers, notifier, routes } = setup();
+    timers.now = Date.UTC(2026, 9, 31, 23, 0);
+    fake.snapshot(channelsSnapshot([channelSummary('chan_a', { name: 'A' })]));
+    await monitor.ready;
+    fake.event(notification(timers, { channelId: 'chan_a', workItemId: 'wi_1' }));
+    timers.advance(2 * 60 * MIN);
+    fake.event(notification(timers, { channelId: 'chan_a', workItemId: 'wi_2' }));
+    timers.advance(7 * 60 * MIN);
+    expect(notifier.shown).toHaveLength(1);
+    notifier.shown[0]!.click();
+    expect(routes).toEqual([{ tab: 'bot', channelId: 'chan_a', workItemId: null, view: 'channel' }]);
   });
 
   it('a one-item overnight summary routes straight to that task', async () => {
@@ -264,7 +289,7 @@ describe('BotMonitor', () => {
 
   it('dispose unsubscribes, stops timers, closes the client and removes the tray', async () => {
     const { monitor, fake, timers, hosts } = setup();
-    fake.snapshot(channelsSnapshot([channelSummary('chan_main')]));
+    fake.snapshot(channelsSnapshot([channelSummary('chan_main')], { trayIcon: true }));
     await monitor.ready;
     monitor.dispose();
     expect(fake.unsubscribed).toBe(true);

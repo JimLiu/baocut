@@ -1,5 +1,4 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
-import Bell from '@react-spectrum/s2/icons/Bell';
 import Comment from '@react-spectrum/s2/icons/Comment';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { botBarBounds } from '../../model/bot-side.ts';
@@ -26,17 +25,15 @@ const divider = style({
   pointerEvents: 'none',
 });
 
-/** 窄时中间栏那个固定页签：频道或「等你处理」。 */
+/** 窄时中间栏那个固定页签：频道。 */
 export function botHomeTab(side: BotSide): BotHomeTab | null {
-  if (!side.single) return null;
-  if (side.inbox) return { name: C.inbox.title, aria: C.side.inboxTab, icon: <Bell UNSAFE_style={T.icon} /> };
-  if (!side.channel) return null;
+  if (!side.single || !side.channel) return null;
   return { name: side.channel.name, aria: C.side.channelTab(side.channel.name), icon: <Comment UNSAFE_style={T.icon} /> };
 }
 
 /**
  * Bot 页的标题栏（需求 §11.1 的修订稿，原型 page-bot.jsx 的 useTitlebarSlot 那段）：照 Home 的标题栏，
- * 中间栏上方是它的标题（频道头、「等你处理」、记忆页的标题），右栏上方是页签条，左缘跟着右栏；右栏收起时标题铺到右端，
+ * 中间栏上方是它的标题（频道头、记忆页的标题），右栏上方是页签条，左缘跟着右栏；右栏收起时标题铺到右端，
  * 占满时只有页签条。窄时只剩一栏，标题栏是一条页签条，最前面是中间栏，标题放回中间栏顶上（BotPage）。
  * 位置跟着 BotPage 登记的三块区域（pane-edges.ts 的 bot-content / bot-main / bot-side）。
  */

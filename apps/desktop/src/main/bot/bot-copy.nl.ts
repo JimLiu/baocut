@@ -9,8 +9,6 @@ export const nl: BotMessages = {
   trayResume: 'Automatisering hervatten',
   trayQuit: 'Achtergronddienst afsluiten',
   trayTooltip: 'BaoCut-achtergronddienst',
-  trayTooltipNeedsYou: (count: number) =>
-    pluralForm('nl', count, { one: `BaoCut: ${count} ding wacht op je`, other: `BaoCut: ${count} dingen wachten op je` }),
   trayTooltipPaused: 'BaoCut: automatisering gepauzeerd',
   notifyMerged: (count: number, channel: string) => `${count} dingen wachten op je in ${channel}`,
   notifySummary: (count: number) =>
@@ -24,7 +22,7 @@ export const nl: BotMessages = {
   },
   residentQuitTitle: 'De Bot blijft op de achtergrond werken',
   residentQuitDetailMac:
-    'Als je BaoCut sluit, blijft het geplande en lopende taken uitvoeren vanuit de menubalk. Sluit volledig af om alles te stoppen.',
+    'Als je BaoCut sluit, blijft het geplande en lopende taken op de achtergrond uitvoeren. Sluit volledig af om alles te stoppen.',
   residentQuitDetailOther:
     'Als je BaoCut sluit, blijft het geplande en lopende taken uitvoeren vanuit het systeemvak. Sluit volledig af om alles te stoppen.',
   residentKeep: 'Op de achtergrond houden',

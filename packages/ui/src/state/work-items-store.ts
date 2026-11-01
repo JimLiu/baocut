@@ -4,7 +4,7 @@ import type { Id, ThreadReport, WorkItem, WorkItemsEvent, WorkItemsSnapshot } fr
 
 /**
  * 频道任务的镜像（docs/design/bot-mode 技术方案 §16.2、§17.2）：按频道存 `work-items:<id>` 主题的快照，懒订阅——
- * 只订阅当前打开的频道与有「等你」的频道（`model/bot.ts` 的 `wantedWorkItemChannels`），由 Bot 页调 `syncWorkItemSubscriptions`。
+ * 只订阅当前打开的频道（Make 看全部频道时是所有没归档的，`model/bot.ts` 的 `wantedWorkItemChannels`），由 Bot 页调 `syncWorkItemSubscriptions`。
  * 转换记录不进快照：任务详情按需经 `workItems.get` 取，`transitions` 只记每条任务收到过几次转换事件，详情据此重取。
  */
 export interface WorkItemsStore {

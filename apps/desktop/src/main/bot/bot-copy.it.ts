@@ -9,8 +9,6 @@ export const it: BotMessages = {
   trayResume: 'Riprendi l’automazione',
   trayQuit: 'Esci dal servizio in background',
   trayTooltip: 'Servizio in background di BaoCut',
-  trayTooltipNeedsYou: (count: number) =>
-    pluralForm('it', count, { one: `BaoCut: ${count} cosa ti aspetta`, other: `BaoCut: ${count} cose ti aspettano` }),
   trayTooltipPaused: 'BaoCut: automazione sospesa',
   notifyMerged: (count: number, channel: string) => `${count} cose ti aspettano in ${channel}`,
   notifySummary: (count: number) =>
@@ -24,7 +22,7 @@ export const it: BotMessages = {
   },
   residentQuitTitle: 'Il Bot continua a lavorare in background',
   residentQuitDetailMac:
-    'Se chiudi BaoCut, continua a eseguire le attività pianificate e in corso dalla barra dei menu. Esci del tutto per fermare ogni cosa.',
+    'Se chiudi BaoCut, continua a eseguire le attività pianificate e in corso in background. Esci del tutto per fermare ogni cosa.',
   residentQuitDetailOther:
     'Se chiudi BaoCut, continua a eseguire le attività pianificate e in corso dall’area di notifica. Esci del tutto per fermare ogni cosa.',
   residentKeep: 'Mantieni in background',

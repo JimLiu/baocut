@@ -9,8 +9,6 @@ export const fr: BotMessages = {
   trayResume: 'Reprendre l’automatisation',
   trayQuit: 'Quitter le service en arrière-plan',
   trayTooltip: 'Service en arrière-plan de BaoCut',
-  trayTooltipNeedsYou: (count: number) =>
-    pluralForm('fr', count, { one: `BaoCut : ${count} élément vous attend`, other: `BaoCut : ${count} éléments vous attendent` }),
   trayTooltipPaused: 'BaoCut : automatisation suspendue',
   notifyMerged: (count: number, channel: string) => `${count} éléments vous attendent dans ${channel}`,
   notifySummary: (count: number) =>
@@ -24,7 +22,7 @@ export const fr: BotMessages = {
   },
   residentQuitTitle: 'Le Bot continue de travailler en arrière-plan',
   residentQuitDetailMac:
-    'Si vous fermez BaoCut, il continue d’exécuter les tâches planifiées et en cours depuis la barre des menus. Quittez complètement pour tout arrêter.',
+    'Si vous fermez BaoCut, il continue d’exécuter les tâches planifiées et en cours en arrière-plan. Quittez complètement pour tout arrêter.',
   residentQuitDetailOther:
     'Si vous fermez BaoCut, il continue d’exécuter les tâches planifiées et en cours depuis la zone de notification. Quittez complètement pour tout arrêter.',
   residentKeep: 'Garder en arrière-plan',

@@ -58,7 +58,7 @@ function ClockField({ label, value, isDisabled, onCommit }: { label: string; val
 }
 
 /**
- * 设置里的 Bot 一节（技术方案 §17、需求 §11.8）：时区、免打扰时段、后台运行与开机启动、卡住判定的分钟数、同时工作的任务数、
+ * 设置里的 Bot 一节（技术方案 §17、需求 §11.8）：时区、免打扰时段、后台运行、菜单栏 / 托盘图标与开机启动、卡住判定的分钟数、同时工作的任务数、
  * Make 的自动触发、补充提示，以及暂停全部自动化。值来自 `channels` 主题里的 Bot 设置，改动走 `bot.settings`（暂停走 `bot.pauseAutomation`），回来的事件刷新这里。
  */
 export function BotSettings() {
@@ -69,6 +69,9 @@ export function BotSettings() {
   const system = useMemo(systemZone, []);
   const zones = useMemo(() => timeZones(settings.timeZone), [settings.timeZone]);
   const disabled = !ready || saving;
+  // 托盘图标只有桌面版有；它挂在后台服务上，后台运行关着时开关跟着变灰。
+  const platform = runtime.host.platform;
+  const trayLabel = platform === 'darwin' ? C.trayIconMac : C.trayIconOther;
 
   const save = async (patch: Partial<BotSettingsValue>) => {
     setSaving(true);
@@ -129,6 +132,17 @@ export function BotSettings() {
       <Row label={C.background} desc={C.backgroundDesc}>
         <Switch aria-label={C.background} size="S" isSelected={settings.background} isDisabled={disabled} onChange={(background) => void save({ background })} />
       </Row>
+      {platform === 'web' ? null : (
+        <Row label={trayLabel} desc={platform === 'darwin' ? C.trayIconDesc : C.trayIconDescOther}>
+          <Switch
+            aria-label={trayLabel}
+            size="S"
+            isSelected={settings.trayIcon}
+            isDisabled={disabled || !settings.background}
+            onChange={(trayIcon) => void save({ trayIcon })}
+          />
+        </Row>
+      )}
       <Row label={C.openAtLogin} desc={C.openAtLoginDesc}>
         <Switch aria-label={C.openAtLogin} size="S" isSelected={settings.openAtLogin} isDisabled={disabled} onChange={(openAtLogin) => void save({ openAtLogin })} />
       </Row>

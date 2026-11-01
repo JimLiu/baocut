@@ -1,7 +1,19 @@
-import { BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, type MenuItemConstructorOptions } from 'electron';
+import {
+  BrowserWindow,
+  Menu,
+  Notification,
+  Tray,
+  dialog,
+  ipcMain,
+  nativeImage,
+  type MenuItemConstructorOptions,
+  type NativeImage,
+} from 'electron';
 import { BaoCutClient } from '@baocut/client';
 import { onLocaleChange, type BotStatus } from '@baocut/protocol';
 import trayIconPath from '../../../build/icon.png?asset';
+import trayMacPath from '../../../build/tray-mac.png?asset';
+import trayMac2xPath from '../../../build/tray-mac@2x.png?asset';
 import { BotMonitor, type NotificationHost } from './bot-monitor.ts';
 import { quitServiceConfirmed, quitServicePrompt, residentQuitChoice, residentQuitPrompt, type ResidentQuitChoice } from './bot-quit.ts';
 import { BOT_ROUTE_CHANNEL, BOT_TAKE_ROUTE_CHANNEL, PendingRoute, taskRoute, type BotRoute } from './bot-route.ts';
@@ -35,8 +47,6 @@ export interface BotService {
   openRoute(route: BotRoute): void;
   /** 常驻时 `before-quit` 的确认框。 */
   confirmResidentQuit(parent: BrowserWindow | null): Promise<ResidentQuitChoice>;
-  /** 以隐藏方式启动时先把托盘挂上，等设置到了再决定留不留。 */
-  showTray(): void;
   dispose(): void;
 }
 
@@ -91,6 +101,8 @@ export function installBotService(options: BotServiceOptions): BotService {
     client,
     notifier: electronNotificationHost(),
     tray,
+    // Windows / Linux 上窗口全关后托盘是回到应用的唯一入口；macOS 有 Dock 图标。
+    trayFallback: () => options.platform !== 'darwin' && BrowserWindow.getAllWindows().length === 0,
     loginItem: new LoginItem(options.loginItemApi, options.platform),
     openRoute,
     onResidency: (resident, status) => options.onResidency(resident, status),
@@ -103,7 +115,6 @@ export function installBotService(options: BotServiceOptions): BotService {
   return {
     monitor,
     openRoute,
-    showTray: () => tray.show(),
     async confirmResidentQuit(parent) {
       const prompt = residentQuitPrompt(monitor.status, options.platform, monitor.settings?.timeZone ?? null);
       if (parent?.isMinimized()) parent.restore();
@@ -145,18 +156,37 @@ function electronNotificationHost(): NotificationHost {
   };
 }
 
-/** Electron 的托盘图标与菜单。图标用应用图标缩小（macOS 菜单栏 18 点，其余 16 像素）。 */
+/**
+ * Electron 的托盘图标与菜单。macOS 用单色模板图（`tools/app-icon` 生成的 18 点 1x / 2x），系统按菜单栏深浅染色，和别的
+ * 菜单栏图标一样；Windows / Linux 的托盘图标惯例是彩色的，用应用图标缩到 16 像素。
+ */
 function electronTrayHost(platform: NodeJS.Platform): TrayHost {
-  const size = platform === 'darwin' ? 18 : 16;
-  const image = nativeImage.createFromPath(trayIconPath);
-  const tray = new Tray(image.isEmpty() ? image : image.resize({ width: size, height: size, quality: 'best' }));
+  const tray = new Tray(platform === 'darwin' ? macTrayImage() : appTrayImage());
   return {
     setMenu: (items) => tray.setContextMenu(Menu.buildFromTemplate(items.map((item) => menuItem(item, platform)))),
-    setTitle: (title) => tray.setTitle(title),
     setToolTip: (text) => tray.setToolTip(text),
     onClick: (listener) => void tray.on('click', () => listener()),
     destroy: () => tray.destroy(),
   };
+}
+
+/** `?asset` 打包后文件名带哈希，认不出 `Template` 后缀与 `@2x`：两张各读进来，合成一张标成模板。 */
+function macTrayImage(): NativeImage {
+  const image = nativeImage.createEmpty();
+  for (const [scaleFactor, file] of [
+    [1, trayMacPath],
+    [2, trayMac2xPath],
+  ] as const) {
+    const png = nativeImage.createFromPath(file);
+    if (!png.isEmpty()) image.addRepresentation({ scaleFactor, buffer: png.toPNG() });
+  }
+  image.setTemplateImage(true);
+  return image;
+}
+
+function appTrayImage(): NativeImage {
+  const image = nativeImage.createFromPath(trayIconPath);
+  return image.isEmpty() ? image : image.resize({ width: 16, height: 16, quality: 'best' });
 }
 
 /** Windows 的菜单把 `&` 当助记符：任务标题里的 `&` 要写成 `&&` 才照原样显示。 */

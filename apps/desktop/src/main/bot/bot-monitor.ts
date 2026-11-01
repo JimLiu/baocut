@@ -1,19 +1,27 @@
 import { applyChannelsEvent, type BaoCutClient } from '@baocut/client';
-import type { BotSettings, BotStatus, ChannelSummary, ChannelsEvent, ChannelsSnapshot, Id } from '@baocut/protocol';
+import {
+  MAIN_CHANNEL_ID,
+  type BotSettings,
+  type BotStatus,
+  type ChannelSummary,
+  type ChannelsEvent,
+  type ChannelsSnapshot,
+  type Id,
+} from '@baocut/protocol';
 import { B } from './bot-copy.ts';
-import { INBOX_ROUTE, channelRoute, taskRoute, type BotRoute } from './bot-route.ts';
+import { channelRoute, taskRoute, type BotRoute } from './bot-route.ts';
 import { NotificationPolicy, type NotificationDecision, type PolicyContext } from './notification-policy.ts';
 import type { TrayController } from './tray.ts';
 
 /**
- * 主进程自己连着 Runtime 的那一路（技术方案 §15.2「主进程订阅」）：窗口全关时界面不在，托盘角标、系统通知与常驻判断都靠它。
+ * 主进程自己连着 Runtime 的那一路（技术方案 §15.2「主进程订阅」）：窗口全关时界面不在，托盘、系统通知与常驻判断都靠它。
  *
  * - 只订阅 `channels` 主题：快照里有各频道的计数与 `BotSettings`，事件里有 `bot.notification`。
- * - 角标 = 各频道 `needsYou` 之和（含静音频道，与 Rail 徽标一致）。
+ * - 托盘不带等你的数字；挂不挂见 `syncTray`。
  * - 通知经 `NotificationPolicy`（合并、免打扰、静音），点通知打开窗口并路由到任务（`openRoute`）。
  * - 常驻 = `settings.background` 且 `bot.status().resident`。`bot.status` 在拿到快照、频道变化（去抖）、设置变化与每分钟
  *   轮询时重取；协议里没有单独的状态事件。变化时调 `onResidency`（告诉 Runtime 与窗口生命周期）。
- * - `settings.openAtLogin` 变化时同步系统登录项；`settings.background` 决定托盘在不在。
+ * - `settings.openAtLogin` 变化时同步系统登录项。
  *
  * 不碰 Electron：客户端、通知、托盘、登录项、计时器都由调用方注入，测试用假的。
  */
@@ -42,6 +50,8 @@ export interface BotMonitorOptions {
   client: BotClient;
   notifier: NotificationHost;
   tray: TrayController | null;
+  /** 托盘是不是回到应用的唯一入口（Windows / Linux 上窗口全关时）：是的话设置里没开图标也挂上。缺省不是。 */
+  trayFallback?: () => boolean;
   loginItem: { sync(openAtLogin: boolean): unknown } | null;
   openRoute(route: BotRoute): void;
   /** 常驻状态变化（只在变化时调）。 */
@@ -110,11 +120,6 @@ export class BotMonitor {
     return this.#snapshot?.settings ?? null;
   }
 
-  /** 等你的任务数（含静音频道）。 */
-  get needsYou(): number {
-    return (this.#snapshot?.channels ?? []).reduce((sum, row) => sum + Math.max(0, row.counts.needsYou), 0);
-  }
-
   start(): void {
     if (this.#unsubscribe || this.#disposed) return;
     this.#unsubscribe = this.#options.client.subscribeChannels({
@@ -167,6 +172,19 @@ export class BotMonitor {
     return this.#refreshing;
   }
 
+  /**
+   * 按设置挂上或拿掉托盘（需求 §11.8）：开着后台服务，且用户在设置里打开了图标（默认关）。Windows / Linux 上窗口全关后应用
+   * 还在跑时，托盘是回到应用、退出后台服务的唯一入口，这时设置没开也挂上，开了窗口再拿掉；macOS 有 Dock 图标，不需要。
+   * 窗口开关时由调用方再调一次。
+   */
+  syncTray(): void {
+    const tray = this.#options.tray;
+    const settings = this.#snapshot?.settings;
+    if (!tray || !settings || this.#disposed) return;
+    if (settings.background && (settings.trayIcon || this.#options.trayFallback?.() === true)) tray.show();
+    else tray.hide();
+  }
+
   /** 托盘里的「暂停全部自动运行 / 恢复自动运行」。 */
   async setPaused(paused: boolean): Promise<void> {
     await this.#options.client.request('bot.pauseAutomation', { paused });
@@ -212,11 +230,7 @@ export class BotMonitor {
   #applySettings(previous: BotSettings | null): void {
     const settings = this.#snapshot?.settings;
     if (!settings) return;
-    const tray = this.#options.tray;
-    if (tray) {
-      if (settings.background) tray.show();
-      else tray.hide();
-    }
+    this.syncTray();
     if (!previous || previous.openAtLogin !== settings.openAtLogin) {
       try {
         this.#options.loginItem?.sync(settings.openAtLogin);
@@ -245,7 +259,6 @@ export class BotMonitor {
     const tray = this.#options.tray;
     if (!tray) return;
     tray.update({
-      needsYou: this.needsYou,
       working: this.#status?.workingThreads ?? [],
       paused: this.#status?.paused ?? this.#snapshot?.settings.automationPaused ?? false,
     });
@@ -313,10 +326,13 @@ export class BotMonitor {
         };
       }
       case 'summary': {
+        // 一件直接开任务；都在一个频道就开那个频道，否则开主频道（侧栏上有圆点的频道就是等你的）。
         const only = decision.items.length === 1 ? decision.items[0]! : null;
+        const channels = new Set(decision.items.map((item) => item.channelId));
+        const [channelId] = channels.size === 1 ? channels : [MAIN_CHANNEL_ID];
         return {
           content: clamp({ title: APP_NAME, body: B.notifySummary(decision.items.length) }),
-          route: only ? taskRoute(only.channelId, only.workItemId) : INBOX_ROUTE,
+          route: only ? taskRoute(only.channelId, only.workItemId) : channelRoute(channelId!),
         };
       }
     }

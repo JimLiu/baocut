@@ -18,7 +18,7 @@ export function BotNotificationHost() {
     const { event } = notification;
     if (event.muted || !document.hasFocus()) return;
     const route = useShell.getState().route;
-    const viewing = route.tab === 'bot' && route.view !== 'inbox' && (route.channelId ?? MAIN_CHANNEL_ID) === event.channelId;
+    const viewing = route.tab === 'bot' && (route.channelId ?? MAIN_CHANNEL_ID) === event.channelId;
     if (viewing) return;
     const channel = channelById(event.channelId);
     const text = C.notify.toast(channel?.name ?? C.notify.reason[event.reason], event.headline || C.notify.reason[event.reason]);

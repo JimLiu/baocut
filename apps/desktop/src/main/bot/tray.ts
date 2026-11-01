@@ -2,11 +2,10 @@ import type { BotStatus } from '@baocut/protocol';
 import { B } from './bot-copy.ts';
 
 /**
- * 托盘 / 菜单栏（技术方案 §15.2，需求 §11.8）：显示后台服务在跑，角标是等你的任务数；菜单里「打开 BaoCut」「正在工作的任务（n）」
- * 「暂停全部自动运行 / 恢复自动运行」「退出后台服务」。
+ * 托盘 / 菜单栏（技术方案 §15.2，需求 §11.8）：显示后台服务在跑，不带数字角标；菜单里「打开 BaoCut」「正在工作的任务（n）」
+ * 「暂停全部自动运行 / 恢复自动运行」「退出后台服务」。挂不挂由 `BotMonitor` 按设置决定（默认不挂）。
  *
- * 只管菜单内容与状态；真正的 Electron `Tray` / `Menu` 在 `TrayHost` 后面（`electron-host.ts`），测试用假的。
- * 角标：macOS 用 `setTitle`（菜单栏图标旁的数字）；Windows 的托盘图标没有叠加图标，数字放进提示文字；Linux 同 Windows。
+ * 只管菜单内容与状态；真正的 Electron `Tray` / `Menu` 在 `TrayHost` 后面（`bot-service.ts`），测试用假的。
  */
 
 export interface TrayMenuItem {
@@ -19,8 +18,6 @@ export interface TrayMenuItem {
 
 export interface TrayHost {
   setMenu(items: TrayMenuItem[]): void;
-  /** macOS 菜单栏图标旁的文字；别的平台不调。 */
-  setTitle(title: string): void;
   setToolTip(text: string): void;
   /** 点托盘图标本身（Windows / Linux 习惯单击打开窗口）。 */
   onClick(listener: () => void): void;
@@ -35,7 +32,6 @@ export interface TrayActions {
 }
 
 export interface TrayState {
-  needsYou: number;
   working: BotStatus['workingThreads'];
   paused: boolean;
 }
@@ -49,7 +45,7 @@ export class TrayController {
   readonly #actions: TrayActions;
   readonly #platform: NodeJS.Platform;
   #host: TrayHost | null = null;
-  #state: TrayState = { needsYou: 0, working: [], paused: false };
+  #state: TrayState = { working: [], paused: false };
 
   constructor(createHost: () => TrayHost, actions: TrayActions, platform: NodeJS.Platform) {
     this.#createHost = createHost;
@@ -87,10 +83,8 @@ export class TrayController {
   render(): void {
     const host = this.#host;
     if (!host) return;
-    const { needsYou, paused } = this.#state;
     host.setMenu(this.menu());
-    if (this.#platform === 'darwin') host.setTitle(needsYou > 0 ? String(needsYou) : '');
-    host.setToolTip(needsYou > 0 ? B.trayTooltipNeedsYou(needsYou) : paused ? B.trayTooltipPaused : B.trayTooltip);
+    host.setToolTip(this.#state.paused ? B.trayTooltipPaused : B.trayTooltip);
   }
 
   menu(): TrayMenuItem[] {

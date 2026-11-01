@@ -55,7 +55,8 @@ const request = vi.fn(async (method: string, params: Record<string, unknown>) =>
   if (!handler) throw new Error(`unexpected ${method}`);
   return handler(params);
 });
-const runtime = { client: { request } } as unknown as RuntimeSession;
+const host = { platform: 'darwin' };
+const runtime = { client: { request }, host } as unknown as RuntimeSession;
 
 async function render(element: ReactElement) {
   await act(() => root.render(createElement(RuntimeContext.Provider, { value: runtime }, element)));
@@ -125,7 +126,32 @@ describe('频道侧栏（BOT-CH-02、需求 §11.2）', () => {
   });
   const group = { id: 'grp_shows', name: '节目', createdAt: '2026-10-30T00:00:00.000Z', updatedAt: '2026-10-30T00:00:00.000Z' };
 
-  // 分组与条目共用一个键（比如收件箱组与收件箱都叫 inbox）时，集合的前后链接成环，找第一项时死循环，整页卡死。
+  it('行尾只有点不写数：等你的是一颗点、只有未读的是另一颗，数目留在读屏的行名里；侧栏没有「等你处理」', async () => {
+    useChannels.setState({
+      ready: true,
+      groups: [],
+      channels: [
+        { ...row('chan_main', 'Main'), counts: { needsYou: 3 } },
+        { ...row('chan_notes', 'Notes'), unread: true },
+        row('chan_pod', 'Podcast'),
+      ] as never,
+    });
+    try {
+      await render(createElement(ChannelSidebar));
+      const tail = (key: string) => document.querySelector(`[data-key="${key}"] span[title] > span[aria-hidden="true"]`)!;
+      expect(document.querySelector('[data-key="chan_main"] a')!.getAttribute('aria-label')).toBe('Main, 3 个任务等你');
+      expect(tail('chan_main').textContent).toBe('');
+      expect(tail('chan_main').children).toHaveLength(1);
+      expect(tail('chan_notes').children).toHaveLength(1);
+      expect(tail('chan_main').firstElementChild!.className).not.toBe(tail('chan_notes').firstElementChild!.className);
+      expect(tail('chan_pod').children).toHaveLength(0);
+      expect(document.body.textContent).not.toContain('等你处理');
+    } finally {
+      useChannels.setState({ channels: [], groups: [] });
+    }
+  });
+
+  // 分组与条目共用一个键时，集合的前后链接成环，找第一项时死循环，整页卡死；分组的键都带 `group:`。
   it('主频道下挂没分组的频道，分组另起一段；归档的默认不列，主频道行尾是筛选与「＋」', async () => {
     useChannels.setState({
       ready: true,
@@ -140,7 +166,7 @@ describe('频道侧栏（BOT-CH-02、需求 §11.2）', () => {
     try {
       await render(createElement(ChannelSidebar));
       const keys = () => [...document.querySelectorAll('[data-bc-row]')].map((e) => e.getAttribute('data-key'));
-      expect(keys()).toEqual(['inbox', 'chan_main', 'chan_notes', 'chan_pod']);
+      expect(keys()).toEqual(['chan_main', 'chan_notes', 'chan_pod']);
       expect(new Set([...document.querySelectorAll('[data-key]')].map((e) => e.getAttribute('data-key'))).size).toBe(document.querySelectorAll('[data-key]').length);
       expect([...document.querySelectorAll('[data-bc-child]')].map((e) => e.getAttribute('data-key'))).toEqual(['chan_notes', 'chan_pod']);
       // 原来底部的「已归档」折叠组由主频道行尾的筛选代替。
@@ -154,7 +180,7 @@ describe('频道侧栏（BOT-CH-02、需求 §11.2）', () => {
       expect(toggle.getAttribute('aria-expanded')).toBe('true');
       expect(button('在「节目」里新建频道')).toBeDefined();
       await act(async () => (toggle as HTMLButtonElement).click());
-      expect(keys()).toEqual(['inbox', 'chan_main', 'chan_notes']);
+      expect(keys()).toEqual(['chan_main', 'chan_notes']);
       // 「新建频道」开 App 外壳里的对话框。
       await press('新建频道');
       expect(useBotLayout.getState().dialog).toEqual({ kind: 'newChannel' });
@@ -367,6 +393,35 @@ describe('设置里的 Bot 一节（需求 §11.8）', () => {
     await act(async () => toggle('补充提示').click());
     expect(calls('bot.settings')).toEqual([{ patch: { makeAutoTrigger: false } }, { patch: { supplementHints: false } }]);
     expect(useChannels.getState().settings.supplementHints).toBe(false);
+  });
+
+  it('菜单栏图标默认关，要在这里打开；后台运行关着时开关变灰，Windows 叫通知区域，网页版没有这一项', async () => {
+    handlers['bot.settings'] = (p) => ({ settings: { ...DEFAULT_BOT_SETTINGS, ...(p.patch as object) } });
+    const toggle = (label: string) => document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+    try {
+      useChannels.setState({ ready: true, settings: { ...DEFAULT_BOT_SETTINGS, background: true } });
+      await render(createElement(BotSettings));
+      expect(toggle('在菜单栏显示图标')!.checked).toBe(false);
+      await act(async () => toggle('在菜单栏显示图标')!.click());
+      expect(calls('bot.settings')).toEqual([{ patch: { trayIcon: true } }]);
+      expect(useChannels.getState().settings.trayIcon).toBe(true);
+
+      await act(async () => useChannels.setState({ settings: { ...DEFAULT_BOT_SETTINGS, background: false } }));
+      expect(toggle('在菜单栏显示图标')!.disabled).toBe(true);
+
+      host.platform = 'win32';
+      await render(createElement('div', null, createElement(BotSettings)));
+      expect(toggle('在菜单栏显示图标')).toBeNull();
+      expect(toggle('在通知区域显示图标')).not.toBeNull();
+      expect(document.body.textContent).toContain('窗口全部关掉时总会显示');
+
+      host.platform = 'web';
+      await render(createElement('section', null, createElement(BotSettings)));
+      expect(toggle('在通知区域显示图标')).toBeNull();
+      expect(toggle('在菜单栏显示图标')).toBeNull();
+    } finally {
+      host.platform = 'darwin';
+    }
   });
 });
 

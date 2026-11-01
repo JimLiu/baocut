@@ -36,7 +36,7 @@ describe('TrayController', () => {
   it('creates the tray on show, removes it on hide, and only once', () => {
     const { tray, hosts } = setup();
     expect(tray.visible).toBe(false);
-    tray.update({ needsYou: 2 });
+    tray.update({ paused: true });
     expect(hosts).toHaveLength(0);
     tray.show();
     tray.show();
@@ -85,32 +85,22 @@ describe('TrayController', () => {
     expect(submenu[10]).toEqual({ label: 'and 2 more', enabled: false });
   });
 
-  it('shows the needs-you count as the macOS menu-bar title and in the tooltip', () => {
+  it('shows no count; the tooltip only says whether automation is paused', () => {
     english();
     const { tray, hosts } = setup('darwin');
     tray.show();
     const host = hosts[0]!;
-    expect(host.title).toBe('');
     expect(host.tooltip).toBe('BaoCut background service');
-    tray.update({ needsYou: 3 });
-    expect(host.title).toBe('3');
-    expect(host.tooltip).toBe('BaoCut: 3 things need you');
-    tray.update({ needsYou: 0, paused: true });
-    expect(host.title).toBe('');
+    tray.update({ paused: true });
     expect(host.tooltip).toBe('BaoCut: automation paused');
     // macOS opens the menu on click; no extra click handler.
     expect(host.clickListener).toBeNull();
   });
 
-  it('on Windows puts the count in the tooltip (no title) and opens the window on click', () => {
-    english();
+  it('on Windows opens the window on click', () => {
     const { tray, hosts, actions } = setup('win32');
     tray.show();
-    tray.update({ needsYou: 1 });
-    const host = hosts[0]!;
-    expect(host.title).toBe('');
-    expect(host.tooltip).toBe('BaoCut: 1 thing needs you');
-    host.clickListener!();
+    hosts[0]!.clickListener!();
     expect(actions.openWindow).toHaveBeenCalled();
   });
 

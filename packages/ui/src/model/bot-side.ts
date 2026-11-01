@@ -22,9 +22,9 @@ export const EMPTY_SIDE_TABS: SideTabs = { tabs: [], active: null };
 /** 主区窄于这个宽度时只剩一栏（原型 page-bot.jsx `NARROW`）。 */
 export const BOT_NARROW = 880;
 
-/** 页签簿的键：频道 id（没有就是默认频道），收件箱是 'inbox'。 */
-export function sideTabBook(route: { channelId: Id | null; view: string }): string {
-  return route.view === 'inbox' ? 'inbox' : (route.channelId ?? MAIN_CHANNEL_ID);
+/** 页签簿的键：频道 id（没有就是默认频道）。 */
+export function sideTabBook(route: { channelId: Id | null }): string {
+  return route.channelId ?? MAIN_CHANNEL_ID;
 }
 
 /** 路由里的页签：带产物是那个任务的这个产物，只带任务是任务，没有是 null（固定页签）。 */
@@ -112,21 +112,21 @@ export function sideWidth(mode: SideMode, stored: number | undefined, available:
   return { width: Math.round(Math.min(max, Math.max(SIDE_MIN, want))), min: SIDE_MIN, max };
 }
 
-/** 占满时左栏放什么：任务列表、Make、收件箱，或产物所属的任务（`task`）。 */
-export type FullLeft = FixedSideTab | 'inbox' | 'task';
+/** 占满时左栏放什么：任务列表、Make，或产物所属的任务（`task`）。 */
+export type FullLeft = FixedSideTab | 'task';
 
 /**
  * 右栏占满（中间收起）时的两栏：左边是当前页签的上一层，右边是当前页签。
- * 产物 → 它的任务 | 产物；任务 → 任务列表（收件箱里是收件箱）| 任务；固定页签 → 它自己 | 提示。
+ * 产物 → 它的任务 | 产物；任务 → 任务列表 | 任务；固定页签 → 它自己 | 提示。
  */
-export function fullColumns(active: BotSideTab | null, fixed: FixedSideTab, inbox: boolean): { left: FullLeft; right: BotSideTab | null } {
+export function fullColumns(active: BotSideTab | null, fixed: FixedSideTab): { left: FullLeft; right: BotSideTab | null } {
   if (active?.kind === 'output') return { left: 'task', right: active };
-  if (active) return { left: inbox ? 'inbox' : 'tasks', right: active };
-  return { left: inbox ? 'inbox' : fixed, right: null };
+  if (active) return { left: 'tasks', right: active };
+  return { left: fixed, right: null };
 }
 
-/** 占满时左栏的默认宽：任务列表 340、Make 380、收件箱 360、任务 440；右栏至少留 480。 */
-const FULL_LEFT: Record<FullLeft, number> = { tasks: 340, make: 380, inbox: 360, task: 440 };
+/** 占满时左栏的默认宽：任务列表 340、Make 380、任务 440；右栏至少留 480。 */
+const FULL_LEFT: Record<FullLeft, number> = { tasks: 340, make: 380, task: 440 };
 export const FULL_RIGHT_MIN = 480;
 
 export function fullSplit(left: FullLeft, stored: number | undefined, available: number): SeamRange {

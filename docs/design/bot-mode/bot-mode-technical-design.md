@@ -126,7 +126,7 @@ interface Channel {
   limits: { concurrentThreads: number; dailyBudget: Money | null; monthlyBudget: Money | null };
   outputLanguage: string | null; // 产物语言（BCP 47，如 'en'），null = 跟随对话语言（BOT-BH-10）
   private: boolean;              // 不被其他频道读取（BOT-CH-12，P1）
-  muted: boolean;                // 只进徽标与「等你」收件箱，不弹系统通知（BOT-NF-08）
+  muted: boolean;                // 不弹系统通知，侧栏圆点照常（BOT-NF-08）
   lastSeen: { at: string; itemId: Id | null } | null;   // 用户上次看到的位置，「你不在时」汇总与「以下是新消息」细线用（BOT-BH-08）
   memoryVersion: number;         // MEMORY.md 的版本号，写入时校验
   createdAt: string;
@@ -1005,9 +1005,9 @@ D5 要的「常驻」比现在多两点：没有活时也不退（定时任务�
   - `window-all-closed` 不退出（所有平台）；
   - `before-quit` 的弹框文字改为「Bot 会在后台继续工作」，选项「保持后台」「彻底退出」「取消」；
   - Runtime 不进入空闲退出：Electron 主进程通过 IPC `{type:'resident', on:true}` 告诉 Runtime（`apps/runtime/src/main.ts` 新增消息），Runtime 在常驻时忽略 `idleExitMinutes`。
-- **托盘 / 菜单栏**：`apps/desktop/src/main/tray.ts`（新）。用 Electron `Tray` + `Menu`：「打开 BaoCut」「正在工作的任务（n）」子菜单、「暂停全部自动运行」「退出后台服务」。图标角标（macOS `tray.setTitle`，Windows 叠加图标）是等你的任务数。
-- **主进程订阅**：窗口全关时渲染端不在，主进程需要自己连 Runtime。复用 `packages/client` 的 `BaoCutClient`（Node 侧可用），只订阅 `channels` 主题（摘要里有计数），驱动托盘角标与通知。
-- **通知**：主进程用 Electron `Notification`。来源是 `channels` 主题里 `needsYou` 计数的增加 + `bot.notification` 事件（§16.3，带任务 id、headline、问题与选项）。点通知：打开窗口并路由到任务详情。合并与免打扰都在第一期，在主进程里做：5 分钟窗口按频道合并；免打扰读 `BotSettings.quietHours`（默认 `{ start:'22:00', end:'08:00', enabled:true }`，按 `BotSettings.timeZone`），时段内只更新托盘角标、通知攒着，时段结束时合并成一条「夜里有 n 件等你」；`Channel.muted` 的频道永远不弹通知，只计入角标与收件箱。
+- **托盘 / 菜单栏**：`apps/desktop/src/main/bot/tray.ts`。用 Electron `Tray` + `Menu`：「打开 BaoCut」「正在工作的任务（n）」子菜单、「暂停全部自动运行」「退出后台服务」。（用户修订 2026-11-01）图标不带数字或角标，悬停只说「后台服务」或「已暂停」。默认不显示：设置 `BotSettings.trayIcon`（新，默认 `false`）打开后，且 `background` 开着时才建托盘（`BotMonitor.syncTray`）；Windows / Linux 上窗口全部关掉时不看这个设置也显示，那时托盘是回到应用的唯一入口（macOS 有 Dock 图标）。macOS 用单色模板图（`apps/desktop/build/tray-mac.png` 与 `@2x`，`tools/app-icon` 从应用图标的字形生成，黑形透明底，`setTemplateImage(true)` 后由系统按菜单栏深浅染色）；`?asset` 打包后文件名带哈希，认不出 `Template` 后缀与 `@2x`，所以两张各读进来再 `addRepresentation` 合成一张。Windows / Linux 照平台惯例用彩色的应用图标。
+- **主进程订阅**：窗口全关时渲染端不在，主进程需要自己连 Runtime。复用 `packages/client` 的 `BaoCutClient`（Node 侧可用），只订阅 `channels` 主题（摘要里有计数），驱动托盘菜单与通知。
+- **通知**：主进程用 Electron `Notification`。来源是 `channels` 主题里 `needsYou` 计数的增加 + `bot.notification` 事件（§16.3，带任务 id、headline、问题与选项）。点通知：打开窗口并路由到任务详情。合并与免打扰都在第一期，在主进程里做：5 分钟窗口按频道合并；免打扰读 `BotSettings.quietHours`（默认 `{ start:'22:00', end:'08:00', enabled:true }`，按 `BotSettings.timeZone`），时段内通知攒着，时段结束时合并成一条「夜里有 n 件等你」；`Channel.muted` 的频道永远不弹通知，侧栏的圆点照常。多条合并成的汇总通知：只有一件时点开是那件任务，都在同一个频道时是那个频道，跨频道时是主频道。
 - **开机自启**：`app.setLoginItemSettings({ openAtLogin, openAsHidden: true })`，设置里的开关（默认关，需求 §11.8）；以隐藏方式启动时只起 Runtime 与托盘，不开窗口。Windows 用同一 API（注册表 Run 键），Linux 第一期不支持（只做 macOS 与 Windows 桌面）。
 - **暂停全部自动运行**：Runtime 新方法 `bot.pauseAutomation({ paused })`，暂停时 `ScheduleService` 不 fire（记 `missed`）、Make 自动触发与刷新巡检不跑；进行中的线程不停。
 - **退出后台服务**：先调 `bot.status` 拿到进行中的线程与即将到点的周期任务，弹框列出，确认后 `supervisor.stop()` 并 `app.exit()`。
@@ -1053,7 +1053,7 @@ D5 要的「常驻」比现在多两点：没有活时也不退（定时任务�
 | `bot.status` | — | `{ workingThreads, nextSchedules, paused }` | 用户、桌面主进程 |
 | `bot.awaySummary` | `channelId` | `{ since, done, needsYou, stopped: { id, title, headline }[]; firstUnreadItemId }` | 用户（§13.4） |
 | `channels.markSeen` | `id, itemId` | `Channel` | 用户 |
-| `bot.inbox` | — | `InboxRow[]`：所有频道里 `needsReview` / `needsInput` 的任务与待处理授权，按频道分组、最急的在前；每行带问题、选项、付费授权的金额与所属任务；私人频道照常列出（收件箱只给用户看） | 用户 |
+| `bot.inbox` | — | `InboxRow[]`：所有频道里 `needsReview` / `needsInput` 的任务与待处理授权，按频道分组、最急的在前；每行带问题、选项、付费授权的金额与所属任务；私人频道照常列出（只给用户看）。界面的收件箱已去掉（用户修订 2026-11-01），接口保留，界面不再调用 | 用户 |
 | `workItems.revertAll` | `id, dryRun?, keepUserEdits?` | `{ videos: { videoId, userEdits: VersionSummary[] }[] }`（dryRun）或 `{ restored: { videoId, version }[] }` | 用户（P1） |
 | `workItems.deleteRecord` | `id, dryRun?, confirm?: { files: string[] }` | dryRun：`{ files: string[]; keptShared: string[] }`；否则 `{}` | 用户（P1）；进行中先停线程；删线程会话、工作笔记、转换记录、报告，以及 `WorkItem.files` 里、没有被其他未解决任务的 `files` / `outputs` / `resources` 引用的文件（被引用的列进 `keptShared` 不删）；`confirm.files` 与实时计算的清单不一致时拒绝；不碰项目视频与 Space |
 | `channels.export` | `id, dir` | `{ path }` | 用户（P1）；对话、任务（含转换记录与报告）、记忆导出成 Markdown + JSON，视频只列引用 |
@@ -1097,8 +1097,8 @@ interface BotNotificationEvent {
 
 ### 17.1 路由与入口
 
-- `Tab` 加 `'bot'`，`Route` 加 `{ tab:'bot'; channelId: Id | null; workItemId: Id | null; view: 'channel' | 'task' | 'memory' | 'inbox' }`（`state/shell-store.ts:58`）。
-- `Rail`（`components/rail.tsx`）的 `PRIMARY` 在 `home` 后插入 `bot`，图标与徽标（`needsYou` 总和，含静音频道）；徽标数据来自 `channels-store`。点图标进 Bot 页；点徽标打开「等你」收件箱（`Route.view: 'inbox'`，数据来自 `bot.inbox`，订阅 `channels` 主题刷新）。收件箱每行就地作答走现有的 `agents.answerQuestion` / `approvals.respond` / `workItems.transition`，没有批量接口。
+- `Tab` 加 `'bot'`，`Route` 加 `{ tab:'bot'; channelId: Id | null; workItemId: Id | null; view: 'channel' | 'task' | 'memory' }`（`state/shell-store.ts:58`）。旧链接 `/bot/inbox` 落到主频道（用户修订 2026-11-01）。
+- `Rail`（`components/rail.tsx`）的 `PRIMARY` 在 `home` 后插入 `bot`，只有图标、不带徽标（用户修订 2026-11-01）；点图标进 Bot 页。等你的事在频道侧栏行尾以圆点提示，没有跨频道的收件箱视图。
 - 第一次进入时调 `channels.ensureMain`。
 
 ### 17.2 组件
@@ -1108,8 +1108,8 @@ interface BotNotificationEvent {
 | 组件 | 内容 | 复用 |
 | --- | --- | --- |
 | `bot-page.tsx` | 三栏布局；右栏的开合（宽屏默认开、窄屏默认收起并盖在频道对话上）与内容（任务面板 / Make 面板 / 任务详情），Make 的范围（这个频道 / 全部频道）在这里保存，切频道不丢 | `app-shell` 的分栏与拖宽 |
-| `channel-sidebar.tsx` | 收件箱、主频道与挂在它下面的频道（`data-bc-child` 行，拐角线画在 `app.css`）、新建、置顶、另起一块的归档组 | `home-sidebar-rows` 的行样式 |
-| `channel-view.tsx` | 频道头（含「Make」开关，有未处理建议时带圆点；带等你徽标的「任务」开关）+ 消息流 + 提示芯片 + 输入框 | Home 会话的消息流与输入框组件 |
+| `channel-sidebar.tsx` | 主频道与挂在它下面的频道（`data-bc-child` 行，拐角线画在 `app.css`）、新建、置顶、另起一块的归档组；行尾只有圆点（等你是蓝点、未读是绿点），数目在读屏的行名里 | `home-sidebar-rows` 的行样式 |
+| `channel-view.tsx` | 频道头（含「Make」开关，有未处理建议时带圆点；有等你的任务时带圆点的「任务」开关）+ 消息流 + 提示芯片 + 输入框 | Home 会话的消息流与输入框组件 |
 | `timeline/bot-timeline.tsx` | 频道与任务线程共用的消息流外壳：提供 `BotThreadExtrasContext`，智能体消息画成不带头像的灰气泡，并把线程卡、提问卡等的头像缩进（`--bc-agent-indent`）设为 0 | 会话视图的 `Thread` |
 | `timeline/work-item-ref-card.tsx` | 线程卡：从 `work-items-store` 实时读状态 | — |
 | `timeline/relay-row.tsx` | 报告、刷新等系统条目（默认折叠）；挂在任务上时上面是任务头（弯线、状态图标、标题） | 现有 `notice` 渲染 |
@@ -1121,7 +1121,7 @@ interface BotNotificationEvent {
 | `channel-memory-page.tsx` | 记忆编辑（P1） | 现有 Markdown 编辑组件 |
 | `channel-dialog.tsx` | 新建与设置 | — |
 
-状态：`state/channels-store.ts`、`state/work-items-store.ts`（Zustand，按频道懒订阅：只订阅当前打开的频道与有 `needsYou` 的频道；Make 面板看「全部频道」时订阅所有没归档的频道，见 `wantedWorkItemChannels`）。
+状态：`state/channels-store.ts`、`state/work-items-store.ts`（Zustand，按频道懒订阅：只订阅当前打开的频道；Make 面板看「全部频道」时订阅所有没归档的频道，见 `wantedWorkItemChannels`）。
 
 ### 17.3 状态表达
 
@@ -1194,7 +1194,7 @@ interface BotNotificationEvent {
 10. **无人在场与预算**：`effectiveMode` 降级、`ToolScope.unattended` 与付费调用升级、`GrantService`、频道预算。
 11. **界面**（原型确认后）：Rail 入口、`bot-page`、频道侧栏与频道视图、线程卡、任务面板、任务详情。
 12. **后台服务**：常驻 IPC、托盘、通知（含 5 分钟合并）与免打扰、频道静音、退出确认、开机自启设置、暂停自动运行。
-13. **回来与收件箱**：`Channel.lastSeen`、`channels.markSeen`、`bot.awaySummary`、`bot.inbox` 与收件箱视图、卡住检测看门狗。
+13. **回来与等你的事**：`Channel.lastSeen`、`channels.markSeen`、`bot.awaySummary`、`bot.inbox`（收件箱视图后来去掉了）、卡住检测看门狗。
 14. **对话与产出语言**：`Channel.outputLanguage`（含新建频道表单）、`WorkItem.overrides.outputLanguage`、任务合同里的 `outputLanguage`、Runtime 文字按对话语言输出。
 
 **第二期（P1）**：频道记忆工具与记忆页、工作笔记路径、刷新与巡检、Make 与建议卡、周期任务提议卡、一次性定时、提醒、表情、消歧与下一步与起手提示、任务依赖与文件归属、任务级设置、模板与品牌规范、诊断页、规则编号与冲突提问、整体撤销、改已转交消息的重投、私人频道、删除任务记录、导出频道；Web 端与 CLI `bot` 命令组。

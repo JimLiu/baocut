@@ -429,6 +429,8 @@ export interface BotSettings {
   stallMinutes: number;
   maxConcurrentThreads: number;
   background: boolean;
+  /** 菜单栏（macOS）/ 托盘图标（需求 §11.8）：默认不显示，用户在设置里打开；只在开着后台服务时生效。 */
+  trayIcon: boolean;
   openAtLogin: boolean;
   automationPaused: boolean;
   /** Make 的自动触发（需求 §6.2 BOT-MK-02、§11.8）：关掉后只有手动「Make」才生成建议。 */
@@ -443,6 +445,7 @@ export const DEFAULT_BOT_SETTINGS: BotSettings = {
   stallMinutes: 20,
   maxConcurrentThreads: 6,
   background: true,
+  trayIcon: false,
   openAtLogin: false,
   automationPaused: false,
   makeAutoTrigger: true,

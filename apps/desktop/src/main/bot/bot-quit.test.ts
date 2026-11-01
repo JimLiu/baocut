@@ -30,7 +30,7 @@ it('resident quit: the Bot keeps working; Enter keeps it in the background, Esc 
     defaultId: 0,
     cancelId: 2,
   });
-  expect(options.detail).toContain('menu bar');
+  expect(options.detail).toContain('in the background');
   expect(residentQuitPrompt(null, 'win32').detail).toContain('notification area');
   expect([0, 1, 2, 7, -1].map(residentQuitChoice)).toEqual(['keep', 'quit', 'cancel', 'cancel', 'cancel']);
 });
