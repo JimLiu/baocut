@@ -1,8 +1,9 @@
 // OpenAI 兼容端点的语音合成与图片生成（架构设计 §6.4）：用户声明 `capability` 为 `synthesizeSpeech` / `generateImage`
 // 的模型，请求形状同 OpenAI（`POST {base}/audio/speech`、`POST {base}/images/generations`，见 openai-generation.ts）。
-// 都是假定，没有逐家确认：兼容端点接受 `voice` 为任意字符串、`response_format` 为声明的格式；图片端点接受
-// `response_format: 'b64_json'` 并在 `data[].b64_json` 里返回图片（忽略它、只给 `data[].url` 的端点按地址取图）；`output_format` 可能被忽略，
-// 端点返回的图片格式与声明不符时在发布前的校验里失败（`MODEL_OUTPUT_INVALID`）。
+// 语音仍假定端点接受任意 `voice` 与声明的 `response_format`。图片只发模型、提示词、已选尺寸与多张时的 `n`，
+// 不发顶层 `output_format` / `response_format`：兼容服务不一定支持（例如 Agnes Image 2.5 Flash 文档明确禁止顶层 response_format）。
+//   https://www.agnes-ai.cn/zh-Hans/docs/agnes-image-25-flash
+// 图片响应接受 `data[].b64_json` 或 `data[].url`；格式与声明不符时在发布前以 `MODEL_OUTPUT_INVALID` 失败。
 import type { DeclaredModel, ImageModelInfo, SpeechModelInfo } from '@baocut/protocol';
 import type { AdapterConfig, ImageAdapter, ImageOutput, ImageRequest, SpeechAdapter, SpeechOutput, SpeechRequest } from '../adapter.ts';
 import { openAiGenerateImages, openAiSynthesize } from '../openai/openai-generation.ts';
@@ -26,7 +27,7 @@ export class CompatibleSpeechAdapter implements SpeechAdapter {
 }
 
 export class CompatibleImageAdapter implements ImageAdapter {
-  readonly version = 'baocut-providers/openai-compatible-image@1';
+  readonly version = 'baocut-providers/openai-compatible-image@2';
   readonly #label: () => string;
 
   constructor(label: () => string) {
