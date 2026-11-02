@@ -11,8 +11,8 @@
 // 已弃用），响应带 `usage`。带输入图时走 `POST {base}/images/edits`：JSON 的 `images` 是 `[{ image_url }]`（完整地址或
 // base64 data URL，GPT image 模型至多 16 张），其余字段同上，响应形状相同；`input_fidelity` 不发（gpt-image-2 不接受）。
 // 鉴权 `Authorization: Bearer`。
-// 没能确认的：兼容端点是否接受这些字段、是否返回 `b64_json`（这里对兼容端点额外发 `response_format: 'b64_json'`）。
-// 有的兼容端点忽略它、只在 `data[].url` 里给图片地址：没有 `b64_json` 时按 `url` 取图（只限兼容端点）。`data:` 地址
+// 兼容端点不假定支持 GPT image 的格式参数：不发 `output_format` 或 `response_format`，单张时省略 `n`。
+// 接受 `data[].b64_json` 或 `data[].url`：没有 `b64_json` 时按 `url` 取图（只限兼容端点）。`data:` 地址
 // 就地解码；`http(s)` 地址 GET 下载，与配置的端点同源才带密钥，跨源的不带；回来的是文本或 JSON 当协议错误。
 import { ProviderFailure } from '@baocut/models';
 import { generationTimeoutMs, type ImageOutput, type ImageRequest, type SpeechOutput, type SpeechRequest } from '../adapter.ts';
@@ -22,7 +22,7 @@ import { ProvidersHttp as PH } from '@baocut/protocol/messages/providers';
 
 export interface OpenAiGenerationStyle {
   label: string;
-  /** 兼容端点：请求 `b64_json`（GPT image 模型不需要，也不再接受这个参数的其他取值）。 */
+  /** 兼容端点：省略图片格式提示，接受 Base64 或 URL 输出；语音的音色 ID 原样传。 */
   compatible: boolean;
 }
 
@@ -62,10 +62,9 @@ export async function openAiGenerateImages(request: ImageRequest, style: OpenAiG
     model: model.modelId,
     ...(edit ? { images: inputs.map((input) => ({ image_url: `data:${input.mediaType};base64,${input.bytes.toString('base64')}` })) } : {}),
     prompt: parameters.prompt,
-    n: parameters.count,
+    ...(!style.compatible || parameters.count > 1 ? { n: parameters.count } : {}),
     ...(parameters.size ? { size: parameters.size } : {}),
-    output_format: parameters.format,
-    ...(style.compatible ? { response_format: 'b64_json' } : {}),
+    ...(!style.compatible ? { output_format: parameters.format } : {}),
   };
   const response = await providerFetch(httpOptions(style.label, config, request.http), {
     method: 'POST',
