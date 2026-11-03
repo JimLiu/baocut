@@ -25,6 +25,7 @@ jobs:
     outputs:
       signing_sha1: ${{ vars.BAOCUT_MAC_SIGNING_SHA1 }}
     env:
+      NODE_OPTIONS: --max-old-space-size=4096
       CARGO_INCREMENTAL: "0"
       CARGO_BUILD_JOBS: "2"
     steps:

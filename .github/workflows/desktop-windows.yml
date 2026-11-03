@@ -92,6 +92,7 @@ jobs:
       matrix:
         variant: [cpu, cuda, vulkan]
     env:
+      NODE_OPTIONS: --max-old-space-size=4096
       CARGO_INCREMENTAL: "0"
       CARGO_TARGET_DIR: D:\bt
       CMAKE_GENERATOR: Ninja
