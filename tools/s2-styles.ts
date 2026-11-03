@@ -6,6 +6,7 @@
 // 两边都按 `s2-styles-merge.ts` 合并去重、层叠结果不变：开发时由 `s2-styles-client.ts` 合进一张样式表，
 // 生产构建在产物写出前改写 s2-styles 那一份。
 // 开发时这三千多份 CSS 也不各算一个模块（整页重载要逐个去取）：模块末尾的样式导入直接内联进这个模块，见 `inlineStyleImports`。
+// 单元测试不用这些去重，只用宏本身，见 `s2StylesInTests`。
 
 import { readFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
@@ -25,6 +26,24 @@ export function s2Styles(): Plugin[] {
   const macroPlugin = macros.vite() as Plugin;
   const [devStyles, inlineStyles] = dedupeS2StylesInDev(macroPlugin);
   return [tokenFieldSelectionPlugin(), devStyles, macroPlugin, inlineStyles, dedupeS2StylesInBuild()];
+}
+
+/**
+ * 测试用的 style 宏插件。宏插件记 CSS 的表是模块级的，所有 Vite 环境共用，而同一个文件在 ssr（node 环境的测试）与 client（happy-dom 的测试）
+ * 各转换一次：后一次开始时先删掉这个文件上次生成的全部 CSS，转换到每处宏调用才逐个登记回来。样式导入排在模块末尾，
+ * 另一环境转换完这个文件后，要等前面的依赖都载入了才来取，正好落进这段空当就报 `Cannot find module '/@id/macro-<哈希>.css'`。
+ * 这些 CSS 在测试里本来就是空的（vitest 的 `test.css` 缺省清空所有 CSS），所以不经那张表，按文件名直接解析成空模块；宏调用的结果不受影响。
+ */
+export function s2StylesInTests(): Plugin[] {
+  return [
+    {
+      name: 'baocut:s2-styles-test',
+      enforce: 'pre',
+      resolveId: (source) => (MACRO_CSS.test(source) ? source : undefined),
+      load: (id) => (MACRO_CSS.test(id) ? '' : undefined),
+    },
+    macros.vite() as Plugin,
+  ];
 }
 
 /**

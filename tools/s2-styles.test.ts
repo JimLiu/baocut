@@ -1,6 +1,7 @@
+import { fileURLToPath } from 'node:url';
 import { parseAst, transformWithEsbuild } from 'vite';
 import { describe, expect, it } from 'vitest';
-import { inlineStyleImports } from './s2-styles.ts';
+import { inlineStyleImports, s2StylesInTests } from './s2-styles.ts';
 
 const CLIENT = '/repo/tools/s2-styles-client.ts';
 const A = `macro-${'a'.repeat(64)}.css`;
@@ -78,5 +79,33 @@ describe('开发时把模块末尾的 S2 样式导入内联进模块', () => {
     expect(inline('export const x = 1;')).toBeNull();
     expect(inline('export const x = 1;', true)).toContain('__bcAddStyles("/repo/src/view.tsx", []);');
     expect(inline(`const x: number = 1;\nimport "${A}";`)).toBeNull();
+  });
+});
+
+describe('测试里的 style 宏 CSS', () => {
+  type Hook = (this: unknown, ...args: string[]) => unknown;
+  const SOURCE = "import { style } from '@react-spectrum/s2/style' with { type: 'macro' };\nexport const root = style({ display: 'flex' });\n";
+  const FILE = fileURLToPath(new URL('./s2-styles-fixture.tsx', import.meta.url));
+
+  it('宏插件重新转换文件、CSS 暂时不在它的表里时，同名的 CSS 仍解析得到，且是空模块', async () => {
+    const [testStyles, macro] = s2StylesInTests() as unknown as [Record<'resolveId' | 'load', Hook>, Record<'transform' | 'loadInclude', Hook>];
+    const context = { addWatchFile() {} };
+    const { code } = (await macro.transform.call(context, SOURCE, FILE)) as { code: string };
+    const css = code.match(/macro-[0-9a-f]{64}\.css/)![0];
+    expect(macro.loadInclude(css)).toBe(true);
+
+    const again = macro.transform.call(context, SOURCE, FILE);
+    // 另一个 Vite 环境转换同一个文件时就是这段空当。这条不再成立说明宏插件改了删除的做法，可以去掉 s2StylesInTests 的绕行。
+    expect(macro.loadInclude(css)).toBe(false);
+    expect(testStyles.resolveId(css)).toBe(css);
+    expect(testStyles.load(css)).toBe('');
+    await again;
+  });
+
+  it('只接管宏 CSS，别的模块照常解析', () => {
+    const [testStyles] = s2StylesInTests() as unknown as [Record<'resolveId' | 'load', Hook>];
+    expect(testStyles.resolveId(COMPONENT)).toBeUndefined();
+    expect(testStyles.load(COMPONENT)).toBeUndefined();
+    expect(testStyles.resolveId('macro-not-a-hash.css')).toBeUndefined();
   });
 });

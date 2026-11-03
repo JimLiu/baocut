@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configDefaults, defineConfig } from 'vitest/config';
-import macros from 'unplugin-parcel-macros';
+import { s2StylesInTests } from './tools/s2-styles.ts';
 
 // designs/ 下是原型自己的测试，不在这里跑。
 const include = ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.ts', 'tools/*.test.ts'];
@@ -21,7 +21,7 @@ const cores = os.availableParallelism();
 
 export default defineConfig({
   // Component regressions must exercise the same S2 style macro as both clients.
-  plugins: [macros.vite()],
+  plugins: s2StylesInTests(),
   // 与两个客户端相同：PDF 资源按静态字节导入，不作为 JS 或原生 WASM 执行。
   assetsInclude: ['**/*.bcmap', '**/*.pfb', '**/*.wasm'],
   test: {
