@@ -42,6 +42,7 @@
 | 讲一个概念、机制、新闻或资料，让人看懂、能复述 | 读 [`references/craft/explainer-video.md`](explainer-video.md)：讲法、主体、事实表、审片 |
 | 实拍与当事人原声打底，旁白带着走，推文、引语、日期做成卡片压在上面 | 读 [`references/craft/clip-montage.md`](clip-montage.md)：找素材、切原声、卡片、节奏 |
 | 整镜整段由代码画（逐句配画面、角色小动画、Canvas 或 SVG 场景） | 本 skill 的 [代码场景：整镜整段用 Canvas 或 SVG 画](video-production/references/code-scenes.md)（第 5 节「代码画面」一条） |
+| 角色在插画场景里把旁白演出来：走路、指向、拿东西、做反应，文字写在场景里 | 读 [`references/craft/character-animation.md`](character-animation.md)：出图、抠图、绑定、对字、检查 |
 | 叠在画面上的下横栏、关键词、大数字、标注、贴片 | 读 [`references/craft/motion-graphics.md`](motion-graphics.md) |
 | 多句旁白：算字数、选音色、一次合成、对齐 | 读 [`references/craft/narration.md`](narration.md) |
 | 有命令行环境、旁白按段配、画面按段上时间线，要跑现成的脚本 | 读 [`references/craft/production-scripts.md`](production-scripts.md)；它是一条省事的路，形态不合时用 BaoCut 的工具或 CLI 自己做 |

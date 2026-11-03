@@ -1,0 +1,18 @@
+{
+  "out": "img",
+  "data": "rig-data.js",
+  "proof": "rig-proof.png",
+  "plates": [
+    { "name": "hall", "file": "art/hall.png" },
+    { "name": "classroom", "file": "art/classroom.png", "board": "dark" },
+    { "name": "field", "file": "art/field.png", "board": "none", "width": 3840 }
+  ],
+  "sprites": [
+    { "name": "guide", "kind": "front", "file": "art/guide.png" },
+    { "name": "visitor", "kind": "walk", "file": "art/visitor-walk.png" },
+    { "name": "seated", "kind": "side", "facing": "right", "file": "art/seated.png" },
+    { "name": "fox", "kind": "front", "file": "art/fox.png", "neck": 412, "meta": { "hand_": "paw", "edge": false } },
+    { "kind": "grid", "rows": 3, "cols": 3, "file": "art/props.png", "names": ["flask", "apple", "crate", "sack", "lamp", "book", "key", "coin", "map"] },
+    { "kind": "row", "file": "art/crowd.png", "names": ["passerby-a", "passerby-b", "passerby-c"] }
+  ]
+}

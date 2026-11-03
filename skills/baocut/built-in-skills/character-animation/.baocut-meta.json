@@ -1,0 +1,36 @@
+{
+  "name": {
+    "zh-Hans": "角色动画",
+    "zh-Hant": "角色動畫",
+    "en": "Character animation",
+    "ja": "キャラクターアニメ",
+    "ko": "캐릭터 애니메이션",
+    "es": "Animación de personajes",
+    "fr": "Animation de personnages",
+    "de": "Figurenanimation",
+    "nl": "Personage-animatie",
+    "pt-BR": "Animação de personagens",
+    "it": "Animazione di personaggi",
+    "ru": "Анимация персонажей",
+    "pl": "Animacja postaci",
+    "tr": "Karakter animasyonu",
+    "vi": "Hoạt hình nhân vật"
+  },
+  "summary": {
+    "zh-Hans": "把生成的场景与角色抠成可动的部件，按旁白的字演成动画：走路、指向、拿东西、做反应，风格与讲法每期自己定",
+    "zh-Hant": "把生成的場景與角色摳成可動的部件，按旁白的字演成動畫：走路、指向、拿東西、做反應，風格與講法每期自己定",
+    "en": "Turn generated scenes and characters into rigged parts that act out the narration: walking, pointing, holding, reacting",
+    "ja": "生成した場面とキャラをリグにして、ナレーションに合わせて演じさせる。歩く、指す、持つ、反応する。作風は毎回自由",
+    "ko": "생성한 장면과 캐릭터를 움직이는 부품으로 만들어 내레이션에 맞춰 연기: 걷기, 가리키기, 들기, 반응하기",
+    "es": "Convierte escenas y personajes generados en piezas que actúan la narración: caminar, señalar, sostener, reaccionar",
+    "fr": "Transforme scènes et personnages générés en pièces animées qui jouent la narration : marcher, pointer, tenir, réagir",
+    "de": "Macht aus generierten Szenen und Figuren bewegliche Teile, die die Erzählung spielen: gehen, zeigen, halten, reagieren",
+    "nl": "Maakt van gegenereerde scènes en personages delen die de voice-over naspelen: lopen, wijzen, vasthouden, reageren",
+    "pt-BR": "Transforma cenas e personagens gerados em peças animadas que encenam a narração: andar, apontar, segurar, reagir",
+    "it": "Trasforma scene e personaggi generati in parti animate che recitano la narrazione: camminare, indicare, tenere, reagire",
+    "ru": "Превращает созданные сцены и персонажей в подвижные части, разыгрывающие текст диктора: ходьба, жесты, предметы, реакции",
+    "pl": "Zmienia wygenerowane sceny i postacie w ruchome części odgrywające narrację: chodzenie, wskazywanie, trzymanie, reakcje",
+    "tr": "Üretilen sahne ve karakterleri anlatımı canlandıran hareketli parçalara çevirir: yürüme, işaret etme, tutma, tepki",
+    "vi": "Biến cảnh và nhân vật được tạo thành bộ phận chuyển động diễn theo lời bình: đi, chỉ tay, cầm đồ, phản ứng"
+  }
+}
