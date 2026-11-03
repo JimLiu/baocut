@@ -171,6 +171,16 @@ describe('CodexDriver（假 codex）', () => {
     await until(() => fake.log().some((e) => e.kind === 'exit'));
   });
 
+  it('关不掉工具：no-tools 在开会话时拒绝，不当成没有限制，也不启动 codex', async () => {
+    const cwd = path.join(dir, 'staging');
+    await fs.mkdir(cwd);
+    const failed = await driver
+      .createSession({ cwd, accessMode: 'fullAccess', model: null, effort: null, resume: null, confinement: 'no-tools' })
+      .catch((error: unknown) => error);
+    expect(failed).toMatchObject({ code: 'driver-unavailable' });
+    expect(fake.log().filter((e) => e.kind === 'start')).toEqual([]);
+  });
+
   it('普通会话不受影响：按访问模式给策略，带上 MCP 服务与放宽的工具时限，没有沙箱的细项', async () => {
     const cwd = path.join(dir, 'project');
     await fs.mkdir(cwd);

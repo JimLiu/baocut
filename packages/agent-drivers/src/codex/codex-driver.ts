@@ -130,6 +130,10 @@ export class CodexDriver implements AgentDriver {
   }
 
   async createSession(options: CreateSessionOptions): Promise<AgentSession> {
+    // Codex 的工具关不掉，只认 `cwd-write-only`；别的限制不能当成没有限制（架构设计 §6.9）。
+    if (options.confinement && options.confinement !== 'cwd-write-only') {
+      throw new RpcError('driver-unavailable', DriversCommon.confinedUnsupported({ name: 'Codex' }));
+    }
     const install = await this.#find(options.executable);
     if (!install) throw new RpcError('driver-unavailable', DriversCommon.commandNotFound({ command: 'codex' }));
     try {
