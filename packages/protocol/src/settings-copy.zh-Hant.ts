@@ -39,6 +39,7 @@ export const zhHant: SettingDescriptionMessages = {
     '進階：資源排程使用的機器容量 { memoryMiB, gpuMemoryMiB, cpuThreads }；設為 null 的項目會自動偵測；null 表示全部自動偵測（記憶體與 CPU 取自系統，Apple 晶片的 GPU 記憶體依統一記憶體估算）',
   'runtime.idleExitMinutes':
     '由 CLI 啟動的 Runtime 閒置多少分鐘後自行結束（1–1440）：沒有連線、沒有任務、沒有開啟中的對外服務。桌面應用程式結束時留在背景繼續執行的 Runtime，也會在任務完成這麼久後結束。其他 Runtime 不受影響',
+  'features.bot': "開啟 Bot 模式（預覽）：顯示 Bot 頁面與設定，頻道可以在背景工作。關閉時隱藏 Bot，並暫停它的自動執行",
   'updates.autoCheck': '自動檢查應用程式更新',
   'updates.autoDownload': '在背景下載新版本（不會自動安裝）',
   'diagnostics.enabled': '傳送匿名的使用統計與效能摘要（不含媒體、文字或路徑）',

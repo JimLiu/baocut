@@ -15,6 +15,7 @@ import { ShellButton } from './shell-button.tsx';
 import { ShellSidebarHiddenIcon, ShellSidebarIcon } from './shell-icons.tsx';
 import { useShellPeekControls } from './shell-peek.tsx';
 import { HomeTitleBar } from './workspace/home-title-bar.tsx';
+import { useBotEnabled } from '../state/settings-store.ts';
 import { useBotHasHead } from './bot/bot-side-state.ts';
 import { BotTitleBar } from './bot/bot-title-bar.tsx';
 
@@ -74,7 +75,8 @@ export function TitleBar({ platform }: { platform: string }) {
   const peek = useShellPeekControls();
   // 窄窗口里会话本身是标签条的第一格，没有标签时也要显示标签条。
   const homeMode = home !== null && (home.conversationId !== null || homeTabs > 0 || narrow);
-  const bot = route.tab === 'bot' ? route : null;
+  const botEnabled = useBotEnabled();
+  const bot = route.tab === 'bot' && botEnabled ? route : null;
   const botMode = useBotHasHead(bot);
   return (
     <div ref={ref} className={`${bar} bc-drag`} style={{ paddingInlineStart: platform === 'darwin' ? 84 : 12 }}>

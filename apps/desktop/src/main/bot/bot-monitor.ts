@@ -22,11 +22,12 @@ import type { TrayController } from './tray.ts';
  * - 常驻 = `settings.background` 且 `bot.status().resident`。`bot.status` 在拿到快照、频道变化（去抖）、设置变化与每分钟
  *   轮询时重取；协议里没有单独的状态事件。变化时调 `onResidency`（告诉 Runtime 与窗口生命周期）。
  * - `settings.openAtLogin` 变化时同步系统登录项。
+ * - 功能开关 `features.bot`（`settings` 主题）关着时以上都不做：不订 `channels`、不轮询、不挂托盘、不常驻，并撤下登录项。
  *
  * 不碰 Electron：客户端、通知、托盘、登录项、计时器都由调用方注入，测试用假的。
  */
 
-export type BotClient = Pick<BaoCutClient, 'subscribeChannels' | 'request' | 'close'>;
+export type BotClient = Pick<BaoCutClient, 'subscribeChannels' | 'subscribeSettings' | 'request' | 'close'>;
 
 export interface NotificationContent {
   title: string;
@@ -85,6 +86,9 @@ export class BotMonitor {
   #snapshot: ChannelsSnapshot | null = null;
   #status: BotStatus | null = null;
   #resident = false;
+  /** `features.bot`；设置快照到之前 null。 */
+  #enabled: boolean | null = null;
+  #unsubscribeSettings: (() => void) | null = null;
   #unsubscribe: (() => void) | null = null;
   #pollTimer: unknown = null;
   #debounceTimer: unknown = null;
@@ -94,7 +98,7 @@ export class BotMonitor {
   #refreshAgain = false;
   #disposed = false;
   #markReady: () => void = () => {};
-  /** 第一次拿到快照并取过一次 `bot.status` 之后（成败都算）兑现；`dispose` 时也兑现。 */
+  /** 第一次拿到快照并取过一次 `bot.status` 之后（成败都算）兑现；功能开关关着、`dispose` 时也兑现。 */
   readonly ready: Promise<void>;
 
   constructor(options: BotMonitorOptions) {
@@ -121,25 +125,58 @@ export class BotMonitor {
   }
 
   start(): void {
-    if (this.#unsubscribe || this.#disposed) return;
-    this.#unsubscribe = this.#options.client.subscribeChannels({
-      snapshot: (snapshot) => this.#onSnapshot(snapshot),
-      event: (event) => this.#onEvent(event),
+    if (this.#unsubscribeSettings || this.#disposed) return;
+    this.#unsubscribeSettings = this.#options.client.subscribeSettings({
+      snapshot: (snapshot) => this.#setEnabled(snapshot.settings['features.bot']),
+      event: (event) => {
+        const enabled = event.changed['features.bot'];
+        if (enabled !== undefined) this.#setEnabled(enabled);
+      },
     });
-    this.#pollTimer = this.#timers.setInterval(() => void this.refreshStatus(), this.#options.statusPollMs ?? 60_000);
   }
 
   dispose(): void {
     this.#disposed = true;
+    this.#unsubscribeSettings?.();
+    this.#unsubscribeSettings = null;
+    this.#stopWatching();
+    this.#options.client.close();
+    this.#markReady();
+  }
+
+  #setEnabled(enabled: boolean): void {
+    if (enabled === this.#enabled || this.#disposed) return;
+    this.#enabled = enabled;
+    if (enabled) {
+      this.#unsubscribe = this.#options.client.subscribeChannels({
+        snapshot: (snapshot) => this.#onSnapshot(snapshot),
+        event: (event) => this.#onEvent(event),
+      });
+      this.#pollTimer = this.#timers.setInterval(() => void this.refreshStatus(), this.#options.statusPollMs ?? 60_000);
+      return;
+    }
+    this.#stopWatching();
+    this.#snapshot = null;
+    this.#status = null;
+    this.#updateResidency();
+    // 不留一个开机启动着却什么也不做的后台；再打开时拿到快照会按设置同步回来。
+    try {
+      this.#options.loginItem?.sync(false);
+    } catch (error) {
+      this.#options.log?.('login item sync failed', error);
+    }
+    this.#markReady();
+  }
+
+  #stopWatching(): void {
     this.#unsubscribe?.();
     this.#unsubscribe = null;
     for (const timer of [this.#debounceTimer, this.#tickTimer]) if (timer !== null) this.#timers.clearTimeout(timer);
     if (this.#pollTimer !== null) this.#timers.clearInterval(this.#pollTimer);
     this.#pollTimer = this.#debounceTimer = this.#tickTimer = null;
+    this.#tickAt = null;
     this.#policy.clear();
     this.#options.tray?.hide();
-    this.#options.client.close();
-    this.#markReady();
   }
 
   /**
@@ -147,7 +184,7 @@ export class BotMonitor {
    * 方法、断线）时保留上一次的结果。
    */
   refreshStatus(): Promise<BotStatus | null> {
-    if (this.#disposed) return Promise.resolve(this.#status);
+    if (this.#disposed || !this.#enabled) return Promise.resolve(this.#status);
     if (this.#refreshing) {
       this.#refreshAgain = true;
       return this.#refreshing;
@@ -161,6 +198,11 @@ export class BotMonitor {
           this.#options.log?.('bot.status failed', error);
         }
         if (this.#disposed) return this.#status;
+        // 等回复时开关关了：这份结果不算数。
+        if (!this.#enabled) {
+          this.#status = null;
+          return null;
+        }
         this.#renderTray();
         this.#updateResidency();
       } while (this.#refreshAgain);

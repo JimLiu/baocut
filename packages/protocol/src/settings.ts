@@ -178,6 +178,11 @@ export interface SettingValues {
   'updates.autoDownload': boolean;
   'diagnostics.enabled': boolean;
   'offline.strict': boolean;
+  /**
+   * Bot 模式的功能开关（docs/design/bot-mode）：默认关。关着时界面隐藏 Bot，桌面端不挂托盘、不发通知、不常驻，
+   * Runtime 按暂停全部自动运行处理；频道与任务的数据留着。目前没有界面入口，用 `baocut settings set features.bot true` 打开。
+   */
+  'features.bot': boolean;
 }
 
 export type SettingKey = keyof SettingValues;
@@ -222,6 +227,7 @@ export const SETTING_KEYS = [
   'updates.autoDownload',
   'diagnostics.enabled',
   'offline.strict',
+  'features.bot',
 ] as const satisfies readonly SettingKey[];
 
 export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
@@ -263,6 +269,7 @@ export const SETTING_DEFAULTS: Readonly<SettingValues> = Object.freeze({
   'updates.autoDownload': true,
   'diagnostics.enabled': false,
   'offline.strict': false,
+  'features.bot': false,
 });
 
 /** 给人看的一句说明（设置页与 `baocut settings` 用）。读属性时取当前语言，文案在 `settings-copy.ts`。 */

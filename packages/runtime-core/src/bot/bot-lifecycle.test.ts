@@ -127,6 +127,38 @@ describe('one-shot timers', () => {
   });
 });
 
+describe('the features.bot flag', () => {
+  it('holds automatic work while off and picks it up when it turns on, without touching the pause setting', async () => {
+    const others = kit.clock.timers.size;
+    const item = await scheduledIn(kit.main.id, 'Make chapters', 60_000);
+    kit.botEnabled = false;
+    kit.clock.offset = 2 * 60_000;
+    await kit.bot.fireDue();
+    expect(kit.item(item.id).status).toBe('scheduled');
+    expect(kit.clock.timers.size).toBe(others);
+    await expect(kit.bot.createScheduledItem(kit.main.id, { title: 'Weekly recap', prompt: 'Recap' } as never, 'sch_1', 'run_1')).rejects.toThrow();
+    await kit.bot.resumeAutomation();
+    expect(kit.item(item.id).status).toBe('scheduled');
+    expect(kit.bot.settings().automationPaused).toBe(false);
+
+    kit.botEnabled = true;
+    await kit.bot.resumeAutomation();
+    await kit.until(() => kit.item(item.id).status !== 'scheduled');
+    await kit.settle();
+  });
+
+  it('turning it on does not lift a pause the user set', async () => {
+    const item = await scheduledIn(kit.main.id, 'Make chapters', 60_000);
+    await kit.bot.pauseAutomation(true);
+    kit.botEnabled = false;
+    kit.clock.offset = 2 * 60_000;
+    kit.botEnabled = true;
+    await kit.bot.resumeAutomation();
+    expect(kit.item(item.id).status).toBe('scheduled');
+    expect(kit.bot.settings().automationPaused).toBe(true);
+  });
+});
+
 describe('moving a task', () => {
   it('BOT-TK-09 the thread follows the task: its channel, working folder and notes move too', async () => {
     const item = await kit.startTask('Draft captions');

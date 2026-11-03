@@ -1333,6 +1333,7 @@ library/
 | `runtime.idleExitMinutes` | 1–1440 的整数（分钟） | `10` | CLI 拉起的 Runtime 空闲（没有在用的本机网关连接、没有排队或运行中的任务、没有开着的对外服务；只查状态的 CLI 连接不算在用）满这么久自己退出（§2.2）；桌面端退出时选了在后台继续的 Runtime 也按它在活做完之后退出（§2.2 退出）；其余桌面端与手动启动的不受影响 |
 | `diagnostics.enabled` | 布尔 | `false` | 匿名使用统计与性能摘要（§12.6） |
 | `offline.strict` | 布尔 | `false` | 严格离线（目前拒绝本地模型的下载（§6.3）、受管外部工具的下载（§12.9）、字体的下载（§9.1）与从链接导入（§7.9）；尚未拦截在线调用；产品设计 §12） |
+| `features.bot` | 布尔 | `false` | [Bot 模式](../design/bot-mode/README.md)的功能开关。关着时界面隐藏 Bot 入口、页面与设置（旧链接落到 Home 或设置的通用页），桌面端不挂托盘、不发通知、不常驻、撤下开机启动，Runtime 按暂停全部自动运行处理；频道与任务的数据留着，打开后接着用。没有界面入口，用 `baocut settings set features.bot true` 打开 |
 
 CLI 的 `baocut settings`（列出键、当前值、是否默认）、`settings get <键>`、`settings set <键> <值>`（值按 JSON 解析，解析不了按字符串）与 `settings reset <键>` 用的是同一组方法。
 

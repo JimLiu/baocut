@@ -9,7 +9,8 @@ import { sideTabFromRoute } from '../model/bot-side.ts';
 import { isVideoReferenced, targetKey } from '../model/workspace.ts';
 import { isBotVideoReferenced, useBotLayout } from '../state/bot-layout-store.ts';
 import { useHelp } from '../state/help-store.ts';
-import { HOME, hasSidebar, routeVideo, useShell } from '../state/shell-store.ts';
+import { useBotEnabled, useSettings } from '../state/settings-store.ts';
+import { HOME, hasSidebar, routeVideo, routeWithoutBot, useShell } from '../state/shell-store.ts';
 import { useVideo } from '../state/video-store.ts';
 import { AppUpdateHost } from './app-update/app-update-host.tsx';
 import { AttentionHost } from './attention-host.tsx';
@@ -75,6 +76,15 @@ export function AppShell({ platform }: { platform: string }) {
   const botVideo = useBotLayout((s) => (botTab ? s.videos[botTab.key] : undefined));
   const video = routeVideo(route) ?? botVideo;
   const sheetRef = useRef<HTMLElement>(null);
+
+  // Bot 模式的功能开关（`features.bot`）关着：指向 Bot 的路由换掉。等设置快照到了才判断，开着时重新载入不丢位置。
+  const botEnabled = useBotEnabled();
+  const settingsLoaded = useSettings((s) => s.snapshot !== null);
+  useEffect(() => {
+    if (!settingsLoaded || botEnabled) return;
+    const fallback = routeWithoutBot(route);
+    if (fallback) useShell.getState().replace(fallback);
+  }, [settingsLoaded, botEnabled, route]);
 
   // 打开的视频跟着路由走：同一个视频在 Home 与 Space 之间切换时不重新打开；路由换到另一个视频时，打开它会先关掉旧的。
   // 路由上没有视频（换到文件标签、换会话、收起右侧区域、去别的入口）时，只要还有哪条会话的功能区标签、哪个 Bot 的视频产物页签
@@ -159,7 +169,8 @@ export function AppShell({ platform }: { platform: string }) {
             ) : route.tab === 'models' ? (
               <SettingsPage model={route} platform={platform} />
             ) : route.tab === 'bot' ? (
-              <BotPage channelId={route.channelId} workItemId={route.workItemId} view={route.view} output={route.output ?? null} />
+              // 开关关着时不挂：Bot 页一挂上就会建主频道。
+              botEnabled ? <BotPage channelId={route.channelId} workItemId={route.workItemId} view={route.view} output={route.output ?? null} /> : null
             ) : (
               <ToolsPage tool={route.tool} />
             )}
@@ -173,9 +184,9 @@ export function AppShell({ platform }: { platform: string }) {
         {/* 提醒：会话等你、任务做完或失败时按你在不在跟前提示或发系统通知，徽标是在等你的会话条数（产品设计 §3.1）。 */}
         <AttentionHost />
         {/* Bot 的提醒：在跟前时弹一条提示，静音频道与正在看的频道不弹。 */}
-        <BotNotificationHost />
+        {botEnabled ? <BotNotificationHost /> : null}
         {/* Bot 的频道菜单、侧栏「＋」与分组行开的对话框：侧栏浮出时开的也不跟着侧栏卸下。 */}
-        <BotDialogs />
+        {botEnabled ? <BotDialogs /> : null}
         {/* 启动时的旧版项目导入询问：Runtime 发现还没导入的旧版项目、又没有记下决定时问一次（Web 不问）。 */}
         <LegacyImportHost />
         {/* 首次启动引导：旧版导入的询问答完再弹（挂在它后面）；引导里勾上的 Agent 在这里排队安装（Web 不弹）。 */}

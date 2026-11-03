@@ -46,6 +46,7 @@ import { useRuntime } from '../runtime/context.tsx';
 import { useAppUpdate } from '../state/app-update-store.ts';
 import { useConnection } from '../state/connection-store.ts';
 import { useHelp } from '../state/help-store.ts';
+import { useBotEnabled } from '../state/settings-store.ts';
 import { hrefFor, useShell, type ProvidersFrom, type SettingsSection, type Route } from '../state/shell-store.ts';
 import { CATEGORY_ICON, ModelSettings } from './models-page.tsx';
 import { ProvidersSection } from './models/api-providers-page.tsx';
@@ -195,7 +196,7 @@ const labelOf = (key: SettingsSection) => SETTINGS_SECTION_INFO.find((s) => s.ke
  * 窗口窄时左栏收起，换成正文顶上的分节下拉（换节用 replace，和点左栏一样不进前进后退）。
  * 左栏底部（窄窗时是下拉条末尾的图标按钮）是帮助中心的入口（设计稿 page-settings.jsx）。
  */
-export function SettingsPage({ section = 'general', providerId, from, model, platform }: {
+export function SettingsPage({ section: requested = 'general', providerId, from, model, platform }: {
   section?: SettingsSection;
   providerId?: string;
   from?: ProvidersFrom;
@@ -205,6 +206,9 @@ export function SettingsPage({ section = 'general', providerId, from, model, pla
   const replace = useShell((s) => s.replace);
   const web = useRuntime().host.platform === 'web';
   const last = useShell((s) => s.modelPages);
+  // `features.bot` 关着时左栏没有 Bot 这一节；路由由外壳改写（AppShell），这一帧先画通用页。
+  const botEnabled = useBotEnabled();
+  const section = requested === 'bot' && !botEnabled ? 'general' : requested;
   const selected = model?.category ?? section;
   const modelItems = MODEL_CATEGORY_INFO.map((item) => ({
     ...item,
@@ -221,7 +225,7 @@ export function SettingsPage({ section = 'general', providerId, from, model, pla
   const sectionGroups = SETTINGS_GROUPS.map((group) => ({
     ...group,
     // 字体只在桌面端：浏览器会话没有 `fonts.*`。
-    items: group.keys.filter((key) => key !== 'fonts' || !web).map(sectionItem),
+    items: group.keys.filter((key) => (key !== 'fonts' || !web) && (key !== 'bot' || botEnabled)).map(sectionItem),
   }));
   type NavGroup = {
     id: string;

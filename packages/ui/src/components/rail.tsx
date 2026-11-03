@@ -13,6 +13,7 @@ import { S } from './shell-copy.ts';
 import { useShell, railTabOf, type Tab } from '../state/shell-store.ts';
 import { useJobs } from '../state/jobs-store.ts';
 import { useLegacyImport } from '../state/legacy-import-store.ts';
+import { useBotEnabled } from '../state/settings-store.ts';
 import { isLive, useTasks } from '../state/tasks-store.ts';
 import { listedTasks, liveJobRowCount } from '../model/task-list.ts';
 import { UpdateRailButton } from './app-update/update-rail-button.tsx';
@@ -94,6 +95,7 @@ export function Rail() {
   const servicesAlert = useServicesAlert();
   // 侧栏隐藏时悬停入口浮出该区域的侧栏（产品设计 §2.5；设置没有侧栏，在 shell-peek 里跳过）。
   const peek = useShellPeekControls();
+  const botEnabled = useBotEnabled();
 
   const button = ({ tab, label, Icon }: RailTab) => {
     const badge = tab === 'tasks' && running ? <NotificationBadge value={running} /> : null;
@@ -121,7 +123,7 @@ export function Rail() {
     // `data-shell-peek-keep`：在 Rail 上按下不关侧栏浮层。
     <nav className={rail} data-bc-icons="primary" data-shell-peek-keep="" aria-label={S.rail.nav}>
       <div>
-        <div className={group} aria-label={S.rail.primary}>{PRIMARY.map(button)}</div>
+        <div className={group} aria-label={S.rail.primary}>{PRIMARY.filter(({ tab }) => tab !== 'bot' || botEnabled).map(button)}</div>
         <hr className={divider} />
         <div className={group} aria-label={S.rail.secondary}>{SECONDARY.map(button)}</div>
       </div>

@@ -176,6 +176,8 @@ export interface BotServiceOptions {
   schedules?: BotSchedules | null;
   /** 新频道的默认 Driver 与访问模式（偏好设置）。 */
   defaults: () => { driverId: DriverId | null; accessMode: AgentMode | null };
+  /** 功能开关 `features.bot`：关着时按暂停全部自动运行处理（`#automationHalted`）。缺省开着。 */
+  enabled?: () => boolean;
   clock?: BotClock;
   /** 种子回合等多久没写出消息就兜底（毫秒）。 */
   seedTimeoutMs?: number;
@@ -284,6 +286,7 @@ export class BotService {
   readonly #make: MakeGenerator | null;
   #schedules: BotSchedules | null;
   readonly #defaults: BotServiceOptions['defaults'];
+  readonly #enabled: () => boolean;
   readonly #clock: BotClock;
   readonly #seedTimeoutMs: number;
 
@@ -329,6 +332,7 @@ export class BotService {
     this.#make = options.make ?? null;
     this.#schedules = options.schedules ?? null;
     this.#defaults = options.defaults;
+    this.#enabled = options.enabled ?? (() => true);
     this.#clock = options.clock ?? systemClock;
     this.#seedTimeoutMs = options.seedTimeoutMs ?? 60_000;
     this.#channelsTopic = new TopicLog(() => this.channelsSnapshot(), '0');
@@ -1697,7 +1701,7 @@ export class BotService {
   /** 开工：闸门有空位就开线程投简报，否则回到 upNext 排队（§18.1）。 */
   async #launch(item: WorkItem, options: { attended?: boolean; brief?: string; cited?: CitedMessage[]; fileOwnership?: string | null }): Promise<void> {
     const deps = item.dependsOn.map((d) => this.#items.get(d)).filter((d): d is WorkItem => !!d && d.status !== 'resolved');
-    if (deps.length || !this.#slotFree(item.channelId, item.id) || this.settings().automationPaused || this.#channels.get(item.channelId)?.archived) {
+    if (deps.length || !this.#slotFree(item.channelId, item.id) || this.#automationHalted || this.#channels.get(item.channelId)?.archived) {
       const queued: WorkItem = {
         ...item,
         status: 'upNext',
@@ -1768,7 +1772,7 @@ export class BotService {
     // 等你决定的任务（用户停下、预算或没进展卡住）不叫醒：线程会接着花钱。挡下的等任务回到工作中再交。
     if (heldForUser(item) && !this.#stalledOnJob(item)) return false;
     const channel = this.#channels.get(item.channelId);
-    if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(item.channelId, item.id)) return false;
+    if (this.#stopped || this.#automationHalted || !channel || channel.archived || !this.#slotFree(item.channelId, item.id)) return false;
     this.#jobWaking.add(item.id);
     return true;
   }
@@ -1792,7 +1796,7 @@ export class BotService {
 
   /** 空出位置时按顺序开排队的任务。 */
   async #pump(): Promise<void> {
-    if (this.#stopped || this.settings().automationPaused) return;
+    if (this.#stopped || this.#automationHalted) return;
     // 先叫醒等到了、却因为没空位还停着的任务：它们比排队的新任务先占位。
     for (const id of [...this.#readyToWake.keys()]) {
       const item = this.#items.get(id);
@@ -1879,7 +1883,7 @@ export class BotService {
     if (report?.waitingFor?.jobIds.length && !resolved && !this.#readyToWake.has(current.id)) return;
     if (this.#anyOpen([...current.dependsOn, ...waitingOn])) return;
     const channel = this.#channels.get(current.channelId);
-    if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) {
+    if (this.#stopped || this.#automationHalted || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) {
       this.#readyToWake.set(current.id, resolved ? { ...resolved } : (this.#readyToWake.get(current.id) ?? null));
       return;
     }
@@ -1921,7 +1925,7 @@ export class BotService {
     if (!thread || thread.activeTaskId || this.#harness.runInfo(thread.id) || this.#harness.gatedJobWakes().includes(thread.id)) return;
     if (!(await this.#workspace.jobsFinished(jobs).catch(() => false))) return;
     const channel = this.#channels.get(current.channelId);
-    if (this.#stopped || this.settings().automationPaused || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) return;
+    if (this.#stopped || this.#automationHalted || !channel || channel.archived || !this.#slotFree(current.channelId, current.id)) return;
     const latest = this.#items.get(current.id);
     if (latest?.status !== 'active' || latest.active?.state !== 'waitingOnOthers') return;
     const cycle = `${latest.lastReportId ?? 'none'}_${Date.parse(latest.active.since) || 0}`;
@@ -2833,7 +2837,7 @@ export class BotService {
     this.#cancelOneShot?.();
     this.#cancelOneShot = null;
     // 暂停了自动运行时不挂定时：到点的条目在恢复时由 `pauseAutomation(false)` 补跑，否则过期的条目会让定时器空转。
-    if (this.#stopped || this.settings().automationPaused) return;
+    if (this.#stopped || this.#automationHalted) return;
     const now = this.#clock.now();
     const due = [...this.#items.values()].filter((i) => this.#oneShotEligible(i)).map((i) => Date.parse(i.startAt!));
     if (due.length === 0) return;
@@ -2851,7 +2855,7 @@ export class BotService {
     const now = this.#clock.now();
     for (const item of [...this.#items.values()]) {
       if (!this.#oneShotEligible(item) || !item.startAt || Date.parse(item.startAt) > now) continue;
-      if (this.settings().automationPaused) break;
+      if (this.#automationHalted) break;
       const late = now - Date.parse(item.startAt);
       await this.transition(item.id, { type: 'due' }, { actor: 'system' }).catch(() => {});
       if (late > ONE_SHOT_GRACE_MS) {
@@ -3280,7 +3284,7 @@ export class BotService {
    */
   async #autoMakeAllowed(channel: Channel, runId: Id, trigger: string): Promise<boolean> {
     // 设置里关了 Make 的自动触发（需求 §11.8）：只剩手动的。
-    if (this.settings().automationPaused || this.settings().makeAutoTrigger === false || channel.archived) return false;
+    if (this.#automationHalted || this.settings().makeAutoTrigger === false || channel.archived) return false;
     const runs = (await this.#files.readMakeRuns(channel.id).catch(() => [])) as { at?: string; trigger?: string; reason?: string }[];
     const today = localDay(new Date(this.#clock.now()), this.#timeZone());
     const autoToday = runs.filter((r) => r.trigger !== 'manual' && !r.reason && r.at && localDay(new Date(r.at), this.#timeZone()) === today).length;
@@ -3379,7 +3383,7 @@ export class BotService {
   // ---- 定时任务建任务（§11.1） ----
 
   async createScheduledItem(channelId: Id, template: WorkItemTemplate, scheduleId: Id, runId: Id): Promise<{ workItemId: Id }> {
-    if (this.settings().automationPaused) throw new RpcError('unsupported', RcBot.automationPaused());
+    if (this.#automationHalted) throw new RpcError('unsupported', RcBot.automationPaused());
     const existing = [...this.#items.values()].find((i) => i.source.runId === runId);
     if (existing) return { workItemId: existing.id };
     const item = await this.createItem(
@@ -3465,13 +3469,22 @@ export class BotService {
     };
   }
 
+  /** 不自动开工：用户暂停了全部自动运行，或功能开关关着。用户的暂停单独记在设置里，开关不动它。 */
+  get #automationHalted(): boolean {
+    return this.settings().automationPaused || !this.#enabled();
+  }
+
   async pauseAutomation(paused: boolean): Promise<boolean> {
     await this.updateSettings({ automationPaused: paused });
-    if (!paused) {
-      await this.#pump();
-      await this.fireDue();
-    }
+    if (!paused) await this.resumeAutomation();
     return paused;
+  }
+
+  /** 恢复之后接着做攒下的活：取消暂停，或功能开关打开时。还停着就不动。 */
+  async resumeAutomation(): Promise<void> {
+    if (this.#automationHalted) return;
+    await this.#pump();
+    await this.fireDue();
   }
 
   // ---- 线程会话的角色指令（§6.2） ----

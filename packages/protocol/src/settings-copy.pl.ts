@@ -36,6 +36,7 @@ export const pl: SettingDescriptionMessages = {
     "Zaawansowane: zasoby maszyny do planowania { memoryMiB, gpuMemoryMiB, cpuThreads }; pole null wykrywane automatycznie; całość null wykrywa wszystko (pamięć i CPU z systemu, GPU Apple silicon szacowane z pamięci zunifikowanej)",
   'runtime.idleExitMinutes':
     "Minuty bezczynności Runtime uruchomionego przez CLI do samoczynnego wyjścia (1–1440): brak połączeń, zadań i usług zewnętrznych. Runtime pozostawiony w tle przy zamykaniu aplikacji komputerowej też kończy pracę po tym czasie od zakończenia zadań. Pozostałe bez zmian",
+  'features.bot': "Włącz tryb Bot (wersja zapoznawcza): pokazuje stronę i ustawienia Bota oraz pozwala kanałom pracować w tle. Gdy jest wyłączony, Bot pozostaje ukryty, a jego automatyczna praca jest wstrzymana",
   'updates.autoCheck': "Sprawdzaj aktualizacje aplikacji automatycznie",
   'updates.autoDownload': "Pobieraj nowe wersje w tle (bez automatycznej instalacji)",
   'diagnostics.enabled': "Wysyłaj anonimowe statystyki użycia i podsumowania wydajności (bez multimediów, tekstu i ścieżek)",

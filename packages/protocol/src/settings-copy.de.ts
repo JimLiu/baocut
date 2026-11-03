@@ -40,6 +40,7 @@ export const de: SettingDescriptionMessages = {
     "Erweitert: Computerkapazität für Ressourcenplanung { memoryMiB, gpuMemoryMiB, cpuThreads }; null für einen Eintrag erkennt ihn automatisch; null erkennt alles (Speicher und CPU stammen vom System; GPU-Speicher bei Apple silicon wird aus gemeinsamem Speicher geschätzt)",
   'runtime.idleExitMinutes':
     "Minuten, die eine von der CLI gestartete Runtime untätig bleibt, bevor sie sich beendet (1–1440): keine Verbindungen, Aufgaben oder offenen externen Dienste. Eine beim Beenden der Desktop-App im Hintergrund weiterlaufende Runtime beendet sich ebenfalls so lange nach Abschluss ihrer Aufgaben. Andere Runtimes sind nicht betroffen",
+  'features.bot': "Bot-Modus aktivieren (Vorschau): zeigt die Bot-Seite und -Einstellungen und lässt Kanäle im Hintergrund arbeiten. Solange er aus ist, ist Bot ausgeblendet und seine automatische Arbeit pausiert",
   'updates.autoCheck': "Automatisch nach App-Updates suchen",
   'updates.autoDownload': "Neue Versionen im Hintergrund herunterladen (ohne automatische Installation)",
   'diagnostics.enabled': "Anonyme Nutzungsstatistiken und Leistungszusammenfassungen senden (keine Medien, Texte oder Pfade)",

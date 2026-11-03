@@ -926,6 +926,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       }),
       make: textMakeGenerator(() => models.services.textGenerator()),
       defaults: () => ({ driverId: null, accessMode: null }),
+      enabled: () => settings.store.get('features.bot'),
       schedules: {
         // 提议同意的访问模式已经放进了模板（`template.accessMode`），每次建出的任务按它开工。
         createForChannel: async ({ channel, name, cadence, template }) => {
@@ -965,6 +966,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     settings.store.onChange((changed) => {
       if ('agent.defaultDriver' in changed || 'agent.defaultModel' in changed) harness.agentsChanged();
       if ('agent.customInstructions' in changed) harness.instructionsChanged();
+      if (changed['features.bot']) void botService.resumeAutomation().catch((error: unknown) => log.warn('Resuming bot mode failed', { error: String(error) }));
     });
     skills.onChange(() => harness.instructionsChanged());
     // 会话里的智能体从链接下载、解析出平台给的标题时，按第一句话起的会话标题换成它（产品设计 §3.1）。

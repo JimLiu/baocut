@@ -744,6 +744,7 @@ export const settingValueSchemas = {
   'updates.autoDownload': z.boolean(),
   'diagnostics.enabled': z.boolean(),
   'offline.strict': z.boolean(),
+  'features.bot': z.boolean(),
 } satisfies { [K in SettingKey]: z.ZodType<SettingValues[K]> };
 
 /** 模型下载来源的基址：`http(s)://`，不带凭据、查询参数与片段（凭据不得出现在 URL 里）。 */

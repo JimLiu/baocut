@@ -16,8 +16,9 @@ afterEach(() => {
 
 const MIN = 60_000;
 
-function setup(platform: NodeJS.Platform = 'darwin', trayFallback?: () => boolean) {
+function setup(platform: NodeJS.Platform = 'darwin', trayFallback?: () => boolean, botEnabled = true) {
   const fake = new FakeClient();
+  fake.botEnabled = botEnabled;
   const timers = new FakeTimers();
   const notifier = new FakeNotifier();
   const hosts: FakeTrayHost[] = [];
@@ -72,6 +73,67 @@ function notification(timers: FakeTimers, overrides: Partial<BotNotificationEven
 async function flush() {
   for (let i = 0; i < 5; i++) await Promise.resolve();
 }
+
+describe('BotMonitor with the features.bot flag', () => {
+  it('stays out of the way while the flag is off: no channels, polling, tray or residency, and no login item', async () => {
+    const { monitor, fake, timers, hosts, residency, loginSync } = setup('darwin', undefined, false);
+    await monitor.ready;
+    expect(fake.handlers).toBeNull();
+    expect(timers.intervals.size).toBe(0);
+    expect(fake.requests).toEqual([]);
+    expect(hosts).toEqual([]);
+    expect(monitor.resident).toBe(false);
+    expect(residency).toEqual([]);
+    expect(loginSync.mock.calls).toEqual([[false]]);
+  });
+
+  it('starts watching when the flag turns on and syncs the login item from the settings', async () => {
+    const { monitor, fake, timers, hosts, loginSync } = setup('darwin', undefined, false);
+    fake.setBotEnabled(true);
+    expect(fake.handlers).not.toBeNull();
+    expect(timers.intervals.size).toBe(1);
+    fake.status = botStatus({ resident: true });
+    fake.snapshot(channelsSnapshot([], { background: true, trayIcon: true, openAtLogin: true }));
+    await flush();
+    expect(hosts).toHaveLength(1);
+    expect(monitor.resident).toBe(true);
+    expect(loginSync.mock.calls.at(-1)).toEqual([true]);
+  });
+
+  it('winds everything down when the flag turns off, and comes back when it turns on again', async () => {
+    const { monitor, fake, timers, hosts, residency, loginSync } = setup();
+    fake.status = botStatus({ resident: true });
+    fake.snapshot(channelsSnapshot([], { background: true, trayIcon: true, openAtLogin: true }));
+    await flush();
+    expect(monitor.resident).toBe(true);
+
+    fake.setBotEnabled(false);
+    expect(fake.unsubscribed).toBe(true);
+    expect(fake.closed).toBe(false);
+    expect(timers.intervals.size).toBe(0);
+    expect(hosts[0]!.destroyed).toBe(true);
+    expect(monitor.resident).toBe(false);
+    expect(residency.at(-1)?.resident).toBe(false);
+    expect(loginSync.mock.calls.at(-1)).toEqual([false]);
+
+    fake.setBotEnabled(true);
+    fake.snapshot(channelsSnapshot([], { background: true, trayIcon: true, openAtLogin: true }));
+    await flush();
+    expect(monitor.resident).toBe(true);
+    expect(hosts).toHaveLength(2);
+    expect(loginSync.mock.calls.at(-1)).toEqual([true]);
+  });
+
+  it('drops a status reply that arrives after the flag turned off', async () => {
+    const { monitor, fake } = setup();
+    fake.status = botStatus({ resident: true });
+    fake.snapshot(channelsSnapshot([], { background: true }));
+    fake.setBotEnabled(false);
+    await flush();
+    expect(monitor.status).toBeNull();
+    expect(monitor.resident).toBe(false);
+  });
+});
 
 describe('BotMonitor', () => {
   it('subscribes channels; the tray is off by default and follows the tray icon setting, with no count', async () => {

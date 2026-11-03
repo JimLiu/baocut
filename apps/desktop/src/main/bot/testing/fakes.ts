@@ -1,12 +1,15 @@
 import type { TopicHandlers } from '@baocut/client';
 import {
   DEFAULT_BOT_SETTINGS,
+  SETTING_DEFAULTS,
   type BotSettings,
   type BotStatus,
   type Channel,
   type ChannelSummary,
   type ChannelsEvent,
   type ChannelsSnapshot,
+  type SettingsEvent,
+  type SettingsSnapshot,
 } from '@baocut/protocol';
 import type { BotClient, MonitorTimers, NotificationContent, NotificationHost } from '../bot-monitor.ts';
 import type { TrayHost, TrayMenuItem } from '../tray.ts';
@@ -44,6 +47,9 @@ export class FakeNotifier implements NotificationHost {
 /** A BaoCutClient stand-in: the test pushes snapshots and events, and answers requests. */
 export class FakeClient {
   handlers: TopicHandlers<ChannelsSnapshot, ChannelsEvent> | null = null;
+  settingsHandlers: TopicHandlers<SettingsSnapshot, SettingsEvent> | null = null;
+  /** What the `settings` snapshot reports for `features.bot` when the monitor subscribes. */
+  botEnabled = true;
   requests: { method: string; params: unknown }[] = [];
   status: BotStatus = botStatus();
   statusError: Error | null = null;
@@ -54,8 +60,18 @@ export class FakeClient {
     return {
       subscribeChannels: (handlers: TopicHandlers<ChannelsSnapshot, ChannelsEvent>) => {
         this.handlers = handlers;
+        this.unsubscribed = false;
         return () => {
+          this.handlers = null;
           this.unsubscribed = true;
+        };
+      },
+      subscribeSettings: (handlers: TopicHandlers<SettingsSnapshot, SettingsEvent>) => {
+        this.settingsHandlers = handlers;
+        const settings = { ...SETTING_DEFAULTS, 'features.bot': this.botEnabled };
+        handlers.snapshot({ settings, defaults: SETTING_DEFAULTS }, '1:1' as never);
+        return () => {
+          this.settingsHandlers = null;
         };
       },
       request: (async (method: string, params: unknown) => {
@@ -83,6 +99,10 @@ export class FakeClient {
 
   event(event: ChannelsEvent) {
     this.handlers!.event(event, '1:2' as never);
+  }
+
+  setBotEnabled(enabled: boolean) {
+    this.settingsHandlers!.event({ type: 'settings.updated', changed: { 'features.bot': enabled } }, '1:2' as never);
   }
 }
 

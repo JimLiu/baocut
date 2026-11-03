@@ -703,6 +703,15 @@ export function railTabOf(route: Route): Exclude<Tab, 'models'> {
 
 export const BOT_HOME: Route = { tab: 'bot', channelId: null, workItemId: null, view: 'channel' };
 
+/**
+ * `features.bot` 关着时，指向 Bot 页面或 Bot 设置节的路由（旧链接、前进后退、恢复的位置）该落到哪里；不指向 Bot 的给 null。
+ */
+export function routeWithoutBot(route: Route): Route | null {
+  if (route.tab === 'bot') return HOME;
+  if (route.tab === 'settings' && route.section === 'bot') return { tab: 'settings', section: 'general' };
+  return null;
+}
+
 export function defaultRoute(tab: Tab): Route {
   if (tab === 'home') return HOME;
   if (tab === 'bot') return BOT_HOME;

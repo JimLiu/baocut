@@ -174,6 +174,8 @@ export class BotKit {
   events: ChannelsEvent[] = [];
   runs: RunEvent[] = [];
   main!: Channel;
+  /** 功能开关 `features.bot` 的取值。 */
+  botEnabled = true;
   /** 协调者与线程的默认脚本；`scripts` 按会话覆盖。 */
   coordinator: BotScript = () => {};
   thread: BotScript = () => {};
@@ -219,6 +221,7 @@ export class BotKit {
       make: this.make,
       schedules: this.schedules,
       defaults: () => ({ driverId: null, accessMode: options.followPreferences ? null : 'fullAccess' }),
+      enabled: () => this.botEnabled,
       clock: this.clock,
       seedTimeoutMs: options.seedTimeoutMs ?? 60_000,
     });

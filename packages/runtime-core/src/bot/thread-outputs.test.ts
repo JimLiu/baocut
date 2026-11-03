@@ -168,6 +168,7 @@ describe.skipIf(!engine || !ffmpeg)('a thread export in the running Runtime (rea
       reconnect: false,
     });
     await client.connect();
+    await client.request('settings.set', { values: { 'features.bot': true } });
   });
 
   afterEach(async () => {

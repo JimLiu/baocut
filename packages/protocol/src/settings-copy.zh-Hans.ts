@@ -36,6 +36,7 @@ export const zhHans: SettingDescriptionMessages = {
     '高级：资源调度用的机器容量 { memoryMiB, gpuMemoryMiB, cpuThreads }，某项为 null 时自动探测；null 为全部自动（内存与 CPU 取自系统，Apple 芯片的 GPU 内存按统一内存估计）',
   'runtime.idleExitMinutes':
     'CLI 拉起的 Runtime 空闲多少分钟后自己退出（1–1440）：没有连接、没有任务、没有开着的对外服务。桌面端退出时留在后台继续的 Runtime 也在任务做完这么久后退出。其余的不受影响',
+  'features.bot': "开启 Bot 模式（预览）：显示 Bot 页面与设置，频道可以在后台工作。关闭时隐藏 Bot，并暂停它的自动运行",
   'updates.autoCheck': '自动检查应用更新',
   'updates.autoDownload': '有新版本时在后台下载（不自动安装）',
   'diagnostics.enabled': '发送匿名的使用统计与性能摘要（不含媒体、文本与路径）',

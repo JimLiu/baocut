@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { webVideoHref, type FileTarget } from '@baocut/protocol';
-import { HOME, hasSidebar, hrefFor, migrateShell, parseHref, railTabOf, useShell, type Route } from './shell-store.ts';
+import { BOT_HOME, HOME, hasSidebar, hrefFor, migrateShell, parseHref, railTabOf, routeWithoutBot, useShell, type Route } from './shell-store.ts';
 import { itemKey } from '../model/workspace.ts';
 
 // Node 里没有可用的 localStorage：给持久化一个内存版本，先于 store 模块加载。
@@ -138,6 +138,17 @@ describe('界面内链接', () => {
     expect(hasSidebar({ tab: 'settings', section: 'about' })).toBe(false);
     expect(hasSidebar({ tab: 'models', category: 'llm' })).toBe(false);
     expect(hasSidebar({ tab: 'skills', id: 'x' })).toBe(false);
+  });
+});
+
+describe('Bot 功能开关关着时的路由', () => {
+  it('Bot 页面落到 Home，Bot 设置节落到通用页，别的路由不动', () => {
+    expect(routeWithoutBot(BOT_HOME)).toEqual(HOME);
+    expect(routeWithoutBot({ tab: 'bot', channelId: 'chan_a', workItemId: 'wi_a', view: 'task' })).toEqual(HOME);
+    expect(routeWithoutBot({ tab: 'settings', section: 'bot' })).toEqual({ tab: 'settings', section: 'general' });
+    expect(routeWithoutBot({ tab: 'settings', section: 'agent' })).toBeNull();
+    expect(routeWithoutBot(HOME)).toBeNull();
+    expect(routeWithoutBot({ tab: 'tasks' })).toBeNull();
   });
 });
 

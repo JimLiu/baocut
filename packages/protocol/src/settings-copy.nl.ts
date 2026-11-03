@@ -40,6 +40,7 @@ export const nl: SettingDescriptionMessages = {
     "Geavanceerd: machinecapaciteit voor middelenplanning { memoryMiB, gpuMemoryMiB, cpuThreads }; een item ingesteld op null wordt automatisch gedetecteerd; null detecteert alles (geheugen en CPU komen van het systeem, GPU-geheugen op Apple silicon wordt geschat vanuit gedeeld geheugen)",
   'runtime.idleExitMinutes':
     "Minuten dat een door de CLI gestarte Runtime inactief blijft voordat die zelf afsluit (1–1440): geen verbindingen, taken of open externe diensten. Een Runtime die bij het afsluiten van de desktop-app op de achtergrond bleef doorlopen, sluit ook zo lang na het afronden van de taken af. Andere Runtimes worden niet beïnvloed",
+  'features.bot': "Bot-modus inschakelen (preview): toont de Bot-pagina en -instellingen en laat kanalen op de achtergrond werken. Zolang deze uit staat, blijft Bot verborgen en is het automatische werk gepauzeerd",
   'updates.autoCheck': "Automatisch controleren op app-updates",
   'updates.autoDownload': "Nieuwe versies op de achtergrond downloaden (zonder automatisch te installeren)",
   'diagnostics.enabled': "Anonieme gebruiksstatistieken en prestatiesamenvattingen verzenden (geen media, tekst of paden)",

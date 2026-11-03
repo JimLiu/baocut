@@ -19,3 +19,8 @@ export const useSettings = create<SettingsStore>()((set) => ({
 export function useSetting<K extends keyof SettingValues>(key: K): SettingValues[K] | null {
   return useSettings((s) => s.snapshot?.settings[key] ?? null);
 }
+
+/** Bot 模式的功能开关（`features.bot`）：快照没到时当作关，不先露出来再藏回去。 */
+export function useBotEnabled(): boolean {
+  return useSetting('features.bot') === true;
+}

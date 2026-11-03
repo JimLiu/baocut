@@ -39,6 +39,7 @@ export const ja: SettingDescriptionMessages = {
     '詳細：リソースのスケジューリングに使うマシンの容量 { memoryMiB, gpuMemoryMiB, cpuThreads }。null にした項目は自動で検出します。null はすべて自動検出（メモリと CPU はシステムから取得し、Apple シリコンの GPU メモリはユニファイドメモリから推定）',
   'runtime.idleExitMinutes':
     'CLI が起動した Runtime が、アイドル状態が何分続いたら自動で終了するか（1〜1440）：接続なし、タスクなし、開いている外部サービスなしの状態。デスクトップアプリの終了時にバックグラウンドで実行を続けた Runtime も、タスクの完了からこの時間が経つと終了します。それ以外の Runtime には影響しません',
+  'features.bot': "Bot モードを有効にします（プレビュー）：Bot ページと設定を表示し、チャンネルがバックグラウンドで作業できるようにします。オフの間は Bot を非表示にし、自動実行を一時停止します",
   'updates.autoCheck': 'アプリの更新を自動で確認',
   'updates.autoDownload': '新しいバージョンをバックグラウンドでダウンロード（自動ではインストールしません）',
   'diagnostics.enabled': '匿名の使用統計とパフォーマンスの概要を送信（メディア、テキスト、パスは含みません）',
