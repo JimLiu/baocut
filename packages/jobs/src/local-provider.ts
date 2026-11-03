@@ -139,10 +139,21 @@ export interface LocalSeparateRun {
   sampleRate: number | null;
   /** 输出写在这里（绝对路径，已存在的目录）。 */
   staging: string;
+  /** 另写鼓、贝斯与其他三轨（只有 HTDemucs 系的模型能出）。 */
+  allStems?: boolean;
 }
 
 export type LocalSeparateOutcome =
-  { outcome: 'cancelled' } | { outcome: 'completed'; vocals: string; background: string; result: SeparateRunResult; workerVersion: string };
+  | { outcome: 'cancelled' }
+  | {
+      outcome: 'completed';
+      vocals: string;
+      background: string;
+      /** `allStems` 时的另外三轨。 */
+      extraStems?: { drums: string; bass: string; other: string };
+      result: SeparateRunResult;
+      workerVersion: string;
+    };
 
 /** 已有转写的说话人区分的一次调用（`job.run` 的 `diarize`，Model Worker 协议规范 §2.5.5）。 */
 export interface LocalDiarizeRun {
@@ -321,7 +332,7 @@ export class LocalTranscribeProvider implements TranscribeProvider {
           runGeneration: 1,
           capability: 'separate',
           input: run.input,
-          options: { sampleRate: run.sampleRate },
+          options: { sampleRate: run.sampleRate, ...(run.allStems ? { allStems: true } : {}) },
           staging: run.staging,
           outputContract: STEMS_WAV_CONTRACT,
         },
@@ -332,17 +343,22 @@ export class LocalTranscribeProvider implements TranscribeProvider {
       (result) => result.stems,
     );
     if (outcome.outcome === 'cancelled') return { outcome: 'cancelled' };
-    const files = { vocals: '', background: '' };
-    for (const name of ['vocals', 'background'] as const) {
-      const file = path.resolve(run.staging, outcome.output[name].path);
-      if (path.relative(run.staging, file) !== STEM_OUTPUT_FILES[name]) {
-        throw new ProviderFailure('protocol', L.stemOutputWrong({ file: STEM_OUTPUT_FILES[name] }), {
-          path: outcome.output[name].path,
-        });
+    const located = (name: keyof typeof STEM_OUTPUT_FILES): string => {
+      const output = outcome.output[name];
+      const file = output ? path.resolve(run.staging, output.path) : null;
+      if (file === null || path.relative(run.staging, file) !== STEM_OUTPUT_FILES[name]) {
+        throw new ProviderFailure('protocol', L.stemOutputWrong({ file: STEM_OUTPUT_FILES[name] }), { path: output?.path ?? null });
       }
-      files[name] = file;
-    }
-    return { outcome: 'completed', ...files, result: outcome.result, workerVersion: outcome.workerVersion };
+      return file;
+    };
+    return {
+      outcome: 'completed',
+      vocals: located('vocals'),
+      background: located('background'),
+      ...(run.allStems ? { extraStems: { drums: located('drums'), bass: located('bass'), other: located('other') } } : {}),
+      result: outcome.result,
+      workerVersion: outcome.workerVersion,
+    };
   }
 
   /**

@@ -6,6 +6,7 @@ export const zhHans: JobsParamsMessages = {
   mustBeNonEmptyString: '应为非空的字符串',
   atMostChars: (p: { max: number }) => `至多 ${p.max} 个字符`,
   mustBeIntegerBetween: (p: { min: number; max: number }) => `应为 ${p.min} 到 ${p.max} 之间的整数`,
+  mustBeNumberBetween: (p: { min: number; max: number }) => `应为 ${p.min} 到 ${p.max} 之间的数`,
   mustBeOneOf: (p: { values: string }) => `应为 ${p.values} 之一`,
   mustBeArray: '应为数组',
   atLeastItems: (p: { min: number }) => `至少要有 ${p.min} 项`,

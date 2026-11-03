@@ -211,7 +211,7 @@ params: {
   runGeneration: number;
   capability: 'separate';
   input: { file: string; contentHash: string; track: number };   // 同 §2.5.1，不接受 range：整段处理
-  options: { sampleRate: number | null };   // 输出采样率，8000–192000；null 用模型的工作采样率（HTDemucs 为 44.1 kHz）
+  options: { sampleRate: number | null; allStems?: boolean };   // 输出采样率，8000–192000；null 用模型的工作采样率（HTDemucs 为 44.1 kHz）。allStems 另写鼓、贝斯与其他三轨（分轨用）
   staging: string;
   outputContract: 'baocut.stems-wav/v1';
 }
@@ -221,6 +221,9 @@ result: {
   stems: {                            // staging 里的 vocals.wav 与 background.wav（§5），绝对路径；cancelled 时为 null
     vocals: { path: string; sha256: string; byteLength: number };
     background: { path: string; sha256: string; byteLength: number };
+    drums?: { path: string; sha256: string; byteLength: number };   // 只有 allStems：drums.wav、bass.wav、other.wav，同样的长度与格式
+    bass?: { path: string; sha256: string; byteLength: number };
+    other?: { path: string; sha256: string; byteLength: number };
   } | null;
   audio: { sampleRate: number; channels: 2; durationSec: number } | null;   // 两路共同的事实
   stats: { decodeMs: number; separationMs: number; encodeMs: number };

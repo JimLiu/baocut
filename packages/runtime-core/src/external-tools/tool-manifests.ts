@@ -107,6 +107,9 @@ export const GIT = 'git';
 export const REALESRGAN = 'realesrgan-ncnn-vulkan';
 export const WAIFU2X = 'waifu2x-ncnn-vulkan';
 export const UPSCAYL_MODELS = 'upscayl-models';
+export const RIFE = 'rife-ncnn-vulkan';
+export const MATTE_MODELS = 'matte-models';
+export const MATTE_MODELS_ISNET = 'matte-models-isnet';
 
 /**
  * yt-dlp 的发布：上游 2026.10.26 稳定版（2026-11-02 核对过的最新版）。sha256 取自发布里的 `SHA2-256SUMS`，与 GitHub 发布接口
@@ -264,6 +267,65 @@ const UPSCAYL_MODELS_RELEASE: ToolRelease = {
   homepage: 'https://github.com/upscayl/upscayl',
 };
 
+/**
+ * RIFE 的 ncnn 版（视频插帧，架构设计 §7.9）：nihui/rife-ncnn-vulkan 发布页 20221029 的便携包，文件都在包里一层同名目录下（`root`），
+ * 只解开可执行文件、`LICENSE` 与流程用的 `rife-v4.6` 模型目录（发布包一共带十几个历代模型，所以有 430 MB，解开之后约 40 MB）；Windows 包
+ * 另带 `vcomp140.dll`。macOS 包是通用二进制（x86_64 + arm64），两种 Mac 共用一份；没有 ARM64 的 Windows 与 Linux 包。发布接口没有给
+ * 这个版本的摘要：大小与 sha256 是 2026-11-03 按这个版本下载后在本机计算的，macOS 的那份实际跑过。
+ */
+const rifeAsset = (platform: 'macos' | 'ubuntu' | 'windows', size: number, sha256: string): ToolAsset => ({
+  fileName: `rife-ncnn-vulkan-20221029-${platform}.zip`,
+  size,
+  sha256,
+  archive: { format: 'zip', skip: ['README.md'], root: `rife-ncnn-vulkan-20221029-${platform}`, dirs: ['rife-v4.6'] },
+});
+const RIFE_MAC = rifeAsset('macos', 436537917, '4a63a1f3c9c715773c57d2ee51df1b315ed20cd6c63103e45c483ecc4400b595');
+const RIFE_RELEASE: ToolRelease = {
+  version: '20221029',
+  assets: {
+    'darwin-arm64': RIFE_MAC,
+    'darwin-x64': RIFE_MAC,
+    'linux-x64': rifeAsset('ubuntu', 431302796, '1e2c7ee7fa7daa326542d50622f0afedc80cf6f1858bda411d16385ffa5cdf68'),
+    'win32-x64': rifeAsset('windows', 431540241, 'd8e4d772d26cd8006ef0ad0bc82eb191b53c68677d1ae2f42506d74cbbbea606'),
+  },
+  officialUrl: 'https://github.com/nihui/rife-ncnn-vulkan/releases/download/{version}/{file}',
+  estimatedBytes: 437 * 1024 * 1024,
+  get license() {
+    return RcExternalTools.rifeLicense().text;
+  },
+  homepage: 'https://github.com/nihui/rife-ncnn-vulkan',
+};
+
+/**
+ * 抠像的权重（`assets_process` 的 `remove-background`，§7.9）：rembg 发布页 v0.0.0 里的 ONNX（数据包，不分平台），由 `matte` Worker
+ * （`crates/matte`，随应用分发）经 tract 推理。大小与 sha256 是 2026-11-03 按这个版本下载后在本机计算的，都实际跑过。分两个包，因为许可
+ * 不同：U²-Net 上游是 Apache-2.0。IS-Net 的上游只说代码是 Apache-2.0，没有单独写权重的许可，训练集 DIS5K 的条款只许可非商业的研究与
+ * 教育（2026-11-03 核对），所以不和默认的放在一起，要用时才下载，下载前的许可里写明。
+ */
+const REMBG_RELEASE_URL = 'https://github.com/danielgatis/rembg/releases/download/{version}/{file}';
+const MATTE_MODELS_RELEASE: ToolRelease = {
+  version: 'v0.0.0',
+  assets: {},
+  pack: { dir: 'models', files: [{ fileName: 'u2netp.onnx', size: 4574861, sha256: '309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8' }] },
+  officialUrl: REMBG_RELEASE_URL,
+  estimatedBytes: 4574861,
+  get license() {
+    return RcExternalTools.matteModelsLicense().text;
+  },
+  homepage: 'https://github.com/danielgatis/rembg',
+};
+const MATTE_MODELS_ISNET_RELEASE: ToolRelease = {
+  version: 'v0.0.0',
+  assets: {},
+  pack: { dir: 'models', files: [{ fileName: 'isnet-general-use.onnx', size: 178648008, sha256: '60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a' }] },
+  officialUrl: REMBG_RELEASE_URL,
+  estimatedBytes: 178648008,
+  get license() {
+    return RcExternalTools.matteIsnetLicense().text;
+  },
+  homepage: 'https://github.com/xuebinqin/DIS',
+};
+
 export const BUILTIN_TOOL_MANIFESTS: readonly ToolManifest[] = [
   {
     name: YT_DLP,
@@ -347,7 +409,7 @@ export const BUILTIN_TOOL_MANIFESTS: readonly ToolManifest[] = [
     minVersion: null,
     consentRequired: false,
     release: REALESRGAN_RELEASE,
-    usedByPipelines: ['upscale-image'],
+    usedByPipelines: ['upscale-image', 'upscale-video'],
     get missingRemedy() {
       return RcExternalTools.realesrganMissingRemedy();
     },
@@ -392,6 +454,65 @@ export const BUILTIN_TOOL_MANIFESTS: readonly ToolManifest[] = [
     usedByPipelines: ['upscale-image'],
     get missingRemedy() {
       return RcExternalTools.upscaylModelsMissingRemedy();
+    },
+  },
+  // 视频插帧（§7.9）：同 Real-ESRGAN，只在本机推理；`-h` 打印用法后以 -1 退出，没有版本号。
+  {
+    name: RIFE,
+    label: 'RIFE',
+    get purpose() {
+      return RcExternalTools.rifePurpose();
+    },
+    command: RIFE,
+    versionArgs: ['-h'],
+    probeExitCodes: [255, -1, 4294967295],
+    // 用法的最后三行（`-x`、`-z`、`-u`）写到标准输出，别的写到标准错误；探测只看标准输出，程序名不在里面（2026-11-03 实测 20221029）。
+    parseVersion: (output, known) => (/rife-ncnn-vulkan|enable UHD mode/.test(output) ? (known ?? 'unknown') : null),
+    minVersion: null,
+    consentRequired: false,
+    release: RIFE_RELEASE,
+    usedByPipelines: ['interpolate-video'],
+    get missingRemedy() {
+      return RcExternalTools.rifeMissingRemedy();
+    },
+  },
+  // 抠像的权重：数据包，由随应用分发的 `matte` Worker 执行。
+  {
+    name: MATTE_MODELS,
+    get label() {
+      return RcExternalTools.matteModelsLabel().text;
+    },
+    get purpose() {
+      return RcExternalTools.matteModelsPurpose();
+    },
+    command: MATTE_MODELS,
+    versionArgs: [],
+    parseVersion: (_output, known) => known ?? 'unknown',
+    minVersion: null,
+    consentRequired: false,
+    release: MATTE_MODELS_RELEASE,
+    usedByPipelines: ['remove-background'],
+    get missingRemedy() {
+      return RcExternalTools.matteModelsMissingRemedy();
+    },
+  },
+  {
+    name: MATTE_MODELS_ISNET,
+    get label() {
+      return RcExternalTools.matteIsnetLabel().text;
+    },
+    get purpose() {
+      return RcExternalTools.matteIsnetPurpose();
+    },
+    command: MATTE_MODELS_ISNET,
+    versionArgs: [],
+    parseVersion: (_output, known) => known ?? 'unknown',
+    minVersion: null,
+    consentRequired: false,
+    release: MATTE_MODELS_ISNET_RELEASE,
+    usedByPipelines: ['remove-background'],
+    get missingRemedy() {
+      return RcExternalTools.matteIsnetMissingRemedy();
     },
   },
 ];

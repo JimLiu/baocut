@@ -7,6 +7,7 @@ export const nl: JobsParamsMessages = {
   mustBeNonEmptyString: "moet een niet-lege tekenreeks zijn",
   atMostChars: (p: { max: number }) => `mag maximaal bevatten: ${p.max} tekens`,
   mustBeIntegerBetween: (p: { min: number; max: number }) => `moet een geheel getal zijn van ${p.min} aan ${p.max}`,
+  mustBeNumberBetween: (p: { min: number; max: number }) => `moet een getal zijn van ${p.min} tot ${p.max}`,
   mustBeOneOf: (p: { values: string }) => `moet een van deze waarden zijn: ${p.values}`,
   mustBeArray: "moet een array zijn",
   atLeastItems: (p: { min: number }) => `moet minstens bevatten: ${p.min} ${pluralForm('nl', p.min, { one: "item", other: "items" })}`,

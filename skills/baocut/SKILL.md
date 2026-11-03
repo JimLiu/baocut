@@ -173,7 +173,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 <!-- surface: agent -->
 - **要问就出选择题，问完不再追问。** 只在缺的信息影响正确性、不可逆的改动、预算、隐私或主体表达，又从视频与文件里读不到时才问；低风险的就用默认值做，在回复里说明用了什么。要问时用你的提问工具（如 AskUserQuestion）或 {{tool:conversations_ask}}，一次问完：每题两到四个具体候选，每个一句说明，推荐的放第一个并注明；要定创作方向时先把候选做成文件（取帧、样图、试听片段），用 {{tool:conversations_ask}} 把它们放进选项的 `preview` 给用户看着选。用户跳过提问或说「按你的判断」，就自己拿主意接着做、在回复里说明选了什么，不再问同一件事；用户直接打字回复也是回答。
 <!-- /surface -->
-- 有固定流程的事（转录、下载、翻译配音、转码、修图、导出）用一级动词（{{tool:transcribe}}、{{tool:download}}、{{tool:dub}}、{{tool:transcode}}、{{tool:upscale}}、{{tool:retouch}}、{{tool:export}}）一步提交整条流程，不自己拆成几步。
+- 有固定流程的事（转录、下载、翻译配音、转码、修图、导出）用一级动词（{{tool:transcribe}}、{{tool:download}}、{{tool:dub}}、{{tool:transcode}}、{{tool:upscale}}、{{tool:retouch}}、{{tool:assets_process}}、{{tool:assets_separate}}、{{tool:export}}）一步提交整条流程，不自己拆成几步。
 - 多步的任务你是导演：先写出计划（交付物、步骤、每步用哪个工具或 craft），按步骤做，每步读完结果再走下一步。
 - 写操作与占 GPU 的任务（转写、合成、音乐生成、导出成片）都由你自己下，一台机器上一次一个；子代理只交文件与结论，不让它们改视频或提交任务。
 - 跨回合接着做时，先读视频的当前状态（{{tool:videos_inspect}}），从已经做到的那一步接着做，不重复已完成的步骤。

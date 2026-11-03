@@ -28,6 +28,7 @@ version: 2.6.0
 - 转写（documents_read 读 speech 文档）里词的 start、end 是素材自己的时钟，按 timescale 换成秒：秒 = 刻度 ÷ timescale。addCuts、proposeCuts 用的就是素材时钟上的秒。
 - splitItem、moveItem、removeRange、导出的范围和 videos_frames 的 `at` 用时间线上的秒。素材上的时刻 t 在时间线上的位置 = 那个片段的 startSeconds +（t − sourceInSeconds）（videos_inspect 的片段里有这两个值；变过速的片段再除以速率）。不要凭感觉换算；拿不准就重新 videos_inspect 读片段。
 - 口播的删减用剪口（addCuts）：可以恢复（restoreCut），剪口集合是视频里 kind 为 cut-set 的文档。原文件不动。
+- 转写跟不上的地方（没有转写的录屏讲解、大段不说话的演示）用 assets_dead_air 找空档，结果同样是素材时钟上的秒，核对后交给 addCuts。有转写的讲话仍按下面的留 / 删清单与 proposeCuts。
 
 ## 2. 留 / 删清单
 

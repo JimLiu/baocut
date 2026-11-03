@@ -39,8 +39,8 @@ export const RESOURCE_DIRS = {
   docsEditor: 'docs-editor',
 } as const;
 
-/** `bin/` 里的原生程序（不带后缀）：同一次 cargo 构建出来的 Worker、凭据助手与人脸检测（`face-detect`）。 */
-export const BUNDLED_EXECUTABLES = ['engine-host', 'export-worker', 'model-worker', 'speech-worker', 'credential-helper', 'face-detect'] as const;
+/** `bin/` 里的原生程序（不带后缀）：同一次 cargo 构建出来的 Worker、凭据助手、人脸检测（`face-detect`）与抠像（`matte`）。 */
+export const BUNDLED_EXECUTABLES = ['engine-host', 'export-worker', 'model-worker', 'speech-worker', 'credential-helper', 'face-detect', 'matte'] as const;
 
 export interface PackagedResources {
   /** `<resources>` 本身。 */

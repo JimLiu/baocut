@@ -81,6 +81,8 @@ const PEAKS_RETRY_MS = 1000;
 const FAILURE_TTL_MS = 60_000;
 /** 镜头切换的 ffmpeg 输出上限（字节）：阈值很低时每帧一行，超了就停。 */
 const SCENE_OUTPUT_MAX_BYTES = 8 * 1024 * 1024;
+/** 逐帧分数的输出上限：`signalstats` 每帧打印二十多项，约 800 字节，够 20 分钟 120 fps。 */
+const FRAME_SCORES_OUTPUT_MAX_BYTES = 256 * 1024 * 1024;
 /** 探测播放源的编码与时长（`media.playback`）：时限与输出上限。 */
 const PROBE_TIMEOUT_MS = 20_000;
 const PROBE_MAX_BYTES = 64 * 1024;
@@ -122,6 +124,13 @@ export interface FrameAsset {
 export interface SceneCut {
   at: number;
   score: number;
+}
+
+/** 一帧的分数：源时钟上的秒、场景分数（0–1）与平均亮度（0–1，黑场 0）。 */
+export interface FrameScore {
+  at: number;
+  score: number;
+  luma: number;
 }
 
 /** 缩小之后的一帧：编码后的 bytes 与实际的像素尺寸。 */
@@ -274,6 +283,7 @@ export class MediaAnalysis {
   readonly #peakJobs = new Map<string, Promise<MediaPeaks>>();
   readonly #thumbnailJobs = new Map<string, Promise<Buffer>>();
   readonly #sceneJobs = new Map<string, Promise<SceneCut[]>>();
+  readonly #scoreJobs = new Map<string, Promise<FrameScore[]>>();
   readonly #failures = new Map<string, { at: number; error: RpcError }>();
   readonly #children = new Set<ChildProcess>();
   #closed = false;
@@ -583,6 +593,31 @@ export class MediaAnalysis {
   }
 
   /**
+   * 视频素材源时钟 `[fromSec, fromSec + durSec)` 里每一帧的场景分数与亮度（`videos_shots` 的 `adaptive`、`fade`）：与 `sceneCuts` 同一条
+   * 路，只是不按阈值筛，另加 `signalstats` 的平均亮度。结果按内容摘要与区间缓存，并发名额与超时也同 `sceneCuts`。
+   */
+  async frameScores(asset: FrameAsset, options: { fromSec: number; durSec: number }, locate: () => Promise<{ root: string; file: string }>): Promise<FrameScore[]> {
+    const demuxers = DEMUXERS[asset.mediaType];
+    if (!demuxers) throw new RpcError('forbidden', RcRuntime.onlyAudioVideoAnalyzable());
+    const from = Math.max(0, options.fromSec);
+    const dur = Math.max(0, options.durSec);
+    const file = path.join(this.#options.cacheDir, cacheKeyOf(asset.contentHash), `scores-${from.toFixed(6)}-${dur.toFixed(6)}.json`);
+    const cached = await readFrameScores(file);
+    if (cached) return cached;
+    this.#recentFailure(file);
+    let job = this.#scoreJobs.get(file);
+    if (!job) {
+      const started = this.#peakSlots.run(async () => {
+        const { root, file: target } = await locate();
+        const { realPath } = await resolveInside(root, target);
+        return this.#computeFrameScores(realPath, demuxers, { from, dur }, file);
+      });
+      job = this.#remember(file, started, this.#scoreJobs);
+    }
+    return job;
+  }
+
+  /**
    * 视频素材源时钟 `[fromSec, fromSec + durSec)` 的灰度画面（`videos_shots` 的 `by: "speaker"` 量嘴部的动静）：按每秒 `fps` 帧
    * 缩到 `width × height`，每帧 `width × height` 个字节、逐行。只在内存里用一次，不写缓存（用它算出来的说话人对应另有缓存）；
    * 与波形峰值共用并发名额。
@@ -779,6 +814,57 @@ export class MediaAnalysis {
     return cuts;
   }
 
+  async #computeFrameScores(realPath: string, demuxers: string, range: { from: number; dur: number }, file: string): Promise<FrameScore[]> {
+    const started = Date.now();
+    const frames: FrameScore[] = [];
+    let pending: { at: number; score: number | null } | null = null;
+    let rest = '';
+    let size = 0;
+    const line = (text: string) => {
+      const pts = /pts_time:(-?[\d.]+(?:e[-+]?\d+)?)/.exec(text);
+      if (pts) {
+        const at = range.from + Number(pts[1]);
+        pending = Number.isFinite(at) ? { at, score: null } : null;
+        return;
+      }
+      const score = /lavfi\.scene_score=([\d.]+(?:e[-+]?\d+)?)/.exec(text);
+      if (score && pending) {
+        pending.score = Number(score[1]);
+        return;
+      }
+      const luma = /lavfi\.signalstats\.YAVG=([\d.]+(?:e[-+]?\d+)?)/.exec(text);
+      if (luma && pending && pending.score !== null) {
+        // 8 位视频范围：16 是黑，235 是白。
+        frames.push({ at: pending.at, score: pending.score, luma: Math.max(0, Math.min(1, (Number(luma[1]) - 16) / 219)) });
+        pending = null;
+      }
+    };
+    await this.#ffmpeg(
+      { realPath, demuxers, before: ['-ss', range.from.toFixed(6), '-t', range.dur.toFixed(6)] },
+      [
+        ...['-map', '0:v:0', '-an', '-sn', '-dn'],
+        // 只用一个 `metadata`：每个 `metadata` 打开自己的 stdout 缓冲，两个写同一处时不按帧交错。
+        ...['-vf', "scale=160:-2,format=yuv420p,select='gte(scene,0)',signalstats,metadata=mode=print:file=-"],
+        ...['-f', 'null', '-'],
+      ],
+      {
+        timeoutMs: 60_000 + range.dur * 1000,
+        onData: (chunk) => {
+          size += chunk.length;
+          if (size > FRAME_SCORES_OUTPUT_MAX_BYTES) throw new RpcError('internal', RcRuntime.ffmpegCannotRead());
+          const lines = (rest + chunk.toString('utf8')).split('\n');
+          rest = lines.pop() ?? '';
+          for (const text of lines) line(text);
+        },
+      },
+    );
+    if (rest) line(rest);
+    // 一帧也没读到不缓存：可能只是这次的 ffmpeg 不对，下次还要再试。
+    if (frames.length > 0) await writeAtomic(file, JSON.stringify(frames));
+    this.#log.info('Scored frames', { frames: frames.length, seconds: range.dur, ms: Date.now() - started });
+    return frames;
+  }
+
   /** 取一帧，编码成 JPEG 或 PNG，写进缓存。`seekMs` 为 null 时不跳（图片）。 */
   async #computeFrame(
     input: { realPath: string; demuxers: string; force?: boolean; seekMs: number | null },
@@ -941,6 +1027,17 @@ function demuxersOf(record: AssetRevision): string {
   const demuxers = DEMUXERS[record.mediaType];
   if (!demuxers) throw new RpcError('forbidden', RcRuntime.onlyAudioVideoAnalyzable());
   return demuxers;
+}
+
+async function readFrameScores(file: string): Promise<FrameScore[] | null> {
+  try {
+    const value = JSON.parse(await fs.readFile(file, 'utf8')) as unknown;
+    if (!Array.isArray(value)) return null;
+    const ok = value.every((f: FrameScore) => f && Number.isFinite(f.at) && Number.isFinite(f.score) && Number.isFinite(f.luma));
+    return ok ? (value as FrameScore[]) : null;
+  } catch {
+    return null;
+  }
 }
 
 async function readSceneCuts(file: string): Promise<SceneCut[] | null> {

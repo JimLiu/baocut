@@ -1,0 +1,23 @@
+[package]
+name = "matte"
+description = "BaoCut 的抠像（assets_process 工具的 remove-background）：rembg 发布的 U²-Net / IS-Net 权重（ONNX）经纯 Rust 的 tract 推理；Runtime 以子进程调用，stdin/stdout 的 JSON 行；Windows 与 macOS 同一份实现，不带原生运行库"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[lib]
+name = "matte"
+path = "src/lib.rs"
+
+[[bin]]
+name = "matte"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.102"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+# 与 face-detect 同一个纯 Rust 的 ONNX 推理：不随应用分发 onnxruntime 的 DLL / dylib。
+tract-onnx = "0.23.8"

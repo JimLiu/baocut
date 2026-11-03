@@ -6,6 +6,7 @@ export const zhHant: JobsParamsMessages = {
   mustBeNonEmptyString: '必須是非空字串',
   atMostChars: (p: { max: number }) => `最多 ${p.max} 字`,
   mustBeIntegerBetween: (p: { min: number; max: number }) => `必須是 ${p.min} 到 ${p.max} 之間的整數`,
+  mustBeNumberBetween: (p: { min: number; max: number }) => `必須是 ${p.min} 到 ${p.max} 之間的數字`,
   mustBeOneOf: (p: { values: string }) => `必須是 ${p.values} 其中之一`,
   mustBeArray: '必須是陣列',
   atLeastItems: (p: { min: number }) => `至少要有 ${p.min} 項`,

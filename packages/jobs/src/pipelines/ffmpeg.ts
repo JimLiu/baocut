@@ -120,6 +120,51 @@ export async function probeMedia(resolve: MediaToolResolver, file: string, signa
   };
 }
 
+/** ffmpeg 编进了哪些滤镜（`ffmpeg -filters` 的第二列）：libvidstab 这类可选的滤镜要按它判断。 */
+export async function ffmpegFilters(resolve: MediaToolResolver): Promise<Set<string>> {
+  const run = await runTool(await resolve(), ['-hide_banner', '-filters']);
+  if (run.code !== 0) throw new PipelineStepError('MEDIA_TOOL_UNAVAILABLE', JobsFfmpeg.ffmpegBroken());
+  const names = run.stdout.split('\n').flatMap((line) => {
+    const match = /^\s*[A-Z.|]{2,3}\s+(\S+)\s/.exec(line);
+    return match ? [match[1]!] : [];
+  });
+  return new Set(names);
+}
+
+/** `probeMedia` 不读的画面事实。 */
+export interface VideoDetails {
+  /** 标的色彩空间与传递特性；没有标（`unknown`、`unspecified` 或读不出）时 null。 */
+  space: string | null;
+  transfer: string | null;
+  /** 平均帧率（`30000/1001`）：可变帧率的素材 `r_frame_rate` 可能远大于它。读不出时 null。 */
+  avgFrameRate: string | null;
+  /** 显示时要转的角度（手机竖拍常是 ±90）；ffmpeg 解码时已经转正，所以画面的宽高要按它对调。没有时 0。 */
+  rotation: number;
+}
+
+/** 读第一条视频流的这几项。 */
+export async function probeVideoDetails(resolve: MediaToolResolver, file: string, signal?: AbortSignal): Promise<VideoDetails> {
+  const entries = 'stream=color_space,color_transfer,avg_frame_rate:stream_side_data=rotation:stream_tags=rotate';
+  const args = ['-v', 'error', '-select_streams', 'v:0', '-show_entries', entries, '-of', 'json', `file:${file}`];
+  const run = await runTool(await resolve(), args, signal ? { signal } : {});
+  let stream:
+    | { color_space?: string; color_transfer?: string; avg_frame_rate?: string; side_data_list?: Array<{ rotation?: number }>; tags?: { rotate?: string } }
+    | undefined;
+  try {
+    stream = (JSON.parse(run.stdout) as { streams?: Array<NonNullable<typeof stream>> }).streams?.[0];
+  } catch {
+    stream = undefined;
+  }
+  const known = (value: string | undefined) => (value && value !== 'unknown' && value !== 'unspecified' ? value : null);
+  const rotation = stream?.side_data_list?.find((data) => typeof data.rotation === 'number')?.rotation ?? Number(stream?.tags?.rotate ?? 0);
+  return {
+    space: known(stream?.color_space),
+    transfer: known(stream?.color_transfer),
+    avgFrameRate: known(stream?.avg_frame_rate),
+    rotation: Number.isFinite(rotation) ? rotation : 0,
+  };
+}
+
 /**
  * 执行一次 ffmpeg（参数里已经有 `-progress pipe:1 -nostats`）：按 `out_time_us` 报告写到第几秒。
  * 非零退出时抛 `TRANSCODE_FAILED`，带 stderr 的结尾。

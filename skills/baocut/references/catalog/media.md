@@ -129,6 +129,28 @@ baocut retouch shot.png --op watermark --mask '{"boxes":[{"x":1500,"y":980,"widt
 下载前会请用户确认（写明来源、版本、大小与许可）。
 <!-- /surface -->
 
+### 处理视频素材
+
+{{tool:assets_process}} 在这台电脑上处理素材，每个输入写成一个新文件，原文件不动、视频不变；要放进视频时用 {{tool:assets_import}}。输入给 {{arg:files}}，或给 {{arg:video}} + {{arg:assets}}（素材 ID）：
+
+| 要做的事 | 调用 | 引擎与输出 |
+| --- | --- | --- |
+| 给晃动的镜头去抖 | {{arg:op}} `stabilize`，{{arg:strength}} `low`、`medium`（默认）、`high` | ffmpeg 带 libvidstab 时走 vid.stab，否则退回 deshake（只修小幅的平移抖动）；`<原名>-stabilized.mp4` |
+| 把视频放大 2–4 倍 | {{arg:op}} `upscale`，{{arg:scale}}（默认 2），{{arg:model}} `video`（默认，快）、`photo`（实拍，慢得多）、`anime` | Real-ESRGAN；`<原名>-upscaled-<倍数>x.mp4` |
+| 做慢动作、提高帧率 | {{arg:op}} `interpolate`，{{arg:factor}} 2、3、4、8，{{arg:mode}} `slowmo`（默认，不带声音）或 `smooth`（时长不变） | RIFE；`<原名>-slowmo-<倍数>x.mp4`、`-smooth-<倍数>x.mp4` |
+| 把几段镜头统一到一个色调 | {{arg:op}} `match-color`，{{arg:reference}}（图片或视频，必填），{{arg:referenceAt}}，{{arg:method}}，{{arg:amount}}（过头时给 0.5–0.8） | 烘成 3D LUT 由 ffmpeg 作用到整段；`<原名>-color-matched.mp4`（图片是 `.png`） |
+| 不用绿幕抠出主体 | {{arg:op}} `remove-background`，{{arg:matteModel}} `fast`（默认）或 `general`（通常更干净、慢约 4 倍；权重的训练集只许可非商业用途，用户要商用时别选），{{arg:temporal}} | rembg 发布的权重，CPU 上推理；带透明的 `<原名>-cutout.mov`（文件很大），图片是 `.png` |
+
+- **只处理用到的那一段**：{{arg:start}}、{{arg:end}} 是源文件里的秒。超分、插帧、抠像按帧算，长素材要很久；动手前告诉用户大约多少帧。
+- **按镜头处理**：一个文件里有几个镜头时，先用 {{tool:videos_shots}} 找切点，按镜头分别给 {{arg:start}}、{{arg:end}}。插帧跨硬切会出重影；对齐颜色把几个镜头混在一起取样会对不准。
+- **这是烧进新文件的处理**：不是时间线上可调的效果。对齐颜色只调颜色，不修曝光不足丢掉的细节。只需要微调明暗、饱和度时用片段的 `fx`（{{tool:edits_apply}}），不用它。
+- **要转告用户的**：`pipeline.summary.warnings`（去抖退回了 deshake、慢动作没有声音、没认出主体）。超分是估计，文字与人脸可能变形；HDR 素材不收（`FOOTAGE_HDR_UNSUPPORTED`）。
+- **第一次用要装工具**：Real-ESRGAN（约 50 MB）、RIFE（下载 430 MB，解开约 40 MB）与抠像权重（默认的约 5 MB，`general` 的约 180 MB）是 BaoCut 管理的外部工具，第一次用到时请用户同意下载，这次只返回 `installJobId`：用 {{tool:jobs_wait}} 等它完成，再调用一次。
+
+### 分轨
+
+{{tool:assets_separate}} 用本机的分离模型把文件的第一条音轨拆成 WAV，原文件不动：{{arg:stems}} `vocals`（默认）出人声与伴奏；`four` 另出鼓、贝斯与其他（只有 HTDemucs 系的模型收）。取伴奏、取人声重新混音都用它；按鼓点剪时对 `-drums.wav` 用 {{tool:assets_analyze}}，比分析混音更准。翻译配音已经自带分离，不用先分轨。没有分离模型时按错误里的提示用 {{tool:models_install}} 下载。
+
 ### 取帧看画面
 
 {{tool:videos_frames}}：{{arg:at}} 列出时间线上的时刻，或 {{arg:range}}（`起:止`）加 {{arg:count}} 等间隔取；一次最多 24 帧，{{arg:maxWidth}} 缩小、{{arg:format}} 选 png 或 jpeg。
@@ -240,6 +262,7 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 {{tool:videos_shots}}：{{arg:range}}（`起:止`，剪辑后时间线上的秒，最长 20 分钟）里画面在哪里切换。换了片段、画面接不上的地方是 `edit`；片段里的画面突变按场景分数检测，是 `scene`。漏报时调低 {{arg:threshold}}（默认 0.3），多报时调高；{{arg:minShot}}（默认 0.8 秒）以下的镜头并进前一个。
 
 - 只看画面突变，不认人：叠化、推拉会漏，闪光可能多报。拿不准的切换点用 {{tool:videos_frames}} 取它前一帧与它本身看一眼。
+- 手持、运动的素材连着误报时给 {{arg:method}} `adaptive`（一帧要明显高于前后几帧才算）；要找淡入淡出给 `fade`（`kind` 是 `fade`，切点在黑场中点）；`adaptive-fade` 两种都算。
 - 每个镜头的 `sampleAt` 是 3 个时刻，直接交给 {{tool:videos_frames}} 的 {{arg:at}}；一次最多 24 帧，也就是 8 个镜头。
 - 只有一个固定的全景机位、几个人一直同框时，给 {{arg:by}} `speaker` 按说话人切段：在原片的整份转写里取样、量每张脸嘴部的动静，认出谁是哪张脸，再按转写切成对准一个人或分屏的段（每段至少 3 秒）。转写里要分出 2 个以上说话人；{{arg:split}} 为 `false` 时该分屏的段留在前一个人身上。先按画面切看出是单机位再用；拒绝时 `next` 说怎么退回。
 
@@ -250,6 +273,8 @@ css、js、json 这类支持文件不导入，直接写进设计稿目录，用�
 - {{tool:videos_inspect}} 的 `brief`：写过视频速览时有，`markdown` 是正文（时间链接已换成完整的 `/videos/<videoId>?t=<秒>`），`language` 是正文的语言；没写过时没有这一项。章节（`chapters`）每章带 `href`，写速览的要点时照抄。
 - {{tool:transcode}}：`outputs` 的 `path`（`pipeline.summary.files`）是输出文件，把位置告诉用户。
 - {{tool:upscale}} / {{tool:retouch}}：`outputs` 的 `path` 是新的 PNG（`<原名>-upscaled-<倍数>x`、`-erased`、`-no-watermark`、`-repainted`、`-expanded`），同时记进 Space 的图片；`pipeline.summary.images` 是每张的尺寸（修图另有选区占比 `coverage`），`warnings` 是提醒（如扩得太多线条可能对不齐）。看一眼结果（补得自然、没有糊块与重影）再把位置告诉用户；要放进视频用 {{tool:assets_import}} 的 {{arg:path}}。
+- {{tool:assets_process}}：`outputs` 的 `path` 是新文件，`pipeline.summary.executor.engine` 是实际用的引擎，`pipeline.summary.warnings` 要转告用户；`pipeline.summary.items[].coverage` 接近 0 是没认出主体。
+- {{tool:assets_separate}}：`pipeline.summary.items[].files` 按轨给出 WAV 的路径（`vocals`、`background`、`drums`、`bass`、`other`）。
 - {{tool:videos_frames}}：`frames` 每帧有 `at`、`file`、`width`、`height`、`faces` 与取自哪个片段（`item`）、哪个素材（`asset`）。读 `file` 这张图片。`faces` 是 `[{x, y, w, h, score}]`：框的左上角与宽高，按帧的宽高归一化到 0–1，`score` 0–1，按 score 从高到低；顶层 `detector` 是 `yunet`，检测器不可用时为 null（`faces` 都是空数组）。`file` 为 null 的帧没有 `faces`。
 - {{tool:videos_shots}}：`cuts` 每处有 `at`（新镜头第一帧的秒）、`score`（`edit` 为 null）与 `kind`；`shots` 每个有 `start`、`end` 与 `sampleAt`。按说话人切时没有 `cuts`：`shots` 每段另有 `speaker` 与 `face`（`faces` 的下标，分屏段两项都是 null），另有 `faces [{box, speaker}]`（各取样里的中位脸框，从左到右）、`speakers [{id, name, face, probes, contrast}]` 与 `confidence`。
 - {{tool:assets_import}}：回执里有 `assetId`、`itemId`（没放上时间线时为 null）与新版本。

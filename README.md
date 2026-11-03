@@ -59,6 +59,8 @@ Most AI video tools render once and hand you a file. If the second sentence of t
 - **Dub into another language.** Translate, separate vocals from background (HTDemucs), synthesize per sentence with a cloned or preset voice, lay the new track on the timeline.
 - **Cut a talking-head recording.** Remove filler words, long pauses, retakes and false starts on the timeline. The original media is never touched.
 - **Chapters, summaries, titles, blog posts, shorts.** Read the timed transcript and write the derivatives, with every claim traceable to a timestamp.
+- **Fix and prepare footage on this computer.** Stabilize shaky clips (vid.stab through your ffmpeg, or deshake), upscale video (Real-ESRGAN), make smooth slow motion (RIFE), grade shots to one reference, cut subjects out without a green screen (rembg's weights), and split any track into stems (HTDemucs). Each one writes a new file and leaves the original alone.
+- **Find the edit points.** Detect shots, including handheld footage and fades, find dead air without a transcript, and read the beat, bars and accents of a song so cuts land on it.
 
 **From a brief**
 
@@ -202,7 +204,7 @@ In Windows Command Prompt, use `set "BAOCUT_HOME=.dev/baocut-home"` before the C
 | `npm run package:win` / `package:win:cuda` / `package:win:vulkan` | Windows x64 installer (NSIS, per-user) and zip, unsigned: CPU, CUDA (NVIDIA) or Vulkan (AMD / Intel) model worker. See [desktop README](apps/desktop/README.md#windows-打包) |
 | `npm run runtime` | Start the Runtime alone (default home `~/.baocut`) |
 | `npm run cli -- --help` | The `baocut` CLI. Tool commands derive from the Runtime's tool catalog (same as MCP); `baocut help <command>` for arguments, `baocut spec` for a machine-readable catalog. Starts a Runtime in the background when none is running and lets it exit when idle (`baocut runtime status\|ensure\|stop`). Exit codes: 0 ok, 1 failed, 2 user action needed, 3 Runtime unavailable, 4 bad arguments. Design in [Agent surface §5](docs/design/agent-surface/agent-surface-design.md#5-cli-约定) |
-| `npm run build:engine` | Build the video engine (`engine-host`), export renderer (`export-worker`), `speech-worker`, face detection (`face-detect`) and local inference process (`model-worker`). Backend follows the platform: MLX and Core ML on Apple Silicon, candle and whisper.cpp elsewhere (needs CMake and a C++ compiler). Extra args go to cargo (`-- --release`) |
+| `npm run build:engine` | Build the video engine (`engine-host`), export renderer (`export-worker`), `speech-worker`, face detection (`face-detect`), background removal (`matte`) and local inference process (`model-worker`). Backend follows the platform: MLX and Core ML on Apple Silicon, candle and whisper.cpp elsewhere (needs CMake and a C++ compiler). Extra args go to cargo (`-- --release`) |
 | `npm run build:audiocpp` | Download the pinned audio.cpp release (local speech and music engine) for this machine into the cargo output dir's `audiocpp/`, checking size and sha256; `-- --variant cpu` takes the CPU build on Windows / Linux. `BAOCUT_TOOLS_ENDPOINT` downloads from a mirror. Packaging bundles the same release |
 | `npm test` | Unit tests and Runtime end-to-end tests with a fake driver (no Codex needed) |
 | `npm run check:file-fonts` | Build the desktop app and verify, in a hidden Electron window over `file://`, that the preview renderer loads every font |
@@ -248,6 +250,7 @@ BaoCut is under active development, with macOS Apple Silicon and Windows x64 pac
 | `BAOCUT_ENGINE_HOST` / `BAOCUT_MODEL_WORKER` | Path to `engine-host` / `model-worker`. Otherwise `BAOCUT_BIN_DIR`, then cargo output dirs (`CARGO_TARGET_DIR`, `.cargo/config*.toml` `build.target-dir`, repo `target/`) under `{release,debug}/`. Without `model-worker`, local transcription is unavailable |
 | `BAOCUT_EXPORT_WORKER` | Path to `export-worker`. Otherwise next to `engine-host`, then the cargo output dirs; without it export fails with `EXPORT_TOOL_MISSING` |
 | `BAOCUT_FACE_DETECT` | Path to `face-detect`. Otherwise `BAOCUT_BIN_DIR`, then the cargo output dirs; without it (or without the shipped YuNet model) `videos_frames` still returns frames, with `detector: null` and no faces |
+| `BAOCUT_MATTE` | Path to `matte` (background removal). Otherwise `BAOCUT_BIN_DIR`, then the cargo output dirs; without it the `assets_process` tool's `remove-background` is refused |
 | `BAOCUT_RUNTIME_ENTRY` | Entry the CLI uses to start a Runtime: `.ts` / `.js` run with the current Node, anything else as an executable. Otherwise an installed BaoCut app, then `apps/runtime` in the repo |
 | `BAOCUT_MODELS_DIR` | Local model files. Default `<BAOCUT_HOME>/models` |
 | `BAOCUT_MODELS_ENDPOINT` | Download source (base URL) for local models; overrides the Model download source setting. Default `https://huggingface.co`; `https://www.modelscope.cn` downloads from ModelScope |

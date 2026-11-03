@@ -7,6 +7,7 @@ export const it: JobsParamsMessages = {
   mustBeNonEmptyString: 'deve essere una stringa non vuota',
   atMostChars: (p) => pluralForm('it', p.max, { one: `deve contenere al massimo ${p.max} carattere`, other: `deve contenere al massimo ${p.max} caratteri` }),
   mustBeIntegerBetween: (p) => `deve essere un intero da ${p.min} a ${p.max}`,
+  mustBeNumberBetween: (p) => `deve essere un numero da ${p.min} a ${p.max}`,
   mustBeOneOf: (p) => `deve essere uno tra ${p.values}`,
   mustBeArray: 'deve essere un array',
   atLeastItems: (p) => pluralForm('it', p.min, { one: `deve avere almeno ${p.min} elemento`, other: `deve avere almeno ${p.min} elementi` }),

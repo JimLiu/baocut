@@ -6,6 +6,7 @@ export const ja: JobsParamsMessages = {
   mustBeNonEmptyString: 'は空でない文字列である必要があります',
   atMostChars: (p: { max: number }) => `は ${p.max} 文字以内である必要があります`,
   mustBeIntegerBetween: (p: { min: number; max: number }) => `は ${p.min} から ${p.max} までの整数である必要があります`,
+  mustBeNumberBetween: (p: { min: number; max: number }) => `は ${p.min} から ${p.max} までの数値である必要があります`,
   mustBeOneOf: (p: { values: string }) => `は ${p.values} のいずれかである必要があります`,
   mustBeArray: 'は配列である必要があります',
   atLeastItems: (p: { min: number }) => `には少なくとも ${p.min} 個の項目が必要です`,

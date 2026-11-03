@@ -670,28 +670,39 @@ export interface VideoDeriveResult {
  * 里画面的切换点。按取帧的同一条规则（最上层、启用、轨道可见的视频片段）把区间分段：换了片段、源画面不接续的地方是
  * `edit`；每段的源画面交给 ffmpeg 的场景分数（`select='gt(scene,T)'`），超过 `threshold`（0–1，缺省 0.3）的是 `scene`。
  * 短于 `minShot` 秒（缺省 0.8）的镜头并进前一个。只看画面突变，不认人；叠化、推拉会漏报，闪光会多报。
+ * `method` 换场景的判据（`edit` 不变）：`scene`（缺省）是上面的固定阈值；`adaptive` 比较一帧的分数与前后几帧的平均分（比值不低于
+ * `ratio`，缺省 3），手持晃动、快速运动不会连着误报；`fade` 找亮度掉到 `luma`（0–1，缺省 0.05）以下再回来的淡出淡入，切点在中点，
+ * 是 `kind: 'fade'`；`adaptive-fade` 两种都算。这两种判据按 PySceneDetect 的 AdaptiveDetector 与 ThresholdDetector。
  *
  * `by: "speaker"`（docs/design/shorts-framing §2.3、§2.5）用于只有一个全景机位的原片：不找画面的切换，先认出讲话转写里每个
  * 说话人是画面里的哪张脸（在整份转写里取样，量每张脸嘴部的动静），再按转写逐词切段，每段对准一个人或分屏。`split: false`
  * 时该分屏的段留在前一个人身上。这时不收 `threshold`、`minShot`。
  */
+export type VideoShotMethod = 'scene' | 'adaptive' | 'fade' | 'adaptive-fade';
+
 export interface VideoShotsParams {
   videoId: Id;
   start?: number;
   end?: number;
   threshold?: number;
   minShot?: number;
+  /** 场景切换的判据，只用于 `by: "picture"`。 */
+  method?: VideoShotMethod;
+  /** `adaptive`：一帧的分数至少是前后平均分的几倍。 */
+  ratio?: number;
+  /** `fade`：亮度（0–1）低于它算黑场。 */
+  luma?: number;
   /** 怎么切：`picture`（缺省）按画面的切换，`speaker` 按说话人。 */
   by?: 'picture' | 'speaker';
   /** 只用于 `by: "speaker"`：缺省 true；false 时不分屏。 */
   split?: boolean;
 }
 
-/** 一处切换：时间线上的秒（对到帧）；`score` 是场景分数（`edit` 为 null）。 */
+/** 一处切换：时间线上的秒（对到帧）；`score` 是场景分数（`edit` 为 null，`fade` 为 1）。 */
 export interface VideoShotCut {
   at: number;
   score: number | null;
-  kind: 'scene' | 'edit';
+  kind: 'scene' | 'edit' | 'fade';
 }
 
 /** 按画面切（`by: "picture"`）的结果。 */
@@ -705,7 +716,8 @@ export interface VideoPictureShotsResult {
   shots: { start: number; end: number; sampleAt: string[] }[];
   threshold: number;
   minShot: number;
-  detector: 'ffmpeg-scene';
+  /** 用的判据：`ffmpeg-scene` 是 `method: "scene"`，别的同 `method`。 */
+  detector: 'ffmpeg-scene' | 'adaptive' | 'fade' | 'adaptive-fade';
 }
 
 /** 按说话人切的一段：对准的说话人 ID 与脸（`faces` 的下标），分屏段两项都是 null；`sampleAt` 同按画面切。 */

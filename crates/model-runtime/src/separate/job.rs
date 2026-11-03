@@ -21,8 +21,8 @@ use super::{Separator, wav};
 use crate::asr_result::sha256_hex;
 use crate::audio::{self, DecodeError};
 use crate::protocol::{
-    BACKGROUND_OUTPUT_FILE, ErrorBody, JobOutcome, OutputFile, SeparateRunParams, SeparateRunResult, SeparateStats, SeparatedAudio,
-    SeparatedFiles, VOCALS_OUTPUT_FILE, codes,
+    BACKGROUND_OUTPUT_FILE, BASS_OUTPUT_FILE, DRUMS_OUTPUT_FILE, ErrorBody, JobOutcome, OTHER_OUTPUT_FILE, OutputFile, SeparateRunParams,
+    SeparateRunResult, SeparateStats, SeparatedAudio, SeparatedFiles, VOCALS_OUTPUT_FILE, codes,
 };
 use crate::transcribe::JobSink;
 
@@ -98,15 +98,28 @@ pub fn run(
     phase(sink, job_id, "encoding");
     let started = Instant::now();
     let background = stems.background();
-    let vocals = to_rate(stems.vocals, target_rate, expected_len);
-    let background = to_rate(background, target_rate, expected_len);
     let write = |name: &str, audio: &StereoAudio| {
         let bytes = wav::encode_wav_stereo_pcm16(audio).map_err(|error| write_failed(name, &error.to_string()))?;
         write_output(staging, name, &bytes).map_err(|error| write_failed(name, &error.to_string()))
     };
+    // 分轨要的另外三轨：换算一轨、写一轨，不同时占着五轨的内存。
+    let mut extra = |name: &str, audio: StereoAudio| -> Result<Option<OutputFile>, ErrorBody> {
+        if !params.options.all_stems {
+            return Ok(None);
+        }
+        write(name, &to_rate(audio, target_rate, expected_len)).map(Some)
+    };
+    let drums = extra(DRUMS_OUTPUT_FILE, stems.drums)?;
+    let bass = extra(BASS_OUTPUT_FILE, stems.bass)?;
+    let other = extra(OTHER_OUTPUT_FILE, stems.other)?;
+    let vocals = to_rate(stems.vocals, target_rate, expected_len);
+    let background = to_rate(background, target_rate, expected_len);
     let files = SeparatedFiles {
         vocals: write(VOCALS_OUTPUT_FILE, &vocals)?,
         background: write(BACKGROUND_OUTPUT_FILE, &background)?,
+        drums,
+        bass,
+        other,
     };
     stats.encode_ms = started.elapsed().as_millis() as u64;
     Ok(SeparateRunResult {
@@ -297,10 +310,49 @@ mod tests {
                 content_hash: "sha256:ab".into(),
                 track: 0,
             },
-            options: SeparateOptions { sample_rate },
+            options: SeparateOptions {
+                sample_rate,
+                all_stems: false,
+            },
             staging: staging.to_string_lossy().into_owned(),
             output_contract: STEMS_OUTPUT_CONTRACT.into(),
         }
+    }
+
+    #[test]
+    fn all_stems_also_writes_drums_bass_and_other() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = input_wav(dir.path());
+        let cancel = AtomicBool::new(false);
+        let mut request = params(&input, dir.path(), Some(48_000));
+        request.options.all_stems = true;
+        let stems = run(&mut fake(), &request, &cancel, &mut Events::default()).unwrap().stems.unwrap();
+        for (file, name) in [
+            (&stems.drums, DRUMS_OUTPUT_FILE),
+            (&stems.bass, BASS_OUTPUT_FILE),
+            (&stems.other, OTHER_OUTPUT_FILE),
+        ] {
+            let file = file.as_ref().unwrap();
+            assert!(file.path.ends_with(name), "{}", file.path);
+            let decoded = wav::decode_wav(&std::fs::read(&file.path).unwrap()).unwrap();
+            assert_eq!((decoded.sample_rate, decoded.len()), (48_000, 24_000));
+            // 远离边缘处是直流：背景的那一半三轨各占三分之一。
+            assert!((decoded.left[12_000] - 0.4 * 0.5 / 3.0).abs() < 1e-3, "{}", decoded.left[12_000]);
+        }
+
+        let plain = run(
+            &mut fake(),
+            &params(&input, dir.path(), Some(48_000)),
+            &cancel,
+            &mut Events::default(),
+        )
+        .unwrap()
+        .stems
+        .unwrap();
+        assert!(plain.drums.is_none() && plain.bass.is_none() && plain.other.is_none());
+        // 不要这三轨时不写进结果，形状与以前相同。
+        let wire = serde_json::to_value(&plain).unwrap();
+        assert_eq!(wire.as_object().unwrap().len(), 2);
     }
 
     #[test]

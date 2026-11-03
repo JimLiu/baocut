@@ -549,6 +549,142 @@ export interface SpaceEntryInput {
 }
 
 /**
+ * 素材处理（`assets_process` 工具，架构设计 §7.9）：文件到文件的五种处理，每种一条流程（`FOOTAGE_PIPELINE_NAMES`），不建视频、不动原文件。
+ * - `stabilize`：去抖。ffmpeg 带 libvidstab 时走 vid.stab 的两遍（检测、变换），没有时退回 ffmpeg 自带的 `deshake`，摘要里写明。
+ * - `upscale`：视频超分。Real-ESRGAN 的 ncnn 版逐批处理帧。
+ * - `interpolate`：插帧。RIFE 的 ncnn 版（rife-v4.6）；`slowmo` 帧率不变、时长乘倍数（不带声音），`smooth` 时长不变、帧率乘倍数。
+ * - `match-color`：把画面的颜色对齐到一张参考（`color-transfer.ts`），烘成 3D LUT 由 ffmpeg 作用到整段；图片也收。
+ * - `remove-background`：逐帧抠出主体（`matte` Worker，rembg 发布的权重）。视频输出带 alpha 的 ProRes 4444 MOV，图片输出 PNG。
+ */
+export type FootageOp = 'stabilize' | 'upscale' | 'interpolate' | 'match-color' | 'remove-background';
+export const FOOTAGE_OPS: readonly FootageOp[] = ['stabilize', 'upscale', 'interpolate', 'match-color', 'remove-background'];
+
+/** 每种处理的流程名。 */
+export const FOOTAGE_PIPELINE_NAMES = {
+  stabilize: 'stabilize-video',
+  upscale: 'upscale-video',
+  interpolate: 'interpolate-video',
+  'match-color': 'match-color',
+  'remove-background': 'remove-background',
+} as const satisfies Readonly<Record<FootageOp, string>>;
+export type FootagePipelineName = (typeof FOOTAGE_PIPELINE_NAMES)[FootageOp];
+
+export type FootageStrength = 'low' | 'medium' | 'high';
+export const FOOTAGE_STRENGTHS: readonly FootageStrength[] = ['low', 'medium', 'high'];
+
+/** 视频超分的权重：`video` 是给视频做的轻量模型（realesr-animevideov3，有原生 2、3、4 倍），另两个慢得多，只有原生 4 倍（别的倍数放大后缩小）。 */
+export type FootageUpscaleModel = 'video' | 'photo' | 'anime';
+export const FOOTAGE_UPSCALE_SPECS: Readonly<Record<FootageUpscaleModel, { weights: string; native: readonly number[] }>> = {
+  video: { weights: 'realesr-animevideov3', native: [2, 3, 4] },
+  photo: { weights: 'realesrgan-x4plus', native: [4] },
+  anime: { weights: 'realesrgan-x4plus-anime', native: [4] },
+};
+export const FOOTAGE_UPSCALE_MODELS = Object.keys(FOOTAGE_UPSCALE_SPECS) as readonly FootageUpscaleModel[];
+export type FootageUpscaleScale = 2 | 3 | 4;
+
+export type FootageInterpolateFactor = 2 | 3 | 4 | 8;
+export const FOOTAGE_INTERPOLATE_FACTORS: readonly FootageInterpolateFactor[] = [2, 3, 4, 8];
+export type FootageInterpolateMode = 'slowmo' | 'smooth';
+export const FOOTAGE_INTERPOLATE_MODES: readonly FootageInterpolateMode[] = ['slowmo', 'smooth'];
+
+export type FootageColorMethod = 'hm-mkl-hm' | 'mkl' | 'reinhard' | 'histogram';
+export const FOOTAGE_COLOR_METHODS: readonly FootageColorMethod[] = ['hm-mkl-hm', 'mkl', 'reinhard', 'histogram'];
+
+/**
+ * 抠像的权重：`fast` 是 U²-Net 的轻量版（320²，快，Apache-2.0，默认）；`general` 是 IS-Net（1024²，慢约 4 倍，通常更干净）。IS-Net 的
+ * 代码是 Apache-2.0，权重没有单独的许可，训练集 DIS5K 的条款只许可非商业的研究与教育，所以单独一个受管权重包，下载前的许可里写明。
+ * 输入的归一化随权重不同。
+ */
+export type FootageMatteModel = 'fast' | 'general';
+export const FOOTAGE_MATTE_SPECS: Readonly<
+  Record<FootageMatteModel, { tool: string; file: string; side: number; mean: readonly [number, number, number]; std: readonly [number, number, number] }>
+> = {
+  fast: { tool: 'matte-models', file: 'u2netp.onnx', side: 320, mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225] },
+  general: { tool: 'matte-models-isnet', file: 'isnet-general-use.onnx', side: 1024, mean: [0.5, 0.5, 0.5], std: [1, 1, 1] },
+};
+export const FOOTAGE_MATTE_MODELS = Object.keys(FOOTAGE_MATTE_SPECS) as readonly FootageMatteModel[];
+
+export interface FootageParams {
+  /** 输入文件的绝对路径，1 到 20 个。`match-color` 与 `remove-background` 也收图片（PNG、JPEG、WebP），别的只收视频。 */
+  inputs: string[];
+  /** 只处理源文件里的这一段（秒）；不给时整段。图片不收。 */
+  start?: number;
+  end?: number;
+  /** 输出目录，规则同 `TranscodeParams.outDir`。文件名是 `<源文件名>-<处理>`，重名时加序号。 */
+  outDir?: string;
+  /** `stabilize`：去抖的强度，默认 `medium`。 */
+  strength?: FootageStrength;
+  /** `upscale`：倍数，默认 2。 */
+  scale?: FootageUpscaleScale;
+  /** `upscale`：权重，默认 `video`。 */
+  model?: FootageUpscaleModel;
+  /** `interpolate`：倍数，默认 2。 */
+  factor?: FootageInterpolateFactor;
+  /** `interpolate`：默认 `slowmo`。 */
+  mode?: FootageInterpolateMode;
+  /** `match-color`：参考（图片或视频的绝对路径），必填。 */
+  reference?: string;
+  /** `match-color`：参考是视频时取哪一刻（秒），默认中点。 */
+  referenceAt?: number;
+  /** `match-color`：默认 `hm-mkl-hm`。 */
+  method?: FootageColorMethod;
+  /** `match-color`：和原色的混合比例（0–1），默认 1。 */
+  amount?: number;
+  /** `remove-background`：权重，默认 `fast`。 */
+  matteModel?: FootageMatteModel;
+  /** `remove-background`：和上一帧混合的比例（0–0.95），压住 alpha 的闪烁，默认 0.3。图片不用。 */
+  temporal?: number;
+}
+
+/** 素材处理完成时父任务的 `pipeline.summary`。 */
+export interface FootageSummary {
+  op: FootageOp;
+  /** 执行者：引擎（`vidstab`、`deshake`、`realesrgan`、`rife`、`lut3d`、`matte`）、工具与版本、权重或方法。 */
+  executor: { engine: string; tool: string; version: string; weights: string | null };
+  items: Array<{
+    source: string;
+    file: string;
+    width: number;
+    height: number;
+    outWidth: number;
+    outHeight: number;
+    /** 输出的时长与帧数；图片是 null。 */
+    durationSec: number | null;
+    frames: number | null;
+    /** `remove-background`：alpha 过半的像素占整帧的平均比例；别的处理没有。 */
+    coverage?: number;
+  }>;
+  files: string[];
+  warnings: string[];
+}
+
+/**
+ * 分轨（`separate-audio`，架构设计 §7.9）：把一个音视频文件的第一条音轨交给本机的分离模型（HTDemucs 系），写成 WAV，文件到文件，
+ * 不建视频。`vocals` 是人声与伴奏两轨；`four` 另把伴奏拆成鼓、贝斯与其他（只有能出这几轨的模型收，否则以 `SEPARATION_STEMS_UNSUPPORTED` 拒绝）。
+ */
+export type SeparateAudioStems = 'vocals' | 'four';
+export const SEPARATE_AUDIO_STEMS: readonly SeparateAudioStems[] = ['vocals', 'four'];
+
+export interface SeparateAudioParams {
+  /** 输入文件的绝对路径，1 到 20 个。 */
+  inputs: string[];
+  /** 默认 `vocals`。 */
+  stems?: SeparateAudioStems;
+  /** 分离模型（本机模型包的 ID）；不给时按默认值选。 */
+  model?: string;
+  /** 输出目录，规则同 `TranscodeParams.outDir`。文件名是 `<源文件名>-<轨>.wav`，重名时加序号。 */
+  outDir?: string;
+}
+
+/** 分轨完成时父任务的 `pipeline.summary`。 */
+export interface SeparateAudioSummary {
+  stems: SeparateAudioStems;
+  executor: { providerId: string; modelId: string };
+  items: Array<{ source: string; durationSec: number; files: Partial<Record<'vocals' | 'background' | 'drums' | 'bass' | 'other', string>> }>;
+  files: string[];
+}
+
+/**
  * `pipelines.start` 提交 `transcode` 时的参数：`inputs` 的每一项可以是 Space 条目（视频文件、成片、音频），Runtime 在方法层
  * 换成文件路径后冻结，冻结的 `params` 里只有路径。
  */

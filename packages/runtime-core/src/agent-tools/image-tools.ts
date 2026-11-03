@@ -242,7 +242,7 @@ async function upscale(deps: ImageToolsDeps, args: Args, principal: ToolPrincipa
   }
   // 本机的引擎：执行的工具与权重包没装好时先按安装确认（一次装一个，装好之后智能体再调用一次）。
   for (const name of [spec.tool, spec.pack]) {
-    const pending = name ? await installStep(deps, access, args, name) : null;
+    const pending = name ? await installStep(deps, access, args.commandId, name) : null;
     if (pending) return pending;
   }
   const target =
@@ -311,12 +311,18 @@ function executorLabel(model: UpscaleImageModel): string {
  * 一个要用的受管工具（或权重包）：装好了时 null；正在装时返回那个安装任务；没装时按 `external_tools_install`（`high`）确认、提交
  * 安装并返回安装任务号；装不了时报错（带补救）。
  */
-async function installStep(deps: ImageToolsDeps, access: ToolAccess, args: Args, name: string) {
+export async function installStep(
+  deps: { tools: ExternalToolService; scope: ToolScope },
+  access: ToolAccess,
+  commandId: string | undefined,
+  name: string,
+  purpose: { retryTool: string; summary: typeof RcAgentTools.installUpscalerSummary } = { retryTool: 'upscale', summary: RcAgentTools.installUpscalerSummary },
+) {
   const { tools, scope } = deps;
   const status = await tools.status(name);
   if (status.state === 'installed' && !status.installJobId) return null;
   if (status.installJobId) {
-    return { jobId: null, installJobId: status.installJobId, tool: toolView(status), next: installNext(status.label) };
+    return { jobId: null, installJobId: status.installJobId, tool: toolView(status), next: installNext(status.label, purpose.retryTool) };
   }
   if (status.state === 'unavailable' || !status.installable) {
     throw new ToolError('TOOL_UNAVAILABLE', `${status.label} is not available: ${status.reason ?? 'no usable version'}`, {
@@ -335,7 +341,7 @@ async function installStep(deps: ImageToolsDeps, access: ToolAccess, args: Args,
   const approval = await scope.confirm(access, {
     tool: 'external_tools_install',
     ...confirmSummary(
-      RcAgentTools.installUpscalerSummary({
+      purpose.summary({
         tool: status.label,
         version: offer.version,
         size: formatBytes(offer.sizeBytes ?? offer.estimatedBytes),
@@ -350,11 +356,11 @@ async function installStep(deps: ImageToolsDeps, access: ToolAccess, args: Args,
       name: status.name,
       consent: true,
       via: 'agent-approval',
-      ...(args.commandId ? { commandId: scope.commandId(access, `${args.commandId}-install-${name}`) } : {}),
+      ...(commandId ? { commandId: scope.commandId(access, `${commandId}-install-${name}`) } : {}),
     },
     access.submitter,
   );
-  return { jobId: null, installJobId: installed.jobId, tool: toolView(installed.tool), ...approvalField(approval), next: installNext(status.label) };
+  return { jobId: null, installJobId: installed.jobId, tool: toolView(installed.tool), ...approvalField(approval), next: installNext(status.label, purpose.retryTool) };
 }
 
 const EDIT_LABELS = { erase: JobsEditImage.eraseLabel, watermark: JobsEditImage.watermarkLabel, repaint: JobsEditImage.repaintLabel, expand: JobsEditImage.expandLabel };
@@ -440,8 +446,8 @@ async function editTarget(resolve: NonNullable<ImageToolsDeps['editModel']>, arg
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
-const installNext = (label: string) =>
-  `${label} is being installed. Wait for installJobId with jobs_wait; once its state is completed, call upscale again. If it fails, error.details.remedy says how to fix it.`;
+const installNext = (label: string, retryTool: string) =>
+  `${label} is being installed. Wait for installJobId with jobs_wait; once its state is completed, call ${retryTool} again. If it fails, error.details.remedy says how to fix it.`;
 
 function toolView(status: ExternalToolStatus) {
   return { name: status.name, state: status.state, version: status.version, source: status.source };

@@ -276,6 +276,10 @@ pub const STEMS_OUTPUT_CONTRACT: &str = "baocut.stems-wav/v1";
 pub const VOCALS_OUTPUT_FILE: &str = "vocals.wav";
 /// 背景声（鼓、贝斯与其他之和）在 staging 里的文件名。
 pub const BACKGROUND_OUTPUT_FILE: &str = "background.wav";
+/// `allStems` 时另写的三轨（§2.5.4）。
+pub const DRUMS_OUTPUT_FILE: &str = "drums.wav";
+pub const BASS_OUTPUT_FILE: &str = "bass.wav";
+pub const OTHER_OUTPUT_FILE: &str = "other.wav";
 /// `options.sampleRate` 的上下限（Hz）。
 pub const SEPARATE_MIN_SAMPLE_RATE: u32 = 8_000;
 pub const SEPARATE_MAX_SAMPLE_RATE: u32 = 192_000;
@@ -310,6 +314,9 @@ pub struct SeparateOptions {
     /// 让两路输出与输入同采样率（架构设计 §6.1 的输出约定）。
     #[serde(default)]
     pub sample_rate: Option<u32>,
+    /// 另写鼓、贝斯与其他三轨（分轨用）；翻译配音不给。
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub all_stems: bool,
 }
 
 impl SeparateRunParams {
@@ -344,6 +351,13 @@ impl SeparateRunParams {
 pub struct SeparatedFiles {
     pub vocals: OutputFile,
     pub background: OutputFile,
+    /// `allStems` 时的另外三轨。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drums: Option<OutputFile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bass: Option<OutputFile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub other: Option<OutputFile>,
 }
 
 /// 两路输出共同的音频事实。
@@ -740,6 +754,12 @@ mod tests {
         defaulted["options"] = json!({});
         let parsed: SeparateRunParams = serde_json::from_value(defaulted).unwrap();
         assert_eq!(parsed.options.sample_rate, None);
+
+        let mut every = separate_params();
+        every["options"]["allStems"] = json!(true);
+        let parsed: SeparateRunParams = serde_json::from_value(every.clone()).unwrap();
+        assert!(parsed.options.all_stems);
+        assert_eq!(serde_json::to_value(&parsed).unwrap(), every);
 
         let mut ranged = separate_params();
         ranged["input"]["range"] = json!({ "start": 0, "end": 1, "timescale": 1 });

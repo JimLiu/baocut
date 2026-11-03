@@ -18,6 +18,7 @@ import {
   editImagePipeline,
   speakersPipeline,
   localDubSeparator,
+  separateAudioPipeline,
   routeLocalSeparation,
   resolveSpeechWorkerCommand,
   ffprobeMediaProbe,
@@ -307,6 +308,19 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
       log,
     }),
   );
+  // 翻译配音与分轨共用的执行者。内置的 HTDemucs-FT 经 Model Worker，总能出四轨；audio.cpp 的按模型族的背景是不是鼓、贝斯与其他。
+  const localSeparator = async (bundleId: string) => {
+    const family = catalog.definition(bundleId)?.separation;
+    return localDubSeparator({
+      provider: separator,
+      bundleId,
+      workerWeightBytes: await catalog.workerWeightBytes(bundleId),
+      processPeak: catalog.separationPeak(bundleId),
+      fourStems: !family || ['drums', 'bass', 'other'].every((stem) => family.background.includes(stem)),
+      ffmpeg: options.ffmpeg,
+      ffprobe: options.ffprobe,
+    });
+  };
   // 本地语音合成（§6.1）：audio.cpp 引擎的常驻服务，每个用到的模型包一个，与 Model Worker 共用模型包在调度里的 holder。
   const speech = new LocalSpeechProvider({
     catalog,
@@ -441,6 +455,15 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
               : [],
         ),
       ),
+      // 分轨（§7.9）：与翻译配音的分离同一个执行者；没有可用的模型时 `selectSeparate` 的 `CAPABILITY_NOT_CONFIGURED` 原样抛出，带补救。
+      separateAudioPipeline({
+        separator: async (model) => {
+          const choice = await services.selectSeparate(model ? { provider: model.providerId, model: model.modelId } : {});
+          return localSeparator(choice.modelId);
+        },
+        ffprobe: options.ffprobe,
+        ...(options.saveDirectory ? { saveDirectory: options.saveDirectory } : {}),
+      }),
       // 翻译配音：缺译文时的翻译与逐句合成各自经授权与预算；启动前两种外发都要判断。被拒时补上配音的下一步指引。
       withDubGrantGuidance(
         withPipelineGrants(
@@ -465,18 +488,7 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
                 if (error instanceof RpcError) return null;
                 throw error;
               }
-              if (choice.providerId !== 'local') return null;
-              const bundleId = choice.modelId;
-              const workerWeightBytes = await catalog.workerWeightBytes(bundleId);
-              const processPeak = catalog.separationPeak(bundleId);
-              return localDubSeparator({
-                provider: separator,
-                bundleId,
-                workerWeightBytes,
-                processPeak,
-                ffmpeg: options.ffmpeg,
-                ffprobe: options.ffprobe,
-              });
+              return choice.providerId === 'local' ? localSeparator(choice.modelId) : null;
             },
             ffmpeg: options.ffmpeg,
             ffprobe: options.ffprobe,

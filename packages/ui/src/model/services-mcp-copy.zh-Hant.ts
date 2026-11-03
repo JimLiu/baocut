@@ -39,6 +39,7 @@ export const zhHant: ServicesMcpMessages = {
     assets_download: '下載網路素材',
     assets_sfx: '合成音效',
     assets_analyze: '分析音訊',
+    assets_dead_air: '找空檔',
     compositions_import: '匯入程式碼畫面',
     compositions_preview: '預覽程式碼畫面',
     assets_prune: '清理未使用的素材',

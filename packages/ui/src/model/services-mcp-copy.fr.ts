@@ -40,6 +40,7 @@ export const fr: ServicesMcpMessages = {
     assets_download: "Télécharger des médias en ligne",
     assets_sfx: "Créer des effets sonores",
     assets_analyze: "Analyser l’audio",
+    assets_dead_air: 'Trouver les temps morts',
     compositions_import: "Importer un graphisme animé",
     compositions_preview: "Prévisualiser un graphisme animé",
     assets_prune: "Nettoyer les médias inutilisés",

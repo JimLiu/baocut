@@ -7,6 +7,7 @@ import type { SequenceItem, Track, VideoItem, VideoSnapshot } from '@baocut/prot
 import { silentLogger } from '@baocut/harness';
 import { MediaAnalysis, type SceneCut } from '../media-analysis.ts';
 import type { DetectedFace, FaceDetector } from '../face-detection.ts';
+import { adaptiveCuts } from './shot-detectors.ts';
 import { ShotsError, detectShots, detectSpeakerShots, shotSegments, shotsRange, shotsToolError, type SpeakerShotsDeps } from './video-shots.ts';
 
 const track = (id: string, order: number): Track => ({
@@ -226,6 +227,30 @@ describe.skipIf(!hasFfmpeg)('镜头切换（真实 ffmpeg）', () => {
     const cuts = await analysis.sceneCuts(asset, { fromSec: 1, durSec: 4, threshold: 0.3 }, async () => ({ root: dir, file: 'cat.mp4' }));
     expect(cuts.map((c) => Math.round(c.at * 30))).toEqual([60, 105]);
     for (const c of cuts) expect(c.score).toBeGreaterThan(0.3);
+  });
+
+  it('frameScores：每一帧都有分数与亮度，时刻在源时钟上', async () => {
+    const asset = { contentHash: `sha256:${'ce'.repeat(32)}`, mediaType: 'video/mp4', durationSec: 5.5 };
+    const frames = await analysis.frameScores(asset, { fromSec: 1, durSec: 4 }, async () => ({ root: dir, file: 'cat.mp4' }));
+    // 真实的 ffmpeg 输出：两个 metadata 滤镜不按帧交错，解析错时这里是空的（曾经的缺陷）。
+    expect(frames.length).toBeGreaterThanOrEqual(4 * 30 - 1);
+    expect(frames[0]!.at).toBeCloseTo(1, 1);
+    for (const frame of frames) {
+      expect(frame.score).toBeGreaterThanOrEqual(0);
+      expect(frame.luma).toBeGreaterThanOrEqual(0);
+      expect(frame.luma).toBeLessThanOrEqual(1);
+    }
+    // 判据用同一份分数：源 2s、3.5s 的切换都找得到。
+    expect(adaptiveCuts(frames).map((cut) => Math.round(cut.at * 30))).toEqual([60, 105]);
+  });
+
+  it('method：adaptive 在时间线上找到切换，kind 是 scene', async () => {
+    const result = await detectShots(deps(), video([clip('a', 90, 135, 1)]), { start: 3, method: 'adaptive' });
+    expect(result.detector).toBe('adaptive');
+    expect(result.cuts.map((c) => c.kind)).toEqual(['scene', 'scene']);
+    const frames = result.cuts.map((c) => c.at * 30);
+    expect(Math.abs(frames[0]! - 120)).toBeLessThanOrEqual(1);
+    expect(Math.abs(frames[1]! - 165)).toBeLessThanOrEqual(1);
   });
 
   it('时间线起点不为 0、源从 1s 起播：切换点 ±1 帧，镜头与取帧时刻落在各自镜头里', async () => {

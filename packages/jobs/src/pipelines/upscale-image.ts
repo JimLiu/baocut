@@ -58,6 +58,7 @@ export const MAX_OUTPUT_SIDE = 16384;
 const REALESRGAN = 'realesrgan-ncnn-vulkan';
 const WAIFU2X = 'waifu2x-ncnn-vulkan';
 const UPSCAYL_MODELS = 'upscayl-models';
+const RIFE = 'rife-ncnn-vulkan';
 
 /** 生成式放大给模型的提示词（给模型看的，英文）；用户的说明接在后面。 */
 const GENERATIVE_PROMPT =
@@ -536,10 +537,10 @@ async function upscale(deps: UpscaleImageDeps, context: PipelineStepContext<Froz
         spec.engine === 'waifu2x'
           ? ['-i', input, '-o', raw, '-n', String(params.denoise ?? 0), '-s', String(factor), '-m', path.join(tool!.modelsDir ?? path.dirname(tool!.command), spec.weights!), '-f', 'png']
           : ['-i', input, '-o', raw, '-n', spec.weights!, '-s', String(factor), '-m', pack?.command ?? tool!.modelsDir ?? path.join(path.dirname(tool!.command), 'models'), '-f', 'png'];
-      const run = await runTool(spec.tool!, tool!, args, signal, deps);
+      const run = await runImageTool(spec.tool!, tool!, args, signal, deps);
       if (run.code !== 0) {
         await fs.rm(raw, { force: true });
-        const detail = lastLine(run.stderr) || `exit ${run.code}`;
+        const detail = lastToolLine(run.stderr) || `exit ${run.code}`;
         throw new PipelineStepError('UPSCALE_FAILED', J.upscaleFailed({ tool: toolLabel(spec.tool!), name, detail }), {
           file: input,
           exitCode: run.code,
@@ -615,10 +616,11 @@ async function generate(
 
 /** 工具给人看的名字（错误信息里用）。 */
 function toolLabel(name: string): string {
-  return name === WAIFU2X ? 'waifu2x' : name === REALESRGAN ? 'Real-ESRGAN' : name;
+  return name === WAIFU2X ? 'waifu2x' : name === REALESRGAN ? 'Real-ESRGAN' : name === RIFE ? 'RIFE' : name;
 }
 
-function lastLine(text: string): string {
+/** 工具输出里最后一行有内容的话（错误信息里用；去掉进度百分比）。 */
+export function lastToolLine(text: string): string {
   return (
     text
       .trim()
@@ -630,7 +632,7 @@ function lastLine(text: string): string {
 }
 
 /** 起一次工具，等它退出。中止时结束整棵进程树（先 SIGTERM，宽限之后 SIGKILL），等它退出再抛。 */
-async function runTool(
+export async function runImageTool(
   name: string,
   tool: UpscaleTool,
   args: string[],

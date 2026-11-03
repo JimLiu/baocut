@@ -39,6 +39,7 @@ export const ko: ServicesMcpMessages = {
     assets_download: '온라인 소재 다운로드',
     assets_sfx: '효과음 생성',
     assets_analyze: '오디오 분석',
+    assets_dead_air: '빈 구간 찾기',
     compositions_import: '모션 그래픽 가져오기',
     compositions_preview: '모션 그래픽 미리 보기',
     assets_prune: '사용하지 않는 소재 정리',

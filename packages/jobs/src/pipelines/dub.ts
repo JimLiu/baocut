@@ -138,14 +138,20 @@ export interface DubSeparator {
   readonly workerWeightBytes: number | null;
   /** 不经 Model Worker、每次分离起一个进程的（audio.cpp）：进程的峰值（`ModelCatalog.separationPeak`）；别的没有。 */
   readonly processPeak?: WorkerFootprint | null;
-  /** 把 `file` 分成人声与背景两个文件，写在 `staging` 里。 */
+  /** 能不能另出鼓、贝斯与其他三轨（HTDemucs 系能，别的模型只分人声与其余）。 */
+  readonly fourStems?: boolean;
+  /**
+   * 把 `file` 分成人声与背景两个文件，写在 `staging` 里；`allStems` 时另写鼓、贝斯与其他（`fourStems` 的模型才给）。
+   * `videoId` 只有从视频来的分离（翻译配音）才有。
+   */
   separate(request: {
     file: string;
     staging: string;
-    videoId: Id;
+    videoId?: Id;
     jobId: Id;
     signal: AbortSignal;
-  }): Promise<{ vocals: string; background: string }>;
+    allStems?: boolean;
+  }): Promise<{ vocals: string; background: string; drums?: string; bass?: string; other?: string }>;
 }
 
 /** 配音读写视频的能力：在翻译的基础上，多了序列的实例与文稿在序列上的位置。 */

@@ -13,6 +13,19 @@ import { inside } from './artifact-save.ts';
 import { digestReceipt, resolveUserPath } from './video-digest.ts';
 import { ToolError, type ToolInfo, type ToolSet } from './tool-catalog.ts';
 import { approvalField, confirmSummary, type ToolAccess, type ToolPrincipal, type ToolScope } from './tool-scope.ts';
+import {
+  DEFAULT_AUDIO_THRESHOLD,
+  DEFAULT_MARGIN,
+  DEFAULT_MIN_CUT,
+  DEFAULT_MIN_KEEP,
+  DEAD_AIR_TICK,
+  DEFAULT_MOTION_THRESHOLD,
+  audioActivity,
+  combineActivity,
+  deadRanges,
+  motionActivity,
+  motionRatio,
+} from './dead-air.ts';
 import { framesDirectory } from './video-frames.ts';
 import { commandIdArg, revisionArg, videoArg } from './video-tools.ts';
 
@@ -142,11 +155,28 @@ const schemas = {
       .optional()
       .describe(`可选。true 时另画一张听音表 PNG（频谱、波形、起音与节拍、时刻），用看图的工具看；最长 ${MAX_SHEET_SECONDS} 秒`),
   }),
+  assets_dead_air: z.strictObject({
+    video: videoArg,
+    asset: z.string().min(1).max(200).optional().describe('素材 ID（videos_inspect 的 assets 里有）。与 path 二选一；给素材时结果带上能直接提交的 addCuts'),
+    path: z.string().min(1).max(1000).optional().describe('或者工作目录里的一个音频 / 视频文件。与 asset 二选一'),
+    range: z
+      .string()
+      .regex(/^\d+(\.\d+)?:\d+(\.\d+)?$/)
+      .optional()
+      .describe(`可选。只看源文件里的 "起:止"（秒）；不给时整段，最长 ${MAX_ANALYSIS_SECONDS / 60} 分钟`),
+    method: z.enum(['audio', 'motion', 'both']).optional().describe('可选。audio（默认）看声音；motion 看画面变化（没有收音的录屏、空镜）；both 声音与画面都没动静才算（屏幕录制讲解用它）'),
+    threshold: z.number().gt(0).max(1).optional().describe(`可选。声音低于整段峰值的这个比例算没声音；默认 ${DEFAULT_AUDIO_THRESHOLD}。有底噪时调高到 0.08–0.15`),
+    motionThreshold: z.number().gt(0).max(1).optional().describe(`可选。画面变化的像素比例低于它算没动静；默认 ${DEFAULT_MOTION_THRESHOLD}`),
+    margin: z.number().min(0).max(5).optional().describe(`可选。有内容的段向两边留的余量（秒），不切掉字头字尾；默认 ${DEFAULT_MARGIN}`),
+    minCut: z.number().min(0).max(60).optional().describe(`可选。短于它的空档留下（秒，正常的气口）；默认 ${DEFAULT_MIN_CUT}`),
+    minKeep: z.number().min(0).max(60).optional().describe(`可选。短于它的响动算噪声（秒，一声咳嗽）；默认 ${DEFAULT_MIN_KEEP}`),
+  }),
 };
 
 type ToolName = keyof typeof schemas;
 type SfxArgs = z.infer<(typeof schemas)['assets_sfx']>;
 type AnalyzeArgs = z.infer<(typeof schemas)['assets_analyze']>;
+type DeadAirArgs = z.infer<(typeof schemas)['assets_dead_air']>;
 
 const DEFINITIONS: Record<ToolName, ToolInfo> = {
   assets_sfx: {
@@ -192,6 +222,25 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     surfaces: ['agent', 'mcp', 'cli'],
     positional: 'video',
   },
+  assets_dead_air: {
+    title: '找空档',
+    description: [
+      '找一段素材里没声音、没动静的部分，给出可以剪掉的区间。',
+      '不靠转写：按声音的电平（或画面的变化）判断，所以没人说话的素材（录屏、游戏、空镜、现场）也能用；有转写的口播优先用 edits_apply 的 proposeCuts，它分得清口癖与停顿。只读，不改视频。',
+      '判断的顺序：逐片（1/30 秒）看有没有内容；短于 minKeep 的响动算噪声；短于 minCut 的空档算气口、留下（素材开头与结尾的空档例外，多短都给）；有内容的段向两边留 margin。结果是源文件里的秒。',
+      '返回 cuts [{from, to}]、deadSeconds、keptSeconds、duration 与 source；给的是 asset 时另回 operation（一个 addCuts，可以直接放进 edits_apply 的 operations，先按用户的要求删减）。不要不经用户同意就把 cuts 全部提交：背景音乐、环境声盖住的空档找不到，安静的讲话可能被当成空档，先用 videos_frames 或听一段核对。',
+      `错误码：ASSET_NOT_FOUND、AUDIO_NO_STREAM（没有音轨，换 method motion）、AUDIO_TOO_LONG（超过 ${MAX_ANALYSIS_SECONDS / 60} 分钟，分段给 range）、AUDIO_DECODE_FAILED、PATH_OUTSIDE_WORKSPACE。`,
+    ].join('\n'),
+    annotations: { readOnlyHint: true },
+    effect: 'query',
+    examples: [
+      { title: '找一段录音里的空档', args: { video: 'demo', asset: 'asset_01J…' } },
+      { title: '屏幕录制：声音和画面都没动静才算', args: { video: 'demo', asset: 'asset_01J…', method: 'both', minCut: 1 } },
+      { title: '有底噪的工作目录文件', args: { video: 'demo', path: 'raw/take1.mp4', threshold: 0.1 } },
+    ],
+    surfaces: ['agent', 'mcp', 'cli'],
+    positional: 'video',
+  },
 };
 
 export class AudioTools implements ToolSet {
@@ -209,6 +258,8 @@ export class AudioTools implements ToolSet {
         return this.#sfx(args as SfxArgs, principal);
       case 'assets_analyze':
         return this.#analyze(args as AnalyzeArgs, principal);
+      case 'assets_dead_air':
+        return this.#deadAir(args as DeadAirArgs, principal);
     }
     throw new ToolError('UNKNOWN_TOOL', `Unknown tool: ${name}`);
   }
@@ -290,33 +341,7 @@ export class AudioTools implements ToolSet {
     const opened = await scope.open(args.video, access);
     const videoId = opened.ref.videoId;
     const video = videos.mirror(videoId)?.video ?? opened.snapshot.video;
-    if ((args.asset === undefined) === (args.path === undefined)) {
-      throw new ToolError('INVALID_ARGUMENTS', 'Give exactly one of asset or path');
-    }
-    let file: string;
-    let label: string;
-    if (args.asset !== undefined) {
-      if (!video.assets[args.asset]) {
-        throw new ToolError('ASSET_NOT_FOUND', `No asset ${args.asset} in this video`, {
-          next: 'Read asset IDs from videos_inspect',
-        });
-      }
-      file = (await videos.assetFile(videoId, args.asset)).file;
-      label = args.asset;
-    } else {
-      // 与 assets_import 同一个基准：对外服务只能读项目目录里的文件。
-      const base = scope.importBase(access, opened);
-      file = resolveUserPath(args.path!, base.cwd);
-      if (base.confine !== null) {
-        const real = await fs.realpath(file).catch(() => file);
-        if (!inside(real, await fs.realpath(base.confine))) {
-          throw new ToolError('PATH_OUTSIDE_WORKSPACE', `${args.path} is outside the project directory`, {
-            next: 'Import the file into the video first and analyze it by asset',
-          });
-        }
-      }
-      label = path.parse(file).name;
-    }
+    const { file, label } = await this.#source(args, access, opened, video);
     const [start, end] = args.range ? args.range.split(':').map(Number) : [0, null];
     if (end !== null && end! <= start!) {
       throw new ToolError('INVALID_ARGUMENTS', `range end ${end} must be after its start ${start}`);
@@ -412,6 +437,84 @@ export class AudioTools implements ToolSet {
     };
   }
 
+  /** 按素材或文件定位要分析的文件。 */
+  async #source(args: { asset?: string | undefined; path?: string | undefined }, access: ToolAccess, opened: VideoOpenResult, video: { assets: Record<string, unknown> }) {
+    const { scope, videos } = this.#deps;
+    if ((args.asset === undefined) === (args.path === undefined)) {
+      throw new ToolError('INVALID_ARGUMENTS', 'Give exactly one of asset or path');
+    }
+    if (args.asset !== undefined) {
+      if (!video.assets[args.asset]) {
+        throw new ToolError('ASSET_NOT_FOUND', `No asset ${args.asset} in this video`, {
+          next: 'Read asset IDs from videos_inspect',
+        });
+      }
+      // `file` 是相对 `root` 的路径。
+      const located = await videos.assetFile(opened.ref.videoId, args.asset);
+      return { file: path.resolve(located.root, located.file), label: args.asset };
+    }
+    // 与 assets_import 同一个基准：对外服务只能读项目目录里的文件。
+    const base = scope.importBase(access, opened);
+    const file = resolveUserPath(args.path!, base.cwd);
+    if (base.confine !== null) {
+      const real = await fs.realpath(file).catch(() => file);
+      if (!inside(real, await fs.realpath(base.confine))) {
+        throw new ToolError('PATH_OUTSIDE_WORKSPACE', `${args.path} is outside the project directory`, {
+          next: 'Import the file into the video first and analyze it by asset',
+        });
+      }
+    }
+    return { file, label: path.parse(file).name };
+  }
+
+  async #deadAir(args: DeadAirArgs, principal: ToolPrincipal) {
+    const { scope, videos } = this.#deps;
+    const access = scope.authorize(principal, false);
+    const opened = await scope.open(args.video, access);
+    const video = videos.mirror(opened.ref.videoId)?.video ?? opened.snapshot.video;
+    const { file } = await this.#source(args, access, opened, video);
+    const [start, end] = args.range ? (args.range.split(':').map(Number) as [number, number]) : [0, null];
+    if (end !== null && end <= start) throw new ToolError('INVALID_ARGUMENTS', `range end ${end} must be after its start ${start}`);
+    if (end !== null && end - start > MAX_ANALYSIS_SECONDS) throw tooLong();
+    const method = args.method ?? 'audio';
+    const ffmpeg = await this.#deps.ffmpeg();
+    let activity: Uint8Array | null = null;
+    let duration = 0;
+    if (method !== 'motion') {
+      const pcm = await decodeMono(ffmpeg, file, start, end);
+      if (pcm.length === 0) throw new ToolError('AUDIO_EMPTY', 'The audio is empty');
+      duration = pcm.length / ANALYSIS_RATE;
+      activity = audioActivity(pcm, ANALYSIS_RATE, args.threshold ?? DEFAULT_AUDIO_THRESHOLD);
+    }
+    if (method !== 'audio') {
+      const ratios = await decodeMotion(ffmpeg, file, start, end);
+      duration = Math.max(duration, ratios.length / MOTION_FPS);
+      const ticks = activity?.length ?? Math.ceil(duration / DEAD_AIR_TICK);
+      const moving = motionActivity(ratios, MOTION_FPS, args.motionThreshold ?? DEFAULT_MOTION_THRESHOLD, ticks);
+      activity = activity ? combineActivity(activity, moving) : moving;
+    }
+    const round = (seconds: number) => Math.round(seconds * 1000) / 1000;
+    const cuts = deadRanges(activity!, {
+      margin: args.margin ?? DEFAULT_MARGIN,
+      minCut: args.minCut ?? DEFAULT_MIN_CUT,
+      minKeep: args.minKeep ?? DEFAULT_MIN_KEEP,
+    }).map((range) => ({ from: round(start + range.from), to: round(Math.min(start + range.to, start + duration)) }));
+    const deadSeconds = round(cuts.reduce((sum, cut) => sum + (cut.to - cut.from), 0));
+    return {
+      source: { ...(args.asset !== undefined ? { asset: args.asset } : { path: file }), offset: start, ...(end !== null ? { end } : {}) },
+      method,
+      duration: round(duration),
+      deadSeconds,
+      keptSeconds: round(duration - deadSeconds),
+      cuts,
+      ...(args.asset !== undefined && cuts.length > 0 ? { operation: { type: 'addCuts', assetId: args.asset, cuts } } : {}),
+      next:
+        cuts.length === 0
+          ? 'Nothing to cut at these settings. If there is background noise, raise threshold.'
+          : 'Check a few of these against the picture or the sound before cutting. Then put operation into edits_apply (drop any range you want to keep); each cut can be undone and restored.',
+    };
+  }
+
   async #apply(
     access: ToolAccess,
     opened: VideoOpenResult,
@@ -435,6 +538,72 @@ export class AudioTools implements ToolSet {
     scope.recordChange(access, videoChangeOf(videos, opened, result));
     return result;
   }
+}
+
+/** 量画面变化时的帧率与缩小后的宽度：足够看出有没有动静，20 分钟也只有约 200 MB 要过一遍。 */
+const MOTION_FPS = 10;
+const MOTION_WIDTH = 160;
+
+/** 逐帧的画面变化比例（灰度、缩小）；边读边算，不把画面留在内存里。 */
+async function decodeMotion(ffmpeg: string, file: string, start: number, end: number | null): Promise<number[]> {
+  // 宽度固定，高度由 ffmpeg 按比例定：取偶数的高度要先问一次第一帧。这里固定成 90，比例不重要，只比较相邻两帧。
+  const height = 90;
+  const frameBytes = MOTION_WIDTH * height;
+  const limit = MAX_ANALYSIS_SECONDS * MOTION_FPS * frameBytes;
+  const args = [
+    '-nostdin',
+    '-v',
+    'error',
+    ...(start > 0 ? ['-ss', String(start)] : []),
+    ...(end !== null ? ['-t', String(end - start)] : []),
+    '-i',
+    file,
+    '-map',
+    '0:v:0',
+    '-an',
+    '-vf',
+    `fps=${MOTION_FPS},scale=${MOTION_WIDTH}:${height},format=gray`,
+    '-f',
+    'rawvideo',
+    'pipe:1',
+  ];
+  return new Promise((resolve, reject) => {
+    const child = spawn(ffmpeg, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const ratios: number[] = [];
+    let previous: Uint8Array | null = null;
+    let pending: Buffer = Buffer.alloc(0);
+    let size = 0;
+    let stderr = '';
+    let over = false;
+    child.stdout.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > limit) {
+        over = true;
+        child.kill();
+        return;
+      }
+      pending = pending.length > 0 ? Buffer.concat([pending, chunk]) : chunk;
+      let offset = 0;
+      while (pending.length - offset >= frameBytes) {
+        const frame = pending.subarray(offset, offset + frameBytes);
+        ratios.push(previous ? motionRatio(previous, frame) : 0);
+        previous = Uint8Array.from(frame);
+        offset += frameBytes;
+      }
+      pending = pending.subarray(offset);
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr = (stderr + chunk.toString('utf8')).slice(-2000);
+    });
+    child.on('error', (error) => reject(new ToolError('AUDIO_DECODE_FAILED', `ffmpeg could not start: ${error.message}`)));
+    child.on('close', (code) => {
+      if (over) return reject(tooLong());
+      if (code !== 0) {
+        return reject(new ToolError('AUDIO_DECODE_FAILED', `ffmpeg could not read the picture (exit code ${code}): ${stderr.trim().slice(-400)}`));
+      }
+      resolve(ratios);
+    });
+  });
 }
 
 function sheetTooLong(): ToolError {

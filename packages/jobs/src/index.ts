@@ -157,6 +157,15 @@ export {
   type UpscaleImageDeps,
   type UpscaleTool,
 } from './pipelines/upscale-image.ts';
+export {
+  REALESRGAN_TOOL,
+  RIFE_TOOL,
+  footageExecutorLabel,
+  footagePipeline,
+  footageTools,
+  type FootageDeps,
+} from './pipelines/footage.ts';
+export { SEPARATE_AUDIO_PIPELINE, separateAudioPipeline, type SeparateAudioDeps } from './pipelines/separate-audio.ts';
 export { parseImageHeader, readImageHeader, type ImageHeader } from './pipelines/image-header.ts';
 export {
   EDIT_IMAGE_PIPELINES,

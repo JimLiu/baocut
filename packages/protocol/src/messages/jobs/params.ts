@@ -21,6 +21,7 @@ const en = {
   mustBeNonEmptyString: 'must be a non-empty string',
   atMostChars: (p: { max: number }) => `must be at most ${p.max} characters`,
   mustBeIntegerBetween: (p: { min: number; max: number }) => `must be an integer from ${p.min} to ${p.max}`,
+  mustBeNumberBetween: (p: { min: number; max: number }) => `must be a number from ${p.min} to ${p.max}`,
   mustBeOneOf: (p: { values: string }) => `must be one of ${p.values}`,
   mustBeArray: 'must be an array',
   atLeastItems: (p: { min: number }) => `must have at least ${p.min} ${p.min === 1 ? 'item' : 'items'}`,

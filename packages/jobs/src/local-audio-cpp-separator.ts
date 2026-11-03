@@ -172,14 +172,34 @@ export class LocalAudioCppSeparator {
       }
       const encodeMs = Date.now() - encodeStart;
 
+      // 分轨要的另外三轨：HTDemucs 的背景正好是鼓、贝斯与其他；别的模型族没有（流程在启动时就拒绝）。
+      let extraStems: { drums: string; bass: string; other: string } | undefined;
+      if (run.allStems) {
+        const paths = { drums: path.join(run.staging, 'drums.wav'), bass: path.join(run.staging, 'bass.wav'), other: path.join(run.staging, 'other.wav') };
+        for (const stem of ['drums', 'bass', 'other'] as const) {
+          if (!profile.background.includes(stem)) throw new ProviderFailure('unavailable', L.separateNoStem({ stem }), { bundleId });
+          await this.#mix([path.join(out, `${stem}.wav`)], paths[stem], rate, signal);
+        }
+        extraStems = paths;
+      }
       const stems = { vocals: await outputOf(files.vocals), background: await outputOf(files.background) };
       const result: SeparateRunResult = {
         outcome: 'completed',
-        stems: { vocals: stems.vocals.output, background: stems.background.output },
+        stems: {
+          vocals: stems.vocals.output,
+          background: stems.background.output,
+          ...(extraStems
+            ? {
+                drums: (await outputOf(extraStems.drums)).output,
+                bass: (await outputOf(extraStems.bass)).output,
+                other: (await outputOf(extraStems.other)).output,
+              }
+            : {}),
+        },
         audio: await wavHeader(files.vocals),
         stats: { decodeMs, separationMs, encodeMs },
       };
-      return { outcome: 'completed', ...files, result, workerVersion: `audiocpp_cli@${path.basename(engine)}` };
+      return { outcome: 'completed', ...files, ...(extraStems ? { extraStems } : {}), result, workerVersion: `audiocpp_cli@${path.basename(engine)}` };
     } finally {
       await fs.rm(work, { recursive: true, force: true }).catch(() => {});
     }

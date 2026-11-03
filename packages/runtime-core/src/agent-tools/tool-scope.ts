@@ -151,6 +151,8 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   videos_frames: 'read',
   // 镜头切换：只读，不改视频、不写文件，规划模式也能用。
   videos_shots: 'read',
+  // 找没声音、没动静的段落：只读，只给出剪口，不改视频。
+  assets_dead_air: 'read',
   // 按句编号读讲话（写作出处）：只读，不改视频、不写文件。
   speech_sentences: 'read',
   // 重录与术语候选：只读，不改视频、不写文件；语义比较的向量不落盘。
@@ -178,6 +180,9 @@ export const TOOL_RISK: Readonly<Record<string, RiskLevel>> = {
   image: 'command',
   upscale: 'command',
   retouch: 'command',
+  // 素材处理与分轨（§7.9）：文件到文件，同 upscale、retouch；工具没装时另按 external_tools_install（high）确认。
+  assets_process: 'command',
+  assets_separate: 'command',
   // 下载模型（§6.3）：先给出大小，按访问模式决定要不要问。
   models_install: 'command',
   space_list: 'read',

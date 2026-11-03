@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { REALESRGAN, BUILTIN_TOOL_MANIFESTS } from './tool-manifests.ts';
+import { REALESRGAN, RIFE, BUILTIN_TOOL_MANIFESTS } from './tool-manifests.ts';
 import { envValue, findOnPath, pathExtensions, runVersionProbe, windowsScriptKind } from './tool-probe.ts';
 
 /** 在 PATH 里找工具：Windows 的 PATHEXT 用注入的平台在临时目录里核对（目录分隔仍按本机），不执行任何文件。 */
@@ -84,5 +84,14 @@ describe('版本探测', () => {
     expect(manifest.parseVersion('Usage: realesrgan-ncnn-vulkan -i infile', 'v0.2.5.0')).toBe('v0.2.5.0');
     expect(manifest.parseVersion('Usage: realesrgan-ncnn-vulkan -i infile', null)).toBe('unknown');
     expect(manifest.parseVersion('ffmpeg version 7.1', 'v0.2.5.0')).toBeNull();
+  });
+
+  it('RIFE 的清单：用法的尾巴写在标准输出，里面没有程序名，也要认得出', () => {
+    const manifest = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === RIFE)!;
+    const stdout = '  -x                   enable spatial tta mode\n  -z                   enable temporal tta mode\n  -u                   enable UHD mode\n';
+    expect(manifest.probeExitCodes).toContain(255);
+    expect(manifest.parseVersion(stdout, '20221029')).toBe('20221029');
+    expect(manifest.parseVersion('Usage: rife-ncnn-vulkan -0 infile', null)).toBe('unknown');
+    expect(manifest.parseVersion('ffmpeg version 7.1', '20221029')).toBeNull();
   });
 });

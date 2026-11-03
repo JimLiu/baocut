@@ -188,6 +188,14 @@ const schemas = {
       .max(60)
       .optional()
       .describe(`可选。最短镜头（秒），更短的并进前一个；默认 ${DEFAULT_MIN_SHOT}`),
+    method: z
+      .enum(['scene', 'adaptive', 'fade', 'adaptive-fade'])
+      .optional()
+      .describe(
+        '可选，只用于 by picture。场景切换的判据：scene（默认）固定阈值，快、适合剪辑好的成片；adaptive 比较一帧与前后几帧的分数，手持晃动、快速运动的素材用它，不会连着误报；fade 找淡出淡入（亮度掉到 luma 以下再回来，切点在中点，kind 为 fade）；adaptive-fade 两种都算',
+      ),
+    ratio: z.number().min(1.1).max(100).optional().describe('可选，只用于 adaptive。一帧的分数至少是前后平均分的几倍才算切换；默认 3，多报时调高'),
+    luma: z.number().gt(0).max(1).optional().describe('可选，只用于 fade。亮度（0–1）低于它算黑场；默认 0.05，淡到深灰的片子调高'),
     by: z
       .enum(['picture', 'speaker'])
       .optional()
@@ -571,8 +579,8 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     description: [
       '找时间线上一段区间里画面在哪里切换（镜头），用来按镜头分别看画面、分别取景。只读，不写文件。',
       `range 是剪辑后时间线上的 "起:止"（秒），最长 ${MAX_SHOTS_RANGE_SECONDS / 60} 分钟，不给时整条时间线。按取帧的同一条规则（最上层、启用、轨道可见的视频片段）把区间分段：换了片段、源画面又接不上的地方是一处 kind "edit"（score 为 null）；每段的源画面用 ffmpeg 的场景分数检测，超过 threshold（默认 ${DEFAULT_SCENE_THRESHOLD}）的帧是 kind "scene"。短于 minShot 秒（默认 ${DEFAULT_MIN_SHOT}）的镜头并进前一个。`,
-      '只看画面的突变，不认人：叠化、推拉、缓慢摇镜会漏报，闪光、快速运动可能多报；结果不对时调 threshold，或用 videos_frames 看切换点前后的帧核对。',
-      '返回 range（对到帧之后实际检测的区间）、cuts [{at, score, kind}]（at 是时间线上的秒，对到帧，是新镜头的第一帧）、shots [{start, end, sampleAt}]（sampleAt 是镜头 20%、50%、80% 处的 3 个时刻，可直接作为 videos_frames 的 at）、threshold、minShot、detector（"ffmpeg-scene"）与 note。',
+      '只看画面的突变，不认人：叠化、推拉、缓慢摇镜会漏报，闪光、快速运动可能多报；结果不对时调 threshold，或用 videos_frames 看切换点前后的帧核对。手持、运动镜头连着误报时换 method adaptive（一帧的分数要明显高于前后几帧才算）；要找淡入淡出用 method fade（kind "fade"，切点在黑场的中点）；adaptive-fade 两种都算。',
+      '返回 range（对到帧之后实际检测的区间）、cuts [{at, score, kind}]（at 是时间线上的秒，对到帧，是新镜头的第一帧）、shots [{start, end, sampleAt}]（sampleAt 是镜头 20%、50%、80% 处的 3 个时刻，可直接作为 videos_frames 的 at）、threshold、minShot、detector（"ffmpeg-scene" 或 method 的值）与 note。',
       '要解码整段画面：长区间要等一会儿；同一素材、同一区间与阈值再问时用缓存。',
       'by "speaker"（先用默认的 picture 看出只有一个全景机位再用）不找画面切换：在原片的整份转写里取样，量每张脸嘴部的动静，认出每个说话人是哪张脸（按素材与转写缓存），再按转写切段：谁在说对准谁；超过 1.5 秒的停顿、两人 2 秒内交替说、认不出的人说话时分屏；短于 1.5 秒的插话不换人；每段至少 3 秒。返回 shots [{start, end, sampleAt, speaker, face}]（face 是 faces 的下标，分屏段两项都是 null）、faces [{box, speaker}]（各取样里的中位脸框，从左到右）、speakers [{id, name, face, probes, contrast}]、confidence、detector（"mouth-motion"）与 note。转写不到 2 个说话人、不是单机位、谁也认不出、人脸检测不可用时分别以 SHOTS_NO_SPEAKERS、SHOTS_NOT_SINGLE_CAMERA、SHOTS_SPEAKERS_UNMATCHED、SHOTS_FACES_UNAVAILABLE 拒绝，next 说怎么退回。',
     ].join('\n'),
@@ -580,7 +588,7 @@ const DEFINITIONS: Record<ToolName, ToolInfo> = {
     effect: 'query',
     examples: [
       { title: '找一段里的镜头切换', args: { video: 'demo', range: '1477.8:1532.5' } },
-      { title: '调低阈值重找', args: { video: 'demo', range: '0:60', threshold: 0.2, minShot: 0.5 } },
+      { title: '手持素材：按前后几帧比较，并找淡入淡出', args: { video: 'demo', range: '0:60', method: 'adaptive-fade', minShot: 0.5 } },
       { title: '单机位按说话人切段', args: { video: 'demo', range: '600:690', by: 'speaker' } },
     ],
     surfaces: ['agent', 'mcp', 'cli'],
@@ -1295,9 +1303,10 @@ export class VideoTools implements ToolSet {
     const opened = await this.#scope.open(args.video, access);
     const videoId = opened.ref.videoId;
     const video = this.#current(opened);
-    if (args.by === 'speaker' ? args.threshold !== undefined || args.minShot !== undefined : args.split !== undefined) {
+    const pictureOnly = [args.threshold, args.minShot, args.method, args.ratio, args.luma].some((value) => value !== undefined);
+    if (args.by === 'speaker' ? pictureOnly : args.split !== undefined) {
       // i18n-ignore: 给模型的工具说明、错误与下一步
-      throw new ToolError('INVALID_ARGUMENTS', args.by === 'speaker' ? 'threshold、minShot 只用于 by picture' : 'split 只用于 by speaker');
+      throw new ToolError('INVALID_ARGUMENTS', args.by === 'speaker' ? 'threshold、minShot、method、ratio、luma 只用于 by picture' : 'split 只用于 by speaker');
     }
     try {
       if (args.by === 'speaker') {
@@ -1308,7 +1317,7 @@ export class VideoTools implements ToolSet {
       const result = await detectShots(
         { analysis: this.#deps.analysis, assetFile: (assetId, revision) => this.#videos.assetFile(videoId, assetId, revision) },
         video,
-        { start, end, threshold: args.threshold, minShot: args.minShot },
+        { start, end, threshold: args.threshold, minShot: args.minShot, method: args.method, ratio: args.ratio, luma: args.luma },
       );
       return { videoId, ...result, note: SHOTS_NOTE };
     } catch (error) {

@@ -39,6 +39,7 @@ export const ru: ServicesMcpMessages = {
     assets_download: "Скачать материалы из сети",
     assets_sfx: "Создавать звуковые эффекты",
     assets_analyze: "Анализ звука",
+    assets_dead_air: 'Найти пустые участки',
     compositions_import: "Импортировать анимированную графику",
     compositions_preview: "Предпросмотр анимированной графики",
     assets_prune: "Удалить неиспользуемые материалы",

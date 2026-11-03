@@ -40,6 +40,7 @@ export const ptBR: ServicesMcpMessages = {
     assets_download: "Baixar mídias online",
     assets_sfx: "Criar efeitos sonoros",
     assets_analyze: "Analisar áudio",
+    assets_dead_air: 'Encontrar trechos vazios',
     compositions_import: "Importar gráfico animado",
     compositions_preview: "Visualizar gráfico animado",
     assets_prune: "Limpar mídias não usadas",

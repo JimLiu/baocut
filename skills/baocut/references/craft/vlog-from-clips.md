@@ -81,6 +81,7 @@
 
 - **接缝的声音**：不同片段的环境声音量与底噪差别大，接缝处听得出跳。片段相接的地方给很短的淡入淡出（`setAudioMix` 的 `fadeIn`、`fadeOut`，0.1–0.3 秒起），只在需要的地方加。
 - **字幕**：每个用上的、有人说话的片段的转写各建一层原文字幕（`baocut captions create` 给那份转写的 `documentId`），字幕跟着片段走。要译文或双语时照 `translate-subtitles`。样式与位置读 [baocut-catalog-subtitles](../catalog/subtitles.md)；竖版要挪出平台控件区。
+- **修素材**：手持晃得厉害的段落先用 `baocut assets process` 的 `stabilize`，几段光线差得多时用 `match-color` 对齐到选定的一段；都只处理用到的那一截（`start`、`end`），结果用 `baocut assets import` 导入。没人说话的段落里找空档用 `baocut assets dead-air`（`method: motion` 或 `both`）。
 - **配乐**：读 [baocut-catalog-music](../catalog/music.md)。用户给了音乐就用用户的；没有时本机能生成就按这期的地点、情绪写风格，成片时长定了再生成。配乐压在人声之下（setDucking，触发选有人说话时），本人说话的段落压得更低，纯画面的段落可以抬起来。
 - **封面与标题**：用户要时照 `cover-and-title`，候选帧从日志里画面好、本人表情或动作有张力的那几段里挑。
 

@@ -203,7 +203,7 @@ export const SPEECH_OUTPUT_FILE = 'speech.wav';
 /** 分离的输出合同：staging 里人声与背景两个 16-bit PCM 立体声 WAV，采样率是请求的 `sampleRate`，长度与输入相同。 */
 export const STEMS_WAV_CONTRACT = 'baocut.stems-wav/v1';
 /** 分离结果在 staging 里的文件名。 */
-export const STEM_OUTPUT_FILES = { vocals: 'vocals.wav', background: 'background.wav' } as const;
+export const STEM_OUTPUT_FILES = { vocals: 'vocals.wav', background: 'background.wav', drums: 'drums.wav', bass: 'bass.wav', other: 'other.wav' } as const;
 
 /** `job.run`（capability `separate`）的参数（§2.5.4）：整段输入，不接受 `range`。 */
 export interface SeparateRunParams {
@@ -211,8 +211,11 @@ export interface SeparateRunParams {
   runGeneration: number;
   capability: 'separate';
   input: Omit<JobInput, 'range'>;
-  /** `sampleRate`：输出的采样率（8000–192000）；null 为模型的工作采样率（HTDemucs 为 44100）。Runtime 传输入音轨的采样率。 */
-  options: { sampleRate: number | null };
+  /**
+   * `sampleRate`：输出的采样率（8000–192000）；null 为模型的工作采样率（HTDemucs 为 44100）。Runtime 传输入音轨的采样率。
+   * `allStems`：另写 `drums.wav`、`bass.wav`、`other.wav`（分轨用）；翻译配音不给。
+   */
+  options: { sampleRate: number | null; allStems?: boolean };
   staging: string;
   outputContract: typeof STEMS_WAV_CONTRACT;
 }
@@ -322,7 +325,7 @@ export interface JobRunResult {
 /** `job.run`（`separate`）的结果：`stems` 是 staging 里的 `vocals.wav` 与 `background.wav`（背景是鼓、贝斯与其他之和），取消时为 null。 */
 export interface SeparateRunResult {
   outcome: 'completed' | 'cancelled';
-  stems: { vocals: JobOutput; background: JobOutput } | null;
+  stems: { vocals: JobOutput; background: JobOutput; drums?: JobOutput; bass?: JobOutput; other?: JobOutput } | null;
   audio: { sampleRate: number; channels: number; durationSec: number } | null;
   stats: { decodeMs: number; separationMs: number; encodeMs: number };
 }

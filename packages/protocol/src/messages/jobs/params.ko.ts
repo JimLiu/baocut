@@ -6,6 +6,7 @@ export const ko: JobsParamsMessages = {
   mustBeNonEmptyString: '비어 있지 않은 문자열이어야 합니다',
   atMostChars: (p: { max: number }) => `${p.max}자 이하여야 합니다`,
   mustBeIntegerBetween: (p: { min: number; max: number }) => `${p.min}~${p.max} 사이의 정수여야 합니다`,
+  mustBeNumberBetween: (p: { min: number; max: number }) => `${p.min}~${p.max} 사이의 숫자여야 합니다`,
   mustBeOneOf: (p: { values: string }) => `다음 중 하나여야 합니다: ${p.values}`,
   mustBeArray: '배열이어야 합니다',
   atLeastItems: (p: { min: number }) => `항목이 ${p.min}개 이상이어야 합니다`,

@@ -54,6 +54,7 @@ const en = {
     assets_download: 'Download online assets',
     assets_sfx: 'Make sound effects',
     assets_analyze: 'Analyze audio',
+    assets_dead_air: 'Find dead air',
     compositions_import: 'Import motion graphic',
     compositions_preview: 'Preview motion graphic',
     assets_prune: 'Clean up unused assets',

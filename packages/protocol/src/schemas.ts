@@ -1279,12 +1279,19 @@ export const methodParamSchemas = {
       end: z.number().finite().positive().optional(),
       threshold: z.number().gt(0).max(1).optional(),
       minShot: z.number().min(0).max(60).optional(),
+      method: z.enum(['scene', 'adaptive', 'fade', 'adaptive-fade']).optional(),
+      ratio: z.number().min(1.1).max(100).optional(),
+      luma: z.number().gt(0).max(1).optional(),
       by: z.enum(['picture', 'speaker']).optional(),
       split: z.boolean().optional(),
     })
     .strict()
     .refine((p) => p.start === undefined || p.end === undefined || p.end > p.start)
-    .refine((p) => (p.by === 'speaker' ? p.threshold === undefined && p.minShot === undefined : p.split === undefined)),
+    .refine((p) =>
+      p.by === 'speaker'
+        ? p.threshold === undefined && p.minShot === undefined && p.method === undefined && p.ratio === undefined && p.luma === undefined
+        : p.split === undefined,
+    ),
   'slides.open': fileTarget,
   'design.open': fileTarget,
   'designSystem.open': fileTarget,

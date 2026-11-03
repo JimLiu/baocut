@@ -659,7 +659,7 @@ export async function publishFile(source: string, dir: string, stem: string, ext
   throw new PipelineStepError('TRANSCODE_FAILED', JobsTranscode.tooManySameName({ name: `${stem}${ext}` }));
 }
 
-async function digestFile(file: string): Promise<{ size: number; digest: string }> {
+export async function digestFile(file: string): Promise<{ size: number; digest: string }> {
   const hash = createHash('sha256');
   let size = 0;
   for await (const chunk of createReadStream(file)) {

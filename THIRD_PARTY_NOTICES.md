@@ -523,9 +523,26 @@ DEALINGS IN THE SOFTWARE.
 - 来源：https://github.com/opencv/opencv_zoo/tree/f12e12798e8314f7c074a6656816c048dcc95b7a/models/face_detection_yunet
 - 许可：MIT License，Copyright (c) 2020 Shiqi Yu
 
+## 素材处理与分轨用到的开源项目
+
+下面几项都不把代码编进 BaoCut，只在用到时由用户同意下载（架构设计 §12.9 的受管外部工具），或由用户自己的 ffmpeg 提供；这里列出来源与许可。
+
+- **RIFE**（`rife-ncnn-vulkan`）：视频插帧。可执行文件与模型来自 https://github.com/nihui/rife-ncnn-vulkan （MIT，Copyright (c) 2020 nihui），算法与原始模型来自 https://github.com/hzwer/ECCV2022-RIFE （MIT），用 ncnn（BSD-3-Clause）构建。
+- **Real-ESRGAN**（`realesrgan-ncnn-vulkan`）：图片与视频超分。来自 https://github.com/xinntao/Real-ESRGAN （BSD-3-Clause）。
+- **抠像权重**：都从 rembg 的发布页下载（https://github.com/danielgatis/rembg ，MIT）。`crates/matte` 的前处理与输出的取法参考 rembg，代码是 BaoCut 自己写的。
+  - `matte-models`（默认）：`u2netp.onnx`，U²-Net，https://github.com/xuebinqin/U-2-Net ，Apache-2.0。
+  - `matte-models-isnet`（要用时才下载）：`isnet-general-use.onnx`，IS-Net，https://github.com/xuebinqin/DIS 。上游写明代码是 Apache-2.0，没有单独写权重的许可；权重用 DIS5K 数据集训练，它的使用条款只许可非商业的研究与教育，并禁止未经许可的商业使用。这个包下载前的说明里写明这一点。
+- **vid.stab**：视频去抖。https://github.com/georgmartius/vid.stab （GPL-2.0-or-later）。BaoCut 不分发也不链接它：用户的 ffmpeg 编进了 libvidstab 时，BaoCut 只作为另一个进程调用 ffmpeg 的滤镜。
+
+下面几项只参考了算法，没有拷贝代码：
+
+- **PySceneDetect**（https://github.com/Breakthrough/PySceneDetect ，BSD-3-Clause）：`videos_shots` 的 `adaptive`、`fade` 判据（`shot-detectors.ts`）按它的 AdaptiveDetector 与 ThresholdDetector 的做法。
+- **Auto-Editor**（https://github.com/WyattBlue/auto-editor ，Unlicense）：`assets_dead_air`（`dead-air.ts`）的判断顺序按它的做法。
+- **color-matcher**（https://github.com/hahnec/color-matcher ，GPL-3.0）：只借鉴了它提供哪几种方法这件事，没有读也没有引用它的代码。`color-transfer.ts` 按公开论文实现：Reinhard et al. 2001（"Color Transfer between Images"）、Pitié & Kokaram 2007（"The linear Monge-Kantorovitch linear colour mapping for example-based colour transfer"）。
+
 ## tract
 
-人脸检测进程 `face-detect`（`crates/face-detect`）用 tract（Sonos，`tract-onnx` 及其依赖的 `tract-*` crate）做纯 Rust 的 ONNX 推理，编进随应用分发的原生程序。tract 以 MIT OR Apache-2.0 双许可发布，本分发选择 MIT 许可：
+人脸检测进程 `face-detect`（`crates/face-detect`）与抠像进程 `matte`（`crates/matte`）用 tract（Sonos，`tract-onnx` 及其依赖的 `tract-*` crate）做纯 Rust 的 ONNX 推理，编进随应用分发的原生程序。tract 以 MIT OR Apache-2.0 双许可发布，本分发选择 MIT 许可：
 
 ```text
 Permission is hereby granted, free of charge, to any

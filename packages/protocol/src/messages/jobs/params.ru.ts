@@ -7,6 +7,7 @@ export const ru: JobsParamsMessages = {
   mustBeNonEmptyString: "должен быть непустой строкой",
   atMostChars: (p: { max: number }) => pluralForm('ru', p.max, { one: `должен содержать не более ${p.max} символа`, few: `должен содержать не более ${p.max} символов`, many: `должен содержать не более ${p.max} символов`, other: `должен содержать не более ${p.max} символа` }),
   mustBeIntegerBetween: (p: { min: number; max: number }) => `должен быть целым числом от ${p.min} до ${p.max}`,
+  mustBeNumberBetween: (p: { min: number; max: number }) => `должен быть числом от ${p.min} до ${p.max}`,
   mustBeOneOf: (p: { values: string }) => `должен быть одним из ${p.values}`,
   mustBeArray: "должен быть массивом",
   atLeastItems: (p: { min: number }) => pluralForm('ru', p.min, { one: `должен содержать не менее ${p.min} элемента`, few: `должен содержать не менее ${p.min} элементов`, many: `должен содержать не менее ${p.min} элементов`, other: `должен содержать не менее ${p.min} элемента` }),

@@ -1,4 +1,4 @@
-// 构建原生进程：视频引擎（engine-host）、Render Worker（export-worker）、speech-worker、人脸检测（face-detect）与本地推理进程（model-worker）。
+// 构建原生进程：视频引擎（engine-host）、Render Worker（export-worker）、speech-worker、人脸检测（face-detect）、抠像（matte）与本地推理进程（model-worker）。
 // model-worker 的推理后端随平台（架构设计 §6.5）：Apple Silicon 的 macOS 用默认 feature（MLX + Core ML）；
 // 别的平台关掉默认 feature、开 candle 与 whisper.cpp 的 Whisper（`whisper-ggml`，构建要 CMake 与 C++ 编译器）。
 // BAOCUT_WORKER_FEATURES（逗号分隔）再追加 feature，例如 NVIDIA 显卡上设 `cuda,whisper-ggml-cuda`（candle 与 Whisper 都走 CUDA，
@@ -35,7 +35,7 @@ function cargo(args) {
 ensureCargo();
 
 // --no-default-features 作用于命令里的每个包，所以 model-worker 单独构建。
-const engines = cargo(['build', '--keep-going', '-p', 'engine-host', '-p', 'export-worker', '-p', 'speech-worker', '-p', 'face-detect', ...extra]);
+const engines = cargo(['build', '--keep-going', '-p', 'engine-host', '-p', 'export-worker', '-p', 'speech-worker', '-p', 'face-detect', '-p', 'matte', ...extra]);
 const worker = cargo([
   'build',
   '-p',

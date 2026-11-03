@@ -21,6 +21,8 @@ export interface LocalDubSeparatorOptions {
   workerWeightBytes?: number | null;
   /** audio.cpp 的分离模型包（每次分离起一个引擎进程）：进程的峰值；经 Model Worker 的没有。 */
   processPeak?: WorkerFootprint | null;
+  /** 这个模型包能另出鼓、贝斯与其他三轨。 */
+  fourStems?: boolean;
   ffmpeg: MediaToolResolver;
   ffprobe: MediaToolResolver;
 }
@@ -38,7 +40,8 @@ export function localDubSeparator(options: LocalDubSeparatorOptions): DubSeparat
     modelId: bundleId,
     workerWeightBytes: options.workerWeightBytes ?? null,
     ...(options.processPeak ? { processPeak: options.processPeak } : {}),
-    async separate({ file, staging, jobId, signal }) {
+    ...(options.fourStems ? { fourStems: true } : {}),
+    async separate({ file, staging, jobId, signal, allStems }) {
       const input = await probeMedia(ffprobe, file, signal);
       if (!input.audio) throw new PipelineStepError('INPUT_UNREADABLE', J.noAudio(), { file });
       const rate = input.audio.sampleRate;
@@ -48,19 +51,23 @@ export function localDubSeparator(options: LocalDubSeparatorOptions): DubSeparat
       let outcome: LocalSeparateOutcome;
       try {
         outcome = await provider.separate(
-          { bundleId, jobId, input: { file, contentHash: `sha256:${hex}`, track: 0 }, sampleRate, staging },
+          { bundleId, jobId, input: { file, contentHash: `sha256:${hex}`, track: 0 }, sampleRate, staging, ...(allStems ? { allStems: true } : {}) },
           signal,
         );
       } catch (error) {
         throw providerStepError(error);
       }
       if (outcome.outcome === 'cancelled') throw signal.reason ?? new DOMException('aborted', 'AbortError');
-      const stems = { vocals: outcome.vocals, background: outcome.background };
+      const stems = { vocals: outcome.vocals, background: outcome.background, ...outcome.extraStems };
       const durationSec = outcome.result.audio?.durationSec ?? null;
       if (durationSec === null || Math.abs(durationSec - input.durationSec) <= DURATION_TOLERANCE_SEC) return stems;
+      const fit = async (file: string) => fitDuration(ffmpeg, file, input.durationSec, signal);
       return {
-        vocals: await fitDuration(ffmpeg, stems.vocals, input.durationSec, signal),
-        background: await fitDuration(ffmpeg, stems.background, input.durationSec, signal),
+        vocals: await fit(stems.vocals),
+        background: await fit(stems.background),
+        ...(outcome.extraStems
+          ? { drums: await fit(outcome.extraStems.drums), bass: await fit(outcome.extraStems.bass), other: await fit(outcome.extraStems.other) }
+          : {}),
       };
     },
   };

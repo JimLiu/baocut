@@ -22,6 +22,7 @@ import {
   type SpaceEntry,
   type SpaceEntryKind,
   type SynthesizeSpeechRequest,
+  FOOTAGE_PIPELINE_NAMES,
 } from '@baocut/protocol';
 import { methodParamSchemas } from '@baocut/protocol/schemas';
 import { RcSpace } from '@baocut/protocol/messages/runtime-core';
@@ -41,6 +42,9 @@ export const MEDIA_ENTRY_KINDS: readonly SpaceEntryKind[] = ['video-file', 'expo
 export const SUBTITLE_ENTRY_KINDS: readonly SpaceEntryKind[] = ['subtitle'];
 /** 生图的输入图。 */
 export const IMAGE_ENTRY_KINDS: readonly SpaceEntryKind[] = ['image'];
+
+/** 收 Space 条目作输入的素材处理与分轨流程。 */
+const FOOTAGE_INPUT_PIPELINES = [...Object.values(FOOTAGE_PIPELINE_NAMES), 'separate-audio'] as const;
 /** 语音合成与文本生成的素材：文档与字幕。 */
 export const MATERIAL_ENTRY_KINDS: readonly SpaceEntryKind[] = ['document', 'subtitle'];
 
@@ -76,6 +80,10 @@ export function resolvePipelineEntryInputs(
     case UPSCALE_IMAGE_PIPELINE:
       return Array.isArray(params.inputs) ? { ...params, inputs: params.inputs.map((input) => file(input, IMAGE_ENTRY_KINDS)) } : params;
     default:
+      // 素材处理与分轨：`inputs[]` 里可以是媒体条目（对齐颜色与抠像也收图片）。
+      if ((FOOTAGE_INPUT_PIPELINES as readonly string[]).includes(pipeline) && Array.isArray(params.inputs)) {
+        return { ...params, inputs: params.inputs.map((input) => file(input, [...MEDIA_ENTRY_KINDS, ...IMAGE_ENTRY_KINDS])) };
+      }
       // 图片编辑的四个流程同超分：`inputs[]` 里可以是图片条目。
       if (Object.values<string>(EDIT_IMAGE_PIPELINES).includes(pipeline) && Array.isArray(params.inputs)) {
         return { ...params, inputs: params.inputs.map((input) => file(input, IMAGE_ENTRY_KINDS)) };

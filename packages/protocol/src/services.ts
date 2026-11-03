@@ -83,6 +83,7 @@ export const MCP_SERVICE_TOOL_NAMES: readonly McpServiceTool[] = [
   { name: 'assets_download', title: 'Download open media', effect: 'mutation' },
   { name: 'assets_sfx', title: '合成音效', effect: 'mutation' },
   { name: 'assets_analyze', title: '分析音频', effect: 'query' },
+  { name: 'assets_dead_air', title: '找空档', effect: 'query' },
   { name: 'compositions_import', title: '导入代码画面', effect: 'mutation' },
   { name: 'compositions_preview', title: '预览代码画面', effect: 'mutation' },
   { name: 'assets_prune', title: '清理没用的素材', effect: 'mutation' },

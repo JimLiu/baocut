@@ -209,6 +209,25 @@ export function upscaleImageDemand(outputPixels: number, gpu = true): ResourceDe
   };
 }
 
+/**
+ * 素材处理（`assets_process`，§7.9）：超分、插帧按批过工具，内存与显存同图片超分，staging 只放一批帧（按输出像素 × 4 字节 × 一批的帧数估）
+ * 加输出文件（按输入大小的几倍估）；抠像只在 CPU 上推理，输出是 ProRes 4444（约每帧每像素 0.6 字节）；只走滤镜链的同转码。
+ */
+export function footageDemand(op: string, size: { outputPixels: number; frames: number; inputBytes: number }): ResourceDemand {
+  const { outputPixels, frames, inputBytes } = size;
+  if (op === 'stabilize' || op === 'match-color') return { memory: 1 * GiB, cpuThreads: 4, scratchDisk: Math.round(inputBytes * 2 + STAGING_SLACK) };
+  if (op === 'remove-background') {
+    return { memory: Math.max(2 * GiB, outputPixels * 16), cpuThreads: 4, scratchDisk: Math.round(frames * outputPixels * 0.6 + STAGING_SLACK) };
+  }
+  const batchFrames = op === 'interpolate' ? 200 : 48;
+  return {
+    memory: Math.max(2 * GiB, outputPixels * 16),
+    gpuMemory: 2 * GiB,
+    cpuThreads: 4,
+    scratchDisk: Math.round(outputPixels * 4 * batchFrames + inputBytes * 8 + STAGING_SLACK),
+  };
+}
+
 /** 模型下载与校验：256 MiB、1 个线程；staging 是还要下载的字节数（暂停过的部分已经在盘上）。 */
 export function modelDownloadDemand(remainingBytes: number): ResourceDemand {
   return { memory: 256 * MiB, cpuThreads: 1, scratchDisk: Math.round(remainingBytes + STAGING_SLACK) };

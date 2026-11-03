@@ -151,6 +151,10 @@ describe('每个可能花钱的工具都标了 paid（Bot 技术方案 §14.2）
     const notPaid: Record<string, string> = {
       // 只是申请授权，本身不调用模型；之后用授权的那次调用另有确认。
       grants_request: 'asks for a grant; the call that uses it is confirmed on its own',
+      // model 是本机超分的权重，全部在这台电脑上执行。
+      assets_process: 'the model argument names local upscaling weights; everything runs on this computer',
+      // 分离只有本机的模型包。
+      assets_separate: 'separation only runs local model bundles',
     };
     const withProvider = allToolSets().flatMap((set) =>
       Object.entries(set.schemas)

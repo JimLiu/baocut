@@ -39,6 +39,7 @@ export const zhHans: ServicesMcpMessages = {
     assets_download: '下载网上素材',
     assets_sfx: '合成音效',
     assets_analyze: '分析音频',
+    assets_dead_air: '找空档',
     compositions_import: '导入代码画面',
     compositions_preview: '预览代码画面',
     assets_prune: '清理没用到的素材',

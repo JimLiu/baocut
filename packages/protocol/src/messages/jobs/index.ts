@@ -7,6 +7,7 @@ import './dub.ts';
 import './edit-image.ts';
 import './entry-input.ts';
 import './ffmpeg.ts';
+import './footage.ts';
 import './generated-import.ts';
 import './job-application.ts';
 import './job-library.ts';

@@ -99,6 +99,13 @@ export const FILE_PIPELINES: ReadonlySet<string> = new Set([
   'remove-watermark',
   'repaint-image',
   'expand-image',
+  // 素材处理与分轨（§7.9）：结果是保存位置里的视频、图片或 WAV。
+  'stabilize-video',
+  'upscale-video',
+  'interpolate-video',
+  'match-color',
+  'remove-background',
+  'separate-audio',
 ]);
 
 /**

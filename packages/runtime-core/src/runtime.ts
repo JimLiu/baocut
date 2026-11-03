@@ -134,6 +134,7 @@ import { RuntimeActivity, type IdleExitOptions } from './runtime-activity.ts';
 import { ExternalToolService, toolsDownloadEndpoint, type ExternalToolServiceOptions } from './external-tools/external-tool-service.ts';
 import { linkImportDefinition, pruneLinkSources } from './external-tools/link-import-wiring.ts';
 import { upscaleImageDefinition } from './external-tools/upscale-image-wiring.ts';
+import { footageDefinitions } from './external-tools/footage-wiring.ts';
 import { resolveDownloadsDirectory, resolveSaveDirectory } from './external-tools/downloads-directory.ts';
 import { entryPlace } from './videos/pipeline-targets.ts';
 import { FlowTools } from './agent-tools/flow-tools.ts';
@@ -142,6 +143,7 @@ import { servicesPaidProbe } from './agent-tools/paid-calls.ts';
 import { OpenMediaTools } from './agent-tools/open-media-tools.ts';
 import { AudioTools } from './agent-tools/audio-tools.ts';
 import { ImageTools } from './agent-tools/image-tools.ts';
+import { FootageTools } from './agent-tools/footage-tools.ts';
 import { DownloadTools } from './agent-tools/download-tools.ts';
 import { SpeechSentenceTools } from './agent-tools/speech-sentence-tools.ts';
 import { MemoryCitationRegistry } from './ai-tools/citation-registry.ts';
@@ -675,6 +677,15 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           },
           saveDirectory: () => resolveSaveDirectory({ settings: settingsStore?.get('downloads.directory') ?? null }),
         }),
+        ...footageDefinitions({
+          tools: () => {
+            if (!externalToolsRef) throw new Error(RcRuntime.externalToolsNotReady().text);
+            return externalToolsRef;
+          },
+          ffmpeg: async () => ({ command: process.env.BAOCUT_FFMPEG || 'ffmpeg', env: await toolEnv() }),
+          ffprobe,
+          saveDirectory: () => resolveSaveDirectory({ settings: settingsStore?.get('downloads.directory') ?? null }),
+        }),
         aiToolDefinition(
           {
             videos,
@@ -1093,6 +1104,15 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
           saveDirectory: () => resolveSaveDirectory({ settings: settings.store.get('downloads.directory') ?? null }),
           editModel: imageEditor({ services: models.services, grants: models.grants, catalog: models.catalog }).prepare,
           upscaleModel: imageUpscaler({ services: models.services, grants: models.grants, catalog: models.catalog }).prepare,
+          scope: toolScope,
+        }),
+        // 素材处理与分轨（§7.9）：Real-ESRGAN、RIFE 与抠像权重是受管的外部工具，没有安装时按安装确认；分轨确认前先选定模型。
+        new FootageTools({
+          tools: externalTools,
+          pipelines: models.pipelines,
+          videos,
+          saveDirectory: () => resolveSaveDirectory({ settings: settings.store.get('downloads.directory') ?? null }),
+          separationModel: async (model) => models.services.selectSeparate(model ? { provider: 'local', model } : {}),
           scope: toolScope,
         }),
         // 会话里的幻灯片（docs/design/slides §7.2）：校验与导入素材；编译器与 deck 的存储来自幻灯片服务。

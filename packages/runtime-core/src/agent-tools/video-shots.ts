@@ -8,6 +8,7 @@ import {
   type Rate,
   type VideoPictureShotsResult,
   type VideoShotCut,
+  type VideoShotMethod,
   type VideoShotSpeaker,
   type VideoShotsParams,
   type VideoShotsResult,
@@ -20,6 +21,7 @@ import { timelineWords } from '../ai-tools/timeline-sentences.ts';
 import type { VideoService } from '../videos/video-service.ts';
 import { imageSize, type MediaAnalysis } from '../media-analysis.ts';
 import { ToolError } from './tool-catalog.ts';
+import { adaptiveCuts, fadeCuts } from './shot-detectors.ts';
 import { frameSourceAtFrame, type FrameSource } from './video-frames.ts';
 import {
   BURST,
@@ -117,6 +119,9 @@ export interface ShotsOptions {
   end?: number | undefined;
   threshold?: number | undefined;
   minShot?: number | undefined;
+  method?: VideoShotMethod | undefined;
+  ratio?: number | undefined;
+  luma?: number | undefined;
   /** `by: "speaker"`：false 时该分屏的段留在前一个人身上；缺省 true。 */
   split?: boolean | undefined;
 }
@@ -208,6 +213,7 @@ export interface ShotsDeps {
 export async function detectShots(deps: ShotsDeps, video: VideoSnapshot, options: ShotsOptions): Promise<Omit<VideoPictureShotsResult, 'videoId'>> {
   const threshold = options.threshold ?? DEFAULT_SCENE_THRESHOLD;
   const minShot = options.minShot ?? DEFAULT_MIN_SHOT;
+  const method = options.method ?? 'scene';
   const { from, to, fps } = shotsRange(video, options);
   const segments = shotSegments(video, from, to);
 
@@ -220,14 +226,20 @@ export async function detectShots(deps: ShotsDeps, video: VideoSnapshot, options
     const start = source ? linearAt(source, segment.from, fps) : null;
     if (!source || !start) continue;
     const durSec = (((segment.to - segment.from) * fps.den) / fps.num) * start.rate;
-    const found = await deps.analysis.sceneCuts(source.asset, { fromSec: start.at, durSec, threshold }, () =>
-      deps.assetFile(source.assetId, source.revision),
-    );
+    const locate = () => deps.assetFile(source.assetId, source.revision);
+    const found: Array<{ at: number; score: number; kind: 'scene' | 'fade' }> = [];
+    if (method === 'scene') {
+      for (const cut of await deps.analysis.sceneCuts(source.asset, { fromSec: start.at, durSec, threshold }, locate)) found.push({ ...cut, kind: 'scene' });
+    } else {
+      const scores = await deps.analysis.frameScores(source.asset, { fromSec: start.at, durSec }, locate);
+      if (method !== 'fade') for (const cut of adaptiveCuts(scores, options.ratio)) found.push({ ...cut, kind: 'scene' });
+      if (method !== 'adaptive') for (const cut of fadeCuts(scores, options.luma)) found.push({ ...cut, kind: 'fade' });
+    }
     for (const cut of found) {
       const frame = segment.from + Math.round((((cut.at - start.at) / start.rate) * fps.num) / fps.den);
       if (frame <= segment.from || frame >= segment.to) continue;
       const existing = cuts.get(frame);
-      if (!existing || (existing.kind === 'scene' && (existing.score ?? 0) < cut.score)) cuts.set(frame, { score: cut.score, kind: 'scene' });
+      if (!existing || (existing.kind !== 'edit' && (existing.score ?? 0) < cut.score)) cuts.set(frame, { score: cut.score, kind: cut.kind });
     }
   }
 
@@ -253,7 +265,7 @@ export async function detectShots(deps: ShotsDeps, video: VideoSnapshot, options
     }),
     threshold,
     minShot,
-    detector: 'ffmpeg-scene',
+    detector: method === 'scene' ? 'ffmpeg-scene' : method,
   };
 }
 

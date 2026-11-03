@@ -2273,6 +2273,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cbf36668475a45a46bf8710e927e7458b7c387e7c46ddb5457ae0c71cf5e817"
 
 [[package]]
+name = "matte"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "image",
+ "serde",
+ "serde_json",
+ "tract-onnx",
+]
+
+[[package]]
 name = "media-core"
 version = "0.4.0"
 dependencies = [

@@ -55,6 +55,8 @@ Fish Audio S2 Pro 可在本机使用 MLX 社区 8-bit 权重，支持内置音�
 - **跨语言配音。** 翻译后用 HTDemucs 分离人声与背景声，再使用克隆音色或预设音色逐句合成，将新音轨放进时间线。
 - **剪辑口播。** 在时间线上去掉口头语、长停顿、重录和说到一半重新开始的内容，原始媒体文件保持完整。
 - **生成衍生内容。** 根据带时间信息的文稿制作章节、摘要、标题、博客文章和短视频，并用时间戳定位来源。
+- **在本机处理素材。** 给晃动的镜头去抖（通过你的 ffmpeg 使用 vid.stab，或 deshake）、视频超分（Real-ESRGAN）、做顺滑的慢动作（RIFE）、把几段镜头统一到一张参考的色调、不用绿幕抠出主体（rembg 发布的权重），以及把任何音轨拆成几轨（HTDemucs）。每种处理都写成新文件，不动原文件。
+- **找剪辑点。** 检测镜头切换（含手持素材与淡入淡出），不靠文稿找出空档，读出一首歌的节拍、小节与重音，让剪辑点落在拍子上。
 
 **从创作简报开始**
 
@@ -198,7 +200,7 @@ Windows Command Prompt 中，先执行 `set "BAOCUT_HOME=.dev/baocut-home"`，�
 | `npm run package:win` / `npm run package:win:cuda` / `npm run package:win:vulkan` | Windows x64 的 NSIS 安装包（按用户安装）与 zip，不签名；分别使用 CPU、CUDA（NVIDIA）或 Vulkan（Whisper 使用 GPU，candle 仍使用 CPU）配置。见[桌面端 README](apps/desktop/README.md#windows-打包)。 |
 | `npm run runtime` | 单独启动 Runtime，默认主目录为 `~/.baocut`。 |
 | `npm run cli -- --help` | 查看 `baocut` 命令一览。工具命令从 Runtime 的工具目录派生，与 MCP 共用；`baocut help <command>` 查看参数，`baocut spec` 输出机器可读目录。没有 Runtime 时自动在后台启动，空闲后退出；可用 `baocut runtime status\|ensure\|stop` 管理。退出码：0 成功、1 失败、2 需要用户处理、3 Runtime 不可用、4 参数错误。见 [Agent 面设计 §5](docs/design/agent-surface/agent-surface-design.md#5-cli-约定)。 |
-| `npm run build:engine` | 构建视频引擎 `engine-host`、成片渲染器 `export-worker`、`speech-worker`、人脸检测 `face-detect` 与本地推理进程 `model-worker`。Apple Silicon 使用 MLX 与 Core ML，其他平台使用 candle 与 whisper.cpp；额外参数原样交给 cargo，例如 `npm run build:engine -- --release`。 |
+| `npm run build:engine` | 构建视频引擎 `engine-host`、成片渲染器 `export-worker`、`speech-worker`、人脸检测 `face-detect`、抠像 `matte` 与本地推理进程 `model-worker`。Apple Silicon 使用 MLX 与 Core ML，其他平台使用 candle 与 whisper.cpp；额外参数原样交给 cargo，例如 `npm run build:engine -- --release`。 |
 | `npm run build:audiocpp` | 按登记的固定版本下载这台机器的 audio.cpp 引擎（本地语音合成与音乐用）到 cargo 产物目录的 `audiocpp/`，核对大小与 sha256；`-- --variant cpu` 在 Windows / Linux 取 CPU 构建；给了 `BAOCUT_TOOLS_ENDPOINT` 时从镜像下载。打包时内置同一个版本。 |
 | `npm test` | 单元测试与使用假 Driver 的 Runtime 端到端测试，无需 Codex。 |
 | `npm run check:file-fonts` | 构建桌面应用，在 Electron 隐藏窗口中通过 `file://` 检查预览渲染器加载全部字体。 |
@@ -240,6 +242,7 @@ BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上�
 | `BAOCUT_ENGINE_HOST` / `BAOCUT_MODEL_WORKER` | 指定 `engine-host` / `model-worker` 路径。否则先查 `BAOCUT_BIN_DIR`，再查 cargo 产物目录（`CARGO_TARGET_DIR`、`.cargo/config*.toml` 的 `build.target-dir`、仓库 `target/`）中的 `{release,debug}/`。没有 `model-worker` 时本地转写不可用。 |
 | `BAOCUT_EXPORT_WORKER` | 指定 `export-worker` 路径。否则先查 `engine-host` 旁边，再查 cargo 产物目录；缺失时导出返回 `EXPORT_TOOL_MISSING`。 |
 | `BAOCUT_FACE_DETECT` | 指定 `face-detect` 路径。否则先查 `BAOCUT_BIN_DIR`，再查 cargo 产物目录；缺失（或随附的 YuNet 模型缺失）时 `videos_frames` 照常取帧，`detector` 为 null、不标人脸。 |
+| `BAOCUT_MATTE` | 指定 `matte`（抠像）路径。否则先查 `BAOCUT_BIN_DIR`，再查 cargo 产物目录；缺失时 `assets_process` 工具的 `remove-background` 被拒绝。 |
 | `BAOCUT_RUNTIME_ENTRY` | CLI 启动 Runtime 的入口：`.ts` / `.js` 使用当前 Node，其他路径作为可执行文件。否则依次查找已安装的 BaoCut 应用、仓库内的 `apps/runtime`。 |
 | `BAOCUT_MODELS_DIR` | 本地模型目录，默认 `<BAOCUT_HOME>/models`。 |
 | `BAOCUT_MODELS_ENDPOINT` | 本地模型的下载来源（基址），优先于“模型下载来源”设置。默认 `https://huggingface.co`；`https://www.modelscope.cn` 改从 ModelScope 下载。 |

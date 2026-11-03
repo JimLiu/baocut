@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { RpcError, type Id, type JobRecord, type JobState, type PipelineStepState } from '@baocut/protocol';
+import { FOOTAGE_PIPELINE_NAMES, RpcError, type Id, type JobRecord, type JobState, type PipelineStepState } from '@baocut/protocol';
 import { withoutInputPaths } from '@baocut/models';
 import {
   DUB_PIPELINE,
   isTerminal,
   LINK_IMPORT_PIPELINE,
+  SEPARATE_AUDIO_PIPELINE,
   SPEAKERS_PIPELINE,
   TRANSCODE_PIPELINE,
   UPSCALE_IMAGE_PIPELINE,
@@ -38,7 +39,7 @@ export interface JobToolsDeps {
 }
 
 /** 只用本机工具、从不调用在线 Provider 的流程：重跑它们不花钱。 */
-const LOCAL_PIPELINES: ReadonlySet<string> = new Set([TRANSCODE_PIPELINE, SPEAKERS_PIPELINE]);
+const LOCAL_PIPELINES: ReadonlySet<string> = new Set([TRANSCODE_PIPELINE, SPEAKERS_PIPELINE, SEPARATE_AUDIO_PIPELINE, ...Object.values(FOOTAGE_PIPELINE_NAMES)]);
 
 /** 重跑这个流程会不会调用在线 Provider：只下载不转写的、只用本机工具的不会，别的按可能花钱处理。 */
 function retryMayPay(pipeline: { name: string; params: Record<string, unknown> }): boolean {
@@ -442,6 +443,14 @@ export function pipelineNext(name: string, summary: Record<string, unknown> | nu
             }）${linkImportCaptionsNext(summary.captions)}`
           : ''
       }。`;
+    case 'stabilize-video':
+    case 'upscale-video':
+    case 'interpolate-video':
+    case 'match-color':
+    case 'remove-background':
+      return '素材处理完成：outputs 的 path（pipeline.summary.files）是新文件，原文件不动，视频也没有变。summary.warnings 有提醒时一并告诉用户（executor.engine 是实际用的引擎）；要放进视频时用 assets_import。';
+    case 'separate-audio':
+      return '分轨完成：summary.items[].files 按轨给出 WAV 的路径，原文件不动，视频也没有变。要放进视频时用 assets_import。';
     case 'remove-object':
     case 'remove-watermark':
     case 'repaint-image':

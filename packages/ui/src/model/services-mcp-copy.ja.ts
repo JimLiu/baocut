@@ -39,6 +39,7 @@ export const ja: ServicesMcpMessages = {
     assets_download: 'ネットの素材をダウンロード',
     assets_sfx: '効果音を生成',
     assets_analyze: '音声を解析',
+    assets_dead_air: '無音区間を探す',
     compositions_import: 'モーショングラフィックを読み込む',
     compositions_preview: 'モーショングラフィックをプレビュー',
     assets_prune: '未使用の素材を整理',

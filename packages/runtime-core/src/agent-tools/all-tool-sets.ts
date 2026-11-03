@@ -8,6 +8,7 @@ import { ExportTools } from './export-tools.ts';
 import { FlowTools } from './flow-tools.ts';
 import { GrantTools } from './grant-tools.ts';
 import { ImageTools } from './image-tools.ts';
+import { FootageTools } from './footage-tools.ts';
 import { JobTools } from './job-tools.ts';
 import { LibraryTools } from './library-tools.ts';
 import { LinkImportTools } from './link-import-tools.ts';
@@ -62,6 +63,7 @@ export function allToolSets(): ToolSet[] {
     new OpenMediaTools(none),
     new AudioTools(none),
     new ImageTools(none),
+    new FootageTools(none),
     new SlidesTools(none),
     new DesignTools(none),
     new DesignSystemTools(none),
