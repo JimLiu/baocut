@@ -20,7 +20,7 @@ export const de: ServicesApiMessages = {
   routing: {
     online: { label: "Onlinedienste", desc: "An verbundene Cloud-Dienste weiterleiten (mögliche Kosten; Daten verlassen diesen Computer)" },
     nodes: { label: "LAN-Knoten", desc: "An andere gekoppelte Computer weiterleiten" },
-    agent: { label: "Agenten", desc: "An auf diesem Computer angemeldete Agenten-Runtimes weiterleiten (etwa Codex)" },
+    agent: { label: "Agenten", desc: "An auf diesem Computer angemeldete Agenten-Runtimes weiterleiten (etwa Codex oder Claude Code)" },
   },
   modelsAvailable: (n: number) => `${n} ${pluralForm('de', n, { one: "Modell", other: "Modelle" })} verfügbar`,
   notRouted: "Modelle verfügbar, aber Routing für ihre Kategorie aus; Anfragen derzeit mit 503",

@@ -998,6 +998,44 @@ describe('ClaudeSession：图片与受限调用', () => {
     expect(answers.map((a) => a?.behavior)).toEqual(['deny', 'deny']);
     expect(s.of('approval.requested')).toEqual([]);
   });
+
+  it('只要文字的调用（no-tools）：没有内置工具、不接 MCP、不落盘、不要沙箱，来问的工具一律拒绝', async () => {
+    const answers: Array<PermissionResult | null> = [];
+    const fake = createFakeClaude({
+      turn: async (t) => {
+        answers.push(await t.ask('Bash', { command: 'ls' }));
+        answers.push(await t.ask('AskUserQuestion', { questions: [{ question: 'q', options: [{ label: 'a' }] }] }));
+        t.text('译文');
+        t.result();
+      },
+    });
+    const s = track(
+      open(fake, {
+        cwd: dir,
+        accessMode: 'fullAccess',
+        confinement: 'no-tools',
+        developerInstructions: 'Translate.',
+        mcpServers: { baocut: { url: 'http://127.0.0.1:4100/mcp', headers: {} } },
+      }),
+    );
+    const { turnId } = await s.session.startTurn({ text: '你好' }, settings({ accessMode: 'fullAccess' }));
+    expect(await s.completed(turnId)).toMatchObject({ outcome: 'completed' });
+    const query = fake.last();
+    expect(query.options).toMatchObject({
+      cwd: dir,
+      permissionMode: 'default',
+      allowDangerouslySkipPermissions: false,
+      tools: [],
+      strictMcpConfig: true,
+      persistSession: false,
+      systemPrompt: 'Translate.',
+    });
+    expect(query.options).not.toHaveProperty('sandbox');
+    expect(query.options).not.toHaveProperty('mcpServers');
+    expect(query.callsOf('setPermissionMode')).toEqual([]);
+    expect(answers.map((a) => a?.behavior)).toEqual(['deny', 'deny']);
+    expect(s.of('approval.requested')).toEqual([]);
+  });
 });
 
 describe('ClaudeDriver → ClaudeSession', () => {

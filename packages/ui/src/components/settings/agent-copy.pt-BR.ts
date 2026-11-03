@@ -154,6 +154,7 @@ export const ptBR: AgentMessages = {
     toggleFailed: (enabled: boolean, message: string) =>
       enabled ? `Não foi possível ativar Codex para imagens e texto: ${message}` : `Não foi possível desativar Codex para imagens e texto: ${message}`,
   },
+  claudeText: { title: "Usar Claude Code para texto", body: "Sem chave; usa sua assinatura Claude. Uma solicitação por vez, mais lento que uma API. Nunca é escolhido automaticamente: selecione-o em um menu de modelos de texto ou defina-o como padrão em Modelos › Geração de texto. Depois de ativado, o texto que você traduz ou revisa é enviado à conta Claude conectada neste computador. Ele não gera imagens.", checking: "Verificando se o Claude Code local escreve…", probeFailed: "Não foi possível verificar · clique “Verificar novamente”.", outdated: "Claude Code antigo · atualize e ative", signedOut: "Claude Code não conectado · a escrita usa sua conta Claude; entre antes de ativar.", notInstalled: "Claude Code ausente · instale e entre antes de escrever.", unavailable: (detail) => (detail ? `Claude Code não pode escrever agora · ${detail}` : "Claude Code não pode escrever agora · clique “Verificar novamente”."), turnedOn: "Claude Code para texto ativado · agora nos menus de modelos de texto", turnedOff: "Claude Code para texto desativado", toggleFailed: (enabled, message) => (enabled ? `Não foi possível ativar Claude Code para texto: ${message}` : `Não foi possível desativar Claude Code para texto: ${message}`) },
 
 
   faq: [

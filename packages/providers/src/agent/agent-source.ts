@@ -34,7 +34,7 @@ import {
 import { usageErrorOf, type CallReporter } from '../usage-reporter.ts';
 import { AgentImageGenerator } from './agent-image-generator.ts';
 import { AGENT_TEXT_DEFAULT_MODEL, AgentTextGenerator } from './agent-text-generator.ts';
-import type { AgentReadiness } from './agent-turn.ts';
+import type { AgentConfinement, AgentReadiness } from './agent-turn.ts';
 import { ProvidersAgent as PA, ProvidersConfig as PC } from '@baocut/protocol/messages/providers';
 
 /** 智能体 Provider 的配置视图：只有开关与启用时间，不用密钥（`credential: 'none'`），没有账号（§6.8）。 */
@@ -69,19 +69,22 @@ export interface AgentSourceOptions {
   usage?: UsageLedger;
 }
 
-/** 一个智能体 Provider 的定义。首版只有 `agent:codex`：`generateImage` 与 `generateText`。 */
+/** 一个智能体 Provider 的定义：`agent:codex`（`generateImage` 与 `generateText`）、`agent:claude`（只有 `generateText`）。 */
 interface AgentProviderDefinition {
   driverId: DriverId;
   label: string;
+  /** 界面图标的 id（`ProviderVendor.icon`）。 */
+  icon: string;
   /** 低于它的版本不可用（`outdated`）：协议按这个版本对照（`codex-protocol.ts`）。 */
   minVersion: string;
   /**
-   * 探测到的账号是不是订阅（Codex 是 ChatGPT 登录）。不是时 Provider 照样可用，但模型描述的 `cost` 为 `unknown`、`notes` 换成
+   * 探测到的账号是不是订阅（Codex 是 ChatGPT 登录，Claude 是 claude.ai 账号）。不是时 Provider 照样可用，但模型描述的 `cost` 为 `unknown`、`notes` 换成
    * 各能力的 `paidNotes`，生图的出厂默认跳过它（§6.2、§6.9）。
    */
   subscribed: (info: DriverProbe) => boolean;
   upgradeHint: Localized;
-  image: {
+  /** 没有时不提供生图（Claude Code 没有图像生成工具）。 */
+  image?: {
     model: ImageModelInfo;
     paidNotes: () => string;
     instructions: string;
@@ -95,6 +98,8 @@ interface AgentProviderDefinition {
   text: {
     model: TextModelInfo;
     paidNotes: () => string;
+    /** 会话的限制，不给时只写工作目录。Claude Code 的沙箱不是每个平台都有，写文字又用不到工具：`no-tools`。 */
+    confinement?: AgentConfinement;
   };
 }
 
@@ -103,6 +108,7 @@ const CODEX_OUTPUT = 'output.png';
 const CODEX: AgentProviderDefinition = {
   driverId: 'codex',
   label: 'Codex',
+  icon: 'codex',
   minVersion: '0.158.0',
   // Driver 的账号描述带着引用：`driversCodex.chatgptAccount` 是 ChatGPT 登录（codex-binary.ts `codexAccount`）。
   subscribed: (info) => info.accountRef?.key === 'driversCodex.chatgptAccount',
@@ -147,7 +153,7 @@ const CODEX: AgentProviderDefinition = {
     model: {
       modelId: AGENT_TEXT_DEFAULT_MODEL,
       get label() {
-        return PA.codexTextModel().text;
+        return PA.agentTextModel().text;
       },
       default: true,
       // 实际的模型由 Codex 与账号决定：上下文与输出上限按 Codex 常用模型的量级给，只用于提交时的粗查。
@@ -167,7 +173,49 @@ const CODEX: AgentProviderDefinition = {
   },
 };
 
-const DEFINITIONS: Record<string, AgentProviderDefinition> = { [`${AGENT_PROVIDER_PREFIX}codex`]: CODEX };
+/** Claude Code 用 claude.ai 账号（含它签发的长期令牌）登录时算订阅；API key、第三方云、企业网关不算（claude-binary.ts `claudeAccount`）。 */
+const CLAUDE_SUBSCRIPTION_ACCOUNTS: ReadonlySet<string> = new Set(
+  ['subscriptionPro', 'subscriptionMax', 'subscriptionTeam', 'subscriptionEnterprise', 'claudeAccount', 'longLivedToken'].map((key) => `driversClaude.${key}`),
+);
+
+const CLAUDE: AgentProviderDefinition = {
+  driverId: 'claude',
+  label: 'Claude Code',
+  icon: 'anthropic',
+  minVersion: '2.0.0',
+  subscribed: (info) => !!info.accountRef && CLAUDE_SUBSCRIPTION_ACCOUNTS.has(info.accountRef.key),
+  get upgradeHint() {
+    return PA.claudeUpgradeHint();
+  },
+  text: {
+    model: {
+      modelId: AGENT_TEXT_DEFAULT_MODEL,
+      get label() {
+        return PA.agentTextModel().text;
+      },
+      default: true,
+      // 实际的模型由 Claude Code 与账号决定：上下文与输出上限按常用模型的量级给，只用于提交时的粗查。
+      contextTokens: 200_000,
+      maxOutputTokens: 64_000,
+      efforts: [],
+      defaultEffort: null,
+      structuredOutput: true,
+      acceptsTemperature: false,
+      acceptsSeed: false,
+      cost: 'subscription',
+      get notes() {
+        return PA.claudeTextNotes().text;
+      },
+    },
+    paidNotes: () => PA.claudeTextNotesApiKey().text,
+    confinement: 'no-tools',
+  },
+};
+
+const DEFINITIONS: Record<string, AgentProviderDefinition> = {
+  [`${AGENT_PROVIDER_PREFIX}codex`]: CODEX,
+  [`${AGENT_PROVIDER_PREFIX}claude`]: CLAUDE,
+};
 
 const DEFAULT_PROBE_MAX_AGE_MS = 10_000;
 const DEFAULT_TURN_TIMEOUT_MS = 10 * 60_000;
@@ -183,12 +231,13 @@ function unavailable(reason: ProviderUnavailableReason, detail: Localized): Avai
 
 /**
  * 智能体 Provider 来源（架构设计 §6.9）：本机已安装并登录的智能体运行时，经它的 Driver 作为图片与文本 Provider。
- * 首版只有 `agent:codex`（`generateImage`、`generateText`），只在注册了 Codex Driver 时列出。两种能力共用一个开关与可用性。
+ * `agent:codex`（`generateImage`、`generateText`，两种能力共用一个开关与可用性）与 `agent:claude`（只有 `generateText`），
+ * 各在注册了对应的 Driver 时列出。别的 Driver 做不到受限会话，不开放。
  *
  * - 可用性按顺序：Driver 没有安装（`not-installed`）、没有登录（`signed-out`）、别的不可用（`unsupported`）、版本低于
  *   最低版本（`outdated`）、用户没有启用（`not-configured`）。前三样的说明来自 Driver 的探测。
- * - 配置只有开关：Codex 生图默认启用，已保存的开关优先；没有密钥、端点与模型声明（用的是智能体运行时自己的登录）。
- * - 账号不是订阅（Codex 用 API key 等登录）时照样可用，模型描述的 `cost` 为 `unknown` 并换上对应的说明；生图的出厂默认跳过它
+ * - 配置只有开关：Codex 默认启用，Claude Code 默认不启用，已保存的开关优先；没有密钥、端点与模型声明（用的是智能体运行时自己的登录）。
+ * - 账号不是订阅（用 API key 等登录）时照样可用，模型描述的 `cost` 为 `unknown` 并换上对应的说明；生图的出厂默认跳过它
  *   （§6.2）。文本生成没有出厂默认，只在用户选了它时用。
  * - 生图只有一只模型；文本生成是「Agent 默认模型」加上探测到的模型表（`textModelsOf`），可以按模型与推理强度选。
  * - 探测：`probe` 总是问 Driver（Driver 注册表短时缓存）；`select` 与 `view` 在用户启用了它时问 Driver，没启用时用
@@ -245,10 +294,10 @@ export class AgentProviderSource implements ProviderSource {
       providerId,
       kind: 'agent',
       label: definition.label,
-      vendor: { kind: 'agent', icon: 'codex' },
+      vendor: { kind: 'agent', icon: definition.icon },
       config: agentConfigView(this.#options.store.configView(providerId)),
       capabilities: {
-        generateImage: capabilityOf([definition.image.model], definition.image.paidNotes),
+        ...(definition.image ? { generateImage: capabilityOf([definition.image.model], definition.image.paidNotes) } : {}),
         generateText: capabilityOf(textModelsOf(definition.text.model, info), definition.text.paidNotes),
       },
     };
@@ -260,7 +309,8 @@ export class AgentProviderSource implements ProviderSource {
 
   generator(providerId: string, capability: GenerationCapability): GenerationProvider | null {
     const definition = DEFINITIONS[providerId];
-    if (!definition || capability !== 'generateImage' || !this.#driver(definition)) return null;
+    const image = definition?.image;
+    if (!definition || !image || capability !== 'generateImage' || !this.#driver(definition)) return null;
     let generator = this.#generators.get(providerId);
     if (!generator) {
       generator = new AgentImageGenerator({
@@ -268,9 +318,9 @@ export class AgentProviderSource implements ProviderSource {
         label: definition.label,
         // 执行时再确认一次：排队期间被停用、退出登录或卸载的，不再开会话。
         ready: () => this.#readiness(providerId, definition),
-        instructions: definition.image.instructions,
-        turnText: definition.image.turnText,
-        outputName: definition.image.outputName,
+        instructions: image.instructions,
+        turnText: image.turnText,
+        outputName: image.outputName,
         turnTimeoutMs: this.#options.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS,
         report: this.#reporter(providerId),
       });
@@ -290,6 +340,7 @@ export class AgentProviderSource implements ProviderSource {
         ready: () => this.#readiness(providerId, definition),
         workRoot: path.join(this.#options.textWorkRoot ?? path.join(os.tmpdir(), 'baocut-agent-text'), definition.driverId),
         turnTimeoutMs: this.#options.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS,
+        ...(definition.text.confinement ? { confinement: definition.text.confinement } : {}),
         report: this.#reporter(providerId),
       });
       this.#texts.set(providerId, text);
@@ -396,7 +447,7 @@ export class AgentProviderSource implements ProviderSource {
 
 /**
  * 文本生成的模型（§6.9）：「Agent 默认模型」打头，再是探测到的模型表（没探测过只有前者）。模型 id 是 Agent 的原生 id，名字照模型表。
- * 推理强度取模型表里 `TextEffort` 认得的那几档（Codex 的原生 id 与它同名，`none`、`xhigh` 这类不列）；「Agent 默认模型」按
+ * 推理强度取模型表里 `TextEffort` 认得的那几档（原生 id 与它同名，`none`、`xhigh` 这类不列）；「Agent 默认模型」按
  * 不传模型时 Agent 会用的那只（CLI 配置里的，不在模型表里时用模型表标的默认）。
  */
 export function textModelsOf(base: TextModelInfo, info: DriverProbe | null): TextModelInfo[] {

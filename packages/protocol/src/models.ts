@@ -426,7 +426,7 @@ export const ONLINE_CAPABILITIES: readonly OnlineCapability[] = ['transcribe', '
 /**
  * Provider 的来源：`local`（本机 Model Worker）、`node`（已配对的局域网节点，`node:<nodeId>`）、
  * `online`（`openai`、`google`、`elevenlabs` 与用户自定义的兼容端点 `custom:<slug>`）、
- * `agent`（本机已安装并登录的智能体运行时，`agent:<driverId>`，首版只有 `agent:codex`，架构设计 §6.9）。
+ * `agent`（本机已安装并登录的智能体运行时，`agent:<driverId>`：`agent:codex`、`agent:claude`，架构设计 §6.9）。
  */
 export type ProviderKind = 'local' | 'node' | 'online' | 'agent';
 

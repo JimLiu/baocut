@@ -59,7 +59,7 @@ const providerArg = z
   .string()
   .min(1)
   .max(200)
-  .describe('可选。Provider：local、node:<节点>、openai、google、elevenlabs、custom:<名字>、agent:codex；不给时用这种能力的默认值');
+  .describe('可选。Provider：local、node:<节点>、openai、google、elevenlabs、custom:<名字>、agent:codex、agent:claude；不给时用这种能力的默认值');
 const modelArg = z.string().min(1).max(200).describe('可选。模型 ID（models_capabilities 列出的 modelId）；不给时用 Provider 的默认模型');
 const outputVideoArg = videoArg.describe(
   '可选。要导入结果的视频：videos_list 给出的 path，或已经打开的视频的 videoId。给了时结果导入为候选素材（不放上时间线）；不给时只得到产物',

@@ -108,7 +108,7 @@ export const zhHant: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · 圖片',
     codexItemDesc: '使用你的 Codex 訂閱 · 一次一張 · 慢 5–10 倍',
-    codexTextItem: 'Codex CLI · 文字',
+    claudeTextItem: "Claude Code · 文字", claudeTextItemDesc: "使用你的 Claude 訂閱 · 一次一個請求 · 比 API 慢", codexTextItem: 'Codex CLI · 文字',
     codexTextItemDesc: '使用你的 Codex 訂閱 · 一次一個請求 · 比 API 慢',
     unavailable: '無法使用',
     pickerEmpty: { image: '連接供應商或開啟 Codex 圖片後即可選擇', other: '連接供應商後即可選擇' },
@@ -201,6 +201,7 @@ export const zhHant: ModelsMessages = {
     switchLabel: '用 Codex 繪圖和寫文字',
     toggleFailed: (enabled: boolean, message: string) => `無法${enabled ? '開啟' : '關閉'} Codex 圖片：${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "已開啟 · 使用你的 Claude 訂閱，不需要金鑰 · 一次一個請求 · 使用時選擇模型與推理強度 · 比 API 慢", off: "已關閉 · 開啟後即可在生成文字中選擇它，並在這裡設為預設模型", missing: "找不到 Claude Code · 用它寫文字前，請先安裝並登入。", switchLabel: "用 Claude Code 寫文字", toggleFailed: (enabled, message) => (enabled ? `無法開啟「用 Claude Code 寫文字」：${message}` : `無法關閉「用 Claude Code 寫文字」：${message}`) },
   key: {
     title: (name: string) => `${name} · API 金鑰`,
     shared: (name: string, kinds: string) => `這組金鑰由 ${name} 的所有模型共用（${kinds}）；輸入一次，每個清單都能使用。`,

@@ -21,8 +21,8 @@ export const ja: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    オンラインのプロバイダを設定：カタログのプロバイダ（openai、google、elevenlabs、anthropic、
                                    deepseek、qwen など。baocut models capabilities を参照）、または OpenAI 互換の
-                                   カスタムエンドポイント custom:<name>。Agent のプロバイダ agent:codex にはオン／オフの
-                                   切り替えしかありません（このコンピュータの Codex のサインインを使い、キーは不要）
+                                   カスタムエンドポイント custom:<name>。Agent のプロバイダ agent:codex と agent:claude にはオン／オフの
+                                   切り替えしかありません（このコンピュータの Codex または Claude Code のサインインを使い、キーは不要）
     --enable | --disable           有効化（継続的な許可により、必要に応じて素材の音声、テキスト、プロンプトを送信）または無効化
     --key-stdin                    API キーを標準入力から読み込む（コマンドライン引数のキーは受け付けません）：最初の
                                    アカウントのキーを置き換え、アカウントがなければ作成します（複数のアカウントには

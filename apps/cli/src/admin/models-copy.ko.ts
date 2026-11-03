@@ -20,7 +20,7 @@ export const ko: ModelsMessages = {
   baocut models configure <providerId> [옵션]
                                    온라인 공급자를 설정합니다: 카탈로그 공급자(openai, google, elevenlabs, anthropic, deepseek,
                                    qwen 등, baocut models capabilities 참고) 또는 OpenAI 호환 사용자 지정 엔드포인트 custom:<이름>.
-                                   Agent 공급자 agent:codex는 켜기/끄기만 있습니다(이 컴퓨터의 Codex 로그인을 사용, 키 없음)
+                                   Agent 공급자 agent:codex와 agent:claude는 켜기/끄기만 있습니다(이 컴퓨터의 Codex 또는 Claude Code 로그인을 사용, 키 없음)
     --enable | --disable           사용(필요할 때 지속 허가로 소재의 오디오, 텍스트, 프롬프트를 보냄) 또는 사용 중지
     --key-stdin                    표준 입력에서 API 키를 읽습니다(명령줄 인수의 키는 받지 않음): 첫 번째 계정의
                                    키를 바꾸거나, 계정이 없으면 새로 만듭니다(계정이 여러 개라면

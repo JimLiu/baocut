@@ -19,7 +19,7 @@ export const zhHans: ServicesApiMessages = {
   routing: {
     online: { label: '在线服务', desc: '把请求转给已连接的云端服务（会产生费用，数据离开这台电脑）' },
     nodes: { label: '局域网节点', desc: '把请求转给已配对的其他电脑' },
-    agent: { label: '智能体', desc: '把请求转给本机已登录的智能体运行时（例如 Codex）' },
+    agent: { label: '智能体', desc: '把请求转给本机已登录的智能体运行时（例如 Codex、Claude Code）' },
   },
   modelsAvailable: (n) => `${n} 个模型可用`,
   notRouted: '有可用的模型，但它们所在的那一类还没有打开路由；现在请求会得到 503',

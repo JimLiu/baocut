@@ -41,7 +41,8 @@ import { useAgentSetup } from '../../state/agent-setup-store.ts';
 import { AgentProviderIcon } from '../agent-provider-icon.tsx';
 import { CommandBlock, ExecutableField, RunCommandDialog, copyText, type CommandRunner } from './agent-command-block.tsx';
 import { SettingRow } from './agent-panels.tsx';
-import { CodexImageRow } from './codex-image-row.tsx';
+import { agentSwitchOf } from './agent-switch.ts';
+import { AgentSwitchRow } from './agent-switch-row.tsx';
 import { CARD_COPY } from './agent-card-copy.ts';
 import { AGENT_COPY, ADDED_COPY, UNTESTED } from './agent-copy.ts';
 import {
@@ -220,6 +221,7 @@ export function AgentProviderCard({
   const [diagnosing, setDiagnosing] = useState(false);
   const [removing, setRemoving] = useState(false);
   const installed = isInstalled(driver);
+  const switchSpec = agentSwitchOf(driver.id);
   // 用户添加的（产品设计 §7.6）：BaoCut 没有它的安装命令，只知道怎么启动它；npx / uvx 现取现用的不用单独装。
   const added = isCustomDriver(driver);
   const launch = added ? (driver.custom?.command ?? [driver.command]) : null;
@@ -423,8 +425,8 @@ export function AgentProviderCard({
         </div>
       </div>
 
-      {/* 用 Codex 画图（settings-agent-provider.jsx:200-203）：只在 Codex 已找到时出现，挂在卡头下、问题条之前。 */}
-      {driver.id === 'codex' && installed ? <CodexImageRow driver={driver} connected={connected} /> : null}
+      {/* 用 Codex 画图和写文字、用 Claude Code 写文字（settings-agent-provider.jsx）：只在它已找到时出现，挂在卡头下、问题条之前。 */}
+      {switchSpec && installed ? <AgentSwitchRow spec={switchSpec} driver={driver} connected={connected} /> : null}
 
       {problem ? (
         <div className={problemStrip({ isNegative: problem.tone === 'negative' })} role="alert">

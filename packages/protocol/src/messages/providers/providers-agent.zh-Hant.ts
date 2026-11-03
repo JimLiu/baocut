@@ -21,8 +21,8 @@ export const zhHant: ProvidersAgentMessages = {
   unknownError: '未知錯誤',
   processExited: '行程已結束',
   turnNotStarted: (p) => `這一輪沒有開始：${p.error}`,
-  codexTextModel: "Agent 的預設模型",
-  codexTextNotes:
+  agentTextModel: "Agent 的預設模型",
+  claudeUpgradeHint: "升級 Claude Code（例如 claude update），然後重新檢查", claudeTextNotes: "使用這台電腦上登入的 Claude 帳號撰寫：一次一個請求，每次開啟一個不帶工具的新 Claude Code 工作階段，所以比 API 慢。無法設定溫度、種子與輸出長度。使用的是你的訂閱額度，剩餘額度未知。開啟即表示同意將提示詞（包括其中的文稿文字）傳送到你的 Claude 帳號。", claudeTextNotesApiKey: "Claude Code 是以 API 金鑰或其他非訂閱方式登入，費用會記到該帳號，不包含在訂閱內。一次一個請求；無法設定溫度、種子與輸出長度。", codexTextNotes:
     "使用這台電腦上已登入的 Codex 帳號生成文字：一次只執行一個請求，每次開一個新的 Codex 工作階段，比 API 慢。無法指定 temperature、seed 和輸出長度。會使用你的訂閱額度，剩餘額度不明。開啟即表示同意將提示詞（包括其中的逐字稿等內容）傳送到你的 Codex 帳號。",
   codexTextNotesApiKey:
     "Codex 以 API key 等非 ChatGPT 訂閱方式登入：費用記在該帳號上、不在訂閱內。一次只執行一個請求；temperature、seed 與輸出長度不能指定。",

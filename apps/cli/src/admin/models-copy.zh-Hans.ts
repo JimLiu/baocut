@@ -17,7 +17,7 @@ export const zhHans: ModelsMessages = {
   baocut models configure <providerId> [选项]
                                    配置在线 Provider：目录里的服务商（openai、google、elevenlabs、anthropic、deepseek、
                                    qwen 等，见 baocut models capabilities），或自定义的 OpenAI 兼容端点 custom:<名字>
-                                   智能体 Provider agent:codex 只有开关（用本机 Codex 的登录，没有密钥）
+                                   智能体 Provider agent:codex、agent:claude 只有开关（用本机 Codex、Claude Code 的登录，没有密钥）
     --enable | --disable           启用（持续授权在需要时把素材音频、文本或提示词发给它）或停用
     --key-stdin                    从标准输入读 API key（不接受命令行参数里的密钥）：替换第一个账号的密钥，
                                    没有账号时建一个（多个账号用 baocut models accounts）

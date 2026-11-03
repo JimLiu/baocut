@@ -137,7 +137,7 @@ const en = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · Images',
     codexItemDesc: 'Uses your Codex subscription · one image at a time · 5–10× slower',
-    codexTextItem: 'Codex CLI · Text',
+    claudeTextItem: "Claude Code · Text", claudeTextItemDesc: "Uses your Claude subscription · one request at a time · slower than an API", codexTextItem: 'Codex CLI · Text',
     codexTextItemDesc: 'Uses your Codex subscription · one request at a time · slower than an API',
     unavailable: 'Unavailable',
     pickerEmpty: { image: 'Connect a provider or turn on Codex images to choose', other: 'Connect a provider to choose' },
@@ -239,6 +239,7 @@ const en = {
     switchLabel: 'Use Codex for images and text',
     toggleFailed: (enabled: boolean, message: string) => `Couldn't turn ${enabled ? 'on' : 'off'} Codex images: ${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "On · uses your Claude subscription, no key needed · one request at a time · choose the model and reasoning effort where you use it · slower than an API", off: "Off · turn it on to choose Claude Code for text generation, and as the default model here", missing: "Claude Code not found · install it and sign in before writing with it.", switchLabel: "Use Claude Code for text", toggleFailed: (enabled: boolean, message: string) => (enabled ? `Couldn't turn on Claude Code for text: ${message}` : `Couldn't turn off Claude Code for text: ${message}`) },
   key: {
     title: (name: string) => `${name} · API key`,
     shared: (name: string, kinds: string) => `This key is shared by all ${name} models (${kinds}); enter it once and every list can use it.`,
@@ -364,6 +365,7 @@ export const CLOUD_COPY = live(() => M.cloud);
 export const TEXT_PARAMS_COPY = live(() => M.textParams);
 export const CAP_DEFAULT_COPY = live(() => M.capDefault);
 export const CODEX_CARD_COPY = live(() => M.codexCard);
+export const CLAUDE_CARD_COPY = live(() => M.claudeCard);
 export const KEY_COPY = live(() => M.key);
 export const CUSTOM_COPY = live(() => M.custom);
 

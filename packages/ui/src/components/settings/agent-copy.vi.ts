@@ -158,6 +158,7 @@ export const vi: AgentMessages = {
     toggleFailed: (enabled: boolean, message: string) =>
       enabled ? `Không bật Codex để vẽ và viết được: ${message}` : `Không tắt Codex để vẽ và viết được: ${message}`,
   },
+  claudeText: { title: "Dùng Claude Code để viết", body: "Không cần khóa; dùng gói đăng ký Claude của bạn. Mỗi lần một yêu cầu, chậm hơn API. Không bao giờ được tự động chọn: hãy chọn trong menu mô hình văn bản hoặc đặt làm mặc định trong Mô hình › Tạo văn bản. Khi bật, văn bản bạn dịch hoặc chỉnh sửa sẽ được gửi tới tài khoản Claude đã đăng nhập trên máy tính này. Không thể tạo ảnh.", checking: "Đang kiểm tra Claude Code trên máy tính này có thể viết không…", probeFailed: "Không kiểm tra được khả năng viết của Claude Code · Nhấp “Kiểm tra lại” để thử lại.", outdated: "Claude Code quá cũ · Nâng cấp rồi bật tùy chọn này", signedOut: "Claude Code chưa đăng nhập · Viết dùng tài khoản Claude của bạn; hãy đăng nhập trước khi bật.", notInstalled: "Không tìm thấy Claude Code · Cài đặt và đăng nhập trước khi viết.", unavailable: (detail) => (detail ? `Hiện Claude Code không thể viết · ${detail}` : "Hiện Claude Code không thể viết · Nhấp “Kiểm tra lại” để thử lại."), turnedOn: "Đã bật Claude Code để viết · Claude Code hiện có trong menu mô hình tạo văn bản", turnedOff: "Đã tắt Claude Code để viết", toggleFailed: (enabled, message) => (enabled ? `Không bật Claude Code để viết được: ${message}` : `Không tắt Claude Code để viết được: ${message}`) },
 
   /** 常见问题（page-settings-agent.jsx:142-157）。`link` 是答案下面那颗按钮。 */
   faq: [

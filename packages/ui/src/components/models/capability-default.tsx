@@ -12,7 +12,8 @@ import type { ModelCategory } from '../../model/settings-nav.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useConnection } from '../../state/connection-store.ts';
 import { useModels } from '../../state/models-store.ts';
-import { useCodexImage } from './codex-image-card.tsx';
+import { CODEX_SWITCH } from '../settings/agent-switch.ts';
+import { useAgentSwitch } from './agent-switch-card.tsx';
 import { chooseCapabilityDefault } from './model-actions.ts';
 import { Card, SettingRow } from './model-parts.tsx';
 import { CAP_DEFAULT_COPY, CLOUD_COPY } from './models-copy.ts';
@@ -40,7 +41,7 @@ function DefaultCard({ capability }: { capability: DefaultCapability }) {
   const bundles = useModels((s) => s.bundles);
   const [busy, setBusy] = useState(false);
   // 图像生成：进页探测一次 Codex（与云端页的 Codex 卡同一个钩子），菜单里 Codex 能不能选才是新的。
-  useCodexImage(capability === 'generateImage');
+  useAgentSwitch(CODEX_SWITCH, capability === 'generateImage');
 
   if (!connected || !ready || !view) return null;
   const copy = CAP_DEFAULT_COPY;

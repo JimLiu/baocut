@@ -137,6 +137,7 @@ export const zhHant: AgentMessages = {
     toggleFailed: (enabled: boolean, message: string) =>
       enabled ? `無法開啟「用 Codex 繪圖和寫文字」：${message}` : `無法關閉「用 Codex 繪圖和寫文字」：${message}`,
   },
+  claudeText: { title: "用 Claude Code 寫文字", body: "不需要金鑰，使用你的 Claude 訂閱；一次一個請求，比 API 慢。不會自動選它：請在文字生成的模型選單中選擇，或在設定 › 模型 › 文字生成設為預設。開啟後，翻譯、潤飾這些文字會傳送到這台電腦上登入的 Claude 帳號。它無法繪圖。", checking: "正在檢查這台電腦上的 Claude Code 能否寫文字…", probeFailed: "無法檢查 Claude Code 能否寫文字 · 按一下「重新檢查」再試一次。", outdated: "Claude Code 版本太舊 · 請升級後再開啟", signedOut: "Claude Code 尚未登入 · 寫文字會使用你的 Claude 帳號，請先登入再開啟。", notInstalled: "找不到 Claude Code · 寫文字前請先安裝並登入。", unavailable: (detail) => (detail ? `Claude Code 目前無法寫文字 · ${detail}` : "Claude Code 目前無法寫文字 · 按一下「重新檢查」再試一次。"), turnedOn: "已開啟「用 Claude Code 寫文字」 · 文字生成的模型選單中已加入 Claude Code", turnedOff: "已關閉「用 Claude Code 寫文字」", toggleFailed: (enabled, message) => (enabled ? `無法開啟「用 Claude Code 寫文字」：${message}` : `無法關閉「用 Claude Code 寫文字」：${message}`) },
 
   faq: [
     {

@@ -24,7 +24,7 @@ export const pl: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    Skonfiguruj dostawcę online: z katalogu (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen i inni; zobacz baocut models capabilities) lub własny endpoint zgodny z OpenAI custom:<name>.
-                                   Dostawca agent:codex ma tylko przełącznik (używa logowania Codex na tym komputerze, bez klucza)
+                                   Dostawcy agent:codex i agent:claude mają tylko przełącznik (używają logowania Codex lub Claude Code na tym komputerze, bez klucza)
     --enable | --disable           Włącz (stałe uprawnienia pozwalają wysyłać audio materiałów, tekst lub prompty) lub wyłącz
     --key-stdin                    Odczytaj klucz API z stdin (klucze w argumentach nie są przyjmowane): zastępuje klucz
                                    pierwszego konta lub tworzy konto, jeśli go nie ma (dla wielu kont użyj

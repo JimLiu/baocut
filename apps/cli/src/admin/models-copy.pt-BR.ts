@@ -22,7 +22,7 @@ export const ptBR: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    Configurar um provedor on-line: do catálogo (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen e outros; veja baocut models capabilities) ou endpoint personalizado compatível com OpenAI custom:<name>.
-                                   O provedor de agente agent:codex só tem ativação/desativação (usa o login do Codex deste computador, sem chave)
+                                   Os provedores de agente agent:codex e agent:claude só têm ativação/desativação (usam o login do Codex ou do Claude Code deste computador, sem chave)
     --enable | --disable           Ativar (autorizações permanentes enviam áudio de mídias, texto ou prompts quando necessário) ou desativar
     --key-stdin                    Ler a chave de API de stdin (chaves nos argumentos não são aceitas): substitui a chave da
                                    primeira conta ou cria uma conta se não houver nenhuma (para várias contas, use

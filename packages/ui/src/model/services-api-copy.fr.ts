@@ -20,7 +20,7 @@ export const fr: ServicesApiMessages = {
   routing: {
     online: { label: "Services en ligne", desc: "Transférer aux services cloud connectés (coût possible ; données envoyées)" },
     nodes: { label: "nœuds du réseau local", desc: "Transférer aux autres ordinateurs jumelés" },
-    agent: { label: "Agents", desc: "Transférer aux Runtimes d’Agents connectés localement (comme Codex)" },
+    agent: { label: "Agents", desc: "Transférer aux Runtimes d’Agents connectés localement (comme Codex ou Claude Code)" },
   },
   modelsAvailable: (n: number) => `${n} ${pluralForm('fr', n, { one: "modèle", other: "modèles" })} disponibles`,
   notRouted: "Modèles disponibles, mais routage de catégorie désactivé ; réponse 503",

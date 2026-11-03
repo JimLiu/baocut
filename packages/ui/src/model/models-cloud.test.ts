@@ -31,6 +31,11 @@ import { fixtureView, speechModel, withQwen } from './models-test-fixtures.ts';
 
 const COPY = { none: '每次选择', noneDesc: '不设默认', codex: 'Codex CLI · 画图', codexDesc: '用你的 Codex 订阅', unavailable: '不可用' };
 
+/** 默认菜单里的 Codex 一项。 */
+function codexChoice(state: { ready: boolean; why: string | null }, label = 'Codex CLI · 画图') {
+  return [{ providerId: 'agent:codex', label, desc: '用你的 Codex 订阅', state }];
+}
+
 describe('categoryCapability', () => {
   it('只有语音识别、语音合成与图像生成有模型服务能力', () => {
     expect(categoryCapability('asr')).toBe('transcribe');
@@ -215,7 +220,7 @@ describe('默认模型菜单', () => {
   });
 
   it('列出能用的在线服务商的模型；没设默认时勾「每次选择」', () => {
-    const picker = cloudDefaultPicker(fixtureView(), 'synthesizeSpeech', null, COPY);
+    const picker = cloudDefaultPicker(fixtureView(), 'synthesizeSpeech', [], COPY);
     expect(picker.selectedKey).toBe('none');
     expect(picker.empty).toBe(false);
     expect(picker.sections.map((s) => [s.title, s.items.map((i) => i.key)])).toEqual([
@@ -229,9 +234,9 @@ describe('默认模型菜单', () => {
     const view = fixtureView();
     view.synthesizeSpeech.default = { providerId: 'custom:gone', modelId: 'tts-9' };
     const pickers = [
-      cloudDefaultPicker(view, 'transcribe', null, COPY),
-      cloudDefaultPicker(view, 'synthesizeSpeech', null, COPY),
-      cloudDefaultPicker(view, 'generateImage', { ready: true, why: null }, COPY),
+      cloudDefaultPicker(view, 'transcribe', [], COPY),
+      cloudDefaultPicker(view, 'synthesizeSpeech', [], COPY),
+      cloudDefaultPicker(view, 'generateImage', codexChoice({ ready: true, why: null }), COPY),
     ];
     for (const picker of pickers) {
       const itemKeys = new Set(picker.sections.flatMap((s) => s.items.map((i) => i.key)));
@@ -241,40 +246,58 @@ describe('默认模型菜单', () => {
 
   it('图像档：Codex 能画时多一项；已是默认但画不了时照样勾着、写原因', () => {
     const view = fixtureView();
-    let picker = cloudDefaultPicker(view, 'generateImage', { ready: true, why: null }, COPY);
+    let picker = cloudDefaultPicker(view, 'generateImage', codexChoice({ ready: true, why: null }), COPY);
     expect(picker.sections.at(-1)!.items).toEqual([{ key: 'agent:codex/image-gen', label: 'Codex CLI · 画图', description: '用你的 Codex 订阅' }]);
 
-    picker = cloudDefaultPicker(view, 'generateImage', { ready: false, why: 'Codex 还没有登录' }, COPY);
-    expect(picker.sections.some((s) => s.key === 'codex')).toBe(false);
+    picker = cloudDefaultPicker(view, 'generateImage', codexChoice({ ready: false, why: 'Codex 还没有登录' }), COPY);
+    expect(picker.sections.some((s) => s.key === 'agent:codex')).toBe(false);
 
     view.generateImage.default = { providerId: 'agent:codex', modelId: 'image-gen' };
-    picker = cloudDefaultPicker(view, 'generateImage', { ready: false, why: 'Codex 还没有登录' }, COPY);
+    picker = cloudDefaultPicker(view, 'generateImage', codexChoice({ ready: false, why: 'Codex 还没有登录' }), COPY);
     expect(picker.selectedKey).toBe('agent:codex/image-gen');
     expect(picker.sections.at(-1)!.items[0]).toMatchObject({ label: 'Codex CLI · 画图（不可用）', description: 'Codex 还没有登录' });
   });
 
+  it('文本档：Codex 与 Claude Code 各一项，只要有一家能写就算能选', () => {
+    const view = fixtureView();
+    view.generateText.providers = [];
+    const claude = (state: { ready: boolean; why: string | null } | null) => ({ providerId: 'agent:claude', label: 'Claude Code · 文字', desc: '用你的 Claude 订阅', state });
+    const agents = [...codexChoice({ ready: false, why: 'Codex 还没有登录' }), claude({ ready: true, why: null })];
+    let picker = cloudDefaultPicker(view, 'generateText', agents, COPY);
+    expect(picker.sections.at(-1)!.items).toEqual([{ key: 'agent:claude/text-gen', label: 'Claude Code · 文字', description: '用你的 Claude 订阅' }]);
+    expect(picker.empty).toBe(false);
+
+    view.generateText.default = { providerId: 'agent:claude', modelId: 'text-gen' };
+    picker = cloudDefaultPicker(view, 'generateText', [claude({ ready: false, why: '还没打开' })], COPY);
+    expect(picker.selectedKey).toBe('agent:claude/text-gen');
+    expect(picker.sections.at(-1)!.items[0]).toMatchObject({ label: 'Claude Code · 文字（不可用）', description: '还没打开' });
+
+    picker = cloudDefaultPicker(view, 'generateText', [claude(null)], COPY);
+    expect(picker.sections.some((s) => s.key === 'agent:claude')).toBe(false);
+  });
+
   it('文本档：Codex 能写时最后多一项（模型 text-gen）；画不了也写不了时不列，也不算能选', () => {
     const view = fixtureView();
-    const copy = { ...COPY, codex: 'Codex CLI · 文字' };
-    let picker = cloudDefaultPicker(view, 'generateText', { ready: true, why: null }, copy);
+    const copy = COPY;
+    let picker = cloudDefaultPicker(view, 'generateText', codexChoice({ ready: true, why: null }, 'Codex CLI · 文字'), copy);
     expect(picker.sections.at(-1)!.items).toEqual([{ key: 'agent:codex/text-gen', label: 'Codex CLI · 文字', description: '用你的 Codex 订阅' }]);
 
     view.generateText.providers = [];
-    picker = cloudDefaultPicker(view, 'generateText', { ready: true, why: null }, copy);
+    picker = cloudDefaultPicker(view, 'generateText', codexChoice({ ready: true, why: null }, 'Codex CLI · 文字'), copy);
     expect(picker.empty).toBe(false);
-    picker = cloudDefaultPicker(view, 'generateText', { ready: false, why: 'Codex 还没有登录' }, copy);
+    picker = cloudDefaultPicker(view, 'generateText', codexChoice({ ready: false, why: 'Codex 还没有登录' }, 'Codex CLI · 文字'), copy);
     expect(picker.empty).toBe(true);
     expect(picker.sections.some((s) => s.items.some((i) => i.key === 'agent:codex/text-gen'))).toBe(false);
 
     // 语音合成没有 Codex：给了状态也不列。
-    picker = cloudDefaultPicker(fixtureView(), 'synthesizeSpeech', { ready: true, why: null }, COPY);
+    picker = cloudDefaultPicker(fixtureView(), 'synthesizeSpeech', codexChoice({ ready: true, why: null }), COPY);
     expect(picker.sections.some((s) => s.items.some((i) => i.key.startsWith('agent:')))).toBe(false);
   });
 
   it('默认指向不可用的服务商（如删掉的自建）时照样列出、勾着，不替用户清', () => {
     const view = fixtureView();
     view.synthesizeSpeech.default = { providerId: 'custom:gone', modelId: 'tts-9' };
-    const picker = cloudDefaultPicker(view, 'synthesizeSpeech', null, COPY);
+    const picker = cloudDefaultPicker(view, 'synthesizeSpeech', [], COPY);
     expect(picker.selectedKey).toBe('custom:gone/tts-9');
     expect(picker.sections.at(-1)!.items).toEqual([{ key: 'custom:gone/tts-9', label: 'custom:gone · tts-9（不可用）' }]);
   });
@@ -282,9 +305,9 @@ describe('默认模型菜单', () => {
   it('语音识别的默认是本机模型时云端页勾「不设云端默认」那一项', () => {
     const view = fixtureView();
     view.transcribe.default = { providerId: 'local', modelId: 'qwen3-asr-0.6b@mlx-4bit' };
-    expect(cloudDefaultPicker(view, 'transcribe', null, COPY).selectedKey).toBe('none');
+    expect(cloudDefaultPicker(view, 'transcribe', [], COPY).selectedKey).toBe('none');
     view.transcribe.default = { providerId: 'openai', modelId: 'whisper-1' };
-    expect(cloudDefaultPicker(view, 'transcribe', null, COPY).selectedKey).toBe('openai/whisper-1');
+    expect(cloudDefaultPicker(view, 'transcribe', [], COPY).selectedKey).toBe('openai/whisper-1');
   });
 
   it('语音合成的默认是本机模型时单列一项勾着，「每次选择」才是清掉默认', () => {
@@ -298,7 +321,7 @@ describe('默认模型菜单', () => {
       available: true,
     });
     view.synthesizeSpeech.default = { providerId: 'local', modelId: 'qwen3-tts-0.6b-base@audio-cpp-q8' };
-    const picker = cloudDefaultPicker(view, 'synthesizeSpeech', null, { ...COPY, localDesc: '在本地模型页设的' });
+    const picker = cloudDefaultPicker(view, 'synthesizeSpeech', [], { ...COPY, localDesc: '在本地模型页设的' });
     expect(picker.selectedKey).toBe('local/qwen3-tts-0.6b-base@audio-cpp-q8');
     expect(picker.sections[1]).toEqual({
       key: 'local-default',
@@ -310,8 +333,8 @@ describe('默认模型菜单', () => {
   it('什么都没连时只剩「每次选择」', () => {
     const view = fixtureView();
     for (const p of view.generateImage.providers) p.available = false;
-    expect(cloudDefaultPicker(view, 'generateImage', { ready: false, why: null }, COPY).empty).toBe(true);
-    expect(cloudDefaultPicker(view, 'generateImage', { ready: true, why: null }, COPY).empty).toBe(false);
+    expect(cloudDefaultPicker(view, 'generateImage', codexChoice({ ready: false, why: null }), COPY).empty).toBe(true);
+    expect(cloudDefaultPicker(view, 'generateImage', codexChoice({ ready: true, why: null }), COPY).empty).toBe(false);
   });
 });
 

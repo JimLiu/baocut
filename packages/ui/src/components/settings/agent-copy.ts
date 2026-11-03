@@ -175,6 +175,7 @@ const en = {
     toggleFailed: (enabled: boolean, message: string) =>
       enabled ? `Couldn't turn on Codex for images and text: ${message}` : `Couldn't turn off Codex for images and text: ${message}`,
   },
+  claudeText: { title: "Use Claude Code for text", body: "No key needed; uses your Claude subscription. One request at a time, slower than an API. It's never picked for you: choose it in a text model menu, or set it as the default under Models › Text generation. Once on, text you translate or polish is sent to the Claude account signed in on this computer. It can't generate images.", checking: "Checking whether Claude Code on this computer can write…", probeFailed: "Couldn't check whether Claude Code can write · Click “Check again” to try again.", outdated: "Claude Code is too old · Update it, then turn this on", signedOut: "Claude Code isn't signed in yet · Writing uses your Claude account; sign in before turning this on.", notInstalled: "Claude Code wasn't found · Install it and sign in before writing with it.", unavailable: (detail: string | null) => (detail ? `Claude Code can't write right now · ${detail}` : "Claude Code can't write right now · Click “Check again” to try again."), turnedOn: "Turned on Claude Code for text · Claude Code is now in the text model menus", turnedOff: "Turned off Claude Code for text", toggleFailed: (enabled: boolean, message: string) => (enabled ? `Couldn't turn on Claude Code for text: ${message}` : `Couldn't turn off Claude Code for text: ${message}`) },
 
   /** 常见问题（page-settings-agent.jsx:142-157）。`link` 是答案下面那颗按钮。 */
   faq: [
@@ -384,6 +385,7 @@ export const CATALOG_COPY = live(() => M.catalog);
 export const CUSTOM_DIALOG_COPY = live(() => M.customDialog);
 export const ADDED_COPY = live(() => M.added);
 export const CODEX_IMAGE_COPY = live(() => M.codexImage);
+export const CLAUDE_TEXT_COPY = live(() => M.claudeText);
 export const AGENT_FAQ = live(() => M.faq);
 export const POLICY_COPY = live(() => M.policy);
 export const POLICY_KEYS: readonly (keyof AgentPolicy)[] = ['read', 'bcutro', 'loop'];

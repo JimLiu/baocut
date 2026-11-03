@@ -130,6 +130,7 @@ export const tr: AgentMessages = {
     turnedOff: 'Görsel ve metin için Codex kapatıldı',
     toggleFailed: (enabled,message) => `Görsel ve metin için Codex ${enabled ? 'açılamadı' : 'kapatılamadı'}: ${message}`,
   },
+  claudeText: { title: "Metin için Claude Code", body: "Anahtar gerekmez; Claude aboneliğinizi kullanır. Her seferinde bir istek, API’den yavaş. Sizin yerinize seçilmez: metin modeli menüsünden seçin veya Modeller › Metin oluşturma altında varsayılan yapın. Açıldığında çevirdiğiniz veya düzelttiğiniz metin bu bilgisayarda oturum açmış Claude hesabına gönderilir. Görsel oluşturamaz.", checking: "Bu bilgisayardaki Claude Code ile metin yazılabildiği denetleniyor…", probeFailed: "Claude Code ile metin yazılabildiği denetlenemedi · yeniden denemek için “Yeniden denetle” düğmesine tıklayın.", outdated: "Claude Code çok eski · yükseltin, ardından bunu açın", signedOut: "Claude Code henüz oturum açmadı · metin yazma Claude hesabınızı kullanır; açmadan önce oturum açın.", notInstalled: "Claude Code bulunamadı · metin yazmadan önce yükleyin ve oturum açın.", unavailable: (detail) => (detail ? `Claude Code şu anda metin yazamıyor · ${detail}` : "Claude Code şu anda metin yazamıyor · yeniden denemek için “Yeniden denetle” düğmesine tıklayın."), turnedOn: "Metin için Claude Code açıldı · Claude Code artık metin modeli menülerinde", turnedOff: "Metin için Claude Code kapatıldı", toggleFailed: (enabled, message) => (enabled ? `Metin için Claude Code açılamadı: ${message}` : `Metin için Claude Code kapatılamadı: ${message}`) },
 
   faq: [
     {

@@ -19,7 +19,7 @@ export const zhHant: ServicesApiMessages = {
   routing: {
     online: { label: '線上服務', desc: '將請求轉給已連接的雲端服務（可能產生費用，資料會離開這台電腦）' },
     nodes: { label: '區域網路節點', desc: '將請求轉給其他已配對的電腦' },
-    agent: { label: 'Agent', desc: '將請求轉給這台電腦上已登入的 Agent 執行環境（例如 Codex）' },
+    agent: { label: 'Agent', desc: '將請求轉給這台電腦上已登入的 Agent 執行環境（例如 Codex、Claude Code）' },
   },
   modelsAvailable: (n) => `${n} 個模型可用`,
   notRouted: '有可用的模型，但它們所屬的類別尚未開啟路由；目前請求會收到 503',

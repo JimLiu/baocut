@@ -147,9 +147,10 @@ export interface CreateSessionOptions extends TurnSettings {
   mcpServers?: Record<string, McpServerSpec>;
   /**
    * 受限的一次性调用（智能体作为 Provider，架构设计 §6.9）：`cwd-write-only` 只允许写工作目录（不含系统临时目录），
-   * 命令不联网，从不请求审批（越界的动作直接被拒绝，没有人来批）。给了它时 `accessMode` 不起作用。
+   * 命令不联网，从不请求审批（越界的动作直接被拒绝，没有人来批）。`no-tools` 给只要文字回复的调用：不给任何内置工具，不读写文件、不跑命令，
+   * 也不留下原生的会话记录。给了它时 `accessMode` 不起作用。做不到的 Driver 在开会话时抛错。
    */
-  confinement?: 'cwd-write-only';
+  confinement?: 'cwd-write-only' | 'no-tools';
 }
 
 /** 一个 Streamable HTTP 的 MCP 服务。`headers` 里有令牌，不得写进日志。 */

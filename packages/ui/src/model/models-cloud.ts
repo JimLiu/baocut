@@ -465,11 +465,19 @@ export interface DefaultSection {
   items: DefaultOption[];
 }
 
-export interface CodexDefaultState {
-  /** `agent:codex` 此刻能用（画图或写文字，同一个开关）。 */
+export interface AgentDefaultState {
+  /** 这个智能体 Provider 此刻能用（Codex 画图或写文字，同一个开关）。 */
   ready: boolean;
   /** 不能用时的一句原因。 */
   why: string | null;
+}
+
+/** 默认模型菜单里的一个智能体。`state` 为 null：Runtime 没注册它，不列。 */
+export interface AgentDefaultChoice {
+  providerId: string;
+  label: string;
+  desc: string;
+  state: AgentDefaultState | null;
 }
 
 export interface CloudDefaultPicker {
@@ -491,12 +499,12 @@ function refLabel(view: ModelCapabilitiesView, capability: OnlineCapability, ref
   return `${provider?.label ?? ref.providerId} · ${ref.modelId}`;
 }
 
-/** 智能体 Codex 在图像生成与文本生成里各自的模型（架构设计 §6.9；同一个开关）。 */
-const CODEX_MODELS: Partial<Record<OnlineCapability, string>> = { generateImage: 'image-gen', generateText: 'text-gen' };
+/** 智能体在图像生成与文本生成里各自的模型（架构设计 §6.9）。 */
+const AGENT_MODELS: Partial<Record<OnlineCapability, string>> = { generateImage: 'image-gen', generateText: 'text-gen' };
 
 /**
- * 云端页的默认模型菜单：第一项是「不设默认」，然后每家能用的在线服务商一组；图像生成与文本生成在 Codex 能用、或它已是默认时
- * 最后多一项「Codex CLI · 画图」「Codex CLI · 文字」。当前默认指向的服务商不可用时照样列出来、勾着、写「不可用」——Runtime 保留它，这里不替用户清。
+ * 云端页的默认模型菜单：第一项是「不设默认」，然后每家能用的在线服务商一组；图像生成与文本生成在智能体能用、或它已是默认时
+ * 最后各多一项（「Codex CLI · 画图」「Codex CLI · 文字」「Claude Code · 文字」）。当前默认指向的服务商不可用时照样列出来、勾着、写「不可用」——Runtime 保留它，这里不替用户清。
  *
  * 每种能力只有一个默认值，本地页与云端页共用。语音识别的默认是本机或节点的模型时，云端页勾「用本地模型」，再选它不动默认。
  * 其余能力没有出厂默认：默认是本机或节点的模型时单列一项、勾着它（写明在本地模型页设的），「每次选择」才是真的清掉默认。
@@ -504,8 +512,8 @@ const CODEX_MODELS: Partial<Record<OnlineCapability, string>> = { generateImage:
 export function cloudDefaultPicker(
   view: ModelCapabilitiesView,
   capability: OnlineCapability,
-  codex: CodexDefaultState | null,
-  copy: { none: string; noneDesc: string; codex: string; codexDesc: string; unavailable: string; localDesc?: string },
+  agents: readonly AgentDefaultChoice[],
+  copy: { none: string; noneDesc: string; unavailable: string; localDesc?: string },
 ): CloudDefaultPicker {
   const current = view[capability].default;
   const local = !!current && isLocalProvider(view, capability, current.providerId);
@@ -527,18 +535,21 @@ export function cloudDefaultPicker(
     sections.push({ key: p.providerId, title: p.label, items });
   }
   const empty = sections.length === 1;
-  const codexModel = CODEX_MODELS[capability];
-  if (codexModel && codex) {
-    const codexKey = defaultKey({ providerId: `${AGENT_PROVIDER_PREFIX}codex`, modelId: codexModel });
-    const isDefault = selectedKey === codexKey;
-    if (codex.ready || isDefault) {
+  const agentModel = AGENT_MODELS[capability];
+  let agentReady = false;
+  for (const agent of agentModel ? agents : []) {
+    if (!agent.state) continue;
+    const key = defaultKey({ providerId: agent.providerId, modelId: agentModel! });
+    const isDefault = selectedKey === key;
+    if (agent.state.ready) agentReady = true;
+    if (agent.state.ready || isDefault) {
       sections.push({
-        key: 'codex',
+        key: agent.providerId,
         items: [
           {
-            key: codexKey,
-            label: codex.ready ? copy.codex : M.unavailableItem(copy.codex, copy.unavailable),
-            description: codex.ready ? copy.codexDesc : (codex.why ?? undefined),
+            key,
+            label: agent.state.ready ? agent.label : M.unavailableItem(agent.label, copy.unavailable),
+            description: agent.state.ready ? agent.desc : (agent.state.why ?? undefined),
           },
         ],
       });
@@ -548,5 +559,5 @@ export function cloudDefaultPicker(
   if (!listedCurrent && current) {
     sections.push({ key: 'current', items: [{ key: selectedKey, label: M.unavailableItem(refLabel(view, capability, current), copy.unavailable) }] });
   }
-  return { selectedKey, sections, empty: empty && !(codexModel && codex?.ready) };
+  return { selectedKey, sections, empty: empty && !agentReady };
 }

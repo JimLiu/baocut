@@ -20,8 +20,8 @@ export const nl: ProvidersAgentMessages = {
   unknownError: "Onbekende fout",
   processExited: "Het proces is afgesloten",
   turnNotStarted: (p: { error: string }) => `De beurt is niet gestart: ${p.error}`,
-  codexTextModel: "Standaardmodel van Agent",
-  codexTextNotes:
+  agentTextModel: "Standaardmodel van Agent",
+  claudeUpgradeHint: "Werk Claude Code bij (bijvoorbeeld claude update) en controleer opnieuw", claudeTextNotes: "Schrijft met het Claude-account dat op deze computer is ingelogd: één verzoek per keer, elk in een nieuwe Claude Code-sessie zonder tools, dus langzamer dan een API. Temperatuur, seed en uitvoerlengte zijn niet in te stellen. Het gebruikt je abonnementstegoed; het resterende tegoed is onbekend. Door dit in te schakelen ga je ermee akkoord dat prompts, inclusief transcripttekst daarin, naar je Claude-account worden gestuurd.", claudeTextNotesApiKey: "Claude Code is ingelogd met een API-sleutel of een andere methode zonder abonnement, dus kosten gaan naar dat account en niet naar een abonnement. Eén verzoek per keer; temperatuur, seed en uitvoerlengte zijn niet in te stellen.", codexTextNotes:
     "Schrijft met het Codex-account dat op deze computer is aangemeld: één verzoek tegelijk, elk in een nieuwe Codex-sessie, dus trager dan een API. Temperatuur, seed en uitvoerlengte zijn niet in te stellen. Gebruikt je abonnementstegoed; het resterende tegoed is onbekend. Inschakelen betekent dat je akkoord gaat met het verzenden van prompts, inclusief de transcriptietekst erin, naar je Codex-account.",
   codexTextNotesApiKey:
     "Codex is aangemeld met een API-sleutel of een andere methode dan ChatGPT, dus eventuele kosten gaan naar dat account, niet naar een abonnement. Eén verzoek tegelijk; temperatuur, seed en uitvoerlengte zijn niet in te stellen.",

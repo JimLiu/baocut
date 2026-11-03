@@ -24,7 +24,7 @@ export const ru: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    Настроить сетевого поставщика: из каталога (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen и другие; см. baocut models capabilities) либо свою совместимую с OpenAI точку custom:<name>.
-                                   У агента agent:codex только включение/выключение (использует вход в Codex этого компьютера, без ключа)
+                                   У агентов agent:codex и agent:claude только включение/выключение (используют вход в Codex или Claude Code этого компьютера, без ключа)
     --enable | --disable           Включить (постоянные разрешения позволяют отправлять аудио материалов, текст или запросы) или выключить
     --key-stdin                    Прочитать API key из stdin (ключи в аргументах не принимаются): заменить ключ
                                    первой учётной записи либо создать запись, если их нет (для нескольких записей используйте

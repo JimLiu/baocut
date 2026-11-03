@@ -138,6 +138,7 @@ export const ko: AgentMessages = {
     toggleFailed: (enabled: boolean, message: string) =>
       enabled ? `Codex로 그리기와 글쓰기를 켜지 못했습니다: ${message}` : `Codex로 그리기와 글쓰기를 끄지 못했습니다: ${message}`,
   },
+  claudeText: { title: "Claude Code로 글쓰기", body: "키가 필요 없으며 Claude 구독을 사용합니다. 한 번에 요청 1개를 처리하며 API보다 느립니다. 자동으로 선택되지 않으니 텍스트 생성 모델 메뉴에서 고르거나 설정 › 모델 › 텍스트 생성에서 기본값으로 지정하세요. 켜면 번역하거나 다듬는 텍스트가 이 컴퓨터에 로그인된 Claude 계정으로 전송됩니다. 이미지는 생성할 수 없습니다.", checking: "이 컴퓨터의 Claude Code가 글을 쓸 수 있는지 확인 중…", probeFailed: "Claude Code가 글을 쓸 수 있는지 확인하지 못했습니다 · “다시 확인”을 클릭해 다시 시도하세요.", outdated: "Claude Code 버전이 너무 오래되었습니다 · 업그레이드한 뒤 켜세요", signedOut: "Claude Code에 아직 로그인하지 않았습니다 · 글쓰기에는 Claude 계정을 사용하므로 로그인한 뒤 켜세요.", notInstalled: "Claude Code를 찾지 못했습니다 · 글을 쓰려면 설치하고 로그인하세요.", unavailable: (detail) => (detail ? `지금은 Claude Code로 글을 쓸 수 없습니다 · ${detail}` : "지금은 Claude Code로 글을 쓸 수 없습니다 · “다시 확인”을 클릭해 다시 시도하세요."), turnedOn: "Claude Code로 글쓰기를 켰습니다 · 이제 텍스트 생성 모델 메뉴에 Claude Code가 있습니다", turnedOff: "Claude Code로 글쓰기를 껐습니다", toggleFailed: (enabled, message) => (enabled ? `Claude Code로 글쓰기를 켜지 못했습니다: ${message}` : `Claude Code로 글쓰기를 끄지 못했습니다: ${message}`) },
 
   faq: [
     {

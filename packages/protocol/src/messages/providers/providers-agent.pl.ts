@@ -20,8 +20,8 @@ export const pl: ProvidersAgentMessages = {
   unknownError: "Nieznany błąd",
   processExited: "Proces zakończył działanie",
   turnNotStarted: (p) => `Tura nie rozpoczęła się: ${p.error}`,
-  codexTextModel: "Domyślny model agenta",
-  codexTextNotes:
+  agentTextModel: "Domyślny model agenta",
+  claudeUpgradeHint: "Zaktualizuj Claude Code (na przykład claude update), a następnie sprawdź ponownie", claudeTextNotes: "Pisze przy użyciu konta Claude zalogowanego na tym komputerze: jedno żądanie naraz, każde w nowej sesji Claude Code bez narzędzi, więc wolniej niż API. Nie można ustawić temperatury, ziarna ani długości wyniku. Korzysta z limitu abonamentu; pozostały limit jest nieznany. Włączenie oznacza zgodę na wysyłanie promptów, w tym zawartego w nich tekstu transkrypcji, na Twoje konto Claude.", claudeTextNotesApiKey: "Claude Code jest zalogowany kluczem API lub inną metodą bez abonamentu, więc koszty trafiają na to konto, a nie do abonamentu. Jedno żądanie naraz; nie można ustawić temperatury, ziarna ani długości wyniku.", codexTextNotes:
     "Pisze przy użyciu konta Codex zalogowanego na tym komputerze: jedno żądanie naraz, każde w nowej sesji Codex, więc wolniej niż przez API. Nie można ustawić temperatury, seeda ani długości odpowiedzi. Korzysta z limitu subskrypcji; pozostały limit jest nieznany. Włączenie oznacza zgodę na wysyłanie promptów, w tym zawartych w nich transkrypcji, na Twoje konto Codex.",
   codexTextNotesApiKey:
     "Codex jest zalogowany kluczem API lub inną metodą niż ChatGPT, więc ewentualne koszty trafiają na to konto, a nie do subskrypcji. Jedno żądanie naraz; nie można ustawić temperatury, seeda ani długości odpowiedzi.",

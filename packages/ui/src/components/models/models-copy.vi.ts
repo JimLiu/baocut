@@ -104,7 +104,7 @@ export const vi: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Ảnh",
     codexItemDesc: "Dùng gói đăng ký Codex của bạn · mỗi lần một ảnh · chậm hơn 5–10 lần",
-    codexTextItem: 'Codex CLI · Văn bản',
+    claudeTextItem: "Claude Code · Văn bản", claudeTextItemDesc: "Dùng gói đăng ký Claude của bạn · mỗi lần một yêu cầu · chậm hơn API", codexTextItem: 'Codex CLI · Văn bản',
     codexTextItemDesc: 'Dùng gói đăng ký Codex của bạn · mỗi lần một yêu cầu · chậm hơn API',
     unavailable: "Không khả dụng",
     pickerEmpty: { image: "Kết nối nhà cung cấp hoặc bật tạo ảnh Codex để chọn", other: "Kết nối nhà cung cấp để chọn" },
@@ -190,6 +190,7 @@ export const vi: ModelsMessages = {
     switchLabel: 'Dùng Codex để vẽ và viết',
     toggleFailed: (enabled,message) => `Không thể ${enabled ? 'bật' : 'tắt'} tạo ảnh Codex: ${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "Đã bật · dùng gói đăng ký Claude, không cần khóa · mỗi lần một yêu cầu · chọn mô hình và mức suy luận khi dùng · chậm hơn API", off: "Đã tắt · bật để chọn khi tạo văn bản và làm mô hình mặc định tại đây", missing: "Không tìm thấy Claude Code · cài đặt và đăng nhập trước khi viết.", switchLabel: "Dùng Claude Code để viết", toggleFailed: (enabled, message) => (enabled ? `Không bật Claude Code để viết được: ${message}` : `Không tắt Claude Code để viết được: ${message}`) },
   key: {
     title: (name) => `${name} · Khóa API`,
     shared: (name,kinds) => `Mọi mô hình ${name} (${kinds}) dùng chung khóa này; nhập một lần để mọi danh sách dùng được.`,

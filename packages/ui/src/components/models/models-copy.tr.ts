@@ -104,7 +104,7 @@ export const tr: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Görseller",
     codexItemDesc: "Codex aboneliğinizi kullanır · her seferinde bir görsel · 5–10 kat yavaş",
-    codexTextItem: 'Codex CLI · Metin',
+    claudeTextItem: "Claude Code · Metin", claudeTextItemDesc: "Claude aboneliğinizi kullanır · her seferinde bir istek · API’den yavaş", codexTextItem: 'Codex CLI · Metin',
     codexTextItemDesc: 'Codex aboneliğinizi kullanır · her seferinde bir istek · API’den yavaş',
     unavailable: "Kullanılamıyor",
     pickerEmpty: { image: "Seçim yapmak için sağlayıcı bağlayın veya Codex görsellerini açın", other: "Seçmek için bir sağlayıcı bağlayın" },
@@ -190,6 +190,7 @@ export const tr: ModelsMessages = {
     switchLabel: 'Görsel ve metin için Codex',
     toggleFailed: (enabled,message) => `Codex görselleri ${enabled ? 'açılamadı' : 'kapatılamadı'}: ${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "Açık · Claude aboneliğinizi kullanır, anahtar gerekmez · her seferinde bir istek · model ve akıl yürütme düzeyi kullanırken seçilir · API’den yavaş", off: "Kapalı · metin oluşturmada ve buradaki varsayılan modelde seçebilmek için açın", missing: "Claude Code bulunamadı · metin yazmak için önce yükleyin ve oturum açın.", switchLabel: "Metin için Claude Code", toggleFailed: (enabled, message) => (enabled ? `Metin için Claude Code açılamadı: ${message}` : `Metin için Claude Code kapatılamadı: ${message}`) },
   key: {
     title: (name) => `${name} · API anahtarı`,
     shared: (name,kinds) => `Bu anahtar ${name} sağlayıcısının tüm modellerinde (${kinds}) paylaşılır; bir kez girince her liste kullanabilir.`,

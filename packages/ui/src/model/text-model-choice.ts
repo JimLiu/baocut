@@ -85,7 +85,7 @@ export function textProviderRows(options: readonly TextOption[], selectedKey: st
   return rows;
 }
 
-/** 一家的图标：智能体用 Agent 的图标（`agent:codex` → Codex），API 提供方用目录给的厂商图标，没有时画名字首字母。 */
+/** 一家的图标：智能体用 Agent 的图标（`agent:codex` → Codex，`agent:claude` → Claude Code），API 提供方用目录给的厂商图标，没有时画名字首字母。 */
 export function textProviderIcon(view: ModelCapabilitiesView | null, row: Pick<TextProviderRow, 'providerId' | 'name' | 'agent'>): AgentIconSpec {
   const driverId = row.providerId.replace(/^agent:/, '');
   if (row.agent && isDriverId(driverId)) return agentIcon({ id: driverId, name: row.name });
@@ -93,12 +93,15 @@ export function textProviderIcon(view: ModelCapabilitiesView | null, row: Pick<T
   return providerIcon({ providerId: row.providerId, label: row.name, vendor: vendor ?? { kind: 'vendor' } });
 }
 
+/** 「用你的 X 订阅」里的 X，名字不是 Agent 名字的那几家：订阅叫 Claude，不叫 Claude Code。 */
+const SUBSCRIPTION_NAMES: Record<string, string> = { 'agent:claude': 'Claude' };
+
 function providerSub(row: TextProviderRow): string {
   const first = row.options[0]!;
   if (row.agent) {
     if (!row.ready) return M.agentNote(first.why ?? '');
     const caution = row.options.find((o) => o.caution)?.caution;
-    return caution ? M.agentNote(caution) : M.agentReady(row.name);
+    return caution ? M.agentNote(caution) : M.agentReady(SUBSCRIPTION_NAMES[row.providerId] ?? row.name);
   }
   if (!first.connected) return M.notConnected;
   return row.ready ? M.connected(row.options.length) : (first.why ?? M.notConnected);

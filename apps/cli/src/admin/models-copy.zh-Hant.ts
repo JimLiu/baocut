@@ -17,7 +17,7 @@ export const zhHant: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    設定線上供應商：目錄中的供應商（openai、google、elevenlabs、anthropic、deepseek、
                                    qwen 等，請見 baocut models capabilities），或自訂的 OpenAI 相容端點 custom:<name>。
-                                   Agent 供應商 agent:codex 只有開關（使用這台電腦上 Codex 的登入，不需要金鑰）
+                                   Agent 供應商 agent:codex、agent:claude 只有開關（使用這台電腦上 Codex、Claude Code 的登入，不需要金鑰）
     --enable | --disable           啟用（長期授權會在需要時將素材音訊、文字或提示詞傳送給它）或停用
     --key-stdin                    從標準輸入讀取 API 金鑰（不接受命令列引數中的金鑰）：取代第一個帳號的金鑰，
                                    沒有帳號時會建立一個（多個帳號請使用 baocut models accounts）

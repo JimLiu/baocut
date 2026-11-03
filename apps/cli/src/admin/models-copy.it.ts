@@ -20,7 +20,7 @@ export const it: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    Configura un provider online: del catalogo (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen e altri; vedi baocut models capabilities) o un endpoint OpenAI compatibile personalizzato custom:<name>.
-                                   Il provider agente agent:codex ha solo un interruttore (usa l’accesso Codex di questo computer, senza chiave)
+                                   I provider agente agent:codex e agent:claude hanno solo un interruttore (usano l’accesso Codex o Claude Code di questo computer, senza chiave)
     --enable | --disable           Attiva (le autorizzazioni permanenti inviano audio dei materiali, testo o prompt quando serve) o disattiva
     --key-stdin                    Legge la chiave API da stdin (non accetta chiavi negli argomenti): sostituisce la chiave del
                                    primo account o ne crea uno se assente (per più account usa

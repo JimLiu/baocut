@@ -20,8 +20,8 @@ export const nl: ModelsMessages = {
   baocut models configure <providerId> [opties]
                                    Configureer een online aanbieder uit de catalogus (openai, google, elevenlabs,
                                    anthropic, deepseek, qwen enz.; zie baocut models capabilities) of een eigen
-                                   OpenAI-compatibel eindpunt custom:<name>. agent:codex heeft alleen een schakelaar
-                                   en gebruikt de lokale Codex-login zonder sleutel.
+                                   OpenAI-compatibel eindpunt custom:<name>. agent:codex en agent:claude hebben alleen een schakelaar
+                                   en gebruiken de lokale Codex- of Claude Code-login zonder sleutel.
     --enable | --disable           Inschakelen (blijvende toestemming om indien nodig audio, tekst of prompts te
                                    verzenden) of uitschakelen.
     --key-stdin                    Lees de API-sleutel uit stdin, nooit uit opdrachtregelargumenten. Vervangt de sleutel

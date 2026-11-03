@@ -68,6 +68,7 @@ describe('ModelServiceStore', () => {
     const store = await open();
     expect(store.configView('agent:codex')).toMatchObject({ enabled: true, enabledAt: null });
     expect(store.configView('agent:other').enabled).toBe(false);
+    expect(store.configView('agent:claude').enabled).toBe(false);
     expect(store.configView('openai').enabled).toBe(false);
     expect(store.getDefault('generateImage')).toBeNull();
     await expect(fs.stat(paths.modelServicesFile)).rejects.toThrow();

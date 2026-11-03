@@ -1,4 +1,4 @@
-import type { AgentDriver, AgentSession } from '@baocut/harness';
+import type { AgentDriver, AgentSession, CreateSessionOptions } from '@baocut/harness';
 import { ProviderFailure } from '@baocut/models';
 import type { ProviderUnavailableReason } from '@baocut/protocol';
 import { ProvidersAgent as PA } from '@baocut/protocol/messages/providers';
@@ -41,15 +41,21 @@ export interface AgentModelSettings {
   effort: string | null;
 }
 
+export type AgentConfinement = NonNullable<CreateSessionOptions['confinement']>;
+
 /** 生图不指定模型与强度。 */
 export const AGENT_DEFAULT_SETTINGS: AgentModelSettings = { model: null, effort: null };
 
-/** 开一个受限的专用会话（§6.9）：只写工作目录，不给 MCP 服务；模型与强度按 `settings`，不给时用 Agent 自己的默认。 */
+/**
+ * 开一个受限的专用会话（§6.9）：默认只写工作目录，`no-tools` 连工具也不给（只要文字回复时）；都不给 MCP 服务。
+ * 模型与强度按 `settings`，不给时用 Agent 自己的默认。
+ */
 export function openConfinedSession(
   ready: Extract<AgentReadiness, { ok: true }>,
   cwd: string,
   developerInstructions: string,
   settings: AgentModelSettings = AGENT_DEFAULT_SETTINGS,
+  confinement: AgentConfinement = 'cwd-write-only',
 ): Promise<AgentSession> {
   return ready.driver.createSession({
     cwd,
@@ -60,7 +66,7 @@ export function openConfinedSession(
     executable: ready.executable ?? null,
     resume: null,
     developerInstructions,
-    confinement: 'cwd-write-only',
+    confinement,
   });
 }
 

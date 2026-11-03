@@ -111,7 +111,7 @@ export const ja: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · 画像',
     codexItemDesc: 'お使いの Codex のサブスクリプションを使用 · 一度に 1 枚 · 5–10 倍遅い',
-    codexTextItem: 'Codex CLI · テキスト',
+    claudeTextItem: "Claude Code · テキスト", claudeTextItemDesc: "お使いの Claude のサブスクリプションを使用 · 一度に 1 リクエスト · API より遅い", codexTextItem: 'Codex CLI · テキスト',
     codexTextItemDesc: 'お使いの Codex のサブスクリプションを使用 · 一度に 1 リクエスト · API より遅い',
     unavailable: '利用不可',
     pickerEmpty: { image: 'プロバイダを接続するか、Codex の画像生成をオンにすると選べます', other: 'プロバイダを接続すると選べます' },
@@ -205,6 +205,7 @@ export const ja: ModelsMessages = {
     switchLabel: 'Codex で描画とテキスト生成',
     toggleFailed: (enabled: boolean, message: string) => `Codex の画像生成を${enabled ? 'オン' : 'オフ'}にできませんでした：${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "オン · お使いの Claude のサブスクリプションを使用、キー不要 · 一度に 1 リクエスト · 使うときにモデルと推論の強さを選択 · API より遅い", off: "オフ · オンにすると、テキスト生成とここでの既定モデルで選べるようになります", missing: "Claude Code が見つかりません · テキストを生成するには、先にインストールしてサインインしてください。", switchLabel: "Claude Code でテキスト生成", toggleFailed: (enabled, message) => (enabled ? `「Claude Code でテキスト生成」をオンにできませんでした：${message}` : `「Claude Code でテキスト生成」をオフにできませんでした：${message}`) },
   key: {
     title: (name: string) => `${name} · API キー`,
     shared: (name: string, kinds: string) => `このキーは ${name} のすべてのモデル（${kinds}）で共有されます。一度入力すれば、どの一覧でも使えます。`,

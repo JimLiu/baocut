@@ -21,7 +21,7 @@ help: `Cách dùng:
   baocut models configure <providerId> [options]
                                    Cấu hình nhà cung cấp trực tuyến: từ danh mục (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen và loại khác; xem baocut models capabilities) hoặc điểm cuối tùy chỉnh tương thích OpenAI custom:<name>.
-                                   Nhà cung cấp Agent agent:codex chỉ có bật/tắt (dùng đăng nhập Codex trên máy này, không có khóa)
+                                   Nhà cung cấp Agent agent:codex và agent:claude chỉ có bật/tắt (dùng đăng nhập Codex hoặc Claude Code trên máy này, không có khóa)
     --enable | --disable           Bật (ủy quyền thường trực gửi âm thanh tư liệu, văn bản hoặc lời nhắc khi cần) hoặc tắt
     --key-stdin                    Đọc khóa API từ stdin (không nhận khóa trong đối số dòng lệnh): thay khóa tài khoản đầu
                                    hoặc tạo tài khoản nếu chưa có (với nhiều tài khoản dùng

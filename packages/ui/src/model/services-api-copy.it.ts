@@ -7,7 +7,7 @@ export const it: ServicesApiMessages = {
   routing: {
     online: { label: 'Servizi online', desc: 'Inoltra richieste ai servizi cloud connessi (potrebbero esserci costi; i dati escono da questo computer)' },
     nodes: { label: 'Nodi LAN', desc: 'Inoltra richieste ad altri computer abbinati' },
-    agent: { label: 'Agenti', desc: 'Inoltra richieste ai runtime degli agenti connessi su questo computer (come Codex)' },
+    agent: { label: 'Agenti', desc: 'Inoltra richieste ai runtime degli agenti connessi su questo computer (come Codex o Claude Code)' },
   },
   modelsAvailable: (n) => pluralForm('it', n, { one: `${n} modello disponibile`, other: `${n} modelli disponibili` }),
   notRouted: 'Sono disponibili modelli, ma l’instradamento è disattivato per la loro categoria; per ora le richieste ricevono 503',

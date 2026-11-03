@@ -19,7 +19,7 @@ export const ko: ServicesApiMessages = {
   routing: {
     online: { label: '온라인 서비스', desc: '연결된 클라우드 서비스로 요청을 전달합니다(비용이 들 수 있으며 데이터가 이 컴퓨터 밖으로 나갑니다)' },
     nodes: { label: 'LAN 노드', desc: '페어링된 다른 컴퓨터로 요청을 전달합니다' },
-    agent: { label: 'Agent', desc: '이 컴퓨터에 로그인된 Agent(예: Codex)로 요청을 전달합니다' },
+    agent: { label: 'Agent', desc: '이 컴퓨터에 로그인된 Agent(예: Codex, Claude Code)로 요청을 전달합니다' },
   },
   modelsAvailable: (n) => `사용 가능한 모델 ${n}개`,
   notRouted: '모델은 있지만 해당 유형의 라우팅이 꺼져 있어 지금은 요청에 503이 반환됩니다',

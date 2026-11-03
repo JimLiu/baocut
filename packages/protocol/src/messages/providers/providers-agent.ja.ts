@@ -22,8 +22,8 @@ export const ja: ProvidersAgentMessages = {
   unknownError: '不明なエラー',
   processExited: 'プロセスが終了しました',
   turnNotStarted: (p) => `ターンを開始できませんでした：${p.error}`,
-  codexTextModel: "Agent の既定モデル",
-  codexTextNotes:
+  agentTextModel: "Agent の既定モデル",
+  claudeUpgradeHint: "Claude Code を更新してから（例: claude update）、再確認してください", claudeTextNotes: "このコンピュータでサインイン済みの Claude アカウントで生成します。一度に 1 リクエストで、毎回ツールなしの新しい Claude Code セッションを開くため API より遅くなります。温度、シード、出力の長さは設定できません。サブスクリプションの枠を使い、残りの枠は不明です。オンにすると、プロンプト（含まれる文字起こしのテキストを含む）を Claude アカウントに送信することに同意したことになります。", claudeTextNotesApiKey: "Claude Code は API キーなどサブスクリプション以外の方法でサインインしているため、費用はサブスクリプションではなくそのアカウントに計上されます。一度に 1 リクエストで、温度、シード、出力の長さは設定できません。", codexTextNotes:
     "このコンピュータでサインイン済みの Codex アカウントで文章を生成します。同時に実行できるのは 1 リクエストのみで、毎回新しい Codex セッションを開くため API より時間がかかります。temperature、seed、出力の長さは指定できません。サブスクリプションの利用枠を使い、残りの枠は不明です。オンにすると、プロンプト（含まれる書き起こしなども含む）を Codex アカウントに送信することに同意したことになります。",
   codexTextNotesApiKey:
     "Codex は API キーなど ChatGPT サブスクリプション以外の方法でサインインしています。費用はサブスクリプションではなくそのアカウントに請求されます。同時に 1 リクエストのみ。temperature、seed、出力の長さは指定できません。",

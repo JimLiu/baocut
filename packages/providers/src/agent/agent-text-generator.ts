@@ -8,6 +8,7 @@ import {
   openConfinedSession,
   runAgentTurn,
   turnFailure,
+  type AgentConfinement,
   type AgentModelSettings,
   type AgentReadiness,
   type AgentTurnOutcome,
@@ -23,6 +24,8 @@ export interface AgentTextGeneratorOptions {
   workRoot: string;
   /** 一个回合的期限（毫秒）；到时中断并关闭会话，调用失败。 */
   turnTimeoutMs: number;
+  /** 会话的限制（默认只写工作目录）：Driver 能做到不给工具时用 `no-tools`，见 `AgentProviderDefinition.text`。 */
+  confinement?: AgentConfinement;
   /** 会话开起来之后的调用结束时的报告（用量账本，§6.10；没有账号，订阅登录时费用记为订阅内）。 */
   report?: CallReporter;
 }
@@ -42,7 +45,7 @@ const INSTRUCTIONS = [
  * 智能体作为文本 Provider 的执行者（架构设计 §6.9）。一次 `generateText` 是一个专用的原生会话，与生图的会话同样受限：
  *
  * - 不属于任何用户会话，不带视频上下文与历史，不给 MCP 服务；工作目录是这次调用新建的空目录（调用结束删掉），访问限定为
- *   只写这个目录（`confinement: 'cwd-write-only'`），会话请求的审批一律拒绝。
+ *   只写这个目录（`confinement: 'cwd-write-only'`）或不给工具（`no-tools`），会话请求的审批一律拒绝。
  * - 只发一个回合：调用方的 system 消息接在开发者指令后面；其余消息是回合的输入（只有一条 user 消息时原样放进去，多条时
  *   按角色标出）。结构化输出把 JSON Schema 写进指令，由 `finishText` 校验（Agent 不接受 schema 参数）。
  * - 模型与推理强度：`AGENT_TEXT_DEFAULT_MODEL` 不传模型，别的模型 id 原样交给 Agent；推理强度是冻结参数里换档后的那一档
@@ -93,7 +96,7 @@ export class AgentTextGenerator implements TextProvider {
       startedAt = Date.now();
       let session: AgentSession;
       try {
-        session = await openConfinedSession(ready, cwd, instructionsOf(run), settings);
+        session = await openConfinedSession(ready, cwd, instructionsOf(run), settings, this.#options.confinement);
       } catch (error) {
         if (signal.aborted) throw new TextCallCancelled();
         const failure = new ProviderFailure('unavailable-remote', PA.sessionNotStarted({ label, error: messageOf(error) }).text, { providerId });

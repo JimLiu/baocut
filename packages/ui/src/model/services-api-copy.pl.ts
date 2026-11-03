@@ -20,7 +20,7 @@ export const pl: ServicesApiMessages = {
   routing: {
     online: { label: "Usługi online", desc: "Przekazuj żądania połączonym usługom w chmurze (może kosztować; dane opuszczają ten komputer)" },
     nodes: { label: "Węzły sieci lokalnej", desc: "Przekazuj żądania innym sparowanym komputerom" },
-    agent: { label: "Agenci", desc: "Przekazuj żądania środowiskom agentów zalogowanym na tym komputerze (na przykład Codex)" },
+    agent: { label: "Agenci", desc: "Przekazuj żądania środowiskom agentów zalogowanym na tym komputerze (na przykład Codex lub Claude Code)" },
   },
   modelsAvailable: (n) => pluralForm('pl', n, { one: `Dostępny ${n} model`, few: `Dostępne ${n} modele`, many: `Dostępnych ${n} modeli`, other: `Dostępne ${n} modelu` }),
   notRouted: "Modele są dostępne, ale routing ich kategorii jest wyłączony; żądania otrzymują na razie 503",

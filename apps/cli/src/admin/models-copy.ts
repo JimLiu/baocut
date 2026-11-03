@@ -50,7 +50,7 @@ const en = {
   baocut models configure <providerId> [options]
                                    Configure an online provider: a catalog provider (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen, and others; see baocut models capabilities), or a custom OpenAI-compatible endpoint custom:<name>.
-                                   The agent provider agent:codex only has an on/off switch (it uses this computer's Codex sign-in, no key)
+                                   The agent providers agent:codex and agent:claude only have an on/off switch (they use this computer's Codex or Claude Code sign-in, no key)
     --enable | --disable           Enable (standing grants send asset audio, text, or prompts to it when needed) or disable
     --key-stdin                    Read the API key from stdin (keys in command-line arguments aren't accepted): replaces the
                                    first account's key, or creates an account if there is none (for multiple accounts, use

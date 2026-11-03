@@ -11,9 +11,9 @@ import { providerCanClone } from '../../model/voice-capture.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useConnection } from '../../state/connection-store.ts';
 import { useShell } from '../../state/shell-store.ts';
-import { CODEX_IMAGE_PROVIDER } from '../settings/codex-image.ts';
+import { CLAUDE_SWITCH, CODEX_SWITCH } from '../settings/agent-switch.ts';
 import { useConfigureProvider } from './api-providers-page.tsx';
-import { CodexImageCard, useCodexImage } from './codex-image-card.tsx';
+import { AgentSwitchCard, useAgentSwitch } from './agent-switch-card.tsx';
 import { ModelVoicesLine } from './model-voices-line.tsx';
 import { CLOUD_COPY } from './models-copy.ts';
 import { ProbeDialog } from './probe-dialog.tsx';
@@ -136,8 +136,10 @@ export function CapabilityProviders({ view, capability }: { view: ModelCapabilit
   const connected = useConnection((s) => s.state.status === 'connected');
   const go = useShell((s) => s.go);
   const configure = useConfigureProvider();
-  const codexCapability = capability === 'generateImage' || capability === 'generateText' ? capability : null;
-  const codex = useCodexImage(!!codexCapability, codexCapability ?? undefined);
+  const agentCapability = capability === 'generateImage' || capability === 'generateText' ? capability : null;
+  const codex = useAgentSwitch(CODEX_SWITCH, !!agentCapability, agentCapability ?? undefined);
+  // Claude Code 只有文本生成（它没有图像生成工具，架构设计 §6.9）。
+  const claude = useAgentSwitch(CLAUDE_SWITCH, capability === 'generateText');
   const probes = useProbeRuns();
   const [probe, setProbe] = useState<ProbeTarget | null>(null);
   const [query, setQuery] = useState('');
@@ -290,8 +292,11 @@ export function CapabilityProviders({ view, capability }: { view: ModelCapabilit
           </div>
         </div>
       )}
-      {codexCapability ? (
-        <CodexImageCard codex={codex} capability={codexCapability} isDefault={defaultRef?.providerId === CODEX_IMAGE_PROVIDER} />
+      {agentCapability ? (
+        <AgentSwitchCard agent={codex} capability={agentCapability} isDefault={defaultRef?.providerId === CODEX_SWITCH.providerId} />
+      ) : null}
+      {capability === 'generateText' ? (
+        <AgentSwitchCard agent={claude} capability="generateText" isDefault={defaultRef?.providerId === CLAUDE_SWITCH.providerId} />
       ) : null}
       {probe ? (
         <ProbeDialog

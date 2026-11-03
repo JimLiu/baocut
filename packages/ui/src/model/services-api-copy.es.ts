@@ -6,7 +6,7 @@ export const es: ServicesApiMessages = {
  routing: {
  online: { label: 'Servicios en línea', desc: 'Reenviar solicitudes a servicios en la nube conectados (puede tener coste; los datos salen de este ordenador)' },
  nodes: { label: 'Nodos de LAN', desc: 'Reenviar solicitudes a otros ordenadores emparejados' },
- agent: { label: 'Agentes', desc: 'Reenviar solicitudes a runtimes de agentes con sesión iniciada en este ordenador (como Codex)' },
+ agent: { label: 'Agentes', desc: 'Reenviar solicitudes a runtimes de agentes con sesión iniciada en este ordenador (como Codex o Claude Code)' },
  },
  modelsAvailable: (n) => `${n} ${pluralForm('es', n, { one: 'modelo disponible', other: 'modelos disponibles' })}`,
  notRouted: 'Hay modelos disponibles, pero el enrutamiento está desactivado para su categoría; las solicitudes reciben 503 por ahora',

@@ -21,7 +21,7 @@ export const es: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    Configurar un proveedor en línea: del catálogo (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen y otros; consulta baocut models capabilities) o endpoint personalizado compatible con OpenAI custom:<name>.
-                                   agent:codex solo tiene interruptor on/off (usa el inicio de sesión de Codex de este ordenador, sin clave)
+                                   agent:codex y agent:claude solo tienen interruptor on/off (usan el inicio de sesión de Codex o Claude Code de este ordenador, sin clave)
     --enable | --disable           Activar (las autorizaciones permanentes envían audio, texto o prompts cuando se necesitan) o desactivar
     --key-stdin                    Leer la clave de API desde stdin (no se aceptan claves como argumentos): reemplaza la clave
                                    de la primera cuenta o crea una si no hay ninguna (para varias cuentas, usa

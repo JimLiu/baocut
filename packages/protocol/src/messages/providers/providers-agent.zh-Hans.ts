@@ -21,8 +21,8 @@ export const zhHans: ProvidersAgentMessages = {
   unknownError: '未知错误',
   processExited: '进程退出',
   turnNotStarted: (p) => `回合没有开始：${p.error}`,
-  codexTextModel: "Agent 默认模型",
-  codexTextNotes:
+  agentTextModel: "Agent 默认模型",
+  claudeUpgradeHint: "升级 Claude Code（例如 claude update），然后重新检测", claudeTextNotes: "用这台电脑上登录的 Claude 账号写：一次一个请求，每次开一个不带工具的新 Claude Code 会话，所以比 API 慢。不能设置温度、种子与输出长度。用的是你的订阅额度，剩余额度未知。打开它即同意把提示词（包括其中的文稿文字）发给你的 Claude 账号。", claudeTextNotesApiKey: "Claude Code 是用 API key 或其他非订阅方式登录的，费用记到那个账号，不在订阅里。一次一个请求；不能设置温度、种子与输出长度。", codexTextNotes:
     "用本机已登录的 Codex 账号生成文字：同一时间只跑一个请求，每次开一个新的 Codex 会话，比 API 慢。temperature、seed 与输出长度不能指定。用的是订阅额度，剩余额度未知。启用即同意把提示词（包括其中的逐字稿等内容）发给 Codex 的账号。",
   codexTextNotesApiKey:
     "Codex 用 API key 等非 ChatGPT 订阅方式登录：费用记在那个账号上、不在订阅里。同一时间只跑一个请求；temperature、seed 与输出长度不能指定。",

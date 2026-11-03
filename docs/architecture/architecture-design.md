@@ -1429,7 +1429,7 @@ Models 模块把模型服务组织成两条互相独立的轴：**能力**说明
 
 强制对齐、语音分析、说话人分离、视频生成按同一模式加入：一份能力合同，加上实现它的 Provider。不能让模型编造精确的视频帧。
 
-- **`generateText`** 是文本模型的调用：输入是有序的消息与输出格式（纯文本，或 JSON Schema 约束的结构化输出），结构化输出必须通过 schema 校验（§6.4）。翻译、润色、分章这类逐句或逐段的工作用它完成，不为每一句创建完整的 AgentSession。它有两个入口，走同一条执行路径：`models.generateText` 提交一个 Job，结果发布为文本产物并留下生成记录（§7.9）；Runtime 里的流程经进程内的 `TextGenerator` 直接调用，不建 Job，与 Job 共用每个 Provider 的并发上限与重试，并累计调用、重试与失败的次数。它的 Provider 是在线 API 与智能体 `agent:codex`（§6.9），局域网节点不共享它（§6.7）；默认模型、推理强度与并发上限是这种能力的配置（§6.8）。同一件事由谁完成取决于入口：从会话发起的由智能体完成，从工具入口发起的由 `generateText` 完成（§7.9）。两条路写入视频时走同一种编辑事务。
+- **`generateText`** 是文本模型的调用：输入是有序的消息与输出格式（纯文本，或 JSON Schema 约束的结构化输出），结构化输出必须通过 schema 校验（§6.4）。翻译、润色、分章这类逐句或逐段的工作用它完成，不为每一句创建完整的 AgentSession。它有两个入口，走同一条执行路径：`models.generateText` 提交一个 Job，结果发布为文本产物并留下生成记录（§7.9）；Runtime 里的流程经进程内的 `TextGenerator` 直接调用，不建 Job，与 Job 共用每个 Provider 的并发上限与重试，并累计调用、重试与失败的次数。它的 Provider 是在线 API 与智能体 `agent:codex`、`agent:claude`（§6.9），局域网节点不共享它（§6.7）；默认模型、推理强度与并发上限是这种能力的配置（§6.8）。同一件事由谁完成取决于入口：从会话发起的由智能体完成，从工具入口发起的由 `generateText` 完成（§7.9）。两条路写入视频时走同一种编辑事务。
 - **`separateAudio`** 只在配音流程里使用，执行者接口是 `DubSeparator`（输入转写来源素材的文件，输出人声与背景两个文件）。它的实现是本地 Provider：模型是 `separate` 本地模型包（内置的 HTDemucs-FT，加上用户添加的 audio.cpp 分离模型包：HTDemucs 与 Mel-Band RoFormer 两族，§6.3），按 §6.2 选——用户默认值，否则出厂默认（已安装、可用、没停用的第一个，按 ID），选不出可用的就当没有执行者。配音提交时选定并冻结模型包（`separatorModel`）与它的资源估计（Worker 的权重，或 audio.cpp 引擎进程的峰值 `separatorPeak`），重试照用；执行时那个模型包已不可用，这一步以 `CAPABILITY_NOT_CONFIGURED` 失败，不换别的。内置的在它的 Model Worker 里整段分离（Model Worker 协议规范 §2.5.4），添加的 audio.cpp 模型包每次分离起一个 audio.cpp 引擎进程、不经 Worker（同规范 §4.4「人声与背景分离」），两者交出同样的两路；输出采样率取输入音轨的；Provider 的失败换成这一步的错误码（`MODEL_LOAD_FAILED`、`MODEL_WORKER_CRASHED`、`INPUT_UNREADABLE`、`MODEL_OUTPUT_INVALID`；输出写不进 staging 是 `STAGING_WRITE_FAILED`，不算崩溃）。能力视图列出 `separateAudio`（只有本地 Provider），默认值经 `models.setDefault` 设置；在线分离服务没有接入，也没有单独的分离命令，API 提供方（§6.4）、自建端点声明的模型与对外模型接口（§4.8）不涉及它。输出合同：人声与背景各一条 ffprobe 能解码的音频，时长与输入相差不超过 20 毫秒，采样率与输入相同。容器时长由最长的流决定，Worker 按音轨写出的两路与它相差超过 20 毫秒时，执行者用 ffmpeg 把两路补齐到容器时长（短了补静音，长了截掉）。不合约定是 `MODEL_OUTPUT_INVALID`（`details.problems` 逐项列出），不重试。没有可用的分离模型包时，要求分离的配音照常接受，分离这一步记为 `skipped`，如实报告，不改用别的处理（§7.9）。
 - **`analyzeVision`** 按用途分别选择模型：每种用途（人物定位、发言人判断、内容区域）有自己的默认模型，互不替代。
 - **`synthesizeSpeech` 的音色**有三种给法，由 Provider 描述声明支持哪几种：预设音色的 ID；参考录音加原文（克隆，来自用户库的音色或视频里的一段，§5.9）；一段文字描述。不支持某种给法的模型在提交时拒绝，不换成别的声音。模型描述的 `voiceModes` 声明接受 `preset`（模型自带、`voices` 里列出的音色）还是 `custom`（供应商账号里的音色 ID，原样交给供应商核对）；`defaultVoice` 为 null 的模型必须给出音色。读音标注（多音字）是输入文本的一部分（`<字|读音>`，读音写声调数字或带调拼音，解析时规范成声调数字，写法见 Model Worker 协议规范 §4.4「读音标注」）：认得标注的模型收到标注，别的模型按表面文字合成；念不了的如实报告，不静默丢弃。
@@ -1446,7 +1446,7 @@ Models 模块把模型服务组织成两条互相独立的轴：**能力**说明
 | 本地 | `local` | 本机的 Model Worker（§6.5）；语音合成与音乐生成是随应用内置的 audio.cpp 引擎：合成每个模型包一个常驻服务，音乐每个任务一个进程（§6.5） | TypeScript 的本地 Provider 加 Rust Worker（合成与音乐生成加内置的 audio.cpp 引擎） |
 | 局域网节点 | `node:<nodeId>` | 另一台机器的 Model Worker（§6.7） | TypeScript |
 | 在线 API | API 提供方目录里的 `openai`、`anthropic`、`google`、`deepseek`、…（§6.4），以及用户自定义的兼容端点 | 供应商的服务 | TypeScript（§6.4） |
-| 智能体 | `agent:<driverId>`，首版只有 `agent:codex` | 本机已安装并登录的智能体运行时 | TypeScript（§6.9） |
+| 智能体 | `agent:<driverId>`：`agent:codex`、`agent:claude`（§6.9） | 本机已安装并登录的智能体运行时 | TypeScript（§6.9） |
 
 在线 Provider 按 **API 提供方**组织：一个 `providerId` 是一家模型厂商、一个中转平台或一个自建端点的接入，它的账号（密钥）对这家提供方实现了的全部能力共用（§6.4、§6.8）。能力与 Provider 仍是两条轴：同一把 OpenAI 的密钥既用于 `generateText`，也用于 `transcribe`、`synthesizeSpeech` 与 `generateImage`，每种能力的默认值照旧各自设置。
 
@@ -1570,6 +1570,7 @@ Node 管理模型目录、版本、下载计划、校验与资源准入；Rust W
 | `siliconflow` | 硅基流动（SiliconFlow） | `relay` | `generateText`；`synthesizeSpeech`、`transcribe` 为 P1 | `generateText`（兼容） | `https://api.siliconflow.cn/v1` | Bearer | `siliconcloud-color` |
 | `custom:<名字>` | 用户起的名字 | `custom` | 用户声明 | 用户声明的（兼容） | 用户填写 | Bearer，密钥可选 | 首字母头像 |
 | `agent:codex` | Codex | `agent` | `generateImage`、`generateText` | 全部（§6.9） | — | 没有密钥 | `codex-color` |
+| `agent:claude` | Claude Code | `agent` | `generateText` | 全部（§6.9） | — | 没有密钥 | `anthropic`（单色） |
 
 - **`kind`** 是 `vendor`（模型厂商）、`relay`（中转平台）、`custom`（自建端点）或 `agent`（智能体，§6.9）。目录条目（`vendor`：`kind`、`regions`、`website`、`icon`、`planned`，内置的还有预设基址 `baseUrl` 与 `regionBaseUrls`，界面只拿来做端点占位与查重）随 Provider 描述给出，能力视图的每个 Provider 也带一份，设置界面不另查目录。`agent` 的 Provider 没有账号，不在 API 提供方列表里，只出现在能力的模型选择里。
 - **一家提供方一组适配器**。表里标「兼容」的文本提供方共用一个 OpenAI 兼容的 Chat Completions 适配器（与 `custom:<名字>` 同一份实现），彼此只差基址与内置模型表；Anthropic 用自己的 Messages 适配器。`custom:<名字>` 的机制不变：用户给出地址、密钥与模型名，接入其他供应商或自建服务，能力描述由用户声明，按 `declared` 层对待（§3.6）。音色克隆（§5.9）接 ElevenLabs 的即时克隆与 Gemini 的复刻音色（要说话人本人另录一段授权声明）；`separateAudio` 没有在线适配器（§6.1）。
@@ -1769,9 +1770,9 @@ Worker 内部用 f32 秒计算，输出一律换算为声明 `timescale` 的整�
 
 ### 6.9 智能体作为 Provider
 
-有些能力可以由用户已经订阅的智能体运行时完成，不需要 API key。首版只有一个智能体 Provider：`agent:codex`，用 Codex 生成图片（`generateImage`）与文本（`generateText`，2026-10-28 加入）。两种能力共用一个开关、一份可用性与一份用量记录。
+有些能力可以由用户已经订阅的智能体运行时完成，不需要 API key。现在有两个智能体 Provider：`agent:codex`，用 Codex 生成图片（`generateImage`）与文本（`generateText`，2026-10-28 加入），两种能力共用一个开关、一份可用性与一份用量记录；`agent:claude`，用 Claude Code 生成文本（`generateText`，2026-11-02 加入，issue #119），差别集中在下面「`agent:claude`」一条。
 
-`AgentDriver` 与 `ModelProvider` 仍然分别注册（§3.1）。智能体 Provider 来自第四种 Provider 来源（`kind: 'agent'`），与本地、节点、在线来源并列；它只在注册了对应的 Driver 时列出。它是一个普通的 `ModelProvider`，在内部经同一个 Driver 的机器协议发起一次受限的调用（不另写一份协议实现），对外遵守所提供能力的全部合同。下面各条按生图写，文本生成的差别集中在「文本生成」一条：
+`AgentDriver` 与 `ModelProvider` 仍然分别注册（§3.1）。智能体 Provider 来自第四种 Provider 来源（`kind: 'agent'`），与本地、节点、在线来源并列；它只在注册了对应的 Driver 时列出。它是一个普通的 `ModelProvider`，在内部经同一个 Driver 的机器协议发起一次受限的调用（不另写一份协议实现），对外遵守所提供能力的全部合同。下面各条按 Codex 生图写，文本生成的差别集中在「文本生成」一条：
 
 - **一次调用一个专用的原生会话**。它不属于任何用户会话，不带视频上下文与对话历史，也不恢复旧的线程；输入只有提示词、参考图与输出要求（开发者指令说明任务与输出文件，回合的输入是提示词原文）。工作目录是该 Job 的 staging 目录；不给 MCP 服务，没有 BaoCut 的工具。访问模式固定为「只写工作目录」（Driver 的 `confinement: 'cwd-write-only'`）：Codex 用 `workspace-write` 沙箱，去掉默认可写的 `/tmp` 与 `$TMPDIR`、不加别的可写目录、命令不联网，审批策略为 `never`；会话仍然发来的审批请求一律拒绝，因为没有人来批。一次调用只发一个回合，回合结束（完成、失败、超时、取消）后原生会话关闭；取消 Job 时先中断回合再关闭会话。一个回合的期限是 10 分钟，到时中断、关闭，Job 以 `PROVIDER_UNAVAILABLE` 失败。原生运行时自己保存的会话记录（例如 Codex 的会话目录）不由 BaoCut 管理。
 - **输出同样校验**。约定的输出是工作目录里的 `output.png`；没有它时取 staging 里唯一的一张图片（子目录也找，只收普通文件，不跟随符号链接），有多张时全部交出，由张数校验拒绝。声明的媒体类型是请求的格式，之后与其他 Provider 一样由 JobManager 核对摘要与长度、按文件头与 ffprobe 解码校验（§6.4、§7.1），实际的像素尺寸作为事实记在输出里，再发布为产物；给了视频时导入为候选素材，与其他 Provider 相同。智能体的文字回复不是输出：没有图片时 Job 以 `PROVIDER_REJECTED` 失败（`details.reason: 'no-image'`，附回复的摘录）；回合失败或被中断也是 `PROVIDER_REJECTED`（`turn-failed`、`turn-interrupted`）；写下的文件不是合格的 PNG 时是 `MODEL_OUTPUT_INVALID`。不重试，不换 Provider。
@@ -1785,7 +1786,12 @@ Worker 内部用 f32 秒计算，输出一律换算为声明 `timescale` 的整�
   - **描述**：模型表的第一项是 `text-gen`（「Agent 默认模型」：不传模型，按智能体运行时自己的配置与账号选，Codex 读 `config.toml`），后面是 Driver 探测到的模型表（§3.11，不含隐藏的），模型 ID 是 Driver 的原生 ID。每个模型的 `efforts` 取 Driver 报给它的推理强度里与 `TextEffort` 同名的几档（Codex 的 `none`、`xhigh` 不列），`defaultEffort` 是它的默认那档；`text-gen` 的推理强度取 Codex 配置里的模型（认不出时取 Driver 标为默认的模型）。探测结果还没有时只有 `text-gen`，`efforts` 为空。都不接受 `temperature` 与 `seed`，`structuredOutput` 为 true；上下文与输出上限按 Codex 常用模型的量级给（40 万与 12.8 万 token），只用于提交时的粗查。下发的只有模型（`text-gen` 不传）与换档后的推理强度（`thread/start` 带模型，`turn/start` 带模型与推理强度；推理强度为空时不传）；temperature、seed 与输出上限都不下发，§6.4 的参数检查照模型描述拒绝或注明。推理强度不用能力参数的默认值（§6.8）：在界面选模型的地方选（产品设计 §7.6），没选时用模型自己的默认。费用状态与 `notes` 按登录方式取，与生图相同。
   - **并发**：同一时间只进行 1 个调用，任务与进程内调用合计，不管能力参数的 `concurrency` 设成多少（§6.8）。每次调用开一个新会话，比在线 API 慢得多；翻译这类逐批的工作照样能用，只是慢。
   - **选择**：没有出厂默认（`generateText` 本来就没有，§6.2），只在用户显式选择或设为默认时用；以 API key 等方式登录时同样可以选，费用记为 `unknown`。界面的自动挑选（选不到默认值时取第一个能用的）跳过这种情况。界面菜单按「能用的在前」排：能用时排在已连接的 API 提供方之后、没连接的之前（产品设计 §7.6）。
-- 其他能力与其他 Driver（例如 Claude Code）按同一模式加入，各自经过验证后开放。
+- **`agent:claude`**（2026-11-02 用户要求）。Claude Code 没有图像生成工具，所以只有 `generateText`，走上面「文本生成」一条，差别是：
+  - **会话**：Driver 的 `confinement: 'no-tools'`，比「只写工作目录」更严：`tools: []` 不给内置工具，`strictMcpConfig` 不接用户配置里的 MCP 服务，还有工具来问时一律拒绝；不开沙箱，所以 Claude Code 的沙箱不可用的平台（例如 Windows）也能用。系统提示词只有调用方的指令（固定的任务说明、schema、`system` 消息），不带 Claude Code 编程助手的那段；`persistSession: false`，不留原生会话记录，不出现在「导入外部会话」里。仍加载用户层设置（模型与环境变量在那里），钩子与用户层的权限规则照样关掉（§3.11）。
+  - **启用**：未保存过配置时默认不启用（`agent:codex` 默认启用是因为生图的出厂顺序用它；文本生成没有出厂默认，开着也不会自动用）。用户启用时按 §6.8 发放默认 Grant，种类是 `transcript` 与 `document`。
+  - **可用性**：最低版本 2.0.0，与 Driver 相同。登录方式是 claude.ai 账号（含它签发的长期令牌）时费用状态是 `subscription`；API key、第三方云、企业网关是 `unknown`，`notes` 写明这一点。
+  - **描述**：模型表第一项是 `text-gen`（不传模型，按 Claude Code 自己的配置与账号选），后面是 Driver 探测到的模型表；`efforts` 的取法与 Codex 相同（`xhigh`、`max` 不列）。上下文与输出上限按常用模型的量级给（20 万与 6.4 万 token），只用于提交时的粗查。
+- 其他 Driver（OpenCode、Pi、Antigravity 与经 ACP 接入的几家）开会话时拒绝 `confinement`：它们的权限规则管不住命令写到哪里、联不联网，所以暂不作为 Provider 开放。要开放时按 `no-tools` 的合同逐家验证（确实不跑命令、不读写文件、不联网）。
 
 ### 6.10 用量账本
 

@@ -118,7 +118,7 @@ export const fr: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Images",
     codexItemDesc: "Votre abonnement Codex · une image à la fois · 5–10× plus lent",
-    codexTextItem: 'Codex CLI · Texte',
+    claudeTextItem: "Claude Code · Texte", claudeTextItemDesc: "Votre abonnement Claude · une requête à la fois · plus lent qu’une API", codexTextItem: 'Codex CLI · Texte',
     codexTextItemDesc: 'Votre abonnement Codex · une requête à la fois · plus lent qu’une API',
     unavailable: "Indisponible",
     pickerEmpty: { image: "Connectez un fournisseur ou activez les images Codex pour choisir", other: "Connectez un fournisseur pour choisir" },
@@ -218,6 +218,7 @@ export const fr: ModelsMessages = {
     switchLabel: 'Utiliser Codex pour les images et le texte',
     toggleFailed: (enabled: boolean, message: string) => `Impossible de ${enabled ? "activé" : "désactivé"} les images Codex : ${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "Activé · abonnement Claude, sans clé · une requête à la fois · modèle et effort de raisonnement choisis à l’usage · plus lent qu’une API", off: "Désactivé · activez pour le choisir pour le texte, et comme défaut ici", missing: "Claude Code introuvable · installez-le et connectez-vous avant d’écrire avec lui.", switchLabel: "Utiliser Claude Code pour le texte", toggleFailed: (enabled, message) => (enabled ? `Impossible d’activer Claude Code pour le texte : ${message}` : `Impossible de désactiver Claude Code pour le texte : ${message}`) },
   key: {
     title: (name: string) => `${name} · Clé API`,
     shared: (name: string, kinds: string) => `Cette clé est partagée par tous les ${name} modèles (${kinds}) ; saisissez-la une fois pour toutes les listes.`,

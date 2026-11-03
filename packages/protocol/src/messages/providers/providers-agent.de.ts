@@ -20,8 +20,8 @@ export const de: ProvidersAgentMessages = {
   unknownError: "Unbekannter Fehler",
   processExited: "Der Prozess wurde beendet",
   turnNotStarted: (p: { error: string }) => `Die Runde wurde nicht gestartet: ${p.error}`,
-  codexTextModel: "Agent-Standardmodell",
-  codexTextNotes:
+  agentTextModel: "Agent-Standardmodell",
+  claudeUpgradeHint: "Claude Code aktualisieren (zum Beispiel claude update), dann erneut prüfen", claudeTextNotes: "Schreibt mit dem auf diesem Computer angemeldeten Claude-Konto: eine Anfrage gleichzeitig, jede in einer neuen Claude-Code-Sitzung ohne Werkzeuge, daher langsamer als eine API. Temperatur, Seed und Ausgabelänge lassen sich nicht einstellen. Es nutzt Ihr Abonnementkontingent; das verbleibende Kontingent ist unbekannt. Mit dem Einschalten stimmen Sie zu, Prompts einschließlich enthaltener Transkripttexte an Ihr Claude-Konto zu senden.", claudeTextNotesApiKey: "Claude Code ist mit einem API-Schlüssel oder einer anderen Methode ohne Abonnement angemeldet, daher gehen Kosten an dieses Konto, nicht an ein Abonnement. Eine Anfrage gleichzeitig; Temperatur, Seed und Ausgabelänge lassen sich nicht einstellen.", codexTextNotes:
     "Schreibt mit dem auf diesem Computer angemeldeten Codex-Konto: eine Anfrage gleichzeitig, jede in einer neuen Codex-Sitzung, daher langsamer als eine API. Temperatur, Seed und Ausgabelänge sind nicht einstellbar. Verwendet Ihr Abonnementkontingent; das verbleibende Kontingent ist unbekannt. Aktivieren bedeutet Zustimmung zum Senden von Prompts, einschließlich darin enthaltener Transkripte, an Ihr Codex-Konto.",
   codexTextNotesApiKey:
     "Codex ist mit einem API-Schlüssel oder einer anderen Methode als ChatGPT angemeldet, daher gehen Kosten an dieses Konto statt an ein Abo. Eine Anfrage gleichzeitig; Temperatur, Seed und Ausgabelänge sind nicht einstellbar.",

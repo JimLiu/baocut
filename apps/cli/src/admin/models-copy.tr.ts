@@ -21,7 +21,7 @@ help: `Kullanım:
   baocut models configure <providerId> [options]
                                    Çevrimiçi sağlayıcı ayarla: katalog sağlayıcısı (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen ve diğerleri; baocut models capabilities komutuna bakın) veya özel OpenAI uyumlu custom:<name> uç noktası.
-                                   agent:codex ajan sağlayıcısında yalnızca aç/kapat vardır (bu bilgisayarın Codex girişini kullanır, anahtar yok)
+                                   agent:codex ve agent:claude ajan sağlayıcılarında yalnızca aç/kapat vardır (bu bilgisayarın Codex veya Claude Code girişini kullanır, anahtar yok)
     --enable | --disable           Etkinleştir (sürekli izinler gerektiğinde medya sesi, metin veya istem gönderir) veya kapat
     --key-stdin                    API anahtarını stdin üzerinden oku (komut argümanında anahtar kabul edilmez): ilk hesabın
                                    anahtarını değiştirir veya hesap yoksa oluşturur (birden fazla hesap için

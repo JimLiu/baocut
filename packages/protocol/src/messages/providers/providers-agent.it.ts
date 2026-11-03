@@ -18,8 +18,8 @@ export const it: ProvidersAgentMessages = {
   noImageReply: (p) => `${p.label} non ha generato un’immagine: ${p.reply}`,
   unknownError: 'Errore sconosciuto', processExited: 'Il processo è terminato',
   turnNotStarted: (p) => `Il turno non è iniziato: ${p.error}`,
-  codexTextModel: "Modello predefinito dell’agente",
-  codexTextNotes:
+  agentTextModel: "Modello predefinito dell’agente",
+  claudeUpgradeHint: "Aggiorna Claude Code (ad esempio, claude update), poi verifica di nuovo", claudeTextNotes: "Scrive con l’account Claude connesso su questo computer: una richiesta alla volta, ognuna in una nuova sessione di Claude Code senza strumenti, quindi è più lento di un’API. Temperatura, seed e lunghezza dell’output non si possono impostare. Usa la quota del tuo abbonamento; la quota residua è sconosciuta. Attivarlo significa accettare di inviare i prompt, compreso l’eventuale testo della trascrizione, al tuo account Claude.", claudeTextNotesApiKey: "Claude Code ha effettuato l’accesso con una chiave API o un altro metodo senza abbonamento, quindi i costi vanno a quell’account e non a un abbonamento. Una richiesta alla volta; temperatura, seed e lunghezza dell’output non si possono impostare.", codexTextNotes:
     "Scrive con l’account Codex connesso su questo computer: una richiesta alla volta, ognuna in una nuova sessione Codex, quindi è più lento di un’API. Temperatura, seed e lunghezza dell’output non si possono impostare. Usa la quota del tuo abbonamento; la quota rimanente è sconosciuta. Attivarlo significa accettare di inviare i prompt, compreso il testo delle trascrizioni che contengono, al tuo account Codex.",
   codexTextNotesApiKey:
     "Codex ha effettuato l’accesso con una chiave API o un altro metodo diverso da ChatGPT, quindi i costi vanno a quell’account, non a un abbonamento. Una richiesta alla volta; temperatura, seed e lunghezza dell’output non si possono impostare.",

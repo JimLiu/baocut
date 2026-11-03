@@ -139,6 +139,7 @@ export const ja: AgentMessages = {
     toggleFailed: (enabled: boolean, message: string) =>
       enabled ? `「Codex で描画とテキスト生成」をオンにできませんでした：${message}` : `「Codex で描画とテキスト生成」をオフにできませんでした：${message}`,
   },
+  claudeText: { title: "Claude Code でテキスト生成", body: "キーは不要で、お使いの Claude のサブスクリプションを使います。一度に 1 リクエストで、API より遅くなります。自動では選ばれません。テキスト生成のモデルメニューで選ぶか、設定 › モデル › テキスト生成で既定にしてください。オンにすると、翻訳や校正のテキストはこのコンピュータでサインイン済みの Claude アカウントに送信されます。画像は生成できません。", checking: "このコンピュータの Claude Code でテキストを生成できるか確認中…", probeFailed: "Claude Code でテキストを生成できるか確認できませんでした · 「再確認」をクリックしてもう一度お試しください。", outdated: "Claude Code が古すぎます · アップグレードしてからオンにしてください", signedOut: "Claude Code にまだサインインしていません · テキスト生成には Claude のアカウントを使うため、サインインしてからオンにしてください。", notInstalled: "Claude Code が見つかりません · テキストを生成するにはインストールしてサインインしてください。", unavailable: (detail) => (detail ? `Claude Code は現在テキストを生成できません · ${detail}` : "Claude Code は現在テキストを生成できません · 「再確認」をクリックしてもう一度お試しください。"), turnedOn: "「Claude Code でテキスト生成」をオンにしました · テキスト生成のモデルメニューに Claude Code が追加されました", turnedOff: "「Claude Code でテキスト生成」をオフにしました", toggleFailed: (enabled, message) => (enabled ? `「Claude Code でテキスト生成」をオンにできませんでした：${message}` : `「Claude Code でテキスト生成」をオフにできませんでした：${message}`) },
 
   faq: [
     {

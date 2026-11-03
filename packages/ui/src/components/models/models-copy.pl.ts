@@ -105,7 +105,7 @@ export const pl: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Obrazy",
     codexItemDesc: "Abonament Codex · jeden obraz naraz · 5–10× wolniej",
-    codexTextItem: 'Codex CLI · Tekst',
+    claudeTextItem: "Claude Code · Tekst", claudeTextItemDesc: "Abonament Claude · jedno żądanie naraz · wolniej niż API", codexTextItem: 'Codex CLI · Tekst',
     codexTextItemDesc: 'Abonament Codex · jedno żądanie naraz · wolniej niż API',
     unavailable: "Niedostępne",
     pickerEmpty: { image: "Połącz dostawcę lub włącz obrazy Codex, aby wybrać", other: "Podłącz dostawcę, aby wybrać" },
@@ -191,6 +191,7 @@ export const pl: ModelsMessages = {
     switchLabel: 'Codex do obrazów i tekstu',
     toggleFailed: (enabled: boolean, message: string) => `Nie udało się ${enabled ? "wł." : "wył."} obrazy Codex: ${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "Włączone · abonament Claude, bez klucza · jedno żądanie naraz · model i intensywność rozumowania wybierasz przy użyciu · wolniej niż API", off: "Wyłączone · włącz, aby wybierać przy generowaniu tekstu oraz jako domyślny model", missing: "Nie znaleziono Claude Code · zainstaluj go i zaloguj się przed pisaniem.", switchLabel: "Claude Code do tekstu", toggleFailed: (enabled, message) => (enabled ? `Nie udało się włączyć Claude Code do tekstu: ${message}` : `Nie udało się wyłączyć Claude Code do tekstu: ${message}`) },
   key: {
     title: (name: string) => `${name} · klucz API`,
     shared: (name: string, kinds: string) => `Ten klucz jest wspólny dla wszystkich ${name} modeli (${kinds}); wpisz raz dla wszystkich list.`,

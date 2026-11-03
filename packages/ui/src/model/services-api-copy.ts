@@ -34,7 +34,7 @@ const en = {
   routing: {
     online: { label: 'Online services', desc: 'Forward requests to connected cloud services (may cost money; data leaves this computer)' },
     nodes: { label: 'LAN nodes', desc: 'Forward requests to other paired computers' },
-    agent: { label: 'Agents', desc: 'Forward requests to agent runtimes signed in on this computer (such as Codex)' },
+    agent: { label: 'Agents', desc: 'Forward requests to agent runtimes signed in on this computer (such as Codex or Claude Code)' },
   },
   modelsAvailable: (n: number) => `${n} ${n === 1 ? 'model' : 'models'} available`,
   notRouted: 'Models are available, but routing is off for their category; requests get 503 for now',

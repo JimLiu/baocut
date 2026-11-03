@@ -4,7 +4,8 @@ import { cloudDefaultPicker, type DefaultOption } from '../../model/models-cloud
 import { useRuntime } from '../../runtime/context.tsx';
 import { useConnection } from '../../state/connection-store.ts';
 import { useModels } from '../../state/models-store.ts';
-import { codexDefaultState, useCodexImage } from './codex-image-card.tsx';
+import { CLAUDE_SWITCH, CODEX_SWITCH } from '../settings/agent-switch.ts';
+import { agentDefaultState, useAgentSwitch } from './agent-switch-card.tsx';
 import { chooseCloudDefault } from './model-actions.ts';
 import { Card, SettingRow } from './model-parts.tsx';
 import { CLOUD_COPY } from './models-copy.ts';
@@ -12,8 +13,8 @@ import { TextParamRows } from './text-params.tsx';
 
 /**
  * 文本生成页顶上的默认模型与参数（推理强度、并发请求数；设计稿 settings-capability.jsx ① ②）。其余能力的默认模型由
- * capability-default.tsx 统一给。菜单列能用的 API 提供方（已添加、有账号的），Codex 能用（或已是默认）时最后多一项
- * 「Codex CLI · 文字」（架构设计 §6.9）。浏览器里置灰：`models.setDefault`、`models.setCapabilityParameters` 不在 Web 白名单里。
+ * capability-default.tsx 统一给。菜单列能用的 API 提供方（已添加、有账号的），智能体能用（或已是默认）时最后各多一项
+ * 「Codex CLI · 文字」「Claude Code · 文字」（架构设计 §6.9）。浏览器里置灰：`models.setDefault`、`models.setCapabilityParameters` 不在 Web 白名单里。
  */
 
 const EMPTY_KEY = 'empty';
@@ -36,16 +37,19 @@ export function TextDefault() {
   const view = useModels((s) => s.capabilities);
   const connected = useConnection((s) => s.state.status === 'connected');
   const [busy, setBusy] = useState(false);
-  // 进页探测一次 Codex（与服务商列表后面的 Codex 卡同一个钩子），菜单里 Codex 能不能选才是新的。
-  const codex = useCodexImage(true, 'generateText');
+  // 进页探测一次（与服务商列表后面的卡同一个钩子），菜单里智能体能不能选才是新的。
+  const codex = useAgentSwitch(CODEX_SWITCH, true, 'generateText');
+  const claude = useAgentSwitch(CLAUDE_SWITCH, true);
   if (!view) return null;
 
   const capability = 'generateText';
-  const picker = cloudDefaultPicker(view, capability, codexDefaultState(codex), {
+  const agents = [
+    { providerId: CODEX_SWITCH.providerId, label: CLOUD_COPY.codexTextItem, desc: CLOUD_COPY.codexTextItemDesc, state: agentDefaultState(codex) },
+    { providerId: CLAUDE_SWITCH.providerId, label: CLOUD_COPY.claudeTextItem, desc: CLOUD_COPY.claudeTextItemDesc, state: agentDefaultState(claude) },
+  ];
+  const picker = cloudDefaultPicker(view, capability, agents, {
     none: CLOUD_COPY.none[capability],
     noneDesc: CLOUD_COPY.noneDesc[capability],
-    codex: CLOUD_COPY.codexTextItem,
-    codexDesc: CLOUD_COPY.codexTextItemDesc,
     unavailable: CLOUD_COPY.unavailable,
     localDesc: CLOUD_COPY.localDefaultDesc,
   });

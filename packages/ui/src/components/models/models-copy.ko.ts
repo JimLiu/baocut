@@ -112,7 +112,7 @@ export const ko: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: 'Codex CLI · 이미지',
     codexItemDesc: 'Codex 구독 사용 · 한 번에 1장 · 5–10배 느림',
-    codexTextItem: 'Codex CLI · 텍스트',
+    claudeTextItem: "Claude Code · 텍스트", claudeTextItemDesc: "Claude 구독 사용 · 한 번에 요청 1개 · API보다 느림", codexTextItem: 'Codex CLI · 텍스트',
     codexTextItemDesc: 'Codex 구독 사용 · 한 번에 요청 1개 · API보다 느림',
     unavailable: '사용할 수 없음',
     pickerEmpty: { image: '공급자를 연결하거나 Codex 이미지를 켜면 고를 수 있습니다', other: '공급자를 연결하면 고를 수 있습니다' },
@@ -207,6 +207,7 @@ export const ko: ModelsMessages = {
     switchLabel: 'Codex로 그리기와 글쓰기',
     toggleFailed: (enabled: boolean, message: string) => `Codex 이미지를 ${enabled ? '켜지' : '끄지'} 못했습니다: ${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "켜짐 · Claude 구독 사용, 키 필요 없음 · 한 번에 요청 1개 · 사용할 때 모델과 추론 강도 선택 · API보다 느림", off: "꺼짐 · 켜면 텍스트 생성과 여기의 기본 모델에서 고를 수 있습니다", missing: "Claude Code를 찾을 수 없습니다 · 글을 쓰려면 먼저 설치하고 로그인하세요.", switchLabel: "Claude Code로 글쓰기", toggleFailed: (enabled, message) => (enabled ? `Claude Code로 글쓰기를 켜지 못했습니다: ${message}` : `Claude Code로 글쓰기를 끄지 못했습니다: ${message}`) },
   key: {
     title: (name: string) => `${name} · API 키`,
     shared: (name: string, kinds: string) => `이 키는 ${name}의 모든 모델(${kinds})이 함께 씁니다. 한 번만 입력하면 모든 목록에서 쓸 수 있습니다.`,

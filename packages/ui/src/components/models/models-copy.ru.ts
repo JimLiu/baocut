@@ -105,7 +105,7 @@ export const ru: ModelsMessages = {
     } satisfies Record<OnlineCapability, string>,
     codexItem: "Codex CLI · Изображения",
     codexItemDesc: "По подписке Codex · одно изображение за раз · в 5–10 раз медленнее",
-    codexTextItem: 'Codex CLI · Текст',
+    claudeTextItem: "Claude Code · Текст", claudeTextItemDesc: "По подписке Claude · один запрос за раз · медленнее API", codexTextItem: 'Codex CLI · Текст',
     codexTextItemDesc: 'По подписке Codex · один запрос за раз · медленнее API',
     unavailable: "Недоступно",
     pickerEmpty: { image: "Подключите поставщика или включите изображения Codex для выбора", other: "Подключите поставщика для выбора" },
@@ -191,6 +191,7 @@ export const ru: ModelsMessages = {
     switchLabel: 'Codex для изображений и текста',
     toggleFailed: (enabled: boolean, message: string) => `Не удалось ${enabled ? "вкл." : "выкл."} изображения Codex: ${message}`,
   },
+  claudeCard: { title: 'Claude Code', onText: "Включено · подписка Claude, без ключа · один запрос за раз · модель и глубина рассуждений выбираются при использовании · медленнее API", off: "Выключено · включите для выбора при генерации текста и как модель по умолчанию", missing: "Claude Code не найден · установите его и войдите, чтобы писать текст.", switchLabel: "Claude Code для текста", toggleFailed: (enabled, message) => (enabled ? `Не удалось включить Claude Code для текста: ${message}` : `Не удалось отключить Claude Code для текста: ${message}`) },
   key: {
     title: (name: string) => `${name} · API key`,
     shared: (name: string, kinds: string) => `Этот ключ общий для всех ${name} моделей (${kinds}); введите один раз для всех списков.`,

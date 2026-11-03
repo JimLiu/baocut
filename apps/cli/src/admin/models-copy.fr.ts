@@ -34,7 +34,7 @@ export const fr: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    Régler un fournisseur en ligne : du catalogue (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen, etc. ; voir baocut models capabilities), ou un point d’accès compatible OpenAI custom:<name>.
-                                   Le fournisseur Agent agent:codex a seulement un interrupteur (connexion Codex locale, sans clé)
+                                   Les fournisseurs Agent agent:codex et agent:claude ont seulement un interrupteur (connexion Codex ou Claude Code locale, sans clé)
     --enable | --disable           Activer (les autorisations permanentes lui envoient audio, texte ou prompts au besoin) ou désactiver
     --key-stdin                    Lire la clé API depuis stdin (clés dans les arguments refusées) : remplacer celle du premier
                                    compte, ou créer un compte si absent (pour plusieurs comptes, utiliser

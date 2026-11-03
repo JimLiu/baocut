@@ -22,7 +22,7 @@ export const ja: ServicesApiMessages = {
       desc: '接続済みのクラウドサービスにリクエストを転送します（料金が発生する場合があり、データはこのコンピュータの外に送信されます）',
     },
     nodes: { label: 'LAN ノード', desc: 'ペアリング済みのほかのコンピュータにリクエストを転送します' },
-    agent: { label: 'Agent', desc: 'このコンピュータでサインイン済みの Agent の実行環境（Codex など）にリクエストを転送します' },
+    agent: { label: 'Agent', desc: 'このコンピュータでサインイン済みの Agent の実行環境（Codex、Claude Code など）にリクエストを転送します' },
   },
   modelsAvailable: (n) => `${n} 個のモデルが使用可能`,
   notRouted: '使用可能なモデルはありますが、そのカテゴリのルーティングがオフです。現在、リクエストには 503 が返されます',

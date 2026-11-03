@@ -7,7 +7,7 @@ export const ptBR: ServicesApiMessages = {
   routing: {
     online: { label: 'Serviços online', desc: 'Encaminhar solicitações para serviços de nuvem conectados (pode ter custo; os dados saem deste computador)' },
     nodes: { label: 'Nós da LAN', desc: 'Encaminhar solicitações para outros computadores pareados' },
-    agent: { label: 'Agentes', desc: 'Encaminhar solicitações para runtimes de agentes conectados neste computador (como Codex)' },
+    agent: { label: 'Agentes', desc: 'Encaminhar solicitações para runtimes de agentes conectados neste computador (como Codex ou Claude Code)' },
   },
   modelsAvailable: (n) => pluralForm('pt-BR', n, { one: `${n} modelo disponível`, other: `${n} modelos disponíveis` }),
   notRouted: 'Há modelos disponíveis, mas o roteamento está desativado para a categoria deles; as solicitações recebem 503 por enquanto',

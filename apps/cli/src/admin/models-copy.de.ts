@@ -27,7 +27,7 @@ export const de: ModelsMessages = {
   baocut models configure <providerId> [options]
                                    Online-Anbieter konfigurieren: Kataloganbieter (openai, google, elevenlabs, anthropic, deepseek,
                                    qwen und weitere; siehe baocut models capabilities) oder eigener OpenAI-kompatibler Endpunkt custom:<name>.
-                                   Der Agent-Anbieter agent:codex hat nur einen Ein-/Ausschalter (verwendet die Codex-Anmeldung dieses Computers, keinen Schlüssel)
+                                   Die Agent-Anbieter agent:codex und agent:claude haben nur einen Ein-/Ausschalter (verwenden die Codex- bzw. Claude-Code-Anmeldung dieses Computers, keinen Schlüssel)
     --enable | --disable           Aktivieren (dauerhafte Berechtigungen senden bei Bedarf Material-Audio, Text oder Prompts) oder deaktivieren
     --key-stdin                    API-Schlüssel von stdin lesen (Schlüssel als Befehlsargumente werden nicht akzeptiert): Schlüssel
                                    des ersten Kontos ersetzen oder Konto erstellen, falls keines vorhanden (für mehrere Konten:

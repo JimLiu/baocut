@@ -135,6 +135,7 @@ export const zhHans: AgentMessages = {
     turnedOff: '已关闭 Codex 画图和写文字',
     toggleFailed: (enabled: boolean, message: string) => `${enabled ? '没能打开' : '没能关闭'} Codex 画图和写文字：${message}`,
   },
+  claudeText: { title: "用 Claude Code 写文字", body: "不用密钥，用你的 Claude 订阅；一次一个请求，比 API 慢。不会自动选它：在文本生成的模型菜单里选，或在设置 › 模型 › 文本生成设成默认。打开后，翻译、润色这些文字会发到这台电脑上登录的 Claude 账号。它不能画图。", checking: "正在检查这台电脑上的 Claude Code 能不能写文字…", probeFailed: "没能检查 Claude Code 能不能写文字 · 点「重新检测」再试一次。", outdated: "Claude Code 的版本太旧 · 升级之后再打开", signedOut: "Claude Code 还没有登录 · 写文字用的是你的 Claude 账号，登录之后才能打开。", notInstalled: "没有找到 Claude Code · 写文字要先装好它并登录。", unavailable: (detail) => (detail ? `Claude Code 现在写不了文字 · ${detail}` : "Claude Code 现在写不了文字 · 点「重新检测」再试一次。"), turnedOn: "已打开 Claude Code 写文字 · 文本生成的模型菜单里多了 Claude Code", turnedOff: "已关闭 Claude Code 写文字", toggleFailed: (enabled, message) => (enabled ? `没能打开 Claude Code 写文字：${message}` : `没能关闭 Claude Code 写文字：${message}`) },
 
   faq: [
     {

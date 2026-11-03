@@ -412,9 +412,14 @@ export class ClaudeSession implements AgentSession {
   }
 
   #start(settings: TurnSettings, effort: EffortLevel | null): LiveQuery {
-    const confined = this.#options.confinement === 'cwd-write-only';
+    const confined = this.#options.confinement !== undefined;
     // auto 先按 default 起：要等 Query 起来才能问模型支不支持，第一轮的比对里再切过去。
-    const mode = confined ? 'acceptEdits' : settings.accessMode === 'auto' ? 'default' : claudePermissionMode(settings.accessMode);
+    const mode =
+      this.#options.confinement === 'cwd-write-only'
+        ? 'acceptEdits'
+        : confined || settings.accessMode === 'auto'
+          ? 'default'
+          : claudePermissionMode(settings.accessMode);
     const input = createMessageInput<SDKUserMessage>();
     const resume = this.#sessionId;
     const live: LiveQuery = {
@@ -476,7 +481,14 @@ export class ClaudeSession implements AgentSession {
       options.mcpServers = claudeMcpServers(this.#options.mcpServers);
       options.allowedTools = [`${BAOCUT_TOOLS}*`];
     }
-    if (confined) {
+    if (this.#options.confinement === 'no-tools') {
+      // 只要文字回复（§6.9）：不给内置工具，也不接用户配置里的 MCP 服务，万一还有工具来问，canUseTool 一律拒绝。不需要沙箱，所以没有沙箱的
+      // Windows 也能用。系统提示词只放调用方的指令，不要 Claude Code 编程助手的那一大段；会话不落盘，不出现在「导入外部会话」里。
+      options.tools = [];
+      options.strictMcpConfig = true;
+      options.persistSession = false;
+      options.systemPrompt = this.#options.developerInstructions ?? '';
+    } else if (confined) {
       // 受限的一次性调用（§6.9）：Claude Code 没有与 Codex workspace-write 完全对应的沙箱。近似做法：
       // 文件修改由 acceptEdits 放行（只限工作目录，越界的会来问），命令进 Claude Code 自带的沙箱、不准逃出沙箱，
       // 所有要问的都由 canUseTool 直接拒绝（没有人来批）。系统临时目录是否可写、网络是否全断取决于沙箱默认值——未验证。
@@ -508,7 +520,7 @@ export class ClaudeSession implements AgentSession {
       }
       live.applied.model = settings.model;
     }
-    if (this.#options.confinement === 'cwd-write-only') return;
+    if (this.#options.confinement) return;
     const mode = await this.#resolveMode(live, settings.accessMode, settings.model);
     if (live.applied.mode === mode) return;
     try {
@@ -538,7 +550,7 @@ export class ClaudeSession implements AgentSession {
   /** 批准方案、放行 ExitPlanMode 之前切 CLI 的模式（见 `EXIT_PLAN_MODE`）。切不过去只记日志：CLI 退到 `default`，照样经 Harness 查表。 */
   async #switchForPlan(accessMode: AgentMode): Promise<void> {
     const live = this.#live;
-    if (!live || this.#options.confinement === 'cwd-write-only') return;
+    if (!live || this.#options.confinement) return;
     try {
       const mode = await this.#resolveMode(live, accessMode, live.applied.model);
       await withTimeout(live.query.setPermissionMode(mode), 15_000, 'setPermissionMode');
@@ -695,11 +707,11 @@ export class ClaudeSession implements AgentSession {
 
   readonly #canUseTool: CanUseTool = (toolName, input, options) => {
     if (toolName.startsWith(BAOCUT_TOOLS)) return Promise.resolve({ behavior: 'allow', updatedInput: input });
-    if (toolName === ASK_USER_QUESTION && this.#options.confinement === 'cwd-write-only') {
+    if (toolName === ASK_USER_QUESTION && this.#options.confinement) {
       this.#turn?.mapper.declined(options.toolUseID);
       return Promise.resolve({ behavior: 'deny', message: QUESTION_UNAVAILABLE });
     }
-    if (this.#options.confinement === 'cwd-write-only') {
+    if (this.#options.confinement) {
       // i18n-ignore: 交给 Claude 的拒绝说明，给模型看
       return Promise.resolve({ behavior: 'deny', message: '这次调用不允许越过工作目录或访问网络。' });
     }

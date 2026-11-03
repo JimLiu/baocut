@@ -313,7 +313,7 @@ export class ModelServiceStore {
   configView(providerId: string): ProviderConfigView {
     const stored = this.#services.providers[providerId];
     return {
-      // Codex 生图的出厂开关；已保存的关闭选择优先，不为出厂值伪造启用时间（架构设计 §6.9）。
+      // 只有 Codex 出厂开着（`agent:claude` 要用户自己打开）；已保存的关闭选择优先，不为出厂值伪造启用时间（架构设计 §6.9）。
       enabled: stored?.enabled ?? providerId === `${AGENT_PROVIDER_PREFIX}codex`,
       enabledAt: stored?.enabledAt ?? null,
       credential: this.hasCredential(providerId) ? 'set' : 'missing',
