@@ -15,7 +15,7 @@ export const de: ModelsDirMessages = {
     envNote: "Durch BAOCUT_MODELS_DIR festgelegt. Zum Ändern die Umgebungsvariable anpassen und BaoCut neu starten.",
     shareHint:
       "Bei Nutzung dieses Ordners durch andere Apps löscht das Entfernen eines Modells seine Dateien auch für diese Apps.",
-    blockedPrefix: "Derzeit nicht änderbar:",
+    blockedPrefix: "Derzeit nicht änderbar: ",
     viewTasks: "Aufgaben anzeigen",
     changeTitle: "Modellordner ändern",
     restoreTitle: "Standard-Speicherort wiederherstellen",

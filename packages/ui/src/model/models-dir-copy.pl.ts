@@ -10,7 +10,7 @@ export const pl: ModelsDirMessages = {
     restore: "Przywróć domyślne",
     envNote: "Ustawione przez BAOCUT_MODELS_DIR. Zmień zmienną i uruchom BaoCut ponownie.",
     shareHint: "Jeśli inne aplikacje używają folderu, usunięcie modelu usuwa pliki, więc także nie znajdą ich.",
-    blockedPrefix: "Nie można teraz zmienić:",
+    blockedPrefix: "Nie można teraz zmienić: ",
     viewTasks: "Zobacz zadania",
     changeTitle: "Zmień folder modeli",
     restoreTitle: "Przywróć lokalizację domyślną",

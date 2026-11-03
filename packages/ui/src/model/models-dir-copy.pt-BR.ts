@@ -16,7 +16,7 @@ export const ptBR: ModelsDirMessages = {
     envNote: "Definida por BAOCUT_MODELS_DIR. Altere a variável e reinicie para mudar.",
     shareHint:
       "Se outros aplicativos compartilham a pasta, excluir modelo remove os arquivos para eles também.",
-    blockedPrefix: "Não pode alterar agora:",
+    blockedPrefix: "Não pode alterar agora: ",
     viewTasks: "Ver tarefas",
     changeTitle: "Mudar pasta de modelos",
     restoreTitle: "Restaurar local padrão",

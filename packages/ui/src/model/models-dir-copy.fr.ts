@@ -16,7 +16,7 @@ export const fr: ModelsDirMessages = {
     envNote: "Défini par BAOCUT_MODELS_DIR. Modifiez cette variable et redémarrez BaoCut pour changer.",
     shareHint:
       "Si d’autres applications partagent ce dossier, supprimer un modèle efface ses fichiers et le rend introuvable pour elles aussi.",
-    blockedPrefix: "Modification indisponible :",
+    blockedPrefix: "Modification indisponible : ",
     viewTasks: "Voir les tâches",
     changeTitle: "Changer le dossier des modèles",
     restoreTitle: "Restaurer l’emplacement par défaut",

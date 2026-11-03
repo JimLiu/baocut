@@ -7,7 +7,7 @@ export const es: ModelsDirMessages = {
  title: 'Carpeta de modelos', defaultChip: 'Predeterminada', envChip: 'Variable de entorno', change: 'Cambiar…', restore: 'Restaurar valor predeterminado',
  envNote: 'Establecida por la variable de entorno BAOCUT_MODELS_DIR. Para cambiarla, edita la variable de entorno y reinicia BaoCut.',
  shareHint: 'Si otras aplicaciones comparten esta carpeta, eliminar un modelo aquí elimina sus archivos de la carpeta y esas aplicaciones tampoco los encontrarán.',
- blockedPrefix: 'No se puede cambiar ahora:', viewTasks: 'Ver tareas', changeTitle: 'Cambiar carpeta de modelos', restoreTitle: 'Restaurar ubicación predeterminada',
+ blockedPrefix: 'No se puede cambiar ahora: ', viewTasks: 'Ver tareas', changeTitle: 'Cambiar carpeta de modelos', restoreTitle: 'Restaurar ubicación predeterminada',
  restoreLead: 'Cambiar la carpeta de modelos de nuevo a', checking: 'Revisando esta carpeta…', cancel: 'Cancelar', howTo: 'Qué hacer con los modelos existentes',
  moveOption: 'Mover allí los modelos existentes', switchOption: 'Cambiar solo la ubicación', confirmMove: 'Mover y cambiar', confirmSwitch: 'Cambiar ubicación',
  movingLabel: 'Moviendo modelos', stayOpen: 'No cierres BaoCut mientras tanto',

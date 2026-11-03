@@ -31,7 +31,7 @@ const en = {
     envNote: 'Set by the BAOCUT_MODELS_DIR environment variable. To change it, edit the environment variable and restart BaoCut.',
     shareHint:
       "If other apps share this folder, deleting a model here deletes its files from the folder, and those apps won't find it either.",
-    blockedPrefix: "Can't change right now:",
+    blockedPrefix: "Can't change right now: ",
     viewTasks: 'View tasks',
     changeTitle: 'Change models folder',
     restoreTitle: 'Restore default location',

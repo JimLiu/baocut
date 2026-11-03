@@ -90,6 +90,7 @@
     const [dlg, setDlg] = useState(null);   // null | {target?: string}
     const [moving, setMoving] = useState(null);   // null | {pct, to}
     const [chosen, setChosen] = useState(chosenNow);
+    const [tried, setTried] = useState(false);   // 挡住更改的原因不常驻：按了「更改」或「恢复默认」才说（product-design §7.6）
     const timer = useRef(null);
     useEffect(() => () => clearInterval(timer.current), []);
 
@@ -104,6 +105,8 @@
     const free = MD.freeOf(eff.path);
     const names = (kind) => Object.keys(work).filter((id) => work[id] === kind).map((id) => (models.find((m) => m.id === id) || {}).name || id);
     const block = eff.locked ? null : MD.blocker(app.tasks, {downloading: names('downloading'), testing: names('testing')});
+    const blocked = !!block;
+    useEffect(() => { if (!blocked) setTried(false); }, [blocked]);
     const busy = !!moving;
 
     const commit = ({mode, folder, plan}) => {
@@ -157,12 +160,12 @@
           </div>
         )}
         <div className="mdir__acts">
-          {eff.locked ? null : <Btn variant="secondary" size="s" disabled={!!block || busy} onClick={() => setDlg({})}>更改…</Btn>}
+          {eff.locked ? null : <Btn variant="secondary" size="s" disabled={busy} onClick={() => (blocked ? setTried(true) : setDlg({}))}>更改…</Btn>}
           <Btn variant="secondary" size="s" icon="folder" disabled={busy} onClick={reveal}>在文件夹中显示</Btn>
-          {eff.source === 'custom' ? <Btn variant="quiet" size="s" disabled={!!block || busy} onClick={() => setDlg({target: MD.DEFAULT_DIR})}>恢复默认</Btn> : null}
+          {eff.source === 'custom' ? <Btn variant="quiet" size="s" disabled={busy} onClick={() => (blocked ? setTried(true) : setDlg({target: MD.DEFAULT_DIR}))}>恢复默认</Btn> : null}
         </div>
         {eff.locked ? <p className="mdir__note t-detail-xs">{MD.sourceNote('env')}</p> : null}
-        {block ? (
+        {block && tried ? (
           <p className="mdir__note mdir__note--warn t-detail-xs" role="status">
             <Ic n="alert" className="ic--14" />
             <span>现在不能更改：{block.text}</span>

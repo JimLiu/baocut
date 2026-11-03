@@ -9,7 +9,7 @@ export const ko: ModelsDirMessages = {
     restore: '기본값으로 복원',
     envNote: 'BAOCUT_MODELS_DIR 환경 변수로 지정되었습니다. 바꾸려면 환경 변수를 수정하고 BaoCut을 다시 시작하세요.',
     shareHint: '다른 앱과 이 폴더를 함께 쓰는 경우, 여기서 모델을 삭제하면 폴더에서 파일이 삭제되어 그 앱에서도 모델을 찾을 수 없습니다.',
-    blockedPrefix: '지금은 변경할 수 없습니다:',
+    blockedPrefix: '지금은 변경할 수 없습니다: ',
     viewTasks: '작업 보기',
     changeTitle: '모델 폴더 변경',
     restoreTitle: '기본 위치로 복원',
