@@ -9,8 +9,8 @@ import { macosGitUsable } from './git-probe.ts';
  * 各平台的文件、大小、sha256 与许可。本地语音合成与音乐生成用的 audio.cpp 引擎不在这里：它随应用内置，不另外下载（`@baocut/models`
  * 的 `audio-cpp-engine.ts`，Model Worker 协议规范 §4.4）。
  *
- * 不编造摘要：离线无法核实的 sha256 与大小留空（null），这时安装以 `TOOL_MANIFEST_INCOMPLETE` 拒绝（与模型包的内置清单
- * `MODEL_MANIFEST_INCOMPLETE` 同一条规则）。补上摘要是待评审事项（§14）。
+ * 不编造摘要：没有核实过的 sha256 与大小留空（null），这时安装以 `TOOL_MANIFEST_INCOMPLETE` 拒绝（与模型包的内置清单
+ * `MODEL_MANIFEST_INCOMPLETE` 同一条规则）。
  */
 
 /** 一个平台要下载的文件。 */
@@ -109,20 +109,25 @@ export const WAIFU2X = 'waifu2x-ncnn-vulkan';
 export const UPSCAYL_MODELS = 'upscayl-models';
 
 /**
- * yt-dlp 的发布：版本取自这台开发机上 Homebrew 安装的稳定版（Changelog 与 `yt_dlp/version.py` 都是 2026.07.04），没有对照
- * 上游核实；文件名按它随附的 README 里的发布文件表。大小与 sha256 都没有离线核实，留空（§14）。
- * Windows ARM64 的 `yt-dlp_arm64.exe` 按上游发布页从 2025.08.20 起才有（之前 ARM64 的 Windows 只能跑 x64 版）。
+ * yt-dlp 的发布：上游 2026.10.26 稳定版（2026-11-02 核对过的最新版）。sha256 取自发布里的 `SHA2-256SUMS`，与 GitHub 发布接口
+ * 给的摘要与大小逐个对过；macOS 的文件另按这个版本下载后在本机计算过、实际跑过（universal2，两种 Mac 共用一份）。换版本时
+ * 这几个值要一起换。Windows ARM64 的 `yt-dlp_arm64.exe` 按上游发布页从 2025.08.20 起才有（之前 ARM64 的 Windows 只能跑 x64 版）。
  * 许可：源码是 Unlicense；按上游 README，PyInstaller 打包的独立可执行文件含 GPLv3+ 代码，整体按 GPLv3+ 发布。
  */
+const YT_DLP_MAC: ToolAsset = {
+  fileName: 'yt-dlp_macos',
+  size: 37466304,
+  sha256: '0f922c15ccc0b83eefa1c8bc9104e434318c4bf16e408e1ee93b7745a6efe0aa',
+};
 const YT_DLP_RELEASE: ToolRelease = {
-  version: '2026.07.04',
+  version: '2026.10.26',
   assets: {
-    'darwin-arm64': { fileName: 'yt-dlp_macos', size: null, sha256: null },
-    'darwin-x64': { fileName: 'yt-dlp_macos', size: null, sha256: null },
-    'linux-x64': { fileName: 'yt-dlp_linux', size: null, sha256: null },
-    'linux-arm64': { fileName: 'yt-dlp_linux_aarch64', size: null, sha256: null },
-    'win32-x64': { fileName: 'yt-dlp.exe', size: null, sha256: null },
-    'win32-arm64': { fileName: 'yt-dlp_arm64.exe', size: null, sha256: null },
+    'darwin-arm64': YT_DLP_MAC,
+    'darwin-x64': YT_DLP_MAC,
+    'linux-x64': { fileName: 'yt-dlp_linux', size: 41166968, sha256: '767ba9dce7052aa196f8b12652f433d76de128ba168966fa84b6394d5e6c6795' },
+    'linux-arm64': { fileName: 'yt-dlp_linux_aarch64', size: 40789792, sha256: 'e87e9533e89fe5889abaa21f5114dfe7756d6aa6219b83551add04d48b18e483' },
+    'win32-x64': { fileName: 'yt-dlp.exe', size: 23575744, sha256: 'f5389d3698ecde4ef06f4e6b1ce0294fe9ac1396228c8990b8d3416d6d177a7d' },
+    'win32-arm64': { fileName: 'yt-dlp_arm64.exe', size: 22809590, sha256: '0066dbac3c124028e2dcae2a197fccee33cd91f456313d24f7af89fd54590e98' },
   },
   officialUrl: 'https://github.com/yt-dlp/yt-dlp/releases/download/{version}/{file}',
   estimatedBytes: 36 * 1024 * 1024,

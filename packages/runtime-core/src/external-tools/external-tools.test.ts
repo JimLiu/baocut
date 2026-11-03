@@ -491,8 +491,24 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
     }
   });
 
-  it('内置清单没有可信的 sha256：同意了也不下载；PATH 只有空目录时找不到系统里的 yt-dlp', async () => {
+  it('内置清单：yt-dlp 在每个平台都有固定的文件、大小与 sha256，界面能直接给安装按钮', () => {
+    const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === YT_DLP)!;
+    for (const platform of ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64', 'win32-x64', 'win32-arm64']) {
+      const offer = toolOffer(builtin, null, platform)!;
+      expect(offer.blockedReason, platform).toBeNull();
+      expect(offer.sha256, platform).toMatch(/^[0-9a-f]{64}$/);
+      expect(offer.sizeBytes, platform).toBeGreaterThan(1024 * 1024);
+      expect(offer.url, platform).toBe(`https://github.com/yt-dlp/yt-dlp/releases/download/${builtin.release!.version}/${offer.fileName}`);
+    }
+  });
+
+  it('清单没有可信的 sha256：同意了也不下载；PATH 只有空目录时找不到系统里的 yt-dlp', async () => {
     const s = side!;
+    const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === YT_DLP)!;
+    const unverified: ToolManifest = {
+      ...builtin,
+      release: { ...builtin.release!, assets: { [platformKey()]: { fileName: 'yt-dlp_unverified', size: null, sha256: null } } },
+    };
     const service = new ExternalToolService({
       toolsDir: path.join(s.dir, 'builtin-tools'),
       storeFile: path.join(s.dir, 'builtin-store', 'external-tools.json'),
@@ -501,6 +517,7 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
       env: async () => ({ PATH: s.emptyPath }),
       settings: () => ({ downloadEndpoint: null, offlineStrict: false }),
       overrides: {},
+      manifests: [unverified],
     });
     expect((await service.status(YT_DLP)).state).toBe('missing');
     const status = await service.status(YT_DLP);
