@@ -398,19 +398,26 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
   }
 
   // v2 0d60e31a3 的源编码回归：源素材不必与输出编码相同，未剪辑也不能被原生输入限制挡住。
-  it.each([
-    ['VP9/AAC MP4', 'libvpx-vp9', 'aac', 'mp4', 'vp9', 'aac'],
-    ['VP9/Opus WebM', 'libvpx-vp9', 'libopus', 'webm', 'vp9', 'opus'],
-    ['VP8/Vorbis WebM', 'libvpx', 'libvorbis', 'webm', 'vp8', 'vorbis'],
-    ['AV1/AAC MP4', 'libaom-av1', 'aac', 'mp4', 'av1', 'aac'],
-  ])('默认 MP4 配置导出 %s 源素材，保留画面、声音、尺寸与源文件', async (_label, videoEncoder, audioEncoder, extension, videoCodec, audioCodec) => {
+  // 夹具要的是这种编码，不是某个编码器：AV1 用本机有的那个（Homebrew 的 ffmpeg 没有 libaom-av1），一个都没有时明确跳过；
+  // Vorbis 用 ffmpeg 自带的编码器（不是每个构建都有 libvorbis），它只收立体声；用 pan 而不是 -ac 2，后者把电平压到 0.707 倍，贴近下面 tone 的阈值。
+  const sourceCases: Array<[string, string[], string[], string, string, string]> = [
+    ['VP9/AAC MP4', ['libvpx-vp9'], ['-c:a', 'aac'], 'mp4', 'vp9', 'aac'],
+    ['VP9/Opus WebM', ['libvpx-vp9'], ['-c:a', 'libopus'], 'webm', 'vp9', 'opus'],
+    ['VP8/Vorbis WebM', ['libvpx'], ['-af', 'pan=stereo|c0=c0|c1=c0', '-c:a', 'vorbis', '-strict', 'experimental'], 'webm', 'vp8', 'vorbis'],
+    ['AV1/AAC MP4', ['libaom-av1', 'libsvtav1'], ['-c:a', 'aac'], 'mp4', 'av1', 'aac'],
+  ];
+  it.for(sourceCases)('默认 MP4 配置导出 %s 源素材，保留画面、声音、尺寸与源文件', { timeout: 120_000 }, async ([_label, videoEncoders, audioArgs, extension, videoCodec, audioCodec], { skip }) => {
+    const encoders = execFileSync('ffmpeg', ['-hide_banner', '-encoders'], { encoding: 'utf8' });
+    const videoEncoder = videoEncoders.find((name) => encoders.includes(name));
+    if (!videoEncoder) return skip(`local ffmpeg has none of these ${videoCodec} encoders: ${videoEncoders.join(', ')}`);
     const videoId = await newVideo('兼容编码');
     const source = path.join(project.path, `source with spaces.${extension}`);
+    // stdio: SVT-AV1 prints its banner straight to stderr, ignoring -v; a failure still carries stderr in the thrown error.
     execFileSync('ffmpeg', [
       ...['-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i', 'color=c=0xFF0000:size=320x180:rate=30:duration=1'],
       ...['-f', 'lavfi', '-i', `sine=frequency=440:duration=1:sample_rate=${SAMPLE_RATE}`],
-      ...['-c:v', videoEncoder, '-threads', '2', '-pix_fmt', 'yuv420p', '-c:a', audioEncoder, source],
-    ]);
+      ...['-c:v', videoEncoder, '-threads', '2', '-pix_fmt', 'yuv420p', ...audioArgs, source],
+    ], { stdio: 'pipe' });
     const sourceStreams = probe(source).streams;
     expect(sourceStreams.find((s) => s.codec_type === 'video')?.codec_name).toBe(videoCodec);
     expect(sourceStreams.find((s) => s.codec_type === 'audio')?.codec_name).toBe(audioCodec);
@@ -438,7 +445,7 @@ describe.skipIf(!engine || !worker || !ffmpeg)('成片导出（真实引擎 + Re
     expect(tone(samples(output.path!), 440, 0.5)).toBeGreaterThan(0.08);
     expect(await hash()).toBe(originalHash);
     expect(video(videoId).revision).toBe(revision);
-  }, 120_000);
+  });
 
   // 代码合成带 alpha 的替身（代码包规范 §7）是 PNG 编码的 MOV，此前是 ProRes 4444：同一份画面编成两种，各自单独导出。
   // 两份成片逐像素相差在编码误差以内；叠在黑底上，透明处是黑、半透明处按 alpha 减半、细线的颜色不被旁边糊掉（4:4:4）。

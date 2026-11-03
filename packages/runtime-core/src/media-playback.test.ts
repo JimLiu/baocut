@@ -10,6 +10,8 @@ import { MediaAnalysis } from './media-analysis.ts';
 const ffmpeg = process.env.BAOCUT_FFMPEG || 'ffmpeg';
 const ffprobe = process.env.BAOCUT_FFPROBE || 'ffprobe';
 const tools = (() => { try { execFileSync(ffmpeg, ['-version'], { stdio: 'ignore' }); execFileSync(ffprobe, ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
+// Real Vorbis from ffmpeg's built-in encoder: not every build has libvorbis (Homebrew's does not). It only accepts stereo.
+const vorbisAudio = ['-af', 'pan=stereo|c0=c0|c1=c0', '-c:a', 'vorbis', '-strict', 'experimental'];
 
 describe.skipIf(!tools)('media playback compatibility', () => {
   // Code-bundle bakes: opaque ProRes 422 HQ, alpha PNG (current), alpha ProRes 4444 (bakes made before PNG).
@@ -92,7 +94,7 @@ describe.skipIf(!tools)('media playback compatibility', () => {
       const source = path.join(root, 'alpha.webm');
       execFileSync(ffmpeg, [
         '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=red@0.5:size=162x90:rate=10:duration=1,format=rgba',
-        '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-threads', '2', '-c:a', 'libvorbis', source,
+        '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-threads', '2', ...vorbisAudio, source,
       ], { stdio: 'pipe' });
       const real = await fs.realpath(source);
       expect(await analysis.playback(real, ['vp9', 'vorbis'])).toEqual({ status: 'original' });
@@ -129,13 +131,13 @@ describe.skipIf(!tools)('media playback compatibility', () => {
     const registry = new MediaRegistry({ log: silentLogger, originAllowed: () => true });
     registry.setBaseUrl('http://localhost:12345');
     try {
-      for (const [video, audio] of [['libvpx', 'libvorbis'], ['libvpx-vp9', 'libopus'], ['libvpx-vp9', null], [null, 'libopus']]) {
+      for (const [video, audio] of [['libvpx', 'vorbis'], ['libvpx-vp9', 'libopus'], ['libvpx-vp9', null], [null, 'libopus']]) {
         const source = path.join(root, `clip ${video ?? 'audio'} ${audio ?? 'silent'} #.WEBM`);
         const args = ['-v', 'error', '-y'];
         if (video) args.push('-f', 'lavfi', '-i', 'testsrc2=size=162x90:rate=10:duration=1');
         if (audio) args.push('-f', 'lavfi', '-i', 'sine=frequency=440:duration=1');
         if (video) args.push('-c:v', video, '-threads', '2');
-        if (audio) args.push('-c:a', audio);
+        if (audio) args.push(...(audio === 'vorbis' ? vorbisAudio : ['-c:a', audio]));
         execFileSync(ffmpeg, [...args, source], { stdio: 'pipe' });
         const before = await fs.readFile(source);
         const raw = await registry.issue(root, source);
