@@ -155,6 +155,8 @@ export const fr: LinkImportMessages = {
   cardConsent: "Votre accord est requis pour l’outil",
   cardConsentBody: "BaoCut l’utilise seulement après accord. Consentement conservé dans le Runtime, aucune nouvelle demande à l’import.",
   cardConsentAction: "Accepter et utiliser",
+  cardManagedUpdateBody: (version: string) => `La version ${version} est disponible. Vous pouvez continuer à utiliser la version actuelle jusqu’à la mise à jour.`,
+  cardManagedUpdateAction: (version: string) => `Mettre à jour vers ${version}`,
   cardReady: "Outil de téléchargement prêt",
   cardReadyBody: "BaoCut vérifie d’abord le lien et les informations vidéo, puis télécharge.",
 };

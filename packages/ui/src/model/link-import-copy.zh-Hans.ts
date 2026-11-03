@@ -125,6 +125,8 @@ export const zhHans: LinkImportMessages = {
   cardConsent: '使用下载工具之前要你同意',
   cardConsentBody: 'BaoCut 只在你同意之后用它从网站下载视频；同意会记在 Runtime 里，之后从链接导入不再问。',
   cardConsentAction: '同意使用',
+  cardManagedUpdateBody: (version: string) => `有新版本 ${version} 可用。更新之前可以继续用现在这一份。`,
+  cardManagedUpdateAction: (version: string) => `更新到 ${version}`,
   cardReady: '下载工具已就绪',
   cardReadyBody: '开始后先检查链接、获取视频信息，再下载。',
 };

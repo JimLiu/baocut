@@ -311,7 +311,7 @@ export interface ToolCard {
   state: ToolCardState;
   title: string;
   body: string;
-  /** 主按钮（同意并安装 / 同意并更新 / 同意使用）；没有时 null。 */
+  /** 主按钮（同意并安装 / 同意并更新 / 同意使用 / 更新到新版本）；没有时 null。 */
   action: string | null;
   /** 来源、版本、大小、许可这类事实，一行一项。 */
   facts: string[];
@@ -412,6 +412,15 @@ export function toolCard(probed: ExternalToolStatus | null | undefined, opts: { 
       body: M.cardConsentBody,
       action: M.cardConsentAction,
       facts,
+    };
+  // BaoCut 下载的那一份有新版本：照常能用，新版本的来源、大小与许可写出来，用户点了才换。
+  if (status.managedUpdateVersion)
+    return {
+      state: 'ready',
+      title: M.cardReady,
+      body: M.cardManagedUpdateBody(status.managedUpdateVersion),
+      action: M.cardManagedUpdateAction(status.managedUpdateVersion),
+      facts: [...facts, ...offerFacts(status)],
     };
   return { state: 'ready', title: M.cardReady, body: M.cardReadyBody, action: null, facts };
 }

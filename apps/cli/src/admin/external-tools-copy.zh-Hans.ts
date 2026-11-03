@@ -92,6 +92,7 @@ export const zhHans: ToolsMessages = {
   remedy: (remedy) => `补救：${remedy}`,
   partialDownloadKept: (name) => `已下载的部分保留：baocut external-tools install ${name} 续传`,
   alreadyUpdating: (jobId) => `已经在更新（任务 ${jobId}），接着显示输出`,
+  managedUpdateLine: (version: string, name: string) => `  更新：有新版本 ${version}，换用它：baocut external-tools install ${name}`,
   managedCopy: (label, name) => `此刻用的 ${label} 是 BaoCut 下载的副本：用 baocut external-tools install ${name} 换版本`,
   unknownInstall: (file, name) => `判断不了 ${file} 是怎么安装的：按当初的安装方式在终端里更新，完成后 baocut external-tools detect ${name}`,
   noRunnableTool: (label, remedy) => `没有找到能运行的 ${label}：${remedy}`,

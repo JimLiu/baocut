@@ -94,6 +94,7 @@ export const zhHant: ToolsMessages = {
   remedy: (remedy) => `解決方式：${remedy}`,
   partialDownloadKept: (name) => `已下載的部分會保留：執行 baocut external-tools install ${name} 即可續傳`,
   alreadyUpdating: (jobId) => `已在更新中（任務 ${jobId}），繼續顯示輸出`,
+  managedUpdateLine: (version: string, name: string) => `  更新：有新版本 ${version}，改用它：baocut external-tools install ${name}`,
   managedCopy: (label, name) => `目前使用的 ${label} 是 BaoCut 下載的副本：請用 baocut external-tools install ${name} 切換版本`,
   unknownInstall: (file, name) =>
     `無法判斷 ${file} 的安裝方式：請在終端機中依原本的安裝方式更新，再執行 baocut external-tools detect ${name}`,

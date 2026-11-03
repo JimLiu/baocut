@@ -44,6 +44,7 @@ const status = (patch: Partial<ExternalToolStatus> = {}): ExternalToolStatus => 
   installJobId: null,
   update: null,
   updateJobId: null,
+  managedUpdateVersion: null,
   platform: 'darwin',
   remedy: '用 baocut external-tools install yt-dlp 下载',
   ...patch,
@@ -97,6 +98,7 @@ describe('外部工具的输出', () => {
       '  路径：/home/tools/yt-dlp/2026.07.04/yt-dlp',
       '  同意：已同意（2026-10-03T00:00:00.000Z，在 CLI 里）',
     ]);
+    expect(formatToolStatus({ ...installed, managedUpdateVersion: '2026.10.26' })).toContain('  更新：有新版本 2026.10.26，换用它：baocut external-tools install yt-dlp');
     const ffmpeg = status({ name: 'ffmpeg', label: 'ffmpeg', purpose: '媒体', consentRequired: false, offer: null, installable: false });
     expect(formatToolList([ffmpeg])[0]).toBe('ffmpeg  未安装  媒体');
     expect(formatToolList([])).toEqual(['没有登记的外部工具']);

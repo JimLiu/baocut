@@ -51,6 +51,6 @@ export const es: LinkImportMessages = {
  cardReinstallAction: 'Aceptar y reinstalar', cardConsentRevoked: 'Retiraste tu consentimiento para la herramienta de descarga',
  cardConsent: 'Se necesita tu consentimiento para usar la herramienta de descarga',
  cardConsentBody: 'BaoCut la usa para descargar vídeos de sitios web solo después de que aceptes. Tu consentimiento se guarda en el Runtime, por lo que importar desde enlaces no volverá a preguntarte.',
- cardConsentAction: 'Aceptar y usar', cardReady: 'La herramienta de descarga está lista',
+ cardConsentAction: 'Aceptar y usar', cardManagedUpdateBody: (version: string) => `La versión ${version} está disponible. Puedes seguir usando la actual hasta que actualices.`, cardManagedUpdateAction: (version: string) => `Actualizar a ${version}`, cardReady: 'La herramienta de descarga está lista',
  cardReadyBody: 'Al empezar, BaoCut comprueba el enlace y obtiene primero la información del vídeo; después descarga.',
 };

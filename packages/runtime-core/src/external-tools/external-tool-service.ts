@@ -10,6 +10,7 @@ import {
   type ExternalToolConsent,
   type ExternalToolConsentVia,
   type ExternalToolInstallResult,
+  type ExternalToolOffer,
   type ExternalToolSource,
   type ExternalToolStatus,
   type ExternalToolUpdatePlan,
@@ -133,11 +134,14 @@ export function toolUseProblem(status: ExternalToolStatus): { code: string; mess
   // 状态里存的原因与补救带着引用：嵌进这里的文案，读者按自己的语言展开。
   const reason = withRef(status.reason ?? '', status.reasonRef);
   const remedy = withRef(status.remedy ?? '', status.remedyRef);
-  if (status.updateJobId) {
+  // 受管副本正在换版本：新的装好时旧的就删了，这时不开始用它。
+  const replacing = status.source === 'managed' ? status.installJobId : null;
+  const updating = status.updateJobId ?? replacing;
+  if (updating) {
     return {
       code: 'TOOL_UPDATING',
       message: RcExternalTools.toolUpdating({ label: status.label }),
-      remedy: RcExternalTools.waitForUpdate({ jobId: status.updateJobId }),
+      remedy: RcExternalTools.waitForUpdate({ jobId: updating }),
     };
   }
   if (status.state === 'missing') return { code: 'TOOL_NOT_INSTALLED', message: RcExternalTools.toolNotInstalled({ label: status.label }), remedy };
@@ -310,6 +314,11 @@ export class ExternalToolService {
     }
     if (this.#options.settings().offlineStrict) {
       throw new RpcError('conflict', RcExternalTools.offlineStrictNoDownload(), { code: 'OFFLINE_STRICT', tool: manifest.name });
+    }
+    // 已有受管副本时是换版本：新的装好时旧的就删了，有流程在用时不换。
+    const busy = (await this.#record(manifest.name)).managed ? this.#busyJobs(manifest.name) : [];
+    if (busy.length > 0) {
+      throw new RpcError('conflict', RcExternalTools.toolInUse({ label: manifest.label }), { code: 'TOOL_IN_USE', tool: manifest.name, jobIds: busy });
     }
     const pack = manifest.release.pack;
     const asset = pack ? null : manifest.release.assets[this.#platform];
@@ -625,6 +634,7 @@ export class ExternalToolService {
       installJobId: null,
       update: null,
       updateJobId: null,
+      managedUpdateVersion: null,
       platform: this.#platform.split('-')[0]!,
       remedy: null,
     };
@@ -644,6 +654,7 @@ export class ExternalToolService {
       offer,
       installJobId: this.#activeInstall(status.name)?.jobId ?? null,
       updateJobId: this.#activeUpdate(status.name)?.jobId ?? null,
+      managedUpdateVersion: managedUpdateVersion(status, offer),
     };
   }
 
@@ -1044,6 +1055,12 @@ export function toolsDownloadEndpoint(overrides: NodeJS.ProcessEnv, setting: str
     });
   }
   return value;
+}
+
+/** 受管副本可以换成的版本：清单的发布比它新，这台机器也能下载。数据包的版本是提交号，不比新旧。 */
+function managedUpdateVersion(status: ExternalToolStatus, offer: ExternalToolOffer | null): string | null {
+  if (status.source !== 'managed' || !status.version || !offer || offer.blockedReason || offer.files) return null;
+  return compareVersions(status.version, offer.version) < 0 ? offer.version : null;
 }
 
 /** 数据包在 `dir` 里缺的文件（`exact` 时大小不对的也算缺）。 */

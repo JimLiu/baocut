@@ -32,6 +32,7 @@ const status = (patch: Partial<ExternalToolStatus> = {}): ExternalToolStatus => 
   installJobId: null,
   update: brew,
   updateJobId: null,
+  managedUpdateVersion: null,
   platform: 'darwin',
   remedy: null,
   ...patch,

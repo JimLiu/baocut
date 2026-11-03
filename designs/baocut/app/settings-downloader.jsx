@@ -98,7 +98,29 @@
       {d.update ? <UpdateOutput u={d.update} /> : null}
     </div>;
   }
-  /* 下载工具：检测到的版本、安装方式与位置，重新检测、准备下载工具，按原安装方式更新 */
+  /* 演示的换版本：BaoCut 下载的那一份没有更新命令，下载、校验、试运行内置清单里的版本（真实客户端里是 toolInstall 任务）。
+     没成功时原来那一份还在。 */
+  function startManagedUpdate(app) {
+    const failed = (app.downloader.demoOutcome || 'updated') === 'failed';
+    clearTimeout(updateTimer.id);
+    app.setDownloader((s) => ({...s, state: 'updating', update: null}));
+    updateTimer.id = setTimeout(() => {
+      app.setDownloader((s) => ({...s, state: 'ready', checked: true, version: failed ? s.version : NEXT_VERSION}));
+      app.toast(failed ? '更新没有完成，现在这一份还能用' : `已更新到 ${NEXT_VERSION}`, failed ? 'negative' : 'positive');
+    }, 1500);
+  }
+  /* BaoCut 下载的那一份有新版本（product-design §2.7）：照常能用，写出新版本的来源、大小与许可，点了才换 */
+  function ManagedUpdate({d}) {
+    const app = useApp();
+    if (d.state === 'updating') return <Progress indeterminate thin label="正在准备下载工具" />;
+    if (d.version === NEXT_VERSION) return null;
+    return <div className="tool-update" aria-label="更新 yt-dlp">
+      <span className="t-detail">有新版本 {NEXT_VERSION} 可用。更新之前可以继续用现在这一份。</span>
+      <span className="t-detail-xs">版本 {NEXT_VERSION} · 约 36 MB · 从 github.com 下载 · Unlicense（源码），独立可执行文件整体按 GPLv3+ 许可</span>
+      <div className="row gap8"><Btn size="s" variant="accent" onClick={() => startManagedUpdate(app)}>更新到 {NEXT_VERSION}</Btn></div>
+    </div>;
+  }
+  /* 下载工具：检测到的版本、安装方式与位置，重新检测、准备下载工具，按原安装方式更新；BaoCut 下载的那一份换成清单里的新版本 */
   function DownloadSetup() {
     const app = useApp();
     const d = app.downloader || {};
@@ -108,13 +130,13 @@
     return <div className="setpage__card setdl__card">
       <div className="row gap8"><R.Icons.Download /><b className="grow">yt-dlp</b>
         <Chip tone={d.state === 'ready' ? 'positive' : updating ? 'info' : 'notice'}>{statusOf(d)}</Chip></div>
-      <span className="t-detail-xs">{d.version || '未安装'} · {method ? `${method} 安装` : '安装方式未知'}{d.checked && !updating ? ' · 已检测（演示）' : ''}</span>
-      <span className="t-detail-xs">{demo.path}</span>
+      <span className="t-detail-xs">{d.version || '未安装'} · {demo.managed ? 'BaoCut 下载的' : method ? `${method} 安装` : '安装方式未知'}{d.checked && !updating ? ' · 已检测（演示）' : ''}</span>
+      <span className="t-detail-xs">{demo.managed ? demo.path.replace('2026.07.04', d.version) : demo.path}</span>
       <div className="row gap8">
         <Btn size="s" variant="quiet" disabled={updating} onClick={() => { app.setDownloader((s) => ({...s, checked: true})); app.toast('检测完成（演示）'); }}>重新检测</Btn>
         {d.state !== 'ready' && !updating && <Btn size="s" onClick={() => app.updateDownloader()}>准备下载工具</Btn>}
       </div>
-      {d.version ? <UpdateSection plan={demo.plan} d={d} /> : null}
+      {!d.version ? null : demo.managed ? <ManagedUpdate d={d} /> : <UpdateSection plan={demo.plan} d={d} />}
     </div>;
   }
   /* 网站登录（product-design §2.7）：只列出检测到的浏览器（最近用过的在前），一组复选框横排、放不下自然换行，

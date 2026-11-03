@@ -80,6 +80,8 @@ export function formatToolStatus(probed: ExternalToolStatus): string[] {
   if (tool.updateJobId) lines.push(M.updatingLine(tool.updateJobId));
   else if (tool.update) {
     lines.push(M.updateLine(tool.update.command, UPDATE_METHOD_LABELS[tool.update.method], tool.update.runnable));
+  } else if (tool.managedUpdateVersion) {
+    lines.push(M.managedUpdateLine(tool.managedUpdateVersion, tool.name));
   }
   if (tool.reason && tool.state !== 'installed') lines.push(M.reasonLine(tool.reason));
   if (tool.remedy) lines.push(M.remedyLine(tool.remedy));

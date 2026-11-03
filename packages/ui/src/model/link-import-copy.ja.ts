@@ -158,6 +158,8 @@ export const ja: LinkImportMessages = {
   cardConsent: 'ダウンロードツールの使用には同意が必要です',
   cardConsentBody: 'BaoCut は同意を得てから、これを使って Web サイトから動画をダウンロードします。同意は Runtime に保存されるため、以降リンクから読み込むときに再度確認することはありません。',
   cardConsentAction: '同意して使用',
+  cardManagedUpdateBody: (version: string) => `バージョン ${version} を利用できます。更新するまでは現在のものをそのまま使えます。`,
+  cardManagedUpdateAction: (version: string) => `${version} に更新`,
   cardReady: 'ダウンロードツールの準備ができました',
   cardReadyBody: '開始すると、BaoCut はまずリンクを確認して動画の情報を取得し、それからダウンロードします。',
 };

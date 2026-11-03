@@ -113,6 +113,7 @@ const toolStatus = (gitPath: string | null): ExternalToolStatus => ({
   installJobId: null,
   update: null,
   updateJobId: null,
+  managedUpdateVersion: null,
   platform: process.platform,
   remedy: gitPath ? null : 'install git',
 });

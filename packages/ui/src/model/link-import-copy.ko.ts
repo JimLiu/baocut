@@ -157,6 +157,8 @@ export const ko: LinkImportMessages = {
   cardConsent: '다운로드 도구를 사용하려면 동의가 필요합니다',
   cardConsentBody: 'BaoCut은 동의를 받은 뒤에만 이 도구로 웹사이트에서 영상을 다운로드합니다. 동의는 Runtime에 저장되므로 이후 링크에서 가져올 때 다시 묻지 않습니다.',
   cardConsentAction: '동의하고 사용',
+  cardManagedUpdateBody: (version: string) => `${version} 버전을 사용할 수 있습니다. 업데이트하기 전까지 현재 버전을 계속 사용할 수 있습니다.`,
+  cardManagedUpdateAction: (version: string) => `${version}(으)로 업데이트`,
   cardReady: '다운로드 도구가 준비되었습니다',
   cardReadyBody: '시작하면 BaoCut이 먼저 링크를 확인하고 영상 정보를 가져온 뒤 다운로드합니다.',
 };

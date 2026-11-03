@@ -99,6 +99,7 @@ export const fr: ToolsMessages = {
   remedy: (remedy: string) => `Pour corriger : ${remedy}`,
   partialDownloadKept: (name: string) => `La partie téléchargée est conservée : exécutez baocut external-tools install ${name} pour reprendre`,
   alreadyUpdating: (jobId: string) => `Mise à jour déjà en cours (tâche ${jobId}) ; affichage de la sortie`,
+  managedUpdateLine: (version: string, name: string) => `  Mise à jour : la version ${version} est disponible. Pour l’utiliser : baocut external-tools install ${name}`,
   managedCopy: (label: string, name: string) =>
     `La version de ${label} utilisée a été téléchargée par BaoCut : utilisez baocut external-tools install ${name} pour changer de version`,
   unknownInstall: (file: string, name: string) =>

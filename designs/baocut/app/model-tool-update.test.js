@@ -83,6 +83,14 @@ test('winget 没有可升级的版本时以 0x8A15002B 退出：算成功，说�
   assert.equal(U.exitCodeText(2), '2');
 });
 
+test('演示挡位：每台主机都有 BaoCut 下载的那一份，它没有更新命令', () => {
+  for (const {k: host} of U.DEMO_HOSTS) {
+    assert.ok(U.DEMO_METHODS[host].some((m) => m.k === 'managed'), host);
+    assert.deepEqual(U.demoPlan(host, 'managed').plan, null);
+    assert.equal(U.demoPlan(host, 'managed').managed, true);
+  }
+});
+
 test('演示输出：每台主机上能代为执行的办法与每种结果都有几行', () => {
   for (const {k: host} of U.DEMO_HOSTS) {
     const methods = new Set(Object.values(U.DEMO_PLANS[host]).filter((d) => d.plan && d.plan.runnable).map((d) => d.plan.method));

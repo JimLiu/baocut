@@ -155,6 +155,8 @@ export const ptBR: LinkImportMessages = {
   cardConsent: "Consentimento necessário para a ferramenta",
   cardConsentBody: "BaoCut só baixa após concordar. Consentimento no Runtime; links não perguntam de novo.",
   cardConsentAction: "Concordar e usar",
+  cardManagedUpdateBody: (version: string) => `A versão ${version} está disponível. Você pode continuar usando a atual até atualizar.`,
+  cardManagedUpdateAction: (version: string) => `Atualizar para ${version}`,
   cardReady: "Ferramenta pronta",
   cardReadyBody: "Ao iniciar, verifica link e informações antes de baixar.",
 };

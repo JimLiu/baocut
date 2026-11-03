@@ -25,6 +25,7 @@
       admin: {path: '/usr/local/bin/yt-dlp', plan: {method: 'standalone', argv: ['/usr/local/bin/yt-dlp', '-U'], runnable: false,
         reason: '这份 yt-dlp 所在的 /usr/local/bin 要管理员权限才能改写，BaoCut 不替你提权。'}},
       unknown: {path: '/opt/tools/yt-dlp', plan: null},
+      managed: {path: '~/.baocut/tools/yt-dlp/2026.07.04/yt-dlp', plan: null, managed: true},
     },
     /* winget 不交互地升级这一个包（只查 winget 源，免得 msstore 源的协议提示让命令失败）；Scoop 本身是 PowerShell 脚本，
        BaoCut 不经命令行解释器执行，照 Scoop 自己的 scoop.cmd 那样用 powershell.exe 跑 scoop.ps1 */
@@ -43,13 +44,14 @@
       admin: {path: 'C:\\Program Files\\yt-dlp\\yt-dlp.exe', plan: {method: 'standalone', argv: ['C:\\Program Files\\yt-dlp\\yt-dlp.exe', '-U'], runnable: false,
         reason: `这份 yt-dlp 所在的 C:\\Program Files\\yt-dlp 要管理员权限才能改写，BaoCut 不替你提权。${WIN_ADMIN}`}},
       unknown: {path: 'D:\\tools\\yt-dlp.exe', plan: null},
+      managed: {path: 'C:\\Users\\me\\.baocut\\tools\\yt-dlp\\2026.07.04\\yt-dlp.exe', plan: null, managed: true},
     },
   };
   const DEMO_METHODS = {
     darwin: [{k: 'homebrew', label: 'Homebrew 安装的'}, {k: 'pip', label: 'pip 安装的'}, {k: 'standalone', label: '官方独立程序'},
-      {k: 'admin', label: '要管理员权限'}, {k: 'unknown', label: '判断不了'}],
+      {k: 'admin', label: '要管理员权限'}, {k: 'unknown', label: '判断不了'}, {k: 'managed', label: 'BaoCut 下载的'}],
     win32: [{k: 'winget', label: 'winget 安装的'}, {k: 'scoop', label: 'Scoop 安装的'}, {k: 'chocolatey', label: 'Chocolatey 安装的'},
-      {k: 'pip', label: 'pip 安装的'}, {k: 'standalone', label: '官方独立程序'}, {k: 'admin', label: '在 Program Files 里'}, {k: 'unknown', label: '判断不了'}],
+      {k: 'pip', label: 'pip 安装的'}, {k: 'standalone', label: '官方独立程序'}, {k: 'admin', label: '在 Program Files 里'}, {k: 'unknown', label: '判断不了'}, {k: 'managed', label: 'BaoCut 下载的'}],
   };
   const DEMO_OUTCOMES = [{k: 'updated', label: '更新成功'}, {k: 'current', label: '已是最新'}, {k: 'failed', label: '命令失败'}];
 

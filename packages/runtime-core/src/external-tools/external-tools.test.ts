@@ -14,7 +14,7 @@ import { resolveRuntimeHome, type RuntimeHome } from '@baocut/runtime-storage';
 import { ToolDriver, mcp, tool, until } from '../agent-tools/testing/fake-agent.ts';
 import { startRuntime, type RunningRuntime } from '../runtime.ts';
 import { resolveEngineHostCommand } from '../videos/engine-host.ts';
-import { ExternalToolService } from './external-tool-service.ts';
+import { ExternalToolService, toolUseProblem } from './external-tool-service.ts';
 import { TOOL_DOWNLOAD_REMEDIES } from './tool-download.ts';
 import { BUILTIN_TOOL_MANIFESTS, UPSCAYL_MODELS, YT_DLP, platformKey, toolOffer, type ToolManifest } from './tool-manifests.ts';
 
@@ -502,6 +502,66 @@ describe('受管外部工具（假下载来源 + 假 yt-dlp）', () => {
     }
   });
 
+  it('受管副本有新版本：报告可换的版本；有流程在用时不换，换的时候不开始用它，换好删掉旧版本', async () => {
+    const s = side!;
+    const bytes = await fs.readFile(s.fake.command);
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    let gate: Promise<void> = Promise.resolve();
+    const server = http.createServer((_request, response) => {
+      void gate.then(() => response.writeHead(200, { 'content-length': String(bytes.length) }).end(bytes));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const jobs = s.runtime.models.jobs;
+    const submitter = { kind: 'connection', id: 'conn_x' } as const;
+    const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === YT_DLP)!;
+    const env = { PATH: s.emptyPath, FAKE_YTDLP_VERSION: '2026.01.01' };
+    const serviceFor = (version: string) =>
+      new ExternalToolService({
+        toolsDir: path.join(s.dir, 'swap-tools'),
+        storeFile: path.join(s.dir, 'swap-store', 'external-tools.json'),
+        jobs,
+        log: s.runtime.log,
+        env: async () => env,
+        settings: () => ({ downloadEndpoint: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, offlineStrict: false }),
+        overrides: {},
+        manifests: [{ ...builtin, release: { ...builtin.release!, version, assets: { [platformKey()]: { fileName: 'yt-dlp_test', size: bytes.length, sha256 } } } }],
+      });
+    try {
+      const older = serviceFor('2026.01.01');
+      await jobs.settled((await older.install({ name: YT_DLP, consent: true }, submitter)).jobId);
+      expect(await older.status(YT_DLP)).toMatchObject({ source: 'managed', version: '2026.01.01', managedUpdateVersion: null });
+
+      // BaoCut 更新之后清单里是新版本：这一份照常能用，状态报告可以换。
+      const newer = serviceFor('2026.10.26');
+      const available = await newer.status(YT_DLP);
+      expect(available).toMatchObject({ state: 'installed', version: '2026.01.01', managedUpdateVersion: '2026.10.26', offer: { version: '2026.10.26' } });
+      expect(toolUseProblem(available)).toBeNull();
+
+      const inUse = { jobId: 'job_busy', kind: 'pipeline', state: 'running', pipeline: { name: 'link-import' } } as unknown as JobRecord;
+      const list = vi.spyOn(jobs, 'list').mockReturnValue([inUse]);
+      await expect(newer.install({ name: YT_DLP, consent: true }, submitter)).rejects.toMatchObject({ details: { code: 'TOOL_IN_USE', jobIds: ['job_busy'] } });
+      list.mockRestore();
+
+      let release = () => {};
+      gate = new Promise((resolve) => (release = resolve));
+      const { jobId } = await newer.install({ name: YT_DLP, consent: true }, submitter);
+      const replacing = await newer.status(YT_DLP);
+      expect(replacing.installJobId).toBe(jobId);
+      expect(toolUseProblem(replacing)).toMatchObject({ code: 'TOOL_UPDATING' });
+
+      env.FAKE_YTDLP_VERSION = '2026.10.26';
+      release();
+      await jobs.settled(jobId);
+      expect(await newer.status(YT_DLP)).toMatchObject({ source: 'managed', version: '2026.10.26', managedUpdateVersion: null, installJobId: null });
+      expect(await fs.readdir(path.join(s.dir, 'swap-tools', YT_DLP))).toEqual(['2026.10.26']);
+
+      // 清单比这一份旧（装回旧版的 BaoCut）：不提示「更新」成旧版本。
+      expect((await older.status(YT_DLP)).managedUpdateVersion).toBeNull();
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it('清单没有可信的 sha256：同意了也不下载；PATH 只有空目录时找不到系统里的 yt-dlp', async () => {
     const s = side!;
     const builtin = BUILTIN_TOOL_MANIFESTS.find((m) => m.name === YT_DLP)!;
@@ -755,6 +815,7 @@ describe.skipIf(process.platform === 'win32')('按原安装方式更新系统里
       version: VERSION,
       update: { method: 'homebrew', argv: [brew.brew, 'upgrade', 'yt-dlp'], command: `${brew.brew} upgrade yt-dlp`, runnable: true, reason: null },
       updateJobId: null,
+      managedUpdateVersion: null,
     });
     const plan = set.tool.update!;
 
@@ -801,6 +862,7 @@ describe.skipIf(process.platform === 'win32')('按原安装方式更新系统里
       state: 'installed',
       version: NEW_VERSION,
       updateJobId: null,
+      managedUpdateVersion: null,
     });
 
     await brew.mode('fail');

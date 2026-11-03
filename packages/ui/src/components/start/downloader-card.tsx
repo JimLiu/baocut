@@ -72,7 +72,7 @@ export function detectDownloader(runtime: Pick<RuntimeSession, 'detectExternalTo
   return detecting;
 }
 
-/** 卡片的主按钮：没装 / 要更新 / 坏了时安装（`consent: true` 一并记下同意），装好了只差同意时只记同意。 */
+/** 卡片的主按钮：没装 / 要更新 / 坏了 / 受管副本有新版本时安装（`consent: true` 一并记下同意），装好了只差同意时只记同意。 */
 async function fixDownloader(runtime: RuntimeSession, state: ToolCardState): Promise<void> {
   useDownloader.setState({ busy: true });
   try {
@@ -86,7 +86,8 @@ async function fixDownloader(runtime: RuntimeSession, state: ToolCardState): Pro
     }
   } catch (error) {
     useDownloader.setState({ installing: false });
-    ToastQueue.negative(state === 'consent' ? ST.downloader.consentFailed(messageOf(error)) : ST.downloader.installFailed(messageOf(error)), { timeout: 6000 });
+    const failed = state === 'consent' ? ST.downloader.consentFailed : state === 'ready' ? ST.downloader.updateFailed : ST.downloader.installFailed;
+    ToastQueue.negative(failed(messageOf(error)), { timeout: 6000 });
   } finally {
     useDownloader.setState({ busy: false });
   }
@@ -213,7 +214,13 @@ export function useDownloaderTool(enabled: boolean): DownloaderView {
   useEffect(() => {
     if (!ended || !job) return;
     useDownloader.setState({ installing: false, installJobId: null });
-    if (job.state === 'failed') ToastQueue.negative(ST.downloader.notInstalled(jobErrorText(job.error) ?? ST.downloader.installFailedFallback), { timeout: 6000 });
+    if (job.state === 'failed') {
+      const message = jobErrorText(job.error) ?? ST.downloader.installFailedFallback;
+      // 换版本没成功时原来那一份还在，不说「没装上」。
+      const current = useDownloader.getState().status;
+      const replacing = current?.source === 'managed' && current.state === 'installed';
+      ToastQueue.negative(replacing ? ST.downloader.updateFailed(message) : ST.downloader.notInstalled(message), { timeout: 6000 });
+    }
     void detectDownloader(runtime);
     // 只在这条安装任务结束的那一下收尾。
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -240,7 +247,7 @@ export function useDownloaderTool(enabled: boolean): DownloaderView {
     job,
     updateJob,
     updating,
-    ready: toolReady(state.status) && !updating,
+    ready: toolReady(state.status) && !updating && !installing,
     card: toolCard(state.status, { checking: state.checking, installing, updating }),
   };
 }
@@ -380,7 +387,7 @@ export function DownloaderSummary({ view, cookies, onSettings }: { view: Downloa
       </p>
       {c.state === 'installing' ? <ProgressBar aria-label={ST.downloader.preparing} size="S" isIndeterminate={pct === null} value={pct ?? undefined} /> : null}
       <div className={actions}>
-        {c.action ? (
+        {c.action && c.state !== 'ready' ? (
           <Button variant="accent" size="S" isPending={busy} onPress={() => void fixDownloader(runtime, c.state)}>
             {c.action}
           </Button>

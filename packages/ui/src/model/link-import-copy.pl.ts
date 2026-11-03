@@ -126,6 +126,8 @@ export const pl: LinkImportMessages = {
   cardConsent: "Wymagana zgoda na narzędzie pobierania",
   cardConsentBody: "BaoCut używa do pobierania ze stron tylko po zgodzie. Zgoda w Runtime, import z linków już nie pyta.",
   cardConsentAction: "Zgódź się i użyj",
+  cardManagedUpdateBody: (version: string) => `Dostępna jest wersja ${version}. Do czasu aktualizacji możesz dalej używać obecnej.`,
+  cardManagedUpdateAction: (version: string) => `Zaktualizuj do ${version}`,
   cardReady: "Narzędzie pobierania gotowe",
   cardReadyBody: "Przy starcie BaoCut sprawdzi link, pobierze informacje o wideo, potem pobierze.",
 };

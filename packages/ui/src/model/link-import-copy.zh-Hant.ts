@@ -144,6 +144,8 @@ export const zhHant: LinkImportMessages = {
   cardConsent: '使用下載工具前需要你的同意',
   cardConsentBody: 'BaoCut 只有在你同意後，才會用它從網站下載影片。你的同意會保存在 Runtime 中，之後從連結匯入就不會再詢問。',
   cardConsentAction: '同意並使用',
+  cardManagedUpdateBody: (version: string) => `有新版本 ${version} 可用。更新之前可以繼續使用目前這一份。`,
+  cardManagedUpdateAction: (version: string) => `更新到 ${version}`,
   cardReady: '下載工具已就緒',
   cardReadyBody: '開始後，BaoCut 會先檢查連結並取得影片資訊，然後再下載。',
 };

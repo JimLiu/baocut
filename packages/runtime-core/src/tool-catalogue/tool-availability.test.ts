@@ -25,6 +25,7 @@ function external(name: string, partial: Partial<ExternalToolStatus> = {}): Exte
     installJobId: null,
     update: null,
     updateJobId: null,
+    managedUpdateVersion: null,
     platform: 'darwin',
     remedy: null,
     ...partial,

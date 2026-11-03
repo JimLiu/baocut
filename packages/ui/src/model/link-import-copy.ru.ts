@@ -126,6 +126,8 @@ export const ru: LinkImportMessages = {
   cardConsent: "Нужно согласие на инструмент скачивания",
   cardConsentBody: "BaoCut использует для скачивания с сайтов только после согласия. Согласие в Runtime, импорт по ссылкам не спросит снова.",
   cardConsentAction: "Согласиться и использовать",
+  cardManagedUpdateBody: (version: string) => `Доступна версия ${version}. До обновления можно пользоваться текущей.`,
+  cardManagedUpdateAction: (version: string) => `Обновить до ${version}`,
   cardReady: "Инструмент скачивания готов",
   cardReadyBody: "При запуске BaoCut проверит ссылку, получит сведения о видео, затем скачает.",
 };

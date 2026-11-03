@@ -74,6 +74,7 @@ export const ru: ToolsMessages = {
   remedy: (remedy) => `Как исправить: ${remedy}`,
   partialDownloadKept: (name) => `Скачанная часть сохранена: выполните baocut external-tools install ${name} для продолжения`,
   alreadyUpdating: (jobId) => `Обновление уже выполняется (задача ${jobId}); показан вывод`,
+  managedUpdateLine: (version: string, name: string) => `  Обновление: доступна версия ${version}. Чтобы перейти на неё: baocut external-tools install ${name}`,
   managedCopy: (label, name) => `Компонент ${label} — используется копия BaoCut: примените baocut external-tools install ${name} для смены версии`,
   unknownInstall: (file, name) => `Не удалось определить, как ${file} установлен: обновите тем же способом в терминале, затем выполните baocut external-tools detect ${name}`,
   noRunnableTool: (label, remedy) => `Нет запускаемого ${label}: ${remedy}`,

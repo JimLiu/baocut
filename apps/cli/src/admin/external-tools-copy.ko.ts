@@ -95,6 +95,7 @@ export const ko: ToolsMessages = {
   remedy: (remedy) => `해결 방법: ${remedy}`,
   partialDownloadKept: (name) => `다운로드한 부분은 보관했습니다: baocut external-tools install ${name}을(를) 실행하면 이어서 받습니다`,
   alreadyUpdating: (jobId) => `이미 업데이트 중입니다(작업 ${jobId}). 출력을 표시합니다`,
+  managedUpdateLine: (version: string, name: string) => `  업데이트: ${version} 버전을 사용할 수 있습니다. 전환하려면: baocut external-tools install ${name}`,
   managedCopy: (label, name) =>
     `지금 사용 중인 ${label}은(는) BaoCut이 다운로드한 사본입니다: 버전을 바꾸려면 baocut external-tools install ${name}을(를) 사용하세요`,
   unknownInstall: (file, name) =>

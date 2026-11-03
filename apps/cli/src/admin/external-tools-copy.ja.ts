@@ -95,6 +95,7 @@ export const ja: ToolsMessages = {
   remedy: (remedy) => `対処：${remedy}`,
   partialDownloadKept: (name) => `ダウンロード済みの部分は残してあります：baocut external-tools install ${name} で再開できます`,
   alreadyUpdating: (jobId) => `すでに更新中です（タスク ${jobId}）。出力を表示します`,
+  managedUpdateLine: (version: string, name: string) => `  更新: バージョン ${version} を利用できます。切り替えるには: baocut external-tools install ${name}`,
   managedCopy: (label, name) =>
     `使用中の ${label} は BaoCut がダウンロードしたコピーです：バージョンを変えるには baocut external-tools install ${name} を使ってください`,
   unknownInstall: (file, name) =>

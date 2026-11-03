@@ -74,6 +74,7 @@ export const pl: ToolsMessages = {
   remedy: (remedy) => `Jak naprawić: ${remedy}`,
   partialDownloadKept: (name) => `Pobrana część zachowana: uruchom baocut external-tools install ${name}, aby wznowić`,
   alreadyUpdating: (jobId) => `Aktualizacja już trwa (zadanie ${jobId}); pokazano wynik`,
+  managedUpdateLine: (version: string, name: string) => `  Aktualizacja: dostępna jest wersja ${version}. Aby przejść: baocut external-tools install ${name}`,
   managedCopy: (label, name) => `Element ${label} – używana kopia pobrana przez BaoCut: użyj baocut external-tools install ${name} dla zmiany wersji`,
   unknownInstall: (file, name) => `Nie można ustalić, jak ${file} zainstalowano: zaktualizuj tą samą metodą w terminalu, potem uruchom baocut external-tools detect ${name}`,
   noRunnableTool: (label, remedy) => `Brak wykonywalnego ${label}: ${remedy}`,

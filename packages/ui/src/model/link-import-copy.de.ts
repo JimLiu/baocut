@@ -154,6 +154,8 @@ export const de: LinkImportMessages = {
   cardConsent: "Einwilligung zur Nutzung des Downloadwerkzeugs erforderlich",
   cardConsentBody: "BaoCut lädt damit Websitevideos nur nach Zustimmung herunter. Runtime speichert die Einwilligung; Linkimporte fragen nicht erneut.",
   cardConsentAction: "Zustimmen und verwenden",
+  cardManagedUpdateBody: (version: string) => `Version ${version} ist verfügbar. Bis zum Update kannst du die aktuelle weiterverwenden.`,
+  cardManagedUpdateAction: (version: string) => `Auf ${version} aktualisieren`,
   cardReady: "Downloadwerkzeug bereit",
   cardReadyBody: "Beim Start prüft BaoCut zuerst den Link und holt Videoinformationen; anschließend Download.",
 };

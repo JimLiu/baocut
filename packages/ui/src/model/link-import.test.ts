@@ -241,6 +241,7 @@ const tool = (patch: Partial<ExternalToolStatus> = {}): ExternalToolStatus => ({
   installJobId: null,
   update: null,
   updateJobId: null,
+  managedUpdateVersion: null,
   platform: 'darwin',
   remedy: null,
   ...patch,
@@ -281,6 +282,25 @@ describe('下载工具卡片', () => {
     expect(system).toMatchObject({ state: 'blocked', action: null });
     expect(system.body).toContain('按下面的说明在终端里更新');
     expect(card(tool({ state: 'outdated', source: 'system', version: '2024.01.01', update: brew })).body).toContain('可以用下面这条命令按原安装方式更新');
+  });
+
+  it('BaoCut 下载的那一份有新版本：照常就绪，主按钮换版本，写出新版本的来源与大小', () => {
+    const managed = tool({
+      state: 'installed',
+      reason: null,
+      path: '/home/tools/yt-dlp/2025.01.01/yt-dlp',
+      version: '2025.01.01',
+      source: 'managed',
+      consent: { state: 'granted', at: '2026-10-03T00:00:00.000Z', via: 'app' },
+    });
+    expect(card(managed)).toMatchObject({ state: 'ready', action: null });
+    const c = card({ ...managed, managedUpdateVersion: '2026.01.01' });
+    expect(c).toMatchObject({ state: 'ready', action: '更新到 2026.01.01' });
+    expect(c.body).toContain('2026.01.01');
+    expect(c.facts).toContain('版本 2026.01.01 · 约 35 MB');
+    expect(toolReady({ ...managed, managedUpdateVersion: '2026.01.01' })).toBe(true);
+    // 撤回了同意：先说同意，不给换版本。
+    expect(card({ ...managed, managedUpdateVersion: '2026.01.01', consent: { state: 'revoked', at: '2026-10-03T00:00:00.000Z', via: 'app' } }).state).toBe('consent');
   });
 
   it('正在更新：卡片说在更新，事实照旧', () => {

@@ -127,6 +127,11 @@ export interface ExternalToolStatus {
   /** 正在进行的更新任务（`kind: 'toolUpdate'`）：输出在任务记录的 `command` 里。 */
   updateJobId: Id | null;
   /**
+   * 此刻用的受管副本可以换成的版本：内置清单的发布比它新、这台机器也能下载（`offer` 里是这个版本的来源、大小与许可）；用
+   * `externalTools.install` 换版本。不是受管副本、已是最新或不能下载时为 null。
+   */
+  managedUpdateVersion: string | null;
+  /**
    * Runtime 所在主机的平台（`process.platform` 的取值：darwin、win32、linux…）。工具在那台主机上运行，界面判断不了安装方式时
    * 按它列常用命令。
    */

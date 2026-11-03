@@ -112,6 +112,7 @@ const en = {
   remedy: (remedy: string) => `To fix: ${remedy}`,
   partialDownloadKept: (name: string) => `The downloaded part is kept: run baocut external-tools install ${name} to resume`,
   alreadyUpdating: (jobId: string) => `Already updating (task ${jobId}); showing output`,
+  managedUpdateLine: (version: string, name: string) => `  Update: version ${version} is available. To switch to it: baocut external-tools install ${name}`,
   managedCopy: (label: string, name: string) =>
     `The ${label} in use is a copy BaoCut downloaded: use baocut external-tools install ${name} to change versions`,
   unknownInstall: (file: string, name: string) =>

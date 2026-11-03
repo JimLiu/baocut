@@ -182,6 +182,8 @@ const en = {
   cardConsent: 'Your consent is needed to use the download tool',
   cardConsentBody: 'BaoCut uses it to download videos from websites only after you agree. Your consent is kept in the Runtime, so importing from links won’t ask again.',
   cardConsentAction: 'Agree and use',
+  cardManagedUpdateBody: (version: string) => `Version ${version} is available. You can keep using the current one until you update.`,
+  cardManagedUpdateAction: (version: string) => `Update to ${version}`,
   cardReady: 'The download tool is ready',
   cardReadyBody: 'When you start, BaoCut checks the link and gets the video info first, then downloads.',
 };
