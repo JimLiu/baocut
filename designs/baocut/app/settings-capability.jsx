@@ -1,12 +1,13 @@
 /* 能力页（product-design §7.6）：每种能力一页，本机模型与 API 提供方的模型在同一页，不分本地 / 云端两个 Tab。从上到下：
    ① 默认模型——一个选择器，放在页顶，本机、API 提供方与智能体的模型都在里面，按这种能力的自动顺序分组（图像生成：能画的
       Codex › 本机 › API 提供方；2026-10-12 用户裁决，之后新增的同时有本机与云端模型的能力照此办理；文本生成没有自动顺序，
-      能用的在前：已连接的 API 提供方 › 能用的「Codex 写文字」› 没连接的），不可用的项置灰并写明原因；
+      能用的在前：已连接的 API 提供方 › 能用的智能体（Codex、Claude Code 写文字）› 没连接的），不可用的项置灰并写明原因；
       工具页、编辑器、命令行与 Agent 不指定模型时都用它。第一项清掉默认：转录与图像生成是「自动」（写明此刻用谁），合成是「未设置」；
    ② 这种能力的参数（并发；文本生成另有推理强度）；
    ③ 本机模型（settings-local.jsx 的目录、安装、检查与试用，默认行交给 ①）；
    ④ API 提供方：目录里有这种能力的全部提供方（BC_VENDORS.capCatalog，含没添加的与自建端点），一家一组，带图标；
       图像生成与文本生成在末尾多一张 Codex 卡：开关是设置 › Agent 的「用 Codex 画图和写文字」，两页共用；
+      文本生成再多一张 Claude Code 卡：开关是设置 › Agent 的「用 Claude Code 写文字」；
       顶部始终有搜索框；组可折叠，默认已连接的展开、其余收起，有查询词时命中的展开。已连接的组每行可以测试、显示默认标记；
       没连上的组表头给「配置」（与添加 sheet 的选卡同一路径：没添加先添加，再进详情并展开「添加账号」），展开后只读列模型。
       「管理 API 提供方」去 API 提供方页。默认模型选择器 ① 仍只列已添加的提供方。
@@ -26,17 +27,25 @@
     image: {max: 4, desc: '批量生图时同一家同时发出的请求上限（1–4）。遇到限速就调低。'},
   };
   const AUTO_LABEL = {transcribe: '自动选择', text: '自动选择', image: '自动'};
-  /* 智能体 Codex 在图像生成、文本生成两页的叫法与说明（同一个开关） */
-  const CODEX_ITEM = {
-    image: {label: 'Codex 画图', desc: '用你的 Codex 订阅 · 一次一张 · 慢 5–10 倍', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一张 · 忽略尺寸 · 慢 5–10 倍'},
-    text: {label: 'Codex 写文字', desc: '用你的 Codex 订阅 · 一次一个请求 · 比 API 慢', caution: '用 API key 登录 · 费用不在订阅里', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一个请求 · 用的时候选模型与推理强度 · 比 API 慢'},
+  /* 这一页的智能体：图像生成只有 Codex（Claude Code 没有图像生成工具），文本生成是 Codex 与 Claude Code。Codex 的开关两页共用。 */
+  const AGENT_ITEMS = {
+    image: [{id: 'codex', label: 'Codex 画图', desc: '用你的 Codex 订阅 · 一次一张 · 慢 5–10 倍', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一张 · 忽略尺寸 · 慢 5–10 倍', shared: true}],
+    text: [
+      {id: 'codex', label: 'Codex 写文字', desc: '用你的 Codex 订阅 · 一次一个请求 · 比 API 慢', caution: '用 API key 登录 · 费用不在订阅里', card: '智能体 · 用你的 Codex 订阅，不用密钥 · 一次一个请求 · 用的时候选模型与推理强度 · 比 API 慢', shared: true},
+      {id: 'claude', label: 'Claude Code 写文字', desc: '用你的 Claude 订阅 · 一次一个请求 · 比 API 慢', caution: '用 API key 登录 · 费用不在订阅里', card: '智能体 · 用你的 Claude 订阅，不用密钥 · 一次一个请求 · 用的时候选模型与推理强度 · 比 API 慢'},
+    ],
   };
-  const codexId = (cap) => (cap === 'image' ? IM().CODEX_ID : window.BC_LLM_TOOLS.CODEX_TEXT_ID);
-  /* Codex 已装时这一页的智能体状态（图像生成与文本生成才有） */
-  function codexOf(app, cap) {
-    if (!CODEX_ITEM[cap]) return null;
-    const h = (app.harnessList || []).find((x) => x.id === 'codex') || null;
-    return {h, ...IM().codexReady(h, app.codexImageGen)};
+  /* 这一页每家智能体的状态（图像生成与文本生成才有）：`modelId` 是默认模型菜单里的 key，`on` / `setOn` 是设置 › Agent 的那个开关 */
+  function agentsOf(app, cap) {
+    return (AGENT_ITEMS[cap] || []).map((item) => {
+      const h = (app.harnessList || []).find((x) => x.id === item.id) || null;
+      const claude = item.id === 'claude';
+      const ready = claude ? IM().claudeReady : IM().codexReady;
+      const on = claude ? !!app.claudeTextGen : !!app.codexImageGen;
+      return {...item, textCaution: item.caution || null, ...ready(h, on), h, on, canEnable: ready(h, true).ready, setOn: claude ? app.setClaudeTextGen : app.setCodexImageGen,
+        switchLabel: claude ? '用 Claude Code 写文字' : '用 Codex 画图和写文字',
+        modelId: cap === 'image' ? IM().CODEX_ID : window.BC_LLM_TOOLS.agentTextId('agent:' + item.id)};
+    });
   }
 
   /* 当前默认：API 提供方的优先（四种能力各一个存法），否则本机 */
@@ -69,8 +78,7 @@
     const local = cat ? models.filter((m) => LM().catOf(m) === cat && !m.pack && m.supported !== false) : [];
     const ready = (m) => app.modelInstalled(m.id) && LM().ready(m, comps, on);
     const groups = V().choices(cap, app.providerSettings, app.providerAccounts, now);
-    const codex = codexOf(app, cap);
-    const item = CODEX_ITEM[cap];
+    const agents = agentsOf(app, cap);
     /* 图像生成的「自动」此刻落到谁：与工具页开页同一个顺序（model-cloud-image.js `preferred`） */
     const engines = window.useImageEngines(app);
     const autoUses = (() => {
@@ -82,7 +90,10 @@
     const label = (() => {
       if (!cur) return autoText || AUTO_LABEL[cap] || (cat && LM().hasAuto(cat) ? '自动选择' : '未设置');
       if (cur.indexOf('local:') === 0) { const m = local.find((x) => x.id === cur.slice(6)); return m ? m.name : cur.slice(6); }
-      if (cur.indexOf('agent:') === 0) return `${item ? item.label : 'Codex'}${codex && codex.ready ? '' : '（不可用）'}`;
+      if (cur.indexOf('agent:') === 0) {
+        const a = agents.find((x) => cur.indexOf(`agent:${x.id}/`) === 0);
+        return `${a ? a.label : cur}${a && a.ready ? '' : '（不可用）'}`;
+      }
       const [pid, ...rest] = cur.slice(6).split('/');
       const g = groups.find((x) => x.vendor.id === pid);
       return `${g ? g.vendor.name : pid} · ${rest.join('/')}${g && g.ready ? '' : '（不可用）'}`;
@@ -90,9 +101,11 @@
     const pick = (v) => { writeDefault(app, cap, cat, v); setOpen(false); };
     /* 智能体一组：图像生成能画时排在最前（自动顺序的第一位）；文本生成能写时排在已连接的提供方之后、没连接的之前
        （能用的在前，2026-10-28）；不能用时都排最后、置灰写原因。API key 登录时能选，写提醒 */
-    const codexGroup = codex ? <><MenuRule /><MenuHead>智能体</MenuHead>
-      <MenuItem label={item.label} sub={codex.ready ? (codex.caution ? (item.caution || codex.caution) : item.desc) : codex.why} disabled={!codex.ready && cur !== codexId(cap)}
-        check={cur === codexId(cap)} onClick={() => pick(codexId(cap))} /></> : null;
+    const agentGroup = (list) => (list.length ? <><MenuRule /><MenuHead>智能体</MenuHead>
+      {list.map((a) => <MenuItem key={a.id} label={a.label} sub={a.ready ? (a.caution ? a.textCaution || a.caution : a.desc) : a.why}
+        disabled={!a.ready && cur !== a.modelId} check={cur === a.modelId} onClick={() => pick(a.modelId)} />)}</> : null);
+    const readyAgents = agentGroup(agents.filter((a) => a.ready));
+    const otherAgents = agentGroup(agents.filter((a) => !a.ready));
     /* 一家 API 提供方一组（`groups` 已按已连接在前排好，model-vendors.js `list`） */
     const vendorGroup = (g) => <React.Fragment key={g.vendor.id}>
       <MenuRule /><MenuHead>{g.vendor.name}</MenuHead>
@@ -106,15 +119,15 @@
       <Picker size="s" value={label} open={open} popAlign="right" popWidth={320} onClick={() => setOpen(!open)} onClose={() => setOpen(false)}>
         <Menu>
           {autoOk ? <MenuItem label={autoText || AUTO_LABEL[cap] || '自动选择'} sub={cap === 'image' ? '按顺序取第一个能用的：Codex › 本机 › OpenAI › Gemini › 其他' : cap === 'text' ? '按任务挑一个能用的模型' : '按这台电脑与任务挑'} check={!cur} onClick={() => pick('')} /> : null}
-          {cap === 'image' && codex && codex.ready ? codexGroup : null}
+          {cap === 'image' ? readyAgents : null}
           {local.length ? <><MenuRule /><MenuHead>本机</MenuHead></> : null}
           {local.map((m) => <MenuItem key={m.id} label={m.name} disabled={!ready(m)} sub={ready(m) ? '在这台电脑上运行 · 不联网' : '未安装 · 在下面的本机模型里下载'}
             check={cur === 'local:' + m.id} onClick={() => pick('local:' + m.id)} />)}
           {groups.filter((g) => g.ready).map(vendorGroup)}
-          {cap !== 'image' && codex && codex.ready ? codexGroup : null}
+          {cap !== 'image' ? readyAgents : null}
           {groups.filter((g) => !g.ready).map(vendorGroup)}
-          {codex && !codex.ready ? codexGroup : null}
-          {!groups.length && !local.length && !codex ? <><MenuRule /><MenuItem label="还没有能用的模型" sub="先在 API 提供方页添加一家" disabled /></> : null}
+          {otherAgents}
+          {!groups.length && !local.length && !agents.length ? <><MenuRule /><MenuItem label="还没有能用的模型" sub="先在 API 提供方页添加一家" disabled /></> : null}
         </Menu>
       </Picker>
     </window.ShellRow>;
@@ -143,8 +156,8 @@
     const [toggled, setToggled] = useState({});   // 用户手动翻过的组；换查询词时清空，回到默认的开合
     const rows = V().capCatalog(cap, app.providerSettings, app.providerAccounts, Date.now(), q);
     const cur = readDefault(app, cap, null);
-    const codex = codexOf(app, cap);
-    const goProviders = (add) => app.go(Object.assign({r: 'settings', sec: 'providers'}, add ? {from: 'add'} : {}));
+    const agents = agentsOf(app, cap);
+    const goProviders =(add) => app.go(Object.assign({r: 'settings', sec: 'providers'}, add ? {from: 'add'} : {}));
     /* 与添加 sheet 的 pick 同一路径：没添加的先添加，再进详情并直接展开「添加账号」 */
     const configure = (id) => {
       if (!app.providerSettings[id]) app.patchProvider(id, {enabled: true});
@@ -205,12 +218,12 @@
         <p className="t-detail">没有找到「{q.trim()}」。可以在 API 提供方页把它添加为自建端点。</p>
         <Btn size="s" variant="secondary" icon="plus" onClick={() => goProviders(true)}>添加 API 提供方</Btn>
       </div>}
-      {codex ? <div className="setpage__card capm__agent">
-        <window.ShellRow label={CODEX_ITEM[cap].label} desc={codex.ready ? `${CODEX_ITEM[cap].card} · 这个开关同时管画图和写文字` : `智能体 · ${codex.why}`}>
-          {IM().codexCanEnable(codex.h) ? <Switch on={!!app.codexImageGen} ariaLabel="用 Codex 画图和写文字" onChange={(v) => app.setCodexImageGen(v)} />
+      {agents.map((a) => <div className="setpage__card capm__agent" key={a.id}>
+        <window.ShellRow label={a.label} desc={a.ready ? `${a.card}${a.shared ? ' · 这个开关同时管画图和写文字' : ''}` : `智能体 · ${a.why}`}>
+          {a.canEnable ? <Switch on={a.on} ariaLabel={a.switchLabel} onChange={(v) => a.setOn(v)} />
             : <Btn size="s" variant="quiet" onClick={() => app.go({r: 'settings', sec: 'agent'})}>去设置 › Agent</Btn>}
         </window.ShellRow>
-      </div> : null}
+      </div>)}
       <window.ModelProbeDialog probe={probe} onClose={() => setProbe(null)} onDone={(r) => setResults((x) => ({...x, [probe.providerId + '/' + probe.modelId]: r}))} />
     </section>;
   }

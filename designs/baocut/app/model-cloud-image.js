@@ -199,6 +199,18 @@
   }
   /** 开关本身能不能打开（不看开关值） */
   const codexCanEnable = (h) => codexReady(h, true).ready;
+  /** 用 Claude Code 写文字就绪与否（`agent:claude`，架构设计 §6.9；它没有图像生成工具，只写文字）：探测到 ∧ 版本够 ∧ 登录 ∧
+      用户开了开关。开关默认关，启用才把文字发给它登录的账号（文本生成没有自动顺序，不开也不会用到它）。不是订阅登录时仍算就绪，另带 `caution`。 */
+  function claudeReady(h, on) {
+    if (!h || !h.found) return {ready: false, why: '未安装 Claude Code', problem: 'missing'};
+    if (h.runError) return {ready: false, why: 'Claude Code 无法运行', problem: 'error'};
+    if (h.minVer && compareVer(h.ver, h.minVer) < 0) return {ready: false, why: `Claude Code ${h.ver} 太旧 · 写文字至少要 ${h.minVer}`, problem: 'outdated'};
+    if (h.loggedIn === false) return {ready: false, why: 'Claude Code 需要登录', problem: 'login'};
+    if (!on) return {ready: false, why: '「用 Claude Code 写文字」还没打开', problem: 'off'};
+    if (h.auth && h.auth !== 'subscription') return {ready: true, why: null, problem: null, caution: '用 API key 登录 · 费用不在订阅里'};
+    return {ready: true, why: null, problem: null, caution: null};
+  }
+  const claudeCanEnable = (h) => claudeReady(h, true).ready;
 
   /* ---------- 引擎清单（三族折成一张表）----------
      `saved`：已连密钥的提供方 id；`extra`：自建；`codex`：{h, on}；`installed(id)`：本地权重装没装。
@@ -562,7 +574,7 @@
     PREFIX, AGENT_PREFIX, CODEX_ID, CODEX_MIN_VER, CODEX_API_KEY_CAUTION, LOCAL_ID, LOCAL_TURBO_ID, ASPECTS, PROVIDERS, LOCAL, LOCAL_MODELS, SEED_SAVED, EMPTY_PROMPT, DEMO_ART, LICENSE_LABEL,
     ratioOf, fitAspect, isCloud, isAgent, isLocal, family, modelId, parse, providerOf,
     customProvider, providers, providerById, modelOf, capabilities, CUSTOM_CAPS,
-    localEta, stepsOf, fixedSteps, sizeTiers, codexReady, codexCanEnable, compareVer,
+    localEta, stepsOf, fixedSteps, sizeTiers, codexReady, codexCanEnable, claudeReady, claudeCanEnable, compareVer,
     engines, engineOf, modelIn, preferred, anyReady,
     resolveSize, checkSize, blank, switchModel, validate, costOf, statusLine, headerChip,
     makeRecord, recordMeta, provenance, toSource, phase, clock, stepProgress, timeLine, demoArt, agentPrompt, toolStatus,

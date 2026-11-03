@@ -135,6 +135,26 @@
     </div>;
   }
 
+  /* 用 Claude Code 写文字（架构设计 §6.9 的 `agent:claude`）：样子照 CodexImageRow。默认关，只管文本生成（它没有图像生成工具）。 */
+  function ClaudeTextRow({h}) {
+    const app = useApp();
+    const IM = window.BC_CLOUD_IMAGE;
+    const can = IM.claudeCanEnable(h);
+    const st = IM.claudeReady(h, app.claudeTextGen);
+    const on = can && app.claudeTextGen;
+    return <div className={cx('agp-imagegen', on && 'is-on')}>
+      <Ic n="text" className="ic--16 agp-imagegen__ic" />
+      <div className="grow">
+        <div className="row gap8"><b>用 Claude Code 写文字</b>{on ? <Chip tone="positive">已打开</Chip> : null}</div>
+        <p>{can ? (on && st.caution ? st.caution
+          : '不用密钥，用你的 Claude 订阅；一次一个请求，比 API 慢。不会自动选它：在文本生成的模型菜单里选，或在设置 › 模型 › 文本生成设成默认。打开后，翻译、润色这些文字会发到这台电脑上登录的 Claude 账号。它不能画图。')
+          : `${st.why}。`}</p>
+      </div>
+      <Switch on={on} disabled={!can} ariaLabel="用 Claude Code 写文字"
+        onChange={(v) => { app.setClaudeTextGen(v); app.toast(v ? '已打开 Claude Code 写文字 · 文本模型菜单里多了 Claude Code' : '已关闭 Claude Code 写文字'); }} />
+    </div>;
+  }
+
   function AgentProviderCard({h, isDefault, open, onToggle, catalog, onRefreshModels, failRun, onRemove}) {
     const app = useApp();
     const state = S.health(h);
@@ -239,6 +259,7 @@
           2026-10-28（issue #111）：同一个开关也管文本生成的「Codex 写文字」，一次一个请求；文本生成没有自动顺序，只在用户选它
           或把它设成默认时用。 */}
       {h.id === 'codex' && h.found ? <CodexImageRow h={h} /> : null}
+      {h.id === 'claude' && h.found ? <ClaudeTextRow h={h} /> : null}
 
       {problem ? <div className={cx('agp-problem', problem.kind === 'login' ? 'is-notice' : 'is-negative')} role="alert">
         <Ic n="alert" className="ic--16" />

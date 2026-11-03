@@ -16,7 +16,7 @@
   /** 编辑器里用的样子：`name` 写进摘要句与提示（智能体是「Codex · 模型 · 强度」），`note` 是没连上的原因。 */
   const editorModel = (m, effort) => Object.assign({}, m, {
     name: m.agent ? L().pickLabel(m, effort) : m.name, effort: m.agent ? effort || null : null,
-    note: m.ready ? (m.agent ? m.caution || '用你的 Codex 订阅' : null) : m.agent ? m.why : '未连接 key',
+    note: m.ready ? (m.agent ? m.caution || `用你的 ${m.plan} 订阅` : null) : m.agent ? m.why : '未连接 key',
   });
   /** 文本模型清单，换成编辑器的样子；`effort` 是这一处记的推理强度（只给智能体）。 */
   const editorModels = (app, effort) => window.BC_TEXT_CATALOG(app).map((m) => editorModel(m, effort));

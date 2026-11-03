@@ -2,7 +2,7 @@
    视频：新增一份译文与目标语言的字幕层，可以双语显示，原文不动；同一种语言已有译文时新增一份、不覆盖。
    字幕条目与字幕文件：结果是保存位置里译好的字幕文件、Space 里的一个字幕条目，时间码不变，原文件不动。
    页面按统一骨架排（tool-frame.jsx）：输入 → 模型 → 选项 → 保存位置 → 开始；写进视频时不显示保存位置。
-   文本模型是 API 提供方的在线服务，或者设置 › Agent 打开了「用 Codex 画图和写文字」时的 Codex（智能体）：
+   文本模型是 API 提供方的在线服务，或者设置 › Agent 打开了写文字的智能体（Codex、Claude Code）：
    先选提供方、再选它的模型（两级菜单，text-model-picker.jsx），智能体还选推理强度；
    没同意过的，开始前在这一页说明要发什么、发给谁（当场授权）。 */
 (function () {
@@ -21,11 +21,12 @@
     const catalog = window.BC_TEXT_CATALOG(app);
     const model = L.initial(catalog, form.model, app.cloudLlmDefault);
     const effort = model && model.agent ? form.effort || null : null;
-    const need = model ? RUNS.need({recipient: model.provider, data: 'transcript', chars}) : null;
+    /* 智能体的授权在打开它的开关时发放（架构设计 §6.9），这里不再问；模型行下面那句已经写明发给谁。 */
+    const need = model && !model.agent ? RUNS.need({recipient: model.provider, data: 'transcript', chars}) : null;
     return {catalog, id: model ? model.id : null, model, effort, need,
-      name: model ? (model.agent ? `${L.pickLabel(model, effort)} · 用你的 Codex 订阅` : `${model.provider} · ${model.name} · 在线`) : ''};
+      name: model ? (model.agent ? `${L.pickLabel(model, effort)} · 用你的 ${model.plan} 订阅` : `${model.provider} · ${model.name} · 在线`) : ''};
   }
-  /** 文本模型清单（API 提供方的在线服务，加上智能体 Codex），给模型行（tool-frame.jsx）判断有没有能用的、选中的为什么不能用 */
+  /** 文本模型清单（API 提供方的在线服务，加上写文字的智能体），给模型行（tool-frame.jsx）判断有没有能用的、选中的为什么不能用 */
   const textModels = (tm) => tm.catalog.map((m) => ({id: m.id, label: `${m.provider} · ${m.name}`, local: false, agent: !!m.agent, why: m.why || null, ok: !!m.ready}));
   /** 文本模型一行：先选提供方、再选模型的两级菜单（text-model-picker.jsx）；没有连接的模型时给「去设置」；
       `onChange({model, effort})`；`what`：会发出去的内容 */
@@ -34,7 +35,7 @@
     const settings = {r: 'settings', sec: 'cloud', tab: 'llm'};
     return <window.ToolModelRow label="用哪个文本模型" models={textModels(tm)} value={tm.id || null} onChange={(model) => onChange({model, effort: null})} settings={settings}
       picker={<window.TextModelPicker list={tm.catalog} value={tm.id} effort={tm.effort} onChange={onChange} settings={settings} />}>
-      {m && m.ready ? <span className="t-detail-xs">{m.agent ? `${what}会发到你在这台电脑上登录的 Codex 账号${m.caution ? ` · ${m.caution}` : ' · 一次一个请求，比 API 慢'}` : `${m.provider} · ${what}会发到这家服务`}</span> : null}
+      {m && m.ready ? <span className="t-detail-xs">{m.agent ? `${what}会发到你在这台电脑上登录的 ${m.plan} 账号${m.caution ? ` · ${m.caution}` : ' · 一次一个请求，比 API 慢'}` : `${m.provider} · ${what}会发到这家服务`}</span> : null}
     </window.ToolModelRow>;
   }
   const textModelReason = (tm) => window.BC_TOOL_FRAME.modelReason(textModels(tm), tm.id, '文本模型');

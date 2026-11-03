@@ -7,22 +7,37 @@
   const CODEX_TEXT_ID = CODEX_PROVIDER + '/text-gen';
   /** API key 登录时写文字的提醒（画图那句说「可能画不了」，写文字只有费用一条）。 */
   const CODEX_TEXT_CAUTION = '用 API key 登录 · 费用不在订阅里';
-  /** 文本模型清单：能用的在前（2026-10-28 用户要求：配好的排前面），同一状态里 API 提供方在前、Codex 在后——
-      Codex 能用时排在已连接的提供方之后、没连接的之前。`codex`（BC_CLOUD_IMAGE.codexReady 的结果加上 Codex 的模型表 `models`，
-      没装 Codex 时 null）给了才列 Codex：「Agent 默认模型」打头，再是它的模型（2026-10-28 用户要求：Agent 能选模型和推理强度），
-      key 是 `agent:codex/<模型 id>`；不能用时照样列出、写原因；API key 登录时能用但带 `caution`，开页不自动选它。 */
-  function models(catalog, saved, codex) {
+  /** 写文字的智能体：Codex 与 Claude Code（`agent:claude`，只写文字：Claude Code 没有图像生成工具）。`name` 是菜单里的名字，
+      `plan` 是「用你的 X 订阅」里的 X。别的 Driver 做不到受限的一次性调用（架构设计 §6.9），不在这张表里。 */
+  const TEXT_AGENTS = {
+    codex: {name: 'Codex', plan: 'Codex'},
+    claude: {name: 'Claude Code', plan: 'Claude'},
+  };
+  const CLAUDE_PROVIDER = 'agent:claude';
+  /** 一家智能体的「Agent 默认模型」：不传模型，按它自己的配置选。 */
+  const agentTextId = (providerId) => providerId + '/text-gen';
+  /** 文本模型清单：能用的在前（2026-10-28 用户要求：配好的排前面），同一状态里 API 提供方在前、智能体在后——
+      智能体能用时排在已连接的提供方之后、没连接的之前。`agents`：每家一项，是 BC_CLOUD_IMAGE.codexReady / claudeReady 的结果加上
+      `id`（`codex`、`claude`，不给按 `codex`）与模型表 `models`；只给一家时可以不包数组，没装的那家不给。「Agent 默认模型」打头，
+      再是它的模型（2026-10-28 用户要求：Agent 能选模型和推理强度），key 是 `agent:<id>/<模型 id>`；不能用时照样列出、写原因；
+      API key 登录时能用但带 `caution`，开页不自动选它。 */
+  function models(catalog, saved, agents) {
     const cloud = (catalog || []).flatMap(p => (p.models || []).filter(m => m.kind === 'llm').map(m => ({
       id: p.id + '/' + m.id, providerId: p.id, name: m.id, provider: p.name, ready: (saved || []).includes(p.id),
     })));
-    const agent = (id, model, name, dflt) => ({id, providerId: CODEX_PROVIDER, model, name, provider: 'Codex', ready: !!codex.ready, agent: true,
-      why: codex.ready ? null : codex.why, caution: codex.caution ? CODEX_TEXT_CAUTION : null, dflt: !!dflt});
-    const all = codex ? cloud.concat([agent(CODEX_TEXT_ID, null, 'Agent 默认模型'),
-      ...(codex.models || []).map(m => agent(CODEX_PROVIDER + '/' + m.id, m.id, m.name || m.id, m.dflt))]) : cloud;
+    const agentRows = (a) => {
+      const providerId = 'agent:' + (a.id || 'codex');
+      const known = TEXT_AGENTS[a.id || 'codex'];
+      const row = (id, model, name, dflt) => ({id, providerId, model, name, provider: known.name, plan: known.plan, ready: !!a.ready, agent: true,
+        why: a.ready ? null : a.why, caution: a.caution ? CODEX_TEXT_CAUTION : null, dflt: !!dflt});
+      return [row(agentTextId(providerId), null, 'Agent 默认模型'),
+        ...(a.models || []).map(m => row(providerId + '/' + m.id, m.id, m.name || m.id, m.dflt))];
+    };
+    const all = cloud.concat((Array.isArray(agents) ? agents : agents ? [agents] : []).flatMap(agentRows));
     return [...all.filter(m => m.ready), ...all.filter(m => !m.ready)];
   }
   /** 没选过时选哪只：`saved` 还在单子里就用它（不能用也留着，界面说原因）；否则设置里的默认模型（能用时）；
-      再是第一只能用、不用提醒的（API key 登录的 Codex 不自动选）；都没有时第一只。 */
+      再是第一只能用、不用提醒的（API key 登录的智能体不自动选）；都没有时第一只。 */
   function initial(list, saved, dflt) {
     const of = (id) => list.find(m => m.id === id);
     const d = of(dflt);
@@ -38,18 +53,18 @@
     for (const m of list) {
       const row = rows.find(r => r.id === m.providerId);
       if (row) { row.models.push(m); continue; }
-      rows.push({id: m.providerId, name: m.provider, agent: !!m.agent, ready: !!m.ready, why: m.why || null, caution: m.caution || null,
+      rows.push({id: m.providerId, name: m.provider, agent: !!m.agent, plan: m.plan || null, ready: !!m.ready, why: m.why || null, caution: m.caution || null,
         on: !!cur && cur.providerId === m.providerId, models: [m]});
     }
     return rows.map(r => Object.assign(r, {sub: r.agent
-      ? `智能体 · ${r.ready ? r.caution || '用你的 Codex 订阅 · 比 API 慢' : r.why}`
+      ? `智能体 · ${r.ready ? r.caution || `用你的 ${r.plan} 订阅 · 比 API 慢` : r.why}`
       : r.ready ? `已连接 · ${r.models.length} 个模型` : '未连接 · 去设置连接'}));
   }
-  /** 第二级：这家的模型。智能体的第一行是「Agent 默认模型」（按 Codex 配置选）；记住的模型从 Codex 的模型表里没了时
+  /** 第二级：这家的模型。智能体的第一行是「Agent 默认模型」（按它自己的配置选）；记住的模型从它的模型表里没了时
       照样列出、写明（同 model-agent.js `modelRows`）。 */
   function modelRows(row, value) {
     const rows = row.models.map(m => ({id: m.id, name: m.name,
-      sub: m.agent ? (m.model ? (m.dflt ? '默认' : null) : '按 Codex 配置选择') : null, on: m.id === value}));
+      sub: m.agent ? (m.model ? (m.dflt ? '默认' : null) : `按 ${m.provider} 配置选择`) : null, on: m.id === value}));
     if (row.agent && value && value.indexOf(row.id + '/') === 0 && !rows.some(r => r.on)) {
       rows.push({id: value, name: value.slice(row.id.length + 1), sub: '当前列表未提供此模型', on: true});
     }
@@ -124,7 +139,7 @@
     }));
     return {text: srt(cues), cues, lines: cues.length, dur: Math.max(...cues.map(c => c.end)), lang: form.lang};
   }
-  const api = {SAMPLE, CODEX_PROVIDER, CODEX_TEXT_ID, CODEX_TEXT_CAUTION, models, initial, providers, modelRows, EFFORTS, effortOf, pickLabel, parseSubtitles, srt, request, translatedCues, demo};
+  const api = {SAMPLE, CODEX_PROVIDER, CODEX_TEXT_ID, CODEX_TEXT_CAUTION, CLAUDE_PROVIDER, TEXT_AGENTS, agentTextId, models, initial, providers, modelRows, EFFORTS, effortOf, pickLabel, parseSubtitles, srt, request, translatedCues, demo};
   if (typeof window !== 'undefined') window.BC_LLM_TOOLS = api;
   if (typeof module !== 'undefined') module.exports = api;
 })();

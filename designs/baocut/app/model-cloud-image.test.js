@@ -101,6 +101,14 @@ test('Codex 就绪门：未装 / 版本过旧 / 未登录 / 开关关着各给�
   assert.equal(I.codexReady({found: true, ver: '0.136.0', loggedIn: false}, true).problem, 'login');
   assert.equal(I.codexReady(codexOk, false).problem, 'off');
   assert.equal(I.codexReady(codexOk, true).ready, true);
+  const claudeOk = {found: true, ver: '2.1.0', minVer: '2.0.0', loggedIn: true};
+  assert.equal(I.claudeReady(null, true).problem, 'missing');
+  assert.equal(I.claudeReady({...claudeOk, ver: '1.9.0'}, true).problem, 'outdated');
+  assert.equal(I.claudeReady({...claudeOk, loggedIn: false}, true).problem, 'login');
+  assert.equal(I.claudeReady(claudeOk, false).problem, 'off');
+  assert.equal(I.claudeCanEnable(claudeOk), true, '没打开时开关仍能拨');
+  assert.equal(I.claudeReady(claudeOk, true).caution, null);
+  assert.match(I.claudeReady({...claudeOk, auth: 'apikey'}, true).caution, /费用不在订阅里/);
   assert.equal(I.codexReady(codexOk, true).caution, null);
   // API key 登录（2026-10-12）：能选，但带提醒；开关照样能开
   assert.deepEqual(I.codexReady(codexApiKey, true), {ready: true, why: null, problem: null, caution: I.CODEX_API_KEY_CAUTION});

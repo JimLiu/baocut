@@ -8,6 +8,19 @@ test('文本工具只列文本模型，并从共用服务商连接状态判定�
   assert.deepEqual(list, [{id:'p/text',providerId:'p',name:'text',provider:'服务商',ready:true}]);
   assert.equal(L.models([{id:'p',models:[{id:'text',kind:'llm'}]}], [])[0].ready, false);
 });
+test('写文字的智能体可以有好几家：Codex 与 Claude Code 各是一家提供方，能用的在前，文案用各自的名字', () => {
+  const cat = [{id:'p',name:'服务商',models:[{id:'text',kind:'llm'}]}];
+  const claude = {id:'claude', ready:true, models:[{id:'sonnet',name:'Sonnet',dflt:true}]};
+  const list = L.models(cat, ['p'], [{id:'codex', ready:false, why:'Codex 需要登录'}, claude]);
+  assert.deepEqual(list.map(m => m.id), ['p/text', L.agentTextId(L.CLAUDE_PROVIDER), 'agent:claude/sonnet', L.CODEX_TEXT_ID]);
+  const rows = L.providers(list, 'agent:claude/sonnet');
+  assert.deepEqual(rows.map(r => [r.id, r.on]), [['p', false], ['agent:claude', true], ['agent:codex', false]]);
+  assert.equal(rows[1].sub, '智能体 · 用你的 Claude 订阅 · 比 API 慢');
+  assert.equal(rows[2].sub, '智能体 · Codex 需要登录');
+  assert.equal(L.modelRows(rows[1], null)[0].sub, '按 Claude Code 配置选择');
+  assert.equal(L.pickLabel(list[2], 'high'), 'Claude Code · Sonnet · 高');
+  assert.deepEqual(L.models(cat, ['p'], []).map(m => m.id), ['p/text'], '都没装时只有 API 提供方');
+});
 test('能用的在前：Codex 写文字排在已连接的提供方后面、没连接的前面；没装时不列，不能用时写原因，API key 登录时带提醒', () => {
   const cat = [{id:'p',name:'服务商',models:[{id:'text',kind:'llm'}]}];
   assert.equal(L.models(cat, ['p'], null).length, 1);

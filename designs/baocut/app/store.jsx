@@ -200,6 +200,8 @@
        设置 › Agent 的「用 Codex 画图和写文字」开关（文本生成的 Codex 也看它）。已连上的 API 提供方沿用 cloudSaved（同一把密钥给 STT / LLM / TTS / 图像共用）。 */
     const [cloudImageDefault, setCloudImageDefault] = useState('');
     const [codexImageGen, setCodexImageGen] = useState(true);
+    /* 设置 › Agent 的「用 Claude Code 写文字」（架构设计 §6.9 的 `agent:claude`）：默认关，文本生成的模型菜单看它。 */
+    const [claudeTextGen, setClaudeTextGen] = useState(false);
     const modelInstalled = useCallback((id) => {
       const C = window.BC_CLOUD_TTS;
       if (C.isCloud(id)) return cloudSaved.indexOf(C.providerOf(id)) >= 0;
@@ -873,7 +875,7 @@
       providerSettings, providerAccounts, patchProvider, setAccounts, cloudAsrDefault, setCloudAsrDefault,
       cloudCatalog, cloudLlmDefault, setCloudLlmDefault,
       cloudSaved, cloudCustom, setCloudCustom, cloudTtsDefault, setCloudTtsDefault,
-      cloudImageDefault, setCloudImageDefault, codexImageGen, setCodexImageGen,
+      cloudImageDefault, setCloudImageDefault, codexImageGen, setCodexImageGen, claudeTextGen, setClaudeTextGen,
       ttsPace, bumpPace,
       mediaStage, setMediaStage, stageMediaDemo, setStageMediaDemo, stageLoadDemo, setStageLoadDemo, coreMarks, setCoreMarks, proxyDemo, patchProxyDemo,
       sessions, sessionById, newSession, patchSession, archiveSession, deleteSessions, sendAgent, stopAgent, answerPermission,

@@ -1,5 +1,5 @@
 /* 文本模型的两级菜单（2026-10-28 用户要求：一长串模型不好选，先选提供方，再选它下面的模型；Agent 要能选模型和推理强度）。
-   第一级：每家提供方一行——API 提供方与智能体（Codex 写文字）在同一张单子里，能用的在前（BC_LLM_TOOLS.models 的次序）；
+   第一级：每家提供方一行——API 提供方与智能体（Codex、Claude Code 写文字）在同一张单子里，能用的在前（BC_LLM_TOOLS.models 的次序）；
    能用的那家点了就地翻到第二级，没连接的、不能用的那家在第一级写明原因，点了去设置，不进第二级。
    第二级：API 提供方是它的模型；智能体是「Agent 默认模型」打头 + 它的模型，再挂推理强度——与会话 composer 那枚 chip
    同一个样子（agent-picker.jsx `ProviderModelPicker`），推理强度跟模型住同一级。
@@ -8,11 +8,15 @@
 (function () {
   const L = window.BC_LLM_TOOLS;
 
-  /** 这台电脑上的文本模型清单：API 提供方（app.cloudCatalog，连没连上看 cloudSaved）+ 装了时的 Codex 与它的模型表。 */
+  /** 这台电脑上的文本模型清单：API 提供方（app.cloudCatalog，连没连上看 cloudSaved）+ 装了的智能体（Codex、Claude Code）与它们的模型表。 */
   function textCatalog(app) {
-    const h = (app.harnessList || []).find((x) => x.id === 'codex') || null;
-    const codex = h && h.found ? Object.assign({}, window.BC_CLOUD_IMAGE.codexReady(h, app.codexImageGen), {models: h.models || []}) : null;
-    return L.models(app.cloudCatalog, app.cloudSaved, codex);
+    const IM = window.BC_CLOUD_IMAGE;
+    const agent = (id, ready, on) => {
+      const h = (app.harnessList || []).find((x) => x.id === id) || null;
+      return h && h.found ? Object.assign({id}, ready(h, on), {models: h.models || []}) : null;
+    };
+    const agents = [agent('codex', IM.codexReady, app.codexImageGen), agent('claude', IM.claudeReady, app.claudeTextGen)].filter(Boolean);
+    return L.models(app.cloudCatalog, app.cloudSaved, agents);
   }
 
   /** 一家提供方的图标（菜单行与收起的那一行共用）：智能体用 Agent 的图标，API 提供方用它自己的。 */
@@ -32,7 +36,7 @@
             suffix={r.ready ? <NavChevron /> : <Ic n="settings" className="ic--14" />}
             onClick={() => (r.ready ? onEnter(r.id) : onSettings(r))} />
         ))}
-        {rows.length ? null : <MenuItem icon="sparkle" label="还没有文本模型" sub="连接一个 API 提供方，或打开「用 Codex 画图和写文字」" onClick={() => onSettings(null)} />}
+        {rows.length ? null : <MenuItem icon="sparkle" label="还没有文本模型" sub="连接一个 API 提供方，或在设置 › Agent 打开 Codex 或 Claude Code 写文字" onClick={() => onSettings(null)} />}
         {children}
       </Menu>
     );
@@ -58,7 +62,7 @@
             <MenuHead>推理强度 · {mine ? L.effortOf(effort).label : L.effortOf(null).label}</MenuHead>
             {L.EFFORTS.map((e) => (
               <MenuItem key={e.k} label={e.label} sub={e.sub} on={mine && e.k === L.effortOf(effort).k}
-                onClick={() => onPick(mine ? value : L.CODEX_TEXT_ID, e.k)} />
+                onClick={() => onPick(mine ? value : L.agentTextId(row.id), e.k)} />
             ))}
           </>
         ) : null}
@@ -86,7 +90,7 @@
         ) : (
           <TextProviderLevel list={list} value={value} onEnter={lv.setLevel} onSettings={goSettings}>
             <MenuRule />
-            <MenuItem icon="settings" label="设置 › 模型 › 文本生成…" sub="连接 API 提供方 · 默认模型 · Codex 写文字" onClick={() => goSettings(null)} />
+            <MenuItem icon="settings" label="设置 › 模型 › 文本生成…" sub="连接 API 提供方 · 默认模型 · 智能体写文字" onClick={() => goSettings(null)} />
           </TextProviderLevel>
         )}
       </Picker>
