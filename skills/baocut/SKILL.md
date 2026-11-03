@@ -35,6 +35,7 @@ BaoCut 是以**可编辑视频**为中心的剪辑工具：素材在时间线上
 | 配乐、加背景音乐、生成一段音乐 | 用户给了音乐就用用户的；没有时本机能生成就按视频的内容与情绪写风格，生成纯音乐，等成片时长定了再生成；放上单独的配乐轨，压在人声之下、片尾淡出，比单次上限长就循环铺满；只要音乐文件时交文件，不建视频 | [music](references/catalog/music.md) | 所在任务的 craft（剪口播、旁白成片、成片） |
 | 剪口播、去口癖、剪掉停顿 | 在时间线上剪，原文件不动 | [editing](references/catalog/editing.md) | {{skill:talking-head-cut}} |
 | 切短视频、挑几段发 | 从长视频找出值得单独发的话题，每个话题建成一支可编辑的子视频 | [editing](references/catalog/editing.md) | {{skill:shorts-segments}} |
+| 剪 vlog、旅拍、活动或生活记录，把一堆原始片段（一个文件夹的素材）剪成一条片子 | 全部导入、按拍摄顺序摆上时间线；每段转写、取帧、写素材日志，本人说的话做主线，没人说话的好画面做 B-roll，按剪辑表剪到目标时长；原文件不动 | [editing](references/catalog/editing.md)、[media](references/catalog/media.md) | {{skill:vlog-from-clips}} |
 | 分章、加时间轴目录 | 写进视频的章节 | [editing](references/catalog/editing.md) | {{skill:video-chapters}} |
 | 总结、提炼要点 | 读带时间的文稿，写总结与可跳转的要点 | [subtitles](references/catalog/subtitles.md) | {{skill:video-summary}} |
 | 写成博客、公众号文章 | 读文稿写成完整文章 | [subtitles](references/catalog/subtitles.md) | {{skill:video-blog}} |
@@ -151,6 +152,7 @@ BaoCut 自带的 craft（做法）。第 1 节的表按用户的话指到其中�
 | {{skill:video-chapters}} | 分章节 | 在话题自然转换处分章，每章一个标题和一句摘要，写进视频的章节 |
 | {{skill:talking-head-cut}} | 剪口播 | 去口癖、长停顿与录废的部分，收紧节奏，按需加强调、B-roll、竖屏取景与配乐闪避 |
 | {{skill:shorts-segments}} | 切短视频 | 从长视频里找出能单独发布的话题，每个话题从钩子剪到讲完，建成可编辑的子视频 |
+| {{skill:vlog-from-clips}} | 素材剪 vlog | 一堆原始片段剪成一条 vlog：逐段转写、取帧、写素材日志，本人说的话做主线，没人说话的好画面做 B-roll，剪到目标时长 |
 | {{skill:narration}} | 旁白成片 | 按实测语速写稿，一个音色一次合成，量时长、只重配不合格的句子，再把画面剪到旁白上 |
 | {{skill:explainer-video}} | 知识讲解视频 | 把概念、新闻或资料讲成没有背景的人也看得懂、看完能复述的讲解成片：从观众的疑问找讲法，给这期找一个自己会讲道理的主体，画面一直在动，按需另出语言或画幅版本 |
 | {{skill:clip-montage}} | 解说混剪 | 拿一条新闻、一件事或一个故事，从网上与视频库里搜素材、切原声，配旁白剪成画面一直在动的片子，推文与引语做成压在画面上的卡片；题材不限 |

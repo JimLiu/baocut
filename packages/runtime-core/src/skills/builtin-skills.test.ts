@@ -34,6 +34,7 @@ const EXPECTED_IDS = [
   'video-chapters',
   'video-production',
   'video-summary',
+  'vlog-from-clips',
 ];
 
 /** 只给会话内智能体的内置 skill：说明书的路由只在工具桥面列出它们，CLI 面的「内置 skill」表也不列。 */
