@@ -303,6 +303,8 @@
     }] : [];
     const actions = [];
     if ((running || s === 'queued') && task.cancellable !== false) actions.push({k: 'cancel', label: '取消'});
+    /* 读不到浏览器 Cookie（缺 macOS 的完全磁盘访问权限）：卡上直接带去系统设置，授权后再重试 */
+    if (s === 'failed' && task.issue === 'cookies') actions.push({k: 'fullDisk', label: '打开系统设置'});
     if (retryable) actions.push({k: 'retry', label: '重试'});
     /* 卡里能播时「播放」会和播放器混淆，交给系统的那一项一律叫「用默认应用打开」 */
     if (files.length && files[0].playable) actions.push({k: 'play', label: '用默认应用打开'});

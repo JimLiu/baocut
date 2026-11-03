@@ -18,6 +18,8 @@
       diag: 'yt-dlp · ERROR: unable to download video data: HTTP Error 403: Forbidden（诊断示例）'},
     login: {title: '这个视频需要登录才能看', body: '已经逐个试过本机浏览器的登录信息，站点仍然要求登录。请先在其中一个浏览器里登录该网站再重试，或在浏览器里下载好再导入本地文件。', action: '换个链接', retryable: false, tools: null,
       diag: 'yt-dlp · ERROR: Sign in to confirm you’re not a bot（诊断示例）'},
+    cookies: {title: '读不到浏览器的 Cookie', body: 'macOS 还没有允许 BaoCut 读取 Safari 的数据。给 BaoCut 授予「完全磁盘访问权限」后重试；也可以在设置 › 视频下载里换一个浏览器。', action: '打开系统设置', retryable: true, tools: null,
+      diag: 'yt-dlp · ERROR: [Errno 1] Operation not permitted: Library/Cookies/Cookies.binarycookies（诊断示例）'},
     unsupported: {title: '还不支持这个来源', body: '下载工具认不出这个网站或页面。换一条视频页面或媒体直链，或改用本地文件。', action: '换个链接', retryable: false, tools: null,
       diag: 'yt-dlp · ERROR: Unsupported URL: https://example.com/page（诊断示例）'},
     invalid: {title: '下载到的文件不能用', body: '文件没有音轨或无法解码，可能是网站给了占位内容。换个链接或改用本地文件；如果怀疑是临时问题，可以重新下载一次。', action: '换个链接', retryable: true, tools: null,

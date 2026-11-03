@@ -154,6 +154,10 @@ test('download：下载中 pct、已下多少、保存到哪、已用与剩余�
   assert.equal(failed.dest.label, '~/Downloads', '失败时仍写要存到哪');
   assert.deepEqual(failed.actions.map((a) => a.label), ['重试']);
   assert.deepEqual(C.download({id: 'd', kind: 'download', status: 'error', issue: 'login'}).actions, []);
+  const cookies = C.download({id: 'd', kind: 'download', status: 'error', issue: 'cookies'});
+  assert.equal(cookies.error, '读不到浏览器的 Cookie');
+  assert.deepEqual(cookies.actions.map((a) => a.k), ['fullDisk', 'retry'], '先带去系统设置授权，再重试');
+  assert.equal(cookies.actions[0].label, '打开系统设置');
   const canceled = C.download({id: 'd', kind: 'download', status: 'error', canceled: true, saveDir: '~/Downloads'});
   assert.deepEqual(canceled.actions.map((a) => a.k), ['retry']);
   assert.equal(canceled.dest, null, '取消后临时文件已删，不写保存到哪');

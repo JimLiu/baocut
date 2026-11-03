@@ -159,13 +159,13 @@
       stopped: () => stoppedTurn(sid, tid, sim),
       failed: (p) => {
         const t = tasksRef.current.find((x) => x.id === tid) || {};
-        const login = t.scenario === 'login';
-        const key = login ? 'login' : 'network';
+        const key = t.scenario === 'login' || t.scenario === 'cookies' ? t.scenario : 'network';
+        const early = key !== 'network';
         const issue = window.BC_IMPORT.issues[key];
         patchTask(tid, {...SIM.progress(sim, p), status: 'error', outcome: 'error', issue: key, error: issue.title, phase: null});
-        markTool(sid, tid, {status: 'failed', took: login ? '4s' : '16s', error: login ? issue.title : `${issue.title}（已下 ${p}%）`}, isRun);
+        markTool(sid, tid, {status: 'failed', took: early ? '4s' : '16s', error: early ? issue.title : `${issue.title}（已下 ${p}%）`}, isRun);
         patchSession(sid, {taskId: null});
-        const end = streamReply(sid, login ? SIM.loginReply(t)
+        const end = streamReply(sid, key === 'login' ? SIM.loginReply(t) : key === 'cookies' ? SIM.cookiesReply(t)
           : `下载在 ${p}% 断了：${issue.title}。检查网络后点下载卡上的「重试」，会从断点接着下。`, 300);
         later(sid, end, () => {
           endTurn(sid);

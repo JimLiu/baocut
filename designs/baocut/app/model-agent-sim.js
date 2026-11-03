@@ -64,6 +64,8 @@
   const FAIL_AT = 34;
   const LOGIN_FAIL_AT = 3;
   const LOGIN_RE = /login|signin|members|private/i;
+  /* 演示：链接里带 safari 或 cookie 的，读 Safari 的 Cookie 被 macOS 拒绝（缺完全磁盘访问权限） */
+  const COOKIES_RE = /cookie|safari/i;
   const hostOf = (u) => { const m = /^https?:\/\/([^/?#]+)/i.exec(u); return m ? m[1].replace(/^www\./i, '').toLowerCase() : ''; };
   function fileOf(u) {
     const m = /\/([^/?#]+\.(mp4|mov|mkv|webm|m4v|mp3|m4a|wav|aac|flac|ogg|opus))(?:[?#]|$)/i.exec(u);
@@ -106,7 +108,7 @@
       close: null,
       sim: {kind: 'download', tool: 'downloads_fetch', args: {site: p.site, name: p.name},
         task: {url: u, site: p.site, name: p.name, title: p.title, sizeMB: p.sizeMB, mediaSec: p.durationSec, hue: p.hue, saveDir: dir,
-          ...DEMO_MEDIA[audio ? 'audio' : 'video'], only: !!o.only, scenario: /fail|broken/i.test(u) ? 'network' : LOGIN_RE.test(u) ? 'login' : 'success'},
+          ...DEMO_MEDIA[audio ? 'audio' : 'video'], only: !!o.only, scenario: /fail|broken/i.test(u) ? 'network' : LOGIN_RE.test(u) ? 'login' : COOKIES_RE.test(u) ? 'cookies' : 'success'},
         result: {}},
     };
   }
@@ -291,7 +293,7 @@
   /** 下载这一拍该不该断：演示的失败链接在 FAIL_AT 断一次；重试过的不再断。要登录的链接读完页面就停（LOGIN_FAIL_AT）。 */
   function downloadFails(task, pct) {
     if (!task || task.retried) return false;
-    if (task.scenario === 'login') return pct >= LOGIN_FAIL_AT;
+    if (task.scenario === 'login' || task.scenario === 'cookies') return pct >= LOGIN_FAIL_AT;
     return task.scenario === 'network' && pct >= FAIL_AT;
   }
 
@@ -303,6 +305,16 @@
     const site = (task && task.site) || '这个网站';
     return `这个视频要登录才能看：试过的浏览器 Cookie 里，${site} 仍然要求登录。`
       + `先在浏览器里登录 ${site}，再到[${L.parse(href).trail}](${href})确认网站登录勾选了那个浏览器。弄好后告诉我，我重新下载。`;
+  }
+
+  /** 读不到浏览器 Cookie 时 Agent 的话：缺的是 macOS 的完全磁盘访问权限，授权按钮在下载卡上（`fullDisk` 动作，
+      正式客户端里来自 LINK_COOKIES_UNAVAILABLE 错误 `details.systemAccess`），Agent 不自己去开系统设置、也不操作电脑。 */
+  function cookiesReply(task) {
+    const L = window.BC_SETTINGS_LINK;
+    const href = '/settings/downloader';
+    return '这个视频没有下载成功：BaoCut 读不到 Safari 的 Cookie，因为 macOS 还没有给 BaoCut「完全磁盘访问权限」。'
+      + '点下载卡上的「打开系统设置」，BaoCut 会直接打开那一页；启用 BaoCut 旁边的开关，再按系统提示重新打开 BaoCut。'
+      + `弄好后告诉我，我重新下载。想换个浏览器的话，到[${L.parse(href).trail}](${href})改网站登录的勾选。`;
   }
 
   /** 下载完成后 Agent 的收尾话与接着起的转录；只下载的（`only`）不起转录，话里写文件存在哪。 */
@@ -331,5 +343,5 @@
 
   window.BC_AGENT_SIM = {TRANSCRIBE_RE, URL_RE, SCHEDULE, PACE, LANG, FAIL_AT, LOGIN_FAIL_AT, planFor, transcribePlan, noTranscriberPlan, downloadPlan, probe, simFor, retrySim,
     asrTask, waitPlan, waitClose,
-    stageAt, progress, done, pace, downloadFails, loginReply, afterDownload, stoppedText};
+    stageAt, progress, done, pace, downloadFails, loginReply, cookiesReply, afterDownload, stoppedText};
 })();

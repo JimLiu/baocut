@@ -131,3 +131,35 @@ test('无论是否检测到 Cookie 库，Chrome 都是默认勾选项；手动�
     assert.match(C.notes(['chrome'], platform, C.demoDetected(platform, 'none')).join(''), /没有找到 Chrome 的 Cookie 库/);
   }
 });
+
+test('完全磁盘访问权限：只有 macOS 主机报告「未授权」时才提示，勾选了 Safari 或访问被拒绝的浏览器才算需要', () => {
+  assert.deepEqual(C.fullDiskNeeds(['chrome', 'safari'], 'darwin', several, 'missing'), ['safari']);
+  assert.deepEqual(C.fullDiskNeeds(['chrome', 'firefox'], 'darwin', several, 'missing'), []);
+  assert.deepEqual(C.fullDiskNeeds(['chrome'], 'darwin', C.DEMO_DETECTED.darwin.denied, 'missing'), ['chrome']);
+  /* 已授权、没有报告（远端或老版本）、别的系统：都不提示 */
+  assert.deepEqual(C.fullDiskNeeds(['safari'], 'darwin', several, 'granted'), []);
+  assert.deepEqual(C.fullDiskNeeds(['safari'], 'darwin', several, undefined), []);
+  assert.deepEqual(C.fullDiskNeeds(['safari'], 'win32', several, 'missing'), []);
+});
+
+test('授权卡的文案：没去过系统设置时点名浏览器，去过之后改说怎么重新启动；跳过就从这次的列表里去掉它们', () => {
+  const idle = C.fullDiskCopy(['safari'], 'idle');
+  assert.equal(idle.title, '允许 BaoCut 读取 Safari 的 Cookie');
+  assert.equal(idle.primary, '打开系统设置');
+  assert.equal(idle.secondary, null);
+  const opened = C.fullDiskCopy(['safari', 'chrome'], 'opened');
+  assert.equal(opened.primary, '重新启动 BaoCut');
+  assert.equal(opened.secondary, '再次打开系统设置');
+  assert.match(opened.body, /「\+」/);
+  assert.deepEqual(C.withoutFullDisk(['chrome', 'safari', 'edge'], ['safari']), ['chrome', 'edge']);
+});
+
+test('带授权卡时说明里不再重复去系统设置的步骤；没有授权卡时照旧', () => {
+  const withCard = C.notes(['chrome', 'safari'], 'darwin', several, 'missing');
+  assert.doesNotMatch(withCard.join(''), /完全磁盘访问权限/);
+  assert.match(C.notes(['chrome', 'safari'], 'darwin', several)[3], /完全磁盘访问权限/);
+  assert.doesNotMatch(C.notes(['chrome', 'safari'], 'darwin', several, 'granted').join(''), /完全磁盘访问权限/, '已授权时没有要补的步骤');
+  const denied = C.DEMO_DETECTED.darwin.denied;
+  assert.doesNotMatch(C.notes(['chrome'], 'darwin', denied, 'missing').join(''), /完全磁盘访问权限/);
+  assert.match(C.notes(['chrome'], 'darwin', denied).join(''), /完全磁盘访问权限/);
+});

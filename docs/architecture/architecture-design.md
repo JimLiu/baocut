@@ -3203,6 +3203,18 @@ BaoCut 依赖一些不随应用发布的外部程序，也会替用户在系统�
 - 桌面宿主负责页内查找、忽略缓存刷新和设备视口模拟：每个标签保留状态，查找结果只接收最新请求编号；网页获得焦点时的快捷键转回所属窗口。原生视图就绪后才启用或撤销设备模拟；菜单与弹层出现时隐藏视图，避免盖住界面。弹窗不启动外部应用，拒绝权限与转交下载会发出可关闭的提示。
 - 文件查看器不经网页标签读取文件：沿用 `media.resolve` 的受限句柄。PDF.js 的 Worker、CMap、标准字体与图像解码 WASM 随客户端打包，使用本地 Blob Worker 和内嵌二进制资源，Electron 的 `file://` 与 Web 使用相同路径；只解析与渲染，不执行 PDF 动作。HTML 经静态清理后在无权限 sandbox 的 `srcdoc` 中显示，CSP 禁止网络、脚本、表单，链接导航属性被移除。Markdown 里的相对路径图片按文章所在的目录解析成同一种定位（会话或项目里的相邻路径；Space 条目按来源目录拼，来源目录之外的交付物先找同一目录里登记过的条目，桌面端再退回 `{ localPath }`；本机文件取同一目录的 `{ localPath }`），同样经 `media.resolve` 取受限句柄显示，越界与取不到时显示替代文字；带协议的地址仍按 react-markdown 的默认过滤处理，绝对路径与 `file:` 不解析，不因为文章引用扩大可读范围。
 
+
+### 12.11 系统访问权限（macOS 完全磁盘访问权限）
+
+产品规则见[产品设计 §7.9](../product/product-design.md#79-系统访问权限macos)。这里是实现边界：
+
+- **状态检测在 Runtime**。Runtime 在 macOS 上以只读方式打开一个没有完全磁盘访问权限就读不到的系统文件（`/Library/Application Support/com.apple.TCC/TCC.db`），不读内容：成功是 `granted`，`EPERM` / `EACCES` 是 `missing`，其他错误（文件不在、别的系统）不报告。结果由 `runtime.access {}` 返回 `{ platform, fullDiskAccess? }`，`externalTools.cookieBrowsers` 同样带 `fullDiskAccess`（只有 macOS 主机有）；每次调用重新探测，不缓存，授权后重新启动或回到应用时界面重新取。打开被拒绝通常会让系统把 BaoCut 记进完全磁盘访问权限的列表（开关关着），界面仍说明列表里没有时用「+」添加；不同系统版本的表现须实机验证。
+- **授权属于应用包**。Runtime 与 yt-dlp、ffmpeg 等子进程由 BaoCut.app 拉起，系统按负责进程（BaoCut.app）判定，授权后子进程一并受益；这一点须在已签名的包上实机验证，开发态（从终端拉起）归属终端，不能代表发布包。
+- **错误分类**。Runtime 把 macOS 上对受保护位置（`/Volumes` 下的卷、桌面、文稿、下载、`~/Library` 下的 Safari 与容器目录）的 `EPERM` 统一分类为 `SYSTEM_ACCESS_DENIED`（`forbidden`，`details.systemAccess: 'fullDiskAccess'`、`details.path`、`details.retryability: 'after-user-action'`），出现在项目目录读写、素材导入与导出落盘、下载保存目录等处；普通的 `EACCES`（文件权限位）不在此列，仍按各自的错误报告。yt-dlp 读不到浏览器 Cookie 且输出是 `Operation not permitted` 时，`LINK_COOKIES_UNAVAILABLE` 的 `details` 同样带 `systemAccess: 'fullDiskAccess'`。界面与智能体只按 `details.systemAccess` 决定是否出现授权动作，不按文案判断。
+- **宿主桥**。桌面端 `HostBridge.systemAccess`（只在 macOS 提供）有两个方法：`openFullDiskAccess()` 用 `shell.openExternal` 打开固定的 `x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`，地址写死在主进程，不接受渲染进程传入；`relaunch()` 经现有退出确认（`quit-prompt`）后 `app.relaunch()` 再退出。渲染进程不能借它打开别的系统设置页。Web 与别的系统没有这个桥，界面不显示按钮。Runtime 在别的电脑（远端）时，界面看 Runtime 报告的 `platform` 与连接是否本机，不满足就只显示文字说明。
+- **不绕过系统**。不读写 TCC 数据库，不用辅助功能或自动化去点系统设置，不提示用户关闭 SIP；智能体没有打开系统设置的工具，`mcp` 对外服务同样没有。
+- **跨平台审计**。Windows 没有等价的统一权限，Chromium 内核的 Cookie 问题（占用、应用绑定加密）按原来的说明处理；Linux 与 Web 不适用。验证时在 macOS 实机覆盖：未授权时的检测值、系统设置页是否直接打开、授权重启后值变为 `granted`、重启时有活动任务的确认、Runtime 在远端时不出现按钮。
+
 ---
 
 ## 13. 代码组织与版本合同

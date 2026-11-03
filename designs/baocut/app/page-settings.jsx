@@ -143,6 +143,8 @@
         <Row label="发送匿名使用统计" desc="只发功能使用次数，不含任何媒体内容或文本。">
           <Switch on={false} onChange={() => app.toast('已开启')} />
         </Row>
+        {/* macOS 主机的完全磁盘访问权限：外置硬盘与桌面、文稿、下载里的素材、Safari 的 Cookie 都要它；随时可以先授权（只有 App 入口） */}
+        {window.FullDiskRow ? <window.FullDiskRow /> : null}
         <Row label="本地分析缓存" desc="波形、缩略图这类派生数据，随时可以重建。">
           <Btn variant="secondary" size="s" onClick={() => app.toast('已清空缓存', 'positive')}>清空</Btn>
         </Row>

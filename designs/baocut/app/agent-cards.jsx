@@ -20,6 +20,7 @@
       switch (a.k) {
         case 'cancel': app.cancelTask(task); return;
         case 'retry': app.retryAgentTask(task.id); return;
+        case 'fullDisk': window.BC_DOWNLOADER.openFullDisk(app); return;
         case 'play': app.toast(`用默认播放器打开 ${file ? file.name : '成片'}（演示）`); return;
         case 'reveal': app.toast(`在文件夹中显示 ${file ? file.path || file.name : '成片'}（演示）`); return;
         default: if (a.route) app.go(a.route);
@@ -135,7 +136,7 @@
       {c.files.map((f) => <DownloadFile key={f.path} id={c.id} f={f} />)}
       {c.time || c.actions.length ? <div className="dlcard__foot">
         <span className="dlcard__time">{c.time}</span>
-        {c.actions.map((a) => <Btn key={a.k} variant={a.k === 'cancel' || a.k === 'play' || a.k === 'reveal' ? 'quiet' : 'secondary'} size="s"
+        {c.actions.map((a) => <Btn key={a.k} variant={a.k === 'cancel' || a.k === 'play' || a.k === 'reveal' ? 'quiet' : a.k === 'fullDisk' ? 'accent' : 'secondary'} size="s"
           onClick={() => run(a, file)}>{a.label}</Btn>)}
       </div> : null}
     </section>;

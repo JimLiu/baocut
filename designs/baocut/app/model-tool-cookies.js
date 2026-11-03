@@ -87,8 +87,11 @@
    * macOS 上的钥匙串授权与 Safari 的完全磁盘访问权限；Windows 上 Chromium 内核的浏览器开着时读不到，
    * Chrome、Edge、Brave 的应用绑定加密 yt-dlp 目前可能解不开，没勾 Firefox 时建议改用它。
    */
-  function notes(list, platform, detected = []) {
+  function notes(list, platform, detected = [], access) {
     const names = list.map(label);
+    /* Runtime 报告了完全磁盘访问权限的状态（macOS 主机）：未授权时由带按钮的卡片说（fullDiskNeeds），已授权时没有要补的步骤；
+       两种情况下说明里都不再写去系统设置的步骤。没有报告（远端或老版本）时才写。 */
+    const covered = platform === 'darwin' && (access === 'missing' || access === 'granted');
     const lines = [list.length === 0 ? '都不勾就匿名下载。网站要求登录或验证时，先在浏览器里登录这个网站，再勾选那个浏览器。'
       : list.length === 1 ? `用 ${names[0]} 的 Cookie 访问目标网站。`
         : `按 ${names.join(' → ')} 的顺序逐个试：读不到某个浏览器的 Cookie、或网站仍要求登录时换下一个，用上一个就停，结果里写明用的是哪个。`];
@@ -96,7 +99,7 @@
     if (platform === 'darwin') {
       const keychain = list.filter((id) => CHROMIUM.indexOf(id) >= 0).map(label);
       if (keychain.length) lines.push(`macOS 会为 ${keychain.join('、')}${keychain.length > 1 ? ' 各' : ' '}弹出一次钥匙串授权，选「始终允许」以后就不再问。`);
-      if (list.indexOf('safari') >= 0 && !detected.some((b) => b.accessDenied)) lines.push('读取 Safari 的 Cookie 要先在「系统设置 › 隐私与安全性 › 完全磁盘访问权限」里允许 BaoCut。');
+      if (list.indexOf('safari') >= 0 && !detected.some((b) => b.accessDenied) && !covered) lines.push('读取 Safari 的 Cookie 要先在「系统设置 › 隐私与安全性 › 完全磁盘访问权限」里允许 BaoCut。');
     }
     if (platform === 'win32') {
       const chromium = list.filter((id) => CHROMIUM.indexOf(id) >= 0).map(label);
@@ -106,11 +109,41 @@
       if (chromium.length && list.indexOf('firefox') < 0) lines[lines.length - 1] += '需要登录时，建议在 Firefox 里登录目标网站后改勾 Firefox。';
     }
     const denied = detected.filter((b) => b.accessDenied).map((b) => label(b.id));
-    if (denied.length) lines.push(platform === 'darwin'
+    if (denied.length && !covered) lines.push(platform === 'darwin'
       ? `BaoCut 没有权限访问 ${denied.join('、')} 的浏览器数据。在运行 BaoCut 的电脑上，打开「系统设置 › 隐私与安全性 › 完全磁盘访问权限」，添加并启用 BaoCut；完全退出并重新打开 BaoCut，再点「重新检测浏览器」。`
       : `BaoCut 没有权限访问 ${denied.join('、')} 的浏览器数据。在运行 BaoCut 的电脑上，允许 BaoCut 访问这些浏览器的数据目录，再点「重新检测浏览器」。`);
     if (detected.some((b) => b.id === 'chrome' && b.cookieStoreMissing)) lines.push('没有找到 Chrome 的 Cookie 库。要使用 Chrome 的网站登录，在 Chrome 里登录目标网站，再点「重新检测浏览器」。');
     return lines;
+  }
+
+  /* ---------- 完全磁盘访问权限（macOS） ---------- */
+
+  /**
+   * 读取 Cookie 要先有「完全磁盘访问权限」的浏览器（只看勾选的）：Safari，以及检测时数据访问被拒绝的。
+   * `access` 是 Runtime 所在主机报告的 `fullDiskAccess`（`granted` 或 `missing`，只有 macOS 主机有）；
+   * 没有这个值（别的系统、远端主机没有桌面入口、老版本）时不提示，按原来的文字说明。
+   */
+  function fullDiskNeeds(list, platform, detected, access) {
+    if (platform !== 'darwin' || access !== 'missing') return [];
+    const denied = new Set((detected || []).filter((b) => b.accessDenied).map((b) => b.id));
+    return (list || []).filter((id) => id === 'safari' || denied.has(id));
+  }
+
+  /** 授权卡的文案：`step` 是 `idle`（还没去系统设置）或 `opened`（已经打开过系统设置，等用户启用）。 */
+  function fullDiskCopy(ids, step) {
+    const names = ids.map(label).join('、');
+    return step === 'opened'
+      ? {title: `在系统设置里启用 BaoCut，再回到这里`,
+        body: '启用 BaoCut 旁边的开关；系统问是否退出并重新打开时选「退出并重新打开」。列表里没有 BaoCut 时，点列表下方的「+」把它添加进去。系统没有提示重新打开时，点下面的「重新启动 BaoCut」。',
+        primary: '重新启动 BaoCut', secondary: '再次打开系统设置'}
+      : {title: `允许 BaoCut 读取 ${names} 的 Cookie`,
+        body: 'macOS 要求先给 BaoCut「完全磁盘访问权限」。点「打开系统设置」，BaoCut 会直接带你到这一页，不用自己去找。BaoCut 只读取你勾选的浏览器，不读别的文件。',
+        primary: '打开系统设置', secondary: null};
+  }
+
+  /** 下载前的询问：这一次要用到、又没有授权的浏览器；「这次跳过」就从这次冻结的列表里去掉它们，用后面的浏览器继续。 */
+  function withoutFullDisk(list, needs) {
+    return (list || []).filter((id) => needs.indexOf(id) < 0);
   }
 
   /* 设置的取值：`ALL` 或浏览器列表（空列表 = 匿名下载） */
@@ -167,5 +200,5 @@
   }
 
   root.BC_TOOL_COOKIES = {LABEL, DEMO_DETECTED, EMPTY, ALL, label, demoDetected, demoScenes, ordered, allState, toggleAll, toggle, setting, resolve, save,
-    notes, subText, usedText, failureText};
+    notes, subText, usedText, failureText, fullDiskNeeds, fullDiskCopy, withoutFullDisk};
 })();

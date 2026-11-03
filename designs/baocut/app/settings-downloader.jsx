@@ -15,6 +15,53 @@
   const detectedOf = (d) => CK.demoDetected(hostOf(d), (d && d.demoBrowsers) || 'several');
   /** 这一次下载按顺序试的浏览器：设置的值按当前检测结果展开。 */
   const cookieList = (app) => CK.resolve(CK.setting(app.prefs), detectedOf(app.downloader));
+  /* 完全磁盘访问权限（macOS，product-design §2.7，architecture §7.9）：`externalTools.cookieBrowsers` 带回 Runtime 所在主机的
+     `fullDiskAccess`（`granted` / `missing`，只有 macOS 主机有）。能直接带去系统设置的只有桌面端、Runtime 在这台电脑上的情形；
+     原型是桌面端，演示挡位决定它是 `missing` 还是 `granted`。 */
+  const accessOf = (d) => (hostOf(d) === 'darwin' ? (d && d.fullDisk) || 'missing' : null);
+  /** 这一次下载要用、却没有授权的浏览器。 */
+  const needsOf = (app, list) => CK.fullDiskNeeds(list, hostOf(app.downloader), detectedOf(app.downloader), accessOf(app.downloader));
+  /** 点「打开系统设置」：宿主直接打开系统设置里的完全磁盘访问权限（桌面端用 `x-apple.systempreferences:` 地址）；之后卡片改成等用户启用。 */
+  const openFullDisk = (app) => {
+    app.setDownloader((s) => ({...s, fullDiskStep: 'opened'}));
+    app.toast('已打开系统设置 › 完全磁盘访问权限（演示）', 'neutral');
+  };
+  /** 点「重新启动 BaoCut」：经过退出确认重启，重启后重新检测，授权生效。 */
+  const restartApp = (app) => {
+    app.setDownloader((s) => ({...s, fullDisk: 'granted', fullDiskStep: null}));
+    app.toast('BaoCut 已重新启动，完全磁盘访问权限已生效（演示）', 'positive');
+  };
+  /** 授权卡：说清为什么要、点一下直接去系统设置；去过之后改成「启用后重新启动」。回到应用时自动重新检测，授权生效后卡片自己消失。 */
+  function FullDiskNotice({ids}) {
+    const app = useApp();
+    const step = app.downloader.fullDiskStep === 'opened' ? 'opened' : 'idle';
+    const c = CK.fullDiskCopy(ids, step);
+    return <div className="setdl__access" role="group" aria-label="完全磁盘访问权限">
+      <R.Icons.Lock UNSAFE_className="setdl__access-ic" />
+      <div className="setdl__access-body">
+        <b>{c.title}</b>
+        <span className="t-detail-xs">{c.body}</span>
+        <div className="row gap8">
+          <Btn size="s" variant="accent" onClick={() => (step === 'opened' ? restartApp(app) : openFullDisk(app))}>{c.primary}</Btn>
+          {c.secondary && <Btn size="s" variant="quiet" onClick={() => openFullDisk(app)}>{c.secondary}</Btn>}
+        </div>
+      </div>
+    </div>;
+  }
+  /** 设置 › 隐私与权限里的常驻一行（macOS 主机、桌面端）：随时可以先授权，不必等某个功能失败。别的主机不显示。 */
+  function FullDiskRow() {
+    const app = useApp();
+    const d = app.downloader || {};
+    const access = accessOf(d);
+    if (!access) return null;
+    const granted = access === 'granted';
+    const opened = d.fullDiskStep === 'opened';
+    const Row = window.ShellRow;
+    return <Row label="完全磁盘访问权限" desc={`${granted ? '已允许。' : '未允许。'}macOS 默认限制应用读取外置硬盘、桌面、文稿、下载等位置的文件，以及 Safari 的 Cookie。允许后，BaoCut 读这些位置时不会再因权限失败；只在你选的素材、保存位置与勾选的浏览器上读取。`}>
+      {!granted && opened && <Btn size="s" variant="accent" className="setdl__nowrap" onClick={() => restartApp(app)}>重新启动 BaoCut</Btn>}
+      {!granted && <Btn size="s" variant={opened ? 'secondary' : 'accent'} className="setdl__nowrap" onClick={() => openFullDisk(app)}>{opened ? '再次打开系统设置' : '打开系统设置'}</Btn>}
+    </Row>;
+  }
   /** yt-dlp 的状态词：已就绪、正在更新、需要处理。 */
   const statusOf = (d) => (d.state === 'ready' ? '已就绪' : d.state === 'updating' ? '正在更新' : '需要处理');
   const copyCommand = async (app, text) => app.toast(await copyToClipboard(text) ? '已复制命令' : '复制失败，请选择文字后复制', 'neutral');
@@ -146,6 +193,8 @@
     const detected = detectedOf(app.downloader);
     const list = cookieList(app);
     const all = CK.allState(list, detected);
+    const access = accessOf(app.downloader);
+    const needs = needsOf(app, list);
     const change = (next) => app.setPref('cookieBrowsers', CK.save(next, detected));
     const [busy, setBusy] = useState(false);
     const redetect = () => {
@@ -163,7 +212,8 @@
             {detected.map((b) => <Checkbox key={b.id} on={list.indexOf(b.id) >= 0} onChange={(on) => change(CK.toggle(list, b.id, on, detected))} label={b.label} />)}
           </div>
           {/* 系统提示按运行下载的主机（Runtime 所在主机）的平台，原型取演示挡位 */}
-          {CK.notes(list, hostOf(app.downloader), detected).map((line) => <span key={line} className="t-detail-xs">{line}</span>)}
+          {needs.length > 0 && <FullDiskNotice ids={needs} />}
+          {CK.notes(list, hostOf(app.downloader), detected, access).map((line) => <span key={line} className="t-detail-xs">{line}</span>)}
         </>}
       </div>
     </section>;
@@ -187,6 +237,8 @@
           {methods.map((x) => <option key={x.k} value={x.k}>{x.label}</option>)}</BCSelect></label>
         <label>更新的结果<BCSelect aria-label="更新结果演示挡位" value={d.demoOutcome || 'updated'} onChange={(e) => set({demoOutcome: e.target.value})}>
           {U.DEMO_OUTCOMES.map((x) => <option key={x.k} value={x.k}>{x.label}</option>)}</BCSelect></label>
+        {host === 'darwin' && <label>完全磁盘访问权限<BCSelect aria-label="完全磁盘访问权限演示挡位" value={d.fullDisk || 'missing'} onChange={(e) => set({fullDisk: e.target.value, fullDiskStep: null})}>
+          <option value="missing">未授权</option><option value="granted">已授权</option></BCSelect></label>}
         <label>本机浏览器<BCSelect aria-label="浏览器检测演示挡位" value={d.demoBrowsers || 'several'} onChange={(e) => set({demoBrowsers: e.target.value})}>
           {CK.demoScenes(host).map((x) => <option key={x.k} value={x.k}>{x.label}</option>)}</BCSelect></label>
       </div>
@@ -205,5 +257,5 @@
       <p className="t-detail-xs">交互原型：模拟检测与更新，不执行命令，不检测或读取真实浏览器的 Cookie。</p>
     </>;
   }
-  Object.assign(window, {DownloaderSection, BC_DOWNLOADER: {hostOf, detectedOf, cookieList, statusOf, plansFor}});
+  Object.assign(window, {DownloaderSection, FullDiskNotice, FullDiskRow, BC_DOWNLOADER: {hostOf, detectedOf, cookieList, statusOf, plansFor, accessOf, needsOf, openFullDisk, restartApp}});
 })();

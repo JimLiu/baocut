@@ -22,6 +22,8 @@
     const d = app.downloader || {};
     const updating = d.state === 'updating';
     const settings = window.BC_SETTINGS_LINK.parse('/settings/downloader');
+    /* 这次要用的浏览器里有没授权的：下载前就在这里请求授权，不等失败 */
+    const needs = DL.needsOf(app, DL.cookieList(app));
     return <div className="ttsw__sec">
       <div className="row gap8"><R.Icons.Download /><b className="grow">视频下载工具 · yt-dlp</b><span className="t-detail-xs">{DL.statusOf(d)}</span></div>
       <span className="t-detail-xs">{d.version || '未安装'} · 网站登录：{window.BC_TOOL_COOKIES.subText(DL.cookieList(app))}</span>
@@ -29,6 +31,7 @@
         {d.state !== 'ready' && !updating && <Btn size="s" onClick={() => app.updateDownloader()}>准备下载工具</Btn>}
         <Btn size="s" variant="quiet" onClick={() => app.go(settings.route)}>更改下载设置</Btn>
       </div>
+      {needs.length > 0 && <window.FullDiskNotice ids={needs} />}
     </div>;
   }
   function LinkToolPage() {
@@ -41,8 +44,23 @@
     const toolReady = !app.downloader || app.downloader.state === 'ready';
     const ready = urlOk(st.url) && toolReady && /^(~\/|\/|[a-zA-Z]:[\\/])/.test(st.saveDir);
     /* 网站登录按设置 › 视频下载：开始时按当前检测结果展开成浏览器列表，冻结进这一次下载 */
-    const go = () => window.BC_TOOL_RUNNER.start(app, window.BC_TOOL_SPECS.link(app, Object.assign({}, st, {target: 'none',
-      cookieBrowsers: window.BC_DOWNLOADER.cookieList(app)})));
+    const begin = (cookieBrowsers) => window.BC_TOOL_RUNNER.start(app, window.BC_TOOL_SPECS.link(app, Object.assign({}, st, {target: 'none', cookieBrowsers})));
+    /* 用到的浏览器里有没授权的（Safari 要完全磁盘访问权限）：开始前问一次，不等下载失败再让用户去找设置。
+       「这次跳过」从这次冻结的列表里去掉它们；问过之后不再弹，卡片仍在。 */
+    const [asking, setAsking] = useState(null);
+    const go = () => {
+      const list = window.BC_DOWNLOADER.cookieList(app);
+      const needs = window.BC_DOWNLOADER.needsOf(app, list);
+      if (needs.length && !(app.downloader || {}).fullDiskAsked) setAsking({list, needs});
+      else begin(list);
+    };
+    const askAnswer = (open) => {
+      const a = asking;
+      setAsking(null);
+      app.setDownloader((s) => ({...s, fullDiskAsked: true}));
+      if (open) window.BC_DOWNLOADER.openFullDisk(app);
+      else begin(window.BC_TOOL_COOKIES.withoutFullDisk(a.list, a.needs));
+    };
     return <window.ToolFrame tool="link" title="下载视频" bar={<Btn variant="accent" disabled={!ready} onClick={go}>{st.transcribe ? '下载并转录' : '开始下载'}</Btn>}>
       <p className="t-detail">粘贴视频链接，下载到本机。需要文稿时，可以在下载完成后自动转录。</p>
       <LinkField value={st.url} onChange={(url) => set({url})} />
@@ -64,6 +82,16 @@
         </>}
       </div>
       <window.ToolDemo />
+      {asking && <R.DialogContainer onDismiss={() => setAsking(null)}>
+        <R.Dialog size="S">
+          <R.Heading slot="title">先允许读取 {asking.needs.map(window.BC_TOOL_COOKIES.label).join('、')} 的 Cookie？</R.Heading>
+          <R.Content>这次下载会用到 {asking.needs.map(window.BC_TOOL_COOKIES.label).join('、')} 的登录状态，macOS 要先给 BaoCut「完全磁盘访问权限」。打开系统设置启用后，回来再下载；也可以这次先跳过，用其他浏览器的登录状态继续。</R.Content>
+          <R.ButtonGroup>
+            <R.Button variant="secondary" onPress={() => askAnswer(false)}>这次跳过</R.Button>
+            <R.Button variant="accent" autoFocus onPress={() => askAnswer(true)}>打开系统设置</R.Button>
+          </R.ButtonGroup>
+        </R.Dialog>
+      </R.DialogContainer>}
       <p className="t-detail-xs">交互原型：模拟下载和转录，不访问真实视频，不读取真实浏览器的 Cookie。</p>
     </window.ToolFrame>;
   }

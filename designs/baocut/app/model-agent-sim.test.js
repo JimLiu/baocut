@@ -205,3 +205,14 @@ test('下载要登录：读完页面就停，Agent 用设置链接把用户带�
   assert.match(reply, /lanshan\.example 仍然要求登录/);
   assert.ok(window.BC_SETTINGS_LINK.parse('/settings/downloader'));
 });
+
+test('读不到 Safari 的 Cookie：读完页面就停，回复把用户带到卡上的「打开系统设置」，不自己去开系统设置', () => {
+  const sim = S.planFor('下载 https://video.example/safari-only/42', false).sim;
+  assert.equal(sim.task.scenario, 'cookies');
+  assert.equal(S.downloadFails(sim.task, S.LOGIN_FAIL_AT), true);
+  assert.equal(S.downloadFails({...sim.task, retried: true}, 60), false);
+  const reply = S.cookiesReply(sim.task);
+  assert.match(reply, /完全磁盘访问权限/);
+  assert.match(reply, /下载卡上的「打开系统设置」/);
+  assert.match(reply, /\[设置 › 视频下载\]\(\/settings\/downloader\)/);
+});
