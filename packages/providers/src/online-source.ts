@@ -70,6 +70,9 @@ import { COMPAT_VENDOR_IDS, COMPAT_VENDORS, type CompatVendorId } from './vendor
 import { VOLCENGINE_SPEECH_DEFAULT_BASE_URL, VolcengineSpeechAdapter } from './volcengine/volcengine-speech.ts';
 import { ProvidersConfig as PC, ProvidersHttp as PH } from '@baocut/protocol/messages/providers';
 
+/** 自定义端点贴成了完整的接口地址：适配器自己会接这些路径（§6.4），基址里去掉。 */
+const COMPATIBLE_OPERATION_PATH = /\/(?:images\/(?:generations|edits)|audio\/(?:speech|transcriptions)|chat\/completions)$/i;
+
 /**
  * 在线 Provider 来源（架构设计 §6.4）：服务商目录里的内置服务商与用户添加的 OpenAI 兼容端点 `custom:<slug>`。
  *
@@ -797,8 +800,8 @@ export class OnlineProviderSource implements ProviderSource {
       const regional = account?.region ? entry.regions?.[account.region] : undefined;
       preset = this.#options.baseUrls?.[providerId] ?? regional ?? entry.baseUrl;
     }
-    const base = account?.endpoint ?? endpoint ?? preset;
-    return base.replace(/\/+$/, '');
+    const base = (account?.endpoint ?? endpoint ?? preset).replace(/\/+$/, '');
+    return isBuiltin(providerId) ? base : base.replace(COMPATIBLE_OPERATION_PATH, '');
   }
 
   #label(providerId: string): string {

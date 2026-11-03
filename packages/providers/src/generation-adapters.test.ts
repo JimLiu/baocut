@@ -12,7 +12,7 @@ import { GoogleVoiceCloneAdapter } from './google/google-voice-clone.ts';
 import { ProviderAborted } from './http/provider-fetch.ts';
 import { OnlineGenerator } from './online-generator.ts';
 import { OnlineProviderSource } from './online-source.ts';
-import { CompatibleImageAdapter, CompatibleSpeechAdapter } from './openai-compatible/compatible-media.ts';
+import { CompatibleImageAdapter, CompatibleSpeechAdapter, declaredImageInfo } from './openai-compatible/compatible-media.ts';
 import { OpenAiImageAdapter, OpenAiSpeechAdapter } from './openai/openai-media-adapters.ts';
 import { VolcengineSpeechAdapter, parseSpeechStream } from './volcengine/volcengine-speech.ts';
 import {
@@ -719,6 +719,52 @@ describe('OpenAI-compatible image requests with strict optional fields', () => {
     const out = await generate(new CompatibleImageAdapter(() => 'Custom'), cfg, 'sdxl', image({ count: 2 }));
     expect(out.images).toHaveLength(2);
     expect(server.requests[0]!.json).toEqual({ model: 'sdxl', prompt: 'a fox', n: 2 });
+  });
+
+  it('verifies and generates against the base when a full operation URL was pasted, using the documented Agnes shapes', async () => {
+    const bytes = pngFixture(16, 9, 0);
+    server = await startFakeProviderServer((req, srv) => {
+      if (req.method === 'GET' && req.path === '/v1/models') return { status: 200, json: { data: [] } };
+      if (req.method === 'GET' && req.path === '/files/result.png') {
+        return { status: 200, bytes, headers: { 'content-type': 'image/png' } };
+      }
+      if (req.method !== 'POST' || req.path !== '/v1/images/generations') return { status: 404 };
+      return {
+        status: 200,
+        json: { created: 1780000000, data: [{ url: `${srv.origin}/files/result.png`, b64_json: null, revised_prompt: null }] },
+      };
+    });
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-compatible-image-'));
+    const store = await ModelServiceStore.open(
+      { modelServicesFile: path.join(dir, 'model-services.json') },
+      new FileCredentialStore(path.join(dir, 'model-credentials.json')),
+    );
+    try {
+      const source = new OnlineProviderSource({ store, ffmpeg: async () => ({ command: 'ffmpeg', env: {} }), http });
+      const declaredModel = { modelId: 'agnes-image-2.5-flash', capability: 'generateImage' } as const;
+      await source.configure({
+        providerId: 'custom:agnes',
+        label: 'Agnes',
+        enabled: true,
+        endpoint: `${server.origin}/v1/images/generations/`,
+        credential: OPENAI_KEY,
+        verify: true,
+        models: [declaredModel],
+      });
+      expect(server.requests.map((req) => req.path)).toEqual(['/v1/models']);
+      const generator = source.generator('custom:agnes', 'generateImage')!;
+      const attempt = await generator.generate({
+        jobId: 'job_agnes', attempt: 1, providerId: generator.id, modelId: declaredModel.modelId,
+        parameters: image({ prompt: 'a paper crane', size: declaredImageInfo(declaredModel, true).defaultSize }), staging: dir,
+      }, { generating: () => {}, progress: () => {} }, new AbortController().signal);
+      expect(attempt).toMatchObject({ outcome: 'completed', outputs: [{ path: 'output-1.png', mediaType: 'image/png' }] });
+      expect((await fs.readFile(path.join(dir, 'output-1.png'))).equals(bytes)).toBe(true);
+      expect(server.requests[1]).toMatchObject({ method: 'POST', path: '/v1/images/generations' });
+      expect(server.requests[1]!.json).toEqual({ model: declaredModel.modelId, prompt: 'a paper crane', size: '1024x1024' });
+    } finally {
+      await store.flush();
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 });
 
