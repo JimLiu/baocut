@@ -1,0 +1,36 @@
+{
+  "name": {
+    "zh-Hans": "素材剪 vlog",
+    "zh-Hant": "素材剪 vlog",
+    "en": "Vlog from raw clips",
+    "ja": "素材から Vlog を編集",
+    "ko": "촬영 클립으로 브이로그 편집",
+    "es": "Vlog a partir de clips",
+    "fr": "Vlog à partir de rushes",
+    "de": "Vlog aus Rohmaterial",
+    "nl": "Vlog uit losse clips",
+    "pt-BR": "Vlog a partir de clipes",
+    "it": "Vlog dal girato",
+    "ru": "Влог из исходников",
+    "pl": "Vlog z surowych nagrań",
+    "tr": "Ham kliplerden vlog",
+    "vi": "Dựng vlog từ cảnh quay thô"
+  },
+  "summary": {
+    "zh-Hans": "把一堆原始片段剪成一条 vlog：逐段听内容、看画面，以你说的话为主线，剪到目标时长",
+    "zh-Hant": "把一堆原始片段剪成一支 vlog：逐段聽內容、看畫面，以你說的話為主線，剪到目標長度",
+    "en": "Turn a pile of raw clips into a vlog: review every clip, build on what you say and cut to length",
+    "ja": "撮りためた素材を Vlog に：全クリップを確認し、あなたの話を軸に目標の長さへ編集",
+    "ko": "촬영한 클립들을 브이로그로: 모든 클립을 확인하고 내 말을 중심으로 목표 길이에 맞춰 편집",
+    "es": "Convierte un montón de clips en un vlog: revisa cada clip, sigue lo que dices y ajusta la duración",
+    "fr": "Transforme vos rushes en vlog : chaque clip passé en revue, votre voix comme fil conducteur, à la bonne durée",
+    "de": "Macht aus Rohclips ein Vlog: jeden Clip sichten, Ihre Worte als roten Faden nehmen, auf Länge schneiden",
+    "nl": "Maak van losse clips een vlog: elke clip bekijken, je eigen woorden als rode draad, op lengte knippen",
+    "pt-BR": "Transforma um monte de clipes em um vlog: revisa cada clipe, segue o que você diz e corta na duração certa",
+    "it": "Trasforma il girato in un vlog: rivede ogni clip, segue le tue parole e taglia alla durata giusta",
+    "ru": "Собирает влог из исходников: просматривает каждый клип, строит сюжет на ваших словах и укладывает в хронометраж",
+    "pl": "Robi vloga z surowych nagrań: przegląda każdy klip, opiera się na Twoich słowach i tnie do zadanej długości",
+    "tr": "Ham kliplerden vlog yapar: her klibi inceler, sizin sözlerinizi omurga yapar ve hedef süreye keser",
+    "vi": "Dựng vlog từ các đoạn quay thô: xem từng đoạn, lấy lời bạn nói làm mạch chính, cắt đúng thời lượng"
+  }
+}
