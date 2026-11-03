@@ -16,6 +16,7 @@ export const pl: ProvidersAgentMessages = {
   notCompleted: (p) => `${p.label} nie ukończył tego generowania: ${p.reason}`,
   turnInterrupted: "tura została przerwana",
   noImage: (p) => `${p.label} nie wygenerował obrazu`,
+  imageUnavailable: (p) => `${p.label} wygenerował obraz, ale BaoCut nie mógł odczytać zapisanego pliku`,
   noImageReply: (p) => `${p.label} nie wygenerował obrazu: ${p.reply}`,
   unknownError: "Nieznany błąd",
   processExited: "Proces zakończył działanie",

@@ -21,8 +21,13 @@ import type { CodexErrorInfo, CodexModel } from '../codex/codex-protocol.ts';
 export interface FakeCodexTurn {
   /** 回合开始后等多久再写文件、结束（毫秒）。 */
   delayMs?: number;
-  /** 写进会话工作目录的文件：相对路径 → base64 内容。 */
+  /** 智能体写进会话工作目录的文件：相对路径 → base64 内容。 */
   files?: Record<string, string>;
+  /**
+   * 内建生图工具这个回合生成的图片，一项一个 `imageGeneration` 条目：base64 内容存到工作目录之外（与真实的
+   * `~/.codex/generated_images/<thread>/` 一样），`savedPath` 指向它；null 是生成了但没有保存（`savedPath: null`）。
+   */
+  images?: Array<string | null>;
   /** 智能体的文字回复。 */
   reply?: string;
   /** `hang`：一直不结束，直到收到 `turn/interrupt`。 */

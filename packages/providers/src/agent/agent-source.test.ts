@@ -1,9 +1,10 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { AgentDriver, AgentEvent, AgentSession, CreateSessionOptions } from '@baocut/harness';
-import type { ModelServiceStore, TextRun } from '@baocut/models';
+import type { AgentDriver, AgentEvent, AgentItem, AgentSession, CreateSessionOptions } from '@baocut/harness';
+import type { GenerationAttempt, GenerationProvider, GenerationRun, ModelServiceStore, TextRun } from '@baocut/models';
 import type { DriverId, DriverProbe, TextModelInfo } from '@baocut/protocol';
 import { AgentProviderSource } from './agent-source.ts';
 
@@ -182,5 +183,135 @@ describe('agent:claude', () => {
     const text = sourceOf({ enabled: true, reply: '```json\n{"a":1}\n```', textWorkRoot: dir }).textProvider(PROVIDER)!;
     const reply = await text.generateText(run({ responseFormat: { type: 'json', schema: { type: 'object' } } } as never), new AbortController().signal, hooks);
     expect(reply.text).toBe('{"a":1}');
+  });
+});
+
+describe('agent:codex 生图：输出只来自这个回合生成的图片', () => {
+  const CODEX = 'agent:codex';
+  const REAL = Buffer.from('image generated in this turn');
+  const STALE = Buffer.from('image of an earlier job');
+  let root: string;
+  let staging: string;
+  let generated: string;
+
+  beforeEach(async () => {
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-agent-image-'));
+    staging = path.join(root, 'staging');
+    await fs.mkdir(staging);
+    // 原生侧保存图片的目录（`~/.codex/generated_images/<thread>/`），在工作目录之外。
+    generated = path.join(root, 'generated_images', 'thread', 'image.png');
+    await fs.mkdir(path.dirname(generated), { recursive: true });
+    await fs.writeFile(generated, REAL);
+  });
+
+  afterEach(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  /** 一个 Codex 回合：先跑 `act`（智能体在工作目录里做的事），再发这些条目，然后结束。 */
+  function generator(items: AgentItem[], act: (cwd: string) => Promise<void> = async () => {}, sessions: CreateSessionOptions[] = []) {
+    const driver = {
+      id: 'codex',
+      createSession: async (options: CreateSessionOptions) => {
+        sessions.push(options);
+        let listener: (event: AgentEvent) => void = () => {};
+        return {
+          subscribe: (l: (event: AgentEvent) => void) => {
+            listener = l;
+            return () => {};
+          },
+          startTurn: async () => {
+            await act(options.cwd);
+            queueMicrotask(() => {
+              for (const item of items) listener({ type: 'item.completed', turnId: 't', item });
+              listener({ type: 'turn.completed', turnId: 't', outcome: 'completed', error: null });
+            });
+            return { turnId: 't' };
+          },
+          interrupt: async () => ({ status: 'requested' }),
+          close: async () => {},
+        } as unknown as AgentSession;
+      },
+    } as unknown as AgentDriver;
+    const info = { status: 'available', state: 'ready', version: '0.166.0', accountRef: { key: 'driversCodex.chatgptAccount', params: {} }, models: [] } as unknown as DriverProbe;
+    const source = new AgentProviderSource({
+      store: { configView: () => ({ enabled: true, enabledAt: null, credential: 'missing', accounts: [] }) } as unknown as ModelServiceStore,
+      drivers: { current: async () => info, get: () => driver, executable: () => null },
+    });
+    return source.generator(CODEX, 'generateImage')!;
+  }
+
+  const imageItem = (savedPath: string | null, status: 'completed' | 'failed' = 'completed'): AgentItem => ({ kind: 'generated-image', id: `img-${savedPath}`, status, path: savedPath });
+
+  const generate = (provider: GenerationProvider) =>
+    provider.generate(
+      {
+        jobId: 'job_1',
+        modelId: 'image-gen',
+        staging,
+        parameters: { capability: 'generateImage', prompt: 'a fox', count: 1, size: null, seed: null, format: 'png' },
+      } as unknown as GenerationRun,
+      { generating: () => {}, progress: () => {} },
+      new AbortController().signal,
+    );
+
+  async function expectRealImage(attempt: GenerationAttempt) {
+    expect(attempt.outcome).toBe('completed');
+    const [output] = attempt.outcome === 'completed' ? attempt.outputs : [];
+    expect(output).toMatchObject({ path: 'output.png', byteLength: REAL.length, sha256: crypto.createHash('sha256').update(REAL).digest('hex') });
+    expect(await fs.readFile(path.join(staging, 'output.png'))).toEqual(REAL);
+  }
+
+  it('智能体把更早任务的图片抄成 output.png：交出的仍是这个回合生成的那张', async () => {
+    const provider = generator([imageItem(generated)], (cwd) => fs.writeFile(path.join(cwd, 'output.png'), STALE));
+    await expectRealImage(await generate(provider));
+  });
+
+  it('智能体说找不到文件、没有写 output.png：图片在原生侧的目录里，照样交出', async () => {
+    const provider = generator([imageItem(generated), { kind: 'agent-message', id: 'm', text: 'The image tool did not return an accessible file.' }]);
+    await expectRealImage(await generate(provider));
+  });
+
+  it('回合里生成了几张：取最后一张', async () => {
+    const earlier = path.join(path.dirname(generated), 'earlier.png');
+    await fs.writeFile(earlier, STALE);
+    await expectRealImage(await generate(generator([imageItem(earlier), imageItem(generated)])));
+  });
+
+  it('工作目录里的 output.png 是符号链接：不跟着写到外面去', async () => {
+    const outside = path.join(root, 'outside.png');
+    await fs.writeFile(outside, STALE);
+    await expectRealImage(await generate(generator([imageItem(generated)], (cwd) => fs.symlink(outside, path.join(cwd, 'output.png')))));
+    expect(await fs.readFile(outside)).toEqual(STALE);
+  });
+
+  it('回合里没有生成图片：工作目录里的文件不算输出（PROVIDER_REJECTED，no-image）', async () => {
+    const provider = generator([{ kind: 'agent-message', id: 'm', text: 'Created output.png' }], (cwd) => fs.writeFile(path.join(cwd, 'output.png'), STALE));
+    await expect(generate(provider)).rejects.toMatchObject({ details: { code: 'PROVIDER_REJECTED', reason: 'no-image', reply: 'Created output.png' } });
+  });
+
+  it('生成失败的条目不算生成了图片', async () => {
+    await expect(generate(generator([imageItem(null, 'failed')]))).rejects.toMatchObject({ details: { code: 'PROVIDER_REJECTED', reason: 'no-image' } });
+  });
+
+  it.each([
+    ['没有保存路径', () => null],
+    ['文件不见了', () => generated.replace('image.png', 'missing.png')],
+  ])('生成了但读不到（%s）：明确失败，不拿工作目录里的文件顶替（image-unavailable）', async (_name, savedPath) => {
+    const provider = generator([imageItem(savedPath())], (cwd) => fs.writeFile(path.join(cwd, 'output.png'), STALE));
+    await expect(generate(provider)).rejects.toMatchObject({ details: { code: 'PROVIDER_REJECTED', reason: 'image-unavailable' } });
+  });
+
+  it('保存路径是符号链接：不跟随', async () => {
+    const link = path.join(root, 'link.png');
+    await fs.symlink(generated, link);
+    await expect(generate(generator([imageItem(link)]))).rejects.toMatchObject({ details: { reason: 'image-unavailable' } });
+  });
+
+  it('开发者指令不再让智能体找文件、抄文件', async () => {
+    const sessions: CreateSessionOptions[] = [];
+    await generate(generator([imageItem(generated)], async () => {}, sessions));
+    expect(sessions[0]!.developerInstructions).not.toMatch(/output\.png/);
+    expect(sessions[0]!.developerInstructions).toMatch(/Do not look for, copy, move or write any image file/);
   });
 });

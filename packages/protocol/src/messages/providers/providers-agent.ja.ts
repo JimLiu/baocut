@@ -18,6 +18,7 @@ export const ja: ProvidersAgentMessages = {
   notCompleted: (p) => `${p.label} はこの生成を完了しませんでした：${p.reason}`,
   turnInterrupted: 'ターンの中断',
   noImage: (p) => `${p.label} は画像を生成しませんでした`,
+  imageUnavailable: (p) => `${p.label} は画像を生成しましたが、BaoCut は保存されたファイルを読み取れませんでした`,
   noImageReply: (p) => `${p.label} は画像を生成しませんでした：${p.reply}`,
   unknownError: '不明なエラー',
   processExited: 'プロセスが終了しました',

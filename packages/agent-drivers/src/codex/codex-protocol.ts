@@ -215,6 +215,7 @@ export type CodexThreadItem =
       durationMs: number | null;
     }
   | { type: 'webSearch'; id: string; query: string }
+  | { type: 'imageGeneration'; id: string; status: string; savedPath?: string | null }
   | { type: string; id: string };
 
 export interface CommandApprovalParams {

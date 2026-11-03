@@ -195,8 +195,14 @@ async function runTurn(turnId: string): Promise<void> {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, Buffer.from(base64, 'base64'));
   }
-  if (spec.files && Object.keys(spec.files).length > 0) {
-    const item = { type: 'imageGeneration', id: 'item_img', status: 'completed', revisedPrompt: 'fake', savedPath: null };
+  for (const [index, base64] of (spec.images ?? []).entries()) {
+    let savedPath: string | null = null;
+    if (base64 !== null) {
+      savedPath = path.join(dir!, 'generated_images', threadId, `${turnId}-${index}.png`);
+      fs.mkdirSync(path.dirname(savedPath), { recursive: true });
+      fs.writeFileSync(savedPath, Buffer.from(base64, 'base64'));
+    }
+    const item = { type: 'imageGeneration', id: `item_img_${index}`, status: 'completed', revisedPrompt: 'fake', savedPath };
     send({ method: 'item/completed', params: { threadId, turnId, item } });
   }
   if (reply) {

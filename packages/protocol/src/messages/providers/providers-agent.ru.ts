@@ -16,6 +16,7 @@ export const ru: ProvidersAgentMessages = {
   notCompleted: (p) => `${p.label} не завершил эту генерацию: ${p.reason}`,
   turnInterrupted: "итерация прервана",
   noImage: (p) => `${p.label} не создал изображение`,
+  imageUnavailable: (p) => `${p.label} создал изображение, но BaoCut не смог прочитать сохранённый файл`,
   noImageReply: (p) => `${p.label} не создал изображение: ${p.reply}`,
   unknownError: "Неизвестная ошибка",
   processExited: "Процесс завершился",

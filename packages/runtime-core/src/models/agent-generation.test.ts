@@ -310,14 +310,14 @@ describe.skipIf(!ffprobe)('智能体图片 Provider：执行（假 codex + ffpro
   let side: Side;
 
   beforeEach(async () => {
-    side = await startSide({ turn: { files: { 'output.png': b64(pngFixture(24, 16, 3)) }, reply: 'Saved output.png' } });
+    side = await startSide({ turn: { images: [b64(pngFixture(24, 16, 3))], reply: 'Saved output.png' } });
   });
 
   afterEach(async () => {
     await stopSide(side);
   });
 
-  it('显式指定：一个专用会话（工作目录是 staging、没有 MCP 服务、只写工作目录），产物是会话写下的 PNG 并记下实际尺寸', async () => {
+  it('显式指定：一个专用会话（工作目录是 staging、没有 MCP 服务、只写工作目录），产物是回合里生成的 PNG 并记下实际尺寸', async () => {
     const { jobId } = await side.client.request('models.generateImage', { prompt: 'a red fox, watercolor', provider: PROVIDER });
     const job = await settled(side, jobId);
     expect(job).toMatchObject({
@@ -344,7 +344,7 @@ describe.skipIf(!ffprobe)('智能体图片 Provider：执行（假 codex + ffpro
       sandbox_workspace_write: { writable_roots: [], network_access: false, exclude_tmpdir_env_var: true, exclude_slash_tmp: true },
     });
     expect(JSON.stringify(start!.params)).not.toContain('mcp_servers');
-    expect(start!.params.developerInstructions).toMatch(/output\.png/);
+    expect(start!.params.developerInstructions).toMatch(/built-in image generation tool/);
     // 没有会话历史与视频上下文：新开的线程，一个回合，输入只有提示词。
     expect(side.fake.requests('thread/resume')).toHaveLength(0);
     const turns = side.fake.requests('turn/start');
@@ -368,7 +368,7 @@ describe.skipIf(!ffprobe)('智能体图片 Provider：执行（假 codex + ffpro
     expect(subscribed.totals.cost).toEqual({ estimated: [], reported: [], unknownCalls: 0, subscriptionCalls: 1 });
     expect(subscribed.byProvider).toMatchObject([{ key: PROVIDER, units: { images: 1 }, costKind: 'subscription', cost: [] }]);
 
-    const paid = await startSide({ auth: 'api-key', turn: { files: { 'output.png': b64(pngFixture(24, 16, 3)) }, reply: 'Saved output.png' } });
+    const paid = await startSide({ auth: 'api-key', turn: { images: [b64(pngFixture(24, 16, 3))], reply: 'Saved output.png' } });
     try {
       const run = await paid.client.request('models.generateImage', { prompt: 'a red fox', provider: PROVIDER });
       expect(await settled(paid, run.jobId)).toMatchObject({ state: 'completed' });
@@ -413,29 +413,45 @@ describe.skipIf(!ffprobe)('智能体图片 Provider：执行（假 codex + ffpro
     expect(job.error!.message).toContain('usage limit');
   });
 
-  it('写错的文件：解码不了的 PNG、扩展名是 png 的 GIF、两张都不叫 output.png，都是 MODEL_OUTPUT_INVALID', async () => {
-    const cases: Array<Record<string, string>> = [
-      { 'output.png': b64(corruptPngFixture()) },
-      { 'output.png': b64(GIF) },
-      { 'a.png': b64(pngFixture()), 'b.png': b64(pngFixture(8, 8)) },
-    ];
-    for (const files of cases) {
-      side.fake.scenario({ turn: { files, reply: 'done' } });
+  it('生成的文件不合格：解码不了的 PNG、扩展名是 png 的 GIF，都是 MODEL_OUTPUT_INVALID', async () => {
+    for (const image of [b64(corruptPngFixture()), b64(GIF)]) {
+      side.fake.scenario({ turn: { images: [image], reply: 'done' } });
       const { jobId } = await side.client.request('models.generateImage', { prompt: 'a cat', provider: PROVIDER });
       const job = await settled(side, jobId);
-      expect(job, Object.keys(files).join(',')).toMatchObject({ state: 'failed', result: null, error: { code: 'MODEL_OUTPUT_INVALID' } });
+      expect(job).toMatchObject({ state: 'failed', result: null, error: { code: 'MODEL_OUTPUT_INVALID' } });
     }
   });
 
-  it('不在约定名字下、但只有一张图：照样收下（子目录里也找）', async () => {
-    side.fake.scenario({ turn: { files: { 'images/fox.png': b64(pngFixture(10, 20)) }, reply: 'done' } });
+  it('智能体把更早任务的图片抄成 output.png：产物是这个回合生成的那张，不是旧图', async () => {
+    side.fake.scenario({ turn: { images: [b64(pngFixture(10, 20))], files: { 'output.png': b64(pngFixture(24, 16, 3)) }, reply: 'Created output.png' } });
     const { jobId } = await side.client.request('models.generateImage', { prompt: 'a fox', provider: PROVIDER });
     const job = await settled(side, jobId);
     expect(job.result!.outputs![0]).toMatchObject({ media: { kind: 'image', width: 10, height: 20 } });
   });
 
+  it('智能体说拿不到文件：图片在 Codex 自己的目录里，任务照样完成', async () => {
+    side.fake.scenario({ turn: { images: [b64(pngFixture(10, 20))], reply: 'The image tool did not return an accessible file.' } });
+    const { jobId } = await side.client.request('models.generateImage', { prompt: 'a fox', provider: PROVIDER });
+    const job = await settled(side, jobId);
+    expect(job).toMatchObject({ state: 'completed', error: null });
+  });
+
+  it('工作目录里有图、但回合里没有生成：不算输出，PROVIDER_REJECTED（no-image）', async () => {
+    side.fake.scenario({ turn: { files: { 'output.png': b64(pngFixture(24, 16, 3)) }, reply: 'Created output.png' } });
+    const { jobId } = await side.client.request('models.generateImage', { prompt: 'a fox', provider: PROVIDER });
+    const job = await settled(side, jobId);
+    expect(job).toMatchObject({ state: 'failed', result: null, error: { code: 'PROVIDER_REJECTED', details: { reason: 'no-image', reply: 'Created output.png' } } });
+  });
+
+  it('生成了但没有保存：明确失败（image-unavailable），不拿工作目录里的图顶替', async () => {
+    side.fake.scenario({ turn: { images: [null], files: { 'output.png': b64(pngFixture(24, 16, 3)) }, reply: 'done' } });
+    const { jobId } = await side.client.request('models.generateImage', { prompt: 'a fox', provider: PROVIDER });
+    const job = await settled(side, jobId);
+    expect(job).toMatchObject({ state: 'failed', result: null, error: { code: 'PROVIDER_REJECTED', details: { reason: 'image-unavailable' } } });
+  });
+
   it('会话请求审批：一律拒绝（没有人来批），回合照常结束', async () => {
-    side.fake.scenario({ turn: { askApproval: true, files: { 'output.png': b64(pngFixture()) }, reply: 'done' } });
+    side.fake.scenario({ turn: { askApproval: true, images: [b64(pngFixture())], reply: 'done' } });
     const { jobId } = await side.client.request('models.generateImage', { prompt: 'a cat', provider: PROVIDER });
     expect(await settled(side, jobId)).toMatchObject({ state: 'completed' });
     const answer = side.fake.log().find((e) => e.kind === 'in' && e.msg?.id === 1000 && e.msg.method === undefined);
@@ -454,7 +470,7 @@ describe.skipIf(!ffprobe)('智能体图片 Provider：执行（假 codex + ffpro
   });
 
   it('串行：两个任务排同一个队列，第二个会话在第一个关闭之后才启动', async () => {
-    side.fake.scenario({ turn: { delayMs: 300, files: { 'output.png': b64(pngFixture()) }, reply: 'done' } });
+    side.fake.scenario({ turn: { delayMs: 300, images: [b64(pngFixture())], reply: 'done' } });
     const first = await side.client.request('models.generateImage', { prompt: 'one', provider: PROVIDER });
     const second = await side.client.request('models.generateImage', { prompt: 'two', provider: PROVIDER });
     const queued = await until(() => side.jobs()!.jobs.find((j) => j.jobId === second.jobId && j.state === 'queued'));
@@ -469,7 +485,7 @@ describe.skipIf(!ffprobe)('智能体图片 Provider：执行（假 codex + ffpro
   });
 
   it('排队期间被停用：不再开会话，任务失败（MODEL_LOAD_FAILED）', async () => {
-    side.fake.scenario({ turn: { delayMs: 300, files: { 'output.png': b64(pngFixture()) }, reply: 'done' } });
+    side.fake.scenario({ turn: { delayMs: 300, images: [b64(pngFixture())], reply: 'done' } });
     const first = await side.client.request('models.generateImage', { prompt: 'one', provider: PROVIDER });
     const second = await side.client.request('models.generateImage', { prompt: 'two', provider: PROVIDER });
     await until(() => side.fake.requests('turn/start').length === 1);
@@ -480,7 +496,7 @@ describe.skipIf(!ffprobe)('智能体图片 Provider：执行（假 codex + ffpro
   });
 
   it('排队期间授权被撤销（§12.5）：在跑的照常结束并计入；排队的开始前以 GRANT_REVOKED 失败，预留释放，不开会话', async () => {
-    side.fake.scenario({ turn: { delayMs: 300, files: { 'output.png': b64(pngFixture()) }, reply: 'done' } });
+    side.fake.scenario({ turn: { delayMs: 300, images: [b64(pngFixture())], reply: 'done' } });
     const first = await side.client.request('models.generateImage', { prompt: 'one', provider: PROVIDER });
     const second = await side.client.request('models.generateImage', { prompt: 'two', provider: PROVIDER });
     await until(() => side.fake.requests('turn/start').length === 1);
@@ -509,7 +525,7 @@ describe.skipIf(!ffprobe || !engine)('智能体图片导入视频（真实引擎
   let side: Side;
 
   beforeEach(async () => {
-    side = await startSide({ turn: { files: { 'output.png': b64(pngFixture(32, 18)) }, reply: 'done' } }, true);
+    side = await startSide({ turn: { images: [b64(pngFixture(32, 18))], reply: 'done' } }, true);
     await side.client.request('models.configure', { providerId: PROVIDER, enabled: true });
   });
 

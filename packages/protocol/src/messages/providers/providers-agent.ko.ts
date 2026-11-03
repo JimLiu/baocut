@@ -18,6 +18,7 @@ export const ko: ProvidersAgentMessages = {
   notCompleted: (p) => `${p.label}이(가) 이번 생성을 끝내지 못했습니다: ${p.reason}`,
   turnInterrupted: '턴이 중단되었습니다',
   noImage: (p) => `${p.label}이(가) 이미지를 생성하지 않았습니다`,
+  imageUnavailable: (p) => `${p.label}이(가) 이미지를 생성했지만 BaoCut이 저장된 파일을 읽지 못했습니다`,
   noImageReply: (p) => `${p.label}이(가) 이미지를 생성하지 않았습니다: ${p.reply}`,
   unknownError: '알 수 없는 오류',
   processExited: '프로세스가 종료되었습니다',

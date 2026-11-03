@@ -15,6 +15,7 @@ export const it: ProvidersAgentMessages = {
   notCompleted: (p) => `${p.label} non ha completato questa generazione: ${p.reason}`,
   turnInterrupted: 'il turno è stato interrotto',
   noImage: (p) => `${p.label} non ha generato un’immagine`,
+  imageUnavailable: (p) => `${p.label} ha generato un’immagine, ma BaoCut non è riuscito a leggere il file salvato`,
   noImageReply: (p) => `${p.label} non ha generato un’immagine: ${p.reply}`,
   unknownError: 'Errore sconosciuto', processExited: 'Il processo è terminato',
   turnNotStarted: (p) => `Il turno non è iniziato: ${p.error}`,

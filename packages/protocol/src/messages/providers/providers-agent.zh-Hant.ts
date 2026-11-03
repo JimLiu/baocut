@@ -17,6 +17,7 @@ export const zhHant: ProvidersAgentMessages = {
   notCompleted: (p) => `${p.label} 未完成這次生成：${p.reason}`,
   turnInterrupted: '這一輪已中斷',
   noImage: (p) => `${p.label} 沒有生成圖片`,
+  imageUnavailable: (p) => `${p.label} 生成了圖片，但 BaoCut 讀不到儲存的檔案`,
   noImageReply: (p) => `${p.label} 沒有生成圖片：${p.reply}`,
   unknownError: '未知錯誤',
   processExited: '行程已結束',

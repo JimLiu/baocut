@@ -16,6 +16,7 @@ export const de: ProvidersAgentMessages = {
   notCompleted: (p: { label: string; reason: string }) => `${p.label} hat diese Erzeugung nicht abgeschlossen: ${p.reason}`,
   turnInterrupted: "die Runde wurde unterbrochen",
   noImage: (p: { label: string }) => `${p.label} hat kein Bild erzeugt`,
+  imageUnavailable: (p: { label: string }) => `${p.label} hat ein Bild erzeugt, aber BaoCut konnte die gespeicherte Datei nicht lesen`,
   noImageReply: (p: { label: string; reply: string }) => `${p.label} hat kein Bild erzeugt: ${p.reply}`,
   unknownError: "Unbekannter Fehler",
   processExited: "Der Prozess wurde beendet",

@@ -33,6 +33,8 @@ export interface AgentTurnOutcome {
   replies: string[];
   /** 被拒绝的审批请求数。 */
   declined: number;
+  /** 这个回合里内建工具生成成功的图片，按到达顺序：原生侧保存的位置，没有保存时为 null。 */
+  generatedImages: Array<string | null>;
 }
 
 /** 受限会话的模型与推理强度（原生 id）；null 不传，用 Agent 自己的默认（CLI 配置里的模型、模型自己的默认强度）。 */
@@ -83,6 +85,7 @@ export async function runAgentTurn(
 ): Promise<AgentTurnOutcome> {
   const replies: string[] = [];
   const errors: string[] = [];
+  const generatedImages: Array<string | null> = [];
   let declined = 0;
   let settle!: (result: AgentTurnResult) => void;
   const done = new Promise<AgentTurnResult>((resolve) => (settle = resolve));
@@ -90,6 +93,7 @@ export async function runAgentTurn(
     switch (event.type) {
       case 'item.completed':
         if (event.item.kind === 'agent-message' && event.item.text.trim()) replies.push(event.item.text.trim());
+        if (event.item.kind === 'generated-image' && event.item.status === 'completed') generatedImages.push(event.item.path);
         return;
       case 'approval.requested':
         // 没有人来批：越界的动作一律拒绝。
@@ -116,7 +120,7 @@ export async function runAgentTurn(
   const timer = setTimeout(() => settle({ kind: 'timeout' }), timeoutMs);
   let turnId: string | null = null;
   try {
-    if (signal.aborted) return { result: { kind: 'cancelled' }, replies, declined };
+    if (signal.aborted) return { result: { kind: 'cancelled' }, replies, declined, generatedImages };
     try {
       turnId = (await session.startTurn({ text }, { accessMode: 'fullAccess', model: settings.model, effort: settings.effort })).turnId;
     } catch (error) {
@@ -124,7 +128,7 @@ export async function runAgentTurn(
     }
     const result = await done;
     if ((result.kind === 'cancelled' || result.kind === 'timeout') && turnId) await session.interrupt(turnId).catch(() => {});
-    return { result, replies, declined };
+    return { result, replies, declined, generatedImages };
   } finally {
     clearTimeout(timer);
     signal.removeEventListener('abort', onAbort);

@@ -16,6 +16,7 @@ export const nl: ProvidersAgentMessages = {
   notCompleted: (p: { label: string; reason: string }) => `${p.label} heeft deze generatie niet voltooid: ${p.reason}`,
   turnInterrupted: "de beurt is onderbroken",
   noImage: (p: { label: string }) => `${p.label} heeft geen afbeelding gegenereerd`,
+  imageUnavailable: (p: { label: string }) => `${p.label} heeft een afbeelding gegenereerd, maar BaoCut kon het opgeslagen bestand niet lezen`,
   noImageReply: (p: { label: string; reply: string }) => `${p.label} heeft geen afbeelding gegenereerd: ${p.reply}`,
   unknownError: "Onbekende fout",
   processExited: "Het proces is afgesloten",

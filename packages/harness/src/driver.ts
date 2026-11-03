@@ -257,6 +257,8 @@ export type AgentItem =
       parentId?: string;
     }
   | { kind: 'user-message'; id: string; text: string }
+  /** 智能体的内建工具生成的一张图片。`path` 是原生侧保存它的位置（绝对路径），没有保存时为 null。 */
+  | { kind: 'generated-image'; id: string; status: ToolCallStatus; path: string | null }
   | { kind: 'other'; id: string; label: string };
 
 export type TurnOutcome = 'completed' | 'interrupted' | 'failed';

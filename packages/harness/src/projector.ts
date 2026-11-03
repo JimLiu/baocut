@@ -269,6 +269,7 @@ function toTimelineItem(
       };
     }
     case 'user-message':
+    case 'generated-image':
     case 'other':
       return null;
   }

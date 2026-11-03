@@ -31,6 +31,7 @@ const en = {
   notCompleted: (p: { label: string; reason: string }) => `${p.label} didn't finish this generation: ${p.reason}`,
   turnInterrupted: 'the turn was interrupted',
   noImage: (p: { label: string }) => `${p.label} didn't generate an image`,
+  imageUnavailable: (p: { label: string }) => `${p.label} generated an image, but BaoCut couldn't read the saved file`,
   noImageReply: (p: { label: string; reply: string }) => `${p.label} didn't generate an image: ${p.reply}`,
   unknownError: 'Unknown error',
   processExited: 'The process exited',

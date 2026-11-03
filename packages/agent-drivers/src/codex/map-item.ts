@@ -89,6 +89,8 @@ export function mapCodexItem(raw: CodexThreadItem): AgentItem {
         durationMs: null,
         ...(item.query ? { info: { type: 'search', pattern: String(item.query) } } : {}),
       };
+    case 'imageGeneration':
+      return { kind: 'generated-image', id: item.id, status: mapStatus(item.status as string), path: (item.savedPath as string | null | undefined) ?? null };
     default:
       return { kind: 'other', id: item.id, label: item.type };
   }
