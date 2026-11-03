@@ -38,7 +38,7 @@ BaoCut 是一个源码可用（source-available）的 AI 视频智能体：用�
 | [`design/bot-mode/`](design/bot-mode/README.md) | **Bot 模式（方案稿）**：按主题建频道、每个频道一条持续对话；协调者分派、后台线程做活并回报；任务的产生、状态与流转、Make（建议任务与周期任务）、对话里的智能提示、后台常驻服务；需求与交互设计、技术方案各一份 |
 | [`glossary.md`](glossary.md) | **术语表**：同一概念只用一个词 |
 | [`repo-conventions.md`](repo-conventions.md) | **仓库约定**：顶层目录、代码放置与文件命名 |
-| [`development-workflow.md`](development-workflow.md) | **开发流程**：规范与实现同步、验证入口、多端同步、语言与平台、工作区与产物；按任务读取相关章节 |
+| [`development-workflow.md`](development-workflow.md) | **开发流程**：规范与实现同步、验证入口、多端同步、语言与平台、工作区与产物、新工具的入口；按任务读取相关章节 |
 | [`macos-signing.md`](macos-signing.md) | **macOS 签名与备份**：Developer ID 身份、公证凭据、跨 Mac 恢复与 GitHub Actions Secrets |
 
 ## 阅读路线

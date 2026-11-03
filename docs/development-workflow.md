@@ -13,6 +13,7 @@
   - [4.1 跨平台系统集成](#41-跨平台系统集成)
 - [5. 工作区与产物](#5-工作区与产物)
   - [5.3 开发态数据与会话记录](#53-开发态数据与会话记录)
+- [6. 新工具](#6-新工具)
 
 ## 1. 规范与实现
 
@@ -155,3 +156,14 @@ summary 写清动作、对象及关键结果，不使用 `update`、`fix some is
 - **会话记录**：`store/conversations/conv_<id>.jsonl`，只追加的日志（架构设计 §3.10）：第一行是文件头，第二行是快照（完整记录），之后的 `item` 行按 `item.id` 替换或追加、`meta` 行替换元数据，不能整文件 `JSON.parse`。`grep -l` 找文件照常有效；要完整记录时先重放，例如 `node -e 'const L=require("fs").readFileSync(process.argv[1],"utf8").split("\n").filter(Boolean).flatMap(l=>{try{return[JSON.parse(l)]}catch{return[]}});const r=L[1];const ix=new Map(r.items.map((x,i)=>[x.id,i]));for(const l of L.slice(2)){if(l.op==="item"){const i=ix.get(l.item.id);i===undefined?(ix.set(l.item.id,r.items.length),r.items.push(l.item)):r.items[i]=l.item}else if(l.op==="meta"){Object.assign(r,{...l,op:undefined,tasks:{...r.tasks,...l.tasks}})}}console.log(JSON.stringify(r))' <文件>`。`.json.migrated` 是迁移前的旧文件，`.corrupt-*` 是认不出而保留的文件。重放后顶层是 `conversation`（标题、`cwd`、`driverId`、时间）与 `items[]`；`items[].kind` 有 `user-message`、`agent-message`、`reasoning`、`task`、`tool-call`、`video-created`、`video-change`、`slides-created`。工具调用的字段是 `tool`（`mcp` / `command` / `web-search`）、`title`（MCP 工具名，如 `baocut.speak`）、`detail`（参数 JSON 字符串）、`output`（结果）、`status`、`durationMs`；视频改动有 `label`、`transactionId`、前后 `videoRevision` 与 `durationSeconds`。按标题或 `grep -l` 关键词找到文件后用脚本按 `kind` 过滤，不要整文件读。
 - **任务与产物**：`store/jobs.jsonl` 是任务记录（只追加：第一行文件头，之后 `put` / `remove` 行，同一个 `jobId` 以最后一条 `put` 为准、遇到 `remove` 就删掉，例如 `jq -c 'select(.op=="put")'` 后按 `.record.jobId` 取最后一条；应用账本 `store/applications.jsonl` 同理）；产物在 `artifacts/<sha256>.<扩展名>`（合成的音频、导出的字幕、保存的 JSON 都在这里，`artifactId` 去掉 `sha256:` 前缀就是文件名）；没有项目的会话在 `scratch/conv_<id>/` 里工作，智能体保存到工作目录的文件与导出都在里面；会话第一次新建视频时会绑定到一个新项目，目录里的东西搬进项目、`scratch/` 下的目录消失（架构设计 §3.10）；运行日志在 `logs/runtime.log`。
 - **边界**：这些是用户的数据，只读；需要加工时把结果写到仓库外的临时目录。
+
+## 6. 新工具
+
+新增工具（工具页、固定流程、`ToolCatalog` 目录项），或给已有工具加了能力时，在同一任务里评估 CLI 与 skill 两个入口，并在最终回复写明结论；不加入的写出原因。只有工具页的能力也要评估：终端里的 Agent 同样可能用到页面背后的流程。
+
+| 入口 | 默认 | 可以不加入 | 加入时要做 |
+| --- | --- | --- | --- |
+| CLI | 加入 | 离不开界面交互或当前会话，如 `surfaces` 只标 `agent` 的那类（[Agent 能力面设计 §2.2](design/agent-surface/agent-surface-design.md#22-目录项的形状)） | `surfaces` 含 `cli`；命名与帮助符合同一文档的 [§4.1](design/agent-surface/agent-surface-design.md#41-命名规则) 与 [§5.7](design/agent-surface/agent-surface-design.md#57-帮助的形态)；运行 `npm run build:catalog`；用临时的 `BAOCUT_HOME` 真实调用一次 |
+| skill | 加入 | 只是已有工具的小参数，或 `--help` 已足够说清什么时候用 | 在 `skills/baocut/references/catalog/` 对应的页写什么时候用、关键参数和结果怎么读；相关工作流的[内置 skill](../skills/baocut/built-in-skills/README.md) 也提到它；运行 `npm run build:agent-skill` |
+
+`--help` 在没有 Runtime 时读构建时的快照，能看到命令不代表调得通，所以 CLI 一定要真实调用，选哪个 Runtime 见 [Agent 能力面设计 §5.6](design/agent-surface/agent-surface-design.md#56-runtime-的归属)。

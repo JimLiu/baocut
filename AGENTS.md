@@ -25,6 +25,7 @@ BaoCut 编码代理的通用规则。本文只保留全局约束和阅读入口�
 | 修改提示词、语言处理或平台专属实现 | [开发流程 §4](docs/development-workflow.md#4-语言与平台) |
 | 修改文件或目录的打开、定位、选择，或其他系统集成 | [开发流程 §4.1](docs/development-workflow.md#41-跨平台系统集成) |
 | 新增或修改给人看的文字（界面、错误、CLI 输出） | [仓库约定 §5](docs/repo-conventions.md#5-文案与多语言)；用词见[术语表](docs/glossary.md#界面英文用词) |
+| 新增工具 | 评估是否进 CLI 与 skill：[开发流程 §6](docs/development-workflow.md#6-新工具) |
 | 修改依赖、生成物，或使用 worktree | [开发流程 §5](docs/development-workflow.md#5-工作区与产物) |
 | 复盘某次运行：找会话记录、工具调用参数、产物 | [开发流程 §5.3](docs/development-workflow.md#53-开发态数据与会话记录) |
 
