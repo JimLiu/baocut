@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { OpenAccessButton } from '../system-access/full-disk-access.tsx';
 import { live, type JobRecord } from '@baocut/protocol';
 import { ActionButton, Badge, Button, ProgressBar, Text, ToastQueue } from '@react-spectrum/s2';
 import AlertTriangle from '@react-spectrum/s2/icons/AlertTriangle';
@@ -214,10 +215,11 @@ function Recovery({ job, issue, run }: { job: JobRecord; issue: LinkIssue; run: 
         </div>
       ) : null}
       <div className={row}>
+        {issue.needsFullDisk ? <OpenAccessButton size="M" /> : null}
         {buttons.map((action, i) => (
           <Button
             key={action}
-            variant={i === 0 && !(toolsFirst && action === 'retry' && !downloader.ready) ? 'accent' : 'secondary'}
+            variant={i === 0 && !issue.needsFullDisk && !(toolsFirst && action === 'retry' && !downloader.ready) ? 'accent' : 'secondary'}
             size="M"
             isPending={action === 'retry' && retrying}
             isDisabled={(action === 'retry' && toolsFirst && !downloader.ready) || downloader.installing}

@@ -13,6 +13,7 @@ export const ptBR: MainMessages = {
   quitBusyDetail: 'Se você sair agora, elas serão interrompidas. Você também pode deixá-las continuar em segundo plano; o BaoCut para sozinho quando elas terminarem.',
   quitKeepRunning: 'Continuar em segundo plano',
   quitStop: 'Parar e sair',
+  relaunchBusyDetail: 'Reiniciar agora as interrompe, mas é necessário para que a nova permissão entre em vigor.', relaunchStop: 'Parar e reiniciar',
   cancel: 'Cancelar',
   remoteHeading: 'Estas chamadas já foram enviadas. Parar não as cancela no provedor, e elas ainda podem ser cobradas:',
   remoteMore: (count: number) => `e mais ${count}`,

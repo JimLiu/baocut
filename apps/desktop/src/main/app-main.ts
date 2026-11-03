@@ -10,7 +10,8 @@ import { M } from './main-copy.ts';
 import { messageFileProperties, messageFiles } from './message-files.ts';
 import { localeFromRenderer, startupLocale } from './main-locale.ts';
 import { packagedResources } from './packaged-resources.ts';
-import { quitChoice, quitPrompt, type QuitChoice } from './quit-prompt.ts';
+import { quitChoice, quitPrompt, relaunchPrompt, restartChoice, type QuitChoice } from './quit-prompt.ts';
+import { openFullDiskAccess, relaunchForAccess } from './system-access.ts';
 import { RuntimeSupervisor } from './runtime-supervisor.ts';
 import { installWebTabs } from './web-tabs.ts';
 import { installNotifications } from './notifications.ts';
@@ -286,6 +287,32 @@ export function startDesktopApp(): void {
     return image.isEmpty() ? null : new Uint8Array(image.toPNG());
   });
 
+  // macOS 的完全磁盘访问权限（架构设计 §12.11）：打开系统设置里的那一页（地址写死），以及为让授权生效重新启动。
+  // 只收应用窗口主框架发来的；重新启动先确认（有活时），并把自己起的 Runtime 一起停掉：后台留着的旧 Runtime 拿不到新授权。
+  ipcMain.handle('baocut:open-full-disk-access', async (event) => {
+    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error('not allowed');
+    await openFullDiskAccess((url) => shell.openExternal(url));
+  });
+  ipcMain.handle('baocut:relaunch-for-access', async (event) => {
+    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error('not allowed');
+    return relaunchForAccess({
+      platform: process.platform,
+      confirm: async () => {
+        const options = relaunchPrompt(await supervisor.activeWork().catch(() => null));
+        if (!options) return true;
+        const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+        const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options);
+        return restartChoice(response) === 'restart';
+      },
+      prepare: () => {
+        quitWithoutAsking = true;
+        relaunching = true;
+      },
+      relaunch: () => app.relaunch(),
+      quit: () => app.quit(),
+    });
+  });
+
   ipcMain.handle('baocut:reveal', (_event, target: unknown) => {
     showInFolder(target, (file) => shell.showItemInFolder(file));
   });
@@ -403,6 +430,8 @@ export function startDesktopApp(): void {
   let quitState: 'idle' | 'asking' | 'stopping' = 'idle';
   /** 这次退出不问手上的活：换包程序已在等应用退出，或系统在关机。 */
   let quitWithoutAsking = false;
+  /** 这次退出是为了重新启动（授权生效）：不把待装的更新交给换包程序，换包程序不会重新打开应用。 */
+  let relaunching = false;
   app.on('before-quit', (event) => {
     if (quitState === 'stopping') return;
     event.preventDefault();
@@ -430,7 +459,7 @@ export function startDesktopApp(): void {
       // 退出即安装（架构设计 §2.6）：Runtime 停下之后把已下载、已就位的更新交给换包程序，换完不重新打开。有时限、不抛；
       // 「重启并更新」引起的退出已在安装中，这里什么都不做。留在后台继续的 Runtime 还在用旧包里的文件，更新留到下次退出再装。
       // 之后停掉还在跑的下载与校验。
-      if (choice === 'stop') await updates?.installOnQuit();
+      if (choice === 'stop' && !relaunching) await updates?.installOnQuit();
       updates?.dispose();
       app.quit();
     })();

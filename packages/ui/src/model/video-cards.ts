@@ -706,6 +706,8 @@ export interface DownloadCardView {
   elapsed: string | null;
   error: string | null;
   hint: string | null;
+  /** 失败是因为缺 macOS 的完全磁盘访问权限：卡上给「打开系统设置」。 */
+  needsFullDisk: boolean;
   /** 落地的文件：第一项是媒体，其余是字幕。 */
   files: DownloadFile[];
   canCancel: boolean;
@@ -763,6 +765,7 @@ export function downloadCardView(job: JobRecord, jobs: readonly JobRecord[], now
     elapsed: running && Number.isFinite(started) ? VIDEO_CARD_COPY.elapsed(formatClock(Math.max(0, now - started) / 1000)) : null,
     error: issue ? issue.title : state === 'failed' ? (jobErrorText(job.error) ?? T.failed) : null,
     hint: issue ? issue.body : null,
+    needsFullDisk: !!issue?.needsFullDisk,
     files: landedFiles ? [file(landedFiles.media, true), ...landedFiles.subtitles.map((path) => file(path, false))] : [],
     canCancel: !landed && jobLive(job) && !jobRetrying(job),
     canRetry: !landed && reconcileOptions(job).includes('retry'),

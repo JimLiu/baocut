@@ -77,6 +77,8 @@ const en = {
   quitBusyDetail: 'Quitting now interrupts them. You can keep them running in the background instead; BaoCut stops by itself after they finish.',
   quitKeepRunning: 'Keep Running in Background',
   quitStop: 'Stop and Quit',
+  relaunchBusyDetail: 'Restarting now interrupts them, so the new permission can take effect.',
+  relaunchStop: 'Stop and Restart',
   cancel: 'Cancel',
   // 已经交给 Provider 的调用：停下 Runtime 也不会在那边取消（退出对话框里列出）。
   remoteHeading: 'Already sent out. Stopping won’t cancel these at the provider, and they may still be billed:',

@@ -54,6 +54,7 @@ export const ko: MainMessages = {
   quitBusyDetail: '지금 종료하면 이 작업이 중단됩니다. 백그라운드에서 계속 실행할 수도 있으며, 작업이 끝나면 BaoCut이 자동으로 중지됩니다.',
   quitKeepRunning: '백그라운드에서 계속 실행',
   quitStop: '중지하고 종료',
+  relaunchBusyDetail: '지금 다시 시작하면 작업이 중단되지만, 새 권한을 적용하려면 필요합니다.', relaunchStop: '중지하고 다시 시작',
   cancel: '취소',
   remoteHeading: '다음 호출은 이미 전송되었습니다. 중지해도 상대 쪽에서 취소되지 않으며 요금이 계속 부과될 수 있습니다:',
   remoteMore: (count: number) => `외 ${count}개`,

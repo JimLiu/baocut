@@ -61,6 +61,8 @@ import { AgentPermissions } from './settings/agent-permissions.tsx';
 import { AgentSettings } from './settings/agent-settings.tsx';
 import { BotSettings } from './settings/bot-settings.tsx';
 import { DataGrants } from './settings/data-grants.tsx';
+import { M as SA } from '../model/system-access-copy.ts';
+import { useFullDiskAccess } from '../state/system-access-store.ts';
 import { DownloaderSettings } from './settings/downloader-settings.tsx';
 import { SemanticSettings } from './settings/semantic-settings.tsx';
 import { FontSettings } from './settings/font-settings.tsx';
@@ -394,6 +396,7 @@ function Privacy() {
         <PathRow label={S.settingsPage.dataDir} path={info?.home ?? null} />
         <PathRow label={S.settingsPage.projectsDir} path={info?.projectsDir ?? null} />
         <WebDataRow />
+        <FullDiskRow />
       </Group>
       <DataGrants />
       <section className={group} aria-label={AGENT_COPY.permissionsTitle}>
@@ -422,6 +425,29 @@ function WebDataRow() {
       <Button variant="secondary" size="S" isDisabled={!web} isPending={busy} onPress={clear}>
         {S.settingsPage.clear}
       </Button>
+    </Row>
+  );
+}
+
+/** macOS 的完全磁盘访问权限（产品设计 §7.9）：随时可以先授权，不必等某个功能失败。只在桌面端、Runtime 在 macOS 上时显示。 */
+function FullDiskRow() {
+  const access = useFullDiskAccess();
+  if (!access.actionable) return null;
+  const opened = access.step === 'opened';
+  return (
+    <Row label={SA.settingLabel} desc={access.granted ? SA.settingAllowed : SA.settingMissing}>
+      {access.missing ? (
+        <>
+          {opened ? (
+            <Button variant="accent" size="S" onPress={() => void access.restart()}>
+              {SA.restart}
+            </Button>
+          ) : null}
+          <Button variant={opened ? 'secondary' : 'accent'} size="S" onPress={() => void access.open()}>
+            {opened ? SA.openAgain : SA.open}
+          </Button>
+        </>
+      ) : null}
     </Row>
   );
 }

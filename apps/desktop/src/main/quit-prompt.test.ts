@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { setLocale } from '@baocut/protocol';
-import { quitChoice, quitPrompt } from './quit-prompt.ts';
+import { quitChoice, quitPrompt, relaunchPrompt, restartChoice } from './quit-prompt.ts';
 import type { RemoteCall } from './runtime-supervisor.ts';
 
 afterEach(() => {
@@ -53,4 +53,16 @@ it('lists calls already sent to a provider by step, task kind, or as an Agent ta
     '• Generate image · Google',
     'and 2 more',
   ]);
+});
+
+it('restarting for a new permission offers only stop-and-restart or cancel, and never asks with nothing running', () => {
+  english();
+  expect(relaunchPrompt(null)).toBeNull();
+  expect(relaunchPrompt({ jobs: 0, tasks: 0, remote: [] })).toBeNull();
+  const options = relaunchPrompt({ jobs: 1, tasks: 0, remote: [] })!;
+  expect(options).toMatchObject({ message: '1 task is still running', buttons: ['Stop and Restart', 'Cancel'], defaultId: 0, cancelId: 1 });
+  expect(options.detail).toContain('new permission');
+  expect(restartChoice(0)).toBe('restart');
+  expect(restartChoice(1)).toBe('cancel');
+  expect(restartChoice(9)).toBe('cancel');
 });

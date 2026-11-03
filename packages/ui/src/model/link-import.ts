@@ -240,6 +240,8 @@ export interface LinkIssue {
   actions: LinkAction[];
   /** 下载工具给的原话（标准错误的结尾，链接已脱敏）；没有时 null。 */
   diag: string | null;
+  /** 缺 macOS 的完全磁盘访问权限（`details.systemAccess`）：界面在能直接去系统设置时给「打开系统设置」（产品设计 §7.9）。 */
+  needsFullDisk: boolean;
 }
 
 /** 认得的失败码 → 补救按钮（第一个是主按钮）；标题与说明在文案目录的 `issue` 里。 */
@@ -270,9 +272,10 @@ export function linkIssue(error: Pick<JobError, 'code' | 'message' | 'messageRef
   const code = error?.code ?? 'INTERRUPTED';
   const details = (error?.details && typeof error.details === 'object' ? error.details : {}) as Record<string, unknown>;
   const stderr = str(details.stderr);
+  const needsFullDisk = details.systemAccess === 'fullDiskAccess';
   const knownCode = LINK_ISSUE_ACTIONS[code] ? code : state === 'interrupted' ? 'INTERRUPTED' : null;
   const known = knownCode ? M.issue[knownCode] : undefined;
-  if (knownCode && known) return { code, title: known.title, body: known.body, actions: [...LINK_ISSUE_ACTIONS[knownCode]!], diag: stderr };
+  if (knownCode && known) return { code, title: known.title, body: known.body, actions: [...LINK_ISSUE_ACTIONS[knownCode]!], diag: stderr, needsFullDisk };
   const remedy = remedyText(details);
   return {
     code,
@@ -280,6 +283,7 @@ export function linkIssue(error: Pick<JobError, 'code' | 'message' | 'messageRef
     body: M.issueUnknownBody(jobErrorText(error) || null, remedy),
     actions: ['retry', 'use-file'],
     diag: stderr,
+    needsFullDisk,
   };
 }
 

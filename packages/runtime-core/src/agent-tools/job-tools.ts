@@ -187,7 +187,8 @@ const FAILURE_NEXT: Record<string, string> = {
   LINK_LOGIN_REQUIRED:
     '网站要求登录：jobs_retry 沿用原来的参数（同样的浏览器），不会补上登录信息，之后改的设置也不算。pipeline.cookieBrowsers 是这次用的浏览器（空的是匿名下载），error.details.attempts 是每个浏览器的结果。请用户先在浏览器里登录这个网站，再到设置 › 视频下载确认网站登录勾选了那个浏览器（用 error.details.settingsHref 写成 Markdown 设置链接，链接文字用用户的语言），弄好后用 download 或 transcribe 给 url 重新提交（不给 cookieBrowsers 时按设置）；用户说了用哪个浏览器时也可以带上 cookieBrowsers。用过的浏览器仍要求登录时，请用户在那个浏览器里打开链接确认能播放，再重新提交。对外服务的下载一律匿名：请用户在 BaoCut 里用下载视频工具下载。不要自己找 cookies 或运行下载程序。',
   LINK_COOKIES_UNAVAILABLE:
-    '读不到所用浏览器的 Cookie（error.details.attempts 是每个浏览器的结果）：把 details.remedy 转告用户，需要换浏览器时请用户到设置 › 视频下载改网站登录的勾选（用 error.details.settingsHref 写成 Markdown 设置链接）；用户处理好后用 download 或 transcribe 重新提交（jobs_retry 沿用原来的浏览器）。不要自己找 cookies。',
+    '读不到所用浏览器的 Cookie（error.details.attempts 是每个浏览器的结果）：把 details.remedy 转告用户，需要换浏览器时请用户到设置 › 视频下载改网站登录的勾选（用 error.details.settingsHref 写成 Markdown 设置链接）；用户处理好后用 download 或 transcribe 重新提交（jobs_retry 沿用原来的浏览器）。不要自己找 cookies。' +
+    ' If error.details.systemAccess is "fullDiskAccess", macOS is blocking BaoCut: tell the user to click "Open System Settings" on the download card (BaoCut opens the Full Disk Access page itself), turn BaoCut on there and reopen BaoCut, then resubmit. Do not try to open System Settings, click through macOS dialogs, use computer-control tools or edit permission databases.',
   TASK_PROTECTED:
     '这一步的写入触碰了任务合同里用户设的「不要改动」范围（被触碰的保护见 details），没有写入视频，前面步骤的结果保留。不要换办法绕过；告诉用户，由用户决定是否调整保护范围或自己处理。',
   EXPORT_VALIDATION_FAILED: '导出的文件没有通过校验，没有发布（details 列出问题）：告诉用户；不要原样重试。',

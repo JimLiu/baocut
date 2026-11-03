@@ -1,4 +1,4 @@
-import { defineMessages, intlLocale, onLocaleChange, type CookieBrowserInfo, type LinkCookieBrowser } from '@baocut/protocol';
+import { defineMessages, intlLocale, onLocaleChange, type CookieBrowserInfo, type FullDiskAccess, type LinkCookieBrowser } from '@baocut/protocol';
 import { zhHans } from './link-cookies.zh-Hans.ts';
 import { zhHant } from './link-cookies.zh-Hant.ts';
 import { ja } from './link-cookies.ja.ts';
@@ -113,16 +113,23 @@ export function toggleBrowser(checked: readonly LinkCookieBrowser[], id: LinkCoo
  * 复选框下面的说明：先说按勾选怎么用，再说读了什么、BaoCut 记什么；再按 Runtime 所在主机与勾了哪些浏览器提示：
  * macOS 上的系统授权，Windows 上 Cookie 库被占用与应用绑定加密（没勾 Firefox 时建议改用它）。
  */
-export function cookieNotes(list: readonly LinkCookieBrowser[], platform: string | null, detected: readonly CookieBrowserInfo[] = []): string[] {
+export function cookieNotes(
+  list: readonly LinkCookieBrowser[],
+  platform: string | null,
+  detected: readonly CookieBrowserInfo[] = [],
+  access?: FullDiskAccess,
+): string[] {
   const names = list.map(cookieBrowserLabel);
   const lines = [
     list.length === 0 ? M.noneChecked : list.length === 1 ? M.oneChecked(names[0]!) : M.manyChecked(names),
     M.privacy,
   ];
+  // Runtime 报告了完全磁盘访问权限的状态：未允许时由带按钮的授权卡说，已允许时没有要补的步骤；都不再写去系统设置的步骤。没有报告（远端或老版本）时才写。
+  const covered = platform === 'darwin' && access !== undefined;
   if (platform === 'darwin') {
     const keychain = list.filter((id) => CHROMIUM.includes(id)).map(cookieBrowserLabel);
     if (keychain.length) lines.push(M.keychain(keychain));
-    if (list.includes('safari') && !detected.some((b) => b.accessDenied)) lines.push(M.safariAccess);
+    if (list.includes('safari') && !detected.some((b) => b.accessDenied) && !covered) lines.push(M.safariAccess);
   }
   if (platform === 'win32') {
     const chromium = list.filter((id) => CHROMIUM.includes(id)).map(cookieBrowserLabel);
@@ -132,7 +139,7 @@ export function cookieNotes(list: readonly LinkCookieBrowser[], platform: string
     if (chromium.length && !list.includes('firefox')) lines[lines.length - 1] += M.firefoxTip;
   }
   const denied = detected.filter((b) => b.accessDenied).map((b) => cookieBrowserLabel(b.id));
-  if (denied.length) lines.push(platform === 'darwin' ? M.macAccessDenied(denied) : M.accessDenied(denied));
+  if (denied.length && !covered) lines.push(platform === 'darwin' ? M.macAccessDenied(denied) : M.accessDenied(denied));
   if (detected.some((b) => b.id === 'chrome' && b.cookieStoreMissing)) lines.push(M.chromeStoreMissing);
   return lines;
 }
@@ -152,3 +159,22 @@ export function cookieSummary(list: readonly LinkCookieBrowser[]): string {
   const names = list.map(cookieBrowserLabel);
   return M.summary(names.length === 0 ? M.anonymous : names.length === 1 ? M.subOne(names[0]!) : M.subMany(names));
 }
+
+/**
+ * 读取 Cookie 要先有「完全磁盘访问权限」的浏览器（只看勾选的）：Safari，以及检测时数据访问被拒绝的。Runtime 所在主机是 macOS 且
+ * 报告「未允许」时才有；没有报告（别的系统、远端、老版本）或已允许时为空（产品设计 §7.9）。
+ */
+export function fullDiskNeeds(
+  list: readonly LinkCookieBrowser[],
+  platform: string | null,
+  detected: readonly CookieBrowserInfo[],
+  access: FullDiskAccess | undefined,
+): LinkCookieBrowser[] {
+  if (platform !== 'darwin' || access !== 'missing') return [];
+  const denied = new Set(detected.filter((b) => b.accessDenied).map((b) => b.id));
+  return list.filter((id) => id === 'safari' || denied.has(id));
+}
+
+/** 「这次跳过」：把需要授权的浏览器从这一次下载的列表里去掉，用其余的继续。 */
+export const withoutFullDisk = (list: readonly LinkCookieBrowser[], needs: readonly LinkCookieBrowser[]): LinkCookieBrowser[] =>
+  list.filter((id) => !needs.includes(id));

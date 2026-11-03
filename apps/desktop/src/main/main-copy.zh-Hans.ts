@@ -54,6 +54,7 @@ export const zhHans: MainMessages = {
   quitBusyDetail: '现在退出会中断这些任务。也可以让它们在后台继续运行，完成后 BaoCut 会自己停止。',
   quitKeepRunning: '继续在后台运行',
   quitStop: '停止并退出',
+  relaunchBusyDetail: '现在重新启动会中断它们，新的权限才能生效。', relaunchStop: '停止并重新启动',
   cancel: '取消',
   remoteHeading: '以下调用已经发出，停止不会在对方那边取消，仍可能计费：',
   remoteMore: (count: number) => `还有 ${count} 项`,

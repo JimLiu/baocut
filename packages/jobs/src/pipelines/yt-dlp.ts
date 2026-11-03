@@ -4,6 +4,7 @@ import { DOWNLOADER_SETTINGS_HREF, LINK_COOKIE_BROWSERS, type LinkCookieBrowser,
 import { JobsYtDlp } from '@baocut/protocol/messages/jobs/yt-dlp.ts';
 import type { JobText } from '../job-text.ts';
 import { COOKIE_BROWSER_LABELS } from './cookie-browsers.ts';
+import { FULL_DISK_ACCESS } from '@baocut/runtime-storage';
 import { PipelineStepError } from './pipeline.ts';
 import { redactUrlsInText } from './link-url.ts';
 
@@ -217,7 +218,7 @@ function remedyDetails(code: string): { remedy: string | undefined; settingsHref
 const worthAnotherCookieBrowserCode = (code: string) => code === 'LINK_COOKIES_UNAVAILABLE' || code === 'LINK_LOGIN_REQUIRED';
 
 /** 按 yt-dlp 的报错（标准错误的结尾）判断失败的种类。链接在报错里一律脱敏。 */
-export function classifyFailure(stderr: string, exitCode: number | null): PipelineStepError {
+export function classifyFailure(stderr: string, exitCode: number | null, platform: NodeJS.Platform = process.platform): PipelineStepError {
   const text = redactUrlsInText(stderr).trim();
   const errorLine =
     text
@@ -266,7 +267,10 @@ export function classifyFailure(stderr: string, exitCode: number | null): Pipeli
   })();
   // 工具的原话照原样；没有时说明退出码。
   const message: JobText = errorLine.replace(/^ERROR:\s*/, '').slice(0, 300) || JobsYtDlp.exited({ code: exitCode });
-  return new PipelineStepError(code, message, { exitCode, stderr: text.slice(-1000), ...remedyDetails(code) });
+  // macOS 拒绝读浏览器的数据（`Operation not permitted`）：缺的是完全磁盘访问权限，界面据 `systemAccess` 给授权动作。
+  const systemAccess =
+    code === 'LINK_COOKIES_UNAVAILABLE' && platform === 'darwin' && /operation not permitted/i.test(text) ? { systemAccess: FULL_DISK_ACCESS } : {};
+  return new PipelineStepError(code, message, { exitCode, stderr: text.slice(-1000), ...remedyDetails(code), ...systemAccess });
 }
 
 /** 换下一个浏览器的 Cookie 可能有用的失败：读不到这个浏览器的 Cookie，或网站仍要求登录。别的失败换浏览器也一样。 */
@@ -287,6 +291,7 @@ export function cookieAttemptsFailure(attempts: ReadonlyArray<{ browser: CookieB
   const reasons = attempts.map(reason).join(JobsYtDlp.reasonSeparator().text);
   return new PipelineStepError(code, JobsYtDlp.cookieAttemptsFailed({ count: attempts.length, reasons }), {
     ...last.details,
+    ...(attempts.some((a) => a.error.details?.systemAccess) ? { systemAccess: FULL_DISK_ACCESS } : {}),
     attempts: attempts.map((a) => ({ browser: a.browser, code: a.error.code, message: a.error.message })),
     ...remedyDetails(code),
   });

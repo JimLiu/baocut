@@ -38,6 +38,7 @@ import { KIND_ICON } from '../space/space-list.tsx';
 import { useTaskAction } from '../tasks/use-task-actions.ts';
 import { TRANSCRIBE_TOOL_COPY } from '../tools/tools-copy.ts';
 import { useNow } from '../use-now.ts';
+import { OpenAccessButton } from '../system-access/full-disk-access.tsx';
 import { M } from './video-cards-copy.ts';
 import './agent-thread.css';
 import './video-cards.css';
@@ -342,7 +343,7 @@ export function DownloadCard({ jobId, conversationId }: { jobId: Id; conversatio
   const file = c.files[0] ?? null;
   const canOpen = !!file && !!host.openFile;
   const canReveal = !!file && host.platform !== 'web';
-  const hasFoot = !!c.elapsed || c.canCancel || c.canRetry || canOpen || canReveal;
+  const hasFoot = !!c.elapsed || c.canCancel || c.canRetry || c.needsFullDisk || canOpen || canReveal;
   return (
     <section className={`bc-dlcard is-${c.state} ${cardVars}`} aria-label={`${c.title} · ${c.name}`}>
       <header className="bc-dlcard__head">
@@ -379,6 +380,7 @@ export function DownloadCard({ jobId, conversationId }: { jobId: Id; conversatio
       {hasFoot ? (
         <div className="bc-vjob__foot">
           <span className="bc-vjob__time">{c.elapsed}</span>
+          {c.needsFullDisk ? <OpenAccessButton /> : null}
           {c.canRetry ? (
             <Button size="S" variant="secondary" onPress={() => actions.retry(c.jobId)}>
               {VIDEO_CARD_COPY.retry}

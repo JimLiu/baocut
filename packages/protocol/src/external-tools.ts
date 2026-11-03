@@ -153,6 +153,9 @@ export interface ExternalToolUpdateResult {
   jobId: Id;
 }
 
+/** macOS 的完全磁盘访问权限：`granted` 已允许，`missing` 未允许（只有 macOS 主机报告，别的主机省略；架构设计 §12.11）。 */
+export type FullDiskAccess = 'granted' | 'missing';
+
 /**
  * `externalTools.cookieBrowsers` 的一项：Chrome 的默认选项与这台机器上找得到 Cookie 库、或其数据访问被拒绝的其他浏览器。只按下载工具自己的查找规则看文件在不在、
  * 什么时候改过，不读 Cookie 内容；最近用过的排在前面，下载视频按这个顺序逐个尝试。

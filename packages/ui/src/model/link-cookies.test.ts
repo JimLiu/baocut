@@ -5,10 +5,12 @@ import {
   COOKIE_BROWSER_LABEL,
   cookieNotes,
   cookieSummary,
+  fullDiskNeeds,
   orderedBrowsers,
   toggleAllBrowsers,
   toggleBrowser,
   usedCookieText,
+  withoutFullDisk,
 } from './link-cookies.ts';
 
 /** 下载视频的「网站登录」（产品设计 §2.7）：勾选的顺序、「所有浏览器」的全选与半选、说明与结果的说法。 */
@@ -101,5 +103,34 @@ describe('网站登录', () => {
     expect(cookieSummary([])).toBe('网站登录：匿名下载');
     expect(cookieSummary(['safari'])).toBe('网站登录：使用 Safari 的 Cookie');
     expect(cookieSummary(['chrome', 'firefox'])).toBe('网站登录：依次试 Chrome、Firefox 的 Cookie');
+  });
+});
+
+describe('Full Disk Access (macOS)', () => {
+  const browsers = (extra: Partial<CookieBrowserInfo> = {}): CookieBrowserInfo[] => [
+    { id: 'chrome', label: 'Chrome', lastUsedAt: null, ...extra },
+    { id: 'safari', label: 'Safari', lastUsedAt: null },
+  ];
+
+  it('needs the permission for Safari and for browsers whose data access was denied, only when macOS reports it missing', () => {
+    expect(fullDiskNeeds(['chrome', 'safari'], 'darwin', browsers(), 'missing')).toEqual(['safari']);
+    expect(fullDiskNeeds(['chrome'], 'darwin', browsers({ accessDenied: true }), 'missing')).toEqual(['chrome']);
+    expect(fullDiskNeeds(['chrome'], 'darwin', browsers(), 'missing')).toEqual([]);
+    expect(fullDiskNeeds(['safari'], 'darwin', browsers(), 'granted')).toEqual([]);
+    expect(fullDiskNeeds(['safari'], 'darwin', browsers(), undefined)).toEqual([]);
+    expect(fullDiskNeeds(['safari'], 'win32', browsers(), 'missing')).toEqual([]);
+  });
+
+  it('skipping drops the browsers that need the permission and keeps the order of the rest', () => {
+    expect(withoutFullDisk(['chrome', 'safari', 'edge'], ['safari'])).toEqual(['chrome', 'edge']);
+  });
+
+  it('leaves out the manual steps once the Runtime reports the state, and keeps them when it does not', () => {
+    const steps = /完全磁盘访问权限/;
+    expect(cookieNotes(['chrome', 'safari'], 'darwin', browsers()).join('')).toMatch(steps);
+    expect(cookieNotes(['chrome', 'safari'], 'darwin', browsers(), 'missing').join('')).not.toMatch(steps);
+    expect(cookieNotes(['chrome', 'safari'], 'darwin', browsers(), 'granted').join('')).not.toMatch(steps);
+    expect(cookieNotes(['chrome'], 'darwin', browsers({ accessDenied: true })).join('')).toMatch(steps);
+    expect(cookieNotes(['chrome'], 'darwin', browsers({ accessDenied: true }), 'missing').join('')).not.toMatch(steps);
   });
 });

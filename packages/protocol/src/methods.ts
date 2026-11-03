@@ -56,7 +56,7 @@ import type {
   TaskContractView,
 } from './tasks.ts';
 import type { ResourcesSnapshot } from './resources.ts';
-import type { CookieBrowserInfo, ExternalToolInstallResult, ExternalToolStatus, ExternalToolUpdateResult } from './external-tools.ts';
+import type { CookieBrowserInfo, FullDiskAccess, ExternalToolInstallResult, ExternalToolStatus, ExternalToolUpdateResult } from './external-tools.ts';
 import type { ProjectGitCommitResult, ProjectGitStatus } from './project-git.ts';
 import type {
   DownloadedFontFace,
@@ -238,6 +238,11 @@ export interface RpcMethods extends BotRpcMethods {
    * （`details.code: 'RUNTIME_NOT_OWNED'`），有桌面端连着时 `conflict`（`RUNTIME_IN_USE`）。响应先回，随后按停止顺序收尾。
    */
   'runtime.stop': { params: Record<string, never>; result: { stopping: true } };
+  /**
+   * Runtime 所在主机的平台与 macOS 的完全磁盘访问权限（架构设计 §12.11）：`fullDiskAccess` 只有 macOS 主机有，每次重新探测。
+   * 界面据此显示授权卡与设置 › 隐私与权限的那一行；不在 Web 服务的白名单里。
+   */
+  'runtime.access': { params: Record<string, never>; result: { platform: string; fullDiskAccess?: FullDiskAccess } };
   /** 旧版项目的导入询问与这次启动里的导入（架构设计 §2.7）：与 `legacy-import` 主题的快照相同。不在 Web 服务的白名单里。 */
   'legacyImport.get': { params: Record<string, never>; result: LegacyImportSnapshot };
   /**
@@ -1294,7 +1299,7 @@ export interface RpcMethods extends BotRpcMethods {
    * 最近改过的在前。每次调用都重新看；只看文件在不在与修改时间，不读 Cookie 内容，不运行下载工具。`platform` 是 Runtime
    * 所在主机的平台（`process.platform` 的取值：darwin、win32、linux…）：下载在那台主机上运行，界面按它提示系统授权。
    */
-  'externalTools.cookieBrowsers': { params: Record<string, never>; result: { platform: string; browsers: CookieBrowserInfo[] } };
+  'externalTools.cookieBrowsers': { params: Record<string, never>; result: { platform: string; browsers: CookieBrowserInfo[]; fullDiskAccess?: FullDiskAccess } };
   /**
    * 导出（架构设计 §9.11、§9.13）：冻结视频的当前版本并预检，立即返回 `jobId`；之后的编辑不影响这个导出。
    * 预检不过时不创建任务，以 `RpcError.details.code` 给出原因（`EXPORT_*`、`ASSET_MISSING`、`ASSET_CHANGED`，命令与协议规范 §11.4）。

@@ -682,8 +682,17 @@ export class RuntimeSession {
    * 本机哪些浏览器有 Cookie 库（`externalTools.cookieBrowsers`，只看文件在不在、什么时候改过，不读 Cookie），最近用过的在前；
    * `platform` 是 Runtime 所在主机的平台，系统授权的提示看它。
    */
-  async cookieBrowsers(): Promise<{ platform: string; browsers: import('@baocut/protocol').CookieBrowserInfo[] }> {
+  async cookieBrowsers(): Promise<{
+    platform: string;
+    browsers: import('@baocut/protocol').CookieBrowserInfo[];
+    fullDiskAccess?: import('@baocut/protocol').FullDiskAccess;
+  }> {
     return this.client.request('externalTools.cookieBrowsers', {});
+  }
+
+  /** Runtime 所在主机的平台与 macOS 的完全磁盘访问权限（`runtime.access`，架构设计 §12.11）；每次重新探测。 */
+  async access(): Promise<{ platform: string; fullDiskAccess?: import('@baocut/protocol').FullDiskAccess }> {
+    return this.client.request('runtime.access', {});
   }
 
   // ---- 远端算力（节点协议规范 §10）：共享这台 Mac 与使用其他电脑。没有订阅主题，服务页按需轮询 status。 ----

@@ -193,6 +193,9 @@ describe('失败的说法', () => {
     // 要登录：先去设置 › 视频下载改网站登录，再重新导入（重试沿用这一次的浏览器）
     expect(linkIssue({ code: 'LINK_LOGIN_REQUIRED', message: 'x' })!.actions).toEqual(['sign-in', 'restart', 'use-file']);
     expect(linkIssue({ code: 'LINK_COOKIES_UNAVAILABLE', message: 'x' })!.actions[0]).toBe('sign-in');
+    expect(linkIssue({ code: 'LINK_COOKIES_UNAVAILABLE', message: 'x' })!.needsFullDisk).toBe(false);
+    expect(linkIssue({ code: 'LINK_COOKIES_UNAVAILABLE', message: 'x', details: { systemAccess: 'fullDiskAccess' } })!.needsFullDisk).toBe(true);
+    expect(linkIssue({ code: 'SOMETHING_NEW', message: 'x', details: { systemAccess: 'fullDiskAccess' } })!.needsFullDisk).toBe(true);
     expect(linkIssue({ code: 'TOOL_CONSENT_REQUIRED', message: 'x' })!.actions).toEqual(['tools']);
     expect(linkIssue({ code: 'LINK_SOURCE_EXPIRED', message: 'x' })!.actions).toEqual(['restart']);
   });

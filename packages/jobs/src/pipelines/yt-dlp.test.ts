@@ -105,6 +105,10 @@ describe('参数', () => {
       ['ERROR: something else', 'LINK_DOWNLOAD_FAILED'],
     ];
     for (const [stderr, code] of cases) expect(classifyFailure(stderr, 1).code, stderr).toBe(code);
+    const denied = `ERROR: [Errno 1] Operation not permitted: '/Users/a/Library/Cookies/Cookies.binarycookies'`;
+    expect(classifyFailure(denied, 1, 'darwin').details?.systemAccess).toBe('fullDiskAccess');
+    expect(classifyFailure(denied, 1, 'linux').details?.systemAccess).toBeUndefined();
+    expect(classifyFailure('ERROR: could not copy Chrome cookie database', 1, 'darwin').details?.systemAccess).toBeUndefined();
     const failure = classifyFailure('ERROR: unable to download https://cdn.example.com/v.mp4?sig=secret-token timed out', 1);
     expect(JSON.stringify(failure.details)).not.toContain('secret-token');
     expect(failure.message).not.toContain('secret-token');

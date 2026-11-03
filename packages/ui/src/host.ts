@@ -29,6 +29,14 @@ export interface HostBridge {
   web?: WebHost;
   /** 用系统浏览器打开 http/https 网址（桌面端才有）。 */
   openExternal?(url: string): Promise<void>;
+  /**
+   * macOS 的完全磁盘访问权限（架构设计 §12.11）：只有 macOS 桌面端有。`openFullDiskAccess` 打开系统设置里的那一页；
+   * `relaunch` 为让授权生效重新启动应用（手上有活时先确认，用户取消时返回 false）。Web 与别的系统没有它，界面不显示按钮。
+   */
+  systemAccess?: {
+    openFullDiskAccess(): Promise<void>;
+    relaunch(): Promise<boolean>;
+  };
   /** 按类型选要打开的文件（系统的打开对话框）。取消时返回空数组。没有它的宿主里，界面把要用它的入口置灰。 */
   pickFiles?(options: PickFilesOptions): Promise<string[]>;
   /** 会话附件的统一选择器：本机文件和目录；支持的图片可附带原始字节。Web 没有本机路径能力。 */

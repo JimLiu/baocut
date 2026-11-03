@@ -937,6 +937,7 @@ export const methodParamSchemas = {
   'runtime.info': empty,
   'runtime.status': empty,
   'runtime.stop': empty,
+  'runtime.access': empty,
   'legacyImport.get': empty,
   'legacyImport.answer': z.discriminatedUnion('decision', [
     z.object({ promptId: id, decision: z.literal('import'), directory: filePath }).strict(),

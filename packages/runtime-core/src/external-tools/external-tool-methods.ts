@@ -1,5 +1,6 @@
 import { RpcError } from '@baocut/protocol';
 import { detectCookieBrowsers } from '@baocut/jobs';
+import { probeFullDiskAccess } from '@baocut/runtime-storage';
 import type { TrustedPrincipal } from '../gateway.ts';
 import type { RpcHandlers } from '../handlers.ts';
 import type { ExternalToolService } from './external-tool-service.ts';
@@ -49,6 +50,9 @@ export function externalToolMethods(tools: () => ExternalToolService): Pick<RpcH
     },
     // 只看各浏览器的 Cookie 库在不在、什么时候改过，不读内容，结果里没有本机路径：设置 › 视频下载在浏览器里也列得出
     // （Web 白名单里只开放这一个 `externalTools.*`），浏览器里只看、不改（`settings.set` 不开放）。
-    'externalTools.cookieBrowsers': async () => ({ platform: process.platform, browsers: await detectCookieBrowsers() }),
+    'externalTools.cookieBrowsers': async () => {
+      const [browsers, fullDiskAccess] = await Promise.all([detectCookieBrowsers(), probeFullDiskAccess()]);
+      return { platform: process.platform, browsers, ...(fullDiskAccess ? { fullDiskAccess } : {}) };
+    },
   };
 }

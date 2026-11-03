@@ -1,10 +1,12 @@
 import { Picker, PickerItem, Switch, Text } from '@react-spectrum/s2';
-import { cookieSummary } from '../../model/link-cookies.ts';
+import { cookieSummary, fullDiskNeeds, withoutFullDisk } from '../../model/link-cookies.ts';
 import { downloadDirLabel } from '../../model/link-import.ts';
 import { urlValid } from '../../model/new-flow.ts';
 import { toolRequest, type RunMeta } from '../../model/tool-runs.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useCookieBrowserChoice } from '../../state/cookie-browsers-store.ts';
+import { useFullDiskAccess } from '../../state/system-access-store.ts';
+import { FullDiskAskDialog, FullDiskNotice, useFullDiskAsk } from '../system-access/full-disk-access.tsx';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { useShell } from '../../state/shell-store.ts';
@@ -36,11 +38,16 @@ export function LinkTool() {
   const cookies = useCookieBrowserChoice(true);
   const cookieBrowsers = cookies.list;
   const projectId = draft.transcribe && projects.some((p) => p.id === draft.projectId && !p.missing) ? draft.projectId : null;
-  const params = {
+  const paramsFor = (list: typeof cookieBrowsers) => ({
     url: draft.url.trim(), transcribe: draft.transcribe,
     ...(projectId ? { projectId } : {}),
-    ...(cookieBrowsers.length ? { cookieBrowsers } : {}),
-  };
+    ...(list.length ? { cookieBrowsers: list } : {}),
+  });
+  const params = paramsFor(cookieBrowsers);
+  // macOS 上要用的浏览器需要完全磁盘访问权限而还没允许：页面上带授权卡，开始前问一次（产品设计 §7.9）。
+  const access = useFullDiskAccess();
+  const needs = fullDiskNeeds(cookieBrowsers, cookies.platform, cookies.browsers, access.status);
+  const askAccess = useFullDiskAsk();
   const request = urlValid(params.url) ? toolRequest(status.byId.get('link-import'), 'link', params) : null;
   const key = request ? JSON.stringify(request) : '';
   const starter = useToolStart('link-import', key);
@@ -49,11 +56,17 @@ export function LinkTool() {
   const why = firstWhy(block && !downloader.ready ? needTool : block,
     !urlValid(params.url) && FORM_COPY.needUrl, !downloader.ready && needTool,
     !!starter.asking && FORM_COPY.needGrant, (!request || cookies.pending) && FORM_COPY.loading);
-  const start = () => {
-    if (why || !request) return;
+  /** `skipNeeds`：用户选了「这次跳过」，把需要授权的浏览器从这一次下载里去掉，用其余的继续。 */
+  const begin = (skipNeeds: boolean) => {
+    const sent = skipNeeds ? toolRequest(status.byId.get('link-import'), 'link', paramsFor(withoutFullDisk(cookieBrowsers, needs))) : request;
+    if (!sent) return;
     const meta: RunMeta = { tool: 'link-import', input: 'link', title: `${LINK_TOOL_COPY.title} · ${params.url.replace(/^https?:\/\//, '')}`,
       target: 'none', transcribe: draft.transcribe, projectName: projects.find((p) => p.id === projectId)?.name ?? null };
-    starter.start(request, meta, key);
+    starter.start(sent, meta, JSON.stringify(sent));
+  };
+  const start = () => {
+    if (why || !request) return;
+    askAccess.guard(needs, begin);
   };
   return <ToolFrame tool="link-import" title={LINK_TOOL_COPY.title}
     bar={<SubmitBar why={why} label={draft.transcribe ? LINK_TOOL_COPY.submitTranscribe : LINK_TOOL_COPY.submit} busy={starter.busy} onPress={start} />}
@@ -65,6 +78,7 @@ export function LinkTool() {
         note={LINK_TOOL_COPY.sourceNote}
         tool={<DownloaderSummary view={downloader} cookies={cookieSummary(cookieBrowsers)}
           onSettings={() => useShell.getState().go({ tab: 'settings', section: 'downloader' })} />} />
+      {needs.length ? <FullDiskNotice browsers={needs} /> : null}
     </Section>
     <Section>
       <Switch isSelected={draft.transcribe} onChange={(transcribe) => patch({ transcribe })}>{LINK_TOOL_COPY.transcribe}</Switch>
@@ -82,5 +96,6 @@ export function LinkTool() {
       </> : null}
     </Section>
     {starter.asking ? <GrantCard items={starter.asking} onAgree={starter.agree} busy={starter.busy} /> : null}
+    <FullDiskAskDialog ask={askAccess} />
   </ToolFrame>;
 }

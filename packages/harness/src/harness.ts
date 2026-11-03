@@ -109,6 +109,8 @@ import {
   quarantineProjectMarker,
   readProjectMarker,
   writeProjectMarker,
+  FULL_DISK_ACCESS,
+  systemAccessDetails,
   type ConversationRecord,
   type ConversationStore,
   type TaskContractLog,
@@ -594,8 +596,9 @@ export class Harness {
     try {
       real = await fs.realpath(path.resolve(dir));
       if (!(await fs.stat(real)).isDirectory()) throw new Error('not a directory');
-    } catch {
-      throw new RpcError('not-found', HP.folderInaccessible({ dir }));
+    } catch (error) {
+      const denied = systemAccessDetails(error, path.resolve(dir));
+      throw new RpcError('not-found', HP.folderInaccessible({ dir }), denied ?? undefined);
     }
     const now = nowIso();
     const marker = await this.#readMarker(real);
@@ -4336,9 +4339,11 @@ export function projectMissingError(project: Pick<Project, 'id' | 'path'>): RpcE
 function writeFailure(dir: string, error: unknown): RpcError {
   const code = (error as NodeJS.ErrnoException).code;
   if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') {
+    // macOS 按位置拒绝（外置卷、桌面、文稿等）时另标注缺的权限，界面据 `systemAccess` 给授权动作。
     return new RpcError('forbidden', HP.markerNotWritable({ dir }), {
       code: 'PROJECT_DIR_READ_ONLY',
       path: dir,
+      ...(systemAccessDetails(error, dir)?.systemAccess ? { systemAccess: FULL_DISK_ACCESS } : {}),
     });
   }
   return new RpcError('internal', HP.markerWriteFailed({ error: (error as Error).message }));

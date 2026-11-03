@@ -54,6 +54,7 @@ export const zhHant: MainMessages = {
   quitBusyDetail: '現在結束會中斷這些任務。也可以讓它們在背景繼續執行，完成後 BaoCut 會自行停止。',
   quitKeepRunning: '繼續在背景執行',
   quitStop: '停止並結束',
+  relaunchBusyDetail: '現在重新啟動會中斷它們，新的權限才能生效。', relaunchStop: '停止並重新啟動',
   cancel: '取消',
   remoteHeading: '以下呼叫已經送出，停止不會在對方那邊取消，仍可能計費：',
   remoteMore: (count: number) => `還有 ${count} 項`,

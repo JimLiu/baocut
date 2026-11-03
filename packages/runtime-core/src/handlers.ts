@@ -24,6 +24,7 @@ import {
 import type { Harness, TopicSubscription } from '@baocut/harness';
 import type { ProbeToolResolver } from '@baocut/jobs';
 import { compositionPageScript } from '@baocut/code-runtime';
+import { probeFullDiskAccess } from '@baocut/runtime-storage';
 import type { AgentSetup } from './agent-setup.ts';
 import type { AttachmentStore } from './attachments.ts';
 import type { TrustedPrincipal } from './gateway.ts';
@@ -367,6 +368,10 @@ export function createHandlers({
   return {
     methods: {
       'runtime.info': () => runtime,
+      'runtime.access': async () => {
+        const fullDiskAccess = await probeFullDiskAccess();
+        return { platform: process.platform, ...(fullDiskAccess ? { fullDiskAccess } : {}) };
+      },
       'runtime.status': (_p, principal) => {
         if (principal.kind !== 'cli' && principal.kind !== 'desktop') throw new RpcError('forbidden', RcRuntime.statusLocalOnly());
         return activity.status();

@@ -56,6 +56,7 @@ export const fr: MainMessages = {
   quitBusyDetail: 'Si vous quittez maintenant, elles seront interrompues. Vous pouvez aussi les laisser continuer en arrière-plan ; BaoCut s’arrêtera de lui-même une fois qu’elles seront terminées.',
   quitKeepRunning: 'Continuer en arrière-plan',
   quitStop: 'Arrêter et quitter',
+  relaunchBusyDetail: 'Redémarrer maintenant les interrompt, mais c’est nécessaire pour que la nouvelle autorisation prenne effet.', relaunchStop: 'Arrêter et redémarrer',
   cancel: 'Annuler',
   remoteHeading: 'Ces appels ont déjà été envoyés. Les arrêter ne les annule pas chez le fournisseur, et ils peuvent encore être facturés :',
   remoteMore: (count: number) => pluralForm('fr', count, { one: `et ${count} autre`, other: `et ${count} autres` }),

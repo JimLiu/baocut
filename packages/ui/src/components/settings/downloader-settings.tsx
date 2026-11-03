@@ -2,9 +2,11 @@ import type { ReactNode } from 'react';
 import { cookieBrowsersSetting, type LinkCookieBrowser } from '@baocut/protocol';
 import { ActionButton, Checkbox, ToastQueue } from '@react-spectrum/s2';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
-import { allBrowsersState, cookieNotes, NO_COOKIE_BROWSERS, toggleAllBrowsers, toggleBrowser } from '../../model/link-cookies.ts';
+import { allBrowsersState, cookieNotes, fullDiskNeeds, NO_COOKIE_BROWSERS, toggleAllBrowsers, toggleBrowser } from '../../model/link-cookies.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useCookieBrowserChoice } from '../../state/cookie-browsers-store.ts';
+import { FullDiskNotice } from '../system-access/full-disk-access.tsx';
+import { useFullDiskAccess } from '../../state/system-access-store.ts';
 import { DownloaderCard, useDownloaderTool } from '../start/downloader-card.tsx';
 import { LINK_TOOL_COPY } from '../tools/tools-copy.ts';
 import { M as GENERAL } from './general-settings-copy.ts';
@@ -83,6 +85,9 @@ function CookieGroup({ web }: { web: boolean }) {
   const save = useSaveSettings();
   const ready = useSettingsReady();
   const { browsers: detected, list } = choice;
+  // 授权卡只在桌面端（有 `systemAccess` 桥）出现；Web 看不到这个状态，说明里保留去系统设置的文字步骤。
+  const access = useFullDiskAccess().status;
+  const needs = fullDiskNeeds(list, choice.platform, detected, access);
   const all = allBrowsersState(list, detected);
   const first = choice.pending && !detected.length;
   const locked = web || !ready;
@@ -121,7 +126,8 @@ function CookieGroup({ web }: { web: boolean }) {
                 </Checkbox>
               ))}
             </div>
-            {cookieNotes(list, choice.platform, detected).map((line) => (
+            {needs.length ? <FullDiskNotice browsers={needs} /> : null}
+            {cookieNotes(list, choice.platform, detected, access).map((line) => (
               <p key={line} className={note}>
                 {line}
               </p>

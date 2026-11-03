@@ -23,3 +23,4 @@ export * from './skill-prefs.ts';
 export * from './channel-store.ts';
 export * from './work-item-store.ts';
 export * from './channel-files.ts';
+export * from './system-access.ts';

@@ -13,6 +13,7 @@ export const it: MainMessages = {
   quitBusyDetail: 'Se esci ora, verranno interrotte. Puoi anche lasciarle continuare in background; BaoCut si fermerà da solo al termine.',
   quitKeepRunning: 'Continua in background',
   quitStop: 'Interrompi ed esci',
+  relaunchBusyDetail: 'Riavviare ora le interrompe, ma serve perché la nuova autorizzazione abbia effetto.', relaunchStop: 'Interrompi e riavvia',
   cancel: 'Annulla',
   remoteHeading: 'Queste chiamate sono già state inviate. Interromperle non le annulla presso il fornitore e potrebbero comunque essere addebitate:',
   remoteMore: (count: number) => pluralForm('it', count, { one: `e un’altra`, other: `e altre ${count}` }),

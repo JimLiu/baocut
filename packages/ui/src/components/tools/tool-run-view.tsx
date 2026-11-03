@@ -21,6 +21,7 @@ import Checkmark from '@react-spectrum/s2/icons/Checkmark';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { ListBox, ListBoxItem } from 'react-aria-components';
 import { linkIssue } from '../../model/link-import.ts';
+import { OpenAccessButton } from '../system-access/full-disk-access.tsx';
 import { DownloaderCard, useDownloaderTool } from '../start/downloader-card.tsx';
 import { ST } from '../start/start-copy.ts';
 import { inputOptions, toolById, type ToolId, type ToolSourceKind, type VideoToolId } from '../../model/tool-catalog.ts';
@@ -310,6 +311,7 @@ export function ToolRunView({ job, tool, onBack }: { job: JobRecord; tool: Video
             <InlineAlert variant="notice"><Heading>{downloadIssue.title}</Heading><Content>{downloadIssue.body}</Content></InlineAlert>
             <DownloaderCard view={downloader} />
             <div className={buttons}>
+              {downloadIssue.needsFullDisk ? <OpenAccessButton /> : null}
               {/* 要登录、读不到 Cookie：去设置 › 视频下载改网站登录；改过之后回到表单重新开始才按新的设置（重试沿用这一次的浏览器）。 */}
               {downloadIssue.actions.includes('sign-in') ? (
                 <ActionButton onPress={() => useShell.getState().go({ tab: 'settings', section: 'downloader' })}><Text>{ST.downloader.changeSettings}</Text></ActionButton>

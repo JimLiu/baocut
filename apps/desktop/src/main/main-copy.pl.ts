@@ -55,6 +55,7 @@ export const pl: MainMessages = {
   quitBusyDetail: 'Jeśli zakończysz teraz, zostaną przerwane. Możesz też pozwolić im działać dalej w tle — BaoCut sam się zatrzyma, gdy się zakończą.',
   quitKeepRunning: 'Kontynuuj w tle',
   quitStop: 'Zatrzymaj i zakończ',
+  relaunchBusyDetail: 'Ponowne uruchomienie teraz je przerwie, ale jest potrzebne, aby nowe uprawnienie zaczęło działać.', relaunchStop: 'Zatrzymaj i uruchom ponownie',
   cancel: 'Anuluj',
   remoteHeading: 'Te wywołania zostały już wysłane. Zatrzymanie nie anuluje ich u dostawcy i nadal mogą zostać naliczone opłaty:',
   remoteMore: (count: number) => `i ${count} więcej`,

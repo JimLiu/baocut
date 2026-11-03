@@ -89,6 +89,15 @@ contextBridge.exposeInMainWorld('baocut', {
   updates,
   notifications,
   openExternal: (url: string) => ipcRenderer.invoke('baocut:open-external', url),
+  // macOS 的完全磁盘访问权限（架构设计 §12.11）：只在 macOS 提供；地址与确认都在主进程里。
+  ...(process.platform === 'darwin'
+    ? {
+        systemAccess: {
+          openFullDiskAccess: () => ipcRenderer.invoke('baocut:open-full-disk-access'),
+          relaunch: () => ipcRenderer.invoke('baocut:relaunch-for-access'),
+        },
+      }
+    : {}),
   pickMessageFiles: (options) => ipcRenderer.invoke('baocut:pick-message-files', options),
   pickFiles: (options) => ipcRenderer.invoke('baocut:pick-files', options),
   pickSavePath: (options) => ipcRenderer.invoke('baocut:pick-save-path', options),

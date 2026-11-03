@@ -54,6 +54,7 @@ export const ja: MainMessages = {
   quitBusyDetail: '今終了すると、これらのタスクは中断されます。バックグラウンドで実行を続けることもできます。完了すると BaoCut は自動的に停止します。',
   quitKeepRunning: 'バックグラウンドで実行を続ける',
   quitStop: '停止して終了',
+  relaunchBusyDetail: '今すぐ再起動すると中断されますが、新しい権限を有効にするために必要です。', relaunchStop: '停止して再起動',
   cancel: 'キャンセル',
   remoteHeading: '次の呼び出しは送信済みです。停止しても送信先では取り消されず、料金が発生する場合があります：',
   remoteMore: (count: number) => `ほか ${count} 件`,

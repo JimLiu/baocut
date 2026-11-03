@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { JobRecord } from '@baocut/protocol';
+import type { JobRecord, LinkCookieBrowser } from '@baocut/protocol';
 import { Button, Content, DropZone, Heading, InlineAlert, Radio, RadioGroup, TextField, ToastQueue } from '@react-spectrum/s2';
 import Upload from '@react-spectrum/s2/icons/Upload';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
@@ -35,6 +35,9 @@ import { useDirectory } from '../../state/directory-store.ts';
 import { useSetting } from '../../state/settings-store.ts';
 import { changeDownloadDir, useDownloaderTool } from '../start/downloader-card.tsx';
 import { useCookieBrowserChoice } from '../../state/cookie-browsers-store.ts';
+import { useFullDiskAccess } from '../../state/system-access-store.ts';
+import { fullDiskNeeds, withoutFullDisk } from '../../model/link-cookies.ts';
+import { FullDiskAskDialog, FullDiskNotice, useFullDiskAsk } from '../system-access/full-disk-access.tsx';
 import { LinkSource } from '../start/flow-media.tsx';
 import { SaveDirRow } from './tool-frame.tsx';
 import { GrantCard, ProjectPicker, ToolFrame, ToolSourceSwitch } from './tool-run-view.tsx';
@@ -138,6 +141,12 @@ export function TranscribeTool() {
   const input = link ? 'link' : row ? inputKindOf('transcribe', row.kind) : 'file';
   const block = blockOf(status, via, input, link ? ['transcribe'] : []);
   const outDir = saveTarget(status.saveDirectory, saveOverride);
+  /** 链接的参数；`list` 是这一次下载按顺序试的浏览器（空的是匿名下载）。 */
+  const linkParamsFor = (list: readonly LinkCookieBrowser[]): Record<string, unknown> | null => {
+    const cookieBrowsers = list.length ? { cookieBrowsers: list } : {};
+    if (!create) return { url, transcribe: true, ...cookieBrowsers };
+    return projectId ? { ...linkParams({ url, target: 'create', projectId, transcribe: true }), ...cookieBrowsers } : null;
+  };
   let params: Record<string, unknown> | null = null;
   if (draft.source === 'file' && draft.path) {
     if (!create) params = transcribeFileParams(draft.path, choice, outDir);
@@ -153,9 +162,7 @@ export function TranscribeTool() {
     else if (!create) params = transcribeFileParams({ entryId: row.entryId }, choice, outDir);
     else if (projectId && spaceMedia) params = transcribeParams({ create: { projectId, media: spaceMedia } }, choice);
   } else if (link && urlOk) {
-    const cookieBrowsers = cookies.list.length ? { cookieBrowsers: cookies.list } : {};
-    if (!create) params = { url, transcribe: true, ...cookieBrowsers };
-    else if (projectId) params = { ...linkParams({ url, target: 'create', projectId, transcribe: true }), ...cookieBrowsers };
+    params = linkParamsFor(cookies.list);
   }
   const request = params ? toolRequest(status.byId.get(via), input, params) : null;
   const key = request ? JSON.stringify(request) : '';
@@ -188,8 +195,15 @@ export function TranscribeTool() {
     (!request || (link && cookies.pending)) && FORM_COPY.loading,
   );
 
-  const start = () => {
-    if (why || !request) return;
+  // macOS 上要用的浏览器需要完全磁盘访问权限而还没允许：页面上带授权卡，开始前问一次（产品设计 §7.9）。
+  const access = useFullDiskAccess();
+  const needs = link ? fullDiskNeeds(cookies.list, cookies.platform, cookies.browsers, access.status) : [];
+  const askAccess = useFullDiskAsk();
+  /** `skipNeeds`：用户选了「这次跳过」，把需要授权的浏览器从这一次下载里去掉，用其余的继续。 */
+  const begin = (skipNeeds: boolean) => {
+    const skipped = skipNeeds && link ? linkParamsFor(withoutFullDisk(cookies.list, needs)) : null;
+    const sent = skipped ? toolRequest(status.byId.get(via), input, skipped) : request;
+    if (!sent) return;
     const what = draft.source === 'file' ? baseName(draft.path ?? '') : link ? url.replace(/^https?:\/\//, '') : (row?.name ?? '');
     const meta: RunMeta = {
       tool: 'transcribe',
@@ -201,7 +215,11 @@ export function TranscribeTool() {
       ...(link ? { transcribe: true } : {}),
     };
     if (create && projectId) setLastProject(projectId);
-    starter.start(request, meta, key);
+    starter.start(sent, meta, JSON.stringify(sent));
+  };
+  const start = () => {
+    if (why || !request) return;
+    askAccess.guard(needs, begin);
   };
 
   const dup = row?.video ? duplicateNote('transcribe', row.video) : null;
@@ -290,6 +308,7 @@ export function TranscribeTool() {
         </Section>
       )}
       {!writesVideo && !link ? <SaveDirRow saveDirectory={status.saveDirectory} override={saveOverride} onChange={setSaveOverride} /> : null}
+      {needs.length ? <FullDiskNotice browsers={needs} /> : null}
       {starter.asking ? (
         <GrantCard
           items={starter.asking}
@@ -298,6 +317,7 @@ export function TranscribeTool() {
           hint={asr.mode === 'cloud' || link ? GRANT_COPY.hintLocal : GRANT_COPY.hintCloud}
         />
       ) : null}
+      <FullDiskAskDialog ask={askAccess} />
     </ToolFrame>
   );
 }

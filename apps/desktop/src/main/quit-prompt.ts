@@ -56,3 +56,24 @@ function callName(call: RemoteCall): string {
   if (call.kind === null) return kinds.agent;
   return Object.hasOwn(kinds, call.kind) ? kinds[call.kind as keyof typeof kinds] : kinds.task;
 }
+
+/**
+ * 为让系统授权生效而重新启动时的确认（只有停止与取消：留在后台的 Runtime 是旧进程，拿不到新授权）。手上没有活时不问（null）。
+ * 按钮的顺序同样是缺省在前、取消在后；回答用 `restartChoice` 解读。
+ */
+export function relaunchPrompt(work: ActiveWork | null): MessageBoxOptions | null {
+  const count = work ? work.jobs + work.tasks : 0;
+  if (!work || count === 0) return null;
+  return {
+    type: 'warning',
+    message: M.quitBusyTitle(count),
+    detail: M.relaunchBusyDetail + remoteLines(work.remote),
+    buttons: [M.relaunchStop, M.cancel],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  };
+}
+
+/** 重新启动确认的回答：只有第一个按钮是继续。 */
+export const restartChoice = (response: number): 'restart' | 'cancel' => (response === 0 ? 'restart' : 'cancel');
