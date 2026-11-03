@@ -83,13 +83,20 @@
    *  真实的写入是一笔 edits_apply：每段一个 addItem（role: music，交替两条音乐轨）加 setAudioMix 的 fadeIn / fadeOut；
    *  原型把铺法记在视频上（`musicBed`），素材记进 `linkedMedia`。返回一句说明。 */
   function addToMovie(app, r, entry, dur) {
+    return layBed(app, r.movie, entry, dur, r.movieDuration).summary;
+  }
+  /** 结果行「加到视频」也走这里（product-design §2.7「结果与下一步」）：一部视频只留一床配乐，再铺换掉上一床；没有时长的视频放完整的一段。
+   *  返回 `{summary, already, undo}`；这段音乐已经铺在这部视频上时 `already`，不再铺。 */
+  function layBed(app, movieId, entry, dur, movieDuration) {
     const R = window.BC_TOOL_RUNNER;
-    const m = R.movieNow(r.movie);
-    const total = Number(r.movieDuration || m.duration) || dur;
+    const m = R.movieNow(movieId, app);
+    if (m.musicBed && m.musicBed.file === entry.file) return {summary: '', already: true, undo: () => {}};
+    const before = {linkedMedia: m.linkedMedia, musicBed: m.musicBed};
+    const total = Number(movieDuration || m.duration) || dur;
     const layout = M.loopLayout(dur, total);
-    R.patchMovie(app, r.movie, {linkedMedia: (m.linkedMedia || []).concat([{name: r.name, path: entry.file}]),
-      musicBed: {name: r.name, file: entry.file, pieceSec: dur, layout}});
-    return M.loopSummary(layout, total);
+    R.patchMovie(app, movieId, {linkedMedia: (m.linkedMedia || []).concat([{name: entry.name, path: entry.file}]),
+      musicBed: {name: entry.name, file: entry.file, pieceSec: dur, layout}});
+    return {summary: M.loopSummary(layout, total), already: false, undo: () => R.patchMovie(app, movieId, before)};
   }
   function enqueue(app, f, saveDir, model, movie) {
     jobs.seq += 1;
@@ -332,7 +339,7 @@
               ? list.filter((r) => r.status !== 'canceled').map((r) => <RecordCard key={r.id} r={r} onReuse={again} />)
               : <Empty icon="music" title="还没有生成过">写一句风格、选好模型，按「生成音乐」。一段 30 秒的音乐在本机要几分钟，可以先去做别的。</Empty>}
             <div className="t-detail-xs ttsw__sidefoot">
-              生成的 WAV 保存在保存位置，也显示在 Space 的「音频」中；「加到视频」把它放进一部视频的音乐轨。全程在这台电脑上运行，不联网。
+              生成的 WAV 保存在保存位置，也显示在 Space 的「音频」中；「加到视频」把它铺上一部视频的音乐轨。全程在这台电脑上运行，不联网。
               YuE2 权重只许非商业用途。交互演示里播放的是示例音频。
             </div>
           </aside>
@@ -341,5 +348,5 @@
     );
   }
 
-  Object.assign(window, {MusicToolPage});
+  Object.assign(window, {MusicToolPage, BC_TOOL_MUSIC: {layBed}});
 })();

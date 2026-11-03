@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const fr: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': 'Ouvrir dans l’éditeur', 'new-movie': 'Créer une vidéo à partir de ceci' },
+  actionLabel: { 'open-movie': 'Ouvrir dans l’éditeur', 'new-movie': 'Créer une vidéo à partir de ceci', 'add-to-movie': 'Ajouter à la vidéo' },
   blockTextOnly: 'Les transcriptions et les sous-titres nécessitent un fichier vidéo ou audio pour créer une vidéo ; cela n’est pas encore possible ici',
   blockTrashed: 'Restaurez d’abord cet élément depuis la corbeille',
   blockGenerating: 'Génération en cours ; disponible une fois terminée',

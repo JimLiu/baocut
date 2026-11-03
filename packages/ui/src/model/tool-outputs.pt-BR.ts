@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const ptBR: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': "Abrir no editor", 'new-movie': "Novo vídeo a partir deste" },
+  actionLabel: { 'open-movie': "Abrir no editor", 'new-movie': "Novo vídeo a partir deste", 'add-to-movie': 'Adicionar ao vídeo' },
   blockTextOnly: "Transcrições e legendas precisam de um arquivo de vídeo ou áudio para criar um vídeo; ainda não é possível fazer isso daqui",
   blockTrashed: "Restaure este item da Lixeira primeiro",
   blockGenerating: "Ainda gerando; disponível quando terminar",

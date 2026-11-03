@@ -76,7 +76,7 @@
       </div>
       {s.list.length ? s.list.map((r) => <JobCard key={r.id} r={r} />)
         : <Empty icon="tasks" title="还没有处理过">选好文件、按下按钮，进度会出现在这里。</Empty>}
-      <div className="t-detail-xs vw__sidefoot">每个输入写成新文件，也是 Space 里的条目，原文件不动。六个工具共用一条队列，一次跑一条。交互演示几秒跑完，不落真文件。</div>
+      <div className="t-detail-xs vw__sidefoot">每个输入写成新文件，也是 Space 里的条目，原文件不动；视频和音频结果要放进视频时用「加到视频」。六个工具共用一条队列，一次跑一条。交互演示几秒跑完，不落真文件。</div>
     </aside>;
   }
 

@@ -87,6 +87,10 @@ function matches(name: string, query: string): boolean {
   return !q || name.toLowerCase().includes(q);
 }
 
+function byEligibleThenRecent(a: SpaceRow, b: SpaceRow): number {
+  return Number(b.eligible) - Number(a.eligible) || (a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0);
+}
+
 /**
  * 工具的 Space 候选：只列这个工具收的种类，回收站里的不列；能选的排前面，同组按最近活动。视频行取自
  * `videoRows`（`tools.candidates` 的行，调用方已按搜索词筛过），其余取自 Space 目录的条目。
@@ -115,9 +119,21 @@ export function spaceRows(tool: ToolId, entries: readonly SpaceEntry[], videoRow
     const reason = entryReason(e);
     rows.push({ entryId: e.id, name: e.name, kind: e.kind, kindLabel: KIND_LABEL[e.kind], lastActivityAt: e.lastActivityAt, eligible: !reason, reason, entry: e, video: null });
   }
-  return rows.sort(
-    (a, b) => Number(b.eligible) - Number(a.eligible) || (a.lastActivityAt < b.lastActivityAt ? 1 : a.lastActivityAt > b.lastActivityAt ? -1 : 0),
-  );
+  return rows.sort(byEligibleThenRecent);
+}
+
+/**
+ * 结果行「加到视频」的候选（产品设计 §2.7）：不要求有文稿，读 Space 目录；回收站里的不列，索引文件夹里的只读、不在项目或会话目录里，也不列。
+ * 能选的排前面，同组按最近活动。
+ */
+export function videoRows(entries: readonly SpaceEntry[], query = ''): SpaceRow[] {
+  const rows: SpaceRow[] = [];
+  for (const e of entries) {
+    if (e.kind !== 'video' || e.user.trashedAt || !(e.source.projectId || e.source.conversationId) || !matches(e.name, query)) continue;
+    const reason = entryReason(e);
+    rows.push({ entryId: e.id, name: e.name, kind: e.kind, kindLabel: KIND_LABEL[e.kind], lastActivityAt: e.lastActivityAt, eligible: !reason, reason, entry: e, video: null });
+  }
+  return rows.sort(byEligibleThenRecent);
 }
 
 /**

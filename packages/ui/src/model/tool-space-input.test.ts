@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SpaceEntry } from '@baocut/protocol';
-import { entryReason, inputKindOf, SPACE_INPUT_COPY, spaceKindsText, spaceRows, toolsForEntry } from './tool-space-input.ts';
+import { entryReason, inputKindOf, SPACE_INPUT_COPY, spaceKindsText, spaceRows, toolsForEntry, videoRows } from './tool-space-input.ts';
 import type { PickerRow } from './tool-targets.ts';
 
 const entry = (id: string, patch: Partial<SpaceEntry> = {}, trashedAt: string | null = null): SpaceEntry => ({
@@ -95,5 +95,22 @@ describe('条目 → 收它的工具', () => {
     expect(toolsForEntry(entry('a', { kind: 'video' }))).toEqual(['transcribe', 'translate-subtitles', 'dub']);
     expect(toolsForEntry(entry('a', { kind: 'image' }))).toEqual(['upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image', 'match-color', 'remove-background']);
     expect(toolsForEntry(entry('a', { kind: 'export' }, '2026-09-01T00:00:00.000Z'))).toEqual([]);
+  });
+
+  it('加到视频的候选：只列项目或会话里的视频，回收站与索引文件夹不列，不能选的排后面写原因，可以按名字搜', () => {
+    const video = (id: string, patch: Partial<SpaceEntry> = {}, trashedAt: string | null = null) => entry(id, { kind: 'video', name: id, ...patch }, trashedAt);
+    const entries = [
+      video('old', { lastActivityAt: '2026-09-01T00:00:00.000Z' }),
+      video('new', { lastActivityAt: '2026-10-05T00:00:00.000Z' }),
+      video('gone', { status: 'missing', lastActivityAt: '2026-10-09T00:00:00.000Z' }),
+      video('trashed', {}, '2026-09-01T00:00:00.000Z'),
+      video('indexed', { source: { projectId: null, conversationId: null, folderId: 'f1' } }),
+      entry('file'),
+    ];
+    const rows = videoRows(entries);
+    expect(rows.map((r) => r.entryId)).toEqual(['new', 'old', 'gone']);
+    expect(rows.map((r) => r.eligible)).toEqual([true, true, false]);
+    expect(rows[2]!.reason).toBe(SPACE_INPUT_COPY.missing);
+    expect(videoRows(entries, 'OL').map((r) => r.entryId)).toEqual(['old']);
   });
 });

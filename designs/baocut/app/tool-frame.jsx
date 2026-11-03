@@ -124,18 +124,32 @@
       <window.MediaPick label="选择视频或音频" onPick={(name) => app.createMovieFromOutput(asSub, name)} />
     </div>;
   }
-  /** 「加到视频」：音频、图片、视频文件加进 Space 里的某部视频（视频选择器，不要求有文稿） */
+  /** 「加到视频」：音频、视频文件加进 Space 里的某部视频（视频选择器，不要求有文稿）。一笔普通的编辑，文件留在原处、只做链接，
+   *  吐司写明落在哪里、可以撤销：时间线还空着时放上去，已有片段时只导入素材（product-design §2.7、§4.6、§5.9）；
+   *  生成音乐的结果直接铺上音乐轨，铺法同「生成配乐」（BC_TOOL_MUSIC.layBed） */
   function AddToMovie({entry}) {
     const app = useApp();
     const [open, setOpen] = useState(false);
     const [pick, setPick] = useState(null);
     if (!open) return <Btn size="s" icon="plus" onClick={() => setOpen(true)}>加到视频</Btn>;
     const add = () => {
-      window.BC_TOOL_RUNNER.importToMovie(app, {movie: pick}, {name: entry.name, src: {name: entry.name, path: entry.file, format: (entry.name.split('.').pop() || '').toUpperCase(), res: entry.res || '', state: 'ok'}});
-      app.toast(`已把 ${entry.name} 加进「${(app.projById(pick) || {}).title || '视频'}」`, 'positive');
+      if (entry.toolId === 'music') {
+        const bed = window.BC_TOOL_MUSIC.layBed(app, pick, entry, entry.dur);
+        const name = (app.projById(pick) || {}).title || '视频';
+        if (bed.already) app.toast(`${entry.name} 已经在「${name}」的时间线上了`);
+        else app.toast(`已把 ${entry.name} 铺上「${name}」的音乐轨 · ${bed.summary}`, 'positive', {label: '撤销', undo: true, run: bed.undo});
+        setOpen(false);
+        return;
+      }
+      const added = window.BC_TOOL_RUNNER.importToMovie(app, {movie: pick}, {name: entry.name, src: {name: entry.name, path: entry.file, format: (entry.name.split('.').pop() || '').toUpperCase(), res: entry.res || '', state: 'ok'}});
+      const title = (app.projById(pick) || {}).title || '视频';
+      if (added.already) app.toast(`${entry.name} 已经在「${title}」的素材里了`);
+      else app.toast(added.placed ? `已把 ${entry.name} 放上「${title}」的时间线` : `已把 ${entry.name} 加进「${title}」的素材，可以在编辑器里放上时间线`, 'positive',
+        {label: '撤销', undo: true, run: added.undo});
       setOpen(false);
     };
     return <div className="trun__media">
+      <span className="t-detail">文件留在原处，视频里只做链接，不复制。</span>
       <window.VideoPicker tool="link" value={pick} onChange={setPick} />
       <div className="row gap8"><Btn variant="accent" size="s" disabled={!pick} onClick={add}>加进这部视频</Btn><Btn size="s" variant="quiet" onClick={() => setOpen(false)}>取消</Btn></div>
     </div>;

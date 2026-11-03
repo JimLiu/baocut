@@ -234,7 +234,7 @@ export const es: FootageMessages = {
   side: 'Cola de tareas',
   empty: 'Aún no se ha procesado nada',
   emptyBody: 'Elige archivos y pulsa el botón; el progreso aparece aquí.',
-  sideFoot: 'Cada entrada se convierte en un archivo nuevo y en un elemento de Space; los originales no se modifican. Las seis herramientas comparten esta cola y se ejecuta una a la vez.',
+  sideFoot: 'Cada entrada se convierte en un archivo nuevo y en un elemento de Space; los originales no se modifican. Para poner un resultado de vídeo o audio en un vídeo, usa «Añadir al vídeo». Las seis herramientas comparten esta cola y se ejecuta una a la vez.',
   submitted: 'Iniciado',
   submitFailed: (reason) => `No se pudo iniciar: ${reason}`,
   againDone: 'Rellenado con los archivos y ajustes de esa ejecución',

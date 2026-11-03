@@ -2,7 +2,7 @@ import type { SpaceEntryKind } from '@baocut/protocol';
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const de: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': "Im Editor öffnen", 'new-movie': "Neues Video daraus erstellen" },
+  actionLabel: { 'open-movie': "Im Editor öffnen", 'new-movie': "Neues Video daraus erstellen", 'add-to-movie': 'Zum Video hinzufügen' },
   blockTextOnly: "Transkripte und Untertitel benötigen eine Video- oder Audiodatei, um ein neues Video zu erstellen; das ist von hier aus noch nicht möglich",
   blockTrashed: "Diesen Eintrag zuerst aus dem Papierkorb wiederherstellen",
   blockGenerating: "Wird noch erzeugt; nach Abschluss verfügbar",

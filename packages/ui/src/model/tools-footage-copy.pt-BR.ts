@@ -234,7 +234,7 @@ export const ptBR: FootageMessages = {
   side: 'Fila de tarefas',
   empty: 'Nada processado ainda',
   emptyBody: 'Escolha arquivos e clique no botão; o progresso aparece aqui.',
-  sideFoot: 'Cada entrada vira um novo arquivo e um item no Space; os originais não são alterados. As seis ferramentas compartilham esta fila, e uma roda por vez.',
+  sideFoot: 'Cada entrada vira um novo arquivo e um item no Space; os originais não são alterados. Para colocar um resultado de vídeo ou áudio em um vídeo, use “Adicionar ao vídeo”. As seis ferramentas compartilham esta fila, e uma roda por vez.',
   submitted: 'Iniciado',
   submitFailed: (reason) => `Não foi possível iniciar: ${reason}`,
   againDone: 'Preenchido com os arquivos e as configurações dessa execução',

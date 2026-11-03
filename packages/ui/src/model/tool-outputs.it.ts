@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const it: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': "Apri nell’editor", 'new-movie': "Nuovo video da questo" },
+  actionLabel: { 'open-movie': "Apri nell’editor", 'new-movie': "Nuovo video da questo", 'add-to-movie': 'Aggiungi al video' },
   blockTextOnly: "Trascrizioni e sottotitoli richiedono un file video o audio per creare un nuovo video; non è ancora possibile farlo da qui",
   blockTrashed: "Ripristina prima questa voce dal Cestino",
   blockGenerating: "Generazione ancora in corso; disponibile al termine",

@@ -55,6 +55,14 @@ export const ptBR: ToolsMessages = {
     newMovieDone: (name: string) => `Novo vídeo criado de ${name}`,
     newMovieEmpty: (reason: string) => `Vídeo criado, mas mídia não adicionada: ${reason}`,
     newMovieFailed: (message: string) => `Não foi possível criar vídeo: ${message}`,
+    addMovieNote: 'O arquivo fica onde está; o vídeo vincula sem copiar.',
+    addMovieGo: 'Adicionar a este vídeo',
+    addMovieDone: (name: string, video: string) => `${name} foi adicionado às mídias de “${video}”. Coloque na linha do tempo pelo editor.`,
+    addMoviePlaced: (name: string, video: string) => `${name} foi colocado na linha do tempo de “${video}”`,
+    addMovieBed: (name: string, video: string, summary: string) => `${name} adicionado à faixa de música de “${video}” · ${summary}`,
+    addMovieAlready: (name: string, video: string) => `${name} já está nas mídias de “${video}”`,
+    addMovieOnTimeline: (name: string, video: string) => `${name} já está na linha do tempo de “${video}”`,
+    addMovieFailed: (message: string) => `Não foi possível adicionar ao vídeo: ${message}`,
   },
 
 

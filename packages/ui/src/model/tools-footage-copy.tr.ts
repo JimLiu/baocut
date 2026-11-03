@@ -234,7 +234,7 @@ export const tr: FootageMessages = {
   side: 'Görev kuyruğu',
   empty: 'Henüz işlenen bir şey yok',
   emptyBody: 'Dosyaları seçip düğmeye basın; ilerleme burada görünür.',
-  sideFoot: 'Her girdi yeni bir dosya ve Space’te bir öğe olur; orijinaller değiştirilmez. Altı aracın hepsi bu kuyruğu paylaşır ve aynı anda tek görev çalışır.',
+  sideFoot: 'Her girdi yeni bir dosya ve Space’te bir öğe olur; orijinaller değiştirilmez. Video veya ses sonucunu bir videoya koymak için “Videoya ekle” düğmesini kullanın. Altı aracın hepsi bu kuyruğu paylaşır ve aynı anda tek görev çalışır.',
   submitted: 'Başladı',
   submitFailed: (reason) => `Başlatılamadı: ${reason}`,
   againDone: 'O çalıştırmanın dosyaları ve ayarlarıyla dolduruldu',

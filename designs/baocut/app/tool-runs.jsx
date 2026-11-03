@@ -35,7 +35,8 @@
   function grant(keys) { (keys || []).forEach((k) => store.grants.add(k)); emit(); }
 
   /* 视频的当前记录：store 里的那份 ＋ 这里刚写过、store 还没传回来的补丁 */
-  const movieNow = (id) => Object.assign({}, (store.app && store.app.projById(id)) || {}, store.patches[id] || {});
+  /** `app`：结果可能来自没走这个运行器的工具（素材处理），这时 store.app 还没有，读不到视频。 */
+  const movieNow = (id, app) => Object.assign({}, ((app || store.app) && (app || store.app).projById(id)) || {}, store.patches[id] || {});
   function patchMovie(app, id, patch) {
     store.patches[id] = Object.assign({}, store.patches[id] || {}, patch);
     app.patchProject(id, patch);
@@ -151,11 +152,16 @@
       toolRun: {tool: ctx.run.spec.tool, task: ctx.run.taskId, label}, docs: {transcripts: [], translations: [], dubs: [], layers: []}}));
     ctx.movie = mv.id;
   }
-  /** 从链接导入加进已有的视频：没有素材的视频拿它当主素材，有素材的多一条链接素材（原型记在 `linkedMedia`） */
+  /** 从链接导入、结果行「加到视频」加进已有的视频：没有素材的视频拿它当主素材（放上时间线），有素材的多一条链接素材（原型记在 `linkedMedia`）。
+   *  返回 `{placed, already, undo}`：放上时间线了没有、这个文件是不是已经在素材里（不重复导入），和还原这一笔（product-design §4.6 可撤销） */
   function importToMovie(app, ctx, media) {
-    const m = movieNow(ctx.movie);
-    if (!m.src || !m.src.name) patchMovie(app, ctx.movie, {src: media.src, duration: m.duration || D.DUR || 206});
+    const m = movieNow(ctx.movie, app);
+    const placed = !m.src || !m.src.name;
+    if (!placed && (m.src.name === media.name || (m.linkedMedia || []).some((x) => x.name === media.name))) return {placed: false, already: true, undo: () => {}};
+    const before = {src: m.src, duration: m.duration, linkedMedia: m.linkedMedia};
+    if (placed) patchMovie(app, ctx.movie, {src: media.src, duration: m.duration || D.DUR || 206});
     else patchMovie(app, ctx.movie, {linkedMedia: (m.linkedMedia || []).concat([{name: media.name, url: media.src.url}])});
+    return {placed, already: false, undo: () => patchMovie(app, ctx.movie, before)};
   }
   /** 只下载成文件：Space 里的一个视频文件产物 */
   function storeDownload(app, ctx, media, dir) {

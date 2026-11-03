@@ -234,7 +234,7 @@ export const zhHant: FootageMessages = {
   side: '工作佇列',
   empty: '還沒有處理過',
   emptyBody: '選好檔案、按下按鈕，進度會顯示在這裡。',
-  sideFoot: '每個輸入都會寫成新檔案，同時也是 Space 裡的項目，原檔案不動。六個工具共用同一個佇列，一次只跑一個。',
+  sideFoot: '每個輸入都會寫成新檔案，同時也是 Space 裡的項目，原檔案不動；影片和音訊結果要放進影片時用「加入影片」。六個工具共用同一個佇列，一次只跑一個。',
   submitted: '已開始',
   submitFailed: (reason) => `無法開始：${reason}`,
   againDone: '已依這次的檔案與設定填好',

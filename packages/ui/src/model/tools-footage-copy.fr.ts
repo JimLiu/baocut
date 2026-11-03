@@ -234,7 +234,7 @@ export const fr: FootageMessages = {
   side: 'File d’attente',
   empty: 'Rien n’a encore été traité',
   emptyBody: 'Choisissez des fichiers et appuyez sur le bouton ; la progression s’affiche ici.',
-  sideFoot: 'Chaque entrée devient un nouveau fichier et un élément de Space ; les originaux ne sont pas modifiés. Les six outils partagent cette file d’attente, et un seul s’exécute à la fois.',
+  sideFoot: 'Chaque entrée devient un nouveau fichier et un élément de Space ; les originaux ne sont pas modifiés. Pour placer un résultat vidéo ou audio dans une vidéo, utilisez « Ajouter à la vidéo ». Les six outils partagent cette file d’attente, et un seul s’exécute à la fois.',
   submitted: 'Lancé',
   submitFailed: (reason) => `Impossible de lancer : ${reason}`,
   againDone: 'Rempli avec les fichiers et les réglages de cette exécution',

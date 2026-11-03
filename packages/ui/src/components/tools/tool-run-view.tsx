@@ -50,6 +50,7 @@ import { CHANGE_COPY } from '../../copy.ts';
 import { videoTargetOf } from '../../model/space.ts';
 import { outputsDir } from '../../model/tool-outputs.ts';
 import { useRuntime } from '../../runtime/context.tsx';
+import type { RuntimeSession } from '../../runtime/session.ts';
 import { sameTarget } from '../../runtime/video-controller.ts';
 import { useEditor } from '../../state/editor-store.ts';
 import { useVideo } from '../../state/video-store.ts';
@@ -355,9 +356,35 @@ export function ToolRunView({ job, tool, onBack }: { job: JobRecord; tool: Video
 }
 
 /** 编辑器此刻占着这个视频（正在打开或已经开着）：后台撤销完不替它关（同 change-card）。 */
-function editorHolds(target: FileTarget, videoId: Id): boolean {
+export function editorHolds(target: FileTarget, videoId: Id): boolean {
   const video = useVideo.getState().video;
   return video !== null && (video.videoId === videoId || sameTarget(video.target, target));
+}
+
+/**
+ * 按事务撤销这一笔，结果写成吐司；撤销了（或之前已经撤销过）时 true。编辑器开着这个视频时走编辑器，否则在后台打开撤销再关（同变更卡）。
+ */
+export async function undoTransaction(runtime: RuntimeSession, target: FileTarget, videoId: Id | null, transaction: Id): Promise<boolean> {
+  try {
+    const video = useVideo.getState().video;
+    if (video?.status === 'ready' && video.videoId === videoId) {
+      const receipt = await runtime.videos.undo({ transaction });
+      if (!receipt) {
+        ToastQueue.negative(CHANGE_COPY.undoFailed(useVideo.getState().video?.commandError?.message ?? RUN_COPY.unknown), {
+          timeout: 5000,
+        });
+        return false;
+      }
+      ToastQueue.neutral(CHANGE_COPY.undoneToast, { timeout: 3000 });
+      return true;
+    }
+    const result = await undoInBackground({ request: runtime.client.request.bind(runtime.client), editorHolds }, target, transaction);
+    ToastQueue.neutral(result.kind === 'undone' ? CHANGE_COPY.undoneToast : CHANGE_COPY.alreadyUndone, { timeout: 3000 });
+    return true;
+  } catch (e) {
+    ToastQueue.negative(CHANGE_COPY.undoFailed(e instanceof Error ? e.message : String(e)), { timeout: 5000 });
+    return false;
+  }
 }
 
 /**
@@ -366,7 +393,6 @@ function editorHolds(target: FileTarget, videoId: Id): boolean {
  */
 function SwitchActions({ job, entry }: { job: JobRecord; entry: SpaceEntry | null }) {
   const runtime = useRuntime();
-  const ready = useVideo((s) => s.video?.status === 'ready' && s.video.videoId === job.pipeline?.summary?.videoId);
   const [busy, setBusy] = useState(false);
   const [undone, setUndone] = useState(false);
   const sw = transcriptSwitchOf(job);
@@ -383,27 +409,8 @@ function SwitchActions({ job, entry }: { job: JobRecord; entry: SpaceEntry | nul
 
   const undo = async (transaction: Id) => {
     setBusy(true);
-    try {
-      if (ready) {
-        const receipt = await runtime.videos.undo({ transaction });
-        if (!receipt) {
-          ToastQueue.negative(CHANGE_COPY.undoFailed(useVideo.getState().video?.commandError?.message ?? RUN_COPY.unknown), {
-            timeout: 5000,
-          });
-          return;
-        }
-        setUndone(true);
-        ToastQueue.neutral(CHANGE_COPY.undoneToast, { timeout: 3000 });
-        return;
-      }
-      const result = await undoInBackground({ request: runtime.client.request.bind(runtime.client), editorHolds }, target, transaction);
-      setUndone(true);
-      ToastQueue.neutral(result.kind === 'undone' ? CHANGE_COPY.undoneToast : CHANGE_COPY.alreadyUndone, { timeout: 3000 });
-    } catch (error) {
-      ToastQueue.negative(CHANGE_COPY.undoFailed(error instanceof Error ? error.message : String(error)), { timeout: 5000 });
-    } finally {
-      setBusy(false);
-    }
+    if (await undoTransaction(runtime, target, sw.videoId, transaction)) setUndone(true);
+    setBusy(false);
   };
 
   return (

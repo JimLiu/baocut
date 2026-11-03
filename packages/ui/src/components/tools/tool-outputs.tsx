@@ -6,27 +6,31 @@ import Folder from '@react-spectrum/s2/icons/Folder';
 import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Button as RACButton } from 'react-aria-components';
 import { mergeDraft } from '../../model/ai-tools-handoff.ts';
+import { loopSummary } from '../../model/music-bed.ts';
 import { entryPath, videoTargetOf } from '../../model/space.ts';
-import { placeKindOf, videoNameOf } from '../../model/space-actions.ts';
+import { entryJobId, placeKindOf, videoNameOf } from '../../model/space-actions.ts';
 import { isVideoTool, type ToolId } from '../../model/tool-catalog.ts';
 import { saveDirLabel } from '../../model/tool-frame.ts';
-import { entriesOfJob, followUps, handoverText, newMovieBlock, outputDetail, type FollowUp } from '../../model/tool-outputs.ts';
+import { addToMovieOperations, entriesOfJob, followUps, handoverText, newMovieBlock, outputDetail, outputProvenance, type FollowUp } from '../../model/tool-outputs.ts';
 import { useRuntime } from '../../runtime/context.tsx';
 import { useDirectory } from '../../state/directory-store.ts';
+import { useJobs } from '../../state/jobs-store.ts';
 import { useShell } from '../../state/shell-store.ts';
 import { showInSpace } from '../../state/space-focus-store.ts';
 import { useSpace } from '../../state/space-store.ts';
 import { ImageLightbox } from '../media/image-lightbox.tsx';
 import { EntryThumb } from '../space/space-list.tsx';
+import { addFileToVideo } from './add-to-video.ts';
 import { detail } from './tool-parts.tsx';
-import { IMAGE_COPY, OUTPUT_COPY } from './tools-copy.ts';
-import { ProjectPicker } from './tool-run-view.tsx';
+import { IMAGE_COPY, OUTPUT_COPY, RETRANSCRIBE_COPY } from './tools-copy.ts';
+import { editorHolds, ProjectPicker, undoTransaction } from './tool-run-view.tsx';
+import { VideoPicker } from './tool-video-picker.tsx';
 import { useVideoTools } from './use-video-tools.ts';
 
 /*
  * 产物行（产品设计 §2.7「结果与下一步」，设计稿 tool-frame.jsx `ToolOutputRow` / `ToolOutputs`）：一次运行发布进 Space 的
  * 每个条目一行——名字、种类、大小或时长、所在目录；在 Space 中查看、在文件夹中显示（Web 没有，浏览器打不开本机文件夹）、
- * 交给 Agent（`space.continueInConversation` 带上引用，预填一句可改写的话，不自动发送），以及接着用哪个工具。
+ * 交给 Agent（`space.continueInConversation` 带上引用，预填一句可改写的话，不自动发送），以及接着用哪个工具、以此新建视频、加到视频。
  * 结果页、任务详情、生成记录共用。接着做什么见 model/tool-outputs.ts。
  */
 
@@ -83,7 +87,37 @@ export function useOutputActions() {
       ToastQueue.negative(OUTPUT_COPY.newMovieFailed((e as Error).message), { timeout: 6000 });
     }
   };
-  return { web, pathOf, reveal, handover, toTool, openMovie, newMovie, view: showInSpace };
+  /** 加进这部视频（一笔普通的编辑，§2.7、§4.6；生成的音乐铺上音乐轨）：吐司写明落在哪儿，可以一步撤销。成功时 true；被拒时写明原因，留着选择器好换一部。 */
+  const addToMovie = async (entry: SpaceEntry, video: SpaceEntry): Promise<boolean> => {
+    const path = pathOf(entry);
+    if (!path) return false;
+    const jobId = entryJobId(entry);
+    const job = jobId ? (useJobs.getState().jobs.find((j) => j.jobId === jobId) ?? null) : null;
+    const target = videoTargetOf(video);
+    try {
+      const added = await addFileToVideo({ request: runtime.client.request.bind(runtime.client), editorHolds }, target, (sequence, assets) =>
+        addToMovieOperations(sequence, assets, entry, path, outputProvenance(entry, job)),
+      );
+      if (!added.changed) {
+        ToastQueue.neutral((added.onTimeline ? OUTPUT_COPY.addMovieOnTimeline : OUTPUT_COPY.addMovieAlready)(entry.name, video.name), { timeout: 6000 });
+        return true;
+      }
+      const done = added.bed
+        ? OUTPUT_COPY.addMovieBed(entry.name, video.name, loopSummary(added.bed.layout, added.bed.totalSec))
+        : (added.placed ? OUTPUT_COPY.addMoviePlaced : OUTPUT_COPY.addMovieDone)(entry.name, video.name);
+      ToastQueue.positive(done, {
+        timeout: 8000,
+        actionLabel: RETRANSCRIBE_COPY.undo,
+        onAction: () => void undoTransaction(runtime, target, added.videoId, added.transactionId),
+        shouldCloseOnAction: true,
+      });
+      return true;
+    } catch (e) {
+      ToastQueue.negative(OUTPUT_COPY.addMovieFailed((e as Error).message), { timeout: 8000 });
+      return false;
+    }
+  };
+  return { web, pathOf, reveal, handover, toTool, openMovie, newMovie, addToMovie, view: showInSpace };
 }
 
 const row = style({
@@ -165,6 +199,49 @@ function NewMovieFrom({ entry, label }: { entry: SpaceEntry; label: string }) {
   );
 }
 
+/**
+ * 「加到视频」：音频与视频文件加进 Space 里的某部视频（产品设计 §2.7，设计稿 tool-frame.jsx `AddToMovie`）。
+ * 做不了时只置灰：原因在它前面的「以此新建视频」旁边写着，两样同一个原因。
+ */
+function AddToMovie({ entry, label }: { entry: SpaceEntry; label: string }) {
+  const actions = useOutputActions();
+  const entries = useSpace((s) => s.entries);
+  const [open, setOpen] = useState(false);
+  const [videoEntryId, setVideoEntryId] = useState<Id | null>(null);
+  const [busy, setBusy] = useState(false);
+  const video = videoEntryId ? (entries.find((e) => e.id === videoEntryId) ?? null) : null;
+  const blocked = !!newMovieBlock(entry, actions.pathOf(entry));
+  if (!open || blocked) {
+    return (
+      <Button variant="secondary" size="S" isDisabled={blocked} onPress={() => setOpen(true)}>
+        {label}
+      </Button>
+    );
+  }
+  const go = () => {
+    if (!video) return;
+    setBusy(true);
+    void actions.addToMovie(entry, video).then((added) => {
+      setBusy(false);
+      if (added) setOpen(false);
+    });
+  };
+  return (
+    <div className={pickBox}>
+      <span className={detail}>{OUTPUT_COPY.addMovieNote}</span>
+      <VideoPicker value={videoEntryId} onChange={setVideoEntryId} />
+      <div className={acts}>
+        <Button variant="accent" size="S" isDisabled={!video} isPending={busy} onPress={go}>
+          {OUTPUT_COPY.addMovieGo}
+        </Button>
+        <ActionButton isQuiet size="S" onPress={() => setOpen(false)}>
+          <Text>{OUTPUT_COPY.newMovieCancel}</Text>
+        </ActionButton>
+      </div>
+    </div>
+  );
+}
+
 /** 产物行；`fromTool` 是产出它的工具（写进视频的结果按它给下一步）；`compact` 是记录卡里的窄版。 */
 export function ToolOutputRow({ entry, fromTool, compact = false }: { entry: SpaceEntry; fromTool?: ToolId | null; compact?: boolean }) {
   const actions = useOutputActions();
@@ -180,6 +257,8 @@ export function ToolOutputRow({ entry, fromTool, compact = false }: { entry: Spa
   const btn = (n: FollowUp) =>
     n.id === 'new-movie' ? (
       <NewMovieFrom key={n.id} entry={entry} label={n.label} />
+    ) : n.id === 'add-to-movie' ? (
+      <AddToMovie key={n.id} entry={entry} label={n.label} />
     ) : n.kind === 'tool' ? (
       <Button key={n.id} variant="secondary" size="S" isDisabled={pending} onPress={() => actions.toTool(n.id as ToolId, entry)}>
         {n.label}

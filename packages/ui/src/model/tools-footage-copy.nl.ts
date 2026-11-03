@@ -234,7 +234,7 @@ export const nl: FootageMessages = {
   side: 'Takenwachtrij',
   empty: 'Nog niets verwerkt',
   emptyBody: 'Kies bestanden en druk op de knop; de voortgang verschijnt hier.',
-  sideFoot: 'Elke invoer wordt een nieuw bestand en een item in Space; de originelen worden niet gewijzigd. Alle zes tools delen deze wachtrij, en er draait er één tegelijk.',
+  sideFoot: 'Elke invoer wordt een nieuw bestand en een item in Space; de originelen worden niet gewijzigd. Gebruik ‘Aan video toevoegen’ om een video- of audioresultaat in een video te zetten. Alle zes tools delen deze wachtrij, en er draait er één tegelijk.',
   submitted: 'Gestart',
   submitFailed: (reason) => `Kon niet starten: ${reason}`,
   againDone: 'Ingevuld met de bestanden en instellingen van die run',

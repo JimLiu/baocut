@@ -55,6 +55,14 @@ export const fr: ToolsMessages = {
     newMovieDone: (name: string) => `Nouvelle vidéo créée depuis ${name}`,
     newMovieEmpty: (reason: string) => `Vidéo créée, mais ajout du média impossible : ${reason}`,
     newMovieFailed: (message: string) => `Impossible de créer la vidéo : ${message}`,
+    addMovieNote: 'Le fichier reste à son emplacement ; la vidéo le lie sans le copier.',
+    addMovieGo: 'Ajouter à cette vidéo',
+    addMovieDone: (name: string, video: string) => `${name} a été ajouté aux médias de « ${video} ». Placez-le sur la timeline depuis l’éditeur.`,
+    addMoviePlaced: (name: string, video: string) => `${name} a été ajouté à la timeline de « ${video} »`,
+    addMovieBed: (name: string, video: string, summary: string) => `${name} ajouté à la piste musicale de « ${video} » · ${summary}`,
+    addMovieAlready: (name: string, video: string) => `${name} figure déjà dans les médias de « ${video} »`,
+    addMovieOnTimeline: (name: string, video: string) => `${name} figure déjà sur la timeline de « ${video} »`,
+    addMovieFailed: (message: string) => `Impossible d’ajouter à la vidéo : ${message}`,
   },
 
 

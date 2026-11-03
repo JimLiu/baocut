@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const zhHans: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': '打开编辑', 'new-movie': '以此新建视频' },
+  actionLabel: { 'open-movie': '打开编辑', 'new-movie': '以此新建视频', 'add-to-movie': '加到视频' },
   blockTextOnly: '文稿与字幕要配上视频或音频才能新建视频，这一版还不能从这里做',
   blockTrashed: '回收站里的条目要先恢复',
   blockGenerating: '还在生成，完成后才能用',

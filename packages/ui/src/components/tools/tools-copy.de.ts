@@ -55,6 +55,14 @@ export const de: ToolsMessages = {
     newMovieDone: (name: string) => `Neues Video erstellt aus ${name}`,
     newMovieEmpty: (reason: string) => `Video erstellt, Material nicht hinzugefügt: ${reason}`,
     newMovieFailed: (message: string) => `Video konnte nicht erstellt werden: ${message}`,
+    addMovieNote: 'Die Datei bleibt am Ort; das Video verknüpft sie, statt sie zu kopieren.',
+    addMovieGo: 'Zu diesem Video hinzufügen',
+    addMovieDone: (name: string, video: string) => `${name} wurde zu den Materialien von „${video}“ hinzugefügt. Im Editor lässt es sich auf die Timeline legen.`,
+    addMoviePlaced: (name: string, video: string) => `${name} wurde auf die Timeline von „${video}“ gelegt`,
+    addMovieBed: (name: string, video: string, summary: string) => `${name} auf die Musikspur von „${video}“ gelegt · ${summary}`,
+    addMovieAlready: (name: string, video: string) => `${name} ist bereits in den Materialien von „${video}“`,
+    addMovieOnTimeline: (name: string, video: string) => `${name} liegt bereits auf der Timeline von „${video}“`,
+    addMovieFailed: (message: string) => `Konnte nicht zum Video hinzugefügt werden: ${message}`,
   },
 
 

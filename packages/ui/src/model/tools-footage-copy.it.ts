@@ -234,7 +234,7 @@ export const it: FootageMessages = {
   side: 'Coda delle attività',
   empty: 'Ancora nulla di elaborato',
   emptyBody: 'Scegli i file e premi il pulsante; l’avanzamento compare qui.',
-  sideFoot: 'Ogni input diventa un nuovo file e una voce nello Space; gli originali non vengono modificati. Tutti e sei gli strumenti condividono questa coda, e se ne esegue uno alla volta.',
+  sideFoot: 'Ogni input diventa un nuovo file e una voce nello Space; gli originali non vengono modificati. Per inserire un risultato video o audio in un video, usa «Aggiungi al video». Tutti e sei gli strumenti condividono questa coda, e se ne esegue uno alla volta.',
   submitted: 'Avviato',
   submitFailed: (reason) => `Impossibile avviare: ${reason}`,
   againDone: 'Compilato con i file e le impostazioni di quell’esecuzione',

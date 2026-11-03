@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const vi: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': 'Mở trong trình chỉnh sửa', 'new-movie': 'Tạo video mới từ đây' },
+  actionLabel: { 'open-movie': 'Mở trong trình chỉnh sửa', 'new-movie': 'Tạo video mới từ đây', 'add-to-movie': 'Thêm vào video' },
   blockTextOnly: 'Bản chép lời và phụ đề cần tệp video hoặc âm thanh để tạo video mới; hiện chưa thể làm từ đây',
   blockTrashed: 'Khôi phục mục này từ Thùng rác trước',
   blockGenerating: 'Vẫn đang tạo; có thể dùng khi hoàn tất',

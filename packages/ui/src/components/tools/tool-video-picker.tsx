@@ -7,7 +7,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Radio, RadioGroup } from 'react-aria-components';
 import { formatBytes, measureText, statusText } from '../../model/space.ts';
 import { isVideoTool, type ToolId } from '../../model/tool-catalog.ts';
-import { spaceKindsOf, spaceKindsText, spaceRows, type SpaceRow } from '../../model/tool-space-input.ts';
+import { spaceKindsOf, spaceKindsText, spaceRows, videoRows, type SpaceRow } from '../../model/tool-space-input.ts';
 import { NEEDS } from '../../model/tool-targets.ts';
 import { useDirectory } from '../../state/directory-store.ts';
 import { useSpace } from '../../state/space-store.ts';
@@ -99,11 +99,75 @@ function useRowDetails(): (r: SpaceRow) => string {
     const project = (projectId && names.get(projectId)) || PICKER_COPY.noProject;
     const sec = r.entry?.media?.durationSec;
     const minutes = sec ? PICKER_COPY.minutes(Math.max(1, Math.round(sec / 60))) : null;
-    if (r.video) return minutes ? `${project} · ${minutes}` : project;
+    if (r.kind === 'video') return minutes ? `${project} · ${minutes}` : project;
     const status = r.entry ? statusText(r.entry) : null;
     const measure = r.entry ? measureText(r.entry) : null;
     return [r.kindLabel, r.entry ? formatBytes(r.entry.size) : null, measure, project, status].filter(Boolean).join(' · ');
   };
+}
+
+/** 单选列表的行：缩略图、名字、第二行；能选的写标注，不能选的置灰并写原因。 */
+function PickerRows({ title, rows, value, onChange }: { title: string; rows: readonly SpaceRow[]; value: Id | null; onChange: (entryId: Id) => void }) {
+  const details = useRowDetails();
+  return (
+    <RadioGroup aria-label={title} value={value} onChange={(v) => onChange(v)} className={list}>
+      {rows.map((r) => (
+        <Radio key={r.entryId} value={r.entryId} isDisabled={!r.eligible} className={(rp) => row(rp)}>
+          {({ isSelected, isDisabled }) => (
+            <>
+              <span className={dot({ isSelected, isDisabled })} aria-hidden />
+              {r.entry ? <EntryThumb entry={r.entry} small /> : null}
+              <span className={rowText}>
+                <span className={rowTitle({ isDisabled })}>{r.name}</span>
+                <span className={rowSub}>{details(r)}</span>
+                {r.eligible ? (
+                  r.video?.tags.length ? (
+                    <span className={tags}>
+                      {r.video.tags.map((t) => (
+                        <Badge key={t.key} size="S" fillStyle="subtle" variant={t.key === 'transcript' ? 'accent' : 'neutral'}>
+                          {t.label}
+                        </Badge>
+                      ))}
+                    </span>
+                  ) : null
+                ) : (
+                  <span className={why}>
+                    <InfoCircle aria-hidden />
+                    {r.reason}
+                  </span>
+                )}
+              </span>
+            </>
+          )}
+        </Radio>
+      ))}
+    </RadioGroup>
+  );
+}
+
+/**
+ * 结果行「加到视频」的视频选择器（设计稿 tool-frame.jsx `AddToMovie`）：与 Space 选择器同样的搜索框与单选列表，不要求有文稿，
+ * 候选直接读 Space 目录。`value` 是视频的 Space 条目。
+ */
+export function VideoPicker({ value, onChange }: { value: Id | null; onChange: (entryId: Id) => void }) {
+  const [query, setQuery] = useState('');
+  const entries = useSpace((s) => s.entries);
+  const rows = useMemo(() => videoRows(entries, query), [entries, query]);
+  const ok = useMemo(() => videoRows(entries).filter((r) => r.eligible).length, [entries]);
+  return (
+    <section className={box} aria-label={PICKER_COPY.label}>
+      <div className={head}>
+        <h2 className={headTitle}>{PICKER_COPY.label}</h2>
+        <span className={small}>{PICKER_COPY.count(ok)}</span>
+      </div>
+      <SearchField aria-label={PICKER_COPY.search} placeholder={PICKER_COPY.searchPlaceholder} value={query} onChange={setQuery} />
+      {rows.length ? (
+        <PickerRows title={PICKER_COPY.label} rows={rows} value={value} onChange={onChange} />
+      ) : (
+        <EmptyCard icon={<Video />} title={PICKER_COPY.emptyTitle} body={PICKER_COPY.emptyBody} />
+      )}
+    </section>
+  );
 }
 
 /** Space 选择器：搜索框 + 单选列表；能选的在前，不能选的置灰并写原因。`data` 是视频候选（不收视频的工具给 null）。 */
@@ -125,7 +189,6 @@ export function SpacePicker({
   const all = useSpaceRows(tool, data);
   const rows = query.trim() ? spaceRows(tool, entries, data?.rowsFor(query) ?? [], query) : all;
   const ok = all.filter((r) => r.eligible).length;
-  const details = useRowDetails();
   const page = data?.page ?? null;
   const onlyVideos = spaceKindsOf(tool).every((k) => k === 'video');
   const title = label ?? (onlyVideos ? PICKER_COPY.label : PICKER_COPY.spaceLabel);
@@ -152,38 +215,7 @@ export function SpacePicker({
           {PICKER_COPY.loading}
         </span>
       ) : rows.length ? (
-        <RadioGroup aria-label={title} value={value} onChange={(v) => onChange(v)} className={list}>
-          {rows.map((r) => (
-            <Radio key={r.entryId} value={r.entryId} isDisabled={!r.eligible} className={(rp) => row(rp)}>
-              {({ isSelected, isDisabled }) => (
-                <>
-                  <span className={dot({ isSelected, isDisabled })} aria-hidden />
-                  {r.entry ? <EntryThumb entry={r.entry} small /> : null}
-                  <span className={rowText}>
-                    <span className={rowTitle({ isDisabled })}>{r.name}</span>
-                    <span className={rowSub}>{details(r)}</span>
-                    {r.eligible ? (
-                      r.video?.tags.length ? (
-                        <span className={tags}>
-                          {r.video.tags.map((t) => (
-                            <Badge key={t.key} size="S" fillStyle="subtle" variant={t.key === 'transcript' ? 'accent' : 'neutral'}>
-                              {t.label}
-                            </Badge>
-                          ))}
-                        </span>
-                      ) : null
-                    ) : (
-                      <span className={why}>
-                        <InfoCircle aria-hidden />
-                        {r.reason}
-                      </span>
-                    )}
-                  </span>
-                </>
-              )}
-            </Radio>
-          ))}
-        </RadioGroup>
+        <PickerRows title={title} rows={rows} value={value} onChange={onChange} />
       ) : onlyVideos ? (
         <EmptyCard icon={<Video />} title={PICKER_COPY.emptyTitle} body={PICKER_COPY.emptyBody} />
       ) : (

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetRecord } from '@baocut/protocol';
 import { audioItem, sequence, track, videoItem } from '../testing/sequence-records.ts';
-import { assetOnTimeline, LOOP, loopLayout, loopSummary, MUSIC_ROLE, musicBedOperations, placedSoundtrackJobs, SOUNDTRACK_EXTENSION, type LoopPiece } from './music-bed.ts';
+import { assetOnTimeline, importedMusicBedOperations, jobOnTimeline, LOOP, loopLayout, loopSummary, MUSIC_ROLE, musicBedOperations, placedSoundtrackJobs, SOUNDTRACK_EXTENSION, type LoopPiece } from './music-bed.ts';
 
 const music = (seconds: number, extra: Partial<AssetRecord> = {}): AssetRecord =>
   ({
@@ -185,6 +185,35 @@ describe('musicBedOperations：一笔事务里新建音乐轨、每段一个音�
       { type: 'deleteTrack', sequenceId: 'seq', trackId: 'm2' },
     ]);
     expect(r.operations.filter((op) => op.type === 'addTrack')).toHaveLength(2);
+  });
+
+  it('引用同一笔里刚导入的素材时铺法相同，上一床照样换掉；空时间线放完整的一段；时长不成立时不铺', () => {
+    const video = sequence([track('t1', 'visual', 0)], [videoItem('v1', 't1', 0, 300)]);
+    const source = { ref: 'drop0', name: 'calm.wav', pieceSec: 4 };
+    const fromAsset = musicBedOperations(video, music(4, { name: 'calm.wav' }), 'job_1')!;
+    const fromImport = importedMusicBedOperations(video, source, 'job_1')!;
+    expect(fromImport.layout).toEqual(fromAsset.layout);
+    const items = (ops: typeof fromImport.operations) => (ops.at(-1) as { items: Record<string, unknown>[] }).items;
+    expect(items(fromImport.operations).map(({ assetImportRef: _ref, ...rest }) => rest)).toEqual(items(fromAsset.operations).map(({ assetRef: _ref, ...rest }) => rest));
+    expect(items(fromImport.operations).every((i) => i.assetImportRef === 'drop0' && !('assetRef' in i))).toBe(true);
+
+    const empty = importedMusicBedOperations(sequence([track('t1', 'visual', 0)], []), source, 'job_1')!;
+    expect(empty.totalSec).toBe(4);
+    expect(empty.layout).toHaveLength(1);
+    expect(importedMusicBedOperations(video, { ...source, pieceSec: 0 }, 'job_1')).toBeNull();
+  });
+
+  it('任务的音乐在时间线上：铺过的看实例，用户放过的看素材的来源', () => {
+    const base = [track('t1', 'visual', 0), track('a1', 'audio', 1)];
+    const assetOf = (jobId: string) => ({
+      asset_m: music(10, { revisions: { '2': { revision: '2', provenance: { origin: 'generated', source: { jobId } } } } } as unknown as Partial<AssetRecord>),
+    });
+    const laid = sequence(base, [audioItem('b1', 'a1', 0, 10, { extensions: { [SOUNDTRACK_EXTENSION]: { jobId: 'job_1' } } })]);
+    expect(jobOnTimeline(laid, {}, 'job_1')).toBe(true);
+    const manual = sequence(base, [audioItem('m1', 'a1', 0, 10, { assetRef: { id: 'asset_m', revision: '2' } })]);
+    expect(jobOnTimeline(manual, assetOf('job_1'), 'job_1')).toBe(true);
+    expect(jobOnTimeline(manual, assetOf('job_2'), 'job_1')).toBe(false);
+    expect(jobOnTimeline(sequence(base, []), assetOf('job_1'), 'job_1')).toBe(false);
   });
 
   it('素材已经在时间线上就不再铺', () => {

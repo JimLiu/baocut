@@ -234,7 +234,7 @@ export const zhHans: FootageMessages = {
   side: '任务队列',
   empty: '还没有处理过',
   emptyBody: '选好文件、按下按钮，进度会出现在这里。',
-  sideFoot: '每个输入写成新文件，也是 Space 里的条目，原文件不动。六个工具共用一条队列，一次跑一条。',
+  sideFoot: '每个输入写成新文件，也是 Space 里的条目，原文件不动；视频和音频结果要放进视频时用「加到视频」。六个工具共用一条队列，一次跑一条。',
   submitted: '已开始',
   submitFailed: (reason) => `没能开始：${reason}`,
   againDone: '已照这次的文件与设置填好',

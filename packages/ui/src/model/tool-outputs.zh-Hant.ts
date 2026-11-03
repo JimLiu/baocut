@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const zhHant: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': '在編輯器中開啟', 'new-movie': '以此建立新影片' },
+  actionLabel: { 'open-movie': '在編輯器中開啟', 'new-movie': '以此建立新影片', 'add-to-movie': '加入影片' },
   blockTextOnly: '逐字稿與字幕需要搭配影片或音訊檔才能建立新影片，目前還無法從這裡建立',
   blockTrashed: '請先從垃圾桶回復這個項目',
   blockGenerating: '仍在生成中，完成後才能使用',

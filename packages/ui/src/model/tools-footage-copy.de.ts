@@ -234,7 +234,7 @@ export const de: FootageMessages = {
   side: 'Aufgabenwarteschlange',
   empty: 'Noch nichts verarbeitet',
   emptyBody: 'Wählen Sie Dateien aus und klicken Sie auf die Schaltfläche; der Fortschritt erscheint hier.',
-  sideFoot: 'Jede Eingabe wird zu einer neuen Datei und einem Eintrag in Space; die Originale bleiben unverändert. Alle sechs Werkzeuge teilen sich diese Warteschlange, und es läuft immer nur eines.',
+  sideFoot: 'Jede Eingabe wird zu einer neuen Datei und einem Eintrag in Space; die Originale bleiben unverändert. Video- und Audioergebnisse kommen mit „Zum Video hinzufügen“ in ein Video. Alle sechs Werkzeuge teilen sich diese Warteschlange, und es läuft immer nur eines.',
   submitted: 'Gestartet',
   submitFailed: (reason) => `Start nicht möglich: ${reason}`,
   againDone: 'Mit den Dateien und Einstellungen dieses Durchlaufs ausgefüllt',

@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const ru: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': "Открыть в редакторе", 'new-movie': "Создать видео из этого" },
+  actionLabel: { 'open-movie': "Открыть в редакторе", 'new-movie': "Создать видео из этого", 'add-to-movie': 'Добавить в видео' },
   blockTextOnly: "Для создания видео из расшифровок и субтитров нужен видео- или аудиофайл; здесь это пока невозможно",
   blockTrashed: "Сначала восстановите этот элемент из корзины",
   blockGenerating: "Ещё создаётся; станет доступно после завершения",

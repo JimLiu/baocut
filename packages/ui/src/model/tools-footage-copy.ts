@@ -265,7 +265,7 @@ const en = {
   side: 'Task queue',
   empty: 'Nothing processed yet',
   emptyBody: 'Choose files and press the button; progress shows up here.',
-  sideFoot: 'Each input becomes a new file and an item in Space; the originals aren’t changed. All six tools share this queue, and one runs at a time.',
+  sideFoot: 'Each input becomes a new file and an item in Space; the originals aren’t changed. To put a video or audio result into a video, use “Add to video”. All six tools share this queue, and one runs at a time.',
   submitted: 'Started',
   submitFailed: (reason: string) => `Couldn’t start: ${reason}`,
   againDone: 'Filled in with that run’s files and settings',

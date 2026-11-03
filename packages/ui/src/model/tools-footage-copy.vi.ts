@@ -234,7 +234,7 @@ export const vi: FootageMessages = {
   side: 'Hàng đợi tác vụ',
   empty: 'Chưa xử lý gì',
   emptyBody: 'Chọn tệp và bấm nút; tiến độ sẽ hiện ở đây.',
-  sideFoot: 'Mỗi đầu vào trở thành một tệp mới và một mục trong Space; tệp gốc không bị thay đổi. Cả sáu công cụ dùng chung hàng đợi này và mỗi lúc chỉ chạy một tác vụ.',
+  sideFoot: 'Mỗi đầu vào trở thành một tệp mới và một mục trong Space; tệp gốc không bị thay đổi. Để đưa kết quả video hoặc âm thanh vào một video, hãy dùng “Thêm vào video”. Cả sáu công cụ dùng chung hàng đợi này và mỗi lúc chỉ chạy một tác vụ.',
   submitted: 'Đã bắt đầu',
   submitFailed: (reason) => `Không thể bắt đầu: ${reason}`,
   againDone: 'Đã điền theo tệp và thiết lập của lần chạy đó',

@@ -1,4 +1,4 @@
-import type { AssetRecord, AudioItem, EditOperation, Id, MediaTime, Sequence, SequenceItemInput } from '@baocut/protocol';
+import type { AssetRecord, AudioItem, EditOperation, Id, MediaTime, Sequence, SequenceItemInput, VersionRef } from '@baocut/protocol';
 import { mediaTimeToSeconds } from '@baocut/protocol';
 import { durationSeconds } from './editor.ts';
 import { M } from './tools-music-copy.ts';
@@ -107,17 +107,43 @@ function replaceOperations(sequence: Sequence): EditOperation[] {
   ];
 }
 
+export interface MusicBed {
+  operations: EditOperation[];
+  layout: LoopPiece[];
+  totalSec: number;
+}
+
 /**
  * 把这段音乐循环铺满这部视频的那一笔操作：按实际时长算铺法，新建用到的音乐轨（一或两条），每段一个音频实例
  * （从音乐开头起、`playDuration` 截到该段长度、淡入淡出按铺法，带 `jobId` 的扩展）；上一床配乐在同一笔里换掉。
  * 时长向下取整到毫秒：铺的长度不超过素材、不越过序列末尾。视频没有时长、素材不是音频或没有时长时 null。
  */
-export function musicBedOperations(sequence: Sequence, asset: AssetRecord, jobId: Id): { operations: EditOperation[]; layout: LoopPiece[]; totalSec: number } | null {
+export function musicBedOperations(sequence: Sequence, asset: AssetRecord, jobId: Id): MusicBed | null {
   if (asset.kind !== 'audio') return null;
   const piece = pieceSeconds(asset);
-  const total = floorMs(durationSeconds(sequence));
-  if (piece === null || !(piece > 0) || !(total > 0)) return null;
-  const layout = loopLayout(floorMs(piece), total);
+  if (piece === null) return null;
+  return bedOperations(sequence, { assetRef: { id: asset.id, revision: asset.currentRevision } }, asset.name, piece, floorMs(durationSeconds(sequence)), jobId);
+}
+
+/**
+ * 工具结果行的「加到视频」（产品设计 §2.7）：铺法与上一床的去留同上，只是音乐在同一笔事务里刚导入（`importAsset` 的 `ref`），
+ * 时长取结果记下的实际时长，导入与铺轨一步撤销。时间线还空着时没有长度要铺满，放一段完整的音乐。时长不成立时 null。
+ */
+export function importedMusicBedOperations(sequence: Sequence, source: { ref: string; name: string; pieceSec: number }, jobId: Id): MusicBed | null {
+  const video = floorMs(durationSeconds(sequence));
+  return bedOperations(sequence, { assetImportRef: source.ref }, source.name, source.pieceSec, video > 0 ? video : floorMs(source.pieceSec), jobId);
+}
+
+function bedOperations(
+  sequence: Sequence,
+  target: { assetRef: VersionRef } | { assetImportRef: string },
+  name: string,
+  pieceSec: number,
+  total: number,
+  jobId: Id,
+): MusicBed | null {
+  if (!(pieceSec > 0) || !(total > 0)) return null;
+  const layout = loopLayout(floorMs(pieceSec), total);
   if (!layout.length) return null;
   const { num, den } = sequence.fps;
   const lanes = [...new Set(layout.map((p) => p.lane))].sort();
@@ -129,13 +155,13 @@ export function musicBedOperations(sequence: Sequence, asset: AssetRecord, jobId
     return {
       type: 'audio',
       trackRef: trackRef(p.lane),
-      assetRef: { id: asset.id, revision: asset.currentRevision },
+      ...target,
       fromFrame,
       subframeOffset: { ticks: String(subframeTicks), timescale: 1000 * num },
       playDuration: ms(p.dur),
       timeMap: { kind: 'linear', sourceIn: { ticks: '0', timescale: 1 }, rate: { num: 1, den: 1 } },
       mix: { volume: 1, ...(p.fadeIn > 0 ? { fadeIn: ms(p.fadeIn) } : {}), ...(p.fadeOut > 0 ? { fadeOut: ms(p.fadeOut) } : {}) },
-      name: asset.name,
+      name,
       role: MUSIC_ROLE,
       extensions: { [SOUNDTRACK_EXTENSION]: { jobId } },
     };
@@ -151,4 +177,14 @@ export function musicBedOperations(sequence: Sequence, asset: AssetRecord, jobId
 /** 这段素材已经在时间线上了（用户自己放过）：不再自动铺。 */
 export function assetOnTimeline(sequence: Sequence, assetId: Id): boolean {
   return sequence.items.some((item) => item.type === 'audio' && item.assetRef.id === assetId);
+}
+
+/** 这个任务的音乐已经在时间线上了：铺过（实例的扩展记着任务），或用户把它的素材（来源记着任务）放上去了。不再铺。 */
+export function jobOnTimeline(sequence: Sequence, assets: Record<Id, AssetRecord>, jobId: Id): boolean {
+  if (placedSoundtrackJobs(sequence).has(jobId)) return true;
+  return Object.values(assets).some((asset) => {
+    const source = asset.revisions[asset.currentRevision]?.provenance.source;
+    const owner = typeof source === 'object' && source !== null ? (source as { jobId?: unknown }).jobId : undefined;
+    return owner === jobId && assetOnTimeline(sequence, asset.id);
+  });
 }

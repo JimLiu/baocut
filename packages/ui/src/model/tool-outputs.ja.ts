@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const ja: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': 'エディタで開く', 'new-movie': 'これで新しい動画を作成' },
+  actionLabel: { 'open-movie': 'エディタで開く', 'new-movie': 'これで新しい動画を作成', 'add-to-movie': '動画に追加' },
   blockTextOnly: '文字起こしと字幕から新しい動画を作るには、動画または音声ファイルが必要です。ここからはまだ作成できません',
   blockTrashed: '先にゴミ箱からこの項目を復元してください',
   blockGenerating: 'まだ生成中です。完了すると使えます',

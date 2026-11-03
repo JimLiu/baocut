@@ -1,6 +1,9 @@
-import { defineMessages, intlLocale, type Id, type SpaceEntry, type SpaceEntryKind } from '@baocut/protocol';
+import { defineMessages, intlLocale, type AssetRecord, type EditOperation, type Id, type JobRecord, type Sequence, type SpaceEntry, type SpaceEntryKind } from '@baocut/protocol';
+import { importAndPlace } from './editor-ops.ts';
+import { LINK_IMPORT, linkProvenance } from './link-import.ts';
+import { importedMusicBedOperations, jobOnTimeline, type MusicBed } from './music-bed.ts';
 import { formatBytes, KIND_LABEL, measureText } from './space.ts';
-import { entryJobId } from './space-actions.ts';
+import { entryJobId, placeKindOf } from './space-actions.ts';
 import { spaceKindsOf, toolById, type ToolId } from './tool-catalog.ts';
 import { saveDirLabel } from './tool-frame.ts';
 import { zhHans } from './tool-outputs.zh-Hans.ts';
@@ -20,7 +23,7 @@ import { vi } from './tool-outputs.vi.ts';
 
 /** 产物行的文案（译文在 `tool-outputs.<语言>.ts`）。 */
 const en = {
-  actionLabel: { 'open-movie': 'Open in editor', 'new-movie': 'New video from this' },
+  actionLabel: { 'open-movie': 'Open in editor', 'new-movie': 'New video from this', 'add-to-movie': 'Add to video' },
   blockTextOnly: 'Transcripts and subtitles need a video or audio file to make a new video; that isn’t possible from here yet',
   blockTrashed: 'Restore this item from the Trash first',
   blockGenerating: 'Still generating; available when it’s done',
@@ -81,7 +84,7 @@ export function outputDetail(entry: SpaceEntry): string {
     .join(' · ');
 }
 
-export type FollowId = 'open-movie' | 'new-movie' | ToolId;
+export type FollowId = 'open-movie' | 'new-movie' | 'add-to-movie' | ToolId;
 
 export interface FollowUp {
   id: FollowId;
@@ -92,11 +95,11 @@ export interface FollowUp {
 const FOLLOW: Partial<Record<SpaceEntryKind, readonly FollowId[]>> = {
   document: ['translate-subtitles', 'synthesize-speech', 'new-movie'],
   subtitle: ['translate-subtitles', 'synthesize-speech', 'new-movie'],
-  audio: ['new-movie'],
-  // 生成的图片不接「以此新建视频」：放大查看、下载、交给 Agent 就够了（产品设计 §2.7）。
+  audio: ['new-movie', 'add-to-movie'],
+  // 生成的图片不接「以此新建视频」「加到视频」：放大查看、下载、交给 Agent 就够了（产品设计 §2.7）。
   image: [],
-  'video-file': ['new-movie'],
-  export: ['new-movie'],
+  'video-file': ['new-movie', 'add-to-movie'],
+  export: ['new-movie', 'add-to-movie'],
 };
 
 /**
@@ -115,14 +118,14 @@ const FOLLOW_MOVIE: Partial<Record<ToolId, readonly FollowId[]>> = {
 export function followUps(entry: Pick<SpaceEntry, 'kind'>, fromTool?: ToolId | null): FollowUp[] {
   const ids = entry.kind === 'video' ? ['open-movie' as const, ...((fromTool && FOLLOW_MOVIE[fromTool]) || [])] : (FOLLOW[entry.kind] ?? []);
   return ids.flatMap((id): FollowUp[] => {
-    if (id === 'open-movie' || id === 'new-movie') return [{ id, label: M.actionLabel[id], kind: 'action' }];
+    if (id === 'open-movie' || id === 'new-movie' || id === 'add-to-movie') return [{ id, label: M.actionLabel[id], kind: 'action' }];
     const tool = toolById(id);
     return tool && spaceKindsOf(id).includes(entry.kind) ? [{ id, label: tool.name, kind: 'tool' }] : [];
   });
 }
 
 /**
- * 「以此新建视频」为什么做不了；能做时 null。音频与视频文件直接成为新视频的素材（素材留在原处，只做链接）；
+ * 「以此新建视频」「加到视频」为什么做不了；能做时 null。音频与视频文件直接成为视频的素材（素材留在原处，只做链接）；
  * 文稿与字幕要先配一份视频或音频，Runtime 还没有这样新建的方法。
  */
 export function newMovieBlock(entry: Pick<SpaceEntry, 'kind' | 'status' | 'user'>, path: string | null): string | null {
@@ -131,6 +134,69 @@ export function newMovieBlock(entry: Pick<SpaceEntry, 'kind' | 'status' | 'user'
   if (entry.status === 'generating') return M.blockGenerating;
   if (entry.status === 'missing' || entry.status === 'failed' || !path) return M.blockMissing;
   return null;
+}
+
+/** 直接任务里产出音频的能力：它们的结果是生成记录；文件到文件的流程也记 `generated`，但不是模型生成的。 */
+const GENERATED_AUDIO = new Set(['synthesizeSpeech', 'generateMusic']);
+
+/**
+ * 结果加进视频时记的来源（架构设计 §7.9「没有视频的 Job」）：生成的结果仍是那条生成记录，只下载的媒体与流程自己导入时同形
+ * （任务已经出了账本时读不到，记不了）。别的不给，引擎按用户导入记。
+ */
+export function outputProvenance(
+  entry: Pick<SpaceEntry, 'origin' | 'ref'>,
+  job: Pick<JobRecord, 'jobId' | 'pipeline'> | null,
+): { origin: string; source?: unknown } | null {
+  const origin = entry.origin;
+  if (!origin) return null;
+  if (origin.capability === LINK_IMPORT) return job ? linkProvenance(job) : null;
+  if (origin.source !== 'generated' || !origin.capability || !GENERATED_AUDIO.has(origin.capability)) return null;
+  return {
+    origin: 'generated',
+    source: {
+      ...(origin.jobId ? { jobId: origin.jobId } : {}),
+      capability: origin.capability,
+      ...(origin.provider ?? {}),
+      ...(entry.ref && 'artifactId' in entry.ref ? { artifactId: entry.ref.artifactId } : {}),
+    },
+  };
+}
+
+export interface AddToMoviePlan {
+  operations: EditOperation[];
+  /** 这一笔同时把素材放上了时间线。 */
+  placed: boolean;
+  /** 音乐铺上了音乐轨时的铺法（提示里写出来）。 */
+  bed: Pick<MusicBed, 'layout' | 'totalSec'> | null;
+  /** 这段音乐本来就在时间线上，这一笔没有铺。 */
+  onTimeline: boolean;
+}
+
+/**
+ * 「加到视频」那一笔（产品设计 §2.7、§5.9，架构设计 §7.9，设计稿 tool-frame.jsx `AddToMovie`）：导入素材，文件留在原处、视频里只做链接。
+ * - 生成音乐的结果同一笔铺上音乐轨，铺法同「生成配乐」（music-bed.ts）；这个任务的音乐已经在时间线上时不再铺。
+ * - 别的结果是一次普通的素材导入：时间线还空着时同一笔放上主轨（与从链接导入进已有视频同一条规则），已经有片段时只导入，放不放由用户。
+ */
+export function addToMovieOperations(
+  sequence: Sequence,
+  assets: Record<Id, AssetRecord>,
+  entry: Pick<SpaceEntry, 'name' | 'fileName' | 'origin' | 'media'>,
+  path: string,
+  provenance: { origin: string; source?: unknown } | null,
+): AddToMoviePlan {
+  const imported = (kind: ReturnType<typeof placeKindOf>) =>
+    importAndPlace(sequence, [{ path, kind, name: entry.name, ...(provenance ? { provenance } : {}) }], 0);
+  const jobId = entry.origin?.capability === 'generateMusic' ? entry.origin.jobId : undefined;
+  const pieceSec = entry.media?.durationSec;
+  if (jobId && pieceSec) {
+    if (jobOnTimeline(sequence, assets, jobId)) return { operations: imported(null), placed: false, bed: null, onTimeline: true };
+    // `importAndPlace` 给导入的 `ref`（session.ts 读回执时也认它）。
+    const bed = importedMusicBedOperations(sequence, { ref: 'drop0', name: entry.name, pieceSec }, jobId);
+    if (bed) return { operations: [...imported(null), ...bed.operations], placed: true, bed: { layout: bed.layout, totalSec: bed.totalSec }, onTimeline: false };
+  }
+  const kind = placeKindOf(entry.fileName);
+  const placed = !!kind && sequence.items.length === 0;
+  return { operations: imported(placed ? kind : null), placed, bed: null, onTimeline: false };
 }
 
 /** 「交给 Agent」预填的那句话：按结果种类给一句缺省意图，由用户改写后发送，不自动发送。句子里不写路径，引用会带上位置。 */

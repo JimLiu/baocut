@@ -1,7 +1,7 @@
 import type { ToolOutputsMessages } from './tool-outputs.ts';
 
 export const tr: ToolOutputsMessages = {
-  actionLabel: { 'open-movie': 'Düzenleyicide aç', 'new-movie': 'Bundan yeni video oluştur' },
+  actionLabel: { 'open-movie': 'Düzenleyicide aç', 'new-movie': 'Bundan yeni video oluştur', 'add-to-movie': 'Videoya ekle' },
   blockTextOnly: 'Yeni video oluşturmak için döküm ve altyazılara bir video veya ses dosyası gerekir; henüz buradan yapılamıyor',
   blockTrashed: 'Önce bu öğeyi Çöp sepetinden geri yükleyin',
   blockGenerating: 'Hâlâ oluşturuluyor; tamamlanınca kullanılabilir',

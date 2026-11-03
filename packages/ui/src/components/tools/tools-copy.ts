@@ -75,6 +75,14 @@ const en = {
     newMovieDone: (name: string) => `Created a new video from ${name}`,
     newMovieEmpty: (reason: string) => `The video was created, but the asset couldn't be added: ${reason}`,
     newMovieFailed: (message: string) => `Couldn't create the video: ${message}`,
+    addMovieNote: 'The file stays where it is; the video links to it instead of copying it.',
+    addMovieGo: 'Add to this video',
+    addMovieDone: (name: string, video: string) => `Added ${name} to the assets of “${video}”. Place it on the timeline from the editor.`,
+    addMoviePlaced: (name: string, video: string) => `Added ${name} to the timeline of “${video}”`,
+    addMovieBed: (name: string, video: string, summary: string) => `Added ${name} to the music track of “${video}” · ${summary}`,
+    addMovieAlready: (name: string, video: string) => `${name} is already in the assets of “${video}”`,
+    addMovieOnTimeline: (name: string, video: string) => `${name} is already on the timeline of “${video}”`,
+    addMovieFailed: (message: string) => `Couldn't add to the video: ${message}`,
   },
 
   /** Space 查看框里与工具有关的几样（设计稿 space-viewer.jsx）：用工具处理…、做出它的工具、再做一次、所在位置。 */
@@ -353,7 +361,7 @@ const en = {
 
   /**
    * 压缩视频与合并视频（设计稿 tool-video.jsx、tool-video-merge.jsx）。设计稿里 Runtime 做不到的（按体积、帧率、显卡编码、
-   * 去掉音轨、装 / 升 ffmpeg、提交前的兼容性横幅、快速 / 重新编码二选一、播放、加到视频）不写；说明照实际行为写。
+   * 去掉音轨、装 / 升 ffmpeg、提交前的兼容性横幅、快速 / 重新编码二选一、播放）不写；说明照实际行为写。
    */
   transcode: {
     compressTitle: 'Compress video',

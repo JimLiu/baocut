@@ -235,7 +235,7 @@ export const pl: FootageMessages = {
   side: 'Kolejka zadań',
   empty: 'Nic jeszcze nie przetworzono',
   emptyBody: 'Wybierz pliki i naciśnij przycisk; postęp pojawi się tutaj.',
-  sideFoot: 'Każdy plik wejściowy staje się nowym plikiem i elementem w Space; oryginały nie są zmieniane. Wszystkie sześć narzędzi dzieli tę kolejkę i działa jedno naraz.',
+  sideFoot: 'Każdy plik wejściowy staje się nowym plikiem i elementem w Space; oryginały nie są zmieniane. Aby dodać wynik wideo lub audio do wideo, użyj przycisku „Dodaj do wideo”. Wszystkie sześć narzędzi dzieli tę kolejkę i działa jedno naraz.',
   submitted: 'Rozpoczęto',
   submitFailed: (reason) => `Nie udało się rozpocząć: ${reason}`,
   againDone: 'Uzupełniono plikami i ustawieniami z tamtego uruchomienia',
