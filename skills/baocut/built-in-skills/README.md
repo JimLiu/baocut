@@ -22,6 +22,7 @@ BaoCut 随应用分发的内置 Agent skill，也叫 craft（做法）：一件�
 | [`video-chapters`](video-chapters/SKILL.md) | 分章节 | 在话题自然转换处分章，每章一个标题和一句摘要，写进视频的章节 |
 | [`talking-head-cut`](talking-head-cut/SKILL.md) | 剪口播 | 去口癖、长停顿与录废的部分，收紧节奏，按需加强调、B-roll、竖屏取景与配乐闪避 |
 | [`shorts-segments`](shorts-segments/SKILL.md) | 切短视频 | 从长视频里挑出能单独发布的几段，每段建成可编辑的子视频 |
+| [`vlog-from-clips`](vlog-from-clips/SKILL.md) | 素材剪 vlog | 一堆原始片段剪成一条 vlog：逐段转写、取帧、写素材日志，认出本人的声音当主线，没人说话的好画面做 B-roll，按剪辑表剪到目标时长 |
 | [`narration`](narration/SKILL.md) | 旁白成片 | 按实测语速写稿，一个音色一次合成，量时长、只重配不合格的句子，再把画面剪到旁白上 |
 | [`explainer-video`](explainer-video/SKILL.md) | 知识讲解视频 | 讲解片的手艺页：把概念、新闻或资料讲成没有背景的人也看得懂、看完能复述，核实资料，从观众的疑问找讲法，给这期找一个自己会讲道理的主体，画面一直在动，按需另出语言或画幅版本，写发布文案；底是什么与制作照从简报到成片 |
 | [`clip-montage`](clip-montage/SKILL.md) | 解说混剪 | 旁白、视频切片与文字动画混搭：拿一条新闻、一件事或一个故事，从网上与视频库里搜素材、切原声，配旁白剪成画面一直在动的片子，推文与引语做成压在画面上的卡片；题材不限 |
