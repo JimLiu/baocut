@@ -22,6 +22,7 @@ import {
   webVideoHref,
 } from '@baocut/protocol';
 import type { Harness, TopicSubscription } from '@baocut/harness';
+import type { ProbeToolResolver } from '@baocut/jobs';
 import { compositionPageScript } from '@baocut/code-runtime';
 import type { AgentSetup } from './agent-setup.ts';
 import type { AttachmentStore } from './attachments.ts';
@@ -100,12 +101,20 @@ export interface RpcHandlers {
   ): TopicSubscription<unknown, unknown>;
 }
 
+/** 没有接线时（测试）用 PATH 上的 ffmpeg 与 ffprobe。 */
+const DEFAULT_MEDIA_TOOLS = {
+  ffmpeg: async () => ({ command: process.env.BAOCUT_FFMPEG || 'ffmpeg', env: process.env }),
+  ffprobe: async () => ({ command: process.env.BAOCUT_FFPROBE || 'ffprobe', env: process.env }),
+};
+
 /**
  * 方法表到 Harness 的映射。界面、CLI 与外部智能体走的是同一组处理函数（架构设计 §4.1）。
  * `principal` 0.1 只用于日志；权限检查随外部智能体接入出现。
  */
 export interface HandlerDeps {
   harness: Harness;
+  /** `tools.inspectInputs` 用的 ffmpeg 与 ffprobe（同流程：桌面应用从访达启动时 PATH 取登录 shell 的）。 */
+  mediaTools?: { ffmpeg: ProbeToolResolver; ffprobe: ProbeToolResolver };
   /** 本机语义检索（`space.searchV2`、`space.index*`、`space.resolveSearchHit`）。不给时只有字面一路。 */
   semantic?: SemanticServices | null;
   /** Agent 的安装、升级与登录动作（架构设计 §12.9）。 */
@@ -216,6 +225,7 @@ export function videoTargetOf(videos: VideoService, space: SpaceCatalog, videoId
 
 export function createHandlers({
   harness,
+  mediaTools,
   setup,
   space,
   media,
@@ -730,6 +740,7 @@ export function createHandlers({
         externalTools: () => externalTools,
         offlineStrict: () => settings.store.get('offline.strict'),
         saveDirectory: () => resolveSaveDirectory({ settings: settings.store.get('downloads.directory') }),
+        mediaTools: mediaTools ?? DEFAULT_MEDIA_TOOLS,
       }),
       // 产物（转写的原始结果、生成的音频与图片）的短期读取句柄：只读产物库里的文件。
       'artifacts.openHandle': async (p) => {

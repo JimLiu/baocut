@@ -42,6 +42,12 @@ export const zhHant: ToolCatalogMessages = {
     'compress-video': { name: '壓縮影片', desc: '依目標大小或畫質重新編碼；傳送或上傳前先縮小檔案' },
     'merge-video': { name: '合併影片', desc: '將多部影片依序首尾相接，合併成一個檔案' },
     'extract-audio': { name: '擷取音訊', desc: '去掉畫面，只保留音軌；常見的音訊編碼直接複製，不重新編碼' },
+    'stabilize-video': { name: '影片穩定', desc: '用本機的 ffmpeg 讓手持拍攝的晃動畫面穩定下來，不用另外下載' },
+    'upscale-video': { name: '影片超解析', desc: '用本機的 Real-ESRGAN 把影片放大 2–4 倍，補上推估出來的細節' },
+    'interpolate-video': { name: '影片插幀', desc: '用本機的 RIFE 做順暢的慢動作，或提高幀率' },
+    'match-color': { name: '統一色調', desc: '把幾段影片或幾張圖片的顏色對齊到同一張參考' },
+    'remove-background': { name: '移除背景', desc: '不用綠幕，把主體去背；影片輸出帶透明的 MOV，圖片輸出 PNG' },
+    'separate-audio': { name: '音訊分軌', desc: '把音訊或影片的第一條音軌拆成人聲與伴奏，也可以再拆出鼓、貝斯與其他' },
   },
   targetNone: '只建立逐字稿和字幕',
   targetCreate: '在專案中建立影片',
@@ -56,6 +62,10 @@ export const zhHant: ToolCatalogMessages = {
     'video-file': {
       label: '影片檔',
       desc: '使用這台電腦上的 yt-dlp 與 ffmpeg 下載、壓縮、合併影片及擷取音訊。結果是影片檔與音訊項目。',
+    },
+    footage: {
+      label: '素材處理',
+      desc: '在這台電腦上為素材做影片穩定、超解析、插幀、統一色調、移除背景，或把音軌拆開。每個輸入都會寫成新檔案，原檔案不動。',
     },
   },
   artifactItems: (artifacts) => `${artifacts.map((a) => artifactLabels[a]).join('與') || '產出'}項目`,

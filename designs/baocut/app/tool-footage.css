@@ -1,0 +1,35 @@
+/* 工具 › 素材处理（tool-footage*.jsx）——只在 App 入口加载。
+   结构类沿用 tools.css 的 vw__* / vcard / vsrc / vrec，这里只放输入列表、工作量、下载卡的事实表与多个产物的列表。 */
+.fg__srcs { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow: auto; }
+.fg__to { width: auto; }
+
+/* 四张方法卡排成两行两列，不留一张单独落在第二行 */
+.fg__cards--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* 这一次要多久 */
+.fg__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); gap: 12px 16px; margin: 0; }
+.fg__stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fg__stat dt { font-size: 11px; color: var(--gray-600); }
+.fg__stat dd { margin: 0; font-size: 16px; font-weight: 700; color: var(--gray-900); }
+.fg__stat dd.vw__err { color: var(--orange-1000); }
+.fg__load--long { box-shadow: inset 0 0 0 1px var(--orange-400); }
+
+/* 第一次用的下载卡 */
+.fg__tool.is-notice { box-shadow: inset 0 0 0 1px var(--orange-400); }
+.fg__facts { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 4px 12px; margin: 0; }
+.fg__facts dt { color: var(--gray-600); }
+.fg__facts dd { margin: 0; min-width: 0; color: var(--gray-800); }
+.fg__facts .dlsrc__picker { max-width: 240px; }
+.fg__tool .row { flex-wrap: wrap; }
+.fg__progress { display: flex; flex-direction: column; gap: 6px; }
+
+/* 多个产物：一行一个，点开才是完整的产物行 */
+.fg__outs { display: flex; flex-direction: column; gap: 4px; }
+.fg__out { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 4px 8px; border: 0; border-radius: 8px;
+  font-size: 12px; text-align: left; color: var(--gray-800); background: var(--gray-75); cursor: pointer;
+  transition: background 150ms cubic-bezier(0.45, 0, 0.4, 1); }
+.fg__out:hover { background: var(--gray-100); }
+.fg__out:focus-visible { outline: 2px solid var(--blue-800); outline-offset: 2px; }
+
+/* 演示挡位 */
+.fg__samples { margin-top: 12px; }

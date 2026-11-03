@@ -403,7 +403,7 @@ export function transcodeMeta(job: Pick<JobRecord, 'pipeline'>): string {
 }
 
 /** 步骤的子任务（`pipeline.steps[].jobId`）：在 `jobs` 主题里与父任务一起送达。 */
-function stepJob(job: Pick<JobRecord, 'pipeline'>, all: readonly JobRecord[], name: string): JobRecord | null {
+export function stepJob(job: Pick<JobRecord, 'pipeline'>, all: readonly JobRecord[], name: string): JobRecord | null {
   const id = job.pipeline?.steps.find((s) => s.name === name)?.jobId;
   return id ? (all.find((j) => j.jobId === id) ?? null) : null;
 }

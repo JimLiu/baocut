@@ -51,13 +51,13 @@ test('候选只列收的种类、不列回收站，能选的排前面，不能�
 
 test('条目 → 收它的工具（Space 查看器「用工具处理…」）', () => {
   const ids = (it, o) => S.toolsFor(it, o).map((t) => t.id);
-  assert.deepEqual(ids(items[2]), ['transcribe', 'compress', 'merge', 'extract']);
+  assert.deepEqual(ids(items[2]), ['transcribe', 'compress', 'merge', 'extract', 'stabilize-video', 'upscale-video', 'interpolate-video', 'match-color', 'remove-background', 'separate-audio']);
   assert.deepEqual(ids(items[3]), ['translate', 'tts', 'text']);
   assert.deepEqual(ids(items[5]), ['tts', 'text']);
   assert.equal(S.toolsFor(items[5]).find((t) => t.id === 'text').attach, true);
   assert.deepEqual(ids(items[0], {movie: movies[0]}), ['transcribe', 'translate', 'dub']);
   assert.match(S.toolsFor(items[1], {movie: movies[1]}).find((t) => t.id === 'dub').reason, /还没有文稿/);
-  assert.deepEqual(ids(items[7]), ['upscale', 'erase', 'watermark', 'repaint', 'expand'], '图片交给五个图片工具（2026-10-27）');
+  assert.deepEqual(ids(items[7]), ['upscale', 'erase', 'watermark', 'repaint', 'expand', 'match-color', 'remove-background'], '图片交给五个图片工具（2026-10-27），也能统一色调、去除背景');
   assert.deepEqual(S.toolsFor(items[6]), [], '回收站里的不处理');
 });
 

@@ -60,6 +60,30 @@ export const nl: ToolCatalogMessages = {
       name: "Audio extraheren",
       desc: "Het beeld verwijderen en alleen het audiospoor behouden; gangbare audiocodecs worden ongewijzigd gekopieerd, zonder opnieuw te coderen",
     },
+    'stabilize-video': {
+      name: "Video stabiliseren",
+      desc: "Trillerige handheld-beelden rustiger maken met ffmpeg op deze computer, zonder iets te downloaden",
+    },
+    'upscale-video': {
+      name: "Video opschalen",
+      desc: "Een video 2–4× vergroten met Real-ESRGAN op deze computer, met geschat detail erbij",
+    },
+    'interpolate-video': {
+      name: "Frames interpoleren",
+      desc: "Vloeiende slow motion of een hogere framerate maken met RIFE op deze computer",
+    },
+    'match-color': {
+      name: "Kleur afstemmen",
+      desc: "De kleur van meerdere clips of afbeeldingen op één referentie afstemmen",
+    },
+    'remove-background': {
+      name: "Achtergrond verwijderen",
+      desc: "Het onderwerp uitknippen zonder greenscreen; video’s komen uit als MOV met transparantie, afbeeldingen als PNG",
+    },
+    'separate-audio': {
+      name: "Audio splitsen in sporen",
+      desc: "Het eerste audiospoor van een audio- of videobestand splitsen in stem en begeleiding, en optioneel in drums, bas en overig",
+    },
   },
   targetNone: "Alleen een transcript en ondertitels maken",
   targetCreate: "Een video maken in een project",
@@ -74,6 +98,10 @@ export const nl: ToolCatalogMessages = {
     'video-file': {
       label: "Videobestanden",
       desc: "Video’s downloaden, comprimeren en samenvoegen en audio extraheren met yt-dlp en ffmpeg op deze computer. Resultaten zijn videobestand- en audio-items.",
+    },
+    footage: {
+      label: "Beeldmateriaal bewerken",
+      desc: "Stabiliseren, opschalen, interpoleren, kleur afstemmen, achtergronden verwijderen of audio splitsen op deze computer. Elke invoer wordt een nieuw bestand; de originelen worden niet gewijzigd.",
     },
   },
 

@@ -30,6 +30,12 @@ export const pl: ToolCatalogMessages = {
     'compress-video': { name: "Kompresuj wideo", desc: "Przekoduj do docelowego rozmiaru lub jakości; zmniejsz przed wysłaniem lub przesłaniem" },
     'merge-video': { name: "Scal wideo", desc: "Połącz kilka wideo kolejno w jeden plik" },
     'extract-audio': { name: "Wyodrębnij audio", desc: "Usuń obraz i zachowaj ścieżkę audio; popularne kodeki są kopiowane bez ponownego kodowania" },
+    'stabilize-video': { name: "Stabilizacja wideo", desc: "Stabilizuj drżące nagrania z ręki za pomocą ffmpeg na tym komputerze, bez pobierania czegokolwiek" },
+    'upscale-video': { name: "Powiększanie wideo", desc: "Powiększ wideo 2–4× na tym komputerze za pomocą Real-ESRGAN, dorysowując szacowane szczegóły" },
+    'interpolate-video': { name: "Interpolacja klatek", desc: "Twórz płynne zwolnione tempo lub wyższą liczbę klatek na sekundę na tym komputerze za pomocą RIFE" },
+    'match-color': { name: "Dopasowanie kolorów", desc: "Dopasuj kolory kilku klipów lub obrazów do jednego wzorca" },
+    'remove-background': { name: "Usuwanie tła", desc: "Wytnij obiekt bez zielonego ekranu; wideo jest zapisywane jako MOV z przezroczystością, obrazy jako PNG" },
+    'separate-audio': { name: "Podział dźwięku na ścieżki", desc: "Podziel pierwszą ścieżkę pliku audio lub wideo na głos i podkład, a opcjonalnie także na perkusję, bas i resztę" },
   },
   targetNone: "Utwórz tylko transkrypcję i napisy",
   targetCreate: "Utwórz wideo w projekcie",
@@ -44,6 +50,10 @@ export const pl: ToolCatalogMessages = {
     'video-file': {
       label: "Pliki wideo",
       desc: "Pobieraj, kompresuj, łącz wideo i wyodrębniaj audio przez yt-dlp i ffmpeg na tym komputerze. Wyniki to pliki wideo i audio.",
+    },
+    footage: {
+      label: "Obróbka materiału wideo",
+      desc: "Stabilizuj, powiększaj, interpoluj klatki, dopasowuj kolory, usuwaj tło lub dziel dźwięk na tym komputerze. Każdy plik wejściowy staje się nowym plikiem; oryginały nie są zmieniane.",
     },
   },
   artifactItems: (artifacts) => artifacts.length ? `${artifacts.map(a => artifactLabels[a]).join(' / ')} – elementy` : 'wyniki',

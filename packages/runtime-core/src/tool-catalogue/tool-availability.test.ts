@@ -54,7 +54,7 @@ function deps(
       return options.missing?.includes(capability) ? notConfigured(capability) : null;
     },
     externalTools: async () =>
-      options.tools ?? ['ffmpeg', 'yt-dlp', 'realesrgan-ncnn-vulkan', 'waifu2x-ncnn-vulkan', 'upscayl-models'].map((name) => external(name)),
+      options.tools ?? ['ffmpeg', 'yt-dlp', 'realesrgan-ncnn-vulkan', 'waifu2x-ncnn-vulkan', 'upscayl-models', 'rife-ncnn-vulkan', 'matte-models', 'matte-models-isnet'].map((name) => external(name)),
     offlineStrict: () => options.offline ?? false,
   };
 }

@@ -31,6 +31,8 @@
   const VIDEO_ACCEPT = ['.mp4', '.mov', '.mkv', '.webm', '.avi'];
   const IMAGE_ACCEPT = ['.png', '.jpg', '.jpeg', '.webp'];
   const IMAGE_INPUTS = [{kind: 'file', output: 'artifact', accept: IMAGE_ACCEPT}, {kind: 'space', kinds: ['image'], output: 'artifact'}];
+  const VIDEO_INPUTS = [{kind: 'file', output: 'artifact', accept: VIDEO_ACCEPT}, {kind: 'space', kinds: ['final'], output: 'artifact'}];
+  const VIDEO_IMAGE_INPUTS = [{kind: 'file', output: 'artifact', accept: VIDEO_ACCEPT.concat(IMAGE_ACCEPT)}, {kind: 'space', kinds: ['final', 'image'], output: 'artifact'}];
   const GROUPS = [
     {k: 'speech', label: '语音与字幕', desc: '转录、翻译字幕与配音、把文字念出来。结果是文档、字幕与音频条目；选 Space 里可编辑的视频时写进它。', tools: [
       {id: 'transcribe', name: '转录', icon: 'Transcript', navIcon: 'Transcript', output: 'artifact', artifact: 'doc', artifacts: ['doc', 'subtitle'],
@@ -88,8 +90,24 @@
        desc: '去掉画面，只留音轨；常见的音频编码原样复制，不重新编码',
        inputs: [{kind: 'file', output: 'artifact', accept: VIDEO_ACCEPT}, {kind: 'space', kinds: ['final'], output: 'artifact'}]},
     ]},
+    /* 素材处理（product-design §2.7「素材处理」；规则在 model-footage.js）：六个工具共用一页（tool-footage.jsx），文件到文件，id 就是流程名 */
+    {k: 'footage', label: '素材处理', desc: '在这台电脑上给素材去抖、超分、插帧、统一色调、去除背景，或者把音轨拆开。每个输入写成新文件，原文件不动。', tools: [
+      {id: 'stabilize-video', name: '视频去抖', icon: 'Target', navIcon: 'Target', output: 'artifact', artifact: 'final',
+       desc: '给手持拍摄的晃动画面去抖，用本机的 ffmpeg，不用另外下载', inputs: VIDEO_INPUTS},
+      {id: 'upscale-video', name: '视频超分', icon: 'Maximize', navIcon: 'Maximize', output: 'artifact', artifact: 'final',
+       desc: '用本机的 Real-ESRGAN 把视频放大 2–4 倍，补出细节', inputs: VIDEO_INPUTS},
+      {id: 'interpolate-video', name: '视频插帧', icon: 'StepForward', navIcon: 'StepForward', output: 'artifact', artifact: 'final',
+       desc: '用本机的 RIFE 做顺滑的慢动作，或者提高帧率', inputs: VIDEO_INPUTS},
+      {id: 'match-color', name: '统一色调', icon: 'ColorHarmony', navIcon: 'ColorHarmony', output: 'artifact', artifact: 'final', artifacts: ['final', 'image'],
+       desc: '把几段视频或几张图片的颜色对齐到同一张参考', inputs: VIDEO_IMAGE_INPUTS},
+      {id: 'remove-background', name: '去除背景', icon: 'Cut', navIcon: 'Cut', output: 'artifact', artifact: 'final', artifacts: ['final', 'image'],
+       desc: '不用绿幕，抠出画面里的主体；视频得到带透明的 MOV，图片得到 PNG', inputs: VIDEO_IMAGE_INPUTS},
+      {id: 'separate-audio', name: '音频分轨', icon: 'UnlinkHoriz', navIcon: 'UnlinkHoriz', output: 'artifact', artifact: 'audio',
+       desc: '把音频或视频的第一条音轨拆成人声与伴奏，也可以再拆出鼓、贝斯与其他',
+       inputs: [{kind: 'file', output: 'artifact', accept: MEDIA_ACCEPT}, {kind: 'space', kinds: ['final', 'audio'], output: 'artifact'}]},
+    ]},
   ];
-  const TOOLS = GROUPS.reduce((all, g) => all.concat(g.tools.map((t) => Object.assign({group: g.k}, t))), []);
+  const TOOLS =GROUPS.reduce((all, g) => all.concat(g.tools.map((t) => Object.assign({group: g.k}, t))), []);
   const toolById = (id) => TOOLS.find((t) => t.id === id) || null;
   /** 路由里的工具 id → 能打开的工具；未知或未推出的回到目录（null） */
   function openable(id) {

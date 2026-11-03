@@ -55,6 +55,7 @@ import {
   ModelServices,
   UsageLedger,
   resolveModelsEndpoint,
+  separationHasFourStems,
   type BundleDefinition,
   type ProviderSource,
 } from '@baocut/models';
@@ -316,7 +317,7 @@ export async function openModelJobs(options: ModelJobsOptions): Promise<ModelJob
       bundleId,
       workerWeightBytes: await catalog.workerWeightBytes(bundleId),
       processPeak: catalog.separationPeak(bundleId),
-      fourStems: !family || ['drums', 'bass', 'other'].every((stem) => family.background.includes(stem)),
+      fourStems: separationHasFourStems(family),
       ffmpeg: options.ffmpeg,
       ffprobe: options.ffprobe,
     });

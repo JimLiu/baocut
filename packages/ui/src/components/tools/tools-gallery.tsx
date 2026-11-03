@@ -4,6 +4,7 @@ import { style } from '@react-spectrum/s2/style' with { type: 'macro' };
 import { Link } from 'react-aria-components';
 import { resultLine, TOOL_GROUPS, type ToolInfo } from '../../model/tool-catalog.ts';
 import { plannedReason, toolBlock, toolCardStatus, type ToolCardStatus } from '../../model/tools-gallery.ts';
+import { footageCardStatus, isFootageTool } from '../../model/tools-footage.ts';
 import { useModels } from '../../state/models-store.ts';
 import { hrefFor } from '../../state/shell-store.ts';
 import { UtilityPage } from '../utility-page.tsx';
@@ -122,7 +123,10 @@ function ToolCard({ tool, state }: { tool: ToolInfo; state: ToolCardStatus | nul
 export function ToolsGallery() {
   const view = useModels((s) => s.capabilities);
   const status = useToolStatus();
-  const cardStatus = (id: ToolInfo['id']) => toolCardStatus(id, view, status.ready ? toolBlock(status.byId.get(id), status.pipelines) : undefined);
+  const cardStatus = (id: ToolInfo['id']) => {
+    const block = status.ready ? toolBlock(status.byId.get(id), status.pipelines) : undefined;
+    return isFootageTool(id) ? footageCardStatus(id, status.byId.get(id), view, block) : toolCardStatus(id, view, block);
+  };
   return (
     <UtilityPage kind="tools" title={GALLERY_COPY.title}>
       <p className={lede}>{TOOLS_HOME_COPY.lede}</p>

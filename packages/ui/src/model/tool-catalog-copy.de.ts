@@ -60,6 +60,30 @@ export const de: ToolCatalogMessages = {
       name: "Audio extrahieren",
       desc: "Das Bild entfernen und nur die Audiospur behalten; gängige Audiocodecs werden unverändert ohne Neucodierung kopiert",
     },
+    'stabilize-video': {
+      name: "Video stabilisieren",
+      desc: "Verwackeltes Handkamera-Material auf diesem Computer mit ffmpeg beruhigen, ohne dass etwas heruntergeladen werden muss",
+    },
+    'upscale-video': {
+      name: "Video hochskalieren",
+      desc: "Ein Video auf diesem Computer mit Real-ESRGAN 2–4× vergrößern und dabei geschätzte Details ergänzen",
+    },
+    'interpolate-video': {
+      name: "Frames interpolieren",
+      desc: "Auf diesem Computer mit RIFE eine flüssige Zeitlupe oder eine höhere Bildrate erzeugen",
+    },
+    'match-color': {
+      name: "Farben angleichen",
+      desc: "Die Farben mehrerer Clips oder Bilder an eine Referenz angleichen",
+    },
+    'remove-background': {
+      name: "Hintergrund entfernen",
+      desc: "Das Motiv ohne Greenscreen freistellen; Videos werden als MOV mit Transparenz ausgegeben, Bilder als PNG",
+    },
+    'separate-audio': {
+      name: "Audio in Spuren aufteilen",
+      desc: "Die erste Spur einer Audio- oder Videodatei in Stimme und Begleitung aufteilen, optional auch in Schlagzeug, Bass und Sonstiges",
+    },
   },
   targetNone: "Nur Transkript und Untertitel erstellen",
   targetCreate: "Video in einem Projekt erstellen",
@@ -74,6 +98,10 @@ export const de: ToolCatalogMessages = {
     'video-file': {
       label: "Videodateien",
       desc: "Videos mit yt-dlp und ffmpeg auf diesem Computer herunterladen, komprimieren und zusammenführen sowie Audio extrahieren. Ergebnisse sind Videodatei- und Audioeinträge.",
+    },
+    footage: {
+      label: "Videomaterial bearbeiten",
+      desc: "Auf diesem Computer stabilisieren, hochskalieren, interpolieren, Farben angleichen, Hintergründe entfernen oder Audio aufteilen. Jede Eingabe wird zu einer neuen Datei; die Originale bleiben unverändert.",
     },
   },
 

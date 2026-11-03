@@ -61,6 +61,30 @@ export const ptBR: ToolCatalogMessages = {
       name: "Extrair áudio",
       desc: "Retira imagem e mantém áudio; codecs comuns copiados sem reencodificar",
     },
+    'stabilize-video': {
+      name: "Estabilizar vídeo",
+      desc: "Estabilize gravações tremidas com a câmera na mão usando o ffmpeg neste computador, sem baixar nada",
+    },
+    'upscale-video': {
+      name: "Ampliar vídeo",
+      desc: "Amplie um vídeo de 2 a 4× com o Real-ESRGAN neste computador, acrescentando detalhes estimados",
+    },
+    'interpolate-video': {
+      name: "Interpolar quadros",
+      desc: "Crie câmera lenta suave ou uma taxa de quadros maior com o RIFE neste computador",
+    },
+    'match-color': {
+      name: "Igualar cor",
+      desc: "Ajuste a cor de vários clipes ou imagens a uma única referência",
+    },
+    'remove-background': {
+      name: "Remover fundo",
+      desc: "Recorte o assunto sem tela verde; vídeos saem em MOV com transparência e imagens em PNG",
+    },
+    'separate-audio': {
+      name: "Separar áudio em faixas",
+      desc: "Divida a primeira faixa de um arquivo de áudio ou vídeo em voz e acompanhamento e, se quiser, em bateria, baixo e outros",
+    },
   },
   targetNone: "Só criar transcrição e legendas",
   targetCreate: "Criar vídeo em projeto",
@@ -75,6 +99,10 @@ export const ptBR: ToolCatalogMessages = {
     'video-file': {
       label: "Arquivos de vídeo",
       desc: "Baixa, comprime, mescla e extrai áudio com yt-dlp/ffmpeg local. Resultados são vídeo e áudio.",
+    },
+    footage: {
+      label: "Tratamento de filmagens",
+      desc: "Estabilize, amplie, interpole, iguale a cor, remova fundos ou separe o áudio neste computador. Cada entrada vira um novo arquivo; os originais não são alterados.",
     },
   },
 

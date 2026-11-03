@@ -60,6 +60,30 @@ export const ja: ToolCatalogMessages = {
       name: '音声を抽出',
       desc: '映像を除いて音声トラックだけを残します。一般的な音声コーデックは再エンコードせず、そのままコピーします',
     },
+    'stabilize-video': {
+      name: '動画の手ぶれ補正',
+      desc: 'このコンピューターの ffmpeg で、手持ち撮影のブレた映像を安定させます。ダウンロードは不要です',
+    },
+    'upscale-video': {
+      name: '動画の高解像度化',
+      desc: 'このコンピューターの Real-ESRGAN で動画を 2–4 倍に拡大し、推定した細部を補います',
+    },
+    'interpolate-video': {
+      name: 'フレーム補間',
+      desc: 'このコンピューターの RIFE で、なめらかなスローモーションや高いフレームレートを作ります',
+    },
+    'match-color': {
+      name: '色を合わせる',
+      desc: '複数の動画や画像の色を 1 つの参照に合わせます',
+    },
+    'remove-background': {
+      name: '背景の除去',
+      desc: 'グリーンバックなしで被写体を切り抜きます。動画は透過付きの MOV、画像は PNG で出力されます',
+    },
+    'separate-audio': {
+      name: '音声をトラック別に分離',
+      desc: '音声または動画ファイルの最初のトラックをボーカルと伴奏に分け、必要に応じてドラム、ベース、その他にも分けます',
+    },
   },
   targetNone: '文字起こしと字幕だけを作成',
   targetCreate: 'プロジェクトに動画を作成',
@@ -74,6 +98,10 @@ export const ja: ToolCatalogMessages = {
     'video-file': {
       label: '動画ファイル',
       desc: 'このコンピュータの yt-dlp と ffmpeg で、動画のダウンロード、圧縮、結合と音声の抽出を行います。結果は動画ファイルと音声の項目です。',
+    },
+    footage: {
+      label: '素材の処理',
+      desc: 'このコンピューターで素材の手ぶれ補正、高解像度化、フレーム補間、色合わせ、背景の除去、音声の分離を行います。入力ごとに新しいファイルが作られ、元のファイルは変更されません。',
     },
   },
   artifactItems: (artifacts) => `${artifacts.map((a) => artifactLabels[a]).join('と') || '生成物'}の項目`,

@@ -516,6 +516,8 @@ export interface TranscribeModelInfo extends ModelInfoBase {
 /** 人声与背景分离的模型（本地的分离模型包）：输出人声与背景两条与输入等长、同采样率的音频（架构设计 §6.1）。 */
 export interface SeparateModelInfo extends ModelInfoBase {
   cost: ModelCost;
+  /** 能另出鼓、贝斯与其他三轨（分轨的 `stems: 'four'`）：内置的 HTDemucs-FT 能，audio.cpp 的看模型族的背景是不是这三轨。 */
+  fourStems: boolean;
 }
 
 /** 合成语音的输出格式（都是自带容器头、ffprobe 认得的格式；不提供裸 PCM）。 */

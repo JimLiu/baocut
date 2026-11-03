@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Id } from '@baocut/protocol';
+import { BLANK_FOOTAGE, BLANK_FOOTAGE_FORM, type FootageDraft } from '../model/tools-footage.ts';
 import { BLANK_IMAGE, type ImageDraft } from '../model/tools-image.ts';
 import { BLANK_IMAGE_EDIT, type ImageEditDraft } from '../model/tools-image-edit.ts';
 import { BLANK_MUSIC, type MusicDraft } from '../model/tools-music.ts';
@@ -34,6 +35,8 @@ export interface ToolsStore {
   image: ImageDraft;
   /** 图片处理五个工具的草稿：来源图、选区与输出目录只留在这次运行里，各工具的表单记住。 */
   imageEdit: ImageEditDraft;
+  /** 素材处理六个工具的草稿：选的文件、读到的事实、参考与输出目录只留在这次运行里，各工具的表单记住。 */
+  footage: FootageDraft;
   music: MusicDraft;
   text: TextDraft;
   transcribe: TranscribeDraft;
@@ -46,6 +49,7 @@ export interface ToolsStore {
   patchTts(patch: Partial<TtsDraft>): void;
   patchImage(patch: Partial<ImageDraft>): void;
   patchImageEdit(patch: Partial<ImageEditDraft>): void;
+  patchFootage(patch: Partial<FootageDraft>): void;
   patchMusic(patch: Partial<MusicDraft>): void;
   patchText(patch: Partial<TextDraft>): void;
   patchTranscribe(patch: Partial<TranscribeDraft>): void;
@@ -62,6 +66,7 @@ export const useTools = create<ToolsStore>()(
       tts: BLANK_TTS,
       image: BLANK_IMAGE,
       imageEdit: BLANK_IMAGE_EDIT,
+      footage: BLANK_FOOTAGE,
       music: BLANK_MUSIC,
       text: BLANK_TEXT,
       transcribe: BLANK_TRANSCRIBE,
@@ -73,6 +78,7 @@ export const useTools = create<ToolsStore>()(
       patchTts: (patch) => set((s) => ({ tts: { ...s.tts, ...patch } })),
       patchImage: (patch) => set((s) => ({ image: { ...s.image, ...patch } })),
       patchImageEdit: (patch) => set((s) => ({ imageEdit: { ...s.imageEdit, ...patch } })),
+      patchFootage: (patch) => set((s) => ({ footage: { ...s.footage, ...patch } })),
       patchMusic: (patch) => set((s) => ({ music: { ...s.music, ...patch } })),
       patchText: (patch) => set((s) => ({ text: { ...s.text, ...patch } })),
       patchTranscribe: (patch) => set((s) => ({ transcribe: { ...s.transcribe, ...patch } })),
@@ -90,6 +96,7 @@ export const useTools = create<ToolsStore>()(
         tts: s.tts,
         image: s.image,
         imageEdit: { ...BLANK_IMAGE_EDIT, forms: s.imageEdit.forms },
+        footage: { ...BLANK_FOOTAGE, forms: Object.fromEntries(Object.entries(s.footage.forms).map(([id, form]) => [id, { ...form, reference: null, referenceAt: null }])) },
         music: s.music,
         text: s.text,
         transcribe: { ...s.transcribe, path: null },
@@ -99,13 +106,14 @@ export const useTools = create<ToolsStore>()(
       }),
       // 字段以后加了，旧草稿缺的那几项用空表单补上。
       merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<Pick<ToolsStore, 'hidden' | 'tts' | 'image' | 'imageEdit' | 'music' | 'text' | 'transcribe' | 'compress' | 'merge' | 'extract'>>;
+        const p = (persisted ?? {}) as Partial<Pick<ToolsStore, 'hidden' | 'tts' | 'image' | 'imageEdit' | 'footage' | 'music' | 'text' | 'transcribe' | 'compress' | 'merge' | 'extract'>>;
         return {
           ...current,
           hidden: Array.isArray(p.hidden) ? p.hidden : current.hidden,
           tts: { ...BLANK_TTS, ...p.tts },
           image: { ...BLANK_IMAGE, ...p.image },
           imageEdit: { ...BLANK_IMAGE_EDIT, forms: p.imageEdit?.forms ?? {} },
+          footage: { ...BLANK_FOOTAGE, forms: Object.fromEntries(Object.entries(p.footage?.forms ?? {}).map(([id, form]) => [id, { ...BLANK_FOOTAGE_FORM, ...form }])) },
           music: { ...BLANK_MUSIC, ...p.music },
           text: { ...BLANK_TEXT, ...p.text },
           transcribe: { ...BLANK_TRANSCRIBE, ...p.transcribe, path: null },

@@ -21,6 +21,10 @@
     tts: {icon: 'wave', label: '生成语音'}, dub: {icon: 'translate', label: '翻译配音'},
     compress: {icon: 'video', label: '压缩视频'}, merge: {icon: 'layers', label: '合并视频'},
     image: {icon: 'image', label: '生成图片'}, music: {icon: 'music', label: '生成音乐'}, link: {icon: 'link', label: '从链接导入'},
+    /* 素材处理（原型先行，tool-footage.jsx）：kind 就是流程名 */
+    'stabilize-video': {icon: 'video', label: '视频去抖'}, 'upscale-video': {icon: 'video', label: '视频超分'}, 'interpolate-video': {icon: 'video', label: '视频插帧'},
+    'match-color': {icon: 'video', label: '统一色调'}, 'remove-background': {icon: 'video', label: '去除背景'}, 'separate-audio': {icon: 'wave', label: '音频分轨'},
+    'tool-install': {icon: 'download', label: '下载外部工具'},
     'legacy-import': {icon: 'projects', label: '导入旧版项目'},
     'model-install': {icon: 'download', label: '下载模型'},
     /* Agent 的安装与升级（product-design §7.6；实现 agent-setup-task.ts，那边用 S2 Tools 图标）：

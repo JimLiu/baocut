@@ -78,6 +78,30 @@ const en = {
       name: 'Extract audio',
       desc: 'Drop the picture and keep only the audio track; common audio codecs are copied as is, without re-encoding',
     },
+    'stabilize-video': {
+      name: 'Stabilize video',
+      desc: 'Steady shaky handheld footage with ffmpeg on this computer, with nothing to download',
+    },
+    'upscale-video': {
+      name: 'Upscale video',
+      desc: 'Enlarge a video 2–4× with Real-ESRGAN on this computer, adding estimated detail',
+    },
+    'interpolate-video': {
+      name: 'Interpolate frames',
+      desc: 'Make smooth slow motion or a higher frame rate with RIFE on this computer',
+    },
+    'match-color': {
+      name: 'Match color',
+      desc: 'Bring the color of several clips or images in line with one reference',
+    },
+    'remove-background': {
+      name: 'Remove background',
+      desc: 'Cut the subject out without a green screen; videos come out as MOV with transparency, images as PNG',
+    },
+    'separate-audio': {
+      name: 'Split audio into stems',
+      desc: 'Split an audio or video file’s first track into vocals and accompaniment, and optionally drums, bass and other',
+    },
   },
   targetNone: 'Only create a transcript and subtitles',
   targetCreate: 'Create a video in a project',
@@ -92,6 +116,10 @@ const en = {
     'video-file': {
       label: 'Video files',
       desc: 'Download, compress and merge videos and extract audio with yt-dlp and ffmpeg on this computer. Results are video file and audio items.',
+    },
+    footage: {
+      label: 'Footage processing',
+      desc: 'Stabilize, upscale, interpolate, match color, remove backgrounds or split audio on this computer. Each input becomes a new file; originals aren’t changed.',
     },
   },
   /** 产出条目的说法：「文档与字幕条目」「音频条目」。 */

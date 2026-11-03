@@ -675,6 +675,13 @@
     if (kind === 'download') {
       return {title: '取消下载？', body: '临时文件会删掉，不会建视频。链接留在会话里，之后可以重试。', confirmLabel: '取消下载'};
     }
+    // 素材处理（kind 是流程名）：写完才发布，取消后什么都不留
+    if (['stabilize-video', 'upscale-video', 'interpolate-video', 'match-color', 'remove-background', 'separate-audio'].indexOf(kind) >= 0) {
+      return {title: '取消这次处理？', body: '已经处理的部分不会留下，也不会写出文件。原文件不受影响。', confirmLabel: '取消任务'};
+    }
+    if (kind === 'tool-install') {
+      return {title: '取消下载？', body: '下载到一半的文件会删掉，没有安装。下次用到时再下载。', confirmLabel: '取消下载'};
+    }
     // 不弹确认框（stopsDirectly）；胶囊 × 的提示与按钮上的字用 confirmLabel
     if (stopsDirectly(kind)) return {title: '停止运行？', body: '已经做了的那部分不会回退，可以再运行一次。', confirmLabel: '停止'};
     return {title: '取消这个任务？', body: '已经算出来的部分会保留，任务本身停止。', confirmLabel: '取消任务'};

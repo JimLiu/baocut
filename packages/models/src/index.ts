@@ -134,6 +134,7 @@ export {
   ModelCatalog,
   MANIFEST_FILE,
   bundleUsable,
+  separationHasFourStems,
   readManifest,
   resolveModelsDir,
   resolveModelsRoot,

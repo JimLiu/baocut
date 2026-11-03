@@ -162,7 +162,9 @@ export {
   RIFE_TOOL,
   footageExecutorLabel,
   footagePipeline,
+  footageStabilizer,
   footageTools,
+  inspectFootageInput,
   type FootageDeps,
 } from './pipelines/footage.ts';
 export { SEPARATE_AUDIO_PIPELINE, separateAudioPipeline, type SeparateAudioDeps } from './pipelines/separate-audio.ts';

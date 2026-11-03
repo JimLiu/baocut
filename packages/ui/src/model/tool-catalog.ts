@@ -3,7 +3,7 @@ import { M } from './tool-catalog-copy.ts';
 
 /**
  * 工具目录（产品设计 §2.1、§2.7，设计稿 model-tools.js `GROUPS`）：不依附项目的独立能力入口，不进 Agent 回合。
- * 工具按处理的对象分三组（`tools.list` 的 `category`）：语音与字幕、文字与图片、视频文件。结果缺省是 Space 里的条目，
+ * 工具按处理的对象分组（`tools.list` 的 `category`）：语音与字幕、文字与图片、音乐、视频文件、素材处理。结果缺省是 Space 里的条目，
  * 保存到保存位置；只有选了 Space 里可编辑的视频（或改选「新建视频」）时，结果才是一个视频。
  *
  * 每个工具声明它收哪几种输入（`inputs`，各自的结果 `output`）与缺省的结果（`output`；`artifacts` 是从文件、链接、文字开始时
@@ -31,6 +31,12 @@ export const TOOL_IDS = [
   'compress-video',
   'merge-video',
   'extract-audio',
+  'stabilize-video',
+  'upscale-video',
+  'interpolate-video',
+  'match-color',
+  'remove-background',
+  'separate-audio',
 ] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
 
@@ -44,6 +50,10 @@ export type VideoToolId = (typeof VIDEO_TOOL_IDS)[number];
 /** 压缩、合并与提取音频：共用一页（页顶切换），各自保留工具 ID。 */
 export const FILE_VIDEO_TOOL_IDS = ['compress-video', 'merge-video', 'extract-audio'] as const;
 export type FileVideoToolId = (typeof FILE_VIDEO_TOOL_IDS)[number];
+
+/** 素材处理（去抖、超分、插帧、统一色调、去除背景、分轨）：共用一页（侧栏切换），工具 ID 就是流程名。 */
+export const FOOTAGE_TOOL_IDS = ['stabilize-video', 'upscale-video', 'interpolate-video', 'match-color', 'remove-background', 'separate-audio'] as const;
+export type FootageToolId = (typeof FOOTAGE_TOOL_IDS)[number];
 
 export type ToolIcon =
   | 'transcript'
@@ -60,7 +70,13 @@ export type ToolIcon =
   | 'wand'
   | 'images'
   | 'draw'
-  | 'aspect';
+  | 'aspect'
+  | 'target'
+  | 'maximize'
+  | 'frames'
+  | 'color'
+  | 'cut'
+  | 'stems';
 export type ToolGroupKey = ToolCategory;
 export type ToolOutput = 'video' | 'artifact';
 export type ToolArtifact = 'audio' | 'image' | 'doc' | 'final' | 'subtitle';
@@ -286,12 +302,36 @@ const VIDEO_FILE_TOOLS: readonly ToolDecl[] = [
   }),
 ];
 
-/** 三组里各有哪些工具（设计稿 model-tools.js `GROUPS`）；顺序照 `TOOL_CATEGORIES`，名字与说明在文案目录里。 */
+// 素材处理（设计稿 model-footage.js）：六个工具共用一页，文件到文件；统一色调与去除背景另收图片，分轨另收音频。
+const FOOTAGE_TOOLS: readonly ToolDecl[] = [
+  footageTool('stabilize-video', 'target', ['final'], ['video-file', 'export']),
+  footageTool('upscale-video', 'maximize', ['final'], ['video-file', 'export']),
+  footageTool('interpolate-video', 'frames', ['final'], ['video-file', 'export']),
+  footageTool('match-color', 'color', ['final', 'image'], ['video-file', 'export', 'image']),
+  footageTool('remove-background', 'cut', ['final', 'image'], ['video-file', 'export', 'image']),
+  footageTool('separate-audio', 'stems', ['audio'], ['video-file', 'export', 'audio']),
+];
+
+function footageTool(id: ToolId, icon: ToolIcon, artifacts: readonly ToolArtifact[], kinds: readonly SpaceEntryKind[]): ToolDecl {
+  return tool({
+    id,
+    icon,
+    output: 'artifact',
+    artifacts,
+    inputs: [
+      { kind: 'file', output: 'artifact' },
+      { kind: 'space', kinds, output: 'artifact' },
+    ],
+  });
+}
+
+/** 各组里有哪些工具（设计稿 model-tools.js `GROUPS`）；顺序照 `TOOL_CATEGORIES`，名字与说明在文案目录里。 */
 const GROUP_TOOLS: Record<ToolGroupKey, readonly ToolDecl[]> = {
   speech: SPEECH_TOOLS,
   'text-image': TEXT_IMAGE_TOOLS,
   music: MUSIC_TOOLS,
   'video-file': VIDEO_FILE_TOOLS,
+  footage: FOOTAGE_TOOLS,
 };
 
 export const TOOL_GROUPS: readonly ToolGroup[] = TOOL_CATEGORIES.map((key) => ({
@@ -343,6 +383,10 @@ export function isVideoTool(id: ToolId): id is VideoToolId {
 
 export function isFileVideoTool(id: ToolId): id is FileVideoToolId {
   return (FILE_VIDEO_TOOL_IDS as readonly string[]).includes(id);
+}
+
+export function isFootageTool(id: string | null | undefined): id is FootageToolId {
+  return (FOOTAGE_TOOL_IDS as readonly string[]).includes(id ?? '');
 }
 
 /** 路由里的工具 → 能打开的工具；未知或未推出的回到目录（null）。 */

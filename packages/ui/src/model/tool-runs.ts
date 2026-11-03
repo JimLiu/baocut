@@ -23,7 +23,7 @@ import {
 } from '@baocut/protocol';
 import { recipientName } from './data-grants.ts';
 import { usedCookieText } from './link-cookies.ts';
-import type { ToolId, ToolTargetKey, VideoToolId } from './tool-catalog.ts';
+import { isFootageTool, type ToolId, type ToolTargetKey, type VideoToolId } from './tool-catalog.ts';
 import { langLabel } from './tool-targets.ts';
 import { modelKeyOf, speaks, textModelOptions, usableFirst, type ToolModelOption } from './tools-models.ts';
 import { M } from './tool-runs-copy.ts';
@@ -59,7 +59,7 @@ export function toolOfJob(job: Pick<JobRecord, 'kind' | 'pipeline'>): ToolId | n
     case 'transcode':
       return job.pipeline?.params.action === 'merge' ? 'merge-video' : job.pipeline?.params.action === 'extract-audio' ? 'extract-audio' : 'compress-video';
     default:
-      return null;
+      return isFootageTool(name) ? name : null;
   }
 }
 

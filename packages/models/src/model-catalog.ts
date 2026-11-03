@@ -23,6 +23,7 @@ import {
   type BundleComponentSource,
   type BundleDefinition,
   type ComponentReleaseAsset,
+  type SeparationBundleProfile,
 } from './bundle-registry.ts';
 import { EMBEDDING_VISION_OVERHEAD_BYTES, EMBEDDING_WORKER_OVERHEAD_BYTES } from './embedding-bundles.ts';
 import { readInstallRecord } from './install-record.ts';
@@ -812,6 +813,14 @@ export class ModelCatalog {
     if (received === 0) return null;
     return { jobId: null, state: 'paused', receivedBytes: received, totalBytes: total };
   }
+}
+
+/**
+ * 分离模型能不能另出鼓、贝斯与其他三轨（分轨的 `stems: 'four'`）。没有 `separation` 的是内置的 HTDemucs-FT，经 Model Worker，总能出；
+ * audio.cpp 的看模型族的背景是不是这三轨。
+ */
+export function separationHasFourStems(profile: Pick<SeparationBundleProfile, 'background'> | undefined): boolean {
+  return !profile || ['drums', 'bass', 'other'].every((stem) => profile.background.includes(stem));
 }
 
 /** 状态是否允许提交任务。 */

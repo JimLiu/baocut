@@ -1,9 +1,12 @@
-import type { ToolDefinition } from '@baocut/protocol';
+import { FOOTAGE_PIPELINE_NAMES, type ToolDefinition } from '@baocut/protocol';
 import { JobsEditImage as E } from '@baocut/protocol/messages/jobs/edit-image.ts';
+import { JobsFootage as F } from '@baocut/protocol/messages/jobs/footage.ts';
 import { JobsToolCatalogue as T } from '@baocut/protocol/messages/jobs/tool-catalogue.ts';
 import { EDIT_IMAGE_PIPELINES } from './pipelines/edit-image.ts';
 import { DUB_PIPELINE } from './pipelines/dub.ts';
 import { LINK_IMPORT_PIPELINE } from './pipelines/link-import.ts';
+import { RIFE_TOOL } from './pipelines/footage.ts';
+import { SEPARATE_AUDIO_PIPELINE } from './pipelines/separate-audio.ts';
 import { TRANSCODE_PIPELINE } from './pipelines/transcode.ts';
 import { TRANSCRIBE_PIPELINE } from './pipelines/transcribe.ts';
 import { TRANSLATE_PIPELINE } from './pipelines/translate.ts';
@@ -24,6 +27,40 @@ const FFMPEG = 'ffmpeg';
 const REALESRGAN = 'realesrgan-ncnn-vulkan';
 const WAIFU2X = 'waifu2x-ncnn-vulkan';
 const UPSCAYL_MODELS = 'upscayl-models';
+const MATTE_MODELS = 'matte-models';
+const MATTE_MODELS_ISNET = 'matte-models-isnet';
+
+/**
+ * 素材处理的一个工具（一条流程一个工具，文件到文件）。`extra` 是要下载的受管工具：工具页有下载卡（来源、版本、大小、许可，点了才下），
+ * 所以不算「一定要」，没装时不挡住页面，提交时由流程按选的权重拒绝。
+ */
+function footageTool(
+  id: string,
+  label: () => { text: string },
+  description: () => { text: string },
+  extra: string[] = [],
+): ToolDefinition {
+  return {
+    id,
+    get label() {
+      return label().text;
+    },
+    get description() {
+      return description().text;
+    },
+    category: 'footage',
+    // 本机文件或 Space 里的视频文件、成片（统一色调与去除背景另收图片），结果写到保存位置。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: id },
+    capabilities: [],
+    optionalCapabilities: [],
+    externalTools: [FFMPEG],
+    optionalExternalTools: extra,
+    network: 'none',
+    candidates: null,
+  };
+}
 
 /** 名字与说明是 getter：读的时候按当前语言生成（目录在模块加载时就构造，不能在那时取文字）。 */
 export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
@@ -348,6 +385,32 @@ export const TOOL_CATALOGUE: readonly ToolDefinition[] = [
     results: ['artifact'],
     execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: TRANSCODE_PIPELINE, params: { action: 'extract-audio' } },
     capabilities: [],
+    optionalCapabilities: [],
+    externalTools: [FFMPEG],
+    optionalExternalTools: [],
+    network: 'none',
+    candidates: null,
+  },
+  // 素材处理
+  footageTool(FOOTAGE_PIPELINE_NAMES.stabilize, () => F.stabilizeLabel(), () => F.stabilizeDescription()),
+  footageTool(FOOTAGE_PIPELINE_NAMES.upscale, () => F.upscaleLabel(), () => F.upscaleDescription(), [REALESRGAN]),
+  footageTool(FOOTAGE_PIPELINE_NAMES.interpolate, () => F.interpolateLabel(), () => F.interpolateDescription(), [RIFE_TOOL]),
+  footageTool(FOOTAGE_PIPELINE_NAMES['match-color'], () => F.matchColorLabel(), () => F.matchColorDescription()),
+  footageTool(FOOTAGE_PIPELINE_NAMES['remove-background'], () => F.removeBackgroundLabel(), () => F.removeBackgroundDescription(), [MATTE_MODELS, MATTE_MODELS_ISNET]),
+  {
+    id: SEPARATE_AUDIO_PIPELINE,
+    get label() {
+      return F.separateLabel().text;
+    },
+    get description() {
+      return F.separateDescription().text;
+    },
+    category: 'footage',
+    // 有音轨的本机文件，或 Space 里的音频、视频文件与成片；每轨一个 WAV，写到保存位置。
+    inputs: ['file'],
+    results: ['artifact'],
+    execution: { kind: 'pipeline', method: 'pipelines.start', pipeline: SEPARATE_AUDIO_PIPELINE },
+    capabilities: ['separateAudio'],
     optionalCapabilities: [],
     externalTools: [FFMPEG],
     optionalExternalTools: [],

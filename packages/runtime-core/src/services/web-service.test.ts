@@ -840,10 +840,16 @@ describe('Web 服务', () => {
       'compress-video',
       'merge-video',
       'extract-audio',
+      'stabilize-video',
+      'upscale-video',
+      'interpolate-video',
+      'match-color',
+      'remove-background',
+      'separate-audio',
     ]);
     // 固定流程（pipelines.start）不对浏览器开放；直接任务（models.*）在默认集合里。
     const pipelineTools = ['transcribe', 'translate-subtitles', 'dub', 'upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image'];
-    for (const id of [...pipelineTools, 'link-import', 'compress-video', 'merge-video', 'extract-audio']) {
+    for (const id of [...pipelineTools, 'link-import', 'compress-video', 'merge-video', 'extract-audio', 'stabilize-video', 'upscale-video', 'interpolate-video', 'match-color', 'remove-background', 'separate-audio']) {
       expect(byId(id), id).toMatchObject({ available: false });
       expect(byId(id).problems, id).toContainEqual(expect.objectContaining({ code: 'WEB_METHOD_NOT_ALLOWED' }));
     }

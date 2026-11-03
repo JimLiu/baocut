@@ -90,10 +90,10 @@ describe('条目按哪种输入提交', () => {
 
 describe('条目 → 收它的工具', () => {
   it('按目录顺序；回收站里的没有', () => {
-    expect(toolsForEntry(entry('a', { kind: 'audio' }))).toEqual(['transcribe', 'extract-audio']);
+    expect(toolsForEntry(entry('a', { kind: 'audio' }))).toEqual(['transcribe', 'extract-audio', 'separate-audio']);
     expect(toolsForEntry(entry('a', { kind: 'subtitle' }))).toEqual(['translate-subtitles', 'synthesize-speech', 'generate-text']);
     expect(toolsForEntry(entry('a', { kind: 'video' }))).toEqual(['transcribe', 'translate-subtitles', 'dub']);
-    expect(toolsForEntry(entry('a', { kind: 'image' }))).toEqual(['upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image']);
+    expect(toolsForEntry(entry('a', { kind: 'image' }))).toEqual(['upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image', 'match-color', 'remove-background']);
     expect(toolsForEntry(entry('a', { kind: 'export' }, '2026-09-01T00:00:00.000Z'))).toEqual([]);
   });
 });

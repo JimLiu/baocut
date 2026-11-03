@@ -11,10 +11,10 @@ import type { MessageRef } from './message-ref.ts';
  */
 
 /**
- * 工具的组（架构设计 §7.9，产品设计 §2.7）：`speech` 语音与字幕、`text-image` 文字与图片、`music` 音乐、`video-file` 视频文件。
- * 按用户要做的事分组，不按结果写进视频还是成为产物分（那是每个工具的 `results`）。
+ * 工具的组（架构设计 §7.9，产品设计 §2.7）：`speech` 语音与字幕、`text-image` 文字与图片、`music` 音乐、`video-file` 视频文件、
+ * `footage` 素材处理。按用户要做的事分组，不按结果写进视频还是成为产物分（那是每个工具的 `results`）。
  */
-export const TOOL_CATEGORIES = ['speech', 'text-image', 'music', 'video-file'] as const;
+export const TOOL_CATEGORIES = ['speech', 'text-image', 'music', 'video-file', 'footage'] as const;
 export type ToolCategory = (typeof TOOL_CATEGORIES)[number];
 
 /** 输入的种类：本机文件、链接、一段文字、Space 里的视频、一份文档（流程工具指视频里的文档，直接任务指 Space 里的文档或字幕条目，作 `material`）。 */
@@ -114,6 +114,46 @@ export interface ToolsListResult {
    * 没有设置时是主机的下载文件夹）。工具页显示它，直接任务把它作为 `saveDir` 传入。带本机路径，Web 服务不给。
    */
   saveDirectory?: string;
+}
+
+// ---- tools.inspectInputs ----
+
+/** 一次最多看多少个输入（同素材处理的 `inputs`）。 */
+export const TOOL_INSPECT_MAX_INPUTS = 20;
+
+/** `tools.inspectInputs` 的一项输入：本机文件的绝对路径，或 Space 里的文件条目。 */
+export type ToolInspectInput = string | { entryId: Id };
+
+export interface ToolInspectInputsParams {
+  inputs: ToolInspectInput[];
+  /** 顺带查这台电脑的 ffmpeg 去抖用哪个滤镜（要跑一次 `ffmpeg -filters`）。 */
+  stabilizer?: boolean;
+}
+
+/**
+ * 一个输入的事实（`ffprobe` 与图片文件头，同素材处理的「读取」一步）：选好文件时就能说多少帧、多大、能不能处理，不用等任务开始。
+ * `kind` 为 `unreadable` 时读不出（文件不在、不是媒体、Space 条目不能用），其余字段是 null 或 false。
+ */
+export interface ToolInputFacts {
+  kind: 'video' | 'image' | 'audio' | 'unreadable';
+  /** 文件名；Space 条目是条目的名字。 */
+  name: string;
+  bytes: number | null;
+  durationSec: number | null;
+  /** 按旋转标记与 EXIF 方向转正之后的尺寸。 */
+  width: number | null;
+  height: number | null;
+  /** 流程会用的帧率（同 `chooseFrameRate`）。 */
+  frameRate: number | null;
+  /** 传递特性是 PQ 或 HLG：素材处理不收。 */
+  hdr: boolean;
+  hasAudio: boolean;
+}
+
+export interface ToolInspectInputsResult {
+  items: ToolInputFacts[];
+  /** 问了才有：`vidstab` 带 libvidstab，`deshake` 退回自带的滤镜；ffmpeg 不能用时 null。 */
+  stabilizer?: 'vidstab' | 'deshake' | null;
 }
 
 // ---- 内容索引里的视频事实（§5.11）：候选输入用，不打开视频 ----

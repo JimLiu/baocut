@@ -9,7 +9,7 @@ import type { JobManager } from '../job-manager.ts';
 import { testJobManager } from '../testing/pipeline-jobs.ts';
 import { ffmpegFilters, probeMedia, probeVideoDetails } from './ffmpeg.ts';
 import { FrameEncoder } from './footage-frames.ts';
-import { footagePipeline, footageTools, outputName, parseFootageParams } from './footage.ts';
+import { footagePipeline, footageStabilizer, footageTools, inspectFootageInput, outputName, parseFootageParams, withFrameProgress } from './footage.ts';
 import { PipelineRunner } from './pipeline-runner.ts';
 import type { UpscaleTool } from './upscale-image.ts';
 
@@ -274,6 +274,7 @@ describe.skipIf(!hasFfmpeg || process.platform === 'win32')('素材处理（真�
     expect(made.map((args) => args[args.indexOf('-n') + 1])).toEqual([String(24 * 4), String(7 * 4)]);
     expect(made[0]).toEqual(expect.arrayContaining(['-m', path.join(dir, 'bin', 'rife-v4.6'), '-f', '%08d.png']));
     expect(summaryOf(record).warnings).toHaveLength(2);
+    expect(summaryOf(record).warningRefs?.map((r) => r.key)).toEqual(['jobsFootage.interpolateCuts', 'jobsFootage.slowmoNoAudio']);
   });
 
   it('提高帧率：时长不变，帧率乘倍数，带声音', async () => {
@@ -332,6 +333,42 @@ describe.skipIf(!hasFfmpeg || process.platform === 'win32')('素材处理（真�
     expect(media.video!.pixFmt.startsWith('yuva')).toBe(true);
     expect(media.audio?.codec).toBe('aac');
     expect(summary.items[0]).toMatchObject({ coverage: 0.25, frames: 10 });
+  });
+
+  it('工具页读输入的事实：视频、竖拍、图片、音频与读不出的', async () => {
+    const video = await inspectFootageInput(ffprobe, await clip('facts.mp4'));
+    expect(video).toMatchObject({ kind: 'video', width: 160, height: 90, frameRate: 10, hdr: false, hasAudio: true });
+    expect(video.durationSec).toBeGreaterThan(0.5);
+    expect(video.bytes).toBeGreaterThan(0);
+
+    const silent = await inspectFootageInput(ffprobe, await clip('silent.mp4', 'testsrc2=size=160x90:rate=10:duration=1', false));
+    expect(silent).toMatchObject({ kind: 'video', hasAudio: false });
+
+    const stored = await clip('stored-facts.mp4');
+    const rotated = path.join(dir, 'in', 'phone-facts.mp4');
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-display_rotation', '90', '-i', stored, '-c', 'copy', rotated]);
+    expect(await inspectFootageInput(ffprobe, rotated)).toMatchObject({ kind: 'video', width: 90, height: 160 });
+
+    const png = path.join(dir, 'in', 'still.png');
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=red:size=64x32', '-frames:v', '1', png]);
+    expect(await inspectFootageInput(ffprobe, png)).toMatchObject({ kind: 'image', width: 64, height: 32, durationSec: null, hasAudio: false });
+
+    const wav = path.join(dir, 'in', 'tone.wav');
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', wav]);
+    const tone = await inspectFootageInput(ffprobe, wav);
+    expect(tone).toMatchObject({ kind: 'audio', hasAudio: true, width: null, frameRate: null });
+    expect(tone.durationSec).toBeGreaterThan(0.5);
+
+    expect(await inspectFootageInput(ffprobe, path.join(dir, 'in', 'nope.mp4'))).toMatchObject({ kind: 'unreadable', bytes: null });
+    const text = path.join(dir, 'in', 'note.txt');
+    await fs.writeFile(text, 'not media');
+    expect(await inspectFootageInput(ffprobe, text)).toMatchObject({ kind: 'unreadable' });
+  });
+
+  it('去抖用哪个滤镜：照 ffmpeg 编了什么说，ffmpeg 不能用时 null', async () => {
+    const filters = await ffmpegFilters(ffmpeg);
+    expect(await footageStabilizer(ffmpeg)).toBe(filters.has('vidstabdetect') ? 'vidstab' : 'deshake');
+    expect(await footageStabilizer(async () => ({ command: 'baocut-no-such-ffmpeg', env: process.env }))).toBeNull();
   });
 
   it('手机竖拍：带旋转标记的素材按转正的尺寸处理，不被压扁', async () => {
@@ -455,5 +492,39 @@ describe.skipIf(!hasFfmpeg || process.platform === 'win32')('素材处理（真�
     const second = await run('stabilize', { inputs: [source] });
     expect(summaryOf(first).files).toEqual([path.join(dir, 'saved', 'dup-stabilized.mp4')]);
     expect(summaryOf(second).files).toEqual([path.join(dir, 'saved', 'dup-stabilized-2.mp4')]);
+  });
+});
+
+describe('withFrameProgress', () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-frames-'));
+  });
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it('工具跑的时候按写出的文件数报，跑完补齐', async () => {
+    const reports: number[] = [];
+    await withFrameProgress(
+      dir,
+      4,
+      (frames) => reports.push(frames),
+      async () => {
+        await fs.writeFile(path.join(dir, '1.png'), '');
+        await fs.writeFile(path.join(dir, '2.png'), '');
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      },
+      10,
+    );
+    expect(reports).toEqual([2, 2]);
+  });
+
+  it('工具失败时不补齐，错误照抛', async () => {
+    const reports: number[] = [];
+    await expect(
+      withFrameProgress(dir, 4, (frames) => reports.push(frames), () => Promise.reject(new Error('boom')), 10),
+    ).rejects.toThrow('boom');
+    expect(reports).toEqual([]);
   });
 });

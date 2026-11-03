@@ -198,6 +198,7 @@ describe('selectModel', () => {
       modelId,
       label: modelId,
       cost: 'free-local',
+      fourStems: true,
       ...extra,
     });
     const sepLocal = (models: SeparateModelInfo[]): ProviderView => ({

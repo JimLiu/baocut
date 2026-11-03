@@ -1,5 +1,5 @@
 import { defineMessages, type JobKind, type JobRecord, type SpaceEntry } from '@baocut/protocol';
-import { isVideoTool, spaceKindsOf, TOOLS, toolById, type ToolId, type ToolInfo } from './tool-catalog.ts';
+import { isFootageTool, isVideoTool, spaceKindsOf, TOOLS, toolById, type ToolId, type ToolInfo } from './tool-catalog.ts';
 import { saveDirLabel } from './tool-frame.ts';
 import { zhHans } from './tool-rerun.zh-Hans.ts';
 import { zhHant } from './tool-rerun.zh-Hant.ts';
@@ -55,7 +55,7 @@ const PIPELINE_TOOLS: readonly string[] = ['transcribe', 'translate-subtitles', 
 export function toolOfOrigin(origin: Pick<NonNullable<SpaceEntry['origin']>, 'capability' | 'conversationId'> | undefined): ToolId | null {
   const capability = origin?.capability;
   if (!capability || origin.conversationId) return null;
-  return DIRECT[capability as JobKind] ?? (PIPELINE_TOOLS.includes(capability) ? (capability as ToolId) : null);
+  return DIRECT[capability as JobKind] ?? (PIPELINE_TOOLS.includes(capability) || isFootageTool(capability) ? (capability as ToolId) : null);
 }
 
 export interface Rerun {

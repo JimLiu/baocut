@@ -30,6 +30,12 @@ export const zhHans: ToolCatalogMessages = {
     'compress-video': { name: '压缩视频', desc: '按目标体积或画质重新编码，发消息、传网盘前先压一压' },
     'merge-video': { name: '合并视频', desc: '把几段视频按顺序首尾接成一个文件' },
     'extract-audio': { name: '提取音频', desc: '去掉画面，只留音轨；常见的音频编码原样复制，不重新编码' },
+    'stabilize-video': { name: '视频去抖', desc: '给手持拍摄的晃动画面去抖，用本机的 ffmpeg，不用另外下载' },
+    'upscale-video': { name: '视频超分', desc: '用本机的 Real-ESRGAN 把视频放大 2–4 倍，补出细节' },
+    'interpolate-video': { name: '视频插帧', desc: '用本机的 RIFE 做顺滑的慢动作，或者提高帧率' },
+    'match-color': { name: '统一色调', desc: '把几段视频或几张图片的颜色对齐到同一张参考' },
+    'remove-background': { name: '去除背景', desc: '不用绿幕，抠出画面里的主体；视频得到带透明的 MOV，图片得到 PNG' },
+    'separate-audio': { name: '音频分轨', desc: '把音频或视频的第一条音轨拆成人声与伴奏，也可以再拆出鼓、贝斯与其他' },
   },
   targetNone: '只生成文稿和字幕',
   targetCreate: '新建视频并放进项目',
@@ -44,6 +50,10 @@ export const zhHans: ToolCatalogMessages = {
     'video-file': {
       label: '视频文件',
       desc: '下载、压缩、合并视频与提取音频，用本机的 yt-dlp 与 ffmpeg。结果是视频文件与音频条目。',
+    },
+    footage: {
+      label: '素材处理',
+      desc: '在这台电脑上给素材去抖、超分、插帧、统一色调、去除背景，或者把音轨拆开。每个输入写成新文件，原文件不动。',
     },
   },
   artifactItems: (artifacts) => `${artifacts.map((a) => artifactLabels[a]).join('与') || '产物'}条目`,

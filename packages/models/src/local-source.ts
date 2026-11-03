@@ -17,7 +17,7 @@ import type { GenerationCapability, GenerationProvider } from './generation-prov
 import { localImageModelInfo } from './local-image.ts';
 import { localMusicModelInfo } from './local-music.ts';
 import { localSpeechModelInfo } from './local-speech.ts';
-import { bundleUsable, type ModelCatalog } from './model-catalog.ts';
+import { bundleUsable, separationHasFourStems, type ModelCatalog } from './model-catalog.ts';
 import type { DescribeMode, ProviderQueue, ProviderSource } from './provider-source.ts';
 import type { TranscribeProvider } from './transcribe-provider.ts';
 
@@ -177,10 +177,12 @@ export class LocalProviderSource implements ProviderSource {
       .sort((a, b) => a.bundleId.localeCompare(b.bundleId))
       .map((status) => {
         const usable = bundleUsable(status);
+        const family = this.#catalog.definition(status.bundleId)?.separation;
         return {
           modelId: status.bundleId,
           label: status.label ?? status.bundleId,
           cost: 'free-local',
+          fourStems: separationHasFourStems(family),
           available: usable,
           ...(usable ? {} : { unavailableReason: unavailableReasonOf(status) }),
           ...(!usable ? detailOf(status) : {}),

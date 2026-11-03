@@ -1329,6 +1329,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     const token = crypto.randomBytes(32).toString('base64url');
     const handlerDeps = {
       harness,
+      mediaTools: { ffmpeg: async () => ({ command: process.env.BAOCUT_FFMPEG || 'ffmpeg', env: await toolEnv() }), ffprobe },
       semantic,
       setup,
       space,

@@ -12,12 +12,14 @@ import {
   FOOTAGE_UPSCALE_MODELS,
   FOOTAGE_UPSCALE_SPECS,
   RpcError,
+  refOf,
   type FootageMatteModel,
   type FootageOp,
   type FootageParams,
   type FootageSummary,
   type GeneratedOutput,
   type Localized,
+  type ToolInputFacts,
 } from '@baocut/protocol';
 import { JobsFootage as J } from '@baocut/protocol/messages/jobs/footage.ts';
 import { JobsParams } from '@baocut/protocol/messages/jobs/params.ts';
@@ -186,7 +188,7 @@ function paramsSchema(op: FootageOp): Record<string, unknown> {
     properties.mode = { type: 'string', enum: [...FOOTAGE_INTERPOLATE_MODES], default: 'slowmo', description: 'slowmo 慢放、不带声音；smooth 提高帧率、时长不变' };
   }
   if (op === 'match-color') {
-    properties.reference = { type: 'string', description: '参考的绝对路径（图片或视频）' };
+    properties.reference = fileInputSchema('参考的绝对路径（图片或视频）', 'Space 里的图片、视频文件或成片');
     properties.referenceAt = { type: 'number', minimum: 0, description: '参考是视频时取哪一秒，默认中点' };
     properties.method = { type: 'string', enum: [...FOOTAGE_COLOR_METHODS], default: 'hm-mkl-hm' };
     properties.amount = { type: 'number', minimum: 0, maximum: 1, default: 1, description: '和原色的混合比例' };
@@ -256,6 +258,53 @@ export function parseFootageParams(op: FootageOp, raw: Record<string, unknown>):
 }
 
 const even = (value: number) => Math.max(2, Math.floor(value / 2) * 2);
+
+/** 这台电脑的 ffmpeg 去抖用哪个滤镜（同 `stabilize` 的判断）；ffmpeg 不能用时 null。工具页开始之前就要说退回 deshake。 */
+export async function footageStabilizer(ffmpeg: MediaToolResolver): Promise<'vidstab' | 'deshake' | null> {
+  try {
+    const filters = await ffmpegFilters(ffmpeg);
+    return filters.has('vidstabdetect') && filters.has('vidstabtransform') ? 'vidstab' : 'deshake';
+  } catch {
+    return null;
+  }
+}
+
+/** 音频文件里嵌的封面：ffprobe 把它算一条视频流，时间上只有一张图。 */
+const COVER_ART_CODECS = new Set(['mjpeg', 'png', 'bmp', 'gif', 'tiff', 'webp']);
+
+/**
+ * 工具页选好文件时读它的事实（`tools.inspectInputs`）：与 `planInput` 同样的读法与转正规则，只是不看这次的参数、读不出时不抛错。
+ * 帧数由界面按时长与帧率算（选了一段时要重算），算法同 `planInput`。
+ */
+export async function inspectFootageInput(ffprobe: MediaToolResolver, file: string): Promise<Omit<ToolInputFacts, 'name'>> {
+  const unreadable = { kind: 'unreadable', bytes: null, durationSec: null, width: null, height: null, frameRate: null, hdr: false, hasAudio: false } as const;
+  const stat = await fs.stat(file).catch(() => null);
+  if (!stat?.isFile()) return unreadable;
+  const header = await readImageHeader(file).catch(() => null);
+  if (header) {
+    const { width, height } = upright(header);
+    return { ...unreadable, kind: 'image', bytes: stat.size, width, height };
+  }
+  const media = await probeMedia(ffprobe, file).catch(() => null);
+  if (!media || media.durationSec <= 0) return { ...unreadable, bytes: stat.size };
+  const hasAudio = media.audio !== null;
+  if (!media.video || (hasAudio && COVER_ART_CODECS.has(media.video.codec))) {
+    return hasAudio ? { ...unreadable, kind: 'audio', bytes: stat.size, durationSec: media.durationSec, hasAudio } : { ...unreadable, bytes: stat.size };
+  }
+  const details = await probeVideoDetails(ffprobe, file).catch(() => null);
+  const fps = chooseFrameRate(media.video.frameRate, details?.avgFrameRate ?? null);
+  const sideways = Math.abs(details?.rotation ?? 0) % 180 === 90;
+  return {
+    kind: 'video',
+    bytes: stat.size,
+    durationSec: media.durationSec,
+    width: sideways ? media.video.height : media.video.width,
+    height: sideways ? media.video.width : media.video.height,
+    frameRate: fps.num / fps.den,
+    hdr: details?.transfer !== null && details?.transfer !== undefined && HDR_TRANSFERS.has(details.transfer),
+    hasAudio,
+  };
+}
 
 /** 读一个输入、定它的计划；不能处理时给出错误码与说明。 */
 async function planInput(deps: FootageDeps, op: FootageOp, file: string, params: FrozenFootageParams, signal?: AbortSignal): Promise<InputPlan | Refusal> {
@@ -458,6 +507,14 @@ export function footagePipeline(op: FootageOp, deps: FootageDeps): PipelineDefin
       const probed = outputs.probe as ProbeOutput;
       const processed = outputs.process as ProcessOutput;
       const published = (outputs.publish as PublishOutput).outputs;
+      const warnings: Localized[] = [
+        ...(op === 'stabilize' && processed.executor.engine === 'deshake' ? [J.stabilizeFallback()] : []),
+        ...(op === 'interpolate' ? [J.interpolateCuts()] : []),
+        ...(op === 'interpolate' && params.mode === 'slowmo' ? [J.slowmoNoAudio()] : []),
+        ...processed.items.flatMap((item) =>
+          item.coverage !== undefined && item.coverage < MIN_SUBJECT_COVERAGE ? [J.noSubject({ name: path.basename(item.source) })] : [],
+        ),
+      ];
       const summary: FootageSummary = {
         op,
         executor: processed.executor,
@@ -477,14 +534,8 @@ export function footagePipeline(op: FootageOp, deps: FootageDeps): PipelineDefin
           };
         }),
         files: published.map((o) => o.path!),
-        warnings: [
-          ...(op === 'stabilize' && processed.executor.engine === 'deshake' ? [J.stabilizeFallback().text] : []),
-          ...(op === 'interpolate' ? [J.interpolateCuts().text] : []),
-          ...(op === 'interpolate' && params.mode === 'slowmo' ? [J.slowmoNoAudio().text] : []),
-          ...processed.items.flatMap((item) =>
-            item.coverage !== undefined && item.coverage < MIN_SUBJECT_COVERAGE ? [J.noSubject({ name: path.basename(item.source) }).text] : [],
-          ),
-        ],
+        warnings: warnings.map((w) => w.text),
+        warningRefs: warnings.map((w) => refOf(w)),
       };
       return { summary: { ...summary }, result: { documentId: null, artifactId: published[0]!.artifactId, outputs: published } };
     },
@@ -711,6 +762,32 @@ async function runFrameTool(deps: FootageDeps, name: string, tool: UpscaleTool, 
   }
 }
 
+/**
+ * 帧工具跑一批时按它写出的文件数报进度，跑完补齐：实拍权重 1080p 一批要跑好几分钟，等一批跑完才报，界面一直是 0 帧，像卡住了。
+ * 工具失败时不补齐，错误照抛。
+ */
+export async function withFrameProgress(dir: string, total: number, advance: (frames: number) => void, run: () => Promise<void>, intervalMs = 1000): Promise<void> {
+  let reported = 0;
+  let finished = false;
+  const report = async () => {
+    const written = await fs.readdir(dir).then((names) => names.length, () => 0);
+    if (finished) return;
+    const next = Math.min(written, total);
+    if (next > reported) {
+      advance(next - reported);
+      reported = next;
+    }
+  };
+  const timer = setInterval(() => void report(), intervalMs);
+  try {
+    await run();
+  } finally {
+    finished = true;
+    clearInterval(timer);
+  }
+  if (total > reported) advance(total - reported);
+}
+
 async function readOutputFrame(file: string, tool: string, source: string): Promise<Buffer> {
   try {
     return await fs.readFile(file);
@@ -746,10 +823,11 @@ async function upscale(deps: FootageDeps, tool: UpscaleTool, params: FrozenFoota
       await resetDir(inDir);
       await resetDir(outDir);
       await Promise.all(batch.map((frame, i) => fs.writeFile(path.join(inDir, frameName(i + 1)), frame)));
-      await runFrameTool(deps, REALESRGAN_TOOL, tool, ['-i', inDir, '-o', outDir, '-n', spec.weights, '-s', String(native), '-m', models, '-f', 'png'], source, signal);
+      await withFrameProgress(outDir, batch.length, advance, () =>
+        runFrameTool(deps, REALESRGAN_TOOL, tool, ['-i', inDir, '-o', outDir, '-n', spec.weights, '-s', String(native), '-m', models, '-f', 'png'], source, signal),
+      );
       for (let i = 1; i <= batch.length; i++) await encoder.write(await readOutputFrame(path.join(outDir, frameName(i)), REALESRGAN_TOOL, source));
       frames += batch.length;
-      advance(batch.length);
     }
   });
   await fs.rm(inDir, { recursive: true, force: true });

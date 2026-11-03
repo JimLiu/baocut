@@ -1,6 +1,7 @@
 import { toolById, type ToolId } from '../model/tool-catalog.ts';
 import { plannedReason } from '../model/tools-gallery.ts';
 import { DubTool } from './tools/dub-tool.tsx';
+import { FootageTool } from './tools/footage-tool.tsx';
 import { ImageEditTool } from './tools/image-edit-tool.tsx';
 import { ImageTool } from './tools/image-tool.tsx';
 import { MusicTool } from './tools/music-tool.tsx';
@@ -51,6 +52,13 @@ export function ToolsPage({ tool }: { tool?: ToolId }) {
       return <MergeTool />;
     case 'extract-audio':
       return <ExtractAudioTool />;
+    case 'stabilize-video':
+    case 'upscale-video':
+    case 'interpolate-video':
+    case 'match-color':
+    case 'remove-background':
+    case 'separate-audio':
+      return <FootageTool tool={info.id} />;
     default:
       return <ToolsGallery />;
   }

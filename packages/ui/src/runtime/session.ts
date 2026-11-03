@@ -1315,6 +1315,11 @@ export class RuntimeSession {
     return pipelines;
   }
 
+  /** `tools.inspectInputs`：选好文件时读它们的事实（`ffprobe`）；`stabilizer` 时顺带说这台电脑的 ffmpeg 去抖用哪个滤镜。 */
+  async inspectToolInputs(params: import('@baocut/protocol').ToolInspectInputsParams): Promise<import('@baocut/protocol').ToolInspectInputsResult> {
+    return this.client.request('tools.inspectInputs', params);
+  }
+
   /** `tools.candidates`：某个视频工具能选的视频与文稿（读 Space 目录与内容索引，不打开视频）。 */
   async toolCandidates(params: import('@baocut/protocol').ToolCandidatesParams): Promise<import('@baocut/protocol').ToolCandidatesResult> {
     return this.client.request('tools.candidates', params);

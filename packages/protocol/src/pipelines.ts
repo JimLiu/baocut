@@ -1,3 +1,4 @@
+import type { MessageRef } from './message-ref.ts';
 import type { Id } from './domain.ts';
 import type { TextEffort } from './models.ts';
 import type { CitationsFile, SemanticEffectiveMode, SemanticReason } from './semantic.ts';
@@ -656,6 +657,8 @@ export interface FootageSummary {
   }>;
   files: string[];
   warnings: string[];
+  /** `warnings` 每一条的消息引用（message-ref.ts），同样的次序：界面按读者当前的语言重新生成。 */
+  warningRefs?: MessageRef[];
 }
 
 /**

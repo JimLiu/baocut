@@ -48,6 +48,12 @@ export const ko: ToolCatalogMessages = {
     'compress-video': { name: '영상 압축', desc: '목표 크기나 화질로 다시 인코딩합니다. 보내거나 업로드하기 전에 크기를 줄이세요' },
     'merge-video': { name: '영상 합치기', desc: '여러 영상을 순서대로 이어 붙여 하나의 파일로 만듭니다' },
     'extract-audio': { name: '오디오 추출', desc: '화면을 버리고 오디오 트랙만 남깁니다. 일반적인 오디오 코덱은 다시 인코딩하지 않고 그대로 복사합니다' },
+    'stabilize-video': { name: '영상 손떨림 보정', desc: '이 컴퓨터의 ffmpeg으로 손으로 들고 찍어 흔들리는 영상을 안정화합니다. 따로 다운로드할 것은 없습니다' },
+    'upscale-video': { name: '영상 업스케일', desc: '이 컴퓨터의 Real-ESRGAN으로 영상을 2–4배 확대하며, 추정한 디테일을 더합니다' },
+    'interpolate-video': { name: '프레임 보간', desc: '이 컴퓨터의 RIFE로 부드러운 슬로 모션이나 더 높은 프레임 레이트를 만듭니다' },
+    'match-color': { name: '색상 맞추기', desc: '여러 영상이나 이미지의 색을 하나의 기준에 맞춥니다' },
+    'remove-background': { name: '배경 제거', desc: '그린 스크린 없이 피사체를 오려냅니다. 영상은 투명도가 있는 MOV로, 이미지는 PNG로 출력됩니다' },
+    'separate-audio': { name: '오디오를 트랙별로 분리', desc: '오디오 또는 영상 파일의 첫 번째 트랙을 보컬과 반주로 나누고, 원하면 드럼, 베이스, 그 외로도 나눕니다' },
   },
   targetNone: '전사본과 자막만 만들기',
   targetCreate: '프로젝트에 영상 만들기',
@@ -62,6 +68,10 @@ export const ko: ToolCatalogMessages = {
     'video-file': {
       label: '영상 파일',
       desc: '이 컴퓨터의 yt-dlp·ffmpeg 도구로 영상을 다운로드·압축·합치고 오디오를 추출합니다. 결과는 영상 파일과 오디오 항목입니다.',
+    },
+    footage: {
+      label: '소스 처리',
+      desc: '이 컴퓨터에서 소스의 손떨림 보정, 업스케일, 프레임 보간, 색상 맞추기, 배경 제거, 오디오 분리를 합니다. 입력마다 새 파일이 만들어지고 원본은 바뀌지 않습니다.',
     },
   },
   artifactItems: (artifacts) => `${artifacts.map((a) => artifactLabels[a]).join(', ') || '결과물'} 항목`,

@@ -69,7 +69,7 @@ import type {
   FontsCatalogueResult,
   FontsUsageResult,
 } from './fonts.ts';
-import type { ToolCandidatesParams, ToolCandidatesResult, ToolsListResult } from './tool-catalogue.ts';
+import type { ToolCandidatesParams, ToolCandidatesResult, ToolInspectInputsParams, ToolInspectInputsResult, ToolsListResult } from './tool-catalogue.ts';
 import type {
   AgentSkillInstallMode,
   AgentSkillStatus,
@@ -1221,6 +1221,12 @@ export interface RpcMethods extends BotRpcMethods {
    * 不接受视频输入的工具返回空列表。
    */
   'tools.candidates': { params: ToolCandidatesParams; result: ToolCandidatesResult };
+  /**
+   * 工具页选好文件时读它们的事实（只读，跑 `ffprobe`，同素材处理的「读取」一步）：种类、时长、尺寸、帧率、是不是 HDR、有没有音轨。
+   * 单个输入读不出时那一项是 `unreadable`，不让整次失败。`stabilizer: true` 时顺带说这台电脑的 ffmpeg 去抖用 vid.stab 还是 deshake。
+   * 带本机路径，不对 Web 服务开放。
+   */
+  'tools.inspectInputs': { params: ToolInspectInputsParams; result: ToolInspectInputsResult };
   /**
    * Agent 面的工具目录（架构设计 §3.5、§4.1）：与会话里的智能体、MCP 服务同一份目录，带参数的 JSON Schema、说明、注解与风险。
    * 只给 `cli` 与 `desktop` 连接，其余 `forbidden`。

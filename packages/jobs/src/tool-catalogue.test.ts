@@ -10,6 +10,14 @@ import { TRANSLATE_SUBTITLES_PIPELINE } from './pipelines/translate-subtitles.ts
 /** 工具目录的静态注册表（架构设计 §7.9）：首批工具、声明完整、ID 稳定。 */
 
 describe('工具目录', () => {
+  it('素材处理：要下载的受管工具不算一定要（工具页有下载卡），分轨要分离模型', () => {
+    expect(toolDefinition('stabilize-video')).toMatchObject({ category: 'footage', inputs: ['file'], externalTools: ['ffmpeg'], optionalExternalTools: [], execution: { pipeline: 'stabilize-video' } });
+    expect(toolDefinition('interpolate-video')?.optionalExternalTools).toEqual(['rife-ncnn-vulkan']);
+    expect(toolDefinition('upscale-video')?.optionalExternalTools).toEqual(['realesrgan-ncnn-vulkan']);
+    expect(toolDefinition('remove-background')?.optionalExternalTools).toEqual(['matte-models', 'matte-models-isnet']);
+    expect(toolDefinition('separate-audio')).toMatchObject({ capabilities: ['separateAudio'], execution: { pipeline: 'separate-audio' } });
+  });
+
   it('工具按组排列，ID 唯一且是小写连字符', () => {
     expect(TOOL_CATALOGUE.map((t) => t.id)).toEqual([
       'transcribe',
@@ -28,6 +36,12 @@ describe('工具目录', () => {
       'compress-video',
       'merge-video',
       'extract-audio',
+      'stabilize-video',
+      'upscale-video',
+      'interpolate-video',
+      'match-color',
+      'remove-background',
+      'separate-audio',
     ]);
     for (const tool of TOOL_CATALOGUE) {
       expect(tool.id).toMatch(/^[a-z][a-z0-9-]*$/);
@@ -137,13 +151,14 @@ describe('工具目录', () => {
     expect(toolDefinition('nope')).toBeNull();
   });
 
-  it('分成四组：语音与字幕、文字与图片、音乐、视频文件（§7.9，产品设计 §2.7）', () => {
+  it('分成五组：语音与字幕、文字与图片、音乐、视频文件、素材处理（§7.9，产品设计 §2.7）', () => {
     const groups = Object.fromEntries(TOOL_CATEGORIES.map((c) => [c, TOOL_CATALOGUE.filter((t) => t.category === c).map((t) => t.id)]));
     expect(groups).toEqual({
       speech: ['transcribe', 'translate-subtitles', 'dub', 'synthesize-speech'],
       'text-image': ['generate-text', 'generate-image', 'upscale-image', 'remove-object', 'remove-watermark', 'repaint-image', 'expand-image'],
       music: ['generate-music'],
       'video-file': ['link-import', 'compress-video', 'merge-video', 'extract-audio'],
+      footage: ['stabilize-video', 'upscale-video', 'interpolate-video', 'match-color', 'remove-background', 'separate-audio'],
     });
   });
 });

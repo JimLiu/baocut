@@ -58,8 +58,8 @@ function entryIdOf(value: unknown): Id | null {
 }
 
 /**
- * `pipelines.start` 的参数里换掉 Space 条目：`transcribe` 的 `file`、`transcode`、`upscale-image` 与图片编辑的 `inputs[]`、
- * `translate-subtitles` 的 `input`。别的流程与别的字段原样返回；不是 `{ entryId }` 的值留给流程自己的参数检查。
+ * `pipelines.start` 的参数里换掉 Space 条目：`transcribe` 的 `file`、`transcode`、`upscale-image`、图片编辑与素材处理的 `inputs[]`、
+ * `match-color` 的 `reference`、`translate-subtitles` 的 `input`。别的流程与别的字段原样返回；不是 `{ entryId }` 的值留给流程自己的参数检查。
  */
 export function resolvePipelineEntryInputs(
   space: SpaceFileResolver,
@@ -80,9 +80,14 @@ export function resolvePipelineEntryInputs(
     case UPSCALE_IMAGE_PIPELINE:
       return Array.isArray(params.inputs) ? { ...params, inputs: params.inputs.map((input) => file(input, IMAGE_ENTRY_KINDS)) } : params;
     default:
-      // 素材处理与分轨：`inputs[]` 里可以是媒体条目（对齐颜色与抠像也收图片）。
+      // 素材处理与分轨：`inputs[]` 里可以是媒体条目（对齐颜色与抠像也收图片），统一色调的参考同样。
       if ((FOOTAGE_INPUT_PIPELINES as readonly string[]).includes(pipeline) && Array.isArray(params.inputs)) {
-        return { ...params, inputs: params.inputs.map((input) => file(input, [...MEDIA_ENTRY_KINDS, ...IMAGE_ENTRY_KINDS])) };
+        const kinds = [...MEDIA_ENTRY_KINDS, ...IMAGE_ENTRY_KINDS];
+        return {
+          ...params,
+          inputs: params.inputs.map((input) => file(input, kinds)),
+          ...('reference' in params ? { reference: file(params.reference, kinds) } : {}),
+        };
       }
       // 图片编辑的四个流程同超分：`inputs[]` 里可以是图片条目。
       if (Object.values<string>(EDIT_IMAGE_PIPELINES).includes(pipeline) && Array.isArray(params.inputs)) {
