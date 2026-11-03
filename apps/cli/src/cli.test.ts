@@ -4,7 +4,8 @@ import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { adminBucket } from './admin/index.ts';
-import { runCli } from './cli.ts';
+import { EXIT, exitCodeFor } from './envelope.ts';
+import { missingCommand, runCli } from './cli.ts';
 
 /** 进程内跑 `runCli`：临时的 BAOCUT_HOME，Runtime 入口指向不存在的路径（万一要拉起也拉不起）。 */
 let home: string;
@@ -27,6 +28,21 @@ async function cli(argv: string[]): Promise<{ code: number; stdout: string; stde
   const code = await runCli(argv, adminBucket, { cwd: home, env: { ...process.env, BAOCUT_HOME: home }, stdout, stderr });
   return { code, ...chunks };
 }
+
+describe('连上的 Runtime 没有这条命令（Agent 面设计 §5.6）', () => {
+  it('CLI 的快照里有：Runtime 比 CLI 旧，退出码 3，写明主目录', () => {
+    const error = missingCommand(['assets', 'process', '--op', 'stabilize'], '/dev/home');
+    expect(error.code).toBe('RUNTIME_OUTDATED');
+    expect(exitCodeFor(error.code)).toBe(EXIT.runtimeUnavailable);
+    expect(error.message).toContain('assets process');
+    expect(error.message).toContain('/dev/home');
+  });
+
+  it('快照里也没有：就是没有这个命令', () => {
+    expect(missingCommand(['assets', 'frobnicate'], '/dev/home').code).toBe('UNKNOWN_COMMAND');
+    expect(missingCommand(['frobnicate'], '/dev/home').code).toBe('UNKNOWN_COMMAND');
+  });
+});
 
 describe('runCli：不为拼错的命令或帮助拉起 Runtime（Agent 面设计 §4.5）', () => {
   it('已知名词后不认识的动词：UNKNOWN_COMMAND（退出码 4），不拉起 Runtime', async () => {

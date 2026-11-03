@@ -34,6 +34,7 @@ export const ru: CliMessages = {
   spilledNote: (maxBytes) => `Результат больше ${maxBytes} байт: полный результат в файле path (JSON). coverage — ключи верхнего уровня и длины массивов, summary — короткие поля. Прочитайте файл, сузьте запрос параметрами continueWith.paging или повторите с --max-bytes continueWith.maxBytes.`,
   resultFileWritten: "Полный результат в файле path (JSON) по --result-file. coverage — ключи верхнего уровня и длины массивов, summary — короткие поля.",
 
+  runtimeOutdated: (command: string, home: string) => `Runtime BaoCut для ${home} старше этого CLI и не содержит ${command}. Обновите приложение BaoCut или в копии репозитория задайте в BAOCUT_HOME каталог для разработки, например .dev/baocut-home, чтобы использовать Runtime из репозитория.`,
   unknownCommand: (command) => `Неизвестная команда: ${command}. Выполните baocut --help для списка команд.`,
   unknownFlag: (flag, command) => `Неизвестный параметр ${flag} для baocut ${command}. См. baocut help ${command}.`,
   missingValue: (flag) => `${flag} требует значение.`,

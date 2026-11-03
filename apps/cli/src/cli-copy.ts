@@ -59,6 +59,7 @@ const en = {
     'The complete result is in the file at path (JSON) as --result-file asked. coverage lists its top-level keys and array lengths, summary its short fields.',
 
   // 参数
+  runtimeOutdated: (command: string, home: string) => `The BaoCut Runtime for ${home} is older than this CLI and does not have ${command}. Update the BaoCut app, or from a repository checkout set BAOCUT_HOME to a development home such as .dev/baocut-home to use the repository's Runtime.`,
   unknownCommand: (command: string) => `Unknown command: ${command}. Run baocut --help to see the commands.`,
   unknownFlag: (flag: string, command: string) => `Unknown flag ${flag} for baocut ${command}. See baocut help ${command}.`,
   missingValue: (flag: string) => `${flag} needs a value.`,

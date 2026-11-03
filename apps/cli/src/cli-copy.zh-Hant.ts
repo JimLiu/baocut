@@ -36,6 +36,7 @@ export const zhHant: CliMessages = {
   resultFileWritten:
     '已依 --result-file 的要求將完整結果寫入 path 所指的檔案（JSON）。coverage 列出它的最上層鍵與各陣列的長度，summary 列出它的簡短欄位。',
 
+  runtimeOutdated: (command: string, home: string) => `${home} 的 BaoCut Runtime 比這個 CLI 舊，沒有 ${command}。請更新 BaoCut 應用程式；在存放庫檢出中執行時，可以把 BAOCUT_HOME 設為開發用的主目錄（如 .dev/baocut-home），改用存放庫的 Runtime。`,
   unknownCommand: (command) => `未知的指令：${command}。執行 baocut --help 查看所有指令。`,
   unknownFlag: (flag, command) => `baocut ${command} 沒有 ${flag} 旗標。請見 baocut help ${command}。`,
   missingValue: (flag) => `${flag} 需要一個值。`,

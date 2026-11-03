@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { packagedResourceEnv as desktopResourceEnv, packagedResources } from '../../../desktop/src/main/packaged-resources.ts';
 import { CliError, EXIT, exitCodeFor } from '../envelope.ts';
 import {
@@ -104,6 +104,49 @@ function catchError(fn: () => void): CliError {
   }
   throw new Error('没有抛出');
 }
+
+describe.runIf(process.platform !== 'win32')('从仓库运行的 CLI 选哪个 Runtime（Agent 面设计 §5.6）', () => {
+  let user: string;
+  beforeEach(() => {
+    user = fs.mkdtempSync(path.join(os.tmpdir(), 'baocut-cli-user-'));
+    vi.stubEnv('HOME', user);
+    const contents = path.join(user, 'Applications', 'BaoCut.app', 'Contents');
+    fs.mkdirSync(path.join(contents, 'MacOS'), { recursive: true });
+    fs.mkdirSync(path.join(contents, 'Resources', 'app.asar'), { recursive: true });
+    fs.writeFileSync(path.join(contents, 'MacOS', 'BaoCut'), 'fixture');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    fs.rmSync(user, { recursive: true, force: true });
+  });
+
+  it('开发用的主目录：用仓库的 Runtime，装了应用也不用它（否则调不到还没发布的工具）', () => {
+    const repo = resolveRuntimeLaunch({ BAOCUT_HOME: path.join(user, 'dev-home') }, 'darwin');
+    expect(repo?.source).toBe('repo');
+    expect(repo?.args[0]).toMatch(/apps[/\\]runtime[/\\]src[/\\]main\.ts$/);
+  });
+
+  it('默认的 ~/.baocut：用装好的应用，开发中的代码不碰真实数据', () => {
+    expect(resolveRuntimeLaunch({}, 'darwin')?.source).toBe('packaged');
+    expect(resolveRuntimeLaunch({ BAOCUT_HOME: path.join(user, '.baocut') }, 'darwin')?.source).toBe('packaged');
+  });
+
+  it('打包输出目录在仓库里时，包内的 CLI 仍用自己的 Runtime', () => {
+    const root = path.join(user, 'checkout');
+    fs.mkdirSync(path.join(root, 'apps', 'runtime', 'src'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'apps', 'runtime', 'src', 'main.ts'), '');
+    fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'baocut' }));
+    const contents = path.join(root, 'dist', 'BaoCut.app', 'Contents');
+    const from = path.join(contents, 'Resources', 'app.asar', 'out', 'main');
+    fs.mkdirSync(from, { recursive: true });
+    fs.mkdirSync(path.join(contents, 'MacOS'), { recursive: true });
+    fs.writeFileSync(path.join(contents, 'MacOS', 'BaoCut'), 'fixture');
+    expect(resolveRuntimeLaunch({ BAOCUT_HOME: path.join(user, 'dev-home') }, 'darwin', from)).toMatchObject({
+      command: path.join(contents, 'MacOS', 'BaoCut'),
+      source: 'packaged',
+    });
+  });
+});
 
 describe('CLI shipped inside a relocated desktop app', () => {
   it('prefers its own Runtime over another installed app', () => {

@@ -187,6 +187,8 @@ npm run cli -- status
 
 Windows Command Prompt 中，先执行 `set "BAOCUT_HOME=.dev/baocut-home"`，再运行 CLI 命令。
 
+开发态桌面应用没开时，同一条命令会在这个主目录拉起仓库的 Runtime，还没发布的工具也调得到。不设 `BAOCUT_HOME` 时，CLI 用真实的 `~/.baocut` 和已安装应用的 Runtime，比那个应用新的命令会报 `RUNTIME_OUTDATED`。
+
 ### 其他命令
 
 | 命令 | 作用 |
@@ -243,7 +245,7 @@ BaoCut 正在积极开发，macOS Apple Silicon 与 Windows x64 安装包见上�
 | `BAOCUT_EXPORT_WORKER` | 指定 `export-worker` 路径。否则先查 `engine-host` 旁边，再查 cargo 产物目录；缺失时导出返回 `EXPORT_TOOL_MISSING`。 |
 | `BAOCUT_FACE_DETECT` | 指定 `face-detect` 路径。否则先查 `BAOCUT_BIN_DIR`，再查 cargo 产物目录；缺失（或随附的 YuNet 模型缺失）时 `videos_frames` 照常取帧，`detector` 为 null、不标人脸。 |
 | `BAOCUT_MATTE` | 指定 `matte`（抠像）路径。否则先查 `BAOCUT_BIN_DIR`，再查 cargo 产物目录；缺失时 `assets_process` 工具的 `remove-background` 被拒绝。 |
-| `BAOCUT_RUNTIME_ENTRY` | CLI 启动 Runtime 的入口：`.ts` / `.js` 使用当前 Node，其他路径作为可执行文件。否则依次查找已安装的 BaoCut 应用、仓库内的 `apps/runtime`。 |
+| `BAOCUT_RUNTIME_ENTRY` | CLI 启动 Runtime 的入口：`.ts` / `.js` 使用当前 Node，其他路径作为可执行文件。否则依次查找 CLI 所在的应用；从仓库运行且 `BAOCUT_HOME` 不是默认值时，仓库内的 `apps/runtime`；已安装的 BaoCut 应用；仓库内的 `apps/runtime`。 |
 | `BAOCUT_MODELS_DIR` | 本地模型目录，默认 `<BAOCUT_HOME>/models`。 |
 | `BAOCUT_MODELS_ENDPOINT` | 本地模型的下载来源（基址），优先于“模型下载来源”设置。默认 `https://huggingface.co`；`https://www.modelscope.cn` 改从 ModelScope 下载。 |
 | `BAOCUT_TEMPLATES_DIR` | 内置创作模板目录，见[模板包规范 §6](docs/spec/template-spec.md#6-目录来源与加载)。否则查找打包资源中的 `templates/`，再查仓库模板。用户模板放在 `<BAOCUT_HOME>/templates`；ID 冲突时内置模板优先。 |

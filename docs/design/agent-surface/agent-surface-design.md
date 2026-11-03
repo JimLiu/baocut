@@ -284,7 +284,8 @@ export --video V --kind subtitles --format srt --bilingual
 - 每条要连 Runtime 的命令先按 `BAOCUT_HOME` 的发现文件找正在跑的 Runtime；找不到时**默认自动拉起**一个（后台、脱离终端），结果里带 `runtime: { started: true }`。`--no-start` 关掉自动拉起（CI 或只想看状态时）。
 - `baocut runtime ensure` 显式做同一件事并打印 `started` / `reused`；`runtime status` 打印进程、端口、版本、是否有桌面端连接着；`runtime stop` 只停 CLI 自己拉起的那一个，桌面端连接着时拒绝并说明。
 - CLI 拉起的 Runtime 空闲（没有在用的连接、没有任务）满设置 `runtime.idleExitMinutes`（默认 10）自动退出，Agent 忘了停也不留后台进程。`baocut runtime status` 只查状态，不算在用：查询不推迟退出，报出的 `idleSince` 是查询之前的值。
-- 版本门：CLI 与 Runtime 的接口版本不同时以退出码 3 拒绝并说明哪一边要更新；不默默按旧参数解释。
+- 版本门：CLI 与 Runtime 的接口版本不同时以退出码 3 拒绝并说明哪一边要更新；不默默按旧参数解释。接口版本相同、但连上的 Runtime 没有 CLI 目录快照里的命令时，以退出码 3 报 `RUNTIME_OUTDATED`，不说成没有这个命令。
+- 从仓库运行的 CLI：主目录不是默认的 `~/.baocut`（如 `BAOCUT_HOME=.dev/baocut-home`）时拉起仓库里的 Runtime，与 CLI 是同一份代码，还没发布的工具才调得到。默认主目录是用户的真实数据与钥匙串，开发中的代码不碰它，仍用装好的应用。
 
 ### 5.7 帮助的形态
 

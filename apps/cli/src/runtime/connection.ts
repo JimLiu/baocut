@@ -32,8 +32,12 @@ const REQUEST_TIMEOUT_MS = 30 * 60_000;
 const START_TIMEOUT_MS = 60_000;
 const POLL_MS = 100;
 
+function defaultHome(): string {
+  return path.join(os.homedir(), '.baocut');
+}
+
 export function runtimeHome(env: NodeJS.ProcessEnv = process.env): string {
-  return path.resolve(env.BAOCUT_HOME || path.join(os.homedir(), '.baocut'));
+  return path.resolve(env.BAOCUT_HOME || defaultHome());
 }
 
 export function discoveryFile(home: string): string {
@@ -104,8 +108,10 @@ export interface LaunchSpec {
 }
 
 /**
- * Runtime 的入口，依次找：`BAOCUT_RUNTIME_ENTRY`（`.ts` / `.js` 用当前的 Node 跑，否则当可执行文件）→ 当前 CLI 所在的桌面包，再查标准安装位置
- * （以 Node 方式运行它带的 Runtime，资源位置照桌面端的 `packagedResourceEnv`）→ 仓库里的 `apps/runtime/src/main.ts`。
+ * Runtime 的入口，依次找：`BAOCUT_RUNTIME_ENTRY`（`.ts` / `.js` 用当前的 Node 跑，否则当可执行文件）→ 当前 CLI 所在的桌面包 →
+ * 从仓库运行且主目录不是默认的 `~/.baocut` 时，仓库里的 `apps/runtime/src/main.ts`（同一份代码，新工具才调得到）→ 标准安装位置
+ * （以 Node 方式运行它带的 Runtime，资源位置照桌面端的 `packagedResourceEnv`）→ 仓库里的入口。默认主目录是用户的真实数据与钥匙串，
+ * 开发中的代码不碰它，留给装好的应用（Agent 面设计 §5.6）。
  */
 export function resolveRuntimeLaunch(
   env: NodeJS.ProcessEnv = process.env,
@@ -119,6 +125,11 @@ export function resolveRuntimeLaunch(
       ? { command: process.execPath, args: [entry], env: {}, source: 'env' }
       : { command: entry, args: [], env: {}, source: 'env' };
   }
+  // 桌面包可能就放在仓库的打包输出目录里：包内的 CLI 不算从仓库运行。
+  const root = path.basename(path.resolve(from, '..', '..')) === 'app.asar' ? null : repoRoot(from);
+  const entry = root && path.join(root, 'apps', 'runtime', 'src', 'main.ts');
+  const repo: LaunchSpec | null = entry && fs.existsSync(entry) ? { command: process.execPath, args: [entry], env: {}, source: 'repo' } : null;
+  if (repo && runtimeHome(env) !== path.resolve(defaultHome())) return repo;
   for (const app of packagedApps(env, platform, from)) {
     if (fs.existsSync(app.executable) && fs.existsSync(path.join(app.resources, 'app.asar'))) {
       return {
@@ -129,10 +140,7 @@ export function resolveRuntimeLaunch(
       };
     }
   }
-  const root = repoRoot(from);
-  const entry = root && path.join(root, 'apps', 'runtime', 'src', 'main.ts');
-  if (entry && fs.existsSync(entry)) return { command: process.execPath, args: [entry], env: {}, source: 'repo' };
-  return null;
+  return repo;
 }
 
 /** 装好的 BaoCut 应用可能在的位置（Windows 的 NSIS 按用户安装、macOS 的 Applications）。 */

@@ -73,6 +73,7 @@ export const EXIT_BY_CODE: Readonly<Record<string, ExitCode>> = {
   RUNTIME_START_FAILED: EXIT.runtimeUnavailable,
   PROTOCOL_MISMATCH: EXIT.runtimeUnavailable,
   INTERFACE_VERSION_MISMATCH: EXIT.runtimeUnavailable,
+  RUNTIME_OUTDATED: EXIT.runtimeUnavailable,
   CATALOG_UNAVAILABLE: EXIT.runtimeUnavailable,
   // Runtime 在却停不了：不是 CLI 拉起的，或还有人在用。是失败，不是 Runtime 不可用。
   RUNTIME_NOT_OWNED: EXIT.failed,

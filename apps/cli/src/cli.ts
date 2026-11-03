@@ -138,7 +138,7 @@ export async function runCli(argv: readonly string[], admin: AdminBucket, io: Cl
     if (found.kind !== 'command') {
       if (found.kind === 'group' && found.verb === null)
         return output.text(renderGroupHelp(session.catalog.tools, found.noun, adminEntry(admin, found.noun)) ?? '');
-      throw new CliError('UNKNOWN_COMMAND', M.unknownCommand(rest.slice(0, 2).join(' ')));
+      throw missingCommand(rest, home);
     }
     const input = io.input ?? processInput(cwd);
     const args = await parseToolArgs(found.command, found.rest, globals, input);
@@ -159,6 +159,15 @@ function fail(output: Output, error: unknown): ExitCode {
     return output.failure({ ...details, code, message: error.message });
   }
   return output.failure({ code: 'INTERNAL', message: error instanceof Error ? error.message : String(error) }, EXIT.failed);
+}
+
+/** 连上的 Runtime 没有这条命令：CLI 自己的快照里有时，是 Runtime 比 CLI 旧（§5.6），不说成没有这个命令。 */
+export function missingCommand(target: readonly string[], home: string): CliError {
+  const command = target.slice(0, 2).join(' ');
+  const snapshot = loadSnapshot();
+  return snapshot && lookup(buildTree(snapshot.tools), target).kind === 'command'
+    ? new CliError('RUNTIME_OUTDATED', M.runtimeOutdated(command, home))
+    : new CliError('UNKNOWN_COMMAND', M.unknownCommand(command));
 }
 
 function adminEntry(admin: AdminBucket, name: string): AdminEntry | undefined {
@@ -217,7 +226,7 @@ async function help(output: Output, home: string, cwd: string, admin: AdminBucke
     const text = renderGroupHelp(catalog.tools, noun, entry);
     if (text) return output.text(text);
   }
-  throw new CliError('UNKNOWN_COMMAND', M.unknownCommand(target.slice(0, 2).join(' ')));
+  throw missingCommand(target, home);
 }
 
 async function spec(output: Output, home: string, cwd: string, name: string | undefined): Promise<ExitCode> {

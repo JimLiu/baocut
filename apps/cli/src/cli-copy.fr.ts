@@ -39,6 +39,7 @@ export const fr: CliMessages = {
   resultFileWritten:
     "Le résultat complet est dans le fichier path (JSON), conformément à --result-file. coverage liste ses clés principales et les longueurs des tableaux, summary ses champs courts.",
 
+  runtimeOutdated: (command: string, home: string) => `Le Runtime BaoCut de ${home} est plus ancien que cette CLI et ne propose pas ${command}. Mettez à jour l’application BaoCut ou, depuis une copie du dépôt, définissez BAOCUT_HOME sur un dossier de développement comme .dev/baocut-home pour utiliser le Runtime du dépôt.`,
   unknownCommand: (command: string) => `Commande inconnue : ${command}. Exécutez baocut --help pour voir les commandes.`,
   unknownFlag: (flag: string, command: string) => `Option inconnue ${flag} pour baocut ${command}. Voir baocut help ${command}.`,
   missingValue: (flag: string) => `${flag} nécessite une valeur.`,

@@ -37,6 +37,7 @@ export const ko: CliMessages = {
   resultFileWritten:
     '--result-file 요청에 따라 전체 결과를 path가 가리키는 파일(JSON)에 썼습니다. coverage에는 최상위 키와 배열 길이가, summary에는 짧은 필드가 들어 있습니다.',
 
+  runtimeOutdated: (command: string, home: string) => `${home}의 BaoCut Runtime이 이 CLI보다 오래되어 ${command}이(가) 없습니다. BaoCut 앱을 업데이트하세요. 저장소 체크아웃에서 실행한다면 BAOCUT_HOME을 개발용 홈(예: .dev/baocut-home)으로 설정해 저장소의 Runtime을 사용할 수 있습니다.`,
   unknownCommand: (command) => `알 수 없는 명령: ${command}. baocut --help로 명령 목록을 확인하세요.`,
   unknownFlag: (flag, command) => `baocut ${command}에는 ${flag} 플래그가 없습니다. 자세한 내용은 baocut help ${command}에서 확인하세요.`,
   missingValue: (flag) => `${flag}에는 값이 필요합니다.`,

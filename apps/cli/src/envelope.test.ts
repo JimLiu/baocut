@@ -22,6 +22,7 @@ describe('信封与退出码', () => {
     expect(exitCodeFor('RUNTIME_NOT_OWNED')).toBe(EXIT.failed);
     expect(exitCodeFor('RUNTIME_UNAVAILABLE')).toBe(EXIT.runtimeUnavailable);
     expect(exitCodeFor('INTERFACE_VERSION_MISMATCH')).toBe(EXIT.runtimeUnavailable);
+    expect(exitCodeFor('RUNTIME_OUTDATED')).toBe(EXIT.runtimeUnavailable);
     expect(exitCodeFor('INVALID_ARGUMENTS')).toBe(EXIT.invalidArguments);
     expect(exitCodeFor('CONFIRMATION_REQUIRED')).toBe(EXIT.invalidArguments);
     expect(exitCodeFor('VIDEO_NOT_FOUND')).toBe(EXIT.failed);

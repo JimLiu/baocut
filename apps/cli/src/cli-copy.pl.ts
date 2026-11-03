@@ -34,6 +34,7 @@ export const pl: CliMessages = {
   spilledNote: (maxBytes) => `Wynik większy niż ${maxBytes} bajtów: pełny wynik w pliku path (JSON). coverage – klucze najwyższego poziomu i długości tablic, summary – krótkie pola. Odczytaj plik, zawęź flagami continueWith.paging lub ponów z --max-bytes continueWith.maxBytes.`,
   resultFileWritten: "Pełny wynik w pliku path (JSON) według --result-file. coverage – klucze najwyższego poziomu i długości tablic, summary – krótkie pola.",
 
+  runtimeOutdated: (command: string, home: string) => `Runtime BaoCut dla ${home} jest starszy niż ten CLI i nie ma ${command}. Zaktualizuj aplikację BaoCut albo w kopii repozytorium ustaw BAOCUT_HOME na katalog deweloperski, np. .dev/baocut-home, aby użyć Runtime z repozytorium.`,
   unknownCommand: (command) => `Nieznane polecenie: ${command}. Uruchom baocut --help dla listy poleceń.`,
   unknownFlag: (flag, command) => `Nieznana flaga ${flag} dla baocut ${command}. Zobacz baocut help ${command}.`,
   missingValue: (flag) => `${flag} wymaga wartości.`,

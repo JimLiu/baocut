@@ -37,6 +37,7 @@ export const ja: CliMessages = {
   resultFileWritten:
     '--result-file の指定どおり、完全な結果は path のファイル（JSON）にあります。coverage にはその最上位のキーと配列の長さ、summary には短いフィールドが入っています。',
 
+  runtimeOutdated: (command: string, home: string) => `${home} の BaoCut Runtime はこの CLI より古く、${command} がありません。BaoCut アプリを更新してください。リポジトリのチェックアウトから実行する場合は、BAOCUT_HOME を開発用のホーム（例：.dev/baocut-home）に設定すると、リポジトリの Runtime を使います。`,
   unknownCommand: (command) => `不明なコマンド：${command}。baocut --help でコマンドを確認してください。`,
   unknownFlag: (flag, command) => `baocut ${command} には ${flag} というフラグはありません。baocut help ${command} を参照してください。`,
   missingValue: (flag) => `${flag} には値が必要です。`,

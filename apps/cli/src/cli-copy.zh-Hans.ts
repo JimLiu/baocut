@@ -35,6 +35,7 @@ export const zhHans: CliMessages = {
     `结果超过 ${maxBytes} 字节：完整结果写在 path 指向的文件里（JSON）。coverage 列出它的顶层键与各数组的条数，summary 是短字段。读那个文件，用 continueWith.paging 里的旗标缩小请求，或带 --max-bytes continueWith.maxBytes 重跑。`,
   resultFileWritten: '完整结果按 --result-file 写在 path 指向的文件里（JSON）。coverage 列出它的顶层键与各数组的条数，summary 是短字段。',
 
+  runtimeOutdated: (command: string, home: string) => `${home} 的 BaoCut Runtime 比这个 CLI 旧，没有 ${command}。请更新 BaoCut 应用；在仓库检出里运行时，可以把 BAOCUT_HOME 设为开发用的主目录（如 .dev/baocut-home），改用仓库的 Runtime。`,
   unknownCommand: (command) => `没有这个命令：${command}。baocut --help 列出全部命令。`,
   unknownFlag: (flag, command) => `baocut ${command} 没有 ${flag} 这个旗标，见 baocut help ${command}。`,
   missingValue: (flag) => `${flag} 需要一个值。`,

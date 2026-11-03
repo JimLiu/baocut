@@ -191,6 +191,8 @@ npm run cli -- status
 
 In Windows Command Prompt, use `set "BAOCUT_HOME=.dev/baocut-home"` before the CLI command.
 
+With the development desktop closed, the same command starts the repository's Runtime in that home, so tools work before they are released. Without `BAOCUT_HOME`, the CLI uses your real `~/.baocut` and the installed app's Runtime, and commands newer than that app report `RUNTIME_OUTDATED`.
+
 ### Other commands
 
 | Command | What it does |
@@ -251,7 +253,7 @@ BaoCut is under active development, with macOS Apple Silicon and Windows x64 pac
 | `BAOCUT_EXPORT_WORKER` | Path to `export-worker`. Otherwise next to `engine-host`, then the cargo output dirs; without it export fails with `EXPORT_TOOL_MISSING` |
 | `BAOCUT_FACE_DETECT` | Path to `face-detect`. Otherwise `BAOCUT_BIN_DIR`, then the cargo output dirs; without it (or without the shipped YuNet model) `videos_frames` still returns frames, with `detector: null` and no faces |
 | `BAOCUT_MATTE` | Path to `matte` (background removal). Otherwise `BAOCUT_BIN_DIR`, then the cargo output dirs; without it the `assets_process` tool's `remove-background` is refused |
-| `BAOCUT_RUNTIME_ENTRY` | Entry the CLI uses to start a Runtime: `.ts` / `.js` run with the current Node, anything else as an executable. Otherwise an installed BaoCut app, then `apps/runtime` in the repo |
+| `BAOCUT_RUNTIME_ENTRY` | Entry the CLI uses to start a Runtime: `.ts` / `.js` run with the current Node, anything else as an executable. Otherwise the app the CLI ships in; `apps/runtime` when running from the repo with a non-default `BAOCUT_HOME`; an installed BaoCut app; then `apps/runtime` in the repo |
 | `BAOCUT_MODELS_DIR` | Local model files. Default `<BAOCUT_HOME>/models` |
 | `BAOCUT_MODELS_ENDPOINT` | Download source (base URL) for local models; overrides the Model download source setting. Default `https://huggingface.co`; `https://www.modelscope.cn` downloads from ModelScope |
 | `BAOCUT_TEMPLATES_DIR` | Built-in creation templates ([template spec §6](docs/spec/template-spec.md#6-目录来源与加载)). Otherwise the packaged `templates/`, then the repo's. User templates live in `<BAOCUT_HOME>/templates`; built-in wins on id clash |

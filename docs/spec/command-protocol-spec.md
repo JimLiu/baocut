@@ -1146,7 +1146,7 @@ CLI 把成功与失败都写成信封：成功 `{ ok: true, result, next?, runti
 | 0 | 成功，含等到完成的任务 | — |
 | 1 | 失败或取消：工具或引擎拒绝、任务终态 `failed` / `cancelled` / `interrupted` / `needs-reconciliation`、等待超时（`WAIT_TIMEOUT`，任务继续跑）、管理命令没做成（`COMMAND_FAILED` 等）、Runtime 不归这个 CLI 停或还有人在用、说明书找不到或写错（`catalog.agentSkill`） | `RUNTIME_NOT_OWNED` `RUNTIME_IN_USE` `AGENT_SKILL_NOT_FOUND` `AGENT_SKILL_INVALID`；表里没列出的错误码都是 1 |
 | 2 | 要用户先做一件事：配置能力、授权或预算、同意或安装外部工具、登录、音色授权；输出带 `remedy` 与 `next`，Agent 转告用户，不自己绕过 | `CAPABILITY_NOT_CONFIGURED` `DUB_SEPARATION_NOT_CONFIGURED` `MODELS_DIR_MISSING` `CREDENTIAL_UNAVAILABLE` `AUTHENTICATION_REQUIRED` `OFFLINE_STRICT` `GRANT_REQUIRED` `GRANT_REVOKED` `BUDGET_EXCEEDED` `BUDGET_UNVERIFIABLE` `TASK_BUDGET_EXCEEDED` `TASK_BUDGET_UNVERIFIABLE` `TOOL_UNAVAILABLE` `TOOL_CONSENT_REQUIRED` `TOOL_UPDATE_CONFIRM_REQUIRED` `TOOL_UPDATE_MANUAL` `MEDIA_TOOL_UNAVAILABLE` `EXPORT_TOOL_MISSING` `LINK_LOGIN_REQUIRED` `LINK_COOKIES_UNAVAILABLE` `LINK_TOOL_UPDATE_REQUIRED` `VOICE_CONSENT_REQUIRED` `VOICE_CLONE_REQUIRED` |
-| 3 | Runtime 不可用：连不上、`--no-start` 时没有在跑的、拉不起、协议或接口版本不同、离线时既没有快照也没有 Runtime | `RUNTIME_UNAVAILABLE` `RUNTIME_START_FAILED` `PROTOCOL_MISMATCH` `INTERFACE_VERSION_MISMATCH` `CATALOG_UNAVAILABLE` |
+| 3 | Runtime 不可用：连不上、`--no-start` 时没有在跑的、拉不起、协议或接口版本不同、连上的 Runtime 比 CLI 旧、离线时既没有快照也没有 Runtime | `RUNTIME_UNAVAILABLE` `RUNTIME_START_FAILED` `PROTOCOL_MISMATCH` `INTERFACE_VERSION_MISMATCH` `RUNTIME_OUTDATED` `CATALOG_UNAVAILABLE` |
 | 4 | 参数不对，或要确认的命令缺 `--yes`（不在终端里时不默认同意；`models install` 缺 `--yes` 时只报模型包与大小、不下载） | `INVALID_ARGUMENTS` `UNKNOWN_COMMAND` `UNKNOWN_TOOL` `CONFIRMATION_REQUIRED` |
 
 任务以失败或取消结束时按任务的错误码查表，结果只会是 1 或 2。网关的 `RpcError` 取 `details.code`，没有时把 `code` 转成大写下划线再查。Ctrl-C 先取消正在等的任务，第二次直接退出（130）。
