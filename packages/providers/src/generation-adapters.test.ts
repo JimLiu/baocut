@@ -21,6 +21,7 @@ import {
   fakeOpenAiHandler,
   fakeVolcengineSpeechHandler,
   mp3Fixture,
+  jpegFixture,
   pngFixture,
   startFakeProviderServer,
   wavFixture,
@@ -765,6 +766,57 @@ describe('OpenAI-compatible image requests with strict optional fields', () => {
       await store.flush();
       await fs.rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('OpenAI-compatible image output format', () => {
+  async function generateWith(providerId: string, bytes: Buffer, declared: AdapterConfig['declared']) {
+    server = await startFakeProviderServer(() => ({ status: 200, json: { data: [{ b64_json: bytes.toString('base64') }] } }));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-image-format-'));
+    try {
+      const custom = providerId.startsWith('custom:');
+      const adapter = custom ? new CompatibleImageAdapter(() => 'Custom') : new OpenAiImageAdapter();
+      const generator = new OnlineGenerator({
+        providerId,
+        label: () => 'Test',
+        speech: null,
+        image: adapter,
+        config: async () => ({ ...config(`${server!.origin}/v1`, OPENAI_KEY, declared), providerId }),
+        http,
+      });
+      const modelId = adapter.models(config(`${server.origin}/v1`, OPENAI_KEY, declared))[0]!.modelId;
+      const attempt = await generator.generate(
+        { jobId: 'job_format', attempt: 1, providerId, modelId, parameters: image({ size: null }), staging: dir },
+        { generating: () => {}, progress: () => {} },
+        new AbortController().signal,
+      );
+      const files = await fs.readdir(dir);
+      return { attempt, files };
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }
+  const declared: AdapterConfig['declared'] = [{ modelId: 'sdxl', capability: 'generateImage' }];
+
+  it.each([
+    ['jpeg', jpegFixture(), 'output-1.jpg', 'image/jpeg'],
+    ['webp', Buffer.from('RIFF\x10\x00\x00\x00WEBPVP8 ', 'latin1'), 'output-1.webp', 'image/webp'],
+    ['png', pngFixture(), 'output-1.png', 'image/png'],
+  ] as const)('writes a compatible %s response under the format it actually returned', async (_name, bytes, file, mediaType) => {
+    const { attempt, files } = await generateWith('custom:any', bytes, declared);
+    expect(attempt).toMatchObject({ outcome: 'completed', formatAsReturned: true, outputs: [{ path: file, mediaType }] });
+    expect(files).toEqual([file]);
+  });
+
+  it('leaves an unrecognized compatible response on the requested format for validation to reject', async () => {
+    const { attempt } = await generateWith('custom:any', Buffer.from('GIF89a-not-accepted'), declared);
+    expect(attempt).toMatchObject({ outputs: [{ path: 'output-1.png', mediaType: 'image/png' }] });
+  });
+
+  it('keeps official OpenAI requests held to the format they asked for', async () => {
+    const { attempt } = await generateWith('openai', jpegFixture(), []);
+    expect(attempt).toMatchObject({ outcome: 'completed', outputs: [{ path: 'output-1.png', mediaType: 'image/png' }] });
+    expect(attempt).not.toHaveProperty('formatAsReturned');
   });
 });
 

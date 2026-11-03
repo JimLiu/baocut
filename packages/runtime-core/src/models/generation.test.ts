@@ -10,6 +10,7 @@ import {
   fakeGoogleHandler,
   fakeOpenAiHandler,
   mp3Fixture,
+  jpegFixture,
   pngFixture,
   startFakeProviderServer,
   type FakeProviderServer,
@@ -350,6 +351,22 @@ describe.skipIf(!ffprobe)('生成任务：假供应商 → 校验 → 产物', (
     });
     expect(openai.requests).toHaveLength(responseKind === 'url' ? 2 : 1);
     await expectNoSecret(side, OPENAI_KEY);
+  });
+
+  it('custom image endpoint: a JPEG response is decoded and published as JPEG', async () => {
+    const bytes = jpegFixture();
+    openai.handler = () => ({ status: 200, json: { data: [{ b64_json: bytes.toString('base64') }] } });
+    await side.client.request('models.configure', {
+      providerId: 'custom:jpeg-image', label: 'JPEG Image', enabled: true,
+      endpoint: `${openai.origin}/v1`, credential: OPENAI_KEY, verify: false,
+      models: [{ modelId: 'jpeg-model', capability: 'generateImage' }],
+    });
+    const { jobId } = await side.client.request('models.generateImage', { provider: 'custom:jpeg-image', prompt: 'a paper crane' });
+    const job = await settled(side, jobId);
+    expect(job).toMatchObject({ state: 'completed', generation: { size: '1024x1024', format: 'png' } });
+    const output = job.result!.outputs![0]!;
+    expect(output).toMatchObject({ mediaType: 'image/jpeg', media: { kind: 'image', width: 16, height: 9 } });
+    expect((await readArtifact(side, output.artifactId)).bytes.equals(bytes)).toBe(true);
   });
 
   it('输入图（§6.1）：OpenAI 走编辑接口，冻结名字与摘要；模型不收的用法与不合的参数在提交时拒绝；文件变了以 ASSET_MISSING 失败', async () => {

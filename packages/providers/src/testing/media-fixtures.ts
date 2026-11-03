@@ -1,7 +1,7 @@
 import zlib from 'node:zlib';
 
 /**
- * 测试用的最小媒体文件（纯 JS 生成，不依赖 ffmpeg）：ffprobe 能解码的 WAV、MP3（静音帧）与 PNG，
+ * 测试用的最小媒体文件（纯 JS 生成，不依赖 ffmpeg）：ffprobe 能解码的 WAV、MP3（静音帧）、PNG 与 JPEG，
  * 以及只有文件头对、内容解不开的坏文件。
  */
 
@@ -55,6 +55,14 @@ export function pngFixture(width = 16, height = 9, shade = 0): Buffer {
     pngChunk('IDAT', zlib.deflateSync(rows)),
     pngChunk('IEND', Buffer.alloc(0)),
   ]);
+}
+
+/** 16×9 的基线 JPEG：纯 JS 写不出，用 macOS `sips` 从 `pngFixture()` 转出来存成 base64。 */
+export function jpegFixture(): Buffer {
+  return Buffer.from(
+    '/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAACQAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgACQAQAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMABAQEBAQEBgQEBgkGBgYJDAkJCQkMDwwMDAwMDxIPDw8PDw8SEhISEhISEhUVFRUVFRkZGRkZHBwcHBwcHBwcHP/bAEMBBAUFBwcHDAcHDB0UEBQdHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHf/dAAQAAf/aAAwDAQACEQMRAD8A52iiivy8/fj/2Q==',
+    'base64',
+  );
 }
 
 /** 文件头是 PNG、内容解不开。 */

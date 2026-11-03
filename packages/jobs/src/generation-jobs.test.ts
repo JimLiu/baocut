@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { RpcError, type EditOperation, type JobRecord, type SpeechModelInfo } from '@baocut/protocol';
+import { RpcError, type EditOperation, type ImageModelInfo, type JobRecord, type SpeechModelInfo } from '@baocut/protocol';
 import {
   ModelCatalog,
   ProviderFailure,
@@ -35,6 +35,23 @@ const MODEL: SpeechModelInfo = {
   defaultFormat: 'mp3',
   acceptsInstructions: false,
   speedRange: null,
+  acceptsSeed: false,
+  cost: 'unknown',
+};
+
+const IMAGE_MODEL: ImageModelInfo = {
+  modelId: 'image',
+  label: 'image',
+  default: true,
+  sizes: ['1024x1024'],
+  aspectRatios: [],
+  defaultSize: '1024x1024',
+  maxCount: 1,
+  maxPromptChars: 100,
+  formats: ['png'],
+  defaultFormat: 'png',
+  referenceImages: null,
+  img2img: null,
   acceptsSeed: false,
   cost: 'unknown',
 };
@@ -132,11 +149,11 @@ describe('生成任务（JobManager）', () => {
         ({
           capability,
           providerId: 'fake',
-          modelId: 'tts',
+          modelId: capability === 'generateImage' ? IMAGE_MODEL.modelId : MODEL.modelId,
           kind: 'online',
           label: 'Fake',
           source: 'user-default',
-          model: MODEL,
+          model: capability === 'generateImage' ? IMAGE_MODEL : MODEL,
           generator,
           queue: { key: 'fake', concurrency: 1 },
         }) as unknown as GenerationSelection<C>,
@@ -298,6 +315,66 @@ describe('生成任务（JobManager）', () => {
     const problems = (job.error!.details as { problems: string[] }).problems.join('\n');
     expect(problems).toMatch(/sha256/);
     expect(problems).toMatch(/audio\/wav/);
+  });
+
+  describe('image output format', () => {
+    const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+
+    async function imageJob(attempt: { mediaType: string; formatAsReturned?: boolean }, extra: object = {}): Promise<JobRecord> {
+      generator.next = async (run) => {
+        await fs.writeFile(path.join(run.staging, 'output-1.jpg'), JPEG);
+        const sha256 = crypto.createHash('sha256').update(JPEG).digest('hex');
+        return {
+          outcome: 'completed',
+          workerVersion: 'fake@1',
+          ...(attempt.formatAsReturned ? { formatAsReturned: true } : {}),
+          outputs: [{ path: 'output-1.jpg', sha256, byteLength: JPEG.length, mediaType: attempt.mediaType }],
+        };
+      };
+      const { jobId } = await manager.submitGenerateImage({ prompt: 'a fox', ...extra }, { kind: 'connection', id: 'conn_1' });
+      await manager.settled(jobId);
+      return manager.inspect(jobId);
+    }
+
+    it('publishes under the returned format when the provider did not ask for one', async () => {
+      const probed: string[] = [];
+      probe = async (_file, mediaType) => {
+        probed.push(mediaType);
+        return { ok: true, media: { kind: 'image', width: 16, height: 9 } };
+      };
+      const saveDir = path.join(dir, 'saved');
+      const job = await imageJob({ mediaType: 'image/jpeg', formatAsReturned: true }, { saveDir });
+      expect(job).toMatchObject({ state: 'completed', generation: { format: 'png' } });
+      const output = job.result!.outputs![0]!;
+      expect(output.mediaType).toBe('image/jpeg');
+      expect(probed).toEqual(['image/jpeg']);
+      expect(path.extname(output.path!)).toBe('.jpg');
+      expect((await fs.readdir(paths.artifactsDir, { recursive: true })).some((name) => String(name).endsWith('.jpg'))).toBe(true);
+    });
+
+    it('rejects a different format when the provider asked for one', async () => {
+      probe = async () => ({ ok: true, media: { kind: 'image', width: 16, height: 9 } });
+      const job = await imageJob({ mediaType: 'image/jpeg' });
+      expect(job.error?.code).toBe('MODEL_OUTPUT_INVALID');
+      expect((job.error!.details as { problems: string[] }).problems.join('\n')).toMatch(/image\/png/);
+    });
+
+    it('still rejects a non-image output when the provider did not ask for a format', async () => {
+      probe = async () => ({ ok: true, media: { kind: 'image', width: 16, height: 9 } });
+      const job = await imageJob({ mediaType: 'audio/wav', formatAsReturned: true });
+      expect(job.error?.code).toBe('MODEL_OUTPUT_INVALID');
+    });
+
+    it('ignores the flag for speech', async () => {
+      const original = generator.next;
+      generator.next = async (run, sink, signal) => {
+        const attempt = await original(run, sink, signal);
+        if (attempt.outcome !== 'completed') return attempt;
+        return { ...attempt, formatAsReturned: true, outputs: attempt.outputs.map((o) => ({ ...o, mediaType: 'image/jpeg' })) };
+      };
+      const job = await speak();
+      expect(job.error?.code).toBe('MODEL_OUTPUT_INVALID');
+    });
   });
 
   it('Provider 失败按种类归一化，不重试，不换 Provider', async () => {

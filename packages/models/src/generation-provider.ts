@@ -47,6 +47,8 @@ export type GenerationAttempt =
       outputs: GenerationOutputFile[];
       /** 适配器版本，记进日志与诊断。 */
       workerVersion: string;
+      /** `generateImage`：请求没有要求格式，图片按 `outputs[].mediaType` 校验与发布，不必是 `parameters.format`。 */
+      formatAsReturned?: boolean;
       /** 供应商原样报告的用量。 */
       usage?: unknown;
       /** `generateText`：检查过的结果（结束原因、用量、模型版本与说明），任务的结果摘要用它。 */

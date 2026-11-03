@@ -152,8 +152,10 @@ export interface ImageInputBytes {
 }
 
 export interface ImageOutput {
-  /** 恰好 `parameters.count` 张，格式是 `parameters.format`。 */
+  /** 恰好 `parameters.count` 张，格式是 `parameters.format`；`formatAsReturned` 时是端点自己选的格式。 */
   images: Buffer[];
+  /** 请求没有要求格式（兼容端点）：按文件头认出的实际格式写输出，认不出的留给发布前的校验拒绝。 */
+  formatAsReturned?: boolean;
   usage?: unknown;
 }
 

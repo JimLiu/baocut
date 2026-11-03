@@ -3,7 +3,7 @@
 // 语音仍假定端点接受任意 `voice` 与声明的 `response_format`。图片只发模型、提示词、已选尺寸与多张时的 `n`，
 // 不发顶层 `output_format` / `response_format`：兼容服务不一定支持（例如 Agnes Image 2.5 Flash 文档明确禁止顶层 response_format）。
 //   https://www.agnes-ai.cn/zh-Hans/docs/agnes-image-25-flash
-// 图片响应接受 `data[].b64_json` 或 `data[].url`；格式与声明不符时在发布前以 `MODEL_OUTPUT_INVALID` 失败。
+// 图片响应接受 `data[].b64_json` 或 `data[].url`；没有要求格式，png、jpeg、webp 都按实际格式发布，其他格式在发布前以 `MODEL_OUTPUT_INVALID` 失败。
 import type { DeclaredModel, ImageModelInfo, SpeechModelInfo } from '@baocut/protocol';
 import type { AdapterConfig, ImageAdapter, ImageOutput, ImageRequest, SpeechAdapter, SpeechOutput, SpeechRequest } from '../adapter.ts';
 import { openAiGenerateImages, openAiSynthesize } from '../openai/openai-generation.ts';
@@ -38,8 +38,8 @@ export class CompatibleImageAdapter implements ImageAdapter {
     return declaredOf(config, 'generateImage').map((m, i) => declaredImageInfo(m, i === 0));
   }
 
-  generate(request: ImageRequest): Promise<ImageOutput> {
-    return openAiGenerateImages(request, { label: this.#label(), compatible: true });
+  async generate(request: ImageRequest): Promise<ImageOutput> {
+    return { ...(await openAiGenerateImages(request, { label: this.#label(), compatible: true })), formatAsReturned: true };
   }
 }
 
@@ -66,7 +66,7 @@ export function declaredSpeechInfo(model: DeclaredModel, isDefault: boolean): Sp
   };
 }
 
-/** 声明的图片模型补上保守的默认值：第一个尺寸是默认尺寸（没有声明时 1024x1024），一次 1 张，`png`。 */
+/** 声明的图片模型补上保守的默认值：第一个尺寸是默认尺寸（没有声明时 1024x1024），一次 1 张；`png` 只是请求的默认值，发布时按实际格式。 */
 export function declaredImageInfo(model: DeclaredModel, isDefault: boolean): ImageModelInfo {
   const sizes = model.sizes?.length ? [...model.sizes] : ['1024x1024'];
   return {

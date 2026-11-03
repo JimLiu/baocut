@@ -5,6 +5,7 @@ import {
   ProviderFailure,
   codePointLength,
   readFrozenImage,
+  sniffImageMediaType,
   type GenerationAttempt,
   type GenerationOutputFile,
   type GenerationProvider,
@@ -152,15 +153,17 @@ export class OnlineGenerator implements GenerationProvider {
     if (output.images.length !== parameters.count) {
       throw new ProviderFailure('protocol', PH.imageCount({ label, got: output.images.length, want: parameters.count }).text);
     }
-    const media = IMAGE_MEDIA[parameters.format];
+    const requested = IMAGE_MEDIA[parameters.format];
     const outputs: GenerationOutputFile[] = [];
     for (const [index, bytes] of output.images.entries()) {
+      const media = (output.formatAsReturned ? returnedImageMedia(bytes) : null) ?? requested;
       outputs.push(await writeOutput(run.staging, index, media.extension, media.mediaType, bytes));
     }
     return {
       outcome: 'completed',
       outputs,
       workerVersion: adapter.version,
+      ...(output.formatAsReturned ? { formatAsReturned: true } : {}),
       ...(output.usage !== undefined ? { usage: output.usage } : {}),
     };
   }
@@ -176,6 +179,12 @@ function unitsOf(run: GenerationRun, outputs: number): UsageUnits {
   if (parameters.capability === 'synthesizeSpeech') return { chars: codePointLength(parameters.text) };
   if (parameters.capability === 'generateImage') return { images: outputs };
   return {};
+}
+
+/** 按文件头认图片格式；不是能发布的格式时 null。 */
+function returnedImageMedia(bytes: Buffer): (typeof IMAGE_MEDIA)[keyof typeof IMAGE_MEDIA] | null {
+  const mediaType = sniffImageMediaType(bytes);
+  return Object.values(IMAGE_MEDIA).find((media) => media.mediaType === mediaType) ?? null;
 }
 
 async function writeOutput(

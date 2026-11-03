@@ -1067,7 +1067,7 @@ export function capabilityRemedyCommands(details: CapabilityNotConfiguredDetails
  * 自定义端点声明的模型；没给的字段取保守的默认值。`capability` 不给时是 `transcribe`。
  * - `transcribe`：25 MB、不限时长、尝试取词级时间、接受提示词；
  * - `synthesizeSpeech`：`voices` 的第一个是默认音色（没有时必须指定，接受任意音色 ID），文本 4096 字符，`mp3`；
- * - `generateImage`：`sizes` 的第一个是默认尺寸（没有时 `1024x1024`），一次 1 张，提示词 4000 字符，`png`；
+ * - `generateImage`：`sizes` 的第一个是默认尺寸（没有时 `1024x1024`），一次 1 张，提示词 4000 字符，`png` 是请求的默认值、产物按端点实际返回的 png、jpeg 或 webp；
  * - `generateText`：上下文 32768 token、单次输出 4096 token，不能调推理强度（声明了 `efforts` 时才发），接受结构化输出与
  *   `temperature`，不接受 seed。
  */

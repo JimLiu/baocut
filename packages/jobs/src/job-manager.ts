@@ -484,6 +484,7 @@ const GENERATED_MEDIA: Record<string, { mediaType: string; extension: ArtifactEx
   jpeg: { mediaType: 'image/jpeg', extension: 'jpg' },
   webp: { mediaType: 'image/webp', extension: 'webp' },
 };
+const GENERATED_IMAGE_BY_TYPE = new Map(['png', 'jpeg', 'webp'].map((format) => [GENERATED_MEDIA[format]!.mediaType, GENERATED_MEDIA[format]!]));
 const NO_INPUT: Entry['input'] = { file: '', mediaType: null, track: 0, hint: null, range: null, timescale: DEFAULT_TIMESCALE };
 
 export class JobManager {
@@ -2090,7 +2091,7 @@ export class JobManager {
       if (attempt.outcome === 'cancelled' || entry.cancelRequested || this.#closing)
         return this.#stopped(entry, attempt.outcome === 'cancelled');
       entry.workerVersion ??= attempt.workerVersion;
-      return await this.#completeGeneration(entry, spec, attempt.outputs, staging, attempt.text);
+      return await this.#completeGeneration(entry, spec, attempt.outputs, staging, attempt.text, attempt.formatAsReturned);
     } catch (error) {
       entry.controller = null;
       if (entry.cancelRequested || this.#closing) return this.#stopped(entry);
@@ -2129,6 +2130,7 @@ export class JobManager {
     outputs: GenerationOutputFile[],
     staging: string,
     text?: TextResult,
+    formatAsReturned = false,
   ): Promise<void> {
     const record = entry.record;
     const parameters = spec.parameters;
@@ -2137,7 +2139,7 @@ export class JobManager {
     const expected = GENERATED_MEDIA[parameters.format]!;
     const count = parameters.capability === 'generateImage' ? parameters.count : 1;
     const files: string[] = [];
-    const checked: Array<{ bytes: Buffer; media: MediaFacts }> = [];
+    const checked: Array<{ bytes: Buffer; media: MediaFacts; format: (typeof GENERATED_MEDIA)[string] }> = [];
     const problems: string[] = [];
     if (outputs.length !== count) problems.push(J.outputCountMismatch({ actual: outputs.length, expected: count }).text);
     for (const [index, output] of outputs.entries()) {
@@ -2156,21 +2158,23 @@ export class JobManager {
       }
       if (bytes.length !== output.byteLength) problems.push(J.outputLengthMismatch({ n, actual: bytes.length, declared: output.byteLength }).text);
       if (sha256Hex(bytes) !== output.sha256.replace(/^sha256:/, '')) problems.push(J.outputShaMismatch({ n }).text);
-      if (output.mediaType !== expected.mediaType) problems.push(J.outputTypeMismatch({ n, actual: output.mediaType, expected: expected.mediaType }).text);
-      const probed = await this.#probe(file, expected.mediaType);
+      // 请求没有要求格式时认图片的实际格式；文件头与解码照样按它校验。
+      const format = (formatAsReturned && parameters.capability === 'generateImage' ? GENERATED_IMAGE_BY_TYPE.get(output.mediaType) : undefined) ?? expected;
+      if (output.mediaType !== format.mediaType) problems.push(J.outputTypeMismatch({ n, actual: output.mediaType, expected: format.mediaType }).text);
+      const probed = await this.#probe(file, format.mediaType);
       if (!probed.ok) {
         problems.push(...probed.problems.map((problem) => J.outputProblem({ n, problem }).text));
         continue;
       }
-      checked.push({ bytes, media: probed.media });
+      checked.push({ bytes, media: probed.media, format });
     }
     if (problems.length > 0) return this.#rejectGenerated(entry, files, problems);
 
     this.#phase(entry, 'publishing');
     // 产物 ID 是内容摘要：写之前就知道，先把发布意图落账（§7.3）。
-    const published: GeneratedOutput[] = checked.map(({ bytes, media }) => ({
+    const published: GeneratedOutput[] = checked.map(({ bytes, media, format }) => ({
       artifactId: artifactIdOf(bytes),
-      mediaType: expected.mediaType,
+      mediaType: format.mediaType,
       byteLength: bytes.length,
       assetId: null,
       media,
@@ -2179,9 +2183,9 @@ export class JobManager {
     const artifactIds = published.map((o) => o.artifactId);
     const targetRefs = record.videoId === null ? null : published.map((_, i) => `output${i + 1}`);
     await this.#publish(entry, { artifactIds, result, targetRefs, warnings: record.warnings }, async () => {
-      for (const { bytes } of checked) await this.#artifacts.put(bytes, expected.extension);
+      for (const { bytes, format } of checked) await this.#artifacts.put(bytes, format.extension);
     });
-    const paths = await this.#saveCopies(entry, spec, published.map((o) => ({ artifactId: o.artifactId, extension: expected.extension })));
+    const paths = await this.#saveCopies(entry, spec, published.map((o, i) => ({ artifactId: o.artifactId, extension: checked[i]!.format.extension })));
     paths.forEach((p, i) => {
       if (p !== null) published[i]!.path = p;
     });
