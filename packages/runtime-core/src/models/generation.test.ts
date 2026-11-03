@@ -315,6 +315,43 @@ describe.skipIf(!ffprobe)('生成任务：假供应商 → 校验 → 产物', (
     await expectNoSecret(side, GOOGLE_KEY);
   });
 
+  it.each(['base64', 'url'] as const)('custom image endpoint: minimal request → decoded artifact (%s)', async (responseKind) => {
+    const bytes = pngFixture();
+    openai.handler = (req, srv) => {
+      if (req.method === 'GET' && req.path === '/files/result.png') {
+        return { status: 200, bytes, headers: { 'content-type': 'image/png' } };
+      }
+      if (req.method !== 'POST' || req.path !== '/v1/images/generations') return { status: 404 };
+      const extra = Object.keys(req.json as object).filter((key) => !['model', 'prompt', 'size'].includes(key));
+      if (extra.length) return { status: 400, json: { error: { message: `Unsupported fields: ${extra.join(', ')}` } } };
+      const item = responseKind === 'base64' ? { b64_json: bytes.toString('base64') } : { url: `${srv.origin}/files/result.png` };
+      return { status: 200, json: { data: [item] } };
+    };
+    await side.client.request('models.configure', {
+      providerId: 'custom:strict-image', label: 'Strict Image', enabled: true,
+      endpoint: `${openai.origin}/v1`, credential: OPENAI_KEY, verify: false,
+      models: [{ modelId: 'agnes-image-2.5-flash', capability: 'generateImage', sizes: ['1024x768'] }],
+    });
+    expect(openai.requests).toHaveLength(0);
+    const { jobId } = await side.client.request('models.generateImage', {
+      provider: 'custom:strict-image', prompt: 'a paper crane on a wooden desk',
+    });
+    const job = await settled(side, jobId);
+    expect(job).toMatchObject({
+      state: 'completed', providerId: 'custom:strict-image', modelId: 'agnes-image-2.5-flash',
+      generation: { size: '1024x768', format: 'png', count: 1 },
+    });
+    expect(job.result!.outputs).toHaveLength(1);
+    const output = job.result!.outputs![0]!;
+    expect(output).toMatchObject({ mediaType: 'image/png', media: { kind: 'image', width: 16, height: 9 } });
+    expect((await readArtifact(side, output.artifactId)).bytes.equals(bytes)).toBe(true);
+    expect(openai.requests[0]!.json).toEqual({
+      model: 'agnes-image-2.5-flash', prompt: 'a paper crane on a wooden desk', size: '1024x768',
+    });
+    expect(openai.requests).toHaveLength(responseKind === 'url' ? 2 : 1);
+    await expectNoSecret(side, OPENAI_KEY);
+  });
+
   it('输入图（§6.1）：OpenAI 走编辑接口，冻结名字与摘要；模型不收的用法与不合的参数在提交时拒绝；文件变了以 ASSET_MISSING 失败', async () => {
     await side.client.request('models.configure', { providerId: 'openai', enabled: true, credential: OPENAI_KEY });
     const ref = path.join(side.dir, 'ref.png');

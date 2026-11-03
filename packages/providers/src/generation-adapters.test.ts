@@ -647,7 +647,7 @@ describe('OpenAI 兼容端点', () => {
     ]);
   });
 
-  it('不带密钥时不发 Authorization；图片请求 b64_json，任意音色原样传', async () => {
+  it('不带密钥时不发 Authorization；图片省略格式提示，任意音色原样传', async () => {
     server = await startFakeProviderServer(fakeOpenAiHandler());
     const cfg = config(`${server.origin}/v1`, null, declared);
     await synthesize(new CompatibleSpeechAdapter(() => '本机'), cfg, 'kokoro', speech({ voice: 'zf_xiaobei', format: 'wav' }));
@@ -657,11 +657,68 @@ describe('OpenAI 兼容端点', () => {
     expect(server.requests[1]!.json).toEqual({
       model: 'sdxl',
       prompt: 'a fox',
-      n: 1,
       size: '512x512',
-      output_format: 'png',
-      response_format: 'b64_json',
     });
+  });
+});
+
+describe('OpenAI-compatible image requests with strict optional fields', () => {
+  it.each(['base64', 'url'] as const)('generates through OnlineGenerator when the endpoint rejects format hints (%s)', async (responseKind) => {
+    const bytes = pngFixture(16, 9, 0);
+    server = await startFakeProviderServer((req, srv) => {
+      if (req.method === 'GET' && req.path === '/files/result.png') {
+        return { status: 200, bytes, headers: { 'content-type': 'image/png' } };
+      }
+      if (req.method !== 'POST' || req.path !== '/v1/images/generations') return { status: 404 };
+      const body = req.json as Record<string, unknown>;
+      const extra = Object.keys(body).filter((key) => !['model', 'prompt', 'size'].includes(key));
+      if (extra.length) return { status: 400, json: { error: { message: `Unsupported fields: ${extra.join(', ')}` } } };
+      const item = responseKind === 'base64' ? { b64_json: bytes.toString('base64') } : { url: `${srv.origin}/files/result.png` };
+      return { status: 200, json: { data: [item] } };
+    });
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'baocut-compatible-image-'));
+    const store = await ModelServiceStore.open(
+      { modelServicesFile: path.join(dir, 'model-services.json') },
+      new FileCredentialStore(path.join(dir, 'model-credentials.json')),
+    );
+    try {
+      const source = new OnlineProviderSource({ store, ffmpeg: async () => ({ command: 'ffmpeg', env: {} }), http });
+      await source.configure({
+        providerId: 'custom:strict-image',
+        label: 'Strict Image',
+        enabled: true,
+        endpoint: `${server.origin}/v1`,
+        credential: OPENAI_KEY,
+        verify: false,
+        models: [{ modelId: 'agnes-image-2.5-flash', capability: 'generateImage', sizes: ['1024x768'] }],
+      });
+      expect(server.requests).toHaveLength(0);
+      const generator = source.generator('custom:strict-image', 'generateImage')!;
+      const progress: number[] = [];
+      const attempt = await generator.generate({
+        jobId: 'job_strict', attempt: 1, providerId: generator.id, modelId: 'agnes-image-2.5-flash',
+        parameters: image({ prompt: 'a paper crane on a wooden desk', size: '1024x768' }), staging: dir,
+      }, { generating: () => {}, progress: (done) => progress.push(done) }, new AbortController().signal);
+      expect(attempt).toMatchObject({ outcome: 'completed', outputs: [{ path: 'output-1.png', mediaType: 'image/png' }] });
+      expect((await fs.readFile(path.join(dir, 'output-1.png'))).equals(bytes)).toBe(true);
+      expect(progress).toEqual([1]);
+      expect(server.requests[0]).toMatchObject({ method: 'POST', path: '/v1/images/generations', json: {
+        model: 'agnes-image-2.5-flash', prompt: 'a paper crane on a wooden desk', size: '1024x768',
+      } });
+      expect(server.requests[0]!.headers.authorization).toBe(`Bearer ${OPENAI_KEY}`);
+      expect(server.requests).toHaveLength(responseKind === 'url' ? 2 : 1);
+    } finally {
+      await store.flush();
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('sends n only for explicitly requested batches and omits an absent size', async () => {
+    server = await startFakeProviderServer(fakeOpenAiHandler());
+    const cfg = config(`${server.origin}/v1`, null, [{ modelId: 'sdxl', capability: 'generateImage', maxCount: 2 }]);
+    const out = await generate(new CompatibleImageAdapter(() => 'Custom'), cfg, 'sdxl', image({ count: 2 }));
+    expect(out.images).toHaveLength(2);
+    expect(server.requests[0]!.json).toEqual({ model: 'sdxl', prompt: 'a fox', n: 2 });
   });
 });
 
