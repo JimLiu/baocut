@@ -8,6 +8,7 @@ import type { AdapterConfig, AdapterHttp, ModelLister, ProviderListing, TextAdap
 import { chatCompletions } from '../openai/chat-completions.ts';
 import { declaredOf } from './compatible-adapter.ts';
 import { declaredTextInfo } from './compatible-text.ts';
+import { validateCompatibleEndpoint } from './compatible-validate.ts';
 import { openAiListModels } from '../openai/openai-text.ts';
 
 export interface VendorTextOptions {
@@ -49,8 +50,8 @@ export class VendorTextAdapter implements TextAdapter, ModelLister {
     return openAiListModels(config, signal, http, this.#options.label);
   }
 
-  /** 验证密钥：列模型（`GET {base}/models`）。 */
+  /** 验证密钥：列模型（`GET {base}/models`）；账号把端点改到没有这个接口的地址时看文本接口。 */
   async validateCredential(config: AdapterConfig, signal: AbortSignal, http: AdapterHttp): Promise<void> {
-    await this.listModels(config, signal, http);
+    await validateCompatibleEndpoint(() => this.listModels(config, signal, http), config, signal, http, this.#options.label);
   }
 }

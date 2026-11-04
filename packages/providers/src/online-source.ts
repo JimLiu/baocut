@@ -703,7 +703,7 @@ export class OnlineProviderSource implements ProviderSource {
   }
 
   /**
-   * 连通性测试（§6.8）：用这份配置向供应商发一个只读请求（列模型）。写一条用量（`verify`，用量为空、不计费用）；验证的是
+   * 连通性测试（§6.8）：用这份配置向供应商发一个不生成内容的请求（列模型，兼容端点没有这个接口时见 `compatible-validate.ts`）。写一条用量（`verify`，用量为空、不计费用）；验证的是
    * 已保存的密钥（`saved`）时按结果记下账号的状态。不通过时以 `conflict` 拒绝，`details.code` 是 `PROVIDER_*`。
    */
   async #verify(config: AdapterConfig, saved: boolean): Promise<void> {

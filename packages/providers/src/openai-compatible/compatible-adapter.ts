@@ -10,6 +10,7 @@ import type { ChunkFormat } from '../audio/audio-prep.ts';
 import type { AdapterConfig, AdapterHttp, ChunkRequest, ChunkTranscript, TranscribeAdapter } from '../adapter.ts';
 import { qwenAsrModelInfo, qwenTranscribeChunk, usesQwenAsr } from '../qwen/qwen-adapter.ts';
 import { openAiTranscribeChunk, openAiValidate } from '../openai/openai-transcription.ts';
+import { validateCompatibleEndpoint } from './compatible-validate.ts';
 
 const DEFAULT_MAX_BYTES = 25_000_000;
 const TIMELESS_CHUNK_SEC = 120;
@@ -44,7 +45,8 @@ export class CompatibleAdapter implements TranscribeAdapter {
   }
 
   validateCredential(config: AdapterConfig, signal: AbortSignal, http: AdapterHttp): Promise<void> {
-    return openAiValidate(config, signal, http, this.#label());
+    const label = this.#label();
+    return validateCompatibleEndpoint(() => openAiValidate(config, signal, http, label), config, signal, http, label);
   }
 }
 
