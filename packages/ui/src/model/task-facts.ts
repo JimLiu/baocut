@@ -10,7 +10,7 @@ import {
 } from '@baocut/protocol';
 import { TASK_VIEW_COPY } from '../copy.ts';
 import type { ModelCategory, ModelPage } from './settings-nav.ts';
-import { jobRunsOnLabel, type TaskRow } from './task-list.ts';
+import { clip, jobRunsOnLabel, textRequest, type TaskRow } from './task-list.ts';
 import { agoLabel, formatClock } from './format.ts';
 import { zhHans } from './task-facts.zh-Hans.ts';
 import { zhHant } from './task-facts.zh-Hant.ts';
@@ -38,6 +38,7 @@ const en = {
     startedAt: 'Started',
     runsOn: 'Runs on',
     language: 'Language',
+    request: 'Instructions',
     phase: 'Phase',
     images: 'Images',
     took: 'Time taken',
@@ -105,8 +106,11 @@ function submitterLabel(job: JobRecord): string {
   }
 }
 
+/** 「详情」里生成要求最多念多少字。 */
+const TEXT_REQUEST_MAX = 200;
+
 /**
- * 「详情」行 `[label, value]`（原型 `details`）：类型、发起方、状态、开始于、跑在、语言、阶段、图片、预计剩余、用时。
+ * 「详情」行 `[label, value]`（原型 `details`）：类型、发起方、状态、开始于、跑在、语言、生成要求、阶段、图片、预计剩余、用时。
  * 用时：结束了按结束时间算，还在跑的按 `now` 现算，还在排队的不写。
  */
 export function taskFacts(row: TaskRow, source: { job?: JobRecord; task?: TaskSummary }, now: number): FactRow[] {
@@ -124,6 +128,8 @@ export function taskFacts(row: TaskRow, source: { job?: JobRecord; task?: TaskSu
   if (job) {
     add(F.runsOn, jobRunsOnLabel(job));
     if (job.generation?.capability === 'synthesizeSpeech') add(F.language, job.generation.language);
+    // 生成文本的要求：标题只有前 40 字，这里多给一些，几条要求开头相同时也分得清；全文可能很长（附带的素材接在后面），截到 200 字。
+    add(F.request, clip(textRequest(job), TEXT_REQUEST_MAX));
     if (row.phase) add(F.phase, row.phase);
     if (job.generation?.capability === 'generateImage') {
       add(F.images, `${job.result?.outputs?.length ?? 0}/${job.generation.count}`);

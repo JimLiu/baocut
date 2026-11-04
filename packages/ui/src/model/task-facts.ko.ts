@@ -8,6 +8,7 @@ export const ko: TaskFactsMessages = {
     startedAt: '시작',
     runsOn: '실행 위치',
     language: '언어',
+    request: '지시',
     phase: '단계',
     images: '이미지',
     took: '소요 시간',

@@ -161,6 +161,32 @@ describe('jobRow', () => {
     expect(jobRow(job({ jobId: 't', videoId: 'other' }), ctx).title).toBe('转录');
   });
 
+  it('生成文本的标题取第一条 user 消息的前 40 字，换行折成空格；没有要求时只念种类（issue #125）', () => {
+    const text = (jobId: string, messages: { role: 'system' | 'user' | 'assistant'; content: string }[]) =>
+      job({
+        jobId,
+        kind: 'generateText',
+        videoId: null,
+        generation: {
+          capability: 'generateText',
+          messages,
+          responseFormat: { type: 'text' },
+          maxOutputTokens: 4096,
+          temperature: null,
+          requestedEffort: null,
+          effort: null,
+          seed: null,
+        },
+      });
+    const a = jobRow(text('a', [{ role: 'system', content: '你是编辑' }, { role: 'user', content: '把这段访谈\n整理成三条要点' }]), ctx);
+    const b = jobRow(text('b', [{ role: 'user', content: '给这期视频起五个标题' }]), ctx);
+    expect(a.title).toBe('把这段访谈 整理成三条要点');
+    expect(b.title).toBe('给这期视频起五个标题');
+    const long = '请'.repeat(50);
+    expect(jobRow(text('c', [{ role: 'user', content: long }]), ctx).title).toBe(`${'请'.repeat(40)}…`);
+    expect(jobRow(text('d', [{ role: 'user', content: '  \n ' }]), ctx).title).toBe('生成文本');
+  });
+
   it('导出：标题念种类与格式加视频名，位置是导出目录，阶段按种类说', () => {
     const row = jobRow(
       job({

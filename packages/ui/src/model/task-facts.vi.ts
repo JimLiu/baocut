@@ -8,6 +8,7 @@ export const vi: TaskFactsMessages = {
     startedAt: 'Bắt đầu',
     runsOn: 'Chạy trên',
     language: 'Ngôn ngữ',
+    request: 'Chỉ dẫn',
     phase: 'Giai đoạn',
     images: 'Hình ảnh',
     took: 'Thời gian',
