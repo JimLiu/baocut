@@ -119,17 +119,26 @@ export function describeCodexAccount(status: string): string {
   return String(codexAccount(status));
 }
 
-/** `codex login status` 退出码为 0 表示已登录。 */
-export async function readCodexLogin(install: CodexInstall): Promise<{ loggedIn: boolean; detail: string }> {
+/**
+ * `codex login status` 的结论。`failed` 是命令本身没跑成，说明不了登没登录：用法错误（退出码 2，例如包装脚本在参数后面
+ * 多加了 `--yolo`）、包装脚本里找不到 codex（127）、超时等。
+ */
+export interface CodexLogin {
+  status: 'signed-in' | 'signed-out' | 'failed';
+  detail: string;
+}
+
+/** 退出码 0 是已登录，1 是未登录（`Not logged in`，对照 codex-cli 0.166.0），别的都算没查成。 */
+export async function readCodexLogin(install: CodexInstall): Promise<CodexLogin> {
   try {
     const exec = codexCommand(install.command, ['login', 'status']);
     const { stdout, stderr } = await run(exec.file, exec.args, {
       env: install.env,
       timeout: 10_000,
     });
-    return { loggedIn: true, detail: (stdout || stderr).trim() };
+    return { status: 'signed-in', detail: (stdout || stderr).trim() };
   } catch (error) {
-    const e = error as { stdout?: string; stderr?: string; message: string };
-    return { loggedIn: false, detail: (e.stdout || e.stderr || e.message).trim() };
+    const e = error as { code?: number | string; stdout?: string; stderr?: string; message: string };
+    return { status: e.code === 1 ? 'signed-out' : 'failed', detail: (e.stderr || e.stdout || e.message).trim() };
   }
 }

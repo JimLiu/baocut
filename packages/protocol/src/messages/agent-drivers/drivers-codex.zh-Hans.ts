@@ -4,6 +4,8 @@ export const zhHans: DriversCodexMessages = {
   plan: 'ChatGPT Plus 或 Pro 订阅',
   installHint: '安装 Codex CLI',
   signedOut: (p) => `Codex 未登录：在终端运行 codex login。${p.detail ? `（${p.detail}）` : ''}`,
+  loginCheckFailed: (p) => `无法检查 Codex 的登录状态：${p.command} login status 运行失败。BaoCut 会带着 login status、app-server 这类子命令运行这个程序，包装脚本要把参数原样传下去。${p.detail ? `（${p.detail}）` : ''}`,
+  customProvider: '自定义模型提供方',
   chatgptAccount: 'ChatGPT 账号',
   apiKey: 'OpenAI API 密钥',
   accessToken: '访问令牌',

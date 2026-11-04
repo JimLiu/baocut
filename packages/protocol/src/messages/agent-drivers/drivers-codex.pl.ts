@@ -4,6 +4,8 @@ export const pl: DriversCodexMessages = {
   plan: "Subskrypcja ChatGPT Plus lub Pro",
   installHint: "Zainstaluj Codex CLI",
   signedOut: (p) => `Codex nie jest zalogowany. Uruchom codex login w terminalu.${p.detail ? ` (${p.detail})` : ""}`,
+  loginCheckFailed: (p) => `Nie udało się sprawdzić logowania do Codex: ${p.command} login status zakończyło się błędem. BaoCut uruchamia ten program z podpoleceniami takimi jak login status i app-server, więc skrypt opakowujący musi przekazywać argumenty bez zmian.${p.detail ? ` (${p.detail})` : ''}`,
+  customProvider: 'Niestandardowy dostawca modeli',
   chatgptAccount: "Konto ChatGPT",
   apiKey: "Klucz API OpenAI",
   accessToken: "Token dostępu",

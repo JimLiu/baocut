@@ -20,6 +20,11 @@ const en = {
   installHint: 'Install Codex CLI',
   /** `detail` 是 `codex login status` 的原文，为空时不带。 */
   signedOut: (p: { detail: string }) => `Codex isn't signed in. Run codex login in a terminal.${p.detail ? ` (${p.detail})` : ''}`,
+  /** `command` 是可执行文件的路径，`detail` 是 `login status` 报错的第一行。 */
+  loginCheckFailed: (p: { command: string; detail: string }) =>
+    `Couldn't check the Codex sign-in: ${p.command} login status failed. BaoCut runs this program with subcommands such as login status and app-server, so a wrapper script has to pass its arguments through unchanged.${p.detail ? ` (${p.detail})` : ''}`,
+  /** 配置选了自定义提供方（`model_providers`，自带密钥），不需要登录 OpenAI 账号。 */
+  customProvider: 'Custom model provider',
   chatgptAccount: 'ChatGPT account',
   apiKey: 'OpenAI API key',
   accessToken: 'Access token',

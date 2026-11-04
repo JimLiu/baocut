@@ -4,6 +4,8 @@ export const zhHant: DriversCodexMessages = {
   plan: 'ChatGPT Plus 或 Pro 訂閱',
   installHint: '安裝 Codex CLI',
   signedOut: (p) => `Codex 尚未登入。請在終端機執行 codex login。${p.detail ? `（${p.detail}）` : ''}`,
+  loginCheckFailed: (p) => `無法檢查 Codex 的登入狀態：${p.command} login status 執行失敗。BaoCut 會帶著 login status、app-server 這類子命令執行這個程式，包裝指令碼要把參數原樣傳下去。${p.detail ? `（${p.detail}）` : ''}`,
+  customProvider: '自訂模型供應商',
   chatgptAccount: 'ChatGPT 帳號',
   apiKey: 'OpenAI API 金鑰',
   accessToken: '存取權杖',

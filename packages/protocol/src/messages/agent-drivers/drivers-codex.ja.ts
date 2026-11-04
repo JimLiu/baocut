@@ -4,6 +4,8 @@ export const ja: DriversCodexMessages = {
   plan: 'ChatGPT Plus または Pro サブスクリプション',
   installHint: 'Codex CLI をインストールしてください',
   signedOut: (p) => `Codex はサインインしていません。ターミナルで codex login を実行してください。${p.detail ? `（${p.detail}）` : ''}`,
+  loginCheckFailed: (p) => `Codex のサインイン状態を確認できませんでした：${p.command} login status が失敗しました。BaoCut はこのプログラムを login status や app-server などのサブコマンド付きで実行するため、ラッパースクリプトは引数をそのまま渡す必要があります。${p.detail ? `（${p.detail}）` : ''}`,
+  customProvider: 'カスタムモデルプロバイダ',
   chatgptAccount: 'ChatGPT アカウント',
   apiKey: 'OpenAI API キー',
   accessToken: 'アクセストークン',

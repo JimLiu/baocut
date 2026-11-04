@@ -4,6 +4,8 @@ export const ru: DriversCodexMessages = {
   plan: "Подписка ChatGPT Plus или Pro",
   installHint: "Установите Codex CLI",
   signedOut: (p) => `В Codex не выполнен вход. Выполните codex login в терминале.${p.detail ? ` (${p.detail})` : ""}`,
+  loginCheckFailed: (p) => `Не удалось проверить вход в Codex: команда ${p.command} login status завершилась с ошибкой. BaoCut запускает эту программу с подкомандами вроде login status и app-server, поэтому скрипт-обёртка должен передавать аргументы без изменений.${p.detail ? ` (${p.detail})` : ''}`,
+  customProvider: 'Пользовательский поставщик моделей',
   chatgptAccount: "Аккаунт ChatGPT",
   apiKey: "Ключ API OpenAI",
   accessToken: "Токен доступа",

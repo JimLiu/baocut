@@ -16,7 +16,7 @@ import { compareVersions } from '../login-shell.ts';
 import { codexAt, locateCodex, codexAccount, readCodexLogin, type CodexInstall } from './codex-binary.ts';
 import { codexHome, readCodexConfigModel } from './codex-config.ts';
 import { listCodexThreads, readCodexThread } from './codex-import.ts';
-import { listCodexModels, type CodexCatalog } from './codex-models.ts';
+import { codexRequiresOpenaiAuth, listCodexModels, type CodexCatalog } from './codex-models.ts';
 import { CODEX_CAPABILITIES, CodexSession } from './codex-session.ts';
 
 /** 模型目录的缓存：拿到了留 10 分钟；失败或空表 1 分钟后再试（登录、升级之后不必等太久）。 */
@@ -122,11 +122,24 @@ export class CodexDriver implements AgentDriver {
       // 含隐藏模型在内认不认得配置里的模型；没有配置或没拿到目录时说不清，为 null。
       configModelKnown: configModel && catalog && catalog.all.length > 0 ? catalog.all.includes(configModel) : null,
     };
-    if (!login.loggedIn) {
+    const ready = (account: DriverText) => result('ready', null, { ...extra, account: textOf(account), ...refField('accountRef', account) });
+    if (login.status === 'failed') {
+      // 原文多行（用法说明）时只要第一行：那行才是原因。
+      return result('error', DriversCodex.loginCheckFailed({ command: install.command, detail: login.detail.split('\n')[0] ?? '' }), extra);
+    }
+    if (login.status === 'signed-out') {
+      if (!(await this.#requiresSignIn(install))) return ready(DriversCodex.customProvider());
       return result('signed-out', DriversCodex.signedOut({ detail: login.detail }), extra);
     }
-    const account = codexAccount(login.detail);
-    return result('ready', null, { ...extra, account: textOf(account), ...refField('accountRef', account) });
+    return ready(codexAccount(login.detail));
+  }
+
+  /** 问不出来（进程起不来、超时）时按要登录算，和问之前的结论一样。 */
+  #requiresSignIn(install: CodexInstall): Promise<boolean> {
+    return codexRequiresOpenaiAuth(install, this.#log, this.#modelListTimeoutMs).catch((error: unknown) => {
+      this.#log.warn("Couldn't ask Codex whether sign-in is required", { error: error instanceof Error ? error.message : String(error) });
+      return true;
+    });
   }
 
   async createSession(options: CreateSessionOptions): Promise<AgentSession> {

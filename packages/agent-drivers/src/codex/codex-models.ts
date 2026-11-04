@@ -11,7 +11,7 @@ import os from 'node:os';
 import { RUNTIME_VERSION, type DriverModel, type ModelTier } from '@baocut/protocol';
 import type { Logger } from '@baocut/harness';
 import { codexCommand, type CodexInstall } from './codex-binary.ts';
-import type { CodexModel, InitializeParams, ModelListParams, ModelListResponse } from './codex-protocol.ts';
+import type { AccountReadResponse, CodexModel, InitializeParams, ModelListParams, ModelListResponse } from './codex-protocol.ts';
 import { CodexRpcConnection } from './rpc-connection.ts';
 
 /** 一次 `model/list` 的结果。`all` 含隐藏模型，用来判断配置里的模型这一版 CLI 认不认得。 */
@@ -28,6 +28,17 @@ const MAX_PAGES = 5;
  */
 export async function listCodexModels(install: CodexInstall, log: Logger, timeoutMs = 15_000): Promise<CodexCatalog> {
   return withTempAppServer(install, log, timeoutMs, 'model/list', (conn) => fetchCatalog(conn, timeoutMs));
+}
+
+/**
+ * 这份配置要不要登录 OpenAI 账号：`login status` 只看存下的凭据，不知道配置选了自定义提供方，所以问 app-server 自己。
+ * 只有明确答 false 才算不要，答不上来按要登录算。
+ */
+export async function codexRequiresOpenaiAuth(install: CodexInstall, log: Logger, timeoutMs = 15_000): Promise<boolean> {
+  const res = await withTempAppServer(install, log, timeoutMs, 'account/read', (conn) =>
+    conn.request<AccountReadResponse>('account/read', { refreshToken: false }, timeoutMs),
+  );
+  return res?.requiresOpenaiAuth !== false;
 }
 
 /**

@@ -5,6 +5,8 @@ export const fr: DriversCodexMessages = {
   installHint: "Installer Codex CLI",
 
   signedOut: (p: { detail: string }) => `Codex n’est pas connecté. Exécutez codex login dans un terminal.${p.detail ? ` (${p.detail})` : ""}`,
+  loginCheckFailed: (p) => `Impossible de vérifier la connexion à Codex : ${p.command} login status a échoué. BaoCut lance ce programme avec des sous-commandes comme login status et app-server : un script d’encapsulation doit donc transmettre ses arguments tels quels.${p.detail ? ` (${p.detail})` : ''}`,
+  customProvider: 'Fournisseur de modèles personnalisé',
   chatgptAccount: "Compte ChatGPT",
   apiKey: "Clé API OpenAI",
   accessToken: "Jeton d'accès",

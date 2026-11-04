@@ -12,7 +12,8 @@ import type { CodexErrorInfo, CodexModel } from '../codex/codex-protocol.ts';
  * 收到的每条消息记进 `log.jsonl`，测试据此核对会话的参数（工作目录、沙箱、有没有 MCP 服务、输入）与关闭。
  *
  * 探测取模型表也会起 app-server：这种进程（初始化之后第一个请求是 `model/list`）记成 `catalog-start` / `catalog-exit`，
- * 不算会话；会话进程照旧记 `start` / `exit`（`t` 是进程启动的时间）。
+ * 问要不要登录的（第一个请求是 `account/read`）记成 `account-start` / `account-exit`，都不算会话；
+ * 会话进程照旧记 `start` / `exit`（`t` 是进程启动的时间）。
  *
  * 用法：`createFakeCodex(dir)` 得到 `locate`，交给 `new CodexDriver(log, { locate })`；`scenario()` 改下一次的行为。
  */
@@ -53,6 +54,8 @@ export interface FakeCodexScenario {
   loggedIn: boolean;
   /** 登录方式：`login status` 回「Logged in using ChatGPT」或「Logged in using an API key - sk-…」。默认 ChatGPT。 */
   auth?: 'chatgpt' | 'api-key';
+  /** `account/read` 的 `requiresOpenaiAuth`：自定义提供方（密钥来自 `env_key`）为 false。默认 true。 */
+  requiresOpenaiAuth?: boolean;
   turn: FakeCodexTurn;
   /** `model/list` 的模型表（每页 2 个，带游标分页）；`error`：回 -32603；`hang`：一直不应答。 */
   models: CodexModel[] | 'error' | 'hang';
@@ -79,7 +82,7 @@ export interface FakeCodexThread {
 export interface FakeCodexLogEntry {
   t: number;
   pid: number;
-  kind: 'login-status' | 'start' | 'in' | 'exit' | 'catalog-start' | 'catalog-exit';
+  kind: 'login-status' | 'start' | 'in' | 'exit' | 'catalog-start' | 'catalog-exit' | 'account-start' | 'account-exit';
   cwd?: string;
   msg?: { id?: number | string; method?: string; params?: unknown; result?: unknown; error?: unknown };
 }

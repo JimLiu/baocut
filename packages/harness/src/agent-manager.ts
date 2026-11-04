@@ -286,6 +286,8 @@ interface LiveSession {
   instructions: string | undefined;
   /** 算出 `instructions` 时指导的代数（`instructionsChanged` 加一）：落后了就在下一轮开始时重算一遍。 */
   generation: number;
+  /** 建会话时用的、用户手动指定的可执行文件；null 是 Driver 自己找的。 */
+  executable: string | null;
 }
 
 export interface EnsureSessionOptions {
@@ -329,8 +331,9 @@ export class AgentManager {
   async ensure(options: EnsureSessionOptions): Promise<AgentSession> {
     const pending = this.#starting.get(options.conversationId);
     if (pending) return pending;
+    const executable = this.#drivers.executable(options.driverId);
     const live = this.#live.get(options.conversationId);
-    if (live && live.driverId === options.driverId && live.generation === this.#generation) return live.session;
+    if (live && live.driverId === options.driverId && live.generation === this.#generation && live.executable === executable) return live.session;
 
     const start = (async () => {
       let resume = options.resume;
@@ -339,15 +342,18 @@ export class AgentManager {
       // 取指导的途中原生会话可能已经收起（进程退出），按那之后的情况走。
       const current = this.#live.get(options.conversationId);
       if (current && current.driverId === options.driverId) {
-        // 指导的来源变了（§3.8 热更新）：算出来一样就接着用；不一样且原生侧没有回合之外的活时，带着恢复句柄重建，
-        // 否则这一轮先用旧的，下一轮再看。
-        if (instructions === current.instructions) {
+        // 指导的来源变了（§3.8 热更新）或换了可执行文件（§3.11）：指导算出来一样、可执行文件也没变就接着用；
+        // 否则原生侧没有回合之外的活时带着恢复句柄重建，还有活时这一轮先用旧的，下一轮再看。
+        const sameExecutable = current.executable === executable;
+        if (sameExecutable && instructions === current.instructions) {
           current.generation = generation;
           return current.session;
         }
         if (!(await this.canRelease(options.conversationId))) return current.session;
         resume = current.session.describePersistence() ?? resume;
-        this.#log.info('Agent instructions changed; reopening native session', { conversationId: options.conversationId });
+        this.#log.info(sameExecutable ? 'Agent instructions changed; reopening native session' : 'Agent executable changed; reopening native session', {
+          conversationId: options.conversationId,
+        });
         await this.release(options.conversationId);
       } else if (current) {
         // 换了 Agent：旧的恢复句柄属于另一个 Agent，不能拿来续。
@@ -363,7 +369,7 @@ export class AgentManager {
         session = await driver.createSession({
           cwd: options.cwd,
           ...options.settings,
-          executable: this.#drivers.executable(options.driverId),
+          executable,
           resume,
           ...(instructions !== undefined ? { developerInstructions: instructions } : {}),
           ...(grant ? { mcpServers: grant.mcpServers } : {}),
@@ -373,7 +379,7 @@ export class AgentManager {
         throw error;
       }
       const unsubscribe = session.subscribe((event) => this.#onEvent(options.conversationId, session, event));
-      this.#live.set(options.conversationId, { session, driverId: options.driverId, grant, unsubscribe, instructions, generation });
+      this.#live.set(options.conversationId, { session, driverId: options.driverId, grant, unsubscribe, instructions, generation, executable });
       this.#log.info('Native session ready', { conversationId: options.conversationId, driverId: options.driverId });
       return session;
     })();

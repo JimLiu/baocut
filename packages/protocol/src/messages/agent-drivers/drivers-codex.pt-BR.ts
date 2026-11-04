@@ -4,6 +4,8 @@ export const ptBR: DriversCodexMessages = {
   plan: "Assinatura ChatGPT Plus ou Pro",
   installHint: "Instalar Codex CLI",
   signedOut: (p) => `Codex não está conectado. Execute codex login em um terminal.${p.detail ? ` (${p.detail})` : ""}`,
+  loginCheckFailed: (p) => `Não foi possível verificar o login do Codex: ${p.command} login status falhou. O BaoCut executa este programa com subcomandos como login status e app-server, então um script wrapper precisa repassar os argumentos sem alterações.${p.detail ? ` (${p.detail})` : ''}`,
+  customProvider: 'Provedor de modelos personalizado',
   chatgptAccount: "Conta ChatGPT",
   apiKey: "Chave de API OpenAI",
   accessToken: "Token de acesso",

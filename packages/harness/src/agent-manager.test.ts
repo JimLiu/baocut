@@ -82,7 +82,7 @@ function setup() {
       settings: { accessMode: 'auto', model: null, effort: null },
       resume: null,
     });
-  return { driver, manager, state, ensure };
+  return { driver, drivers, manager, state, ensure };
 }
 
 describe('AgentManager 指导热更新', () => {
@@ -122,5 +122,44 @@ describe('AgentManager 指导热更新', () => {
     expect(second.options.resume).toEqual(first.describePersistence());
     expect(await ensure()).toBe(second);
     expect(driver.sessions).toHaveLength(2);
+  });
+});
+
+describe('AgentManager 换可执行文件', () => {
+  it('在跑的原生会话下一轮换成新的可执行文件，带着恢复句柄；没变时接着用', async () => {
+    const { driver, drivers, ensure } = setup();
+    const first = (await ensure()) as Session;
+    expect(first.options.executable).toBeNull();
+    expect(await ensure()).toBe(first);
+
+    drivers.setExecutable('codex', '/opt/codex-wrapper');
+    const second = (await ensure()) as Session;
+    expect(second).not.toBe(first);
+    expect(first.closed).toBe(true);
+    expect(second.options.executable).toBe('/opt/codex-wrapper');
+    expect(second.options.resume).toEqual(first.describePersistence());
+    expect(await ensure()).toBe(second);
+
+    // 恢复自动查找同样算换了。
+    drivers.setExecutable('codex', null);
+    const third = (await ensure()) as Session;
+    expect(third).not.toBe(second);
+    expect(third.options.executable).toBeNull();
+    expect(driver.sessions).toHaveLength(3);
+  });
+
+  it('原生侧还有回合之外的活时这一轮接着用旧的，能放了再换', async () => {
+    const { drivers, ensure } = setup();
+    const first = (await ensure()) as Session;
+    first.releasable = false;
+    drivers.setExecutable('codex', '/opt/codex-wrapper');
+    expect(await ensure()).toBe(first);
+    expect(first.closed).toBe(false);
+
+    first.releasable = true;
+    const second = (await ensure()) as Session;
+    expect(second).not.toBe(first);
+    expect(first.closed).toBe(true);
+    expect(second.options.executable).toBe('/opt/codex-wrapper');
   });
 });

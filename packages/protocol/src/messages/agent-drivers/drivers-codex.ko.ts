@@ -4,6 +4,8 @@ export const ko: DriversCodexMessages = {
   plan: 'ChatGPT Plus 또는 Pro 구독',
   installHint: 'Codex CLI를 설치하세요',
   signedOut: (p) => `Codex에 로그인되어 있지 않습니다. 터미널에서 codex login을 실행하세요.${p.detail ? ` (${p.detail})` : ''}`,
+  loginCheckFailed: (p) => `Codex 로그인 상태를 확인하지 못했습니다: ${p.command} login status 실행에 실패했습니다. BaoCut은 이 프로그램을 login status, app-server 같은 하위 명령과 함께 실행하므로 래퍼 스크립트는 인수를 그대로 전달해야 합니다.${p.detail ? ` (${p.detail})` : ''}`,
+  customProvider: '사용자 지정 모델 공급자',
   chatgptAccount: 'ChatGPT 계정',
   apiKey: 'OpenAI API 키',
   accessToken: '액세스 토큰',

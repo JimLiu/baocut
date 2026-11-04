@@ -25,6 +25,11 @@ if (args[0] === '--version') {
   process.stdout.write(`codex-cli ${scenario.version}\n`);
   process.exit(0);
 }
+// 同真实的 codex（clap）：`--yolo` 只有不带子命令时才认，`--version` 不看后面的参数。
+if (args.includes('--yolo')) {
+  process.stderr.write(`error: unexpected argument '--yolo' found\n\nUsage: codex ${args.filter((a) => a !== '--yolo').join(' ')} [OPTIONS]\n\nFor more information, try '--help'.\n`);
+  process.exit(2);
+}
 if (args[0] === 'login' && args[1] === 'status') {
   log({ kind: 'login-status' });
   if (scenario.loggedIn) {
@@ -43,11 +48,13 @@ type Message = { id?: number | string; method?: string; params?: Record<string, 
 
 // 是会话还是探测取模型表，要等初始化之后的第一个请求才知道（见 `fake-codex.ts`）；启动时间先记下。
 const startedAt = Date.now();
-let role: 'session' | 'catalog' | null = null;
+let role: 'session' | 'catalog' | 'account' | null = null;
+const START_KIND = { session: 'start', catalog: 'catalog-start', account: 'account-start' } as const;
+const EXIT_KIND = { session: 'exit', catalog: 'catalog-exit', account: 'account-exit' } as const;
 function classify(method: string | undefined): void {
   if (role || !method || method === 'initialize') return;
-  role = method === 'model/list' || method === 'thread/list' || method === 'thread/read' ? 'catalog' : 'session';
-  log({ kind: role === 'catalog' ? 'catalog-start' : 'start', t: startedAt, cwd: process.cwd() });
+  role = method === 'account/read' ? 'account' : method === 'model/list' || method === 'thread/list' || method === 'thread/read' ? 'catalog' : 'session';
+  log({ kind: START_KIND[role], t: startedAt, cwd: process.cwd() });
 }
 
 const send = (message: Message) => process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -70,7 +77,7 @@ rl.on('line', (line) => {
 // BaoCut 关闭连接时先关 stdin：立即退出（不让它等到 SIGTERM）。
 rl.on('close', () => {
   if (!role) classify('(closed)');
-  log({ kind: role === 'catalog' ? 'catalog-exit' : 'exit' });
+  log({ kind: EXIT_KIND[role ?? 'session'] });
   process.exit(0);
 });
 
@@ -84,6 +91,9 @@ function handleRequest(message: Message): void {
     case 'thread/start':
       threadCwd = typeof params.cwd === 'string' ? params.cwd : threadCwd;
       send({ id, result: { thread: { id: threadId }, model: 'fake-model' } });
+      return;
+    case 'account/read':
+      send({ id, result: { account: null, requiresOpenaiAuth: scenario.requiresOpenaiAuth ?? true } });
       return;
     case 'model/list': {
       if (scenario.models === 'hang') return;

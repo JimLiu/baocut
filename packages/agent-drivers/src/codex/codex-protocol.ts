@@ -155,6 +155,12 @@ export interface ModelListParams {
   includeHidden?: boolean | null;
 }
 
+/** `account/read` 的应答，只取用到的字段（对照 codex-cli 0.166.0）。 */
+export interface AccountReadResponse {
+  /** 当前的模型提供方要不要 OpenAI 账号：自定义提供方（`model_providers`，密钥来自 `env_key`）为 false。 */
+  requiresOpenaiAuth?: boolean;
+}
+
 export interface ModelListResponse {
   data: CodexModel[];
   /** 下一页的游标；null 表示没有更多。 */

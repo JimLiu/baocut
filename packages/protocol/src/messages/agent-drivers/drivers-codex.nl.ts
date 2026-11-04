@@ -5,6 +5,8 @@ export const nl: DriversCodexMessages = {
   installHint: "Installeer Codex CLI",
 
   signedOut: (p: { detail: string }) => `Codex is niet ingelogd. Voer codex login uit in een terminal.${p.detail ? ` (${p.detail})` : ""}`,
+  loginCheckFailed: (p) => `De Codex-login kon niet worden gecontroleerd: ${p.command} login status is mislukt. BaoCut start dit programma met subopdrachten zoals login status en app-server, dus een wrapperscript moet zijn argumenten ongewijzigd doorgeven.${p.detail ? ` (${p.detail})` : ''}`,
+  customProvider: 'Aangepaste modelaanbieder',
   chatgptAccount: "ChatGPT-account",
   apiKey: "OpenAI-API-sleutel",
   accessToken: "Toegangstoken",

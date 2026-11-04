@@ -47,6 +47,55 @@ describe('CodexDriver（假 codex）', () => {
     expect(await driver.probe()).toMatchObject({ state: 'ready', status: 'available', unavailableReason: null, version: '0.160.0', minVersion: '0.158.0' });
   });
 
+  /** 手动指定的位置是一个包装脚本（issue #124）：`body` 是脚本内容，`CODEX` 是假 codex 的路径。 */
+  async function wrapperDriver(body: string): Promise<CodexDriver> {
+    const install = (await fake.locate())!;
+    const command = path.join(dir, 'codex-wrapper');
+    await fs.writeFile(command, `#!/bin/sh\nCODEX="${install.command}"\n${body}\n`, { mode: 0o755 });
+    return new CodexDriver(silentLogger, { locate: async () => ({ ...install, command }) });
+  }
+
+  it('探测：包装脚本在参数后面多加旗标时，报 login status 的真实原因，不说未登录', async () => {
+    const wrapped = await wrapperDriver('"$CODEX" "$@" --yolo');
+    const probe = await wrapped.probe();
+    expect(probe).toMatchObject({ state: 'error', status: 'unavailable', version: '0.160.0', models: [] });
+    expect(probe.detail).toContain("error: unexpected argument '--yolo' found");
+    expect(probe.detail).toContain('login status');
+    // 只要原因那一行，不带 clap 的用法说明。
+    expect(probe.detail).not.toContain('Usage:');
+  });
+
+  it('探测：login status 因为别的原因失败（包装脚本里找不到命令）也不算未登录', async () => {
+    const wrapped = await wrapperDriver('case "$1" in --version) exec "$CODEX" "$@" ;; esac\necho "codex: command not found" >&2\nexit 127');
+    expect((await wrapped.probe()).state).toBe('error');
+  });
+
+  it('探测：包装脚本原样转发时走通；login status 仍是未登录的，按未登录报', async () => {
+    fake.scenario({ loggedIn: false });
+    const wrapped = await wrapperDriver('exec "$CODEX" "$@"');
+    expect(await wrapped.probe()).toMatchObject({ state: 'signed-out', models: expect.arrayContaining([expect.objectContaining({ id: 'fake-sol' })]) });
+  });
+
+  it('探测：配置选了自定义提供方（requiresOpenaiAuth 为 false）时不需要登录，账号写自定义提供方', async () => {
+    fake.scenario({ loggedIn: false, requiresOpenaiAuth: false });
+    const probe = await driver.probe();
+    expect(probe).toMatchObject({ state: 'ready', status: 'available', account: '自定义模型提供方', accountRef: { key: 'driversCodex.customProvider' } });
+    expect(fake.requests('account/read').map((r) => r.params)).toEqual([{ refreshToken: false }]);
+    await until(() => fake.log().some((e) => e.kind === 'account-exit'));
+    expect(fake.log().some((e) => e.kind === 'start')).toBe(false);
+  });
+
+  it('探测：已登录时不多问 account/read', async () => {
+    expect(await driver.probe()).toMatchObject({ state: 'ready' });
+    expect(fake.requests('account/read')).toEqual([]);
+  });
+
+  it('探测：问不出要不要登录时（app-server 起不来）按未登录报', async () => {
+    fake.scenario({ loggedIn: false, requiresOpenaiAuth: false });
+    const wrapped = await wrapperDriver('case "$1" in app-server) echo "cannot start" >&2; exit 3 ;; esac\nexec "$CODEX" "$@"');
+    expect(await wrapped.probe()).toMatchObject({ state: 'signed-out', models: [] });
+  });
+
   it('探测：账号描述取登录方式，不带 login status 的原文（可能有打码的密钥）', async () => {
     expect(await driver.probe()).toMatchObject({ state: 'ready', account: 'ChatGPT 账号' });
     expect(describeCodexAccount('Logged in using an API key - sk-proj-***ABCD')).toBe('OpenAI API 密钥');

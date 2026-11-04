@@ -5,6 +5,8 @@ export const de: DriversCodexMessages = {
   installHint: "Codex CLI installieren",
 
   signedOut: (p: { detail: string }) => `Codex ist nicht angemeldet. Im Terminal codex login ausführen.${p.detail ? ` (${p.detail})` : ""}`,
+  loginCheckFailed: (p) => `Die Codex-Anmeldung konnte nicht geprüft werden: ${p.command} login status ist fehlgeschlagen. BaoCut startet dieses Programm mit Unterbefehlen wie login status und app-server, daher muss ein Wrapper-Skript seine Argumente unverändert weitergeben.${p.detail ? ` (${p.detail})` : ''}`,
+  customProvider: 'Benutzerdefinierter Modellanbieter',
   chatgptAccount: "ChatGPT-Konto",
   apiKey: "OpenAI-API-Schlüssel",
   accessToken: "Zugriffstoken",
