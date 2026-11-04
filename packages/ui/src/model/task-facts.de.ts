@@ -9,6 +9,7 @@ export const de: TaskFactsMessages = {
     startedAt: "Gestartet",
     runsOn: "Ausgeführt auf",
     language: "Sprache",
+    request: "Anweisungen",
     phase: "Phase",
     images: "Bilder",
     took: "Dauer",

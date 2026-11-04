@@ -8,6 +8,7 @@ export const tr: TaskFactsMessages = {
     startedAt: 'Başlangıç',
     runsOn: 'Çalıştığı yer',
     language: 'Dil',
+    request: 'Talimatlar',
     phase: 'Aşama',
     images: 'Görseller',
     took: 'Geçen süre',

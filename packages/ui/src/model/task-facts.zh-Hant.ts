@@ -8,6 +8,7 @@ export const zhHant: TaskFactsMessages = {
     startedAt: '開始時間',
     runsOn: '執行位置',
     language: '語言',
+    request: '指示',
     phase: '階段',
     images: '圖片',
     took: '耗時',

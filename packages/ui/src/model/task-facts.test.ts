@@ -93,6 +93,35 @@ describe('taskFacts', () => {
     expect(speechFacts).toContainEqual(['发起方', '远端节点']);
   });
 
+  it('生成文本写生成要求：第一条 user 消息，空白折成一个空格，截到 200 字（issue #125）', () => {
+    const text = (content: string) =>
+      job({
+        jobId: 'tx',
+        kind: 'generateText',
+        videoId: null,
+        providerId: 'openai',
+        generation: {
+          capability: 'generateText',
+          messages: [
+            { role: 'system', content: '你是编辑' },
+            { role: 'user', content },
+          ],
+          responseFormat: { type: 'text' },
+          maxOutputTokens: 4096,
+          temperature: null,
+          requestedEffort: null,
+          effort: null,
+          seed: null,
+        },
+      });
+    const short = text('把这段访谈\n\n整理成三条要点');
+    expect(taskFacts(jobRow(short, ctx), { job: short }, NOW)).toContainEqual(['生成要求', '把这段访谈 整理成三条要点']);
+    const long = text('写'.repeat(250));
+    expect(taskFacts(jobRow(long, ctx), { job: long }, NOW)).toContainEqual(['生成要求', `${'写'.repeat(200)}…`]);
+    const record = job({ jobId: 'j1' });
+    expect(taskFacts(jobRow(record, ctx), { job: record }, NOW).find(([k]) => k === '生成要求')).toBeUndefined();
+  });
+
   it('Agent 任务：等批准照 chip 念，正在停止照 chip 念，结束了的按结束时间算用时', () => {
     const waiting = agentRow(task({ taskId: 't', conversationId: 'c2' }), { projects: [], conversations: [{ id: 'c2', projectId: null, activity: 'awaiting-approval' }] });
     expect(taskFacts(waiting, {}, NOW)).toContainEqual(['状态', '需要你确认']);

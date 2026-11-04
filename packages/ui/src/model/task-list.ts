@@ -152,10 +152,22 @@ function transcribeAsset(job: JobRecord): Id | null {
   return typeof assetId === 'string' && assetId ? assetId : null;
 }
 
+/**
+ * 生成文本的要求：第一条 user 消息，空白折成一个空格（要求常有换行，标题与详情只念一行）。不是生成文本或没有 user 消息时为空串。
+ */
+export function textRequest(job: Pick<JobRecord, 'generation'>): string {
+  const g = job.generation;
+  if (g?.capability !== 'generateText') return '';
+  return (g.messages.find((m) => m.role === 'user')?.content ?? '').replace(/\s+/g, ' ').trim();
+}
+
 function jobTitle(job: JobRecord, video: OpenVideoFacts | null): string {
   const g = job.generation;
   if (g?.capability === 'generateImage' && g.prompt.trim()) return clip(g.prompt, 40);
   if (g?.capability === 'synthesizeSpeech' && g.text.trim()) return clip(g.text, 40);
+  // 生成文本：同一个种类名会排出一串一样的标题，取生成要求的前 40 字分开它们（issue #125）。
+  const request = textRequest(job);
+  if (request) return clip(request, 40);
   if (job.kind === 'transcribe' || isTranscribePipeline(job)) {
     if (!video) return kindLabel('transcribe');
     const assetId = transcribeAsset(job);

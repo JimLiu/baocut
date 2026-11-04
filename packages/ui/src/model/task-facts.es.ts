@@ -4,7 +4,7 @@ import { pluralForm } from '@baocut/protocol';
 export const es: TaskFactsMessages = {
   fact: {
     kind: 'Tipo', submitter: 'Iniciado por', status: 'Estado', startedAt: 'Inicio',
-    runsOn: 'Se ejecuta en', language: 'Idioma', phase: 'Fase', images: 'Imágenes',
+    runsOn: 'Se ejecuta en', language: 'Idioma', request: 'Instrucciones', phase: 'Fase', images: 'Imágenes',
     took: 'Tiempo empleado',
     left: 'Tiempo restante', cost: 'Coste',
   },

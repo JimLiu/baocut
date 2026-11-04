@@ -8,6 +8,7 @@ export const zhHans: TaskFactsMessages = {
     startedAt: '开始于',
     runsOn: '跑在',
     language: '语言',
+    request: '生成要求',
     phase: '阶段',
     images: '图片',
     took: '用时',

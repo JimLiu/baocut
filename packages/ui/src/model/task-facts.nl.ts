@@ -9,6 +9,7 @@ export const nl: TaskFactsMessages = {
     startedAt: "Gestart",
     runsOn: "Wordt uitgevoerd op",
     language: "Taal",
+    request: "Generatie-instructies",
     phase: "Fase",
     images: "Afbeeldingen",
     took: "Tijdsduur",

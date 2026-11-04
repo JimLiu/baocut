@@ -8,6 +8,7 @@ export const ja: TaskFactsMessages = {
     startedAt: '開始',
     runsOn: '実行場所',
     language: '言語',
+    request: '指示',
     phase: 'フェーズ',
     images: '画像',
     took: '所要時間',
