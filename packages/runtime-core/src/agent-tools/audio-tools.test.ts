@@ -170,8 +170,10 @@ describe.skipIf(!canBuildTimingFixtures(ffmpeg))('the range decode sits on its s
 
   it('runs to the end of the file without an end', async () => {
     const pcm = await decodeMono(ffmpeg, files.m4a, 11, null);
-    expect(pcm.length).toBeGreaterThanOrEqual(ANALYSIS_RATE - 1);
-    expect(pcm.length).toBeLessThanOrEqual(ANALYSIS_RATE + 1);
+    // Whether the decode drops the AAC encoder's trailing padding (about 5 ms here) depends on the ffmpeg version: 8.0.1
+    // keeps it. So the end is the M4A's own, decoded from the top where nothing seeks, not the source WAV's.
+    const whole = await decodeMono(ffmpeg, files.m4a, 0, null);
+    expect(Math.abs(pcm.length - (whole.length - 11 * ANALYSIS_RATE))).toBeLessThanOrEqual(1);
     expect(startDrift(source, pcm, 11 * ANALYSIS_RATE, ANALYSIS_RATE)).toBe(0);
   });
 });
