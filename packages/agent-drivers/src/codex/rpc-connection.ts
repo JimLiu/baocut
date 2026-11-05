@@ -48,6 +48,7 @@ export class CodexRpcConnection {
   #onExit: (error: Error | null) => void = () => {};
   #nextId = 1;
   #closed = false;
+  #closing: Promise<void> | null = null;
   #stderr = '';
 
   constructor(child: ChildProcessWithoutNullStreams, log: Logger) {
@@ -57,6 +58,12 @@ export class CodexRpcConnection {
     rl.on('line', (line) => this.#handleLine(line));
     child.stderr.on('data', (chunk: Buffer) => {
       this.#stderr = (this.#stderr + chunk.toString()).slice(-STDERR_LIMIT);
+    });
+    // A child can close its input before its exit event reaches us. Writable
+    // stream errors are separate from ChildProcess errors and must be handled.
+    child.stdin.on('error', (error) => {
+      this.#terminate(error);
+      void this.close();
     });
     child.on('error', (error) => this.#terminate(error));
     child.on('exit', (code, signal) => {
@@ -108,8 +115,12 @@ export class CodexRpcConnection {
   }
 
   /** 关闭 stdin 请它退出；超时后 SIGTERM，再超时 SIGKILL。 */
-  async close(): Promise<void> {
-    if (this.#closed) return;
+  close(): Promise<void> {
+    this.#closing ??= this.#closeProcess();
+    return this.#closing;
+  }
+
+  async #closeProcess(): Promise<void> {
     this.#closed = true;
     this.#rejectAll(new Error(String(DriversCodex.connectionClosed())));
     const child = this.#child;
