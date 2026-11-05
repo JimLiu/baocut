@@ -253,7 +253,21 @@ pub fn mix_audio_reported(ir: &Ir, assets: &LoadedAssets) -> Result<Option<Audio
     }))
 }
 
-/// ffmpeg 兜底解码：`-ss`/`-t` 截窗，变速时叠 `atempo`，输出 48 kHz 立体声 f32。
+/// How far ahead of the window the ffmpeg fallback seeks; the rest is cut from decoded frames.
+///
+/// What a decoder discards after a seek depends on the ffmpeg version. Since 9.0 the mov demuxer
+/// exports `initial_padding` and the decoder takes it as frames to skip, but a demuxer that seeks
+/// past the priming says "skip nothing", which does not clear that count. So the first packets
+/// after any `-ss`, even `-ss 0`, are lost: 1024 frames from ffmpeg's AAC encoder, 2112 from
+/// AVFoundation's. FFmpeg's master branch instead discards a seek pre-roll of up to 4096 frames.
+///
+/// Those frames keep their correct timestamps, but raw PCM carries none, so a window that starts
+/// inside the loss plays early (`-1115` frames at 48 kHz for a 44.1 kHz M4A at 0 s). The margin
+/// only has to outlast the discard, including at low sample rates.
+const FFMPEG_SEEK_MARGIN: f64 = 1.0;
+
+/// ffmpeg 兜底解码：截 `[media_start, media_start + source_seconds)` 的窗，变速时叠 `atempo`，
+/// 输出 48 kHz 立体声 f32。
 fn decode_with_ffmpeg(
     clip_id: &str,
     path: &std::path::Path,
@@ -283,19 +297,29 @@ fn ffmpeg_decode_command(
     source_seconds: f64,
     rate: f64,
 ) -> std::process::Command {
+    // Cut the window with `atrim`, which goes by the timestamps of the frames that survive the
+    // seek, so where it starts does not depend on what the decoder discarded. See
+    // `FFMPEG_SEEK_MARGIN`. A window near the start does not seek at all.
+    let media_start = media_start.max(0.0);
+    let seek = (media_start - FFMPEG_SEEK_MARGIN).max(0.0);
+    let skip = media_start - seek;
     let mut cmd = crate::exec::command("ffmpeg");
-    cmd.args([
-        "-loglevel",
-        "error",
-        "-ss",
-        &format!("{media_start:.6}"),
-        "-t",
-        &format!("{source_seconds:.6}"),
-    ])
-    .arg("-i")
-    .arg(path);
+    cmd.args(["-loglevel", "error"]);
+    if seek > 0.0 {
+        cmd.args(["-ss", &format!("{seek:.6}")]);
+    }
+    cmd.args(["-t", &format!("{:.6}", skip + source_seconds)])
+        .arg("-i")
+        .arg(path);
+    let mut filters = Vec::new();
+    if skip > 0.0 {
+        filters.push(format!("atrim=start={skip:.6},asetpts=PTS-STARTPTS"));
+    }
     if (rate - 1.0).abs() > 1e-9 {
-        cmd.args(["-filter:a", &atempo_chain(rate)]);
+        filters.push(atempo_chain(rate));
+    }
+    if !filters.is_empty() {
+        cmd.args(["-filter:a", &filters.join(",")]);
     }
     cmd.args(["-f", "f32le", "-ac", "2", "-ar", "48000", "-"]);
     cmd

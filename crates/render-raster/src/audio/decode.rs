@@ -1,7 +1,8 @@
 //! 纯 Rust 音频解码主路径（Symphonia）：任意容器 → 48 kHz 交错立体声 f32。
 //!
-//! 语义对齐迁移前的
-//! `ffmpeg -ss <start> -t <duration> -i <src> -f f32le -ac 2 -ar 48000 -`：
+//! 语义对齐 ffmpeg 兜底路径（`ffmpeg_decode_command`）截出的窗口。迁移前的配方
+//! `ffmpeg -ss <start> -t <duration> -i <src> -f f32le -ac 2 -ar 48000 -` 从 ffmpeg 9.0 起
+//! 会丢掉 AAC 跳转后的头几帧，不再是可靠的对照（`FFMPEG_SEEK_MARGIN`）：
 //!
 //! - **窗口**：`[start, start + duration)`，在**源采样帧**上取整（`round`），
 //!   样本精确；源不够长就自然截短（ffmpeg 的 `-t` 同样只是上界）。
@@ -606,16 +607,20 @@ mod tests {
         assert_eq!(best, 0, "audio seek introduced a sample offset");
     }
 
-    /// 报告里的原场景：44.1 kHz 源经 `ffmpeg -c:a aac` 编成 M4A（1024 帧前置），
-    /// 纯 Rust 路径与 ffmpeg 兜底路径解出的 48 kHz PCM 必须零时差。修之前 Rust
-    /// 路径晚 1115 帧（1024 × 48000 / 44100 ≈ 23.2 ms）。没有能编 AAC 的 ffmpeg 就跳过。
-    #[test]
-    fn an_ffmpeg_aac_m4a_decodes_with_zero_lag_against_ffmpeg() {
-        let directory = tempfile::tempdir().unwrap();
-        let wav = directory.path().join("noise.wav");
-        let m4a = directory.path().join("noise.m4a");
+    /// Fixed-seed white noise as a 44.1 kHz mono WAV plus the M4A that `ffmpeg -c:a aac` makes of
+    /// it (1024 frames of priming). `None` when this machine has no ffmpeg that can encode AAC.
+    ///
+    /// The WAV is the ground truth for timing: it has no priming and no lossy codec, and decoding
+    /// it through the Rust path shares the resampler with the M4A, so a lag between the two can
+    /// only come from how the M4A was decoded. ffmpeg is only the encoder here.
+    fn encoded_noise(
+        directory: &Path,
+        seconds: u32,
+    ) -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+        let wav = directory.join("noise.wav");
+        let m4a = directory.join("noise.m4a");
         let rate = 44_100_u32;
-        let frames = rate; // 1 秒
+        let frames = rate * seconds;
         let size = frames * 2;
         let mut bytes = Vec::new();
         bytes.extend_from_slice(b"RIFF");
@@ -642,39 +647,136 @@ mod tests {
         let encoded = crate::exec::command("ffmpeg")
             .args(["-nostdin", "-loglevel", "error", "-y", "-i"])
             .arg(&wav)
-            .args(["-c:a", "aac", "-b:a", "192k"])
+            // Noise substitution has a running PRNG, so its samples do not survive a seek.
+            .args(["-c:a", "aac", "-b:a", "192k", "-aac_pns", "0"])
             .arg(&m4a)
             .status();
         if !encoded.is_ok_and(|status| status.success()) {
-            eprintln!("跳过：这台机器没有能编 AAC 的 ffmpeg");
-            return;
+            eprintln!("skipped: this machine has no ffmpeg that can encode AAC");
+            return None;
         }
-        let native = decode_stereo_48k(&m4a, 0.0, 1.0).unwrap();
-        let reference = super::super::decode_with_ffmpeg("noise", &m4a, 0.0, 1.0, 1.0).unwrap();
+        Some((wav, m4a))
+    }
+
+    /// The lag at which the left channel of `candidate` best matches `reference`:
+    /// `candidate[at + lag]` lines up with `reference[at]`, so a positive lag means `candidate`
+    /// plays late. Correlates the middle half and searches ±1500 frames, which covers both the
+    /// 1115 and the 2112 frames of priming at 48 kHz.
+    fn best_lag(reference: &[f32], candidate: &[f32]) -> i64 {
         let left =
             |samples: &[f32]| -> Vec<f32> { samples.iter().step_by(CHANNELS).copied().collect() };
-        let (native, reference) = (left(&native), left(&reference));
-        // 取中段 0.25 s 与参考逐偏移求互相关，搜 ±1500 帧（盖住 1115 与 2112 两种前置）。
-        let (from, len, reach) = (12_000_usize, 12_000_usize, 1_500_i64);
+        let (reference, candidate) = (left(reference), left(candidate));
+        let (from, len) = (reference.len() / 4, reference.len() / 2);
         let correlation = |lag: i64| -> f64 {
-            (0..len)
-                .map(|offset| {
-                    let at = from + offset;
-                    let shifted = at as i64 + lag;
-                    let value = usize::try_from(shifted)
+            (from..from + len)
+                .map(|at| {
+                    let value = usize::try_from(at as i64 + lag)
                         .ok()
-                        .and_then(|index| native.get(index))
+                        .and_then(|index| candidate.get(index))
                         .copied()
                         .unwrap_or(0.0);
                     f64::from(reference[at]) * f64::from(value)
                 })
                 .sum()
         };
-        let (best, _) = (-reach..=reach)
+        (-1_500..=1_500)
             .map(|lag| (lag, correlation(lag)))
             .max_by(|a, b| a.1.total_cmp(&b.1))
-            .unwrap();
-        assert_eq!(best, 0, "纯 Rust 路径相对 ffmpeg 晚 {best} 帧（48 kHz）");
+            .unwrap()
+            .0
+    }
+
+    /// The reported case: a 44.1 kHz source that `ffmpeg -c:a aac` encoded to M4A. Before the Rust
+    /// path dropped the priming it played 1115 frames late (1024 × 48000 / 44100 ≈ 23.2 ms).
+    ///
+    /// Both paths are checked against the source WAV as well as each other. Comparing only with
+    /// ffmpeg cannot say which side moved, and ffmpeg's own timing changes between versions (see
+    /// `FFMPEG_SEEK_MARGIN`).
+    #[test]
+    fn an_ffmpeg_aac_m4a_decodes_with_zero_lag_against_ffmpeg() {
+        let directory = tempfile::tempdir().unwrap();
+        let Some((wav, m4a)) = encoded_noise(directory.path(), 1) else {
+            return;
+        };
+        let source = decode_stereo_48k(&wav, 0.0, 1.0).unwrap();
+        let native = decode_stereo_48k(&m4a, 0.0, 1.0).unwrap();
+        let fallback = super::super::decode_with_ffmpeg("noise", &m4a, 0.0, 1.0, 1.0).unwrap();
+        let native_lag = best_lag(&source, &native);
+        assert_eq!(native_lag, 0, "Rust path against the source WAV");
+        let fallback_lag = best_lag(&source, &fallback);
+        assert_eq!(fallback_lag, 0, "ffmpeg fallback against the source WAV");
+        assert_eq!(best_lag(&fallback, &native), 0, "Rust path against ffmpeg");
+    }
+
+    /// A raw PCM pipe has no timestamps, so the first sample ffmpeg writes is taken to be the
+    /// window's start. It has to be, however the decoder treats the packets right after a seek.
+    /// The starts cover the branch that never seeks and the one that seeks ahead of the window.
+    #[test]
+    fn the_ffmpeg_fallback_starts_on_the_requested_sample() {
+        let directory = tempfile::tempdir().unwrap();
+        let Some((wav, m4a)) = encoded_noise(directory.path(), 3) else {
+            return;
+        };
+        let duration = 0.5;
+        for start in [0.0, 0.3, 1.0, 1.5, 2.0] {
+            let source = decode_stereo_48k(&wav, start, duration).unwrap();
+            let fallback =
+                super::super::decode_with_ffmpeg("noise", &m4a, start, duration, 1.0).unwrap();
+            let frames = fallback.len() / CHANNELS;
+            assert!(
+                frames.abs_diff(24_000) <= 1,
+                "{start}s: ffmpeg gave {frames} frames for a 24000-frame window"
+            );
+            assert_eq!(
+                best_lag(&source, &fallback),
+                0,
+                "ffmpeg fallback at {start}s"
+            );
+            let native = decode_stereo_48k(&m4a, start, duration).unwrap();
+            assert_eq!(best_lag(&source, &native), 0, "Rust path at {start}s");
+        }
+    }
+
+    /// Speed-changed clips always take the fallback, so `atempo` has to receive exactly the window.
+    /// Its splice points follow the signal, which rules out lining its output up against another
+    /// encoding of the source (on noise both the lag and the length wander by hundreds of frames).
+    /// It is deterministic though: the same window gives the same bytes. So the reference decodes
+    /// from the top of the file, where no seek can lose anything. The starts land on whole source
+    /// frames, so rounding cannot tell the two apart.
+    #[test]
+    fn the_ffmpeg_fallback_hands_atempo_the_same_window_as_decoding_from_the_top() {
+        let directory = tempfile::tempdir().unwrap();
+        let Some((_, m4a)) = encoded_noise(directory.path(), 3) else {
+            return;
+        };
+        let (duration, rate) = (0.5, 2.0);
+        for start in [1.5, 2.0] {
+            let reference = crate::exec::command("ffmpeg")
+                .args(["-loglevel", "error", "-t"])
+                .arg(format!("{:.6}", start + duration))
+                .arg("-i")
+                .arg(&m4a)
+                .arg("-filter:a")
+                .arg(format!(
+                    "atrim=start={start:.6},asetpts=PTS-STARTPTS,atempo={rate:.6}"
+                ))
+                .args(["-f", "f32le", "-ac", "2", "-ar", "48000", "-"])
+                .output()
+                .unwrap();
+            assert!(reference.status.success(), "reference decode at {start}s");
+            let reference: Vec<f32> = reference
+                .stdout
+                .chunks_exact(4)
+                .map(|bytes| f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+                .collect();
+            let fallback =
+                super::super::decode_with_ffmpeg("noise", &m4a, start, duration, rate).unwrap();
+            assert!(!fallback.is_empty(), "no output at {start}s");
+            assert_eq!(
+                fallback, reference,
+                "ffmpeg fallback at {start}s and {rate}x"
+            );
+        }
     }
 
     /// 目标采样率直通：一个样本都不动，也不引入延迟。
