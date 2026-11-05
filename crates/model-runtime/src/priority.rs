@@ -1,15 +1,17 @@
-//! 推理线程的调度优先级（架构设计 §6.5「优先级与资源」）：Worker 以低于前台的优先级运行，转写不抢界面。
+//! 推理线程的调度优先级（架构设计 §6.5「优先级与资源」）：转写不抢界面，机器忙时也不被后台任务挤掉。
 //!
-//! macOS 上把调用线程的 QoS 设为 utility；Windows 上把线程优先级降为 `THREAD_PRIORITY_BELOW_NORMAL`；其他平台先不做
-//! （保守实现）。只影响调用它的线程，所以要在推理线程自己里面调用。
+//! macOS 上把调用线程的 QoS 设为 default：低于界面线程（user-interactive），与编译、批处理同档。不用 utility：推理线程要逐步
+//! 建图、提交 Metal 命令，降到 utility 后机器一忙就被默认档的进程挤掉，GPU 跟着空等（验收与测试 §4「转写的调度优先级与提交方式」）。
+//! Windows 上把线程优先级降为 `THREAD_PRIORITY_BELOW_NORMAL`；其他平台先不做（保守实现）。只影响调用它的线程，所以要在
+//! 推理线程自己里面调用。
 
-/// 把调用线程降到后台推理的优先级。失败只记日志：优先级是尽力而为，不影响任务能不能跑。
+/// 设置调用线程的推理优先级。失败只记日志：优先级是尽力而为，不影响任务能不能跑。
 #[cfg(target_os = "macos")]
-pub fn lower_current_thread() {
+pub fn set_inference_thread_priority() {
     // SAFETY: 只改调用线程自己的 QoS，参数是合法的类别与相对优先级 0。
-    let code = unsafe { libc::pthread_set_qos_class_self_np(libc::qos_class_t::QOS_CLASS_UTILITY, 0) };
+    let code = unsafe { libc::pthread_set_qos_class_self_np(libc::qos_class_t::QOS_CLASS_DEFAULT, 0) };
     if code != 0 {
-        eprintln!("[model-worker] cannot set the inference thread QoS to utility (error {code})");
+        eprintln!("[model-worker] cannot set the inference thread QoS to default (error {code})");
     }
 }
 
@@ -28,9 +30,9 @@ mod windows_thread {
     }
 }
 
-/// 把调用线程降到后台推理的优先级。失败只记日志：优先级是尽力而为，不影响任务能不能跑。
+/// 设置调用线程的推理优先级。失败只记日志：优先级是尽力而为，不影响任务能不能跑。
 #[cfg(windows)]
-pub fn lower_current_thread() {
+pub fn set_inference_thread_priority() {
     use windows_thread::{GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_BELOW_NORMAL};
     // SAFETY: GetCurrentThread 返回调用线程的伪句柄（不需要关闭）；只改调用线程自己的优先级。
     if unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL) } == 0 {
@@ -40,7 +42,7 @@ pub fn lower_current_thread() {
 }
 
 #[cfg(not(any(target_os = "macos", windows)))]
-pub fn lower_current_thread() {}
+pub fn set_inference_thread_priority() {}
 
 #[cfg(all(test, target_os = "macos"))]
 mod tests {
@@ -63,15 +65,15 @@ mod tests {
     }
 
     #[test]
-    fn lowers_only_the_calling_thread_to_utility() {
+    fn sets_only_the_calling_thread_to_default_qos() {
         let before = current_qos();
         let inside = std::thread::spawn(|| {
-            lower_current_thread();
+            set_inference_thread_priority();
             current_qos()
         })
         .join()
         .unwrap();
-        assert_eq!(inside, libc::qos_class_t::QOS_CLASS_UTILITY as u32);
+        assert_eq!(inside, libc::qos_class_t::QOS_CLASS_DEFAULT as u32);
         assert_eq!(current_qos(), before);
     }
 }
@@ -90,7 +92,7 @@ mod tests {
     fn lowers_only_the_calling_thread_to_below_normal() {
         let before = current_priority();
         let inside = std::thread::spawn(|| {
-            lower_current_thread();
+            set_inference_thread_priority();
             current_priority()
         })
         .join()

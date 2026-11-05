@@ -401,8 +401,8 @@ impl Worker {
             .name("inference".into())
             .stack_size(INFERENCE_STACK_BYTES)
             .spawn(move || {
-                // 推理以 utility QoS 运行，不抢前台（架构设计 §6.5）。只作用于本线程。
-                priority::lower_current_thread();
+                // 不抢界面，机器忙时也不被后台任务挤掉（架构设计 §6.5）。只作用于本线程。
+                priority::set_inference_thread_priority();
                 Inference {
                     output: thread_output,
                     shared: thread_shared,

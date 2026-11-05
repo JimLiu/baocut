@@ -269,7 +269,7 @@ impl MossTranscribeDiarize {
         let (hidden, updated) = self.decoder.decode(&last, None, cache.take())?;
         cache = Some(updated);
         let sequence = hidden.dim(1);
-        let mut logits = self.decoder.logits(&hidden.index((.., sequence - 1..sequence, ..)))?;
+        let logits = self.decoder.logits(&hidden.index((.., sequence - 1..sequence, ..)))?;
         let mut next = argmax_axis(&logits, -1, false)?.squeeze()?.as_dtype(Dtype::Int32)?;
         evaluate_token(&next)?;
         let prefill_seconds = prefill_started.elapsed().as_secs_f64();
@@ -298,6 +298,24 @@ impl MossTranscribeDiarize {
                     break;
                 }
             }
+            // 把下一步接在还没算完的 token 后面先提交，再等这个 token：CPU 建图、编码命令时 GPU 不空转
+            // （同 Qwen3 的 `generate_greedy`）。贪心解码的结果不变；生成停下时这一步作废。
+            let mut speculative = None;
+            if index + 1 < maximum_tokens {
+                let phase_started = Instant::now();
+                let ids = next.reshape(&[1, 1])?;
+                let embeddings = self.decoder.embed(&ids)?;
+                let (hidden, updated) = self.decoder.decode(&embeddings, None, cache.take())?;
+                cache = Some(updated);
+                let sequence = hidden.dim(1);
+                let logits = self.decoder.logits(&hidden.index((.., sequence - 1..sequence, ..)))?;
+                let advanced = argmax_axis(&logits, -1, false)?.squeeze()?.as_dtype(Dtype::Int32)?;
+                build_seconds += phase_started.elapsed().as_secs_f64();
+                let phase_started = Instant::now();
+                evaluate_token(&advanced)?;
+                dispatch_seconds += phase_started.elapsed().as_secs_f64();
+                speculative = Some(advanced);
+            }
             let phase_started = Instant::now();
             let token = next.try_item::<i32>()?;
             item_seconds += phase_started.elapsed().as_secs_f64();
@@ -310,21 +328,10 @@ impl MossTranscribeDiarize {
                 stop_reason = GenerationStopReason::Repetition;
                 break;
             }
-            if index + 1 == maximum_tokens {
+            let Some(advanced) = speculative else {
                 break;
-            }
-            let phase_started = Instant::now();
-            let ids = Array::from_slice(&[token], &[1, 1]);
-            let embeddings = self.decoder.embed(&ids)?;
-            let (hidden, updated) = self.decoder.decode(&embeddings, None, cache.take())?;
-            cache = Some(updated);
-            let sequence = hidden.dim(1);
-            logits = self.decoder.logits(&hidden.index((.., sequence - 1..sequence, ..)))?;
-            next = argmax_axis(&logits, -1, false)?.squeeze()?.as_dtype(Dtype::Int32)?;
-            build_seconds += phase_started.elapsed().as_secs_f64();
-            let phase_started = Instant::now();
-            evaluate_token(&next)?;
-            dispatch_seconds += phase_started.elapsed().as_secs_f64();
+            };
+            next = advanced;
         }
         if streamed < generated.len() {
             let segments = decoder.push(&self.tokenizer.decode_bytes(&generated[streamed..]));
