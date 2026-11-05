@@ -103,6 +103,12 @@ pub trait LayerMedia {
     /// 这里给出的引用都已放掉，调用方可以 `Arc::try_unwrap` 拿回缓冲，比如还给解码器）。
     fn picture(&mut self, layer: &VisualLayer) -> Result<Option<Arc<Pixmap>>, RenderError>;
 
+    /// 刚才 [`Self::picture`] 给这一层的画面是否确知整幅不透明（alpha 全是 255）。只是省逐像素的扫描：
+    /// 答 `false`（缺省）画出来逐字节相同；答 `true` 必须属实。
+    fn picture_is_opaque(&self, _layer: &VisualLayer) -> bool {
+        false
+    }
+
     /// 素材的原始字节（Lottie 贴纸要读它）。缺省没有。
     fn asset_bytes(&mut self, _asset: &VersionRef) -> Option<Vec<u8>> {
         None
@@ -134,6 +140,8 @@ pub struct RenderOptions {
 struct DrawnLayer {
     pixmap: Pixmap,
     geom: Option<BoxGeom>,
+    /// 确知整幅不透明（宿主声明不透明的画面原样贴满了这一层）：叠的时候不用再扫一遍 alpha。
+    opaque: bool,
 }
 
 /// 渲染器排出来的文字实例块框（序列画布像素），绕块中心旋转；与 [`CaptionHit`] 同一套口径。
@@ -580,7 +588,7 @@ impl FrameRenderer {
                 continue;
             };
             let Some(tr) = transition else {
-                self.composite(own.pixmap);
+                self.composite(own.pixmap, own.opaque);
                 continue;
             };
             let partner = match tr.partner.as_deref() {
@@ -600,7 +608,7 @@ impl FrameRenderer {
             };
             let mut out = Pixmap::new(self.options.width, self.options.height).expect("尺寸在构造时检查过");
             compose(&tr.kind, &tr.params, a.map(|l| &l.pixmap), Some(&b.pixmap), b.geom, e, &mut out);
-            self.composite(out);
+            self.composite(out, false);
         }
         self.paint_background();
         Ok(self.frame.data())
@@ -632,10 +640,11 @@ impl FrameRenderer {
 
     /// 把一层叠到帧上。帧上还只有没铺的底、这一层又整幅不透明时，叠出来就是这一层本身：直接接管它，省掉铺底与整帧拷贝
     /// （导出每帧的整幅视频）。用完的那一幅（接管时是原来的帧，否则是这一层）还给内核当下一层的画布。
-    fn composite(&mut self, layer: Pixmap) {
+    /// `opaque` 是调用方确知这一层整幅不透明，省一遍整幅扫描。
+    fn composite(&mut self, layer: Pixmap, opaque: bool) {
         if self.background.is_some()
             && (layer.width(), layer.height()) == (self.frame.width(), self.frame.height())
-            && render_raster::raster::is_opaque(layer.data())
+            && (opaque || render_raster::raster::is_opaque(layer.data()))
         {
             let old = std::mem::replace(&mut self.frame, layer);
             self.background = None;
@@ -707,7 +716,11 @@ impl FrameRenderer {
                 .map_err(RenderError::render)?;
             let missing = plan.text.take_missing_families();
             self.note_missing_fonts(&layer.item_id, missing);
-            return Ok(Some(DrawnLayer { pixmap, geom: None }));
+            return Ok(Some(DrawnLayer {
+                pixmap,
+                geom: None,
+                opaque: false,
+            }));
         }
         let Some(item) = context.items.get(layer.item_id.as_str()).copied() else {
             return Ok(None);
@@ -737,6 +750,8 @@ impl FrameRenderer {
 
         let mut natural = None;
         let mut injected: Option<Arc<Pixmap>> = None;
+        // 注入的就是宿主声明不透明的那一份：不裁剪（裁剪出的是另一份）、没有效果（效果可能改 alpha）。
+        let mut opaque_source = false;
         match (&layer.kind, &layer.content) {
             (LayerKind::Video | LayerKind::Image, _) => {
                 let decoded = if layer.kind == LayerKind::Image && context.is_svg(layer.asset.as_ref()) {
@@ -761,6 +776,7 @@ impl FrameRenderer {
                 } else {
                     None
                 };
+                let from_host = decoded.is_none();
                 let picture = match decoded {
                     Some(decoded) => decoded,
                     None => match media.picture(layer)? {
@@ -768,6 +784,7 @@ impl FrameRenderer {
                         None => return Ok(None),
                     },
                 };
+                opaque_source = from_host && fx.is_none() && crop_of(item).is_none() && media.picture_is_opaque(layer);
                 if layer.kind == LayerKind::Video && !layer.panels.is_empty() {
                     return self.draw_panels(context, layer, &element, &picture, fx.as_ref(), eval).map(Some);
                 }
@@ -815,7 +832,7 @@ impl FrameRenderer {
         }
 
         let has_source = injected.is_some();
-        let mut pixmap = self.render_element(context, &mut element, injected, eval, &layer.item_id)?;
+        let (mut pixmap, opaque) = self.render_element(context, &mut element, injected, opaque_source, eval, &layer.item_id)?;
         if let Some(fx) = &fx {
             if !has_source {
                 apply_to_source(fx, &mut pixmap, short_edge);
@@ -826,19 +843,25 @@ impl FrameRenderer {
         }
         element.keyframe_place(eval);
         let geom = BoxGeom::of(&element, natural, (f64::from(size.0), f64::from(size.1)));
-        Ok(Some(DrawnLayer { pixmap, geom: Some(geom) }))
+        Ok(Some(DrawnLayer {
+            pixmap,
+            geom: Some(geom),
+            opaque,
+        }))
     }
 
     /// 用内核把一个元素画成整幅画布大小的一层。`source` 是注入的源画面（视频、图片、Lottie 的一帧），内核按 `element.id`
     /// 取它。
+    /// 画一个实例，连同这一层是否确知整幅不透明。`opaque_source`：`source` 确知整幅不透明。
     fn render_element(
         &mut self,
         context: &SequenceContext,
         element: &mut TimelineVisualElement,
         source: Option<Arc<Pixmap>>,
+        opaque_source: bool,
         eval: f64,
         item_id: &str,
-    ) -> Result<Pixmap, RenderError> {
+    ) -> Result<(Pixmap, bool), RenderError> {
         let size = (self.options.width, self.options.height);
         let duration = context.duration;
         let fps = context.fps;
@@ -850,6 +873,7 @@ impl FrameRenderer {
         plan.media.injected.clear();
         if let Some(source) = source {
             let id = source_id(&element.id);
+            plan.media.declare_opaque(opaque_source.then_some(&source));
             plan.media.injected.insert(id.clone(), source);
             element.src_id = Some(id);
         }
@@ -865,6 +889,7 @@ impl FrameRenderer {
         // 画完就放掉源画面与画好的中间层（内核的动态资源表本来留到下一次画才清）：宿主拿回缓冲（解码器换帧）时只剩它那一份。
         plan.media.injected.clear();
         plan.media.dynamic.clear();
+        plan.media.declare_opaque(None);
         let notes = std::mem::take(&mut plan.warnings);
         let missing = plan.text.take_missing_families();
         for note in notes {
@@ -892,11 +917,12 @@ impl FrameRenderer {
             }
         }
         let rendered = rendered?;
-        Pixmap::from_vec(
+        let pixmap = Pixmap::from_vec(
             rendered.rgba,
             IntSize::from_wh(size.0, size.1).ok_or_else(|| RenderError::new("INVALID_PARAMS", "输出尺寸不可用"))?,
         )
-        .ok_or_else(|| RenderError::new("EXPORT_RENDER_FAILED", "内核画出的层尺寸不对"))
+        .ok_or_else(|| RenderError::new("EXPORT_RENDER_FAILED", "内核画出的层尺寸不对"))?;
+        Ok((pixmap, rendered.opaque))
     }
 
     /// 分屏视频（格式规范 §3.5）：每一格把源画面里自己的那块（帧计划的 `sourceRect`，已含裁剪）按画中画摆进格子，各格叠成
@@ -941,7 +967,7 @@ impl FrameRenderer {
                 opacity: element.place.opacity,
                 ..Default::default()
             };
-            let pixmap = self.render_element(context, &mut cell, Some(source), eval, &layer.item_id)?;
+            let (pixmap, _) = self.render_element(context, &mut cell, Some(source), false, eval, &layer.item_id)?;
             over(&mut out, &pixmap, false);
             self.recycle(pixmap);
         }
@@ -959,7 +985,11 @@ impl FrameRenderer {
             flip_x: false,
             flip_y: false,
         };
-        Ok(DrawnLayer { pixmap: out, geom: Some(geom) })
+        Ok(DrawnLayer {
+            pixmap: out,
+            geom: Some(geom),
+            opaque: false,
+        })
     }
 
     /// 画实例用的内核计划（第一次用时编）。

@@ -142,6 +142,58 @@ fn pictures_are_shared_with_the_kernel_and_released_after_the_frame() {
 }
 
 #[test]
+fn declaring_a_picture_opaque_does_not_change_a_byte() {
+    // 宿主声明画面不透明只是省扫描：恒等直通（铺满、contain 加黑底）走捷径，别的摆法、效果、动画都照常画，声明与否逐字节相同。
+    // 画完缓冲照样能还给解码器。
+    let assets = || vec![image_asset("a_a", W, H)];
+    let cases = [
+        json!({ "mode": "fullscreen" }),
+        json!({ "mode": "fullscreen", "fit": "contain", "bg": "black" }),
+        json!({ "mode": "fullscreen", "crop": { "left": 0.5, "top": 0, "right": 0, "bottom": 0 } }),
+        json!({ "mode": "fullscreen", "fx": { "saturation": -1 } }),
+        json!({ "mode": "fullscreen", "place": { "opacity": 0.5 } }),
+        json!({ "mode": "fullscreen", "place": { "scale": 0.5 } }),
+        json!({ "mode": "fullscreen", "place": { "flipX": true } }),
+        json!({ "place": { "w": 50 } }),
+    ];
+    for body in cases {
+        // 叠在这一层下面的另一层：半透明的那些摆法要露出它，不能被接管成整幅不透明。
+        let under = image("under", 0, 0, 30, json!({ "mode": "fullscreen" }));
+        let case = video(
+            vec![under, image("a", 1, 0, 30, body.clone())],
+            [assets(), vec![image_asset("a_under", W, H)]].concat(),
+            json!({}),
+        );
+        let picture = || halves(W, H, RED, BLUE);
+        let mut plain = Media::default().with("under", solid(W, H, GREEN)).with("a", picture());
+        let mut declared = Media::default()
+            .with("under", solid(W, H, GREEN))
+            .with("a", picture())
+            .opaque("a")
+            .opaque("under");
+        let (mut slow, mut fast) = (renderer(false, Documents::default()), renderer(false, Documents::default()));
+        // 多画几帧：第二帧起画布是回收来的脏缓冲。
+        for _ in 0..3 {
+            assert_eq!(
+                render_with(&mut fast, &case, 0.0, &mut declared),
+                render_with(&mut slow, &case, 0.0, &mut plain),
+                "{body}"
+            );
+            assert_eq!(std::sync::Arc::strong_count(&declared.pictures["a"]), 1, "{body}");
+        }
+    }
+    // 只有一层、铺满：接管它当整帧，换下来的帧回收后也不出错。
+    let single = video(vec![image("a", 0, 0, 30, json!({ "mode": "fullscreen" }))], assets(), json!({}));
+    let mut declared = Media::default().with("a", halves(W, H, RED, BLUE)).opaque("a");
+    let mut fast = renderer(false, Documents::default());
+    for fill in [0x7F, 0x01] {
+        let first = render_with(&mut fast, &single, 0.0, &mut declared);
+        assert_eq!(first, halves(W, H, RED, BLUE).data());
+        fast.exchange_frame(vec![fill; first.len()]).unwrap();
+    }
+}
+
+#[test]
 fn layers_follow_place_opacity_crop_order_and_mirror() {
     let assets = || vec![image_asset("a_a", 16, 9), image_asset("a_b", 16, 9)];
     let media = || Media::default().with("a", solid(16, 9, RED)).with("b", halves(16, 9, RED, BLUE));

@@ -23,8 +23,8 @@ RTX 3060 主机、1080p30 双语字幕夹具（`tools/export-bench.ts`）：NVEN
 | 步骤 | 在哪 | 做什么 |
 | --- | --- | --- |
 | 解码 | `media-native` 的 Source Reader | 软件解码与 YUV→RGB32，再整帧搬成 RGBA（W1、W2、W5） |
-| 视频层 | `render-raster` 的 `copy_over` | 解出的画面扫一遍、拷进内核的画布（画布跨帧复用，源画面共享不复制） |
-| 接管 | `frame-render` 的 `composite` | 扫一遍 alpha，整幅不透明就直接接管成帧 |
+| 视频层 | `render-raster` 的 `opaque_cover` | 解出的画面拷进内核的画布（画布跨帧复用，源画面共享不复制）；探测为不带透明的视频不再扫 alpha |
+| 接管 | `frame-render` 的 `composite` | 确知不透明的层直接接管成帧；别的层扫一遍 alpha，整幅不透明才接管 |
 | 字幕 | `composite_caption_layer` | 只在非零像素的外包矩形里混合 |
 | 编码输入 | `encode_windows.rs` 的 `rgba_to_nv12` | 编码线程上换成 NV12，再整帧拷进 Media Foundation 的缓冲（W3） |
 
@@ -62,7 +62,7 @@ GPU 合成只有在它**去掉**这些遍历时才有收益；如果只是把 CP
 - 合成线程提交第 k 帧后去收第 k−2 帧的回读：上传槽、目标纹理与回读缓冲各 3 份轮换，从不对刚提交的那一帧 `poll(wait)`。`map_async` 的回调由合成线程每帧 `poll(Poll)` 推进。
 - 在 GPU 上把 RGBA 换成 NV12（Y 与交错 UV 两个平面），回读 3.1 MB 而不是 8.3 MB，编码线程的 `rgba_to_nv12` 随之去掉（编码输入按 W3 直写进 Media Foundation 的缓冲）。
 - 回读的 `bytes_per_row` 要按 256 字节对齐：1920×4 恰好对齐，NV12 的 Y 平面 1920 字节不对齐，按对齐的行拷出再逐行去掉补齐（`OfflineCompositor` 已经这样做）。
-- 上传不是免费的：`queue.write_texture` 要把解出的画面拷进 wgpu 的暂存区，代替了今天的 `copy_over`（同样是一次整帧拷贝）。所以 §4.3 的甲级不减少视频层的拷贝次数，收益只来自去掉接管扫描、字幕混合与 NV12 转换；这正是要先量的原因。
+- 上传不是免费的：`queue.write_texture` 要把解出的画面拷进 wgpu 的暂存区，代替了今天把画面拷进画布的那一次（同样是一次整帧拷贝）。所以 §4.3 的甲级不减少视频层的拷贝次数，收益只来自去掉字幕混合与 NV12 转换；这正是要先量的原因。
 
 ### 4.3 与硬件编码的衔接
 
@@ -75,7 +75,7 @@ GPU 合成只有在它**去掉**这些遍历时才有收益；如果只是把 CP
 | 丙 | 硬件解出的 NV12 纹理，经 `ExternalTextureImporter` 导入，在 GPU 上转 RGB | 同乙 | 0 | W5（像素会变） |
 
 - **乙级（Windows）**：wgpu 跑在 DX12 上；输出纹理用 `D3D11_RESOURCE_MISC_SHARED_NTHANDLE` 在 D3D11 设备上建，在 DX12 一侧打开、经 `create_texture_from_hal` 交给 wgpu；Sink Writer 配 `MF_SINK_WRITER_D3D_MANAGER`（`IMFDXGIDeviceManager`），sample 用 `MFCreateDXGISurfaceBuffer` 包这块纹理，NVENC 直接读。两个 API 之间用共享 fence 同步（播放的 frame server 已有 D3D11 共享纹理池加共享 fence 的写法）；另一条路是 v2 用过的 D3D11On12。纹理池至少三块，编码器释放 sample 之前不复用。
-- **乙级（macOS）**：从 `AVAssetWriterInputPixelBufferAdaptor` 的池里取 IOSurface 支撑的 `CVPixelBuffer`，经 `CVMetalTextureCache` 得到 Metal 纹理，再经 wgpu-hal 的 Metal 导入当目标。
+- **乙级（macOS）**：从 `VTCompressionSession` 的池里取 IOSurface 支撑的 `CVPixelBuffer`，经 `CVMetalTextureCache` 得到 Metal 纹理，再经 wgpu-hal 的 Metal 导入当目标。
 - **丙级**：解码器的表面在 GPU 采样完之前不能被复用（租约）。硬件解码与 GPU 上的 YUV→RGB 都会改像素，与 W5 一同要用户确认。
 
 ## 5. 像素一致性

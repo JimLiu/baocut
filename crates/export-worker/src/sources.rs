@@ -318,6 +318,11 @@ impl LayerMedia for Sources<'_> {
         }
     }
 
+    /// 探测说素材不带透明时，解出来的 RGBA 一律不透明（[`media_core::probe`]）。
+    fn picture_is_opaque(&self, layer: &VisualLayer) -> bool {
+        matches!(self.media.get(&layer.item_id), Some(Media::Video { alpha: false, .. }))
+    }
+
     fn asset_bytes(&mut self, asset: &VersionRef) -> Option<Vec<u8>> {
         let entry = self.input.asset(&asset.id, &asset.revision)?;
         std::fs::read(&entry.path).ok()

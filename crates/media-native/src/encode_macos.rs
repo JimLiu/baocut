@@ -1,11 +1,22 @@
-//! macOS 原生 MP4 写入：`AVAssetWriter` + VideoToolbox H.264 + AAC。
+//! macOS 原生 MP4 写入：`VTCompressionSession` 编 H.264，`AVAssetWriter` 封装（视频直通、音频 AAC）。
+//!
+//! ## 为什么自己开压缩会话
+//!
+//! 让 `AVAssetWriterInput` 带输出设置替我们压缩时只有两种选择，都不够好（验收与测试 §4 有实测）：
+//! 声明实时源（`expectsMediaDataInRealTime`）时 VideoToolbox 只用一个编码引擎，两个引擎的芯片上吞吐少四成；
+//! 离线源能用满引擎，但 AVFoundation 内部的压缩线程在 utility 档，机器一忙就被挤掉。
+//! 直接开离线的压缩会话，引擎用满，线程又跟着写线程的 QoS。压缩好的样本再经直通的输入封装，码流与
+//! AVFoundation 自己压的一样（High、B 帧、关键帧间隔、level、BT.709 标记）。
+//!
+//! 期望帧率必须是真实帧率：调高它也能解开实时源的上限，但 `AutoLevel` 会跟着把 H.264 level 抬到 5.2 以上，
+//! 老设备解不了；显式钉住 level 又会被编码器拒绝。
 //!
 //! 结构与 `core/crates/bcut-kernel/src/services/native_video.rs` 的在产导出后端同源（那是这套栈
 //! 在本仓库的第一处实现），但这里的场景简单得多，因此**没有**照抄它的流水线：
 //! 那边要一边解源码流一边合成字幕，帧的生产成本高，值得单开一条提交线程；这边
 //! 的帧由 `bcut-render` 的 worker 池并行光栅化之后按序送到，写入端只剩"喂给
 //! 编码器"，再加一层线程只会多一次 8 MB 拷贝和一份 SAFETY 论证。背压因此就地
-//! 承担：`isReadyForMoreMediaData` 为假时短睡等待。
+//! 承担（见下面的「线程」）。
 //!
 //! ## 音频是自造的 `CMSampleBuffer`
 //!
@@ -21,11 +32,19 @@
 //! `AVAssetWriter` 为保持轨道交织，会在一条轨落后太多时压住另一条轨的就绪位。
 //! 单线程写两条轨时这一点是死锁面：必须在等视频就绪的**循环里**继续喂音频，
 //! 不能先把视频等到就绪再管音频。见 [`AvWriter::pump_audio`] 的调用点。
+//!
+//! ## 线程
+//!
+//! 编码回调在 VideoToolbox 的线程上，只把样本放进 [`Encoded`]，从不阻塞；写线程送完一帧就取出来追加进封装。
+//! 所有 `AVAssetWriter` 调用都在写线程。背压靠两处：编码器满了 `VTCompressionSessionEncodeFrame` 自己阻塞，
+//! 封装跟不上时写线程停在 [`AvWriter::drain_encoded`] 里不送下一帧。
 
 #![allow(deprecated)]
 
+use std::collections::VecDeque;
 use std::path::Path;
-use std::ptr::NonNull;
+use std::ptr::{self, NonNull};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -34,31 +53,39 @@ use objc2::AnyThread;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2_av_foundation::{
-    AVAssetWriter, AVAssetWriterInput, AVAssetWriterInputPixelBufferAdaptor, AVAssetWriterStatus,
-    AVFileTypeMPEG4, AVMediaTypeAudio, AVMediaTypeVideo, AVVideoAverageBitRateKey, AVVideoCodecKey,
-    AVVideoCodecTypeH264, AVVideoColorPrimaries_ITU_R_709_2, AVVideoColorPrimariesKey,
-    AVVideoColorPropertiesKey, AVVideoCompressionPropertiesKey, AVVideoExpectedSourceFrameRateKey,
-    AVVideoHeightKey, AVVideoMaxKeyFrameIntervalKey, AVVideoProfileLevelH264HighAutoLevel,
-    AVVideoProfileLevelKey, AVVideoTransferFunction_ITU_R_709_2, AVVideoTransferFunctionKey,
-    AVVideoWidthKey, AVVideoYCbCrMatrix_ITU_R_709_2, AVVideoYCbCrMatrixKey,
+    AVAssetWriter, AVAssetWriterInput, AVAssetWriterStatus, AVFileTypeMPEG4, AVMediaTypeAudio,
+    AVMediaTypeVideo,
 };
 use objc2_avf_audio::{AVEncoderBitRateKey, AVFormatIDKey, AVNumberOfChannelsKey, AVSampleRateKey};
 use objc2_core_audio_types::{
     AudioStreamBasicDescription, kAudioFormatFlagIsFloat, kAudioFormatFlagIsPacked,
     kAudioFormatFlagsNativeEndian, kAudioFormatLinearPCM, kAudioFormatMPEG4AAC,
 };
-use objc2_core_foundation::CFRetained;
+use objc2_core_foundation::{CFBoolean, CFDictionary, CFNumber, CFRetained, CFString, CFType};
 use objc2_core_media::{
     CMAudioFormatDescriptionCreate, CMAudioSampleBufferCreateReadyWithPacketDescriptions,
     CMBlockBuffer, CMFormatDescription, CMSampleBuffer, CMTime, kCMBlockBufferAssureMemoryNowFlag,
+    kCMFormatDescriptionColorPrimaries_ITU_R_709_2,
+    kCMFormatDescriptionTransferFunction_ITU_R_709_2, kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2,
+    kCMTimeInvalid, kCMVideoCodecType_H264,
 };
 use objc2_core_video::{
     CVPixelBuffer, CVPixelBufferGetBaseAddress, CVPixelBufferGetBytesPerRow,
     CVPixelBufferGetHeight, CVPixelBufferGetWidth, CVPixelBufferLockBaseAddress,
     CVPixelBufferLockFlags, CVPixelBufferPool, CVPixelBufferUnlockBaseAddress,
-    kCVPixelFormatType_32BGRA,
+    kCVPixelBufferHeightKey, kCVPixelBufferIOSurfacePropertiesKey,
+    kCVPixelBufferPixelFormatTypeKey, kCVPixelBufferWidthKey, kCVPixelFormatType_32BGRA,
 };
-use objc2_foundation::{NSDictionary, NSNumber, NSString, NSURL, ns_string};
+use objc2_foundation::{NSDictionary, NSNumber, NSString, NSURL};
+use objc2_video_toolbox::{
+    VTCompressionSession, VTEncodeInfoFlags, VTSessionSetProperty,
+    kVTCompressionPropertyKey_AllowFrameReordering, kVTCompressionPropertyKey_AverageBitRate,
+    kVTCompressionPropertyKey_ColorPrimaries, kVTCompressionPropertyKey_ExpectedFrameRate,
+    kVTCompressionPropertyKey_MaxKeyFrameInterval, kVTCompressionPropertyKey_ProfileLevel,
+    kVTCompressionPropertyKey_RealTime, kVTCompressionPropertyKey_TransferFunction,
+    kVTCompressionPropertyKey_YCbCrMatrix, kVTProfileLevel_H264_High_AutoLevel,
+    kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder,
+};
 
 use crate::encode::{
     AUDIO_CHANNELS, AUDIO_LEAD_SECONDS, AUDIO_SAMPLE_RATE, Mp4Sink, PcmChunk, PcmSource,
@@ -83,82 +110,140 @@ fn object_dictionary(
     NSDictionary::from_slices(keys, values)
 }
 
-unsafe fn video_output_settings(
+/// `kCV…Key`、`kVT…Key` 这类 `CFStringRef` 与 `NSString *` toll-free bridged，按指针换类型就能当字典键。
+fn cf_key(key: &CFString) -> &NSString {
+    unsafe { &*ptr::from_ref(key).cast::<NSString>() }
+}
+
+/// 同上：`NSDictionary *` 与 `CFDictionaryRef` toll-free bridged。
+fn cf_dictionary(dictionary: &NSDictionary<NSString, AnyObject>) -> &CFDictionary {
+    unsafe { &*ptr::from_ref(dictionary).cast::<CFDictionary>() }
+}
+
+/// 建 H.264 压缩会话。这里失败都标 `unsupported`：调用方据此回落 ffmpeg。
+///
+/// 硬件编码优先，没有时用软件（与 `AVAssetWriter` 自己压缩时相同，所以不用 `Require…`）。
+unsafe fn compression_session(
     width: u32,
     height: u32,
     bitrate: u32,
     fps: f64,
-) -> Retained<NSDictionary<NSString, AnyObject>> {
-    let bitrate = NSNumber::numberWithUnsignedInt(bitrate);
-    let keyframe_interval =
-        NSNumber::numberWithUnsignedInt(((fps * KEYFRAME_INTERVAL_SECONDS).round() as u32).max(1));
-    let source_frame_rate = NSNumber::numberWithDouble(fps);
-    let compression = object_dictionary(
+) -> Result<CFRetained<VTCompressionSession>> {
+    let specification = object_dictionary(
+        &[cf_key(unsafe {
+            kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder
+        })],
+        &[NSNumber::numberWithBool(true).as_ref() as &AnyObject],
+    );
+    let (Ok(coded_width), Ok(coded_height)) = (i32::try_from(width), i32::try_from(height)) else {
+        bail!("unsupported: video size {width}x{height} is out of range");
+    };
+    // 给了像素属性，会话才有像素缓冲池；`fill_bgra` 就写进编码器要的那种（IOSurface）缓冲。
+    let source = object_dictionary(
         &[
-            unsafe { AVVideoAverageBitRateKey }.expect("AVVideoAverageBitRateKey"),
-            unsafe { AVVideoProfileLevelKey }.expect("AVVideoProfileLevelKey"),
-            unsafe { AVVideoMaxKeyFrameIntervalKey }.expect("AVVideoMaxKeyFrameIntervalKey"),
-            unsafe { AVVideoExpectedSourceFrameRateKey }
-                .expect("AVVideoExpectedSourceFrameRateKey"),
+            cf_key(unsafe { kCVPixelBufferPixelFormatTypeKey }),
+            cf_key(unsafe { kCVPixelBufferWidthKey }),
+            cf_key(unsafe { kCVPixelBufferHeightKey }),
+            cf_key(unsafe { kCVPixelBufferIOSurfacePropertiesKey }),
         ],
         &[
-            &bitrate,
-            unsafe { AVVideoProfileLevelH264HighAutoLevel }
-                .expect("AVVideoProfileLevelH264HighAutoLevel"),
-            &keyframe_interval,
-            &source_frame_rate,
+            NSNumber::numberWithUnsignedInt(kCVPixelFormatType_32BGRA).as_ref() as &AnyObject,
+            NSNumber::numberWithUnsignedInt(width).as_ref(),
+            NSNumber::numberWithUnsignedInt(height).as_ref(),
+            NSDictionary::<NSString, AnyObject>::new().as_ref(),
         ],
     );
-    // BT.709 色彩标记：不给的话 VideoToolbox 写出的码流 primaries / transfer /
-    // matrix 全是 unknown（ffprobe 实测），播放端按 601 猜就会偏色。给了之后
-    // BGRA→YUV 的转换矩阵也随之定为 709，与 ffmpeg 兜底路径的
-    // `-colorspace bt709` 合同一致。
-    let color = object_dictionary(
-        &[
-            unsafe { AVVideoColorPrimariesKey }.expect("AVVideoColorPrimariesKey"),
-            unsafe { AVVideoTransferFunctionKey }.expect("AVVideoTransferFunctionKey"),
-            unsafe { AVVideoYCbCrMatrixKey }.expect("AVVideoYCbCrMatrixKey"),
-        ],
-        &[
-            unsafe { AVVideoColorPrimaries_ITU_R_709_2 }
-                .expect("AVVideoColorPrimaries_ITU_R_709_2"),
-            unsafe { AVVideoTransferFunction_ITU_R_709_2 }
-                .expect("AVVideoTransferFunction_ITU_R_709_2"),
-            unsafe { AVVideoYCbCrMatrix_ITU_R_709_2 }.expect("AVVideoYCbCrMatrix_ITU_R_709_2"),
-        ],
-    );
-    let width = NSNumber::numberWithUnsignedInt(width);
-    let height = NSNumber::numberWithUnsignedInt(height);
-    object_dictionary(
-        &[
-            unsafe { AVVideoCodecKey }.expect("AVVideoCodecKey"),
-            unsafe { AVVideoWidthKey }.expect("AVVideoWidthKey"),
-            unsafe { AVVideoHeightKey }.expect("AVVideoHeightKey"),
-            unsafe { AVVideoCompressionPropertiesKey }.expect("AVVideoCompressionPropertiesKey"),
-            unsafe { AVVideoColorPropertiesKey }.expect("AVVideoColorPropertiesKey"),
-        ],
-        &[
-            unsafe { AVVideoCodecTypeH264 }.expect("AVVideoCodecTypeH264"),
-            &width,
-            &height,
-            &compression,
-            &color,
-        ],
-    )
-}
-
-unsafe fn adaptor_settings(width: u32, height: u32) -> Retained<NSDictionary<NSString, AnyObject>> {
-    let pixel_format = NSNumber::numberWithUnsignedInt(kCVPixelFormatType_32BGRA);
-    let width = NSNumber::numberWithUnsignedInt(width);
-    let height = NSNumber::numberWithUnsignedInt(height);
-    object_dictionary(
-        &[
-            ns_string!("PixelFormatType"),
-            ns_string!("Width"),
-            ns_string!("Height"),
-        ],
-        &[&pixel_format, &width, &height],
-    )
+    let mut raw: *mut VTCompressionSession = ptr::null_mut();
+    // 不挂会话级回调：编码走 `…WithOutputHandler`，回调随调用给。
+    let status = unsafe {
+        VTCompressionSession::create(
+            None,
+            coded_width,
+            coded_height,
+            kCMVideoCodecType_H264,
+            Some(cf_dictionary(&specification)),
+            Some(cf_dictionary(&source)),
+            None,
+            None,
+            ptr::null_mut(),
+            NonNull::from(&mut raw),
+        )
+    };
+    let session = NonNull::new(raw).filter(|_| status == 0).with_context(|| {
+        format!("unsupported: cannot create the H.264 compression session (OSStatus {status})")
+    })?;
+    let session = unsafe { CFRetained::from_raw(session) };
+    let number = |value: f64| CFNumber::new_f64(value);
+    let bitrate = CFNumber::new_i32(i32::try_from(bitrate).unwrap_or(i32::MAX));
+    let keyframe_interval = number((fps * KEYFRAME_INTERVAL_SECONDS).round().max(1.0));
+    let expected_frame_rate = number(fps);
+    let properties: [(&str, &CFString, &CFType); 9] = unsafe {
+        [
+            // 离线：用满全部编码引擎（见模块文档）。写入器不丢帧，也不需要实时的低延迟。
+            (
+                "RealTime",
+                kVTCompressionPropertyKey_RealTime,
+                CFBoolean::new(false).as_ref(),
+            ),
+            (
+                "ProfileLevel",
+                kVTCompressionPropertyKey_ProfileLevel,
+                kVTProfileLevel_H264_High_AutoLevel.as_ref(),
+            ),
+            (
+                "AverageBitRate",
+                kVTCompressionPropertyKey_AverageBitRate,
+                bitrate.as_ref(),
+            ),
+            (
+                "MaxKeyFrameInterval",
+                kVTCompressionPropertyKey_MaxKeyFrameInterval,
+                keyframe_interval.as_ref(),
+            ),
+            // 真实帧率，不能调高（见模块文档）：`AutoLevel` 按它算 level。
+            (
+                "ExpectedFrameRate",
+                kVTCompressionPropertyKey_ExpectedFrameRate,
+                expected_frame_rate.as_ref(),
+            ),
+            (
+                "AllowFrameReordering",
+                kVTCompressionPropertyKey_AllowFrameReordering,
+                CFBoolean::new(true).as_ref(),
+            ),
+            // BT.709 色彩标记：不给的话写出的码流 primaries / transfer / matrix 全是 unknown（ffprobe 实测），
+            // 播放端按 601 猜就会偏色。给了之后 BGRA→YUV 的转换矩阵也随之定为 709，与 ffmpeg 兜底路径的
+            // `-colorspace bt709` 合同一致。
+            (
+                "ColorPrimaries",
+                kVTCompressionPropertyKey_ColorPrimaries,
+                kCMFormatDescriptionColorPrimaries_ITU_R_709_2.as_ref(),
+            ),
+            (
+                "TransferFunction",
+                kVTCompressionPropertyKey_TransferFunction,
+                kCMFormatDescriptionTransferFunction_ITU_R_709_2.as_ref(),
+            ),
+            (
+                "YCbCrMatrix",
+                kVTCompressionPropertyKey_YCbCrMatrix,
+                kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2.as_ref(),
+            ),
+        ]
+    };
+    for (name, key, value) in properties {
+        let status = unsafe { VTSessionSetProperty(session.as_ref(), key, Some(value)) };
+        if status != 0 {
+            unsafe { session.invalidate() };
+            bail!("unsupported: the H.264 encoder rejected {name} (OSStatus {status})");
+        }
+    }
+    let status = unsafe { session.prepare_to_encode_frames() };
+    if status != 0 {
+        unsafe { session.invalidate() };
+        bail!("unsupported: the H.264 encoder cannot start (OSStatus {status})");
+    }
+    Ok(session)
 }
 
 unsafe fn audio_output_settings(bitrate: u32) -> Retained<NSDictionary<NSString, AnyObject>> {
@@ -273,17 +358,69 @@ struct AudioTrack {
     finished: bool,
 }
 
+/// 音轨在封装开始之前的样子：直通的视频输入要等第一个样本才有格式，输入都在那时才加（音轨排在视频后面）。
+struct PendingAudio {
+    source: PcmSource,
+    format: CFRetained<CMFormatDescription>,
+    settings: Retained<NSDictionary<NSString, AnyObject>>,
+}
+
+/// 压缩好的样本，从编码回调的线程交到写线程。
+struct EncodedSample(CFRetained<CMSampleBuffer>);
+
+// SAFETY: `CMSampleBuffer` 的引用计数是线程安全的；回调把它放进队列之后就不再碰，交接之后只有写线程用它。
+unsafe impl Send for EncodedSample {}
+
+/// 编码回调交给写线程的东西（见模块文档「线程」）。
+#[derive(Default)]
+struct Encoded {
+    /// 压缩好的样本，按解码顺序。
+    samples: VecDeque<EncodedSample>,
+    /// 第一次编码失败的说明。
+    failure: Option<String>,
+}
+
+type OutputHandler = RcBlock<dyn Fn(i32, VTEncodeInfoFlags, *mut CMSampleBuffer)>;
+
+/// 编码回调：只记下结果，不碰 `AVAssetWriter`、不阻塞。一个块反复用，逐帧不分配。
+fn output_handler(encoded: Arc<Mutex<Encoded>>) -> OutputHandler {
+    RcBlock::new(
+        move |status: i32, _flags: VTEncodeInfoFlags, sample: *mut CMSampleBuffer| {
+            let Ok(mut encoded) = encoded.lock() else {
+                return;
+            };
+            match NonNull::new(sample).filter(|_| status == 0) {
+                Some(sample) => encoded
+                    .samples
+                    .push_back(EncodedSample(unsafe { CFRetained::retain(sample) })),
+                // 离线会话不该丢帧；真丢了就是失败，别写出少帧的成片。
+                None => {
+                    encoded.failure.get_or_insert_with(|| {
+                        format!("VideoToolbox failed to encode a frame (OSStatus {status})")
+                    });
+                }
+            }
+        },
+    )
+}
+
 pub(crate) struct AvWriter {
     writer: Retained<AVAssetWriter>,
-    video_input: Retained<AVAssetWriterInput>,
-    adaptor: Retained<AVAssetWriterInputPixelBufferAdaptor>,
-    pool: Retained<CVPixelBufferPool>,
+    session: CFRetained<VTCompressionSession>,
+    pool: CFRetained<CVPixelBufferPool>,
+    encoded: Arc<Mutex<Encoded>>,
+    handler: OutputHandler,
+    /// 视频的封装输入；第一个样本到了才有（[`AvWriter::start_muxing`]），有了就说明写入器开始写了。
+    video_input: Option<Retained<AVAssetWriterInput>>,
+    pending_audio: Option<PendingAudio>,
     audio: Option<AudioTrack>,
     width: u32,
     height: u32,
     fps_num: u32,
     fps_den: u32,
-    /// 已追加的视频帧数，也是下一帧的帧号。
+    /// 已送进编码器的视频帧数，也是下一帧的帧号。
+    submitted: u64,
+    /// 已追加进封装的视频帧数：音频按它定提前量。
     frames: u64,
     /// 写入器已经收束（`finish` 走完）。
     closed: bool,
@@ -347,89 +484,50 @@ fn open_inner(out: &Path, setup: WriterSetup) -> Result<AvWriter> {
         writer.setShouldOptimizeForNetworkUse(true);
     }
 
-    let video_settings = unsafe { video_output_settings(width, height, bitrate, exact_fps) };
-    let video_input = unsafe {
-        AVAssetWriterInput::initWithMediaType_outputSettings(
-            AVAssetWriterInput::alloc(),
-            AVMediaTypeVideo.expect("AVMediaTypeVideo"),
-            Some(&video_settings),
-        )
+    let session = unsafe { compression_session(width, height, bitrate, exact_fps)? };
+    let pool = unsafe { session.pixel_buffer_pool() };
+    let Some(pool) = pool else {
+        unsafe { session.invalidate() };
+        bail!("unsupported: the H.264 compression session has no pixel buffer pool");
     };
-    // 视频轨按实时源声明：离线模式下 AVFoundation 内部编码管线（CoreMedia 与 VideoToolbox
-    // 的线程）有一批在 utility 档（20），机器一忙就被默认档的编译、批处理挤掉，硬件编码器
-    // 空等——M4 上 12 个忙进程时 900 帧只剩约 59 fps，声明成实时约 183 fps。我们照旧等
-    // `isReadyForMoreMediaData` 再追加，不丢帧；本机实测码流结构（High、B 帧、关键帧数）、
-    // 码率与 PSNR/SSIM 和离线模式相同，音视频交织更紧（架构设计 §9.11「调度优先级」）。
-    unsafe { video_input.setExpectsMediaDataInRealTime(true) };
-    // 非整数帧率把媒体时基钉在分子上：缺省 600 会把 29.97 的帧长取整成 20/600，
-    // 读回来就是 30 fps（`bcut-kernel` 的 `pin_media_time_scale` 同一条规则）。
-    if fps_den > 1
-        && let Ok(scale) = i32::try_from(fps_num)
-    {
-        unsafe { video_input.setMediaTimeScale(scale) };
-    }
-    if !unsafe { writer.canAddInput(&video_input) } {
-        bail!("unsupported: 本机没有可用的 H.264 编码器");
-    }
-    unsafe { writer.addInput(&video_input) };
-    let adaptor = unsafe {
-        AVAssetWriterInputPixelBufferAdaptor::initWithAssetWriterInput_sourcePixelBufferAttributes(
-            AVAssetWriterInputPixelBufferAdaptor::alloc(),
-            &video_input,
-            Some(&adaptor_settings(width, height)),
-        )
-    };
-
-    let audio_input = audio.as_ref().map(|_| {
-        let input = unsafe {
-            AVAssetWriterInput::initWithMediaType_outputSettings(
-                AVAssetWriterInput::alloc(),
-                AVMediaTypeAudio.expect("AVMediaTypeAudio"),
-                Some(&audio_output_settings(audio_bitrate)),
-            )
-        };
-        unsafe { input.setExpectsMediaDataInRealTime(false) };
-        input
-    });
-    if let Some(input) = &audio_input {
-        if !unsafe { writer.canAddInput(input) } {
-            bail!("unsupported: 本机没有可用的 AAC 编码器");
-        }
-        unsafe { writer.addInput(input) };
-    }
-
-    if !unsafe { writer.startWriting() } {
-        bail!(
-            "unsupported: AVFoundation 无法启动 MP4 写入（{:?}）",
-            unsafe { writer.error() }
-        );
-    }
-    unsafe { writer.startSessionAtSourceTime(CMTime::new(0, 1)) };
-    let pool = unsafe { adaptor.pixelBufferPool() }.context("AVFoundation 未创建像素缓冲池")?;
-
-    let audio = match (audio, audio_input) {
-        (Some(source), Some(input)) => Some(AudioTrack {
-            input,
-            format: pcm_format_description()?,
-            source,
-            finished: false,
-        }),
-        _ => None,
-    };
-    Ok(AvWriter {
+    let encoded = Arc::new(Mutex::new(Encoded::default()));
+    let handler = output_handler(Arc::clone(&encoded));
+    let mut writer = AvWriter {
         writer,
-        video_input,
-        adaptor,
+        session,
         pool,
-        audio,
+        encoded,
+        handler,
+        video_input: None,
+        pending_audio: None,
+        audio: None,
         width,
         height,
         fps_num,
         fps_den,
+        submitted: 0,
         frames: 0,
         closed: false,
         _temporary: temporary,
-    })
+    };
+    if let Some(source) = audio {
+        let settings = unsafe { audio_output_settings(audio_bitrate) };
+        // 音轨要到第一个样本才加，这里先问一声：没有 AAC 编码器时现在失败，调用方才回落得了 ffmpeg。
+        let media_type = unsafe { AVMediaTypeAudio }.expect("AVMediaTypeAudio");
+        if !unsafe {
+            writer
+                .writer
+                .canApplyOutputSettings_forMediaType(Some(&settings), media_type)
+        } {
+            bail!("unsupported: this machine has no AAC encoder");
+        }
+        writer.pending_audio = Some(PendingAudio {
+            source,
+            format: pcm_format_description()?,
+            settings,
+        });
+    }
+    Ok(writer)
 }
 
 impl AvWriter {
@@ -449,6 +547,108 @@ impl AvWriter {
             });
         }
         Ok(())
+    }
+
+    /// 第一个样本到了：照它的格式加上直通的视频输入、再加音轨，开始写。
+    fn start_muxing(&mut self, first: &CMSampleBuffer) -> Result<()> {
+        let format = unsafe { first.format_description() }
+            .context("the first encoded sample has no format description")?;
+        let video_input = unsafe {
+            AVAssetWriterInput::initWithMediaType_outputSettings_sourceFormatHint(
+                AVAssetWriterInput::alloc(),
+                AVMediaTypeVideo.expect("AVMediaTypeVideo"),
+                None,
+                Some(&format),
+            )
+        };
+        // 视频已经压缩好，这里只封装：实时源让写入器不囤样本，音视频交织更紧。
+        unsafe { video_input.setExpectsMediaDataInRealTime(true) };
+        // 非整数帧率把媒体时基钉在分子上：缺省 600 会把 29.97 的帧长取整成 20/600，
+        // 读回来就是 30 fps（`bcut-kernel` 的 `pin_media_time_scale` 同一条规则）。
+        if self.fps_den > 1
+            && let Ok(scale) = i32::try_from(self.fps_num)
+        {
+            unsafe { video_input.setMediaTimeScale(scale) };
+        }
+        if !unsafe { self.writer.canAddInput(&video_input) } {
+            bail!("AVAssetWriter does not accept the encoded H.264 video");
+        }
+        unsafe { self.writer.addInput(&video_input) };
+        if let Some(PendingAudio {
+            source,
+            format,
+            settings,
+        }) = self.pending_audio.take()
+        {
+            let input = unsafe {
+                AVAssetWriterInput::initWithMediaType_outputSettings(
+                    AVAssetWriterInput::alloc(),
+                    AVMediaTypeAudio.expect("AVMediaTypeAudio"),
+                    Some(&settings),
+                )
+            };
+            unsafe { input.setExpectsMediaDataInRealTime(false) };
+            if !unsafe { self.writer.canAddInput(&input) } {
+                bail!("AVAssetWriter does not accept the AAC audio track");
+            }
+            unsafe { self.writer.addInput(&input) };
+            self.audio = Some(AudioTrack {
+                input,
+                format,
+                source,
+                finished: false,
+            });
+        }
+        if !unsafe { self.writer.startWriting() } {
+            bail!("AVFoundation cannot start writing the MP4 ({:?})", unsafe {
+                self.writer.error()
+            });
+        }
+        unsafe { self.writer.startSessionAtSourceTime(CMTime::new(0, 1)) };
+        self.video_input = Some(video_input);
+        Ok(())
+    }
+
+    /// 把编码器交回来的样本都追加进封装，封装跟不上时在这里等（同时继续喂音频，交织死锁面见 `pump_audio`）。
+    fn drain_encoded(&mut self) -> Result<()> {
+        loop {
+            let sample = {
+                let mut encoded = self
+                    .encoded
+                    .lock()
+                    .map_err(|_| anyhow!("the encoded sample queue is poisoned"))?;
+                if let Some(failure) = encoded.failure.take() {
+                    bail!(failure);
+                }
+                encoded.samples.pop_front()
+            };
+            let Some(EncodedSample(sample)) = sample else {
+                return Ok(());
+            };
+            if self.video_input.is_none() {
+                self.start_muxing(&sample)?;
+            }
+            let input = self
+                .video_input
+                .clone()
+                .context("the video input was not created")?;
+            let limit = self.video_seconds() + AUDIO_LEAD_SECONDS;
+            loop {
+                self.pump_audio(limit)?;
+                if unsafe { input.isReadyForMoreMediaData() } {
+                    break;
+                }
+                self.check_failed()?;
+                std::thread::sleep(BACKPRESSURE_NAP);
+            }
+            if !unsafe { input.appendSampleBuffer(&sample) } {
+                bail!(
+                    "AVFoundation failed to write a video sample: {:?}",
+                    unsafe { self.writer.error() }
+                );
+            }
+            self.frames += 1;
+        }
     }
 
     /// 把音频喂到 `limit_seconds`（音频时间轴上的硬上限）。
@@ -496,29 +696,26 @@ impl AvWriter {
                 rgba.len()
             );
         }
-        // 等视频就绪，同时继续喂音频（交织死锁面，见 `pump_audio`）。
-        let limit = self.video_seconds() + AUDIO_LEAD_SECONDS;
-        loop {
-            self.pump_audio(limit)?;
-            if unsafe { self.video_input.isReadyForMoreMediaData() } {
-                break;
-            }
-            self.check_failed()?;
-            std::thread::sleep(BACKPRESSURE_NAP);
-        }
         let buffer = new_pixel_buffer(&self.pool)?;
         unsafe { fill_bgra(&buffer, rgba, self.width, self.height)? };
-        let timestamp = self.timestamp(self.frames);
-        if !unsafe {
-            self.adaptor
-                .appendPixelBuffer_withPresentationTime(&buffer, timestamp)
-        } {
-            bail!("AVFoundation 写入视频帧失败：{:?}", unsafe {
-                self.writer.error()
-            });
+        let timestamp = self.timestamp(self.submitted);
+        let duration = unsafe { CMTime::new(i64::from(self.fps_den), self.fps_num as i32) };
+        // 编码器满了在这里阻塞（背压）；回调不等写线程，所以不会互相等死。
+        let status = unsafe {
+            self.session.encode_frame_with_output_handler(
+                &buffer,
+                timestamp,
+                duration,
+                None,
+                ptr::null_mut(),
+                ptr::from_ref(&*self.handler).cast_mut(),
+            )
+        };
+        if status != 0 {
+            bail!("VideoToolbox refused a frame (OSStatus {status})");
         }
-        self.frames += 1;
-        Ok(())
+        self.submitted += 1;
+        self.drain_encoded()
     }
 
     /// 音频还需不需要继续喂：`video_end` 之前的部分都已交出即算完。
@@ -529,10 +726,20 @@ impl AvWriter {
     }
 
     fn close(&mut self) -> Result<()> {
+        // 等编码器交出还在路上的帧（回调不阻塞），全部追加进封装。
+        let status = unsafe { self.session.complete_frames(kCMTimeInvalid) };
+        if status != 0 {
+            bail!("VideoToolbox failed to flush the encoder (OSStatus {status})");
+        }
+        self.drain_encoded()?;
+        let input = self
+            .video_input
+            .clone()
+            .context("no video frames were encoded")?;
         // 视频轨**先**收束，再排干音频。顺序不能反：writer 为保持交织可能压住
         // 音频的就绪位来等更多视频数据，而视频这时已经没有下一帧了——先
         // `markAsFinished` 才让它知道这一点，下面的排干循环就不会空转到超时。
-        unsafe { self.video_input.markAsFinished() };
+        unsafe { input.markAsFinished() };
         // 剩余音频按 ffmpeg 的 `-shortest` 截到视频末尾。分块粒度是 0.1 秒，
         // 音频比视频长时最多多出不到一块——BCF 渲染里两者本来等长，不会走到。
         let video_end = self.video_seconds();
@@ -567,8 +774,10 @@ impl AvWriter {
 
 impl Drop for AvWriter {
     fn drop(&mut self) {
-        // 半途丢弃（渲染出错 / 取消）：显式取消，别让编码器在后台把队列跑完。
-        if !self.closed {
+        // 正常收尾时帧都交完了；半途丢弃（渲染出错 / 取消）时显式取消，别让编码器在后台把队列跑完。
+        unsafe { self.session.invalidate() };
+        // 第一个样本到之前写入器还没开始写，没有东西可取消。
+        if !self.closed && self.video_input.is_some() {
             unsafe { self.writer.cancelWriting() };
         }
     }

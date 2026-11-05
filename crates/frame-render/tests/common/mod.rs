@@ -3,7 +3,7 @@
 
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 
 use frame_render::{Documents, FrameRenderer, LayerMedia, RenderError, RenderOptions, premultiplied};
@@ -236,6 +236,8 @@ pub struct Media {
     pub assets: HashMap<String, Vec<u8>>,
     pub spectra: HashMap<String, Vec<u8>>,
     pub audio_spectra: HashMap<String, Vec<u8>>,
+    /// 声明这些实例的画面整幅不透明（[`LayerMedia::picture_is_opaque`]）。
+    pub opaque: HashSet<String>,
 }
 
 impl Media {
@@ -243,11 +245,20 @@ impl Media {
         self.pictures.insert(item_id.into(), Arc::new(picture));
         self
     }
+
+    pub fn opaque(mut self, item_id: &str) -> Media {
+        self.opaque.insert(item_id.into());
+        self
+    }
 }
 
 impl LayerMedia for Media {
     fn picture(&mut self, layer: &VisualLayer) -> Result<Option<Arc<Pixmap>>, RenderError> {
         Ok(self.pictures.get(&layer.item_id).cloned())
+    }
+
+    fn picture_is_opaque(&self, layer: &VisualLayer) -> bool {
+        self.opaque.contains(&layer.item_id)
     }
 
     fn asset_bytes(&mut self, asset: &VersionRef) -> Option<Vec<u8>> {

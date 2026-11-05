@@ -65,6 +65,8 @@ objc2-core-foundation = { version = "0.3", default-features = false, features = 
     "CFString",
     # `VTDecompressionSessionCreate` 的目标像素缓冲属性是 `CFDictionaryRef`。
     "CFDictionary",
+    # 压缩会话的属性值（码率、帧率、开关）。
+    "CFNumber",
 ] }
 # `CMSampleBuffer` + `objc2-core-video` 才有 `CMSampleBufferGetImageBuffer`；
 # `CMTimeRange` 是顺序流限定起点用的。`CMBlockBuffer` / `CMFormatDescription` +
@@ -101,6 +103,9 @@ objc2-foundation = { version = "0.3", default-features = false, features = [
 # `AVSampleBufferGenerator` 抓出来的关键帧样本，省掉 `AVAssetReader` 每次
 # 重开都要付的解码会话冷启动（1080p H.264 实测 ≈ 50 ms/次）。
 objc2-video-toolbox = { version = "0.3.2", default-features = false, features = [
+    # MP4 写入自己开压缩会话（`encode_macos.rs`），AVAssetWriter 只封装。
+    "VTCompressionProperties",
+    "VTCompressionSession",
     "VTDecompressionSession",
     "VTErrors",
     "VTSession",

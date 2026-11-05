@@ -7,7 +7,7 @@
 //!
 //! | 平台 | 后端 | 视频 | 音频 |
 //! | --- | --- | --- | --- |
-//! | macOS | AVFoundation | `AVAssetWriter` + `AVAssetWriterInputPixelBufferAdaptor`（BGRA 像素缓冲池 → VideoToolbox H.264） | LPCM `CMSampleBuffer` → `AVAssetWriterInput` 的 AAC 输出设置 |
+//! | macOS | AVFoundation | `VTCompressionSession`（BGRA 像素缓冲池 → H.264）+ `AVAssetWriter` 直通封装 | LPCM `CMSampleBuffer` → `AVAssetWriterInput` 的 AAC 输出设置 |
 //! | Windows | Media Foundation | `IMFSinkWriter` + H.264 MFT（NV12 输入，奇数画布退 RGB32） | s16 PCM → AAC MFT |
 //! | 其余（Linux…） | 无 | [`encode_available`] 为 `false`，`open_mp4_writer` 直接 `Err` | 同左 |
 //!

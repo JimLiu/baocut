@@ -562,6 +562,12 @@ pub fn rounded_rect_path(x: f64, y: f64, w: f64, h: f64, radius: f64) -> Option<
 pub trait FrameMedia {
     fn frame(&mut self, id: &str, media_ms: i64) -> Result<Arc<Pixmap>>;
 
+    /// 宿主确知这一份画面整幅不透明（alpha 全是 255）时答 `true`，光栅与合成就不再逐像素扫它。只是省扫描：
+    /// 答 `false`（缺省）结果逐字节相同；答 `true` 必须属实。
+    fn is_known_opaque(&self, _picture: &Arc<Pixmap>) -> bool {
+        false
+    }
+
     /// 可按任意尺寸光栅的矢量动图（program / Lottie / 动画 SVG）的自然尺寸；
     /// 位图、视频与不支持的实现返回 `None`（缺省）。
     fn vector_natural_size(&self, _id: &str) -> Option<(u32, u32)> {
@@ -654,6 +660,40 @@ pub fn rasterize_with_media(
     rasterize_with_media_into(frame, width, height, None, media)
 }
 
+/// 指令流是不是只把一幅确知不透明、与画布同尺寸的画面原样贴满画布（清屏加一条恒等的 `DrawMedia`，导出每帧的整幅视频）。
+/// 是的话返回那幅画面：画出来就是它的字节（[`copy_over`] 对这样的画面也只是逐行照拷），不必清屏，也不必扫 alpha。
+pub fn opaque_cover(
+    frame: &FrameOps,
+    width: u32,
+    height: u32,
+    media: &mut (impl FrameMedia + ?Sized),
+) -> Option<Arc<Pixmap>> {
+    let [
+        DrawOp::Clear { .. },
+        DrawOp::DrawMedia {
+            asset,
+            media_ms,
+            src,
+            tf,
+        },
+    ] = frame.ops.as_slice()
+    else {
+        return None;
+    };
+    // `media_ms >= 0` 可能是按目标尺寸光栅的矢量动图；`src` 全零是整幅源。
+    if frame.static_prefix.is_some()
+        || *media_ms >= 0
+        || *src != [0.0; 4]
+        || *tf != [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+    {
+        return None;
+    }
+    let id = frame.strings.get(*asset as usize)?;
+    let picture = media.frame_for_target(id, *media_ms, None).ok()?;
+    ((picture.width(), picture.height()) == (width, height) && media.is_known_opaque(&picture))
+        .then_some(picture)
+}
+
 /// 同 [`rasterize_with_media`]，画在调用方给的旧画布 `canvas` 上（用过的，内容不要紧；尺寸不对时不用），
 /// 省掉一次整幅的分配。结果与画在新建的画布上逐字节相同：旧画布不当作新建时的全零，开头的透明清屏照样整幅写零；
 /// 第一条要画的指令不是清屏时先清成全零。
@@ -664,6 +704,17 @@ pub fn rasterize_with_media_into(
     canvas: Option<Pixmap>,
     media: &mut (impl FrameMedia + ?Sized),
 ) -> Result<Pixmap> {
+    if let Some(picture) = opaque_cover(frame, width, height, media) {
+        return Ok(
+            match canvas.filter(|canvas| (canvas.width(), canvas.height()) == (width, height)) {
+                Some(mut canvas) => {
+                    canvas.data_mut().copy_from_slice(picture.data());
+                    canvas
+                }
+                None => picture.as_ref().clone(),
+            },
+        );
+    }
     // path 侧表按需物化（见 [`LazyPaths`]）
     let paths = LazyPaths::new(&frame.paths);
 
@@ -1412,6 +1463,123 @@ mod media_target_tests {
             Some((7680, 4320))
         );
         assert_eq!(media_target(&[0.0; 6], (100, 50)), None);
+    }
+}
+
+#[cfg(test)]
+mod opaque_cover_tests {
+    use super::*;
+
+    const W: u32 = 6;
+    const H: u32 = 4;
+    const IDENTITY: [f32; 6] = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+
+    struct Media {
+        picture: Arc<Pixmap>,
+        known: bool,
+    }
+
+    impl FrameMedia for Media {
+        fn frame(&mut self, _id: &str, _media_ms: i64) -> Result<Arc<Pixmap>> {
+            Ok(self.picture.clone())
+        }
+
+        fn is_known_opaque(&self, _picture: &Arc<Pixmap>) -> bool {
+            self.known
+        }
+    }
+
+    fn picture(width: u32, height: u32) -> Arc<Pixmap> {
+        let mut pixmap = Pixmap::new(width, height).unwrap();
+        for (index, pixel) in pixmap.data_mut().chunks_exact_mut(4).enumerate() {
+            pixel.copy_from_slice(&[index as u8 * 7, 200 - index as u8, 90, 255]);
+        }
+        Arc::new(pixmap)
+    }
+
+    fn ops(ops: Vec<DrawOp>) -> FrameOps {
+        FrameOps {
+            ops,
+            strings: vec!["video".into()],
+            ..FrameOps::default()
+        }
+    }
+
+    fn clear() -> DrawOp {
+        DrawOp::Clear {
+            color: [0.0, 0.0, 0.0, 0.0],
+        }
+    }
+
+    fn draw(media_ms: i64, src: [f32; 4], tf: [f32; 6]) -> DrawOp {
+        DrawOp::DrawMedia {
+            asset: 0,
+            media_ms,
+            src,
+            tf,
+        }
+    }
+
+    fn cover() -> FrameOps {
+        ops(vec![clear(), draw(-1, [0.0; 4], IDENTITY)])
+    }
+
+    /// 走捷径与照常光栅逐字节相同，画布是新的还是脏的都一样。
+    #[test]
+    fn a_declared_opaque_cover_draws_the_same_bytes() {
+        let source = picture(W, H);
+        let mut known = Media {
+            picture: source.clone(),
+            known: true,
+        };
+        let mut unknown = Media {
+            picture: source.clone(),
+            known: false,
+        };
+        assert!(opaque_cover(&cover(), W, H, &mut known).is_some());
+        assert!(opaque_cover(&cover(), W, H, &mut unknown).is_none());
+        let dirty = || {
+            let mut canvas = Pixmap::new(W, H).unwrap();
+            canvas.data_mut().fill(0x5A);
+            canvas
+        };
+        for canvas in [None, Some(dirty())] {
+            let fast =
+                rasterize_with_media_into(&cover(), W, H, canvas.clone(), &mut known).unwrap();
+            let slow = rasterize_with_media_into(&cover(), W, H, canvas, &mut unknown).unwrap();
+            assert_eq!(fast.data(), slow.data());
+            assert_eq!(fast.data(), source.data());
+        }
+    }
+
+    /// 不是「一条恒等的整幅贴图」就不走捷径：多一条指令、有平移、有裁剪、尺寸不合、指定了媒体时刻。
+    #[test]
+    fn anything_else_is_not_a_cover() {
+        let translated = [1.0, 0.0, 0.0, 1.0, 1.0, 0.0];
+        let shapes = [
+            ops(vec![draw(-1, [0.0; 4], IDENTITY)]),
+            ops(vec![clear(), draw(-1, [0.0; 4], translated)]),
+            ops(vec![clear(), draw(-1, [0.0, 0.0, 2.0, 2.0], IDENTITY)]),
+            ops(vec![clear(), draw(0, [0.0; 4], IDENTITY)]),
+            ops(vec![
+                clear(),
+                draw(-1, [0.0; 4], IDENTITY),
+                draw(-1, [0.0; 4], IDENTITY),
+            ]),
+        ];
+        let mut media = Media {
+            picture: picture(W, H),
+            known: true,
+        };
+        for shape in &shapes {
+            assert!(opaque_cover(shape, W, H, &mut media).is_none());
+        }
+        assert!(opaque_cover(&cover(), W + 1, H, &mut media).is_none());
+        let mut smaller = Media {
+            picture: picture(W - 1, H),
+            known: true,
+        };
+        assert!(opaque_cover(&cover(), W, H, &mut smaller).is_none());
     }
 }
 

@@ -262,6 +262,9 @@ pub struct RenderedOverlayFrame {
     pub draw_op_fingerprint: u64,
     pub rgba: Vec<u8>,
     pub next_change: Option<f64>,
+    /// 这一帧确知整幅不透明：只是把宿主声明不透明的画面原样贴满了画布（[`OverlayFrameMedia::declare_opaque`]）。
+    /// `false` 不代表有透明，只是没有确知。
+    pub opaque: bool,
 }
 
 #[derive(Clone)]
@@ -396,6 +399,8 @@ pub struct OverlayFrameMedia {
     /// v3：宿主按 id 注入的源画面（`frame-render` 把解码好的视频帧、图片与 Lottie 帧放在这里），
     /// 取源时先于 `base`。与 `dynamic` 不同，它不在每帧组装指令流时清空，由宿主自己换。
     pub injected: HashMap<String, Arc<Pixmap>>,
+    /// 宿主声明整幅不透明的那一份注入画面（[`Self::declare_opaque`]）。
+    pub(crate) known_opaque: std::sync::Weak<Pixmap>,
 }
 
 /// wasm-safe 字幕 scene 不读取媒体；这个空 store 只让共享 CPU effect 代码保留
@@ -442,6 +447,14 @@ impl FrameMedia for InjectedMediaStore {
 }
 
 impl OverlayFrameMedia {
+    /// 声明这一份画面整幅不透明（alpha 全是 255），`None` 撤销。
+    ///
+    /// 按这块缓冲的身份认，不按素材 id：内核要改像素（效果、遮罩、虹膜、不透明度）都经 `Arc::make_mut`，有弱引用在
+    /// 时它总是换一块新内存，改过的画面不再算数，这里不必知道内核改了什么。弱引用不挡宿主 `Arc::try_unwrap` 拿回缓冲。
+    pub fn declare_opaque(&mut self, picture: Option<&Arc<Pixmap>>) {
+        self.known_opaque = picture.map_or_else(std::sync::Weak::new, Arc::downgrade);
+    }
+
     /// 这个 id 手上是否已有一份可取帧的素材：静态图，或 Lottie（含换色变体）。
     ///
     /// 素材贴纸换色变体的存在性判据（见 `sticker_fill_variant_id`）：变体是
@@ -472,6 +485,7 @@ impl OverlayFrameMedia {
             base: InjectedMediaStore,
             dynamic: HashMap::new(),
             injected: HashMap::new(),
+            known_opaque: std::sync::Weak::new(),
         }
     }
 
@@ -490,6 +504,10 @@ impl FrameMedia for OverlayFrameMedia {
             return Ok(pixmap.clone());
         }
         self.source_frame(id, media_ms)
+    }
+
+    fn is_known_opaque(&self, picture: &Arc<Pixmap>) -> bool {
+        std::ptr::eq(self.known_opaque.as_ptr(), Arc::as_ptr(picture))
     }
 }
 

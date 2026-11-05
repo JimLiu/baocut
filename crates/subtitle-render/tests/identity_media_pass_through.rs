@@ -7,6 +7,7 @@
 //! **逐字节不改画面**；下面头两个测试就是这个前提的实测，第三个测试盯住整条
 //! `render_media_element` 的输出仍等于源图，第四个盯住非恒等形态没被误判。直通还不复制源图：
 //! 交给光栅的就是宿主共享进来的那一份，要改像素时才复制（`identity_pass_through_shares_…`）。
+use render_raster::raster::FrameMedia;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use subtitle_render::{OverlayRenderPlan, draw_fit_pixmap};
@@ -129,6 +130,32 @@ fn identity_pass_through_shares_the_source_and_copies_only_to_modify_it() {
 
 /// 恒等 PIP（盒子等于画布、无 fx/mask/tile/变换、满不透明）必须逐字节透出源图。
 /// 这既是快路径的正确性，也正好是快路径生效的判据。
+/// 宿主的「不透明」声明认的是这块缓冲的身份：内核改像素都经 `Arc::make_mut`，改过的就不再算数，哪怕这时只剩它一个强引用。
+/// 光栅与合成靠这一条才敢不扫 alpha。
+#[test]
+fn an_opaque_declaration_stops_counting_once_the_picture_is_changed() {
+    let mut media = subtitle_render::OverlayFrameMedia::empty(30.0);
+    let mut picture = Arc::new(opaque_noise(8, 4));
+    let other = Arc::new(opaque_noise(8, 4));
+    assert!(!media.is_known_opaque(&picture), "nothing is declared yet");
+    media.declare_opaque(Some(&picture));
+    assert!(media.is_known_opaque(&picture));
+    assert!(!media.is_known_opaque(&other), "only that buffer counts");
+    // 还有别的强引用（宿主的）时复制一份；没有时也换一块新内存，弱引用不会跟过去。
+    for shared in [true, false] {
+        media.declare_opaque(Some(&picture));
+        let host = shared.then(|| picture.clone());
+        Arc::make_mut(&mut picture).data_mut()[3] = 0;
+        assert!(!media.is_known_opaque(&picture), "shared: {shared}");
+        drop(host);
+    }
+    // 弱引用不挡宿主把缓冲拿回去。
+    media.declare_opaque(Some(&other));
+    assert!(Arc::try_unwrap(other).is_ok());
+    media.declare_opaque(None);
+    assert!(!media.is_known_opaque(&picture));
+}
+
 #[test]
 fn identity_pip_element_passes_the_source_through_unchanged() {
     let expected = noise(WIDTH, HEIGHT);

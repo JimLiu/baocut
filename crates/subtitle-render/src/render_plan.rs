@@ -1993,6 +1993,7 @@ impl OverlayRenderPlan {
             base: MediaStore::new(Arc::new(assets), self.fps),
             dynamic: HashMap::new(),
             injected: HashMap::new(),
+            known_opaque: Default::default(),
         };
         for (id, source) in external_video {
             self.media.base.insert_video_source(id, source);
@@ -5845,10 +5846,12 @@ impl OverlayRenderPlan {
         // 有背景板（全屏 + contain + `bg`）时，只要源图逐像素不透明，源就盖满整个盒子，
         // 背景板（黑 / 纯色 / 模糊）完全被遮住，source-over 的结果也恰是源字节，同样直通；
         // 任一像素半透明则仍走背景板路径，让底色透出来。alpha 扫描只在尺寸已吻合且有
-        // 背景板时才跑，其余情形零开销。
+        // 背景板、宿主又没有声明它不透明时才跑，其余情形零开销。
         let mut local = if local_width == filtered.width()
             && local_height == filtered.height()
-            && (!has_backdrop || is_opaque(&filtered))
+            && (!has_backdrop
+                || render_raster::raster::FrameMedia::is_known_opaque(&self.media, &filtered)
+                || is_opaque(&filtered))
         {
             filtered
         } else {
@@ -6901,6 +6904,9 @@ impl OverlayRenderPlan {
         // 输出 surface 一一对应，换成 surface 指纹只会让 `X-Bcut-DrawOp-Fingerprint`
         // 的历史取值再失效一次（客户端只做等值比较，换值没有收益）。
         let draw_op_fingerprint = render_raster::fingerprint(&frame_ops);
+        let opaque =
+            render_raster::raster::opaque_cover(&frame_ops, self.width, self.height, &mut self.media)
+                .is_some();
         // 折叠 FramePlan：执行器对这个形状直接调 `rasterize_with_media`，
         // 与旧路径同一个函数调用、逐字节相同。
         let plan = render_raster::FramePlan::single_draw(
@@ -6918,6 +6924,7 @@ impl OverlayRenderPlan {
             draw_op_fingerprint,
             rgba: pixmap.take(),
             next_change,
+            opaque,
         })
     }
 

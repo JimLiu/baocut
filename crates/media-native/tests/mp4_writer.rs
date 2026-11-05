@@ -293,6 +293,65 @@ fn the_encode_backend_label_matches_platform_availability() {
     }
 }
 
+/// `box_name` 这个 box 的内容（在 box 头之后），按字节找第一次出现。moov 在前（faststart），码流里的巧合排在后面。
+#[cfg(target_os = "macos")]
+fn mp4_box<'a>(file: &'a [u8], box_name: &[u8; 4]) -> &'a [u8] {
+    let at = file
+        .windows(4)
+        .position(|window| window == box_name)
+        .unwrap_or_else(|| panic!("no {} box", String::from_utf8_lossy(box_name)));
+    &file[at + 4..]
+}
+
+/// 码流合同：High、关键帧间隔 2 秒、level 跟着真实帧率走。level 是这里最容易被提速方案带歪的：把期望帧率调高能解开实时
+/// 会话的上限，但 `AutoLevel` 会把 1080p30 抬到 5.2 以上，老设备解不了（`encode_macos.rs` 的模块文档）。
+#[cfg(target_os = "macos")]
+#[test]
+fn a_1080p30_stream_keeps_the_contract_profile_level_and_keyframes() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let out = dir.path().join("contract.mp4");
+    let mut writer =
+        media_native::open_mp4_writer(&out, 1920, 1080, FPS, None).expect("open the native writer");
+    let mut frame = vec![255_u8; 1920 * 1080 * 4];
+    for index in 0..150_usize {
+        // 每帧内容都变一点，免得全是编码器能跳过的静止帧。
+        for (at, pixel) in frame.chunks_exact_mut(4).enumerate() {
+            pixel[0] = (at / 7 + index) as u8;
+            pixel[1] = (at / 1920 + index * 3) as u8;
+        }
+        writer.write_frame(&frame).expect("write a frame");
+    }
+    writer.finish().expect("finish the MP4");
+    let file = std::fs::read(&out).expect("read the output");
+    // avcC：configurationVersion、AVCProfileIndication、profile_compatibility、AVCLevelIndication。
+    let avcc = mp4_box(&file, b"avcC");
+    assert_eq!(avcc[1], 100, "the profile should be High");
+    assert!(
+        avcc[3] <= 42,
+        "1080p30 should stay at or below level 4.2, got {}",
+        avcc[3]
+    );
+    // stss：version + flags（4 字节）、entry_count。150 帧、2 秒一个关键帧至少 3 个。
+    let stss = mp4_box(&file, b"stss");
+    let keyframes = u32::from_be_bytes([stss[4], stss[5], stss[6], stss[7]]);
+    assert!((3..=75).contains(&keyframes), "{keyframes} keyframes");
+    let probe = media_probe::probe(&out).expect("probe the output");
+    assert_eq!(probe.dimensions(), Some((1920, 1080)));
+    assert!((probe.fps().expect("frame rate") - FPS).abs() < 1e-6);
+}
+
+/// 一帧都没写就收尾是错误，不留文件，也不留影子文件目录。
+#[cfg(target_os = "macos")]
+#[test]
+fn finishing_without_frames_fails_and_leaves_nothing_behind() {
+    let dir = tempfile::tempdir().expect("temporary directory");
+    let out = dir.path().join("empty.mp4");
+    let writer = media_native::open_mp4_writer(&out, WIDTH, HEIGHT, FPS, None)
+        .expect("open the native writer");
+    assert!(writer.finish().is_err());
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+}
+
 /// 29.97 fps 写出来必须读回 30000/1001，而不是 30：AVAssetWriter 缺省的 600 时基会把
 /// 1001/30000 的帧长取整成 20/600，下一道导出据此按 30 fps 铺网格（播客 Shorts 实测）。
 #[test]
