@@ -195,9 +195,14 @@ fn choose_encoder_with(
         }
     };
     let fps = f64::from(fps_num) / f64::from(fps_den);
-    let video_bitrate = match settings.quality {
-        Quality::BitrateKbps(kbps) => kbps.saturating_mul(1000),
-        Quality::Crf(crf) => media_native::crf_bitrate(settings.width, settings.height, fps, crf),
+    // CRF：Apple 芯片上走恒定质量，码率随内容长，曲线码率是上限；只给得了平均码率的平台按曲线码率编码。
+    // 给了目标码率就是平均码率。
+    let (video_bitrate, video_quality) = match settings.quality {
+        Quality::BitrateKbps(kbps) => (kbps.saturating_mul(1000), None),
+        Quality::Crf(crf) => (
+            media_native::crf_bitrate(settings.width, settings.height, fps, crf),
+            Some(media_native::crf_quality(crf)),
+        ),
     };
     EncoderPlan::Native(Mp4Options {
         width: settings.width,
@@ -205,6 +210,7 @@ fn choose_encoder_with(
         fps_num,
         fps_den,
         video_bitrate: Some(video_bitrate),
+        video_quality,
         audio,
     })
 }
@@ -303,6 +309,7 @@ mod tests {
         );
         let fps = 30000.0 / 1001.0;
         assert_eq!(options.video_bitrate, Some(media_native::crf_bitrate(1920, 1080, fps, 20)));
+        assert_eq!(options.video_quality, Some(media_native::crf_quality(20)));
         let audio = options.audio.expect("has audio");
         assert_eq!(
             (audio.bitrate, audio.format, audio.duration_seconds),
@@ -315,7 +322,10 @@ mod tests {
         let EncoderPlan::Native(options) = choose_encoder_with(&fixed, true, true, |_| Ok(())) else {
             panic!("expected the native path")
         };
-        assert_eq!((options.video_bitrate, options.audio), (Some(6_000_000), None));
+        assert_eq!(
+            (options.video_bitrate, options.video_quality, options.audio),
+            (Some(6_000_000), None, None)
+        );
     }
 
     #[test]
@@ -374,6 +384,7 @@ mod tests {
             fps_num: 10,
             fps_den: 1,
             video_bitrate: None,
+            video_quality: None,
             audio: None,
         };
         let (mut sink, _) = open_sink(path.clone(), &options).unwrap();

@@ -11,6 +11,13 @@
 //! 期望帧率必须是真实帧率：调高它也能解开实时源的上限，但 `AutoLevel` 会跟着把 H.264 level 抬到 5.2 以上，
 //! 老设备解不了；显式钉住 level 又会被编码器拒绝。
 //!
+//! ## 恒定质量
+//!
+//! 调用方给了质量（[`crate::Mp4Options::video_quality`]）时，Apple 芯片上设 `kVTCompressionPropertyKey_Quality`，
+//! 码率随内容长；平均码率照样设上：M5 Max 上两者都设时质量说了算（码流与只设质量的逐字节相同），万一别的芯片
+//! 反过来，就还是原来的平均码率。码率上限由写线程按压好的样本大小管（[`crate::quality_cap`]），编码器自己的上限
+//! 用不上，原因见那里。Intel Mac 不设质量：ffmpeg 也只在 Apple 芯片上开放 VideoToolbox 的质量档。
+//!
 //! 结构与 `core/crates/bcut-kernel/src/services/native_video.rs` 的在产导出后端同源（那是这套栈
 //! 在本仓库的第一处实现），但这里的场景简单得多，因此**没有**照抄它的流水线：
 //! 那边要一边解源码流一边合成字幕，帧的生产成本高，值得单开一条提交线程；这边
@@ -82,8 +89,9 @@ use objc2_video_toolbox::{
     kVTCompressionPropertyKey_AllowFrameReordering, kVTCompressionPropertyKey_AverageBitRate,
     kVTCompressionPropertyKey_ColorPrimaries, kVTCompressionPropertyKey_ExpectedFrameRate,
     kVTCompressionPropertyKey_MaxKeyFrameInterval, kVTCompressionPropertyKey_ProfileLevel,
-    kVTCompressionPropertyKey_RealTime, kVTCompressionPropertyKey_TransferFunction,
-    kVTCompressionPropertyKey_YCbCrMatrix, kVTProfileLevel_H264_High_AutoLevel,
+    kVTCompressionPropertyKey_Quality, kVTCompressionPropertyKey_RealTime,
+    kVTCompressionPropertyKey_TransferFunction, kVTCompressionPropertyKey_YCbCrMatrix,
+    kVTProfileLevel_H264_High_AutoLevel,
     kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder,
 };
 
@@ -91,6 +99,7 @@ use crate::encode::{
     AUDIO_CHANNELS, AUDIO_LEAD_SECONDS, AUDIO_SAMPLE_RATE, Mp4Sink, PcmChunk, PcmSource,
     WriterSetup,
 };
+use crate::quality_cap::QualityCap;
 
 /// 编码器背压时的短睡步长；短睡而不是自旋，避免整核空转（与导出后端同值）。
 const BACKPRESSURE_NAP: Duration = Duration::from_micros(500);
@@ -98,6 +107,11 @@ const BACKPRESSURE_NAP: Duration = Duration::from_micros(500);
 /// 关键帧间隔（秒）。硬编默认的 GOP 在本仓库实测能稀到只剩首帧一个关键帧，
 /// 那样的产物拖动预览会很难受；2 秒与导出后端的取值一致。
 const KEYFRAME_INTERVAL_SECONDS: f64 = 2.0;
+
+/// 一个关键帧间隔的帧数（`MaxKeyFrameInterval`；码率上限的窗口也用它，正好含一个关键帧）。
+fn keyframe_interval_frames(fps: f64) -> f64 {
+    (fps * KEYFRAME_INTERVAL_SECONDS).round().max(1.0)
+}
 
 fn ns_path(path: &Path) -> Retained<NSString> {
     NSString::from_str(&path.to_string_lossy())
@@ -120,15 +134,17 @@ fn cf_dictionary(dictionary: &NSDictionary<NSString, AnyObject>) -> &CFDictionar
     unsafe { &*ptr::from_ref(dictionary).cast::<CFDictionary>() }
 }
 
-/// 建 H.264 压缩会话。这里失败都标 `unsupported`：调用方据此回落 ffmpeg。
+/// 建 H.264 压缩会话，连同质量是否设上（`quality` 为 `None`、不是 Apple 芯片或编码器不接受时为假，
+/// 那就是平均码率）。这里失败都标 `unsupported`：调用方据此回落 ffmpeg。
 ///
 /// 硬件编码优先，没有时用软件（与 `AVAssetWriter` 自己压缩时相同，所以不用 `Require…`）。
 unsafe fn compression_session(
     width: u32,
     height: u32,
     bitrate: u32,
+    quality: Option<f64>,
     fps: f64,
-) -> Result<CFRetained<VTCompressionSession>> {
+) -> Result<(CFRetained<VTCompressionSession>, bool)> {
     let specification = object_dictionary(
         &[cf_key(unsafe {
             kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder
@@ -175,7 +191,7 @@ unsafe fn compression_session(
     let session = unsafe { CFRetained::from_raw(session) };
     let number = |value: f64| CFNumber::new_f64(value);
     let bitrate = CFNumber::new_i32(i32::try_from(bitrate).unwrap_or(i32::MAX));
-    let keyframe_interval = number((fps * KEYFRAME_INTERVAL_SECONDS).round().max(1.0));
+    let keyframe_interval = number(keyframe_interval_frames(fps));
     let expected_frame_rate = number(fps);
     let properties: [(&str, &CFString, &CFType); 9] = unsafe {
         [
@@ -238,12 +254,26 @@ unsafe fn compression_session(
             bail!("unsupported: the H.264 encoder rejected {name} (OSStatus {status})");
         }
     }
+    // 编码器不接受质量就留在平均码率上，不为它回落 ffmpeg。
+    let constant_quality = quality
+        .filter(|_| cfg!(target_arch = "aarch64"))
+        .is_some_and(|quality| {
+            let value = number(quality);
+            let status = unsafe {
+                VTSessionSetProperty(
+                    session.as_ref(),
+                    kVTCompressionPropertyKey_Quality,
+                    Some(value.as_ref()),
+                )
+            };
+            status == 0
+        });
     let status = unsafe { session.prepare_to_encode_frames() };
     if status != 0 {
         unsafe { session.invalidate() };
         bail!("unsupported: the H.264 encoder cannot start (OSStatus {status})");
     }
-    Ok(session)
+    Ok((session, constant_quality))
 }
 
 unsafe fn audio_output_settings(bitrate: u32) -> Retained<NSDictionary<NSString, AnyObject>> {
@@ -422,6 +452,8 @@ pub(crate) struct AvWriter {
     submitted: u64,
     /// 已追加进封装的视频帧数：音频按它定提前量。
     frames: u64,
+    /// 恒定质量的码率上限；平均码率编码时没有。
+    quality_cap: Option<QualityCap>,
     /// 写入器已经收束（`finish` 走完）。
     closed: bool,
     /// AVFoundation 的影子文件目录。`shouldOptimizeForNetworkUse` 为把 moov 前置
@@ -443,6 +475,7 @@ fn open_inner(out: &Path, setup: WriterSetup) -> Result<AvWriter> {
         fps_num,
         fps_den,
         bitrate,
+        quality,
         audio,
         audio_bitrate,
     } = setup;
@@ -484,7 +517,16 @@ fn open_inner(out: &Path, setup: WriterSetup) -> Result<AvWriter> {
         writer.setShouldOptimizeForNetworkUse(true);
     }
 
-    let session = unsafe { compression_session(width, height, bitrate, exact_fps)? };
+    let (session, constant_quality) =
+        unsafe { compression_session(width, height, bitrate, quality, exact_fps)? };
+    let quality_cap = quality.filter(|_| constant_quality).map(|quality| {
+        QualityCap::new(
+            quality,
+            bitrate,
+            exact_fps,
+            keyframe_interval_frames(exact_fps) as usize,
+        )
+    });
     let pool = unsafe { session.pixel_buffer_pool() };
     let Some(pool) = pool else {
         unsafe { session.invalidate() };
@@ -507,6 +549,7 @@ fn open_inner(out: &Path, setup: WriterSetup) -> Result<AvWriter> {
         fps_den,
         submitted: 0,
         frames: 0,
+        quality_cap,
         closed: false,
         _temporary: temporary,
     };
@@ -648,6 +691,26 @@ impl AvWriter {
                 );
             }
             self.frames += 1;
+            self.limit_bitrate(&sample);
+        }
+    }
+
+    /// 恒定质量时记下样本大小，码率超出上限（或回落）时改编码器的质量（[`QualityCap`]）。
+    /// 设不上就保持原来的质量：上限只是安全网，不为它让导出失败。
+    fn limit_bitrate(&mut self, sample: &CMSampleBuffer) {
+        let Some(cap) = self.quality_cap.as_mut() else {
+            return;
+        };
+        let bytes = unsafe { sample.total_sample_size() } as u64;
+        if let Some(quality) = cap.record(bytes) {
+            let value = CFNumber::new_f64(quality);
+            let _ = unsafe {
+                VTSessionSetProperty(
+                    self.session.as_ref(),
+                    kVTCompressionPropertyKey_Quality,
+                    Some(value.as_ref()),
+                )
+            };
         }
     }
 

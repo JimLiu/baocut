@@ -24,6 +24,7 @@
 | W7 | 三家显卡的硬件编码器兼容 | 码流会变 | 高 | NVIDIA 通过：RTX 3060 实测选中 `NVIDIA H.264 Encoder MFT`（硬件，`done.video.encoderDevice` 报出），GOP 经编码器参数改为 2 秒；软件编码器不再出 B 帧（修首帧晚一帧）；AMD / Intel 与回落待测 |
 | W8 | 修复原生媒体测试的实机失败 | 有标注的素材会变 | 高 | 已修复：5 项全部通过，阈值未动；三个根因见下文 |
 | W9 | 合成线程的整帧拷贝与分配 | 不变 | 高 | 已实现：Windows 全局分配器（空闲时 1080p 双语字幕 cover 118 → 138 fps、contain 112 → 130 fps）；解出的画面共享给帧光栅、内核画布跨帧复用（空闲时再快 1.08–1.09 倍）；满载都没有一致的方向。这之后分配器不再划算，已拿掉（空闲、满载都持平）。合成上 GPU 另有[方案稿](gpu-compositing.md) |
+| W10 | 编码改成恒定质量 | 码流会变 | 高 | 待做：macOS 已改（2026-11-05），Windows 仍按码率曲线给平均码率，平稳的素材大出好几倍 |
 
 ### W1 解码直接写进调用方的缓冲
 
@@ -103,6 +104,15 @@
   - 拿掉分配器：先在共享与画布复用之后、W1 之前，确认没有别的负载（没有忙进程、别的 Worker 与编译，CPU 约 4%）时同一份代码装与不装交替跑两批、每批 5 次、先后对调：不装的 cover 1.04、1.05 倍，contain 1.02、1.02 倍，20 对里 17 对不装的快（同机另有基准在跑时量的一次装的快，不作数）。W1–W5 合入之后再在拿掉它的构建上对比：空闲 5 次 cover 202.0 → 203.0 fps、contain 188.4 → 190.1 fps（都是 1.01 倍）；24 个忙进程时 7 次的中位数 cover 1.00、contain 1.03，单次配对的比值在 0.5–2 之间，没有方向。
   - 像素不变：`BAOCUT_EXPORT_NATIVE=0`、`output.crf` 为 1 时新旧构建各 300 帧的 `framemd5` 逐帧相同，覆盖两种摆法与另加的裁剪、画中画加不透明度与效果；装分配器那一次原生 Media Foundation 路径（NVENC）的输出也逐帧相同，拿掉它时四种摆法也逐帧相同。预览的 WASM 用同一份代码，`packages/ui` 的一致性测试与原生的夹具逐字节相同；`tools/preview-bench.ts` 新旧 WASM 轮流画，1080p 视频加双语字幕每帧 p50 39.1 → 38.3 ms，其余场景持平。
 - 余下：内核画视频层仍要把解出的画面扫一遍、整帧拷进画布（解出的那一份要留给解码器下一帧可能再用，帧还要叠字幕、交给编码器，这一次省不掉）；旧画布开头的透明清屏还要整幅写零一遍，可以与随后整幅不透明的拷贝合成一步（像素不变）。把合成搬上 GPU 见[导出合成上 GPU（方案稿）](gpu-compositing.md)。
+
+
+### W10 编码改成恒定质量
+
+- macOS 的 H.264 已改成 VideoToolbox 的恒定质量，原来的码率曲线改作上限，写入端按实际码率封顶（架构设计 §9.11，验收与测试 §4「导出码率改成恒定质量」）。Windows 仍把 `crf_bitrate` 当平均码率：4K30 的标准档 38 Mb/s，访谈、录屏这类平稳的素材，同画质下 x264 的码率只有它的一到四成。
+- 候选：编码器参数 `CODECAPI_AVEncCommonRateControlMode` 设 `eAVEncCommonRateControlMode_Quality`，配 `CODECAPI_AVEncCommonQuality`（0–100）；或 `eAVEncCommonRateControlMode_PeakConstrainedVBR` 配峰值码率当上限。三家显卡的 MFT 与微软的软件编码器支持的模式不同，先逐家读回 `IsSupported` / `GetValue`，不支持时留在平均码率。
+- 标定照 macOS 的做法：同一批素材（4K 与 1080p 的访谈、航拍、街景、MV、录屏）交给 x264 与该编码器，按 VMAF 找与 x264 同一 CRF 相当的质量值；每家的刻度不同，可能要按编码器分别给映射。
+- 上限：MF 中途改质量参数是否生效要实测；不生效就只能靠 PeakConstrainedVBR 的峰值，或者沿用 `quality_cap` 在写入端按窗口降质量。
+- 验收：同一个工程导出，体积、VMAF、GOP、profile 与 level 用 `ffprobe` 与 libvmaf 核对，噪声这类素材不能超出上限。
 
 ## 验证
 

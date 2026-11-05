@@ -324,6 +324,9 @@ unsafe fn open_inner(runtime: Runtime, out: &Path, setup: WriterSetup) -> Result
         fps_num,
         fps_den,
         bitrate,
+        // Media Foundation 的 H.264 MFT 有质量档（`eAVEncCommonRateControlMode_Quality`），但各家硬件编码器
+        // 支持不一、还没在实机上标定，先照旧按平均码率编码（`docs/design/export/windows-media-path-todo.md` W10）。
+        quality: _,
         audio,
         audio_bitrate,
     } = setup;

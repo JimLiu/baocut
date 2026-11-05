@@ -15,12 +15,16 @@
 //! 任何外部二进制，也不承诺写得出每一种几何。原生失败就是失败，回落与否由
 //! 调用方决定（`bcut-render::video::VideoWriter`）。
 //!
-//! ## 码率而不是 CRF
+//! ## CRF 怎么落到硬件编码器
 //!
 //! 迁移前的 ffmpeg 配方是 `libx264 -preset medium -crf 18`，即**质量导向**：
-//! 码率由内容复杂度自己长出来。VideoToolbox 与 Media Foundation 的硬件编码器
-//! 没有 CRF 这类恒定质量档，只能给平均码率，所以质量目标必须翻译成一条按
-//! 分辨率与帧率缩放的码率曲线（[`video_bitrate`]）。
+//! 码率由内容复杂度自己长出来。硬件编码器没有 CRF，两个平台各自翻译：
+//!
+//! - macOS（Apple 芯片）：调用方给了 [`Mp4Options::video_quality`] 时用 VideoToolbox 的恒定质量
+//!   （[`crf_quality`] 把 CRF 换成质量，按 x264 同一 CRF 的画质标定），码率同样随内容长；平均码率改作
+//!   上限，写入端按实际码率超出时临时降质量（`quality_cap`）。
+//! - Windows 与 Intel Mac：只给平均码率，是一条按分辨率与帧率缩放的曲线（[`video_bitrate`] /
+//!   [`crf_bitrate`]）。曲线按难压的素材留了余量，平稳的素材会大出好几倍（4K30 的 CRF 20 是 38 Mb/s）。
 //!
 //! ## 确定性边界
 //!
@@ -90,13 +94,25 @@ pub fn video_bitrate(width: u32, height: u32, fps: f64) -> u32 {
 /// 质量导向的 CRF → 原生平均码率（bit/s）：[`video_bitrate`] 的曲线按 `2^((18 − crf) / 6)` 缩放，夹到
 /// 1 b/s – 60 Mb/s。
 ///
-/// 硬件编码器没有 CRF，CRF 只能翻译成码率。锚点是曲线本身的口径：[`video_bitrate`] 对着的就是迁移前的 `-crf 18`
-/// （倍数 1.0，与 `render-raster` 的 `EncodeQuality::EXPORT` 同值）；x264 的经验是 CRF 每差 6 码率约差一倍，按这个
-/// 斜率外推。`render-raster` 的预览代理档（`crf 16` 配 2.5 倍）是另一套余量，不在这条曲线上。
+/// 只给得了平均码率的编码器（Windows、Intel Mac）用它当码率；macOS 走恒定质量（[`crf_quality`]）时它是上限。
+/// 锚点是曲线本身的口径：[`video_bitrate`] 对着的就是迁移前的 `-crf 18`（倍数 1.0，与 `render-raster` 的
+/// `EncodeQuality::EXPORT` 同值）；x264 的经验是 CRF 每差 6 码率约差一倍，按这个斜率外推。`render-raster` 的
+/// 预览代理档（`crf 16` 配 2.5 倍）是另一套余量，不在这条曲线上。
 pub fn crf_bitrate(width: u32, height: u32, fps: f64, crf: u32) -> u32 {
     let base = f64::from(video_bitrate(width, height, fps));
     let scale = 2_f64.powf((18.0 - f64::from(crf)) / 6.0);
     (base * scale).round().clamp(1.0, 60_000_000.0) as u32
+}
+
+/// CRF → VideoToolbox H.264 的恒定质量（`kVTCompressionPropertyKey_Quality`，0–1）：
+/// `0.75 − 0.0175 × (crf − 20)`，夹到 0.3–0.9。
+///
+/// 标定见验收与测试 §4「导出码率改成恒定质量」：六段素材（4K 访谈与公路航拍、1080p 访谈、街景、MV、录屏）
+/// 同一份 NV12 帧分别交给 x264（ffmpeg 兜底的配方）与 VideoToolbox（关键帧间隔、B 帧与本写入器一致），
+/// 取 VMAF 与 x264 同一 CRF 相当的质量。六段的中位数：CRF 16 → 0.82，CRF 20 → 0.75，CRF 26 → 0.65。
+/// 上限 0.9：再往上码率翻倍、画质几乎不涨（4K 访谈 0.9 已近 50 Mb/s）。
+pub fn crf_quality(crf: u32) -> f64 {
+    (0.75 - 0.0175 * (f64::from(crf) - 20.0)).clamp(0.3, 0.9)
 }
 
 /// NTSC 系与整数系的标准帧率分数。恒定帧率的时间戳必须用分数表示，`29.97` 这种
@@ -141,8 +157,11 @@ pub(crate) struct WriterSetup {
     pub(crate) height: u32,
     pub(crate) fps_num: u32,
     pub(crate) fps_den: u32,
-    /// 视频平均码率（bit/s）。
+    /// 视频平均码率（bit/s）；用恒定质量时是上限。
     pub(crate) bitrate: u32,
+    /// 恒定质量（[`Mp4Options::video_quality`]）。只有 macOS 的写入器读它。
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub(crate) quality: Option<f64>,
     pub(crate) audio: Option<PcmSource>,
     /// AAC 码率（bit/s）。
     pub(crate) audio_bitrate: u32,
@@ -250,6 +269,7 @@ pub fn open_mp4_writer_with_bitrate(
             fps_num,
             fps_den,
             video_bitrate: bitrate,
+            video_quality: None,
             audio: audio_pcm.map(|path| AudioInput {
                 path: path.to_path_buf(),
                 format: PcmFormat::RawF32,
@@ -291,8 +311,12 @@ pub struct Mp4Options {
     /// 不经浮点再吸附（[`frame_rate_rational`]）。
     pub fps_num: u32,
     pub fps_den: u32,
-    /// 视频平均码率（bit/s）；`None` = [`video_bitrate`] 的启发式。
+    /// 视频平均码率（bit/s）；`None` = [`video_bitrate`] 的启发式。给了 [`video_quality`](Self::video_quality)
+    /// 且平台用得上恒定质量时，它改作码率上限。
     pub video_bitrate: Option<u32>,
+    /// 恒定质量（0–1，VideoToolbox 的刻度，[`crf_quality`]）。只有 Apple 芯片的 macOS 用；别的平台、或编码器
+    /// 不接受时按 `video_bitrate` 的平均码率编码。
+    pub video_quality: Option<f64>,
     pub audio: Option<AudioInput>,
 }
 
@@ -307,6 +331,7 @@ pub fn open_mp4_writer_with_options(out: &Path, options: &Mp4Options) -> Result<
         fps_num,
         fps_den,
         video_bitrate: bitrate,
+        video_quality: quality,
         ..
     } = options;
     if width == 0 || height == 0 {
@@ -322,6 +347,11 @@ pub fn open_mp4_writer_with_options(out: &Path, options: &Mp4Options) -> Result<
         && bitrate == 0
     {
         bail!("unsupported: MP4 输出码率必须为正（实得 {bitrate}）");
+    }
+    if let Some(quality) = quality
+        && !(quality > 0.0 && quality <= 1.0)
+    {
+        bail!("unsupported: video quality must be in (0, 1], got {quality}");
     }
     let (audio, audio_bitrate) = match &options.audio {
         None => (None, AUDIO_BITRATE),
@@ -349,6 +379,7 @@ pub fn open_mp4_writer_with_options(out: &Path, options: &Mp4Options) -> Result<
         fps_num,
         fps_den,
         bitrate: bitrate.unwrap_or_else(|| video_bitrate(width, height, exact_fps)),
+        quality,
         audio,
         audio_bitrate,
     };
@@ -674,6 +705,16 @@ mod tests {
         assert!(crf_bitrate(320, 180, 30.0, 51) >= 1);
     }
 
+    /// 标准档（CRF 20）落在标定点上；CRF 越小质量越高，两头夹住。
+    #[test]
+    fn crf_maps_onto_a_clamped_quality_line() {
+        assert!((crf_quality(20) - 0.75).abs() < 1e-9);
+        assert!((crf_quality(16) - 0.82).abs() < 1e-9);
+        assert!((crf_quality(26) - 0.645).abs() < 1e-9);
+        assert_eq!(crf_quality(0), 0.9);
+        assert_eq!(crf_quality(51), 0.3);
+    }
+
     /// 按 ffmpeg 写的样子造一个 32 位浮点 WAV（可选 EXTENSIBLE、数据块前有 LIST 块、数据块后有尾块）。
     fn wav(tag: u16, rate: u32, channels: u16, data_size: u32, samples: &[f32]) -> Vec<u8> {
         let mut fmt = Vec::new();
@@ -839,10 +880,21 @@ mod tests {
             fps_num,
             fps_den,
             video_bitrate: None,
+            video_quality: None,
             audio: None,
         };
         assert!(open_mp4_writer_with_options(&out, &options(0, 1)).is_err());
         assert!(open_mp4_writer_with_options(&out, &options(30, 0)).is_err());
+        for quality in [0.0, -0.5, 1.5, f64::NAN] {
+            let options = Mp4Options {
+                video_quality: Some(quality),
+                ..options(30, 1)
+            };
+            assert!(
+                open_mp4_writer_with_options(&out, &options).is_err(),
+                "{quality}"
+            );
+        }
         assert!(!out.exists(), "守卫不该创建产物文件");
     }
 

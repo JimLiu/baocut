@@ -24,7 +24,7 @@
  *
  * [`open_mp4_writer`]（WP6b）是同一条规矩的镜像——**在不启动 ffmpeg 子进程的
  * 前提下，把逐帧 RGBA + 整段混音 PCM 写成 H.264/AAC 的 MP4**。契约、后端表与
- * 码率策略见 [`Mp4Writer`] 与 [`video_bitrate`]。
+ * 码率策略见 [`Mp4Writer`]、[`video_bitrate`] 与 [`crf_quality`]。
  *
  * ## 后端
  *
@@ -52,6 +52,9 @@ use anyhow::Result;
 
 mod encode;
 mod frames;
+// 只有 macOS 的写入器在用；纯逻辑不带平台条件，测试在每个平台上都跑。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+mod quality_cap;
 mod scale;
 // 只有 Windows 的解码路径在用；纯函数不带平台条件，测试在每个平台上都跑。
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
@@ -70,7 +73,7 @@ mod windows;
 
 pub use encode::{
     AUDIO_BITRATE, AUDIO_CHANNELS, AUDIO_SAMPLE_RATE, AudioInput, EncoderDevice, Mp4Options,
-    Mp4Writer, PcmFormat, WavLayout, crf_bitrate, encode_available, encode_backend,
+    Mp4Writer, PcmFormat, WavLayout, crf_bitrate, crf_quality, encode_available, encode_backend,
     frame_rate_rational, open_mp4_writer, open_mp4_writer_with_bitrate,
     open_mp4_writer_with_options, read_wav_layout, video_bitrate,
 };
