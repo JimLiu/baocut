@@ -45,7 +45,8 @@ describe.skipIf(!hasFfmpeg)('分轨（假的分离模型）', () => {
     await fs.mkdir(path.join(dir, 'in'));
     fourStems = true;
     requests = [];
-    const wav = (input: string, output: string) => execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', input, '-map', '0:a:0', '-c:a', 'pcm_s16le', output]);
+    // song() makes a one-second AAC fixture; do not emit its encoder padding as extra stem audio.
+    const wav = (input: string, output: string) => execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', input, '-map', '0:a:0', '-t', '1', '-c:a', 'pcm_s16le', output]);
     const separator = async (): Promise<DubSeparator> => ({
       providerId: 'local',
       modelId: 'htdemucs-test',
@@ -108,8 +109,8 @@ describe.skipIf(!hasFfmpeg)('分轨（假的分离模型）', () => {
     expect(summary.items[0]!.files).toEqual({ vocals: path.join(saved, 'song-vocals.wav'), background: path.join(saved, 'song-background.wav') });
     expect(requests).toEqual([{ file: source }]);
     expect(record.result!.outputs!.map((o) => o.media)).toEqual([
-      expect.objectContaining({ kind: 'audio', channels: 1 }),
-      expect.objectContaining({ kind: 'audio', channels: 1 }),
+      expect.objectContaining({ kind: 'audio', channels: 1, durationSec: 1 }),
+      expect.objectContaining({ kind: 'audio', channels: 1, durationSec: 1 }),
     ]);
   });
 
